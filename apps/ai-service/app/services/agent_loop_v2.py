@@ -176,8 +176,15 @@ from .approval_generation_cas import (
     content_digest,
 )
 from .ask_user_question import (
+    STATUS_CONTINUED,
     cancel_session_questions,
     create_question,
+    continued_answer_message,
+    drain_continued_answers,
+    mark_continued,
+    normalize_timeout_s,
+    tool_result_outcome,
+    tool_result_payload,
     wait_for_answer,
 )
 from .durable_resume import (
@@ -1809,7 +1816,11 @@ class AgentEventStream:
         message_id: str | None = None,
     ) -> None:
         """question:AskUserQuestion 下行帧(形状同 question_parser.Question.to_dict())。"""
-        payload: dict[str, Any] = {"question": question, "session_id": session_id}
+        payload: dict[str, Any] = {
+            "type": "question",
+            "question": question,
+            "session_id": session_id,
+        }
         if message_id:
             payload["message_id"] = message_id
         await self.emit("question", payload)
@@ -1822,15 +1833,24 @@ class AgentEventStream:
         selected_option_ids: list[str],
         custom_text: str,
         session_id: str,
+        continued: bool = False,
     ) -> None:
-        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。"""
-        await self.emit("question-resolved", {
+        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。
+
+        `continued=True` 是定时继续的附加键(与主聊天流 `llm.py` 同形):前端词表
+        只有四态,该场景按 timeout 结算,靠这个键区分"跳过"与"挂起"。
+        """
+        payload: dict[str, Any] = {
+            "type": "question-resolved",
             "questionId": question_id,
             "status": status,
             "selectedOptionIds": selected_option_ids,
             "customText": custom_text,
             "session_id": session_id,
-        })
+        }
+        if continued:
+            payload["continued"] = True
+        await self.emit("question-resolved", payload)
 
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
@@ -5406,6 +5426,21 @@ class AgentLoopV2:
                             "content": f"[steer] {steer_text}",
                         }
                     )
+                # 定时继续(2026-11-17,与主聊天流 llm.py 同语义):timed 提问到期后
+                # 用户仍可答复,答复在下一迭代 LLM 调用前作为 user 消息注入(每条只交付
+                # 一次)。失败隔离 —— 注入异常不得阻塞主链路。
+                try:
+                    for _late_answer in drain_continued_answers(self._session_id or ""):
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": continued_answer_message(_late_answer),
+                            }
+                        )
+                except Exception as _late_err:  # noqa: BLE001 - 注入失败降级
+                    logger.warning(
+                        "continued answer 注入异常(降级跳过): %s", _late_err
+                    )
                 # 批 53:历史健全化(对标 codex context_manager/normalize.rs)——
                 # 压缩前先修历史:删孤儿 tool 回复 + 补缺位 tool 占位(中断/压缩/
                 # 宿主注入后可能产生残缺历史,残缺 assistant(tool_calls)↔tool 配对
@@ -7679,6 +7714,18 @@ class AgentLoopV2:
         start = time.time()
         session_id = self._session_id or str(uuid.uuid4())
         args = tc.args if isinstance(tc.args, dict) else {}
+        # 定时继续(与主聊天流同一归一出口):缺省保持阻塞 300s,-1 等到底,
+        # 1..86400 为 timed 模式;非法值当场结构化拒绝,不下发半帧。
+        timeout_s, timed, timeout_err = normalize_timeout_s(args.get("timeout_s"))
+        if timeout_err is not None:
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={**timeout_err, "status": "invalid"},
+                error=str(timeout_err.get("error") or "提问参数非法"),
+                duration_ms=(time.time() - start) * 1000,
+                error_type="question_invalid",
+            )
         item = create_question(
             session_id=session_id,
             user_id=self._user_id,
@@ -7687,6 +7734,8 @@ class AgentLoopV2:
             options=args.get("options"),
             allow_custom=bool(args.get("allowCustom", True)),
             allow_multiple=bool(args.get("multiSelect", False)),
+            timeout_s=timeout_s,
+            call_id=str(tc.id or ""),
         )
         if isinstance(item, dict):
             return ToolResult(
@@ -7711,7 +7760,13 @@ class AgentLoopV2:
                     break
                 remaining = (item.expires_at - datetime.now(UTC)).total_seconds()
                 if remaining <= 0:
-                    status = await wait_for_answer(item, timeout_s=0.0)
+                    # timed 到期不判死:转入 continued(仍是 pending,可迟到答复);
+                    # 阻塞模式仍按超时收口。
+                    status = (
+                        mark_continued(item, call_id=str(tc.id or ""))
+                        if timed
+                        else await wait_for_answer(item, timeout_s=0.0)
+                    )
                     break
                 try:
                     await asyncio.wait_for(
@@ -7721,12 +7776,14 @@ class AgentLoopV2:
                     continue
                 status = item.status
                 break
+            # 前端词表只有四态:continued 以 timeout 结算并带 continued 附加键。
             await self._events.question_resolved(
                 question_id=item.question_id,
-                status=status,
+                status="timeout" if status == STATUS_CONTINUED else status,
                 selected_option_ids=list(item.selected_ids),
                 custom_text=item.custom_text,
                 session_id=session_id,
+                continued=status == STATUS_CONTINUED,
             )
         except (asyncio.CancelledError, GeneratorExit):
             cancel_session_questions(session_id, reason="session_interrupted")
@@ -7740,46 +7797,9 @@ class AgentLoopV2:
                 )
             raise
 
-        labels = [
-            opt["label"] for opt in item.options if opt["id"] in item.selected_ids
-        ]
-        if status == "answered":
-            result: dict[str, Any] = {
-                "ok": True,
-                "status": "answered",
-                "selectedOptionIds": list(item.selected_ids),
-                "labels": labels,
-                "customText": item.custom_text,
-            }
-            error: str | None = None
-            error_type: str | None = None
-        elif status == "withdrawn":
-            result = {
-                "ok": False,
-                "status": "withdrawn",
-                "errorCode": "question_withdrawn",
-                "error": "问题已被撤回,未得到用户答复",
-            }
-            error = "question_withdrawn"
-            error_type = "question_withdrawn"
-        elif status == "interrupted":
-            result = {
-                "ok": False,
-                "status": "interrupted",
-                "errorCode": "question_interrupted",
-                "error": "会话中断,问题未得到用户答复",
-            }
-            error = "question_interrupted"
-            error_type = "question_interrupted"
-        else:
-            result = {
-                "ok": False,
-                "status": "timeout",
-                "errorCode": "question_timeout",
-                "error": "用户未在时限内答复",
-            }
-            error = "question_timeout"
-            error_type = "question_timeout"
+        # 结局形状与解释的唯一真源在 ask_user_question.py(与主聊天流共用)。
+        result = tool_result_payload(item, status, call_id=str(tc.id or ""))
+        _, error, error_type, _explanation = tool_result_outcome(status)
         return ToolResult(
             tool_call_id=tc.id,
             name=tc.name,

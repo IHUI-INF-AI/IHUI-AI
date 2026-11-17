@@ -169,8 +169,9 @@ from ..services.ask_user_question import (
     drain_continued_answers,
     mark_continued,
     normalize_timeout_s,
-    pending_question_notice,
     resolve_question,
+    tool_result_outcome,
+    tool_result_payload,
     wait_for_answer,
     withdraw_question,
 )
@@ -6201,13 +6202,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         )
                                         raise
                                     _q_continued = _q_status == STATUS_CONTINUED
+                                    # 前端词表只有四态:continued 以 timeout 结算,
+                                    # 另带 continued 附加键(迟到答复仍可送达模型)。
                                     _q_resolved_frame = q_item.resolved_payload(
-                                        # 前端词表只有四态:continued 以 timeout 结算,
-                                        # 另带 continued 附加键(迟到答复仍可送达模型)。
-                                        "timeout" if _q_continued else _q_status
+                                        "timeout" if _q_continued else _q_status,
+                                        continued=_q_continued,
                                     )
-                                    if _q_continued:
-                                        _q_resolved_frame["continued"] = True
                                     yield _sse(
                                         SSE_QUESTION_RESOLVED,
                                         {
@@ -6218,73 +6218,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # 会话历史落库:本路由没有独立的"question-answer part"落盘槽位
                                     # (对话落库由端上 assistant 消息/工具消息承担),答复 part 由
                                     # 上面的 question-resolved 帧在流内承载 —— 不另造一套存储。
-                                    _q_labels = [
-                                        opt["label"]
-                                        for opt in q_item.options
-                                        if opt["id"] in q_item.selected_ids
-                                    ]
-                                    if _q_status == STATUS_CONTINUED:
-                                        exec_result = {
-                                            "tool": tool_name,
-                                            "ok": True,
-                                            "pending": True,
-                                            "status": STATUS_CONTINUED,
-                                            "questionId": q_item.question_id,
-                                            "callId": str(tc.get("id", "")),
-                                            "message": pending_question_notice(
-                                                q_item, str(tc.get("id", ""))
-                                            ),
-                                        }
-                                        ok = True
-                                        _q_explanation = "提问等待到期,转入挂起(用户仍可答复)"
-                                    elif _q_status == "answered":
-                                        exec_result = {
-                                            "tool": tool_name,
-                                            "ok": True,
-                                            "status": "answered",
-                                            "selectedOptionIds": list(q_item.selected_ids),
-                                            "labels": _q_labels,
-                                            "customText": q_item.custom_text,
-                                        }
-                                        ok = True
-                                        _q_explanation = "用户已答复提问"
-                                    elif _q_status == "withdrawn":
-                                        exec_result = {
-                                            "tool": tool_name,
-                                            "ok": False,
-                                            "status": "withdrawn",
-                                            "errorCode": "question_withdrawn",
-                                            "error": "问题已被撤回,未得到用户答复",
-                                            "message": "不要重试同一问题;确有必要请另起一次提问",
-                                        }
-                                        ok = False
-                                        _q_explanation = "提问已被撤回"
-                                    elif _q_status == "interrupted":
-                                        exec_result = {
-                                            "tool": tool_name,
-                                            "ok": False,
-                                            "status": "interrupted",
-                                            "errorCode": "question_interrupted",
-                                            "error": "会话中断,问题未得到用户答复",
-                                        }
-                                        ok = False
-                                        _q_explanation = "提问因会话中断结束"
-                                    else:
-                                        _q_timeout_s = int(
-                                            (
-                                                q_item.expires_at - q_item.created_at
-                                            ).total_seconds()
-                                        )
-                                        exec_result = {
-                                            "tool": tool_name,
-                                            "ok": False,
-                                            "status": "timeout",
-                                            "errorCode": "question_timeout",
-                                            "error": f"用户未在 {_q_timeout_s}s 内答复",
-                                            "message": "用户没有答复;不要自行假设答案,按未答继续",
-                                        }
-                                        ok = False
-                                        _q_explanation = "提问等待答复超时"
+                                    # 结局形状与解释的唯一真源在 ask_user_question.py:
+                                    # 两个执行面(本路由与工作台 agent_loop_v2)共用同一份,
+                                    # 不再各写一遍(漂移两次已发生过:状态、message、labels)。
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        **tool_result_payload(
+                                            q_item, _q_status, call_id=str(tc.get("id", ""))
+                                        ),
+                                    }
+                                    ok, _q_error, _q_error_type, _q_explanation = (
+                                        tool_result_outcome(_q_status)
+                                    )
                                 tool_exec_tracker.append(ok)
                                 _q_src, _q_sid, _q_sname = resolve_tool_source(tool_name)
                                 yield _sse(
