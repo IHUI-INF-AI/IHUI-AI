@@ -1175,8 +1175,13 @@ export function ModelSelector({
           {loading ? (
             <Loader2 className="model-selector-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            // 2026-11-11:去掉 6rem 上限,空间足够时完整显示模型名;min-w-0 truncate 仅作极窄视口兜底
-            <span className="model-selector-text min-w-0 truncate">
+            // 2026-11-18 修覆盖图标回归:2026-11-11 摘掉 6rem 上限后,模型名在
+            // globals.css「.ai-input-toolbar-actions > * 不压缩、只换行」护栏下无任何收敛
+            // 机制,超长模型 ID 把触发钮撑爆、溢出盖住发送/停止图标(用户实测报告)。
+            // 恢复显式上限但放宽到 max-w-40(160px):常见模型名空间够仍完整显示(保留
+            // 2026-11-11 的意图),超长 ID 以省略号截断(全文可在下拉列表里看);
+            // 窄容器由 465px 档 icon-only 降级兜底,两级都不再溢出。
+            <span className="model-selector-text min-w-0 max-w-40 truncate">
               {resolvedMeta?.label ??
                 (current ? (current.value === 'auto' ? t('modelAuto') : current.label) : value)}
             </span>
