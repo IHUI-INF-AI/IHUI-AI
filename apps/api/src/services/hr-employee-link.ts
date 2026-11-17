@@ -30,6 +30,46 @@ export interface PendingLinkForUser {
   invitedAt: string
 }
 
+/** 自助面"我是谁"的档案投影(未绑定时调用方拿 null,不暴露任何线索)。 */
+export interface SelfEmployeeForUser {
+  id: string
+  employeeNo: string
+  name: string
+  departmentId: string
+  departmentName: string | null
+  position: string | null
+  hireDate: string | null
+  status: string
+}
+
+/**
+ * 按登录 userId 取已绑定员工档案(2026-11-17)。
+ *
+ * 只认 hr_employee.user_id 这一条绑定事实 —— 不接受客户端传 employeeId,
+ * 也不拿手机号/邮箱做兜底自动认领(那正是 2026-11-16 取消的同号即读他人数据)。
+ */
+export async function getSelfEmployeeForUser(
+  userId: string,
+): Promise<SelfEmployeeForUser | null> {
+  const [row] = await db
+    .select({
+      id: hrEmployee.id,
+      employeeNo: hrEmployee.employeeNo,
+      name: hrEmployee.name,
+      departmentId: hrEmployee.departmentId,
+      departmentName: hrDepartment.name,
+      position: hrEmployee.position,
+      hireDate: hrEmployee.hireDate,
+      status: hrEmployee.status,
+    })
+    .from(hrEmployee)
+    .leftJoin(hrDepartment, eq(hrDepartment.id, hrEmployee.departmentId))
+    .where(and(eq(hrEmployee.userId, userId), isNull(hrEmployee.deletedAt)))
+    .limit(1)
+  if (!row) return null
+  return { ...row, hireDate: row.hireDate ?? null }
+}
+
 /** 账号脱敏:手机号 138****0000;邮箱 a***@b.com;其它保留首字符。 */
 export function maskAccount(account: string | null | undefined): string | null {
   if (!account) return null
