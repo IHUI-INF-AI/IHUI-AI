@@ -92,6 +92,9 @@ export * from './storage-migration'
 export * from './token-estimate'
 // 工具入参的两档摘要(结构指纹 + 形态类)唯一出口,86 审计链的输入格式层;不含任何原值
 export * from './tool-args-digest'
+// 2026-11-17:客户端签名(X-IHUI-Client)的唯一算法源 —— 服务端与三端都从这里取,
+// 端内/服务端不得自行拼 `<appId>.<ts>.<sig>` 格式(拼格式的地方漂一次,鉴权面就全错)。
+export * from './client-sign'
 // BUG-52 统一截断出口:按字素簇(Intl.Segmenter / code point)截断,绝不劈开代理对
 export * from './truncate'
 export * from './vip-utils'

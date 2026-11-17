@@ -83,6 +83,8 @@ import {
   type RiskEvaluationResult,
 } from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
+// 2026-11-17 立:客户端签名(X-IHUI-Client)的服务端薄壳 —— 算法唯一实现在 @ihui/shared
+import { verifyClientSignature, isClientSignatureStrict } from '../services/client-signature.js'
 import { db } from '../db/index.js'
 import { userDevices, orders, withdrawalFlows } from '@ihui/database'
 import { and, count, desc, eq, gte } from 'drizzle-orm'
@@ -514,7 +516,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         !/MicroMessenger|miniProgram|AlipayClient|okhttp|CFNetwork|Dart\/|Dalvik|IHUIApp|IHUICLI/i.test(
           ua,
         )
+      // 2026-11-17 立:客户端签名优先 —— `X-IHUI-Client` 有效 ⇒ 确认是自家原生客户端,免人机验证。
+      // 这条判据不可伪造(要按共享密钥算摘要),堵掉"把 UA 改成 okhttp/CFNetwork 就拿到豁免"
+      // 的零成本路径(UA 是请求里明文可改的字段,原判据实际上对脚本不设防)。
+      // 验签失败 / 缺头 / 密钥未配 ⇒ 逐字回落到下面的 UA 判据,行为与未引入签名时完全一致。
+      if (verifyClientSignature(request.headers['x-ihui-client']).signed) {
+        return
+      }
       if (process.env.TURNSTILE_SECRET_KEY && isBrowserContext) {
+        return reply.code(403).send(error(403, '人机验证失败,请重试'))
+      }
+      // 严格模式(默认关闭):非浏览器 UA 但**没有有效签名** ⇒ 同样要求人机验证。
+      // 打开前提 = 三端(Android/iOS/小程序/桌面)全部已发版并带上 `X-IHUI-Client`;
+      // 未打开时本行恒不执行,生产行为零变化。
+      if (process.env.TURNSTILE_SECRET_KEY && isClientSignatureStrict()) {
         return reply.code(403).send(error(403, '人机验证失败,请重试'))
       }
       return

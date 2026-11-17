@@ -39,6 +39,9 @@ export {
   setAiServiceBase,
   setUserAgent,
   getUserAgent,
+  // 2026-11-17 立:客户端签名提供方(X-IHUI-Client)。各端注入"每次现算"的取头函数,
+  // 本包只发头不算签(零依赖边界),见 client.ts 的 setClientSignatureProvider 注释。
+  setClientSignatureProvider,
   setStreamBaseUrl,
   getStreamBaseUrl,
   getToken,

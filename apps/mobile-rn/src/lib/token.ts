@@ -19,6 +19,7 @@ import {
   fetchApi,
   refreshAccessTokenOnce,
   setBaseUrl,
+  setClientSignatureProvider,
   setDeviceFingerprintProvider,
   setUserAgent,
   TransientRefreshError,
@@ -38,6 +39,8 @@ import {
   createInMemoryTokenStore,
   type TokenStore,
 } from '@ihui/shared/auth'
+// 2026-11-17 立:客户端签名唯一实现(与后端同一份纯 JS SHA-256,见 @ihui/shared utils/client-sign)
+import { formatClientSignature } from '@ihui/shared'
 // 子路径而非包根:多处测试把 '@ihui/shared/auth' 整体 mock 了,新增导出从包根取会撞 mock;
 // 子路径由 vitest.config 的显式别名解析到真实源码(与 auto-login-policy 同型)。
 import {
@@ -276,6 +279,14 @@ async function refreshAccessToken(): Promise<string | null> {
 export async function initApi(): Promise<void> {
   setBaseUrl(API_BASE_URL)
   setUserAgent(APP_USER_AGENT)
+  // 2026-11-17 立:客户端签名(服务端据此认出"自家原生客户端",取代可伪造的 UA 判据)。
+  // 密钥由**构建时**注入(EXPO_PUBLIC_*);未注入 ⇒ 不注册 provider ⇒ 不发签名头,
+  // 服务端回落到既有 UA 判据,行为与未引入签名时完全一致(渐进上线,零回归风险)。
+  // 提供函数每次请求现算 —— 时间戳只在服务端 ±10 分钟窗口内有效,只算一次必然过期。
+  const clientSignSecret = process.env.EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET
+  if (clientSignSecret) {
+    setClientSignatureProvider(() => formatClientSignature(clientSignSecret, 'ihui-app'))
+  }
   // 登出标记必须先于 ready 就位:RootNavigator 要等 initApi() 落定才渲染分支,
   // 而 LoginScreen 的自动登录 effect 就在这一帧里 —— 顺序错了就等于每次都按内存默认值判。
   // `readLogoutMarker()` 自带 try/catch(读失败按"未登出"处理),不会让启动卡在这里。
