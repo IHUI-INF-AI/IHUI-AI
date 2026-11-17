@@ -6129,6 +6129,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         allow_multiple=bool(_q_args.get("multiSelect", False)),
                                         timeout_s=_q_timeout_s,
                                         call_id=str(tc.get("id", "")),
+                                        questions=_q_args.get("questions"),
                                     )
                                 if isinstance(q_item, dict):
                                     # 参数非法:结构化失败回灌,不向用户发半帧(前端解析层会整帧丢弃)
@@ -8256,6 +8257,7 @@ async def post_question_response(
             user_id=caller_uid,
             selected_ids=selected_ids,
             custom_text=custom_text,
+            answers=body.get("answers"),
         )
         if status in ("not_found", "forbidden"):
             logger.warning(

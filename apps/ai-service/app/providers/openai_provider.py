@@ -32,6 +32,18 @@ class OpenAIProvider(BaseProvider):
         super().__init__(api_key, api_base, timeout)
         self.base_url = (api_base or "https://api.openai.com").rstrip("/")
 
+    def _api_path(self, path: str) -> str:
+        """拼 API 路径:base_url 已带 /v1 时不再重复加一层。
+
+        2026-11-18 立:agnes / xai 等厂商的 base_url 是 ``https://host/v1``,原先
+        硬拼 ``/v1/chat/completions`` 会得到 ``/v1/v1/chat/completions`` ⇒ 上游 404
+        (带 tools 的流式调用因此全线失败,纯文本走 litellm 却不受影响,长期被掩盖)。
+        """
+        suffix = path if path.startswith("/") else f"/{path}"
+        if self.base_url.endswith("/v1") and suffix.startswith("/v1/"):
+            return f"{self.base_url}{suffix[3:]}"
+        return f"{self.base_url}{suffix}"
+
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key}",
@@ -72,7 +84,7 @@ class OpenAIProvider(BaseProvider):
         **kwargs: Any,
     ) -> dict[str, Any]:
         payload = self._build_payload(messages, model, tools=tools, stream=False, **kwargs)
-        data = await self._request("POST", f"{self.base_url}/v1/chat/completions", headers=self._headers(), json=payload)
+        data = await self._request("POST", self._api_path("/v1/chat/completions"), headers=self._headers(), json=payload)
         # AIS-065:choices 空/缺键时抛 ProviderError 进 fallback,不再 IndexError/静默空回复
         choice = first_choice_or_raise(data, "OpenAI")
         msg = choice.get("message", {})
@@ -108,7 +120,7 @@ class OpenAIProvider(BaseProvider):
         try:
             client = get_http_client()
             async with client.stream(
-                "POST", f"{self.base_url}/v1/chat/completions", headers=self._headers(), json=payload,
+                "POST", self._api_path("/v1/chat/completions"), headers=self._headers(), json=payload,
                 timeout=self.timeout,
             ) as resp:
                 if resp.status_code >= 400:
@@ -194,6 +206,6 @@ class OpenAIProvider(BaseProvider):
             yield _fallback_done_evt
 
     async def list_models(self) -> list[dict[str, Any]]:
-        data = await self._request("GET", f"{self.base_url}/v1/models", headers=self._headers())
+        data = await self._request("GET", self._api_path("/v1/models"), headers=self._headers())
         return cast(list[dict[str, Any]], data.get("data", []))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

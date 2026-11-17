@@ -29,7 +29,7 @@
  *   唯一实现在这里;各端只调 `formatClientSignature`,不自行拼格式。
  */
 
-import { sha256Hex } from './tool-args-digest.js'
+import { sha256Hex } from './tool-args-digest'
 
 /** 请求头名(小写;HTTP 头大小写不敏感,发送时按此拼) */
 export const CLIENT_SIGN_HEADER = 'x-ihui-client'
@@ -69,7 +69,9 @@ export function formatClientSignature(
 }
 
 /** 解析签名头。任何形态异常一律返回 null,由调用方按"没有有效签名"处理。 */
-export function parseClientSignature(raw: unknown): { appId: string; tsMs: number; sig: string } | null {
+export function parseClientSignature(
+  raw: unknown,
+): { appId: string; tsMs: number; sig: string } | null {
   if (typeof raw !== 'string' || !raw) return null
   const parts = raw.split('.')
   if (parts.length !== 3) return null
@@ -102,10 +104,14 @@ export function verifyClientSignature(
   raw: unknown,
   secret: string,
   nowMs: number = Date.now(),
-): { signed: boolean; reason: 'ok' | 'secret-not-configured' | 'missing' | 'malformed' | 'stale' | 'mismatch' } {
+): {
+  signed: boolean
+  reason: 'ok' | 'secret-not-configured' | 'missing' | 'malformed' | 'stale' | 'mismatch'
+} {
   if (!secret) return { signed: false, reason: 'secret-not-configured' }
   const parsed = parseClientSignature(raw)
-  if (!parsed) return { signed: false, reason: typeof raw === 'string' && raw ? 'malformed' : 'missing' }
+  if (!parsed)
+    return { signed: false, reason: typeof raw === 'string' && raw ? 'malformed' : 'missing' }
   if (!isClientSignatureFresh(parsed.tsMs, nowMs)) return { signed: false, reason: 'stale' }
   const expect = computeClientSignature(secret, parsed.appId, parsed.tsMs)
   if (!hexEqualConstantTime(expect, parsed.sig)) return { signed: false, reason: 'mismatch' }
