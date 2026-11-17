@@ -560,7 +560,7 @@ export function registerRelayCommand(program: Command): void {
     .description('在桌面创建「AI 客户端一键切号」快捷方式(Windows)')
     .option('--repo <path>', '显式指定 IHUI-AI 仓库根(默认自动探测)')
     .option('--desktop <dir>', '覆盖桌面目录(默认取系统真实桌面)')
-    .option('--skip-old', '不创建旧版「WorkBuddy 一键切号」快捷方式')
+    .option('--skip-old', '兼容旧参数(已无作用:安装器现在只建主入口)')
     .option('--what-if', '只打印将创建的快捷方式,不落盘')
     .option('--json', '以 JSON 输出(机器可读)')
     .action((opts: InstallOptions) => {
