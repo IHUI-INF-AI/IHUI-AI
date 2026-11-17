@@ -604,6 +604,11 @@ if ($env:JAVA_HOME) {
 
 Push-Location $AndroidDir
 try {
+  # 本机 ANDROID_SDK_HOME 与 ANDROID_USER_HOME 指向不同目录(前者被设成 SDK 路径、后者是 D:\android)。
+  # AGP 判"多个变量指向不同 Android Preferences 目录"直接拒绝创建 AndroidLocationsBuildService,
+  # 报 "Could not create provider for value source ... AndroidDirectoryCreator"(2026-11-17 实测)。
+  # 只在本次构建进程里摘掉这个过时变量,不改用户全局环境;ANDROID_HOME / ANDROID_USER_HOME 保持原样。
+  if ($env:ANDROID_SDK_HOME) { Remove-Item Env:ANDROID_SDK_HOME -ErrorAction SilentlyContinue }
   # 先停 daemon:打包期的 `EXPO_PUBLIC_*` 内联读的是 **gradle daemon 进程**的环境,而 daemon 复用旧环境
   # ⇒ 本脚本刚设的值到不了打包器(2026-10-21 实测:参数是 api.aizhs.top,包里却是 env 里的 apex)。
   # --stop 后新 daemon 继承本进程 env,回读臂仍会兜底核对。
