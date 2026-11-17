@@ -77,7 +77,7 @@ R66 收尾时发现模板区里夹着 16 字节 `(ptr,len)` 记录，且其指�
 
 ## 5. 交付：A14 归属前沿契约
 
-`apps/ai-service/app/core/struct_attribution_frontier.py`（177 行）——把上面四轮的**负知识**
+`apps/ai-service/app/core/struct_attribution_frontier.py`（233 行，落地 blob 现读）——把上面四轮的**负知识**
 固化成单一真相源，不让后手重跑死路：
 
 | 导出 | 语义 |
@@ -89,7 +89,7 @@ R66 收尾时发现模板区里夹着 16 字节 `(ptr,len)` 记录，且其指�
 | `can_string_methods_settle(name)` | 前沿结构恒 `False`；非前沿名抛 `KeyError` |
 | `validate_frontier(attributed)` | 前沿与已归属契约**必须不相交**；arity 必须为正、`template_va` 必须 `0x` 起 |
 
-`apps/ai-service/tests/test_struct_attribution_frontier.py`（68 行 / 9 例）钉住：
+`apps/ai-service/tests/test_struct_attribution_frontier.py`（102 行 / 9 例，落地 blob 现读）钉住：
 与 R65 契约不相交、前沿不含字段、arity 27/28/46、字符串侧不可解、12 条 id 唯一且稳定、
 每条否证理由**必须带数字**、9 个读数与报告一致、前沿陈旧必须报错。
 
