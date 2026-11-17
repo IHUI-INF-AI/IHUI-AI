@@ -4718,6 +4718,23 @@ try {
 # **必须在 Release-DeployLock 之前**:放锁后再回收,下一轮可能已重建净面,这条会把它删掉。
 Invoke-CleanBuildWorktreeSweep
 Release-DeployLock
+# ── [2026-11-17] 部署成功后失效 EdgeOne HTML 缓存 ───────────────────────────────
+# 为什么必须做:EdgeOne 对 HTML 返回的是源站 Next 发出的 `s-maxage=300, stale-while-revalidate=86400`,
+# 源站换包后边缘节点在 SWR 窗口内仍持续吐旧副本,而旧 HTML 里引用的 `_next/static/chunks/*.js`
+# 在新产物目录中已不存在 ⇒ 用户看到旧页面或白屏(实测两次构建 1087 个 chunk 差 1 个,切流即可能命中)。
+# EdgeOne 不会因源站更新自动失效,只能部署后主动打 API。
+# **失败绝不影响本轮发布**:凭据/SDK/接口任一环节不通都只记一行日志,子脚本退出码恒 0。
+try {
+    $purgeNode = Resolve-NodeExe
+    $purgeScript = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'scripts\purge-edgeone-cache.mjs'
+    if ($purgeNode -and (Test-Path -LiteralPath $purgeScript)) {
+        $purgeLines = (& $purgeNode $purgeScript 2>&1 | Out-String).Trim()
+        if ($purgeLines) { Log ("PURGE-CDN " + ($purgeLines -replace "`r`n", " ;; ")) }
+        else { Log "PURGE-CDN 子脚本无输出" }
+    }
+    else { Log "WARN  PURGE-CDN 跳过(取不到 node 或脚本缺失:$purgeNode / $purgeScript)" }
+}
+catch { Log "WARN  PURGE-CDN 异常(不影响本轮发布):$_" }
 if ($script:DbMigrateDegraded) {
     Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"
 }

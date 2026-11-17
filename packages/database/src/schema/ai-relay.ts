@@ -369,6 +369,41 @@ export const aiRelayDiscovery = pgTable(
   }),
 )
 
+/**
+ * 号池签到历史(2026-11-17 立)。
+ *
+ * 立因:签到连续天数(stream/streak)在对照网关上是一个面板字段,而本仓此前**只留最近一条**
+ * (`pool_status.lastRecord` / `CheckinLastRecord`),没有任何历史序列 ⇒ 算不出连续天数。
+ * 这里落的是**按天去重**的最小事实:一天一条,(account, day) 唯一,重跑签到靠
+ * `onConflictDoNothing` 幂等,不会因为 10:05/11:00/12:30 三次补跑而记三条。
+ *
+ * 纪律:
+ * - `day` 是**UTC+8 归属日**(官方活动 10:00 才开放且跨午间,全部归到同一自然日);
+ * - `status` 保留库内原文语义(success/already/skip/failed),不在写入侧归一 —— 归一住判据层;
+ * - 不建外键级联:账号被删后历史保留(删号不该抹掉"这台机器签过几天"的事实)。
+ */
+export const aiRelayCheckinHistory = pgTable(
+  'ai_relay_checkin_history',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** 号池账号 id(ai_relay_account_pool.id) */
+    accountId: uuid('account_id').notNull(),
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    /** 归属日(UTC+8 的 YYYY-MM-DD) */
+    day: varchar('day', { length: 10 }).notNull(),
+    /** 结论:success / already / skip / failed */
+    status: varchar('status', { length: 16 }).notNull(),
+    /** 上游或调度器给的原始说明(截断) */
+    message: text('message'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    accountDayUniq: unique('ai_relay_checkin_history_account_day_unique').on(t.accountId, t.day),
+    accountIdx: index('ai_relay_checkin_history_account_idx').on(t.accountId),
+    dayIdx: index('ai_relay_checkin_history_day_idx').on(t.day),
+  }),
+)
+
 export type AiRelayKeyPool = typeof aiRelayKeyPool.$inferSelect
 export type NewAiRelayKeyPool = typeof aiRelayKeyPool.$inferInsert
 export type AiRelayAccountPool = typeof aiRelayAccountPool.$inferSelect
@@ -381,4 +416,6 @@ export type AiRelayProxyPool = typeof aiRelayProxyPool.$inferSelect
 export type NewAiRelayProxyPool = typeof aiRelayProxyPool.$inferInsert
 export type AiRelayDiscovery = typeof aiRelayDiscovery.$inferSelect
 export type NewAiRelayDiscovery = typeof aiRelayDiscovery.$inferInsert
+export type AiRelayCheckinHistory = typeof aiRelayCheckinHistory.$inferSelect
+export type NewAiRelayCheckinHistory = typeof aiRelayCheckinHistory.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

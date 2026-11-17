@@ -923,7 +923,7 @@ async function streamChatCompletion(
       if (repetitionPenalty !== undefined) baseBody.repetition_penalty = repetitionPenalty
       if (logitBias !== undefined) baseBody.logit_bias = logitBias
       const channelParamOps = await applyParamOpsToBody(baseBody, { model })
-      const fwd = await forwardToChannel({
+      const fwdRequest: Parameters<typeof forwardToChannel>[0] = {
         model,
         messages,
         temperature,
@@ -953,11 +953,19 @@ async function streamChatCompletion(
         signal: controller.signal,
         // F-337:流是否正常结束只有读完流才知道 ⇒ 建连阶段不记成功
         deferStreamSuccess: true,
-      })
-      if (fwd && fwd.ok) {
+      }
+      let fwd = await forwardToChannel(fwdRequest)
+      // 信封层重试(2026-11-17,对标对照站「双层瞬时故障重试」的信封层):
+      // 上游已回 200、流已开着,但首帧信封投的是可重试瞬时档(418/429/5xx)且
+      // 尚未向客户端写出任何字节 ⇒ 整条重开上游,≤2 次(1s/2s 退避)。
+      // 与连接层重试的区别:这时拿到的已经是 Response,只能整条重来;
+      // 与 F-337 失败路径的区别:瞬时档**不罚号**(不因上游的锅记渠道失败)。
+      let envelopeAttempt = 0
+      let stats: Awaited<ReturnType<typeof pipeChannelStream>> | null = null
+      while (fwd && fwd.ok) {
         upstreamHttpStatus = fwd.response.status
         streamedChannel = fwd.channel
-        const stats = await pipeChannelStream(fwd.response, {
+        stats = await pipeChannelStream(fwd.response, {
           // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
           ...(isTextFlavor
             ? {
@@ -974,12 +982,29 @@ async function streamChatCompletion(
               }),
           signal: controller.signal,
         })
+        const retryableEnvelope = stats.envelopeError?.retryable === true
+        if (retryableEnvelope && !channelWroteToClient && envelopeAttempt < 2) {
+          envelopeAttempt += 1
+          await new Promise((resolve) =>
+            setTimeout(resolve, envelopeAttempt === 1 ? 1_000 : 2_000),
+          )
+          fwd = await forwardToChannel(fwdRequest)
+          continue
+        }
+        break
+      }
+      if (fwd && fwd.ok && stats) {
         // F-337:上游 HTTP 200 但 SSE 内是错误帧/空流 ⇒ 不算成功。
         // 未向客户端写过帧:把该渠道记失败(进熔断,后续请求不再选它),再抛错复用
         // 下方 catch 的「未写帧回退 ai-service」;已写过帧:就地写错误帧收尾,
         // 且下方 recordCall 改记 error、三组 token 归零(不白扣输入 token)。
         if (stats.streamError) {
-          await recordChannelResult(fwd.channel.keyPoolId, false, null).catch(() => {})
+          // 2026-11-17:可重试瞬时档已经在上面 while 里重开过 ≤2 次;走到这里说明重试也失败,
+          // 或者已经向客户端写过帧。**瞬时档不罚号**(不因上游的锅把渠道打进熔断),
+          // 业务错(401/403/404/400 或判不出状态码)照旧罚号 + 熔断。
+          if (stats.envelopeError?.retryable !== true) {
+            await recordChannelResult(fwd.channel.keyPoolId, false, null).catch(() => {})
+          }
           if (!channelWroteToClient) throw new Error(stats.streamError)
         } else {
           // F-337:成功记录已由 deferStreamSuccess 延后到此 —— 流正常读完才算成功,
@@ -1092,7 +1117,10 @@ async function streamChatCompletion(
         }
         return // 渠道链路全程接管,不进入 ai-service 分支
       }
-      poolFailure = fwd?.reason ?? 'no channel configured'
+      // 信封层重试让 `fwd` 变成可重赋值的 let,判别联合的自动收窄在这里失效 ⇒ 用 `in` 守卫。
+      poolFailure =
+        (fwd && 'reason' in fwd && typeof fwd.reason === 'string' ? fwd.reason : null) ??
+        'no channel configured'
       // fwd === null(无渠道)/ fwd.ok === false(全部候选失败)→ 落入下方 ai-service 链路
     } catch (e) {
       // 已向客户端写出过帧 ⇒ **禁止**回退 ai-service（见 channelWroteToClient 注释），
