@@ -97,6 +97,12 @@ const mk = (tag: string) =>
       }
     if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
     /**
+     * RN 的 testID 在 DOM 侧对应 data-testid(RTL 的 queryByTestId 默认只认它)。
+     * 不映射则 testID 只是一个未知属性被 React DOM 丢掉 —— 任何"按 testID 锚点"
+     * 的接线判据(如 ChatMessageItem 错误卡 message-error-* 三枚)在测试里永远查不到元素。
+     */
+    if (typeof props.testID === 'string') extra['data-testid'] = props.testID
+    /**
      * RN 的 onLongPress 在 DOM 侧最近的对应事件是 contextMenu(桌面右键 / 移动长按)。
      * 不映射则"长按二维码保存到相册"这一类判据在测试里根本点不着 —— 而"这枚二维码真的能长按"
      * 正是必须量到、不能只写在注释里的能力(RecruitmentScreen / HomeScreen 社群码),
