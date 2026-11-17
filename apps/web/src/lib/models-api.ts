@@ -50,6 +50,10 @@ export interface SelectorModel extends LlmModel {
   health_status?: 'healthy' | 'pending' | 'unknown'
   /** 探测失败时的简短脱敏错误(可能为空) */
   health_error?: string
+  /** 失败原因分档(2026-11-18 立):quota=额度/余额耗尽、auth=密钥失效、
+   *  model_missing=上游已下线、rate_limit=限流(暂时,不禁用)、空=探测结论。
+   *  选择器据此把"额度已尽"与"尚未探测"分开显示,并禁用必失败的行。 */
+  health_reason?: 'quota' | 'auth' | 'model_missing' | 'rate_limit' | ''
   /** 实测能力(2026-11-11 立,后端可选字段,缺失按未知处理)。
    *  null = 未测/未知;context.tokens 为长上下文针测规模(如 16000)。
    *  与 verified(可用性已验证)是两个独立维度。 */
@@ -121,9 +125,7 @@ export async function triggerModelHealthRefresh(): Promise<boolean> {
 /** 查询模型级复测进度(失败返回 null,调用方停止轮询) */
 export async function fetchModelHealthRefreshStatus(): Promise<ModelHealthRefreshStatus | null> {
   try {
-    const res = await fetchAiServiceJson<ModelHealthRefreshStatus>(
-      '/llm/models/refresh/status',
-    )
+    const res = await fetchAiServiceJson<ModelHealthRefreshStatus>('/llm/models/refresh/status')
     return res.success ? (res.data ?? null) : null
   } catch {
     return null

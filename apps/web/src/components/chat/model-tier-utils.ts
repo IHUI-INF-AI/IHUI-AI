@@ -65,6 +65,11 @@ export interface ModelOption {
   verified?: boolean
   /** 未验证原因/上游简短脱敏错误,仅作行标题提示 */
   healthError?: string
+  /** 失败原因分档(2026-11-18 立,后端 `health_reason` 透传):
+   *  quota=额度/余额耗尽、auth=密钥失效、model_missing=上游已下线、
+   *  rate_limit=限流(暂时,不据此禁用)、空串=探测结论而非运行时回写。
+   *  与 verified 互补:verified 回答"通不通",这里回答"为什么不通"。 */
+  healthReason?: string
   /** 实测能力(2026-11-11 立,后端 `caps_verified` 原样透传;缺失=未知)。
    *  null = 未测/未知,与 verified(可用性已验证)相互独立。 */
   capsVerified?: CapsVerified

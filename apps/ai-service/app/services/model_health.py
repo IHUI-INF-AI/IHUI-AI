@@ -86,6 +86,9 @@ PROBE_CONCURRENCY = 4
 _TOOL_PROBE_TIMEOUT_S = 90.0
 # 状态有效期(秒)— 超过两轮未复测则不再据此隐藏模型
 STATUS_TTL_S = PROBE_INTERVAL_S * 2
+# 线上失败回写的去重窗(秒):一次流式请求会带多轮重试,同一模型同一原因
+# 只写一次,避免把落盘文件刷成流水账(2026-11-18 立)。
+_RUNTIME_FAILURE_DEDUP_S = 30.0
 # 同一模型连续失败次数达到此值才隐藏(仅 404 属模型级明确错误,可一次隐藏)
 MAX_CONSECUTIVE_FAILURES = 2
 # 目录扫描轮询步长(秒)/ 没有任何候选时不空转
@@ -160,6 +163,21 @@ _BALANCE_EXHAUSTED_KEYWORDS = (
     "overdue-payment",
     "overdue payment",
     "account is in good standing",
+    # 2026-11-18 立(真机实证):Cloudflare Workers AI 免费额度用尽只回一句
+    # "you have used up your daily free allocation of 10,000 neurons, please upgrade …",
+    # 上文所有词一条都不命中 ⇒ 被归成"账户级" ⇒ 既不隐藏也不标注,
+    # 用户点下去必 429。额度耗尽按既有设计属"模型确实调不通"档,一次即隐藏。
+    "used up your daily free allocation",
+    "daily free allocation",
+    "upgrade to cloudflare",
+    "exceeded your quota",
+    "quota has been exceeded",
+    "quota exceeded",
+    "free tier limit",
+    "monthly limit reached",
+    "额度已用尽",
+    "额度用尽",
+    "配额已用尽",
     "余额不足",
     "额度不足",
     "剩余额度",
@@ -252,6 +270,9 @@ class ModelProbeState:
     error: str = ""
     latency_ms: int = 0
     consecutive_failures: int = 0
+    # 2026-11-18 立:线上真实请求失败的原因分档(供前端分"额度已尽/密钥失效/限流"
+    # 三段展示,而不是只给一句"未验证")。空串=探测结论,非运行时回写。
+    reason: str = ""
     # 2026-11-11 立:用户要求把验收标准从"端口活着"提升到实测能力。
     # 三项能力只做标注,不参与 filter_available 的 down 判定(不支持 ≠ 隐藏)。
     stream_ok: bool | None = None
@@ -1081,6 +1102,59 @@ class ModelHealthService:
     def get_state(self, model_id: str) -> ModelProbeState | None:
         return self._states.get(model_id)
 
+    def record_runtime_failure(
+        self, model_id: str, message: str, http_status: int = 0
+    ) -> str:
+        """线上真实请求失败 → 当场记账,把该模型立刻挪进正确的档。
+
+        与定时探测的分工(2026-11-18 立):探测是"定期体检",本方法是"当场出事当场记账"。
+        为什么必须有这一条:此前用户点了必失败的模型,失败只进了指标和日志,
+        `/llm/models` 的结论要等下一轮探测(最长 30 分钟)才知道 ⇒ 菜单里
+        同一枚坏模型可以连着被点十次。判据与探测**同一套**(`_classify_error`),
+        不另立第二份口径。
+
+        分档:
+        - 额度耗尽 / 模型不存在 ⇒ status=down(与探测一致,一次即隐藏)
+        - 鉴权失败 401/403 ⇒ status=down + reason=auth(调用方根本拿不到结果)
+        - 429 限流 ⇒ 只记 reason=rate_limit,status 保持不动(限流是暂时的,
+          不许据此把好模型抹掉;那是 provider 级判定的职责)
+        返回写入的 reason,空串=未记账(非模型级失败,如网络不可达)。
+        """
+        mid = (model_id or "").strip()
+        if not mid:
+            return ""
+        # 调用侧传的是实际请求的模型名(可能带网关前缀),目录 id 才是选择器认的那枚;
+        # 归一失败就按原值记账,不让"对不上"变成"不记账"。
+        mid = self._resolve_catalog_model(mid) or mid
+        text = _redact_secrets(message or "")[:200]
+        account_level, model_level = _classify_error(text, http_status)
+        lowered = text.lower()
+        if model_level:
+            reason = "quota" if any(
+                k in lowered for k in _BALANCE_EXHAUSTED_KEYWORDS
+            ) else "model_missing"
+            status = "down"
+        elif http_status in (401, 403):
+            reason, status = "auth", "down"
+        elif http_status == 429 or account_level:
+            reason, status = "rate_limit", ""
+        else:
+            return ""
+        state = self._states.get(mid)
+        if state is None:
+            state = ModelProbeState(status="pending")
+            self._states[mid] = state
+        now = time.time()
+        if state.reason == reason and (now - state.checked_at) < _RUNTIME_FAILURE_DEDUP_S:
+            return reason
+        state.reason = reason
+        state.error = text
+        state.checked_at = now
+        if status:
+            state.status = status
+        self._save_states()
+        return reason
+
     def get_caps_verified(self, model_id: str) -> dict[str, Any]:
         """实测能力摘要(供 /llm/models 透出);null 表示未测/未知。
 
@@ -1183,6 +1257,7 @@ class ModelHealthService:
                     error=str(item.get("error") or "")[:200],
                     latency_ms=int(item.get("latency_ms") or 0),
                     consecutive_failures=int(item.get("consecutive_failures") or 0),
+                    reason=str(item.get("reason") or ""),
                     stream_ok=_opt_bool(item.get("stream_ok")),
                     stream_ttft_ms=int(item.get("stream_ttft_ms") or 0),
                     tools_ok=_opt_bool(item.get("tools_ok")),
@@ -1211,6 +1286,7 @@ class ModelHealthService:
                         "error": _redact_secrets(s.error),
                         "latency_ms": s.latency_ms,
                         "consecutive_failures": s.consecutive_failures,
+                        "reason": s.reason,
                         "stream_ok": s.stream_ok,
                         "stream_ttft_ms": s.stream_ttft_ms,
                         "tools_ok": s.tools_ok,

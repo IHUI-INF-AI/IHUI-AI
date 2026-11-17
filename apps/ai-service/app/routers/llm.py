@@ -4244,9 +4244,13 @@ async def list_models(request: Request) -> dict[str, Any]:
         if state is None:
             m["health_status"] = "unknown"
             m["health_error"] = ""
+            m["health_reason"] = ""
         else:
             m["health_status"] = state.status
             m["health_error"] = (state.error or "")[:200]
+            # 2026-11-18 立:原因分档(quota/auth/rate_limit/model_missing),
+            # 让选择器把"额度已尽"与"尚未探测"分开显示,不再混成一个"未验证"。
+            m["health_reason"] = state.reason
         # 2026-11-11 立:实测能力(流式/工具调用/长上下文),null=未测/未知。
         # 仅标注,不参与 filter_available 的 down 判定(不支持不等于隐藏)。
         m["caps_verified"] = model_health.get_caps_verified(str(mid))

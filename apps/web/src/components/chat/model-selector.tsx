@@ -77,6 +77,23 @@ function isUnverified(opt: ModelOption): boolean {
 }
 
 /**
+ * 明确不可用的原因分档(2026-11-18 立,治"点了必失败的模型还挂在选择器里")。
+ *
+ * 起因:CF 免费额度用尽(429 / "used up your daily free allocation")属账户级,
+ * 旧口径既不隐藏也不标注 ⇒ 菜单照旧可点,点了必失败。现在后端把运行时失败分档
+ * 写进 `health_reason`,这里据此把行标死并禁止选中。
+ *
+ * 刻意不含 `rate_limit`:限流是暂时的,禁用整行会让用户被一次抖动锁死。
+ */
+function unusableReasonOf(opt: ModelOption): 'quota' | 'auth' | 'offline' | null {
+  const reason = (opt.healthReason || '').trim()
+  if (reason === 'quota') return 'quota'
+  if (reason === 'auth') return 'auth'
+  if (reason === 'model_missing') return 'offline'
+  return null
+}
+
+/**
  * 厂商图标的懒加载边界(形态与 ai-side-panel.tsx:170 的 BrandIconLazy 一致):
  * React.lazy 只出现在动态 import 里,图标全集因此不进入本路由组的初始编译图;
  * fallback 按同一 size 占位 ⇒ 加载完成不跳动。
@@ -320,14 +337,26 @@ function ModelOptionRow({
 }) {
   const t = useTranslations('chat')
   const unverified = isUnverified(opt)
+  const unusable = unusableReasonOf(opt)
+  const unusableLabel =
+    unusable === 'quota'
+      ? t('modelQuotaExhausted')
+      : unusable === 'auth'
+        ? t('modelAuthFailed')
+        : unusable === 'offline'
+          ? t('modelOffline')
+          : ''
   return (
     <DropdownMenu.Item
-      onSelect={onSelect}
+      onSelect={unusable ? undefined : onSelect}
+      disabled={unusable !== null}
       title={opt.healthError || undefined}
       className={cn(
         'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
         'focus:bg-accent focus:text-accent-foreground',
         unverified && 'opacity-60 focus:opacity-100 data-[highlighted]:opacity-100',
+        // 已判死的行:更狠的降权 + 不再随 hover 提亮(它本来就不该被点)
+        unusable && 'cursor-not-allowed opacity-40 hover:opacity-40',
       )}
     >
       <Check className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
@@ -344,6 +373,16 @@ function ModelOptionRow({
           {unverified && (
             <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
               {t('modelUnverified')}
+            </span>
+          )}
+          {/* 不可用原因徽章(2026-11-18 立):额度已尽/密钥失效/已下线 —— 比"未验证"
+              说得更清楚,用户一眼知道为什么点不了,而不是点完才吃 429。 */}
+          {unusable && (
+            <span
+              data-model-unusable={unusable}
+              className="inline-flex shrink-0 items-center rounded-sm bg-destructive/10 px-1 py-px text-[10px] font-medium leading-tight text-destructive"
+            >
+              {unusableLabel}
             </span>
           )}
           {/* 智汇AI 官方模型徽章 */}
@@ -774,6 +813,9 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       // 缺失/unknown/pending 均不可依赖,按未验证处理
       verified: m.health_status === 'healthy',
       healthError: m.health_error,
+      // 2026-11-18 立:失败原因分档原样透传(quota/auth/model_missing/rate_limit),
+      // 驱动行内"额度已尽/密钥失效/已下线"徽章与禁用态。
+      healthReason: m.health_reason,
       // 2026-11-11 立:实测能力原样透传,缺失即 undefined(=三段未知)
       capsVerified: m.caps_verified,
     })
