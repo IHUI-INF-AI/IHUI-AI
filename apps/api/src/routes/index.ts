@@ -207,6 +207,8 @@ import leaderboardRoutes from './leaderboard.js'
 import aiEducationRoutes from './ai-education.js'
 import eduAiManagementRoutes from './edu-ai-management.js'
 import { hrAttendanceRoutes } from './hr-attendance.js'
+import { capabilityAppsRoutes } from './capability-apps.js'
+import { reasoningTranslationRoutes } from './reasoning-translation.js'
 import { hrJobRoutes } from './hr-jobs.js'
 import { hrDailyRoutes } from './hr-daily.js'
 import { hrApprovalRoutes } from './hr-approval.js'
@@ -1577,5 +1579,10 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(createCommandAckRoutes({ kv: createKvFromRedis(server.redis) }), {
     prefix: '/api/command-acks',
   })
+
+  // 补齐"路由写好却没挂载"的两条(2026-11-17):此前都是孤儿文件 —— 文件在、鉴权在、服务在,
+  // 唯独没进这张挂载表 ⇒ 前端调过去全是 404(门 8 报的 BP 腿新增死调用即由此而来)。
+  server.register(capabilityAppsRoutes, { prefix: '/api/capability-apps' })
+  server.register(reasoningTranslationRoutes, { prefix: '/api/ai/reasoning' })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

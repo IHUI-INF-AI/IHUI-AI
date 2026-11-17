@@ -73,6 +73,9 @@ export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {
       apiKey: row.apiKey === null ? null : decryptCredential(row.apiKey),
       apiSecret: row.apiSecret === null ? null : decryptCredential(row.apiSecret),
     }))
+    // 本文件 preHandler=requireAdmin(管理员面);回显的就是解密后的凭据本体,
+    // 交给通用脱敏层会被抹成 *** 而失去管理意义 ⇒ 显式声明跳过(门 6 的既定出口)。
+    request.skipResponseSanitization = true
     return reply.send(success(list))
   })
 
