@@ -57,6 +57,7 @@ import { error, success } from '../utils/response.js'
 import {
   deriveModelSpec,
   modelSpecToWire,
+  normalizeReasoningEffort,
   parseModelSpecEnv,
 } from '../services/relay-model-spec.js'
 import { listPublicPeakWindows, resolvePeakMultiplier } from '../services/peak-pricing-service.js'
@@ -771,7 +772,7 @@ async function streamChatCompletion(
   const { model, messages, temperature, maxTokens, userId } = opts
   const {
     stop,
-    reasoningEffort,
+    reasoningEffort: reasoningEffortRaw,
     topP,
     presencePenalty,
     frequencyPenalty,
@@ -785,6 +786,12 @@ async function streamChatCompletion(
     repetitionPenalty,
     logitBias,
   } = opts
+  // 思考档位归一(2026-11-17):只做能明确判定的映射(大小写/数字最近档),其余原样透传 ——
+  // 把不明的 high 静默降成 medium 会改变生成质量且不可见,宁可交上游判定。
+  const reasoningEffort = normalizeReasoningEffort(
+    reasoningEffortRaw,
+    deriveModelSpec(model, MODEL_SPEC_OVERRIDES).thinking.levels,
+  )
   const isTextFlavor = opts.flavor === 'text'
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
