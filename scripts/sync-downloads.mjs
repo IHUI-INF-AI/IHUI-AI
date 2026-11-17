@@ -36,7 +36,8 @@
  */
 import { execSync } from 'node:child_process'
 import { readFile, writeFile, copyFile, stat, readdir, mkdir } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { crc32, deflateRawSync } from 'node:zlib'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -209,32 +210,84 @@ async function checkCopyNeeded(sourcePath, targetPath) {
  * @param {string} targetZip - 目标 .zip 路径
  */
 function zipDirectoryContents(srcDir, targetZip) {
-  if (process.platform === 'win32') {
-    // PowerShell Compress-Archive;-Path "src\*" 打包目录内容(不含外层目录)
-    // 2026-09-14:优先 pwsh(PS7 自带 Compress-Archive);部分机器
-    // System32\WindowsPowerShell\v1.0 目录被 PS7 覆盖后 Windows PowerShell 5.1
-    // 缺失 Microsoft.PowerShell.Archive 模块(Compress-Archive 不存在),故 pwsh 优先
-    const psSrc = `${srcDir}\\*`
-    const inner = `Compress-Archive -Path '${psSrc.replace(/'/g, "''")}' -DestinationPath '${targetZip.replace(/'/g, "''")}' -Force`
-    let cmd = `pwsh -NoProfile -Command "${inner}"`
-    try {
-      execSync('pwsh -NoProfile -Command "$PSVersionTable.PSVersion.Major"', {
-        encoding: 'utf8',
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: 'ignore',
-        windowsHide: true,
-      })
-    } catch {
-      // 无 pwsh 时回退 Windows PowerShell(传统环境)
-      cmd = `powershell -NoProfile -Command "${inner}"`
+  // 2026-11-18 立:纯 Node 手写 zip(node:zlib),零 shell、零 PowerShell 模块依赖。
+  // 原实现走 `pwsh -Command "Compress-Archive ..."` + `stdio:'ignore'`:在部署机
+  // LocalSystem 服务上下文里连续 4 轮 exit=1,stderr 被吞 ⇒ 日志只能读到
+  // "Command failed",无从归因;这是 24h 内 56 次部署失败轮的直接来源(额度熔断)。
+  // 手写 zip 不依赖任何外部进程,开发机与服务的运行上下文行为一致;
+  // 全平台同一份实现,不再有 win32/darwin 分支漂移。
+  const files = []
+  ;(function walk(dir, prefix) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name)
+      const entryName = prefix ? `${prefix}/${entry.name}` : entry.name
+      if (entry.isDirectory()) walk(fullPath, entryName)
+      else if (entry.isFile()) files.push({ entryName, fullPath })
     }
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    execSync(cmd, { encoding: 'utf8', stdio: 'ignore', windowsHide: true })
-  } else {
-    // macOS/Linux: cd 到源目录后 zip 内容(-X 不保留额外文件属性,-r 递归)
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    execSync(`zip -r -X '${targetZip}' .`, { encoding: 'utf8', stdio: 'ignore', cwd: srcDir })
+  })(srcDir, '')
+
+  const chunks = []
+  const central = []
+  let offset = 0
+  for (const file of files) {
+    const raw = readFileSync(file.fullPath)
+    const compressed = deflateRawSync(raw)
+    // 压缩反而更大时按存储(method=0)写,避免无意义膨胀
+    const useDeflate = compressed.length < raw.length
+    const payload = useDeflate ? compressed : raw
+    const method = useDeflate ? 8 : 0
+    const checksum = crc32(raw)
+    const nameBuf = Buffer.from(file.entryName, 'utf8')
+
+    const local = Buffer.alloc(30)
+    local.writeUInt32LE(0x04034b50, 0) // 本地文件头签名
+    local.writeUInt16LE(20, 4) // version needed
+    local.writeUInt16LE(0, 6) // flags
+    local.writeUInt16LE(method, 8)
+    local.writeUInt16LE(0, 10) // 修改时间
+    local.writeUInt16LE(0, 12) // 修改日期
+    local.writeUInt32LE(checksum, 14)
+    local.writeUInt32LE(payload.length, 18)
+    local.writeUInt32LE(raw.length, 22)
+    local.writeUInt16LE(nameBuf.length, 26)
+    local.writeUInt16LE(0, 28) // extra 长度
+    chunks.push(local, nameBuf, payload)
+
+    const entry = Buffer.alloc(46)
+    entry.writeUInt32LE(0x02014b50, 0) // 中央目录签名
+    entry.writeUInt16LE(20, 4) // version made by
+    entry.writeUInt16LE(20, 6) // version needed
+    entry.writeUInt16LE(0, 8) // flags
+    entry.writeUInt16LE(method, 10)
+    entry.writeUInt16LE(0, 12)
+    entry.writeUInt16LE(0, 14)
+    entry.writeUInt32LE(checksum, 16)
+    entry.writeUInt32LE(payload.length, 20)
+    entry.writeUInt32LE(raw.length, 24)
+    entry.writeUInt16LE(nameBuf.length, 28)
+    entry.writeUInt16LE(0, 30) // extra
+    entry.writeUInt16LE(0, 32) // comment
+    entry.writeUInt16LE(0, 34) // 磁盘号
+    entry.writeUInt16LE(0, 36) // 内部属性
+    entry.writeUInt32LE(0, 38) // 外部属性
+    entry.writeUInt32LE(offset, 42) // 本地头偏移
+    central.push(entry, nameBuf)
+
+    offset += 30 + nameBuf.length + payload.length
   }
+
+  const centralBuf = Buffer.concat(central)
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(0x06054b50, 0) // 中央目录结束签名
+  eocd.writeUInt16LE(0, 4)
+  eocd.writeUInt16LE(0, 6)
+  eocd.writeUInt16LE(files.length, 8)
+  eocd.writeUInt16LE(files.length, 10)
+  eocd.writeUInt32LE(centralBuf.length, 12)
+  eocd.writeUInt32LE(offset, 16)
+  eocd.writeUInt16LE(0, 20)
+
+  writeFileSync(targetZip, Buffer.concat([...chunks, centralBuf, eocd]))
 }
 
 // ─── Desktop 同步 ────────────────────────────────────────────
