@@ -20,7 +20,7 @@
 import type { ComponentType } from 'react'
 import { Home } from 'lucide-react'
 import { FLAT_NAV_ITEMS } from '@/components/sidebar'
-import { ADMIN_NAV, ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
+import { ADMIN_NAV, ADMIN_NAV_GROUPS } from '@/components/layout/admin-nav-groups'
 
 export interface PathLabelSpec {
   /** 翻译命名空间(对应 messages/*.json 的顶层 key,如 'nav'/'admin'/'about') */
