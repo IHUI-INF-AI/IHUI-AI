@@ -46,7 +46,8 @@ R62 首次换轴到"结构形状"（struct 有几个字段），但字段名契�
 
 ## 6. 落库与推送状态
 
-（落库 commit sha、推送判定在落库步骤完成后补记；纪律：对象空间精确 pathspec、判推送只认 ls-remote sha、真实红不洗门、饱和树不反复硬推。）
+- 对象空间精确 pathspec 落库成功：commit `ff65d2fd0a8`，7 文件 / 794 行全在 HEAD 面、水印 7/7、工作树零残留、零他席 staged 触碰。
+- **推送未完成**：唯一推送通道在「执行 git push origin main」阶段被 SIGTERM，`ls-remote` sha 未变（`a2e8969`，R63 未上 `origin/main`）。分诊 pre-push-gate：**失败 0 / 未判定 0（全绿）**；本地 0 behind / 51 ahead 无分叉、对象库完整——纯共享树饱和时 push 进程被守护 SIGTERM（非判据红、非分叉）。按纪律（饱和树不人机反复硬推）停止重试；R63 commit 已安全落在本地 HEAD，交守护 converge 后统一推送。判据只认 ls-remote sha，R63 当前尚未成为 origin/main 祖先。
 
 ## 7. 后续开放轴
 
