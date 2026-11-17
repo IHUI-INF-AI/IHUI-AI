@@ -728,7 +728,7 @@ select:-webkit-autofill:focus {
   --color-stroke-strong: rgba(255, 255, 255, 0.22);
   --color-stroke-inverse: rgba(0, 0, 0, 0.3);
   --color-stroke-field: rgba(255, 255, 255, 0.16);
-  --color-stroke-focus: #ffffff;
+  --color-stroke-focus: #FFFFFF;
   --color-stroke-selected: #a3c4d6;
   --color-stroke-danger: #ef4444;
   --color-success: hsl(142 65% 50%);

@@ -300,6 +300,18 @@ export interface RegisterScreenProps {
    * 共享屏原先无此槽位 ⇒ 该端只能整页手抄一份带区号的表单。
    */
   renderPhonePrefix?: () => ReactNode
+  /**
+   * 区号文本前缀(可选,2026-11-17):与 renderPhonePrefix 二选一 —— 只需要一段静态区号
+   * 文本的端不必自造节点。未注入时该槽位整体不渲染。
+   */
+  phonePrefix?: string
+  /**
+   * 密码可见性(受控真回路,可选,2026-11-17):只控制"密码"框,不牵连"确认密码"框
+   * (同屏两枚密码框必须能区分)。未注入时不渲染切换按钮。
+   */
+  passwordVisible?: boolean
+  /** 可见性切换回调;与 passwordVisible 成对注入,仅它存在时才渲染切换按钮 */
+  onTogglePasswordVisible?: () => void
   /** 验证码行下方的行内错误(可选;如发送验证码失败,由 wrapper 取词后传入) */
   codeSendError?: string
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */

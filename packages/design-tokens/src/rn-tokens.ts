@@ -80,25 +80,6 @@ export type RnAgentNameTokens = {
   DEFAULT: string
 }
 
-/**
- * 容器描边角色档(2026-11-15 立,对齐 tokens.css `--color-stroke-*`)。
- * subtle 嵌套内区 · default 卡片/面板/表格 · strong 弹层/菜单/选中候选
- * inverse 玻璃/深色浮层 · field 输入控件 · focus 聚焦(墨档,唯一例外位)
- * selected 选中/强调容器 · danger 错误态容器。
- * 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(守门 MAPPINGS 已登记),勿手改。
- */
-export type RnStrokeTokens = {
-  subtle: string
-  default: string
-  strong: string
-  inverse: string
-  field: string
-  focus: string
-  selected: string
-  danger: string
-}
-
-
 export type RnModelTypeTokens = {
   text: string
   textBg: string
@@ -210,6 +191,17 @@ export const rnTokens = {
      必须是「命名空间 + DEFAULT」而不是顶层标量:mobile-rn 的 theme/active-tokens.ts 按命名空间
      浅拷与就地覆写(clonePalette / apply),顶层字符串会被摊成字符对象 ⇒ 运行时是不合法颜色。 */
   agentName: { DEFAULT: '#517bff' } satisfies RnAgentNameTokens,
+  /* 描边角色档:值与 rnCssLight.stroke* 同源,由 sync-rn-tokens.mjs 派生 */
+  stroke: {
+    subtle: 'rgba(0, 0, 0, 0.06)',
+    default: 'rgba(0, 0, 0, 0.1)',
+    strong: 'rgba(0, 0, 0, 0.18)',
+    inverse: 'rgba(255, 255, 255, 0.2)',
+    field: 'rgba(0, 0, 0, 0.14)',
+    focus: '#000000',
+    selected: '#4a7a96',
+    danger: '#dc2626',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -263,8 +255,6 @@ export type RnThemeTokens = {
   }
   text: { primary: string; secondary: string; tertiary: string; medium: string; inverse: string }
   border: { light: string; medium: string }
-  /* 容器描边角色档(--color-stroke-*;值由 sync-rn-tokens.mjs 派生) */
-  stroke: RnStrokeTokens
   error: { bg: string; text: string; onBg: string }
   overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
@@ -288,6 +278,17 @@ export type RnThemeTokens = {
   /* 智能体卡片名称链接色(--color-agent-name;明暗同值,派生自 tokens.css)。
      形状取 { DEFAULT } 而非裸字符串,原因见 rnTokens 内同档注释(active-tokens 逐命名空间覆写)。 */
   agentName: RnAgentNameTokens
+  /* 描边角色档(2026-11-15 立)。聚焦档是全项目唯一允许取墨的描边角色。 */
+  stroke: {
+    subtle: string
+    default: string
+    strong: string
+    inverse: string
+    field: string
+    focus: string
+    selected: string
+    danger: string
+  }
   gray: {
     50: string
     100: string
@@ -374,18 +375,6 @@ export const rnLightTokens: RnThemeTokens = {
     onGreen: '#065F46',
   },
   danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171', deepText: '#b91c1c' },
-  /* 容器描边角色档(2026-11-15 立):新代码取角色名,border 两档保留为 legacy 别名。
-     必须排在 danger 之后 —— 门 93 的 resolveTsPath 取首个同名键,stroke.danger 会遮住 danger.light。 */
-  stroke: {
-    subtle: 'rgba(0,0,0,0.06)',
-    default: 'rgba(0,0,0,0.1)',
-    strong: 'rgba(0,0,0,0.18)',
-    inverse: 'rgba(255,255,255,0.2)',
-    field: 'rgba(0,0,0,0.14)',
-    focus: '#000000',
-    selected: '#4a7a96',
-    danger: '#dc2626',
-  },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-model-type-* / --color-agent-name),勿手改 */
   modelType: {
@@ -397,6 +386,17 @@ export const rnLightTokens: RnThemeTokens = {
     avBg: '#e8f5e9',
   },
   agentName: { DEFAULT: '#517bff' },
+  /* 描边角色档:值与 rnCssLight.stroke* 同源,由 sync-rn-tokens.mjs 派生(--color-stroke-*),勿手改 */
+  stroke: {
+    subtle: 'rgba(0, 0, 0, 0.06)',
+    default: 'rgba(0, 0, 0, 0.1)',
+    strong: 'rgba(0, 0, 0, 0.18)',
+    inverse: 'rgba(255, 255, 255, 0.2)',
+    field: 'rgba(0, 0, 0, 0.14)',
+    focus: '#000000',
+    selected: '#4a7a96',
+    danger: '#dc2626',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -490,16 +490,6 @@ export const rnDarkTokens: RnThemeTokens = {
     onGreen: '#065F46',
   },
   danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5', deepText: '#ff9e9e' },
-  stroke: {
-    subtle: 'rgba(255,255,255,0.08)',
-    default: 'rgba(255,255,255,0.12)',
-    strong: 'rgba(255,255,255,0.22)',
-    inverse: 'rgba(0,0,0,0.3)',
-    field: 'rgba(255,255,255,0.16)',
-    focus: '#FFFFFF',
-    selected: '#a3c4d6',
-    danger: '#ef4444',
-  },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 明暗同值档:暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
   modelType: {
@@ -511,6 +501,17 @@ export const rnDarkTokens: RnThemeTokens = {
     avBg: '#e8f5e9',
   },
   agentName: { DEFAULT: '#517bff' },
+  /* 描边角色档:值与 rnCssDark.stroke* 同源,由 sync-rn-tokens.mjs 派生(--color-stroke-*),勿手改 */
+  stroke: {
+    subtle: 'rgba(255, 255, 255, 0.08)',
+    default: 'rgba(255, 255, 255, 0.12)',
+    strong: 'rgba(255, 255, 255, 0.22)',
+    inverse: 'rgba(0, 0, 0, 0.3)',
+    field: 'rgba(255, 255, 255, 0.16)',
+    focus: '#FFFFFF',
+    selected: '#a3c4d6',
+    danger: '#ef4444',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -757,7 +758,7 @@ export const rnCssDark = {
   strokeStrong: 'rgba(255, 255, 255, 0.22)',
   strokeInverse: 'rgba(0, 0, 0, 0.3)',
   strokeField: 'rgba(255, 255, 255, 0.16)',
-  strokeFocus: '#ffffff',
+  strokeFocus: '#FFFFFF',
   strokeSelected: '#a3c4d6',
   strokeDanger: '#ef4444',
   successForeground: 'hsl(0 0% 98%)',

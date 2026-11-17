@@ -21,7 +21,6 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   Pressable,
   StyleSheet,
   type TextStyle,
@@ -29,6 +28,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
+import { TextField } from '../../components/TextField'
 import { BackChevron } from '../../components/BackChevron'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { Sag2ScreenProps, Sag2StatusView } from '@ihui/types'
@@ -175,7 +175,8 @@ function SearchPanel({
         </Pressable>
       </View>
 
-      <TextInput
+      <TextField
+        colorScheme={colorScheme}
         style={styles.input}
         value={query}
         onChangeText={onQueryChange}

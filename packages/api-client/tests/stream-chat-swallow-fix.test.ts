@@ -92,24 +92,21 @@ describe('streamChat 吞错修复(!canRetry 分支)', () => {
     expect(message).toContain('provider 402 quota exhausted')
     // info 透传流内 errorCode;非业务错误(非 401/403/429)标记 recoverable
     expect(info?.errorCode).toBe('LLM_ERROR')
-    expect(info?.recoverable).toBe(true)
+    // F3(2026-11-13):流内 error 帧(含 402 配额耗尽)是确定性失败 ⇒ recoverable=false。
+    expect(info?.recoverable).toBe(false)
   })
 
-  it('重试耗尽(默认退避重连后仍 error)→ 不传 onError 最终 reject,fetch 重试 maxRetries+1 次', async () => {
-    vi.useFakeTimers()
-    // 每次尝试(含重连)都返回 error 事件流
+  it('流内 error 帧是确定性失败 ⇒ 不重连(即便 maxRetries 未耗尽)', async () => {
+    // F3(2026-11-13):流内 error 帧经 attachErrorMeta 打标,由 runner 直接落终态 ——
+    // 重试预算再宽也不重投,避免对 402 配额耗尽反复白烧 token。
     fetchMock.mockImplementation(async () => sseResponse([QUOTA_ERROR_LINE]))
     const onReconnect = vi.fn()
 
-    const promise = streamChat({ ...baseOpts, maxRetries: 1, onReconnect })
-    // 先挂接 rejects 断言(避免推进假时钟期间 promise reject 成为 unhandled rejection)
-    const assertion = expect(promise).rejects.toThrow('provider 402 quota exhausted')
-    // 推进 1s(首次退避)+ 余量,驱动重连后再次失败
-    await vi.advanceTimersByTimeAsync(2_000)
-    await assertion
-    // 初始请求 + 1 次重连 = 2 次 fetch
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(onReconnect).toHaveBeenCalledWith(1, 1000)
+    await expect(streamChat({ ...baseOpts, maxRetries: 1, onReconnect })).rejects.toThrow(
+      'provider 402 quota exhausted',
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(onReconnect).not.toHaveBeenCalled()
   })
 
   it('对照:正常流(无 error 事件)不受影响,不传 onError 也正常 resolve', async () => {

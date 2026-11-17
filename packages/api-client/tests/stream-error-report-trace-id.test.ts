@@ -67,8 +67,15 @@ function stubFetch() {
 }
 
 const TRACE_FRAME = `data: {"traceId":"${TRACE_ID}"}\n\n`
-/** 无 code/errorCode/retryAfter 的流内 error 帧 ⇒ 非业务错误,走"重试耗尽后抛"那一支。 */
+/**
+ * 无 code/errorCode/retryAfter 的流内 error 帧。
+ * F3(2026-11-13):这类帧是确定性业务失败 ⇒ 不重连、recoverable=false(见 client.ts attachErrorMeta)。
+ * 只有显式带 retryAfter 时才回到可重连语义,见 RETRYABLE_ERROR_FRAME。
+ */
 const ERROR_FRAME = 'data: {"type":"error","message":"provider quota exhausted"}\n\n'
+/** 同款 error 帧但显式带 retryAfter ⇒ F3 里唯一保留可重连语义的豁免。 */
+const RETRYABLE_ERROR_FRAME =
+  'data: {"type":"error","message":"provider quota exhausted","retryAfter":1}\n\n'
 
 beforeEach(() => {
   responses = []
@@ -100,7 +107,9 @@ describe('G-916415 R1:流失败的错误上报体带帧级 traceId', () => {
     await runFailingStream(0)
     expect(errorInfos).toHaveLength(1)
     expect(errorInfos[0]?.traceId).toBe(TRACE_ID)
-    expect(errorInfos[0]?.recoverable).toBe(true)
+    // F3(2026-11-13)定档:流内 error 帧是确定性失败(attachErrorMeta 打标),口径与业务错误一致
+    // ⇒ recoverable=false,前端不得把它显示成"网络不稳定,可手动重试"。
+    expect(errorInfos[0]?.recoverable).toBe(false)
   })
 
   it('挑字段镜像锁(运行面):该场景上报体恰为两键,且全部落在白名单内(多一键即红)', async () => {
@@ -123,8 +132,10 @@ describe('G-916415 R1:流失败的错误上报体带帧级 traceId', () => {
   })
 
   it('attempt 复位锁:上一轮的 traceId 不得记到下一轮失败的头上', async () => {
-    // 第 1 轮:见 traceId 后失败 → 重连;第 2 轮:502 终态 ⇒ 上报体不得再带第 1 轮的 trace。
-    responses.push({ status: 200, body: TRACE_FRAME + ERROR_FRAME })
+    // 第 1 轮:见 traceId 后失败 → 重连。F3(2026-11-13)后流内 error 帧默认不重连,这里用显式
+    // 带 retryAfter 的同款帧(唯一保留可重连语义的豁免)驱动第 2 轮;第 2 轮 502 终态
+    // ⇒ 上报体不得再带第 1 轮的 trace。
+    responses.push({ status: 200, body: TRACE_FRAME + RETRYABLE_ERROR_FRAME })
     responses.push({ status: 502 })
     await runFailingStream(1)
     expect(errorInfos).toHaveLength(1)

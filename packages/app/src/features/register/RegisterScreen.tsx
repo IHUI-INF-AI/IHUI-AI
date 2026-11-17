@@ -56,6 +56,9 @@ export function RegisterScreen({
   onOpenTerms,
   onOpenPrivacy,
   renderPhonePrefix,
+  phonePrefix,
+  passwordVisible = false,
+  onTogglePasswordVisible,
   codeSendError: codeSendErrorProp,
   // ===== 注册验证码(可选注入,未注入时组件内部维护) =====
   code: codeProp,
@@ -111,9 +114,13 @@ export function RegisterScreen({
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>{t('register.phone')}</Text>
-        {renderPhonePrefix ? (
+        {renderPhonePrefix || phonePrefix ? (
           <View style={styles.phoneRow}>
-            {renderPhonePrefix()}
+            {renderPhonePrefix ? (
+              renderPhonePrefix()
+            ) : (
+              <Text style={styles.phonePrefixText}>{phonePrefix}</Text>
+            )}
             <TextField
               colorScheme={colorScheme}
               style={[styles.input, styles.phoneInput]}
@@ -164,7 +171,22 @@ export function RegisterScreen({
         {codeSendErrorProp || codeSendError ? (
           <Text style={styles.error}>{codeSendErrorProp || codeSendError}</Text>
         ) : null}
-        <Text style={styles.label}>{t('register.password')}</Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{t('register.password')}</Text>
+          {onTogglePasswordVisible ? (
+            <TouchableOpacity
+              hitSlop={10}
+              onPress={onTogglePasswordVisible}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={passwordVisible ? t('a11y.hidePassword') : t('a11y.showPassword')}
+            >
+              <Text style={styles.passwordToggle}>
+                {passwordVisible ? t('register.hide') : t('register.show')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <TextField
           colorScheme={colorScheme}
           style={styles.input}
@@ -172,7 +194,7 @@ export function RegisterScreen({
           onChangeText={onPasswordChange}
           placeholder={t('register.passwordPlaceholder')}
           placeholderTextColor={tk.text.secondary}
-          secureTextEntry
+          secureTextEntry={!passwordVisible}
         />
         <Text style={styles.label}>{t('register.confirmPassword')}</Text>
         <TextField
@@ -281,6 +303,17 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     phoneRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    phonePrefixText: { fontSize: rnType.title.size, color: tk.text.primary },
+    labelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    passwordToggle: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginTop: rnSpacing.md,
+    },
     phoneInput: { flex: 1 },
     codeRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     codeInput: { flex: 1 },
