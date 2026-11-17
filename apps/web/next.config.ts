@@ -278,6 +278,18 @@ const nextConfig: NextConfig = {
     // 2026-08-05 00:15 生产构建排障(P0 项,官方 memory-usage 文档):
     // 显式关闭 server source map,降低构建内存峰值。
     serverSourceMaps: false,
+    // 2026-11-18 生产构建排障(本票 P0):关掉 Turbopack 构建期持久文件系统缓存。
+    // 证据链:第五次部署里 web 的编译本体是成功的(`✓ Compiled successfully in 58s`),崩在之后的
+    // 缓存落盘 —— Rust 侧 `Failed to write small value block` / `Unable to write SST file 00000002.sst`
+    // / `zstd compression failed` / `Allocation error : not enough memory`,整轮 exit=1。
+    // 真因是 Next 16 把 `experimental.turbopackFileSystemCacheForBuild` 默认置 true
+    // (node_modules/next/dist/server/config-shared.js:294),而本机 pagefile 只有固定 8GB
+    // (提交上限 ≈39.8GB),这块 SST 写入在提交量压力下必失败。
+    // 关掉只失去"跨构建缓存"(本仓本来就每轮从干净净面冷构建,该缓存从来没被复用),换来构建稳定。
+    // 编译速度不受影响:实测 Turbopack 全量编译仅 58s。
+    // 不选 `--webpack`:webpack 腿首次构建历史值 50.6min,而 deploy-lock 的 build timeout 是 600s,
+    // 切过去只会把"内存崩"换成"超时崩",且会把本仓 webpack 侧的既有缓存策略一起改写。
+    turbopackFileSystemCacheForBuild: false,
     // 2026-09-12 路由提速改造(barrel 拆分):
     // dev 下 Turbopack 按需编译,单路由冷编译 2.8~4.2s,是"路由切换卡"的绝对主因
     // (已编译路由只要 0.3~0.5s,差 10 倍)。一个放大器是 barrel 入口把整包模块都拖进
