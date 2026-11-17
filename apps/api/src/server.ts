@@ -29,6 +29,7 @@ import { relayDiagnosticsRoutes } from './routes/admin/relay-diagnostics.js'
 import { systemUpdateCheckRoutes } from './routes/admin/update-check.js'
 import { relayModelAvailabilityRoutes } from './routes/admin/relay-model-availability.js'
 import { relayDsmlParseRoutes } from './routes/admin/relay-dsml-parse.js'
+import { relayCheckinStreakRoutes } from './routes/admin/relay-checkin-streak.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -474,6 +475,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // DSML 解析预览(2026-11-17 立,对标 qoder2api-hub 的 DSML 回退解析):
   // 判据先装车(排障可立即回答「这段上游正文能不能还原」);自动回退接入点在案。
   server.register(relayDsmlParseRoutes, { prefix: '/api' })
+
+  // 签到连续天数(2026-11-17 立,对标 qoder2api-hub 的 streak 面板字段):
+  // 历史按天落 ai_relay_checkin_history(一天一条、幂等),判据纯算;无历史时报 available:false。
+  server.register(relayCheckinStreakRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
