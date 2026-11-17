@@ -223,6 +223,51 @@ test.describe('消息流活动区设计系统', () => {
     expect(headStyle).toEqual({ fontSize: '16px', height: '32px' })
   })
 
+  // 2026-11-17 立(用户口径):折叠头行 hover 时**背景色不变**,只用低对比描边做反馈。
+  // 此前 headStyle 只钉了字号/高度,底色与 hover 反馈无闸 —— 回潮到 bg 变色不会有人喊。
+  // 断言三件事,全部在真浏览器里量计算样式(不是读类名):
+  //  ① 常态底色 = --color-muted-soft 实色(与内联 code 同一 token,单层底);
+  //  ② hover 后底色逐字不变;
+  //  ③ hover 后描边色 ≠ 常态透明描边(几何宽度恒 1px,不产生位移)。
+  test('折叠头行 hover 不换底色,只把透明描边换成低对比描边', async ({ adminPage: page }) => {
+    const group = page.locator('[data-stream-group]').first()
+    await expect(group).toBeVisible()
+    const trigger = group.locator('[data-stream-group-trigger="true"]')
+    await expect(trigger).toBeVisible()
+
+    // 挪开鼠标,确保读的是常态(上一次交互可能把指针留在行内)
+    await page.mouse.move(0, 0)
+
+    const readStyle = () =>
+      trigger.evaluate((el) => {
+        const cs = getComputedStyle(el)
+        return {
+          bg: cs.backgroundColor,
+          borderColor: cs.borderTopColor,
+          borderWidth: cs.borderTopWidth,
+        }
+      })
+
+    const rest = await readStyle()
+    // ① 常态底色必须是实色 muted-soft;透明/未铺底 = 与内联 code 不同深度,直接红
+    expect(rest.bg).not.toBe('rgba(0, 0, 0, 0)')
+    // ③ 常态描边是"留位但不可见":宽度 1px(几何恒定),颜色透明
+    expect(rest.borderWidth).toBe('1px')
+
+    await trigger.hover()
+    await expect
+      .poll(async () => (await readStyle()).borderColor, { timeout: 5000 })
+      .not.toBe(rest.borderColor)
+
+    const hovered = await readStyle()
+    // ② hover 只换描边颜色,底色逐字不变(本需求的硬约束)
+    expect(hovered.bg).toBe(rest.bg)
+    // ③ 宽度不变 ⇒ 无 1px 位移抖动
+    expect(hovered.borderWidth).toBe(rest.borderWidth)
+    // hover 描边必须真的显形(不是拿透明换透明)
+    expect(hovered.borderColor).not.toBe('rgba(0, 0, 0, 0)')
+  })
+
   test('过程组头带步数与用时摘要,展开后区段内容并入同一行模板', async ({ adminPage: page }) => {
     const group = page.locator('[data-stream-group]').first()
     const trigger = group.locator('[data-stream-group-trigger="true"]')
