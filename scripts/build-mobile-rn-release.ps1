@@ -746,7 +746,13 @@ if ($NoPublish) {
         throw 'Gitee 分片腿未发: GITEE_TOKEN 缺失且凭据管理器里取不到 gitee.com —— 不许静默只发站点腿'
       }
       py $GiteeScript --apk $Apk --version $VersionName --parts 16 --version-code $VersionCode
-      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功" }
+      if ($LASTEXITCODE -eq 3) {
+        # 3 = Gitee 仓设成了私有:附件已全传齐,但对外 HEAD/GET 一律 403(2026-11-17 实测,补 UA 也无效)。
+        # 该腿对终端用户不可读,而 App 的下载地址本就走站点腿 —— 打警告继续,但绝不记成"分片腿已就绪"。
+        Write-Warning 'Gitee 分片腿:仓库为私有,附件已传齐但对外不可读(403);继续发站点腿'
+      } elseif ($LASTEXITCODE -ne 0) {
+        throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功"
+      }
     } else {
       throw "缺 $GiteeScript —— 分片腿无处发布,不许静默跳过"
     }
