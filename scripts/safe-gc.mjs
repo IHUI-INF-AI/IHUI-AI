@@ -36,6 +36,7 @@ import { join } from 'node:path'
 // 各留了一份是历史欠账,不是可以照着抄的先例)。
 import { stripAnsi } from './lib/commit-gate-attribution.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+import { resolveWriteLockDir } from './lib/git-dir-boundary.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -193,7 +194,8 @@ function main() {
   // 锁落点与 git-lock.mjs::lockDir() 同址(2026-11-17 separate-git-dir 根治):固定到仓内
   // .ihui-agent/state/,与 gitDir 位置解耦 —— 旧拼法 join(gitDir) 在仓外,恒检不到真实锁,
   // 导致 gc 与写操作并发。repoRoot 上面已确保非空(取不到已 exit)。
-  const lockPath = join(repoRoot, '.ihui-agent', 'state', 'ihui-git-write.lock')
+  // 路径不再本地拼:单一真相源 lib/git-dir-boundary.mjs::resolveWriteLockDir(§0.6)。
+  const lockPath = resolveWriteLockDir(repoRoot)
   if (existsSync(lockPath)) {
     console.log('⏭  检测到 git 写锁,跳过 gc(有其他写操作进行中)')
     return

@@ -30,7 +30,17 @@ import { isAdminRequest } from './require-permission.js'
  */
 
 const MAX_CONN_PER_IP = Number(process.env.IHUI_HTTP_CONN_PER_IP ?? 100)
-const HEALTH_PATHS = ['/health', '/metrics', '/ready', '/api/health', '/api/metrics']
+const HEALTH_PATHS = [
+  '/health',
+  '/metrics',
+  '/ready',
+  '/ping',
+  '/healthz',
+  '/livez',
+  '/readyz',
+  '/api/health',
+  '/api/metrics',
+]
 
 /**
  * 全局活跃连接硬顶的取值 —— 抽成纯函数是为了让「0 = 关闭」这一档能被测试钉住：
