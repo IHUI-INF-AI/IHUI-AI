@@ -450,6 +450,19 @@ export interface V1ModelsResponse {
     peak_multiplier_now?: number
     /** 此刻命中的规则名(`peak_multiplier_now` 的来源),原价为 null 时省略。 */
     peak_rule_now?: string
+    /**
+     * 下一次价档切换(2026-11-17 补):`{ at, multiplier, rule_name, from_multiplier }`。
+     *
+     * 窗口清单只回答"现在什么价",错峰调度与定时提醒要的是"什么时候变价、变成多少"。
+     * 值与计费侧同一个 `matchPeakRule` 采样判定所得,客户端不必自己展开星期与跨天窗口。
+     * 无规则或无未来切换(如全天单档)⇒ 省略,不写 null。
+     */
+    peak_next_change_at?: {
+      at: string
+      multiplier: number
+      rule_name: string | null
+      from_multiplier: number
+    }
   }>
 }
 
