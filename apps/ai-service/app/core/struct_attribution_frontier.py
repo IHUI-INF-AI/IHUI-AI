@@ -76,12 +76,14 @@ FRONTIER_STRUCTS: Final[Mapping[str, FrontierStruct]] = {
         template_prefix_tail='utputSchemacollaborationModemultiAgentModecyberAccessProgram',
         blocker="the pre-template field text has no pointer run and no gift-quality tail",
     ),
-    'ConfigRequirementsToml': FrontierStruct(
-        name='ConfigRequirementsToml',
-        arity=46,
-        template_va='0x151cb892b',
-        template_prefix_tail='oper_instructionsguardian_policy_configguardian_extra_policy',
-        blocker="the pre-template field text has no pointer run and no gift-quality tail",
+}
+
+#: Frontier entries that R68 closed by measurement. Kept beside the frontier (not deleted)
+#: so this module still records *how* they were settled and by which evidence.
+RESOLVED_BY_R68: Final[Mapping[str, str]] = {
+    'ConfigRequirementsToml': (
+        "16-byte (ptr,len) record run at 0x151cc6138: 48 records, first 46 == arity, "
+        "tail pair belongs to a neighbour 2-field table -> app/core/struct_fields_fat_pointer.py"
     ),
 }
 
@@ -143,7 +145,8 @@ FALSIFIED_METHODS: Final[tuple[FalsifiedMethod, ...]] = (
     FalsifiedMethod(
         method_id='pair-record-end',
         axis='16-byte record',
-        why_falsified='1,323/2,661 records end at a template end yet 0 segregate: len equals the template literal',
+        why_falsified='1,323/2,661 records end at a template end yet 0 segregate: len equals the template literal'
+                        ' (R68 narrowed: refutes len-as-length only, not array-as-record-run)',
         round_id='R67',
     ),
     FalsifiedMethod(
@@ -170,7 +173,16 @@ MEASUREMENTS: Final[Mapping[str, float]] = {
     'record_ends': 1323,
     'segmented_after_stitch': 1,
     'attributed_structs': 44,
+    'record_runs_scanned': 15234,
+    'resolved_by_r68': 1,
 }
+
+
+def resolved_structs() -> Mapping[str, str]:
+
+    """Frontier entries closed by later rounds, with the evidence that closed them."""
+
+    return dict(RESOLVED_BY_R68)
 
 
 def frontier_structs() -> Mapping[str, FrontierStruct]:
@@ -222,6 +234,8 @@ def validate_frontier(attributed: Mapping[str, tuple[str, ...]]) -> None:
             raise ValueError(f"frontier struct {name!r} has a non-positive arity")
         if struct.template_va.lower().startswith("0x") is False:
             raise ValueError(f"frontier struct {name!r} has a malformed template address")
+        if name in RESOLVED_BY_R68:
+            raise ValueError(f"frontier struct {name!r} was already resolved by R68; drop it from the frontier")
 
 
 def ensure_frontier_consistent(attributed: Mapping[str, tuple[str, ...]]) -> None:
