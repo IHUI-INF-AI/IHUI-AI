@@ -79,6 +79,11 @@ class AskUserQuestionItem:
     continued: bool = False
     #: 转入 continued 的那次工具调用 id;迟到答复据此回填 callId。
     continued_call_id: str = ""
+    #: 多题批(Claude-Code 风格 questions[])。非空时 prompt/options 只是第一题的镜像,
+    #: 真源是这里;单题调用方读 prompt/options 的旧行为不变。
+    questions: list[dict[str, Any]] = field(default_factory=list)
+    #: 多题逐项答复,与 questions 同序:[{"id","selectedOptionIds","customText"}]
+    answers: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """SSE 下行帧形状(与 question_parser.Question.to_dict() 同形 + 两个附加键)。
@@ -103,6 +108,18 @@ class AskUserQuestionItem:
             "sessionId": self.session_id,
             "expiresAt": _iso(self.expires_at),
         })
+        if self.questions:
+            # 2026-11-18:多题批随帧下发,旧客户端按未知键忽略(只看到第一题)。
+            payload["questions"] = [
+                {
+                    "id": q["id"],
+                    "prompt": q["prompt"],
+                    **({"header": q["header"]} if q.get("header") else {}),
+                    "options": [dict(opt) for opt in q["options"]],
+                    "allowMultiple": q["allowMultiple"],
+                }
+                for q in self.questions
+            ]
         return payload
 
     def resolved_payload(
@@ -121,6 +138,8 @@ class AskUserQuestionItem:
         }
         if continued:
             payload["continued"] = True
+        if self.answers:
+            payload["answers"] = [dict(a) for a in self.answers]
         return payload
 
     def timeout_seconds(self) -> int:
@@ -181,7 +200,24 @@ def _error(code: str, message: str) -> dict[str, Any]:
     return {"ok": False, "error": message, "errorCode": code}
 
 
+def _maybe_json_list(value: object) -> object:
+    """把被字符串化的 JSON 数组还原成 list(函数调用通道常见)。
+
+    2026-11-18 立:部分模型(agnes/gpt 系)在 function calling 里把 `questions`
+    整串当一个字符串发过来,直接按 list 校验会把合法提问判成"格式非法"。
+    """
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("[") or text.startswith("{"):
+            try:
+                return json.loads(text)
+            except (TypeError, ValueError):
+                return value
+    return value
+
+
 def _normalize_options(options: object) -> tuple[list[dict[str, str]] | None, dict[str, Any] | None]:
+    options = _maybe_json_list(options)
     if not isinstance(options, list) or not 1 <= len(options) <= MAX_OPTIONS:
         return None, _error(
             "question_invalid_options",
@@ -192,12 +228,18 @@ def _normalize_options(options: object) -> tuple[list[dict[str, str]] | None, di
     for raw in options:
         if not isinstance(raw, dict):
             return None, _error("question_invalid_option", "每个选项必须是对象")
-        opt_id = raw.get("id")
+        raw_id = raw.get("id")
         label = raw.get("label")
-        if not isinstance(opt_id, str) or not opt_id.strip():
-            return None, _error("question_invalid_option", "选项 id 必须是非空字符串")
         if not isinstance(label, str) or not label.strip():
             return None, _error("question_invalid_option", "选项 label 必须是非空字符串")
+        # 2026-11-18:Claude-Code 风格的提问只给 label/description,不给 id ——
+        # 由服务端派生稳定短 id(按下标 1 起),调用方仍可用 label 作答。
+        if raw_id is None or (isinstance(raw_id, str) and not raw_id.strip()):
+            opt_id = f"o{len(normalized) + 1}"
+        elif isinstance(raw_id, str):
+            opt_id = raw_id.strip()
+        else:
+            return None, _error("question_invalid_option", "选项 id 必须是非空字符串")
         if opt_id in seen:
             return None, _error("question_invalid_option", f"选项 id 重复: {opt_id}")
         seen.add(opt_id)
@@ -206,6 +248,44 @@ def _normalize_options(options: object) -> tuple[list[dict[str, str]] | None, di
         if isinstance(description, str) and description.strip():
             item["description"] = description
         normalized.append(item)
+    return normalized, None
+
+
+MAX_QUESTIONS = 4
+
+
+def _normalize_questions(
+    questions: object,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+    """多题批归一:[{id, prompt, header?, options, allowMultiple}]。
+
+    与 Claude Code / Cursor 的 questions[] 形态对齐(2026-11-18 立):
+    真实模型在带工具调用时普遍按这个形状发,只认单题 options 会把合法提问判死。
+    """
+    questions = _maybe_json_list(questions)
+    if not isinstance(questions, list) or not 1 <= len(questions) <= MAX_QUESTIONS:
+        return None, _error(
+            "question_invalid_questions",
+            f"questions 必须是 1..{MAX_QUESTIONS} 项的数组",
+        )
+    normalized: list[dict[str, Any]] = []
+    for idx, raw in enumerate(questions, start=1):
+        if not isinstance(raw, dict):
+            return None, _error("question_invalid_questions", "每个 question 必须是对象")
+        prompt = raw.get("question") or raw.get("prompt")
+        if not isinstance(prompt, str) or not prompt.strip():
+            return None, _error("question_invalid_questions", "每个 question 必须有非空正文")
+        options, option_error = _normalize_options(raw.get("options"))
+        if option_error is not None:
+            return None, option_error
+        header = raw.get("header")
+        normalized.append({
+            "id": f"s{idx}",
+            "prompt": prompt.strip(),
+            "header": header.strip() if isinstance(header, str) else "",
+            "options": options or [],
+            "allowMultiple": bool(raw.get("multiSelect", False)),
+        })
     return normalized, None
 
 
@@ -236,14 +316,30 @@ def create_question(
     allow_multiple: bool = False,
     timeout_s: object = None,
     call_id: str = "",
+    questions: object = None,
 ) -> AskUserQuestionItem | dict[str, Any]:
     """登记一个问题;参数非法时返回结构化错误 dict(不抛异常)。
 
     `timeout_s` 显式给出时覆盖 env 默认值,并记录 timed 模式(见 normalize_timeout_s);
     `call_id` 只在 timed 到期转入 continued 时用于迟到答复回填。
+
+    `questions` 非空时按多题批登记(Claude-Code 风格),此时 prompt/options 只是第一题
+    镜像,单题调用方行为不变。
     """
     if not isinstance(session_id, str) or not session_id.strip():
         return _error("question_session_required", "session_id 必填")
+    sub_questions: list[dict[str, Any]] = []
+    if questions is not None:
+        parsed_questions, questions_error = _normalize_questions(questions)
+        if questions_error is not None or parsed_questions is None:
+            return questions_error or _error("question_invalid_questions", "questions 非法")
+        sub_questions = parsed_questions
+        first = sub_questions[0]
+        prompt = first["prompt"]
+        options = first["options"]
+        allow_multiple = first["allowMultiple"]
+        if not header and first.get("header"):
+            header = first["header"]
     if not isinstance(prompt, str) or not prompt.strip():
         return _error("question_invalid_prompt", "question(prompt) 必须是非空字符串")
     normalized, option_error = _normalize_options(options)
@@ -267,6 +363,7 @@ def create_question(
         created_at=now,
         expires_at=now + timedelta(seconds=budget),
         continued_call_id=call_id if isinstance(call_id, str) else "",
+        questions=sub_questions,
     )
     with _registry_lock:
         _prune_stale(now)
@@ -289,24 +386,62 @@ def _selection(
     item: AskUserQuestionItem,
     selected_ids: object,
     custom_text: object,
+    *,
+    options: list[dict[str, str]] | None = None,
+    allow_multiple: bool | None = None,
+    allow_custom: bool | None = None,
 ) -> tuple[list[str], str, dict[str, Any] | None]:
-    """校验并归一选择;非法时返回 (原样, 原样, 结构化错误)。"""
+    """校验并归一选择;非法时返回 (原样, 原样, 结构化错误)。
+
+    多题批按子题的 options/开关逐题校验,故三个维度可显式覆盖。
+    """
+    pool = options if options is not None else item.options
+    multi = item.allow_multiple if allow_multiple is None else allow_multiple
+    custom_allowed = item.allow_custom if allow_custom is None else allow_custom
     raw_ids = selected_ids if isinstance(selected_ids, list) else []
     ids = [x for x in raw_ids if isinstance(x, str)]
     if len(ids) != len(raw_ids):
         return [], "", _error("question_invalid_selection", "selectedOptionIds 必须全是字符串")
-    allowed = {opt["id"] for opt in item.options}
+    allowed = {opt["id"] for opt in pool}
     unknown = [x for x in ids if x not in allowed]
     if unknown:
         return [], "", _error("question_invalid_selection", f"未知选项: {unknown}")
     custom = custom_text.strip() if isinstance(custom_text, str) else ""
-    if not item.allow_multiple and len(ids) != 1:
+    if not multi and len(ids) != 1:
         return [], "", _error("question_invalid_selection", "单选必须且只能选 1 项")
-    if item.allow_multiple and not ids and not (custom and item.allow_custom):
+    if multi and not ids and not (custom and custom_allowed):
         return [], "", _error("question_invalid_selection", "多选至少选 1 项或给出自定义文本")
-    if custom and not item.allow_custom:
+    if custom and not custom_allowed:
         custom = ""  # allowCustom=false:自由文本被忽略,不影响选项答案
     return ids, custom, None
+
+
+def _resolve_sub_answers(
+    item: AskUserQuestionItem,
+    answers: object,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+    """多题批逐项校验;要求与 questions 同序且题题有答。"""
+    if not isinstance(answers, list) or len(answers) != len(item.questions):
+        return None, _error(
+            "question_invalid_selection",
+            f"多题批需要 {len(item.questions)} 项 answers,与 questions 同序",
+        )
+    out: list[dict[str, Any]] = []
+    for sub, raw in zip(item.questions, answers, strict=True):
+        if not isinstance(raw, dict):
+            return None, _error("question_invalid_selection", "answers 每项必须是对象")
+        ids, custom, err = _selection(
+            item,
+            raw.get("selectedOptionIds"),
+            raw.get("customText", ""),
+            options=sub["options"],
+            allow_multiple=sub["allowMultiple"],
+            allow_custom=item.allow_custom,
+        )
+        if err is not None:
+            return None, err
+        out.append({"id": sub["id"], "selectedOptionIds": ids, "customText": custom})
+    return out, None
 
 
 def resolve_question(
@@ -316,10 +451,12 @@ def resolve_question(
     user_id: str | None,
     selected_ids: object = None,
     custom_text: object = "",
+    answers: object = None,
 ) -> tuple[str, AskUserQuestionItem | None]:
     """答复一个问题;返回 (status, item)。
 
     answered 只在首次答复发生;answered 之后再来一律 duplicate(**不覆盖原答案**)。
+    多题批走 `answers`(逐题同序);单题仍走 selected_ids/custom_text。
     """
     item = _lookup(question_id)
     if item is None:
@@ -337,6 +474,17 @@ def resolve_question(
             item.reason = "timeout"
             item.event.set()
             return STATUS_TIMEOUT, item
+        if item.questions and answers is not None:
+            parsed, answers_error = _resolve_sub_answers(item, answers)
+            if answers_error is not None:
+                return STATUS_INVALID, item
+            assert parsed is not None
+            item.answers = parsed
+            item.selected_ids = parsed[0]["selectedOptionIds"]
+            item.custom_text = parsed[0]["customText"]
+            item.status = STATUS_ANSWERED
+            item.event.set()
+            return STATUS_ANSWERED, item
         ids, custom, selection_error = _selection(item, selected_ids, custom_text)
         if selection_error is not None:
             return STATUS_INVALID, item
@@ -528,13 +676,24 @@ def tool_result_payload(
         }
     if status == STATUS_ANSWERED:
         labels = [opt["label"] for opt in item.options if opt["id"] in item.selected_ids]
-        return {
+        payload: dict[str, Any] = {
             "ok": True,
             "status": STATUS_ANSWERED,
             "selectedOptionIds": list(item.selected_ids),
             "labels": labels,
             "customText": item.custom_text,
         }
+        if item.answers:
+            # 多题批:逐题答案与题面顺序一致,模型据此组织下一步。
+            payload["answers"] = [
+                {
+                    "id": a["id"],
+                    "selectedOptionIds": list(a["selectedOptionIds"]),
+                    "customText": a["customText"],
+                }
+                for a in item.answers
+            ]
+        return payload
     if status == STATUS_WITHDRAWN:
         return {
             "ok": False,
