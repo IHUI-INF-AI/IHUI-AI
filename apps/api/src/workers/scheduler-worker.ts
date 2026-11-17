@@ -36,6 +36,10 @@ import {
   cleanupOauthSessions,
   recordAbsentDaily,
 } from '../services/scheduled-tasks-service.js'
+import {
+  runAuthSessionPollSweep,
+  sweepExpiredAuthSessions,
+} from '../services/relay-auth-session-service.js'
 import { pushAlert, pushAlertWithResult } from '../services/alert-notification-service.js'
 import { scanAndChargeDueContracts } from '../services/subscription-service.js'
 import {
@@ -1173,6 +1177,20 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               keyRowsSkipped: result.keyRowsSkipped,
               accountRowsSkipped: result.accountRowsSkipped,
             }
+          }
+          // 号池授权会话调度腿(2026-11-17 立):先清过期再逐轮到期会话,单个失败不中断整批
+          // (runAuthSessionPollSweep 内部逐条 catch);未到 nextPollAt 的会话一次上游都不打。
+          case 'relay-auth-session-poll': {
+            const swept = await sweepExpiredAuthSessions()
+            const polled = await runAuthSessionPollSweep(20)
+            const result = { swept: swept.expired, ...polled }
+            server.log.info(result, 'relay auth sessions swept and polled')
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')

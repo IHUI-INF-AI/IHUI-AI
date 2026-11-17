@@ -663,6 +663,14 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: IdCard,
         dynamicLabel: '账号池',
       },
+      // 号池自助授权会话(2026-11-17 立):免客户端 OAuth 设备授权 / PAT 直贴入池
+      // dynamicLabel 沿用同组账号池惯例 ⇒ 不新增 i18n 键(避开他席在途的五语改动)
+      {
+        href: '/admin/relay/auth-sessions',
+        labelKey: 'dashboard',
+        icon: IdCard,
+        dynamicLabel: '授权会话',
+      },
       // 账号代理(2026-10-27 立,账号级 proxyUrl 的独立管理入口)
       {
         href: '/admin/relay/account-proxy',
