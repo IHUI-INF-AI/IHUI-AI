@@ -22,7 +22,7 @@ import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { setBaseUrl, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
+import { setBaseUrl, setClientSignatureProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
 import { registerCliTokenProvider } from './lib/auth-refresh.js';
@@ -33,6 +33,7 @@ import {
   isDigestTrackedLease,
   releaseLeaseAfterRun,
 } from './utils/permission-lease-flag.js';
+import { formatClientSignature } from '@ihui/shared';
 import { isRecord } from './util/json.js';
 import { readCliPackage } from './util/pkg-version.js';
 import { writeRunManifest } from './runs/manifest.js';
@@ -719,6 +720,12 @@ program.hook('preAction', async () => {
   // isMissingOrShortUserAgent ⇒ CLI 每个请求都被判为自动化客户端
   // (429 要求一个无法完成的 CAPTCHA + 每请求拉低出口 IP 信誉)。
   setUserAgent(CLI_USER_AGENT);
+  // 2026-11-17 立:客户端签名。CLI 的 UA 明文可改,服务端登录面不再只认 UA。
+  // 密钥走环境变量(IHUI_CLIENT_SIGN_SECRET,与 apps/api/.env 同值);未设 ⇒ 不注册 ⇒ 不发头。
+  const clientSignSecret = process.env.IHUI_CLIENT_SIGN_SECRET;
+  if (clientSignSecret) {
+    setClientSignatureProvider(() => formatClientSignature(clientSignSecret, 'ihui-cli'));
+  }
   // O12 机器凭据:出站必须同时携带 Authorization: Bearer ihui_xxx 与 X-Api-Secret: sk_xxx
   // (api-client 只负责前者)。人凭据(JWT)在此 passthrough,行为完全不变 ⇒ 零回归。
   installOutboundCredentialHeaders(
