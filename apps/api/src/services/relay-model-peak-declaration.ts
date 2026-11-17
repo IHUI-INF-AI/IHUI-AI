@@ -15,6 +15,7 @@
  * - 一条都不命中 ⇒ 返回 null,**整键省略**;绝不返回空数组假装"没有峰谷价"。
  */
 import { normalizeModelId } from '@ihui/shared'
+import { getUtc8WeekdayAndMinute, matchPeakRule } from './peak-pricing-service.js'
 
 /** 输入面与 `listPublicPeakWindows()` 的条目同形(只取需要的字段)。 */
 export interface PeakWindowSource {
@@ -34,6 +35,15 @@ export interface DeclaredPeakWindow {
   end_minute: number
   multiplier: number
   timezone: 'UTC+8'
+  /**
+   * 此刻是否落在本窗口内(2026-11-17 补,对齐 qoder2api 的 `off_peak_active_now`:
+   * 它把"现在是不是谷时"随价档一起交付,客户端不必自己再算一遍时区与跨天窗口)。
+   *
+   * 判据不在这里复算 —— 直接复用 `peak-pricing-service` 的 `matchPeakRule`(§0.6 单一真相源),
+   * 因此跨天窗口(如 23:00-07:00)、空 daysOfWeek(每天)、0 长度时段(全天)三档语义与计费侧逐字一致。
+   * 逐窗口给而不是整块给,是因为同一模型的专属/通用规则时段不同,"谷时"对每条规则各是一个答案。
+   */
+  active_now: boolean
 }
 
 /** 单模型最多宣告几条:规则再多也不把目录撑爆。 */
@@ -44,13 +54,17 @@ export const PEAK_WINDOWS_LIMIT = 5
  *
  * 排序 = 专属规则(modelId 命中)优先 → 通用规则(modelId 为空)在后;同级保持入参顺序。
  * 返回 null 表示"这个模型没有可宣告的窗口"(调用方整键省略)。
+ *
+ * `at` 只影响 `active_now` 一列;不传即取当前时刻(端点每次请求现算,不缓存进结果)。
  */
 export function pickPeakWindowsForModel(
   windows: readonly PeakWindowSource[],
   modelId: string,
   limit: number = PEAK_WINDOWS_LIMIT,
+  at: Date = new Date(),
 ): DeclaredPeakWindow[] | null {
   const target = normalizeModelId(modelId)
+  const { weekday, minute } = getUtc8WeekdayAndMinute(at)
   const specific: PeakWindowSource[] = []
   const generic: PeakWindowSource[] = []
 
@@ -78,6 +92,19 @@ export function pickPeakWindowsForModel(
       end_minute: w.endMinute,
       multiplier: w.multiplier,
       timezone: 'UTC+8',
+      // 入参已由 listPublicPeakWindows() 过滤掉停用规则,这里按启用规则判(不另设 enabled 面)。
+      active_now: matchPeakRule(
+        {
+          enabled: true,
+          modelId: w.modelId,
+          daysOfWeek: w.daysOfWeek,
+          startMinute: w.startMinute,
+          endMinute: w.endMinute,
+        },
+        modelId,
+        weekday,
+        minute,
+      ),
     })
   }
 
