@@ -936,6 +936,8 @@ async function authenticateShareToken(
     rateLimit5h: null,
     rateLimit1d: null,
     rateLimit7d: null,
+    // 分享 Key 继承源 Key 的出口绑定(否则同一把 Key 换个入口就换了区)
+    egressRegion: (share.sourceKey.egressRegion as 'cn' | 'global' | null) ?? null,
   }
   request.apiKey = ctx
 
@@ -1072,6 +1074,8 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
     rateLimit5h: row.rateLimit5h,
     rateLimit1d: row.rateLimit1d,
     rateLimit7d: row.rateLimit7d,
+    // Key 级出口绑定(2026-11-17):null = 跟随全局
+    egressRegion: (row.egressRegion as 'cn' | 'global' | null) ?? null,
   }
   request.apiKey = ctx
 
