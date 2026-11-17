@@ -908,6 +908,8 @@ export interface AgentQuestionEvent {
   question: Record<string, unknown>
   /** 提问所属会话(答复端点 `POST /llm/complete/stream/{sessionId}/question-response` 用) */
   sessionId: string
+  /** 重连重放标记(服务端重发仍待答的问题;前端按 questionId 幂等渲染) */
+  replayed?: boolean
 }
 
 /** question-resolved 解析:四态 + 可选 continued(timed 到期转挂起,前端仍按 timeout 结算)。 */
@@ -928,6 +930,7 @@ const QUESTION_FIELDS = z.object({
   question: z.record(z.string(), z.unknown()),
   session_id: z.string().optional(),
   message_id: z.string().optional(),
+  replay: z.boolean().optional(),
 })
 const QUESTION_ROUTE = z.looseObject(QUESTION_FIELDS.pick({ type: true, question: true }).shape)
 
@@ -969,6 +972,7 @@ export function parseAgentQuestionEvent(raw: unknown): AgentQuestionEvent | null
     type: 'question',
     question: question as Record<string, unknown>,
     sessionId: String(data.session_id ?? p['session_id'] ?? ''),
+    ...(p['replay'] === true ? { replayed: true } : {}),
   }
 }
 
