@@ -185,6 +185,13 @@ let aiServiceBaseOverride: string | null = null
  * 当成爬虫。空串 = 不注入(浏览器端 UA 是 forbidden header,且浏览器本就不会被误判)。
  */
 let userAgentHeader = ''
+/**
+ * 客户端签名提供方(2026-11-17 立):服务端登录端点用 `X-IHUI-Client` 认出自家原生客户端,
+ * 取代"改 User-Agent 就能拿到豁免"的可伪造判据(实测脚本把 UA 改成 okhttp 即可跳过人机验证)。
+ * 本包是零依赖边界,不持有密钥、不做散列 —— 各端在启动时注入一个"每次现算"的取头函数
+ * (`formatClientSignature` 在 @ihui/shared)。空 = 不注入(浏览器端与不带签名的旧客户端行为不变)。
+ */
+let clientSignatureProvider: (() => string) | null = null
 // SSE 流式请求专用 baseUrl(2026-07-27 立):
 // Next.js dev proxy 对 SSE 流有超时/缓冲问题,导致流式响应被中断(net::ERR_ABORTED)。
 // streamChat 用 streamBaseUrl 直连 API 服务器,绕过 Next.js dev proxy。
@@ -261,6 +268,27 @@ async function injectDeviceFingerprintHeader(
     if (abortHandler && externalSignal) {
       externalSignal.removeEventListener('abort', abortHandler)
     }
+  }
+}
+
+/**
+ * 注入客户端签名提供方(2026-11-17 立)。传 null 可关闭。
+ * 提供函数必须**每次请求现调**:时间戳只在服务端 ±10 分钟窗口内有效,算一次存起来必然过期。
+ * 抛错或被拒一律静默降级 —— 服务端回落到既有 UA 判据,不阻塞业务。
+ */
+export function setClientSignatureProvider(provider: (() => string) | null): void {
+  clientSignatureProvider = provider
+}
+
+/** 把签名头注入 headers(三条 REST 腿共用;调用方显式写了就不覆盖)。 */
+function injectClientSignatureHeader(headers: Record<string, string>): void {
+  if (headers['X-IHUI-Client']) return
+  if (!clientSignatureProvider) return
+  try {
+    const value = clientSignatureProvider()
+    if (value) headers['X-IHUI-Client'] = value
+  } catch {
+    // 签名失败 ⇒ 不带签名发出,由服务端按既有判据处理(fail-open,绝不伪装成"签名通过")
   }
 }
 
@@ -1263,6 +1291,7 @@ export async function fetchApi<T>(
   // 2026-08-02 设备维度风控:注入 x-device-fingerprint header
   // 后端 audit-logger / anomaly-detector / threat-detector 读取此 header 做设备维度风控。
   await injectDeviceFingerprintHeader(headers)
+  injectClientSignatureHeader(headers)
 
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
   // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
@@ -1671,6 +1700,7 @@ async function fetchRawOnce(
   if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
+  injectClientSignatureHeader(headers)
   // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
   // 2026-10-23 本腿没有别的超时手段(要读二进制,transport 的 timeoutMs 只对支持的介质成立)
   // ⇒ 拿不到中止能力时**当场喊响**,不能把"30s 超时"这一保护悄悄丢掉:静默丢掉等于永久挂起。
@@ -4612,6 +4642,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 2026-10-26 收口:两道闸并存的形态已撤,单一真相源 = runner 的 authRefreshed。
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
+  injectClientSignatureHeader(headers)
 
   const body: Record<string, unknown> = { model: opts.model, messages: opts.messages }
   if (opts.metadata) body.metadata = opts.metadata

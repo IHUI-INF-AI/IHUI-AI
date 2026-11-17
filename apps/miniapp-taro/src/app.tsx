@@ -22,12 +22,15 @@ import { useUserStore } from './stores/user'
 import { KEEP_KEYS_ON_CLEAR, IHUI_KEY_PREFIX } from './constants/storage'
 import {
   setBaseUrl,
+  setClientSignatureProvider,
   setTransport,
   setStreamTransport,
   setDeviceFingerprintProvider,
   setUnauthorizedHandler,
 } from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
+// 2026-11-17 立:客户端签名唯一实现(与后端同一份,见 @ihui/shared utils/client-sign)
+import { formatClientSignature } from '@ihui/shared'
 import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
 import { createTaroTransport } from './utils/api-client-transport'
 // D138(承 V4 #96):流式(SSE)传输介质注入 —— chatStream 的重连/退避/读超时/续传
@@ -67,6 +70,13 @@ void (async () => {
     setTransport(createTaroTransport())
     setStreamTransport(createTaroStreamTransport())
     setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
+    // 2026-11-17 立:客户端签名。小程序 UA 含 MicroMessenger 已被服务端豁免,但豁免靠的是
+    // "UA 里有某个词"——签名把它换成"有共享密钥";密钥由构建时注入(TARO_APP_*),
+    // 未注入 ⇒ 不注册 ⇒ 不发头,行为与未引入签名时一致。
+    const clientSignSecret = process.env.TARO_APP_IHUI_CLIENT_SIGN_SECRET
+    if (clientSignSecret) {
+      setClientSignatureProvider(() => formatClientSignature(clientSignSecret, 'ihui-miniapp'))
+    }
     // 2026-10-26:主动续期(此前只有 401 兜底;空闲 15 分钟后首次操作必先失败一次)
     startTokenAutoRefresh()
   } catch (err) {

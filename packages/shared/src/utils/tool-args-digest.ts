@@ -97,7 +97,10 @@ function utf8Bytes(text: string): number[] {
   return out
 }
 
-function sha256Hex(text: string): string {
+export function sha256Hex(text: string): string {
+  // 2026-11-17 导出:客户端签名(`./client-sign.ts`)的唯一散列源 —— 那只签名要在
+  // web / 小程序 / RN / Node 四类宿主上算出**同一个**值,再抄一份实现就必然漂移
+  // (与 frame-watermark-parity 同一课)。字符串域 API 足以覆盖签名用途(不为它引入字节域)。
   const bytes = utf8Bytes(text)
   const bitLen = bytes.length * 8
   bytes.push(0x80)
