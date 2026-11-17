@@ -8701,3 +8701,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 跟踪文件 | 22417 | `trackedFiles` |
 | 测试文件 | 5678 | `testFiles` |
 | 跟踪文件 | 22418 | `trackedFiles` |
+| 测试文件 | 5705 | `testFiles` |
+| 跟踪文件 | 22485 | `trackedFiles` |
+| 测试文件 | 5675 | `testFiles` |

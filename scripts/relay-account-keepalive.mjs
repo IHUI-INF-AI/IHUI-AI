@@ -34,6 +34,10 @@ import { assertDistFresh } from './lib/dist-freshness.mjs'
 import { probeClientActive as probeTraeClientActive } from './sync-trae-client-session.mjs'
 import { probeMinimaxClientActive } from './sync-minimax-client-session.mjs'
 import { __test__ as qoderSessionSync } from './sync-qoder-client-session.mjs'
+// 商店号清单判据单源(§0.6):与容量哨兵共用同一装载器(读 store-platforms.ts 源文件求值),
+// 不在本文件写死 provider code。这些运营池/应用上架号被设计性 temp_unschedulable 摘除,
+// 保活续期照常,但不该被喊成「调度掉线」。
+import { loadStoreProviderCodes } from './check-relay-capacity-zero.mjs'
 
 const probeQoderClientActive = qoderSessionSync.probeQoderClientActive
 
@@ -64,10 +68,21 @@ export function parseArgs(argv) {
  * 哪些号需要喊人:已被摘除,或巡检判成 down。
  * 刻意不看 refreshFailureCount 与阈值比大小 —— 摘除阈值单源在 scheduler
  * (REFRESH_FAILURE_LIMIT),这里再抄一份数字,两边一旦漂移就会漏喊/多喊。
+ *
+ * `excludeProviders`(商店号清单,与生产 `loadRelayPoolRows` 同源)里的 provider 被排除:
+ * 它们是运营池/应用上架账号,`seedStoreAccounts` 刻意写 `temp_unschedulable=true` +
+ * `healthStatus='unknown'`,续期保活照常,但**设计上不参与 AI 调度** ⇒ 摘除是正确态,
+ * 不是掉线。省略该参数 = 不过滤(向后兼容测试与旧调用者)。
  */
-export function alertTargetsOf(keepAlive) {
+export function alertTargetsOf(keepAlive, excludeProviders = []) {
   const rows = Array.isArray(keepAlive) ? keepAlive : []
-  return rows.filter((r) => r && (r.tempUnschedulable === true || r.healthStatus === 'down'))
+  const ex = new Set(Array.isArray(excludeProviders) ? excludeProviders : [])
+  return rows.filter(
+    (r) =>
+      r &&
+      !ex.has(r.providerCode) &&
+      (r.tempUnschedulable === true || r.healthStatus === 'down'),
+  )
 }
 
 /** 去重身份:provider + uid 前 8 位(稳定形态,不含会抖的量) */
@@ -84,14 +99,14 @@ export function alertIdOf(row) {
  *  - 任一侧取不到 ⇒ null(未判定):不发信,更不得把"没有 before"写成"本轮无复活"(§0.3,
  *    旧版 ts 产物不带 before 快照的混跑期就走这一档)。
  */
-export function revivalTransitionsOf(before, after) {
+export function revivalTransitionsOf(before, after, excludeProviders = []) {
   if (!Array.isArray(before) || !Array.isArray(after)) return null
   const afterById = new Map(after.map((r) => [String(r.id), r]))
   const out = []
-  for (const b of alertTargetsOf(before)) {
+  for (const b of alertTargetsOf(before, excludeProviders)) {
     const a = afterById.get(String(b.id))
     if (!a) continue
-    if (alertTargetsOf([a]).length === 0) out.push({ before: b, after: a })
+    if (alertTargetsOf([a], excludeProviders).length === 0) out.push({ before: b, after: a })
   }
   return out
 }
@@ -353,7 +368,13 @@ async function main(argv) {
   if (run.stderr) process.stderr.write(run.stderr)
   if (run.code === 2) return 2
   if (!parsed.once) return run.code
-  const targets = alertTargetsOf(run.json?.keepAlive)
+  // 商店号清单失败方向 = 不过滤(多喊一次,§0.10):宁可误报也不静默漏掉真掉线。
+  const storeCodes = await loadStoreProviderCodes()
+  if (!storeCodes.ok) {
+    process.stderr.write(`⚠️ 商店号清单未装载(${storeCodes.why})⇒ 本轮不排除,告警维持旧口径(多喊一次)\n`)
+  }
+  const exclude = storeCodes.ok ? storeCodes.codes : []
+  const targets = alertTargetsOf(run.json?.keepAlive, exclude)
   let sent = 0
   if (targets.length > 0) {
     sent = sendAlertMail(targets)
@@ -365,6 +386,7 @@ async function main(argv) {
   const transitions = revivalTransitionsOf(
     Array.isArray(run.json?.keepAliveBefore) ? run.json.keepAliveBefore : null,
     Array.isArray(run.json?.keepAlive) ? run.json.keepAlive : null,
+    exclude,
   )
   let recoveryMailed = 0
   if (transitions === null) {
