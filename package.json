@@ -13,6 +13,7 @@
     "rea": "npx -y rea-agents@6.4.0",
     "diag:relay": "node scripts/diag-relay.mjs --models",
     "diag:relay:chat": "node scripts/diag-relay.mjs --chat",
+    "relay:auth": "node scripts/relay-auth-session.mjs",
     "dev:safe": "node scripts/run-start-dev.mjs",
     "dev:safe:fast": "node scripts/run-start-dev.mjs -Fast",
     "dev:safe:status": "node scripts/run-start-dev.mjs -Status",
