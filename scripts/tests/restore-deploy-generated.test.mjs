@@ -146,6 +146,17 @@ test('⑧ 形状锁:同内容那一档的比较必须走 oid,不得拿"字节数
   assert.doesNotMatch(body, /\.size/, '按体积判同内容 = 同名同大小不同字节的假配对(本仓反复踩过)')
 })
 
+test('⑨ 回潮锁:README 游标 .doc-autoupdate/last-sha 必须在封闭清单里(trackedYield)', () => {
+  const reg = JSON.parse(readFileSync(join(HERE, '..', 'data', 'deploy-generated-paths.json'), 'utf8'))
+  const e = reg.paths.find((p) => p.path === '.doc-autoupdate/last-sha')
+  assert.ok(
+    e,
+    '该路径不在清单 ⇒ 部署环会再次被它挡死(2026-11-17 实测:连续 856 分钟 ff 失败、prod 落后 71 枚)',
+  )
+  assert.equal(e.trackedYield, true, '它只有「被跟踪的生成物」这一种授权形态')
+  assert.ok((e.reason || '').length >= 20, '每条必须写明谁在生产它、为什么每轮重写')
+})
+
 process.on('exit', () => {
   try {
     rmScratch(base)
