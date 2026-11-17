@@ -249,7 +249,11 @@ async function cmdPat(argv, headers) {
   if (!r.ok) deny(r, `PAT 入池(${provider} · 指纹 ${fp})`)
   const v = r.json?.data
   if (v?.status === 'imported') {
-    console.log(`[完成] ${provider} 已入池 · accountId=${v.accountId ?? '-'} · 指纹 ${v.credFingerprint ?? fp}`)
+    // 如实：PAT 形态入池即「禁用态」——mapPatToImport 硬编码 enabled:false，
+    // 上游有效性由后续健康检查/启用动作判定，本通道不做同步探针（CLI 的 --with-health 才有）。
+    // 不写「已入池」那种会让人以为能直接调用的文案。
+    console.log(`[已入池·禁用态] ${provider} · accountId=${v.accountId ?? '-'} · 指纹 ${v.credFingerprint ?? fp}`)
+    console.log('  账号默认禁用：需通过上游健康检查并启用后才会被调度（本通道不做同步探针）')
     return 0
   }
   if (TERMINAL.has(v?.status)) {
