@@ -71,7 +71,8 @@ export type ScheduledJobName =
   // 与 services/edu-attendance-absent-job.ts(补录器不自判阈值,阈值一律走规则表现读)。
   | 'edu-attendance-absent-daily'
   // 考勤 IM 同步(2026-11-13 立):遍历启用飞书/钉钉适配器的用户拉打卡/请假,产暂存批次走人工裁决/确认。
-  // 默认关(systemConfigs sync:attendance:enabled),端点核实后置 true 开闸;见 services/attendance-sync-job.ts。
+  // 开关 = systemConfigs `sync:attendance:enabled`(改库热生效,不必重启);平台射程 = `sync:attendance:platforms`。
+  // 见 services/attendance-sync-job.ts。
   | 'hr-attendance-sync-daily'
   // 号池自助授权会话(2026-11-17 立):到期轮询 + 过期清扫。对照 qoder2api 系网关把会话存进程内
   // Map(切流即静默丢),本仓会话在库 ⇒ 蓝绿/重启不丢;未到 nextPollAt 时一次上游都不打。
@@ -115,8 +116,11 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
   },
   {
     name: 'hr-attendance-sync-daily',
-    pattern: '0 2 * * *',
-    description: '考勤 IM 同步（每日02:00，遍历启用适配器用户，默认关）',
+    // BullMQ 的 pattern 按 **UTC** 解析(repeatOpts 没有 tz 字段,与 edu-arrear-remind-daily 同口径)。
+    // 2026-11-17 修正:原 `0 2 * * *` 实际落在**北京 10:00**,与「每日凌晨自动跑」的运维预期错位;
+    // UTC 18:00 才是北京次日 02:00。
+    pattern: '0 18 * * *',
+    description: '考勤 IM 同步（每日北京02:00；开关=systemConfigs sync:attendance:enabled 改库热生效）',
   },
   {
     name: 'relay-auth-session-poll',

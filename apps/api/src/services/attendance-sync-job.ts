@@ -15,13 +15,10 @@
 
 import { capAlertMessage, flattenUntrustedText } from '../utils/alert-text.js'
 import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
-import type { SchedulerRegisterLog, SchedulerUpsertQueue } from '../plugins/scheduler.js'
 import { pushAlert } from './alert-notification-service.js'
 import {
   ATTENDANCE_SYNC_PLATFORMS_KEY,
   ATTENDANCE_SYNC_SWITCH_KEY,
-  HR_ATTENDANCE_SYNC_CRON,
-  HR_ATTENDANCE_SYNC_JOB_NAME,
   attendanceSyncEnvOverride,
   parseAttendanceSyncPlatforms,
   parseAttendanceSyncSwitch,
@@ -227,33 +224,6 @@ export async function runAttendanceSyncJob(
   }
 
   return finish()
-}
-
-/**
- * 补注册定时 job。原 `SCHEDULED_JOBS` 中的定义已从工作树移除,
- * 这里在 worker 启动时用同一 BullMQ repeat key 幂等登记,避免改动调度插件以外的文件。
- * 仅登记不执行;真正是否拉取由 env 总开关决定。
- */
-export async function ensureAttendanceSyncScheduled(
-  queue: SchedulerUpsertQueue,
-  log: SchedulerRegisterLog,
-): Promise<void> {
-  try {
-    await queue.upsertJobScheduler(
-      HR_ATTENDANCE_SYNC_JOB_NAME,
-      { pattern: HR_ATTENDANCE_SYNC_CRON },
-      {
-        name: HR_ATTENDANCE_SYNC_JOB_NAME,
-        data: { description: '考勤 IM 同步(每日02:00,默认关)' },
-        opts: {
-          removeOnComplete: { count: 200 },
-          removeOnFail: { count: 500 },
-        },
-      },
-    )
-  } catch (err) {
-    log.warn({ err }, 'attendance sync schedule registration failed (non-fatal)')
-  }
 }
 
 export type { AttendanceSyncError }

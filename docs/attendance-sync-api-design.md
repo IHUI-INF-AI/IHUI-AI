@@ -97,6 +97,13 @@
 
 ## 5. 定时调度
 
+**已落地形态（2026-11-17 校准）**：`apps/api/src/plugins/scheduler.ts` 的 `SCHEDULED_JOBS` 里 `hr-attendance-sync-daily` 为唯一注册点，`pattern: '0 18 * * *'`。
+
+- **时区坑（已修）**：BullMQ 的 `repeatOpts` 没有 `tz` 字段，pattern 按 **UTC** 解析 —— 写 `0 2 * * *` 实际落在**北京 10:00**，不是凌晨。`0 18 * * *` 才是北京次日 02:00。
+- **不要在 `attendance-sync-job.ts` 里再补一份注册**：原 `ensureAttendanceSyncScheduled`（`0 18 * * *` 硬编码 + 「默认关」文案）全仓零调用点，已删除；两处并存时后调用者会用 BullMQ 同名 repeat key 覆盖前者的时段，属真实隐患。
+- 开关与平台射程都是 `system_configs` 热读（`sync:attendance:enabled` / `sync:attendance:platforms`），改库即生效。
+- 管理员在 `.env` 显式设 `HR_ATTENDANCE_SYNC_ENABLED=false` 可强制关（优先级高于 DB），用于应急停止。
+
 **调度频率建议**：
 - 打卡：每日凌晨拉前一日（打卡是高频增量）
 - 请假/加班/外出：每日一次增量（按审批实例更新时间）
