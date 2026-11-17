@@ -25,6 +25,7 @@ import { mkdirSync } from 'node:fs'
 
 import { registerRoutes } from './routes/index.js'
 import { livenessRoutes } from './routes/liveness.js'
+import { relayDiagnosticsRoutes } from './routes/admin/relay-diagnostics.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -454,6 +455,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // readyz 在这里是**轻量就绪**(仅回答进程可服务),不冒充「DB/Redis/AI 三项都通」;
   // 后者唯一真相源仍是 /api/health/ready,响应头 X-Ready-Scope 把这一区别写明。
   server.register(livenessRoutes)
+
+  // 主机诊断只读面(2026-11-17 立,对标 qoder2api-hub 的 /diag/vm):
+  // 只交本仓自己能量到的虚拟化三态与运行时事实;不伪造"与官方风控桥交叉校验"。
+  server.register(relayDiagnosticsRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })

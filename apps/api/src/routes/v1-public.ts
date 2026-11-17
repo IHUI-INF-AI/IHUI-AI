@@ -59,6 +59,8 @@ import {
   modelSpecToWire,
   parseModelSpecEnv,
 } from '../services/relay-model-spec.js'
+import { listPublicPeakWindows } from '../services/peak-pricing-service.js'
+import { pickPeakWindowsForModel } from '../services/relay-model-peak-declaration.js'
 // P0-5 中转站计费(2026-07-29 立)
 import {
   checkQuota,
@@ -424,6 +426,14 @@ async function fetchModels(userId?: string): Promise<{
           // 不得再写"视为全部可用"(G-726:那是把"没问到"读成"没问题")。
         }
       }
+      // 峰谷价宣告(2026-11-17):真相源是 peak-pricing-service 的规则表(自带 60s 缓存)。
+      // 读不到 ⇒ 空集、目录照常出(绝不因价档读不到而 500);只宣告时段乘子,不宣告绝对价格。
+      let peakWindows: Awaited<ReturnType<typeof listPublicPeakWindows>> = []
+      try {
+        peakWindows = await listPublicPeakWindows()
+      } catch {
+        peakWindows = []
+      }
       const relayList = dbModels
         // 剔除只在本轮真取到数据时生效;known:false 时保留全部(与改动前逐字同形,刻意不改严)
         .filter(
@@ -431,6 +441,7 @@ async function fetchModels(userId?: string): Promise<{
         )
         .map((m) => {
           const availability = resolveProviderAvailability(m.providerCode, health)
+          const peak = pickPeakWindowsForModel(peakWindows, m.id)
           return {
             // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
             // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
@@ -445,6 +456,8 @@ async function fetchModels(userId?: string): Promise<{
             ...(availability === 'unknown' ? {} : { available: availability === 'available' }),
             // 2026-11-17:能力与规格宣告(纯判据;无一手出处的字段整键省略,不编数字)。
             ...modelSpecToWire(deriveModelSpec(m.id, MODEL_SPEC_OVERRIDES)),
+            // 峰谷价:只在该模型有规则时出场(null ⇒ 整键省略)。
+            ...(peak ? { peak_pricing: peak } : {}),
           }
         })
       // 官方名归一兜底(2026-09-13 立):同一模型(大小写不敏感)目录只允许出现一条,
