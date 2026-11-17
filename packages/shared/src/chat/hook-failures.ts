@@ -309,46 +309,6 @@ export function hookFailureView(
   }
 }
 
-/**
- * 一条 hook 执行失败记录:六态 + 引擎侧原始上下文。
- * 形状与 `hookFailureView(state, ctx)` 的入参逐字段对齐 —— 宿主只需把 SSE 帧填进来,
- * 脱敏由 `hookFailureView` → `buildHookFailureAttachment` 统一做。
- */
-export interface HookFailureEventRecord {
-  readonly state: HookStatusState
-  /** 失败上下文(未脱敏原文;出口统一过 sanitizeEvidenceText) */
-  readonly context: HookFailureContext
-}
-
-/**
- * hook-failed 原始载荷 → 记录(**唯一**收窄点,跨端共用)。
- *
- * 判据纪律:
- *  · 形状不信任何一项 —— 非对象 ⇒ null;`state` 必须过 `isHookStatusState` 收窄,
- *    认不出的状态一律丢弃(不猜、不兜底成 resultNotRecorded,那一格是"未记录"的真事实);
- *  · 其余字段只透传原始值,缺席归 null —— 缺席 ≠ 空串 ≠ 0(exitCode:0 是肯定结论);
- *  · 本函数不取数、不抛异常:跑在 SSE 逐帧路径上,坏帧绝不能打断整条流。
- */
-export function readHookFailureEvent(raw: unknown): HookFailureEventRecord | null {
-  if (!raw || typeof raw !== 'object') return null
-  const item = raw as Record<string, unknown>
-  const state = item.state
-  if (typeof state !== 'string' || !isHookStatusState(state)) return null
-  const text = (value: unknown): string | null => (typeof value === 'string' ? value : null)
-  return {
-    state,
-    context: {
-      hookName: text(item.hookName),
-      hookEvent: text(item.hookEvent),
-      command: text(item.command),
-      stderr: text(item.stderr),
-      exitCode: typeof item.exitCode === 'number' ? item.exitCode : null,
-      durationMs: typeof item.durationMs === 'number' ? item.durationMs : null,
-      failedAt: text(item.failedAt),
-    },
-  }
-}
-
 // ---------- 键名生成器(渲染层/测试统一取键,禁止手写键串) ----------
 
 /** 六态标题键(`ai.pane.hookFailures` 内) */
