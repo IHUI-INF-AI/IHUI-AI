@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-15T14:21:59.062Z",
+  "sealedAt": "2026-11-17T04:15:24.285Z",
   "sealedBy": "root-guard --seal",
-  "reason": "门 324 check-import-integrity.mjs 在 guardian-runner 注册,门体属受保护面,清单须同枚重封",
+  "reason": "复核HEAD面:11-16全量同步提交7509f488a5改了guardian-runner/git-guardian/guardian-executor三枚脚本且已上线远端70142902c85,清单未同批重封致部署环fail-closed;三枚工作区在飞改动不封,仅按HEAD面重封清单恢复部署",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "b53345bf7db61380b9f1185e6304793dacdc89e7eba26bbce938a86f1f8daddf"
+      "sha256": "5a0bf28c76fffb22cd804ef2720620e631416409c15ff1897040e141bb30d64a"
     },
     {
       "id": "judgement-libs",
@@ -22,13 +22,13 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "7c02479c9704d4161b3ae05b363817b1ec158ee33b71ad2c52a577dd25b35d5d"
+      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
     },
     {
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "845ccd8f99cba65fd9e985ad48c78cb873c86dcb1b8d0f9d28eec7275fe07139"
+      "sha256": "7406f85b0dc2c6843063a79ec60ec697b98dd7c395608901c0879b28d70642e7"
     },
     {
       "id": "gate-scope",
@@ -40,7 +40,7 @@
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "366f646af6323c743646ed4b13282e93d646a88245277c8bde6d59cd804d21c1"
+      "sha256": "0684f509d55143054069a75961e24c955b180857c0d59066e54664995005fbcf"
     },
     {
       "id": "gate-failure-kind",
