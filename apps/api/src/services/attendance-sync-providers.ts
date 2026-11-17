@@ -100,7 +100,14 @@ function errorSummary(err: unknown): string {
 }
 
 async function readJson(res: Response, label: string): Promise<Record<string, unknown>> {
-  if (!res.ok) throw new Error(`${label} HTTP ${res.status}`)
+  if (!res.ok) {
+    // 平台 4xx 的 body 才是真因:飞书会回 `code:1220001 userIds all invalid` 这类可整改信息,
+    // 只报 HTTP 状态会把排障变成猜谜(2026-11-17 实测:钉钉 userid 当飞书工号 ⇒ 400/1220001)。
+    // 截断 200 字符,不回显任何凭据。
+    const detail = await res.text().catch(() => '')
+    const tail = detail ? ` ${detail.replace(/\s+/g, ' ').trim().slice(0, 200)}` : ''
+    throw new Error(`${label} HTTP ${res.status}${tail}`)
+  }
   const json: unknown = await res.json().catch(() => null)
   const obj = asRecord(json)
   if (!obj) throw new Error(`${label} returned non-object JSON`)

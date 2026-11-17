@@ -99,6 +99,29 @@ export function isAttendanceSyncEnabled(env: NodeJS.ProcessEnv = process.env): b
  */
 export const ATTENDANCE_SYNC_SWITCH_KEY = 'sync:attendance:enabled'
 
+/**
+ * 平台白名单的 DB 侧键(逗号分隔的 provider id;缺省 = 全部平台都跑)。
+ *
+ * 2026-11-17 立,实测依据:同一 `employee_no` 无法同时服务两个平台 ——
+ * 把钉钉 userid 当飞书工号传,飞书直接回 `HTTP 400 / code=1220001 userIds all invalid`。
+ * 企业实际只接钉钉时,应把射程收窄到 dingtalk,避免每天 02:00 白跑一趟并发一封噪声告警。
+ * 改库即生效(与本开关同口径),不必重启进程。
+ */
+export const ATTENDANCE_SYNC_PLATFORMS_KEY = 'sync:attendance:platforms'
+
+/** 解析平台白名单:未配置/空串 ⇒ null(全部);配置了 ⇒ 非空 id 集合(小写)。 */
+export function parseAttendanceSyncPlatforms(
+  value: string | null | undefined,
+): Set<string> | null {
+  const raw = (value ?? '').trim()
+  if (!raw) return null
+  const items = raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+  return items.length > 0 ? new Set(items) : null
+}
+
 /** env 显式值:未设置或空串 ⇒ null(交给 DB 开关);否则按 true/1/yes 判定。 */
 export function attendanceSyncEnvOverride(
   env: NodeJS.ProcessEnv = process.env,
