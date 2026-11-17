@@ -504,7 +504,17 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 2026-10-27 加固:服务端启用了 Turnstile(TURNSTILE_SECRET_KEY 已配置)时,
       // 客户端"省略字段"= 绕过尝试,一律拒绝 —— 原写法不传 token 直接放行,
       // 等于脚本打 /login 可以完全跳过人机验证(密码喷洒敞口)。
-      if (process.env.TURNSTILE_SECRET_KEY) {
+      // 2026-11-17 修正:原加固未区分客户端是否具备渲染能力 —— 原生 App(mobile-rn/desktop)、
+      // 小程序、CLI 恒不发 turnstileToken(它们不加载 Cloudflare widget),于是全端登录 403
+      // (实测生产 /api/auth/login 3ms 即 403,手机端完全无法登录)。现按 UA 区分:
+      // 仅"浏览器上下文"强制人机验证,原生客户端放行并继续受既有登录限流/风控约束。
+      const ua = String(request.headers['user-agent'] ?? '')
+      const isBrowserContext =
+        /Mozilla\//i.test(ua) &&
+        !/MicroMessenger|miniProgram|AlipayClient|okhttp|CFNetwork|Dart\/|Dalvik|IHUIApp|IHUICLI/i.test(
+          ua,
+        )
+      if (process.env.TURNSTILE_SECRET_KEY && isBrowserContext) {
         return reply.code(403).send(error(403, '人机验证失败,请重试'))
       }
       return
