@@ -6,7 +6,8 @@
  * 飞书/钉钉考勤同步 job(2026-11-14 立,RP-15/16/17)。
  *
  * 安全闸:
- * - 默认关闭,只有 env `HR_ATTENDANCE_SYNC_ENABLED=true|1|yes` 才发起平台请求;
+ * - 默认关闭;env `HR_ATTENDANCE_SYNC_ENABLED=true|1|yes` 显式给出时以它为准,
+ *   未设置时读 system_configs 的 `sync:attendance:enabled`(改库即热生效,不必重启进程);
  * - 凭证/scope 缺失时 provider 直接跳过,不抛错、不阻断进程启动;
  * - 落库为幂等插入(不覆盖已有考勤),未知枚举原样落库;
  * - 任何 HTTP/DB 失败进 errors,并通过 pushAlert 告警。
@@ -17,9 +18,11 @@ import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 import type { SchedulerRegisterLog, SchedulerUpsertQueue } from '../plugins/scheduler.js'
 import { pushAlert } from './alert-notification-service.js'
 import {
+  ATTENDANCE_SYNC_SWITCH_KEY,
   HR_ATTENDANCE_SYNC_CRON,
   HR_ATTENDANCE_SYNC_JOB_NAME,
-  isAttendanceSyncEnabled,
+  attendanceSyncEnvOverride,
+  parseAttendanceSyncSwitch,
   type AttendanceSyncError,
   type AttendanceSyncRunResult,
   type NormalizedAttendanceRecord,
@@ -98,9 +101,24 @@ export async function runAttendanceSyncJob(
   options: AttendanceSyncJobOptions = {},
 ): Promise<AttendanceSyncRunResult> {
   const env = options.env ?? process.env
-  const enabled = options.enabled ?? isAttendanceSyncEnabled(env)
   const windowDate = options.date ?? shiftBizDayKey(bizDayKey(options.now), -1)
   const repo = options.repo ?? drizzleAttendanceSyncRepo
+
+  // 开关口径(单一真相源):env 显式给出 ⇒ 以 env 为准(运维强制,含强制关);
+  // env 未设置 ⇒ 读 system_configs 的 DB 键(改库即热生效,不必重启进程);
+  // 读库抛错 ⇒ 按关(fail-closed)。
+  let enabled: boolean
+  if (options.enabled !== undefined) {
+    enabled = options.enabled
+  } else {
+    const envOverride = attendanceSyncEnvOverride(env)
+    enabled =
+      envOverride ??
+      (await repo.readConfig(ATTENDANCE_SYNC_SWITCH_KEY).then(
+        (v) => parseAttendanceSyncSwitch(v),
+        () => false,
+      ))
+  }
   const result: AttendanceSyncRunResult = {
     enabled,
     windowDate,
