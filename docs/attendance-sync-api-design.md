@@ -115,24 +115,27 @@
 
 ## 6. 凭证与权限（需申请）
 
-### 飞书（待核实具体 scope 名）
+### 飞书（权限名已核实，2026-11-17）
 
 | 需申请 | 用途 |
 |---|---|
 | App ID + App Secret | 应用凭证（企业自建应用） |
-| 考勤**只读**权限 | 拉打卡记录 |
-| 审批**只读**权限（考勤类模板） | 拉请假/加班/外出审批实例 |
-| 通讯录**只读**（可选） | 工号/姓名对齐 |
+| 「导出打卡数据」权限 | **打卡与审批数据共用这一项**：`user_tasks/query`（打卡）与 `user_approvals/query`（请假/加班/外出）都只要求该权限；仅自建应用可用 |
+| 通讯录**只读**（可选） | 工号/姓名对齐；打卡与审批本身走 `employee_no`，非必需 |
 
 申请入口：飞书开放平台 → 企业自建应用 → 权限管理。
 
-### 钉钉（待核实具体权限名）
+> **实测（2026-11-17 开发者后台，只读查看）**：应用「智汇AI社区」（`cli_a9de15cbb8399bc8`，正式应用@吉林省爱智汇人工智能科技有限公司）已为**应用身份与用户身份**开通 `attendance:task:readonly`（导出打卡数据）与 `attendance:rule:readonly`（导出打卡管理规则）⇒ **飞书侧打卡/审批拉取权限已就位**，RP-15 只剩钉钉侧。
+
+### 钉钉（权限名已核实，2026-11-17）
 
 | 需申请 | 用途 |
 |---|---|
 | AppKey + AppSecret | 应用凭证 |
-| 考勤**只读**权限 | 拉打卡结果 |
-| OA 审批**只读**权限 | 拉请假/加班/外出 |
+| 「企业考勤数据读」 | 拉打卡结果（`attendance/list`） |
+| 「工作流实例读权限」 | 拉请假/加班/外出（`processes/instanceIds/query` + `processInstances`） |
+
+> **实测（2026-11-17 开发者后台）**：应用「AI智汇社区」（`16a18a70-cdf0-44eb-89e9-a2693d04124b`，所属 吉林省爱智汇人工智能科技有限公司）已开通 `qyapi_get_attendance_data`（考勤数据读：获取打卡详情/查询请假状态/获取用户考勤数据）、`Workflow.Instance.Read`（工作流实例读：审批实例 ID 列表/单个实例详情）、`Workflow.Form.Read`（工作流模板读：模板 code/表单 schema），三项「权限审批」列均为「无需审批」。**已于 2026-11-17 13:25 创建并发布版本 1.0.0（企业内部发布免审、提交即生效，发布人李春川），应用状态由「开发中」转为「已上线」，三项权限已随版本生效。**
 
 申请入口：钉钉开放平台 → 应用开发 → 权限申请。
 
@@ -144,7 +147,7 @@
 
 两平台核心端点已核实。**以下为唯一事实源，provider 实现以此为准，不在代码里重复罗列。**
 
-> **实现状态（2026-11-13 本轮）**：飞书 + 钉钉的**打卡（attendance）provider 已实现**（token 缓存 + 端点拉取 + 字段映射 → SyncRow）；审批三类（leave/overtime/outgoing）端点已核实、枚举映射待补，暂抛未实现（501）。**飞书打卡目标工号来源已接**（名册全量 ∩ 可选白名单，见 §7.5）；钉钉走人工 userid 映射（见 §7.3），未配置时返回 0 行空批次，不报错。
+> **实现状态（2026-11-17 更新）**：飞书 + 钉钉的**打卡（attendance）provider 已实现**；**飞书审批三类（leave/overtime/outgoing）已按 2026-11-17 官方文档修正并可用**（复数端点/`data.user_approvals[]` 容器/status 数字枚举/30 天窗口切片，22 例测试钉住）；**钉钉审批三类仍抛 501**——新版列表与详情端点、状态枚举（RUNNING/TERMINATED/COMPLETED）已核实，但详情响应里表单字段数组的字段名未取样，按红线不写死猜测值（见 §7.4）。飞书打卡目标工号来源已接（名册全量 ∩ 可选白名单，见 §7.5）；钉钉走人工 userid 映射（见 §7.3），未配置时返回 0 行空批次，不报错。**权限侧（2026-11-17 实测）**：飞书 `attendance:task:readonly` 已开通；钉钉三项只读权限已开通并随版本 1.0.0 发布生效（应用已上线）。
 
 ### 7.1 飞书（open.feishu.cn）
 
@@ -181,13 +184,36 @@
 
 飞书侧无需映射：`user_tasks/query` 走 `employee_type=employee_no`，工号直用。
 
-### 7.4 仍未核实（实现前补）
+### 7.4 审批三类核实清单（2026-11-17 官方文档逐字段核实）
 
-- 各平台**枚举值完整映射表**（假别/加班类型/审批状态 → 系统字典）：飞书审批枚举、钉钉请假/OA 审批枚举，本轮未逐值核对。
-- 审批类拉取的**分页与模板 code 过滤**细节（请假/加班/外出按模板区分）。
-- 各平台**调用配额/限流**精确值（飞书打卡接口标注约 50 次/秒；钉钉标准版约 1 万次/月，需确认对目标企业规模是否够）→ 决定拉取频率与分批。
+#### 飞书（已核实，provider 已按此修正）
 
-> 已核实端点与字段口径上表为凭；上述未核实项实现前补齐，否则易因枚举/分页/配额不符导致返工。
+| 项 | 核实结果 |
+|---|---|
+| 端点 | `POST /open-apis/attendance/v1/user_approvals/query`（复数；旧写法 `user_approval` 单数不存在） |
+| 权限 | 「导出打卡数据」，仅自建应用；频率 50 次/秒 |
+| 入参 | query `employee_type=employee_no`；body `user_ids`、`check_date_from/to`（int yyyyMMdd，间隔 **≤30 天**）、`check_date_type`（默认 PeriodTime）、`status`（int 单值） |
+| 状态枚举 | `0 待审批 / 1 未通过 / 2 已通过 / 3 已撤回 / 4 已撤销`；**请假、加班仅支持 2/3**；外出、出差支持全部 |
+| 响应容器 | `data.user_approvals[]` 按「员工+日期」分组，每组含 `user_id`/`date`/`leaves[]`/`overtimes[]`/`outs[]` |
+| 单据字段 | `approval_id`（幂等键）/`uniq_id`/`i18n_names{ch,en,ja}`/`start_time`/`end_time`/`reason`（outs 另有 `destination`、`unit`/`interval`） |
+| 假别口径 | `i18n_names.ch` 中文原文透传，由 `normalizeLeaveType` 正则归一；平台**无全局假别数字枚举**（假期类型由企业自定义） |
+| 请假时长 | 官方注明「请假的假期时长字段暂未开放」→ `totalDays` 不取，按起止日期推算 |
+| 落地 | `feishu-provider.ts` 已改复数端点/容器解析/status 枚举/30 天切片，`approvalDateSlices` 与 `mapApprovalEntriesToRows` 由 22 例测试钉住 |
+
+#### 钉钉（端点与状态已核实，表单字段名待取样）
+
+| 项 | 核实结果 |
+|---|---|
+| 列表（旧版） | `POST /topapi/processinstance/listids`：只返回实例 ID；120 天窗口、`size` ≤20；**权限「不支持新增」⇒ 新应用不可用** |
+| 列表（新版） | `POST /v1.0/workflow/processes/instanceIds/query`，头 `x-acs-dingtalk-access-token`；body `processCode`（必填）、`startTime`（ms 必填）、`endTime`、`nextToken`（首次 0）、`maxResults`（≤20）、`userIds`（≤10）、`statuses[]`；响应 `result.list`/`nextToken`；权限「工作流实例读权限」；同 120 天窗口、总量 ≤10000 |
+| 状态枚举（列表） | `RUNNING 审批中 / TERMINATED 已撤销 / COMPLETED 审批完成`（不传=全部状态） |
+| 详情（新版） | `GET /v1.0/workflow/processInstances?processInstanceId=…`；返回 `result.{title,status,result(agree/…),originatorUserId,operationRecords[]}` |
+| 审批单类型 | `biz_type`：1 加班 / 2 出差、外出 / 3 请假；请假 `sub_type` 必传（如「年假」） |
+| 假别口径 | 钉钉请假类型是**假期规则名称字符串**（如「年假」），无全局数字枚举；可用「查询假期规则列表」取 `leave_name`，或取表单值 |
+| 仍缺（红线） | 详情响应里**表单字段数组的字段名**（如 formComponentValues）官方页未渲染 ⇒ 未真实租户取样前不写解析代码，钉钉审批三类保持 501，不写死猜测值 |
+| 取样路径（权限已生效后可做） | ① `POST /v1.0/workflow/processes/instanceIds/query` 取实例 ID（需 `processCode`，可由 `GET /v1.0/workflow/processes/managements/templates` 或 `通过 processCode 获取表单 schema 信息` 取得）；② `GET /v1.0/workflow/processInstances?processInstanceId=…` 取一张真实单据，按返回的字段数组逐项登记 schema。开发者后台「API Explorer」可直接调试这两个接口（本轮已在 Explorer 中核对到两接口与参数形态：详情需 access_token + processInstanceId；表单列表需 access_token + userId + appUuid） |
+
+> 已核实项以上表为凭；飞书侧已落地并带测试，钉钉侧待取样补齐后放开 501。
 
 ### 7.5 飞书打卡目标工号来源（已落地）
 
