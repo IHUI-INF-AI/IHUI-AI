@@ -1357,7 +1357,84 @@ function Report-BlockedWip {
 }
 
 # 多会话共写的活文档:工作区副本常年滞后 HEAD(旁路提交只推进 HEAD,不 checkout 工作树)。
-$LiveDocPaths = @('PROJECT_PLAN.md', 'README.md', 'AGENTS.md')
+# 2026-11-17 扩:README 的多语言版(en/ja/ko)与 README.md 由同一个「最近更新」生成器产出,
+# 只登记 README.md 时另三份永远落进 nonLive 分支 ⇒ 每次自动块刷新(四份同笔 staged)都把部署
+# 挡在 BLOCKED-WIP,实测 2026-11-17 21 点这一型连续挡掉整轮发布。
+# 注意:本行只扩大「谁有资格被判定」;复原与否仍完全由 live-doc-staleness-decision.mjs
+# 逐行证明(HEAD ∪ 归档 ∪ 远端三面都有出处才复原),不新增任何"直接丢弃"路径。
+$LiveDocPaths = @('PROJECT_PLAN.md', 'README.md', 'README.en.md', 'README.ja.md', 'README.ko.md', 'AGENTS.md')
+
+# ── 自动块-only 恢复(2026-11-17 立)──────────────────────────────────────────────
+# 立因(当天实测):README 四份的「最近更新」块与数字表由 scripts/auto-update-readme-recent.mjs /
+# scripts/sync-readme-numbers.mjs 在 pre/post-commit 钩子里生成并 git add(不提交,交 auto-commit-quiet
+# 收编)。它每次一次性新增数百行,**结构上过不了** live-doc 判定器(该器要求每行都能在
+# HEAD∪归档∪远端 找到出处,单批还有 40 条未取证上限)⇒ 一批纯自动产物就能把 ff 挡死整轮,
+# 21 点这一型已连续挡掉两次发布。
+# 判据换成「骨架等价」:把自动块(标记区间 + 数字表行)剥离后,两份文本逐字节相同 ⇒ 差异 100%
+# 落在可再生的自动块,没有一行是人的手写内容。两侧用**同一个**剥离函数:正则若过宽也对称生效,
+# 不会把真实差异遮蔽成"只差自动块"(离线已实测 2026-11-17 现场骨架相等,1891888 字节全等)。
+# 纪律与既有器物一致:先逐字节备份再动盘,备份失败即不动;只认登记过的四份 README,不放宽到全树。
+$AutoBlockDocPaths = @('README.md', 'README.en.md', 'README.ja.md', 'README.ko.md')
+function Get-DocAutoBlockSkeleton {
+    param([string]$Text)
+    $t = $Text -replace "`r`n", "`n"
+    $t = [regex]::Replace($t, '(?s)<!-- BEGIN RECENT UPDATES.*?<!-- END RECENT UPDATES -->', '{{AUTO-BLOCK}}')
+    $t = [regex]::Replace($t, '(?m)^\|[^|]*\|\s*[\d→]+\s*\|\s*`(trackedFiles|testFiles|guardianGates|guardianBlocking|guardianWarn|apiRoutes|apiRouteFiles|dbTables|dbMigrations|routeFiles)`\s*\|$', '{{AUTO-NUM}}')
+    return $t
+}
+function Invoke-AutoBlockOnlyRecovery {
+    <#
+      返回 $true = 已复原(全部遮挡路径都是自动块-only 差异,已备份并 checkout 到 HEAD),调用方重试 ff;
+      $false = 不复原(存在非自动块文档 / 骨架不等 / 取不到 HEAD 版 / 备份失败),照旧 BLOCKED-WIP。
+      不猜、不静默:每一条不复原的理由都进日志。
+    #>
+    param([string[]]$Blockers)
+    $targets = @($Blockers | Where-Object { $AutoBlockDocPaths -contains $_ })
+    if ($targets.Count -eq 0) { return $false }
+    if ($targets.Count -ne $Blockers.Count) {
+        Log "AUTO-BLOCK 不复原:挡路清单里有 $($Blockers.Count - $targets.Count) 个不在自动块族($($AutoBlockDocPaths -join '/'))"
+        return $false
+    }
+    $proven = @()
+    foreach ($rel in $targets) {
+        $curPath = Join-Path $Root $rel
+        if (-not (Test-Path -LiteralPath $curPath)) {
+            Log "AUTO-BLOCK 不复原:工作树缺 $rel"
+            return $false
+        }
+        $headText = (& git -C $Root show "HEAD:$rel" 2>&1 | Out-String)
+        if ($LASTEXITCODE -ne 0) {
+            Log "AUTO-BLOCK 不复原:取不到 HEAD 版 $rel"
+            return $false
+        }
+        $curText = [IO.File]::ReadAllText($curPath)
+        if ((Get-DocAutoBlockSkeleton $curText) -ne (Get-DocAutoBlockSkeleton $headText)) {
+            Log "AUTO-BLOCK 不复原:$rel 的骨架与 HEAD 不同(有手写或非自动块差异)"
+            return $false
+        }
+        $proven += $rel
+    }
+    $backupDir = 'D:\DevEnv\backups\deploy-auto-block'
+    $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+    foreach ($rel in $proven) {
+        $src = Join-Path $Root $rel
+        try {
+            New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+            $dst = Join-Path $backupDir (($rel -replace '/', '_') + ".$stamp.bak")
+            Copy-Item -LiteralPath $src -Destination $dst -ErrorAction Stop
+            & git -C $Root checkout HEAD -- $rel 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                Log "WARN  AUTO-BLOCK 复原失败(已备份到 $(Split-Path -Leaf $dst)):$rel"
+                return $false
+            }
+            Log "  [auto-block] 已复原到 HEAD(自动块备份=$(Split-Path -Leaf $dst)):$rel"
+        } catch {
+            Log "WARN  AUTO-BLOCK 备份失败(不动):$rel —— $($_.Exception.Message)"
+            return $false
+        }
+    }
+    return $true
+}
 function Invoke-LiveDocStaleRecovery {
     <#
       挡 ff 的路径**全部**是活文档时,先逐行证明"这份副本没有任何 HEAD∪归档∪远端(origin/main) 之外的内容"
@@ -3760,6 +3837,16 @@ if ($behind -gt 0) {
                 if ($LASTEXITCODE -eq 0) {
                     $ffRecovered = $true
                     Log "LIVE-DOC ff 重试成功,本轮按正常路径继续(仍要走下面的'HEAD 必须含本轮 tip'内容复核)"
+                }
+            } elseif (Invoke-AutoBlockOnlyRecovery -Blockers $blockers) {
+                # 2026-11-17 加:挡路的全是四份 README 且差异只在自动块(骨架等价已证)⇒ 已备份并复原到 HEAD,
+                # 这里重试一次 ff。ff 成功后内容由远端 tip 决定,自动块会在下一次钩子里按新 HEAD 重建。
+                Log "AUTO-BLOCK 复原后重试一次 ff-only"
+                $mergeOut = (& git -C $Root merge --ff-only $remoteTip 2>&1 | Out-String)
+                Write-Host $mergeOut
+                if ($LASTEXITCODE -eq 0) {
+                    $ffRecovered = $true
+                    Log "AUTO-BLOCK ff 重试成功,本轮按正常路径继续(仍要走下面的'HEAD 必须含本轮 tip'内容复核)"
                 }
             }
             if (-not $ffRecovered) {
