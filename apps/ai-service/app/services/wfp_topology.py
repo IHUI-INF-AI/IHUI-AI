@@ -82,7 +82,8 @@ def guid_from_str(text: str) -> str | None:
 
 def guid_to_str(guid: str) -> str:
     """输出 C 探针 printf 形态 ``{XXXXXXXX-...}``(大写带花括号)。"""
-    return "{" + guid_from_str(guid).upper() + "}" if guid_from_str(guid) else ""
+    g = guid_from_str(guid)
+    return "{" + g.upper() + "}" if g else ""
 
 
 # ---------------------------------------------------------------------------

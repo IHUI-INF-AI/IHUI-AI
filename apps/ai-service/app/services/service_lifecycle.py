@@ -37,7 +37,7 @@ import asyncio
 import random
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, Generic, TypeVar
 
 __all__ = [
     "RetryPolicy",
@@ -176,7 +176,7 @@ def plan_reconcile(
 # ---------------------------------------------------------------------------
 # 服务生命周期基座
 # ---------------------------------------------------------------------------
-class ServiceLifecycle:
+class ServiceLifecycle(Generic[T]):
     """通用服务生命周期: 懒连接 + 状态机(start/stop/dispose)。
 
     ``connect`` 由子类/调用方注入, 做真正的初始化(如建连接、拉配置)。
