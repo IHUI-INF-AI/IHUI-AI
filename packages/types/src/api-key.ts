@@ -438,6 +438,18 @@ export interface V1ModelsResponse {
        */
       active_now: boolean
     }>
+    /**
+     * 此刻**实际生效**的分时倍率(2026-11-17 补,与窗口清单并列)。
+     *
+     * 与 `peak_pricing[].active_now` 的分工:后者是"每条规则各自的答案",客户端还要自己
+     * 在重叠规则里挑一条;这里直接给计费侧同一函数(peak-pricing-service 的
+     * `resolvePeakMultiplier`,按 priority 降序取首个命中)算出的**唯一权威值** ——
+     * 客户端不必猜排序,也不会出现"宣告按专属优先、计费按 priority 顺序"的错配。
+     * 1 = 此刻原价;无价档规则的模型整键省略。
+     */
+    peak_multiplier_now?: number
+    /** 此刻命中的规则名(`peak_multiplier_now` 的来源),原价为 null 时省略。 */
+    peak_rule_now?: string
   }>
 }
 

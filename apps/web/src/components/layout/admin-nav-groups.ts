@@ -90,7 +90,6 @@ import {
   BellRing,
   BrainCircuit,
   Settings,
-  ChevronDown,
   Layers,
   Zap,
   Shuffle,
@@ -100,12 +99,8 @@ import {
   ShieldAlert,
   ScanSearch,
   Tags,
-  HardDriveDownload,
+  HardDriveDownload
 } from 'lucide-react'
-
-import { cn } from '@/lib/utils'
-import { TruncatedText } from '@/components/common'
-import { useAdminRouters } from '@/hooks/use-admin-routers'
 
 export interface AdminNavItem {
   href: string
