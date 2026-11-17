@@ -535,6 +535,7 @@ async function fetchModels(
           for (const row of rows) {
             const explain = explainModelAvailability({
               enabled: row.enabled,
+              configEnabled: row.configEnabled,
               isRelayPublic: row.isRelayPublic,
               lastTestStatus: row.lastTestStatus,
             })
@@ -2711,6 +2712,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
                     object: { type: 'string' },
                     created: { type: 'number' },
                     owned_by: { type: 'string' },
+                    // 2026-11-17:附「拿不到的模型」时这三格必须进 schema —— 否则 Fastify
+                    // 响应序列化器按 properties 白名单剥离,客户端只会收到没有原因的幽灵条目。
+                    available: { type: 'boolean' },
+                    x_disabled_category: { type: 'string' },
+                    x_disabled_reason: { type: 'string' },
                   },
                 },
               },
