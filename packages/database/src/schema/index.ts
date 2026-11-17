@@ -286,6 +286,8 @@ export * from './relay-user-attributes.js'
 export * from './relay-enterprise-compliance.js'
 // 插件注册表(2026-09-17 立,补强 59,声明式插件零代码执行)
 export * from './relay-plugins.js'
+// 号池授权会话(2026-11-17 立,免客户端 OAuth 设备授权 / PAT 自助入池的会话审计面)
+export * from './relay-auth-session.js'
 // 数据库备份作业系统(2026-09-16 立,补强 V,pg_dump|gzip+保留策略)
 export * from './backup-jobs.js'
 

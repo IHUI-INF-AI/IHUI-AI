@@ -482,6 +482,8 @@ import relayModelsRoutes from './admin/relay-models.js'
 import relayKeyPoolRoutes from './admin/relay-key-pool.js'
 import relayAccountPoolRoutes from './admin/relay-account-pool.js'
 import relayAccountPoolCapabilityRoutes from './admin/relay-account-pool-capability.js'
+// 号池自助授权会话(2026-11-17 立:免客户端 OAuth 设备授权 / PAT 直贴入池)
+import adminRelayAuthSessionRoutes from './admin/relay-auth-sessions.js'
 import relayDiscoveryRoutes from './admin/relay-discovery.js'
 import relayLogsRoutes from './admin/relay-logs.js'
 import adminRelayStatsRoutes from './admin/relay-stats.js'
@@ -1385,6 +1387,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayAccountPoolRoutes, { prefix: '/api' })
   // 号池平台续期能力位只读面(2026-10-29 立,面板据此标注"该平台无自动续期通道")
   server.register(relayAccountPoolCapabilityRoutes, { prefix: '/api' })
+  // 号池自助授权会话管理面(7 端点,requireAdmin 全族)
+  server.register(adminRelayAuthSessionRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
   server.register(relayLogsRoutes, { prefix: '/api' })
   // P0-7 admin 侧 API Key 安全粒度管理(列表/创建/详情/按租户统计/强制更新,含过期/IP白名单/模型白名单/token上限)
