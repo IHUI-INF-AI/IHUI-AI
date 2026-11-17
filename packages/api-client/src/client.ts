@@ -25,7 +25,9 @@ import type {
 export type { CitationsEvent }
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
 // 客户端签名注入(三端注册的 provider 在这里落到 X-IHUI-Client 头;算法本体在 @ihui/shared)
-import { applyClientSignature } from './client-sign'
+// 后缀必须是 .js:本包 `"type": "module"` 是纯 ESM,tsc 输出 dist 后由 Node ESM 消费,
+// 无后缀在 dist 里会被判 Cannot find module(extension 构建实测踩过),故与包内既有 import 同形。
+import { applyClientSignature } from './client-sign.js'
 import {
   applyTraceparentToHeaders,
   getTransport,
