@@ -9,11 +9,15 @@ from __future__ import annotations
 import pytest
 
 from app.core.struct_visitor_key_evidence import (
+    CWD_OWNER_ARITY,
+    CWD_OWNER_LITERAL_VA,
+    CWD_OWNER_STRUCT,
     FALSIFIED_AFTER_R68,
     MEASUREMENTS,
     THREAD_MIXED_MARKERS,
     TURN_ARITY_GAP,
     TURN_LAST_NAME_CANDIDATE,
+    TURN_LAST_NAME_FALSIFIED,
     TURN_LAST_NAME_VERIFIED,
     TURN_START_PARAMS_ARITY,
     TURN_START_PARAMS_ATTESTED_TAIL,
@@ -64,13 +68,22 @@ def test_thread_visitor_is_mixed_and_unusable_as_field_list() -> None:
 def test_falsified_methods_after_r68_are_recorded() -> None:
     ids = [method_id for method_id, _why in FALSIFIED_AFTER_R68]
     assert ids == ["widened-record-array", "code-order-literal-run",
-                   "dictionary-dp-segmentation", "fragment-table-no-boundary"]
+                   "dictionary-dp-segmentation", "fragment-table-no-boundary",
+                   "inlined-debug-field-call"]
 
 
 def test_last_name_candidate_is_marked_unverified() -> None:
     assert TURN_LAST_NAME_CANDIDATE == "cwd"
     assert TURN_LAST_NAME_VERIFIED is False
     assert TURN_LAST_NAME_CANDIDATE not in TURN_KEYS
+
+
+def test_cwd_owner_is_the_single_field_struct() -> None:
+    assert TURN_LAST_NAME_FALSIFIED is True
+    assert CWD_OWNER_STRUCT == "GitDiffToRemoteParams"
+    assert CWD_OWNER_ARITY == 1
+    assert CWD_OWNER_LITERAL_VA == "0x145804779"
+    assert TURN_START_PARAMS_ARITY - len(TURN_KEYS) == TURN_ARITY_GAP
 
 
 def test_measurements_are_pinned() -> None:
