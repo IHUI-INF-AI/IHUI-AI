@@ -157,8 +157,7 @@ def is_origin_scoped_url(url: str, allowed_origin: str) -> bool:
     if not (o.startswith("http://") or o.startswith("https://")):
         return False
     # 取 scheme://host[:port] 整段作为 origin 比较(忽略路径)
-    url_origin = u.split("/", 3)[:3]
-    url_origin = "/".join(url_origin)  # e.g. "https://example.com"
+    url_origin = "/".join(u.split("/", 3)[:3])  # e.g. "https://example.com"
     return url_origin == o
 
 

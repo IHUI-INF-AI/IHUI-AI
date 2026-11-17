@@ -270,17 +270,22 @@ def solve_managed_permissions(
     """
     # ---- 0. 输入校验：认不出的值不猜（§0.3）----
     bad: list[str] = []
-    sm = normalize_sandbox_mode(request.sandbox_mode)
-    if sm is None:
+    sm_norm = normalize_sandbox_mode(request.sandbox_mode)
+    if sm_norm is None:
         bad.append(f"sandbox_mode={request.sandbox_mode!r}")
-    ap = normalize_approval_policy(request.approval_policy)
-    if ap is None:
+    ap_norm = normalize_approval_policy(request.approval_policy)
+    if ap_norm is None:
         bad.append(f"approval_policy={request.approval_policy!r}")
     if bad:
         return SolveOutcome(
             state=SolveState.UNDETERMINED,
             notes=(f"输入取值认不出，未判定: {', '.join(bad)}",),
         )
+    # 校验已通过 ⇒ 两者非 None；显式落类型给下游（收窄 str | None → str）
+    assert sm_norm is not None
+    assert ap_norm is not None
+    sm: str = sm_norm
+    ap: str = ap_norm
 
     # ---- 1. 无托管约束 ⇒ 不介入 ----
     if not managed.has_any_constraint():

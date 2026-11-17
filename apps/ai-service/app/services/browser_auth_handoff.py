@@ -249,9 +249,10 @@ def sanitize_auth_request(request: dict[str, object]) -> SanitizeOutcome:
     has_qr = bool(request.get("qr_code"))
     if not (has_fields or has_qr):
         return SanitizeOutcome(False, origin, tuple(dropped), "fields 与 qr_code 全缺,拒绝。")
-    # 校验 fields 内不得带禁止键
-    if has_fields:
-        for f in request["fields"]:  # type: ignore[union-attr]
+    # 校验 fields 内不得带禁止键(isinstance 已收窄到 list)
+    fields_raw = request.get("fields")
+    if isinstance(fields_raw, list) and fields_raw:
+        for f in fields_raw:
             if isinstance(f, dict):
                 for k in f:
                     if str(k).lower() in _FORBIDDEN_KEYS or str(k).lower() not in _ALLOWED_FIELD_KEYS:
