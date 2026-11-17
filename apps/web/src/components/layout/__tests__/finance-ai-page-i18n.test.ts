@@ -17,7 +17,10 @@ import { describe, expect, it } from 'vitest'
 
 const ROOT = resolve(__dirname, '../../../../../..')
 const PAGE = resolve(ROOT, 'apps/web/app/(main)/admin/finance-ai/page.tsx')
-const ADMIN_NAV = resolve(ROOT, 'apps/web/src/components/layout/AdminNav.tsx')
+// 2026-11-17: ADMIN_NAV 数据已迁到纯数据模块(服务端模块不再从 'use client' 组件取数据);
+// NAV_LABEL_KEY 表仍在组件侧,故两处分别取材。
+const ADMIN_NAV = resolve(ROOT, 'apps/web/src/components/layout/admin-nav-groups.ts')
+const ADMIN_NAV_VIEW = resolve(ROOT, 'apps/web/src/components/layout/AdminNav.tsx')
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as const
 
 function pageKeys(): string[] {
@@ -44,7 +47,7 @@ function navFinanceLabelKey(): string {
   expect(items.length, '/admin/finance-ai 在 ADMIN_NAV 必须恰有一条').toBe(1)
   expect(items[0]).toContain("labelKey: 'financeAi'")
   expect(items[0]).not.toContain('dynamicLabel')
-  const map = src.match(/financeAi:\s*'([^']+)'/)
+  const map = readFileSync(ADMIN_NAV_VIEW, 'utf8').match(/financeAi:\s*'([^']+)'/)
   if (!map) throw new Error('NAV_LABEL_KEY 未登记 financeAi')
   if (!map[1]) throw new Error('NAV_LABEL_KEY.financeAi 值取不到')
   return map[1]
