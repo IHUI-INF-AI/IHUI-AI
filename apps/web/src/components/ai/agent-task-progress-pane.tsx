@@ -2197,7 +2197,7 @@ export function AgentTaskProgressPane() {
                                 key={kind}
                                 type="button"
                                 className={cn(
-                                  'shrink-0 cursor-pointer rounded-sm bg-muted/60 px-1 py-px tabular-nums transition-colors hover:bg-muted',
+                                  'shrink-0 cursor-pointer rounded-sm bg-muted/60 px-1 py-0.5 tabular-nums transition-colors hover:bg-muted',
                                   meta.tone,
                                 )}
                                 data-testid={`subagent-batch-failure-dist-${kind}`}
@@ -2229,7 +2229,7 @@ export function AgentTaskProgressPane() {
                               key={source}
                               type="button"
                               className={cn(
-                                'shrink-0 cursor-pointer rounded-sm border border-stroke-subtle px-1 py-px tabular-nums transition-colors hover:bg-muted',
+                                'shrink-0 cursor-pointer rounded-sm border border-stroke-subtle px-1 py-0.5 tabular-nums transition-colors hover:bg-muted',
                                 FAILURE_SOURCE_META[source]?.tone,
                               )}
                               data-testid={`subagent-batch-failure-source-dist-${source}`}
@@ -2256,7 +2256,7 @@ export function AgentTaskProgressPane() {
                             <>
                               <span className="shrink-0 font-mono">{f.handle}</span>
                               {f.kindLabel && (
-                                <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-px font-medium">
+                                <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 font-medium">
                                   {f.kindLabel}
                                 </span>
                               )}
@@ -2270,7 +2270,7 @@ export function AgentTaskProgressPane() {
                                 key={f.id}
                                 type="button"
                                 onClick={() => onBatchCollapsedChange(false)}
-                                className="flex w-full flex-wrap items-center gap-x-1.5 rounded-sm px-0.5 py-px text-left transition-colors hover:bg-destructive/10"
+                                className="flex w-full flex-wrap items-center gap-x-1.5 rounded-sm px-0.5 py-0.5 text-left transition-colors hover:bg-destructive/10"
                                 aria-label={`查看失败子代理 ${f.handle} 详情`}
                                 data-testid={`subagent-batch-failed-${f.id}`}
                               >
