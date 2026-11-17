@@ -54,7 +54,8 @@ R56-R61 六轮全部是**值域封闭集**：enum 有哪些 variant、每个 var
 
 ## 6. 落库与推送状态
 
-（落库 commit sha、推送判定在落库步骤完成后补记；纪律：对象空间精确 pathspec、判推送只认 ls-remote sha、真实红不洗门、饱和树不反复硬推。）
+- 对象空间精确 pathspec 落库成功：commit `de352970288`，15 文件全在 HEAD 面、HEAD 面水印 15/15、工作树零残留、零他席 staged 触碰（commit 15 文件 / 4455 行）。
+- **推送未完成**：唯一推送通道在「执行 git push origin main」阶段被 SIGTERM，`ls-remote` sha 未变（`bc88f35`，R62 未上 `origin/main`）。分诊 pre-push-gate：**失败 0 / 未判定 0（全绿）**——本轮无判据红、无 typecheck 看门狗终止（与 R59/R61 的 T1 未判定不同）。阻塞在共享树并发窗口：fetch 后本地与他席新推的 2 个提交分叉（behind 2 / ahead 40），属守护 converge 职责。按纪律（饱和树不人机反复硬推、不手动 merge 他席活文档）停止重试；本地 HEAD 含 R62 提交、无数据丢失，交守护收敛后统一推送。
 
 ## 7. 后续开放轴
 
