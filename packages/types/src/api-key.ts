@@ -431,6 +431,12 @@ export interface V1ModelsResponse {
       end_minute: number
       multiplier: number
       timezone: string
+      /**
+       * 此刻是否落在本窗口内(2026-11-17 补)。判据与计费侧同源(peak-pricing-service 的
+       * matchPeakRule),客户端据此判"现在是不是谷时",不必自己算 UTC+8 与跨天窗口。
+       * 逐窗口给:同一模型的专属/通用规则时段不同,谷时对每条规则各是一个答案。
+       */
+      active_now: boolean
     }>
   }>
 }

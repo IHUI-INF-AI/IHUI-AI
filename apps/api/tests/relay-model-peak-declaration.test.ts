@@ -85,6 +85,7 @@ describe('pickPeakWindowsForModel', () => {
   it('P5 只宣告乘子与时段,不带绝对价格字段', () => {
     const picked = pickPeakWindowsForModel([win({})], 'gpt-5')
     expect(Object.keys(picked?.[0] ?? {}).sort()).toEqual([
+      'active_now',
       'days_of_week',
       'end_minute',
       'multiplier',
@@ -92,6 +93,47 @@ describe('pickPeakWindowsForModel', () => {
       'start_minute',
       'timezone',
     ])
+  })
+
+  it('P6 active_now 按 UTC+8 现读时刻判定(窗口内 true / 窗口外 false)', () => {
+    const officeHour = win({ ruleName: '白天峰', startMinute: 540, endMinute: 660 })
+    const inWindow = pickPeakWindowsForModel(
+      [officeHour],
+      'gpt-5',
+      PEAK_WINDOWS_LIMIT,
+      new Date('2026-11-18T10:00:00+08:00'),
+    )
+    expect(inWindow?.[0]?.active_now).toBe(true)
+    const outWindow = pickPeakWindowsForModel(
+      [officeHour],
+      'gpt-5',
+      PEAK_WINDOWS_LIMIT,
+      new Date('2026-11-18T20:00:00+08:00'),
+    )
+    expect(outWindow?.[0]?.active_now).toBe(false)
+  })
+
+  it('P7 跨天窗口(23:00-07:00)与计费侧同语义:凌晨 true、中午 false', () => {
+    const overnight = win({
+      ruleName: '夜间谷',
+      startMinute: 1380,
+      endMinute: 420,
+      multiplier: 0.5,
+    })
+    const earlyMorning = pickPeakWindowsForModel(
+      [overnight],
+      'gpt-5',
+      PEAK_WINDOWS_LIMIT,
+      new Date('2026-11-18T01:00:00+08:00'),
+    )
+    expect(earlyMorning?.[0]?.active_now).toBe(true)
+    const noon = pickPeakWindowsForModel(
+      [overnight],
+      'gpt-5',
+      PEAK_WINDOWS_LIMIT,
+      new Date('2026-11-18T12:00:00+08:00'),
+    )
+    expect(noon?.[0]?.active_now).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
