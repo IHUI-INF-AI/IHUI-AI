@@ -961,13 +961,16 @@ if (_fast) {
 }
 
 // ─── 全量档前置:近期结论回执命中即不再 spawn tsc(T1 长期票) ────────────────
-// 键 = `git write-tree`(索引面树 sha)。树没变 ⇒ tsc 的输入集合没变 ⇒ 结论必然不变;
-// 降级判据依赖的「本次范围」每次照常重算,回执只缓存原始结论面(exitCode + 报错文件清单)。
-// 失效方向安全:tree sha 取不到 / 回执缺失或结构非法 / 超 TTL / 显式关闭 ⇒ 一律回落实跑。
+// 键 = `git rev-parse HEAD^{tree}`(被推内容面树 sha)。2026-11-17 改:原用 `write-tree`
+// (索引面),但本机多会话共享工作树常脏——别席 git add/unstage 都会改索引 ⇒ 回执键频繁
+// 漂移 ⇒ 每次 push 都重跑全量 tsc。push 判据面本就是 HEAD 差集(remote..local),scope
+// 与凭据 policy=full-head-face 都按 HEAD,故回执键对齐 HEAD 树才是判据的自然面。
+// 失效方向安全:HEAD 树 sha 取不到 / 回执缺失或结构非法 / 超 TTL / 显式关闭 ⇒ 回落实跑;
+// 有新提交即 HEAD 树变 ⇒ 回执自动失效重跑,新增类型错误照抓,判据不降级。
 const _receiptAbs = join(ROOT, RECEIPT_REL)
 let _treeSha = null
 try {
-  _treeSha = String(gitRaw(['write-tree'], ROOT) || '').trim() || null
+  _treeSha = String(gitRaw(['rev-parse', 'HEAD^{tree}'], ROOT) || '').trim() || null
 } catch {
   _treeSha = null
 }

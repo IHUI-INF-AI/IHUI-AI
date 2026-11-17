@@ -10,7 +10,8 @@
 #   macOS 用 Developer ID Application 签名并由 notarytool 公证 + staple →
 #   ③ 对**签名后的字节**重算 SHA256/字节数 → ④ 用签名后的字节重算 Tauri updater `.sig`
 #   → ⑤ signature-gate 在独立 runner 上重新下载产物并验签(不通过即红)
-#   → ⑥ 只有 ⑤ 通过才生成 latest.json(见 publish-updater-json 的 needs)。
+#   → ⑥ 只有 ⑤ 通过才生成 latest.json(见 publish-updater-json 的 needs)
+#   → ⑦ 发布链成功后由 notify-release 推送更新通知(与运维告警是两条独立链)。
 # 凭据缺失时:build 的第一步 "Preflight desktop signing credentials" 在**编译前**逐条点名
 #   缺项并让 job 失败(2026-11-04 加,见 scripts/desktop-signing-preflight.mjs),不再出现
 #   "先编译 30-45 分钟、最后才由 signature-gate 判红"的形态;签名步的 `if:` 只是防未配置
@@ -1465,6 +1466,56 @@ jobs:
           echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "安装包+签名已尽力镜像 Gitee release(超 Gitee 单文件 100MB 上限的资产,如 Windows exe,自动跳过)" >> $GITHUB_STEP_SUMMARY
           echo "注:Gitee 侧仅为附件存档,**不是**更新器端点;客户端只认 https://aizhs.top/desktop-feed.json" >> $GITHUB_STEP_SUMMARY
+
+  # ── 发版更新通知(2026-11-17 加):发布链成功后自动推送给用户/管理员 ──
+  # 定位:这是「发版成功的产品通知」,不是故障告警 —— 与 notify-deploy-failure.ts
+  #   那条运维告警唯一出口边界不同,故用独立脚本,避免把产品更新混进故障告警台账。
+  # 通道:管理员邮件(SMTP_*)/站内公告/用户邮件群发(RELEASE_NOTIFY_*)/IM webhook,
+  #   凭据缺哪个就 warn 跳过哪个,整体 exit 0 —— 通知失败绝不把一个成功发版判红。
+  # depends:只锚 publish-updater-json(latest.json 上传成功=更新链真正闭环);
+  #   Gitee 同步是附件存档、非更新器端点,失败不影响「用户能收到更新」,故不 needs。
+  notify-release:
+    name: 发版更新通知(邮件/站内公告/群发/IM)
+    needs: [build, publish-updater-json]
+    # 取消不通知;其余情况都尝试(脚本内部按通道降级,不阻塞)
+    if: ${{ !cancelled() && (startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Dispatch release notifications
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # 管理员邮件(与 blue-green-deploy.yml 同源的既有 secrets)
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          # 站内公告 + 用户更新邮件群发(生产 API;缺省 API 地址)
+          RELEASE_NOTIFY_API_URL: ${{ vars.RELEASE_NOTIFY_API_URL || 'https://api.aizhs.top' }}
+          RELEASE_NOTIFY_TOKEN: ${{ secrets.RELEASE_NOTIFY_TOKEN }}
+          # IM webhook(钉钉/飞书/企微;企微兼容旧名 WECHAT_WEBHOOK_URL)
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL || secrets.WECHAT_WEBHOOK_URL }}
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VERSION="${TAG#desktop-v}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "发版通知: tag=$TAG version=$VERSION run=$RUN_URL" >> $GITHUB_STEP_SUMMARY
+          node .github/scripts/notify-desktop-release.mjs \
+            --tag "$TAG" --version "$VERSION" --run-url "$RUN_URL"
 
   # ── 方案 c(2026-11-04):Gitee 源码只读快照,发版即刷新 ──
   # 与 .github/workflows/snapshot-to-cn.yml(周更)共用 .github/scripts/gitee-snapshot.py:
