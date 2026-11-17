@@ -42,7 +42,13 @@ import {
   PermissionTierRow,
   SteerNoticeList,
 } from '../../components/ChatDisclosure'
-import { isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import {
+  buildStreamErrorLabelSet,
+  buildStreamErrorView,
+  isErrorTurn,
+  resolveErrorCatalog,
+  resendTargetText,
+} from '@ihui/shared/chat'
 import type { ChatMessage } from '@ihui/shared'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { ToolCallCard } from './ToolCallCard'
@@ -400,6 +406,27 @@ export function ChatMessageItem({
   // 失败轮:渲染错误卡片而非正文;重试只在"确实有一条可重发的用户提问"时给
   const isFailed = !isUser && isErrorTurn(item)
   const retryable = isFailed && resendTargetText(messages) !== null
+  // D-AI-3 错误卡目录化:码在目录表里 ⇒ 标题/建议取目录词;未收录 ⇒ 保持既有 fallback
+  // (判据与拼装全在共享层 buildStreamErrorView,端内不复制 15 类映射)。
+  const errorView = isFailed
+    ? buildStreamErrorView({
+        errorCode: item.errorCode,
+        fallbackTitle: t('chatAlert.errorTitle'),
+        fallbackMessage: item.content,
+        labels: buildStreamErrorLabelSet({
+          tStream: (k) => t(`streamErrors.${k}`),
+          tCatalog: (k) => t(`ai.pane.errorCatalog.${k}`),
+        }),
+      })
+    : null
+  // 目录表里该码的具体建议(`102.action` 这类),优先于通用动作词;两者皆无则不渲染建议行。
+  const catalogNextStep = (() => {
+    if (!isFailed || !item.errorCode) return null
+    const entry = resolveErrorCatalog(item.errorCode)
+    if (!entry?.actionKey) return null
+    const text = t(`ai.pane.errorCatalog.${entry.actionKey}`)
+    return text.startsWith('ai.pane.errorCatalog.') ? null : text
+  })()
   // 富内容分段(代码块/图片/文本,对齐 ai_index2 agent_content_list;消息内容不长,直接解析)
   const segments = parseMessageContent(item.content)
   // 思考过程(对齐 ai_index2 thinking-process:assistant 消息带 reasoning 时渲染折叠区块,
@@ -427,14 +454,21 @@ export function ChatMessageItem({
           {isFailed ? (
             // 失败轮:错误卡片(警示头 + 正文 + 重试出口),整块替换正文 —— 与 web D22 /
             // miniapp 同一形态,跨端一致:失败不产出内容,也不能看起来像一次正常回答。
-            <View style={styles.msgErrorCard}>
+            <View testID={`message-error-card-${item.id}`} style={styles.msgErrorCard}>
               <View style={styles.msgErrorHeader}>
                 <AlertTriangle size={14} color={tokens.error.text} />
-                <Text style={styles.msgErrorTitle}>{t('chatAlert.errorTitle')}</Text>
+                <Text testID={`message-error-title-${item.id}`} style={styles.msgErrorTitle}>
+                  {errorView?.title ?? t('chatAlert.errorTitle')}
+                </Text>
               </View>
               <Text style={styles.msgErrorBody} selectable>
-                {item.content}
+                {errorView?.detail ?? item.content}
               </Text>
+              {(catalogNextStep ?? errorView?.actionLabel) ? (
+                <Text testID={`message-error-nextstep-${item.id}`} style={styles.msgErrorBody}>
+                  {catalogNextStep ?? errorView?.actionLabel}
+                </Text>
+              ) : null}
               {retryable ? (
                 <TouchableOpacity
                   style={styles.msgErrorRetry}
