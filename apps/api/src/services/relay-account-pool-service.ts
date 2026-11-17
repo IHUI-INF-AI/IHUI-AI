@@ -1010,6 +1010,7 @@ export async function importAccounts(
       // CodeArts 永久密钥形态(2026-11-10):闸门已过(AK+SK 非空)而票为空 = 合法空 token 行,
       // 落 tokenEnc=encryptField('') 与库里现状同形;其余平台空凭据仍照常拒收。
       const permanentCodearts = providerCode === 'codearts' && mapped !== null && token === ''
+      if (!token && !permanentCodearts) {
         result.failed++
         pushItem(naming, {
           index: i,
@@ -1876,7 +1877,6 @@ export interface MatchPhoneReport {
   matched: Array<{ id: string; oldName: string; name: string; checkinSync: CheckinSyncOutcome }>
   ambiguous: Array<{ id: string; name: string; candidates: string[] }>
   unmatched: Array<{ id: string; name: string }>
-export interface MatchPhoneReport {
   rejected: Array<{ phone: string; reason: string }>
 }
 

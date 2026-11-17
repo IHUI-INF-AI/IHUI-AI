@@ -192,9 +192,30 @@ async function acquireContextLease(): Promise<ContextLease> {
   const reserved = await reserveWithDeadline(
     client as unknown as { reserve: () => Promise<Awaited<ReturnType<postgres.Sql['reserve']>>> },
   )
-  return {
-    reserved,
-    executor: drizzle(reserved) as unknown as ContextExecutor,
+  try {
+    // drizzle 0.45 的 postgres-js driver 构造时读 client.options.parsers;
+    // 而 postgres.js 的 reserve() 句柄不带 options(实测自有键只有
+    // types/typed/unsafe/notify/array/json/file/release),直接 drizzle(reserved) 必抛
+    // "Cannot read properties of undefined (reading 'parsers')"。
+    // 这里补回主 client 的同一套 options(含 parsers 与类型解码),连接语义不变。
+    const handle = reserved as unknown as { options?: unknown }
+    if (handle.options === undefined) {
+      const mainOptions = (client as unknown as { options?: unknown }).options
+      if (mainOptions !== undefined) handle.options = mainOptions
+    }
+    return {
+      reserved,
+      executor: drizzle(reserved) as unknown as ContextExecutor,
+    }
+  } catch (error) {
+    // 构造失败必须归还这条独占连接,否则每条请求泄漏一条 ⇒ 池耗尽 ⇒ 全站带主体的
+    // /api/* 请求卡在 reserve() 上(F-221 的同一类现场,根因在构造侧)。
+    try {
+      ;(reserved as unknown as { release: () => void }).release()
+    } catch {
+      // 归还失败不改写原错误
+    }
+    throw error
   }
 }
 
