@@ -5,18 +5,20 @@
 #requires -Version 7
 <#
 .SYNOPSIS
-  重建「AI 客户端一键切号」(及旧版「WorkBuddy 一键切号」)桌面快捷方式。
+  重建「AI 客户端一键切号」桌面快捷方式(唯一入口;旧版已停用,见 DESCRIPTION)。
 
 .DESCRIPTION
   快捷方式本身不进版本库(落在用户桌面),丢了或换机就重跑本脚本。
   本脚本路径无关:从自身位置推算仓库根,用 [Environment]::GetFolderPath('Desktop')
   取真实桌面路径(支持桌面在非系统盘,如 E:\桌面)。
 
-  入口分两代:
-    · 新入口(2026-11-05 立,当前主力):scripts\client-oneclick-switch.cmd
-      → 桌面「AI 客户端一键切号.lnk」(选客户端 → 列号池 → 切本机登录态,多平台)。
-    · 旧入口(仅 WorkBuddy):scripts\relay-oneclick.cmd
-      → 桌面「WorkBuddy 一键切号.lnk」(relay-oneclick.cmd 还在才建,向后兼容)。
+  唯一入口(2026-11-05 立):scripts\client-oneclick-switch.cmd
+    → 桌面「AI 客户端一键切号.lnk」(选客户端 → 列号池 → 切本机登录态,多平台)。
+
+  旧版「WorkBuddy 一键切号」已停用(2026-11-17 机主定案「不要再有旧版」):本安装器
+  不再创建它,并会把桌面上遗留的同款旧快捷方式(目标=本仓 scripts\relay-oneclick.cmd)
+  一并清掉。relay-oneclick.cmd 本身保留(WorkBuddy 切号+会话换桶仍可手动跑),
+  只是不再上桌面。
 
   注意:本入口不是独立程序,依赖整仓 + Node22 + tsx + relay 号池库/.env。换机前那台机
   必须先有本仓库(且 pnpm install 过),再跑本脚本才有意义。
@@ -25,7 +27,8 @@
   覆盖桌面路径(测试用;默认取系统真实桌面)。
 
 .PARAMETER SkipOld
-  不建旧版「WorkBuddy 一键切号」快捷方式。
+  已无作用:安装器本就只建主入口。保留该参数仅为兼容既有调用方
+  (api 服务 relay-desktop-shortcut 与 CLI relay desktop-shortcut 固定传它)。
 
 .PARAMETER WhatIf
   只打印将要创建的快捷方式及其目标,不落盘(安全干跑)。
@@ -110,13 +113,24 @@ if (-not $ihuiIcon) {
   Write-Warning '未找到桌面端图标 apps\desktop\src-tauri\icons\icon.ico,新入口将回退 WorkBuddy/默认图标'
 }
 
-# 新入口(当前主力,2026-11-05)
+# 唯一入口(2026-11-05 起,多平台号池切号)
 New-SwitcherShortcut -Name 'AI 客户端一键切号' -CmdRel 'scripts\client-oneclick-switch.cmd' -Icon ($ihuiIcon ?? $icon) `
   -Description 'AI 客户端一键切号:选客户端 -> 列号池 -> 切本机登录态(多平台)' -WhatIf:$WhatIfPreference
 
-# 旧入口(仅 WorkBuddy,relay-oneclick.cmd 还在才建)
-if (-not $SkipOld) {
-  New-SwitcherShortcut -Name 'WorkBuddy 一键切号' -CmdRel 'scripts\relay-oneclick.cmd' -Icon $icon `
-    -Description 'WorkBuddy 一键切号(旧):关闭客户端 -> 选号 -> 切号+会话换桶 -> 重启客户端' -WhatIf:$WhatIfPreference
+# 旧版退役(2026-11-17):只清「目标确实指向本仓 relay-oneclick.cmd」的遗留件。
+# 同名但目标不是仓内那枚的一律不动(可能是机主自己的快捷方式),只报一行警告,不代删。
+$legacyLnk = Join-Path $desktop 'WorkBuddy 一键切号.lnk'
+if (Test-Path -LiteralPath $legacyLnk) {
+  $legacyTarget = (New-Object -ComObject WScript.Shell).CreateShortcut($legacyLnk).TargetPath
+  if ($legacyTarget -eq (Join-Path $repo 'scripts\relay-oneclick.cmd')) {
+    if ($WhatIfPreference) {
+      Write-Output "[WhatIf] 将清掉遗留旧快捷方式: $legacyLnk"
+    } else {
+      Remove-Item -LiteralPath $legacyLnk -Force
+      Write-Output "已清掉遗留旧快捷方式: $legacyLnk"
+    }
+  } else {
+    Write-Warning "桌面有同名快捷方式但目标不是本仓 relay-oneclick.cmd($legacyTarget),不代删: $legacyLnk"
+  }
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

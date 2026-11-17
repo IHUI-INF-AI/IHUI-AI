@@ -3,6 +3,11 @@
   "_whyThisExists": "2026-10-19 现读:生产签出落后 origin/main 57 枚、部署环每 60s 撞 ff 失败并每 4h 寄一封『有未提交文件挡住 ff』。那批文件没有一份是人在写的(PROJECT_PLAN 回灌旧账 / 4 枚上游同名已跟踪的 Grafana 派生大屏 / sw.js 与 next-env.d.ts 这类构建每轮重写的被跟踪文件)。既有自愈层只治『盘上内容==该路径某祖先版本』的幻影漂移,生成物是比 HEAD 更新的内容 ⇒ 结构上永不命中 ⇒ 只要构建还在自己树上落生成物,下一次 ff 还会被同一枚挡死。这一格此前全仓无判据。",
   "paths": [
     {
+      "path": ".doc-autoupdate/last-sha",
+      "trackedYield": true,
+      "reason": "README 活性 changelog 的增量游标:由 scripts/auto-update-readme-recent.mjs 在 pre/post-commit 钩子里写入『上次处理到的 HEAD sha』,每次提交都会变;生产签出刷新一次就与 HEAD 漂开,人手从不写它(2026-11-17 实测连续挡死 ff 856 分钟,prod 落后 71 枚、号池坏凭据隔离修复上不了线)。授权范围 = trackedYield:索引==HEAD 时复原到 HEAD 后让位,动手前逐字节备份"
+    },
+    {
       "path": "apps/web/public/sw.js",
       "trackedYield": true,
       "reason": "Workbox 由 next build 每轮重写的 service worker 产物;生产签出里它必然与 HEAD 不同,而人手不写它"
