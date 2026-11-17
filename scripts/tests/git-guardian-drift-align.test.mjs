@@ -60,8 +60,27 @@ function funcBody(src, name) {
 test('装车证明:git-guardian 周期守护真的调用 --align-drift', () => {
   const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
   assert.match(body, /run\(\['--json'\]\)/, '恢复层调用丢失 —— 对齐层不得顶掉缺失恢复')
-  assert.match(body, /run\(\['--align-drift',\s*'--json'\]\)/, '对齐层没装车 = §5b 第二层形同虚设')
+  assert.match(
+    body,
+    /run\(\['--align-drift',\s*'--json'\],\s*\{\s*IHUI_DRIFT_ANALYZE_MAX:/,
+    '对齐层没装车 = §5b 第二层形同虚设',
+  )
   assert.match(body, /windowsHide:\s*true/, 'spawn 漏 windowsHide ⇒ 计划任务下必弹控制台窗(§5b)')
+})
+
+test('对齐层每轮采样档必须够大,且档位真的透传到子进程', () => {
+  const src = readFileSync(GUARDIAN, 'utf8')
+  const m = src.match(/const DRIFT_ANALYZE_MAX_DEFAULT = (\d+)/)
+  assert.ok(m, '采样档常量丢失 ⇒ 回落到 heal 默认 8 条/轮,积压清不动')
+  assert.ok(Number(m[1]) >= 20, `采样档 ${m[1]} 太小 —— 一轮判不到 20 条等于没提速`)
+  assert.ok(
+    /env: \{ ...process\.env, ...extraEnv \}/.test(src),
+    'run() 不透传 env ⇒ 档位根本到不了子进程(写了等于没写)',
+  )
+  assert.ok(
+    /process\.env\.IHUI_DRIFT_ANALYZE_MAX \|\|/.test(src),
+    '运维覆盖档被写死 ⇒ 现场调档失效(失效方向要留可调,不是取消入口)',
+  )
 })
 
 test('逃生舱只对对齐层生效,不影响恢复层', () => {
