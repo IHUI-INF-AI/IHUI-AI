@@ -39,6 +39,7 @@ import { forwardToAccountPool, planRateBackoff } from './relay-account-forwarder
 // 防保存后 DNS 改指内网 / 重绑定。档位与 relay-account-forwarder 同源(allowPrivate+allowCustomPort)。
 import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
 import { isRelayOutboundProxyInstalled } from './relay-outbound-proxy.js'
+import { detectEnvelopeError, type EnvelopeError } from './upstream-envelope-error.js'
 // 连接期守卫(守卫②)必须走包 undici 的 fetch:内置 globalThis.fetch 用自己那份 undici 实例,
 // npm undici 的 Agent 递进 dispatcher 会被拒(见 relay-account-forwarder.ts 同款注释)。
 import { fetch as undiciFetch } from 'undici'
@@ -663,6 +664,14 @@ export interface PipedStreamStats {
    * 并在尚未向客户端写帧时回退到既有 ai-service 链路。
    */
   streamError: string | null
+  /**
+   * 流内信封错误判据(2026-11-17):把「可重试的瞬时档」与「业务错」分开。
+   * 调用方据此决定:瞬时档且 `writtenFrames === 0` ⇒ **不罚号 + 重开上游**;
+   * 其余情形仍按 F-337 记失败 + 换号。
+   */
+  envelopeError: EnvelopeError | null
+  /** 已向客户端写出的帧数(含 SSE 注释帧之外的每一帧);0 = 一个字节都没写,重开是安全的 */
+  writtenFrames: number
 }
 
 export interface PipeStreamOptions {
@@ -749,6 +758,8 @@ export async function pipeChannelStream(
     upstreamCredits: null,
     upstreamCostUsd: null,
     streamError: null,
+    envelopeError: null,
+    writtenFrames: 0,
   }
   const startedAt = Date.now()
   const reader = upstream.body!.getReader()
@@ -790,27 +801,25 @@ export async function pipeChannelStream(
   const handleLine = (line: string) => {
     // 终止帧不转发（见函数头注释：结束标记只由调用方发一次）
     if (isSseDoneFrame(line)) return
+    const json = parseSseData(line)
+    const envelope = json ? detectEnvelopeError(json) : null
+    if (envelope) {
+      stats.envelopeError = envelope
+      stats.streamError = `upstream SSE error: ${envelope.detail}`.slice(0, 200)
+      // 可重试瞬时档(418/429/5xx)且尚未向客户端写出任何帧 ⇒ 这一帧不转发,
+      // 交给调用方整条重开上游(对标对照站「双层重试」的信封层)。
+      if (envelope.retryable && stats.writtenFrames === 0) return
+      // 其余情形保持 F-337 老行为:错误帧原样交给客户端(它会以 data: 行出现),
+      // 调用方据 stats.streamError 记失败并在收尾时补一条 error 事件。
+    }
     if (!textMode) {
       opts.writeLine?.(`${line}\n\n`)
+      stats.writtenFrames += 1
       lastWriteAt = Date.now()
     }
-    const json = parseSseData(line)
-    if (!json) return
-    // F-337:上游用 HTTP 200 + SSE `data: {"error":...}` 报故障(额度耗尽/模型不存在
-    // 的常见形态)。旧实现只读 choices/usage,错误帧被当成空 chunk 吞掉,收尾照补
-    // finish 并记 success。这里显式留底,供调用方判失败、熔断、回退。
-    const errFrame = json['error']
-    if (errFrame !== undefined && errFrame !== null) {
-      const detail =
-        typeof errFrame === 'string'
-          ? errFrame
-          : typeof errFrame === 'object' &&
-              typeof (errFrame as Record<string, unknown>)['message'] === 'string'
-            ? String((errFrame as Record<string, unknown>)['message'])
-            : 'upstream error frame'
-      stats.streamError = `upstream SSE error: ${detail}`.slice(0, 200)
-      return
-    }
+    if (!json || envelope) return
+    // F-337 的判据已上移并扩宽:错误帧在写口之前就被 `detectEnvelopeError` 拦下
+    // (`error` 字段 / `statusCodeValue` / 顶层 `code` 三种形态),这里不再重复判定。
     if (Array.isArray(json['choices']) || json['usage'] !== undefined) sawAnyChunk = true
     if (stats.ttftMs === null) stats.ttftMs = Date.now() - startedAt
     // 记住上游帧 id，供调用方造收尾帧时复用它（同一条流只应有一个 id）
@@ -829,7 +838,10 @@ export async function pipeChannelStream(
     const content = delta?.['content']
     if (typeof content === 'string' && content.length > 0) {
       stats.responseText += content
-      if (textMode) opts.emitText!(content)
+      if (textMode) {
+        opts.emitText!(content)
+        stats.writtenFrames += 1
+      }
     }
     const usage = json['usage'] as Record<string, unknown> | undefined
     if (usage) {
