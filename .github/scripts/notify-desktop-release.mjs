@@ -14,7 +14,7 @@
  *
  * 通道(按 RELEASE_NOTIFY_CHANNELS 逗号分隔选择,默认全部):
  *   admin-email   发版通知到管理员邮箱(凭据 SMTP_* + ALERT_EMAIL_TO;已验证可用)
- *   inapp         站内公告(POST /api/announcements,凭据 RELEASE_NOTIFY_API_URL + RELEASE_NOTIFY_TOKEN)
+ *   inapp         站内公告(POST /api/admin/content/announcement,凭据通知 token)
  *   broadcast     用户更新邮件群发(POST /api/announcements/email-push,同上凭据)
  *   im            即时通讯webhook(钉钉/飞书/企微,凭据 DINGTALK_WEBHOOK_URL / FEISHU_WEBHOOK_URL / WECOM_WEBHOOK_URL)
  *
@@ -27,12 +27,12 @@
  * 环境变量(全部可选,缺哪个就跳过对应通道):
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM / ALERT_EMAIL_TO
  *   RELEASE_NOTIFY_API_URL  (如 https://api.aizhs.top)
- *   RELEASE_NOTIFY_TOKEN    (有权限写公告的 JWT;CI 专用,非管理员个人 token)
+ *   RELEASE_NOTIFY_TOKEN    (有权限写公告的 JWT) 或 RELEASE_NOTIFY_TOKEN_FILE(JWT 文件路径;本机模式)
  *   DINGTALK_WEBHOOK_URL / FEISHU_WEBHOOK_URL / WECOM_WEBHOOK_URL
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { unlinkSync, writeFileSync } from 'node:fs'
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -123,17 +123,32 @@ function notifyAdminEmail() {
   record('admin-email', true, `已投递 ${recipients.length} 人`)
 }
 
-/** 站内公告 + 用户邮件群发:调生产 API(需 RELEASE_NOTIFY_API_URL + TOKEN) */
+/**
+ * 站内公告 + 用户邮件群发:调生产真实端点(2026-11-17 按 apps/api/src/routes 核实)
+ *   inapp     POST /api/admin/content/announcement  (admin JWT;字段 isPublished,不是 published)
+ *   broadcast POST /api/announcements/email-push     (mode=changelog + 结构化 items,旧 body 必被 400 拒)
+ * 凭据:RELEASE_NOTIFY_TOKEN(CI secret),或 RELEASE_NOTIFY_TOKEN_FILE 指向本机 JWT 文件。
+ */
+function resolveNotifyToken() {
+  const inline = (process.env.RELEASE_NOTIFY_TOKEN || '').trim()
+  if (inline) return inline
+  const file = (process.env.RELEASE_NOTIFY_TOKEN_FILE || '').trim()
+  if (!file) return ''
+  try { return readFileSync(file, 'utf8').trim() } catch { return '' }
+}
+
 function notifyApi(kind) {
-  const base = (process.env.RELEASE_NOTIFY_API_URL || '').trim().replace(/\/$/, '')
-  const token = (process.env.RELEASE_NOTIFY_TOKEN || '').trim()
-  if (!base || !token) { record(kind, false, 'RELEASE_NOTIFY_API_URL/TOKEN 未配置,跳过'); return }
+  const base = (process.env.RELEASE_NOTIFY_API_URL || 'https://api.aizhs.top').trim().replace(/\/$/, '')
+  const token = resolveNotifyToken()
+  if (!token) { record(kind, false, '通知 token 未配置(RELEASE_NOTIFY_TOKEN / _FILE),跳过'); return }
   const isBroadcast = kind === 'broadcast'
-  const path = isBroadcast ? '/api/announcements/email-push' : '/api/announcements'
+  const path = isBroadcast ? '/api/announcements/email-push' : '/api/admin/content/announcement'
   const body = isBroadcast
-    ? JSON.stringify({ kind: 'changelog', version, date: new Date().toISOString().slice(0, 10), items: [summary, `Release: ${releaseUrl}`] })
-    : JSON.stringify({ title, content: summary, type: 'release', platform: 'web', published: true })
-  if (dryRun) { record(kind, true, `dry-run: POST ${base}${path}`); return }
+    ? JSON.stringify({ mode: 'changelog', version,
+        items: [{ tag: 'NEW', title: `桌面端 ${version} 已发布`, desc: summary.slice(0, 280) }] })
+    : JSON.stringify({ title, content: summary, type: 'release', isPinned: false,
+        isPublished: true, publishedAt: new Date().toISOString() })
+  if (dryRun) { record(kind, true, `dry-run: POST ${base}${path} body=${body.slice(0, 90)}...`); return }
   const res = spawnSync('curl', ['--silent', '--show-error', '--max-time', '30',
     '-X', 'POST', `${base}${path}`,
     '-H', 'Content-Type: application/json', '-H', `Authorization: Bearer ${token}`,
