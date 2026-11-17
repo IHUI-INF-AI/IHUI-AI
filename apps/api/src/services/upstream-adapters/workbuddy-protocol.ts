@@ -51,7 +51,10 @@ export function resolveRealm(domain: string): WorkBuddyRealm {
  * (ok502319984@gmail.com 正是这么死的:同票打 .ai 的 userinfo 实测 200 + sub 自证)。
  * CN 侧不受影响:copilot.tencent.com / www.workbuddy.cn 两个 iss host 本来就不匹配 `.ai` 后缀 ⇒ 仍 cn。
  */
-export function resolveRealmFor(domain: string, claims: Record<string, unknown> | null): WorkBuddyRealm {
+export function resolveRealmFor(
+  domain: string,
+  claims: Record<string, unknown> | null,
+): WorkBuddyRealm {
   if (domain.trim()) return resolveRealm(domain)
   const iss = claims && typeof claims['iss'] === 'string' ? claims['iss'].trim() : ''
   if (!iss) return 'cn'
@@ -864,7 +867,15 @@ export function normalizeCompletion(body: unknown): Record<string, unknown> {
 // =============================================================================
 
 export type UpstreamFailureKind =
-  'auth' | 'credit' | 'session_dead' | 'rate' | 'not_found' | 'request' | 'server' | 'client'
+  | 'auth'
+  | 'credit'
+  | 'session_dead'
+  | 'risk'
+  | 'rate'
+  | 'not_found'
+  | 'request'
+  | 'server'
+  | 'client'
 
 const CREDIT_MARKERS = [
   'insufficient credit',
@@ -906,6 +917,12 @@ const REQUEST_CODES = [11101, 11115, 11135, 6021]
 
 const TOKEN_BAD_RE = /token.*(expired|invalid)/
 const SESSION_DEAD_RE = /offline user session not found/
+/**
+ * 账号被平台限制的文案(2026-11-18 实测 11140 的封控态,三语同时在返回体里):
+ * zh「账号存在异常行为，已被限制使用」/ zh-hant「帳號存在異常行為」/ en「unusual activity」
+ * 命中 ⇒ 归 risk(冷却+降级),绝不归 auth —— 刷新凭据救不回,判 auth 只会让号反复"到期"。
+ */
+const IN_ACCOUNT_RESTRICTED_RE = /已被限制|異常行為|异常行为|unusual activity|has been restricted/i
 
 /**
  * 鉴权失效的 body 文案标记:覆盖 JSON error 体({"error":{"code":"unauthorized"}})、
@@ -975,6 +992,14 @@ export function classifyUpstreamFailure(statusCode: number, bodyText: string): U
   // 同上:裸子串匹配会随机误杀,会话死只认结构化信封 code 与 SESSION_DEAD_RE
   if (env?.code === 12153) return 'session_dead'
   if (SESSION_DEAD_RE.test(lower)) return 'session_dead'
+  // 11140 必须先于 401/403 判(2026-11-18 实测):上游把它包在 HTTP 403 里,若先走 auth,
+  // 平台侧「限流」与「账号被限制」都会被误读成「凭据失效」——刷新救不回,而健康探测读的是
+  // profile(封控只封 chat),于是号一直 healthy 却每次调用必 403,只堆 consecFail 不退出调度。
+  // 文案实证:displayMsg.zh=「账号存在异常行为，已被限制使用」+ actions=[SUBMIT_FEEDBACK]。
+  if (env?.code === 11140) {
+    if (IN_ACCOUNT_RESTRICTED_RE.test(bodyText)) return 'risk'
+    return 'rate'
+  }
   if (statusCode === 401 || statusCode === 403 || hasAuthFailureBodyMarker(bodyText)) return 'auth'
   if (
     statusCode === 429 ||
