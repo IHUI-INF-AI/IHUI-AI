@@ -5,7 +5,7 @@
 #requires -Version 7
 <#
 .SYNOPSIS
-  重建「AI 客户端一键切号」(及旧版「WorkBuddy 一键切号」)桌面快捷方式。
+  重建「AI 客户端一键切号」桌面快捷方式(唯一入口;旧版已停用,见 DESCRIPTION)。
 
 .DESCRIPTION
   快捷方式本身不进版本库(落在用户桌面),丢了或换机就重跑本脚本。
