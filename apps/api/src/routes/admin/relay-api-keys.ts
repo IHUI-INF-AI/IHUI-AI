@@ -50,6 +50,8 @@ const adminUpdateBodySchema = z.object({
   allowedModels: z.array(z.string()).nullable().optional(),
   /** 单次请求 token 上限(null = 清除限制) */
   maxTokensPerReq: z.number().int().positive().nullable().optional(),
+  /** Key 级出口绑定(2026-11-17):cn / global / null(=清除=跟随全局) */
+  egressRegion: z.enum(['cn', 'global']).nullable().optional(),
 })
 
 /** 管理员创建 API Key body(支持关联 tenant_id,2026-07-31 立) */
@@ -65,6 +67,8 @@ const createBodySchema = z.object({
   allowedIps: z.array(z.string()).nullable().optional(),
   allowedModels: z.array(z.string()).nullable().optional(),
   maxTokensPerReq: z.number().int().positive().nullable().optional(),
+  /** Key 级出口绑定(2026-11-17):不传 = 跟随全局 */
+  egressRegion: z.enum(['cn', 'global']).nullable().optional(),
 })
 
 const relayApiKeysRoutes: FastifyPluginAsync = async (server) => {
@@ -152,6 +156,8 @@ const relayApiKeysRoutes: FastifyPluginAsync = async (server) => {
           allowedIps: b.allowedIps ?? null,
           allowedModels: b.allowedModels ?? null,
           maxTokensPerReq: b.maxTokensPerReq ?? null,
+          // Key 级出口绑定(2026-11-17):不传 = 跟随全局
+          egressRegion: b.egressRegion ?? null,
         })
         .returning({
           id: developerApiKeys.id,
@@ -166,6 +172,7 @@ const relayApiKeysRoutes: FastifyPluginAsync = async (server) => {
           allowedIps: developerApiKeys.allowedIps,
           allowedModels: developerApiKeys.allowedModels,
           maxTokensPerReq: developerApiKeys.maxTokensPerReq,
+          egressRegion: developerApiKeys.egressRegion,
           createdAt: developerApiKeys.createdAt,
         })
       if (!record) return reply.status(500).send(error(500, '创建 API Key 失败'))
@@ -274,6 +281,8 @@ const relayApiKeysRoutes: FastifyPluginAsync = async (server) => {
       if (d.allowedIps !== undefined) setData.allowedIps = d.allowedIps
       if (d.allowedModels !== undefined) setData.allowedModels = d.allowedModels
       if (d.maxTokensPerReq !== undefined) setData.maxTokensPerReq = d.maxTokensPerReq
+      // Key 级出口绑定(2026-11-17):undefined = 不修改,null = 清除(=跟随全局)
+      if (d.egressRegion !== undefined) setData.egressRegion = d.egressRegion
 
       const [updated] = await db
         .update(developerApiKeys)
@@ -290,6 +299,7 @@ const relayApiKeysRoutes: FastifyPluginAsync = async (server) => {
           allowedIps: developerApiKeys.allowedIps,
           allowedModels: developerApiKeys.allowedModels,
           maxTokensPerReq: developerApiKeys.maxTokensPerReq,
+          egressRegion: developerApiKeys.egressRegion,
           updatedAt: developerApiKeys.updatedAt,
         })
       if (!updated) return reply.status(404).send(error(404, 'API Key 不存在'))

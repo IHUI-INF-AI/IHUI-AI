@@ -93,6 +93,9 @@ export const developerApiKeys = pgTable(
     // --- 多租户关联字段(对齐 New API,API Key 可关联到 tenant 实现组织级配额池)---
     /** 关联的租户 ID(nullable,不关联则为个人 Key),onDelete set null 避免删租户时级联删 Key */
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
+    // --- Key 级出口绑定(2026-11-17 立,对齐 qoder2api 系「多 API Key 出口绑定」) ---
+    /** 默认出口区(cn = 国内 / global = 国际 / null = 跟随全局);模型名三段前缀可临时覆盖 */
+    egressRegion: varchar('egress_region', { length: 16 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

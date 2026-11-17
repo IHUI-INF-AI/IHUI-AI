@@ -2823,6 +2823,20 @@
       "when": 1794907800000,
       "tag": "20261116174441_users_contact_blind_index",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 406,
+      "when": 1794915000000,
+      "tag": "20261117193000_relay_checkin_history",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 407,
+      "when": 1794917700000,
+      "tag": "20261117201500_api_key_egress_region",
+      "breakpoints": true
     }
   ]
 }
