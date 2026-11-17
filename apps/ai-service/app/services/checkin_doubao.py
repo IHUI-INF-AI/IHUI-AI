@@ -340,9 +340,17 @@ async def doubao_checkin_account(
         result["message"] = err
         return result
 
-    # 1) 只读预检(detail 实测 code:0 全通,是豆包侧唯一稳定读面)
+    # 1) 只读预检(detail 客户端指纹才 code:0;web 指纹会 code:2 campaign not found)。
+    # 2026-11-17 实证:web 指纹 detail 全部 code=2,客户端指纹(_fetch_campaign 同款)
+    # code=0 且 checked_in 可信;预检用错指纹会让签到永远停在"查状态失败"。
     s_status, s_body = await _db_request(
-        PATH_DETAIL, token, {"campaign_group_code": SCENE}, timeout=timeout, client=client
+        PATH_DETAIL,
+        token,
+        {"campaign_group_code": SCENE},
+        timeout=timeout,
+        client=client,
+        query=_client_query(device_map),
+        use_client_fingerprint=True,
     )
     result["http_status"] = s_status if s_status > 0 else None
     parsed = parse_detail(s_body if isinstance(s_body, dict) else None)
@@ -414,12 +422,19 @@ async def doubao_probe_status(
 
     返回 (ok, checked_in|None, credits|None, message)。签名与
     TRAE/WorkBuddy/Qoder/MiniMax 的状态探针统一,供 06:00 探针分发。
+    2026-11-17:改用客户端指纹(web 指纹 detail 恒 code=2,探针会全误报失败)。
     """
     err = _validate_token(token)
     if err:
         return False, None, None, err
     s_status, s_body = await _db_request(
-        PATH_DETAIL, token, {"campaign_group_code": SCENE}, timeout=timeout, client=client
+        PATH_DETAIL,
+        token,
+        {"campaign_group_code": SCENE},
+        timeout=timeout,
+        client=client,
+        query=_client_query(device_map),
+        use_client_fingerprint=True,
     )
     parsed = parse_detail(s_body if isinstance(s_body, dict) else None)
     if s_status in (0, -1):
@@ -454,7 +469,13 @@ async def doubao_query_credits(
     if err:
         return {"error": err, "remaining": None}
     s_status, s_body = await _db_request(
-        PATH_DETAIL, token, {"campaign_group_code": SCENE}, timeout=timeout, client=client
+        PATH_DETAIL,
+        token,
+        {"campaign_group_code": SCENE},
+        timeout=timeout,
+        client=client,
+        query=_client_query(device_map),
+        use_client_fingerprint=True,
     )
     parsed = parse_detail(s_body if isinstance(s_body, dict) else None)
     if s_status in (0, -1):
@@ -1197,7 +1218,18 @@ async def doubao_task_sweep_account(
         code 0 空响应且 list_my 恒空;控制实验定谳——传假 skill_id(999999999999)与真
         技能 ID 走 add 回报完全一致(同 code 0 空响应),证明该端点不校验 ID、不持久化、
         是 no-op,code 0 是空洞成功而非真安装。
-        ⇒ 不代跑,避免无效额度与风控。
+        ⑤ 第四轮定谳(2026-11-17 14:xx,推翻"625002003=技能没激活"的旧归因):
+        决定性实验证明 625002003 msg 逐字为「暂无活动资格」,与 message_id 形态无关——
+        普通 chat question_id / WorkTask(mode_id=4) question_id / conversation_id /
+        带 task_id(params 与顶层)/ 带 code=0 / status=1 与 status=4 号 / 三个不同账号
+        一律 625002003。反证:同一 HTTP 链路、同为外部 question_id 上报,生成类任务
+        (GenWord 等)恒 task_status=2 成功 ⇒ 上报通道本身通,625002003 不是"通道/签名
+        整体不通",而是**这个 campaign_item 的完成判定绑定客户端技能运行时在完成时
+        发出的本地签名事件**:号池账号 skills/list_my 恒 data=null(无已安装技能),
+        服务端据此判无资格。纯外部 HTTP 无论怎么构造请求参数都无法伪造该事件 ⇒
+        号池号(仅 sessionid、技能运行时在真人客户端侧)不可能靠外部注入完成此项。
+        ⇒ 不代跑,避免无效额度与风控。此项只能当前端真人客户端用本地定时任务技能
+        真实创建一次时由客户端自己上报完成。
 
 号池签到探底(2026-11-17 第三轮,5 启用号全量实弹,本函数 + 调度冷却链已核实):
         - 号池 doubao 启用号实为 5 个(27 是全平台总数,非 doubao);
