@@ -1880,7 +1880,7 @@ function healWorktreeTracked() {
   // 两层共用一个调用出口:恢复层 `--json`,对齐层 `--align-drift --json`。
   // 做成具名 helper 也是为了镜像测试能按**调用形态**钉装车证明(见
   // scripts/tests/git-guardian-drift-align.test.mjs)。
-  const run = (args) => {
+  const run = (args, extraEnv) => {
     // 2026-11-07:本调用是 execFileSync ⇒ 同步阻塞事件循环,而本文件 :13718 的 30s 心跳是
     // setInterval(连注释都写明"定时器在单步内不会响,所以长步骤完成点另有 beatRoundLock()")。
     // 问题在于**本函数此前一处 beatRoundLock 都没有**:实测 --json 跑 11 分钟、--align-drift
@@ -1906,6 +1906,7 @@ function healWorktreeTracked() {
         // 与工作区毫无关系,读日志的人会往错的方向查(本仓反复登记的同型)。
         // 无 input ⇒ ignore 三态(见 MEMORY 派生 git 判据)。
         stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, ...extraEnv },
       })
         .trim()
         .split('\n')
@@ -1956,7 +1957,10 @@ function healWorktreeTracked() {
   // 只等 git-sync-converge 的成功出口才对齐,意味着"没人跑收敛"期间索引会一直停在
   // 祖先版本,下一次 `git add <file>` 就交旧基线(实测 503 文件落后 486 提交)。
   if (process.env.IHUI_SKIP_DRIFT_ALIGN === '1') return
-  const { r: d, err: derr } = run(['--align-drift', '--json'])
+  const { r: d, err: derr } = run(['--align-drift', '--json'], {
+    IHUI_DRIFT_ANALYZE_MAX:
+      process.env.IHUI_DRIFT_ANALYZE_MAX || String(DRIFT_ANALYZE_MAX_DEFAULT),
+  })
   if (derr) log('幻影漂移对齐失败(不阻断其余守护): ' + derr)
   else {
     if (d.aligned)
@@ -4405,6 +4409,9 @@ const WORKTREE_HEAL_INTERVAL_MS = Number(
   process.env.IHUI_WORKTREE_HEAL_INTERVAL_MS || 5 * 60 * 1000,
 )
 const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-align-tick')
+// 漂移判定每轮采样档(2026-11-17 立):heal 默认 8 条,积压却是成批产生的(旁路落地只推进
+// HEAD 不写工作树)。实测 30 条 40s、200 条 341–467s ⇒ 40 条约 55–90s,落在 5 分钟节流窗内。
+const DRIFT_ANALYZE_MAX_DEFAULT = 40
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
 // 〈原 24 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l3279(门 103 C1 收口)〉首意:
