@@ -26,6 +26,7 @@ import { mkdirSync } from 'node:fs'
 import { registerRoutes } from './routes/index.js'
 import { livenessRoutes } from './routes/liveness.js'
 import { relayDiagnosticsRoutes } from './routes/admin/relay-diagnostics.js'
+import { systemUpdateCheckRoutes } from './routes/admin/update-check.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -459,6 +460,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 主机诊断只读面(2026-11-17 立,对标 qoder2api-hub 的 /diag/vm):
   // 只交本仓自己能量到的虚拟化三态与运行时事实;不伪造"与官方风控桥交叉校验"。
   server.register(relayDiagnosticsRoutes, { prefix: '/api' })
+
+  // 应用更新检测(2026-11-17 立,对标 qoder2api-hub 的 /update/check):
+  // 本机版本 vs GitHub 最新 release,6h 缓存;取不到远端一律 determined:false + 原因。
+  server.register(systemUpdateCheckRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
