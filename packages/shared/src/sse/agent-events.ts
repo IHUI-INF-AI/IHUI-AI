@@ -68,6 +68,10 @@ export const AGENT_TASK_EVENTS = {
   COMPACTION: 'compaction',
   /** hook agent.status → agent 瞬态状态(resuming/pausing/cancelling) */
   AGENT_STATUS: 'agent-status',
+  /** hook question → AskUserQuestion 下行帧(工作台,与主聊天流 question 同形) */
+  QUESTION: 'question',
+  /** hook question-resolved → 提问结算帧(工作台,四态 + 可选 continued) */
+  QUESTION_RESOLVED: 'question-resolved',
 } as const
 
 /** 全部 Agent 任务流事件名的联合类型。 */
@@ -892,6 +896,109 @@ export function parseToolApprovalEvent(raw: unknown): ToolApprovalEvent | null {
 }
 
 /**
+ * question 解析(2026-11-17 立):工作台拦截位 `AgentEvents.question` 的 payload。
+ *
+ * wire: `{ type:"question", question:{...}, session_id, message_id? }`。
+ * question 体原样透出(卡片字段由 web 侧 PendingQuestionSchema 校验),本层只钉
+ * "有 type 自述 ∧ question 是对象 ∧ sessionId 可用于答复端点"三件事。
+ */
+export interface AgentQuestionEvent {
+  type: 'question'
+  /** 问题体(questionId/prompt/options/allowCustom/allowMultiple/header/expiresAt...) */
+  question: Record<string, unknown>
+  /** 提问所属会话(答复端点 `POST /llm/complete/stream/{sessionId}/question-response` 用) */
+  sessionId: string
+}
+
+/** question-resolved 解析:四态 + 可选 continued(timed 到期转挂起,前端仍按 timeout 结算)。 */
+export interface AgentQuestionResolvedEvent {
+  type: 'question-resolved'
+  questionId: string
+  status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
+  selectedOptionIds: string[]
+  customText: string
+  /** 提问所属会话(缺省空串:老帧没有该键) */
+  sessionId: string
+  /** 定时继续:status 只会是 timeout,靠该键区分"用户跳过"与"只是挂起" */
+  continued?: boolean
+}
+
+const QUESTION_FIELDS = z.object({
+  type: z.string(),
+  question: z.record(z.string(), z.unknown()),
+  session_id: z.string().optional(),
+  message_id: z.string().optional(),
+})
+const QUESTION_ROUTE = z.looseObject(QUESTION_FIELDS.pick({ type: true, question: true }).shape)
+
+const QUESTION_RESOLVED_FIELDS = z.object({
+  type: z.string(),
+  questionId: z.string(),
+  status: z.string(),
+  selectedOptionIds: z.array(z.string()).optional(),
+  customText: z.string().optional(),
+  session_id: z.string().optional(),
+  continued: z.boolean().optional(),
+})
+const QUESTION_RESOLVED_ROUTE = z.looseObject(
+  QUESTION_RESOLVED_FIELDS.pick({ questionId: true, status: true }).shape,
+)
+
+const QUESTION_RESOLVED_STATUSES: ReadonlySet<string> = new Set([
+  'answered',
+  'timeout',
+  'withdrawn',
+  'interrupted',
+])
+
+/** question 解析:必须自述 type=question(tool-approval 同款判据),否则拒帧。 */
+export function parseAgentQuestionEvent(raw: unknown): AgentQuestionEvent | null {
+  const data = parseEnvelope(raw)
+  if (!data || data.type !== AGENT_TASK_EVENTS.QUESTION) return null
+  const p = data.payload as Record<string, unknown> | undefined
+  const gate = QUESTION_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.QUESTION, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.QUESTION, QUESTION_FIELDS.shape, p)
+  if (p['type'] !== AGENT_TASK_EVENTS.QUESTION) return null
+  const question = p['question']
+  if (!question || typeof question !== 'object' || Array.isArray(question)) return null
+  return {
+    type: 'question',
+    question: question as Record<string, unknown>,
+    sessionId: String(data.session_id ?? p['session_id'] ?? ''),
+  }
+}
+
+/** question-resolved 解析:status 不在四态内 ⇒ 拒帧(不让"读不懂"变成"没有结算")。 */
+export function parseAgentQuestionResolvedEvent(raw: unknown): AgentQuestionResolvedEvent | null {
+  const data = parseEnvelope(raw)
+  if (!data || data.type !== AGENT_TASK_EVENTS.QUESTION_RESOLVED) return null
+  const p = data.payload as Record<string, unknown> | undefined
+  const gate = QUESTION_RESOLVED_ROUTE.safeParse(p)
+  if (!p || !gate.success) {
+    if (p) recordRouteRejections(AGENT_TASK_EVENTS.QUESTION_RESOLVED, gate, p)
+    return null
+  }
+  auditUnknownFields(AGENT_TASK_EVENTS.QUESTION_RESOLVED, QUESTION_RESOLVED_FIELDS.shape, p)
+  const status = p['status']
+  if (typeof status !== 'string' || !QUESTION_RESOLVED_STATUSES.has(status)) return null
+  return {
+    type: 'question-resolved',
+    questionId: String(p['questionId']),
+    status: status as AgentQuestionResolvedEvent['status'],
+    selectedOptionIds: Array.isArray(p['selectedOptionIds'])
+      ? p['selectedOptionIds'].filter((id): id is string => typeof id === 'string')
+      : [],
+    customText: typeof p['customText'] === 'string' ? p['customText'] : '',
+    sessionId: String(data.session_id ?? p['session_id'] ?? ''),
+    ...(p['continued'] === true ? { continued: true } : {}),
+  }
+}
+
+/**
  * 严格投影工厂(b76-05 票1):路由闸通过后,对整张字段表逐字段全型校验。
  * 声明字段违规 ⇒ 返回带 `fault.sse.fieldRejected` 码的 SseFieldFault(**不是 null**)——
  * 这一形状就是"读不懂"在账面上的样子;未知键照常进 unknownSseFieldCounts。
@@ -917,6 +1024,8 @@ export function parseAgentTaskEventStrict(
     [AGENT_TASK_EVENTS.AGENT_STATUS]: AGENT_STATUS_FIELDS,
     [AGENT_TASK_EVENTS.MESSAGE_SEND]: MESSAGE_SEND_FIELDS,
     [AGENT_TASK_EVENTS.TOOL_APPROVAL]: TOOL_APPROVAL_FIELDS,
+    [AGENT_TASK_EVENTS.QUESTION]: QUESTION_FIELDS,
+    [AGENT_TASK_EVENTS.QUESTION_RESOLVED]: QUESTION_RESOLVED_FIELDS,
   }
   const schema = strictByEvent[name]
   if (!schema) return parseAgentTaskEvent(name, raw)
@@ -952,11 +1061,13 @@ export type AgentTaskEvent =
   | { name: typeof AGENT_TASK_EVENTS.AGENT_STATUS; event: AgentTransientStatusEvent }
   | { name: typeof AGENT_TASK_EVENTS.MESSAGE_SEND; event: AgentMessageSendEvent }
   | { name: typeof AGENT_TASK_EVENTS.TOOL_APPROVAL; event: ToolApprovalEvent }
+  | { name: typeof AGENT_TASK_EVENTS.QUESTION; event: AgentQuestionEvent }
+  | { name: typeof AGENT_TASK_EVENTS.QUESTION_RESOLVED; event: AgentQuestionResolvedEvent }
 
 /**
  * 按事件名路由到对应解析器(EventSink 协议统一入口)。
  * 未知事件名/无效载荷返回 null,调用方静默丢弃(与各消费点既有 try/catch 行为等价)。
- * 仅覆盖前端当前逐名消费的 9 个事件;session/tool_call/tool_result/message/error/
+ * 仅覆盖前端当前逐名消费的 11 个事件;session/tool_call/tool_result/message/error/
  * compaction 由 onmessage 泛型或对话流契约(SSE_EVENTS)承载,不经本工厂。
  */
 export function parseAgentTaskEvent(name: string, raw: unknown): AgentTaskEvent | null {
@@ -995,6 +1106,14 @@ export function parseAgentTaskEvent(name: string, raw: unknown): AgentTaskEvent 
     }
     case AGENT_TASK_EVENTS.TOOL_APPROVAL: {
       const event = parseToolApprovalEvent(raw)
+      return event ? { name, event } : null
+    }
+    case AGENT_TASK_EVENTS.QUESTION: {
+      const event = parseAgentQuestionEvent(raw)
+      return event ? { name, event } : null
+    }
+    case AGENT_TASK_EVENTS.QUESTION_RESOLVED: {
+      const event = parseAgentQuestionResolvedEvent(raw)
       return event ? { name, event } : null
     }
     default:

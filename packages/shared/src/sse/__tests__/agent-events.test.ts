@@ -33,6 +33,8 @@ import {
   parseAgentStatusEvent,
   parseMessageSendEvent,
   parseToolApprovalEvent,
+  parseAgentQuestionEvent,
+  parseAgentQuestionResolvedEvent,
   parseAgentTaskEvent,
   sseFieldFaultCounts,
   resetSseFieldTelemetry,
@@ -45,9 +47,9 @@ import { unknownSseEventCounts, resetUnknownSseEventTelemetry } from '../unknown
 // ============ 1. 事件名常量集合 ============
 
 describe('AGENT_TASK_EVENTS 常量集合', () => {
-  it('包含全部 15 个 Agent 任务流事件', () => {
-    expect(Object.keys(AGENT_TASK_EVENTS)).toHaveLength(15)
-    expect(AGENT_TASK_EVENT_NAMES).toHaveLength(15)
+  it('包含全部 17 个 Agent 任务流事件', () => {
+    expect(Object.keys(AGENT_TASK_EVENTS)).toHaveLength(17)
+    expect(AGENT_TASK_EVENT_NAMES).toHaveLength(17)
   })
 
   it('值无重复(事件判别名唯一)', () => {
@@ -71,6 +73,77 @@ describe('AGENT_TASK_EVENTS 常量集合', () => {
     expect(AGENT_TASK_EVENTS.TERMINAL_DELTA).toBe('terminal-delta')
     expect(AGENT_TASK_EVENTS.COMPACTION).toBe('compaction')
     expect(AGENT_TASK_EVENTS.AGENT_STATUS).toBe('agent-status')
+    // 2026-11-17:工作台提问两帧与主聊天流同名同形
+    expect(AGENT_TASK_EVENTS.QUESTION).toBe('question')
+    expect(AGENT_TASK_EVENTS.QUESTION_RESOLVED).toBe('question-resolved')
+  })
+})
+
+// ============ 1b. 工作台提问帧解析(2026-11-17 立) ============
+
+describe('question / question-resolved 解析', () => {
+  const wire = (name: string, payload: Record<string, unknown>): string =>
+    JSON.stringify({ type: name, payload })
+
+  it('question 帧透出问题体与 sessionId', () => {
+    const raw = wire('question', {
+      type: 'question',
+      question: { questionId: 'q_1', prompt: '选哪个', options: [], header: '范围' },
+      session_id: 's_1',
+    })
+    const evt = parseAgentQuestionEvent(raw)
+    expect(evt?.sessionId).toBe('s_1')
+    expect(evt?.question.questionId).toBe('q_1')
+    expect(evt?.question.header).toBe('范围')
+  })
+
+  it('question 帧缺 question 体或 type 不自述时拒帧', () => {
+    expect(
+      parseAgentQuestionEvent(wire('question', { type: 'question', session_id: 's' })),
+    ).toBeNull()
+    expect(
+      parseAgentQuestionEvent(wire('question', { type: 'other', question: {}, session_id: 's' })),
+    ).toBeNull()
+    expect(parseAgentQuestionEvent('not-json')).toBeNull()
+  })
+
+  it('question-resolved 保留四态与 continued 附加键', () => {
+    const continued = parseAgentQuestionResolvedEvent(
+      wire('question-resolved', {
+        type: 'question-resolved',
+        questionId: 'q_1',
+        status: 'timeout',
+        selectedOptionIds: [],
+        customText: '',
+        session_id: 's_1',
+        continued: true,
+      }),
+    )
+    expect(continued?.status).toBe('timeout')
+    expect(continued?.continued).toBe(true)
+    expect(continued?.sessionId).toBe('s_1')
+
+    const plain = parseAgentQuestionResolvedEvent(
+      wire('question-resolved', {
+        type: 'question-resolved',
+        questionId: 'q_2',
+        status: 'answered',
+      }),
+    )
+    expect(plain?.status).toBe('answered')
+    expect(plain?.continued).toBeUndefined()
+  })
+
+  it('未知 status 不得被读成结算(拒不吞)', () => {
+    expect(
+      parseAgentQuestionResolvedEvent(
+        wire('question-resolved', {
+          type: 'question-resolved',
+          questionId: 'q',
+          status: 'continued',
+        }),
+      ),
+    ).toBeNull()
   })
 })
 

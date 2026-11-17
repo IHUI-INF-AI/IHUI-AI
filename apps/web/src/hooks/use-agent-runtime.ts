@@ -17,6 +17,8 @@ import {
   parseTerminalDeltaEvent,
   parseAgentStatusEvent,
   parseMessageSendEvent,
+  parseAgentQuestionEvent,
+  parseAgentQuestionResolvedEvent,
 } from '@ihui/shared'
 import type {
   SelfHealEvent,
@@ -31,6 +33,10 @@ import type {
 // shared 白名单解析会丢弃新字段,故在 handler 层从 raw e.data 提取(不碰 shared)。
 import { extractSessionDeliverables } from '@/types/agent-delivery'
 import type { TaskDeliverables } from '@/types/agent-delivery'
+// 2026-11-17 立:工作台提问帧落到内联卡。问题体复用聊天侧同一份运行时 schema
+// (questionId/prompt/options/allowCustom/allowMultiple/header/expiresAt 一处定义)。
+import { parsePendingQuestion } from '@/lib/pending-question'
+import type { PendingQuestion } from '@/stores/chat'
 
 export interface AgentSession {
   id: string
@@ -72,6 +78,12 @@ export type {
   AgentMessageSendEvent,
 }
 
+/** 工作台挂起提问:问题体 + 答复端点所需的 sessionId(2026-11-17 立)。 */
+export interface AgentPendingQuestion {
+  question: PendingQuestion
+  sessionId: string
+}
+
 export interface UseAgentRuntimeReturn {
   sessionTree: AgentSession[]
   loading: boolean
@@ -95,6 +107,11 @@ export interface UseAgentRuntimeReturn {
   /** D27(2026-09-20 立):session_end wire payload 的 deliverables 二次提取结果
    *  (单值覆盖,session_end 到达时重设;事件缺该字段或解析失败为 null) */
   sessionDeliverables: TaskDeliverables | null
+  /**
+   * 2026-11-17:工作台挂起提问(question 帧到达即有值,question-resolved 或换 agent 时清空)。
+   * 卡片在 agent-task-progress-pane 顶部渲染;答复走同一结构化 REST 端点。
+   */
+  pendingQuestion: AgentPendingQuestion | null
   connected: boolean
   /**
    * 2026-10-26:运行时事件流**致命**断开的原因(非 null = 流已停,不会再自己活过来)。
@@ -151,6 +168,8 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
   const [sessionDeliverables, setSessionDeliverables] = React.useState<TaskDeliverables | null>(
     null,
   )
+  /** 2026-11-17:工作台挂起提问（question → 有值；question-resolved 按 questionId 摘除） */
+  const [pendingQuestion, setPendingQuestion] = React.useState<AgentPendingQuestion | null>(null)
   const [connected, setConnected] = React.useState(false)
   /** 2026-10-26:流致命断开的原因(见 UseAgentRuntimeReturn.streamError) */
   const [streamError, setStreamError] = React.useState<string | null>(null)
@@ -210,6 +229,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setAgentStatus(null)
       setLastMessageSend(null)
       setSessionDeliverables(null)
+      setPendingQuestion(null)
       setConnected(false)
       setStreamError(null)
       return
@@ -247,7 +267,9 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
         }
         if (authRetryRef.current.tried) {
           setStreamError('unauthorized-after-refresh')
-          console.error(`[use-agent-runtime] agent stream dead: unauthorized-after-refresh agentId=${agentId}`)
+          console.error(
+            `[use-agent-runtime] agent stream dead: unauthorized-after-refresh agentId=${agentId}`,
+          )
           return
         }
         authRetryRef.current = { agentId, tried: true }
@@ -388,6 +410,25 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       if (evt) setLastMessageSend(evt)
     })
 
+    // 2026-11-17(工作台提问闭环):与主聊天流同名同形的两帧。
+    // question 体走聊天侧同一份 PendingQuestionSchema(脏帧不入状态,卡片不弹半截);
+    // question-resolved 按 questionId 逐字匹配摘除,避免别的问题把自己的卡抹掉。
+    es.addEventListener(AGENT_TASK_EVENTS.QUESTION, (e) => {
+      const evt = parseAgentQuestionEvent(e.data)
+      if (!evt) return
+      const question = parsePendingQuestion(evt.question)
+      if (!question) return
+      setPendingQuestion({ question, sessionId: evt.sessionId })
+    })
+
+    es.addEventListener(AGENT_TASK_EVENTS.QUESTION_RESOLVED, (e) => {
+      const evt = parseAgentQuestionResolvedEvent(e.data)
+      if (!evt) return
+      setPendingQuestion((prev) =>
+        prev && prev.question.questionId === evt.questionId ? null : prev,
+      )
+    })
+
     return () => {
       es.close()
       esRef.current = null
@@ -400,6 +441,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setAgentStatus(null)
       setLastMessageSend(null)
       setSessionDeliverables(null)
+      setPendingQuestion(null)
       // 2026-11-08(W-09):切换 agentId 时一并清空事件派生状态。
       // 漏掉这四项会让 A 的 token 流/工具链挂到 B 上(toolCallChain 还是追加写)。
       setTokenStream([])
@@ -424,6 +466,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     agentStatus,
     lastMessageSend,
     sessionDeliverables,
+    pendingQuestion,
     connected,
     streamError,
   }
