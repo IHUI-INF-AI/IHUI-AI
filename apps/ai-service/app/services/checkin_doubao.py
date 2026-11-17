@@ -1177,13 +1177,42 @@ async def doubao_task_sweep_account(
         question_id(用户提问消息 id)调 EventReport(scene=campaign_type,
         campaign_item_code=任务 code, message_id=该 id)即可计完成,随后正常领奖
         (2026-11-17 实弹实证:task_status=2);
-      - ScheduleSkill/WorkTaskMode:实例已开(4)后,本服务已能合规发出客户端
-        WorkTask 模式的 /chat/completion(mode_id=4 + mention_skill_list=["schedule"]
-        + general_task_param={runtime_type:1}),上游确实在云端跑起 general-agent
-        (get_reply 可见真实联网搜索块),但 schedule 技能未激活、未产出 job_cron;
-        单建 job_cron + run、或用该会话 question_id 上报仍被拒 625002003。
-        客户端真正激活 schedule 依赖桌面端本地技能安装(neotix.taskModeRuntime
-        .installSkill)与云端沙箱会话,服务端无法合规复刻 ⇒ 不代跑。
+      - ScheduleSkill/WorkTaskMode:job_cron 协议已全打通(2026-11-17 二次实证):
+        纯 HTTP 可建 cron——/alice/job_cron/create 必填 schedule.repeat_type=3(Daily,
+        传 1/4/5 报 710010202「系统错误」=参数非法,非风控非签名;repeat_type=2 报
+        623030001「数量达上限」=枚举合法),建议带 sandbox_auth_type=2 +
+        deep_think_switch=4(与 job_cron/get 线上真实 job 一致);create 后 /run 触发
+        code 0、last_run_status=1、产出真实 cron 会话(可 /conversation/latest_messagelist
+        取到 chat_id)。但**用该 cron 会话 chat_id 上报 EventReport 仍恒拒 625002003,
+        task_status 不翻转**(status=4 实例两账号反复验证)。
+        完成 root:客户端走 WorkTask 模式,由本地安装的 schedule 技能
+        (doubao-cron-scheduler,external_skill_id=348923904514)建 cron 才被 campaign
+        计完成。三次实证确认纯 HTTP 无法激活该技能:① WorkTask chat 的云端 general-agent
+        亲口回「没有定时任务调用工具」不建 cron;② /alice/office/skills/add 返回 code 0
+        但幂等空响应,list_my 仍空、agent 仍报无此技能 ⇒ 技能经
+        neotix.taskModeRuntime.installSkill 落本地技能运行时,云端 add 不注入工具集;
+        ③ 上报换 scene=chat + message-sent/skill-added kind + skill_id 仍 625002003;
+        ④ 技能激活已穷尽(2026-11-17 三轮,从号池解 Fernet 取真实 sessionid 实弹):
+        get_detail/detail、install_type=0/2/3/4、set_enabled/enable/update_status 全部
+        code 0 空响应且 list_my 恒空;控制实验定谳——传假 skill_id(999999999999)与真
+        技能 ID 走 add 回报完全一致(同 code 0 空响应),证明该端点不校验 ID、不持久化、
+        是 no-op,code 0 是空洞成功而非真安装。
+        ⇒ 不代跑,避免无效额度与风控。
+
+号池签到探底(2026-11-17 第三轮,5 启用号全量实弹,本函数 + 调度冷却链已核实):
+        - 号池 doubao 启用号实为 5 个(27 是全平台总数,非 doubao);
+        - 15754320340 code=0「今日已签到」⇒ 号池 cookie 普遍有效,非整体过期;
+        - 18643389808/19944895160/19390097993 三号 710010702:detail 可通(会话健康)
+          但 claim 被拦 ⇒ 批量连打触发账号级频控/风控期,非 token 失效。此路径引擎
+          已内建正确处置:_classify_code 把 710010702 归 BusinessError + cooldown
+          3600s,调度层 record_result 消费 classified_error 落 cooldown_until 定时重试
+          (不熔断)⇒ 无需新增退避,现有冷却即最优;
+        - 「李总」code=2 campaign not found:detail 即回 2,该号不在
+          pc_incentive_task_mvp_v3 签到活动分组内(账号侧资格差异,非可修 bug;
+          device_map 全部为空已排除设备指纹差异);
+        - 多 profile 并行规模化假设证伪:`Doubao.exe --profile-directory` 单实例锁定,
+          参数不生效仍复用原窗口(仅 1 个 MainWindow),号池无法靠多实例并行,只能
+          进程内串行 + 节流闸门错峰。
     """
     result = _base_task_result(name, doubao_device_map_uid(device_map))
     err = _validate_token(token)
