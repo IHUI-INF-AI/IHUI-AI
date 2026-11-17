@@ -52,6 +52,13 @@ import {
   hydrateAgentProgressPaneFromStorage,
 } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
+// 2026-11-17:工作台提问闭环 —— 卡片与聊天侧同一个组件,答复走同一个结构化端点。
+import { InlineQuestionCard } from '@/components/ai/inline-question-card'
+import {
+  postQuestionResponse,
+  type QuestionAnswerPayload,
+  type QuestionResponseStatus,
+} from '@/hooks/use-chat/question-response'
 // 上下文占用的分母唯一出口(按模型 id 查真实容量);发送侧早已用它,resume-stream.ts:211 是同一条链
 import { getModelContextCapacity } from '@ihui/api-client'
 import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
@@ -876,7 +883,23 @@ export function AgentTaskProgressPane() {
     // D27(2026-09-20 立):session_end wire payload 的 deliverables 二次提取结果
     // (实时交付卡数据源;事件缺该字段或解析失败为 null)
     sessionDeliverables: runtimeSessionDeliverables,
+    // 2026-11-17:工作台挂起提问(question 帧 → 内联卡;question-resolved 摘除)
+    pendingQuestion: runtimePendingQuestion,
   } = useAgentRuntime(open && threadId ? threadId : null)
+
+  // 工作台答复:与聊天侧同一条结构化 REST(不发起新一轮、不新增用户消息)。
+  // 失败向上抛给卡片(卡片自带失败提示与重试),不在这里吞掉。
+  const submitWorkbenchQuestion = React.useCallback(
+    async (
+      sessionId: string,
+      response: QuestionAnswerPayload,
+    ): Promise<QuestionResponseStatus | void> => {
+      const outcome = await postQuestionResponse(sessionId, response)
+      if (outcome.kind === 'failed') throw new Error(outcome.message)
+      return outcome.kind === 'blocking' ? outcome.status : undefined
+    },
+    [],
+  )
 
   // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
   // elapsed 派生:基于 sessionStart + 累计 tick 秒数,避免依赖当前 Date.now()(避免重渲染后时间跳变)
@@ -1853,6 +1876,18 @@ export function AgentTaskProgressPane() {
           className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
           data-testid="plan-list"
         >
+          {/* 2026-11-17:挂起提问置顶(与聊天侧同一张内联卡,不是弹窗、不抢焦点) */}
+          {runtimePendingQuestion && (
+            <div className="px-2 pt-2" data-testid="pane-question-card">
+              <InlineQuestionCard
+                question={runtimePendingQuestion.question}
+                onSubmit={(response) =>
+                  submitWorkbenchQuestion(runtimePendingQuestion.sessionId, response)
+                }
+                className="mb-2"
+              />
+            </div>
+          )}
           {!threadId && (
             <div
               className="flex flex-col items-center gap-1.5 px-3 py-5 text-center"
