@@ -83,9 +83,9 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 651 | `dbTables` |
-| schema 文件 | 252 | `dbSchemaFiles` |
-| API 路由 | 4832 | `apiRoutes` |
+| 数据库表 | 652 | `dbTables` |
+| schema 文件 | 253 | `dbSchemaFiles` |
+| API 路由 | 4839 | `apiRoutes` |
 | 路由文件 | 704 | `apiRouteFiles` |
 | AI 服务路由 | 677 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
