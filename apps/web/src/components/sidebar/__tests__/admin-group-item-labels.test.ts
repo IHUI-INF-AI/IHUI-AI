@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
+import { ADMIN_NAV_GROUPS } from '@/components/layout/admin-nav-groups'
 import { ADMIN_HUB_ITEMS } from '../nav-data'
 import { mergeMessages } from '@ihui/i18n/loader'
 

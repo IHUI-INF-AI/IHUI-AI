@@ -102,7 +102,7 @@ import {
   Briefcase,
   Send,
 } from 'lucide-react'
-import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/AdminNav'
+import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/admin-nav-groups'
 import type { Language } from '@/stores/language'
 import type { NavItem } from './types'
 
