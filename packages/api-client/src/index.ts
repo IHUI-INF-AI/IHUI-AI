@@ -12,6 +12,9 @@ export {
   type PostQuestionResponseResult,
 } from './question-response-transport.js'
 export * from './endpoints/control-frames.js'
+// 客户端签名注入点(三端唯一落点):setClientSignatureProvider / resolveClientSignature /
+// applyClientSignature。算法本体在 @ihui/shared 的 utils/client-sign,本包只做 header 注入。
+export * from './client-sign'
 export * from './endpoints/ai-world.js'
 export * from './endpoints/edu-ai.js'
 export * from './endpoints/student.js'
@@ -39,9 +42,6 @@ export {
   setAiServiceBase,
   setUserAgent,
   getUserAgent,
-  // 2026-11-17 立:客户端签名提供方(X-IHUI-Client)。各端注入"每次现算"的取头函数,
-  // 本包只发头不算签(零依赖边界),见 client.ts 的 setClientSignatureProvider 注释。
-  setClientSignatureProvider,
   setStreamBaseUrl,
   getStreamBaseUrl,
   getToken,
@@ -131,8 +131,9 @@ export type {
   // P1 #27(2026-11-13):done 帧携带的记忆更新载荷类型 —— 与 onMemoryUpdates 同批入入口,
   // 否则端内要写该回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   MemoryUpdatesEvent,
-  // G-87(2026-11-13):hook-failed 帧的载荷类型 —— 与 onHookFailure 同批入入口,
-  // 否则端内要写该回调就点不到参数类型,只能自抄一份(§3 类型零技术债禁止)。
+  // hook 失败帧载荷类型(与 onHookFailure 回调同批入入口;client.ts L3188 定义,
+  // 三端消费同一份 —— 小程序 api 层与 web/RN 的 hook-failures 链此前只被端内 import 点到,
+  // barrel 缺席 ⇒ miniapp tsc TS2305,§3 类型零技术债禁止端内重定义)。
   HookFailureEvent,
   // 控制帧 `resume_goal`(2026-10-28 立):恢复帧的回执类型 —— 与 resumeSessionGoal 同批
   // 入入口,否则端内要写 onResume 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
@@ -239,7 +240,7 @@ export {
 export { CircuitBreaker, CircuitOpenError, serverPreset, clientPreset } from './circuit-breaker.js'
 export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from './circuit-breaker.js'
 
-// 流式感知 JSON 修复（2026-11-05 立,遵循统一工程规范）
+// 流式感知 JSON 修复（2026-11-05 立,对标 Qoder/Trae 的 jsonrepair 依赖并超越其「只能吃完整串」的流式轴）
 export { repairJson, StreamingJsonRepair, createStreamingJsonRepair } from './json-repair.js'
 export type { RepairResult, StreamingRepairSnapshot } from './json-repair.js'
 // 工具调用入参解析（2026-11-05 立）:归一化任意上游 args 形态 + 增量 function.arguments 流式解析
@@ -249,7 +250,7 @@ export {
   createToolCallArgsStreamer,
 } from './tool-call-args.js'
 export type { ToolCallArgsState } from './tool-call-args.js'
-// OpenAI 兼容流式工具调用解析（2026-11-05 立,工程化落地:按 call index 增量累积 function.arguments,
+// OpenAI 兼容流式工具调用解析（2026-11-05 立,逆向-复现-超越:按 call index 增量累积 function.arguments,
 // 每片即出 partial/complete 态,残缺片经 json-repair 修复后解析,卡片不因截断崩）
 export {
   parseOpenAiStreamLine,

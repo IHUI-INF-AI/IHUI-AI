@@ -110,7 +110,8 @@ param(
   [string]$WsBaseUrl = '',
   [switch]$AllowLocalBackend,
   [string]$VersionName = '',
-  [string]$SelfTestApk = ''
+  [string]$SelfTestApk = '',
+  [string]$ClientSignSecretFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -373,17 +374,48 @@ if ($ShowVersionCode) {
   return
 }
 
+# ---- [0.5/5] 构建工具链与环境自愈(2026-11-18 立) ----
+# 必须排在门链之前:门链本身 spawn pnpm/git,缺一条就 exit 1,把整条出链挡在门外
+# (实测:会话默认 PATH 不含 pnpm ⇒ 第一道门 typecheck 就 'pnpm' is not recognized)。
+# gradle 另有一条硬依赖:找 SDK 只认 ANDROID_HOME/ANDROID_SDK_ROOT 或
+# android/local.properties 的 sdk.dir,缺了就在 settings 编译通过之后才报
+# "SDK location not found" —— 最费时间的位置。这里一次问清,并导出给所有子进程。
+Write-Host "`n===== [0.5/5] 构建工具链与环境自愈 =====" -ForegroundColor Cyan
+$jdkCandidates = @(@('D:\DevEnv\runtimes\jdk21', 'D:\DevEnv\runtimes\jdk', $env:JAVA_HOME) | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'bin\javac.exe')) })
+# 只认 JDK 21:本机 D:\DevEnv\runtimes\jdk 是 JDK 26,AGP/Kotlin 的 toolchain 上限远没到 26
+# (实测 JDK 26 下 AGP 直接报不支持);jdk21 是 Temurin 21.0.12.1,与已发布包同一条链。
+$jdkGood = @($jdkCandidates | Where-Object { ((& (Join-Path $_ 'bin\javac.exe') -version 2>&1) -join ' ') -match '\b21\b' })
+if (-not $jdkGood) { throw ('JAVA_HOME 解析不出 JDK 21(候选:' + ($jdkCandidates -join ', ') + ');正解:用 D:\DevEnv\runtimes\jdk21,或显式设 $env:JAVA_HOME 到 JDK 21') }
+$env:JAVA_HOME = $jdkGood[0]
+# 注意 @() 必须包住整个管道:单个命中时 PowerShell 会把结果降级成标量,
+# 此时 [0] 取到的是字符串的首字母(实测把 ANDROID_HOME 写成 "D",sdk.dir 直接坏掉)。
+$sdkCandidates = @(@('D:\DevEnv\android-sdk', $env:ANDROID_HOME, $env:ANDROID_SDK_ROOT) | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'platform-tools\adb.exe')) })
+if ($sdkCandidates.Count -eq 0) { throw 'ANDROID_HOME 解析不出可用 SDK(需带 platform-tools\adb.exe)' }
+$env:ANDROID_HOME = $sdkCandidates[0]
+$env:ANDROID_SDK_ROOT = $sdkCandidates[0]
+$env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;" + $env:PATH
+$jv = (& (Join-Path $env:JAVA_HOME 'bin\java.exe') -version 2>&1 | Select-Object -First 1)
+Write-Host "  JAVA_HOME=$env:JAVA_HOME | $jv" -ForegroundColor Green
+Write-Host "  ANDROID_HOME=$env:ANDROID_HOME" -ForegroundColor Green
+foreach ($tool in @(
+  @{ Name = 'pnpm.cmd'; Candidates = @('D:\DevEnv\tools\npm-global\pnpm.cmd') },
+  @{ Name = 'git.exe'; Candidates = @('C:\Program Files\Git\cmd\git.exe') }
+)) {
+  if (-not (Get-Command -Name $tool.Name -ErrorAction SilentlyContinue)) {
+    foreach ($cand in $tool.Candidates) {
+      if (Test-Path -LiteralPath $cand) { $env:PATH = (Split-Path -LiteralPath $cand) + ';' + $env:PATH; break }
+    }
+  }
+}
+$pn = (Get-Command -Name pnpm.cmd -ErrorAction SilentlyContinue).Source
+$gt = (Get-Command -Name git.exe -ErrorAction SilentlyContinue).Source
+if (-not $pn) { throw 'pnpm 解析不出来(门链与 patch 脚本都要它);正解:确认 D:\DevEnv\tools\npm-global\pnpm.cmd 存在,或显式补 PATH' }
+if (-not $gt) { throw 'git 解析不出来;正解:确认 "C:\Program Files\Git\cmd\git.exe" 存在,或显式补 PATH' }
+Write-Host "  pnpm=$pn | git=$gt" -ForegroundColor Green
+
 Write-Host "`n===== [门链] 出包前置门链(任一红即中止) =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
 try {
-  # 门链的 typecheck 走"包解析"(apps/mobile-rn 读 @ihui/api-client 的 dist),而发版轮上游
-  # 已 reset --hard + clean -fd:dist 属未跟踪产物、会被清掉,只剩上一轮的陈旧副本。
-  # 于是上游一旦新增导出(mobile-rn 先落地、依赖包 dist 没跟上)门链就必然假红。
-  # 因此门链前先按依赖闭包重建产物(@ihui/mobile-rn^... 只含依赖、不含本包)。
-  & pnpm turbo build --filter "@ihui/mobile-rn^..." | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    throw "依赖闭包重建失败(exit=$LASTEXITCODE)—— 门链读不到新鲜 dist,本次不构建、不产出任何可发布产物。"
-  }
   # 与 CI 共用 scripts/mobile-release-gate.mjs 这一份实现,禁止在本脚本另写一份清单(两处清单必然漂移)。
   # --worktree:审的是"将要构建的这份盘上内容",不是 HEAD blob。
   node scripts/mobile-release-gate.mjs --worktree
@@ -393,6 +425,11 @@ try {
 } finally { Pop-Location }
 
 Write-Host "`n===== [1/5] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
+# android/ 是 Expo prebuild 生成物。首轮(全新 checkout)它还不存在,此时 patch 无目标可打;
+# [2.7] 会自己 prebuild 并在末尾重打两个 patch ⇒ 这里只提示,不 throw。
+if (-not (Test-Path -LiteralPath $AndroidDir)) {
+  Write-Host '  android/ 尚未生成 ⇒ 首轮 patch 跳过(prebuild 后 [2.7] 末尾会重打)' -ForegroundColor DarkGray
+} else {
 Push-Location $RepoRoot
 try {
   node scripts/patch-rn-release-signing.mjs
@@ -401,11 +438,20 @@ try {
   node scripts/patch-rn-okhttp-http1.mjs
   if ($LASTEXITCODE -ne 0) { throw 'patch-rn-okhttp-http1.mjs 失败' }
 } finally { Pop-Location }
+}
 
 Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
-$Keystore = "$env:USERPROFILE\.android\ihui-release.keystore"
+# 2026-11-18:keystore 的权威落点 = gradle.properties 里 IHUI_RELEASE_STORE_FILE 指向的那个文件
+# (gradle 真正读的就是它)。旧写法只看 ~/.android/ihui-release.keystore,而本机实盘把 keystore
+# 放在 D:\DevEnv\secrets 下(仓库外、与签名凭据同目录) ⇒ 那份检查恒判缺失,整条出链在第一步就死。
+# 两处都问,STORE_FILE 优先;都取不到才判缺。
 $GradleProps = "$env:USERPROFILE\.gradle\gradle.properties"
-$hasKs = Test-Path $Keystore
+$Keystore = "$env:USERPROFILE\.android\ihui-release.keystore"
+if (Test-Path -LiteralPath $GradleProps) {
+  $storeRaw = Select-String -LiteralPath $GradleProps -Pattern '^IHUI_RELEASE_STORE_FILE=(.+)$' | Select-Object -First 1
+  if ($storeRaw) { $Keystore = ($storeRaw.Matches[0].Groups[1].Value.Trim() -replace '\\\\', '\') }
+}
+$hasKs = Test-Path -LiteralPath $Keystore
 $hasProps = (Test-Path $GradleProps) -and (Select-String -Path $GradleProps -Pattern 'IHUI_RELEASE_STORE_FILE' -Quiet)
 if (-not $hasKs -or -not $hasProps) {
   # 2026-11-03 立:缺凭据不再"回退 debug 签名继续出包"。debug 签名的包一旦被发到固定下载地址,
@@ -574,6 +620,73 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'prebuild 后重打 patch-rn-okhttp-http1.mjs 失败' }
 } finally { Pop-Location }
 
+# ---- [2.75/5] Gradle wrapper 与 SDK 定位对齐(2026-11-18 立) ---------------------------
+# 两个坑都在 prebuild 之后才暴露,且都是 prebuild 生成物:
+# ① Expo 57 / RN 0.86 的模板给 gradle-9.3.1,而 9.3.1 的 Kotlin DSL 基类签名与
+#    @react-native/gradle-plugin@0.86.2 不兼容 —— 实测两连红:
+#    settings 脚本编译期 `Unresolved reference 'plugins'`,绕过它之后又在插件解析期报
+#    `Settings_gradle.<init>(org.gradle.kotlin.dsl.support.KotlinScriptHost, ...)`;
+#    换 gradle-8.14.3 后 `gradlew help` 实录 exit 0。⇒ 每次 prebuild 后都对齐。
+# ② gradle 找 SDK 只认 ANDROID_HOME / ANDROID_SDK_ROOT 或 local.properties 的 sdk.dir;
+#    本机会话默认 env 两者都没有 ⇒ 显式写死 sdk.dir(与 [1.5] 解析出的同一处)。
+Write-Host "`n===== [2.75/5] Gradle wrapper 与 SDK 定位对齐 =====" -ForegroundColor Cyan
+$WrapProps = Join-Path $AndroidDir 'gradle\wrapper\gradle-wrapper.properties'
+if (-not (Test-Path -LiteralPath $WrapProps)) { throw "缺 wrapper 配置: $WrapProps(prebuild 未产出?)" }
+$wrapText = Get-Content -LiteralPath $WrapProps -Raw
+if ($wrapText -notmatch 'gradle-8\.14\.3-bin\.zip') {
+  $wrapText2 = [regex]::Replace($wrapText, '(?m)^distributionUrl=.*$', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-bin.zip')
+  if ($wrapText2 -eq $wrapText) { throw 'wrapper 里没有 distributionUrl 行,无法对齐到 8.14.3' }
+  Set-Content -LiteralPath $WrapProps -Value $wrapText2 -NoNewline -Encoding utf8
+  Write-Host '  wrapper 已对齐 gradle-8.14.3-bin(9.3.1 与 RN 0.86 的 Kotlin DSL 不兼容)' -ForegroundColor Green
+} else {
+  Write-Host '  wrapper 已是 gradle-8.14.3-bin ✓' -ForegroundColor Green
+}
+$LocalProps = Join-Path $AndroidDir 'local.properties'
+$sdkLine = 'sdk.dir=' + ($env:ANDROID_HOME -replace '\\', '\\')
+Set-Content -LiteralPath $LocalProps -Value $sdkLine -Encoding ascii -NoNewline
+Write-Host "  local.properties 已写 $sdkLine" -ForegroundColor Green
+
+# ---- [2.8/5] 客户端签名密钥自动注入(2026-11-18 立) -----------------------------------
+# 为什么必须自动化:apps/mobile-rn/src/lib/token.ts 只在 initApi 里读
+# `process.env.EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET`;不注入 ⇒ 端上 setClientSignatureProvider 不执行
+# ⇒ 永不生成 `X-IHUI-Client` 头 ⇒ 服务端只能走 UA 兜底,严格模式(IHUI_CLIENT_SIGN_STRICT=1)永远打不开。
+# 密钥唯一落点 = 网盘密钥目录的 client-sign-secret.txt(与 apps/api/.env 的
+# IHUI_CLIENT_SIGN_SECRET 同值)。不入库、不进聊天、不进日志 —— 这里只打印前 8 + 后 4 的指纹。
+# 取不到就拒绝构建:一个"能装、但一开严格模式全量 403"的包,比没有包贵得多。
+Write-Host "`n===== [2.8/5] 客户端签名密钥自动注入 =====" -ForegroundColor Cyan
+$ClientSignSecret = ''
+$ClientSignSrc = ''
+if ($env:EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET) {
+  $ClientSignSecret = $env:EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET.Trim().ToLower()
+  $ClientSignSrc = '进程环境'
+} elseif ($ClientSignSecretFile) {
+  if (-not (Test-Path -LiteralPath $ClientSignSecretFile)) { throw "指定的 -ClientSignSecretFile 不存在: $ClientSignSecretFile" }
+  $m = [regex]::Match((Get-Content -LiteralPath $ClientSignSecretFile -Raw), '(?m)^\s*([0-9a-fA-F]{64})\s*$')
+  if (-not $m.Success) { throw "密钥文件里找不到 64 位 hex 形态的密钥: $ClientSignSecretFile" }
+  $ClientSignSecret = $m.Groups[1].Value.ToLower()
+  $ClientSignSrc = $ClientSignSecretFile
+} else {
+  foreach ($drive in @('D', 'C', 'E', 'F', 'G')) {
+    $cand = Join-Path ($drive + ':\') 'BaiduSyncdisk\密钥\IHUI-AI项目密钥\client-sign-secret.txt'
+    if (Test-Path -LiteralPath $cand) {
+      $m = [regex]::Match((Get-Content -LiteralPath $cand -Raw), '(?m)^\s*([0-9a-fA-F]{64})\s*$')
+      if ($m.Success) { $ClientSignSecret = $m.Groups[1].Value.ToLower(); $ClientSignSrc = $cand; break }
+    }
+  }
+}
+if (-not $ClientSignSecret) {
+  throw ('拒绝构建:客户端签名密钥取不到。端上不带 X-IHUI-Client ⇒ 严格模式下所有请求 403。' +
+    ' 正解:把 64 位 hex 密钥单独成行写进 <密钥盘>:\BaiduSyncdisk\密钥\IHUI-AI项目密钥\client-sign-secret.txt,' +
+    ' 或显式传 -ClientSignSecretFile <path>,或先设 EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET。' +
+    ' 禁止的出路:跳过这一步继续出包 —— 那会产出一个「能装、装不上线」的包。')
+}
+if ($ClientSignSecret -notmatch '^[0-9a-f]{64}$') {
+  throw "客户端签名密钥形态不对(应为 64 位小写 hex,实际长度 $($ClientSignSecret.Length))"
+}
+$env:EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET = $ClientSignSecret
+$cfp = $ClientSignSecret.Substring(0, 8) + '…' + $ClientSignSecret.Substring($ClientSignSecret.Length - 4)
+Write-Host "  已注入 EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET(来源:$ClientSignSrc,指纹 $cfp,appId=ihui-app)" -ForegroundColor Green
+
 Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionName=$VersionName versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
@@ -604,11 +717,6 @@ if ($env:JAVA_HOME) {
 
 Push-Location $AndroidDir
 try {
-  # 本机 ANDROID_SDK_HOME 与 ANDROID_USER_HOME 指向不同目录(前者被设成 SDK 路径、后者是 D:\android)。
-  # AGP 判"多个变量指向不同 Android Preferences 目录"直接拒绝创建 AndroidLocationsBuildService,
-  # 报 "Could not create provider for value source ... AndroidDirectoryCreator"(2026-11-17 实测)。
-  # 只在本次构建进程里摘掉这个过时变量,不改用户全局环境;ANDROID_HOME / ANDROID_USER_HOME 保持原样。
-  if ($env:ANDROID_SDK_HOME) { Remove-Item Env:ANDROID_SDK_HOME -ErrorAction SilentlyContinue }
   # 先停 daemon:打包期的 `EXPO_PUBLIC_*` 内联读的是 **gradle daemon 进程**的环境,而 daemon 复用旧环境
   # ⇒ 本脚本刚设的值到不了打包器(2026-10-21 实测:参数是 api.aizhs.top,包里却是 env 里的 apex)。
   # --stop 后新 daemon 继承本进程 env,回读臂仍会兜底核对。
@@ -680,6 +788,19 @@ if (-not $AllowLocalBackend) {
 }
 Write-Host "  回读一致:API/WEB/WS 三个基址都真在包里,且无回环残留 ✓" -ForegroundColor Green
 
+# 客户端签名密钥回读(与基址同一条纪律:不信任「我设了 env」)。Metro 会把
+# process.env.EXPO_PUBLIC_* 内联成字符串字面量,所以整串密钥必然出现在 bundle 里;
+# 判据只取前 10 + 后 6 两段做包含判定,避免把完整密钥写进任何日志或失败信息。
+$csHead = $ClientSignSecret.Substring(0, 10)
+$csTail = $ClientSignSecret.Substring($ClientSignSecret.Length - 6)
+if (-not ($bundle.Contains($csHead) -and $bundle.Contains($csTail))) {
+  throw '包里找不到客户端签名密钥(前10/后6 未同时命中)—— 密钥没进 bundle;严格模式一开,这个包发的请求会被全量 403。'
+}
+if (-not $bundle.Contains('ihui-app')) {
+  throw '包里找不到 appId "ihui-app" —— 签名 provider 没被编译进产物(token.ts 的 initApi 分支被裁掉了?)'
+}
+Write-Host '  回读一致:客户端签名密钥与 appId 都真在包里 ✓' -ForegroundColor Green
+
 Write-Host "`n===== [4/5] 产物验收:签名一致性 + 体积基线 =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
 try {
@@ -746,13 +867,7 @@ if ($NoPublish) {
         throw 'Gitee 分片腿未发: GITEE_TOKEN 缺失且凭据管理器里取不到 gitee.com —— 不许静默只发站点腿'
       }
       py $GiteeScript --apk $Apk --version $VersionName --parts 16 --version-code $VersionCode
-      if ($LASTEXITCODE -eq 3) {
-        # 3 = Gitee 仓设成了私有:附件已全传齐,但对外 HEAD/GET 一律 403(2026-11-17 实测,补 UA 也无效)。
-        # 该腿对终端用户不可读,而 App 的下载地址本就走站点腿 —— 打警告继续,但绝不记成"分片腿已就绪"。
-        Write-Warning 'Gitee 分片腿:仓库为私有,附件已传齐但对外不可读(403);继续发站点腿'
-      } elseif ($LASTEXITCODE -ne 0) {
-        throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功"
-      }
+      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功" }
     } else {
       throw "缺 $GiteeScript —— 分片腿无处发布,不许静默跳过"
     }
