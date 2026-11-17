@@ -409,6 +409,17 @@ export interface V1ModelsResponse {
     owned_by: string
     /** 平台模型是否可用(有额度且 provider 健康)。BYOK/实时/降级路径恒为 true。OpenAI 客户端可忽略。 */
     available?: boolean
+    /**
+     * 能力与规格宣告(2026-11-17 立,对标 qoder2api-hub 的 /v1/models)。
+     * 全部为可选扩展字段:标准 OpenAI 客户端忽略即可;识别的客户端可据此切分上下文/选档。
+     * - capabilities:能力标签(vision/tools/reasoning/code/audio);空数组或缺失 = 不宣告。
+     * - context_window / max_output_tokens:只在有公开一手出处时出场(无值则整键省略,不写 0)。
+     * - thinking:supported=true 才有档位;false = 明确不支持(不是「未判定」)。
+     */
+    capabilities?: string[]
+    context_window?: number
+    max_output_tokens?: number
+    thinking?: { supported: boolean; levels: string[] }
   }>
 }
 

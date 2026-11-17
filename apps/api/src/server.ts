@@ -24,6 +24,7 @@ import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
 import { registerRoutes } from './routes/index.js'
+import { livenessRoutes } from './routes/liveness.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -447,6 +448,12 @@ export async function buildServer(): Promise<FastifyInstance> {
     service: '@ihui/api',
     timestamp: new Date().toISOString(),
   }))
+
+  // 探活别名族(2026-11-17 立,对标 qoder2api-hub 的 `/ping /healthz /livez /readyz`)。
+  // 纪律:全部**纯文本**、免鉴权、不查账号池/不查依赖 —— 只回答「进程在不在」。
+  // readyz 在这里是**轻量就绪**(仅回答进程可服务),不冒充「DB/Redis/AI 三项都通」;
+  // 后者唯一真相源仍是 /api/health/ready,响应头 X-Ready-Scope 把这一区别写明。
+  server.register(livenessRoutes)
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
