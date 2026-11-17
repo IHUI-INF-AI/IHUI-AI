@@ -50,6 +50,10 @@ from pathlib import Path
 
 CONFIG_PATH = Path(__file__).resolve().parent / "data" / "mobile-download-leg.json"
 EXIT_OK, EXIT_FAIL, EXIT_UNDETERMINED = 0, 1, 2
+# 3 = 仓库私有:附件已全传齐,但 release 附件对外一律 403(2026-11-17 实测:HEAD 与 Range GET 均 403,
+# 补 User-Agent 也无效)。这是仓库可见性决定的,不是限流也不是没传上去 —— 该腿对终端用户不可读,
+# 而 App 的下载地址本就走站点腿,所以上层按"该腿不适用"继续,绝不折算成"已发布"。
+EXIT_PRIVATE_REPO = 3
 
 # ── HTTP 出口(2026-11-05 现网教训)─────────────────────────────────────────
 # Windows 上 `urllib.request.getproxies()` 会**读注册表里的系统代理**(本机
@@ -530,6 +534,31 @@ def main(argv=None):
     if state == "fail" or parts_state == "fail":
         return EXIT_FAIL
     if state != "ok" or parts_state != "ok":
+        # 私有仓库的附件对外不可读:判据两条同时成立才降级(独立退出码 3),缺一条照旧未判定。
+        # ① Gitee 明说 private=True;② 本次要发的每个名字都真在 release 附件清单里(上传确实成功)。
+        # 没传上去绝不算过 —— 那正是 2026-11-05 记下的"静默只发站点腿"。
+        is_private = None
+        try:
+            repo_meta = g.api(base) or {}
+            is_private = bool(repo_meta.get("private"))
+        except Exception as e:
+            print(f"[verify] 仓库可见性取不到: {e}")
+        if is_private:
+            need = {cfg["latestKey"]}
+            if parts_count > 0:
+                need |= {p["name"] for p in parts} | {PARTS_MANIFEST_ASSET}
+            try:
+                live = {a.get("name") for a in (g.api(f"{base}/releases/{rid}/attach_files") or [])}
+            except Exception as e:
+                print(f"[verify] 附件清单取不到: {e}")
+                live = None
+            missing = (need - live) if live is not None else set()
+            if live is None or missing:
+                print(f"[verify] 私有仓库但附件对不上(缺 {len(missing)} 个): 上传未完成,不许降级")
+            else:
+                print("[verify] 私有仓库:附件已全部上传,但对外 HEAD/GET 一律 403 —— 该腿不可外读")
+                print("         (App 下载地址走站点腿,不依赖这条;仓库改公开后立即生效)")
+                return EXIT_PRIVATE_REPO
         print("⚠️ 国内腿未判定(不记绿):单文件腿或分片腿没量到")
         return EXIT_UNDETERMINED
     print(f"✅ 国内腿已就绪: {url}")
