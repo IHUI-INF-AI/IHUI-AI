@@ -67,5 +67,27 @@ describe('模型可用性判据', () => {
     })
     expect(r.category).toBe('disabled')
   })
+
+  // M7–M9:2026-11-17 运行时验证抓出的真缺陷 —— /v1/models 的 SQL 谓词是
+  // 「模型级 false OR 配置级 false」,判据原先只看模型级 ⇒ 配置级停用(实测 12/15 条)
+  // 被选出后又被判"可见"而静默漏掉。
+  it('M7 仅配置级停用 ⇒ disabled(判据与 SQL 谓词同源)', () => {
+    const r = explainModelAvailability({ enabled: true, configEnabled: false, isRelayPublic: true })
+    expect(r.visible).toBe(false)
+    expect(r.category).toBe('disabled')
+    expect(r.reason).toContain('上游配置')
+    expect(r.reason_source).toBe('enabled_flag')
+  })
+
+  it('M8 模型级与配置级同时停用 ⇒ 措辞取模型级(对用户更直观)', () => {
+    const r = explainModelAvailability({ enabled: false, configEnabled: false, isRelayPublic: true })
+    expect(r.category).toBe('disabled')
+    expect(r.reason).toContain('本平台已停用')
+  })
+
+  it('M9 未传 configEnabled ⇒ 视为启用(存量调用方零变化)', () => {
+    const r = explainModelAvailability({ enabled: true, isRelayPublic: true })
+    expect(r.visible).toBe(true)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
