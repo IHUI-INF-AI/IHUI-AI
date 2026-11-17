@@ -41,6 +41,11 @@ export const AUTH_PUBLIC_EXACT_PATHS: ReadonlySet<string> = new Set([
   '/health',
   '/ready',
   '/live',
+  // 探活别名族(2026-11-17):纯文本、免鉴权,与 /health 同语义
+  '/ping',
+  '/healthz',
+  '/livez',
+  '/readyz',
   '/metrics',
   '/business-metrics',
   '/api/health',
