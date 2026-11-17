@@ -351,13 +351,13 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
         <span className="shrink-0 text-[10px] text-muted-foreground/60">{subagent.handle}</span>
         {/* 深化C:角色徽章 —— 子代理类型/职责一眼可辨(mcp 层只给角色名时尤其有用) */}
         {subagent.role && (
-          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-px text-[9px] text-muted-foreground/70">
+          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-px text-[10px] text-muted-foreground/70">
             {subagent.role}
           </span>
         )}
         {/* 深化C:待审批高亮 —— 子代理卡在等人工批准时,折叠行立刻显性提示,不用展开才发现 */}
         {subagent.pendingApproval && (
-          <span className="shrink-0 animate-pulse rounded-sm bg-amber-500/15 px-1 py-px text-[9px] text-amber-600">
+          <span className="shrink-0 animate-pulse rounded-sm bg-amber-500/15 px-1 py-px text-[10px] text-amber-600">
             待审批
           </span>
         )}
