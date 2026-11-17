@@ -156,6 +156,32 @@ function relayUpstreamHeadersTimeoutMs(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_RELAY_UPSTREAM_HEADERS_TIMEOUT_MS
 }
 
+// ── 流式空闲心跳(2026-11-17 立,对标 qoder2api-hub 的 SSE `: ping`) ──
+// 上游首字延迟常在 40~70s 量级(推理型上游尤甚),这段时间客户端与中间代理(CDN/Nginx/
+// 企业网关)看到的是一条「一个字节都没来」的 200 响应,空闲超时各自不同(常见 30~60s)⇒
+// 客户端重连、代理 502,用户侧表现为「一直在思考然后报错」。
+// 正解是在空闲期按固定间隔写 SSE **注释帧**(以 `:` 开头,客户端与 SDK 按规范必须忽略),
+// 既不污染 chunk 序列也不触发解析分支。
+const DEFAULT_STREAM_HEARTBEAT_MS = 5_000
+
+function streamHeartbeatMs(): number {
+  const raw = Number(process.env.RELAY_STREAM_HEARTBEAT_MS)
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_STREAM_HEARTBEAT_MS
+}
+
+// ── 连接层退避重试(2026-11-17 立,对标 qoder2api-hub 的连接层 1s/2s 两次) ──
+// 只对**网络层**失败生效(建连失败/读取中断/头超时),不重试 4xx/5xx 业务码 ——
+// 重试同一 5xx 等于替上游放大器故障,那类仍交跨候选 failover + 渠道熔断。
+// 同候选重试用尽后仍走原 failover:最终兜底比对照更宽(对照只有一个上游可试)。
+const RELAY_NET_RETRY_BACKOFF_MS = [1_000, 2_000] as const
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    timer.unref?.()
+  })
+}
+
 /**
  * 头阶段超时 + 客户端断开双信号。clear() 只撤定时器与 parent 监听:
  * 头阶段结束后正文由调用方(流式管道)自行处理 abort。
@@ -451,116 +477,133 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     return openrouterBody
   }
 
-  for (const channel of candidates) {
-    const started = startStopwatch()
-    const headersTimeout = withHeadersTimeout(req.signal)
-    try {
-      const targetUrl = upstreamEndpointUrl(channel.baseUrl, endpoint)
-      // 出网复检(SSRF 硬化):不安全的上游地址直接抛错,由下方 catch 走 failover 试下一候选;
-      // 判不出(空串/非法 URL)一律按不安全处理(失效方向多拦一次,绝不静默放行)。
-      await assertRelayEgressSafe(targetUrl)
-      const init = {
-        method: 'POST',
-        headers: applyUpstreamHeaderPlugins(plugins, {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${channel.apiKey}`,
-          Accept: req.stream ? 'text/event-stream' : 'application/json',
-        }),
-        body: channel.providerCode === 'openrouter' ? openrouterSerialized() : serializedBody,
-        // F-616:头阶段 deadline + 客户端断开;拿到响应头后 clear 只撤定时器,正文不受限
-        signal: headersTimeout.signal,
-      }
-      // 守卫② 接线点(2026-10-29):①只问了一次解析,建连时 fetch 会再问一次,TTL=0 的 A 记录
-      // 能让"校验时公网、连接时内网"。直连分支交带 connect.lookup 钩子的 dispatcher 才堵得住。
-      // 已装配代理分流时全局 dispatcher 接管,此处不得覆盖,否则代理腿被绕掉(那一支由代理解析)。
-      const resp = isRelayOutboundProxyInstalled()
-        ? await fetch(targetUrl, init)
-        : ((await undiciFetch(targetUrl, {
-            ...init,
-            dispatcher: directEgressDispatcher(),
-          })) as unknown as Response)
-      headersTimeout.clear()
-      // 格②：到达即停表并交叉校验;不可信样本 elapsedMs=null,不喂熔断(计数在 elapsed-ms 与 router 两侧留痕)
-      const sample = started.stop()
-      const breakerLatency: number | null = sample.trustworthy ? sample.elapsedMs : null
-      const latencyMs = sample.perfMs
-
-      if (!resp.ok || !resp.body) {
-        lastHttpStatus = resp.status
-        // F-678:429 的 Retry-After 原样留底(上游没给就保持 undefined,不伪造)
-        if (resp.status === 429) lastRetryAfter = resp.headers?.get?.('retry-after') ?? undefined
-        lastError = `upstream ${resp.status}`
-        // F-676:429 的退避头同样喂给渠道熔断 —— 上游说 300s 就 300s 不进 half-open,
-        // 不再一律 60s 后重新 probe(那等于每 60s 主动撞一次限流)。
-        const rateBackoffMs = resp.status === 429 ? planRateBackoff(resp.headers).ms : 0
-        // F-618:非 2xx 的 body 必须消费/取消,否则 undici 不归还 socket(失败风暴下连接池耗尽)
-        await resp.body?.cancel().catch(() => {})
-        // F-617:只有 5xx / 429 / 网络错误才是渠道故障;4xx 是请求本身的问题,
-        // 一律计进熔断 ⇒ 3 个坏参数请求就能把全部候选打掉(自伤式熔断)。
-        const isClientError = resp.status >= 400 && resp.status < 500 && resp.status !== 429
-        if (!isClientError) {
-          await recordChannelResult(channel.keyPoolId, false, breakerLatency, rateBackoffMs).catch(
-            () => {},
-          )
-          continue // failover:下一候选
+  // 连接层重试(见 RELAY_NET_RETRY_BACKOFF_MS 头注):同一候选内的网络抖动重试,
+  // 不立刻换号;尝试用尽后才 continue 到下一候选。其它分支一律带标签跳候选。
+  candidatesLoop: for (const channel of candidates) {
+    let netRetries = 0
+    while (true) {
+      const started = startStopwatch()
+      const headersTimeout = withHeadersTimeout(req.signal)
+      try {
+        const targetUrl = upstreamEndpointUrl(channel.baseUrl, endpoint)
+        // 出网复检(SSRF 硬化):不安全的上游地址直接抛错,由下方 catch 走 failover 试下一候选;
+        // 判不出(空串/非法 URL)一律按不安全处理(失效方向多拦一次,绝不静默放行)。
+        await assertRelayEgressSafe(targetUrl)
+        const init = {
+          method: 'POST',
+          headers: applyUpstreamHeaderPlugins(plugins, {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${channel.apiKey}`,
+            Accept: req.stream ? 'text/event-stream' : 'application/json',
+          }),
+          body: channel.providerCode === 'openrouter' ? openrouterSerialized() : serializedBody,
+          // F-616:头阶段 deadline + 客户端断开;拿到响应头后 clear 只撤定时器,正文不受限
+          signal: headersTimeout.signal,
         }
-        // 401/403:该 key 凭据异常 ⇒ 换下一候选,但不计渠道熔断(不是渠道挂了)
-        if (resp.status === 401 || resp.status === 403) continue
-        // 其余 4xx(参数/未知模型/上下文超限):同样的请求换候选也不会变好 ⇒ fail-fast
-        lastError = `upstream ${resp.status} (client error)`
-        break
-      }
+        // 守卫② 接线点(2026-10-29):①只问了一次解析,建连时 fetch 会再问一次,TTL=0 的 A 记录
+        // 能让"校验时公网、连接时内网"。直连分支交带 connect.lookup 钩子的 dispatcher 才堵得住。
+        // 已装配代理分流时全局 dispatcher 接管,此处不得覆盖,否则代理腿被绕掉(那一支由代理解析)。
+        const resp = isRelayOutboundProxyInstalled()
+          ? await fetch(targetUrl, init)
+          : ((await undiciFetch(targetUrl, {
+              ...init,
+              dispatcher: directEgressDispatcher(),
+            })) as unknown as Response)
+        headersTimeout.clear()
+        // 格②：到达即停表并交叉校验;不可信样本 elapsedMs=null,不喂熔断(计数在 elapsed-ms 与 router 两侧留痕)
+        const sample = started.stop()
+        const breakerLatency: number | null = sample.trustworthy ? sample.elapsedMs : null
+        const latencyMs = sample.perfMs
 
-      // F-674:渠道腿此前只看 resp.ok,200 text/html / 错误 JSON 也记 key 健康并当成功
-      // 透传,坏渠道长期判健康永不熔断(baseUrl 配成登录页/维护页即可触发)。
-      // 非流式 chat 必须校验协议体可解析且含 choices,否则按 server 失败 failover
-      // (与账号池腿的 JSON 解析判据对齐)。content-type 明确非 JSON 时不必再解析。
-      if (!req.stream && endpoint === 'chat') {
-        const contentType = resp.headers?.get?.('content-type') ?? ''
-        let protocolOk = contentType === '' || /json/i.test(contentType)
-        // 探针走 clone(),不消费调用方要读的正文;非完整 Response 实现(降级/替身)不做解析判定
-        if (protocolOk && typeof resp.clone === 'function') {
-          try {
-            const probe = (await resp.clone().json()) as Record<string, unknown> | null
-            protocolOk = !!probe && Array.isArray(probe['choices']) && probe['choices'].length > 0
-          } catch {
-            protocolOk = false
+        if (!resp.ok || !resp.body) {
+          lastHttpStatus = resp.status
+          // F-678:429 的 Retry-After 原样留底(上游没给就保持 undefined,不伪造)
+          if (resp.status === 429) lastRetryAfter = resp.headers?.get?.('retry-after') ?? undefined
+          lastError = `upstream ${resp.status}`
+          // F-676:429 的退避头同样喂给渠道熔断 —— 上游说 300s 就 300s 不进 half-open,
+          // 不再一律 60s 后重新 probe(那等于每 60s 主动撞一次限流)。
+          const rateBackoffMs = resp.status === 429 ? planRateBackoff(resp.headers).ms : 0
+          // F-618:非 2xx 的 body 必须消费/取消,否则 undici 不归还 socket(失败风暴下连接池耗尽)
+          await resp.body?.cancel().catch(() => {})
+          // F-617:只有 5xx / 429 / 网络错误才是渠道故障;4xx 是请求本身的问题,
+          // 一律计进熔断 ⇒ 3 个坏参数请求就能把全部候选打掉(自伤式熔断)。
+          const isClientError = resp.status >= 400 && resp.status < 500 && resp.status !== 429
+          if (!isClientError) {
+            await recordChannelResult(
+              channel.keyPoolId,
+              false,
+              breakerLatency,
+              rateBackoffMs,
+            ).catch(() => {})
+            continue candidatesLoop // failover:下一候选
+          }
+          // 401/403:该 key 凭据异常 ⇒ 换下一候选,但不计渠道熔断(不是渠道挂了)
+          if (resp.status === 401 || resp.status === 403) continue candidatesLoop
+          // 其余 4xx(参数/未知模型/上下文超限):同样的请求换候选也不会变好 ⇒ fail-fast
+          lastError = `upstream ${resp.status} (client error)`
+          break candidatesLoop
+        }
+
+        // F-674:渠道腿此前只看 resp.ok,200 text/html / 错误 JSON 也记 key 健康并当成功
+        // 透传,坏渠道长期判健康永不熔断(baseUrl 配成登录页/维护页即可触发)。
+        // 非流式 chat 必须校验协议体可解析且含 choices,否则按 server 失败 failover
+        // (与账号池腿的 JSON 解析判据对齐)。content-type 明确非 JSON 时不必再解析。
+        if (!req.stream && endpoint === 'chat') {
+          const contentType = resp.headers?.get?.('content-type') ?? ''
+          let protocolOk = contentType === '' || /json/i.test(contentType)
+          // 探针走 clone(),不消费调用方要读的正文;非完整 Response 实现(降级/替身)不做解析判定
+          if (protocolOk && typeof resp.clone === 'function') {
+            try {
+              const probe = (await resp.clone().json()) as Record<string, unknown> | null
+              protocolOk = !!probe && Array.isArray(probe['choices']) && probe['choices'].length > 0
+            } catch {
+              protocolOk = false
+            }
+          }
+          if (!protocolOk) {
+            lastHttpStatus = 502
+            lastError = 'upstream invalid chat protocol body'
+            await resp.body?.cancel().catch(() => {})
+            await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
+            continue candidatesLoop
           }
         }
-        if (!protocolOk) {
-          lastHttpStatus = 502
-          lastError = 'upstream invalid chat protocol body'
-          await resp.body?.cancel().catch(() => {})
-          await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
+
+        // F-617:成功只认 2xx;上面 4xx 分支不记成功也不记失败
+        // F-337:流式请求若由调用方在流结束后判定成败(deferStreamSuccess),这里不预记成功——
+        // 否则那记成功会把连续失败计数清零,流内错误帧永远推不开熔断。
+        if (!req.deferStreamSuccess) {
+          await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
+        }
+        if (endpoint === 'chat') rememberPromptText(resp, req, body)
+        return {
+          ok: true,
+          response: resp,
+          channel,
+          latencyMs,
+          latencyTrusted: sample.trustworthy,
+        }
+      } catch (e) {
+        headersTimeout.clear()
+        // F-670:客户端断开不算渠道故障 ⇒ 不计失败直接 break;仅头超时才计失败。
+        if ((e as Error)?.name === 'AbortError' && !headersTimeout.timedOut()) break candidatesLoop
+        lastError = headersTimeout.timedOut()
+          ? `upstream headers timeout (${relayUpstreamHeadersTimeoutMs()}ms)`
+          : (e as Error)?.message || 'upstream network error'
+        const errSample = started.stop()
+        const errBreakerLatency = errSample.trustworthy ? errSample.elapsedMs : null
+        // 连接层重试:只对**网络层抛错**退避重试;头阶段超时仍按 F-616 直接 failover
+        // (上游已建连却不回头,再等一轮只会把用户等待拉长,换号才是正解)。
+        // 客户端断开不在此列(上面已 break)。
+        const backoff = RELAY_NET_RETRY_BACKOFF_MS[netRetries]
+        if (typeof backoff === 'number' && !headersTimeout.timedOut() && !req.signal?.aborted) {
+          netRetries += 1
+          await sleepMs(backoff)
           continue
         }
+        await recordChannelResult(channel.keyPoolId, false, errBreakerLatency).catch(() => {})
+        continue candidatesLoop
       }
-
-      // F-617:成功只认 2xx;上面 4xx 分支不记成功也不记失败
-      // F-337:流式请求若由调用方在流结束后判定成败(deferStreamSuccess),这里不预记成功——
-      // 否则那记成功会把连续失败计数清零,流内错误帧永远推不开熔断。
-      if (!req.deferStreamSuccess) {
-        await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
-      }
-      if (endpoint === 'chat') rememberPromptText(resp, req, body)
-      return {
-        ok: true,
-        response: resp,
-        channel,
-        latencyMs,
-        latencyTrusted: sample.trustworthy,
-      }
-    } catch (e) {
-      headersTimeout.clear()
-      // F-670:客户端断开不算渠道故障 ⇒ 不计失败直接 break;仅头超时才计失败。
-      if ((e as Error)?.name === 'AbortError' && !headersTimeout.timedOut()) break
-      lastError = headersTimeout.timedOut()
-        ? `upstream headers timeout (${relayUpstreamHeadersTimeoutMs()}ms)`
-        : (e as Error)?.message || 'upstream network error'
-      const errSample = started.stop()
-      const errBreakerLatency = errSample.trustworthy ? errSample.elapsedMs : null
-      await recordChannelResult(channel.keyPoolId, false, errBreakerLatency).catch(() => {})
-      continue
     }
   }
 
@@ -633,6 +676,12 @@ export interface PipeStreamOptions {
    * 未显式传入时,用 forwardToChannel 登记的「响应 → 请求体」映射还原。
    */
   promptText?: string
+  /**
+   * 空闲心跳间隔(ms)。verbatim 模式下若距上次真实写出超过该时长,写一帧 SSE 注释 `: ping`;
+   * 0 = 关闭。不传走 `RELAY_STREAM_HEARTBEAT_MS`,默认 5000(与 qoder2api-hub 对齐)。
+   * textMode(legacy completions)没有 verbatim 写口,天然不心跳。
+   */
+  heartbeatMs?: number
 }
 
 /** 从 SSE data 行解析 JSON(忽略 [DONE] 与非 data 行)。 */
@@ -707,13 +756,44 @@ export async function pipeChannelStream(
   let buffer = ''
   // F-337:是否见过任何有效内容帧(choices/usage)。只发 [DONE] 的空流恒为 false。
   let sawAnyChunk = false
-  const abort = () => void reader.cancel().catch(() => {})
+  // 空闲心跳(见 DEFAULT_STREAM_HEARTBEAT_MS 头注):只对 verbatim 模式生效,writeLine 即写口。
+  let lastWriteAt = startedAt
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  const stopHeartbeat = () => {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
+  }
+  const abort = () => {
+    stopHeartbeat()
+    void reader.cancel().catch(() => {})
+  }
   opts.signal?.addEventListener('abort', abort, { once: true })
+
+  const heartbeatMs = opts.heartbeatMs ?? streamHeartbeatMs()
+  if (!textMode && typeof opts.writeLine === 'function' && heartbeatMs > 0) {
+    const writeLine = opts.writeLine
+    heartbeatTimer = setInterval(() => {
+      if (Date.now() - lastWriteAt < heartbeatMs) return
+      try {
+        writeLine(': ping\n\n')
+        lastWriteAt = Date.now()
+      } catch {
+        // 客户端已断开:写口抛错后继续定时只会刷屏,停表交给 reader 自行结束。
+        stopHeartbeat()
+      }
+    }, heartbeatMs)
+    heartbeatTimer.unref?.()
+  }
 
   const handleLine = (line: string) => {
     // 终止帧不转发（见函数头注释：结束标记只由调用方发一次）
     if (isSseDoneFrame(line)) return
-    if (!textMode) opts.writeLine?.(`${line}\n\n`)
+    if (!textMode) {
+      opts.writeLine?.(`${line}\n\n`)
+      lastWriteAt = Date.now()
+    }
     const json = parseSseData(line)
     if (!json) return
     // F-337:上游用 HTTP 200 + SSE `data: {"error":...}` 报故障(额度耗尽/模型不存在
@@ -792,6 +872,7 @@ export async function pipeChannelStream(
     }
     if (buffer.trim()) handleLine(buffer.trim())
   } finally {
+    stopHeartbeat()
     opts.signal?.removeEventListener('abort', abort)
     reader.releaseLock()
   }
