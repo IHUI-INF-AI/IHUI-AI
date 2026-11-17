@@ -372,7 +372,7 @@ export const TerminalSection = React.memo(function TerminalSection({
   terminals,
 }: TerminalSectionProps) {
   const t = useTranslations('ai.pane')
-  if (terminals.length === 0) return null
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
   const runningCount = terminals.filter((term) => term.status === 'running').length
   const failedCount = terminals.filter(
@@ -381,6 +381,24 @@ export const TerminalSection = React.memo(function TerminalSection({
   // b76-13 票7:裁尾走唯一出口,omittedCount 是「还有 N 项」的唯一事实来源(0 时无占位)
   const { items: recentTerminals, omittedCount } = tailWithOmittedCount(terminals)
 
+  // 深化AB(2026-11-17):点"N 失败"标签 → 滚动到可见列表里首个失败终端项。
+  // 只在 recentTerminals(已渲染项)里定位 —— 被裁尾省略的不滚,避免 querySelector 返回 null。
+  const jumpToFirstVisibleFailure = React.useCallback(() => {
+    const firstFailedId = recentTerminals.find(
+      (term) => toStreamStatus(term.status, term.exitCode) === 'error',
+    )?.id
+    if (!firstFailedId) return
+    const el = containerRef.current?.querySelector(`[data-testid="terminal-item-${firstFailedId}"]`)
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('animate-flash-highlight')
+      window.setTimeout(() => el.classList.remove('animate-flash-highlight'), 700)
+    }
+  }, [recentTerminals])
+
+  // hooks 全部无条件调用后,再判空提前返回(react-hooks/rules-of-hooks 铁律)
+  if (terminals.length === 0) return null
+
   return (
     <FoldableSection
       title={t('terminal.title')}
@@ -388,7 +406,7 @@ export const TerminalSection = React.memo(function TerminalSection({
       icon={streamKindIcon('terminal')}
       data-testid="terminal-section"
     >
-      <div className="space-y-0.5">
+      <div className="space-y-0.5" ref={containerRef}>
         <div className="flex items-center gap-1 px-1">
           {/* G-154(对齐统一规范):执行环境必须交代,且必须是真实陈述 ——
               os_sandbox.py 的 allow_network 默认 False(H5 三平台验收),故"默认不开放网络"不是营销话术。 */}
@@ -399,7 +417,15 @@ export const TerminalSection = React.memo(function TerminalSection({
             <StreamTag tone="running">{t('terminal.running', { n: runningCount })}</StreamTag>
           )}
           {failedCount > 0 && (
-            <StreamTag tone="danger">{t('terminal.failed', { n: failedCount })}</StreamTag>
+            <StreamTag
+              tone="danger"
+              testId="terminal-failed-jump"
+              onClick={jumpToFirstVisibleFailure}
+              ariaLabel={t('terminal.failedJumpAria', { n: failedCount })}
+              title={t('terminal.failedJumpTitle', { n: failedCount })}
+            >
+              {t('terminal.failed', { n: failedCount })}
+            </StreamTag>
           )}
         </div>
         {recentTerminals.map((term) => (

@@ -22,6 +22,7 @@ import {
 import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
 import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
+import { firstFailedStepId } from './plan-step-failure'
 import { toast } from '@/components/common'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 
@@ -104,6 +105,27 @@ export function PlanStepsCard({
   const setHoveredPlanStep = jumpStore((s) => s.setHoveredPlanStep)
   const hoveredMessageId = jumpStore((s) => s.hoveredMessageId)
 
+  // 深化AC(2026-11-17):失败计数徽章点击 → 滚动到首个失败步骤行 + 高亮。
+  // 折叠态先展开再定位:受控 open 便于点击时强制展开(默认仍由 autoOpen 决定)。
+  const containerRef = React.useRef<HTMLOListElement | null>(null)
+  const [sectionOpen, setSectionOpen] = React.useState(autoOpen)
+  const onSectionOpenChange = React.useCallback((next: boolean) => setSectionOpen(next), [])
+  const jumpToFirstFailed = React.useCallback(() => {
+    const failedId = firstFailedStepId(steps)
+    if (!failedId) return
+    setSectionOpen(true)
+    requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector(
+        `[data-testid="${rootTestId}-item-${failedId}"]`,
+      )
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('animate-flash-highlight')
+        window.setTimeout(() => el.classList.remove('animate-flash-highlight'), 700)
+      }
+    })
+  }, [steps, rootTestId])
+
   if (steps.length === 0) return null
 
   // 折叠态摘要:步数 + 当前态(+ 正在做的这一步),让用户不展开也能读懂进度
@@ -128,7 +150,8 @@ export function PlanStepsCard({
         title={t('plan.title')}
         count={steps.length}
         doneCount={doneCount}
-        defaultOpen={autoOpen}
+        open={sectionOpen}
+        onOpenChange={onSectionOpenChange}
         icon={ListTodo}
         aria-label={t('plan.title')}
         data-testid={rootTestId}
@@ -149,8 +172,26 @@ export function PlanStepsCard({
           className="mb-1.5"
           translate={tStatus}
         />
+        {/* 深化AC:失败计数可点击定位 —— 与终端失败标签同层(折叠体内首行),
+            避免嵌进 headerExtra 的折叠按钮造成非法嵌套 <button>。
+            仅 errorCount>0 时造标;无失败不造残标。 */}
+        {errorCount > 0 && (
+          <div className="mb-1 flex items-center gap-1 px-1">
+            <StreamTag
+              tone="danger"
+              strong
+              testId={`${rootTestId}-failed-jump`}
+              onClick={jumpToFirstFailed}
+              ariaLabel={t('plan.failedJumpAria', { count: errorCount })}
+              title={t('plan.failedJumpTitle')}
+            >
+              {t('plan.summaryErrorCount', { count: errorCount })}
+            </StreamTag>
+          </div>
+        )}
 
         <ol
+          ref={containerRef}
           className={cn('relative space-y-0.5', className)}
           aria-live="polite"
           aria-label={t('plan.ariaLabel')}

@@ -8618,6 +8618,8 @@
         "clearLive": "清空",
         "copyOutput": "复制终端输出",
         "failed": "{n} 失败",
+        "failedJumpAria": "{n} 个命令失败，激活定位首个",
+        "failedJumpTitle": "点击定位首个失败命令",
         "isolation": "命令在隔离沙箱中执行，默认不开放网络",
         "live": "实时输出",
         "moreItems": "…还有 {n} 项",
@@ -12336,6 +12338,8 @@
       "stepThinking": "思考",
       "summaryAllDone": "全部完成",
       "summaryErrorCount": "错误 {count}",
+      "failedJumpAria": "{count} 个步骤失败，激活定位首个失败步骤",
+      "failedJumpTitle": "点击或回车定位首个失败步骤",
       "title": "执行计划",
       "totalDuration": "总 {duration}"
     },

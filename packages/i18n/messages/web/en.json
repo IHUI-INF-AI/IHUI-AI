@@ -8618,6 +8618,8 @@
         "clearLive": "Clear",
         "copyOutput": "Copy terminal output",
         "failed": "{n} failed",
+        "failedJumpAria": "{n} commands failed, activate to jump to first",
+        "failedJumpTitle": "Click to jump to the first failed command",
         "isolation": "Commands run in an isolated sandbox; network access is off by default",
         "live": "Live",
         "moreItems": "…{n} more",
@@ -12346,6 +12348,8 @@
       "stepThinking": "Thinking",
       "summaryAllDone": "All completed",
       "summaryErrorCount": "Error {count}",
+      "failedJumpAria": "{count} steps failed, activate to locate the first failed step",
+      "failedJumpTitle": "Click or press Enter to locate the first failed step",
       "title": "Execution Plan",
       "totalDuration": "Total {duration}"
     },
