@@ -156,6 +156,10 @@ describe('zcode parseProjectKeyStorageKey(键名级取证)', () => {
 // 适配器
 // =============================================================================
 
+/** 合法 eyJ 三段式假 JWT(RFC 7515 / jwt.io 标准示例,非真实凭据):过 planJwt 形态闸门用。 */
+const ADAPTER_JWT_FIXTURE =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+
 function makeCtx(region?: 'cn' | 'global'): AdapterAccountContext {
   return {
     row: { id: 'row-1', providerCode: 'zcode', uid: 'u1', name: 'n', extraMetadata: null },
@@ -167,7 +171,7 @@ function makeCtx(region?: 'cn' | 'global'): AdapterAccountContext {
         ...(region ? { region } : {}),
         credentialMap: {
           'oauth:bigmodel:access_token': 'zc-token',
-          zcodejwttoken: 'zc-jwt-fixture',
+          zcodejwttoken: ADAPTER_JWT_FIXTURE,
         },
       },
     },
@@ -395,7 +399,7 @@ describe('zcode getQuota(zcode-plan 通道,2026-10-27 实弹闭环)', () => {
     expect(url).toBe('https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.16.3')
     expect(init.method).toBe('GET')
     const headers = init.headers as Record<string, string>
-    expect(headers['authorization']).toBe('Bearer zc-jwt-fixture')
+    expect(headers['authorization']).toBe(`Bearer ${ADAPTER_JWT_FIXTURE}`)
     expect(headers['X-Device-Mid']).toMatch(/^[0-9a-f-]{36}$/)
     expect(headers['X-ZCode-App-Version']).toBe('3.16.3')
     expect(headers['X-Os-Category']).toBe('windows')
