@@ -87,7 +87,7 @@ CONFIG_REQUIREMENTS_TOML_ARRAY_LEN: Final[int] = 48
 
 #: The two records that the array holds beyond the struct's arity, plus the 32-field array
 #: that closes with the same pair — the evidence that they belong to a neighbour.
-NEIGHBOUR_TAIL_FIELDS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType({
+NEIGHBOUR_TAIL_FIELDS: Final[Mapping[str, tuple[str, ...] | str | int]] = MappingProxyType({
     "guardian_pair": ("guardian_policy_config", "guardian_extra_policy"),
     "other_array": '0x151cc6e48',
     "other_array_len": 34,
@@ -115,7 +115,11 @@ def excluded_array_entries() -> tuple[str, ...]:
 
     """Array records that arity says are *not* this struct's fields."""
 
-    return NEIGHBOUR_TAIL_FIELDS["guardian_pair"]
+    pair = NEIGHBOUR_TAIL_FIELDS["guardian_pair"]
+    if not isinstance(pair, tuple):
+        raise FatPointerContractError(
+            f"guardian_pair: expected a field-name tuple, got {type(pair).__name__}")
+    return pair
 
 
 def validate_fat_pointer_contract(arity: Mapping[str, int] | None = None) -> None:
