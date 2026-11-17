@@ -92,6 +92,44 @@ function isValidValue(value) {
 }
 
 /**
+ * web 侧禁止键(2026-11-17 立)
+ *
+ * 背景:2026-11-17 生产号池出现 9 条密文 GCM 认证失败(21 个密文列全部解不开),
+ * 根因是 `apps/web/.env.production` 里混入了一份**与 api 不同值**的
+ * CREDENTIALS_ENCRYPTION_KEY —— 任何读到 web env 的写入脚本都会拿这把错钥加密,
+ * 落库密文在 api 侧(正确钥)永远解不开,表现为"账号健康但实际不可用"的假绿。
+ *
+ * web 端代码对 CREDENTIALS_ENCRYPTION_KEY 零使用,所以它的存在只可能是错误源。
+ * 判据:web 的任一 env 文件出现该键 ⇒ 红(要求删除该行,权威值只留在 api/ai-service)。
+ */
+const WEB_ENV_FILES = [
+  'apps/web/.env.local',
+  'apps/web/.env.production',
+  'apps/web/.env',
+  'apps/web/.env.development',
+]
+
+/** web 侧不得出现的密钥键 */
+const WEB_FORBIDDEN_KEYS = ['CREDENTIALS_ENCRYPTION_KEY']
+
+function checkWebForbiddenKeys() {
+  const issues = []
+  for (const rel of WEB_ENV_FILES) {
+    const p = path.join(REPO_ROOT, rel)
+    if (!fs.existsSync(p)) continue
+    const map = parseEnvFile(p)
+    for (const k of WEB_FORBIDDEN_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(map, k) && String(map[k] || '').length > 0) {
+        issues.push(
+          `web 侧 ${rel} 出现 ${k}(web 端不使用该密钥;混入会让读到 web env 的脚本用错钥加密凭据 ⇒ 落库密文在 api 侧解不开),请删除该行`,
+        )
+      }
+    }
+  }
+  return issues
+}
+
+/**
  * 生产清单回归守门(2026-08-25 增补)
  * 背景:2026-08-07 事故 #2(ai-service 缺 JWT_SECRET → 模型端点全 401)曾因
  * docker-compose.yml / render.yaml 的 web/ai-service 块缺失密钥引用而复现。
@@ -211,6 +249,10 @@ function run() {
   const composeTagIssues = checkComposeImageTag()
   issues.push(...composeTagIssues)
 
+  // web 侧禁止键守门(2026-11-17,号池 9 条坏凭据根因防回潮)
+  const webForbiddenIssues = checkWebForbiddenKeys()
+  issues.push(...webForbiddenIssues)
+
   for (const [key, meta] of Object.entries(CONSISTENCY_KEYS)) {
     const endpointValues = meta.endpoints.map((ep) => {
       const v = parsed[ep][key] ?? ''
@@ -262,6 +304,9 @@ function run() {
     const composeTagOk = composeTagIssues.length === 0
     console.log(`  [${composeTagOk ? 'PASS' : 'FAIL'}] docker-compose.yml 本机构建镜像 tag(IHUI_IMAGE_TAG 未设即失败)`)
     for (const msg of composeTagIssues) console.log(`         - ${msg}`)
+    const webForbiddenOk = webForbiddenIssues.length === 0
+    console.log(`  [${webForbiddenOk ? 'PASS' : 'FAIL'}] web 侧禁止键(CREDENTIALS_ENCRYPTION_KEY 不得出现在 apps/web/.env*)`)
+    for (const msg of webForbiddenIssues) console.log(`         - ${msg}`)
     if (issues.length > 0) {
       console.log('')
       console.log('  ✗ 发现不一致:')
