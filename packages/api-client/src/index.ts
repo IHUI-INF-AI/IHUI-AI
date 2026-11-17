@@ -14,7 +14,8 @@ export {
 export * from './endpoints/control-frames.js'
 // 客户端签名注入点(三端唯一落点):setClientSignatureProvider / resolveClientSignature /
 // applyClientSignature。算法本体在 @ihui/shared 的 utils/client-sign,本包只做 header 注入。
-export * from './client-sign'
+// 后缀必须是 .js:本包纯 ESM(见 client.ts 同处注释),无后缀在 dist 里会被 Node ESM 判找不到模块。
+export * from './client-sign.js'
 export * from './endpoints/ai-world.js'
 export * from './endpoints/edu-ai.js'
 export * from './endpoints/student.js'
