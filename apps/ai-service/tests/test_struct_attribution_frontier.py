@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -20,12 +20,14 @@ from app.core.struct_attribution_frontier import (
     ensure_frontier_consistent,
     falsified_methods,
     frontier_structs,
+    resolved_structs,
     unknown_struct_fields,
 )
 
-EXPECTED_ARITY = {'ThreadStartParams': 27, 'TurnStartParams': 28, 'ConfigRequirementsToml': 46}
+EXPECTED_ARITY = {'ThreadStartParams': 27, 'TurnStartParams': 28}
+EXPECTED_RESOLVED = {'ConfigRequirementsToml': 46}
 EXPECTED_METHOD_IDS = frozenset({'distance-scan', 'content-contains', 'address-contains', 'coverage-union', 'whole-table-suffix', 'arity-only', 'pdata-same-function', 'pdata-in-function-slice', 'data-section-slice', 'pair-record-end', 'plain-tail-min-segmentation', 'gap-stitched-segmentation'})
-EXPECTED_MEASUREMENTS = {'templates': 2661, 'bodies': 1706, 'unique_tails': 945, 'tail_suffix_ok': 30, 'tail_suffix_mismatch': 11, 'tail_accuracy': 0.732, 'record_ends': 1323, 'segmented_after_stitch': 1, 'attributed_structs': 44}
+EXPECTED_MEASUREMENTS = {'templates': 2661, 'bodies': 1706, 'unique_tails': 945, 'tail_suffix_ok': 30, 'tail_suffix_mismatch': 11, 'tail_accuracy': 0.732, 'record_ends': 1323, 'segmented_after_stitch': 1, 'attributed_structs': 44, 'record_runs_scanned': 15234, 'resolved_by_r68': 1}
 
 
 def test_frontier_is_disjoint_from_attributed_contract() -> None:
@@ -43,6 +45,19 @@ def test_every_frontier_struct_reports_no_fields() -> None:
 def test_frontier_arities_match_templates() -> None:
     got = {name: struct.arity for name, struct in frontier_structs().items()}
     assert got == EXPECTED_ARITY
+
+
+def test_resolved_entries_are_off_the_frontier() -> None:
+    resolved = resolved_structs()
+    assert set(resolved) == set(EXPECTED_RESOLVED)
+    for name in resolved:
+        assert name not in FRONTIER_STRUCTS
+
+
+def test_resolved_fields_match_r68_contract() -> None:
+    from app.core.struct_fields_fat_pointer import CONFIG_REQUIREMENTS_TOML_FIELDS
+
+    assert len(CONFIG_REQUIREMENTS_TOML_FIELDS) == EXPECTED_RESOLVED['ConfigRequirementsToml']
 
 
 def test_string_methods_cannot_settle_frontier() -> None:
