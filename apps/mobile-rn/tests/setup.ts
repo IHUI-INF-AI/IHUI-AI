@@ -25,6 +25,13 @@ import { resetAsyncStorageMock } from './__mocks__/async-storage'
 
 configure({ asyncUtilTimeout: 4000 })
 
+// expo 包(expo/src/async-require/setup.ts)在模块求值期读裸全局 __DEV__,
+// jsdom/node 环境没有这个 RN 全局 ⇒ 收集期 ReferenceError。这里补上且取 false:
+// 那段代码只在 __DEV__ && typeof window !== 'undefined' 时 require HMR 三件套
+// (setupFastRefresh/setupHMR/messageSocket),测试环境没有 dev server ⇒ 必须跳过。
+// node 的 globalThis 类型里没有 RN 的 __DEV__ 字段,按可选字段写入——不用 any,也不用 @ts-ignore。
+;(globalThis as { __DEV__?: boolean }).__DEV__ = false
+
 beforeEach(() => {
   resetAsyncStorageMock()
   vi.clearAllMocks()
