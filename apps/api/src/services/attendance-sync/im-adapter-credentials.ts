@@ -15,6 +15,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { imAdapters } from '@ihui/database'
 import { AppError } from '../../errors/AppError.js'
+import { decryptCredential } from '../../utils/crypto.js'
 import type { PlatformCredentials, SyncSource } from './types.js'
 
 /**
@@ -47,8 +48,22 @@ export async function loadPlatformCredentials(
   }
 
   const creds = adapter.credentialsJson as Record<string, unknown>
-  const appId = typeof creds.appId === 'string' ? creds.appId : ''
-  const appSecret = typeof creds.appSecret === 'string' ? creds.appSecret : ''
+  // IM 网关 upsert 时 appSecret 走 encryptCredential(enc:v1:…),读取侧必须解密;
+  // 存量明文由 decryptCredential 原样返回(兼容历史数据),不会把密文当密钥去调第三方。
+  const rawAppId = typeof creds.appId === 'string' ? creds.appId : ''
+  const rawAppSecret = typeof creds.appSecret === 'string' ? creds.appSecret : ''
+  let appId = ''
+  let appSecret = ''
+  try {
+    appId = rawAppId ? decryptCredential(rawAppId) : ''
+    appSecret = rawAppSecret ? decryptCredential(rawAppSecret) : ''
+  } catch {
+    throw new AppError(
+      `平台 ${source} 的 IM 适配器凭证无法解密(密钥轮换或密文被篡改),拒绝按明文处理`,
+      400,
+      'SYNC_CREDENTIALS_INVALID',
+    )
+  }
 
   if (!appId || !appSecret) {
     throw new AppError(
@@ -58,8 +73,15 @@ export async function loadPlatformCredentials(
     )
   }
 
-  // 钉钉部分考勤 API 需 agentId(待核实);有则带上,无则 undefined
-  const agentId = typeof creds.agentId === 'string' ? creds.agentId : undefined
+  // 钉钉部分考勤 API 需 agentId;有则带上,无则 undefined(同样兼容密文)
+  let agentId: string | undefined
+  if (typeof creds.agentId === 'string' && creds.agentId) {
+    try {
+      agentId = decryptCredential(creds.agentId)
+    } catch {
+      agentId = undefined
+    }
+  }
 
   return { appId, appSecret, agentId }
 }
