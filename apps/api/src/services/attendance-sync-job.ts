@@ -18,10 +18,12 @@ import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 import type { SchedulerRegisterLog, SchedulerUpsertQueue } from '../plugins/scheduler.js'
 import { pushAlert } from './alert-notification-service.js'
 import {
+  ATTENDANCE_SYNC_PLATFORMS_KEY,
   ATTENDANCE_SYNC_SWITCH_KEY,
   HR_ATTENDANCE_SYNC_CRON,
   HR_ATTENDANCE_SYNC_JOB_NAME,
   attendanceSyncEnvOverride,
+  parseAttendanceSyncPlatforms,
   parseAttendanceSyncSwitch,
   type AttendanceSyncError,
   type AttendanceSyncRunResult,
@@ -49,6 +51,8 @@ export interface AttendanceSyncJobOptions {
   date?: string
   env?: NodeJS.ProcessEnv
   providers?: AttendanceSyncProvider[]
+  /** 缺省用全局 fetch;测试注入可保证不触网。 */
+  fetchImpl?: typeof fetch
   repo?: AttendanceSyncRepo
   userIdMap?: Record<string, string>
   loadEmployeeNos?: (repo: AttendanceSyncRepo) => Promise<string[]>
@@ -149,7 +153,20 @@ export async function runAttendanceSyncJob(
 
   if (!enabled) return finish()
 
-  const providers = options.providers ?? createAttendanceSyncProviders(env)
+  let providers = options.providers ?? createAttendanceSyncProviders(env, options.fetchImpl)
+  // 平台白名单(DB 键,改库即热生效):缺省=全部平台;配置了=只跑列出的平台。
+  // 同一 employee_no 同时喂两个平台会必然失败(飞书对钉钉 userid 回 1220001),
+  // 故企业只接一个平台时必须能把射程收窄,而不是每天白跑一趟再发一封噪声告警。
+  if (options.providers === undefined) {
+    try {
+      const only = parseAttendanceSyncPlatforms(
+        await repo.readConfig(ATTENDANCE_SYNC_PLATFORMS_KEY),
+      )
+      if (only) providers = providers.filter((p) => only.has(p.id))
+    } catch {
+      // 取不到名单 ⇒ 不筛(失效方向恒为「多跑一次」,绝不静默少跑一个平台)
+    }
+  }
   const activeProviders = providers.filter((p) => p.isConfigured(env))
   result.skippedNotConfigured = providers.length - activeProviders.length
   // 没有可用凭证:不连库、不发请求,直接留一份「未配置」快照。

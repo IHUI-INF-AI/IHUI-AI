@@ -309,6 +309,38 @@ job 每次跑完（含「禁用」分支）把最近一次运行快照写进 `sy
 
 ---
 
+## 12. 生产口径与实跑基线（2026-11-17 全自动链路跑通）
+
+本节记录**已落地并用生产库实跑验证**的口径，与上文设计稿冲突时以本节为准。
+
+### 12.1 凭证：库里存密文，同步器负责解密
+
+IM 网关 upsert `im_adapters` 时 `appSecret` 经 `encryptCredential()` 存成 `enc:v1:{iv}:{tag}:{ct}`，appId/agentId 明文。同步器 `im-adapter-credentials.ts` 统一走 `decryptCredential`：**明文直通、密文解密、密文格式非法则抛 `SYNC_CREDENTIALS_INVALID`（绝不回落成把密文当密钥）**。改动前这里直接读明文，库里配好凭证后必然「拿密文当密钥」→ 调用恒失败，属真断点。
+
+### 12.2 总开关：三档优先级，改库即热生效
+
+`options.enabled`（测试注入）> env 显式（`HR_ATTENDANCE_SYNC_ENABLED`，运维强制，含强制关）> `system_configs` 的 `sync:attendance:enabled` > 读库抛错 fail-closed。**env 未设置时开关完全由 DB 决定**，改库下一轮即生效，不必重启进程（dev 进程是长驻的，重启会打断他人席位，故这一档是刻意设计）。
+
+### 12.3 平台射程：`sync:attendance:platforms`（DB 白名单）
+
+- 键 `sync:attendance:platforms`，逗号分隔的 provider id（`dingtalk` / `feishu`），**缺省或空 ⇒ 全部平台都跑**；改库热生效。
+- 立此档的实测依据：**同一 `employee_no` 无法同时服务两个平台**。把钉钉 userid 当飞书工号传给 `POST /open-apis/attendance/v1/user_tasks/query?employee_type=employee_no`，飞书直接回 `HTTP 400 / {"code":1220001,"msg":"userIds all invalid"}`（空数组则回 `employeeNos is empty`）。企业只接钉钉时必须能把射程收窄，否则每天 02:00 白跑一趟并对外发一封噪声告警。
+- 读不到名单 ⇒ **不筛**（失效方向恒为「多跑一次」，绝不静默少跑一个平台）。
+
+### 12.4 工号维度（A 方案，已落地）
+
+`user_profiles.employee_no` = 钉钉 userid（李春川 `082614243426249254`），`system_configs` 的 `sync:dingtalk:userid-map` = `{"082614243426249254":"082614243426249254"}`。选它是因为零人工编号：userid 唯一且稳定，不需要 HR 再维护一张工号表。**代价**：`employee_no` 只有一个维度，飞书侧若日后要取数，需要独立的 `employeeNo→feishuEmployeeNo` 映射（当前代码没有该维度）。
+
+### 12.5 实跑基线（生产库，2026-11-16 业务日）
+
+```
+enabled:true  scannedUsers:1  attempted:1  syncedRows:0  employeeNotFound:0  errors:[]
+```
+
+`syncedRows:0` **不是链路故障**，是企业确实没有任何考勤/审批数据：`getupdatedata`（userid=082614243426249254, work_date=2026-11-16）返回 `approve_list/attendance_result_list/check_record_list` 三个全空，`getleavestatus` 空，`vacation/type/list` 空，`getcolumnval` 两窗全 `0.0`。链路本身已验证到「请求真发出、平台真返回、错误数组为空」。
+
+---
+
 **关联现有代码**：
 - 路由：`apps/api/src/routes/hr-import.ts`
 - 服务：`apps/api/src/services/hr-import.ts`（打卡）、`hr-import-entry.ts`（四类分发）、`hr-import-leave.ts`（请假/加班/外出 + 别名表）
