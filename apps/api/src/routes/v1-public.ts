@@ -60,7 +60,10 @@ import {
   parseModelSpecEnv,
 } from '../services/relay-model-spec.js'
 import { listPublicPeakWindows, resolvePeakMultiplier } from '../services/peak-pricing-service.js'
-import { pickPeakWindowsForModel } from '../services/relay-model-peak-declaration.js'
+import {
+  pickPeakWindowsForModel,
+  resolveNextPeakSwitch,
+} from '../services/relay-model-peak-declaration.js'
 // P0-5 中转站计费(2026-07-29 立)
 import {
   checkQuota,
@@ -468,6 +471,12 @@ async function fetchModels(userId?: string): Promise<{
                     peak_multiplier_now: peakNow.multiplier,
                     ...(peakNow.ruleName ? { peak_rule_now: peakNow.ruleName } : {}),
                   }
+                : {}),
+              // 下一次价档切换(2026-11-17):错峰调度用;无未来切换则整键省略。
+              ...(peak
+                ? ((next) => (next ? { peak_next_change_at: next } : {}))(
+                    resolveNextPeakSwitch(peakWindows, m.id, new Date(now)),
+                  )
                 : {}),
             }
           }),
