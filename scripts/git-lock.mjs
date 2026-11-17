@@ -105,7 +105,7 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 // 写锁 gitDir 越界闸(2026-11-14 git 写锁外流根治)。判据单源在 lib/git-dir-boundary.mjs,
 // 与 isolated-git.mjs 共用同一份 —— 两条写锁消费方都必须拒建仓外 gitdir 的锁,否则
 // lock-atomic-init 的 pending 兄弟会散到项目盘根(D:\IHUI-AI-git-repo 那批 32 个 .pending)。
-import { assertGitDirInsideRepoTree } from './lib/git-dir-boundary.mjs'
+import { assertLockDirInsideRepoTree } from './lib/git-dir-boundary.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -130,14 +130,17 @@ function gitDir() {
 
 /** 锁目录路径(默认路径,镜像测试注入 dir 时绕过本函数)。 */
 function lockDir() {
-  // 写锁越界闸(2026-11-14 git 写锁外流根治,第二条入口):gitDir 必须落在工作树顶层之内,
-  // 否则本锁的 pending 兄弟会散到仓库树之外的项目盘根(D:\IHUI-AI-git-repo 那批 32 个
-  // .pending 的根因)。判据单源 lib/git-dir-boundary.mjs,与 isolated-git.mjs 共用同一份。
-  // 只在走本默认路径(真实 rev-parse 解析 gitDir/repoRoot)时触发;acquire() 注入 dir 时
-  // 完全绕过本函数,镜像测试的注入式端到端不误伤。
-  const gd = gitDir()
-  assertGitDirInsideRepoTree(gd, { repoRoot: repoRoot() })
-  return join(gd, 'ihui-git-write.lock')
+  // 锁落点固定在仓库树内(2026-11-17 separate-git-dir 误杀根治):
+  // 旧实现 join(gitDir,'ihui-git-write.lock') 在 separate-git-dir 下落到仓外
+  // D:\IHUI-AI-git-repo,被 11-14 越界闸拒建 ⇒ 全局写锁全废 ⇒ 多会话抢索引。护栏真正要防的
+  // 是"锁/pending 外流到项目盘根",故把落点固定到仓内 .ihui-agent/state/(被 .gitignore 忽略),
+  // pending 兄弟随之也在树内可回收 —— 本意更彻底满足,且仓外 gitDir 不再被误杀。
+  // 判据单源 lib/git-dir-boundary.mjs::assertLockDirInsideRepoTree,与 isolated-git.mjs 共用。
+  // 只在走本默认路径时触发;acquire() 注入 dir 时完全绕过本函数,镜像测试不误伤。
+  const root = repoRoot()
+  const dir = join(root, '.ihui-agent', 'state', 'ihui-git-write.lock')
+  assertLockDirInsideRepoTree(dir, { repoRoot: root })
+  return dir
 }
 
 function metaFile(dir) {
@@ -153,7 +156,7 @@ function readMeta(dir) {
 }
 
 /**
- * ── 租约凭据 leaseToken(G-397 补的那一格,机制对齐 deploy-lock 的 G-696)─────────────
+ * ── 租约凭据 leaseToken(G-397 补的那一格,机制对标 deploy-lock 的 G-696)─────────────
  *
  * 立因:release 侧旧写法拿 `meta.pid === process.pid` 这**一个裸 pid 事实**就删锁,而 pid 会被
  * 系统复用(2026-09-25 部署锁因此冻了 11h50m,登记 G-193);`unitId` 又不入此列 —— 它是调用方

@@ -24,6 +24,7 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   INDEX_DIR_NAME,
   assertGitDirInsideRepoTree,
+  assertLockDirInsideRepoTree,
   childEnv,
   restoreIndexFromSnapshot,
   takeIndexSnapshot,
@@ -930,6 +931,47 @@ test('⑯c 写锁越界闸:未判定不冒充合规(取不到/不存在一律拒
   // gitDir 不存在 ⇒ 拒(exists 注入为 false)
   assert.throws(() => assertGitDirInsideRepoTree('D:\\FakeRepo\\.git', { repoRoot: GATE_ROOT, exists: () => false }),
     /不存在/)
+})
+
+// ── ⑰ 写锁落点闸(2026-11-17 separate-git-dir 误杀根治,根因回归锁)────────────────
+// 旧闸按 gitDir 位置判,本仓合法 separate-git-dir(gitDir 在仓外)被一刀切 ⇒ 写锁全废。
+// 新闸判据对象换成"锁落点":落点必须在仓内(pending 兄弟随之在树内,本意更彻底满足),
+// 而仓外 gitDir 不再是拒的理由。本组钉死新判据与旧判据各自独立、互不回归。
+test('⑰a 落点闸:仓内落点放行(含 .ihui-agent/state 深路径),不误伤', () => {
+  assert.doesNotThrow(() =>
+    assertLockDirInsideRepoTree('D:\\FakeRepo\\.ihui-agent\\state\\ihui-git-write.lock', { repoRoot: GATE_ROOT }))
+  assert.doesNotThrow(() =>
+    assertLockDirInsideRepoTree('D:\\FakeRepo\\a\\b\\lock', { repoRoot: GATE_ROOT }))
+})
+
+test('⑰b 落点闸:仓外落点一律拒并点名(锁不外流本意不变)', () => {
+  for (const [name, p] of [
+    ['盘根同形', 'D:\\FakeRepo-git-clone\\ihui-git-write.lock'],
+    ['别的盘', 'E:\\elsewhere\\lock'],
+    ['仓根上一级', 'D:\\lock'],
+  ]) {
+    assert.throws(
+      () => assertLockDirInsideRepoTree(p, { repoRoot: GATE_ROOT }),
+      /仓库树之外|拒绝建写锁/,
+      `${name}(${p}) 落点必须被拒`,
+    )
+  }
+})
+
+test('⑰c 落点闸:未判定不冒充合规(落点/仓根取不到一律拒)', () => {
+  assert.throws(() => assertLockDirInsideRepoTree('', { repoRoot: GATE_ROOT }), /取不到锁落点/)
+  assert.throws(() => assertLockDirInsideRepoTree(undefined, { repoRoot: GATE_ROOT }), /取不到锁落点/)
+  assert.throws(() =>
+    assertLockDirInsideRepoTree('D:\\FakeRepo\\lock', { repoRoot: '' }), /取不到仓根/)
+})
+
+test('⑰d 两闸独立:仓外 gitDir 仍被旧闸拒(盘根克隆不回归),但新闸只认落点', () => {
+  // 旧闸:仓外 gitDir 照拒(11-14 盘根克隆本意不丢)
+  assert.throws(() => assertGitDirInsideRepoTree('D:\\FakeRepo-git-clone\\.git',
+    { repoRoot: GATE_ROOT, exists: () => true }), /仓库树之外/)
+  // 新闸:同样的仓外路径作为"落点"也拒 —— 二者判据同源、方向一致
+  assert.throws(() => assertLockDirInsideRepoTree('D:\\FakeRepo-git-clone\\.git',
+    { repoRoot: GATE_ROOT }), /仓库树之外/)
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

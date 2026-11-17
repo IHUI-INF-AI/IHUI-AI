@@ -190,12 +190,11 @@ function main() {
     console.error('❌ 不在 git 仓库中')
     process.exit(1)
   }
-  // separate-git-dir 布局下 repoRoot/.git 只是指针文件,直接拼路径恒不存在;
-  // 用 rev-parse --absolute-git-dir 动态取真实 gitdir 再拼锁路径。
-  // 若取不到真实 gitdir,则跳过预检(不抛异常中断 gc)。
-  const absGitDir = run('git rev-parse --absolute-git-dir', true)
-  const lockPath = absGitDir ? join(absGitDir, 'ihui-git-write.lock') : null
-  if (lockPath && existsSync(lockPath)) {
+  // 锁落点与 git-lock.mjs::lockDir() 同址(2026-11-17 separate-git-dir 根治):固定到仓内
+  // .ihui-agent/state/,与 gitDir 位置解耦 —— 旧拼法 join(gitDir) 在仓外,恒检不到真实锁,
+  // 导致 gc 与写操作并发。repoRoot 上面已确保非空(取不到已 exit)。
+  const lockPath = join(repoRoot, '.ihui-agent', 'state', 'ihui-git-write.lock')
+  if (existsSync(lockPath)) {
     console.log('⏭  检测到 git 写锁,跳过 gc(有其他写操作进行中)')
     return
   }
