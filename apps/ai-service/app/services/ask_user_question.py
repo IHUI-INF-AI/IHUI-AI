@@ -81,7 +81,11 @@ class AskUserQuestionItem:
     continued_call_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        """SSE 下行帧形状(与 question_parser.Question.to_dict() 同形 + 两个附加键)。"""
+        """SSE 下行帧形状(与 question_parser.Question.to_dict() 同形 + 两个附加键)。
+
+        header 只在非空时出现:旧客户端按未知键忽略,新客户端用于卡片小标题;
+        空标题不吐键,避免把"未设置"写成空串漂到前端。
+        """
         options: list[dict[str, str]] = []
         for opt in self.options:
             item = {"id": opt["id"], "label": opt["label"]}
@@ -89,24 +93,39 @@ class AskUserQuestionItem:
             if opt.get("description"):
                 item["description"] = opt["description"]
             options.append(item)
-        return {
-            "questionId": self.question_id,
-            "prompt": self.prompt,
+        payload: dict[str, Any] = {"questionId": self.question_id, "prompt": self.prompt}
+        if self.header:
+            payload["header"] = self.header
+        payload.update({
             "options": options,
             "allowCustom": self.allow_custom,
             "allowMultiple": self.allow_multiple,
             "sessionId": self.session_id,
             "expiresAt": _iso(self.expires_at),
-        }
+        })
+        return payload
 
-    def resolved_payload(self, status: str | None = None) -> dict[str, Any]:
-        """question-resolved 帧载荷(questionId/status 为必需键)。"""
-        return {
+    def resolved_payload(
+        self, status: str | None = None, *, continued: bool = False
+    ) -> dict[str, Any]:
+        """question-resolved 帧载荷(questionId/status 为必需键)。
+
+        `continued=True` 是定时继续的附加键:前端词表只有四态,该场景按 timeout
+        结算,靠这个键区分"用户跳过"与"只是挂起、迟到答复仍会送达"。
+        """
+        payload: dict[str, Any] = {
             "questionId": self.question_id,
             "status": status or self.status,
             "selectedOptionIds": list(self.selected_ids),
             "customText": self.custom_text,
         }
+        if continued:
+            payload["continued"] = True
+        return payload
+
+    def timeout_seconds(self) -> int:
+        """本问的答复时限(秒),用于超时回灌文案(不依赖调用方各自算一遍)。"""
+        return int((self.expires_at - self.created_at).total_seconds())
 
 
 _registry: dict[str, AskUserQuestionItem] = {}
@@ -457,6 +476,72 @@ def pending_question_notice(item: AskUserQuestionItem, call_id: str) -> str:
         f"answer_to_pending_question 用户消息送达(callId={call_id or item.continued_call_id or '-'},"
         f" questionId={item.question_id})。不要把挂起当作许可。"
     )
+
+
+def tool_result_payload(
+    item: AskUserQuestionItem, status: str, *, call_id: str = ""
+) -> dict[str, Any]:
+    """工具结果回灌给模型的唯一定义(两个执行面共用,避免各写一份漂移)。
+
+    形状对齐既有主聊天流(2026-11-08 定稿):answered 给结构化答案;撤回/超时/
+    中断各带 errorCode 与"下一步该怎么做"的 message;continued 是 pending 回执
+    (ok=True 但 **不是** 答案,message 明确"不要把挂起当许可")。
+    """
+    if status == STATUS_CONTINUED:
+        return {
+            "ok": True,
+            "pending": True,
+            "status": STATUS_CONTINUED,
+            "questionId": item.question_id,
+            "callId": call_id or item.continued_call_id,
+            "message": pending_question_notice(item, call_id),
+        }
+    if status == STATUS_ANSWERED:
+        labels = [opt["label"] for opt in item.options if opt["id"] in item.selected_ids]
+        return {
+            "ok": True,
+            "status": STATUS_ANSWERED,
+            "selectedOptionIds": list(item.selected_ids),
+            "labels": labels,
+            "customText": item.custom_text,
+        }
+    if status == STATUS_WITHDRAWN:
+        return {
+            "ok": False,
+            "status": STATUS_WITHDRAWN,
+            "errorCode": "question_withdrawn",
+            "error": "问题已被撤回,未得到用户答复",
+            "message": "不要重试同一问题;确有必要请另起一次提问",
+        }
+    if status == STATUS_INTERRUPTED:
+        return {
+            "ok": False,
+            "status": STATUS_INTERRUPTED,
+            "errorCode": "question_interrupted",
+            "error": "会话中断,问题未得到用户答复",
+        }
+    return {
+        "ok": False,
+        "status": STATUS_TIMEOUT,
+        "errorCode": "question_timeout",
+        "error": f"用户未在 {item.timeout_seconds()}s 内答复",
+        "message": "用户没有答复;不要自行假设答案,按未答继续",
+    }
+
+
+#: 结局 → (isError, error, errorType, 给用户看的解释)。两个执行面同源。
+_TOOL_OUTCOMES: dict[str, tuple[bool, str | None, str | None, str]] = {
+    STATUS_ANSWERED: (True, None, None, "用户已答复提问"),
+    STATUS_CONTINUED: (True, None, None, "提问等待到期,转入挂起(用户仍可答复)"),
+    STATUS_WITHDRAWN: (False, "question_withdrawn", "question_withdrawn", "提问已被撤回"),
+    STATUS_INTERRUPTED: (False, "question_interrupted", "question_interrupted", "提问因会话中断结束"),
+    STATUS_TIMEOUT: (False, "question_timeout", "question_timeout", "提问等待答复超时"),
+}
+
+
+def tool_result_outcome(status: str) -> tuple[bool, str | None, str | None, str]:
+    """结局 → (ok, error, errorType, explanation);未知结局按 timeout 收口。"""
+    return _TOOL_OUTCOMES.get(status, _TOOL_OUTCOMES[STATUS_TIMEOUT])
 
 
 async def wait_for_answer(item: AskUserQuestionItem, timeout_s: float | None = None) -> str:
