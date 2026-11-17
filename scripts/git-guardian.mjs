@@ -6462,6 +6462,46 @@ export function sweepPoolIsolation(opts = {}) {
   return { ran: true, ok: false, state, total }
 }
 
+/**
+ * ref 位移丢提交守夜人派发(2026-11-18)。
+ *
+ * 为什么必须接进本轮节拍:Windows 计划任务在 2026-11-18 02:30 被实测删除(create→run→query 之后
+ * task 不再存在),而它曾是这条判据的**唯一挂点** —— 这正是 §5b「关键自愈层不得挂在会自己消失的
+ * 计划任务上」那一条。判据/账本/保全全部住在 `scripts/check-ref-move-loss.mjs` 自身,本层只派发,
+ * 零复算(§0.6 单一真相源)。
+ *
+ * 失效方向:派发失败只报 warn 不阻断本轮(下一轮重试);节流 5 分钟,与计划任务同档。
+ */
+export function sweepRefMoveLoss(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = REF_MOVE_WATCH_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'ref-move-watch-last.json'),
+    logger = log,
+    spawner = spawn,
+  } = opts
+  try {
+    const last = Number(JSON.parse(readFileSync(tickFile, 'utf8')).ts) || 0
+    if (now - last < intervalMs) return { ran: false, why: 'throttled' }
+  } catch {
+    /* 无 tick 文件 ⇒ 首跑 */
+  }
+  try {
+    const child = spawner(
+      process.execPath,
+      [join(WORKTREE, 'scripts', 'check-ref-move-loss.mjs')],
+      { cwd: WORKTREE, stdio: 'ignore', windowsHide: true, detached: true, env: process.env },
+    )
+    child.unref?.()
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ ts: now }), 'utf8')
+    return { ran: true }
+  } catch (e) {
+    logger(`⚠️ ref 位移守夜人派发失败:${e?.message || e}(下一轮重试)`)
+    return { ran: false, why: 'spawn-failed' }
+  }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -10571,6 +10611,10 @@ function inCommitWindow() {
     return false // 失效方向是"多跑一轮巡检",不是"漏检一轮"
   }
 }
+
+const REF_MOVE_WATCH_INTERVAL_MS = Number(
+  process.env.IHUI_REF_MOVE_WATCH_INTERVAL_MS || 5 * 60 * 1000,
+)
 
 const CROSS_END_DRIFT_INTERVAL_MS = Number(
   process.env.IHUI_CROSS_END_DRIFT_INTERVAL_MS || 60 * 60 * 1000,
@@ -14684,6 +14728,8 @@ async function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // ref 位移丢提交守夜人(2026-11-18):计划任务实测会被删,关键判据不能只挂它(§5b)。
+    if (!CHECK_ONLY) sweepRefMoveLoss()
     // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
     // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
     // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
