@@ -137,9 +137,9 @@ export async function runAttendanceSyncJob(
   // 没有可用凭证:不连库、不发请求,直接留一份「未配置」快照。
   if (activeProviders.length === 0) return finish()
 
-  // 审批三类(leave/overtime/outgoing):端点已核实但平台枚举未核实(设计稿 §7.4),
-  // 本 runner 不发起拉取;按 provider × 3 记「未实现跳过」,让快照能看出缺口。
-  result.skippedNotImplemented = activeProviders.length * 3
+  // 四类(打卡 / leave / overtime / outgoing)均已实现:飞书走 user_approvals 聚合接口,
+  // 钉钉走考勤报表列 + 请假状态接口(见 dingtalk-provider.ts,设计稿 §7.4「替代实现」)。
+  // 因此这里不再记「未实现跳过」;字段保留,兼容既有 lastRun 快照读取方。
 
   let employeeNos: string[] = []
   try {
