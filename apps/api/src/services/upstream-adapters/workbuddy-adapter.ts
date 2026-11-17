@@ -394,6 +394,39 @@ async function attemptRefresh(
   }
 }
 
+/**
+ * 上游硬约束:首条消息必须是 system prompt(实测 code=11128「first message is not system prompt」,
+ * 2026-11-17 由 3 个号连败 38 次暴露)。调用方已带 system 时原样放行,只补缺口,不改后续消息。
+ */
+const DEFAULT_WORKBUDDY_SYSTEM_PROMPT = '你是 WorkBuddy 助手，请用简体中文回答用户的问题。'
+
+function ensureLeadingSystem(
+  messages: Array<{ role: string; content: unknown }> | undefined,
+): Array<{ role: string; content: unknown }> {
+  const arr = Array.isArray(messages) ? messages : []
+  const first = arr[0]
+  const role =
+    first && typeof first === 'object'
+      ? String((first as { role?: unknown }).role ?? '').toLowerCase()
+      : ''
+  if (role === 'system') return arr
+  return [{ role: 'system', content: DEFAULT_WORKBUDDY_SYSTEM_PROMPT }, ...arr]
+}
+
+/**
+ * 上游模型 id 归一:上游只认自己的 id(如 minimax-m3),而调用方可能发规范名
+ * (MiniMax-M3 ⇒ code=11102「model [MiniMax-M3] service info not found」)。
+ * 目录缓存(1h,由 listModels/checkHealth 填充)里有上游 id 时,按忽略大小写/下划线匹配;
+ * 缓存为空或匹配不上则原样上交(不猜、不编造,让上游错误语义保持可见)。
+ */
+function alignModelToUpstream(realm: WorkBuddyRealm, model: string): string {
+  const ids = modelsCache.get(realm)?.ids ?? []
+  if (ids.length === 0 || ids.includes(model)) return model
+  const norm = (s: string) => s.toLowerCase().replace(/[_\s]+/g, '-')
+  const hit = ids.find((id) => norm(id) === norm(model))
+  return hit ?? model
+}
+
 export const workbuddyAdapter: RelayUpstreamAdapter = {
   providerCode: 'workbuddy',
 
@@ -414,8 +447,8 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
       messageRequestId,
     })
     const raw: Record<string, unknown> = {
-      model: req.model,
-      messages: req.messages,
+      model: alignModelToUpstream(realm, req.model),
+      messages: ensureLeadingSystem(req.messages),
       stream: true,
     }
     if (typeof req.temperature === 'number') raw['temperature'] = req.temperature
