@@ -80,6 +80,44 @@
   （`loomy-session-sync` / `zcode-session-sync` / `raccoon-session-sync`，每 10 分钟）从本机客户端存储重捞凭据入池，
   再经 `IHUI-Pool-Sync`（每 2 分钟）镜像到生产；池侧三档（临期/空闲/down）对它们一律 skip，绝不记 `refreshFailed`。
 
+### 3.2 2026-11-17 二轮：raccoon / loomy 源码级实证（结论从「未实证」升级为「物理无路径」）
+
+此前 §四 把 raccoon/loomy 记为「续期端点形状未实证 / 刻意不盲写」。本轮直接解包客户端 asar 读到一手实现，
+**「未实证」状态可以结清**——不是没找到，是平台架构上确实不存在服务端静默续期通路：
+
+- **raccoon（商汤小浣熊，asar `G:\Apps\Xiaohuanxiong\resources\app.asar`，版本见包）**：
+  - 登录是**浏览器 OIDC 授权码**流程：`/authorize` → 系统浏览器登录 → 深链 `office-raccoon://auth/callback?code`
+    → `POST {authApi}/login_with_authorization_code` 用**一次性 code** 换 token
+    （`build/electron/main/account/desktopLogin.js` 一手证据）。一次性 code 服务端无法自行再生产。
+  - 换回的 `access_token` 是 **IAM JWT（`iss` 以 `/iam` 结尾，30 天 exp）**；
+    `shared/client/iamToken.js::isIamToken` 判 `iss.endsWith('/iam')`。
+    `accountState.js::refreshOwned` 明确：IAM token 若带 legacy `refresh_token` 就**立即清除**
+    （"Migration consumes the legacy grant. Never retain it after acquiring IAM."）；
+    `accountRequests.js::refresh` 的 refresh grant 只服务 legacy token，且注释写明 "IAM has no legacy refresh grant"。
+  - ⇒ 到期后只能重走浏览器 OIDC 登录。**号池侧 raccoon 号 `tokenExpiresAt` 约 30 天、`hasRt=false`**，
+    完全吻合：服务端无 rt 可刷。
+- **loomy（Loomy 0.9.39 / 讯飞 CAccount）**：
+  - 登录面 `/login/phone/sendMsgCode` + `/login/phone/checkCode` 等短信/密码接口，服务端下发 `session` 字符串
+    （`dist/assets/main-Bv7VZXLM.js` 的 `xfyun.sendSmsCode` / `xfyun.loginBySmsCode` 一手证据）。
+  - 渲染层 `dist/assets/sonner-CDo33AnZ.js` 的 `loomy-auth-session` 读写逻辑**只有**
+    `{phone, maskedPhone, session, userid, loggedInAt}`，全程无 `refreshToken` / `expiresIn` / `tokenExpire` 字段。
+  - 主进程有 `onSessionInvalidated` 与状态 `session_expired` / `evicted`（异地登录踢下线）/ `nexus_auth_failed`
+    ⇒ session 会过期、会被顶号，且**无任何 refresh 通路**，只能重新短信登录。
+  - `cross-end-sync/device-credential-vault.js` 里的 `deviceToken` 是 **Athena Connect 远程执行通道的设备票**
+    （`/athena/connect/bootstrap` 用 `auth.session` 换发，safeStorage/DPAPI 绑定本机 `installation_id`），
+    **不是登录会话续期票**；`athena-user-session-channel.js::bootstrap` 入参就是 auth session ⇒ 仍依赖已登录会话，
+    无法脱离本机凭空换票。
+  - ⇒ 号池侧 loomy 号 `tokenExpiresAt=null`（opaque session，连过期时刻都不下发），`hasRt=false`。
+
+**统一结论（可结清 §四 的 loomy/raccoon 条目）**：这三类的凭证架构分三型——
+① **无 exp 长期票 + 无可调用刷新端点**（zcode，按 token_version 失效，云端可长期直用，见 §3.1 更正）；
+② **短期 JWT / opaque session + 无 rt**（raccoon / loomy），到期或被踢只能走浏览器 OIDC / 短信重登，
+   而登录入口都是**一次性 code 或本机 DPAPI 绑定**，物理上无法服务端静默复现；
+③ **有 rt 的平台**（qoder / trae / workbuddy / codearts 等）才走 `keepAliveForever` 服务端自刷。
+「脱离本机、云端永久托管」只对 ①③ 成立；② 的根本制约在上游认证架构，不是本仓漏实现。
+判「某号能否云托管」看号池元数据 `refreshTokenEnc`/`tokenExpiresAt` + 适配器 `refreshTokenSupported`，
+不要再看「有没有签到」。
+
 ## 四、未决 / 后续
 
 - doubao / loomy 的「无实证续期端点」是**刻意不盲写**（§0.3：不猜端点、401 自愈靠重新导入号池）。
