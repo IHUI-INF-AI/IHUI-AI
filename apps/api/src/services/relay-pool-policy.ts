@@ -47,6 +47,7 @@
 import { eq, isNull, type SQL } from 'drizzle-orm'
 import { aiRelayAccountPool } from '@ihui/database'
 import { resolveRealm } from './upstream-adapters/workbuddy-protocol.js'
+import { accountRegionOfRow } from './relay-model-route.js'
 
 // =============================================================================
 // 策略类型与默认值(env 钮名与 §22d 出口)
@@ -446,10 +447,14 @@ export function creditOfRow(row: PoolCandidateRow): number | null {
  * 上游基址同一把尺子)。其他 provider ⇒ null(无域,域过滤恒放行)。
  */
 export function domainKeyOfRow(row: PoolCandidateRow): 'cn' | 'global' | null {
-  if (row.providerCode !== 'workbuddy') return null
-  const meta = metaObject(row.extraMetadata)
-  const domain = typeof meta?.domain === 'string' ? meta.domain : ''
-  return resolveRealm(domain)
+  // 2026-11-17 扩展:workbuddy 仍走 resolveRealm(域原文换算);其他 provider 的
+  // extraMetadata.region / regions 交给 relay-model-route.accountRegionOfRow 单源判定。
+  if (row.providerCode === 'workbuddy') {
+    const meta = metaObject(row.extraMetadata)
+    const domain = typeof meta?.domain === 'string' ? meta.domain : ''
+    return resolveRealm(domain)
+  }
+  return accountRegionOfRow(row)
 }
 
 // =============================================================================
@@ -609,6 +614,12 @@ export interface PoolSelectionOptions {
   rng?: () => number
   /** 请求域(会话亲和账号所在域);null/undefined = 不做域过滤 */
   requestedDomain?: 'cn' | 'global' | null
+  /**
+   * 显式区(2026-11-17 立):来自 `<平台>/<区>/<模型>` 三段前缀或 `IHUI_RELAY_MODEL_REGION_JSON`
+   * 的模型区规则。它**优先于** requestedDomain,且不受 crossDomainFallback 开关限制 ——
+   * 用户/规则已经写明区,再让默认关闭的开关把意图吞掉等于「写了不算」。
+   */
+  explicitRegion?: 'cn' | 'global' | null
 }
 
 export interface PoolSelectionOutcome<T> {
@@ -632,8 +643,10 @@ export function selectPoolOrdered<T extends PoolCandidateRow>(
   const credit = filterCreditFloor(working, opts.policy.creditFloor)
   working = credit.rows
   if (credit.fallbackApplied) fallbacks.push('credit_floor_fallback')
-  if (opts.policy.crossDomainFallback) {
-    const domain = filterByDomain(working, opts.requestedDomain ?? null)
+  // 显式区 ⇒ 恒过滤(开关只管「亲和域互兜」这一档,不替用户撤销显式意图)
+  const domainRequest = opts.explicitRegion ?? opts.requestedDomain ?? null
+  if (opts.policy.crossDomainFallback || opts.explicitRegion) {
+    const domain = filterByDomain(working, domainRequest)
     working = domain.rows
     if (domain.fallbackApplied) fallbacks.push('cross_domain_fallback')
   }
