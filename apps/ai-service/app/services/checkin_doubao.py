@@ -1230,6 +1230,32 @@ async def doubao_task_sweep_account(
         号池号(仅 sessionid、技能运行时在真人客户端侧)不可能靠外部注入完成此项。
         ⇒ 不代跑,避免无效额度与风控。此项只能当前端真人客户端用本地定时任务技能
         真实创建一次时由客户端自己上报完成。
+        ⑥ 客户端 bundle 逆向定谳(2026-11-17 15:xx,第五轮,从源码层坐实 625002003):
+        反编译 E:/Software/Doubao/app/local_webcontents/extensions/ai-views/static/js/
+        async/{73978,15504,10434,10102}.js + task-mode-resource/runtime-bundle/
+        manifest.json 得到确定性事实:
+        - 上报端点 EventReport 包装 TM({scene,campaignItemCode,messageId,params}) 参数形状
+          与我方一致(非参数名错误);
+        - campaignType 枚举 fF(模块968435)仅 6 个:skill_store_add_use/skill_store_add/
+          skill_use/work_buddy_add_chat/enable_notification/set_default_open,**不含
+          ScheduleSkill**。完成判定函数 P()(模块801315)只对这 6 个事件型任务生成 report
+          (skill-added→scene=chat+skill_id;message-sent→scene=chat+message_id;
+          notification-enabled/default-image-viewer-confirmed→scene=client_action),
+          ScheduleSkill 落 P() 返回 undefined ⇒ 客户端自己也不靠 event/report 完成它;
+        - ScheduleSkill 在 415151 模块仅映射为「WorkTask(mode=4)选中 generalAgentSkill
+          =schedule 技能」的引导动作(N 函数),真正 skill_id=348923904514 来自
+          runtime-bundle/manifest.json(doubao-cron-scheduler,skill_type=2);
+        - 按上述契约精确复刻:发 mode=4 + mention_skill_list=[348923904514] +
+          mention_ext/input_skill 的消息拿真实 question_id,再以 scene=chat/skill_use/
+          ScheduleSkill × params.skill_id 四种组合上报 → **仍全部 625002003**,status 4 不变;
+        - 直接对 status=4 任务调 claim(按 task_id 与 group+item 两种)均回 code=0 但
+          detail status 恒 4、里程碑不变 ⇒ 空洞成功,与 skills/add 同类,非真领奖;
+        - 活动入口 lS/Lw/FQ 等(模块290918)是 (0,o.L) 前端 telemetry 埋点,非服务端资格
+          打点,打开活动面板不建立资格。
+        结论:625002003 是服务端在 report 入口的无参数资格拒绝(连 body 都不解析),
+        ScheduleSkill 的完成判定在服务端绑定客户端技能运行时签名事件,号池号无本地
+        技能运行时 ⇒ 外部 HTTP 穷尽所有参数形态/bundle 契约/claim 旁路均不可完成。
+        判据:勿再把 625002003 当 message_id/scene/技能ID 参数问题重试。
 
 号池签到探底(2026-11-17 第三轮,5 启用号全量实弹,本函数 + 调度冷却链已核实):
         - 号池 doubao 启用号实为 5 个(27 是全平台总数,非 doubao);
