@@ -198,6 +198,8 @@ import { sweepTrashExpiry } from './lib/git-guardian-trash-expiry.mjs'
 // 「远端分支现在在哪」的唯一取法(ls-remote 当次真值);收编腿的基线让路判据不许拿
 // 会被宿主清理层删掉的跟踪 ref 落槌(§5b)。
 import { resolveRemoteHead } from './lib/face-reader.mjs'
+// 全局写锁落点的唯一真相源(§0.6):2026-11-14 起锁从 <gitDir> 迁到仓内 .ihui-agent/state。
+import { resolveWriteLockDir } from './lib/git-dir-boundary.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
 export {
@@ -10547,23 +10549,23 @@ function reportBaselineFreshness() {
 }
 
 // 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5352(门 103 C1 收口)〉首意: 提交窗口期静默(2026-10-22 立,机主要求"提交稳定在 1 分钟内")。
+// 2026-11-17 修(旧实现结构性从未生效):① 落点按 `<gitDir>/ihui-git-write.lock` 拼,而锁 11-14 已迁到仓内;② 把锁**目录**当文件读 ⇒ 恒 EISDIR ⇒ 恒 false。现落点走 lib 单源,持有者取锁内 meta.json 的 pid。
 function inCommitWindow() {
   try {
-    const dotGit = join(process.cwd(), '.git')
-    let gitDir = dotGit
-    if (!statSync(dotGit).isDirectory()) {
-      const m = readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m)
-      if (m && m[1]) gitDir = m[1].trim()
-    }
-    const lock = join(gitDir, 'ihui-git-write.lock')
-    if (!existsSync(lock)) return false
-    const m = readFileSync(lock, 'utf8').match(/pid=(\d+)/)
-    if (!m) return true
+    const lockDir = resolveWriteLockDir(process.cwd())
+    if (!existsSync(lockDir)) return false
+    let pid = 0
     try {
-      process.kill(Number(m[1]), 0)
+      pid = Number(JSON.parse(readFileSync(join(lockDir, 'meta.json'), 'utf8')).pid) || 0
+    } catch {
+      return true // 锁在、元信息读不到 ⇒ 按"正在提交"静默(失效方向=多静默一轮巡检)
+    }
+    if (!pid) return true
+    try {
+      process.kill(pid, 0)
       return true
     } catch {
-      return false
+      return false // 持有者已死 ⇒ 陈旧锁,不是提交窗口
     }
   } catch {
     return false // 失效方向是"多跑一轮巡检",不是"漏检一轮"
@@ -16462,6 +16464,9 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  // 提交窗口静默判据(2026-11-17):落点与持有者判法必须能被钉住 —— "恒 false"这类静默失效
+  // 结构上不会被任何日志发现,只能靠镜像测试。
+  inCommitWindow,
   // 暂停标记判据(P0-1 封口票):镜像测试 import 这一份本体断言三态(无标记/好标记/坏标记)。
   guardianPauseState,
   // 旧单实例闸(pid 文件 read→write)保留:main() 已改用轮级原子锁,但既有 S1–S4 镜像测试
