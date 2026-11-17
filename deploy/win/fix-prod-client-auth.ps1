@@ -152,7 +152,13 @@ if ($found.Count -eq 0) {
 
 # ---------- 5. 自证 ----------
 $body = '{"account":"13800000000","password":"test1234"}'
-$code = (& curl.exe -s -o NUL -w "%{http_code}" --max-time 15 -X POST 'http://127.0.0.1:8802/api/auth/login' -H 'Content-Type: application/json' -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0) Chrome/120' --data-binary $body 2>$null)
-Write-Step ("验证: 浏览器 UA 无 token 打到 8802 => HTTP " + $code + " (期望 401,403 表示仍在强制)")
+$curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
+if (-not $curl) { $curl = Join-Path $env:SystemRoot 'System32\curl.exe' }
+if (Test-Path -LiteralPath $curl) {
+  $code = (& $curl -s -o NUL -w "%{http_code}" --max-time 15 -X POST 'http://127.0.0.1:8802/api/auth/login' -H 'Content-Type: application/json' -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0) Chrome/120' --data-binary $body 2>$null)
+  Write-Step ("验证: 浏览器 UA 无 token 打到 8802 => HTTP " + $code + " (期望 401,403 表示仍在强制)")
+} else {
+  Write-Step '未找到 curl.exe —— 请手动验证: 浏览器登录应看到人机验证框且能提交'
+}
 Write-Step '完成。'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
