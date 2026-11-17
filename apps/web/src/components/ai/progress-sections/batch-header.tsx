@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { ChevronRight, Loader2, CheckCircle2, XCircle, Zap, Users, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProgressRing } from './progress-ring'
 
 export type BatchStatus = 'running' | 'completed' | 'failed' | 'partial'
 
@@ -18,6 +19,8 @@ interface BatchHeaderProps {
   agentCount: number
   completedCount: number
   failedCount?: number
+  /** 深化O(2026-11-17):运行中子代理数 —— running 状态时显示"·N 个运行中",一眼看到还有几个在跑。缺席/0 不造残标 */
+  runningCount?: number
   status: BatchStatus
   defaultCollapsed?: boolean
   collapsed?: boolean
@@ -69,6 +72,7 @@ export const BatchHeader = React.memo(function BatchHeader({
   agentCount,
   completedCount,
   failedCount = 0,
+  runningCount = 0,
   status,
   defaultCollapsed = true,
   collapsed: collapsedProp,
@@ -114,10 +118,30 @@ export const BatchHeader = React.memo(function BatchHeader({
             )}
             aria-hidden
           />
-          <Icon
-            className={cn('h-3 w-3 shrink-0', toneCls.icon, status === 'running' && 'animate-spin')}
-            aria-hidden
-          />
+          {/* 深化T(2026-11-17):折叠态进度环 —— 折叠看不到底部进度条,改在折叠行内嵌小进度环。
+            有进度(>0)时替换状态图标,用户折叠态一眼看到整体完成率;无进度时仍用状态图标。
+            completed 状态用 completed 态,其余用 in_progress;失败用 idle(红色调由外层控制)。 */}
+          {progress > 0 ? (
+            <ProgressRing
+              value={progress}
+              state={
+                status === 'completed' ? 'completed' : status === 'running' ? 'in_progress' : 'idle'
+              }
+              centerMode="none"
+              size={14}
+              strokeWidth={2}
+              aria-label={`批次进度 ${progress}%`}
+            />
+          ) : (
+            <Icon
+              className={cn(
+                'h-3 w-3 shrink-0',
+                toneCls.icon,
+                status === 'running' && 'animate-spin',
+              )}
+              aria-hidden
+            />
+          )}
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
             批次 {batchIndex}
             {totalBatches !== undefined && totalBatches > 1 && `/${totalBatches}`}
@@ -128,6 +152,9 @@ export const BatchHeader = React.memo(function BatchHeader({
           <span className="inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 py-0.5 text-[10px] text-muted-foreground/80">
             <Users className="h-2.5 w-2.5" aria-hidden />
             {completedCount}/{agentCount}
+            {runningCount > 0 && status === 'running' && (
+              <span className="text-primary">·{runningCount} 个运行中</span>
+            )}
             {failedCount > 0 && <span className="text-destructive">·{failedCount} 失败</span>}
           </span>
           {meta && <span className="shrink-0 text-[10px] text-muted-foreground/60">{meta}</span>}

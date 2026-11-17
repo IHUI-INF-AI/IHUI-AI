@@ -8618,6 +8618,8 @@
         "clearLive": "지우기",
         "copyOutput": "터미널 출력 복사",
         "failed": "{n} 실패",
+        "failedJumpAria": "{n}개 명령 실패, 활성화하여 첫 항목으로 이동",
+        "failedJumpTitle": "클릭하여 첫 실패 명령으로 이동",
         "isolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
         "live": "실시간 출력",
         "moreItems": "…{n}개 더",
@@ -12336,6 +12338,8 @@
       "stepThinking": "사고",
       "summaryAllDone": "모두 완료",
       "summaryErrorCount": "오류 {count}",
+      "failedJumpAria": "{count}개 단계 실패, 첫 번째 실패 단계로 이동",
+      "failedJumpTitle": "클릭 또는 Enter 로 첫 번째 실패 단계로 이동",
       "title": "실행 계획",
       "totalDuration": "총 {duration}"
     },

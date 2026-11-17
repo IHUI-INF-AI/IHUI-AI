@@ -8618,6 +8618,8 @@
         "clearLive": "クリア",
         "copyOutput": "ターミナル出力をコピー",
         "failed": "{n} 失敗",
+        "failedJumpAria": "{n} 件のコマンドが失敗、アクティブ化で先頭へ",
+        "failedJumpTitle": "クリックで最初の失敗コマンドへ移動",
         "isolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
         "live": "ライブ出力",
         "moreItems": "…あと {n} 件",
@@ -12336,6 +12338,8 @@
       "stepThinking": "思考",
       "summaryAllDone": "すべて完了",
       "summaryErrorCount": "エラー {count}",
+      "failedJumpAria": "{count} 件のステップが失敗、最初の失敗ステップへ移動",
+      "failedJumpTitle": "クリックまたは Enter で最初の失敗ステップへ移動",
       "title": "実行プラン",
       "totalDuration": "合計 {duration}"
     },

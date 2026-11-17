@@ -42,6 +42,7 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 const AGENT_TASK_PANE_ID = 'agent-task-progress-pane'
 const AGENT_TASK_HELP_ID = 'agent-task-progress-pane-help'
 import { stepDecisionLabel, stepDecisionState } from '@ihui/shared/chat'
+import { formatTokenCount } from '@ihui/shared/utils'
 import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
@@ -77,9 +78,26 @@ import { CopyButton } from './progress-sections/copy-button'
 import { ProgressRing } from './progress-sections/progress-ring'
 import { HoverPreviewCard } from './progress-sections/hover-preview-card'
 import { BatchHeader, type BatchStatus } from './progress-sections/batch-header'
+import { sortSubagentsForDisplay } from './progress-sections/subagent-display-sort'
+import {
+  extractFailedAgentSummaries,
+  FAILED_SUMMARY_MAX,
+} from './progress-sections/failed-agent-summary'
+import { useLiveSince } from '@/components/chat/stream/stream-ui'
 import { Checklist, type ChecklistItemData } from './progress-sections/checklist'
 import { ResourceBudget } from './progress-sections/resource-budget'
 import { flattenToTimelineEvents } from './progress-sections/timeline-tab'
+import {
+  FAILURE_KIND_META,
+  KNOWN_FAILURE_KINDS,
+  KNOWN_FAILURE_SOURCES,
+  FAILURE_SOURCE_LABEL,
+  FAILURE_SOURCE_META,
+} from './progress-sections/failure-kind-meta'
+import {
+  resolveJumpTargetIdByKind,
+  resolveJumpTargetIdBySource,
+} from './progress-sections/failure-jump'
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 import { NextStepsCard } from './progress-sections/next-steps-card'
 // D27(2026-09-20 立):交付审查视图 — 实时交付卡复用核心面板(agents 域组件,无循环依赖)
@@ -484,7 +502,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
             {step.tokenUsage !== undefined && step.tokenUsage > 0 && (
               <Tooltip content={`${step.tokenUsage} tokens`}>
                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
-                  {Math.round(step.tokenUsage / 1000)}k
+                  {formatTokenCount(step.tokenUsage)}
                 </span>
               </Tooltip>
             )}
@@ -1095,7 +1113,26 @@ export function AgentTaskProgressPane() {
     agentCount: number
     completedCount: number
     failedCount: number
+    /** 深化O(2026-11-17):运行中子代理数 —— running 状态时批次头显示"·N 个运行中" */
+    runningCount: number
     status: BatchStatus
+    /** 深化G(2026-11-17):瓶颈子代理 —— 运行中耗时最久者(handle+已跑时长 ms)。无运行中则为 null。深化M:带 spawnedAt 供实时跳动 */
+    bottleneck: { handle: string; elapsedMs: number; spawnedAt: string } | null
+    /** 深化I(2026-11-17):跨子代理聚合对比 —— 总 token + 平均耗时(仅有终态 durationMs 者),缺省 0/null */
+    totalTokens: number
+    avgDurationMs: number | null
+    /**
+     * 深化J(2026-11-17):失败模式分布 —— { failureKind: 计数 }。
+     * 只统计已知桶（在 FAILURE_KIND_META 里），unknown 不计入。空对象 = 无已知桶失败。
+     */
+    failureKindDist: Record<string, number>
+    /**
+     * 深化K(2026-11-17):失败来源分布 —— { failureSource: 计数 }。
+     * failureSource 与 failureKind 正交:本维度回答"失败发生在哪一环"(上游/本地/网络/工具),
+     * 只统计非空四桶(provider/runtime/network/tool,在 KNOWN_FAILURE_SOURCES 里),空串/unknown 不计入。
+     * 空对象 = 无已知来源失败(全部空串或无失败)。
+     */
+    failureSourceDist: Record<string, number>
   }>(() => {
     const completedCount = subagents.filter((s) => s.status === 'done').length
     const failedCount = subagents.filter((s) => s.status === 'failed' || s.status === 'dead').length
@@ -1104,8 +1141,61 @@ export function AgentTaskProgressPane() {
     if (running > 0) status = 'running'
     else if (failedCount > 0 && completedCount > 0) status = 'partial'
     else if (failedCount > 0) status = 'failed'
-    return { agentCount: subagents.length, completedCount, failedCount, status }
+    // 深化G:从 spawn 时间推算运行中子代理已耗时,取最久者为瓶颈(spawnedAt 缺席者跳过,不猜)
+    // 深化M:同时带上 spawnedAt —— 供瓶颈块 useLiveSince 实时跳动(单行秒表跳动但批次瓶颈静态会让两处数字矛盾)
+    let bottleneck: { handle: string; elapsedMs: number; spawnedAt: string } | null = null
+    const now = Date.now()
+    for (const s of subagents) {
+      if (s.status !== 'running' && s.status !== 'spawned') continue
+      const startMs = Date.parse(s.spawnedAt)
+      if (Number.isNaN(startMs)) continue
+      const elapsedMs = Math.max(0, now - startMs)
+      if (!bottleneck || elapsedMs > bottleneck.elapsedMs) {
+        bottleneck = { handle: s.handle, elapsedMs, spawnedAt: s.spawnedAt }
+      }
+    }
+    // 深化I:跨子代理聚合 —— 总 token(全部累计)+ 平均耗时(仅取有后端权威 durationMs 的已完成者)
+    const totalTokens = subagents.reduce((sum, s) => sum + (s.tokenUsage ?? 0), 0)
+    const durations = subagents
+      .map((s) => s.durationMs)
+      .filter((d): d is number => typeof d === 'number')
+    const avgDurationMs =
+      durations.length > 0
+        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        : null
+    // 深化J:失败模式分布 —— 遍历 subagents,failureKind 命中已知桶时计数,unknown 跳过
+    const failureKindDist: Record<string, number> = {}
+    for (const s of subagents) {
+      if (!s.failureKind || !KNOWN_FAILURE_KINDS.has(s.failureKind)) continue
+      failureKindDist[s.failureKind] = (failureKindDist[s.failureKind] ?? 0) + 1
+    }
+    // 深化K:失败来源分布 —— 与 failureKind 正交,遍历 subagents,failureSource 命中非空四桶时计数,空串/unknown 跳过
+    const failureSourceDist: Record<string, number> = {}
+    for (const s of subagents) {
+      if (!s.failureSource || !KNOWN_FAILURE_SOURCES.has(s.failureSource)) continue
+      failureSourceDist[s.failureSource] = (failureSourceDist[s.failureSource] ?? 0) + 1
+    }
+    return {
+      agentCount: subagents.length,
+      completedCount,
+      failedCount,
+      runningCount: running,
+      status,
+      bottleneck,
+      totalTokens,
+      avgDurationMs,
+      failureKindDist,
+      failureSourceDist,
+    }
   }, [subagents])
+
+  // 深化N(2026-11-17):子代理展示排序 —— 待审批 > 运行中 > 失败 > 完成;同级保持原顺序。
+  // 多子代理并行时不让用户翻找"正在跑的"和"出错的";纯逻辑抽在 subagent-display-sort.ts(单一真相源)。
+  const sortedSubagents = React.useMemo(() => sortSubagentsForDisplay(subagents), [subagents])
+
+  // 深化Q(2026-11-17):批次失败子代理折叠态归因概览 —— 用户不展开批次即知"谁挂了+为什么"。
+  // 只在有失败子代理时非空;纯逻辑抽在 failed-agent-summary.ts(单一真相源)。
+  const failedSummaries = React.useMemo(() => extractFailedAgentSummaries(subagents), [subagents])
 
   // Phase 19: 时间线事件写入 TimelineStore(供 TimelineTab 渲染)
   const setEvents = useTimelineStore((s) => s.setEvents)
@@ -1325,6 +1415,46 @@ export function AgentTaskProgressPane() {
 
   // BatchHeader 折叠切换回调
   const onBatchCollapsedChange = React.useCallback((next: boolean) => setBatchCollapsed(next), [])
+
+  // 深化W(2026-11-17):点失败模式徽章 → 展开批次 + 滚动到首个该类失败子代理。
+  // 深化Y(2026-11-17):失败来源徽章同构 —— 目标决策抽到 failure-jump.ts 纯函数(可测),组件只管滚动。
+  // 折叠态先 setBatchCollapsed(false) 触发重渲染,再 requestAnimationFrame 等 DOM 挂载后定位。
+  // 找不到匹配子代理时静默忽略(理论上不会发生:徽章计数 >0 意味着至少有一个该类失败)。
+  const jumpToFailedSubagentBy = React.useCallback((targetId: string | null) => {
+    if (!targetId) return
+    setBatchCollapsed(false)
+    requestAnimationFrame(() => {
+      const el = paneRef.current?.querySelector(`[data-testid="subagent-task-tree-${targetId}"]`)
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('animate-flash-highlight')
+        window.setTimeout(() => el.classList.remove('animate-flash-highlight'), 700)
+      }
+    })
+  }, [])
+
+  const jumpToFailedSubagentByKind = React.useCallback(
+    (kind: string) => {
+      jumpToFailedSubagentBy(resolveJumpTargetIdByKind(sortedSubagents, kind))
+    },
+    [jumpToFailedSubagentBy, sortedSubagents],
+  )
+
+  // 深化Y(2026-11-17):失败来源徽章定位 —— 按来源(上游/本地/网络/工具)定位首个失败子代理。
+  // 与深化W 的"按失败模式"正交:用户既能"限流集中→定位"也能"都发生在上游→定位"。
+  const jumpToFailedSubagentBySource = React.useCallback(
+    (source: string) => {
+      jumpToFailedSubagentBy(resolveJumpTargetIdBySource(sortedSubagents, source))
+    },
+    [jumpToFailedSubagentBy, sortedSubagents],
+  )
+  // 深化M(2026-11-17):批次瓶颈"已跑"实时跳动 —— 与单行秒表(useLiveElapsed)对齐,不再冻结。
+  // hook 必须在顶层无条件调用;瓶颈未定(spawnedAt 缺席)时 useLiveSince 内部回落,不造残标。
+  const bottleneckLiveMs = useLiveSince(
+    subagentBatchStats.status === 'running',
+    subagentBatchStats.bottleneck?.spawnedAt,
+    subagentBatchStats.bottleneck?.elapsedMs ?? null,
+  )
 
   // v18 拖动 handle(2026-07-29 立,用户规则"之前不是支持的吗"):
   // ⚠️ Hooks 必须在 return null 之前调用,否则报 "Rendered more hooks than during the previous render"。
@@ -1994,6 +2124,7 @@ export function AgentTaskProgressPane() {
                       agentCount={subagentBatchStats.agentCount}
                       completedCount={subagentBatchStats.completedCount}
                       failedCount={subagentBatchStats.failedCount}
+                      runningCount={subagentBatchStats.runningCount}
                       status={subagentBatchStats.status}
                       collapsed={batchCollapsed}
                       onCollapsedChange={onBatchCollapsedChange}
@@ -2001,9 +2132,173 @@ export function AgentTaskProgressPane() {
                       className="mx-1.5 mt-1.5"
                       data-testid="subagent-batch-header"
                     />
+                    {/* 深化G:瓶颈提示 —— 运行中最久的子代理一眼可见,不重排列表只是加一行提示 */}
+                    {subagentBatchStats.bottleneck && subagentBatchStats.status === 'running' && (
+                      <div
+                        className="mx-1.5 mt-0.5 flex items-center gap-1.5 rounded-sm bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600/90"
+                        data-testid="subagent-batch-bottleneck"
+                      >
+                        <span className="shrink-0">⏱ 瓶颈:</span>
+                        <span className="shrink-0 font-mono">
+                          {subagentBatchStats.bottleneck.handle}
+                        </span>
+                        <span className="shrink-0 text-muted-foreground/60">
+                          已跑
+                          {formatDuration(
+                            bottleneckLiveMs ?? subagentBatchStats.bottleneck.elapsedMs,
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {/* 深化I:跨子代理聚合对比 —— 有 token 或有已完成 durationMs 时显示一行摘要 */}
+                    {(subagentBatchStats.totalTokens > 0 ||
+                      subagentBatchStats.avgDurationMs !== null) && (
+                      <div
+                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-sm bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground/70"
+                        data-testid="subagent-batch-aggregate"
+                      >
+                        {subagentBatchStats.totalTokens > 0 && (
+                          <span className="shrink-0 tabular-nums">
+                            总 token:
+                            <span className="font-medium">
+                              {formatTokenCount(subagentBatchStats.totalTokens)}
+                            </span>
+                          </span>
+                        )}
+                        {subagentBatchStats.avgDurationMs !== null && (
+                          <span className="shrink-0 tabular-nums">
+                            平均耗时:
+                            <span className="font-medium">
+                              {formatDuration(subagentBatchStats.avgDurationMs)}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {/* 深化J:失败模式分布 —— 不展开详情就能看到"失败集中在哪类",指导是等还是改。
+                        仅在有已知桶失败时显示;每桶计数只报≥1 的。
+                        深化V:hover 显示处置建议(advice)。
+                        深化W:可点击 —— 折叠态点徽章展开批次并滚动到首个该类失败子代理;
+                        已展开态点徽章仅滚动定位(避免重复点击无反馈)。 */}
+                    {Object.keys(subagentBatchStats.failureKindDist).length > 0 && (
+                      <div
+                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm bg-destructive/[0.06] px-2 py-0.5 text-[10px] text-destructive/80"
+                        data-testid="subagent-batch-failure-dist"
+                      >
+                        <span className="shrink-0">失败模式:</span>
+                        {Object.entries(subagentBatchStats.failureKindDist)
+                          .filter(([kind]) => KNOWN_FAILURE_KINDS.has(kind))
+                          .map(([kind, count]) => {
+                            const meta = FAILURE_KIND_META[kind]
+                            if (!meta) return null
+                            const ariaLabel = `${meta.label} 失败 ${count} 个,激活定位首个`
+                            return (
+                              <button
+                                key={kind}
+                                type="button"
+                                className={cn(
+                                  'shrink-0 cursor-pointer rounded-sm bg-muted/60 px-1 py-px tabular-nums transition-colors hover:bg-muted',
+                                  meta.tone,
+                                )}
+                                data-testid={`subagent-batch-failure-dist-${kind}`}
+                                title={`${meta.label}×${count} —— ${meta.advice}（点击或回车定位）`}
+                                aria-label={ariaLabel}
+                                onClick={() => jumpToFailedSubagentByKind(kind)}
+                              >
+                                {meta.label} ×{count}
+                              </button>
+                            )
+                          })}
+                      </div>
+                    )}
+                    {/* 深化K:失败来源分布 —— 与"失败模式"正交,回答"失败发生在哪一环"(上游/本地/网络/工具)。
+                        仅在有已知来源失败时显示;每桶计数只报≥1 的。
+                        深化V:hover 显示环节定义,用户不用猜"上游模型"具体指啥。
+                        深化X:四桶分 tone(amber/muted/sky/violet)提升信息密度。
+                        深化Y:可点击 —— 与深化W 对称,点徽章展开批次并滚动到首个该来源失败子代理。 */}
+                    {Object.keys(subagentBatchStats.failureSourceDist).length > 0 && (
+                      <div
+                        className="mx-1.5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm bg-destructive/[0.06] px-2 py-0.5 text-[10px] text-destructive/80"
+                        data-testid="subagent-batch-failure-source-dist"
+                      >
+                        <span className="shrink-0">失败来源:</span>
+                        {Object.entries(subagentBatchStats.failureSourceDist)
+                          .filter(([source]) => KNOWN_FAILURE_SOURCES.has(source))
+                          .map(([source, count]) => (
+                            <button
+                              key={source}
+                              type="button"
+                              className={cn(
+                                'shrink-0 cursor-pointer rounded-sm border border-stroke-subtle px-1 py-px tabular-nums transition-colors hover:bg-muted',
+                                FAILURE_SOURCE_META[source]?.tone,
+                              )}
+                              data-testid={`subagent-batch-failure-source-dist-${source}`}
+                              title={`${FAILURE_SOURCE_LABEL[source]}×${count} —— 失败发生在「${FAILURE_SOURCE_LABEL[source]}」环节（点击或回车定位）`}
+                              aria-label={`${FAILURE_SOURCE_LABEL[source]} 失败 ${count} 个,激活定位首个`}
+                              onClick={() => jumpToFailedSubagentBySource(source)}
+                            >
+                              {FAILURE_SOURCE_LABEL[source]} ×{count}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                    {/* 深化Q+R:失败子代理折叠态归因行 —— 不展开批次即知"谁挂了+为什么"。
+                        折叠/展开都可见(在 {!batchCollapsed} 外);每条 @handle + 归因标签 + 截断原因;
+                        超过 FAILED_SUMMARY_MAX 条折叠成"还有 X 个失败"。
+                        深化R:批次折叠态点失败行自动展开批次(免去找折叠按钮的摩擦);已展开态行不可点。 */}
+                    {failedSummaries.length > 0 && (
+                      <div
+                        className="mx-1.5 mt-0.5 space-y-0.5 text-[10px] text-destructive/80"
+                        data-testid="subagent-batch-failed-summary"
+                      >
+                        {failedSummaries.slice(0, FAILED_SUMMARY_MAX).map((f) => {
+                          const row = (
+                            <>
+                              <span className="shrink-0 font-mono">{f.handle}</span>
+                              {f.kindLabel && (
+                                <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-px font-medium">
+                                  {f.kindLabel}
+                                </span>
+                              )}
+                              {f.reason && <span className="break-all">{f.reason}</span>}
+                            </>
+                          )
+                          // 折叠态:整行可点,点击展开批次看该子代理详情
+                          if (batchCollapsed) {
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => onBatchCollapsedChange(false)}
+                                className="flex w-full flex-wrap items-center gap-x-1.5 rounded-sm px-0.5 py-px text-left transition-colors hover:bg-destructive/10"
+                                aria-label={`查看失败子代理 ${f.handle} 详情`}
+                                data-testid={`subagent-batch-failed-${f.id}`}
+                              >
+                                {row}
+                              </button>
+                            )
+                          }
+                          // 已展开态:纯展示(详情就在下方,无需点)
+                          return (
+                            <div
+                              key={f.id}
+                              className="flex flex-wrap items-center gap-x-1.5"
+                              data-testid={`subagent-batch-failed-${f.id}`}
+                            >
+                              {row}
+                            </div>
+                          )
+                        })}
+                        {failedSummaries.length > FAILED_SUMMARY_MAX && (
+                          <div className="pl-1 text-muted-foreground/60">
+                            还有 {failedSummaries.length - FAILED_SUMMARY_MAX} 个失败(展开查看全部)
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {!batchCollapsed && (
                       <div className="mx-1.5 mt-1 space-y-1" data-testid="subagent-batch-body">
-                        {subagents.map((sa: Subagent) => (
+                        {sortedSubagents.map((sa: Subagent) => (
                           <SubAgentTaskTree
                             key={sa.id}
                             subagent={sa}
