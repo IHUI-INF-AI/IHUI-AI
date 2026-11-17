@@ -147,7 +147,7 @@
 
 两平台核心端点已核实。**以下为唯一事实源，provider 实现以此为准，不在代码里重复罗列。**
 
-> **实现状态（2026-11-17 更新）**：飞书 + 钉钉的**打卡（attendance）provider 已实现**；**飞书审批三类（leave/overtime/outgoing）已按 2026-11-17 官方文档修正并可用**（复数端点/`data.user_approvals[]` 容器/status 数字枚举/30 天窗口切片，22 例测试钉住）；**钉钉审批三类仍抛 501，且 2026-11-17 已定性为终态**：官方文档返回参数表证实新版详情响应只有概览字段、无表单业务字段；旧版带 `form_component_values` 的接口权限点对新建应用不可申请（见 §7.4「结论」行）。飞书打卡目标工号来源已接（名册全量 ∩ 可选白名单，见 §7.5）；钉钉走人工 userid 映射（见 §7.3），未配置时返回 0 行空批次，不报错。**权限侧（2026-11-17 实测）**：飞书 `attendance:task:readonly` 已开通；钉钉三项只读权限已开通并随版本 1.0.0 发布生效（应用已上线）。
+> **实现状态（2026-11-17 更新）**：飞书 + 钉钉的**打卡（attendance）provider 已实现**；**飞书审批三类（leave/overtime/outgoing）已按 2026-11-17 官方文档修正并可用**（复数端点/`data.user_approvals[]` 容器/status 数字枚举/30 天窗口切片）；**钉钉审批三类同日改走考勤数据源并实现**（请假：`getleavestatus` + `vacation/type/list`；加班/出差/外出：`getcolumnval` 考勤报表列值，列 id 运行时按 alias 解析），501 已退役（见 §7.4「替代实现」）。飞书打卡目标工号来源已接（名册全量 ∩ 可选白名单，见 §7.5）；钉钉走人工 userid 映射（见 §7.3），未配置时返回 0 行空批次，不报错。**权限侧（2026-11-17 实测）**：飞书 `attendance:task:readonly` 已开通；钉钉 `qyapi_get_attendance_data`、`qyapi_holiday_readonly`、`Workflow.Instance.Read`、`Workflow.Form.Read` 已开通并随版本 1.0.0 / 1.0.1 发布生效（应用已上线）。
 
 ### 7.1 飞书（open.feishu.cn）
 
@@ -212,10 +212,27 @@
 | 假别口径 | 钉钉请假类型是**假期规则名称字符串**（如「年假」），无全局数字枚举；可用「查询假期规则列表」取 `leave_name`，或取表单值 |
 | 红线（2026-11-17 实读官方文档返回参数表与 200 响应示例） | 新版详情接口响应体只列 `result/success` 两个顶层键，`result` 内为标题/时间/发起人/部门/状态/审批人与抄送人/结论/businessId/操作记录；**通篇没有表单业务字段数组**（无 formComponentValues 一类键）⇒ 请假类型、起止时间、天数**无法从该接口取得**。原「只缺表单字段名」的判断不成立，根因是接口能力边界 |
 | 旧版路径（2026-11-17 实测权限页） | 旧版 `POST /topapi/processinstance/get` 才是带 `form_component_values`（name/value）的接口；但该应用权限页的审批类权限点只有 `qyapi_aflow`（审批流数据管理）、`Workflow.Instance.Read/Write`、`Workflow.Form.Read/Write`、`Premium.Workflow.ReadWrite.All`——**没有任何旧版审批实例权限点可申请**，旧版权限「不支持新增」被落到列表层 ⇒ 新建应用拿不到表单值 |
-| 结论（2026-11-17） | 钉钉审批（请假/加班/外出）在当前应用类型下**不可能通过开放接口取到业务字段**（假别/起止时间/天数）：新版只给概览、旧版权限不可申请 ⇒ 保持 501 是正确终态，不是待办。替代路径只有「企业侧从钉钉导出 → 人工导入」或「走智能人事数据源（需 HR 类权限，另行评估）」 |
-| 取样路径（权限已生效后可做） | ① `POST /v1.0/workflow/processes/instanceIds/query` 取实例 ID（需 `processCode`，可由 `GET /v1.0/workflow/processes/managements/templates` 或 `通过 processCode 获取表单 schema 信息` 取得）；② `GET /v1.0/workflow/processInstances?processInstanceId=…` 取一张真实单据，按返回的字段数组逐项登记 schema。开发者后台「API Explorer」可直接调试这两个接口（本轮已在 Explorer 中核对到两接口与参数形态：详情需 access_token + processInstanceId；表单列表需 access_token + userId + appUuid） |
+| 结论（2026-11-17，含当日实测） | 钉钉**审批实例接口**取不到业务字段（新版只给概览、旧版权限不可申请）——这条判断不变；但审批三类数据**不依赖审批接口**：2026-11-17 实测改走考勤数据源已全部打通（见下方「替代实现」表），provider 已实现、501 已退役。企业侧「导出 → 人工导入」被机主当场否决（要求全自动），故只剩考勤数据源这一条路 |
+| 取样路径（权限已生效后可做） | ① `POST /v1.0/workflow/processes/instanceIds/query` 取实例 ID（需 `processCode`）；② `GET /v1.0/workflow/processInstances?processInstanceId=…` 取一张真实单据。开发者后台「API Explorer」可直接调试这两个接口（本轮已在 Explorer 中核对到两接口与参数形态：详情需 access_token + processInstanceId；表单列表需 access_token + userId + appUuid） |
 
-> 已核实项以上表为凭；飞书侧已落地并带测试，钉钉侧待取样补齐后放开 501。
+#### 钉钉审批三类的替代实现：考勤数据源（2026-11-17 实测落地）
+
+机主否决「人工导入」后，改从考勤域取同一批事实。以下**全部为 2026-11-17 真实调用结果**（应用 `dingojemqcxfzr2f5xzd` / 企业 吉林省爱智汇人工智能科技有限公司，token 取自 `gettoken`）：
+
+| 类别 | 接口 | 实测结果 | 落地 |
+|---|---|---|---|
+| 请假（含假别/起止/时长） | `POST /topapi/attendance/getleavestatus` | `errcode=0`；响应 `result.has_more` + `result.leave_status[]`（`userid`/`start_time`/`end_time`/`duration_percent`/`duration_unit=percent_day\|percent_hour`；官方响应示例另含 `leave_code`，字段表未列）。参数 `userid_list`≤100、`start_time`/`end_time` 毫秒、窗口 ≤180 天、`offset`/`size`≤20 | `mapLeaveStatusToRows()`：percent_day→天、percent_hour→小时，`externalId=leave:{userid}:{start_time}` 保幂等 |
+| 假别映射 | `POST /topapi/attendance/vacation/type/list` | `errcode=0`；返回 `result: []`（本企业**未配置任何假期规则**）。需 `op_userid`（取映射中首个 userid） | 取不到假别 → `typeText` 留 null，交给 `normalizeLeaveType` 兜底，不猜 |
+| 加班 | `POST /topapi/attendance/getattcolumns` + `POST /topapi/attendance/getcolumnval` | `errcode=0`；列定义返回 **47 列**，含「加班-审批单统计」`overtime_approve_count`(1220189020)、「工作日加班」(1220189021)、「休息日加班」(1220189022)、「节假日加班」(1220189023) | 按 alias 运行时解析列 id，解析不到用兜底常量（模板变更自动跟随） |
+| 出差 | 同上 | 「出差时长」`business_trip_time`(1220189017)，单位**天** | `typeText=出差`，`totalDays=value` |
+| 外出 | 同上 | 「外出时长」`out_time`(1220189018)，单位**小时** | `typeText=外出`，`durationText=value小时` |
+| 关联审批单（备用） | 同上 | 「关联的审批单」`attendance_approve`(1220189038)，表达式 `#ApproveDetailPlug#`（非时长列） | 暂不消费（取到审批单 ID 也拿不到表单值） |
+| 数据现状（实测） | — | 该企业近期报表列值全为 `0.0`（含「应出勤天数」「出勤天数」「工作时长」），`getleavestatus` 返回空数组，`vacation/type/list` 为空 ⇒ **接口全通、企业侧暂无考勤/假期数据**（8 人团队未启用钉钉考勤打卡） | 链路就绪、数据随企业使用自然产生；不报错、不空跑 |
+| 权限 | — | 报表两接口只要「调用企业API时需要具备的基本权限」（`qyapi_base`）；请假状态/用户考勤数据在 `qyapi_get_attendance_data`；假期规则在 `qyapi_holiday_readonly`（随版本 **1.0.1** 于 2026-11-17 13:58:50 上线） | 无需再补权限 |
+
+> 请假明细列（事假/调休/病假/年假/产假/陪产假/婚假/例假/丧假/哺乳假）在 `getattcolumns` 里**有 name、无 id** ⇒ 不能用于 `getcolumnval`；要按假别出数必须走「获取报表假期数据」或本节的 `getleavestatus` + 假别映射。
+
+> 已核实项以上表为凭；飞书侧与钉钉侧（考勤数据源）均已落地并带测试，钉钉审批 501 已退役。
 
 ### 7.5 飞书打卡目标工号来源（已落地）
 
@@ -267,9 +284,9 @@
 - [x] 建 `lastSyncCursor` 存储（`system_configs` KV，schema 零改动）+ 幂等校验（复用 `createAnyImportBatch` 的 SHA-256 判重）
 - [ ] 联调：飞书沙箱拉一批→进暂存→走现有裁决/确认页核对端到端（待凭证申请后）
 - [x] 写测试钉住：CSV→现有 parse* 复用命门 + provider 月份窗口切片 + 飞书工号来源（名册/白名单/收窄/非法容错，共 10 项单测全绿）
-- [ ] 审批类枚举映射（leave/overtime/outgoing）：待 §7.4 核实后补，暂抛 501
+- [x] 审批类枚举映射（leave/overtime/outgoing）：飞书按 `user_approvals` 容器结构落地；钉钉按 2026-11-17 实测改走考勤数据源（`getleavestatus` + `getcolumnval`），501 退役
 
-> **实现进度（2026-11-13）**：同步器**代码框架已全部落地**——凭证单源读取、CSV 规范化复用现有判重/暂存流水线（零复制）、游标存储、定时 job 遍历用户、全局开关默认关。**打卡 provider 已实现**（飞书 + 钉钉，且飞书目标工号来源已接），审批三类 provider 端点已核实但枚举映射待补，暂抛 501（不报错、不空跑）。`tsc --noEmit` 0 错误、ESLint 通过、10 项命门单测全绿。**剩余**：① 凭证/scope 人工申请（飞书+钉钉）；② 审批枚举核实（§7.4）；③ 端到端联调（待凭证）。
+> **实现进度（2026-11-17）**：同步器**代码框架已全部落地**——凭证单源读取、CSV 规范化复用现有判重/暂存流水线（零复制）、游标存储、定时 job 遍历用户、全局开关默认关。**打卡 provider 已实现**（飞书 + 钉钉，且飞书目标工号来源已接）；**审批三类两侧均已实现**：飞书走 `user_approvals/query`（14+8 例钉住），钉钉走考勤数据源（9 例钉住）。`tsc --noEmit` 0 错误，三份测试文件 30 例全绿。**剩余**：① 端到端联调（生产库 `im_adapters` 无钉钉行、`sync:dingtalk:userid-map:*` 0 条 ⇒ 需先在管理后台配凭证与工号映射，入口尚不存在）；② 钉钉侧企业未启用考勤打卡/假期规则，报表与请假接口实测为空数据（接口通、数据待积累）。
 
 ---
 
@@ -284,7 +301,7 @@ job 每次跑完（含「禁用」分支）把最近一次运行快照写进 `sy
 | `scannedUsers` | 扫到的、启用了飞书/钉钉适配器的用户数 |
 | `attempted` | 实际尝试的（用户×kind）拉取次数 |
 | `syncedBatches` | 成功产出暂存批次数 |
-| `skippedNotImplemented` | 因 provider 未实现（501）跳过的次数（审批三类枚举补齐前正常存在） |
+| `skippedNotImplemented` | 因 provider 未实现（501）跳过的次数（四类均已实现，常态应为 0；非 0 说明代码与本文失同步） |
 | `errors` | 失败明细（用户/kind/错误消息），空数组=全部成功 |
 | `finishedAt` | 本次运行完成时间（ISO 字符串） |
 
