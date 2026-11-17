@@ -169,9 +169,18 @@ MEASUREMENTS: Final[Mapping[str, float]] = MappingProxyType({
     'turn_visitor_keys': 26,
     'turn_union': 27,
     'thread_visitor_keys': 43,
+    'fragment_tables_found': 2,
+    'largest_fragment': 18,
+    'largest_fragment_turn_hits': 9,
 })
 
-#: Attribution methods measured and rejected *after* R68 (round 69).
+#: Turn's last-missing name candidate. Weak on purpose: the reference probe that would
+#: settle it filters merged pools badly (4 of its names have zero standalone occurrences),
+#: so this name is recorded as unverified rather than merged into the key set.
+TURN_LAST_NAME_CANDIDATE: Final[str] = 'cwd'
+TURN_LAST_NAME_VERIFIED: Final[bool] = False
+
+#: Attribution methods measured and rejected *after* R68 (round 69), then R70.
 FALSIFIED_AFTER_R68: Final[tuple[tuple[str, str], ...]] = (
     ('widened-record-array',
      '17,134 runs incl. .data, single-char names and cross-section ptrs: still no 27/28 field table'),
@@ -179,6 +188,8 @@ FALSIFIED_AFTER_R68: Final[tuple[tuple[str, str], ...]] = (
      'the referencing functions are serde stubs: 84/89 lea sites are MapAccess panic text'),
     ('dictionary-dp-segmentation',
      '20,287-word dictionary on the merged pools yields 0 legal segmentations'),
+    ('fragment-table-no-boundary',
+     'R70: two fragment tables found (18 and 8 records); both are multi-struct runs with no arity edge'),
 )
 
 
