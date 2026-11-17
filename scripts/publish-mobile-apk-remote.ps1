@@ -73,8 +73,17 @@ $remoteScript = $tpl.
 # "5 分钟"是旧隧道),所以改由本机直传 —— 远程只做 SHA 对账 + 跑正式发布链,不依赖任何对外直链。
 $remoteApkUrl = ($ProdRoot -replace '\\', '/') + '/.tmp/ihui-remote-publish.apk'
 Write-Host "[remote] 直传 APK → ${TargetHost}:$remoteApkUrl" -ForegroundColor Cyan
-& scp -o BatchMode=yes -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=40 $Apk "${TargetHost}:$remoteApkUrl" 2>&1 | Out-String | Write-Host
-if ($LASTEXITCODE -ne 0) { throw "APK 直传失败 (scp exit=$LASTEXITCODE) —— 远程发布未开始,不记成发布失败" }
+# 2026-11-18 实测:03:59 那一轮整轮红在 scp 单次尝试上(exit=255 边缘抖动),84MB 包明明 58s 能传完。
+# 传输层 255 意味着命令没送到,重试无副作用;非 255 一次即抛(避免重复发布)。与下方 ssh 腿同一策略。
+$scpExit = 255
+for ($si = 1; $si -le 4; $si++) {
+  & scp -o BatchMode=yes -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=40 $Apk "${TargetHost}:$remoteApkUrl" 2>&1 | Out-String | Write-Host
+  $scpExit = $LASTEXITCODE
+  if ($scpExit -ne 255) { break }
+  Write-Warning "[remote] scp 传输失败(255),第 $si/4 次 —— 边缘抖动,退避后重试"
+  Start-Sleep -Seconds (10 * $si)
+}
+if ($scpExit -ne 0) { throw "APK 直传失败 (scp exit=$scpExit) —— 远程发布未开始,不记成发布失败" }
 
 $b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript))
 # 传输失败(255)必须与"生产发布失败(非 0)"分开(2026-11-06 实测):Cloudflare Access 边缘会整段

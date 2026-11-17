@@ -2985,7 +2985,15 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
   if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
     receipt.queuedTurnId = queuedTurnId
   const ahead = raw['ahead']
-  if (typeof ahead === 'number' && Number.isInteger(ahead) && ahead >= 0) receipt.ahead = ahead
+  // ahead 是 queued 档的专属字段("前面还有几位");非 queued 档即使服务端误带也必须缺席,
+  // 否则调用方在 accepted/rejected/duplicate 上读到一条无意义的排队位次(2026-11-18 主干 rn-tests 红)。
+  if (
+    disposition === 'queued' &&
+    typeof ahead === 'number' &&
+    Number.isInteger(ahead) &&
+    ahead >= 0
+  )
+    receipt.ahead = ahead
   const reason = raw['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt
