@@ -470,35 +470,31 @@ export function useLiveElapsed(running: boolean, doneMs?: number | null): number
 }
 
 /**
- * 深化M(2026-11-17):基于**指定起点**(ISO 字符串)的实时耗时 hook。
- * 与 useLiveElapsed 的区别:useLiveElapsed 起点是 hook 挂载时刻(适合"从渲染起算"),
- * useLiveSince 起点是外部给定的 spawnedAt(适合"从子代理 spawn 起算")。
- * 运行中每 250ms tick,spawnedAt 无效或 running=false 返回 fallbackMs(通常传后端权威值或 null)。
- * 单一真相源:与 useMemo 的瓶颈计算同基准(spawnedAt),运行中不再出现"批次瓶颈静态、单行秒表跳动"的矛盾。
+ * 实时耗时 tick,**起点由外部给定**(spawnedAt 的 ISO 串)。
+ * 与 useLiveElapsed(起点=挂载时刻)的唯一差别就在这里:批次瓶颈"已跑 X"与单行秒表用同一基准,
+ * 消除"批次冻结 vs 单行跳动"的矛盾。
+ * running=false ⇒ 回落 fallbackMs;running=true 而 spawnedAt 缺席/非 ISO ⇒ null(不造残标)。
  */
 export function useLiveSince(
   running: boolean,
   startedAtIso: string | undefined,
   fallbackMs?: number | null,
 ): number | null {
-  const [elapsed, setElapsed] = React.useState<number | null>(null)
+  const startMs = React.useMemo(() => {
+    if (!startedAtIso) return null
+    const t = Date.parse(startedAtIso)
+    return Number.isFinite(t) ? t : null
+  }, [startedAtIso])
+  const [now, setNow] = React.useState(() => Date.now())
   React.useEffect(() => {
-    if (!running || !startedAtIso) {
-      setElapsed(null)
-      return
-    }
-    const startMs = Date.parse(startedAtIso)
-    if (Number.isNaN(startMs)) {
-      setElapsed(null)
-      return
-    }
-    const tick = () => setElapsed(Math.max(0, Date.now() - startMs))
-    tick()
-    const id = window.setInterval(tick, 250)
+    if (!running || startMs === null) return
+    setNow(Date.now())
+    const id = window.setInterval(() => setNow(Date.now()), 250)
     return () => window.clearInterval(id)
-  }, [running, startedAtIso])
+  }, [running, startMs])
   if (!running) return fallbackMs !== undefined && fallbackMs !== null ? fallbackMs : null
-  return elapsed
+  if (startMs === null) return null
+  return Math.max(0, now - startMs)
 }
 
 export interface StreamGroupProps {
@@ -693,47 +689,25 @@ export function StreamTag({
   tone = 'neutral',
   strong = false,
   testId,
-  onClick,
-  ariaLabel,
-  title,
 }: {
   children: React.ReactNode
   tone?: 'neutral' | 'success' | 'running' | 'danger'
   /** 数字计数徽章(待办数/步数/±行数)用 true:加粗 + 等宽,保证位数变化不抖 */
   strong?: boolean
   testId?: string
-  /** 深化AA(2026-11-17):传入则渲染为可点击 button(点击定位/展开);缺省保持静态 span,向后兼容 */
-  onClick?: () => void
-  /** onClick 存在时的无障碍名;缺省回退到 children 文本 */
-  ariaLabel?: string
-  /** hover 提示(如"点击定位首个失败项");仅 onClick 存在时生效 */
-  title?: string
 }) {
-  const cls = cn(
-    'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
-    strong && 'font-semibold',
-    tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
-    tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    tone === 'running' && 'bg-primary/10 text-primary',
-    tone === 'neutral' && 'bg-muted/70 text-muted-foreground',
-    typeof onClick === 'function' && 'cursor-pointer transition-colors hover:brightness-95',
-  )
-  if (typeof onClick === 'function') {
-    return (
-      <button
-        type="button"
-        className={cls}
-        data-testid={testId}
-        aria-label={ariaLabel}
-        title={title}
-        onClick={onClick}
-      >
-        {children}
-      </button>
-    )
-  }
   return (
-    <span className={cls} data-testid={testId}>
+    <span
+      className={cn(
+        'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
+        strong && 'font-semibold',
+        tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
+        tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        tone === 'running' && 'bg-primary/10 text-primary',
+        tone === 'neutral' && 'bg-muted/70 text-muted-foreground',
+      )}
+      data-testid={testId}
+    >
       {children}
     </span>
   )
