@@ -49,9 +49,7 @@ $ErrorActionPreference='Stop'
 Set-Location '__ROOT__'
 New-Item -ItemType Directory -Force -Path '.tmp' | Out-Null
 $f = '__APK__'
-if (-not (Test-Path $f) -or (Get-Item $f).Length -ne __BYTES__) {
-  Invoke-WebRequest -Uri '__URL__' -OutFile $f -TimeoutSec 900
-}
+if (-not (Test-Path $f)) { throw "生产端缺 APK:本机直传未落地 ($f)" }
 $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
 "remote sha256=$h bytes=$((Get-Item $f).Length)"
 if ($h -ne '__SHA__') { throw "Gitee 包与本次构建不符: 期望 __SHA__, 实得 $h" }
@@ -69,6 +67,14 @@ $remoteScript = $tpl.
   Replace('__VERSION__', $Version).
   Replace('__VC__', [string]$VersionCode).
   Replace('__DLARG__', $(if ($DownloadUrl) { " --download-url '$DownloadUrl'" } else { '' }))
+
+# 2026-11-18 实测:Gitee 仓设为私有后 release 附件对外一律 403,单文件腿取不到包,远程只能复用生产上
+# 那一枚旧包,于 SHA 对账处失败(本轮实测期望 6012…/实得 2f03…)。隧道 scp 84MB 只要 58s(旧注释的
+# "5 分钟"是旧隧道),所以改由本机直传 —— 远程只做 SHA 对账 + 跑正式发布链,不依赖任何对外直链。
+$remoteApkUrl = ($ProdRoot -replace '\\', '/') + '/.tmp/ihui-remote-publish.apk'
+Write-Host "[remote] 直传 APK → ${TargetHost}:$remoteApkUrl" -ForegroundColor Cyan
+& scp -o BatchMode=yes -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=40 $Apk "${TargetHost}:$remoteApkUrl" 2>&1 | Out-String | Write-Host
+if ($LASTEXITCODE -ne 0) { throw "APK 直传失败 (scp exit=$LASTEXITCODE) —— 远程发布未开始,不记成发布失败" }
 
 $b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript))
 # 传输失败(255)必须与"生产发布失败(非 0)"分开(2026-11-06 实测):Cloudflare Access 边缘会整段
