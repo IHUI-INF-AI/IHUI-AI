@@ -149,7 +149,7 @@ function SearchPanel({
   onFuse,
   loading,
   styles,
-}: Omit<Sag2ScreenProps, 'status' | 'error' | 'notice' | 'onBack' | 'colorScheme'> & {
+}: Omit<Sag2ScreenProps, 'status' | 'error' | 'notice' | 'onBack'> & {
   styles: ReturnType<typeof createStyles>
 }) {
   const rows = mode === 'quick' ? quickRows : deepRows
@@ -346,6 +346,7 @@ export function Sag2Screen({
           modelCalls={modelCalls}
           onSearch={onSearch}
           onFuse={onFuse}
+          colorScheme={colorScheme}
           styles={styles}
         />
         {status === null && !loading ? (
