@@ -13,6 +13,8 @@ from app.core.struct_visitor_key_evidence import (
     MEASUREMENTS,
     THREAD_MIXED_MARKERS,
     TURN_ARITY_GAP,
+    TURN_LAST_NAME_CANDIDATE,
+    TURN_LAST_NAME_VERIFIED,
     TURN_START_PARAMS_ARITY,
     TURN_START_PARAMS_ATTESTED_TAIL,
     TURN_VISITOR_ONLY,
@@ -61,7 +63,14 @@ def test_thread_visitor_is_mixed_and_unusable_as_field_list() -> None:
 
 def test_falsified_methods_after_r68_are_recorded() -> None:
     ids = [method_id for method_id, _why in FALSIFIED_AFTER_R68]
-    assert ids == ["widened-record-array", "code-order-literal-run", "dictionary-dp-segmentation"]
+    assert ids == ["widened-record-array", "code-order-literal-run",
+                   "dictionary-dp-segmentation", "fragment-table-no-boundary"]
+
+
+def test_last_name_candidate_is_marked_unverified() -> None:
+    assert TURN_LAST_NAME_CANDIDATE == "cwd"
+    assert TURN_LAST_NAME_VERIFIED is False
+    assert TURN_LAST_NAME_CANDIDATE not in TURN_KEYS
 
 
 def test_measurements_are_pinned() -> None:
