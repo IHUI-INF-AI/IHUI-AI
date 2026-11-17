@@ -109,6 +109,16 @@ export interface Subagent {
   failureAttributionStrong?: boolean
   /** v10 Phase 5:subagent 内部工具调用列表(若事件携带 subagentId 则关联) */
   tools?: AgentToolCall[]
+  /**
+   * 流式进度诊断(2026-11-17 补):与 components/ai/types.ts 的 SubAgentActivity 同口径。
+   * SubAgentTaskTree 的 13 处引用只认本接口,而 618a1b53d9 只改了 types.ts 与 store,
+   * 漏了这里 ⇒ HEAD 净面 web 构建 TS2339 恒红、部署上不了线。缺字段不是缺功能:
+   * store 早就在写,只是类型没声明。
+   */
+  progressPhase?: 'thinking' | 'tool_call' | 'tool_result' | 'output_ready'
+  progressIteration?: number
+  progressTool?: string
+  outputPreview?: string
 }
 
 /** 子代理颜色(ANSI 风格,Web 适配为 Tailwind 类) */
