@@ -43,6 +43,11 @@ import {
 } from '../services/relay-billing-service.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
+import {
+  downgradeCustomTools,
+  restoreCustomToolCalls,
+  type CustomToolCallOutput,
+} from '../services/apply-patch-bridge.js'
 import { error } from '../utils/response.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
@@ -117,7 +122,7 @@ interface ResponsesApiResponse {
   object: 'response'
   status: 'completed' | 'failed' | 'in_progress'
   model: string
-  output: Array<ResponsesOutputMessage | ResponsesOutputFunctionCall>
+  output: Array<ResponsesOutputMessage | ResponsesOutputFunctionCall | CustomToolCallOutput>
   usage: {
     input_tokens: number
     output_tokens: number
@@ -750,8 +755,12 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
       if (max_output_tokens !== undefined) openaiBody.max_tokens = max_output_tokens
       if (temperature !== undefined) openaiBody.temperature = temperature
       // 内置工具透传(ai-service 上游自行决定是否处理 web_search/file_search/code_interpreter)
-      if (tools && tools.length > 0) {
-        openaiBody.tools = tools as ResponsesTool[]
+      // custom(freeform)工具(Codex apply_patch 等)先降级成 function:chat-completions 型上游
+      // 不认 `type:"custom"`,原样透传必然 400。降级过的名字记在 customToolNames,响应侧据此还原。
+      const bridged = downgradeCustomTools(tools as unknown[] | undefined)
+      const customToolNames = bridged.customNames
+      if (bridged.tools.length > 0) {
+        openaiBody.tools = bridged.tools as ResponsesTool[]
       }
       if (apiKey?.userId) {
         openaiBody.metadata = { userId: apiKey.userId }
@@ -888,6 +897,12 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
                 }
               })
           : []
+        // custom(freeform)工具还原(2026-11-17):本次降级过的名字改回 custom_tool_call,
+        // 让 Codex 系的 apply_patch 在客户端侧拿到 input 文本而不是 JSON 参数。
+        const restoredToolCallOutputs: ResponsesApiResponse['output'] = restoreCustomToolCalls(
+          toolCallOutputs as unknown as Array<Record<string, unknown>>,
+          customToolNames,
+        ) as unknown as ResponsesApiResponse['output']
         const result: ResponsesApiResponse = {
           id: `resp-${randomUUID()}`,
           object: 'response',
@@ -907,7 +922,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
                 },
               ],
             },
-            ...toolCallOutputs,
+            ...restoredToolCallOutputs,
           ],
           usage: {
             input_tokens: promptTokens,
