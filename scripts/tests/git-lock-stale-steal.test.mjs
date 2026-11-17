@@ -832,7 +832,8 @@ test('⑪d回归锁:clean CLI 活 pid + 过去 ts 未超硬上限 ⇒ 照旧"保
   assert.equal(r.status, 0, r.stderr)
   assert.match(
     r.stdout,
-    /保留 ihui-git-write\.lock\(持有者 pid=\d+ 仍存活,age=10s/,
+    // 只断言"仍在 10s 量级";子进程起 git 派生实测 1–3s,把秒数钉死会随机器负载假红(2026-11-17 实测 11s)。
+    /保留 ihui-git-write\.lock\(持有者 pid=\d+ 仍存活,age=1[0-3]s/,
     `活 pid 未超硬上限照旧保留:${r.stdout}`,
   )
   assert.match(r.stdout, /✅ 无 stale 锁需清理/, '保留态汇总照旧(本票不改这一格)')
