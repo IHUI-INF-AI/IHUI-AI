@@ -14,6 +14,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeCheckinStreak,
+  deriveCheckinStatus,
   shiftDay,
   todayInUtc8,
 } from '../src/services/relay-checkin-streak.js'
@@ -85,6 +86,15 @@ describe('连续天数判据', () => {
     expect(shiftDay('2026-11-01', -1)).toBe('2026-10-31')
     expect(shiftDay('2026-12-31', 1)).toBe('2027-01-01')
     expect(shiftDay('not-a-day', 1)).toBeNull()
+  })
+
+  it('S9 record → 落库结论按语义归类,认不出兜底 success', () => {
+    expect(deriveCheckinStatus({ status: 'already_checked_in' })).toBe('already')
+    expect(deriveCheckinStatus({ message: '今日已签到' })).toBe('already')
+    expect(deriveCheckinStatus({ result: 'skip:no_campaign' })).toBe('skip')
+    expect(deriveCheckinStatus({ code: 'error_timeout' })).toBe('failed')
+    expect(deriveCheckinStatus({ whatever: 1 })).toBe('success')
+    expect(deriveCheckinStatus(null)).toBe('success')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

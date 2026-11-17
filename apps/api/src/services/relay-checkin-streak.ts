@@ -128,4 +128,28 @@ export function computeCheckinStreak(days: string[], today: string): CheckinStre
 export function todayInUtc8(now: Date = new Date()): string {
   return new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10)
 }
+
+export type CheckinDayStatus = 'success' | 'already' | 'skip' | 'failed'
+
+/**
+ * 从 ai-service 返回的签到 record 里推一个落库结论(纯函数)。
+ *
+ * 为什么要"推":`pool-run` 的 record 形状由 Python 侧决定,且历史上换过字段名;
+ * 判据层不跟它耦合,只按语义关键字归类。
+ * 兜底 = `success` —— 只有 `r.ok` 时才调用本函数,调用成功就是成功;
+ * 认不出具体档位不该把它贬成 failed。
+ */
+export function deriveCheckinStatus(record: unknown): CheckinDayStatus {
+  if (!record || typeof record !== 'object') return 'success'
+  const obj = record as Record<string, unknown>
+  for (const key of ['status', 'result', 'state', 'code', 'msg', 'message']) {
+    const v = obj[key]
+    if (typeof v !== 'string') continue
+    const s = v.toLowerCase()
+    if (s.includes('already') || s.includes('已签') || s.includes('重复')) return 'already'
+    if (s.includes('skip') || s.includes('跳过') || s.includes('无需')) return 'skip'
+    if (s.includes('fail') || s.includes('error') || s.includes('失败')) return 'failed'
+  }
+  return 'success'
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

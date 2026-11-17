@@ -68,7 +68,7 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
-import { aiRelayAccountPool } from '@ihui/database'
+import { aiRelayAccountPool, aiRelayCheckinHistory } from '@ihui/database'
 import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import {
@@ -99,6 +99,7 @@ import {
   isRefreshableProviderCode,
 } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
+import { deriveCheckinStatus, todayInUtc8 } from '../../services/relay-checkin-streak.js'
 // 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
 import { relayAccountIdleDays, resolveRelayAccountVerdict } from '@ihui/shared'
 import {
@@ -1406,6 +1407,14 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  /** 签到 record 的说明文本(截断 500),认不出返回 null。 */
+  function checkinRecordMessage(record: unknown): string | null {
+    if (!record || typeof record !== 'object') return null
+    const v = (record as Record<string, unknown>).message
+    if (typeof v !== 'string' || !v) return null
+    return v.slice(0, 500)
+  }
+
   // ===== 23. POST /admin/relay/accounts/:id/checkin-run — 立即签到 =====
   // 转发 ai-service pool-run(系统 owner 面,尊重冷却/限流):429 原样透传,
   // 让 admin 看到「冷却中,剩余 Xs」而不是笼统失败。
@@ -1432,6 +1441,22 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       uid: row.uid ?? '',
     })
     if (r.ok) {
+      // 签到历史按天落一条(2026-11-17):streak 判据的唯一序列来源。
+      // 写失败一律吞掉、不影响主流程 —— 签到本身已经成功,不该让 admin 看到 500;
+      // 幂等靠 (account_id, day) 唯一索引,10:05 主跑与 11:00/12:30 补跑不会记三条。
+      await db
+        .insert(aiRelayCheckinHistory)
+        .values({
+          accountId: p.data.id,
+          providerCode: row.providerCode,
+          day: todayInUtc8(),
+          status: deriveCheckinStatus(r.record),
+          message: checkinRecordMessage(r.record),
+        })
+        .onConflictDoNothing({
+          target: [aiRelayCheckinHistory.accountId, aiRelayCheckinHistory.day],
+        })
+        .catch(() => undefined)
       return reply.send(success({ record: r.record }))
     }
     // 404(未同步)/429(冷却/限流)原样透传;502(网络)由 ai-service 不可达导致
