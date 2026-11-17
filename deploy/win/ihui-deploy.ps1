@@ -4697,7 +4697,11 @@ if (-not (Test-HealthGate)) {
             $aiAttempts = $aiTry
             $null = Restart-IhuiService -Name $aiName
             $aiOk = $false
-            for ($i = 1; $i -le 5; $i++) {
+            # 2026-11-17:探测窗 30s(5×6s) 结构性不足 —— ai-service 是 Python 进程,冷启动实测 >99s
+            # (22:06:00 重启 → 22:07:39 两轮 70s 预算全败 → 22:08 之后才 200),于是每轮重启都大概率
+            # 误判失败,部署永远走不到「部署完成」之后的收尾(含 EdgeOne 缓存刷新)。放宽为 18×6s=108s/轮,
+            # 两轮合计约 226s;真起不来仍是 FAIL + 发信,只是反馈晚一点,不改变「失败必须响」的语义。
+            for ($i = 1; $i -le 18; $i++) {
                 if (Test-Http -url $AiServiceHealth) { $aiOk = $true; break }
                 Start-Sleep -Seconds 6
             }
