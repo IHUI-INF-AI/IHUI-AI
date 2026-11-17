@@ -11,6 +11,8 @@
     "postinstall": "node scripts/fix-expo-metro-junction.mjs && node scripts/lib/patch-lint-staged-stdio.mjs --soft && node scripts/sync-mobile-app-json-version.mjs && node scripts/install-git-hooks.mjs --silent",
     "dev": "turbo run dev",
     "rea": "npx -y rea-agents@6.4.0",
+    "diag:relay": "node scripts/diag-relay.mjs --models",
+    "diag:relay:chat": "node scripts/diag-relay.mjs --chat",
     "dev:safe": "node scripts/run-start-dev.mjs",
     "dev:safe:fast": "node scripts/run-start-dev.mjs -Fast",
     "dev:safe:status": "node scripts/run-start-dev.mjs -Status",
