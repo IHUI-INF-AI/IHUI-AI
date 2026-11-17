@@ -13,12 +13,6 @@
  */
 
 export const HR_ATTENDANCE_SYNC_JOB_NAME = 'hr-attendance-sync-daily'
-/**
- * 每日北京时间 02:00(与设计稿 §10 一致)。
- * BullMQ 的 pattern 按 **UTC** 解析,故写成 UTC 18:00(= 次日北京 02:00);
- * 与 edu-arrear-remind-daily 的时区口径一致,不依赖进程本地钟。
- */
-export const HR_ATTENDANCE_SYNC_CRON = '0 18 * * *'
 /** 总开关:仅显式 true/1/yes 才开;缺省关闭。 */
 export const ATTENDANCE_SYNC_ENABLED_ENV = 'HR_ATTENDANCE_SYNC_ENABLED'
 
