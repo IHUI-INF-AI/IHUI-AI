@@ -54,8 +54,8 @@ R65 把「非 hook struct 的字段名」推进到 44 个结构 / 455 个字段�
 
 | 文件 | 内容 | 判据 | 规模 |
 |---|---|---|---|
-| `apps/ai-service/app/core/struct_contract_drift.py` | `EXPECTED_STRUCT_FINGERPRINTS`（直接由 R65 契约计算，不另存清单）、`StructDriftReport`（六类：unchanged / reordered / reshaped / renamed / added / removed）、`classify_struct_drift`、`assert_no_struct_drift`、`assert_contract_matches_arity` | 分类按「顺序相同 → 集合相同顺序变 → 长度变 → 内容变」优先级判定，`details` 逐结构给「缺字段 / 多字段」；零漂移守门抛错时点名结构与差异；基线 arity 自检复用 R62 读数 | 178 行 / 10,255 B |
-| `apps/ai-service/tests/test_struct_contract_drift.py` | 六类结论各至少一例 + 守门 + 冻结 + 排序去重 + 指纹复用 | 用「喂观测值」方式覆盖：改名、乱序、少字段、多字段、缺结构、多结构；`assert_no_struct_drift` 必须抛错且消息含结构名 | 153 行 |
+| `apps/ai-service/app/core/struct_contract_drift.py` | `EXPECTED_STRUCT_FINGERPRINTS`（直接由 R65 契约计算，不另存清单）、`StructDriftReport`（六类：unchanged / reordered / reshaped / renamed / added / removed）、`classify_struct_drift`、`assert_no_struct_drift`、`assert_contract_matches_arity` | 分类按「顺序相同 → 集合相同顺序变 → 长度变 → 内容变」优先级判定，`details` 逐结构给「缺字段 / 多字段」；零漂移守门抛错时点名结构与差异；基线 arity 自检复用 R62 读数 | 177 行（落地 blob 增行）/ 10,255 B |
+| `apps/ai-service/tests/test_struct_contract_drift.py` | 六类结论各至少一例 + 守门 + 冻结 + 排序去重 + 指纹复用 | 用「喂观测值」方式覆盖：改名、乱序、少字段、多字段、缺结构、多结构；`assert_no_struct_drift` 必须抛错且消息含结构名 | 152 行（落地 blob 增行） |
 
 关键设计（为什么这是「超越」而不是重复）：
 
