@@ -75,6 +75,11 @@ export interface CreateKeyInput extends KeyQuotaFields {
   allowedModels?: string[] | null
   /** 单次请求 token 上限(null = 不限制) */
   maxTokensPerReq?: number | null
+  /**
+   * Key 级出口绑定(2026-11-17):整把 Key 默认走哪一区。
+   * null/不传 = 跟随全局(由模型名三段前缀或账号域推断)。
+   */
+  egressRegion?: 'cn' | 'global' | null
 }
 
 /** 更新 API Key 入参。 */
@@ -88,6 +93,8 @@ export interface UpdateKeyPatch extends KeyQuotaFields {
   allowedIps?: string[] | null
   allowedModels?: string[] | null
   maxTokensPerReq?: number | null
+  /** Key 级出口绑定(2026-11-17):undefined = 不改,null = 清除(=跟随全局) */
+  egressRegion?: 'cn' | 'global' | null
 }
 
 /** 脱敏行(不含 secret),仅 listKeys 使用。 */
@@ -143,6 +150,8 @@ export async function createKey(
       rateLimit7d: input.rateLimit7d ?? null,
       perModelRpmLimit: input.perModelRpmLimit ?? null,
       perModelTpmLimit: input.perModelTpmLimit ?? null,
+      // Key 级出口绑定(2026-11-17):不传 = 跟随全局,存量行为不变
+      egressRegion: input.egressRegion ?? null,
     })
     .returning()
   if (!record) throw new Error('创建 API 密钥失败')
@@ -239,6 +248,8 @@ export async function updateKey(
   if (patch.allowedIps !== undefined) setData.allowedIps = patch.allowedIps
   if (patch.allowedModels !== undefined) setData.allowedModels = patch.allowedModels
   if (patch.maxTokensPerReq !== undefined) setData.maxTokensPerReq = patch.maxTokensPerReq
+  // Key 级出口绑定(2026-11-17):undefined = 不改,null = 清除(=跟随全局)
+  if (patch.egressRegion !== undefined) setData.egressRegion = patch.egressRegion
   // Key 级配额(黑名单 / 5h·1d·7d 窗口 / per-model RPM·TPM):同上语义
   for (const field of KEY_QUOTA_FIELDS) {
     if (patch[field] !== undefined) setData[field] = patch[field]
