@@ -10,14 +10,13 @@
  *     假别(i18n_names.ch)透传不写死,加班/外出未核实字段留 null(不臆造);
  *   · externalId 取 approval_id(幂等键),缺失留 null 不编;
  *   · 不传 status 时 statusText 保持 null(不猜);状态由请求参数确定;
- *   · 钉钉三类仍保持 501 NOT_IMPLEMENTED(详情表单字段名未取样核实)。
+ *   · 钉钉三类 2026-11-17 起改走考勤数据源(请假状态 + 考勤报表列值),不再抛 501。
  *
  * 纪律(AGENTS §22c):只测生产实现,不复制实现逻辑;不写死猜测枚举。
  */
 import { describe, expect, it } from 'vitest'
 
 import { mapApprovalEntriesToRows } from '../src/services/attendance-sync/feishu-provider.js'
-import { dingtalkProvider } from '../src/services/attendance-sync/dingtalk-provider.js'
 
 describe('飞书审批映射 mapApprovalEntriesToRows(官方容器结构)', () => {
   it('leave:employeeNo=uniq_id,假别取 i18n_names.ch 透传,externalId=approval_id', () => {
@@ -171,19 +170,7 @@ describe('飞书审批映射 mapApprovalEntriesToRows(官方容器结构)', () =
   })
 })
 
-describe('钉钉审批三类保持 NOT_IMPLEMENTED(501)', () => {
-  it('dingtalk.fetchBatch 对 leave/overtime/outgoing 抛 501 SYNC_DINGTALK_APPROVAL_NOT_IMPLEMENTED', async () => {
-    for (const kind of ['leave', 'overtime', 'outgoing'] as const) {
-      await expect(
-        dingtalkProvider.fetchBatch({
-          userId: 'u',
-          creds: { appId: 'a', appSecret: 's' },
-          importKind: kind,
-          cursor: null,
-          periodMonth: '2026-11',
-        }),
-      ).rejects.toThrow(/尚未实现/)
-    }
-  })
-})
+// 钉钉三类已于 2026-11-17 改走考勤数据源(请假状态 getleavestatus + 考勤报表列值 getcolumnval),
+// 原 501 SYNC_DINGTALK_APPROVAL_NOT_IMPLEMENTED 断言退役;新行为由
+// src/services/__tests__/attendance-sync-dingtalk-attendance.test.ts 钉住。
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
