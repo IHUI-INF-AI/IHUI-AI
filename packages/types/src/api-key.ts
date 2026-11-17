@@ -418,8 +418,17 @@ export interface V1ModelsResponse {
      */
     capabilities?: string[]
     context_window?: number
+    /**
+     * 多档上下文(2026-11-17 补):同一模型名在不同上游/档位下的多个可用上限,
+     * 升序。只在**多于 1 档**时出场(单档由 `context_window` 表达,不重复宣告)。
+     */
+    context_windows?: number[]
     max_output_tokens?: number
-    thinking?: { supported: boolean; levels: string[] }
+    /**
+     * `default_level`:不传档位时上游实际生效的那一档;无一手出处时省略(不猜)。
+     * 客户端据此在 UI 上预选档位,不必猜"默认是高还是中"。
+     */
+    thinking?: { supported: boolean; levels: string[]; default_level?: string }
     /**
      * 分时价档宣告(2026-11-17 立):只宣告**时段乘子**,不宣告绝对价格。
      * 无规则时整键省略(不是空数组)。时区恒 UTC+8(中国无夏令时)。

@@ -23,6 +23,12 @@ import {
   DEFAULT_HR_BACKFILL_DAYS,
 } from '../services/hr-attendance.js'
 import { runAttendanceSyncJob } from '../services/attendance-sync-job.js'
+import {
+  getSelfEmployeeForUser,
+  listPendingLinksForUser,
+  acceptEmployeeLink,
+  rejectEmployeeLink,
+} from '../services/hr-employee-link.js'
 import { readLastRunStatus } from '../services/attendance-sync/sync-status.js'
 import {
   requireAnyPermission,
@@ -48,6 +54,11 @@ const HR_MANAGE = 'hr:attendance:manage'
 
 const uuidSchema = z.string().uuid()
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期必须是 YYYY-MM-DD')
+// 自助确认邀请:action 只接受 accept / reject(路径段即语义,不做二次翻译)
+const linkDecisionSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['accept', 'reject']),
+})
 
 const departmentCreateSchema = z.object({
   name: z.string().min(1).max(100),
@@ -522,6 +533,66 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
     async (_request, reply) => {
       const lastRun = await readLastRunStatus()
       return reply.send(success({ lastRun }))
+    },
+  )
+
+  // ── 自助面(2026-11-17 补齐):本人档案 + 关联邀请确认 ──
+  // 前端 apps/web 的 hr-self-link-panel 与三个自助页一直在调这两条,此前后端没有对应路由(404)。
+  // 数据隔离铁律:未绑定且无待确认邀请 ⇒ employee=null、pendingLinks=[],不暴露任何档案线索;
+  // 绑定只认 hr_employee.user_id,不接受客户端传 employeeId,也不拿手机号兜底认领。
+  fastify.get(
+    '/me',
+    {
+      preHandler: requireAuth,
+      schema: buildSchema({
+        summary: '自助 · 我的员工档案',
+        description:
+          '按登录 userId 返回已绑定员工档案与待确认关联邀请。未绑定返回 employee=null 并列出邀请;无邀请则 pendingLinks 为空(不暴露任何档案线索)。',
+        tags: ['HR'],
+      }),
+    },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const employee = await getSelfEmployeeForUser(userId)
+      // 已绑定就不再展示邀请(邀请在同意那一刻即落库绑定,残留 pending 无意义)
+      const pendingLinks = employee ? [] : await listPendingLinksForUser(userId)
+      return reply.send(success({ employee, pendingLinks }))
+    },
+  )
+
+  fastify.post(
+    '/me/link-requests/:id/:action',
+    {
+      preHandler: requireAuth,
+      schema: buildSchema({
+        summary: '自助 · 同意/拒绝关联邀请',
+        description:
+          '本人确认 HR 发来的账号—员工档案关联邀请。action=accept 写入绑定并返回 employeeId;action=reject 置为 rejected。',
+        tags: ['HR'],
+        params: linkDecisionSchema,
+      }),
+    },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const parsed = linkDecisionSchema.safeParse(request.params)
+      if (!parsed.success) return badReply(reply, parsed)
+      const { id, action } = parsed.data
+      try {
+        if (action === 'accept') {
+          const res = await acceptEmployeeLink({ requestId: id, userId })
+          return reply.send(success({ employeeId: res.employeeId }))
+        }
+        await rejectEmployeeLink({ requestId: id, userId })
+        return reply.send(success({ ok: true }))
+      } catch (e) {
+        // 服务层用 AppError 表达"邀请不存在/不属于你/已处理过"等语义,原样透出状态码
+        if (e instanceof AppError) {
+          return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+        }
+        throw e
+      }
     },
   )
 }
