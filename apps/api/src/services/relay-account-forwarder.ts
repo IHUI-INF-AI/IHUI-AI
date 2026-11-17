@@ -398,6 +398,21 @@ function affinityKeyOf(req: UpstreamForwardRequest, rawModel: string): string | 
   return base ? `${base}|${rawModel}` : null
 }
 
+/**
+ * 选号用的「区意图」判据(2026-11-17 立,单一真相源)。
+ *
+ * 优先级:模型名三段前缀(`<平台>/<区>/<模型>`) > Key 级出口绑定 > null(交给亲和域推断)。
+ * 为什么前缀优先:前缀是这次请求的临时意图,Key 上的区是长期默认 —— 临时盖默认才符合直觉。
+ * 为什么返回 null 而不是 'global':null 表示「没意见」,让 selectPoolOrdered 按
+ * crossDomainFallback 决定要不要拿亲和域来过滤;硬塞一个区会把"跟随推断"变成"强制"。
+ */
+export function resolveEgressRegion(
+  rawModel: string,
+  egressRegion?: 'cn' | 'global' | null,
+): 'cn' | 'global' | null {
+  return parseProviderPrefix(rawModel, isRelayProviderCode)?.region ?? egressRegion ?? null
+}
+
 async function selectAccountCandidates(
   req: UpstreamForwardRequest,
   rawModel: string,
@@ -447,7 +462,9 @@ async function selectAccountCandidates(
   const policy = opts.policy ?? readRelayPoolPolicy()
   // 显式区(`<平台>/<区>/<模型>`)是用户写明的意图:优先于亲和域,且不受
   // crossDomainFallback 开关限制(explicitRegion 在 selectPoolOrdered 内自带强制档)。
-  const explicitRegion = parseProviderPrefix(rawModel, isRelayProviderCode)?.region ?? null
+  // Key 级出口绑定(2026-11-17):Key 上没写区时才轮到亲和域;写了区也还能用
+  // 模型名三段前缀临时覆盖 —— 「临时意图 > Key 默认 > 亲和推断」这个序不能倒。
+  const explicitRegion = resolveEgressRegion(rawModel, req.egressRegion)
   let requestedDomain: 'cn' | 'global' | null = null
   if (policy.crossDomainFallback && hitId) {
     const hitRow = rows.find((r) => r.id === hitId)

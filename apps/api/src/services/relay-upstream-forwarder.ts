@@ -104,6 +104,11 @@ export interface UpstreamForwardRequest {
   /** session-affinity 亲和性 key(建议传 apiKeyId) */
   affinityKey?: string
   /**
+   * Key 级出口绑定(2026-11-17):整把 Key 默认走哪一区。
+   * 消费方 = relay-account-forwarder 的选号管线:模型名三段前缀优先,其次是本字段。
+   */
+  egressRegion?: 'cn' | 'global' | null
+  /**
    * 完整请求体覆盖(2026-09-12:参数覆盖系统 applyParamOps 产出的最终 body)。
    * 提供时以此为基(model/stream/messages 强制回填,防上游劫持协议字段)。
    */

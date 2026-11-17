@@ -368,6 +368,12 @@ export interface AuthenticatedApiKey {
   rateLimit1d: number | null
   /** 每周(UTC+8 周一~周日)最大请求数(null = 不限) */
   rateLimit7d: number | null
+  /**
+   * Key 级出口绑定(2026-11-17 立):整把 Key 默认走哪一区。
+   * null = 跟随全局(由模型名三段前缀或账号域决定);'cn'/'global' = 强制该区。
+   * 用户临时在模型名写三段前缀时,前缀优先于本字段。
+   */
+  egressRegion: 'cn' | 'global' | null
 }
 
 /** /v1/chat/completions 请求体(OpenAI 兼容格式子集)。 */
