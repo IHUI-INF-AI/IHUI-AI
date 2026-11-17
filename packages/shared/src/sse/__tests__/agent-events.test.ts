@@ -95,6 +95,21 @@ describe('question / question-resolved 解析', () => {
     expect(evt?.sessionId).toBe('s_1')
     expect(evt?.question.questionId).toBe('q_1')
     expect(evt?.question.header).toBe('范围')
+    expect(evt?.replayed).toBeUndefined()
+
+    // 重连重放帧:同形 + replay:true(前端按 questionId 幂等渲染)
+    const replay = parseAgentQuestionEvent(
+      JSON.stringify({
+        type: 'question',
+        payload: {
+          type: 'question',
+          question: { questionId: 'q_1' },
+          session_id: 's_1',
+          replay: true,
+        },
+      }),
+    )
+    expect(replay?.replayed).toBe(true)
   })
 
   it('question 帧缺 question 体或 type 不自述时拒帧', () => {

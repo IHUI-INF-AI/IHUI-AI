@@ -407,6 +407,36 @@ def pending_questions_for_session(session_id: str) -> list[AskUserQuestionItem]:
     return sorted(items, key=lambda x: x.created_at)
 
 
+def pending_question_frames(session_id: str, user_id: str | None) -> list[dict[str, Any]]:
+    """重连重放载荷:该会话 ∧ 该属主**仍待答**的问题帧(与 events.question 同形)。
+
+    病灶与审批重放同型(D131/D1047):续传按游标只补锚点之后的事件,而提问帧几乎总
+    在锚点之前 ⇒ 断线窗口里"已下发未应答"的内联卡丢失,用户重连后既看不到卡也答不了,
+    服务端只能等超时。修法同样是显式查注册表,不靠事件缓冲回放。
+
+    三道闸,与 `resolve_question` 的归属判定**同判据**(单一真相源,不另写一份):
+    - 会话精确相等(`pending_questions_for_session` 已做);
+    - 属主精确相等(None 只认 None,fail-closed);
+    - 仍为 pending(已决条目不重放:二次弹窗/二次结算都是副作用)。
+    `replay=True` 是给前端的幂等标记(按 questionId 识别,重连 N 次不新增卡片)。
+    """
+    if not session_id:
+        return []
+    frames: list[dict[str, Any]] = []
+    for item in pending_questions_for_session(session_id):
+        if not _owned_by(item, session_id, user_id):
+            continue
+        frames.append(
+            {
+                "type": "question",
+                "question": item.to_dict(),
+                "session_id": item.session_id,
+                "replay": True,
+            }
+        )
+    return frames
+
+
 def mark_continued(
     item: AskUserQuestionItem,
     *,

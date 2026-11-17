@@ -149,6 +149,41 @@ def test_outcome_single_source_no_inline_errorcodes() -> None:
             assert marker not in text, f"{rel} 内联了 {marker}(应走 ask_user_question 出口)"
 
 
+def test_replay_frames_only_owned_pending() -> None:
+    """重连重放三闸(2026-11-17):同会话 ∧ 同属主 ∧ 仍待答;已决条目一条也不重放。
+
+    重放多一条就是"二次弹窗/二次结算"——副作用,必须由注册表真值判定,
+    不能靠事件缓冲或前端去猜。
+    """
+    mine = _make()
+    other_session = _make(session_id="sess-contract-other")
+    other_user = _make(user_id="user-contract-other")
+    answered = _make()
+    status, _ = aq.resolve_question(
+        answered.question_id, session_id=_SESSION, user_id=_USER, selected_ids=["a"]
+    )
+    assert status == aq.STATUS_ANSWERED
+
+    frames = aq.pending_question_frames(_SESSION, _USER)
+    ids = [frame["question"]["questionId"] for frame in frames]
+    assert ids.count(mine.question_id) == 1
+    assert other_session.question_id not in ids
+    assert other_user.question_id not in ids
+    assert answered.question_id not in ids
+    for frame in frames:
+        # 与 events.question 帧同形 + 幂等标记
+        assert frame["type"] == "question"
+        assert frame["session_id"] == _SESSION
+        assert frame["replay"] is True
+        assert frame["question"]["prompt"]
+
+
+def test_replay_frames_fail_closed_without_session_key() -> None:
+    """无可过滤键的订阅不重放(§0.3 同向:拿不到判据就不猜)。"""
+    assert aq.pending_question_frames("", _USER) == []
+    assert aq.pending_question_frames(_SESSION, "user-contract-stranger") == []
+
+
 def test_workbench_timed_wiring() -> None:
     """工作台拦截位必须走 timed 三件套:归一、转入 continued、迟到答复注入。"""
     text = (_APP / "services/agent_loop_v2.py").read_text(encoding="utf-8")

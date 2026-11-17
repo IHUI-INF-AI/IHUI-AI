@@ -1821,6 +1821,19 @@ async def execute_agent_stream(
                     _eid = sse_buffer.append(task_id, _frame)
                     yield _format_sse(_eid, _frame)
 
+            # 2026-11-17(AskUserQuestion 重连重放):与上面审批重放同一条纪律 ——
+            # 闸是"有会话键"而不是"带游标"(刷新即失),取数三道 fail-closed:
+            # 会话精确相等 ∧ 属主精确相等 ∧ 仍 pending(判据住在 ask_user_question,
+            # 与 resolve_question 的归属判定同一份,不在这里另写);纯只读 ⇒ 每次订阅
+            # 至多一帧/问,前端按 questionId 幂等渲染,重连 N 次不新增卡片、不产生
+            # 第二次结算。已决条目不重放(二次弹窗=副作用)。
+            if req.session_id:
+                from ..services.ask_user_question import pending_question_frames
+
+                for _q_frame in pending_question_frames(req.session_id, current_user):
+                    _qeid = sse_buffer.append(task_id, _q_frame)
+                    yield _format_sse(_qeid, _q_frame)
+
             # L5-10(2026-08-12):AgentLoopV2 执行器(env AGENT_EXECUTOR=loop_v2 启用)。
             # 重试/错误分类/元学习/事件总线,SSE 事件经 hook_engine 订阅器按 session 过滤。
             if _is_loop_v2_enabled():
