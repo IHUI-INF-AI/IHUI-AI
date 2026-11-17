@@ -57,7 +57,8 @@ export interface PublicPeakWindow {
 }
 
 const CACHE_TTL_MS = 60_000
-const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000
+/** UTC+8 偏移(中国无夏令时)。导出给价档宣告层算"下一切换时刻",避免第二份时区常量。 */
+export const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000
 
 let cache: { at: number; rules: RelayPeakPricingRule[] } | null = null
 
