@@ -32,7 +32,7 @@ export function useAudioPlayer(_source?: string | number | null) {
   }
 }
 
-export function useAudioPlayerStatus(_player?: ReturnType<typeof useAudioPlayer>) {
+export function useAudioPlayerStatus(_player?: unknown) {
   return {
     isLoaded: false,
     isPlaying: false,

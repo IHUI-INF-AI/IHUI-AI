@@ -79,13 +79,8 @@
     "mobile-rn": {
       "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onGoalUpdate": "D152(2026-09-29)立:本端没有目标卡位(GoalCard 只在 web `components/ai/ai-side-panel-tools.tsx:525` 挂载,现读),且 `/goal` 斜杠命令的拦截点在 web 的 slash-commands.ts —— 本端今天连**发起**目标都没有,接一条只读状态帧会造出「看得见不能改」的假 affordance(与本端 onTerminalInteraction 拒绝代答的同一口径)。解阻判据:端内先有 goal 发起入口(另计一票),再同笔接 onGoalUpdate + `chat.goal.status.*` 五语言;接入后删本行并把该端 baseline 由 21 上调。",
-      "onConfigWarning": "no-stream-alert-producer",
-      "onDeprecationNotice": "no-stream-alert-producer",
-      "onGuardianWarning": "no-stream-alert-producer",
       "onFrameWatermarkFacts": "no-frame-watermark-diagnostics",
-      "onHookFailure": "no-hook-failure-ui",
       "onReviewFinding": "no-review-finding-ui",
-      "onSendAdmissionReceipt": "no-admission-receipt-chain",
       "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
     },
     "cli": {
