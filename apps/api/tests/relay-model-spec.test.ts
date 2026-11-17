@@ -128,7 +128,11 @@ describe('env 覆盖表', () => {
       JSON.stringify([{ match: 'custom-x', thinkingLevels: ['minimal', 'high'] }]),
     ).overrides
     const spec = deriveModelSpec('custom-x', overrides)
-    expect(spec.thinking).toEqual({ supported: true, levels: ['minimal', 'high'] })
+    expect(spec.thinking).toEqual({
+      supported: true,
+      levels: ['minimal', 'high'],
+      defaultLevel: null,
+    })
   })
 
   it('非法条目整条丢弃并点名', () => {

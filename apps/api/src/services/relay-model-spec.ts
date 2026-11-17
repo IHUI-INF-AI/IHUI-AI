@@ -28,10 +28,21 @@ export interface ModelSpec {
   capabilities: string[]
   /** 上下文窗口(tokens);null = 无一手出处,响应里省略 */
   contextWindow: number | null
+  /**
+   * 多档上下文(2026-11-17 补):同一模型在不同上游/不同档位下的多个可用上限。
+   *
+   * 为什么要有:同一个模型名经不同网关时上下文上限可能不同(官方模型卡写 1M,
+   * 而某中转网关只开放一小段)。客户端据此判"这段长对话能不能发",单值会让它
+   * 要么撞上游 400、要么白白切分。空数组 = 不宣告(不等于"只有一个档")。
+   */
+  contextWindows: number[]
   /** 单次输出上限(tokens);null = 同上 */
   maxOutputTokens: number | null
-  /** 思考档位;判不了按 supported=false 明确宣告 */
-  thinking: { supported: boolean; levels: string[] }
+  /**
+   * 思考档位;判不了按 supported=false 明确宣告。
+   * `defaultLevel`:不传档位时上游实际生效的那一档;null = 无出处,省略(不猜)。
+   */
+  thinking: { supported: boolean; levels: string[]; defaultLevel: string | null }
   /** 判据来源(日志/排障用;不得作为对外字段) */
   declaredBy: 'rule' | 'override' | 'none'
 }
@@ -42,8 +53,12 @@ export interface ModelSpecOverride {
   mode?: 'exact' | 'prefix'
   capabilities?: string[]
   contextWindow?: number
+  /** 多档上下文(运营按实际上游登记);与 contextWindow 同给时以本字段为准 */
+  contextWindows?: number[]
   maxOutputTokens?: number
   thinkingLevels?: string[]
+  /** 不传档位时实际生效的档;必须与 thinkingLevels 之一一致(不一致整条拒收) */
+  thinkingDefault?: string
   note?: string
 }
 
@@ -160,13 +175,23 @@ export function deriveModelSpec(
         ...nameCapabilities(modelId),
         ...(isThinkingModel(modelId) ? ['reasoning'] : []),
       ]),
-      contextWindow: override.contextWindow ?? null,
+      // 单值字段取**最小档**(与 context_windows 升序首项一致):老客户端按最小档切分,
+      // 得到的是"一定能发"的长度,不会因为取了最大档而撞上游限制。
+      contextWindow:
+        override.contextWindow ??
+        normalizeWindows(override.contextWindows, override.contextWindow)[0] ??
+        null,
+      contextWindows: normalizeWindows(override.contextWindows, override.contextWindow),
       maxOutputTokens: override.maxOutputTokens ?? null,
       thinking: override.thinkingLevels
-        ? { supported: true, levels: [...override.thinkingLevels] }
+        ? {
+            supported: true,
+            levels: [...override.thinkingLevels],
+            defaultLevel: override.thinkingDefault ?? null,
+          }
         : isThinkingModel(modelId)
-          ? { supported: true, levels: [...THINKING_LEVELS] }
-          : { supported: false, levels: [] },
+          ? { supported: true, levels: [...THINKING_LEVELS], defaultLevel: null }
+          : { supported: false, levels: [], defaultLevel: null },
       declaredBy: 'override',
     }
   }
@@ -176,12 +201,20 @@ export function deriveModelSpec(
   return {
     capabilities,
     contextWindow: rule?.contextWindow ?? null,
+    contextWindows: normalizeWindows(undefined, rule?.contextWindow),
     maxOutputTokens: rule?.maxOutputTokens ?? null,
     thinking: isThinkingModel(modelId)
-      ? { supported: true, levels: [...THINKING_LEVELS] }
-      : { supported: false, levels: [] },
+      ? { supported: true, levels: [...THINKING_LEVELS], defaultLevel: null }
+      : { supported: false, levels: [], defaultLevel: null },
     declaredBy: rule ? 'rule' : capabilities.length > 0 ? 'rule' : 'none',
   }
+}
+
+/** 多档上下文归一:显式多档优先;去重、只留正有限数、升序(客户端先看小档)。 */
+function normalizeWindows(list: number[] | undefined, single: number | undefined): number[] {
+  const src = Array.isArray(list) && list.length > 0 ? list : single ? [single] : []
+  const nums = src.filter((n) => Number.isFinite(n) && n > 0).map((n) => Math.floor(n))
+  return [...new Set(nums)].sort((a, b) => a - b)
 }
 
 function nameCapabilities(modelId: string): string[] {
@@ -202,9 +235,52 @@ export function modelSpecToWire(spec: ModelSpec): Record<string, unknown> {
   const wire: Record<string, unknown> = {}
   if (spec.capabilities.length > 0) wire['capabilities'] = spec.capabilities
   if (spec.contextWindow !== null) wire['context_window'] = spec.contextWindow
+  // 多档上下文:只有 >1 档才另起一键(单档时 context_window 已够,不重复宣告)
+  if (spec.contextWindows.length > 1) wire['context_windows'] = spec.contextWindows
   if (spec.maxOutputTokens !== null) wire['max_output_tokens'] = spec.maxOutputTokens
-  wire['thinking'] = spec.thinking
+  wire['thinking'] = spec.thinking.defaultLevel
+    ? { ...spec.thinking, default_level: spec.thinking.defaultLevel }
+    : {
+        supported: spec.thinking.supported,
+        levels: spec.thinking.levels,
+      }
   return wire
+}
+
+/**
+ * 思考档位归一(2026-11-17 立,对标 qoder2api 的「未命中取最近合法档」)。
+ *
+ * 只做**能明确判定**的归一,判不了就原样透传 —— 与对照的差别是有意的:
+ * 把不明的 `high` 悄悄降成 `medium` 会改变生成质量且不可见,宁可让上游按自己的
+ * 语义处理(或明确 400),也不在网关侧静默改写意图。三条:
+ * - 未传 ⇒ undefined(不注入任何值)
+ * - 大小写/空白差异但语义相同 ⇒ 换成上游 `levels` 里的**原始拼写**(上游认它)
+ * - 数字档 vs 数字档 ⇒ 取数值最近的一档(这类映射是纯算术,无歧义)
+ * - 其余(如 `high` 对 `['1','3']`)⇒ 原样返回,交由上游判定
+ */
+export function normalizeReasoningEffort(
+  requested: string | number | undefined,
+  levels: readonly string[],
+): string | number | undefined {
+  if (requested === undefined || requested === null) return undefined
+  if (levels.length === 0) return requested
+  const want = String(requested).trim().toLowerCase()
+  const exact = levels.find((l) => l.trim().toLowerCase() === want)
+  if (exact) return exact
+
+  const wantNum = Number(want)
+  if (!Number.isFinite(wantNum)) return requested
+  const numericLevels = levels
+    .map((l) => ({ raw: l, num: Number(l.trim()) }))
+    .filter((x) => Number.isFinite(x.num))
+  if (numericLevels.length === 0) return requested
+  const first = numericLevels[0]
+  if (!first) return requested
+  let best = first
+  for (const cand of numericLevels) {
+    if (Math.abs(cand.num - wantNum) < Math.abs(best.num - wantNum)) best = cand
+  }
+  return best.raw
 }
 
 // =============================================================================
@@ -263,6 +339,11 @@ export function parseModelSpecEnv(raw: string | undefined | null): ParsedSpecEnv
       typeof rec['contextWindow'] === 'number' && rec['contextWindow'] > 0
         ? Math.floor(rec['contextWindow'])
         : undefined
+    const ctxList = Array.isArray(rec['contextWindows'])
+      ? rec['contextWindows']
+          .filter((n): n is number => typeof n === 'number' && n > 0)
+          .map((n) => Math.floor(n))
+      : undefined
     const out =
       typeof rec['maxOutputTokens'] === 'number' && rec['maxOutputTokens'] > 0
         ? Math.floor(rec['maxOutputTokens'])
@@ -270,10 +351,24 @@ export function parseModelSpecEnv(raw: string | undefined | null): ParsedSpecEnv
     const levels = Array.isArray(rec['thinkingLevels'])
       ? rec['thinkingLevels'].filter((l): l is string => typeof l === 'string')
       : undefined
-    if (!caps && ctx === undefined && out === undefined && !levels) {
+    const def =
+      typeof rec['thinkingDefault'] === 'string' ? rec['thinkingDefault'].trim() : undefined
+    // 默认档必须是档位表里的一个:否则是"宣布了不存在的档",客户端按它传值会被上游拒
+    if (def && (!levels || !levels.includes(def))) {
+      rejected.push({ index, reason: `thinkingDefault "${def}" 不在 thinkingLevels 内` })
+      return
+    }
+    if (
+      !caps &&
+      ctx === undefined &&
+      !(ctxList && ctxList.length > 0) &&
+      out === undefined &&
+      !levels
+    ) {
       rejected.push({
         index,
-        reason: '没有任何有效字段(capabilities/contextWindow/maxOutputTokens/thinkingLevels)',
+        reason:
+          '没有任何有效字段(capabilities/contextWindow/contextWindows/maxOutputTokens/thinkingLevels)',
       })
       return
     }
@@ -282,8 +377,10 @@ export function parseModelSpecEnv(raw: string | undefined | null): ParsedSpecEnv
       mode,
       capabilities: caps,
       contextWindow: ctx,
+      contextWindows: ctxList,
       maxOutputTokens: out,
       thinkingLevels: levels,
+      thinkingDefault: def,
       note: typeof rec['note'] === 'string' ? rec['note'] : undefined,
     })
   })
@@ -301,5 +398,6 @@ export const __test__ = {
   hitByRule,
   hitOverride,
   nameCapabilities,
+  normalizeWindows,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
