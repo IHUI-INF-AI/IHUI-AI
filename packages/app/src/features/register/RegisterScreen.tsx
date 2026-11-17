@@ -34,6 +34,12 @@ export interface RegisterCodeOptions {
   countdown?: number
   /** 发送中标志(受控) */
   sendingCode?: boolean
+  /** 手机号区号文本(与 renderPhonePrefix 二选一;有则渲染在手机号输入框之前) */
+  phonePrefix?: string
+  /** 密码可见性(受控;未注入 onTogglePasswordVisible 时不渲染切换按钮) */
+  passwordVisible?: boolean
+  /** 切换密码可见性回调(受控真回路,须可来回;未注入则不渲染切换按钮) */
+  onTogglePasswordVisible?: () => void
 }
 
 export function RegisterScreen({
