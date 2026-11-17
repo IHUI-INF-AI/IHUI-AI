@@ -245,11 +245,26 @@ try {
   Set-Location $RepoRoot
 
   Write-Host '[auto] fetch origin main ...'
-  try {
-    Invoke-Git @('fetch', '--prune', 'origin', 'main') | Out-Null
-  } catch {
+  # 2026-11-18:GitHub 侧偶发 exit=128(今日实测一次),单次失败就让整轮跳过太浪费一小时窗口。
+  # 只重试 fetch:它是**只读**操作,重试无副作用;仍失败才按"本轮跳过,下轮重试"处理。
+  $fetchOk = $false
+  for ($fi = 1; $fi -le 3; $fi++) {
+    try {
+      Invoke-Git @('fetch', '--prune', 'origin', 'main') | Out-Null
+      $fetchOk = $true
+      break
+    } catch {
+      if ($fi -lt 3) {
+        Write-Host "[auto] fetch 第 $fi/3 次失败,退避 $($fi * 10)s 后重试:$($_.Exception.Message)" -ForegroundColor Yellow
+        Start-Sleep -Seconds ($fi * 10)
+      } else {
+        $fetchErr = $_.Exception.Message
+      }
+    }
+  }
+  if (-not $fetchOk) {
     # 网络不可用不是"发版失败",也不是"可以静默跳过"——本轮结束,下一轮自动重试。
-    Write-Host "[auto] fetch 失败,本轮跳过(下一轮重试):$($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "[auto] fetch 失败,本轮跳过(下一轮重试):$fetchErr" -ForegroundColor Yellow
     Write-State @{ lastResult = 'skipped-fetch-failed'; lastError = '' }
     $Result = 'skipped-fetch-failed'
     exit 0
@@ -436,7 +451,10 @@ try {
     # 不带进覆盖层 ⇒ 每轮 reset 后这条判据消失,eas update 一 exit=0 就冒绿(已实测误判两次)
     'scripts/release-mobile-rn.mjs',
     # AutoInstallGuide 钩子顺序回归锁:早退必须晚于全部 React.useXxx(真机崩溃事故的判据)
-    'apps/mobile-rn/tests/auto-install-guide-hooks.test.ts'
+    'apps/mobile-rn/tests/auto-install-guide-hooks.test.ts',
+    # 2026-11-18:主干 api-client 的准入回执解析把 ahead 无条件挂上,非 queued 档串门 ⇒ 主干 rn-tests
+    # 门必红、出包中止(本轮实测 1 failed/776)。只带这一个源文件,不动其余 api-client 面。
+    'packages/api-client/src/client.ts'
   )
   # 补丁由 git 直接写盘(--output),不经 PowerShell 字符串中转:
   # 2026-11-06 定时任务实测,中文注释的 UTF-8 字节经控制台编码往返后行结构被打断,
