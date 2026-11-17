@@ -101,6 +101,12 @@ import { recordModelNotFound, recordModelSuccess } from './relay-pool-model-heal
 import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
+  normalizeRegion,
+  parseModelRegionEnv,
+  parseProviderPrefix,
+  resolveModelRoute,
+} from './relay-model-route.js'
+import {
   applyStopToCompletion,
   createStopTruncator,
   truncateAtStops,
@@ -298,8 +304,31 @@ export function providerFromModelPrefix(rawModel: string): RelayProviderCode | n
 /** 剥掉 `<平台>/` 前缀:上游只认裸模型名(适配器自己会剥的同理,剥过就不会再命中) */
 export function stripPoolProviderPrefix(providerCode: string, rawModel: string): string {
   const prefix = `${providerCode}/`
-  return rawModel.startsWith(prefix) ? rawModel.slice(prefix.length) : rawModel
+  if (!rawModel.startsWith(prefix)) return rawModel
+  const rest = rawModel.slice(prefix.length)
+  // 2026-11-17:三段形态 `平台[/区]/模型` 的区段也要剥(否则上游收到 `global/模型`)。
+  // 区归一走 relay-model-route.normalizeRegion 单源,不在这里另写一份 cn|global 字面量。
+  const slash = rest.indexOf('/')
+  if (slash > 0) {
+    const maybeRegion = rest.slice(0, slash)
+    if (normalizeRegion(maybeRegion)) return rest.slice(slash + 1)
+  }
+  return rest
 }
+
+/**
+ * env 模型区规则(进程启动读一次;非法条目逐条点名后丢弃,绝不静默)。
+ * 来源 = `IHUI_RELAY_MODEL_REGION_JSON`(运维可接入任意平台的模型区表)。
+ */
+const MODEL_REGION_RULES = (() => {
+  const parsed = parseModelRegionEnv(process.env.IHUI_RELAY_MODEL_REGION_JSON)
+  if (parsed.rejected.length > 0) {
+    logger.warn('[relay-account-forwarder] 模型区规则条目被丢弃(条目形状非法)', {
+      rejected: parsed.rejected,
+    })
+  }
+  return parsed.rules
+})()
 
 async function resolvePoolProviders(
   rawModel: string,
@@ -335,7 +364,20 @@ async function resolvePoolProviders(
   // 计费按平台口径走,不依赖单条配置的定价倍数。
   if (providers.length === 0) {
     const prefixProvider = providerFromModelPrefix(rawModel)
-    if (prefixProvider) providers = [{ providerCode: prefixProvider, configId: 0 }]
+    if (prefixProvider) {
+      providers = [{ providerCode: prefixProvider, configId: 0 }]
+    } else {
+      // 2026-11-17:裸名 + 内置/运维区表命中独占模型(如 qoder 的 glm-5.2/q37fmodel)时,
+      // 由规则自带平台归属 —— qoder2api 系网关的「catalog 别名与独占表」那一格。
+      // 判不了平台 ⇒ providerCode=null ⇒ 不兜底(维持原行为,绝不猜成某个平台)。
+      const route = resolveModelRoute(rawModel, {
+        isProvider: isRelayProviderCode,
+        extraRules: MODEL_REGION_RULES,
+      })
+      if (route.providerCode && isRelayProviderCode(route.providerCode)) {
+        providers = [{ providerCode: route.providerCode, configId: 0 }]
+      }
+    }
   }
   // 键上限:任意客户端模型名都能进缓存,必须封顶(逐出最早插入项)
   if (!providerCache.has(rawModel) && providerCache.size >= PROVIDER_CACHE_MAX) {
@@ -402,13 +444,16 @@ async function selectAccountCandidates(
   const hitId = aKey ? await getSessionAffinity(aKey) : null
 
   const policy = opts.policy ?? readRelayPoolPolicy()
+  // 显式区(`<平台>/<区>/<模型>`)是用户写明的意图:优先于亲和域,且不受
+  // crossDomainFallback 开关限制(explicitRegion 在 selectPoolOrdered 内自带强制档)。
+  const explicitRegion = parseProviderPrefix(rawModel, isRelayProviderCode)?.region ?? null
   let requestedDomain: 'cn' | 'global' | null = null
   if (policy.crossDomainFallback && hitId) {
     const hitRow = rows.find((r) => r.id === hitId)
     requestedDomain = hitRow ? domainKeyOfRow(hitRow) : null
   }
-  // 选号管线(credit_floor → 域过滤 → 确定性/加权随机排序;过滤回空即回落并带标签)
-  const sel = selectPoolOrdered(usable, { policy, rng: opts.rng, requestedDomain })
+  // 选号管线(credit_floor → 域/显式区过滤 → 确定性/加权随机排序;过滤回空即回落并带标签)
+  const sel = selectPoolOrdered(usable, { policy, rng: opts.rng, requestedDomain, explicitRegion })
   const ordered = sel.rows
 
   // 亲和命中且仍在候选 → 置顶(多轮上下文连续优先于负载均衡;失效则自然 failover)

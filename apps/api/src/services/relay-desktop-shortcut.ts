@@ -210,7 +210,8 @@ export function planDesktopShortcutInstall(
       'installer-missing',
     )
   }
-  // -SkipOld:只建当前主力入口「AI 客户端一键切号」;旧 WorkBuddy 入口不在本页职责内。
+  // 安装器现只建唯一入口「AI 客户端一键切号」(旧 WorkBuddy 入口 2026-11-17 退役):
+  // 固定 argv 里的 -SkipOld 已无作用,保留是为了不改这条既有机读面(安装器照旧接受该参数)。
   // 包一层 -Command 强制 stdout 为 UTF8:api 派生的 pwsh 无控制台,默认码页会吃掉中文路径
   // (§5f 实测同型:cmd 写管道按 OEM 码页,Node 按 utf8 解会静默改写)。
   const inner = [
