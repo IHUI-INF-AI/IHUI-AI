@@ -39,6 +39,8 @@ export interface ModelAvailabilityInput {
   lastTestStatus?: string | null
   /** 最近一次测试错误原文 */
   lastTestError?: string | null
+  /** 所属上游配置开关(ai_model_config.enabled)。配置级停用与模型级停用对用户是同一件事 */
+  configEnabled?: boolean | null
 }
 
 export interface ModelAvailabilityExplain {
@@ -52,7 +54,12 @@ export interface ModelAvailabilityExplain {
 
 /** 判据(纯函数;零 IO、零 DB)。 */
 export function explainModelAvailability(row: ModelAvailabilityInput): ModelAvailabilityExplain {
-  const enabled = row.enabled !== false
+  // 2026-11-17 修正:/v1/models 的 SQL 谓词是「模型级 false OR 配置级 false」,
+  // 而判据原先只看模型级 ⇒ 配置级停用的行被选出后又被判"可见"而跳过。
+  // 两处必须同源(单一真相源),否则附加清单会静默漏掉一整类。
+  const modelEnabled = row.enabled !== false
+  const configEnabled = row.configEnabled !== false
+  const enabled = modelEnabled && configEnabled
   const isPublic = row.isRelayPublic === true
   const testStatus = (row.lastTestStatus ?? '').trim()
   const testError = (row.lastTestError ?? '').trim()
@@ -62,7 +69,11 @@ export function explainModelAvailability(row: ModelAvailabilityInput): ModelAvai
     return {
       visible: false,
       category: 'disabled',
-      reason: testError || '该模型在本平台已停用(库内未记录停用原因)',
+      reason:
+        testError ||
+        (modelEnabled
+          ? '该模型所属上游配置已停用(库内未记录停用原因)'
+          : '该模型在本平台已停用(库内未记录停用原因)'),
       reason_source: testError ? 'last_test_error' : 'enabled_flag',
     }
   }
