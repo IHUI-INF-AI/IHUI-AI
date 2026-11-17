@@ -147,7 +147,7 @@
 
 两平台核心端点已核实。**以下为唯一事实源，provider 实现以此为准，不在代码里重复罗列。**
 
-> **实现状态（2026-11-17 更新）**：飞书 + 钉钉的**打卡（attendance）provider 已实现**；**飞书审批三类（leave/overtime/outgoing）已按 2026-11-17 官方文档修正并可用**（复数端点/`data.user_approvals[]` 容器/status 数字枚举/30 天窗口切片，22 例测试钉住）；**钉钉审批三类仍抛 501**——新版列表与详情端点、状态枚举（RUNNING/TERMINATED/COMPLETED）已核实，但详情响应里表单字段数组的字段名未取样，按红线不写死猜测值（见 §7.4）。飞书打卡目标工号来源已接（名册全量 ∩ 可选白名单，见 §7.5）；钉钉走人工 userid 映射（见 §7.3），未配置时返回 0 行空批次，不报错。**权限侧（2026-11-17 实测）**：飞书 `attendance:task:readonly` 已开通；钉钉三项只读权限已开通并随版本 1.0.0 发布生效（应用已上线）。
+> **实现状态（2026-11-17 更新）**：飞书 + 钉钉的**打卡（attendance）provider 已实现**；**飞书审批三类（leave/overtime/outgoing）已按 2026-11-17 官方文档修正并可用**（复数端点/`data.user_approvals[]` 容器/status 数字枚举/30 天窗口切片，22 例测试钉住）；**钉钉审批三类仍抛 501，且 2026-11-17 已定性为终态**：官方文档返回参数表证实新版详情响应只有概览字段、无表单业务字段；旧版带 `form_component_values` 的接口权限点对新建应用不可申请（见 §7.4「结论」行）。飞书打卡目标工号来源已接（名册全量 ∩ 可选白名单，见 §7.5）；钉钉走人工 userid 映射（见 §7.3），未配置时返回 0 行空批次，不报错。**权限侧（2026-11-17 实测）**：飞书 `attendance:task:readonly` 已开通；钉钉三项只读权限已开通并随版本 1.0.0 发布生效（应用已上线）。
 
 ### 7.1 飞书（open.feishu.cn）
 
@@ -207,10 +207,12 @@
 | 列表（旧版） | `POST /topapi/processinstance/listids`：只返回实例 ID；120 天窗口、`size` ≤20；**权限「不支持新增」⇒ 新应用不可用** |
 | 列表（新版） | `POST /v1.0/workflow/processes/instanceIds/query`，头 `x-acs-dingtalk-access-token`；body `processCode`（必填）、`startTime`（ms 必填）、`endTime`、`nextToken`（首次 0）、`maxResults`（≤20）、`userIds`（≤10）、`statuses[]`；响应 `result.list`/`nextToken`；权限「工作流实例读权限」；同 120 天窗口、总量 ≤10000 |
 | 状态枚举（列表） | `RUNNING 审批中 / TERMINATED 已撤销 / COMPLETED 审批完成`（不传=全部状态） |
-| 详情（新版） | `GET /v1.0/workflow/processInstances?processInstanceId=…`；返回 `result.{title,status,result(agree/…),originatorUserId,operationRecords[]}` |
+| 详情（新版） | `GET /v1.0/workflow/processInstances?processInstanceId=…`；返回 `result.{title,finishTime,originatorUserId,originatorDeptId,originatorDeptName,status,approverUserIds,ccUserIds,result(agree/…),businessId,operationRecords[]}`——**只有概览字段，不含表单业务字段** |
 | 审批单类型 | `biz_type`：1 加班 / 2 出差、外出 / 3 请假；请假 `sub_type` 必传（如「年假」） |
 | 假别口径 | 钉钉请假类型是**假期规则名称字符串**（如「年假」），无全局数字枚举；可用「查询假期规则列表」取 `leave_name`，或取表单值 |
-| 仍缺（红线） | 详情响应里**表单字段数组的字段名**（如 formComponentValues）官方页未渲染 ⇒ 未真实租户取样前不写解析代码，钉钉审批三类保持 501，不写死猜测值 |
+| 红线（2026-11-17 实读官方文档返回参数表与 200 响应示例） | 新版详情接口响应体只列 `result/success` 两个顶层键，`result` 内为标题/时间/发起人/部门/状态/审批人与抄送人/结论/businessId/操作记录；**通篇没有表单业务字段数组**（无 formComponentValues 一类键）⇒ 请假类型、起止时间、天数**无法从该接口取得**。原「只缺表单字段名」的判断不成立，根因是接口能力边界 |
+| 旧版路径（2026-11-17 实测权限页） | 旧版 `POST /topapi/processinstance/get` 才是带 `form_component_values`（name/value）的接口；但该应用权限页的审批类权限点只有 `qyapi_aflow`（审批流数据管理）、`Workflow.Instance.Read/Write`、`Workflow.Form.Read/Write`、`Premium.Workflow.ReadWrite.All`——**没有任何旧版审批实例权限点可申请**，旧版权限「不支持新增」被落到列表层 ⇒ 新建应用拿不到表单值 |
+| 结论（2026-11-17） | 钉钉审批（请假/加班/外出）在当前应用类型下**不可能通过开放接口取到业务字段**（假别/起止时间/天数）：新版只给概览、旧版权限不可申请 ⇒ 保持 501 是正确终态，不是待办。替代路径只有「企业侧从钉钉导出 → 人工导入」或「走智能人事数据源（需 HR 类权限，另行评估）」 |
 | 取样路径（权限已生效后可做） | ① `POST /v1.0/workflow/processes/instanceIds/query` 取实例 ID（需 `processCode`，可由 `GET /v1.0/workflow/processes/managements/templates` 或 `通过 processCode 获取表单 schema 信息` 取得）；② `GET /v1.0/workflow/processInstances?processInstanceId=…` 取一张真实单据，按返回的字段数组逐项登记 schema。开发者后台「API Explorer」可直接调试这两个接口（本轮已在 Explorer 中核对到两接口与参数形态：详情需 access_token + processInstanceId；表单列表需 access_token + userId + appUuid） |
 
 > 已核实项以上表为凭；飞书侧已落地并带测试，钉钉侧待取样补齐后放开 501。
