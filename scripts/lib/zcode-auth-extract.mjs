@@ -109,15 +109,22 @@ function v2KeyFingerprint(key) {
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 24)
 }
 
-/** 常见的 ZCode 安装根:env 显式 > 常规盘符/Program Files(只读探测,不猜凭据内容) */
+/** 常见盘符 + 常见安装子目录(ZCode 允许装到任意盘的自定义目录,2026-11-17 实测 D:\电脑软件\ZCode) */
+const V2_COMMON_DRIVES = ['C:', 'D:', 'E:', 'F:', 'G:']
+const V2_INSTALL_SUBDIRS = [
+  ['ZCode'],
+  ['电脑软件', 'ZCode'],
+  ['Program Files', 'ZCode'],
+  ['Program Files (x86)', 'ZCode'],
+]
+
+/** 常见的 ZCode 安装根:env 显式 > 盘符×子目录 > 每用户安装位(只读探测,不猜凭据内容) */
 function candidateKeyringModules() {
   const roots = [
     cstr(process.env[V2_INSTALL_ENV]),
-    path.join('G:', 'ZCode'),
-    path.join('C:', 'Program Files', 'ZCode'),
-    path.join('C:', 'Program Files (x86)', 'ZCode'),
-    path.join('D:', 'ZCode'),
+    ...V2_COMMON_DRIVES.flatMap((drive) => V2_INSTALL_SUBDIRS.map((segs) => path.join(drive, ...segs))),
     path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'ZCode'),
+    path.join(os.homedir(), 'AppData', 'Local', 'ZCode'),
   ].filter(Boolean)
   const out = []
   for (const root of roots) {
@@ -326,10 +333,23 @@ export function collectRegions(credMap) {
   return [...regions]
 }
 
+/** oauth 键名的两代形态:bigmodel(历史) / zai(3.18+ coding-plan 实测) —— 取值时按序取第一个非空 */
+const OAUTH_TOKEN_KEYS = ['oauth:bigmodel:access_token', 'oauth:zai:access_token']
+const OAUTH_USERINFO_KEYS = ['oauth:bigmodel:user_info', 'oauth:zai:user_info']
+
+/** 按候选键序取第一个非空字符串 */
+function firstCstr(credMap, keys) {
+  for (const k of keys) {
+    const v = cstr(credMap[k])
+    if (v !== '') return v
+  }
+  return ''
+}
+
 /** 可导入判据:oauth access_token / zcodejwttoken / 任一 project key 三者至少其一 */
 export function hasUsableCredential(credMap) {
   return (
-    cstr(credMap['oauth:bigmodel:access_token']) !== '' ||
+    firstCstr(credMap, OAUTH_TOKEN_KEYS) !== '' ||
     cstr(credMap['zcodejwttoken']) !== '' ||
     Object.keys(credMap).some((k) => k.startsWith(PROJECT_KEY_PREFIX) && cstr(credMap[k]) !== '')
   )
@@ -338,13 +358,13 @@ export function hasUsableCredential(credMap) {
 /** 单账号摘要(零凭据明文) */
 export function summarizeCredentials(credMap, regions) {
   const projectKeys = Object.keys(credMap).filter((k) => k.startsWith(PROJECT_KEY_PREFIX))
-  const oauth = cstr(credMap['oauth:bigmodel:access_token'])
+  const oauth = firstCstr(credMap, OAUTH_TOKEN_KEYS)
   return {
     regions,
     region: regions.length === 1 ? regions[0] : regions.length === 0 ? '(未判定)' : 'mixed',
     hasOauthAccessToken: oauth !== '',
     hasZcodeJwtToken: cstr(credMap['zcodejwttoken']) !== '',
-    hasUserInfo: cstr(credMap['oauth:bigmodel:user_info']) !== '',
+    hasUserInfo: firstCstr(credMap, OAUTH_USERINFO_KEYS) !== '',
     projectKeyCount: projectKeys.filter((k) => cstr(credMap[k]) !== '').length,
     oauthFingerprint: oauth ? fingerprintOf(oauth) : '-',
     oauthLength: oauth.length,
@@ -401,7 +421,8 @@ export async function extractZcodeAccounts(opts = {}) {
     throw Object.assign(
       new Error(
         `探到 ${rootNotes.length} 个 ZCode 数据根但 0 个含可用凭据(oauth token / jwt / project key 全缺)` +
-          ' ⇒ 未判定',
+          ' ⇒ 未判定;凭据若是 enc:v2:os 形态,须能从安装目录的 @napi-rs/keyring 读系统钥匙串,' +
+          '客户端装在自定义目录时请设 ZCODE_INSTALL_DIR=<安装根> 后重试',
       ),
       { code: 'ZCODE_NO_SESSION' },
     )
