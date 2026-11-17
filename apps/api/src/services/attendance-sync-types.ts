@@ -89,6 +89,31 @@ export function isAttendanceSyncEnabled(env: NodeJS.ProcessEnv = process.env): b
   return v === '1' || v === 'true' || v === 'yes'
 }
 
+/**
+ * 总开关的 DB 侧键。
+ *
+ * 口径(2026-11-17 立,修「注释写 system_configs、实现只读 env」的口径矛盾):
+ * - env `HR_ATTENDANCE_SYNC_ENABLED` **显式给出** ⇒ 以 env 为准(运维强制开关,含显式关);
+ * - env **未设置** ⇒ 读本键(改库即热生效,不必重启进程);
+ * - 两处都没有 / 读库失败 ⇒ 关(fail-closed,绝不默认开)。
+ */
+export const ATTENDANCE_SYNC_SWITCH_KEY = 'sync:attendance:enabled'
+
+/** env 显式值:未设置或空串 ⇒ null(交给 DB 开关);否则按 true/1/yes 判定。 */
+export function attendanceSyncEnvOverride(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean | null {
+  const raw = env[ATTENDANCE_SYNC_ENABLED_ENV]
+  if (raw === undefined || raw.trim() === '') return null
+  return isAttendanceSyncEnabled(env)
+}
+
+/** DB 开关值解析:仅 true/1/yes 算开(与 env 同一口径,避免两套真值表)。 */
+export function parseAttendanceSyncSwitch(value: string | null | undefined): boolean {
+  const v = (value ?? '').trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 'yes'
+}
+
 const SYSTEM_ATTENDANCE_STATUSES = new Set(['present', 'late', 'early', 'absent', 'leave'])
 
 /**
