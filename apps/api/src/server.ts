@@ -28,6 +28,7 @@ import { livenessRoutes } from './routes/liveness.js'
 import { relayDiagnosticsRoutes } from './routes/admin/relay-diagnostics.js'
 import { systemUpdateCheckRoutes } from './routes/admin/update-check.js'
 import { relayModelAvailabilityRoutes } from './routes/admin/relay-model-availability.js'
+import { relayDsmlParseRoutes } from './routes/admin/relay-dsml-parse.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -469,6 +470,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 未上架/不可用模型清单(2026-11-17 立,对标 qoder2api-hub 的「未开通条目不过滤、附原因原文」):
   // 交出 /v1/models 的补集与逐条原因;库内没有原因时如实标注,不编造。
   server.register(relayModelAvailabilityRoutes, { prefix: '/api' })
+
+  // DSML 解析预览(2026-11-17 立,对标 qoder2api-hub 的 DSML 回退解析):
+  // 判据先装车(排障可立即回答「这段上游正文能不能还原」);自动回退接入点在案。
+  server.register(relayDsmlParseRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
