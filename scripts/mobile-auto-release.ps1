@@ -264,18 +264,27 @@ try {
   $prevSha = if ($state -and $state.lastBuiltSha) { [string]$state.lastBuiltSha } else { '' }
   $prevOverlay = if ($state -and $state.lastOverlaySha) { [string]$state.lastOverlaySha } else { '' }
   $changed = @()
+  $prevValid = $false
   if ($prevSha) {
     $verified = & git -C $RepoRoot rev-parse --verify --quiet "$prevSha^{commit}" 2>&1
     if ($LASTEXITCODE -eq 0) {
+      $prevValid = $true
       $changed = @(& git -C $RepoRoot diff --name-only "$prevSha..$mainSha" 2>&1)
     }
   }
   $relevant = @($changed | Where-Object { $_ -ne '' -and (Test-MobileRelevant $_) })
   $overlayChanged = $prevOverlay -ne $overlaySha
-  $hasBaseline = $prevSha -ne '' -and $changed.Count -gt 0
+  $hasBaseline = $prevValid -and $changed.Count -gt 0
+  # mainSha 与"上一轮真发出去的那枚"逐字相同 ⇒ 根本没有新提交可发。原判据只用"diff 有文件"表达
+  # "有新提交",于是零改动被读成"没有基线"、反过来强行出包 —— 2026-11-18 实测每小时空涨一个 patch
+  # (0.0.27→0.0.28...),用户端收到的却是同一份代码。这里显式区分两种零改动:
+  #   ① 同一 HEAD(prevValid ∧ prevSha==mainSha)⇒ 跳过,记 no-change;
+  #   ② 基线丢失(rev-parse 失败)⇒ 仍按"保守走整包"处理,绝不静默判成无改动。
+  $sameHead = $prevValid -and ($prevSha -eq $mainSha)
 
-  if ($hasBaseline -and $relevant.Count -eq 0 -and -not $overlayChanged -and -not $Force) {
-    Write-Host "[auto] 自 $prevSha 起无移动端相关改动($($changed.Count) 个文件),不出包。" -ForegroundColor Green
+  if ((($hasBaseline -and $relevant.Count -eq 0) -or $sameHead) -and -not $overlayChanged -and -not $Force) {
+    $why = if ($sameHead) { "主干仍是 $mainSha(与上一轮已发版同一枚),无新提交" } else { "自 $prevSha 起无移动端相关改动($($changed.Count) 个文件)" }
+    Write-Host "[auto] $why,不出包。" -ForegroundColor Green
     Write-State @{ lastCheckedSha = $mainSha }
     $Result = 'no-mobile-change'
     exit 0
@@ -457,14 +466,28 @@ try {
   # (并发提交每几分钟改一次 trackedFiles/testFiles,数字永远追不上当前面)。
   # 每轮 reset --hard 又只取 origin/main,overlay 分支也在同一轮被 reset 冲回 main,
   # 补丁带不进这条修复 ⇒ 这里从**主仓同路径**取样覆盖(取样源 = 已提交的修复版,非工作区脏档)。
-  $canonicalBuild = Join-Path $PSScriptRoot 'build-mobile-rn-release.ps1'
-  $targetBuild = Join-Path $RepoRoot 'scripts/build-mobile-rn-release.ps1'
-  if ((Test-Path -LiteralPath $canonicalBuild) -and (Test-Path -LiteralPath $targetBuild)) {
-    $canonBytes = [IO.File]::ReadAllBytes($canonicalBuild)
-    $tgtBytes = [IO.File]::ReadAllBytes($targetBuild)
-    if ((Test-Path -LiteralPath (Join-Path $RepoRoot 'scripts')) -and -not [Linq.Enumerable]::SequenceEqual($canonBytes, $tgtBytes)) {
-      Copy-Item -LiteralPath $canonicalBuild -Destination $targetBuild -Force
-      Write-Host '[auto] 构建脚本已按主仓取样覆盖(工程树版首行双 BOM / 包名取值与主仓修复版不同)。' -ForegroundColor Yellow
+  # 取样清单缺省**只含** build-mobile-rn-release.ps1;其余条目由状态目录的 sample-overlay.json 追加。
+  # 追加形态存在的理由(2026-11-17 实测):origin/main 上 api-client 有 5 条用例红(ahead 串门 / recoverable
+  # 判定 / 重试计数),修这几条红的那批改动落在主仓工作区却过不了推送门(同一处 README 数字活锁),
+  # 主线因此长期红 —— 出包门链第一关就中止。这份清单把"主仓已改好的状态"取样进构建面,
+  # 不改源码仓、不提交他人改动,只让这一轮构建拿到与作者意图一致的代码。
+  # 取样是**差异才覆盖**:主线转绿后两边逐字节相同 ⇒ 本段自动不动作(不会把旧态写回主线)。
+  $samplePaths = @('scripts/build-mobile-rn-release.ps1')
+  $sampleExtra = Join-Path $StateDir 'sample-overlay.json'
+  if (Test-Path -LiteralPath $sampleExtra) {
+    $samplePaths += @((Get-Content -LiteralPath $sampleExtra -Raw | ConvertFrom-Json) | ForEach-Object { [string]$_ })
+  }
+  foreach ($rel in $samplePaths) {
+    $srcFile = Join-Path $PSScriptRoot ((Split-Path -Leaf $rel))
+    $dstFile = Join-Path $RepoRoot $rel
+    # 非 scripts/ 下的条目按仓库相对路径回指主仓同一层,避免同卷不同根拼错
+    if ($rel -notlike 'scripts/*') { $srcFile = Join-Path (Split-Path -Parent $PSScriptRoot) $rel }
+    if (-not (Test-Path -LiteralPath $srcFile) -or -not (Test-Path -LiteralPath $dstFile)) { continue }
+    $srcBytes = [IO.File]::ReadAllBytes($srcFile)
+    $dstBytes = [IO.File]::ReadAllBytes($dstFile)
+    if (-not [Linq.Enumerable]::SequenceEqual($srcBytes, $dstBytes)) {
+      Copy-Item -LiteralPath $srcFile -Destination $dstFile -Force
+      Write-Host ("[auto] 取样覆盖: {0}(工程树版与主仓态不同)" -f $rel) -ForegroundColor Yellow
     }
   }
 
