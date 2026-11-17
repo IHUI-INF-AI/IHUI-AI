@@ -49,6 +49,8 @@ export interface HostDiagnostics {
   memory: { totalMb: number; freeMb: number }
   virtualization: VirtualizationVerdict
   runtime: { nodeVersion: string; qoderBridge: TriBool }
+  /** 本机风险启发式(见 scoreHostRisk;不是官方风控评分) */
+  risk: RiskScore
   undetermined: string[]
 }
 
@@ -117,6 +119,85 @@ function readOrNull(path: string): string | null {
   }
 }
 
+/** 风险启发式输入的可得事实(取不到的维度传 null,由判据自己进 undetermined)。 */
+export interface RiskFacts {
+  hypervisor: TriBool
+  container: TriBool
+  wsl: TriBool
+  /** CPU 型号原文(os.cpus()[0].model) */
+  cpuModel: string
+  /** 系统制造商;本仓不采(无 WMI 依赖),恒 null */
+  osManufacturer?: string | null
+  /** VBS 三态;本仓不采,恒 null */
+  vbs?: TriBool
+  /** HVCI 三态;本仓不采,恒 null */
+  hvci?: TriBool
+}
+
+export interface RiskScore {
+  /** 0-100(越高越像"被风控盯上的自动化环境") */
+  score: number
+  level: 'low' | 'medium' | 'high'
+  hits: Array<{ key: string; weight: number; evidence: string }>
+  undetermined: string[]
+  /** 固定声明:这是本机启发式,不是任何官方风控评分 */
+  disclaimer: string
+}
+
+const RISK_DISCLAIMER =
+  '本评分是本机特征启发式,不是上游官方风控评分;低分不等于"不会被风控",高分也不等于"已被标记"。'
+
+/** 常见虚拟化 CPU 型号特征。 */
+const VIRT_CPU = /qemu|virtual cpu|kvm|vmware|xen|hyper-v|parallels|bochs/i
+
+/**
+ * 风险启发式评分(纯函数,零 IO)。
+ *
+ * 对照的 `/diag/vm` 会把本机事实与官方风控桥的 vmInfo 交叉校验;本仓没有那条渠道,
+ * 于是把"自己能算的那一半"算清楚:**同样是虚拟化,跑在 QEMU 上与跑在实体机上,
+ * 被风控的观感不同**。权重全是可回读的规则,没有一条来自"猜"。
+ *
+ * 权重方向:
+ * - 虚拟化/容器 +25/+20(最敏感信号,单纯 VM 就足以让风控降权)
+ * - WSL +10(常见但也是自动化环境特征)
+ * - CPU 型号命中虚拟化厂商 +10(与 hypervisor 叠加,不互斥)
+ * - VBS/HVCI 开启 -10/-5(有设备完整性保护的环境通常更"正规")
+ */
+export function scoreHostRisk(facts: RiskFacts): RiskScore {
+  const hits: Array<{ key: string; weight: number; evidence: string }> = []
+  const undetermined: string[] = []
+
+  if (facts.hypervisor === true)
+    hits.push({ key: 'hypervisor', weight: 25, evidence: 'cpuinfo:hypervisor-flag' })
+  else if (facts.hypervisor === null) undetermined.push('hypervisor')
+
+  if (facts.container === true)
+    hits.push({ key: 'container', weight: 20, evidence: 'fs/cgroup:runtime-marker' })
+  else if (facts.container === null) undetermined.push('container')
+
+  if (facts.wsl === true) hits.push({ key: 'wsl', weight: 10, evidence: 'procversion:microsoft' })
+  else if (facts.wsl === null) undetermined.push('wsl')
+
+  if (VIRT_CPU.test(facts.cpuModel)) {
+    hits.push({ key: 'virt-cpu-model', weight: 10, evidence: `cpu:${facts.cpuModel.slice(0, 64)}` })
+  }
+
+  if (facts.vbs === true) hits.push({ key: 'vbs', weight: -10, evidence: 'device:vbs-enabled' })
+  else if (facts.vbs !== false) undetermined.push('vbs')
+
+  if (facts.hvci === true) hits.push({ key: 'hvci', weight: -5, evidence: 'device:hvci-enabled' })
+  else if (facts.hvci !== false) undetermined.push('hvci')
+
+  if (facts.osManufacturer === null || facts.osManufacturer === undefined) {
+    undetermined.push('osManufacturer')
+  }
+
+  const raw = hits.reduce((sum, h) => sum + h.weight, 0)
+  const score = Math.max(0, Math.min(100, raw))
+  const level: RiskScore['level'] = score >= 60 ? 'high' : score >= 30 ? 'medium' : 'low'
+  return { score, level, hits, undetermined, disclaimer: RISK_DISCLAIMER }
+}
+
 /**
  * 采集本机事实。可注入 env 以测 qoderBridge 判据(文件存在性仍是真实读取)。
  */
@@ -147,6 +228,20 @@ export function collectHostDiagnostics(env: NodeJS.ProcessEnv = process.env): Ho
   if (loadavg1 === null) undetermined.push('cpu.loadavg1')
 
   const cpus = os.cpus()
+  const cpuModel = cpus[0]?.model ?? 'unknown'
+  // 风险启发式:只用本函数能取到的事实;VBS/HVCI/系统制造商本仓不采 ⇒ 进去 undetermined,
+  // 由端点如实显示"这几维没判",而不是默认给 0 分。
+  const risk = scoreHostRisk({
+    hypervisor: virtualization.hypervisor,
+    container: virtualization.container,
+    wsl: virtualization.wsl,
+    cpuModel,
+    osManufacturer: null,
+    vbs: null,
+    hvci: null,
+  })
+  undetermined.push(...risk.undetermined.map((k) => `risk.${k}`))
+
   return {
     generatedAt: new Date().toISOString(),
     os: {
@@ -157,7 +252,7 @@ export function collectHostDiagnostics(env: NodeJS.ProcessEnv = process.env): Ho
       uptimeSec: Math.round(os.uptime()),
     },
     cpu: {
-      model: cpus[0]?.model ?? 'unknown',
+      model: cpuModel,
       cores: cpus.length,
       loadavg1,
     },
@@ -167,10 +262,11 @@ export function collectHostDiagnostics(env: NodeJS.ProcessEnv = process.env): Ho
     },
     virtualization,
     runtime: { nodeVersion: process.version, qoderBridge },
+    risk,
     undetermined,
   }
 }
 
 /** 测试出口(单一真相源:判据只在本文件实现)。 */
-export const __test__ = { classifyVirtualization, collectHostDiagnostics }
+export const __test__ = { classifyVirtualization, collectHostDiagnostics, scoreHostRisk }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
