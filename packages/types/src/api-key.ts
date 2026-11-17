@@ -420,6 +420,18 @@ export interface V1ModelsResponse {
     context_window?: number
     max_output_tokens?: number
     thinking?: { supported: boolean; levels: string[] }
+    /**
+     * 分时价档宣告(2026-11-17 立):只宣告**时段乘子**,不宣告绝对价格。
+     * 无规则时整键省略(不是空数组)。时区恒 UTC+8(中国无夏令时)。
+     */
+    peak_pricing?: Array<{
+      rule_name: string
+      days_of_week: number[]
+      start_minute: number
+      end_minute: number
+      multiplier: number
+      timezone: string
+    }>
   }>
 }
 
