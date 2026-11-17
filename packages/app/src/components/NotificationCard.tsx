@@ -167,7 +167,9 @@ export function createCardStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     statusDestructive: {
-      color: tk.danger.deepText,
+      // D195 ⑧:失败态必须取 danger 主档,与在飞态的次要文字档拉开色阶。
+      // 用 deepText 时两态在暗色主题下几乎同形,回显等于没有(判据锁 notification-list-archive ⑧)。
+      color: tk.danger.DEFAULT,
     },
     action: {
       alignSelf: 'center',
