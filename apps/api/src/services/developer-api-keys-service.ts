@@ -187,6 +187,8 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       tags: developerApiKeys.tags,
       alias: developerApiKeys.alias,
       description: developerApiKeys.description,
+      // Key 级出口绑定(2026-11-17,与 schema 同步)
+      egressRegion: developerApiKeys.egressRegion,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })

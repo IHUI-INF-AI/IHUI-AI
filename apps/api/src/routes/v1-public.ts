@@ -141,6 +141,8 @@ interface ApiKeyContext {
   permissions: string[]
   rateLimit: number
   allowedModels: string[] | null
+  /** Key 级出口绑定(2026-11-17):null = 跟随全局 */
+  egressRegion?: 'cn' | 'global' | null
 }
 
 // =============================================================================
@@ -810,6 +812,8 @@ async function streamChatCompletion(
     preDeducted?: PreDeduction | null
     /** session-affinity 亲和性 key(建议 apiKeyId) */
     affinityKey?: string
+    /** Key 级出口绑定(2026-11-17):null = 跟随全局 */
+    egressRegion?: 'cn' | 'global' | null
   },
 ): Promise<void> {
   reply.hijack()
@@ -1003,6 +1007,7 @@ async function streamChatCompletion(
         logitBias,
         userId,
         affinityKey: opts.affinityKey,
+        egressRegion: opts.egressRegion ?? null,
         bodyOverride: channelParamOps.body,
         signal: controller.signal,
         // F-337:流是否正常结束只有读完流才知道 ⇒ 建连阶段不记成功
@@ -2139,10 +2144,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         n,
         logprobs,
         topLogprobs: top_logprobs,
-        // 响应形态 + 两段式计费凭证 + 渠道亲和性
+        // 响应形态 + 两段式计费凭证 + 渠道亲和性 + Key 级出口绑定
         flavor,
         preDeducted: preDeduction,
         affinityKey: apiKey?.id,
+        egressRegion: apiKey?.egressRegion ?? null,
       })
     }
 
@@ -2285,6 +2291,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             logitBias: logit_bias,
             userId: apiKey?.userId,
             affinityKey: apiKey?.id,
+            egressRegion: apiKey?.egressRegion ?? null,
             bodyOverride: paramOpsResult.body,
           })
           if (fwd && fwd.ok) {
