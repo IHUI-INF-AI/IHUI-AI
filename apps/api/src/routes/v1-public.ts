@@ -22,7 +22,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { eq, and, isNull, desc, sql } from 'drizzle-orm'
+import { eq, and, isNull, desc, sql, or } from 'drizzle-orm'
 import { z } from 'zod'
 import {
   fetchProviderHealth,
@@ -120,6 +120,7 @@ import {
 } from './v1-protocol-extensions.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
+import { explainModelAvailability } from '../services/model-availability-explain.js'
 // 文件上传安全校验(CWE-434 防护:magic number + 扩展名白名单 + 大小限制)
 import {
   validateUploadFile,
@@ -351,14 +352,19 @@ function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string
   return modelId
 }
 
-async function fetchModels(userId?: string): Promise<{
+async function fetchModels(
+  userId?: string,
+  includeUnavailable = false,
+): Promise<{
   body: V1ModelsResponse
   source: 'db' | 'live' | 'cache' | 'fallback'
 }> {
   const now = Date.now()
   // F-445:缓存按调用者分键(匿名归 '__public__'),避免 A 的私有 BYOK 模型
   // 经单键全局缓存泄漏给 B,或 BYOK 用户看不到自己的模型。
-  const cacheKey = userId ?? '__public__'
+  // 2026-11-17:附带不可用清单是**另一种形状的响应**,必须单独占一个缓存键,
+  // 否则带 ?include_unavailable=1 的请求会命中默认清单的缓存。
+  const cacheKey = `${userId ?? '__public__'}${includeUnavailable ? ':unavail' : ''}`
 
   // 1. 优先 DB 驱动:查中转站已上架模型(admin 控制可见性)
   try {
@@ -498,9 +504,57 @@ async function fetchModels(userId?: string): Promise<{
         owned_by: 'byok',
         available: true,
       }))
+      // 2026-11-17:对标对照站「未开通条目不过滤,附原因原文」——
+      // 只在显式请求 ?include_unavailable=1 时追加,默认清单形状一个字不变(老客户端零感知)。
+      // 原因只给**归一后的一句中文**(不把 lastTestError 原文发到公开端点)。
+      const unavailableList: V1ModelsResponse['data'] = []
+      if (includeUnavailable) {
+        try {
+          const rows = await dbRead
+            .select({
+              id: aiModelConfigModels.modelId,
+              providerCode: aiModelConfig.providerCode,
+              configName: aiModelConfig.name,
+              baseUrl: aiModelConfig.baseUrl,
+              enabled: aiModelConfigModels.enabled,
+              isRelayPublic: aiModelConfigModels.isRelayPublic,
+              lastTestStatus: aiModelConfigModels.lastTestStatus,
+              configEnabled: aiModelConfig.enabled,
+            })
+            .from(aiModelConfigModels)
+            .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+            .where(
+              and(
+                eq(aiModelConfigModels.isRelayPublic, true),
+                or(eq(aiModelConfigModels.enabled, false), eq(aiModelConfig.enabled, false)),
+              ),
+            )
+            .limit(200)
+          for (const row of rows) {
+            const explain = explainModelAvailability({
+              enabled: row.enabled,
+              isRelayPublic: row.isRelayPublic,
+              lastTestStatus: row.lastTestStatus,
+            })
+            if (explain.visible) continue
+            unavailableList.push({
+              id: toLiteLLMModelId(row.id, row.providerCode, row.baseUrl),
+              object: 'model' as const,
+              created: Math.floor(now / 1000),
+              owned_by: row.providerCode || row.configName || 'ihui',
+              available: false,
+              // visible=true 已在上面 continue 掉 ⇒ 这里只剩三种不可见分类,窄化给类型用
+              x_disabled_category: explain.category as 'disabled' | 'test_failed' | 'not_public',
+              x_disabled_reason: explain.reason,
+            })
+          }
+        } catch {
+          // 附加清单读不到不影响主目录 —— 绝不因附加面失败把整个 /v1/models 变成 500
+        }
+      }
       const mapped: V1ModelsResponse = {
         object: 'list',
-        data: [...dedupedRelayList, ...byokList],
+        data: [...dedupedRelayList, ...byokList, ...unavailableList],
       }
       modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
       return { body: mapped, source: 'db' }
@@ -2663,7 +2717,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       // BYOK 平台模式(2026-07-30):鉴权用户额外返回其私有 BYOK 模型
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-      const { body, source } = await fetchModels(apiKey?.userId)
+      // 2026-11-17:?include_unavailable=1 时把「拿不到的模型」也列出来并附原因
+      // (对照站行为);默认仍只给可用清单,老客户端形状不变。
+      const q = request.query as { include_unavailable?: string } | undefined
+      const raw = q?.include_unavailable
+      const includeUnavailable = raw === '1' || raw === 'true'
+      const { body, source } = await fetchModels(apiKey?.userId, includeUnavailable)
       reply.header('X-Model-Source', source)
       return reply.send(body)
     },

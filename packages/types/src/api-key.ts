@@ -410,6 +410,13 @@ export interface V1ModelsResponse {
     /** 平台模型是否可用(有额度且 provider 健康)。BYOK/实时/降级路径恒为 true。OpenAI 客户端可忽略。 */
     available?: boolean
     /**
+     * 不可用条目的分类与原因(2026-11-17 立,对标对照站「未开通条目不过滤、附原因原文」)。
+     * 只在请求带 `?include_unavailable=1` 时出现;默认清单不含这两个键。
+     * 原因恒为**归一后的一句中文**,不回传内部测试错误原文。
+     */
+    x_disabled_category?: 'disabled' | 'test_failed' | 'not_public'
+    x_disabled_reason?: string
+    /**
      * 能力与规格宣告(2026-11-17 立,对标 qoder2api-hub 的 /v1/models)。
      * 全部为可选扩展字段:标准 OpenAI 客户端忽略即可;识别的客户端可据此切分上下文/选档。
      * - capabilities:能力标签(vision/tools/reasoning/code/audio);空数组或缺失 = 不宣告。
