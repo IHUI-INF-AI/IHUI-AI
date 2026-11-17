@@ -31,7 +31,25 @@
  * 旧 assertGitDirInsideRepoTree 一字不改(16a/b/c 三组镜像测试钉死它,且盘根克隆仍要拒)。
  */
 import { existsSync } from 'node:fs'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+
+/**
+ * 全局 git 写锁的**唯一落点解析器**(2026-11-17 立,§0.6 单一真相源)。
+ *
+ * 立因:bf3a628436 把落点从 `<gitDir>/ihui-git-write.lock` 固定到仓内
+ * `.ihui-agent/state/ihui-git-write.lock`,但当时路径字面量在 4 处各写一份
+ * (git-lock / isolated-git / safe-gc / heal-worktree-tracked 的让路探针),
+ * 第二份必然漂移 —— 实测就让 `probeWriteLock` 留在旧落点,于是锁建起来了、
+ * 对齐层却永远看不见,照样撞 30–62s 写窗口。故收敛成一个函数,四个消费方
+ * 只准 import 它,不得自己拼路径。
+ *
+ * 只做路径解析(纯函数,零 IO);越界判定仍由 assertLockDirInsideRepoTree 负责。
+ */
+export const WRITE_LOCK_REL_DIR = ['.ihui-agent', 'state']
+
+export function resolveWriteLockDir(repoRoot = resolve(process.cwd())) {
+  return join(resolve(repoRoot), ...WRITE_LOCK_REL_DIR, 'ihui-git-write.lock')
+}
 
 /** 唯一"target 是否在 repoRoot 树内"算法,两闸共用(§0.6 判据单源)。 */
 function pathInsideRepoTree(target, repoRoot) {

@@ -143,7 +143,10 @@ test('DRY1 零写:他人暂存删除/修改不被 reset,status 与 index 逐字�
   // 决定性的一条:那枚暂存删除仍是 D(没被 reset 退化掉)。
   assert.deepEqual(stagedNameStatus(dir), NS_BEFORE, 'dry-run 抹掉了他人暂存删除/修改的标记')
 
-  assert.ok(!existsSync(join(dir, '.git', 'ihui-git-write.lock')), 'dry-run 创建了 git 写锁')
+  assert.ok(
+    !existsSync(join(dir, '.ihui-agent', 'state', 'ihui-git-write.lock')),
+    'dry-run 创建了 git 写锁',
+  )
   assert.ok(
     !existsSync(join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl')),
     'dry-run 写了删除意图台账',
