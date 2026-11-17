@@ -204,6 +204,7 @@ def compare_visual(
     pts: list[tuple[int, int]] = []
     if changed_pixels <= 50000:  # 上限保护:变更过大时只给整框不给细粒度聚类
         px = mask.load()
+        assert px is not None  # PIL: R 模式非平铺图像 load() 不为 None
         w, h = mask.size
         for y in range(h):
             for x in range(w):

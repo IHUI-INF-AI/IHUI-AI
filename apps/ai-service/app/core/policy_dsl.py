@@ -423,6 +423,10 @@ class _Parser:
                         item, err2 = self._parse_atom()
                         if err2 is not None:
                             return None, err2
+                        if item is None:
+                            return None, CompileError(
+                                ExprError.CALL_FORBIDDEN, "列表字面量含不可解析项", self._i
+                            )
                         items.append(item)
                         if len(items) > MAX_LIST_ITEMS:
                             return None, CompileError(
@@ -692,6 +696,11 @@ def evaluate_source(source: str, env: PolicyEnv) -> tuple[EvalResult, CompileErr
     policy, err = compile_policy(source)
     if err is not None:
         return EvalResult(state=EvalState.UNDETERMINED, trail=(err.to_explanation(),)), err
+    if policy is None:
+        return (
+            EvalResult(state=EvalState.UNDETERMINED, trail=("编译未产出策略",)),
+            CompileError(ExprError.CALL_FORBIDDEN, "编译未产出策略", 0),
+        )
     return evaluate_policy(policy, env), None
 
 
