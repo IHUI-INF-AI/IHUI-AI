@@ -80,6 +80,11 @@ const keyQuotaSchema = z.object({
     .record(z.string().max(128), z.number().int().min(1).max(100_000_000))
     .nullable()
     .optional(),
+  /**
+   * Key 级出口绑定(2026-11-17):cn=国内 / global=国际 / null=跟随全局。
+   * 解析优先级:模型名三段前缀 > 本字段 > 亲和域推断。
+   */
+  egressRegion: z.enum(['cn', 'global']).nullable().optional(),
 })
 
 /**
@@ -118,8 +123,7 @@ function noteDeprecatedKeyFields(reply: FastifyReply, body: unknown): void {
 
 const createKeySchema = z.object({
   name: z.string().min(1).max(100),
-  permissions: permissionsSchema.default([]),
-  rateLimit: z
+  permissions: permissionsSchema.default([]),  rateLimit: z
     .number()
     .int()
     .min(1)
