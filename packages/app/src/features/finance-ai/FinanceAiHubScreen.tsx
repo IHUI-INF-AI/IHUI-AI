@@ -12,9 +12,10 @@ import {
   Scale,
   Wallet,
 } from 'lucide-react-native'
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
+import { TextField } from '../../components/TextField'
 import { BackChevron } from '../../components/BackChevron'
 import { createFinanceAiStyles, FINANCE_AI_PALETTE } from './finance-ai-styles'
 
@@ -161,7 +162,8 @@ export function FinanceAiHubScreen({
           </View>
           <Text style={styles.cardDesc}>{t(k('bookkeepingDesc'))}</Text>
           <Text style={styles.fieldLabel}>{t(k('periodLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={bookkeeping.period}
             onChangeText={(v) => onBookkeepingChange({ period: v })}
@@ -170,7 +172,8 @@ export function FinanceAiHubScreen({
             accessibilityLabel={t(k('periodLabel'))}
           />
           <Text style={styles.fieldLabel}>{t(k('txLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.textarea]}
             value={bookkeeping.tx}
             onChangeText={(v) => onBookkeepingChange({ tx: v })}
@@ -199,7 +202,8 @@ export function FinanceAiHubScreen({
           </View>
           <Text style={styles.cardDesc}>{t(k('taxDesc'))}</Text>
           <Text style={styles.fieldLabel}>{t(k('periodLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={tax.period}
             onChangeText={(v) => onTaxChange({ period: v })}
@@ -237,7 +241,8 @@ export function FinanceAiHubScreen({
             })}
           </View>
           <Text style={styles.fieldLabel}>{t(k('fieldSalesLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={tax.sales}
             onChangeText={(v) => onTaxChange({ sales: v })}
@@ -249,7 +254,8 @@ export function FinanceAiHubScreen({
           {tax.general ? (
             <>
               <Text style={styles.fieldLabel}>{t(k('fieldOutputTaxLabel'))}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.input}
                 value={tax.outputTax}
                 onChangeText={(v) => onTaxChange({ outputTax: v })}
@@ -258,7 +264,8 @@ export function FinanceAiHubScreen({
                 accessibilityLabel={t(k('fieldOutputTaxLabel'))}
               />
               <Text style={styles.fieldLabel}>{t(k('fieldInputTaxLabel'))}</Text>
-              <TextInput
+              <TextField
+                colorScheme={colorScheme}
                 style={styles.input}
                 value={tax.inputTax}
                 onChangeText={(v) => onTaxChange({ inputTax: v })}
@@ -269,7 +276,8 @@ export function FinanceAiHubScreen({
             </>
           ) : null}
           <Text style={styles.fieldLabel}>{t(k('fieldProfitLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={tax.profit}
             onChangeText={(v) => onTaxChange({ profit: v })}
@@ -278,7 +286,8 @@ export function FinanceAiHubScreen({
             accessibilityLabel={t(k('fieldProfitLabel'))}
           />
           <Text style={styles.fieldLabel}>{t(k('wagesLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.textarea]}
             value={tax.wages}
             onChangeText={(v) => onTaxChange({ wages: v })}
@@ -357,7 +366,8 @@ export function FinanceAiHubScreen({
             })}
           </View>
           <Text style={styles.fieldLabel}>{t(k('provinceLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
             value={automation.province}
             onChangeText={(v) => onAutomationChange({ province: v })}
@@ -367,7 +377,8 @@ export function FinanceAiHubScreen({
             accessibilityLabel={t(k('provinceLabel'))}
           />
           <Text style={styles.fieldLabel}>{t(k('portalLabel'))}</Text>
-          <TextInput
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.textarea]}
             value={automation.portalRaw}
             onChangeText={(v) => onAutomationChange({ portalRaw: v })}

@@ -2977,7 +2977,15 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
   if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
     receipt.queuedTurnId = queuedTurnId
   const ahead = raw['ahead']
-  if (typeof ahead === 'number' && Number.isInteger(ahead) && ahead >= 0) receipt.ahead = ahead
+  // 档位专属字段不串门(2026-11-17 修):ahead 只在 queued 档有意义 —— 上游在其他
+  // disposition 里带了同名字段也必须丢掉,否则消费方会按"排队位次"读一次不存在的排队。
+  if (
+    disposition === 'queued' &&
+    typeof ahead === 'number' &&
+    Number.isInteger(ahead) &&
+    ahead >= 0
+  )
+    receipt.ahead = ahead
   const reason = raw['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt

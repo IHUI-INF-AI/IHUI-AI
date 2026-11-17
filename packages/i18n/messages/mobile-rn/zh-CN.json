@@ -3710,11 +3710,11 @@
   "activity": {
     "empty": "暂无活动",
     "endTime": "结束时间",
+    "joining": "提交中…",
     "loadFailed": "加载失败",
     "participants": "参与人数",
     "startTime": "开始时间",
-    "title": "活动",
-    "joining": "提交中…"
+    "title": "活动"
   },
   "agentDetail": {
     "creator": "创建者",
@@ -5696,14 +5696,14 @@
       "approvalPersistHit": "沿用你保存的批准",
       "execPolicyApproved": "执行策略放行",
       "autoSkipApproval": "自动批准(免审批)",
+      "autoReviewAllow": "自动审查放行",
       "skillGrantSkipApproval": "技能授权放行(免审批)",
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
       "policyRequiresApproval": "策略要求审批",
       "policySkipsApproval": "策略免审批",
       "guardianReviewSuggested": "复核建议改用更安全路径",
-      "guardianReviewAlternativeApplied": "已改用复核建议的路径",
-      "autoReviewAllow": "自动审查放行"
+      "guardianReviewAlternativeApplied": "已改用复核建议的路径"
     },
     "perm": {
       "allow": "已放行",
@@ -7547,9 +7547,9 @@
     "wrongBookTitle": "错题本"
   },
   "activities": {
+    "cancelJoin": "取消报名",
     "join": "立即参与",
-    "notFound": "活动不存在或已下线",
-    "cancelJoin": "取消报名"
+    "notFound": "活动不存在或已下线"
   },
   "eduAttendanceQr": {
     "chooseClass": "选择班级",

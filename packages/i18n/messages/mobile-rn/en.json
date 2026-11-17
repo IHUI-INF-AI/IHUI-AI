@@ -3710,11 +3710,11 @@
   "activity": {
     "empty": "No activities",
     "endTime": "End time",
+    "joining": "Submitting…",
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
-    "title": "Activities",
-    "joining": "Submitting…"
+    "title": "Activities"
   },
   "agentDetail": {
     "creator": "Creator",
@@ -5696,14 +5696,14 @@
       "approvalPersistHit": "Reused your saved approval",
       "execPolicyApproved": "Allowed by execution policy",
       "autoSkipApproval": "Auto-approved (no approval needed)",
+      "autoReviewAllow": "Auto-review allowed",
       "skillGrantSkipApproval": "Skill grant allows this tool (no approval needed)",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "policyRequiresApproval": "Policy requires approval",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
-      "guardianReviewAlternativeApplied": "Safer alternative applied",
-      "autoReviewAllow": "Auto-review allowed"
+      "guardianReviewAlternativeApplied": "Safer alternative applied"
     },
     "perm": {
       "allow": "Allowed",
@@ -7547,9 +7547,9 @@
     "wrongBookTitle": "Wrong Book"
   },
   "activities": {
+    "cancelJoin": "Cancel registration",
     "join": "Join Now",
-    "notFound": "Activity not found or offline",
-    "cancelJoin": "Cancel registration"
+    "notFound": "Activity not found or offline"
   },
   "eduAttendanceQr": {
     "chooseClass": "Select class",
