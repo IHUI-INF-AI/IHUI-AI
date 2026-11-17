@@ -60,7 +60,8 @@ R61 最终清单 = R60 §7 点名的 8 族 + 3 个经精确差集确认为真空
 
 ## 5. 落库与推送状态
 
-（落库 commit sha、推送判定在落库步骤完成后补记；纪律：对象空间精确 pathspec、判推送只认 ls-remote sha、真实红不洗门、饱和树不反复硬推。）
+- 对象空间精确 pathspec 落库成功：commit `5156939b634`，25 文件全在 HEAD 面、工作树干净、零他席 staged 触碰。
+- **推送未完成**：唯一推送通道在「执行 git push origin main」阶段被 SIGTERM，`ls-remote` sha 未变（仍 `e255e143`，R61 未上 `origin/main`）。分诊 pre-push-gate：13 道 blocking 门通过、0 判红、1 道 **T1 全量 typecheck 被单门超时看门狗终止（未判定）**——共享树资源饱和，与 R59 同型，非本轮 Python 产物问题，也非真实违规。按纪律（未判定不洗门、饱和树不反复硬推）停止重试；本地 0 behind / 35 ahead 无分叉、R61 提交安全落在 HEAD，交守护 converge 后统一推送。
 
 ## 6. 诚实边界
 
