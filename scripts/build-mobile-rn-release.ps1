@@ -565,6 +565,14 @@ $env:IHUI_VERSION_CODE = "$VersionCode"
 $env:CI = '1'
 $ExpoCli = Join-Path $RepoRoot 'apps/mobile-rn/node_modules/expo/bin/cli'
 if (-not (Test-Path $ExpoCli)) { throw "expo CLI 入口不存在: $ExpoCli" }
+# prebuild 会 Clearing android(整目录删)。上一次构建遗留的 Gradle daemon / Kotlin daemon
+# 仍持有 intermediates 里的 .dex 句柄 ⇒ `EBUSY: resource busy or locked, unlink classes2.dex`,
+# 整个 prebuild 直接失败(2026-11-18 实测两次)。先显式停 daemon 再 prebuild。
+$GradlewBat = Join-Path $AndroidDir 'gradlew.bat'
+if (Test-Path -LiteralPath $GradlewBat) {
+  Push-Location $AndroidDir
+  try { & $GradlewBat --stop 2>&1 | Out-Null; Write-Host '  已停 Gradle daemon(避免 prebuild clearing 撞 EBUSY)' -ForegroundColor DarkGray } finally { Pop-Location }
+}
 Push-Location (Join-Path $RepoRoot 'apps/mobile-rn')
 try {
   & node $ExpoCli prebuild --platform android --no-install
