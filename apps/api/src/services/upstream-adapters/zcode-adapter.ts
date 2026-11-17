@@ -81,11 +81,37 @@ const PLAN_APP_VERSION = '3.16.3'
  * plan 票 = zcodejwttoken:实弹实证 balance 端点只认它
  * (oauth access_token ⇒ 401;zcodejwttoken ⇒ 200 + plans[])。
  * 导入槽位首位是 oauth:bigmodel:access_token(chat paas/v4 用),故这里显式回读 credentialMap。
+ *
+ * 形态闸门(2026-11-15 立,b945c3f4;2026-11-17 从全量同步误回退中恢复):
+ * credentialMap 内值可能是 enc:v1:/enc:v2:os: 信封(extract 漏解/旧密文行残留),
+ * 旧版只判「非空字符串」就把信封串当 Bearer 盲发 ⇒ billing/balance 必 401 且错面含糊。
+ * 形态非法时诚实失败(点名短前缀 + authFailed),绝不静默回落 oauth、绝不解密、绝不发请求。
+ * 与 scripts/lib/zcode-auth-extract.mjs 的 v2 解密构成两道防线:提取层解出明文、本层拒收漏网信封。
  */
-function planJwt(ctx: AdapterAccountContext): string {
+/** 明文 JWT = eyJ 开头的三段式 base64url(header.payload.signature)。 */
+const PLAN_JWT_SHAPE_RE = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+
+/** 只回显可点名的短前缀,不把整段 enc 信封/伪票写进 last_error_message。 */
+function planJwtShapeError(jwt: string): string {
+  return `zcodejwttoken 形态非法(非 JWT 明文):${jwt.slice(0, 24)}`
+}
+
+/** planJwt 的可判别结果:ok 才允许进 Bearer;!ok 必须诚实失败,不得回落。 */
+type PlanJwtTicket = { ok: true; jwt: string; viaFallback: boolean } | { ok: false; error: string }
+
+function planJwt(ctx: AdapterAccountContext): PlanJwtTicket {
   const cm = ctx.credentials.secrets?.['credentialMap']
-  const jwt = cm && typeof cm === 'object' ? (cm as Record<string, unknown>)['zcodejwttoken'] : null
-  return typeof jwt === 'string' && jwt.trim() !== '' ? jwt.trim() : ctx.credentials.token
+  const raw = cm && typeof cm === 'object' ? (cm as Record<string, unknown>)['zcodejwttoken'] : null
+  // 缺失/空 ⇒ 既有回落语义(该号本就没导入 zcodejwttoken),不拦。
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return { ok: true, jwt: ctx.credentials.token, viaFallback: true }
+  }
+  const jwt = raw.trim()
+  // 非空但非明文 JWT(enc:v1:/enc:v2:os:/伪 JWT)⇒ 诚实失败,绝不把信封串当 Bearer。
+  if (!PLAN_JWT_SHAPE_RE.test(jwt)) {
+    return { ok: false, error: planJwtShapeError(jwt) }
+  }
+  return { ok: true, jwt, viaFallback: false }
 }
 
 /**
@@ -380,11 +406,16 @@ async function getQuota(
   ctx: AdapterAccountContext,
   opts?: QuotaCallOptions,
 ): Promise<RelayQuotaResult> {
+  // 形态闸门前置:票据非法 ⇒ 诚实失败,绝不把 enc 信封当 Bearer 盲发(否则又是含糊的 401)。
+  const ticket = planJwt(ctx)
+  if (!ticket.ok) {
+    return { ok: false, authFailed: true, error: ticket.error }
+  }
   try {
     const url = `${PLAN_BASE}${PLAN_BALANCE_PATH}?app_version=${PLAN_APP_VERSION}`
     const res = await resolveFetchImpl(opts ?? {})(url, {
       method: 'GET',
-      headers: planHeaders(planJwt(ctx), zcodeDeviceMid(ctx.row)),
+      headers: planHeaders(ticket.jwt, zcodeDeviceMid(ctx.row)),
     })
     const text = await res.text().catch(() => '')
     if (!res.ok) {
@@ -481,12 +512,18 @@ async function checkHealth(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
 ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
+  // 形态闸门前置:checkHealth 也走 billing/balance + 同一张 plan 票,非法票据同样诚实失败、
+  // 不发请求(与 getQuota 共用一份判据,不复制)。
+  const ticket = planJwt(ctx)
+  if (!ticket.ok) {
+    return { ok: false, authFailed: true, error: ticket.error }
+  }
   try {
     // 轻量检查 = zcode-plan billing/balance(GET,不消耗对话配额;实弹实证零消耗)
     const url = `${PLAN_BASE}${PLAN_BALANCE_PATH}?app_version=${PLAN_APP_VERSION}`
     const res = await resolveFetchImpl(opts ?? {})(url, {
       method: 'GET',
-      headers: planHeaders(planJwt(ctx), zcodeDeviceMid(ctx.row)),
+      headers: planHeaders(ticket.jwt, zcodeDeviceMid(ctx.row)),
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
@@ -547,5 +584,5 @@ export const zcodeAdapter: RelayUpstreamAdapter = {
 }
 
 // §22c 镜像测试唯一出口:派生逻辑只有上面这一份实现,测试直用,不得复制判据。
-export const __test__ = { zcodeDeviceMid, uuidFromSeed }
+export const __test__ = { zcodeDeviceMid, uuidFromSeed, planJwt, PLAN_JWT_SHAPE_RE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
