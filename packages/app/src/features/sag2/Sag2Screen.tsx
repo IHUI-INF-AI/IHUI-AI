@@ -148,6 +148,7 @@ function SearchPanel({
   onSearch,
   onFuse,
   loading,
+  colorScheme = 'light',
   styles,
 }: Omit<Sag2ScreenProps, 'status' | 'error' | 'notice' | 'onBack'> & {
   styles: ReturnType<typeof createStyles>
