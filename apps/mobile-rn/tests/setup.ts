@@ -30,7 +30,7 @@ configure({ asyncUtilTimeout: 4000 })
 // 那段代码只在 __DEV__ && typeof window !== 'undefined' 时 require HMR 三件套
 // (setupFastRefresh/setupHMR/messageSocket),测试环境没有 dev server ⇒ 必须跳过。
 // node 的 globalThis 类型里没有 RN 的 __DEV__ 字段,按可选字段写入——不用 any,也不用 @ts-ignore。
-;(globalThis as { __DEV__?: boolean }).__DEV__ = false
+;(globalThis as { __DEV__?: boolean }).__DEV__ = true
 
 beforeEach(() => {
   resetAsyncStorageMock()

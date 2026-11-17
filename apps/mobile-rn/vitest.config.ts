@@ -166,6 +166,13 @@ export default defineConfig({
       // app-root-background-focused-route / video-immersive-band 同型收集期失败。
       // src/lib/__tests__/ota-update.test.ts 的局部 vi.mock 工厂仍优先生效,替身只兜宿主层。
       'expo-updates': resolve(__dirname, 'tests/__mocks__/expo-updates.ts'),
+      // expo-audio:替身早已写好(tests/__mocks__/expo-audio.ts)却一直没接进本表
+      // ⇒ 间接引用它的套件仍解析真包 → expo-modules-core 源码 → 收集期失败。
+      'expo-audio': resolve(__dirname, 'tests/__mocks__/expo-audio.ts'),
+      // expo 顶层包:真包入口加载 winter/runtime.ts(require './ImportMetaRegistry')与
+      // async-require/setup.ts(HMR 三件套)⇒ 收集期 "Cannot find module"。
+      // 更具体的 expo-* 别名必须排在本条之前(vite alias 按数组顺序做前缀匹配)。
+      expo: resolve(__dirname, 'tests/__mocks__/expo.ts'),
       // react-native-restart 与本端其它原生包同一死法,但它是 2026-09-24 才加进 active-tokens.ts
       // 的依赖而**没同步本文件** ⇒ 既无 alias 也不在 inline:被外部化后由 Node 解析,其内部
       // require('react-native') 绕过 alias 命中真实 RN 的 Flow 源码 →
@@ -175,6 +182,9 @@ export default defineConfig({
       // 收口必须在配置层:上一轮只给 tests/terminal-delta-live.test.ts 加局部 vi.mock,于是每个
       // 新触到 active-tokens 的套件再破一次 —— 逐套件补丁正是本条要根治的反模式。
       'react-native-restart': resolve(__dirname, 'tests/__mocks__/react-native-restart.ts'),
+      // react-native-video(2026-11-17 补):同族死法 —— 真包被外部化后由 Node 解析,
+      // 源码 TS/Flow 语法当场炸(`Unexpected token 'typeof'`,无堆栈),整套件收集期失败。
+      'react-native-video': resolve(__dirname, 'tests/__mocks__/react-native-video.tsx'),
       // 2026-09-29 收口(同一族第三格,范本 = 下方 ihui-shared-auth / sso-core 两条 +
       // tests/shared-auth-alias-fidelity.test.ts):'@ihui/api-client' 此前指到端内手写替身
       // tests/__mocks__/ihui-api-client.ts。实测该替身只给 14 个名字,而消费面(mobile-rn/src

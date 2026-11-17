@@ -114,7 +114,12 @@ const mk = (tag: string) =>
     )
   }
 
-export const Platform = { OS: 'web' as const }
+export const Platform = {
+  OS: 'web' as const,
+  // RN 的 Platform.select:按当前 OS 取档,缺失时回落 default/native。
+  // 用例侧只需"能取到值"(ToolCallCard 依赖它选样式),不模拟双平台差异。
+  select: <T>(spec: Record<string, T>): T => (spec.web ?? spec.native ?? spec.default) as T,
+}
 
 // 共享替身必须覆盖真身用到的 RN API:MoreLink 经 PixelRatio 换算 hairline/字号,替身缺这个出口时
 // 表现是"渲染即抛 No PixelRatio export",而它影响的不止一枚测试(端内 6 个文件从 @ihui/rn-app 引
