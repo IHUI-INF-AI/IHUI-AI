@@ -262,8 +262,11 @@ def validate_browser_state(raw: dict[str, Any]) -> BrowserRunningState:
     for key, val in (("browserIsRunning", running), ("browserHasVisibleWindow", visible)):
         if not isinstance(val, bool):
             raise BrowserStateError(f"{key} 须布尔,得到 {val!r}")
-    occupied = running and visible
-    background_only = running and not visible
+    # isinstance 已排除非布尔;此处显式落布尔类型给下游(Any|None 收窄到 bool)
+    is_running: bool = True if running else False
+    has_visible_window: bool = True if visible else False
+    occupied = is_running and has_visible_window
+    background_only = is_running and not has_visible_window
     if occupied:
         detail = "浏览器在跑且有可见窗口:可能正被用户使用,agent 须谨慎(优先复用/不抢)。"
     elif background_only:
@@ -271,8 +274,8 @@ def validate_browser_state(raw: dict[str, Any]) -> BrowserRunningState:
     else:
         detail = "浏览器未运行。"
     return BrowserRunningState(
-        is_running=running,
-        has_visible_window=visible,
+        is_running=is_running,
+        has_visible_window=has_visible_window,
         occupied_by_user=occupied,
         background_only=background_only,
         detail=detail,
