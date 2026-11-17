@@ -95,6 +95,7 @@ import {
 import { flagValue } from './lib/flag-value.mjs'
 // 2026-11-05 结构缺陷票③:第四层反向例外 —— HEAD 里仍被引用的路径,即使父树全在位也恢复。
 import { findReferencersInRev } from './lib/rev-reference-graph.mjs'
+import { resolveWriteLockDir } from './lib/git-dir-boundary.mjs'
 
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
@@ -1883,23 +1884,15 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
  * 拦死在 index.lock 上(钩子侧当日表现为 lint-staged 连吃 4 次被误报成 EBUSY 的 exit 128)。
  * 只探不抢:锁的处置属持有人(§12 铁律 + 本文件 §5b);判据是"锁目录在位",
  * meta.json 只用来把主人讲清楚,读不到**不影响**"在位"结论(fail-safe 方向是让路)。
- * 与 probeIndexLock 同一纪律:gitdir 用 `--absolute-git-dir` 问 git 要,不自己拼 `<root>/.git`。
+ * ⚠️ 落点**不跟 gitdir 走**(2026-11-17 收口):逻辑写锁已固定在建仓树内
+ * `.ihui-agent/state/ihui-git-write.lock`(单一真相源 lib/git-dir-boundary.mjs::resolveWriteLockDir)。
+ * 改造前这里自己拼 `<gitDir>/ihui-git-write.lock`,锁挪走后探针恒判 absent ⇒ 让路永不放行 ⇒
+ * 对齐层照旧撞 30–62s 写窗口("锁修好了但看不见"的复发形态)。probeIndexLock 仍走 gitdir ——
+ * 那是 git 原生索引锁,位置由 git 自己定,两者不可混同。
  * @returns {{state:'absent'|'held'|'undetermined',path:string,holder:object|null,ageMs:number,reason:string}}
  */
-export function probeWriteLock(repoRoot, g = makeGit(repoRoot)) {
-  let base = ''
-  try {
-    base = g(['rev-parse', '--absolute-git-dir'], { timeout: LOCK_PROBE_TIMEOUT_MS }).trim()
-  } catch (e) {
-    return {
-      state: 'undetermined',
-      path: '',
-      holder: null,
-      ageMs: 0,
-      reason: `问不到 gitdir:${String(e?.message ?? e).slice(0, 160)}`,
-    }
-  }
-  const path = join(base, 'ihui-git-write.lock')
+export function probeWriteLock(repoRoot, _g = makeGit(repoRoot)) {
+  const path = resolveWriteLockDir(repoRoot)
   let st = null
   try {
     st = lstatSync(path)
@@ -3675,18 +3668,19 @@ function selfTestRun() {
         (dDiff.exemptPaths || []).includes('PROJECT_PLAN.md'),
     )
 
-    // ⑯ 逻辑写锁让路(2026-10-12):gitDir 下出现 ihui-git-write.lock(safe-commit 等
-    //    git-lock 消费方持有)⇒ 整轮跳过 + layerSkips/lockSkip 透明点名,只探不抢。
-    //    锁目录建在 tmp 仓自己的 gitdir 里,与真仓(D:/IHUI-AI-git-repo)无关。
-    const gd = g(['rev-parse', '--absolute-git-dir']).trim()
-    mkdirSync(join(gd, 'ihui-git-write.lock'), { recursive: true })
+    // ⑯ 逻辑写锁让路(2026-10-12;2026-11-17 落点随单一真相源迁到仓内):仓根下
+    //    .ihui-agent/state/ihui-git-write.lock(safe-commit 等 git-lock 消费方持有)出现 ⇒
+    //    整轮跳过 + layerSkips/lockSkip 透明点名,只探不抢。锁目录建在 tmp 仓自己的
+    //    .ihui-agent/state 里(与真仓无关),判据与生产同源 resolveWriteLockDir。
+    const lockPath = resolveWriteLockDir(tmp)
+    mkdirSync(lockPath, { recursive: true })
     let dLock = null
     let rLock = null
     try {
       dLock = alignDrifts(tmp)
       rLock = refreshStaleIndex(tmp)
     } finally {
-      rmSync(join(gd, 'ihui-git-write.lock'), { recursive: true, force: true })
+      rmSync(lockPath, { recursive: true, force: true })
     }
     check(
       '⑯ 逻辑写锁在位 ⇒ 整轮让路且点名(kind=write-lock-held)',

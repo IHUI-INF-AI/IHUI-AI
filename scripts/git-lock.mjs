@@ -105,7 +105,7 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 // 写锁 gitDir 越界闸(2026-11-14 git 写锁外流根治)。判据单源在 lib/git-dir-boundary.mjs,
 // 与 isolated-git.mjs 共用同一份 —— 两条写锁消费方都必须拒建仓外 gitdir 的锁,否则
 // lock-atomic-init 的 pending 兄弟会散到项目盘根(D:\IHUI-AI-git-repo 那批 32 个 .pending)。
-import { assertLockDirInsideRepoTree } from './lib/git-dir-boundary.mjs'
+import { assertLockDirInsideRepoTree, resolveWriteLockDir } from './lib/git-dir-boundary.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -136,9 +136,10 @@ function lockDir() {
   // 是"锁/pending 外流到项目盘根",故把落点固定到仓内 .ihui-agent/state/(被 .gitignore 忽略),
   // pending 兄弟随之也在树内可回收 —— 本意更彻底满足,且仓外 gitDir 不再被误杀。
   // 判据单源 lib/git-dir-boundary.mjs::assertLockDirInsideRepoTree,与 isolated-git.mjs 共用。
+  // 落点详解源 = 同文件 resolveWriteLockDir(2026-11-17 收口:本文件不再自己拼路径字面量)。
   // 只在走本默认路径时触发;acquire() 注入 dir 时完全绕过本函数,镜像测试不误伤。
   const root = repoRoot()
-  const dir = join(root, '.ihui-agent', 'state', 'ihui-git-write.lock')
+  const dir = resolveWriteLockDir(root)
   assertLockDirInsideRepoTree(dir, { repoRoot: root })
   return dir
 }
@@ -828,6 +829,15 @@ async function acquire({
 
   const probe = makeIdentityProbe(identityRun ? { run: identityRun } : {}, log)
   const deadline = Date.now() + timeoutMs
+  // 2026-11-17:锁落点迁到仓内 `.ihui-agent/state/` 后,新建仓/夹具里父目录可能还不存在 ⇒
+  // pending 的**兄弟 mkdir** 直接 ENOENT(实测新建夹具仓 acquire 恒等到超时)。这里只补父目录,
+  // 正式锁目录仍由 pending+rename 建出(auditLockInitSource 的两条禁令不破:不 mkdir 正式锁目录、
+  // 不出现锁名)。补不出来不冒充成功:失败留给下面的原子初始化如实报 ENOENT。
+  try {
+    mkdirSync(dirname(dir), { recursive: true })
+  } catch {
+    /* 建不出来交给原子初始化报错 */
+  }
   // 同一次 acquire 里同一个初始化故障码**只喊一遍**:轮询是 300ms 一轮,反复打印会把日志刷满,
   // 而"喊过一次"与"每轮都喊"给出的判据信息完全相同。
   let initErrorNoted = null
@@ -951,7 +961,7 @@ async function acquire({
         const alive = meta ? isPidAlive(meta.pid) : false
         throw new Error(
           `git 写锁等待超时(${timeoutMs}ms)。当前持锁: ${meta ? `unit=${meta.unitId} pid=${meta.pid} 于 ${new Date(meta.ts).toLocaleTimeString()}(${alive ? '持有者仍在运行,请耐心等待或稍后重试' : '持有者已退出,等待 stale 抢占'})` : '未知'}。` +
-            '若确认为残留锁,超过 stale 时间会自动抢占;紧急可删 .git/ihui-git-write.lock',
+            '若确认为残留锁,超过 stale 时间会自动抢占;紧急可删 .ihui-agent/state/ihui-git-write.lock',
         )
       }
       // 轮询等待(异步 setTimeout)

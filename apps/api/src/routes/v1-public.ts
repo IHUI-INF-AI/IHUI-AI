@@ -54,6 +54,11 @@ import {
 } from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { error, success } from '../utils/response.js'
+import {
+  deriveModelSpec,
+  modelSpecToWire,
+  parseModelSpecEnv,
+} from '../services/relay-model-spec.js'
 // P0-5 中转站计费(2026-07-29 立)
 import {
   checkQuota,
@@ -285,6 +290,19 @@ interface ModelsCacheEntry {
 const modelsCache = new Map<string, ModelsCacheEntry>()
 
 /**
+ * 模型规格覆盖表(2026-11-17 立):`IHUI_RELAY_MODEL_SPEC_JSON` 声明的上下文/输出上限/
+ * 能力/思考档位。进程启动读一次;非法条目逐条点名后丢弃(一条写错的规格会让客户端
+ * 按错误上下文切分请求,比没有覆盖更危险)。
+ */
+const MODEL_SPEC_OVERRIDES = (() => {
+  const parsed = parseModelSpecEnv(process.env.IHUI_RELAY_MODEL_SPEC_JSON)
+  if (parsed.rejected.length > 0) {
+    console.warn('[v1/models] 模型规格覆盖条目被丢弃(形状非法)', parsed.rejected)
+  }
+  return parsed.overrides
+})()
+
+/**
  * 拉取模型列表(P0-5 中转站:优先 DB 驱动 → live → cache → fallback)。
  * 返回响应体 + 来源标识,由调用方写入 X-Model-Source 响应头。
  *
@@ -425,6 +443,8 @@ async function fetchModels(userId?: string): Promise<{
             // G-726:'unknown'(本轮未取到)⇒ 省略 available 字段,既不显示健康也不显示不可用;
             // 另两态照旧给布尔(与改动前同形)。
             ...(availability === 'unknown' ? {} : { available: availability === 'available' }),
+            // 2026-11-17:能力与规格宣告(纯判据;无一手出处的字段整键省略,不编数字)。
+            ...modelSpecToWire(deriveModelSpec(m.id, MODEL_SPEC_OVERRIDES)),
           }
         })
       // 官方名归一兜底(2026-09-13 立):同一模型(大小写不敏感)目录只允许出现一条,
