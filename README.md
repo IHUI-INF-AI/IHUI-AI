@@ -8704,3 +8704,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5705 | `testFiles` |
 | 跟踪文件 | 22485 | `trackedFiles` |
 | 测试文件 | 5675 | `testFiles` |
+| 数据库表 | 652 | `dbTables` |
+| schema 文件 | 253 | `dbSchemaFiles` |
+| API 路由 | 4839 | `apiRoutes` |
+| 路由文件 | 704 | `apiRouteFiles` |
+| 测试文件 | 5707 | `testFiles` |
+| 跟踪文件 | 22495 | `trackedFiles` |
