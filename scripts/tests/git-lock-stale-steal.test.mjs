@@ -657,7 +657,10 @@ function makeCleanFixture(t, { pid, ts }) {
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
-  const lockDir = join(wt, '.git', LOCK_NAME)
+  // 锁落点 2026-11-17 起与 gitDir 解耦、固定到仓内 .ihui-agent/state/(见 git-lock.mjs::lockDir)。
+  // clean 子命令走默认 lockDir()(非 acquire 的注入 dir 通道),故夹具必须把锁造在新落点,
+  // 否则 clean 扫不到、11c/11d 会误报"✅ 无 stale 锁需清理"(改动引入的回归,已实证)。
+  const lockDir = join(wt, '.ihui-agent', 'state', LOCK_NAME)
   mkdirSync(lockDir, { recursive: true })
   writeFileSync(
     join(lockDir, 'meta.json'),

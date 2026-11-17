@@ -1088,7 +1088,23 @@ async function refreshOneLocked(
 ): Promise<boolean> {
   const adapter = getRelayAdapter(row.providerCode)
   if (!adapter?.refreshToken) return false
-  const credentials = decryptAccountCredentials(row)
+  // 存量凭据可能用旧密钥加密(AES-256-GCM 认证失败)。解密失败既不是上游拒收、也不是
+  // 能给号续期的信号:若让它抛到 sweep 顶层,一条坏凭据就让整轮巡检(含其它所有号的
+  // 保活/恢复/对账)全停,且 --once 拿不到结论行 ⇒ 守护报"永久保活腿未判定"。
+  // 这里就地隔离:记可观测日志后跳过本号,不落入下游 failures+1(避免把本已摘除的号
+  // 反复记失败/误判),也不吞掉健康号的正常路径。
+  let credentials: ReturnType<typeof decryptAccountCredentials>
+  try {
+    credentials = decryptAccountCredentials(row)
+  } catch (e) {
+    logger.warn('[relay-account-pool] 凭据解密失败,跳过本号(不中断巡检、不计刷新失败)', {
+      accountId: row.id,
+      providerCode: row.providerCode,
+      uidTail: row.uid.slice(-8),
+      reason: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200),
+    })
+    return false
+  }
   // 镜像仲裁 · 刷前 pull(2026-11-11 根治"双消费者轮换竞态"①):
   // 采自本机客户端的 OAuth 票(minimax/qoder/workbuddy),客户端副本若在池上次刷新
   // 之后自己轮换过 rt,池里这份就是上游已见过的旧票 —— 拿它刷新 = rt 重放,会被
