@@ -376,6 +376,14 @@ if ($ShowVersionCode) {
 Write-Host "`n===== [门链] 出包前置门链(任一红即中止) =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
 try {
+  # 门链的 typecheck 走"包解析"(apps/mobile-rn 读 @ihui/api-client 的 dist),而发版轮上游
+  # 已 reset --hard + clean -fd:dist 属未跟踪产物、会被清掉,只剩上一轮的陈旧副本。
+  # 于是上游一旦新增导出(mobile-rn 先落地、依赖包 dist 没跟上)门链就必然假红。
+  # 因此门链前先按依赖闭包重建产物(@ihui/mobile-rn^... 只含依赖、不含本包)。
+  & pnpm turbo build --filter "@ihui/mobile-rn^..." | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "依赖闭包重建失败(exit=$LASTEXITCODE)—— 门链读不到新鲜 dist,本次不构建、不产出任何可发布产物。"
+  }
   # 与 CI 共用 scripts/mobile-release-gate.mjs 这一份实现,禁止在本脚本另写一份清单(两处清单必然漂移)。
   # --worktree:审的是"将要构建的这份盘上内容",不是 HEAD blob。
   node scripts/mobile-release-gate.mjs --worktree
