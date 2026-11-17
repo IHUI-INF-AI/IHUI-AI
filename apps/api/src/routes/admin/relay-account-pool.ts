@@ -599,6 +599,18 @@ function upstreamTaskErrorDetail(body: Record<string, unknown> | null): string {
 }
 
 /**
+ * `/tasks` 清单短缓存(2026-11-17 立,对齐对照站「五上游并行 + 20s 缓存」的缓存那一半)。
+ *
+ * 用途:面板/前端一次刷新会连点几次「任务清单」,20s 内同一账号重复打上游纯属浪费;
+ * 缓存只装**成功且带清单**的响应,失败与 unjudged 一律不进缓存(否则会把"没问到"粘成结论)。
+ * 键 = 上游 checkin 账号 id(跨号池账号共享同一 checkin 账号时天然合并)。
+ */
+const TASKS_CACHE_TTL_MS = 20_000
+const TASKS_CACHE_MAX = 200
+const tasksCache = new Map<number, { at: number; payload: Record<string, unknown> }>()
+
+
+/**
  * F-161 个人池属主边界:按 id 的写操作必须同时命中「主键 + 属主」。
  * 全局行(ownerUserId 为空,运营池)沿用既有口径仍可由任一管理员管理;
  * 个人行仅属主本人可写 —— 他人行在查询条件处即落空,统一按 404 拒绝,
@@ -1474,6 +1486,13 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!target.ok) {
       return reply.status(target.status).send(error(target.status, target.message))
     }
+    // 20s 短缓存(只命中成功且带清单的响应;失败与 unjudged 一律不入缓存)
+    const cachedTasks = tasksCache.get(target.checkinAccountId)
+    if (cachedTasks && Date.now() - cachedTasks.at < TASKS_CACHE_TTL_MS) {
+      reply.header('X-Tasks-Cache', 'hit')
+      return reply.send(success(cachedTasks.payload))
+    }
+    reply.header('X-Tasks-Cache', 'miss')
     try {
       const resp = await aiServiceFetch(
         request,
@@ -1495,15 +1514,20 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         ? rawTasks.map(normalizeTaskItem).filter((x): x is NormalizedTaskItem => x !== null)
         : []
       const engineOk = body !== null && body.ok === true
-      return reply.send(
-        success({
-          ok: engineOk && listed,
-          tasks,
-          reason: strOrNull(body?.reason),
-          // 引擎自报未判定 ∨ 形状读不出清单 ⇒ 未判定;两者都不是才算"判过"
-          unjudged: body?.unjudged === true || !listed || !engineOk,
-        }),
-      )
+      const unjudged = body?.unjudged === true || !listed || !engineOk
+      const payload = {
+        ok: engineOk && listed,
+        tasks,
+        reason: strOrNull(body?.reason),
+        // 引擎自报未判定 ∨ 形状读不出清单 ⇒ 未判定;两者都不是才算"判过"
+        unjudged,
+      }
+      // 只缓存"判过且带清单"的结果:未判定不进缓存,避免把"没问到"粘成 20s 的结论
+      if (!unjudged) {
+        if (tasksCache.size >= TASKS_CACHE_MAX) tasksCache.clear()
+        tasksCache.set(target.checkinAccountId, { at: Date.now(), payload })
+      }
+      return reply.send(success(payload))
     } catch (e) {
       request.log.error(e)
       return reply.status(502).send(error(502, '任务清单服务暂不可用'))
