@@ -29,7 +29,7 @@
  *   唯一实现在这里;各端只调 `formatClientSignature`,不自行拼格式。
  */
 
-import { sha256Hex } from './tool-args-digest.js'
+import { sha256Hex } from './tool-args-digest'
 
 /** 请求头名(小写;HTTP 头大小写不敏感,发送时按此拼) */
 export const CLIENT_SIGN_HEADER = 'x-ihui-client'
