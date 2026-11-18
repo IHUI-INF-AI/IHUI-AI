@@ -66,7 +66,7 @@ PORTABLE_REJECTION_CODE: Final = "native_chart_workbook_contract_failed"
 
 # --- observed verdicts for one and the same literal deck --------------------------------
 
-OBSERVED_VERDICTS: Final = {
+OBSERVED_VERDICTS: Final[Mapping[str, Mapping[str, object]]] = {
     "portable": {"passed": False, "exit_code": 1, "code": PORTABLE_REJECTION_CODE},
     "powerpoint": {"passed": True, "exit_code": 0, "code": None},
 }

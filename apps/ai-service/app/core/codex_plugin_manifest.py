@@ -22,8 +22,8 @@ fifteen-key variant of the interface block is *unobserved*, not *impossible*.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Final
+from collections.abc import Mapping, Sequence
+from typing import Final, cast
 
 # --- marketplace layer -------------------------------------------------------------
 
@@ -130,8 +130,12 @@ APP_CONNECTOR_COUNT: Final = 1
 SKILL_FRONTMATTER_KEYS: Final = ("name", "description")
 SKILL_FRONTMATTER_KEY_COUNT: Final = 2
 SKILL_FILE_NAME: Final = "SKILL.md"
-SKILL_TOTAL_COUNT: Final = sum(len(p["skills"]) for p in PLUGINS.values())  # type: ignore[arg-type]
-SKILL_TOTAL_CHARS: Final = sum(int(p["skill_chars"]) for p in PLUGINS.values())  # type: ignore[call-overload]
+SKILL_TOTAL_COUNT: Final = sum(
+    len(cast("Sequence[object]", p["skills"])) for p in PLUGINS.values()
+)
+SKILL_TOTAL_CHARS: Final = sum(
+    int(cast("int | str", p["skill_chars"])) for p in PLUGINS.values()
+)
 
 # --- per-skill agent manifest ------------------------------------------------------
 
@@ -212,12 +216,12 @@ def skills_of(name: str) -> tuple[str, ...]:
 
 def keywords_of(name: str) -> int:
     """Return the manifest ``keywords`` array length for ``name``."""
-    return int(plugin_of(name)["keyword_count"])  # type: ignore[call-overload]
+    return int(cast("int | str", plugin_of(name)["keyword_count"]))
 
 
 def skill_chars_of(name: str) -> int:
     """Return the summed ``SKILL.md`` character count for ``name``."""
-    return int(plugin_of(name)["skill_chars"])  # type: ignore[call-overload]
+    return int(cast("int | str", plugin_of(name)["skill_chars"]))
 
 
 def carries_apps(name: str) -> bool:
