@@ -161,12 +161,17 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     const deviceName = `Web-${deviceId.slice(0, 8)}`
 
     const register = async () => {
-      const r = await fetchApi('/api/tasks/register-device', {
-        method: 'POST',
-        body: JSON.stringify({ deviceId, name: deviceName, type: 'web' }),
-      })
-      if (!r.success) {
-        logger.error('[use-task-receiver] register failed:', r.error)
+      try {
+        const r = await fetchApi('/api/tasks/register-device', {
+          method: 'POST',
+          body: JSON.stringify({ deviceId, name: deviceName, type: 'web' }),
+        })
+        if (!r.success) {
+          logger.error('[use-task-receiver] register failed:', r.error)
+        }
+      } catch (err) {
+        // Y-94: 30s 心跳 void register() 无 catch,网络层 reject 即 unhandled;静默记日志,下次心跳重试。
+        logger.error('[use-task-receiver] register threw:', err)
       }
     }
 
