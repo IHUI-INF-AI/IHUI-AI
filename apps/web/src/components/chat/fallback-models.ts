@@ -23,6 +23,14 @@ export { FALLBACK_MODELS, DEMO_TIER_MODELS, type FallbackModel } from '@ihui/sha
 export const VENDOR_LABEL: Record<string, string> = {
   // === 项目主力(plan 套餐已接入)===
   ihui_relay: 'vendor.ihuiRelay',
+  /**
+   * 2026-11-18 修「分组名把内部 code 漏给用户」:ai-service `build_model_catalog` 把
+   * workbuddy 号池模型的 provider 写成 `workbuddy_relay`(走中转桥,供可用性/能力判定用),
+   * 前端按 VENDOR_LABEL 查不到就原样回退 ⇒ 下拉里出现「WORKBUDDY_RELAY」这种内部串。
+   * 账号池侧同一平台的 provider 是 `workbuddy`,两者必须落到同一个展示名。
+   */
+  workbuddy: 'WorkBuddy',
+  workbuddy_relay: 'WorkBuddy',
   stepfun: 'vendor.stepfun',
   cloudflare_workers_ai: 'vendor.cloudflareWorkersAi',
   agnes: 'vendor.agnes',
@@ -149,5 +157,49 @@ export const VENDOR_LABEL: Record<string, string> = {
   lmstudio: 'vendor.lmstudio',
   openwebui: 'vendor.openwebui',
   local: 'vendor.local',
+  // === 个人号池平台(与 apps/api 的 RELAY_PROVIDERS 同一批 code;品牌名不译) ===
+  // 这些 code 会作为 /llm/models 与 /api/account-pool/models 的 provider 下发,
+  // 选择器按 provider 分组 ⇒ 缺映射就会把平台内部 code 直接摆给用户看。
+  trae: 'Trae',
+  codearts: 'CodeArts',
+  qoder: 'Qoder',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  zcode: 'ZCode',
+  loomy: 'Loomy',
+  lingma: '通义灵码',
+  grokbot: 'GrokBot',
+  raccoon: 'Raccoon',
+  cursor: 'Cursor',
+}
+
+/**
+ * vendor code → 展示名(带别名归并)。
+ *
+ * 2026-11-18 立:`key` 命中映射表时为 i18n key 或原样显示的显示名;`_relay` 结尾的
+ * 内部接入别名(平台经中转桥接入,如 workbuddy_relay)回退到平台自身的展示名。
+ * 调用方只在 `key` 非空时走 t(),未命中的 code 仍原样回退(保持"未知厂商照实显示",
+ * 不吞信息)。
+ */
+export function resolveVendorLabel(vendor: string | undefined): {
+  /** 命中的 i18n key / 显示名;未命中为 null */
+  key: string | null
+  /** 未命中时的回退原文(= vendor 自身) */
+  fallback: string
+} {
+  if (!vendor) return { key: null, fallback: '' }
+  const direct = VENDOR_LABEL[vendor]
+  if (direct) return { key: direct, fallback: vendor }
+  if (vendor.endsWith('_relay')) {
+    const base = vendor.slice(0, -'_relay'.length)
+    if (VENDOR_LABEL[base]) return { key: VENDOR_LABEL[base], fallback: vendor }
+  }
+  return { key: null, fallback: vendor }
+}
+
+/** 分组归并键:同一品牌的多套接入 code 落到同一组标题(否则会出现两个同名分组) */
+export function vendorGroupKey(vendor: string): string {
+  const { key, fallback } = resolveVendorLabel(vendor)
+  return key ?? fallback
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

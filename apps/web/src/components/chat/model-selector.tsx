@@ -52,7 +52,13 @@ import { rememberPoolModelIds } from '@/hooks/use-chat/pool-model-routing'
 // @lobehub/icons(现读单 chunk 1,541KB / gzip 258KB)。图标改走 React.lazy 边界。
 import type { BrandIconProps } from '@/components/ai/brand-icon'
 import { inferVendor } from '@/components/ai/vendor-infer'
-import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
+import {
+  FALLBACK_MODELS,
+  DEMO_TIER_MODELS,
+  VENDOR_LABEL,
+  resolveVendorLabel,
+  vendorGroupKey,
+} from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-templates'
 import {
@@ -566,19 +572,31 @@ const CAP_FILTER_ITEMS: Array<{ key: ModelCapabilityKey; labelKey: string }> = [
   { key: 'fim', labelKey: 'modelCapFim' },
 ]
 
-/** 按厂商分组模型 */
-function groupByVendor(options: ModelOption[]): Array<[string, ModelOption[]]> {
-  const map = new Map<string, ModelOption[]>()
+/** 厂商分组:label = 归并后的展示键,vendor = 组内首个原始 code(图标/健康点按它取) */
+interface VendorGroup {
+  label: string
+  vendor: string
+  items: ModelOption[]
+}
+
+/** 按厂商分组模型
+ *  2026-11-18 立:分组键改用 vendorGroupKey —— 同一品牌的不同接入 code
+ *  (账号池的 workbuddy 与平台目录的 workbuddy_relay)必须合成一组,否则用户会看到
+ *  两个同名分组,其中一个还带着内部 `_relay` 串。 */
+function groupByVendor(options: ModelOption[]): VendorGroup[] {
+  const map = new Map<string, VendorGroup>()
   for (const opt of options) {
     const vendor = opt.vendor ?? inferVendor(opt.value) ?? 'other'
-    if (!map.has(vendor)) map.set(vendor, [])
-    map.get(vendor)!.push(opt)
+    const label = vendorGroupKey(vendor)
+    const group = map.get(label)
+    if (group) group.items.push(opt)
+    else map.set(label, { label, vendor, items: [opt] })
   }
   const order = Object.keys(VENDOR_LABEL)
-  return Array.from(map.entries()).sort((a, b) => {
-    const ia = order.indexOf(a[0])
-    const ib = order.indexOf(b[0])
-    if (ia === -1 && ib === -1) return a[0].localeCompare(b[0])
+  return Array.from(map.values()).sort((a, b) => {
+    const ia = order.indexOf(a.vendor)
+    const ib = order.indexOf(b.vendor)
+    if (ia === -1 && ib === -1) return a.label.localeCompare(b.label)
     if (ia === -1) return 1
     if (ib === -1) return -1
     return ia - ib
@@ -1206,15 +1224,15 @@ export function ModelSelector({
     // 过滤条件:配置已加载且非空才过滤(未登录/加载中显示全部,避免列表空白);
     // 例外:当前选中的模型保留显示(trigger 与列表不一致会误导,切换后自然消失)。
     if (cfgData === undefined || configuredTemplateCodes.size === 0) return all
-    const filtered: Array<[string, ModelOption[]]> = []
-    for (const [vendor, items] of all) {
-      const visible = items.filter((opt) => {
+    const filtered: VendorGroup[] = []
+    for (const group of all) {
+      const visible = group.items.filter((opt) => {
         if (opt.value === value) return true // 当前选中保留
         // 与 ⚠ 徽章判断一致:内置免费 provider 直接豁免;
         // vendor 无对应模板(code null)或模板未配置 → 无配额,隐藏
         return isConfiguredVendor(opt.vendor, configuredTemplateCodes)
       })
-      if (visible.length > 0) filtered.push([vendor, visible])
+      if (visible.length > 0) filtered.push({ ...group, items: visible })
     }
     return filtered
   }, [primary, cfgData, configuredTemplateCodes, value, useApiOnly])
@@ -1224,12 +1242,12 @@ export function ModelSelector({
    * 按 groupByVendor 的原有分组顺序统一收进 primary 末尾的独立组。
    */
   const { grouped, unverifiedPrimary } = React.useMemo(() => {
-    const verifiedGroups: Array<[string, ModelOption[]]> = []
+    const verifiedGroups: VendorGroup[] = []
     const unverified: ModelOption[] = []
-    for (const [vendor, items] of groupedByVendor) {
-      const verifiedItems = items.filter((opt) => !isUnverified(opt))
-      if (verifiedItems.length > 0) verifiedGroups.push([vendor, verifiedItems])
-      unverified.push(...items.filter((opt) => isUnverified(opt)))
+    for (const group of groupedByVendor) {
+      const verifiedItems = group.items.filter((opt) => !isUnverified(opt))
+      if (verifiedItems.length > 0) verifiedGroups.push({ ...group, items: verifiedItems })
+      unverified.push(...group.items.filter((opt) => isUnverified(opt)))
     }
     return { grouped: verifiedGroups, unverifiedPrimary: unverified }
   }, [groupedByVendor])
@@ -1379,36 +1397,41 @@ export function ModelSelector({
               <span className="flex-1 truncate font-medium">{t('modelAuto')}</span>
             </DropdownMenu.Item>
           </DropdownMenu.Group>
-          {grouped.map(([vendor, items]) => (
-            <DropdownMenu.Group key={vendor}>
-              <DropdownMenu.Label
-                className={cn(
-                  'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
-                  'bg-card text-muted-foreground',
-                )}
-              >
-                <BrandIconDeferred vendor={vendor} size={12} className="text-muted-foreground" />
-                <span className="flex-1 truncate">
-                  {VENDOR_LABEL[vendor] ? t(VENDOR_LABEL[vendor]) : vendor}
-                </span>
-                {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
-              </DropdownMenu.Label>
-              {items.map((opt) => (
-                <ModelOptionRow
-                  key={opt.value}
-                  opt={opt}
-                  active={opt.value === value && value !== AUTO_OPTION.value}
-                  // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
-                  warning={
-                    showConfigBadge &&
-                    !useApiOnly &&
-                    !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
-                  }
-                  onSelect={() => onChange(opt.value)}
-                />
-              ))}
-            </DropdownMenu.Group>
-          ))}
+          {grouped.map(({ label, vendor, items }) => {
+            // 2026-11-18:label 是归并后的展示键(命中映射表才是 i18n key/显示名,
+            // 未命中的未知厂商仍原样回退),不再把 `workbuddy_relay` 这类内部 code 摆给用户
+            const labelKey = resolveVendorLabel(vendor).key
+            return (
+              <DropdownMenu.Group key={label}>
+                <DropdownMenu.Label
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
+                    'bg-card text-muted-foreground',
+                  )}
+                >
+                  <BrandIconDeferred vendor={vendor} size={12} className="text-muted-foreground" />
+                  <span className="flex-1 truncate">
+                    {labelKey?.startsWith('vendor.') ? t(labelKey) : (labelKey ?? label)}
+                  </span>
+                  {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
+                </DropdownMenu.Label>
+                {items.map((opt) => (
+                  <ModelOptionRow
+                    key={opt.value}
+                    opt={opt}
+                    active={opt.value === value && value !== AUTO_OPTION.value}
+                    // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
+                    warning={
+                      showConfigBadge &&
+                      !useApiOnly &&
+                      !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
+                    }
+                    onSelect={() => onChange(opt.value)}
+                  />
+                ))}
+              </DropdownMenu.Group>
+            )
+          })}
 
           {/* 2026-11-11 立:未验证模型独立收口。不把未探测通过的模型混在各厂商组里
               (当前 34/53 是 pending 的平台中转模型,混排会误导用户),组内仍按厂商顺序排列。 */}
