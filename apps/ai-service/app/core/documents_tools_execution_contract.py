@@ -174,7 +174,7 @@ EXECUTED_TOOLS: Final = frozenset(
     e.tool for e in MEASURED
 ) | {"content_controls"}  # content_controls was exercised in R112 via its three subcommands
 
-HELP_ONLY: Final = frozenset()
+HELP_ONLY: Final = frozenset[str]()
 
 # --- fixture evidence -------------------------------------------------------------------------
 

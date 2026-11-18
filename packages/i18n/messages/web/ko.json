@@ -17447,9 +17447,11 @@
       "document": "문서",
       "editor": "에디터",
       "mcp": "MCP",
+      "pin": "항상 위에 표시",
       "plus": "뷰 추가",
       "settings": "설정",
-      "terminal": "터미널"
+      "terminal": "터미널",
+      "unpin": "항상 위 해제"
     },
     "viewSwitcher": {
       "groupSettings": "설정",
