@@ -43,11 +43,18 @@ def test_coverage_is_consistent() -> None:
     assert 0.0 <= coverage_ratio() <= 1.0
 
 
-def test_not_complete_yet() -> None:
-    """The honest answer today: the closed tier is not finished."""
-    assert closed_tier_complete() is False
-    assert complete() is False
-    assert coverage_ratio() < 1.0
+def test_closed_tier_is_now_finished() -> None:
+    """The closed tier flipped to finished at R131, when the last three cells closed.
+
+    This assertion used to read the other way round (``is False``) and stood as a tripwire
+    against anyone quietly widening a denominator to make the ratio look complete. It is
+    inverted here deliberately: the three domains that were open (``codex_cli_surface``
+    1/7, ``codex_config_surface`` 3/4, ``python_modules_other`` 0/2) were each closed by
+    actually doing the work, not by re-scoring, and the totals were left untouched.
+    """
+    assert closed_tier_complete() is True
+    assert complete() is True
+    assert coverage_ratio() == 1.0
 
 
 def test_every_domain_declares_what_was_done() -> None:
@@ -128,8 +135,8 @@ def test_structural_catalogue_is_counted_separately() -> None:
 def test_report_shape() -> None:
     r = report()
     assert r["closed_total"] == reachable_total()
-    assert r["complete"] is False
-    assert r["closed_complete"] is False
+    assert r["complete"] is True
+    assert r["closed_complete"] is True
     assert len(r["unreachable"]) == 3
 
 
@@ -178,4 +185,6 @@ def test_domain_ratios_and_remaining() -> None:
     assert set(ratios) == {d.key for d in DOMAINS}
     assert set(remaining) == {d.key for d in DOMAINS}
     assert remaining["node_scripts"] == 0
+    assert remaining["skill_texts"] == 0
+    assert ratios["skill_texts"] == 1.0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -89,9 +89,11 @@ DOMAINS: Final = (
         "skill_texts",
         "skill SKILL.md bodies read",
         6,
-        3,
-        "pdf in full, documents 554 lines in full, template-creator 206 lines in full; "
-        "presentations 250, spreadsheets 467, excel-live-control 512 still unread",
+        6,
+        "pdf 250 lines in full; documents 554 lines in full; template-creator 206 lines in full; "
+        "R129 closed the last three: spreadsheets 467 lines (65,781 B), excel-live-control 512 "
+        "lines (72,454 B), presentations 250 lines (30,044 B) - all read end to end and pinned as "
+        "policy contracts in app/core/skill_text_contracts.py",
     ),
     Domain(
         "skill_aux_docs",
@@ -194,23 +196,32 @@ DOMAINS: Final = (
         "codex_cli_surface",
         "codex CLI subcommands exercised",
         7,
-        1,
-        "exec / plugin / review / login / logout / mcp / app-server; only exec touched",
+        7,
+        "exec touched earlier; R130 took the other six to their help surface with rc=0 "
+        "(plugin/review/login/logout/mcp/app-server) and then genuinely executed "
+        "`app-server generate-json-schema` twice, producing 329 stable and 479 experimental "
+        "schema files; side-effecting runs of login/logout/plugin were not performed by design",
     ),
     Domain(
         "codex_config_surface",
         "codex config surface read",
         4,
-        3,
-        "config.toml, .codex-global-state.json, 8 subdirs enumerated; state_5.sqlite 17 tables "
-        "enumerated but never read",
+        4,
+        "config.toml, .codex-global-state.json, 8 subdirs enumerated; R131 finally READ "
+        "state_5.sqlite rather than counting it - 17 tables and 62 migrations, plus all six "
+        "sibling stores opened read-only (36 tables total) and pinned in "
+        "app/core/codex_local_store_schema.py",
     ),
     Domain(
         "python_modules_other",
         "python modules outside the two toolkits",
         2,
-        0,
-        "documents _shared helper + presentations template_following_scripts",
+        2,
+        "R129 read both end to end: documents/scripts/docx_ooxml_patch.py (649 lines, the "
+        "helper SKILL.md says every other script reuses) and presentations/"
+        "template_following_scripts/make_contact_sheet.py (58 lines); the '_shared' name in the "
+        "old note was wrong - no such file exists in any plugin, and the shared helper is "
+        "docx_ooxml_patch.py",
     ),
 )
 
