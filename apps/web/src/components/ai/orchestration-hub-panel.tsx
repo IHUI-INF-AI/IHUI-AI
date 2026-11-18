@@ -223,15 +223,22 @@ function useOrchFetch<T>(url: string | null, intervalMs?: number): FetchState<T>
     }
     let cancelled = false
     const run = async () => {
-      const r = await fetchApi<T>(url)
-      if (cancelled) return
-      if (r.success) {
-        setData(r.data)
-        setError(null)
-      } else {
-        setError(r.error)
+      try {
+        const r = await fetchApi<T>(url)
+        if (cancelled) return
+        if (r.success) {
+          setData(r.data)
+          setError(null)
+        } else {
+          setError(r.error)
+        }
+      } catch (e) {
+        // Y-89: async 回调 reject 无处 go ⇒ unhandled rejection + loading 永 true。
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : '加载失败')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
     void run()
     if (intervalMs && intervalMs > 0) {
