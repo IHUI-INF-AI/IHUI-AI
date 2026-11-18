@@ -5474,6 +5474,20 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
+- 🐞 修复:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e)
+- 📚 文档:align the trackedFiles block to the HEAD-face count the gate computes (6c7ee189ba)
+- 🔧 工程/其他:19 个 Windows 计划任务迁到登录常驻调度器(禁计划任务铁律) (1a48425576)
+- 📚 文档:Y-37/RP-2/Y-58/Y-72 追加 2026-11-18 SSH 生产机只读实测注记 (76ef533a4e)
+- 🔧 工程/其他:acknowledge the protected-face content that merge 31fb90364f6 brought in (c3cbe992f3)
+- 🚀 新功能/改进:桌面端「窗口置顶」开关的图钉文案(五语言) (5c8c7eb1eb)
+- 📚 文档:align generated block to the HEAD face so the doc-numbers gate agrees (3b04349417)
+- 📚 文档:refresh generated blocks after R127 (74aa180317)
+- 🐞 修复:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc)
+- 🐞 修复:R127 type the entry list so mypy strict passes (b749a4a768)
+- 🚀 新功能/改进:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e3)
+
+**2026-11-18**
 - 🔧 工程/其他:标注反代号池·模型目录自动同步功能(补可追溯历史) (94076b9284b)
 - 🚀 新功能/改进:R124 the template-following plan gate, 89.3% -> 89.9% (946ceb4abe1)
 - 📚 文档:同步生成块数字(测试文件/跟踪文件) (b08c158634c)
