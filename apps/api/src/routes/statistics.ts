@@ -270,10 +270,10 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { startDate, endDate, limit } = parsed.data
-      // 默认最近 7 天
-      const end = endDate ?? new Date().toISOString().slice(0, 10)
-      const start =
-        startDate ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      // 默认最近 7 天。Y-86: 日键必须与写入侧 bizDayKey()(Asia/Shanghai)同口径 ——
+      // 旧用 toISOString().slice(0,10)(UTC)会在北京 00–08 点把"今天"查成昨天,漏掉最新一天热度。
+      const end = endDate ?? bizDayKey()
+      const start = startDate ?? shiftBizDayKey(end, -7)
 
       // 按小时聚合 Agent 使用次数（从 agent_heat_stats 表）
       const heatRows = await db

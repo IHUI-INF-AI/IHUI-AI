@@ -39,8 +39,40 @@ const FETCH_TIMEOUT_MS = 15_000;
  *   const list = await client.list({ sort: 'hot' });
  *   const sync = await client.sync('mcp', 'github', true);
  */
+/**
+ * Y-95: 校验 registry API 基址。Bearer token 只允许走 https,或本机回环 http(本地开发默认
+ * http://localhost:8802,只在环回面传输,无明文 sniff 面)。非回环 http 会让 Bearer 明文过网,
+ * 故 fail-closed 拒绝;无空白(与 updater.ts 的下载 URL 闸同款)防 URL 注入/截断。
+ */
+function assertRegistryApiUrl(apiUrl: string): void {
+  if (typeof apiUrl !== 'string' || /\s/.test(apiUrl)) {
+    throw new Error('Registry API 地址必须是无空白的字符串');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(apiUrl);
+  } catch {
+    throw new Error(`Registry API 地址不是合法 URL: ${apiUrl}`);
+  }
+  if (parsed.protocol === 'https:') return;
+  if (parsed.protocol === 'http:') {
+    // WHATWG URL 对 IPv6 的 hostname 带方括号('[::1]'),去掉后再判回环。
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (host === 'localhost' || host === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) {
+      return;
+    }
+    throw new Error(`Registry API 地址必须用 https(非回环 http 会明文传输 Bearer): ${apiUrl}`);
+  }
+  throw new Error(`Registry API 地址协议不支持(仅 https 或回环 http): ${parsed.protocol}`);
+}
+
 export class RegistryClient {
-  constructor(private apiUrl: string, private token?: string) {}
+  constructor(
+    private apiUrl: string,
+    private token?: string,
+  ) {
+    assertRegistryApiUrl(apiUrl);
+  }
 
   /** 拉取资源列表(GET /api/registry/items) */
   async list(query: RegistryItemListQuery): Promise<RegistryItemListResponse | null> {
