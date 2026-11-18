@@ -12340,7 +12340,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 648G. **缺陷普查 API F-649** [P2] 修复任务状态用“进程内文件快照 + 跨实例互斥锁”，多实例互相覆盖/重复修复（证据 docs/tickets/2026-11/findings-api.md#F-649）
 - [ ] 651G. **缺陷普查 API F-652** [P2] 算法备案同步无 fetch 超时、无 in-flight 守卫，定时器可叠加多轮（证据 docs/tickets/2026-11/findings-api.md#F-652）
 - [ ] 661G. **缺陷普查 API F-662** [P3] 定价建议用 metadata.multiplier 反推成本，BYOK 行 multiplier 恒 1 且真实上游成本键被忽略（证据 docs/tickets/2026-11/findings-api.md#F-662）
-- [ ] 666G. **缺陷普查 API F-667** [P2] token 计数列 sum(...)::int 溢出：>2,147,483,647 tokens 即 22003 → 500（F-574 只覆盖金额列）（证据 docs/tickets/2026-11/findings-api.md#F-667）
 - [ ] 677G. **缺陷普查 API F-678** [P2] 两条腿都吞掉上游状态码：lastHttpStatus 无消费者，4xx/429 一律变 503（证据 docs/tickets/2026-11/findings-api.md#F-678）
 - [ ] 680G. **缺陷普查 API F-681** [P2] 错题入库从不初始化 SRS 到期日，“今日待复习”对全部用户恒为空（证据 docs/tickets/2026-11/findings-api.md#F-681）
 - [ ] 712G. **缺陷普查 API F-713** [P3] calendar-boundary.toDate 把无时区时间串按本地时区解析，日/周/月边界整体错一天（证据 docs/tickets/2026-11/findings-api.md#F-713）
