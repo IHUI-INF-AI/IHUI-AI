@@ -61,6 +61,8 @@ const READY_TIMEOUT_MS = Number(process.env.IHUI_API_LIVENESS_READY_MS ?? 90_000
 
 const APPLY = process.argv.includes('--apply')
 const SELF_TEST = process.argv.includes('--self-test')
+/** 只抓一次现场快照(不判活、不重启):用于人工核对取证逻辑与平时基线 */
+const DIAG_ONLY = process.argv.includes('--diag-only')
 
 function nowIso() {
   return new Date().toISOString()
@@ -177,7 +179,112 @@ function restartCount24h(restarts) {
   return restarts.filter((stamp) => Date.parse(stamp) >= since).length
 }
 
-/** 重启并等就绪;返回 { ok, why } */
+/**
+ * 退化时的现场取证(2026-11-18 立)。
+ *
+ * 为什么必须抓:api 跑满约 3 小时后整体变慢,而 `slow-sql-killer` 只对 >1s 的单条 SQL 告警 ——
+ * 若退化现场**没有**慢 SQL 告警,就说明病根不在 SQL 层(更可能是事件循环阻塞 / 连接泄漏 /
+ * 内存增长导致的 GC 抖动)。这两类只能靠"退化那一刻"的快照区分,事后全无痕迹。
+ *
+ * 抓取项(全部只读,失败逐项降级不阻断重启):
+ *   proc  —— api 进程 CPU / 常驻内存 / 句柄数 / 线程数(判"进程在忙"还是"进程闲但接口卡")
+ *   conn  —— api 进程到 5432 的已建立连接数(判连接泄漏;池 max 是 40)
+ *   pg    —— pg_stat_activity 九项聚合 + 最长的 5 条查询(判"池被长查询占满"还是"PG 自己慢")
+ *
+ * 取不到任一项就写 `null` 并标 `undetermined` —— 不许用 0 冒充"没发生"(§0.3)。
+ */
+function captureDiagnostics(pid) {
+  const snap = { at: nowIso(), pid, proc: null, conn: null, pg: null }
+
+  try {
+    const out = execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `$p=Get-Process -Id ${pid} -ErrorAction SilentlyContinue; ` +
+          `if($p){ "$($p.CPU)|$($p.WorkingSet64)|$($p.HandleCount)|$($p.Threads.Count)" }`,
+      ],
+      { encoding: 'utf8', windowsHide: true, timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+    const parts = String(out ?? '').trim().split('|')
+    if (parts.length === 4) {
+      snap.proc = {
+        cpuSec: Number(parts[0]) || 0,
+        wsMb: Math.round((Number(parts[1]) || 0) / (1024 * 1024)),
+        handles: Number(parts[2]) || 0,
+        threads: Number(parts[3]) || 0,
+      }
+    }
+  } catch {
+    /* 进程已退出或取不到 —— 留 null */
+  }
+
+  try {
+    const out = execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `(Get-NetTCPConnection -OwningProcess ${pid} -State Established -ErrorAction SilentlyContinue).Count`,
+      ],
+      { encoding: 'utf8', windowsHide: true, timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+    const n = Number(String(out ?? '').trim())
+    snap.conn = Number.isFinite(n) ? n : null
+  } catch {
+    snap.conn = null
+  }
+
+  // PG 快照:同步子进程跑一段内联脚本,复用 apps/api 的 postgres 包(本仓不装 psql)
+  try {
+    const probe = `
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+const req = createRequire(${JSON.stringify(join(WORKTREE, 'apps', 'api', 'package.json'))});
+const postgres = req('postgres');
+let url = null;
+try {
+  for (const line of fs.readFileSync(${JSON.stringify(join(WORKTREE, 'apps', 'api', '.env'))}, 'utf8').split(/\\r?\\n/)) {
+    const m = line.match(/^(DATABASE_URL|POSTGRES_URL)=(.*)$/);
+    if (m) { url = m[2].replace(/^["']|["']$/g, ''); break; }
+  }
+} catch {}
+if (!url) { console.log('NO_URL'); process.exit(0); }
+const sql = postgres(url, { max: 1, connect_timeout: 5, statement_timeout: 5000, prepare: false });
+try {
+  const [agg] = await sql\`select count(*)::int as total,
+    count(*) filter (where state='active')::int as active,
+    count(*) filter (where state='idle')::int as idle,
+    count(*) filter (where state='idle in transaction')::int as idleInTx,
+    count(*) filter (where wait_event_type is not null and state='active')::int as waiting
+    from pg_stat_activity where datname = current_database()\`;
+  const worst = await sql\`select left(coalesce(query,''),60) as q,
+    round(extract(epoch from (now()-query_start)))::int as sec
+    from pg_stat_activity where datname=current_database() and state='active'
+    order by sec desc nulls last limit 5\`;
+  console.log(JSON.stringify({ agg, worst }));
+} catch (e) { console.log('ERR ' + String(e.message).slice(0,120)); }
+await sql.end();
+`
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e', probe], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const text = String(out ?? '').trim()
+    if (text.startsWith('{')) snap.pg = JSON.parse(text)
+    else if (text) snap.pg = { undetermined: text.slice(0, 80) }
+  } catch (e) {
+    snap.pg = { undetermined: String(e?.message ?? e).slice(0, 80) }
+  }
+
+  appendLedger({ kind: 'diagnostics', ...snap })
+  return snap
+}
 async function restartApi(pid) {
   try {
     execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Stop-Process -Id ${pid} -Force`], {
@@ -241,6 +348,16 @@ function selfTest() {
 async function main() {
   if (SELF_TEST) {
     process.exitCode = selfTest()
+    return
+  }
+  if (DIAG_ONLY) {
+    const pid = listenerPid()
+    if (!pid) {
+      log('DIAG state=undetermined why=not-listening')
+      process.exitCode = 2
+      return
+    }
+    log(`DIAG ${JSON.stringify(captureDiagnostics(pid))}`)
     return
   }
   const state = readState()
@@ -324,6 +441,13 @@ async function main() {
     appendLedger({ kind: 'restart-refused', at: nowIso(), why: self.why, pid })
     return
   }
+
+  // 退化现场取证:必须在杀进程之前抓 —— 重启后现场就没了(2026-11-18 实测过一次退化被重启冲掉)。
+  const diag = captureDiagnostics(pid)
+  log(
+    `  取证:proc=${diag.proc ? `cpu ${diag.proc.cpuSec}s / ws ${diag.proc.wsMb}MB / handles ${diag.proc.handles} / threads ${diag.proc.threads}` : 'undetermined'} ` +
+      `conn=${diag.conn ?? 'undetermined'} pg=${diag.pg?.agg ? `total ${diag.pg.agg.total} active ${diag.pg.agg.active} idle ${diag.pg.agg.idle} idleInTx ${diag.pg.agg.idleInTx}` : 'undetermined'}`,
+  )
 
   const result = await restartApi(pid)
   const stamp = nowIso()
