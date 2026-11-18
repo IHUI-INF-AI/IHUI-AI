@@ -25,6 +25,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { formatPrice } from '@ihui/shared/utils'
 
 const BASE = '/api/admin/ai-pricing'
 
@@ -148,9 +149,13 @@ const tierLabel: Record<string, string> = {
   manual: '人工设定',
 }
 
-/** 分 → 元展示(利润看板统一口径:后端全部按分返回)。 */
+/**
+ * 分 → 元展示(利润看板统一口径:后端全部按分返回)。
+ * 2026-11-19:分元换算走唯一出口 `formatPrice`(守门 248);本函数只负责补币种符号,
+ * 不再自己 `cents / 100`。
+ */
 function fmtYuan(cents: number): string {
-  return `¥${(cents / 100).toFixed(2)}`
+  return `¥${formatPrice(cents)}`
 }
 
 /** 0~1 → 百分比。 */

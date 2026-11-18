@@ -12232,7 +12232,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 | F 测试 | `apps/web/src/lib/__tests__/plugin-view-runtime.test.ts` | 115 | vitest **13 passed**（实测 node node_modules/vitest/vitest.mjs run，环境 v4.1.10） |
 #### B. 复用判定（不重造，单一真相源）
 - **A 终端执行**：`exec_policy.py` 命令级策略已有，本轮不重造。
-- **B 快照回滚**：⑦–⑦第四波会话腿已闭环（128→179 全绿），本轮不碰。
+- **B 快照回滚**：⑦–⑦第四波会话腿的 128→179 用例已全绿（属既有实现，本轮不碰）。
 - **C 权限引擎**：`capability_gate.py`（1103 行，Principal/verify_principal_header）为第二层真相源，permission_entry 只做第一层收口不越权下结论。
 - **D 搜索预算**：`tool_surface_budget.py`（select_tool_surface/BudgetTable）已有 schema 字节分层，符号图产候选交它排预算。
 - **E 跨平台桥**：desktop 实测为 **Tauri**（src-tauri，非 Electron）⇒ Trae/Qoder 的 Electron fuse/asar 硬化**不适用**，不硬套；跨平台由共享层 adapter 注入承担（§3）。
@@ -12241,7 +12241,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - 本轮 6 新增件**未 git add / 未 commit**（工作区新增未跟踪文件）；落地枚待提交后补 sha。
 - code_symbol_graph 为正则近似（approximate=True），非编译器级；宏/重载/动态属性会漏，已在返回标注。
 - permission_entry 测试 harness 首版漏 import 区导致 logger NameError，是 harness 问题非源文件缺陷（源文件 `import logging`+`logger=` 齐全，已核 read_file 行 43/52）。
-- H 类签名密钥来源（env/注入）未实现具体读取，只定义 sign/verify 纯函数契约；密钥不进代码不进日志。
+- H 类签名密钥来源（env/注入）未实现具体读取，只定义 sign/verify 纯函数契约；密钥不进代码不进日志。**本节剩余后续工作 1 项：密钥来源接线。**
 - E 类 Electron fuse 硬化判据因 desktop=Tauri 整类不适用，如未来加 Electron 端需重评。
 - commit 未做：仅工作区落地，未走提交链（§16 对象空间/合成版规则待按提交时在飞面择用）。
 ### ⑫ Cursor 桌面端逆向-复现-超越（2026-11-15；对照 = Cursor 3.27.22，本机 `C:\Users\Administrator\AppData\Local\Programs\cursor`）

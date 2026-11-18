@@ -305,6 +305,10 @@ export const OUT_OF_SCOPE = [
     re: /^\.ihui\/skills\//,
     why: '技能自带产物(REA 兼容分析讲解件与其 vendored 打包 chunk):rx/ry 出自第三方压缩产物内部实现,不是本仓 UI 的圆角取用,方档化等于改渲染库;登记于 2026-10-31,因判据 C 把这类 vendored 目录判成"新增端静默绕开本门"',
   },
+  {
+    re: /^craft-rebuild\//,
+    why: '逆向研究用的独立重建沙箱(clean-room 复刻对照产品的 UI,不是本仓 8 端应用界面:不参与 pnpm workspace 构建、不进发布产物、无跨端视觉一致性要求)。2026-11-19 判据 C 报出 3 个文件未归类,按"贴本仓架构"口径声明为范围外;若该沙箱将来并入端内,本条须随批摘除',
+  },
 ]
 
 const RADIUS_TOKEN_RE =

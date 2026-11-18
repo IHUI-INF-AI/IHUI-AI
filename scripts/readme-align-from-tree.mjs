@@ -108,6 +108,7 @@ try {
   execFileSync(process.execPath, [join(ROOT, 'scripts', 'sync-readme-numbers.mjs')], {
     cwd: ROOT,
     encoding: 'utf8',
+    windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, GIT_INDEX_FILE: idxPath, IHUI_REPO_ROOT: ROOT },
   })

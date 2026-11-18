@@ -285,7 +285,16 @@
     "toolMcpToolGetFileActivity": "{state, select, running {正在取得檔案} completed {已取得檔案} other {取得檔案}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {正在取得檔案「{name}」} completed {已取得檔案「{name}」} other {取得檔案「{name}」}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {正在檢索文件} completed {已檢索文件} other {檢索文件}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {正在檢索文件「{name}」} completed {已檢索文件「{name}」} other {檢索文件「{name}」}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {正在檢索文件「{name}」} completed {已檢索文件「{name}」} other {檢索文件「{name}」}}",
+    "toolAiBookkeeping": "智能記帳",
+    "toolAiPayrollHandoff": "薪資交接",
+    "toolAiTaxFiling": "稅務申報",
+    "toolReadImage": "讀取圖片",
+    "toolSessionSearch": "檢索歷史會話",
+    "toolSheetFormulaEval": "表格公式試算",
+    "toolSheetFormulaValidate": "表格公式校驗",
+    "toolSubagentJob": "子代理作業",
+    "toolTerminal": "終端命令"
   },
   "a11y": {
     "addAttachment": "新增附件(圖片/影片/檔案)",

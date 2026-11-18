@@ -2171,7 +2171,9 @@
     "videoTitle": "학습 영상",
     "videoDesc": "최신 강의 영상",
     "centerTitle": "학습 센터",
-    "centerDesc": "체계적 학습 경로"
+    "centerDesc": "체계적 학습 경로",
+    "pathTitle": "학습 경로",
+    "recommend": "추천 콘텐츠"
   },
   "liveChat": {
     "title": "라이브 채팅",

@@ -54,7 +54,7 @@ function note(obj) {
 /** 只读 git,失败返回 null(不抛) */
 function git(args, { root = ROOT } = {}) {
   try {
-    return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    return execFileSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim()
   } catch {
     return null
   }
@@ -67,7 +67,7 @@ export function isAncestor(oldSha, newSha, { root = ROOT } = {}) {
   if (r === null) {
     // execFileSync 非 0 会抛 ⇒ 用 --is-ancestor 的退出码区分:这里改用 execFileSync 捕获退出码
     try {
-      execFileSync('git', ['merge-base', '--is-ancestor', oldSha, newSha], { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] })
+      execFileSync('git', ['merge-base', '--is-ancestor', oldSha, newSha], { cwd: root, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] })
       return 0
     } catch (e) {
       const code = typeof e?.status === 'number' ? e.status : null
@@ -125,7 +125,7 @@ export function tryRestore({ curHead, droppedShas, root = ROOT, attest = true })
   if (droppedShas.length > 5) return { ok: false, why: `丢失 ${droppedShas.length} 枚 > 5,交人工(不自动合并)` }
   const run = (args, { throwOn = true } = {}) => {
     try {
-      const out = execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+      const out = execFileSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trim()
       return { ok: true, out }
     } catch (e) {
       if (throwOn) return { ok: false, out: String(e?.stdout || '').trim(), code: e?.status }
