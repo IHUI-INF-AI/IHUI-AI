@@ -231,4 +231,37 @@ def test_the_one_strict_object_is_the_provider_write_path() -> None:
     assert fc.required_is_subset_of_fields(
         fc.STRICT_OBJECT, fc.STRICT_OBJECT_FIELDS, fc.STRICT_OBJECT_REQUIRED
     )
+
+
+def test_reference_surface() -> None:
+    assert fc.REF_DIRECT_COUNT == 92
+    assert fc.NO_TYPE_BY_COMPOSER["$ref"] == fc.REF_DIRECT_COUNT
+    assert fc.REF_DIRECT_DISTINCT_TARGETS == 61
+    assert fc.REF_IN_ANYOF == 71
+    assert fc.REF_IN_ALLOF == 26
+    assert fc.REF_RECURSIVE_TOTAL == 4586
+    assert sum(count for _, count in fc.TOP_REF_TARGETS) <= fc.REF_DIRECT_COUNT
+    assert ("AbsolutePathBuf", 7) in fc.TOP_REF_TARGETS
+    assert ("Thread", 7) in fc.TOP_REF_TARGETS
+
+
+def test_prose_surface() -> None:
+    assert fc.DESCRIPTION_COUNT == fc.DESCRIBED_FIELD_COUNT == 312
+    assert fc.DESCRIPTION_OPTIONAL_PREFIX == 59
+    assert fc.DESCRIPTION_WITH_CONDITIONAL == 82
+    assert fc.DESCRIPTION_MEDIAN_LENGTH == 72
+    assert fc.DESCRIPTION_MAX_LENGTH == 726
+    assert fc.DESCRIPTION_WITH_CONDITIONAL > fc.DESCRIPTION_OPTIONAL_PREFIX
+
+
+def test_contract_catches_ref_total_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fc, "REF_DIRECT_COUNT", 93)
+    problems = fc.validate_contract()
+    assert any("already counted as untyped" in p for p in problems)
+
+
+def test_contract_catches_prose_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fc, "DESCRIPTION_COUNT", 311)
+    problems = fc.validate_contract()
+    assert any("prose surface" in p for p in problems)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
