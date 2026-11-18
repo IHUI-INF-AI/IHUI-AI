@@ -49,13 +49,18 @@ export function useSuperAgentPanel() {
   const [busy, setBusy] = React.useState(false)
 
   const refresh = React.useCallback(async () => {
-    const res = await fetchApi<SuperAgentPanelView>(PANEL_PATH)
-    if (res.success && res.data) {
-      setPanel(res.data)
-      setError(null)
-    } else {
-      // @ts-expect-error -- G 面纯增量:ApiResult 失败分支无 message;对象空间落地补丁改读 res.error
-      setError(res.message ?? 'failed')
+    try {
+      const res = await fetchApi<SuperAgentPanelView>(PANEL_PATH)
+      if (res.success && res.data) {
+        setPanel(res.data)
+        setError(null)
+      } else {
+        // @ts-expect-error -- G 面纯增量:ApiResult 失败分支无 message;对象空间落地补丁改读 res.error
+        setError(res.message ?? 'failed')
+      }
+    } catch (e) {
+      // Y-93: void refresh()/setInterval 两处均无 catch,reject 即 unhandled;落 error 供 UI 展示。
+      setError(e instanceof Error ? e.message : '加载失败')
     }
   }, [])
 

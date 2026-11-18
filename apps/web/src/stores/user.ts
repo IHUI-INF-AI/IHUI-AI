@@ -72,13 +72,21 @@ setExtended({
   },
   fetchProfile: async () => {
     createdStore.setState({ loading: true, error: null })
-    const res = await getProfile()
-    if (!res.success) {
-      createdStore.setState({ loading: false, error: res.error })
-      return
+    try {
+      const res = await getProfile()
+      if (!res.success) {
+        createdStore.setState({ loading: false, error: res.error })
+        return
+      }
+      // 后端 /api/auth/me 已补全 gender/birthday/createdAt 等字段,AuthUser 与 UserProfile 形状一致
+      createdStore.setState({ profile: res.data as UserProfile, loading: false })
+    } catch (e) {
+      // Y-90: 网络层 reject 时复位 loading(否则永 true 卡死 UI),并落 error 供 UI 展示。
+      createdStore.setState({
+        loading: false,
+        error: e instanceof Error ? e.message : '加载用户信息失败',
+      })
     }
-    // 后端 /api/auth/me 已补全 gender/birthday/createdAt 等字段,AuthUser 与 UserProfile 形状一致
-    createdStore.setState({ profile: res.data as UserProfile, loading: false })
   },
 })
 
