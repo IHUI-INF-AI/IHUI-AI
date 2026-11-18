@@ -3030,7 +3030,8 @@
     "failed5": "해지 실패, 고객 서비스에 문의해 주세요",
     "text6": "등급 소개 페이지 미구성",
     "menu": {
-      "subscriptions": "내 구독"
+      "subscriptions": "내 구독",
+      "about": "회사 소개"
     },
     "security": {
       "code": "인증 코드",
