@@ -183,7 +183,6 @@ export function PlanStepsCard({
               testId={`${rootTestId}-failed-jump`}
               onClick={jumpToFirstFailed}
               ariaLabel={t('plan.failedJumpAria', { count: errorCount })}
-              title={t('plan.failedJumpTitle')}
             >
               {t('plan.summaryErrorCount', { count: errorCount })}
             </StreamTag>
