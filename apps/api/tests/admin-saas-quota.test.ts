@@ -135,6 +135,24 @@ describe('admin-saas-quota 路由', () => {
     expect(mockSelect).toHaveBeenCalledTimes(5)
   })
 
+  it('F-667: aiTokens 合计超 int4 时(::bigint 以字符串返回)仍收口成 number 而非字符串', async () => {
+    // 去掉末端 ::int 消除 22003 溢出后,postgres.js 把 ::bigint 聚合返回为字符串。
+    // 本用例喂一个 > 2^31 的字符串,钉住路由层 Number() 收口,防止回归成响应里出现字符串。
+    const bigTotal = '3000000000'
+    queueSelects(
+      [{ id: 't1', slug: 'big', plan: 'pro' }],
+      [{ apiCallsLimit: 2_000_000, storageLimitMb: 60_000, limits: {} }],
+      [{ used: bigTotal }], // ai_cost_records: ::bigint → postgres.js 返回字符串
+      [{ used: 42 }],
+      [{ usedBytes: 0 }],
+    )
+    const res = await server.inject({ method: 'GET', url: `${API_PREFIX}/customers/big/quota` })
+    expect(res.statusCode).toBe(200)
+    const used = res.json().data.aiTokens.used
+    expect(used).toBe(3_000_000_000)
+    expect(typeof used).toBe('number')
+  })
+
   it('storage 字节→MB 向下取整', async () => {
     queueSelects(
       [{ id: 't1', slug: 'floor', plan: 'pro' }],

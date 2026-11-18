@@ -91,7 +91,7 @@ const MACHINE_OS_DEFAULT = 'x86_64_windows'
  * 2026-10-23 修:cosy 落库键以蛇形为正(对齐 checkin_qoder device_map["cosy"] 契约,
  * 键位错配曾让 Cosy-MachineToken/Code/Type 头整族缺失 → refresh 被上游拒),
  * 读取面同时兼容历史行里的驼峰键。 */
-const COSY_HEADERS: ReadonlyArray<readonly [string, string]> = [
+export const COSY_HEADERS: ReadonlyArray<readonly [string, string]> = [
   ['machine_token', 'Cosy-MachineToken'],
   ['machine_code', 'Cosy-MachineCode'],
   ['machine_type', 'Cosy-MachineType'],

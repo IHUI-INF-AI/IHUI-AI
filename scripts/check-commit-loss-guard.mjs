@@ -373,11 +373,20 @@ const PATH_COVERAGE_TIMEOUT_MS = 180_000
  */
 const COVERAGE_FACE_VERSION = 7
 /**
- * 3b 维批量取材的 stdout 上限(2026-11-05)。
+ * 3b 维批量取材的 stdout 上限(2026-11-05 立,2026-11-18 抬到 640MB)。
  * 本仓实测一次全历史 `git log --all --raw -z` 约 140MB(972,397 条记录),默认 64MB 会 ENOBUFS。
- * 取 256MB:够装下本仓读数,又给对象数增长留一档余量;超限时如实报「未判定」,不静默放行。
+ *
+ * 2026-11-18 抬档的立因(实测,不是估):`diff-tree` 分批(见 CAND_BATCH=200)那一路,
+ * 200 枚悬空提交的 raw 实测 **386MB > 256MB** ⇒ **每一批都 ENOBUFS 失败** ⇒ 1742 行的
+ * `failedBatches > 0` 分支把整批退回**逐枚 `diff-tree`**(每枚一次 spawn + 一次
+ * `lossSurfaceRaw('ref')` 全量走查)⇒ 提交链上这道门从「单跑 3s」变成「批内 126s」。
+ * 这不是"仓库太大所以慢",是一次**上限挡在读数下面**造成的假瓶颈:批处理本身是对的,
+ * 只是上限卡在 386MB 这条读数之下,于是性能特性从"批量"退化成"逐枚"。
+ * 抬到 640MB:覆盖 386MB 并留 ~65% 余量(对象仍在长),同时仍在 Node Buffer 安全区。
+ * 失效方向不变:真超限时照样 `failedBatches` 如实报数并退回逐枚(177 行的注释口径不改),
+ * 也就是"抬档只让原本能跑成的批跑成",绝不改变判据,也不把超限伪装成通过。
  */
-const BULK_RAW_MAX_BUFFER = 256 * 1024 * 1024
+const BULK_RAW_MAX_BUFFER = 640 * 1024 * 1024
 /**
  * `git diff-tree --raw -z` / `git log --raw -z` 的单条记录头:
  * `:<oldmode> <newmode> <oldsha> <newsha> <status>`,其后紧跟 NUL + 路径 + NUL。

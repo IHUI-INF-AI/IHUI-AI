@@ -80,9 +80,11 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
 
       // AI token 用量:按 tenant_id 聚合 ai_cost_records.total_tokens(真实表)
+      // F-667: 末端 ::int 在合计 > 2^31 时抛 22003(int4 溢出)令接口 500;只 ::bigint,
+      // postgres.js 以字符串返回,下方 aiTokens.used 处 Number() 收口成 number。
       const [tokenAgg] = await dbRead
         .select({
-          used: sql<number>`coalesce(sum(${aiCostRecords.totalTokens}), 0)::bigint::int`,
+          used: sql<number>`coalesce(sum(${aiCostRecords.totalTokens}), 0)::bigint`,
         })
         .from(aiCostRecords)
         .where(eq(aiCostRecords.tenantId, tenant.id))
@@ -119,7 +121,8 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
           slug: tenant.slug,
           apiCalls: { used: apiCallsUsed, limit: apiCallsLimit, window: 'month', resetAt },
           aiTokens: {
-            used: tokenAgg?.used ?? 0,
+            // F-667: ::bigint 由 postgres.js 以字符串返回,Number() 收口(与 storage 同口径)。
+            used: Number(tokenAgg?.used ?? 0),
             limit: aiTokensLimit,
             window: 'month',
             resetAt,

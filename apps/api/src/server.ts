@@ -30,6 +30,12 @@ import { systemUpdateCheckRoutes } from './routes/admin/update-check.js'
 import { relayModelAvailabilityRoutes } from './routes/admin/relay-model-availability.js'
 import { relayDsmlParseRoutes } from './routes/admin/relay-dsml-parse.js'
 import { relayCheckinStreakRoutes } from './routes/admin/relay-checkin-streak.js'
+import { relayDeviceIdentityRoutes } from './routes/admin/relay-device-identity.js'
+import { relayClientConfigRoutes } from './routes/admin/relay-client-config.js'
+import { relayWelfareClaimRoutes } from './routes/admin/relay-welfare-claim.js'
+import { relayAccessKitRoutes } from './routes/admin/relay-access-kit.js'
+import { relayCosyCapabilityRoutes } from './routes/admin/relay-cosy-capability.js'
+import { relaySigningAdminRoutes } from './routes/admin/relay-signing-admin.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -479,6 +485,33 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 签到连续天数(2026-11-17 立,对标 qoder2api-hub 的 streak 面板字段):
   // 历史按天落 ai_relay_checkin_history(一天一条、幂等),判据纯算;无历史时报 available:false。
   server.register(relayCheckinStreakRoutes, { prefix: '/api' })
+
+  // 稳定设备身份派生(2026-11-18 立):为一枚账号派生恒定的 machineid/machinetoken/sessionid。
+  // 双通道:上游自带 machine_id 优先用上游的;盐(RELAY_DEVICE_SALT)缺失时一律拒绝派生,
+  // 不退化成可穷举的弱标识 —— 与 qoder2api 系网关的 derive_id 同一目的(账号间身份隔离),不冒充真机。
+  server.register(relayDeviceIdentityRoutes, { prefix: '/api' })
+
+  // 客户端接入配置拼装(2026-11-18 立,对标 qoder2api-hub 的「客户端配置生成器」):
+  // 七档客户端 × 协议格式,纯函数拼装、单一真相源(web/CLI/客服话术共用);
+  // baseUrl 由调用方传入,模块绝不内置域名(猜错一次就是 404 工单)。
+  server.register(relayClientConfigRoutes, { prefix: '/api' })
+
+  // 权益活动领取判据预览(2026-11-18 立,对标 qoder2api-hub 的「签到 + Pro 福利真实领取」):
+  // 端点未实证 ⇒ 整批 refuse(一枚都不拨);开闸只能由机主设 RELAY_WELFARE_ENDPOINT_VERIFIED=1,
+  // 请求方不可传该布尔(否则闸可被任何人拨开)。
+  server.register(relayWelfareClaimRoutes, { prefix: '/api' })
+
+  // 接入套件(2026-11-18 立,对标 qoder2api-hub 的 LAN 模式「随机 Key + 持久化 + 带 Key 直达链接」):
+  // 一次调用完成建 Key + 接入四行 + 面板链接 + 可选客户端配置;直达链接默认不带 Key(比对照更安全)。
+  server.register(relayAccessKitRoutes, { prefix: '/api' })
+
+  // Cosy 能力自述(2026-11-18 立):把「设备头族有哪些 / 请求签名可不可复现 / 走哪条通路」
+  // 变成可对账的数据。不实现也不伪造签名算法,只如实陈述边界。
+  server.register(relayCosyCapabilityRoutes, { prefix: '/api' })
+
+  // 签名协议与 PAT 引导(2026-11-18 立):只开放公开标准签名协议(HMAC/SigV4/OAuth1a/JWT),
+  // 并把「PAT 去哪拿、票形对不对、验没验过」固化成可查询的计划与判据。
+  server.register(relaySigningAdminRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })

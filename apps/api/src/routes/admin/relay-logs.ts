@@ -457,9 +457,11 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
         .select({
           groupKey: groupCol.as('group_key'),
           callCount: sql<number>`count(*)::int`,
-          totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-          promptTokens: sql<number>`coalesce(sum(${llmCallLogs.promptTokens}), 0)::bigint::int`,
-          completionTokens: sql<number>`coalesce(sum(${llmCallLogs.completionTokens}), 0)::bigint::int`,
+          // F-667: 末端 ::int 会在窗口内 token 合计 > 2^31 时抛 22003(int4 溢出)令整接口 500。
+          // 与金额列 sumRelayCostCentsSql() 同口径:只 ::bigint,postgres.js 以字符串返回,下游 Number() 收口。
+          totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
+          promptTokens: sql<number>`coalesce(sum(${llmCallLogs.promptTokens}), 0)::bigint`,
+          completionTokens: sql<number>`coalesce(sum(${llmCallLogs.completionTokens}), 0)::bigint`,
           successCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'success')::int`,
           errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
           avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
@@ -475,7 +477,14 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
         success({
           groupBy,
           // ::bigint 由 postgres.js 以字符串返回,统一收口成 number,避免汇总串成字符串。
-          rows: rows.map((r) => ({ ...r, totalCostCents: Number(r.totalCostCents) })),
+          // F-667: token 三列同口径收口(去掉末端 ::int 后必须在此 Number(),否则响应变字符串)。
+          rows: rows.map((r) => ({
+            ...r,
+            totalTokens: Number(r.totalTokens),
+            promptTokens: Number(r.promptTokens),
+            completionTokens: Number(r.completionTokens),
+            totalCostCents: Number(r.totalCostCents),
+          })),
         }),
       )
     } catch (e) {
