@@ -62,11 +62,11 @@ def test_presentations_are_fully_behaviour_tested() -> None:
     assert d.remaining == 0
 
 
-def test_documents_contract_but_not_behaviour() -> None:
+def test_documents_contract_complete_and_behaviour_partly_exercised() -> None:
     by_key = {x.key: x for x in DOMAINS}
     assert by_key["documents_tools_contract"].ratio == 1.0
-    assert by_key["documents_tools_behaviour"].covered == 1
-    assert by_key["documents_tools_behaviour"].remaining == 35
+    assert by_key["documents_tools_behaviour"].covered == 28
+    assert by_key["documents_tools_behaviour"].remaining == 8
 
 
 def test_node_scripts_untouched() -> None:

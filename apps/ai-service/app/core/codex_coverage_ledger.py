@@ -69,8 +69,12 @@ DOMAINS: Final = (
         "documents_tools_behaviour",
         "documents tools (behaviour exercised)",
         36,
-        1,
-        "R112: contracts captured for all 36; only content_controls really executed",
+        28,
+        "R118: 28 executed against make_fixtures output; 8 help-only "
+        "(add_tracked_replacements, apply_template_styles, comments_apply_patch, "
+        "docx_ooxml_patch, google_docs_title_sanitize, insert_note, render_and_diff, "
+        "xlsx_to_docx_table). Four calling conventions found, not one; a failed run still "
+        "writes a byte-identical copy; empty edits still write full documents",
     ),
     Domain(
         "documents_tools_contract",
