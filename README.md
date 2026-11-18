@@ -7742,3 +7742,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 数据库表 | 651 | `dbTables` |
 | API 路由 | 4832 | `apiRoutes` |
 | 跟踪文件 | 22952 | `trackedFiles` |
+**2026-11-18**
+- 🐞 修复:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+**2026-11-18**
+- 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)

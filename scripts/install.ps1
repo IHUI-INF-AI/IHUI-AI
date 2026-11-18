@@ -4,8 +4,8 @@
 
 #requires -Version 7
 # IHUI AI CLI — 一键安装脚本 (Windows PowerShell)
-# 用法: irm https://aizhs.top/install.ps1 | iex
-#   或: irm https://aizhs.top/install.ps1 | iex -Version 1.0.0
+# 用法: irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex
+#   或: irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex -Version 1.0.0
 # PowerShell 5.1+ 兼容
 # 提示: 部分杀软会对"下载即执行"形态误报,如被拦截请先下载到本地再运行(脚本无任何外联窃取行为)。
 
@@ -44,8 +44,8 @@ if ($args.Count -gt 0) {
                 Write-Host "IHUI AI CLI 安装脚本"
                 Write-Host ""
                 Write-Host "用法:"
-                Write-Host "  irm https://aizhs.top/install.ps1 | iex"
-                Write-Host "  irm https://aizhs.top/install.ps1 | iex -Version 1.0.0"
+                Write-Host "  irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex"
+                Write-Host "  irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex -Version 1.0.0"
                 Write-Host ""
                 Write-Host "环境变量:"
                 Write-Host "  IHUI_VERSION  指定版本 (默认: latest)"
@@ -88,12 +88,19 @@ function Resolve-Version {
     if ($INSTALL_VERSION -eq "latest") {
         Write-Log "解析最新版本..."
         try {
-            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$GITHUB_REPO/releases/latest" -UseBasicParsing
+            # 仓库的 latest 发布版不一定是 CLI(常态 latest 是 mobile-apk-latest,资产只有 APK),
+            # 所以按 tag 前缀筛 CLI 发布版;筛不到就走 npm,不猜也不造不存在的下载地址。
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=30" -UseBasicParsing
+            $release = $releases | Where-Object { $_.tag_name -like "cli-v*" } | Select-Object -First 1
+            if (-not $release) {
+              Write-Warn "仓库暂无 CLI 发布版(未找到 cli-v* tag),改用 npm 通道安装"
+              return $false
+            }
             $script:LATEST_TAG = $release.tag_name
             $script:VERSION_NUM = $script:LATEST_TAG -replace "^cli-v", ""
             Write-Log "最新版本: $($script:VERSION_NUM) (tag: $($script:LATEST_TAG))"
         } catch {
-            Write-Warn "无法获取最新版本号,降级到 npm 安装"
+            Write-Warn "无法获取版本列表,降级到 npm 安装"
             return $false
         }
     } else {
@@ -109,7 +116,7 @@ function Download-Binary {
     $assetName = "ihui-windows-$script:ARCH.zip"
 
     if ($INSTALL_VERSION -eq "latest") {
-        $downloadUrl = "https://github.com/$GITHUB_REPO/releases/latest/download/$assetName"
+        $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$script:LATEST_TAG/$assetName"
     } else {
         $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/cli-v$script:VERSION_NUM/$assetName"
     }

@@ -99,6 +99,15 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 🐞 Fix:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+
+**2026-11-18**
+- 📚 Docs:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 Fix:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 Feature/Improvement:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 Feature/Improvement:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
+
+**2026-11-18**
 - 🔧 Chore/Other:标注反代号池·模型目录自动同步功能(补可追溯历史) (94076b9284b)
 - 🚀 Feature/Improvement:R124 the template-following plan gate, 89.3% -> 89.9% (946ceb4abe1)
 - 📚 Docs:同步生成块数字(测试文件/跟踪文件) (b08c158634c)
@@ -592,19 +601,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da3)
 - 🐞 Fix:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3b)
 - 🐞 Fix:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
-
-**2026-11-14**
-- 🚀 Feature/Improvement:以 ai_pricing 权威价回填配置零价行 (476127d306)
-- 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
-- 🐞 Fix:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
-- 🚀 Feature/Improvement:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05)
-- 🚀 Feature/Improvement:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee)
-- 🐞 Fix:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
-- 🔧 Chore/Other:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
-- 🚀 Feature/Improvement:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
-
-**2026-11-14**
-- 🚀 Feature/Improvement:新增 3 个未跟踪文件 (da1823aa1d)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

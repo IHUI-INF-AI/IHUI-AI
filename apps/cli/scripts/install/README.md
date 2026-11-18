@@ -22,7 +22,7 @@ pnpm add -g ihui-cli
 ### 2a. macOS / Linux(bash curl)
 
 ```bash
-curl -fsSL https://aizhs.top/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.sh | bash
 ```
 
 脚本见 [`install.sh`](./install.sh)。
@@ -30,8 +30,11 @@ curl -fsSL https://aizhs.top/install.sh | bash
 ### 2b. Windows(PowerShell)
 
 ```powershell
-iwr -useb https://aizhs.top/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex
 ```
+
+> 说明:站点短链 `aizhs.top/install.ps1` / `aizhs.top/install.sh` 当前未服务(实测返回 404);
+> 上面的 raw 直链为实测可用入口,`npm install -g ihui-cli` 亦为可用通道。
 
 脚本见 [`install.ps1`](./install.ps1)。
 
