@@ -24,7 +24,7 @@ this module asserts only the parts that were literally observed.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Final
+from typing import Final, cast
 
 GATE_COUNT: Final = 6
 GATE_DIR: Final = "presentations/skills/presentations/container_tools"
@@ -162,7 +162,7 @@ def gate_of(name: str) -> Mapping[str, object]:
 
 def cli_count_of(name: str) -> int:
     """Return the observed ``add_argument`` count for a gate."""
-    return int(gate_of(name)["cli_count"])  # type: ignore[call-overload]
+    return int(cast("int | str", gate_of(name)["cli_count"]))
 
 
 def exits_of(name: str) -> tuple[str, ...]:
