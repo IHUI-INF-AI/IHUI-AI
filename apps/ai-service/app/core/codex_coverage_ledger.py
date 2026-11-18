@@ -106,21 +106,27 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        8,
+        9,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
         "failures rc=1) and its sharp block/unblock hardening recorded; runtime_helpers read "
-        "in full. R121: artifact_tool_utils read at 668 of 1,077 lines - all seven exports, "
+        "in full. R121: artifact_tool_utils exports and publication lock read at 668 of "
+        "1,077 lines - all seven exports, "
         "the nineteen value-flag regexes, the eight boolean flags, the four font bases, the "
         "SHA-bound typography reference, and the publication lock (no overwrite, no self-"
         "approval, hard-link publish, rollback that spares a user file); render_presentation "
         "read in full, which answers why decks render without LibreOffice - they go through "
-        "@oai/artifact-tool, a different leg from documents. Still unread: create-template-skill "
+        "@oai/artifact-tool, a different leg from documents. R122 closed the remaining 409 "
+        "lines: no validator verdict is trusted alone, every report is re-checked field by "
+        "field (schema version, counts, sorted owner order, 64-hex sha, four confessions that "
+        "must read false - source_attachments_accessed, source_required_chart_owners_inferred, "
+        "native_powerpoint_verified, source_text_emitted), and the portable-chart snapshot "
+        "must admit experimental=true with source_formulas_preserved=false. Still unread: "
+        "create-template-skill "
         "31 KB, validate_template_plan 19 KB, check_template_fidelity 18 KB, "
         "prepare_template_starter_deck 11 KB, export-google-workspace-file 10 KB, "
-        "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB, plus the "
-        "409 unread lines of artifact_tool_utils",
+        "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB",
     ),
     Domain(
         "ooxml_notes",
