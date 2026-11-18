@@ -83,14 +83,19 @@ export function digestEntries(entries, { allowJs = false } = {}) {
 
 /**
  * 环境指纹:tsc 还会读 node_modules 里的第三方 .d.ts 与各包 dist。
- * 依赖树/编译器版本变了就必须让回执失效 —— 用「node 版本 + typescript 版本 + node_modules 布局文件尺寸」近似。
+ * 编译器/依赖解析变了就必须让回执失效。
+ *
+ * 2026-11-18 改:`nm=<node_modules/.modules.yaml 字节数>` 这一维**去掉**了 —— 它把
+ * "本机安装状态文件被重写过"当成"依赖变了",实测在多 agent 并行下几乎每轮都变:
+ * 任何会话跑一次 `pnpm install` 都会重写 `.modules.yaml`(pnpm 自己也往里写时间戳),
+ * 于是所有会话的回执全部失效 ⇒ typecheck 每枚提交都要全量重跑(实测 126~145s)。
+ * 而**依赖解析的唯一真相是 `pnpm-lock.yaml`**,它早已按 basename 纳入输入面摘要
+ * (`TS_INPUT_BASENAMES`),lock 一改摘要就变 ⇒ 该失效时照样失效,且比"文件字节数"更准
+ * (字节数变化既会漏报"版本变了但字节恰好不变",也会误报"只换了安装顺序")。
+ * 因此本函数只留真正不在摘要里的两维:node 版本、typescript 版本。
  * 取不到的部分写成 `unknown`(仍参与比较,保证"同一未知值"不会误命中跨环境)。
  */
-export function envFingerprint({ nodeVersion, tsVersion, nodeModulesLayoutSize }) {
-  return [
-    `node=${nodeVersion || 'unknown'}`,
-    `ts=${tsVersion || 'unknown'}`,
-    `nm=${Number.isFinite(nodeModulesLayoutSize) ? nodeModulesLayoutSize : 'unknown'}`,
-  ].join(';')
+export function envFingerprint({ nodeVersion, tsVersion }) {
+  return [`node=${nodeVersion || 'unknown'}`, `ts=${tsVersion || 'unknown'}`].join(';')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

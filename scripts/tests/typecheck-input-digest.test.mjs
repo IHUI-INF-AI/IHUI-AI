@@ -87,14 +87,27 @@ test('D3 非 TS 变更不改摘要(提速来源),TS 变更必改摘要(不许假
   assert.equal(digestEntries([{ type: 'tree', path: 'apps/web/src', sha: SHA('9') }]).count, 0)
 })
 
-test('D4 环境指纹:同输入不同编译器/依赖布局必须不同', () => {
-  const a = envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.7.2', nodeModulesLayoutSize: 100 })
-  assert.equal(a, envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.7.2', nodeModulesLayoutSize: 100 }))
-  assert.notEqual(a, envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.8.0', nodeModulesLayoutSize: 100 }))
-  assert.notEqual(a, envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.7.2', nodeModulesLayoutSize: 101 }))
+test('D4 环境指纹:只留 node/ts 两维;依赖解析面由摘要承担(2026-11-18 改)', () => {
+  const a = envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.7.2' })
+  assert.equal(a, envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.7.2' }))
+  assert.notEqual(a, envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.8.0' }), 'ts 变必须失效')
+  assert.notEqual(a, envFingerprint({ nodeVersion: 'v24.0.0', tsVersion: '5.7.2' }), 'node 变必须失效')
+  assert.match(a, /^node=v22\.0\.0;ts=5\.7\.2$/)
+  // 反例:旧的 `nm`(node_modules/.modules.yaml 字节数)不再参与 —— 它在多会话下每轮都变,
+  // 曾让回执恒定失效(typecheck 每次全量 126~145s)。依赖真变化的信号改由摘要承担,见下一条断言。
+  assert.equal(a, envFingerprint({ nodeVersion: 'v22.0.0', tsVersion: '5.7.2', nodeModulesLayoutSize: 101 }), a)
   // 取不到也必须有值(不得产出空串冒充"一致")
-  const unknown = envFingerprint({ nodeVersion: null, tsVersion: null, nodeModulesLayoutSize: null })
-  assert.match(unknown, /node=unknown;ts=unknown;nm=unknown/)
+  const unknown = envFingerprint({ nodeVersion: null, tsVersion: null })
+  assert.equal(unknown, 'node=unknown;ts=unknown')
+  // 「依赖变了」这个信号不许丢:pnpm-lock.yaml 的 blob 一变,输入面摘要必变(等价于旧 nm 维的本意,但更准)
+  const deps = [
+    { type: 'blob', path: 'apps/web/src/a.ts', sha: SHA('a') },
+    { type: 'blob', path: 'pnpm-lock.yaml', sha: SHA('1') },
+  ]
+  const d0 = digestEntries(deps)
+  const lockChanged = deps.map((e) => (e.path === 'pnpm-lock.yaml' ? { ...e, sha: SHA('2') } : e))
+  assert.notEqual(digestEntries(lockChanged).digest, d0.digest, 'lock 变更必须改变摘要')
+  assert.equal(d0.count, 2, 'lock 与 ts 都算输入')
 })
 
 test('D5 真实仓集成:换 README 不变 / 换任一 .ts 必变(端到端证提速点)', (t) => {

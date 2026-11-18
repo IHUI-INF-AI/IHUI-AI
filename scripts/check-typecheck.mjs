@@ -1034,7 +1034,6 @@ try {
   _envPrint = envFingerprint({
     nodeVersion: process.version,
     tsVersion: readJsonSafe('node_modules/typescript/package.json')?.version || null,
-    nodeModulesLayoutSize: statSizeSafe('node_modules/.modules.yaml'),
   })
 } catch {
   _inputDigest = null
