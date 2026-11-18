@@ -2173,7 +2173,10 @@ export function AgentTaskProgressPane() {
                         className="mx-1.5 mt-0.5 flex items-center gap-1.5 rounded-sm bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600/90"
                         data-testid="subagent-batch-bottleneck"
                       >
-                        <span className="shrink-0">⏱ 瓶颈:</span>
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                          <Timer className="h-3 w-3" aria-hidden />
+                          瓶颈:
+                        </span>
                         <span className="shrink-0 font-mono">
                           {subagentBatchStats.bottleneck.handle}
                         </span>
