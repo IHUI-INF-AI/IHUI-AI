@@ -5476,6 +5476,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
+
+**2026-11-18**
 - 🔧 工程/其他:标注反代号池·模型目录自动同步功能(补可追溯历史) (94076b9284b)
 - 🚀 新功能/改进:R124 the template-following plan gate, 89.3% -> 89.9% (946ceb4abe1)
 - 📚 文档:同步生成块数字(测试文件/跟踪文件) (b08c158634c)
@@ -5785,44 +5791,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-16**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0073e7c7a84)
-
-**2026-11-16**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (30661f36491)
-
-**2026-11-16**
-- 📚 文档:刷新生成块数字对齐 HEAD 面现算 (testFiles 5632→5672 / trackedFiles 22289→22393) (35e69d40642)
-- 🚀 新功能/改进:CUA 桌面环境快照(系统性能/进程表/浏览器状态)纯逻辑层 (072937f6c11)
-- 🔧 工程/其他:子功能模块页美化落地(CategoryShell 重做 × workspace-tokens 共享令牌)—— 他席 reset 覆盖后按本席上下文重建 (56772bcf61e)
-- 🚀 新功能/改进:visibility 补 H5 意图细分(导航不需可见 vs 展示才可见) (b6d2d5207b2)
-- 🚀 新功能/改进:CUA 浏览器可见性能力 + CUA 能力面自描述目录 (0a04ab578ad)
-- 🐞 修复:check-miniapp-generated restore 改用 atomicWriteFileSync,治 Windows 文件锁 EBUSY/UNKNOWN 致钩子崩溃 (c366f33072e)
-- 🔧 工程/其他:摘除回潮的 RP-74/Y-26/Y-27/S-26 —— 四条已由 dbd1df5e44 正式结清(实修 ca4b71b97a/2a769677b5/git-sync-converge 均在HEAD,workflow-card 源码零引用),后被并发回捞件误带回账面;代码+提交史为硬证据 (c96dea18214)
-- 🚀 新功能/改进:设备信任根(TPM 硬件密钥)纯逻辑层模块 (f768b5d11c2)
-- 📚 文档:ai-side-panel 注释同步去描边口径 — 仅投影,无描边 (d41289f1753)
-- 🔧 工程/其他:摘除回潮的 DB-35 工单行 —— 凭据加密切片(002ade40cc)+PII加密切片+17例回归锁(2d3c28cc82)均已在HEAD,224c97e121 已正式结清过一次,后被并发回捞件误带回账面;代码+提交史为硬证据 (b898e4d0186)
-- 🔧 工程/其他:批量摘除回潮的 78 行缺陷普查工单(F-157…F-726,不含 F-298/301/303 已在上一轮单摘) —— 每条实修代码均已在 HEAD(各批次 fix(api) 提交 + F-371 order-entitlement-revoke.ts + F-536/540/574/662 实修 db21c929c66+回归锁 5120189d797),先前已由对应 chore(plan): 结清批次 正式结清,后被并发回捞件误带回账面;代码+提交史为硬证据 (c990fb22d70)
-- 🚀 新功能/改进:CDP 事件游标分页 + origin 限定 + 命令白名单纯逻辑模块 (318f4aeb4d1)
-- 🚀 新功能/改进:WFP 隔离拓扑纯逻辑层模块(含 R11 实测更正) (1acad723fd9)
-- 🚀 新功能/改进:服务生命周期编排三件套纯逻辑模块 (566506c8c91)
-- 🚀 新功能/改进:多类型分级凭据脱敏纯函数模块 (0f0156934e6)
-- 🚀 新功能/改进:workspace 变更解析纯函数模块 (bb8c94d8031)
-- 🚀 新功能/改进:保活复活通知腿——号退出喊人集合必有一封 info (38d24cb6bd3)
-- 🔧 工程/其他:摘除回潮的缺陷普查 8 行(F-84/150/193/194/204/222/232/278) —— 代码均在 HEAD(批次53=84e5c20d6e、批次54=0dafbf2e7a、F-150 回归锁 a5e16d9833),dee8319e 已正式结清过一次,后被并发回捞件误带回账面 (bfa4c76f52a)
-- 🔧 工程/其他:摘除回潮的 F-214 工单行 —— 代码形状闸+回归锁已在 HEAD(dee8319e 已正式结清过一次,后被并发回捞件误带回账面) (a01814b1cc3)
-- 🐞 修复:壳侧恢复 barrel import(门 128 承载体可判) + 具名追认 2 枚存量红 (f7ec45f19e9)
-- 🐞 修复:iOS 下载底稿自足 + 五语安装指南同步, 修复侧栏 iOS App 置灰 (c6d5e274a01)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (c32fcb911c7)
-- 🔧 工程/其他:收拢并发会话工作树改动(i18n 派生产物 + 前端页面 + PROJECT_PLAN 维护) (bda545a56e0)
-- 🔧 工程/其他:刷新 README 生成块数字(门 DN2 现算对账) (aa42203e31c)
-- 🚀 新功能/改进:browserAuth 提交诊断完整遥测 — 复现 Codex submission_diagnostics (52fd2615a6f)
-- 📚 文档:登记 README 补切号功能句(RP族自动取号;等 README.md 他席在飞解占,出处枚 f876894a30053c26815621cbffab830846c2c917) (349cbaf0148)
-- 🚀 新功能/改进:浏览器确认卫生(怎么问/何时问/问几次) — 复现 Codex A.4 (f5f6d50b3e9)
-- 🚀 新功能/改进:新增 api 看门狗,自动重启半死进程 (6c174f96f6e)
-- 🔧 工程/其他:收拢并发会话工作区改动（README 自动更新块 + 三语同步） (384c9d790b2)
-- 🔧 工程/其他:精准重放本地独有成果(4 文件)+同步 README 生成块 (eeb2da02236)
-- 🚀 新功能/改进:浏览器三级交互 API 优先级仲裁(复现 Codex 三级交互原语) (f3216c036cd)
-- 🐞 修复:跨会话强杀腿 + 验收窗口 + Windows 中文乱码 (79efa223c85)
-- 🐞 修复:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda7)
 <!-- END RECENT UPDATES -->
 ## 守门脚本索引(已接线门点名 · R4 对账)
 <!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。
