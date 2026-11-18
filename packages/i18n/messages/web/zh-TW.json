@@ -17447,9 +17447,11 @@
       "document": "文檔",
       "editor": "編輯器",
       "mcp": "MCP",
+      "pin": "視窗置頂",
       "plus": "添加視圖",
       "settings": "設置",
-      "terminal": "終端"
+      "terminal": "終端",
+      "unpin": "取消視窗置頂"
     },
     "viewSwitcher": {
       "groupSettings": "設置",

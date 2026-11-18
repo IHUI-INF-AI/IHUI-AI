@@ -1,0 +1,202 @@
+{
+  "$schema": "local-scheduler/1",
+  "source": "imported-from-TaskScheduler@2026-11-18T14:50:59",
+  "migratedAt": "2026-11-18T14:50:59.442Z",
+  "jobs": [
+    {
+      "id": "IHUI C-Drive AutoMaintain",
+      "command": "wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\c-drive-maintain-hidden.vbs"],
+      "enabled": true,
+      "kind": "daily",
+      "at": "03:00"
+    },
+    {
+      "id": "IHUI credential-health",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\credential-health-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 360
+    },
+    {
+      "id": "IHUI Git Backup Refresh",
+      "command": "wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\git-backup-refresh-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 15
+    },
+    {
+      "id": "IHUI WorkBuddy Growth Sweep",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\workbuddy-growth-sweep-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 360
+    },
+    {
+      "id": "IHUI WorkBuddy2API",
+      "command": "C:\\Users\\Administrator\\.wb-switch\\wb2api\\wb2api.exe",
+      "args": [],
+      "enabled": true,
+      "cwd": "C:\\Users\\Administrator\\.wb-switch\\wb2api",
+      "kind": "resident"
+    },
+    {
+      "id": "IHUI-AI git-guardian",
+      "command": "wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\git-guardian-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 2
+    },
+    {
+      "id": "IHUI-AI-DevProcessCleanup",
+      "command": "wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\cleanup-zombie-processes-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 10
+    },
+    {
+      "id": "IHUI-AI-G-Root-Guardian",
+      "command": "wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\g-root-guardian-hidden.vbs"],
+      "enabled": true,
+      "kind": "start"
+    },
+    {
+      "id": "IHUI-AutoCommitQuiet",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\auto-commit-quiet-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 3
+    },
+    {
+      "id": "IHUI-CleanBuildGarbage",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\clean-build-garbage-hidden.vbs"],
+      "enabled": true,
+      "kind": "weekly",
+      "at": "04:00",
+      "days": []
+    },
+    {
+      "id": "IHUI-DevStack",
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "G:\\IHUI-AI\\scripts\\dev-stack-launch.mjs",
+        "watcher",
+        "G:\\IHUI-AI\\.tmp-sync",
+        "G:\\IHUI-AI",
+        "C:\\Program Files\\nodejs\\node.exe",
+        "G:\\IHUI-AI\\scripts\\dev-stack.mjs",
+        "--watch",
+        "--device"
+      ],
+      "enabled": true,
+      "kind": "start"
+    },
+    {
+      "id": "IHUI-Mobile-AutoRelease",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\mobile-auto-release-hidden.vbs"],
+      "enabled": true,
+      "cwd": "G:\\IHUI-AI\\scripts",
+      "kind": "interval",
+      "everyMinutes": 60
+    },
+    {
+      "id": "IHUI-PG-BACKUP",
+      "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "G:\\IHUI-AI\\deploy\\win\\ihui-pg-backup-scheduler.ps1"
+      ],
+      "enabled": true,
+      "kind": "resident"
+    },
+    {
+      "id": "IHUI-PG-SECOND-COPY",
+      "command": "wscript.exe",
+      "args": [
+        "//B",
+        "C:\\Users\\Administrator\\.ihui-silent-guard\\IHUI-PG-SECOND-COPY-4aa1f2c5-hidden.vbs"
+      ],
+      "enabled": true,
+      "kind": "daily",
+      "at": "03:30"
+    },
+    {
+      "id": "IHUI-Pool-Sync",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\pool-sync-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 2
+    },
+    {
+      "id": "IHUI-Qoder-Session-Sync",
+      "command": "wscript.exe",
+      "args": [
+        "//B",
+        "C:\\Users\\Administrator\\.ihui-silent-guard\\qoder-session-sync-hidden.vbs"
+      ],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 10
+    },
+    {
+      "id": "IHUI-RefreshCliToken",
+      "command": "wscript.exe",
+      "args": [
+        "//B",
+        "C:\\Users\\Administrator\\.ihui-silent-guard\\IHUI-RefreshCliToken-abd0bb65-hidden.vbs"
+      ],
+      "enabled": true,
+      "kind": "weekly",
+      "at": "03:00",
+      "days": []
+    },
+    {
+      "id": "IHUI-SilentGuard",
+      "command": "C:\\Windows\\System32\\wscript.exe",
+      "args": ["//B", "G:\\IHUI-AI\\scripts\\ensure-silent-tasks-hidden.vbs"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 10
+    },
+    {
+      "id": "IHUI-WorkBuddy-Session-Sync",
+      "command": "wscript.exe",
+      "args": [
+        "//B",
+        "C:\\Users\\Administrator\\.ihui-silent-guard\\workbuddy-session-sync-hidden.vbs"
+      ],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 10
+    },
+    {
+      "id": "IHUI-NoScheduledTasks",
+      "kind": "interval",
+      "everyMinutes": 30,
+      "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "G:\\IHUI-AI\\scripts\\purge-ihui-scheduled-tasks.ps1"
+      ],
+      "enabled": true
+    }
+  ]
+}

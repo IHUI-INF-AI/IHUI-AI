@@ -17457,9 +17457,11 @@
       "document": "Docs",
       "editor": "Editor",
       "mcp": "MCP",
+      "pin": "Always on top",
       "plus": "Add view",
       "settings": "Settings",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "unpin": "Stop always on top"
     },
     "viewSwitcher": {
       "groupSettings": "Settings",
