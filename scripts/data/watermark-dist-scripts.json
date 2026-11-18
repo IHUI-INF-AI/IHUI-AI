@@ -1,0 +1,53 @@
+{
+  "$schemaNote": [
+    "水印覆盖面的「对外分发安装脚本」豁免台账 —— 与 watermark-tool-generated.json 不是一回事:",
+    "那份记的是「由上游工具再生的派生物」,这份记的是「本仓人工维护、但要直接发给终端用户执行的安装入口」。",
+    "两者不得互相顶用:把分发脚本写进工具生成物台账 = 让一条不存在的外部生成链替它背书。",
+    "判序(每条都必须被量到,不是信文案):",
+    "  1) 路径逐字等于登记 path(精确判等,这一档不做前缀糊配);",
+    "  2) 该文件在被审面上的内容命中 anchorRegex —— 这是「验过才免」的那一验:锚点在,",
+    "     才证明这份仍是安装脚本;不在 ⇒ 要么被人换成了别的内容、要么脚本改了形态,",
+    "     一律回到覆盖面按缺载荷判红(豁免不得替不存在的前提作证,AGENTS §0.7);",
+    "  3) expires 到期未清 ⇒ 该条豁免整体失效并判红(豁免族必须登记存活期)。",
+    "免的只是「必须携带不可见溯源载荷」这一项。可见署名横幅(# © 2026 IHUI AI …)照旧保留,",
+    "授权与归属信息一个字都不少 —— 少掉的只是零宽链。",
+    "新增条目要求:写清 why 这份文件必须发给终端用户、为什么它的可用性优先于载荷;",
+    "evidence 给能在被审面核验的内容锚点(文件 + 须含文本),禁止写行号、禁止写短 sha(§1)。"
+  ],
+  "schemaVersion": 1,
+  "updatedOn": "2026-11-18",
+  "entries": [
+    {
+      "id": "dist-install-ps1-root",
+      "path": "scripts/install.ps1",
+      "anchorRegex": "IHUI AI CLI — 一键安装脚本",
+      "generator": "人工维护:仓根 Windows 一键安装入口(aizhs.top 实际服务的版本,与 apps/cli 版同源双分发)",
+      "evidence": [
+        {
+          "file": "scripts/install.ps1",
+          "contains": "IHUI AI CLI — 一键安装脚本"
+        }
+      ],
+      "owner": "机主(2026-11-18 火绒误报根治席)",
+      "reason": "这份文件是发给终端用户直接执行的安装入口(用户从 aizhs.top 取回后在本机运行)。2026-11-18 实测:本机杀软把它判为 HEUR:TrojanDownloader/PS.NetLoader.av 并隔离,而自愈器每 5 分钟把隔离读成外部误删、git restore 回盘,再被隔离 —— 死循环,每次全盘扫描都报「病毒」。同目录三份探针实证:P0(含零宽载荷)落盘即被锁,P1(仅去零宽、仍留 Invoke-Expression)与 P2 均存活 ⇒ 触发点是三层水印的不可见载荷,不是下载逻辑。被 AV 拦下等于用户装不上 CLI,溯源价值远低于可用性。豁免只免「载荷」这一项:可见署名横幅保留,锚点校验与 expires 照旧生效。",
+      "expires": "2027-06-30",
+      "notes": "与 apps/cli/scripts/install/install.ps1 同一族(同源双分发),任一份改锚点行即两份一起失效并报红 —— 那是预期行为,不要用改锚点的办法续命。"
+    },
+    {
+      "id": "dist-install-ps1-cli",
+      "path": "apps/cli/scripts/install/install.ps1",
+      "anchorRegex": "IHUI CLI PowerShell 一键安装脚本",
+      "generator": "人工维护:随仓库/Release 分发的 Shell 与 PowerShell 安装脚本族中的 PowerShell 入口",
+      "evidence": [
+        {
+          "file": "apps/cli/scripts/install/install.ps1",
+          "contains": "IHUI CLI PowerShell 一键安装脚本"
+        }
+      ],
+      "owner": "机主(2026-11-18 火绒误报根治席)",
+      "reason": "与仓根 scripts/install.ps1 同源双分发,同样直接交给终端用户执行。2026-11-18 实测被本机杀软判为 TrojanDownloader 并隔离,隔离与自愈器回盘互相对冲形成死循环(详见 scripts/lib/watermark-dist-scripts.mjs 头注的探针取证)。豁免只免「载荷」这一项,可见署名横幅与锚点校验照旧。",
+      "expires": "2027-06-30",
+      "notes": "本轮同时把该脚本的 Invoke-Expression 改成数组调用(工程卫生,降低其它引擎的启发式命中面),功能等价。"
+    }
+  ]
+}

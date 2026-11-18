@@ -47,6 +47,11 @@ import {
   judgeToolGenerated,
   ToolLedgerUnavailable,
 } from './lib/tool-generated-roots.mjs'
+import {
+  loadDistScriptEntries,
+  judgeDistScript,
+  DistScriptLedgerUnavailable,
+} from './lib/watermark-dist-scripts.mjs'
 import { coverageFileSetForFace } from './lib/watermark-scope.mjs'
 import { catBatch, selectFace, Undetermined, assertRepoRoot } from './lib/face-reader.mjs'
 import {
@@ -102,6 +107,26 @@ function toolGeneratedEntries() {
     }
   }
   return _toolGen
+}
+
+/**
+ * 「对外分发安装脚本」豁免面(2026-11-18 立)。与上面两档同一条纪律:懒取 + 取不到就拒绝判定。
+ * 台账缺文件 ⇒ 空清单(没有豁免,覆盖面照旧全量判),这是安全的默认,不是跳过判定。
+ */
+let _distScripts
+function distScriptEntries() {
+  if (!_distScripts) {
+    try {
+      _distScripts = loadDistScriptEntries(ROOT)
+    } catch (e) {
+      const why = e instanceof DistScriptLedgerUnavailable ? e.message : String(e?.message ?? e)
+      console.error(`[watermark] 分发脚本豁免面无法判定:${why.split('\n')[0]}`)
+      console.error('  水印层拒绝在算不出「哪些是登记在册的对外分发安装脚本」时继续判定(既不冒绿也不冒红)。')
+      console.error('  请先修 scripts/data/watermark-dist-scripts.json 或 git 可用性,再重跑本命令。')
+      process.exit(1)
+    }
+  }
+  return _distScripts
 }
 
 // ---------- 水印配置 ----------
@@ -765,6 +790,8 @@ function scanCoverage(scope, opts = {}) {
   const unreadable = []
   const toolGenExempt = []
   const toolGenIssues = []
+  const distExempt = []
+  const distIssues = []
   const excl = exclusion()
   // 显式点名(scope 非空)= 工作树面(那份在盘上,用户指的是它);批量档按 opts.face。
   const face = scope ? 'worktree' : opts.face || DEFAULT_BATCH_FACE
@@ -828,6 +855,15 @@ function scanCoverage(scope, opts = {}) {
     }
     if (tg.state === 'expired' || tg.state === 'premise-missing')
       toolGenIssues.push(`${rel}: ${tg.why}`)
+    // 对外分发安装脚本档(2026-11-18):同样在数分母**之前**问 —— 免的只是「不可见载荷」这一项,
+    // 前提(路径逐字登记 ∧ 正文仍命中锚点 ∧ 未到期)任一不成立 ⇒ 照旧进分母,按缺载荷判红并点名。
+    const ds = judgeDistScript({ rel, text, entries: distScriptEntries() })
+    if (ds.exempt) {
+      distExempt.push(rel)
+      continue
+    }
+    if (ds.state === 'expired' || ds.state === 'premise-missing')
+      distIssues.push(`${rel}: ${ds.why}`)
     total++
     const hasPayload = INVISIBLE_RE.test(text)
     const hasBannerText = text.includes(BANNER_ID)
@@ -867,6 +903,8 @@ function scanCoverage(scope, opts = {}) {
     bannerlessList,
     toolGenExempt,
     toolGenIssues,
+    distExempt,
+    distIssues,
     face,
   }
 }
@@ -886,6 +924,8 @@ function verifyAll(scope, opts = {}) {
     bannerlessList,
     toolGenExempt,
     toolGenIssues,
+    distExempt,
+    distIssues,
     face,
   } = scanCoverage(scope, opts)
   console.log(
@@ -898,6 +938,18 @@ function verifyAll(scope, opts = {}) {
     )
     toolGenExempt.slice(0, 5).forEach((f) => console.log('  · ' + f))
     if (toolGenExempt.length > 5) console.log(`  · … 其余 ${toolGenExempt.length - 5} 个`)
+  }
+  if (distExempt.length > 0) {
+    console.log(
+      `  分发脚本豁免(scripts/data/watermark-dist-scripts.json;逐枚按被审面验过前提:路径逐字登记且正文仍命中锚点):${distExempt.length} 个,逐条列:` ,
+    )
+    distExempt.forEach((f) => console.log('  · ' + f))
+  }
+  if (distIssues.length > 0) {
+    console.log(
+      `❌ 分发脚本豁免**前提失效** ${distIssues.length} 处(这类文件照旧进覆盖面,下面的缺载荷/损坏判定就是它们的红):`,
+    )
+    distIssues.slice(0, 10).forEach((l) => console.log('  · ' + l))
   }
   if (toolGenIssues.length > 0) {
     console.log(
