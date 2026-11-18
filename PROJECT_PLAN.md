@@ -12286,7 +12286,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 303G. **缺陷普查 API F-303** [P2] 定时器回调 persist() 抛错未被捕获 → uncaughtException → process.exit(1)（证据 docs/tickets/2026-11/findings-api.md#F-303）
 - [ ] 336G. **缺陷普查 API F-336** [P3] GET /circles/:id 与 /posts 对 slug 直接 404，slug 分享链路断裂（证据 docs/tickets/2026-11/findings-api.md#F-336）
 - [ ] 370G. **缺陷普查 API F-370** [P2] 订阅模型白名单在两条分支被跳过，套餐限制形同虚设（证据 docs/tickets/2026-11/findings-api.md#F-370）
-- [ ] 371G. **缺陷普查 API F-371** [P1] 退款只冲订单金额，不回收已发放的 VIP/订阅/配额（证据 docs/tickets/2026-11/findings-api.md#F-371）
 - [ ] 373G. **缺陷普查 API F-373** [P2] 无额度套餐叠加有效期无上限，重复激活可无限延长（证据 docs/tickets/2026-11/findings-api.md#F-373）
 - [ ] 374G. **缺陷普查 API F-374** [P2] subEndAt 缺失被写成 expiresAt: null，折扣变永久（证据 docs/tickets/2026-11/findings-api.md#F-374）
 - [ ] 375G. **缺陷普查 API F-375** [P2] 事务提交后的附属步骤无补偿，成功码下权益缺失（证据 docs/tickets/2026-11/findings-api.md#F-375）
