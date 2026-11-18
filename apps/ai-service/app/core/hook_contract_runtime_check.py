@@ -40,9 +40,19 @@ from app.core.hook_contract_schema import (
     HOOK_SCHEMA_REQUIRED,
 )
 
-ViolationKind = Literal["unknown-schema", "unknown-field", "missing-required"]
+ViolationKind = Literal["unknown-schema", "unknown-field", "missing-required", "missing-dependent"]
 
 DIRECTIONS: Final[tuple[str, str]] = ("input", "output")
+
+#: Schemas that declare both `decision` and `reason`.  The `reason` description in the binary states
+#: the rule that applies here: `decision == "block"` requires `reason`, enforced during output
+#: parsing rather than by the JSON schema.
+BLOCK_RULE_TITLES: Final[frozenset[str]] = frozenset(
+    ("stop.command.output", "subagent-stop.command.output"))
+
+#: The one cross-field rule the schemas state in prose.
+BLOCK_DECISION: Final[str] = "block"
+BLOCK_DEPENDENT_FIELD: Final[str] = "reason"
 
 
 class HookPayloadError(ValueError):
@@ -78,11 +88,27 @@ def schema_title(event: str, direction: str) -> str:
     return title
 
 
+def check_semantics(title: str, payload: Mapping[str, object]) -> tuple[Violation, ...]:
+    """Check the rules the schema states in prose instead of in `required`.
+
+    Today there is exactly one: in `stop.command.output` / `subagent-stop.command.output`,
+    `decision == "block"` requires `reason`.  The binary's own `reason` description says so, and
+    says the check happens during output parsing.  Recording it as a violation kind is what makes
+    that statement testable.
+    """
+    out = []
+    if title in BLOCK_RULE_TITLES:
+        if payload.get("decision") == BLOCK_DECISION and BLOCK_DEPENDENT_FIELD not in payload:
+            out.append(Violation("missing-dependent", BLOCK_DEPENDENT_FIELD))
+    return tuple(out)
+
+
 def check_hook_payload(title: str, payload: Mapping[str, object]) -> CheckResult:
     """Check one payload against one recovered schema.
 
-    The key set is the whole judgement: every key must be declared in `properties`, and every key
-    in `required` must be present.  Values are not inspected.
+    The key set is the whole judgement: every key must be declared in `properties`, every key in
+    `required` must be present, and the one prose rule must hold.  Values are not inspected beyond
+    the `decision`/`reason` dependency.
     """
     if title not in HOOK_SCHEMA_NAMES:
         raise HookPayloadError(f"unknown schema title {title!r}")
@@ -95,7 +121,9 @@ def check_hook_payload(title: str, payload: Mapping[str, object]) -> CheckResult
 
     unknown = tuple(Violation("unknown-field", k) for k in sorted(payload) if k not in declared_set)
     missing = tuple(Violation("missing-required", k) for k in sorted(required) if k not in payload)
-    return CheckResult(title=title, checked_fields=len(payload), violations=unknown + missing)
+    semantic = check_semantics(title, payload)
+    return CheckResult(title=title, checked_fields=len(payload),
+                       violations=unknown + missing + semantic)
 
 
 def check_hook_event(event: str, direction: str,
@@ -125,7 +153,7 @@ def audit_all_schemas() -> Mapping[str, CheckResult]:
 
 def violations_summary(results: Mapping[str, CheckResult]) -> Mapping[str, int]:
     counts: dict[str, int] = dict.fromkeys(
-        ("unknown-schema", "unknown-field", "missing-required"), 0)
+        ("unknown-schema", "unknown-field", "missing-required", "missing-dependent"), 0)
     for r in results.values():
         for v in r.violations:
             counts[v.kind] += 1
