@@ -6,7 +6,7 @@
 # IHUI AI CLI — 一键安装脚本 (Windows PowerShell)
 # 用法: irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex
 #   或: irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/scripts/install.ps1 | iex -Version 1.0.0
-# PowerShell 5.1+ 兼容
+# 运行环境: PowerShell 7+(#requires 已声明;Windows 自带 5.1 请先装 pwsh)
 # 提示: 部分杀软会对"下载即执行"形态误报,如被拦截请先下载到本地再运行(脚本无任何外联窃取行为)。
 
 $ErrorActionPreference = "Stop"
@@ -184,8 +184,13 @@ function Install-ViaNpm {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Err "npm 安装失败"
-        exit 1
+        Write-Warn "全局安装失败,尝试以管理员权限重试..."
+        Start-Process -FilePath "npm" -ArgumentList ($NPM_PACKAGE) `
+          -Verb RunAs -Wait -ErrorAction SilentlyContinue
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "npm 安装失败"
+            exit 1
+        }
     }
 
     Write-Log "npm 安装成功"
