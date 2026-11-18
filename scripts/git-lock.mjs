@@ -12,9 +12,10 @@
  * 本项目 git 写操作必须串行化:同一时刻只允许一个「写操作单元」执行。
  *
  * 用法(CLI):
- *   node scripts/git-lock.mjs acquire [--unit <id>] [--timeout <ms>] [--stale <ms>]
+ *   node scripts/git-lock.mjs acquire [--unit <id>] [--timeout <ms>] [--stale <ms>] [--progress-interval <ms>]
  *   node scripts/git-lock.mjs release [--unit <id>] [--token <t>]
- *   node scripts/git-lock.mjs check              # 只读:是否有锁,exit 0=无锁 1=有锁
+ *   node scripts/git-lock.mjs status [--json]   # 只读:谁持着(已持多久/心跳何时)+ 排队几位 + 各等多久
+ *   node scripts/git-lock.mjs check              # 只读:是否有锁,exit 0=无锁 1=有锁(附持有时长/心跳龄/队列数)
  *   node scripts/git-lock.mjs scan               # 只读:G-262 原生锁三分类读数 + git 进程数 + 等待 P95(账本累积)
  *   node scripts/git-lock.mjs heartbeat --unit <id> [--interval <ms>] [--parent-pid <pid>]
  *
@@ -71,6 +72,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { hostname } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 // 现场归档的唯一落点(AGENTS §15b / §5b「现场归档一律落在 gitArchiveDir(),手工抢修也不得例外」)。
@@ -655,6 +657,308 @@ function resolveIfRelative(p) {
   return join(repoRoot(), p)
 }
 
+/* ── 等锁可观测面(2026-11-18 立,立因:机主实测"提交总在等锁,排队情况没有数据实时返回")────
+ *
+ * 病型:`acquire` 在 `for(;;)` 里每 300ms 轮询却**全程零输出**;`check` 只打一行、不带持有时长;
+ * G-262 的 wait 账本只在**结束**时落一行(acquired/reentry/timeout)。于是"等锁"是一段纯黑箱:
+ * 看不见谁持着、持了多久、自己排第几、还要等多久 —— 结构上就没有数据可看,不是没人去看。
+ *
+ * 三件,全部是**新增观测面**,锁判据(抢占/超时/重入/身份/租约)一行未动:
+ *   ① `lock-wait/` 登记:每个等待者一枚 `<pid>-<tag>.json`,5s 刷新 `lastPollAt`,退出即删
+ *      ⇒ "排队"从此是可数的事实;pid 已退出或 60s 未刷新的登记**不计数**(疑似残留,只报条数)。
+ *   ② `acquire` 每 progressMs(默认 5s)打一行:持锁者 + 已持时长 + 我的位次。
+ *   ③ `status` 子命令:一次性读"谁持着 + 排了几个 + 各等多久",`--json` 供面板/脚本取。
+ *
+ * 失效方向:登记/读账任何一步失败都**不得影响锁语义**(全部吞掉),且读不到时如实报
+ * "队列不可读",绝不把"没读到"写成"没人排队"(§0.3)。
+ */
+const LOCK_WAIT_DIRNAME = 'lock-wait'
+const LOCK_LEASE_FILENAME = 'lock-lease.json'
+const WAIT_ENTRY_STALE_MS = 60_000
+const WAIT_PROGRESS_DEFAULT_MS = 5_000
+const WAIT_PROGRESS_ENV = 'IHUI_LOCK_PROGRESS_MS'
+
+function stateDirPath() {
+  return join(repoRoot(), '.ihui-agent', 'state')
+}
+
+function waitQueueDir() {
+  return join(stateDirPath(), LOCK_WAIT_DIRNAME)
+}
+
+function leaseJournalPath() {
+  return join(stateDirPath(), LOCK_LEASE_FILENAME)
+}
+
+function newWaitTag() {
+  return randomBytes(4).toString('hex')
+}
+
+/**
+ * 等待登记落点:只有"用生产默认锁目录"的 acquire 才登记。
+ * 注入 `dir`(镜像测试/夹具)一律返回 null —— 观测面绝不能把测试写进真实 state 账本
+ * (与 G-262 的 metricsFile 同一条纪律:夹具一个字节都不许落真账)。
+ */
+function observeWaitDirFor(lockDirPath) {
+  try {
+    return resolve(lockDirPath) === resolve(lockDir()) ? waitQueueDir() : null
+  } catch {
+    return null
+  }
+}
+
+function fmtSec(ms) {
+  const s = Math.max(0, Math.round(ms / 1000))
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`
+}
+
+/** 等待登记(失败即返回 null,调用方照旧等锁 —— 观测面绝不影响锁语义)。 */
+function registerWait({ unitId, pid = process.pid, tag, dir }) {
+  const target = dir ?? waitQueueDir()
+  if (!target) return null
+  try {
+    const file = join(target, `${pid}-${tag}.json`)
+    mkdirSync(target, { recursive: true })
+    const body = {
+      pid,
+      unitId: unitId ?? '',
+      host: hostname(),
+      requestedAt: Date.now(),
+      lastPollAt: Date.now(),
+    }
+    atomicWriteFileSync(file, JSON.stringify(body))
+    return { file, body }
+  } catch {
+    return null
+  }
+}
+
+function touchWait(entry) {
+  if (!entry) return
+  try {
+    entry.body.lastPollAt = Date.now()
+    atomicWriteFileSync(entry.file, JSON.stringify(entry.body))
+  } catch {
+    /* 刷新失败不影响等锁 */
+  }
+}
+
+function unregisterWait(entry) {
+  if (!entry) return
+  try {
+    unlinkSync(entry.file)
+  } catch {
+    /* 已被清走/不存在 */
+  }
+}
+
+/**
+ * 读等待队列(只读,绝不删任何登记 —— 清理由登记方自己退出时做,或由 pid/年龄判据只报不数)。
+ * `absent` 与 `readable:false` 必须分开:前者=从来没有过等待登记,后者=目录读不了(未判定)。
+ */
+function readWaitQueue({ now = Date.now(), alive = isPidAlive, dir = waitQueueDir() } = {}) {
+  // `dir === null` 是显式"不要读真实账本"的语义(夹具通道):返回不可读,绝不悄悄回落到真实目录。
+  const target = dir
+  let files = null
+  if (!target) {
+    return { dir: null, present: false, readable: false, entries: [], droppedDead: 0, droppedStale: 0 }
+  }
+  try {
+    files = readdirSync(target)
+  } catch (e) {
+    return {
+      dir: target,
+      present: false,
+      // 目录不存在 = 从来没人等过锁(这是"读到了:0 人"),不是"读不到"。
+      // 只有真的枚举失败(权限/占用)才算不可读,那时才落"未判定"。
+      readable: e?.code === 'ENOENT',
+      entries: [],
+      droppedDead: 0,
+      droppedStale: 0,
+    }
+  }
+  const entries = []
+  let droppedDead = 0
+  let droppedStale = 0
+  for (const f of files) {
+    if (!f.endsWith('.json')) continue
+    let row = null
+    try {
+      row = JSON.parse(readFileSync(join(target, f), 'utf8'))
+    } catch {
+      continue
+    }
+    const pid = Number(row?.pid ?? 0)
+    if (!pid) continue
+    const requestedAt = Number(row?.requestedAt ?? 0) || 0
+    const lastPollAt = Number(row?.lastPollAt ?? requestedAt) || requestedAt
+    // pid 已退出 ⇒ 该登记不可能还在等;判活复用唯一实现 isPidAlive(禁止第二份 signal-0 探测)。
+    if (!alive(pid)) {
+      droppedDead++
+      continue
+    }
+    if (now - lastPollAt > WAIT_ENTRY_STALE_MS) {
+      droppedStale++
+      continue
+    }
+    entries.push({
+      pid,
+      unitId: row.unitId ?? '',
+      host: row.host ?? '',
+      requestedAt,
+      waitedMs: now - requestedAt,
+      pollAgeMs: now - lastPollAt,
+    })
+  }
+  entries.sort((a, b) => a.requestedAt - b.requestedAt)
+  return { dir: target, present: true, readable: true, entries, droppedDead, droppedStale }
+}
+
+/** 持有起点账:acquire 成功时写,release 成功时删 —— 只用于算"已持多久",不参与任何判据。 */
+function readLeaseJournal() {
+  try {
+    return JSON.parse(readFileSync(leaseJournalPath(), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writeLeaseJournal(meta) {
+  try {
+    mkdirSync(stateDirPath(), { recursive: true })
+    atomicWriteFileSync(
+      leaseJournalPath(),
+      JSON.stringify({
+        unitId: meta?.unitId ?? '',
+        pid: Number(meta?.pid ?? 0),
+        since: Date.now(),
+        host: hostname(),
+      }),
+    )
+  } catch {
+    /* 观测面失败不影响锁语义 */
+  }
+}
+
+function dropLeaseJournal() {
+  try {
+    unlinkSync(leaseJournalPath())
+  } catch {
+    /* 不存在 */
+  }
+}
+
+/** 持有起点:账与当前 meta 逐项对上才算(对不上 ⇒ null,调用方退化为按 meta.ts 估算)。 */
+function holdStartOf(meta) {
+  const lease = readLeaseJournal()
+  if (!lease || !meta) return null
+  if (Number(lease.pid) !== Number(meta.pid)) return null
+  if ((lease.unitId ?? '') !== (meta.unitId ?? '')) return null
+  return Number(lease.since) || null
+}
+
+function defaultProgressMs() {
+  const raw = process.env[WAIT_PROGRESS_ENV]
+  if (raw === undefined || raw === '') return WAIT_PROGRESS_DEFAULT_MS
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return WAIT_PROGRESS_DEFAULT_MS
+  return n
+}
+
+/** 一行式等锁进度(持锁者 + 已持时长 + 我的位次 + 随时可查的出口)。 */
+function buildWaitProgressLine({ meta, waitedMs, timeoutMs, queue }) {
+  let held
+  if (meta) {
+    const holdMs = Date.now() - Number(holdStartOf(meta) ?? meta.ts ?? Date.now())
+    held =
+      `持锁 unit=${meta.unitId || '(空)'} pid=${meta.pid} 已持 ${fmtSec(holdMs)}` +
+      `${isPidAlive(meta.pid) ? '' : '(进程已退出,等抢占)'}`
+  } else {
+    held = '持锁者不可读(锁目录在但 meta.json 读不出)'
+  }
+  const pos = queue.entries.findIndex((e) => e.pid === process.pid)
+  const queueDesc = !queue.readable
+    ? '队列不可读'
+    : queue.entries.length
+      ? `排队 ${queue.entries.length} 人(我在第 ${pos >= 0 ? pos + 1 : 1} 位,前面 ${pos >= 0 ? pos : 0} 位)`
+      : '队列只有我一个'
+  return `[git-lock] 等锁 ${fmtSec(waitedMs)}/${fmtSec(timeoutMs)} | ${held} | ${queueDesc} | 随时可查: node scripts/git-lock.mjs status`
+}
+
+/** `status` 子命令:人读一段,`--json` 一段。只读,绝不创建/删除任何东西。 */
+function statusCommand({ json = false } = {}) {
+  const dir = lockDir()
+  const now = Date.now()
+  const meta = existsSync(dir) ? readMeta(dir) : null
+  const queue = readWaitQueue({ now })
+  const lock = meta
+    ? {
+        unitId: meta.unitId ?? '',
+        pid: Number(meta.pid ?? 0),
+        alive: isPidAlive(meta.pid),
+        holdMs: now - Number(holdStartOf(meta) ?? meta.ts ?? now),
+        heartbeatAgeMs: now - Number(meta.ts ?? now),
+        host: meta.host ?? '',
+        pidStart: meta.pidStart ?? null,
+        haveLeaseSince: holdStartOf(meta) !== null,
+      }
+    : null
+  const report = {
+    ts: new Date(now).toISOString(),
+    lockDir: dir,
+    lock,
+    queue: {
+      dir: queue.dir,
+      present: queue.present,
+      readable: queue.readable,
+      entries: queue.entries,
+      droppedDead: queue.droppedDead,
+      droppedStale: queue.droppedStale,
+    },
+  }
+  if (json) {
+    console.log(JSON.stringify(report, null, 2))
+    return 0
+  }
+  const L = []
+  L.push(`[git-lock status] ${new Date(now).toLocaleString('zh-CN', { hour12: false })}`)
+  L.push(`  锁目录: ${dir}`)
+  if (!lock) {
+    L.push('  持锁: 无锁(空闲)')
+  } else {
+    const hb = lock.heartbeatAgeMs
+    L.push(
+      `  持锁: unit=${lock.unitId || '(空)'} pid=${lock.pid} ${lock.alive ? '存活' : '已退出(等抢占)'}` +
+        ` 已持 ${fmtSec(lock.holdMs)}${lock.haveLeaseSince ? '' : '(起点未记账,按最近心跳估)'}` +
+        ` 最近心跳 ${fmtSec(hb)}前${hb > 30_000 && lock.alive ? ' ⚠ 心跳超过 30s 未刷新(可能已卡住)' : ''}`,
+    )
+    if (lock.host) L.push(`  持有主机: ${lock.host}`)
+  }
+  if (!queue.readable) {
+    L.push('  等待队列: 不可读(未判定,不据此报"没人排队")')
+  } else if (!queue.present || queue.entries.length === 0) {
+    L.push('  等待队列: 0 人')
+  } else {
+    L.push(`  等待队列: ${queue.entries.length} 人(按开始等待先后排序)`)
+    queue.entries.forEach((e, i) => {
+      L.push(
+        `    ${i + 1}. pid=${e.pid} unit=${e.unitId || '(空)'} 已等 ${fmtSec(e.waitedMs)}` +
+          `(最近刷新 ${fmtSec(e.pollAgeMs)}前)`,
+      )
+    })
+  }
+  if (queue.droppedDead || queue.droppedStale) {
+    L.push(
+      `  另有 ${queue.droppedDead} 个登记因 pid 已退出 / ${queue.droppedStale} 个登记超 60s 未刷新,均不计数`,
+    )
+  }
+  L.push('  提示: acquire 等锁时每 5s 自动打一行进度;本命令随时可查,加 --json 供面板取数')
+  console.log(L.join('\n'))
+  return 0
+}
+
+
 /**
  * `scan` 子命令(G-262 判据的取数口):
  *   - 枚举 .git(含 common dir)原生锁文件并按证据三分类(只读,绝不删);
@@ -801,18 +1105,31 @@ async function acquire({
   identityRun,
   claimArchiveRoot,
   metricsFile,
+  progressMs = defaultProgressMs(),
+  waitDir,
   log = (m) => console.log(m),
 } = {}) {
   // G-262 判据之一(锁等待 P95)的取数口:只有 CLI 传 metricsFile 才记账 ——
   // 镜像测试注入 dir/桩时一个字都不落真账本。
   const t0 = Date.now()
   let polls = 0
+  // 等锁可观测面(2026-11-18):本进程在 `lock-wait/` 的那一枚登记 + 上一次打进度的时间。
+  // 两者都只是观测,不参与下面任何判据;登记失败 ⇒ waitEntry=null,照旧等锁(不因此报错)。
+  // 注入 dir 的夹具(observeWaitDir=null)完全不登记:观测面不得把测试写进真实账本。
+  let waitEntry = null
+  let waitProgressLoggedAt = 0
+  let waitTouchAt = 0
+  const observeWaitDir = waitDir === undefined ? observeWaitDirFor(dir) : waitDir
   // G-998104(观察级,2026-10-08 立):一次等待里"看到的锁实例换了几个"。观察器按
   // (inode 或 mtimeMs, pid, ts) 全等划分实例,实现单源在 scripts/lib/stale-lock-claim.mjs。
   // 只报数不判红:instances 只进 wait 账本行,判据面一字未动(超时即终态、不升级为抢占)。
   const observeLockInstance = createLockInstanceObserver()
   let instancesSeen = 0
   const recordWait = (outcome) => {
+    // 等锁结束(拿到/重入/超时)⇒ 自己那枚等待登记必须立刻摘掉,否则 status 会把已不再等待的
+    // 进程算进队列(60s 未刷新虽会自然不计数,但那段窗口里报的是假排队)。
+    unregisterWait(waitEntry)
+    waitEntry = null
     if (!metricsFile || polls === 0) return
     try {
       mkdirSync(dirname(metricsFile), { recursive: true })
@@ -861,6 +1178,9 @@ async function acquire({
       // G-397:记下本进程为**这个目录**写下的租约凭据 ⇒ 同进程 acquire⇒release 无需显式带 token
       // (键按最终目录,不是 pending 暂存路径;多把锁互不串)。
       rememberLeaseToken(dir, made?.payload?.leaseToken)
+      // 持有起点记账(只为 status 算"已持多久",不参与判据;失败静默)。
+      // 同样只在"生产默认锁目录"才写:注入 dir 的夹具一个字节都不许落真实 state 账。
+      if (observeWaitDir) writeLeaseJournal(made?.payload)
       recordWait('acquired')
       return true
     } catch (e) {
@@ -961,8 +1281,36 @@ async function acquire({
         const alive = meta ? isPidAlive(meta.pid) : false
         throw new Error(
           `git 写锁等待超时(${timeoutMs}ms)。当前持锁: ${meta ? `unit=${meta.unitId} pid=${meta.pid} 于 ${new Date(meta.ts).toLocaleTimeString()}(${alive ? '持有者仍在运行,请耐心等待或稍后重试' : '持有者已退出,等待 stale 抢占'})` : '未知'}。` +
-            '若确认为残留锁,超过 stale 时间会自动抢占;紧急可删 .ihui-agent/state/ihui-git-write.lock',
+            '若确认为残留锁,超过 stale 时间会自动抢占;紧急可删 .ihui-agent/state/ihui-git-write.lock。' +
+            '排队实况随时可查: node scripts/git-lock.mjs status',
         )
+      }
+      // ── 等锁可观测面(2026-11-18):登记 + 每 progressMs 打一行进度 ─────────────────
+      // 位置刻意排在"超时判据之后、下一次轮询等待之前":超时那一刻不再往队列里多写一笔,
+      // 而正常等待的每一轮都会按 waitTouchAt 节流续期(60s 判据据此区分"还在等"与"残留")。
+      // 节流是硬要求:每 300ms 轮询都写一次盘会把等待环变成磁盘 IO 环 —— 实测会挤压轮询节奏,
+      // 把"两次 meta 重写 ⇒ instances=3"的抖动夹具压成少一代(观测面反噬判据,不可接受)。
+      // meta 是同一轮里已经读到的读数,这里**不重复现读**;判活仍走唯一实现 isPidAlive。
+      if (polls > 0) {
+        if (observeWaitDir) {
+          if (!waitEntry) waitEntry = registerWait({ unitId, tag: newWaitTag(), dir: observeWaitDir })
+          if (waitTouchAt === 0 || Date.now() - waitTouchAt >= WAIT_PROGRESS_DEFAULT_MS) {
+            waitTouchAt = Date.now()
+            touchWait(waitEntry)
+          }
+        }
+        if (progressMs > 0 && Date.now() - waitProgressLoggedAt >= progressMs) {
+          waitProgressLoggedAt = Date.now()
+          log(
+            buildWaitProgressLine({
+              meta,
+              waitedMs: Date.now() - t0,
+              timeoutMs,
+              // 夹具(observeWaitDir=null)传 null ⇒ 进度行如实报"队列不可读",不读真实账本。
+              queue: readWaitQueue({ dir: observeWaitDir }),
+            }),
+          )
+        }
       }
       // 轮询等待(异步 setTimeout)
       await new Promise((resolve) => setTimeout(resolve, 300))
@@ -1113,6 +1461,8 @@ function release({ unitId, dir = lockDir(), token, identityOpts, log = (m) => co
   // 唯一删除出口:三档里任何一档放行都只落到这里一次。
   removeLock(dir)
   forgetLeaseToken(dir)
+  // 持有起点账随释放一起摘掉(status 据此不会把空闲读成"某人已持 N 分钟")。
+  dropLeaseJournal()
   return { released: true, why: releaseWhy }
 }
 
@@ -1130,8 +1480,19 @@ function check() {
     meta && (meta.host || meta.pidStart)
       ? ` host=${meta.host ?? '(未记)'} pidStart=${meta.pidStart ?? '(未记)'}`
       : ' host=(旧 meta 未记) pidStart=(旧 meta 未记 ⇒ 身份无从对账)'
+  // 等锁可观测面(2026-11-18):check 是挂在人手/脚本上的只读入口,补两格"当下真的能答"的数:
+  // 已持多久(持有起点账,对不上时按最近心跳估)与队列几人(读不到 ⇒ 明说不可读,不报 0)。
+  const now = Date.now()
+  const holdMs = meta ? now - Number(holdStartOf(meta) ?? meta.ts ?? now) : 0
+  const hbAgeMs = meta ? now - Number(meta.ts ?? now) : 0
+  const queue = readWaitQueue({ now })
+  const queueDesc = queue.readable
+    ? `${queue.entries.length} 人`
+    : '不可读(未判定,不报 0)'
   console.log(
-    `locked: unit=${meta?.unitId ?? ''} pid=${meta?.pid ?? ''} ts=${meta ? new Date(meta.ts).toISOString() : ''}${id}(check 只读,未现测启动时间)`,
+    `locked: unit=${meta?.unitId ?? ''} pid=${meta?.pid ?? ''} ts=${meta ? new Date(meta.ts).toISOString() : ''}${id}(check 只读,未现测启动时间)` +
+      ` | 已持 ${fmtSec(holdMs)} 最近心跳 ${fmtSec(hbAgeMs)}前 | 排队 ${queueDesc}` +
+      ' | 详情: node scripts/git-lock.mjs status',
   )
   return 1
 }
@@ -1363,13 +1724,25 @@ async function main() {
 
   try {
     if (cmd === 'acquire') {
+      const progressRaw = getOpt('--progress-interval', '毫秒数(0=不打进度)')
+      // `--log-stream stderr`(2026-11-18):调用方(safe-commit)要保住自己的 stdout 契约时用 ——
+      // 等锁进度是诊断信息,天然属于 stderr;stdout 留给调用方的既有输出逐字不变。
+      const stream = getOpt('--log-stream', '日志通道(stdio|stderr)')
+      const lockLog = stream === 'stderr' ? (m) => console.error(m) : (m) => console.log(m)
       await acquire({
         unitId: getOpt('--unit', '写操作单元 id') ?? '',
         timeoutMs: Number(getOpt('--timeout', '毫秒数') ?? 120_000),
         staleMs: Number(getOpt('--stale', '毫秒数') ?? 300_000),
         metricsFile: metricsFilePath(),
+        log: lockLog,
+        ...(progressRaw === undefined ? {} : { progressMs: Number(progressRaw) }),
       })
+      // `locked` 仍走 stdout:这是 CLI 的既有契约(HEAD 版 execSync 捕获的就是这一行);
+      // safe-commit 侧 pipe 掉 stdout ⇒ 不会污染它的逐字契约。只有**等锁进度**改走 stderr。
       console.log('locked')
+    } else if (cmd === 'status') {
+      // 等锁可观测面的查询入口(只读,不创建/不删除):持锁者 + 排队几位 + 各等多久
+      process.exit(statusCommand({ json: args.includes('--json') }))
     } else if (cmd === 'scan') {
       // G-262:只检不删的原生锁读数 + git 进程数 + 锁等待 P95(账本累积)
       scanCommand()
@@ -1472,7 +1845,7 @@ async function main() {
       }
     } else {
       console.error(
-        '用法: git-lock.mjs acquire|release|check|heartbeat|clean|scan [--unit <id>] [--timeout <ms>] [--stale <ms>] [--parent-pid <pid>]',
+        '用法: git-lock.mjs acquire|release|status|check|heartbeat|clean|scan [--unit <id>] [--timeout <ms>] [--stale <ms>] [--progress-interval <ms>] [--parent-pid <pid>] [--json]',
       )
       process.exit(1)
     }
@@ -1520,6 +1893,16 @@ export const __test__ = {
   readMetricsLines,
   percentile,
   scanCommand,
+  // 等锁可观测面(2026-11-18)的接线面:镜像测试据此判"排队数据真能被读出来",
+  // 不得在测试里另造一份登记格式(§22c):
+  statusCommand,
+  readWaitQueue,
+  registerWait,
+  touchWait,
+  unregisterWait,
+  waitQueueDir,
+  buildWaitProgressLine,
+  fmtSec,
 }
 
 // G-697(2026-10-03):双因果链合成器同出口 —— 实现唯一在 scripts/lib/two-cause-chain.mjs,
