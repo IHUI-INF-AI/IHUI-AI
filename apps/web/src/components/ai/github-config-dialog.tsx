@@ -208,7 +208,9 @@ export function GithubConfigDialog() {
   }
 
   const handleOpenAuthPage = () => {
-    if (verificationUri) window.open(verificationUri, '_blank')
+    // Y-87: 新窗口必须切断 opener 反向访问(reverse tabnabbing)。与同文件 <a rel="noreferrer">
+    // 及 lib/open-image-source.ts 的 window.open(url,'_blank','noopener,noreferrer') 同口径。
+    if (verificationUri) window.open(verificationUri, '_blank', 'noopener,noreferrer')
   }
 
   const handleSave = async () => {
