@@ -151,7 +151,7 @@ class DefaultSemanticsError(ValueError):
     """Raised when a default contradicts its declared type or the schema."""
 
 
-def _schema(title: str):
+def _schema(title: str) -> tuple[str, ...]:
     from app.core.hook_contract_schema import HOOK_SCHEMA_FIELDS
 
     if title not in HOOK_SCHEMA_FIELDS:
