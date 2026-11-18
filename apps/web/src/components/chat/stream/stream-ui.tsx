@@ -689,25 +689,47 @@ export function StreamTag({
   tone = 'neutral',
   strong = false,
   testId,
+  onClick,
+  ariaLabel,
+  title,
 }: {
   children: React.ReactNode
   tone?: 'neutral' | 'success' | 'running' | 'danger'
   /** 数字计数徽章(待办数/步数/±行数)用 true:加粗 + 等宽,保证位数变化不抖 */
   strong?: boolean
   testId?: string
+  /** 深化AA(2026-11-17):传入则渲染为可点击 button(点击定位/展开);缺省保持静态 span,向后兼容 */
+  onClick?: () => void
+  /** onClick 存在时的无障碍名;缺省回退到 children 文本 */
+  ariaLabel?: string
+  /** hover 提示(如"点击定位首个失败项");仅 onClick 存在时生效 */
+  title?: string
 }) {
+  const cls = cn(
+    'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
+    strong && 'font-semibold',
+    tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
+    tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    tone === 'running' && 'bg-primary/10 text-primary',
+    tone === 'neutral' && 'bg-muted/70 text-muted-foreground',
+    typeof onClick === 'function' && 'cursor-pointer transition-colors hover:brightness-95',
+  )
+  if (typeof onClick === 'function') {
+    return (
+      <button
+        type="button"
+        className={cls}
+        data-testid={testId}
+        aria-label={ariaLabel}
+        title={title}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    )
+  }
   return (
-    <span
-      className={cn(
-        'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
-        strong && 'font-semibold',
-        tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
-        tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-        tone === 'running' && 'bg-primary/10 text-primary',
-        tone === 'neutral' && 'bg-muted/70 text-muted-foreground',
-      )}
-      data-testid={testId}
-    >
+    <span className={cls} data-testid={testId}>
       {children}
     </span>
   )
