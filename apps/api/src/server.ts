@@ -31,6 +31,7 @@ import { relayModelAvailabilityRoutes } from './routes/admin/relay-model-availab
 import { relayDsmlParseRoutes } from './routes/admin/relay-dsml-parse.js'
 import { relayCheckinStreakRoutes } from './routes/admin/relay-checkin-streak.js'
 import { relayDeviceIdentityRoutes } from './routes/admin/relay-device-identity.js'
+import { relayClientConfigRoutes } from './routes/admin/relay-client-config.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -485,6 +486,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 双通道:上游自带 machine_id 优先用上游的;盐(RELAY_DEVICE_SALT)缺失时一律拒绝派生,
   // 不退化成可穷举的弱标识 —— 与 qoder2api 系网关的 derive_id 同一目的(账号间身份隔离),不冒充真机。
   server.register(relayDeviceIdentityRoutes, { prefix: '/api' })
+
+  // 客户端接入配置拼装(2026-11-18 立,对标 qoder2api-hub 的「客户端配置生成器」):
+  // 七档客户端 × 协议格式,纯函数拼装、单一真相源(web/CLI/客服话术共用);
+  // baseUrl 由调用方传入,模块绝不内置域名(猜错一次就是 404 工单)。
+  server.register(relayClientConfigRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
