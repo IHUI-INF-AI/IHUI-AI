@@ -5476,6 +5476,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 🐞 修复:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+
+**2026-11-18**
 - 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
 - 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
 - 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
@@ -5788,9 +5791,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-16**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (08dfc418e7c)
-
-**2026-11-16**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0073e7c7a84)
 <!-- END RECENT UPDATES -->
 ## 守门脚本索引(已接线门点名 · R4 对账)
 <!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。

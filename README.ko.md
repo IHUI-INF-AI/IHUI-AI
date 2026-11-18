@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 🐞 수정:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+
+**2026-11-18**
 - 📚 문서:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
 - 🐞 수정:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
 - 🚀 기능/개선:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
@@ -2400,9 +2403,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-16**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (0073e7c7a84)
-
-**2026-11-16**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (30661f36491)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
