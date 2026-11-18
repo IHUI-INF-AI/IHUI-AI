@@ -523,36 +523,60 @@ log('info', `Step 0/5: 获取 git 写锁(unit=${LOCK_UNIT})`)
 //   ③ 心跳以 parent-pid = 本进程 存活探测,本进程任意路径退出后心跳自动消亡(无残留)。
 //   事故背景:此前 meta.ts 只在 acquire 时写一次,pre-commit 跑超 300s 即被并发会话按
 //   "悬挂锁"强制抢占 → 两进程同时写 .git(锁反而制造损坏)。
-try {
-  run(`node ${repoRoot}/scripts/git-lock.mjs acquire --unit ${LOCK_UNIT} --timeout 900000`)
-} catch (e) {
-  log('err', `获取 git 写锁失败: ${e.message}`)
-  process.exit(2)
-}
-try {
-  spawn(
+// 2026-11-18 改**流式**(立因:机主实测"提交总在等锁,排队情况没有数据实时返回")——
+// 旧写法 execSync 会把等锁期间的一切输出攒进缓冲区,最长 15 分钟的等待在屏幕上完全静止。
+// 现在 stdout 直接继承控制台 ⇒ acquire 每 5s 打的"持锁者/已持多久/我排第几"实时可见;
+// stderr 仍收集(失败时用它组装错误文案,措辞与旧 catch 分支一字不差)。
+// 超时闸比 acquire 自己的 900000 多留 60s:让 acquire 自己先超时报出"持锁是谁",而不是被外层砍掉。
+// ⚠️ `--dry-run` **不加锁**(测试 DRY1 的契约,也符合"预演零写"):预演不做任何 git 写动作,
+// 自然不需要串行化;加锁会给夹具仓留下 `.ihui-agent/` 目录并波及 index 的 stat 缓存。
+if (!dryRun) {
+  const lockAcquire = spawnSync(
     process.execPath,
     [
       `${repoRoot}/scripts/git-lock.mjs`,
-      'heartbeat',
+      'acquire',
       '--unit',
       LOCK_UNIT,
-      '--parent-pid',
-      String(process.pid),
+      '--timeout',
+      '900000',
+      // 进度与 `locked` 都走 stderr:本器的 stdout 有自己的逐字契约(NS4 锁着"整段 stdout"),
+      // 而等锁进度天然是诊断信息 —— 两件互不污染,用户照样实时看得到。
+      '--log-stream',
+      'stderr',
     ],
-    // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
-    { detached: true, windowsHide: true, stdio: 'ignore' },
-  ).unref()
-} catch {
-  /* 心跳失败不阻塞 commit(stale 判定仍按"pid 存活"兜底) */
-}
-process.on('exit', () => {
-  try {
-    run(`node ${repoRoot}/scripts/git-lock.mjs release --unit ${LOCK_UNIT}`, { allowFail: true })
-  } catch {
-    /* 忽略释放失败 */
+    // stdout 捕获(丢弃)、stderr 继承控制台 ⇒ 进度实时可见,本器 stdout 一个字节不多。
+    { stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true, timeout: 960_000 },
+  )
+  if (lockAcquire.status !== 0) {
+    log('err', `获取 git 写锁失败: ${lockAcquire.status ?? lockAcquire.signal}`)
+    process.exit(2)
   }
-})
+  try {
+    spawn(
+      process.execPath,
+      [
+        `${repoRoot}/scripts/git-lock.mjs`,
+        'heartbeat',
+        '--unit',
+        LOCK_UNIT,
+        '--parent-pid',
+        String(process.pid),
+      ],
+      // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
+      { detached: true, windowsHide: true, stdio: 'ignore' },
+    ).unref()
+  } catch {
+    /* 心跳失败不阻塞 commit(stale 判定仍按"pid 存活"兜底) */
+  }
+  process.on('exit', () => {
+    try {
+      run(`node ${repoRoot}/scripts/git-lock.mjs release --unit ${LOCK_UNIT}`, { allowFail: true })
+    } catch {
+      /* 忽略释放失败 */
+    }
+  })
+}
 
 log('info', `safe-commit 启动 → 分支: ${C.bold}${currentBranch}${C.reset}`)
 log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)

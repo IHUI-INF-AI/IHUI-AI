@@ -691,37 +691,39 @@ export function StreamTag({
   testId,
   onClick,
   ariaLabel,
-  title,
 }: {
   children: React.ReactNode
   tone?: 'neutral' | 'success' | 'running' | 'danger'
   /** 数字计数徽章(待办数/步数/±行数)用 true:加粗 + 等宽,保证位数变化不抖 */
   strong?: boolean
   testId?: string
-  /** 深化AA(2026-11-17):传入则渲染为可点击 button(点击定位/展开);缺省保持静态 span,向后兼容 */
+  /**
+   * 可点击徽章("失败 N 条 → 跳到首条失败"那类定位标)。
+   * 给了就渲染成 `<button type="button">`:键盘可达、语义正确;
+   * 不给仍是 `<span>`,所以纯展示徽章的调用点零影响。
+   */
   onClick?: () => void
-  /** onClick 存在时的无障碍名;缺省回退到 children 文本 */
+  /**
+   * 可访问性标签。**刻意不接受 `title` prop**:本仓禁止原生 title 提示窗
+   * (`check-no-native-dialog.mjs`),语义一律走 aria-label。
+   */
   ariaLabel?: string
-  /** hover 提示(如"点击定位首个失败项");仅 onClick 存在时生效 */
-  title?: string
 }) {
-  const cls = cn(
+  const tagClass = cn(
     'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
     strong && 'font-semibold',
     tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
     tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     tone === 'running' && 'bg-primary/10 text-primary',
     tone === 'neutral' && 'bg-muted/70 text-muted-foreground',
-    typeof onClick === 'function' && 'cursor-pointer transition-colors hover:brightness-95',
   )
-  if (typeof onClick === 'function') {
+  if (onClick) {
     return (
       <button
         type="button"
-        className={cls}
+        className={cn(tagClass, 'cursor-pointer border-0 hover:brightness-95')}
         data-testid={testId}
         aria-label={ariaLabel}
-        title={title}
         onClick={onClick}
       >
         {children}
@@ -729,7 +731,7 @@ export function StreamTag({
     )
   }
   return (
-    <span className={cls} data-testid={testId}>
+    <span className={tagClass} data-testid={testId} aria-label={ariaLabel}>
       {children}
     </span>
   )

@@ -105,7 +105,7 @@ import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace }
 // 落的恢复型提交在留痕台账里一行都没有(现读 `plan-bypass-ledger-report.mjs --since 2026-10-09`
 // 的 18 枚"本机可疑"里 10 枚是本器产物),总量统计只能把它们留在 unknown ——
 // 那与"有人 --no-verify 塞了一枚红"在两行文本上完全同形,而两者该做的处置相反。
-import { attestBypassCommit } from './lib/bypass-git.mjs'
+import { attestBypassCommit, REPO_GIT_IDENTITY_ARGS } from './lib/bypass-git.mjs'
 // 取证夹具唯一落点(§26:既不得往 os.tmpdir() 写,也不得落在仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // G-307(看守侧):归并器合法翻勾会在行上留注记 —— legacy 形态把注记**前置**在正文之前,
@@ -4557,9 +4557,23 @@ function heal(commit, picks = new Map()) {
     g2(['read-tree', parent])
     g2(['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN}`])
     const tree = g2(['write-tree'])
+    // 身份随提交一起给,不依赖"当前环境配过 identity"(单源 = lib/bypass-git.mjs,不手拼第二份):
+    // 本器由 live-doc-edit 收尾与 guardian 以派生/服务身份发起,而 user.name/user.email 只配在
+    // 交互账户的 .gitconfig 里 ⇒ 缺这一组时 commit-tree 恒 `Author identity unknown`,自愈腿
+    // 天天 rc≠0,"HEAD 缺登记行"被永久读成未判定(2026-11-18 实测,与 bypass-git 头注①同型)。
     const newCommit = execFileSync(
       GIT,
-      ['-c', 'safe.directory=*', 'commit-tree', tree, '-p', parent, '-F', msgFile],
+      [
+        '-c',
+        'safe.directory=*',
+        ...REPO_GIT_IDENTITY_ARGS,
+        'commit-tree',
+        tree,
+        '-p',
+        parent,
+        '-F',
+        msgFile,
+      ],
       {
         cwd: ROOT,
         encoding: 'utf8',
