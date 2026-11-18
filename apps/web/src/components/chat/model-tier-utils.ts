@@ -63,6 +63,9 @@ export interface ModelOption {
   /** 是否已通过连通性探测(2026-11-11 立):仅后端 health_status==='healthy' 时为 true;
    *  pending(账户级错误/未探测)、unknown(无状态)与字段缺失都不可依赖,按未验证展示 */
   verified?: boolean
+  /** 该结论的核对时刻(epoch ms,2026-11-18 立):号池腿由「本轮现拉上游模型清单」给出,
+   *  仅作可选透传,不影响渲染判定。 */
+  verifiedAt?: number
   /** 未验证原因/上游简短脱敏错误,仅作行标题提示 */
   healthError?: string
   /** 失败原因分档(2026-11-18 立,后端 `health_reason` 透传):
