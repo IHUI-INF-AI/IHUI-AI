@@ -199,6 +199,7 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // 一份实现(§0.6),这里直接复用它们的出口,不在本器里另写一份"哪些路径不用带横幅"。
 import { createExclusionPredicate } from './lib/third-party-roots.mjs'
 import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
+import { judgeDistScript, loadDistScriptEntries } from './lib/watermark-dist-scripts.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 // L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
@@ -2376,6 +2377,17 @@ export function watermarkPreflight({
           why: `工具生成物豁免面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 拒绝落地(宁停不猜)`,
         }
       }
+      // 第三档(2026-11-18):对外分发安装脚本。取不到台账 ⇒ 与另两档同一条失效方向(exit 2)。
+      let distEntries
+      try {
+        distEntries = loadDistScriptEntries(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          undetermined: true,
+          why: `分发脚本豁免面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 拒绝落地(宁停不猜)`,
+        }
+      }
       const tempRelOf = new Map()
       const refusals = []
       paths.forEach((p, i) => {
@@ -2392,6 +2404,9 @@ export function watermarkPreflight({
           return
         }
         if (judgeToolGenerated({ rel, text, entries }).exempt) return
+        // 第三档:按**原仓库路径**(rel,不是 scratch 副本名)判,否则已登记豁免的 install.ps1
+        // 在临时副本上会被判成"缺横幅"—— 那是假红,等于"给出路跑不通"。
+        if (judgeDistScript({ rel, text, entries: distEntries }).exempt) return
         const abs = join(dir, String(i), basename(p))
         mkdirSync(dirname(abs), { recursive: true })
         writeFileSync(abs, text)

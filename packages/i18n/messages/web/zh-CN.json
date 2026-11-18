@@ -16712,7 +16712,8 @@
       "mongodb": "火山引擎",
       "mysql": "阿里云",
       "postgresql": "腾讯云",
-      "redis": "华为云"
+      "redis": "华为云",
+      "sqlite": "亚马逊云"
     },
     "ecosystem": "生态合作",
     "icp": "吉ICP备2025027274号",
