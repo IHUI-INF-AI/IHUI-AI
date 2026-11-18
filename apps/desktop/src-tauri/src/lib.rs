@@ -42,6 +42,11 @@ mod git_status_core;
 mod git_local_diff;
 // 2026-10-18 立(票72②):工作区增量索引执行层(只用 std;目录不下降符号链接/junction=票72④的索引侧收口)。
 mod workspace_index;
+// 2026-11-19 立:本机工作区文件通道(判据层纯 std 可单跑 / 胶水层只映射 DTO)。
+// 与 Qoder/Trae/WorkBuddy 同构的那一半:工作区=本机目录,列/读/写在本机进程里完成,
+// 不再经过服务端 IHUI_WORKSPACE_ROOTS 白名单。
+mod workspace_fs_core;
+mod workspace_fs_ipc;
 // G-379/G-407/G-774,2026-10-07:桌面日志保留期——政策常量唯一出处 + setup 期裁剪历史档案。
 mod log_retention;
 mod startup_guard;
@@ -86,6 +91,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use base64::Engine;
@@ -2703,47 +2709,65 @@ mod webview_cache_tests {
     }
 }
 
-/// 根据状态返回本地化托盘 tooltip(2026-07-29 #10)。
-/// status: "idle" | "new_message" | "thinking"
-fn tray_status_tooltip(status: &str) -> String {
-    let base = localized_app_name();
-    match get_system_locale() {
-        AppLocale::ZhCn => match status {
-            "new_message" => format!("{} · 有新消息", base),
-            "thinking" => format!("{} · AI 思考中…", base),
-            _ => base.to_string(),
-        },
-        AppLocale::ZhTw => match status {
-            "new_message" => format!("{} · 有新訊息", base),
-            "thinking" => format!("{} · AI 思考中…", base),
-            _ => base.to_string(),
-        },
-        AppLocale::Ko => match status {
-            "new_message" => format!("{} · 새 메시지", base),
-            "thinking" => format!("{} · AI 생각 중…", base),
-            _ => base.to_string(),
-        },
-        AppLocale::Ja => match status {
-            "new_message" => format!("{} · 新着メッセージ", base),
-            "thinking" => format!("{} · AI 思考中…", base),
-            _ => base.to_string(),
-        },
-        AppLocale::En => match status {
-            "new_message" => format!("{} · New message", base),
-            "thinking" => format!("{} · AI thinking…", base),
-            _ => base.to_string(),
-        },
+/// 未读条数的 tooltip 文案(2026-11-18 随徽标重做一并接上:徽标画了数字,
+/// 悬停的 tooltip 也该报同一个数,否则两处口径对不上)。
+fn unread_phrase(locale: AppLocale, unread: u32) -> String {
+    match locale {
+        AppLocale::ZhCn => format!("{} 条未读", unread),
+        AppLocale::ZhTw => format!("{} 則未讀", unread),
+        AppLocale::Ko => format!("안 읽음 {}개", unread),
+        AppLocale::Ja => format!("未読 {} 件", unread),
+        AppLocale::En => format!("{} unread", unread),
     }
 }
 
-/// 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中。
-/// status: "idle" | "new_message" | "thinking"
+/// 根据状态返回本地化托盘 tooltip(2026-07-29 #10 立;2026-11-18 补未读条数)。
+/// status: "idle" | "new_message" | "thinking";unread>0 时把条数拼进去。
+fn tray_status_tooltip(status: &str, unread: u32) -> String {
+    let base = localized_app_name();
+    let locale = get_system_locale();
+    let unread_part = if unread > 0 {
+        Some(unread_phrase(locale, unread))
+    } else {
+        None
+    };
+    let thinking = match locale {
+        AppLocale::ZhCn | AppLocale::ZhTw => "AI 思考中…",
+        AppLocale::Ko => "AI 생각 중…",
+        AppLocale::Ja => "AI 思考中…",
+        AppLocale::En => "AI thinking…",
+    };
+    let new_message = match locale {
+        AppLocale::ZhCn => "有新消息",
+        AppLocale::ZhTw => "有新訊息",
+        AppLocale::Ko => "새 메시지",
+        AppLocale::Ja => "新着メッセージ",
+        AppLocale::En => "New message",
+    };
+    match status {
+        // 有未读时报条数:徽标已经写了数字,再写"有新消息"是同一件事的两种模糊说法
+        "new_message" if unread_part.is_some() => {
+            format!("{} · {}", base, unread_part.unwrap_or_default())
+        }
+        "new_message" => format!("{} · {}", base, new_message),
+        // 思考中是主态,未读只是附加信息 —— 顺序不能反过来
+        "thinking" if unread_part.is_some() => {
+            format!("{} · {} · {}", base, thinking, unread_part.unwrap_or_default())
+        }
+        "thinking" => format!("{} · {}", base, thinking),
+        _ if unread_part.is_some() => format!("{} · {}", base, unread_part.unwrap_or_default()),
+        _ => base.to_string(),
+    }
+}
+
+/// 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中/未读条数。
+/// status: "idle" | "new_message" | "thinking";`unread` 缺省按 0(老调用方不受影响)。
 #[tauri::command]
-fn set_tray_status(app: tauri::AppHandle, status: String) -> Result<(), String> {
+fn set_tray_status(app: tauri::AppHandle, status: String, unread: Option<u32>) -> Result<(), String> {
     let tray = app
         .tray_by_id("main")
         .ok_or_else(|| "tray icon not found".to_string())?;
-    let tooltip = tray_status_tooltip(&status);
+    let tooltip = tray_status_tooltip(&status, unread.unwrap_or(0));
     tray.set_tooltip(Some(&tooltip))
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -3107,50 +3131,256 @@ fn resolve_close_choice(
     }
 }
 
-/// 任务栏红点直径(物理像素):overlay 会被缩到图标一角,画大了只是浪费字节。
-const BADGE_DIAMETER_PX: u32 = 16;
+// ================== 任务栏未读徽标(2026-11-18 重做)==================
+//
+// 旧实现的两个真问题(用户 2026-11-18 实拍指控,逐条对得上):
+//   ① 16×16 画布上画直径 15px 的实心圆、零留白 —— Windows 把 overlay 位图当"小图标"
+//      贴到任务栏按钮上并随 DPI 放大,于是变成一颗盖住图标的红球(截图实测 26×26,
+//      已经大过应用图标本体);
+//   ② 前端**一直在传未读条数**(`set_desktop_badge(unread: u32)`),这里只判 `== 0`,
+//      数字被整个丢掉 —— 1 条和 99 条长得一模一样。
+//
+// 现在的口径(五条):
+//   · 画布边长按系统小图标尺寸取:16 × scale_factor(96dpi=16 / 120=20 / 144=24 / 192=32),
+//     跨屏后由 ScaleFactorChanged 钩子按新 DPI 重建;
+//   · 徽标只占画布 ~70%(双字符 ~88% 宽),四周留透明边距,收回"红球盖图标"的观感;
+//   · 条数 ≤9 画单字符、≥10 画「9+」:三位数在 16–32px 的 overlay 上没有可读空间,
+//     与侧栏 `formatUnreadCount` 的 99+ 同族但封顶更早(理由见 `badge_glyphs`);
+//   · 数字用 5×7 点阵 + 每像素 4×4 采样,不引字体依赖,任何画布尺寸都有抗锯齿;
+//   · 颜色沿用品牌红 #DC2626 + 白字,外缘一圈深色描边,浅色任务栏/浅色图标上也咬得住。
 
-/// 画一枚实心红点 RGBA(纯像素运算,不依赖窗口/宿主,因此可单测)。
-/// 外缘 1px 线性淡出 —— 16px 下不淡出就是一颗锯齿方块。
-fn build_unread_badge_rgba() -> (Vec<u8>, u32, u32) {
-    use image::{Rgba, RgbaImage};
-    let d = BADGE_DIAMETER_PX;
-    let radius = (d as f32 - 1.0) / 2.0;
-    let mut img = RgbaImage::from_pixel(d, d, Rgba([0, 0, 0, 0]));
-    for y in 0..d {
-        for x in 0..d {
-            let dx = x as f32 - radius;
-            let dy = y as f32 - radius;
-            let coverage = (radius + 0.5 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
-            if coverage <= 0.0 {
-                continue;
-            }
-            img.put_pixel(
-                x,
-                y,
-                Rgba([220, 38, 38, (coverage * 255.0) as u8]),
-            );
-        }
-    }
-    (img.into_raw(), d, d)
+/// 最近一次推送的未读数(DPI 变化时要用它按新画布重建:命令本身不会再被调一次)。
+static LAST_BADGE_UNREAD: AtomicU32 = AtomicU32::new(0);
+
+/// 每像素的采样倍数(4×4 = 16 点)。16px 画布下也够把点阵边缘磨平。
+const BADGE_SUPERSAMPLE: u32 = 4;
+
+/// 任务栏 overlay 的目标边长(物理像素)。Windows 用 SM_CXSMICON 画 overlay:
+/// 96dpi=16 / 120=20 / 144=24 / 168=28 / 192=32 —— 正是 16 × scale_factor。
+/// 纯函数(不碰窗口),因此可被单测钉死;scale 异常/取不到一律按 1.0 兜底。
+fn badge_canvas_px(scale: f32) -> u32 {
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    ((16.0 * scale).round() as u32).clamp(16, 48)
 }
 
-/// 未读红点(Windows 任务栏 overlay icon)。
-/// `unread_badge=false` 或 `unread == 0` ⇒ 清掉 overlay;否则盖上红点。
+/// 5×7 点阵:数字 0-9 与加号(+)。每行一个 5 位掩码,bit4 = 最左列。
+/// 光栅化在 `in_badge_glyph` 里按单元矩形做,所以这串表本身就是"字形"的唯一真相源。
+const BADGE_GLYPHS: [[u8; 7]; 11] = [
+    [0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110], // 0
+    [0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110], // 1
+    [0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111], // 2
+    [0b01110, 0b10001, 0b00001, 0b00110, 0b00001, 0b10001, 0b01110], // 3
+    [0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010], // 4
+    [0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110], // 5
+    [0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110], // 6
+    [0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000], // 7
+    [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110], // 8
+    [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100], // 9
+    [0b00000, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000], // + (索引 10)
+];
+
+/// 角标里画哪几个字形(左→右)。`unread == 0` ⇒ 空(调用方应清 overlay)。
+///
+/// 为什么 ≥10 就折成「9+」而不是两位数:overlay 画布最宽 32px,双字形已是胶囊极限;
+/// 三位数在这个尺寸里只会糊成一团红 —— 精确条数留给应用内角标(那边有 99+ 的完整档位)。
+fn badge_glyphs(unread: u32) -> Vec<usize> {
+    if unread == 0 {
+        return Vec::new();
+    }
+    if unread <= 9 {
+        return vec![unread as usize];
+    }
+    vec![9, 10]
+}
+
+/// 画布够不够放下一个能认出来的数字。
+///
+/// 100% DPI 的 16px 画布上,数字只剩 9px 高、单元边长 1.x 像素 —— 实测下来是
+/// 一片白噪点,比一条干净的红点更糟。所以这一档**只画圆点**;125% 及以上
+/// (20/24/32px)才上数字(A/B 两档在同一张预览图上肉眼比对过)。
+fn badge_shows_count(canvas: u32) -> bool {
+    canvas >= 20
+}
+
+/// 纯圆点盒形(画布坐标系):直径 56% 画布 —— Teams/Slack 那一档的比例,
+/// 既看得见又不至于盖住应用图标本体。
+fn badge_dot_box(canvas: u32) -> (f32, f32, f32, f32) {
+    let d = canvas as f32 * 0.56;
+    let x0 = (canvas as f32 - d) / 2.0;
+    let y0 = (canvas as f32 - d) / 2.0;
+    (x0, y0, d, d)
+}
+
+/// 徽标盒形(画布坐标系,单位=画布像素):(x0, y0, 宽, 高, 单元边长)。
+///
+/// 单字符 ⇒ 正圆(数字居中,观感与圆点角标一致);双字符(9+)⇒ 胶囊。
+/// 高度上限 72% 画布、宽度上限 90% 画布 —— 旧实现 100% 满幅正是"红球"的成因;
+/// 内边距只留 0.8 格:overlay 本来就只有 16–32px,留白多了字形就糊成一团点。
+fn badge_box(canvas: u32, glyph_count: usize) -> (f32, f32, f32, f32, f32) {
+    let canvas_f = canvas as f32;
+    let n = glyph_count.max(1) as f32;
+    // 字形占 n*5 格 + 字间 (n-1) 格;四周各留 1.2 格内边距 ⇒ 高度 7+2.4 格
+    let cells_w = n * 5.0 + (n - 1.0) + 2.4;
+    let cells_h = 7.0 + 2.4;
+    let max_w = canvas_f * 0.90;
+    let max_h = canvas_f * 0.74;
+    let cell = (max_h / cells_h).min(max_w / cells_w);
+    let h = cell * cells_h;
+    let w = (cell * cells_w).max(h);
+    let x0 = (canvas_f - w) / 2.0;
+    let y0 = (canvas_f - h) / 2.0;
+    (x0, y0, w, h, cell)
+}
+
+/// 点 (x, y) 是否落在圆角矩形内(用"内缩矩形 + 半径"判距离,标准 SDF 写法)。
+fn in_round_rect(x: f32, y: f32, x0: f32, y0: f32, x1: f32, y1: f32, radius: f32) -> bool {
+    if x1 <= x0 || y1 <= y0 {
+        return false;
+    }
+    // 半径先夹到短边一半:16px 圆点减 1px 描边后正好"半径 == 半宽",
+    // 浮点误差会让 f32::clamp 的 min 比 max 大 5e-7 而直接 panic(2026-11-18 实测到)。
+    let max_r = (x1 - x0).min(y1 - y0) * 0.5;
+    let r = radius.clamp(0.0, max_r);
+    let cx = x.clamp(x0 + r, x1 - r);
+    let cy = y.clamp(y0 + r, y1 - r);
+    let dx = x - cx;
+    let dy = y - cy;
+    dx * dx + dy * dy <= r * r
+}
+
+/// 点 (x, y) 是否落在某个字形的一次点亮单元内。
+///
+/// 刻意**不做单元内缩**:16px 画布上单元边长只有 1.x 像素,再削 10% 边就等于
+/// 把笔画削成散点(实测预览里数字会碎成噪点);相邻格直接连成实心笔画更认得出。
+fn in_badge_glyph(x: f32, y: f32, gx: f32, gy: f32, cell: f32, glyphs: &[usize]) -> bool {
+    for (gi, &glyph) in glyphs.iter().enumerate() {
+        let ox = gx + gi as f32 * 6.0 * cell; // 每个字形占 6 格(5 宽 + 1 字间距)
+        let lx = x - ox;
+        let ly = y - gy;
+        if lx < 0.0 || ly < 0.0 || lx >= 5.0 * cell || ly >= 7.0 * cell {
+            continue;
+        }
+        let col = (lx / cell) as usize;
+        let row = (ly / cell) as usize;
+        if BADGE_GLYPHS[glyph][row] & (1 << (4 - col)) != 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// 画一枚未读徽标 RGBA(纯像素运算,不依赖窗口/宿主,因此可单测)。
+/// 返回 `(像素, 宽, 高)`;`unread == 0` 时返回全透明画布(调用方应直接清 overlay)。
+fn build_badge_rgba(unread: u32, canvas: u32) -> (Vec<u8>, u32, u32) {
+    let canvas = canvas.clamp(16, 48);
+    let mut buf = vec![0u8; (canvas * canvas * 4) as usize];
+    let mut glyphs = badge_glyphs(unread);
+    if glyphs.is_empty() {
+        return (buf, canvas, canvas);
+    }
+    // 16px 画布放不下可读数字 ⇒ 退成一条干净的红点(见 badge_shows_count)
+    if !badge_shows_count(canvas) {
+        glyphs.clear();
+    }
+
+    let (bx, by, bw, bh, cell) = if glyphs.is_empty() {
+        let (x, y, w, h) = badge_dot_box(canvas);
+        (x, y, w, h, 0.0f32)
+    } else {
+        badge_box(canvas, glyphs.len())
+    };
+    let n = glyphs.len() as f32;
+    let glyphs_w = (n * 5.0 + (n - 1.0)) * cell;
+    let gx = bx + (bw - glyphs_w) / 2.0;
+    let gy = by + (bh - 7.0 * cell) / 2.0;
+    // 描边按画布比例给(16px 画布上也要看得见),最厚 1.6 物理像素
+    let ring = (canvas as f32 / 16.0).min(1.6);
+    let step = 1.0 / BADGE_SUPERSAMPLE as f32;
+    let samples = (BADGE_SUPERSAMPLE * BADGE_SUPERSAMPLE) as f32;
+
+    for py in 0..canvas {
+        for px in 0..canvas {
+            let mut cov = 0.0f32;
+            let (mut sum_r, mut sum_g, mut sum_b) = (0.0f32, 0.0f32, 0.0f32);
+            for sy in 0..BADGE_SUPERSAMPLE {
+                for sx in 0..BADGE_SUPERSAMPLE {
+                    let x = px as f32 + (sx as f32 + 0.5) * step;
+                    let y = py as f32 + (sy as f32 + 0.5) * step;
+                    if in_badge_glyph(x, y, gx, gy, cell, &glyphs) {
+                        cov += 1.0;
+                        sum_r += 255.0;
+                        sum_g += 255.0;
+                        sum_b += 255.0;
+                    } else if in_round_rect(
+                        x,
+                        y,
+                        bx + ring,
+                        by + ring,
+                        bx + bw - ring,
+                        by + bh - ring,
+                        bh * 0.5 - ring,
+                    ) {
+                        // 描边**往里收**,不往外扩:盒形尺寸就是最终尺寸,
+                        // 否则 16px 画布上 1px 描边会把"70%"悄悄撑成 82%。
+                        cov += 1.0;
+                        sum_r += 220.0;
+                        sum_g += 38.0;
+                        sum_b += 38.0;
+                    } else if in_round_rect(x, y, bx, by, bx + bw, by + bh, bh * 0.5) {
+                        cov += 1.0;
+                        sum_r += 18.0;
+                        sum_g += 18.0;
+                        sum_b += 18.0;
+                    }
+                }
+            }
+            let alpha = (cov / samples * 255.0).round() as u8;
+            if alpha == 0 {
+                continue;
+            }
+            let idx = ((py * canvas + px) * 4) as usize;
+            buf[idx] = (sum_r / cov).round() as u8;
+            buf[idx + 1] = (sum_g / cov).round() as u8;
+            buf[idx + 2] = (sum_b / cov).round() as u8;
+            buf[idx + 3] = alpha;
+        }
+    }
+    (buf, canvas, canvas)
+}
+
+/// 真正把徽标贴到任务栏(main 窗口)。unread=0 ⇒ 清 overlay。
+/// Windows 专属:overlay icon 是 ITaskbarList3 的能力,其他平台这段不编译。
+#[cfg(target_os = "windows")]
+fn apply_desktop_badge(window: &tauri::WebviewWindow, unread: u32) -> Result<(), String> {
+    if unread == 0 {
+        return window.set_overlay_icon(None).map_err(|e| e.to_string());
+    }
+    let scale = window.scale_factor().map(|s| s as f32).unwrap_or(1.0);
+    let (rgba, width, height) = build_badge_rgba(unread, badge_canvas_px(scale));
+    window
+        .set_overlay_icon(Some(tauri::image::Image::new_owned(rgba, width, height)))
+        .map_err(|e| e.to_string())
+}
+
+/// 未读徽标(Windows 任务栏 overlay icon)。
+/// `unread_badge=false` 或 `unread == 0` ⇒ 清掉 overlay;否则按当前 DPI 画数字徽标。
 /// 与 `set_tray_status` **刻意不耦合**:角标关掉时 tooltip 仍要照常工作。
 #[tauri::command]
 fn set_desktop_badge(app: tauri::AppHandle, unread: u32) -> Result<(), String> {
+    // 先记账:DPI 变化时钩子要用它重建,不能因为这次命令没被再调一次就丢掉条数
+    LAST_BADGE_UNREAD.store(unread, Ordering::Relaxed);
     #[cfg(target_os = "windows")]
     {
         let prefs = load_desktop_prefs(&app);
         let window = app.get_webview_window("main").ok_or("main window not found")?;
-        if !prefs.unread_badge || unread == 0 {
+        if !prefs.unread_badge {
             return window.set_overlay_icon(None).map_err(|e| e.to_string());
         }
-        let (rgba, width, height) = build_unread_badge_rgba();
-        window
-            .set_overlay_icon(Some(tauri::image::Image::new_owned(rgba, width, height)))
-            .map_err(|e| e.to_string())
+        apply_desktop_badge(&window, unread)
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -3159,6 +3389,146 @@ fn set_desktop_badge(app: tauri::AppHandle, unread: u32) -> Result<(), String> {
             "[desktop-prefs] set_overlay_icon 是 Windows 专属 API,本平台按 no-op 处理(unread={unread})"
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod desktop_badge_tests {
+    use super::*;
+
+    /// 不透明像素的包围盒 (x0, y0, x1, y1);全透明返回 None。
+    fn alpha_bounds(rgba: &[u8], canvas: u32) -> Option<(u32, u32, u32, u32)> {
+        let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0u32, 0u32);
+        let mut any = false;
+        for y in 0..canvas {
+            for x in 0..canvas {
+                let a = rgba[((y * canvas + x) * 4 + 3) as usize];
+                if a == 0 {
+                    continue;
+                }
+                any = true;
+                x0 = x0.min(x);
+                y0 = y0.min(y);
+                x1 = x1.max(x);
+                y1 = y1.max(y);
+            }
+        }
+        any.then_some((x0, y0, x1, y1))
+    }
+
+    #[test]
+    fn 画布边长按_dpi_放大且夹在_16_48() {
+        assert_eq!(badge_canvas_px(1.0), 16);
+        assert_eq!(badge_canvas_px(1.25), 20);
+        assert_eq!(badge_canvas_px(1.5), 24);
+        assert_eq!(badge_canvas_px(1.75), 28);
+        assert_eq!(badge_canvas_px(2.0), 32);
+        // 退化输入按 100% 兜底,取值上限 48(overlay 再大也只是浪费)
+        assert_eq!(badge_canvas_px(0.5), 16);
+        assert_eq!(badge_canvas_px(f32::NAN), 16);
+        assert_eq!(badge_canvas_px(-2.0), 16);
+        assert_eq!(badge_canvas_px(9.0), 48);
+    }
+
+    #[test]
+    fn 角标字形一到两个_十以上折成_9_加() {
+        assert!(badge_glyphs(0).is_empty());
+        assert_eq!(badge_glyphs(1), vec![1]);
+        assert_eq!(badge_glyphs(9), vec![9]);
+        assert_eq!(badge_glyphs(10), vec![9, 10]);
+        assert_eq!(badge_glyphs(999), vec![9, 10]);
+    }
+
+    #[test]
+    fn 零未读不画任何像素() {
+        for canvas in [16u32, 24, 32] {
+            let (rgba, w, _) = build_badge_rgba(0, canvas);
+            assert!(alpha_bounds(&rgba, w).is_none(), "画布 {canvas}: 0 未读不该留下像素");
+        }
+    }
+
+    #[test]
+    fn 徽标不再满幅_四周留透明边距() {
+        // 旧实现是 16×16 上直径 15px 的实心圆(零边距)⇒ Windows 放大后成了"红球盖图标"。
+        for canvas in [16u32, 20, 24, 32, 48] {
+            let (rgba, w, h) = build_badge_rgba(3, canvas);
+            let (x0, y0, x1, y1) = alpha_bounds(&rgba, w).expect("单字符必须画得出像素");
+            let ink_w = x1 - x0 + 1;
+            let ink_h = y1 - y0 + 1;
+            assert!(x0 >= 1 && y0 >= 1, "画布 {canvas}: 左/上边距被吃掉({x0},{y0})");
+            assert!(x1 + 1 < w && y1 + 1 < h, "画布 {canvas}: 右/下边距被吃掉({x1},{y1})");
+            assert!(
+                ink_h as f32 <= canvas as f32 * 0.80,
+                "画布 {canvas}: 高 {ink_h} 超过 80%(盒形上限 74% + AA 边)"
+            );
+            assert!(
+                ink_w as f32 <= canvas as f32 * 0.94,
+                "画布 {canvas}: 宽 {ink_w} 超过 94%(盒形上限 90% + AA 边)"
+            );
+        }
+    }
+
+    #[test]
+    fn 单字符是正圆_双字符才变宽() {
+        let (_, _, w1, h1, _) = badge_box(24, 1);
+        let (_, _, w2, h2, _) = badge_box(24, 2);
+        assert!((w1 - h1).abs() < 0.01, "单字符盒形应为正圆:{w1} vs {h1}");
+        assert!(w2 > h2, "双字符应比单字符宽(胶囊):{w2} vs {h2}");
+        assert!(h1 <= 24.0 * 0.74 + 0.01, "盒形高度上限失效:{h1}");
+        assert!(w2 <= 24.0 * 0.90 + 0.01, "盒形宽度上限失效:{w2}");
+    }
+
+    #[test]
+    fn 条数真的画进了像素_而不是永远一枚红点() {
+        // 1..9 两两不同(数字被真画出来);9 与 10 不同(成色由"9+"接管);
+        // 10 与 999 相同(三位数早封顶,不假装画得下)
+        let renders: Vec<Vec<u8>> = (1..=9u32).map(|n| build_badge_rgba(n, 24).0).collect();
+        for i in 0..renders.len() {
+            for j in (i + 1)..renders.len() {
+                assert_ne!(
+                    renders[i],
+                    renders[j],
+                    "{} 与 {} 画出来一模一样 —— 数字没进像素",
+                    i + 1,
+                    j + 1
+                );
+            }
+        }
+        assert_ne!(build_badge_rgba(9, 24).0, build_badge_rgba(10, 24).0);
+        assert_eq!(build_badge_rgba(10, 24).0, build_badge_rgba(999, 24).0);
+    }
+
+    #[test]
+    fn 每种画布尺寸下都有红色底和白色字() {
+        for canvas in [20u32, 24, 32] {
+            let (rgba, w, _) = build_badge_rgba(5, canvas);
+            let mut red = false;
+            let mut white = false;
+            for px in rgba.chunks_exact(4) {
+                if px[3] == 0 {
+                    continue;
+                }
+                if px[0] > 150 && px[1] < 90 && px[2] < 90 {
+                    red = true;
+                }
+                if px[0] > 200 && px[1] > 200 && px[2] > 200 {
+                    white = true;
+                }
+            }
+            assert!(red, "画布 {canvas}: 缺红色底");
+            assert!(white, "画布 {canvas}: 缺白色字形");
+            assert_eq!(rgba.len(), (w * w * 4) as usize);
+        }
+    }
+
+    #[test]
+    fn 十六像素画布退成圆点_不再画糊掉的数字() {
+        // 100% DPI(16px)上 9px 高的数字只剩白噪点,实测比圆点更糟 ⇒ 这一档只画圆点。
+        // 判据:同尺寸下 1 条与 99 条完全同形(数字没进去),且 20px 起恢复"画数字"。
+        assert!(!badge_shows_count(16));
+        assert!(badge_shows_count(20));
+        assert_eq!(build_badge_rgba(1, 16).0, build_badge_rgba(99, 16).0);
+        assert_ne!(build_badge_rgba(1, 20).0, build_badge_rgba(9, 20).0);
     }
 }
 
@@ -4654,6 +5024,20 @@ pub fn run() {
                 if label == "main" || label == "admin" {
                     window_chrome::refresh_native_caption_buttons(window);
                 }
+                // 任务栏徽标同理:画布边长 = 16 × DPI,跨屏后必须按新尺寸重建,
+                // 否则 100% 屏上画的 16px 位图会被拖到 200% 屏上放大成一坨。
+                // 走 `set_desktop_badge` 这条单一入口(它自己读偏好),不在这里抄第二份判定。
+                if label == "main" {
+                    #[cfg(target_os = "windows")]
+                    {
+                        let app = window.app_handle().clone();
+                        let unread = LAST_BADGE_UNREAD.load(Ordering::Relaxed);
+                        if let Err(e) = set_desktop_badge(app, unread) {
+                            // 徽标是提示性能力,重建失败只记日志,不拖红窗口事件链
+                            log::warn!("[desktop-badge] DPI 变化后重建徽标失败: {}", e);
+                        }
+                    }
+                }
             }
             if let tauri::WindowEvent::Moved(_) = event {
                 if label == "main" || label == "admin" {
@@ -4685,11 +5069,16 @@ pub fn run() {
         // 本地 git/diff 通道：授权根/允许基目录/git 候选都存在这份宿主状态里，
         // 前端永远不能自报 root（见 git_channel_ipc.rs 头注）。
         .manage(git_channel_ipc::GitChannelState::from_env())
+        // 本机工作区文件通道：已授权 root + 允许基目录（与 git 通道同源 bases_from_env）。
+        .manage(workspace_fs_ipc::WorkspaceFsState::from_env())
         // 2026-10-16 内嵌浏览器升级:多标签会话状态(窗口/标签/当前标签),命令与
         // 工具条哨兵处理器共用这一份。
         .manage(embedded_browser::BrowserManager::default())
         // 关窗「询问我」的等待闸门(2026-09-28 立):窗口事件与命令共用这一份挂账状态。
         .manage(CloseGate::default())
+        // 2026-11-15 立(终端执行层):全部终端会话住这一份宿主状态,命令与退出清理共用。
+        // 退出时由 exit_application 触发 kill_all(),防孤儿(对齐 Trae orphan_protection)。
+        .manage(terminal_session::TerminalManager::new())
         .setup(|app| {
             #[cfg(target_os = "windows")]
             webview2_runtime::check_and_report(app.handle());
@@ -5025,6 +5414,14 @@ pub fn run() {
             git_channel_ipc::git_workspace_status,
             git_channel_ipc::git_workspace_diff,
             git_channel_ipc::workspace_index_scan,
+            workspace_fs_ipc::workspace_pick_root,
+            workspace_fs_ipc::workspace_authorize_root,
+            workspace_fs_ipc::workspace_fs_info,
+            workspace_fs_ipc::workspace_fs_list,
+            workspace_fs_ipc::workspace_fs_read,
+            workspace_fs_ipc::workspace_fs_stat,
+            workspace_fs_ipc::workspace_fs_write,
+            workspace_fs_ipc::workspace_fs_remove,
             git_channel_ipc::git_channel_info,
             embedded_browser::embedded_browser_open,
             embedded_browser::embedded_browser_close,
@@ -5141,7 +5538,16 @@ pub fn run() {
     // 2026-11-05 立(桌面 store 越权 P0):远程面唯一的两条 store 通道,
     // 文件/key 白名单 + 路径守卫,替代此前的 store:default 全局授权。
     store_path::store_read_entry,
-    store_path::store_write_entry
+    store_path::store_write_entry,
+    // 2026-11-15 立(终端执行层,T3§A/T4§A):跨平台 PTY 会话 + 环形缓冲 + 进程树清理。
+    // 执行层 terminal_session.rs(纯 std 可单测),命令胶水 terminal_ipc.rs。
+    terminal_ipc::terminal_start,
+    terminal_ipc::terminal_poll,
+    terminal_ipc::terminal_read,
+    terminal_ipc::terminal_write,
+    terminal_ipc::terminal_kill,
+    terminal_ipc::terminal_list,
+    terminal_ipc::terminal_remove
         ])
         .run(context)
         .unwrap_or_else(|e| {

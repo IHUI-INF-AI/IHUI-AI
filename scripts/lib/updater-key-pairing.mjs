@@ -43,12 +43,39 @@ export function decodeUpdaterPubkey(confPubkeyB64) {
   }
 }
 
+/**
+ * 把「私钥文件的两种合法形态」归一到 minisign 文本。
+ *
+ * 形态 A(两行文本):`untrusted comment: rsign encrypted secret key` + blob base64。
+ * 形态 B(2026-11-18 实测本机 `~/.tauri/ihui-updater.key` 就是这一型):整段是形态 A 的
+ *   **一行 base64**。Tauri 对 `TAURI_SIGNING_PRIVATE_KEY` 两种都收,但判据原先只认 A,
+ *   于是"钥匙明明配得上"被报成「私钥侧无法解析 ⇒ 无法判定」,本机发版链在第一道闸就停住。
+ *   归一只做解码,**不校验、不改内容** —— 判定仍由 decodeSecretEmbeddedPub 负责。
+ * @returns {string|null} 认不出的形态返回 null(调用方据此给"无法判定",不猜)
+ */
+export function unwrapSecretKeyText(raw) {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (trimmed === '') return null
+  if (/untrusted comment:/i.test(trimmed)) return trimmed
+  try {
+    const decoded = Buffer.from(trimmed, 'base64').toString('latin1').trim()
+    return /untrusted comment:/i.test(decoded) ? decoded : null
+  } catch {
+    return null
+  }
+}
+
 /** 从 minisign 私钥文本(未再包一层的那种原始两行形态)取出内嵌的明文公钥 hex。 */
 export function decodeSecretEmbeddedPub(secretText) {
-  if (typeof secretText !== 'string' || secretText.trim() === '') {
+  const text = unwrapSecretKeyText(secretText)
+  if (text === null) {
+    return { error: '私钥既不是 minisign 文本形态,也不是它的 base64 包裹形态' }
+  }
+  if (secretText.trim() === '') {
     return { error: '私钥内容为空' }
   }
-  const lines = secretText.split(/\r?\n/).filter((l) => l.length > 0)
+  const lines = text.split(/\r?\n/).filter((l) => l.length > 0)
   if (lines.length < 2) return { error: '私钥不是 minisign 文本形态(缺注释行或数据行)' }
   const blob = Buffer.from(lines[lines.length - 1], 'base64')
   const magic = blob.subarray(0, 6).toString('latin1')
