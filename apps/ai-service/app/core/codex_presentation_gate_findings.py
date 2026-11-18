@@ -49,6 +49,8 @@ FINDING_KINDS: Final[Mapping[str, tuple[str, ...]]] = {
         "actual_cy_emu",
         "expected_aspect",
     ),
+    # R99: discovered once the flag was given its required slide-number value.
+    "required_native_table_missing": ("slide",),
 }
 FINDING_KIND_COUNT: Final = len(FINDING_KINDS)
 FINDINGS_OBSERVED_ALL_EXIT_1: Final = True
@@ -193,8 +195,8 @@ def validate_findings_contract() -> None:
     if escalates_to_failure("requested_slide_count_changed", False) is not False:
         raise GateFindingError("findings need the strictness flag to fail")
 
-    if FINDING_KIND_COUNT != 3:
-        raise GateFindingError(f"expected 3 observed findings, got {FINDING_KIND_COUNT}")
+    if FINDING_KIND_COUNT != 4:
+        raise GateFindingError(f"expected 4 observed findings, got {FINDING_KIND_COUNT}")
     if WARNING_KIND_COUNT != 1:
         raise GateFindingError(f"expected 1 observed warning, got {WARNING_KIND_COUNT}")
     if FINDING_DISCRIMINATOR != "kind":
