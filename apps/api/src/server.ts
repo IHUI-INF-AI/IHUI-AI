@@ -32,6 +32,7 @@ import { relayDsmlParseRoutes } from './routes/admin/relay-dsml-parse.js'
 import { relayCheckinStreakRoutes } from './routes/admin/relay-checkin-streak.js'
 import { relayDeviceIdentityRoutes } from './routes/admin/relay-device-identity.js'
 import { relayClientConfigRoutes } from './routes/admin/relay-client-config.js'
+import { relayWelfareClaimRoutes } from './routes/admin/relay-welfare-claim.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -491,6 +492,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 七档客户端 × 协议格式,纯函数拼装、单一真相源(web/CLI/客服话术共用);
   // baseUrl 由调用方传入,模块绝不内置域名(猜错一次就是 404 工单)。
   server.register(relayClientConfigRoutes, { prefix: '/api' })
+
+  // 权益活动领取判据预览(2026-11-18 立,对标 qoder2api-hub 的「签到 + Pro 福利真实领取」):
+  // 端点未实证 ⇒ 整批 refuse(一枚都不拨);开闸只能由机主设 RELAY_WELFARE_ENDPOINT_VERIFIED=1,
+  // 请求方不可传该布尔(否则闸可被任何人拨开)。
+  server.register(relayWelfareClaimRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
