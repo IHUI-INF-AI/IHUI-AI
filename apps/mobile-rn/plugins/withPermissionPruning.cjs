@@ -20,7 +20,18 @@
 const { withAndroidManifest } = require('@expo/config-plugins')
 
 /** 默认摘除集:全部满足"危险/受通报权限 ∧ 仓内零引用"两条,新增项要附证据再进表。 */
-const DEFAULT_PRUNED = Object.freeze(['android.permission.SYSTEM_ALERT_WINDOW'])
+const DEFAULT_PRUNED = Object.freeze([
+  'android.permission.SYSTEM_ALERT_WINDOW',
+  // 2026-11-18 立(小米隐私体检后补):READ_PHONE_STATE 由某个依赖库带进合并清单,
+  // 全仓 `apps/mobile-rn/src`、`packages/app/src`、`packages/shared/src` 对 IMEI/IMSI/
+  // getDeviceId/READ_PHONE_STATE **零命中**;它换不来任何功能,却让商店与工信部把本应用
+  // 当成"收集设备标识"的重点对象(隐私政策也得跟着写,写了又与实际不符)。
+  'android.permission.READ_PHONE_STATE',
+  // 2026-11-18:media-library 插件默认把三种媒体读权限一起声明,而全仓只有
+  // `saveToLibraryAsync`(存图到相册),从不枚举音频/视频 ⇒ 两条读权限属超范围声明。
+  'android.permission.READ_MEDIA_AUDIO',
+  'android.permission.READ_MEDIA_VIDEO',
+])
 
 const NAME = 'android:name'
 const TOOLS_NODE = 'tools:node'

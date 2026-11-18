@@ -123,6 +123,11 @@
   },
   "expo": {
     "autolinking": {
+      "android": {
+        "exclude": [
+          "expo-notifications"
+        ]
+      },
       "searchPaths": [
         "../..",
         "../../node_modules/react-native-worklets",
