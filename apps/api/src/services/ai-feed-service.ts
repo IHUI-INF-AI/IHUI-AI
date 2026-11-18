@@ -2076,8 +2076,13 @@ export async function proxyImage(url: string): Promise<{
  *
  * 只快照有 hot 或 rank 的条目（避免无热度数据条目污染趋势计算）。
  */
-/** 快照保留天数:7/14 天趋势用不到更早的数据;表此前只增不删(2026-11-18 立) */
-const SNAPSHOT_RETENTION_DAYS = 120
+/**
+ * 快照保留天数(2026-11-18 立)。
+ * 消费方只有两处:趋势计算(14 天双窗口)与单条历史曲线(≤14 天),30 天留一倍余量。
+ * 此前这张表只增不删 —— 91 天已 233 万行、每天再 +5.3 万,是"跑久必退化"的存储侧根因。
+ * 存量按日期逐日收敛(不一次性大删:数百万行一条 DELETE 会撞 30s statement_timeout)。
+ */
+const SNAPSHOT_RETENTION_DAYS = 30
 
 export async function generateSnapshot(): Promise<{ insertedRows: number }> {
   await db.execute(sql`
@@ -2115,33 +2120,52 @@ export async function generateSnapshot(): Promise<{ insertedRows: number }> {
     : ((countRes as { rows?: unknown[] }).rows ?? [])
   const insertedRows = (countRows[0] as { cnt?: number } | undefined)?.cnt ?? 0
 
-  // 保留期滚动清理(2026-11-18 立):这张表此前只增不删 —— 91 天已 233 万行、每天再 +5.3 万,
+  // 保留期收敛(2026-11-18 立):这张表此前只增不删 —— 91 天已 233 万行、每天再 +5.3 万,
   // 是"跑久必退化"的另一半根因(另一半 = computeTrendSignals 曾把近 30 天快照全读进 Node,已改库内聚合)。
-  // 清理排在快照生成之后:清理失败不牵连本次快照,且删除量恒为 0 时才不动库。
+  // 按日期逐日删:一次性 DELETE 数百万行会撞 30s statement_timeout;每片约一天的量。
+  // 每轮最多处理 400 天(防止异常数据把一轮拖死),清理失败不牵连本次快照。
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - SNAPSHOT_RETENTION_DAYS)
   const cutoffStr = cutoff.toISOString().slice(0, 10)
   let prunedRows = 0
+  let prunedDays = 0
   try {
-    const pruneCount = await db.execute(sql`
-      SELECT COUNT(*)::int AS cnt FROM ai_feed_snapshot WHERE snapshot_date < ${cutoffStr}
+    const staleDates = await db.execute(sql`
+      SELECT DISTINCT snapshot_date::text AS d
+      FROM ai_feed_snapshot
+      WHERE snapshot_date < ${cutoffStr}
+      ORDER BY d ASC
+      LIMIT 400
     `)
-    const pruneRows = (Array.isArray(pruneCount)
-      ? pruneCount
-      : ((pruneCount as { rows?: unknown[] }).rows ?? [])) as Array<{ cnt?: number }>
-    prunedRows = pruneRows[0]?.cnt ?? 0
-    if (prunedRows > 0) {
-      await db.execute(sql`DELETE FROM ai_feed_snapshot WHERE snapshot_date < ${cutoffStr}`)
+    const dateRows = (Array.isArray(staleDates)
+      ? staleDates
+      : ((staleDates as { rows?: unknown[] }).rows ?? [])) as Array<{ d: string }>
+    for (const row of dateRows) {
+      const cntRes = await db.execute(sql`
+        SELECT COUNT(*)::int AS cnt FROM ai_feed_snapshot WHERE snapshot_date = ${row.d}::date
+      `)
+      const cntRows = (Array.isArray(cntRes)
+        ? cntRes
+        : ((cntRes as { rows?: unknown[] }).rows ?? [])) as Array<{ cnt?: number }>
+      const dayRows = cntRows[0]?.cnt ?? 0
+      if (dayRows > 0) {
+        await db.execute(sql`DELETE FROM ai_feed_snapshot WHERE snapshot_date = ${row.d}::date`)
+        prunedRows += dayRows
+        prunedDays += 1
+      }
     }
   } catch (err) {
     logger.warn('ai-feed snapshot prune failed', {
       error: String((err as Error)?.message ?? err).slice(0, 120),
+      prunedRows,
+      prunedDays,
     })
   }
 
   logger.info('ai-feed snapshot generated', {
     insertedRows,
     prunedRows,
+    prunedDays,
     retentionDays: SNAPSHOT_RETENTION_DAYS,
     snapshotDate: new Date().toISOString().slice(0, 10),
   })
@@ -2210,10 +2234,18 @@ export async function computeTrendSignals(): Promise<{ processedItems: number }>
       const growthPct = firstHot > 0 ? ((lastHot - firstHot) / firstHot) * 100 : null
       const rankDelta =
         r.last_rank !== null && r.first_rank !== null ? r.first_rank - r.last_rank : null
+      // 趋势判定(2026-11-18 修):原来只认热度增长率。而实测 16 个信源、5.3 万条
+      // current_hot 全为 null(见 ai_feed_hot_item 全表探查) ⇒ growthPct 恒 null、
+      // trendTag 恒 stable,趋势功能整体空转。现在热度可用时按热度,
+      // 不可用时按排名相对上升率(排名值越小越靠前,取正值 = 上升;阈值同为 15%,口径一致)。
       let trendTag = 'stable'
       if (growthPct !== null) {
         if (growthPct >= 15) trendTag = 'rising'
         else if (growthPct <= -15) trendTag = 'cooling'
+      } else if (rankDelta !== null && r.first_rank !== null && r.first_rank > 0) {
+        const rankChangePct = (rankDelta / r.first_rank) * 100
+        if (rankChangePct >= 15) trendTag = 'rising'
+        else if (rankChangePct <= -15) trendTag = 'cooling'
       }
       return {
         itemId: r.item_id,
