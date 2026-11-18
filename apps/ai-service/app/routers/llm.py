@@ -4258,6 +4258,10 @@ async def list_models(request: Request) -> dict[str, Any]:
         "models": default_models,
         "default": settings.litellm_model,
         "stub_mode": stub_mode,
+        # 2026-11-18 立:已判死模型清单(id + 原因)。平台目录里 down 的已被过滤掉,
+        # 但个人号池(/api/account-pool/models)不走本服务、也不在目录里,前端据此
+        # 按 id 精确命中,把号池里同样会失败的行走成"额度已尽/密钥失效"并禁用。
+        "unavailable": model_health.list_unavailable(),
     }
 
 
