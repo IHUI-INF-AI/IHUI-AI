@@ -26,6 +26,7 @@
 'use client'
 
 import * as React from 'react'
+import DOMPurify from 'dompurify'
 import { useTranslations } from 'next-intl'
 import { RotateCcw, Scan, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
@@ -47,9 +48,9 @@ export interface DiagramPreviewModalProps {
   open: boolean
   onClose: () => void
   /**
-   * 已消毒的 SVG 标记。刻意由调用方(`MermaidDiagram`)把它**渲染好的那一份**传进来,
-   * Modal 不再跑第二次 mermaid render —— 二次渲染既多付一次全量布局,又会造出
-   * 第二个"同一张图的两个版本"。
+   * 已消毒的 SVG 标记。调用方(`MermaidDiagram`)在源头已跑过 DOMPurify,
+   * 但本组件是对外可复用的契约层,信任边界不能只落在注释(Y-88)——
+   * 注入前在这里再消毒一次(同 SVG profile),任何调用方传入的恶意标记都进不来。
    */
   svgMarkup: string
   /** 图标题(可空;空则由承载层用默认标题) */
@@ -83,6 +84,13 @@ export function DiagramPreviewModal({
 }: DiagramPreviewModalProps): React.ReactElement {
   const t = useTranslations('a11y')
   const [zoom, setZoom] = React.useState(1)
+
+  // Y-88:信任边界收到本组件内 —— 不依赖调用方"已消毒"的口头契约。
+  // 与 MermaidDiagram 源头同款 SVG profile,消毒后的标记同时供注入渲染与导出读取。
+  const sanitizedSvg = React.useMemo(
+    () => DOMPurify.sanitize(svgMarkup, { USE_PROFILES: { svg: true } }),
+    [svgMarkup],
+  )
 
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
@@ -534,7 +542,7 @@ export function DiagramPreviewModal({
             style={
               zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }
             }
-            dangerouslySetInnerHTML={{ __html: svgMarkup }}
+            dangerouslySetInnerHTML={{ __html: sanitizedSvg }}
           />
         </div>
       </div>
