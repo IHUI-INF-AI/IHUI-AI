@@ -138,6 +138,35 @@ export function buildCapabilitySegments(
 export type { ModelTier, ModelUsageCategory, ModelCapabilities, ModelCapabilityKey }
 
 /**
+ * 一个模型 id 的全部"可命中写法"(2026-11-18 立)。
+ *
+ * 同一个模型在三处有三种写法(真机实测):
+ * - 号池下发 `cf/@cf/zai-org/glm-4.7-flash`(`toPoolModelId` 给上游名套了一层平台前缀)
+ * - 健康台账键 `@cf/zai-org/glm-4.7-flash`(网关按上游真名记账,CF 官方名自带 `@`)
+ * - 裸名 `glm-4.7-flash`(某些平台登记行不带 `<平台>/` 前缀)
+ * 谁跟谁比都可能差一层,所以不猜"哪个才是真 id",而是把每种的候选写法都列出来,
+ * 任一相同即视为同一模型。误命中的失效方向:只会让"确实被判死"的模型更早灰掉,
+ * 不会让坏模型变成可点。
+ */
+export function idProbeKeys(id: string): string[] {
+  const raw = (id || '').trim().toLowerCase()
+  if (!raw) return []
+  const noAt = raw.replace(/@/g, '')
+  const stripFirst = (s: string) => (s.includes('/') ? s.slice(s.indexOf('/') + 1) : s)
+  const keys = new Set([raw, noAt, stripFirst(raw), stripFirst(noAt)])
+  // `cf/cf/...`:上游名本身就以 `<平台>/` 开头时前缀会叠一层
+  const parts = noAt.split('/')
+  if (parts.length > 2 && parts[0] === parts[1]) keys.add(parts.slice(1).join('/'))
+  return [...keys]
+}
+
+/** 两个 id 是否指同一模型(按 idProbeKeys 的候选集合取交集)。 */
+export function sameModelId(a: string, b: string): boolean {
+  const keys = new Set(idProbeKeys(a))
+  return idProbeKeys(b).some((key) => keys.has(key))
+}
+
+/**
  * 按激活的能力键过滤模型(D23 2026-09-19 立,历史模型区"搜索 + 能力过滤"组合用)。
  *
  * 语义(与 splitByTier 的"宁可多显示也不误藏"原则对齐):

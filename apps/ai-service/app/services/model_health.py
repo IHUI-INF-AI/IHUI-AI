@@ -255,6 +255,36 @@ def _classify_error(text: str, status_code: int) -> tuple[bool, bool]:
     return account_level, model_level
 
 
+# 硬失败档:这些原因在半天内不许凭 TTL 复活(额度按日结算/密钥不会自己好/模型不会自己回来)。
+# 普通 down 仍用 STATUS_TTL_S 快速自愈 —— 一次网络抖动不该让模型半天不可选。
+_HARD_FAILURE_REASONS = frozenset({"quota", "auth", "model_missing"})
+_HARD_FAILURE_TTL_S = 6 * 3600
+
+
+def _reason_of(text: str, status_code: int) -> str:
+    """把上游错误归到一个**原因档**(空串 = 不归因,不记账)。
+
+    2026-11-18 立:与 `_classify_error` 共用同一批关键词常量(不立第二份口径),
+    但回答的是另一个问题 —— 前者答"要不要隐藏这个模型",这里答"为什么调不通"。
+    探测与线上失败回写都走本函数,保证同一句错误在两条路径上得到同一档。
+    """
+    lowered = (text or "").lower()
+    if status_code == 404 or any(k in lowered for k in _MODEL_NOT_FOUND_KEYWORDS):
+        return "model_missing"
+    if any(k in lowered for k in _BALANCE_EXHAUSTED_KEYWORDS):
+        return "quota"
+    if status_code in (401, 403):
+        return "auth"
+    if status_code == 429 or any(k in lowered for k in _ACCOUNT_LEVEL_KEYWORDS):
+        return "rate_limit"
+    return ""
+
+
+def _ttl_of(state: ModelProbeState) -> float:
+    """该状态的有效期:硬失败档给半天,其余沿用 STATUS_TTL_S。"""
+    return _HARD_FAILURE_TTL_S if state.reason in _HARD_FAILURE_REASONS else STATUS_TTL_S
+
+
 # base 不含 /v1 的 OpenAI 兼容厂商(直接拼 /chat/completions)
 _NO_V1_BASE_CODES = frozenset({"perplexity"})
 # 健康状态落盘文件:重启后立即沿用上一轮结论,避免死模型在首轮探测完成前重新出现
@@ -1093,7 +1123,7 @@ class ModelHealthService:
             if (
                 state is not None
                 and state.status == "down"
-                and (now - state.checked_at) < STATUS_TTL_S
+                and (now - state.checked_at) < _ttl_of(state)
             ):
                 continue
             out.append(m)
@@ -1101,6 +1131,29 @@ class ModelHealthService:
 
     def get_state(self, model_id: str) -> ModelProbeState | None:
         return self._states.get(model_id)
+
+    def list_unavailable(self) -> list[dict[str, str]]:
+        """已判死的模型清单(2026-11-18 立),供前端把**不在目录里的**模型也标死。
+
+        为什么需要它:选择器有两条数据腿 —— 平台目录(`/llm/models`,已按 down 过滤)
+        与个人号池(`/api/account-pool/models`,不经过本服务)。号池里的模型走了
+        同一条上游,额度用尽照样必失败,但目录里根本没有它,前端无从判断。这里把
+        台账里所有 down 的 id + 原因下发,号池只要按 id 精确命中就能标死。
+
+        口径:只给 `status == "down"` 且在 STATUS_TTL_S 内**当次记账写了 reason** 的行。
+        `reason` 为空(旧版探测留下的裸 down)照给,但 reason 传 "down",前端只对
+        quota/auth/model_missing 禁用 —— 裸 down 只做降权,不当成永久判死。
+        """
+        now = time.time()
+        out: list[dict[str, str]] = []
+        for mid, state in self._states.items():
+            if state.status != "down":
+                continue
+            if (now - state.checked_at) >= _ttl_of(state):
+                continue
+            out.append({"id": mid, "reason": state.reason or "down"})
+        out.sort(key=lambda row: row["id"])
+        return out
 
     def record_runtime_failure(
         self, model_id: str, message: str, http_status: int = 0
@@ -1127,19 +1180,11 @@ class ModelHealthService:
         # 归一失败就按原值记账,不让"对不上"变成"不记账"。
         mid = self._resolve_catalog_model(mid) or mid
         text = _redact_secrets(message or "")[:200]
-        account_level, model_level = _classify_error(text, http_status)
-        lowered = text.lower()
-        if model_level:
-            reason = "quota" if any(
-                k in lowered for k in _BALANCE_EXHAUSTED_KEYWORDS
-            ) else "model_missing"
-            status = "down"
-        elif http_status in (401, 403):
-            reason, status = "auth", "down"
-        elif http_status == 429 or account_level:
-            reason, status = "rate_limit", ""
-        else:
+        # 判据与探测同源(_reason_of),这里只把"原因档"翻译成"要不要打死"。
+        reason = _reason_of(text, http_status)
+        if not reason:
             return ""
+        status = "down" if reason in ("quota", "model_missing", "auth") else ""
         state = self._states.get(mid)
         if state is None:
             state = ModelProbeState(status="pending")
@@ -1249,7 +1294,10 @@ class ModelHealthService:
                 status = str(item.get("status") or "")
                 if status not in ("healthy", "down"):
                     continue
-                if (now - checked_at) >= STATUS_TTL_S:
+                # 硬失败档(额度/鉴权/下线)按半天算,否则重启一小时后再没人知道它坏过
+                reason = str(item.get("reason") or "")
+                ttl = _HARD_FAILURE_TTL_S if reason in _HARD_FAILURE_REASONS else STATUS_TTL_S
+                if (now - checked_at) >= ttl:
                     continue
                 self._states[str(mid)] = ModelProbeState(
                     status=status,
@@ -1257,7 +1305,7 @@ class ModelHealthService:
                     error=str(item.get("error") or "")[:200],
                     latency_ms=int(item.get("latency_ms") or 0),
                     consecutive_failures=int(item.get("consecutive_failures") or 0),
-                    reason=str(item.get("reason") or ""),
+                    reason=reason,
                     stream_ok=_opt_bool(item.get("stream_ok")),
                     stream_ttft_ms=int(item.get("stream_ttft_ms") or 0),
                     tools_ok=_opt_bool(item.get("tools_ok")),
@@ -1408,6 +1456,9 @@ class ModelHealthService:
                         status="healthy",
                         checked_at=time.time(),
                         error="",
+                        # 恢复健康必须清 reason:否则"额度已尽"的旧标签会粘在
+                        # 已经能用的模型上,选择器照样把它灰掉(2026-11-18 修)。
+                        reason="",
                         latency_ms=outcome.latency_ms,
                         consecutive_failures=0,
                         stream_ok=outcome.stream_ok,
@@ -1425,6 +1476,9 @@ class ModelHealthService:
                 else:
                     failures = prev.consecutive_failures + 1
                     hide = outcome.model_level or failures >= MAX_CONSECUTIVE_FAILURES
+                    # 探测也顺手归因:每轮体检自己就能得出"额度已尽/密钥失效/已下线",
+                    # 不必等某次线上失败才带上原因(2026-11-18 立)。
+                    probe_reason = _reason_of(outcome.error, outcome.http_status)
                     self._states[mid] = replace(
                         prev,
                         status="down" if hide else prev.status,
@@ -1432,6 +1486,7 @@ class ModelHealthService:
                         error=outcome.error,
                         latency_ms=outcome.latency_ms,
                         consecutive_failures=failures,
+                        reason=probe_reason or prev.reason,
                     )
                 self._last_done += 1
 
