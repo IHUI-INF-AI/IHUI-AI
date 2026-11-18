@@ -106,7 +106,7 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        13,
+        14,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
