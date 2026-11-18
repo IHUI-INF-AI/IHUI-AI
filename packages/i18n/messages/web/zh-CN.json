@@ -17447,9 +17447,11 @@
       "document": "文档",
       "editor": "编辑器",
       "mcp": "MCP",
+      "pin": "窗口置顶",
       "plus": "添加视图",
       "settings": "设置",
-      "terminal": "终端"
+      "terminal": "终端",
+      "unpin": "取消窗口置顶"
     },
     "viewSwitcher": {
       "groupSettings": "设置",
