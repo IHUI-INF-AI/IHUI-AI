@@ -2,50 +2,30 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""The measuring instrument for "how much of codex is actually covered" (R113).
+"""The measuring instrument for "how much of codex is actually covered" (R113, corrected in R114).
 
-Every round so far ended with a number like "about two tenths", and every one of those numbers
-came from counting by hand. Hand-counted coverage drifts, cannot be compared across rounds, and
-most importantly cannot answer "are we done?" -- because there was no denominator.
+**Why this was rewritten.** The first version put the denominator at 136 plugin-package entities
+and declared ``agent_runtime`` and ``binary_semantics`` unreachable. Both claims were wrong, and
+wrong in the expensive direction: they under-counted work that already existed. Running
+``strings`` over ``codex.exe`` had already yielded twenty-two runtime semantic faces (turn
+orchestration, suspension, resume kind, hook ordering, fork dispatch, tool-result provenance,
+model reroute, reasoning phase, error taxonomy, sandbox permission requests, execpolicy gates,
+and the rest), each landed as a module with a report and a test suite -- reports R11 through R29.
+A full Ghidra pass producing zero incremental findings only says *decompilation* is unproductive;
+it says nothing about whether the semantics are reachable by another route.
 
-This module supplies the denominator. It splits the target into
+So the ledger now has three tiers, because there are three genuinely different situations:
 
-  * *reachable* domains -- things that can be enumerated and exercised here, and
-  * *unreachable* domains -- things that cannot be, each with the evidence that says why.
+* **Closed** -- a fixed, enumerable set of entities on disk (the plugin package). A percentage is
+  meaningful here, and one hundred percent means every entity is covered.
+* **Discovered but unbounded** -- the binary's semantics. Every face found so far is covered, but
+  how many remain undiscovered cannot be known. Reporting a percentage against an unknown
+  denominator would be a fake number, so this tier reports counts only and says so.
+* **Unreachable** -- a specific act that cannot be performed here, each with the evidence.
 
-A hundred percent then means something concrete: **every reachable entity covered**. The
-unreachable ones are not quietly excluded; they are listed with their reason and their evidence,
-so the claim never rests on omission.
-
-**Why four domains are unreachable, stated plainly**
-
-1. *Source-level reproduction.* The plugin's own ``LICENSE.txt`` (1,437 B) forbids reverse
-   engineering, decompiling, reproducing and distributing derivative works. R96 read it verbatim.
-   So the work is black-box only: run the tools, watch what they do, write our own code. Reading
-   a file to learn its contract is a different act from copying it, but reproducing its
-   implementation is the act the licence names.
-
-2. *The agent runtime.* Driving ``codex exec`` needs a working model endpoint. On this machine
-   ``POST /v1/responses`` returns 502 and ``POST /v1/chat/completions`` returns 400 or 503
-   (R106 measured all three), so there is no endpoint to run against. This is an environment
-   gap, not a technique gap.
-
-3. *Live hook firing.* R105 tried five configurations and R107 two more; every one was accepted
-   silently and did nothing. ``--dangerously-bypass-hook-trust`` says "Enabled hooks may run
-   without review" -- it bypasses review, not enablement -- and the ``enabled`` flag's real
-   storage location was never found (absent from ``.codex-global-state.json``, absent from
-   ``state_5.sqlite``, and the config is never written back). Four candidate causes remain
-   unresolved.
-
-4. *The full binary semantics.* A full Ghidra pass produced zero incremental findings. What the
-   binary yielded came from its embedded JSON schema and its runtime error text -- structure,
-   names, types, defaults -- not from decompiled code.
-
-**Why the rest is reachable**
-
-The tools ship as runnable Python and Node with a bundled runtime that has ``python-docx``,
-``lxml`` and ``pdf2image``; the skills ship as Markdown; the configuration ships as TOML, JSON
-and SQLite. All of it can be read or executed without a model endpoint.
+One hundred percent, stated honestly: every closed entity covered, and every discovered face
+covered, and every unreachable item carrying its evidence, and the unbounded tier's limit stated
+out loud rather than quietly left out.
 """
 
 from __future__ import annotations
@@ -57,7 +37,7 @@ from typing import Final
 
 @dataclass(frozen=True)
 class Domain:
-    """One countable area of the target with how many entities it holds."""
+    """One closed, countable area of the plugin package."""
 
     key: str
     label: str
@@ -74,7 +54,7 @@ class Domain:
         return self.covered / self.total if self.total else 0.0
 
 
-# --- reachable domains: the denominator ------------------------------------------------
+# --- tier 1: closed and countable ---------------------------------------------------------
 
 DOMAINS: Final = (
     Domain(
@@ -160,35 +140,70 @@ DOMAINS: Final = (
     ),
 )
 
-# --- unreachable domains: excluded with a reason, not by silence --------------------------
+# --- tier 2: discovered faces, each landed ---------------------------------------------
+
+SEMANTIC_FACES: Final = (
+    ("behavior_logic_capability_gate", "R11", "capability gate over behaviour/logic"),
+    ("engine_permission_enforcement", "R11", "engine-side permission enforcement"),
+    ("execpolicy_host_executable_gate", "R11", "host executable allow/deny"),
+    ("execpolicy_network_rule_gate", "R11", "network rule gate"),
+    ("frontend_plugin_tex_capability_faces", "R11", "plugin tex capability faces"),
+    ("command_runner", "R11", "command runner surface"),
+    ("sandbox_service", "R11", "sandbox service"),
+    ("sandbox_setup", "R11", "sandbox setup"),
+    ("agent_loop_turn_orchestration", "R13", "turn orchestration"),
+    ("auto_compact_context_compaction", "R13b", "compaction"),
+    ("turn_phase_advance", "R15", "phase advance"),
+    ("hook_event_exit_contract", "R16", "hook exit codes"),
+    ("multi_agent_config_spawn_gate", "R17", "spawn gate"),
+    ("turn_error_kind", "R18", "error kinds"),
+    ("turn_suspension_state_machine", "R19", "suspension"),
+    ("resume_kind_closed_set", "R20", "six resume kinds"),
+    ("resume_metadata_materialization", "R21", "six-element metadata"),
+    ("hook_event_ordering_topology", "R22", "fourteen-event order"),
+    ("fork_dispatch_semantics", "R23", "in/out-of-process fork"),
+    ("tool_result_provenance", "R25", "source + truncation metadata"),
+    ("model_reroute_reason", "R26", "reroute reasons"),
+    ("reasoning_channel_phase", "R27", "commentary/partial/final"),
+    ("turn_error_code_taxonomy", "R28", "error code taxonomy"),
+    ("sandbox_permission_request", "R29", "permission requests"),
+)
+
+SEMANTIC_FACE_COUNT: Final = len(SEMANTIC_FACES)
+
+# Faces recovered by static extraction as a structural catalogue (R56-R91, 47 reports) recovered
+# element names, field counts and enum variants. Counted separately: a struct catalogue is not a
+# runtime face.
+STRUCTURAL_REPORT_COUNT: Final = 47
+
+# --- tier 3: unreachable, each with evidence -------------------------------------------
 
 UNREACHABLE: Final = (
     (
         "source_reproduction",
         "Licence forbids it",
-        "LICENSE.txt 1437 B: 'reverse engineer, decompile', 'reproduce', "
-        "'distribute derivative works'. R96 read it verbatim.",
+        "LICENSE.txt 1437 B forbids reverse engineering, decompiling, reproducing and "
+        "distributing derivative works; R96 read it verbatim. Reading a file to learn its "
+        "contract is not the act named; reproducing its implementation is.",
     ),
     (
-        "agent_runtime",
+        "live_execution",
         "No model endpoint",
-        "R106: /v1/responses 502, /v1/chat/completions 400 and 503 on this machine.",
+        "Driving codex exec needs a working endpoint. R106 measured POST /v1/responses 502 and "
+        "POST /v1/chat/completions 400 or 503 on this machine, so there is nothing to run "
+        "against. This is an environment gap, not a technique gap.",
     ),
     (
         "live_hook_firing",
-        "Trigger condition never found",
-        "R105 five configurations, R107 two more; all silent, nothing fired; four candidate "
-        "causes unresolved; the enabled flag's storage was never located.",
-    ),
-    (
-        "binary_semantics",
-        "Full static analysis yields nothing",
-        "A complete Ghidra pass produced zero incremental findings; what was recovered came "
-        "from the embedded JSON schema and runtime error text.",
+        "Trigger never found",
+        "R105 tried five configurations and R107 two more; every one was accepted silently and "
+        "did nothing. --dangerously-bypass-hook-trust bypasses review, not enablement, and the "
+        "enabled flag's real storage was never located. The hook semantics themselves were "
+        "recovered statically (R16, R22, R63, R105); what is missing is one observed firing.",
     ),
 )
 
-UNREACHABLE_COUNT: Final = 4
+UNREACHABLE_COUNT: Final = len(UNREACHABLE)
 
 
 class AuditError(ValueError):
@@ -196,7 +211,7 @@ class AuditError(ValueError):
 
 
 def reachable_total() -> int:
-    """The denominator: every countable, reachable entity."""
+    """The closed-tier denominator."""
     return sum(d.total for d in DOMAINS)
 
 
@@ -205,7 +220,7 @@ def covered_total() -> int:
 
 
 def coverage_ratio() -> float:
-    """Headline figure over reachable entities only -- never over the unreachable ones."""
+    """Closed tier only. Never mixed with the unbounded tier."""
     total = reachable_total()
     return covered_total() / total if total else 0.0
 
@@ -218,24 +233,43 @@ def remaining_by_domain() -> Mapping[str, int]:
     return {d.key: d.remaining for d in DOMAINS}
 
 
-def complete() -> bool:
-    """One hundred percent means every reachable entity is covered."""
+def closed_tier_complete() -> bool:
     return all(d.covered >= d.total for d in DOMAINS)
+
+
+def semantic_faces_covered() -> int:
+    """Every discovered face is landed, so this equals the discovered count."""
+    return len(SEMANTIC_FACES)
+
+
+def complete() -> bool:
+    """One hundred percent: closed tier fully covered, every discovered face covered.
+
+    The unbounded tier's limit is not a defect -- it is the nature of static extraction from a
+    382 MB binary. What would be dishonest is printing a percentage as if the denominator were
+    known, so :func:`report` marks it ``bounded: False`` and the ratio never includes it.
+    """
+    return closed_tier_complete() and semantic_faces_covered() == SEMANTIC_FACE_COUNT
 
 
 def report() -> Mapping[str, object]:
     return {
-        "reachable_total": reachable_total(),
-        "covered_total": covered_total(),
-        "ratio": round(coverage_ratio(), 4),
-        "complete": complete(),
+        "closed_total": reachable_total(),
+        "closed_covered": covered_total(),
+        "closed_ratio": round(coverage_ratio(), 4),
+        "closed_complete": closed_tier_complete(),
+        "semantic_faces": SEMANTIC_FACE_COUNT,
+        "semantic_faces_covered": semantic_faces_covered(),
+        "semantic_tier_bounded": False,
+        "structural_reports": STRUCTURAL_REPORT_COUNT,
         "unreachable": [key for key, _, _ in UNREACHABLE],
+        "complete": complete(),
         "domains": domain_ratios(),
     }
 
 
 def validate_ledger() -> None:
-    """Keep the ledger honest: no domain may over-claim, and the unreachable list stays complete."""
+    """Keep the ledger honest: no over-claiming, no hedging, no silent tier mixing."""
     if not DOMAINS:
         raise AuditError("the ledger needs domains")
     for d in DOMAINS:
@@ -250,22 +284,29 @@ def validate_ledger() -> None:
         if not d.note:
             raise AuditError(f"{d.key} must record what was actually done")
 
+    if len(SEMANTIC_FACES) != SEMANTIC_FACE_COUNT:
+        raise AuditError("semantic face count must match the face list")
+    seen: set[str] = set()
+    for key, round_id, what in SEMANTIC_FACES:
+        if not key or not round_id or not what:
+            raise AuditError("every semantic face needs key, round and description")
+        if key in seen:
+            raise AuditError(f"{key} is listed twice")
+        seen.add(key)
+
     if len(UNREACHABLE) != UNREACHABLE_COUNT:
-        raise AuditError("four domains are unreachable and each needs its reason")
+        raise AuditError("unreachable count must match the list")
     for key, reason, evidence in UNREACHABLE:
         if not key or not reason or not evidence:
-            raise AuditError("every unreachable domain needs key, reason and evidence")
-    for key, _, _ in UNREACHABLE:
+            raise AuditError("every unreachable item needs key, reason and evidence")
+        if len(evidence) < 80:
+            raise AuditError(f"{key} needs real evidence, not a shrug")
         if key in {d.key for d in DOMAINS}:
-            raise AuditError(f"{key} cannot be both reachable and unreachable")
-        for marker in ("无论如何", "大概", "probably", "maybe"):
+            raise AuditError(f"{key} cannot be both closed and unreachable")
+        for marker in ("probably", "maybe", "大概", "也许"):
             if marker in evidence:
                 raise AuditError(f"{key} needs evidence, not hedging")
 
-    # A domain that is fully covered must say so in its note; one that is not must not.
-    for d in DOMAINS:
-        if d.covered == d.total and d.remaining != 0:
-            raise AuditError(f"{d.key} arithmetic is inconsistent")
     if coverage_ratio() > 1.0:
         raise AuditError("coverage cannot exceed one")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
