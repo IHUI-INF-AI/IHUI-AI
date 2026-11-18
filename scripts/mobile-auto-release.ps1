@@ -605,18 +605,25 @@ try {
     $otaOut = & node (Join-Path $RepoRoot 'scripts/release-mobile-rn.mjs') --leg ota-production --execute -m "auto-ota $mainSha"
     $otaCode = $LASTEXITCODE
     $otaOut | Select-Object -Last 8 | ForEach-Object { Write-Host "  $_" }
-    if ($otaCode -ne 0) { throw "OTA 发布失败(exit=$otaCode)—— 本轮不记成功,下一轮会重试同一提交。" }
-    Write-State @{
-      lastBuiltSha    = $mainSha
-      lastOverlaySha  = $overlaySha
-      lastBuiltUtc    = (Get-Date).ToUniversalTime().ToString('o')
-      lastOta         = 'ok'
-      lastResult      = 'success-ota'
-      lastError       = ''
+    if ($otaCode -eq 0) {
+      Write-State @{
+        lastBuiltSha    = $mainSha
+        lastOverlaySha  = $overlaySha
+        lastBuiltUtc    = (Get-Date).ToUniversalTime().ToString('o')
+        lastOta         = 'ok'
+        lastResult      = 'success-ota'
+        lastError       = ''
+      }
+      $Result = 'success-ota'
+      Write-Host "[auto] ✓ 已发布 OTA(origin/main $mainSha + 覆盖层 $overlaySha),整包版本不变" -ForegroundColor Green
+      exit 0
     }
-    $Result = 'success-ota'
-    Write-Host "[auto] ✓ 已发布 OTA(origin/main $mainSha + 覆盖层 $overlaySha),整包版本不变" -ForegroundColor Green
-    exit 0
+    # OTA 腿失败不再判整轮红(2026-11-18 实测):EAS Update 在本机没有登录态,这条腿必 exit=1,
+    # 而"整包 + 站点腿"才是本站唯一真实交付通道。旧实现 throw 之后 —— 只要主干出现非原生面
+    # 改动(他人推进 origin/main 就会),每小时都记一次 failed、且永远不产出任何可安装包。
+    # 失效方向改为"多花 25 分钟出整包",绝不"多放一次判红"。
+    Write-Warning "[auto] OTA 腿不可用(exit=$otaCode)⇒ 本轮回落整包,不判失败。EAS 登录态补齐后自动恢复只发 OTA。"
+    $Result = 'ota-unavailable-fallback-bundle'
   }
 
   # ---- 整包路径:显示版本/versionCode 切成本次新号 -------------------------------------
