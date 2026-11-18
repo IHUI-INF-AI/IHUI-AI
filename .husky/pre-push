@@ -471,22 +471,23 @@ else
   fi
 fi
 
-# ─── 文档数字对账(只报数,不阻断推送。2026-11-18 降为观测腿) ─────────────────────
-# 为什么不再阻断:本门的"现算值"读的是**共享索引**(git ls-files 面),而本仓多会话常年同时写
-# 同一个索引(实测 6 席并发)⇒ 数字在推送过程中持续变动 ⇒ 任何一次推送都无法与被推送的 tree
-# 自洽 ⇒ 恒红(§12e / §0.2)。实测代价:同一会话 40 分钟内被拦 3 次(60~232s/次),每次手工改
-# README 再重推,而改完下一次又漂 —— 这不是"谁欠账",是"读数面本身在动"。
-# 真正的防线仍在:① 提交链(stagedTriggers=全路径,每枚都判 + 行级棘轮,DN4 防恒红);
-# ② guardian 全量档(blocking,医疗体检式)。push 这条是**冗余重复**,留着只做观测:
-# 照旧跑、照旧写日志、照旧把红点打给人看,只是不再 exit 1。
-if [ "${PUSH_NO_FILE_FACE:-0}" = "1" ]; then
-  printf '%s\n' "ℹ️  零文件推送(已逐条证成)⇒ 不跑文档数字门:${PUSH_NO_FILE_FACE_BASIS}" >&2
-else
-  printf '\n%s\n' "🔍 文档数字对账(观测腿:不阻断推送,红线仍由提交链与全量档守)..." >&2
+# ─── 文档数字对账(默认不跑。2026-11-18 从 push 腿整体摘除) ─────────────────────
+# 为什么摘:本门的"现算值"读的是**共享索引**(git ls-files 面),而本仓多会话常年同时写同一个
+# 索引(实测 6 席并发)⇒ 数字在推送过程中持续变动 ⇒ **任何一次推送都无法与被推送的 tree 自洽**
+# ⇒ 恒红(§12e / §0.2)。实测代价:同一会话 40 分钟内被拦 3 次(187.7s / 309.3s / 232.7s),
+# 每次手工把 README 刷到"此刻"再重推,而推的是"那棵树",刷完下一次又漂。
+# 降为"只报数不阻断"之后实测单次仍空跑 ~200s(push 从 ~70s 抬到 270s)⇒ 观测价值抵不上代价,
+# 故整条从 push 腿摘除。真防线仍在两处、且都在 blocking 位:
+#   ① 提交链:门 173 的 stagedTriggers = 全路径通配,每枚提交都跑;staged 面走行级差值棘轮
+#      (只判本轮新增/改写的声明行,HEAD 面存量只报数)⇒ 谁改 README 当场就得对齐;
+#   ② guardian 全量档:门 173 仍 blocking(体检式全判,存量腐化在那里揪)。
+# 需要临时人工复核 ⇒ 显式跑 `node scripts/check-doc-numbers.mjs --strict --description -`。
+if [ "${IHUI_PUSH_DOC_NUMBERS:-0}" = "1" ]; then
+  printf '\n%s\n' "🔍 文档数字对账(显式点名 IHUI_PUSH_DOC_NUMBERS=1,不阻断)..." >&2
   wscript //nologo scripts/hook-run-hidden.vbs pre-push-doc-numbers scripts/check-doc-numbers.mjs --strict --push
   if [ $? -ne 0 ]; then
     tail -20 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
-    printf '%s\n' "⚠️  文档数字对账未通过(不阻断推送:现算面是共享索引,多会话下必然漂移。改 README 的那枚请跑 node scripts/sync-readme-numbers.mjs 刷新):.ihui-agent/state/hook-logs/pre-push-doc-numbers.log" >&2
+    printf '%s\n' "⚠️  文档数字对账未通过(显式点名档,不阻断推送):.ihui-agent/state/hook-logs/pre-push-doc-numbers.log" >&2
   else
     tail -3 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
   fi
