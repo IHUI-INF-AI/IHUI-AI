@@ -30,6 +30,7 @@ import { systemUpdateCheckRoutes } from './routes/admin/update-check.js'
 import { relayModelAvailabilityRoutes } from './routes/admin/relay-model-availability.js'
 import { relayDsmlParseRoutes } from './routes/admin/relay-dsml-parse.js'
 import { relayCheckinStreakRoutes } from './routes/admin/relay-checkin-streak.js'
+import { relayDeviceIdentityRoutes } from './routes/admin/relay-device-identity.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -479,6 +480,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 签到连续天数(2026-11-17 立,对标 qoder2api-hub 的 streak 面板字段):
   // 历史按天落 ai_relay_checkin_history(一天一条、幂等),判据纯算;无历史时报 available:false。
   server.register(relayCheckinStreakRoutes, { prefix: '/api' })
+
+  // 稳定设备身份派生(2026-11-18 立):为一枚账号派生恒定的 machineid/machinetoken/sessionid。
+  // 双通道:上游自带 machine_id 优先用上游的;盐(RELAY_DEVICE_SALT)缺失时一律拒绝派生,
+  // 不退化成可穷举的弱标识 —— 与 qoder2api 系网关的 derive_id 同一目的(账号间身份隔离),不冒充真机。
+  server.register(relayDeviceIdentityRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
