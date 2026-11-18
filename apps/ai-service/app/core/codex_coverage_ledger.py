@@ -106,7 +106,7 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        14,
+        15,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
@@ -142,10 +142,24 @@ DOMAINS: Final = (
         "after the import already succeeded, so the break point is named exactly rather than "
         "guessed. The script also gathers three independent counts (api inspect, zip scan, and a "
         "literal a:tbl search per slide.xml) and lets the api admit omittedRecords and "
-        "abbreviatedRecords, then records truncated into the manifest. Still unread: "
-        "check_template_fidelity 18 KB, "
-        "prepare_template_starter_deck 11 KB, export-google-workspace-file 10 KB, "
-        "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB",
+        "abbreviatedRecords, then records truncated into the manifest. R126 read "
+        "check_template_fidelity in full: it grades the author's source rather than the deck, "
+        "enforcing six bans (python-pptx, hand-editing the zip, LibreOffice conversion, a new "
+        "deck) and two positive proofs (importPptx plus exportPptx must both appear), treats the "
+        "1280x720 slide size as an assumption rather than a measurement, and decides overlays "
+        "by geometry (IoU above 0.92 skips, overlap above 35 percent or a centre inside the "
+        "inherited box fails). R127 read prepare_template_starter_deck in full: the build is "
+        "duplicate-then-delete with the order load-bearing, the plan gate is hard rather than "
+        "advisory, three write roots are fenced with isWithin, an empty export is rejected by "
+        "re-statting after exportPptx, and the contact sheet depends on process.env.PYTHON or "
+        "python3 which this host does not have. R128 read export-google-workspace-file in full: "
+        "two formats gated by MIME type and a real magic-number prefix (JVBERi0 for PDF, UEsDB "
+        "for XLSX), byte length computed by arithmetic rather than decoding, the connector tool "
+        "name required to resolve to exactly one callable, every error message scrubbing every "
+        "http(s) URL, a bounded ten-thousand-visit breadth-first payload search, the base64 body "
+        "written through stdin in 480,000-character frames with 0x03 record separators and never "
+        "placed in argv, and a commit receipt reconciled three ways (byte count, clean exit, "
+        "sixty-four hex sha). Still unread: google-workspace-export-stdin-receiver 5 KB",
     ),
     Domain(
         "ooxml_notes",
