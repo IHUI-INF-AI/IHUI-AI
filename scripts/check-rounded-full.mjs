@@ -29,6 +29,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import {
   boxShape,
@@ -42,6 +43,14 @@ import {
 } from './lib/box-geometry.mjs'
 import { radiusLookup, radiusPxInLine } from './lib/radius-tokens.mjs'
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import {
+  cacheEnabled,
+  captureStdout,
+  digestOf,
+  readConclusion,
+  replayNote,
+  writeConclusion,
+} from './lib/gate-conclusion-cache.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -405,6 +414,8 @@ console.log('')
 
 let files = []
 let addedLinesMap = new Map()
+/** 全量档的 `(路径 → blob sha)`：结论缓存的输入面指纹就从这份清单出，不另起一次 ls-tree。 */
+const faceBlobs = new Map()
 
 if (isStaged) {
   addedLinesMap = getStagedAddedLines()
@@ -423,7 +434,10 @@ if (isStaged) {
   let listing
   try {
     // 枚举同走取材层(§0.4 清单与内容同面同轮;显式 stdio 由 gitRaw 统一提供,免 EBUSY 病窗)。
-    listing = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], ROOT, {
+    // 2026-11-18 提速:改取 `-z` 全档(`<mode> <type> <sha>\t<path>\0`),清单与 blob sha 一次到手 ——
+    // 结论缓存要的输入面指纹就是这批 sha,另起一次 `--name-only` 只会白跑一次枚举。
+    // 格式解析失败的行直接跳过(取不到 sha ⇒ 该文件不进指纹 ⇒ 缓存键算不出 ⇒ 整门实跑,§0.3)。
+    listing = gitRaw(['ls-tree', '-r', '-z', 'HEAD'], ROOT, {
       maxBuffer: 1 << 27,
       timeout: 120000,
     })
@@ -438,9 +452,15 @@ if (isStaged) {
     console.error(`   这不是"通过",也不是"没有胶囊" —— 请在被审面(有 HEAD 的检出)里重跑。`)
     process.exit(2)
   }
-  files = listing
-    .split('\n')
-    .filter(Boolean)
+  for (const rec of listing.split('\u0000')) {
+    if (!rec) continue
+    const tab = rec.indexOf('\t')
+    if (tab < 0) continue
+    const meta = rec.slice(0, tab).split(' ')
+    if (meta.length < 3) continue
+    faceBlobs.set(rec.slice(tab + 1), meta[2])
+  }
+  files = [...faceBlobs.keys()]
     .filter((p) => /^(apps|packages)\//.test(p))
     .filter((p) => SCAN_EXTS.some((e) => p.endsWith(e)))
     .filter((p) => !p.split('/').some((seg) => isExcludedDirName(seg)))
@@ -491,6 +511,80 @@ for (const p of relPaths) {
 // rc=1 退出,而落地器把 blocking 门的 rc=1 记成"判红" ⇒ 一次取面超时冒充成"规则违规"。
 // §0.3:取不到输入是**未判定**(exit 2),不是红也不是绿。这里兜住异常转成空表,让下面既有的
 // undetermined 分支统一判 2,出口不新增第二套判据。
+
+/**
+ * 判据指纹：本门脚本 + 它 import 的判定库 + 圆角档位表。
+ * 取**正在执行的这份内容**(工作树版)而不是 HEAD blob：runner 允许用 worktree 门体在跑,
+ * 那一份才是这一轮真正生效的判据;判据一改 ⇒ 指纹变 ⇒ 缓存键变 ⇒ 绝不可能回放旧规矩的绿。
+ * 任一读不到 ⇒ null ⇒ 不查也不写缓存(实跑),失效方向恒为"多跑一次"(§0.3/§0.10)。
+ */
+function judgeFingerprint() {
+  try {
+    return digestOf([
+      readFileSync(fileURLToPath(import.meta.url), 'utf8'),
+      readFileSync(join(ROOT, 'scripts/lib/face-reader.mjs'), 'utf8'),
+      readFileSync(join(ROOT, 'scripts/lib/exclude-dirs.mjs'), 'utf8'),
+      readFileSync(join(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8'),
+      readFileSync(join(ROOT, 'scripts/lib/box-geometry.mjs'), 'utf8'),
+      readFileSync(join(ROOT, 'scripts/lib/gate-conclusion-cache.mjs'), 'utf8'),
+      readFileSync(join(ROOT, 'packages/design-tokens/src/radius.js'), 'utf8'),
+    ])
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 结论缓存只在**全量档**启用(`--staged` / `--worktree` 一律实跑):
+ * - `--staged` 是 blocking 面且只判新增行(几十个文件、亚秒级),缓存它只有风险没有收益;
+ * - `--worktree` 是人工逃生舱,判的就是"刚写下去的那份",绝不能回放。
+ * 全量档本身是 warn-only(exit 0,不阻塞提交),回放偏差的最坏后果是"少报几处存量计数",
+ * 而新增面由 staged 档独立判 —— 这条安全边界就是它敢缓存的前提。
+ */
+const conclusionKey =
+  !isStaged && !isWorktree && cacheEnabled()
+    ? (() => {
+        const fp = judgeFingerprint()
+        if (!fp) return null
+        let missing = 0
+        const entries = [...keptRel]
+          .sort()
+          .map((p) => {
+            const sha = faceBlobs.get(p)
+            if (!sha) missing++
+            return `${p}:${sha || '?'}`
+          })
+        // 有一个文件取不到 blob sha ⇒ 键算不全 ⇒ 退化为实跑(不猜,也不写半截键)
+        if (missing > 0) return null
+        return digestOf(['rounded-full:full:v1', fp, keptRel.length, ...entries])
+      })()
+    : null
+
+if (conclusionKey) {
+  const cached = readConclusion(ROOT, 'check-rounded-full')
+  if (cached && cached.key === conclusionKey) {
+    console.log(replayNote(cached, conclusionKey))
+    for (const l of cached.lines) console.log(l)
+    process.exit(cached.exitCode)
+  }
+  // 未命中 ⇒ 把这一段起的全部输出收进缓冲,退出码定下来时连结论一起落盘(原子写,写坏不影响退出码)
+  const cap = captureStdout()
+  process.on('exit', (code) => {
+    try {
+      cap.restore()
+    } catch {
+      /* 还原失败不许改退出码 */
+    }
+    if (cap.lines.length > 0)
+      writeConclusion(ROOT, 'check-rounded-full', {
+        key: conclusionKey,
+        exitCode: Number.isFinite(code) ? code : 0,
+        lines: cap.lines,
+        note: 'full-face',
+      })
+  })
+}
+
 let got
 try {
   got = isWorktree
