@@ -2837,6 +2837,216 @@
       "when": 1794917700000,
       "tag": "20261117201500_api_key_egress_region",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 408,
+      "when": 1794979200000,
+      "tag": "20261118000000_bug29_indexes",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 409,
+      "when": 1794979260000,
+      "tag": "20261106150000_fix_missing_indexes_fks",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 410,
+      "when": 1794979320000,
+      "tag": "20261113230000_news_top_recommend_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 411,
+      "when": 1794979380000,
+      "tag": "20261114010000_customer_service_status_enum_align",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 412,
+      "when": 1794979440000,
+      "tag": "20261114030000_coze_variables_bot_name_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 413,
+      "when": 1794979500000,
+      "tag": "20261114031000_orders_paid_created_at_idx",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 414,
+      "when": 1794979560000,
+      "tag": "20261114090000_user_third_party_accounts_tenant",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 415,
+      "when": 1794979620000,
+      "tag": "20261114090100_customer_service_sessions_status_vocab",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 416,
+      "when": 1794979680000,
+      "tag": "20261114091000_skills_author_slug_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 417,
+      "when": 1794979740000,
+      "tag": "20261114091100_visit_logs_session_quality_idx",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 418,
+      "when": 1794979800000,
+      "tag": "20261114091200_news_top_recommend_news_id_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 419,
+      "when": 1794979860000,
+      "tag": "20261114091300_coze_variables_bot_name_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 420,
+      "when": 1794979920000,
+      "tag": "20261114091400_orders_paid_at_created_at_idx",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 421,
+      "when": 1794979980000,
+      "tag": "20261114100000_ai_budget_scope_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 422,
+      "when": 1794980040000,
+      "tag": "20261114120000_notifications_delivery_idempotency",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 423,
+      "when": 1794980100000,
+      "tag": "20261114150000_visit_logs_session_created_at_idx",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 424,
+      "when": 1794980160000,
+      "tag": "20261114160000_ai_budget_scope_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 425,
+      "when": 1794980220000,
+      "tag": "20261114170000_skills_author_slug_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 426,
+      "when": 1794980280000,
+      "tag": "20261114180000_pii_invoice_title_widen",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 427,
+      "when": 1794980340000,
+      "tag": "20261115000000_bug29_missing_indexes_slice1",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 428,
+      "when": 1794980400000,
+      "tag": "20261115000000_news_top_recommend_unique",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 429,
+      "when": 1794980460000,
+      "tag": "20261115020000_ai_budget_unique",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 430,
+      "when": 1794980520000,
+      "tag": "20261115030000_zhs_exchange_rate_precision_unique",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 431,
+      "when": 1794980580000,
+      "tag": "20261115040000_oss_drivers_single_default_unique",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 432,
+      "when": 1794980640000,
+      "tag": "20261106160000_fix_missing_indexes_batch2",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 433,
+      "when": 1794980700000,
+      "tag": "20261112000001_api_subscriptions_order_no_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 434,
+      "when": 1794980760000,
+      "tag": "20261112000002_ab_test_results_variant_bucket_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 435,
+      "when": 1794980820000,
+      "tag": "20261112180000_relay_pool_shared_to_ops_default_true",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 436,
+      "when": 1794980880000,
+      "tag": "20261113190000_model_price_audit",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 437,
+      "when": 1794980940000,
+      "tag": "20261114140000_model_cost_price",
+      "breakpoints": true
     }
   ]
 }

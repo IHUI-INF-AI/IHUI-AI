@@ -6597,6 +6597,95 @@ export function sweepStaleClosedRows(opts = {}) {
   return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
 }
 
+// dev api 活体体检派发层(2026-11-18 立,与 sweepStaleClosedRows / sweepStaleClaimMarks 同型)。
+//
+// 为什么必须挂常驻面:本机实测 api(`apps/api`,8802)跑满约 3 小时后 `/api/auth/me` 从毫秒级
+// 退化成 **20s 超时**,而 `/health` 仍 200 —— 只看端口/健康面测不出。后果一路放大到前端:
+// refresh 走瞬时失败 ⇒ 冷启动停在"已登录无 token"混合态 ⇒ 模型选择器退回硬编码兜底。
+// 判据(连续 N 次超阈 / 24h 重启配额 / 目标进程必须自证是本仓 dev api)全在器物里,
+// 本层只负责**节流 + 派发 + 读结论行**,零复算(§0.6 单一真相源)。
+export function sweepApiLiveness(opts = {}) {
+  const {
+    now = Date.now(),
+    // 5 分钟:与完成即删清扫同档 —— 器物只读一轮 HTTP 探活,无滞留不落盘,不会刷爆共享仓
+    intervalMs = 5 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'api-liveness-dispatch-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-api-liveness.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ api 活体体检:器物不在位(scripts/check-api-liveness.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '体检器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ api 活体体检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 5 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            // rc=2 = 器物显式"未判定"(端口未监听/拿不到进程):不是红,是没判 —— 原样带回给它自己说明
+            return {
+              ok: false,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.message ?? e),
+            }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  // 只认器物自己打的机读结论行,不靠中文文案猜(§0.3:没判 ≠ 判过)
+  const resultLine = rows
+    .map((l) => l.match(/API-LIVENESS\s+state=([A-Za-z-]+)(.*)$/) ?? null)
+    .find((m) => m !== null)
+  const state = resultLine ? resultLine[1] : null
+  const kv = (key) => {
+    const m = resultLine?.[2]?.match(new RegExp(`${key}=([^\\s]+)`)) ?? null
+    return m ? m[1] : null
+  }
+  const line = resultLine ? resultLine[0].trim() : ''
+  let reading = null
+  if (state === 'ok') {
+    reading = `业务面回 ${kv('ms') ?? '?'}ms(秒回)`
+  } else if (state === 'restarted') {
+    reading = `退化后本轮已重启并复测就绪(重启前 ${kv('ms') ?? '?'}ms,24h 内第 ${kv('restarts24h') ?? '?'} 次)`
+  } else if (state === 'degraded') {
+    reading = `慢响应 ${kv('ms') ?? '?'}ms(连续 ${kv('consecutive') ?? '?'} 次)⇒ 未达重启条件或配额已满,下轮再看`
+  } else if (state === 'refused') {
+    reading = `拒绝重启:目标进程未自证是本仓 dev api(不动别人的进程)`
+  } else if (state === 'undetermined') {
+    reading = `未判定(${kv('why') ?? '端口/进程读不到'})⇒ 本轮没判,不等于"服务健康"`
+  }
+  logger(
+    reading !== null
+      ? `${state === 'ok' || state === 'restarted' ? '✅' : '⚠️'} api 活体体检:${reading}${line ? ` ｜ ${line.slice(0, 140)}` : ''}`
+      : `${r.ok ? '✅' : '⚠️'} api 活体体检:${line || r.err || '未取到结论行(API-LIVENESS)⇒ 本轮读数未判定,不等于"服务健康"'}`,
+  )
+  return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
+}
+
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4105(门 103 C1 收口)〉首意: 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
 export function sweepStaleClaimMarks(opts = {}) {
   const {
@@ -14728,6 +14817,11 @@ async function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // dev api 活体体检(2026-11-18 立):本机实测 api 跑满约 3 小时后 /api/auth/me 从毫秒级退化成
+    // 20s 超时而 /health 仍 200 —— 只看端口/健康面测不出。后果放大到前端:refresh 走瞬时失败 ⇒
+    // 冷启动停在"已登录无 token"混合态 ⇒ 模型选择器退回硬编码兜底。器物自带 5 分钟节流 +
+    // 三道重启护栏(连续超阈 / 自证本仓 dev api / 24h 配额),本层只派发不判据(§0.6)。
+    if (!CHECK_ONLY) sweepApiLiveness()
     // ref 位移丢提交守夜人(2026-11-18):计划任务实测会被删,关键判据不能只挂它(§5b)。
     if (!CHECK_ONLY) sweepRefMoveLoss()
     // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
@@ -15439,6 +15533,9 @@ function startDaemon(bootGuard = null) {
         sweepRnStyleTiers()
         sweepStaleClaimMarks()
         sweepStaleClosedRows()
+        // 2026-11-18 立:dev api 活体体检(5 分钟节流,器物 scripts/check-api-liveness.mjs)。
+        // 只认器物自己打的 API-LIVENESS 结论行;未判定(rc=2)不记绿,器物的重启护栏全在器物内。
+        sweepApiLiveness()
         await sweepUiMirrorLeg()
         sweepWebStyleTiers()
         // ---- 第二批:原先整条链无节流的 4 条,用调用点 legThrottle 补上后才敢上常驻面 ----
@@ -16583,6 +16680,7 @@ export const __test__ = {
   auditGitFilterResidue,
   parseGitFilterKeys,
   sweepStaleClosedRows,
+  sweepApiLiveness,
   sweepBannedBuckets,
   sweepHeadRecallRows,
   sweepStaleClaimMarks,

@@ -32,9 +32,13 @@ client_platform=pc_client)才会下发领奖必需的 task_id;web 指纹补 dail
 服务端对任务奖励有资格判定(实测健康账号仍可能回「当前暂不符合领取条件」
 biz_error)⇒ 归 BusinessError 冷却 21600s,每日巡检自然节拍重试,不熔断。
 
-已知限制(2026-11-11):checkin 写接口在账号风控/频控期稳定 710010702
-「系统错误」,与参数无关 ⇒ 归类 BusinessError 冷却 3600s 等解封,不熔断
-不永久摘除(读接口同参全通,会话本身健康)。
+已知限制(2026-11-18 实证更新):写接口 710010702「系统错误」**不是**频控,
+而是缺字节前端签名 —— 客户端页面抓包显示对 campaign 的每个请求都带
+`msToken` + `a_bogus`(按 query/body/UA 现算),纯 HTTP 与裸页面 fetch 都不带
+⇒ 读接口(detail / landing/get)全通、写接口(checkin / reward claim)恒 710010702。
+出处对照:SignDock 纯 HTTP 方案在当前客户端 2.36.8 已不成立;doubao2api 用「真实
+浏览器页面内执行」让字节 JS 自动补签名,是唯一不需要自己实现 a_bogus 的路。
+⇒ 纯 HTTP 腿只用于**读**(资格/签到态/额度);写必须由客户端自己的请求层发起。
 结构化 dict 契约与 checkin_engine / minimax / qoder 完全一致。
 """
 
@@ -43,6 +47,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
 import time
 import uuid
@@ -90,8 +95,9 @@ _COMMON_QUERY: Final[dict[str, str]] = {
 
 # 业务码 → classified_error(-1=永久冷却, >0=冷却秒数;契约见 checkin_engine)
 _CODE_SESSION_DEAD: Final = 710012001  # login-invalid:会话失效,永久冷却
-_CODE_CHECKIN_BLOCKED: Final = 710010702  # 系统错误:频控/风控期写接口被拦
+_CODE_CHECKIN_BLOCKED: Final = 710010702  # 系统错误:写接口缺字节前端签名 a_bogus
 _CODE_RATE_LIMIT: Final = 710022002  # 访问频繁
+_CODE_CAMPAIGN_NOT_FOUND: Final = 2  # 账号不在活动分组(web 指纹常态,非资格死判)
 
 # ===== 任务族(2026-11-16 实证,来源:desktop_online_web 线上 bundle) =====
 # 契约来源(全部逐字节取自 www.doubao.com 线上 JS,非猜测):
@@ -314,12 +320,23 @@ def parse_detail(body: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _classify_code(biz_code: int | None, http_status: int | None) -> dict[str, Any] | None:
-    """业务码/HTTP 态 → classified_error(契约同其它平台)。"""
+    """业务码/HTTP 态 → classified_error(契约同其它平台)。
+
+    2026-11-18 实证(客户端页面抓包):
+    - 线上对 campaign 的**每个**请求都带 msToken + a_bogus(按参数现算的字节签名),
+      由客户端 web 层注入;纯 HTTP/裸 fetch 不带 ⇒ 读接口容忍,写接口恒
+      710010702。这不是频控,重试再多次都一样,故冷却拉到 21600s 少刷日志。
+    - code=2 campaign not found = 该**指纹**不在活动分组(web 指纹常见),
+      客户端指纹同账号 code=0 才作数 ⇒ 标记后隔日再探,不按天冷却死判。
+    """
     if biz_code == _CODE_SESSION_DEAD or (http_status in (401, 403)):
         return {"type": "SessionDead", "cooldown_seconds": -1}
-    if biz_code in (_CODE_CHECKIN_BLOCKED, _CODE_RATE_LIMIT):
-        # 写接口被拦但会话健康(detail 同参可通):定时重试,不熔断
-        return {"type": "BusinessError", "cooldown_seconds": 3600}
+    if biz_code == _CODE_CAMPAIGN_NOT_FOUND:
+        return {"type": "BusinessError", "cooldown_seconds": 86400, "reason": "campaign_not_found"}
+    if biz_code == _CODE_CHECKIN_BLOCKED:
+        return {"type": "BusinessError", "cooldown_seconds": 21600, "reason": "missing_abogus"}
+    if biz_code == _CODE_RATE_LIMIT:
+        return {"type": "BusinessError", "cooldown_seconds": 3600, "reason": "rate_limit"}
     if http_status is not None and http_status >= 500:
         return {"type": "SoftRate", "cooldown_seconds": 300}
     return None
@@ -373,9 +390,17 @@ async def doubao_checkin_account(
         result.update(ok=True, status="already", action="skip_already", message="今日已签到,无需重复领取")
         return result
 
-    # 2) 未签 → claim
+# 2) 未签 → claim(2026-11-18 实证:读/写必须同指纹 —— 旧代码读用客户端
+#    指纹、写落回 web 指纹,读通写必被拦;此处与 detail 同口径)。
     c_status, c_body = await _db_request(
-        PATH_CHECKIN, token, {"scene": SCENE}, timeout=timeout, client=client
+        PATH_CHECKIN,
+        token,
+        {"scene": SCENE},
+        timeout=timeout,
+        client=client,
+        query=_client_query(device_map),
+        use_client_fingerprint=True,
+        device_map=device_map,
     )
     cj = c_body if isinstance(c_body, dict) else None
     c_code = cj.get("code") if cj and isinstance(cj.get("code"), int) else None
@@ -396,6 +421,33 @@ async def doubao_checkin_account(
             message="签到成功",
             credits_delta=parsed["reward"],
         )
+        return result
+    # claim 失败 → 客户端内写腿(2026-11-18):写接口必须由客户端自己的请求层
+    # 发起(msToken+a_bogus 由客户端 JS 现算),裸 HTTP 必被 710010702 拦。
+    # **默认关**(DOUBAO_CLIENT_WRITE_LEG=1 才开):实测反复拉起实例会让同一账号的
+    # 会话在「客户端内部」与「注入副本」之间互踢(710012001),反而加深风控标记。
+    # 账号权限恢复(客服解封/新号)后再开,由定时任务自动签上。
+    if c_code in (_CODE_CHECKIN_BLOCKED, _CODE_RATE_LIMIT) and os.environ.get("DOUBAO_CLIENT_WRITE_LEG", "0") == "1":
+        from app.services.doubao_client_leg import client_checkin
+
+        leg = await client_checkin(
+            name,
+            normalize_cookie_header(token),
+            proxy=str((device_map or {}).get("proxy") or ""),
+        )
+        if leg.get("ok"):
+            result.update(
+                ok=True,
+                status="ok",
+                action="claim_ok",
+                message="签到成功(客户端内发起)",
+                credits_delta=parsed["reward"],
+                classified_error=None,
+            )
+            return result
+        result["message"] = f"{result['message']}|客户端内也失败: {leg.get('message')}"
+        if leg.get("code") is not None:
+            result["code"] = leg["code"]
         return result
     # claim 失败:code 归因(710010702=写接口被拦,疑频控/风控期,定时重试)
     cls = _classify_code(c_code, c_status)

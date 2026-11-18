@@ -72,6 +72,29 @@ const GUIDE_KEY = 'ihui:a11y:guide-ack-at'
 /** 引导卡:点过「已开启/稍后」后 7 天内不再打扰(没开成也不会天天糊脸)。 */
 const GUIDE_RESURFACE_MS = 7 * 24 * 60 * 60 * 1000
 
+/** 无障碍服务用途说明的明示同意(2026-11-18 立):没同意过就不跳系统设置。 */
+const CONSENT_KEY = 'ihui:a11y:consent-at'
+
+/** 是否已就「无障碍服务用途」给出明示同意。 */
+export async function hasA11yConsent(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(CONSENT_KEY)
+    const at = raw ? Number(raw) : 0
+    return Number.isFinite(at) && at > 0
+  } catch {
+    return false
+  }
+}
+
+/** 记下用户对用途说明的明示同意(点「同意并去开启」时调用)。 */
+export async function grantA11yConsent(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CONSENT_KEY, String(Date.now()))
+  } catch {
+    /* 存不下就下次再问一次,绝不按"已同意"处理 */
+  }
+}
+
 /**
  * 该不该弹"开启自动安装"的引导。
  *

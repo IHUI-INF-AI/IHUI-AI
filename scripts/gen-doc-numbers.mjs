@@ -410,9 +410,20 @@ function runGitList(args, root) {
     .filter(Boolean)
 }
 
-/** 面上的一个 blob 规格:HEAD 走 `HEAD:<rel>`,索引走 `:<rel>`(前导冒号必须有,漏了就恒"取不到")。 */
+/**
+ * head 面的 rev 名。
+ *
+ * 为什么可覆盖(2026-11-18 修):pre-push 钩子要跑十几道门(实测约 10 分钟),这期间**别的会话
+ * 仍在推进 main**,`HEAD` 是活引用 ⇒ 同一个推送在两分钟前后读出不同的"现算值",数字门因此
+ * 恒红(与本次推送内容无关的红,违反 §0.2 恒红门禁令)。pre-push 会把本次推送的 local sha
+ * 冻进 `IHUI_DOC_HEAD_REF` ⇒ 判据面 = "我要推的那一枚",而不是"钩子跑到一半时的 HEAD"。
+ * 不设该变量时行为完全不变(仍是 `HEAD`)。
+ */
+export const headRef = () => process.env.IHUI_DOC_HEAD_REF || 'HEAD'
+
+/** 面上的一个 blob 规格:HEAD 走 `<rev>:<rel>`,索引走 `:<rel>`(前导冒号必须有,漏了就恒"取不到")。 */
 export function specOf(face, rel) {
-  return face === 'head' ? `HEAD:${rel}` : `:${rel}`
+  return face === 'head' ? `${headRef()}:${rel}` : `:${rel}`
 }
 
 /**
@@ -468,7 +479,7 @@ export function parseFaceArg(argv, { def = 'worktree' } = {}) {
  *              再由 `memoLister` 按盘上存在性过滤 = **工作树真实文件枚举**(暂存删除/盘上缺失不计)
  */
 export function faceListArgs(face) {
-  if (face === 'head') return ['ls-tree', '-r', '--name-only', 'HEAD']
+  if (face === 'head') return ['ls-tree', '-r', '--name-only', headRef()]
   if (face === 'worktree') return ['ls-files', '--cached', '--others', '--exclude-standard']
   if (face === 'staged') return ['ls-files', '--cached']
   throw new Undetermined(`未知判定面 ${String(face)}(只认 ${Object.keys(FACE_ALIASES).join(' / ')})`)

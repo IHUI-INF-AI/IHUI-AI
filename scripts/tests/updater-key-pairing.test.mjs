@@ -6,7 +6,9 @@
 // 钉住 2026-10-17 那次事故的全部三种失效形态:孤儿私钥、注释自洽但不配对、输入取不到却想记绿。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { generateKeyPairSync } from 'node:crypto'
 import { __test__ as pairing } from '../lib/updater-key-pairing.mjs'
+import { __test__ as sig } from '../desktop-updater-sig-verify.mjs'
 
 const CONF_PUB = '19dac610993f308da8227d25e61de4044efa7363024fdc7ca1640c50a6f29944'
 const OTHER_PUB = '392ca89b8b03f5587c3d7a4037694404c0adba22bda82858623e3619ab6edebd'
@@ -61,5 +63,56 @@ test('方向锁:取不到输入的失败方向是"未判定"两字,绝不能被�
   const r = pairing.judgeUpdaterKeyPairing({ confPubkey: confB64, secretText: 'not-base64-at-all' })
   assert.equal(r.verdict, 'undetermined')
   assert.ok(!'ok'.includes(r.verdict))
+})
+
+// ─── 验签器必须同时认两种官方 .sig 形态(2026-11-18 更新桌面端到 0.1.78 时实测踩中) ───
+// CI 构建产物旁是裸 minisign 文本;GitHub Release 分发的 .sig 资产与 latest.json 的
+// platforms[*].signature 是"整份文本再 base64 一层"的 Tauri 形态。两条都是有效产物。
+const SIG_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
+function sigFixture(algorithm) {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519')
+  const publicRawKey = Buffer.from(publicKey.export({ format: 'der', type: 'spki' }).subarray(SIG_SPKI_PREFIX.length))
+  const artifactBytes = Buffer.from('installer bytes 安装包', 'utf8')
+  const built = sig.buildSignatureForTest({ artifactBytes, privateKey, publicRawKey, algorithm, keyIdHex: 'B5D7E67EA2B1DB08' })
+  return { built, artifactBytes }
+}
+for (const algorithm of ['Ed', 'ED']) {
+  test(`验签正例(${algorithm}): 裸 minisign 文本验签通过`, () => {
+    const { built, artifactBytes } = sigFixture(algorithm)
+    const r = sig.verifyUpdaterSignature({ artifactBytes, sigText: built.sigText, pubkeyBase64: built.pubkeyBase64 })
+    assert.equal(r.ok, true, r.reason)
+  })
+  test(`验签正例(${algorithm}): Tauri 双层 base64 .sig 验签通过(与裸文本等价)`, () => {
+    const { built, artifactBytes } = sigFixture(algorithm)
+    const wrapped = Buffer.from(built.sigText, 'utf8').toString('base64')
+    const r = sig.verifyUpdaterSignature({ artifactBytes, sigText: wrapped, pubkeyBase64: built.pubkeyBase64 })
+    assert.equal(r.ok, true, r.reason)
+  })
+  test(`验签反例(${algorithm}): Tauri 双层 .sig 篡改字节必须判红`, () => {
+    const { built, artifactBytes } = sigFixture(algorithm)
+    const wrapped = Buffer.from(built.sigText, 'utf8').toString('base64')
+    const tampered = Buffer.concat([artifactBytes, Buffer.from('x')])
+    const r = sig.verifyUpdaterSignature({ artifactBytes: tampered, sigText: wrapped, pubkeyBase64: built.pubkeyBase64 })
+    assert.equal(r.ok, false)
+    assert.match(r.reason, /验签失败|不匹配|长度/)
+  })
+}
+test('normalizeSigText: 裸文本原样返回,损坏/非 base64 原样交回(不把解不开伪装成空签名)', () => {
+  const raw = 'untrusted comment: sig\nAAAA\n'
+  assert.equal(sig.normalizeSigText(raw), raw)
+  assert.equal(sig.normalizeSigText('not-base64!@#'), 'not-base64!@#')
+  assert.equal(sig.normalizeSigText(''), '')
+})
+test('normalizeSigText: Tauri 双层解成裸文本', () => {
+  const raw = 'untrusted comment: sig\nQUJD\n'
+  assert.equal(sig.normalizeSigText(Buffer.from(raw, 'utf8').toString('base64')), raw)
+})
+test('变异自证: 旧版只认裸文本的判据会把 Tauri 形态判红(证明锁的是真实行为)', () => {
+  // 复刻旧判据:整段单行 base64 解出来远大于 74 字节 ⇒ decodeSignatureFile 必抛长度错。
+  const { built, artifactBytes } = sigFixture('Ed')
+  const wrapped = Buffer.from(built.sigText, 'utf8').toString('base64')
+  assert.notEqual(Buffer.from(wrapped.trim(), 'base64').length, 74)
+  // 而修复后的判据必须接受同一份输入
+  assert.equal(sig.verifyUpdaterSignature({ artifactBytes, sigText: wrapped, pubkeyBase64: built.pubkeyBase64 }).ok, true)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

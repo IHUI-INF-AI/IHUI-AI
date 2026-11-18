@@ -4244,9 +4244,13 @@ async def list_models(request: Request) -> dict[str, Any]:
         if state is None:
             m["health_status"] = "unknown"
             m["health_error"] = ""
+            m["health_reason"] = ""
         else:
             m["health_status"] = state.status
             m["health_error"] = (state.error or "")[:200]
+            # 2026-11-18 立:原因分档(quota/auth/rate_limit/model_missing),
+            # 让选择器把"额度已尽"与"尚未探测"分开显示,不再混成一个"未验证"。
+            m["health_reason"] = state.reason
         # 2026-11-11 立:实测能力(流式/工具调用/长上下文),null=未测/未知。
         # 仅标注,不参与 filter_available 的 down 判定(不支持不等于隐藏)。
         m["caps_verified"] = model_health.get_caps_verified(str(mid))
@@ -4254,6 +4258,10 @@ async def list_models(request: Request) -> dict[str, Any]:
         "models": default_models,
         "default": settings.litellm_model,
         "stub_mode": stub_mode,
+        # 2026-11-18 立:已判死模型清单(id + 原因)。平台目录里 down 的已被过滤掉,
+        # 但个人号池(/api/account-pool/models)不走本服务、也不在目录里,前端据此
+        # 按 id 精确命中,把号池里同样会失败的行走成"额度已尽/密钥失效"并禁用。
+        "unavailable": model_health.list_unavailable(),
     }
 
 
@@ -6129,6 +6137,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         allow_multiple=bool(_q_args.get("multiSelect", False)),
                                         timeout_s=_q_timeout_s,
                                         call_id=str(tc.get("id", "")),
+                                        questions=_q_args.get("questions"),
                                     )
                                 if isinstance(q_item, dict):
                                     # 参数非法:结构化失败回灌,不向用户发半帧(前端解析层会整帧丢弃)
@@ -8256,6 +8265,7 @@ async def post_question_response(
             user_id=caller_uid,
             selected_ids=selected_ids,
             custom_text=custom_text,
+            answers=body.get("answers"),
         )
         if status in ("not_found", "forbidden"):
             logger.warning(

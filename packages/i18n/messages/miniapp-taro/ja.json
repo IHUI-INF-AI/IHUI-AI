@@ -3030,7 +3030,8 @@
     "failed5": "退会失敗、カスタマーサービスにご連絡ください",
     "text6": "レベル紹介ページ未設定",
     "menu": {
-      "subscriptions": "マイ購読"
+      "subscriptions": "マイ購読",
+      "about": "私たちについて"
     },
     "security": {
       "code": "認証コード",

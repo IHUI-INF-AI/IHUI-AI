@@ -466,6 +466,9 @@ const SERVICES = [
     start: () =>
       launchDetached(
         path.join(AI_DIR, '.venv', 'Scripts', 'python.exe'),
+        // 保持 IPv4 0.0.0.0:uvicorn(Windows asyncio)绑 `::` 时 IPV6_V6ONLY=1,
+        // 反而会让 127.0.0.1 打不通(next.config 的 IHUI_AI_PROXY_TARGET 就是 127.0.0.1)。
+        // localhost→::1 的回退延迟改由调用方用 127.0.0.1 规避(见 apps/web/.env.local)。
         ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8803'],
         AI_DIR,
         'ai-service',

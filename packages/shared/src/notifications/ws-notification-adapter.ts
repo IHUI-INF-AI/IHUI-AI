@@ -51,13 +51,31 @@ export function transformWsNotification(
     data.data && typeof data.data === 'object' && !Array.isArray(data.data)
       ? (data.data as Record<string, unknown>)
       : undefined
+
+  const title = str(data.title)
+  const content = str(data.content) ?? str(data.message?.content)
+
+  /**
+   * 2026-11-18 用户反馈「有时红点亮着,点开通知详情一行空白」的根因修法。
+   *
+   * `{ type: 'notification', data }` 这一封壳是**共用通道**:任务下发/结果(task-dispatch…)、
+   * 激励广告到账(rewarded_ad)、语音通话信令(webrtc_voice)、agent.action 派发、
+   * ai_response 等都从同一个 `pushNotification` 出口出去。它们既没有 title 也没有正文,
+   * 旧规则用「新通知」兜底标题硬收进通知中心 ⇒ 侧栏多出一行只有标题/时间、正文空白的条目,
+   * 且 addNotification 会让未读计数自增 ⇒ 红点亮着但没有任何可读内容。
+   *
+   * 通知条目必须至少有一项可展示文本;两样都没有的一律丢弃,不冒充通知。
+   * 未读角标的真相源仍是服务端 unread-count,丢弃这些事件不会矮化真实未读数。
+   */
+  if (!title && !content) return null
+
   return {
     // 同一毫秒的多条通知(尤其 message 直接透传无 id)不得共用 fallback id,
     // 否则去重会把真实的新通知当成重复丢掉。
     id: str(data.id) ?? `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type: str(data.type) ?? 'notification',
-    title: str(data.title) ?? (data.type === 'ai_response' ? 'AI 回复' : '新通知'),
-    content: str(data.content) ?? str(data.message?.content) ?? '',
+    title: title ?? (data.type === 'ai_response' ? 'AI 回复' : '新通知'),
+    content: content ?? '',
     isRead: false,
     createdAt: str(data.createdAt) ?? new Date().toISOString(),
     ...(payload ? { payload } : {}),

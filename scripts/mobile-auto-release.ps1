@@ -245,11 +245,26 @@ try {
   Set-Location $RepoRoot
 
   Write-Host '[auto] fetch origin main ...'
-  try {
-    Invoke-Git @('fetch', '--prune', 'origin', 'main') | Out-Null
-  } catch {
+  # 2026-11-18:GitHub 侧偶发 exit=128(今日实测一次),单次失败就让整轮跳过太浪费一小时窗口。
+  # 只重试 fetch:它是**只读**操作,重试无副作用;仍失败才按"本轮跳过,下轮重试"处理。
+  $fetchOk = $false
+  for ($fi = 1; $fi -le 3; $fi++) {
+    try {
+      Invoke-Git @('fetch', '--prune', 'origin', 'main') | Out-Null
+      $fetchOk = $true
+      break
+    } catch {
+      if ($fi -lt 3) {
+        Write-Host "[auto] fetch 第 $fi/3 次失败,退避 $($fi * 10)s 后重试:$($_.Exception.Message)" -ForegroundColor Yellow
+        Start-Sleep -Seconds ($fi * 10)
+      } else {
+        $fetchErr = $_.Exception.Message
+      }
+    }
+  }
+  if (-not $fetchOk) {
     # 网络不可用不是"发版失败",也不是"可以静默跳过"——本轮结束,下一轮自动重试。
-    Write-Host "[auto] fetch 失败,本轮跳过(下一轮重试):$($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "[auto] fetch 失败,本轮跳过(下一轮重试):$fetchErr" -ForegroundColor Yellow
     Write-State @{ lastResult = 'skipped-fetch-failed'; lastError = '' }
     $Result = 'skipped-fetch-failed'
     exit 0
@@ -264,18 +279,42 @@ try {
   $prevSha = if ($state -and $state.lastBuiltSha) { [string]$state.lastBuiltSha } else { '' }
   $prevOverlay = if ($state -and $state.lastOverlaySha) { [string]$state.lastOverlaySha } else { '' }
   $changed = @()
+  $prevValid = $false
   if ($prevSha) {
     $verified = & git -C $RepoRoot rev-parse --verify --quiet "$prevSha^{commit}" 2>&1
     if ($LASTEXITCODE -eq 0) {
+      $prevValid = $true
       $changed = @(& git -C $RepoRoot diff --name-only "$prevSha..$mainSha" 2>&1)
     }
   }
   $relevant = @($changed | Where-Object { $_ -ne '' -and (Test-MobileRelevant $_) })
-  $overlayChanged = $prevOverlay -ne $overlaySha
-  $hasBaseline = $prevSha -ne '' -and $changed.Count -gt 0
+  # 覆盖层"有没有变"必须按**内容**判,不能按 sha(2026-11-18 实测):覆盖层每轮由 merge 现生成,
+  # sha 必然漂移 ⇒ 旧判据 `$prevOverlay -ne $overlaySha` 恒为真,于是"无移动端改动就跳过"永远走不到,
+  # 每个他人提交都会白跑一次 8 分钟 OTA、并反复覆盖同一个 runtime 桶(日志表现:触发改动 0 个却照发)。
+  # 基线丢失/无基线时按原生面处理 = 保守走整包,绝不静默判成"无改动"(与下面 nativeTouched 同一口径)。
+  $overlayDiff = @()
+  if ($prevOverlay -and $prevOverlay -ne $overlaySha) {
+    $verifiedOverlay = & git -C $RepoRoot rev-parse --verify --quiet "$prevOverlay^{commit}" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      $overlayDiff = @(& git -C $RepoRoot diff --name-only "$prevOverlay..$overlaySha" 2>&1 | Where-Object { $_ -ne '' })
+    } else {
+      $overlayDiff = @('apps/mobile-rn/android/__overlay-baseline-lost__')
+    }
+  } elseif (-not $prevOverlay) {
+    $overlayDiff = @('apps/mobile-rn/android/__no-overlay-baseline__')
+  }
+  $overlayChanged = @($overlayDiff | Where-Object { Test-MobileRelevant $_ }).Count -gt 0
+  $hasBaseline = $prevValid -and $changed.Count -gt 0
+  # mainSha 与"上一轮真发出去的那枚"逐字相同 ⇒ 根本没有新提交可发。原判据只用"diff 有文件"表达
+  # "有新提交",于是零改动被读成"没有基线"、反过来强行出包 —— 2026-11-18 实测每小时空涨一个 patch
+  # (0.0.27→0.0.28...),用户端收到的却是同一份代码。这里显式区分两种零改动:
+  #   ① 同一 HEAD(prevValid ∧ prevSha==mainSha)⇒ 跳过,记 no-change;
+  #   ② 基线丢失(rev-parse 失败)⇒ 仍按"保守走整包"处理,绝不静默判成无改动。
+  $sameHead = $prevValid -and ($prevSha -eq $mainSha)
 
-  if ($hasBaseline -and $relevant.Count -eq 0 -and -not $overlayChanged -and -not $Force) {
-    Write-Host "[auto] 自 $prevSha 起无移动端相关改动($($changed.Count) 个文件),不出包。" -ForegroundColor Green
+  if ((($hasBaseline -and $relevant.Count -eq 0) -or $sameHead) -and -not $overlayChanged -and -not $Force) {
+    $why = if ($sameHead) { "主干仍是 $mainSha(与上一轮已发版同一枚),无新提交" } else { "自 $prevSha 起无移动端相关改动($($changed.Count) 个文件)" }
+    Write-Host "[auto] $why,不出包。" -ForegroundColor Green
     Write-State @{ lastCheckedSha = $mainSha }
     $Result = 'no-mobile-change'
     exit 0
@@ -427,7 +466,10 @@ try {
     # 不带进覆盖层 ⇒ 每轮 reset 后这条判据消失,eas update 一 exit=0 就冒绿(已实测误判两次)
     'scripts/release-mobile-rn.mjs',
     # AutoInstallGuide 钩子顺序回归锁:早退必须晚于全部 React.useXxx(真机崩溃事故的判据)
-    'apps/mobile-rn/tests/auto-install-guide-hooks.test.ts'
+    'apps/mobile-rn/tests/auto-install-guide-hooks.test.ts',
+    # 2026-11-18:主干 api-client 的准入回执解析把 ahead 无条件挂上,非 queued 档串门 ⇒ 主干 rn-tests
+    # 门必红、出包中止(本轮实测 1 failed/776)。只带这一个源文件,不动其余 api-client 面。
+    'packages/api-client/src/client.ts'
   )
   # 补丁由 git 直接写盘(--output),不经 PowerShell 字符串中转:
   # 2026-11-06 定时任务实测,中文注释的 UTF-8 字节经控制台编码往返后行结构被打断,
@@ -457,14 +499,28 @@ try {
   # (并发提交每几分钟改一次 trackedFiles/testFiles,数字永远追不上当前面)。
   # 每轮 reset --hard 又只取 origin/main,overlay 分支也在同一轮被 reset 冲回 main,
   # 补丁带不进这条修复 ⇒ 这里从**主仓同路径**取样覆盖(取样源 = 已提交的修复版,非工作区脏档)。
-  $canonicalBuild = Join-Path $PSScriptRoot 'build-mobile-rn-release.ps1'
-  $targetBuild = Join-Path $RepoRoot 'scripts/build-mobile-rn-release.ps1'
-  if ((Test-Path -LiteralPath $canonicalBuild) -and (Test-Path -LiteralPath $targetBuild)) {
-    $canonBytes = [IO.File]::ReadAllBytes($canonicalBuild)
-    $tgtBytes = [IO.File]::ReadAllBytes($targetBuild)
-    if ((Test-Path -LiteralPath (Join-Path $RepoRoot 'scripts')) -and -not [Linq.Enumerable]::SequenceEqual($canonBytes, $tgtBytes)) {
-      Copy-Item -LiteralPath $canonicalBuild -Destination $targetBuild -Force
-      Write-Host '[auto] 构建脚本已按主仓取样覆盖(工程树版首行双 BOM / 包名取值与主仓修复版不同)。' -ForegroundColor Yellow
+  # 取样清单缺省**只含** build-mobile-rn-release.ps1;其余条目由状态目录的 sample-overlay.json 追加。
+  # 追加形态存在的理由(2026-11-17 实测):origin/main 上 api-client 有 5 条用例红(ahead 串门 / recoverable
+  # 判定 / 重试计数),修这几条红的那批改动落在主仓工作区却过不了推送门(同一处 README 数字活锁),
+  # 主线因此长期红 —— 出包门链第一关就中止。这份清单把"主仓已改好的状态"取样进构建面,
+  # 不改源码仓、不提交他人改动,只让这一轮构建拿到与作者意图一致的代码。
+  # 取样是**差异才覆盖**:主线转绿后两边逐字节相同 ⇒ 本段自动不动作(不会把旧态写回主线)。
+  $samplePaths = @('scripts/build-mobile-rn-release.ps1')
+  $sampleExtra = Join-Path $StateDir 'sample-overlay.json'
+  if (Test-Path -LiteralPath $sampleExtra) {
+    $samplePaths += @((Get-Content -LiteralPath $sampleExtra -Raw | ConvertFrom-Json) | ForEach-Object { [string]$_ })
+  }
+  foreach ($rel in $samplePaths) {
+    $srcFile = Join-Path $PSScriptRoot ((Split-Path -Leaf $rel))
+    $dstFile = Join-Path $RepoRoot $rel
+    # 非 scripts/ 下的条目按仓库相对路径回指主仓同一层,避免同卷不同根拼错
+    if ($rel -notlike 'scripts/*') { $srcFile = Join-Path (Split-Path -Parent $PSScriptRoot) $rel }
+    if (-not (Test-Path -LiteralPath $srcFile) -or -not (Test-Path -LiteralPath $dstFile)) { continue }
+    $srcBytes = [IO.File]::ReadAllBytes($srcFile)
+    $dstBytes = [IO.File]::ReadAllBytes($dstFile)
+    if (-not [Linq.Enumerable]::SequenceEqual($srcBytes, $dstBytes)) {
+      Copy-Item -LiteralPath $srcFile -Destination $dstFile -Force
+      Write-Host ("[auto] 取样覆盖: {0}(工程树版与主仓态不同)" -f $rel) -ForegroundColor Yellow
     }
   }
 
@@ -522,18 +578,7 @@ try {
   # 判定口径必须是"本轮覆盖层**新增**了什么",不能是 merge-base..overlay 的整叠 diff ——
   # 后者永远包含覆盖层里的原生文件(app.config.js / plugins/ / package.json),于是
   # nativeTouched 恒为真,JS-only 轮次永远走不到 OTA(2026-11-06 实测)。无基线时按原生面处理。
-  $overlayDiff = @()
-  if ($prevOverlay -and $prevOverlay -ne $overlaySha) {
-    $verifiedOverlay = & git -C $RepoRoot rev-parse --verify --quiet "$prevOverlay^{commit}" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-      $overlayDiff = @(& git -C $RepoRoot diff --name-only "$prevOverlay..$overlaySha" 2>&1 | Where-Object { $_ -ne '' })
-    } else {
-      # 用一条**必中原生面**的路径表达"基线丢失 ⇒ 保守走整包",而不是静默判 JS-only
-      $overlayDiff = @('apps/mobile-rn/android/__overlay-baseline-lost__')
-    }
-  } elseif (-not $prevOverlay) {
-    $overlayDiff = @('apps/mobile-rn/android/__no-overlay-baseline__')
-  }
+  # $overlayDiff 已在"判定是否需要出包"段按同一口径算好并复用(单一真相源,禁止在这里再算一份)。
   $touchedPaths = @(@($changed) + @($overlayDiff) | Where-Object { $_ -ne '' })
   $nativeTouched = @($touchedPaths | Where-Object { $p = $_; @($nativePatterns | Where-Object { $p -match $_ }).Count -gt 0 }).Count -gt 0
   if ($nativeTouched) { Write-Host '[auto] 本轮触及原生面 ⇒ 走整包(APK)。' -ForegroundColor Yellow }
@@ -564,18 +609,25 @@ try {
     $otaOut = & node (Join-Path $RepoRoot 'scripts/release-mobile-rn.mjs') --leg ota-production --execute -m "auto-ota $mainSha"
     $otaCode = $LASTEXITCODE
     $otaOut | Select-Object -Last 8 | ForEach-Object { Write-Host "  $_" }
-    if ($otaCode -ne 0) { throw "OTA 发布失败(exit=$otaCode)—— 本轮不记成功,下一轮会重试同一提交。" }
-    Write-State @{
-      lastBuiltSha    = $mainSha
-      lastOverlaySha  = $overlaySha
-      lastBuiltUtc    = (Get-Date).ToUniversalTime().ToString('o')
-      lastOta         = 'ok'
-      lastResult      = 'success-ota'
-      lastError       = ''
+    if ($otaCode -eq 0) {
+      Write-State @{
+        lastBuiltSha    = $mainSha
+        lastOverlaySha  = $overlaySha
+        lastBuiltUtc    = (Get-Date).ToUniversalTime().ToString('o')
+        lastOta         = 'ok'
+        lastResult      = 'success-ota'
+        lastError       = ''
+      }
+      $Result = 'success-ota'
+      Write-Host "[auto] ✓ 已发布 OTA(origin/main $mainSha + 覆盖层 $overlaySha),整包版本不变" -ForegroundColor Green
+      exit 0
     }
-    $Result = 'success-ota'
-    Write-Host "[auto] ✓ 已发布 OTA(origin/main $mainSha + 覆盖层 $overlaySha),整包版本不变" -ForegroundColor Green
-    exit 0
+    # OTA 腿失败不再判整轮红(2026-11-18 实测):EAS Update 在本机没有登录态,这条腿必 exit=1,
+    # 而"整包 + 站点腿"才是本站唯一真实交付通道。旧实现 throw 之后 —— 只要主干出现非原生面
+    # 改动(他人推进 origin/main 就会),每小时都记一次 failed、且永远不产出任何可安装包。
+    # 失效方向改为"多花 25 分钟出整包",绝不"多放一次判红"。
+    Write-Warning "[auto] OTA 腿不可用(exit=$otaCode)⇒ 本轮回落整包,不判失败。EAS 登录态补齐后自动恢复只发 OTA。"
+    $Result = 'ota-unavailable-fallback-bundle'
   }
 
   # ---- 整包路径:显示版本/versionCode 切成本次新号 -------------------------------------

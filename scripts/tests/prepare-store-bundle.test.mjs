@@ -152,12 +152,25 @@ test('S6 摘除插件:删除现有条目并留 tools:node=remove,且同一条不
   const names = manifest['uses-permission'].map((e) => e.$['android:name'])
   assert.ok(names.includes('android.permission.INTERNET'), '不能误伤别的权限')
   const marked = manifest['uses-permission'].filter((e) => e.$['tools:node'] === 'remove')
-  assert.equal(marked.length, 1, '必须留且只留一条 tools:node=remove,防依赖库再把同名权限带回来')
-  assert.equal(marked[0].$['android:name'], 'android.permission.SYSTEM_ALERT_WINDOW')
-  // 幂等:第二次跑既不该报"摘除 1 条",也不该再追加第二条 remove 指令
+  assert.equal(
+    marked.length,
+    DEFAULT_PRUNED.length,
+    '摘除集里每一条都必须留 tools:node=remove,防依赖库再把同名权限带回来(2026-11-18 起摘除集不止一条)',
+  )
+  for (const p of DEFAULT_PRUNED) {
+    assert.ok(
+      marked.some((e) => e.$['android:name'] === p),
+      `摘除集成员 ${p} 必须有自己的 remove 指令`,
+    )
+  }
+  assert.ok(
+    marked.some((e) => e.$['android:name'] === 'android.permission.SYSTEM_ALERT_WINDOW'),
+    '原有成员 SYSTEM_ALERT_WINDOW 不得被新成员挤掉',
+  )
+  // 幂等:第二次跑既不该报"摘除 N 条",也不该再追加第二条 remove 指令
   const again = prune(manifest, [...DEFAULT_PRUNED])
   assert.equal(again.removed, 0)
-  assert.equal(manifest['uses-permission'].filter((e) => e.$['tools:node'] === 'remove').length, 1)
+  assert.equal(manifest['uses-permission'].filter((e) => e.$['tools:node'] === 'remove').length, DEFAULT_PRUNED.length)
 })
 
 test('S7 插件已挂进 app.config 的 plugins(装了不挂=没有,§0.9)', () => {

@@ -373,3 +373,12 @@
 {"path":"apps/miniapp-taro/mobile-rn/assets/images/logo.svg","reason":"2026-11-11 收敛补录:origin/main 提交 c33dd54e9b(chore(repo): 移除 miniapp-taro 下误提交的 mobile-rn 资产副本 13MB 无任何引用)已推删除本文件;本侧从未改动;删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用由旁路删除门引用图复量","until":null}
 {"path":"apps/api/src/db/coze-chat-queries.ts","reason":"2026-11-11 收敛补录:origin/main 提交 e9bf534933 重新落地 coze-chat-queries.ts 的有意删除(404 端点后的死查询层,2026-11-09 白名单),c13291363f 已清悬空 vi.mock 引用;本侧从未改动;删除随合并传播,合并树内 0 处运行时引用由旁路删除门引用图复量","until":null}
 {"path":"apps/web/src/lib/relay-chat-stream.ts","reason":"2026-11-13 收敛补录:origin/main 提交 1b2184d99fdc(feat(cli): 接通两处断链 —— cost-approval 进预算闸、listWakeableTurns 进 turn/parked)已推删除本文件;本侧从未改动;删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用由旁路删除门引用图复量","until":null}
+{"path":"apps/web/src/components/ai/__tests__/engine-mode-header-mount.test.ts","reason":"2026-11-16 收敛补录:origin/main 已推删除 AI 模式切换三件套(产品侧彻底取消 AI 模式切换,用户口径见 AGENTS),本侧从未改动;删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用由旁路删除门引用图复量","until":null}
+{"path":"apps/web/src/components/chat/__tests__/engine-mode-control.test.tsx","reason":"2026-11-16 收敛补录:origin/main 已推删除 AI 模式切换三件套(产品侧彻底取消 AI 模式切换,用户口径见 AGENTS),本侧从未改动;删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用由旁路删除门引用图复量","until":null}
+{"path":"apps/web/src/components/chat/engine-mode-button.tsx","reason":"2026-11-16 收敛补录:origin/main 已推删除 AI 模式切换三件套(产品侧彻底取消 AI 模式切换,用户口径见 AGENTS),本侧从未改动;删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用由旁路删除门引用图复量","until":null}
+{"path":"apps/api/scripts/tmp-diag-trae-row.ts","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}
+{"path":"apps/api/scripts/tmp-diag-trae-token.ts","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}
+{"path":"apps/api/scripts/tmp-probe-exchg.ts","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}
+{"path":"apps/api/scripts/tmp-trae-cookie.ts","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}
+{"path":"apps/api/tmp-dev-align.mjs","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}
+{"path":"apps/api/tmp-dev-pool-check.mjs","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}

@@ -3030,7 +3030,8 @@
     "failed5": "退訂失敗,請聯絡客服",
     "text6": "等級介紹頁未設定",
     "menu": {
-      "subscriptions": "我的訂閱"
+      "subscriptions": "我的訂閱",
+      "about": "關於我們"
     },
     "security": {
       "code": "驗證碼",

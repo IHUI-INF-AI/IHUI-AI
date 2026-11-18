@@ -25,7 +25,6 @@ from app.core.guardian_risk import (
 )
 from app.core.mcp_tool_approval import ToolAnnotations, requires_mcp_tool_approval
 
-
 # ---------- GuardianRiskLevel ----------
 
 def test_risk_level_four_tiers():
@@ -73,12 +72,17 @@ def test_assessment_status_terminal():
     assert GuardianAssessmentStatus.APPROVED.is_terminal is True
     assert GuardianAssessmentStatus.DENIED.is_terminal is True
     assert GuardianAssessmentStatus.TIMED_OUT.is_terminal is True
+    assert GuardianAssessmentStatus.ABORTED.is_terminal is True
 
 
 def test_assessment_status_values_match_codex():
-    """逐字对齐 Codex ``approved | denied | timed_out`` + 本仓补 pending 中间态。"""
+    """逐字对齐 Codex ``approved | denied | timed_out | aborted`` + 本仓补 pending 中间态。
+
+    R30(2026-11-18) 补 ``aborted``:外部程序 strings 逐字锚
+    ``request_permissions+approved/denied/timed_out/aborted`` + ``ElicitationAbandoned``。
+    """
     assert {s.value for s in GuardianAssessmentStatus} == {
-        "pending", "approved", "denied", "timed_out",
+        "pending", "approved", "denied", "timed_out", "aborted",
     }
 
 

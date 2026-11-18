@@ -172,15 +172,24 @@ MEASUREMENTS: Final[Mapping[str, float]] = MappingProxyType({
     'fragment_tables_found': 2,
     'largest_fragment': 18,
     'largest_fragment_turn_hits': 9,
+    'merged_fn_calls': 376,
+    'merged_fn_call_targets': 219,
+    'turn_worker_calls': 369,
+    'turn_worker_call_targets': 184,
+    'debug_field_lea_stride': 277,
 })
 
-#: Turn's last-missing name candidate. Weak on purpose: the reference probe that would
-#: settle it filters merged pools badly (4 of its names have zero standalone occurrences),
-#: so this name is recorded as unverified rather than merged into the key set.
+#: R70 recorded `cwd` as Turn's last-name candidate; R71 falsified it: the lea at
+#: 0x145804779 resolves to `cwdstruct GitDiffToRemoteParams with 1 element`, and that
+#: struct's arity is exactly 1, so `cwd` is its only field.
 TURN_LAST_NAME_CANDIDATE: Final[str] = 'cwd'
 TURN_LAST_NAME_VERIFIED: Final[bool] = False
+TURN_LAST_NAME_FALSIFIED: Final[bool] = True
+CWD_OWNER_STRUCT: Final[str] = 'GitDiffToRemoteParams'
+CWD_OWNER_ARITY: Final[int] = 1
+CWD_OWNER_LITERAL_VA: Final[str] = '0x145804779'
 
-#: Attribution methods measured and rejected *after* R68 (round 69), then R70.
+#: Attribution methods measured and rejected *after* R68 (round 69), then R70 and R71.
 FALSIFIED_AFTER_R68: Final[tuple[tuple[str, str], ...]] = (
     ('widened-record-array',
      '17,134 runs incl. .data, single-char names and cross-section ptrs: still no 27/28 field table'),
@@ -190,6 +199,9 @@ FALSIFIED_AFTER_R68: Final[tuple[tuple[str, str], ...]] = (
      '20,287-word dictionary on the merged pools yields 0 legal segmentations'),
     ('fragment-table-no-boundary',
      'R70: two fragment tables found (18 and 8 records); both are multi-struct runs with no arity edge'),
+    ('inlined-debug-field-call',
+     'R71: DebugStruct::field is inlined — every call target with a name lea has 1 distinct lea, '
+     'and the top targets are GOT entries, so field order cannot be read off call sites'),
 )
 
 

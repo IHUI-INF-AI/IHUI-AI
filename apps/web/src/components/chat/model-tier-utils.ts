@@ -65,6 +65,11 @@ export interface ModelOption {
   verified?: boolean
   /** 未验证原因/上游简短脱敏错误,仅作行标题提示 */
   healthError?: string
+  /** 失败原因分档(2026-11-18 立,后端 `health_reason` 透传):
+   *  quota=额度/余额耗尽、auth=密钥失效、model_missing=上游已下线、
+   *  rate_limit=限流(暂时,不据此禁用)、空串=探测结论而非运行时回写。
+   *  与 verified 互补:verified 回答"通不通",这里回答"为什么不通"。 */
+  healthReason?: string
   /** 实测能力(2026-11-11 立,后端 `caps_verified` 原样透传;缺失=未知)。
    *  null = 未测/未知,与 verified(可用性已验证)相互独立。 */
   capsVerified?: CapsVerified
@@ -131,6 +136,35 @@ export function buildCapabilitySegments(
 }
 
 export type { ModelTier, ModelUsageCategory, ModelCapabilities, ModelCapabilityKey }
+
+/**
+ * 一个模型 id 的全部"可命中写法"(2026-11-18 立)。
+ *
+ * 同一个模型在三处有三种写法(真机实测):
+ * - 号池下发 `cf/@cf/zai-org/glm-4.7-flash`(`toPoolModelId` 给上游名套了一层平台前缀)
+ * - 健康台账键 `@cf/zai-org/glm-4.7-flash`(网关按上游真名记账,CF 官方名自带 `@`)
+ * - 裸名 `glm-4.7-flash`(某些平台登记行不带 `<平台>/` 前缀)
+ * 谁跟谁比都可能差一层,所以不猜"哪个才是真 id",而是把每种的候选写法都列出来,
+ * 任一相同即视为同一模型。误命中的失效方向:只会让"确实被判死"的模型更早灰掉,
+ * 不会让坏模型变成可点。
+ */
+export function idProbeKeys(id: string): string[] {
+  const raw = (id || '').trim().toLowerCase()
+  if (!raw) return []
+  const noAt = raw.replace(/@/g, '')
+  const stripFirst = (s: string) => (s.includes('/') ? s.slice(s.indexOf('/') + 1) : s)
+  const keys = new Set([raw, noAt, stripFirst(raw), stripFirst(noAt)])
+  // `cf/cf/...`:上游名本身就以 `<平台>/` 开头时前缀会叠一层
+  const parts = noAt.split('/')
+  if (parts.length > 2 && parts[0] === parts[1]) keys.add(parts.slice(1).join('/'))
+  return [...keys]
+}
+
+/** 两个 id 是否指同一模型(按 idProbeKeys 的候选集合取交集)。 */
+export function sameModelId(a: string, b: string): boolean {
+  const keys = new Set(idProbeKeys(a))
+  return idProbeKeys(b).some((key) => keys.has(key))
+}
 
 /**
  * 按激活的能力键过滤模型(D23 2026-09-19 立,历史模型区"搜索 + 能力过滤"组合用)。

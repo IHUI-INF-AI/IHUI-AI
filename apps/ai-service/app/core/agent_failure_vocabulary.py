@@ -85,6 +85,13 @@ AGENT_RETRYABLE_ERROR_FAMILIES: Final[tuple[str, ...]] = (
     "timeout",
     "connection",
     "http_5xx",
+    # 2026-11-16 逆向对照 Codex error taxonomy:rate_limit(429) ∈ Retryable(带
+    # retry_after 头)。此前 429 被 _classify_error 文本启发式归 http_4xx → 误判 terminal
+    # (终局不重试),与 provider 层 llm_gateway.py:2993 的 _http_status==429 可重试判定脱节。
+    # 修复链:ProviderError.status_code 结构化认领见 app/core/error_classify_structured.py
+    # (classify_from_status_code: 429→rate_limit / ≥500→http_5xx / 其余 4xx→http_4xx),
+    # _classify_error 接线点留待 agent_loop_v2 非在飞窗口替换(见 error_classify_structured.py 头注)。
+    "rate_limit",
 )
 
 #: 判定成立才登记:重试不会改变结局的那些错误族(每一族都有生产者,见 pytest 的现场断言)。
