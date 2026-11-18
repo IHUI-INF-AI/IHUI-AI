@@ -84,6 +84,33 @@ test('lock 缺 dbHashSha256_12 ⇒ 该维不得判绿', () => {
   assert.ok(r.drifted.includes('db-hash'))
 })
 
+test('服务 env 取不到(null) ⇒ unjudged,不把"没有锁"误报成"锁被撬"(2026-11-18 踩过的错型)', () => {
+  const plain = 'test-only-fixture'
+  const lock = { passwordSha256_12: sha12(plain), dbHashSha256_12: sha12('H') }
+  const r = judge({
+    lock,
+    pwdFileValue: plain,
+    serviceEnvValue: null, // 非生产机:IHUI-DEPLOYLOOP 服务键不存在
+    dbHashSha12: sha12('H'),
+  })
+  assert.equal(r.state, 'unjudged')
+  assert.deepEqual(r.unjudged, ['service-env'])
+  assert.deepEqual(r.drifted, [])
+})
+
+test('服务 env 真的被改(非空且不等于冻结值) ⇒ 仍精确判 drift,上一条不得掩盖真实改动', () => {
+  const plain = 'test-only-fixture'
+  const lock = { passwordSha256_12: sha12(plain), dbHashSha256_12: sha12('H') }
+  const r = judge({
+    lock,
+    pwdFileValue: plain,
+    serviceEnvValue: 'tampered-value',
+    dbHashSha12: sha12('H'),
+  })
+  assert.equal(r.state, 'drift')
+  assert.deepEqual(r.drifted, ['service-env'])
+})
+
 test('内置自检 5 场景全过', () => {
   assert.equal(selfTest(), true)
 })
