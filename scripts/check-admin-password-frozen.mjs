@@ -53,7 +53,10 @@ function readServiceEnv(name) {
       const m = line.match(new RegExp(`^\\s*${name}\\s*=\\s*(.+?)\\s*$`))
       if (m) return m[1]
     }
-    return ''
+    // 服务/键不存在 ⇒ 取不到值 = 未判定(null),不是"空口令"。
+    // 空串参与 sha12 会得到 e3b0c44298fc 并在非生产机上误报 drift(把"没有这把锁"
+    // 说成"锁被撬")。真正被改(Key 存在但值不同)仍由 judge 判红,语义不受影响。
+    return null
   } catch {
     return null
   }
