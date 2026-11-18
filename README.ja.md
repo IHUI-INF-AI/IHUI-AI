@@ -2227,6 +2227,20 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 🐞 修正:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
+- 🐞 修正:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e)
+- 📚 ドキュメント:align the trackedFiles block to the HEAD-face count the gate computes (6c7ee189ba)
+- 🔧 その他:19 个 Windows 计划任务迁到登录常驻调度器(禁计划任务铁律) (1a48425576)
+- 📚 ドキュメント:Y-37/RP-2/Y-58/Y-72 追加 2026-11-18 SSH 生产机只读实测注记 (76ef533a4e)
+- 🔧 その他:acknowledge the protected-face content that merge 31fb90364f6 brought in (c3cbe992f3)
+- 🚀 機能/改善:桌面端「窗口置顶」开关的图钉文案(五语言) (5c8c7eb1eb)
+- 📚 ドキュメント:align generated block to the HEAD face so the doc-numbers gate agrees (3b04349417)
+- 📚 ドキュメント:refresh generated blocks after R127 (74aa180317)
+- 🐞 修正:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc)
+- 🐞 修正:R127 type the entry list so mypy strict passes (b749a4a768)
+- 🚀 機能/改善:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e3)
+
+**2026-11-18**
 - 🐞 修正:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
 
 **2026-11-18**
@@ -2400,9 +2414,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-16**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (08dfc418e7c)
-
-**2026-11-16**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (0073e7c7a84)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
