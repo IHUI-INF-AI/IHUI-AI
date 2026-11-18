@@ -98,6 +98,23 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-19**
+- 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
+
+**2026-11-18**
+- 🐞 Fix:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
+- 🐞 Fix:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e)
+- 📚 Docs:align the trackedFiles block to the HEAD-face count the gate computes (6c7ee189ba)
+- 🔧 Chore/Other:19 个 Windows 计划任务迁到登录常驻调度器(禁计划任务铁律) (1a48425576)
+- 📚 Docs:Y-37/RP-2/Y-58/Y-72 追加 2026-11-18 SSH 生产机只读实测注记 (76ef533a4e)
+- 🔧 Chore/Other:acknowledge the protected-face content that merge 31fb90364f6 brought in (c3cbe992f3)
+- 🚀 Feature/Improvement:桌面端「窗口置顶」开关的图钉文案(五语言) (5c8c7eb1eb)
+- 📚 Docs:align generated block to the HEAD face so the doc-numbers gate agrees (3b04349417)
+- 📚 Docs:refresh generated blocks after R127 (74aa180317)
+- 🐞 Fix:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc)
+- 🐞 Fix:R127 type the entry list so mypy strict passes (b749a4a768)
+- 🚀 Feature/Improvement:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e3)
+
 **2026-11-18**
 - 🐞 Fix:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
 
@@ -540,67 +557,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-14**
 - 🐞 Fix:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
-
-**2026-11-14**
-- 🐞 Fix:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
-- 🚀 Feature/Improvement:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
-- 🔧 Chore/Other:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
-- 🐞 Fix:审计修掉 skill-evolution 提议 id 遮蔽漏洞 + 补 id 唯一性守卫 (0a1b814614)
-- 🐞 Fix:F-274 补齐 SELECT_CHAIN_TAIL_SQL —— 链尾按"链上叶"取，非按最新行取 (390537c970)
-- 🚀 Feature/Improvement:新增 3 个未跟踪文件 (da1823aa1d)
-- 🚀 Feature/Improvement:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803)
-- 🔧 Chore/Other:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
-- 🚀 Feature/Improvement:以 ai_pricing 权威价回填配置零价行 (476127d306)
-- 🔧 Chore/Other:收拢本地工作区改动(全量提交) (1be9d1e2c7)
-- 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
-- 🐞 Fix:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
-- 🚀 Feature/Improvement:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05)
-- 🚀 Feature/Improvement:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee)
-- 🐞 Fix:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
-- 🔧 Chore/Other:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
-- 🚀 Feature/Improvement:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
-- 🔧 Chore/Other:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
-- 🐞 Fix:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a15623)
-- 📚 Docs:同步生成块计数(经用户明确授权跳过钩子) (c466bece0a)
-- 🚀 Feature/Improvement:per-tool timeout budgets + NO_PROXY routing (5th DSH pass) (41d9096328)
-- 🐞 Fix:零价巡检改用采购成本量化损失 (b5a8e3967a)
-- 🚀 Feature/Improvement:零价上架护栏 + 每日零价巡检 (5b7e639654)
-- 🚀 Feature/Improvement:逆向 DSH 审计第三/四遍补齐(导出保真/中断语义/Office 转换) (f2b2cec5da)
-- 🐞 Fix:G-20261114 chat-sync 三端（taro/RN/extension）接线 + 回归锁 (41548e0716)
-- 🐞 Fix:G-20261114 chat-sync 共享内核与 web 端接线 + 契约文档 (450c939404)
-- 🐞 Fix:G-20261114 多端 chat-sync 流式坐标系统一与终态投影（api 端） (5bc4e1c3d4)
-- 📚 Docs:补登 check-findings-freshness 守门点名，清门 89 R4 (c791a93bb9)
-- 📚 Docs:同步生成块计数 (f83626fbf1)
-- 🐞 Fix:F-187 api_base SSRF 非字符串地址 fail-closed 并恢复 T1 判据面 (d61938ace0)
-- 🐞 Fix:盘根外流根治复诊 —— 修合规闸的大小写假阴 + 补回归锁 (2ee1847a94)
-- 🚀 Feature/Improvement:错误卡目录化上收 shared + 三端接线(D-AI-3) (c5a2c24a25)
-- 🐞 Fix:修正 299/302p 两道门的历史误判(非新增漂移) (a5b35cb15f)
-- 🐞 Fix:F-34 多模态任务失败退款耐久化(补齐实现,对齐已提交测试) (6aab7e619a)
-- 🐞 Fix:DB-35 PII 写库加密切片(发票抬头+后台实名 idCard 旁路) (2d3c28cc82)
-- 🚀 Feature/Improvement:新增 3 个 drizzle 迁移 —— news 去重唯一索引 / 客服状态枚举对齐 / coze 变量唯一索引 (8a64f3e4a2)
-- 🐞 Fix:DB-35 凭据写库加密切片(无迁移) (002ade40cc)
-- 🔧 Chore/Other:对账结清 F-274/F-175(均已在 HEAD 修复) (0f1180807c)
-- 🔧 Chore/Other:结清 F-719(充值双币种入账,a6ae85b0c25/cce4625f58a,39 passed) (0bfaa1d848)
-- 🐞 Fix:兑换码充值同步入账 cost 余额 (a6ae85b0c2)
-- 🔧 Chore/Other:结清 Y-14(前提不成立:安卓 latest 已回 0.0.24) (17c111ccf4)
-- 🔧 Chore/Other:RP-16 阻塞留痕 + 认领 Y-14(安卓更新包接口空返回) (67e95c546a)
-- 🔧 Chore/Other:认领 RP-16(考勤 IM 三类审批枚举映射) (a62cd5225c)
-- 🔧 Chore/Other:对账结清 12 张已在 HEAD 修复的缺陷普查行 (a9e8f3f9bd)
-- 🐞 Fix:单边 token 充值同步入账 cost 余额 (cce4625f58)
-- 🔧 Chore/Other:结清 F-512(前提不成立:幂等键已入库;工作树他席回退 risk) (21087e436b)
-- 🔧 Chore/Other:认领 F-512(notification-worker 幂等键缺失) (090cd85811)
-- 🔧 Chore/Other:结清 F-722(前提不成立:异常结算已入库;工作树他席改动回退风险) (a500442528)
-- 🔧 Chore/Other:BUG-29 切片0 阻塞留痕 + 认领 F-722(流式异常跳结算) (a3a3a13347)
-- 🔧 Chore/Other:认领 BUG-29(索引约束缺失族,先做切片0) (da6cc97036)
-- 🐞 Fix:workbuddy 永久保活不再依赖客户端进程 (a9d2d526aa)
-- 🔧 Chore/Other:夹具备份产物目录改名 switch-profiles,避开保护闸 backups 的精确等值 (29d71f9c26)
-- 🐞 Fix:根治项目文件盘根外流——scratch 逃生舱合规闸+拔系统盘脏env+盘根卫生增申报目录内容对账与C盘覆盖面 (2a85a5024c)
-
-**2026-11-13**
-- 🐞 Fix:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
-- 🔧 Chore/Other:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da3)
-- 🐞 Fix:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3b)
-- 🐞 Fix:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
