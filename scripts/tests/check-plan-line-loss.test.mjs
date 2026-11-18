@@ -2715,4 +2715,40 @@ test('形状锁:检测侧与回捞侧必须都从 declared.keyIndex 取同一份
     '键表必须取自 declared.keyIndex(不得在本文件另建第二份键口径)',
   )
 })
+
+// 2026-11-18 根治:自愈腿的 commit-tree 此前不带提交身份。本器由 live-doc-edit 收尾与 guardian
+// 以派生/服务身份发起,交互账户 .gitconfig 读不到 ⇒ 恒 `Author identity unknown`,--heal --commit
+// 天天 rc≠0,"HEAD 缺登记行"被永久读成未判定。身份单源 = lib/bypass-git.mjs。
+test('形状锁:落地侧 commit-tree 必须带单源提交身份,不得依赖 caller shell 配过 identity', () => {
+  const raw = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  // 先剥行注释:否则解释性注释里提到的符号会被断言读成"已接线"(自指假阳)
+  const src = raw
+    .split('\n')
+    .map((l) => {
+      const cut = l.search(/(?<!:)\/\//)
+      return cut >= 0 ? l.slice(0, cut) : l
+    })
+    .join('\n')
+  const argvAt = src.search(/\[[^\]]*?'commit-tree'[^\]]*?\]/)
+  assert.ok(argvAt >= 0, '找不到 commit-tree 的 argv 数组 ⇒ 落地通道形状已变,本锁需随迁')
+  const argv = src.slice(argvAt, src.indexOf(']', argvAt) + 1)
+  assert.ok(
+    argv.includes('...REPO_GIT_IDENTITY_ARGS'),
+    'commit-tree 丢了身份注入 ⇒ 服务/派生上下文会重新死在 Author identity unknown',
+  )
+  const impAt = src.indexOf("from './lib/bypass-git.mjs'")
+  assert.ok(impAt > 0, '必须从 lib/bypass-git.mjs 取身份出口')
+  const impLine = src.slice(src.lastIndexOf('import', impAt), impAt)
+  assert.ok(impLine.includes('REPO_GIT_IDENTITY_ARGS'), '身份符号未从单源 import')
+})
+
+test('形状锁:本器不得手拼第二份身份口径(§0.6 单一真相源)', () => {
+  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  assert.doesNotMatch(src, /user\.name=/, '手拼的 user.name= 是第二份身份口径,必漂')
+  assert.doesNotMatch(
+    src,
+    /GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL)\s*:/,
+    '身份取值只认 bypass-git 单源,不得自立 env 档',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
