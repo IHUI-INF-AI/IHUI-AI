@@ -78,11 +78,12 @@ def test_findings_need_the_strictness_flag() -> None:
     assert escalates_to_failure("inconsistent_presentation_font_family", True) is True
 
 
-def test_three_observed_finding_kinds() -> None:
-    assert FINDING_KIND_COUNT == 3
+def test_four_observed_finding_kinds() -> None:
+    assert FINDING_KIND_COUNT == 4
     assert is_finding_kind("inconsistent_presentation_font_family")
     assert is_finding_kind("requested_slide_count_changed")
     assert is_finding_kind("unexpected_slide_aspect_ratio")
+    assert is_finding_kind("required_native_table_missing")
     assert FINDINGS_OBSERVED_ALL_EXIT_1 is True
 
 
@@ -141,7 +142,7 @@ def test_untriggered_surface_is_stated() -> None:
 def test_contract_mapping_shape() -> None:
     c = findings_contract()
     assert c["exit_states"] == 3
-    assert c["finding_kinds"] == 3
+    assert c["finding_kinds"] == 4
     assert c["warning_escalates"] is False
     assert c["integrity_inspects_text"] is False
 
