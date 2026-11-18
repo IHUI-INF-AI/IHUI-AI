@@ -16,6 +16,7 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { describeSignatureProtocols } from '../../services/upstream-adapters/signature-protocols.js'
 import { planPatOnboarding, judgePatProbeResult } from '../../services/relay-pat-onboarding.js'
+import { describeUpstreamCapabilityMatrix } from '../../services/relay-upstream-capability-matrix.js'
 
 const onboardingBody = z.object({
   issuanceUrl: z.string().max(512).optional(),
@@ -32,6 +33,11 @@ const onboardingBody = z.object({
 export const relaySigningAdminRoutes: FastifyPluginAsync = async (server) => {
   server.get('/admin/relay/signature-protocols', { preHandler: requireAdmin }, async (_request, reply) => {
     return reply.send(success(describeSignatureProtocols()))
+  })
+
+  // 上游能力矩阵(三家一表):每条能力指到真实实现位置,状态只有 implemented/derived/unreproducible
+  server.get('/admin/relay/upstream-capability-matrix', { preHandler: requireAdmin }, async (_request, reply) => {
+    return reply.send(success(describeUpstreamCapabilityMatrix()))
   })
 
   server.post('/admin/relay/pat-onboarding', { preHandler: requireAdmin }, async (request, reply) => {
