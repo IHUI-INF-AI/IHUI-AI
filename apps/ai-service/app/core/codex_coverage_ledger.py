@@ -106,7 +106,7 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        10,
+        13,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
@@ -127,8 +127,23 @@ DOMAINS: Final = (
         "a rendered Google preview depending on the declared kind, site is the only directory "
         "reference and the only hard-coded preview, .txt cannot be inferred so email and slack "
         "must be declared, the source url constraint is two-way, and preview PNGs are parsed "
-        "chunk by chunk with CRC32 rather than sniffed. Still unread: "
-        "validate_template_plan 19 KB, check_template_fidelity 18 KB, "
+        "chunk by chunk with CRC32 rather than sniffed. R124 read validate_template_plan in full: "
+        "the template-following discipline refuses to accept a plan that paints over the "
+        "template - every output slide must be duplicate-slide (in-place edits are rejected), "
+        "output slides must be consecutive from one, an empty editTargets list is legal only for "
+        "the eight preserve-only roles and illegal for the twenty-two content roles, action add is "
+        "banned from both ends (a content slide may not only add and a brand slide may not add at "
+        "all) unless four supporting fields are present, and every detected placeholder must be "
+        "rewrite/replace/delete/fill-placeholder because keep and add explicitly do not discharge "
+        "it. R125 read inspect_template_deck in full AND ran it: the artifact-tool leg works "
+        "(importPptx, slide enumeration, png and layout export, inspect with a 412-byte ndjson on "
+        "a one-slide deck) while the packaging leg is blocked because every zip read shells out to "
+        "unzip and there is no unzip on this host - the run fails at zipNames with rc=1, two lines "
+        "after the import already succeeded, so the break point is named exactly rather than "
+        "guessed. The script also gathers three independent counts (api inspect, zip scan, and a "
+        "literal a:tbl search per slide.xml) and lets the api admit omittedRecords and "
+        "abbreviatedRecords, then records truncated into the manifest. Still unread: "
+        "check_template_fidelity 18 KB, "
         "prepare_template_starter_deck 11 KB, export-google-workspace-file 10 KB, "
         "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB",
     ),
