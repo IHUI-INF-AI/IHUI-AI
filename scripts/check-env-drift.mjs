@@ -121,10 +121,11 @@ export const MANAGED_TARGETS = [
 /**
  * 确认废弃清单(按目标隔离)。这是"备份里有、今文件里已消失"的**唯一**人工出口。
  *
- * 纪律:每条必须是对象 `{ key, evidence, retiredAt }`,evidence 写**可核验的现场依据**
- * (文件:行号 + 原话 + 消费方现状),retiredAt 写登记日期;**禁止**用它把一次真漂移遮成绿。
- * 与守门 107 对 `RN_ONLY_BRAND_KEYS` 的教训同一条:豁免清单会腐烂 —— 所以自检 ⑨ 从
- * "全表为空"改成"每条都带证据与日期",空表仍然合法(零豁免是首选状态)。
+ * 纪律:每条必须是对象 `{ key, evidence, retiredAt, expires }`,evidence 写**可核验的现场依据**
+ * (文件:行号 + 原话 + 消费方现状),retiredAt 写登记日期,expires 写**复核到期日**(到期后该条自动
+ * 停止消音、漂移照报 ⇒ 要么重新核验后再登记一次,要么把键配回来);**禁止**用它把一次真漂移遮成绿。
+ * 与守门 107 对 `RN_ONLY_BRAND_KEYS` 的教训同一条:豁免清单会腐烂 —— 所以自检 ⑨ 判"每条都带证据 +
+ * 登记日期 + 合规到期日",空表仍然合法(零豁免是首选状态)。
  */
 export const RETIRED_KEYS = {
   'apps/api/.env': [
@@ -133,6 +134,7 @@ export const RETIRED_KEYS = {
       evidence:
         'apps/api/.env:394 原文注记「本地开发…若此处开 secret,本地登录必 403。故本地保持关闭(=无 secret 即放行);生产仓 D:/DevEnv/ihui-prod 的同名键保持开启」;消费方 apps/api/src/services/turnstile-service.ts:72 缺键即降级放行,apps/api/tests/turnstile-missing-secret.test.ts 把该行为钉住 ⇒ 本地属有意关闭,非漏配',
       retiredAt: '2026-11-18',
+      expires: '2027-05-31',
     },
   ],
   '.env(仓库根)': [
@@ -141,6 +143,7 @@ export const RETIRED_KEYS = {
       evidence:
         '根 .env:270 同一决策的注释形态(与 apps/api/.env:394 配套);site key 仍配在 L271,前端 widget 是否渲染由 web 端 NEXT_PUBLIC_TURNSTILE_SITE_KEY 决定',
       retiredAt: '2026-11-18',
+      expires: '2027-05-31',
     },
   ],
   'apps/ai-service/.env': [],
@@ -249,10 +252,29 @@ export function backupDirOf(root) {
   return join(root || STATE_ROOT, BACKUP_REL)
 }
 
-/** 退役清单 → 键名数组(条目是对象形态;兼容历史字符串形态,免得旧调用方炸) */
-export function retiredKeysOf(targetId) {
+/** 今日 YYYY-MM-DD(本地时区,形态与 retiredAt/expires 逐字同形,可直接做字符串比较) */
+export function todayStr(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/**
+ * 退役清单 → 键名数组(条目是对象形态;兼容历史字符串形态,免得旧调用方炸)。
+ *
+ * 2026-11-18 补 RP-21 那一格缺的维:带 `expires` 的条目**到期后不再消音** —— 漂移照报。
+ * 登记不是终身豁免(§0.7「豁免必须"验过才免"且会到期」、守门 108「豁免族必须登记存活期」同条口径):
+ * 原形态只有 retiredAt(登记日),一次登记即永久遮绿,清单腐烂无人喊。
+ * 失效方向刻意偏保守:`expires` 缺失/形态不正/字符串旧形态 ⇒ 一律按"已到期"处理(宁可多喊一次,
+ * 绝不把"没写到期"读成"永久有效")。自检 ⑨ 同批把"必须带合规 expires"钉成形状判据。
+ */
+export function retiredKeysOf(targetId, { today = todayStr() } = {}) {
   return (RETIRED_KEYS[targetId] || [])
-    .map((e) => (typeof e === 'string' ? e : e && e.key))
+    .filter((e) => {
+      if (typeof e === 'string') return false
+      const exp = String(e?.expires ?? '')
+      return /^\d{4}-\d{2}-\d{2}$/.test(exp) && exp > String(today)
+    })
+    .map((e) => e.key)
     .filter((k) => typeof k === 'string' && k.length > 0)
 }
 
@@ -678,22 +700,54 @@ export function selfTest() {
       json.counts && json.counts.drift === 1 && json.exit === 1,
     )
 
-    // ⑨ 废弃清单:每条必须带可核验证据与登记日期(空表仍是最优状态);
-    //    只让"整键缺失"这一类消音,值为空不得被遮
+    // ⑨ 废弃清单:每条必须带可核验证据、登记日期与**合规到期日**(空表仍是最优状态);
+    //    只让"整键缺失"这一类消音,值为空不得被遮;到期后连消音资格一起失去(RP-21 补的那一维)。
     const retiredEntries = Object.values(RETIRED_KEYS).flat()
     assert(
-      '⑨废弃清单每条都带 evidence(≥10 字)与 retiredAt(YYYY-MM-DD)',
-      retiredEntries.every(
-        (e) =>
-          e &&
-          typeof e.key === 'string' &&
-          e.key.length > 0 &&
-          typeof e.evidence === 'string' &&
-          e.evidence.length >= 10 &&
-          /^\d{4}-\d{2}-\d{2}$/.test(String(e.retiredAt || '')),
-      ),
-      JSON.stringify(retiredEntries.map((e) => e && e.key)),
+      '⑨废弃清单每条都带 evidence(≥10 字)+retiredAt+expires(YYYY-MM-DD) 且 expires>retiredAt',
+      retiredEntries.every((e) => {
+        if (
+          !e ||
+          typeof e.key !== 'string' ||
+          e.key.length === 0 ||
+          typeof e.evidence !== 'string' ||
+          e.evidence.length < 10
+        )
+          return false
+        const at = String(e.retiredAt || '')
+        const exp = String(e.expires || '')
+        return /^\d{4}-\d{2}-\d{2}$/.test(at) && /^\d{4}-\d{2}-\d{2}$/.test(exp) && exp > at
+      }),
+      JSON.stringify(retiredEntries.map((e) => e && { key: e.key, at: e.retiredAt, exp: e.expires })),
     )
+    // ⑨b 存活期必须真有牙:同一枚键在到期前/到期后取出的消音集合必须不同(到期 ⇒ 键退出清单)
+    {
+      const probeId = Object.keys(RETIRED_KEYS).find((k) => (RETIRED_KEYS[k] || []).length > 0)
+      const any = probeId ? RETIRED_KEYS[probeId][0] : null
+      const liveView = probeId ? retiredKeysOf(probeId, { today: '2020-01-01' }) : []
+      const deadView = probeId ? retiredKeysOf(probeId, { today: '2099-01-01' }) : []
+      assert(
+        '⑨b 到期即失去消音资格(未过期视图含该键 / 过期视图为空)',
+        !!any && liveView.includes(any.key) && deadView.length === 0,
+        JSON.stringify({ probeId, key: any && any.key, liveView, deadView }),
+      )
+      // ⑨c 端到端:把"已到期"的清单真喂给 diff 侧 ⇒ 该键必须重新报成漂移(不是只改形状装样子)
+      const e9c = diffAgainstBackup({
+        backupValues: parseEnvText(`${any.key}=1\n`).values,
+        currentValues: parseEnvText('').values,
+        retired: deadView,
+      })
+      const e9cLive = diffAgainstBackup({
+        backupValues: parseEnvText(`${any.key}=1\n`).values,
+        currentValues: parseEnvText('').values,
+        retired: liveView,
+      })
+      assert(
+        '⑨c 到期视图报出该键漂移、未过期视图消音(行为与形状同批对齐)',
+        e9c.length === 1 && e9c[0].key === any.key && e9cLive.length === 0,
+        JSON.stringify({ e9c, e9cLive }),
+      )
+    }
     const d9 = diffAgainstBackup({
       backupValues: parseEnvText('GONE=1\nBLANK_ME=2\n').values,
       currentValues: parseEnvText('GONE=\nBLANK_ME=\n').values,
