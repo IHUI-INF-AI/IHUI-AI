@@ -83,9 +83,18 @@ DOMAINS: Final = (
         "skill_texts",
         "skill SKILL.md bodies read",
         6,
-        2,
-        "pdf read in full; presentations partially; documents 554 lines, spreadsheets 512+467, "
-        "template-creator 206 -- none read",
+        3,
+        "pdf in full, documents 554 lines in full, template-creator 206 lines in full; "
+        "presentations 250, spreadsheets 467, excel-live-control 512 still unread",
+    ),
+    Domain(
+        "skill_aux_docs",
+        "skill auxiliary documents read",
+        8,
+        8,
+        "R116: documents manifest / template-create / template-distill / writing_quality; "
+        "presentations style_guidelines; spreadsheets style_guidelines; excel-live-control "
+        "officejs and style_guidelines",
     ),
     Domain(
         "node_scripts",
