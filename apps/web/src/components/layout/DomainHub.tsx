@@ -114,7 +114,7 @@ export const HUB_TOKENS = {
   cardArrow:
     'h-4 w-4 shrink-0 -translate-x-1 text-muted-foreground/40 opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 group-hover/parent:translate-x-0 group-hover/parent:opacity-100',
   /** 带 children 的父项面板 */
-  parentPanel: 'rounded-xl border border-border/70 bg-muted/30 p-2.5 sm:p-3',
+  parentPanel: 'rounded-xl border border-stroke-default bg-muted/30 p-2.5 sm:p-3',
   /** 父项表头:gap-3 与普通卡片一致,图标砖 36×36 同档 */
   parentLink:
     'group/parent flex items-center gap-3 rounded-lg px-1 py-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

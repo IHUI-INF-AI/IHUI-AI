@@ -80,6 +80,24 @@ export type RnAgentNameTokens = {
   DEFAULT: string
 }
 
+/**
+ * 描边角色档(8 角色,2026-11-15 立;2026-11-19 补具名类型)。
+ *
+ * 立因:守门 323 的 R5「三端角色齐全」要求 tokens.css / tailwind-preset.js / rn-tokens.ts
+ * **三张表都具名可查**;此前本表只有内联字面量,判据在 RN 侧看不见"表在不在",
+ * 于是"三端同源"这条只能在 web 两张表上成立。类型名是本表的机器可查锚点,改名等于撤表。
+ */
+export type RnStrokeTokens = {
+  subtle: string
+  default: string
+  strong: string
+  inverse: string
+  field: string
+  focus: string
+  selected: string
+  danger: string
+}
+
 export type RnModelTypeTokens = {
   text: string
   textBg: string
@@ -279,16 +297,7 @@ export type RnThemeTokens = {
      形状取 { DEFAULT } 而非裸字符串,原因见 rnTokens 内同档注释(active-tokens 逐命名空间覆写)。 */
   agentName: RnAgentNameTokens
   /* 描边角色档(2026-11-15 立)。聚焦档是全项目唯一允许取墨的描边角色。 */
-  stroke: {
-    subtle: string
-    default: string
-    strong: string
-    inverse: string
-    field: string
-    focus: string
-    selected: string
-    danger: string
-  }
+  stroke: RnStrokeTokens
   gray: {
     50: string
     100: string
