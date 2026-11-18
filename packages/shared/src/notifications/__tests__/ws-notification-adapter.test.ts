@@ -45,5 +45,46 @@ describe('XUI-022 transformWsNotification:无 id 通知不得互相覆盖', () =
     } as unknown as Parameters<typeof transformWsNotification>[0])
     expect(entry?.type).toBe('notification')
   })
+
+  /**
+   * 2026-11-18:红点亮着、点开一行空白 —— 同一封 WS 通道还发任务/广告/语音信令等业务事件,
+   * 它们没有标题也没有正文,旧规则用「新通知」兜底硬收进通知中心,于是出现空条目。
+   */
+  it('业务事件(既无标题也无正文)⇒ null(rawType 不冒充通知)', () => {
+    // 载荷形状随业务而变(本仓真实事件各带自己的键),故以松散函数喂真实形态
+    const ws = (data: Record<string, unknown>) =>
+      transformWsNotification({
+        type: 'notification',
+        data,
+      } as unknown as Parameters<typeof transformWsNotification>[0])
+    // 任务下发/结果
+    expect(ws({ type: 'task-dispatch', taskId: 't-1' })).toBeNull()
+    // 激励广告到账
+    expect(ws({ type: 'rewarded_ad', event: 'points_awarded', amount: 5, balance: 105 })).toBeNull()
+    // 语音通话信令
+    expect(ws({ type: 'webrtc_voice', event: 'ended', sessionId: 's-1' })).toBeNull()
+    // agent 动作派发
+    expect(
+      ws({ type: 'agent.action', request: { id: 'r-1' }, assignment: { token: 'x' } }),
+    ).toBeNull()
+  })
+
+  it('只要有一项可展示文本就仍然收下(仅标题 / 仅正文都不丢真实通知)', () => {
+    const titleOnly = transformWsNotification({
+      type: 'notification',
+      data: { id: 'n-2', type: 'system', title: '异地登录提醒' },
+    })
+    expect(titleOnly).not.toBeNull()
+    expect(titleOnly?.title).toBe('异地登录提醒')
+    expect(titleOnly?.content).toBe('')
+
+    const contentOnly = transformWsNotification({
+      type: 'notification',
+      data: { id: 'n-3', type: 'ai_response', message: { content: '任务已完成' } },
+    })
+    expect(contentOnly).not.toBeNull()
+    expect(contentOnly?.title).toBe('AI 回复')
+    expect(contentOnly?.content).toBe('任务已完成')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
