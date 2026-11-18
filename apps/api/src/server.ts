@@ -35,6 +35,7 @@ import { relayClientConfigRoutes } from './routes/admin/relay-client-config.js'
 import { relayWelfareClaimRoutes } from './routes/admin/relay-welfare-claim.js'
 import { relayAccessKitRoutes } from './routes/admin/relay-access-kit.js'
 import { relayCosyCapabilityRoutes } from './routes/admin/relay-cosy-capability.js'
+import { relaySigningAdminRoutes } from './routes/admin/relay-signing-admin.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -507,6 +508,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // Cosy 能力自述(2026-11-18 立):把「设备头族有哪些 / 请求签名可不可复现 / 走哪条通路」
   // 变成可对账的数据。不实现也不伪造签名算法,只如实陈述边界。
   server.register(relayCosyCapabilityRoutes, { prefix: '/api' })
+
+  // 签名协议与 PAT 引导(2026-11-18 立):只开放公开标准签名协议(HMAC/SigV4/OAuth1a/JWT),
+  // 并把「PAT 去哪拿、票形对不对、验没验过」固化成可查询的计划与判据。
+  server.register(relaySigningAdminRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
