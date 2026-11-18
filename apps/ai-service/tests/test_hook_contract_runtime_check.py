@@ -9,12 +9,14 @@ from __future__ import annotations
 import pytest
 
 from app.core.hook_contract_runtime_check import (
+    BLOCK_RULE_TITLES,
     CheckResult,
     HookPayloadError,
     Violation,
     audit_all_schemas,
     check_hook_event,
     check_hook_payload,
+    check_semantics,
     minimal_payload,
     schema_title,
     violations_summary,
@@ -119,4 +121,33 @@ def test_result_is_frozen_and_reports_ok() -> None:
         r.title = "x"  # type: ignore[misc]
     v = Violation("unknown-field", "k")
     assert v.kind == "unknown-field"
+
+
+def test_block_decision_without_reason_is_rejected() -> None:
+    assert set(BLOCK_RULE_TITLES) == {"stop.command.output", "subagent-stop.command.output"}
+    result = check_hook_payload("stop.command.output", {"decision": "block"})
+    assert not result.ok
+    assert result.violations == (Violation("missing-dependent", "reason"),)
+
+
+def test_block_decision_with_reason_passes() -> None:
+    result = check_hook_payload("stop.command.output",
+                                {"decision": "block", "reason": "why"})
+    assert result.ok
+
+
+def test_a_non_block_decision_needs_no_reason() -> None:
+    for decision in ("approve", "deny", None):
+        payload = {} if decision is None else {"decision": decision}
+        assert check_hook_payload("stop.command.output", payload).ok
+
+
+def test_the_rule_does_not_leak_to_other_schemas() -> None:
+    # pre-tool-use output also declares decision, but the prose rule names only the two stop outputs
+    assert check_semantics("pre-tool-use.command.output", {"decision": "block"}) == ()
+
+
+def test_semantic_summary_includes_the_new_kind() -> None:
+    audit = audit_all_schemas()
+    assert violations_summary(audit)["missing-dependent"] == 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
