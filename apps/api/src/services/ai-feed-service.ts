@@ -2076,6 +2076,9 @@ export async function proxyImage(url: string): Promise<{
  *
  * 只快照有 hot 或 rank 的条目（避免无热度数据条目污染趋势计算）。
  */
+/** 快照保留天数:7/14 天趋势用不到更早的数据;表此前只增不删(2026-11-18 立) */
+const SNAPSHOT_RETENTION_DAYS = 120
+
 export async function generateSnapshot(): Promise<{ insertedRows: number }> {
   await db.execute(sql`
     INSERT INTO ai_feed_snapshot (source_code, platform_item_id, item_id, title, rank, hot_value, snapshot_date, captured_at, created_at, updated_at)
@@ -2111,8 +2114,35 @@ export async function generateSnapshot(): Promise<{ insertedRows: number }> {
     ? countRes
     : ((countRes as { rows?: unknown[] }).rows ?? [])
   const insertedRows = (countRows[0] as { cnt?: number } | undefined)?.cnt ?? 0
+
+  // 保留期滚动清理(2026-11-18 立):这张表此前只增不删 —— 91 天已 233 万行、每天再 +5.3 万,
+  // 是"跑久必退化"的另一半根因(另一半 = computeTrendSignals 曾把近 30 天快照全读进 Node,已改库内聚合)。
+  // 清理排在快照生成之后:清理失败不牵连本次快照,且删除量恒为 0 时才不动库。
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - SNAPSHOT_RETENTION_DAYS)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  let prunedRows = 0
+  try {
+    const pruneCount = await db.execute(sql`
+      SELECT COUNT(*)::int AS cnt FROM ai_feed_snapshot WHERE snapshot_date < ${cutoffStr}
+    `)
+    const pruneRows = (Array.isArray(pruneCount)
+      ? pruneCount
+      : ((pruneCount as { rows?: unknown[] }).rows ?? [])) as Array<{ cnt?: number }>
+    prunedRows = pruneRows[0]?.cnt ?? 0
+    if (prunedRows > 0) {
+      await db.execute(sql`DELETE FROM ai_feed_snapshot WHERE snapshot_date < ${cutoffStr}`)
+    }
+  } catch (err) {
+    logger.warn('ai-feed snapshot prune failed', {
+      error: String((err as Error)?.message ?? err).slice(0, 120),
+    })
+  }
+
   logger.info('ai-feed snapshot generated', {
     insertedRows,
+    prunedRows,
+    retentionDays: SNAPSHOT_RETENTION_DAYS,
     snapshotDate: new Date().toISOString().slice(0, 10),
   })
   return { insertedRows }
