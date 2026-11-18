@@ -88,8 +88,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 653 | `dbTables` |
 | schema 文件 | 253 | `dbSchemaFiles` |
-| API 路由 | 4852 | `apiRoutes` |
-| 路由文件 | 712 | `apiRouteFiles` |
+| API 路由 | 4854 | `apiRoutes` |
+| 路由文件 | 713 | `apiRouteFiles` |
 | AI 服务路由 | 677 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -101,7 +101,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5817 | `testFiles` |
+| 测试文件 | 5818 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 368 | `guardianGates` |
