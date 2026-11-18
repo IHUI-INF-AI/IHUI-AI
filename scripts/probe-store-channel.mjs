@@ -66,6 +66,10 @@ export const CHANNELS = Object.freeze({
     tokenBody: (id, secret) => new URLSearchParams({ grant_type: 'client_credentials', client_id: id, client_secret: secret }).toString(),
     tokenHeaders: { 'content-type': 'application/x-www-form-urlencoded' },
     probe: () => ({ url: `${ANDROID_PACKAGE_LOOKUP}?pkgName=${ANDROID_PACKAGE}`, headers: {} }),
+    // 荣耀的成功码是 0(不是 null):按默认臂会被读成 code-0 ⇒ 误判 missing(2026-11-17 实测)
+    interpret: (code) => (String(code) === '0'
+      ? { verdict: 'endpoint-reachable', status: STATUS.FOUND }
+      : { verdict: `code-${code}`, status: STATUS.MISSING }),
     credentialKinds: '缺荣耀开发者管理中心的 Client ID / API 密钥',
     remediation: '荣耀管理中心「开放能力 → 凭证」申请 API 密钥 ⇒ 存进密钥目录;注意官方限流(查询类低于 3min/次)',
     doc: 'developer.honor.com/cn/doc/guides/101359',
@@ -178,11 +182,26 @@ export async function probeVendor(vendorId, { fetchImpl = fetch, timeoutMs = 200
   let id = null
   let secret = null
   if (cred.status === STATUS.FOUND) {
-    const pairs = readFileSync(cred.value[0].path, 'utf8')
-      .split(/\r?\n/)
-      .map((l) => l.split(/[:：]/))
-      .filter((m) => m.length >= 2)
-      .map((m) => ({ k: m[0].trim(), v: m.slice(1).join(':').trim() }))
+    // 密钥库里既有 `键: 值` 文本,也有多行 JSON。JSON 形态若按行切 `:` 取值,
+    // 拿到的是带引号与行尾逗号的字面量 ⇒ token 端点回 401 Invalid client(2026-11-17 荣耀实测)。
+    const raw = readFileSync(cred.value[0].path, 'utf8')
+    let pairs = []
+    try {
+      const obj = JSON.parse(raw)
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('not-object')
+      pairs = Object.entries(obj)
+        .filter(([, v]) => typeof v === 'string' || typeof v === 'number')
+        .map(([k, v]) => ({ k, v: String(v) }))
+    } catch {
+      pairs = raw
+        .split(/\r?\n/)
+        .map((l) => l.split(/[:：]/))
+        .filter((m) => m.length >= 2)
+        .map((m) => ({
+          k: m[0].replace(/["',]/g, '').trim(),
+          v: m.slice(1).join(':').replace(/[\s"',]+$/g, '').replace(/^["',\s]+/g, ''),
+        }))
+    }
     id = (pairs.find((p) => /应用 ?ID|appid|client.?id|access.?key|user.?id/i.test(p.k)) ?? {}).v ?? null
     secret = (pairs.find((p) => /密钥|secret|private/i.test(p.k)) ?? {}).v ?? null
     out.credentialFp = secret ? fp(secret) : null

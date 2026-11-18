@@ -222,8 +222,7 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
     if (!forceAttempt && (sharedOutcome.ready || inFlightBootstrap)) return
     let cancelled = false
     const myGeneration = bootstrapGeneration
-    const setReady = (v: boolean) =>
-      publishOutcome({ ...sharedOutcome, ready: v }, myGeneration)
+    const setReady = (v: boolean) => publishOutcome({ ...sharedOutcome, ready: v }, myGeneration)
     const setError = (v: string | null) =>
       publishOutcome({ ...sharedOutcome, error: v }, myGeneration)
     async function bootstrap() {

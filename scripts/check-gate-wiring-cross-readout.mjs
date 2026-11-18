@@ -45,6 +45,7 @@ function gitGrepConsumerPaths() {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 32 * 1024 * 1024,
+    windowsHide: true,
   })
   return out
     .split(/\r?\n/)
@@ -84,6 +85,7 @@ function runInstrument() {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 16 * 1024 * 1024,
+    windowsHide: true,
   })
   const pick = (tag) => {
     const line = out.split(/\r?\n/).find((l) => l.startsWith(tag + ' '))
@@ -95,7 +97,7 @@ function runInstrument() {
 function pythonExe() {
   const local = path.join(AI_SERVICE, '.venv', 'Scripts', 'python.exe')
   try {
-    execFileSync(local, ['--version'], { stdio: ['ignore', 'ignore', 'ignore'] })
+    execFileSync(local, ['--version'], { stdio: ['ignore', 'ignore', 'ignore'], windowsHide: true })
     return local
   } catch {
     return 'python'

@@ -283,3 +283,42 @@ def test_extract_generation_ids_from_sse_ack() -> None:
     )
     assert _extract_generation_ids(sse) == ("62098947715516930", "38454206016500226")
     assert _extract_generation_ids("") == (None, None)
+
+
+# ===== 2026-11-17 回归:读态 detail 一律客户端指纹(web 指纹恒 code=2) =====
+
+
+def test_read_state_detail_calls_use_client_fingerprint() -> None:
+    """三处读态(doubao_checkin_account/probe_status/query_credits)的 detail 预检
+    必须带 use_client_fingerprint=True,否则 web 指纹 detail 恒 code=2
+    campaign not found,签到/探针/余额全误判。零网络 AST 静态断言。"""
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "app/services/checkin_doubao.py"
+    tree = ast.parse(src.read_text(encoding="utf-8"))
+    targets = {"doubao_checkin_account", "doubao_probe_status", "doubao_query_credits"}
+    found: dict[str, bool] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in targets:
+            has_client_fp = False
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name) and sub.func.id == "_db_request":
+                    # 第一个位置参数是 PATH_DETAIL,或关键字里 use_client_fingerprint=True
+                    is_detail = any(
+                        isinstance(a, ast.Name) and a.id == "PATH_DETAIL" for a in sub.args
+                    ) or any(
+                        k.arg == "path" and isinstance(k.value, ast.Name) and k.value.id == "PATH_DETAIL"
+                        for k in sub.keywords
+                    )
+                    if is_detail:
+                        has_client_fp = any(
+                            k.arg == "use_client_fingerprint"
+                            and isinstance(k.value, ast.Constant)
+                            and k.value.value is True
+                            for k in sub.keywords
+                        )
+            found[node.name] = has_client_fp
+    assert set(found) == targets, f"未找到全部目标函数: {sorted(found)}"
+    for name, ok in found.items():
+        assert ok, f"{name} 的 detail 预检未用客户端指纹(web 指纹会 code=2 campaign not found)"

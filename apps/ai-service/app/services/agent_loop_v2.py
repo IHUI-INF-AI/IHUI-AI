@@ -94,6 +94,13 @@ from ..core.budget_reason import (
     scope_for_budget_reason,
 )
 
+# 429 重试 gap 收口(2026-11-16 立):_classify_error 的文本启发式把 429 归 http_4xx
+# → 误判 terminal。此处接线 classify_error_structured_first,让 ProviderError.status_code
+# 结构化优先认领(429→rate_limit / ≥500→http_5xx / 其余 4xx→http_4xx),文本兜底保留。
+from ..core.error_classify_structured import (
+    classify_error_structured_first as _classify_error_structured_first,
+)
+
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
 # 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
 from ..core.permission_axis_gate import (
@@ -178,8 +185,8 @@ from .approval_generation_cas import (
 from .ask_user_question import (
     STATUS_CONTINUED,
     cancel_session_questions,
-    create_question,
     continued_answer_message,
+    create_question,
     drain_continued_answers,
     mark_continued,
     normalize_timeout_s,
@@ -5078,7 +5085,7 @@ class AgentLoopV2:
     def _classify_error(e: BaseException) -> str:
         """错误分类(错误恢复可观测性,2026-08-12 立)。
 
-        返回: timeout / connection / http_5xx / http_4xx / cancelled / unknown,
+        返回: timeout / connection / http_5xx / http_4xx / rate_limit / cancelled / unknown,
         以及宿主盖章的错误族 code(G-815972,如 "provider_pipe_broken")。
         写入 checkpoint metadata + hook error 事件,供元学习失败聚类与排障使用。
 
@@ -5086,12 +5093,26 @@ class AgentLoopV2:
         HostTurnFault 即直接返回其 code(错误族),**不得**落入 cancelled 分支
         (宿主故障 ≠ 用户取消:混淆会让取消率虚高、元学习把宿主侧故障聚类成
         "用户不要了",污染失败归因)。标记查找自带环检测与深度上限,开销可忽略。
+
+        2026-11-16 接线:结构化优先认领 ``ProviderError.status_code``(见
+        ``app/core/error_classify_structured.py``),把 429→rate_limit 接进 retry
+        决策链,修复此前 429 被文本启发式误判 http_4xx→terminal 的脱节。
         """
         _host_fault = find_declared_host_fault(e)
         if _host_fault is not None:
             return _host_fault.code
         if isinstance(e, asyncio.CancelledError):
             return "cancelled"
+        # 结构化优先认领(2026-11-16 接线):ProviderError.status_code 精确判定
+        # 429→rate_limit(可重试) / ≥500→http_5xx / 其余 4xx→http_4xx。
+        # 比下面的文本启发式更可靠(文本 "4" in text[:12] 切片会漏 503-in-idx16),
+        # 且把 rate_limit 族接进 retry 决策链(agent_failure_vocabulary.py 已登记)。
+        # timeout / connection / cancelled 已在上方/下方覆盖,结构化路径不干预。
+        _structured = _classify_error_structured_first(e)
+        if _structured not in ("unknown",):
+            return _structured
+        # 文本启发式兜底(仅当结构化未命中,即无 status_code 属性的异常才走到这里):
+        # timeout / connection / http_5xx / http_4xx / unknown。
         name = type(e).__name__
         if isinstance(e, (asyncio.TimeoutError, TimeoutError)) or "Timeout" in name:
             return "timeout"

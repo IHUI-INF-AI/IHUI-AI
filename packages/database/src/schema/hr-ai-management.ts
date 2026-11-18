@@ -187,11 +187,10 @@ export const hrLeaveRequest = pgTable(
 )
 
 /**
- * 员工-平台账号关联申请表 (hr_employee_link_request,2026-11-16 立)。
- *
- * 立因:用户之间数据默认隔离,HR 只能发起「关联邀请」,被邀请账号本人在自助页同意后,
- * 才由服务层写 hr_employee.user_id;手机号/邮箱仅用于找人,不做自动认领。
- * 与 packages/database/drizzle/20261116120000_hr_employee_link_request.sql 逐字对齐。
+ * 员工-平台账号关联申请 (hr_employee_link_request,2026-11-16 立)。
+ * 用户之间数据默认隔离:HR 只发起「关联邀请」,被邀请账号本人在自助页同意后,
+ * 才由服务层写入 hr_employee.user_id。手机号/邮箱仅用于找人,不做自动认领。
+ * status: pending/approved/rejected/cancelled;同一员工同一时刻只允许一条 pending。
  */
 export const hrEmployeeLinkRequest = pgTable(
   'hr_employee_link_request',
@@ -210,12 +209,11 @@ export const hrEmployeeLinkRequest = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    userIdx: index('ix_hr_link_req_user').on(t.userId, t.status),
-    empIdx: index('ix_hr_link_req_emp').on(t.employeeId, t.status),
-    // 同一员工同一时刻只允许一条待确认邀请
-    pendingEmpUniq: uniqueIndex('uq_hr_link_req_pending_emp')
+    userStatusIdx: index('ix_hr_link_req_user').on(t.userId, t.status),
+    employeeStatusIdx: index('ix_hr_link_req_emp').on(t.employeeId, t.status),
+    pendingEmployeeUqIdx: uniqueIndex('uq_hr_link_req_pending_emp')
       .on(t.employeeId)
-      .where(sql`${t.status} = 'pending'`),
+      .where(sql`status = 'pending'`),
   }),
 )
 
@@ -229,3 +227,5 @@ export type HrAttendanceRecord = typeof hrAttendanceRecord.$inferSelect
 export type NewHrAttendanceRecord = typeof hrAttendanceRecord.$inferInsert
 export type HrLeaveRequest = typeof hrLeaveRequest.$inferSelect
 export type NewHrLeaveRequest = typeof hrLeaveRequest.$inferInsert
+export type HrEmployeeLinkRequest = typeof hrEmployeeLinkRequest.$inferSelect
+export type NewHrEmployeeLinkRequest = typeof hrEmployeeLinkRequest.$inferInsert
