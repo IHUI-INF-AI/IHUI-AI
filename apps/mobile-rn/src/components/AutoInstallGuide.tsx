@@ -20,19 +20,22 @@
 
 import { t as tStatic } from '../i18n'
 import * as React from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ShieldCheck } from 'lucide-react-native'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Tappable } from '@ihui/ui-native'
 import {
   ackAutoInstallGuide,
+  grantA11yConsent,
+  hasA11yConsent,
   openAutoInstallSettings,
   shouldShowAutoInstallGuide,
 } from '../lib/auto-install'
 
 export function AutoInstallGuide(): React.JSX.Element | null {
   const [visible, setVisible] = React.useState(false)
+  const [consentOpen, setConsentOpen] = React.useState(false)
 
   React.useEffect(() => {
     let alive = true
@@ -53,7 +56,26 @@ export function AutoInstallGuide(): React.JSX.Element | null {
   // "Rendered more hooks than during the previous render" 并整屏崩溃(
   // expo-updates 会把它记成启动崩溃并回滚本次 OTA)。
   const handleOpen = React.useCallback(() => {
+    // 明示同意闸门(2026-11-18):用途说明没被用户确认过,绝不直接跳系统设置。
+    void hasA11yConsent().then((ok) => {
+      if (ok) {
+        setVisible(false)
+        void ackAutoInstallGuide()
+        void openAutoInstallSettings()
+        return
+      }
+      setConsentOpen(true)
+    })
+  }, [])
+
+  const handleConsentCancel = React.useCallback(() => {
+    setConsentOpen(false)
+  }, [])
+
+  const handleConsentAgree = React.useCallback(() => {
+    setConsentOpen(false)
     setVisible(false)
+    void grantA11yConsent()
     void ackAutoInstallGuide()
     void openAutoInstallSettings()
   }, [])
@@ -95,6 +117,61 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           <Text style={styles.actionText}>{tStatic('uiText.goEnable')}</Text>
         </Tappable>
       </View>
+      <Modal
+        visible={consentOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={handleConsentCancel}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleConsentCancel} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>无障碍服务用途说明</Text>
+            <View style={styles.modalItem}>
+              <Text style={styles.modalBody}>
+                用途：仅在本应用自身版本更新时，自动点击系统安装器上的「安装/继续/完成」按钮，
+                省去你手动确认这一步。
+              </Text>
+            </View>
+            <View style={styles.modalItem}>
+              <Text style={styles.modalBody}>
+                范围：只识别系统安装器界面，且界面出现本应用名称时才动作；不读取其他应用内容，
+                不做坐标点击，不模拟手势。
+              </Text>
+            </View>
+            <View style={styles.modalItem}>
+              <Text style={styles.modalBody}>
+                数据：不采集、不存储、不上传任何屏幕内容、输入内容或账号信息。
+              </Text>
+            </View>
+            <View style={styles.modalItem}>
+              <Text style={styles.modalBody}>
+                控制：你可随时在「设置 → 无障碍」关闭该服务，关闭后自动安装立即失效，
+                不影响下载与其他功能。
+              </Text>
+            </View>
+            <View style={styles.modalActions}>
+              <Tappable
+                onPress={handleConsentCancel}
+                style={styles.ghostBtn}
+                accessibilityRole="button"
+                accessibilityLabel="暂不开启"
+              >
+                <Text style={styles.ghostText}>暂不开启</Text>
+              </Tappable>
+              <Tappable
+                onPress={handleConsentAgree}
+                style={styles.actionBtn}
+                pressedStyle={styles.actionBtnPressed}
+                accessibilityRole="button"
+                accessibilityLabel="同意并去开启"
+              >
+                <Text style={styles.actionText}>同意并去开启</Text>
+              </Tappable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -158,6 +235,35 @@ const styles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
     fontSize: rnType.bodySm.size,
     fontWeight: '600',
+  },
+  modalRoot: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: rnSpacing.lg,
+  },
+  modalCard: {
+    gap: rnSpacing.xs,
+    padding: rnSpacing.lg,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.border.medium,
+    ...ELEVATION_STEPS.lg,
+  },
+  modalTitle: {
+    color: tokens.text.primary,
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+  },
+  modalItem: { minWidth: 0 },
+  modalBody: { color: tokens.text.secondary, fontSize: rnType.bodySm.size, lineHeight: 20 },
+  modalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: rnSpacing.sm,
+    marginTop: rnSpacing.sm,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

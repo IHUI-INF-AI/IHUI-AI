@@ -28,6 +28,7 @@ import { Queue, Worker } from 'bullmq'
 import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { sweepAccountPool } from '../services/relay-account-pool-scheduler.js'
+import { syncRelayPoolModelDiscovery } from '../services/relay-pool-model-discovery-sync.js'
 import { describeQueueIsolation, relayAccountPoolQueueName } from '../services/relay-queue-name.js'
 import {
   decideUnjudgedLog,
@@ -61,6 +62,15 @@ const LOOMY_SYNC_CRON_PATTERN = '*/10 * * * *'
 const ZCODE_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 每 10 分钟把本机小浣熊登录态回灌进号池(小浣熊适配器无 refreshToken,池侧只能跟随) */
 const RACCOON_SYNC_CRON_PATTERN = '*/10 * * * *'
+/**
+ * 每 6 小时自动同步一次号池模型目录(model-discovery-sync)。
+ *
+ * 立因:上游悄悄上新/下架模型,此前只有「用户开面板现拉(10 分钟缓存)+ 管理员手动扫」
+ * 两条被动路,都不覆盖无人值守时的目录漂移。本腿低频自动对账:新模型进发现表待审批,
+ * 上游已下架的待审批行自动退役。6 小时 = 足够及时又不给上游加压(模型目录变化本就慢)。
+ * env RELAY_MODEL_DISCOVERY_CRON 可覆盖(运维止血用,不设走默认)。
+ */
+const MODEL_DISCOVERY_CRON_PATTERN = process.env.RELAY_MODEL_DISCOVERY_CRON?.trim() || '0 */6 * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -430,6 +440,16 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           opts: { removeOnComplete: 100, removeOnFail: 500 },
         },
       )
+      // 模型目录自动同步(2026-11-18):上游上新进发现表待审批,下架的待审批行自动退役
+      await queue.upsertJobScheduler(
+        'model-discovery-cron',
+        { pattern: MODEL_DISCOVERY_CRON_PATTERN },
+        {
+          name: 'model-discovery-sync',
+          data: {},
+          opts: { removeOnComplete: 100, removeOnFail: 500 },
+        },
+      )
       // WorkBuddy 定时腿已撤除:显式移除可能的遗留注册(BullMQ 的 scheduler 存于 Redis,
       // 删代码不会自动清理),避免它继续每 10 分钟投递 worker 已不再处理的幽灵作业。
       try {
@@ -453,6 +473,7 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       server.log.info({ pattern: LOOMY_SYNC_CRON_PATTERN }, 'loomy-session-sync scheduled')
       server.log.info({ pattern: ZCODE_SYNC_CRON_PATTERN }, 'zcode-session-sync scheduled')
       server.log.info({ pattern: RACCOON_SYNC_CRON_PATTERN }, 'raccoon-session-sync scheduled')
+      server.log.info({ pattern: MODEL_DISCOVERY_CRON_PATTERN }, 'model-discovery-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
     }
@@ -461,6 +482,22 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   const worker = new Worker(
     queueName,
     async (job) => {
+      if (job.name === 'model-discovery-sync') {
+        // 模型目录自动同步(2026-11-18):永不抛 —— syncRelayPoolModelDiscovery 内部把
+        // 单平台异常折进 perProvider,只有整轮级别崩掉才冒到这层(交 BullMQ 记 failed 重试)。
+        const result = await syncRelayPoolModelDiscovery()
+        server.log.info(
+          {
+            providersScanned: result.providersScanned,
+            providersOk: result.providersOk,
+            providersSkipped: result.providersSkipped,
+            modelsDiscovered: result.modelsDiscovered,
+            modelsRetired: result.modelsRetired,
+          },
+          'model-discovery-sync done',
+        )
+        return result
+      }
       if (
         job.name === 'trae-session-sync' ||
         job.name === 'qoder-session-sync' ||

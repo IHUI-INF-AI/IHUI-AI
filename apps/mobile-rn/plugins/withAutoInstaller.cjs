@@ -222,7 +222,11 @@ module.exports = function withAutoInstaller(config) {
       const stringsFile = path.join(root, 'app/src/main/res/values/strings.xml')
       let xml = fs.existsSync(stringsFile) ? fs.readFileSync(stringsFile, 'utf8') : ''
       xml = ensureString(xml, LABEL_STRING, 'IHUI 自动安装')
-      xml = ensureString(xml, DESC_STRING, '在本应用更新时自动点击系统安装器的安装按钮')
+      xml = ensureString(
+        xml,
+        DESC_STRING,
+        '仅在本应用自身更新时，自动点击系统安装器的「安装/继续/完成」按钮；只识别安装器界面且出现本应用名称时才动作，不读取其他应用内容。',
+      )
       writeIfChanged(stringsFile, xml)
       return cfg
     },
