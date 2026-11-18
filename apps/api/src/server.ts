@@ -34,6 +34,7 @@ import { relayDeviceIdentityRoutes } from './routes/admin/relay-device-identity.
 import { relayClientConfigRoutes } from './routes/admin/relay-client-config.js'
 import { relayWelfareClaimRoutes } from './routes/admin/relay-welfare-claim.js'
 import { relayAccessKitRoutes } from './routes/admin/relay-access-kit.js'
+import { relayCosyCapabilityRoutes } from './routes/admin/relay-cosy-capability.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -502,6 +503,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 接入套件(2026-11-18 立,对标 qoder2api-hub 的 LAN 模式「随机 Key + 持久化 + 带 Key 直达链接」):
   // 一次调用完成建 Key + 接入四行 + 面板链接 + 可选客户端配置;直达链接默认不带 Key(比对照更安全)。
   server.register(relayAccessKitRoutes, { prefix: '/api' })
+
+  // Cosy 能力自述(2026-11-18 立):把「设备头族有哪些 / 请求签名可不可复现 / 走哪条通路」
+  // 变成可对账的数据。不实现也不伪造签名算法,只如实陈述边界。
+  server.register(relayCosyCapabilityRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
