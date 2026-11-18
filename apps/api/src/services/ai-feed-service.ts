@@ -2130,6 +2130,9 @@ export async function generateSnapshot(): Promise<{ insertedRows: number }> {
  *
  * 与旧架构 server/app/services/ai_feed_service.py 的 compute_trend_signals 对齐。
  */
+/** 趋势信号写入的分批大小:每批 300 条 upsert + 让出一次事件循环 */
+const TREND_BATCH_SIZE = 300
+
 export async function computeTrendSignals(): Promise<{ processedItems: number }> {
   const windows = [7, 14]
   let count = 0
@@ -2137,74 +2140,99 @@ export async function computeTrendSignals(): Promise<{ processedItems: number }>
   for (const windowDays of windows) {
     const since = new Date()
     since.setDate(since.getDate() - windowDays)
+    const sinceStr = since.toISOString().slice(0, 10)
 
-    const snapshots = await db
-      .select()
-      .from(aiFeedSnapshot)
-      .where(gte(aiFeedSnapshot.snapshotDate, since.toISOString().slice(0, 10)))
+    // 单条聚合 SQL:每个 item 只取窗口内的「首次 / 末次」两个点 + 计数。
+    // 旧实现把窗口内全部快照读进 Node(一天 5.3 万行,30 天累积百万级),再逐 item 串行
+    // upsert(≈15 万次 roundtrip)—— 这正是 api 跑满数小时后 /api/auth/me 卡到 20s 的根因:
+    // 长任务持续占用事件循环,堆被百万行快照撑到 2GB+ 后触发 GC 风暴。
+    const aggRes = await db.execute(sql`
+      SELECT
+        item_id,
+        count(*)::int AS snapshot_count,
+        (array_agg(hot_value ORDER BY snapshot_date ASC))[1] AS first_hot,
+        (array_agg(hot_value ORDER BY snapshot_date DESC))[1] AS last_hot,
+        (array_agg(rank ORDER BY snapshot_date ASC))[1] AS first_rank,
+        (array_agg(rank ORDER BY snapshot_date DESC))[1] AS last_rank,
+        (array_agg(source_code ORDER BY snapshot_date DESC))[1] AS source_code,
+        (array_agg(platform_item_id ORDER BY snapshot_date DESC))[1] AS platform_item_id
+      FROM ai_feed_snapshot
+      WHERE snapshot_date >= ${sinceStr} AND item_id IS NOT NULL
+      GROUP BY item_id
+      HAVING count(*) >= 2
+    `)
+    const aggRows = (Array.isArray(aggRes)
+      ? aggRes
+      : ((aggRes as { rows?: unknown[] }).rows ?? [])) as Array<{
+      item_id: string
+      snapshot_count: number
+      first_hot: string | number | null
+      last_hot: string | number | null
+      first_rank: number | null
+      last_rank: number | null
+      source_code: string
+      platform_item_id: string
+    }>
 
-    const byItem = new Map<string, typeof snapshots>()
-    for (const s of snapshots) {
-      if (!s.itemId) continue
-      const arr = byItem.get(s.itemId)
-      if (arr) arr.push(s)
-      else byItem.set(s.itemId, [s])
-    }
-
-    for (const [itemId, arr] of byItem) {
-      if (arr.length < 2) continue
-      const sorted = [...arr].sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
-      const first = sorted[0]!
-      const last = sorted[sorted.length - 1]!
-      const firstHot = Number(first.hotValue ?? 0)
-      const lastHot = Number(last.hotValue ?? 0)
+    const signalValues = aggRows.map((r) => {
+      const firstHot = Number(r.first_hot ?? 0)
+      const lastHot = Number(r.last_hot ?? 0)
       const growthPct = firstHot > 0 ? ((lastHot - firstHot) / firstHot) * 100 : null
-      const rankDelta = last.rank !== null && first.rank !== null ? first.rank - last.rank : null
-
+      const rankDelta =
+        r.last_rank !== null && r.first_rank !== null ? r.first_rank - r.last_rank : null
       let trendTag = 'stable'
       if (growthPct !== null) {
         if (growthPct >= 15) trendTag = 'rising'
         else if (growthPct <= -15) trendTag = 'cooling'
       }
+      return {
+        itemId: r.item_id,
+        sourceCode: r.source_code,
+        platformItemId: r.platform_item_id,
+        windowDays,
+        growthPct,
+        rankDelta,
+        hotThen: firstHot || null,
+        emaHot: lastHot || null,
+        trendTag,
+        snapshotCount: r.snapshot_count,
+      }
+    })
 
+    for (let offset = 0; offset < signalValues.length; offset += TREND_BATCH_SIZE) {
+      const chunk = signalValues.slice(offset, offset + TREND_BATCH_SIZE)
       await db
         .insert(aiFeedTrendSignal)
-        .values({
-          itemId,
-          sourceCode: last.sourceCode,
-          platformItemId: last.platformItemId,
-          windowDays,
-          growthPct,
-          rankDelta,
-          hotThen: firstHot || null,
-          emaHot: lastHot || null,
-          trendTag,
-          snapshotCount: arr.length,
-        })
+        .values(chunk)
         .onConflictDoUpdate({
           target: [aiFeedTrendSignal.itemId, aiFeedTrendSignal.windowDays],
           set: {
-            growthPct,
-            rankDelta,
-            hotThen: firstHot || null,
-            emaHot: lastHot || null,
-            trendTag,
-            snapshotCount: arr.length,
+            growthPct: sql`excluded.growth_pct`,
+            rankDelta: sql`excluded.rank_delta`,
+            hotThen: sql`excluded.hot_then`,
+            emaHot: sql`excluded.ema_hot`,
+            trendTag: sql`excluded.trend_tag`,
+            snapshotCount: sql`excluded.snapshot_count`,
             updatedAt: new Date(),
           },
         })
 
       if (windowDays === 7) {
-        await db
-          .update(aiFeedHotItem)
-          .set({
-            trendTag,
-            trendGrowthPct: growthPct,
-            updatedAt: new Date(),
-          })
-          .where(eq(aiFeedHotItem.id, itemId))
+        // 同批一条 UPDATE ... FROM VALUES:旧实现逐条 update(5 万次),是 CPU 与 roundtrip 的双料大户
+        const tuples = chunk.map(
+          (v) => sql`(${v.itemId}::uuid, ${v.trendTag}::varchar, ${v.growthPct}::real)`,
+        )
+        await db.execute(sql`
+          UPDATE ai_feed_hot_item AS h
+          SET trend_tag = v.tag, trend_growth_pct = v.gap, updated_at = NOW()
+          FROM (VALUES ${sql.join(tuples, sql`, `)}) AS v(id, tag, gap)
+          WHERE h.id = v.id
+        `)
       }
-      count++
+
+      count += chunk.length
+      // 让出事件循环:长批任务不许把接口拖到超时
+      await new Promise((resolve) => setImmediate(resolve))
     }
   }
 
