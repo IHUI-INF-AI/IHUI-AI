@@ -422,7 +422,6 @@ export const TerminalSection = React.memo(function TerminalSection({
               testId="terminal-failed-jump"
               onClick={jumpToFirstVisibleFailure}
               ariaLabel={t('terminal.failedJumpAria', { n: failedCount })}
-              title={t('terminal.failedJumpTitle', { n: failedCount })}
             >
               {t('terminal.failed', { n: failedCount })}
             </StreamTag>
