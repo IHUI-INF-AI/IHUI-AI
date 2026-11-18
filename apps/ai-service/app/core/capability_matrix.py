@@ -1060,6 +1060,15 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOKEN_TOTAL_LIMIT_ENV",
         "reason_if_off": "0=该维不拦:第二层(聚合层)MCP token 总量上限未配置;由 consume_mcp_tokens 按 scope 跨桶累计(run / principal / server 兜底桶的合计都进同一聚合面),超限具名拒绝,不夹逼到上限也不静默少发一帧",
     },
+    {
+        "key": "doubao_client_write_leg",
+        "env": "DOUBAO_CLIENT_WRITE_LEG",
+        "default": "0",
+        "category": "灰度类",
+        "owner_module": "app.services.checkin_doubao",
+        "doc_ref": "app/services/checkin_doubao.py:DOUBAO_CLIENT_WRITE_LEG",
+        "reason_if_off": "客户端内写腿默认关:写接口必须由客户端自身请求层发起(msToken+a_bogus 客户端 JS 现算),裸 HTTP 必被 710010702 拦;实测反复拉起实例会让同一账号会话在「客户端内部」与「注入副本」之间互踢(710012001)反而加深风控标记。账号权限恢复(客服解封/新号)后再开,由定时任务自动签上",
+    },
 ]
 
 # 合法类别集合(测试与对账门共同引用的语义域)
