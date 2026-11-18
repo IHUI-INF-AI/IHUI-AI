@@ -98,23 +98,30 @@ DOMAINS: Final = (
         "ooxml_notes",
         "ooxml/ specification notes read",
         4,
-        0,
-        "comments / hyperlinks_and_fields / rels_and_content_types / tracked_changes",
+        4,
+        "R115: comments (rendering is not proof), hyperlinks and fields, rels and content "
+        "types (the plumbing that makes patched docs half-work), tracked changes",
     ),
     Domain(
         "task_guides",
         "tasks/ guides read",
-        12,
-        0,
-        "a11y, captions, tracked changes, comments, diff, create_edit, equations, fields, "
-        "fixtures, footnotes, forms, headings",
+        26,
+        26,
+        "R115: all twenty-six read; the directory holds 26, not the 12 the first ledger assumed",
     ),
     Domain(
         "troubleshooting_notes",
         "troubleshooting/ notes read",
         2,
-        0,
-        "libreoffice_headless / run_splitting",
+        2,
+        "R115: libreoffice headless (scary stderr on success), run splitting",
+    ),
+    Domain(
+        "reference_notes",
+        "references/ notes read",
+        1,
+        1,
+        "R115: template elicitation (list_artifact_templates / choose_artifact_template)",
     ),
     Domain(
         "codex_cli_surface",
