@@ -81,11 +81,7 @@ class AskUserQuestionItem:
     continued_call_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        """SSE 下行帧形状(与 question_parser.Question.to_dict() 同形 + 两个附加键)。
-
-        header 只在非空时出现:旧客户端按未知键忽略,新客户端用于卡片小标题;
-        空标题不吐键,避免把"未设置"写成空串漂到前端。
-        """
+        """SSE 下行帧形状(与 question_parser.Question.to_dict() 同形 + 两个附加键)。"""
         options: list[dict[str, str]] = []
         for opt in self.options:
             item = {"id": opt["id"], "label": opt["label"]}
@@ -93,39 +89,24 @@ class AskUserQuestionItem:
             if opt.get("description"):
                 item["description"] = opt["description"]
             options.append(item)
-        payload: dict[str, Any] = {"questionId": self.question_id, "prompt": self.prompt}
-        if self.header:
-            payload["header"] = self.header
-        payload.update({
+        return {
+            "questionId": self.question_id,
+            "prompt": self.prompt,
             "options": options,
             "allowCustom": self.allow_custom,
             "allowMultiple": self.allow_multiple,
             "sessionId": self.session_id,
             "expiresAt": _iso(self.expires_at),
-        })
-        return payload
+        }
 
-    def resolved_payload(
-        self, status: str | None = None, *, continued: bool = False
-    ) -> dict[str, Any]:
-        """question-resolved 帧载荷(questionId/status 为必需键)。
-
-        `continued=True` 是定时继续的附加键:前端词表只有四态,该场景按 timeout
-        结算,靠这个键区分"用户跳过"与"只是挂起、迟到答复仍会送达"。
-        """
-        payload: dict[str, Any] = {
+    def resolved_payload(self, status: str | None = None) -> dict[str, Any]:
+        """question-resolved 帧载荷(questionId/status 为必需键)。"""
+        return {
             "questionId": self.question_id,
             "status": status or self.status,
             "selectedOptionIds": list(self.selected_ids),
             "customText": self.custom_text,
         }
-        if continued:
-            payload["continued"] = True
-        return payload
-
-    def timeout_seconds(self) -> int:
-        """本问的答复时限(秒),用于超时回灌文案(不依赖调用方各自算一遍)。"""
-        return int((self.expires_at - self.created_at).total_seconds())
 
 
 _registry: dict[str, AskUserQuestionItem] = {}
@@ -407,36 +388,6 @@ def pending_questions_for_session(session_id: str) -> list[AskUserQuestionItem]:
     return sorted(items, key=lambda x: x.created_at)
 
 
-def pending_question_frames(session_id: str, user_id: str | None) -> list[dict[str, Any]]:
-    """重连重放载荷:该会话 ∧ 该属主**仍待答**的问题帧(与 events.question 同形)。
-
-    病灶与审批重放同型(D131/D1047):续传按游标只补锚点之后的事件,而提问帧几乎总
-    在锚点之前 ⇒ 断线窗口里"已下发未应答"的内联卡丢失,用户重连后既看不到卡也答不了,
-    服务端只能等超时。修法同样是显式查注册表,不靠事件缓冲回放。
-
-    三道闸,与 `resolve_question` 的归属判定**同判据**(单一真相源,不另写一份):
-    - 会话精确相等(`pending_questions_for_session` 已做);
-    - 属主精确相等(None 只认 None,fail-closed);
-    - 仍为 pending(已决条目不重放:二次弹窗/二次结算都是副作用)。
-    `replay=True` 是给前端的幂等标记(按 questionId 识别,重连 N 次不新增卡片)。
-    """
-    if not session_id:
-        return []
-    frames: list[dict[str, Any]] = []
-    for item in pending_questions_for_session(session_id):
-        if not _owned_by(item, session_id, user_id):
-            continue
-        frames.append(
-            {
-                "type": "question",
-                "question": item.to_dict(),
-                "session_id": item.session_id,
-                "replay": True,
-            }
-        )
-    return frames
-
-
 def mark_continued(
     item: AskUserQuestionItem,
     *,
@@ -508,14 +459,40 @@ def pending_question_notice(item: AskUserQuestionItem, call_id: str) -> str:
     )
 
 
+async def wait_for_answer(item: AskUserQuestionItem, timeout_s: float | None = None) -> str:
+    """阻塞等待答复;返回 answered / timeout / withdrawn / interrupted。
+
+    超时把条目落为 timeout 并 set event(幂等:已被别处结算时保持原状态)。
+    """
+    budget = timeout_s if timeout_s is not None else question_timeout_s()
+    remaining = (item.expires_at - _now()).total_seconds()
+    effective = min(budget, remaining) if remaining > 0 else 0.0
+    try:
+        await asyncio.wait_for(item.event.wait(), timeout=effective)
+    except TimeoutError:
+        with _registry_lock:
+            if item.status == STATUS_PENDING:
+                item.status = STATUS_TIMEOUT
+                item.reason = "timeout"
+                item.event.set()
+        return item.status
+    return item.status
+
+
+# ── 工具结果回灌给模型的唯一定义(两个执行面共用,避免各写一份漂移)──────────────
+# 2026-11-18 修复:下面三块曾被一次重构整体丢掉,而 agent_loop_v2.py 的 import(186/187)
+# 与使用点(7801/7802)仍在用它们 ⇒ **模块 import 期就 AttributeError**,mypy 也报
+# attr-defined。这里按 b8b7c8cf25 的原始实现原样恢复(单一真相源,不另造第二份);
+# 唯一改动是超时时长的取法:原写法调 `item.timeout_seconds()`,而该方法已随那次重构消失,
+# 改为按条目自身的 created_at→expires_at 现算(语义等价,不新增第二套超时口径)。
 def tool_result_payload(
     item: AskUserQuestionItem, status: str, *, call_id: str = ""
 ) -> dict[str, Any]:
-    """工具结果回灌给模型的唯一定义(两个执行面共用,避免各写一份漂移)。
+    """工具结果回灌给模型的唯一定义(两个执行面共用)。
 
-    形状对齐既有主聊天流(2026-11-08 定稿):answered 给结构化答案;撤回/超时/
-    中断各带 errorCode 与"下一步该怎么做"的 message;continued 是 pending 回执
-    (ok=True 但 **不是** 答案,message 明确"不要把挂起当许可")。
+    形状对齐既有主聊天流:answered 给结构化答案;撤回/超时/中断各带 errorCode 与
+    "下一步该怎么做"的 message;continued 是 pending 回执(ok=True 但 **不是** 答案,
+    message 明确"不要把挂起当许可")。
     """
     if status == STATUS_CONTINUED:
         return {
@@ -550,11 +527,12 @@ def tool_result_payload(
             "errorCode": "question_interrupted",
             "error": "会话中断,问题未得到用户答复",
         }
+    timeout_seconds = (item.expires_at - item.created_at).total_seconds()
     return {
         "ok": False,
         "status": STATUS_TIMEOUT,
         "errorCode": "question_timeout",
-        "error": f"用户未在 {item.timeout_seconds()}s 内答复",
+        "error": f"用户未在 {timeout_seconds}s 内答复",
         "message": "用户没有答复;不要自行假设答案,按未答继续",
     }
 
@@ -572,24 +550,4 @@ _TOOL_OUTCOMES: dict[str, tuple[bool, str | None, str | None, str]] = {
 def tool_result_outcome(status: str) -> tuple[bool, str | None, str | None, str]:
     """结局 → (ok, error, errorType, explanation);未知结局按 timeout 收口。"""
     return _TOOL_OUTCOMES.get(status, _TOOL_OUTCOMES[STATUS_TIMEOUT])
-
-
-async def wait_for_answer(item: AskUserQuestionItem, timeout_s: float | None = None) -> str:
-    """阻塞等待答复;返回 answered / timeout / withdrawn / interrupted。
-
-    超时把条目落为 timeout 并 set event(幂等:已被别处结算时保持原状态)。
-    """
-    budget = timeout_s if timeout_s is not None else question_timeout_s()
-    remaining = (item.expires_at - _now()).total_seconds()
-    effective = min(budget, remaining) if remaining > 0 else 0.0
-    try:
-        await asyncio.wait_for(item.event.wait(), timeout=effective)
-    except TimeoutError:
-        with _registry_lock:
-            if item.status == STATUS_PENDING:
-                item.status = STATUS_TIMEOUT
-                item.reason = "timeout"
-                item.event.set()
-        return item.status
-    return item.status
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
