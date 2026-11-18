@@ -492,7 +492,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
               )}
               {result.claimed.length > 0 && (
                 <p className="mt-0.5 break-all text-[11px] text-green-600 dark:text-green-500">
-                  ✓{result.claimed.join(', ')}
+                  {result.claimed.join(', ')}
                 </p>
               )}
               {result.reason && (

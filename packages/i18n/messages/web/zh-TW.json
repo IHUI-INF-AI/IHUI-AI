@@ -9664,7 +9664,7 @@
         "fetchFailed": "取得變更請求失敗",
         "retry": "重試",
         "noRemote": "儲存庫未設定遠端",
-        "unsupportedProvider": "暫不支援該程式碼託管平台",
+        "unsupportedProvider": "暫不支援該程式碼託管平臺",
         "credentialsMissing": "尚未連接程式碼託管帳號",
         "connectGithub": "連接 GitHub",
         "empty": "暫無變更請求",

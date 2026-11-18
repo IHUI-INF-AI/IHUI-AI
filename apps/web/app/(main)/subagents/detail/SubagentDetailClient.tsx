@@ -325,7 +325,7 @@ export default function SubagentDetailClient() {
                 />
                 {quotasQ.data.exceeded && (
                   <p className="text-label font-medium text-rose-600 dark:text-rose-400">
-                    ⚠ 配额已超限
+                    配额已超限
                   </p>
                 )}
               </div>
