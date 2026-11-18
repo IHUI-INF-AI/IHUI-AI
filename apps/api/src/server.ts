@@ -33,6 +33,7 @@ import { relayCheckinStreakRoutes } from './routes/admin/relay-checkin-streak.js
 import { relayDeviceIdentityRoutes } from './routes/admin/relay-device-identity.js'
 import { relayClientConfigRoutes } from './routes/admin/relay-client-config.js'
 import { relayWelfareClaimRoutes } from './routes/admin/relay-welfare-claim.js'
+import { relayAccessKitRoutes } from './routes/admin/relay-access-kit.js'
 import {
   LOG_REDACT_CENSOR,
   LOG_REDACT_PATHS,
@@ -497,6 +498,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 端点未实证 ⇒ 整批 refuse(一枚都不拨);开闸只能由机主设 RELAY_WELFARE_ENDPOINT_VERIFIED=1,
   // 请求方不可传该布尔(否则闸可被任何人拨开)。
   server.register(relayWelfareClaimRoutes, { prefix: '/api' })
+
+  // 接入套件(2026-11-18 立,对标 qoder2api-hub 的 LAN 模式「随机 Key + 持久化 + 带 Key 直达链接」):
+  // 一次调用完成建 Key + 接入四行 + 面板链接 + 可选客户端配置;直达链接默认不带 Key(比对照更安全)。
+  server.register(relayAccessKitRoutes, { prefix: '/api' })
 
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
