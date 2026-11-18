@@ -106,8 +106,17 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        0,
-        "164.3 KB untouched, including artifact_tool_utils.mjs at 55 KB",
+        6,
+        "R120: four mark_artifact_operation_started copies executed across ten branches "
+        "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
+        "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
+        "failures rc=1) and its sharp block/unblock hardening recorded; runtime_helpers read "
+        "in full (RUNTIME_NODE_MODULES override, absolute-path and directory validation, "
+        "synthetic __runtime__.cjs require anchor). Still unread: artifact_tool_utils 55 KB, "
+        "create-template-skill 31 KB, validate_template_plan 19 KB, "
+        "check_template_fidelity 18 KB, prepare_template_starter_deck 11 KB, "
+        "export-google-workspace-file 10 KB, inspect_template_deck 9 KB, "
+        "google-workspace-export-stdin-receiver 5 KB, render_presentation 3 KB",
     ),
     Domain(
         "ooxml_notes",
