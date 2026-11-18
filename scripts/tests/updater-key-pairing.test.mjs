@@ -21,6 +21,18 @@ test('正例:私钥内嵌公钥 == 配置信任公钥 → ok', () => {
   assert.equal(r.verdict, 'ok')
 })
 
+test('正例(本机真实形态):私钥是「整段 base64」包裹形态 → 一样判 ok,不报无法判定', () => {
+  // 2026-11-18 实测:~/.tauri/ihui-updater.key 里躺的就是这一型(外层一行 base64,
+  // 解开才是两行 minisign 文本)。判据原先只认内层文本,把配得上的钥匙报成
+  // 「私钥侧无法解析 ⇒ 无法判定」,本机发版链在签名前就停住。
+  const wrapped = secretOf(CONF_PUB)
+  assert.match(rawInner(wrapped), /untrusted comment:/) // 前提:夹具确实是"外层 base64 包裹内层文本"
+  const r = pairing.judgeUpdaterKeyPairing({ confPubkey: confB64, secretText: wrapped })
+  assert.equal(r.verdict, 'ok')
+  // 包裹形态不得变成"一律放行":同一层包裹下换成另一把,仍要 orphan。
+  assert.equal(pairing.judgeUpdaterKeyPairing({ confPubkey: confB64, secretText: secretOf(OTHER_PUB) }).verdict, 'orphan')
+})
+
 test('反例(事故型):私钥是另一把 → orphan,且报错里两串公钥都点名', () => {
   const r = pairing.judgeUpdaterKeyPairing({ confPubkey: confB64, secretText: rawInner(secretOf(OTHER_PUB)) })
   assert.equal(r.verdict, 'orphan')

@@ -62,15 +62,7 @@ describe('未就绪 / 浏览器环境 ⇒ 安全默认值,一次 invoke 都不�
       launchMinimized: false,
       traySingleClick: 'menu',
       unreadBadge: true,
-      trayMenuItems: [
-        'new_chat',
-        'show',
-        'hide',
-        'theme',
-        'settings',
-        'update',
-        'quit',
-      ],
+      trayMenuItems: ['new_chat', 'show', 'hide', 'theme', 'settings', 'update', 'quit'],
     })
     await expect(bridge.setDesktopPrefs({ closeBehavior: 'quit' })).resolves.toBeNull()
     await bridge.resolveCloseChoice('hide', true)
@@ -190,6 +182,38 @@ describe('normalizeDesktopPrefs 对垃圾入参不崩', () => {
     expect(prefs.closeBehavior).toBe('ask')
     expect(prefs.traySingleClick).toBe('menu')
     expect(prefs.unreadBadge).toBe(true)
+  })
+})
+
+describe('resolveDesktopBadgeCount 是角标的唯一计数口径(2026-11-18 立)', () => {
+  it('通知未读 + 站内消息未读相加', async () => {
+    const bridge = await freshBridge()
+    expect(bridge.resolveDesktopBadgeCount({ notificationUnread: 2, messageUnread: 3 })).toBe(5)
+    expect(bridge.resolveDesktopBadgeCount({ notificationUnread: 0, messageUnread: 0 })).toBe(0)
+    // 只有一边有未读也要算 —— 旧口径只统计系统通知,站内消息来了角标不亮
+    expect(bridge.resolveDesktopBadgeCount({ notificationUnread: 0, messageUnread: 4 })).toBe(4)
+  })
+
+  it('坏值逐项归零,不让一个 NaN 把总数吞成 NaN(那会让角标永远消失)', async () => {
+    const bridge = await freshBridge()
+    expect(
+      bridge.resolveDesktopBadgeCount({
+        notificationUnread: Number.NaN,
+        messageUnread: 3,
+      }),
+    ).toBe(3)
+    expect(
+      bridge.resolveDesktopBadgeCount({
+        notificationUnread: -5,
+        messageUnread: -1,
+      }),
+    ).toBe(0)
+    expect(
+      bridge.resolveDesktopBadgeCount({
+        notificationUnread: 2.9,
+        messageUnread: 1.1,
+      }),
+    ).toBe(3)
   })
 })
 

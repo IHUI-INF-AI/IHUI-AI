@@ -1357,15 +1357,25 @@ export async function clearWebViewCache(): Promise<OkResult> {
 /**
  * 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中。
  * @param status 'idle' | 'new_message' | 'thinking'
+ * @param unread 未读条数(2026-11-18 补):>0 时 Rust 侧把它拼进 tooltip,
+ *   与任务栏角标上的数字同一个来源 —— 两处口径必须能对上,不允许一个报数一个只说"有新消息"。
  * 非桌面端静默忽略。
  */
-export async function setTrayStatus(status: 'idle' | 'new_message' | 'thinking'): Promise<void> {
+export async function setTrayStatus(
+  status: 'idle' | 'new_message' | 'thinking',
+  unread = 0,
+): Promise<void> {
   if (!isTauri()) return
   try {
-    await invoke('set_tray_status', { status })
+    await invoke('set_tray_status', { status, unread: normalizeUnreadArg(unread) })
   } catch {
     // 非桌面端或 tray 未初始化,静默忽略
   }
+}
+
+/** 条数归一:非有限/负数按 0,Rust 侧收 u32 超上限会反序列化失败。 */
+function normalizeUnreadArg(count: number): number {
+  return Number.isFinite(count) && count > 0 ? Math.min(Math.trunc(count), 0xffffffff) : 0
 }
 
 // ================== 应用更新 ==================
@@ -2030,6 +2040,120 @@ export async function workspaceIndexScan(
   requireTauri()
   return await invokeIpc<WorkspaceIndexReply>('workspace_index_scan', {
     previous: previous ?? null,
+  })
+}
+
+// ================== 本机工作区文件通道(2026-11-19 立) ==================
+// 与 Qoder / Trae / WorkBuddy 同构的那一半:工作区 = 本机目录,列/读/写在本机进程里
+// 完成,不再把路径发给服务端 IHUI_WORKSPACE_ROOTS 白名单。Rust 侧
+// `workspace_fs_ipc.rs`,判据在 `workspace_fs_core.rs`(纯 std,可 rustc --test 单跑)。
+//
+// 边界(前端必须知道的四条):
+// 1. `root` 只能来自 `workspacePickRoot()`(宿主弹原生选择器,凭证不经过页面)
+//    或 `workspaceAuthorizeRoot()`(页面交上来的路径仍要过 bases + 目录双证)。
+// 2. 其余命令只接受**工作区相对路径**(`src/main.ts`),绝对路径 / `..` 一律被拒。
+// 3. `state==='rejected'` 时按 `kind` 分支(reason 是给人看的文案)。
+// 4. 写入传 `expectedSha256` 可做冲突检测:盘上被别人改过就拒,不静默覆盖。
+
+/** 一条目录项(与 Rust `FsEntryWire` 逐字段对齐)。 */
+export interface WorkspaceFsEntry {
+  name: string
+  /** 工作区相对路径(正斜杠) */
+  path: string
+  kind: 'file' | 'dir' | 'other'
+  size: number
+  /** 秒级 Unix 时间戳 */
+  modified: number
+}
+
+/** 统一回包(与 Rust `FsReply` 逐字段对齐)。 */
+export interface WorkspaceFsReply {
+  state: 'ok' | 'rejected'
+  /** `ok` 或拒因分类:root_not_authorized / out_of_bounds / suspicious_input /
+   * type_mismatch / too_large / conflict / io_error */
+  kind: string
+  reason: string
+  root: string
+  path?: string | null
+  entries?: WorkspaceFsEntry[] | null
+  content?: string | null
+  size?: number | null
+  sha256?: string | null
+  modified?: number | null
+}
+
+/** 由宿主自己弹原生目录选择器并授权;用户取消返回 rejected。 */
+export async function workspacePickRoot(): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_pick_root')
+}
+
+/** 授权一个已在本机选择器里选到的路径(仍要过 bases + 目录双证)。 */
+export async function workspaceAuthorizeRoot(root: string): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_authorize_root', { root })
+}
+
+/** 通道自述:边界、上限、当前 root。 */
+export async function workspaceFsInfo(): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_fs_info')
+}
+
+/** 列目录(不传 dir = 工作区根)。 */
+export async function workspaceFsList(dir?: string | null): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_fs_list', { dir: dir ?? null })
+}
+
+/** 读文本文件(默认上限由 Rust 侧定,2MiB)。 */
+export async function workspaceFsRead(
+  path: string,
+  maxBytes?: number | null,
+): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_fs_read', {
+    path,
+    maxBytes: maxBytes ?? null,
+  })
+}
+
+/** stat(可选带内容指纹)。 */
+export async function workspaceFsStat(
+  path: string,
+  withSha?: boolean | null,
+): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_fs_stat', {
+    path,
+    withSha: withSha ?? null,
+  })
+}
+
+/** 写文本文件(可选前像校验 + 自动建父目录)。 */
+export async function workspaceFsWrite(
+  path: string,
+  content: string,
+  opts?: { expectedSha256?: string | null; createParent?: boolean | null },
+): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_fs_write', {
+    path,
+    content,
+    expectedSha256: opts?.expectedSha256 ?? null,
+    createParent: opts?.createParent ?? null,
+  })
+}
+
+/** 删除(文件或空目录;recursive 才允许非空目录)。 */
+export async function workspaceFsRemove(
+  path: string,
+  recursive?: boolean | null,
+): Promise<WorkspaceFsReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceFsReply>('workspace_fs_remove', {
+    path,
+    recursive: recursive ?? null,
   })
 }
 // ================== 签到助手本地通道(2026-10-09 WP-C 立) ==================
