@@ -13,6 +13,10 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync, unlinkSync } from '
 import { dirname } from 'node:path'
 export const RECEIPT_REL = '.ihui-agent/state/typecheck-receipt.json'
 export const RECEIPT_SCHEMA_V = 1
+// v2(2026-11-18):键从 `HEAD^{tree}`(整棵树)收紧到 **tsc 输入面摘要** —— 别人改 README/plan/脚本
+// 不再让你的类型结论失效(实测单门 136s,占一次推送 85%)。判据强度不降:v1 仍原样接受并原样判,
+// v2 额外要求「输入面摘要 + 环境指纹」都对上,取不到任一格 ⇒ 未命中回落实跑。
+export const RECEIPT_SCHEMA_V2 = 2
 export const RECEIPT_WRITER = 'check-typecheck.mjs'
 // 缺省 12 小时:覆盖「白天多轮推送共用一次全量结论」的典型节律;夜间依赖/环境漂移由超期失效兜住。
 export const RECEIPT_TTL_MIN_DEFAULT = 720
@@ -34,8 +38,25 @@ export function receiptDisabled(env = process.env) {
  */
 export function validateReceipt(r) {
   if (!r || typeof r !== 'object') return { ok: false, reason: '回执缺失或非对象' }
+  if (r.v === RECEIPT_SCHEMA_V2) {
+    if (!/^[0-9a-f]{40}$/.test(String(r.inputDigest || '')))
+      return { ok: false, reason: 'v2 inputDigest 非法' }
+    if (!/^[0-9a-f]{40}$/.test(String(r.treeSha || '')))
+      return { ok: false, reason: 'v2 treeSha 非法' }
+    if (typeof r.envPrint !== 'string' || r.envPrint.length === 0)
+      return { ok: false, reason: 'v2 envPrint 缺失' }
+    if (!Number.isFinite(r.finishedAt) || r.finishedAt <= 0)
+      return { ok: false, reason: 'finishedAt 缺失' }
+    if (!Number.isInteger(r.exitCode) || r.exitCode < 0)
+      return { ok: false, reason: 'exitCode 非法' }
+    if (!Array.isArray(r.errorFiles) || r.errorFiles.some((f) => typeof f !== 'string'))
+      return { ok: false, reason: 'errorFiles 非字符串数组' }
+    if (r.writer !== RECEIPT_WRITER)
+      return { ok: false, reason: `写入方 ${String(r.writer)} 非钩子链` }
+    return { ok: true }
+  }
   if (r.v !== RECEIPT_SCHEMA_V)
-    return { ok: false, reason: `schema 版本 ${String(r.v)} ≠ ${RECEIPT_SCHEMA_V}` }
+    return { ok: false, reason: `schema 版本 ${String(r.v)} ≠ ${RECEIPT_SCHEMA_V}/${RECEIPT_SCHEMA_V2}` }
   if (!/^[0-9a-f]{40}$/.test(String(r.treeSha || ''))) return { ok: false, reason: 'treeSha 非法' }
   if (!Number.isFinite(r.finishedAt) || r.finishedAt <= 0)
     return { ok: false, reason: 'finishedAt 缺失' }
@@ -62,8 +83,30 @@ export function readReceipt(absPath) {
  * 判可用:tree sha 必须与当下面一致;时刻差必须落在 TTL 内(超期 ⇒ 未命中,回落实跑,不判绿)。
  * @returns {{ok:boolean, reason:string}}
  */
-export function receiptUsable(receipt, { treeSha, nowMs, ttlMs }) {
+export function receiptUsable(receipt, { treeSha, inputDigest, envPrint, nowMs, ttlMs }) {
   if (!receipt) return { ok: false, reason: '无有效回执(缺失/结构非法)' }
+  if (receipt.v === RECEIPT_SCHEMA_V2) {
+    if (!inputDigest) return { ok: false, reason: '当下输入面摘要取不到(回落整树键/实跑)' }
+    if (receipt.inputDigest !== inputDigest)
+      return {
+        ok: false,
+        reason: `TS 输入面已变(回执 ${String(receipt.inputDigest).slice(0, 10)} ≠ 当下 ${String(inputDigest).slice(0, 10)})`,
+      }
+    if (typeof envPrint !== 'string' || receipt.envPrint !== envPrint)
+      return { ok: false, reason: '编译器/依赖环境已变(node/ts/依赖布局指纹不同)' }
+    const ageMs2 = nowMs - Number(receipt.finishedAt)
+    if (!Number.isFinite(ageMs2) || ageMs2 < 0) return { ok: false, reason: '回执时刻不可解释' }
+    if (ageMs2 > ttlMs) {
+      return {
+        ok: false,
+        reason: `回执超期(${Math.round(ageMs2 / 60_000)} 分钟 > TTL ${Math.round(ttlMs / 60_000)} 分钟)`,
+      }
+    }
+    return {
+      ok: true,
+      reason: `命中:TS 输入面未变、${Math.round(ageMs2 / 60_000)} 分钟前的结论`,
+    }
+  }
   if (!treeSha) return { ok: false, reason: '当下面 tree sha 取不到' }
   if (receipt.treeSha !== treeSha)
     return {

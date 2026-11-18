@@ -49,7 +49,7 @@ import { dirname, join, resolve } from 'node:path'
 const TYPECHECK_TIMEOUT_MIN = Number(process.env.IHUI_TYPECHECK_TIMEOUT_MIN || 20)
 const TYPECHECK_TIMEOUT_MS = TYPECHECK_TIMEOUT_MIN * 60 * 1000
 import { fileURLToPath } from 'node:url'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 // G-611:128+N 族码的集合/分类/产出侧全部住 scripts/lib/signal-exit.mjs —— 本文件的消费侧
 // 与两个被派生方的产出侧用**同一把尺子**,字面量集合在本文件不得再出现(镜像测试形状锁)。
 import { classifySpawnOutcome, installSignalExit, TEMPFAIL_EXIT_CODE } from './lib/signal-exit.mjs'
@@ -73,6 +73,7 @@ import { gitRaw } from './lib/face-reader.mjs'
 import {
   RECEIPT_REL,
   RECEIPT_SCHEMA_V,
+  RECEIPT_SCHEMA_V2,
   RECEIPT_WRITER,
   readReceipt,
   receiptDisabled,
@@ -80,6 +81,9 @@ import {
   receiptUsable,
   writeReceipt,
 } from './lib/typecheck-receipt.mjs'
+// v2 回执键:tsc 输入面摘要(单实现住 lib,本门只消费;论证见该 lib 头注)。
+// 立因:整树键让"别人改 README"也废掉类型结论 ⇒ 每次提交后必跑 136s 全量。
+import { digestEntries, envFingerprint, parseLsTree } from './lib/typecheck-input-digest.mjs'
 // T1 超时预算**不设第二本账**(2026-11-08 裁决):唯一取数处 = land-gate-budgets.json
 // (DG-06,执行器看门狗与落地复跑共用)。本门只校验 T1 那一行的证据链,见下方 enforceT1BudgetEntry。
 
@@ -974,11 +978,76 @@ try {
 } catch {
   _treeSha = null
 }
-const _receiptOn = !_treeSha ? false : !receiptDisabled()
+
+// ── v2 键:tsc 输入面摘要(2026-11-18)────────────────────────────────────
+// 与「无 TS 输入面档」同一条论证:tsc 的结论只由 program 输入文件内容 + 配置决定。
+// 取不到的每一格都让回执失效(回落实跑),绝不"半信半疑地复用"。
+function readJsonSafe(rel) {
+  try {
+    return JSON.parse(readFileSync(resolve(ROOT, rel), 'utf8'))
+  } catch {
+    return null
+  }
+}
+function statSizeSafe(rel) {
+  try {
+    return statSync(resolve(ROOT, rel)).size
+  } catch {
+    return null
+  }
+}
+let _inputDigest = null
+let _envPrint = null
+try {
+  // allowJs 检测走**工作树**面(与 tsc 实际读盘的面一致),且复用「无 TS 输入面档」的同一份
+  // tsconfig 清单实现(listTsconfigPaths,function 声明提升)。任一读不到 ⇒ 断言不了"没有
+  // allowJs" ⇒ 落 null 回落实跑(安全方向)。
+  const cfgs = listTsconfigPaths() || []
+  const extra = []
+  try {
+    for (const name of readdirSync(resolve(ROOT, 'packages', 'tsconfig'))) {
+      if (/\.json$/i.test(name)) extra.push(join('packages', 'tsconfig', name).replace(/\\/g, '/'))
+    }
+  } catch {
+    /* 目录不存在 ⇒ 无共享基座 */
+  }
+  let allowJs = false
+  for (const p of [...cfgs, ...extra]) {
+    let text = null
+    try {
+      text = readFileSync(resolve(ROOT, p), 'utf8')
+    } catch {
+      allowJs = true
+      break
+    }
+    if (/allowJs\s*:\s*true/i.test(text)) {
+      allowJs = true
+      break
+    }
+  }
+  const raw = gitRaw(['ls-tree', '-r', '-z', 'HEAD'], ROOT, { timeout: 120_000 })
+  const entries = parseLsTree(String(raw || ''))
+  if (!allowJs && entries.length > 0) {
+    const d = digestEntries(entries, { allowJs: false })
+    if (d.count > 0) _inputDigest = d.digest
+  }
+  _envPrint = envFingerprint({
+    nodeVersion: process.version,
+    tsVersion: readJsonSafe('node_modules/typescript/package.json')?.version || null,
+    nodeModulesLayoutSize: statSizeSafe('node_modules/.modules.yaml'),
+  })
+} catch {
+  _inputDigest = null
+  _envPrint = null
+}
+
+const _receiptOn = !receiptDisabled() && Boolean(_treeSha || _inputDigest)
 if (_receiptOn) {
   const _rc = readReceipt(_receiptAbs)
   const _usable = receiptUsable(_rc, {
     treeSha: _treeSha,
+    inputDigest: _inputDigest,
+    envPrint: _envPrint,
     nowMs: Date.now(),
     ttlMs: receiptTtlMs(),
   })
@@ -1031,6 +1100,21 @@ let out = ''
 let err = ''
 const _fullT0 = Date.now()
 const _writeReceipt = (exitCode, errorFiles) => {
+  // v2:键 = tsc 输入面摘要 + 环境指纹(取不到 digest 时退回 v1 的整树键,不丢结论)。
+  if (_inputDigest) {
+    writeReceipt(_receiptAbs, {
+      v: RECEIPT_SCHEMA_V2,
+      inputDigest: _inputDigest,
+      treeSha: _treeSha || '0'.repeat(40),
+      envPrint: _envPrint || 'unknown',
+      finishedAt: Date.now(),
+      exitCode,
+      errorFiles,
+      writer: RECEIPT_WRITER,
+      measuredMs: Date.now() - _fullT0,
+    })
+    return
+  }
   if (!_treeSha) return
   writeReceipt(_receiptAbs, {
     v: RECEIPT_SCHEMA_V,
