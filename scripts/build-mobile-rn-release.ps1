@@ -424,8 +424,14 @@ Push-Location $RepoRoot
 try {
   # 与 CI 共用 scripts/mobile-release-gate.mjs 这一份实现,禁止在本脚本另写一份清单(两处清单必然漂移)。
   # --worktree:审的是"将要构建的这份盘上内容",不是 HEAD blob。
-  node scripts/mobile-release-gate.mjs --worktree
+  # 门链输出必须落盘(2026-11-18 立):旧实现直接继承父进程 stdout,而计划任务轮把 stderr 重定向到
+  # build-stderr.txt、stdout 走 PowerShell transcript —— vitest 在非 TTY + 进程异常退出时一行都不
+  # 刷出来,于是"rn-tests exit=1"连续三轮零证据、只能靠手动复现对赌。Tee 之后失败现场永远可回溯。
+  $gateLog = Join-Path $RepoRoot '.ihui-agent/tmp/mobile-release-gate.log'
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $gateLog) > $null
+  node scripts/mobile-release-gate.mjs --worktree 2>&1 | Tee-Object -FilePath $gateLog
   if ($LASTEXITCODE -ne 0) {
+    Write-Host "[门链] 完整输出已落盘:$gateLog" -ForegroundColor Yellow
     throw "出包门链失败(exit=$LASTEXITCODE)—— 见上一行点名的门;本次不构建、不产出任何可发布产物。"
   }
 } finally { Pop-Location }
@@ -751,7 +757,6 @@ try {
       )) {
       if (Test-Path -LiteralPath $staleBundle) { Remove-Item -LiteralPath $staleBundle -Force }
     }
-    Write-Host "  [env-probe] API='$($env:EXPO_PUBLIC_API_BASE_URL)' WEB='$($env:EXPO_PUBLIC_WEB_URL)' WS='$($env:EXPO_PUBLIC_WS_BASE_URL)' SIGN=$([bool]$env:EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET)" -ForegroundColor DarkGray
     # AAB 与 APK 一次构建:createBundleReleaseJsAndAssets 是两者共享的任务,不会把 JS bundle 打两遍。
     # versionName 必须经 -P 传入(2026-11-06):build.gradle 侧的 appVersionName 优先读它,
     # package.json 只做缺省。不传的话系统设置里永远显示原生基座(0.0.12),与站点/DB 登记脱节。
