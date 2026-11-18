@@ -5,9 +5,9 @@
 #requires -Version 7
 # IHUI CLI PowerShell 一键安装脚本
 # 用法: irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/apps/cli/scripts/install/install.ps1 | iex
-#   或: irm https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/apps/cli/scripts/install/install.ps1 | iex -Version 1.0.0
 # 依赖: Node.js 20+(自动检测,缺失则报错引导安装;优先走 GitHub binary 下载,失败降级 npm)
 # 同源说明: 与仓根 scripts/install.ps1 同源双分发,两份内容一致(本目录版随 npm 包/仓库分发)。
+# 安装 npm 包若失败,请以管理员身份重新打开 PowerShell 后重跑(脚本不自行提权)。
 # 提示: 部分杀软会对"下载即执行"形态误报,如被拦截请先下载到本地再运行(脚本无任何外联窃取行为)。
 
 $ErrorActionPreference = "Stop"
@@ -185,13 +185,8 @@ function Install-ViaNpm {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Warn "全局安装失败,尝试以管理员权限重试..."
-        Start-Process -FilePath "npm" -ArgumentList ($NPM_PACKAGE) `
-          -Verb RunAs -Wait -ErrorAction SilentlyContinue
-        if ($LASTEXITCODE -ne 0) {
-            Write-Err "npm 安装失败"
-            exit 1
-        }
+        Write-Err "npm 安装失败"
+        exit 1
     }
 
     Write-Log "npm 安装成功"
