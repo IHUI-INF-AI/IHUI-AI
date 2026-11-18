@@ -228,7 +228,7 @@ export function ImportAnalysisDialog({
                     <option value="">{t('analysisPickCategory')}</option>
                     {catalog.categories.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.icon} {c.categoryZh}({c.count})
+                        {c.categoryZh}({c.count})
                       </option>
                     ))}
                   </select>

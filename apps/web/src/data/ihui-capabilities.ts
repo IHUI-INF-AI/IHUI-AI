@@ -125,7 +125,7 @@ export const IHUI_CAPABILITIES: IhuiCapability[] = [
     category: 'code-intel',
     icon: Search,
     summary:
-      '结构化符号关系替代无预算 grep;搜索预算防失控空转。⚠️ 远程方案本地仅 17 文件纯 UI 壳、AI 全在远程,此能力按 IHUI 插件化架构规划。',
+      '结构化符号关系替代无预算 grep;搜索预算防失控空转。远程方案本地仅 17 文件纯 UI 壳、AI 全在远程,此能力按 IHUI 插件化架构规划。',
     maturity: 'C',
     target: '(规划中) apps/ai-service/services/code_graph_service.py',
   },

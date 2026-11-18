@@ -473,7 +473,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
               ) : null}
               {result.claimed.length > 0 ? (
                 <Text className="mt-[6rpx] block text-caption leading-[normal] text-[var(--color-success-text)]">
-                  ✓{result.claimed.join(', ')}
+                  {result.claimed.join(', ')}
                 </Text>
               ) : null}
               {/* unjudged=true ⇒ 上游响应读不懂:把 reason 原样摆出来,**不显示成成功**。 */}
