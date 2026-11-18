@@ -106,17 +106,21 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        6,
+        8,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
         "failures rc=1) and its sharp block/unblock hardening recorded; runtime_helpers read "
-        "in full (RUNTIME_NODE_MODULES override, absolute-path and directory validation, "
-        "synthetic __runtime__.cjs require anchor). Still unread: artifact_tool_utils 55 KB, "
-        "create-template-skill 31 KB, validate_template_plan 19 KB, "
-        "check_template_fidelity 18 KB, prepare_template_starter_deck 11 KB, "
-        "export-google-workspace-file 10 KB, inspect_template_deck 9 KB, "
-        "google-workspace-export-stdin-receiver 5 KB, render_presentation 3 KB",
+        "in full. R121: artifact_tool_utils read at 668 of 1,077 lines - all seven exports, "
+        "the nineteen value-flag regexes, the eight boolean flags, the four font bases, the "
+        "SHA-bound typography reference, and the publication lock (no overwrite, no self-"
+        "approval, hard-link publish, rollback that spares a user file); render_presentation "
+        "read in full, which answers why decks render without LibreOffice - they go through "
+        "@oai/artifact-tool, a different leg from documents. Still unread: create-template-skill "
+        "31 KB, validate_template_plan 19 KB, check_template_fidelity 18 KB, "
+        "prepare_template_starter_deck 11 KB, export-google-workspace-file 10 KB, "
+        "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB, plus the "
+        "409 unread lines of artifact_tool_utils",
     ),
     Domain(
         "ooxml_notes",

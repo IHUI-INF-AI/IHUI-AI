@@ -70,11 +70,11 @@ def test_documents_contract_complete_and_behaviour_partly_exercised() -> None:
 
 
 def test_node_scripts_partly_executed() -> None:
-    """R120: the four guard copies plus two helpers are executed; nine are still size-only."""
+    """R120 executed six; R121 read two more in source, including the finaliser."""
     d = {x.key: x for x in DOMAINS}["node_scripts"]
     assert d.total == 15
-    assert d.covered == 6
-    assert d.remaining == 9
+    assert d.covered == 8
+    assert d.remaining == 7
 
 
 def test_the_binary_is_not_declared_unreachable() -> None:
@@ -177,5 +177,5 @@ def test_domain_ratios_and_remaining() -> None:
     remaining = remaining_by_domain()
     assert set(ratios) == {d.key for d in DOMAINS}
     assert set(remaining) == {d.key for d in DOMAINS}
-    assert remaining["node_scripts"] == 9
+    assert remaining["node_scripts"] == 7
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
