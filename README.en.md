@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5896 | `testFiles` |
+| 测试文件 | 5897 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 368 | `guardianGates` |
 | — blocking | 338 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22952 | `trackedFiles` |
+| 跟踪文件 | 22959 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-18。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-19**
+- 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
+- 🔧 Chore/Other:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
+
 **2026-11-19**
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
 
@@ -554,9 +558,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd8)
 - 🐞 Fix:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da4800)
 - 🐞 Fix:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b219572)
-
-**2026-11-14**
-- 🐞 Fix:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
