@@ -2344,6 +2344,14 @@ export interface UserPoolModelItem {
   accountCount: number
   /** preset = 全局登记行(有展示名/定价);upstream = 上游模型清单现拉 */
   source: 'preset' | 'upstream'
+  /**
+   * 实时验证结论(2026-11-18 立,用户定档「所有模型必须实时验证」):
+   * 只有本轮上游模型清单现拉成功(ok=true)且该模型在册才返回,故恒为 true;
+   * 取不到清单的平台整块不返回(fail-closed),不再有「未验证」这一档。
+   */
+  verified: true
+  /** 该结论的核对时刻(epoch ms) */
+  verifiedAt: number
 }
 
 interface UserPoolModelCacheEntry {
@@ -2562,12 +2570,20 @@ export async function listUserPoolModels(
   const items: UserPoolModelItem[] = []
   let hiddenByIntersection = 0
   let hiddenByDown = 0
+  let hiddenByUnverified = 0
+  // 本轮核对时刻(同一轮所有平台共用一个时间戳:它们都是这一次请求内现拉的清单)
+  const verifiedAtMs = Date.now()
   for (const [code, hit] of byProvider) {
     const info = upstreamByProvider.get(code) ?? { ok: false, ids: [] }
-    // 交集判据集合:仅 ok=true 才参与;归一后比对,兼容 trae 裸名与 `<平台>/` 前缀双形态
-    const upstreamSet = info.ok
-      ? new Set(info.ids.map((u) => normalizePoolUpstreamModelId(code, u)))
-      : null
+    // 2026-11-18 立(用户定档「所有模型必须实时验证」):本轮拿不到上游清单的平台整块不出。
+    // 「取不到 ≠ 没模型」这句话仍然成立,但它只能解释"为什么没显示",不能拿来当"照旧显示"的
+    // 理由 —— 没有本轮证据的行一律不摆出来,选择器里因此不再有「未验证」这一档(fail-closed)。
+    if (!info.ok) {
+      hiddenByUnverified += presetByProvider.get(code)?.length ?? 0
+      continue
+    }
+    // 能走到这里 ⇒ 本轮确实拿到了该平台的上游清单,交集判据必然可用(不再有 null 面)
+    const upstreamSet = new Set(info.ids.map((u) => normalizePoolUpstreamModelId(code, u)))
     const seen = new Set<string>()
     // 去重与交集同用归一判据:裸名/前缀名/大小写差异都是同一模型,不该出两条
     const seenNorm = new Set<string>()
@@ -2590,6 +2606,8 @@ export async function listUserPoolModels(
         provider: code,
         accountCount: hit.count,
         source: 'preset',
+        verified: true,
+        verifiedAt: verifiedAtMs,
       })
     }
     for (const upstreamId of info.ids) {
@@ -2605,7 +2623,7 @@ export async function listUserPoolModels(
       seen.add(id)
       seenNorm.add(normalizePoolUpstreamModelId(code, upstreamId))
       // 上游条目天然在清单集合内,交集免判,只过健康
-      if (poolModelHiddenReason(code, upstreamId, null) === 'down') {
+      if (poolModelHiddenReason(code, upstreamId, upstreamSet) === 'down') {
         hiddenByDown += 1
         continue
       }
@@ -2615,6 +2633,8 @@ export async function listUserPoolModels(
         provider: code,
         accountCount: hit.count,
         source: 'upstream',
+        verified: true,
+        verifiedAt: verifiedAtMs,
       })
     }
     // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效);ok 随清单一起缓存,
@@ -2630,11 +2650,12 @@ export async function listUserPoolModels(
       upstreamIds: info.ids,
     })
   }
-  const hiddenTotal = hiddenByIntersection + hiddenByDown
+  const hiddenTotal = hiddenByIntersection + hiddenByDown + hiddenByUnverified
   if (hiddenTotal > 0) {
     logger.info(
       `[relay-account-pool] 模型选择器连通过滤: ${items.length + hiddenTotal} → ${items.length}` +
-        ` (隐藏 ${hiddenTotal}:交集未命中 ${hiddenByIntersection} + down ${hiddenByDown})`,
+        ` (隐藏 ${hiddenTotal}:交集未命中 ${hiddenByIntersection} + down ${hiddenByDown}` +
+        ` + 本轮无清单证据 ${hiddenByUnverified})`,
     )
   }
   return items
