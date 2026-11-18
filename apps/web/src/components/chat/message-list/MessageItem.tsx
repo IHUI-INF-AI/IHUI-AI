@@ -68,7 +68,7 @@ import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
 // O60i(2026-09-25):失败卡两份实现合一 —— 本文件的内联卡已删,唯一出口是这张组件卡
 import { MessageErrorCard } from '@/components/chat/message-list/MessageErrorCard'
-import { StreamGroup } from '@/components/chat/stream/stream-ui'
+import { StreamGroup, STREAM_GROUP_BODY_CLASS } from '@/components/chat/stream/stream-ui'
 import {
   describeToolCall,
   hasRichAnchors,
@@ -1582,7 +1582,7 @@ const MessageItem = React.memo(function MessageItem({
                 testId={`message-steps-group-${m.id}`}
                 className="mt-0"
               >
-                <div className="ml-[7px] space-y-1 pl-3">
+                <div className={cn(STREAM_GROUP_BODY_CLASS, 'space-y-1')}>
                   {/* #14 批量 Accept/Reject 按钮条(2026-09-13 立):
                       仅当消息含 ≥2 个 diff 卡且已注册批量回调时显示;左侧聚合徽章展示应用进度 */}
                   {diffStats.total >= 2 && (onApplyAllDiffs || onRejectAllDiffs) && (
@@ -1845,7 +1845,9 @@ const MessageItem = React.memo(function MessageItem({
                 testId={`message-process-text-group-${m.id}`}
                 className="mt-0"
               >
-                {answerBody}
+                {/* 裸正文必须让出引导线轨道(STREAM_GROUP_BODY_CLASS):
+                    此前直出 ⇒ 正文从 0 起排,引导线从字身和 main.py 的文件图标上穿过去。 */}
+                <div className={STREAM_GROUP_BODY_CLASS}>{answerBody}</div>
               </StreamGroup>
             ) : (
               answerBody

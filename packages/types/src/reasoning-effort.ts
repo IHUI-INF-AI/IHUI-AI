@@ -21,8 +21,8 @@
 //
 // 值域来源:与 Python 侧 known_efforts 同值。改档必须四处同笔,顺序无例外。
 
-/** 推理强度档位封闭联合(wire 值域):minimal / low / medium / high / xhigh / max。 */
-export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+/** 推理强度档位封闭联合(wire 值域):minimal / low / medium / high / xhigh / max / ultra。 */
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra'
 
 /**
  * 同一封闭集合的运行时投影,供 zod `z.enum(...)` 与"是否合法档位"判定使用。
@@ -36,6 +36,7 @@ export const REASONING_EFFORT_VALUES = [
   'high',
   'xhigh',
   'max',
+  'ultra',
 ] as const satisfies readonly ReasoningEffort[]
 
 /** 档位 → 输入区第三轴的词表键后缀(控件与 i18n 共用一份顺序,不得在端内各排各的序)。 */

@@ -60,6 +60,7 @@ const LABEL_KEY = {
   high: 'reasoningEffortHigh',
   xhigh: 'reasoningEffortXhigh',
   max: 'reasoningEffortMax',
+  ultra: 'reasoningEffortUltra',
 } as const satisfies Record<ReasoningEffort, string>
 
 export function ReasoningEffortAxis({

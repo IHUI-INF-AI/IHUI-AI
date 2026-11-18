@@ -1259,8 +1259,6 @@ export function ChatScreen() {
           setQuestionCustom('')
         } else if (outcome.kind === 'legacy') {
           // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
-          // 签名吃的是 { options } 整个问题形状(共享层不依赖具体 store 类型)——
-          // 此前误传 q.options 数组 ⇒ TS2345,2026-11-16 整格对齐调用形。
           const text = buildLegacyAnswerText(q, {
             questionId: q.questionId,
             action,

@@ -25,7 +25,6 @@ from app.core.guardian_risk import (
 )
 from app.core.mcp_tool_approval import ToolAnnotations, requires_mcp_tool_approval
 
-
 # ---------- GuardianRiskLevel ----------
 
 def test_risk_level_four_tiers():
@@ -73,13 +72,26 @@ def test_assessment_status_terminal():
     assert GuardianAssessmentStatus.APPROVED.is_terminal is True
     assert GuardianAssessmentStatus.DENIED.is_terminal is True
     assert GuardianAssessmentStatus.TIMED_OUT.is_terminal is True
+    assert GuardianAssessmentStatus.ABORTED.is_terminal is True
 
 
 def test_assessment_status_values_match_codex():
-    """按行为规格 外部实现 ``approved | denied | timed_out`` + 本仓补 pending 中间态。"""
+    """按行为规格 外部实现 ``approved | denied | timed_out | aborted`` + 本仓补 pending 中间态。
+
+    R30(2026-11-18) 补 ``aborted``:外部程序 strings 逐字锚
+    ``request_permissions+approved/denied/timed_out/aborted`` + ``ElicitationAbandoned``。
+    """
     assert {s.value for s in GuardianAssessmentStatus} == {
-        "pending", "approved", "denied", "timed_out",
+        "pending", "approved", "denied", "timed_out", "aborted",
     }
+
+
+def test_aborted_distinct_from_timed_out_and_denied():
+    """aborted 是"流程没走完就被撤"的终态,区别于 timed_out(等超时)与 denied(明确否决)。"""
+    assert GuardianAssessmentStatus.ABORTED.value == "aborted"
+    assert GuardianAssessmentStatus.ABORTED.is_terminal is True
+    assert GuardianAssessmentStatus.ABORTED != GuardianAssessmentStatus.TIMED_OUT
+    assert GuardianAssessmentStatus.ABORTED != GuardianAssessmentStatus.DENIED
 
 
 # ---------- GuardianReviewReason ----------

@@ -66,12 +66,19 @@ class GuardianAssessmentStatus(StrEnum):
     ``PENDING`` 是本仓补的中间态:统一规范 里它由 internally tagged enum
     ``GuardianAssessmentAction`` 的 ``RequestPermissions`` 等分支表达"还在等用户";
     本仓显式化以便前端在轮询窗口渲染"复核进行中"而非空白。
+
+    ``ABORTED``(2026-11-18 补,R30):外部程序 strings 逐字锚
+    ``request_permissions + approved/denied/timed_out/aborted`` +
+    ``ElicitationAbandoned`` —— 复核请求被**中止**(elicitation 放弃/上游取消)是
+    第四个决策终态,此前本仓漏登;它区别于 ``timed_out``(等超时)与
+    ``denied``(明确否决),是"流程没走完就被撤"的终态。
     """
 
     PENDING = "pending"
     APPROVED = "approved"
     DENIED = "denied"
     TIMED_OUT = "timed_out"
+    ABORTED = "aborted"
 
     @property
     def is_terminal(self) -> bool:
