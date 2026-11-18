@@ -119,14 +119,16 @@ def test_coverage_counts_are_honest() -> None:
     assert c["tools"] == 36
     assert c["executed"] + c["help_only"] == 36
     assert c["help_only"] == len(HELP_ONLY)
+    assert c["executed"] == 36
     assert was_executed("insert_toc") is True
-    assert was_executed("apply_template_styles") is False
+    assert was_executed("apply_template_styles") is True
+    assert was_executed("render_and_diff") is True
 
 
 def test_overclaiming_execution_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core import documents_tools_execution_contract as c
 
-    monkeypatch.setattr(c, "HELP_ONLY", frozenset())
+    monkeypatch.setattr(c, "EXECUTED_TOOLS", frozenset(set(c.EXECUTED_TOOLS) - {"insert_note"}))
     with pytest.raises(ValueError):
         c.validate_contract()
 
@@ -154,4 +156,30 @@ def test_tool_count_drift_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(c, "TOOL_COUNT", 35)
     with pytest.raises(ValueError):
         c.validate_contract()
+
+
+def test_two_tools_can_rewrite_their_input() -> None:
+    """R112 claimed nothing edits in place; that was wrong for these two."""
+    from app.core.documents_tools_execution_contract import IN_PLACE_CAPABLE
+
+    assert IN_PLACE_CAPABLE == ("docx_ooxml_patch", "google_docs_title_sanitize")
+
+
+def test_render_path_is_unavailable_without_libreoffice() -> None:
+    from app.core.documents_tools_execution_contract import (
+        LIBREOFFICE_PRESENT_LOCALLY,
+        RENDER_REQUIRES_LIBREOFFICE,
+    )
+
+    assert RENDER_REQUIRES_LIBREOFFICE is True
+    assert LIBREOFFICE_PRESENT_LOCALLY is False
+
+
+def test_comments_patch_needs_a_comments_part() -> None:
+    """The measured rc=1: appending to comments requires word/comments.xml to exist."""
+    from app.core.documents_tools_execution_contract import MEASURED
+
+    hit = [e for e in MEASURED if e.tool == "comments_apply_patch"]
+    assert hit and hit[0].rc == 1
+    assert "comments.xml" in hit[0].note
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

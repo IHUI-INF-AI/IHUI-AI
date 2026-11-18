@@ -69,12 +69,14 @@ DOMAINS: Final = (
         "documents_tools_behaviour",
         "documents tools (behaviour exercised)",
         36,
-        28,
-        "R118: 28 executed against make_fixtures output; 8 help-only "
-        "(add_tracked_replacements, apply_template_styles, comments_apply_patch, "
-        "docx_ooxml_patch, google_docs_title_sanitize, insert_note, render_and_diff, "
-        "xlsx_to_docx_table). Four calling conventions found, not one; a failed run still "
-        "writes a byte-identical copy; empty edits still write full documents",
+        36,
+        "R118+R119: all 36 executed. R118 ran 28 against make_fixtures output; R119 closed the "
+        "last 8 (add_tracked_replacements replacements=1, apply_template_styles, "
+        "comments_apply_patch rc=1 without comments.xml, docx_ooxml_patch add-page-numbers, "
+        "google_docs_title_sanitize style_borders_removed=1, insert_note footnote, "
+        "xlsx_to_docx_table rows=4 cols=2, render_and_diff rc=1 no LibreOffice). Two tools can "
+        "rewrite their input in place, contradicting the earlier no-in-place claim; the render "
+        "path is unavailable on this host",
     ),
     Domain(
         "documents_tools_contract",

@@ -74,7 +74,6 @@ OUT_OPTIONAL: Final = (
     "google_docs_title_sanitize",
     "insert_toc",
     "watermark_audit_remove",
-    "xlsx_to_docx_table",
 )
 
 #: Two positional document paths and no ``--out``. ``--out`` is rejected with rc=2.
@@ -85,7 +84,7 @@ POSITIONAL_PAIR: Final = (
 )
 
 #: Positional input plus an optional positional output.
-POSITIONAL_OPTIONAL_OUTPUT: Final = ("style_normalize",)
+POSITIONAL_OPTIONAL_OUTPUT: Final = ("style_normalize", "xlsx_to_docx_table")
 
 OUT_ABSENT: Final = (
     "fields_report",
@@ -109,6 +108,14 @@ TWO_INPUT_DOCUMENTS: Final = ("apply_template_styles",)
 PATCH_JSON_ARGUMENT: Final = ("comments_apply_patch",)
 
 OUTDIR_TOOLS: Final = ("render_and_diff",)
+
+#: These can rewrite the input file itself. ``docx_ooxml_patch`` does it by default.
+IN_PLACE_CAPABLE: Final = ("docx_ooxml_patch", "google_docs_title_sanitize")
+
+#: Requires LibreOffice; absent on this machine, so the whole render path is unavailable.
+RENDER_REQUIRES_LIBREOFFICE: Final = True
+LIBREOFFICE_PRESENT_LOCALLY: Final = False
+LIBREOFFICE_FAILURE_TEXT: Final = "LibreOffice soffice.exe was not found on PATH"
 
 
 @dataclass(frozen=True)
@@ -149,22 +156,25 @@ MEASURED: Final = (
     Execution("captions_and_crossrefs", 2, "printed usage: expected two positional paths"),
     Execution("insert_ref_fields", 2, "unrecognized arguments: --out"),
     Execution("comments_add", 1, "Provide at least one --add"),
+    Execution("add_tracked_replacements", 0, "replacements=1; also emitted a utcnow DeprecationWarning"),
+    Execution("apply_template_styles", 0, "template plus target, wrote output"),
+    Execution("comments_apply_patch", 1, "word/comments.xml not found: needs an existing comments part"),
+    Execution("docx_ooxml_patch", 0, "add-page-numbers applied; --out wrote a copy"),
+    Execution("google_docs_title_sanitize", 0, "style_borders_removed=1, paragraph 0, underline 0"),
+    Execution("insert_note", 0, "inserted footnote and wrote output"),
+    Execution("xlsx_to_docx_table", 0, "rows=4 cols=2 sheet=Data from the three-row workbook"),
+    Execution(
+        "render_and_diff",
+        1,
+        "LibreOffice soffice.exe not found on PATH: render path unavailable on this host",
+    ),
 )
 
 EXECUTED_TOOLS: Final = frozenset(
     e.tool for e in MEASURED
 ) | {"content_controls"}  # content_controls was exercised in R112 via its three subcommands
 
-HELP_ONLY: Final = frozenset((
-    "add_tracked_replacements",
-    "apply_template_styles",
-    "comments_apply_patch",
-    "docx_ooxml_patch",
-    "google_docs_title_sanitize",
-    "insert_note",
-    "render_and_diff",
-    "xlsx_to_docx_table",
-))
+HELP_ONLY: Final = frozenset()
 
 # --- fixture evidence -------------------------------------------------------------------------
 
@@ -262,6 +272,12 @@ def validate_contract() -> None:
         raise ValueError("a tool appears in more than one shape table")
     if len(POSITIONAL_PAIR) != 3:
         raise ValueError("exactly three tools take two positionals and reject --out")
+    if len(POSITIONAL_OPTIONAL_OUTPUT) != 2:
+        raise ValueError("two tools take an optional second positional")
+    if len(IN_PLACE_CAPABLE) != 2:
+        raise ValueError("two tools can rewrite their input")
+    if RENDER_REQUIRES_LIBREOFFICE and LIBREOFFICE_PRESENT_LOCALLY:
+        raise ValueError("the measured host has no LibreOffice")
     if not FAILURE_STILL_WRITES_OUTPUT:
         raise ValueError("the measured failure wrote its output")
     if OUTPUT_EXISTENCE_IS_EVIDENCE_OF_WORK:
