@@ -121,13 +121,28 @@ export const MANAGED_TARGETS = [
 /**
  * 确认废弃清单(按目标隔离)。这是"备份里有、今文件里已消失"的**唯一**人工出口。
  *
- * 纪律:加一条必须带可核验依据(哪枚提交删了它、消费方已摘干净),且**禁止**用它把一次真漂移
- * 遮成绿。与守门 107 对 `RN_ONLY_BRAND_KEYS` 的教训同一条:豁免清单会腐烂 —— 所以这里保持为空,
- * 只有"确实被删掉的键"才进来。现表为空 = 零豁免(自检 ⑧ 钉死)。
+ * 纪律:每条必须是对象 `{ key, evidence, retiredAt }`,evidence 写**可核验的现场依据**
+ * (文件:行号 + 原话 + 消费方现状),retiredAt 写登记日期;**禁止**用它把一次真漂移遮成绿。
+ * 与守门 107 对 `RN_ONLY_BRAND_KEYS` 的教训同一条:豁免清单会腐烂 —— 所以自检 ⑨ 从
+ * "全表为空"改成"每条都带证据与日期",空表仍然合法(零豁免是首选状态)。
  */
 export const RETIRED_KEYS = {
-  'apps/api/.env': [],
-  '.env(仓库根)': [],
+  'apps/api/.env': [
+    {
+      key: 'TURNSTILE_SECRET_KEY',
+      evidence:
+        'apps/api/.env:394 原文注记「本地开发…若此处开 secret,本地登录必 403。故本地保持关闭(=无 secret 即放行);生产仓 D:/DevEnv/ihui-prod 的同名键保持开启」;消费方 apps/api/src/services/turnstile-service.ts:72 缺键即降级放行,apps/api/tests/turnstile-missing-secret.test.ts 把该行为钉住 ⇒ 本地属有意关闭,非漏配',
+      retiredAt: '2026-11-18',
+    },
+  ],
+  '.env(仓库根)': [
+    {
+      key: 'TURNSTILE_SECRET_KEY',
+      evidence:
+        '根 .env:270 同一决策的注释形态(与 apps/api/.env:394 配套);site key 仍配在 L271,前端 widget 是否渲染由 web 端 NEXT_PUBLIC_TURNSTILE_SITE_KEY 决定',
+      retiredAt: '2026-11-18',
+    },
+  ],
   'apps/ai-service/.env': [],
 }
 
@@ -234,6 +249,13 @@ export function backupDirOf(root) {
   return join(root || STATE_ROOT, BACKUP_REL)
 }
 
+/** 退役清单 → 键名数组(条目是对象形态;兼容历史字符串形态,免得旧调用方炸) */
+export function retiredKeysOf(targetId) {
+  return (RETIRED_KEYS[targetId] || [])
+    .map((e) => (typeof e === 'string' ? e : e && e.key))
+    .filter((k) => typeof k === 'string' && k.length > 0)
+}
+
 /**
  * 单目标裁决(纯函数,IO 由调用方喂进来 —— 自检与真盘走**同一条**判据,不得另写一份)。
  * @returns {{id:string, state:'clean'|'drift'|'undetermined'|'registered-only', reason:string,
@@ -241,7 +263,7 @@ export function backupDirOf(root) {
  */
 export function judgeTarget(target, io) {
   const { currentText, currentExists, backup, backupText, root } = io
-  const retiredCount = (RETIRED_KEYS[target.id] || []).length
+  const retiredCount = retiredKeysOf(target.id).length
   if (!target.judge) {
     return {
       id: target.id,
@@ -283,7 +305,7 @@ export function judgeTarget(target, io) {
   const drift = diffAgainstBackup({
     backupValues: backupParsed.values,
     currentValues: currentParsed.values,
-    retired: RETIRED_KEYS[target.id] || [],
+    retired: retiredKeysOf(target.id),
   })
   return {
     id: target.id,
@@ -656,10 +678,21 @@ export function selfTest() {
       json.counts && json.counts.drift === 1 && json.exit === 1,
     )
 
-    // ⑨ 废弃清单:默认空;非空时只让"整键缺失"这一类消音,值为空不得被遮
+    // ⑨ 废弃清单:每条必须带可核验证据与登记日期(空表仍是最优状态);
+    //    只让"整键缺失"这一类消音,值为空不得被遮
+    const retiredEntries = Object.values(RETIRED_KEYS).flat()
     assert(
-      '⑨废弃清单默认全空(现表为空 = 零豁免)',
-      Object.values(RETIRED_KEYS).every((a) => a.length === 0),
+      '⑨废弃清单每条都带 evidence(≥10 字)与 retiredAt(YYYY-MM-DD)',
+      retiredEntries.every(
+        (e) =>
+          e &&
+          typeof e.key === 'string' &&
+          e.key.length > 0 &&
+          typeof e.evidence === 'string' &&
+          e.evidence.length >= 10 &&
+          /^\d{4}-\d{2}-\d{2}$/.test(String(e.retiredAt || '')),
+      ),
+      JSON.stringify(retiredEntries.map((e) => e && e.key)),
     )
     const d9 = diffAgainstBackup({
       backupValues: parseEnvText('GONE=1\nBLANK_ME=2\n').values,
