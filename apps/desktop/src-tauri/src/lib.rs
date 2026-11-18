@@ -14,7 +14,6 @@ mod webview2_runtime;
 // 2026-10-09 立(WP-C 第一步):签到账号本地捕获——TRAE 目录探测/JWT 提取/设备标识重置/9 类快照。
 // 分层同 desktop_prefs.rs:判据纯函数 + 执行层 + 薄胶水,测试在模块内真跑。
 mod checkin_capture;
-mod checkin_capture;
 // 2026-10-12 立:WorkBuddy「网页登录自动添加账号」——内嵌 WebView 登录 + cookie jar
 // 读取(含 HttpOnly)+ /console/accounts 登录态验证,普通用户零 token 体验。
 mod checkin_web_login;
@@ -62,6 +61,16 @@ mod operator;
 // plugin-store 路径越权修复:远程面只保留 store_read_entry/store_write_entry,
 // 路径经 resolve_store_path 拒绝对路径/`..` 并 canonicalize 断言落在 app_data_dir(见模块文档)。
 mod store_path;
+// 2026-11-15 立(四程序独立分析 T3§A/T4§A):终端执行会话执行层——跨平台 PTY(std)+
+// 环形缓冲封顶 + 进程树清理(Windows Job Object / POSIX 进程组)。执行层只用 std,
+// 可 `rustc --test` 单独跑单测;胶水在 terminal_ipc.rs,本文件只接线。
+mod terminal_session;
+// 终端会话 IPC 胶水:只放 #[tauri::command] + serde DTO,不碰终端状态判定。
+mod terminal_ipc;
+// 2026-11-15 立(四程序独立分析 T3§H/T4§H):防孤儿守护——主进程挂 kill-on-close 作业
+// (退出即自动清整棵进程树)+ 原生件 sha256 白名单验签。与 startup_guard(启动相位)
+// 正交:那条管"启动别互杀",这条管"退出别留孤儿"。判据纯函数 verify_artifact 可单测。
+mod orphan_guard;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -465,13 +474,30 @@ fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, IpcError> {
 
 /// 切换窗口置顶状态(P2:AI 对话悬浮场景,2026-07-27 立)。
 /// 返回切换后的置顶状态(true=置顶,false=普通)。
+///
+/// 2026-11-18 修订:切换结果必须**同时落成用户偏好**(`always_on_top`)。此前只改运行期状态、
+/// 不写盘,于是"关掉置顶"这件事在重启后没有任何交代 —— 用户实报"默认就置顶"时,
+/// 既查不到是偏好还是残留,也没有可回退的开关。
 #[tauri::command]
-fn toggle_always_on_top(window: tauri::WebviewWindow) -> Result<bool, IpcError> {
+fn toggle_always_on_top(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+) -> Result<bool, IpcError> {
     let current = window.is_always_on_top().unwrap_or(false);
+    let next = !current;
     window
-        .set_always_on_top(!current)
+        .set_always_on_top(next)
         .map_err(|e| IpcError::internal(format!("set_always_on_top: {e}")))?;
-    Ok(!current)
+    // 落盘失败不挡本次切换(运行期已生效),由 write_desktop_prefs 打错误日志;
+    // 下一次点这枚按钮仍能改回来 —— 不容许"一次 IO 失败把开关焊死"。
+    let _ = write_desktop_prefs(
+        &app,
+        DesktopPrefsPatch {
+            always_on_top: Some(next),
+            ..Default::default()
+        },
+    );
+    Ok(next)
 }
 
 #[tauri::command]
@@ -541,6 +567,12 @@ fn set_caption_button_theme(label: String, dark_bg: bool) {
 /// 的代码之后,等于没有兜底。
 fn exit_application(app: &tauri::AppHandle) {
     arm_forced_exit(app, QUIT_FORCED_EXIT_GRACE_SECS);
+    // 2026-11-15 立(终端执行层 防孤儿):退出时清空全部终端会话,Windows 走 Job Object
+    // TerminateJobObject 清整树,POSIX 走进程组 SIGTERM——不留无主子进程。
+    // 放在 arm_forced_exit 之后:即使下面 save_window_state 卡住,兜底计时器仍会强杀,
+    // 而终端清理这条尽力而为、不该阻塞退出序列。
+    app.try_state::<terminal_session::TerminalManager>()
+        .inspect(|mgr| mgr.kill_all());
     let _ = save_window_state(Some("main".to_string()), app.clone());
     let _ = save_window_state(Some("admin".to_string()), app.clone());
     app.exit(0);
@@ -601,6 +633,39 @@ fn grace_window_until_ready(
         sleep(poll_ms);
         waited_ms = waited_ms.saturating_add(poll_ms);
     }
+}
+
+/// 置顶巡检线程的采样间隔(毫秒)。
+const TOPMOST_WATCHDOG_INTERVAL_MS: u64 = 10_000;
+
+/// 2026-11-18 立(第三道清零点):运行期置顶巡检。
+///
+/// 前两道分别是「启动时按偏好落地」(`apply_always_on_top`,清掉上个进程/外部残留)
+/// 与「回前台时校正」(WindowEvent::Focused 分支)。后者依赖 winit 的焦点事件:外部
+/// 工具(DeskPins / PowerToys Always-on-Top / 脚本 `SetWindowPos(HWND_TOPMOST)`)能在
+/// 用户**不回前台**的情况下把 `WS_EX_TOPMOST` 打上去,而 tao 那边的 always_on_top
+/// 标志账上看不见这一步 —— `set_always_on_top(false)` 的 diff 为空 ⇒ 清不掉,这正是
+/// 「默认就在置顶、切其他程序根本看不到」的成因本身。
+///
+/// 本线程绕开标志账,直接读**真实扩展样式位**(`window_chrome::real_topmost`):
+/// 偏好为 false 且实测带 TOPMOST ⇒ 清;取不到句柄 ⇒ `None` = 未判定,一个字不动
+/// (不猜,§0.3);偏好为 true ⇒ 同样一个字不动(用户开关是唯一真相源)。
+/// 只盯 main:admin 是工具窗,没有这枚开关。
+#[cfg(target_os = "windows")]
+fn spawn_topmost_watchdog(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(TOPMOST_WATCHDOG_INTERVAL_MS));
+        if load_desktop_prefs(&app).always_on_top {
+            continue;
+        }
+        let Some(window) = app.get_webview_window("main") else {
+            continue;
+        };
+        if window_chrome::real_topmost(&window) == Some(true) {
+            log::warn!("[desktop-prefs] 巡检发现外部置顶残留 ⇒ 按用户偏好(不置顶)清除");
+            apply_always_on_top(&app, false);
+        }
+    });
 }
 
 /// 票 L7220 P3(2026-10-21 立):把"webview 到底建出来没有"这条判据**后置到事件循环
@@ -670,9 +735,46 @@ fn startup_health_gate(app: tauri::AppHandle) {
 }
 
 #[cfg(test)]
+mod orphan_guard_scope_tests {
+    //! 形状锁(2026-11-18 立,真实事故:装上即静默 exit 0、无窗口无日志)。
+    //!
+    //! `orphan_guard::install()` 返回的 `OrphanGuard` 持有 kill-on-close 作业句柄,
+    //! 该句柄一 CloseHandle 内核就 TerminateJobObject 掉组内全部进程 —— 组里只有本进程。
+    //! 原写法把它绑在 `#[cfg(windows)] { … }` 的块作用域里,于是那个右大括号一到就自杀,
+    //! 表现为"双击毫无反应、日志一行不写"。本条钉住两件事:绑定行必须是 `run()` 内
+    //! 4 空格缩进(函数作用域),且它的上一个非空行不得是块开始 `{`。
+    const SRC: &str = include_str!("lib.rs");
+
+    #[test]
+    fn install_binding_stays_in_run_function_scope() {
+        // 取**最后一处**出现:本条测试自己体内就写着同一段字面量(位置靠前),
+        // 真绑定在 `run()` 里(位置靠后);用 `find` 会命中测试源码本身(实测踩过,
+        // 报出来的缩进是 `.find("` 那一行)。
+        let idx = SRC
+            .rfind("let _orphan_guard = orphan_guard::install();")
+            .expect("orphan_guard 绑定不见了 —— 若已重构,本条判据必须同笔改写而不是删掉");
+        let line_start = SRC[..idx].rfind('\n').map(|p| p + 1).unwrap_or(0);
+        assert_eq!(
+            &SRC[line_start..idx],
+            "    ",
+            "绑定必须留在 run() 的函数作用域(4 空格缩进);缩进变化说明它又被挪进了别的块"
+        );
+        let prev_line = SRC[..line_start.saturating_sub(1)]
+            .lines()
+            .rev()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("");
+        assert_ne!(
+            prev_line.trim(),
+            "{",
+            "绑定不得被包进任何块 —— 块结束即 CloseHandle ⇒ kill-on-close 自杀,进程无日志退出"
+        );
+    }
+}
+
+#[cfg(test)]
 mod grace_window_tests {
     use super::grace_window_until_ready;
-
     #[test]
     fn grace_window_second_sample_ready_returns_true() {
         let mut samples = 0;
@@ -756,27 +858,32 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
 /// 2026-07-29 扩充:新增对话/切换主题/打开设置/检查更新,emit 事件给前端处理。
 /// 2026-11-11 新增第 8 项「AI 客户端一键切号」:操作员专属,默认不在菜单里
 /// (见 desktop_prefs::default_tray_menu_items),下标 7 必须与登记表的 label_index 对齐。
-fn tray_menu_labels() -> [&'static str; 8] {
+/// 2026-11-18 新增「窗口置顶(切换)」(下标 6,排在「检查更新」之后、「退出」之前):
+/// 托盘是**不依赖远程前端**的入口 —— 桌面端加载的是线上页,图钉按钮要等前端发版才可见,
+/// 而"用户自己能决定置不置顶"这件事必须当场可用,所以两条入口并行(同一枚偏好、
+/// 同一枚 apply_always_on_top,不是两套实现)。i18n:五语言各一条中性文案(切换语义),
+/// 状态由窗口行为即时体现(点一下立刻置顶/取消),不在文案里嵌"当前:开/关"。
+fn tray_menu_labels() -> [&'static str; 9] {
     match get_system_locale() {
         AppLocale::ZhCn => [
-            "新建对话", "显示主窗口", "隐藏主窗口", "切换主题", "打开设置", "检查更新", "退出",
-            "AI 客户端一键切号",
+            "新建对话", "显示主窗口", "隐藏主窗口", "切换主题", "打开设置", "检查更新",
+            "窗口置顶(切换)", "退出", "AI 客户端一键切号",
         ],
         AppLocale::ZhTw => [
-            "新建對話", "顯示主視窗", "隱藏主視窗", "切換主題", "開啟設定", "檢查更新", "結束",
-            "AI 客戶端一鍵切號",
+            "新建對話", "顯示主視窗", "隱藏主視窗", "切換主題", "開啟設定", "檢查更新",
+            "視窗置頂(切換)", "結束", "AI 客戶端一鍵切號",
         ],
         AppLocale::Ko => [
-            "새 대화", "메인 창 표시", "메인 창 숨기기", "테마 전환", "설정 열기", "업데이트 확인", "종료",
-            "AI 클라이언트 원클릭 계정 전환",
+            "새 대화", "메인 창 표시", "메인 창 숨기기", "테마 전환", "설정 열기", "업데이트 확인",
+            "항상 위에 표시(전환)", "종료", "AI 클라이언트 원클릭 계정 전환",
         ],
         AppLocale::Ja => [
-            "新規会話", "メインウィンドウを表示", "メインウィンドウを隠す", "テーマ切替", "設定を開く", "更新確認", "終了",
-            "AIクライアント ワンクリック切替",
+            "新規会話", "メインウィンドウを表示", "メインウィンドウを隠す", "テーマ切替", "設定を開く", "更新確認",
+            "常に最前面(切替)", "終了", "AIクライアント ワンクリック切替",
         ],
         AppLocale::En => [
-            "New Chat", "Show Main Window", "Hide Main Window", "Toggle Theme", "Open Settings", "Check for Updates", "Quit",
-            "AI Client: One-Click Account Switch",
+            "New Chat", "Show Main Window", "Hide Main Window", "Toggle Theme", "Open Settings", "Check for Updates",
+            "Always on Top (toggle)", "Quit", "AI Client: One-Click Account Switch",
         ],
     }
 }
@@ -873,6 +980,21 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
+            }
+            "tray.always_on_top" => {
+                // 2026-11-18 立:托盘入口的窗口置顶开关(用户诉求"能自己决定置不置顶")。
+                // 与前端图钉按钮共用同一枚偏好、同一个 `apply_always_on_top` ——
+                // `write_desktop_prefs` 内部已在值变化时落地并落盘(见该函数注释),
+                // 这里不重复调用,避免两处各自 set_always_on_top 叠时序。
+                let next_enabled = !load_desktop_prefs(app).always_on_top;
+                let _ = write_desktop_prefs(
+                    app,
+                    DesktopPrefsPatch { always_on_top: Some(next_enabled), ..Default::default() },
+                );
+                log::info!(
+                    "[desktop-prefs] site=tray_menu_always_on_top \
+                     trigger=用户点托盘菜单「窗口置顶(切换)」 ⇒ always_on_top={next_enabled}"
+                );
             }
             "tray.quit" => {
                 // 2026-09-27 改:托盘「退出」= **立即退出**,不再把决定权交给前端。
@@ -2819,6 +2941,12 @@ fn write_desktop_prefs(
         log::error!("[desktop-prefs] 落盘失败({e}):本次改动只对本次会话生效,重启会回到盘上那份");
     }
 
+    // 置顶档是「窗口行为」而非托盘行为:改动必须立刻落到窗口上。
+    // 关掉这一支同时清真实 WS_EX_TOPMOST(见 apply_always_on_top 的注释)。
+    if current.always_on_top != next.always_on_top {
+        apply_always_on_top(app, next.always_on_top);
+    }
+
     // 托盘只在"形状变了"或"实际存在性与期望不一致"时重建 —— 否则改个角标开关不该让图标闪一下。
     // 顺带自愈:启动时 build_tray 失败(托盘没建出来)也会在这一格被补回来。
     let tray_present = app.tray_by_id("main").is_some();
@@ -2834,6 +2962,27 @@ fn write_desktop_prefs(
     build_prefs_response(next, save_result)
 }
 
+/// 把置顶偏好落到主窗口上。**唯一实现**:启动路径与偏好写入路径共用。
+///
+/// 关掉时必须走原生的 `force_not_topmost`,不能只 `set_always_on_top(false)`:
+/// tao 的标志若本来就是 false,而真实 `WS_EX_TOPMOST` 是旧进程/外部留下的,
+/// 那次调用的 diff 为空,窗口会继续盖住其他程序(2026-11-18 用户实报的那一型)。
+fn apply_always_on_top(app: &tauri::AppHandle, enabled: bool) {
+    let Some(window) = app.get_webview_window("main") else {
+        log::warn!(
+            "[desktop-prefs] apply_always_on_top({enabled}): main 窗口不在,跳过(下次启动按偏好落地)"
+        );
+        return;
+    };
+    if let Err(e) = window.set_always_on_top(enabled) {
+        log::warn!("[desktop-prefs] set_always_on_top({enabled}) 失败: {e}");
+    }
+    if !enabled {
+        window_chrome::force_not_topmost(&window);
+    }
+    log::info!("[desktop-prefs] always_on_top={enabled}(按用户显式偏好落地)");
+}
+
 #[cfg(test)]
 mod prefs_response_tests {
     use super::*;
@@ -2846,6 +2995,7 @@ mod prefs_response_tests {
             tray_single_click: TraySingleClick::ToggleWindow,
             unread_badge: false,
             tray_menu_items: vec!["show".into(), "quit".into()],
+            always_on_top: true,
         }
     }
 
@@ -2857,6 +3007,7 @@ mod prefs_response_tests {
             "tray_single_click",
             "unread_badge",
             "tray_menu_items",
+            "always_on_top",
             "persisted",
         ] {
             assert!(value.get(key).is_some(), "回包缺少顶层字段 {key}");
@@ -2866,6 +3017,7 @@ mod prefs_response_tests {
         assert_eq!(value["launch_minimized"], serde_json::json!(true));
         assert_eq!(value["unread_badge"], serde_json::json!(false));
         assert_eq!(value["tray_menu_items"], serde_json::json!(["show", "quit"]));
+        assert_eq!(value["always_on_top"], serde_json::json!(true));
     }
 
     #[test]
@@ -4184,6 +4336,22 @@ pub fn run() {
     // 阶段没有 AppHandle、拿不到 `app.path().app_log_dir()`,只能由这里把同一枚文件名
     // 常量注入下去 —— 在 startup_guard 里再写一遍字面量就是第二个真相源。
     startup_guard::preflight(&app_identifier, APP_LOG_FILE_STEM);
+    // 2026-11-15 立(H 类 防孤儿+验签):主进程挂 kill-on-close 作业,此后所有后代
+    // 默认继承,主进程退出关闭作业句柄时内核 TerminateJobObject 清整棵进程树。
+    // 降级:建作业失败只记日志,不阻断启动(失去自动清树保险但不拒启)。
+    //
+    // ⚠️ 2026-11-18 修(BUG:装上即静默 exit 0、连日志插件的 setup 都活不到):
+    // 原写法把绑定塞进 `#[cfg(windows)] { let _orphan_guard = …; }` 这个**块**作用域,
+    // 注释却写着"故意不 move:让 OrphanGuard 在整个 run() 函数生命周期内存活" ——
+    // 实现只活到那个右大括号。`OrphanGuard` 的字段是 `JobObject`,其 `Drop` 会
+    // `CloseHandle`(见 terminal_session.rs),而本作业带
+    // `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` ⇒ **关句柄 = 内核立刻终止组内全部进程**
+    // (组里只有自己,即自杀),终态 exit 0、无窗口、无日志,与"双击毫无反应"同形。
+    // 正解:绑定必须落在 `run()` 的**函数作用域**(下面的 `let` 语句,不再包块),
+    // 这样它活到函数返回;退出时才由 Drop 触发整树清理 —— 那正是本机制要的时机。
+    // 形状由 lib.rs 的 `orphan_guard_scope_tests` 钉住(不许再包进任何 `{}`)。
+    #[cfg(target_os = "windows")]
+    let _orphan_guard = orphan_guard::install();
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
@@ -4426,6 +4594,26 @@ pub fn run() {
             // 内核自带的 tauri://focus|blur 在远程 URL 页面实测收不到(真机聚焦/失焦两态
             // 像素逐字相同),所以走与 desktop-tray-action 同一条已被生产验证可用的应用层通道。
             if let tauri::WindowEvent::Focused(focused) = event {
+                // 2026-11-18 立(第二道清零点,「杜绝」的收口):启动那次清零只管"进程
+                // 起来时的残留",窗口活着的期间仍可能被外部工具(PowerToys / DeskPins /
+                // 脚本)再打上 WS_EX_TOPMOST —— 它同样不在 tao 的标志账上,
+                // `set_always_on_top(false)` 的 diff 依旧为空。回前台这一刻正是"用户马上
+                // 要切走它"的时刻,也是清残留最该发生的时刻。
+                // 语义以本应用偏好为唯一真相源:偏好 false ⇒ 清;偏好 true ⇒ 一个字不动。
+                // 只动 main:admin 是工具窗,没有这枚开关,不该被强制改 Z 序。
+                // 先读真实样式位再决定(真带 TOPMOST 才动手),避免每次切窗口都发
+                // SetWindowPos / 写一行日志;取不到句柄 ⇒ 未判定,什么都不做(不猜)。
+                if *focused && label == "main" {
+                    let app = window.app_handle().clone();
+                    if !load_desktop_prefs(&app).always_on_top
+                        && window_chrome::real_topmost(window) == Some(true)
+                    {
+                        log::warn!(
+                            "[desktop-prefs] 回前台时发现外部置顶残留 ⇒ 按用户偏好(不置顶)清除"
+                        );
+                        apply_always_on_top(&app, false);
+                    }
+                }
                 if label == "main" || label == "admin" {
                     if let Err(e) = window.emit("desktop-window-focus", focused) {
                         log::warn!("[desktop-event] emit desktop-window-focus failed: {}", e);
@@ -4553,6 +4741,10 @@ pub fn run() {
                 let gate_app = app.handle().clone();
                 std::thread::spawn(move || startup_health_gate(gate_app));
             }
+            // 第三道清零点(2026-11-18):运行期置顶巡检。启动清零 + 回前台校正之后
+            // 仍可能被外部工具再钉上去,这一层按真实 WS_EX 位独立兜底(见函数头注)。
+            #[cfg(target_os = "windows")]
+            spawn_topmost_watchdog(app.handle().clone());
 
             // G-379/G-407/G-774,2026-10-07:日志保留期。此刻日志插件自己的 setup 已跑完
             // (活跃文件句柄在插件手里、超限历史已按 KeepSome rename 成档案),这里只裁
@@ -4710,6 +4902,12 @@ pub fn run() {
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
+            // 2026-11-18 立(用户实报「桌面端默认就在电脑上置顶,切其他程序根本看不到」):
+            // tauri.conf.json 是 alwaysOnTop=false,代码里也只有 toggle 一条入口,但窗口的
+            // WS_EX_TOPMOST 可能由旧进程/外部工具留下 —— 它不在 tao 的标志账上,只看标志
+            // 会漏。所以启动时先无条件按真实句柄清零一次,再只按用户显式保存的偏好打开。
+            // 默认(盘上没有这条键)= false ⇒ 启动即普通窗口,这就是"杜绝"的落点。
+            apply_always_on_top(app.handle(), startup_prefs.always_on_top);
             // 2026-10-18 立:Windows 原生窗控按钮(分层透明窗自绘 Segoe Fluent Icons,
             // 见 window_chrome.rs)。必须在 restore_window_state **之后**(几何稳定)、
             // 首次 show() 之前调 —— 窗口一亮右上角三按钮就在(OS 壳直接绘制),
@@ -4818,22 +5016,6 @@ pub fn run() {
                     }
                 }
             });
-            // 应用上架平台账号:桌面启动后自动隐藏打开 7 个后台窗口,接入 10 分钟心跳保活。
-            // 窗口独立 profile 落盘,首次手动登录后登录态跨重启保留,之后每次启动自动续。
-            {
-                let sa_app = app.handle().clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(6));
-                    match store_browser::auto_open_store_accounts(&sa_app) {
-                        Ok(()) => log::info!(
-                            "[store-browser] 已自动打开应用上架平台账号窗口(隐藏),接入心跳保活"
-                        ),
-                        Err(e) => {
-                            log::warn!("[store-browser] 自动打开商店账号窗口失败: {}", e)
-                        }
-                    }
-                });
-            }
             let _ = app;
             Ok(())
         })
@@ -4906,7 +5088,6 @@ pub fn run() {
             checkin_capture::checkin_capture_workbuddy,
             checkin_capture::checkin_capture_minimax,
             // 2026-10-16 内嵌浏览器版:窗口开/关统一走 embedded_browser(注册在上方),
-pub fn run() {
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_web_login::checkin_workbuddy_web_login_probe_cookie,

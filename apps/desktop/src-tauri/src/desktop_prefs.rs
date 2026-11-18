@@ -72,22 +72,31 @@ pub struct TrayMenuItem {
     pub group: u8,
 }
 
-pub const TRAY_MENU_ITEMS: [TrayMenuItem; 8] = [
+pub const TRAY_MENU_ITEMS: [TrayMenuItem; 9] = [
     TrayMenuItem { id: "new_chat", label_index: 0, group: 0 },
     TrayMenuItem { id: "show", label_index: 1, group: 1 },
     TrayMenuItem { id: "hide", label_index: 2, group: 1 },
     TrayMenuItem { id: "theme", label_index: 3, group: 2 },
     TrayMenuItem { id: "settings", label_index: 4, group: 2 },
     TrayMenuItem { id: "update", label_index: 5, group: 2 },
-    TrayMenuItem { id: "quit", label_index: 6, group: 3 },
+    // 2026-11-18:窗口置顶开关(托盘入口)。与 group 2 的「设置/检查更新」同组 ——
+    // 它是"窗口行为"类开关,和退出(人员动作)不该贴在一起。label_index 6 对应
+    // tray_menu_labels() 的「窗口置顶(切换)」;默认菜单里就该有它(不是操作员专属):
+    // 桌面端加载的是线上页,图钉按钮要等前端发版,托盘这条是用户当场可用的入口。
+    TrayMenuItem { id: "always_on_top", label_index: 6, group: 2 },
+    TrayMenuItem { id: "quit", label_index: 7, group: 3 },
     // 2026-11-11:操作员专属项。**默认不进 default 列表**(见 default_tray_menu_items),
     // 需在 <app_config_dir>/desktop-behavior.json 的 tray_menu_items 里显式加
     // "relay_switch" 才出现 —— 详见 is_operator_only_tray_item 的立因。
-    TrayMenuItem { id: "relay_switch", label_index: 7, group: 4 },
+    TrayMenuItem { id: "relay_switch", label_index: 8, group: 4 },
 ];
 
 /// 「退出」这一项的 id:不变量 2 要求菜单里永远有它(否则用户没法从托盘退进程)。
 pub const TRAY_MENU_QUIT_ID: &str = "quit";
+
+/// 窗口置顶开关的托盘项 id(2026-11-18 立):点击 = 翻转 `DesktopPrefs::always_on_top`
+/// 并落盘 + 立刻落到窗口上,与前端图钉按钮共用同一枚偏好与同一个 `apply_always_on_top`。
+pub const TRAY_MENU_ALWAYS_ON_TOP_ID: &str = "always_on_top";
 
 /// 操作员专属托盘项 id:拉起本机号池切号器(见 lib.rs 的 spawn_relay_switch)。
 pub const TRAY_MENU_RELAY_SWITCH_ID: &str = "relay_switch";
@@ -139,6 +148,9 @@ pub struct DesktopPrefs {
     pub unread_badge: bool,
     /// 托盘菜单里有哪些项(顺序即菜单顺序)。
     pub tray_menu_items: Vec<String>,
+    /// 主窗口是否置顶。默认 **false**:置顶会盖住其他程序,只能由用户显式打开
+    /// (2026-11-18 立,此前无此偏好 ⇒ 运行期一旦被切到置顶就没人能把它关回去)。
+    pub always_on_top: bool,
 }
 
 /// 手写 Default:见上面那段 —— bool 的派生 Default 是 false,会把两个默认「开」的开关
@@ -152,6 +164,9 @@ impl Default for DesktopPrefs {
             tray_single_click: TraySingleClick::Menu,
             unread_badge: true,
             tray_menu_items: default_tray_menu_items(),
+            // 默认不置顶:旧版本/外部残留的 WS_EX_TOPMOST 由启动路径强制清掉,
+            // 这里只认用户显式保存过的那一份(缺省即 false)。
+            always_on_top: false,
         }
     }
 }
@@ -175,6 +190,8 @@ pub struct DesktopPrefsPatch {
     pub unread_badge: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tray_menu_items: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub always_on_top: Option<bool>,
 }
 
 impl DesktopPrefsPatch {
@@ -187,6 +204,7 @@ impl DesktopPrefsPatch {
             tray_single_click: self.tray_single_click.unwrap_or(base.tray_single_click),
             unread_badge: self.unread_badge.unwrap_or(base.unread_badge),
             tray_menu_items: self.tray_menu_items.unwrap_or(base.tray_menu_items),
+            always_on_top: self.always_on_top.unwrap_or(base.always_on_top),
         }
     }
 }
@@ -215,11 +233,37 @@ pub fn normalize_prefs(prefs: DesktopPrefs) -> DesktopPrefs {
             log::warn!("[desktop-prefs] 丢弃未知托盘菜单项 id: {id}(不在 TRAY_MENU_ITEMS 登记表里)");
         }
     }
+    // 记住"补 quit 之前"是否本来就是一张有内容的菜单:空表是"用户把菜单删光了"的
+    // 极端形态,归一语义是「只留 quit」—— 下面的新项迁移不得借"补完 quit 就非空了"
+    // 把它顺带撑开(实测踩过:条件写成 !kept.is_empty() 时空表也会被补进新项)。
+    let had_items_before_quit_fill = !kept.is_empty();
     if !kept.iter().any(|id| id == TRAY_MENU_QUIT_ID) {
         log::warn!(
             "[desktop-prefs] tray_menu_items 里没有 {TRAY_MENU_QUIT_ID},已补到末尾(托盘必须留得下退出出口)"
         );
         kept.push(TRAY_MENU_QUIT_ID.to_string());
+    }
+
+    // 2026-11-18 迁移:「窗口置顶(切换)」是本版新登记的第 9 项,旧版本的
+    // desktop-behavior.json 里**不可能**有它 —— 已装用户因此看不到这枚开关
+    // (实证:本机配置 = 历史 7 项 + relay_switch,新项一条都不出现)。这里按
+    // 「登记表里有、而用户列表里缺」补入,插在 quit 之前(与登记表同序);
+    // 幂等(已有就一个字不动),且**只对非空列表**生效 —— 空表是"用户把菜单删光了"
+    // 的极端形态,归一语义仍是"只留 quit",不得借迁移把它再撑开。
+    // 取舍(如实登记):一旦补入,用户若手工把它从 json 删掉,下次归一还会补回来 ——
+    // "用户想长期删掉这一项"目前没有产品面出口;真要支持时再加一枚 migrated 标记字段,
+    // 不要在本条里偷偷引入第二套记忆。
+    if had_items_before_quit_fill && !kept.iter().any(|id| id == TRAY_MENU_ALWAYS_ON_TOP_ID) {
+        // debug 档:归一在同一轮启动里会被多次调用(build_tray/各命令各读一次),
+        // 用 info 会一次启动刷出多行同样的迁移记录(本机实测 6 行)。
+        log::debug!(
+            "[desktop-prefs] 迁移:托盘菜单补入「{TRAY_MENU_ALWAYS_ON_TOP_ID}」项(本版新登记,旧配置里不可能有)"
+        );
+        let insert_at = kept
+            .iter()
+            .position(|id| id == TRAY_MENU_QUIT_ID)
+            .unwrap_or(kept.len());
+        kept.insert(insert_at, TRAY_MENU_ALWAYS_ON_TOP_ID.to_string());
     }
     prefs.tray_menu_items = kept;
 
@@ -404,7 +448,13 @@ mod tests {
         assert!(d.unread_badge, "unread_badge 默认必须是 true");
         // 负向对照:默认列表不是空表(空表会被归一成"只剩 quit",那与默认档不同形)
         assert_eq!(d.tray_menu_items, default_tray_menu_items());
-        assert_eq!(d.tray_menu_items.len(), 7);
+        assert_eq!(
+            d.tray_menu_items.len(),
+            8,
+            "默认菜单 = 历史 7 项 + 2026-11-18「窗口置顶(切换)」"
+        );
+        // 置顶是"盖住别人"的开关:默认必须是关,不能有第二个默认值(2026-11-18 立)
+        assert!(!d.always_on_top, "always_on_top 默认必须是 false");
     }
 
     #[test]
@@ -445,6 +495,7 @@ mod tests {
         assert!(loaded.show_tray_icon, "未填的 show_tray_icon 必须是默认 true(不是 bool::default)");
         assert!(loaded.unread_badge, "未填的 unread_badge 必须是默认 true(不是 bool::default)");
         assert_eq!(loaded.tray_menu_items, default_tray_menu_items());
+        assert!(!loaded.always_on_top, "未填的 always_on_top 必须落在默认 false");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -506,21 +557,63 @@ mod tests {
         let normalized = normalize_prefs(input);
         assert_eq!(
             normalized.tray_menu_items,
-            vec!["show".to_string(), "hide".to_string(), "quit".to_string()],
-            "未知项要被丢掉、quit 补到末尾、其余顺序不变"
+            vec![
+                "show".to_string(),
+                "hide".to_string(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string(),
+                "quit".to_string()
+            ],
+            "未知项要被丢掉、quit 补到末尾、本版新项(always_on_top)补在 quit 之前、其余顺序不变"
         );
     }
 
     #[test]
     fn invariant2_leaves_a_legal_menu_untouched() {
-        // 反面对照:已经含 quit 的列表不得被再加一遍(重复项会在菜单里长出两个「退出」)。
+        // 反面对照:已经含 quit、且已含本版新项(always_on_top)的列表不得被改动 ——
+        // 迁移是"缺则补",不是"每次重排"。
         let input = DesktopPrefs {
-            tray_menu_items: vec!["quit".into(), "new_chat".into()],
+            tray_menu_items: vec![
+                "quit".into(),
+                "new_chat".into(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.into(),
+            ],
             ..DesktopPrefs::default()
         };
         let normalized = normalize_prefs(input);
-        assert_eq!(normalized.tray_menu_items, vec!["quit".to_string(), "new_chat".to_string()]);
+        assert_eq!(
+            normalized.tray_menu_items,
+            vec![
+                "quit".to_string(),
+                "new_chat".to_string(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string()
+            ]
+        );
         assert_eq!(normalized.tray_menu_items.iter().filter(|id| *id == "quit").count(), 1);
+    }
+
+    #[test]
+    fn migrates_missing_always_on_top_item_into_an_existing_menu() {
+        // 2026-11-18 迁移:已装用户的旧配置(历史 7 项 ± relay_switch)必须长出这枚开关,
+        // 且插在 quit 之前(与登记表同序)。这是"用户自己能决定置不置顶"在已装机器上
+        // 可达的唯一前提 —— 不迁移的话,装上新版也看不到那一条。
+        let input = DesktopPrefs {
+            tray_menu_items: vec!["show".into(), "hide".into(), "quit".into()],
+            ..DesktopPrefs::default()
+        };
+        let normalized = normalize_prefs(input);
+        assert_eq!(
+            normalized.tray_menu_items,
+            vec![
+                "show".to_string(),
+                "hide".to_string(),
+                TRAY_MENU_ALWAYS_ON_TOP_ID.to_string(),
+                "quit".to_string()
+            ],
+            "缺项必须补在 quit 之前"
+        );
+        // 幂等:再归一一次不得长出第二份。
+        let again = normalize_prefs(normalized.clone());
+        assert_eq!(again.tray_menu_items, normalized.tray_menu_items);
     }
 
     #[test]
@@ -570,7 +663,11 @@ mod tests {
             !defaults.iter().any(|id| is_operator_only_tray_item(id)),
             "默认托盘菜单不得包含操作员专属项"
         );
-        assert_eq!(defaults.len(), 7, "默认托盘项必须与历史 7 项逐字同形");
+        assert_eq!(
+            defaults.len(),
+            8,
+            "默认托盘项 = 历史 7 项 + 2026-11-18「窗口置顶(切换)」;改这里必须同笔说明来由"
+        );
         assert!(
             tray_menu_item(TRAY_MENU_RELAY_SWITCH_ID).is_some(),
             "操作员项仍须登记在册,否则 desktop-behavior.json 里写了也会被归一化丢掉"

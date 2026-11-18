@@ -56,6 +56,8 @@ export interface DesktopPrefs {
   traySingleClick: DesktopTraySingleClick
   unreadBadge: boolean
   trayMenuItems: DesktopTrayMenuItemKey[]
+  /** 主窗口是否置顶(宿主默认 false;只有用户显式打开才进置顶层) */
+  alwaysOnTop: boolean
 }
 
 /** 补丁形态:只带要改的键;宿主按整份偏好做规范化后回传。 */
@@ -86,6 +88,7 @@ const WIRE_KEY_ALIASES = {
   traySingleClick: 'tray_single_click',
   unreadBadge: 'unread_badge',
   trayMenuItems: 'tray_menu_items',
+  alwaysOnTop: 'always_on_top',
 } as const satisfies Record<keyof DesktopPrefs, string>
 
 /** 字符串 → 偏好键名的窄化(不 cast:登记表里没有的键就是不属于本契约)。 */
@@ -121,6 +124,8 @@ export function defaultDesktopPrefs(): DesktopPrefs {
     traySingleClick: 'menu',
     unreadBadge: true,
     trayMenuItems: [...DESKTOP_TRAY_MENU_ITEM_KEYS],
+    // 与宿主 Default 同义:默认不置顶(置顶会盖住其他程序)
+    alwaysOnTop: false,
   }
 }
 
@@ -154,6 +159,7 @@ export function normalizeDesktopPrefs(raw: unknown): DesktopPrefs {
   const launchMinimized = readWireField(source, 'launchMinimized')
   const traySingleClick = readWireField(source, 'traySingleClick')
   const unreadBadge = readWireField(source, 'unreadBadge')
+  const alwaysOnTop = readWireField(source, 'alwaysOnTop')
 
   return {
     showTrayIcon: typeof showTrayIcon === 'boolean' ? showTrayIcon : fallback.showTrayIcon,
@@ -166,6 +172,7 @@ export function normalizeDesktopPrefs(raw: unknown): DesktopPrefs {
       ? traySingleClick
       : fallback.traySingleClick,
     unreadBadge: typeof unreadBadge === 'boolean' ? unreadBadge : fallback.unreadBadge,
+    alwaysOnTop: typeof alwaysOnTop === 'boolean' ? alwaysOnTop : fallback.alwaysOnTop,
     trayMenuItems,
   }
 }
