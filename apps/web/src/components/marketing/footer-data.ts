@@ -102,12 +102,13 @@ export const PAYMENTS: readonly Icon[] = [
 
 // 云数据库
 // 5.png (AWS) 白底"aws"字 + 橙色箭头,黑底大背景 → mono
+// 2026-11-18:移除 databases.sqlite 一项 —— 本项目存储是 PostgreSQL(packages/database 唯一驱动 postgres-js),
+// SQLite 既不在这条链路上,也不是"云数据库";该项原本还用 AWS 图标配"亚马逊云"文案,三处互相矛盾。
 export const DATABASES: readonly Icon[] = [
   { nameKey: 'databases.mysql', src: '/footer/shujuku/1.png' },
   { nameKey: 'databases.postgresql', src: '/footer/shujuku/2.png' },
   { nameKey: 'databases.mongodb', src: '/footer/shujuku/3.png' },
   { nameKey: 'databases.redis', src: '/footer/shujuku/4.png' },
-  { nameKey: 'databases.sqlite', src: '/footer/shujuku/5.png', mono: true },
 ]
 
 // 官方推广平台(16 个,2026-07-21 v9 重命名为平台英文名,便于维护)
