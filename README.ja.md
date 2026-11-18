@@ -2226,6 +2226,15 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 ## 最近の更新 (自動維持)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-18**
+- 🐞 修正:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+
+**2026-11-18**
+- 📚 ドキュメント:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 修正:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 機能/改善:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 機能/改善:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
+
 **2026-11-17**
 - 🐞 修正:修复 relay 语法阻断 + nav-data 重复声明 + 补登两条孤儿迁移 (64fe054900)
 - 🐞 修正:nav-data 删除末尾重复的 ADMIN_HUB_ITEMS/DEVELOPER_HUB_ITEMS/HR_HUB_ITEMS 定义(Turbopack 'defined multiple times'+ADDR,web 构建 collect page data 失败) (020fe2ef9e)
@@ -2394,12 +2403,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-16**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (0073e7c7a84)
-
-**2026-11-16**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (30661f36491)
-
-**2026-11-16**
-- 📚 ドキュメント:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
