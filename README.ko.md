@@ -2226,6 +2226,12 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 ## 최근 업데이트 (자동 유지)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-18**
+- 📚 문서:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 수정:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 기능/개선:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 기능/개선:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
+
 **2026-11-17**
 - 🐞 수정:修复 relay 语法阻断 + nav-data 重复声明 + 补登两条孤儿迁移 (64fe054900)
 - 🐞 수정:nav-data 删除末尾重复的 ADMIN_HUB_ITEMS/DEVELOPER_HUB_ITEMS/HR_HUB_ITEMS 定义(Turbopack 'defined multiple times'+ADDR,web 构建 collect page data 失败) (020fe2ef9e)
@@ -2397,9 +2403,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-16**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (30661f36491)
-
-**2026-11-16**
-- 📚 문서:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

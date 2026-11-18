@@ -99,6 +99,12 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-18**
+- 📚 Docs:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 Fix:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 Feature/Improvement:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 Feature/Improvement:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
+
+**2026-11-18**
 - 🔧 Chore/Other:标注反代号池·模型目录自动同步功能(补可追溯历史) (94076b9284b)
 - 🚀 Feature/Improvement:R124 the template-following plan gate, 89.3% -> 89.9% (946ceb4abe1)
 - 📚 Docs:同步生成块数字(测试文件/跟踪文件) (b08c158634c)
@@ -602,9 +608,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
 - 🔧 Chore/Other:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
 - 🚀 Feature/Improvement:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
-
-**2026-11-14**
-- 🚀 Feature/Improvement:新增 3 个未跟踪文件 (da1823aa1d)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
