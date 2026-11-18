@@ -16722,8 +16722,7 @@
       "mongodb": "Volcengine",
       "mysql": "Alibaba Cloud",
       "postgresql": "Tencent Cloud",
-      "redis": "Huawei Cloud",
-      "sqlite": "Amazon Web Services"
+      "redis": "Huawei Cloud"
     },
     "ecosystem": "Ecosystem Partners",
     "icp": "Ji ICP No. 2025027274",

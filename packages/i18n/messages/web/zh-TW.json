@@ -16712,8 +16712,7 @@
       "mongodb": "火山引擎",
       "mysql": "阿裡雲",
       "postgresql": "騰訊雲",
-      "redis": "華為雲",
-      "sqlite": "亞馬遜雲"
+      "redis": "華為雲"
     },
     "ecosystem": "生態合作",
     "icp": "吉ICP備2025027274號",
