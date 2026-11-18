@@ -184,13 +184,8 @@ function Install-ViaNpm {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Warn "全局安装失败,尝试以管理员权限重试..."
-        Start-Process -FilePath "npm" -ArgumentList ($NPM_PACKAGE) `
-          -Verb RunAs -Wait -ErrorAction SilentlyContinue
-        if ($LASTEXITCODE -ne 0) {
-            Write-Err "npm 安装失败"
-            exit 1
-        }
+        Write-Err "npm 安装失败"
+        exit 1
     }
 
     Write-Log "npm 安装成功"
