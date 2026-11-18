@@ -106,7 +106,7 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        9,
+        10,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
@@ -122,9 +122,13 @@ DOMAINS: Final = (
         "field (schema version, counts, sorted owner order, 64-hex sha, four confessions that "
         "must read false - source_attachments_accessed, source_required_chart_owners_inferred, "
         "native_powerpoint_verified, source_text_emitted), and the portable-chart snapshot "
-        "must admit experimental=true with source_formulas_preserved=false. Still unread: "
-        "create-template-skill "
-        "31 KB, validate_template_plan 19 KB, check_template_fidelity 18 KB, "
+        "must admit experimental=true with source_formulas_preserved=false. R123 read "
+        "create-template-skill in full: ten kinds where a .png reference is either an image or "
+        "a rendered Google preview depending on the declared kind, site is the only directory "
+        "reference and the only hard-coded preview, .txt cannot be inferred so email and slack "
+        "must be declared, the source url constraint is two-way, and preview PNGs are parsed "
+        "chunk by chunk with CRC32 rather than sniffed. Still unread: "
+        "validate_template_plan 19 KB, check_template_fidelity 18 KB, "
         "prepare_template_starter_deck 11 KB, export-google-workspace-file 10 KB, "
         "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB",
     ),
