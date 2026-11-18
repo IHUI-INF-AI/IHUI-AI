@@ -362,6 +362,38 @@ STRICT_OBJECT: Final = "ModelProviderConfigWriteParams"
 STRICT_OBJECT_FIELDS: Final = ("settings",)
 STRICT_OBJECT_REQUIRED: Final = ("settings",)
 
+# ---------------------------------------------------------------- reference surface
+#
+# 92 properties point straight at a named definition; they resolve to 61 distinct targets, so
+# references are reused rather than one-off. A further 71 sit inside `anyOf` and 26 inside `allOf`.
+# The recursive total is 4,586 because every object file re-embeds the definitions it uses — the
+# same node appears in every file that needs it, which is why raw counts are misleading twice over.
+REF_DIRECT_COUNT: Final = 92
+REF_DIRECT_DISTINCT_TARGETS: Final = 61
+REF_IN_ANYOF: Final = 71
+REF_IN_ALLOF: Final = 26
+REF_RECURSIVE_TOTAL: Final = 4586
+TOP_REF_TARGETS: Final = (
+    ("AbsolutePathBuf", 7),
+    ("Thread", 7),
+    ("RequestId", 4),
+    ("Turn", 4),
+    ("AskForApproval", 3),
+    ("ThreadId", 2),
+)
+
+# ---------------------------------------------------------------- prose surface
+#
+# 312 properties carry a description. 59 begin with "Optional", which states the same fact the
+# nullable union already states — the prose and the type repeat each other. 82 contain a
+# conditional ("when", "if", "unless", "only"), so behaviour lives in prose rather than in schema.
+# Median length is 72 characters; the longest is 726, which is an essay, not a label.
+DESCRIPTION_COUNT: Final = 312
+DESCRIPTION_OPTIONAL_PREFIX: Final = 59
+DESCRIPTION_WITH_CONDITIONAL: Final = 82
+DESCRIPTION_MEDIAN_LENGTH: Final = 72
+DESCRIPTION_MAX_LENGTH: Final = 726
+
 ENUM_DEFINITIONS: Final = {
     "AccountRoutingOverride": ("NO_CONSTRAINT", "us", "us_cr",),
     "AccountSessionWorkspaceKind": ("personal", "workspace",),
@@ -556,6 +588,24 @@ def validate_value_surface() -> list[str]:
         problems.append("the dictionary is permissive about unknown fields")
     if STRICT_OBJECT_FIELDS != ("settings",) or STRICT_OBJECT_REQUIRED != ("settings",):
         problems.append("the strict object is the model provider write path with one settings bag")
+
+    if REF_DIRECT_COUNT + REF_IN_ANYOF + REF_IN_ALLOF > REF_RECURSIVE_TOTAL:
+        problems.append("direct and combinator refs cannot exceed the recursive total")
+    if NO_TYPE_BY_COMPOSER["$ref"] != REF_DIRECT_COUNT:
+        problems.append("the direct refs are the property-level refs already counted as untyped")
+    if REF_DIRECT_DISTINCT_TARGETS > REF_DIRECT_COUNT:
+        problems.append("distinct targets cannot exceed the refs that point at them")
+    if sum(count for _, count in TOP_REF_TARGETS) > REF_DIRECT_COUNT:
+        problems.append("the listed targets cannot account for more refs than exist")
+
+    if DESCRIPTION_COUNT != DESCRIBED_FIELD_COUNT:
+        problems.append("the prose surface must match the described-field count")
+    if DESCRIPTION_OPTIONAL_PREFIX > DESCRIPTION_COUNT:
+        problems.append("prose saying Optional cannot exceed the prose that exists")
+    if DESCRIPTION_WITH_CONDITIONAL > DESCRIPTION_COUNT:
+        problems.append("conditional prose cannot exceed the prose that exists")
+    if DESCRIPTION_MEDIAN_LENGTH > DESCRIPTION_MAX_LENGTH:
+        problems.append("a median longer than the maximum is impossible")
 
     return problems
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
