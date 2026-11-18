@@ -126,9 +126,22 @@ if ($null -eq $live -or $live.version -ne $Version -or [int]$live.buildNumber -n
 Write-Host "[remote] ✓ 生产已发布并登记: $($live.version)/$($live.buildNumber) → $($live.downloadUrl)" -ForegroundColor Green
 
 # 清掉生产临时包(80MB,不留在生产盘)
-& ssh -o BatchMode=yes $TargetHost "del /q $remoteApk" | Out-Null
+# 清理 ssh 必须带硬超时(2026-11-18 立,实测事故):裸 `ssh ... "del /q ..."` 在通道半死时会永久挂住,
+# 而它挂在**持有 run.lock 的整轮进程**里 ⇒ 计划任务从此每小时都读成"上一轮仍在运行"并全部跳过,
+# 表面像"发版停了",实际是一条清理命令没超时。失效方向必须是"清理失败但发版结论不变"。
+$cleanArgs = @('-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=10',
+  '-o', 'ServerAliveCountMax=3', $TargetHost, "del /q $remoteApk")
+$cleanProc = Start-Process -FilePath 'ssh' -ArgumentList $cleanArgs -NoNewWindow -PassThru `
+  -RedirectStandardOutput ([System.IO.Path]::GetTempFileName()) `
+  -RedirectStandardError ([System.IO.Path]::GetTempFileName())
+if (-not $cleanProc.WaitForExit(60000)) {
+  Stop-Process -Id $cleanProc.Id -Force -ErrorAction SilentlyContinue
+  Write-Warning '生产临时包清理超时(60s),已终止清理进程;不影响发布结论'
+}
 # 清理是收尾动作,失败不许污染发布结论:本脚本被 build-mobile-rn-release.ps1 以 `&` 同进程调用,
 # 调用方紧接着就检查 $LASTEXITCODE —— 这里的 ssh 抖动会被读成"远程发布腿失败"(实测过的假红)。
-if ($LASTEXITCODE -ne 0) { Write-Warning "生产临时包清理失败(exit=$LASTEXITCODE),不影响发布结论" }
+if ($cleanProc.HasExited -and $cleanProc.ExitCode -ne 0) {
+  Write-Warning "生产临时包清理失败(exit=$($cleanProc.ExitCode)),不影响发布结论"
+}
 $global:LASTEXITCODE = 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
