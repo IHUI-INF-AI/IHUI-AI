@@ -393,6 +393,12 @@ $sdkCandidates = @(@('D:\DevEnv\android-sdk', $env:ANDROID_HOME, $env:ANDROID_SD
 if ($sdkCandidates.Count -eq 0) { throw 'ANDROID_HOME 解析不出可用 SDK(需带 platform-tools\adb.exe)' }
 $env:ANDROID_HOME = $sdkCandidates[0]
 $env:ANDROID_SDK_ROOT = $sdkCandidates[0]
+# 2026-11-18 立:`ANDROID_SDK_HOME` 是 legacy 的「.android 偏好目录」变量,被错设成 SDK 路径时
+# AGP 会在 apply plugin 阶段直接抛 AndroidLocationsException(实测:Gradle 连配置阶段都过不去,
+# 报 "Several environment variables and/or system properties contain different paths to the
+# Android Preferences folder")。本机历史曾把它指到 SDK 目录 ⇒ 这里显式清掉,并保留
+# ANDROID_USER_HOME / ANDROID_AVD_HOME 这一对(Prefs 目录的唯一合法来源)。
+if ($env:ANDROID_SDK_HOME) { Remove-Item Env:\ANDROID_SDK_HOME -ErrorAction SilentlyContinue }
 $env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;" + $env:PATH
 $jv = (& (Join-Path $env:JAVA_HOME 'bin\java.exe') -version 2>&1 | Select-Object -First 1)
 Write-Host "  JAVA_HOME=$env:JAVA_HOME | $jv" -ForegroundColor Green
@@ -735,6 +741,17 @@ try {
   $prevAbiEnv = $env:ORG_GRADLE_PROJECT_reactNativeArchitectures
   $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = ($abiArg -replace '^-PreactNativeArchitectures=', '')
   try {
+    # 2026-11-18 立:JS bundle 任务按**源码内容哈希**判 up-to-date,而 `EXPO_PUBLIC_*` 是构建期
+    # 环境变量、不参与任务输入哈希 ⇒ 上一轮用别的 env(或没注入)打出的 bundle 会被原样复用。
+    # 实测后果:密钥/版本号留在旧 bundle 里,回读臂当场红,而日志看着像"注入成功"。
+    # 正解:构建前先删这两份 JS bundle 产物,让 createBundleReleaseJsAndAssets 必然重跑。
+    foreach ($staleBundle in @(
+        (Join-Path $AndroidDir 'app/build/generated/assets/react/release/index.android.bundle'),
+        (Join-Path $AndroidDir 'app/build/intermediates/assets/release/mergeReleaseAssets/index.android.bundle')
+      )) {
+      if (Test-Path -LiteralPath $staleBundle) { Remove-Item -LiteralPath $staleBundle -Force }
+    }
+    Write-Host "  [env-probe] API='$($env:EXPO_PUBLIC_API_BASE_URL)' WEB='$($env:EXPO_PUBLIC_WEB_URL)' WS='$($env:EXPO_PUBLIC_WS_BASE_URL)' SIGN=$([bool]$env:EXPO_PUBLIC_IHUI_CLIENT_SIGN_SECRET)" -ForegroundColor DarkGray
     # AAB 与 APK 一次构建:createBundleReleaseJsAndAssets 是两者共享的任务,不会把 JS bundle 打两遍。
     # versionName 必须经 -P 传入(2026-11-06):build.gradle 侧的 appVersionName 优先读它,
     # package.json 只做缺省。不传的话系统设置里永远显示原生基座(0.0.12),与站点/DB 登记脱节。
@@ -875,7 +892,13 @@ if ($NoPublish) {
         throw 'Gitee 分片腿未发: GITEE_TOKEN 缺失且凭据管理器里取不到 gitee.com —— 不许静默只发站点腿'
       }
       py $GiteeScript --apk $Apk --version $VersionName --parts 16 --version-code $VersionCode
-      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功" }
+      # 2026-11-18:仓库 private 时,分片腿的**自证**必然 403(匿名 HEAD 只对公开仓成立);
+      # upload 本身已全传齐(exit 3 = "已发但不可公开自证")。只放行这一档,其余非零照旧 throw。
+      if ($LASTEXITCODE -eq 3) {
+        Write-Warning '[publish] Gitee 仓库为 private:分片已上传但匿名自证 403 —— 按降档放行(仓库改公开后立即自证生效;App 下载走站点腿)'
+      } elseif ($LASTEXITCODE -ne 0) {
+        throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功"
+      }
     } else {
       throw "缺 $GiteeScript —— 分片腿无处发布,不许静默跳过"
     }
