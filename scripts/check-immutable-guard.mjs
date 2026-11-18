@@ -99,9 +99,11 @@
  *   node scripts/check-immutable-guard.mjs --self-test        # 自检（真跑 git 夹具，§22c 反向牙）
  */
 
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 追认台账的写前互斥复用仓内唯一一把原子目录锁原语（不在本文件手搓 mkdir 竞态，§0.6 单源）
+import { createLockDirectoryAtomically } from './lib/lock-atomic-init.mjs'
 
 import {
   EXEMPT_TRAILER,
@@ -3582,6 +3584,169 @@ export function selfTest() {
     }
   })
 
+  // ── ST58 追认写入侧的并发防护(2026-11-18 实测事故补臂)──
+  // 本机实跑时两条腿在同一秒各调一次 --ack 同一枚 ⇒ 台账里同一枚三行。根因是判"是否已追认"
+  // 读的是 HEAD 面，看不见另一席刚落进工作树、尚未提交的那一行。这四臂钉住：
+  //   a) 工作树已在册且未到期 ⇒ 拒绝追加(台账行数不变)
+  //   b) 另一枚未声明提交 ⇒ 照旧认(判据没宽成"按 sha 维一锅端")
+  //   c) 同 sha 同路径但已到期 ⇒ 允许再追认(§0.7 到期回红后再补)
+  //   d) 锁目录被占 ⇒ 不落笔(contended 绝不折成"我也追加一条")
+  const ackLedgerLen = (root) => {
+    const p = path.join(root, ACK_LEDGER_REL)
+    let t = ''
+    try {
+      t = readFileSync(p, 'utf8')
+    } catch {
+      t = ''
+    }
+    return t.split(/\r?\n/).filter((l) => l.trim()).length
+  }
+  const withAckKeys = (fn) => {
+    const saved = {
+      s: process.env.IHUI_IMMUTABLE_GUARD_KEY,
+      a: process.env.IHUI_IMMUTABLE_GUARD_ACK_KEY,
+    }
+    process.env.IHUI_IMMUTABLE_GUARD_KEY = ST_KEY
+    process.env.IHUI_IMMUTABLE_GUARD_ACK_KEY = ST_ACK_KEY
+    try {
+      return fn()
+    } finally {
+      const set = (k, v) => (v === undefined ? delete process.env[k] : (process.env[k] = v))
+      set('IHUI_IMMUTABLE_GUARD_KEY', saved.s)
+      set('IHUI_IMMUTABLE_GUARD_ACK_KEY', saved.a)
+    }
+  }
+  const silentCommitOf = (root, rel = 'scripts/lib/face-reader.mjs') => {
+    writeIn(root, rel, `// changed ${rel}\n`)
+    commitAll(root, 'refactor: silent')
+    return String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+  }
+
+  run((root) => {
+    withAckKeys(() => {
+      const sha = silentCommitOf(root)
+      const arg = {
+        sha,
+        reason: '事后逐枚具名补说明，覆盖面与命中一致，判据方向未变',
+        by: 'selftest',
+        expires: '2099-01-01',
+      }
+      ackCommit(root, arg)
+      const after = ackLedgerLen(root)
+      let second = ''
+      try {
+        ackCommit(root, arg)
+      } catch (e) {
+        second = String(e?.message ?? e)
+      }
+      ok(
+        'ST58a 同 sha+同路径且未到期已在册 ⇒ 拒绝追加，台账行数逐字不变',
+        after === 1 && ackLedgerLen(root) === 1 && second.includes('已在册'),
+        JSON.stringify({ after, now: ackLedgerLen(root), second: second.slice(0, 80) }),
+      )
+    })
+  })
+
+  run((root) => {
+    withAckKeys(() => {
+      const sha1 = silentCommitOf(root, 'scripts/lib/face-reader.mjs')
+      ackCommit(root, {
+        sha: sha1,
+        reason: '事后逐枚具名补说明，覆盖面与命中一致，判据方向未变',
+        by: 'selftest',
+        expires: '2099-01-01',
+      })
+      const sha2 = silentCommitOf(root, 'scripts/lib/plan-task-index.mjs')
+      ackCommit(root, {
+        sha: sha2,
+        reason: '另一枚未声明的受保护面改动，同样逐枚具名补说明',
+        by: 'selftest',
+        expires: '2099-01-01',
+      })
+      const n = ackLedgerLen(root)
+      ok(
+        'ST58b 负对照：不同 sha ⇒ 照旧各自认(幂等防护没把判据宽成一锅端)',
+        n === 2,
+        JSON.stringify({ n, sha1: sha1.slice(0, 8), sha2: sha2.slice(0, 8) }),
+      )
+    })
+  })
+
+  run((root) => {
+    withAckKeys(() => {
+      const sha = silentCommitOf(root)
+      const arg = {
+        sha,
+        reason: '事后逐枚具名补说明，覆盖面与命中一致，判据方向未变',
+        by: 'selftest',
+        expires: '2099-01-01',
+      }
+      ackCommit(root, arg)
+      // 把在册那一行的到期改成过去 ⇒ 到期即回红，此时再追认是合法动作(§0.7)
+      const p = path.join(root, ACK_LEDGER_REL)
+      const lapsedRow = readFileSync(p, 'utf8').replace('"expires":"2099-01-01"', '"expires":"2020-01-01"')
+      writeFileSync(p, lapsedRow, 'utf8')
+      ackCommit(root, arg)
+      const n = ackLedgerLen(root)
+      ok(
+        'ST58c 同 sha+同路径但上一行已到期 ⇒ 允许再追认一行(到期回红后再补)',
+        n === 2,
+        JSON.stringify({ n }),
+      )
+    })
+  })
+
+  run((root) => {
+    withAckKeys(() => {
+      const sha = silentCommitOf(root)
+      const heldLock = path.join(root, '.ihui-agent', 'state', 'locks', 'immutable-guard-acks')
+      mkdirSync(heldLock, { recursive: true })
+      const before = ackLedgerLen(root)
+      let msg = ''
+      try {
+        ackCommit(root, {
+          sha,
+          reason: '事后逐枚具名补说明，覆盖面与命中一致，判据方向未变',
+          by: 'selftest',
+          expires: '2099-01-01',
+        })
+      } catch (e) {
+        msg = String(e?.message ?? e)
+      }
+      const after = ackLedgerLen(root)
+      ok(
+        'ST58d 锁目录被另一席占住 ⇒ 不落笔且不双写(contended 不折成"我也加一条")',
+        before === 0 && after === 0 && msg.includes('不落笔'),
+        JSON.stringify({ before, after, msg: msg.slice(0, 90) }),
+      )
+    })
+  })
+
+  // ST59 只读对账尺的三臂：归一性(顺序无关) / 不误伤(同 sha 异 paths 不算重复) / 坏行不折成"没有"
+  ok(
+    'ST59a 同 sha 且 paths 乱序 ⇒ 归一后算同一组(顺序无关)',
+    (() => {
+      const mk = (ps) => ({ sha: 'a'.repeat(40), paths: ps, ackedBy: 'x', expires: '2099-01-01' })
+      const g = ackLedgerDupGroups([mk(['b.mjs', 'a.mjs']), mk(['a.mjs', 'b.mjs'])])
+      return g.groups.length === 1 && g.groups[0].count === 2 && g.scanned === 2
+    })(),
+  )
+  ok(
+    'ST59b 同 sha 不同 paths 集 ⇒ 不算重复组(尺子不宽、也不窄)',
+    (() => {
+      const mk = (ps) => ({ sha: 'b'.repeat(40), paths: ps, ackedBy: 'x', expires: '2099-01-01' })
+      return ackLedgerDupGroups([mk(['a.mjs']), mk(['a.mjs', 'c.mjs'])]).groups.length === 0
+    })(),
+  )
+  ok(
+    'ST59c 坏行只报数、不折成"没有这一行"(problems 原样透传)',
+    (() => {
+      const rows = [{ sha: 'c'.repeat(40), paths: ['a.mjs'], ackedBy: 'x', expires: '2099-01-01' }]
+      const g = ackLedgerDupGroups(rows, [{ line: 7, why: '不是合法 JSON' }])
+      return g.problems.length === 1 && g.groups.length === 0 && g.scanned === 1
+    })(),
+  )
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -3613,6 +3778,7 @@ function parseArgv(argv) {
     json: false,
     record: false,
     selfTest: false,
+    acksDup: false,
     root: ROOT,
     today: null,
   }
@@ -3641,6 +3807,7 @@ function parseArgv(argv) {
     } else if (a === '--json') opts.json = true
     else if (a === '--record') opts.record = true
     else if (a === '--self-test') opts.selfTest = true
+    else if (a === '--acks-dup') opts.acksDup = true
     else if (a === '--message-file') opts.messageFile = argv[++i]
     else if (a === '--message') opts.message = argv[++i]
     else if (a === '--root') opts.root = argv[++i]
@@ -3658,7 +3825,8 @@ const USAGE = [
   '      node scripts/check-immutable-guard.mjs --ack <40位sha> --reason "<≥10字>" --by <席位> --expires <YYYY-MM-DD>  # 事后追认一档（详见 ACK 段）',
   `      node scripts/sign-immutable-attestations.mjs --in <rows.json> --append     # 具名追认台账（${ATTEST_LEDGER_REL}，≥${ATTEST_MIN_REASON_CHARS} 字理由 + paths 逐元素相等）`,
   '      node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<理由>" [--paths <a,b,c>]  # 生成签名行（stdout 可直接贴进提交信息）',
-  '      node scripts/check-immutable-guard.mjs --self-test',
+   '      node scripts/check-immutable-guard.mjs --self-test',
+   '      node scripts/check-immutable-guard.mjs --acks-dup                       # 只读对账尺：量追认台账的在册重复组（不判红、不代删；0=无 1=有 2=取不到=未判定）',
   '',
   `受保护面清单: ${GUARD_DATA_REL}；合法改法: 提交信息里两行 —— \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\` + \`${SIG_TRAILER} ${SIG_VERSION_CURRENT}:<base40>:<hex>\``,
   `签名密钥来源（按优先级）: ${KEY_ENV} / ${KEY_FILE_ENV} / git config ${KEY_CONFIG}（密钥不存在 ⇒ 需要验签的一律 fail-closed 判未豁免）`,
@@ -3727,6 +3895,54 @@ export function signStaged(root, { subject, reason, paths = [], today = todayStr
  *  - 无密钥 ⇒ 拒（fail-closed，绝不写一条没人验得动的行冒充已追认）；
  *  - `expires` 必填且晚于今天：追认不是终身赦免，到期即回到红（§0.7 豁免必须会到期）。
  */
+/**
+ * 只读对账尺：把追认台账按 (sha ⊕ 排序去重后的 paths 集合) 分组，找出**同组多行**的存量腐烂。
+ *
+ * 为什么只做只读报数、不判红：存量实测已有（2026-11-18 本机 489bd483 在册 3 行 / 3c7cca1a 2 行，
+ * 由同一秒两条腿各调一次 `--ack` 造成），把它做成 blocking 就是与任何提交内容无关的恒红门
+ * （§12e：唯一结局是逼人 `--no-verify`，连带废掉全部守门）。这一档的用途是"让存量被量得到"，
+ * 删不删、怎么删交人裁 —— 台账每行都是审计留痕，删留痕比改活文档风险更高，本尺绝不代删。
+ *
+ * 两面取并集（HEAD ⊕ 工作树）：并发未提交的行同样是"在册"证据，只读单面会漏判。
+ * 坏行不折成"没有这行"，单独回传（与 parseAckLedger 的诚实口径同形）。
+ */
+export function ackLedgerDupGroups(rows, problems = []) {
+  const bucket = new Map()
+  for (const r of rows || []) {
+    if (!r || typeof r !== 'object' || typeof r.sha !== 'string') continue
+    const key = `${r.sha}|${[...new Set(Array.isArray(r.paths) ? r.paths : [])].sort().join(',')}`
+    if (!bucket.has(key)) bucket.set(key, [])
+    bucket.get(key).push(r)
+  }
+  const groups = [...bucket.entries()]
+    .filter(([, list]) => list.length > 1)
+    .map(([key, list]) => ({
+      key,
+      sha: key.split('|')[0],
+      paths: (key.split('|')[1] || '').split(',').filter(Boolean),
+      count: list.length,
+      ackedBy: [...new Set(list.map((x) => x.ackedBy))],
+      expires: [...new Set(list.map((x) => x.expires))],
+    }))
+  return { groups, problems: [...problems], scanned: (rows || []).length }
+}
+
+/** 读台账两面并喂给上面那把尺（两面各自过同一份解析实现，不复算判据）。 */
+export function ackLedgerDupReport(root, { rev = 'HEAD' } = {}) {
+  let workText = ''
+  try {
+    workText = readFileSync(path.join(root, ACK_LEDGER_REL), 'utf8')
+  } catch {
+    workText = ''
+  }
+  const work = parseAckLedger(workText)
+  const head = readAckRows(root, { rev })
+  return ackLedgerDupGroups(
+    [...work.rows, ...(head.rows || [])],
+    [...work.problems, ...(head.problems || [])],
+  )
+}
+
 export function ackCommit(root, { sha, reason, by, expires, today = todayStr() } = {}) {
   if (!FULL_SHA_RE.test(String(sha ?? '')))
     throw new Error(
@@ -3774,7 +3990,71 @@ export function ackCommit(root, { sha, reason, by, expires, today = todayStr() }
   const file = path.join(root, ACK_LEDGER_REL)
   const line = `${JSON.stringify(row)}\n`
   mkdirSync(path.dirname(file), { recursive: true })
-  appendFileSync(file, line, 'utf8')
+  // 并发双写实测发生过（2026-11-18 同一秒两条腿各追加一行 ⇒ 同一枚在册三行）。上方 `one.exit`
+  // 读的是 HEAD 面，天然看不见另一席「已写进工作树、尚未提交」的那一行，所以单靠它挡不住。
+  // 正解不是再补一条 dup 判据，而是把「现读 → 判已在册 → 追加」串进同一把原子目录锁里，
+  // 且判据面取 HEAD ⊕ 工作树**并集**；拿不到锁 ⇒ 拒绝落笔（失效方向 = 多要一次动作，
+  // 绝不是静默双写，§0.10）。锁原语复用 lib/lock-atomic-init.mjs 单源，不在这里手搓 mkdir 竞态。
+  const faceKey = (r) => `${String(r.sha)}|${[...new Set(r.paths || [])].sort().join(',')}`
+  const target = faceKey(row)
+  const heldLock = path.join(root, '.ihui-agent', 'state', 'locks', 'immutable-guard-acks')
+  const lk = createLockDirectoryAtomically({
+    dir: heldLock,
+    pendingRoot: path.join(root, '.ihui-agent', 'state', 'locks'),
+    writePayload: () => {
+      const faceText = (() => {
+        try {
+          return readFileSync(file, 'utf8')
+        } catch {
+          return ''
+        }
+      })()
+      // 两面各自过同一份解析实现（§0.6），不在此复算判据；坏行只报数、不当成"没有这一行"。
+      const work = parseAckLedger(faceText)
+      const head = readAckRows(root, { rev: 'HEAD' })
+      const both = [...work.rows, ...(head.rows || [])]
+      const live = both.filter((r) => faceKey(r) === target && String(r.expires) > today)
+      const lapsed = both.filter((r) => faceKey(r) === target && !(String(r.expires) > today))
+      const dupWork = work.problems.length + (head.problems?.length || 0)
+      if (live.length) {
+        return { verdict: 'already-acked', live, dupProblems: dupWork }
+      }
+      appendFileSync(file, line, 'utf8')
+      return { verdict: 'appended', lapsed, dupProblems: dupWork }
+    },
+  })
+  if (!lk.ok) {
+    const why =
+      lk.kind === 'contended'
+        ? '另一席正在写同一本追认台账（锁已持有）⇒ 本次不落笔，重跑一次即可拿到真结论'
+        : `锁不可用(${lk.code}${lk.message ? `:${lk.message}` : ''})⇒ 本次不落笔`
+    throw new Error(why)
+  }
+  try {
+    const v = lk.payload
+    if (v.verdict === 'already-acked') {
+      const first = v.live[0]
+      throw new Error(
+        `这一枚的同一路径集已在册且未到期 ⇒ 不重复追加（` +
+          `ackedBy=${first.ackedBy} / expires=${first.expires} / 共 ${v.live.length} 行在册）` +
+          `${v.dupProblems ? ` / 台账坏行 ${v.dupProblems} 条已按解析层点名，不折成"没有这行"` : ''}`,
+      )
+    }
+    if (v.lapsed.length) {
+      console.error(
+        `ℹ️ 同一枚+同一路径集有 ${v.lapsed.length} 行**已到期**（到期即回红），本次是在其后再追认一行。`,
+      )
+    }
+    if (v.dupProblems) {
+      console.error(`⚠️ 台账解析坏行 ${v.dupProblems} 条 ⇒ 判「已在册」的输入不完整，本行仍追加但请清腐。`)
+    }
+  } finally {
+    try {
+      rmSync(heldLock, { recursive: true, force: true })
+    } catch (e) {
+      console.error(`⚠️ 追认锁目录释放失败：${e?.message ?? e}（不影响本行已落账）`)
+    }
+  }
   return { row, line: line.trimEnd(), paths, keySource: ackKeyRes.source, file: ACK_LEDGER_REL }
 }
 
@@ -3793,6 +4073,31 @@ export function main(argv = process.argv.slice(2)) {
   if (opts.selfTest) {
     const r = selfTest()
     return r.failed === 0 ? 0 : 1
+  }
+  // 只读对账档：不参与判定链、不受本门跳门变量影响（它不判定任何东西，只把存量重复量出来）。
+  // 三态刻意分明：无重复=0 / 有重复=1(finding) / 取不到台账=2(未判定，绝不折成"没有重复")。
+  if (opts.acksDup) {
+    const rep = ackLedgerDupReport(opts.root)
+    const unreachable = rep.problems.filter((p) => /取不到/.test(String(p.why ?? '')))
+    console.log(
+      `[immutable-guard:acks-dup] 扫 ${rep.scanned} 行(HEAD ⊕ 工作树并集)· 在册重复组 ${rep.groups.length} · 解析坏行 ${rep.problems.length}`,
+    )
+    for (const g of rep.groups) {
+      console.log(
+        `   · ${g.sha.slice(0, 12)}… ×${g.count} 席位=${g.ackedBy.join('/')} 到期=${g.expires.join('/')} paths=${g.paths.join(',')}`,
+      )
+    }
+    for (const p of rep.problems) console.log(`   ⚠️ 坏行 L${p.line ?? '?'}：${p.why}`)
+    if (unreachable.length) {
+      console.error('❌ 台账有一面取不到 ⇒ 本轮"有没有重复"没有结论(未判定，不记绿也不冒红)')
+      return 2
+    }
+    if (!rep.groups.length) {
+      console.log('✅ 无在册重复组（这是量出来的，不是"没读"）')
+      return 0
+    }
+    console.log('ℹ️ 只报数不代删：每行都是审计留痕，删法交人裁（本尺刻意不做 blocking）')
+    return 1
   }
   if (process.env[SELF_SKIP] === '1') {
     console.log(
@@ -3970,6 +4275,8 @@ export const __test__ = {
   isOnOriginMain,
   signStaged,
   ackCommit,
+  ackLedgerDupGroups,
+  ackLedgerDupReport,
   readAckRows,
   readAttestRows,
   commitDateOf,
