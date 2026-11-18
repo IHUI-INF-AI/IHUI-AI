@@ -28,6 +28,7 @@ from app.core.pptx_overflow_detector import (
     _Transform,
     detect,
     read_canvas,
+    rotated_aabb,
     slide_parts,
 )
 
@@ -359,4 +360,111 @@ def test_group_scale_mutation_is_caught(tmp_path: Path, monkeypatch: pytest.Monk
     )
     mutated = detect(deck)
     assert mutated.clean is True, "identity mapping loses the finding -- the mapping is required"
+
+
+# --- rotation: the frame lies about how much room a shape takes ------------------------
+
+ROT_45 = 2_700_000  # 45 degrees, in 1/60000ths
+ROT_90 = 5_400_000
+ROT_180 = 10_800_000
+
+
+def test_no_rotation_leaves_the_frame_alone() -> None:
+    assert rotated_aabb(10, 20, 30, 40, 0) == (10, 20, 30, 40)
+
+
+def test_quarter_turn_swaps_the_extents() -> None:
+    assert rotated_aabb(0, 0, 2_000, 1_000, ROT_90) == (500, -500, 1_000, 2_000)
+
+
+def test_half_turn_restores_the_extents() -> None:
+    assert rotated_aabb(0, 0, 2_000, 1_000, ROT_180) == (0, 0, 2_000, 1_000)
+
+
+def test_forty_five_degrees_grows_a_square_by_root_two() -> None:
+    x, y, w, h = rotated_aabb(0, 0, 1_000_000, 1_000_000, ROT_45)
+    assert w == h == 1_414_214  # 1,000,000 * 2 * 0.7071067
+    assert x == y  # the centre did not move
+
+
+def test_negative_and_positive_angles_agree() -> None:
+    """A bounding box is symmetric, so -45 and +45 occupy the same space."""
+    assert rotated_aabb(0, 0, 3_000, 1_000, ROT_45) == rotated_aabb(0, 0, 3_000, 1_000, -ROT_45)
+
+
+def test_rotation_pushes_a_comfortable_shape_off_the_canvas(tmp_path: Path) -> None:
+    """The case that matters: inside when unrotated, outside once turned 45 degrees.
+
+    A 1,000,000 square centred 600,000 from the right edge sits 100,000 clear of it. Turn it
+    45 degrees and the half-diagonal is 707,107, so a corner reaches 107,107 past the edge --
+    94,407 EMU after the 1 pt tolerance.
+    """
+    centre_x = CANVAS_W - 600_000
+    centre_y = CANVAS_H // 2
+    size = 1_000_000
+    x = centre_x - size // 2
+    y = centre_y - size // 2
+
+    straight = _sp(2, x, y, size, size, "turned")
+    assert detect(build(tmp_path, "straight.pptx", straight)).clean is True
+
+    turned = (
+        f'<p:sp><p:nvSpPr><p:cNvPr id="2" name="S2"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>'
+        f'<p:spPr><a:xfrm rot="{ROT_45}"><a:off x="{x}" y="{y}"/>'
+        f'<a:ext cx="{size}" cy="{size}"/></a:xfrm></p:spPr>'
+        "<p:txBody><a:p><a:r><a:t>turned</a:t></a:r></a:p></p:txBody></p:sp>"
+    )
+    report = detect(build(tmp_path, "turned.pptx", turned))
+    assert report.clean is False
+    hit = report.overflows[0]
+    assert hit.sides == ("right",)
+    assert hit.right_emu == 94_407
+    assert hit.rotation_degrees == 45.0
+    assert hit.is_rotated is True
+    assert "rotated 45.0deg" in hit.describe()
+
+
+def test_rotation_is_composed_with_group_scale(tmp_path: Path) -> None:
+    """A rotated child inside a 2x group gets both transformations."""
+    child = (
+        '<p:sp><p:nvSpPr><p:cNvPr id="3" name="S3"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>'
+        f'<p:spPr><a:xfrm rot="{ROT_45}"><a:off x="5000000" y="0"/>'
+        '<a:ext cx="1000000" cy="1000000"/></a:xfrm></p:spPr>'
+        "<p:txBody><a:p><a:r><a:t>grouped turned</a:t></a:r></a:p></p:txBody></p:sp>"
+    )
+    group = _grp(
+        off=(1_000_000, 1_000_000), ext=(4_000_000, 2_000_000),
+        ch_off=(0, 0), ch_ext=(2_000_000, 1_000_000),
+        children=child,
+    )
+    report = detect(build(tmp_path, "group-rot.pptx", group))
+    assert report.shapes_checked == 1
+    assert len(report.overflows) == 1
+    hit = report.overflows[0]
+    # group scale 2x puts the child at x=11,000,000 with a 2,000,000 square; the 45-degree box
+    # is 2,828,427 wide around the centre at 12,000,000, so it reaches 13,414,213.
+    assert hit.cx == 2_828_427
+    assert hit.right_emu == 13_414_213 - CANVAS_W - TOLERANCE_EMU
+
+
+def test_rotation_mutation_is_caught(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Degrade the rotation maths to identity and the 45-degree finding must disappear."""
+    centre_x = CANVAS_W - 600_000
+    size = 1_000_000
+    x = centre_x - size // 2
+    y = CANVAS_H // 2 - size // 2
+    turned = (
+        f'<p:sp><p:nvSpPr><p:cNvPr id="2" name="S2"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>'
+        f'<p:spPr><a:xfrm rot="{ROT_45}"><a:off x="{x}" y="{y}"/>'
+        f'<a:ext cx="{size}" cy="{size}"/></a:xfrm></p:spPr>'
+        "<p:txBody><a:p><a:r><a:t>turned</a:t></a:r></a:p></p:txBody></p:sp>"
+    )
+    deck = build(tmp_path, "rot-mutation.pptx", turned)
+    assert detect(deck).clean is False
+
+    monkeypatch.setattr(
+        "app.core.pptx_overflow_detector.rotated_aabb",
+        lambda x, y, cx, cy, rot: (x, y, cx, cy),
+    )
+    assert detect(deck).clean is True, "ignoring rotation must lose the finding"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

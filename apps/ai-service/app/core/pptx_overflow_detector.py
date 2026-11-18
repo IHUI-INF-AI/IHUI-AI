@@ -28,6 +28,13 @@ coordinates. :meth:`_Transform.apply` and :meth:`_Transform.child_of` walk the c
    arithmetic can predict. **This detector cannot see it, and does not pretend to.** Layer two
    still needs R108's render-and-look path.
 
+Rotation belongs to layer one and is handled: a shape's ``rot`` is honoured by rebuilding its
+axis-aligned bounding box around an unchanged centre. This is not a detail. A 1,000,000 square
+sitting 100,000 clear of the right edge, turned 45 degrees, has a corner 107,107 past it -- the
+unrotated frame says everything is fine. ``flipH``/``flipV`` are deliberately excluded: they
+mirror a shape inside the same box and change no extent, so they cannot move a corner off the
+canvas.
+
 Reporting only the first layer while claiming "no overflow" for the whole deck would repeat
 exactly the mistake this module exists to fix, so the result type carries what was checked and
 what was not.
@@ -35,6 +42,7 @@ what was not.
 
 from __future__ import annotations
 
+import math
 import zipfile
 from dataclasses import dataclass
 from typing import Final
@@ -52,6 +60,11 @@ PRESENTATION_PART: Final = "ppt/presentation.xml"
 # 1 pt = 12700 EMU. Anything an eye could see on a 13.3-inch slide exceeds this by orders of
 # magnitude (the R109 probes overshoot by 4,000,000-13,808,000 EMU).
 TOLERANCE_EMU: Final = 12_700
+
+# ``rot`` on an ``a:xfrm`` is stored in 1/60000ths of a degree.
+ROT_UNITS_PER_DEGREE: Final = 60_000
+ROTATION_AWARE: Final = True
+FLIP_DOES_NOT_CHANGE_AABB: Final = True
 
 LAYER_GEOMETRIC: Final = "geometric"
 LAYER_TEXTUAL: Final = "textual"
@@ -78,6 +91,15 @@ class Overflow:
     right_emu: int
     top_emu: int
     bottom_emu: int
+    rot_sixtythousandths: int = 0
+
+    @property
+    def is_rotated(self) -> bool:
+        return self.rot_sixtythousandths % 3_600_000 != 0
+
+    @property
+    def rotation_degrees(self) -> float:
+        return round(self.rot_sixtythousandths / ROT_UNITS_PER_DEGREE, 3)
 
     @property
     def total_emu(self) -> int:
@@ -97,8 +119,9 @@ class Overflow:
         return tuple(names)
 
     def describe(self) -> str:
+        rotated = f" (rotated {self.rotation_degrees}deg)" if self.is_rotated else ""
         return (
-            f"{self.part} shape {self.shape_id} ({self.label!r}) leaves the canvas on "
+            f"{self.part} shape {self.shape_id} ({self.label!r}){rotated} leaves the canvas on "
             f"{', '.join(self.sides)} by "
             + ", ".join(f"{s}={v} EMU" for s, v in (
                 ("left", self.left_emu),
@@ -188,6 +211,54 @@ def _frame_of(xfrm: ET.Element | None) -> tuple[int, int, int, int] | None:
         return None
 
 
+def _rot_of(xfrm: ET.Element | None) -> int:
+    """The ``rot`` attribute in 1/60000ths of a degree; 0 when absent."""
+    if xfrm is None:
+        return 0
+    raw = xfrm.get("rot")
+    if not raw:
+        return 0
+    try:
+        return int(raw)
+    except ValueError:
+        return 0
+
+
+def rotated_aabb(x: int, y: int, cx: int, cy: int, rot: int) -> tuple[int, int, int, int]:
+    """The axis-aligned bounding box a shape actually occupies once rotated.
+
+    A rotated shape's corners reach further than its unrotated frame: rotate a 1,000 x 1,000
+    square by 45 degrees and its corners sit at 1,414 x 1,414. Checking the unrotated frame
+    therefore under-reports near the canvas edge -- a shape can look comfortably inside and
+    still have a corner hanging off.
+
+    The centre does not move, so the box is rebuilt around it:
+
+        w' = |cx cos t| + |cy sin t|
+        h' = |cx sin t| + |cy cos t|
+
+    That is exact for any angle: 0 gives (cx, cy), 90 gives (cy, cx), 45 gives (cx+cy)/root2.
+
+    ``flipH``/``flipV`` are deliberately not part of this: flipping mirrors the shape inside
+    the same box and changes no extent, so it cannot move a corner across the canvas.
+    """
+    if not rot:
+        return x, y, cx, cy
+    theta = math.radians(rot / ROT_UNITS_PER_DEGREE)
+    cos_t = abs(math.cos(theta))
+    sin_t = abs(math.sin(theta))
+    width = round(cx * cos_t + cy * sin_t)
+    height = round(cx * sin_t + cy * cos_t)
+    centre_x = x + cx / 2
+    centre_y = y + cy / 2
+    return (
+        round(centre_x - width / 2),
+        round(centre_y - height / 2),
+        width,
+        height,
+    )
+
+
 @dataclass(frozen=True)
 class _Transform:
     """Maps a child coordinate space onto the canvas."""
@@ -270,6 +341,7 @@ def _overflow_of(
     shape: ET.Element,
     frame: tuple[int, int, int, int],
     canvas: Canvas,
+    rot: int = 0,
 ) -> Overflow | None:
     x, y, cx, cy = frame
     right = x + cx
@@ -292,6 +364,7 @@ def _overflow_of(
         right_emu=right_over,
         top_emu=top_over,
         bottom_emu=bottom_over,
+        rot_sixtythousandths=rot,
     )
 
 
@@ -319,8 +392,9 @@ def _walk(
         if frame is None:
             continue
         counter[0] += 1
-        absolute = transform.apply(*frame)
-        hit = _overflow_of(part, child, absolute, canvas)
+        rot = _rot_of(xfrm)
+        absolute = rotated_aabb(*transform.apply(*frame), rot)
+        hit = _overflow_of(part, child, absolute, canvas, rot)
         if hit is not None:
             found.append(hit)
 
