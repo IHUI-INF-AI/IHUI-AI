@@ -634,10 +634,11 @@ export function checkDescription(text, numbers) {
  *   否则点名并给出重跑命令。本轮清单未变 ⇒ 只报数(否则每次普通提交都在与内容无关处恒红,§12e)。
  *   配套把注册条目的 `stagedTriggers` 放宽到全路径通配,让门在**任何**提交上都有机会看见清单变化。
  */
-export function inventoryChanged(root, face) {
+export function inventoryChanged(root, face, range = null) {
   if (face === 'worktree') return null
-  const args =
-    face === 'staged'
+  const args = range
+    ? ['diff', '--name-status', range]
+    : face === 'staged'
       ? ['diff', '--cached', '--name-status', 'HEAD']
       : ['diff', '--name-status', 'HEAD^', 'HEAD']
   let out
@@ -711,6 +712,44 @@ export function touchedAuditedDocs(root, face) {
     return q(['diff', '--name-only', 'HEAD^', 'HEAD', '--', ...AUDITED_DOCS])
   } catch (e) {
     if (e instanceof Undetermined && e.status === 1) return [...AUDITED_DOCS] // 无 HEAD / 无父提交 ⇒ 本轮全部问责
+    throw e
+  }
+}
+
+/**
+ * push 档的推送范围(2026-11-18,根治"README 数字门反复撞")。
+ *
+ * 立此收窄的依据是**本门自己已经声明的判责时机**(guardian 门 173 的 label 与
+ * planAccountability 的注释都写着"其余数字判责时机 = 改动被审文档的那枚,未触及只报漂移数
+ * —— 防恒红"),而 push 档此前按 `--strict` 走"未触及也要求合格证"⇒ 全判 ⇒ 任何一次推送
+ * 都要替**别人的**新增承担 trackedFiles/testFiles 漂移 ⇒ 多会话下人人被拦、人人重推。
+ * 这正是 §12e/§0.2 要防的"恒红门逼人跳门"。
+ *
+ * 改后:push 档只用"本次推送范围"作判责面 —— 范围内没人碰被审文档 ⇒ 漂移只报数;碰了 ⇒ 照旧全判。
+ * 判据一格没放宽,只是把"谁欠的账"算回真正欠账的那枚。
+ */
+export function pushRangeRef(root) {
+  const q = (args) => gitRaw(args, root, { timeout: 60000 })
+  try {
+    q(['rev-parse', '--verify', 'origin/main'])
+    return 'origin/main..HEAD'
+  } catch {
+    // 首次推送 / 无远端跟踪 ⇒ 退回单枚范围:宁可只判这一枚,也不放走它。
+    return 'HEAD^..HEAD'
+  }
+}
+
+/** push 档:推送范围内触及的被审文档。取不到 ⇒ 一律按全判(失效方向恒为"多要一次说明")。 */
+export function touchedAuditedDocsInPush(root, range) {
+  const q = (args) =>
+    gitRaw(args, root, { timeout: 60000 })
+      .split(/\r?\n/)
+      .map((s) => s.trim().replace(/\\/g, '/'))
+      .filter(Boolean)
+  try {
+    return q(['diff', '--name-only', range, '--', ...AUDITED_DOCS])
+  } catch (e) {
+    if (e instanceof Undetermined && e.status === 1) return [...AUDITED_DOCS]
     throw e
   }
 }
@@ -1194,13 +1233,22 @@ function main(argv) {
     return 2
   }
   let touched = []
+  // push 档的判责面 = 本次推送范围(不是"最后一枚提交"),理由见 pushRangeRef 的头注。
+  const pushRange = pushMode ? pushRangeRef(root) : null
   try {
-    touched = face === 'worktree' ? [...AUDITED_DOCS] : touchedAuditedDocs(root, face)
+    touched =
+      face === 'worktree'
+        ? [...AUDITED_DOCS]
+        : pushMode
+          ? touchedAuditedDocsInPush(root, pushRange)
+          : touchedAuditedDocs(root, face)
   } catch (e) {
     console.error(`❌ 无法判定(改动清单取不到):${e instanceof Undetermined ? e.message : e?.message ?? e}`)
     return 2
   }
-  const plan = planAccountability({ face, touched, strict })
+  // push 档不把 `--push` 折算成 strict 问责档:否则"未触及也要求合格证"⇒ 全判 ⇒ 替别人的
+  // 新增背锅(恒红 §12e)。`--strict` 显式问责档与原判据一字不动。
+  const plan = planAccountability({ face, touched, strict: strict && !pushMode })
   // DN5 清单不变式(2026-11-05):**独立于**"是否触及 README"判责 —— 本轮改了文件清单
   // (A/D/R/C)就必须让生成块的 trackedFiles 跟上,否则正是 224b4b020f 那一型(删了文件、
   // 没碰 README、门全绿)。取不到清单变化 ⇒ exit 2,不猜。
