@@ -45,7 +45,7 @@ in absolute and workspace-relative form.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 SCRIPT_BYTES: Final = 11_169
 SCRIPT_LINES: Final = 292
@@ -136,7 +136,7 @@ def pad_slide_number(value: int) -> str:
     return str(value).zfill(SLIDE_NUMBER_PADDING)
 
 
-def validate_output_slides(entries: list[dict], source_slide_count: int) -> list[dict]:
+def validate_output_slides(entries: list[dict[str, Any]], source_slide_count: int) -> list[dict[str, Any]]:
     """Replotted from the scan: sort, then require a contiguous run from 1."""
     if not entries:
         raise ValueError("outputSlides must be a non-empty array")
