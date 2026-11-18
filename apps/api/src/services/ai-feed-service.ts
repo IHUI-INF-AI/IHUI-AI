@@ -575,7 +575,10 @@ async function fetchToutiaoHotBoard(
     coverUrl: null,
     author: '今日头条',
     currentRank: idx + 1,
-    currentHot: typeof raw.HotValue === 'number' ? raw.HotValue : null,
+    // 2026-11-18 实测:头条热榜接口的 HotValue 是**字符串**("39019941"),不是 number。
+    // 原来判 `typeof raw.HotValue === 'number'` 恒 false ⇒ 头条 6815 条热度全丢、
+    // trendTag 只能退化成排名口径。改走 parseHotValue(它本就兼容 number/string/万亿单位)。
+    currentHot: parseHotValue(raw.HotValue),
     publishTime: new Date(),
   }))
 }
