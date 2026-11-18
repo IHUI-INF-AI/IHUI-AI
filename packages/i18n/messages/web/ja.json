@@ -17447,9 +17447,11 @@
       "document": "ドキュメント",
       "editor": "エディタ",
       "mcp": "MCP",
+      "pin": "常に最前面",
       "plus": "ビューを追加",
       "settings": "設定",
-      "terminal": "ターミナル"
+      "terminal": "ターミナル",
+      "unpin": "最前面を解除"
     },
     "viewSwitcher": {
       "groupSettings": "設定",
