@@ -25,6 +25,30 @@ const eventBusinessDate = sql`(${pluginEvents.createdAt} AT TIME ZONE ${BUSINESS
 const todayBusinessDate = sql`(now() AT TIME ZONE ${BUSINESS_TZ_SQL})::date`
 
 // =============================================================================
+// 查询窗口天数收口(Y-85)
+// =============================================================================
+
+/**
+ * Y-85:DB 函数被 export,不能只靠路由层 Zod 兜住 days。
+ * 这里把天数夹到 [1,365] 的有限整数,并用 make_interval 走 drizzle 参数绑定 ——
+ * 天数永远以绑定参数进 SQL,不再拼 `interval '${sql.raw(...)} days'` 字面量,
+ * 新调用点即便绕过路由层也无法构造越界 interval / 注入片段。
+ */
+const STATS_MIN_DAYS = 1
+const STATS_MAX_DAYS = 365
+const STATS_DEFAULT_DAYS = 7
+
+function clampedIntervalDays(days: number): number {
+  if (!Number.isFinite(days)) return STATS_DEFAULT_DAYS
+  return Math.min(STATS_MAX_DAYS, Math.max(STATS_MIN_DAYS, Math.trunc(days)))
+}
+
+/** 有界天数 → make_interval(days => $1) 参数化窗口起点。 */
+function windowStartDays(days: number) {
+  return sql`now() - make_interval(days => ${clampedIntervalDays(days)})`
+}
+
+// =============================================================================
 // 事件写入(append-only)
 // =============================================================================
 
@@ -97,7 +121,7 @@ export interface PluginTrendRow {
  * 总览:6 个核心指标 + 今日安装 / 今日点击。
  */
 export async function getPluginStatsSummary(days: number): Promise<PluginStatsSummary> {
-  const since = sql`now() - interval '${sql.raw(String(days))} days'`
+  const since = windowStartDays(days)
   const [row] = await db
     .select({
       totalEvents: count(),
@@ -133,7 +157,7 @@ export async function getPluginStatsByPlugin(
   days: number,
   limit: number,
 ): Promise<PluginStatsRow[]> {
-  const since = sql`now() - interval '${sql.raw(String(days))} days'`
+  const since = windowStartDays(days)
   const installsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`
   const uninstallsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`
   const clicksExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`
@@ -175,7 +199,7 @@ export async function getPluginStatsByPlugin(
  * 趋势:按天聚合 installs / clicks / uninstalls。
  */
 export async function getPluginStatsTrend(days: number): Promise<PluginTrendRow[]> {
-  const since = sql`now() - interval '${sql.raw(String(days))} days'`
+  const since = windowStartDays(days)
   const rows = await db
     .select({
       date: sql<string>`to_char(${eventBusinessDate}, 'YYYY-MM-DD')`,
