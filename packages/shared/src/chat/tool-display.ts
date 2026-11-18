@@ -211,6 +211,21 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   workbook_read_range: 'toolWorkbookReadRange',
   workbook_write_cells: 'toolWorkbookWriteCells',
   workbook_close: 'toolWorkbookClose',
+  // 2026-11-19 补齐(守门 55 三方比对 `mcp_server._TOOLS × 本表 × 五语言 taskStatus` 停在
+  // 120/129 的那 9 枚):界面上它们原本退化成裸码名。
+  // 财务/薪资/税务三枚 = ai_* 业务委托;**terminal** 是 MCP 的终端执行动词(与 run_command 不同名
+  // 不同工具,别合并成一档);**read_image** 走多模态工具结果;**session_search** 是跨会话检索;
+  // **sheet_formula_eval / _validate** 是表格公式试算与校验两枚(**subagent_job** 是后台子代理作业的
+  // list/wait/send,与 dispatch_subagent 的"派发"不是同一件事)。
+  ai_bookkeeping: 'toolAiBookkeeping',
+  ai_payroll_handoff: 'toolAiPayrollHandoff',
+  ai_tax_filing: 'toolAiTaxFiling',
+  read_image: 'toolReadImage',
+  session_search: 'toolSessionSearch',
+  sheet_formula_eval: 'toolSheetFormulaEval',
+  sheet_formula_validate: 'toolSheetFormulaValidate',
+  subagent_job: 'toolSubagentJob',
+  terminal: 'toolTerminal',
 }
 
 export function toolDisplayKey(toolName: string): string | null {

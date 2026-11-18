@@ -74,11 +74,11 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
   'Ctrl+Shift+/': 'desc.ctrlShiftSlash',
   'Ctrl+Shift+U': 'desc.ctrlShiftU',
   'Ctrl+Shift+M': 'desc.ctrlShiftM',
-  'Ctrl+1': 'desc.ctrl1',
-  'Ctrl+2': 'desc.ctrl2',
-  'Ctrl+3': 'desc.ctrl3',
-  'Ctrl+4': 'desc.ctrl4',
-  'Ctrl+5': 'desc.ctrl5',
+  // 2026-11-19:Ctrl+1~5 的 desc 行随 2026-11-16 用户定档一并摘除 —— ChatMode 手动切换已下线
+  // (use-global-shortcuts.ts 注册表里那五条 chord 同时删掉),本表若仍留着这五行就是
+  // "声明了却没有任何处理器"的悬空描述(守门 69 判「声明未绑 — 缺陷」)。
+  // 顺带纠一处假对账:此前 Ctrl+1~3 之所以没被判红,是门把 permission-mode-popover /
+  // RichTextEditor 里**别的功能**的 mod+1~3 当成了它们的处理器(宽松匹配),不是真的绑上了。
   'Ctrl+Alt+V': 'desc.ctrlAltV',
   'Ctrl+Alt+B': 'desc.ctrlAltB',
   'Ctrl+Alt+H': 'desc.ctrlAltH',

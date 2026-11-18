@@ -995,7 +995,7 @@
         },
         {
           "file": "apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx",
-          "mustMatch": "<TaskStatusBar"
+          "mustMatch": "{taskStatusBarNode}"
         },
         {
           "file": "apps/mobile-rn/src/components/ai/TaskStatusBar.tsx",

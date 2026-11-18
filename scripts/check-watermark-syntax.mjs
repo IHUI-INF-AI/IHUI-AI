@@ -73,11 +73,12 @@ export const INVISIBLE_RE = new RegExp(
   '[' + INVISIBLE_CODEPOINTS.map((c) => String.fromCharCode(c)).join('') + ']',
 )
 
-// 横幅行形态(与 watermark.mjs isBannerLine 同款):剥行首注释前缀(// # --)后,
-// 行首锚定匹配版权行 / 溯源声明 / [ID]: 载荷行才视为横幅内容行。
-// 仅 includes(BANNER_ID) 会误伤源码常量定义(如 watermark.mjs 的 BANNER_ID 常量)。
+// 横幅行形态(与 `scripts/lib/watermark-lines.mjs` 的 BANNER_TEXT_RE **逐字同形**)。
+// 2026-11-19 实测纠偏:此处此前写的是弱化版 `© <年> IHUI AI`(少了品牌段 `(智汇AI)`),
+// 于是正文里一句以 `// © 2026 IHUI AI …` 开头的说明文字(归档转录件里就有两处)被
+// 判成"横幅行未注释包裹"—— 判据抄两份必然漂移(§0.6),这里以唯一真相源为准收紧回去。
 export const BANNER_TEXT_RE =
-  /^(?:©\s*\d{4}\s+IHUI\s+AI|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
+  /^(?:©\s*\d{4}\s+IHUI\s+AI\s*\(智汇AI\)|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
 export function isBannerLine(line) {
   return BANNER_TEXT_RE.test(
     String(line)

@@ -2171,7 +2171,9 @@
     "videoTitle": "Learning videos",
     "videoDesc": "Latest course videos",
     "centerTitle": "Learning center",
-    "centerDesc": "Structured learning paths"
+    "centerDesc": "Structured learning paths",
+    "pathTitle": "Learning path",
+    "recommend": "Recommended for You"
   },
   "liveChat": {
     "title": "Live Chat",
