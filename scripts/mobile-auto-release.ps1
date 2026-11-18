@@ -288,7 +288,22 @@ try {
     }
   }
   $relevant = @($changed | Where-Object { $_ -ne '' -and (Test-MobileRelevant $_) })
-  $overlayChanged = $prevOverlay -ne $overlaySha
+  # 覆盖层"有没有变"必须按**内容**判,不能按 sha(2026-11-18 实测):覆盖层每轮由 merge 现生成,
+  # sha 必然漂移 ⇒ 旧判据 `$prevOverlay -ne $overlaySha` 恒为真,于是"无移动端改动就跳过"永远走不到,
+  # 每个他人提交都会白跑一次 8 分钟 OTA、并反复覆盖同一个 runtime 桶(日志表现:触发改动 0 个却照发)。
+  # 基线丢失/无基线时按原生面处理 = 保守走整包,绝不静默判成"无改动"(与下面 nativeTouched 同一口径)。
+  $overlayDiff = @()
+  if ($prevOverlay -and $prevOverlay -ne $overlaySha) {
+    $verifiedOverlay = & git -C $RepoRoot rev-parse --verify --quiet "$prevOverlay^{commit}" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      $overlayDiff = @(& git -C $RepoRoot diff --name-only "$prevOverlay..$overlaySha" 2>&1 | Where-Object { $_ -ne '' })
+    } else {
+      $overlayDiff = @('apps/mobile-rn/android/__overlay-baseline-lost__')
+    }
+  } elseif (-not $prevOverlay) {
+    $overlayDiff = @('apps/mobile-rn/android/__no-overlay-baseline__')
+  }
+  $overlayChanged = @($overlayDiff | Where-Object { Test-MobileRelevant $_ }).Count -gt 0
   $hasBaseline = $prevValid -and $changed.Count -gt 0
   # mainSha 与"上一轮真发出去的那枚"逐字相同 ⇒ 根本没有新提交可发。原判据只用"diff 有文件"表达
   # "有新提交",于是零改动被读成"没有基线"、反过来强行出包 —— 2026-11-18 实测每小时空涨一个 patch
@@ -563,18 +578,7 @@ try {
   # 判定口径必须是"本轮覆盖层**新增**了什么",不能是 merge-base..overlay 的整叠 diff ——
   # 后者永远包含覆盖层里的原生文件(app.config.js / plugins/ / package.json),于是
   # nativeTouched 恒为真,JS-only 轮次永远走不到 OTA(2026-11-06 实测)。无基线时按原生面处理。
-  $overlayDiff = @()
-  if ($prevOverlay -and $prevOverlay -ne $overlaySha) {
-    $verifiedOverlay = & git -C $RepoRoot rev-parse --verify --quiet "$prevOverlay^{commit}" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-      $overlayDiff = @(& git -C $RepoRoot diff --name-only "$prevOverlay..$overlaySha" 2>&1 | Where-Object { $_ -ne '' })
-    } else {
-      # 用一条**必中原生面**的路径表达"基线丢失 ⇒ 保守走整包",而不是静默判 JS-only
-      $overlayDiff = @('apps/mobile-rn/android/__overlay-baseline-lost__')
-    }
-  } elseif (-not $prevOverlay) {
-    $overlayDiff = @('apps/mobile-rn/android/__no-overlay-baseline__')
-  }
+  # $overlayDiff 已在"判定是否需要出包"段按同一口径算好并复用(单一真相源,禁止在这里再算一份)。
   $touchedPaths = @(@($changed) + @($overlayDiff) | Where-Object { $_ -ne '' })
   $nativeTouched = @($touchedPaths | Where-Object { $p = $_; @($nativePatterns | Where-Object { $p -match $_ }).Count -gt 0 }).Count -gt 0
   if ($nativeTouched) { Write-Host '[auto] 本轮触及原生面 ⇒ 走整包(APK)。' -ForegroundColor Yellow }
