@@ -55,10 +55,6 @@ export { pickStalePackages }
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
-// 并发复用探针(2026-11-18)用的三件:回执读取、环境指纹、git 单源(§0.6 禁止第二份 git 派生)。
-import { RECEIPT_REL, RECEIPT_SCHEMA_V2, readReceipt } from './lib/typecheck-receipt.mjs'
-import { envFingerprint } from './lib/typecheck-input-digest.mjs'
-import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -274,47 +270,13 @@ if (!_SELF_TEST) {
       /* 忽略 */
     }
   })
-
-  // ── 并发复用探针(2026-11-18 立)────────────────────────────────────────────
-  // 立因(实测,不是估):本进程在"另一路全量 typecheck 正持锁"时只能干等(日志实测等 129s),
-  // 等完却**从头再跑一遍全量**(再 100s)⇒ 一次提交付两遍 100 秒。而对方跑完已经把结论
-  // 写进回执(RECEIPT_REL),那份回执正是"同一棵树已经跑绿"的凭证 —— 只是没人回头读它。
-  // 复用条件**刻意比回执自身的校验更严**(宁可多跑一次,绝不把别的树/别的编译器版本的结论搬过来):
-  //   ① schema 必须是 v2(旧 v1 只绑整树、不含环境指纹);
-  //   ② exitCode === 0(红结论绝不复用);
-  //   ③ treeSha 逐字等于当前 HEAD 树(树变了 ⇒ TS 输入必变);
-  //   ④ envPrint 逐字相等(node/typescript 版本一致 —— ts 升级时树可能没动,靠这一条挡住);
-  //   ⑤ finishedAt 在 120s 内(过期就重跑)。
-  // 只影响执行顺序,不新增判据、不放宽任何一格;探针取不到输入 ⇒ 照常全量(失效方向恒为多跑一次)。
-  if (!process.argv.includes('--preflight-only') && !process.env._IHUI_TC_PROBE_DONE) {
-    try {
-      const _r = readReceipt(join(ROOT, RECEIPT_REL))
-      const _tsPkg = JSON.parse(_rdLock(join(ROOT, 'node_modules/typescript/package.json'), 'utf8'))
-      const _env = envFingerprint({
-        nodeVersion: process.version,
-        tsVersion: (_tsPkg && _tsPkg.version) || null,
-      })
-      const _tree = String(gitRaw(['rev-parse', 'HEAD^{tree}'], ROOT) || '').trim()
-      const _age = Date.now() - Number((_r && _r.finishedAt) || 0)
-      if (
-        _r &&
-        _r.v === RECEIPT_SCHEMA_V2 &&
-        _r.exitCode === 0 &&
-        _r.treeSha === _tree &&
-        _r.envPrint === _env &&
-        _age >= 0 &&
-        _age < 120_000
-      ) {
-        console.log(
-          `[typecheck:full] ♻️ 并发复用:${Math.round(_age / 1000)}s 前已有会话在**同一棵 HEAD 树**上跑绿(回执 exit=0)` +
-            `⇒ 本次不再重跑(要强制全量:IHUI_TYPECHECK_RECEIPT=0)`,
-        )
-        process.exit(0)
-      }
-    } catch {
-      /* 探针本身取不到输入 ⇒ 照常全量 */
-    }
-  }
+  // 2026-11-18 撤回「并发复用探针」:它按 `回执.exitCode === 0` 才复用,而本仓回执实测
+  // 恒为 exit 1(mypy 存量错 app/services/agent_loop_v2.py 一直挂着,由 check-typecheck
+  // 的 scope 降级放行)⇒ 探针**从不命中**,是一个安全但零收益的空操作。
+  // 要让它真生效,必须在"复用失败结论"时把 errorFiles 原样回传给 check-typecheck 的
+  // 降级判定;而 typecheck-full 不知道 scope 面(那是 check-typecheck 的判据)——
+  // 在 typecheck-full 里判 scope 等于把两套判据耦合,写错就是把真实的 mypy 红洗成绿。
+  // 所以宁可撤回,也不留一个既不省时又给假绿开门的钩子。
 }
 
 /**
