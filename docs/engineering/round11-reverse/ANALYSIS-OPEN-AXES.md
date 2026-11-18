@@ -35,12 +35,22 @@
 
 ## 三、读到了但没读透的（自认）
 
-### 1. 协议字段级契约（最大一块）
+### 1. 协议字段级契约（R132 已推进一半，剩下的是取值面）
 R130 拿到 329 + 479 份 JSON Schema 的**清单**与方法表，`197 / 274` 条方法。
 **hook 那 12 个家族已经做到字段级**（`hook_contract_schema.py` 23 段 schema、
 `hook_field_name.py` 26 个逐字字段名、`hook_field_type_contract.py` 类型/必填面）。
-剩的是**其余方法族**——`thread`(59)、`item`(19)、`account`(18)、`plugin`(12)、`fs`(10)、
-`turn`(8)、`mcpServer`(7) —— 这些只有 method 名，没有一条字段级契约。
+
+**R132 把其余七族推进到「聚合字段级」**（`app_server_field_contracts.py` + 20 passed）：
+863 个字段槽 / 349 个去重名 / 259 个对象声明 `required`（合计 521 个必填）/ 12 桶完整类型分布；
+命名规则被量死 —— **859 camelCase + 4 snake_case，四个全是 MCP 的 `_meta`**；
+194 个无 `type` 字段拆成 `$ref` 92 / `anyOf` 71 / `allOf` 26 / 裸 5；
+三个最大请求对象（`TurnStartParams` 19 / `ThreadStartParams` 15 / `ThreadForkParams` 15）逐字钉住。
+
+**还没读透的是取值面，不是字段名面**：
+- 剩下 282 个有字段的对象只有聚合数进了模块，逐对象表在磁盘上没钉；
+- `enum` / `const` 的**取值集合**一个都没提取（只知道哪些字段带这两种关键词）；
+- 312 个字段的 `description` 只计数没读内容 —— 那里有行为约束（何时刷新、什么状态算失败）；
+- 对象级 `additionalProperties: false` 的**比例没统计** —— 它决定「多一个未知字段会不会被拒」。
 
 ### 2. sqlite 的行内容
 R131 读了六库的 schema 与行数，**没读任何一行内容**。
@@ -75,8 +85,9 @@ R131 读了六库的 schema 与行数，**没读任何一行内容**。
 
 ## 四、如果要继续，优先级这么排
 
-1. **其余方法族的字段级** —— hook 12 族已完成（23 段 schema / 26 个字段名 / 类型契约）。
-   剩：`thread` / `item` / `account` / `plugin` / `fs` / `turn` / `mcpServer` 这七族的字段级提取。
+1. **字段级取值面** —— 字段名面 R132 已收（859 camelCase + 只有 `_meta` 一个 snake_case，三份逐字表钉住）。
+   剩：`enum`/`const` 取值集合、312 条 `description` 的行为约束、`additionalProperties: false` 的宽严比例、
+   以及 282 个对象的逐对象表。
 2. **sqlite 行内容** —— 读 `threads` 的 `title` / `first_user_message`，能反推它对"会话标题"的生成策略。
 3. **三份表格依赖文档** —— 补完 live 面的操作语法。
 4. **`unzip` 缺口** —— 装一个 `unzip` 或改器物用 `tar.exe -xf`，两个模板器物才能真跑。
