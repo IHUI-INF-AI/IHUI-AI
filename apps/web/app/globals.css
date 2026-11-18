@@ -1502,7 +1502,9 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  *   - 徽章(+20)             ⇒ C ≥ 486,阈值 ≤485 隐藏
  *   默认 480 面板(C 432):左簇 72 + 右簇(32+40+28+142+28+36=306)+ 44 = 422 ≤ 432 ✓
  *   最小 400 面板(C 352):全 icon-only 336 ≤ 352 ✓
- * 模型名过长时由 trigger 的 max-w-[6rem] + truncate 收敛,flex min-w-0 兜底。
+ * 模型名过长时由 trigger 名字的 max-w-40(160px,2026-11-18 现值) + truncate 收敛,flex min-w-0 兜底。
+ * (2026-11-11 曾摘掉旧 max-w-[6rem],但下面的"不压缩、只换行"护栏意味着摘掉上限 = 摘掉全部
+ *  收敛机制,超长模型 ID 直接溢出盖住右簇图标;11-18 按现实现恢复本行口径并放宽到 160px。)
  *
  * 用原生 CSS 而非 Tailwind v4 container variant:
  * 实测 Tailwind v4 仅编译 .@container 类(container-type: inline-size),

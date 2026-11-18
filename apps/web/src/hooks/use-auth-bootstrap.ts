@@ -90,6 +90,53 @@ async function hasUsableRefreshCredential(): Promise<boolean> {
   return false
 }
 
+/** 瞬时失败后的自愈重试节拍(2026-11-18 立)。
+ *
+ *  病灶:refresh 撞上一次瞬时失败(api 重启窗口 / 网络抖动 / 5xx)后,本 hook 只
+ *  `console.info` 一句就 `setReady(true)` 收束,而模块级单例 `sharedOutcome.ready` 从此为 true
+ *  ⇒ 整页此生不再尝试刷新。结果是 `isAuthenticated=true` + `token=null` 的**混合态**活在
+ *  store 里:UI 认为已登录,凡带 token 的接口全 401,模型选择器拿不到清单只能退回硬编码
+ *  兜底(其中就写着额度已耗尽的 CF 免费模型)。用户手册:每重载一次就可能再撞一次。
+ *
+ *  修法:瞬时失败不封死,按固定节拍**有界**补刷(5s / 15s 两轮),成功即由 api.ts 的
+ *  refreshAccessToken 内部 setToken 接回会话并翻 ready;两轮仍失败才真正躺平等人重登。
+ *  节拍走模块级单例,多实例共享同一枚定时器(避免 6 处调用方各排一条重试风暴)。
+ */
+const TRANSIENT_RECOVERY_DELAYS_MS = [5_000, 15_000] as const
+/** 测试可覆盖的节拍(只换常量,不改逻辑):真跑 5s/15s 会让用例突破 5s 默认超时。 */
+let transientRecoveryDelaysMs: readonly number[] = TRANSIENT_RECOVERY_DELAYS_MS
+let transientRecoveryTimer: ReturnType<typeof setTimeout> | null = null
+let transientRecoveryAttempts = 0
+
+function scheduleTransientRecovery(generation: number): void {
+  if (transientRecoveryTimer) return
+  if (transientRecoveryAttempts >= transientRecoveryDelaysMs.length) return
+  const delay = transientRecoveryDelaysMs[transientRecoveryAttempts]
+  transientRecoveryTimer = setTimeout(() => {
+    transientRecoveryTimer = null
+    transientRecoveryAttempts += 1
+    if (generation !== bootstrapGeneration) return
+    void refreshAccessTokenOnce()
+      .then((token) => {
+        if (token) {
+          // 成功:api.ts 的 refreshAccessToken 已 setToken,这里只需把 ready 收正
+          publishOutcome({ ready: true, error: null }, generation)
+          transientRecoveryAttempts = 0
+          return
+        }
+        scheduleTransientRecovery(generation)
+      })
+      .catch(() => scheduleTransientRecovery(generation))
+  }, delay)
+}
+
+/** 供测试重置(与 __resetAuthBootstrapSingleton 同生命周期)。 */
+function resetTransientRecovery(): void {
+  if (transientRecoveryTimer) clearTimeout(transientRecoveryTimer)
+  transientRecoveryTimer = null
+  transientRecoveryAttempts = 0
+}
+
 /**
  * 认证引导 Hook
  *
@@ -141,6 +188,8 @@ export function __resetAuthBootstrapSingleton(): void {
   inFlightBootstrap = null
   // 监听器也要清:上一个用例卸载时若未走完 cleanup,残留监听会把旧结果写进新用例的 state
   outcomeListeners.clear()
+  // 自愈定时器同生命周期:跨用例残留会把旧一轮的重试打进新用例(2026-11-18)
+  resetTransientRecovery()
 }
 
 export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBootstrapReturn {
@@ -173,8 +222,7 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
     if (!forceAttempt && (sharedOutcome.ready || inFlightBootstrap)) return
     let cancelled = false
     const myGeneration = bootstrapGeneration
-    const setReady = (v: boolean) =>
-      publishOutcome({ ...sharedOutcome, ready: v }, myGeneration)
+    const setReady = (v: boolean) => publishOutcome({ ...sharedOutcome, ready: v }, myGeneration)
     const setError = (v: string | null) =>
       publishOutcome({ ...sharedOutcome, error: v }, myGeneration)
     async function bootstrap() {
@@ -241,6 +289,9 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
                   'keeping session state; auto-login marker NOT written',
               )
+              // 2026-11-18 立:不再"记一句就躺平"—— 排一轮有界自愈,避免整页停在
+              // isAuthenticated=true / token=null 的混合态(详见 scheduleTransientRecovery 头注)
+              scheduleTransientRecovery(myGeneration)
             }
             setReady(true)
             return
@@ -349,6 +400,8 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
                   'keeping session state; auto-login marker NOT written',
               )
+              // 同上:forceAttempt 这条腿撞瞬时失败同样排一轮有界自愈(2026-11-18)
+              scheduleTransientRecovery(myGeneration)
             }
           }
         }
@@ -387,5 +440,14 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
  * 浏览器侧凭据全 httpOnly,这条判据曾把有 cookie 的老用户判成匿名(2026-10-20 修),
  * 必须有独立用例钉住 —— 只测 hook 的失败分型测不到它。
  */
-export const __test__ = { hasUsableRefreshCredential }
+export const __test__ = {
+  hasUsableRefreshCredential,
+  /** 换自愈节拍(测试用),返回旧值以便用例收尾复原。 */
+  setTransientRecoveryDelays(delays: readonly number[]): readonly number[] {
+    const previous = transientRecoveryDelaysMs
+    transientRecoveryDelaysMs = delays
+    return previous
+  },
+  resetTransientRecovery,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

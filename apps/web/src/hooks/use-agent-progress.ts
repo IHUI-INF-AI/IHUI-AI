@@ -110,14 +110,18 @@ export interface Subagent {
   /** v10 Phase 5:subagent 内部工具调用列表(若事件携带 subagentId 则关联) */
   tools?: AgentToolCall[]
   /**
-   * 流式进度诊断(2026-11-17 补):与 components/ai/types.ts 的 SubAgentActivity 同口径。
-   * SubAgentTaskTree 的 13 处引用只认本接口,而 618a1b53d9 只改了 types.ts 与 store,
-   * 漏了这里 ⇒ HEAD 净面 web 构建 TS2339 恒红、部署上不了线。缺字段不是缺功能:
-   * store 早就在写,只是类型没声明。
+   * 改进 B(2026-11-17):实时流消费 subagent_progress 帧 —— 子代理当下细粒度阶段。
+   * 与历史回放层(element-pack-history)progressPhase 同形,四值:thinking/tool_call/tool_result/output_ready。
    */
   progressPhase?: 'thinking' | 'tool_call' | 'tool_result' | 'output_ready'
+  /** 改进 B:当前迭代轮次(细粒度进度数字,实时跳动) */
   progressIteration?: number
+  /** 改进 B:当前正在调用的工具名(phase=tool_call/tool_result 时有值) */
   progressTool?: string
+  /**
+   * 深化C(2026-11-17):子代理实时输出预览 —— 后端 output_preview 帧(截断 200 字符)。
+   * phase=output_ready 时子代理最终输出预览,运行中也可有阶段性输出片段。
+   */
   outputPreview?: string
 }
 
@@ -627,6 +631,31 @@ export function applySubagentFailure(
   existing.failureAttributionStrong = hasStructuredEvidence
 }
 
+/**
+ * 改进 B(2026-11-17):progress 阶段 → 人类可读文案,与 store.updateSubagentProgress /
+ * 历史回放层 progressStepText 三处同文案(改文案须三处同步)。
+ */
+function subagentProgressStepText(
+  phase: string | undefined,
+  iteration: number | undefined,
+  tool: string | undefined,
+  ok: boolean | undefined,
+): string {
+  const iter = iteration ? ` (轮次 ${iteration})` : ''
+  switch (phase) {
+    case 'thinking':
+      return `思考中…${iter}`
+    case 'tool_call':
+      return `调用工具: ${tool ?? 'unknown'}${iter}`
+    case 'tool_result':
+      return `${tool ?? 'unknown'} ${ok ? '✓' : '✗'}${iter}`
+    case 'output_ready':
+      return '输出就绪'
+    default:
+      return ''
+  }
+}
+
 function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
   const map = new Map<string, Subagent>()
   let nicknameIndex = 0
@@ -660,6 +689,46 @@ function extractSubagentsFromEvents(events: SSEEvent[]): Subagent[] {
         pendingApproval: data?.pendingApproval,
         tools: [],
       })
+    } else if ((evt.type as string) === 'subagent_progress') {
+      // 改进 B(2026-11-17):实时消费 subagent_progress 帧,把细粒度阶段(phase/iteration/tool)
+      // 写进 currentTask —— Panel 的 currentTask 行因此实时跳动(思考中…/调用工具: X (轮次 N)/输出就绪)。
+      // 后端字段为 snake_case:output_preview;phase 取四契约值,表外 phase 忽略(不造残卡)。
+      const data = evt.data as
+        | {
+            id?: string
+            threadId?: string
+            phase?: string
+            iteration?: number
+            tool?: string
+            ok?: boolean
+            output_preview?: string
+            outputPreview?: string
+            /** 深化C:后端可能带实时 token 累计(snake_case) */
+            token_usage?: number
+            tokenUsage?: number
+          }
+        | undefined
+      const id = data?.id ?? data?.threadId ?? ''
+      const existing = id ? map.get(id) : undefined
+      if (!existing) continue // 无对应 spawn 条目 ⇒ 跳过(与历史回放层一致,不造残卡)
+      const step = subagentProgressStepText(data?.phase, data?.iteration, data?.tool, data?.ok)
+      if (step) existing.currentTask = step
+      if (
+        data?.phase === 'thinking' ||
+        data?.phase === 'tool_call' ||
+        data?.phase === 'tool_result' ||
+        data?.phase === 'output_ready'
+      ) {
+        existing.progressPhase = data.phase
+      }
+      if (data?.iteration !== undefined) existing.progressIteration = data.iteration
+      if (data?.tool !== undefined) existing.progressTool = data.tool
+      // 深化C(2026-11-17):子代理实时输出预览(snake_case output_preview)+ token 实时累计。
+      // 预览只在有值时更新,避免空帧清掉上一帧内容(输出片段应是渐进补全而非闪烁清空)。
+      const preview = data?.output_preview ?? data?.outputPreview
+      if (preview !== undefined && preview !== '') existing.outputPreview = preview
+      const tok = data?.token_usage ?? data?.tokenUsage
+      if (tok !== undefined) existing.tokenUsage = tok
     } else if ((evt.type as string) === 'subagent_end') {
       const data = evt.data as
         | (SubagentFailureEventData & {

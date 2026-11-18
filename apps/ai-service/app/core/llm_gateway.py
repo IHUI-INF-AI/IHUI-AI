@@ -2932,6 +2932,15 @@ class LLMGateway:
                 _http_status,
                 str(e)[:300],
             )
+            # 当场记账(2026-11-18 立,与流式失败分支同一出口、同一判据)
+            try:
+                from ..services.model_health import model_health as _mh
+
+                _mh.record_runtime_failure(
+                    str(used_model), str(e), int(_http_status or 0)
+                )
+            except Exception as _mh_err:  # pragma: no cover
+                logger.debug("[model-health] runtime failure record skipped: %s", _mh_err)
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -4295,6 +4304,18 @@ class LLMGateway:
                 _http_status_s,
                 str(e)[:300],
             )
+            # 当场记账(2026-11-18 立):上游明确判死(额度耗尽/模型下线)时立刻把该模型
+            # 打回 model_health 的 down 档,下一轮 /llm/models 就把它从选择器里摘掉,
+            # 不必等最长 30 分钟的定时探测。限流(429)只记原因、不改档位,
+            # 免得一次抖动把整家模型抹掉(判据与探测同源,见 record_runtime_failure)。
+            try:
+                from ..services.model_health import model_health as _mh
+
+                _mh.record_runtime_failure(
+                    str(used_model), str(e), int(_http_status_s or 0)
+                )
+            except Exception as _mh_err:  # pragma: no cover - 记账失败不影响主流程
+                logger.debug("[model-health] runtime failure record skipped: %s", _mh_err)
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,

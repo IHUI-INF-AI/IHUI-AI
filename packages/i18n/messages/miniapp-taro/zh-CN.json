@@ -3030,7 +3030,8 @@
     "failed5": "退订失败，请联系客服",
     "text6": "等级介绍页未配置",
     "menu": {
-      "subscriptions": "我的订阅"
+      "subscriptions": "我的订阅",
+      "about": "关于我们"
     },
     "security": {
       "code": "验证码",

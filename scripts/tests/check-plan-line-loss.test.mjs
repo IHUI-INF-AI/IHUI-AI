@@ -1299,7 +1299,10 @@ test('提交链档默认不读仓外摘除台账(否则一行 jsonl 可免任意
         return null
       }
     })
-    .find((x) => typeof x === 'string' && /^\s*- \[ \]/.test(x))
+    // 样本必须是**门自己认的**登记行(registrationOf 非空):台账里同时躺着一批编号族之外的
+    // 历史行(如 `DBG-1`,ID 面 `D-?\d+` 结构上不认),拿它当样本会让断言测的是"门认不认这条
+    // 样本"而不是"默认档会不会去读仓外台账" —— 2026-11-18 实测该条取中 DBG-1,断言 0!==1 误红。
+    .find((x) => typeof x === 'string' && /^\s*- \[ \]/.test(x) && G.registrationOf(x))
   if (!row) return
   assert.equal(
     G.lostMarkers(row, '- [ ] G-999 别的票').length,

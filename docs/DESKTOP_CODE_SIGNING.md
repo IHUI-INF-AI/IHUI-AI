@@ -6,7 +6,7 @@
 
 # 桌面端代码签名(Windows SignPath / macOS Developer ID)
 
-> **最后更新**: 2026-11-03
+> **最后更新**: 2026-11-18
 > **适用范围**: `release-desktop.yml` 的 `desktop-v*` 发布链(tag push 或 workflow_dispatch)
 > **落地文件**: `.github/workflows/release-desktop.yml`、`scripts/desktop-signing-chain.mjs`、`scripts/desktop-updater-sig-verify.mjs`、`.github/SECRETS.md`
 
@@ -236,6 +236,7 @@ Tauri 自动更新用 **minisign `.sig`** 校验**文件字节**;Authenticode / 
 2. **对签名后的字节重算 SHA256 / 字节数**,写进 `signature-manifest.json`(`sha256` / `bytes` / `unsignedSha256` 对照)。gate 会重新下载产物再算一遍,与清单逐字节比对——防"清单是新的、包是旧的"。
 3. **用同一份字节跑 `tauri signer sign`** 重算同名 `.sig`。`tauri-action` 在打包阶段生成的那份 `.sig` 覆盖的是**未签名**的字节,签名一覆盖就失效。
 4. **独立 runner 用 `tauri.conf.json` 的 pubkey 验签**(`node scripts/desktop-updater-sig-verify.mjs --artifact ... --signature ....sig --config apps/desktop/src-tauri/tauri.conf.json`)。这一步不是在"信任 build job 的自述",而是用**已分发客户端里的那把公钥**去验:能验过,才说明已装客户端也能验过。
+   - **两种 `.sig` 形态都直接认**(2026-11-18 补):CI 构建产物旁的是**裸 minisign 文本**;GitHub Release 分发的 `.sig` 资产(与 `latest.json` 的 `platforms[*].signature`)是**整份文本再 base64 一层**的 Tauri 形态。验签器内置归一化,两种都可直接喂 `--signature`,不再需要手工 `base64 -d` 解一层。判据见 `scripts/tests/updater-key-pairing.test.mjs` 末尾验签形态组。
 5. **只有 gate 绿了才生成 `latest.json`**:`publish-updater-json.needs: [build, signature-gate]`。少了这条依赖,未签名/未公证的包会照样被写进更新清单,已装客户端自动升级后验签失败/被 Gatekeeper 拦。
 
 **为什么不能"签完 exe 就算完"**:已安装客户端只认 `.sig` 覆盖的那份字节。签名覆盖 exe 后不重算 `.sig` ⇒ 客户端下载到的新包与 `.sig` 不匹配 ⇒ **全体客户端的自动更新全部失败**,且表现为"更新永远失败/更新后打不开",排查成本远高于"这次不发版"。所以 workflow 里 `.sig` 重算失败是**硬失败**(`throw`),没有跳过余地;`Fallback upload` 在"已配置凭据但签名步失败"时也会 **exit 1 拒绝上传**,不让"新包配旧签名"外溢到 Release。

@@ -66,8 +66,45 @@ export function decodeMinisignPublicKey(pubkeyBase64) {
   }
 }
 
-/** 读取 .sig 文件,返回 { algorithm, keyId, signature, trustedComment } */
+/**
+ * 把「Tauri 形态」的 .sig 归一化为裸 minisign 文本。
+ *
+ * Tauri updater 在 release 里分发的 `.sig` 资产(以及 `latest.json` 的
+ * `platforms[*].signature`)是**整份 .sig 文本再 base64 一层**的形态:
+ *   base64("untrusted comment: ...\n<blob>\ntrusted comment: ...\n<sig>\n")
+ * 而 CI 构建产物旁的 .sig 是裸 minisign 文本。两种都是官方有效产物,
+ * 但 decodeSignatureFile 旧版只认裸文本 —— 于是本地校验官方发布包必须手工
+ * `base64 -d` 解一层(2026-11-18 更新桌面端到 0.1.78 时实测踩中)。
+ *
+ * 归一化判据(不做隐式降级):
+ *   - 输入含 `untrusted comment:` 或 `trusted comment:` ⇒ 已是裸文本,原样返回;
+ *   - 否则整段 trim 后按 base64 严格解码,解码结果含 minisign 注释标记 ⇒ 返回解码文本;
+ *   - 其余(截断/损坏/非签名文件)⇒ 原样返回,交给 decodeSignatureFile 给具体报错,
+ *     绝不把"解不开"伪装成"解成了空签名"。
+ */
+export function normalizeSigText(sigText) {
+  if (typeof sigText !== 'string') return sigText
+  const text = sigText.trim()
+  if (text === '') return sigText
+  // 裸文本:已有 minisign 注释标记,无需再解
+  if (text.includes('untrusted comment:') || text.includes('trusted comment:')) return sigText
+  // Tauri 双层形态:整段应是合法 base64(允许换行),解出文本再认标记
+  const compact = text.replace(/\s+/g, '')
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(compact)) return sigText
+  try {
+    const decoded = Buffer.from(compact, 'base64').toString('utf8')
+    if (decoded.includes('untrusted comment:') || decoded.includes('trusted comment:')) {
+      return decoded
+    }
+  } catch {
+    /* 非法 base64 ⇒ 原样交回,由调用方报错 */
+  }
+  return sigText
+}
+
+/** 读取 .sig 文件,返回 { algorithm, keyId, signature, trustedComment };兼容裸文本与 Tauri 双层 base64 */
 export function decodeSignatureFile(sigText) {
+  sigText = normalizeSigText(sigText)
   const lines = sigText.split(/\r?\n/)
   const blobLine = lines.find(
     (line) => line.trim() !== '' && !line.startsWith('untrusted comment:') && !line.startsWith('trusted comment:'),
@@ -199,6 +236,23 @@ function selfTest() {
       ).toString('base64'),
     })
     check(`${algorithm}: 换一把公钥必须失败`, !wrongKey.ok, wrongKey.reason)
+
+    // Tauri 双层形态:release 分发的 .sig / latest.json 的 signature 是
+    // "整份 .sig 文本再 base64 一层"。必须与裸文本等价验过,否则本地校验官方
+    // 发布包就要手工解一层(2026-11-18 踩中)。
+    const tauriWrapped = Buffer.from(fixture.sigText, 'utf8').toString('base64')
+    const wrapped = verifyUpdaterSignature({
+      artifactBytes,
+      sigText: tauriWrapped,
+      pubkeyBase64: fixture.pubkeyBase64,
+    })
+    check(`${algorithm}: Tauri 双层 base64 .sig 验签通过`, wrapped.ok, wrapped.reason)
+    const wrappedTampered = verifyUpdaterSignature({
+      artifactBytes: tampered,
+      sigText: tauriWrapped,
+      pubkeyBase64: fixture.pubkeyBase64,
+    })
+    check(`${algorithm}: Tauri 双层 .sig 篡改字节必须失败`, !wrappedTampered.ok, wrappedTampered.reason)
   }
 
   // 签名块长度不足 / 非 base64 必须给出具体原因,而不是抛栈
@@ -276,6 +330,7 @@ function main(argv) {
 export const __test__ = {
   decodeMinisignPublicKey,
   decodeSignatureFile,
+  normalizeSigText,
   verifyUpdaterSignature,
   buildSignatureForTest,
   readPubkeyFromConfig,

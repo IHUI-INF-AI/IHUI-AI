@@ -41,6 +41,11 @@ export default defineConfig({
     // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
     // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
     testTimeout: 15_000,
+    // 2026-11-18(出包门链实测):application 上偶发 `[vitest-pool] Timeout terminating forks worker`
+    // ⇒ 2 个文件被判 failed ⇒ rn-tests 门红 ⇒ 整轮不出包(本轮唯一拿到的那份门链落盘日志就是这条)。
+    // 成因是 worker 退出收尾超默认 10s(本机常驻 gradle daemon + dev-stack + 类型检查并发),不是用例失败。
+    // 与上面的 testTimeout 同属**资源预算**,不改任何判据与用例内容;给 teardown 放到 30s。
+    teardownTimeout: 30_000,
     // 收集面显式写死,且 **src/** 与 tests/** 两棵子树都必须在面内**(实测 2026-09-25:
     // `npx vitest list --filesOnly` = 55 份 = src 39 + tests 16,磁盘上不存在第三种落点)。
     // 为什么单独补这一行 include:此前这里只有 exclude,收集全靠 vitest 默认 glob,而紧邻的注释

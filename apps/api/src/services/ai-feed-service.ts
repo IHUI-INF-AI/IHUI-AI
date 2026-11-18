@@ -575,7 +575,10 @@ async function fetchToutiaoHotBoard(
     coverUrl: null,
     author: '今日头条',
     currentRank: idx + 1,
-    currentHot: typeof raw.HotValue === 'number' ? raw.HotValue : null,
+    // 2026-11-18 实测:头条热榜接口的 HotValue 是**字符串**("39019941"),不是 number。
+    // 原来判 `typeof raw.HotValue === 'number'` 恒 false ⇒ 头条 6815 条热度全丢、
+    // trendTag 只能退化成排名口径。改走 parseHotValue(它本就兼容 number/string/万亿单位)。
+    currentHot: parseHotValue(raw.HotValue),
     publishTime: new Date(),
   }))
 }
@@ -2076,6 +2079,14 @@ export async function proxyImage(url: string): Promise<{
  *
  * 只快照有 hot 或 rank 的条目（避免无热度数据条目污染趋势计算）。
  */
+/**
+ * 快照保留天数(2026-11-18 立)。
+ * 消费方只有两处:趋势计算(14 天双窗口)与单条历史曲线(≤14 天),30 天留一倍余量。
+ * 此前这张表只增不删 —— 91 天已 233 万行、每天再 +5.3 万,是"跑久必退化"的存储侧根因。
+ * 存量按日期逐日收敛(不一次性大删:数百万行一条 DELETE 会撞 30s statement_timeout)。
+ */
+const SNAPSHOT_RETENTION_DAYS = 30
+
 export async function generateSnapshot(): Promise<{ insertedRows: number }> {
   await db.execute(sql`
     INSERT INTO ai_feed_snapshot (source_code, platform_item_id, item_id, title, rank, hot_value, snapshot_date, captured_at, created_at, updated_at)
@@ -2111,8 +2122,54 @@ export async function generateSnapshot(): Promise<{ insertedRows: number }> {
     ? countRes
     : ((countRes as { rows?: unknown[] }).rows ?? [])
   const insertedRows = (countRows[0] as { cnt?: number } | undefined)?.cnt ?? 0
+
+  // 保留期收敛(2026-11-18 立):这张表此前只增不删 —— 91 天已 233 万行、每天再 +5.3 万,
+  // 是"跑久必退化"的另一半根因(另一半 = computeTrendSignals 曾把近 30 天快照全读进 Node,已改库内聚合)。
+  // 按日期逐日删:一次性 DELETE 数百万行会撞 30s statement_timeout;每片约一天的量。
+  // 每轮最多处理 400 天(防止异常数据把一轮拖死),清理失败不牵连本次快照。
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - SNAPSHOT_RETENTION_DAYS)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  let prunedRows = 0
+  let prunedDays = 0
+  try {
+    const staleDates = await db.execute(sql`
+      SELECT DISTINCT snapshot_date::text AS d
+      FROM ai_feed_snapshot
+      WHERE snapshot_date < ${cutoffStr}
+      ORDER BY d ASC
+      LIMIT 400
+    `)
+    const dateRows = (Array.isArray(staleDates)
+      ? staleDates
+      : ((staleDates as { rows?: unknown[] }).rows ?? [])) as Array<{ d: string }>
+    for (const row of dateRows) {
+      const cntRes = await db.execute(sql`
+        SELECT COUNT(*)::int AS cnt FROM ai_feed_snapshot WHERE snapshot_date = ${row.d}::date
+      `)
+      const cntRows = (Array.isArray(cntRes)
+        ? cntRes
+        : ((cntRes as { rows?: unknown[] }).rows ?? [])) as Array<{ cnt?: number }>
+      const dayRows = cntRows[0]?.cnt ?? 0
+      if (dayRows > 0) {
+        await db.execute(sql`DELETE FROM ai_feed_snapshot WHERE snapshot_date = ${row.d}::date`)
+        prunedRows += dayRows
+        prunedDays += 1
+      }
+    }
+  } catch (err) {
+    logger.warn('ai-feed snapshot prune failed', {
+      error: String((err as Error)?.message ?? err).slice(0, 120),
+      prunedRows,
+      prunedDays,
+    })
+  }
+
   logger.info('ai-feed snapshot generated', {
     insertedRows,
+    prunedRows,
+    prunedDays,
+    retentionDays: SNAPSHOT_RETENTION_DAYS,
     snapshotDate: new Date().toISOString().slice(0, 10),
   })
   return { insertedRows }
@@ -2130,6 +2187,9 @@ export async function generateSnapshot(): Promise<{ insertedRows: number }> {
  *
  * 与旧架构 server/app/services/ai_feed_service.py 的 compute_trend_signals 对齐。
  */
+/** 趋势信号写入的分批大小:每批 300 条 upsert + 让出一次事件循环 */
+const TREND_BATCH_SIZE = 300
+
 export async function computeTrendSignals(): Promise<{ processedItems: number }> {
   const windows = [7, 14]
   let count = 0
@@ -2137,74 +2197,107 @@ export async function computeTrendSignals(): Promise<{ processedItems: number }>
   for (const windowDays of windows) {
     const since = new Date()
     since.setDate(since.getDate() - windowDays)
+    const sinceStr = since.toISOString().slice(0, 10)
 
-    const snapshots = await db
-      .select()
-      .from(aiFeedSnapshot)
-      .where(gte(aiFeedSnapshot.snapshotDate, since.toISOString().slice(0, 10)))
+    // 单条聚合 SQL:每个 item 只取窗口内的「首次 / 末次」两个点 + 计数。
+    // 旧实现把窗口内全部快照读进 Node(一天 5.3 万行,30 天累积百万级),再逐 item 串行
+    // upsert(≈15 万次 roundtrip)—— 这正是 api 跑满数小时后 /api/auth/me 卡到 20s 的根因:
+    // 长任务持续占用事件循环,堆被百万行快照撑到 2GB+ 后触发 GC 风暴。
+    const aggRes = await db.execute(sql`
+      SELECT
+        item_id,
+        count(*)::int AS snapshot_count,
+        (array_agg(hot_value ORDER BY snapshot_date ASC))[1] AS first_hot,
+        (array_agg(hot_value ORDER BY snapshot_date DESC))[1] AS last_hot,
+        (array_agg(rank ORDER BY snapshot_date ASC))[1] AS first_rank,
+        (array_agg(rank ORDER BY snapshot_date DESC))[1] AS last_rank,
+        (array_agg(source_code ORDER BY snapshot_date DESC))[1] AS source_code,
+        (array_agg(platform_item_id ORDER BY snapshot_date DESC))[1] AS platform_item_id
+      FROM ai_feed_snapshot
+      WHERE snapshot_date >= ${sinceStr} AND item_id IS NOT NULL
+      GROUP BY item_id
+      HAVING count(*) >= 2
+    `)
+    const aggRows = (Array.isArray(aggRes)
+      ? aggRes
+      : ((aggRes as { rows?: unknown[] }).rows ?? [])) as Array<{
+      item_id: string
+      snapshot_count: number
+      first_hot: string | number | null
+      last_hot: string | number | null
+      first_rank: number | null
+      last_rank: number | null
+      source_code: string
+      platform_item_id: string
+    }>
 
-    const byItem = new Map<string, typeof snapshots>()
-    for (const s of snapshots) {
-      if (!s.itemId) continue
-      const arr = byItem.get(s.itemId)
-      if (arr) arr.push(s)
-      else byItem.set(s.itemId, [s])
-    }
-
-    for (const [itemId, arr] of byItem) {
-      if (arr.length < 2) continue
-      const sorted = [...arr].sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
-      const first = sorted[0]!
-      const last = sorted[sorted.length - 1]!
-      const firstHot = Number(first.hotValue ?? 0)
-      const lastHot = Number(last.hotValue ?? 0)
+    const signalValues = aggRows.map((r) => {
+      const firstHot = Number(r.first_hot ?? 0)
+      const lastHot = Number(r.last_hot ?? 0)
       const growthPct = firstHot > 0 ? ((lastHot - firstHot) / firstHot) * 100 : null
-      const rankDelta = last.rank !== null && first.rank !== null ? first.rank - last.rank : null
-
+      const rankDelta =
+        r.last_rank !== null && r.first_rank !== null ? r.first_rank - r.last_rank : null
+      // 趋势判定(2026-11-18 修):原来只认热度增长率。而实测 16 个信源、5.3 万条
+      // current_hot 全为 null(见 ai_feed_hot_item 全表探查) ⇒ growthPct 恒 null、
+      // trendTag 恒 stable,趋势功能整体空转。现在热度可用时按热度,
+      // 不可用时按排名相对上升率(排名值越小越靠前,取正值 = 上升;阈值同为 15%,口径一致)。
       let trendTag = 'stable'
       if (growthPct !== null) {
         if (growthPct >= 15) trendTag = 'rising'
         else if (growthPct <= -15) trendTag = 'cooling'
+      } else if (rankDelta !== null && r.first_rank !== null && r.first_rank > 0) {
+        const rankChangePct = (rankDelta / r.first_rank) * 100
+        if (rankChangePct >= 15) trendTag = 'rising'
+        else if (rankChangePct <= -15) trendTag = 'cooling'
       }
+      return {
+        itemId: r.item_id,
+        sourceCode: r.source_code,
+        platformItemId: r.platform_item_id,
+        windowDays,
+        growthPct,
+        rankDelta,
+        hotThen: firstHot || null,
+        emaHot: lastHot || null,
+        trendTag,
+        snapshotCount: r.snapshot_count,
+      }
+    })
 
+    for (let offset = 0; offset < signalValues.length; offset += TREND_BATCH_SIZE) {
+      const chunk = signalValues.slice(offset, offset + TREND_BATCH_SIZE)
       await db
         .insert(aiFeedTrendSignal)
-        .values({
-          itemId,
-          sourceCode: last.sourceCode,
-          platformItemId: last.platformItemId,
-          windowDays,
-          growthPct,
-          rankDelta,
-          hotThen: firstHot || null,
-          emaHot: lastHot || null,
-          trendTag,
-          snapshotCount: arr.length,
-        })
+        .values(chunk)
         .onConflictDoUpdate({
           target: [aiFeedTrendSignal.itemId, aiFeedTrendSignal.windowDays],
           set: {
-            growthPct,
-            rankDelta,
-            hotThen: firstHot || null,
-            emaHot: lastHot || null,
-            trendTag,
-            snapshotCount: arr.length,
+            growthPct: sql`excluded.growth_pct`,
+            rankDelta: sql`excluded.rank_delta`,
+            hotThen: sql`excluded.hot_then`,
+            emaHot: sql`excluded.ema_hot`,
+            trendTag: sql`excluded.trend_tag`,
+            snapshotCount: sql`excluded.snapshot_count`,
             updatedAt: new Date(),
           },
         })
 
       if (windowDays === 7) {
-        await db
-          .update(aiFeedHotItem)
-          .set({
-            trendTag,
-            trendGrowthPct: growthPct,
-            updatedAt: new Date(),
-          })
-          .where(eq(aiFeedHotItem.id, itemId))
+        // 同批一条 UPDATE ... FROM VALUES:旧实现逐条 update(5 万次),是 CPU 与 roundtrip 的双料大户
+        const tuples = chunk.map(
+          (v) => sql`(${v.itemId}::uuid, ${v.trendTag}::varchar, ${v.growthPct}::real)`,
+        )
+        await db.execute(sql`
+          UPDATE ai_feed_hot_item AS h
+          SET trend_tag = v.tag, trend_growth_pct = v.gap, updated_at = NOW()
+          FROM (VALUES ${sql.join(tuples, sql`, `)}) AS v(id, tag, gap)
+          WHERE h.id = v.id
+        `)
       }
-      count++
+
+      count += chunk.length
+      // 让出事件循环:长批任务不许把接口拖到超时
+      await new Promise((resolve) => setImmediate(resolve))
     }
   }
 

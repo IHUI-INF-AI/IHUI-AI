@@ -105,10 +105,11 @@ class ReasoningEffortPin:
 
     override_enabled: bool = False
     allowed_models: frozenset[str] = frozenset()
-    # 档位升序(xhigh/max 对齐对方 proto 七档,2026-10-31 扩档):与 TS 契约层
+    # 档位升序(xhigh/max 对齐对方 proto 七档,2026-10-31 扩档;ultra 对齐 proto
+    # "effort":"ultra" wire 值,2026-11-17 补档):与 TS 契约层
     # packages/types/src/reasoning-effort.ts 的封闭联合、cli 运行时数组、cli 编译期联合
     # 四处同笔,由 scripts/check-model-capacity-parity.mjs C5/C6 对账,少一处即点名。
-    known_efforts: frozenset[str] = frozenset({"minimal", "low", "medium", "high", "xhigh", "max"})
+    known_efforts: frozenset[str] = frozenset({"minimal", "low", "medium", "high", "xhigh", "max", "ultra"})
     state: ReasoningEffortPinState = field(default_factory=ReasoningEffortPinState)
 
     def effort_for_configuration_update(self, model: str, selected_effort: str | None) -> str | None:

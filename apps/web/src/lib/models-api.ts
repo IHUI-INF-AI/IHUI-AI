@@ -36,9 +36,14 @@ import type { Model } from '../../app/(main)/models/types'
 // Provider 健康状态类型(Phase C+D,从共享层 re-export,供模型选择器消费)
 export type { ProviderHealth } from '@ihui/api-client'
 
-// ============================================================================
-// 类型定义
-// ============================================================================
+/** 已判死模型(id + 原因),来自 /llm/models 的 `unavailable` 字段(2026-11-18 立)。
+ *  平台目录里 down 的会被后端直接过滤,但个人号池(/api/account-pool/models)
+ *  不经过 ai-service、也不在目录里 —— 用这份清单按 id 精确命中,让号池里
+ *  同样必失败的模型(如 CF 免费额度用尽)也能标死而不是"未验证可点"。 */
+export interface SelectorUnavailable {
+  id: string
+  reason: 'quota' | 'auth' | 'model_missing' | 'rate_limit' | 'down'
+}
 
 /** /llm/models 动态拉取返回的模型项(带积分倍数,后端非标准格式直接解析) */
 export interface SelectorModel extends LlmModel {
@@ -50,6 +55,10 @@ export interface SelectorModel extends LlmModel {
   health_status?: 'healthy' | 'pending' | 'unknown'
   /** 探测失败时的简短脱敏错误(可能为空) */
   health_error?: string
+  /** 失败原因分档(2026-11-18 立):quota=额度/余额耗尽、auth=密钥失效、
+   *  model_missing=上游已下线、rate_limit=限流(暂时,不禁用)、空=探测结论。
+   *  选择器据此把"额度已尽"与"尚未探测"分开显示,并禁用必失败的行。 */
+  health_reason?: 'quota' | 'auth' | 'model_missing' | 'rate_limit' | ''
   /** 实测能力(2026-11-11 立,后端可选字段,缺失按未知处理)。
    *  null = 未测/未知;context.tokens 为长上下文针测规模(如 16000)。
    *  与 verified(可用性已验证)是两个独立维度。 */
@@ -70,23 +79,70 @@ export interface SelectorModel extends LlmModel {
  * 故改用 fetchAiServiceJson(直接把响应 body 当作 data,不校验 code 包装)。
  * 失败/空 → 返回空数组(调用方按 fallback 渲染),永不抛出。
  */
-export async function fetchSelectorModels(): Promise<SelectorModel[]> {
+/** 已判死清单的本地缓存(2026-11-18 立)。
+ *  为什么需要:接口 401/断网时选择器会退回 `FALLBACK_MODELS` 硬编码兜底,
+ *  而兜底里就写着 `@cf/zai-org/glm-4.7-flash`("CF 免费") —— 额度早已耗尽,
+ *  却因为"这份清单不是接口给的、没人判死"又变成可点。把最近一次**成功**拉到的
+ *  unavailable 存在 sessionStorage,兜底渲染前先按它标一遍,断网也不会翻案。 */
+const UNAVAILABLE_CACHE_KEY = 'ihui.modelUnavailable.v1'
+
+function cacheUnavailable(list: SelectorUnavailable[]): void {
   try {
-    const res = await fetchAiServiceJson<{ models: SelectorModel[] }>('/llm/models', {
-      method: 'GET',
-    })
+    if (typeof window === 'undefined') return
+    window.sessionStorage.setItem(UNAVAILABLE_CACHE_KEY, JSON.stringify(list))
+  } catch {
+    /* 隐私模式/配额满:丢掉缓存不阻断渲染 */
+  }
+}
+
+/** 读兜底渲染用的已判死清单(缓存缺失/损坏一律返回空数组 = 不标死,不误杀)。 */
+export function readCachedUnavailable(): SelectorUnavailable[] {
+  try {
+    if (typeof window === 'undefined') return []
+    const raw = window.sessionStorage.getItem(UNAVAILABLE_CACHE_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (row): row is SelectorUnavailable =>
+        !!row && typeof (row as SelectorUnavailable).id === 'string',
+    )
+  } catch {
+    return []
+  }
+}
+
+export async function fetchSelectorModels(): Promise<SelectorModel[]> {
+  const res = await fetchSelectorModelsWithUnavailable()
+  return res.models
+}
+
+/** 同一次请求里把"模型清单 + 已判死清单"一起取回(2026-11-18 立)。
+ *  选择器需要后者去标注号池模型;别的调用方只要清单,继续用 fetchSelectorModels()。 */
+export async function fetchSelectorModelsWithUnavailable(): Promise<{
+  models: SelectorModel[]
+  unavailable: SelectorUnavailable[]
+}> {
+  try {
+    const res = await fetchAiServiceJson<{
+      models: SelectorModel[]
+      unavailable?: SelectorUnavailable[]
+    }>('/llm/models', { method: 'GET' })
     if (!res.success) {
       if (typeof window !== 'undefined') {
         logger.warn('[models-api] fetchSelectorModels 失败', res.error)
       }
-      return []
+      return { models: [], unavailable: [] }
     }
-    return res.data?.models ?? []
+    const unavailable = res.data?.unavailable ?? []
+    // 成功拿到才写缓存:失败不能把"上一次的坏清单"也盖掉(它会一直有效到下次成功)
+    cacheUnavailable(unavailable)
+    return { models: res.data?.models ?? [], unavailable }
   } catch (err) {
     if (typeof window !== 'undefined') {
       logger.warn('[models-api] fetchSelectorModels 异常,返回空数组', err)
     }
-    return []
+    return { models: [], unavailable: [] }
   }
 }
 
@@ -121,9 +177,7 @@ export async function triggerModelHealthRefresh(): Promise<boolean> {
 /** 查询模型级复测进度(失败返回 null,调用方停止轮询) */
 export async function fetchModelHealthRefreshStatus(): Promise<ModelHealthRefreshStatus | null> {
   try {
-    const res = await fetchAiServiceJson<ModelHealthRefreshStatus>(
-      '/llm/models/refresh/status',
-    )
+    const res = await fetchAiServiceJson<ModelHealthRefreshStatus>('/llm/models/refresh/status')
     return res.success ? (res.data ?? null) : null
   } catch {
     return null

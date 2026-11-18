@@ -35,10 +35,12 @@ import { Tooltip } from '@/components/feedback'
 import {
   fetchModelHealthRefreshStatus,
   fetchProvidersHealth,
-  fetchSelectorModels,
+  fetchSelectorModelsWithUnavailable,
+  readCachedUnavailable,
   triggerModelHealthRefresh,
   type ProviderHealth,
   type SelectorModel,
+  type SelectorUnavailable,
 } from '@/lib/models-api'
 // 2026-11-10 立:个人号池模型(「我的号池」分组)与平台模型并行拉取,失败静默降级为空
 import { fetchPoolChatModels, type PoolChatModel } from '@ihui/api-client'
@@ -57,6 +59,7 @@ import {
   buildCapabilitySegments,
   filterByCapabilities,
   groupByCategory,
+  idProbeKeys,
   splitByTier,
   type CapsVerified,
   type ModelOption,
@@ -74,6 +77,30 @@ export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/ch
  */
 function isUnverified(opt: ModelOption): boolean {
   return opt.verified !== true
+}
+
+/**
+ * 哪些原因算"点了必失败" —— 池模型改文案时同用这一份判断。
+ */
+function isBlockingReason(reason: string): boolean {
+  return reason === 'quota' || reason === 'auth' || reason === 'model_missing'
+}
+
+/**
+ * 明确不可用的原因分档(2026-11-18 立,治"点了必失败的模型还挂在选择器里")。
+ *
+ * 起因:CF 免费额度用尽(429 / "used up your daily free allocation")属账户级,
+ * 旧口径既不隐藏也不标注 ⇒ 菜单照旧可点,点了必失败。现在后端把运行时失败分档
+ * 写进 `health_reason`,这里据此把行标死并禁止选中。
+ *
+ * 刻意不含 `rate_limit`:限流是暂时的,禁用整行会让用户被一次抖动锁死。
+ */
+function unusableReasonOf(opt: ModelOption): 'quota' | 'auth' | 'offline' | null {
+  const reason = (opt.healthReason || '').trim()
+  if (reason === 'quota') return 'quota'
+  if (reason === 'auth') return 'auth'
+  if (reason === 'model_missing') return 'offline'
+  return null
 }
 
 /**
@@ -320,14 +347,26 @@ function ModelOptionRow({
 }) {
   const t = useTranslations('chat')
   const unverified = isUnverified(opt)
+  const unusable = unusableReasonOf(opt)
+  const unusableLabel =
+    unusable === 'quota'
+      ? t('modelQuotaExhausted')
+      : unusable === 'auth'
+        ? t('modelAuthFailed')
+        : unusable === 'offline'
+          ? t('modelOffline')
+          : ''
   return (
     <DropdownMenu.Item
-      onSelect={onSelect}
+      onSelect={unusable ? undefined : onSelect}
+      disabled={unusable !== null}
       title={opt.healthError || undefined}
       className={cn(
         'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
         'focus:bg-accent focus:text-accent-foreground',
         unverified && 'opacity-60 focus:opacity-100 data-[highlighted]:opacity-100',
+        // 已判死的行:更狠的降权 + 不再随 hover 提亮(它本来就不该被点)
+        unusable && 'cursor-not-allowed opacity-40 hover:opacity-40',
       )}
     >
       <Check className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
@@ -344,6 +383,16 @@ function ModelOptionRow({
           {unverified && (
             <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
               {t('modelUnverified')}
+            </span>
+          )}
+          {/* 不可用原因徽章(2026-11-18 立):额度已尽/密钥失效/已下线 —— 比"未验证"
+              说得更清楚,用户一眼知道为什么点不了,而不是点完才吃 429。 */}
+          {unusable && (
+            <span
+              data-model-unusable={unusable}
+              className="inline-flex shrink-0 items-center rounded-sm bg-destructive/10 px-1 py-px text-[10px] font-medium leading-tight text-destructive"
+            >
+              {unusableLabel}
             </span>
           )}
           {/* 智汇AI 官方模型徽章 */}
@@ -720,6 +769,39 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
 }
 
 /** 初始/降级种子选项(FALLBACK + DEMO 演示档位,未登录/加载中展示) */
+/**
+ * 用"已判死清单"把一批选项标死(2026-11-18 立)。
+ *
+ * 两个入口共用:① 池模型合并时(它不在目录里,只能按 id 命中);
+ * ② 接口失败退回 `FALLBACK_MODELS` 硬编码兜底时 —— 兜底里写着 `@cf/zai-org/glm-4.7-flash`
+ * ("CF 免费"),额度早已耗尽,不标死就会在断网/401 时又变回可点。
+ * 只标"禁用档"(quota/auth/model_missing);裸 down 与 rate_limit 不动,避免误杀。
+ */
+function applyUnavailable(
+  options: ModelOption[],
+  unavailable: SelectorUnavailable[],
+): ModelOption[] {
+  if (unavailable.length === 0) return options
+  const reasonByKey = new Map<string, string>()
+  for (const row of unavailable) {
+    for (const key of idProbeKeys(row.id)) {
+      if (!reasonByKey.has(key)) reasonByKey.set(key, row.reason)
+    }
+  }
+  return options.map((opt) => {
+    const reason = idProbeKeys(opt.value)
+      .map((key) => reasonByKey.get(key))
+      .find((hit): hit is string => Boolean(hit))
+    if (!reason || !isBlockingReason(reason)) return opt
+    return { ...opt, healthReason: reason, healthError: '该模型已被判为不可用' }
+  })
+}
+
+/** 兜底清单:硬编码种子 + 最近一次成功的判死结论(接口不可用时也不许放坏模型出来)。 */
+function seedOptions(): ModelOption[] {
+  return applyUnavailable(createSeedOptions(), readCachedUnavailable())
+}
+
 function createSeedOptions(): ModelOption[] {
   const seed = [...FALLBACK_MODELS, ...DEMO_TIER_MODELS]
   return seed.map((m): ModelOption => ({
@@ -774,6 +856,9 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       // 缺失/unknown/pending 均不可依赖,按未验证处理
       verified: m.health_status === 'healthy',
       healthError: m.health_error,
+      // 2026-11-18 立:失败原因分档原样透传(quota/auth/model_missing/rate_limit),
+      // 驱动行内"额度已尽/密钥失效/已下线"徽章与禁用态。
+      healthReason: m.health_reason,
       // 2026-11-11 立:实测能力原样透传,缺失即 undefined(=三段未知)
       capsVerified: m.caps_verified,
     })
@@ -788,14 +873,29 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
  * (未登记,id 形如 `<平台>/<上游模型名>`)才追加到末尾。pointsMultiplier=0:
  * 走的是用户自己的平台账号,不产生平台积分消耗,显示为免费档。
  */
-function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption[] {
+function withPoolModels(
+  base: ModelOption[],
+  pool: PoolChatModel[],
+  unavailable: SelectorUnavailable[] = [],
+): ModelOption[] {
   // 登记号池 id:发送时据此把本轮改走 /ws/relay/chat(见 hooks/use-chat/pool-model-routing.ts)
   rememberPoolModelIds(pool.map((m) => m.id))
   if (pool.length === 0) return base
+  // 2026-11-18 立:号池模型也走上游,额度用尽照样必失败,但目录里没有它 ⇒
+  // 用后端下发的已判死清单按 id 命中,把它同样标死(而不是只显示"未验证")。
+  const deadReasonByKey = new Map<string, string>()
+  for (const row of unavailable) {
+    for (const key of idProbeKeys(row.id)) {
+      if (!deadReasonByKey.has(key)) deadReasonByKey.set(key, row.reason)
+    }
+  }
   const seen = new Set(base.map((o) => o.value))
   for (const m of pool) {
     if (seen.has(m.id)) continue
     seen.add(m.id)
+    const deadReason = idProbeKeys(m.id)
+      .map((key) => deadReasonByKey.get(key))
+      .find((reason): reason is string => Boolean(reason))
     base.push({
       value: m.id,
       label: m.name || m.id,
@@ -814,7 +914,13 @@ function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption
         : {}),
       // 2026-11-11 立:个人号池模型未做连通性探测,按未验证展示并说明原因
       verified: false,
-      healthError: '个人号池模型,未做连通性探测',
+      // 只有"禁用档"才改说明文案(裸 down 不算判死,别把用户吓退)
+      healthError:
+        deadReason && isBlockingReason(deadReason)
+          ? '该模型已被判为不可用'
+          : '个人号池模型,未做连通性探测',
+      // 命中已判死清单 ⇒ 带上原因,行内会灰显 + 禁用 + 显示"额度已尽/密钥失效/已下线"
+      ...(deadReason ? { healthReason: deadReason } : {}),
     })
   }
   return base
@@ -848,7 +954,7 @@ export function ModelSelector({
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const token = useAuthStore((s) => s.token)
   const authedWithToken = isAuthenticated && !!token
-  const [options, setOptions] = React.useState<ModelOption[]>(createSeedOptions)
+  const [options, setOptions] = React.useState<ModelOption[]>(seedOptions)
   const [loading, setLoading] = React.useState(true)
   // 2026-11-07 立:手动"刷新模型状态"期间按钮转圈并轮询后端进度
   const [refreshingModels, setRefreshingModels] = React.useState(false)
@@ -899,7 +1005,7 @@ export function ModelSelector({
       // 登出/未登录:回到初始演示态并**结束加载态**。原实现停在 loading=true ⇒ 按钮
       // 永远转圈且点不开,访客连当前模型名都读不到,看起来像坏了。
       // 重置为 seed 档即可满足"不残留上一会话的 API 模型列表",无需用 loading 代替禁用。
-      setOptions(createSeedOptions())
+      setOptions(seedOptions())
       setUseApiOnly(false)
       setLoading(false)
       return
@@ -907,18 +1013,20 @@ export function ModelSelector({
     let cancelled = false
     setLoading(true)
     // 平台模型 + 我的号池并行拉:两条腿各自吞错返回 [],谁空都不影响另一条
-    Promise.all([fetchSelectorModels(), fetchPoolChatModels()])
-      .then(([models, poolModels]) => {
+    Promise.all([fetchSelectorModelsWithUnavailable(), fetchPoolChatModels()])
+      .then(([catalog, poolModels]) => {
         if (cancelled) return
+        const models = catalog.models
         if (models.length === 0 && poolModels.length === 0) {
           // API 空/失败:恢复 FALLBACK + DEMO 降级列表(由 grouped 按真实配置过滤)
           setUseApiOnly(false)
-          setOptions(createSeedOptions())
+          setOptions(seedOptions())
           return
         }
         // 2026-08-27:API 成功(后端已按可用性+配额过滤)→ 只展示后端返回的模型。
         // 2026-11-07:映射逻辑抽到 buildOptionsFromApi,手动刷新复用同一套。
-        const next = withPoolModels(buildOptionsFromApi(models), poolModels)
+        // 2026-11-18:号池行另用 catalog.unavailable 判死(它不在目录里,只能按 id 命中)。
+        const next = withPoolModels(buildOptionsFromApi(models), poolModels, catalog.unavailable)
         setOptions(next)
         setUseApiOnly(true)
         // 当前选中模型已不可用(不在 API 列表)→ 自动切回 auto,避免 trigger 指向死模型
@@ -933,7 +1041,7 @@ export function ModelSelector({
         // 静默:恢复 FALLBACK + DEMO 降级列表
         if (cancelled) return
         setUseApiOnly(false)
-        setOptions(createSeedOptions())
+        setOptions(seedOptions())
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -965,9 +1073,16 @@ export function ModelSelector({
   /** 重拉模型列表(手动刷新 / 打开菜单节流复用) */
   const reloadModels = React.useCallback(async () => {
     try {
-      const [models, poolModels] = await Promise.all([fetchSelectorModels(), fetchPoolChatModels()])
-      if (models.length === 0 && poolModels.length === 0) return
-      const next = withPoolModels(buildOptionsFromApi(models), poolModels)
+      const [catalog, poolModels] = await Promise.all([
+        fetchSelectorModelsWithUnavailable(),
+        fetchPoolChatModels(),
+      ])
+      if (catalog.models.length === 0 && poolModels.length === 0) return
+      const next = withPoolModels(
+        buildOptionsFromApi(catalog.models),
+        poolModels,
+        catalog.unavailable,
+      )
       setOptions(next)
       setUseApiOnly(true)
       // 刷新后当前模型若已被判死 → 自动切回 auto
@@ -1175,8 +1290,13 @@ export function ModelSelector({
           {loading ? (
             <Loader2 className="model-selector-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            // 2026-11-11:去掉 6rem 上限,空间足够时完整显示模型名;min-w-0 truncate 仅作极窄视口兜底
-            <span className="model-selector-text min-w-0 truncate">
+            // 2026-11-18 修覆盖图标回归:2026-11-11 摘掉 6rem 上限后,模型名在
+            // globals.css「.ai-input-toolbar-actions > * 不压缩、只换行」护栏下无任何收敛
+            // 机制,超长模型 ID 把触发钮撑爆、溢出盖住发送/停止图标(用户实测报告)。
+            // 恢复显式上限但放宽到 max-w-40(160px):常见模型名空间够仍完整显示(保留
+            // 2026-11-11 的意图),超长 ID 以省略号截断(全文可在下拉列表里看);
+            // 窄容器由 465px 档 icon-only 降级兜底,两级都不再溢出。
+            <span className="model-selector-text min-w-0 max-w-40 truncate">
               {resolvedMeta?.label ??
                 (current ? (current.value === 'auto' ? t('modelAuto') : current.label) : value)}
             </span>

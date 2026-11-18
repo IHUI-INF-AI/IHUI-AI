@@ -421,4 +421,62 @@ describe('G. 后端下发的会话提示 cookie:标记被清也不能把老用�
     expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(false)
   })
 })
+
+/**
+ * 2026-11-18 立的回归锁:瞬时失败后**不再永久躺平**。
+ *
+ * 现场:refresh 撞上一次瞬时失败(api 重启窗口)后,旧实现只 console.info 一句就 setReady(true),
+ * 模块级单例 ready 从此为 true ⇒ 整页此生不再尝试刷新,store 停在
+ * `isAuthenticated=true / token=null` 的混合态 —— UI 认为已登录,凡带 token 的接口全 401,
+ * 模型选择器拿不到 /llm/models 清单只能退回硬编码兜底(里面写着额度已耗尽的 CF 免费模型)。
+ *
+ * 断言的是"接线":节拍到点必须真的再打一次 refreshAccessTokenOnce,而不是只留一句日志。
+ * 节拍用 __test__.setTransientRecoveryDelays 换成毫秒级,不真等 5s/15s。
+ */
+describe('G. 瞬时失败后的有界自愈:节拍到点必须补刷(2026-11-18)', () => {
+  it('transient ⇒ 5s 档到点再刷一次,成功即接回会话且不落登出标记', async () => {
+    const restoreDelays = bootstrapTest.setTransientRecoveryDelays([20, 20])
+    try {
+      useAuthStore.setState({ isAuthenticated: true })
+      mocks.getLastRefreshFailure.mockReturnValue('transient')
+      mocks.refreshAccessTokenOnce
+        .mockResolvedValueOnce(null) // 首次 bootstrap:瞬时失败
+        .mockResolvedValue('token-after-recovery') // 自愈补刷:成功
+
+      const { result } = renderHook(() => useAuthBootstrap())
+      await waitFor(() => expect(result.current.ready).toBe(true))
+      // 核心断言:补刷真的发生了(修复前这里永远只有 1 次调用)
+      await waitFor(() => expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(2), {
+        timeout: 3_000,
+      })
+
+      // 补刷成功不作为"被拒"处理:不写持久登出标记,幽灵标志位不被 expireSession 清掉
+      expect(markerInStorage()).toBeNull()
+      expect(isSessionLoggedOut()).toBe(false)
+      expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    } finally {
+      bootstrapTest.setTransientRecoveryDelays(restoreDelays)
+    }
+  })
+
+  it('两轮都失败 ⇒ 有界停手,不无限重试(避免刷新风暴撞限流)', async () => {
+    const restoreDelays = bootstrapTest.setTransientRecoveryDelays([20, 20])
+    try {
+      useAuthStore.setState({ isAuthenticated: true })
+      mocks.getLastRefreshFailure.mockReturnValue('transient')
+      mocks.refreshAccessTokenOnce.mockResolvedValue(null)
+
+      const { result } = renderHook(() => useAuthBootstrap())
+      await waitFor(() => expect(result.current.ready).toBe(true))
+      // 1 次首刷 + 2 次自愈 = 3 次封顶
+      await waitFor(() => expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(3), {
+        timeout: 3_000,
+      })
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      expect(mocks.refreshAccessTokenOnce.mock.calls.length).toBe(3)
+    } finally {
+      bootstrapTest.setTransientRecoveryDelays(restoreDelays)
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

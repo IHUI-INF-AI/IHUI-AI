@@ -1923,6 +1923,7 @@ async function resolveUniqueFullPhoneForMask(mask: string): Promise<string | nul
 /**
  * 批量候选全号 → 池内掩码名账号自动归位。
  * 判据:一个掩码行只有唯一候选、且该候选也只命中这一行 ⇒ 自动改名;
+ * 任一方向出现多对多 ⇒ ambiguous 挂起待人工(绝不猜号归位)。
  */
 export async function matchPhoneCandidates(phones: string[]): Promise<MatchPhoneReport> {
   const clean: string[] = []
@@ -2278,21 +2279,12 @@ export function buildExportPayload(
       break
     }
     case 'raccoon': {
-      // auth.json 形状 = { access_token, office_identity },单体 Bearer 无续期材料。
-      // 导入侧只认顶层 token(RELAY_IMPORT_CREDENTIAL_SLOTS.raccoon = [{top:['token']}]);
-      // 但本机 auth.json 还有 expiresAt 与业务身份,跨环境同步必须三键复现,否则对端
-      // 要么按未知到期时刻排期、要么把个人版当成团队版(2026-11 补)。
+      // auth.json 形状 {access_token, refresh_token};导入侧只认顶层 token
+      // (RELAY_IMPORT_CREDENTIAL_SLOTS.raccoon = [{top:['token']}])。uid 由 JWT 的 sub 复现,
+      // 统一名由 applyExportNameFidelity 回填 name/phone ⇒ 不需要额外键。
+      // 2026-11-11 补:此前 default 直接拒出,导致小浣熊号永远无法参与跨环境同步。
       base['token'] = creds.token
-      if (row.tokenExpiresAt) base['expiresAt'] = row.tokenExpiresAt.toISOString()
-      // office_identity 是个人版身份标记(非 owner_id):提取器把它放在 meta 里,
-      // 入池时随 secrets 整包落库 ⇒ 导出按 meta 取,取不到就不写(写回端会沿用本机现值)
-      const meta = (s['meta'] && typeof s['meta'] === 'object' ? s['meta'] : null) as Record<
-        string,
-        unknown
-      > | null
-      const identity =
-        cstr(s['officeIdentity']) || cstr(s['office_identity']) || cstr(meta?.['officeIdentity'])
-      if (identity) base['officeIdentity'] = identity
+      if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
       break
     }
     case 'grokbot': {
@@ -2432,6 +2424,27 @@ async function fetchUpstreamModelIds(
   } catch {
     return { ok: false, ids: [] }
   }
+}
+
+/**
+ * 按平台现拉上游模型清单(2026-11-18 立,供模型目录自动同步腿复用)。
+ *
+ * 与 listUserPoolModels 同一份判据 fetchUpstreamModelIds(§0.6 不各写一份适配器调用):
+ * 内部选一枚代表号(清单语义是「这平台有哪些模型」,与具体哪枚号无关),现拉上游。
+ * 平台非中继 / 无可调度号 ⇒ ok=false(调用方据此整块跳过,绝不据此判下架)。
+ */
+export async function fetchUpstreamModelIdsForProvider(
+  providerCode: RelayProviderCode,
+): Promise<{ ok: boolean; ids: string[] }> {
+  const { accountSchedulableCondition } = await import('./relay-account-pool-scheduler.js')
+  const [row] = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(and(eq(aiRelayAccountPool.providerCode, providerCode), accountSchedulableCondition()))
+    .orderBy(aiRelayAccountPool.providerCode)
+    .limit(1)
+  if (!row) return { ok: false, ids: [] }
+  return fetchUpstreamModelIds(providerCode, row)
 }
 
 /**
