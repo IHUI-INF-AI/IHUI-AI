@@ -12,14 +12,14 @@
  *  ③ 两端壳接线 —— **每个**导出常量都要被两端壳 import **且在正文中被消费**;
  *     只 import 不用 = 「造好没装车」,而这正是本票唯一真正要防的事(视觉照旧分叉,
  *     账上却写着已收口);
- *  ④ 平台专属项保留 —— web 的 py-1 / shadow-sm / w-full / focus-visible:* / file:* / transition-colors、
+ *  ④ 平台专属项保留 —— web 的 py-1 / shadow-elevation-sm / w-full / focus-visible:* / file:* / transition-colors、
  *     RN 的 **123 行 AI 可填注册逻辑**(registerUiField / UiFieldHandle)/ placeholderTextColor /
  *     focus 边框色走 style prop 是"承载机制差异,允许不同形",下沉时误删即属越界收口;
  *     反向混入同样要拦(不该下沉却下沉了);
  *  ⑤ 导出面不回退 —— Input / InputProps 两端壳与两端桶都在位,防调用点断供;
  *  ⑥ 核心档裁定 + 单端档留痕 ——
  *     (a) 高度是本族唯一的分叉档,裁定值 36(规则2 取 compact 较小档),两端都按它落点;
- *     (b) 只下沉的那一半不许被"已下沉"的账盖掉:web 的 py-1 / shadow-sm / w-full、
+ *     (b) 只下沉的那一半不许被"已下沉"的账盖掉:web 的 py-1 / shadow-elevation-sm / w-full、
  *         RN 的 placeholderTextColor / 注册逻辑是**单端项与机制差**,spec 头注必须逐条登记,
  *         且 spec **不得导出**它们(导出了就必须被两端消费,而另一端没有对应槽位 ⇒
  *         一旦导出就是把单端项伪装成跨端项)。
@@ -190,7 +190,7 @@ function platformOnlyProblems(src: string, side: string): string[] {
   const out: string[] = []
   if (side === 'web') {
     if (!/py-1/.test(code)) out.push('web 壳丢了平台专属 py-1(纵向承载补偿)')
-    if (!/shadow-sm/.test(code)) out.push('web 壳丢了平台专属 shadow-sm(控件级投影)')
+    if (!/shadow-elevation-sm/.test(code)) out.push('web 壳丢了平台专属 shadow-elevation-sm(控件级投影)')
     if (!/w-full/.test(code)) out.push('web 壳丢了平台专属 w-full(块级宽度承载)')
     if (!/focus-visible:/.test(code)) out.push('web 壳丢了平台专属 focus-visible:(focus 可达性)')
     if (!/transition-colors/.test(code)) out.push('web 壳丢了平台专属 transition-colors')
@@ -215,7 +215,7 @@ function platformOnlyProblems(src: string, side: string): string[] {
     if (/transition-colors/.test(code)) {
       out.push('RN 壳混入了 web 专属 transition-colors(无 CSS 过渡通道)')
     }
-    if (/\bshadow-sm\b/.test(code)) out.push('RN 壳混入了 web 专属 shadow-sm(本端无控件投影通道)')
+    if (/\bshadow-elevation-sm\b/.test(code)) out.push('RN 壳混入了 web 专属 shadow-elevation-sm(本端无控件投影通道)')
   }
   return out
 }
@@ -241,7 +241,7 @@ const RN_EXPORT_PARTS = ['Input', 'InputProps']
 function singleSideRegistrationProblems(src: string, exports = SPEC_EXPORTS): string[] {
   const out: string[] = []
   if (!/py-1/.test(src)) out.push('input-spec 未登记 web 单端项 py-1(规则6 承载补偿)')
-  if (!/shadow-sm/.test(src)) out.push('input-spec 未登记 web 单端项 shadow-sm(规则6 视觉通道)')
+  if (!/shadow-elevation-sm/.test(src)) out.push('input-spec 未登记 web 单端项 shadow-elevation-sm(规则6 视觉通道)')
   if (!/placeholderTextColor/.test(src)) {
     out.push('input-spec 未登记 RN 单端项 placeholderTextColor(规则6 行为档)')
   }
@@ -354,7 +354,7 @@ describe('③ 两端壳接线(每个导出常量都要 import 且真消费)', ()
 })
 
 describe('④ 平台专属项:允许不同形,但不许下沉时误删,也不许反向混入', () => {
-  it('现态:web 保留 py-1 / shadow-sm / w-full / focus-visible / transition-colors / file:', () => {
+  it('现态:web 保留 py-1 / shadow-elevation-sm / w-full / focus-visible / transition-colors / file:', () => {
     expect(platformOnlyProblems(WEB_SRC, 'web')).toEqual([])
   })
 
@@ -375,10 +375,10 @@ describe('④ 平台专属项:允许不同形,但不许下沉时误删,也不许
     expect(platformOnlyProblems(dirty, 'RN').length).toBeGreaterThan(0)
   })
 
-  it('本锁有牙:RN 壳混入 web 的 shadow-sm ⇒ 平台专属判据必须红', () => {
+  it('本锁有牙:RN 壳混入 web 的 shadow-elevation-sm ⇒ 平台专属判据必须红', () => {
     const dirty = RN_SRC.replace(
       "'bg-transparent text-foreground',",
-      "'bg-transparent text-foreground shadow-sm',",
+      "'bg-transparent text-foreground shadow-elevation-sm',",
     )
     expect(dirty).not.toBe(RN_SRC)
     expect(platformOnlyProblems(dirty, 'RN').length).toBeGreaterThan(0)
@@ -401,7 +401,7 @@ describe('⑤ 导出面不回退', () => {
 })
 
 describe('⑥ 核心档裁定 + 单端档留痕', () => {
-  it('现态:py-1 / shadow-sm / placeholderTextColor / 注册逻辑已逐条登记,且未伪装成跨端常量', () => {
+  it('现态:py-1 / shadow-elevation-sm / placeholderTextColor / 注册逻辑已逐条登记,且未伪装成跨端常量', () => {
     expect(singleSideRegistrationProblems(SPEC_SRC)).toEqual([])
   })
 

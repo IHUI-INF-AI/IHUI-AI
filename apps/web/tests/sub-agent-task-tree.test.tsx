@@ -144,8 +144,9 @@ describe('SubAgentTaskTree — 基础渲染', () => {
     const { container } = render(<SubAgentTaskTree subagent={sub} />)
     // 65000ms = "1m5s" via formatDuration(无空格)
     expect(container.textContent).toContain('1m5s')
-    // 12345 / 1000 = 12.345 → round → 12k tok
-    expect(container.textContent).toContain('12k tok')
+    // 12345 → formatTokenCount(共享层 @ihui/shared/utils)= 12.3K 口径,与旧用例的
+    // "12k tok"(截断式)不同;判据跟现实现走,不再按整数 k 断言。
+    expect(container.textContent).toContain('12.3K tok')
     // currentTask → min-[1024px]:inline 才显示(happy-dom viewport 默认 1024 满足)
     expect(container.textContent).toContain('reading file')
   })

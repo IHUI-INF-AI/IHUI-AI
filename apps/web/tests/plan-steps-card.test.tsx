@@ -204,8 +204,8 @@ describe('PlanStepsCard', () => {
     ]
     render(<PlanStepsCard steps={steps} />)
     expect(screen.getByTestId('plan-steps-card')).toBeTruthy()
-    // FoldableSection header 图标
-    expect(screen.getAllByTestId('icon-ListTodo')).toHaveLength(1)
+    // FoldableSection header 图标 + 每条 StreamRow 的 kind 图标(plan→ListTodo)都是同一枚
+    expect(screen.getAllByTestId('icon-ListTodo')).toHaveLength(4)
   })
 
   it('折叠态显示完成度 "doneCount/count"', () => {
@@ -242,42 +242,47 @@ describe('PlanStepsCard', () => {
     expect(header.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('五态 → StreamStatus 图标收敛(pending→CircleDashed / in_progress→Loader2 / completed→Check)', () => {
+  it('五态 → 行状态口径:行首图标形状由 kind 决定、颜色由 status 决定', () => {
     const steps = [
       makeStep({ id: 's1', step: '已完成', status: 'completed' }),
       makeStep({ id: 's2', step: '进行中', status: 'in_progress' }),
       makeStep({ id: 's3', step: '待开始', status: 'pending' }),
     ]
     render(<PlanStepsCard steps={steps} />)
-    // 每步渲染为一条 StreamRow(基元统一 testId 口径 plan-steps-card-row-{id}),
-    // 图标断言限定在行内(分段进度条的 Tooltip 里也有同一枚状态图标)
-    const expectRowIcon = (id: string, status: string, icon: string) => {
+    // 2026-11-19 现读:stream-ui 已把"形状由 kind、颜色由 status"定为全消息流唯一口径
+    // (StreamKindIcon)。故行内首枚图标是 kind 图标(plan→ListTodo),不再按状态换形状;
+    // 状态真相在行的 data-stream-status 与图标的 tone 类上。
+    const expectRowIcon = (id: string, status: string, tone: string) => {
       const row = screen.getByTestId(`plan-steps-card-row-${id}`)
       expect(row.getAttribute('data-stream-status')).toBe(status)
-      expect(row.querySelector(`[data-testid="icon-${icon}"]`)).toBeTruthy()
+      const icon = row.querySelector('[data-testid="icon-ListTodo"]')
+      expect(icon).toBeTruthy()
+      expect((icon as HTMLElement).className).toContain(tone)
     }
-    expectRowIcon('s1', 'success', 'Check')
-    expectRowIcon('s2', 'running', 'Loader2')
-    expectRowIcon('s3', 'pending', 'CircleDashed')
+    expectRowIcon('s1', 'success', 'text-foreground')
+    expectRowIcon('s2', 'running', 'text-foreground')
+    expectRowIcon('s3', 'pending', 'text-foreground')
   })
 
-  it('in_progress 步骤图标带 animate-spin 类', () => {
+  it('in_progress 行图标带 animate-pulse(呼吸提示),不用 animate-spin', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', status: 'in_progress' })]} />,
     )
     const li = container.querySelector('[data-status="in_progress"]')
     expect(li).toBeTruthy()
-    const icon = li?.querySelector('[data-testid="icon-Loader2"]')
+    const icon = li?.querySelector('[data-testid="icon-ListTodo"]')
     expect(icon).toBeTruthy()
-    expect(icon?.className).toContain('animate-spin')
-    expect(icon?.className).toContain('text-foreground')
+    expect((icon as HTMLElement).className).toContain('animate-pulse')
+    expect((icon as HTMLElement).className).toContain('text-foreground')
   })
 
   it('completed 步骤图标用基元统一口径(16px 图标 + 纯前景色,不再自配 emerald)', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', status: 'completed' })]} />,
     )
-    const icon = container.querySelector('[data-status="completed"] [data-testid="icon-Check"]')
+    const icon = container.querySelector(
+      '[data-status="completed"] [data-testid="icon-ListTodo"]',
+    ) as HTMLElement | null
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('h-4')
     expect(icon?.className).toContain('text-foreground')
@@ -321,7 +326,7 @@ describe('PlanStepsCard', () => {
 
   // ─── 深度优化(2026-07-31)新增测试 ──────────────────────────────
 
-  it('错误状态收敛到基元 error 态:error=true → data-stream-status="error" + X 红色 + data-error="true"', () => {
+  it('错误状态收敛到基元 error 态:error=true → data-stream-status="error" + 红色 tone + data-error="true"', () => {
     const { container } = render(
       <PlanStepsCard
         steps={[
@@ -338,8 +343,8 @@ describe('PlanStepsCard', () => {
     const li = container.querySelector('[data-error="true"]')
     expect(li).toBeTruthy()
     expect(li?.getAttribute('data-stream-status')).toBe('error')
-    // 错误状态用基元的 X 图标(红色),不再自配 AlertCircle
-    const icon = li?.querySelector('[data-testid="icon-X"]')
+    // error 态:形状仍是 kind 图标(plan→ListTodo),tone 走基元的红
+    const icon = li?.querySelector('[data-testid="icon-ListTodo"]') as HTMLElement | null
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('text-red-500')
     // 状态词收敛为 taskStatus.statusFailed(执行失败)
@@ -350,14 +355,14 @@ describe('PlanStepsCard', () => {
 
   // ─── 五态渲染(2026-09-19 v2:skipped/failed 独立状态;2026-09-22 收敛到 StreamStatus) ────
 
-  it('skipped 状态:Minus 图标 + data-stream-status="skipped" + 步骤全文完整可读', () => {
+  it('skipped 状态:data-stream-status="skipped" + 前景色图标 + 步骤全文完整可读', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', step: '跳过的步骤', status: 'skipped' })]} />,
     )
     const li = container.querySelector('[data-status="skipped"]')
     expect(li).toBeTruthy()
     expect(li?.getAttribute('data-stream-status')).toBe('skipped')
-    const icon = li?.querySelector('[data-testid="icon-Minus"]')
+    const icon = li?.querySelector('[data-testid="icon-ListTodo"]') as HTMLElement | null
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('text-foreground')
     // 2026-09-22 收尾接线:步骤全文是行主体(titleMode="primary"),序号走 leading 槽
@@ -369,7 +374,7 @@ describe('PlanStepsCard', () => {
     expect(li?.getAttribute('data-error')).toBe(null)
   })
 
-  it('failed 状态(显式):X 图标 + 红色 + data-stream-status="error"', () => {
+  it('failed 状态(显式):红色 tone + data-stream-status="error"', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', step: '失败的步骤', status: 'failed' })]} />,
     )
@@ -377,7 +382,7 @@ describe('PlanStepsCard', () => {
     expect(li).toBeTruthy()
     // isFailed 统一视觉:显式 failed 与 error=true 收敛为同一 error 态
     expect(li?.getAttribute('data-stream-status')).toBe('error')
-    const icon = li?.querySelector('[data-testid="icon-X"]')
+    const icon = li?.querySelector('[data-testid="icon-ListTodo"]') as HTMLElement | null
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('text-red-500')
     expect(li?.textContent).toContain('执行失败')
@@ -385,7 +390,7 @@ describe('PlanStepsCard', () => {
     expect(li?.getAttribute('data-error')).toBe(null)
   })
 
-  it('failed 统一视觉:completed+error=true(旧协议)与显式 failed(新协议)均为 error 态 X 图标', () => {
+  it('failed 统一视觉:completed+error=true(旧协议)与显式 failed(新协议)均为 error 态红色 tone', () => {
     const { container } = render(
       <PlanStepsCard
         steps={[
@@ -394,12 +399,17 @@ describe('PlanStepsCard', () => {
         ]}
       />,
     )
-    // 两种来源(isFailed 归一化)均渲染基元 error 态 X 红色图标(限定在步骤列表内,
-    // 分段进度条 Tooltip 里另有同枚图标,不计入)
+    // 两种来源(isFailed 归一化)在行上都落成 data-stream-status="error",
+    // 图标 shape 均为 kind 图标、tone 均为基元红(限定在步骤列表内,分段进度条不计入)
     const list = container.querySelector('[data-testid="plan-steps-card-list"]')!
-    const icons = list.querySelectorAll('[data-testid="icon-X"]')
-    expect(icons).toHaveLength(2)
-    icons.forEach((icon) => expect(icon.className).toContain('text-red-500'))
+    // li 与行都带 data-stream-status ⇒ 只在行上取(行 testId 是 plan-steps-card-row-*)
+    const rows = list.querySelectorAll('[data-testid^="plan-steps-card-row-"]')
+    expect(rows).toHaveLength(2)
+    rows.forEach((row) => expect(row.getAttribute('data-stream-status')).toBe('error'))
+    rows.forEach((row) => {
+      const icon = row.querySelector('[data-testid="icon-ListTodo"]') as HTMLElement | null
+      expect(icon?.className).toContain('text-red-500')
+    })
     // s1 旧协议带 data-error 标记;s2 新协议无(仅显式 failed)
     const item1 = container.querySelector('[data-testid="plan-steps-card-item-s1"]')
     const item2 = container.querySelector('[data-testid="plan-steps-card-item-s2"]')
@@ -407,7 +417,7 @@ describe('PlanStepsCard', () => {
     expect(item2?.getAttribute('data-error')).toBe(null)
   })
 
-  it('五态并存:pending/in_progress/completed/skipped/failed 各自图标渲染', () => {
+  it('五态并存:pending/in_progress/completed/skipped/failed 各自状态口径渲染', () => {
     const steps = [
       makeStep({ id: 's1', step: '待开始', status: 'pending' }),
       makeStep({ id: 's2', step: '进行中', status: 'in_progress' }),
@@ -416,17 +426,19 @@ describe('PlanStepsCard', () => {
       makeStep({ id: 's5', step: '已失败', status: 'failed' }),
     ]
     render(<PlanStepsCard steps={steps} />)
-    // 图标断言限定在各自行内(分段进度条的 Tooltip 里另有同枚状态图标)
+    // shape 恒为 kind 图标(plan→ListTodo);状态差异在 data-stream-status + tone
     const rowIcon = (id: string) =>
       screen
         .getByTestId(`plan-steps-card-row-${id}`)
         .querySelector('[data-testid^="icon-"]')
         ?.getAttribute('data-testid')
-    expect(rowIcon('s1')).toBe('icon-CircleDashed')
-    expect(rowIcon('s2')).toBe('icon-Loader2')
-    expect(rowIcon('s3')).toBe('icon-Check')
-    expect(rowIcon('s4')).toBe('icon-Minus')
-    expect(rowIcon('s5')).toBe('icon-X')
+    expect(['s1', 's2', 's3', 's4', 's5'].map(rowIcon)).toEqual([
+      'icon-ListTodo',
+      'icon-ListTodo',
+      'icon-ListTodo',
+      'icon-ListTodo',
+      'icon-ListTodo',
+    ])
     // 五态各自映射到独立 StreamStatus(行的 data 属性即状态真相)
     expect(
       ['s1', 's2', 's3', 's4', 's5'].map((id) =>

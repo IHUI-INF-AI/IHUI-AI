@@ -94,8 +94,13 @@ describe('users schema', () => {
   it('关键字段存在 + 类型正确', () => {
     expect(users.id).toBeDefined()
     expect(getColumnType(users.id)).toBe('uuid')
+    // DB-35 方案②(20261116174441 迁移):phone/email 改存密文 enc:v1:iv:tag:ct,
+    // 明文列由 varchar 改 text(密文长度不设上限),唯一约束迁到确定性盲索引列 phone_lookup/email_lookup。
+    // 断言跟随这次迁移:phone 是 text,phone_lookup 是 varchar(64)。
     expect(users.phone).toBeDefined()
-    expect(getColumnType(users.phone)).toBe('varchar')
+    expect(getColumnType(users.phone)).toBe('text')
+    expect(users.phoneLookup).toBeDefined()
+    expect(getColumnType(users.phoneLookup)).toBe('varchar')
     expect(users.email).toBeDefined()
     expect(users.passwordHash).toBeDefined()
     expect(getColumnType(users.passwordHash)).toBe('text')
