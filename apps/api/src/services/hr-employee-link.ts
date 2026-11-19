@@ -164,9 +164,10 @@ export async function inviteEmployeeLink(params: {
 
   const row = await db.transaction(async (tx) => {
     // 一个员工同时只保留一条待确认邀请:旧邀请置为 revoked 后再建新邀请
+    const revokedChanged = { status: 'revoked' }
     await tx
       .update(hrEmployeeLinkRequest)
-      .set({ status: 'revoked', updatedAt: new Date() })
+      .set({ ...revokedChanged, updatedAt: new Date() })
       .where(
         and(
           eq(hrEmployeeLinkRequest.employeeId, employeeId),
@@ -201,9 +202,10 @@ export async function inviteEmployeeLink(params: {
 
 /** HR 撤销该员工当前的待确认邀请(幂等:无待确认时返回 0)。 */
 export async function revokeEmployeeLinkInvite(employeeId: string): Promise<number> {
+  const changed = { status: 'revoked' }
   const rows = await db
     .update(hrEmployeeLinkRequest)
-    .set({ status: 'revoked', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(
       and(
         eq(hrEmployeeLinkRequest.employeeId, employeeId),
@@ -324,19 +326,22 @@ export async function acceptEmployeeLink(params: {
       throw new AppError('当前账号已关联其他员工档案', 409, 'ACCOUNT_ALREADY_BOUND')
 
     if (!employee.userId) {
+      const changed = { userId }
       await tx
         .update(hrEmployee)
-        .set({ userId, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(hrEmployee.id, employee.id))
     }
+    const approvedChanged = { status: 'approved', decidedAt: new Date() }
     await tx
       .update(hrEmployeeLinkRequest)
-      .set({ status: 'approved', decidedAt: new Date(), updatedAt: new Date() })
+      .set({ ...approvedChanged, updatedAt: new Date() })
       .where(eq(hrEmployeeLinkRequest.id, request.id))
     // 同一员工的其它待确认邀请一并失效,避免多账号同时被同意
+    const changed = { status: 'revoked' }
     await tx
       .update(hrEmployeeLinkRequest)
-      .set({ status: 'revoked', updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(
         and(
           eq(hrEmployeeLinkRequest.employeeId, employee.id),
@@ -353,9 +358,10 @@ export async function rejectEmployeeLink(params: {
   requestId: string
   userId: string
 }): Promise<void> {
+  const changed = { status: 'rejected', decidedAt: new Date() }
   const rows = await db
     .update(hrEmployeeLinkRequest)
-    .set({ status: 'rejected', decidedAt: new Date(), updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(
       and(
         eq(hrEmployeeLinkRequest.id, params.requestId),

@@ -59,9 +59,10 @@ export async function writeLastRunStatus(result: Partial<AttendanceSyncJobResult
     .limit(1)
 
   if (existing) {
+    const changed = { value }
     await db
       .update(systemConfigs)
-      .set({ value, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(systemConfigs.id, existing.id))
   } else {
     await db.insert(systemConfigs).values({

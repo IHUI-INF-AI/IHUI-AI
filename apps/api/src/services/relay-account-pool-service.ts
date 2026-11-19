@@ -1105,9 +1105,10 @@ export async function importAccounts(
           // 落运营池的真实意图 = 让该号对所有人可用;同一账号已有个人池行时,正确动作是把
           // 那一行标成共享(共享标记本身参与运营池选路,见 relay-account-forwarder),不再建副本。
           if (ownerUserId === null && !crossPool.sharedToOps) {
+            const changed = { sharedToOps: true }
             await db
               .update(aiRelayAccountPool)
-              .set({ sharedToOps: true, updatedAt: new Date() })
+              .set({ ...changed, updatedAt: new Date() })
               .where(eq(aiRelayAccountPool.id, crossPool.id))
           }
           result.skipped++

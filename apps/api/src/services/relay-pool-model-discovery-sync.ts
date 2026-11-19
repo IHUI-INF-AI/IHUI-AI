@@ -195,9 +195,10 @@ export async function syncRelayPoolModelDiscovery(): Promise<ModelDiscoverySyncR
           .map((r) => r.id)
         if (rowIdsToRetire.length > 0) {
           try {
+            const changed = { status: 'approved' }
             await db
               .update(aiRelayDiscovery)
-              .set({ status: 'approved', updatedAt: new Date() })
+              .set({ ...changed, updatedAt: new Date() })
               .where(
                 and(
                   inArray(aiRelayDiscovery.id, rowIdsToRetire),

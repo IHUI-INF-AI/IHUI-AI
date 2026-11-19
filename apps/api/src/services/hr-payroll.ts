@@ -497,9 +497,10 @@ export async function buildPayroll(params: {
   }
 
   // 周期状态推进到 calculated
+  const changed = { status: 'calculated' }
   await db
     .update(hrPayrollPeriod)
-    .set({ status: 'calculated', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(hrPayrollPeriod.id, period.id))
 
   logger.info('薪资计算完成', {

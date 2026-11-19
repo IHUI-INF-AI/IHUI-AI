@@ -51,9 +51,10 @@ export async function writeSyncCursor(
     .limit(1)
 
   if (existing) {
+    const changed = { value: cursor }
     await db
       .update(systemConfigs)
-      .set({ value: cursor, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(systemConfigs.id, existing.id))
   } else {
     await db.insert(systemConfigs).values({
