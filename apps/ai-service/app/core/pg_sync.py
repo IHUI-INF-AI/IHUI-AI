@@ -144,5 +144,77 @@ class SyncPgSession:
 
 
 # 类型别名只为可读;运行时不需要。
-__test__ = {"SyncPgSession": SyncPgSession, "SyncPgError": SyncPgError, "USAGE": USAGE}
+class PgShim:
+    """把 SyncPgSession 包成**sqlite 形状**的门面,供既有的同步存储类平移过来。
+
+    只做三件机械事,判据一律不动:
+    - 占位符 `?` → `$1..$n`(按出现顺序;`?` 必须与参数个数一一对应,不等即抛);
+    - `executescript` 按 `;` 切句逐条跑(sqlite 的多语句入口在 PG 上不存在);
+    - `execute` 按首关键字分派:`SELECT`/带 `RETURNING` 的写走 fetch,其余走 execute。
+    游标只提供 `fetchone()` / `fetchall()`,行是 asyncpg 的 `Record`(支持 `row["col"]`)。
+    """
+
+    def __init__(self, session: SyncPgSession) -> None:
+        self._session = session
+
+    def execute(self, sql: str, params: Sequence[Any] = ()) -> PgCursor:
+        text = _bind_placeholders(sql, len(params))
+        head = text.lstrip().split(None, 1)[0].upper() if text.strip() else ""
+        if head == "SELECT" or " RETURNING " in text.upper():
+            rows = self._session.fetchall(text, params)
+            return PgCursor(rows)
+        self._session.execute(text, params)
+        return PgCursor([])
+
+    def executescript(self, script: str) -> None:
+        for stmt in _split_statements(script):
+            self._session.execute(stmt, ())
+
+    def close(self) -> None:
+        self._session.close()
+
+
+class PgCursor:
+    """sqlite 游标的最小形状:`fetchone` / `fetchall`。"""
+
+    def __init__(self, rows: Sequence[Any]) -> None:
+        self._rows = list(rows)
+
+    def fetchone(self) -> Any:
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self) -> list[Any]:
+        return list(self._rows)
+
+
+def _bind_placeholders(sql: str, n: int) -> str:
+    """把 `?` 逐枚换成 `$k`;个数与参数不符当场抛(静默错位比报错更坏)。"""
+    out: list[str] = []
+    k = 0
+    for ch in sql:
+        if ch == "?":
+            k += 1
+            out.append(f"${k}")
+        else:
+            out.append(ch)
+    if k != n:
+        raise SyncPgError(f"占位符个数 {k} 与参数个数 {n} 不一致: {sql[:60]}")
+    return "".join(out)
+
+
+def _split_statements(script: str) -> list[str]:
+    """按 `;` 切句(本仓 DDL 不含字符串内的分号;切完逐句苦白判空)。"""
+    parts = [p.strip() for p in script.split(";")]
+    return [p for p in parts if p]
+
+
+__test__ = {
+    "SyncPgSession": SyncPgSession,
+    "SyncPgError": SyncPgError,
+    "PgShim": PgShim,
+    "PgCursor": PgCursor,
+    "_bind_placeholders": _bind_placeholders,
+    "_split_statements": _split_statements,
+    "USAGE": USAGE,
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
