@@ -421,7 +421,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { flex: 1, backgroundColor: tk.surface.light, padding: rnSpacing['md-loose'] },
     infoCard: {
       padding: rnSpacing.lg,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -445,7 +445,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.xs,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
@@ -478,7 +478,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabsCard: {
       marginTop: rnSpacing.md,
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
       backgroundColor: tk.surface.card,
       borderWidth: StyleSheet.hairlineWidth,
@@ -502,8 +502,8 @@ function createStyles(tk: AppThemeTokens) {
     sheetBackdropFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
     sheetCard: {
       padding: rnSpacing['md-loose'],
-      borderTopLeftRadius: rnRadius.xl,
-      borderTopRightRadius: rnRadius.xl,
+      borderTopLeftRadius: rnRadius.lg,
+      borderTopRightRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     sheetTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },

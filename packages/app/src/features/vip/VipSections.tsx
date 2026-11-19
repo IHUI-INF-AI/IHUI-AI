@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['2xs'],
       paddingHorizontal: rnSpacing['2xs'],
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: baseTokens.vip.gold,
       color: baseTokens.gray['800'],
       fontSize: rnType.caption.size,

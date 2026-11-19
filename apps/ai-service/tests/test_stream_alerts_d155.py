@@ -26,7 +26,6 @@ from app.core.stream_alerts import (
     build_deprecation_notice,
 )
 
-
 TODAY = date(2026, 11, 13)
 
 

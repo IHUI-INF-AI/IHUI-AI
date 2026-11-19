@@ -141,7 +141,7 @@ export function CustomThemeCard() {
                 {t('themePreviewPrimary')}
               </span>
               <span
-                className="rounded-sm border px-2.5 py-1 text-label"
+                className="rounded-lg border px-2.5 py-1 text-label"
                 style={{ background: palette.card, borderColor: palette.border }}
               >
                 {t('themePreviewOutline')}

@@ -157,7 +157,7 @@ export default function MyLeavePage() {
                     {t('leaveTypeLabel')}
                   </span>
                   <input
-                    className="w-full rounded-md border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                    className="w-full rounded-sm border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
                     placeholder={t('leaveTypePh')}
                     value={leaveType}
                     onChange={(e) => setLeaveType(e.target.value)}
@@ -166,7 +166,7 @@ export default function MyLeavePage() {
                 <label className="space-y-1 text-body">
                   <span className="block text-label text-muted-foreground">{t('colStart')}</span>
                   <input
-                    className="w-full rounded-md border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                    className="w-full rounded-sm border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
                     type="date"
                     value={startDate}
                     onChange={(e) => {
@@ -178,7 +178,7 @@ export default function MyLeavePage() {
                 <label className="space-y-1 text-body">
                   <span className="block text-label text-muted-foreground">{t('colEnd')}</span>
                   <input
-                    className="w-full rounded-md border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                    className="w-full rounded-sm border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
                     type="date"
                     min={startDate}
                     value={endDate}
@@ -189,7 +189,7 @@ export default function MyLeavePage() {
               <label className="block space-y-1 text-body">
                 <span className="block text-label text-muted-foreground">{t('colReason')}</span>
                 <textarea
-                  className="min-h-[72px] w-full rounded-md border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                  className="min-h-[72px] w-full rounded-sm border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
                   placeholder={t('leaveReasonPh')}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}

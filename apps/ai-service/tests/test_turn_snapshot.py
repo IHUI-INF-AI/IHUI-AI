@@ -23,7 +23,6 @@ from typing import Any
 
 from app.core.turn_snapshot import TurnSnapshotLedger, default_ledger
 
-
 # ---------------------------------------------------------------------------
 # begin / record / finish / manifest 归集
 # ---------------------------------------------------------------------------

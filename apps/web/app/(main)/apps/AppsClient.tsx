@@ -181,14 +181,14 @@ export function AppsClient() {
           <button
             type="button"
             onClick={copyPrompt}
-            className="font-[weight:inherit] rounded-md border border-border px-3 py-1.5 text-body hover:bg-muted"
+            className="font-[weight:inherit] rounded-sm border border-border px-3 py-1.5 text-body hover:bg-muted"
           >
             {t('copyPrompt')}
           </button>
           <button
             type="button"
             onClick={() => setCreating((value) => !value)}
-            className="rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90"
+            className="rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90"
           >
             {creating ? t('collapse') : t('newApp')}
           </button>
@@ -204,7 +204,7 @@ export function AppsClient() {
                 value={appId}
                 onChange={(event) => setAppId(event.target.value)}
                 placeholder="my-dashboard"
-                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
+                className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-body"
               />
             </label>
             <label className="font-[weight:inherit] space-y-1 text-body">
@@ -213,7 +213,7 @@ export function AppsClient() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="我的应用"
-                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
+                className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-body"
               />
             </label>
             <label className="font-[weight:inherit] space-y-1 text-body">
@@ -221,7 +221,7 @@ export function AppsClient() {
               <select
                 value={slot}
                 onChange={(event) => setSlot(event.target.value as CapabilityAppSlot)}
-                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
+                className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-body"
               >
                 {CAPABILITY_APP_SLOTS.map((item) => (
                   <option key={item} value={item}>
