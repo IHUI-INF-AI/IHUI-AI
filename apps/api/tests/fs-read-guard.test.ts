@@ -11,7 +11,7 @@
  * ③ 截断只影响回给模型的那段 —— 观察态仍记整文件，随后 edit_file 能直接改没被返回的部分；
  * ④ 二进制文件给结构化 FS_BINARY_FILE，不当文本读。
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -96,6 +96,29 @@ describe('read_file 护栏', () => {
     writeFileSync(join(root, 'r5.txt'), 'plain text here', 'utf-8')
     const out = await run('read_file', { path: 'r5.txt', workspacePath: root })
     expect(out).toBe('plain text here')
+  })
+
+  it('R6 list_dir 大目录默认截到 200 条并自述 total/truncated', async () => {
+    const bigDir = join(root, 'big')
+    mkdirSync(bigDir, { recursive: true })
+    for (let i = 0; i < 250; i += 1)
+      writeFileSync(join(bigDir, `f${String(i).padStart(3, '0')}.txt`), 'x')
+    const out = await callJson('list_dir', { path: bigDir })
+    expect(out['ok']).toBe(true)
+    expect(out['total']).toBe(250)
+    expect(out['truncated']).toBe(true)
+    expect((out['entries'] as unknown[]).length).toBe(200)
+    expect(String(out['hint'])).toContain('200')
+  })
+
+  it('R7 list_dir 小目录不截断（原路径不削弱）', async () => {
+    const smallDir = join(root, 'small')
+    mkdirSync(smallDir, { recursive: true })
+    writeFileSync(join(smallDir, 'one.txt'), 'x')
+    writeFileSync(join(smallDir, 'two.txt'), 'y')
+    const out = await callJson('list_dir', { path: smallDir })
+    expect(out['truncated']).toBe(false)
+    expect(out['total']).toBe(2)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

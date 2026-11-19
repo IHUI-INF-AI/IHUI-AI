@@ -4539,12 +4539,34 @@ agentLoop.registerTool({
   },
 })
 
+/**
+ * `list_dir` 条目上限（2026-11-20）：大目录（构建产物、媒体库）一次回几千条会把上下文
+ * 挤满，且模型看不过来。默认 200，可用 limit 提到 1000；超出时 total/truncated 由回包自述。
+ */
+const LIST_DIR_MAX_ENTRIES = 200
+const LIST_DIR_HARD_CAP = 1_000
+
 agentLoop.registerTool({
   name: 'list_dir',
-  description: '列出目录内容',
+  description:
+    '列出目录内容（默认最多 200 条；返回 {ok,total,truncated,entries}，truncated=true 时用更具体的 path 深入或先 grep 定位）',
   execute: async (args) => {
     const entries = fsBridge.browse(String(args['path'] ?? ''))
-    return JSON.stringify(entries)
+    const rawLimit = Number(args['limit'] ?? Number.NaN)
+    const limit =
+      Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), LIST_DIR_HARD_CAP)
+        : LIST_DIR_MAX_ENTRIES
+    if (entries.length <= limit) {
+      return JSON.stringify({ ok: true, total: entries.length, truncated: false, entries })
+    }
+    return JSON.stringify({
+      ok: true,
+      total: entries.length,
+      truncated: true,
+      entries: entries.slice(0, limit),
+      hint: `共 ${entries.length} 条，仅返回前 ${limit} 条；用更具体的子目录 path、提高 limit（上限 ${LIST_DIR_HARD_CAP}），或先 grep 定位。`,
+    })
   },
 })
 
