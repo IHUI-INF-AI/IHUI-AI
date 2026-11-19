@@ -60,6 +60,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
 
 // F-498:worker 读取暂存帧走 db.select(只读,不删),确认删除才走 consumeElementPackFrames
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       from: () => ({
