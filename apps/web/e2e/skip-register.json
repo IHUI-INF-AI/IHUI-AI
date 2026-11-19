@@ -751,6 +751,55 @@
       "status": "open",
       "owner": "S-E2E",
       "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0111",
+      "title": "/chat 页面无 ModelSelector 触发按钮",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0112",
+      "title": "下拉菜单未渲染(可能 SSR 阶段未水合)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0113",
+      "title": "模型下拉菜单未渲染,无法采样视觉状态",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0114",
+      "title": "模型下拉菜单项未渲染,无法采样视觉状态",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0115",
+      "title": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0116",
+      "title": "空状态 chips 未出现(可能 AI 面板未处于空状态)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0117",
+      "title": "历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount}",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
     }
   ],
   "skips": [
@@ -2383,6 +2432,166 @@
       "category": "ENV",
       "ref": "ENV:LOCAL_ENV",
       "reason": "collapse 按钮不可见(可能移动端视图)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0203",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0204",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0205",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0112",
+      "reason": "下拉菜单未渲染(可能 SSR 阶段未水合)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0206",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0207",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0113",
+      "reason": "模型下拉菜单未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0208",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0209",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0113",
+      "reason": "模型下拉菜单未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0210",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0114",
+      "reason": "模型下拉菜单项未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0211",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0212",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0114",
+      "reason": "模型下拉菜单项未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0213",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0214",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0215",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0113",
+      "reason": "模型下拉菜单未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0216",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "AI 面板未显示(可能未登录或 store 状态不匹配),跳过此测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0217",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0218",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0219",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0220",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0221",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0116",
+      "reason": "空状态 chips 未出现(可能 AI 面板未处于空状态)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0222",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0117",
+      "reason": "历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount}",
       "owner": "S-E2E",
       "reviewBy": "2027-05-31"
     }
