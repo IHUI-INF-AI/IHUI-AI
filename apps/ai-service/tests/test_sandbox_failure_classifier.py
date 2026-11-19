@@ -8,8 +8,6 @@
 """
 from __future__ import annotations
 
-import pytest
-
 from app.core.sandbox_failure_classifier import (
     DENIAL_SIGNATURES,
     RUNNER_FAILURE_RULES,

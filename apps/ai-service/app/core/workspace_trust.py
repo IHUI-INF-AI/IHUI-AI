@@ -141,6 +141,7 @@ class TrustStore:
             self._redis_checked = True
             try:
                 import redis.asyncio as aioredis  # noqa: F401
+
                 from app.core.config import settings
 
                 url = getattr(settings, "redis_url", None) or os.environ.get("REDIS_URL")

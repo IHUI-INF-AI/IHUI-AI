@@ -29,8 +29,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from .background_tasks import background_task_manager
 from ..core.multi_agent_config_gate import clamp_wait_timeout_s
+from .background_tasks import background_task_manager
 
 MAX_JOBS: Final = 100
 #: 单次 wait 的轮询粒度(秒):作业完成由列表自身感知,不需要额外 Event。

@@ -1013,8 +1013,9 @@ class TestLocalFilesystemErrorIsNotProviderFault:
 
     def test_real_network_error_still_counts_as_failure(self) -> None:
         """反向牙:真网络错误仍计入失败,不得被上面的静默逻辑误伤。"""
-        import httpx
         from unittest.mock import patch
+
+        import httpx
 
         service = ModelSyncService()
         sem = asyncio.Semaphore(2)

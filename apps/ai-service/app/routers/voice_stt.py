@@ -29,8 +29,9 @@ import asyncio
 import contextlib
 import logging
 import os
+from collections.abc import Iterator
 from threading import Lock
-from typing import Any, Iterator
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel

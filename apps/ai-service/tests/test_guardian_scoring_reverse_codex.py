@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.guardian_risk import GuardianRiskLevel
 from app.core.guardian_scoring import (
     PREDICTIVE_WINDOW_AHEAD,
     PREDICTIVE_WINDOW_RECENT,
