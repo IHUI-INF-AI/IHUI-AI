@@ -14,7 +14,7 @@ import {
 
 /**
  * 平台专属项(不下沉 input-spec,两端允许不同形,逐条登记):
- *  - `py-1` / `shadow-sm`:web 的纵向承载补偿与控件级投影通道;RN 的高度已由 INPUT_HEIGHT_PX
+ *  - `py-1` / `shadow-elevation-sm`:web 的纵向承载补偿与控件级投影通道;RN 的高度已由 INPUT_HEIGHT_PX
  *    单点定档(再给纵向内边距等于把同一段纵向空间定两次),RN 也没有控件投影通道;
  *  - `w-full`:web 的块级宽度承载;RN 的 TextInput 宽度由父容器决定,无此通道;
  *  - `transition-colors` / `focus-visible:*` / `file:*` / `disabled:*`:CSS 伪类 / 伪元素通道,仅 web;
@@ -35,7 +35,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
       <input
         type={type}
         className={cn(
-          'flex w-full bg-transparent py-1 shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50',
+          'flex w-full bg-transparent py-1 shadow-elevation-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50',
           HEIGHT_CLASS[INPUT_HEIGHT_PX],
           RADIUS_CLASS[INPUT_RADIUS_TIER],
           BORDER_WIDTH_CLASS[INPUT_BORDER_WIDTH_PX],

@@ -64,7 +64,7 @@ export function MessageStyleMenu({ messageId }: { messageId: string }) {
         <Palette className="h-4 w-4" aria-hidden="true" />
       </summary>
 
-      <div className="absolute right-0 top-9 z-50 w-64 space-y-2 rounded-md border border-stroke-strong bg-popover p-2.5 text-popover-foreground shadow-md">
+      <div className="absolute right-0 top-9 z-50 w-64 space-y-2 rounded-md border border-stroke-strong bg-popover p-2.5 text-popover-foreground shadow-elevation-md">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium">{t('messageStyleTitle')}</span>
           <button
