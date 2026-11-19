@@ -112,6 +112,7 @@ vi.mock('@ihui/auth', async (importOriginal) => {
   return {
     ...actual,
     verifyAccessToken: mockVerifyAccessToken,
+    createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })),
     signAccessToken: mockSignAccessToken,
     signRefreshToken: mockSignRefreshToken,
     signM2MAccessToken: mockSignM2MAccessToken,

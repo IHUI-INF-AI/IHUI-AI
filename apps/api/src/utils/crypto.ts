@@ -10,10 +10,22 @@ const KEY_LENGTH = 32 // 256 bits
 
 function getKey(): Buffer {
   const key = config.CREDENTIALS_ENCRYPTION_KEY
-  if (key.length < KEY_LENGTH) {
-    throw new Error('CREDENTIALS_ENCRYPTION_KEY 必须至少 32 字符')
+  // 判据按 **UTF-8 字节**而不是 JS 字符数:aes-256 要的是 32 字节,而 32 个中文字符
+  // 是 96 字节、32 个 emoji 是 128 字节 —— 按字符数判会让 createCipheriv 在运行时
+  // 报 "Invalid key length"(F-218 实测到的那一型)。
+  const bytes = Buffer.from(key, 'utf8')
+  if (bytes.length < KEY_LENGTH) {
+    throw new Error(`CREDENTIALS_ENCRYPTION_KEY 必须至少 ${KEY_LENGTH} 字节(当前 ${bytes.length} 字节)`)
   }
-  return Buffer.from(key.slice(0, KEY_LENGTH))
+  // 取前 32 字节;若这 32 字节恰好落在一个多字节字符中间,截出来的不是完整字符,
+  // 两处服务商的密钥就会不一致 —— 显式判红,不把半个字符喂给算法。
+  const boundary = bytes.subarray(0, KEY_LENGTH).toString('utf8')
+  if (Buffer.byteLength(boundary, 'utf8') !== KEY_LENGTH) {
+    throw new Error(
+      `CREDENTIALS_ENCRYPTION_KEY 前 ${KEY_LENGTH} 字节未落在完整字符边界上;请换一把以 ASCII 开头的密钥`,
+    )
+  }
+  return bytes.subarray(0, KEY_LENGTH)
 }
 
 export interface EncryptedPayload {

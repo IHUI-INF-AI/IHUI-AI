@@ -107,6 +107,7 @@ vi.mock('@ihui/auth', async (importOriginal) => {
   return {
     ...actual,
     verifyAccessToken: authMock.verifyAccessToken,
+    createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })),
   }
 })
 
