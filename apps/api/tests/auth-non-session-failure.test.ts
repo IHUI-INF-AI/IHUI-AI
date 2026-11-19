@@ -39,6 +39,7 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
 vi.mock('@ihui/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof AuthModule>()
   return { ...actual, verifyAccessToken: (t: string) => verifyAccessToken(t) }
+  createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })),
 })
 vi.mock('jose', async (importOriginal) => {
   const actual = await importOriginal<typeof JoseModule>()

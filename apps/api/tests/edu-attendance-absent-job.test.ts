@@ -344,6 +344,7 @@ describe('runAbsentAttendance ①:未签到 ∧ 已过 absentAfter ⇒ 落 absen
       students: 2,
       created: 2,
       skipped: 0,
+      failed: 0,
       missedIds: [],
     })
     expect(H.records).toHaveLength(2)
@@ -439,6 +440,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       students: 2,
       created: 0,
       skipped: 2,
+      failed: 0,
       missedIds: [],
     })
     expect(H.insertCalls).toBe(1)
@@ -464,6 +466,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       students: 2,
       created: 1,
       skipped: 1,
+      failed: 0,
       missedIds: [STUDENT_1],
     })
     expect(
@@ -486,7 +489,7 @@ describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
 
     const result = await runAbsentAttendance(AT_06_30, SAME_DAY_ONLY)
 
-    expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, failed: 0, missedIds: [] })
     expect(H.records).toHaveLength(0)
     expect(H.insertCalls).toBe(0)
     expect(H.readOrder).toEqual(['rule'])
@@ -515,6 +518,7 @@ describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
       students: 2,
       created: 2,
       skipped: 0,
+      failed: 0,
       missedIds: [],
     })
     expect(H.records).toHaveLength(2)
@@ -533,7 +537,7 @@ describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
-    expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, failed: 0, missedIds: [] })
     expect(H.insertCalls).toBe(0)
     expect(H.readOrder).toEqual(['rule'])
   })
@@ -556,7 +560,7 @@ describe('runAbsentAttendance ⑤:代码里没有"默认阈值"兜底分支(按�
 
     const result = await runAbsentAttendance(AT_10_00)
 
-    expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, failed: 0, missedIds: [] })
     expect(H.records).toHaveLength(0)
     expect(H.insertCalls).toBe(0)
     expect(H.readOrder).toEqual(['rule'])
@@ -600,6 +604,7 @@ describe('runAbsentAttendance ⑤:代码里没有"默认阈值"兜底分支(按�
       students: 2,
       created: 0,
       skipped: 2,
+      failed: 0,
       missedIds: [],
     })
     expect(H.insertCalls).toBe(0)
@@ -705,6 +710,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       students: 2,
       created: 6,
       skipped: 0,
+      failed: 0,
       missedIds: [],
     })
     // 读放大不随窗口/班级涨:排课表**整轮一条 SQL**(不按班轮询)+ 一班一条 enroll +
@@ -745,6 +751,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       students: 1,
       created: 0,
       skipped: 1,
+      failed: 0,
       missedIds: [],
     })
     expect(H.insertCalls).toBe(1) // 仍是第一轮那一次,第二轮连 insert 都没发
@@ -919,7 +926,7 @@ describe('排课门控 ⑨:那天根本没课 ⇒ 不写缺勤(2026-11-07,ATT-SC
 
     const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
 
-    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, failed: 0, missedIds: [] })
     expect(absentDates()).toEqual(['2026-11-07', '2026-11-07'])
     expect(findLog('edu attendance absent job done').data).toMatchObject({
       scheduleGatedOutDates: 0,
@@ -939,7 +946,7 @@ describe('排课门控 ⑨:那天根本没课 ⇒ 不写缺勤(2026-11-07,ATT-SC
 
     const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
 
-    expect(result).toEqual({ rules: 1, students: 0, created: 0, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 1, students: 0, created: 0, skipped: 0, failed: 0, missedIds: [] })
     expect(H.records).toHaveLength(0)
     expect(H.insertCalls).toBe(0)
     expect(H.readOrder).toEqual(['rule', 'schedule'])
@@ -1010,7 +1017,7 @@ describe('排课门控 ⑨:那天根本没课 ⇒ 不写缺勤(2026-11-07,ATT-SC
     const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
 
     // 失效方向 = 照旧判:周六也照写(与"正向对照:周六有课"同形),绝不静默整班跳过
-    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, failed: 0, missedIds: [] })
     expect(absentDates()).toEqual(['2026-11-07', '2026-11-07'])
     const named = findLog('一条有效记录都没有')
     expect(named.data).toMatchObject({ sampleIds: [CLASS_A], omittedIds: 0 })
@@ -1057,7 +1064,7 @@ describe('排课门控 ⑨:那天根本没课 ⇒ 不写缺勤(2026-11-07,ATT-SC
 
     const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
 
-    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, failed: 0, missedIds: [] })
     expect(H.records).toHaveLength(2)
     const named = findLog('排课表读不到')
     expect(named.data).toMatchObject({ classes: 1, sampleIds: [CLASS_A] })
@@ -1085,7 +1092,7 @@ describe('排课门控 ⑨:那天根本没课 ⇒ 不写缺勤(2026-11-07,ATT-SC
 
     const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
 
-    expect(result).toEqual({ rules: 1, students: 1, created: 1, skipped: 0, missedIds: [] })
+    expect(result).toEqual({ rules: 1, students: 1, created: 1, skipped: 0, failed: 0, missedIds: [] })
     const named = findLog('读不出合法星期几')
     expect(named.data).toMatchObject({ sampleIds: [CLASS_A], malformedWeekdayRows: 2 })
     expect(findLog('edu attendance absent job done').data).toMatchObject({

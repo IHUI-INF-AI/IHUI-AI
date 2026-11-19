@@ -38,7 +38,7 @@ vi.mock('../../config/index.js', () => ({
   },
 }))
 
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() , createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })) }))
 
 vi.mock('../../db/index.js', () => ({
   db: {
