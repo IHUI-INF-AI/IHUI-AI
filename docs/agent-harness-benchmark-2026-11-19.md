@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **11 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层与上下文预算：
+2. 真正找到并已落地 **13 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -85,7 +85,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（11 项，含验证证据）
+## 5. 本次落地（13 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -200,13 +200,35 @@
 
 验证：`vitest run tests/fs-search-tool.test.ts tests/fs-read-guard.test.ts tests/fs-edit-tool.test.ts tests/fs-observation-policy.test.ts` → `Tests 45 passed`（新增 S1–S11 共 11 例：截断/单文件上限/二进制/忽略目录/三种模式/大小写/ReDoS 两闸）。`@ihui/api` typecheck 0。
 
-## 6. 未落地候选（按 ROI 排序，含不做的理由）
+### 5.12 远程沙箱后端（`sandbox_backend=remote`，显式 opt-in）
 
-1. **远程沙箱后端**（`sandbox_backend/sandbox_url/sandbox_api_key`）：IHUI 只有本地沙箱。上远程执行面属安全边界扩张，需单独评审，不做。
-2. **MCP apps 宿主 + 工件老化**（WorkBuddy）：前端+宿主层大改；IHUI 的 MCP 客户端已可用，宿主 UI 属产品决策，不做。
-3. **ACP 传输协议**（WorkBuddy `acp.js`）：若要对齐外部 Agent Client Protocol 生态再评估；当前无外部需求，不做。
-4. **三级阈值 + cycle restart**：IHUI 已有四道阈值线与 compaction 模块，重复造即违反单一真相源，不做。
-5. **RLM / BM25 周期归档检索 / 前缀缓存统计**：前者复杂度极高、后者是 DeepSeek 专属、中者需先有 cycle 概念，均不做。
+- 事实：本仓执行面只有本机沙箱（Windows Job 对象 / 令牌 / 二进制白名单），没有"把执行外移"的通道；对照件 deepseek-tui 的配置 `sandbox_backend/sandbox_url/sandbox_api_key` 正是这条路。
+- 新增 `apps/api/src/services/remote-sandbox.ts`：`IHUI_SANDBOX_BACKEND=remote` + `IHUI_SANDBOX_URL` + `IHUI_SANDBOX_API_KEY` 三者齐备才启用；缺一项即关闭并点名 reason（fail-closed，不"半开"）；协议只接受 http(s)，超时 30s（硬顶 120s），输出 64k（硬顶 256k）。
+- 接线点：`SandboxExecutor.execute()` 里**先过**登记根与网络命令两道本机闸（不因外移而放宽），再委托远程；二进制白名单/解释器闸属本机进程面，由远端负责。
+- 失败语义统一走 exitCode：非 2xx / 非 JSON / 不可达 = 127，策略拒绝 = 126；不把异常抛给调用方。
+- 超越轴：对照件只有单一远端通道；本仓保留本机闸在前、近端配置即关闭、失败码可判，且配置缺失时**显式点名**而不是静默回落。
+
+验证：`vitest run tests/remote-sandbox.test.ts` → `Tests 10 passed`（含 mock HTTP server 的成功/401/非 JSON/超时/不可达/超大输出截断/配置解析）。
+
+### 5.13 工具输出工件挂载（MCP apps 预览面，404 `Mount Expired`）
+
+- 事实：本仓工件早已"落盘分页 + 7 天保留 + 过期清扫"（`tool_output_artifacts.py`），也已有**图表产物**的签名 token 挂载（`routers/artifacts.py`，HS256 + 独立 aud + 归属 sidecar）。缺的是"工具结果工件"这一面：模型/前端只能拿 id 回读，不能把"可看但会过期"的链接交给界面。
+- 做法不是另造一套令牌，而是**并进现有签名面**：同一把 `JWT_SECRET`、同一条 `_signing_key()`，新增 `aud=ihui-artifacts-tool`、TTL 600s；`/api/artifacts/tool/token`（JWT 保护）签发，`/api/artifacts/tool/f/{token}` 只回 `text/plain` 分页（绝不 `text/html`，工件内容里的标记不执行）。
+- 过期/无效/不存在对外同形：一律 404 `detail="Mount Expired"`（与对照件的语义一致，不泄露 artifact 是否存在）。
+- 权限面隔离：图表 token 不能当工件 token 用（aud 不同），S 用例钉住。
+- 超越轴：对照件挂载点只服务自家前端；本仓复用既有签名/归属体系，并把"纯文本、分页续读、与不存在同形"写进判据。
+
+验证：`pytest tests/test_artifact_tool_mount.py` → `7 passed`（往返/绑定 id/篡改/过期/跨权限面/缺密钥 fail-closed/404 形状）；`mypy --strict` 0。
+
+## 6. 剩余候选的核实结论（全部逐项核过，不再重复造）
+
+用户要求"剩余都要做"，逐项核过之后结论是：**四项本仓已有等价实现，一项属产品前端面且只有产品决策才能定，硬做第二份只会违反 §0.6 单一真相源**。证据如下（均可现读复核）：
+
+1. **ACP 传输**（WorkBuddy `acp.js` 的 http/sse/acp 三形态）：本仓已有多条 `text/event-stream` 出流（`apps/api/src/services/agent-runtime.ts:107/146`、`agent-langgraph.ts:161`、`routes/agents-kanban.ts:319`）。再写一份 ACP 协议端点 = 第二套事件模型，且当前没有外部 ACP 客户端需求 ⇒ 不造。
+2. **三级阈值 + cycle restart**：`app/core/context_compaction.py` 已有 `assess_context_pressure` + 分层摘要 + 防嵌套（`_build_structured_summary`）、`compaction_retention.py` 管保留、`compaction_quality.py` / `compaction_canary.py` 管质量与金丝雀；"cycle"在本仓等价物是"压缩边界 + 摘要携带"，已有 `CompactionBoundaryItem`（`session_store.py:211`）。重作 = 重复。
+3. **BM25 / 混合检索**：`mcp_server.py` 的 `search_codebase` 已是 pgvector + BM25 的 RRF 混合通道（原文注释 `:1707`），并有索引同步；再写一份纯 BM25 只会在离线态与在线态给出两套排序。
+4. **前缀缓存统计**：`cost_ledger.py` 已记录 `cached_tokens / cache_creation_tokens`，汇总里已有 `total_cached_tokens / total_cache_creation_tokens / cache_hit_count`（`:510` 段），计价侧 `model_pricing.py` 三段计价；`rollout_budget.py` 也已把 `prompt_cached_tokens` 归一。缺的不是"统计"，是产品化看板（前端）。
+5. **MCP apps 宿主 UI**：本轮已把**后端挂载面**补齐（5.13）。宿主 UI 属前端产品形态（卡片/iframe 沙盒/生命周期），需产品拍板再动；后端挂载已就位，前端接上只是消费问题。
 
 ## 7. Limitations（如实记录，不作安全结论）
 

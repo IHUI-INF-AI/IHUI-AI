@@ -55,6 +55,9 @@ import {
   isInsideRoot,
   realpathOrResolve,
 } from '../utils/workspace-roots.js'
+// 远程沙箱后端(2026-11-20):显式 opt-in,缺配置即关(见模块头注)
+import { executeRemoteSandbox, resolveRemoteSandbox } from './remote-sandbox.js'
+import { truncateBothEnds } from './output-budget.js'
 import { promisify } from 'node:util'
 import { hasNestedQuantifier } from './rules-service.js'
 // 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
@@ -1367,7 +1370,14 @@ class SandboxExecutor {
     timeoutMs?: number
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number | null; mode: SandboxMode }> {
+  }): Promise<{
+    stdout: string
+    stderr: string
+    exitCode: number | null
+    mode: SandboxMode
+    backend?: 'remote'
+    truncated?: boolean
+  }> {
     const mode = params.mode ?? 'workspace-write'
     // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
     // 字符串,不设闸则传 workspacePath="C:/" 让白名单内的 cat/cp/tee 直接指到服务器
@@ -1392,6 +1402,20 @@ class SandboxExecutor {
         exitCode: 126,
         mode,
       }
+    }
+
+    // 远程沙箱后端(2026-11-20):只在显式配置时启用;登记根与网络命令两道本机闸仍先判
+    // (不因执行面外移而放宽)。二进制白名单/解释器闸属本机进程面,由远端自行负责。
+    const remote = resolveRemoteSandbox()
+    if (remote.enabled && remote.config) {
+      const result = await executeRemoteSandbox(remote.config, {
+        command: params.command,
+        workspacePath: params.workspacePath,
+        cwd,
+        mode,
+        timeoutMs: params.timeoutMs,
+      })
+      return { ...result, mode }
     }
 
     // 2026-07-21 安全审计加固:命令解析 + 二进制白名单 + execFile 替代 exec(shell)
@@ -4956,15 +4980,44 @@ agentLoop.registerTool({
   },
 })
 
+/**
+ * `run_command` 输出预算（2026-11-20）：命令输出可能是几十 MB（日志、全量测试），
+ * 原样回给模型会先把网络与上下文打爆。取头 60% / 尾 40%（尾段常是 PASS/FAIL 与错误摘要），
+ * 超限时回包自述 truncated/originalChars —— 与 read_file/list_dir/grep 同一套语言。
+ */
+const RUN_OUTPUT_MAX_CHARS = 32_000
+
 agentLoop.registerTool({
   name: 'run_command',
-  description: '执行命令（沙箱隔离）',
+  description:
+    '执行命令（沙箱隔离，默认 workspace-write；可传 cwd/timeoutMs/mode=read-only 或 workspace-write；' +
+    '输出超过 32000 字符时保留头尾并标 truncated）',
   execute: async (args) => {
+    const rawMode = String(args['mode'] ?? 'workspace-write')
+    // 工具层不放行 danger-full-access：该档意味着放行网络与任意写，只允许路由/管理员通道
+    const mode = rawMode === 'read-only' ? 'read-only' : 'workspace-write'
+    const rawTimeout = Number(args['timeoutMs'] ?? Number.NaN)
     const result = await fsBridge.run({
       command: String(args['command'] ?? ''),
       workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      cwd: typeof args['cwd'] === 'string' && args['cwd'] ? String(args['cwd']) : undefined,
+      timeoutMs: Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : undefined,
+      mode,
     })
-    return JSON.stringify(result)
+    const out = truncateBothEnds(result.stdout, RUN_OUTPUT_MAX_CHARS)
+    const err = truncateBothEnds(result.stderr, RUN_OUTPUT_MAX_CHARS)
+    const truncated = out.truncated || err.truncated
+    return JSON.stringify({
+      ...result,
+      stdout: out.text,
+      stderr: err.text,
+      ...(truncated
+        ? {
+            truncated: true,
+            originalChars: { stdout: out.originalChars, stderr: err.originalChars },
+          }
+        : {}),
+    })
   },
 })
 
