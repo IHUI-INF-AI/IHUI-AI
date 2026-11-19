@@ -117,6 +117,7 @@ vi.mock('../src/db/index.js', () => ({
         select: mockTxSelect,
         update: mockDbUpdate,
         insert: mockDbInsert,
+        execute: vi.fn().mockResolvedValue([]),
       }),
     ),
   },
