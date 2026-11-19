@@ -163,6 +163,10 @@ vi.mock('../src/services/order-service.js', () => ({
   cancelOrder: mockCancelOrder,
   refundOrder: mockRefundOrder,
   activateOrderSubscription: mockActivateOrderSubscription,
+  // F-09(2026-09-06):退款入口先用条件 UPDATE 抢占订单(paid→refunded),渠道失败再回退。
+  // 手抄 mock 缺这两条 ⇒ 退款用例在 claimRefund 处 TypeError 变 500。
+  claimRefund: vi.fn(async () => ({ success: true })),
+  abortRefund: vi.fn(async () => true),
 }))
 
 vi.mock('../src/services/commission-service.js', () => ({
@@ -588,7 +592,7 @@ describe('payment gateway routes', () => {
       expect(res.statusCode).toBe(200)
       expect(res.json().data.refundNo).toContain('refund_')
       expect(mockWxRefund).toHaveBeenCalled()
-      expect(mockRefundOrder).toHaveBeenCalledWith('EDU001')
+      expect(mockRefundOrder).toHaveBeenCalledWith('EDU001', { alreadyClaimed: true })
     })
   })
 

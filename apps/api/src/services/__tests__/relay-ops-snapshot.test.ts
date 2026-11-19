@@ -85,6 +85,38 @@ vi.mock('../../db/index.js', () => ({
 }))
 
 vi.mock('@ihui/database', () => ({
+  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
+  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
+  users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  // commission-queries 的成交额子查询引用 orders(表身份即可,列由 sql 模板字面量承载)
+  orders: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  // commission-queries 其余表身份(同一手抄缺导出族,一次性补齐)
+  userMargins: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  tokenFlows: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  commissionFlows: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  withdrawalFlows: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
+  identityProportions: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
   aiRelayChannelGroups: {
     id: 'groups.id',
     name: 'groups.name',
