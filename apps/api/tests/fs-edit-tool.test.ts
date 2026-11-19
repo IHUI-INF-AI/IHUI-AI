@@ -163,4 +163,102 @@ describe('edit_file 唯一匹配替换', () => {
   })
 })
 
+describe('edit_file 批量与原子性（B 组）', () => {
+  it('B1 replaceAll 替换全部命中并报数', async () => {
+    const name = 'b1.txt'
+    writeFileSync(join(root, name), 'a-b-a-b-a', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      oldText: 'a',
+      newText: 'A',
+      replaceAll: true,
+    })
+    expect(out['ok']).toBe(true)
+    expect(out['replacements']).toBe(3)
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('A-b-A-b-A')
+  })
+
+  it('B2 多处命中且未声明 replaceAll ⇒ EDIT_NOT_UNIQUE 带命中数', async () => {
+    const name = 'b2.txt'
+    writeFileSync(join(root, name), 'x x x', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      oldText: 'x',
+      newText: 'y',
+    })
+    expect(out['code']).toBe('EDIT_NOT_UNIQUE')
+    expect(out['hits']).toBe(3)
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('x x x')
+  })
+
+  it('B3 edits[] 顺序生效，一次落盘', async () => {
+    const name = 'b3.txt'
+    writeFileSync(join(root, name), 'one two three', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      edits: [
+        { oldText: 'one', newText: '1' },
+        { oldText: 'three', newText: '3' },
+      ],
+    })
+    expect(out['ok']).toBe(true)
+    expect(out['edits']).toBe(2)
+    expect(out['replacements']).toBe(2)
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('1 two 3')
+  })
+
+  it('B4 多编辑任一失败 ⇒ 整批不落盘（文件保持原样）', async () => {
+    const name = 'b4.txt'
+    writeFileSync(join(root, name), 'keep me intact', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      edits: [
+        { oldText: 'keep', newText: 'KEEP' },
+        { oldText: '不存在的片段', newText: 'x' },
+      ],
+    })
+    expect(out['code']).toBe('EDIT_NO_MATCH')
+    expect(out['editIndex']).toBe(1)
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('keep me intact')
+  })
+
+  it('B5 dryRun 只预览不写盘', async () => {
+    const name = 'b5.txt'
+    writeFileSync(join(root, name), 'preview only', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      oldText: 'only',
+      newText: 'ONLY',
+      dryRun: true,
+    })
+    expect(out['ok']).toBe(true)
+    expect(out['dryRun']).toBe(true)
+    expect(out['changed']).toBe(true)
+    expect(out['replacements']).toBe(1)
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('preview only')
+  })
+
+  it('B6 edits 空数组 ⇒ EDIT_BAD_EDITS', async () => {
+    const name = 'b6.txt'
+    writeFileSync(join(root, name), 'whatever', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      edits: [],
+    })
+    expect(out['code']).toBe('EDIT_BAD_EDITS')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
