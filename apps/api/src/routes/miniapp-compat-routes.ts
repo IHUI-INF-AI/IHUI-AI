@@ -2834,25 +2834,38 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const body = parsed.data
     const userId = request.userId!
     const requestedKeys = Object.keys(body)
-    // 逐键 upsert 后用 .returning({ id, key }) 回库确认「真正落库的键集合」(守门 134):
-    // 不得把请求侧 requestedKeys.length 当 affected,也不得无条件回 { success: true } ——
-    // 那样「写失败」与「写成功」在响应上完全同形。missedIds 逐条点名没落库的键。
-    const results = await Promise.all(
-      Object.entries(body).map(([key, value]) => {
-        const v = value === null || value === undefined ? null : String(value)
-        return db
-          .insert(userPreferences)
-          .values({ userId, group: USER_PREFERENCE_GROUPS.notifications, key, value: v })
-          .onConflictDoUpdate({
-            target: [userPreferences.userId, userPreferences.group, userPreferences.key],
-            set: { value: v, updatedAt: new Date() },
-          })
-          .returning({ id: userPreferences.id, key: userPreferences.key })
-          .then((rows) => rows[0]?.key ?? null)
-          .catch(() => null)
-      }),
-    )
-    const writtenKeys = results.filter((k): k is string => k !== null)
+    // F-212:裸 z.record 不限键数,逐键 upsert + Promise.all 会把数万键放大成数万次
+    // DB 往返,直接打爆连接池。上限按偏好表真实容量钉死;超限一律 400 且一次库写都不发。
+    const NOTIFICATION_PREF_KEYS_MAX = 100
+    if (requestedKeys.length > NOTIFICATION_PREF_KEYS_MAX) {
+      return reply
+        .status(400)
+        .send(
+          error(400, `通知偏好键数超限:最多支持 ${NOTIFICATION_PREF_KEYS_MAX} 个键,收到 ${requestedKeys.length} 个`),
+        )
+    }
+    if (requestedKeys.length === 0) {
+      return reply.send(success({ success: true, requested: 0, affected: 0, missedIds: [] }))
+    }
+    // 一次批量 upsert,用 excluded.value 让每行各写各的值;affected 由 .returning 的
+    // 命中集合派生(守门 134),不得把请求侧键数当 affected。
+    const writtenKeys = await db
+      .insert(userPreferences)
+      .values(
+        requestedKeys.map((key) => ({
+          userId,
+          group: USER_PREFERENCE_GROUPS.notifications,
+          key,
+          value: body[key] === null || body[key] === undefined ? null : String(body[key]),
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [userPreferences.userId, userPreferences.group, userPreferences.key],
+        set: { value: sql`excluded.value`, updatedAt: new Date() },
+      })
+      .returning({ id: userPreferences.id, key: userPreferences.key })
+      .then((rows: Array<{ key: string }>) => rows.map((r) => r.key))
+      .catch(() => [] as string[])
     const writtenSet = new Set(writtenKeys)
     const missedIds = requestedKeys.filter((k) => !writtenSet.has(k))
     return reply.send(

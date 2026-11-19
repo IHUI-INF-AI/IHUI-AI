@@ -59,10 +59,16 @@ vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockRe
 vi.mock('../../db/index.js', () => ({
   db: {
     // 本文件只判 DELETE 成员路由;其余动词给最小可解析桩(不被调用也必须可 import)。
+    // 链形状对齐真 drizzle:where() 产物既可 await,也可继续 .limit()。
     select: vi.fn(() => ({
       from: vi.fn(() => {
-        const thenable = { then: (r: (v: unknown) => void) => Promise.resolve([]).then(r) }
-        return { where: vi.fn(() => thenable), limit: vi.fn(() => thenable) }
+        const thenable: Record<string, unknown> = {
+          then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+            Promise.resolve([]).then(resolve, reject),
+        }
+        thenable.limit = vi.fn(() => thenable)
+        thenable.where = vi.fn(() => thenable)
+        return thenable
       }),
     })),
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: vi.fn().mockResolvedValue([]) })) })),

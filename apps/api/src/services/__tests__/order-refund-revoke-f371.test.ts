@@ -52,6 +52,7 @@ vi.mock('../../db/index.js', () => ({
       chain.where = () => Promise.resolve([])
       return chain
     }),
+    execute: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
     insert: vi.fn(),
     transaction: mocks.transaction,

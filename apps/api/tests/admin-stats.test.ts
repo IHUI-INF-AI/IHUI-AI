@@ -248,7 +248,8 @@ describe('admin-stats routes', () => {
       expect(Array.isArray(body.data.metrics)).toBe(true)
     })
 
-    it('DB 异常时返回 200 + 零值兜底', async () => {
+    // F-22(2026-07-26):查询失败不再伪装成「全 0 看板」——全 0 会被当成"今天没流量"读错
+    it('DB 异常时显式 500,不伪装成全 0 看板', async () => {
       mockAdmin()
       mockSelectResult.mockRejectedValueOnce(new Error('DB connection failed'))
 
@@ -257,13 +258,10 @@ describe('admin-stats routes', () => {
         url: '/api/admin/stats/dashboard',
         headers: { authorization: ADMIN_TOKEN },
       })
-      expect(res.statusCode).toBe(200)
+      expect(res.statusCode).toBe(500)
       const body = res.json()
-      expect(body.code).toBe(0)
-      expect(body.data.overview.pv).toBe(0)
-      expect(body.data.overview.uv).toBe(0)
-      expect(body.data.overview.orders).toBe(0)
-      expect(body.data.overview.revenue).toBe(0)
+      expect(body.code).toBe(500)
+      expect(body.message).toBe('统计看板查询失败')
     })
   })
 
@@ -327,7 +325,8 @@ describe('admin-stats routes', () => {
       expect(typeof o.arpu).toBe('number')
     })
 
-    it('DB 异常时返回 200 + 零值兜底', async () => {
+    // 与 dashboard 同口径:营收查询失败必须让运维看见,不能用假 0 掩盖
+    it('DB 异常时显式 500,不伪装成全 0 营收', async () => {
       mockAdmin()
       mockSelectResult.mockRejectedValueOnce(new Error('DB connection failed'))
 
@@ -336,13 +335,10 @@ describe('admin-stats routes', () => {
         url: '/api/admin/stats/revenue',
         headers: { authorization: ADMIN_TOKEN },
       })
-      expect(res.statusCode).toBe(200)
+      expect(res.statusCode).toBe(500)
       const body = res.json()
-      expect(body.code).toBe(0)
-      expect(body.data.overview.totalRevenue).toBe(0)
-      expect(body.data.overview.totalOrders).toBe(0)
-      expect(body.data.overview.netRevenue).toBe(0)
-      expect(body.data.overview.arpu).toBe(0)
+      expect(body.code).toBe(500)
+      expect(body.message).toBe('营收统计查询失败')
     })
   })
 
