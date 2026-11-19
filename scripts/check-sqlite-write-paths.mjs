@@ -54,6 +54,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/data/sqlite-write-paths-baseline.json'
 const SUBROOTS = ['apps', 'packages', 'scripts']
 const EXTS = ['.py', '.ts', '.tsx', '.js', '.mjs', '.cjs', '.jsx']
+// 尺子不量自己:本文件的命中族常量、ALLOW 标记与自检用例本身就是这些字面,
+// 扫进来必然"清单外新命中 10 处" ⇒ 恒红门(§12e)。同族:镜像测试同样不量。
+const SKIP_SELF = new Set(['scripts/check-sqlite-write-paths.mjs', 'scripts/tests/check-sqlite-write-paths.test.mjs'])
 
 // 命中族:打开/驱动 sqlite 的调用形态。顺序即诊断顺序。
 export const HIT_PATTERNS = [
@@ -113,7 +116,7 @@ function readBaseline(root) {
 /** 扫描一个判定面,返回逐文件命中表。 */
 function scanFace({ root, face }) {
   const listed = listFaceFiles(root, face, { paths: SUBROOTS })
-  const targets = listed.filter((rel) => underSubroots(rel) && isSource(rel))
+  const targets = listed.filter((rel) => underSubroots(rel) && isSource(rel) && !SKIP_SELF.has(rel))
   if (!targets.length) throw new Error(`目录枚举到 0 个候选(${face} 面)`)
 
   const hits = new Map()
