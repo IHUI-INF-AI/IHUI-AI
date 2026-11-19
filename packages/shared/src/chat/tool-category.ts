@@ -69,6 +69,8 @@ const SEARCH_TOOLS: ReadonlySet<string> = new Set([
   'search_web',
   'file_search',
   'search_codebase',
+  'grep',
+  'glob',
   'index_codebase',
   'knowledge_lookup',
   'context_recall',

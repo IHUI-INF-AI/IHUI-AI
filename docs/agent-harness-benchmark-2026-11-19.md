@@ -82,7 +82,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（10 项，含验证证据）
+## 5. 本次落地（11 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -183,6 +183,19 @@
 - 不是照抄：对照件的目录工具没有"总量自述"这一层，截断后模型无从知道自己漏看了什么。
 
 验证：`vitest run tests/fs-read-guard.test.ts` → `Tests 7 passed`（R6 大目录截断 / R7 小目录不削弱）。
+
+### 5.11 `grep` / `glob` 工具：把"模型没有检索能力"补上，并修掉 `**` 语义塌陷
+
+- 事实：桥里早有 `grep`/`glob` 原语和 `/fs/grep`、`/fs/glob` 两个 HTTP 端点（桌面侧在用），但 **AgentLoop 从未注册成工具** —— 模型手上只有 `read_file`/`list_dir`，想定位一处代码只能靠 `run_command` 外挂 `findstr`。对照件里 Trae（VS Code 系）与 deepseek-tui 都把检索当基础设施，这是本仓最刺眼的一处能力缺口。
+- 新增两个工具：
+  - `grep`：`content`（命中行）/ `files_with_matches`（文件清单）/ `count`（每文件条数）三种 `outputMode`；默认不区分大小写，`caseSensitive` 可开；默认最多 100 条、**单文件最多 20 条**（防一个巨型文件吃光预算），扫描硬顶 5000 条。
+  - `glob`：`**` 递归，默认最多 200 个文件。
+  - 两者都跳过 `node_modules` 等忽略目录、跳过二进制（前 512 字符含 NUL，与 `read_file` 同一条判据）与 >1MB 文件；回包统一 `{ok,total,truncated,…}`，被截断时带 `hint`（收窄 path/glob、提高 limit、或先换 `files_with_matches` 定位）。
+- 顺手修的真 bug：`globToRegex` 把 `**/*.ts` 译成 `.*/[^/]*\.ts`，**顶层文件永远差一个斜杠**（`**/` 应能匹配零层目录）。修法是先把 `**/` 译成 `(?:.*/)?`，S5 用例钉住 `x.ts` 与 `deep/nested/c.ts` 同时命中。
+- 前端同批对齐：`tool-display.ts` 补 `grep/glob` 的展示键与 subject（`pattern`），`tool-category.ts` 归入搜索类 —— 否则界面上会退化成裸码名 `grep`/`glob`。
+- 超越轴：对照件的检索工具只回裸结果，**没有总量自述**；被截断时模型无从知道还漏了多少。本仓把「条数上限 + 总量 + 续查指引 + 单文件上限 + 二进制/忽略目录同判据」做成一套语言，与 5.9/5.10 的 `read_file`/`list_dir` 完全同构。
+
+验证：`vitest run tests/fs-search-tool.test.ts tests/fs-read-guard.test.ts tests/fs-edit-tool.test.ts tests/fs-observation-policy.test.ts` → `Tests 45 passed`（新增 S1–S11 共 11 例：截断/单文件上限/二进制/忽略目录/三种模式/大小写/ReDoS 两闸）。`@ihui/api` typecheck 0。
 
 ## 6. 未落地候选（按 ROI 排序，含不做的理由）
 
