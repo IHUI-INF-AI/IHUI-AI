@@ -156,9 +156,23 @@ class PgShim:
 
     def __init__(self, session: SyncPgSession) -> None:
         self._session = session
+        self._trace: Callable[[str], None] | None = None
+
+    def set_trace_callback(self, cb: Callable[[str], None] | None) -> None:
+        """sqlite `Connection.set_trace_callback` 的最小等价:每条语句原文回调一次。
+
+        只服务于"SQL 形状断言"这类判据(例如"每条 updated_at 写入都必须取
+        GREATEST"),不改变执行语义;`cb=None` 关闭。
+        """
+        self._trace = cb
+
+    def _emit(self, text: str) -> None:
+        if self._trace is not None:
+            self._trace(text)
 
     def execute(self, sql: str, params: Sequence[Any] = ()) -> PgCursor:
         text = _bind_placeholders(sql, len(params))
+        self._emit(text)
         head = text.lstrip().split(None, 1)[0].upper() if text.strip() else ""
         if head == "SELECT" or " RETURNING " in text.upper():
             rows = self._session.fetchall(text, params)
@@ -167,6 +181,7 @@ class PgShim:
 
     def executescript(self, script: str) -> None:
         for stmt in _split_statements(script):
+            self._emit(stmt)
             self._session.execute(stmt, ())
 
     def close(self) -> None:
