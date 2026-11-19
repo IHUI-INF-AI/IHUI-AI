@@ -23,6 +23,8 @@ import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
+// F-116:背压闸与写失败感知是唯一单点(阈值 1MB 只在该文件出现一次)
+import { createBackpressureSkipLedger, sendWithBackpressure } from './ws-backpressure.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
 import { allocateChatSyncRev, readChatSyncRev } from '../db/chat-sync-rev-queries.js'
@@ -318,6 +320,8 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
   // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽)
   const userConnectionLimiter = new WsUserConnectionLimiter(8)
   const sendFailures = createSendFailureLedger(Date.now)
+  // F-116:慢消费者跳帧台账(与写失败台账分开:跳过不等于摘线)
+  const backpressureSkips = createBackpressureSkipLedger(Date.now)
 
   /**
    * 本机直投:把一帧交给本进程注册表里该 userId 的连接(逐连接按角色门控,收窄语义不变)。
@@ -346,7 +350,6 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         gated += 1
         continue
       }
-      delivered += 1
       // 2026-09-26 修「丢帧且无人知」。现读实测:原写法是同步 `try { ws.send(msg) } catch { conns.delete(ws) }`
       // —— 与票面写的 `.catch(吞)` 形态不同,但结果一致:既不计数也不出声。
       // 更要紧的是 ws 在连接已关闭时把 send 的错误交给 **callback** 而非抛出,
@@ -376,13 +379,19 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         }
         // ③ 不抛错:广播主流程继续把这一帧发给其余连接。
       }
-      try {
-        ws.send(msg, (err) => {
-          if (err) noteDropped()
-        })
-      } catch {
-        noteDropped()
+      // F-116:超水位 ⇒ 跳过本帧并保留连接(通知可重拉、房间有回放缓冲);
+      // delivered 由真实 send 结论派生,不把"跳过"算成送达。
+      const outcome = sendWithBackpressure(ws, msg, noteDropped)
+      if (outcome === 'skipped') {
+        if (backpressureSkips.record()) {
+          server.log.warn(
+            { userId, skippedFramesTotal: backpressureSkips.total() },
+            'ws-broadcast 写队列超阈值,已跳过本帧(首次或超 60s 复读)',
+          )
+        }
+        continue
       }
+      if (outcome === 'sent') delivered += 1
     }
     return { matched: conns.size, delivered, gated }
   }

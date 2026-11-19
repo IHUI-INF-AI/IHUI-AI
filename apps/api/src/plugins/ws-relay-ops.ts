@@ -110,16 +110,18 @@ const wsRelayOpsPlugin: FastifyPluginAsync = async (server) => {
       }
     })
 
-    socket.on('close', () => {
+    // F-226:WS 规范保证 error 之后必然 close,原实现 close/error 各 release 一次
+    // ⇒ 同一连接归还两次槽位,maxPerUser 形同虚设。两条事件挂同一个幂等收口。
+    let closed = false
+    const cleanup = (): void => {
+      if (closed) return
+      closed = true
       clearInterval(timer)
       sockets.delete(socket)
       limiter.release(userId)
-    })
-    socket.on('error', () => {
-      clearInterval(timer)
-      sockets.delete(socket)
-      limiter.release(userId)
-    })
+    }
+    socket.on('close', cleanup)
+    socket.on('error', cleanup)
   })
 
   // 优雅关闭:清空全部连接(对齐 ws-broadcast 的停机语义)
