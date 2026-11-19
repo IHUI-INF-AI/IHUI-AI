@@ -75,7 +75,15 @@ export function inferPlatform(sigName) {
     if (sigName.includes('aarch64') || sigName.includes('arm64')) {
       return { platform: 'darwin-aarch64', kind: 'app' }
     }
-    return { platform: 'darwin-x86_64', kind: 'app' }
+    if (/x86_64|intel|amd64/i.test(sigName)) {
+      return { platform: 'darwin-x86_64', kind: 'app' }
+    }
+    // 无架构标记 ⇒ 本仓 macOS 矩阵自 2026-09-17 起只有 universal-apple-darwin 一档,
+    // 而 tauri 的产物名是 `<product>.app.tar.gz`(实测 desktop-v0.1.80 资产名就是
+    // `AI.app.tar.gz.sig`,**不含** universal 字样)。旧判据把这种"无标记"当成纯
+    // darwin-x86_64 ⇒ Apple Silicon 既收不到更新、站点 feed 也少 darwin-aarch64
+    // (2026-11-19 发版实测 4→3 掉平台,同步下载环节当场判红)。
+    return { platform: 'darwin-aarch64', kind: 'app', alsoPlatforms: ['darwin-x86_64'] }
   }
   // Linux: AppImage.sig / deb.sig / rpm.sig — 优先 AppImage(通用性最高)
   if (sigName.endsWith('.AppImage.sig')) return { platform: 'linux-x86_64', kind: 'AppImage' }

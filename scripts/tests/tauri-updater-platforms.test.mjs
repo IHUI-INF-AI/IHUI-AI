@@ -220,6 +220,25 @@ test('universal app.tar.gz 同时写入 darwin-x86_64 与 darwin-aarch64(同 url
   assert.deepEqual(platforms['darwin-aarch64'], platforms['darwin-x86_64'])
 })
 
+test('无架构标记的 <product>.app.tar.gz 也按 universal 填双键(tauri 实际产物名)', () => {
+  // 2026-11-19 实测:desktop-v0.1.80 的 macOS 资产名是 AI.app.tar.gz / AI.app.tar.gz.sig,
+  // 名字里没有 universal/arch 任何标记。旧判据把它当纯 x86_64 ⇒ darwin-aarch64 从 feed 掉出
+  // (4→3),Apple Silicon 收不到更新,同步下载环节判红。本判据钉住"无标记=universal"。
+  const bare = buildUpdaterPlatforms(
+    [{ name: 'AI.app.tar.gz', url: `${GH}/AI.app.tar.gz`, signature: 'bare-sig' }],
+    { version: '0.1.80' },
+  )
+  assert.deepEqual(bare['darwin-aarch64'], { url: `${GH}/AI.app.tar.gz`, signature: 'bare-sig' })
+  assert.deepEqual(bare['darwin-aarch64'], bare['darwin-x86_64'])
+  // 显式 x86_64 标记仍是单键(不得被无标记分支洗成双键)
+  const intel = buildUpdaterPlatforms(
+    [{ name: 'AI_x86_64.app.tar.gz', url: `${GH}/AI_x86_64.app.tar.gz`, signature: 'i-sig' }],
+    { version: '0.1.80' },
+  )
+  assert.equal(intel['darwin-aarch64'], undefined)
+  assert.equal(intel['darwin-x86_64'].signature, 'i-sig')
+})
+
 test('平台择优先 exe>msi、AppImage>deb>rpm;版本匹配产物压过残留旧版', () => {
   const platforms = buildUpdaterPlatforms(
     [
