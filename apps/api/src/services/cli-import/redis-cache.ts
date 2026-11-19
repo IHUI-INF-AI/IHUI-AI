@@ -11,7 +11,9 @@
  *
  * 设计:
  * - 单条 preview 以 JSON 字符串存 String key,TTL 10 分钟
- * - key 前缀 cli-import:preview:<uuid>
+ * - key 前缀 cli-import:preview:<ownerUuid>:<uuid> —— F-74:必须绑定归属,
+ *   否则任何拿到 previewId 的人都能用他人明文 apiKey 落进自己账户
+ * - value 为 { ownerUuid, preview } 信封,读回时双重核对 owner;历史裸 value 一律 fail-closed
  * - Redis 不可用时降级为进程内 Map(单实例部署兜底)
  */
 import IORedis, { type Redis } from 'ioredis'
@@ -23,11 +25,37 @@ import type { ImportPreview } from '@ihui/types'
 const KEY_PREFIX = 'cli-import:preview:'
 const TTL_SEC = 10 * 60
 
+/** 缓存信封:owner 与 preview 同存,读回时两处都要对得上 */
+interface CachedPreview {
+  ownerUuid: string
+  preview: ImportPreview
+}
+
+function previewKey(ownerUuid: string, previewId: string): string {
+  return `${KEY_PREFIX}${ownerUuid}:${previewId}`
+}
+
+/** 只接受新信封且 owner 一致;旧裸 value / owner 不符一律当不存在 */
+function unwrap(raw: string, ownerUuid: string): ImportPreview | undefined {
+  try {
+    const parsed = JSON.parse(raw) as Partial<CachedPreview> & { previewId?: unknown }
+    if (!parsed || typeof parsed !== 'object') return undefined
+    if (parsed.ownerUuid !== ownerUuid) return undefined
+    const preview = parsed.preview
+    if (!preview || typeof preview !== 'object') return undefined
+    // 旧裸 ImportPreview(带 previewId)没有信封,按未命中处理
+    if (typeof parsed.previewId === 'string') return undefined
+    return preview as ImportPreview
+  } catch {
+    return undefined
+  }
+}
+
 // fallback 内存降级存储 LRU 上限(防止 Redis 不可用时 OOM,preview 单条较大,上限 1000)
 const FALLBACK_MAX = 1000
 const FALLBACK_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
 
-const fallbackStore = new Map<string, { value: ImportPreview; expireAt: number }>()
+const fallbackStore = new Map<string, { value: CachedPreview; expireAt: number }>()
 
 /**
  * Map 写入并保持 LRU 上限。
@@ -75,10 +103,13 @@ function getRedis(): Redis | null {
 
 /**
  * 缓存一条 preview,返回时也已带 previewId。
+ * F-74:必须带 owner 才落缓存 —— 没有归属的条目谁都能读,不如不缓存。
  */
-export async function savePreview(preview: ImportPreview, _ownerId?: string): Promise<void> {
-  const key = `${KEY_PREFIX}${preview.previewId}`
-  const payload = JSON.stringify(preview)
+export async function savePreview(preview: ImportPreview, ownerId?: string): Promise<void> {
+  if (!ownerId) return
+  const key = previewKey(ownerId, preview.previewId)
+  const cached: CachedPreview = { ownerUuid: ownerId, preview }
+  const payload = JSON.stringify(cached)
   const redis = getRedis()
   if (redis) {
     try {
@@ -93,25 +124,25 @@ export async function savePreview(preview: ImportPreview, _ownerId?: string): Pr
   setWithLRU(
     fallbackStore,
     key,
-    { value: preview, expireAt: Date.now() + TTL_SEC * 1000 },
+    { value: cached, expireAt: Date.now() + TTL_SEC * 1000 },
     FALLBACK_MAX,
   )
 }
 
 /**
- * 读取 preview;不存在或过期返回 undefined。
+ * 读取 preview;不存在、过期或归属不符返回 undefined。
  */
 export async function loadPreview(
   previewId: string,
-  _ownerId?: string,
+  ownerId?: string,
 ): Promise<ImportPreview | undefined> {
-  if (!previewId) return undefined
-  const key = `${KEY_PREFIX}${previewId}`
+  if (!previewId || !ownerId) return undefined
+  const key = previewKey(ownerId, previewId)
   const redis = getRedis()
   if (redis) {
     try {
       const raw = await redis.get(key)
-      if (raw) return JSON.parse(raw) as ImportPreview
+      if (raw) return unwrap(raw, ownerId)
       // Redis 没命中,可能已过期或降级写入 fallback;查一下
     } catch (err) {
       logger.warn('[cli-import/redis-cache] get failed, fallback', {
@@ -125,15 +156,15 @@ export async function loadPreview(
     fallbackStore.delete(key)
     return undefined
   }
-  return entry.value
+  return entry.value.ownerUuid === ownerId ? entry.value.preview : undefined
 }
 
 /**
  * 删除 preview(commit 后或显式取消)。
  */
-export async function deletePreview(previewId: string, _ownerId?: string): Promise<void> {
-  if (!previewId) return
-  const key = `${KEY_PREFIX}${previewId}`
+export async function deletePreview(previewId: string, ownerId?: string): Promise<void> {
+  if (!previewId || !ownerId) return
+  const key = previewKey(ownerId, previewId)
   const redis = getRedis()
   if (redis) {
     try {

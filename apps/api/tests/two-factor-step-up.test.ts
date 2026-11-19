@@ -168,7 +168,9 @@ describe('接线锁（闸必须住在写库之前，且 step-up 端点不许顺�
   it('提现路由：闸在 insert 之前，且不新鲜就 401', () => {
     const src = read('../src/routes/finance-extended.ts')
     const gate = src.indexOf('requireStepUpForTwoFactorUser({ userId, redis')
-    const insert = src.indexOf('.insert(withdrawalFlows)')
+    // F-61 起落库收敛到 applyWithdrawal(事务内冻结余额),不再直接 insert 流水;
+    // 闸仍必须先于该资金动作。
+    const insert = src.indexOf('applyWithdrawal(', gate)
     expect(gate).toBeGreaterThan(0)
     expect(insert).toBeGreaterThan(gate)
     expect(src).toContain("gate.code === 'STEP_UP_REQUIRED'")
@@ -204,8 +206,14 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
   const CASES: Array<{ file: string; gates: number; sinks: string[] }> = [
     {
       file: '../src/routes/developer.ts',
-      gates: 2,
-      sinks: ['apiKeysService.createKey', 'withdrawBodySchema'],
+      // F-429:创建/删除/更新 Key + 充值提现都接闸(4 处)
+      gates: 4,
+      sinks: [
+        'apiKeysService.createKey',
+        'apiKeysService.deleteKey',
+        'apiKeysService.updateKey',
+        'db.transaction',
+      ],
     },
     { file: '../src/routes/finance.ts', gates: 1, sinks: ['evaluateRisk'] },
     // 落库已收敛到 F-61 的 applyWithdrawal(事务内冻结余额+扣手续费),不再直接 insert 流水;
@@ -214,7 +222,12 @@ describe('接线锁·敏感端点全覆盖（2026-10-28：闸必须住在花钱/
     { file: '../src/routes/user/withdrawal-routes.ts', gates: 1, sinks: ['availableWithdrawal'] },
     { file: '../src/routes/wallet.ts', gates: 1, sinks: ['applyWithdrawal'] },
     { file: '../src/routes/payment-gateway.ts', gates: 2, sinks: ['getBalance', 'getBalance'] },
-    { file: '../src/routes/developer-relay.ts', gates: 1, sinks: ['rotateSecret'] },
+    {
+      file: '../src/routes/developer-relay.ts',
+      // F-391:创建 Key / 轮换 secret / 钱包充值三个敏感通道
+      gates: 3,
+      sinks: ['secret: result.secret', 'rotateSecret', 'rechargeApiKeyFromWallet'],
+    },
     { file: '../src/routes/agents.ts', gates: 1, sinks: ['findOAuthAppByClientId'] },
     // 2026-10-31（安全强化第 10 批 R10）：`agent-extended.ts` 的提现申请端点已**整条下线**
     // —— 那张 `zhs_agent_withdrawal_detail` 没有资金侧对应（不校验可提现余额、不冻结），

@@ -36,6 +36,14 @@ vi.mock('../src/db/customer-service-queries.js', () => ({
   findTicketById: mockFindTicketById,
 }))
 
+// F-465 起后台改单的状态迁移复用主链路状态机:本文件只测路由契约,
+// 状态机自身行为由 order-service 的用例钉住,这里桩成成功即可。
+vi.mock('../src/services/order-service.js', () => ({
+  completeOrder: vi.fn(async () => ({ success: true })),
+  cancelOrder: vi.fn(async () => ({ success: true })),
+  refundOrder: vi.fn(async () => ({ success: true })),
+}))
+
 function createChainableMock() {
   const thenFn = (resolve: (v: unknown) => void) => mockSelectResult().then(resolve)
   const make = (): Record<string, unknown> => {
@@ -300,11 +308,16 @@ describe('admin stub routes — users / orders / customer-service', () => {
     })
     expect(res.statusCode).toBe(404)
     expect(res.json().code).toBe(404)
-    expect(db.update).toHaveBeenCalled()
+    // 先查存在性再动库:不存在时一次 update 都不该发生
+    expect(db.update).not.toHaveBeenCalled()
   })
 
   it('PUT /admin/orders/:id — 成功更新 status=paid 200', async () => {
     mockAdmin()
+    // 第 1 次 select = 存在性/迁移前状态;第 2 次 select = 写后回读
+    mockSelectResult
+      .mockResolvedValueOnce([{ status: 'pending', orderNo: makeOrder().orderNo }])
+      .mockResolvedValueOnce([makeOrder({ status: 'paid' })])
     mockUpdateReturning.mockResolvedValueOnce([makeOrder({ status: 'paid' })])
     const res = await server.inject({
       method: 'PUT',
@@ -366,6 +379,7 @@ describe('admin stub routes — users / orders / customer-service', () => {
 
   it('DELETE /admin/orders/:id — 不存在返回 404', async () => {
     mockAdmin()
+    // 存在性查询为空 ⇒ 直接 404,不得对任何表下 delete
     mockDeleteReturning.mockResolvedValueOnce([])
     const res = await server.inject({
       method: 'DELETE',
@@ -373,11 +387,13 @@ describe('admin stub routes — users / orders / customer-service', () => {
     })
     expect(res.statusCode).toBe(404)
     expect(res.json().code).toBe(404)
-    expect(db.delete).toHaveBeenCalled()
+    expect(db.delete).not.toHaveBeenCalled()
   })
 
   it('DELETE /admin/orders/:id — 成功删除返回 200', async () => {
     mockAdmin()
+    // 未产生资金流的 pending 单才允许物理删除(F-130)
+    mockSelectResult.mockResolvedValueOnce([{ status: 'pending' }])
     mockDeleteReturning.mockResolvedValueOnce([makeOrder()])
     const res = await server.inject({
       method: 'DELETE',
