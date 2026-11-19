@@ -320,7 +320,7 @@ export function AppsClient() {
               <button
                 type="button"
                 onClick={() => void handleDelete(app)}
-                className="font-[weight:inherit] rounded-md border border-border px-2.5 py-1 text-label hover:bg-muted"
+                className="font-[weight:inherit] rounded-sm border border-border px-2.5 py-1 text-label hover:bg-muted"
               >
                 {t('delete')}
               </button>
