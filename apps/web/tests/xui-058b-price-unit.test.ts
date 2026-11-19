@@ -18,7 +18,10 @@ describe('XUI-058b web 智能体价格按分转元', () => {
 
   it('我的智能体列表 ¥ 前缀同样按分转元(保留两位)', () => {
     const src = read('app', '(main)', 'agents', 'my', 'page.tsx')
-    expect(src).toMatch(/agent\.price\s*\/\s*100/)
+    // 2026-11-19 现读:分转元已收口到单一出口 formatCnyCents(cents, { digits })(
+    // src/lib/display-currency.ts),页面不再各自写 `/100`。判据随实现改判:
+    // 必须经该出口 ∧ 不得把分直接拼进 ¥ 前缀。
+    expect(src).toMatch(/formatCnyCents\(\s*agent\.price\s*,/)
     expect(src).not.toMatch(/¥\$\{agent\.price\}/)
   })
 
@@ -37,13 +40,14 @@ describe('XUI-058b web 智能体价格按分转元', () => {
 
   it('精选智能体页 ¥ 前缀按分转元', () => {
     const src = read('app', '(main)', 'agents', 'featured', 'page.tsx')
-    expect(src).toMatch(/agent\.price\s*\/\s*100/)
+    // 同 my/page.tsx:分转元走 formatCnyCents 单一出口,不再手写 /100
+    expect(src).toMatch(/formatCnyCents\(\s*agent\.price\s*,/)
     expect(src).not.toMatch(/¥\$\{agent\.price\}/)
   })
 
   it('分类智能体页 ¥ 前缀按分转元', () => {
     const src = read('app', '(main)', 'agents', 'categories', '[id]', 'PageClient.tsx')
-    expect(src).toMatch(/agent\.price\s*\/\s*100/)
+    expect(src).toMatch(/formatCnyCents\(\s*agent\.price\s*,/)
     expect(src).not.toMatch(/¥\$\{agent\.price\}/)
   })
 })

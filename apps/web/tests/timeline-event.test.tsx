@@ -38,7 +38,10 @@ vi.mock('next-intl', () => ({
 }))
 
 // ─── lucide-react mock(IconSpan 接收 className + 任意 props) ───
-vi.mock('lucide-react', () => {
+// 2026-11-19:按真模块展开再覆盖本测试断言到的图标 —— 手抄清单在组件新增图标
+// (ListTodo 等)后必然"mock 少一项 ⇒ 整个 suite 崩",且崩在初始化而非断言处。
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
   const IconSpan = ({
     className,
     'data-testid': dataTestId,
@@ -56,6 +59,7 @@ vi.mock('lucide-react', () => {
     />
   )
   return {
+    ...actual,
     __esModule: true,
     ChevronRight: IconSpan,
     Loader2: IconSpan,
@@ -66,6 +70,10 @@ vi.mock('lucide-react', () => {
     Brain: IconSpan,
     FileText: IconSpan,
     Circle: IconSpan,
+    ListTodo: IconSpan,
+    // 类型图标位其余几档也走 IconSpan(真 lucide 渲染 <svg>,className 是 SVGAnimatedString,
+    // 断言读不到字符串);漏一档就会静默落回真模块。
+    MessageCircleQuestion: IconSpan,
   }
 })
 
@@ -143,35 +151,45 @@ describe('TimelineEventRow — 6 种 type 渲染', () => {
     const event = makeEvent({ type: 'subagent' })
     const { container } = render(<TimelineEventRow event={event} />)
     // 第一个 lucide-icon 是 TypeIcon,检查 className 含 cyan
-    const typeIcon = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    // 2026-11-19:行内可展开时会先渲染 ChevronRight ⇒ "第 0 个 lucide 图标"不再恒是 TypeIcon。
+    // 改按组件给的稳定标记定位(类型图标位 data-testid="timeline-type-icon")。
+    const typeIcon = container.querySelector('[data-testid="timeline-type-icon"]') as HTMLElement
     expect(typeIcon.className).toContain('text-cyan-500')
   })
 
   it('question 类型:图标含 amber 颜色', () => {
     const event = makeEvent({ type: 'question' })
     const { container } = render(<TimelineEventRow event={event} />)
-    const typeIcon = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    // 2026-11-19:行内可展开时会先渲染 ChevronRight ⇒ "第 0 个 lucide 图标"不再恒是 TypeIcon。
+    // 改按组件给的稳定标记定位(类型图标位 data-testid="timeline-type-icon")。
+    const typeIcon = container.querySelector('[data-testid="timeline-type-icon"]') as HTMLElement
     expect(typeIcon.className).toContain('text-amber-500')
   })
 
   it('tool 类型:图标含 violet 颜色', () => {
     const event = makeEvent({ type: 'tool' })
     const { container } = render(<TimelineEventRow event={event} />)
-    const typeIcon = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    // 2026-11-19:行内可展开时会先渲染 ChevronRight ⇒ "第 0 个 lucide 图标"不再恒是 TypeIcon。
+    // 改按组件给的稳定标记定位(类型图标位 data-testid="timeline-type-icon")。
+    const typeIcon = container.querySelector('[data-testid="timeline-type-icon"]') as HTMLElement
     expect(typeIcon.className).toContain('text-violet-500')
   })
 
   it('thinking 类型:图标含 amber-400 颜色', () => {
     const event = makeEvent({ type: 'thinking' })
     const { container } = render(<TimelineEventRow event={event} />)
-    const typeIcon = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    // 2026-11-19:行内可展开时会先渲染 ChevronRight ⇒ "第 0 个 lucide 图标"不再恒是 TypeIcon。
+    // 改按组件给的稳定标记定位(类型图标位 data-testid="timeline-type-icon")。
+    const typeIcon = container.querySelector('[data-testid="timeline-type-icon"]') as HTMLElement
     expect(typeIcon.className).toContain('text-amber-400')
   })
 
   it('reference 类型:图标含 blue 颜色', () => {
     const event = makeEvent({ type: 'reference' })
     const { container } = render(<TimelineEventRow event={event} />)
-    const typeIcon = container.querySelectorAll('[data-lucide-span="true"]')[0] as HTMLElement
+    // 2026-11-19:行内可展开时会先渲染 ChevronRight ⇒ "第 0 个 lucide 图标"不再恒是 TypeIcon。
+    // 改按组件给的稳定标记定位(类型图标位 data-testid="timeline-type-icon")。
+    const typeIcon = container.querySelector('[data-testid="timeline-type-icon"]') as HTMLElement
     expect(typeIcon.className).toContain('text-blue-500')
   })
 })
