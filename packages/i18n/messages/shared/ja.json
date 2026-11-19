@@ -3358,6 +3358,210 @@
         "UNREADABLE": {
           "title": "ファイルを読み取れません",
           "action": "ファイルの権限とロックを確認して再試行"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "再開確認が無効です",
+          "action": "タスクを再実行してください"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "承認が必要です",
+          "action": "承認後に再試行してください"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "並列バックグラウンド実行は未対応",
+          "action": "1 件ずつ実行してください"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "バックグラウンド実行が拒否されました",
+          "action": "引数を確認して再試行してください"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "許可されていないコマンドです",
+          "action": "許可されたコマンドを使用してください"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "整合性チェックに失敗",
+          "action": "状態を修正して再試行してください"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "会話コンテキストが一致しません",
+          "action": "新しい会話を開始してください"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "エンドポイントがブロックされました",
+          "action": "許可されたエンドポイントを使用してください"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "環境変数の上書きが拒否されました",
+          "action": "許可された設定を使用してください"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "呼び出し元の識別情報が必要です",
+          "action": "識別情報を付けて再試行してください"
+        },
+        "IMAGE_INVALID": {
+          "title": "画像の内容が無効です",
+          "action": "別の画像で再試行してください"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "画像タイプが一致しません",
+          "action": "対応するタイプを使用してください"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "画像形式は未対応です",
+          "action": "PNG または JPG に変換してください"
+        },
+        "INVALID_INPUT": {
+          "title": "入力が無効です",
+          "action": "入力を確認して再試行してください"
+        },
+        "INVALID_TODOS": {
+          "title": "タスク一覧が無効です",
+          "action": "一覧を修正して再試行してください"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "言語サービスが利用できません",
+          "action": "後で再試行するかサービスを再起動してください"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "必須引数が不足しています",
+          "action": "引数を補って再試行してください"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "セッション ID がありません",
+          "action": "セッションを開き直してください"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "モデルのツール能力が未検証です",
+          "action": "先に検証してください"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "オフセットが範囲外です",
+          "action": "オフセットを調整してください"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "オーケストレーションに失敗",
+          "action": "再試行するかタスクを簡略化してください"
+        },
+        "ROLE_DENIED": {
+          "title": "ロール権限が不足しています",
+          "action": "権限のあるロールに切り替えてください"
+        },
+        "SESSION_BUSY": {
+          "title": "セッションが混雑しています",
+          "action": "現在の実行完了後に再試行してください"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "セッションが見つかりません",
+          "action": "セッションを作成してください"
+        },
+        "SESSION_REQUIRED": {
+          "title": "セッション ID が必要です",
+          "action": "セッションを指定して再試行してください"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "セッション検索の権限がありません",
+          "action": "権限を申請して再試行してください"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "危険なメタ文字が含まれています",
+          "action": "特殊文字を除いてください"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "スキルが見つかりません",
+          "action": "スキル名を確認してください"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "禁止された SQL 関数です",
+          "action": "許可された関数を使用してください"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "サブエージェントは終了済みです",
+          "action": "再操作は不要です"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "サブエージェントが混雑しています",
+          "action": "終了後に再試行してください"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "サブエージェントが見つかりません",
+          "action": "再派遣してください"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "サブエージェント作成が拒否されました",
+          "action": "クォータと引数を確認してください"
+        },
+        "TASK_BLOCKED": {
+          "title": "タスクがブロックされています",
+          "action": "依存を解除して再試行してください"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "タスク依存が循環しています",
+          "action": "依存関係を解いてください"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "タスクが自身に依存しています",
+          "action": "依存関係を修正してください"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "タスクの版が古いです",
+          "action": "更新して再試行してください"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "ターンが見つかりません",
+          "action": "メッセージを再送してください"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "不明なツールです",
+          "action": "ツール名を確認してください"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "この音声は現在のユーザーのものではありません",
+          "action": "別の音声を選んでください"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "実行コンテキストが無効です",
+          "action": "再初期化して再試行してください"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "ワークスペースが拒否されました",
+          "action": "権限を確認してください"
+        },
+        "TERMINAL_EXITED": {
+          "title": "ターミナルは終了しました",
+          "action": "再度開いてください"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "ターミナルコマンドが無効です",
+          "action": "コマンドを修正してください"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "終了シグナルが無効です",
+          "action": "許可されたシグナルを使用してください"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "ターミナル数が上限に達しました",
+          "action": "使っていないものを閉じてください"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "ターミナルに識別情報がありません",
+          "action": "識別済みユーザーで起動してください"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "ターミナルが見つかりません",
+          "action": "新しく作成してください"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "シグナル送信に失敗しました",
+          "action": "再試行するか強制終了してください"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "ターミナルの起動に失敗しました",
+          "action": "ホスト環境を確認してください"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "ターミナルへの書き込みに失敗しました",
+          "action": "再試行してください"
         }
       }
     },
