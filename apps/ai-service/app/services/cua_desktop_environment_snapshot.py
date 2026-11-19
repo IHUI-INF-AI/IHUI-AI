@@ -263,8 +263,8 @@ def validate_browser_state(raw: dict[str, Any]) -> BrowserRunningState:
         if not isinstance(val, bool):
             raise BrowserStateError(f"{key} 须布尔,得到 {val!r}")
     # isinstance 已排除非布尔;此处显式落布尔类型给下游(Any|None 收窄到 bool)
-    is_running: bool = True if running else False
-    has_visible_window: bool = True if visible else False
+    is_running: bool = bool(running)
+    has_visible_window: bool = bool(visible)
     occupied = is_running and has_visible_window
     background_only = is_running and not has_visible_window
     if occupied:

@@ -43,8 +43,8 @@ if TYPE_CHECKING:
 # 默认只在返回体点名(fresh/stale/never_read/undetermined 四档不并桶),显式严格档才拒写。
 # 会话身份只取 call_tool 覆盖注入的 `__session_id`(承载层写入,模型自报会被覆盖);
 # 判据本体在 app/core/file_read_state.py,本模块只接线、不复算(§0.6)。
-from app.core.bounded_ttl_store import BoundedTtlDict
 from app.core.background_tasks import spawn
+from app.core.bounded_ttl_store import BoundedTtlDict
 from app.core.command_policy_merge import PolicyOutcome, adjudicate_command
 from app.core.file_read_state import (
     judge_read_state,

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -223,7 +223,6 @@ def _validate_employee(name: str, emp: dict[str, Any], findings: list[dict[str, 
     elderly = _elderly_raw if isinstance(_elderly_raw, dict) else {}
     if elderly:
         only = bool(elderly.get("only_child"))
-        share = elderly.get("share")
         elder_count = elderly.get("elder_count") or elderly.get("count")
         if not only:
             # 非独生 share 超 1500 的点名已由 _calc_elderly 负责(它封顶并报

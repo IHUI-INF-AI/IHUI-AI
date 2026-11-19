@@ -20,10 +20,10 @@ from __future__ import annotations
 import pytest
 
 from app.services.cdp_method_gate import (
-    CdpDenyReason,
-    CdpMethodGate,
     DOMAIN_DENIED,
     METHOD_DENIED,
+    CdpDenyReason,
+    CdpMethodGate,
 )
 
 # ---------- Cursor 域黑名单逐项对齐 ----------

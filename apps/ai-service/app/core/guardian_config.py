@@ -40,7 +40,6 @@ include_images,本仓聚焦前 5 个数值限制)。
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final
 
 from app.core.guardian_risk import GuardianRiskLevel
 

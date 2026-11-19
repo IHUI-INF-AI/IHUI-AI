@@ -24,8 +24,9 @@ import subprocess
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 WORD_EXTS = frozenset({".doc", ".docx", ".odt", ".rtf", ".txt"})
 SHEET_EXTS = frozenset({".xls", ".xlsx", ".ods", ".csv"})

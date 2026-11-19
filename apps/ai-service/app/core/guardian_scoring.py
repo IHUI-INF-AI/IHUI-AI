@@ -41,9 +41,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Sequence
+from typing import Final
 
 from app.core.guardian_risk import GuardianRiskLevel, normalize_risk_level
 
@@ -119,7 +120,7 @@ class RiskAssessment:
         cls,
         risk: str | None,
         authorization: str | None,
-    ) -> "RiskAssessment":
+    ) -> RiskAssessment:
         """从模型产出的原始字符串构造(归一化失败保留 None,不猜档)。"""
         return cls(
             risk=normalize_risk_level(risk),
