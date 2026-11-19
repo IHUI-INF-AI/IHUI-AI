@@ -3358,6 +3358,210 @@
         "UNREADABLE": {
           "title": "文件不可读",
           "action": "检查文件权限与占用后重试"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "恢复确认已失效",
+          "action": "重新发起该任务"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "需要人工批准",
+          "action": "完成审批后重试"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "不支持并行后台任务",
+          "action": "改为逐个执行"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "后台任务被拒绝",
+          "action": "检查任务参数后重试"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "命令不在白名单",
+          "action": "换用允许的命令"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "一致性校验未通过",
+          "action": "修正状态后重试"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "会话上下文不匹配",
+          "action": "重新开始对话"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "目标端点被拦截",
+          "action": "更换允许的端点"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "环境变量改写被拒",
+          "action": "使用允许的配置项"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "缺少调用身份",
+          "action": "携带身份信息重试"
+        },
+        "IMAGE_INVALID": {
+          "title": "图片内容无效",
+          "action": "更换图片后重试"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "图片类型不符",
+          "action": "使用支持的类型"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "图片格式不支持",
+          "action": "转成 PNG 或 JPG"
+        },
+        "INVALID_INPUT": {
+          "title": "输入参数不合法",
+          "action": "检查参数后重试"
+        },
+        "INVALID_TODOS": {
+          "title": "待办清单不合法",
+          "action": "修正待办后重试"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "语言服务不可用",
+          "action": "稍后重试或重启服务"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "缺少必要参数",
+          "action": "补齐参数后重试"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "缺少会话标识",
+          "action": "重新打开会话"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "模型工具能力未验证",
+          "action": "先验证能力再调用"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "分页偏移越界",
+          "action": "调整偏移量"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "编排执行失败",
+          "action": "重试或简化任务"
+        },
+        "ROLE_DENIED": {
+          "title": "角色权限不足",
+          "action": "更换有权角色"
+        },
+        "SESSION_BUSY": {
+          "title": "会话正忙",
+          "action": "等待当前任务结束后重试"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "会话不存在",
+          "action": "重新创建会话"
+        },
+        "SESSION_REQUIRED": {
+          "title": "需要会话标识",
+          "action": "指定会话后重试"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "会话检索无权限",
+          "action": "申请权限后重试"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "命令含危险字符",
+          "action": "去除特殊字符"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "技能不存在",
+          "action": "检查技能名"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "SQL 函数被禁用",
+          "action": "换用允许的函数"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "子代理已结束",
+          "action": "无需重复操作"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "子代理正忙",
+          "action": "等待其结束后重试"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "子代理不存在",
+          "action": "重新派发"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "子代理创建被拒",
+          "action": "检查配额与参数"
+        },
+        "TASK_BLOCKED": {
+          "title": "任务被阻塞",
+          "action": "解除依赖后重试"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "任务依赖成环",
+          "action": "打散依赖"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "任务依赖自身",
+          "action": "修正依赖关系"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "任务版本已过期",
+          "action": "刷新后重试"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "轮次不存在",
+          "action": "重新发送消息"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "未知工具",
+          "action": "检查工具名"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "音色不属于当前用户",
+          "action": "更换音色"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "执行上下文无效",
+          "action": "重新初始化后重试"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "工作区被拒绝",
+          "action": "检查工作区权限"
+        },
+        "TERMINAL_EXITED": {
+          "title": "终端已退出",
+          "action": "重新打开终端"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "终端命令不合法",
+          "action": "修正命令"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "终止信号不合法",
+          "action": "使用允许的信号"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "终端数量已达上限",
+          "action": "关闭闲置终端"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "终端缺少身份",
+          "action": "以有身份用户启动"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "终端不存在",
+          "action": "重新创建终端"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "终止信号发送失败",
+          "action": "重试或强制关闭"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "终端启动失败",
+          "action": "检查宿主环境"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "终端写入失败",
+          "action": "重试写入"
         }
       }
     },

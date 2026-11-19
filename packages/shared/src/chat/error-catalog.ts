@@ -976,6 +976,261 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: '102.action',
     category: 'invalidResponse',
   },
+  AGENT_RESUME_CONFIRMATION_UNKNOWN_ID: {
+    titleKey: 'AGENT_RESUME_CONFIRMATION_UNKNOWN_ID.title',
+    actionKey: 'AGENT_RESUME_CONFIRMATION_UNKNOWN_ID.action',
+    category: 'invalidResponse',
+  },
+  APPROVAL_REQUIRED: {
+    titleKey: 'APPROVAL_REQUIRED.title',
+    actionKey: 'APPROVAL_REQUIRED.action',
+    category: 'runtimeException',
+  },
+  BACKGROUND_PARALLEL_UNSUPPORTED: {
+    titleKey: 'BACKGROUND_PARALLEL_UNSUPPORTED.title',
+    actionKey: 'BACKGROUND_PARALLEL_UNSUPPORTED.action',
+    category: 'capabilityNotOffered',
+  },
+  BACKGROUND_REJECTED: {
+    titleKey: 'BACKGROUND_REJECTED.title',
+    actionKey: 'BACKGROUND_REJECTED.action',
+    category: 'runtimeException',
+  },
+  COMMAND_NOT_ALLOWED: {
+    titleKey: 'COMMAND_NOT_ALLOWED.title',
+    actionKey: 'COMMAND_NOT_ALLOWED.action',
+    category: 'authForbidden',
+  },
+  CONSISTENCY_GATE_BLOCKED: {
+    titleKey: 'CONSISTENCY_GATE_BLOCKED.title',
+    actionKey: 'CONSISTENCY_GATE_BLOCKED.action',
+    category: 'runtimeException',
+  },
+  CONVERSATION_MISMATCH: {
+    titleKey: 'CONVERSATION_MISMATCH.title',
+    actionKey: 'CONVERSATION_MISMATCH.action',
+    category: 'protocolMismatch',
+  },
+  ENDPOINT_BLOCKED: {
+    titleKey: 'ENDPOINT_BLOCKED.title',
+    actionKey: 'ENDPOINT_BLOCKED.action',
+    category: 'authForbidden',
+  },
+  ENV_OVERRIDE_DENIED: {
+    titleKey: 'ENV_OVERRIDE_DENIED.title',
+    actionKey: 'ENV_OVERRIDE_DENIED.action',
+    category: 'authForbidden',
+  },
+  IDENTITY_REQUIRED: {
+    titleKey: 'IDENTITY_REQUIRED.title',
+    actionKey: 'IDENTITY_REQUIRED.action',
+    category: 'authForbidden',
+  },
+  IMAGE_INVALID: {
+    titleKey: 'IMAGE_INVALID.title',
+    actionKey: 'IMAGE_INVALID.action',
+    category: 'invalidResponse',
+  },
+  IMAGE_TYPE_MISMATCH: {
+    titleKey: 'IMAGE_TYPE_MISMATCH.title',
+    actionKey: 'IMAGE_TYPE_MISMATCH.action',
+    category: 'invalidResponse',
+  },
+  IMAGE_UNSUPPORTED_FORMAT: {
+    titleKey: 'IMAGE_UNSUPPORTED_FORMAT.title',
+    actionKey: 'IMAGE_UNSUPPORTED_FORMAT.action',
+    category: 'invalidResponse',
+  },
+  INVALID_INPUT: {
+    titleKey: 'INVALID_INPUT.title',
+    actionKey: 'INVALID_INPUT.action',
+    category: 'invalidResponse',
+  },
+  INVALID_TODOS: {
+    titleKey: 'INVALID_TODOS.title',
+    actionKey: 'INVALID_TODOS.action',
+    category: 'invalidResponse',
+  },
+  LSP_UNAVAILABLE: {
+    titleKey: 'LSP_UNAVAILABLE.title',
+    actionKey: 'LSP_UNAVAILABLE.action',
+    category: 'dependencyModuleMissing',
+  },
+  MISSING_ARGUMENTS: {
+    titleKey: 'MISSING_ARGUMENTS.title',
+    actionKey: 'MISSING_ARGUMENTS.action',
+    category: 'invalidResponse',
+  },
+  MISSING_SESSION_ID: {
+    titleKey: 'MISSING_SESSION_ID.title',
+    actionKey: 'MISSING_SESSION_ID.action',
+    category: 'invalidResponse',
+  },
+  MODEL_TOOL_CAPABILITY_UNVERIFIED: {
+    titleKey: 'MODEL_TOOL_CAPABILITY_UNVERIFIED.title',
+    actionKey: 'MODEL_TOOL_CAPABILITY_UNVERIFIED.action',
+    category: 'capabilityNotOffered',
+  },
+  OFFSET_OUT_OF_RANGE: {
+    titleKey: 'OFFSET_OUT_OF_RANGE.title',
+    actionKey: 'OFFSET_OUT_OF_RANGE.action',
+    category: 'invalidResponse',
+  },
+  ORCHESTRATION_FAILED: {
+    titleKey: 'ORCHESTRATION_FAILED.title',
+    actionKey: 'ORCHESTRATION_FAILED.action',
+    category: 'backendCrashed',
+  },
+  ROLE_DENIED: {
+    titleKey: 'ROLE_DENIED.title',
+    actionKey: 'ROLE_DENIED.action',
+    category: 'authForbidden',
+  },
+  SESSION_BUSY: {
+    titleKey: 'SESSION_BUSY.title',
+    actionKey: 'SESSION_BUSY.action',
+    category: 'resourceLimitExceeded',
+  },
+  SESSION_NOT_FOUND: {
+    titleKey: 'SESSION_NOT_FOUND.title',
+    actionKey: 'SESSION_NOT_FOUND.action',
+    category: 'invalidResponse',
+  },
+  SESSION_REQUIRED: {
+    titleKey: 'SESSION_REQUIRED.title',
+    actionKey: 'SESSION_REQUIRED.action',
+    category: 'invalidResponse',
+  },
+  SESSION_SEARCH_UNAUTHORIZED: {
+    titleKey: 'SESSION_SEARCH_UNAUTHORIZED.title',
+    actionKey: 'SESSION_SEARCH_UNAUTHORIZED.action',
+    category: 'authForbidden',
+  },
+  SHELL_METACHARACTER_BLOCKED: {
+    titleKey: 'SHELL_METACHARACTER_BLOCKED.title',
+    actionKey: 'SHELL_METACHARACTER_BLOCKED.action',
+    category: 'authForbidden',
+  },
+  SKILL_NOT_FOUND: {
+    titleKey: 'SKILL_NOT_FOUND.title',
+    actionKey: 'SKILL_NOT_FOUND.action',
+    category: 'dependencyModuleMissing',
+  },
+  SQL_FORBIDDEN_FUNCTION: {
+    titleKey: 'SQL_FORBIDDEN_FUNCTION.title',
+    actionKey: 'SQL_FORBIDDEN_FUNCTION.action',
+    category: 'authForbidden',
+  },
+  SUBAGENT_ALREADY_FINISHED: {
+    titleKey: 'SUBAGENT_ALREADY_FINISHED.title',
+    actionKey: 'SUBAGENT_ALREADY_FINISHED.action',
+    category: 'runtimeException',
+  },
+  SUBAGENT_BUSY: {
+    titleKey: 'SUBAGENT_BUSY.title',
+    actionKey: 'SUBAGENT_BUSY.action',
+    category: 'resourceLimitExceeded',
+  },
+  SUBAGENT_NOT_FOUND: {
+    titleKey: 'SUBAGENT_NOT_FOUND.title',
+    actionKey: 'SUBAGENT_NOT_FOUND.action',
+    category: 'invalidResponse',
+  },
+  SUBAGENT_SPAWN_REJECTED: {
+    titleKey: 'SUBAGENT_SPAWN_REJECTED.title',
+    actionKey: 'SUBAGENT_SPAWN_REJECTED.action',
+    category: 'runtimeException',
+  },
+  TASK_BLOCKED: {
+    titleKey: 'TASK_BLOCKED.title',
+    actionKey: 'TASK_BLOCKED.action',
+    category: 'runtimeException',
+  },
+  TASK_DEPENDENCY_CYCLE: {
+    titleKey: 'TASK_DEPENDENCY_CYCLE.title',
+    actionKey: 'TASK_DEPENDENCY_CYCLE.action',
+    category: 'runtimeException',
+  },
+  TASK_DEPENDENCY_SELF: {
+    titleKey: 'TASK_DEPENDENCY_SELF.title',
+    actionKey: 'TASK_DEPENDENCY_SELF.action',
+    category: 'runtimeException',
+  },
+  TASK_STALE_REVISION: {
+    titleKey: 'TASK_STALE_REVISION.title',
+    actionKey: 'TASK_STALE_REVISION.action',
+    category: 'protocolMismatch',
+  },
+  TURN_NOT_FOUND: {
+    titleKey: 'TURN_NOT_FOUND.title',
+    actionKey: 'TURN_NOT_FOUND.action',
+    category: 'invalidResponse',
+  },
+  UNKNOWN_AIS_TOOL: {
+    titleKey: 'UNKNOWN_AIS_TOOL.title',
+    actionKey: 'UNKNOWN_AIS_TOOL.action',
+    category: 'dependencyModuleMissing',
+  },
+  VOICE_NOT_OWNED: {
+    titleKey: 'VOICE_NOT_OWNED.title',
+    actionKey: 'VOICE_NOT_OWNED.action',
+    category: 'authForbidden',
+  },
+  WORKER_EXEC_CONTEXT_INVALID: {
+    titleKey: 'WORKER_EXEC_CONTEXT_INVALID.title',
+    actionKey: 'WORKER_EXEC_CONTEXT_INVALID.action',
+    category: 'environmentInitFailed',
+  },
+  WORKSPACE_REJECTED: {
+    titleKey: 'WORKSPACE_REJECTED.title',
+    actionKey: 'WORKSPACE_REJECTED.action',
+    category: 'authForbidden',
+  },
+  TERMINAL_EXITED: {
+    titleKey: 'TERMINAL_EXITED.title',
+    actionKey: 'TERMINAL_EXITED.action',
+    category: 'backendExited',
+  },
+  TERMINAL_INVALID_COMMAND: {
+    titleKey: 'TERMINAL_INVALID_COMMAND.title',
+    actionKey: 'TERMINAL_INVALID_COMMAND.action',
+    category: 'invalidResponse',
+  },
+  TERMINAL_INVALID_SIGNAL: {
+    titleKey: 'TERMINAL_INVALID_SIGNAL.title',
+    actionKey: 'TERMINAL_INVALID_SIGNAL.action',
+    category: 'invalidResponse',
+  },
+  TERMINAL_LIMIT: {
+    titleKey: 'TERMINAL_LIMIT.title',
+    actionKey: 'TERMINAL_LIMIT.action',
+    category: 'resourceLimitExceeded',
+  },
+  TERMINAL_NO_IDENTITY: {
+    titleKey: 'TERMINAL_NO_IDENTITY.title',
+    actionKey: 'TERMINAL_NO_IDENTITY.action',
+    category: 'authForbidden',
+  },
+  TERMINAL_NOT_FOUND: {
+    titleKey: 'TERMINAL_NOT_FOUND.title',
+    actionKey: 'TERMINAL_NOT_FOUND.action',
+    category: 'invalidResponse',
+  },
+  TERMINAL_SIGNAL_FAILED: {
+    titleKey: 'TERMINAL_SIGNAL_FAILED.title',
+    actionKey: 'TERMINAL_SIGNAL_FAILED.action',
+    category: 'backendCrashed',
+  },
+  TERMINAL_SPAWN_FAILED: {
+    titleKey: 'TERMINAL_SPAWN_FAILED.title',
+    actionKey: 'TERMINAL_SPAWN_FAILED.action',
+    category: 'environmentInitFailed',
+  },
+  TERMINAL_WRITE_FAILED: {
+    titleKey: 'TERMINAL_WRITE_FAILED.title',
+    actionKey: 'TERMINAL_WRITE_FAILED.action',
+    category: 'backendExited',
+  },
 })
 
 /**

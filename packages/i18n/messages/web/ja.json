@@ -9507,6 +9507,210 @@
         "UNREADABLE": {
           "title": "ファイルを読み取れません",
           "action": "ファイルの権限とロックを確認して再試行"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "再開確認が無効です",
+          "action": "タスクを再実行してください"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "承認が必要です",
+          "action": "承認後に再試行してください"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "並列バックグラウンド実行は未対応",
+          "action": "1 件ずつ実行してください"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "バックグラウンド実行が拒否されました",
+          "action": "引数を確認して再試行してください"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "許可されていないコマンドです",
+          "action": "許可されたコマンドを使用してください"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "整合性チェックに失敗",
+          "action": "状態を修正して再試行してください"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "会話コンテキストが一致しません",
+          "action": "新しい会話を開始してください"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "エンドポイントがブロックされました",
+          "action": "許可されたエンドポイントを使用してください"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "環境変数の上書きが拒否されました",
+          "action": "許可された設定を使用してください"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "呼び出し元の識別情報が必要です",
+          "action": "識別情報を付けて再試行してください"
+        },
+        "IMAGE_INVALID": {
+          "title": "画像の内容が無効です",
+          "action": "別の画像で再試行してください"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "画像タイプが一致しません",
+          "action": "対応するタイプを使用してください"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "画像形式は未対応です",
+          "action": "PNG または JPG に変換してください"
+        },
+        "INVALID_INPUT": {
+          "title": "入力が無効です",
+          "action": "入力を確認して再試行してください"
+        },
+        "INVALID_TODOS": {
+          "title": "タスク一覧が無効です",
+          "action": "一覧を修正して再試行してください"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "言語サービスが利用できません",
+          "action": "後で再試行するかサービスを再起動してください"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "必須引数が不足しています",
+          "action": "引数を補って再試行してください"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "セッション ID がありません",
+          "action": "セッションを開き直してください"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "モデルのツール能力が未検証です",
+          "action": "先に検証してください"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "オフセットが範囲外です",
+          "action": "オフセットを調整してください"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "オーケストレーションに失敗",
+          "action": "再試行するかタスクを簡略化してください"
+        },
+        "ROLE_DENIED": {
+          "title": "ロール権限が不足しています",
+          "action": "権限のあるロールに切り替えてください"
+        },
+        "SESSION_BUSY": {
+          "title": "セッションが混雑しています",
+          "action": "現在の実行完了後に再試行してください"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "セッションが見つかりません",
+          "action": "セッションを作成してください"
+        },
+        "SESSION_REQUIRED": {
+          "title": "セッション ID が必要です",
+          "action": "セッションを指定して再試行してください"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "セッション検索の権限がありません",
+          "action": "権限を申請して再試行してください"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "危険なメタ文字が含まれています",
+          "action": "特殊文字を除いてください"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "スキルが見つかりません",
+          "action": "スキル名を確認してください"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "禁止された SQL 関数です",
+          "action": "許可された関数を使用してください"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "サブエージェントは終了済みです",
+          "action": "再操作は不要です"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "サブエージェントが混雑しています",
+          "action": "終了後に再試行してください"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "サブエージェントが見つかりません",
+          "action": "再派遣してください"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "サブエージェント作成が拒否されました",
+          "action": "クォータと引数を確認してください"
+        },
+        "TASK_BLOCKED": {
+          "title": "タスクがブロックされています",
+          "action": "依存を解除して再試行してください"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "タスク依存が循環しています",
+          "action": "依存関係を解いてください"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "タスクが自身に依存しています",
+          "action": "依存関係を修正してください"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "タスクの版が古いです",
+          "action": "更新して再試行してください"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "ターンが見つかりません",
+          "action": "メッセージを再送してください"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "不明なツールです",
+          "action": "ツール名を確認してください"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "この音声は現在のユーザーのものではありません",
+          "action": "別の音声を選んでください"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "実行コンテキストが無効です",
+          "action": "再初期化して再試行してください"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "ワークスペースが拒否されました",
+          "action": "権限を確認してください"
+        },
+        "TERMINAL_EXITED": {
+          "title": "ターミナルは終了しました",
+          "action": "再度開いてください"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "ターミナルコマンドが無効です",
+          "action": "コマンドを修正してください"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "終了シグナルが無効です",
+          "action": "許可されたシグナルを使用してください"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "ターミナル数が上限に達しました",
+          "action": "使っていないものを閉じてください"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "ターミナルに識別情報がありません",
+          "action": "識別済みユーザーで起動してください"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "ターミナルが見つかりません",
+          "action": "新しく作成してください"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "シグナル送信に失敗しました",
+          "action": "再試行するか強制終了してください"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "ターミナルの起動に失敗しました",
+          "action": "ホスト環境を確認してください"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "ターミナルへの書き込みに失敗しました",
+          "action": "再試行してください"
         }
       },
       "worktree": {
@@ -9860,7 +10064,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -9877,7 +10086,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -13236,161 +13450,296 @@
       "slashDiff": {
         "label": "セッション変更一覧",
         "description": "このセッションで AI が変更したファイルを確認",
-        "keywords": ["diff", "変更", "確認"]
+        "keywords": [
+          "diff",
+          "変更",
+          "確認"
+        ]
       },
       "slashStatus": {
         "label": "セッション状態",
         "description": "モデル・コンテキスト・権限モード・使用量を表示",
-        "keywords": ["status", "状態", "コンテキスト"]
+        "keywords": [
+          "status",
+          "状態",
+          "コンテキスト"
+        ]
       },
       "slashModel": {
         "label": "モデル切替",
         "description": "モデルセレクターを開く",
-        "keywords": ["model", "モデル", "切替"]
+        "keywords": [
+          "model",
+          "モデル",
+          "切替"
+        ]
       },
       "slashMcp": {
         "label": "MCP マーケット",
         "description": "MCP サーバーマーケットを開く",
-        "keywords": ["mcp", "マーケット"]
+        "keywords": [
+          "mcp",
+          "マーケット"
+        ]
       },
       "slashCompact": {
         "label": "コンテキスト圧縮",
         "description": "セッション履歴を圧縮してコンテキストを解放",
-        "keywords": ["compact", "圧縮", "コンテキスト"]
+        "keywords": [
+          "compact",
+          "圧縮",
+          "コンテキスト"
+        ]
       },
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": ["ステア", "ガイド", "steer"]
+        "keywords": [
+          "ステア",
+          "ガイド",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": ["キュー", "待機", "queue"]
+        "keywords": [
+          "キュー",
+          "待機",
+          "queue"
+        ]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": ["エージェント", "agent", "bot"],
+        "keywords": [
+          "エージェント",
+          "agent",
+          "bot"
+        ],
         "label": "AI エージェント"
       },
       "automations": {
         "description": "定時実行する AI タスクの作成と管理",
-        "keywords": ["自動化", "スケジュール", "タスク", "automation"],
+        "keywords": [
+          "自動化",
+          "スケジュール",
+          "タスク",
+          "automation"
+        ],
         "label": "定時自動化"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": ["ブラウザ", "ウェブ", "browser"],
+        "keywords": [
+          "ブラウザ",
+          "ウェブ",
+          "browser"
+        ],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
+        "keywords": [
+          "ケイパビリティ",
+          "マーケット",
+          "market",
+          "プラグイン"
+        ],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": ["コード", "変更", "diff", "修正"],
+        "keywords": [
+          "コード",
+          "変更",
+          "diff",
+          "修正"
+        ],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": ["コネクタ", "接続", "connector"],
+        "keywords": [
+          "コネクタ",
+          "接続",
+          "connector"
+        ],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": ["ドキュメント", "編集", "doc"],
+        "keywords": [
+          "ドキュメント",
+          "編集",
+          "doc"
+        ],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": ["エディタ", "コード", "editor"],
+        "keywords": [
+          "エディタ",
+          "コード",
+          "editor"
+        ],
         "label": "エディタ"
       },
       "imageGen": {
         "description": "プロンプトから画像を生成。公開ギャラリー・履歴・テンプレート付き",
-        "keywords": ["画像", "生成", "描画", "image"],
+        "keywords": [
+          "画像",
+          "生成",
+          "描画",
+          "image"
+        ],
         "label": "AI 画像生成"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": ["MCP", "サーバー", "ツール"],
+        "keywords": [
+          "MCP",
+          "サーバー",
+          "ツール"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": ["MCP", "ストア", "store", "インストール"],
+        "keywords": [
+          "MCP",
+          "ストア",
+          "store",
+          "インストール"
+        ],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": ["質問", "ask", "モード"],
+        "keywords": [
+          "質問",
+          "ask",
+          "モード"
+        ],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": ["ビルド", "モード", "build"],
+        "keywords": [
+          "ビルド",
+          "モード",
+          "build"
+        ],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": ["計画", "モード", "plan"],
+        "keywords": [
+          "計画",
+          "モード",
+          "plan"
+        ],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": ["レビュー", "モード", "review"],
+        "keywords": [
+          "レビュー",
+          "モード",
+          "review"
+        ],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": ["仕様", "モード", "spec"],
+        "keywords": [
+          "仕様",
+          "モード",
+          "spec"
+        ],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": ["スキル", "skill", "機能"],
+        "keywords": [
+          "スキル",
+          "skill",
+          "機能"
+        ],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": ["ターミナル", "端末", "terminal"],
+        "keywords": [
+          "ターミナル",
+          "端末",
+          "terminal"
+        ],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "keywords": [
+          "skill",
+          "スキル",
+          "マーケット",
+          "market"
+        ],
         "label": "Skill マーケット"
       }
     },
@@ -15962,25 +16311,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -16114,19 +16475,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -19051,7 +19424,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "relay": {
