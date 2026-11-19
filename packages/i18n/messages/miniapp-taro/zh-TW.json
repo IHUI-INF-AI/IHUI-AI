@@ -4554,7 +4554,12 @@
       "schedule": "定時任務"
     },
     "knowledgeCards": "知識卡片",
-    "knowledgePlanet": "知識星球"
+    "knowledgePlanet": "知識星球",
+    "hrAttendance": "我的考勤",
+    "hrLeave": "我的請假",
+    "hrPayroll": "薪資單",
+    "settingsAppearance": "外觀與排版",
+    "appsStudio": "AI 應用臺"
   },
   "accountPool": {
     "title": "個人號池",

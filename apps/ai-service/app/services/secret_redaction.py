@@ -195,7 +195,12 @@ def redact_text(text: str) -> str:
     out = strip_vt(text)
     for rule in _rules():
         ph: str = rule.placeholder
-        out = rule.pattern.sub(lambda m: _sub_literal(m, ph), out)
+
+        def _placeholder_repl(m: re.Match[str], _ph: str = ph) -> str:
+            """按本条规则的占位符做字面替换(默认参数绑定循环变量,避免延迟求值)。"""
+            return _sub_literal(m, _ph)
+
+        out = rule.pattern.sub(_placeholder_repl, out)
     # key=value / key: value: 敏感键的值整段脱敏
     def _kv_repl(m: re.Match[str]) -> str:
         key_part = m.group(1)          # e.g. "api_key=" 或 "token : "

@@ -38,7 +38,10 @@ from enum import StrEnum
 from typing import Final
 
 from app.core.guardian_risk import GuardianRiskLevel
-from app.core.guardian_scoring import RiskAssessment, UserAuthorization, classify_intrinsic_needs_review
+from app.core.guardian_scoring import (
+    RiskAssessment,
+    classify_intrinsic_needs_review,
+)
 
 __all__ = [
     "ReconsiderationOutcome",

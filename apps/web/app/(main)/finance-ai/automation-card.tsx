@@ -127,7 +127,7 @@ export function AutomationCard({ busy, onLaunch }: Props) {
                   e.target.value === 'user_confirmed' ? 'user_confirmed' : 'manual_gate',
                 )
               }
-              className="font-[weight:inherit] h-9 w-full rounded-md border border-input bg-background px-2 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+              className="font-[weight:inherit] h-9 w-full rounded-sm border border-input bg-background px-2 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
             >
               <option value="manual_gate">{t('submitModeManual')}</option>
               <option value="user_confirmed">{t('submitModeConfirmed')}</option>
@@ -152,7 +152,7 @@ export function AutomationCard({ busy, onLaunch }: Props) {
             rows={2}
             spellCheck={false}
             placeholder={t('portalPh')}
-            className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+            className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
           />
         </div>
         <Button

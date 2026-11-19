@@ -239,29 +239,29 @@ policy_id: 'architecture-policy'
 content_face: 'head-blob'
 
 constraints:
-  # C1 全仓即时判红:单文件行上限(实测依据见文件头)
+# C1 全仓即时判红:单文件行上限(实测依据见文件头)
   max_file_lines: 6000
-  # C2 managed-only:契约文件行上限
+# C2 managed-only:契约文件行上限
   max_contract_file_lines: 2000
-  # C3 managed-only:模块主入口对外公开出口数上限
+# C3 managed-only:模块主入口对外公开出口数上限
   max_public_exports: 300
-  # C4 managed-only:单文件公开方法数上限(G-815990,2026-10-07 新增;声明驱动 —— 本键缺省时该维不装载)
-  # 实测依据(与 C1 同一口径:2026-10-07 HEAD blob 全量 10117 个 .ts/.tsx/.js/.jsx/.mjs/.cjs 源文件):
-  #   计数 = maskCommentsAndStrings(剥注释与字符串字面量体)后逐行匹配
-  #   `^\s*export\s+(default\s+)?(async\s+)?(function|class|const|let|var)\b`
-  #   max = 274(apps/miniapp-taro/src/api/index.ts)/ p99.9 = 50 / p99 = 24 / p90 = 5 / p50 = 1
-  #   超过 100 的只有 2 个文件,超过 200 的只有 1 个
-  # ⇒ 400:**必须大于既有最大 274**,否则新判据出生即红 = 自造一台跳门机;取 400 而不是贴近 274,
-  #   留 126 个余量给"合法增长",本判据拦的是"再写一个两三百公开出口的聚合桶文件"这一类新增,
-  #   不是既有存量 —— 与 C1 取 6000 行的同一做法(阈值取实测分布上沿,依据就地写进注释,
-  #   不得为变绿调阈值)。
+# C4 managed-only:单文件公开方法数上限(G-815990,2026-10-07 新增;声明驱动 —— 本键缺省时该维不装载)
+# 实测依据(与 C1 同一口径:2026-10-07 HEAD blob 全量 10117 个 .ts/.tsx/.js/.jsx/.mjs/.cjs 源文件):
+#   计数 = maskCommentsAndStrings(剥注释与字符串字面量体)后逐行匹配
+#   `^\s*export\s+(default\s+)?(async\s+)?(function|class|const|let|var)\b`
+#   max = 274(apps/miniapp-taro/src/api/index.ts)/ p99.9 = 50 / p99 = 24 / p90 = 5 / p50 = 1
+#   超过 100 的只有 2 个文件,超过 200 的只有 1 个
+# ⇒ 400:**必须大于既有最大 274**,否则新判据出生即红 = 自造一台跳门机;取 400 而不是贴近 274,
+#   留 126 个余量给"合法增长",本判据拦的是"再写一个两三百公开出口的聚合桶文件"这一类新增,
+#   不是既有存量 —— 与 C1 取 6000 行的同一做法(阈值取实测分布上沿,依据就地写进注释,
+#   不得为变绿调阈值)。
   max_public_methods: 400
-  # D4 managed-only:禁循环依赖(全仓图由本表 requires 声明,已由 T1 保证无环;
-  # 这里判的是**现实 import 边**是否成环 —— 表说无环而现实成环,即表与现实脱节)
+# D4 managed-only:禁循环依赖(全仓图由本表 requires 声明,已由 T1 保证无环;
+# 这里判的是**现实 import 边**是否成环 —— 表说无环而现实成环,即表与现实脱节)
   forbid_cycles: true
-  # D3 managed-only:禁穿透公开入口的深导入
+# D3 managed-only:禁穿透公开入口的深导入
   forbid_deep_imports: true
-  # 契约文件面(命中任一 pattern 即算契约文件;glob 只支持 ** 与 * 两种通配)
+# 契约文件面(命中任一 pattern 即算契约文件;glob 只支持 ** 与 * 两种通配)
   contract_file_patterns:
     - 'packages/types/src/**'
     - 'packages/database/src/schema/**'
@@ -269,7 +269,7 @@ constraints:
     - 'packages/sdk/src/**'
     - '**/*.schema.ts'
     - '**/*.types.ts'
-  # 扫描面排除:工具装配文件与夹具树,不算模块运行时代码
+# 扫描面排除:工具装配文件与夹具树,不算模块运行时代码
   scan_excludes:
     - '**/node_modules/**'
     - '**/dist/**'
@@ -288,14 +288,14 @@ constraints:
     # 2026-11-01(门 103 C1 清偿):archify 是 vendored 的第三方单文件 CLI(bin 直接指向它),
     # 拆文件会撞上游升级;它也不属于本仓契约面 ⇒ 整目录不进扫描射程。
     - '.ihui/skills/archify/**'
-  # 深导入判据的测试面豁免:D3 不咬测试/夹具/mock 文件(按路径 import 实现细节去 mock
-  # 是合法形态,HEAD 实测这类共 16 处,全部落在 tests/ 与 __mocks__/ 下)。
-  # D1/C2/C3 不受此豁免影响,照旧判。
-  # ⚠️ 这 16 处里最多的一枚是 apps/mobile-rn/tests/__mocks__/ihui-rn-app.ts(12 处按路径
-  # 取共享屏实现做 RN mock)。它**不需要**另登记 exceptions —— 上面的测试面豁免已经覆盖它,
-  # 再登记一条就成了"永远不会命中的例外"(本门的 unusedExceptions 判据会当场点名清单腐烂,
-  # 建表时真被它抓到过一次)。这里只留一句提醒:若哪天改成从 @ihui/rn-app 主入口取符号,
-  # 就该把这条测试面豁免收窄,而不是留着继续免检。
+# 深导入判据的测试面豁免:D3 不咬测试/夹具/mock 文件(按路径 import 实现细节去 mock
+# 是合法形态,HEAD 实测这类共 16 处,全部落在 tests/ 与 __mocks__/ 下)。
+# D1/C2/C3 不受此豁免影响,照旧判。
+# ⚠️ 这 16 处里最多的一枚是 apps/mobile-rn/tests/__mocks__/ihui-rn-app.ts(12 处按路径
+# 取共享屏实现做 RN mock)。它**不需要**另登记 exceptions —— 上面的测试面豁免已经覆盖它,
+# 再登记一条就成了"永远不会命中的例外"(本门的 unusedExceptions 判据会当场点名清单腐烂,
+# 建表时真被它抓到过一次)。这里只留一句提醒:若哪天改成从 @ihui/rn-app 主入口取符号,
+# 就该把这条测试面豁免收窄,而不是留着继续免检。
   deep_import_test_exempts:
     - '**/tests/**'
     - '**/test/**'
@@ -356,7 +356,6 @@ modules:
       # D3 把 HEAD 在用消费方(apps/api/src/routes/knowledge-team.ts:50)判红 —— 表与 exports 对齐。
       - './knowledge-team'
       - './chat-sync-contract'
-
   - id: 'packages/design-tokens'
     package: '@ihui/design-tokens'
     layer: 'contract'
@@ -369,7 +368,6 @@ modules:
       - '.'
       - './styles/tokens.css'
       - './tailwind-preset'
-
   - id: 'packages/eslint-config'
     package: '@ihui/eslint-config'
     layer: 'contract'
@@ -383,7 +381,6 @@ modules:
       - './react'
       - './next'
       - './cross-end'
-
   - id: 'packages/api-client'
     package: '@ihui/api-client'
     layer: 'platform'
@@ -400,7 +397,6 @@ modules:
       - './utils'
       - './endpoints/*'
       - './package.json'
-
   - id: 'packages/auth'
     package: '@ihui/auth'
     layer: 'platform'
@@ -414,7 +410,6 @@ modules:
     requires: []
     public_entrypoints:
       - '.'
-
   - id: 'packages/database'
     package: '@ihui/database'
     layer: 'platform'
@@ -425,7 +420,6 @@ modules:
     requires: []
     public_entrypoints:
       - '.'
-
   - id: 'packages/i18n'
     package: '@ihui/i18n'
     layer: 'platform'
@@ -439,7 +433,6 @@ modules:
       - './types'
       - './loader'
       - './messages/*'
-
   - id: 'packages/context-compaction'
     package: '@ihui/context-compaction'
     layer: 'platform'
@@ -450,7 +443,6 @@ modules:
     requires: []
     public_entrypoints:
       - '.'
-
   - id: 'packages/sdk'
     package: '@ihui-ai/sdk'
     layer: 'platform'
@@ -464,9 +456,9 @@ modules:
       - '.'
       - './package.json'
 
-  # 2026-11-15 新建:ACP 客户端薄 SDK。只按公开 NDJSON/JSON-RPC 线协议实现,
-  # 零运行时依赖(devDeps 仅 catalog/workspace),故 requires 为空。
-  # managed 暂 false:新模块先按"未收口只报数"登记,待消费方接入后再评估翻正。
+# 2026-11-15 新建:ACP 客户端薄 SDK。只按公开 NDJSON/JSON-RPC 线协议实现,
+# 零运行时依赖(devDeps 仅 catalog/workspace),故 requires 为空。
+# managed 暂 false:新模块先按"未收口只报数"登记,待消费方接入后再评估翻正。
   - id: 'packages/agent-sdk'
     package: '@ihui/agent-sdk'
     layer: 'platform'
@@ -481,19 +473,24 @@ modules:
     # 契约工件 = 唯一公共出口 barrel(E2 判据面);不额外造文档。
     contract_files:
       - 'src/index.ts'
-
   - id: 'packages/dom-actions'
     package: '@ihui/dom-actions'
-    layer: 'platform'
+    # 2026-11-19 门 103 归正:layer 由 platform 改为 composite。
+    #   实据:packages/dom-actions/src/page-snapshot/serialize.ts 真实依赖
+    #   `@ihui/shared/utils/truncate`(字素簇截断,BUG-52 单源出口),按旧档位
+    #   platform(rank 20) 反向依赖 shared(composite, rank 30) ⇒ D1/D2 双红;
+    #   而包自述是「共享纯 DOM 操作(8 端可复用)」,本就是组合层定义
+    #   (composite = 跨端共享 hooks/utils/store 与组件库),旧档位是表与现实脱节。
+    layer: 'composite'
     exported: true
     managed: true
     roots:
       - 'packages/dom-actions'
     requires:
       - 'packages/types'
+      - 'packages/shared'
     public_entrypoints:
       - '.'
-
   - id: 'packages/browser-platform'
     package: '@ihui/browser-platform'
     layer: 'platform'
@@ -504,7 +501,6 @@ modules:
     requires: []
     public_entrypoints:
       - '.'
-
   - id: 'packages/shared'
     package: '@ihui/shared'
     layer: 'composite'
@@ -576,6 +572,15 @@ modules:
       - './pay/*'
       - './share'
       - './share/*'
+      # 2026-11-19 补登(门 103 D3 清偿):三条消费面真 import 了本表未登记的子入口,
+      # 而三者在 packages/shared 的 package.json#exports 里都真实存在(不是凭空登记)。
+      #   · @ihui/shared/super-agent    ← apps/api 4 处(super-agent 路由/派发/pump/webhook-ledger)
+      #   · @ihui/shared/artifact/render ← apps/cli 2 处(sso.ts / mcp-oauth.ts)
+      #   · @ihui/shared/social/*       ← packages/app 3 处 + miniapp 3 处(post-actions /
+      #     agent-filter / course-lessons);social 无 index.ts ⇒ 只登通配,精确名会触发 E1。
+      - './super-agent'
+      - './artifact/*'
+      - './social/*'
       # 2026-10-17 补登(门 103 D3):@ihui/shared/ui-control 下沉的 UI 控件安全判据单一真相源,
       # 两端 registry 改引 '@ihui/shared/ui-control',而本表未登记 ⇒ D3 当场判红。
       # 三个入口在 packages/shared 的 package.json#exports 里真实存在(精确名 + 通配,与 ./ui 同构)。
@@ -594,7 +599,6 @@ modules:
       - './reports'
       - './local-registry'
       - './delete-guard'
-
   - id: 'packages/app'
     package: '@ihui/rn-app'
     layer: 'composite'
@@ -614,7 +618,6 @@ modules:
       # miniapp(about/ai-assistant 六屏)消费;exports 已补 './features/*' 通配。
       - './pilot'
       - './features/*'
-
   - id: 'packages/ui-react'
     package: '@ihui/ui-react'
     layer: 'composite'
@@ -629,7 +632,6 @@ modules:
       - 'packages/shared'
     public_entrypoints:
       - '.'
-
   - id: 'packages/ui-native'
     package: '@ihui/ui-native'
     layer: 'composite'
@@ -645,7 +647,6 @@ modules:
       - 'packages/shared'
     public_entrypoints:
       - '.'
-
   - id: 'apps/web'
     package: '@ihui/web'
     layer: 'product'
@@ -663,7 +664,6 @@ modules:
       # 2026-11-01(门 103 D1 清偿):(pilot)/shared-pilot 页复用 @ihui/rn-app/pilot。
       - 'packages/app'
     public_entrypoints: []
-
   - id: 'apps/api'
     package: '@ihui/api'
     layer: 'product'
@@ -679,7 +679,6 @@ modules:
       - 'packages/design-tokens'
       - 'packages/context-compaction'
     public_entrypoints: []
-
   - id: 'apps/cli'
     package: 'ihui-cli'
     layer: 'product'
@@ -702,7 +701,6 @@ modules:
       # requires 记的是"这条依赖边真实存在",不等于"包清单已对齐"。
       - 'packages/dom-actions'
     public_entrypoints: []
-
   - id: 'apps/extension'
     package: '@ihui/extension'
     layer: 'product'
@@ -720,7 +718,6 @@ modules:
       - 'packages/design-tokens'
       - 'packages/dom-actions'
     public_entrypoints: []
-
   - id: 'apps/miniapp-taro'
     package: '@ihui/miniapp-taro'
     layer: 'product'
@@ -737,7 +734,6 @@ modules:
       # 2026-11-01(门 103 D1 清偿):about/ai-assistant 六屏复用 packages/app 共享实现。
       - 'packages/app'
     public_entrypoints: []
-
   - id: 'apps/mobile-rn'
     package: '@ihui/mobile-rn'
     layer: 'product'
@@ -754,7 +750,6 @@ modules:
       - 'packages/i18n'
       - 'packages/ui-native'
     public_entrypoints: []
-
   - id: 'apps/desktop'
     package: '@ihui/desktop'
     layer: 'product'
@@ -767,7 +762,6 @@ modules:
       # (auto-collect d1c1915234 入库);product 40 → composite 30 合法,表只缺这条真实边。
       - 'packages/shared'
     public_entrypoints: []
-
   - id: 'apps/mobile-cap'
     package: '@ihui/mobile-cap'
     layer: 'product'
@@ -778,7 +772,7 @@ modules:
     requires: []
     public_entrypoints: []
 
-  # 端应用与包目录之外的仓库级代码:工程脚本、部署脚本、监控、文档示例
+# 端应用与包目录之外的仓库级代码:工程脚本、部署脚本、监控、文档示例
   - id: 'repo-tooling'
     package: '-'
     layer: 'tooling'
@@ -815,34 +809,36 @@ modules:
 #   均为**最近 24h 新增越限**。硬拆的前置是抽门注册表/守门分派块到 scripts/lib/,但两文件
 #   恰是多席在飞热点(08:50–08:56 三笔连续),此刻动刀撞车风险最大 ⇒ 按例外通道挂账,
 #   拆分前置与期限写死在 reason/until,到期 X2 对账自动追。
+# 2026-11-19 续期(门 103 X2 到期对账驱动,处置走「续期并说明为什么还开着」这一条):
+#   两文件 HEAD 面实测 scripts/git-guardian.mjs 16825 行、scripts/guardian-runner.mjs 8497 行,
+#   越限不是"刚长出来的尾巴"而是**整块结构**:前者是守卫中枢(每枚门的实现体与留痕/告警腿同住),
+#   后者是门注册表 + 分派层(152 门射程声明与 blocking 清单同住)。硬拆的前置是把这两块按
+#   门族切成 scripts/lib/git-guardian/*.mjs 与 scripts/lib/gate-registry.mjs,并让 `--help` /
+#   `guardian-runner.mjs --only=` / 装车锁三处判据同批改读新路径 —— 任何一处漏改就是"门还在跑
+#   但跑的是另一份判据"(本仓最高频失效型)。这不是一次能安全塞进单批的改动,故按例外通道续期,
+#   期限写死在 until,到期 X2 对账自动再追;不删条目(删了等于把已还的账当没发生过)。
+#   **本批实做的收敛**:同族的 EX-C1-3(packages/api-client/src/client.ts)已清偿 —— SSE 流式对话
+#   段(2192 行)整体下沉 packages/api-client/src/stream.ts,client.ts 7334 → 5107 行,
+#   公开面由 `export * from './stream.js'` 逐名等值转出 ⇒ 例外条目已删除(见下方留痕)。
 exceptions:
   - id: EX-C1-1
     rule: 'file-lines'
     module: repo-tooling
     file: scripts/git-guardian.mjs
-    until: 2026-11-10
-    reason: 拆分前置=把指针形态 .git 修复块(2026-10-27 01:55 +240 行)抽 scripts/lib/;到期末拆则红上加重
+    until: 2027-03-31
+    reason: 拆分前置=按门族把守卫中枢的实现体与留痕/告警腿切到 scripts/lib/git-guardian/*.mjs,并让装车锁与 --help 同批改读;现为多席在飞热点,单批动刀必撞车,故续期并写死到期日
   - id: EX-C1-2
     rule: 'file-lines'
     module: repo-tooling
     file: scripts/guardian-runner.mjs
-    until: 2026-11-10
-    reason: 拆分前置=把门注册表(含 152 门射程声明)抽 scripts/lib/gate-registry.mjs;到期末拆则红上加重
-  # 2026-10-29 登记 EX-C1-3(packages/api-client managed:true ⇒ C1 例外通道合法,同 EX-C1-1/2 口径):
-  #   HEAD 面实测 6006 行 > 上限 6000,只越 6 行;越限来源是枚 55d5726383 补 resume_goal 控制帧
-  #   (GoalResumeReason/SessionGoalResumeResult/MyGoal* 一族落在同一文件)。此刻不动刀的原因与
-  #   EX-C1-1/2 同型:该文件是 @ihui/api-client 的唯一公开入口(public_entrypoints 钉 './client'),
-  #   且 goal 族正在多笔在飞链上,同批改写必撞车。到期日刻意与 11-10 那两条错开(到期同日会
-  #   在同一天集中引爆,巡检临期点名看不到先后)。
-  - id: EX-C1-3
-    rule: 'file-lines'
-    module: 'packages/api-client'
-    file: 'packages/api-client/src/client.ts'
-    until: 2026-11-14
-    reason: 拆分前置=把 SSE 错误格式化块(SSEErrorInfo/FormattedSSEError/getSSEErrorInfo/formatSSEError)抽 packages/api-client/src/sse-error.ts,client.ts 以 re-export 保公开面逐名等值(照 EX-C2-1 清偿先例的拆法);到期末拆 ⇒ C1 红上加重,由 X2 到期对账追,不得再挂第二条例外续期
-  # 2026-11-01(门 103 D4 清偿):scripts/tests 单测直接 import miniapp 构建脚本的 __test__ 出口,
-  # 形成 repo-tooling → apps/miniapp-taro → repo-tooling 的现实环(声明表是 DAG ⇒ 按例外登记)。
-  # 正解=把 patch-entry-chunks 的纯函数下沉 scripts/lib/,与小程序构建链同批;到期前处理。
+    until: 2027-03-31
+    reason: 拆分前置=把门注册表(含 152 门射程声明)抽 scripts/lib/gate-registry.mjs,并让 --only= 分派与 blocking 清单同批改读;判据错位风险高于收益,故续期并写死到期日
+# EX-C1-3 已于 2026-11-19 清偿并删除(原 2026-10-29 登记,until 2026-11-14):
+#   清偿动作 = SSE 流式对话段下沉 packages/api-client/src/stream.ts(client.ts 7334 → 5107 行),
+#   `export * from './stream.js'` 保公开面逐名等值;原条目按登记原文里那句"不得再挂第二条例外续期"删除。
+# 2026-11-01(门 103 D4 清偿):scripts/tests 单测直接 import miniapp 构建脚本的 __test__ 出口,
+# 形成 repo-tooling → apps/miniapp-taro → repo-tooling 的现实环(声明表是 DAG ⇒ 按例外登记)。
+# 正解=把 patch-entry-chunks 的纯函数下沉 scripts/lib/,与小程序构建链同批;到期前处理。
   - id: EX-D4-1
     rule: 'module-cycle'
     module: repo-tooling

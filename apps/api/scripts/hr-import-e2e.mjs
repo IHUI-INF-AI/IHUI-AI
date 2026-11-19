@@ -14,7 +14,7 @@ import {
   resolveImportRow,
   confirmImportBatch,
   listImportBatches,
-} from '../../../apps/api/src/services/hr-import.ts'
+} from '../src/services/hr-import.ts'
 
 const dsn = process.env.DATABASE_URL
 if (!dsn) throw new Error('DATABASE_URL 未设置')

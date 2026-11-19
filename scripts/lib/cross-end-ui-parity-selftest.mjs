@@ -2171,7 +2171,9 @@ export function runSelfTest() {
   t(
     '㊀ 装车锁(归一化文本):配对源、出口喂入、双面上报缺任何一个都红 —— 面扩了判据没扩 = 白扩',
     (() => {
-      const flat = readFileSync(MAIN_SOURCE_PATH, 'utf8').replace(/\s+/g, ' ')
+      // 门体 = 主文件 + 几何族 lib(见文件头「装车锁的被读对象」一条);
+      // 2026-11-19 配对源(SIDES)随门 103 C1 收口下沉到 lib,只读主文件会让这条锁静默失效。
+      const flat = gateSource().replace(/\s+/g, ' ')
       return (
         /'packages\/app\/src\/components', 'packages\/app\/src\/features', 'apps\/mobile-rn\/src\/components'/.test(
           flat,

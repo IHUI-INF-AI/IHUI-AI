@@ -229,8 +229,8 @@ def test_agent_loop_tool_approval_carries_auto_review(monkeypatch):
 
 def test_wiring_sits_after_safety_floors():
     """源码顺序守门:审查闸必须晚于污点/双轴/策略等安全地板,且早于最终审批调用。"""
-    from app.services import agent_loop_v2 as loop_mod
     from app.routers import llm as llm_mod
+    from app.services import agent_loop_v2 as loop_mod
 
     loop_src = inspect.getsource(loop_mod)
     taint_pos = loop_src.index("taint_egress_gate")

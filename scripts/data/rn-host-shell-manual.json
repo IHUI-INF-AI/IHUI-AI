@@ -113,6 +113,22 @@
       "expires": "2027-03-31",
       "reason": "RN TeamKnowledgeScreen 头注自述为 D29 团队级知识引擎屏(mobile-rn 原生实现,不跨端 import web 文件),消费 team-knowledge 端点的 listKnowledgeSpaces/createKnowledgeSpace/listKnowledgeSpaceMembers/listKnowledgeSpaceItems/createKnowledgeSpaceItem/setKnowledgeItemStatus;共享屏是受控 props 组件,契约承载不了 RN 独占的知识空间编排,不建薄壳。",
       "evidence": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx:6 头注『D29 团队级知识引擎屏(mobile-rn 原生实现,对应 Web 端 /team-knowledge)』、:11 列六个端点且『不跨端 import web 文件』、:20 仅从 @ihui/rn-app 取 TextField、:64 export function TeamKnowledgeScreen()(无 props);共享 packages/app/src/features/team-knowledge/TeamKnowledgeScreen.tsx 为受控 props 组件。"
+    },
+    {
+      "shared": "MessageCenterScreen",
+      "verdict": "host-owned-native-shell",
+      "owner": "messaging",
+      "expires": "2027-03-31",
+      "reason": "RN MessageCenterScreen 是平台宿主壳:activeTab/items/refreshing/loading/error/onRefresh/onSelectTab/onToast 八项状态全由宿主自管(自取 /api/messages 分页、useRefreshOnFocus 刷新、BottomPops 提示),共享屏只作为内层受控视图被渲染;受控 props 契约承载不了宿主层的导航/刷新/提示三件事,故不建纯薄壳。",
+      "evidence": "apps/mobile-rn/src/screens/MessageCenterScreen.tsx:18 值导入共享 MessageCenterScreen; :82 useState<MessageTab> 自管 activeTab、:84 useState 自管 refreshing、:105 fetchApi 自取 /api/messages、:140 依赖 [activeTab,uniappT,t] 重取;共享 packages/app/src/features/message-center/MessageCenterScreen.tsx 为受控 props 组件。"
+    },
+    {
+      "shared": "ConversationImportScreen",
+      "verdict": "host-owned-native-shell",
+      "owner": "conversation-import",
+      "expires": "2027-03-31",
+      "reason": "RN ConversationImportScreen 是平台宿主壳:文件选择走 RN 独占的 DocumentPicker,解析/提交/历史三条网络腿与 apiFailureToText 错误文案都在宿主层承接,sources/onPickFile/onParse/onCommit/onLoadHistory 五个回调由宿主注入共享内层视图;共享屏是纯受控组件,契约承载不了宿主层的平台能力与取数,故不建纯薄壳。",
+      "evidence": "apps/mobile-rn/src/screens/ConversationImportScreen.tsx:21-30 值导入共享 ConversationImportScreen; :144 export function ConversationImportScreen() 为无参 wrapper、:162 DocumentPicker.getDocumentAsync 取文件、:390-394 以 sources/onPickFile/onParse/onCommit/onLoadHistory 五 props 渲染共享屏;共享 packages/app/src/features/conversation-import/ConversationImportScreen.tsx 为受控 props 组件。"
     }
   ]
 }

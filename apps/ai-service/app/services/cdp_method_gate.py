@@ -40,9 +40,10 @@ Network 的读写 cookie/cache、Page 的导航族单独封死,是因为这些�
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Callable, ClassVar
+from typing import ClassVar
 
 
 class CdpDenyReason(StrEnum):

@@ -9,6 +9,9 @@ from __future__ import annotations
 import pytest
 
 from app.services.tool_result_pruner import (
+    DEFAULT_HEAD_CHARS,
+    DEFAULT_TAIL_CHARS,
+    DEFAULT_THRESHOLD_CHARS,
     PRUNE_MARKER,
     ContentBlock,
     PruneConfig,
@@ -41,7 +44,10 @@ class TestMeasure:
 class TestPruneContent:
     def test_under_threshold_returns_none(self) -> None:
         blocks = [ContentBlock("text", "short")]
-        assert prune_content(blocks, config=_cfg(threshold_chars=100)) is None
+        assert (
+            prune_content(blocks, config=_cfg(threshold_chars=100, head_chars=10, tail_chars=5))
+            is None
+        )
 
     def test_over_threshold_keeps_head_tail_marker(self) -> None:
         text = "A" * 100
@@ -107,10 +113,33 @@ class TestPruneBlocksOverBudget:
 
     def test_none_over_budget(self) -> None:
         blocks = [ContentBlock("text", "x")]
-        cfg = _cfg(threshold_chars=100)
+        cfg = _cfg(threshold_chars=100, head_chars=10, tail_chars=5)
         res = prune_blocks_over_budget([blocks, blocks], config=cfg)
         assert res.pruned == ()
         assert res.chars_removed == 0
+
+
+class TestConfigInvariant:
+    """2026-11-19:默认值改为对照件 README 的生效值,并把 head+marker+tail<=threshold 立成构造期校验。"""
+
+    def test_defaults_match_evidence(self) -> None:
+        assert (DEFAULT_THRESHOLD_CHARS, DEFAULT_HEAD_CHARS, DEFAULT_TAIL_CHARS) == (
+            8192,
+            4096,
+            1024,
+        )
+
+    def test_default_config_is_legal(self) -> None:
+        cfg = PruneConfig()
+        assert cfg.head_chars + cfg.tail_chars + len(PRUNE_MARKER) <= cfg.threshold_chars
+
+    def test_head_plus_tail_over_threshold_rejected(self) -> None:
+        with pytest.raises(ValueError):
+            PruneConfig(threshold_chars=100, head_chars=3_000, tail_chars=1_000)
+
+    def test_non_positive_threshold_rejected(self) -> None:
+        with pytest.raises(ValueError):
+            PruneConfig(threshold_chars=0, head_chars=10, tail_chars=5)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@
  */
 import { createHmac } from 'node:crypto'
 import postgres from 'postgres'
-import { buildHrMonthlyPayrollTemplate, summarizePayrollRun } from '../../../apps/api/src/services/hr-payroll-workflow.ts'
+import { buildHrMonthlyPayrollTemplate, summarizePayrollRun } from '../src/services/hr-payroll-workflow.ts'
 
 const PORT = process.env.PORT ?? '34591'
 const TOKEN = process.env.AI_CALLBACK_SECRET

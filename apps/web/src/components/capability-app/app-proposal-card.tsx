@@ -123,7 +123,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
   }
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border bg-card">
+    <div className="my-2 overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
           <CapabilityAppIcon name={app.icon} className="h-4 w-4" />
@@ -144,7 +144,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
           type="button"
           disabled={saving}
           onClick={() => void handleCreate()}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           {saving ? t('creating') : t('createAndOpen')}
@@ -152,7 +152,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
         <button
           type="button"
           onClick={() => setPreview((value) => !value)}
-          className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-body hover:bg-muted"
+          className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-2.5 py-1.5 text-body hover:bg-muted"
           aria-expanded={preview}
         >
           {t('preview')}

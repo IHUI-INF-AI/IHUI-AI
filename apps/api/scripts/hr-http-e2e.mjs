@@ -8,7 +8,7 @@
  * 走真实 Fastify 路由 + 真实 JWT 鉴权 + 真实 RBAC 守卫 + 真实数据库,
  * 与浏览器点击调用的完全是同一条链路(只是不经过 TCP 监听)。
  */
-import { buildServer } from '../../../apps/api/src/server.ts'
+import { buildServer } from '../src/server.ts'
 
 const ADMIN_USER_ID = '30763d9f-a4c4-4f0c-84c3-16d6b8a67c35'
 

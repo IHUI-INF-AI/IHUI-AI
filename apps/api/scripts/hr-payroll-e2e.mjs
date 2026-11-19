@@ -4,7 +4,7 @@
 
 /** 薪资计算真库端到端验证(临时脚本)。 */
 import postgres from 'postgres'
-import { buildPayroll } from '../../../apps/api/src/services/hr-payroll.ts'
+import { buildPayroll } from '../src/services/hr-payroll.ts'
 
 const dsn = process.env.DATABASE_URL
 if (!dsn) throw new Error('DATABASE_URL 未设置')

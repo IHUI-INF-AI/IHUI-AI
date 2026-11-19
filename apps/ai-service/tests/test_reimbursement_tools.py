@@ -627,10 +627,10 @@ class TestContract:
     def test_default_params_visible(self) -> None:
         """外部政策数字必须做成可覆盖的缺省参数。"""
         assert Decimal(DEFAULT_LODGING_LIMITS["一线"]) == Decimal("600.00")
-        assert DEFAULT_ENTERTAIN_INCUR_RATIO == Decimal("0.60")
-        assert DEFAULT_ENTERTAIN_REVENUE_RATIO == Decimal("0.005")
-        assert DEFAULT_EDU_RATIO == Decimal("0.08")
-        assert DEFAULT_WELFARE_RATIO == Decimal("0.14")
+        assert Decimal("0.60") == DEFAULT_ENTERTAIN_INCUR_RATIO
+        assert Decimal("0.005") == DEFAULT_ENTERTAIN_REVENUE_RATIO
+        assert Decimal("0.08") == DEFAULT_EDU_RATIO
+        assert Decimal("0.14") == DEFAULT_WELFARE_RATIO
 
 
 # ---------------------------------------------------------------------------
@@ -697,6 +697,7 @@ class TestVatInputTransferOut:
     def test_backward_compat_no_key(self) -> None:
         """不传 input_tax_transfer_out 时主入口行为不变(向后兼容)。"""
         import asyncio
+
         from app.tools.reimbursement_tools import ai_reimbursement
 
         r = asyncio.run(ai_reimbursement({

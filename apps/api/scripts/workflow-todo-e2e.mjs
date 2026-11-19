@@ -52,7 +52,7 @@ async function caller(method, path, params) {
 
 /** 直接调服务层写入(避免为了造数先建流程) */
 const { upsertTodos, resolveTodosByKeys, listTodos: _listTodos } = await import(
-  '../../../apps/api/src/services/workflow-todo.ts'
+  '../src/services/workflow-todo.ts'
 )
 
 async function cleanup() {

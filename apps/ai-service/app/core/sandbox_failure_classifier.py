@@ -37,7 +37,6 @@ runner 才能测。且本仓显式区分 (a)(b)(c)(d) 四态 + 显式 exit-gate 
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Literal
 

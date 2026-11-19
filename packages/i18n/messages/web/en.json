@@ -9507,6 +9507,210 @@
         "UNREADABLE": {
           "title": "The file is unreadable",
           "action": "Check the file permissions and locks, then retry"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "Resume confirmation expired",
+          "action": "Start the task again"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "Approval required",
+          "action": "Retry after approval"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "Parallel background jobs unsupported",
+          "action": "Run them one by one"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "Background job rejected",
+          "action": "Check the task parameters and retry"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "Command not allowed",
+          "action": "Use an allowed command"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "Consistency check failed",
+          "action": "Fix the state and retry"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "Conversation context mismatch",
+          "action": "Start a new conversation"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "Endpoint blocked",
+          "action": "Use an allowed endpoint"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "Environment override denied",
+          "action": "Use allowed settings"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "Caller identity required",
+          "action": "Retry with an identity"
+        },
+        "IMAGE_INVALID": {
+          "title": "Invalid image content",
+          "action": "Retry with another image"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "Image type mismatch",
+          "action": "Use a supported type"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "Image format unsupported",
+          "action": "Convert to PNG or JPG"
+        },
+        "INVALID_INPUT": {
+          "title": "Invalid input",
+          "action": "Check the input and retry"
+        },
+        "INVALID_TODOS": {
+          "title": "Invalid todo list",
+          "action": "Fix the list and retry"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "Language service unavailable",
+          "action": "Retry later or restart the service"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "Missing required arguments",
+          "action": "Provide them and retry"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "Session id required",
+          "action": "Reopen the session"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "Model tool capability unverified",
+          "action": "Verify first, then call"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "Offset out of range",
+          "action": "Adjust the offset"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "Orchestration failed",
+          "action": "Retry or simplify the task"
+        },
+        "ROLE_DENIED": {
+          "title": "Role permission denied",
+          "action": "Switch to a role with access"
+        },
+        "SESSION_BUSY": {
+          "title": "Session busy",
+          "action": "Retry after the current run finishes"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "Session not found",
+          "action": "Create a new session"
+        },
+        "SESSION_REQUIRED": {
+          "title": "Session id required",
+          "action": "Specify the session and retry"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "Session search unauthorized",
+          "action": "Request access and retry"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "Shell metacharacters blocked",
+          "action": "Remove the special characters"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "Skill not found",
+          "action": "Check the skill name"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "SQL function forbidden",
+          "action": "Use an allowed function"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "Sub-agent already finished",
+          "action": "No need to repeat"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "Sub-agent busy",
+          "action": "Retry after it finishes"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "Sub-agent not found",
+          "action": "Dispatch again"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "Sub-agent spawn rejected",
+          "action": "Check quota and arguments"
+        },
+        "TASK_BLOCKED": {
+          "title": "Task blocked",
+          "action": "Clear the dependency and retry"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "Task dependency cycle",
+          "action": "Break the cycle"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "Task depends on itself",
+          "action": "Fix the dependency"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "Task revision stale",
+          "action": "Refresh and retry"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "Turn not found",
+          "action": "Send the message again"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "Unknown tool",
+          "action": "Check the tool name"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "Voice not owned by this user",
+          "action": "Pick another voice"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "Invalid execution context",
+          "action": "Re-initialize and retry"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "Workspace rejected",
+          "action": "Check workspace permissions"
+        },
+        "TERMINAL_EXITED": {
+          "title": "Terminal exited",
+          "action": "Reopen the terminal"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "Invalid terminal command",
+          "action": "Fix the command"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "Invalid terminal signal",
+          "action": "Use an allowed signal"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "Terminal limit reached",
+          "action": "Close an idle terminal"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "Terminal has no identity",
+          "action": "Start it with an identified user"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "Terminal not found",
+          "action": "Create a new terminal"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "Failed to send signal",
+          "action": "Retry or force close"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "Terminal failed to start",
+          "action": "Check the host environment"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "Terminal write failed",
+          "action": "Retry the write"
         }
       },
       "worktree": {
@@ -12628,8 +12832,6 @@
       "model": "Open model selector",
       "mcp": "Open MCP marketplace",
       "compact": "Compact this conversation's context",
-      "act": "Switch to act mode (AI normally executes tools, default)",
-      "build": "Switch to Build mode (all tools enabled, normal execution)",
       "code": "Generate code",
       "explain": "Explain code or concept",
       "goal": "Set current session goal (AI works toward the goal, enters goal mode workflow)",
@@ -12640,10 +12842,8 @@
       "permissionAsk": "Switch to ask-for-approval mode (confirm before each AI action)",
       "permissionAuto": "Switch to auto-approve mode (approve safe actions automatically)",
       "permissionFull": "Switch to full-access mode (high risk, no confirmation)",
-      "plan": "Switch to plan mode (AI only makes plans, does not execute tools)",
       "polish": "Polish text",
       "review": "Pick a review target (uncommitted diff / branch / commit)",
-      "spec": "Switch to Spec mode (reverse-generate spec docs from code)",
       "summary": "Summarize current conversation",
       "translate": "Translate selected text",
       "wechat-article": "Write WeChat article",
@@ -13244,161 +13444,293 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": ["diff", "changes", "review"]
+        "keywords": [
+          "diff",
+          "changes",
+          "review"
+        ]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": ["status", "context", "usage"]
+        "keywords": [
+          "status",
+          "context",
+          "usage"
+        ]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": ["model", "switch"]
+        "keywords": [
+          "model",
+          "switch"
+        ]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": ["mcp", "marketplace"]
+        "keywords": [
+          "mcp",
+          "marketplace"
+        ]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": ["compact", "context"]
+        "keywords": [
+          "compact",
+          "context"
+        ]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"]
+        "keywords": [
+          "steer",
+          "guide",
+          "redirect"
+        ]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"]
+        "keywords": [
+          "queue",
+          "pending",
+          "send later"
+        ]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": [
+          "agent",
+          "bot",
+          "dispatch"
+        ],
         "label": "AI Agents"
       },
       "automations": {
         "description": "Create and manage scheduled AI tasks",
-        "keywords": ["automation", "schedule", "task", "cron"],
+        "keywords": [
+          "automation",
+          "schedule",
+          "task",
+          "cron"
+        ],
         "label": "Scheduled Automation"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": [
+          "browser",
+          "web",
+          "preview"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": [
+          "capability",
+          "market",
+          "pack",
+          "install"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": [
+          "changes",
+          "diff",
+          "git",
+          "code"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": [
+          "connector",
+          "integration",
+          "service"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": [
+          "document",
+          "docs",
+          "edit"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": [
+          "editor",
+          "code",
+          "monaco"
+        ],
         "label": "Editor"
       },
       "imageGen": {
         "description": "Generate images from prompts, with public gallery, history and templates",
-        "keywords": ["image", "generate", "drawing", "picture"],
+        "keywords": [
+          "image",
+          "generate",
+          "drawing",
+          "picture"
+        ],
         "label": "AI Image Generation"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": [
+          "mcp",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": [
+          "mcp",
+          "store",
+          "market",
+          "install"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": [
+          "ask",
+          "question",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": [
+          "build",
+          "mode",
+          "generate"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": [
+          "plan",
+          "mode",
+          "todo"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": [
+          "review",
+          "mode",
+          "audit"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": [
+          "spec",
+          "mode",
+          "generate"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": [
+          "skill",
+          "ability",
+          "plugin"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": [
+          "terminal",
+          "shell",
+          "console"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": [
+          "skill",
+          "market",
+          "plugin"
+        ],
         "label": "Skill Market"
       }
     },
@@ -15970,25 +16302,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -16122,19 +16466,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -19059,7 +19415,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -25990,11 +26354,7 @@
     "goalArgTitle": "Goal arguments",
     "loop": "Control the number of goal-driven loops",
     "loopArgTitle": "Loop arguments",
-    "plan": "Generate an execution plan for the current task",
-    "act": "Execute the current task directly",
-    "build": "Build and verify the current project",
     "review": "Review code changes and suggest improvements",
-    "spec": "Generate a spec document for the current feature",
     "permissionAsk": "Run in ask mode, confirming before each action",
     "permissionAuto": "Run in auto mode, auto-approving routine actions",
     "permissionFull": "Run in full mode, executing all actions directly"
@@ -30842,13 +31202,6 @@
     "autoContrast": "Auto contrast correction",
     "autoContrastHint": "Set body text to black or white based on each light/dark background.",
     "autoContrastDone": "Body text color corrected for the current background"
-  },
-  "engineMode": {
-    "title": "Agent execution engine",
-    "description": "Choose where agent orchestration runs. \"Local\" runs orchestration and tools on this machine without using server resources.",
-    "local": "Local",
-    "cloud": "Cloud",
-    "auto": "Auto"
   },
   "apps": {
     "savedToast": "Saved",

@@ -852,9 +852,10 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
         .insert(circlePosts)
         .values({ circleId: circle.id, userId: request.userId!, title, content })
         .returning({ id: circlePosts.id })
+      const changed = { postCount: sql`${circles.postCount} + 1` }
       await tx
         .update(circles)
-        .set({ postCount: sql`${circles.postCount} + 1`, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(circles.id, circle.id))
       return inserted
     })

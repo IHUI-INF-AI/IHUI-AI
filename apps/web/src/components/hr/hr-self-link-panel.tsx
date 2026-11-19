@@ -92,7 +92,7 @@ export function HrSelfLinkPanel({ hint }: { hint?: string }) {
   const pending = meQuery.data?.pendingLinks ?? []
   if (pending.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-8">
         <TriangleAlert className="h-8 w-8 text-muted-foreground" />
         <p className="max-w-md text-center text-body text-muted-foreground">
           {hint ?? t('noEmployeeHint')}

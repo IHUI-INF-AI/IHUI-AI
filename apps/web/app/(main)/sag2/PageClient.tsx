@@ -247,7 +247,7 @@ export default function PageClient({
         <span
           className={`font-[weight:inherit] rounded-md border px-2 py-1 text-label transition-colors ${
             status?.ready
-              ? 'border-foreground bg-primary text-primary-foreground'
+              ? 'border-stroke-selected bg-cta text-cta-foreground'
               : 'border-border bg-muted text-muted-foreground'
           }`}
         >
@@ -468,7 +468,7 @@ export default function PageClient({
                   onClick={() => setExtFilter(key)}
                   className={`font-[weight:inherit] rounded-sm border px-2 py-1 text-label transition-colors ${
                     extFilter === key
-                      ? 'border-foreground bg-foreground text-background'
+                      ? 'border-stroke-selected bg-cta text-cta-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >

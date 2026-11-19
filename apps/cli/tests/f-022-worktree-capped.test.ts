@@ -18,6 +18,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { spawnSync, type StdioOptions } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+// arch-exempt: §15b 规定夹具唯一落点就是 scripts/lib/scratch-dir.mjs(不得用 os.tmpdir),测试面只能单向借用 repo-tooling;本条是规则要求而非越层自由。
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'
 import { runGit } from '../src/tools/worktree-core.js'
 

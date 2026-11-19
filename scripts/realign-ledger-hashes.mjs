@@ -37,11 +37,11 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import postgres from 'postgres';
-import { b11ComparableForms } from '../../../scripts/check-migration-bookkeeping.mjs';
+import { b11ComparableForms } from './check-migration-bookkeeping.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
-const MIG_DIR = join(ROOT, 'drizzle');
+const MIG_DIR = join(ROOT, 'packages', 'database', 'drizzle');
 const JOURNAL = join(MIG_DIR, 'meta', '_journal.json');
 
 const sha256Hex = (s) => createHash('sha256').update(s).digest('hex');

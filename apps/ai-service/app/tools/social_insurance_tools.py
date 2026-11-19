@@ -970,8 +970,6 @@ def _social_insurance_calc(arguments: dict[str, Any]) -> dict[str, Any]:
             wage: Decimal,
         ) -> list[_EmployeeRow]:
             """对一组员工(单一社平工资锚)逐人精算;floor_ratio/cap_ratio 全局共用。"""
-            g_floor = (wage * floor_ratio).quantize(Decimal("0.01"))
-            g_cap = (wage * cap_ratio).quantize(Decimal("0.01"))
             g_rows: list[_EmployeeRow] = []
             for idx, emp in enumerate(employees_list):
                 g_rows.append(

@@ -53,6 +53,7 @@ test.describe('D2 浏览器集成冒烟(判别力见文件头注)', () => {
       .catch(() => undefined)
 
     // 节流窗口为 16ms,给足 1s 余量后必须已落盘
+    // WAIT-POLICY:TIMING-0024 节流窗口为 16ms,给足 1s 余量后必须已落盘
     await page.waitForTimeout(1000)
     const text = await hostText(page)
     expect(text).toContain(TAIL_SENTINEL)
@@ -67,6 +68,7 @@ test.describe('D2 浏览器集成冒烟(判别力见文件头注)', () => {
       })
       .catch(() => undefined)
 
+    // WAIT-POLICY:TIMING-0023 UI 过渡/水合落定窗口,无公开可观察信号
     await page.waitForTimeout(300)
     const text = await hostText(page)
     expect(text).toContain(REPLACED)

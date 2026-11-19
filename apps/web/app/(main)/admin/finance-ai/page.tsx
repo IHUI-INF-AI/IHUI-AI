@@ -204,7 +204,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('txPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
               />
               <p className="font-[weight:inherit] text-label text-muted-foreground">{t('txHint')}</p>
             </div>
@@ -241,7 +241,7 @@ export default function FinanceAiPage() {
                   id="tx-kind"
                   value={taxGeneral ? 'general' : 'small'}
                   onChange={(e) => setTaxGeneral(e.target.value === 'general')}
-                  className="font-[weight:inherit] h-9 w-full rounded-md border border-input bg-background px-2 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                  className="font-[weight:inherit] h-9 w-full rounded-sm border border-input bg-background px-2 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
                 >
                   <option value="general">{t('taxpayerGeneralValue')}</option>
                   <option value="small">{t('taxpayerSmallValue')}</option>
@@ -301,7 +301,7 @@ export default function FinanceAiPage() {
                 rows={3}
                 spellCheck={false}
                 placeholder={t('wagesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
               />
             </div>
             <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={taxOk}>

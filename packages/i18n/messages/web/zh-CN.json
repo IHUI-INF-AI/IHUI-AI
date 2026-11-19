@@ -9507,6 +9507,210 @@
         "UNREADABLE": {
           "title": "文件不可读",
           "action": "检查文件权限与占用后重试"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "恢复确认已失效",
+          "action": "重新发起该任务"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "需要人工批准",
+          "action": "完成审批后重试"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "不支持并行后台任务",
+          "action": "改为逐个执行"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "后台任务被拒绝",
+          "action": "检查任务参数后重试"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "命令不在白名单",
+          "action": "换用允许的命令"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "一致性校验未通过",
+          "action": "修正状态后重试"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "会话上下文不匹配",
+          "action": "重新开始对话"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "目标端点被拦截",
+          "action": "更换允许的端点"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "环境变量改写被拒",
+          "action": "使用允许的配置项"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "缺少调用身份",
+          "action": "携带身份信息重试"
+        },
+        "IMAGE_INVALID": {
+          "title": "图片内容无效",
+          "action": "更换图片后重试"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "图片类型不符",
+          "action": "使用支持的类型"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "图片格式不支持",
+          "action": "转成 PNG 或 JPG"
+        },
+        "INVALID_INPUT": {
+          "title": "输入参数不合法",
+          "action": "检查参数后重试"
+        },
+        "INVALID_TODOS": {
+          "title": "待办清单不合法",
+          "action": "修正待办后重试"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "语言服务不可用",
+          "action": "稍后重试或重启服务"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "缺少必要参数",
+          "action": "补齐参数后重试"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "缺少会话标识",
+          "action": "重新打开会话"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "模型工具能力未验证",
+          "action": "先验证能力再调用"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "分页偏移越界",
+          "action": "调整偏移量"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "编排执行失败",
+          "action": "重试或简化任务"
+        },
+        "ROLE_DENIED": {
+          "title": "角色权限不足",
+          "action": "更换有权角色"
+        },
+        "SESSION_BUSY": {
+          "title": "会话正忙",
+          "action": "等待当前任务结束后重试"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "会话不存在",
+          "action": "重新创建会话"
+        },
+        "SESSION_REQUIRED": {
+          "title": "需要会话标识",
+          "action": "指定会话后重试"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "会话检索无权限",
+          "action": "申请权限后重试"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "命令含危险字符",
+          "action": "去除特殊字符"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "技能不存在",
+          "action": "检查技能名"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "SQL 函数被禁用",
+          "action": "换用允许的函数"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "子代理已结束",
+          "action": "无需重复操作"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "子代理正忙",
+          "action": "等待其结束后重试"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "子代理不存在",
+          "action": "重新派发"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "子代理创建被拒",
+          "action": "检查配额与参数"
+        },
+        "TASK_BLOCKED": {
+          "title": "任务被阻塞",
+          "action": "解除依赖后重试"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "任务依赖成环",
+          "action": "打散依赖"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "任务依赖自身",
+          "action": "修正依赖关系"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "任务版本已过期",
+          "action": "刷新后重试"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "轮次不存在",
+          "action": "重新发送消息"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "未知工具",
+          "action": "检查工具名"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "音色不属于当前用户",
+          "action": "更换音色"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "执行上下文无效",
+          "action": "重新初始化后重试"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "工作区被拒绝",
+          "action": "检查工作区权限"
+        },
+        "TERMINAL_EXITED": {
+          "title": "终端已退出",
+          "action": "重新打开终端"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "终端命令不合法",
+          "action": "修正命令"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "终止信号不合法",
+          "action": "使用允许的信号"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "终端数量已达上限",
+          "action": "关闭闲置终端"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "终端缺少身份",
+          "action": "以有身份用户启动"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "终端不存在",
+          "action": "重新创建终端"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "终止信号发送失败",
+          "action": "重试或强制关闭"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "终端启动失败",
+          "action": "检查宿主环境"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "终端写入失败",
+          "action": "重试写入"
         }
       },
       "worktree": {
@@ -9860,7 +10064,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -9877,7 +10086,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -12618,8 +12832,6 @@
       "model": "打开模型选择器",
       "mcp": "打开 MCP 市场",
       "compact": "压缩当前会话上下文",
-      "act": "切换到执行模式(AI 正常执行工具,默认)",
-      "build": "切换到构建模式(全工具开放,正常执行)",
       "code": "生成代码",
       "explain": "解释代码或概念",
       "goal": "设定当前会话目标(AI 围绕目标执行,进入 goal 模式工作流)",
@@ -12630,10 +12842,8 @@
       "permissionAsk": "切换到请求批准模式(AI 操作前需确认)",
       "permissionAuto": "切换到替我审批模式(自动批准安全操作)",
       "permissionFull": "切换到完全访问模式(高风险,无确认)",
-      "plan": "切换到规划模式(AI 只制定计划,不执行工具)",
       "polish": "润色文本",
       "review": "选择审查目标(未提交 diff / 分支 / commit)",
-      "spec": "切换到规格模式(从代码反向生成 spec 文档)",
       "summary": "总结当前对话",
       "translate": "翻译选中文本",
       "wechat-article": "写微信公众号文章",
@@ -13234,161 +13444,297 @@
       "slashDiff": {
         "label": "会话改动总览",
         "description": "查看本次会话 AI 改动的文件(diff 总览)",
-        "keywords": ["diff", "改动", "审查"]
+        "keywords": [
+          "diff",
+          "改动",
+          "审查"
+        ]
       },
       "slashStatus": {
         "label": "会话状态",
         "description": "查看当前模型、上下文占用、权限模式与用量",
-        "keywords": ["status", "状态", "上下文"]
+        "keywords": [
+          "status",
+          "状态",
+          "上下文"
+        ]
       },
       "slashModel": {
         "label": "切换模型",
         "description": "打开模型选择器",
-        "keywords": ["model", "模型", "切换"]
+        "keywords": [
+          "model",
+          "模型",
+          "切换"
+        ]
       },
       "slashMcp": {
         "label": "MCP 市场",
         "description": "打开 MCP 服务器市场",
-        "keywords": ["mcp", "插件", "市场"]
+        "keywords": [
+          "mcp",
+          "插件",
+          "市场"
+        ]
       },
       "slashCompact": {
         "label": "压缩上下文",
         "description": "压缩当前会话历史,释放上下文窗口",
-        "keywords": ["compact", "压缩", "上下文"]
+        "keywords": [
+          "compact",
+          "压缩",
+          "上下文"
+        ]
       },
       "steerPrompt": {
         "label": "引导提示",
         "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
-        "keywords": ["引导", "插话", "steer"]
+        "keywords": [
+          "引导",
+          "插话",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "将提示加入队列",
         "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
-        "keywords": ["队列", "排队", "queue"]
+        "keywords": [
+          "队列",
+          "排队",
+          "queue"
+        ]
       },
       "agent": {
         "description": "管理并调度 AI 智能体",
-        "keywords": ["智能体", "调度", "agent"],
+        "keywords": [
+          "智能体",
+          "调度",
+          "agent"
+        ],
         "label": "AI 智能体"
       },
       "automations": {
         "description": "创建和管理定时运行的 AI 任务",
-        "keywords": ["自动化", "定时", "任务", "automation"],
+        "keywords": [
+          "自动化",
+          "定时",
+          "任务",
+          "automation"
+        ],
         "label": "定时自动化"
       },
       "browser": {
         "description": "在工作区内浏览网页",
-        "keywords": ["浏览器", "网页", "browser"],
+        "keywords": [
+          "浏览器",
+          "网页",
+          "browser"
+        ],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
-        "keywords": ["能力", "市场", "插件", "market"],
+        "keywords": [
+          "能力",
+          "市场",
+          "插件",
+          "market"
+        ],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
-        "keywords": ["代码", "变更", "改动", "diff"],
+        "keywords": [
+          "代码",
+          "变更",
+          "改动",
+          "diff"
+        ],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
-        "keywords": ["连接", "外部服务", "connector"],
+        "keywords": [
+          "连接",
+          "外部服务",
+          "connector"
+        ],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
-        "keywords": ["文档", "编辑", "doc"],
+        "keywords": [
+          "文档",
+          "编辑",
+          "doc"
+        ],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
-        "keywords": ["编辑器", "代码", "code"],
+        "keywords": [
+          "编辑器",
+          "代码",
+          "code"
+        ],
         "label": "编辑器"
       },
       "imageGen": {
         "description": "AI 图片生成:提示词出图、公开画廊、生成历史与模板",
-        "keywords": ["图片", "生成", "绘图", "image"],
+        "keywords": [
+          "图片",
+          "生成",
+          "绘图",
+          "image"
+        ],
         "label": "AI 图片生成"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
-        "keywords": ["MCP", "服务器", "工具"],
+        "keywords": [
+          "MCP",
+          "服务器",
+          "工具"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
-        "keywords": ["MCP", "广场", "市场", "store"],
+        "keywords": [
+          "MCP",
+          "广场",
+          "市场",
+          "store"
+        ],
         "label": "MCP 广场"
       },
       "modeAsk": {
         "description": "切换到纯问答模式,禁用工具",
-        "keywords": ["问答", "ask", "模式"],
+        "keywords": [
+          "问答",
+          "ask",
+          "模式"
+        ],
         "label": "问答模式"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
-        "keywords": ["构建", "模式", "build"],
+        "keywords": [
+          "构建",
+          "模式",
+          "build"
+        ],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
-        "keywords": ["规划", "计划", "plan"],
+        "keywords": [
+          "规划",
+          "计划",
+          "plan"
+        ],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
-        "keywords": ["审查", "评审", "review"],
+        "keywords": [
+          "审查",
+          "评审",
+          "review"
+        ],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
-        "keywords": ["规格", "spec", "模式"],
+        "keywords": [
+          "规格",
+          "spec",
+          "模式"
+        ],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
-        "keywords": ["技能", "skill", "能力"],
+        "keywords": [
+          "技能",
+          "skill",
+          "能力"
+        ],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
-        "keywords": ["终端", "命令行", "terminal"],
+        "keywords": [
+          "终端",
+          "命令行",
+          "terminal"
+        ],
         "label": "终端"
       },
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       },
       "skillsMarket": {
         "description": "浏览并安装自进化 Skill",
-        "keywords": ["skill", "技能", "市场", "market"],
+        "keywords": [
+          "skill",
+          "技能",
+          "市场",
+          "market"
+        ],
         "label": "Skill 市场"
       }
     },
@@ -15960,25 +16306,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -16112,19 +16470,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -19049,7 +19419,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "relay": {
@@ -19797,7 +20175,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -21682,12 +22065,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 9 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 9 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -23132,7 +23527,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -25957,11 +26358,7 @@
     "goalArgTitle": "目标参数",
     "loop": "控制目标驱动的循环次数",
     "loopArgTitle": "循环参数",
-    "plan": "为当前任务生成执行计划",
-    "act": "直接执行当前任务",
-    "build": "构建并验证当前项目",
     "review": "审查代码改动并提出改进建议",
-    "spec": "为当前功能生成规格文档",
     "permissionAsk": "以询问模式运行，操作前征求确认",
     "permissionAuto": "以自动模式运行，自动批准常规操作",
     "permissionFull": "以完整权限模式运行，直接执行所有操作"
@@ -30809,13 +31206,6 @@
     "autoContrast": "自动修正对比度",
     "autoContrastHint": "按亮色/暗色各自的背景自动把正文设为黑或白。",
     "autoContrastDone": "已按当前背景修正亮/暗模式的正文颜色"
-  },
-  "engineMode": {
-    "title": "agent 执行引擎",
-    "description": "选择 agent 执行编排所在位置。「本地」在本机跑编排与工具,不占用线上服务器资源。",
-    "local": "本地",
-    "cloud": "云端",
-    "auto": "自动"
   },
   "apps": {
     "savedToast": "已保存",

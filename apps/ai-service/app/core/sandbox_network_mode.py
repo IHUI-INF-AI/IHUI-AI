@@ -74,17 +74,17 @@ class SandboxNetworkMode(StrEnum):
     UNRESTRICTED = "unrestricted"
 
     @classmethod
-    def default(cls) -> "SandboxNetworkMode":
+    def default(cls) -> SandboxNetworkMode:
         """对齐 network_mode_config.star 的 DEFAULT_NETWORK_MODE = ALLOWLIST。"""
         return cls.ALLOWLIST
 
     @classmethod
-    def offline_default(cls) -> "SandboxNetworkMode":
+    def offline_default(cls) -> SandboxNetworkMode:
         """对齐 network_mode_config.star 的 OFFLINE_NETWORK_MODE = BLOCKED。"""
         return cls.BLOCKED
 
     @classmethod
-    def from_str(cls, value: str | None) -> "SandboxNetworkMode":
+    def from_str(cls, value: str | None) -> SandboxNetworkMode:
         """解析模式字符串;未知值安全回落 default(不猜成 UNRESTRICTED)。"""
         if not value:
             return cls.default()

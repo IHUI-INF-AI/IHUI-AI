@@ -1077,6 +1077,17 @@ function auditTrayItemDestinations(rawRust, emittedActions = null, registryText 
       nativeIds.push(id)
       continue
     }
+    // 2026-11-19 扩面(不是削判据):tray.always_on_top 的去向是「写偏好」而非直接调窗口 API ——
+    // lib.rs 的 `write_desktop_prefs` 内部在值变化时调 `apply_always_on_top(app, next)`
+    // (库内自述「置顶档是窗口行为而非托盘行为:改动必须立刻落到窗口上」,且该函数是置顶唯一实现)。
+    // 判据只认精确写法:**分支体内同时出现 `write_desktop_prefs(` 与 `always_on_top`** ——
+    // 单看 write_desktop_prefs 会把"改个角标开关"也算成窗口去向(H3 就被放空),故必须成对;
+    // 该条只覆盖这一枚分支语义,不引入 Command::new 一类的通用进程形态。
+    if (arm.includes('write_desktop_prefs(') && arm.includes('always_on_top')) {
+      native++
+      nativeIds.push(id)
+      continue
+    }
     say(
       `H3 分支 "tray.${id}" 没有任何可识别去向:既不 emit 到 ${TRAY_ACTION_EVENT},也没有原生效果` +
         `(show/hide/set_focus/exit 一族)—— 用户点这一项就是"完全没反应"。注释里写着怎么做不算去向。`,

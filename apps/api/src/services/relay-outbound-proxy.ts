@@ -119,3 +119,5 @@ export function installRelayOutboundProxy(): void {
     `[relay-outbound-proxy] 已装配出网代理分流: ${hosts.join(', ')} → ${maskProxyUrlForLog(proxyUrl)}(其余 host 直连)`,
   )
 }
+
+export { maskProxyUrlForLog }

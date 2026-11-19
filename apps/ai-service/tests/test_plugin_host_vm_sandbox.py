@@ -51,7 +51,7 @@ def test_build_vm_sandbox():
 def test_build_vm_sandbox_requires_id():
     try:
         build_vm_sandbox("")
-        assert False, "空 id 应报错"
+        raise AssertionError("空 id 应报错")
     except ValueError:
         pass
 

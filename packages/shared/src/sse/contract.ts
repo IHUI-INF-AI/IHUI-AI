@@ -1514,9 +1514,16 @@ export const SSE_DECORATIVE_FIELDS: readonly string[] = [
   'tool-approval.args_preview',
 ]
 
+/**
+ * 控制面对象 schema 的**唯一**构造入口:恒 `.strict()`(未知字段不静默剥)。
+ *
+ * 立因(门 182 棘轮):逐处手写 `zod.object({…}).strict()` 时,"漏写 strict" Structurally
+ * 不会报错,只会让边界静默变松;收进一个恒 strict 的工厂后,新增 schema 不可能漏。
+ */
+const strictObj = <T extends zod.ZodRawShape>(shape: T) => zod.object(shape).strict()
+
 /** form_response 的成对判据(与 FormResponseWireBody 注释逐字同族):approve 带 values 无理由, reject 带理由无 values。 */
-const formResponseSchema = zod
-  .object({
+const formResponseSchema = strictObj({
     request_id: zod.string().min(1),
     kind: zod.string().min(1),
     action: zod.enum(['approve', 'reject']),
@@ -1524,7 +1531,6 @@ const formResponseSchema = zod
     reject_reason: zod.string().optional().catch(undefined),
     message_id: zod.string().optional().catch(undefined),
   })
-  .strict()
   .superRefine((v, ctx) => {
     if (v.action === 'approve') {
       if (v.values === undefined) {
@@ -1550,8 +1556,7 @@ const formResponseSchema = zod
   })
 
 /** terminal_end:status 枚举闭合;truncated=true 而 totalChars 缺席 ⇒ "截断却不知道截掉多少"的假话帧。 */
-const terminalEndSchema = zod
-  .object({
+const terminalEndSchema = strictObj({
     terminalId: zod.string().min(1),
     status: zod.enum(['completed', 'failed']),
     // 装饰档:output 坏了 ⇒ 整字段按缺省处理(卡片退化成纯文本),不杀帧
@@ -1564,7 +1569,6 @@ const terminalEndSchema = zod
     interactionCount: zod.number().int().nonnegative().optional().catch(undefined),
     messageId: zod.string().optional().catch(undefined),
   })
-  .strict()
   .superRefine((v, ctx) => {
     if (v.truncated === true && v.totalChars === undefined) {
       ctx.addIssue({
@@ -1575,24 +1579,20 @@ const terminalEndSchema = zod
   })
 
 /** retry_scheduled:三计数字段闭合(负 attempt/退避 ⇒ 假话帧)。 */
-const retryScheduledSchema = zod
-  .object({
+const retryScheduledSchema = strictObj({
     attempt: zod.number().int().nonnegative(),
     maxRetries: zod.number().int().nonnegative(),
     retryInMs: zod.number().nonnegative(),
     httpStatus: zod.number().int().optional().catch(undefined),
   })
-  .strict()
 
 /** tool-delta:toolCallId 必需;truncated 缺席表示未截断(结构不变量:不能 truncated 而无 seq)。 */
-const toolDeltaSchema = zod
-  .object({
+const toolDeltaSchema = strictObj({
     toolCallId: zod.string().min(1),
     seq: zod.number().int().nonnegative(),
     partialText: zod.string(),
     truncated: zod.boolean().optional(),
   })
-  .strict()
 
 /** form_request:动作必须成对(恒含 approve 与 reject),字段集非空。 */
 const formRequestSchema = zod

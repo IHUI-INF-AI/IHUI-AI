@@ -38,7 +38,7 @@ export function CapabilityAppRail() {
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
       {open ? (
-        <div className="pointer-events-auto flex max-h-[70vh] w-[min(92vw,380px)] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl">
+        <div className="pointer-events-auto flex max-h-[70vh] w-[min(92vw,380px)] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-elevation-xl">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <LayoutGrid className="h-4 w-4 text-muted-foreground" aria-hidden />
             <span className="text-body font-medium">{t('railTitle')}</span>
@@ -61,7 +61,7 @@ export function CapabilityAppRail() {
                 type="button"
                 onClick={() => setActiveId(app.id)}
                 className={cn(
-                  'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-label',
+                  'flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-label',
                   app.id === active?.id
                     ? 'bg-muted font-medium'
                     : 'text-muted-foreground hover:bg-muted',
@@ -81,12 +81,12 @@ export function CapabilityAppRail() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="font-[weight:inherit] pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-body shadow-lg hover:bg-muted"
+        className="font-[weight:inherit] pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-body shadow-elevation-lg hover:bg-muted"
         aria-expanded={open}
       >
         <LayoutGrid className="h-4 w-4" aria-hidden />
         {t('railTitle')}
-        <span className="rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground">
+        <span className="rounded-full bg-cta px-1.5 text-[11px] font-medium text-cta-foreground">
           {railApps.length}
         </span>
         <ChevronDown
