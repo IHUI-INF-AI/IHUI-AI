@@ -72,6 +72,7 @@
       "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onAgentDelta": "no-agent-delta-ui",
       "onFrameWatermarkFacts": "no-frame-watermark-diagnostics",
+      "onHookFailure": "no-hook-failure-ui",
       "onReviewFinding": "no-review-finding-ui",
       "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
     },
