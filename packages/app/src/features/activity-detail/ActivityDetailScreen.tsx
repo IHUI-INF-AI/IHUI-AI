@@ -140,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       marginTop: rnSpacing.xl,
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
       backgroundColor: tk.brand.cta,
     },

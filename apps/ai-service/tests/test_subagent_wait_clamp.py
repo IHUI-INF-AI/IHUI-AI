@@ -23,9 +23,9 @@ from app.core.multi_agent_config_gate import (
     DEFAULT_CONFIG,
     DEFAULT_SUBAGENT_CONTEXT_TOKEN_BUDGET,
     MultiAgentConfig,
+    clamp_wait_timeout_s,
     clip_messages_to_token_budget,
     estimate_messages_tokens,
-    clamp_wait_timeout_s,
     resolve_config,
 )
 from app.services import subagent_jobs as jobs

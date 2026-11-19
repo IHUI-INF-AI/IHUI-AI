@@ -61,7 +61,7 @@ export function CapabilityAppRail() {
                 type="button"
                 onClick={() => setActiveId(app.id)}
                 className={cn(
-                  'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-label',
+                  'flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-label',
                   app.id === active?.id
                     ? 'bg-muted font-medium'
                     : 'text-muted-foreground hover:bg-muted',
