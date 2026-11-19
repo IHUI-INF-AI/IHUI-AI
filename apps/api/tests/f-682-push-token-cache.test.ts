@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: mocks.select, execute: mocks.execute },
 }))
 vi.mock('../src/plugins/auth.js', () => ({

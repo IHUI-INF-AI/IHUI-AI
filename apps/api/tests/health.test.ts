@@ -10,6 +10,7 @@ import type { Redis } from 'ioredis'
 // Mock db:避免真实 DB 连接(health/ready 调用 db.execute)
 // =============================================================================
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
   },

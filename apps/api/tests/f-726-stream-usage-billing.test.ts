@@ -28,6 +28,7 @@ vi.hoisted(() => {
 
 // mock db:本文件一条 SQL 都不该发出去
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn().mockResolvedValue([]),
     select: vi.fn(),

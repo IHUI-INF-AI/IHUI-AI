@@ -49,6 +49,7 @@ function makeApi(kind: Kind) {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: (shape?: unknown) => {
       if (shape && typeof shape === 'object' && 'total' in shape) return makeApi('count')

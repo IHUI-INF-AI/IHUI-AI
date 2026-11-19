@@ -47,6 +47,7 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 const { executeMock } = vi.hoisted(() => ({ executeMock: vi.fn() }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: executeMock,
     select: vi.fn(),

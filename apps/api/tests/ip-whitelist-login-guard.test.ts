@@ -40,6 +40,7 @@ const m = vi.hoisted(() => ({
 vi.mock('../src/plugins/auth.js', () => ({ checkAuth: m.checkAuth, authenticate: m.authenticate }))
 // 真 security-logs-queries 走这份假 db —— 拒绝用例要直接看到落库那一行的 principal
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: (table: unknown) => ({
       values: (row: Record<string, unknown>) => ({
@@ -84,6 +85,15 @@ vi.mock('../src/config/index.js', () => ({
 }))
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   signAccessToken: m.signAccessToken,
   signRefreshToken: m.signRefreshToken,
   verifyAccessToken: m.verifyAccessToken,

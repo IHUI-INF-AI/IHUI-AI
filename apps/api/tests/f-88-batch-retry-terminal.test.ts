@@ -47,6 +47,7 @@ vi.mock('bullmq', () => ({
 }))
 
 vi.mock('../src/queue/batch-queue.js', () => ({
+  getBatchItemCheckpoint: vi.fn(async () => null),
   BATCH_QUEUE_NAME: 'batch-queue',
   getTask: vi.fn(async () => {
     state.getTaskCalls += 1
