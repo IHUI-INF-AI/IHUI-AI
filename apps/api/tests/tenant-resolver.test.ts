@@ -18,6 +18,7 @@ vi.mock('../src/config/index.js', () => ({
 
 // Mock db:避免真实 DB 连接
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(),
     update: vi.fn(),

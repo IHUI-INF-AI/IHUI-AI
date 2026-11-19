@@ -26,6 +26,7 @@ vi.mock('mammoth', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({
       values: (vals: Array<Record<string, unknown>>) => {

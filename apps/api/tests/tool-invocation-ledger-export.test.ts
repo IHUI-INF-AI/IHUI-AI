@@ -59,6 +59,7 @@ vi.mock('../src/utils/logger.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => {
       const chain = {

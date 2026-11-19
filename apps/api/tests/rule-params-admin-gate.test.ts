@@ -47,6 +47,7 @@ vi.mock('../src/plugins/require-permission.js', () => ({
     (request.jwtPayload?.roleId ?? 0) >= 1,
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: mocks.dbExecute },
 }))
 vi.mock('../src/services/settlement-service.js', () => ({
