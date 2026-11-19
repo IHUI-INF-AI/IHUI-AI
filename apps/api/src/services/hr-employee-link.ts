@@ -164,16 +164,18 @@ export async function inviteEmployeeLink(params: {
 
   const row = await db.transaction(async (tx) => {
     // 一个员工同时只保留一条待确认邀请:旧邀请置为 revoked 后再建新邀请
-    const revokedChanged = { status: 'revoked' }
-    await tx
-      .update(hrEmployeeLinkRequest)
-      .set({ ...revokedChanged, updatedAt: new Date() })
-      .where(
-        and(
-          eq(hrEmployeeLinkRequest.employeeId, employeeId),
-          eq(hrEmployeeLinkRequest.status, 'pending'),
-        ),
-      )
+    {
+      const changed = { status: 'revoked' }
+      await tx
+        .update(hrEmployeeLinkRequest)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(
+          and(
+            eq(hrEmployeeLinkRequest.employeeId, employeeId),
+            eq(hrEmployeeLinkRequest.status, 'pending'),
+          ),
+        )
+    }
     const [created] = await tx
       .insert(hrEmployeeLinkRequest)
       .values({
@@ -332,11 +334,13 @@ export async function acceptEmployeeLink(params: {
         .set({ ...changed, updatedAt: new Date() })
         .where(eq(hrEmployee.id, employee.id))
     }
-    const approvedChanged = { status: 'approved', decidedAt: new Date() }
-    await tx
-      .update(hrEmployeeLinkRequest)
-      .set({ ...approvedChanged, updatedAt: new Date() })
-      .where(eq(hrEmployeeLinkRequest.id, request.id))
+    {
+      const changed = { status: 'approved', decidedAt: new Date() }
+      await tx
+        .update(hrEmployeeLinkRequest)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(eq(hrEmployeeLinkRequest.id, request.id))
+    }
     // 同一员工的其它待确认邀请一并失效,避免多账号同时被同意
     const changed = { status: 'revoked' }
     await tx
