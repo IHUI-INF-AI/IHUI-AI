@@ -1336,6 +1336,10 @@
     "scripts/check-mirror-surface-parity.mjs": {
       "face": "head",
       "reason": "同批补声明(2026-11-19):门内 selectFace 缺省 def=head(见该脚本 def: 调用);未声明导致派发层拒绝判定"
+    },
+    "scripts/check-screen-registration-sync.mjs": {
+      "face": "staged",
+      "reason": "补声明(2026-11-19):门内 parseArgv 缺省 face=staged(见该脚本 parseArgv 的 `argv.includes('--worktree') ? 'worktree' : 'staged'`),判据素材=本次暂存改动面;此前未声明 ⇒ 派发层判「未声明判面」,该门没有资格回答(§0.3 未判定)"
     }
   }
 }

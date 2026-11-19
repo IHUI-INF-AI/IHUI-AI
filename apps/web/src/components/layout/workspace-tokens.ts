@@ -45,7 +45,7 @@ export const HERO_GLOW =
  * 与任意图标砖几何(ICON_BRICK / 44 档)组合使用,颜色只在这里定义一档。
  */
 export const ICON_TILE_TONE_PRIMARY =
-  'border border-primary/20 bg-primary/10 text-primary shadow-sm'
+  'border border-primary/20 bg-primary/10 text-primary shadow-elevation-sm'
 
 /** 页头卡内的主色图标方砖几何(44×44,比卡片砖高一档,标识"这是页面级标题区") */
 const HERO_TILE_GEOMETRY = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl'
