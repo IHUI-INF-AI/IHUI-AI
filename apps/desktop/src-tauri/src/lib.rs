@@ -3161,8 +3161,8 @@ fn resolve_close_choice(
 //   · 画布边长按系统小图标尺寸取:16 × scale_factor(96dpi=16 / 120=20 / 144=24 / 192=32),
 //     跨屏后由 ScaleFactorChanged 钩子按新 DPI 重建;
 //   · 徽标只占画布 ~70%(双字符 ~88% 宽),四周留透明边距,收回"红球盖图标"的观感;
-//   · 条数 ≤9 画单字符、≥10 画「9+」:三位数在 16–32px 的 overlay 上没有可读空间,
-//     与侧栏 `formatUnreadCount` 的 99+ 同族但封顶更早(理由见 `badge_glyphs`);
+//   · 条数 ≤9 画单字符、10–99 画**真实两位数**、≥100 才折「9+」
+//     (三位字形在 16–32px 的 overlay 上放不下,精确条数让位给应用内角标);
 //   · 数字用 5×7 点阵 + 每像素 4×4 采样,不引字体依赖,任何画布尺寸都有抗锯齿;
 //   · 颜色沿用品牌红 #DC2626 + 白字,外缘一圈深色描边,浅色任务栏/浅色图标上也咬得住。
 
@@ -3202,8 +3202,10 @@ const BADGE_GLYPHS: [[u8; 7]; 11] = [
 
 /// 角标里画哪几个字形(左→右)。`unread == 0` ⇒ 空(调用方应清 overlay)。
 ///
-/// 为什么 ≥10 就折成「9+」而不是两位数:overlay 画布最宽 32px,双字形已是胶囊极限;
-/// 三位数在这个尺寸里只会糊成一团红 —— 精确条数留给应用内角标(那边有 99+ 的完整档位)。
+/// 1–9 单字;10–99 **画真实两位数**(十位+个位,2026-11-19 机主点名:"角标为啥不显示
+/// 十位数" —— 旧档把 10 条与 99 条一律压成「9+」,信息量等于零)。
+/// ≥100 仍折成「9+」:16–32px 的 overlay 里三位字形只剩 3~5px 宽,画出来是红糊糊一片,
+/// 精确条数留给应用内角标(那边有 99+ 的完整档位)。
 fn badge_glyphs(unread: u32) -> Vec<usize> {
     if unread == 0 {
         return Vec::new();
@@ -3211,16 +3213,20 @@ fn badge_glyphs(unread: u32) -> Vec<usize> {
     if unread <= 9 {
         return vec![unread as usize];
     }
+    if unread <= 99 {
+        return vec![(unread / 10) as usize, (unread % 10) as usize];
+    }
     vec![9, 10]
 }
 
 /// 画布够不够放下一个能认出来的数字。
 ///
-/// 100% DPI 的 16px 画布上,数字只剩 9px 高、单元边长 1.x 像素 —— 实测下来是
-/// 一片白噪点,比一条干净的红点更糟。所以这一档**只画圆点**;125% 及以上
-/// (20/24/32px)才上数字(A/B 两档在同一张预览图上肉眼比对过)。
+/// 2026-11-19 起 16px(100% DPI)档也画数字:机主点名"角标为啥不显示十位数",
+/// 而这一档此前只画圆点 ⇒ 两位数在这台机上根本不可能出现。位数放大到 2 位后,
+/// 16px 上字形高约 8px、每位宽约 6px(5×7 点阵 + 1 格字距),与 Windows 自带
+/// 通知角标同档,认得出来;低于 16px 的画布(理论不可达)才退成圆点。
 fn badge_shows_count(canvas: u32) -> bool {
-    canvas >= 20
+    canvas >= 16
 }
 
 /// 纯圆点盒形(画布坐标系):直径 56% 画布 —— Teams/Slack 那一档的比例,
@@ -3234,16 +3240,18 @@ fn badge_dot_box(canvas: u32) -> (f32, f32, f32, f32) {
 
 /// 徽标盒形(画布坐标系,单位=画布像素):(x0, y0, 宽, 高, 单元边长)。
 ///
-/// 单字符 ⇒ 正圆(数字居中,观感与圆点角标一致);双字符(9+)⇒ 胶囊。
-/// 高度上限 72% 画布、宽度上限 90% 画布 —— 旧实现 100% 满幅正是"红球"的成因;
-/// 内边距只留 0.8 格:overlay 本来就只有 16–32px,留白多了字形就糊成一团点。
+/// 单字符 ⇒ 正圆(数字居中,观感与圆点角标一致);双字符(两位数 / 9+)⇒ 胶囊。
+/// 高度上限 74% 画布、宽度上限 86% 画布 —— 旧实现 100% 满幅正是"红球"的成因;
+/// 宽度从 90% 收到 86%(2026-11-19):16px 画布上两位数正好吃满 90%,
+/// 抗锯齿外扩后边距归零 ⇒ 角标贴边。收到 86% 后 16px 仍留 ~1.1px 透明边。
+/// 内边距只留 1.2 格:overlay 本来就只有 16–32px,留白多了字形就糊成一团点。
 fn badge_box(canvas: u32, glyph_count: usize) -> (f32, f32, f32, f32, f32) {
     let canvas_f = canvas as f32;
     let n = glyph_count.max(1) as f32;
     // 字形占 n*5 格 + 字间 (n-1) 格;四周各留 1.2 格内边距 ⇒ 高度 7+2.4 格
     let cells_w = n * 5.0 + (n - 1.0) + 2.4;
     let cells_h = 7.0 + 2.4;
-    let max_w = canvas_f * 0.90;
+    let max_w = canvas_f * 0.86;
     let max_h = canvas_f * 0.74;
     let cell = (max_h / cells_h).min(max_w / cells_w);
     let h = cell * cells_h;
@@ -3448,11 +3456,16 @@ mod desktop_badge_tests {
     }
 
     #[test]
-    fn 角标字形一到两个_十以上折成_9_加() {
+    fn 角标字形一位数原样_两位数逐位_百位才折成_9_加() {
         assert!(badge_glyphs(0).is_empty());
         assert_eq!(badge_glyphs(1), vec![1]);
         assert_eq!(badge_glyphs(9), vec![9]);
-        assert_eq!(badge_glyphs(10), vec![9, 10]);
+        // 十位数必须真画出来(2026-11-19 机主点名),不是折成「9+」
+        assert_eq!(badge_glyphs(10), vec![1, 0]);
+        assert_eq!(badge_glyphs(23), vec![2, 3]);
+        assert_eq!(badge_glyphs(99), vec![9, 9]);
+        // 三位放不下 ⇒ 仍折「9+」
+        assert_eq!(badge_glyphs(100), vec![9, 10]);
         assert_eq!(badge_glyphs(999), vec![9, 10]);
     }
 
@@ -3497,8 +3510,8 @@ mod desktop_badge_tests {
 
     #[test]
     fn 条数真的画进了像素_而不是永远一枚红点() {
-        // 1..9 两两不同(数字被真画出来);9 与 10 不同(成色由"9+"接管);
-        // 10 与 999 相同(三位数早封顶,不假装画得下)
+        // 1..9 两两不同(数字被真画出来);10/23/42 两两不同(十位数逐位进像素);
+        // 99 与 100 不同(100 起才折「9+」),100 与 999 相同(三位早封顶,不假装画得下)
         let renders: Vec<Vec<u8>> = (1..=9u32).map(|n| build_badge_rgba(n, 24).0).collect();
         for i in 0..renders.len() {
             for j in (i + 1)..renders.len() {
@@ -3511,8 +3524,11 @@ mod desktop_badge_tests {
                 );
             }
         }
+        assert_ne!(build_badge_rgba(10, 24).0, build_badge_rgba(23, 24).0);
+        assert_ne!(build_badge_rgba(23, 24).0, build_badge_rgba(42, 24).0);
         assert_ne!(build_badge_rgba(9, 24).0, build_badge_rgba(10, 24).0);
-        assert_eq!(build_badge_rgba(10, 24).0, build_badge_rgba(999, 24).0);
+        assert_ne!(build_badge_rgba(99, 24).0, build_badge_rgba(100, 24).0);
+        assert_eq!(build_badge_rgba(100, 24).0, build_badge_rgba(999, 24).0);
     }
 
     #[test]
@@ -3539,13 +3555,19 @@ mod desktop_badge_tests {
     }
 
     #[test]
-    fn 十六像素画布退成圆点_不再画糊掉的数字() {
-        // 100% DPI(16px)上 9px 高的数字只剩白噪点,实测比圆点更糟 ⇒ 这一档只画圆点。
-        // 判据:同尺寸下 1 条与 99 条完全同形(数字没进去),且 20px 起恢复"画数字"。
-        assert!(!badge_shows_count(16));
-        assert!(badge_shows_count(20));
-        assert_eq!(build_badge_rgba(1, 16).0, build_badge_rgba(99, 16).0);
-        assert_ne!(build_badge_rgba(1, 20).0, build_badge_rgba(9, 20).0);
+    fn 十六像素画布也画数字_两位数不再退成圆点() {
+        // 2026-11-19 起:100% DPI(16px)档必须能显示十位数 —— 同尺寸下 1 条与 23 条
+        // 必须不同形(旧档这里两者同形,正是"看不到十位数"的根因)。
+        assert!(badge_shows_count(16));
+        assert!(badge_shows_count(24));
+        assert_ne!(build_badge_rgba(1, 16).0, build_badge_rgba(23, 16).0);
+        assert_ne!(build_badge_rgba(12, 16).0, build_badge_rgba(21, 16).0);
+        // 16px 下两位数仍要留边距(不许画满幅)
+        let (rgba, w, h) = build_badge_rgba(23, 16);
+        let (x0, y0, x1, y1) = alpha_bounds(&rgba, w).expect("两位数必须有像素");
+        assert!(x0 >= 1 && y0 >= 1 && x1 + 1 < w && y1 + 1 < h, "16px 两位数边距被吃掉");
+        assert!((w, h) == (16, 16));
+        assert_eq!(rgba.len(), 16 * 16 * 4);
     }
 }
 
