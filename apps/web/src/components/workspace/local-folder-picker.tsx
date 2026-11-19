@@ -39,7 +39,12 @@ import {
 import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
 import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
-import { workspaceAuthorizeRoot, workspaceFsInfo, workspaceFsList } from '@/lib/tauri-bridge'
+import {
+  workspaceAuthorizeRoot,
+  workspaceFsInfo,
+  workspaceFsList,
+  workspacePickRoot,
+} from '@/lib/tauri-bridge'
 import {
   resolveBrowserWorkspaceKeyForHandle,
   saveBrowserWorkspaceHandle,
@@ -696,6 +701,62 @@ export function LocalFolderPicker({
     setNativeHint(null)
   }, [])
 
+  /**
+   * 路径栏导航（2026-11-20）：桌面端未授权时，手输完整绝对路径也能授权 —— 但必须
+   * 先经过一次宿主原生选择器（凭证制），否则如实提示"先去选一次目录"。
+   */
+  const navigateWithAuth = React.useCallback(
+    async (path: string) => {
+      const isAbs = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('/')
+      if (isTauri() && !localRoot && isAbs) {
+        const auth = await workspaceAuthorizeRoot(path)
+        if (auth.state !== 'ok') {
+          setLocalError(
+            auth.kind === 'root_not_authorized'
+              ? '本机尚未授权该目录：请先点硬盘图标或下方「选择本机文件夹」，在系统对话框里选中它。'
+              : auth.reason || `本机授权失败(${auth.kind})`,
+          )
+          return
+        }
+        const root = auth.root || path
+        setLocalError(null)
+        setLocalRoot(root)
+        navigateTo(root)
+        setNativeHint(`已在**本机**授权工作区:${root}`)
+        return
+      }
+      navigateTo(path)
+    },
+    [localRoot, navigateTo],
+  )
+
+  /**
+   * 宿主原生选择器 → 直接授权（2026-11-20 立）。
+   *
+   * 这是桌面端"选本机文件夹"的**主入口**：对话框由 Rust 侧宿主自己弹，选中即授权
+   * （凭证不经过页面），因此家目录之外的盘（如 `G:\IHUI-AI`）同样可用 —— 旧实现
+   * 借 git bases 当闸，把这类工作区全拒成 `out_of_bounds`，界面表现就是"读取不到本地"。
+   */
+  const handlePickRoot = React.useCallback(async () => {
+    setLocalError(null)
+    setNativeHint(null)
+    try {
+      const res = await workspacePickRoot()
+      if (res.state !== 'ok' || !res.root) {
+        // 用户主动取消时 kind=suspicious_input，不当作错误红字
+        if (res.kind && res.kind !== 'suspicious_input') {
+          setLocalError(res.reason || `本机授权失败(${res.kind})`)
+        }
+        return
+      }
+      setLocalRoot(res.root)
+      navigateTo(res.root)
+      setNativeHint(`已在**本机**授权工作区:${res.root}`)
+    } catch (err) {
+      setLocalError((err as Error).message)
+    }
+  }, [navigateTo])
+
   // 进入文件夹(双击 / Enter on selected)
   const enterDirectory = React.useCallback((entry: BrowseEntry) => {
     setCurrentPath(entry.path)
@@ -771,6 +832,11 @@ export function LocalFolderPicker({
   //           用户补全完整路径后回车跳转;同时保存 handle 供 loadWorkspaceContext 读取文件内容
   const handleNativePick = async () => {
     setNativeHint(null)
+    // 桌面端还没授权时,统一走宿主原生选择器(凭证制):选中即授权,不受 git bases 限制
+    if (isTauri() && !localRoot) {
+      await handlePickRoot()
+      return
+    }
     try {
       const result = await pickDirectoryNative()
       if (!result) return
@@ -857,7 +923,7 @@ export function LocalFolderPicker({
             {/* 位置栏 */}
             <PathNav
               currentPath={currentPath}
-              onNavigate={navigateTo}
+              onNavigate={(p) => void navigateWithAuth(p)}
               onRefresh={() => void refetchBrowse()}
               isRefreshing={fetching && !browsing}
               t={t}
@@ -959,6 +1025,20 @@ export function LocalFolderPicker({
                         >
                           {t('clearFilter')}
                         </button>
+                      )}
+                      {/* 桌面端未授权:列表本来就无处可列 ⇒ 给一个明确的主入口 */}
+                      {isTauri() && !localRoot && !filter && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handlePickRoot()}
+                          disabled={openMutation.isPending}
+                          className="mt-1 gap-1.5"
+                        >
+                          <HardDrive className="h-3.5 w-3.5" />
+                          <span>选择本机文件夹（本机执行）</span>
+                        </Button>
                       )}
                     </div>
                   </li>
