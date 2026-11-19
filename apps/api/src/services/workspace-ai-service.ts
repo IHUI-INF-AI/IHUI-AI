@@ -4490,19 +4490,52 @@ const fsObservationStore = new FsObservationStore()
 // 初始化：注册 AgentLoop 内置工具（FS Bridge 工具集）
 // =============================================================================
 
+/**
+ * `read_file` 的两道护栏（2026-11-20）：
+ * - 二进制：前 8KB 出现 NUL 字节就判二进制，别把乱码当文本灌进上下文（要看文档用 parse_document）；
+ * - 超大：一次读回超过 12 万字符就截断并给续读指引（range 读或 grep），避免单条工具结果吃掉整个预算。
+ * 截断只影响回给模型的那段；观察态仍记整文件摘要，后续 edit_file/write_file 的版本校验不受影响。
+ */
+const READ_BINARY_PROBE_CHARS = 8_000
+const READ_TRUNCATE_CHARS = 120_000
+
 agentLoop.registerTool({
   name: 'read_file',
-  description: '读取文件内容',
+  description: '读取文件内容（支持 startLine/endLine 分段读；二进制与超大文件有护栏）',
   execute: async (args) => {
     const path = String(args['path'] ?? '')
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
-    const result = fsBridge.read({
-      path,
-      workspacePath,
-    })
+    const full = fsBridge.resolvePath(path, workspacePath)
+    const raw = readFileSync(full, 'utf-8')
+    if (raw.slice(0, READ_BINARY_PROBE_CHARS).includes('\u0000')) {
+      return JSON.stringify({
+        ok: false,
+        code: 'FS_BINARY_FILE',
+        error: '目标看起来是二进制文件，按文本读会得到乱码',
+        remedy: '文档类内容用 parse_document；确需看原始字节请说明用途再定通道。',
+      })
+    }
     // 读即观察:整文件读入才记摘要,后续 write_file 用它判断"看的是不是磁盘这一版"
-    fsObservationStore.observePresent(fsBridge.resolvePath(path, workspacePath), result.content)
-    return result.content
+    fsObservationStore.observePresent(full, raw)
+    const startLine = Number(args['startLine'] ?? Number.NaN)
+    const endLine = Number(args['endLine'] ?? Number.NaN)
+    if (Number.isFinite(startLine) || Number.isFinite(endLine)) {
+      return fsBridge.read({
+        path,
+        workspacePath,
+        startLine: Number.isFinite(startLine) ? startLine : undefined,
+        endLine: Number.isFinite(endLine) ? endLine : undefined,
+      }).content
+    }
+    if (raw.length > READ_TRUNCATE_CHARS) {
+      const totalLines = raw.split('\n').length
+      return (
+        raw.slice(0, READ_TRUNCATE_CHARS) +
+        `\n… [read_file 截断：文件 ${raw.length} 字符 / ${totalLines} 行，仅返回前 ${READ_TRUNCATE_CHARS} 字符；` +
+        '用 startLine/endLine 续读，或先 grep 定位] …\n'
+      )
+    }
+    return raw
   },
 })
 

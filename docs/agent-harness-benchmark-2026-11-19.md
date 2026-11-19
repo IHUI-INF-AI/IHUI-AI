@@ -82,7 +82,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（8 项，含验证证据）
+## 5. 本次落地（9 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -166,6 +166,15 @@
 - 不是照抄：对照件一律按 UTF-8 直读写，BOM 与 CRLF 都在它们的盲区；这两层是本仓在 Windows 宿主上自补的边界。
 
 验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 17 passed`。
+
+### 5.9 `read_file` 护栏：分段读、超大截断、二进制拒绝
+
+- 分段读打通：`startLine`/`endLine` 此前只在路由层 `workspace-ai.ts` 生效，工具层直接忽略入参 —— 模型想分段读大文件根本做不到。现在工具层透传，行为与路由同源（同一 `FSBridge.read`）。
+- 超大截断：单次读回超过 12 万字符时只回前 12 万并附续读指引（`startLine/endLine` 或先 `grep` 定位），避免一条工具结果吃掉整个上下文预算；截断只影响回给模型那段，**观察态仍记整文件摘要**，所以随后 `edit_file` 能直接改没被返回的尾部（测试 R3 钉住）。
+- 二进制拒绝：前 8KB 出现 NUL 字节即判 `FS_BINARY_FILE`（指向 `parse_document`），不再把乱码当文本灌进上下文。
+- 不是照抄：对照件的读取工具没有"截断但仍可编辑"的分离设计 —— 要么不截断、要么读不全就改不了。
+
+验证：`vitest run tests/fs-read-guard.test.ts tests/fs-edit-tool.test.ts` → `Tests 22 passed`。
 
 ## 6. 未落地候选（按 ROI 排序，含不做的理由）
 
