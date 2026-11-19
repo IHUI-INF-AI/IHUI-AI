@@ -76,6 +76,7 @@ const TX = {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: mocks.select,
     execute: mocks.execute,

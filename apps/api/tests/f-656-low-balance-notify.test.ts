@@ -41,6 +41,7 @@ function chain(returnValue: unknown): { from: ReturnType<typeof vi.fn> } {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { insert: vi.fn(), update: vi.fn(), transaction: vi.fn() },
   dbRead: { select: mockDbReadSelect },
   dbClient: {},

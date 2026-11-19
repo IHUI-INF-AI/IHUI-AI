@@ -68,6 +68,7 @@ function tableNameOf(t: unknown): string {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     delete: vi.fn((t: unknown) => {
       deleteCalls.push(tableNameOf(t))

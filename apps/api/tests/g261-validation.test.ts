@@ -43,6 +43,7 @@ function chainStub(): object {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: chainStub(),
   getDb: () => chainStub(),
 }))

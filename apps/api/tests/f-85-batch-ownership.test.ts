@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/queue/batch-queue.js', () => ({
+  getBatchItemCheckpoint: vi.fn(async () => null),
   BATCH_KEY_PREFIX: 'batch:task:',
   getTask: vi.fn(async (_redis: unknown, id: string) => state.tasks.get(id) ?? null),
   saveTask: vi.fn(async () => {}),

@@ -24,6 +24,7 @@ const { dbExecute, loggerError } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: (...args: unknown[]) => dbExecute(...args) },
   dbRead: { execute: (...args: unknown[]) => dbExecute(...args) },
   dbClient: {},
