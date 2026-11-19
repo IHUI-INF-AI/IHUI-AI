@@ -64,6 +64,12 @@ sha2 = "0.10"
 indexmap = { version = "1.9.3", features = ["std"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 
+# Y-84:真机测试(#[ignore])需造 mock AppHandle 才能调用 checkin_one_click_reset_inner。
+# 平时 cargo check 不启用本 feature ⇒ 真机测试块不编译,不拖累构建;
+# 跑真机测试时 cargo test --features real-machine-tests -- --ignored。
+[features]
+real-machine-tests = ["tauri/test"]
+
 [target.'cfg(windows)'.dependencies]
 # 2026-10-16 省内存:WebView2 的内存目标档位。wry 的 WebViewExtWindows 暴露了
 # set_memory_usage_level,但 Tauri 没转出来;而 PlatformWebview::controller() 直接
