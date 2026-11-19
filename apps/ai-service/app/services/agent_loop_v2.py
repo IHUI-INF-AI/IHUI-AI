@@ -2429,6 +2429,43 @@ def _spill_tool_overflow(overflow: str) -> str | None:
         return None
 
 
+def _prune_preview(text: str, budget: int) -> tuple[str, int]:
+    """超预算预览：头 + marker + 尾（确定性、零模型），返回 (预览, 续读起点)。
+
+    对照件(``dsh-compaction-tool-result-pruner``)只留头，长输出末尾的结论
+    (错误栈末行、测试汇总、命令退出摘要)会随截断一起丢。这里头尾都留，
+    续读 offset 取头长，从被裁掉的中段开头接上，不重复也不跳段。
+
+    裁剪器任何拒绝(配置不合法/定位失败)都退回「截头」老行为，绝不阻断消息出口。
+    """
+    if budget <= 0:
+        return "", 0
+    try:
+        from .tool_result_pruner import (
+            PRUNE_MARKER,
+            ContentBlock,
+            PruneConfig,
+            prune_content,
+        )
+
+        room = budget - len(PRUNE_MARKER)
+        if room <= 8:
+            return text[:budget], min(budget, len(text))
+        head = (room * 4) // 5
+        tail = room - head
+        pruned = prune_content(
+            [ContentBlock("text", text)],
+            config=PruneConfig(
+                threshold_chars=budget, head_chars=head, tail_chars=tail
+            ),
+        )
+        if pruned is None:
+            return text[:budget], min(budget, len(text))
+        return (pruned[0].text or ""), min(head, len(text))
+    except ValueError:
+        return text[:budget], min(budget, len(text))
+
+
 def bound_tool_result_for_context(
     payload: Any,
     *,
@@ -2467,11 +2504,13 @@ def bound_tool_result_for_context(
                 force=True,
             )
         if artifact is not None:
-            # 预留 ~360 字符给说明与 JSON 凭据,预览取工件预览与预算的较小者。
+            # 预留 ~360 字符给说明与 JSON 凭据;预览走确定性头/中/尾裁剪,
+            # 尾部结论不再随截断一起丢(2026-11-19 接线 tool_result_pruner)。
             preview_budget = max(0, keep_chars - 360)
-            preview = artifact.get("preview") or text[:preview_budget]
-            preview = preview[:preview_budget]
-            offset = len(preview)
+            preview, offset = _prune_preview(text, preview_budget)
+            if not preview:
+                preview = str(artifact.get("preview") or text[:preview_budget])
+                offset = len(preview)
             status = {
                 "output_artifact_id": artifact.get("artifactId"),
                 "output_offset": offset,

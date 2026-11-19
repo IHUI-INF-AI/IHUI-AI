@@ -61,6 +61,8 @@ import { hasNestedQuantifier } from './rules-service.js'
 // 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
 import { computeFacts, decideApproval } from '@ihui/shared/permission'
 import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
+// 读前写保护(工具层护栏):观察态只在内存,不跨会话持久(§0.12 复现 dsh fs-observation-policy)
+import { FsObservationStore, isFsObservationEnforced } from './fs-observation-policy.js'
 
 const execAsync = promisify(exec)
 
@@ -4387,7 +4389,8 @@ class FSBridge {
     return assertWithinRegisteredRoots(workspacePath, '工作区')
   }
 
-  private resolvePath(p: string, workspacePath: string): string {
+  /** 公开只读出口:工具层的观察表要与文件桥共用同一把路径尺子(不得各算一份)。 */
+  resolvePath(p: string, workspacePath: string): string {
     // 归一后的登记根才是比较基准(客户端串可能是符号链接,拿它当根等于自证清白)
     const root = this.assertWorkspaceRegistered(workspacePath)
     const full = realpathOrResolve(isAbsolute(p) ? resolve(p) : resolve(root, p))
@@ -4480,6 +4483,8 @@ class FSBridge {
 }
 
 export const fsBridge = new FSBridge()
+/** 工具层观察表(进程内):read_file 写入观察,write_file 据此拒绝盲写/过期覆盖。 */
+const fsObservationStore = new FsObservationStore()
 
 // =============================================================================
 // 初始化：注册 AgentLoop 内置工具（FS Bridge 工具集）
@@ -4489,10 +4494,14 @@ agentLoop.registerTool({
   name: 'read_file',
   description: '读取文件内容',
   execute: async (args) => {
+    const path = String(args['path'] ?? '')
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
     const result = fsBridge.read({
-      path: String(args['path'] ?? ''),
-      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      path,
+      workspacePath,
     })
+    // 读即观察:整文件读入才记摘要,后续 write_file 用它判断"看的是不是磁盘这一版"
+    fsObservationStore.observePresent(fsBridge.resolvePath(path, workspacePath), result.content)
     return result.content
   },
 })
@@ -4508,13 +4517,23 @@ agentLoop.registerTool({
 
 agentLoop.registerTool({
   name: 'write_file',
-  description: '写入文件',
+  description: '写入文件（覆盖已存在文件前必须先 read_file 观察当前内容）',
   execute: async (args) => {
+    const path = String(args['path'] ?? '')
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
+    const content = String(args['content'] ?? '')
+    const full = fsBridge.resolvePath(path, workspacePath)
+    if (isFsObservationEnforced()) {
+      const current = existsSync(full) ? readFileSync(full, 'utf-8') : null
+      const denial = fsObservationStore.checkWrite(full, current)
+      if (denial) return JSON.stringify(denial)
+    }
     const result = fsBridge.write({
-      path: String(args['path'] ?? ''),
-      workspacePath: String(args['workspacePath'] ?? process.cwd()),
-      content: String(args['content'] ?? ''),
+      path,
+      workspacePath,
+      content,
     })
+    fsObservationStore.observePresent(full, content)
     return JSON.stringify(result)
   },
 })
