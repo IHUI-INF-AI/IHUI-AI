@@ -609,6 +609,13 @@ const TASKS_CACHE_TTL_MS = 20_000
 const TASKS_CACHE_MAX = 200
 const tasksCache = new Map<number, { at: number; payload: Record<string, unknown> }>()
 
+/** 测试缝:清单短缓存是模块级状态,跨用例必须可清(只给测试,不进生产路径) */
+export const __test__ = {
+  clearTasksCache(): void {
+    tasksCache.clear()
+  },
+}
+
 
 /**
  * F-161 个人池属主边界:按 id 的写操作必须同时命中「主键 + 属主」。

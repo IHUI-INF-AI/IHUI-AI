@@ -15,12 +15,13 @@ const mockChannel = (
   id: string,
   enabled = true,
   type: ChannelConfig['type'] = 'web',
+  config: Record<string, unknown> = {},
 ): ChannelConfig => ({
   id,
   type,
   name: `Channel ${id}`,
   enabled,
-  config: {},
+  config,
 })
 
 describe('clawdbot ChannelManager 渠道管理', () => {
@@ -121,8 +122,20 @@ describe('clawdbot ChannelManager 渠道管理', () => {
   })
 
   describe('发送消息', () => {
+    // web/api/custom 只记日志、不算 delivered;投递语义用真外部渠道(telegram)验。
+    const tgConfig = { botToken: 'test-bot-token', chatId: 'test-chat-id' }
+    beforeEach(() => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) })),
+      )
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
     it('sendMessage 到已启用渠道返回 true', async () => {
-      mgr.register(mockChannel('ch1', true))
+      mgr.register(mockChannel('ch1', true, 'telegram', tgConfig))
       const ok = await mgr.sendMessage('ch1', 'hello')
       expect(ok).toBe(true)
     })
@@ -133,13 +146,13 @@ describe('clawdbot ChannelManager 渠道管理', () => {
     })
 
     it('sendMessage 到禁用渠道返回 false', async () => {
-      mgr.register(mockChannel('ch1', false))
+      mgr.register(mockChannel('ch1', false, 'telegram', tgConfig))
       const ok = await mgr.sendMessage('ch1', 'hello')
       expect(ok).toBe(false)
     })
 
     it('sendMessage 触发 sent 事件', async () => {
-      mgr.register(mockChannel('ch1', true))
+      mgr.register(mockChannel('ch1', true, 'telegram', tgConfig))
       const handler = vi.fn()
       mgr.on('sent', handler)
       await mgr.sendMessage('ch1', 'hello', 'user1')
@@ -201,18 +214,33 @@ describe('clawdbot ChannelManager 渠道管理', () => {
   })
 
   describe('广播', () => {
+    // 广播只对真外部渠道计数(web/api/custom 属内部渠道,见 sendMessage 早返回),
+    // 用 telegram 桩 + fetch 成功响应验「发到所有启用渠道」的语义。
+    const tgConfig = { botToken: 'test-bot-token', chatId: 'test-chat-id' }
+    beforeEach(() => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) })),
+      )
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
     it('broadcast 发送到所有启用渠道', async () => {
-      mgr.register(mockChannel('ch1', true))
-      mgr.register(mockChannel('ch2', true))
-      mgr.register(mockChannel('ch3', false))
+      mgr.register(mockChannel('ch1', true, 'telegram', tgConfig))
+      mgr.register(mockChannel('ch2', true, 'telegram', tgConfig))
+      mgr.register(mockChannel('ch3', false, 'telegram', tgConfig))
       const sent = await mgr.broadcast('hello')
       expect(sent).toBe(2)
     })
 
     it('broadcast 带 filter 过滤渠道', async () => {
-      mgr.register(mockChannel('ch1', true, 'web'))
-      mgr.register(mockChannel('ch2', true, 'wechat'))
-      const sent = await mgr.broadcast('hello', (c) => c.type === 'web')
+      // web/api/custom 属内部渠道,不投递也不计入成功数(见 sendMessage 早返回);
+      // 过滤语义用两条真外部渠道验。
+      mgr.register(mockChannel('ch1', true, 'telegram', tgConfig))
+      mgr.register(mockChannel('ch2', true, 'wechat', { webhookUrl: 'http://mock.local' }))
+      const sent = await mgr.broadcast('hello', (c) => c.type === 'telegram')
       expect(sent).toBe(1)
     })
 

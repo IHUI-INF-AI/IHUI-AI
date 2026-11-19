@@ -128,7 +128,7 @@ vi.mock('../src/db/index.js', () => {
   }
 })
 
-import relayAccountPoolRoutes from '../src/routes/admin/relay-account-pool.js'
+import relayAccountPoolRoutes, { __test__ as POOL_TEST } from '../src/routes/admin/relay-account-pool.js'
 // §22c:期望值一律由生产端现算(relay-pool-policy 是唯一真相源),测试里不抄第二份档位表
 import { __test__ as POLICY } from '../src/services/relay-pool-policy.js'
 
@@ -234,6 +234,9 @@ describe('GET /admin/relay/accounts/:id/tasks(O68 转发面)', () => {
   beforeEach(() => {
     rearmDbMockDefaults()
     mockAdmin()
+    // 清单 20s 短缓存是模块级状态:不清会把上一条用例的成功结果粘到本用例
+    // (429/未判定被读成 200 命中)。每个用例从冷缓存起步。
+    POOL_TEST.clearTasksCache()
   })
 
   it('正常清单:任务字段归一透传,null 字段不被改写成 0', async () => {
@@ -382,6 +385,9 @@ describe('POST /admin/relay/accounts/:id/task-run(O68 触发面)', () => {
   beforeEach(() => {
     rearmDbMockDefaults()
     mockAdmin()
+    // 清单 20s 短缓存是模块级状态:不清会把上一条用例的成功结果粘到本用例
+    // (429/未判定被读成 200 命中)。每个用例从冷缓存起步。
+    POOL_TEST.clearTasksCache()
   })
 
   it('growth 触发:body 映射 dry_run,结果 delta/unjudged 归一透传', async () => {
@@ -506,6 +512,9 @@ describe('GET /admin/relay/pool-policy(O93 策略档只读面)', () => {
   beforeEach(() => {
     rearmDbMockDefaults()
     mockAdmin()
+    // 清单 20s 短缓存是模块级状态:不清会把上一条用例的成功结果粘到本用例
+    // (429/未判定被读成 200 命中)。每个用例从冷缓存起步。
+    POOL_TEST.clearTasksCache()
   })
 
   const policyUrl = '/api/admin/relay/pool-policy'
