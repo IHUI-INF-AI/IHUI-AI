@@ -2,16 +2,16 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""Codex 级（更完整）agent 会话持久化引擎 —— 纯标准库 sqlite3 实现。
+"""Codex 级（更完整）agent 会话持久化引擎 —— PostgreSQL 实现(app.core.pg_sync 同步桥)。
 
 三级会话模型:Thread（跨进程持久会话）/ Turn（一次用户输入触发的完整往返）/
 Item（回合内原子事件）。
 
-设计要点(2026-09-06 立):
-- 崩溃安全:WAL + synchronous=FULL + 每条写操作独立 BEGIN IMMEDIATE 事务;
-- 全局单调 seq + client_item_id 幂等去重;
-- FTS5 全文索引(不可用时自动降级 LIKE);
-- JSON1 半结构化 payload;
+设计要点(2026-09-06 立;2026-11-19 数据层迁 PostgreSQL,机主定档只允许 PG):
+- 崩溃安全:每条写操作独立事务(schema 内 BEGIN/COMMIT/ROLLBACK,失败即回滚);
+- 全局单调 seq + client_item_id 幂等去重(唯一索引 + ON CONFLICT);
+- 全文检索:原 FTS5 虚表退役,统一走 ILIKE(中文分词在 PG 上需扩展,本层不引入);
+- JSONB 形状的 TEXT 半结构化 payload;
 - 版本化 migration 框架(schema_version 表 + 顺序迁移);
 - turn 状态机:running → completed/interrupted/failed,非法迁移拒绝;
 - resume 时自动修复悬挂 tool_call(补 synthetic interrupted result);
@@ -19,7 +19,7 @@ Item（回合内原子事件）。
 - rollback 软删除标记,保留审计;
 - compact 压缩边界 item,resume 时只回放边界后内容+摘要。
 
-mypy --strict 通过;仅依赖标准库 sqlite3 + pydantic(项目已有)。
+mypy --strict 通过;依赖 asyncpg(经 app.core.pg_sync)+ pydantic(项目已有)。
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import hashlib
 import json
 import logging
 import os
-import sqlite3
+import tempfile
 import threading
 import time
 from collections.abc import Iterator, Sequence
@@ -37,6 +37,8 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+
+from app.core.pg_sync import PgShim, SyncPgError, SyncPgSession
 
 from .branch_generation import bump_branch_generation
 
@@ -642,56 +644,57 @@ class DuplicateItemError(ValueError):
 
 _SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_version (
-    version     INTEGER PRIMARY KEY,
-    applied_at  REAL    NOT NULL,
-    description TEXT    NOT NULL DEFAULT ''
+    version     integer PRIMARY KEY,
+    applied_at  double precision NOT NULL,
+    description text NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS meta (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
+    key   text PRIMARY KEY,
+    value text NOT NULL
 );
-INSERT OR IGNORE INTO meta (key, value) VALUES ('last_seq', '0');
+INSERT INTO meta (key, value) VALUES ('last_seq', '0') ON CONFLICT (key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS threads (
-    thread_id         TEXT    PRIMARY KEY,
-    title             TEXT    NOT NULL DEFAULT '',
-    created_at        REAL    NOT NULL,
-    updated_at        REAL    NOT NULL,
-    metadata          TEXT    NOT NULL DEFAULT '{}',
-    parent_thread_id  TEXT,
-    fork_point_seq    INTEGER,
-    fork_mode         TEXT,
-    archived          INTEGER NOT NULL DEFAULT 0,
+    thread_id         text PRIMARY KEY,
+    title             text NOT NULL DEFAULT '',
+    created_at        double precision NOT NULL,
+    updated_at        double precision NOT NULL,
+    metadata          text NOT NULL DEFAULT '{}',
+    parent_thread_id  text,
+    fork_point_seq    integer,
+    fork_mode         text,
+    archived          integer NOT NULL DEFAULT 0,
+    row_ord           bigint GENERATED ALWAYS AS IDENTITY,
     FOREIGN KEY (parent_thread_id) REFERENCES threads(thread_id)
 );
 CREATE INDEX IF NOT EXISTS idx_threads_updated ON threads(updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS turns (
-    turn_id    TEXT    PRIMARY KEY,
-    thread_id  TEXT    NOT NULL,
-    turn_seq   INTEGER NOT NULL,
-    status     TEXT    NOT NULL DEFAULT 'running',
-    started_at REAL    NOT NULL,
-    ended_at   REAL,
-    error      TEXT,
-    metadata   TEXT    NOT NULL DEFAULT '{}',
+    turn_id    text PRIMARY KEY,
+    thread_id  text NOT NULL,
+    turn_seq   integer NOT NULL,
+    status     text NOT NULL DEFAULT 'running',
+    started_at double precision NOT NULL,
+    ended_at   double precision,
+    error      text,
+    metadata   text NOT NULL DEFAULT '{}',
     UNIQUE(thread_id, turn_seq),
     FOREIGN KEY (thread_id) REFERENCES threads(thread_id)
 );
 CREATE INDEX IF NOT EXISTS idx_turns_thread ON turns(thread_id, turn_seq);
 
 CREATE TABLE IF NOT EXISTS items (
-    seq            INTEGER PRIMARY KEY,
-    thread_id      TEXT    NOT NULL,
-    turn_id        TEXT,
-    parent_seq     INTEGER,
-    item_type      TEXT    NOT NULL,
-    created_at     REAL    NOT NULL,
-    payload        TEXT    NOT NULL,
-    search_text    TEXT    NOT NULL DEFAULT '',
-    client_item_id TEXT,
-    content_hash   TEXT,
+    seq            integer PRIMARY KEY,
+    thread_id      text NOT NULL,
+    turn_id        text,
+    parent_seq     integer,
+    item_type      text NOT NULL,
+    created_at     double precision NOT NULL,
+    payload        text NOT NULL,
+    search_text    text NOT NULL DEFAULT '',
+    client_item_id text,
+    content_hash   text,
     FOREIGN KEY (thread_id) REFERENCES threads(thread_id),
     FOREIGN KEY (turn_id) REFERENCES turns(turn_id)
 );
@@ -701,27 +704,15 @@ CREATE INDEX IF NOT EXISTS idx_items_thread ON items(thread_id, seq);
 CREATE INDEX IF NOT EXISTS idx_items_turn ON items(turn_id, seq);
 
 CREATE TABLE IF NOT EXISTS rollbacks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    thread_id    TEXT    NOT NULL,
-    to_seq       INTEGER NOT NULL,
-    reason       TEXT    NOT NULL DEFAULT '',
-    created_at   REAL    NOT NULL,
+    id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    thread_id    text NOT NULL,
+    to_seq       integer NOT NULL,
+    reason       text NOT NULL DEFAULT '',
+    created_at   double precision NOT NULL,
     FOREIGN KEY (thread_id) REFERENCES threads(thread_id)
 );
 CREATE INDEX IF NOT EXISTS idx_rollbacks_thread ON rollbacks(thread_id, to_seq DESC);
 """
-
-_FTS5_DDL = """
-CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
-    search_text,
-    seq UNINDEXED,
-    thread_id UNINDEXED,
-    item_type UNINDEXED,
-    tokenize='unicode61'
-);
-"""
-
-
 _RELAY_DDL = """
 CREATE TABLE IF NOT EXISTS relay_summaries (
     summary_id      TEXT    PRIMARY KEY,
@@ -729,8 +720,8 @@ CREATE TABLE IF NOT EXISTS relay_summaries (
     prev_thread_id  TEXT,
     objective       TEXT    NOT NULL DEFAULT '',
     payload         TEXT    NOT NULL,
-    refined         INTEGER NOT NULL DEFAULT 0,
-    created_at      REAL    NOT NULL,
+    refined         integer NOT NULL DEFAULT 0,
+    created_at      double precision NOT NULL,
     FOREIGN KEY (thread_id) REFERENCES threads(thread_id)
 );
 CREATE INDEX IF NOT EXISTS idx_relay_thread ON relay_summaries(thread_id, created_at DESC);
@@ -739,6 +730,44 @@ CREATE INDEX IF NOT EXISTS idx_relay_created ON relay_summaries(created_at DESC)
 
 
 # ==================== 工具函数 ====================
+
+
+def _resolve_dsn() -> str:
+    """DSN 取用顺序:会话专用 env → 通用 env → 同目录 `.env` 的 DATABASE_URL 行。
+
+    最后一步是给"测试进程不带 .env 真值"的既定隔离纪律留的**唯一**缺口:只读
+    DATABASE_URL 一行,不改 os.environ(读不到就返回空,由调用方 fail-closed)。
+    """
+    for key in ("SESSION_PG_DSN", "DATABASE_URL"):
+        v = os.environ.get(key, "").strip()
+        if v:
+            return v
+    env_file = Path(__file__).resolve().parents[2] / ".env"
+    try:
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("DATABASE_URL=") and "#" not in line:
+                return line.partition("=")[2].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
+def _schema_name_for(path: Path) -> str:
+    """`db_path` 现在只是**存储身份**:schema 名由绝对路径派生(稳定、可复算、不含盘符)。
+
+    同一路径 ⇒ 同一 schema(重启后数据仍在);不同路径 ⇒ 不同 schema(相互隔离)。
+    """
+    return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
+
+
+def _is_temp_path(path: Path) -> bool:
+    """临时路径(pytest `tmp_path` 等)⇒ 该 schema 用完即弃;生产路径永不动。"""
+    try:
+        root = str(Path(tempfile.gettempdir()).resolve()).lower()
+        return str(path.resolve()).lower().startswith(root)
+    except OSError:
+        return False
 
 
 def _now() -> float:
@@ -752,29 +781,29 @@ def _content_hash(item: ItemBase) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
-def _row_str(row: sqlite3.Row, key: str) -> str:
+def _row_str(row: Any, key: str) -> str:
     return str(row[key])
 
 
-def _row_float(row: sqlite3.Row, key: str) -> float:
+def _row_float(row: Any, key: str) -> float:
     return float(row[key])
 
 
-def _row_int(row: sqlite3.Row, key: str) -> int:
+def _row_int(row: Any, key: str) -> int:
     return int(row[key])
 
 
-def _row_opt_int(row: sqlite3.Row, key: str) -> int | None:
+def _row_opt_int(row: Any, key: str) -> int | None:
     v = row[key]
     return None if v is None else int(v)
 
 
-def _row_opt_str(row: sqlite3.Row, key: str) -> str | None:
+def _row_opt_str(row: Any, key: str) -> str | None:
     v = row[key]
     return None if v is None else str(v)
 
 
-def _row_opt_float(row: sqlite3.Row, key: str) -> float | None:
+def _row_opt_float(row: Any, key: str) -> float | None:
     v = row[key]
     return None if v is None else float(v)
 
@@ -788,16 +817,7 @@ def _escape_like(term: str) -> str:
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _probe_fts5(conn: sqlite3.Connection) -> bool:
-    try:
-        conn.execute("CREATE VIRTUAL TABLE temp._fts_probe USING fts5(x)")
-        conn.execute("DROP TABLE temp._fts_probe")
-        return True
-    except sqlite3.OperationalError:
-        return False
-
-
-def _row_to_thread(row: sqlite3.Row) -> Thread:
+def _row_to_thread(row: Any) -> Thread:
     return Thread(
         thread_id=_row_str(row, "thread_id"),
         title=_row_str(row, "title"),
@@ -812,7 +832,7 @@ def _row_to_thread(row: sqlite3.Row) -> Thread:
     )
 
 
-def _row_to_turn(row: sqlite3.Row) -> Turn:
+def _row_to_turn(row: Any) -> Turn:
     return Turn(
         turn_id=_row_str(row, "turn_id"),
         thread_id=_row_str(row, "thread_id"),
@@ -825,7 +845,7 @@ def _row_to_turn(row: sqlite3.Row) -> Turn:
     )
 
 
-def _row_to_item(row: sqlite3.Row) -> ItemBase:
+def _row_to_item(row: Any) -> ItemBase:
     envelope: dict[str, Any] = {
         "seq": _row_int(row, "seq"),
         "thread_id": _row_str(row, "thread_id"),
@@ -858,19 +878,25 @@ class SessionStore:
         busy_timeout_ms: int = 5000,
         synchronous: str = "FULL",
     ) -> None:
+        # 2026-11-19 机主定档:数据层只允许 PostgreSQL,禁止 sqlite(含测试库与本地状态库)。
+        # `db_path` 现在只是**存储身份**(决定 schema 名),不再落任何文件:
+        # 生产路径 → 稳定 schema;临时路径(pytest tmp) → 独立 schema,close() 时整库丢弃。
         self._path = Path(db_path)
-        self._path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._conn = sqlite3.connect(
-            str(self._path),
-            check_same_thread=False,
-            isolation_level=None,
-        )
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute(f"PRAGMA synchronous={synchronous}")
-        self._conn.execute("PRAGMA foreign_keys=ON")
+        self._busy_timeout_ms = int(busy_timeout_ms)
+        self._synchronous = synchronous
+        dsn = _resolve_dsn()
+        if not dsn:
+            raise SyncPgError(
+                "SessionStore 需要 PostgreSQL(dsn: SESSION_PG_DSN 或 DATABASE_URL),"
+                "不回落 sqlite"
+            )
+        self._schema = _schema_name_for(self._path)
+        self._ephemeral = _is_temp_path(self._path)
+        self._session = SyncPgSession(dsn)
+        self._session.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
+        self._session.execute(f'SET search_path TO "{self._schema}"')
+        self._conn = PgShim(self._session)
         self._fts_enabled = False
         self._migrate()
 
@@ -892,7 +918,13 @@ class SessionStore:
 
     def close(self) -> None:
         with self._lock:
-            self._conn.close()
+            if self._ephemeral:
+                # 测试隔离:临时路径的 schema 用完即弃(生产路径的数据不动)。
+                try:
+                    self._session.execute(f'DROP SCHEMA IF EXISTS "{self._schema}" CASCADE')
+                except Exception:  # noqa: BLE001 - 清理失败不改变"已关闭"这一事实
+                    pass
+            self._session.close()
 
     def __enter__(self) -> SessionStore:
         return self
@@ -907,25 +939,26 @@ class SessionStore:
             self._conn.executescript(_SCHEMA_V1)
             if not self._has_version(1):
                 self._add_version(1, "baseline: threads/turns/items/rollbacks")
-            if _probe_fts5(self._conn):
-                self._conn.executescript(_FTS5_DDL)
-                if not self._has_version(2):
-                    # 回填已有数据
-                    self._conn.execute(
-                        "INSERT OR IGNORE INTO items_fts (search_text, seq, thread_id, item_type)"
-                        " SELECT search_text, seq, thread_id, item_type FROM items"
-                        " WHERE search_text <> ''"
-                    )
-                    self._add_version(2, "fts5: items_fts virtual table")
-                self._fts_enabled = True
+            # v2 历史位保留:fts5 虚表已退役,检索改为 ILIKE(不建任何虚表)。
+            if not self._has_version(2):
+                self._add_version(2, "search: ILIKE(原 fts5 虚表退役)")
             # v3: 跨会话接力摘要表(复用现有 sqlite 引擎,不另造存储层)
             self._conn.executescript(_RELAY_DDL)
             if not self._has_version(3):
                 self._add_version(3, "relay_summaries: cross-session relay summary")
             # v4: 归档时刻墓碑列(G-815919)。删除动作留下的是可恢复的标记,
             # 不是行的消失 —— 归档进迁移、进行类型、进编解码,三格缺一不可。
+            # row_ord:排序 tie-breaker(原 sqlite 的隐式 rowid)。历史库没有这一列
+            # 时补上(ALTER 加 identity 列会给既有行按扫描顺序编号)。
+            if not self._has_column("threads", "row_ord"):
+                self._conn.execute(
+                    "ALTER TABLE threads ADD COLUMN IF NOT EXISTS row_ord"
+                    " bigint GENERATED ALWAYS AS IDENTITY"
+                )
             if not self._has_column("threads", "archived_at"):
-                self._conn.execute("ALTER TABLE threads ADD COLUMN archived_at REAL")
+                self._conn.execute(
+                    "ALTER TABLE threads ADD COLUMN IF NOT EXISTS archived_at double precision"
+                )
             if not self._has_version(4):
                 self._add_version(
                     4, "threads.archived_at: tombstone timestamp (G-815919)"
@@ -938,7 +971,11 @@ class SessionStore:
         return row is not None
 
     def _has_column(self, table: str, column: str) -> bool:
-        rows = self._conn.execute(f"PRAGMA table_info({table})").fetchall()
+        rows = self._conn.execute(
+            "SELECT column_name AS name FROM information_schema.columns"
+            " WHERE table_schema = current_schema() AND table_name = ?",
+            (table,),
+        ).fetchall()
         return any(_row_str(r, "name") == column for r in rows)
 
     def _add_version(self, version: int, description: str) -> None:
@@ -1041,7 +1078,7 @@ class SessionStore:
             cur = conn.execute(
                 "UPDATE threads SET archived = ?,"
                 " archived_at = CASE WHEN ? = 1 THEN COALESCE(archived_at, ?) ELSE NULL END,"
-                " updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                " updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (flag, flag, now, now, thread_id),
             )
             return cur.rowcount > 0
@@ -1065,7 +1102,7 @@ class SessionStore:
             cur = conn.execute(
                 "UPDATE threads SET archived = 1,"
                 " archived_at = COALESCE(archived_at, ?),"
-                " updated_at = max(updated_at, ?)"
+                " updated_at = GREATEST(updated_at, ?)"
                 " WHERE thread_id = ? AND archived = 0",
                 (ts, ts, thread_id),
             )
@@ -1083,7 +1120,7 @@ class SessionStore:
         """
         with self._lock, self._tx() as conn:
             cur = conn.execute(
-                "UPDATE threads SET title = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET title = ?, updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (name, _now(), thread_id),
             )
             return cur.rowcount > 0
@@ -1154,7 +1191,7 @@ class SessionStore:
                     new_meta.pop(GOAL_ASSESSMENTS_KEY, None)
                 new_meta["goalState"] = state
             conn.execute(
-                "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET metadata = ?, updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
             )
         return new_meta
@@ -1201,7 +1238,7 @@ class SessionStore:
                 state = {**state, "status": goal_status, "updatedAt": _now()}
                 meta["goalState"] = state
             conn.execute(
-                "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET metadata = ?, updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (json.dumps(meta, ensure_ascii=False), _now(), thread_id),
             )
         return history
@@ -1228,8 +1265,8 @@ class SessionStore:
         with self._lock:
             row = self._conn.execute(
                 "SELECT thread_id FROM threads"
-                " WHERE json_extract(metadata, '$.conversationId') = ?"
-                " ORDER BY updated_at DESC, rowid DESC LIMIT 1",
+                " WHERE (metadata::jsonb ->> 'conversationId') = ?"
+                " ORDER BY updated_at DESC, row_ord DESC LIMIT 1",
                 (conversation_id,),
             ).fetchone()
         return _row_str(row, "thread_id") if row is not None else None
@@ -1271,7 +1308,7 @@ class SessionStore:
             )
             new_meta = carry_goal_keys(current, carry_identity_keys(current, merged))
             conn.execute(
-                "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET metadata = ?, updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
             )
         return new_meta
@@ -1334,7 +1371,7 @@ class SessionStore:
         conditions: list[str] = [] if include_archived else ["archived = 0"]
         args: list[Any] = []
         if owner_user_id is not None:
-            conditions.append("json_extract(metadata, '$.userId') = ?")
+            conditions.append("(metadata::jsonb ->> 'userId') = ?")
             args.append(owner_user_id)
         where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
         with self._lock:
@@ -1342,7 +1379,7 @@ class SessionStore:
                 f"SELECT COUNT(*) AS c FROM threads{where}", args
             ).fetchone()
             rows = self._conn.execute(
-                f"SELECT * FROM threads{where} ORDER BY updated_at DESC, rowid DESC LIMIT ? OFFSET ?",
+                f"SELECT * FROM threads{where} ORDER BY updated_at DESC, row_ord DESC LIMIT ? OFFSET ?",
                 [*args, max(0, int(limit)), max(0, int(offset))],
             ).fetchall()
         threads = [_row_to_thread(r) for r in rows]
@@ -1374,16 +1411,16 @@ class SessionStore:
         Returns:
             [(thread, 收窄后的 goalState)],按 updated_at 倒序,最多 limit 条。
         """
-        conditions = ["archived = 0", "json_extract(metadata, '$.goalState') IS NOT NULL"]
+        conditions = ["archived = 0", "(metadata::jsonb ->> 'goalState') IS NOT NULL"]
         args: list[Any] = []
         if owner_user_id is not None:
-            conditions.append("json_extract(metadata, '$.userId') = ?")
+            conditions.append("(metadata::jsonb ->> 'userId') = ?")
             args.append(owner_user_id)
         where = f" WHERE {' AND '.join(conditions)}"
         cap = max(1, min(int(limit), 200))
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT * FROM threads{where} ORDER BY updated_at DESC, rowid DESC LIMIT ?",
+                f"SELECT * FROM threads{where} ORDER BY updated_at DESC, row_ord DESC LIMIT ?",
                 [*args, cap],
             ).fetchall()
         out: list[tuple[Thread, dict[str, Any]]] = []
@@ -1417,14 +1454,14 @@ class SessionStore:
                 "SELECT COALESCE(MAX(turn_seq), 0) + 1 AS n FROM turns WHERE thread_id = ?",
                 (thread_id,),
             ).fetchone()
-            turn_seq = _row_int(cast(sqlite3.Row, seq_row), "n")
+            turn_seq = _row_int(cast(Any, seq_row), "n")
             conn.execute(
                 "INSERT INTO turns (turn_id, thread_id, turn_seq, status, started_at, metadata)"
                 " VALUES (?,?,?,'running',?,?)",
                 (tid, thread_id, turn_seq, now, json.dumps(metadata or {}, ensure_ascii=False)),
             )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?", (now, thread_id)
+                "UPDATE threads SET updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?", (now, thread_id)
             )
         return Turn(
             turn_id=tid,
@@ -1460,7 +1497,7 @@ class SessionStore:
                 (status, now, error, turn_id),
             )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (now, _row_str(row, "thread_id")),
             )
         return self.get_turn(turn_id) or self._ensure_turn(turn_id)
@@ -1494,12 +1531,12 @@ class SessionStore:
             ).fetchone()
             if trow is None:
                 raise TurnNotFoundError(before_turn_id)
-            owner = _row_str(cast(sqlite3.Row, trow), "thread_id")
+            owner = _row_str(cast(Any, trow), "thread_id")
             if owner != thread_id:
                 raise TurnMismatchError(
                     f"turn {before_turn_id} 不属于 thread {thread_id}"
                 )
-            cutoff = _row_int(cast(sqlite3.Row, trow), "turn_seq")
+            cutoff = _row_int(cast(Any, trow), "turn_seq")
             # 该 turn 及其后的 items(turn_id 关联)先删,再删 turns 本身
             cur = conn.execute(
                 "DELETE FROM items WHERE thread_id = ? AND turn_id IN ("
@@ -1513,7 +1550,7 @@ class SessionStore:
             )
             deleted = cur.rowcount
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (_now(), thread_id),
             )
         return deleted
@@ -1586,14 +1623,8 @@ class SessionStore:
                     chash,
                 ),
             )
-            if self._fts_enabled and search:
-                conn.execute(
-                    "INSERT INTO items_fts (search_text, seq, thread_id, item_type)"
-                    " VALUES (?,?,?,?)",
-                    (search, seq, effective_thread, item.item_type),
-                )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (_now(), effective_thread),
             )
         return item.model_copy(
@@ -1798,19 +1829,8 @@ class SessionStore:
                         _row_opt_str(row, "content_hash"),
                     ),
                 )
-                if self._fts_enabled and _row_str(row, "search_text"):
-                    conn.execute(
-                        "INSERT INTO items_fts (search_text, seq, thread_id, item_type)"
-                        " VALUES (?,?,?,?)",
-                        (
-                            _row_str(row, "search_text"),
-                            new_seq,
-                            new_thread.thread_id,
-                            _row_str(row, "item_type"),
-                        ),
-                    )
             conn.execute(
-                "UPDATE threads SET updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                "UPDATE threads SET updated_at = GREATEST(updated_at, ?) WHERE thread_id = ?",
                 (_now(), new_thread.thread_id),
             )
         return new_thread
@@ -2051,12 +2071,6 @@ class SessionStore:
         """
         if not query.strip():
             return []
-        if self._fts_enabled:
-            hits = self._search_fts(
-                query, thread_id, limit, owner_user_id, exclude_thread_id
-            )
-            if hits is not None:
-                return hits
         return self._search_like(
             query, thread_id, limit, owner_user_id, exclude_thread_id
         )
@@ -2076,49 +2090,13 @@ class SessionStore:
         if owner_user_id:
             sql += (
                 " AND thread_id IN (SELECT thread_id FROM threads"
-                " WHERE json_extract(metadata,'$.userId') = ?)"
+                " WHERE (metadata::jsonb ->> 'userId') = ?)"
             )
             args.append(owner_user_id)
         if exclude_thread_id:
             sql += " AND thread_id != ?"
             args.append(exclude_thread_id)
         return sql, args
-
-    def _search_fts(
-        self,
-        query: str,
-        thread_id: str | None,
-        limit: int,
-        owner_user_id: str | None = None,
-        exclude_thread_id: str | None = None,
-    ) -> list[SearchHit] | None:
-        scope_sql, scope_args = self._scope_sql(
-            thread_id, owner_user_id, exclude_thread_id
-        )
-        sql = (
-            "SELECT seq, thread_id, item_type,"
-            " snippet(items_fts, 0, '', '', ' … ', 24) AS snip,"
-            " bm25(items_fts) AS score"
-            " FROM items_fts WHERE items_fts MATCH ?"
-            f"{scope_sql} ORDER BY score LIMIT ?"
-        )
-        try:
-            with self._lock:
-                rows = self._conn.execute(
-                    sql, [query, *scope_args, int(limit)]
-                ).fetchall()
-        except sqlite3.OperationalError:
-            return None
-        return [
-            SearchHit(
-                seq=_row_int(r, "seq"),
-                thread_id=_row_str(r, "thread_id"),
-                item_type=cast(ItemKind, _row_str(r, "item_type")),
-                snippet=_row_str(r, "snip"),
-                score=_row_float(r, "score"),
-            )
-            for r in rows
-        ]
 
     def _search_like(
         self,
@@ -2135,7 +2113,7 @@ class SessionStore:
         )
         sql = (
             "SELECT seq, thread_id, item_type, search_text FROM items"
-            " WHERE search_text LIKE ? ESCAPE '\\'"
+            " WHERE search_text ILIKE ? ESCAPE '\\'"
             f"{scope_sql} ORDER BY seq DESC LIMIT ?"
         )
         with self._lock:
@@ -2241,7 +2219,7 @@ class SessionStore:
             sql_text = (
                 "SELECT rs.* FROM relay_summaries rs"
                 " JOIN threads t ON t.thread_id = rs.thread_id"
-                " WHERE json_extract(t.metadata, '$.userId') = ?"
+                " WHERE (t.metadata::jsonb ->> 'userId') = ?"
                 " ORDER BY rs.created_at DESC LIMIT ? OFFSET ?"
             )
             args = [owner_user_id, max(0, int(limit)), max(0, int(offset))]
@@ -2249,7 +2227,7 @@ class SessionStore:
             rows = self._conn.execute(sql_text, args).fetchall()
         return [self._row_to_relay(r) for r in rows]
 
-    def _row_to_relay(self, row: sqlite3.Row) -> dict[str, Any]:
+    def _row_to_relay(self, row: Any) -> dict[str, Any]:
         return {
             "summary_id": _row_str(row, "summary_id"),
             "thread_id": _row_str(row, "thread_id"),
@@ -2279,7 +2257,7 @@ class SessionStore:
                 result[key] = value
         return result
 
-    def _next_seq(self, conn: sqlite3.Connection) -> int:
+    def _next_seq(self, conn: PgShim) -> int:
         conn.execute(
             "UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'last_seq'"
         )
@@ -2287,9 +2265,9 @@ class SessionStore:
         return int(str(row["value"]))
 
     @contextmanager
-    def _tx(self) -> Iterator[sqlite3.Connection]:
+    def _tx(self) -> Iterator[PgShim]:
         with self._lock:
-            self._conn.execute("BEGIN IMMEDIATE")
+            self._conn.execute("BEGIN")
             try:
                 yield self._conn
             except BaseException:

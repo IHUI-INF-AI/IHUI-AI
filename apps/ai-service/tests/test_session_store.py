@@ -625,7 +625,7 @@ def test_wal_uncommitted_not_visible(tmp_path: Path) -> None:
     s1 = SessionStore(db)
     t = s1.create_thread(title="safe")
     # 手动 BEGIN 但不 COMMIT(模拟崩溃)
-    s1._conn.execute("BEGIN IMMEDIATE")
+    s1._conn.execute("BEGIN")
     s1._conn.execute(
         "INSERT INTO items (seq, thread_id, item_type, created_at, payload, search_text)"
         " VALUES (99999, ?, 'user_message', 0, '{}', '')",
@@ -777,7 +777,11 @@ def test_all_thread_updated_at_writes_use_monotonic_max(store: SessionStore) -> 
 
     writes = [s for s in captured if "UPDATE threads SET" in s and "updated_at" in s]
     assert writes, "未捕获到任何 threads.updated_at 写入,判据在空转"
-    bare = [s for s in writes if "max(updated_at" not in s]
+    bare = [
+        s
+        for s in writes
+        if "GREATEST(updated_at" not in s and "max(updated_at" not in s
+    ]
     assert not bare, f"这些写入未取 max,会把并发新时刻压回过去: {bare}"
     shapes = {_write_shape(s) for s in writes}
     assert len(shapes) == 4, f"应覆盖 4 种 SET 形态(archived/title/metadata/裸时钟),实得 {shapes}"
