@@ -468,6 +468,25 @@ jobs:
     defaults:
       run:
         working-directory: apps/ai-service
+    # 2026-11-19:ai-service 自有 sqlite 写路径已全部迁 PostgreSQL(守门 pg-only 零容忍)。
+    # 会话库/记忆清扫/准入票/审批缓存/SSO 身份五处都按 DATABASE_URL fail-closed,
+    # 这个 job 不带库 ⇒ 整片用例红;故与 schema-check job 同镜像同环境变量起一个真库。
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ihui_test
     steps:
       # 每一步都要 id:失败自述脚本只认 TRIAGE_IDS 点名的 id,没有 id 的步骤在自述里结构上不存在
       # (判据见 scripts/check-ci-failure-triage-wiring.mjs;台账 G-591 第③件点名的正是"python 这条红了说不出为什么")

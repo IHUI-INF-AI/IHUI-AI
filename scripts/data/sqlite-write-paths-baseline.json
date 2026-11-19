@@ -1,14 +1,10 @@
 {
-  "policy": "项目数据层只允许 PostgreSQL。本清单逐文件登记现存 sqlite 写路径的命中数,新代码一律不得新增(改这项数只能减,不能增)。清除一个文件后把该键删掉,不得留 0 值占位。",
+  "policy": "项目数据层只允许 PostgreSQL。自有 sqlite 写路径已清零(2026-11-19),本门对自有路径**零容忍**:除门体登记的 NON_STORE_FIXTURES(非我们的存储)外,任何 sqlite 写形态一律判红,不再有基线增量空间。",
   "generatedBy": "node scripts/check-sqlite-write-paths.mjs --emit-baseline",
   "face": "HEAD @ 2026-11-19",
   "migrationOrder": [],
-  "files": {
-    "apps/ai-service/tests/test_external_browser_profile.py": 1,
-    "apps/ai-service/tests/test_sag2_pg_integration.py": 2
-  },
+  "files": {},
   "notes": {
-    "apps/ai-service/tests/test_external_browser_profile.py": "测试夹具:构造浏览器 profile 的 sqlite 文件,不是我们的存储。随外部分档格式存在。",
-    "apps/ai-service/tests/test_sag2_pg_integration.py": "测试夹具:为 PG 集成用例准备历史 sqlite 输入(迁移前形态)。该用例本身跑 PG。"
+    "_": "两处非存储夹具(外部浏览器 profile / PG 集成用例的历史输入)登记在 scripts/check-sqlite-write-paths.mjs 的 NON_STORE_FIXTURES,带理由且每轮核对存活;它们不进本清单,以免清单变成第二份真相源。"
   }
 }
