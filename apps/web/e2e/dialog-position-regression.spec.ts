@@ -114,11 +114,13 @@ async function triggerAndMeasure(
     if (panelShown) {
       await overflowTrigger.click()
       await page.locator('[data-testid="ai-panel-close"]').click()
+      // WAIT-POLICY:TIMING-0009 UI 过渡/水合落定窗口,无公开可观察信号
       await page.waitForTimeout(500)
     }
     const menuBtn = page.locator('button[aria-label="菜单"]').first()
     await expect(menuBtn).toBeVisible({ timeout: 5000 })
     await menuBtn.click()
+    // WAIT-POLICY:TIMING-0008 UI 过渡/水合落定窗口,无公开可观察信号
     await page.waitForTimeout(500)
   }
 
@@ -150,6 +152,7 @@ async function triggerAndMeasure(
   await expect(passwordTab).toBeVisible({ timeout: 5000 })
   await passwordTab.click()
   // 等 PasswordLoginForm 挂载(切 tab 后 TabsContent 重新渲染,testid 出现)
+  // WAIT-POLICY:TIMING-0007 等 PasswordLoginForm 挂载(切 tab 后 TabsContent 重新渲染,testid 出现)
   await page.waitForTimeout(500)
 
   // 5. 填表(**不**勾选协议 — defaultAgreed=false,弹窗由 agreementMode='notice-dialog' 触发)

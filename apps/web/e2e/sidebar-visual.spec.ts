@@ -79,7 +79,7 @@ test.describe('Sidebar 视觉守门', () => {
     const btnVisible = await collapseBtn.isVisible().catch(() => false)
     if (!btnVisible) {
       // 移动端可能隐藏,跳过
-      test.skip(true, 'collapse 按钮不可见(可能移动端视图)')
+      test.skip(true, 'collapse 按钮不可见(可能移动端视图) [SKIP:SKIP-0237]')
       return
     }
 
@@ -120,6 +120,7 @@ test.describe('Sidebar 视觉守门', () => {
     await handle.hover()
 
     // 等 CSS 过渡完成(transition-opacity duration-200)
+    // WAIT-POLICY:TIMING-0022 等 CSS 过渡完成(transition-opacity duration-200)
     await authenticatedPage.waitForTimeout(300)
 
     // 2026-08-26 修复:细线背景是 linear-gradient(走 backgroundImage),backgroundColor
@@ -142,6 +143,7 @@ test.describe('Sidebar 视觉守门', () => {
     await handle.focus()
 
     // 等 focus-visible 样式应用
+    // WAIT-POLICY:TIMING-0021 等 focus-visible 样式应用
     await authenticatedPage.waitForTimeout(100)
 
     // 检查手柄容器自身的 background-color(不是内层细线)
@@ -269,6 +271,7 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
     // 等 React hydration + 折叠态样式应用
+    // WAIT-POLICY:TIMING-0020 等 React hydration + 折叠态样式应用
     await authenticatedPage.waitForTimeout(500)
   })
 
@@ -452,6 +455,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
     // 等 React hydration + useMounted() 返回 true 后 SidebarUserRow 才渲染
+    // WAIT-POLICY:TIMING-0019 等 React hydration + useMounted() 返回 true 后 SidebarUserRow 才渲染
     await authenticatedPage.waitForTimeout(800)
   })
 
@@ -544,6 +548,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await authenticatedPage.evaluate(() => {
       document.documentElement.classList.remove('dark')
     })
+    // WAIT-POLICY:TIMING-0018 UI 过渡/水合落定窗口,无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
 
     // 2026-08-26 修复:等待 SidebarUserRow 渲染(登录态恢复/首屏时序,否则 evaluate 查到
@@ -629,6 +634,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await authenticatedPage.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
+    // WAIT-POLICY:TIMING-0017 UI 过渡/水合落定窗口,无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
 
     const data = await assertUserRowGeometry(authenticatedPage, 'dark')
@@ -669,6 +675,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     const row = authenticatedPage.locator('aside .group\\/row').first()
     await expect(row).toBeVisible()
     await row.hover()
+    // WAIT-POLICY:TIMING-0016 UI 过渡/水合落定窗口,无公开可观察信号
     await authenticatedPage.waitForTimeout(300) // transition-colors duration
 
     // 读 hover 状态下 row 的 background-color
@@ -747,6 +754,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
     // 等 React hydration + isTabletViewport layout effect 切折叠态
+    // WAIT-POLICY:TIMING-0015 等 React hydration + isTabletViewport layout effect 切折叠态
     await authenticatedPage.waitForTimeout(500)
 
     const data = await authenticatedPage.evaluate(() => {
@@ -790,6 +798,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await authenticatedPage.setViewportSize({ width: 900, height: 800 })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
+    // WAIT-POLICY:TIMING-0014 UI 过渡/水合落定窗口,无公开可观察信号
     await authenticatedPage.waitForTimeout(500)
 
     // header 拉出(展开)按钮:aria-label 正则,与现有 collapse 按钮测试同源
@@ -826,6 +835,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
+    // WAIT-POLICY:TIMING-0013 UI 过渡/水合落定窗口,无公开可观察信号
     await authenticatedPage.waitForTimeout(500)
 
     const data = await authenticatedPage.evaluate(() => {
@@ -878,6 +888,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     if (panelShown) {
       await overflowTrigger.click()
       await authenticatedPage.locator('[data-testid="ai-panel-close"]').click()
+      // WAIT-POLICY:TIMING-0012 UI 过渡/水合落定窗口,无公开可观察信号
       await authenticatedPage.waitForTimeout(500)
     }
 
@@ -890,6 +901,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     // 抽屉是带 role="dialog" 的 aside
     const drawer = authenticatedPage.locator('aside[role="dialog"]')
     await expect(drawer).toBeVisible({ timeout: 10000 })
+    // WAIT-POLICY:TIMING-0011 UI 过渡/水合落定窗口,无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
 
     // 抽屉内用户行必须存在且恒展开布局(collapsed={false}),不受桌面折叠偏好影响:
