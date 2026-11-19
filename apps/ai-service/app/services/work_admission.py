@@ -11,9 +11,11 @@
 本文件按本仓 LangGraph 另写,不包含上游源码。
 范围由宿主固定。研判函数看不到消息正文,也不能改强度或范围。
 
-工单账挂在已有会话库(同一个 sessions.db)的 work_admission_tickets 表上,
-不另开账本文件。重启后按 trigger_id 读回已派工 / 已丢弃 / 模拟未完成,
-同一 trigger 不再派一次。测试默认仍用内存账,不连生产库。
+工单账挂在 **PostgreSQL**(机主 2026-11-19 定档:数据层只允许 PG,禁止 sqlite)的
+`work_admission_tickets` 表上,通过 `app.core.pg_sync.SyncPgSession` 把 asyncpg 连接
+暴露成同步调用。重启后按 trigger_id 读回已派工 / 已丢弃 / 模拟未完成,
+同一 trigger 不再派一次。没有 DATABASE_URL 时退到进程内账(不落盘、不建 sqlite 文件),
+测试默认也用内存账。
 """
 
 from __future__ import annotations
@@ -21,14 +23,16 @@ from __future__ import annotations
 import json
 import os
 import re
-import sqlite3
 import threading
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
+
+import asyncpg
+
+from app.core.pg_sync import SyncPgSession
 
 AcceptMode = Literal["off", "observe", "auto"]
 Strength = Literal["explicit", "inferred"]
@@ -318,20 +322,21 @@ class MemoryTicketStore:
 
 _CREATE_TICKETS = (
     "CREATE TABLE IF NOT EXISTS work_admission_tickets ("
-    "ticket_id TEXT PRIMARY KEY, "
-    "trigger_id TEXT NOT NULL UNIQUE, "
-    "policy_version TEXT NOT NULL, "
-    "scope TEXT NOT NULL, "
-    "strength TEXT NOT NULL, "
-    "matched_rule_ids TEXT NOT NULL, "
-    "actor_id TEXT NOT NULL, "
-    "source TEXT NOT NULL, "
-    "is_open INTEGER NOT NULL, "
-    "stopped_by_person INTEGER NOT NULL, "
-    "assignment TEXT NOT NULL, "
-    "allowed_actors TEXT NOT NULL, "
-    "last_report TEXT, "
-    "simulation INTEGER NOT NULL DEFAULT 0)"
+    "ticket_id text PRIMARY KEY, "
+    "trigger_id text NOT NULL UNIQUE, "
+    "policy_version text NOT NULL, "
+    "scope text NOT NULL, "
+    "strength text NOT NULL, "
+    "matched_rule_ids text NOT NULL, "
+    "actor_id text NOT NULL, "
+    "source text NOT NULL, "
+    "is_open smallint NOT NULL, "
+    "stopped_by_person smallint NOT NULL, "
+    "assignment text NOT NULL, "
+    "allowed_actors text NOT NULL, "
+    "last_report text, "
+    "simulation smallint NOT NULL DEFAULT 0, "
+    "seq bigint GENERATED ALWAYS AS IDENTITY)"
 )
 _CREATE_TICKET_INDEX = (
     "CREATE INDEX IF NOT EXISTS idx_work_admission_tickets_open "
@@ -342,22 +347,32 @@ _INSERT_TICKET = (
     "INSERT INTO work_admission_tickets ("
     "ticket_id, trigger_id, policy_version, scope, strength, matched_rule_ids, "
     "actor_id, source, is_open, stopped_by_person, assignment, allowed_actors, "
-    "last_report, simulation) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    "last_report, simulation) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)"
 )
 
 _UPDATE_TICKET = (
-    "UPDATE work_admission_tickets SET trigger_id = ?, policy_version = ?, "
-    "scope = ?, strength = ?, matched_rule_ids = ?, actor_id = ?, source = ?, "
-    "is_open = ?, stopped_by_person = ?, assignment = ?, allowed_actors = ?, "
-    "last_report = ?, simulation = ? WHERE ticket_id = ?"
+    "UPDATE work_admission_tickets SET trigger_id = $1, policy_version = $2, "
+    "scope = $3, strength = $4, matched_rule_ids = $5, actor_id = $6, source = $7, "
+    "is_open = $8, stopped_by_person = $9, assignment = $10, allowed_actors = $11, "
+    "last_report = $12, simulation = $13 WHERE ticket_id = $14"
 )
 
+_UPDATE_BY_TRIGGER = (
+    "UPDATE work_admission_tickets SET ticket_id = $1, policy_version = $2, "
+    "scope = $3, strength = $4, matched_rule_ids = $5, actor_id = $6, source = $7, "
+    "is_open = $8, stopped_by_person = $9, assignment = $10, allowed_actors = $11, "
+    "last_report = $12, simulation = $13 WHERE trigger_id = $14"
+)
 
-def session_db_path() -> Path:
-    """工单表落在会话库文件里。路径口径与 SessionStore 同一函数,不另选文件。"""
-    from app.routers.sessions import resolve_session_db_path
-
-    return Path(resolve_session_db_path())
+_SELECT_BY_TRIGGER = "SELECT * FROM work_admission_tickets WHERE trigger_id = $1"
+_SELECT_BY_TICKET = "SELECT * FROM work_admission_tickets WHERE ticket_id = $1"
+_SELECT_COUNT = "SELECT COUNT(*)::bigint AS n FROM work_admission_tickets"
+# 淘汰顺序在 sqlite 里是 `ORDER BY rowid`(插入序);PG 用同名语义的 identity 列 `seq`。
+_SELECT_OLDEST_CLOSED = (
+    "DELETE FROM work_admission_tickets WHERE ticket_id = ("
+    "SELECT ticket_id FROM work_admission_tickets WHERE is_open = 0 "
+    "ORDER BY seq LIMIT 1) RETURNING ticket_id"
+)
 
 
 def _ticket_values(rec: TicketRec) -> tuple[str | int | None, ...]:
@@ -381,7 +396,7 @@ def _ticket_values(rec: TicketRec) -> tuple[str | int | None, ...]:
     )
 
 
-def _text_cell(row: sqlite3.Row, key: str, *, allow_empty: bool) -> str | None:
+def _text_cell(row: Mapping[str, Any], key: str, *, allow_empty: bool) -> str | None:
     value = row[key]
     if not isinstance(value, str):
         return None
@@ -390,7 +405,7 @@ def _text_cell(row: sqlite3.Row, key: str, *, allow_empty: bool) -> str | None:
     return None
 
 
-def _bit_cell(row: sqlite3.Row, key: str) -> bool | None:
+def _bit_cell(row: Mapping[str, Any], key: str) -> bool | None:
     value = row[key]
     if isinstance(value, bool):
         return value
@@ -399,7 +414,7 @@ def _bit_cell(row: sqlite3.Row, key: str) -> bool | None:
     return None
 
 
-def _text_tuple_cell(row: sqlite3.Row, key: str) -> tuple[str, ...] | None:
+def _text_tuple_cell(row: Mapping[str, Any], key: str) -> tuple[str, ...] | None:
     raw = row[key]
     if not isinstance(raw, str):
         return None
@@ -439,7 +454,7 @@ def _unreadable_ticket(trigger_id: str, ticket_id: str) -> TicketRec:
     )
 
 
-def _ticket_from_row(row: sqlite3.Row) -> TicketRec:
+def _ticket_from_row(row: Mapping[str, Any]) -> TicketRec:
     trigger_id = _text_cell(row, "trigger_id", allow_empty=False) or ""
     ticket_id = _text_cell(row, "ticket_id", allow_empty=False) or ""
     blocked = _unreadable_ticket(trigger_id, ticket_id)
@@ -512,109 +527,74 @@ def _ticket_from_row(row: sqlite3.Row) -> TicketRec:
     )
 
 
-class SqliteTicketStore:
-    """会话库里的工单表。换一个实例、甚至换一个进程,同一 trigger 仍能读回。"""
+class PgTicketStore:
+    """PG 里的工单表。换一个实例、甚至换一个进程,同一 trigger 仍能读回。"""
 
-    def __init__(self, path: str | Path, *, limit: int = _LEDGER_LIMIT) -> None:
-        self._path = Path(path)
+    def __init__(self, dsn: str, *, limit: int = _LEDGER_LIMIT) -> None:
+        self._dsn = dsn
         self._limit = limit
         self._lock = threading.Lock()
-        self._conn: sqlite3.Connection | None = None
+        self._session: SyncPgSession | None = None
 
     def find_trigger(self, trigger_id: str) -> TicketRec | None:
         with self._lock:
-            row = (
-                self._connect()
-                .execute(
-                    "SELECT * FROM work_admission_tickets WHERE trigger_id = ?",
-                    (trigger_id,),
-                )
-                .fetchone()
-            )
+            row = self._session_().fetchrow(_SELECT_BY_TRIGGER, (trigger_id,))
         if row is None:
             return None
         return _ticket_from_row(row)
 
     def get(self, ticket_id: str) -> TicketRec | None:
         with self._lock:
-            row = (
-                self._connect()
-                .execute(
-                    "SELECT * FROM work_admission_tickets WHERE ticket_id = ?",
-                    (ticket_id,),
-                )
-                .fetchone()
-            )
+            row = self._session_().fetchrow(_SELECT_BY_TICKET, (ticket_id,))
         if row is None:
             return None
         return _ticket_from_row(row)
 
     def __len__(self) -> int:
         with self._lock:
-            row = (
-                self._connect()
-                .execute("SELECT COUNT(*) AS n FROM work_admission_tickets")
-                .fetchone()
-            )
-        if row is None:
-            return 0
-        return int(row["n"])
+            n = self._session_().fetchval(_SELECT_COUNT)
+        return int(n or 0)
 
     def add(self, rec: TicketRec) -> bool:
         with self._lock:
-            conn = self._connect()
-            held = conn.execute(
-                "SELECT ticket_id FROM work_admission_tickets WHERE ticket_id = ?",
-                (rec.ticket_id,),
-            ).fetchone()
-            if held is not None:
+            session = self._session_()
+            if session.fetchrow(_SELECT_BY_TICKET, (rec.ticket_id,)) is not None:
                 return True
-            count = conn.execute("SELECT COUNT(*) AS n FROM work_admission_tickets").fetchone()
-            size = int(count["n"]) if count is not None else 0
-            if size >= self._limit:
-                evicted = conn.execute(
-                    "DELETE FROM work_admission_tickets WHERE ticket_id = ("
-                    "SELECT ticket_id FROM work_admission_tickets "
-                    "WHERE is_open = 0 ORDER BY rowid LIMIT 1)"
-                )
-                if evicted.rowcount == 0:
+            if int(session.fetchval(_SELECT_COUNT) or 0) >= self._limit:
+                if session.execute(_SELECT_OLDEST_CLOSED) != 'DELETE 1':
                     return False
             try:
-                conn.execute(_INSERT_TICKET, _ticket_values(rec))
-            except sqlite3.IntegrityError:
+                session.execute(_INSERT_TICKET, _ticket_values(rec))
+            except asyncpg.UniqueViolationError:
                 return False
             return True
 
     def save(self, rec: TicketRec) -> None:
         vals = _ticket_values(rec)
+        # 列序 = 14 列;UPDATE 按 ticket_id 优先改,改不到再插(插撞唯一键则按 trigger_id 回改)。
         with self._lock:
-            conn = self._connect()
-            cur = conn.execute(_UPDATE_TICKET, vals[1:] + (rec.ticket_id,))
-            if cur.rowcount != 0:
+            session = self._session_()
+            updated = session.execute(_UPDATE_TICKET, vals[1:] + (rec.ticket_id,))
+            if updated.startswith('UPDATE') and updated != 'UPDATE 0':
                 return
             try:
-                conn.execute(_INSERT_TICKET, vals)
-            except sqlite3.IntegrityError:
-                conn.execute(
-                    "UPDATE work_admission_tickets SET ticket_id = ?, "
-                    "policy_version = ?, scope = ?, strength = ?, "
-                    "matched_rule_ids = ?, actor_id = ?, source = ?, "
-                    "is_open = ?, stopped_by_person = ?, assignment = ?, "
-                    "allowed_actors = ?, last_report = ?, simulation = ? "
-                    "WHERE trigger_id = ?",
+                session.execute(_INSERT_TICKET, vals)
+            except asyncpg.UniqueViolationError:
+                session.execute(
+                    _UPDATE_BY_TRIGGER,
                     (
                         rec.ticket_id,
-                        rec.mandate.policy_version,
-                        rec.mandate.scope,
-                        rec.mandate.strength,
+                        vals[2],
+                        vals[3],
+                        vals[4],
                         vals[5],
-                        rec.mandate.actor_id,
-                        rec.mandate.source,
+                        vals[6],
+                        vals[7],
                         vals[8],
                         vals[9],
-                        rec.assignment,
+                        vals[10],
                         vals[11],
-                        rec.last_report,
+                        vals[12],
                         vals[13],
                         rec.trigger_id,
                     ),
@@ -622,26 +602,17 @@ class SqliteTicketStore:
 
     def close(self) -> None:
         with self._lock:
-            if self._conn is not None:
-                self._conn.close()
-                self._conn = None
+            if self._session is not None:
+                self._session.close()
+                self._session = None
 
-    def _connect(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(
-                str(self._path),
-                check_same_thread=False,
-                isolation_level=None,
+    def _session_(self) -> SyncPgSession:
+        if self._session is None:
+            self._session = SyncPgSession(
+                self._dsn,
+                schema=(_CREATE_TICKETS, _CREATE_TICKET_INDEX),
             )
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA busy_timeout=5000")
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=FULL")
-            conn.execute(_CREATE_TICKETS)
-            conn.execute(_CREATE_TICKET_INDEX)
-            self._conn = conn
-        return self._conn
+        return self._session
 
 
 class Ledger:
@@ -673,11 +644,19 @@ _ledger: Ledger | None = None
 _assessor: Assessor = default_assessor
 
 
+def _database_url() -> str:
+    """工单账只落 PG。没配 DSN 时如实退到进程内账,绝不再建 sqlite 文件。"""
+    return os.environ.get("DATABASE_URL", "").strip()
+
+
 def _default_store() -> TicketStore:
-    """pytest 进程不打开会话库。服务进程才挂到 sessions.db。"""
+    """pytest 进程不连库;服务进程有 DSN 才挂 PG,没有则退内存账(重启不保留)。"""
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return MemoryTicketStore()
-    return SqliteTicketStore(session_db_path())
+    dsn = _database_url()
+    if not dsn:
+        return MemoryTicketStore()
+    return PgTicketStore(dsn)
 
 
 def get_ledger() -> Ledger:

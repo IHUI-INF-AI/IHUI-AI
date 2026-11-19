@@ -3,7 +3,6 @@
   "generatedBy": "node scripts/check-sqlite-write-paths.mjs --emit-baseline",
   "face": "worktree @ 2026-11-19",
   "migrationOrder": [
-    "apps/ai-service/app/services/work_admission.py",
     "apps/ai-service/app/services/memory_sweeper.py",
     "apps/ai-service/app/services/approval_persistence.py",
     "apps/ai-service/app/services/session_store.py",
@@ -14,7 +13,6 @@
     "apps/ai-service/app/services/memory_sweeper.py": 1,
     "apps/ai-service/app/services/session_store.py": 1,
     "apps/ai-service/app/services/sso_identity_store.py": 1,
-    "apps/ai-service/app/services/work_admission.py": 1,
     "apps/ai-service/tests/test_external_browser_profile.py": 1,
     "apps/ai-service/tests/test_sag2_pg_integration.py": 2,
     "apps/ai-service/tests/test_session_archive_g815919.py": 1,
@@ -25,7 +23,6 @@
     "apps/ai-service/app/services/memory_sweeper.py": "记忆清理与租约。幂等语义已写死,迁移第 2 位。",
     "apps/ai-service/app/services/session_store.py": "会话存储(rollout/turn 切分),字段最多、体量最大,迁移最后一位。",
     "apps/ai-service/app/services/sso_identity_store.py": "SSO 身份与绑定。迁移前备份 + 冻结写入窗口。",
-    "apps/ai-service/app/services/work_admission.py": "工作准入账。迁移第 1 位(先验 PG 事务模型)。",
     "apps/ai-service/tests/test_external_browser_profile.py": "测试夹具:构造浏览器 profile 的 sqlite 文件,不是我们的存储。随外部分档格式存在。",
     "apps/ai-service/tests/test_sag2_pg_integration.py": "测试夹具:为 PG 集成用例准备历史 sqlite 输入(迁移前形态)。该用例本身跑 PG。",
     "apps/ai-service/tests/test_session_archive_g815919.py": "测试夹具:归档用例的临时 sqlite。",
