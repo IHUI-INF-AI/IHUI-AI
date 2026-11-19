@@ -12834,8 +12834,6 @@
       "model": "打开模型选择器",
       "mcp": "打开 MCP 市场",
       "compact": "压缩当前会话上下文",
-      "act": "切换到执行模式(AI 正常执行工具,默认)",
-      "build": "切换到构建模式(全工具开放,正常执行)",
       "code": "生成代码",
       "explain": "解释代码或概念",
       "goal": "设定当前会话目标(AI 围绕目标执行,进入 goal 模式工作流)",
@@ -12846,10 +12844,8 @@
       "permissionAsk": "切换到请求批准模式(AI 操作前需确认)",
       "permissionAuto": "切换到替我审批模式(自动批准安全操作)",
       "permissionFull": "切换到完全访问模式(高风险,无确认)",
-      "plan": "切换到规划模式(AI 只制定计划,不执行工具)",
       "polish": "润色文本",
       "review": "选择审查目标(未提交 diff / 分支 / commit)",
-      "spec": "切换到规格模式(从代码反向生成 spec 文档)",
       "summary": "总结当前对话",
       "translate": "翻译选中文本",
       "wechat-article": "写微信公众号文章",
@@ -31216,13 +31212,6 @@
     "autoContrast": "自动修正对比度",
     "autoContrastHint": "按亮色/暗色各自的背景自动把正文设为黑或白。",
     "autoContrastDone": "已按当前背景修正亮/暗模式的正文颜色"
-  },
-  "engineMode": {
-    "title": "agent 执行引擎",
-    "description": "选择 agent 执行编排所在位置。「本地」在本机跑编排与工具,不占用线上服务器资源。",
-    "local": "本地",
-    "cloud": "云端",
-    "auto": "自动"
   },
   "apps": {
     "savedToast": "已保存",
