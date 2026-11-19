@@ -12,6 +12,8 @@ import { wsAuth, WS_CLOSE, WsUserConnectionLimiter, WsRateLimiter } from './ws-h
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
+// F-116:阈值/判定/发送收敛在单点,房间链路只声明"跳过还是断开"
+import { createBackpressureSkipLedger, sendWithBackpressure } from './ws-backpressure.js'
 import { generateCompactId } from '../utils/crypto-random.js'
 import { isDuplicate } from '../utils/ws-dedup.js'
 import { checkWsRateLimit } from '../utils/ws-rate-limit.js'
@@ -107,6 +109,8 @@ const isSocketUnusable = (s: WebSocket): boolean =>
 const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // roomId -> 本机成员集合
   const rooms = new Map<string, Set<RoomMember>>()
+  // F-116:房间链路跳帧台账(跳过 ≠ 摘线,连接保留)
+  const roomSkips = createBackpressureSkipLedger(Date.now)
   // 实例标识:Pub/Sub 中识别本机发布的消息,避免本机重复推送
   // 2026-07-21 加固:用 generateCompactId 替代 Math.random,防止 CWE-330 可预测实例标识导致 Pub/Sub 消息伪造
   const instanceId = generateCompactId('inst')
@@ -187,11 +191,18 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const msg = JSON.stringify(payload)
     for (const m of members) {
       if (m.socket === exclude) continue
-      try {
-        m.socket.send(msg)
-      } catch {
-        // 迟到清理走注册表出口:按成员对象身份移除,集合空了才摘 key
+      // F-116:房间链路超水位 ⇒ 跳过本帧、保留连接(房间有回放缓冲,断线代价更大)
+      const noteDead = (): void => {
         removeIfSame(rooms, roomId, m)
+      }
+      const outcome = sendWithBackpressure(m.socket, msg, noteDead)
+      if (outcome === 'skipped') {
+        if (roomSkips.record()) {
+          server.log.warn(
+            { roomId, skippedFramesTotal: roomSkips.total() },
+            'ws-chat 写队列超阈值,已跳过本帧(首次或超 60s 复读)',
+          )
+        }
       }
     }
   }

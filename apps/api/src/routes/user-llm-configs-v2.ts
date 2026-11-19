@@ -1195,44 +1195,57 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
     const userId = request.userId!
-    const groupLabel = String(p.data.id) // 用 id 强转 label 查询冗余
     try {
-      // 先查 group label
-      const groupRes = await db.execute(sql`
+      // F-189:锁序 → 组行 → 按"组表当前 label"计数 → 删,四步必须在**同一事务**内。
+      // 修复前四步裸走 db.execute:守卫算完 0 到删组之间,并发打标(provider 写 provider_group)
+      // 会插进来,删完就成了孤儿 provider。两条 advisory xact 锁把"同用户删组"与
+      // "同用户打这个 label"排到同一把键上,事务结束自动释放。
+      const outcome = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`llm-groups:${userId}`}))`)
+        const groupRes = await tx.execute(sql`
         SELECT id, group_label AS label FROM ai_model_config_groups
         WHERE id = ${p.data.id} AND user_uuid = ${userId}
-        LIMIT 1
+        LIMIT 1 FOR UPDATE
       `)
-      const groupRows = Array.isArray(groupRes)
-        ? (groupRes as unknown as Array<{ id: number; label: string }>)
-        : ((groupRes as { rows?: Array<{ id: number; label: string }> }).rows ?? [])
-      if (groupRows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
-      const label = groupRows[0]?.label ?? groupLabel
+        const groupRows = Array.isArray(groupRes)
+          ? (groupRes as unknown as Array<{ id: number; label: string }>)
+          : ((groupRes as { rows?: Array<{ id: number; label: string }> }).rows ?? [])
+        if (groupRows.length === 0) return { kind: 'missing' as const }
+        const label = groupRows[0]?.label ?? String(p.data.id)
 
-      // 检查 group 下是否还有 provider(用独立列 provider_group 查询)
-      const countRes = await db.execute(sql`
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${`llm-group-label:${userId}:${label}`}))`,
+        )
+        const countRes = await tx.execute(sql`
         SELECT COUNT(*)::int AS cnt FROM ai_model_config
         WHERE owner_uuid = ${userId}
           AND provider_group = ${label}
       `)
-      const cntRows = Array.isArray(countRes)
-        ? (countRes as unknown as Array<{ cnt: number }>)
-        : ((countRes as { rows?: Array<{ cnt: number }> }).rows ?? [])
-      const cnt = cntRows[0]?.cnt ?? 0
-      if (cnt > 0) {
-        return reply.status(409).send(error(409, `group 下还有 ${cnt} 个 provider,无法删除`))
-      }
+        const cntRows = Array.isArray(countRes)
+          ? (countRes as unknown as Array<{ cnt: number }>)
+          : ((countRes as { rows?: Array<{ cnt: number }> }).rows ?? [])
+        const cnt = cntRows[0]?.cnt ?? 0
+        if (cnt > 0) return { kind: 'in-use' as const, cnt }
 
-      const delRes = await db.execute(sql`
+        const delRes = await tx.execute(sql`
         DELETE FROM ai_model_config_groups
         WHERE id = ${p.data.id} AND user_uuid = ${userId}
         RETURNING id
       `)
-      const delRows = Array.isArray(delRes)
-        ? (delRes as unknown as Array<{ id: number }>)
-        : ((delRes as { rows?: Array<{ id: number }> }).rows ?? [])
-      if (delRows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
-      return reply.send(success({ id: p.data.id, deleted: delRows.length > 0 }))
+        const delRows = Array.isArray(delRes)
+          ? (delRes as unknown as Array<{ id: number }>)
+          : ((delRes as { rows?: Array<{ id: number }> }).rows ?? [])
+        // 组行已在 FOR UPDATE 下读过,仍删到 0 行只可能是并发抢删 ⇒ 如实 404
+        if (delRows.length === 0) return { kind: 'missing' as const }
+        return { kind: 'deleted' as const }
+      })
+      if (outcome.kind === 'missing') return reply.status(404).send(error(404, 'group 不存在或无权限'))
+      if (outcome.kind === 'in-use') {
+        return reply
+          .status(409)
+          .send(error(409, `group 下还有 ${outcome.cnt} 个 provider,无法删除`))
+      }
+      return reply.send(success({ id: p.data.id, deleted: true }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))

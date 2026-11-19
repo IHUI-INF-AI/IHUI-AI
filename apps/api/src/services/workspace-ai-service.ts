@@ -4262,7 +4262,21 @@ class FSBridge {
     pattern: string
     glob?: string
     outputMode?: 'content' | 'files_with_matches' | 'count'
-  }): unknown {
+    /** 内容模式最多收集多少条命中（防内存与上下文双爆，2026-11-20） */
+    maxMatches?: number
+    /** 单文件最多记多少条命中（防一个巨型文件吃光预算） */
+    perFileMatches?: number
+    /** files_with_matches / count 模式最多记多少个文件 */
+    maxFiles?: number
+    /** 真大小写敏感（默认不敏感，与既有行为一致） */
+    caseSensitive?: boolean
+  }): {
+    matches?: Array<{ file: string; line: number; content: string }>
+    files?: string[]
+    counts?: Record<string, number>
+    total: number
+    truncated: boolean
+  } {
     // ReDoS 运行闸(2026-10-31 安全强化第 11 批):主线程同步正则,超长 pattern 直接拒绝
     if (params.pattern.length > FSBridge.MAX_GREP_PATTERN_LENGTH) {
       throw new Error(`pattern 超过 ${FSBridge.MAX_GREP_PATTERN_LENGTH} 字符上限`)
@@ -4274,24 +4288,56 @@ class FSBridge {
       throw new Error('pattern 含嵌套量词(如 (a+)+),存在指数级回溯风险,已拒绝')
     }
     const root = this.resolvePath(params.path, params.workspacePath)
-    const regex = new RegExp(params.pattern, 'i')
+    const regex = params.caseSensitive
+      ? new RegExp(params.pattern)
+      : new RegExp(params.pattern, 'i')
     const globRe = params.glob ? this.globToRegex(params.glob) : null
+    const mode = params.outputMode ?? 'content'
     const matches: Array<{ file: string; line: number; content: string }> = []
     const fileMatches: string[] = []
     const counts: Record<string, number> = {}
-    this.walkGrep(root, root, regex, globRe, matches, fileMatches, counts)
-    const mode = params.outputMode ?? 'content'
-    if (mode === 'files_with_matches') return { files: fileMatches }
-    if (mode === 'count') return { counts }
-    return { matches }
+    const budget = {
+      maxMatches: params.maxMatches ?? Number.POSITIVE_INFINITY,
+      perFileMatches: params.perFileMatches ?? Number.POSITIVE_INFINITY,
+      maxFiles: params.maxFiles ?? Number.POSITIVE_INFINITY,
+      exhausted: false,
+      truncated: false,
+    }
+    this.walkGrep(root, root, regex, globRe, matches, fileMatches, counts, budget)
+    if (mode === 'files_with_matches') {
+      return {
+        files: fileMatches,
+        total: fileMatches.length,
+        truncated: budget.truncated,
+      }
+    }
+    if (mode === 'count') {
+      return {
+        counts,
+        total: Object.keys(counts).length,
+        truncated: budget.truncated,
+      }
+    }
+    return { matches, total: matches.length, truncated: budget.truncated }
   }
 
-  glob(params: { path: string; workspacePath: string; pattern: string }): { files: string[] } {
+  glob(params: {
+    path: string
+    workspacePath: string
+    pattern: string
+    /** 最多收集多少个文件（防超大仓一次回几万条，2026-11-20） */
+    maxFiles?: number
+  }): { files: string[]; total: number; truncated: boolean } {
     const root = this.resolvePath(params.path, params.workspacePath)
     const regex = this.globToRegex(params.pattern)
     const files: string[] = []
-    this.walkGlob(root, root, regex, files)
-    return { files }
+    const budget = {
+      maxFiles: params.maxFiles ?? Number.POSITIVE_INFINITY,
+      exhausted: false,
+      truncated: false,
+    }
+    this.walkGlob(root, root, regex, files, budget)
+    return { files, total: files.length, truncated: budget.truncated }
   }
 
   async run(params: {
@@ -4405,6 +4451,9 @@ class FSBridge {
     p = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
     p = p.replace(/\*/g, '[^/]*')
     p = p.replace(/\?/g, '[^/]')
+    // `**/` 必须能匹配「零层目录」（2026-11-20）：`**/*.ts` 要能命中顶层 `x.ts`，
+    // 而朴素替换得到的是 `.*/[^/]*\.ts`，顶层文件永远差一个斜杠 —— 这是 glob 语义塌陷。
+    p = p.replace(/\x00\//g, '(?:.*/)?')
     p = p.replace(/\x00/g, '.*')
     return new RegExp(`^${p}$`)
   }
@@ -4417,7 +4466,15 @@ class FSBridge {
     matches: Array<{ file: string; line: number; content: string }>,
     fileMatches: string[],
     counts: Record<string, number>,
+    budget: {
+      maxMatches: number
+      perFileMatches: number
+      maxFiles: number
+      exhausted: boolean
+      truncated: boolean
+    },
   ): void {
+    if (budget.exhausted) return
     let entries: string[]
     try {
       entries = readdirSync(dir)
@@ -4425,6 +4482,7 @@ class FSBridge {
       return
     }
     for (const name of entries) {
+      if (budget.exhausted) return
       if (IGNORE_DIRS.has(name)) continue
       const full = join(dir, name)
       let st
@@ -4434,29 +4492,58 @@ class FSBridge {
         continue
       }
       if (st.isDirectory()) {
-        this.walkGrep(root, full, regex, globRe, matches, fileMatches, counts)
+        this.walkGrep(root, full, regex, globRe, matches, fileMatches, counts, budget)
       } else if (st.isFile()) {
         if (globRe && !globRe.test(name)) continue
         if (st.size > MAX_FILE_SIZE) continue
-        const content = readFileSync(full, 'utf-8')
+        let content: string
+        try {
+          content = readFileSync(full, 'utf-8')
+        } catch {
+          continue
+        }
+        // 二进制跳过（2026-11-20）：与 read_file 同一条判据，别把 NUL 乱码当命中
+        if (content.slice(0, 512).includes('\u0000')) continue
         const relPath = relative(root, full).split(sep).join('/')
         let count = 0
-        content.split('\n').forEach((line, idx) => {
-          if (line.length > FSBridge.MAX_GREP_LINE_LENGTH) return
-          if (regex.test(line)) {
-            matches.push({ file: relPath, line: idx + 1, content: line })
-            count++
+        const lines = content.split('\n')
+        for (let idx = 0; idx < lines.length; idx++) {
+          if (budget.exhausted) break
+          if (count >= budget.perFileMatches) {
+            budget.truncated = true
+            break
           }
-        })
+          const line = lines[idx] ?? ''
+          if (line.length > FSBridge.MAX_GREP_LINE_LENGTH) continue
+          if (!regex.test(line)) continue
+          count++
+          if (matches.length >= budget.maxMatches) {
+            budget.exhausted = true
+            budget.truncated = true
+            break
+          }
+          matches.push({ file: relPath, line: idx + 1, content: line })
+        }
         if (count > 0) {
-          fileMatches.push(relPath)
-          counts[relPath] = count
+          if (fileMatches.length >= budget.maxFiles) {
+            budget.truncated = true
+          } else {
+            fileMatches.push(relPath)
+            counts[relPath] = count
+          }
         }
       }
     }
   }
 
-  private walkGlob(root: string, dir: string, regex: RegExp, files: string[]): void {
+  private walkGlob(
+    root: string,
+    dir: string,
+    regex: RegExp,
+    files: string[],
+    budget: { maxFiles: number; exhausted: boolean; truncated: boolean },
+  ): void {
+    if (budget.exhausted) return
     let entries: string[]
     try {
       entries = readdirSync(dir)
@@ -4464,6 +4551,7 @@ class FSBridge {
       return
     }
     for (const name of entries) {
+      if (budget.exhausted) return
       if (IGNORE_DIRS.has(name)) continue
       const full = join(dir, name)
       let st
@@ -4474,8 +4562,13 @@ class FSBridge {
       }
       const relPath = relative(root, full).split(sep).join('/')
       if (st.isDirectory()) {
-        this.walkGlob(root, full, regex, files)
+        this.walkGlob(root, full, regex, files, budget)
       } else if (st.isFile() && regex.test(relPath)) {
+        if (files.length >= budget.maxFiles) {
+          budget.exhausted = true
+          budget.truncated = true
+          return
+        }
         files.push(relPath)
       }
     }
@@ -4490,28 +4583,197 @@ const fsObservationStore = new FsObservationStore()
 // 初始化：注册 AgentLoop 内置工具（FS Bridge 工具集）
 // =============================================================================
 
+/**
+ * `read_file` 的两道护栏（2026-11-20）：
+ * - 二进制：前 8KB 出现 NUL 字节就判二进制，别把乱码当文本灌进上下文（要看文档用 parse_document）；
+ * - 超大：一次读回超过 12 万字符就截断并给续读指引（range 读或 grep），避免单条工具结果吃掉整个预算。
+ * 截断只影响回给模型的那段；观察态仍记整文件摘要，后续 edit_file/write_file 的版本校验不受影响。
+ */
+const READ_BINARY_PROBE_CHARS = 8_000
+const READ_TRUNCATE_CHARS = 120_000
+
 agentLoop.registerTool({
   name: 'read_file',
-  description: '读取文件内容',
+  description: '读取文件内容（支持 startLine/endLine 分段读；二进制与超大文件有护栏）',
   execute: async (args) => {
     const path = String(args['path'] ?? '')
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
-    const result = fsBridge.read({
-      path,
-      workspacePath,
-    })
+    const full = fsBridge.resolvePath(path, workspacePath)
+    const raw = readFileSync(full, 'utf-8')
+    if (raw.slice(0, READ_BINARY_PROBE_CHARS).includes('\u0000')) {
+      return JSON.stringify({
+        ok: false,
+        code: 'FS_BINARY_FILE',
+        error: '目标看起来是二进制文件，按文本读会得到乱码',
+        remedy: '文档类内容用 parse_document；确需看原始字节请说明用途再定通道。',
+      })
+    }
     // 读即观察:整文件读入才记摘要,后续 write_file 用它判断"看的是不是磁盘这一版"
-    fsObservationStore.observePresent(fsBridge.resolvePath(path, workspacePath), result.content)
-    return result.content
+    fsObservationStore.observePresent(full, raw)
+    const startLine = Number(args['startLine'] ?? Number.NaN)
+    const endLine = Number(args['endLine'] ?? Number.NaN)
+    if (Number.isFinite(startLine) || Number.isFinite(endLine)) {
+      return fsBridge.read({
+        path,
+        workspacePath,
+        startLine: Number.isFinite(startLine) ? startLine : undefined,
+        endLine: Number.isFinite(endLine) ? endLine : undefined,
+      }).content
+    }
+    if (raw.length > READ_TRUNCATE_CHARS) {
+      const totalLines = raw.split('\n').length
+      return (
+        raw.slice(0, READ_TRUNCATE_CHARS) +
+        `\n… [read_file 截断：文件 ${raw.length} 字符 / ${totalLines} 行，仅返回前 ${READ_TRUNCATE_CHARS} 字符；` +
+        '用 startLine/endLine 续读，或先 grep 定位] …\n'
+      )
+    }
+    return raw
+  },
+})
+
+/**
+ * `list_dir` 条目上限（2026-11-20）：大目录（构建产物、媒体库）一次回几千条会把上下文
+ * 挤满，且模型看不过来。默认 200，可用 limit 提到 1000；超出时 total/truncated 由回包自述。
+ */
+const LIST_DIR_MAX_ENTRIES = 200
+const LIST_DIR_HARD_CAP = 1_000
+
+agentLoop.registerTool({
+  name: 'list_dir',
+  description:
+    '列出目录内容（默认最多 200 条；返回 {ok,total,truncated,entries}，truncated=true 时用更具体的 path 深入或先 grep 定位）',
+  execute: async (args) => {
+    const entries = fsBridge.browse(String(args['path'] ?? ''))
+    const rawLimit = Number(args['limit'] ?? Number.NaN)
+    const limit =
+      Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), LIST_DIR_HARD_CAP)
+        : LIST_DIR_MAX_ENTRIES
+    if (entries.length <= limit) {
+      return JSON.stringify({ ok: true, total: entries.length, truncated: false, entries })
+    }
+    return JSON.stringify({
+      ok: true,
+      total: entries.length,
+      truncated: true,
+      entries: entries.slice(0, limit),
+      hint: `共 ${entries.length} 条，仅返回前 ${limit} 条；用更具体的子目录 path、提高 limit（上限 ${LIST_DIR_HARD_CAP}），或先 grep 定位。`,
+    })
+  },
+})
+
+/**
+ * `grep` / `glob` 工具（2026-11-20）：桥里早有这两个原语与 `/fs/grep`、`/fs/glob` 两个 HTTP 端点，
+ * 但 AgentLoop 一直没把它们注册成工具 —— 模型手上只有 read_file/list_dir，定位一处代码只能靠
+ * run_command 外挂。这里补注册，并把「同族预算」一并收口：命中条数、单文件条数、文件数都有上限，
+ * 回包自述 total/truncated 与续查指引（与 read_file / list_dir 同一套语言）。
+ */
+const GREP_DEFAULT_LIMIT = 100
+const GREP_HARD_LIMIT = 1_000
+const GREP_SCAN_MATCHES = 5_000
+const GREP_PER_FILE_MATCHES = 20
+const GLOB_DEFAULT_LIMIT = 200
+const GLOB_HARD_LIMIT = 2_000
+const GLOB_SCAN_FILES = 5_000
+
+function readLimitArg(value: unknown, fallback: number, hardCap: number): number {
+  const raw = Number(value ?? Number.NaN)
+  if (!Number.isFinite(raw) || raw <= 0) return fallback
+  return Math.min(Math.floor(raw), hardCap)
+}
+
+agentLoop.registerTool({
+  name: 'grep',
+  description:
+    '在目录里按正则搜内容（默认不区分大小写）：content 回命中行，files_with_matches 回文件清单，count 回每文件条数。' +
+    '跳过 node_modules 等忽略目录与二进制/超大文件；默认最多 100 条命中、单文件最多 20 条，' +
+    '回包带 {ok,total,truncated} 与续查指引',
+  execute: async (args) => {
+    const limit = readLimitArg(args['limit'], GREP_DEFAULT_LIMIT, GREP_HARD_LIMIT)
+    const mode = String(args['outputMode'] ?? 'content')
+    const outputMode: 'content' | 'files_with_matches' | 'count' =
+      mode === 'files_with_matches' || mode === 'count' ? mode : 'content'
+    const result = fsBridge.grep({
+      path: String(args['path'] ?? '.'),
+      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      pattern: String(args['pattern'] ?? ''),
+      glob: typeof args['glob'] === 'string' && args['glob'] ? String(args['glob']) : undefined,
+      outputMode,
+      maxMatches: GREP_SCAN_MATCHES,
+      perFileMatches: GREP_PER_FILE_MATCHES,
+      caseSensitive: args['caseSensitive'] === true,
+    })
+    const narrowHint =
+      `共 ${result.total} ${outputMode === 'content' ? '条命中' : '个文件'}，仅返回前 ${limit} 个；` +
+      '收窄 path 或加 glob 过滤、提高 limit（上限 ' +
+      `${GREP_HARD_LIMIT}），或先用 outputMode=files_with_matches 定位文件。`
+    if (outputMode === 'files_with_matches') {
+      const files = result.files ?? []
+      const truncated = result.truncated || files.length > limit
+      return JSON.stringify({
+        ok: true,
+        mode: outputMode,
+        total: files.length,
+        truncated,
+        files: files.slice(0, limit),
+        ...(truncated ? { hint: narrowHint } : {}),
+      })
+    }
+    if (outputMode === 'count') {
+      const counts = result.counts ?? {}
+      const entries = Object.entries(counts)
+      const truncated = result.truncated || entries.length > limit
+      return JSON.stringify({
+        ok: true,
+        mode: outputMode,
+        total: entries.length,
+        truncated,
+        counts: Object.fromEntries(entries.slice(0, limit)),
+        ...(truncated ? { hint: narrowHint } : {}),
+      })
+    }
+    const matches = result.matches ?? []
+    const truncated = result.truncated || matches.length > limit
+    return JSON.stringify({
+      ok: true,
+      mode: outputMode,
+      total: matches.length,
+      truncated,
+      matches: matches.slice(0, limit),
+      ...(truncated ? { hint: narrowHint } : {}),
+    })
   },
 })
 
 agentLoop.registerTool({
-  name: 'list_dir',
-  description: '列出目录内容',
+  name: 'glob',
+  description:
+    '按通配符找文件（支持 ** 递归，如 src/**/*.ts）：跳过忽略目录，默认最多 200 个文件，' +
+    '回包带 {ok,total,truncated,files}；比 list_dir 多一层递归，比 grep 便宜（不读内容）',
   execute: async (args) => {
-    const entries = fsBridge.browse(String(args['path'] ?? ''))
-    return JSON.stringify(entries)
+    const limit = readLimitArg(args['limit'], GLOB_DEFAULT_LIMIT, GLOB_HARD_LIMIT)
+    const result = fsBridge.glob({
+      path: String(args['path'] ?? '.'),
+      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      pattern: String(args['pattern'] ?? ''),
+      maxFiles: GLOB_SCAN_FILES,
+    })
+    const truncated = result.truncated || result.files.length > limit
+    return JSON.stringify({
+      ok: true,
+      total: result.files.length,
+      truncated,
+      files: result.files.slice(0, limit),
+      ...(truncated
+        ? {
+            hint:
+              `共 ${result.files.length} 个文件，仅返回前 ${limit} 个；` +
+              '收窄 path 或 pattern、提高 limit（上限 ' +
+              `${GLOB_HARD_LIMIT}）。`,
+          }
+        : {}),
+    })
   },
 })
 

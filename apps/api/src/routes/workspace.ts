@@ -44,6 +44,7 @@ import {
   findTrashedFiles,
   batchSoftDelete,
   batchRestore,
+  findFileOwnershipBatch,
   findFileVersions,
 } from '../db/workspace-queries.js'
 import { success, error } from '../utils/response.js'
@@ -492,14 +493,15 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    // 校验所有文件归属当前用户（且未被删除）
+    // F-79:归属校验一次 IN 查询(左连 projects 取 owner),不再逐文件 N+1;
+    // 逐项判定顺序与请求一致:存在性先于归属,404 点名缺的那个 id、403 不点名。
+    const ownership = await findFileOwnershipBatch(parsed.data.fileIds, false)
+    const ownerById = new Map(ownership.map((r) => [r.id, r.projectUserId]))
     for (const fid of parsed.data.fileIds) {
-      const file = await findFileById(fid)
-      if (!file) {
+      if (!ownerById.has(fid)) {
         return reply.status(404).send(error(404, `文件 ${fid} 不存在或已删除`))
       }
-      const project = await findProjectById(file.projectId)
-      if (!project || project.userId !== userId) {
+      if (ownerById.get(fid) !== userId) {
         return reply.status(403).send(error(403, '无权操作部分文件'))
       }
     }
@@ -524,14 +526,14 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    // 校验所有文件归属当前用户
+    // F-79:同 batch-delete,归属校验收敛成一次 IN 查询(回收站行也算存在)
+    const ownership = await findFileOwnershipBatch(parsed.data.fileIds, true)
+    const ownerById = new Map(ownership.map((r) => [r.id, r.projectUserId]))
     for (const fid of parsed.data.fileIds) {
-      const file = await findFileByIdIncludeTrashed(fid)
-      if (!file) {
+      if (!ownerById.has(fid)) {
         return reply.status(404).send(error(404, `文件 ${fid} 不存在`))
       }
-      const project = await findProjectById(file.projectId)
-      if (!project || project.userId !== userId) {
+      if (ownerById.get(fid) !== userId) {
         return reply.status(403).send(error(403, '无权操作部分文件'))
       }
     }
