@@ -86,7 +86,7 @@ export function CapabilityAppRail() {
       >
         <LayoutGrid className="h-4 w-4" aria-hidden />
         {t('railTitle')}
-        <span className="rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground">
+        <span className="rounded-full bg-cta px-1.5 text-[11px] font-medium text-cta-foreground">
           {railApps.length}
         </span>
         <ChevronDown

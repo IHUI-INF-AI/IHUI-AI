@@ -247,7 +247,7 @@ export default function PageClient({
         <span
           className={`font-[weight:inherit] rounded-md border px-2 py-1 text-label transition-colors ${
             status?.ready
-              ? 'border-foreground bg-primary text-primary-foreground'
+              ? 'border-stroke-selected bg-cta text-cta-foreground'
               : 'border-border bg-muted text-muted-foreground'
           }`}
         >

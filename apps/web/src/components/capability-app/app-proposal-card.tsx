@@ -144,7 +144,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
           type="button"
           disabled={saving}
           onClick={() => void handleCreate()}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           {saving ? t('creating') : t('createAndOpen')}
