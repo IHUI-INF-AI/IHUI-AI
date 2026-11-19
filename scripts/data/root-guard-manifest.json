@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-18T11:12:16.544Z",
+  "sealedAt": "2026-11-19T17:37:04.383Z",
   "sealedBy": "root-guard --seal",
-  "reason": "按 HEAD 面复核 git-guardian 规则文件(连续三次 guardian 修复:活体体检挂 main() 链、dev api 体检 5 分钟节流、ref 位移守夜人接节拍),重封清单使清单与已入库内容一致;仅重算期望哈希,规则正文一字未改",
+  "reason": "deploy: 24d7bc1c474 将 check-temp-worktree-lifetime 闸登记进 guardian-runner 注册表(新增一道门,判据面只收紧),并经门 193 补显式 stdio;重封基线随提交入库",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "5a0bf28c76fffb22cd804ef2720620e631416409c15ff1897040e141bb30d64a"
+      "sha256": "67bcad1d59c22b2a1fe581ef4e2da56ea4f6433616e13408fc254a050f9d7979"
     },
     {
       "id": "judgement-libs",
