@@ -582,6 +582,11 @@ export function deriveDiffInfo(
   const filePath = pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || unknownFilePath
 
   if (toolName === 'edit_file') {
+    // dryRun 是"只预览不写盘"的承诺：绝不能给它渲染可 Apply 的 diff 卡
+    // （否则用户点一下 Apply 就真的落了盘，与工具语义相反）。多编辑 edits[] 同理由：
+    // 无单一 old/new 可呈现，交给原始参数视图，不给 Apply 入口。
+    if (args?.['dryRun'] === true) return null
+    if (Array.isArray(args?.['edits'])) return null
     const oldContent = pickStr(args, ['oldText', 'old_text', 'oldContent', 'old_content'])
     const newContent = pickStr(args, ['newText', 'new_text', 'newContent', 'new_content'])
     if (!oldContent && !newContent) return null
