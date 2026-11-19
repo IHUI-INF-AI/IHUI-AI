@@ -895,9 +895,10 @@ function withPoolModels(
   for (const m of pool) {
     if (seen.has(m.id)) continue
     // 2026-11-18 立(用户定档「所有模型必须实时验证」):后端只在"本轮现拉上游清单成功
-    // 且该模型在册"时才返回,并下发 verified:true;显式 false 的行(理论不该出现)直接跳过,
-    // 选择器里从此不再有「未验证」这一档。
-    if (m.verified === false) continue
+    // 且该模型在册"时才返回,并下发 verified:true;选择器里从此不再有「未验证」这一档。
+    // fail-closed 判据与后端同口径 —— 只有拿到 true 才摆出来,显式 false 与字段缺失
+    // (旧 api 进程/字段漂移)一律跳过,绝不把"没证据"渲染成"已验证"。
+    if (m.verified !== true) continue
     seen.add(m.id)
     const deadReason = idProbeKeys(m.id)
       .map((key) => deadReasonByKey.get(key))
