@@ -24,6 +24,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isDefinitePathAbsence } from './path-safety.js';
 import {
+  compilePluginInterfaces,
+  type CompiledInterfaceTool,
+  type InterfaceCompileOutcome,
+} from './interface-tools.js';
+import {
   diagnostic,
   findManifestInDir,
   normalizeManifest,
@@ -92,6 +97,13 @@ export interface MultiVersionLoadResult {
   contributions: PluginContributionAudit;
   /** 逐档激活裁决(同上) */
   activations: PluginActivationAudit;
+  /**
+   * active 版本清单 `interfaces[]` 编译出的接口型工具(2026-11-19 补)。
+   * 严格通道走 ScanResult.interfaceTools;本通道此前整块缺失 ⇒ 多版本模式下
+   * "插件装上了、接口工具一枚也看不到"。判据仍单源在 interface-tools.ts。
+   */
+  interfaceTools: CompiledInterfaceTool[];
+  interfaceOutcomes: InterfaceCompileOutcome[];
 }
 
 interface ParsedPluginVersion {
@@ -338,6 +350,8 @@ interface RawScan {
   diagnostics: PluginDiagnostic[];
   findings: ContributionFinding[];
   activationFindings: ActivationFinding[];
+  /** 每份清单的接口编译结果,键 = 清单绝对路径(裁决生效后只取 active 那份) */
+  interfacesByFile: Map<string, { tools: CompiledInterfaceTool[]; outcomes: InterfaceCompileOutcome[] }>;
 }
 
 /**
@@ -350,6 +364,11 @@ function collectCandidates(opts: LoadPluginsOptions): RawScan {
   const diagnostics: PluginDiagnostic[] = [];
   const findings: ContributionFinding[] = [];
   const activationFindings: ActivationFinding[] = [];
+  const interfacesByFile = new Map<
+    string,
+    { tools: CompiledInterfaceTool[]; outcomes: InterfaceCompileOutcome[] }
+  >();
+  const takenNames = new Set<string>();
   const dir = path.resolve(opts.pluginsDir);
 
   let isDirectory = false;
@@ -360,7 +379,7 @@ function collectCandidates(opts: LoadPluginsOptions): RawScan {
     if (!isDefinitePathAbsence(err)) diagnostics.push(unexpectedDiagnostic(dir, err));
   }
   if (!isDirectory) {
-    return { candidates, diagnostics, findings, activationFindings };
+    return { candidates, diagnostics, findings, activationFindings, interfacesByFile };
   }
 
   function acceptManifest(file: string): void {
@@ -376,6 +395,16 @@ function collectCandidates(opts: LoadPluginsOptions): RawScan {
         ...classifyActivations(activationInputOf(outcome.manifest, definition.name, file)).findings,
       );
       candidates.push({ name: definition.name, version: definition.version, file, definition });
+      // 接口编译与严格通道同一判据(compilePluginInterfaces);裁决后再决定取哪几份。
+      const compiled = compilePluginInterfaces(
+        (outcome.manifest as { interfaces?: unknown[] }).interfaces,
+        file,
+        definition.name,
+        takenNames,
+      );
+      for (const tool of compiled.tools) takenNames.add(tool.name);
+      diagnostics.push(...compiled.diagnostics);
+      interfacesByFile.set(file, { tools: compiled.tools, outcomes: compiled.outcomes });
     } catch (err) {
       diagnostics.push(unexpectedDiagnostic(file, err));
     }
@@ -409,7 +438,7 @@ function collectCandidates(opts: LoadPluginsOptions): RawScan {
   if (topLevel.primary) acceptManifest(topLevel.primary);
   else scanDir(dir, 1);
 
-  return { candidates, diagnostics, findings, activationFindings };
+  return { candidates, diagnostics, findings, activationFindings, interfacesByFile };
 }
 
 /**
@@ -427,12 +456,22 @@ export function loadPluginsWithVersionPolicy(
     ...contributionDiagnosticsOf(scanned.findings),
     ...activationDiagnosticsOf(scanned.activationFindings),
   ];
+  const interfaceTools: CompiledInterfaceTool[] = [];
+  const interfaceOutcomes: InterfaceCompileOutcome[] = [];
+  for (const candidate of selection.active) {
+    const compiled = scanned.interfacesByFile.get(candidate.file);
+    if (!compiled) continue;
+    interfaceTools.push(...compiled.tools);
+    interfaceOutcomes.push(...compiled.outcomes);
+  }
   return {
     plugins: selection.active.map((candidate) => candidate.definition),
     shadowed: selection.shadowed,
     diagnostics,
     contributions: summarizeContributions(scanned.findings),
     activations: summarizeActivations(scanned.activationFindings),
+    interfaceTools,
+    interfaceOutcomes,
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
