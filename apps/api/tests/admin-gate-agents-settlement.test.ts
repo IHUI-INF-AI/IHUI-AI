@@ -26,6 +26,7 @@ import Fastify, { type FastifyPluginAsync } from 'fastify'
 
 // 只注册路由、不跑 handler:db 只要满足模块导入即可
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
     insert: () => ({ values: async () => [] }),

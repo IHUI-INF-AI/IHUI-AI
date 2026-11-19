@@ -70,6 +70,7 @@ function createChainableMock() {
   return make()
 }
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => createChainableMock()),
     insert: vi.fn(() => ({

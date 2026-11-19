@@ -92,7 +92,9 @@ vi.mock('../src/utils/semantic-summary.js', () => ({
   generateSemanticSummary: vi.fn(),
   getCachedSemanticSummary: vi.fn(),
 }))
-vi.mock('../src/utils/conversation-title.js', () => ({
+vi.mock('../src/utils/conversation-title.js', async (importOriginal) => ({
+  // 2026-11-19:展开真面再覆盖,避免上游新增导出(如 TITLE_STRATEGIES)把路线在加载期打崩
+  ...(await importOriginal<typeof import('../src/utils/conversation-title.js')>()),
   generateConversationTitle: vi.fn(),
   DEFAULT: [],
 }))

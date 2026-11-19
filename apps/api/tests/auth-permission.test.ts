@@ -67,6 +67,15 @@ const {
 }))
 
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   verifyRefreshToken: mockVerifyRefreshToken,
   createFamilyId: mockCreateFamilyId,
   signAccessToken: vi.fn().mockResolvedValue('access'),
@@ -109,6 +118,9 @@ vi.mock('../src/db/promotion-queries.js', () => ({
 vi.mock('../src/services/points-service.js', () => ({ earnPoints: vi.fn() }))
 
 vi.mock('../src/services/account-lockout.js', () => ({
+  // 2026-11-19 补:auth.ts/auth-extended.ts 用 loginRateLimit 生成路由级限流档,
+  // 手抄 mock 缺这条导出会让整包数百用例在模块加载期就崩(vitest "No export defined")。
+  loginRateLimit: (max: number, timeWindow: string) => ({ max, timeWindow }),
   recordLoginFailure: mockRecordLoginFailure,
   clearLoginFailures: mockClearLoginFailures,
   getLockRemainingMs: mockGetLockRemainingMs,

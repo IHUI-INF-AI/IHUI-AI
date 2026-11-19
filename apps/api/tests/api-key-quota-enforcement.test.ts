@@ -144,6 +144,7 @@ function fakeShareRow(sourceKey: FakeKeyRow, over: Partial<FakeShareRow> = {}): 
 // 模块 mock(必须早于被测模块 import)
 // ----------------------------------------------------------------------------
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     // SDB-29:鉴权改走 developer_api_keys INNER JOIN users,返回 { key, userStatus }
     select: vi.fn(() => {

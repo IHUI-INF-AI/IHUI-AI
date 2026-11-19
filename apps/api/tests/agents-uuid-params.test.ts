@@ -69,6 +69,7 @@ vi.mock('../src/db/agents-queries.js', () => ({
 // db/index:本票 6 条畸形用例在 zod 进 SQL 之前即抛,链式桩永不被调用(断言侧不依赖它);
 // 唯一正向用例走桩掉的 findExamineById,不碰 db。故桩只需存在(保 import 安全),无需行为。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   dbRead: { select: vi.fn() },
   db: { insert: vi.fn() },
 }))

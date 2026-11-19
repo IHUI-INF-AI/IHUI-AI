@@ -29,6 +29,7 @@ const mockUpdateSet = vi.fn()
 const mockUpdateReturning = vi.fn()
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => {
       const step: Record<string, unknown> = {}

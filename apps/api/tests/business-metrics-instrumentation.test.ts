@@ -126,6 +126,9 @@ vi.mock('../src/utils/password-crypto.js', () => ({
   upgradeHashIfNeeded: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('../src/services/account-lockout.js', () => ({
+  // 2026-11-19 补:auth.ts/auth-extended.ts 用 loginRateLimit 生成路由级限流档,
+  // 手抄 mock 缺这条导出会让整包数百用例在模块加载期就崩(vitest "No export defined")。
+  loginRateLimit: (max: number, timeWindow: string) => ({ max, timeWindow }),
   getLockRemainingMs: vi.fn().mockResolvedValue(0),
   recordLoginFailure: vi.fn().mockResolvedValue(3),
   clearLoginFailures: vi.fn().mockResolvedValue(undefined),

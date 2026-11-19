@@ -73,6 +73,7 @@ function selectChain(kind: 'reader' | 'primary'): Record<string, unknown> {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: () => selectChain('primary') },
   dbRead: { select: () => selectChain('reader') },
   dbClient: {},
