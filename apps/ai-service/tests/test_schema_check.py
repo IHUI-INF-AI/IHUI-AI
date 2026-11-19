@@ -371,7 +371,9 @@ class TestScanExcludesSqliteAndCte:
     ③ 不许退回"手工文件名清单"(清单腐烂正是本次事故的根因,所以它本身要被反向锁死)。
     """
 
-    SQLITE_GHOSTS = {"approval_grants", "sso_identities", "cookies", "sqlite_master", "del"}
+    # approval_grants 已迁 PostgreSQL(2026-11-19,基线 sqlite 写路径 3/5 下线)⇒ 它现在是
+    # **本服务的真 PG 表**,不再属于幽灵集。剩下四个仍是 sqlite 侧资产。
+    SQLITE_GHOSTS = {"sso_identities", "cookies", "sqlite_master", "del"}
 
     def test_real_app_dir_no_longer_yields_sqlite_or_cte_ghosts(self):
         tables = scan_ai_service_sql_tables(APP_DIR)
@@ -380,7 +382,9 @@ class TestScanExcludesSqliteAndCte:
     def test_positive_control_real_postgres_tables_survive(self):
         """「全清」若是把门改瞎也能达成 —— 必须同时证明真表还在。"""
         tables = scan_ai_service_sql_tables(APP_DIR)
-        assert {"rag_chunks", "ai_model_config"} <= tables, f"真 Postgres 表被削掉了:tables={sorted(tables)[:10]}…"
+        assert {"rag_chunks", "ai_model_config", "approval_grants"} <= tables, (
+            f"真 Postgres 表被削掉了:tables={sorted(tables)[:10]}…"
+        )
 
     def test_cte_alias_is_not_a_table(self, tmp_path: Path):
         (tmp_path / "with_del.py").write_text(
@@ -459,7 +463,11 @@ class TestBorrowedConnectionOwnership:
     """
 
     # 票面点名的 sqlite 归属表:SQL 文本只许住在 import sqlite3 的文件里
+    # (合成用例用:approval_grants 已在 2026-11-19 迁 PG,但"借连接形态"这条纪律的
+    #  尺子要用一个仍然成立的样本去量,合成文件不受真实架构影响,故保留原名)
     SQLITE_OWNED_TABLES = {"approval_grants", "sso_identities", "cookies", "sqlite_master"}
+    # 真树口径:现读 app/ 下仍然由 sqlite 驱动自建的表(approval_grants 已出列)
+    REAL_SQLITE_OWNED_TABLES = {"sso_identities", "cookies", "sqlite_master"}
 
     def test_owned_sql_in_driver_file_is_excluded_from_pg_scan(self, tmp_path: Path):
         """正例:逐字 SQL 文本(取材现读 app/services/approval_persistence.py:476-477,非自造形态)
@@ -483,7 +491,7 @@ class TestBorrowedConnectionOwnership:
         而是"SQL 不许住在借连接文件里" —— 与 test_manual_sqlite_filename_list_must_not_come_back
         同形(锁代码形态,不锁扫描器行为)。sqlite 归属表的 SQL 文本一旦回到 app/ 下
         不 import sqlite3 的文件(如当年的 llm.py),本用例翻红。"""
-        offenders = _find_borrowed_connection_offenders(APP_DIR, self.SQLITE_OWNED_TABLES)
+        offenders = _find_borrowed_connection_offenders(APP_DIR, self.REAL_SQLITE_OWNED_TABLES)
         assert not offenders, (
             f"借连接形态回来了:sqlite 归属表的 SQL 文本出现在无 sqlite3 驱动事实的文件 {offenders} "
             "—— schema_check 会把它当 Postgres 表报数据孤岛(G-40);正解是把 SQL 收编进持久层"
