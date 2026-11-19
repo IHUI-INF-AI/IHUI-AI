@@ -53,6 +53,9 @@ vi.mock('bullmq', () => ({
 
 vi.mock('../src/queue/batch-queue.js', () => ({
   getBatchItemCheckpoint: vi.fn(async () => null),
+  // F-494 起处理器在扣费成功后落 settled 检查点;桩要接住写侧,才验得到"先扣后记"
+  saveBatchItemCheckpoint: vi.fn(async () => null),
+  clearBatchItemCheckpoints: vi.fn(async () => 0),
   BATCH_QUEUE_NAME: 'batch-queue',
   getTask: vi.fn(async () => ({
     status: 'pending',
