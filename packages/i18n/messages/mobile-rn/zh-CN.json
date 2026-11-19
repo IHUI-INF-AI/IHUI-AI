@@ -4845,7 +4845,12 @@
       "schedule": "定时任务"
     },
     "knowledgeCards": "知识卡片",
-    "knowledgePlanet": "知识星球"
+    "knowledgePlanet": "知识星球",
+    "hrAttendance": "我的考勤",
+    "hrLeave": "我的请假",
+    "hrPayroll": "工资条",
+    "settingsAppearance": "外观与排版",
+    "appsStudio": "AI 应用台"
   },
   "knowledgePlanet": {
     "title": "知识星球",

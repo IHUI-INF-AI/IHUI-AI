@@ -116,11 +116,6 @@ export const PAIRS = [
     why: '同服务的轮询壳(启动即备份 + 每日 03:00 + WAL 归档清理)',
   },
   {
-    tracked: 'deploy/scripts/prod-bundle/deploy.sh',
-    runner: 'deploy/prod-bundle/deploy.sh',
-    why: 'compose 链一键部署(Linux/macOS);与蓝绿链 deploy/scripts/deploy.sh 是两个不同脚本',
-  },
-  {
     tracked: 'deploy/scripts/prod-bundle/health-check.sh',
     runner: 'deploy/prod-bundle/health-check.sh',
     why: 'compose 链部署后健康检查(带 --json,是 deploy-diagnose 的输入)',

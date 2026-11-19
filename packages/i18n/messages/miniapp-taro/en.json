@@ -4554,7 +4554,12 @@
       "schedule": "Scheduled Tasks"
     },
     "knowledgeCards": "Knowledge Cards",
-    "knowledgePlanet": "Knowledge Planet"
+    "knowledgePlanet": "Knowledge Planet",
+    "hrAttendance": "My attendance",
+    "hrLeave": "My leave",
+    "hrPayroll": "Payslips",
+    "settingsAppearance": "Appearance & typography",
+    "appsStudio": "AI app studio"
   },
   "accountPool": {
     "title": "My Account Pool",

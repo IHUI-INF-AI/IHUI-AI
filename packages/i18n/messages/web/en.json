@@ -12834,8 +12834,6 @@
       "model": "Open model selector",
       "mcp": "Open MCP marketplace",
       "compact": "Compact this conversation's context",
-      "act": "Switch to act mode (AI normally executes tools, default)",
-      "build": "Switch to Build mode (all tools enabled, normal execution)",
       "code": "Generate code",
       "explain": "Explain code or concept",
       "goal": "Set current session goal (AI works toward the goal, enters goal mode workflow)",
@@ -12846,10 +12844,8 @@
       "permissionAsk": "Switch to ask-for-approval mode (confirm before each AI action)",
       "permissionAuto": "Switch to auto-approve mode (approve safe actions automatically)",
       "permissionFull": "Switch to full-access mode (high risk, no confirmation)",
-      "plan": "Switch to plan mode (AI only makes plans, does not execute tools)",
       "polish": "Polish text",
       "review": "Pick a review target (uncommitted diff / branch / commit)",
-      "spec": "Switch to Spec mode (reverse-generate spec docs from code)",
       "summary": "Summarize current conversation",
       "translate": "Translate selected text",
       "wechat-article": "Write WeChat article",
@@ -31212,13 +31208,6 @@
     "autoContrast": "Auto contrast correction",
     "autoContrastHint": "Set body text to black or white based on each light/dark background.",
     "autoContrastDone": "Body text color corrected for the current background"
-  },
-  "engineMode": {
-    "title": "Agent execution engine",
-    "description": "Choose where agent orchestration runs. \"Local\" runs orchestration and tools on this machine without using server resources.",
-    "local": "Local",
-    "cloud": "Cloud",
-    "auto": "Auto"
   },
   "apps": {
     "savedToast": "Saved",
