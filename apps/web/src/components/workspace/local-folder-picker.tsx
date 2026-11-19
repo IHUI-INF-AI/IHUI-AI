@@ -39,11 +39,13 @@ import {
 import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
 import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
+import { workspaceAuthorizeRoot, workspaceFsInfo, workspaceFsList } from '@/lib/tauri-bridge'
 import {
   resolveBrowserWorkspaceKeyForHandle,
   saveBrowserWorkspaceHandle,
 } from '@/lib/workspace-context-loader'
 import { loadBrowserWorkspaceContextByName } from '@/hooks/use-chat/workspace'
+import { createTauriWorkspaceHandle } from '@/lib/tauri-workspace-handle'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
@@ -502,6 +504,15 @@ export function LocalFolderPicker({
   // 系统选择器返回的文件夹名(浏览器安全模型只暴露 handle.name,拿不到绝对路径)。
   // 设置后 PathNav 自动切到 input 模式预填该名字,用户补全完整路径(如 G:\IHUI-AI)后回车跳转。
   const [pathDraft, setPathDraft] = React.useState<string | null>(null)
+  /**
+   * 本机执行模式的已授权 root(2026-11-19)。
+   *
+   * 非空 ⇒ 桌面端走**本机文件通道**(`workspace_fs_*` IPC),列目录/打开工作区都不再
+   * 经过服务端 `/api/workspace/fs/*` —— 这正是与 Qoder / Trae / WorkBuddy 同构的那条腿:
+   * 工作区是本机目录,校验与读写都在本机进程里,不需要服务端登记白名单。
+   */
+  const [localRoot, setLocalRoot] = React.useState<string | null>(null)
+  const [localError, setLocalError] = React.useState<string | null>(null)
 
   const listRef = React.useRef<HTMLUListElement>(null)
 
@@ -510,17 +521,60 @@ export function LocalFolderPicker({
     [open],
   )
 
-  // 重置:每次打开从根开始
+  // 重置:每次打开从根开始;桌面端优先沿用已授权的本机 root(2026-11-19)
   React.useEffect(() => {
-    if (open) {
-      setCurrentPath('')
-      setSelectedPath('')
-      setFilter('')
-      setNativeHint(null)
+    if (!open) return
+    setFilter('')
+    setNativeHint(null)
+    setLocalError(null)
+    if (isTauri()) {
+      let cancelled = false
+      void workspaceFsInfo()
+        .then((info) => {
+          if (cancelled) return
+          if (info.state === 'ok' && info.root) {
+            setLocalRoot(info.root)
+            setCurrentPath(info.root)
+            setSelectedPath('')
+            return
+          }
+          setLocalRoot(null)
+          setCurrentPath('')
+          setSelectedPath('')
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setLocalRoot(null)
+            setCurrentPath('')
+            setSelectedPath('')
+          }
+        })
+      return () => {
+        cancelled = true
+      }
     }
+    setCurrentPath('')
+    setSelectedPath('')
   }, [open])
 
   // 浏览当前目录
+  //
+  // 两条腿(2026-11-19):桌面端已授权本机 root ⇒ 走本机 IPC(工作区相对路径);
+  // 其余(浏览器 / 未授权桌面) ⇒ 走服务端(需要 IHUI_WORKSPACE_ROOTS 白名单)。
+  const toRel = React.useCallback(
+    (abs: string): string => {
+      if (!localRoot) return abs
+      const norm = abs.replace(/[\\/]+/g, '/').replace(/\/+$/, '')
+      const rootNorm = localRoot.replace(/[\\/]+/g, '/').replace(/\/+$/, '')
+      if (norm.toLowerCase() === rootNorm.toLowerCase()) return ''
+      if (norm.toLowerCase().startsWith(`${rootNorm.toLowerCase()}/`)) {
+        return norm.slice(rootNorm.length + 1)
+      }
+      return abs
+    },
+    [localRoot],
+  )
+
   const {
     data: browseData,
     isLoading: browsing,
@@ -528,8 +582,21 @@ export function LocalFolderPicker({
     refetch: refetchBrowse,
     error: browseError,
   } = useQuery({
-    queryKey: ['workspace', 'fs-browse', currentPath],
+    queryKey: ['workspace', 'fs-browse', localRoot ?? '(server)', currentPath],
     queryFn: async () => {
+      if (isTauri() && localRoot) {
+        const res = await workspaceFsList(toRel(currentPath))
+        if (res.state !== 'ok') throw new Error(res.reason || `本机通道拒绝(${res.kind})`)
+        const base = currentPath
+        const entries: BrowseEntry[] = (res.entries ?? []).map((e) => ({
+          name: e.name,
+          path: `${base}${/[\\/]$/.test(base) ? '' : '\\'}${e.name}`,
+          isDir: e.kind === 'dir',
+          size: e.size,
+          modified: e.modified * 1000,
+        })) as unknown as BrowseEntry[]
+        return { entries }
+      }
       const res = await browseDirectory(currentPath || undefined)
       if (!res.success) throw new Error(res.error)
       return res.data
@@ -542,11 +609,34 @@ export function LocalFolderPicker({
   // 打开工作区
   const openMutation = useMutation({
     mutationFn: async (path: string) => {
+      // 本机执行模式:root 已经由本机通道授权过,打开 = 直接绑定,不打服务端白名单
+      if (isTauri() && localRoot) {
+        return {
+          path,
+          name: basenameOf(path),
+          techStack: [] as string[],
+          needsPermissionSetup: false,
+          permission: null,
+        }
+      }
       const res = await openWorkspace(path)
       if (!res.success) throw new Error(res.error)
       return res.data
     },
     onSuccess: (data) => {
+      // 本机执行模式:把 IPC 包装成的句柄登记进共享句柄表 ⇒ 对话侧工具执行器
+      // (`executeWorkspaceTool`) 拿到的就是这枚句柄,读写直接落在本机文件上。
+      // 这是"跟三家一样"的最后一根线:浏览器靠 showDirectoryPicker 句柄,
+      // 桌面端靠 workspace_fs_* IPC 造出的等价句柄。
+      if (isTauri() && localRoot) {
+        const key = data.name || basenameOf(localRoot)
+        const handle = createTauriWorkspaceHandle(localRoot, key)
+        saveBrowserWorkspaceHandle(key, handle as unknown as FileSystemDirectoryHandle)
+        void loadBrowserWorkspaceContextByName(key)
+        onWorkspaceOpened?.(localRoot, key, null)
+        onOpenChange(false)
+        return
+      }
       void queryClient.invalidateQueries({ queryKey: ['workspace', 'recent'] })
       if (data.needsPermissionSetup) {
         setPermDialogPath({
@@ -688,7 +778,20 @@ export function LocalFolderPicker({
       // 判断是完整路径(Tauri)还是仅文件夹名(浏览器)
       // 完整路径判定:Windows 含盘符(如 G:\) 或 Unix 以 / 开头
       const isFullPath = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('/')
-      if (isFullPath) {
+      if (isFullPath && isTauri()) {
+        // 2026-11-19:桌面端选到本机目录 ⇒ 交给**本机文件通道**授权,
+        // 之后列目录/打开都走 IPC,不再请求服务端 IHUI_WORKSPACE_ROOTS。
+        const auth = await workspaceAuthorizeRoot(path)
+        if (auth.state !== 'ok') {
+          setLocalError(auth.reason || `本机授权失败(${auth.kind})`)
+          return
+        }
+        const root = auth.root || path
+        setLocalError(null)
+        setLocalRoot(root)
+        navigateTo(root)
+        setNativeHint(t('nativePickResolved', { path: root }))
+      } else if (isFullPath) {
         // Tauri 桌面端:直接跳转到完整路径
         navigateTo(normalizeSep(path))
         setNativeHint(t('nativePickResolved', { path }))
@@ -722,12 +825,17 @@ export function LocalFolderPicker({
   const canOpen = !!openTarget && !openMutation.isPending
   const selectedName = selectedEntry?.name ?? (currentPath ? basenameOf(currentPath) : '')
 
-  // 错误信息
-  const errorMessage = browseError
-    ? (browseError as Error).message
-    : openMutation.isError
-      ? (openMutation.error as Error).message
-      : null
+  // 错误信息(本机通道的拒因优先;桌面端未授权 root 时不再展示服务端白名单红字)
+  const errorMessage =
+    localError ??
+    (isTauri() && !localRoot
+      ? null
+      : browseError
+        ? (browseError as Error).message
+        : openMutation.isError
+          ? (openMutation.error as Error).message
+          : null)
+  const showLocalHint = isTauri() && !localRoot && !localError
 
   return (
     <>
@@ -876,6 +984,10 @@ export function LocalFolderPicker({
                 <button
                   type="button"
                   onClick={() => {
+                    if (localError) {
+                      setLocalError(null)
+                      return
+                    }
                     if (browseError) void refetchBrowse()
                     else openMutation.reset()
                   }}
@@ -884,6 +996,16 @@ export function LocalFolderPicker({
                   <RefreshCw className="h-2.5 w-2.5" />
                   {t('retry')}
                 </button>
+              </div>
+            )}
+
+            {showLocalHint && (
+              <div className="font-[weight:inherit] flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-label text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  桌面端本机执行：点右侧硬盘图标选择你电脑上的文件夹，选中即在**本机**授权，
+                  列目录与读写都不经过服务器白名单。
+                </span>
               </div>
             )}
 
