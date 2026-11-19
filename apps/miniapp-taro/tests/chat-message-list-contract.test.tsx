@@ -17,11 +17,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// @ts-expect-error 深度路径无类型声明:仅测试用,固定 React 19 单实例
 vi.mock('react', async () => await vi.importActual('react'))
 
 import { createElement } from 'react'
-// @ts-expect-error 深度路径无类型声明:必须与上方 mock 的 React 19 单实例同源
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import {
