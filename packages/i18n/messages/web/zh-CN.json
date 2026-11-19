@@ -11553,8 +11553,6 @@
     "emptyAnswerFallback": "本轮没有返回任何内容",
     "modelRefresh": "刷新模型列表",
     "modelRefreshRunning": "正在刷新模型列表…",
-    "modelUnverified": "未验证",
-    "modelUnverifiedGroup": "未验证模型（{count}）",
     "modelQuotaExhausted": "额度已尽",
     "modelAuthFailed": "密钥失效",
     "modelOffline": "已下线",

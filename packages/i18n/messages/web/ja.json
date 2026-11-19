@@ -11553,8 +11553,6 @@
     "emptyAnswerFallback": "今回の応答は内容を返しませんでした",
     "modelRefresh": "モデル一覧を更新",
     "modelRefreshRunning": "モデル一覧を更新中…",
-    "modelUnverified": "未検証",
-    "modelUnverifiedGroup": "未検証モデル（{count}）",
     "modelQuotaExhausted": "枠を使い終えました",
     "modelAuthFailed": "キー無効",
     "modelOffline": "提供終了",
