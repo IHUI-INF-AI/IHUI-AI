@@ -15,33 +15,37 @@ import { DESKTOP_FEED } from '@/config/desktop-feed.generated'
 import { buildDesktopFeedPayload, type DesktopFeedPayload } from '@/config/desktop-feed-payload'
 import type { DesktopFeed } from '@/config/desktop-feed.generated'
 
-// 现状快照(desktop-v0.1.52,2026-10-12 生成)的逐字节输出基准;
-// 每次发版自动同步 desktop-feed.generated.ts 后,本基准随快照一起翻页 —— 翻页动作是**人工一步**
-// (2026-10-12 0.1.52 翻页由脚本从 generated 产物程序化提取完成,不再手抄)
-// (2026-09-28 实测:0.1.50 的快照提交 434552051d 只翻了产物没翻这里,于是 web 3 条逐字节锁全红,
-//  而 CI 的 [test] 步骤被 [build] 挡在前面看不见它)。真正的自动化(从产物推导基准)另计一票。
-const LOCKED_WIN_URL =
-  'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.77/AI_0.1.77_x64-setup.exe'
-const LOCKED_WIN_SIG =
-  'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGU4d3VLbkhFcTRSK3oxK1VmTEY5Vk5ESVhVZ0EzREZad2VrRWdSSHJmK00wNWNlSTZmVHhHZHR1NjRuQ0tuUDExMDZpODZOcFhWRUptSlZIRGwzWGd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNjc0NzkwCWZpbGU65pm65rGHQUlfMC4xLjc3X3g2NC1zZXR1cC5leGUKb1NyVS9LaUluOFF4cXNsVDhWS0NBOXkwaTE5YUJPWE9BUU5xNnJDdFhwcmRFSnNXNEVyeTFxb2Y3ZGx6QXNDV3B6S1NhTmxkc1g5MVVuRlljdW5EQlE9PQo='
+// 逐字节基准改为**从产物推导**(2026-11-19):此前是手抄 0.1.77 的 url/签名/notes,
+// 每次发版只翻产物不翻这里 ⇒ 三条锁必红(2026-09-28 已实测过一次)。现在基准取
+// desktop-feed.generated.ts 的 updaterPlatforms,再由断言把"格式"钉死
+// (文件名/标签/notes 模板/releaseDate 口径),这样翻页不再需要人工抄，
+// 而模板一旦变样照样红。
+const WIN_ENTRY = DESKTOP_FEED.updaterPlatforms?.['windows-x86_64']
+const LOCKED_WIN_URL = WIN_ENTRY?.url ?? ''
+const LOCKED_WIN_SIG = WIN_ENTRY?.signature ?? ''
 
 describe('buildDesktopFeedPayload — 现状快照(四平台 updaterPlatforms)', () => {
   const payload = buildDesktopFeedPayload(DESKTOP_FEED) as DesktopFeedPayload
 
   it('windows-x86_64 与改造前逐字节一致(version/url/signature 三口)', () => {
     expect(payload).not.toBeNull()
-    expect(payload.version).toBe('0.1.77')
+    expect(payload.version).toBe(DESKTOP_FEED.version)
     expect(payload.platforms['windows-x86_64']).toEqual({
       url: LOCKED_WIN_URL,
       signature: LOCKED_WIN_SIG,
     })
+    // 模板锁:直链必须来自 desktop-v<version> 标签的 AI_<version>_x64-setup.exe
+    expect(LOCKED_WIN_URL).toBe(
+      `https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v${DESKTOP_FEED.version}/AI_${DESKTOP_FEED.version}_x64-setup.exe`,
+    )
+    expect(LOCKED_WIN_SIG.length).toBeGreaterThan(0)
   })
 
   it('notes / pub_date 与旧 route 模板逐字节一致', () => {
     expect(payload.notes).toBe(
-      '智汇AI 桌面端 0.1.77:极速薄壳(3MB)、首启不白屏、线上部署自动热刷新、断网兜底、自动更新。',
+      `智汇AI 桌面端 ${DESKTOP_FEED.version}:极速薄壳(3MB)、首启不白屏、线上部署自动热刷新、断网兜底、自动更新。`,
     )
-    expect(payload.pub_date).toBe(new Date('2026-11-03T00:00:00Z').toISOString())
+    expect(payload.pub_date).toBe(new Date(`${DESKTOP_FEED.releaseDate}T00:00:00Z`).toISOString())
   })
 
   it('mac/linux 键存在、host 在白名单(gitee/github 均可,2026-10-12 起 Gitee 已补齐)、签名非空、dmg 不出现', () => {

@@ -371,13 +371,17 @@ describe('SAG2 PageClient · 四类失败态（真实解包链路）', () => {
     expectCall(calls, 0, '/api/v1/ai/sag2/status', 'GET')
   })
 
-  it('网络 reject：TypeError 原样冒泡，生产重试 1 次后 UI 显示明确错误态', async () => {
+  it('网络 reject：传输层把 TypeError 归一成友好文案(不再把 Failed to fetch 贴给用户),重试 1 次', async () => {
     const { calls, fn } = installFetch([{ reject: new TypeError('Failed to fetch') }])
     render(<PageClient />)
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('请求失败')
-    expect(alert.textContent).toContain('Failed to fetch')
+    // 2026-11-19 现读:@ihui/api-client 的 transportFailureText 已把 TypeError/fetch 失败
+    // 归一成「网络连接异常,请检查网络后重试」(原文仍进 cause 与日志,不上屏)——
+    // 旧断言要求 UI 里出现 `Failed to fetch` 是在给"把英文异常贴给用户"背书,判据随实现改判。
+    expect(alert.textContent).toContain('网络连接异常')
+    expect(alert.textContent).not.toContain('Failed to fetch')
     expect(fn).toHaveBeenCalledTimes(2)
     expectCall(calls, 0, '/api/v1/ai/sag2/status', 'GET')
     expectCall(calls, 1, '/api/v1/ai/sag2/status', 'GET')

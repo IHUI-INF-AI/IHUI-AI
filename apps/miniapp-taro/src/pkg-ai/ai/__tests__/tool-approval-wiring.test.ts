@@ -60,6 +60,11 @@ const CARD_SRC = src('src/pkg-ai/ai/tool-approval-card.tsx')
 const FRAME_SRC = src('src/lib/tool-approval-frame.ts')
 const SSE_SRC = src('src/lib/sse.ts')
 const API_CLIENT_SRC = readFileSync(join(REPO_ROOT, 'packages/api-client/src/client.ts'), 'utf8')
+// D-07 起 expired 族判据在 stream.ts 的 projectToolApprovalExpiredFact 里读线字段
+const API_CLIENT_STREAM_SRC = readFileSync(
+  join(REPO_ROOT, 'packages/api-client/src/stream.ts'),
+  'utf8',
+)
 
 function fakeTt(dict: Record<string, string> = {}): TranslateWithFallback {
   return (key, fallback) => dict[key] ?? fallback
@@ -285,8 +290,18 @@ describe('D136 ④ 帧认领与传输层:帧到设备不再静默丢弃', () => 
       'expired_reason',
     ] as const
     for (const key of wireKeys) {
-      // api-client 的 chat-stream 解析腿(权威口径)必须还在读这个键
-      expect(API_CLIENT_SRC).toContain(`json.${key}`)
+      // api-client 的 chat-stream 解析腿(权威口径)必须还在读这个键。
+      // 2026-11-19:D-07 的 expired 两键已下沉到 stream.ts 的 projectToolApprovalExpiredFact,
+      // client.ts 只负责把它接进帧对象 ⇒ 判据改成「两腿任一真读」+ 下沉腿必须有接线行,
+      // 否则"读在别处"会变成"根本没读"的假绿。
+      const authoritativeReads =
+        API_CLIENT_SRC.includes(`json.${key}`) ||
+        ('expired' === key || 'expired_reason' === key) &&
+          API_CLIENT_STREAM_SRC.includes(`json.${key}`)
+      expect(authoritativeReads).toBe(true)
+      if (authoritativeReads && !API_CLIENT_SRC.includes(`json.${key}`)) {
+        expect(API_CLIENT_SRC).toContain('projectToolApprovalExpiredFact(json)')
+      }
       // 端内认领层也必须读同一个键(漏一个 ⇒ 该字段在本端结构上永远是缺省值)
       expect(FRAME_SRC).toContain(`json.${key}`)
     }

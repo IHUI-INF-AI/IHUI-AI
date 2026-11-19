@@ -7,7 +7,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     // 测试环境启动前加载 .env.test(指向 ihui_test 库)
-    setupFiles: ['./tests/setup-env.ts'],
+    setupFiles: ['./tests/setup-env.ts', './tests/setup-redis-stub.ts'],
     // 默认跑 mock 测试:test/(单数) + tests/(复数) + src/{routes,services,jobs,plugins,utils}/__tests__/ 下的 *.test.ts
     include: [
       'test/**/*.test.ts',

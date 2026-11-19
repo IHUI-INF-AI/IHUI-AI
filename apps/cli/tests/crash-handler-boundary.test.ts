@@ -58,7 +58,15 @@ vi.mock('node:fs', async (importOriginal) => {
     }),
     readFileSync: vi.fn(() => '{"version":"1.0.0-test"}'),
   };
-});
+}); 
+
+// 2026-11-19:F-008 起 crash log 走唯一私有写入口 writePrivateFile(原子替换 + 0600),
+// 不再直接调 fs.writeFileSync ⇒ 落盘集合必须在入口处收,否则"落了几份结论"量为 0。
+vi.mock('../src/lib/private-file.js', () => ({
+  writePrivateFile: vi.fn((p: string, text: string) => {
+    vstate.files.set(p, text);
+  }),
+}));
 
 import { installCrashHandler, uninstallCrashHandler } from '../src/crash-handler.js';
 

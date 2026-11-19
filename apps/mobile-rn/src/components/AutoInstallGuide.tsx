@@ -22,7 +22,7 @@ import { t as tStatic } from '../i18n'
 import * as React from 'react'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ShieldCheck } from 'lucide-react-native'
-import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Tappable } from '@ihui/ui-native'
 import {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   modalRoot: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: rnCssLight.black45,
     justifyContent: 'center',
     padding: rnSpacing.lg,
   },

@@ -30,7 +30,10 @@ import type { LucideIcon } from 'lucide-react'
 import type { PluginViewManifest } from '@/lib/plugin-view-runtime'
 
 /**
- * REA 逆向能力目录(静态数据,2026-11-15 立,同日深挖扩至 37 条)。
+ * REA 逆向能力目录(静态数据,2026-11-15 立,同日深挖扩至 37 条;2026-11-19 清退 1 条
+ * acl-capability-sandbox —— 其 evidence 指向 `.archify/deepseek-sandbox-acl-src/src__acl.ts`,
+ * 该取证产物从未入库且 `.archify/` 是本地忽略目录,任何干净检出上都无法复验 ⇒ 按本目录
+ * "证据必须可回读"的准入删条,现 36 条)。
  *
  * 单一真相源:逆向证据 = REA(js_app_map)对四个 app.asar 的现场取证,
  * evidence_id 形如 `ev_<hex>`(本会话已存,core_evidence_browse 可回放)。
@@ -454,27 +457,6 @@ export const REA_CAPABILITIES: ReaCapability[] = [
     },
   },
   {
-    id: 'acl-capability-sandbox',
-    name: 'capability-SID ACL 沙箱(目录级写白名单)',
-    category: 'permission',
-    source: 'deepseek',
-    icon: ShieldCheck,
-    summary:
-      'OS 级目录写白名单:capability-SID allow ACE + 从 world SID 剥 FILE_DELETE_CHILD 的 Deny ACE + Low no-write-up 强制标签,三次编辑合并进一次 SetNamedSecurityInfoW。IHUI os_sandbox.py 现仅有 DISABLE_MAX_PRIVILEGE 剥特权,无 capability-SID 目录级白名单与跨根隔离 —— 真缺。',
-    maturity: 'B',
-    target: 'apps/ai-service/app/services/os_sandbox.py(补 capability-SID 写根 ACL 层)',
-    evidence: {
-      program: 'deepseek',
-      probe:
-        'dsh-sandbox-windows-acl 源码取证:SetEntriesInAclW + SetNamedSecurityInfoW / buildLowLabelAcl(SYSTEM_MANDATORY_LABEL_NO_WRITE_UP) / workspaceWriteSid=S-1-4-<hash> / buildExplicitAccess + worldSid deny FILE_DELETE_CHILD / withPathLock(LockFileEx 每路径互斥)',
-      file: '.archify/deepseek-sandbox-acl-src/src__acl.ts',
-      version: 'dsh Windows ACL 沙箱',
-      sha8: '42376a7c',
-      measured:
-        '实测三编辑合一:capability-SID allow + world deny(FILE_DELETE_CHILD,防父目录跨根删除) + Low label;workspace-write 用 workspaceWriteSid(sha256(workspace)→S-1-4-a-b),temp 独立 tempWriteSid 且强制与 workspace 不相交(assertPrivateTempDisjoint);读合并写在 LockFileEx 下防并发实例互相覆盖 ACE;对照 IHUI os_sandbox.py:998 仅 DISABLE_MAX_PRIVILEGE(+可选 LUA_TOKEN),无目录白名单/无跨根 deny/无 Low 标签',
-    },
-  },
-  {
     id: 'ckg-vector-search',
     name: '代码知识图内嵌向量检索 sqlite_vec',
     category: 'code-intel',
@@ -488,9 +470,9 @@ export const REA_CAPABILITIES: ReaCapability[] = [
       program: 'trae',
       probe:
         'trae-native-runtime 取证:ckg_server(libckg.dll) sublabel="代码知识图 :50000 / local_embedding / sqlite_vec",tag=Rust + 内嵌向量库',
-      file: 'G:\\Trae CN\\resources\\app(_b_one-ckg.json 取证:local_embedding + sqlite_vec)',
+      file: 'docs/benchmark-evidence/2026-10/trae-rea-20261031/T1-trae-ai-agent.md',
       version: '1.107.1',
-      sha8: 'cc38882e',
+      sha8: '7c8739dd',
       measured:
         '实测 ckg_server 组件:libckg.dll 独立进程 :50000 端口,内嵌 local_embedding(本地向量化)+ sqlite_vec(SQLite 向量扩展),与 harness/ai_agent/toolhost 三巨型原生模块并列为第四数据库件;对照 IHUI code_symbol_graph.py 纯符号关系图、knowledge_graph.py 文本图,均无向量语义检索层',
     },
@@ -509,9 +491,9 @@ export const REA_CAPABILITIES: ReaCapability[] = [
       program: 'trae',
       probe:
         'trae-native-runtime 取证:toolhost.dll + agent-tool-host.exe 沙箱化调用,sandbox(aha_sbox_v1) cards 明示 network_allow/deny 策略 + 四模式网络代理 cloud/system/manual/direct 双重应用',
-      file: 'G:\\Trae CN\\resources\\app(_b_one-toolhost.json + _b_one-sandbox.json 取证)',
+      file: 'docs/benchmark-evidence/2026-10/trae-rea-20261031/T2-trae-periphery.md',
       version: '1.107.1',
-      sha8: '386a724d',
+      sha8: 'e84a98fe',
       measured:
         '实测隔离卡片:工具执行走沙箱化 toolhost,含 network_allow/deny 策略;网络四模式 cloud/system/manual/direct 双重应用(进程级 + 系统级);云代理按租户 gated 仅业务用户可启用;对照 IHUI sandbox_policy.py:202 仅 allow_network: bool 单布尔,无域名/IP 双清单,无多模式代理叠加',
     },
@@ -530,9 +512,9 @@ export const REA_CAPABILITIES: ReaCapability[] = [
       program: 'trae',
       probe:
         'trae-native-runtime 取证:_b_one-sandbox.json components[sandbox,type=security,label=沙箱 VM,tag=aha_sbox_v1] + trae-modules.json 文件清单 vm_sdk/sbox_sdk/aiep_vm/aiep_sbox/aiep_ipc/run_helper(x64+x86)',
-      file: 'G:\\Trae CN\\resources\\app(_b_one-sandbox.json 取证)',
+      file: 'docs/benchmark-evidence/2026-10/trae-rea-20261031/T2-trae-periphery.md',
       version: '1.107.1',
-      sha8: '5da5939b',
+      sha8: 'e84a98fe',
       measured:
         '实测文件级取证(trae-modules.json size,sha8 用 _b_one-sandbox.json 重算):vm_sdk.dll 2582928B + sbox_sdk.dll 2320272B + aiep_vm.dll 917392B(x64)/698256B(x86) + aiep_sbox.dll 757648B(x64)/575888B(x86) + aiep_ipc.dll 577424B(x64)/435088B(x86) + run_helper.exe 682384B(x64)/545680B(x86) + trae-sandbox.exe 1254288B;aha_sbox_v1 全套 VM 隔离,非单进程 sandbox',
     },
@@ -551,9 +533,9 @@ export const REA_CAPABILITIES: ReaCapability[] = [
       program: 'trae',
       probe:
         'trae-native-runtime 取证:_b_one-harness.json components[harness,type=backend,tag=263MB Rust] + _b_one-aiagent.json components[aiagent,tag=285MB Rust] + _b_one-toolhost.json components[toolhost,tag=99MB+101MB] + _b_one-ipcbridge.json(ICube 桥接 71 通道)',
-      file: 'G:\\Trae CN\\resources\\app(_b_one-harness.json + _b_one-aiagent.json + _b_one-toolhost.json 取证)',
+      file: 'docs/benchmark-evidence/2026-10/trae-rea-20261031/T1-trae-ai-agent.md',
       version: '1.107.1',
-      sha8: '72bc6192',
+      sha8: '7c8739dd',
       measured:
         '实测文件级取证(trae-modules.json):ai_agent.dll 285523856B + harness.dll 264456080B + agent-tool-host.exe 99315088B + toolhost.dll 97991568B;架构主线 VSCode fork 外壳 + AI 主体整块下沉 Rust;可复用点:进程化拆分(socket 端口编排) + 阶段化日志 stage=;ICube 桥接 71 通道 100 运行时计算',
     },

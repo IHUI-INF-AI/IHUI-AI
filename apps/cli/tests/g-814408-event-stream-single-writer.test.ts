@@ -601,7 +601,9 @@ describe('G-814408 ④ NDJSON 出口:结果行之前先停订阅,之后不冒事
     expect(code).toMatch(/createHeadlessEventGate\(/);
     expect(code).toMatch(/canEmit\(/);
     const idxDetach = code.indexOf('headlessEventGate.detachEvents()');
-    const idxComplete = code.indexOf("type: 'complete'");
+    // `type: 'complete'` 在本文件还有别处(complete 事件的构造/归一化)⇒ 取**最后一处**,
+    // 那才是"结果行"本身;取首处会锚到 20 行之前的无关代码,断言变成自洽的错位。
+    const idxComplete = code.lastIndexOf("type: 'complete'");
     const idxMermaid = code.indexOf("'mermaid_render'");
     expect(idxDetach, '结果行输出前必须先 detachEvents(锚点丢失时 indexOf 会自洽却错位)').toBeGreaterThan(-1);
     expect(idxComplete, '结果行(complete)必须仍在位').toBeGreaterThan(-1);

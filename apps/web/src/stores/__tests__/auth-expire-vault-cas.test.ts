@@ -31,9 +31,12 @@ vi.mock('@/lib/desktop-token-vault', () => ({
   setDesktopRefreshToken: mocks.vaultSet,
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  logout: mocks.apiLogout,
-}))
+// 按真模块展开再覆盖:本包新增导出(setTokenProvider / setBaseUrl …)时不会再出现
+// "mock 少一项 ⇒ 模块图初始化即崩"这一类假红。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return { ...actual, logout: mocks.apiLogout }
+})
 
 import { useAuthStore } from '../auth'
 import {
