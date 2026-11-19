@@ -450,6 +450,24 @@ jobs:
   test-python:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 2026-11-19:ai-service 五处自有 sqlite 写路径已全部迁 PostgreSQL(守门 pg-only 零容忍)。
+    # 会话库/记忆清扫/准入票/审批缓存/SSO 身份都按 DATABASE_URL fail-closed ⇒ 本 job 必须带真库。
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ihui_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout

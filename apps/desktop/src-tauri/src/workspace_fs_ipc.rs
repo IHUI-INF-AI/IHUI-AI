@@ -11,8 +11,10 @@
 //! 授权边界（运行时可读版本见 `boundary_note`）：
 //! - root 有两条来源，**都要求用户在本机做出的动作**：
 //!   ① `workspace_pick_root`：宿主自己弹原生目录选择器，凭证**不经过页面**（最强）；
-//!   ② `workspace_authorize_root`：页面把已在系统选择器里选到的路径交上来，
-//!      宿主仍要过两道证（落在 permitted bases 内 ∧ canonicalize 后仍是目录）。
+//!   ② `workspace_authorize_root`：页面把已在系统选择器里选到的路径交上来；
+//!      凭证 = 宿主原生选择器最近一次真实选中项（`G:\IHUI-AI` 这类家目录外的盘
+//!      同样可授权），git bases 只作脚本场景兜底。2026-11-20 立：此前误用 git bases
+//!      当闸，导致家目录外的工作区一律 `out_of_bounds`，界面表现为"读取不到本地"。
 //! - 文件操作只接受**工作区内相对路径**，绝对路径 / `..` / verbatim / UNC / 盘符
 //!   由 `workspace_fs_core::normalize_rel` 拒。
 //! - 每次读写都算前像指纹（`fingerprint`），写入可带 `expected_sha256` 做冲突检测：
@@ -89,9 +91,19 @@ impl FsReply {
     }
 }
 
-/// 宿主状态：已授权 root（最多一个，与"当前工程"语义一致）+ bases 快照。
+/// 宿主状态：已授权 root（最多一个，与"当前工程"语义一致）
+/// + 宿主原生选择器最近一次选中的路径（凭证）+ git bases 快照。
+///
+/// 为什么要有 `picked`（2026-11-20 立，实测根因）：`workspace_authorize_root` 过去
+/// 只认 `bases_from_env()`（`IHUI_DESKTOP_GIT_BASES` + `USERPROFILE` + `HOME`）——
+/// 那本是**git 操作**的允许基目录，用在工作区授权上时，用户选 `G:\IHUI-AI`
+/// 这类家目录之外的盘会一律 `out_of_bounds`，界面表现为"读取不到本地"。
+/// 现在的信任根 = **用户在宿主原生选择器里亲手点中的那个目录**：
+/// 选中即凭证（页面拿不到任意路径，被 XSS 的远程页面也无法凭空授权任意盘），
+/// git bases 只作为脚本/无 UI 场景的兼容兜底保留。
 pub struct WorkspaceFsState {
     root: Mutex<Option<String>>,
+    picked: Mutex<Option<String>>,
     bases: Vec<String>,
 }
 
@@ -99,8 +111,25 @@ impl WorkspaceFsState {
     pub fn from_env() -> Self {
         WorkspaceFsState {
             root: Mutex::new(None),
+            picked: Mutex::new(None),
             bases: bases_from_env(),
         }
+    }
+
+    /// 宿主原生选择器最近一次选中的路径（canonical 文本）。
+    fn picked_root(&self) -> Option<String> {
+        self.picked
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    fn set_picked(&self, path: String) {
+        let mut guard = self
+            .picked
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *guard = Some(path);
     }
 
     fn stored_root(&self) -> Option<String> {
@@ -121,7 +150,7 @@ impl WorkspaceFsState {
     /// 授权边界自述（前端/日志可读，便于事后核对"这一通道到底信了什么"）。
     pub fn boundary_note(&self) -> String {
         format!(
-            "root 只能由本机目录选择器(workspace_pick_root)或 bases({} 个)双证后的 authorize 写入；\
+            "root 只能由宿主原生选择器(workspace_pick_root)选中后写入，或由 git bases({} 个)兜底 authorize；\
 文件面只接受工作区相对路径；读上限 {}B / 写上限 {}B / 列上限 {} 条；写可带前像 sha 做冲突检测",
             self.bases.len(),
             MAX_READ_BYTES,
@@ -140,6 +169,9 @@ fn canon(path: &Path) -> std::io::Result<PathBuf> {
 ///
 /// 两道证：① 落在 permitted bases 之内（canonicalize 后比组件前缀）；
 /// ② 本身就是目录。任一不成立即拒 —— 失效方向是"多要一次说明"，不是"多放一次"。
+///
+/// 注意：这条是**兼容兜底**（脚本 / 无 UI 场景）。桌面端点选文件夹走的是
+/// `try_authorize_picked`，凭证是宿主原生选择器的真实选中项，不受 bases 限制。
 fn try_authorize(state: &WorkspaceFsState, root: &str) -> Result<String, Reject> {
     let trimmed = root.trim();
     if trimmed.is_empty() {
@@ -177,15 +209,69 @@ fn try_authorize(state: &WorkspaceFsState, root: &str) -> Result<String, Reject>
     Ok(text)
 }
 
-/// 页面把"系统选择器里已经选到的路径"交上来 -> 双证授权。
+/// 用"宿主原生选择器选中项"当凭证授权（2026-11-20 立）。
+///
+/// 判据：候选路径必须是目录 ∧（等于最近一次选中的路径 ∨ 落在它之内 ∨ 落在
+/// 已授权 root 之内）。**不看 git bases** —— 用户能在系统对话框里点到的位置，
+/// 就是他有权访问的位置；页面拿不到这条凭证，所以被 XSS 也授不了任意盘。
+fn try_authorize_picked(state: &WorkspaceFsState, root: &str) -> Result<String, Reject> {
+    let trimmed = root.trim();
+    if trimmed.is_empty() {
+        return Err(Reject::SuspiciousInput("root 为空".into()));
+    }
+    let candidate = canon(Path::new(trimmed))
+        .map_err(|e| Reject::Io(format!("root 不可解析({trimmed}): {e}")))?;
+    if !candidate.is_dir() {
+        return Err(Reject::TypeMismatch(format!(
+            "root 不是目录：{}",
+            candidate.display()
+        )));
+    }
+    let text = candidate.to_string_lossy().to_string();
+    let inside_picked = match state.picked_root() {
+        Some(picked) => match canon(Path::new(&picked)) {
+            Ok(picked_canon) => within_root(&picked_canon, &candidate),
+            Err(_) => false,
+        },
+        None => false,
+    };
+    let inside_current_root = match state.stored_root() {
+        Some(current) => match canon(Path::new(&current)) {
+            Ok(current_canon) => within_root(&current_canon, &candidate),
+            Err(_) => false,
+        },
+        None => false,
+    };
+    if !inside_picked && !inside_current_root {
+        return Err(Reject::RootNotAuthorized);
+    }
+    state.set_root(text.clone());
+    Ok(text)
+}
+
+/// 页面把"系统选择器里已经选到的路径"交上来 -> 授权。
+///
+/// 先问"这是不是宿主选择器刚选中的那一个"（凭证制，不受 git bases 限制）；
+/// 不成立再落到 bases 兜底（脚本 / 无 UI 场景）。两条都不成立才拒。
 #[tauri::command(async)]
 pub async fn workspace_authorize_root(
     state: tauri::State<'_, WorkspaceFsState>,
     root: String,
 ) -> Result<FsReply, String> {
-    match try_authorize(&state, &root) {
+    match try_authorize_picked(&state, &root) {
         Ok(text) => Ok(FsReply::ok(&text)),
-        Err(reject) => Ok(FsReply::reject("", reject)),
+        Err(first) => match try_authorize(&state, &root) {
+            Ok(text) => Ok(FsReply::ok(&text)),
+            Err(second) => {
+                // 两条都拒时，回那条更具体的拒因：凭证制拒（root_not_authorized）
+                // 往往只是"页面自己传了个没选过的路径"，而 bases 拒会点明到底哪个基目录不同族。
+                let reject = match (&first, &second) {
+                    (Reject::RootNotAuthorized, other) => other.clone(),
+                    (other, _) => other.clone(),
+                };
+                Ok(FsReply::reject("", reject))
+            }
+        },
     }
 }
 
@@ -208,10 +294,30 @@ pub async fn workspace_pick_root(
             let _ = tx.send(path.map(|p| p.to_string()));
         });
     match rx.recv_timeout(std::time::Duration::from_secs(120)) {
-        Ok(Some(selected)) => match try_authorize(&state, &selected) {
-            Ok(text) => Ok(FsReply::ok(&text)),
-            Err(reject) => Ok(FsReply::reject("", reject)),
-        },
+        Ok(Some(selected)) => {
+            // 宿主选择器选中 = 凭证（2026-11-20）：用户亲手在系统对话框里点到的目录
+            // 就是他有权访问的位置，不再拿 git bases 当闸（那会把家目录外的盘全拒掉，
+            // 界面表现为"读取不到本地"）。
+            let picked = match canon(Path::new(&selected)) {
+                Ok(p) => p,
+                Err(e) => {
+                    return Ok(FsReply::reject(
+                        "",
+                        Reject::Io(format!("所选目录不可解析({selected}): {e}")),
+                    ))
+                }
+            };
+            if !picked.is_dir() {
+                return Ok(FsReply::reject(
+                    "",
+                    Reject::TypeMismatch(format!("所选路径不是目录：{}", picked.display())),
+                ));
+            }
+            let text = picked.to_string_lossy().to_string();
+            state.set_picked(text.clone());
+            state.set_root(text.clone());
+            Ok(FsReply::ok(&text))
+        }
         Ok(None) => Ok(FsReply::reject("", Reject::SuspiciousInput("用户取消了选择".into()))),
         Err(_) => Ok(FsReply::reject("", Reject::SuspiciousInput("等待选择超时".into()))),
     }
@@ -556,6 +662,7 @@ mod tests {
     fn authorize_rejects_empty_and_non_bases() {
         let state = WorkspaceFsState {
             root: Mutex::new(None),
+            picked: Mutex::new(None),
             bases: vec![],
         };
         assert!(matches!(try_authorize(&state, ""), Err(Reject::SuspiciousInput(_))));
@@ -570,6 +677,7 @@ mod tests {
         let tmp = std::env::temp_dir();
         let state = WorkspaceFsState {
             root: Mutex::new(None),
+            picked: Mutex::new(None),
             bases: vec![tmp.to_string_lossy().to_string()],
         };
         let sub = tmp.join("ihui-ws-test");
@@ -590,6 +698,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let state = WorkspaceFsState {
             root: Mutex::new(None),
+            picked: Mutex::new(None),
             bases: vec![std::env::temp_dir().to_string_lossy().to_string()],
         };
         let root = try_authorize(&state, &tmp.to_string_lossy()).expect("授权失败");
@@ -609,6 +718,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         let state = WorkspaceFsState {
             root: Mutex::new(None),
+            picked: Mutex::new(None),
             bases: vec![std::env::temp_dir().to_string_lossy().to_string()],
         };
         let _ = try_authorize(&state, &tmp.to_string_lossy());
@@ -620,9 +730,42 @@ mod tests {
     fn resolve_requires_authorized_root() {
         let state = WorkspaceFsState {
             root: Mutex::new(None),
+            picked: Mutex::new(None),
             bases: vec![],
         };
         assert!(matches!(resolve_target(&state, "a.txt", false), Err(Reject::RootNotAuthorized)));
+    }
+
+    /// 2026-11-20 回归锁：家目录之外的工作区（如 `G:\IHUI-AI`）必须能靠
+    /// "宿主选择器选中"授权 —— 这正是"读取不到本地"的根因所在。
+    #[test]
+    fn picked_credential_authorizes_dir_outside_git_bases() {
+        let tmp = std::env::temp_dir().join("ihui-ws-picked");
+        let sub = tmp.join("IHUI-AI");
+        let _ = std::fs::create_dir_all(&sub);
+        let state = WorkspaceFsState {
+            root: Mutex::new(None),
+            picked: Mutex::new(None),
+            bases: vec![],
+        };
+        // 没有 picked 凭证：一律拒（fail-closed）
+        assert!(matches!(
+            try_authorize_picked(&state, &sub.to_string_lossy()),
+            Err(Reject::RootNotAuthorized)
+        ));
+        // 模拟宿主选择器选中 tmp ⇒ 其后代可授权，bases 为空也不拦
+        let picked = canon(&tmp).expect("canon 失败");
+        state.set_picked(picked.to_string_lossy().to_string());
+        let ok = try_authorize_picked(&state, &sub.to_string_lossy()).expect("选择器凭证应可授权");
+        assert!(ok.to_lowercase().contains("ihui-ai"));
+        // 未选中的旁路目录仍拒（换一个与 tmp 不同族的盘符根）
+        let outside = if cfg!(windows) { "C:\\Windows" } else { "/etc" };
+        if Path::new(outside).exists() {
+            assert!(matches!(
+                try_authorize_picked(&state, outside),
+                Err(Reject::RootNotAuthorized)
+            ));
+        }
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -195,7 +195,7 @@ class PgCursor:
     非计数语句(建表/空串)取 0 —— 取不到就报 0,不编造。
     """
 
-    def __init__(self, rows: Sequence[Any], status: str = "") -> None:
+    def __init__(self, rows: Sequence[Any], status: str | None = "") -> None:
         self._rows = list(rows)
         self.rowcount = _status_count(status)
 
@@ -206,7 +206,10 @@ class PgCursor:
         return list(self._rows)
 
 
-def _status_count(status: str) -> int:
+def _status_count(status: str | None) -> int:
+    """从 asyncpg 的状态串取尾数;取不到(None/空/无数字)一律 0,不编造行数。"""
+    if not status:
+        return 0
     tail = status.strip().rsplit(" ", 1)
     if len(tail) == 2 and tail[1].isdigit():
         return int(tail[1])

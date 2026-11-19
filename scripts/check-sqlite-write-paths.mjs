@@ -58,6 +58,21 @@ const EXTS = ['.py', '.ts', '.tsx', '.js', '.mjs', '.cjs', '.jsx']
 // 扫进来必然"清单外新命中 10 处" ⇒ 恒红门(§12e)。同族:镜像测试同样不量。
 const SKIP_SELF = new Set(['scripts/check-sqlite-write-paths.mjs', 'scripts/tests/check-sqlite-write-paths.test.mjs'])
 
+// 降噪豁免族(2026-11-19 立,自有写路径清零后启用零容忍):这两处**不是我们的存储**——
+// 一处是读外部格式(浏览器 profile),一处是 PG 集成用例的历史输入夹具(用例本身跑 PG)。
+// 豁免必须"验过才免":每轮都核对路径仍在被审面存在,消失即判红(豁免到期)。
+// 除这两条之外,**任何 sqlite 写形态都不再有基线**:一律按"清单外新命中"判红。
+export const NON_STORE_FIXTURES = new Map([
+  [
+    'apps/ai-service/tests/test_external_browser_profile.py',
+    '外部浏览器 profile 夹具:构造/读取别人格式的 sqlite 文件,不是我们的存储',
+  ],
+  [
+    'apps/ai-service/tests/test_sag2_pg_integration.py',
+    'PG 集成用例的历史输入夹具:为"迁移前形态"准备 sqlite 输入,该用例本身跑 PG',
+  ],
+])
+
 // 命中族:打开/驱动 sqlite 的调用形态。顺序即诊断顺序。
 export const HIT_PATTERNS = [
   { id: 'py-connect', re: /sqlite3\.connect\s*\(/g },
@@ -116,7 +131,9 @@ function readBaseline(root) {
 /** 扫描一个判定面,返回逐文件命中表。 */
 function scanFace({ root, face }) {
   const listed = listFaceFiles(root, face, { paths: SUBROOTS })
-  const targets = listed.filter((rel) => underSubroots(rel) && isSource(rel) && !SKIP_SELF.has(rel))
+  const targets = listed.filter(
+    (rel) => underSubroots(rel) && isSource(rel) && !SKIP_SELF.has(rel) && !NON_STORE_FIXTURES.has(rel),
+  )
   if (!targets.length) throw new Error(`目录枚举到 0 个候选(${face} 面)`)
 
   const hits = new Map()
@@ -127,7 +144,7 @@ function scanFace({ root, face }) {
       const n = countHits(readFileSync(abs, 'utf8'))
       if (n > 0) hits.set(rel, n)
     }
-    return { hits, scanned: targets.length }
+    return { hits, scanned: targets.length, listed: new Set(listed) }
   }
   const spec = (rel) => (face === 'head' ? `HEAD:${rel}` : `:${rel}`)
   const batch = catBatch(root, targets.map(spec))
@@ -139,7 +156,7 @@ function scanFace({ root, face }) {
     const n = countHits(content)
     if (n > 0) hits.set(rel, n)
   }
-  return { hits, scanned: targets.length }
+  return { hits, scanned: targets.length, listed: new Set(listed) }
 }
 
 /** 基线 vs 现读 ⇒ 新增集。 */
@@ -253,6 +270,16 @@ function main() {
 
   const hits = scanned.hits
   const total = [...hits.values()].reduce((s, n) => s + n, 0)
+
+  // 豁免必须"验过才免":路径消失 ⇒ 清单腐烂 ⇒ 判红(不得静默留着一条空豁免)。
+  const lapsed = [...NON_STORE_FIXTURES.keys()].filter((rel) => !scanned.listed.has(rel))
+  if (lapsed.length) {
+    console.log('')
+    console.log('❌ 豁免清单已腐烂(这些路径在被审面不存在了,请删掉对应豁免):')
+    for (const rel of lapsed) console.log('  · ' + rel)
+    console.log('SQLITE-WRITE-PATHS-RESULT state=new new=' + lapsed.length + ' base=NA face=' + a.face)
+    return 1
+  }
 
   if (a.emitBaseline) {
     const files = Object.fromEntries([...hits.entries()].sort())
