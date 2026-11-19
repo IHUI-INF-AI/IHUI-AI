@@ -590,6 +590,12 @@ def _subagent_handoff_kind(*, ok: bool, needs_help: bool = False) -> str:
 import contextlib
 
 from .skills import skill_registry
+from .subagent_resident_lease import (
+    build_resident_prefix,
+    normalize_path_key,
+    read_resident_text,
+    resident_lease_registry,
+)
 
 # ---------------------------------------------------------------------------
 # 安全常量(2026-07-22 P0 Round 2 鲁棒性加固)
@@ -7896,6 +7902,12 @@ async def _tool_dispatch_subagent(
             "error": f"{surface_field} 须为非空字符串组成的数组",
             "errorCode": "INVALID_PARAMS",
         }
+    if arguments.get("resident_file") is not None and tasks is not None:
+        return {
+            "tool": "orchestrate_agents", "ok": False,
+            "error": "resident_file 只支持单 agent 模式（并行 tasks 不支持）",
+            "errorCode": "RESIDENT_UNSUPPORTED_MODE",
+        }
 
     # 主聊天传入宿主视图才准入。不传时保持原执行契约(CLI/调度/既有单测)。
     # 视图由路由按认证会话组装,不从模型 arguments 里取范围。
@@ -7981,6 +7993,14 @@ async def _tool_dispatch_subagent(
                 "errorCode": "INVALID_PARAMS",
             }
     if mode in _ORCHESTRATION_MODES:
+        # 常驻文件只对单 agent 有意义（前缀缓存按单一子代理的会话走）：
+        # 编排模式下显式拒绝，绝不静默忽略入参。
+        if arguments.get("resident_file") is not None:
+            return {
+                "tool": "orchestrate_agents", "ok": False, "mode": mode,
+                "error": "resident_file 只支持单 agent 模式（编排模式不支持）",
+                "errorCode": "RESIDENT_UNSUPPORTED_MODE",
+            }
         try:
             orchestrated = await _run_orchestration_mode(
                 mode=mode, arguments=arguments, emit=_emit
@@ -8113,6 +8133,54 @@ async def _tool_dispatch_subagent(
         }
         _settle_dispatch_ticket(ticket_id, _missing)
         return _missing
+    # 常驻文件（resident_file）：读一次、租一把、每轮重放同一前缀。
+    # 语义对齐 deepseek-tui：同一文件同时只允许一个子代理持有租约。
+    resident_prefix = ""
+    resident_key: str | None = None
+    resident_owner: str | None = None
+    raw_resident = arguments.get("resident_file")
+    if raw_resident is not None:
+        if not isinstance(raw_resident, str) or not raw_resident.strip():
+            return {
+                "tool": "orchestrate_agents", "ok": False,
+                "error": "resident_file 须为非空字符串",
+                "errorCode": "INVALID_PARAMS",
+            }
+        _res_ok, _res_path = _validate_path_in_workspace(raw_resident.strip())
+        if not _res_ok:
+            return {
+                "tool": "orchestrate_agents", "ok": False,
+                "error": _res_path,
+                "errorCode": "RESIDENT_PATH_NOT_ALLOWED",
+            }
+        _res_read = read_resident_text(_res_path)
+        if not _res_read.get("ok"):
+            return {
+                "tool": "orchestrate_agents", "ok": False,
+                "error": _res_read.get("error") or "常驻文件读取失败",
+                "errorCode": _res_read.get("errorCode") or "RESIDENT_READ_FAILED",
+                "bytes": _res_read.get("bytes"),
+                "limit": _res_read.get("limit"),
+            }
+        resident_key = normalize_path_key(_res_path)
+        resident_owner = f"resident-{os.urandom(6).hex()}"
+        _res_lease = resident_lease_registry.acquire(resident_key, resident_owner)
+        if not _res_lease.get("ok"):
+            return {
+                "tool": "orchestrate_agents", "ok": False,
+                "error": (
+                    f"常驻文件已被 {_res_lease.get('holder')} 独占；"
+                    "同一文件同时只允许一个子代理持有租约"
+                ),
+                "errorCode": _res_lease.get("errorCode") or "RESIDENT_LEASE_HELD",
+                "holder": _res_lease.get("holder"),
+            }
+        resident_prefix = build_resident_prefix(
+            display_path=raw_resident.strip(),
+            text=str(_res_read.get("text") or ""),
+            session_id=session_id,
+        )
+
     # 后台可续跑模式(2026-11-14 立,遵循统一工程规范):
     # 只支持单 agent;立即返回 job_id,父级用 subagent_job(list/wait/send)闭环。
     if bool(arguments.get("background")):
@@ -8130,7 +8198,13 @@ async def _tool_dispatch_subagent(
         _bg_user = str(arguments.get("__user_id") or "").strip() or None
 
         async def _invoke() -> dict[str, Any]:
-            return await _invoke_subagent_for_job(name, task, session_id)
+            try:
+                return await _invoke_subagent_for_job(
+                    name, resident_prefix + task, session_id
+                )
+            finally:
+                if resident_key is not None and resident_owner is not None:
+                    resident_lease_registry.release(resident_key, resident_owner)
 
         started = await jobs_store.start_job(
             name=name,
@@ -8180,7 +8254,7 @@ async def _tool_dispatch_subagent(
                 step_result = await asyncio.wait_for(
                     orchestrator.invoke(
                         agent_name=name,
-                        user_input=task,
+                        user_input=resident_prefix + task,
                         session_id=session_id,
                         **surface_extra,
                     ),
@@ -8188,6 +8262,8 @@ async def _tool_dispatch_subagent(
                 )
             finally:
                 _subagent_depth.reset(_dtok)
+                if resident_key is not None and resident_owner is not None:
+                    resident_lease_registry.release(resident_key, resident_owner)
         _single_ok = step_result.status == "completed"
         _single_needs_help = bool(getattr(step_result, "needs_help", False))
         # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
