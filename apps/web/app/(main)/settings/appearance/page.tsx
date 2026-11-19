@@ -69,7 +69,7 @@ export default function AppearanceSettingsPage() {
                     .getElementById(section.id)
                     ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }
-                className="rounded-full border px-3 py-1 text-label transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="rounded-full border border-stroke-default px-3 py-1 text-label transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 {section.label}
               </button>
