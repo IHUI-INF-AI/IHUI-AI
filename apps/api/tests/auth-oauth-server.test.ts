@@ -234,6 +234,9 @@ vi.mock('../src/services/totp-service.js', () => ({
 }))
 
 vi.mock('../src/services/account-lockout.js', () => ({
+  // 2026-11-19 补:auth.ts/auth-extended.ts 用 loginRateLimit 生成路由级限流档,
+  // 手抄 mock 缺这条导出会让整包数百用例在模块加载期就崩(vitest "No export defined")。
+  loginRateLimit: (max: number, timeWindow: string) => ({ max, timeWindow }),
   recordLoginFailure: vi.fn(),
   clearLoginFailures: vi.fn(),
   getLockRemainingMs: vi.fn().mockResolvedValue(0),
@@ -280,6 +283,7 @@ vi.mock('@ihui/database', async (importOriginal) => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
 }))
 

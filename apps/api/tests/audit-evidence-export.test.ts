@@ -67,6 +67,7 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(() => []), execute: vi.fn().mockResolvedValue([]) },
   dbRead: { select: vi.fn(() => []) },
 }))

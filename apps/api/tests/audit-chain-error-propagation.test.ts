@@ -42,6 +42,7 @@ vi.mock('../src/plugins/auth.js', () => ({
 // ---------- DB 桩:读路径全部由 dbRead.execute 承担 ----------
 const { dbReadExecute } = vi.hoisted(() => ({ dbReadExecute: vi.fn() }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn().mockResolvedValue([]), select: vi.fn(), transaction: vi.fn() },
   dbRead: { execute: dbReadExecute, select: vi.fn() },
 }))

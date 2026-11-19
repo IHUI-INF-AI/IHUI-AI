@@ -28,6 +28,7 @@ const PUBLIC_KEY_PATH_ENV = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY_PATH'
 
 const { dbReadExecute } = vi.hoisted(() => ({ dbReadExecute: vi.fn() }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn().mockResolvedValue([]) },
   dbRead: { execute: dbReadExecute, select: vi.fn() },
 }))

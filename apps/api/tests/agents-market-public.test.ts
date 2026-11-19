@@ -65,6 +65,7 @@ vi.mock('../src/services/agent-service.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: {},
   dbClient: {},

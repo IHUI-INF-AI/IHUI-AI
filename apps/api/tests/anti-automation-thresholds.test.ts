@@ -6,6 +6,15 @@ import type { FastifyRequest } from 'fastify'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   verifyAccessToken: vi.fn(async (token: string) => {
     if (token === 'bad') throw new Error('invalid token')
     return { userId: `u-${token}`, phone: '', familyId: '', roleId: 0 }

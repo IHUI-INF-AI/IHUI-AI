@@ -34,7 +34,7 @@ const { mockGetUserStatus, mockVerifyAccessToken } = vi.hoisted(() => ({
 }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: mockVerifyAccessToken }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: mockVerifyAccessToken, createBlacklist: () => ({ has: async () => false, add: async () => undefined, revoke: async () => undefined }) }))
 // 连接层 monkeypatch:auth 腿唯一的 SQL 出口是 usercenter-queries.getUserStatus,
 // 零查询断言(①)与 DB 故障注入(③)都挂在这把 spy 上;真池永不建立。
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: mockGetUserStatus }))
