@@ -188,7 +188,7 @@ export function AppsClient() {
           <button
             type="button"
             onClick={() => setCreating((value) => !value)}
-            className="rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90"
           >
             {creating ? t('collapse') : t('newApp')}
           </button>
@@ -252,7 +252,7 @@ export function AppsClient() {
               type="button"
               disabled={saving}
               onClick={() => void handleCreate()}
-              className="rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
             >
               {saving ? t('saving') : t('save')}
             </button>
@@ -311,8 +311,8 @@ export function AppsClient() {
               <Link
                 href={`/apps/${encodeURIComponent(app.id)}`}
                 className={cn(
-                  'rounded-md bg-primary px-2.5 py-1 text-label font-medium text-primary-foreground',
-                  'hover:bg-primary/90',
+                  'rounded-md bg-cta px-2.5 py-1 text-label font-medium text-cta-foreground',
+                  'hover:bg-cta/90',
                 )}
               >
                 {t('open')}
