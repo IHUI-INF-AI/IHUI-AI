@@ -56,6 +56,8 @@ export interface DesktopPrefs {
   traySingleClick: DesktopTraySingleClick
   unreadBadge: boolean
   trayMenuItems: DesktopTrayMenuItemKey[]
+  /** 主窗口是否置顶(宿主默认 false;只有用户显式打开才进置顶层) */
+  alwaysOnTop: boolean
 }
 
 /** 补丁形态:只带要改的键;宿主按整份偏好做规范化后回传。 */
@@ -86,6 +88,7 @@ const WIRE_KEY_ALIASES = {
   traySingleClick: 'tray_single_click',
   unreadBadge: 'unread_badge',
   trayMenuItems: 'tray_menu_items',
+  alwaysOnTop: 'always_on_top',
 } as const satisfies Record<keyof DesktopPrefs, string>
 
 /** 字符串 → 偏好键名的窄化(不 cast:登记表里没有的键就是不属于本契约)。 */
@@ -121,6 +124,8 @@ export function defaultDesktopPrefs(): DesktopPrefs {
     traySingleClick: 'menu',
     unreadBadge: true,
     trayMenuItems: [...DESKTOP_TRAY_MENU_ITEM_KEYS],
+    // 与宿主 Default 同义:默认不置顶(置顶会盖住其他程序)
+    alwaysOnTop: false,
   }
 }
 
@@ -154,6 +159,7 @@ export function normalizeDesktopPrefs(raw: unknown): DesktopPrefs {
   const launchMinimized = readWireField(source, 'launchMinimized')
   const traySingleClick = readWireField(source, 'traySingleClick')
   const unreadBadge = readWireField(source, 'unreadBadge')
+  const alwaysOnTop = readWireField(source, 'alwaysOnTop')
 
   return {
     showTrayIcon: typeof showTrayIcon === 'boolean' ? showTrayIcon : fallback.showTrayIcon,
@@ -166,6 +172,7 @@ export function normalizeDesktopPrefs(raw: unknown): DesktopPrefs {
       ? traySingleClick
       : fallback.traySingleClick,
     unreadBadge: typeof unreadBadge === 'boolean' ? unreadBadge : fallback.unreadBadge,
+    alwaysOnTop: typeof alwaysOnTop === 'boolean' ? alwaysOnTop : fallback.alwaysOnTop,
     trayMenuItems,
   }
 }
@@ -208,7 +215,9 @@ export async function setDesktopPrefs(patch: DesktopPrefsPatch): Promise<Desktop
   if (!isDesktopPrefsAvailable()) return null
   try {
     // 线上补丁两种拼法都带(camelCase 保契约、snake_case 保宿主真读得到),见 WIRE_KEY_ALIASES
-    return normalizeDesktopPrefs(await invoke<unknown>('set_desktop_prefs', { patch: toWirePatch(patch) }))
+    return normalizeDesktopPrefs(
+      await invoke<unknown>('set_desktop_prefs', { patch: toWirePatch(patch) }),
+    )
   } catch (error) {
     console.warn('[desktop-prefs] set_desktop_prefs 失败:', error)
     return null
@@ -223,7 +232,10 @@ export async function setDesktopPrefs(patch: DesktopPrefsPatch): Promise<Desktop
  * 这里刻意不返回成功与否:调用方除了"继续等宿主兜底"没有第二种处置动作,
  * 多一个返回值只会多一个被忽略的分支。
  */
-export async function resolveCloseChoice(choice: DesktopCloseChoice, remember: boolean): Promise<void> {
+export async function resolveCloseChoice(
+  choice: DesktopCloseChoice,
+  remember: boolean,
+): Promise<void> {
   if (!isMember(CLOSE_CHOICES)(choice)) {
     console.warn('[desktop-prefs] resolve_close_choice 收到未知档位,已忽略')
     return
@@ -240,6 +252,30 @@ export async function resolveCloseChoice(choice: DesktopCloseChoice, remember: b
 }
 
 /**
+ * 任务栏角标要显示的「待处理总数」(2026-11-18 立,单一口径)。
+ *
+ * 口径 = 未读系统通知 + 未读站内消息。两路都是**服务端真值**
+ * (`/notifications/unread-count` 初始化 + WS 增量),不是前端自己累加猜出来的数。
+ *
+ * 为什么不把"agent 任务完成"也算进来:那类事件目前只有 SSE 看板帧
+ * (`task_completed`/`task_failed`),既没有落库的通知、也没有"看过没有"的已读位 ——
+ * 前端拿内存里的这几次推送凑数,刷新一次就归零,那是编数字而不是统计。
+ * 要并进来必须先有一条真通知(落库 + 已读),属于通知链路的事,不该在角标里假装。
+ *
+ * 非有限/负值逐项归零:任何一个源坏掉都不该把总数算成 NaN 或负数(那会让角标永远消失)。
+ */
+export interface DesktopBadgeCounts {
+  notificationUnread: number
+  messageUnread: number
+}
+
+export function resolveDesktopBadgeCount(counts: DesktopBadgeCounts): number {
+  const clean = (value: number): number =>
+    Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
+  return clean(counts.notificationUnread) + clean(counts.messageUnread)
+}
+
+/**
  * 同步未读徽章(Windows 任务栏 overlay icon)。
  *
  * 线上参数是**条数**而不是布尔:宿主签名 `set_desktop_badge(app, unread: u32)` ——
@@ -252,7 +288,10 @@ export async function resolveCloseChoice(choice: DesktopCloseChoice, remember: b
 export async function setDesktopBadge(unreadCount: number): Promise<void> {
   if (!isDesktopPrefsAvailable()) return
   // u32 上界钳一下:非有限值/负数按 0(清徽章),超出上限按上限(仍是"有未读")
-  const unread = Number.isFinite(unreadCount) && unreadCount > 0 ? Math.min(Math.trunc(unreadCount), 0xffffffff) : 0
+  const unread =
+    Number.isFinite(unreadCount) && unreadCount > 0
+      ? Math.min(Math.trunc(unreadCount), 0xffffffff)
+      : 0
   try {
     await invoke('set_desktop_badge', { unread })
   } catch (error) {

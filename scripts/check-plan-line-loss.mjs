@@ -138,7 +138,22 @@ const GIT_TIMEOUT = 60000
  * 本文件由此脱离型 B 判据(scripts/tests/face-reader.test.mjs 的 PATH_BOUND_GIT_BASELINE)。
  */
 const GIT = process.env.IHUI_GIT_BIN || gitBinary()
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+/**
+ * 作用面 root(RP-20,2026-11-18 立):
+ *   生产面不设 `IHUI_PLAN_LINE_LOSS_ROOT` ⇒ 与改动前逐字节同语义,仍按**本文件自身位置**推导
+ *   (脚本住在 `<root>/scripts/` ⇒ 上溯一级即代码库根),不读环境、不读 git、行为一字不动。
+ *   镜像测试(T-D3h)在**临时夹具仓**里复制本门整条相对 import 闭包后跑自愈腿,通过该环境变量
+ *   **点名**夹具仓根为作用面:命中时 `path.resolve` 该值,门的一切 git 取材/台账/回捞都落到夹具,
+ *   不再误读真仓 PROJECT_PLAN.md 与摘除台账(此前因 `lib/post-merge-ledger-sync.mjs` 按
+ *   import.meta.url 派生**真仓门脚本**、而门自身 ROOT 又按脚本位置推导回真仓,两条例外叠加把
+ *   真仓 HEAD 推进了一枚恢复提交,见 PROJECT_PLAN.md 票 RP-20)。生产面从不设该变量 ⇒ 走 fallback。
+ * 取值面与 `IHUI_GIT_BIN` 同档(逃生舱先例):环境变量优先,空串/未设一律回落,不另设 CLI flag
+ *   (本门 argv 只认 `--staged/--worktree/--heal/--commit/--self-test/--strict`,加 flag 要动 argv
+ *   解析段,超出"只动 ROOT 解析"的最小改动面)。
+ */
+const ROOT = process.env.IHUI_PLAN_LINE_LOSS_ROOT
+  ? path.resolve(process.env.IHUI_PLAN_LINE_LOSS_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN = 'PROJECT_PLAN.md'
 const MIN_LEN = 40
 

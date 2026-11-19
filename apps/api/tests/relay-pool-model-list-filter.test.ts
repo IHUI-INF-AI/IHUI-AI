@@ -157,11 +157,12 @@ beforeEach(() => {
 })
 
 describe('listUserPoolModels 连通过滤', () => {
-  it('ok=false(取不到清单):预置照出,不做交集 —— 取不到 ≠ 没模型', async () => {
+  it('ok=false(取不到清单):整平台不返回 —— 2026-11-18 用户定档「所有模型必须实时验证」', async () => {
+    // fail-closed:没有本轮清单证据的行一律不摆出来,选择器里因此不再有「未验证」这一档。
+    // 「取不到 ≠ 没模型」仍成立,但它只解释"为什么没显示",不再是"照旧显示"的理由。
     presetRows = [{ providerCode: 'trae', modelId: 'Doubao-A', displayName: '豆包A' }]
     const items = await listUserPoolModels('u-take-none')
-    expect(items.map((m) => m.id)).toEqual(['Doubao-A'])
-    expect(items[0].source).toBe('preset')
+    expect(items).toEqual([])
     expect(detailedCalls).toBe(1)
   })
 
@@ -202,6 +203,9 @@ describe('listUserPoolModels 连通过滤', () => {
     expect(items[0].name).toBe('NewOne')
     expect(items[0].source).toBe('upstream')
     expect(items[0].provider).toBe('trae')
+    // 2026-11-18:能出列表的行都带本轮核对结论(前端据此不再标「未验证」)
+    expect(items[0].verified).toBe(true)
+    expect(typeof items[0].verifiedAt).toBe('number')
   })
 
   it('缓存命中沿用上一轮 ok 与清单:不再打上游', async () => {

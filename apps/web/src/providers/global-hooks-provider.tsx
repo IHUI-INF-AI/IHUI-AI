@@ -29,6 +29,7 @@ import { CommandPalette } from '@/components/layout/CommandPalette'
 import { CloseChoiceDialog } from '@/components/common/CloseChoiceDialog'
 import { useChatStore } from '@/stores/chat'
 import { useNotificationStore } from '@/stores/notification'
+import { resolveDesktopBadgeCount } from '@/lib/desktop-prefs-bridge'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { appVersionGateCheck } from '@/lib/app-version-gate'
 
@@ -145,10 +146,17 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useAgentControl()
   // 托盘 tooltip + 任务栏未读徽章(2026-07-29 立的 useTrayStatus **一直没有挂载点**,
   // 2026-09-28 的「未读提醒」开关也挂在这条链上 —— 不在此处挂,设置项就是能拨但永远不亮)。
-  // 判定来源用 store 现成的那一份:流式 = chat.isStreaming,未读 = notification.unreadCount;
+  // 判定来源用 store 现成的那一份:流式 = chat.isStreaming,未读 = 通知 + 站内消息
+  // (2026-11-18 归一:角标只统计"系统通知"时,用户收到站内消息也看不到红点 ——
+  //  两路都是服务端真值,合起来才是"有事找你"的完整口径,见 resolveDesktopBadgeCount)。
   // 浏览器端 isTauri()=false ⇒ 整条链 no-op,不发 IPC。
   const trayStreaming = useChatStore((s) => s.isStreaming)
-  const trayUnread = useNotificationStore((s) => s.unreadCount)
+  const trayNotificationUnread = useNotificationStore((s) => s.unreadCount)
+  const trayMessageUnread = useNotificationStore((s) => s.unreadMessageCount)
+  const trayUnread = resolveDesktopBadgeCount({
+    notificationUnread: trayNotificationUnread,
+    messageUnread: trayMessageUnread,
+  })
   useTrayStatus(trayStreaming, trayUnread)
   // Web 端 UI 控制桥:上报 endpoint:'web' 能力 + 消费 agent.action(category:'ui')指令,
   // 让 AI 经 web_ui_* 工具操作本站页面(Tauri 端 no-op,让位 useAgentControl)

@@ -17,6 +17,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 const invokeMock = vi.fn()
+/** useTrayStatus 的出参要能被断言(工厂里的 vi.fn 拿不到句柄,所以提到模块级)。 */
+const setTrayStatusMock = vi.fn(async () => {})
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
@@ -24,7 +26,11 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: () => '__TAURI_INTERNALS__' in globalThis.window,
-  getDesktopAppInfo: vi.fn(async () => ({ name: 'IHUI AI', version: '0.0.0', platform: 'windows' })),
+  getDesktopAppInfo: vi.fn(async () => ({
+    name: 'IHUI AI',
+    version: '0.0.0',
+    platform: 'windows',
+  })),
   isWindowMaximized: vi.fn(async () => false),
   minimizeWindow: vi.fn(async () => {}),
   toggleMaximizeWindow: vi.fn(async () => false),
@@ -38,14 +44,14 @@ vi.mock('@/lib/tauri-bridge', () => ({
   sendDesktopNotification: vi.fn(async () => {}),
   getSystemTheme: vi.fn(async () => 'light'),
   onSystemThemeChange: vi.fn(() => () => {}),
-  setTrayStatus: vi.fn(async () => {}),
+  setTrayStatus: (...args: unknown[]) => setTrayStatusMock(...args),
 }))
 
 vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-import { useDesktop } from '@/hooks/use-desktop'
+import { useDesktop, useTrayStatus } from '@/hooks/use-desktop'
 
 const HOST_BASE = {
   showTrayIcon: true,
@@ -75,6 +81,7 @@ async function mountPrefs(hostPrefs: Record<string, unknown>) {
 
 beforeEach(() => {
   invokeMock.mockReset()
+  setTrayStatusMock.mockReset()
   delete (globalThis.window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 })
 
@@ -198,6 +205,28 @@ describe('useDesktop — 桌面偏好初值与写回', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 角标与 tooltip 同源锁(2026-11-18 立):徽标上写了数字,tooltip 只能说"有新消息"的话
+// 两处口径就对不上 —— 用户会看到"角标 3、悬停却是模糊的一句"。这条钉死 count 必须同传。
+describe('useTrayStatus — 徽标与 tooltip 报同一个条数', () => {
+  it('有未读 ⇒ new_message 且带上条数', async () => {
+    enterDesktop()
+    renderHook(() => useTrayStatus(false, 3))
+    await waitFor(() => expect(setTrayStatusMock).toHaveBeenCalledWith('new_message', 3))
+  })
+
+  it('流式中 ⇒ 主态 thinking,条数照样带过去(不吞未读)', async () => {
+    enterDesktop()
+    renderHook(() => useTrayStatus(true, 5))
+    await waitFor(() => expect(setTrayStatusMock).toHaveBeenCalledWith('thinking', 5))
+  })
+
+  it('零未读 ⇒ idle 且条数显式归零(不留上一次的残留数)', async () => {
+    enterDesktop()
+    renderHook(() => useTrayStatus(false, 0))
+    await waitFor(() => expect(setTrayStatusMock).toHaveBeenCalledWith('idle', 0))
+  })
+})
 
 // 挂载锁:useTrayStatus 自 2026-07-29 立起就没有任何调用方(HEAD 面 git grep 只有定义那一行),
 // 而「未读提醒」开关就挂在这条链上 —— 不接上就是「设置里能拨、永远不亮」，

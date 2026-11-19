@@ -67,4 +67,22 @@ test('扩展名判定大小写不敏感,且不被路径中其它 ".js" 子串骗
   // 目录名里带 .js 而文件本体是 exe:必须判成"不可直载"
   assert.equal(plan('D:\\a.js\\pnpm.exe', NODE).cmd, 'pnpm')
 })
+
+/**
+ * 2026-11-18 事故锁(本机实测):pnpm 的 corepack 形态入口是
+ * `.../pnpm/<ver>/bin/pnpm.mjs` —— `.mjs` 当然"可被 node 直载",但它是 **pnpm 不是 npm**。
+ * 旧判据按"可加载 ⇒ npm",desktop-build 于是拼出
+ * `node .../pnpm.mjs run tauri -- build --config <path>`,pnpm 把 `--` 原样透传给脚本,
+ * tauri 收到的是 `"--" "build"` ⇒ `error: unexpected argument 'build' found`(exit 2),
+ * 且 `build` 与 `build:debug` 两个入口同时起不来。
+ * 判据必须按**身份**分开:可直载 ∧ 路径是 pnpm ⇒ pm='pnpm'(裸 `<script> <sub>`,不加 `--`)。
+ */
+test('pnpm 的 .mjs 入口:可直载,但 pm 必须是 pnpm(否则 tauri 收到多出来的 "--")', () => {
+  const entry = 'D:\\xdg\\cache\\node\\corepack\\v1\\pnpm\\11.18.0\\bin\\pnpm.mjs'
+  const p = plan(entry, NODE)
+  assert.equal(p.cmd, NODE, '.mjs 仍应走 node 直载(不必回落 shell)')
+  assert.deepEqual(p.prefix, [entry])
+  assert.equal(p.shell, false)
+  assert.equal(p.pm, 'pnpm', 'pnpm 侧 tauri 子命令是裸 `tauri build`,不得加 `run ... --`')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

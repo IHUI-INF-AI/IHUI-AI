@@ -95,12 +95,16 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GetClientRect, GetForegroundWindow, GetWindowLongPtrW,
     GetWindowRect, IsWindowVisible, IsZoomed, KillTimer, LoadCursorW, RegisterClassW, SendMessageW,
     SetForegroundWindow, SetTimer,
-    SetWindowLongPtrW, SetWindowPos, ShowWindow, UpdateLayeredWindow, GWLP_USERDATA, IDC_ARROW,
+    SetWindowLongPtrW, SetWindowPos, ShowWindow, UpdateLayeredWindow, GWLP_USERDATA, GWL_EXSTYLE,
+    IDC_ARROW,
     SC_MAXIMIZE, SC_MINIMIZE, SC_RESTORE, SW_HIDE, SW_SHOWNOACTIVATE,
-    SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, ULW_ALPHA, WINDOW_EX_STYLE, WINDOW_STYLE,
+    SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, ULW_ALPHA,
+    WINDOW_EX_STYLE, WINDOW_STYLE,
     WNDCLASSW, WM_ACTIVATE, WM_CAPTURECHANGED, WM_CLOSE, WM_DESTROY, WM_DPICHANGED,
+    HWND_NOTOPMOST,
     WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_SETCURSOR, WM_SHOWWINDOW, WM_SYSCOMMAND,
     WM_TIMER, WM_WINDOWPOSCHANGED, WS_CLIPSIBLINGS, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST,
     WS_POPUP,
 };
 
@@ -541,6 +545,57 @@ macro_rules! impl_caption_window_ops {
 
 #[cfg(target_os = "windows")]
 impl_caption_window_ops!(tauri::WebviewWindow, tauri::Window);
+
+/// 把窗口按**真实句柄**从 Windows 置顶层(WS_EX_TOPMOST)里摘出来。
+///
+/// 为什么不能只靠 `WebviewWindow::set_always_on_top(false)`:tao 的置顶状态是
+/// 「进程内标志 + 真实 EX 样式」两本账,只有标志发生变化才会发 `SetWindowPos`。
+/// 若窗口早先被旧版本/外部工具设成 TOPMOST 而 tao 标志本来就是 false,那次调用
+/// 的 diff 为空 —— 什么都不会发生,窗口照样盖着别的程序。启动路径必须先按句柄
+/// 强制清一次,再按用户偏好决定是否重新打开(2026-11-18 立,用户实报
+/// "切其他程序根本就看不到")。
+#[cfg(target_os = "windows")]
+pub fn force_not_topmost<W: CaptionWindowOps>(window: &W) {
+    let Some(hwnd) = window.cap_hwnd() else {
+        log::warn!("[window-chrome] force_not_topmost 取不到 HWND ⇒ 本次未清理置顶层");
+        return;
+    };
+    unsafe {
+        let _ = SetWindowPos(
+            hwnd,
+            Some(HWND_NOTOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+        );
+    }
+}
+
+/// 非 Windows 平台没有 WS_EX_TOPMOST 这一层,无需兜底。
+#[cfg(not(target_os = "windows"))]
+pub fn force_not_topmost<W>(_window: &W) {}
+
+/// 读**真实**的 `WS_EX_TOPMOST`(不读 tao 的进程内标志账)。
+///
+/// 立项原因:`force_not_topmost` 是"无论如何都清",而焦点校正那种高频路径不能盲清
+/// (每次切窗口都发一次 SetWindowPos 会白抖 Z 序、还刷日志)。所以先量一眼真实样式位,
+/// 只在"确实在置顶层、而用户偏好是不置顶"时才动手(2026-11-18 立,同族第二道清零点)。
+///
+/// 取不到 HWND 或读不到样式 ⇒ `None` = **未判定**,调用方不得把它读成"不置顶"。
+#[cfg(target_os = "windows")]
+pub fn real_topmost<W: CaptionWindowOps>(window: &W) -> Option<bool> {
+    let hwnd = window.cap_hwnd()?;
+    let ex = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+    Some((ex & WS_EX_TOPMOST.0) != 0)
+}
+
+/// 非 Windows 平台没有置顶层这一维 ⇒ 恒为未判定(调用方据此不动手)。
+#[cfg(not(target_os = "windows"))]
+pub fn real_topmost<W>(_window: &W) -> Option<bool> {
+    None
+}
 
 #[cfg(target_os = "windows")]
 pub fn enable_native_caption_buttons<W: CaptionWindowOps>(window: &W) {

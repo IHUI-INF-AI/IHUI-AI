@@ -89,9 +89,11 @@ DOMAINS: Final = (
         "skill_texts",
         "skill SKILL.md bodies read",
         6,
-        3,
-        "pdf in full, documents 554 lines in full, template-creator 206 lines in full; "
-        "presentations 250, spreadsheets 467, excel-live-control 512 still unread",
+        6,
+        "pdf 250 lines in full; documents 554 lines in full; template-creator 206 lines in full; "
+        "R129 closed the last three: spreadsheets 467 lines (65,781 B), excel-live-control 512 "
+        "lines (72,454 B), presentations 250 lines (30,044 B) - all read end to end and pinned as "
+        "policy contracts in app/core/skill_text_contracts.py",
     ),
     Domain(
         "skill_aux_docs",
@@ -106,7 +108,7 @@ DOMAINS: Final = (
         "node_scripts",
         "node .mjs scripts covered",
         15,
-        14,
+        15,
         "R120: four mark_artifact_operation_started copies executed across ten branches "
         "(legal format 0, illegal format 2, count 101 rejected, delete rejected); "
         "rasterize_svg executed across five branches (legal 0 with a 663-byte PNG, four "
@@ -142,10 +144,24 @@ DOMAINS: Final = (
         "after the import already succeeded, so the break point is named exactly rather than "
         "guessed. The script also gathers three independent counts (api inspect, zip scan, and a "
         "literal a:tbl search per slide.xml) and lets the api admit omittedRecords and "
-        "abbreviatedRecords, then records truncated into the manifest. Still unread: "
-        "check_template_fidelity 18 KB, "
-        "prepare_template_starter_deck 11 KB, export-google-workspace-file 10 KB, "
-        "inspect_template_deck 9 KB, google-workspace-export-stdin-receiver 5 KB",
+        "abbreviatedRecords, then records truncated into the manifest. R126 read "
+        "check_template_fidelity in full: it grades the author's source rather than the deck, "
+        "enforcing six bans (python-pptx, hand-editing the zip, LibreOffice conversion, a new "
+        "deck) and two positive proofs (importPptx plus exportPptx must both appear), treats the "
+        "1280x720 slide size as an assumption rather than a measurement, and decides overlays "
+        "by geometry (IoU above 0.92 skips, overlap above 35 percent or a centre inside the "
+        "inherited box fails). R127 read prepare_template_starter_deck in full: the build is "
+        "duplicate-then-delete with the order load-bearing, the plan gate is hard rather than "
+        "advisory, three write roots are fenced with isWithin, an empty export is rejected by "
+        "re-statting after exportPptx, and the contact sheet depends on process.env.PYTHON or "
+        "python3 which this host does not have. R128 read export-google-workspace-file in full: "
+        "two formats gated by MIME type and a real magic-number prefix (JVBERi0 for PDF, UEsDB "
+        "for XLSX), byte length computed by arithmetic rather than decoding, the connector tool "
+        "name required to resolve to exactly one callable, every error message scrubbing every "
+        "http(s) URL, a bounded ten-thousand-visit breadth-first payload search, the base64 body "
+        "written through stdin in 480,000-character frames with 0x03 record separators and never "
+        "placed in argv, and a commit receipt reconciled three ways (byte count, clean exit, "
+        "sixty-four hex sha). Still unread: google-workspace-export-stdin-receiver 5 KB",
     ),
     Domain(
         "ooxml_notes",
@@ -180,23 +196,32 @@ DOMAINS: Final = (
         "codex_cli_surface",
         "codex CLI subcommands exercised",
         7,
-        1,
-        "exec / plugin / review / login / logout / mcp / app-server; only exec touched",
+        7,
+        "exec touched earlier; R130 took the other six to their help surface with rc=0 "
+        "(plugin/review/login/logout/mcp/app-server) and then genuinely executed "
+        "`app-server generate-json-schema` twice, producing 329 stable and 479 experimental "
+        "schema files; side-effecting runs of login/logout/plugin were not performed by design",
     ),
     Domain(
         "codex_config_surface",
         "codex config surface read",
         4,
-        3,
-        "config.toml, .codex-global-state.json, 8 subdirs enumerated; state_5.sqlite 17 tables "
-        "enumerated but never read",
+        4,
+        "config.toml, .codex-global-state.json, 8 subdirs enumerated; R131 finally READ "
+        "state_5.sqlite rather than counting it - 17 tables and 62 migrations, plus all six "
+        "sibling stores opened read-only (36 tables total) and pinned in "
+        "app/core/codex_local_store_schema.py",
     ),
     Domain(
         "python_modules_other",
         "python modules outside the two toolkits",
         2,
-        0,
-        "documents _shared helper + presentations template_following_scripts",
+        2,
+        "R129 read both end to end: documents/scripts/docx_ooxml_patch.py (649 lines, the "
+        "helper SKILL.md says every other script reuses) and presentations/"
+        "template_following_scripts/make_contact_sheet.py (58 lines); the '_shared' name in the "
+        "old note was wrong - no such file exists in any plugin, and the shared helper is "
+        "docx_ooxml_patch.py",
     ),
 )
 
