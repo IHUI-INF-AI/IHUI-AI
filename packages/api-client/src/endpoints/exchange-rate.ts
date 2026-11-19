@@ -27,8 +27,11 @@ export interface LiveFxRates {
 /** 拉取实时汇率快照;接口不可用时返回 null(调用方降级为 CNY 展示) */
 export async function getLiveExchangeRates(): Promise<LiveFxRates | null> {
   const res = await fetchApi<LiveFxRates>('/api/exchange-rates/live')
-  if (!res.success || !res.data) return null
-  const d = res.data
+  return normalizeLiveFxRates(res.success ? res.data : null)
+}
+
+function normalizeLiveFxRates(d: LiveFxRates | null | undefined): LiveFxRates | null {
+  if (!d) return null
   if (
     typeof d.cnyPer?.USD !== 'number' ||
     typeof d.cnyPer?.USDT !== 'number' ||
@@ -38,5 +41,32 @@ export async function getLiveExchangeRates(): Promise<LiveFxRates | null> {
     return null
   }
   return d
+}
+
+/**
+ * 服务端(Next SSR)取汇率:显式基址 + 数据缓存窗口。
+ *
+ * 为什么单独一条(2026-11-19,守门 73 收口):SSR 里模块级 `setBaseUrl()` 的注入顺序
+ * 不由请求方保证,`fetchApi` 的同源相对 URL 在 Node 侧没有 origin 可依;而端内自己拼
+ * `${API_URL}/api/...` 直连又是"端内绕过 api-client"(门 73 明确要拦的那一型)。
+ * 因此把这条 fetch 留在传输层:调用方只传基址,URL 拼接、响应壳解包、异常归一都在这里。
+ */
+export async function getLiveExchangeRatesAt(
+  baseUrl: string,
+  revalidateSeconds = 300,
+): Promise<LiveFxRates | null> {
+  const base = String(baseUrl ?? '').replace(/\/$/, '')
+  try {
+    const res = await fetch(`${base}/api/exchange-rates/live`, {
+      // Next 的 data cache 字段;非 Next 运行时(纯 Node fetch)会忽略未知属性
+      next: { revalidate: revalidateSeconds },
+    } as RequestInit)
+    if (!res.ok) return null
+    const json = (await res.json()) as { success?: boolean; code?: number; data?: LiveFxRates }
+    if (json.success !== true && json.code !== 0) return null
+    return normalizeLiveFxRates(json.data)
+  } catch {
+    return null
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

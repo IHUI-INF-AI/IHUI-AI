@@ -81,7 +81,7 @@ export default function IntelligentAssistant({
       <View style={styles.welcomeCard}>
         <View style={styles.welcomeContent}>
           <View style={styles.welcomeMessage}>
-            <Text style={styles.welcomeIntro}>{'Hi, 我是您的AI助手小方👋'}</Text>
+            <Text style={styles.welcomeIntro}>{'Hi, 我是您的AI助手小方'}</Text>
             <Text style={styles.welcomeAction}>{'用AI.找AI.学AI到AI智汇社区就够了'}</Text>
           </View>
         </View>

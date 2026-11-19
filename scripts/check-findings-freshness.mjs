@@ -16,6 +16,7 @@ function git(args, cwd) {
   return execFileSync(gitBin, args, {
     encoding: 'utf8',
     cwd,
+    windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
 }

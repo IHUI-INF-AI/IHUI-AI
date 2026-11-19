@@ -285,7 +285,16 @@
     "toolMcpToolGetFileActivity": "{state, select, running {ファイルを取得中} completed {ファイルを取得しました} other {ファイルを取得}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {ファイル「{name}」を取得中} completed {ファイル「{name}」を取得しました} other {ファイル「{name}」を取得}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {ドキュメントを検索中} completed {ドキュメントを検索しました} other {ドキュメントを検索}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {「{name}」でドキュメントを検索中} completed {「{name}」でドキュメントを検索しました} other {「{name}」でドキュメントを検索}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {「{name}」でドキュメントを検索中} completed {「{name}」でドキュメントを検索しました} other {「{name}」でドキュメントを検索}}",
+    "toolAiBookkeeping": "スマート記帳",
+    "toolAiPayrollHandoff": "給与引き継ぎ",
+    "toolAiTaxFiling": "税務申告",
+    "toolReadImage": "画像を読み取る",
+    "toolSessionSearch": "過去のセッションを検索",
+    "toolSheetFormulaEval": "シート数式を試算",
+    "toolSheetFormulaValidate": "シート数式を検証",
+    "toolSubagentJob": "サブエージェント作業",
+    "toolTerminal": "ターミナルコマンド"
   },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",

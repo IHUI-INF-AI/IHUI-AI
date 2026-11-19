@@ -1304,6 +1304,18 @@
     "scripts/validate-i18n-integrity.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-plan-claims-vs-head.mjs": {
+      "face": "head",
+      "reason": "门体内自述判定面=HEAD blob(PROJECT_PLAN.md):它比的是票面声称与已落地实物,索引/工作树上的声称还没落地,判了只会自反;缺省面写死 head,不留歧义"
+    },
+    "scripts/check-import-integrity.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-readme-recent-containment.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     }
   }
 }

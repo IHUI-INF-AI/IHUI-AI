@@ -25,6 +25,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { formatPrice } from '@ihui/shared/utils'
 
 const BASE = '/api/admin/ai-pricing'
 
@@ -148,9 +149,13 @@ const tierLabel: Record<string, string> = {
   manual: '人工设定',
 }
 
-/** 分 → 元展示(利润看板统一口径:后端全部按分返回)。 */
+/**
+ * 分 → 元展示(利润看板统一口径:后端全部按分返回)。
+ * 2026-11-19:分元换算走唯一出口 `formatPrice`(守门 248);本函数只负责补币种符号,
+ * 不再自己 `cents / 100`。
+ */
 function fmtYuan(cents: number): string {
-  return `¥${(cents / 100).toFixed(2)}`
+  return `¥${formatPrice(cents)}`
 }
 
 /** 0~1 → 百分比。 */
@@ -557,7 +562,7 @@ export default function PricingConsolePage() {
                 onClick={() => setProfitDays(d)}
                 className={`rounded-sm border px-2 py-0.5 ${
                   profitDays === d
-                    ? 'border-primary text-primary'
+                    ? 'border-stroke-selected text-primary'
                     : 'border-border text-muted-foreground'
                 }`}
               >
@@ -571,7 +576,7 @@ export default function PricingConsolePage() {
                 onClick={() => setProfitGroupBy(g)}
                 className={`rounded-sm border px-2 py-0.5 ${
                   profitGroupBy === g
-                    ? 'border-primary text-primary'
+                    ? 'border-stroke-selected text-primary'
                     : 'border-border text-muted-foreground'
                 }`}
               >
@@ -684,7 +689,7 @@ export default function PricingConsolePage() {
                 onClick={() => setChannelGroupBy(g)}
                 className={`rounded-sm border px-2 py-0.5 ${
                   channelGroupBy === g
-                    ? 'border-primary text-primary'
+                    ? 'border-stroke-selected text-primary'
                     : 'border-border text-muted-foreground'
                 }`}
               >
@@ -901,7 +906,7 @@ export default function PricingConsolePage() {
                     return (
                       <tr
                         key={`${m.configId}:${m.id}`}
-                        className="border-b border-border/50 align-top"
+                        className="border-b border-stroke-subtle align-top"
                       >
                         <td className="max-w-[240px] py-2 pr-2">
                           <div className="truncate font-medium" title={m.modelId}>
@@ -1051,7 +1056,7 @@ export default function PricingConsolePage() {
                 {audits.data!.items.map((a) => (
                   <li
                     key={a.id}
-                    className="flex flex-wrap items-center gap-2 border-b border-border/40 py-1"
+                    className="flex flex-wrap items-center gap-2 border-b border-stroke-subtle py-1"
                   >
                     <span className="text-muted-foreground">
                       {new Date(a.created_at).toLocaleString('zh-CN')}

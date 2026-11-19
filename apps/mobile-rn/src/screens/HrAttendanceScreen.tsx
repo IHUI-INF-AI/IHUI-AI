@@ -11,6 +11,7 @@ import {
   type HrAttendanceRecord,
 } from '@ihui/rn-app'
 import { attendanceBizDay } from '../components/attendance-status'
+import { useTheme } from '../context/ThemeContext'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -36,6 +37,7 @@ interface HrRecordResponse extends HrAttendanceRecord {
  */
 export default function HrAttendanceScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [records, setRecords] = useState<HrAttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,6 +125,8 @@ export default function HrAttendanceScreen() {
   return (
     <SharedHrAttendanceScreen
       t={t}
+      // 2026-11-19:共享屏的色档 prop 此前漏传(默认恒 'light')⇒ 暗色下整屏用亮档令牌。
+      colorScheme={resolvedTheme}
       records={records}
       loading={loading}
       refreshing={refreshing}

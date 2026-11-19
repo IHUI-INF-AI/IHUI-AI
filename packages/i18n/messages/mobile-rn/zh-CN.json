@@ -2171,7 +2171,9 @@
     "videoTitle": "学习视频",
     "videoDesc": "最新课程视频",
     "centerTitle": "学习中心",
-    "centerDesc": "系统化学习路线"
+    "centerDesc": "系统化学习路线",
+    "pathTitle": "学习路径",
+    "recommend": "推荐课程"
   },
   "liveChat": {
     "title": "直播间互动",

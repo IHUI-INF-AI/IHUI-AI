@@ -1,3 +1,4 @@
+-- 2026-11-19:本件已从 .sql 改名为 .sql.quarantined —— 内容与下面的隔离说明一并原样保留,但不再被迁移工具与 B12(同名 .sql 跨目录并存)枚举;入链前置条件见下。
 -- ⛔ 隔离待审(2026-11-06) · 已从 packages/database/drizzle/ 移出:不计入 meta/_journal.json,不参与任何环境迁移。
 -- 隔离原因:该件在生产部署中必失败(2026-11-06 20:21 起每轮 db:migrate exit 1,24h 部署额度 60/60 熔断)。
 --   生产实测:164 条 CREATE INDEX 只建成 10 个;28 个 FK 建成 0 个;drizzle.__drizzle_migrations 无 created_at=1793948400000 的行。

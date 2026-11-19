@@ -26,7 +26,7 @@
  * **707,113 B = 96.03%**;而投影内 `template` 一个字段就占 632,331 B(89.4%)。
  * `template` 是 `buildAnalysisPrompt` 的**输入正文**,裁掉它功能就不存在了,
  * 所以"瘦身投影"能动的只有 template 之外的展示性字段:
- *   description / tags / useCase(三者合计 ~31.8KB)+ 分类的 category/categoryEn/icon。
+ *   description / tags / useCase(三者合计 ~31.8KB)+ 分类的 category/categoryEn。
  * 实测省 33,778 B(投影的 4.4%)—— 是个**诚实但有限**的量,不假装能减半。
  * 三端 UI 都已改吃 slim 字段集(见下"UI 口径"),web / RN 仍吃 full,行为零变化。
  *
@@ -77,7 +77,6 @@ function readCategories() {
     category: String(c.category),
     categoryZh: String(c.category_zh),
     categoryEn: String(c.category_en),
-    icon: String(c.icon ?? ''),
     count: Number(c.count ?? 0),
   }))
 }
@@ -167,8 +166,13 @@ function readWatermark() {
  *               全库 210/210 非空 ⇒ slim 下该式恒等于 useCase,显示逐字不变。
  *               且 `buildAnalysisPrompt` 同样只取 `useCase || description`。
  *             - `tags`:全仓**零**读点(web/RN/小程序/shared 都不读),纯冗余。
- *             - 分类的 `category` / `categoryEn`:全仓零读点(只有 `icon` 被 web 读,
- *               但 web 吃 full,不受影响)。
+ *             - 分类的 `category` / `categoryEn`:全仓零读点(web 吃 full,不受影响)。
+ *             - 分类的 `icon`(2026-11-19 裁:**两档都不再投影**):它唯一的读点是
+ *               `import-analysis-dialog` 的 `<option>{c.icon} …</option>`,而原生
+ *               `<option>` 只能放文本、装不下 lucide 组件 ⇒ 那个字段事实上只能落成
+ *               emoji 字形充当图标,违反 AGENTS §4「图标一律图标库,禁 emoji 充当 UI 图标」
+ *               (守门 11h 在生成物里逐行命中)。删掉字段 + 删掉消费点后分类名照常显示,
+ *               行为只少了一个装饰性 emoji,不改任何筛选/计数能力。
  *           保留的每个字段都有**功能**读点:title(场景行/指令头)、useCase(同上)、
  *           variables(填表 + 拼 prompt)、difficulty/estimatedTokens(底部估算行)、
  *           template(分析指令正文)、categoryId(分类筛选)、categoryZh/count(分类胶囊)。
@@ -177,7 +181,7 @@ const MODES = {
   full: {
     out: OUT,
     label: 'full(web / mobile-rn)',
-    categoryFields: ['id', 'category', 'categoryZh', 'categoryEn', 'icon', 'count'],
+    categoryFields: ['id', 'category', 'categoryZh', 'categoryEn', 'count'],
     scenarioFields: [
       'id',
       'categoryId',
@@ -250,7 +254,6 @@ const CATEGORY_FIELD_DOC = {
   category: '',
   categoryZh: '',
   categoryEn: '',
-  icon: '',
   count: '',
 }
 

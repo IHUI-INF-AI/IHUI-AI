@@ -285,7 +285,16 @@
     "toolMcpToolGetFileActivity": "{state, select, running {파일을 가져오는 중} completed {파일을 가져왔습니다} other {파일 가져오기}}",
     "toolMcpToolGetFileWithContextActivity": "{state, select, running {파일을 가져오는 중: {name}} completed {파일을 가져왔습니다: {name}} other {파일 가져오기: {name}}}",
     "toolMcpToolSearchDocumentsActivity": "{state, select, running {문서를 검색하는 중} completed {문서를 검색했습니다} other {문서 검색}}",
-    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {문서를 검색하는 중: {name}} completed {문서를 검색했습니다: {name}} other {문서 검색: {name}}}"
+    "toolMcpToolSearchDocumentsWithContextActivity": "{state, select, running {문서를 검색하는 중: {name}} completed {문서를 검색했습니다: {name}} other {문서 검색: {name}}}",
+    "toolAiBookkeeping": "스마트 가계부",
+    "toolAiPayrollHandoff": "급여 인수인계",
+    "toolAiTaxFiling": "세무 신고",
+    "toolReadImage": "이미지 읽기",
+    "toolSessionSearch": "과거 세션 검색",
+    "toolSheetFormulaEval": "시트 수식 계산",
+    "toolSheetFormulaValidate": "시트 수식 검증",
+    "toolSubagentJob": "서브에이전트 작업",
+    "toolTerminal": "터미널 명령"
   },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/동영상/파일)",

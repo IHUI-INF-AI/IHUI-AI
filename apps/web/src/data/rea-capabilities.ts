@@ -223,7 +223,7 @@ export const REA_CAPABILITIES: ReaCapability[] = [
     source: 'deepseek',
     icon: Search,
     summary:
-      '结构化符号关系替代无预算 grep;搜索预算防失控空转。⚠️ DeepSeek 本地仅 17 文件纯 UI 壳、AI 全在远程,此能力为设计意图借鉴,无本地实现可逆向。',
+      '结构化符号关系替代无预算 grep;搜索预算防失控空转。DeepSeek 本地仅 17 文件纯 UI 壳、AI 全在远程,此能力为设计意图借鉴,无本地实现可逆向。',
     maturity: 'C',
     target: '(仅借鉴设计) apps/ai-service/services/code_graph_service.py',
     evidence: {

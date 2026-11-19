@@ -2171,7 +2171,9 @@
     "videoTitle": "学習動画",
     "videoDesc": "最新講座動画",
     "centerTitle": "学習センター",
-    "centerDesc": "系統的学習ルート"
+    "centerDesc": "系統的学習ルート",
+    "pathTitle": "学習パス",
+    "recommend": "おすすめコース"
   },
   "liveChat": {
     "title": "ライブチャット",
