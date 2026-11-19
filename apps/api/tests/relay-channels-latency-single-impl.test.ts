@@ -104,6 +104,7 @@ const KEY_ROW = {
 
 // ---------------------------------------------------------------- db / dbRead
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: vi.fn(() => ({
       values: vi.fn(async (row: InsertedLogRow) => {

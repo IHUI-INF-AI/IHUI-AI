@@ -63,6 +63,7 @@ function rejectAtWhere(err: Error): { from: ReturnType<typeof vi.fn> } {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { insert: vi.fn(), update: vi.fn(), transaction: vi.fn() },
   dbRead: { select: mockDbReadSelect },
   dbClient: {},

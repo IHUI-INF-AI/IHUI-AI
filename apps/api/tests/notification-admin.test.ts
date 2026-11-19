@@ -19,6 +19,7 @@ vi.mock('../src/db/rbac-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: mockDbExecute },
 }))
 

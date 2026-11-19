@@ -30,6 +30,7 @@ const hoisted = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       from: () => ({
@@ -63,6 +64,7 @@ vi.mock('../src/utils/crypto.js', () => ({
 }))
 
 vi.mock('../src/services/relay-account-pool-checkin-sync.js', () => ({
+  clearCheckinSyncPending: vi.fn(async () => {}),
   zcodePlanJwtFromSecrets: () => null,
   buildPoolSyncAccount: (x: unknown) => x,
   checkinPlatformFor: () => null,

@@ -39,7 +39,7 @@ vi.mock('../src/db/index.js', () => {
   }
   const chainSelect = () => {
     const step: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'groupBy']) {
+    for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'groupBy', 'having']) {
       step[m] = vi.fn(() => step)
     }
     // 空号池:本轮既不刷新也不定级,产出面只剩计数器与 skipped 旗

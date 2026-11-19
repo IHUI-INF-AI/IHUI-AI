@@ -27,7 +27,7 @@ vi.mock('../src/db/index.js', () => {
   const chainSelect = () => {
     selectCalls++
     const step: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'groupBy']) {
+    for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'groupBy', 'having']) {
       step[m] = vi.fn(() => step)
     }
     return withSettlers(step, () => accountRows)

@@ -41,6 +41,7 @@ const doubaoExtract = (await import(
 
 // 服务层要连 db:与 relay-pool-uid-keysource-rotation.test.ts 同法打桩(本文件零写库)
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }) }) },
   dbRead: { select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }) },
   dbClient: {},
