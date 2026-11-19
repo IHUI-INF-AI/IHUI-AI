@@ -4602,11 +4602,15 @@ agentLoop.registerTool({
         remedy: '新建文件用 write_file；改已有文件先 read_file 确认路径。',
       })
     }
-    const current = readFileSync(full, 'utf-8')
+    const currentFull = readFileSync(full, 'utf-8')
     if (isFsObservationEnforced()) {
-      const denial = fsObservationStore.checkWrite(full, current)
+      const denial = fsObservationStore.checkWrite(full, currentFull)
       if (denial) return JSON.stringify(denial)
     }
+    // BOM：UTF-8 带 BOM 的文件（Windows 上 .ps1/.md 常见）首字符是 U+FEFF，
+    // 模型片段不会带它 —— 不剥掉就"第一行明明在却匹配不到"。剥掉比对、写回补回。
+    const hasBom = currentFull.startsWith('\uFEFF')
+    const current = hasBom ? currentFull.slice(1) : currentFull
     // 逐条在内存里推进：任一失败即整批放弃，磁盘上的文件保持原样（原子性）
     // 行尾对齐：模型给的片段多为 LF，而 Windows 文件常是 CRLF —— 不归一化就是
     // "片段明明存在却 EDIT_NO_MATCH"。对齐只作用于比较与写回，不改文件既有行尾。
@@ -4653,9 +4657,10 @@ agentLoop.registerTool({
         : next.replace(alignedOld, alignedNew)
       replacements += edit.replaceAll ? hits : 1
     }
-    const changed = next !== current
-    const bytesBefore = Buffer.byteLength(current, 'utf-8')
-    const bytesAfter = Buffer.byteLength(next, 'utf-8')
+    const nextFull = hasBom ? `\uFEFF${next}` : next
+    const changed = nextFull !== currentFull
+    const bytesBefore = Buffer.byteLength(currentFull, 'utf-8')
+    const bytesAfter = Buffer.byteLength(nextFull, 'utf-8')
     if (dryRun) {
       return JSON.stringify({
         ok: true,
@@ -4665,14 +4670,15 @@ agentLoop.registerTool({
         replacements,
         changed,
         eol: eol === '\r\n' ? 'crlf' : 'lf',
+        bom: hasBom,
         bytesBefore,
         bytesAfter,
       })
     }
     // 全部编辑在内存里成功后才落一次盘：一次检查点快照 + 一次写入
-    if (changed) fsBridge.write({ path, workspacePath, content: next, createDirs: false })
+    if (changed) fsBridge.write({ path, workspacePath, content: nextFull, createDirs: false })
     // 改完就是新的观察态：同一文件紧接着再编辑无需重读（内容未变时仍放行）
-    fsObservationStore.observePresent(full, next)
+    fsObservationStore.observePresent(full, nextFull)
     return JSON.stringify({
       ok: true,
       path,
@@ -4681,6 +4687,7 @@ agentLoop.registerTool({
       occurrences: replacements,
       changed,
       eol: eol === '\r\n' ? 'crlf' : 'lf',
+      bom: hasBom,
       bytesBefore,
       bytesAfter,
     })

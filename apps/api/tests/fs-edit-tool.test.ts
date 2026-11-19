@@ -289,6 +289,23 @@ describe('edit_file 批量与原子性（B 组）', () => {
     expect(out['eol']).toBe('lf')
     expect(readFileSync(join(root, name), 'utf-8')).toBe('X\nY\ngamma\n')
   })
+
+  it('B9 带 BOM 的文件：首行可正常匹配，写回保留 BOM', async () => {
+    const name = 'b9.txt'
+    writeFileSync(join(root, name), '\uFEFF第一行\n第二行\n', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      oldText: '第一行',
+      newText: 'FIRST',
+    })
+    expect(out['ok']).toBe(true)
+    expect(out['bom']).toBe(true)
+    const after = readFileSync(join(root, name), 'utf-8')
+    expect(after.startsWith('\uFEFF')).toBe(true)
+    expect(after).toBe('\uFEFFFIRST\n第二行\n')
+  })
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
