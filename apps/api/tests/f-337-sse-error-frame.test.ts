@@ -52,6 +52,7 @@ vi.mock('../src/services/relay-plugins-service.js', () => ({
   evaluateRequestBlockPlugins: vi.fn(async () => null),
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn(async () => []), select: vi.fn(), insert: vi.fn(), update: vi.fn() },
   dbRead: { execute: vi.fn(async () => []), select: vi.fn() },
 }))

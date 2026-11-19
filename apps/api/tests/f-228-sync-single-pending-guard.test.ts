@@ -65,6 +65,7 @@ const chainOf = (rows: unknown[]) => {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   dbRead: {
     select: () => chainOf(state.selects.shift() ?? []),
   },

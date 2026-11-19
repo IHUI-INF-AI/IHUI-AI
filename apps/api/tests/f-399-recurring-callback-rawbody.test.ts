@@ -34,6 +34,7 @@ vi.mock('../src/services/wechat-pay.js', async (importOriginal) => {
   }
 })
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({ values: spies.insertValues }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),

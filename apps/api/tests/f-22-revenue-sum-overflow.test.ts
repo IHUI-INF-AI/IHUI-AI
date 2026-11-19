@@ -20,6 +20,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 // stats.ts 顶层会 import db;此处仅取纯函数与源码文本,不建任何连接
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(), execute: vi.fn() },
   dbRead: {},
   dbClient: {},

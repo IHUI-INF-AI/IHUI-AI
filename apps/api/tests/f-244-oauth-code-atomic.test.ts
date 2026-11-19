@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 const state = vi.hoisted(() => ({ consumed: false }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     update: () => ({
       set: () => ({

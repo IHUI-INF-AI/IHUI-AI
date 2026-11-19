@@ -50,6 +50,7 @@ function selectChain(): Record<string, unknown> {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: () => selectChain(), insert: vi.fn() },
   dbRead: { select: () => selectChain() },
   dbClient: {},

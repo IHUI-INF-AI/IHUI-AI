@@ -22,6 +22,7 @@ const { mockDeduct, mockUpdate, mockGenerateOutTradeNo, selectQueue, claimQueue,
   }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => ({
       from: () => ({

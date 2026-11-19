@@ -39,6 +39,7 @@ vi.mock('../src/plugins/queue.js', () => ({
 
 // 读取面:只有 SELECT,不删除(旧实现 DELETE ... RETURNING 在此处就丢帧)
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       from: () => ({

@@ -32,6 +32,7 @@ const { mockSendEmail, mockNotifyRelayEvent } = vi.hoisted(() => ({
 const { mockSendNoticeSms } = vi.hoisted(() => ({ mockSendNoticeSms: vi.fn() }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: (...args: unknown[]) => mockDbInsert(...args),
     transaction: mockDbTransaction,

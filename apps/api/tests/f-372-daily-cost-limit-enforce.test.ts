@@ -90,6 +90,7 @@ function renderSql(v: unknown): string {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: (cols?: Record<string, unknown>) => ({
       from: () => ({

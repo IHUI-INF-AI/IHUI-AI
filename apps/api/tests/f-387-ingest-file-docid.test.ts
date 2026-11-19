@@ -50,6 +50,7 @@ vi.mock('../src/services/document-parser.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: mocks.db,
   dbRead: { select: vi.fn() },
   dbClient: {},
