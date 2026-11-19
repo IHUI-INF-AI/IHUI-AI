@@ -36,13 +36,15 @@ vi.mock('../src/db/index.js', () => {
   return {
     db: {
       insert: vi.fn(() => ({
-        values: (row: Record<string, unknown>) => ({
-          returning: async () => {
+        values: (row: Record<string, unknown>) => {
+          const returning = async (): Promise<unknown[]> => {
             holder.insertCalls += 1
             holder.inserted.push(row)
             return [{ id: 'sub-1', ...row }]
-          },
-        }),
+          }
+          // F-587 起插入走 ON CONFLICT DO NOTHING(幂等),桩需接住这一步
+          return { onConflictDoNothing: () => ({ returning }), returning }
+        },
       })),
     },
     dbRead: { select: vi.fn(() => chain(holder.currentRows)) },

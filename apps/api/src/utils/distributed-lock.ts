@@ -50,6 +50,11 @@ export interface AcquiredLock {
    * 回调只应做「记日志 / 中止业务」这类无副作用动作,不得在回调里再操作锁。
    */
   onLost?(reason: 'renew-false' | 'renew-error', cause?: unknown): void
+  /**
+   * F-708:锁丢失的机器可判信号(reason 为 'renew-failed' | 'not-owner')。
+   * 持有者把耗时业务与它做 abort 联动;未丢失时 aborted=false。
+   */
+  lost: AbortSignal
 }
 
 export interface DistributedLockOptions {
@@ -69,6 +74,12 @@ export interface DistributedLockOptions {
    * 持有者应在此中止业务(如置 AbortSignal),避免「锁已被夺走仍在跑」的互斥破窗。
    */
   onLost?(reason: 'renew-false' | 'renew-error', cause?: unknown): void
+  /**
+   * F-708:连续续约失败容忍次数(默认 3)。单次抖动不停表,达阈值才判丢失。
+   */
+  maxRenewFailures?: number
+  /** F-708:单次续约的超时上限(毫秒,默认 ttl/2);超时计一次失败,绝不让 interval 被挂死。 */
+  renewTimeoutMs?: number
 }
 
 export class DistributedLockError extends AppError {
@@ -151,6 +162,8 @@ function sleep(ms: number): Promise<void> {
 export class DistributedLock {
   private stats = { acquired: 0, released: 0, expired: 0, renewed: 0 }
   private readonly watchdogs = new Map<string, ReturnType<typeof setInterval>>()
+  /** F-708:锁名 → 丢失信号控制器(release 后一并摘除) */
+  private readonly lostCtrls = new Map<string, AbortController>()
 
   constructor(private readonly redis: Redis) {}
 
@@ -171,7 +184,12 @@ export class DistributedLock {
     // F-708:把持有者的 onLost 通知缝接进锁句柄,watchdog 续约失败时才能回调通知。
     const lock = this.buildLock(name, owner, token, ttlMs, options.onLost)
     if (options.watchdog) {
-      this.startWatchdog(lock, options.watchdogIntervalMs ?? Math.floor(ttlMs / 3))
+      this.startWatchdog(
+        lock,
+        options.watchdogIntervalMs ?? Math.floor(ttlMs / 3),
+        options.maxRenewFailures ?? 3,
+        options.renewTimeoutMs ?? Math.max(1, Math.floor(ttlMs / 2)),
+      )
     }
     return lock
   }
@@ -204,6 +222,7 @@ export class DistributedLock {
    */
   async release(name: string, token: string): Promise<LockState> {
     this.stopWatchdog(name)
+    this.lostCtrls.delete(name)
     const res = (await this.redis.eval(RELEASE_SCRIPT, 1, name, token)) as number
     if (res === 1) {
       this.stats.released++
@@ -282,6 +301,9 @@ export class DistributedLock {
     onLost?: AcquiredLock['onLost'],
   ): AcquiredLock {
     const acquiredAt = Date.now()
+    // F-708:丢失信号与句柄一体;abort 的 reason 直接写语义串,调用方读 lost.reason 即可分流。
+    const lostCtrl = new AbortController()
+    this.lostCtrls.set(name, lostCtrl)
     return {
       name,
       owner,
@@ -292,28 +314,79 @@ export class DistributedLock {
       release: () => this.release(name, token),
       renew: (newTtlMs?: number) => this.renew(name, token, newTtlMs ?? ttlMs),
       ...(onLost ? { onLost } : {}),
+      lost: lostCtrl.signal,
     }
   }
 
-  /** 启动 watchdog：定时续约，锁丢失时自动停止并通知持有者。 */
-  private startWatchdog(lock: AcquiredLock, intervalMs: number): void {
-    const timer = setInterval(async () => {
-      try {
-        const ok = await lock.renew(lock.ttlMs)
-        if (!ok) {
-          // F-708:续约返回 false = 锁已被他人夺走/已过期,停表并通知持有者中止业务。
-          // 此前这里只 stopWatchdog + stats.expired++,持有者毫不知情地继续执行 ——
-          // 互斥语义已破(别人持锁)而本侧还在跑,正是「锁过期但业务以为还持有」的竞态。
-          this.stopWatchdog(lock.name)
-          this.stats.expired++
-          lock.onLost?.('renew-false', undefined)
-        }
-      } catch (e) {
-        // F-708:续约抛异常(Redis 抖动/超时)同样停表并通知 —— 不能静默吞掉让持有者
-        // 误以为仍在安全续约。原因归为 renew-error,携带底层异常供持有者判日志。
-        this.stopWatchdog(lock.name)
-        lock.onLost?.('renew-error', e)
+  /**
+   * F-708:watchdog = 定时续约 + 连续失败容忍 + 丢失通知。
+   * - 单次 Redis 抖动不停表、不误报;成功一次即清零连续失败计数。
+   * - renew 返回 0(锁已不属我)是确定丢失 ⇒ 立即停表 + abort('not-owner')。
+   * - 连续 maxRenewFailures 次异常/超时 ⇒ 停表 + abort('renew-failed')。
+   * - 单次续约带超时上限:挂死的 Promise 不会把后续 interval 一起冻住。
+   */
+  private startWatchdog(
+    lock: AcquiredLock,
+    intervalMs: number,
+    maxRenewFailures = 3,
+    renewTimeoutMs = Math.max(1, Math.floor(lock.ttlMs / 2)),
+  ): void {
+    let consecutiveFailures = 0
+    let inFlight = false
+    const abortLost = (reason: 'renew-failed' | 'not-owner'): void => {
+      const ctrl = this.lostCtrls.get(lock.name)
+      if (ctrl && !ctrl.signal.aborted) ctrl.abort(reason)
+    }
+    const timer = setInterval(() => {
+      // 上一次还没收口(理论上超时已兜底)⇒ 本轮跳过,绝不叠加在飞续约
+      if (inFlight) return
+      inFlight = true
+      let settled = false
+      const finish = (): void => {
+        settled = true
+        inFlight = false
       }
+      const timeout = setTimeout(() => {
+        if (settled) return
+        consecutiveFailures++
+        if (consecutiveFailures >= maxRenewFailures) {
+          this.stopWatchdog(lock.name)
+          lock.onLost?.('renew-error', new Error('renew timeout'))
+          abortLost('renew-failed')
+        }
+        finish()
+      }, renewTimeoutMs)
+      timeout.unref?.()
+      Promise.resolve()
+        .then(() => lock.renew(lock.ttlMs))
+        .then(
+          (ok) => {
+            if (settled) return
+            clearTimeout(timeout)
+            if (ok) {
+              consecutiveFailures = 0
+              finish()
+              return
+            }
+            // 锁已被他人夺走/过期:继续跑就是双持有,立即停表并通知
+            this.stopWatchdog(lock.name)
+            this.stats.expired++
+            lock.onLost?.('renew-false', undefined)
+            abortLost('not-owner')
+            finish()
+          },
+          (e: unknown) => {
+            if (settled) return
+            clearTimeout(timeout)
+            consecutiveFailures++
+            if (consecutiveFailures >= maxRenewFailures) {
+              this.stopWatchdog(lock.name)
+              lock.onLost?.('renew-error', e)
+              abortLost('renew-failed')
+            }
+            finish()
+          },
+        )
     }, intervalMs)
     // 不阻塞进程退出
     timer.unref?.()
