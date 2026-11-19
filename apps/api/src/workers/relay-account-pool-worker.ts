@@ -70,7 +70,8 @@ const RACCOON_SYNC_CRON_PATTERN = '*/10 * * * *'
  * 上游已下架的待审批行自动退役。6 小时 = 足够及时又不给上游加压(模型目录变化本就慢)。
  * env RELAY_MODEL_DISCOVERY_CRON 可覆盖(运维止血用,不设走默认)。
  */
-const MODEL_DISCOVERY_CRON_PATTERN = process.env.RELAY_MODEL_DISCOVERY_CRON?.trim() || '0 */6 * * *'
+const MODEL_DISCOVERY_CRON_PATTERN =
+  process.env.RELAY_MODEL_DISCOVERY_CRON?.trim() || '17 */6 * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
 const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
@@ -450,6 +451,21 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           opts: { removeOnComplete: 100, removeOnFail: 500 },
         },
       )
+      // 启动即跑一次(2026-11-18):BullMQ upsertJobScheduler 不补错过的班次,且 model-discovery
+      // 默认每 6 小时一班 —— 若只排 cron,api 重启后要干等到下一个整点班才首轮,存在空窗。
+      // 这里在注册完 cron 后立即投递一个一次性 job 走同一处理器(name 同 'model-discovery-sync'),
+      // 保证 api 一起来就对账一轮。永不抛:失败交 BullMQ 记 failed,不影响主启动链。
+      await queue.add(
+        'model-discovery-sync',
+        { trigger: 'startup' },
+        { removeOnComplete: 100, removeOnFail: 500 },
+      )
+      server.log.info('model-discovery-sync 启动首轮已投递(不等整点班)')
+      // 同步补一条 console 输出:启动期 pino transport 未接稳时 server.log 可能不落盘,
+      // 而 console.log 经 dev-stack 管道必然落到 dev-stack-api.log —— 便于人工核对首轮投递。
+      console.log(
+        '[model-discovery] 启动首轮已投递(不等整点班, cron=' + MODEL_DISCOVERY_CRON_PATTERN + ')',
+      )
       // WorkBuddy 定时腿已撤除:显式移除可能的遗留注册(BullMQ 的 scheduler 存于 Redis,
       // 删代码不会自动清理),避免它继续每 10 分钟投递 worker 已不再处理的幽灵作业。
       try {
@@ -495,6 +511,19 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
             modelsRetired: result.modelsRetired,
           },
           'model-discovery-sync done',
+        )
+        // 同步补 console 输出:保证「done」这条关键对账结果必然落盘可核对
+        console.log(
+          '[model-discovery] done providersScanned=' +
+            result.providersScanned +
+            ' providersOk=' +
+            result.providersOk +
+            ' providersSkipped=' +
+            result.providersSkipped +
+            ' modelsDiscovered=' +
+            result.modelsDiscovered +
+            ' modelsRetired=' +
+            result.modelsRetired,
         )
         return result
       }
