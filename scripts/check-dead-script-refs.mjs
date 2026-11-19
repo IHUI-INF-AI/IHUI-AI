@@ -170,7 +170,20 @@ export function maskComments(text, style) {
 export function scanRefs(text, file) {
   const lines = String(text ?? '').split(/\r?\n/)
   const out = []
+  // GHA 的 `paths:` / `paths-ignore:` 是**触发器通配过滤器**,不是脚本引用:
+  // 这些行里的 `scripts/gen-*.mjs` 由 Actions 自己按 glob 匹配,解析成"文件是否存在"
+  // 永远是未判定(实测 8 处恒 exit 2)。判据只在触发过滤块内跳过抽取,离开该块照旧。
+  let inPathFilter = false
   lines.forEach((line, idx) => {
+    const isGha = kindOf(file) === 'gha'
+    if (isGha) {
+      if (/^\s*(paths|paths-ignore):\s*$/.test(line)) {
+        inPathFilter = true
+        return
+      }
+      if (inPathFilter && /^\s*-\s*['"]/.test(line)) return
+      if (inPathFilter && !/^\s*(-\s|\s*$)/.test(line)) inPathFilter = false
+    }
     const literals = new Set()
     LITERAL_RE.lastIndex = 0
     let m
