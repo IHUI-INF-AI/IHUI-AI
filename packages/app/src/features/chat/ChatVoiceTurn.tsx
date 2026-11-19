@@ -318,6 +318,8 @@ function createStyles(tokens: AppThemeTokens) {
      */
     talkButtonPressed: {
       backgroundColor: tokens.brand.cta,
+      // 按下态的配套前景色(兄弟键 talkOnCta 逐字同值):写进同一块是为了让 R3 能看见配对
+      color: tokens.brand.ctaForeground,
     },
     /** 与 talkButtonPressed 配套的字色:两处文字共用一档,避免只翻一处留下半黑半白。 */
     talkOnCta: {

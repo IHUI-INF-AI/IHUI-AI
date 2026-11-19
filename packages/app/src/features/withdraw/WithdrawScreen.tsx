@@ -224,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
     },
-    methodItemActive: { borderColor: tk.brand.DEFAULT },
+    methodItemActive: { borderColor: tk.brandAccent.deep },
     methodText: { ...rnType.body, color: tk.text.secondary },
     methodTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     input: {

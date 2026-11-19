@@ -94,7 +94,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     targetChipActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: FINANCE_AI_PALETTE.emerald.bg,
     },
     targetChipText: { fontSize: rnType.label.size, color: tk.text.primary },
@@ -105,7 +105,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: rnSpacing.xs,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.md,
       paddingVertical: rnSpacing.sm,
     },
