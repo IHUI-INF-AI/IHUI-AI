@@ -695,9 +695,10 @@ export async function confirmLeaveImport(params: {
 
     let leaveId: string
     if (existing) {
+      const changed = { totalDays, leaveType, status, reason }
       await db
         .update(hrLeaveRequest)
-        .set({ totalDays, leaveType, status, reason, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(hrLeaveRequest.id, existing.id))
       leaveId = existing.id
       updated++
@@ -762,9 +763,10 @@ export async function confirmLeaveImport(params: {
 
     // approved 请假 → 区间内考勤记录标 leave(与 approveHrLeave 同口径)
     if (status === 'approved') {
+      const changed = { status: 'leave' }
       await db
         .update(hrAttendanceRecord)
-        .set({ status: 'leave', updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(
           and(
             eq(hrAttendanceRecord.employeeId, emp.id),
@@ -1261,9 +1263,10 @@ export async function confirmOutgoingImport(params: {
 
     // approved 外出 → 区间内 absent 改回 present(外出不是缺勤)
     if (status === 'approved') {
+      const changed = { status: 'present' }
       const fixed = await db
         .update(hrAttendanceRecord)
-        .set({ status: 'present', updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(
           and(
             eq(hrAttendanceRecord.employeeId, emp.id),

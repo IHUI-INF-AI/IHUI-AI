@@ -23,6 +23,9 @@
 无 **确定性、无模型** 的 tool-result 头/中/尾裁剪（replay-safe, 零模型调用）。
 本模块补齐确定性裁剪纯函数（不含 session 事件落账 —— 那是调用方职责）。
 
+2026-11-19 接线:本模块已接进 ``agent_loop_v2.bound_tool_result_for_context`` 的
+超预算预览路径(头+尾+续读 offset),不再是「有测试、零生产调用方」。
+
 设计要点（纯函数, 零 IO, 零模型）
 ----------------------------------
 1. ``code_point_length``: 按 Unicode code point 计长（Python str 天然按码点）;
@@ -40,10 +43,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: 默认字符预算（对齐 外部实现 config 默认语义; 具体 DEFAULTS 值未随 src 落盘, 取合理值）。
-DEFAULT_THRESHOLD_CHARS: int = 20_000
-DEFAULT_HEAD_CHARS: int = 2_000
-DEFAULT_TAIL_CHARS: int = 2_000
+#: 默认字符预算 —— 生效值,不是猜的:
+#: 对照件 `@deepseek-ai/dsh-compaction-tool-result-pruner`(MIT, D:\DevEnv\dsh-ref)
+#: 的 README 明示 threshold 8192 / head 4096 / tail 1024,并要求
+#: ``head + marker + tail <= threshold``(否则裁完仍超预算)。本仓取同一组
+#: 默认值,并把该不变量做成构造期校验(见 ``PruneConfig.__post_init__``)。
+DEFAULT_THRESHOLD_CHARS: int = 8_192
+DEFAULT_HEAD_CHARS: int = 4_096
+DEFAULT_TAIL_CHARS: int = 1_024
 
 #: 中段占位标记（裁掉的部分用一个 marker 表示, 只插入一次）。
 PRUNE_MARKER: str = "\n… [tool result trimmed — full output omitted] …\n"
@@ -64,6 +71,21 @@ class PruneConfig:
     threshold_chars: int = DEFAULT_THRESHOLD_CHARS
     head_chars: int = DEFAULT_HEAD_CHARS
     tail_chars: int = DEFAULT_TAIL_CHARS
+
+    def __post_init__(self) -> None:
+        """配置合法性：head + marker + tail 必须装得进 threshold。
+
+        对照件 README 把这条写成硬要求（不满足则裁剪后仍超预算）；放在构造期
+        拒绝，比在裁剪路径上抛一个更晚、更难归因的错误强。
+        """
+        if self.threshold_chars <= 0:
+            raise ValueError("prune config: threshold_chars must be > 0")
+        if self.head_chars < 0 or self.tail_chars < 0:
+            raise ValueError("prune config: head_chars/tail_chars must be >= 0")
+        if self.head_chars + self.tail_chars + len(PRUNE_MARKER) > self.threshold_chars:
+            raise ValueError(
+                "prune config: head + marker + tail must fit within threshold_chars"
+            )
 
 
 @dataclass(frozen=True)

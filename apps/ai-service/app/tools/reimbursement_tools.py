@@ -1068,7 +1068,7 @@ def _write_html_report(
     )
     rows_html = []
     for idx, (item, vat, itx) in enumerate(
-        zip(reimbursements, vat_details, tax_details), start=1
+        zip(reimbursements, vat_details, tax_details, strict=False), start=1
     ):
         badge = (
             '<span class="badge badge-ok">可抵</span>'

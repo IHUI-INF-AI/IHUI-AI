@@ -49,28 +49,28 @@ export const ROOT = resolve(HERE, '..')
 export const MIRROR_PAIRS = [
   {
     id: 'SendAdmissionReceipt',
-    why: 'api-client 为零运行时依赖镜像共享层(见 client.ts 该类型的注释);2026-11-13 因 ahead 漏字段实测出事故',
+    why: 'api-client 为零运行时依赖镜像共享层(见 stream.ts 该类型的注释);2026-11-13 因 ahead 漏字段实测出事故。2026-11-19 门 103 C1 收口把 SSE 解析与事件形状下沉到 api-client/src/stream.ts,镜像落点随之改判(镜像是同一枚符号,只是搬了文件)',
     shared: {
       file: 'packages/shared/src/chat/send-admission.ts',
       type: 'SendAdmissionReceipt',
     },
     mirror: {
-      file: 'packages/api-client/src/client.ts',
+      file: 'packages/api-client/src/stream.ts',
       type: 'SendAdmissionReceipt',
     },
   },
   {
     id: 'ContextLedger',
-    why: 'client.ts:1817 自述「权威定义在 @ihui/shared 的 sse/contract.ts ContextLedger(本包零依赖,故本地镜像)」;两侧类型名带 Snapshot 后缀差异,故显式登记映射',
+    why: 'stream.ts 自述「权威定义在 @ihui/shared 的 sse/contract.ts ContextLedger(本包零依赖,故本地镜像)」;两侧类型名带 Snapshot 后缀差异,故显式登记映射。落点随门 103 C1 收口由 client.ts 迁到 stream.ts(同一枚符号)',
     shared: { file: 'packages/shared/src/sse/contract.ts', type: 'ContextLedger' },
-    mirror: { file: 'packages/api-client/src/client.ts', type: 'ContextLedgerSnapshot' },
+    mirror: { file: 'packages/api-client/src/stream.ts', type: 'ContextLedgerSnapshot' },
   },
   {
     id: 'ContextLedgerCategoryUsage',
-    why: 'ContextLedger.categories 的元素类型,两侧同样带 Snapshot 后缀差异',
+    why: 'ContextLedger.categories 的元素类型,两侧同样带 Snapshot 后缀差异;落点同随门 103 C1 收口迁到 stream.ts',
     shared: { file: 'packages/shared/src/sse/contract.ts', type: 'ContextLedgerCategoryUsage' },
     mirror: {
-      file: 'packages/api-client/src/client.ts',
+      file: 'packages/api-client/src/stream.ts',
       type: 'ContextLedgerCategoryUsageSnapshot',
     },
   },
@@ -80,9 +80,9 @@ export const MIRROR_PAIRS = [
 export const MIRROR_ENUM_PAIRS = [
   {
     id: 'ADMISSION_DISPOSITIONS',
-    why: '四档处置码是回执判据的闭集,两侧漂开会让一档在某侧变成"未知码"',
+    why: '四档处置码是回执判据的闭集,两侧漂开会让一档在某侧变成"未知码";常量随门 103 C1 收口落在 stream.ts',
     shared: { file: 'packages/shared/src/chat/send-admission.ts', name: 'ADMISSION_DISPOSITIONS' },
-    mirror: { file: 'packages/api-client/src/client.ts', name: 'ADMISSION_DISPOSITIONS' },
+    mirror: { file: 'packages/api-client/src/stream.ts', name: 'ADMISSION_DISPOSITIONS' },
   },
 ]
 

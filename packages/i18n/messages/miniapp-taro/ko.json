@@ -4554,7 +4554,12 @@
       "schedule": "예약 작업"
     },
     "knowledgeCards": "지식 카드",
-    "knowledgePlanet": "지식 플래닛"
+    "knowledgePlanet": "지식 플래닛",
+    "hrAttendance": "내 근태",
+    "hrLeave": "내 휴가",
+    "hrPayroll": "급여 명세서",
+    "settingsAppearance": "모양 및 타이포그래피",
+    "appsStudio": "AI 앱 스튜디오"
   },
   "accountPool": {
     "title": "내 계정 풀",

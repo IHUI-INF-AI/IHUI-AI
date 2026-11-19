@@ -42,6 +42,23 @@ import { assertWithinRegisteredRoots } from '../utils/workspace-roots.js'
 /** 消息 metadata 里承载档位的键名(前端读它渲染徽章;跨端同源) */
 export const MESSAGE_PERMISSION_META_KEY = 'permissionMode'
 
+/** 会话 metadata 里承载"该会话绑定的工作区路径"的键名(未绑定时整键缺失)。 */
+export const CONVERSATION_WORKSPACE_META_KEY = 'workspacePath'
+
+/**
+ * 从会话 metadata 里取绑定路径:取到**非空字符串**才算绑定,其余一律 null。
+ *
+ * 反向牙:空串 / 纯空白 / 非字符串 / metadata 不是对象 / null 全都判未绑定 ——
+ * 这条链路上"看起来配了但其实没配"会被读成 default 档,正是 G-165 要堵的那种静默错。
+ */
+export function workspacePathOfConversationMeta(meta: unknown): string | null {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
+  const raw = (meta as Record<string, unknown>)[CONVERSATION_WORKSPACE_META_KEY]
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed === '' ? null : trimmed
+}
+
 /**
  * 会话 metadata 里承载"按 messageId 索引的绑定时刻事实"的键名。
  *

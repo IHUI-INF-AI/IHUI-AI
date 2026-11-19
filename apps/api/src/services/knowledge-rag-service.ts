@@ -189,6 +189,13 @@ const KEYWORD_CANDIDATE_LIMIT = 2000
  */
 export const CONVERSATION_IMPORT_SOURCE_TYPE = 'conversation_import'
 
+/**
+ * 检索用的"文档仍 active"谓词(F-145)。抽成常量既给测试钉形状,也给查询单一来源:
+ * 已删文档残留的 chunk 不得被召回(删除与索引重建之间存在残留窗口)。
+ */
+export const KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL =
+  "EXISTS (SELECT 1 FROM \"zhs_knowledge_doc\" AS \"d\" WHERE \"d\".\"id\" = \"zhs_knowledge_chunk\".\"doc_id\" AND \"d\".\"status\" = 'active')"
+
 /** F-141:会话入库的幂等键前缀(advisory lock 键与同进程单飞键共用同一份取值,不另造第二套)。 */
 const CONVERSATION_INGEST_DEDUPE_PREFIX = 'knowledge_ingest'
 
@@ -709,6 +716,7 @@ class KnowledgeRagService {
           sql`"collection_name" = ${collectionName}`,
           sql`"embedding" IS NOT NULL`,
           sql`"owner_uuid" = ${ownerUuid}`,
+          sql.raw(KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL),
         ]
 
         // 1 - (embedding <=> query) 作为 cosine 相似度 score
@@ -770,6 +778,7 @@ class KnowledgeRagService {
       eq(knowledgeChunk.collectionName, collectionName),
       eq(knowledgeChunk.ownerUuid, ownerUuid),
     ]
+    // F-145:降级路同样只认 active 文档 —— 否则 pgvector 一坏,已删文档的残留 chunk 反而被召回。
     const rows = await db
       .select({
         id: knowledgeChunk.id,
@@ -778,7 +787,7 @@ class KnowledgeRagService {
         chunkIndex: knowledgeChunk.chunkIndex,
       })
       .from(knowledgeChunk)
-      .where(and(...conditions))
+      .where(and(...conditions, sql.raw(KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL)))
       .limit(KEYWORD_CANDIDATE_LIMIT)
 
     const results: SearchHit[] = []
@@ -888,18 +897,23 @@ class KnowledgeRagService {
 
   /** 软删除文档 */
   async deleteDoc(docId: number, ownerUuid: string): Promise<boolean> {
-    const rows = await db
-      .select({ id: knowledgeDoc.id })
-      .from(knowledgeDoc)
-      .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
-      .limit(1)
-    if (rows.length === 0) return false
-    await db
-      .update(knowledgeDoc)
-      .set({ status: 'deleted', updatedAt: new Date() })
-      .where(eq(knowledgeDoc.id, docId))
-    await db.delete(knowledgeChunk).where(eq(knowledgeChunk.docId, docId))
-    return true
+    // F-145:软删状态与物理删 chunk 必须在同一事务里 —— 分开写会留下
+    // 「doc 已 deleted 而 chunk 还在」的半删态,检索侧仍能召回已删内容。
+    return db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ id: knowledgeDoc.id })
+        .from(knowledgeDoc)
+        .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+        .limit(1)
+      if (rows.length === 0) return false
+      const changed = { status: 'deleted' }
+      await tx
+        .update(knowledgeDoc)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(eq(knowledgeDoc.id, docId))
+      await tx.delete(knowledgeChunk).where(eq(knowledgeChunk.docId, docId))
+      return true
+    })
   }
 
   /** 批量删除 */

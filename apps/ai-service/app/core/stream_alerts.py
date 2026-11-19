@@ -64,7 +64,7 @@ guardian 复核的"未复核"态(reviewer 不可用 / 超时 / 响应非法)确�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 # 与 packages/api-client 的 AlertSeverity 同值域('info' | 'warning' | 'critical')
@@ -152,7 +152,7 @@ def build_deprecation_notice(
     sunset = _parse_deprecation_date(deprecation_date)
     if sunset is None:
         return None
-    today = now or datetime.now(timezone.utc).date()
+    today = now or datetime.now(UTC).date()
     remaining = (sunset - today).days
     if remaining < 0:
         # 已过期:该模型现在就该不可用,属"能力缺失"而非"预告",不在这里报。

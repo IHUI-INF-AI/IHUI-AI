@@ -170,9 +170,10 @@ export async function createAnyImportBatch(params: {
       preview: parsed.rows.slice(0, 20),
     }
   } catch (err) {
+    const changed = { status: 'rejected' }
     await db
       .update(hrImportBatch)
-      .set({ status: 'rejected', updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(hrImportBatch.id, batch.id))
     logger.error('导入解析失败', { err, batchId: batch.id, importKind })
     throw err
@@ -217,9 +218,10 @@ export async function confirmAnyImportBatch(params: {
     result = await confirmAttendance({ batchId, operatedBy })
   }
 
+  const changed = { status: 'verified' }
   await db
     .update(hrImportBatch)
-    .set({ status: 'verified', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(hrImportBatch.id, batchId))
 
   logger.info('导入批次已确认', { batchId, importKind: batch.importKind, ...result })

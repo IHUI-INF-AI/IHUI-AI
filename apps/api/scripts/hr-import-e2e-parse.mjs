@@ -29,7 +29,7 @@ const sql = postgres(dsn, { max: 1 })
 
 async function main() {
   const { detectMapping: _detectMapping, parseMatrix, normalizeDateCell, normalizeTimeCell } = await import(
-    '../../apps/api/src/services/hr-import.ts'
+    '../src/services/hr-import.ts'
   )
 
   const matrix = csv

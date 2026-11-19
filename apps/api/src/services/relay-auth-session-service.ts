@@ -711,9 +711,10 @@ async function scheduleNextPoll(id: string, intervalSeconds: number): Promise<vo
 async function bumpPollAttempt(id: string): Promise<void> {
   const row = await loadSession(id)
   if (!row) return
+  const changed = { pollAttempts: Number(row.pollAttempts || 0) + 1 }
   await db
     .update(aiRelayAuthSession)
-    .set({ pollAttempts: Number(row.pollAttempts || 0) + 1, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(aiRelayAuthSession.id, id))
 }
 

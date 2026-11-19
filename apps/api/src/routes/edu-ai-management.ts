@@ -49,6 +49,10 @@ import {
 } from '../services/edu-arrear-remind-service.js'
 // normalizeHm = 时刻归一化单源(与排课冲突检测同一把尺,§0.6):考勤规则三个 HH:MM 阈值入参都过它
 import { findScheduleConflicts, normalizeHm } from '../services/edu-schedule-conflict.js'
+// 遗留账段组装已下沉 services/edu-legacy-payment-segment.ts(门 103 C1 收口,2026-11-19):
+// 本文件既在内部调用 `buildLegacySegment`(第 4537 行组装遗留账段),又在末尾按公开面逐名转出 ——
+// 转出的 `export { … } from` 不产生本地绑定,故这里必须有值导入,否则 TS2304/TS18004。
+import { buildLegacySegment } from '../services/edu-legacy-payment-segment.js'
 // =============================================================================
 // 2026-11-08 考勤四缺口补齐(ATT-API 票)新增依赖 —— 三处都是"复用仓内单源,不再造第二份":
 //   · judgeStatus  = 考勤状态判定(present/late/early/absent)的唯一实现,归 ATT-JOB 席;
@@ -5925,62 +5929,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 }
 
 /**
- * 遗留表历史账段组装(G-816106 ⑤,拍板 2026-10-07)。抽成纯函数的理由与缴费契约同:
- * 「legacy 段每行必带 source:'legacy' + 自己的操作日志;没日志的行给空数组而不是 undefined」
- * 这条形状约定,翻坏时 typecheck 不响(web 端 `p.logs.map` 直接炸),必须有一条不连库
- * 就能钉住的断言(测试见 apps/api/tests/edu-legacy-paylog-contract.test.ts)。
- * 口径边界:遗留行只读展示、不参与欠费/汇总;分组保持入参顺序(SQL 侧已按 createTime 升序)。
+ * 门 103 C1 收口(2026-11-19):遗留账段组装实现下沉到 services/edu-legacy-payment-segment.ts,
+ * 路由侧只保留转出口 —— 公开面(`buildLegacySegment` / `LegacyPayRow` / `LegacyPayLogRow`)逐名等值,
+ * 测试 `apps/api/tests/edu-legacy-paylog-contract.test.ts` 的 import 路径不变。
  */
-export interface LegacyPayRow {
-  payId: number
-  userUuid: string
-  courseId: number
-  orderNo: string | null
-  amount: number
-  status: number
-  createTime: Date | null
-}
-export interface LegacyPayLogRow {
-  payId: number
-  action: string
-  detail: string | null
-  createTime: Date | null
-}
-export function buildLegacySegment(
-  pays: LegacyPayRow[],
-  logs: LegacyPayLogRow[],
-  total: number,
-): {
-  source: 'legacy'
-  total: number
-  list: Array<LegacyPayRow & { source: 'legacy'; logs: Array<Omit<LegacyPayLogRow, 'payId'>> }>
-} {
-  const logsByPay = new Map<
-    number,
-    { action: string; detail: string | null; createTime: Date | null }[]
-  >()
-  for (const l of logs) {
-    const arr = logsByPay.get(l.payId)
-    if (arr) arr.push({ action: l.action, detail: l.detail, createTime: l.createTime })
-    else logsByPay.set(l.payId, [{ action: l.action, detail: l.detail, createTime: l.createTime }])
-  }
-  return {
-    source: 'legacy' as const,
-    total,
-    list: pays.map((p) => ({
-      ...p,
-      source: 'legacy' as const,
-      logs: logsByPay.get(p.payId) ?? [],
-    })),
-  }
-}
+export { buildLegacySegment } from '../services/edu-legacy-payment-segment.js'
+export type { LegacyPayRow, LegacyPayLogRow } from '../services/edu-legacy-payment-segment.js'
 
-/**
- * F-699:汇总各学习计划完成率。
- * pg 的 `count()` 走 int8,驱动按字符串返回;直接 `sum + completedItems`
- * 会变成字符串拼接(两个计划 5/6、3/6 → "053" → 53/12 = 442%)。
- * 这里统一 Number() 归一化,与 SQL 侧 `::int` 双保险。
- */
 export function sumPlanCompletion(
   stats: ReadonlyArray<{ totalItems: number | string; completedItems: number | string }>,
 ): { totalItems: number; totalCompleted: number; overallRate: number } {

@@ -9,8 +9,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.workspace_trust import (
     TrustStore,
     TrustVerdict,
@@ -18,7 +16,6 @@ from app.core.workspace_trust import (
     default_trust_store,
     trust_key,
 )
-
 
 # -- trust_key(纯函数) ------------------------------------------------------
 

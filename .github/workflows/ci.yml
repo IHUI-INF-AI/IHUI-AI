@@ -247,7 +247,7 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout install-pnpm setup-node mobile-app-json-fresh install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare typecheck schema-drift migration-bookkeeping api-routes port-registry version-drift lint
+          TRIAGE_IDS: checkout install-pnpm setup-node mobile-app-json-fresh install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare typecheck schema-drift migration-bookkeeping hand-migration-snapshot api-routes port-registry version-drift lint
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
@@ -263,6 +263,7 @@ jobs:
           O_TYPECHECK: ${{ steps.typecheck.outcome }}
           O_SCHEMA_DRIFT: ${{ steps.schema-drift.outcome }}
           O_MIGRATION_BOOKKEEPING: ${{ steps.migration-bookkeeping.outcome }}
+          O_HAND_MIGRATION_SNAPSHOT: ${{ steps.hand-migration-snapshot.outcome }}
           O_API_ROUTES: ${{ steps.api-routes.outcome }}
           O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
           O_VERSION_DRIFT: ${{ steps.version-drift.outcome }}

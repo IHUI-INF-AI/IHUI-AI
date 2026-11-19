@@ -14,8 +14,6 @@
 """
 from __future__ import annotations
 
-import pytest
-
 from app.core.guardian_config import (
     GuardianConfigError,
     GuardianV2Config,
@@ -24,8 +22,11 @@ from app.core.guardian_config import (
     default_guardian_v2_config,
 )
 from app.core.guardian_risk import GuardianRiskLevel
-from app.core.guardian_scoring import RiskAssessment, TrajectoryWindow, classify_needs_blocking_review
-
+from app.core.guardian_scoring import (
+    RiskAssessment,
+    TrajectoryWindow,
+    classify_needs_blocking_review,
+)
 
 # ---------- transcript 校验 ----------
 

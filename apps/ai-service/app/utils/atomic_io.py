@@ -16,8 +16,9 @@ import socket
 import stat
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 _REPLACE_RETRIES = 20
 _REPLACE_RETRY_DELAY = 0.005
@@ -182,7 +183,6 @@ def process_file_lock(
     释锁前比对 token,防止接管者/后来者误删不属于自己那把锁。
     """
     import hashlib
-    import json
     import secrets
 
     target = Path(path)

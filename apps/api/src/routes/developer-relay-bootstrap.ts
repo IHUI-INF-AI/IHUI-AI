@@ -303,9 +303,10 @@ const developerRelayBootstrapRoutes: FastifyPluginAsync = async (server) => {
         const generated = generateApiKey()
         secret = generated.secret
         // 落库只写哈希;明文只存在于本次响应,不入库、不进日志。
+        const changed = { secret: hashSecret(secret) }
         const [updated] = await db
           .update(developerApiKeys)
-          .set({ secret: hashSecret(secret), updatedAt: new Date() })
+          .set({ ...changed, updatedAt: new Date() })
           .where(and(eq(developerApiKeys.id, row.id), eq(developerApiKeys.userId, userId)))
           .returning({ id: developerApiKeys.id })
         if (!updated) return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))

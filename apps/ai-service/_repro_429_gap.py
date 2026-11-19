@@ -7,8 +7,9 @@
 对照 Codex：rate_limit(429) ∈ Retryable，且带 retry_after 头。
 本仓 agent 层 _classify_error 用文本启发式把 429 归 http_4xx → 词汇表判 terminal。
 """
-from app.providers.base_provider import ProviderError
 from app.core.agent_failure_vocabulary import agent_failure_outcome_of
+from app.providers.base_provider import ProviderError
+
 
 # 逐字对照 agent_loop_v2.py:5075-5088 的文本启发式（宿主盖章/取消分支与本复现无关，略）
 def classify_like_agent_loop(e: BaseException) -> str:

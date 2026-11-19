@@ -60,19 +60,35 @@ return n
 interface LocalWindow {
   count: number
   windowStart: number
+  /** 该窗口自身的长度:过期清扫要用它,而不是借用"此刻调用的 windowMs"。 */
+  windowMs: number
 }
+
+/**
+ * 内存兜底表满且全是活跃窗口时,incrWindow 的返回值(F-219)。
+ *
+ * 它必须大过任何调用方的 max,这样调用方既有的 "attempts <= max" 判定天然为假 ⇒
+ * fail-closed(限流生效),而不是像旧实现那样"删掉别人的活跃窗口给新键腾位置"
+ * —— 那样等于一次本地容量打满就能把其他用户的配额清空。
+ */
+export const LOCAL_CAPACITY_EXCEEDED_COUNT = 1_000_000
 const localStore = new Map<string, LocalWindow>()
 /** 内存兜底也必须有死亡机制,否则 Redis 长期不可用时这张表会单调涨到 OOM。 */
 const LOCAL_MAX_KEYS = 20_000
 
+/** 扫掉已过期的内存窗口。满表时先扫再用,扫完仍满才算"容量打满"。 */
+function sweepExpiredLocal(now: number): void {
+  for (const [k, w] of localStore) {
+    if (now - w.windowStart > w.windowMs) localStore.delete(k)
+  }
+}
+
 function localIncr(key: string, windowMs: number, now: number): number {
   const existing = localStore.get(key)
-  if (!existing || now - existing.windowStart > windowMs) {
-    if (localStore.size >= LOCAL_MAX_KEYS) {
-      const oldest = localStore.keys().next().value
-      if (oldest !== undefined) localStore.delete(oldest)
-    }
-    localStore.set(key, { count: 1, windowStart: now })
+  if (!existing || now - existing.windowStart > existing.windowMs) {
+    if (localStore.size >= LOCAL_MAX_KEYS) sweepExpiredLocal(now)
+    if (localStore.size >= LOCAL_MAX_KEYS) return LOCAL_CAPACITY_EXCEEDED_COUNT
+    localStore.set(key, { count: 1, windowStart: now, windowMs })
     return 1
   }
   existing.count += 1
@@ -242,6 +258,24 @@ export async function windowRemainingMs(key: string, windowMs: number): Promise<
 }
 
 function localTryConsumeWindows(specs: WindowSpec[], now: number): number {
+  // 名额预检(F-219):本次要新建多少个窗口;满了先扫过期,扫完仍不够 ⇒ 整批挡下,
+  // 且只保留清扫结果(不腾位置、不写新键)。
+  const needing = specs.filter((s) => {
+    if (!s) return false
+    const w = localStore.get(s.key)
+    return !(w && now - w.windowStart <= s.windowMs)
+  }).length
+  if (needing > 0 && localStore.size + needing > LOCAL_MAX_KEYS) {
+    sweepExpiredLocal(now)
+    if (localStore.size + needing > LOCAL_MAX_KEYS) {
+      const first = specs.findIndex((s) => {
+        if (!s) return false
+        const w = localStore.get(s.key)
+        return !(w && now - w.windowStart <= s.windowMs)
+      })
+      return first + 1
+    }
+  }
   for (let i = 0; i < specs.length; i++) {
     const s = specs[i]
     if (!s) continue
@@ -255,11 +289,7 @@ function localTryConsumeWindows(specs: WindowSpec[], now: number): number {
     if (active) {
       active.count += 1
     } else {
-      if (localStore.size >= LOCAL_MAX_KEYS) {
-        const oldest = localStore.keys().next().value
-        if (oldest !== undefined) localStore.delete(oldest)
-      }
-      localStore.set(s.key, { count: 1, windowStart: now })
+      localStore.set(s.key, { count: 1, windowStart: now, windowMs: s.windowMs })
     }
   }
   return 0

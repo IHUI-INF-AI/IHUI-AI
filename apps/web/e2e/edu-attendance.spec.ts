@@ -846,7 +846,7 @@ test.describe.serial('真实后端链路(不桩数据面;读路径必须真 200)
     const contract = await probeWriteContract(page)
     test.skip(
       !contract.matched,
-      `本机 api 进程装的是改口前的源码(写接口"回填非当日必须给该日内时刻"这一判据不存在)⇒ 真链路组显式跳过。探测读数:${contract.detail}`,
+      `本机 api 进程装的是改口前的源码(写接口"回填非当日必须给该日内时刻"这一判据不存在)⇒ 真链路组显式跳过。探测读数:${contract.detail} [SKIP:SKIP-0235]`,
     )
     await expect(page.getByRole('heading', { name: '考勤管理' })).toBeVisible()
 
@@ -886,7 +886,7 @@ test.describe.serial('真实后端链路(不桩数据面;读路径必须真 200)
     const contract = await probeWriteContract(page)
     test.skip(
       !contract.matched,
-      `本机 api 进程装的是改口前的源码(写接口同日校验未生效)⇒ 真链路组显式跳过。探测读数:${contract.detail}`,
+      `本机 api 进程装的是改口前的源码(写接口同日校验未生效)⇒ 真链路组显式跳过。探测读数:${contract.detail} [SKIP:SKIP-0236]`,
     )
     await expect(page.getByRole('heading', { name: '我的考勤' })).toBeVisible()
     await expect(page.getByText('请先登录')).toHaveCount(0)

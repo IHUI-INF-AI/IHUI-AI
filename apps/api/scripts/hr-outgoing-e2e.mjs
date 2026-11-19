@@ -4,8 +4,8 @@
 
 /** 外出导入真库端到端验证(临时脚本)。 */
 import postgres from 'postgres'
-import { createAnyImportBatch, confirmAnyImportBatch } from '../../../apps/api/src/services/hr-import-entry.ts'
-import { getImportBatchDetail, resolveImportRow } from '../../../apps/api/src/services/hr-import.ts'
+import { createAnyImportBatch, confirmAnyImportBatch } from '../src/services/hr-import-entry.ts'
+import { getImportBatchDetail, resolveImportRow } from '../src/services/hr-import.ts'
 
 const dsn = process.env.DATABASE_URL
 if (!dsn) throw new Error('DATABASE_URL 未设置')

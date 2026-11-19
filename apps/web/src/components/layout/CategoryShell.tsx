@@ -136,7 +136,7 @@ export const SHELL_TOKENS = {
   /** 桌面侧栏(≥640px 固定显示,自身内滚) */
   sidebar: 'hidden min-h-0 shrink-0 flex-col overflow-y-auto min-[640px]:flex',
   /** 侧栏容器卡:与域页面板同描边档 */
-  sidebarPanel: 'rounded-xl border border-border bg-card/60 p-2 shadow-sm',
+  sidebarPanel: 'rounded-xl border border-border bg-card/60 p-2 shadow-elevation-sm',
   nav: 'space-y-2',
   group: 'space-y-0.5',
   /** 分组头:主色圆点 + 标题(与 hub 的 sectionHead 同式) */
@@ -146,7 +146,7 @@ export const SHELL_TOKENS = {
   /** 导航项:图标 + 文案统一 10px 节奏,字号升到 text-body 与域卡片同档 */
   item: 'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-body font-medium transition-colors',
   /** 激活态:品牌 CTA 同源令牌(§4),不引新色 */
-  itemActive: 'bg-cta text-cta-foreground font-semibold shadow-sm',
+  itemActive: 'bg-cta text-cta-foreground font-semibold shadow-elevation-sm',
   itemIdle: 'text-muted-foreground hover:bg-accent hover:text-foreground',
   itemIcon: `${ICON_GLYPH} shrink-0`,
   itemLabel: 'min-w-0 truncate whitespace-nowrap',

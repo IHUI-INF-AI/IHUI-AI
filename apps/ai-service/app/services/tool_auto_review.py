@@ -203,7 +203,7 @@ def auto_review_cache_key(tool_name: str, args: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-_CACHE: "OrderedDict[str, AutoReviewResult]" = OrderedDict()
+_CACHE: OrderedDict[str, AutoReviewResult] = OrderedDict()
 
 
 def clear_auto_review_cache() -> None:

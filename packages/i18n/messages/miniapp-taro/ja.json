@@ -4554,7 +4554,12 @@
       "schedule": "スケジュールタスク"
     },
     "knowledgeCards": "ナレッジカード",
-    "knowledgePlanet": "ナレッジプラネット"
+    "knowledgePlanet": "ナレッジプラネット",
+    "hrAttendance": "自分の勤怠",
+    "hrLeave": "自分の休暇",
+    "hrPayroll": "給与明細",
+    "settingsAppearance": "外観とタイポグラフィ",
+    "appsStudio": "AI アプリスタジオ"
   },
   "accountPool": {
     "title": "マイアカウントプール",

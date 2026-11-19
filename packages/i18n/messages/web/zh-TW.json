@@ -9507,6 +9507,210 @@
         "UNREADABLE": {
           "title": "檔案不可讀",
           "action": "檢查檔案權限與佔用後重試"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "恢復確認已失效",
+          "action": "重新發起該任務"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "需要人工核准",
+          "action": "完成審批後重試"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "不支援並行背景任務",
+          "action": "改為逐個執行"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "背景任務被拒絕",
+          "action": "檢查任務參數後重試"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "命令不在白名單",
+          "action": "換用允許的命令"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "一致性校驗未通過",
+          "action": "修正狀態後重試"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "會話上下文不匹配",
+          "action": "重新開始對話"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "目標端點被攔截",
+          "action": "更換允許的端點"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "環境變數改寫被拒",
+          "action": "使用允許的設定項"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "缺少呼叫身分",
+          "action": "攜帶身分資訊重試"
+        },
+        "IMAGE_INVALID": {
+          "title": "圖片內容無效",
+          "action": "更換圖片後重試"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "圖片類型不符",
+          "action": "使用支援的類型"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "圖片格式不支援",
+          "action": "轉成 PNG 或 JPG"
+        },
+        "INVALID_INPUT": {
+          "title": "輸入參數不合法",
+          "action": "檢查參數後重試"
+        },
+        "INVALID_TODOS": {
+          "title": "待辦清單不合法",
+          "action": "修正待辦後重試"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "語言服務不可用",
+          "action": "稍後重試或重新啟動服務"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "缺少必要參數",
+          "action": "補齊參數後重試"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "缺少會話識別",
+          "action": "重新開啟會話"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "模型工具能力未驗證",
+          "action": "先驗證能力再呼叫"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "分頁偏移越界",
+          "action": "調整偏移量"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "編排執行失敗",
+          "action": "重試或簡化任務"
+        },
+        "ROLE_DENIED": {
+          "title": "角色權限不足",
+          "action": "更換有權角色"
+        },
+        "SESSION_BUSY": {
+          "title": "會話忙碌中",
+          "action": "等待目前任務結束後重試"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "會話不存在",
+          "action": "重新建立會話"
+        },
+        "SESSION_REQUIRED": {
+          "title": "需要會話識別",
+          "action": "指定會話後重試"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "會話檢索無權限",
+          "action": "申請權限後重試"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "命令含危險字元",
+          "action": "去除特殊字元"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "技能不存在",
+          "action": "檢查技能名稱"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "SQL 函式被禁用",
+          "action": "換用允許的函式"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "子代理已結束",
+          "action": "無需重複操作"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "子代理忙碌中",
+          "action": "等待其結束後重試"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "子代理不存在",
+          "action": "重新派發"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "子代理建立被拒",
+          "action": "檢查配額與參數"
+        },
+        "TASK_BLOCKED": {
+          "title": "任務被阻塞",
+          "action": "解除依賴後重試"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "任務依賴成環",
+          "action": "打散依賴"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "任務依賴自身",
+          "action": "修正依賴關係"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "任務版本已過期",
+          "action": "重新整理後重試"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "輪次不存在",
+          "action": "重新傳送訊息"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "未知工具",
+          "action": "檢查工具名稱"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "音色不屬於目前使用者",
+          "action": "更換音色"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "執行上下文無效",
+          "action": "重新初始化後重試"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "工作區被拒絕",
+          "action": "檢查工作區權限"
+        },
+        "TERMINAL_EXITED": {
+          "title": "終端機已結束",
+          "action": "重新開啟終端機"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "終端機命令不合法",
+          "action": "修正命令"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "終止訊號不合法",
+          "action": "使用允許的訊號"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "終端機數量已達上限",
+          "action": "關閉閒置終端機"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "終端機缺少身分",
+          "action": "以身分使用者啟動"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "終端機不存在",
+          "action": "重新建立終端機"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "終止訊號傳送失敗",
+          "action": "重試或強制關閉"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "終端機啟動失敗",
+          "action": "檢查宿主環境"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "終端機寫入失敗",
+          "action": "重試寫入"
         }
       },
       "worktree": {
@@ -9860,7 +10064,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -9877,7 +10086,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -12618,8 +12832,6 @@
       "model": "開啟模型選擇器",
       "mcp": "開啟 MCP 市場",
       "compact": "壓縮目前會話上下文",
-      "act": "切換到執行模式(AI 正常執行工具,默認)",
-      "build": "切換到構建模式(全工具開放,正常執行)",
       "code": "生成代碼",
       "explain": "解釋代碼或概念",
       "goal": "設定當前會話目標(AI 圍繞目標執行,進入 goal 模式工作流)",
@@ -12630,10 +12842,8 @@
       "permissionAsk": "切換到請求批准模式(AI 操作前需確認)",
       "permissionAuto": "切換到替我審批模式(自動批准安全操作)",
       "permissionFull": "切換到完全訪問模式(高風險,無確認)",
-      "plan": "切換到規劃模式(AI 只制定計劃,不執行工具)",
       "polish": "潤色文本",
       "review": "選擇審查目標(未提交 diff / 分支 / commit)",
-      "spec": "切換到規格模式(從代碼反向生成 spec 文檔)",
       "summary": "總結當前對話",
       "translate": "翻譯選中文本",
       "wechat-article": "寫微信公眾號文章",
@@ -13234,161 +13444,297 @@
       "slashDiff": {
         "label": "會話變更總覽",
         "description": "檢視本次會話 AI 變更的檔案",
-        "keywords": ["diff", "變更", "審查"]
+        "keywords": [
+          "diff",
+          "變更",
+          "審查"
+        ]
       },
       "slashStatus": {
         "label": "會話狀態",
         "description": "檢視模型、上下文佔用、權限模式與用量",
-        "keywords": ["status", "狀態", "上下文"]
+        "keywords": [
+          "status",
+          "狀態",
+          "上下文"
+        ]
       },
       "slashModel": {
         "label": "切換模型",
         "description": "開啟模型選擇器",
-        "keywords": ["model", "模型", "切換"]
+        "keywords": [
+          "model",
+          "模型",
+          "切換"
+        ]
       },
       "slashMcp": {
         "label": "MCP 市場",
         "description": "開啟 MCP 伺服器市場",
-        "keywords": ["mcp", "插件", "市場"]
+        "keywords": [
+          "mcp",
+          "插件",
+          "市場"
+        ]
       },
       "slashCompact": {
         "label": "壓縮上下文",
         "description": "壓縮目前會話歷史,釋放上下文視窗",
-        "keywords": ["compact", "壓縮", "上下文"]
+        "keywords": [
+          "compact",
+          "壓縮",
+          "上下文"
+        ]
       },
       "steerPrompt": {
         "label": "引導提示",
         "description": "向正在執行的回覆中途插入引導，無需等待當前輪完成",
-        "keywords": ["引導", "插話", "steer"]
+        "keywords": [
+          "引導",
+          "插話",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "將提示加入佇列",
         "description": "把目前輸入加入 W27 預備訊息佇列，串流結束後自動依序傳送",
-        "keywords": ["佇列", "排隊", "queue"]
+        "keywords": [
+          "佇列",
+          "排隊",
+          "queue"
+        ]
       },
       "agent": {
         "description": "管理並調度 AI 智能體",
-        "keywords": ["智能體", "調度", "agent"],
+        "keywords": [
+          "智能體",
+          "調度",
+          "agent"
+        ],
         "label": "AI 智能體"
       },
       "automations": {
         "description": "建立和管理定時執行的 AI 任務",
-        "keywords": ["自動化", "定時", "任務", "automation"],
+        "keywords": [
+          "自動化",
+          "定時",
+          "任務",
+          "automation"
+        ],
         "label": "定時自動化"
       },
       "browser": {
         "description": "在工作區內瀏覽網頁",
-        "keywords": ["瀏覽器", "網頁", "browser"],
+        "keywords": [
+          "瀏覽器",
+          "網頁",
+          "browser"
+        ],
         "label": "內建瀏覽器"
       },
       "capabilityMarket": {
         "description": "發現並安裝能力包",
-        "keywords": ["能力", "市場", "market", "插件"],
+        "keywords": [
+          "能力",
+          "市場",
+          "market",
+          "插件"
+        ],
         "label": "能力市場"
       },
       "codeChanges": {
         "description": "查看工作區程式碼變更",
-        "keywords": ["程式碼", "變更", "diff", "修改"],
+        "keywords": [
+          "程式碼",
+          "變更",
+          "diff",
+          "修改"
+        ],
         "label": "程式碼變更"
       },
       "connectors": {
         "description": "管理外部服務連接",
-        "keywords": ["連接", "外部服務", "connector"],
+        "keywords": [
+          "連接",
+          "外部服務",
+          "connector"
+        ],
         "label": "連接器"
       },
       "document": {
         "description": "編輯工作區文件",
-        "keywords": ["文件", "編輯", "doc"],
+        "keywords": [
+          "文件",
+          "編輯",
+          "doc"
+        ],
         "label": "文件"
       },
       "editor": {
         "description": "開啟程式碼編輯器",
-        "keywords": ["編輯器", "程式碼", "code"],
+        "keywords": [
+          "編輯器",
+          "程式碼",
+          "code"
+        ],
         "label": "編輯器"
       },
       "imageGen": {
         "description": "AI 圖片生成:提示詞出圖、公開畫廊、生成歷史與範本",
-        "keywords": ["圖片", "生成", "繪圖", "image"],
+        "keywords": [
+          "圖片",
+          "生成",
+          "繪圖",
+          "image"
+        ],
         "label": "AI 圖片生成"
       },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
-        "keywords": ["MCP", "伺服器", "工具"],
+        "keywords": [
+          "MCP",
+          "伺服器",
+          "工具"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "瀏覽與安裝 MCP 服務",
-        "keywords": ["MCP", "廣場", "store", "安裝"],
+        "keywords": [
+          "MCP",
+          "廣場",
+          "store",
+          "安裝"
+        ],
         "label": "MCP 廣場"
       },
       "modeAsk": {
         "description": "切換到純問答模式,停用工具",
-        "keywords": ["問答", "ask", "模式"],
+        "keywords": [
+          "問答",
+          "ask",
+          "模式"
+        ],
         "label": "問答模式"
       },
       "modeBuild": {
         "description": "讓 AI 直接建構與修改",
-        "keywords": ["建構", "模式", "build"],
+        "keywords": [
+          "建構",
+          "模式",
+          "build"
+        ],
         "label": "建構模式"
       },
       "modePlan": {
         "description": "先制定計劃再執行",
-        "keywords": ["規劃", "計劃", "plan"],
+        "keywords": [
+          "規劃",
+          "計劃",
+          "plan"
+        ],
         "label": "規劃模式"
       },
       "modeReview": {
         "description": "審查與評審現有程式碼",
-        "keywords": ["審查", "評審", "review"],
+        "keywords": [
+          "審查",
+          "評審",
+          "review"
+        ],
         "label": "審查模式"
       },
       "modeSpec": {
         "description": "從規格生成實現",
-        "keywords": ["規格", "spec", "模式"],
+        "keywords": [
+          "規格",
+          "spec",
+          "模式"
+        ],
         "label": "規格模式"
       },
       "skill": {
         "description": "管理與呼叫 AI 技能",
-        "keywords": ["技能", "skill", "能力"],
+        "keywords": [
+          "技能",
+          "skill",
+          "能力"
+        ],
         "label": "技能"
       },
       "terminal": {
         "description": "開啟整合終端機",
-        "keywords": ["終端機", "命令列", "terminal"],
+        "keywords": [
+          "終端機",
+          "命令列",
+          "terminal"
+        ],
         "label": "終端機"
       },
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       },
       "skillsMarket": {
         "description": "瀏覽並安裝自進化 Skill",
-        "keywords": ["skill", "技能", "市場", "market"],
+        "keywords": [
+          "skill",
+          "技能",
+          "市場",
+          "market"
+        ],
         "label": "Skill 市場"
       }
     },
@@ -15960,25 +16306,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -16112,19 +16470,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -19049,7 +19419,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "relay": {
@@ -19797,7 +20175,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -21653,12 +22036,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 9 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 9 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -23103,7 +23498,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -25928,11 +26329,7 @@
     "goalArgTitle": "目標參數",
     "loop": "控制目標驅動的迴圈次數",
     "loopArgTitle": "迴圈參數",
-    "plan": "為目前任務產生執行計畫",
-    "act": "直接執行目前任務",
-    "build": "建置並驗證目前專案",
     "review": "審查程式碼變更並提出改善建議",
-    "spec": "為目前功能產生規格文件",
     "permissionAsk": "以詢問模式執行，操作前徵求確認",
     "permissionAuto": "以自動模式執行，自動批准常規操作",
     "permissionFull": "以完整權限模式執行，直接執行所有操作"
@@ -30809,13 +31206,6 @@
     "autoContrast": "自動修正對比度",
     "autoContrastHint": "依亮色/暗色各自的背景自動把正文設為黑或白。",
     "autoContrastDone": "已依目前背景修正亮/暗模式的正文顏色"
-  },
-  "engineMode": {
-    "title": "agent 執行引擎",
-    "description": "選擇 agent 執行編排所在位置。「本地」在本機跑編排與工具,不佔用線上伺服器資源。",
-    "local": "本地",
-    "cloud": "雲端",
-    "auto": "自動"
   },
   "apps": {
     "savedToast": "已儲存",

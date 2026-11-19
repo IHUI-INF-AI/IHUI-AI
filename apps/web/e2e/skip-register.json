@@ -74,62 +74,6 @@
       "reviewBy": "2027-05-31"
     },
     {
-      "id": "E2E-SKIP-0005",
-      "title": "无工作区,跳过仓库信息展开断言",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0006",
-      "title": "无工作区,跳过提交弹窗断言",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0007",
-      "title": "当前无变更可提交或行缺失,跳过提交弹窗断言",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0008",
-      "title": "header 未提供完整详情按钮,跳过",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0009",
-      "title": "无工作区,跳过 GitHub 配置弹窗断言",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0010",
-      "title": "无工作区,跳过 GitHub 授权流程断言",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0011",
-      "title": "无工作区,跳过比较分支行断言",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "E2E-SKIP-0012",
-      "title": "无比较分支行(非 git 仓库/错误态),跳过",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
       "id": "E2E-SKIP-0013",
       "title": "登录模态框弹出,跳过 send 触发的 slash 命令测试",
       "status": "open",
@@ -781,13 +725,6 @@
       "reviewBy": "2027-05-31"
     },
     {
-      "id": "E2E-SKIP-0106",
-      "title": "collapse 按钮不可见(可能移动端视图)",
-      "status": "open",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
       "id": "E2E-SKIP-0107",
       "title": "window.__workPanelStore 未暴露,跳过",
       "status": "open",
@@ -959,102 +896,6 @@
       "category": "ENV",
       "ref": "ENV:SEED_DATA",
       "reason": "账号列表中没有「停用且直连」的可探针行",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0013",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0005",
-      "reason": "无工作区,跳过仓库信息展开断言",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0014",
-      "category": "ENV",
-      "ref": "ENV:LOCAL_ENV",
-      "reason": "工作区非 git 仓库或为错误态,无本地行",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0015",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0006",
-      "reason": "无工作区,跳过提交弹窗断言",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0016",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0007",
-      "reason": "当前无变更可提交或行缺失,跳过提交弹窗断言",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0017",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0008",
-      "reason": "header 未提供完整详情按钮,跳过",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0018",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0009",
-      "reason": "无工作区,跳过 GitHub 配置弹窗断言",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0019",
-      "category": "ENV",
-      "ref": "ENV:CREDENTIALS",
-      "reason": "无配置入口(非 GitHub/已配置),跳过",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0020",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0010",
-      "reason": "无工作区,跳过 GitHub 授权流程断言",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0021",
-      "category": "ENV",
-      "ref": "ENV:CREDENTIALS",
-      "reason": "无连接入口(非 GitHub/已配置),跳过",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0022",
-      "category": "ENV",
-      "ref": "ENV:CREDENTIALS",
-      "reason": "OAuth 授权 UI 未就绪(无「使用 GitHub 授权」按钮),跳过",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0023",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0011",
-      "reason": "无工作区,跳过比较分支行断言",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "id": "SKIP-0024",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0012",
-      "reason": "无比较分支行(非 git 仓库/错误态),跳过",
       "owner": "S-E2E",
       "reviewBy": "2027-05-31"
     },
@@ -2291,14 +2132,6 @@
       "reviewBy": "2027-05-31"
     },
     {
-      "id": "SKIP-0179",
-      "category": "BUG",
-      "ref": "BUG:E2E-SKIP-0106",
-      "reason": "collapse 按钮不可见(可能移动端视图)",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
       "id": "SKIP-0180",
       "category": "BUG",
       "ref": "BUG:E2E-SKIP-0107",
@@ -2479,6 +2312,126 @@
       "category": "BUG",
       "ref": "BUG:E2E-SKIP-0001",
       "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0223",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无工作区,跳过仓库信息展开断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0224",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "工作区非 git 仓库或为错误态,无本地行",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0225",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无工作区,跳过提交弹窗断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0226",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "当前无变更可提交或行缺失,跳过提交弹窗断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0227",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "环境信息弹窗 header 未提供完整详情按钮,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0228",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无工作区,跳过 GitHub 配置弹窗断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0229",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无配置入口(非 GitHub/已配置),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0230",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无工作区,跳过 GitHub 授权流程断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0231",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无连接入口(非 GitHub/已配置),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0232",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "OAuth 授权 UI 未就绪(无「使用 GitHub 授权」按钮),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0233",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无工作区,跳过比较分支行断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0234",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "无比较分支行(非 git 仓库/错误态),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0235",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "本机 api 进程装的是改口前的源码(写接口\"回填非当日必须给该日内时刻\"这一判据不存在)⇒ 真链路组显式跳过。探测读数:${contract.detail}",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0236",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "本机 api 进程装的是改口前的源码(写接口同日校验未生效)⇒ 真链路组显式跳过。探测读数:${contract.detail}",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0237",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "collapse 按钮不可见(可能移动端视图)",
       "owner": "S-E2E",
       "reviewBy": "2027-05-31"
     },
@@ -2677,6 +2630,114 @@
     {
       "id": "TIMING-0006",
       "reason": "为构造卡顿/超时场景保留的显式停顿",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0007",
+      "reason": "等 PasswordLoginForm 挂载(切 tab 后 TabsContent 重新渲染,testid 出现)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0008",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0009",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0010",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0011",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0012",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0013",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0014",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0015",
+      "reason": "等 React hydration + isTabletViewport layout effect 切折叠态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0016",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0017",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0018",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0019",
+      "reason": "等 React hydration + useMounted() 返回 true 后 SidebarUserRow 才渲染",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0020",
+      "reason": "等 React hydration + 折叠态样式应用",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0021",
+      "reason": "等 focus-visible 样式应用",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0022",
+      "reason": "等 CSS 过渡完成(transition-opacity duration-200)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0023",
+      "reason": "UI 过渡/水合落定窗口,无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0024",
+      "reason": "节流窗口为 16ms,给足 1s 余量后必须已落盘",
       "owner": "S-E2E",
       "reviewBy": "2027-05-31"
     }

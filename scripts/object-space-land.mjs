@@ -190,7 +190,15 @@ import {
 // (`injectText`)。在这里再拼一份横幅/零宽载荷 = §0.6 禁止的第二份真相 —— 编码只有
 // `encodePayload` 一份,拼第二次必然漂移;而漂移的形态是"落地器造的载荷 verify 解不出"。
 import { injectText } from './watermark.mjs'
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -456,6 +464,207 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
 
 /** 落地成功自证与「无需落地」两条档的退出码(S-OSL-PROOF 2026-11-06;镜像测试按 §22c import 它们,不复制数字)。 */
 export const RC = { LANDED: 0, REFUSED: 1, UNJUDGED: 2, NOTHING_TO_LAND: 3 }
+/** 单实例闸的 unitId —— 必须与 `git-lock.mjs scan|clean` 认得的这一族同名。 */
+export const LAND_LOCK_UNIT = 'object-space-land'
+
+/** 默认等锁上限:落地要排队,但不该无限期占着调用方(默认 10 分钟)。 */
+const LAND_LOCK_WAIT_MS = Number(process.env.IHUI_LAND_SINGLE_INSTANCE_WAIT_MS ?? 600_000)
+const LAND_LOCK_POLL_MS = 2_000
+
+/** 锁落点:跟着被落地的仓走 ⇒ 两个夹具/两个仓互不顶住。 */
+export function landLockDirOf(root) {
+  return join(root, '.ihui-agent', 'state', `${LAND_LOCK_UNIT}.lock`)
+}
+
+function lockHolderOf(dir) {
+  try {
+    const raw = readFileSync(join(dir, 'meta.json'), 'utf8')
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    const pid = Number(parsed.pid)
+    if (!Number.isInteger(pid) || pid <= 0) return null
+    return { unit: String(parsed.unitId ?? parsed.unit ?? ''), pid, ts: Number(parsed.ts) || 0 }
+  } catch {
+    return null
+  }
+}
+
+/** 判活:EPERM 说明进程在(只是不归我管)⇒ 算活;ESRCH 才算死。 */
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return e && e.code === 'EPERM'
+  }
+}
+
+function defaultEnsureParent(dir) {
+  mkdirSync(dirname(dir), { recursive: true })
+}
+
+/** 默认抢锁原语:mkdir 原子独占 + meta.json 记身份;陈旧锁先改名再用,绝不对活锁动手。 */
+function defaultAcquireOnce({ dir }) {
+  const mk = () => {
+    mkdirSync(dir)
+    writeFileSync(
+      join(dir, 'meta.json'),
+      JSON.stringify({ unitId: LAND_LOCK_UNIT, pid: process.pid, ts: Date.now() }),
+      'utf8',
+    )
+  }
+  const release = () => {
+    try {
+      const holder = lockHolderOf(dir)
+      if (holder && holder.pid !== process.pid) {
+        return { released: false, why: `锁已归 pid=${holder.pid},本进程不代为交还` }
+      }
+      rmSync(dir, { recursive: true, force: true })
+      return { released: true, why: '' }
+    } catch (e) {
+      return { released: false, why: `交还失败:${e && (e.code || e.message)}` }
+    }
+  }
+  try {
+    mk()
+    return { acquired: true, kind: 'acquired', why: '', holder: { pid: process.pid, ts: Date.now() }, release }
+  } catch (e) {
+    if (!e || e.code !== 'EEXIST') {
+      return { acquired: false, kind: 'error', why: `抢锁失败:${e && (e.code || e.message)}`, holder: null, release: null }
+    }
+    const holder = lockHolderOf(dir)
+    if (holder && holder.pid === process.pid) {
+      return { acquired: true, kind: 'reentrant', why: '本进程已在临界区内', holder, release: null }
+    }
+    if (holder && pidAlive(holder.pid)) {
+      return {
+        acquired: false,
+        kind: 'skipped-held',
+        why: `持有者 unit=${holder.unit || LAND_LOCK_UNIT} pid=${holder.pid} 活着 ⇒ 不抢`,
+        holder,
+        release: null,
+      }
+    }
+    // 陈旧锁(持有者已死 / 身份读不到):改名再取,绝不删别人的活锁
+    try {
+      renameSync(dir, `${dir}.stale-${process.pid}-${Date.now()}`)
+    } catch (renameErr) {
+      return {
+        acquired: false,
+        kind: 'error',
+        why: `陈旧锁改名失败:${renameErr && (renameErr.code || renameErr.message)}`,
+        holder,
+        release: null,
+      }
+    }
+    try {
+      mk()
+      return { acquired: true, kind: 'acquired', why: '接替陈旧锁', holder: { pid: process.pid, ts: Date.now() }, release }
+    } catch (secondErr) {
+      return {
+        acquired: false,
+        kind: 'error',
+        why: `接替陈旧锁失败:${secondErr && (secondErr.code || secondErr.message)}`,
+        holder: null,
+        release: null,
+      }
+    }
+  }
+}
+
+const SHAPE_BAD = (why) => ({
+  acquired: false,
+  kind: 'undetermined',
+  why,
+  holder: null,
+  release: null,
+  attempts: 0,
+  timedOut: false,
+  waitedMs: 0,
+})
+
+/**
+ * 单实例闸(2026-11-19 立)。
+ *
+ * 三条硬规矩(测试钉在 scripts/tests/object-space-land-single-instance.test.mjs):
+ *  ① 别人持有 ⇒ 排队等到上限;拿去问的是"持有者活着吗",不是"目录在不在";
+ *  ② error / undetermined **一秒都不等**并原样上报 —— 把"没判"读成"无锁"是最坏的一档;
+ *  ③ 跳过者拿不到 release(拿不到锁就删不掉别人的活锁)。
+ */
+export function acquireLandLock(opts = {}) {
+  const {
+    dir,
+    waitMs = LAND_LOCK_WAIT_MS,
+    pollMs = LAND_LOCK_POLL_MS,
+    acquireOnce = defaultAcquireOnce,
+    ensureParent = defaultEnsureParent,
+    now = Date.now,
+    sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms),
+  } = opts
+  if (typeof dir !== 'string' || dir === '') return SHAPE_BAD('锁落点未给出 ⇒ 形状不成立')
+  try {
+    ensureParent(dir)
+  } catch (e) {
+    return SHAPE_BAD(`父目录建不出来(${e && (e.code || e.message)})⇒ 未判定`)
+  }
+  const waitBudget = Number.isFinite(Number(waitMs)) ? Math.max(0, Number(waitMs)) : 0
+  const poll = Number.isFinite(Number(pollMs)) && Number(pollMs) > 0 ? Number(pollMs) : LAND_LOCK_POLL_MS
+  let attempts = 0
+  let waitedMs = 0
+  let last = null
+  for (;;) {
+    attempts += 1
+    let raw
+    try {
+      last = acquireOnce({ dir })
+      raw = last
+    } catch (e) {
+      return { ...SHAPE_BAD(`抢锁原语抛错(${e && (e.code || e.message)})⇒ 形状不成立`), attempts, waitedMs }
+    }
+    if (!raw || typeof raw !== 'object' || typeof raw.acquired !== 'boolean') {
+      return { ...SHAPE_BAD(`抢锁返回值形状不成立(${JSON.stringify(raw)})⇒ 未判定`), attempts, waitedMs }
+    }
+    if (raw.acquired === true) {
+      return {
+        acquired: true,
+        kind: typeof raw.kind === 'string' ? raw.kind : 'acquired',
+        why: String(raw.why ?? ''),
+        holder: raw.holder ?? null,
+        release: typeof raw.release === 'function' ? raw.release : null,
+        attempts,
+        timedOut: false,
+        waitedMs,
+      }
+    }
+    if (raw.kind === 'error' || raw.kind === 'undetermined') {
+      return {
+        acquired: false,
+        kind: raw.kind,
+        why: String(raw.why ?? ''),
+        holder: raw.holder ?? null,
+        release: null,
+        attempts,
+        timedOut: false,
+        waitedMs,
+      }
+    }
+    const remaining = waitBudget - waitedMs
+    if (remaining <= 0) break
+    const nap = Math.min(poll, remaining)
+    sleep(nap)
+    waitedMs += nap
+  }
+  return {
+    acquired: false,
+    kind: typeof last?.kind === 'string' ? last.kind : 'skipped-held',
+    why: String(last?.why ?? ''),
+    holder: last?.holder ?? null,
+    release: null,
+    attempts,
+    timedOut: true,
+    waitedMs,
+  }
+}
 const FULL_SHA_RE = /^[0-9a-f]{40}$/
 
 /**
@@ -3203,6 +3412,20 @@ async function main() {
     process.exit(2)
   }
   const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
+  // ── 单实例闸(2026-11-19):全仓共用一把锁,且必须排在一切取材之前 ──
+  const landLock = acquireLandLock({ dir: landLockDirOf(root) })
+  if (!landLock.acquired) {
+    console.error(`❌ 单实例闸未取得(${landLock.kind}):${landLock.why || "(未给出原因)"}`)
+    console.error(`   ${landLock.timedOut ? '已等满上限' : '该形态等下去也不会自己变好'} ⇒ 未判定,本轮不落地(exit 2)`)
+    process.exit(2)
+  }
+  process.on('exit', () => {
+    try {
+      landLock.release?.()
+    } catch {
+      /* 交还失败不得盖掉主流程结论 */
+    }
+  })
   // ── RP-72 根护栏声明自检(落地前置档,2026-11-11 接,票 RP-72;判据单源在 lib/root-guard-declaration-pairing.mjs)──
   // 本枚声明集(LAND_PATHS ∪ LAND_REMOVE_PATHS)改 scripts/guardian-runner.mjs 或 scripts/git-guardian.mjs
   // 而未同枚带 scripts/data/root-guard-manifest.json ⇒ 判拦并点名同枚 --seal 出口。

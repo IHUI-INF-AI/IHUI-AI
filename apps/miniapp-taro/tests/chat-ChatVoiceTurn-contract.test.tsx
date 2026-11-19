@@ -13,12 +13,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // 共享层按 packages/app 的 React 19 产出元素；测试改用同一实例渲染，避免 18/19 混栈。
-// @ts-expect-error 深度路径无类型声明:必须与上方 mock 的 React 19 单实例同源
-vi.mock('react', async () => import('../../../packages/app/node_modules/react'))
+vi.mock('react', async () => await vi.importActual('react'))
 
 import { createElement } from 'react'
-// @ts-expect-error 深度路径无类型声明:必须与上方 mock 的 React 19 单实例同源
-import { renderToStaticMarkup } from '../../../packages/app/node_modules/react-dom/server'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 import {
   ChatVoicePanel,

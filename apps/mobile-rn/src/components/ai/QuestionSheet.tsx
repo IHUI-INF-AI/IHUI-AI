@@ -324,7 +324,7 @@ function QuestionSheet({
                   accessibilityState={{ checked }}
                 >
                   <View style={[s.box, checked && s.boxChecked]}>
-                    {checked ? <Check size={12} color={tokens.brand.ctaForeground} /> : null}
+                    {checked ? <Check size={12} color={s.boxCheckedText.color} /> : null}
                   </View>
                   <Text style={s.optionText}>{opt.label}</Text>
                 </Tappable>
@@ -413,7 +413,7 @@ function createStyles() {
       borderColor: tokens.border.medium,
       backgroundColor: tokens.surface.card,
     },
-    optionChecked: { borderColor: tokens.brand.cta, backgroundColor: tokens.surface.muted },
+    optionChecked: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.surface.muted },
     optionDisabled: { opacity: 0.6 },
     box: {
       width: 18,
@@ -425,6 +425,7 @@ function createStyles() {
       justifyContent: 'center',
     },
     boxChecked: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+    boxCheckedText: { color: tokens.brand.ctaForeground },
     optionText: { flex: 1, fontSize: rnType.bodySm.size, color: tokens.text.primary },
     input: {
       minHeight: 48,

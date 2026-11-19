@@ -181,14 +181,14 @@ export function AppsClient() {
           <button
             type="button"
             onClick={copyPrompt}
-            className="font-[weight:inherit] rounded-md border border-border px-3 py-1.5 text-body hover:bg-muted"
+            className="font-[weight:inherit] rounded-sm border border-border px-3 py-1.5 text-body hover:bg-muted"
           >
             {t('copyPrompt')}
           </button>
           <button
             type="button"
             onClick={() => setCreating((value) => !value)}
-            className="rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90"
           >
             {creating ? t('collapse') : t('newApp')}
           </button>
@@ -204,7 +204,7 @@ export function AppsClient() {
                 value={appId}
                 onChange={(event) => setAppId(event.target.value)}
                 placeholder="my-dashboard"
-                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
+                className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-body"
               />
             </label>
             <label className="font-[weight:inherit] space-y-1 text-body">
@@ -213,7 +213,7 @@ export function AppsClient() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="我的应用"
-                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
+                className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-body"
               />
             </label>
             <label className="font-[weight:inherit] space-y-1 text-body">
@@ -221,7 +221,7 @@ export function AppsClient() {
               <select
                 value={slot}
                 onChange={(event) => setSlot(event.target.value as CapabilityAppSlot)}
-                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
+                className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-body"
               >
                 {CAPABILITY_APP_SLOTS.map((item) => (
                   <option key={item} value={item}>
@@ -237,11 +237,11 @@ export function AppsClient() {
               value={json}
               onChange={(event) => setJson(event.target.value)}
               spellCheck={false}
-              className="font-[weight:inherit] min-h-64 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-label"
+              className="font-[weight:inherit] min-h-64 w-full rounded-sm border border-border bg-background px-3 py-2 font-mono text-label"
             />
           </label>
           {issues.length > 0 ? (
-            <ul className="font-[weight:inherit] space-y-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-label text-red-700 dark:text-red-300">
+            <ul className="font-[weight:inherit] space-y-1 rounded-sm border border-red-500/30 bg-red-500/10 px-3 py-2 text-label text-red-700 dark:text-red-300">
               {issues.map((item, index) => (
                 <li key={index}>{item}</li>
               ))}
@@ -252,14 +252,14 @@ export function AppsClient() {
               type="button"
               disabled={saving}
               onClick={() => void handleCreate()}
-              className="rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="rounded-sm bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
             >
               {saving ? t('saving') : t('save')}
             </button>
             <button
               type="button"
               onClick={resetForm}
-              className="font-[weight:inherit] rounded-md border border-border px-3 py-1.5 text-body hover:bg-muted"
+              className="font-[weight:inherit] rounded-sm border border-border px-3 py-1.5 text-body hover:bg-muted"
             >
               {t('reset')}
             </button>
@@ -311,8 +311,8 @@ export function AppsClient() {
               <Link
                 href={`/apps/${encodeURIComponent(app.id)}`}
                 className={cn(
-                  'rounded-md bg-primary px-2.5 py-1 text-label font-medium text-primary-foreground',
-                  'hover:bg-primary/90',
+                  'rounded-md bg-cta px-2.5 py-1 text-label font-medium text-cta-foreground',
+                  'hover:bg-cta/90',
                 )}
               >
                 {t('open')}
@@ -320,7 +320,7 @@ export function AppsClient() {
               <button
                 type="button"
                 onClick={() => void handleDelete(app)}
-                className="font-[weight:inherit] rounded-md border border-border px-2.5 py-1 text-label hover:bg-muted"
+                className="font-[weight:inherit] rounded-sm border border-border px-2.5 py-1 text-label hover:bg-muted"
               >
                 {t('delete')}
               </button>

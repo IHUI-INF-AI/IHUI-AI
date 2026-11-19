@@ -3358,6 +3358,210 @@
         "UNREADABLE": {
           "title": "The file is unreadable",
           "action": "Check the file permissions and locks, then retry"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "Resume confirmation expired",
+          "action": "Start the task again"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "Approval required",
+          "action": "Retry after approval"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "Parallel background jobs unsupported",
+          "action": "Run them one by one"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "Background job rejected",
+          "action": "Check the task parameters and retry"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "Command not allowed",
+          "action": "Use an allowed command"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "Consistency check failed",
+          "action": "Fix the state and retry"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "Conversation context mismatch",
+          "action": "Start a new conversation"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "Endpoint blocked",
+          "action": "Use an allowed endpoint"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "Environment override denied",
+          "action": "Use allowed settings"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "Caller identity required",
+          "action": "Retry with an identity"
+        },
+        "IMAGE_INVALID": {
+          "title": "Invalid image content",
+          "action": "Retry with another image"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "Image type mismatch",
+          "action": "Use a supported type"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "Image format unsupported",
+          "action": "Convert to PNG or JPG"
+        },
+        "INVALID_INPUT": {
+          "title": "Invalid input",
+          "action": "Check the input and retry"
+        },
+        "INVALID_TODOS": {
+          "title": "Invalid todo list",
+          "action": "Fix the list and retry"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "Language service unavailable",
+          "action": "Retry later or restart the service"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "Missing required arguments",
+          "action": "Provide them and retry"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "Session id required",
+          "action": "Reopen the session"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "Model tool capability unverified",
+          "action": "Verify first, then call"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "Offset out of range",
+          "action": "Adjust the offset"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "Orchestration failed",
+          "action": "Retry or simplify the task"
+        },
+        "ROLE_DENIED": {
+          "title": "Role permission denied",
+          "action": "Switch to a role with access"
+        },
+        "SESSION_BUSY": {
+          "title": "Session busy",
+          "action": "Retry after the current run finishes"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "Session not found",
+          "action": "Create a new session"
+        },
+        "SESSION_REQUIRED": {
+          "title": "Session id required",
+          "action": "Specify the session and retry"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "Session search unauthorized",
+          "action": "Request access and retry"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "Shell metacharacters blocked",
+          "action": "Remove the special characters"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "Skill not found",
+          "action": "Check the skill name"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "SQL function forbidden",
+          "action": "Use an allowed function"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "Sub-agent already finished",
+          "action": "No need to repeat"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "Sub-agent busy",
+          "action": "Retry after it finishes"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "Sub-agent not found",
+          "action": "Dispatch again"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "Sub-agent spawn rejected",
+          "action": "Check quota and arguments"
+        },
+        "TASK_BLOCKED": {
+          "title": "Task blocked",
+          "action": "Clear the dependency and retry"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "Task dependency cycle",
+          "action": "Break the cycle"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "Task depends on itself",
+          "action": "Fix the dependency"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "Task revision stale",
+          "action": "Refresh and retry"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "Turn not found",
+          "action": "Send the message again"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "Unknown tool",
+          "action": "Check the tool name"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "Voice not owned by this user",
+          "action": "Pick another voice"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "Invalid execution context",
+          "action": "Re-initialize and retry"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "Workspace rejected",
+          "action": "Check workspace permissions"
+        },
+        "TERMINAL_EXITED": {
+          "title": "Terminal exited",
+          "action": "Reopen the terminal"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "Invalid terminal command",
+          "action": "Fix the command"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "Invalid terminal signal",
+          "action": "Use an allowed signal"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "Terminal limit reached",
+          "action": "Close an idle terminal"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "Terminal has no identity",
+          "action": "Start it with an identified user"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "Terminal not found",
+          "action": "Create a new terminal"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "Failed to send signal",
+          "action": "Retry or force close"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "Terminal failed to start",
+          "action": "Check the host environment"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "Terminal write failed",
+          "action": "Retry the write"
         }
       }
     },

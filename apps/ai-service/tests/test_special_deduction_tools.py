@@ -69,19 +69,19 @@ def _emp_total(row: dict) -> Decimal:
 
 
 def test_default_standards_constants():
-    assert DEFAULT_CHILD_EDU_MONTHLY == _d("2000")
-    assert DEFAULT_INFANT_MONTHLY == _d("2000")
-    assert DEFAULT_CONTINUING_EDU_MONTHLY == _d("400")
-    assert DEFAULT_OCCUPATIONAL_QUAL_LUMP == _d("3600")
-    assert DEFAULT_MEDICAL_THRESHOLD == _d("15000")
-    assert DEFAULT_MEDICAL_ANNUAL_CAP == _d("80000")
-    assert DEFAULT_HOUSING_LOAN_MONTHLY == _d("1000")
-    assert RENT_TIER_TOP == _d("1500")
-    assert RENT_TIER_CITY_POP_GT_1M == _d("1100")
-    assert RENT_TIER_CITY_POP_LE_1M == _d("800")
-    assert DEFAULT_ELDERLY_ONLY_MONTHLY == _d("3000")
-    assert DEFAULT_ELDERLY_NON_ONLY_CAP == _d("1500")
-    assert DEFAULT_ELDERLY_CAP_TOTAL == _d("3000")
+    assert _d("2000") == DEFAULT_CHILD_EDU_MONTHLY
+    assert _d("2000") == DEFAULT_INFANT_MONTHLY
+    assert _d("400") == DEFAULT_CONTINUING_EDU_MONTHLY
+    assert _d("3600") == DEFAULT_OCCUPATIONAL_QUAL_LUMP
+    assert _d("15000") == DEFAULT_MEDICAL_THRESHOLD
+    assert _d("80000") == DEFAULT_MEDICAL_ANNUAL_CAP
+    assert _d("1000") == DEFAULT_HOUSING_LOAN_MONTHLY
+    assert _d("1500") == RENT_TIER_TOP
+    assert _d("1100") == RENT_TIER_CITY_POP_GT_1M
+    assert _d("800") == RENT_TIER_CITY_POP_LE_1M
+    assert _d("3000") == DEFAULT_ELDERLY_ONLY_MONTHLY
+    assert _d("1500") == DEFAULT_ELDERLY_NON_ONLY_CAP
+    assert _d("3000") == DEFAULT_ELDERLY_CAP_TOTAL
 
 
 def test_default_params_visible_in_output():

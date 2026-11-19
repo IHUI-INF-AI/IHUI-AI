@@ -80,8 +80,6 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 **行尾与镜像面一致性**由 `scripts/check-line-endings.mjs`、`scripts/check-mirror-surface-parity.mjs` 判
 (均已接统一判面层,`--staged` 判索引面)。
 **容器描边角色系统**由 `scripts/check-border-system.mjs` 守门(8 角色单源、档位阶梯与聚焦契约)。
-**数据层只允许 PostgreSQL**由 `scripts/check-sqlite-write-paths.mjs` 守门(差值棘轮只拦新增写路径;
-自检 `--self-test`,应急 `HUSKY_SKIP_SQLITE_WRITE_PATHS`)。
 对外关键数字声明(与本页生成块同源,均现算):**数据库表 · API 路由 · WebSocket 端点 ·
 大模型 · 平台自动发布 · 测试文件 · 工程守门 · CI workflows ·
 多语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
@@ -103,13 +101,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5905 | `testFiles` |
+| 测试文件 | 5907 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 369 | `guardianGates` |
-| — blocking | 339 | `guardianBlocking` |
+| 工程守门 | 368 | `guardianGates` |
+| — blocking | 338 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22998 | `trackedFiles` |
+| 跟踪文件 | 23001 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -1972,7 +1970,7 @@ IHUI-AI/
 | **账号上游余额点查**        | `POST /admin/relay/accounts/:id/quota`                        | 按需点查上游余额/积分(2026-10-23 立),**不进调度轮询**——只在 admin 点击时发一次上游请求,回包带 queriedAt;仅已实证余额端点的平台可用(现 trae / qoder / workbuddy 适配器实现 getQuota;2026-10-27 扩容八平台 codex/opencode/minimax/zcode/loomy/doubao/lingma/grokbot 适配器已注册,余额端点形状均未实证 ⇒ getQuota 一律如实未判定(401/403 回 authFailed,200 回响应键名清单,不猜字段)——workbuddy 2026-10-27 真号实弹闭环 billing summary;codearts 套餐/积分余额**无接口**(官方明细只在控制台 personal-usage 页,免费额度按月重置),适配器只挂了限时福利 balance 端点(opengw.developer…/api/v1/user/tokens/balance,2026-10-27 取证),其响应形状未实证 ⇒ 面板点查如实回未判定并带响应键名清单),未注册平台同样 400;取不到的一律留 null,不拿 0 冒充(0 在面板读成积分耗尽)                                                                                                                                                                                                                                                   |
 | **账号池转发回落**          | `apps/api/src/services/relay-account-forwarder.ts`            | `/v1` 公开链路在「渠道 key 池无候选」时由 relay-upstream-forwarder 回落到账号池,返回形状与渠道路径一致(v1-public 消费端零改动):模型→平台反查(60s 进程缓存)、选号 priority asc → weight desc → lastUsedAt asc、会话亲和 affinityKey+model 30 分钟、上限 3 号 failover;401 自愈(刷新凭证回写后用完整 messages 重放一次);分层熔断——连续 3 败 60s 冷却、rate 60s、credit 12h、risk 30 分钟起且连续命中翻倍                                                                                                                                            |
 | **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + **体检徽章列(六态+闲置天数,判据与 `@ihui/shared` 同源、后端 `/admin/relay/accounts` 的 enriched 回传 `verdict/idleDays`,UI 不重写判据)** + 分页 + 导入对话框(**支持把 .json 拖进文本框 / 点「选文件」**,也支持粘贴:第三方工具导出自动归一、顶层带 `providerCode` 自动选平台) + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
-| **桌面一键切号** | 号池管理页「安装桌面切号」按钮 | 号池管理页一键驱动 api 宿主机跑仓内唯一安装器(脚本 `scripts/install-relay-shortcut.ps1`),在桌面生成「AI 客户端一键切号」快捷方式,免去手动找脚本;不同机、缺 pwsh 或缺安装器时后端明确报错并点名出路,前端不代猜装没装上。通俗说:装上后在桌面双击这个快捷方式,就能直接切换当前使用的 AI 客户端账号,不用再进后台翻脚本手动操作 |
+| **桌面一键切号** | 号池管理页「安装桌面切号」按钮 | 号池管理页一键驱动 api 宿主机跑仓内唯一安装器(脚本 `scripts/install-relay-shortcut.ps1`),在桌面生成「AI 客户端一键切号」快捷方式,免去手动找脚本;不同机、缺 pwsh 或缺安装器时后端明确报错并点名出路,前端不代猜装没装上 |
 | **会话库只读盘点** | `pnpm relay:sessions` | 三面盘点(登录态 / 会话库 / wb-switch)+隔离判定;零写入、零上游、永不回显 token 与消息正文 |
 | **会话库备份** | `pnpm relay:sessions:backup --apply` | 源只读,快照到 `~/.wb-switch/backups/sessions/<ts>/` 并带逐文件 sha256 manifest;默认 dry-run ;`--gzip` 可选压缩(manifest 记 encoding,校验基准仍是解压后原文 sha256) |
 | **会话库恢复** | `pnpm relay:sessions:restore --snapshot <dir> --apply` | 逐文件 sha 校验后原子回填;`--undo <opId>` 单条回退、`--list-ops` 查历史;漂移未 `--force` 整批拒做 |
@@ -5478,60 +5476,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-19**
-- 🚀 新功能/改进:号池模型目录每 6 小时自动对账 + 启动首轮即投递(Y-97) (766e65c55d9)
-- 📚 文档:Y-72 系统级两格已落地(哨兵计划任务+告警拉起) (986357c889b)
-- 🐞 修复:补交 workspace_fs 模块与权限件(远端 main 缺这些文件致 tauri 构建 E0433/E0583) (83f0397588e)
-- 🐞 修复:号池模型验证判据 fail-closed(verified 非 true 一律跳过) (c7d66a4c542)
-- 📚 文档:trackedFiles 22977 -> 22979 after the R133 landing (17cbc8666c2)
-- 🚀 新功能/改进:prose behaviour rules, and a correction to R132's conditional count (05924ff7770)
-- 🚀 新功能/改进:reference and prose surfaces of the object schemas (85baa27de7b)
-- 📚 文档:trackedFiles 22974 -> 22977 after the R132 landing (3a26f4e00ad)
-- 🚀 新功能/改进:field-level contracts over the 329 app-server object schemas (a3e5d685228)
-- 📚 文档:trackedFiles 22970 -> 22974 after the R129-R131 report landing (5f3c517db7b)
-- 📚 文档:reports for R129-R131 plus an honest list of what is still not extracted (486cbfdc1f9)
-- 📚 文档:trackedFiles block to 22970 to match the tree this commit creates (3b7bdc63c34)
-- 🔧 工程/其他:事后追认 RP-20 夹具隔离一枚(他席未签名,内容已逐行核过) (881ad0da754)
-- 🐞 修复:RP-20 镜像测试 T-D3h 夹具隔离，不再推进真仓 main (e6f50195559)
-- 🚀 新功能/改进:Y-71 临时派生检出寿命闸判据（只读，绝不自动回收） (185ab9ca2ef)
-- 📚 文档:refresh the generated numbers block to the tree this commit creates (trackedFiles 22972 -> 22969, testFiles 5897 -> 5902) (6d73b324807)
-- 🔧 工程/其他:补回合并时让位的两条具名追认 (e1110668015)
-- 📚 文档:Y-72 本机已落 check-guardian-leg-health.mjs，SSH 系统级两格挂起 (264b3dd0dbe)
-- 📚 文档:Y-72 本机已落 check-guardian-leg-health.mjs，SSH 系统级两格挂起 (6bc4fe5567d)
-- 🔧 工程/其他:追认角标提交的 updater-key-pairing 归一 (cd5f32c1dbe)
-- 🚀 新功能/改进:R129-R131 skill texts, app-server schema generator, local store read - closed tier reaches 159/159 (b97760ceb2e)
-- 🚀 新功能/改进:Y-72 guardian 存活独立哨兵(只读，不拉起) (5283b2c6d61)
-- 🚀 新功能/改进:任务栏未读角标重做(DPI 自适应画布/数字与9+/计数口径归一/tooltip 同源) (f7c02ac034b)
-- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572beaa)
-- 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d0)
-- 🚀 新功能/改进:R128 Google Workspace export bridge contract, 91.8% -> 92.4% (1584415faab)
-- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9f)
-- 🔧 工程/其他:追认 npm-execpath 包管理器判别修复 (92bc0e594ea)
-**2026-11-18**
-- 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f6)
-- 🔧 工程/其他:回潮护栏 30→5 分钟(并发会话重建 IHUI* 任务时快速清零) (f59448a04a0)
-- 🐞 修复:号池模型改实时验证(现拉上游清单核对),取消「未验证」档 (b6c9ab1aedf)
-- 🐞 修复:根治「默认置顶、切其它程序看不到」并给出用户可见的置顶开关 (727f62a1b0b)
-- 🐞 修复:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e9)
-- 📚 文档:align the trackedFiles block to the HEAD-face count the gate computes (6c7ee189ba1)
-- 🔧 工程/其他:19 个 Windows 计划任务迁到登录常驻调度器(禁计划任务铁律) (1a484255761)
-- 📚 文档:Y-37/RP-2/Y-58/Y-72 追加 2026-11-18 SSH 生产机只读实测注记 (76ef533a4e9)
-- 🔧 工程/其他:acknowledge the protected-face content that merge 31fb90364f6 brought in (c3cbe992f31)
-- 🚀 新功能/改进:桌面端「窗口置顶」开关的图钉文案(五语言) (5c8c7eb1ebc)
-- 🐞 修复:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640aa)
-- 📚 文档:align generated block to the HEAD face so the doc-numbers gate agrees (3b04349417c)
-- 📚 文档:refresh generated blocks after R127 (74aa1803177)
-- 🐞 修复:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc0)
-- 🔧 工程/其他:补 AGENTS 门名点名两处 + 为 merge 枚 89b72b7e 补具名追认 (e287097d4b1)
-- 🐞 修复:R127 type the entry list so mypy strict passes (b749a4a7689)
-- 🚀 新功能/改进:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e37)
-- 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f5927)
-- 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f32)
-- 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92ccf)
-- 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f2)
-- 📚 文档:登记签到链路两处缺口(调度建表静默不注册/设备指纹自造致1001十年冷却) (affc8cb87b5)
-- 📚 文档:体积清偿回到 96K 预算内 + 补 R4 点名两枚隐形门 (5fb4ef953c9)
-- 🔧 工程/其他:追认 913f290 的签名欠账(分发安装脚本去载荷) (edb8f1cad6c)
-- 🐞 修复:分发安装脚本去不可见水印载荷,根治杀软"木马"误报死循环 (913f290cb9c)
+- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
+- 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
+**2026-11-19**
+- 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
+**2026-11-19**
+- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
 **2026-11-18**
 - 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
 - 🐞 修复:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e)
@@ -5545,15 +5495,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc)
 - 🐞 修复:R127 type the entry list so mypy strict passes (b749a4a768)
 - 🚀 新功能/改进:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e3)
-- 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
-- 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
-- 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
-- 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
-**2026-11-19**
-- 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
-**2026-11-19**
-- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
-- 🐞 修复:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+**2026-11-18**
 - 🔧 工程/其他:标注反代号池·模型目录自动同步功能(补可追溯历史) (94076b9284b)
 - 🚀 新功能/改进:R124 the template-following plan gate, 89.3% -> 89.9% (946ceb4abe1)
 - 📚 文档:同步生成块数字(测试文件/跟踪文件) (b08c158634c)
@@ -7821,14 +7763,70 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 跟踪文件 | 22281 | `trackedFiles` |
 | 数据库表 | 651 | `dbTables` |
 | API 路由 | 4832 | `apiRoutes` |
-| 测试文件 | 5904 | `testFiles` |
-| 跟踪文件 | 22990 | `trackedFiles` |
-上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
-- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
-- 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
-**2026-11-18**
-**2026-11-18**
 | 跟踪文件 | 22952 | `trackedFiles` |
+**2026-11-18**
+- 🐞 修复:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
+**2026-11-18**
+- 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
+- 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
+- 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
+- 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
 | 测试文件 | 5903 | `testFiles` |
 | 跟踪文件 | 22977 | `trackedFiles` |
+| 测试文件 | 5904 | `testFiles` |
 | 跟踪文件 | 22980 | `trackedFiles` |
+上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
+| 跟踪文件 | 22990 | `trackedFiles` |
+- 🚀 新功能/改进:号池模型目录每 6 小时自动对账 + 启动首轮即投递(Y-97) (766e65c55d9)
+- 📚 文档:Y-72 系统级两格已落地(哨兵计划任务+告警拉起) (986357c889b)
+- 🐞 修复:补交 workspace_fs 模块与权限件(远端 main 缺这些文件致 tauri 构建 E0433/E0583) (83f0397588e)
+- 🐞 修复:号池模型验证判据 fail-closed(verified 非 true 一律跳过) (c7d66a4c542)
+- 📚 文档:trackedFiles 22977 -> 22979 after the R133 landing (17cbc8666c2)
+- 🚀 新功能/改进:prose behaviour rules, and a correction to R132's conditional count (05924ff7770)
+- 🚀 新功能/改进:reference and prose surfaces of the object schemas (85baa27de7b)
+- 📚 文档:trackedFiles 22974 -> 22977 after the R132 landing (3a26f4e00ad)
+- 🚀 新功能/改进:field-level contracts over the 329 app-server object schemas (a3e5d685228)
+- 📚 文档:trackedFiles 22970 -> 22974 after the R129-R131 report landing (5f3c517db7b)
+- 📚 文档:reports for R129-R131 plus an honest list of what is still not extracted (486cbfdc1f9)
+- 📚 文档:trackedFiles block to 22970 to match the tree this commit creates (3b7bdc63c34)
+- 🔧 工程/其他:事后追认 RP-20 夹具隔离一枚(他席未签名,内容已逐行核过) (881ad0da754)
+- 🐞 修复:RP-20 镜像测试 T-D3h 夹具隔离，不再推进真仓 main (e6f50195559)
+- 🚀 新功能/改进:Y-71 临时派生检出寿命闸判据（只读，绝不自动回收） (185ab9ca2ef)
+- 📚 文档:refresh the generated numbers block to the tree this commit creates (trackedFiles 22972 -> 22969, testFiles 5897 -> 5902) (6d73b324807)
+- 🔧 工程/其他:补回合并时让位的两条具名追认 (e1110668015)
+- 📚 文档:Y-72 本机已落 check-guardian-leg-health.mjs，SSH 系统级两格挂起 (264b3dd0dbe)
+- 📚 文档:Y-72 本机已落 check-guardian-leg-health.mjs，SSH 系统级两格挂起 (6bc4fe5567d)
+- 🔧 工程/其他:追认角标提交的 updater-key-pairing 归一 (cd5f32c1dbe)
+- 🚀 新功能/改进:R129-R131 skill texts, app-server schema generator, local store read - closed tier reaches 159/159 (b97760ceb2e)
+- 🚀 新功能/改进:Y-72 guardian 存活独立哨兵(只读，不拉起) (5283b2c6d61)
+- 🚀 新功能/改进:任务栏未读角标重做(DPI 自适应画布/数字与9+/计数口径归一/tooltip 同源) (f7c02ac034b)
+- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572beaa)
+- 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d0)
+- 🚀 新功能/改进:R128 Google Workspace export bridge contract, 91.8% -> 92.4% (1584415faab)
+- 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9f)
+- 🔧 工程/其他:追认 npm-execpath 包管理器判别修复 (92bc0e594ea)
+- 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f6)
+- 🔧 工程/其他:回潮护栏 30→5 分钟(并发会话重建 IHUI* 任务时快速清零) (f59448a04a0)
+- 🐞 修复:号池模型改实时验证(现拉上游清单核对),取消「未验证」档 (b6c9ab1aedf)
+- 🐞 修复:根治「默认置顶、切其它程序看不到」并给出用户可见的置顶开关 (727f62a1b0b)
+- 🐞 修复:两份分发安装脚本统一为同一实现，彻底消除杀软触发面 (6374264c2e9)
+- 📚 文档:align the trackedFiles block to the HEAD-face count the gate computes (6c7ee189ba1)
+- 🔧 工程/其他:19 个 Windows 计划任务迁到登录常驻调度器(禁计划任务铁律) (1a484255761)
+- 📚 文档:Y-37/RP-2/Y-58/Y-72 追加 2026-11-18 SSH 生产机只读实测注记 (76ef533a4e9)
+- 🔧 工程/其他:acknowledge the protected-face content that merge 31fb90364f6 brought in (c3cbe992f31)
+- 🚀 新功能/改进:桌面端「窗口置顶」开关的图钉文案(五语言) (5c8c7eb1ebc)
+- 🐞 修复:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640aa)
+- 📚 文档:align generated block to the HEAD face so the doc-numbers gate agrees (3b04349417c)
+- 📚 文档:refresh generated blocks after R127 (74aa1803177)
+- 🐞 修复:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc0)
+- 🔧 工程/其他:补 AGENTS 门名点名两处 + 为 merge 枚 89b72b7e 补具名追认 (e287097d4b1)
+- 🐞 修复:R127 type the entry list so mypy strict passes (b749a4a7689)
+- 🚀 新功能/改进:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e37)
+- 📚 文档:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f5927)
+- 🐞 修复:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f32)
+- 🚀 新功能/改进:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92ccf)
+- 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f2)
+- 📚 文档:登记签到链路两处缺口(调度建表静默不注册/设备指纹自造致1001十年冷却) (affc8cb87b5)
+- 📚 文档:体积清偿回到 96K 预算内 + 补 R4 点名两枚隐形门 (5fb4ef953c9)
+- 🔧 工程/其他:追认 913f290 的签名欠账(分发安装脚本去载荷) (edb8f1cad6c)
+- 🐞 修复:分发安装脚本去不可见水印载荷,根治杀软"木马"误报死循环 (913f290cb9c)

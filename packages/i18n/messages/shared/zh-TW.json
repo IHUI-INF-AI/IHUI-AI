@@ -3358,6 +3358,210 @@
         "UNREADABLE": {
           "title": "檔案不可讀",
           "action": "檢查檔案權限與佔用後重試"
+        },
+        "AGENT_RESUME_CONFIRMATION_UNKNOWN_ID": {
+          "title": "恢復確認已失效",
+          "action": "重新發起該任務"
+        },
+        "APPROVAL_REQUIRED": {
+          "title": "需要人工核准",
+          "action": "完成審批後重試"
+        },
+        "BACKGROUND_PARALLEL_UNSUPPORTED": {
+          "title": "不支援並行背景任務",
+          "action": "改為逐個執行"
+        },
+        "BACKGROUND_REJECTED": {
+          "title": "背景任務被拒絕",
+          "action": "檢查任務參數後重試"
+        },
+        "COMMAND_NOT_ALLOWED": {
+          "title": "命令不在白名單",
+          "action": "換用允許的命令"
+        },
+        "CONSISTENCY_GATE_BLOCKED": {
+          "title": "一致性校驗未通過",
+          "action": "修正狀態後重試"
+        },
+        "CONVERSATION_MISMATCH": {
+          "title": "會話上下文不匹配",
+          "action": "重新開始對話"
+        },
+        "ENDPOINT_BLOCKED": {
+          "title": "目標端點被攔截",
+          "action": "更換允許的端點"
+        },
+        "ENV_OVERRIDE_DENIED": {
+          "title": "環境變數改寫被拒",
+          "action": "使用允許的設定項"
+        },
+        "IDENTITY_REQUIRED": {
+          "title": "缺少呼叫身分",
+          "action": "攜帶身分資訊重試"
+        },
+        "IMAGE_INVALID": {
+          "title": "圖片內容無效",
+          "action": "更換圖片後重試"
+        },
+        "IMAGE_TYPE_MISMATCH": {
+          "title": "圖片類型不符",
+          "action": "使用支援的類型"
+        },
+        "IMAGE_UNSUPPORTED_FORMAT": {
+          "title": "圖片格式不支援",
+          "action": "轉成 PNG 或 JPG"
+        },
+        "INVALID_INPUT": {
+          "title": "輸入參數不合法",
+          "action": "檢查參數後重試"
+        },
+        "INVALID_TODOS": {
+          "title": "待辦清單不合法",
+          "action": "修正待辦後重試"
+        },
+        "LSP_UNAVAILABLE": {
+          "title": "語言服務不可用",
+          "action": "稍後重試或重新啟動服務"
+        },
+        "MISSING_ARGUMENTS": {
+          "title": "缺少必要參數",
+          "action": "補齊參數後重試"
+        },
+        "MISSING_SESSION_ID": {
+          "title": "缺少會話識別",
+          "action": "重新開啟會話"
+        },
+        "MODEL_TOOL_CAPABILITY_UNVERIFIED": {
+          "title": "模型工具能力未驗證",
+          "action": "先驗證能力再呼叫"
+        },
+        "OFFSET_OUT_OF_RANGE": {
+          "title": "分頁偏移越界",
+          "action": "調整偏移量"
+        },
+        "ORCHESTRATION_FAILED": {
+          "title": "編排執行失敗",
+          "action": "重試或簡化任務"
+        },
+        "ROLE_DENIED": {
+          "title": "角色權限不足",
+          "action": "更換有權角色"
+        },
+        "SESSION_BUSY": {
+          "title": "會話忙碌中",
+          "action": "等待目前任務結束後重試"
+        },
+        "SESSION_NOT_FOUND": {
+          "title": "會話不存在",
+          "action": "重新建立會話"
+        },
+        "SESSION_REQUIRED": {
+          "title": "需要會話識別",
+          "action": "指定會話後重試"
+        },
+        "SESSION_SEARCH_UNAUTHORIZED": {
+          "title": "會話檢索無權限",
+          "action": "申請權限後重試"
+        },
+        "SHELL_METACHARACTER_BLOCKED": {
+          "title": "命令含危險字元",
+          "action": "去除特殊字元"
+        },
+        "SKILL_NOT_FOUND": {
+          "title": "技能不存在",
+          "action": "檢查技能名稱"
+        },
+        "SQL_FORBIDDEN_FUNCTION": {
+          "title": "SQL 函式被禁用",
+          "action": "換用允許的函式"
+        },
+        "SUBAGENT_ALREADY_FINISHED": {
+          "title": "子代理已結束",
+          "action": "無需重複操作"
+        },
+        "SUBAGENT_BUSY": {
+          "title": "子代理忙碌中",
+          "action": "等待其結束後重試"
+        },
+        "SUBAGENT_NOT_FOUND": {
+          "title": "子代理不存在",
+          "action": "重新派發"
+        },
+        "SUBAGENT_SPAWN_REJECTED": {
+          "title": "子代理建立被拒",
+          "action": "檢查配額與參數"
+        },
+        "TASK_BLOCKED": {
+          "title": "任務被阻塞",
+          "action": "解除依賴後重試"
+        },
+        "TASK_DEPENDENCY_CYCLE": {
+          "title": "任務依賴成環",
+          "action": "打散依賴"
+        },
+        "TASK_DEPENDENCY_SELF": {
+          "title": "任務依賴自身",
+          "action": "修正依賴關係"
+        },
+        "TASK_STALE_REVISION": {
+          "title": "任務版本已過期",
+          "action": "重新整理後重試"
+        },
+        "TURN_NOT_FOUND": {
+          "title": "輪次不存在",
+          "action": "重新傳送訊息"
+        },
+        "UNKNOWN_AIS_TOOL": {
+          "title": "未知工具",
+          "action": "檢查工具名稱"
+        },
+        "VOICE_NOT_OWNED": {
+          "title": "音色不屬於目前使用者",
+          "action": "更換音色"
+        },
+        "WORKER_EXEC_CONTEXT_INVALID": {
+          "title": "執行上下文無效",
+          "action": "重新初始化後重試"
+        },
+        "WORKSPACE_REJECTED": {
+          "title": "工作區被拒絕",
+          "action": "檢查工作區權限"
+        },
+        "TERMINAL_EXITED": {
+          "title": "終端機已結束",
+          "action": "重新開啟終端機"
+        },
+        "TERMINAL_INVALID_COMMAND": {
+          "title": "終端機命令不合法",
+          "action": "修正命令"
+        },
+        "TERMINAL_INVALID_SIGNAL": {
+          "title": "終止訊號不合法",
+          "action": "使用允許的訊號"
+        },
+        "TERMINAL_LIMIT": {
+          "title": "終端機數量已達上限",
+          "action": "關閉閒置終端機"
+        },
+        "TERMINAL_NO_IDENTITY": {
+          "title": "終端機缺少身分",
+          "action": "以身分使用者啟動"
+        },
+        "TERMINAL_NOT_FOUND": {
+          "title": "終端機不存在",
+          "action": "重新建立終端機"
+        },
+        "TERMINAL_SIGNAL_FAILED": {
+          "title": "終止訊號傳送失敗",
+          "action": "重試或強制關閉"
+        },
+        "TERMINAL_SPAWN_FAILED": {
+          "title": "終端機啟動失敗",
+          "action": "檢查宿主環境"
+        },
+        "TERMINAL_WRITE_FAILED": {
+          "title": "終端機寫入失敗",
+          "action": "重試寫入"
         }
       }
     },

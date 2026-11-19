@@ -16,8 +16,6 @@
 """
 from __future__ import annotations
 
-import pytest
-
 from app.core.guardian_reconsideration import (
     DEFAULT_INITIAL_BACKOFF_MS,
     DEFAULT_MAX_ATTEMPTS,
@@ -27,7 +25,6 @@ from app.core.guardian_reconsideration import (
     ReconsiderationState,
     next_reconsideration,
 )
-from app.core.guardian_risk import GuardianRiskLevel
 from app.core.guardian_scoring import RiskAssessment
 
 

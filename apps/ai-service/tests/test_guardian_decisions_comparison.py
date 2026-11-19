@@ -13,17 +13,17 @@
 """
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from app.core.guardian_decisions_comparison import (
     ClassificationVerdict,
     ComparisonOutcome,
-    ComparisonResult,
     DecisionBackend,
     compare_decisions,
     normalize_classification,
 )
-
 
 # ---------- normalize_classification ----------
 
@@ -136,6 +136,6 @@ def test_verdict_enum_matches_codex_first_token():
 def test_comparison_result_is_frozen():
     """ComparisonResult 不可变(纯函数返回值,防调用方篡改对照信号)。"""
     result = compare_decisions("high", "high")
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         result.outcome = ComparisonOutcome.DISAGREE  # type: ignore[misc]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -4,8 +4,8 @@
 
 /** 考勤结算(日结/月结)真库端到端验证(临时脚本)。 */
 import postgres from 'postgres'
-import { createAnyImportBatch, confirmAnyImportBatch } from '../../../apps/api/src/services/hr-import-entry.ts'
-import { buildDailyAttendance, buildMonthlyAttendance } from '../../../apps/api/src/services/hr-attendance-settle.ts'
+import { createAnyImportBatch, confirmAnyImportBatch } from '../src/services/hr-import-entry.ts'
+import { buildDailyAttendance, buildMonthlyAttendance } from '../src/services/hr-attendance-settle.ts'
 
 const dsn = process.env.DATABASE_URL
 if (!dsn) throw new Error('DATABASE_URL 未设置')

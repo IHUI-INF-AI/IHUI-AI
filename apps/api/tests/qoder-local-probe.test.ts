@@ -12,6 +12,7 @@
  *   P4 空输入 空 Buffer ⇒ 空数组,不抛异常。
  */
 import { describe, it, expect } from 'vitest'
+// arch-exempt: 被测本体(qoder 安装探针)属 repo-tooling 脚本,测试面只能单向借用其 __test__ 出口;探针搬到 apps/api/scripts 会牵动脚本清单与文档命令,单独立票再做。
 import { __test__ } from '../../../scripts/qoder-local-probe.mjs'
 
 const { redactSnippet, extractCandidates } = __test__
