@@ -42,6 +42,7 @@ vi.mock('../src/db/rbac-queries.js', () => ({ checkAnyPermission: mockCheckAnyPe
 vi.mock('@ihui/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return { ...actual, verifyAccessToken }
+  createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })),
 })
 vi.mock('jose', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()

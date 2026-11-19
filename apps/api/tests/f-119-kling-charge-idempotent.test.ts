@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../src/plugins/ws-helpers.js', () => ({
   wsUpgradeRequiresCredential: () => () => undefined,
 }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() , createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })) }))
 vi.mock('jose', () => ({
   SignJWT: class {
     setProtectedHeader() {

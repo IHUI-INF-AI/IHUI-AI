@@ -27,7 +27,7 @@ vi.mock('../src/plugins/auth.js', () => ({ checkAuth: vi.fn(async () => true) })
 vi.mock('../src/plugins/ws-helpers.js', () => ({
   wsUpgradeRequiresCredential: () => () => undefined,
 }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() , createBlacklist: vi.fn(() => ({ async has() { return false }, async add() {}, async revoke() {} })) }))
 
 import { aiAudioRoutes } from '../src/routes/ai-audio.js'
 
