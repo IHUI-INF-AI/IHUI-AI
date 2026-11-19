@@ -25,6 +25,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   list_files: 'toolListFiles',
   file_search: 'toolFileSearch',
   search_codebase: 'toolSearchCodebase',
+  // 2026-11-20:AgentLoop 补注册了 grep/glob 两个检索工具(桥原语早已存在,此前只有 HTTP 端点),
+  // 这里补映射,否则界面上会退化成裸码名 grep/glob。
+  grep: 'toolSearchCodebase',
+  glob: 'toolFileSearch',
   index_codebase: 'toolIndexCodebase',
   analyze_code: 'toolAnalyzeCode',
   generate_test: 'toolGenerateTest',
@@ -309,6 +313,8 @@ const TOOL_SUBJECT_KINDS: Readonly<Record<string, Exclude<ToolSubjectKind, 'none
   parse_document: 'path',
   file_search: 'query',
   search_codebase: 'query',
+  grep: 'query',
+  glob: 'query',
   analyze_code: 'query',
   generate_test: 'query',
   knowledge_lookup: 'query',
@@ -428,6 +434,8 @@ const READ_LINE_TOOLS: ReadonlySet<string> = new Set(['read_file', 'parse_docume
 const SEARCH_TOOLS: ReadonlySet<string> = new Set([
   'file_search',
   'search_codebase',
+  'grep',
+  'glob',
   'web_search',
   'search_web',
   'knowledge_lookup',

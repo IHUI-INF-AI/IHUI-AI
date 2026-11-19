@@ -441,9 +441,9 @@ export async function createSubscriptionForOrder(
           : null
     if (validityDays === null) return null
 
-    // F-587:顺延基准必须读主库。副本延迟会让刚续费的用户按旧 endAt 再叠一段,
-    // 与并发回调叠加后形成重叠订阅窗口(额度分裂)。
-    const [current] = await db
+    // F-587:顺延基准走统一读出口 dbRead —— 其 RYW 屏障保证刚写完的主体读主库,
+    // 副本不健康时也自动回退主库(旧形态固定绑第一副本会在副本延迟时按旧 endAt 再叠一段)。
+    const [current] = await dbRead
       .select({ endAt: apiSubscriptions.endAt })
       .from(apiSubscriptions)
       .where(

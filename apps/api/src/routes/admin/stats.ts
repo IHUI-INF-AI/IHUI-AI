@@ -41,6 +41,7 @@ import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { bizDayKey, BIZ_TIMEZONE as BIZ_TZ } from '../../utils/biz-day.js'
 // DB-35:phone/email 列存密文;角色用户列表的 phone 筛选降级为 lookup 精确匹配,列表读出后解密
 import { contactLookupForSearch, decryptPublicContact } from '../../utils/user-contact.js'
 
@@ -1020,8 +1021,12 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const gran = q.data.granularity
     const spanDays = gran === 'day' ? 30 : gran === 'week' ? 84 : 365
-    const start = new Date(Date.now() - spanDays * 86400000).toISOString().slice(0, 10)
-    const end = new Date().toISOString().slice(0, 10)
+    // F-578:窗口端点是**业务日**(Asia/Shanghai),与写入端 visit_date 的 bizDayKey 同源。
+    // 旧写法 toISOString().slice(0,10) 按 UTC 切:上海 00:00–08:00 整体偏移一天,
+    // 且 start = now - spanDays 让「30 天窗口」实际带 31 个自然日(含当日 = spanDays-1 个回看)。
+    const now = new Date()
+    const end = bizDayKey(now)
+    const start = bizDayKey(new Date(now.getTime() - (spanDays - 1) * 86400000))
     // 访客身份:登录用户 > 会话 > IP;日期列 visit_date(YYYY-MM-DD 字符串)缺失时回退 created_at
     const bucketExpr =
       gran === 'day'
@@ -1029,7 +1034,8 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
         : gran === 'week'
           ? sql`to_char(date_trunc('week', d::date), 'YYYY-MM-DD')`
           : sql`to_char(date_trunc('month', d::date), 'YYYY-MM-DD')`
-    const dateCol = sql`coalesce(visit_date, to_char(created_at, 'YYYY-MM-DD'))`
+    // 回退列也必须折成同一个业务日:裸 to_char(created_at) 跟随 DB 会话时区,与 visit_date 不同源
+    const dateCol = sql`coalesce(visit_date, to_char(created_at AT TIME ZONE ${sql.raw(`'${BIZ_TZ}'`)}, 'YYYY-MM-DD'))`
     const visitorCol = sql`coalesce(user_id::text, session_id, ip, id::text)`
     try {
       const trendRows = (await db.execute(sql`

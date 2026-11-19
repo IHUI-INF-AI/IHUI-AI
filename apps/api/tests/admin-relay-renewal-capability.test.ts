@@ -32,11 +32,12 @@ const h = vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => {
+  // 端点链是 select().from().where(notInArray…).groupBy() —— 桩要接住 where 这一步,
+  // 否则会在 try 里 TypeError 被读成「查询失败」,把能力位真问题埋掉。
+  const groupBy = (): Promise<unknown> =>
+    h.failCounts ? Promise.reject(new Error('db down')) : Promise.resolve(h.counts)
   const chain = (): unknown => ({
-    from: () => ({
-      groupBy: () =>
-        h.failCounts ? Promise.reject(new Error('db down')) : Promise.resolve(h.counts),
-    }),
+    from: () => ({ where: () => ({ groupBy }), groupBy }),
   })
   const root = { select: () => chain() }
   return { db: root, dbRead: root, dbClient: {} }

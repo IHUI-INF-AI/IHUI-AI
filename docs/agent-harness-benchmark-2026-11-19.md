@@ -12,9 +12,12 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地两处缺口（代码 + 测试 + 验证全绿，见 §5）：
+2. 真正找到并已落地 **11 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层与上下文预算：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
+   - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
+   - **子代理没有常驻文件租约** → `resident_file` 独占租约 + 定界注入。
+   - **`read_file` / `list_dir` 无预算**、**模型没有检索能力**（`grep`/`glob` 只有 HTTP 端点没注册成工具）→ 同族预算 + 总量自述 + 续查指引，并顺手修掉 `**/` 零层语义塌陷。
 3. 原生层（deepseek-tui）在本机**无法做反编译**：Ghidra 未安装、IDA/Hopper 未安装、REA 的 `inspect-binary-layout` 仅支持 Linux x64。原生结论全部来自二进制可打印字符串（22,471 条去重），是"观察"，不是"反编译推断"。
 4. Trae CN 的本地扩展面很薄（`apply_patch`/`edit_file`/`subagent` 命中 0），其 agent 能力在云端；**本地可借鉴物极少**，这一点如实记录，不用"已分析"冒充"有产出"。
 
@@ -82,7 +85,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（8 项，含验证证据）
+## 5. 本次落地（11 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -166,6 +169,36 @@
 - 不是照抄：对照件一律按 UTF-8 直读写，BOM 与 CRLF 都在它们的盲区；这两层是本仓在 Windows 宿主上自补的边界。
 
 验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 17 passed`。
+
+### 5.9 `read_file` 护栏：分段读、超大截断、二进制拒绝
+
+- 分段读打通：`startLine`/`endLine` 此前只在路由层 `workspace-ai.ts` 生效，工具层直接忽略入参 —— 模型想分段读大文件根本做不到。现在工具层透传，行为与路由同源（同一 `FSBridge.read`）。
+- 超大截断：单次读回超过 12 万字符时只回前 12 万并附续读指引（`startLine/endLine` 或先 `grep` 定位），避免一条工具结果吃掉整个上下文预算；截断只影响回给模型那段，**观察态仍记整文件摘要**，所以随后 `edit_file` 能直接改没被返回的尾部（测试 R3 钉住）。
+- 二进制拒绝：前 8KB 出现 NUL 字节即判 `FS_BINARY_FILE`（指向 `parse_document`），不再把乱码当文本灌进上下文。
+- 不是照抄：对照件的读取工具没有"截断但仍可编辑"的分离设计 —— 要么不截断、要么读不全就改不了。
+
+验证：`vitest run tests/fs-read-guard.test.ts tests/fs-edit-tool.test.ts` → `Tests 22 passed`。
+
+### 5.10 `list_dir` 条目上限（默认 200，可提到 1000）
+
+- 回包从裸数组改为 `{ok,total,truncated,entries}`：超过上限时 `truncated=true` 并给 `hint`（用更具体的子目录、提高 `limit`、或先 `grep` 定位），`total` 始终是真实条目数 —— 模型不会误以为目录只有 200 个文件。
+- 为什么不再返回裸数组：大目录（构建产物 / 媒体库）一次回几千条会把上下文挤满，而裸数组没有任何"还有更多"的信号。
+- 不是照抄：对照件的目录工具没有"总量自述"这一层，截断后模型无从知道自己漏看了什么。
+
+验证：`vitest run tests/fs-read-guard.test.ts` → `Tests 7 passed`（R6 大目录截断 / R7 小目录不削弱）。
+
+### 5.11 `grep` / `glob` 工具：把"模型没有检索能力"补上，并修掉 `**` 语义塌陷
+
+- 事实：桥里早有 `grep`/`glob` 原语和 `/fs/grep`、`/fs/glob` 两个 HTTP 端点（桌面侧在用），但 **AgentLoop 从未注册成工具** —— 模型手上只有 `read_file`/`list_dir`，想定位一处代码只能靠 `run_command` 外挂 `findstr`。对照件里 Trae（VS Code 系）与 deepseek-tui 都把检索当基础设施，这是本仓最刺眼的一处能力缺口。
+- 新增两个工具：
+  - `grep`：`content`（命中行）/ `files_with_matches`（文件清单）/ `count`（每文件条数）三种 `outputMode`；默认不区分大小写，`caseSensitive` 可开；默认最多 100 条、**单文件最多 20 条**（防一个巨型文件吃光预算），扫描硬顶 5000 条。
+  - `glob`：`**` 递归，默认最多 200 个文件。
+  - 两者都跳过 `node_modules` 等忽略目录、跳过二进制（前 512 字符含 NUL，与 `read_file` 同一条判据）与 >1MB 文件；回包统一 `{ok,total,truncated,…}`，被截断时带 `hint`（收窄 path/glob、提高 limit、或先换 `files_with_matches` 定位）。
+- 顺手修的真 bug：`globToRegex` 把 `**/*.ts` 译成 `.*/[^/]*\.ts`，**顶层文件永远差一个斜杠**（`**/` 应能匹配零层目录）。修法是先把 `**/` 译成 `(?:.*/)?`，S5 用例钉住 `x.ts` 与 `deep/nested/c.ts` 同时命中。
+- 前端同批对齐：`tool-display.ts` 补 `grep/glob` 的展示键与 subject（`pattern`），`tool-category.ts` 归入搜索类 —— 否则界面上会退化成裸码名 `grep`/`glob`。
+- 超越轴：对照件的检索工具只回裸结果，**没有总量自述**；被截断时模型无从知道还漏了多少。本仓把「条数上限 + 总量 + 续查指引 + 单文件上限 + 二进制/忽略目录同判据」做成一套语言，与 5.9/5.10 的 `read_file`/`list_dir` 完全同构。
+
+验证：`vitest run tests/fs-search-tool.test.ts tests/fs-read-guard.test.ts tests/fs-edit-tool.test.ts tests/fs-observation-policy.test.ts` → `Tests 45 passed`（新增 S1–S11 共 11 例：截断/单文件上限/二进制/忽略目录/三种模式/大小写/ReDoS 两闸）。`@ihui/api` typecheck 0。
 
 ## 6. 未落地候选（按 ROI 排序，含不做的理由）
 
