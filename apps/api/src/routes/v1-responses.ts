@@ -86,12 +86,6 @@ type ResponsesInputItem =
       [key: string]: unknown
     }
 
-/** Responses API 内置工具(web_search / file_search / code_interpreter) */
-interface ResponsesTool {
-  type: 'web_search' | 'file_search' | 'code_interpreter' | string
-  [key: string]: unknown
-}
-
 /** Responses API 输出 message 项 */
 interface ResponsesOutputMessage {
   type: 'message'
@@ -173,8 +167,8 @@ const responsesSchema = z.object({
 function responsesInputToMessages(
   input: string | ResponsesInputItem[],
   instructions?: string,
-): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+): Array<Record<string, unknown>> {
+  const messages: Array<Record<string, unknown>> = []
 
   if (instructions) {
     messages.push({ role: 'system', content: instructions })
@@ -190,6 +184,29 @@ function responsesInputToMessages(
       messages.push({ role: 'user', content: item })
       continue
     }
+    // F-293:历史里的工具项必须转成 Chat Completions 的 assistant.tool_calls / tool 消息,
+    // 旧实现把未知 type 当空 user 消息,工具回合上下文整段丢失。
+    const itemType = item.type
+    if (itemType === 'function_call') {
+      const callId = typeof item.call_id === 'string' ? item.call_id : ''
+      const name = typeof item.name === 'string' ? item.name : ''
+      const args = typeof item.arguments === 'string' ? item.arguments : ''
+      messages.push({
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: callId, type: 'function', function: { name, arguments: args } }],
+      })
+      continue
+    }
+    if (itemType === 'function_call_output') {
+      const callId = typeof item.call_id === 'string' ? item.call_id : ''
+      const output =
+        typeof item.output === 'string'
+          ? item.output
+          : JSON.stringify(item.output ?? '')
+      messages.push({ role: 'tool', tool_call_id: callId, content: output })
+      continue
+    }
     const role = item.role
     const content = extractContent(item.content)
     if (role === 'system' || role === 'assistant') {
@@ -201,6 +218,36 @@ function responsesInputToMessages(
   }
 
   return messages
+}
+
+/**
+ * F-293:Responses 的 tools 是**扁平**形状({type:'function', name, parameters}),
+ * Chat Completions 要嵌套({type:'function', function:{name, parameters}})。
+ * 内置工具(web_search 等)在 Chat 面没有等价物 ⇒ 显式报错,不静默透传。
+ */
+function toChatCompletionTools(
+  tools: readonly Record<string, unknown>[],
+): { tools: Array<Record<string, unknown>>; error: string | null } {
+  const out: Array<Record<string, unknown>> = []
+  for (const t of tools) {
+    const type = typeof t.type === 'string' ? t.type : ''
+    if (type !== 'function') {
+      return { tools: [], error: `Unsupported built-in tool type: ${type || 'unknown'}` }
+    }
+    const nested =
+      t.function && typeof t.function === 'object'
+        ? { type: 'function', function: t.function as Record<string, unknown> }
+        : {
+            type: 'function',
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.parameters ?? { type: 'object', properties: {} },
+            },
+          }
+    out.push(nested)
+  }
+  return { tools: out, error: null }
 }
 
 /** 从 input item.content 提取纯文本(字符串原样返回,数组逐项拼接 text) */
@@ -331,6 +378,29 @@ async function streamResponses(
    * status 据此判 `incomplete`,不再一律 `completed`。
    */
   let upstreamFinishReason: string | null = null
+  /**
+   * F-293:流式工具帧累积(ai-service 的 tool-call-start / tool-call-args-delta)。
+   * 收尾时按它产 function_call 输出项,并在帧到达时就向客户端发 output_item.added。
+   */
+  const streamedToolCalls = new Map<
+    number,
+    { id: string; name: string; args: string; itemId: string; started: boolean; done: boolean }
+  >()
+  const emitToolArgumentsDone = (rec: {
+    id: string
+    name: string
+    args: string
+    done: boolean
+  }): void => {
+    if (rec.done) return
+    rec.done = true
+    writeEvent('response.function_call_arguments.done', {
+      type: 'response.function_call_arguments.done',
+      call_id: rec.id,
+      name: rec.name,
+      arguments: rec.args || '{}',
+    })
+  }
   /** 格②(2026-09-26):首 token 处再取一次样本(原为墙钟 epoch firstTokenTime) */
   let ttftSample: ElapsedSample | null = null
   let upstreamHttpStatus: number | null = null
@@ -407,6 +477,58 @@ async function streamResponses(
         if (payload && payload !== '[DONE]') {
           try {
             const json = JSON.parse(payload) as unknown
+            // F-293:工具帧先认领(在 done/文本分支之前),否则会被 extractStreamText 当无文本丢掉
+            const frameType =
+              json && typeof json === 'object'
+                ? (json as Record<string, unknown>).type
+                : undefined
+            if (frameType === 'tool-call-start' || frameType === 'tool-call-args-delta') {
+              const tf = json as Record<string, unknown>
+              const idx = typeof tf.index === 'number' ? tf.index : 0
+              const callId = String(tf.toolCallId ?? tf.id ?? '')
+              const name = String(tf.toolName ?? tf.name ?? '')
+              let argsText = ''
+              try {
+                argsText = JSON.stringify(tf.args ?? {})
+              } catch {
+                argsText = '{}'
+              }
+              let rec = streamedToolCalls.get(idx)
+              if (!rec) {
+                rec = {
+                  id: callId,
+                  name,
+                  args: '',
+                  itemId: `fc_${randomUUID()}`,
+                  started: false,
+                  done: false,
+                }
+                streamedToolCalls.set(idx, rec)
+              }
+              if (callId) rec.id = callId
+              if (name) rec.name = name
+              if (argsText) rec.args = argsText
+              if (!rec.started) {
+                rec.started = true
+                writeEvent('response.output_item.added', {
+                  type: 'response.output_item.added',
+                  output_index: idx,
+                  item: {
+                    type: 'function_call',
+                    id: rec.itemId,
+                    status: 'in_progress',
+                    call_id: rec.id,
+                    name: rec.name,
+                    arguments: '',
+                  },
+                })
+              }
+              // 参数完整(start 帧自带全量 args)⇒ 立刻报 done;半截帧留到收尾补
+              if (tf.argsComplete === true || frameType === 'tool-call-start') {
+                emitToolArgumentsDone(rec)
+              }
+              return
+            }
             if (
               json &&
               typeof json === 'object' &&
@@ -525,19 +647,35 @@ async function streamResponses(
         summary: [{ type: 'summary_text', text: responseReasoning }],
       })
     }
-    outputItems.push({
-      type: 'message',
-      id: `msg-${randomUUID()}`,
-      status: isTruncated && !streamError ? 'incomplete' : 'completed',
-      role: 'assistant',
-      content: [
-        {
-          type: 'output_text',
-          text: responseText,
-          annotations: [],
-        },
-      ],
-    })
+    // F-293:工具调用项在正文之前独立成项;参数没收完的在这里补 done(客户端才能结束等待)
+    for (const [idx, rec] of streamedToolCalls) {
+      emitToolArgumentsDone(rec)
+      outputItems.push({
+        type: 'function_call',
+        id: rec.itemId,
+        status: isTruncated && !streamError ? 'incomplete' : 'completed',
+        call_id: rec.id,
+        name: rec.name,
+        arguments: rec.args || '{}',
+        output_index: idx,
+      })
+    }
+    // 纯工具回合不产空 message 项;有正文或没有工具项时保留 message(既有语义)
+    if (responseText.length > 0 || streamedToolCalls.size === 0) {
+      outputItems.push({
+        type: 'message',
+        id: `msg-${randomUUID()}`,
+        status: isTruncated && !streamError ? 'incomplete' : 'completed',
+        role: 'assistant',
+        content: [
+          {
+            type: 'output_text',
+            text: responseText,
+            annotations: [],
+          },
+        ],
+      })
+    }
     writeEvent('response.completed', {
       type: 'response.completed',
       response: {
@@ -760,7 +898,15 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
       const bridged = downgradeCustomTools(tools as unknown[] | undefined)
       const customToolNames = bridged.customNames
       if (bridged.tools.length > 0) {
-        openaiBody.tools = bridged.tools as ResponsesTool[]
+        // F-293:降级后的仍是 Responses 扁平形状,必须转成 Chat Completions 嵌套形状;
+        // 内置工具无法转换 ⇒ 400(此时还没发上游请求)。
+        const converted = toChatCompletionTools(
+          bridged.tools as unknown as Array<Record<string, unknown>>,
+        )
+        if (converted.error) {
+          return reply.status(400).send(error(400, converted.error))
+        }
+        openaiBody.tools = converted.tools
       }
       if (apiKey?.userId) {
         openaiBody.metadata = { userId: apiKey.userId }
@@ -903,27 +1049,32 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
           toolCallOutputs as unknown as Array<Record<string, unknown>>,
           customToolNames,
         ) as unknown as ResponsesApiResponse['output']
+        // F-293:纯工具回合不产空 message 项(Responses 客户端按 output 项类型分发);
+        // 有正文时保留 message,工具调用作为并列的独立项。
+        const messageItems: ResponsesApiResponse['output'] =
+          typeof data.content === 'string' && data.content.length > 0 || toolCallOutputs.length === 0
+            ? [
+                {
+                  type: 'message',
+                  id: `msg-${randomUUID()}`,
+                  status: 'completed',
+                  role: 'assistant',
+                  content: [
+                    {
+                      type: 'output_text',
+                      text: data.content ?? '',
+                      annotations: [],
+                    },
+                  ],
+                },
+              ]
+            : []
         const result: ResponsesApiResponse = {
           id: `resp-${randomUUID()}`,
           object: 'response',
           status: 'completed',
           model: data.model ?? model,
-          output: [
-            {
-              type: 'message',
-              id: `msg-${randomUUID()}`,
-              status: 'completed',
-              role: 'assistant',
-              content: [
-                {
-                  type: 'output_text',
-                  text: data.content ?? '',
-                  annotations: [],
-                },
-              ],
-            },
-            ...restoredToolCallOutputs,
-          ],
+          output: [...messageItems, ...restoredToolCallOutputs],
           usage: {
             input_tokens: promptTokens,
             output_tokens: completionTokens,
