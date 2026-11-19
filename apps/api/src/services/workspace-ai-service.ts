@@ -4540,12 +4540,40 @@ agentLoop.registerTool({
 
 agentLoop.registerTool({
   name: 'edit_file',
-  description: '在已读过的文件里做唯一匹配替换（oldText 必须唯一命中；先 read_file 观察当前内容）',
+  description:
+    '在已读过的文件里做替换：默认唯一匹配（oldText 必须唯一命中），replaceAll 可整批替换；' +
+    '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘',
   execute: async (args) => {
     const path = String(args['path'] ?? '')
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
-    const oldText = String(args['oldText'] ?? '')
-    const newText = String(args['newText'] ?? '')
+    const dryRun = args['dryRun'] === true
+    const rawEdits = args['edits']
+    const edits: Array<{ oldText: string; newText: string; replaceAll: boolean }> = Array.isArray(
+      rawEdits,
+    )
+      ? rawEdits.map((raw) => {
+          const item = (raw ?? {}) as Record<string, unknown>
+          return {
+            oldText: String(item['oldText'] ?? ''),
+            newText: String(item['newText'] ?? ''),
+            replaceAll: item['replaceAll'] === true,
+          }
+        })
+      : [
+          {
+            oldText: String(args['oldText'] ?? ''),
+            newText: String(args['newText'] ?? ''),
+            replaceAll: args['replaceAll'] === true,
+          },
+        ]
+    if (Array.isArray(rawEdits) && edits.length === 0) {
+      return JSON.stringify({
+        ok: false,
+        code: 'EDIT_BAD_EDITS',
+        error: 'edits 不能为空数组',
+        remedy: '至少给一条 {oldText,newText}；单处替换也可直接用 oldText/newText。',
+      })
+    }
     const full = fsBridge.resolvePath(path, workspacePath)
     if (!existsSync(full)) {
       return JSON.stringify({
@@ -4555,40 +4583,81 @@ agentLoop.registerTool({
         remedy: '新建文件用 write_file；改已有文件先 read_file 确认路径。',
       })
     }
-    if (!oldText) {
-      return JSON.stringify({
-        ok: false,
-        code: 'EDIT_EMPTY_PATTERN',
-        error: 'oldText 不能为空',
-        remedy: '给出要被替换的原文片段（含足够上下文以保证唯一命中）。',
-      })
-    }
     const current = readFileSync(full, 'utf-8')
     if (isFsObservationEnforced()) {
       const denial = fsObservationStore.checkWrite(full, current)
       if (denial) return JSON.stringify(denial)
     }
-    const hits = current.split(oldText).length - 1
-    if (hits === 0) {
+    // 逐条在内存里推进：任一失败即整批放弃，磁盘上的文件保持原样（原子性）
+    let next = current
+    let replacements = 0
+    for (let index = 0; index < edits.length; index += 1) {
+      const edit = edits[index]
+      if (!edit) continue
+      if (!edit.oldText) {
+        return JSON.stringify({
+          ok: false,
+          code: 'EDIT_EMPTY_PATTERN',
+          error: 'oldText 不能为空',
+          editIndex: index,
+          remedy: '给出要被替换的原文片段（含足够上下文以保证唯一命中）。',
+        })
+      }
+      const hits = next.split(edit.oldText).length - 1
+      if (hits === 0) {
+        return JSON.stringify({
+          ok: false,
+          code: 'EDIT_NO_MATCH',
+          error: 'oldText 在文件中不存在，拒绝猜测',
+          editIndex: index,
+          remainder: index > 0 ? '整批未落盘' : undefined,
+          remedy: '重新 read_file，按当前内容原样复制原文（注意空白与换行）。',
+        })
+      }
+      if (hits > 1 && !edit.replaceAll) {
+        return JSON.stringify({
+          ok: false,
+          code: 'EDIT_NOT_UNIQUE',
+          error: `oldText 命中 ${hits} 处；只有唯一匹配才允许替换`,
+          editIndex: index,
+          hits,
+          remedy: '扩大上下文直到只剩一处命中，或显式 replaceAll: true。',
+        })
+      }
+      next = edit.replaceAll
+        ? next.split(edit.oldText).join(edit.newText)
+        : next.replace(edit.oldText, edit.newText)
+      replacements += edit.replaceAll ? hits : 1
+    }
+    const changed = next !== current
+    const bytesBefore = Buffer.byteLength(current, 'utf-8')
+    const bytesAfter = Buffer.byteLength(next, 'utf-8')
+    if (dryRun) {
       return JSON.stringify({
-        ok: false,
-        code: 'EDIT_NO_MATCH',
-        error: 'oldText 在文件中不存在，拒绝猜测',
-        remedy: '重新 read_file，按当前内容原样复制原文（注意空白与换行）。',
+        ok: true,
+        dryRun: true,
+        path,
+        edits: edits.length,
+        replacements,
+        changed,
+        bytesBefore,
+        bytesAfter,
       })
     }
-    if (hits > 1) {
-      return JSON.stringify({
-        ok: false,
-        code: 'EDIT_NOT_UNIQUE',
-        error: `oldText 命中 ${hits} 处；只有唯一匹配才允许替换`,
-        remedy: '扩大上下文直到只剩一处命中。',
-      })
-    }
-    const result = fsBridge.edit({ path, workspacePath, oldText, newText })
+    // 全部编辑在内存里成功后才落一次盘：一次检查点快照 + 一次写入
+    if (changed) fsBridge.write({ path, workspacePath, content: next, createDirs: false })
     // 改完就是新的观察态：同一文件紧接着再编辑无需重读（内容未变时仍放行）
-    fsObservationStore.observePresent(full, current.replace(oldText, newText))
-    return JSON.stringify(result)
+    fsObservationStore.observePresent(full, next)
+    return JSON.stringify({
+      ok: true,
+      path,
+      edits: edits.length,
+      replacements,
+      occurrences: replacements,
+      changed,
+      bytesBefore,
+      bytesAfter,
+    })
   },
 })
 
