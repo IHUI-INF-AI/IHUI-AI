@@ -66,6 +66,7 @@ const TX = {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(TX),
     select: TX.select,

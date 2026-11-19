@@ -123,6 +123,9 @@ const PREFS_A = {
   traySingleClick: 'menu',
   unreadBadge: true,
   trayMenuItems: ['open', 'preferences'],
+  // 2026-11-19 契约补键:桌面端把「窗口置顶」升格为可漫游偏好(默认 false);
+  // 读路径会按契约补默认档,夹具不写该键 ⇒ 回读恒多一键,断言必然失配。
+  alwaysOnTop: false,
 }
 
 const tokens: Record<string, string> = {}

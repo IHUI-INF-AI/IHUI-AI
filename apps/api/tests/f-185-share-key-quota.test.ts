@@ -70,6 +70,7 @@ function fakeShare(over: Record<string, unknown> = {}) {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => {
       const chain: Record<string, unknown> = {}

@@ -71,6 +71,7 @@ vi.mock('../src/plugins/auth.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: h.db,
   dbRead: h.db,
   dbClient: {},
