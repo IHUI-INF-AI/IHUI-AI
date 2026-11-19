@@ -83,9 +83,9 @@ use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
 use tauri::{Emitter, Manager};
 // 行为偏好的判定与持久化住在 desktop_prefs.rs,这里只引它已有的出口(不开第二份判据)。
 use desktop_prefs::{
-    decide_close_action, desktop_prefs_path, load_desktop_prefs, normalize_prefs, save_desktop_prefs,
-    should_migrate_launch_minimized, should_start_hidden, tray_menu_item, CloseBehavior,
-    CloseDecision, DesktopPrefs, DesktopPrefsPatch, TraySingleClick,
+    decide_close_action, desktop_prefs_path, load_desktop_prefs, normalize_prefs,
+    persist_if_changed, save_desktop_prefs, should_migrate_launch_minimized, should_start_hidden,
+    tray_menu_item, CloseBehavior, CloseDecision, DesktopPrefs, DesktopPrefsPatch, TraySingleClick,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -2354,11 +2354,13 @@ fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<
         // 比当前 minWidth 还小的尺寸,直接恢复会让窗口异常窄;同时屏幕分辨率变化
         // 后旧尺寸可能超屏。统一 clamp 到 [min_inner_size, 屏幕可用区 92%]。
         let (cw, ch) = clamp_window_size(&window, w as u32, h as u32);
+        let mut geometry_corrected = false;
         if cw != w as u32 || ch != h as u32 {
             log::info!(
                 "[desktop] restore window state clamped: {}x{} -> {}x{}",
                 w, h, cw, ch
             );
+            geometry_corrected = true;
         }
         // 先设置 size,再设置 position,避免最大化状态下 set_position 失效
         let _ = window.set_size(PhysicalSize::new(cw, ch));
@@ -2367,6 +2369,21 @@ fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<
         // 场景:上次关闭时窗口在外接显示器,本次启动未接外接显示器
         if !is_window_visible_on_any_monitor(&window) {
             let _ = window.center();
+            geometry_corrected = true;
+        }
+        // 2026-11-19 立:盘面几何被修正过(clamp / 居中兜底)时把**最终实际几何**写回一次。
+        // 立因:旧版本可能留下 -32000/75x28 这类垃圾几何(最小化残留),此前只在内存里兜底,
+        // 盘面永不改 ⇒ ① 每次启动都重走一遍兜底;② "盘上记的几何"与用户真实看到的窗口长期
+        // 不一致,下一次 Resized/Moved 之前都没人纠正它。回写后即幂等:下次读到干净几何不再修正。
+        if geometry_corrected {
+            match save_window_state(Some(label.to_string()), app.clone()) {
+                Ok(_) => log::info!(
+                    "[desktop] 窗口几何已被修正,已写回干净几何(盘面与内存对齐),label={label}"
+                ),
+                Err(e) => {
+                    log::warn!("[desktop] 修正后几何回写失败(下次启动会再兜底一次): {e}")
+                }
+            }
         }
     } else {
         // 无持久化记录(首次安装 / reset_window_state 后):按屏幕可用区
@@ -5261,6 +5278,22 @@ pub fn run() {
                 );
                 if let Err(e) = save_desktop_prefs(app.handle(), &startup_prefs) {
                     log::warn!("[desktop-prefs] 迁移写盘失败({e})⇒ 本次仍按迁移后的值执行,但下次启动会重判");
+                }
+            }
+            // 2026-11-19 立(补齐"归一只在内存生效"的缺口):盘面 tray_menu_items 里没有本版
+            // 新登记的项时,把归一后的形态**写回盘一次**。此前只补内存 ⇒ ① 盘上事实与界面
+            // 长期不一致(json 8 项、菜单 9 项);② 用户手工从 json 删掉某项也删不掉,每次启动
+            // 归一又补回、而盘面从不记"已迁移";③ 每次启动都重走迁移判据。回写后幂等。
+            if let Some(path) = desktop_prefs_path(app.handle()) {
+                match persist_if_changed(&path, &startup_prefs) {
+                    Ok(true) => log::info!(
+                        "[desktop-prefs] 盘面已按归一形态回写一次(托盘项 {} 项,含本版新项)",
+                        startup_prefs.tray_menu_items.len()
+                    ),
+                    Ok(false) => {}
+                    Err(e) => log::warn!(
+                        "[desktop-prefs] 归一形态回写失败(本次仍按内存态运行,下次启动重试): {e}"
+                    ),
                 }
             }
             if startup_prefs.show_tray_icon {

@@ -7771,3 +7771,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
 | 测试文件 | 5903 | `testFiles` |
 | 跟踪文件 | 22977 | `trackedFiles` |
+| 测试文件 | 5904 | `testFiles` |
+| 跟踪文件 | 22980 | `trackedFiles` |
+上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
