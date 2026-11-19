@@ -24,6 +24,7 @@ codearts 等无签到引擎的平台由 api 侧在映射表就标 skipped,到这
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -33,6 +34,8 @@ from pydantic import BaseModel, Field
 from app.core.internal_secret_auth import authorize_internal_secret_call
 from app.services import checkin_store
 from app.services.checkin_store import POOL_SYNC_OWNER
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/internal/checkin", tags=["checkin-internal"])
 
@@ -165,6 +168,36 @@ async def pool_sync(body: PoolSyncIn, request: Request) -> dict[str, Any]:
     for acc in body.accounts:
         # 同一归属内同步:运营池(NULL)→ 系统 owner;个人池 → 该平台用户自己的 owner
         owner = acc.ownerUserId or POOL_SYNC_OWNER
+        # RP-22 缺口②(2026-11-18):Trae 号必须带真实设备指纹(deviceId+machineId)
+        # 才准入签到池。缺失时 get_device_for 会按 user_id 自造确定性指纹,与真实
+        # 客户端不是同一台设备 ⇒ 上游 1001 判 SessionDead 触发十年冷却(冷却后手动
+        # 点也必失败)。此处显式拒绝入池并点名,绝不让它进流程被自造指纹打冷却。
+        # (PEM 设备证明密钥对是 relay 换票桥接消费的,与签到 claim 无关,不在此闸。)
+        if body.platform == "trae" and (not acc.deviceId or not acc.machineId):
+            missing = [
+                k for k, v in (("deviceId", acc.deviceId), ("machineId", acc.machineId)) if not v
+            ]
+            logger.warning(
+                "[internal_checkin_pool] Trae 号缺设备指纹,拒绝入签到池(防 1001 十年冷却)",
+                extra={
+                    "event": "checkin_pool_trae_device_fingerprint_missing",
+                    "pool_account_id": acc.poolAccountId,
+                    "uid": acc.uid,
+                    "missing": ",".join(missing),
+                },
+            )
+            results.append(
+                {
+                    "poolAccountId": acc.poolAccountId,
+                    "status": "skipped",
+                    "checkinAccountId": None,
+                    "reason": (
+                        f"Trae 号缺设备指纹({','.join(missing)}):自造指纹会被上游判"
+                        " SessionDead 触发十年冷却,须从真实客户端补齐后重推"
+                    ),
+                }
+            )
+            continue
         try:
             row = await checkin_store.create_account(
                 owner,
