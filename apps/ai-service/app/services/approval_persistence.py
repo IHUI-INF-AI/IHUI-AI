@@ -12,18 +12,18 @@ codex 的审批键(ApprovalCacheKey)支持「审批决策持久化」:用户批�
 (长期前缀放行) 与一次性放行登记表(`approve_exec_command` /
 `_consume_exec_approval`) 全是进程内存 —— 服务重启即丢,且无「会话」层概念。
 
-本模块把审批授权落盘到 SQLite(纯标准库 sqlite3,表结构写法对齐
-`session_store.py` 的 `_tx` / 锁模式),使授权可跨重启保留,并显式区分
-session / always 两级 scope。
+本模块把审批授权落盘到 **PostgreSQL**(经 `app.core.pg_sync` 同步桥),使授权可跨
+重启保留,并显式区分 session / always 两级 scope。存储后端有且只有两个实现:
+PG(生产)与进程内(**仅**测试隔离用,不落任何文件)。
 
 设计要点
 --------
-- 崩溃安全:WAL + 写串行化(BEGIN IMMEDIATE 事务);
-- 线程安全:`threading.Lock` 串行化所有连接访问;`check_same_thread=False`;
-- 幂等:`UNIQUE(scope, cache_key, kind)` 约束 + `INSERT OR IGNORE`;
+- 崩溃安全:每条写操作一个事务(BEGIN/COMMIT/ROLLBACK),失败原样抛出;
+- 线程安全:`threading.Lock` 串行化所有后端访问;
+- 幂等:`UNIQUE(scope, cache_key, kind)` 约束 + `ON CONFLICT DO NOTHING`;
 - scope 优先级:`always` 优先于 `session`;session 级带过期,过期即删并返回 None;
-- db 路径模块级惰性单例、可注入(默认 `data/approval_grants.db`,目录自建),
-  便于测试用 tmp_path 隔离;
+- 后端模块级惰性单例;`set_db_path(...)` 注入者一律切到进程内后端(测试隔离),
+  传回默认值恢复默认选择(有 DSN 走 PG,无 DSN 走进程内);
 - 仅同步 API(无 async),符合本仓 mcp_server 既有同步风格。
 """
 
@@ -36,12 +36,13 @@ from __future__ import annotations
 
 import os
 import re
-import sqlite3
 import threading
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
+
+from app.core.pg_sync import PgShim, SyncPgSession
 
 # ==================== 常量 ====================
 
@@ -73,22 +74,26 @@ _ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 # ==================== 模块级惰性单例 ====================
 
 _DB_PATH: Path = DEFAULT_DB_PATH
-_lock = threading.Lock()
-_conn: sqlite3.Connection | None = None
+# 必须是可重入锁:公共 API 先持锁,再在锁内调 `_get_backend()`(它也持同一把锁做
+# 惰性初始化)。非重入的 `Lock` 会在这里当场自锁 —— 这是"两层各自加锁"的经典坑,
+# 实测表现为整个进程挂住而不是报错。
+_lock = threading.RLock()
+_backend: _Backend | None = None
 
 
 def set_db_path(path: str | Path) -> None:
-    """注入独立 db 路径(测试隔离用)。
+    """注入独立存储(测试隔离用)。
 
-    会关闭已存在的连接并置空,使下一次写/读操作惰性重建到新路径
-    (目录自动创建)。生产代码无需调用,默认 `data/approval_grants.db`。
+    路径本身**不再落任何文件**(数据层只允许 PostgreSQL):非默认路径 ⇒ 切到进程内
+    后端,等价于"给本次测试一个干净且互相隔离的审批库";传回 `DEFAULT_DB_PATH` ⇒
+    恢复默认选择(有 DSN 走 PG,无 DSN 走进程内)。会关闭旧后端,使下一次读写惰性重建。
     """
-    global _DB_PATH, _conn
+    global _DB_PATH, _backend
     with _lock:
         _DB_PATH = Path(path)
-        if _conn is not None:
-            _conn.close()
-            _conn = None
+        if _backend is not None:
+            _backend.close()
+            _backend = None
 
 
 def _now_iso() -> str:
@@ -102,41 +107,240 @@ def _iso_plus_ttl(ttl_seconds: int) -> str:
     )
 
 
-def _open(db_path: Path) -> sqlite3.Connection:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(
-        str(db_path),
-        check_same_thread=False,
-        isolation_level=None,
-    )
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout=5000")
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=FULL")
-    conn.execute(_SCHEMA_DDL)
-    return conn
-
-
 _SCHEMA_DDL = """
 CREATE TABLE IF NOT EXISTS approval_grants (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    scope       TEXT NOT NULL,
-    cache_key   TEXT NOT NULL,
-    kind        TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    expires_at  TEXT NULL,
-    UNIQUE(scope, cache_key, kind)
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    scope       text NOT NULL,
+    cache_key   text NOT NULL,
+    kind        text NOT NULL,
+    created_at  text NOT NULL,
+    expires_at  text NULL,
+    CONSTRAINT approval_grants_scope_key_kind_key UNIQUE (scope, cache_key, kind)
 );
 """
 
 
-def _get_conn() -> sqlite3.Connection:
-    """惰性返回模块级单例连接(线程安全)。"""
-    global _conn
+class _Backend(Protocol):
+    """存储后端契约:公共 API 只认这九个动作,SQL/引擎差异全部关在实现里。"""
+
+    def upsert(
+        self, scope: str, cache_key: str, kind: str, created_at: str, expires_at: str | None
+    ) -> None: ...
+
+    def find_always(self, cache_key: str, kind: str, now: str) -> bool: ...
+
+    def find_session_expiry(self, cache_key: str, kind: str) -> tuple[bool, str | None]: ...
+
+    def delete_key(self, cache_key: str, kind: str) -> None: ...
+
+    def rows_for_kind(self, kind: str) -> list[dict[str, Any]]: ...
+
+    def rows_for_kinds(self, kinds: Sequence[str]) -> list[dict[str, Any]]: ...
+
+    def delete_expired(self, now: str) -> int: ...
+
+    def stats(self) -> tuple[int, dict[str, int], dict[str, int]]: ...
+
+    def close(self) -> None: ...
+
+
+class _PgBackend:
+    """PostgreSQL 实现(经 `app.core.pg_sync` 同步桥;`?` 占位符由 `PgShim` 翻成 `$n`)。"""
+
+    def __init__(self, dsn: str) -> None:
+        self._session = SyncPgSession(dsn)
+        self._shim = PgShim(self._session)
+        self._shim.executescript(_SCHEMA_DDL)
+
+    def upsert(
+        self, scope: str, cache_key: str, kind: str, created_at: str, expires_at: str | None
+    ) -> None:
+        self._shim.execute(
+            "INSERT INTO approval_grants (scope, cache_key, kind, created_at, expires_at)"
+            " VALUES (?,?,?,?,?) ON CONFLICT (scope, cache_key, kind) DO NOTHING",
+            (scope, cache_key, kind, created_at, expires_at),
+        )
+
+    def find_always(self, cache_key: str, kind: str, now: str) -> bool:
+        row = self._shim.execute(
+            "SELECT 1 FROM approval_grants"
+            " WHERE cache_key=? AND kind=? AND scope='always'"
+            " AND (expires_at IS NULL OR expires_at > ?)",
+            (cache_key, kind, now),
+        ).fetchone()
+        return row is not None
+
+    def find_session_expiry(self, cache_key: str, kind: str) -> tuple[bool, str | None]:
+        row = self._shim.execute(
+            "SELECT expires_at FROM approval_grants"
+            " WHERE cache_key=? AND kind=? AND scope='session'",
+            (cache_key, kind),
+        ).fetchone()
+        if row is None:
+            return False, None
+        return True, row["expires_at"]
+
+    def delete_key(self, cache_key: str, kind: str) -> None:
+        self._shim.execute(
+            "DELETE FROM approval_grants WHERE cache_key=? AND kind=?", (cache_key, kind)
+        )
+
+    def rows_for_kind(self, kind: str) -> list[dict[str, Any]]:
+        rows = self._shim.execute(
+            "SELECT DISTINCT cache_key, scope, expires_at FROM approval_grants WHERE kind=?",
+            (kind,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def rows_for_kinds(self, kinds: Sequence[str]) -> list[dict[str, Any]]:
+        rows = self._shim.execute(
+            "SELECT kind, cache_key, scope, created_at, expires_at FROM approval_grants"
+            f" WHERE kind IN ({','.join('?' for _ in kinds)})",
+            tuple(kinds),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def delete_expired(self, now: str) -> int:
+        return self._shim.execute(
+            "DELETE FROM approval_grants"
+            " WHERE scope='session' AND expires_at IS NOT NULL AND expires_at <= ?",
+            (now,),
+        ).rowcount
+
+    def stats(self) -> tuple[int, dict[str, int], dict[str, int]]:
+        total_row = self._shim.execute("SELECT COUNT(*) AS c FROM approval_grants").fetchone()
+        total = int(total_row["c"]) if total_row is not None else 0
+        by_scope: dict[str, int] = dict.fromkeys(_SCOPES, 0)
+        for row in self._shim.execute(
+            "SELECT scope, COUNT(*) AS c FROM approval_grants GROUP BY scope"
+        ).fetchall():
+            by_scope[row["scope"]] = int(row["c"])
+        by_kind: dict[str, int] = dict.fromkeys(_KINDS, 0)
+        for row in self._shim.execute(
+            "SELECT kind, COUNT(*) AS c FROM approval_grants GROUP BY kind"
+        ).fetchall():
+            by_kind[row["kind"]] = int(row["c"])
+        return total, by_scope, by_kind
+
+    def close(self) -> None:
+        self._shim.close()
+
+
+class _MemoryBackend:
+    """进程内后端:测试隔离用(`set_db_path` 注入的路径只当"新实例"开关,不落任何文件)。"""
+
+    def __init__(self) -> None:
+        self._rows: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    def upsert(
+        self, scope: str, cache_key: str, kind: str, created_at: str, expires_at: str | None
+    ) -> None:
+        self._rows.setdefault(
+            (scope, cache_key, kind),
+            {
+                "scope": scope,
+                "cache_key": cache_key,
+                "kind": kind,
+                "created_at": created_at,
+                "expires_at": expires_at,
+            },
+        )
+
+    def find_always(self, cache_key: str, kind: str, now: str) -> bool:
+        row = self._rows.get((SCOPE_ALWAYS, cache_key, kind))
+        if row is None:
+            return False
+        expires = row["expires_at"]
+        return expires is None or str(expires) > now
+
+    def find_session_expiry(self, cache_key: str, kind: str) -> tuple[bool, str | None]:
+        row = self._rows.get((SCOPE_SESSION, cache_key, kind))
+        if row is None:
+            return False, None
+        expires = row["expires_at"]
+        return True, None if expires is None else str(expires)
+
+    def delete_key(self, cache_key: str, kind: str) -> None:
+        for key in [k for k in self._rows if k[1] == cache_key and k[2] == kind]:
+            del self._rows[key]
+
+    def rows_for_kind(self, kind: str) -> list[dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
+        for row in self._rows.values():
+            if row["kind"] == kind and row["cache_key"] not in out:
+                out[row["cache_key"]] = {
+                    "cache_key": row["cache_key"],
+                    "scope": row["scope"],
+                    "expires_at": row["expires_at"],
+                }
+        return list(out.values())
+
+    def rows_for_kinds(self, kinds: Sequence[str]) -> list[dict[str, Any]]:
+        wanted = set(kinds)
+        return [
+            dict(row)
+            for row in self._rows.values()
+            if row["kind"] in wanted
+        ]
+
+    def delete_expired(self, now: str) -> int:
+        dead = [
+            k
+            for k, row in self._rows.items()
+            if row["scope"] == SCOPE_SESSION
+            and row["expires_at"] is not None
+            and str(row["expires_at"]) <= now
+        ]
+        for k in dead:
+            del self._rows[k]
+        return len(dead)
+
+    def stats(self) -> tuple[int, dict[str, int], dict[str, int]]:
+        by_scope: dict[str, int] = dict.fromkeys(_SCOPES, 0)
+        by_kind: dict[str, int] = dict.fromkeys(_KINDS, 0)
+        for row in self._rows.values():
+            by_scope[row["scope"]] += 1
+            by_kind[row["kind"]] += 1
+        return len(self._rows), by_scope, by_kind
+
+    def close(self) -> None:
+        self._rows.clear()
+
+
+def _approval_dsn() -> str:
+    """审批库的 DSN:`APPROVAL_PG_DSN` 优先,其次 `DATABASE_URL`。"""
+    return (
+        os.environ.get("APPROVAL_PG_DSN", "").strip()
+        or os.environ.get("DATABASE_URL", "").strip()
+    )
+
+
+def _running_under_pytest() -> bool:
+    """是否在 pytest 进程里(本仓铁律:测试一律不得连生产库)。"""
+    import sys
+
+    return "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules
+
+
+def _get_backend() -> _Backend:
+    """惰性返回后端单例。
+
+    选择规则(单一出口,调用方不感知):
+    - pytest 进程 ⇒ 进程内后端(测试连生产库是铁律禁止项,不是偏好);
+    - `set_db_path(...)` 注入过非默认路径 ⇒ 进程内后端(测试隔离,不落文件);
+    - 否则有 DSN ⇒ PostgreSQL;没有 DSN ⇒ 进程内后端(授权丢失=重新弹审批,
+      失效方向是"多要一次审批",不是"多放一次行")。
+    """
+    global _backend
     with _lock:
-        if _conn is None:
-            _conn = _open(_DB_PATH)
-        return _conn
+        if _backend is None:
+            if _DB_PATH != DEFAULT_DB_PATH or _running_under_pytest():
+                _backend = _MemoryBackend()
+            else:
+                dsn = _approval_dsn()
+                _backend = _PgBackend(dsn) if dsn else _MemoryBackend()
+        return _backend
+
 
 
 # ==================== 规范化键辅助 ====================
@@ -326,15 +530,14 @@ def grant(
     ttl_seconds: int | None = None,
     ttl_days: int | None = None,
 ) -> None:
-    """登记一次审批授权(幂等 INSERT OR IGNORE)。
+    """登记一次审批授权(幂等 upsert:同键重复登记不覆盖原行)。
 
     scope: 'session' | 'always';
     cache_key: 规范化键(normalize_exec_key 产物 / 工具名+参数摘要);
-    kind: 'exec_prefix' | 'exec_once' | 'mcp_tool';
+    kind: 'exec_prefix' | 'exec_once' | 'mcp_tool' | 'network';
     ttl_seconds: 仅 session 级有意义,给定则在 created_at 基础上设 expires_at;
     ttl_days: D158(2026-09-28)—— always 级的过期天数(用户批的第四档预填口径:90 天)。
         历史语义保持:两个参数都不给 ⇒ always 仍永久(session 级照旧只认 ttl_seconds)。
-        always 级忽略 ttl(永久)。
     """
     if scope not in _SCOPES:
         raise ValueError(f"非法 scope: {scope!r} (允许: {sorted(_SCOPES)})")
@@ -350,20 +553,8 @@ def grant(
         expires_at = None if (scope == SCOPE_ALWAYS or ttl_seconds is None) else _iso_plus_ttl(
             int(ttl_seconds)
         )
-    conn = _get_conn()
     with _lock:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            conn.execute(
-                "INSERT OR IGNORE INTO approval_grants "
-                "(scope, cache_key, kind, created_at, expires_at) "
-                "VALUES (?,?,?,?,?)",
-                (scope, cache_key, kind, created_at, expires_at),
-            )
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+        _get_backend().upsert(scope, cache_key, kind, created_at, expires_at)
 
 
 def check(cache_key: str, kind: str) -> str | None:
@@ -374,84 +565,48 @@ def check(cache_key: str, kind: str) -> str | None:
         'session' 命中会话授权且未过期;
         None 两 scope 均未命中,或 session 级已过期(过期记录会被顺手删除)。
     """
-    conn = _get_conn()
     now = _now_iso()
     with _lock:
+        backend = _get_backend()
         # always 优先(D158:也给 always 行判过期 —— 只有过期落在 90 天 TTL 上;历史
         # 行 expires_at 为 NULL ⇒ 永不过,语义不变)
-        row = conn.execute(
-            "SELECT 1 FROM approval_grants "
-            "WHERE cache_key=? AND kind=? AND scope='always' "
-            "AND (expires_at IS NULL OR expires_at > ?)",
-            (cache_key, kind, now),
-        ).fetchone()
-        if row is not None:
+        if backend.find_always(cache_key, kind, now):
             return SCOPE_ALWAYS
-        # session:判过期
-        row = conn.execute(
-            "SELECT expires_at FROM approval_grants "
-            "WHERE cache_key=? AND kind=? AND scope='session'",
-            (cache_key, kind),
-        ).fetchone()
-        if row is None:
+        found, expires = backend.find_session_expiry(cache_key, kind)
+        if not found:
             return None
-        expires = row["expires_at"]
         if expires is None or expires > now:
             return SCOPE_SESSION
         # 已过期 → 删
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            conn.execute(
-                "DELETE FROM approval_grants "
-                "WHERE cache_key=? AND kind=? AND scope='session'",
-                (cache_key, kind),
-            )
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+        backend.delete_key(cache_key, kind)
         return None
 
 
 def revoke(cache_key: str, kind: str) -> None:
     """撤销某 cache_key+kind 在两 scope 上的全部授权。"""
-    conn = _get_conn()
     with _lock:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            conn.execute(
-                "DELETE FROM approval_grants WHERE cache_key=? AND kind=?",
-                (cache_key, kind),
-            )
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+        _get_backend().delete_key(cache_key, kind)
 
 
 def list_keys(kind: str) -> list[str]:
     """枚举某 kind 下未过期的全部 cache_key(前缀放行匹配用;未排序)。
 
     session 级已过期记录不返回(但不顺手删,清理走 purge_expired)。
-    查询失败抛sqlite3 异常,由调用方决定降级策略(审批链路必须 fail-closed)。
+    查询失败抛存储异常,由调用方决定降级策略(审批链路必须 fail-closed)。
     """
     if kind not in _KINDS:
         raise ValueError(f"非法 kind: {kind!r} (允许: {sorted(_KINDS)})")
-    conn = _get_conn()
     now = _now_iso()
     with _lock:
-        rows = conn.execute(
-            "SELECT DISTINCT cache_key, scope, expires_at FROM approval_grants WHERE kind=?",
-            (kind,),
-        ).fetchall()
+        rows = _get_backend().rows_for_kind(kind)
     keys: list[str] = []
     for row in rows:
         if row["scope"] == SCOPE_ALWAYS:
-            keys.append(row["cache_key"])
+            keys.append(str(row["cache_key"]))
         else:
             expires = row["expires_at"]
-            if expires is None or expires > now:
-                keys.append(row["cache_key"])
+            if expires is None or str(expires) > now:
+                keys.append(str(row["cache_key"]))
     return keys
 
 
@@ -461,61 +616,27 @@ def list_grant_rows(kinds: Sequence[str]) -> list[dict[str, Any]]:
     返回类型补全泛型参数(守门 35 :458 判 "Missing type arguments for generic type
     ``dict``"):裸 ``dict`` 在 mypy 眼里是 ``dict[Any, Any]``,等于把"这张行的键都是列名
     (str)"这一事实扔掉 —— 调用方(llm.py 的 grants 面板)按 ``row["cache_key"]`` 这类
-    字符串键取值,所以键侧是 **str**,值侧是 sqlite3 的原生列值(int/str/None 混合,时间列
+    字符串键取值,所以键侧是 **str**,值侧是各后端的原生列值(str/None 混合,时间列
     以文本落库且可为 NULL),故取 ``dict[str, Any]`` 而不是编一个假精确的值类型。
     与本文件 ``stats() -> dict[str, Any]`` 同一套投影口径,不新开第三种写法。
 
-    从 llm.py 路由层收编进持久层(2026-10-03):裸 SQL 留在非 sqlite3 文件里会被
-    schema_check 的"按驱动判"规则当成 Postgres 表(approval_grants 在 CI 报
-    exists=False 数据孤岛);SQL 归位到本模块后整文件被驱动判据自然排除,
-    也兑现"单一 DB 路径"的原意 —— SQL 只住在持久层。过期过滤仍以 list_keys
-    权威集为准,本函数只做明细投影,不复制第二份过期判定。
+    过期过滤仍以 list_keys 权威集为准,本函数只做明细投影,不复制第二份过期判定。
     """
-    conn = _get_conn()
     with _lock:
-        rows = conn.execute(
-            "SELECT kind, cache_key, scope, created_at, expires_at FROM approval_grants "
-            f"WHERE kind IN ({','.join('?' for _ in kinds)})",
-            tuple(kinds),
-        ).fetchall()
-    return [dict(row) for row in rows]
+        return _get_backend().rows_for_kinds(kinds)
 
 
 def purge_expired() -> int:
     """清理过期的 session 级记录,返回被删除条数。"""
-    conn = _get_conn()
     now = _now_iso()
     with _lock:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            cur = conn.execute(
-                "DELETE FROM approval_grants "
-                "WHERE scope='session' AND expires_at IS NOT NULL AND expires_at <= ?",
-                (now,),
-            )
-            deleted = cur.rowcount
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
-        return deleted
+        return _get_backend().delete_expired(now)
 
 
 def stats() -> dict[str, Any]:
     """统计:{'total': int, 'byScope': {...}, 'byKind': {...}}。"""
-    conn = _get_conn()
     with _lock:
-        total = conn.execute("SELECT COUNT(*) AS c FROM approval_grants").fetchone()["c"]
-        by_scope: dict[str, int] = dict.fromkeys(_SCOPES, 0)
-        for row in conn.execute(
-            "SELECT scope, COUNT(*) AS c FROM approval_grants GROUP BY scope"
-        ).fetchall():
-            by_scope[row["scope"]] = row["c"]
-        by_kind: dict[str, int] = dict.fromkeys(_KINDS, 0)
-        for row in conn.execute(
-            "SELECT kind, COUNT(*) AS c FROM approval_grants GROUP BY kind"
-        ).fetchall():
-            by_kind[row["kind"]] = row["c"]
+        total, by_scope, by_kind = _get_backend().stats()
     return {
         "total": total,
         "byScope": by_scope,
@@ -527,12 +648,12 @@ def stats() -> dict[str, Any]:
 
 
 def close() -> None:
-    """关闭模块级单例连接(用于进程退出/测试重置)。"""
-    global _conn
+    """关闭模块级单例后端(用于进程退出/测试重置)。"""
+    global _backend
     with _lock:
-        if _conn is not None:
-            _conn.close()
-            _conn = None
+        if _backend is not None:
+            _backend.close()
+            _backend = None
 
 
 __all__ = [
@@ -552,6 +673,7 @@ __all__ = [
     "check",
     "revoke",
     "list_keys",
+    "list_grant_rows",
     "purge_expired",
     "stats",
     "close",

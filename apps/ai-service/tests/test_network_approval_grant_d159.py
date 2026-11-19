@@ -153,10 +153,11 @@ def test_三档_once不落库_session与always各自落(db, env_on):
     assert na.grant_network_target(always_fact, "always") is True
     assert na.check_network_grant(always_fact) == "always"
     # always 的寿命 = 90 天(票面预填口径),落进 expires_at 而不是永久
-    row = db._get_conn().execute(
-        "SELECT expires_at FROM approval_grants WHERE kind='network' AND scope='always'"
-    ).fetchone()
-    assert row is not None and row["expires_at"] is not None
+    # 2026-11-19:审批持久层迁 PG 后不再暴露 `_get_conn`(那是 sqlite 连接形状);
+    # 走公开投影 `rows_for_kinds`,断言的事实(always 行带非空 expires_at)一字不变。
+    rows = [r for r in db._get_backend().rows_for_kinds(["network"]) if r["scope"] == "always"]
+    assert len(rows) == 1
+    assert rows[0]["expires_at"] is not None
     assert na.NETWORK_ALWAYS_TTL_DAYS == 90
 
     assert na.grant_network_target(once, "nonsense-scope") is False

@@ -3,12 +3,10 @@
   "generatedBy": "node scripts/check-sqlite-write-paths.mjs --emit-baseline",
   "face": "HEAD @ 2026-11-19",
   "migrationOrder": [
-    "apps/ai-service/app/services/approval_persistence.py",
     "apps/ai-service/app/services/session_store.py",
     "apps/ai-service/app/services/sso_identity_store.py"
   ],
   "files": {
-    "apps/ai-service/app/services/approval_persistence.py": 1,
     "apps/ai-service/app/services/session_store.py": 1,
     "apps/ai-service/app/services/sso_identity_store.py": 1,
     "apps/ai-service/tests/test_external_browser_profile.py": 1,
@@ -17,7 +15,6 @@
     "apps/ai-service/tests/test_sso_provision_failures.py": 1
   },
   "notes": {
-    "apps/ai-service/app/services/approval_persistence.py": "审批授权跨重启落盘(fail-closed)。迁移门槛最高:必须先双读校验(旧库/新库同读比对一致)再切写。",
     "apps/ai-service/app/services/session_store.py": "会话存储(rollout/turn 切分),字段最多、体量最大,迁移最后一位。",
     "apps/ai-service/app/services/sso_identity_store.py": "SSO 身份与绑定。迁移前备份 + 冻结写入窗口。",
     "apps/ai-service/tests/test_external_browser_profile.py": "测试夹具:构造浏览器 profile 的 sqlite 文件,不是我们的存储。随外部分档格式存在。",

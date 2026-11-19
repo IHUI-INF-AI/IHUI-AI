@@ -163,8 +163,7 @@ class PgShim:
         if head == "SELECT" or " RETURNING " in text.upper():
             rows = self._session.fetchall(text, params)
             return PgCursor(rows)
-        self._session.execute(text, params)
-        return PgCursor([])
+        return PgCursor([], self._session.execute(text, params))
 
     def executescript(self, script: str) -> None:
         for stmt in _split_statements(script):
@@ -175,16 +174,28 @@ class PgShim:
 
 
 class PgCursor:
-    """sqlite 游标的最小形状:`fetchone` / `fetchall`。"""
+    """sqlite 游标的最小形状:`fetchone` / `fetchall` / `rowcount`。
 
-    def __init__(self, rows: Sequence[Any]) -> None:
+    `rowcount` 从 asyncpg 的状态串取尾数(`DELETE 3` / `UPDATE 5`);
+    非计数语句(建表/空串)取 0 —— 取不到就报 0,不编造。
+    """
+
+    def __init__(self, rows: Sequence[Any], status: str = "") -> None:
         self._rows = list(rows)
+        self.rowcount = _status_count(status)
 
     def fetchone(self) -> Any:
         return self._rows[0] if self._rows else None
 
     def fetchall(self) -> list[Any]:
         return list(self._rows)
+
+
+def _status_count(status: str) -> int:
+    tail = status.strip().rsplit(" ", 1)
+    if len(tail) == 2 and tail[1].isdigit():
+        return int(tail[1])
+    return 0
 
 
 def _bind_placeholders(sql: str, n: int) -> str:
@@ -215,6 +226,7 @@ __test__ = {
     "PgCursor": PgCursor,
     "_bind_placeholders": _bind_placeholders,
     "_split_statements": _split_statements,
+    "_status_count": _status_count,
     "USAGE": USAGE,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

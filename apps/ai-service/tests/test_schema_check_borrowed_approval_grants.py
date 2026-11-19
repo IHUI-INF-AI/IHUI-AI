@@ -250,15 +250,17 @@ class TestNoSideEffects:
 
 
 class TestRealAppTree:
-    """现读真实 app 树:approval_grants 归属判对,且 Postgres 覆盖面一枚不减。"""
+    """现读真实 app 树:approval_grants 已迁 PG(2026-11-19),其余归属判对,Postgres 覆盖面一枚不减。"""
 
-    def test_approval_grants_is_a_sqlite_side_asset(self):
+    def test_approval_grants_is_now_a_postgres_table(self):
+        """迁移后的事实:approval_grants 由本服务 PG 自建,必须进 PG 面、且不再算 sqlite 侧资产。"""
         owned = scan_sqlite_owned_tables(APP_DIR)
-        assert "approval_grants" in owned, "建表 DDL 归属量不到 approval_grants"
-        assert owned["approval_grants"].replace("\\", "/").endswith(
-            "services/approval_persistence.py"
-        ), owned["approval_grants"]
-        assert "approval_grants" not in scan_ai_service_sql_tables(APP_DIR)
+        assert "approval_grants" not in owned, (
+            "approval_grants 仍在 sqlite 归属集里 —— 迁移没生效或判据没跟上"
+        )
+        assert "approval_grants" in scan_ai_service_sql_tables(APP_DIR), (
+            "approval_grants 迁 PG 后必须被当成真 PG 表(out of 数据孤岛)"
+        )
 
     def test_postgres_coverage_is_not_reduced_by_the_owner_rule(self):
         """不变量②的现读锚:剔除集与 PG 面零交集,真表照旧在面上。"""
