@@ -159,9 +159,10 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
         reply.status(409).send(error(409, '已发放的周期不可回退状态', 'PAYROLL_PERIOD_PAID_LOCKED'))
         return
       }
+      const changed = { status: parsedStatus.data.status }
       const [updated] = await db
         .update(hrPayrollPeriod)
-        .set({ status: parsedStatus.data.status, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(hrPayrollPeriod.id, period.id))
         .returning()
       reply.send(success(updated))

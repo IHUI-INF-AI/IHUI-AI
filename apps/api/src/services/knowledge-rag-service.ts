@@ -906,9 +906,10 @@ class KnowledgeRagService {
         .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
         .limit(1)
       if (rows.length === 0) return false
+      const changed = { status: 'deleted' }
       await tx
         .update(knowledgeDoc)
-        .set({ status: 'deleted', updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(knowledgeDoc.id, docId))
       await tx.delete(knowledgeChunk).where(eq(knowledgeChunk.docId, docId))
       return true

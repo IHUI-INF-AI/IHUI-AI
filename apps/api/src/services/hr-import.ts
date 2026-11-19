@@ -455,9 +455,10 @@ export async function createImportBatch(params: {
     }
   } catch (err) {
     // 解析失败 → 批次标记 rejected,避免半成品批次挂在 pending
+    const changed = { status: 'rejected' }
     await db
       .update(hrImportBatch)
-      .set({ status: 'rejected', updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(hrImportBatch.id, batch.id))
     logger.error('考勤导入解析失败', { err, batchId: batch.id })
     throw err
@@ -902,9 +903,10 @@ export async function confirmImportBatch(params: {
     }
   }
 
+  const changed = { status: 'verified' }
   await db
     .update(hrImportBatch)
-    .set({ status: 'verified', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(hrImportBatch.id, batchId))
 
   logger.info('考勤导入已确认写入', { batchId, inserted, updated, skipped })
@@ -923,9 +925,10 @@ export async function discardImportBatch(batchId: string): Promise<void> {
   if (batch.status === 'verified') {
     throw new AppError('已写入正式考勤的批次不可作废', 409, 'IMPORT_BATCH_VERIFIED')
   }
+  const changed = { status: 'rejected' }
   await db
     .update(hrImportBatch)
-    .set({ status: 'rejected', updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(hrImportBatch.id, batchId))
 }
 

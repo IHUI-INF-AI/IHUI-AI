@@ -151,9 +151,10 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
           const prevDay = new Date(`${d.effectiveFrom}T00:00:00Z`)
           prevDay.setUTCDate(prevDay.getUTCDate() - 1)
           const prevDayStr = prevDay.toISOString().slice(0, 10)
+          const changed = { effectiveTo: prevDayStr }
           await db
             .update(hrSalaryConfig)
-            .set({ effectiveTo: prevDayStr, updatedAt: new Date() })
+            .set({ ...changed, updatedAt: new Date() })
             .where(
               and(eq(hrSalaryConfig.employeeId, d.employeeId), isNull(hrSalaryConfig.effectiveTo)),
             )

@@ -491,9 +491,10 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedP.success) {
       return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
     }
+    const changed = { status: 'disabled' }
     const [version] = await db
       .update(appVersions)
-      .set({ status: 'disabled', updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(appVersions.id, parsedP.data.id))
       .returning()
     if (!version) {
