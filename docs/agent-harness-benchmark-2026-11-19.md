@@ -82,7 +82,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（5 项，含验证证据）
+## 5. 本次落地（6 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -143,6 +143,13 @@
 - 超越轴：对照件的字符串替换器一次只做一处；本仓的原子多编辑只落一次盘、只留一个检查点快照，失败不产生半改文件。
 
 验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 14 passed`；`pnpm --filter @ihui/api typecheck` exit 0。
+
+### 5.6 前端：`dryRun` / `edits[]` 不再渲染可 Apply 的 diff 卡
+
+- `apps/web/src/components/ai/tool-call-card.tsx` 的 `deriveDiffInfo` 对 `edit_file` 的两类参数返回 `null`：`dryRun: true`（工具承诺不写盘，卡片却给 Apply 入口 ⇒ 用户一点就真落盘，语义相反）、`edits: []` 多编辑（无单一 old/new 可呈现，给 Apply 入口等于凭猜写盘）。
+- 超越轴：对照件的预览能力只在会话内提示，没有"预览态与可写入口"的 UI 分治；本仓把承诺与入口在渲染层解耦，点不动就是写不动。
+
+验证：`vitest run tests/tool-call-card.test.ts` → `Tests 6 passed`；`pnpm --filter @ihui/web typecheck` exit 0。
 
 ## 6. 未落地候选（按 ROI 排序，含不做的理由）
 
