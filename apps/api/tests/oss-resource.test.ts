@@ -15,6 +15,7 @@ vi.mock('../src/plugins/auth.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({ values: mockValues }),
     // createUploadSession 的单用户活跃会话预算查询:无活跃会话

@@ -28,6 +28,7 @@ const hoisted = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve(hoisted.mockSelectRows) }) }),

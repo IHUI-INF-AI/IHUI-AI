@@ -192,6 +192,7 @@ function makeDb() {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: makeDb(),
   dbRead: makeDb(),
   dbClient: {},

@@ -45,6 +45,7 @@ vi.mock('../src/db/gamification-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   dbRead: {
     select: () => ({
       from: (table: unknown) => ({
