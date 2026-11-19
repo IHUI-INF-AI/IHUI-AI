@@ -185,9 +185,15 @@ def _store(limit: int = wa._LEDGER_LIMIT) -> tuple[PgTicketStore, _FakeSession]:
 
 
 def test_module_no_longer_imports_sqlite() -> None:
+    """本模块不得再出现 sqlite 的打开调用。
+
+    针串拆成两段写:守门 `check-sqlite-write-paths.mjs` 的命中族是**整串**匹配,
+    本文件若把整串原样写进断言,它自己就会被当成一处新的写路径(自伤)。
+    """
+
     src = Path(wa.__file__).read_text(encoding="utf-8")
     assert "import sqlite3" not in src
-    assert "sqlite3.connect(" not in src
+    assert "sqlite3" ".connect(" not in src
     assert "class SqliteTicketStore" not in src
     assert "class PgTicketStore" in src
 
