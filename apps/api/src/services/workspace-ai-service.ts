@@ -4539,6 +4539,60 @@ agentLoop.registerTool({
 })
 
 agentLoop.registerTool({
+  name: 'edit_file',
+  description: '在已读过的文件里做唯一匹配替换（oldText 必须唯一命中；先 read_file 观察当前内容）',
+  execute: async (args) => {
+    const path = String(args['path'] ?? '')
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
+    const oldText = String(args['oldText'] ?? '')
+    const newText = String(args['newText'] ?? '')
+    const full = fsBridge.resolvePath(path, workspacePath)
+    if (!existsSync(full)) {
+      return JSON.stringify({
+        ok: false,
+        code: 'FS_NOT_FOUND',
+        error: '目标文件不存在',
+        remedy: '新建文件用 write_file；改已有文件先 read_file 确认路径。',
+      })
+    }
+    if (!oldText) {
+      return JSON.stringify({
+        ok: false,
+        code: 'EDIT_EMPTY_PATTERN',
+        error: 'oldText 不能为空',
+        remedy: '给出要被替换的原文片段（含足够上下文以保证唯一命中）。',
+      })
+    }
+    const current = readFileSync(full, 'utf-8')
+    if (isFsObservationEnforced()) {
+      const denial = fsObservationStore.checkWrite(full, current)
+      if (denial) return JSON.stringify(denial)
+    }
+    const hits = current.split(oldText).length - 1
+    if (hits === 0) {
+      return JSON.stringify({
+        ok: false,
+        code: 'EDIT_NO_MATCH',
+        error: 'oldText 在文件中不存在，拒绝猜测',
+        remedy: '重新 read_file，按当前内容原样复制原文（注意空白与换行）。',
+      })
+    }
+    if (hits > 1) {
+      return JSON.stringify({
+        ok: false,
+        code: 'EDIT_NOT_UNIQUE',
+        error: `oldText 命中 ${hits} 处；只有唯一匹配才允许替换`,
+        remedy: '扩大上下文直到只剩一处命中。',
+      })
+    }
+    const result = fsBridge.edit({ path, workspacePath, oldText, newText })
+    // 改完就是新的观察态：同一文件紧接着再编辑无需重读（内容未变时仍放行）
+    fsObservationStore.observePresent(full, current.replace(oldText, newText))
+    return JSON.stringify(result)
+  },
+})
+
+agentLoop.registerTool({
   name: 'run_command',
   description: '执行命令（沙箱隔离）',
   execute: async (args) => {
