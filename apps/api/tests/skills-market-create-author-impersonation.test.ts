@@ -39,7 +39,18 @@ const { INTERNAL_SECRET } = vi.hoisted(() => ({
 }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({
+  verifyAccessToken: vi.fn(),
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 全体 401。
+  // 测试里给内存假黑名单(has 恒 false),不回退生产语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
+}))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
 }))
