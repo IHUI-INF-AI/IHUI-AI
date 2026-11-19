@@ -36,6 +36,12 @@ GITEE_OWNER = os.environ.get("GITEE_OWNER", "")
 GITEE_TOKEN = os.environ.get("GITEE_TOKEN", "")
 SOURCE_SHA_IN = os.environ.get("SOURCE_SHA", "").strip()
 
+# Gitee 侧网络预算(2026-11-20 立):GitHub 机房到 gitee.com 实测会整段逾时——
+# 旧值单次 300s ⇒ 一次 job 白等 6 分钟仍判"快照失败"。现在单次 60s、最多重试 2 次,
+# 并把"取不到远端"与"被远端拒绝"分开判(见 classify_failure / undetermined)。
+NET_TIMEOUT = int(os.environ.get("GITEE_NET_TIMEOUT", "60"))
+NET_RETRIES = int(os.environ.get("GITEE_NET_RETRIES", "2"))
+
 
 def gitee_url():
     """运行时读 env —— self-test 里临时改 owner 也能生效。"""
@@ -78,6 +84,91 @@ def _out(args, timeout=300):
     return (proc.stdout or "").strip()
 
 
+# ── 失败三态(AGENTS §0.3:取不到输入 ⇒ 未判定,不记绿也不冒红) ──
+# unreachable = 网络层拿不到远端(host 解析/连接/超时/TLS 握手中断/传输截断)。
+#   这类只能判"未判定":远端可能完好,只是这一轮没读到 ⇒ 不得报成"快照失败"。
+# denied      = 远端明确拒绝(鉴权/权限/403/401) ⇒ 真失败,必须红。
+# failed      = 其它确定性失败(引用不一致、内容异常、未知 rc) ⇒ 真失败,必须红。
+DENIED_MARKERS = (
+    "authentication failed", "invalid username or password", "not authorized",
+    "permission denied", "access denied", "could not read username",
+    "denied to user", "permission to ", "protected branch",
+    "401 unauthorized", "403 forbidden", "returned error: 403", "returned error: 401",
+)
+UNREACHABLE_MARKERS = (
+    "could not resolve host", "failed to connect", "connection refused",
+    "connection reset", "connection timed out", "operation timed out",
+    "timed out", "timeout", "early eof", "rpc failed", "the remote end hung up",
+    "network is unreachable", "gnutls_handshake", "tls connection",
+    "ssl connect", "error: 502", "error: 503", "error: 504",
+)
+
+
+def classify_failure(text):
+    """把 git 的失败文本归到三态之一(先鉴权后网络:403 由网关回也可能是鉴权)。"""
+    low = str(text or "").lower()
+    for marker in DENIED_MARKERS:
+        if marker in low:
+            return "denied"
+    for marker in UNREACHABLE_MARKERS:
+        if marker in low:
+            return "unreachable"
+    return "failed"
+
+
+def _tag(msg):
+    """GitHub Actions 注解:未判定走 warning,真失败走 error。"""
+    print(f"::{msg}")
+
+
+def undetermined(reason, what):
+    """网络不可达 ⇒ 显式未判定并正常退出。
+
+    为什么不是"失败":远端仓库可能完全正常,只是这一轮从本机读不到它;
+    把"读不到"报成"快照坏了"会让这条门恒红(AGENTS §12e),也会掩盖下一次真失败。
+    可观测性由 ::warning:: 注解 + step summary 的双重标注保证。
+    """
+    line = (f"[snapshot] 未判定({what}):Gitee 侧本轮不可达 —— 远端未被改写,"
+            f"快照状态未判定(不等于通过)")
+    _tag("warning::" + line)
+    print(f"[snapshot] 失败归类=unreachable 原因={redact(reason)[:400]}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
+    if summary:
+        try:
+            with open(summary, "a", encoding="utf-8") as fh:
+                fh.write("### Gitee 源码只读快照\n")
+                fh.write(f"- 状态: **未判定**(Gitee 不可达,远端未改写)\n")
+                fh.write(f"- 环节: {what}\n")
+        except OSError:
+            pass
+    sys.exit(0)
+
+
+def _git_net(args, timeout=None, retries=None):
+    """带预算的网络操作:返回 (proc, verdict)。
+
+    verdict 为 None ⇒ 成功;否则 (kind, detail),kind 是三态之一。
+    只对 unreachable 重试 —— 鉴权失败重试 3 次没有意义,只会把 job 拖长。
+    """
+    timeout = timeout or NET_TIMEOUT
+    retries = NET_RETRIES if retries is None else retries
+    verdict = None
+    for attempt in range(retries + 1):
+        try:
+            proc = _git(args, timeout)
+        except subprocess.TimeoutExpired:
+            verdict = ("unreachable", f"timeout after {timeout}s")
+        else:
+            if proc.returncode == 0:
+                return proc, None
+            verdict = (classify_failure((proc.stderr or "") + (proc.stdout or "")),
+                       redact((proc.stderr or "") + (proc.stdout or ""))[-800:])
+        if verdict[0] != "unreachable" or attempt == retries:
+            return None, verdict
+        time.sleep(2 * (attempt + 1))
+    return None, verdict
+
+
 def tree_of(rev):
     return _out(["git", "rev-parse", f"{rev}^{{tree}}"])
 
@@ -116,10 +207,9 @@ def push_argv(snapshot_sha):
 
 
 def push_snapshot(snapshot_sha):
-    proc = _git(push_argv(snapshot_sha))
-    if proc.returncode != 0:
-        raise RuntimeError(redact(
-            (proc.stdout or "") + (proc.stderr or ""))[-800:])
+    """推快照:成功返回 None;否则返回 (三态, 详情)。"""
+    _, verdict = _git_net(push_argv(snapshot_sha))
+    return verdict
 
 
 def parse_ls_remote(text):
@@ -131,15 +221,23 @@ def parse_ls_remote(text):
 
 
 def remote_main_sha():
-    return parse_ls_remote(_out(
-        ["git", "ls-remote", gitee_url(), "refs/heads/main"]))
+    """返回 (sha, verdict);拿不到远端时 sha 为 ""、verdict 给出三态。"""
+    proc, verdict = _git_net(["git", "ls-remote", gitee_url(), "refs/heads/main"])
+    if verdict:
+        return "", verdict
+    return parse_ls_remote((proc.stdout or "").strip()), None
 
 
 def remote_subject():
-    """浅取 Gitee main 一个提交,读提交说明(幂等判据用)。"""
-    _out(["git", "fetch", "--no-tags", "--depth=1", gitee_url(),
-          "refs/heads/main"])
-    return _out(["git", "log", "-1", "--format=%s", "FETCH_HEAD"])
+    """浅取 Gitee main 一个提交,读提交说明(幂等判据用)。返回 (subject, verdict)。"""
+    proc, verdict = _git_net(["git", "fetch", "--no-tags", "--depth=1",
+                              gitee_url(), "refs/heads/main"])
+    if verdict:
+        return "", verdict
+    log, log_v = _git_net(["git", "log", "-1", "--format=%s", "FETCH_HEAD"])
+    if log_v:
+        return "", log_v
+    return (log.stdout or "").strip(), None
 
 
 def report(source, snapshot, tree):
@@ -171,16 +269,37 @@ def main():
     snapshot = make_snapshot(tree, source)
     if has_parent(snapshot):
         sys.exit("[snapshot] 生成提交意外带 parent —— 拒绝推送")
-    try:
-        current = remote_main_sha()
-        if current and f"snapshot: {source} @" in remote_subject():
+
+    # 幂等预检。这里分三种:已同步 ⇒ 跳过;拿不到 ⇒ 继续走推送再说;
+    # 被远端明确拒绝 ⇒ 不白推一次,直接按真失败报。
+    current, pre = remote_main_sha()
+    if current:
+        subject, sub_v = remote_subject()
+        if sub_v and sub_v[0] != "unreachable":
+            _tag("error::[snapshot] 预检读不到 Gitee 提交说明(" + sub_v[0] + ")")
+            sys.exit(f"[snapshot] 预检失败({sub_v[0]}):{sub_v[1]}")
+        if subject and f"snapshot: {source} @" in subject:
             print(f"[snapshot] Gitee main 已记录同一来源 {source},跳过推送(幂等)")
             report(source, current, tree)
             return
-    except Exception as e:
-        print(f"[snapshot] 预检未判定(继续推送): {redact(e)}")
-    push_snapshot(snapshot)
-    remote = remote_main_sha()
+    elif pre and pre[0] != "unreachable":
+        _tag("error::[snapshot] 预检被 Gitee 拒绝(" + pre[0] + ")")
+        sys.exit(f"[snapshot] 预检被远端拒绝({pre[0]}):{pre[1]}")
+    elif pre:
+        print(f"[snapshot] 预检未判定(继续尝试推送): {redact(pre[1])[:200]}")
+
+    verdict = push_snapshot(snapshot)
+    if verdict and verdict[0] == "unreachable":
+        undetermined(verdict[1], "force push 快照")
+    if verdict:
+        _tag("error::[snapshot] 推送被 Gitee 拒绝(" + verdict[0] + ")")
+        sys.exit(f"[snapshot] 推送失败({verdict[0]}):{verdict[1]}")
+
+    remote, rv = remote_main_sha()
+    if rv and rv[0] == "unreachable":
+        undetermined(rv[1], "推送后复核 ls-remote")
+    if rv:
+        sys.exit(f"[snapshot] 推送后复核失败({rv[0]}):{rv[1]}")
     if remote != snapshot:
         sys.exit(f"[snapshot] 推送后 Gitee main={remote or '<空>'} 与快照 {snapshot} 不一致")
     report(source, snapshot, tree)
@@ -253,6 +372,45 @@ def self_test():
         assert parse_ls_remote("def456\trefs/heads/other\n") == ""
 
     case("R4 ls-remote 解析只认 refs/heads/main", t4)
+
+    def t5():
+        # 反向:网络层文本必须归 unreachable —— 否则这条门会再变恒红
+        for text in (
+            "fatal: unable to access 'https://gitee.com/x/y.git/': Failed to "
+            "connect to gitee.com port 443 after 60001 ms: Could not connect to server",
+            "error: RPC failed; curl 56 GnuTLS recv error (-110): "
+            "The TLS connection was non-properly terminated.",
+            "fatal: unable to access 'https://gitee.com/x/y.git/': "
+            "The requested URL returned error: 502",
+            "fatal: the remote end hung up unexpectedly",
+            "fatal: unable to access 'https://gitee.com/x/y.git/': Operation timed out",
+        ):
+            assert classify_failure(text) == "unreachable", text
+        # 正向:鉴权/权限/被拒必须归 denied —— 不得被吞成"未判定"
+        for text in (
+            "remote: Permission to x/y.git denied to user.",
+            "fatal: Authentication failed for 'https://gitee.com/x/y.git/'",
+            "fatal: unable to access 'https://gitee.com/x/y.git/': "
+            "The requested URL returned error: 403",
+        ):
+            assert classify_failure(text) == "denied", text
+        # 其它确定性失败仍是 failed
+        assert classify_failure("remote: [hook] rejected by policy") == "failed"
+        assert classify_failure("") == "failed"
+        print("[self-test]   网络类 5 例→unreachable;鉴权类 3 例→denied;其它→failed")
+
+    case("R5 失败三态:网络→unreachable / 鉴权→denied / 其它→failed", t5)
+
+    def t6():
+        code = None
+        try:
+            undetermined("simulated timeout", "self-test")
+        except SystemExit as e:
+            code = e.code
+        assert code == 0, f"未判定必须 exit 0(否则这条门仍恒红),实测 {code}"
+        print("[self-test]   未判定出口 exit 0(catchable,不冒红)")
+
+    case("R6 未判定出口 exit 0:网络不可达不判红", t6)
 
     print(f"[self-test] 全部通过: {len(done)} 项(离线,未联网、未推送)")
 
