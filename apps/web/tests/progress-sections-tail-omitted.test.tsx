@@ -76,6 +76,9 @@ vi.mock('@/components/chat/stream/stream-ui', () => ({
     </div>
   ),
   StreamTag: ({ children }: StubProps) => <span>{children}</span>,
+  // 2026-11-19:消费侧改用 streamKindIcon(kind→图标)取语义图标,替身必须同形补上,
+  // 否则"mock 少一项"会在模块初始化时就崩,断言根本跑不到。
+  streamKindIcon: () => () => <span />,
   useLiveElapsed: () => 0,
   useStreamStatusLabel: () => (status: string) => status,
 }))

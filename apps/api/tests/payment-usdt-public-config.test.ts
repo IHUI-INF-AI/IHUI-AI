@@ -22,6 +22,7 @@ vi.hoisted(() => {
 
 // db mock:public-config 只经 getUsdtPaymentConfig 读 system_configs(空行 ⇒ rate/networks 走默认)
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { insert: () => ({ values: vi.fn().mockResolvedValue(undefined) }) },
   dbRead: {
     select: () => ({

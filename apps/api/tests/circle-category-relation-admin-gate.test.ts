@@ -32,6 +32,7 @@ const h = vi.hoisted(() => {
 
 /** 查询层整体桩掉:insert/delete 返回链的调用次数即"handler 是否真的走到了写库"。 */
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({
       values: (values: Record<string, unknown>) => ({

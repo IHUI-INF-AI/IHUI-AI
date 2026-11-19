@@ -19,6 +19,7 @@ const { dbSelectMock, authenticateMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: dbSelectMock, execute: vi.fn() },
 }))
 vi.mock('../src/plugins/auth.js', () => ({

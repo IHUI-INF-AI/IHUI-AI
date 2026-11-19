@@ -208,18 +208,14 @@ describe('Admin Stats 三聚合端点(dashboard/revenue/users)', () => {
     expect(selectRecords[5]!.groupByCount).toBe(1)
   })
 
-  it('dashboard:查询异常 → 返回零值结构,不 500', async () => {
+  it('dashboard:查询异常 → 显式 500,不伪装成全 0 看板', async () => {
     pushResult(new Error('relation "visit_logs" does not exist'))
     const res = await app.inject({ method: 'GET', url: '/api/admin/stats/dashboard' })
-    expect(res.statusCode).toBe(200)
+    // F-22(2026-07-26):查询失败不再伪装成「全 0 看板」;无数据由 SQL coalesce 与 `?? 0` 表达
+    expect(res.statusCode).toBe(500)
     const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data).toEqual({
-      overview: { pv: 0, uv: 0, orders: 0, revenue: 0 },
-      trend: [],
-      metrics: [],
-      ratios: [],
-    })
+    expect(body.code).toBe(500)
+    expect(body.message).toBe('统计看板查询失败')
   })
 
   // ─────────────────────────────────────────────────────────
@@ -291,26 +287,14 @@ describe('Admin Stats 三聚合端点(dashboard/revenue/users)', () => {
     expect(selectRecords[6]!.groupByCount).toBe(1)
   })
 
-  it('revenue:查询异常 → 返回零值结构,不 500', async () => {
+  it('revenue:查询异常 → 显式 500,不伪装成全 0 营收', async () => {
     pushResult(new Error('DB connection lost'))
     const res = await app.inject({ method: 'GET', url: '/api/admin/stats/revenue' })
-    expect(res.statusCode).toBe(200)
+    // 与 dashboard 同一口径:查询失败按错误面返回,不用假 0 掩盖故障
+    expect(res.statusCode).toBe(500)
     const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data.overview).toEqual({
-      totalRevenue: 0,
-      monthRevenue: 0,
-      todayRevenue: 0,
-      totalOrders: 0,
-      paidOrders: 0,
-      refundAmount: 0,
-      refundCount: 0,
-      netRevenue: 0,
-      arpu: 0,
-    })
-    expect(body.data.trend).toEqual([])
-    expect(body.data.byChannel).toEqual([])
-    expect(body.data.byProduct).toEqual([])
+    expect(body.code).toBe(500)
+    expect(body.message).toBe('营收统计查询失败')
   })
 
   // ─────────────────────────────────────────────────────────

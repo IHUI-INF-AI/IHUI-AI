@@ -51,6 +51,7 @@ vi.mock('../src/plugins/require-permission.js', () => ({
   isSystemAdmin: () => false,
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: mocks.dbExecute,
     select: mocks.dbSelect,

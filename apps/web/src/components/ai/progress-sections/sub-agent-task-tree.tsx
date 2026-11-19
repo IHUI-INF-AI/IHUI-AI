@@ -375,10 +375,13 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             {PHASE_LABEL[subagent.progressPhase]}
           </span>
         )}
-        {/* 改进A:运行时显示实时秒表(liveElapsedMs),结束后显示后端权威 durationMs */}
-        {liveElapsedMs !== null && (
+        {/* 改进A:运行时显示实时秒表(liveElapsedMs),结束后显示后端权威 durationMs。
+            2026-11-19 修:后端一旦给出 durationMs(哪怕 status 还停在 running,例如最后
+            一帧先到耗时、状态帧后到)就以权威值为准 —— 否则会显示本地估算的 "0ms",
+            把真实耗时 1m5s 藏掉。 */}
+        {(subagent.durationMs ?? liveElapsedMs) !== null && (
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
-            {formatDuration(liveElapsedMs)}
+            {formatDuration(subagent.durationMs ?? (liveElapsedMs as number))}
           </span>
         )}
         {subagent.tokenUsage !== undefined && subagent.tokenUsage > 0 && (

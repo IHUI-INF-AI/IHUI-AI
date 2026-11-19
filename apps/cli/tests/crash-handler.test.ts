@@ -15,6 +15,15 @@ const state = vi.hoisted(() => ({
   files: [] as string[],
   mtimeByNum: 0,
   pkgContent: '{"version":"1.0.0-test"}',
+  writes: [] as Array<{ path: string; text: string }>,
+}));
+
+// 2026-11-19:F-008 起 crash log 走唯一私有写入口 writePrivateFile(原子替换 + 0600),
+// 不再直接调 fs.writeFileSync ⇒ 断言面改到这一步,fs 侧只保留目录/清理相关判据。
+vi.mock('../src/lib/private-file.js', () => ({
+  writePrivateFile: vi.fn((p: string, text: string) => {
+    state.writes.push({ path: p, text });
+  }),
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -36,6 +45,7 @@ vi.mock('node:fs', async (importOriginal) => {
 });
 
 import * as fs from 'node:fs';
+import { writePrivateFile } from '../src/lib/private-file.js';
 import { installCrashHandler, uninstallCrashHandler } from '../src/crash-handler.js';
 
 /** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
@@ -57,6 +67,7 @@ describe('crash-handler', () => {
     state.files = [];
     state.mtimeByNum = 0;
     state.pkgContent = '{"version":"1.0.0-test"}';
+    state.writes = [];
 
     initialUncaughtListeners = process.listeners('uncaughtException') as Array<(...args: unknown[]) => void>;
     initialUnhandledListeners = process.listeners('unhandledRejection') as Array<(...args: unknown[]) => void>;
@@ -115,8 +126,8 @@ describe('crash-handler', () => {
   it('handleCrash uncaughtException 写 crash log(路径含 crash-logs + crash-<ts>.log)', () => {
     installCrashHandler();
     process.emit('uncaughtException', new Error('test uncaught'));
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
-    const call = at(vi.mocked(fs.writeFileSync).mock.calls, 0);
+    expect(writePrivateFile).toHaveBeenCalledTimes(1);
+    const call = at(vi.mocked(writePrivateFile).mock.calls, 0);
     expect(String(call[0])).toContain('crash-logs');
     expect(String(call[0])).toMatch(/crash-\d+\.log$/);
   });
@@ -124,8 +135,8 @@ describe('crash-handler', () => {
   it('handleCrash unhandledRejection 写 crash log', () => {
     installCrashHandler();
     process.emit('unhandledRejection', new Error('test rejection'));
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
-    const call = at(vi.mocked(fs.writeFileSync).mock.calls, 0);
+    expect(writePrivateFile).toHaveBeenCalledTimes(1);
+    const call = at(vi.mocked(writePrivateFile).mock.calls, 0);
     expect(String(call[0])).toContain('crash-logs');
     expect(String(call[0])).toMatch(/crash-\d+\.log$/);
   });
@@ -165,7 +176,7 @@ describe('crash-handler', () => {
     const err = new Error('my error message');
     err.stack = 'Error: my error message\n    at foo:1:1';
     process.emit('uncaughtException', err);
-    const content = String(at(at(vi.mocked(fs.writeFileSync).mock.calls, 0), 1));
+    const content = String(at(at(vi.mocked(writePrivateFile).mock.calls, 0), 1));
     expect(content).toContain('my error message');
     expect(content).toContain('Error: my error message');
     expect(content).toContain('at foo:1:1');

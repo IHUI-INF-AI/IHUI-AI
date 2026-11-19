@@ -24,6 +24,7 @@ const selectQueue: unknown[][] = []
 const deleteQueue: unknown[][] = []
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => ({
       from: vi.fn(() => ({

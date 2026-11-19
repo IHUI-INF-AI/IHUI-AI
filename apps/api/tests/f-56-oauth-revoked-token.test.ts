@@ -43,6 +43,7 @@ vi.mock('@ihui/auth', async (importOriginal) => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn() },
   dbRead: { select: vi.fn() },
   dbClient: {},

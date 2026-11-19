@@ -25,6 +25,7 @@ import {
   markSessionLoggedOut,
 } from '@/lib/session-marker'
 import { createPersistConfig, ssrStorage } from './persist-helpers'
+import { resetPrivateSessionState } from './session-private-reset'
 import { createAuthPersistStorage } from '@/lib/chat-persist-crypto'
 import type { PersistStorage } from 'zustand/middleware'
 
@@ -207,6 +208,11 @@ export const useAuthStore = create<AuthState>()(
         // 刷新页面后再登出时 rt 取不到 ⇒ 不调 /auth/logout ⇒ 服务端那份 cookie 仍有效,
         // 冷启动的静默刷新就会把刚点过退出的用户登回去。这条持久标记是客户端唯一的出口。
         markSessionLoggedOut()
+        // Y-91/94/95/106/107/108/109/110/111/112 根治:会话结束的私有持久化清收口。
+        // 必须同步、在任何 await 之前跑(清盘 + 重置已挂载 store 的内存态)—— 登出后是
+        // SPA 内开登录弹窗不 reload,只清盘时任何一次 set 都会把上一用户的数据写回。
+        // 唯一实现 session-private-reset.ts,此处只接线(§0.6 单一真相源)。
+        resetPrivateSessionState()
         const { refreshToken } = get()
         // P2-18:httpOnly cookie 由后端管理,登出必须调后端接口(响应清 cookie);
         // 内存有 refreshToken 时携带 body 吊销,后端同时 clearAuthCookies。
@@ -227,6 +233,9 @@ export const useAuthStore = create<AuthState>()(
         })()
         setAuthCookie(null)
         clearRefreshTokenCookie()
+        // 被动失效同样是"会话结束":换人登录前必须清掉上一用户的私有持久化
+        // (与 logout 同一个清收口,同步先跑,理由见 logout 分支注释)。
+        resetPrivateSessionState()
         set({
           token: null,
           refreshToken: null,

@@ -68,6 +68,31 @@ function findByName(base: string, name: string, depth = 0): string[] {
  * 既能覆盖 `.archify/.../src__acl.ts`(全路径)也能覆盖
  * `G:\\Trae CN\\...\\app(_b_one-ckg.json 取证:...)`(括号内点名)两种写法。
  */
+/**
+ * 第四种证据形态(入库取证档案):`docs/benchmark-evidence/**` 下的 REA 取证报告。
+ *
+ * 为什么需要这一形态(2026-11-19):前三种形态全都依赖**机器本地**产物 —— `.archify/`
+ * 是被 .gitignore 整目录忽略的本地产物、`G:\Trae CN\...` 是取证机上装的目标程序路径。
+ * 换一台干净检出(C17/CI)它们必然不存在,于是"真证据"在干净仓上不可复验,测试只能红。
+ * 而 `docs/benchmark-evidence/` 是把同一批 REA 现场取证**逐字入库**的报告 —— 同样可回读、
+ * 同样能重算 sha256 比对 sha8,且任何检出都能验。
+ *
+ * 与形态③同一条硬判据:文件必须真实存在 ∧ 重算 sha256 前 8 位 == sha8,否则判红。
+ */
+function isBenchmarkDocEvidence(c: ReaCapability['evidence']): boolean {
+  if (!/^docs\/benchmark-evidence\/.*\.md$/.test(c.file)) return false
+  let repoRoot = process.cwd()
+  for (let i = 0; i < 6; i += 1) {
+    if (existsSync(join(repoRoot, 'docs'))) break
+    const parent = dirname(repoRoot)
+    if (parent === repoRoot) break
+    repoRoot = parent
+  }
+  const abs = join(repoRoot, c.file)
+  if (!existsSync(abs)) return false
+  return createHash('sha256').update(readFileSync(abs)).digest('hex').slice(0, 8) === c.sha8
+}
+
 function isSourceForensics(c: ReaCapability['evidence']): boolean {
   // 定位仓内 .archify(从 cwd 向上最多 6 层)
   let repoRoot = process.cwd()
@@ -131,18 +156,21 @@ describe('REA 逆向能力目录 · 数据契约', () => {
       //  ③ .archify   = 本仓 .archify/ 下 REA 对原生模块(dll/exe)或已还原源码的静态取证
       //                 产物(如 deepseek-sandbox-acl-src/*.ts、trae-native-runtime/*.json),
       //                 文件在仓内可回读、sha8 可校验 —— 与 ev_id 同为实测,非臆测。
+      //  ④ docs/benchmark-evidence/**.md = 同一批 REA 现场取证逐字入库的报告(干净检出可复验),见 isBenchmarkDocEvidence
       // 臆测函数名(如 *_impl)三种形态都不匹配 ⇒ 仍被拦。
       const isRealEvidence =
         isEvId(c.evidence.probe) ||
         /unpacked/i.test(c.evidence.probe) ||
         // ③ 第三种形态:.archify 源码级取证,真读仓内文件重算 sha256 比对 sha8
-        isSourceForensics(c.evidence)
+        isSourceForensics(c.evidence) ||
+        // ④ 第四种形态:入库取证档案(docs/benchmark-evidence),同样重算 sha256 比对 sha8
+        isBenchmarkDocEvidence(c.evidence)
       expect(
         isRealEvidence,
         `${c.id}: 非 rea 来源的 evidence 应为 ev_ 取证 id / unpacked 实路径 / .archify 源码取证,实为 probe="${c.evidence.probe}" file="${c.evidence.file}"`,
       ).toBe(true)
       expect(c.evidence.file, `${c.id}: file 应指向 app.asar/unpacked/.archify 取证实路径`).toMatch(
-        /\.(asar|unpacked)?$|\\resources\\app($|\()|unpacked|\.archify|\.[a-z]+\.json|\.[a-z_]+\.ts/i,
+        /\.(asar|unpacked)?$|\\resources\\app($|\()|unpacked|\.archify|\.[a-z]+\.json|\.[a-z_]+\.ts|docs\/benchmark-evidence\/.*\.md/i,
       )
       expect(c.evidence.sha8, `${c.id}: sha8 应为 8 位十六进制`).toMatch(/^[0-9a-f]{8}$/)
     }

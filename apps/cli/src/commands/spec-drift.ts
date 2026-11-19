@@ -770,6 +770,8 @@ export async function loadToolFamilies(): Promise<{ families: ToolFamily[]; load
     ['WORKTREE_TOOLS', async () => import('../tools/worktree.js')],
     // 2026-11-10:新声明三族纳入被审面(此前只在 src/tools 里声明,判据对它们静默失明)。
     ['API_BRIDGE_TOOLS', async () => import('../tools/api-bridge.js')],
+    // 2026-11-19:ai-service 桥族同 API_BRIDGE 同形,但此前只在 src/tools 声明 ⇒ 判据静默失明。
+    ['AI_BRIDGE_TOOLS', async () => import('../tools/ai-bridge.js')],
     ['HR_TOOLS', async () => import('../tools/hr.js')],
     ['RELAY_TOOLS', async () => import('../tools/relay.js')],
     ['AI_TASK_TEMPLATE_TOOLS', async () => import('../tools/ai-task-template-tools.js')],

@@ -28,6 +28,7 @@ vi.mock('../src/plugins/auth.js', () => ({
   authenticate: vi.fn(async () => undefined),
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn(async () => [{ id: 'h1' }]) },
 }))
 vi.mock('@ihui/database', () => ({ zhsUserAgentImage: {} }))

@@ -34,11 +34,17 @@ const { eduMyAttendanceMock, eduAttendanceSelfCheckOutMock } = vi.hoisted(() => 
   eduAttendanceSelfCheckOutMock: vi.fn(),
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  eduMyAttendance: eduMyAttendanceMock,
-  eduAttendanceSelfCheckIn: vi.fn(async () => ({ success: true, data: {} })),
-  eduAttendanceSelfCheckOut: eduAttendanceSelfCheckOutMock,
-}))
+// 按真模块展开再覆盖(只换本页用到的三个端点):本包扩容 setTokenProvider/setBaseUrl 后
+// 手抄工厂会让整条 import 链崩在初始化,断言根本跑不到。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return {
+    ...actual,
+    eduMyAttendance: eduMyAttendanceMock,
+    eduAttendanceSelfCheckIn: vi.fn(async () => ({ success: true, data: {} })),
+    eduAttendanceSelfCheckOut: eduAttendanceSelfCheckOutMock,
+  }
+})
 
 // 取词键名直出:断言落在具体词条上(prevMonth / selfCheckIn / thisMonth)
 vi.mock('next-intl', () => ({

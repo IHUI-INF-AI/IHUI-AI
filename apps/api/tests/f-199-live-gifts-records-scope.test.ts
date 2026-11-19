@@ -34,6 +34,7 @@ function makeChain(rows: unknown[]) {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: mocks.execute, select: mocks.select },
   dbRead: { select: mocks.select, execute: mocks.execute },
 }))

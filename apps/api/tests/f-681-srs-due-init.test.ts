@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { PgDialect } from 'drizzle-orm/pg-core'
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
   dbRead: { select: vi.fn() },
 }))

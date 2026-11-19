@@ -39,6 +39,7 @@ const h = vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { update: () => ({ set: () => ({ where: () => Promise.resolve(undefined) }) }) },
   dbRead: { select: h.dbReadSelect },
 }))

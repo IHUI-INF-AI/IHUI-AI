@@ -36,6 +36,7 @@ vi.mock('../src/plugins/auth.js', () => ({
   requireActiveUser: mocks.requireActiveUser,
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: mocks.dbExecute,
     select: mocks.dbSelect,

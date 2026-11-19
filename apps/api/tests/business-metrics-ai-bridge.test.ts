@@ -31,6 +31,7 @@ const h = vi.hoisted(() => ({
 h.insert.mockImplementation(() => ({ values: h.values }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { insert: h.insert },
   // resolveTenantIdForUser 走 dbRead,返回空数组 ⇒ 租户归集降级为 undefined(不阻塞)
   dbRead: {

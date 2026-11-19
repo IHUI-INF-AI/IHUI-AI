@@ -102,8 +102,8 @@ describe('G-395 effortResolution:请求档 vs 实得档(总是携带)', () => {
 
   it('请求档 ≠ 实得档(非法枚举被容错)⇒ 两者都留痕,请求档原样保留', () => {
     // 模拟运行时从 JSON 收到非法档位(as 绕过编译期类型)
-    const r = resolve({ reasoningEffort: 'ultra' as 'high', persona: 'p1' }, ROLE, PERSONAS)
-    expect(r.effortResolution.requestedEffort).toBe('ultra')
+    const r = resolve({ reasoningEffort: 'turbo' as 'high', persona: 'p1' }, ROLE, PERSONAS)
+    expect(r.effortResolution.requestedEffort).toBe('turbo')
     expect(r.effortResolution.requestedEffortSource?.layer).toBe('explicit')
     expect(r.effortResolution.effectiveEffort).toBe('low')
     expect(r.effortResolution.effectiveEffortSource?.layer).toBe('role')

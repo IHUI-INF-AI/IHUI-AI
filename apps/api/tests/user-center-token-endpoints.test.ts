@@ -58,6 +58,7 @@ vi.mock('../src/db/statistics-queries.js', async (importOriginal) => ({
   getUserCenterStats: async () => ({ courseCount: 12, studyHours: 3.4 }),
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(() => ({})), update: vi.fn(() => ({})), insert: vi.fn(() => ({})) },
   dbRead: { select: vi.fn(() => ({})) },
 }))

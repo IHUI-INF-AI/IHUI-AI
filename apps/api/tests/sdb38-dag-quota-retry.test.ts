@@ -45,6 +45,7 @@ vi.mock('../src/utils/ai-service-fetch.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
     insert: () => ({ values: () => ({ returning: async () => [] }) }),

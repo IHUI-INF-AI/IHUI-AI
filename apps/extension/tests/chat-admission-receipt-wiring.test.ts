@@ -79,7 +79,10 @@ describe('差距① extension 呈现腿', () => {
     expect(PAGE).toMatch(/if \(qid && queuedNoticeRef\.current === qid\) \{/)
     expect(PAGE).toMatch(/setNotice\(''\)/)
     // queued 时登记,其它档清空登记(避免误伤后续 onCompaction 写的 notice)
-    expect(PAGE).toMatch(/queuedNoticeRef\.current = receipt\.disposition === 'queued'/)
+    // 写法允许换行(prettier 会把三目拆行,逐字单行断言会随格式化抖动)
+    expect(PAGE).toMatch(
+      /queuedNoticeRef\.current\s*=\s*[\s\S]{0,40}receipt\.disposition === 'queued'/,
+    )
   })
 
   it('queued 带位次时补文案,缺席不当成 0', () => {
@@ -127,9 +130,9 @@ describe('中间态提示必须有收回出口', () => {
   })
 
   it('清除是条件式的,不无谓重渲(无 retryNotice 时走另一分支)', () => {
-    expect(PAGE).toMatch(
-      /m\.retryNotice \? \{ \.\.\.m, content: m\.content \+ delta, retryNotice: undefined \}/,
-    )
+    // 只钉语义:条件分支存在 ∧ 三处关键片段同在(允许 prettier 拆行)
+    expect(PAGE).toMatch(/m\.retryNotice\s*\?\s*\{/)
+    expect(PAGE).toMatch(/\.\.\.m,\s*content: m\.content \+ delta,\s*retryNotice: undefined/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

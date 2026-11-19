@@ -19,6 +19,7 @@ import type { Order } from '@ihui/database'
 type Row = Record<string, unknown>
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(), update: vi.fn(), insert: vi.fn(), transaction: vi.fn() },
   dbRead: { select: vi.fn() },
 }))

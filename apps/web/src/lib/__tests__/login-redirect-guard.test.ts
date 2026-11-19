@@ -34,7 +34,17 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
-vi.mock('@ihui/api-client', () => ({ refreshAccessTokenOnce: vi.fn(async () => null) }))
+// @ihui/api-client 的工厂必须与实际面同形 —— 但"同形"不靠手抄清单:本包在扩容
+// (setTokenProvider / setBaseUrl …)后会立刻出现"mock 少一项 ⇒ 模块图初始化即崩"。
+// 故按真模块展开再覆盖本测试关心的那两项,后续新增导出自动继承。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return {
+    ...actual,
+    refreshAccessTokenOnce: vi.fn(async () => null),
+    setTokenProvider: vi.fn(),
+  }
+})
 vi.mock('@ihui/shared', () => ({
   buildSsoLoginUrl: () => 'https://aizhs.top/sso/login',
   SSO_CLIENT_IDS: { DESKTOP: 'desktop' },

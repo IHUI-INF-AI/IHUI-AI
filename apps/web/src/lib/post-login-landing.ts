@@ -23,7 +23,8 @@ export interface PostLoginUser {
  * 计算登录成功后的默认落点。
  *
  * - 有显式 redirect 目标(如登录守卫带回的 `/chat/history`)⇒ 原样返回,由调用方走安全判据跳转;
- * - 无显式目标且是管理员(roleId >= 1,与后端 requireAdmin 同口径)⇒ 监控大屏;
+ * - 无显式目标且是管理员(roleId === 1,DBG-23 认口径:与后端 getDataScopeForRole 的 roleId===1 → ALL
+ *   同源;roleId>=1 会把 manager(=2)误判成管理员)⇒ 监控大屏;
  * - 其余(普通用户 / 身份缺失)⇒ null,维持原语义(留在当前页)。
  */
 export function resolvePostLoginLanding(

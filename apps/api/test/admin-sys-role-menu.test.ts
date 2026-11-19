@@ -42,6 +42,7 @@ const { store, extractEqValue } = vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     transaction: async (fn: (tx: unknown) => Promise<void>) => {
       const tx = {

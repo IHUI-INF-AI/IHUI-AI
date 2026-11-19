@@ -10,6 +10,7 @@
 import { describe, expect, it, afterAll, vi } from 'vitest'
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: {},
   dbClient: {},

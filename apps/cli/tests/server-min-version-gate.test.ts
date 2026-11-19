@@ -12,7 +12,7 @@
  *   ③ 比较不受 1.10 / 1.9 影响（逐段整数比，不是字符串比）
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -365,7 +365,12 @@ describe('闸门拦下：可读原因 + 升级出口', () => {
         request: async () => serverBody('9.9.9'),
       });
       expect(writes.join('')).toContain('不能把它覆盖成新结论');
-      expect(readFileSync(file, 'utf-8')).toBe(body);
+      // F-035 定档:坏档**不就地覆盖** —— 原字节改名隔离成 `<名>.corrupt-<ts>.json`,
+      // 再以空基重建新档。故断言"原字节仍完整可读",而不是断言原路径逐字不变。
+      const quarantined = readdirSync(TMP_DIR).filter((n) => n.includes('corrupt-update-check.json.corrupt-'))
+      expect(quarantined.length).toBeGreaterThan(0)
+      const kept = quarantined.map((n) => readFileSync(join(TMP_DIR, n), 'utf-8'))
+      expect(kept).toContain(body);
     } finally {
       stderr.mockRestore();
     }

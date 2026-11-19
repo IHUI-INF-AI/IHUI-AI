@@ -41,7 +41,7 @@ const { INTERNAL_SECRET } = vi.hoisted(() => ({
 }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn() }))
+vi.mock('@ihui/auth', () => ({ verifyAccessToken: vi.fn(), createBlacklist: () => ({ has: async () => false, add: async () => undefined, revoke: async () => undefined }) }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
 }))

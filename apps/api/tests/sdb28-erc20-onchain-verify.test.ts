@@ -26,6 +26,7 @@ const TX_HASH = '0xNewPayment000000000000000000000000000000000000000000000000000
 const AMOUNT = 10.00025
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({ values: vi.fn().mockResolvedValue(undefined) }),
     update: () => ({ set: () => ({ where: () => Promise.resolve(undefined) }) }),

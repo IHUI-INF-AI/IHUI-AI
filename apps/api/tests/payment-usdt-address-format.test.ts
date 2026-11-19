@@ -18,6 +18,7 @@ const { mockInsertValues, mockConfigRows } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({ values: mockInsertValues }),
   },

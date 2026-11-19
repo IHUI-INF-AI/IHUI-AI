@@ -68,7 +68,7 @@ describe('IntelligentAssistant (mobile-rn)', () => {
 
   it('renders welcome text', () => {
     const { getByText } = render(<IntelligentAssistant />, { wrapper })
-    expect(getByText('Hi, 我是您的AI助手小方👋')).toBeTruthy()
+    expect(getByText('Hi, 我是您的AI助手小方')).toBeTruthy()
     expect(getByText('用AI.找AI.学AI到AI智汇社区就够了')).toBeTruthy()
   })
 

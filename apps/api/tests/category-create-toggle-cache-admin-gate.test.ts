@@ -40,6 +40,7 @@ const h = vi.hoisted(() => {
 
 /** 查询层整体桩掉:调用次数即"handler 是否真的走到了写库/读库"的证据。 */
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: {},
   dbClient: {},

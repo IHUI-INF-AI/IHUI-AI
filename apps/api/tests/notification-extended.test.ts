@@ -17,6 +17,15 @@ vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 // 期望 200/201 —— 陈旧的是夹具,不是闸门。这里只把被访问账号换成管理员,
 // 下方 requireAdminRouteGuard 与 TOTP 闸保持原样,一条都没放宽。
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: vi.fn().mockResolvedValue({

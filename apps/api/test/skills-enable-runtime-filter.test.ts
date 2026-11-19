@@ -39,6 +39,7 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn() },
 }))
 

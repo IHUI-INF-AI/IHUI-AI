@@ -27,6 +27,7 @@ const { dbSelect, dbReadSelect, dbInsert, dbDelete } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: (...args: unknown[]) => dbSelect(...args),
     insert: (...args: unknown[]) => dbInsert(...args),

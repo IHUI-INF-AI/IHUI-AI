@@ -55,6 +55,7 @@ const state = vi.hoisted(() => {
   return { queue, writes, dbMock }
 })
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: state.dbMock,
   dbRead: { select: () => state.dbMock.select() },
 }))

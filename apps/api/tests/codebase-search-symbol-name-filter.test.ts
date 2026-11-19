@@ -20,6 +20,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: (q: unknown) => {
       captured.push(renderSql(q))

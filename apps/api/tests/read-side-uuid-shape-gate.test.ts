@@ -120,6 +120,7 @@ const { dbMock, mockAuthenticate, stubs } = vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: dbMock,
   dbRead: dbMock,
   // 部分路由从 index 之外再取一个 client,同样给链式桩
