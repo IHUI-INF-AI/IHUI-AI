@@ -21,6 +21,16 @@ fn main() {
             "git_workspace_status",
             "git_workspace_diff",
             "workspace_index_scan",
+            // 2026-11-19 本机工作区文件通道(工作区=本机目录,与 Qoder/Trae 同构)。
+            // 维护约定同上:本表 ∧ lib.rs 的 invoke_handler ∧ capabilities/default.json 的 allow-* 三处缺一即远程页失效。
+            "workspace_pick_root",
+            "workspace_authorize_root",
+            "workspace_fs_info",
+            "workspace_fs_list",
+            "workspace_fs_read",
+            "workspace_fs_stat",
+            "workspace_fs_write",
+            "workspace_fs_remove",
             "git_channel_info",
             "embedded_browser_open",
             "embedded_browser_close",
