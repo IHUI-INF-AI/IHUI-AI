@@ -95,13 +95,10 @@
       //   · src/lib/py-line-count.ts —— scripts/check-line-split-parity.mjs:54 按路径读取,
       //     再落到临时目录 import(:379-382);而 scripts/** 已在根 ignore 里。
       //     产品侧确实零 import(src/lib/hunk-diff.ts:80 明确注释不与之合并)。
-      //   · src/lib/import-analysis-catalog.generated.ts —— 2026-10-03 下沉到 packages/shared
-      //     之后遗留的旧投影,产品零消费方;但它仍是 scripts/tests/check-declared-shortcuts.test.mjs
-      //     的「产物档真值靶子」(:257 以 git show HEAD: 读它,断言派生产物不采声明)。
-      //     删靶子等于删掉那格判据,故保留文件 + 在此登记。
+      //   · src/lib/import-analysis-catalog.generated.ts 已于 2026-11-19 随合并摘除
+      //     (2026-10-03 下沉 packages/shared 的收尾):文件不在树里,ignore 条目同笔删掉。
       "ignore": [
-        "src/lib/py-line-count.ts",
-        "src/lib/import-analysis-catalog.generated.ts"
+        "src/lib/py-line-count.ts"
       ],
       // 2026-11-04(假债根因,实测 -599 项):entry 是 **override**,不是 merge ——
       // 只写 page/layout 就把 vitest/playwright 插件推断出的测试入口**全覆盖掉**了,
