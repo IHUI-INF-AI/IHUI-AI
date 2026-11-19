@@ -601,6 +601,12 @@ export async function reviseItem(actor: Actor, input: ReviseItemInput): Promise<
   // UPDATE 不带 revision 条件 ⇒ 两名成员同时提交时后写静默覆盖先写、内容丢失。
   const baseRevision = input.expectedRevision !== undefined ? input.expectedRevision : item.revision
 
+  // 读到的版本与调用方基线已不一致 ⇒ 当场 409(真值就在手上,不必等 UPDATE 打空再回查;
+  // 回查只用于"读之后被并发改过"的窄窗口)。
+  if (baseRevision !== item.revision) {
+    throw new RevisionConflictError(item.revision, baseRevision)
+  }
+
   const before = summarize(item.title, item.status, item.content)
   const nextTitle = input.title ?? item.title
   const nextContent = input.content ?? item.content ?? {}
