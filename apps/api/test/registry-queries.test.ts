@@ -59,6 +59,12 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@ihui/database', () => ({
+  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
+  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
+  users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
   registryItems: {
     id: 'id',
     sourceType: 'source_type',
@@ -110,7 +116,21 @@ vi.mock('@ihui/database', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
-  db: { insert: mockDbInsert, delete: mockDbDelete, update: mockDbUpdate },
+  registerPoolTrackerCleanup: vi.fn(),
+  db: {
+    insert: mockDbInsert,
+    delete: mockDbDelete,
+    update: mockDbUpdate,
+    // 2026-11-19 补:F-643 把"存在性判定 + 写入"收进同一个主库事务(db.transaction),
+    // 这里把事务体直接交给回调,tx 的读写口沿用本文件既有的 mock(用例的配置面不变)。
+    transaction: async (cb: (tx: any) => unknown) =>
+      cb({
+        select: mockDbReadSelect,
+        insert: mockDbInsert,
+        delete: mockDbDelete,
+        update: mockDbUpdate,
+      }),
+  },
   dbRead: { select: mockDbReadSelect, execute: mockDbReadExecute },
 }))
 
@@ -279,7 +299,8 @@ describe('Registry DB Queries', () => {
       // existing 查询返回空数组 → 新插入
       const existingChain = makeChain([])
       mockDbReadSelect.mockReturnValueOnce(existingChain)
-      const insertChain = makeChain(undefined)
+      // F-643 起 inserted 由主库原子返回的 xmax 判定 ⇒ 插入链必须回一行 { inserted }
+      const insertChain = makeChain([{ inserted: true }])
       mockDbInsert.mockReturnValueOnce(insertChain)
 
       const raw = {
@@ -311,7 +332,8 @@ describe('Registry DB Queries', () => {
       // existing 查询返回已有记录(version='0.9.0')
       const existingChain = makeChain([{ id: 'item-existing', version: '0.9.0' }])
       mockDbReadSelect.mockReturnValueOnce(existingChain)
-      const insertChain = makeChain(undefined)
+      // 走 onConflictDoUpdate 分支:xmax≠0 ⇒ { inserted: false }
+      const insertChain = makeChain([{ inserted: false }])
       mockDbInsert.mockReturnValueOnce(insertChain)
 
       const raw = {

@@ -99,11 +99,18 @@ vi.mock('../src/db/rbac-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: mockDbExecute },
   dbRead: { select: mockDbReadSelect },
 }))
 
 vi.mock('@ihui/database', () => ({
+  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
+  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
+  users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
   registryItems: {
     id: 'id',
     sourceType: 'source_type',
@@ -124,6 +131,7 @@ vi.mock('../src/db/registry-queries.js', () => ({
 }))
 
 vi.mock('../src/plugins/registry-queue.js', () => ({
+  closeRegistryQueues: vi.fn(async () => {}),
   enqueueManualSync: mockEnqueueManualSync,
   enqueueWebhookSync: mockEnqueueWebhookSync,
   scheduleRegistrySync: mockScheduleRegistrySync,

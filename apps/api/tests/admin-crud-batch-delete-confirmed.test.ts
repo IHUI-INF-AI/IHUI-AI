@@ -57,6 +57,7 @@ const { mockDeleteReturning } = vi.hoisted(() => ({
 // 链式 mock:delete → where → returning(批量与单条删除**都**走这条 —— 2026-09-26 起
 // 单条也取库确认集合,不再依赖"await 非 thenable 对象原样返回"那条旧形态)。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => {
       const step: Record<string, unknown> = {}
