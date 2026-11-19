@@ -26331,11 +26331,7 @@
     "goalArgTitle": "目標參數",
     "loop": "控制目標驅動的迴圈次數",
     "loopArgTitle": "迴圈參數",
-    "plan": "為目前任務產生執行計畫",
-    "act": "直接執行目前任務",
-    "build": "建置並驗證目前專案",
     "review": "審查程式碼變更並提出改善建議",
-    "spec": "為目前功能產生規格文件",
     "permissionAsk": "以詢問模式執行，操作前徵求確認",
     "permissionAuto": "以自動模式執行，自動批准常規操作",
     "permissionFull": "以完整權限模式執行，直接執行所有操作"
