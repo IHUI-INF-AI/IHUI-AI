@@ -210,6 +210,7 @@ function gitWorktreeList(root) {
       cwd: root,
       encoding: 'utf8',
       timeout: 15000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { ok: true, text: out }
   } catch (e) {
