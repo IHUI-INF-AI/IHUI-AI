@@ -26,6 +26,7 @@ import { logger } from '../utils/logger.js'
 import { normalizeModelId } from '@ihui/shared'
 import {
   applyParamOps,
+  isUnsafeParamOpPath,
   validateParamOps,
   type ParamOp,
   type OpContext,
@@ -326,7 +327,13 @@ export async function applyParamOpsToBody(
     if (ops.length === 0) {
       return { body, appliedRules: rules, modified: false }
     }
-    const result: ApplyResult = applyParamOps(body, ops, context)
+    // F-651:运行时兜底 —— 含超上限下标/超段数路径的 op 一律不执行(配置入库闸之外的
+    // 第二道闸:历史配置或旁路写入的脏规则同样不得进补位循环)。
+    const safeOps = ops.filter((op) => !isUnsafeParamOpPath(op?.path))
+    if (safeOps.length === 0) {
+      return { body, appliedRules: rules, modified: false }
+    }
+    const result: ApplyResult = applyParamOps(body, safeOps, context)
     return {
       body: result.request,
       appliedRules: rules,
@@ -364,7 +371,8 @@ export async function dryRunParamOpRule(
   const ctx: OpContext = context ?? {
     model: typeof sampleBody.model === 'string' ? sampleBody.model : undefined,
   }
-  const result = applyParamOps(sampleBody, rule.ops, ctx)
+  const safeOps = rule.ops.filter((op) => !isUnsafeParamOpPath(op?.path))
+  const result = applyParamOps(sampleBody, safeOps, ctx)
   return {
     originalBody: sampleBody,
     modifiedBody: result.request,
@@ -378,6 +386,8 @@ export async function dryRunParamOpRule(
 // =============================================================================
 
 /** 透传 relay-param-ops.ts 的校验函数,避免路由层重复 import。 */
+export { isUnsafeParamOpPath }
+
 export function validateRuleOps(ops: unknown): { valid: boolean; errors: string[] } {
   return validateParamOps(ops)
 }
