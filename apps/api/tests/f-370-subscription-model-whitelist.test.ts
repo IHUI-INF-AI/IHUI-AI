@@ -81,6 +81,7 @@ function txChain(returnValue: unknown) {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: mockDbInsert,
     update: mockDbUpdate,

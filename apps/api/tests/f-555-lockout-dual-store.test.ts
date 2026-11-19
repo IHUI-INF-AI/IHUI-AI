@@ -39,6 +39,18 @@ vi.mock('ioredis', () => {
       redisState.kv.set(key, String(next))
       return next
     }
+    /**
+     * F-557 起"自增 + 首次建 TTL"在 Redis 内由一条 Lua 完成(script 固定两行)。
+     * 假实现按脚本语义复刻:INCR 后仅当 c==1 时 EXPIRE(ARGV[1] 秒)。
+     */
+    async eval(script: string, numKeys: number, key: string, windowSec: number): Promise<number> {
+      if (redisState.down) fail()
+      void script
+      void numKeys
+      const count = await this.incr(key)
+      if (count === 1) await this.expire(key, Number(windowSec))
+      return count
+    }
     async expire(key: string, seconds: number): Promise<number> {
       if (redisState.down) fail()
       redisState.expireAt.set(key, Date.now() + seconds * 1000)

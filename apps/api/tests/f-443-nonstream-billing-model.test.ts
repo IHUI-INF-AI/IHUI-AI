@@ -73,6 +73,7 @@ vi.mock('../src/services/relay-billing-service.js', async (importOriginal) => {
 
 // -------------------------------------------------- v1-public 的其余外部依赖
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn(async () => []),
     select: vi.fn(),
