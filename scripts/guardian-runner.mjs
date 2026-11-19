@@ -7872,6 +7872,32 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- Y-71 临时派生检出寿命闸(2026-11-19 挂 guardian,warn)---
+  // 票面要求「挂 guardian」:门 316 只防新建 worktree,清扫腿只遍历 git worktree list
+  // (孤儿壳不进射程),导致 merge-wt/d1b-wt/ihui-wt-replay 三类临时派生检出长期躺
+  // scratch/D:\DevEnv\Temp。本门量双维度老化(静默≥24h 或账龄≥48h)点名,绝不自动删。
+  {
+    id: '325',
+    label: '⏳ 临时派生检出寿命闸(warn:静默≥24h 或账龄≥48h 点名,孤儿壳单列,不自动回收 —— Y-71)',
+    script: 'check-temp-worktree-lifetime.mjs',
+    args: [],
+    // §12e warn 档:在飞 worktree 不能自动回收,只点名让归属席自决。
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_TEMP_WORKTREE_LIFETIME',
+    // 本门量的是磁盘 worktree 目录老化,不依赖本次提交内容 ⇒ 不设 stagedTriggers,
+    // 走 guardian 周期派发(与 keepalive 一型),不在 pre-commit 阻塞。
+    onFailHint: [
+      '',
+      '  💡 发现有临时派生 git worktree 长期躺在本机 scratch/ 或 D:\\DevEnv\\Temp\\(静默≥24h 或账龄≥48h)。',
+      '     这是 §12d 例外「派生检出到 scratch 用完即 prune」被曲解成「建了不 prune」的残留。',
+      '     处置(本门绝不自动删,归属席自决):',
+      '       git worktree remove --force <path> && git worktree prune',
+      '     若是孤儿壳(目录已删但 git worktree list 仍有条目):git worktree prune',
+      '     单独复现:node scripts/check-temp-worktree-lifetime.mjs [--json]',
+      '     应急跳过(不推荐):HUSKY_SKIP_TEMP_WORKTREE_LIFETIME=1',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
