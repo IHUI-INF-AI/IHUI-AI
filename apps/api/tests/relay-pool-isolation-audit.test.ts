@@ -23,6 +23,7 @@ vi.hoisted(() => {
 
 // 判据单源:computeDeviceCollisions 必须从 poolService.__test__ 取(不抄第二份),这里给回真身的等价桩
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: { select: () => ({ from: () => ({}) }) },
 }))

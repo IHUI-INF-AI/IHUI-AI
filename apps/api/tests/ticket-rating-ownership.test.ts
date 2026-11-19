@@ -45,6 +45,7 @@ vi.mock('../src/db/customer-service-queries.js', () => ({
 
 // 路由模块加载期只用到这两个出口;不建立真实连接。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: {},
   dbReadScoped: {},

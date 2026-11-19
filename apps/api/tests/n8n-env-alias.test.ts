@@ -86,6 +86,7 @@ vi.mock('../src/utils/ssrf-guard.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn(async () => []),
     insert: vi.fn(() => ({ values: insertValuesChainMock })),

@@ -112,6 +112,7 @@ vi.mock('../src/plugins/auth.js', () => ({
 vi.mock('../src/services/agent-service.js', () => svc)
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: dbSpy,
   dbRead: { ...dbSpy },
 }))

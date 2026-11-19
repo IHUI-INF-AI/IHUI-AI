@@ -49,6 +49,7 @@ vi.mock('../src/db/workspace-permission-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       from: () => ({

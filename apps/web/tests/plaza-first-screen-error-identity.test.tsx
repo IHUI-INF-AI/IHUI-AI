@@ -99,10 +99,14 @@ describe('① 广场族唯一出口 helpers.api() 保住失败身份', () => {
     expect(toUserFriendlyMessage(err)).toBe('登录已过期,请重新登录')
   })
 
-  it('反向对照:只取 message 的旧写法(new Error(r.error))必落参数档', () => {
-    // 这一臂就是实拍那句文案的成因:两臂必须不同形,否则本票保住的那一档并不存在。
-    const messageOnly = new Error(REAL_401.error)
-    expect(toUserFriendlyMessage(messageOnly)).toBe('提交的信息有误,请检查后重试')
+  it('反向对照:只取 message 的旧写法(new Error(r.error))落到通用兜底档,与身份档不同形', () => {
+    // 只带原文不带 status 的那条路径。2026-11-19 现读:共享映射器已把
+    // `Invalid or expired token` 按文本认成「登录已过期」档(error-messages.ts 的
+    // ENGLISH_PATTERNS 双向词序)⇒ 旧夹具两臂同形、对照失去分辨力。改用一句
+    // 既非中文、也不命中任何英文模式的原文,才仍然量到"status 是否被真读"。
+    const messageOnly = new Error('Something strange happened here')
+    expect(toUserFriendlyMessage(messageOnly)).toBe('操作失败,请稍后重试')
+    expect(toUserFriendlyMessage(apiFailureToError(REAL_401))).toBe('登录已过期,请重新登录')
     expect(toUserFriendlyMessage(apiFailureToError(REAL_401))).not.toBe(
       toUserFriendlyMessage(messageOnly),
     )

@@ -58,6 +58,7 @@ function appliedRows(): Record<string, unknown>[] {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     update: () => {
       state.updates += 1

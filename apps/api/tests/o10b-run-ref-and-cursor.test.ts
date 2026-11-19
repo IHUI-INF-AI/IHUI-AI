@@ -38,6 +38,7 @@ vi.hoisted(() => {
 
 // 路由图里凡touch到 db 的都打桩(本文件的断言全部走内存 Redis,不需要真库)
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn().mockResolvedValue([]),
     select: vi.fn(),

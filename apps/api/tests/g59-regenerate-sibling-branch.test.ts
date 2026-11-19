@@ -33,6 +33,7 @@ const { mockDb } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: mockDb,
   dbRead: mockDb,
 }))

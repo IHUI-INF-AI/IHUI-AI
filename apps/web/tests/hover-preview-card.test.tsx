@@ -139,8 +139,8 @@ describe('HoverPreviewCard — 样式与定位', () => {
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.className).toContain('rounded-md')
     expect(card.className).toContain('border')
-    expect(card.className).toContain('border-border')
-    expect(card.className).toContain('shadow-md')
+    expect(card.className).toContain('border-stroke-strong')
+    expect(card.className).toContain('shadow-elevation-md')
     expect(card.className).toContain('bg-popover')
   })
 

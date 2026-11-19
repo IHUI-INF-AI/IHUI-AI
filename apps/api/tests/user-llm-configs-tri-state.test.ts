@@ -31,6 +31,7 @@ const insertChain = { values: () => insertChain, returning: () => [{ id: 1 }] }
 let existingRow: Record<string, unknown> | null = null
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       ...selectChain,

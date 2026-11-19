@@ -23,6 +23,7 @@ const { mockExecute, mockTransaction } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: mockExecute,
     transaction: mockTransaction,

@@ -149,6 +149,8 @@ describe('推送设备注册(F-680)', () => {
   })
 
   it('unregister 以 (deviceToken, userId) 命中并置 isActive=false', async () => {
+    // G-998153 起先取现值再按键比较 ⇒ 前置 select 必须回一行活跃设备,否则按"未命中"走 404
+    dbState.selectRows.push([{ id: 'device-1', isActive: true }])
     dbState.updateReturning = [{ id: 'device-1' }]
     const res = await app.inject({
       method: 'POST',

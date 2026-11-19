@@ -147,11 +147,22 @@ describe('G-916415 R1:流失败的错误上报体带帧级 traceId', () => {
 })
 
 describe('挑字段镜像锁(合同面):SSEErrorInfo 字段集 == 上报体白名单', () => {
-  const src = readFileSync(CLIENT_SRC, 'utf8')
+  // 2026-11-19 判据订正:门 103 C1 把流式面(含 SSEErrorInfo)下沉到 src/stream.ts,
+  // client.ts 只剩 `export * from './stream.js'`。镜像锁改在两通路之一成立即可 ——
+  // 自声明 ∨ 通配转出 ∧ stream.ts 真声明(与 web 侧 reasoning-effort 锁同一形状)。
+  const clientSrc = readFileSync(CLIENT_SRC, 'utf8')
+  const STREAM_SRC = fileURLToPath(new URL('../src/stream.ts', import.meta.url))
 
   it('接口存在且字段集与白名单逐一对账(谁动上报体形状谁过锁)', () => {
+    const declaresHere = clientSrc.includes('export interface SSEErrorInfo {')
+    const reExportsAll = /export \* from '\.\/stream\.js'/.test(clientSrc)
+    expect(
+      declaresHere || reExportsAll,
+      'client.ts 既不声明 SSEErrorInfo 也不通配转出 stream.ts',
+    ).toBe(true)
+    const src = readFileSync(STREAM_SRC, 'utf8')
     const start = src.indexOf('export interface SSEErrorInfo {')
-    expect(start, 'client.ts 里找不到 SSEErrorInfo 接口').toBeGreaterThan(0)
+    expect(start, 'stream.ts 里找不到 SSEErrorInfo 接口').toBeGreaterThan(0)
     const end = src.indexOf('\n}', start)
     expect(end, 'SSEErrorInfo 接口块没找到收口').toBeGreaterThan(start)
     const block = src.slice(start, end)

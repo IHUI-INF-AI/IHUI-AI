@@ -45,7 +45,9 @@ import { useIDEWorkspace } from '@/stores/ide-workspace'
 
 // 语义档形状与 STREAM_KIND_ICONS(stream-ui.tsx) 对齐:plan→ListTodo、question→MessageCircleQuestion;
 // subagent/tool/thinking 同款;reference 是 timeline 特有档,保留 FileText。
-const TYPE_ICON: Record<TimelineEventType, React.ComponentType<{ className?: string }>> = {
+/** 图标位还要接收 data-* 标记(测试按 `data-testid="timeline-type-icon"` 定位,不靠 DOM 序) */
+type TypeIconComponent = React.ComponentType<{ className?: string } & Record<string, unknown>>
+const TYPE_ICON: Record<TimelineEventType, TypeIconComponent> = {
   plan: ListTodo,
   subagent: Bot,
   question: MessageCircleQuestion,
@@ -513,7 +515,12 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
         ) : (
           <span className="w-2.5" />
         )}
-        <TypeIcon className={cn('h-3 w-3 shrink-0', typeCls.icon)} aria-hidden />
+        <TypeIcon
+          className={cn('h-3 w-3 shrink-0', typeCls.icon)}
+          data-testid="timeline-type-icon"
+          data-timeline-type={event.type}
+          aria-hidden
+        />
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/90">
           {event.title}
         </span>

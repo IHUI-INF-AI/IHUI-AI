@@ -30,6 +30,7 @@ vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn().mockResolvedValue([]),
     select: vi.fn(),

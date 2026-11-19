@@ -23,6 +23,7 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 import { db } from '../src/db/index.js'
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
 }))
 

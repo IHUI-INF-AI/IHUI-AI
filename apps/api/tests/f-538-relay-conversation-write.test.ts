@@ -197,6 +197,7 @@ const fake = vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: fake.db,
   dbRead: fake.dbRead,
 }))

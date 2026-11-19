@@ -29,6 +29,15 @@ const { mockVerifyAccessToken, mockSelectResult } = vi.hoisted(() => ({
   mockSelectResult: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
@@ -56,6 +65,7 @@ function createChainableMock() {
   return make()
 }
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => createChainableMock()),
     insert: vi.fn(() => ({

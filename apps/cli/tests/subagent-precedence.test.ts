@@ -697,11 +697,11 @@ describe('G-395 effortDowngrade 降档留痕', () => {
   it('非法 explicit 请求档被容错丢弃 → 留痕 requested≠effective,双方出处可见', () => {
     const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
     // 模拟运行时从 JSON 收到非法档位(as 绕过编译期)
-    const overrides = { reasoningEffort: 'ultra' as 'high' }
+    const overrides = { reasoningEffort: 'turbo' as 'high' }
     const result = resolveEffectiveOverrides(overrides, role, {})
     expect(result.reasoningEffort).toBe('low')
     expect(result.effortDowngrade).toBeDefined()
-    expect(result.effortDowngrade!.requested).toBe('ultra')
+    expect(result.effortDowngrade!.requested).toBe('turbo')
     expect(result.effortDowngrade!.effective).toBe('low')
     expect(result.effortDowngrade!.requested).not.toBe(result.effortDowngrade!.effective)
     expect(result.effortDowngrade!.reason).toBe('invalid-enum')
@@ -1000,11 +1000,11 @@ describe('G-395 降档判据镜像(__test__.buildEffortDowngrade 逐臂)', () =>
 
   it('臂 1 invalid-enum:请求档非法枚举 ⇒ 留痕带原始值 + 双方出处,不静默丢弃', () => {
     const trace = precedenceTest.buildEffortDowngrade(
-      { raw: 'ultra', source: explicitSrc },
+      { raw: 'turbo', source: explicitSrc },
       { value: 'low', source: roleSrc },
     )
     expect(trace).toEqual({
-      requested: 'ultra',
+      requested: 'turbo',
       requestedSource: explicitSrc,
       effective: 'low',
       effectiveSource: roleSrc,
@@ -1093,7 +1093,7 @@ describe('G-395 降档判据镜像(__test__.buildEffortDowngrade 逐臂)', () =>
 
   it('留痕开关只静音 stderr 那一行:结构化留痕与生效值一字不变(不构成判定旁路)', () => {
     const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
-    const overrides = { reasoningEffort: 'ultra' as 'high' }
+    const overrides = { reasoningEffort: 'turbo' as 'high' }
     const prev = process.env[CONFIG_TRACE_ENV]
     const writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
     let muted: EffectiveRuntimeConfig | undefined

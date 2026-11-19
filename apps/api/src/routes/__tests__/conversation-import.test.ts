@@ -75,6 +75,12 @@ vi.mock('../../utils/ai-service-fetch.js', () => ({
 // Mock:@ihui/database(列名占位,供 drizzle 操作符引用)
 // ─────────────────────────────────────────────────────────────
 vi.mock('@ihui/database', () => ({
+  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
+  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
+  users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
   chatConversations: {
     id: 'id',
     userId: 'user_id',

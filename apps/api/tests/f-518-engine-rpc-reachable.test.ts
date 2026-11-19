@@ -50,6 +50,7 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(),
     insert: vi.fn(),

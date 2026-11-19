@@ -6,9 +6,13 @@ import { describe, it, expect } from 'vitest'
 import { resolvePostLoginLanding, ADMIN_POST_LOGIN_LANDING } from '../post-login-landing'
 
 describe('resolvePostLoginLanding', () => {
-  it('管理员 + 无显式目标 → 落到监控大屏', () => {
+  it('管理员(roleId===1)+ 无显式目标 → 落到监控大屏', () => {
+    // DBG-23(2026-11-11)把 isAdmin 收敛到 roleId===1,与后端 packages/auth/src/data-scope.ts
+    // (getDataScopeForRole 的 roleId===1 → ALL)同口径;roleId>=1 会把 manager(=2)误判成管理员。
+    // 反向对照:更高的非管理员角色号不再落大屏。
     expect(resolvePostLoginLanding({ roleId: 1 })).toBe(ADMIN_POST_LOGIN_LANDING)
-    expect(resolvePostLoginLanding({ roleId: 9 })).toBe(ADMIN_POST_LOGIN_LANDING)
+    expect(resolvePostLoginLanding({ roleId: 2 })).toBeNull()
+    expect(resolvePostLoginLanding({ roleId: 9 })).toBeNull()
   })
 
   it('role 字符串形态的管理员同样认(与 isAdmin 同口径)', () => {

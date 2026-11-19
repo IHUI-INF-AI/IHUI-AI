@@ -99,6 +99,7 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 }))
 // 路由文件经 admin/_shared.js 间接载入 db(本票不触库,阻断连接池初始化)。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: {},
   dbClient: {},

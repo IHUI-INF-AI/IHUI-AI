@@ -16,6 +16,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(),
     insert: vi.fn(),

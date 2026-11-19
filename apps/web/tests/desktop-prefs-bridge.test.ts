@@ -56,6 +56,7 @@ describe('未就绪 / 浏览器环境 ⇒ 安全默认值,一次 invoke 都不�
     const bridge = await freshBridge()
     expect(bridge.isDesktopPrefsAvailable()).toBe(false)
 
+    // 默认档含 alwaysOnTop(false):契约 2026-11 新增的置顶档,宿主缺省也是 false
     await expect(bridge.getDesktopPrefs()).resolves.toEqual({
       showTrayIcon: true,
       closeBehavior: 'ask',
@@ -63,6 +64,7 @@ describe('未就绪 / 浏览器环境 ⇒ 安全默认值,一次 invoke 都不�
       traySingleClick: 'menu',
       unreadBadge: true,
       trayMenuItems: ['new_chat', 'show', 'hide', 'theme', 'settings', 'update', 'quit'],
+      alwaysOnTop: false,
     })
     await expect(bridge.setDesktopPrefs({ closeBehavior: 'quit' })).resolves.toBeNull()
     await bridge.resolveCloseChoice('hide', true)
@@ -125,6 +127,7 @@ describe('已注入且已就绪 ⇒ 按契约的命令名与参数发出(阳性�
       tray_single_click: 'toggle_window',
       unread_badge: false,
       tray_menu_items: ['theme', 'quit'],
+      always_on_top: true,
     })
     await expect(bridge.getDesktopPrefs()).resolves.toEqual({
       showTrayIcon: false,
@@ -133,6 +136,7 @@ describe('已注入且已就绪 ⇒ 按契约的命令名与参数发出(阳性�
       traySingleClick: 'toggle_window',
       unreadBadge: false,
       trayMenuItems: ['theme', 'quit'],
+      alwaysOnTop: true,
     })
   })
 

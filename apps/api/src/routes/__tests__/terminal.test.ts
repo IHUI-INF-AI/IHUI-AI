@@ -17,6 +17,9 @@ vi.mock('../../plugins/auth.js', () => ({
 
 // mock 终端 service:隔离真实 PTY/SSH,仅测路由层逻辑
 vi.mock('../../services/terminal-service.js', () => ({
+  // 2026-11-19 补:路线用 TERMINAL_HISTORY_PAGE_MAX 做 query 上限校验,
+  // 手抄 mock 缺这条导出会让整文件在加载期崩(vitest "No export defined")
+  TERMINAL_HISTORY_PAGE_MAX: 100,
   createSession: vi.fn(),
   listSessions: vi.fn(),
   resizeSession: vi.fn(),

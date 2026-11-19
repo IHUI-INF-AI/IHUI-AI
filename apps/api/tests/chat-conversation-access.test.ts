@@ -36,6 +36,7 @@ function fakeChain(rowsFor: (table: unknown) => unknown[]) {
 const state = vi.hoisted(() => ({ owned: [] as unknown[], collab: [] as unknown[] }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   dbRead: fakeChain((table) => (table === chatConversations ? state.owned : state.collab)),
 }))
 

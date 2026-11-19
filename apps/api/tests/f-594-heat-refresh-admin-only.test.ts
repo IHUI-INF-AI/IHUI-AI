@@ -82,6 +82,7 @@ vi.mock('../src/plugins/auth.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: dbSelectMock,
     insert: dbInsertMock,

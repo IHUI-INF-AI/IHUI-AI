@@ -40,6 +40,7 @@ const {
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: mockSelect,
     transaction: mockTransaction,

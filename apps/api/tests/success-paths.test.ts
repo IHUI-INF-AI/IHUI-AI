@@ -30,6 +30,15 @@ vi.mock('../src/config/index.js', () => ({
 // Mock @ihui/auth：跳过真实 JWT 签发/验证，返回固定 token 与 payload
 // =============================================================================
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: vi.fn().mockResolvedValue({
@@ -66,6 +75,9 @@ vi.mock('../src/utils/password-crypto.js', () => ({
 // Mock account-lockout：避免 Redis / 进程内计数跨测试用例干扰
 // =============================================================================
 vi.mock('../src/services/account-lockout.js', () => ({
+  // 2026-11-19 补:auth.ts/auth-extended.ts 用 loginRateLimit 生成路由级限流档,
+  // 手抄 mock 缺这条导出会让整包数百用例在模块加载期就崩(vitest "No export defined")。
+  loginRateLimit: (max: number, timeWindow: string) => ({ max, timeWindow }),
   getLockRemainingMs: vi.fn().mockResolvedValue(0),
   recordLoginFailure: vi.fn().mockResolvedValue(3),
   clearLoginFailures: vi.fn().mockResolvedValue(undefined),

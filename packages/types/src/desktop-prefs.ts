@@ -22,7 +22,12 @@ export const DESKTOP_TRAY_SINGLE_CLICKS = ['menu', 'toggle_window'] as const
 export type DesktopCloseBehavior = (typeof DESKTOP_CLOSE_BEHAVIORS)[number]
 export type DesktopTraySingleClick = (typeof DESKTOP_TRAY_SINGLE_CLICKS)[number]
 
-/** 桌面端可漫游的那六个偏好项(与 Rust 侧本地文件里的键位一一对应)。 */
+/** 桌面端可漫游的偏好项(与 Rust 侧本地文件里的键位一一对应)。
+ *
+ * 2026-11-19 补 `alwaysOnTop`:桌面端 2026-11-18 起把「窗口置顶」升格为可持久化偏好
+ * (托盘项 id `always_on_top` + 前端图钉共用同一枚值),web 侧 bridge 的契约已随之加键。
+ * 漫游侧此前仍是六键 ⇒ 读回本地默认档(含该键)会被当成"未知字段"判脏而落 unknown,
+ * 推送也会被服务端 400 拒掉 —— 两处必须同笔改,这里补齐。 */
 export type DesktopPrefs = {
   showTrayIcon: boolean
   closeBehavior: DesktopCloseBehavior
@@ -30,6 +35,7 @@ export type DesktopPrefs = {
   traySingleClick: DesktopTraySingleClick
   unreadBadge: boolean
   trayMenuItems: string[]
+  alwaysOnTop: boolean
 }
 
 /**
@@ -54,6 +60,7 @@ export const DESKTOP_PREFS_KEYS = [
   'traySingleClick',
   'unreadBadge',
   'trayMenuItems',
+  'alwaysOnTop',
 ] as const satisfies readonly (keyof DesktopPrefs)[]
 
 const CLOSE_BEHAVIOR_SET: ReadonlySet<string> = new Set<string>(DESKTOP_CLOSE_BEHAVIORS)
@@ -72,6 +79,8 @@ const rejected = (reason: string): DesktopPrefsCheck => ({ ok: false, reason })
  * 三条刻意的口径:
  * 1. **严格对象**:多余键与缺键都拒。半吊子载荷写进库之后,下一次读的人会以为自己
  *    那份默认值生效了 —— 那正是本仓最高频的"账面绿、实际没人知道发生了什么"。
+ *    唯一例外是 `alwaysOnTop`:它是 2026-11-18 才升格的档,库里存量行(以及还没升级的
+ *    客户端)不带该键;缺失时按 false 补,显式给了就必须是布尔(见下方单条判据)。
  * 2. **不做任何强转**:`"true"` / 数字 / null 都不算布尔,不给默认值兜底。
  * 3. 返回值是**新建的对象**而非入参引用,调用方拿到的东西不会随入参被外部改写。
  */
@@ -107,6 +116,11 @@ export function checkDesktopPrefs(value: unknown): DesktopPrefsCheck {
     if (typeof item !== 'string') return rejected('prefs.trayMenuItems 必须是字符串数组')
     trayMenuItems.push(item)
   }
+  // 2026-11-19 新增的置顶档:宿主缺省 false,但**显式给出的必须是布尔** ——
+  // 缺失时由 Rust 侧 serde default 兜底,漫游侧不发明默认值(与其它布尔档同一条口径)。
+  if (raw.alwaysOnTop !== undefined && typeof raw.alwaysOnTop !== 'boolean') {
+    return rejected('prefs.alwaysOnTop 必须是布尔值')
+  }
 
   // 返回类型标注为 DesktopPrefs:给类型加字段而这里没跟着补 ⇒ tsc 直接红,
   // 不需要再造一层"清单↔类型"断言去兜。
@@ -117,6 +131,7 @@ export function checkDesktopPrefs(value: unknown): DesktopPrefsCheck {
     traySingleClick,
     unreadBadge: raw.unreadBadge,
     trayMenuItems,
+    alwaysOnTop: (raw.alwaysOnTop as boolean | undefined) ?? false,
   }
   return { ok: true, value: value6 }
 }

@@ -61,6 +61,7 @@ vi.mock('../src/utils/n8n-env.js', () => ({
   resolveN8nWebhookUrl: () => undefined,
 }))
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn(async () => ({})),
     select: vi.fn(),

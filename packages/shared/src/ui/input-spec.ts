@@ -32,8 +32,8 @@
  *  - `py-1`(web:14):仅 web。RN 的 `TextInput` 纵向由平台自带行高撑开,再加纵向内边距会与
  *    单点定档的 INPUT_HEIGHT_PX 打架(高度已经被定死,再给 py 是把同一段纵向空间定两次)。
  *    ⇒ 它是 web 的**承载补偿**,不是与 RN 同义的档,按规则6 登记,不下沉。
- *  - `shadow-sm`(web:14):仅 web。控件级投影是 web 视觉通道(见 card.tsx:29-31 的定档注释:
- *    「控件(button/input 的 shadow-sm)与浮层(dialog 的 shadow-lg)不在此列」),
+ *  - `shadow-elevation-sm`(web:14):仅 web。控件级投影是 web 视觉通道(见 card.tsx:29-31 的定档注释:
+ *    「控件(button/input 的 shadow-elevation-sm)与浮层(dialog 的 shadow-lg)不在此列」),
  *    RN 端输入框不带投影通道。
  *  - `w-full`(web:14):web 的块级宽度承载;RN 的 `TextInput` 宽度由父容器决定,无此通道。
  *  - `transition-colors` / `focus-visible:*` / `file:*` / `disabled:*`(web:14):仅 web,
@@ -55,7 +55,7 @@
  *  ⇒ 上述不同形由 parity 基线入账(waivers 之外的锚点登记),不算欠债。
  *
  * 单端档(本票**不收**,逐条登记留痕 —— 免得被"已下沉"的账盖掉):
- *  - `py-1` / `shadow-sm` / `w-full`:见上「承载机制差异」,是 web 的承载补偿与视觉通道,不是同义档。
+ *  - `py-1` / `shadow-elevation-sm` / `w-full`:见上「承载机制差异」,是 web 的承载补偿与视觉通道,不是同义档。
  *  - `placeholderTextColor` / `secureTextEntry` / `keyboardType` / `multiline` / `maxLength`:
  *    RN 端的输入**行为**档,web 端走 HTML input 的原生属性另一条通道 ⇒ 规则6。
  *

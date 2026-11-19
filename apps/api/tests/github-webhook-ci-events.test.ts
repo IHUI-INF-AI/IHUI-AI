@@ -36,6 +36,7 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({ from: () => ({ where: () => Promise.resolve(h.rows) }) }),
     update: () => ({ set: () => ({ where: () => Promise.resolve(undefined) }) }),

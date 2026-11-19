@@ -45,6 +45,7 @@ function queryStub(result: unknown): unknown {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: queryStub([]),
   dbRead: queryStub([]),
   // O4b:路由/服务改从受控出口取数(dbScoped / dbReadScoped),替身必须覆盖同一导出面,
@@ -66,6 +67,12 @@ vi.mock('../src/db/customer-service-queries.js', () => ({
 }))
 // 表结构对象与 SQL 构造器只为让 handler 跑通,不参与鉴权断言
 vi.mock('@ihui/database', () => ({
+  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
+  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
+  users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
   tools: { status: 'status', sortOrder: 'sortOrder', rating: 'rating', category: 'category' },
   messages: {
     senderId: 'sender_id',

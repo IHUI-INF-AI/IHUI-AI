@@ -51,6 +51,15 @@ vi.mock('../src/plugins/ws-helpers.js', () => ({
 }))
 
 vi.mock('@ihui/auth', () => ({
+  // 2026-11-11 fail-closed:getTokenBlacklist() 返回 null 即判已吊销 ⇒ 401。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
   verifyWsToken: vi.fn(async () => null),
   verifyAccessToken: vi.fn(async () => ({ userId: h.userId, roleId: 1 })),
 }))

@@ -18,6 +18,7 @@ const { mockTransaction, mockVerifyCallbackSignature, mockConsumeNotifyNonce } =
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { transaction: mockTransaction },
 }))
 

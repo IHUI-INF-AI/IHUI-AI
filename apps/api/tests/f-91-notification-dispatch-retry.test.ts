@@ -25,6 +25,7 @@ vi.mock('../src/plugins/queue.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn() },
 }))
 

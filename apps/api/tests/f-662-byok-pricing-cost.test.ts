@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
   dbRead: { select: vi.fn() },
   dbClient: {},

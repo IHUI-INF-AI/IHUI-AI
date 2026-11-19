@@ -70,6 +70,7 @@ function makeChain(): Record<string, unknown> {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => makeChain(),
     insert: vi.fn(),

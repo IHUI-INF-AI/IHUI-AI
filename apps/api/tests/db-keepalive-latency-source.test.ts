@@ -32,6 +32,7 @@ import type { ClockSource } from '../src/utils/elapsed-ms.js'
 // 插件主模块 import 时会连带取 db/index.js（建池 + 读 config），测试一律给假导出。
 // 保活定时器在 NODE_ENV=test 下本就不启动（见插件内 isTestEnv），这里只需让模块可加载。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { execute: vi.fn(async () => []) },
   dbClient: { options: { max: 10 } },
 }))

@@ -38,6 +38,7 @@ vi.mock('../src/db/learn-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
 }))
 

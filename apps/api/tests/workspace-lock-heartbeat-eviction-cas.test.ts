@@ -36,6 +36,7 @@ vi.mock('../src/services/agent-sse-bus.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: () => ({
       from: () => ({

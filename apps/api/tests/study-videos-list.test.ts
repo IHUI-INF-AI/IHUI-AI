@@ -47,6 +47,7 @@ vi.mock('../src/db/learn-queries.js', () => ({
 
 // 路由文件顶层 import db / dbRead;整库 mock 成空对象,本测试路径上一句 SQL 都不该发出去
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(() => {
       throw new Error('本测试不应触达 db:取数必须走 learn-queries')

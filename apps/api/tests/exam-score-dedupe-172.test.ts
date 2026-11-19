@@ -18,6 +18,7 @@ import type { ExamQuestion } from '@ihui/database'
 
 // 纯函数不触 DB,但模块顶层 import 了 db / 指标桥接 —— 隔离掉外部依赖。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: vi.fn(),
     insert: vi.fn(),

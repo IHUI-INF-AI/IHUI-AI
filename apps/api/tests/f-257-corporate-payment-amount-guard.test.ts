@@ -79,6 +79,7 @@ const loggerMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: h.db,
   dbRead: { select: vi.fn(), execute: vi.fn() },
   dbClient: {},

@@ -20,6 +20,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 // 被测模块在导入时会拉数据库层;这里整体桩掉,保证本文件零连接。
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {},
   dbRead: {},
 }))
