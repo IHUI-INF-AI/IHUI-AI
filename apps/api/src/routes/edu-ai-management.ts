@@ -49,6 +49,10 @@ import {
 } from '../services/edu-arrear-remind-service.js'
 // normalizeHm = 时刻归一化单源(与排课冲突检测同一把尺,§0.6):考勤规则三个 HH:MM 阈值入参都过它
 import { findScheduleConflicts, normalizeHm } from '../services/edu-schedule-conflict.js'
+// 遗留账段组装已下沉 services/edu-legacy-payment-segment.ts(门 103 C1 收口,2026-11-19):
+// 本文件既在内部调用 `buildLegacySegment`(第 4537 行组装遗留账段),又在末尾按公开面逐名转出 ——
+// 转出的 `export { … } from` 不产生本地绑定,故这里必须有值导入,否则 TS2304/TS18004。
+import { buildLegacySegment } from '../services/edu-legacy-payment-segment.js'
 // =============================================================================
 // 2026-11-08 考勤四缺口补齐(ATT-API 票)新增依赖 —— 三处都是"复用仓内单源,不再造第二份":
 //   · judgeStatus  = 考勤状态判定(present/late/early/absent)的唯一实现,归 ATT-JOB 席;
