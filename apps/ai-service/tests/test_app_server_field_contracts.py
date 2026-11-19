@@ -248,7 +248,7 @@ def test_reference_surface() -> None:
 def test_prose_surface() -> None:
     assert fc.DESCRIPTION_COUNT == fc.DESCRIBED_FIELD_COUNT == 312
     assert fc.DESCRIPTION_OPTIONAL_PREFIX == 59
-    assert fc.DESCRIPTION_WITH_CONDITIONAL == 82
+    assert fc.DESCRIPTION_WITH_CONDITIONAL == 93
     assert fc.DESCRIPTION_MEDIAN_LENGTH == 72
     assert fc.DESCRIPTION_MAX_LENGTH == 726
     assert fc.DESCRIPTION_WITH_CONDITIONAL > fc.DESCRIPTION_OPTIONAL_PREFIX

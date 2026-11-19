@@ -385,12 +385,14 @@ TOP_REF_TARGETS: Final = (
 # ---------------------------------------------------------------- prose surface
 #
 # 312 properties carry a description. 59 begin with "Optional", which states the same fact the
-# nullable union already states — the prose and the type repeat each other. 82 contain a
+# nullable union already states — the prose and the type repeat each other. 93 contain a
 # conditional ("when", "if", "unless", "only"), so behaviour lives in prose rather than in schema.
 # Median length is 72 characters; the longest is 726, which is an essay, not a label.
 DESCRIPTION_COUNT: Final = 312
 DESCRIPTION_OPTIONAL_PREFIX: Final = 59
-DESCRIPTION_WITH_CONDITIONAL: Final = 82
+# Corrected by R133: the first matcher searched for " if " with a leading space and therefore missed
+# every sentence that *starts* with "If". Padding the text before matching finds 93, eleven more.
+DESCRIPTION_WITH_CONDITIONAL: Final = 93
 DESCRIPTION_MEDIAN_LENGTH: Final = 72
 DESCRIPTION_MAX_LENGTH: Final = 726
 
