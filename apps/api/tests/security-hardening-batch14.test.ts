@@ -31,6 +31,7 @@ function chainFor(result: unknown[] = []) {
 const insertedLogs: Array<Record<string, unknown>> = []
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   dbRead: {
     select: vi.fn(() => {
       const chain = chainFor([

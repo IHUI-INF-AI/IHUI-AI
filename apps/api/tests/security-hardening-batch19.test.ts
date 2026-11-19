@@ -20,6 +20,7 @@ const dbMock = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: dbMock.select,
     insert: vi.fn(),
