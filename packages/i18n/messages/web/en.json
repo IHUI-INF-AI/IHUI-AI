@@ -11563,8 +11563,6 @@
     "emptyAnswerFallback": "This turn returned no content",
     "modelRefresh": "Refresh model list",
     "modelRefreshRunning": "Refreshing model list…",
-    "modelUnverified": "Unverified",
-    "modelUnverifiedGroup": "Unverified models ({count})",
     "modelQuotaExhausted": "Quota used up",
     "modelAuthFailed": "Invalid key",
     "modelOffline": "Offline",
