@@ -206,7 +206,7 @@ const MECHANISMS = [
   {
     file: 'packages/app/src/components/TextField.tsx',
     symbol: 'TextField',
-    icon: /borderColor:\s*(?:tk|tokens)\.brand\.DEFAULT\b/,
+    icon: /borderColor:\s*(?:tk|tokens)\.(?:brand\.DEFAULT|stroke\.focus)\b/,
     note: 'RN + 跨端共享屏层:输入框聚焦描边唯一实现(AGENTS §4「唯一例外位」那一档的载体)。判"在位"看的是它确实还把墨档画在聚焦边框上 —— 改成别的档就等于把这条例外位悄悄关掉,而 47 个消费点全都跟着变脸',
   },
 ]
