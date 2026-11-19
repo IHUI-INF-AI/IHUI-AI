@@ -115,6 +115,8 @@ vi.mock('../src/db/chat-queries.js', () => ({
   findConversationsByUser: vi.fn(),
   findConversationById: mockFindConversationById,
   updateConversation: mockUpdateConversation,
+  // 2026-11-13:手动改名要打 titleSource=manual 标 + 留档 originalTitle
+  patchConversationMetadata: vi.fn(async () => undefined),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(async () => 0),
   favoriteConversationsBatch: vi.fn(async () => 0),

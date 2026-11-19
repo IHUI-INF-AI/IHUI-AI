@@ -34,6 +34,8 @@ vi.mock('../../config/index.js', () => ({
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
+    // DB-35:绑定走 phone/email 密文 + 盲索引,写链要有一把 ≥32 字节的密钥
+    CREDENTIALS_ENCRYPTION_KEY: 'test-credentials-encryption-key-32b!',
   },
 }))
 
