@@ -91,6 +91,7 @@ function createFakeTx(selectRows: Row[][], updateRows: Row[][]) {
         p.returning = () => Promise.resolve([])
         return p
       },
+  execute: vi.fn().mockResolvedValue([]),
     }),
   }
   return { tx: tx as unknown as DbTx, updates, inserts }

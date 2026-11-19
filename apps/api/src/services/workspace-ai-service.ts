@@ -4538,11 +4538,30 @@ agentLoop.registerTool({
   },
 })
 
+/** 文件行尾：CRLF 行数多于裸 LF 才算 CRLF（混合文件按多数派处理，不做静默全量改写）。 */
+function detectEol(text: string): '\r\n' | '\n' {
+  const crlf = (text.match(/\r\n/g) ?? []).length
+  const lfOnly = (text.match(/\n/g) ?? []).length - crlf
+  return crlf > lfOnly ? '\r\n' : '\n'
+}
+
+/**
+ * 把片段行尾对齐到文件行尾（只影响比较与写回，不改文件既有基调）。
+ *
+ * 模型给的片段几乎总是 LF，Windows 上被编辑的文件常年是 CRLF：不归一化就会
+ * "片段明明在文件里却报 EDIT_NO_MATCH"。反过来（文件 LF、片段 CRLF）同样归一化。
+ */
+function alignEol(fragment: string, eol: '\r\n' | '\n'): string {
+  const normalized = fragment.replace(/\r\n/g, '\n')
+  return eol === '\r\n' ? normalized.replace(/\n/g, '\r\n') : normalized
+}
+
 agentLoop.registerTool({
   name: 'edit_file',
   description:
     '在已读过的文件里做替换：默认唯一匹配（oldText 必须唯一命中），replaceAll 可整批替换；' +
-    '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘',
+    '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘。' +
+    '行尾自动对齐文件实际 EOL（CRLF 文件可用 LF 片段匹配，写回保持原行尾）',
   execute: async (args) => {
     const path = String(args['path'] ?? '')
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
@@ -4583,12 +4602,19 @@ agentLoop.registerTool({
         remedy: '新建文件用 write_file；改已有文件先 read_file 确认路径。',
       })
     }
-    const current = readFileSync(full, 'utf-8')
+    const currentFull = readFileSync(full, 'utf-8')
     if (isFsObservationEnforced()) {
-      const denial = fsObservationStore.checkWrite(full, current)
+      const denial = fsObservationStore.checkWrite(full, currentFull)
       if (denial) return JSON.stringify(denial)
     }
+    // BOM：UTF-8 带 BOM 的文件（Windows 上 .ps1/.md 常见）首字符是 U+FEFF，
+    // 模型片段不会带它 —— 不剥掉就"第一行明明在却匹配不到"。剥掉比对、写回补回。
+    const hasBom = currentFull.startsWith('\uFEFF')
+    const current = hasBom ? currentFull.slice(1) : currentFull
     // 逐条在内存里推进：任一失败即整批放弃，磁盘上的文件保持原样（原子性）
+    // 行尾对齐：模型给的片段多为 LF，而 Windows 文件常是 CRLF —— 不归一化就是
+    // "片段明明存在却 EDIT_NO_MATCH"。对齐只作用于比较与写回，不改文件既有行尾。
+    const eol = detectEol(current)
     let next = current
     let replacements = 0
     for (let index = 0; index < edits.length; index += 1) {
@@ -4603,7 +4629,9 @@ agentLoop.registerTool({
           remedy: '给出要被替换的原文片段（含足够上下文以保证唯一命中）。',
         })
       }
-      const hits = next.split(edit.oldText).length - 1
+      const alignedOld = alignEol(edit.oldText, eol)
+      const alignedNew = alignEol(edit.newText, eol)
+      const hits = next.split(alignedOld).length - 1
       if (hits === 0) {
         return JSON.stringify({
           ok: false,
@@ -4625,13 +4653,14 @@ agentLoop.registerTool({
         })
       }
       next = edit.replaceAll
-        ? next.split(edit.oldText).join(edit.newText)
-        : next.replace(edit.oldText, edit.newText)
+        ? next.split(alignedOld).join(alignedNew)
+        : next.replace(alignedOld, alignedNew)
       replacements += edit.replaceAll ? hits : 1
     }
-    const changed = next !== current
-    const bytesBefore = Buffer.byteLength(current, 'utf-8')
-    const bytesAfter = Buffer.byteLength(next, 'utf-8')
+    const nextFull = hasBom ? `\uFEFF${next}` : next
+    const changed = nextFull !== currentFull
+    const bytesBefore = Buffer.byteLength(currentFull, 'utf-8')
+    const bytesAfter = Buffer.byteLength(nextFull, 'utf-8')
     if (dryRun) {
       return JSON.stringify({
         ok: true,
@@ -4640,14 +4669,16 @@ agentLoop.registerTool({
         edits: edits.length,
         replacements,
         changed,
+        eol: eol === '\r\n' ? 'crlf' : 'lf',
+        bom: hasBom,
         bytesBefore,
         bytesAfter,
       })
     }
     // 全部编辑在内存里成功后才落一次盘：一次检查点快照 + 一次写入
-    if (changed) fsBridge.write({ path, workspacePath, content: next, createDirs: false })
+    if (changed) fsBridge.write({ path, workspacePath, content: nextFull, createDirs: false })
     // 改完就是新的观察态：同一文件紧接着再编辑无需重读（内容未变时仍放行）
-    fsObservationStore.observePresent(full, next)
+    fsObservationStore.observePresent(full, nextFull)
     return JSON.stringify({
       ok: true,
       path,
@@ -4655,6 +4686,8 @@ agentLoop.registerTool({
       replacements,
       occurrences: replacements,
       changed,
+      eol: eol === '\r\n' ? 'crlf' : 'lf',
+      bom: hasBom,
       bytesBefore,
       bytesAfter,
     })

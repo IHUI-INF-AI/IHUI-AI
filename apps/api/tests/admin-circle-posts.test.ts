@@ -88,6 +88,8 @@ vi.mock('../src/db/community-queries.js', () => ({
   findAsks: vi.fn().mockResolvedValue({ list: [], total: 0 }),
   findCircleById: vi.fn().mockResolvedValue(undefined),
   findPostById: mockFindPostById,
+  // F-176:管理端要看已下架(status!=1)帖子,路由改用不过滤的读函数
+  findPostByIdForAdmin: mockFindPostById,
   updateAsk: vi.fn(),
   updateCircleShowStatus: vi.fn(),
 }))

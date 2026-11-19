@@ -82,7 +82,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（5 项，含验证证据）
+## 5. 本次落地（8 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -143,6 +143,29 @@
 - 超越轴：对照件的字符串替换器一次只做一处；本仓的原子多编辑只落一次盘、只留一个检查点快照，失败不产生半改文件。
 
 验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 14 passed`；`pnpm --filter @ihui/api typecheck` exit 0。
+
+### 5.6 前端：`dryRun` / `edits[]` 不再渲染可 Apply 的 diff 卡
+
+- `apps/web/src/components/ai/tool-call-card.tsx` 的 `deriveDiffInfo` 对 `edit_file` 的两类参数返回 `null`：`dryRun: true`（工具承诺不写盘，卡片却给 Apply 入口 ⇒ 用户一点就真落盘，语义相反）、`edits: []` 多编辑（无单一 old/new 可呈现，给 Apply 入口等于凭猜写盘）。
+- 超越轴：对照件的预览能力只在会话内提示，没有"预览态与可写入口"的 UI 分治；本仓把承诺与入口在渲染层解耦，点不动就是写不动。
+
+验证：`vitest run tests/tool-call-card.test.ts` → `Tests 6 passed`；`pnpm --filter @ihui/web typecheck` exit 0。
+
+### 5.7 `edit_file` 行尾对齐（Windows 真实场景）
+
+- 新增 `detectEol` / `alignEol`：CRLF 行数多于裸 LF 才判 CRLF（混合文件照多数派，不静默全量改写）；比较与写回都按文件行尾对齐，双向成立（LF 片段配 CRLF 文件、CRLF 片段配 LF 文件）；成功与 `dryRun` 回包新增 `eol` 字段。
+- 修的真实故障：Windows 上被编辑的文档常是 CRLF，而模型片段几乎总是 LF ⇒ 「片段明明在文件里却报 `EDIT_NO_MATCH`」。
+- 不是照抄：对照件没有行尾对齐这一层；这是本仓在 Windows 宿主上自行补的边界。
+
+验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 16 passed`；`pnpm --filter @ihui/api typecheck` exit 0。
+
+### 5.8 `edit_file` 保留 BOM（Windows 上 `.ps1`/`.md` 常见）
+
+- 读入时若首字符是 `U+FEFF` 则剥掉再比对（模型片段不会带 BOM），写回时补回：首行不再"明明在文件里却匹配不到"，也不会因一次编辑把 BOM 弄丢（PS 5.1 对无 BOM 的 `.ps1` 按 ANSI 读，BOM 丢失会直接把脚本读成乱码）。
+- 回包新增 `bom` 字段，调用方一眼知道这份文件有没有 BOM。
+- 不是照抄：对照件一律按 UTF-8 直读写，BOM 与 CRLF 都在它们的盲区；这两层是本仓在 Windows 宿主上自补的边界。
+
+验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 17 passed`。
 
 ## 6. 未落地候选（按 ROI 排序，含不做的理由）
 

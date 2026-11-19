@@ -56,6 +56,8 @@ const { mockAuthenticate, mockCheckAuth, edu, ws } = vi.hoisted(() => ({
     updateProject: vi.fn(),
     deleteProject: vi.fn(),
     listFilesByProject: vi.fn(),
+    // F-431:删项目要级联清理回收站 blob ⇒ 路由先列全量文件;默认空集,不触发磁盘动作
+    listAllFilesByProject: vi.fn(async () => []),
     findFileById: vi.fn(),
     findFileByIdIncludeTrashed: vi.fn(),
     createFile: vi.fn(),
