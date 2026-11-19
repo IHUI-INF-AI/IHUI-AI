@@ -83,17 +83,24 @@ vi.mock('@ihui/auth', () => ({
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn(async () => 1),
 }))
-vi.mock('../src/db/index.js', () => ({
-  registerPoolTrackerCleanup: vi.fn(),
-  db: {
+vi.mock('../src/db/index.js', () => {
+  // F-532 起主表插入与审计写入同事务;测试桩把 tx 指回同一套链(全程 mock、不连库)
+  const tx = {
     select: vi.fn(() => makeChain()),
     insert: vi.fn(() => makeChain(true)),
     update: vi.fn(() => makeChain(true)),
     delete: vi.fn(() => makeChain()),
     execute: vi.fn(async () => []),
-  },
-  dbRead: { select: vi.fn(() => makeChain()) },
-}))
+  }
+  return {
+    registerPoolTrackerCleanup: vi.fn(),
+    db: {
+      ...tx,
+      transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
+    },
+    dbRead: { select: vi.fn(() => makeChain()) },
+  }
+})
 
 import { knowledgeTeamRoutes } from '../src/routes/knowledge-team.js'
 
