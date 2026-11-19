@@ -82,7 +82,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（2 项，含验证证据）
+## 5. 本次落地（5 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -116,14 +116,41 @@
 - `vitest run tests/subagent-dispatch-service.test.ts tests/workspace-ai-service-agent-loop-no-simulated-execute.test.ts` → `Tests 27 passed`。
 - `pnpm --filter @ihui/api typecheck` → exit 0（`tsc --noEmit` 两个工程均过）。
 
+### 5.3 `edit_file` 工具（唯一匹配替换 + 读前观察）
+
+- `apps/api/src/services/workspace-ai-service.ts` 新增 `edit_file`：不重读不修改（复用 5.2 的观察态）、唯一匹配才替换、命中 0/多命中分别给 `EDIT_NO_MATCH` / `EDIT_NOT_UNIQUE`，成功走 `fsBridge.edit` 并同步观察态。
+- 超越轴：对照件（dsh 的 str-replace 编辑器）只把"命中一次"作为隐式前提；本仓把命中数、命中位置与补救话术做成结构化回包，模型撞错能自我纠正而不是猜。
+
+验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 8 passed`。
+
+### 5.4 子代理常驻文件租约（`resident_file`）
+
+- 新增 `apps/ai-service/app/services/subagent_resident_lease.py`：
+  - 租约表以「归一化绝对路径（Windows 大小写折叠）」为键，**同一文件同时只允许一个子代理持有**（对照件原文即 `Only one agent may hold a resident lease on a given file at a time`）；释放只认 owner 令牌。
+  - 读取闸：`>256KB` / 非 UTF-8 / 不存在各有独立码，读不到就不租（不假装读过）。
+  - 前缀：说明行 + `tool_context_boundary.scan_and_frame_tool_result` 定界块（常驻文件是外部数据不是指令；刻意不套自定义闭合标签，避免正文里的同名闭合串把包装骗坏）。
+- `mcp_server.orchestrate_agents` 接线：单 agent 与后台两条路径把全文前置进 `user_input`，两条路径都在 `finally` 释放租约；并行 `tasks` 与编排模式显式返回 `RESIDENT_UNSUPPORTED_MODE`（不静默忽略入参）。
+- 超越轴：对照件为"保持前缀缓存热度"服务，但对读完即改的场景没有护栏；本仓把租约与「读前写保护」放在同一套路径尺子上，前缀注入内容本身也过注入扫描与定界。
+
+已知收窄（如实登记）：编排模式（pipeline/debate/vote/critique/decompose/team）与并行 tasks 不支持 resident；`subagent_job` 的 `send` 续跑不会重放 resident 前缀（租约按"每次派发"持有与释放，不按作业生命周期）。
+
+验证：`tests/test_subagent_resident_lease.py` 13 例 + 既有 dispatch 4 文件 51 例全绿；`mypy --strict` 0 错误。
+
+### 5.5 `edit_file` 批量与原子性（replaceAll / edits[] / dryRun）
+
+- `replaceAll: true` 才允许整批替换（未声明仍按唯一匹配拒绝），回包报命中数；`edits[]` 一次提交多条编辑，全部在内存里顺序推进，**任一失败整批不落盘**并回报 `editIndex`；`dryRun` 只预览 `changed` / 替换数 / 字节差，不写盘也不动观察态。
+- 成功回包保留旧契约 `occurrences`，新增 `edits` / `replacements` / `changed` / `bytesBefore` / `bytesAfter`。
+- 超越轴：对照件的字符串替换器一次只做一处；本仓的原子多编辑只落一次盘、只留一个检查点快照，失败不产生半改文件。
+
+验证：`vitest run tests/fs-edit-tool.test.ts` → `Tests 14 passed`；`pnpm --filter @ihui/api typecheck` exit 0。
+
 ## 6. 未落地候选（按 ROI 排序，含不做的理由）
 
-1. **子代理 `resident_file` 缓存租约**（deepseek-tui 证据）：同一文件同时只允许一个 resident lease，子代理系统前缀附加全文以保持前缀缓存热度。IHUI 有 `subagent_jobs`，但无租约与缓存前缀复用。中等成本，收益取决于 provider 是否支持前缀缓存计费。
-2. **远程沙箱后端**（`sandbox_backend/sandbox_url/sandbox_api_key`）：IHUI 只有本地沙箱。上远程执行面属安全边界扩张，需单独评审，不做。
-3. **MCP apps 宿主 + 工件老化**（WorkBuddy）：前端+宿主层大改；IHUI 的 MCP 客户端已可用，宿主 UI 属产品决策，不做。
-4. **ACP 传输协议**（WorkBuddy `acp.js`）：若要对齐外部 Agent Client Protocol 生态再评估；当前无外部需求，不做。
-5. **三级阈值 + cycle restart**：IHUI 已有四道阈值线与 compaction 模块，重复造即违反单一真相源，不做。
-6. **RLM / BM25 周期归档检索 / 前缀缓存统计**：前者复杂度极高、后者是 DeepSeek 专属、中者需先有 cycle 概念，均不做。
+1. **远程沙箱后端**（`sandbox_backend/sandbox_url/sandbox_api_key`）：IHUI 只有本地沙箱。上远程执行面属安全边界扩张，需单独评审，不做。
+2. **MCP apps 宿主 + 工件老化**（WorkBuddy）：前端+宿主层大改；IHUI 的 MCP 客户端已可用，宿主 UI 属产品决策，不做。
+3. **ACP 传输协议**（WorkBuddy `acp.js`）：若要对齐外部 Agent Client Protocol 生态再评估；当前无外部需求，不做。
+4. **三级阈值 + cycle restart**：IHUI 已有四道阈值线与 compaction 模块，重复造即违反单一真相源，不做。
+5. **RLM / BM25 周期归档检索 / 前缀缓存统计**：前者复杂度极高、后者是 DeepSeek 专属、中者需先有 cycle 概念，均不做。
 
 ## 7. Limitations（如实记录，不作安全结论）
 
