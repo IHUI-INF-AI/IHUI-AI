@@ -62,6 +62,7 @@ import { HR_TOOLS } from '../tools/hr.js';
 import { RELAY_TOOLS } from '../tools/relay.js';
 // API 桥工具族(2026-11-09 立):目录检索 + 通用调用,让对话能触达全仓 5514 个端点。
 import { API_BRIDGE_TOOLS } from '../tools/api-bridge.js';
+import { AI_BRIDGE_TOOLS } from '../tools/ai-bridge.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import {
   buildFileEditPreviewEvents,
@@ -528,6 +529,9 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // API 桥(5 枚):api_list_endpoints / api_describe_endpoint / api_read / api_write / api_delete
   // —— 任意端点的检索与调用入口,补上"手写工具没覆盖到的那些业务域"。
   registerTools(API_BRIDGE_TOOLS);
+  // ai-service 桥(5 枚):与 API 桥同形,补上 FastAPI 侧的 682 operation。
+  // 2026-11-19:此前只在 src/tools 声明而**从未注册**,模型完全看不见这一族。
+  registerTools(AI_BRIDGE_TOOLS);
   registerTools(GIT_TOOLS);
   registerTools(FETCH_TOOLS);
   registerTools(WEB_SEARCH_TOOLS);
@@ -672,6 +676,15 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
         const failed = await pluginRegistry.runSetups();
         if (failed.length > 0 && !opts.silent) {
           console.warn(chalk.yellow(`  ⚠ ${failed.length} 个插件 setup 失败:${failed.join(', ')}`));
+        }
+        // 2026-11-19 补:清单 `interfaces[]` 编译出的**接口型工具**必须真的进注册表。
+        // 装载器早已把编译结果放在 `loaded.interfaceTools`(判据单源在 interface-tools.ts),
+        // 但本处一直没消费 —— 于是"插件装上了、接口工具一枚模型也看不到"(守门 132 那一型)。
+        if (loaded.interfaceTools.length > 0) {
+          registerTools(loaded.interfaceTools);
+          if (!opts.silent) {
+            console.info(chalk.dim(`  🔌 插件接口工具 ${loaded.interfaceTools.length} 枚已注册`));
+          }
         }
       }
     } catch {

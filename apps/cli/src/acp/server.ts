@@ -65,6 +65,7 @@ import {
   createGoal,
   loadGoals,
   loadSessionRuntime,
+  listWakeableTurns,
   nextTurnOrdinal,
   upsertGoal,
   upsertTurn,
@@ -73,6 +74,12 @@ import {
   type SessionRuntime,
 } from './turn-store.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
+// 2026-11-19:三个已在权限表(`recovery-policy.ts`)登记却从未注册的只读/闭环方法 ——
+// 调用方拿到的永远是 "Method not found",能力等于没做。这里接上真实实现。
+import { describeOutcome, runGoalLoop, type IterationVerdict } from './goal-loop.js';
+import { BoundaryValidationError } from './boundary-validation.js';
+import { buildChronicle, summarizeChronicle } from './chronicle.js';
+import { planLayers, type WorkflowStep } from './workflow-runtime.js';
 // G-639:取消出口逐未完成的 tool_call 合成各自的 cancelled 帧(不悬空、不整体一帧了事)
 import { synthesizeCancelledToolFrames } from '../stream-cancel-frames.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
@@ -1692,6 +1699,85 @@ export class IhuiAcpAgent {
   }
 
   /**
+   * `x.ai/goal/iterate` — 按逐轮判据驱动目标闭环。
+   *
+   * 判据由调用方逐轮给(`verdicts`),本方法只负责"什么时候停"与状态迁移:
+   * 达成 ⇒ 目标迁 achieved;跑满未达成 ⇒ 目标**保持 active**(未达成不是失败,
+   * 这是 goal-loop 的既定语义,不得在这里私自改成 abandoned)。
+   */
+  async iterateGoal(params: {
+    sessionId: string;
+    goalId: string;
+    maxIterations: number;
+    now?: number;
+    verdicts?: readonly IterationVerdict[];
+  }): Promise<{
+    outcome: { kind: string; iterations: number };
+    goal: GoalRecord;
+    summary: string;
+  }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const goals = loadGoals(params.sessionId);
+    const current = goals.find((g) => g.id === params.goalId);
+    if (!current) throw new Error(`目标 ${params.goalId} 不存在`);
+    const verdicts = params.verdicts ?? [];
+    const at = params.now ?? Date.now();
+    const outcome = await runGoalLoop(
+      { maxIterations: params.maxIterations, now: () => params.now ?? Date.now() },
+      async ({ iteration }) => verdicts[iteration - 1] ?? { done: false },
+    );
+    const summary = describeOutcome(outcome);
+    if (outcome.kind === 'achieved' && current.status === 'active') {
+      const res = applyGoalTransition(current, 'achieved', at, summary);
+      if (res.ok) {
+        upsertGoal(res.next);
+        return { outcome: { kind: outcome.kind, iterations: outcome.iterations }, goal: res.next, summary };
+      }
+    }
+    return { outcome: { kind: outcome.kind, iterations: outcome.iterations }, goal: current, summary };
+  }
+
+  /** `x.ai/turn/parked` — 跨会话捞出"到点可唤醒"的挂起回合(纯读)。 */
+  async listParkedTurns(params: { now?: number }): Promise<{
+    parked: { sessionId: string; turnId: string; reason: string; notBefore: number }[];
+  }> {
+    const now = params.now ?? Date.now();
+    const rows = listWakeableTurns(now);
+    return {
+      parked: rows.map(({ sessionId, turn }) => ({
+        sessionId,
+        turnId: turn.id,
+        reason: turn.wake?.reason ?? '',
+        notBefore: turn.wake?.notBefore ?? 0,
+      })),
+    };
+  }
+
+  /** `x.ai/turn/chronicle` — 会话回合编年史(纯读,不动任何文件)。 */
+  async getTurnChronicle(params: { sessionId: string }): Promise<{
+    events: ReturnType<typeof buildChronicle>;
+    stats: ReturnType<typeof summarizeChronicle>;
+  }> {
+    this.assertSessionOnDisk(params.sessionId);
+    const turns = loadSessionRuntime(params.sessionId).turns;
+    return { events: buildChronicle(turns), stats: summarizeChronicle(turns) };
+  }
+
+  /** `x.ai/workflow/plan` — 纯拓扑校验与分层,不执行任何步骤。 */
+  async planWorkflow(params: { steps: readonly WorkflowStep[] }): Promise<{
+    layers: string[][];
+    layerOf: Record<string, number>;
+    stepCount: number;
+  }> {
+    const plan = planLayers(params.steps);
+    return {
+      layers: plan.layers.map((layer) => [...layer]),
+      layerOf: Object.fromEntries([...plan.layerOf]),
+      stepCount: params.steps.length,
+    };
+  }
+
+  /**
    * 断言会话存在(只要求**磁盘上**存在,不要求已在内存装载)。
    *
    * 为什么不能复用 `requireSession`:那个查的是 `this.sessions`(内存 map),
@@ -1790,9 +1876,23 @@ function rpcMethod<Params, Result>(handler: (params: Params) => Promise<Result>)
  */
 function asRpcError(error: unknown): unknown {
   if (error instanceof acp.RequestError) return error;
+  // result 边界的校验失败 = **服务端**自己产出了不合契约的 payload,不是调用方给错;
+  // 若被下面那条 invalid params 正则吃掉,客户端会去改一个根本没问题的参数。
+  // 故先按类型与 `Invalid ... result` 前缀拦一道,再进通用归类。
+  if (error instanceof BoundaryValidationError) {
+    if (error.boundary === 'result') {
+      return acp.RequestError.internalError({ detail: error.message }, ': invalid result payload');
+    }
+    return acp.RequestError.invalidParams({ detail: error.message }, `: ${error.message}`);
+  }
+  if (/^Invalid .+ result/.test(error instanceof Error ? error.message : String(error))) {
+    return acp.RequestError.internalError({ detail: 'result boundary violation' }, ': invalid result payload');
+  }
   const message = error instanceof Error ? error.message : String(error);
   // 只把"调用方给错了"这一类折成 invalid params;其余保持 internal,不误分类。
-  if (/not found|不存在|不支持|必须|互斥|非法|invalid/i.test(message)) {
+  // 2026-11-19 补「环 / 重复 / 依赖」:编排定义错误(`WorkflowDefinitionError`)同样是
+  // 调用方定义给错,原样折 internal 会让客户端只看到 "Internal error"(门 317 一档)。
+  if (/not found|不存在|不支持|必须|互斥|非法|invalid|环|重复|依赖/i.test(message)) {
     return acp.RequestError.invalidParams({ detail: message }, `: ${message}`);
   }
   return error;
