@@ -352,6 +352,35 @@ pub fn save_prefs_to(path: &Path, prefs: &DesktopPrefs) -> Result<(), IpcError> 
     std::fs::write(path, bytes).map_err(|e| IpcError::from_io("write", path, e))
 }
 
+/// 盘面与归一形态不一致时写回一次(**幂等**,2026-11-19 立)。
+///
+/// 立因:`normalize_prefs` 只在内存生效,盘面永远停在旧形态 —— 后果三条:
+/// ① 盘上事实与界面长期不一致(本机实测:json 里 8 项、菜单里 9 项);
+/// ② 用户手工从 json 删掉某项也删不掉 —— 每次启动归一都补回来,而盘面从不记"已迁移";
+/// ③ 每次启动都重走一遍迁移判据(迁移日志反复出现)。
+///
+/// 判据只一条:盘上解析出的 JSON **整体**与 `prefs` 的序列化结果不等才写。
+/// 读不到/解析失败一律 `Ok(false)` —— 首次运行与"坏盘"归各自的既有路径负责,
+/// 本函数不做半份抢救(与 `load_prefs_from` 同一取舍)。
+pub fn persist_if_changed(path: &Path, prefs: &DesktopPrefs) -> Result<bool, IpcError> {
+    let disk = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(_) => return Ok(false),
+    };
+    let body = disk.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&disk);
+    let disk_value: serde_json::Value = match serde_json::from_slice(body) {
+        Ok(v) => v,
+        Err(_) => return Ok(false),
+    };
+    let want_value =
+        serde_json::to_value(prefs).map_err(|e| IpcError::internal(format!("serialize: {e}")))?;
+    if disk_value == want_value {
+        return Ok(false);
+    }
+    save_prefs_to(path, prefs)?;
+    Ok(true)
+}
+
 // ================== 老用户迁移判据(纯函数)==================
 
 /// 是否把 `launch_minimized` 从 false 迁成 true。三条**同时**成立才迁:
@@ -523,6 +552,62 @@ mod tests {
     }
 
     // ── 3. 不变量 1:无托盘 + hide ⇒ quit(正反成对) ──
+
+    #[test]
+    fn persist_if_changed_writes_once_then_is_idempotent() {
+        let dir = scratch_dir("persist-once");
+        let path = prefs_path_in(&dir);
+        // 旧盘面形态:托盘只有 8 项(缺本版新登记的 always_on_top)
+        let legacy = serde_json::json!({
+            "tray_menu_items": [
+                "new_chat", "show", "hide", "theme", "settings", "update", "relay_switch", "quit"
+            ],
+            "always_on_top": false
+        });
+        std::fs::write(&path, serde_json::to_vec_pretty(&legacy).expect("legacy json"))
+            .expect("write legacy");
+        let loaded = load_prefs_from(&path);
+        assert!(
+            loaded.tray_menu_items.iter().any(|id| id == TRAY_MENU_ALWAYS_ON_TOP_ID),
+            "归一后内存里必须已有本版新项"
+        );
+        assert!(
+            persist_if_changed(&path, &loaded).expect("persist once"),
+            "盘面缺项时必须写回一次(否则用户手工删项永远删不掉、盘面事实与界面长期不一致)"
+        );
+        let text = std::fs::read_to_string(&path).expect("read back");
+        assert!(
+            text.contains(TRAY_MENU_ALWAYS_ON_TOP_ID),
+            "回写后盘面必须出现本版新项"
+        );
+        assert_eq!(
+            load_prefs_from(&path),
+            loaded,
+            "回写后再读必须与归一形态逐字段一致"
+        );
+        assert!(
+            !persist_if_changed(&path, &loaded).expect("persist twice"),
+            "盘面已是归一形态时不得再写(幂等)"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn persist_if_changed_leaves_absent_and_corrupt_files_alone() {
+        let dir = scratch_dir("persist-skip");
+        // 文件不存在 ⇒ 不写(首次运行归首次运行那条路径)
+        let path = prefs_path_in(&dir);
+        assert!(!persist_if_changed(&path, &normalize_prefs(DesktopPrefs::default()))
+            .expect("absent"));
+        assert!(!path.exists(), "不存在时不得凭空创建文件");
+        // 坏盘 ⇒ 返回 false 且不改写(半份抢救不在本函数)
+        std::fs::write(&path, b"{ this is not json").expect("write corrupt");
+        let before = std::fs::read(&path).expect("read before");
+        assert!(!persist_if_changed(&path, &normalize_prefs(DesktopPrefs::default()))
+            .expect("corrupt"));
+        assert_eq!(std::fs::read(&path).expect("read after"), before, "坏盘不得被本函数改写");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn invariant1_no_tray_with_hide_becomes_quit() {
