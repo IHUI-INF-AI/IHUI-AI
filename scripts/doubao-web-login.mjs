@@ -397,9 +397,12 @@ async function main() {
         process.stdout.write('⬆️ 登录完成,开始入池(全号命名/永久保活/自动签到/自动推生产)…\n')
         const r = spawnSync(process.execPath, args, {
           cwd: ROOT,
-          stdio: 'inherit',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
           windowsHide: true,
         })
+        if (r.stdout) process.stdout.write(r.stdout)
+        if (r.stderr) process.stderr.write(r.stderr)
         imported = r.status === 0
         if (!imported) {
           process.stderr.write(`❌ 入池失败(exit ${r.status ?? 'unknown'})\n`)

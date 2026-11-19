@@ -7,7 +7,7 @@
 // 导入它时拿到的是 client reference,运行期 `ADMIN_NAV_GROUPS.map is not a function`,
 // 使 /n8n-agents 等页面在 "collect page data" 阶段构建失败。数据与组件分层后两侧都能拿到真实值。
 
-import * as React from 'react'
+import type * as React from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -99,7 +99,7 @@ import {
   ShieldAlert,
   ScanSearch,
   Tags,
-  HardDriveDownload
+  HardDriveDownload,
 } from 'lucide-react'
 
 export interface AdminNavItem {

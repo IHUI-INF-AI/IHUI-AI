@@ -97,8 +97,14 @@ export const HUB_TOKENS = {
   sectionCount: SECTION_COUNT,
   /** 卡片网格:手机 1 列 → 平板 2 列 → 桌面 3 列 → 宽屏 4 列 */
   grid: 'grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
-  /** 单张入口卡片 */
-  card: 'group flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+  /**
+   * 单张入口卡片。
+   * 2026-11-19:浮起不再端内手写(原 `transition-all duration-150 hover:-translate-y-0.5
+   * hover:shadow-md` 是守门 287 点名的散写数值)—— 改挂单一源头 `.ui-lift`
+   * (globals.css 的 --lift-scale / --lift-offset + --shadow-elevation-lg)。
+   * 显式挂类而不是只靠"main 内 bg-card 自动浮"那条选择器:本组件也可能被非 main 容器渲染。
+   */
+  card: 'ui-lift group flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
   /** 卡片图标砖:几何走 ICON_BRICK,与父项表头同尺寸 */
   cardIcon: `${ICON_BRICK} bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary`,
   cardGlyph: ICON_GLYPH,
@@ -108,7 +114,7 @@ export const HUB_TOKENS = {
   cardArrow:
     'h-4 w-4 shrink-0 -translate-x-1 text-muted-foreground/40 opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 group-hover/parent:translate-x-0 group-hover/parent:opacity-100',
   /** 带 children 的父项面板 */
-  parentPanel: 'rounded-xl border border-border/70 bg-muted/30 p-2.5 sm:p-3',
+  parentPanel: 'rounded-xl border border-stroke-default bg-muted/30 p-2.5 sm:p-3',
   /** 父项表头:gap-3 与普通卡片一致,图标砖 36×36 同档 */
   parentLink:
     'group/parent flex items-center gap-3 rounded-lg px-1 py-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

@@ -322,7 +322,9 @@ export function Sag2Screen({
         <BackChevron onPress={onBack} colorScheme={colorScheme} />
         <Text style={styles.navTitle}>{t('sag2Lexical.title')}</Text>
       </View>
-      {error ? <ErrorState message={error} colorScheme={colorScheme} /> : null}
+      {/* 2026-11-19:错误面补真 onRetry(守门 296 报的「该屏 ErrorState 无 onRetry」)——
+          本屏唯一的失败来源是检索本身,重试 = 重跑一次检索。 */}
+      {error ? <ErrorState message={error} onRetry={onSearch} colorScheme={colorScheme} /> : null}
       {notice ? (
         <View style={styles.notice}>
           <Text style={styles.noticeText}>{notice}</Text>

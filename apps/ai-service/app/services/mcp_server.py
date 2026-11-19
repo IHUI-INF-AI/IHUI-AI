@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 # 会话身份只取 call_tool 覆盖注入的 `__session_id`(承载层写入,模型自报会被覆盖);
 # 判据本体在 app/core/file_read_state.py,本模块只接线、不复算(§0.6)。
 from app.core.bounded_ttl_store import BoundedTtlDict
+from app.core.background_tasks import spawn
 from app.core.command_policy_merge import PolicyOutcome, adjudicate_command
 from app.core.file_read_state import (
     judge_read_state,
@@ -4713,7 +4714,9 @@ async def _tool_run_command(
             _killer.cancel()
         if proc is not None:
             # 已处于取消态:等待会被再次打断,交给独立 task 发 taskkill 进程树。
-            asyncio.create_task(_terminate_process_tree(proc))
+            # 2026-11-19 收口(门 247 W1):裸 create_task 无强引用,事件循环只握弱引用,
+            # 任务可能在 GC 时被回收 ⇒ 进程树永远杀不掉。改走唯一出口 spawn()(持引用到完成)。
+            spawn(_terminate_process_tree(proc))
         raise
     except Exception as e:
         return {

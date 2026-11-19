@@ -16,6 +16,7 @@
 import { cache } from 'react'
 import { cookies, headers } from 'next/headers'
 import type { LiveFxRates } from '@ihui/api-client'
+import { getLiveExchangeRatesAt } from '@ihui/api-client'
 import {
   DISPLAY_CURRENCY_KEY,
   FX_SNAPSHOT_COOKIE,
@@ -57,35 +58,11 @@ export const seedServerCurrency = cache(async (): Promise<ServerCurrencySeed> =>
   // 汇率快照:cookie 优先;缺失时服务端预取一次,避免首访/清 cookie 后首帧混币。
   let rates = parseFxSnapshot(cookieStore.get(FX_SNAPSHOT_COOKIE)?.value)
   if (!rates) {
-    try {
-      const apiBase = process.env.API_URL ?? 'http://127.0.0.1:8802'
-      const res = await fetch(`${apiBase}/api/exchange-rates/live`, {
-        next: { revalidate: 300 },
-      })
-      if (res.ok) {
-        // 后端统一响应壳是 { code: 0, message, data }(api-client 的 fetchApi 负责解包);
-        // 这里直连 fetch 绕过了 fetchApi,必须同时认 success:true 与 code:0 两种形态 ——
-        // 只判 success 会永远拿不到汇率,SSR 便一直回落原币种(¥ 混币首帧的根因)。
-        const json = (await res.json()) as {
-          success?: boolean
-          code?: number
-          data?: LiveFxRates
-        }
-        const data = json.data
-        if (
-          (json.success === true || json.code === 0) &&
-          data &&
-          typeof data.cnyPer?.USD === 'number' &&
-          data.cnyPer.USD > 0 &&
-          typeof data.cnyPer?.USDT === 'number' &&
-          data.cnyPer.USDT > 0
-        ) {
-          rates = data
-        }
-      }
-    } catch {
-      // 汇率服务暂不可用:维持回落原币种,绝不用写死汇率造假
-    }
+    // 2026-11-19:端内不再自己拼 `${API_URL}/api/...` 直连后端(守门 73),
+    // 传输层(URL 拼接 / 响应壳解包 / 异常归一)整体下沉到 api-client 的
+    // getLiveExchangeRatesAt;本处只负责"基址从哪来"与"取不到就回落原币种"。
+    const apiBase = process.env.API_URL ?? 'http://127.0.0.1:8802'
+    rates = await getLiveExchangeRatesAt(apiBase, 300)
   }
   setFxSnapshot(rates)
   return { selected, effective, rates }
