@@ -122,6 +122,7 @@ function installTxStub(opts: { selects?: unknown[][]; newDocId?: number } = {}):
       where: async () => {
         if (getTableName(table) === 'zhs_knowledge_doc') stub.updatedDocs.push(values)
       },
+  execute: vi.fn().mockResolvedValue([]),
     }),
   }))
   mocks.db.transaction.mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(mocks.tx))

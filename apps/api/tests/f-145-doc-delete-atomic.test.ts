@@ -75,6 +75,7 @@ function installTransactionalStore(store: FakeStore): void {
       where: async () => {
         if (values.status) store.docStatus = values.status
       },
+  execute: vi.fn().mockResolvedValue([]),
     }),
   }))
   mocks.tx.delete.mockImplementation(() => ({
