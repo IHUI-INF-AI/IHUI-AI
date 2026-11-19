@@ -22,9 +22,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GATE = join(ROOT, 'scripts', 'check-sqlite-write-paths.mjs')
 
 // 门体只在被当作脚本直跑时才执行 CLI,import 不会退进程(守卫在门体尾部)。
-const { HIT_PATTERNS, ALLOW_MARKERS, classifyLine, countHits, diffAgainstBaseline } = await import(
-  pathToFileURL(GATE).href
-)
+const { HIT_PATTERNS, ALLOW_MARKERS, classifyLine, countHits, diffAgainstBaseline, NON_STORE_FIXTURES } =
+  await import(pathToFileURL(GATE).href)
 
 // 针串拆写:本文件若把整串原样写进源码,门会把这一行当命中族(它就是整串匹配)。
 const PY_CONNECT = 'sqlite3' + '.connect('
@@ -93,5 +92,34 @@ test('SKIP_SELF 同时含门体与本文件(否则门量自己=恒红)', () => {
   assert.match(src, /const SKIP_SELF = new Set\(\[/)
   assert.ok(src.includes("'scripts/check-sqlite-write-paths.mjs'"), 'SKIP_SELF 必须含门体')
   assert.ok(src.includes("'scripts/tests/check-sqlite-write-paths.test.mjs'"), 'SKIP_SELF 必须含本镜像')
+})
+
+test('NON_STORE_FIXTURES:自有写路径清零后只留两条"不是我们的存储"的豁免', () => {
+  // 零容忍生效后,豁免表就是唯一还能放行 sqlite 字面的地方 —— 所以它必须窄、必须带理由:
+  // 多一条等于悄悄重开一个后门,少一条等于把别人的格式判成我们的违规。
+  assert.ok(NON_STORE_FIXTURES instanceof Map, 'NON_STORE_FIXTURES 必须是带理由的 Map')
+  assert.deepEqual([...NON_STORE_FIXTURES.keys()].sort(), [
+    'apps/ai-service/tests/test_external_browser_profile.py',
+    'apps/ai-service/tests/test_sag2_pg_integration.py',
+  ])
+  for (const [rel, reason] of NON_STORE_FIXTURES) {
+    assert.ok(typeof reason === 'string' && reason.trim().length >= 8, `${rel} 的豁免理由太短`)
+  }
+})
+
+test('零容忍接线:扫描面排除豁免表,且豁免路径消失必须判红(不留空豁免)', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(
+    src,
+    /!SKIP_SELF\.has\(rel\)\s*&&\s*!NON_STORE_FIXTURES\.has\(rel\)/,
+    '扫描 targets 必须同时排除 SKIP_SELF 与 NON_STORE_FIXTURES',
+  )
+  assert.match(src, /const lapsed = \[\.\.\.NON_STORE_FIXTURES\.keys\(\)\]\.filter/, '必须核对豁免路径存活')
+  assert.match(src, /state=new new='\s*\+\s*lapsed\.length/, '豁免到期必须以 state=new 判红')
+  // 基线口径已是"零":基线文件里不允许再出现任何 files 条目
+  const baseline = JSON.parse(
+    readFileSync(join(ROOT, 'scripts', 'data', 'sqlite-write-paths-baseline.json'), 'utf8'),
+  )
+  assert.deepEqual(baseline.files ?? {}, {}, '自有写路径清零后基线必须为空')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
