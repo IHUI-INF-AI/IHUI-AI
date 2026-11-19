@@ -624,17 +624,20 @@ export function useDesktopDeepLink(): void {
  * 2026-09-28 同批:未读**条数**一并推给宿主的徽章通道(set_desktop_badge,签名收 u32)。
  * tooltip 与徽章是两个宿主能力,但判定来源同一处(unreadCount),所以在这里一次性报过去;
  * 0 与"要不要真的画"都由宿主裁定(它手里才有 `unreadBadge` 那一档)—— 前端不再抄一份开关判断。
+ *
+ * 2026-11-18:tooltip 也带上同一个条数(Rust 侧拼成"N 条未读")。此前 tooltip 只说
+ * "有新消息",与角标上的数字各说各的 —— 两处必须同源,否则用户看到的就是两套口径。
  */
 export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
   const ipcReady = useTauriIpcReady()
   React.useEffect(() => {
     if (!ipcReady) return
     if (isStreaming) {
-      void setTrayStatus('thinking')
+      void setTrayStatus('thinking', unreadCount)
     } else if (unreadCount > 0) {
-      void setTrayStatus('new_message')
+      void setTrayStatus('new_message', unreadCount)
     } else {
-      void setTrayStatus('idle')
+      void setTrayStatus('idle', 0)
     }
     void setDesktopBadge(unreadCount)
   }, [ipcReady, isStreaming, unreadCount])

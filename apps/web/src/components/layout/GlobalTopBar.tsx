@@ -62,6 +62,7 @@ import {
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
+import { TopBarPinButton } from './topbar-pin-button'
 import { Tooltip } from '@/components/feedback'
 import { SearchInput } from '@ihui/ui-react'
 // 2026-09-15 治理:Plus 菜单定位/portal/关闭逻辑统一收敛到 PortalPanel
@@ -779,6 +780,11 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               <TagsView />
             </div>
           </React.Suspense>
+
+          {/* 4.5 窗口置顶开关(2026-11-18 立):桌面端专属,状态由宿主偏好持久化。
+              放在标签栏之后、窗口控制按钮之前,跟 Min/Max/Close 同一簇 36×36 按钮。
+              宿主不支持该偏好 / 偏好未就绪时组件自己返回 null(不占位)。 */}
+          <TopBarPinButton />
 
           {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
             z-max:高于 8 方向 resize 区域(z-9999/10000)

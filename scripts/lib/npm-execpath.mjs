@@ -45,11 +45,25 @@ const NODE_LOADABLE_RE = /\.[cm]?js$/i
  */
 export function planPackageManagerSpawn(npmExecpath, execPath = process.execPath) {
   const loadableByNode = !!npmExecpath && NODE_LOADABLE_RE.test(npmExecpath)
+  /**
+   * 2026-11-18 修:入口"可被 node 直载" **不等于** 它是 npm。
+   * pnpm 的 corepack 形态是 `.../pnpm/<ver>/bin/pnpm.mjs` —— `.mjs` 当然可加载,
+   * 旧判据据此把 `pm` 记成 'npm',于是 desktop-build 拼出
+   * `node .../pnpm.mjs run tauri -- build --config <path>`;pnpm 把 `--` 原样透传给
+   * 脚本,tauri 收到的是 `"--" "build"` ⇒ `error: unexpected argument 'build' found`
+   * (exit 2)。本机实测:`build:debug` 与 `build` 两个入口同时因此起不来,
+   * 而这条报错里没有一个字提到"入口拼错了"。
+   *
+   * 改判据为**按入口身份**判:路径里带 pnpm ⇒ 'pnpm'(裸 `<script> <sub>` 形态,不加 `--`)。
+   * 失效方向:真 npm(`npm-cli.js`)仍走 npm 分支;取不到 npm_execpath 仍回落 pnpm。
+   */
+  const isPnpmEntry = /pnpm/i.test(npmExecpath || '')
+  const pm = isPnpmEntry ? 'pnpm' : loadableByNode ? 'npm' : 'pnpm'
   return {
     cmd: loadableByNode ? execPath : 'pnpm',
     prefix: loadableByNode ? [npmExecpath] : [],
     shell: !loadableByNode,
-    pm: loadableByNode ? 'npm' : 'pnpm',
+    pm,
   }
 }
 

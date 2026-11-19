@@ -77,15 +77,6 @@ import {
 export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/chat/model-tier-utils'
 
 /**
- * 是否未通过连通性探测(2026-11-11 立;字段缺失也按未验证处理,避免误判为可用)。
- * `verified` 只有后端 `health_status === 'healthy'`(真 ping 通过)才为 true;
- * pending(账户级错误/未探测)与 unknown(无状态)都不可依赖,一律按未验证展示。
- */
-function isUnverified(opt: ModelOption): boolean {
-  return opt.verified !== true
-}
-
-/**
  * 哪些原因算"点了必失败" —— 池模型改文案时同用这一份判断。
  */
 function isBlockingReason(reason: string): boolean {
@@ -352,7 +343,6 @@ function ModelOptionRow({
   onSelect: () => void
 }) {
   const t = useTranslations('chat')
-  const unverified = isUnverified(opt)
   const unusable = unusableReasonOf(opt)
   const unusableLabel =
     unusable === 'quota'
@@ -370,8 +360,7 @@ function ModelOptionRow({
       className={cn(
         'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
         'focus:bg-accent focus:text-accent-foreground',
-        unverified && 'opacity-60 focus:opacity-100 data-[highlighted]:opacity-100',
-        // 已判死的行:更狠的降权 + 不再随 hover 提亮(它本来就不该被点)
+        // 已判死的行:降权 + 不再随 hover 提亮(它本来就不该被点)
         unusable && 'cursor-not-allowed opacity-40 hover:opacity-40',
       )}
     >
@@ -385,14 +374,9 @@ function ModelOptionRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium">{opt.label}</span>
-          {/* 未验证徽章(2026-11-11 立):未探测通过/账户级错误,与已验证模型区分 */}
-          {unverified && (
-            <span className="inline-flex shrink-0 items-center rounded-sm bg-muted px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
-              {t('modelUnverified')}
-            </span>
-          )}
-          {/* 不可用原因徽章(2026-11-18 立):额度已尽/密钥失效/已下线 —— 比"未验证"
-              说得更清楚,用户一眼知道为什么点不了,而不是点完才吃 429。 */}
+          {/* 不可用原因徽章(2026-11-18 立):额度已尽/密钥失效/已下线 —— 开口说清
+              为什么点不了,而不是点完才吃 429。2026-11-18 晚些取消"未验证"这一档:
+              无证据的行由服务端直接不返回,页面不再摆"没探测过"的模型。 */}
           {unusable && (
             <span
               data-model-unusable={unusable}
@@ -910,6 +894,10 @@ function withPoolModels(
   const seen = new Set(base.map((o) => o.value))
   for (const m of pool) {
     if (seen.has(m.id)) continue
+    // 2026-11-18 立(用户定档「所有模型必须实时验证」):后端只在"本轮现拉上游清单成功
+    // 且该模型在册"时才返回,并下发 verified:true;显式 false 的行(理论不该出现)直接跳过,
+    // 选择器里从此不再有「未验证」这一档。
+    if (m.verified === false) continue
     seen.add(m.id)
     const deadReason = idProbeKeys(m.id)
       .map((key) => deadReasonByKey.get(key))
@@ -930,13 +918,12 @@ function withPoolModels(
             outputPricePerMillion: m.outputPricePerMillion,
           }
         : {}),
-      // 2026-11-11 立:个人号池模型未做连通性探测,按未验证展示并说明原因
-      verified: false,
-      // 只有"禁用档"才改说明文案(裸 down 不算判死,别把用户吓退)
-      healthError:
-        deadReason && isBlockingReason(deadReason)
-          ? '该模型已被判为不可用'
-          : '个人号池模型,未做连通性探测',
+      // 2026-11-18 立(用户定档「所有模型必须实时验证」):能走到这里的行都已由服务端
+      // 现拉上游清单核对过(取不到清单的平台整块不返回)⇒ 一律算已验证,不再标「未做探测」。
+      verified: true,
+      verifiedAt: m.verifiedAt,
+      // 只有"禁用档"才带说明文案(裸 down 不算判死,别把用户吓退)
+      healthError: deadReason && isBlockingReason(deadReason) ? '该模型已被判为不可用' : undefined,
       // 命中已判死清单 ⇒ 带上原因,行内会灰显 + 禁用 + 显示"额度已尽/密钥失效/已下线"
       ...(deadReason ? { healthReason: deadReason } : {}),
     })
@@ -1237,20 +1224,9 @@ export function ModelSelector({
     return filtered
   }, [primary, cfgData, configuredTemplateCodes, value, useApiOnly])
 
-  /**
-   * 2026-11-11 立:未验证模型不与已验证模型混排 —— 从各厂商组抽离,
-   * 按 groupByVendor 的原有分组顺序统一收进 primary 末尾的独立组。
-   */
-  const { grouped, unverifiedPrimary } = React.useMemo(() => {
-    const verifiedGroups: VendorGroup[] = []
-    const unverified: ModelOption[] = []
-    for (const group of groupedByVendor) {
-      const verifiedItems = group.items.filter((opt) => !isUnverified(opt))
-      if (verifiedItems.length > 0) verifiedGroups.push({ ...group, items: verifiedItems })
-      unverified.push(...group.items.filter((opt) => isUnverified(opt)))
-    }
-    return { grouped: verifiedGroups, unverifiedPrimary: unverified }
-  }, [groupedByVendor])
+  // 2026-11-18 晚些(用户定档「所有模型必须实时验证」):撤销 2026-11-11 的
+  // "未验证模型独立分组" —— 服务端已对每条下发真实核对结论,无证据的行整块不返回,
+  // 所以此处不再需要抽离,各厂商组按原样渲染。
 
   // API 成功路径下后端已保证模型可用,直接视为已配置(避免 agnes 等误显示 ⚠/缺失 ✅)
   const currentConfigured = useApiOnly
@@ -1397,7 +1373,7 @@ export function ModelSelector({
               <span className="flex-1 truncate font-medium">{t('modelAuto')}</span>
             </DropdownMenu.Item>
           </DropdownMenu.Group>
-          {grouped.map(({ label, vendor, items }) => {
+          {groupedByVendor.map(({ label, vendor, items }) => {
             // 2026-11-18:label 是归并后的展示键(命中映射表才是 i18n key/显示名,
             // 未命中的未知厂商仍原样回退),不再把 `workbuddy_relay` 这类内部 code 摆给用户
             const labelKey = resolveVendorLabel(vendor).key
@@ -1433,35 +1409,8 @@ export function ModelSelector({
             )
           })}
 
-          {/* 2026-11-11 立:未验证模型独立收口。不把未探测通过的模型混在各厂商组里
-              (当前 34/53 是 pending 的平台中转模型,混排会误导用户),组内仍按厂商顺序排列。 */}
-          {unverifiedPrimary.length > 0 && (
-            <DropdownMenu.Group>
-              <DropdownMenu.Label
-                className={cn(
-                  'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
-                  'bg-card text-muted-foreground',
-                )}
-              >
-                <span className="flex-1 truncate">
-                  {t('modelUnverifiedGroup', { count: unverifiedPrimary.length })}
-                </span>
-              </DropdownMenu.Label>
-              {unverifiedPrimary.map((opt) => (
-                <ModelOptionRow
-                  key={opt.value}
-                  opt={opt}
-                  active={opt.value === value && value !== AUTO_OPTION.value}
-                  warning={
-                    showConfigBadge &&
-                    !useApiOnly &&
-                    !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
-                  }
-                  onSelect={() => onChange(opt.value)}
-                />
-              ))}
-            </DropdownMenu.Group>
-          )}
+          {/* 2026-11-18:原「未验证模型（N）」独立分组已撤销 —— 服务端不再下发无证据的行,
+              此档在产品上不存在,不留空壳渲染分支。 */}
 
           {/* 2026-08-29 立:历史模型折叠区。默认收起,点开才显示过时版本与专用模型
               (嵌入/重排/语音/图像等),并按用途分类分组标注,避免上千个模型糊成一片。 */}

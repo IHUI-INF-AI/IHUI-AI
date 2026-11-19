@@ -389,11 +389,18 @@ function runLineLossHeal({ root, log = (s) => console.log(s), spawnFn } = {}) {
   const abs = fileURLToPath(new URL('../check-plan-line-loss.mjs', import.meta.url))
   let r
   try {
+    // RP-20(2026-11-18):门自身 ROOT 按 import.meta.url(真仓脚本位置)推导,旁路落地在夹具仓
+    // 跑时会把真仓 PROJECT_PLAN.md/台账读进来、甚至把真仓 HEAD 推进一枚恢复提交。把 root 通过
+    // IHUI_PLAN_LINE_LOSS_ROOT 点名传给门,门命中该 env 即以夹具仓为作用面;生产面不设该变量,
+    // 门回落到原 import.meta.url 推导,行为逐字节不变(见 check-plan-line-loss.mjs ROOT 段注)。
     r = run(process.execPath, [abs, '--heal', '--commit'], {
       cwd: resolve(String(root || '')),
       encoding: 'utf8',
       windowsHide: true,
       timeout: 180000,
+      env: root
+        ? { ...process.env, IHUI_PLAN_LINE_LOSS_ROOT: resolve(String(root)) }
+        : process.env,
     })
   } catch (e) {
     const why = String((e && (e.stderr || e.message)) || e).slice(0, 200)

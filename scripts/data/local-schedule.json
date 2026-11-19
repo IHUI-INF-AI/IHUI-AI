@@ -186,7 +186,7 @@
     {
       "id": "IHUI-NoScheduledTasks",
       "kind": "interval",
-      "everyMinutes": 30,
+      "everyMinutes": 5,
       "command": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
       "args": [
         "-NoProfile",
