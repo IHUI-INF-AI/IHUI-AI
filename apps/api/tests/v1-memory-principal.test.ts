@@ -42,6 +42,7 @@ vi.hoisted(() => {
 
 // mock db:本文件只验 HTTP 契约,任何用例都不得触库(§5 测试隔离铁律)
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     execute: vi.fn().mockResolvedValue([]),
     select: vi.fn(),

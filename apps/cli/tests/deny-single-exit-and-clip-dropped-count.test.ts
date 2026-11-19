@@ -550,7 +550,11 @@ describe('票 B:五个裁剪站点全部委托同一个出口', () => {
 
 describe('票 B:丢弃数经生产入口(注册表 + executeToolCall)交到消费方手里', () => {
   it('clipboard_write 走 executeToolCall:被裁就点名丢弃字数,没被裁一个字都不报', async () => {
-    expect(CLIPBOARD_TOOLS.map((t) => t.name)).toEqual(['clipboard_read', 'clipboard_write'])
+    // 判据是"这两枚必须在册",不是"只有这两枚":2026-11 起剪贴板扩了
+    // clipboard_token / rich_read / rich_write 三枚,断言全集会把正常扩面判成红。
+    const clipboardNames = CLIPBOARD_TOOLS.map((t) => t.name)
+    expect(clipboardNames).toContain('clipboard_read')
+    expect(clipboardNames).toContain('clipboard_write')
     registerTools([...CLIPBOARD_TOOLS])
 
     // 与平台可用性无关的那一半(无条件断言):裁剪量在探测剪贴板通道**之前**就算出来了,

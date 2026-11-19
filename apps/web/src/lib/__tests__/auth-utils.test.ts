@@ -49,9 +49,11 @@ describe('decodeUserFromToken', () => {
 })
 
 describe('isAdmin', () => {
-  it('roleId>=1返回true', () => {
+  it('roleId===1(系统管理员)返回true', () => {
+    // DBG-23(2026-11-11)口径收敛:与后端 getDataScopeForRole 的 roleId===1 → ALL 同源。
+    // manager(=2) 与更高角色号不是管理员 —— roleId>=1 会把 manager 误判成管理员(越权面)。
     expect(isAdmin({ roleId: 1 })).toBe(true)
-    expect(isAdmin({ roleId: 5 })).toBe(true)
+    expect(isAdmin({ roleId: 5 })).toBe(false)
   })
 
   it('roleId=0或未定义返回false', () => {

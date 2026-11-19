@@ -44,6 +44,7 @@ const testState = await vi.hoisted(async () => {
 })
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     insert: () => ({
       values: (v: unknown) => {

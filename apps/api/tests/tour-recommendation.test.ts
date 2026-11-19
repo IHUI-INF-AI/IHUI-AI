@@ -11,6 +11,7 @@ const { mockDbSelect, mockDbInsert, mockDbUpdate } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: mockDbSelect,
     insert: mockDbInsert,
@@ -21,6 +22,12 @@ vi.mock('../src/db/index.js', () => ({
 }))
 
 vi.mock('@ihui/database', () => ({
+  // 2026-11-19 补:上游导出里新增 users,手抄 mock 缺它 ⇒ 模块加载期整片崩。
+  // 纯表身份桩(列对象按属性名缓存,保证 eq(users.id) 两次取值同引用)。
+  users: new Proxy({} as Record<string, unknown>, {
+    get: (cache, prop) =>
+      (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
+  }),
   tourContent: {
     id: 'id',
     title: 'title',

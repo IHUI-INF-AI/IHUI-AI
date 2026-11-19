@@ -58,6 +58,7 @@ function makeApi(kind: 'list' | 'count' | 'update' | 'delete' | 'insert') {
 }
 
 vi.mock('../src/db/index.js', () => ({
+  registerPoolTrackerCleanup: vi.fn(),
   db: {
     select: (shape?: unknown) =>
       makeApi(shape && typeof shape === 'object' && 'total' in shape ? 'count' : 'list'),

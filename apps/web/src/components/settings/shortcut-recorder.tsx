@@ -5,7 +5,11 @@
 'use client'
 
 import * as React from 'react'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { comboFromKeyEvent, type ShortcutSetResult } from '@/lib/shortcut-overrides'
+
+/** 层栈 id(见 @/lib/overlay-stack):录制态是浮层,多层同开时 Esc 只退最上面那层 */
+const SHORTCUT_RECORDER_OVERLAY_ID = 'shortcut-recorder'
 
 export interface ShortcutRecorderLabels {
   recording: string
@@ -30,7 +34,12 @@ export function ShortcutRecorder({ labels, onCommit, onCancel }: ShortcutRecorde
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    // 层栈:录制态挂载即入栈,卸载出栈。Esc 分支只在栈顶时消费 ——
+    // 否则「设置页录制中 + 上层还有别的浮层」时一次 Esc 会把两层一起关掉。
+    pushOverlay(SHORTCUT_RECORDER_OVERLAY_ID)
     const onKeyDown = (event: KeyboardEvent) => {
+      // 非栈顶的 Esc 直接放给真正的栈顶消费(这里连 preventDefault 都不做)
+      if (event.key === 'Escape' && !isTopOverlay(SHORTCUT_RECORDER_OVERLAY_ID)) return
       event.preventDefault()
       event.stopPropagation()
       event.stopImmediatePropagation()
@@ -52,7 +61,10 @@ export function ShortcutRecorder({ labels, onCommit, onCancel }: ShortcutRecorde
       }
     }
     window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    return () => {
+      popOverlay(SHORTCUT_RECORDER_OVERLAY_ID)
+      window.removeEventListener('keydown', onKeyDown, true)
+    }
   }, [labels, onCommit, onCancel])
 
   return (

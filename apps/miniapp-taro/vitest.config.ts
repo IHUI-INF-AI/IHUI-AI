@@ -44,6 +44,19 @@ export default defineConfig({
       // RegExp ^react$ 精确匹配包名 'react',不匹配 'react-dom' / 'react/jsx-runtime'。
       { find: /^react$/, replacement: path.resolve(__dirname, 'node_modules/react') },
       { find: /^react-dom$/, replacement: path.resolve(__dirname, 'node_modules/react-dom') },
+      // 2026-11-19 补:上面 ^react$ 只挡裸包名,JSX 自动运行时走子路径。共享屏
+      // packages/app 在测试里由 esbuild 从该包上下文解析 `react/jsx-runtime` →
+      // react@19 的 jsx-runtime,造出 $$typeof 为 react19 的元素,而渲染器是
+      // react-dom@18 ⇒ "Objects are not valid as a React child"。补两条子路径别名,
+      // 让元素也由同一个 react@18 生成(单实例口径的补全,不是新口径)。
+      {
+        find: /^react\/jsx-runtime$/,
+        replacement: path.resolve(__dirname, 'node_modules/react/jsx-runtime.js'),
+      },
+      {
+        find: /^react\/jsx-dev-runtime$/,
+        replacement: path.resolve(__dirname, 'node_modules/react/jsx-dev-runtime.js'),
+      },
       // A2(2026-11-05):薄壳页会 import @ihui/rn-app 共享屏(RN 原语)。主树 pnpm
       // 链接面缺 react-native/index.js,node 测试里把裸包指到 DOM 桩(只切平台依赖)。
       {

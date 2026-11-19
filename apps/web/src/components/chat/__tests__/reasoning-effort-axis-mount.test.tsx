@@ -52,6 +52,8 @@ const API_CLIENT_INDEX_SRC = path.resolve(
   '../../../../../../packages/api-client/src/index.ts',
 )
 const API_CLIENT_SRC = path.resolve(HERE, '../../../../../../packages/api-client/src/client.ts')
+/** SSE 帧解析与事件形状的现居地(守门 103 C1 下沉,2026-11-19 判据同步) */
+const API_CLIENT_STREAM_SRC = path.resolve(HERE, '../../../../../../packages/api-client/src/stream.ts')
 
 /** 测试用词表:next-intl 换成**真词包**(packages/i18n/messages/web/zh-CN.json)。
  *  不用 `key=>key` 的桩 —— 那样文案断言会退化成"键名相等",新键漏进词包也测不出(§19)。 */
@@ -461,11 +463,20 @@ describe('D130⑥ ReasoningEffortNotice 必须从 @ihui/api-client 入口递出(
     return [...face.matchAll(re)].map((m) => m[1] ?? '')
   }
 
-  it('client.ts 真导出该类型(否则入口递出的是个不存在的名字)', () => {
+  it('client.ts 面上能点到该类型(自声明,或经 export * 从 stream.ts 转出)', () => {
     const face = codeFace(fs.readFileSync(API_CLIENT_SRC, 'utf8'))
+    // 2026-11-19:守门 103 C1 把 SSE 帧解析与事件形状下沉到 stream.ts(client.ts 面写
+    // `export * from './stream.js'`),类型真身随之搬走 ⇒ 判据要认"两条合法通路":
+    //  ① client.ts 自己声明;② client.ts 通配转出 ∧ stream.ts 里真声明。
+    const declaredHere = /export\s+(?:interface|type)\s+ReasoningEffortNotice\b/.test(face)
+    const reExported =
+      /export\s+\*\s+from\s*['"]\.\/stream\.js['"]/.test(face) &&
+      /export\s+(?:interface|type)\s+ReasoningEffortNotice\b/.test(
+        codeFace(fs.readFileSync(API_CLIENT_STREAM_SRC, 'utf8')),
+      )
     expect(
-      /export\s+(?:interface|type)\s+ReasoningEffortNotice\b/.test(face),
-      'client.ts 不再 export ReasoningEffortNotice ⇒ 下面的入口清单判据等于在给空气背书',
+      declaredHere || reExported,
+      'client.ts 面上已点不到 ReasoningEffortNotice(既未自声明,也未经 stream.ts 转出) ⇒ 下面的入口清单判据等于在给空气背书',
     ).toBe(true)
   })
 
