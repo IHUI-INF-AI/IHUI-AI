@@ -80,6 +80,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 **行尾与镜像面一致性**由 `scripts/check-line-endings.mjs`、`scripts/check-mirror-surface-parity.mjs` 判
 (均已接统一判面层,`--staged` 判索引面)。
 **容器描边角色系统**由 `scripts/check-border-system.mjs` 守门(8 角色单源、档位阶梯与聚焦契约)。
+**数据层只允许 PostgreSQL**由 `scripts/check-sqlite-write-paths.mjs` 守门(差值棘轮只拦新增写路径;
+自检 `--self-test`,应急 `HUSKY_SKIP_SQLITE_WRITE_PATHS`)。
 对外关键数字声明(与本页生成块同源,均现算):**数据库表 · API 路由 · WebSocket 端点 ·
 大模型 · 平台自动发布 · 测试文件 · 工程守门 · CI workflows ·
 多语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
@@ -101,13 +103,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5904 | `testFiles` |
+| 测试文件 | 5905 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 369 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22996 | `trackedFiles` |
+| 跟踪文件 | 22998 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
