@@ -3815,7 +3815,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!secret) {
         return reply.status(500).send(error(500, '密钥解密失败，请重新 setup'))
       }
-      if (!verifyTotp(parsed.data.code, secret)) {
+      // F-272:与登录 2FA 兑付点同一口径 —— 必须消费 TOTP counter,同一 6 位码在
+      // ±1 step 窗口内不能反复刷新 step-up(否则重放一次码就能无限续窗)。
+      const totpStep = verifyTotpCounter(parsed.data.code, secret)
+      const consumed =
+        totpStep !== null &&
+        (await consumeTotpCounter(userId, totpStep, request.server.redis))
+      if (!consumed) {
+        // 「码正确但已用过」与「码错」共用同一句文案:不给重放探测留差分。
         await recordSecurityEvent(request, 'two_factor_step_up_failed')
         return reply.status(401).send(error(401, '验证码错误或已过期'))
       }
