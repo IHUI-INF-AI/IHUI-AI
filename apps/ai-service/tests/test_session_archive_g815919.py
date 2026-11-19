@@ -87,9 +87,13 @@ def _seed_thread(store: SessionStore, thread_id: str, content: str = "q") -> Non
 
 
 def test_migration_v4_archived_at_in_journal_offline(tmp_path):
-    """全新临时库:打开即迁移到 v4,archived_at 列存在且 journal 有 v4 记录。"""
+    """全新临时库:打开即迁移到最新档,archived_at 列存在且 journal 有 v4 记录。
+
+    版本号断言的唯一真相源是 `SessionStore.SCHEMA_VERSION`(2026-11-19 起 v5 加了
+    items.search_text 的 pg_trgm GIN 索引)——写死数字每次加档都要改一遍,改漏就假红。
+    """
     store = SessionStore(str(tmp_path / "mig.db"))
-    assert store.schema_version == 4
+    assert store.schema_version == SessionStore.SCHEMA_VERSION
     with store._lock:
         cols = {
             r["name"]
@@ -162,7 +166,7 @@ def test_migration_v4_upgrades_legacy_v3_db(tmp_path):
     session.close()
 
     store = SessionStore(str(db))  # 打开即迁移(独立 schema)
-    assert store.schema_version == 4
+    assert store.schema_version == SessionStore.SCHEMA_VERSION
     row = store.get_thread("thr_legacy", include_archived=True)
     assert row is not None
     assert row.archived is False and row.archived_at is None

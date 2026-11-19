@@ -869,7 +869,7 @@ def _row_to_item(row: Any) -> ItemBase:
 class SessionStore:
     """Codex 级会话持久化引擎。"""
 
-    SCHEMA_VERSION = 4  # v1=基线, v2=FTS5, v3=跨会话接力摘要, v4=threads.archived_at 归档时刻
+    SCHEMA_VERSION = 5  # v1=基线, v2=检索(原 FTS5,现 ILIKE), v3=跨会话接力摘要, v4=threads.archived_at 归档时刻, v5=items.search_text 的 pg_trgm GIN
 
     def __init__(
         self,
@@ -963,6 +963,48 @@ class SessionStore:
                 self._add_version(
                     4, "threads.archived_at: tombstone timestamp (G-815919)"
                 )
+            # v5: 检索索引。FTS5 退役后 `_search_like` 是 `ILIKE '%kw%'`,
+            # 无索引时对 items 全表扫(中文尤其慢)。pg_trgm 让 ILIKE 走 GIN:
+            # 语义零变化(仍是子串匹配),只是把"扫全表"换成"候选集先行"。
+            # 扩展装不上(无权限 / 非标准镜像)⇒ 保持全表扫并在版本行里写明降级,
+            # 绝不让检索从"慢"变成"不可用"。
+            trgm = self._ensure_trgm_index()
+            if not self._has_version(5):
+                self._add_version(
+                    5,
+                    "search: pg_trgm GIN items.search_text(ILIKE 走索引)"
+                    if trgm
+                    else "search: pg_trgm 不可用 ⇒ ILIKE 全表扫(降级,不影响结果)",
+                )
+
+    def _ensure_trgm_index(self) -> bool:
+        """尽力而为:装扩展 + 建 GIN trgm 索引;任何一格失败都退回全表扫。
+
+        操作符类必须**带 schema 限定**:本库把 search_path 钉在私有 schema 上,
+        `gin_trgm_ops` 却住在扩展自己的 schema(通常 `public`) ⇒ 不限定就报
+        `operator class "gin_trgm_ops" does not exist for access method "gin"`
+        (实测踩过:扩展装好了、索引没建上,还被降级分支静默吞掉)。
+        """
+        try:
+            self._conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+            ns = self._conn.execute(
+                "SELECT n.nspname AS ns FROM pg_extension e"
+                " JOIN pg_namespace n ON n.oid = e.extnamespace"
+                " WHERE e.extname = 'pg_trgm'"
+            ).fetchone()
+        except Exception:
+            return False
+        if ns is None or not _row_str(ns, "ns"):
+            return False
+        opclass = '"' + _row_str(ns, "ns").replace('"', '""') + '".gin_trgm_ops'
+        try:
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_items_search_trgm"
+                f" ON items USING gin (search_text {opclass})"
+            )
+        except Exception:
+            return False
+        return True
 
     def _has_version(self, version: int) -> bool:
         row = self._conn.execute(
@@ -1708,12 +1750,19 @@ class SessionStore:
                         tool_call_id=it.call_id,
                     )
                 )
-        # 为悬挂的 tool_call 补 synthetic interrupted result
+        # 为悬挂的 tool_call 补 synthetic interrupted result。
+        # 措辞钉住三件事(判据 tests/test_session_store_resume_repair.py):结果没落盘、
+        # outcome unknown、重试判据 —— 有副作用的调用不得盲目重放,必须先核对外部状态。
+        _INTERRUPTED_PLACEHOLDER = (
+            "[interrupted] tool execution was interrupted before its result was persisted,"
+            " so the outcome is unknown. Do not blind-retry: replay only if the call is"
+            " read-only or idempotent; otherwise verify external state first."
+        )
         for cid in sorted(dangling_ids):
             messages.append(
                 LLMMessage(
                     role="tool",
-                    content="[interrupted] tool execution was interrupted",
+                    content=_INTERRUPTED_PLACEHOLDER,
                     tool_call_id=cid,
                 )
             )
