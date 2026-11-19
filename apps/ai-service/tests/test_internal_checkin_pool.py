@@ -556,3 +556,78 @@ def test_derive_identity_prefers_pool_uid():
 )
 def test_pool_cred_version_of_tolerates_bad_values(raw: Any, expected: int | None):
     assert checkin_store._pool_cred_version_of(raw) == expected
+
+
+# ---------------------------------------------------------------------------
+# RP-22 缺口②(2026-11-19):Trae 号缺真实设备指纹须拒推,防 1001 十年冷却
+# ---------------------------------------------------------------------------
+
+
+async def test_pool_sync_trae_missing_device_fingerprint_rejected(client, fake_store):
+    """Trae 号缺 deviceId/machineId 时拒绝入签到池,返回 skipped 并点名。
+
+    缺失时 get_device_for 会按 user_id 自造确定性指纹,与真实客户端不是同一台
+    设备 ⇒ 上游 1001 判 SessionDead 触发十年冷却(冷却后手动点也必失败)。
+    本闸显式拒推,绝不让它进流程被自造指纹打冷却。
+    """
+    # 缺 deviceId
+    resp = await client.post(
+        "/internal/checkin/pool-sync",
+        json={
+            "platform": "trae",
+            "accounts": [_account_payload(deviceId=None, uid="trae-nofp-1")],
+        },
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    r1 = resp.json()["results"][0]
+    assert r1["status"] == "skipped", f"缺 deviceId 应 skipped: {r1}"
+    assert r1["checkinAccountId"] is None
+    assert "deviceId" in r1["reason"]
+    assert fake_store.accounts == {}, "缺指纹的 Trae 号不得入池"
+
+    # 缺 machineId
+    resp = await client.post(
+        "/internal/checkin/pool-sync",
+        json={
+            "platform": "trae",
+            "accounts": [_account_payload(machineId=None, uid="trae-nofp-2")],
+        },
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    r2 = resp.json()["results"][0]
+    assert r2["status"] == "skipped", f"缺 machineId 应 skipped: {r2}"
+    assert "machineId" in r2["reason"]
+    assert fake_store.accounts == {}, "缺指纹的 Trae 号不得入池"
+
+    # 带齐指纹的正常 Trae 号仍可入池(不误拦)
+    resp = await client.post(
+        "/internal/checkin/pool-sync",
+        json={"platform": "trae", "accounts": [_account_payload(uid="trae-ok")]},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    ok = resp.json()["results"][0]
+    assert ok["status"] == "synced", f"带齐指纹应 synced: {ok}"
+    assert len(fake_store.accounts) == 1
+
+
+async def test_pool_sync_non_trae_unaffected_by_device_fingerprint_gate(client, fake_store):
+    """设备指纹闸只管 Trae:其他平台(qoder)缺 deviceId/machineId 不受影响。
+
+    Trae 是唯一已证会因自造指纹吃 1001 十年冷却的平台;其他平台的风控语义
+    不同,不在本票射程内,保持原样。
+    """
+    resp = await client.post(
+        "/internal/checkin/pool-sync",
+        json={
+            "platform": "qoder",
+            "accounts": [_account_payload(deviceId=None, machineId=None, uid="qoder-nofp")],
+        },
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    r = resp.json()["results"][0]
+    assert r["status"] == "synced", f"非 Trae 不应被指纹闸拦: {r}"
+    assert len(fake_store.accounts) == 1

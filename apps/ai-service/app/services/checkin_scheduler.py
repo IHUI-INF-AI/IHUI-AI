@@ -210,6 +210,15 @@ _STARTUP_COMPENSATION_DEFAULT_GRACE_MINUTES = 120
 # 启动后延迟(秒):避开「刚注册就撞上同一分钟」的 cron 触发,并等服务真正就绪。
 _STARTUP_COMPENSATION_DEFAULT_DELAY_SECONDS = 90
 
+# RP-22 缺口①(2026-11-18):签到建表 ensure_tables() 原为静默 fail-open——抛错即
+# return,13 个签到 job 一个都不注册,却看似健康(实测 2026-11-18 07:26/07:32 两次
+# 重启各留一条无 traceback 的 WARNING,08:05 主窗口整批未跑,而启动补偿窗口仅
+# ±120 分钟 ⇒ 单点窗口错过即不可逆且无告警)。收紧为「结构化 ERROR + 有限指数退避
+# 重试」:重试耗尽仍失败才放弃,且绝不向 lifespan re-raise(main.py:483-486 会二次
+# 吞掉,fail-open 契约不动)。1+2+4+8 = 15s 内共 5 次尝试,覆盖瞬时 DB 不可达。
+_ENSURE_TABLES_MAX_ATTEMPTS = 5
+_ENSURE_TABLES_BACKOFF_SEC = 1.0
+
 
 class RateLimitedError(RuntimeError):
     """平台限流/出站全局暂停中:手动入口映射 HTTP 429,调用方应立刻停手。"""
@@ -735,10 +744,43 @@ class CheckinScheduler:
                 "(自动签到/积分快照都不会跑;开启:设置环境变量 CHECKIN_CRON_ENABLED=true 后重启服务)"
             )
             return
-        try:
-            await checkin_store.ensure_tables()
-        except Exception as e:
-            logger.warning("[checkin_scheduler] 签到建表异常(忽略,签到功能不可用): %s", e)
+        # RP-22 缺口①(2026-11-18):原为静默 fail-open——ensure_tables() 抛错即 return,
+        # cron 从未注册却看似健康(实测 07:26/07:32 两次重启各留一条无 traceback 的
+        # WARNING,08:05 主窗口整批未跑)。收紧为「结构化 ERROR + 有限指数退避重试」;
+        # 重试耗尽仍失败才放弃,且绝不向 lifespan re-raise(main.py:483-486 会二次
+        # 吞掉,fail-open「不阻塞主服务启动」契约不动)。覆盖瞬时 DB 不可达形态。
+        last_exc: Exception | None = None
+        for attempt in range(1, _ENSURE_TABLES_MAX_ATTEMPTS + 1):
+            try:
+                await checkin_store.ensure_tables()
+                last_exc = None
+                break
+            except Exception as e:  # noqa: BLE001 - 建表失败任意异常都要重试并最终落结构化日志
+                last_exc = e
+                will_retry = attempt < _ENSURE_TABLES_MAX_ATTEMPTS
+                logger.error(
+                    "[checkin_scheduler] 签到建表失败(ensure_tables)",
+                    extra={
+                        "event": "checkin_ensure_tables_failed",
+                        "attempt": attempt,
+                        "max_attempts": _ENSURE_TABLES_MAX_ATTEMPTS,
+                        "will_retry": will_retry,
+                        "error_type": type(e).__name__,
+                    },
+                    exc_info=True,
+                )
+                if will_retry:
+                    await asyncio.sleep(_ENSURE_TABLES_BACKOFF_SEC * (2 ** (attempt - 1)))
+        if last_exc is not None:
+            logger.critical(
+                "[checkin_scheduler] 签到建表重试耗尽,签到 cron 本轮不注册"
+                "(签到功能本轮不可用;表建出来后需重启服务才恢复)",
+                extra={
+                    "event": "checkin_scheduler_degraded",
+                    "max_attempts": _ENSURE_TABLES_MAX_ATTEMPTS,
+                    "error_type": type(last_exc).__name__,
+                },
+            )
             return
         await self._restore_outbound_pause()
         # 本地变量持有实例:闭包里用 self._scheduler 会被 mypy 判成 Any|None(union-attr)

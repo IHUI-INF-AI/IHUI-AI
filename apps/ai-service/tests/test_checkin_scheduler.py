@@ -2314,5 +2314,101 @@ async def test_sync_minimax_local_gate_controls_self_refresh(
     assert calls == ["rt-1"]
 
 
+# ---------------------------------------------------------------------------
+# RP-22 缺口①(2026-11-19):签到建表静默失败收口
+# 原为 fail-open 且零重试 ⇒ ensure_tables 抛错时 13 个 job 一个都不注册却看似健康
+# (实测 2026-11-18 07:26/07:32 两次重启,08:05 主窗口整批未跑)。现收为结构化 ERROR
+# + 有限指数退避重试;注册数=0 也必须显式告警。
+# ---------------------------------------------------------------------------
+
+
+async def test_start_ensure_tables_retries_then_gives_up_without_reraise(monkeypatch):
+    """ensure_tables 持续失败:重试满 _ENSURE_TABLES_MAX_ATTEMPTS 次,退避 1+2+4+8s,
+    绝不向 lifespan re-raise(fail-open 契约不动),且 _started 保持 False。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+
+    attempts: list[int] = []
+
+    async def _boom() -> None:
+        attempts.append(1)
+        raise RuntimeError("db down")
+
+    sleeps: list[float] = []
+
+    async def _fake_sleep(sec: float) -> None:
+        sleeps.append(sec)
+
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _boom)
+    monkeypatch.setattr(cs.asyncio, "sleep", _fake_sleep)
+    sched = cs.CheckinScheduler()
+    await sched.start()  # 不抛
+    assert len(attempts) == cs._ENSURE_TABLES_MAX_ATTEMPTS
+    # 退避只在「还会重试」的轮次后发生:5 次尝试 ⇒ 4 段退避 1,2,4,8
+    assert sleeps == [1.0, 2.0, 4.0, 8.0]
+    assert sched._started is False
+
+
+async def test_start_ensure_tables_success_on_retry_stops_early(monkeypatch):
+    """第 N 次重试成功即停:不再多试,退避只发生在失败轮次后,正常走到注册。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+
+    attempts: list[int] = []
+
+    async def _flaky() -> None:
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise RuntimeError("transient")
+
+    sleeps: list[float] = []
+
+    async def _fake_sleep(sec: float) -> None:
+        sleeps.append(sec)
+
+    async def _noop_restore(*a: Any, **k: Any) -> None:
+        return None
+
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _flaky)
+    monkeypatch.setattr(cs.asyncio, "sleep", _fake_sleep)
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.CheckinScheduler, "_restore_outbound_pause", _noop_restore)
+    sched = cs.CheckinScheduler()
+    await sched.start()
+    assert len(attempts) == 3  # 成功即 break,不再多试
+    assert sleeps == [1.0, 2.0]  # 只有前两次失败后退避
+    assert sched._started is True
+
+
+async def test_start_normal_registration_does_not_warn_zero_jobs(monkeypatch):
+    """正常注册(≥4 固定 job)不得触发 zero_jobs 告警(防告警疲劳/误报)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+
+    calls: dict[str, int] = {"error": 0}
+
+    class _QuietLogger:
+        def error(self, *a: Any, **k: Any) -> None:
+            calls["error"] += 1
+
+        def warning(self, *a: Any, **k: Any) -> None:
+            return None
+
+        def info(self, *a: Any, **k: Any) -> None:
+            return None
+
+        def critical(self, *a: Any, **k: Any) -> None:
+            return None
+
+    async def _noop_restore2(*a: Any, **k: Any) -> None:
+        return None
+
+    monkeypatch.setattr(cs, "logger", _QuietLogger())
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.CheckinScheduler, "_restore_outbound_pause", _noop_restore2)
+    sched = cs.CheckinScheduler()
+    await sched.start()
+    assert calls["error"] == 0, f"正常注册不应告警: {calls}"
+    assert sched._started is True
+
+
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
