@@ -26356,11 +26356,7 @@
     "goalArgTitle": "Goal arguments",
     "loop": "Control the number of goal-driven loops",
     "loopArgTitle": "Loop arguments",
-    "plan": "Generate an execution plan for the current task",
-    "act": "Execute the current task directly",
-    "build": "Build and verify the current project",
     "review": "Review code changes and suggest improvements",
-    "spec": "Generate a spec document for the current feature",
     "permissionAsk": "Run in ask mode, confirming before each action",
     "permissionAuto": "Run in auto mode, auto-approving routine actions",
     "permissionFull": "Run in full mode, executing all actions directly"

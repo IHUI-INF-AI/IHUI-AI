@@ -26360,11 +26360,7 @@
     "goalArgTitle": "目标参数",
     "loop": "控制目标驱动的循环次数",
     "loopArgTitle": "循环参数",
-    "plan": "为当前任务生成执行计划",
-    "act": "直接执行当前任务",
-    "build": "构建并验证当前项目",
     "review": "审查代码改动并提出改进建议",
-    "spec": "为当前功能生成规格文档",
     "permissionAsk": "以询问模式运行，操作前征求确认",
     "permissionAuto": "以自动模式运行，自动批准常规操作",
     "permissionFull": "以完整权限模式运行，直接执行所有操作"
