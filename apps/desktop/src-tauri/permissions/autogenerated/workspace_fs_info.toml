@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-fs-info"
+description = "Enables the workspace_fs_info command without any pre-configured scope."
+commands.allow = ["workspace_fs_info"]
+
+[[permission]]
+identifier = "deny-workspace-fs-info"
+description = "Denies the workspace_fs_info command without any pre-configured scope."
+commands.deny = ["workspace_fs_info"]
