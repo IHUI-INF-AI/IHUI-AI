@@ -275,14 +275,14 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
     },
     actionPrimary: {
-      backgroundColor: tk.brand.DEFAULT,
-      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
+      borderColor: tk.brand.cta,
     },
     actionGhost: {
       backgroundColor: tk.surface.light,
       borderColor: tk.border.light,
     },
-    actionPrimaryText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.bg },
+    actionPrimaryText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     actionGhostText: { fontSize: rnType.body.size, color: tk.text.primary },
   })
 }

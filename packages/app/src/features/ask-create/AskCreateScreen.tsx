@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     submitDisabled: { backgroundColor: tk.text.secondary },
-    submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+    submitText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
     counter: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
@@ -318,9 +318,9 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.muted,
     },
-    chipActive: { borderColor: tk.brand.cta, backgroundColor: tk.surface.light },
+    chipActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.light },
     chipText: { fontSize: rnType.body.size, color: tk.text.primary },
-    chipTextActive: { color: tk.brand.cta, fontWeight: '600' },
+    chipTextActive: { color: tk.brandAccent.deep, fontWeight: '600' },
     chipReward: { minWidth: 56, alignItems: 'center' },
     switchRow: {
       flexDirection: 'row',

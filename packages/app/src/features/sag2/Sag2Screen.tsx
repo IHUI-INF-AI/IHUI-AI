@@ -406,7 +406,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
     } as ViewStyle,
-    badgeReady: { backgroundColor: tk.brand.DEFAULT, borderColor: tk.brand.DEFAULT } as ViewStyle,
+    badgeReady: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta } as ViewStyle,
     badgeMuted: { backgroundColor: tk.surface.muted, borderColor: tk.border.medium } as ViewStyle,
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' } as TextStyle,
     badgeReadyText: { color: tk.brand.ctaForeground } as TextStyle,
@@ -433,11 +433,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     modeBtnActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     modeText: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
-    modeTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' } as TextStyle,
+    modeTextActive: { color: tk.brandAccent.deep, fontWeight: '600' } as TextStyle,
     input: {
       borderWidth: 1,
       borderColor: tk.border.medium,

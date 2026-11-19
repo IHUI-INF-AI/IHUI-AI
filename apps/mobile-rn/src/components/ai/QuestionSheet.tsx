@@ -413,7 +413,7 @@ function createStyles() {
       borderColor: tokens.border.medium,
       backgroundColor: tokens.surface.card,
     },
-    optionChecked: { borderColor: tokens.brand.cta, backgroundColor: tokens.surface.muted },
+    optionChecked: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.surface.muted },
     optionDisabled: { opacity: 0.6 },
     box: {
       width: 18,
@@ -424,7 +424,7 @@ function createStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    boxChecked: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+    boxChecked: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta, color: tokens.brand.ctaForeground },
     optionText: { flex: 1, fontSize: rnType.bodySm.size, color: tokens.text.primary },
     input: {
       minHeight: 48,

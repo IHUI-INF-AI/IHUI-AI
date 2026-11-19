@@ -689,7 +689,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.xs,
     },
-    cardActive: { borderColor: tk.brand.DEFAULT },
+    cardActive: { borderColor: tk.brandAccent.deep },
     rowHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     itemTitle: {
       flexShrink: 1,
@@ -729,7 +729,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     toggleActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.surface.muted,
     },
     toggleText: { fontSize: rnType.badge.size, color: tk.text.secondary },
