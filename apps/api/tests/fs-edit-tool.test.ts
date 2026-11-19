@@ -259,6 +259,36 @@ describe('edit_file 批量与原子性（B 组）', () => {
     })
     expect(out['code']).toBe('EDIT_BAD_EDITS')
   })
+
+  it('B7 CRLF 文件可用 LF 片段匹配，写回保持 CRLF', async () => {
+    const name = 'b7.txt'
+    writeFileSync(join(root, name), 'line1\r\nline2\r\nline3\r\n', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      oldText: 'line1\nline2',
+      newText: 'A\nB',
+    })
+    expect(out['ok']).toBe(true)
+    expect(out['eol']).toBe('crlf')
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('A\r\nB\r\nline3\r\n')
+  })
+
+  it('B8 LF 文件收到 CRLF 片段同样对齐（并报 lf）', async () => {
+    const name = 'b8.txt'
+    writeFileSync(join(root, name), 'alpha\nbeta\ngamma\n', 'utf-8')
+    await readOnce(name)
+    const out = await call('edit_file', {
+      path: name,
+      workspacePath: root,
+      oldText: 'alpha\r\nbeta',
+      newText: 'X\r\nY',
+    })
+    expect(out['ok']).toBe(true)
+    expect(out['eol']).toBe('lf')
+    expect(readFileSync(join(root, name), 'utf-8')).toBe('X\nY\ngamma\n')
+  })
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

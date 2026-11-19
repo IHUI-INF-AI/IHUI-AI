@@ -4538,11 +4538,30 @@ agentLoop.registerTool({
   },
 })
 
+/** 文件行尾：CRLF 行数多于裸 LF 才算 CRLF（混合文件按多数派处理，不做静默全量改写）。 */
+function detectEol(text: string): '\r\n' | '\n' {
+  const crlf = (text.match(/\r\n/g) ?? []).length
+  const lfOnly = (text.match(/\n/g) ?? []).length - crlf
+  return crlf > lfOnly ? '\r\n' : '\n'
+}
+
+/**
+ * 把片段行尾对齐到文件行尾（只影响比较与写回，不改文件既有基调）。
+ *
+ * 模型给的片段几乎总是 LF，Windows 上被编辑的文件常年是 CRLF：不归一化就会
+ * "片段明明在文件里却报 EDIT_NO_MATCH"。反过来（文件 LF、片段 CRLF）同样归一化。
+ */
+function alignEol(fragment: string, eol: '\r\n' | '\n'): string {
+  const normalized = fragment.replace(/\r\n/g, '\n')
+  return eol === '\r\n' ? normalized.replace(/\n/g, '\r\n') : normalized
+}
+
 agentLoop.registerTool({
   name: 'edit_file',
   description:
     '在已读过的文件里做替换：默认唯一匹配（oldText 必须唯一命中），replaceAll 可整批替换；' +
-    '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘',
+    '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘。' +
+    '行尾自动对齐文件实际 EOL（CRLF 文件可用 LF 片段匹配，写回保持原行尾）',
   execute: async (args) => {
     const path = String(args['path'] ?? '')
     const workspacePath = String(args['workspacePath'] ?? process.cwd())
@@ -4589,6 +4608,9 @@ agentLoop.registerTool({
       if (denial) return JSON.stringify(denial)
     }
     // 逐条在内存里推进：任一失败即整批放弃，磁盘上的文件保持原样（原子性）
+    // 行尾对齐：模型给的片段多为 LF，而 Windows 文件常是 CRLF —— 不归一化就是
+    // "片段明明存在却 EDIT_NO_MATCH"。对齐只作用于比较与写回，不改文件既有行尾。
+    const eol = detectEol(current)
     let next = current
     let replacements = 0
     for (let index = 0; index < edits.length; index += 1) {
@@ -4603,7 +4625,9 @@ agentLoop.registerTool({
           remedy: '给出要被替换的原文片段（含足够上下文以保证唯一命中）。',
         })
       }
-      const hits = next.split(edit.oldText).length - 1
+      const alignedOld = alignEol(edit.oldText, eol)
+      const alignedNew = alignEol(edit.newText, eol)
+      const hits = next.split(alignedOld).length - 1
       if (hits === 0) {
         return JSON.stringify({
           ok: false,
@@ -4625,8 +4649,8 @@ agentLoop.registerTool({
         })
       }
       next = edit.replaceAll
-        ? next.split(edit.oldText).join(edit.newText)
-        : next.replace(edit.oldText, edit.newText)
+        ? next.split(alignedOld).join(alignedNew)
+        : next.replace(alignedOld, alignedNew)
       replacements += edit.replaceAll ? hits : 1
     }
     const changed = next !== current
@@ -4640,6 +4664,7 @@ agentLoop.registerTool({
         edits: edits.length,
         replacements,
         changed,
+        eol: eol === '\r\n' ? 'crlf' : 'lf',
         bytesBefore,
         bytesAfter,
       })
@@ -4655,6 +4680,7 @@ agentLoop.registerTool({
       replacements,
       occurrences: replacements,
       changed,
+      eol: eol === '\r\n' ? 'crlf' : 'lf',
       bytesBefore,
       bytesAfter,
     })
