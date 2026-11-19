@@ -33,6 +33,17 @@ const REGEX_FLAGS_WHITELIST = /^[gimsuy]*$/
  */
 export const MAX_ARRAY_INDEX = 1000
 export const MAX_PATH_SEGMENTS = 32
+
+/**
+ * 路径是否"不安全"(F-651):段数超上限,或任一段是超出 MAX_ARRAY_INDEX 的数组下标。
+ * 非字符串输入(校验层脏数据)一律不误报 —— 类型本身由调用方先判。
+ */
+export function isUnsafeParamOpPath(path: unknown): boolean {
+  if (typeof path !== 'string') return false
+  const parts = parsePath(path)
+  if (parts.length > MAX_PATH_SEGMENTS) return true
+  return parts.some((seg) => isArrayIndex(seg) && Number(seg) > MAX_ARRAY_INDEX)
+}
 export const MAX_PARAM_OPS = 64
 
 // ============================================================================
@@ -674,11 +685,11 @@ export function validateParamOps(ops: unknown): ValidationResult {
       if (typeof p !== 'string') continue
       const parts = parsePath(p)
       if (parts.length > MAX_PATH_SEGMENTS) {
-        errors.push(`${at}: ${key} exceeds ${MAX_PATH_SEGMENTS} path segments`)
+        errors.push(`F-651 ${at}: ${key} exceeds ${MAX_PATH_SEGMENTS} path segments`)
       }
       for (const seg of parts) {
         if (isArrayIndex(seg) && Number(seg) > MAX_ARRAY_INDEX) {
-          errors.push(`${at}: ${key} array index ${seg} exceeds ${MAX_ARRAY_INDEX}`)
+          errors.push(`F-651 ${at}: ${key} array index ${seg} exceeds ${MAX_ARRAY_INDEX}`)
           break
         }
       }

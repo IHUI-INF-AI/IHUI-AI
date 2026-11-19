@@ -99,6 +99,45 @@ import { resolveWriteLockDir } from './lib/git-dir-boundary.mjs'
 
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
+/** 本脚本认得的所有旗标(值不在此列 —— 带值的老写法按"不认识"处理)。 */
+const HEAL_KNOWN_FLAGS = new Set([
+  '--check',
+  '--dry-run',
+  '--align-drift',
+  '--align-debt',
+  '--json',
+  '--help',
+  '-h',
+  '--self-test',
+  '--declare-deletion',
+  '--revoke-deletion',
+  '--reason',
+  '--until',
+])
+
+/**
+ * 运行档判定(纯函数,不碰 IO)。
+ *
+ * §5b 承诺 `--check` 零副作用;手滑一枚旗标(`--hlep` / `--check=1`)绝不按真恢复执行,
+ * 而是**降到只读**并把降级事实点出来(静默少做比报错更坏)。
+ */
+export function healRunMode(argv = []) {
+  const tokens = Array.isArray(argv) ? argv.map(String) : []
+  const unknown = tokens.filter((t) => t.startsWith('-') && !HEAL_KNOWN_FLAGS.has(t))
+  const help = tokens.includes('--help') || tokens.includes('-h')
+  const selfTest = tokens.includes('--self-test')
+  const check = tokens.includes('--check')
+  const dryRun = check || tokens.includes('--dry-run') || unknown.length > 0
+  return {
+    dryRun,
+    degradedToReadOnly: unknown.length > 0 && !check,
+    unknown,
+    help,
+    selfTest,
+    check,
+  }
+}
+
 /**
  * 本自愈的派生出口。**`timeout: 0` 是刻意的**:共用层默认为只读派生封顶 60s,而本脚本的
  * `g` 同时承载写操作(`update-index` / `read-tree` / `restore`)—— 写操作中途被 SIGTERM
@@ -3901,8 +3940,12 @@ async function main() {
   // `--check` 必须是**只判不改**的巡检口径(AGENTS.md §5b 承诺"零副作用"):
   // 旧实现只认 `--dry-run`,`--check` 会一路落到真恢复分支,把他人**有意**的未暂存删除
   // 直接 `git restore` 复活(2026-09-24 差点咬掉并发会话正在收口的 4 个分类栏文件)。
-  const checkOnly = argv.includes('--check')
-  const dryRun = argv.includes('--dry-run') || checkOnly
+  const mode = healRunMode(argv)
+  const checkOnly = mode.check
+  if (mode.degradedToReadOnly) {
+    console.warn(`⚠️ 旗标不认识:${mode.unknown.join(' ')} ⇒ 本次降到只读(不写盘,§5b 零副作用)`)
+  }
+  const dryRun = mode.dryRun || checkOnly
   // --align-drift:幻影漂移对齐 + 落后索引刷新 + 第四层旁路孤儿恢复(git-sync-converge 推进 HEAD 后调用)
   if (argv.includes('--align-drift')) {
     const d = alignDrifts(repoRoot, { dryRun })
