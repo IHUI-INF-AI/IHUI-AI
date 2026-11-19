@@ -4,7 +4,7 @@
 
 """G-815919 测试:会话"归档"是一等列,不是删除的副产品。
 
-验收判据(零生产库,全部落 tmp_path 临时 SQLite,照 conftest 的隔离形态):
+验收判据(零生产库,全部落 tmp_path 独立 PostgreSQL schema,照 conftest 的隔离形态):
 1. 删除后原表该行按业务读路径不可读;
 2. 同一行的归档标记可查且带时刻;
 3. 归档标记不会被普通列表查询当成活会话;
@@ -15,10 +15,11 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from typing import Any
 
 from app.services.agent_engine import AgentEngine
 from app.services.session_store import SessionStore, UserMessageItem
@@ -64,7 +65,7 @@ def _engine_with_store(tmp_path):
     return AgentEngine(loop_factory=factory, store=store), store
 
 
-def _raw_thread_row(store: SessionStore, thread_id: str) -> sqlite3.Row | None:
+def _raw_thread_row(store: SessionStore, thread_id: str) -> Any | None:
     """直读原表那一行的归档列(判"列"本身,不经业务读路径)。"""
     with store._lock:
         return store._conn.execute(
@@ -92,7 +93,10 @@ def test_migration_v4_archived_at_in_journal_offline(tmp_path):
     with store._lock:
         cols = {
             r["name"]
-            for r in store._conn.execute("PRAGMA table_info(threads)").fetchall()
+            for r in store._conn.execute(
+                "SELECT column_name AS name FROM information_schema.columns"
+                " WHERE table_schema = current_schema() AND table_name = 'threads'"
+            ).fetchall()
         }
         journal = store._conn.execute(
             "SELECT applied_at FROM schema_version WHERE version = 4"
@@ -103,42 +107,61 @@ def test_migration_v4_archived_at_in_journal_offline(tmp_path):
 
 
 def test_migration_v4_upgrades_legacy_v3_db(tmp_path):
-    """v3 旧库(无 archived_at 列)打开即补列并记 journal,既有数据行保留。"""
+    """v3 旧库(无 archived_at / row_ord 列)打开即补列并记 journal,既有数据行保留。
+
+    2026-11-19 起引擎是 PostgreSQL:legacy 库按"v1 基线形状"直接建在 PG 的独立
+    schema 里(与 sqlite 时代的冻结历史形状等价 —— schema 名由 db_path 派生,
+    所以预建的表会被同一个 SessionStore 打开并迁移)。
+    """
     db = tmp_path / "legacy_v3.db"
-    conn = sqlite3.connect(str(db))
-    # 按 v1 基线形状造 legacy 库(v1 形状是冻结的历史,迁移必须原样吃下)
-    conn.executescript(
+    from app.core.pg_sync import SyncPgSession
+    from app.services.session_store import _resolve_dsn, _schema_name_for
+
+    dsn = _resolve_dsn()
+    session = SyncPgSession(dsn)
+    schema = _schema_name_for(db)
+    session.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+    session.execute(f'CREATE SCHEMA "{schema}"')
+    session.execute(f'SET search_path TO "{schema}"')
+    session.execute(
         """
         CREATE TABLE schema_version (
-            version     INTEGER PRIMARY KEY,
-            applied_at  REAL    NOT NULL,
-            description TEXT    NOT NULL DEFAULT ''
-        );
-        CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        INSERT OR IGNORE INTO meta (key, value) VALUES ('last_seq', '0');
-        CREATE TABLE threads (
-            thread_id         TEXT    PRIMARY KEY,
-            title             TEXT    NOT NULL DEFAULT '',
-            created_at        REAL    NOT NULL,
-            updated_at        REAL    NOT NULL,
-            metadata          TEXT    NOT NULL DEFAULT '{}',
-            parent_thread_id  TEXT,
-            fork_point_seq    INTEGER,
-            fork_mode         TEXT,
-            archived          INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY (parent_thread_id) REFERENCES threads(thread_id)
-        );
-        INSERT INTO threads (thread_id, title, created_at, updated_at)
-            VALUES ('thr_legacy', '旧会话', 1.0, 1.0);
-        INSERT INTO schema_version VALUES (1, 0.0, 'legacy baseline');
-        INSERT INTO schema_version VALUES (2, 0.0, 'legacy fts5');
-        INSERT INTO schema_version VALUES (3, 0.0, 'legacy relay');
+            version     integer PRIMARY KEY,
+            applied_at  double precision NOT NULL,
+            description text NOT NULL DEFAULT ''
+        )
         """
     )
-    conn.commit()
-    conn.close()
+    session.execute("CREATE TABLE meta (key text PRIMARY KEY, value text NOT NULL)")
+    session.execute("INSERT INTO meta (key, value) VALUES ('last_seq', '0')")
+    session.execute(
+        """
+        CREATE TABLE threads (
+            thread_id         text PRIMARY KEY,
+            title             text NOT NULL DEFAULT '',
+            created_at        double precision NOT NULL,
+            updated_at        double precision NOT NULL,
+            metadata          text NOT NULL DEFAULT '{}',
+            parent_thread_id  text,
+            fork_point_seq    integer,
+            fork_mode         text,
+            archived          integer NOT NULL DEFAULT 0,
+            FOREIGN KEY (parent_thread_id) REFERENCES threads(thread_id)
+        )
+        """
+    )
+    session.execute(
+        "INSERT INTO threads (thread_id, title, created_at, updated_at)"
+        " VALUES ('thr_legacy', '旧会话', 1.0, 1.0)"
+    )
+    for version, desc in ((1, 'legacy baseline'), (2, 'legacy fts5'), (3, 'legacy relay')):
+        session.execute(
+            "INSERT INTO schema_version (version, applied_at, description) VALUES ($1,$2,$3)",
+            (version, 0.0, desc),
+        )
+    session.close()
 
-    store = SessionStore(str(db))  # 打开即迁移(离线,临时库)
+    store = SessionStore(str(db))  # 打开即迁移(独立 schema)
     assert store.schema_version == 4
     row = store.get_thread("thr_legacy", include_archived=True)
     assert row is not None
