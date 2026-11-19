@@ -1316,6 +1316,26 @@
     "scripts/check-readme-recent-containment.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
+    },
+    "scripts/check-button-border-color.mjs": {
+      "face": "head",
+      "reason": "由 scripts/data/gate-face-declarations.json 补声明(2026-11-19):门内 selectFace 缺省 def=head,--staged/--worktree 由旗改判;此前未声明 ⇒ 派发层判「未声明判面」exit 2(§0.3 未判定,不记绿也不冒红)"
+    },
+    "scripts/check-acp-method-registration.mjs": {
+      "face": "head",
+      "reason": "同批补声明(2026-11-19):门内 selectFace 缺省 def=head(见该脚本 selectFace 调用);未声明导致派发层拒绝判定"
+    },
+    "scripts/check-shadow-single-source.mjs": {
+      "face": "worktree",
+      "reason": "同批补声明(2026-11-19):门内 selectFace 缺省 def=worktree(disk 面),判据素材取自磁盘源码;声明为 worktree 与门内缺省一致"
+    },
+    "scripts/check-acp-error-mapping.mjs": {
+      "face": "worktree",
+      "reason": "同批补声明(2026-11-19):该门直接 fs.readFileSync 读磁盘源码(无 selectFace),判面恒为工作树磁盘 ⇒ 如实声明 worktree,不虚报 head"
+    },
+    "scripts/check-mirror-surface-parity.mjs": {
+      "face": "head",
+      "reason": "同批补声明(2026-11-19):门内 selectFace 缺省 def=head(见该脚本 def: 调用);未声明导致派发层拒绝判定"
     }
   }
 }
