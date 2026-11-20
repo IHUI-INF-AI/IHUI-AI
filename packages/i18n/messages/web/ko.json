@@ -9948,6 +9948,7 @@
       "chartGenerated": "차트 생성됨",
       "chartPreviewFailed": "차트 미리보기에 실패했습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
       "chartPreviewHint": "로컬 차트 파일은 웹페이지에서 직접 미리볼 수 없습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
+    "toolOutputArtifact": "출력이 커서 아티팩트로 저장했습니다",     "toolOutputHint": "전체 출력은 페이지 단위로 볼 수 있으며 링크는 10분간 유효합니다.",     "toolOutputOpen": "전체 출력 보기",     "toolOutputOpenFailed": "열지 못했습니다. 다시 시도해 주세요.",     "toolOutputExpired": "미리보기 링크가 만료되었습니다",
       "citationsTitle": "인용 출처",
       "copyPath": "경로 복사",
       "filePathLabel": "파일 경로",
