@@ -76,6 +76,7 @@
 - **禁止渐变遮罩**:mask-image/linear-gradient 边缘淡出禁止(`check-no-mask-image.mjs`),用显式 UI 元素替代。
 - **禁用原生提示窗**:`title`/`alert()`/`confirm()`/`prompt()` 禁止,用项目 `Tooltip`(`check-no-native-dialog.mjs`)。
 - **图标一律图标库**:web `lucide-react`、RN `lucide-react-native`、小程序 `static/images/icons/` lucide 风格 SVG(`node scripts/gen-taro-lucide-icons.mjs <name>` 生成);禁止 emoji 充当 UI 图标(`check-no-emoji-icons.mjs`);**品牌/平台图标必须官方真实图标**(favicon 直取 → Google s2 → favicon.im → 官方 CDN,人工目检;`publish-icons/` 与 footer mono 剪影两套素材禁止混用;`.ico` 仅为兜底)。
+- **常驻开关图标画状态、不画动作(强制,2026-11-21 立)**:带 `aria-pressed`(或 `data-state on|off`)的按钮,真值态必须画「开启态」图标;`pinned ? <PinOff/> : <Pin/>` 会让"已开启+高亮"读成未开启(用户实报"桌面端置顶按钮正好相反",功能链路没错、错在图标语义)。置顶族统一用 `apps/web/src/components/common/pin-toggle-icon.tsx` 的 `<PinToggleIcon pressed={…}/>`;一次性菜单项(role=menuitem,带文字)与展开/收起控件(aria-expanded)仍用动作图标;关闭态族(VolumeX / MicOff / VideoOff / Unlock)本身即状态,不在此列。守门 `check-toggle-icon-semantics.mjs`(--staged,blocking)。
 - **圆角容器内 absolute 子元素避让**:父 `rounded-xl`+`overflow-hidden` 时贴边子元素禁 `h-full/w-full`,用 `top-<radius> bottom-<radius>` 映射(lg→2/xl→3/2xl→4)。
 - **浮动弹层内边距四档**:内容面板 `p-3`、菜单列表 `p-1`、轻提示 `px-2 py-1`、复合面板外层零 padding 行级自带;禁止自创中间值,同族组件必须同档。
 - **状态栏避让单一源头(97)**:唯一注入点 `apps/mobile-rn/App.tsx` 的 `<SafeAreaView edges={['top']}>`;`packages/app` 不碰顶距;禁 `StatusBar.currentHeight`/`statusBarHeight` 取值与 24..60 魔法顶距;豁免 `statusbar-exempt: <原因>`。守门 `check-statusbar-single-source.mjs`。
