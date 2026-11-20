@@ -12,6 +12,7 @@ from app.services.model_catalog_policy import (
     LEGACY_MODEL_IDS,
     filter_frontier,
     is_legacy_model,
+    restore_modality_entries,
 )
 
 
@@ -84,4 +85,43 @@ def test_every_legacy_id_is_a_full_model_id():
     for model_id in LEGACY_MODEL_IDS:
         assert "/" in model_id or model_id.startswith(("grok-", "llama")), model_id
         assert model_id == model_id.strip()
+
+
+def test_restore_modality_entries_keeps_media_killed_by_chat_probe():
+    """chat 探针对媒体模型必然失败(探针打的是 completion)⇒ 模态档要被补回。
+
+    生产实测病灶:image/video/vision 被 filter_available 全批摘掉后,/llm/models
+    只剩 21 条全 chat,选择器里自然看不到任何模态模型。
+    """
+    originals = [
+        {"id": "agnes/agnes-image-2.5-flash", "category": "image"},
+        {"id": "agnes/agnes-video-2.5-flash", "category": "video"},
+        {"id": "gpt-5.6", "category": "chat"},
+        {"id": "workbuddy/glm-5.3", "category": "chat"},
+    ]
+    kept_by_health = [{"id": "workbuddy/glm-5.3", "category": "chat"}]
+    restored = restore_modality_entries(originals, kept_by_health)
+    ids = [m["id"] for m in restored]
+    assert "agnes/agnes-image-2.5-flash" in ids
+    assert "agnes/agnes-video-2.5-flash" in ids
+    # 探针判死的聊天模型不被这条修复顺手复活
+    assert "gpt-5.6" not in ids
+    # 已在 kept 里的条目不被重复追加
+    assert ids.count("workbuddy/glm-5.3") == 1
+
+
+def test_restore_modality_entries_is_idempotent():
+    originals = [{"id": "agnes/agnes-image-2.5-flash", "category": "image"}]
+    once = restore_modality_entries(originals, [])
+    twice = restore_modality_entries(originals, once)
+    assert [m["id"] for m in twice] == [m["id"] for m in once]
+
+
+def test_restore_modality_entries_leaves_middleware_hidden():
+    """嵌入/重排/审核不是模态,不能被这条修复带回来。"""
+    originals = [
+        {"id": "x/text-embedding-3", "category": "embedding"},
+        {"id": "x/rerank-1", "category": "rerank"},
+    ]
+    assert restore_modality_entries(originals, []) == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
