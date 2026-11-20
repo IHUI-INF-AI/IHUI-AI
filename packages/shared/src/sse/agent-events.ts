@@ -1041,6 +1041,20 @@ const HOOK_RUN_FIELDS = z.object({
   hooks: z.array(z.record(z.string(), z.unknown())).optional(),
 })
 
+/**
+ * 2026-11-21 第 40 项:严格档的**载荷面**判据(`type` 在信封上,载荷里不一定有,
+ * 所以不能用 `HOOK_RUN_FIELDS` —— 那份带 type,拿去 strict 会把每一帧都判成缺字段)。
+ * 只钉两条契约里必有的事:有 `hooks`、且至少一条。逐条三态/名字的校验仍在
+ * `parseHookRunEvent` 里做(拒帧),这里只负责"缺字段要说得出是哪个字段"。
+ */
+const HOOK_RUN_PAYLOAD_FIELDS = z.object({
+  run_id: z.string().optional(),
+  tool_name: z.string().optional(),
+  tool_call_id: z.string().optional(),
+  session_id: z.string().optional(),
+  hooks: z.array(z.record(z.string(), z.unknown())).min(1),
+})
+
 /** hook.run 解析:任何一条钩子状态不在三态内 ⇒ 拒帧;空 hooks 也拒(空表不下发)。 */
 export function parseHookRunEvent(raw: unknown): AgentHookRunEvent | null {
   const data = parseEnvelope(raw)
@@ -1106,6 +1120,9 @@ export function parseAgentTaskEventStrict(
     [AGENT_TASK_EVENTS.TOOL_APPROVAL]: TOOL_APPROVAL_FIELDS,
     [AGENT_TASK_EVENTS.QUESTION]: QUESTION_FIELDS,
     [AGENT_TASK_EVENTS.QUESTION_RESOLVED]: QUESTION_RESOLVED_FIELDS,
+    // 2026-11-21 第 40 项:hook-run 补进严格档。此前它走 fallback 宽松解析 ——
+    // 同一张表里少一个事件,严格模式就悄悄降级,故障字段也无处点名。
+    [AGENT_TASK_EVENTS.HOOK_RUN]: HOOK_RUN_PAYLOAD_FIELDS,
   }
   const schema = strictByEvent[name]
   if (!schema) return parseAgentTaskEvent(name, raw)

@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **39 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **40 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（39 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（40 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -512,6 +512,15 @@
 - 超越轴：对照程序要么完全不落盘、要么把钩子日志与 agent 日志混在一份文本里；本仓把"实时帧（SSE）/ 会话累计（前端）/ 落盘审计（服务端）"三层各就各位，且写入口收敛到唯一一处，三层的字段口径天然一致。
 
 验证：`pytest test_hook_audit.py` → `4 passed`（同形落盘 / 空表不写 / 写不进去不冒泡 / 观察出口只认 `hook.run`）；回归 `test_hook_engine.py` 一起跑 → `155 passed`；`ruff check` → `All checks passed!`；`mypy --strict`（`hook_audit.py` + `hook_engine.py`）→ `Success: no issues found`。
+
+### 5.41 第 40 项：`hook-run` 补进严格解析档（少一个事件 = 严格模式悄悄降级）
+
+- 缺口：`parseAgentTaskEventStrict` 的 `strictByEvent` 表登记了 11 个事件，`hook-run` **不在表里**，命中不到 schema 就直接 `return parseAgentTaskEvent(...)` 走宽松工厂。结果同一张"严格表"里少一个事件，**故障帧不会有字段级故障码**，只有 null —— 排障时"字段丢了"和"事件不认识"看起来一模一样。
+- 处置：新增载荷面判据 `HOOK_RUN_PAYLOAD_FIELDS`（`run_id / tool_name / tool_call_id / session_id` 可选，`hooks` 必填且 `.min(1)`），并登记进 `strictByEvent`。**刻意不复用带 `type` 的 `HOOK_RUN_FIELDS`** —— 后者是给整个信封造的，`type` 在信封不在载荷，拿它做严格校验会把每一帧都判成缺字段（这正是"表里少一个事件"之外的第二层坑）。
+- 语义边界：严格档只负责"缺字段要说得出是哪个字段"；逐条三态/名字仍由 `parseHookRunEvent` 拒帧（未知 status 一律拒收，不冒成功）。两档对**空 hooks** 的态度一致：都判不合格。
+- 超越轴：对照实现的"严格/宽容"是全局开关，一开就把不认识的帧全丢掉；本仓按事件逐张字段表登记，**严格档缺失可被单独发现并补位**，且补齐不改变宽松档的既有行为。
+
+验证：`pnpm --filter @ihui/shared exec vitest run src/sse/__tests__/agent-events.test.ts` → `53 passed`（新增 3 例：合法帧严格通过 / 缺 `hooks` 返回 `field='hooks'` 的字段级故障 / 空 `hooks` 同判）；回归 `tests/field-loss.test.ts` → `7 passed`；`pnpm turbo typecheck --filter=@ihui/shared` → `4 successful`；`check-stale-dist` → 无陈旧。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
