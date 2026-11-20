@@ -9726,6 +9726,10 @@
           "title": "終端機輸入無效",
           "action": "檢查貼上或傳送的內容後重試"
         },
+        "TERMINAL_MOUSE_DISABLED": {
+          "title": "終端機未啟用滑鼠回報",
+          "action": "先讓程式請求滑鼠(DECSET 1000/1002/1003),再送出滑鼠事件"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "終端機不是 tty",
           "action": "以 PTY 模式重啟工作階段"

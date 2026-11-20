@@ -553,7 +553,19 @@ class HookEngine:
         只走订阅面,**刻意不进 `HOOK_EVENTS`**:那张表是"用户可配的触发器白名单",
         往里面塞系统事实等于允许"钩子运行结果"去点火用户钩子 —— 每跑一枚钩子就
         再发一次 `hook.run`,自激成环。与 `hook.failed` 同一条纪律(直接 `_broadcast`)。
+
+        2026-11-21 第 39 项:`hook.run` 在这里顺带落审计(唯一观察者出口,两条腿
+        ——agent_loop 与子代理派发——本就都汇到此处)。落盘失败只 warning,
+        绝不反向打断下行;前端内存态(50 条 FIFO + 会话累计)仍是实时视图,
+        台账只回答"会话结束后还能查到什么"。
         """
+        if event.strip().lower() == "hook.run":
+            try:
+                from app.core.hook_audit import record_hook_run
+
+                record_hook_run(payload)
+            except Exception:  # noqa: BLE001 —— 审计层不许成为新的单点故障
+                pass
         self._broadcast(event, payload)
 
     # ---------- Redis 持久化 ----------
