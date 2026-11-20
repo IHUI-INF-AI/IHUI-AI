@@ -200,4 +200,30 @@ def test_summary_reports_no_backup_when_absent(
     hook_audit.record_hook_run(_payload())
     s = hook_audit.summarize_hook_audit()
     assert s["backupBytes"] is None
+
+
+def test_error_text_is_redacted_before_persisting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """第 46 项:钩子 stderr 里的凭据不许原样落到长期台账。"""
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    secret = "sk-live-abcdefghijklmnop1234"
+    payload = _payload(
+        [
+            {
+                "name": "leaky",
+                "kind": "post_tool_use",
+                "status": "error",
+                "durationMs": 5,
+                "error": f"OPENAI_API_KEY={secret} failed",
+            }
+        ]
+    )
+    assert hook_audit.record_hook_run(payload) is True
+    text = target.read_text(encoding="utf-8")
+    assert secret not in text
+    assert "[REDACTED_SECRET]" in text
+    # 非凭据部分保留,便于排查(不许把整条错误一起吞掉)
+    assert "failed" in text
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
