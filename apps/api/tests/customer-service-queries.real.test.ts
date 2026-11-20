@@ -248,7 +248,8 @@ describe('customer-service-queries — 真实 DB 集成测试', () => {
     it('createSession + findSessionBySessionId + findWaitingSessions + assignSession + closeSession', async () => {
       const userId = (await seedUser()).id
       const s = await createSession({ userId })
-      expect(s.status).toBe('waiting')
+      // F-434:等待中状态词为 pending(旧 waiting 已废弃)
+      expect(s.status).toBe('pending')
       expect(s.queuePosition).toBe(1)
 
       // 第二个会话排队位置 = 2
@@ -266,7 +267,8 @@ describe('customer-service-queries — 真实 DB 集成测试', () => {
       const agent = await createAgent({ userId: (await seedUser()).id, nickname: 'Agent' })
       await updateAgentStatus(agent.id, 'online')
       const assignResult = await assignSession(s.sessionId, agent.id)
-      expect(assignResult.session?.status).toBe('active')
+      // F-434:认领后状态词为 open(旧 active 已废弃)
+      expect(assignResult.session?.status).toBe('open')
       expect(assignResult.session?.agentId).toBe(agent.id)
       expect(assignResult.session?.startedAt).toBeTruthy()
 

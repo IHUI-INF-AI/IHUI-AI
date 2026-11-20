@@ -50,7 +50,9 @@ beforeAll(async () => {
   const [_employeeId] = await db
     .insert(hrEmployee)
     .values({
-      employeeNo: `__PROBE_HRJOBS_${randomUUID()}`,
+      // employee_no 列 varchar(50);前缀 + uuid(36) 总长必须 ≤50,
+      // 原 `__PROBE_HRJOBS_`(15)+36=51 超长按 22001 抛错,前缀压到 6 字符(总长 42)。
+      employeeNo: `__PHJ_${randomUUID()}`,
       name: '__probe_hr_jobs__',
       departmentId: deptId,
       status: 'active',

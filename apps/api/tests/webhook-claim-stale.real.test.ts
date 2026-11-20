@@ -69,6 +69,8 @@ describe('retryPendingWebhooks — 认领的时间阈复位 + 只回收自己的
   beforeEach(async () => {
     await db.execute(sql`DELETE FROM webhook_delivery_logs`)
     await db.execute(sql`DELETE FROM webhook_subscriptions`)
+    // createRealDbUser 落的夹具 users 一并清掉,避免跨文件/跨跑残留累积
+    await db.execute(sql`DELETE FROM users WHERE nickname = 'real-db-fixture'`)
   })
 
   it('① 超 11min 的僵尸认领被时间阈复位并纳入本轮候选(返回值 +1)', async () => {

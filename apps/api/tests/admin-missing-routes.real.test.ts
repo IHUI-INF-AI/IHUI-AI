@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
-import { sql } from 'drizzle-orm'
+import { sql, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import { users } from '@ihui/database'
 import { mockAuthenticate, setMockAdmin, resetMockAuth } from './helpers/mock-auth.js'
@@ -39,8 +39,9 @@ describe('admin-missing-routes /member/users — level 字段完整处理', () =
 
   beforeEach(async () => {
     resetMockAuth()
-    // 只删除 phone 以 5 开头的测试用户;不能用 email LIKE '5%@%' 因为会误删 system admin
-    await db.execute(sql`DELETE FROM users WHERE phone LIKE '5%'`)
+    // DB-35:POST 写入的 phone/email 是密文,`phone LIKE '5%'` 清不到;按非系统管理员整批清理,
+    // 保证两遍连跑时 lookup 唯一索引不撞 23505(系统内置管理员行保留)。
+    await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
   })
 
   it('GET /api/admin/member/users — 列表返回 level 字段', async () => {
@@ -184,10 +185,8 @@ describe('admin-missing-routes /member/users — level 字段完整处理', () =
     expect(res.statusCode).toBe(201)
     const body = res.json()
     expect(body.data.level).toBe(2)
-    const [dbRow] = await db
-      .select()
-      .from(users)
-      .where(sql`phone = '5040'`)
+    // phone 列存密文,不能按明文等值回查;用响应返回的 id 定位行
+    const [dbRow] = await db.select().from(users).where(eq(users.id, body.data.id))
     expect(dbRow?.level).toBe(2)
   })
 
@@ -200,10 +199,9 @@ describe('admin-missing-routes /member/users — level 字段完整处理', () =
       payload: { nickname: '新用户2', email: '5041@example.com', password: 'secret123' },
     })
     expect(res.statusCode).toBe(201)
-    const [dbRow] = await db
-      .select()
-      .from(users)
-      .where(sql`email = '5041@example.com'`)
+    const body = res.json()
+    // email 列存密文,不能按明文等值回查;用响应返回的 id 定位行
+    const [dbRow] = await db.select().from(users).where(eq(users.id, body.data.id))
     expect(dbRow?.level).toBe(0)
   })
 
