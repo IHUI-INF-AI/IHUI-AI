@@ -21,7 +21,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **31 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **33 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -97,7 +97,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（31 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（33 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -443,6 +443,27 @@
 - 超越轴：对照程序的 `/hooks` 只告诉你"配了什么"，不说"为什么没生效"；本仓把**无效原因**显式化并且把展示面收窄成"认领信息 + 计数"，既不泄露 argv 又把三方（配置文件 / 信任哈希 / 运行时登记）的差异说清楚。
 
 验证：`pytest test_command_hooks_describe.py` → `7 passed`（未配置 / 空表 / 坏 JSON / 形状坏 / 未受信任且 argv 不外泄 / 已信任 / 信任后改动回退未受信任）；`ruff check`（command_hooks + agents 路由 + 新测试）→ `All checks passed!`；`mypy --strict`（command_hooks）→ `Success: no issues found`；`check-i18n-keys.mjs` → `通过, 1716 文件 / 20692 键 / 5 语言 parity OK`；`check-i18n-parity.mjs` → `✅ 键集一致`；改动文件定向 `tsc --noEmit` → 0 错。
+
+### 5.33 第 32 项：钩子信任登记闭环（可审计 + 显式确认）
+
+- 缺口：信任动作此前等价于"`--trust` 一条命令写完就生效"——既不展示**将要被信任的命令**，也不记录**谁在何时信任了哪份内容**。命令钩子等于把本机 shell 执行权交给一份 JSON，出了事无法回答"谁批的"。这也正是"小工具长成高风险面"的典型形态。
+- 处置（**坚持不开 HTTP 信任写面**）：
+  - 信任记录从"一个哈希"扩成一条登记：`trusted_content_hash / trusted_at / trusted_by / host / config_path`；判定仍只认哈希（旧文件照读），新增键只服务审计；
+  - `--trust` 先打印**本机待信任清单**（事件、matcher、超时、完整命令行），再要求交互确认；非交互环境未给 `--yes` 一律 exit 2 且**不写**文件（失效方向 = 多拒一次）；空表同样拒绝（没有可执行钩子时登记信任没有意义）；
+  - `GET /api/agent/command-hooks` 带上 `trusted_at / trusted_by`；面板在 `untrusted` 时追加"上次登记 {by}"，让"谁改过、为什么失效"在同一行读完。
+- 为什么**不**给 Web 一个"信任"按钮（这是本项最重要的设计判断）：ai-service 的钩子配置是**进程级全局文件**，而该端点只要求登录。若开放 HTTP 信任，任何登录用户都能把"别人写好的命令"一键升格为本机可执行 —— 等价于把 shell 执行权外借给整个登录面。"能在本机改文件"与"能在 Web 点按钮"不是同一权限级，所以信任动作只保留在本机 CLI；Web 只做只读自述。
+- 超越轴：对照程序的信任是桌面本机动作（UI 与本机同权限，风险对等）；本仓是多租户服务端 + 本地 CLI 的组合，因此把**权限面分层**（读面开放、写面只在本机）并留下可追责的三元组，比"给个按钮"更安全也更符合本仓部署形态。
+
+验证：`pytest test_command_hooks_describe.py` → `11 passed`（新增 4 例：审计元数据落盘 / 非交互无 `--yes` 拒绝且不写文件 / `--yes` 写入并可读回 trusted / 空表拒绝）；`ruff check` + `mypy --strict` 均通过；`check-i18n-parity` → `✅ 键集一致`；改动文件定向 `tsc --noEmit` → 0 错。
+
+### 5.34 第 33 项：`session_end` 钩子挂载点（收尾观察面）
+
+- 缺口：契约侧 `codex_hook_config_contract.HOOK_EVENTS` 14 个事件里一直有 `session_end`，`.ihui/hooks.json` 也能写；但 `HookKind` 只有 8 格（session_start / user_prompt_submit / pre·post_tool_use / permission_request / pre·post_compact / stop），**没有 session_end**。于是配置了也不会执行，`install_command_hooks` 只会打一行"事件无挂载点"警告 —— 又一处"契约在、执行链不在"。
+- 处置：`HookKind.SESSION_END = "session_end"` + `_KIND_BY_EVENT["session_end"]` 同批接上；`AgentLoopV2._run_session_end_hooks()` 在 `events.session_end()` 之前调用，载荷与随后下发的收尾帧同源同刻（`session_id / user_id / conversation_id / cwd / success / stop_reason / iterations / duration_ms`），`hook.run` 仍走既有 `publish_observation` 通道，不新造事件名。
+- 语义边界（本项最重要的一条）：收尾钩子是**观察面**。会话已经结束，这里不解读 `decision == "block"`，也不允许把会话"复活"—— 那等于让钩子绕过用户取消与安全停止；`additionalContext` 只写进消息历史（下一条会话可见），不改变本次 `result`。钩子异常 / 超时 / 中断一律降级为"照常结束"。
+- 超越轴：对照程序把 `SessionEnd` 只当遥测钩子（失败静默、无结构化回执）；本仓把它接到同一套 `HookRuntime` + `hook.run` SSE 通道，运行状态 / 耗时 / 错误与工具面钩子**同形可见**，且显式钉住"观察面不得复活会话"这条边界。
+
+验证：`pytest test_session_end_hook.py test_lifecycle_hooks.py` → `9 passed`（新增 4 例：事件名必须映射到存在的 HookKind / 载荷与 result 同源 / `decision=block` 不改写返回值 / 钩子抛错不阻断）；`ruff check` 全过；`mypy --strict` 对两个 core 模块 `Success: no issues found`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

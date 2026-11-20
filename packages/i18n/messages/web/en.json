@@ -8748,6 +8748,7 @@
       "runtimeHookRunError": "failed",
       "runtimeHookConfigUntrusted": "{count} hooks configured but untrusted — re-trust on this machine after edits",
       "runtimeHookConfigInvalid": "Hook config is broken; running as if unconfigured",
+      "runtimeHookConfigStaleBy": "last trusted by {by}",
       "runtimeMessageSend": "Round {iteration} request sent · {count} messages",
       "runtimeSessionEndSuccess": "Session completed · {iterations} rounds · {duration}",
       "runtimeSessionEndFailed": "Session ended with errors · {iterations} rounds · {duration}",

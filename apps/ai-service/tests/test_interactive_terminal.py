@@ -23,7 +23,6 @@ from app.services import interactive_terminal as term
 from app.services import mcp_server as mcp
 from app.services.mcp_server import _tool_terminal
 
-
 # ─── PTY 后端形状锁(不 flaky:静态判据 + 变异夹具,遵 memory: race-fix-shape-lock-over-timing-test) ───
 _TEST = term.__test__
 assert _TEST is not None, "模块必须挂 __test__,否则判据无法对账(§22c)"
@@ -109,24 +108,35 @@ def test_send_writes_via_write_io_not_proc_stdin(tmp_path) -> None:
         term.reset_terminals()
 
 
-def test_strict_child_env_applies_to_both_backends_via_source_lock() -> None:
-    """形状锁(读源码一次):PTY 分支必须**与管道分支同经** `_strict_child_env`,
-    否则 PTY 悄悄继承了宿主环境 = 沙箱边界被放宽却没人发现。
+def test_strict_child_env_applies_to_both_backends_via_source_lock(monkeypatch) -> None:
+    """形状锁(读源码一次):三个 spawn 分支的环境构造**单一入口**,且不放宽沙箱边界。
+
+    - 管道分支:仍直接 `_strict_child_env(env_extra)` —— 那边不是 tty,不补终端身份键;
+    - POSIX PTY / Windows ConPTY 两处:`_pty_child_env(env_extra)`,而它自身必须**委托**
+      `_strict_child_env` —— 否则"补 TERM/COLORTERM"会顺手变成"整份继承宿主环境"
+      (沙箱边界被放宽却没人发现)。
     """
     with open(term.__file__, encoding="utf-8") as fh:
         src = fh.read()
-    # 三个 spawn 分支(管道 / POSIX pty / Windows ConPTY)都必须各走一次 `_strict_child_env`。
-    assert src.count("env=_strict_child_env(env_extra)") >= 3
-    # 任何 subprocess.Popen( 调用点附近必须传了 env=;粗略:文件里没有裸 `subprocess.Popen(`
-    # 不带 env= 的 spawn(排除注释行)。
-    for line in src.splitlines():
-        ls = line.strip()
-        if not ls or ls.startswith("#") or '"subprocess.Popen(' in ls:
-            continue
-        if "subprocess.Popen(" in ls and "import subprocess.Popen" not in ls:
-            # Popen( 单独一行的行只出现起始;真正带 env 的在同段(多行)。这里只断文件里存在 env=
-            pass
-    assert "env=_strict_child_env" in src
+    # 管道一处 + PTY 两处(数量是语义的一部分:多一处 = 有人在别处绕过了单一入口)。
+    assert src.count("env=_strict_child_env(env_extra)") == 1
+    assert src.count("env=_pty_child_env(env_extra)") == 2
+    # `_pty_child_env` 必须真调 `_strict_child_env`(不是另抄一份白名单)。
+    assert "env = _strict_child_env(env_extra)" in src
+
+    # 行为面同钉:默认补两键;显式传值优先;宿主上的非白名单键进不来。
+    env_fn = _TEST["pty_child_env"]
+    term_pin = _TEST["PTY_TERM"]
+    color_pin = _TEST["PTY_COLORTERM"]
+    assert term_pin == "xterm-256color" and color_pin == "truecolor"
+    monkeypatch.setenv("IHUI_TEST_HOST_ONLY_SECRET", "leak-me")
+    base = env_fn(None)
+    assert base["TERM"] == term_pin
+    assert base["COLORTERM"] == color_pin
+    assert "IHUI_TEST_HOST_ONLY_SECRET" not in base
+    assert "PATH" in base
+    # 调用方显式要 dumb(或任何值)仍以调用方为准 —— setdefault,不是硬覆盖。
+    assert env_fn({"TERM": "dumb"})["TERM"] == "dumb"
 
 
 # ─── Windows ConPTY 专章:两条"本机实测踩点"的形状锁(静态判据,不 flaky) ───
@@ -229,6 +239,140 @@ def test_pty_backend_reports_true_isatty_and_backend_tag(tmp_path, monkeypatch) 
         assert closed["ok"] is True and closed["closed"] is True
         assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 0
 
+
+# ─── 终端身份键(TERM/COLORTERM):只在真 tty 上补,且不覆盖调用方显式值 ───
+
+_ENV_SCRIPT = """\
+import os
+print("[ENV]" + repr(os.environ.get("TERM")) + "|" + repr(os.environ.get("COLORTERM")),
+      flush=True)
+"""
+
+
+def test_pty_child_gets_term_defaults_while_pipe_child_does_not(tmp_path, monkeypatch) -> None:
+    """真 tty 子进程必须看见 TERM/COLORTERM;管道子进程必须看不见(那边不是 tty)。
+
+    这不是"多塞两个变量"的洁癖:PTY 缺 `TERM` 时 `ls --color` / `git` / `less` / `vim`
+    会把终端当 dumb —— 颜色与光标控制全关、分页退化,真 tty 白接。而管道后端塞 TERM
+    等于骗程序"你是 tty",所以两条后端必须一个有一个没有。
+    """
+    script = _script_path(tmp_path, "env_probe.py", _ENV_SCRIPT)
+
+    opened = _open(script, tmp_path)
+    assert opened["ok"] is True and opened["terminal"]["backend"] == "pipes"
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        text, _ = _read_until(tid, "[ENV]")
+        assert "[ENV]None|None" in text, f"管道后端不该有终端身份键:{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(script, tmp_path)
+    assert opened["ok"] is True and opened["terminal"]["backend"] == "pty"
+    tid = opened["terminal"]["terminal_id"]
+    want = f"[ENV]'{_TEST['PTY_TERM']}'|'{_TEST['PTY_COLORTERM']}'"
+    try:
+        text, _ = _read_until(tid, "[ENV]", timeout=15.0)
+        assert want in text, f"PTY 子进程没拿到终端身份键:{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+# ─── stdin EOF:让按 EOF 收尾的程序自己收尾,而不是只能 kill ───
+
+_EOF_SCRIPT = """\
+import sys
+print("[READY]", flush=True)
+lines = 0
+for _ in sys.stdin:
+    lines += 1
+print("[EOF-SEEN] lines=%d" % lines, flush=True)
+"""
+
+
+def test_eof_on_pipe_backend_lets_child_finish_then_blocks_writes(tmp_path) -> None:
+    """管道:关写端 = 真 EOF;之后 send/keys 必须显式 `TERMINAL_STDIN_CLOSED`(幂等且不静默丢字节)。
+
+    拒绝次序也钉住:"已送过 EOF"是本层自己的账,先于子进程是否已退出回答 —— 否则同一
+    个错会被退出时序晃动成两种错误码。
+    """
+    opened = _open(_script_path(tmp_path, "eof_pipe.py", _EOF_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        ready, _ = _read_until(tid, "[READY]", timeout=15.0)
+        assert "[READY]" in ready, f"会话未就绪:{ready!r}"
+        sent = term.send_terminal(tid, "a", user_id="u-term", session_id="s-term")
+        assert sent["ok"] is True
+        eof = term.eof_terminal(tid, user_id="u-term", session_id="s-term")
+        assert eof["ok"] is True and eof["eof_sent"] is True
+        assert term._sessions[tid].to_dict()["stdin_closed"] is True
+
+        text, _ = _read_until(tid, "[EOF-SEEN]", timeout=15.0)
+        assert "[EOF-SEEN] lines=1" in text, f"子进程没按 EOF 收尾:{text!r}"
+
+        blocked = term.send_terminal(tid, "b", user_id="u-term", session_id="s-term")
+        assert blocked["errorCode"] == "TERMINAL_STDIN_CLOSED"
+        keys = term.send_terminal_keys(tid, ["tab"], user_id="u-term", session_id="s-term")
+        assert keys["errorCode"] == "TERMINAL_STDIN_CLOSED"
+        again = term.eof_terminal(tid, user_id="u-term", session_id="s-term")
+        assert again["ok"] is True and again["already_closed"] is True
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_eof_on_pty_backend_reaches_child_as_eof(tmp_path, monkeypatch) -> None:
+    """PTY:EOF 字节必须真让子进程读到 EOF。
+
+    平台口径不同(本机实测):POSIX 是 `\\x04`;Windows ConPTY 只有 `^Z`(0x1a)**加回车**
+    才产生 EOF —— 单发 `^Z` 不提交、`^D` 被 conhost 当普通字符回显。这条断言就是
+    "别把 POSIX 的按键习惯直接搬到 ConPTY"的机器判据。
+    """
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "eof_pty.py", _EOF_SCRIPT), tmp_path)
+    assert opened["ok"] is True and opened["terminal"]["backend"] == "pty"
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        # 先等到子进程真起来再送 EOF:否则 ^Z 可能落在 conhost 还没挂上输入处理的窗口里
+        ready, _ = _read_until(tid, "[READY]", timeout=15.0)
+        assert "[READY]" in ready, f"会话未就绪:{ready!r}"
+        eof = term.eof_terminal(tid, user_id="u-term", session_id="s-term")
+        assert eof["ok"] is True and eof["eof_sent"] is True
+        text, _ = _read_until(tid, "[EOF-SEEN]", timeout=15.0)
+        assert "[EOF-SEEN] lines=0" in text, f"PTY 侧 EOF 没到达子进程:{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_eof_action(tmp_path, monkeypatch) -> None:
+    """工具层必须把 eof 路由到模块(不能落进"不支持的 action"),拒绝也穿透到信封。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    opened = await _tool_terminal(
+        {
+            "action": "open",
+            "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "eof_tool.py", _EOF_SCRIPT)}"',
+            "cwd": str(tmp_path),
+            **_OWNER,
+        }
+    )
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = await _tool_terminal({"action": "eof", "terminal_id": tid, **_OWNER})
+        assert res["action"] == "eof" and res["ok"] is True and res["eof_sent"] is True
+        blocked = await _tool_terminal(
+            {"action": "send", "terminal_id": tid, "input": "x", **_OWNER}
+        )
+        assert blocked["errorCode"] == "TERMINAL_STDIN_CLOSED"
+    finally:
+        await _tool_terminal({"action": "close", "terminal_id": tid, **_OWNER})
+
+
 _SCRIPT = """\
 import sys
 for line in sys.stdin:
@@ -240,7 +384,6 @@ for line in sys.stdin:
     print("echo:" + line)
     sys.stdout.flush()
 """
-
 _SLEEP_SCRIPT = """\
 import time
 print("started", flush=True)
@@ -318,9 +461,23 @@ def test_pty_resize_reaches_child_and_pins_initial_size(tmp_path, monkeypatch) -
         assert (session.cols, session.rows) == (100, 40)
         assert (session.to_dict()["cols"], session.to_dict()["rows"]) == (100, 40)
 
-        assert term.send_terminal(tid, "size", user_id="u-term", session_id="s-term")["ok"] is True
-        text, seq = _read_from(tid, seq, "[SIZE]")
-        assert "[SIZE]100x40" in text, f"resize 没到子进程侧:{text!r}"
+        # `ResizePseudoConsole` 返回成功时 conhost 的**客户缓冲**可能还没落到新尺寸
+        # (实测:并发跑的其它 PTY 用例把机器压慢时,紧接着的一次查询仍读到旧值)。
+        # 这里重试到截止时间 —— 断言语义不变("resize 必须到子进程侧"),只是不再把
+        # conhost 的异步生效时机当成本实现的失败。
+        want_after = "100x40"
+        seen = ""
+        deadline = time.time() + 10.0
+        while time.time() < deadline:
+            assert (
+                term.send_terminal(tid, "size", user_id="u-term", session_id="s-term")["ok"]
+                is True
+            )
+            text, seq = _read_from(tid, seq, "[SIZE]", timeout=5.0)
+            seen = text
+            if f"[SIZE]{want_after}" in seen:
+                break
+        assert f"[SIZE]{want_after}" in seen, f"resize 没到子进程侧:{seen!r}"
     finally:
         term.close_terminal(tid, user_id="u-term", session_id="s-term")
 
@@ -364,6 +521,149 @@ def test_resize_rejects_out_of_range_and_non_int(tmp_path) -> None:
         assert res["errorCode"] == "TERMINAL_INVALID_SIZE"
     finally:
         term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+# ─── open 的初始尺寸:真终端在进程启动那一刻就该定尺寸 ───
+
+
+def test_open_pins_size_before_first_child_read(tmp_path, monkeypatch) -> None:
+    """`open(cols=100, rows=40)` 必须让子进程**第一次**读窗口就拿到 100×40。
+
+    这条与 resize 用例的分工:后者证明"改"能到子进程,这里证明"开"就已经到位 ——
+    先按 120×30 起步再 resize 的写法会让 `vim`/`top`/`less` 首屏按错尺寸排完版,
+    并且它们不会因为后来的 resize 重排(POSIX 在 Popen 前 ioctl master、Windows 由
+    `CreatePseudoConsole` 的 size 参数给,就是为了让这个"第一次读数"正确)。
+    """
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "size_open.py", _SIZE_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+        cols=100,
+        rows=40,
+    )
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pty"
+    assert (opened["terminal"]["cols"], opened["terminal"]["rows"]) == (100, 40)
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        text, seq = _read_from(tid, 0, "[READY]")
+        assert "[READY]" in text, f"会话未就绪:{text!r}"
+        assert term.send_terminal(tid, "size", user_id="u-term", session_id="s-term")["ok"] is True
+        text, seq = _read_from(tid, seq, "[SIZE]", timeout=10.0)
+        assert "[SIZE]100x40" in text, f"首读尺寸就没对上(不是 resize 能补救的问题):{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_open_rejects_bad_size_before_creating_session(tmp_path) -> None:
+    """越界/非整数尺寸必须在**建会话之前**拒 —— 否则会留下一枚尺寸未知的活进程。"""
+    term.reset_terminals()
+    for cols, rows in ((0, 30), (30, 0), (-1, 30), ("abc", 30)):
+        res = term.open_terminal(
+            command=f'"{sys.executable}" -u "{_script_path(tmp_path, "hold4.py", _SLEEP_SCRIPT)}"',
+            cwd=str(tmp_path),
+            user_id="u-term",
+            session_id="s-term",
+            cols=cols,  # type: ignore[arg-type]
+            rows=rows,
+        )
+        assert res["ok"] is False, (cols, rows, res)
+        assert res["errorCode"] == "TERMINAL_INVALID_SIZE", (cols, rows, res)
+    assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 0
+    # 上界同样拒(MAX 是内核/协议口径的上限,不是"越大越好")
+    over = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "hold5.py", _SLEEP_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+        cols=_TEST["MAX_COLS"] + 1,
+        rows=30,
+    )
+    assert over["errorCode"] == "TERMINAL_INVALID_SIZE"
+    assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 0
+
+
+def test_open_with_size_on_pipe_backend_is_explicit_not_silent(tmp_path) -> None:
+    """管道后端收到尺寸:会话照开,但**显式**回 `size_ignored`,账本仍记缺省值。
+
+    不静默 no-op(那样调用方以为 tty 真按 100×40 排版),也不记成 100×40(账本会骗人);
+    要给真 tty 请开 PTY。
+    """
+    term.reset_terminals()
+    opened = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "hold6.py", _SLEEP_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+        cols=100,
+        rows=40,
+    )
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pipes"
+    assert opened["size_ignored"] == {"cols": 100, "rows": 40}
+    assert "tty" in opened["size_ignored_reason"]
+    assert opened["terminal"]["cols"] == _TEST["DEFAULT_COLS"]
+    assert opened["terminal"]["rows"] == _TEST["DEFAULT_ROWS"]
+    term.close_terminal(
+        opened["terminal"]["terminal_id"], user_id="u-term", session_id="s-term"
+    )
+    # 不传尺寸时响应形状与既有逐字节一致(不得凭空多一个 key)
+    plain = _open(_script_path(tmp_path, "hold7.py", _SLEEP_SCRIPT), tmp_path)
+    assert plain["ok"] is True and "size_ignored" not in plain
+    term.close_terminal(plain["terminal"]["terminal_id"], user_id="u-term", session_id="s-term")
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_open_forwards_size_and_rejects_bad_size(tmp_path, monkeypatch) -> None:
+    """工具层 open 必须把 cols/rows 交给模块判(单一出口),拒信照样穿透到信封。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    opened = await _tool_terminal(
+        {
+            "action": "open",
+            "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "hold8.py", _SLEEP_SCRIPT)}"',
+            "cwd": str(tmp_path),
+            "cols": 100,
+            "rows": 40,
+            **_OWNER,
+        }
+    )
+    assert opened["ok"] is True
+    assert opened["size_ignored"] == {"cols": 100, "rows": 40}
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        bad = await _tool_terminal(
+            {
+                "action": "open",
+                "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "hold9.py", _SLEEP_SCRIPT)}"',
+                "cwd": str(tmp_path),
+                "cols": "abc",
+                "rows": 40,
+                **_OWNER,
+            }
+        )
+        assert bad["ok"] is False and bad["errorCode"] == "TERMINAL_INVALID_SIZE"
+        assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 1
+    finally:
+        await _tool_terminal({"action": "close", "terminal_id": tid, **_OWNER})
+
+
+def test_size_validation_is_single_source_and_pinned_before_spawn() -> None:
+    """形状锁(读源码):尺寸判据只许有一个出口,且 POSIX 的尺寸必须在 Popen **之前**钉。
+
+    - `_normalize_size` 出现 ≥3 次 = 定义 1 + open + resize(再出现第四处说明有人另抄一份
+      1..MAX 判断,两个真相源必然漂移);
+    - `_posix_set_winsize(master_fd, cols, rows)` 必须排在 `proc = subprocess.Popen(` 之前 ——
+      事后补的尺寸永远晚于子进程第一次读数,TUI 首屏会按 0×0/缺省宽度排完版。
+    """
+    src = _conpty_source()
+    assert src.count("_normalize_size(") >= 3
+    assert src.index("_posix_set_winsize(master_fd, cols, rows)") < src.index(
+        "        proc = subprocess.Popen("
+    )
 
 
 @pytest.mark.asyncio

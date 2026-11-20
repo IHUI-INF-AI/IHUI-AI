@@ -4614,6 +4614,9 @@ class AgentLoopV2:
             except Exception as e:
                 logger.warning("交付清单构建/存储失败(降级,不阻塞): %s", e)
                 deliverables_payload = None
+        # 第 33 项(2026-11-21):session_end 钩子 —— 契约侧一直有、执行链一直没有。
+        # 排在 session_end 事件之前:钩子读到的结局与随后下发的载荷同源同刻。
+        await self._run_session_end_hooks(result)
         # Hook 引擎: session.end(1-5 起经事件流层发射,失败降级不阻塞)
         await self._events.session_end(
             session_id=self._session_id or "",
@@ -7622,6 +7625,43 @@ class AgentLoopV2:
             getattr(self, "_events", None), self._session_id or "", outcome
         )
         self._inject_hook_contexts(outcome)
+
+    async def _run_session_end_hooks(self, result: AgentLoopResult) -> None:
+        """会话收尾钩子(2026-11-21 第 33 项)。
+
+        契约(`codex_hook_config_contract.HOOK_EVENTS`)与 `.ihui/hooks.json` 一直有
+        `session_end`,而 `HookKind` 先前没有这一格 —— 配置了也永远不执行。
+        语义边界:收尾钩子是**观察面**,结果已经产出,这里不解读
+        `stop/decision`,更不允许把会话从"已结束"复活(那等于绕过取消与安全停止);
+        `additionalContext` 也只进下一条会话可见的历史,不影响本次返回的 result。
+        任何异常/中断一律降级,绝不改变 result。
+        """
+        if self._hook_runtime is None:
+            return
+        try:
+            from ..core.hook_runtime import HookKind as _EndKind
+
+            payload: dict[str, Any] = {
+                "session_id": self._session_id or "",
+                "user_id": self._user_id or "",
+                "conversation_id": self._conversation_id or "",
+                "cwd": os.getcwd(),
+                "success": bool(result.success),
+                "stop_reason": str(result.stop_reason),
+                "iterations": len(result.iterations),
+                "duration_ms": int(getattr(result, "total_duration_ms", 0) or 0),
+            }
+            outcome = await self._wait_interruptible(
+                self._hook_runtime.run(_EndKind.SESSION_END, payload)
+            )
+            await _emit_hook_run_event(
+                getattr(self, "_events", None), self._session_id or "", outcome
+            )
+            self._inject_hook_contexts(outcome)
+        except _LoopInterrupted:
+            logger.info("session_end 钩子期间收到中断(会话已结束,按既有结局返回)")
+        except Exception as e:  # noqa: BLE001 - 收尾钩子异常必须不阻断返回
+            logger.warning("session_end 钩子异常(降级,不阻断): %s", e)
 
     async def _maybe_continue_on_stop_hook(
         self, result: AgentLoopResult, messages: list[dict[str, Any]]
