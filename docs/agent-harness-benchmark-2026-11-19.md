@@ -4,6 +4,7 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -12,7 +13,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **20 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **21 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +89,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（20 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（21 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -304,6 +305,19 @@
 - 超越轴：不是"再补一个预览组件"，而是把"档只能有一份"变成**可判定**的：新增用例断言 `PLUGIN_VIEW_SANDBOX === MODEL_CONTENT_SANDBOX`（谁把它改回手写字面量就先红）。
 
 验证：`vitest run src/lib/__tests__/plugin-view-runtime.test.ts tests/iframe-sandbox-declaration.test.tsx` → `2 files / 22 passed`；`pnpm turbo typecheck --filter=@ihui/ui-react --filter=@ihui/web` → `9 successful, 9 total`（含 `@ihui/ui-react:build` 重建 dist）。
+
+### 5.22 第 21 项：用户命令钩子的配置面（信任闸 + 并入既有 HookRuntime）
+
+- 取证：本仓 `app/core/codex_hook_config_contract.py` 已从 codex.exe 26.1111.2228.0 机械派生 14 个事件名、`MatcherGroup{matcher,hooks}` 双字段、`HANDLER_VARIANTS=(Command,Prompt,Agent,McpTool)` → TOML `("command","prompt","agent","mcp_tool")`、`HookStateToml{enabled,trusted_hash,trusted_content_hash}`、信任闸旗标 `--dangerously-bypass-hook-trust`；`hook_definition_contract.py` 另给出 `PreToolUseHookSpecificOutputWire` 的 `additionalContext / permissionDecision / permissionDecisionReason / updatedInput` 字段面。
+- 缺口（AGENTS §0.9 "造好没装车"）：`HookRuntime` 的执行/超时/失败隔离/事件审计与 `agent_loop_v2` 的 PRE_TOOL_USE deny + 上下文注入**全量在位**，但登记来源只有"服务端代码 `register_lifecycle_hook()`"一条；用户写 `.ihui/hooks.json` 无论怎么写都进不来，功能对用户形同未装车。
+- 处置（并入，不另造运行时）：新增 `apps/ai-service/app/core/command_hooks.py`，只补"配置文件 → 可调用钩子"的生产者：
+  - 形状按既有契约校验（事件名走 `is_event`、matcher 组字段数走 `MATCHER_GROUP_ARITY`、变体走 `HANDLER_TOML_TYPE_VALUES`），只实现 `command` 变体，其余三种显式报不支持；
+  - **信任闸 fail-closed**：配置内容 sha256 未登记在 `.ihui/hooks-trust.json` 的 `trusted_content_hash` 时一律不加载（`hmac.compare_digest` 比对），内容一改旧信任自动失效；`--trust` 是唯一登记动作；
+  - 执行仍走既有 `HookRuntime`：命令钩子从 stdin 收 JSON payload，退出码 2 ⇒ deny（stderr 首行作 reason），stdout JSON 的 `hookSpecificOutput.additionalContext` 直接进入既有 `HookOutcome.additional_contexts` 注入链；`permissionDecision=allow/ask` 只透出字段、**不伪造放行**（放行仍归审批门）；
+  - `build_registered_hook_runtime()` 在构造前调用一次 `install_command_hooks()`（幂等去重键 `(事件, 内容哈希)`），三处生产构造入口自动继承，未配置/未信任即 0 条、与接线前逐零等价。
+- 超越轴：对照程序（Codex/Qoder 系）把 `hooks.state.trusted_content_hash` 存在自己的 sqlite 里；本仓把它落成同目录可审计的 JSON 信任文件 + 内容哈希，且"配置改动即降权"是哈希本身的性质，不依赖任何清理任务。另一轴：非命令变体不静默跳过而是明确拒绝——静默会被读成"已启用但没生效"。
+
+验证：`pytest apps/ai-service/tests/test_command_hooks.py` → `10 passed`（未配置 / 未登记事件 / matcher 组字段数 / 非命令变体 / 未信任 / 信任后 exit 2 真拦 / additionalContext 贯通 / matcher 不命中不跑 / 幂等 / allow 不被伪造）；回归 `pytest apps/ai-service/tests/test_hook_runtime_injection_wiring.py apps/ai-service/tests/test_hook_engine.py` → `159 passed`；`mypy --strict`（command_hooks + hook_runtime）→ `Success: no issues found in 2 source files`；`ruff check` → `All checks passed!`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

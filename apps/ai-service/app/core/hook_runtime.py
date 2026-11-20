@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -234,7 +235,19 @@ def lifecycle_hook_registry_size() -> int:
 
 
 def build_registered_hook_runtime() -> HookRuntime:
-    """按登记表构造 HookRuntime —— 生产三构造入口共用的唯一取 runtime 出口。"""
+    """按登记表构造 HookRuntime —— 生产三构造入口共用的唯一取 runtime 出口。
+
+    配置面(2026-11-20 立):登记表此前只有"服务端代码 register"一条来源,用户侧
+    ``.ihui/hooks.json`` 无论怎么写都进不来(功能形同未装车)。这里在构造前补一次
+    ``install_command_hooks()`` —— 它自带信任闸与幂等,未配置/未信任即 0 条,与接线
+    前逐零等价;执行/超时/隔离/审计仍全部由本模块 HookRuntime 承担(不新造第二套)。
+    """
+    try:
+        from .command_hooks import install_command_hooks
+
+        install_command_hooks()
+    except Exception as e:  # noqa: BLE001 - 配置面异常不得阻断循环构造
+        logging.getLogger(__name__).warning("命令钩子装配失败(降级为无配置钩子): %s", e)
     runtime = HookRuntime()
     for kind, func, name, timeout in list(_LIFECYCLE_HOOK_REGISTRY):
         runtime.register(kind, func, name=name, timeout=timeout)
