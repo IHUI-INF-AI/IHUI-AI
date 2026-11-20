@@ -349,6 +349,30 @@ def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
             # 消费侧认的键;给了 null 也是"显式替换为空",不能当未提供。
             if "updatedMCPToolOutput" in specific:
                 out["updated_output"] = specific["updatedMCPToolOutput"]
+            # PreToolUse 的入参改写面(契约字段 updatedInput):只对本仓支持的
+            # 对象形状透出,非对象由运行时侧再拒一次。
+            if "updatedInput" in specific:
+                out["updated_input"] = specific["updatedInput"]
+            # PermissionRequest 的裁决在 hookSpecificOutput.decision 内层
+            # (PermissionRequestHookSpecificOutputWire),不是顶层键。
+            _pr_decision = specific.get("decision")
+            if isinstance(_pr_decision, Mapping):
+                _behavior = _pr_decision.get("behavior")
+                if isinstance(_behavior, str) and _behavior in ("allow", "deny"):
+                    out["permission_behavior"] = _behavior
+                    _msg = _pr_decision.get("message")
+                    if isinstance(_msg, str) and _msg and "reason" not in out:
+                        out["reason"] = _msg
+        # PermissionRequest 的审批裁决面(契约 PermissionRequestHookSpecificOutputWire
+        # 的 decision.behavior;形状是嵌套对象,不是扁平键)。
+        nested = parsed.get("decision")
+        if isinstance(nested, Mapping):
+            behavior = nested.get("behavior")
+            if isinstance(behavior, str) and behavior in ("allow", "deny"):
+                out["permission_behavior"] = behavior
+                message_raw = nested.get("message")
+                if isinstance(message_raw, str) and message_raw and "reason" not in out:
+                    out["reason"] = message_raw
         return out or None
 
     _hook.__name__ = spec.name.replace(":", "_").replace("-", "_")
@@ -358,6 +382,7 @@ def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
 _KIND_BY_EVENT: Final[dict[str, HookKind]] = {
     "pre_tool_use": HookKind.PRE_TOOL_USE,
     "post_tool_use": HookKind.POST_TOOL_USE,
+    "permission_request": HookKind.PERMISSION_REQUEST,
     "session_start": HookKind.SESSION_START,
     "user_prompt_submit": HookKind.USER_PROMPT_SUBMIT,
     "pre_compact": HookKind.PRE_COMPACT,

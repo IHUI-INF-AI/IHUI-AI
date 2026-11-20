@@ -2344,6 +2344,8 @@
       "autoSkipApproval": "自動批准(免審批)",
       "autoReviewAllow": "自動審查放行",
       "skillGrantSkipApproval": "技能授權放行(免審批)",
+      "hookAllowSkipApproval": "鉤子放行(免審批)",
+      "hookAskRequireApproval": "鉤子要求人工確認",
       "bypassSkipApproval": "已跳過審批",
       "mcpRequiresApproval": "MCP 標註要求確認",
       "taintEgressGate": "會話汙點:出網需確認",

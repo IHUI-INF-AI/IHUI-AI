@@ -557,7 +557,12 @@ fn try_acquire_install_slot() -> Option<InstallSlot> {
 /// 原先的 Gitee raw 端点已随桌面 feed 真源化删除)检查新版,
 /// 有则下载+静默安装(安装器接管前先做退出准备,应用退出后重启即新版)。
 /// **开发构建例外**:函数体首按 `cfg!(debug_assertions)` 早退,不下载不重启(见该处注释)。
-async fn check_app_update(app: &tauri::AppHandle) {
+///
+/// 返回值 = 本次检查是否走到了「网络层」:`true` 覆盖三类 —— 发现新版(含安装失败)、
+/// 已是最新、以及被新检查取代而作废;`false` 仅指**检查本身没成立**(updater 初始化失败 /
+/// feed 不可达 / manifest 非法)。调用方据此决定启动近侧要不要补一次重试 ——
+/// 此前该函数无返回值,首检失败只能等下一个整点小时,静默期内故障与「已是最新」不可区分。
+async fn check_app_update(app: &tauri::AppHandle) -> bool {
     // 开发构建(debug_assertions:`tauri dev` / `tauri build --debug`)一律不自更新。
     // 实测危害:`pnpm dev:desktop:saas` 起来的壳照样读线上 feed,下载 7.9MB 后静默安装并
     // 自杀重启,把正在改代码的人从自己的会话里踢出去(取证窗口连续两次因此中断);
@@ -565,7 +570,7 @@ async fn check_app_update(app: &tauri::AppHandle) {
     // release 安装包行为不变;人工「检查更新」(前端非 silent 路径)不受本判据影响。
     if cfg!(debug_assertions) {
         log::info!("[auto-refresh] site=debug_no_self_update 开发构建跳过应用自更新检查(不下载/不安装/不自重启)");
-        return;
+        return true;
     }
     // G-698:领取本次检查的 checkId。后面每个 await 点之后都要先确认世代未被
     // (另一条链的)新检查取代 —— 旧世代的迟到结果/回调一律按 checkId 作废。
@@ -588,7 +593,7 @@ async fn check_app_update(app: &tauri::AppHandle) {
         Ok(u) => u,
         Err(e) => {
             log::warn!("[auto-refresh] updater 初始化失败: {e}");
-            return;
+            return false;
         }
     };
     // ⚠️ 原先写作 `let Ok(Some(update)) = updater.check().await else { return }`,
@@ -600,7 +605,7 @@ async fn check_app_update(app: &tauri::AppHandle) {
     // 本次即成旧世代,迟到结果(含"无更新"与"发现新版")一律作废。
     if is_stale_update_check(check_id) {
         log::info!("[auto-refresh] 更新检查 #{check_id} 已被新检查取代 → 迟到结果作废");
-        return;
+        return true;
     }
     match check_result {
         Ok(Some(update)) => {
@@ -624,13 +629,13 @@ async fn check_app_update(app: &tauri::AppHandle) {
             // 随后的 std::process::exit(0)。
             if is_stale_update_check(check_id) {
                 log::info!("[auto-refresh] 更新 #{check_id} 安装前已被新检查取代 → 不下载不安装");
-                return;
+                return true;
             }
             // F-132:另一条链可能持有互不相同的 checkId 同时通过世代检查,故安装动作
             // 再加一道进程内互斥。凭证在本函数所有出口(含 Err / 提前 return)随 Drop 释放。
             let Some(_install_slot) = try_acquire_install_slot() else {
                 log::info!("[auto-refresh] 已有安装链在飞 → 更新 #{check_id} 放弃本次安装");
-                return;
+                return true;
             };
             // 通知放在两道闸之后:被作废/未抢到槽位的本次检查不得再对用户宣称"正在安装"。
             notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
@@ -656,16 +661,17 @@ async fn check_app_update(app: &tauri::AppHandle) {
                     log::info!(
                         "[auto-refresh] 更新 #{check_id} 安装收尾前已被新检查取代 → 结果作废"
                     );
-                    return;
+                    return true;
                 }
                 log::warn!("[auto-refresh] 应用更新失败(含签名校验不通过): {e}");
             }
+            // feed 已拿到 ⇒ 检查成立;安装失败只影响本轮,不该让上层判「检查没成立」
+            true
         }
-        Ok(None) => {
-            // 已是最新版:唯一允许静默的分支
-        }
+        Ok(None) => true,
         Err(e) => {
             log::warn!("[auto-refresh] 更新检查失败(feed 不可达或 manifest 非法): {e}");
+            false
         }
     }
 }
@@ -1268,9 +1274,18 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     }
                 }
 
-                // 应用自更新:每小时(round % 120)在线时检查一次,静默安装
-                if round > 0 && round % 120 == 0 {
-                    check_app_update(&app).await;
+                // 应用自更新:启动 5 分钟(round==10)先检一次,失败 1 分钟后(round==12)重试,
+                // 此后每小时(round % 120 == 0)一次。
+                // 立因(2026-11-20 实测):原先只在 round % 120 触发 = 启动满 60 分钟才有第一次检查,
+                // 而桌面端多数会话不足 60 分钟 —— 当天全部 7 份日志里没有一条 updater 记录,
+                // 「自动更新失败」与「从未尝试过」在日志上完全不可区分。
+                if round == 10 || round == 12 || (round > 0 && round % 120 == 0) {
+                    let ok = check_app_update(&app).await;
+                    if !ok {
+                        log::warn!(
+                            "[auto-refresh] 第 {round} 轮自更新检查未成立 → 下一个检查点继续重试"
+                        );
+                    }
                 }
             }
             // 离线页的立即重新检测只把等待时长置 0,不新增循环结构

@@ -2344,6 +2344,8 @@
       "autoSkipApproval": "자동 승인(심사 생략)",
       "autoReviewAllow": "자동 검토 승인",
       "skillGrantSkipApproval": "스킬 허용으로 승인 생략",
+      "hookAllowSkipApproval": "후크 허용으로 승인 생략",
+      "hookAskRequireApproval": "후크가 사용자 확인 필요",
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
       "taintEgressGate": "세션 오염: 외부 통신 승인 필요",

@@ -57,6 +57,9 @@ class HookKind(StrEnum):
     # 2026-11-20:契约(HOOK_EVENTS)一直有 post_tool_use,本仓此前只有 PRE ——
     # "产出改写面(updatedMCPToolOutput)"因此无挂载点,是典型的"契约在、执行链不在"。
     POST_TOOL_USE = "post_tool_use"
+    # 2026-11-20:契约(HOOK_EVENTS)有 permission_request,本仓此前无挂载点 ⇒
+    # "审批可编程裁决"(PermissionRequestDecisionWire.behavior)无处生效。
+    PERMISSION_REQUEST = "permission_request"
     PRE_COMPACT = "pre_compact"
     POST_COMPACT = "post_compact"
     STOP = "stop"
@@ -90,6 +93,11 @@ class HookOutcome:
     denial_reason: str | None = None  # PRE_TOOL_USE:非 None 即拒绝
     # PRE_TOOL_USE:钩子给出的权限裁决(allow/deny/ask)。None = 不表态,沿用审批门。
     permission_decision: str | None = None
+    # PRE_TOOL_USE:钩子改写后的工具入参(对齐 updatedInput)。哨兵区分"没给"与
+    # "显式给空对象"(后者是合法的"清空参数")。
+    updated_input: Any = field(default=NO_UPDATED_OUTPUT)
+    # PERMISSION_REQUEST:钩子对"要不要问人"的裁决(allow/deny)。None = 不表态。
+    permission_behavior: str | None = None
     # POST_TOOL_USE:钩子给出的产出替换值(对齐 updatedMCPToolOutput)。哨兵对象
     # 区分"没给"与"给了 None"—— 后者是合法的"抹掉结果",不能被当成未提供。
     updated_output: Any = field(default=NO_UPDATED_OUTPUT)
@@ -223,11 +231,30 @@ class HookRuntime:
                         reason if isinstance(reason, str) and reason
                         else f"denied by hook '{reg.name}'"
                     )
+            if "updated_input" in result and outcome.updated_input is NO_UPDATED_OUTPUT:
+                # 只认对象:非对象改写会让下游工具拿到形状外的入参(比不改更危险)。
+                if isinstance(result["updated_input"], dict):
+                    outcome.updated_input = result["updated_input"]
         if kind is HookKind.POST_TOOL_USE and "updated_output" in result:
             # 后注册的钩子看到的仍是"原始产出"而不是前一枚改写后的值 —— 顺序确定、
             # 结果可预测;首个改写生效,后续改写按"最后写赢"覆盖(与 Codex 的链式
             # 改写同语义,但这里显式记录为覆盖而不是叠加)。
             outcome.updated_output = result["updated_output"]
+        if kind is HookKind.PERMISSION_REQUEST:
+            behavior = result.get("permission_behavior")
+            if (
+                outcome.permission_behavior is None
+                and isinstance(behavior, str)
+                and behavior in ("allow", "deny")
+            ):
+                # 首个表态生效;deny 同时落 denial_reason,便于调用方统一取原因。
+                outcome.permission_behavior = behavior
+                reason = result.get("reason")
+                if behavior == "deny" and outcome.denial_reason is None:
+                    outcome.denial_reason = (
+                        reason if isinstance(reason, str) and reason
+                        else f"denied by hook '{reg.name}'"
+                    )
 
 
 # ---------------------------------------------------------------------------
