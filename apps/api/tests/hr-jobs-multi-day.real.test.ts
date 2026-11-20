@@ -85,6 +85,15 @@ afterAll(async () => {
   }
 })
 
+/**
+ * 本切片只跑"业务日型"任务(考勤/统计)。
+ * 社保配置巡检(hr.insurance.watch)不依赖考勤夹具,且它发现缺口时会向真实管理员发站内信,
+ * 在真库用例里跑会污染通知数据 —— 它由 tests/hr-insurance-watch.test.ts(纯判据)与
+ * HTTP 端到端验证覆盖。
+ */
+const BIZ_JOB_NAMES = ALL_HR_JOB_NAMES.filter((n) => n !== HR_JOB_NAMES.insuranceWatch)
+const EXPECTED_PER_DAY = BIZ_JOB_NAMES.length
+
 describe('HR-1 定时任务连跑与幂等(真库)', () => {
   it('连跑 3 天:每天 3 条成功记录,跨日各留一痕', async () => {
     // 用过去 3 个不同的业务日(避开今天,免与 setup 清理后残留的今日行撞)
@@ -97,7 +106,7 @@ describe('HR-1 定时任务连跑与幂等(真库)', () => {
     })
 
     for (const at of ats) {
-      for (const name of ALL_HR_JOB_NAMES) {
+      for (const name of BIZ_JOB_NAMES) {
         const outcome = await runHrJob(name, at)
         expect(outcome.skipped).toBe(false)
         expect(outcome.ok).toBe(true)
@@ -119,8 +128,8 @@ describe('HR-1 定时任务连跑与幂等(真库)', () => {
         )
       const byJob = new Map<string, number>()
       for (const r of rows) byJob.set(r.jobName, (byJob.get(r.jobName) ?? 0) + 1)
-      expect(rows.length).toBe(3)
-      for (const name of ALL_HR_JOB_NAMES) {
+      expect(rows.length).toBe(EXPECTED_PER_DAY)
+      for (const name of BIZ_JOB_NAMES) {
         expect(byJob.get(name)).toBe(1)
       }
     }

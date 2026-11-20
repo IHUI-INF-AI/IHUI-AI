@@ -2,11 +2,22 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { and, eq, isNull, ne, sql, desc, count } from 'drizzle-orm'
-import { hrAttendanceRecord, hrDepartment, hrJobRun, type HrJobRun } from '@ihui/database'
+import {
+  hrAttendanceRecord,
+  hrDepartment,
+  hrInsuranceRateConfig,
+  hrJobRun,
+  type HrJobRun,
+} from '@ihui/database'
 import { db } from '../db/index.js'
 import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 import { logger } from '../utils/logger.js'
 import { runHrAbsentAttendance, DEFAULT_HR_BACKFILL_DAYS } from './hr-attendance.js'
+import {
+  judgeInsuranceRows,
+  notifyHrAdmins,
+  type InsuranceConfigLike,
+} from './hr-insurance-watch.js'
 
 /**
  * 人事定时任务(HR-1 第 0 期,2026-11-11 立):让「到点自己跑」成立。
@@ -23,6 +34,7 @@ export const HR_JOB_NAMES = {
   dailyAbsent: 'hr.daily.absent',
   dailyException: 'hr.daily.exception',
   monthlyStats: 'hr.monthly.stats',
+  insuranceWatch: 'hr.insurance.watch',
 } as const
 
 export type HrJobName = (typeof HR_JOB_NAMES)[keyof typeof HR_JOB_NAMES]
@@ -51,6 +63,13 @@ export const HR_JOBS: HrJobMeta[] = [
     name: HR_JOB_NAMES.monthlyStats,
     description: '每月 1 日 00:30 汇总上月各部门考勤统计',
     cron: '30 0 1 * *',
+  },
+  {
+    // 2026-11-21 立:社保基数"该更新却没更新"必须被系统自己发现,不能等算薪时才炸。
+    // alert 会推站内信给管理员级账号(每日一次,幂等键天然去重);advisory 只留痕。
+    name: HR_JOB_NAMES.insuranceWatch,
+    description: '每日 08:00 巡检社保费率配置(缺当年配置/不完整/疑似沿用旧年度/次年未录)',
+    cron: '0 8 * * *',
   },
 ]
 
@@ -207,11 +226,53 @@ async function runMonthlyStatsBody(at: Date): Promise<JobBodyResult> {
   }
 }
 
+/**
+ * 任务④ 社保费率配置巡检(2026-11-21 立)。
+ *
+ * 为什么要它:外部费率由地方人社局每年公布,系统抓不到"官方最新值";能保证的是
+ * 「该更新却没更新」在当天就被发现并通知到人,而不是等下个月算薪时才算错。
+ * alert → 站内信给管理员级账号;advisory → 只落 job_run.summary 与体检接口。
+ */
+async function runInsuranceWatchBody(at: Date): Promise<JobBodyResult> {
+  const rows = await db.select().from(hrInsuranceRateConfig)
+  const findings = judgeInsuranceRows(rows as unknown as InsuranceConfigLike[], at)
+  const alerts = findings.filter((f) => f.level === 'alert')
+  const advisories = findings.filter((f) => f.level === 'advisory')
+
+  const shape = (f: (typeof findings)[number]) => ({
+    code: f.code,
+    regionName: f.regionName,
+    effectiveYear: f.effectiveYear,
+    message: f.message,
+  })
+
+  let notified = 0
+  if (alerts.length > 0) {
+    notified = await notifyHrAdmins({
+      title: `社保费率配置待处理(${alerts.length} 项)`,
+      content: alerts.map((a) => `· ${a.message}`).join('\n'),
+      data: { findings: alerts.map(shape) },
+    })
+  }
+
+  return {
+    affectedRows: alerts.length,
+    summary: {
+      businessDay: bizDayKey(at),
+      checked: rows.length,
+      alerts: alerts.map(shape),
+      advisories: advisories.map(shape),
+      notified,
+    },
+  }
+}
+
 /** 任务名 → 执行体(单源映射,runHrJob 据此分发) */
 const JOB_BODIES: Record<HrJobName, (at: Date) => Promise<JobBodyResult>> = {
   [HR_JOB_NAMES.dailyAbsent]: runDailyAbsentBody,
   [HR_JOB_NAMES.dailyException]: runDailyExceptionBody,
   [HR_JOB_NAMES.monthlyStats]: runMonthlyStatsBody,
+  [HR_JOB_NAMES.insuranceWatch]: runInsuranceWatchBody,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

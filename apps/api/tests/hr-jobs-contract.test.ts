@@ -209,11 +209,12 @@ beforeEach(() => {
 })
 
 describe('runHrJob · 任务清单单源', () => {
-  it('ALL_HR_JOB_NAMES 覆盖三个任务且与 HR_JOBS 清单一致', () => {
+  it('ALL_HR_JOB_NAMES 与 HR_JOBS 清单一致(含 2026-11-21 新增的社保配置巡检)', () => {
     expect(ALL_HR_JOB_NAMES).toEqual([
       HR_JOB_NAMES.dailyAbsent,
       HR_JOB_NAMES.dailyException,
       HR_JOB_NAMES.monthlyStats,
+      HR_JOB_NAMES.insuranceWatch,
     ])
   })
 })
@@ -305,8 +306,8 @@ describe('runHrJob · 执行历史查询', () => {
  * 重复触发不产生重复数据(幂等)」里能脱离部署环境的那一半锁进假库 —— 3 天 × 3 任务各成功一条,
  * 且同一天对同一任务重复自动触发被幂等闸拦下、不落第二条痕。多日真实调度落库仍归部署期验证。
  */
-describe('runHrJob · 验收切片(连跑 3 天每天 3 条 + 幂等)', () => {
-  it('连续 3 个业务日各跑全部三任务 ⇒ 9 条成功留痕,同日重跑被幂等闸拦下', async () => {
+describe('runHrJob · 验收切片(连跑 3 天每天全量任务 + 幂等)', () => {
+  it('连续 3 个业务日各跑全部任务 ⇒ 每天每任务一条成功留痕,同日重跑被幂等闸拦下', async () => {
     const days = [
       new Date('2026-11-02T16:00:00.000Z'), // 北京 11-03
       new Date('2026-11-03T16:00:00.000Z'), // 北京 11-04
@@ -322,11 +323,12 @@ describe('runHrJob · 验收切片(连跑 3 天每天 3 条 + 幂等)', () => {
         inserted += 1
       }
     }
-    // 3 天 × 3 任务 = 9 条 insert 留痕
-    expect(inserted).toBe(9)
-    expect(H.jobRunInserts).toHaveLength(9)
-    // 成功回写也是 9 条(每轮 success update)
-    expect(H.jobRunUpdates.filter((u) => u.status === 'success')).toHaveLength(9)
+    // 任务清单是单源,期望值随之派生(3 天 × 当前任务数)
+    const expected = days.length * ALL_HR_JOB_NAMES.length
+    expect(inserted).toBe(expected)
+    expect(H.jobRunInserts).toHaveLength(expected)
+    // 成功回写也是同一条数(每轮 success update)
+    expect(H.jobRunUpdates.filter((u) => u.status === 'success')).toHaveLength(expected)
 
     // 同日对同一任务重复自动触发 ⇒ 幂等命中 ⇒ skipped、不落新痕
     const before = H.jobRunInserts.length

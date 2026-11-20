@@ -5582,6 +5582,96 @@ export function auditTunnelMetrics(opts = {}) {
 }
 
 // 〈原 21 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-25.md#guardian-l4089(门 103 C1 收口)〉首意:
+/**
+ * Gitee 发版资产国内侧自动补齐(2026-11-21 立,结构性缺陷根治):
+ *   `sync-gitee` job 跑在 GitHub 托管 runner 上,87MB 的 AppImage 过国际链路在 60 分钟
+ *   预算内传不完(0.1.83/0.1.84/0.1.86 三版实测 cancelled),所以 `.github/scripts/sync-gitee.py`
+ *   里 AppImage 是硬跳过 —— 每版都留一个"要人工补"的缺口。而本机上传同一份只要 ~21 秒。
+ *   ⇒ 谁有带宽谁补:runner 出小件,本腿 30 分钟级把 Latest release 的缺口补齐(幂等、绝不同名双份)。
+ *   三态只认器物自己的结论行(§0.3):无结论行 ⇒ 未判定,不记绿。
+ */
+export function sweepGiteeAssetBackfill(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 30 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'gitee-backfill-tick.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'gitee-release-backfill.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ Gitee 资产补齐:器物不在位(scripts/gitee-release-backfill.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '补齐器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ Gitee 资产补齐:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--auto'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 20 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return {
+              ok: false,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.message ?? e),
+            }
+          }
+        }
+  const r = run()
+  beatRoundLock()
+  const line = String(r.out ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.match(/GITEE-BACKFILL\s+state=([A-Za-z-]+)(.*)$/))
+    .find(Boolean)
+  const state = line ? line[1] : null
+  const kv = (key) => {
+    const m = line ? String(line[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  if (state === 'ok') {
+    const added = kv('added')
+    logger(
+      added === '0'
+        ? `ℹ️ Gitee 资产补齐:无需补(tag=${kv('tag') || '-'},读数来自器物)`
+        : `✅ Gitee 资产补齐:已补 ${added} 件(tag=${kv('tag') || '-'})`,
+    )
+    return { ran: true, judged: true, ok: true, state, added: Number(added || 0) }
+  }
+  if (state === 'partial') {
+    logger(`⚠️ Gitee 资产补齐:部分失败(failed=${kv('failed')})⇒ 下轮幂等重试`)
+    return { ran: true, judged: true, ok: false, state }
+  }
+  if (state === 'undetermined') {
+    logger(`ℹ️ Gitee 资产补齐:未判定(${kv('reason') || '-'})—— 不记绿`)
+    return { ran: true, judged: false, state }
+  }
+  logger(
+    `⚠️ Gitee 资产补齐:器物未给出结论行 ⇒ 本轮未判定(${String(r.err ?? '').slice(0, 110)})`,
+  )
+  return { ran: true, judged: false, state: null }
+}
+
 /** 违禁桶兜底清扫派发层(2026-10-25,与 sweepStaleClosedRows 同型):5 分钟节流 + 器物不在位
  *  明报"跳过不记为已探测"(§0.3),三态读数只认器物自己的 SWEEP-RESULT 结论行。 */
 export function sweepBannedBuckets(opts = {}) {
@@ -14913,6 +15003,8 @@ async function main() {
     // 复翻席不走提交链 ⇒ F11/F12 基线棘轮拦不到"主动写回";本层派发 strip-banned-buckets
     // 自动摘 HEAD 面违禁未勾行并留痕,循环回潮 5 分钟级自动收敛(判据 import 单源,零复算)。
     if (!CHECK_ONLY) sweepBannedBuckets()
+    // Gitee 发版资产国内侧自动补齐(2026-11-21):runner 传 87MB 必超时 ⇒ 本机 30 分钟级补 Latest 缺口。
+    if (!CHECK_ONLY) sweepGiteeAssetBackfill()
     // HEAD 面回捞件兜底清扫(2026-10-30,机主令"彻底根治 不允许再发生"):带回它的是普通 git merge
     // 与旁路落地这两条不跑提交链的通道(实测枚 7864cde002 父1=40/父2=338/结果=342),而 scrub 的维一/
     // 维三以「HEAD 面无此行」为前提,结构上打不到这一型 ⇒ 由本腿 5 分钟级自动摘回并留痕;

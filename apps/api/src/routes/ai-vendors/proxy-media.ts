@@ -28,6 +28,7 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 
 // Suno 音乐生成:官方完整参数(custom_mode/instrumental/style/title/seed 等)
 const sunoGenerateBody = z.object({
@@ -317,6 +318,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       // 不收 width/height/num_frames/frame_rate
       // v2.0 分支保留仅为显式传旧模型时透传原参数(上游已 503,不做业务拦截)
       const isV25 = model.startsWith('agnes-video-2.5')
+      // 计费(2026-11-21):视频按次计分,预检按本次预估(见 services/media-billing.ts 口径)。
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'video', 1))) return
       const payload = isV25
         ? {
             model,
@@ -348,6 +351,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       if (data === null) return
       const task = createTask(request.userId!, 'agnes', 'video', data)
       recordUsage(request.userId!, 'agnes')
+      // 任务已在上游创建成功(失败分支在上方已 return)才扣分,referenceId=任务 id ⇒ 幂等。
+      await chargeMediaPoints(request, model, 'video', 1, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
