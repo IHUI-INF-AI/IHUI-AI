@@ -331,6 +331,13 @@ def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
         reason_raw = parsed.get("reason")
         if isinstance(reason_raw, str) and reason_raw:
             out["reason"] = reason_raw
+        # 2026-11-20 第 28 项:STOP 点的 `decision: "block"` / `continue: true` 是
+        # "别停,按 reason 再想一轮"的语义。HookRuntime._absorb 只认 `stop` 键,
+        # 故在生产者这层做一次显式翻译(不让消费端去猜两种方言)。
+        if spec.event == HookKind.STOP.value:
+            if out.get("decision") == "block" or parsed.get("continue") is True:
+                out["stop"] = True
+                out["stop_reason"] = out.get("reason") or f"hook {spec.name} 要求继续"
         specific = parsed.get("hookSpecificOutput")
         if isinstance(specific, Mapping):
             ctx = specific.get("additionalContext")

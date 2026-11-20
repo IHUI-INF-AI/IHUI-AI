@@ -26,6 +26,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react'
 
 import PageClient from '../PageClient'
+import type * as ApiClientModule from '@ihui/api-client'
 
 // 实现侧已收口到共享出口 `@ihui/api-client`(2026-11 批5),页面只负责"传哪个月区间",
 // URL 字面量唯一持有者是 api-client —— 夹具跟着出口走,而不是继续 mock 页面已不走的 apiOrThrow。
@@ -37,7 +38,7 @@ const { eduMyAttendanceMock, eduAttendanceSelfCheckOutMock } = vi.hoisted(() => 
 // 按真模块展开再覆盖(只换本页用到的三个端点):本包扩容 setTokenProvider/setBaseUrl 后
 // 手抄工厂会让整条 import 链崩在初始化,断言根本跑不到。
 vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  const actual = await importOriginal<typeof ApiClientModule>()
   return {
     ...actual,
     eduMyAttendance: eduMyAttendanceMock,
