@@ -284,6 +284,7 @@ def test_pty_child_gets_term_defaults_while_pipe_child_does_not(tmp_path, monkey
 
 _EOF_SCRIPT = """\
 import sys
+print("[READY]", flush=True)
 lines = 0
 for _ in sys.stdin:
     lines += 1
@@ -301,6 +302,8 @@ def test_eof_on_pipe_backend_lets_child_finish_then_blocks_writes(tmp_path) -> N
     assert opened["ok"] is True
     tid = opened["terminal"]["terminal_id"]
     try:
+        ready, _ = _read_until(tid, "[READY]", timeout=15.0)
+        assert "[READY]" in ready, f"会话未就绪:{ready!r}"
         sent = term.send_terminal(tid, "a", user_id="u-term", session_id="s-term")
         assert sent["ok"] is True
         eof = term.eof_terminal(tid, user_id="u-term", session_id="s-term")
@@ -333,6 +336,9 @@ def test_eof_on_pty_backend_reaches_child_as_eof(tmp_path, monkeypatch) -> None:
     assert opened["ok"] is True and opened["terminal"]["backend"] == "pty"
     tid = opened["terminal"]["terminal_id"]
     try:
+        # 先等到子进程真起来再送 EOF:否则 ^Z 可能落在 conhost 还没挂上输入处理的窗口里
+        ready, _ = _read_until(tid, "[READY]", timeout=15.0)
+        assert "[READY]" in ready, f"会话未就绪:{ready!r}"
         eof = term.eof_terminal(tid, user_id="u-term", session_id="s-term")
         assert eof["ok"] is True and eof["eof_sent"] is True
         text, _ = _read_until(tid, "[EOF-SEEN]", timeout=15.0)
@@ -515,6 +521,149 @@ def test_resize_rejects_out_of_range_and_non_int(tmp_path) -> None:
         assert res["errorCode"] == "TERMINAL_INVALID_SIZE"
     finally:
         term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+# ─── open 的初始尺寸:真终端在进程启动那一刻就该定尺寸 ───
+
+
+def test_open_pins_size_before_first_child_read(tmp_path, monkeypatch) -> None:
+    """`open(cols=100, rows=40)` 必须让子进程**第一次**读窗口就拿到 100×40。
+
+    这条与 resize 用例的分工:后者证明"改"能到子进程,这里证明"开"就已经到位 ——
+    先按 120×30 起步再 resize 的写法会让 `vim`/`top`/`less` 首屏按错尺寸排完版,
+    并且它们不会因为后来的 resize 重排(POSIX 在 Popen 前 ioctl master、Windows 由
+    `CreatePseudoConsole` 的 size 参数给,就是为了让这个"第一次读数"正确)。
+    """
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "size_open.py", _SIZE_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+        cols=100,
+        rows=40,
+    )
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pty"
+    assert (opened["terminal"]["cols"], opened["terminal"]["rows"]) == (100, 40)
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        text, seq = _read_from(tid, 0, "[READY]")
+        assert "[READY]" in text, f"会话未就绪:{text!r}"
+        assert term.send_terminal(tid, "size", user_id="u-term", session_id="s-term")["ok"] is True
+        text, seq = _read_from(tid, seq, "[SIZE]", timeout=10.0)
+        assert "[SIZE]100x40" in text, f"首读尺寸就没对上(不是 resize 能补救的问题):{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_open_rejects_bad_size_before_creating_session(tmp_path) -> None:
+    """越界/非整数尺寸必须在**建会话之前**拒 —— 否则会留下一枚尺寸未知的活进程。"""
+    term.reset_terminals()
+    for cols, rows in ((0, 30), (30, 0), (-1, 30), ("abc", 30)):
+        res = term.open_terminal(
+            command=f'"{sys.executable}" -u "{_script_path(tmp_path, "hold4.py", _SLEEP_SCRIPT)}"',
+            cwd=str(tmp_path),
+            user_id="u-term",
+            session_id="s-term",
+            cols=cols,  # type: ignore[arg-type]
+            rows=rows,
+        )
+        assert res["ok"] is False, (cols, rows, res)
+        assert res["errorCode"] == "TERMINAL_INVALID_SIZE", (cols, rows, res)
+    assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 0
+    # 上界同样拒(MAX 是内核/协议口径的上限,不是"越大越好")
+    over = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "hold5.py", _SLEEP_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+        cols=_TEST["MAX_COLS"] + 1,
+        rows=30,
+    )
+    assert over["errorCode"] == "TERMINAL_INVALID_SIZE"
+    assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 0
+
+
+def test_open_with_size_on_pipe_backend_is_explicit_not_silent(tmp_path) -> None:
+    """管道后端收到尺寸:会话照开,但**显式**回 `size_ignored`,账本仍记缺省值。
+
+    不静默 no-op(那样调用方以为 tty 真按 100×40 排版),也不记成 100×40(账本会骗人);
+    要给真 tty 请开 PTY。
+    """
+    term.reset_terminals()
+    opened = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "hold6.py", _SLEEP_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+        cols=100,
+        rows=40,
+    )
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pipes"
+    assert opened["size_ignored"] == {"cols": 100, "rows": 40}
+    assert "tty" in opened["size_ignored_reason"]
+    assert opened["terminal"]["cols"] == _TEST["DEFAULT_COLS"]
+    assert opened["terminal"]["rows"] == _TEST["DEFAULT_ROWS"]
+    term.close_terminal(
+        opened["terminal"]["terminal_id"], user_id="u-term", session_id="s-term"
+    )
+    # 不传尺寸时响应形状与既有逐字节一致(不得凭空多一个 key)
+    plain = _open(_script_path(tmp_path, "hold7.py", _SLEEP_SCRIPT), tmp_path)
+    assert plain["ok"] is True and "size_ignored" not in plain
+    term.close_terminal(plain["terminal"]["terminal_id"], user_id="u-term", session_id="s-term")
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_open_forwards_size_and_rejects_bad_size(tmp_path, monkeypatch) -> None:
+    """工具层 open 必须把 cols/rows 交给模块判(单一出口),拒信照样穿透到信封。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    opened = await _tool_terminal(
+        {
+            "action": "open",
+            "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "hold8.py", _SLEEP_SCRIPT)}"',
+            "cwd": str(tmp_path),
+            "cols": 100,
+            "rows": 40,
+            **_OWNER,
+        }
+    )
+    assert opened["ok"] is True
+    assert opened["size_ignored"] == {"cols": 100, "rows": 40}
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        bad = await _tool_terminal(
+            {
+                "action": "open",
+                "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "hold9.py", _SLEEP_SCRIPT)}"',
+                "cwd": str(tmp_path),
+                "cols": "abc",
+                "rows": 40,
+                **_OWNER,
+            }
+        )
+        assert bad["ok"] is False and bad["errorCode"] == "TERMINAL_INVALID_SIZE"
+        assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 1
+    finally:
+        await _tool_terminal({"action": "close", "terminal_id": tid, **_OWNER})
+
+
+def test_size_validation_is_single_source_and_pinned_before_spawn() -> None:
+    """形状锁(读源码):尺寸判据只许有一个出口,且 POSIX 的尺寸必须在 Popen **之前**钉。
+
+    - `_normalize_size` 出现 ≥3 次 = 定义 1 + open + resize(再出现第四处说明有人另抄一份
+      1..MAX 判断,两个真相源必然漂移);
+    - `_posix_set_winsize(master_fd, cols, rows)` 必须排在 `proc = subprocess.Popen(` 之前 ——
+      事后补的尺寸永远晚于子进程第一次读数,TUI 首屏会按 0×0/缺省宽度排完版。
+    """
+    src = _conpty_source()
+    assert src.count("_normalize_size(") >= 3
+    assert src.index("_posix_set_winsize(master_fd, cols, rows)") < src.index(
+        "        proc = subprocess.Popen("
+    )
 
 
 @pytest.mark.asyncio
