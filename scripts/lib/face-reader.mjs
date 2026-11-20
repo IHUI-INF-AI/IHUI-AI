@@ -24,7 +24,7 @@
  * 91 要 `.tsx` 枚举)—— 强行统一对外形状会让三门的镜像测试一起改语义,那是重构事故不是收口。
  */
 
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
   closeSync,
@@ -832,6 +832,95 @@ export function batchExecFileSync(file, args, opts = {}) {
     }
     return r.stdout
   }
+}
+
+/**
+ * `batchExecFileSync` 的**异步孪生**（2026-11-20 立，守门 30a 的 fsck 全库遍历要用它）。
+ *
+ * 为什么要孪生而不是让门里自己 `spawn`：fsck 的故障注入夹具替掉的正是**这一层**
+ * （`scripts/tests/check-commit-loss-guard-fsck-unread.test.mjs` 把本文件换成 stub，只桩
+ * "fsck 那一支"）。门里另起一条派生通道就等于把那条接线锁架空 —— 那是"多一条出口"
+ * 而不是"多一条通道"。所以异步只加**通道**、出口仍是这一层。
+ *
+ * 与同步档**逐条对齐**：同一份 env 收口（`GIT_OPTIONAL_LOCKS=0`，调用方 `opts.env` 可覆盖）、
+ * 同一份 `timeout` / `maxBuffer` / `windowsHide` / `stdio` 语义（不传 stdio 时默认
+ * `['ignore','pipe','pipe']`，与本环境"pipe-stdin spawn git 确定性 EBUSY"那条注一致）。
+ *
+ * 结局一律 **resolve** 成四元组 `{ok,status,stdout,stderr,spawnError}`，**不抛异常**：
+ * "跑完了但退出码非 0"与"根本没跑成"在同步档里靠 `e.status` 区分，这里同样分开给
+ * （`status` 有值 vs `spawnError` 有值 / 两者皆无 ⇒ 超时或被信号杀）。
+ * 什么时候算"取不到"是**调用方判据**的事（§0.6），本层只负责如实交账。
+ *
+ * @param {string} file 可执行(git 绝对路径)
+ * @param {string[]} args
+ * @param {object} opts 同 `execFileSync` 的 cwd/env/encoding/timeout/maxBuffer/windowsHide/stdio
+ * @returns {Promise<{ok:boolean,status:number|null,stdout:string,stderr:string,spawnError:any}>}
+ */
+export function batchExecFileAsync(file, args, opts = {}) {
+  const opts2 = {
+    ...opts,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', ...(opts.env ?? {}) },
+  }
+  const maxBuffer = typeof opts2.maxBuffer === 'number' && opts2.maxBuffer > 0 ? opts2.maxBuffer : 1 << 30
+  return new Promise((resolve) => {
+    let child = null
+    let timer = null
+    let settled = false
+    let stdout = ''
+    let stderr = ''
+    const finish = (v) => {
+      if (settled) return
+      settled = true
+      if (timer) clearTimeout(timer)
+      resolve(v)
+    }
+    const kill = () => {
+      try {
+        if (child) child.kill()
+      } catch {
+        /* 杀不掉也照样按原结局收口 */
+      }
+    }
+    try {
+      child = spawn(file, args, {
+        cwd: opts2.cwd,
+        env: opts2.env,
+        windowsHide: opts2.windowsHide !== false,
+        stdio: opts2.stdio ?? ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (e) {
+      finish({ ok: false, status: null, stdout: '', stderr: '', spawnError: e })
+      return
+    }
+    if (typeof opts2.timeout === 'number' && opts2.timeout > 0) {
+      timer = setTimeout(() => {
+        kill()
+        finish({ ok: false, status: null, stdout, stderr, spawnError: null })
+      }, opts2.timeout)
+    }
+    child.stdout?.on('data', (d) => {
+      stdout += String(d)
+      // 与 execFileSync 的 maxBuffer 同义：超限即杀并判"没拿到完整读数"，不静默截断当完整。
+      if (Buffer.byteLength(stdout, 'utf8') > maxBuffer) {
+        kill()
+        finish({ ok: false, status: null, stdout: '', stderr: 'maxBuffer 超限', spawnError: null })
+      }
+    })
+    child.stderr?.on('data', (d) => {
+      stderr += String(d)
+    })
+    child.on('error', (e) => finish({ ok: false, status: null, stdout: '', stderr, spawnError: e }))
+    child.on('close', (code, signal) => {
+      const okExit = typeof code === 'number' && code === 0 && !signal
+      finish({
+        ok: okExit,
+        status: typeof code === 'number' ? code : null,
+        stdout,
+        stderr,
+        spawnError: null,
+      })
+    })
+  })
 }
 
 /**
