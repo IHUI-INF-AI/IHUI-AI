@@ -23,6 +23,7 @@ import {
   resolveLedgerPath,
   readLedger,
   failRate,
+  blameHooks,
   judge,
 } from '../check-hook-audit-health.mjs'
 
@@ -75,17 +76,31 @@ test('③absent 不算故障;坏行/失败率越线算 warn;上限取不到算�
     assert.equal(badVerdict.state, 'warn')
     assert.ok(/读不出 JSON/.test(badVerdict.reasons.join('')))
 
+    // 真实台账行形:一帧一条,status/durationMs 在 hooks[] 里(顶层没有 status)
     const rows = []
-    for (let i = 0; i < 20; i += 1) rows.push(JSON.stringify({ name: 'h', status: i % 2 ? 'ok' : 'timeout' }))
+    for (let i = 0; i < 20; i += 1) {
+      rows.push(
+        JSON.stringify({
+          ts: '2026-11-21T00:00:00Z',
+          toolName: 'Bash',
+          hooks: [{ name: i % 2 ? 'guardian-fast' : 'lint-on-edit', status: i % 2 ? 'ok' : 'timeout', durationMs: 30 }],
+        }),
+      )
+    }
     const f = path.join(dir, 'fail.jsonl')
     writeFileSync(f, rows.join('\n') + '\n', 'utf8')
     const fr = failRate(readLedger(f).events)
     assert.equal(fr.total, 20)
     assert.equal(fr.failed, 10)
-    assert.equal(judge(readLedger(f), cap).state, 'warn')
+    const blamed = blameHooks(readLedger(f).events)
+    assert.equal(blamed.length, 1)
+    assert.ok(blamed[0].startsWith('lint-on-edit'), '必须点名是哪条钩子,不能只给毫秒数')
+    const failVerdict = judge(readLedger(f), cap)
+    assert.equal(failVerdict.state, 'warn')
+    assert.ok(/失败最多的是 lint-on-edit/.test(failVerdict.reasons.join('')), 'warn 文本必须落钩子名')
     // 只错一条不算:单条失败是钩子该有的行为
     const one = path.join(dir, 'one.jsonl')
-    writeFileSync(one, '{"name":"h","status":"error"}\n', 'utf8')
+    writeFileSync(one, '{"ts":"2026-11-21T00:00:00Z","hooks":[{"name":"h","status":"error"}]}\n', 'utf8')
     assert.equal(judge(readLedger(one), cap).state, 'healthy')
 
     const near = path.join(dir, 'near.jsonl')
