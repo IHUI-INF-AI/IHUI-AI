@@ -156,9 +156,14 @@ async function dedupModelsInDb(configId: number): Promise<number> {
     else firstEnabledByModelId.set(row.modelId, row.id)
   }
   for (const id of toDeactivate) {
+    // 只对「同 model_id 的第二份及以后 enabled 行」发 UPDATE(先按 id 序比出来的真变化),
+    // 不是无条件覆盖:rows 已读现值,toDeactivate 只收真需要下架的那几枚。
     await db
       .update(aiModelConfigModels)
-      .set({ enabled: false, updatedAt: new Date() })
+      .set({
+        enabled: false,
+        updatedAt: new Date(),
+      })
       .where(eq(aiModelConfigModels.id, id))
   }
   return toDeactivate.length
