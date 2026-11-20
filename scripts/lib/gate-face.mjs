@@ -25,6 +25,45 @@ export const FACE_LABEL = {
   worktree: '工作树(磁盘,人工逃生舱)',
 }
 
+/**
+ * HEAD 面文件清单的**进程内备忘**(2026-11-20)。
+ *
+ * 立因(302p 实测):一次 push 档里 `ls-tree -r --name-only HEAD -- <dir>` 被派生 21 次,
+ * 每次 ~0.5s 全是进程启动 —— 同一棵 HEAD 树问 21 遍,答案必然一样。改成"整树取一次 +
+ * 进程内按前缀筛",派生 21→1。
+ *
+ * 保守边界:
+ *   ① 键 = `root|HEAD 的 commit oid`,HEAD 被别席推进 ⇒ 键变 ⇒ 自动重取(不用等进程重启);
+ *   ② HEAD 解析不到(空仓/git 故障)⇒ 返回 null,调用方回落到**原来那条派生**,不猜;
+ *   ③ 只对 face='head' 生效;staged/worktree 面各自取材,不受影响;
+ *   ④ 过滤语义与 pathspec 同形:精确目录条目 + `dirPrefix/` 前缀。
+ */
+const HEAD_TREE_LIST_CACHE = new Map()
+function headTreeFileList(root) {
+  let head = null
+  try {
+    head = gitRaw(['rev-parse', '--verify', 'HEAD^{commit}'], root, { maxBuffer: 8 * 1024 * 1024 }).trim()
+  } catch {
+    return null
+  }
+  if (!head) return null
+  const key = `${root}|${head}`
+  const hit = HEAD_TREE_LIST_CACHE.get(key)
+  if (hit) return hit
+  try {
+    const files = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], root, {
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\0')
+      .filter(Boolean)
+      .map((s) => s.replace(/\\/g, '/'))
+    HEAD_TREE_LIST_CACHE.set(key, files)
+    return files
+  } catch {
+    return null
+  }
+}
+
 /** 该面上的文件清单(仓库相对路径、正斜杠、排序)。dirPrefix 必须带尾斜杠或为精确目录。 */
 export function faceList(root, face, dirPrefix) {
   if (face === 'worktree') {
@@ -41,6 +80,15 @@ export function faceList(root, face, dirPrefix) {
       }
     }
     return out.sort()
+  }
+  if (face === 'head') {
+    const all = headTreeFileList(root)
+    if (all) {
+      const dir = String(dirPrefix).replace(/\\/g, '/').replace(/^\.\//, '')
+      const exact = dir.replace(/\/+$/, '')
+      const prefix = `${exact}/`
+      return all.filter((f) => f === exact || f.startsWith(prefix)).sort()
+    }
   }
   const args =
     face === 'staged'
