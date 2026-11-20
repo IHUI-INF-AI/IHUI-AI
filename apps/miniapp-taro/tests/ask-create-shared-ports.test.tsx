@@ -16,18 +16,20 @@ import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
 
 /**
- * 渲染口径(与既有 chat-*-contract 同法):共享段位于 packages/app,其 JSX 由该包自带
- * react@19 的 jsx-runtime 编译;miniapp 测试侧 alias 把裸 react-dom 钉到 react@18,
- * react-dom@18 不认 react19 元素(Objects are not valid)。故用 packages/app 自己的
- * react-dom@19 做 SSR,react-native 桩也换成同源 react@19 宿主元素 ——
- * 只收口在本测试文件,不改 vitest.config(改全局 alias 会把 chat-*-contract 反向打红)。
+ * 渲染口径(2026-11-20 修正,与既有 chat-*-contract 同法):vitest.config 的
+ * `react` / `react-dom` / `react/jsx-runtime` 三条 alias 已把**整个模块图**(含
+ * packages/app 共享段与 @ihui/ui-native)统一压到 miniapp 的 react@18 —— 共享段的
+ * 元素由 react18 的 jsx-runtime 生成。本册若继续用 packages/app 的 react@19 造
+ * 元素/做 SSR,就把两代元素混回同一棵树(CI 实测 "Objects is not valid"/"Objects are
+ * not valid as a React child")。故改为同一条解析链的裸包名:createRequire('react')
+ * 与 vite alias 落到同一个 node_modules/react(18.3.1) ⇒ 单实例。
  */
 const appRequire = createRequire(import.meta.url)
-const React19 = appRequire('../../../packages/app/node_modules/react/index.js')
-const ReactDOMServer19 = appRequire('../../../packages/app/node_modules/react-dom/server.js')
+const React18 = appRequire('react')
+const ReactDOMServer18 = appRequire('react-dom/server')
 
 vi.mock('react-native', () => {
-  const React = createRequire(import.meta.url)('../../../packages/app/node_modules/react/index.js')
+  const React = createRequire(import.meta.url)('react')
   const make = (tag: string) => {
     const Host = (props: Record<string, unknown>) => {
       const { resizeMode: _resizeMode, accessibilityRole: _role, ...rest } = props
@@ -77,7 +79,7 @@ import type { AsyncKvPort, MediaPort, OnToast } from '@ihui/types'
 const maxToast = '最多 3 张'
 
 const renderStatic = (props: Record<string, unknown>): string =>
-  ReactDOMServer19.renderToStaticMarkup(React19.createElement(AskImageField, props))
+  ReactDOMServer18.renderToStaticMarkup(React18.createElement(AskImageField, props))
 
 function makeMedia(uris: string[]): MediaPort & { pickImages: ReturnType<typeof vi.fn> } {
   return {

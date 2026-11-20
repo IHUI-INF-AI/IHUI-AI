@@ -38,6 +38,14 @@ from .sandbox import _strict_child_env
 
 MAX_SESSIONS: Final = 16
 MAX_BUFFER_LINES: Final = 2000
+
+# Windows 专属进程组常量:typeshed 按宿主平台裁剪 —— `signal.CTRL_BREAK_EVENT` 与
+# `subprocess.CREATE_NEW_PROCESS_GROUP` 只存在于 Windows 的 stub 里,Linux runner 上
+# 直接取属性会被 mypy 判 attr-defined(CI 实测两处)。运行期它们只在
+# `os.name == "nt"` 分支里参与调用,所以这里用 getattr 兜底取值:非 Windows 上即便
+# 取到兜底值也永不传入 Popen/send_signal(那条分支走不到),而静态检查不再依赖宿主平台。
+_WIN_CREATE_NEW_PROCESS_GROUP: Final[int] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+_WIN_CTRL_BREAK_EVENT: Final[int] = getattr(_signal, "CTRL_BREAK_EVENT", 0)
 MAX_READ_CHARS: Final = 32_000
 CLOSE_GRACE_S: Final = 2.0
 
@@ -151,7 +159,7 @@ def open_terminal(
         flags = 0
         extra_kwargs: dict[str, Any] = {}
         if os.name == "nt":
-            flags = subprocess.CREATE_NEW_PROCESS_GROUP
+            flags = _WIN_CREATE_NEW_PROCESS_GROUP
         else:
             extra_kwargs["start_new_session"] = True
         try:
@@ -300,7 +308,7 @@ def signal_terminal(
     try:
         if signal_name == "interrupt":
             if os.name == "nt":
-                proc.send_signal(_signal.CTRL_BREAK_EVENT)
+                proc.send_signal(_WIN_CTRL_BREAK_EVENT)
             else:
                 proc.send_signal(_signal.SIGINT)
         elif signal_name == "terminate":

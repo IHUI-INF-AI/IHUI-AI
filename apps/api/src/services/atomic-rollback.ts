@@ -253,14 +253,17 @@ export function isSafeCheckpointId(id: string): boolean {
 /**
  * 把「根内相对路径」归一为绝对路径;越界(含 `..`、绝对路径、跨盘符)返回 null。
  * F-27:checkpointId 与 meta.files[].path 都曾直接 join 后使用,`../` 可越出工作区任意读写。
+ * 反斜杠先归一为 POSIX 分隔:Linux 上 `\` 是普通文件名字符,不归一会把 `..\..\evil.txt`
+ * 当成单个文件名漏判(Windows 本地 `\` 是分隔符掩盖了这条,CI POSIX 容器暴露)。
  */
 function resolveInsideRoot(rootAbs: string, rel: string): string | null {
   if (typeof rel !== 'string' || rel.length === 0) return null
-  const abs = resolve(rootAbs, rel)
-  const back = relative(rootAbs, abs)
+  const normalized = rel.replace(/\\/g, '/')
+  const abs = resolve(rootAbs, normalized)
+  const back = relative(rootAbs, abs).split(sep).join('/')
   // 空串 = 指向根本身:文件记录/快照 id 都不允许,拒绝以免把目录当文件读写
   if (back === '') return null
-  if (isAbsolute(back) || back.startsWith(`..${sep}`) || back === '..') return null
+  if (isAbsolute(back) || back.startsWith('../') || back === '..') return null
   return abs
 }
 

@@ -6,18 +6,21 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 
 /**
- * 渲染口径说明:共享屏位于 packages/app,其 JSX 由该包自带的 react@19 编译,
- * miniapp 测试侧的 react-dom@18 不认 react19 元素(Objects are not valid)。
- * 因此本测试用 packages/app 自己的 react-dom@19 做 SSR,并把 react-native
- * 别名桩替换为同源 react@19 的宿主元素桩——只在测试侧收口,不改 vitest.config、
- * 不改任何既有文件。
+ * 渲染口径说明(2026-11-20 修正):vitest.config 的 `react` / `react-dom` /
+ * `react/jsx-runtime` 三条 alias 已把**整个模块图**(含 packages/app 共享屏与
+ * @ihui/ui-native)统一压到 miniapp 的 react@18 —— 共享屏组件的元素由 react18 的
+ * jsx-runtime 生成。本册若继续用 packages/app 的 react@19 造元素/做 SSR,就把两代
+ * 元素混回同一棵树(CI 实测 "Objects are not valid as a React child",对象键为
+ * {$$typeof, type, key, ref, props, _owner, _store})。故改为同一条解析链的裸包名:
+ * createRequire('react') 与 vite alias 落到同一个 node_modules/react(18.3.1) ⇒
+ * 单实例;react-native 宿主元素桩也由这同一个 react 造。只收口在本测试文件。
  */
 const appRequire = createRequire(import.meta.url)
-const React19 = appRequire('../../../packages/app/node_modules/react/index.js')
-const ReactDOMServer19 = appRequire('../../../packages/app/node_modules/react-dom/server.js')
+const React18 = appRequire('react')
+const ReactDOMServer18 = appRequire('react-dom/server')
 
 vi.mock('react-native', () => {
-  const React = createRequire(import.meta.url)('../../../packages/app/node_modules/react/index.js')
+  const React = createRequire(import.meta.url)('react')
   // style 可能是数组(RN 条件样式),也可能是**函数**(RN 的 `style={({pressed}) => ...}`)。
   // 函数形态必须与小程序端 rn-compat/primitives.tsx 的 Pressable 同语义:以
   // `{ pressed: false }` 求值后再摊平 —— 直接把函数透传给 React DOM 会抛
@@ -99,8 +102,8 @@ const baseProps: ChatComposerProps = {
 }
 
 const render = (props: Partial<ChatComposerProps>): string =>
-  ReactDOMServer19.renderToStaticMarkup(
-    React19.createElement(ChatComposer, { ...baseProps, ...props }),
+  ReactDOMServer18.renderToStaticMarkup(
+    React18.createElement(ChatComposer, { ...baseProps, ...props }),
   )
 
 /** 取包含指定文案的按钮开标签(用于断言 disabled 置灰) */
@@ -119,7 +122,7 @@ describe('ChatComposer 契约(块 3 输入区)', () => {
   it('正例:headerSlot 位于输入框上方,功能开关按原序渲染', () => {
     const html = render({
       value: '你好',
-      headerSlot: React19.createElement('span', null, '素材卡片'),
+      headerSlot: React18.createElement('span', null, '素材卡片'),
       toggles: [
         { key: 'webSearch', label: '联网搜索', active: true },
         { key: 'deepThink', label: '深度思考', active: false },
