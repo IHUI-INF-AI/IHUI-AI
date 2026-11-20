@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   TerminalSquare,
   Package,
+  Webhook,
 } from 'lucide-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
@@ -875,6 +876,8 @@ export function AgentTaskProgressPane() {
   const {
     thinkingContent: runtimeThinking,
     planSteps: runtimePlanSteps,
+    // 2026-11-20 第 26 项:逐钩子运行结果(hook-run 帧,FIFO)
+    hookRuns: runtimeHookRuns,
     sessionEnd: runtimeSessionEnd,
     permissionMode: runtimePermissionMode,
     terminalDeltas: runtimeTerminalDeltas,
@@ -886,6 +889,16 @@ export function AgentTaskProgressPane() {
     // 2026-11-17:工作台挂起提问(question 帧 → 内联卡;question-resolved 摘除)
     pendingQuestion: runtimePendingQuestion,
   } = useAgentRuntime(open && threadId ? threadId : null)
+
+  // 2026-11-20 第 26 项:hook-run 只展示"最近一帧"(每帧已是同一工具调用的全部钩子),
+  // 钩子状态三态各自配色;文案进 i18n 目录,不在组件里手写中文。
+  const lastHookRun = runtimeHookRuns[runtimeHookRuns.length - 1]
+  const hookStatusLabel = (status: 'ok' | 'timeout' | 'error'): string =>
+    status === 'timeout'
+      ? t('runtimeHookRunTimeout')
+      : status === 'error'
+        ? t('runtimeHookRunError')
+        : t('runtimeHookRunOk')
 
   // 工作台答复:与聊天侧同一条结构化 REST(不发起新一轮、不新增用户消息)。
   // 失败向上抛给卡片(卡片自带失败提示与重试),不在这里吞掉。
@@ -2003,6 +2016,54 @@ export function AgentTaskProgressPane() {
               <div role="list" aria-label={t('planListLabel')}>
                 {runtimePlanSteps.map((step) => (
                   <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 2026-11-20 第 26 项:hook-run 逐钩子结果(命名 SSE 事件,最近一帧)。
+              与 hook-failed 分工:这里报"钩子正常工作并给出裁决/改写/超时"。 */}
+          {lastHookRun && (
+            <div className="mx-2 mt-1.5" data-testid="pane-runtime-hook-runs">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Webhook className="h-3 w-3 shrink-0" aria-hidden />
+                <span>{t('runtimeHookRunTitle')}</span>
+                <span className="min-w-0 truncate font-mono opacity-70">
+                  {t('runtimeHookRunMeta', {
+                    tool: lastHookRun.toolName ?? '—',
+                    count: lastHookRun.hooks.length,
+                  })}
+                </span>
+              </div>
+              <div className="mt-0.5 space-y-0.5 text-[10px] leading-4">
+                {lastHookRun.hooks.map((hook, i) => (
+                  <div
+                    key={`${hook.name}-${i}`}
+                    className="flex items-center gap-1.5"
+                    data-hook-status={hook.status}
+                  >
+                    <span
+                      className={cn(
+                        'shrink-0',
+                        hook.status === 'error'
+                          ? 'text-red-500'
+                          : hook.status === 'timeout'
+                            ? 'text-amber-600'
+                            : 'text-emerald-600',
+                      )}
+                    >
+                      {hookStatusLabel(hook.status)}
+                    </span>
+                    <span className="min-w-0 truncate font-mono text-foreground/80">
+                      {hook.name}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground opacity-70 tabular-nums">
+                      {hook.durationMs}ms
+                    </span>
+                    {hook.error && (
+                      <span className="min-w-0 truncate text-red-500/80">{hook.error}</span>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
