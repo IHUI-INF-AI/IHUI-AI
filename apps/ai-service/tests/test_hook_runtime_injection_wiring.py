@@ -131,6 +131,71 @@ async def test_registered_deny_hook_blocks_tool_via_runtime() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 3b. 2026-11-20:permissionDecision(allow/ask)必须在审批门**之前**生效
+# ---------------------------------------------------------------------------
+def _high_risk_loop(rt: HookRuntime, executed: list[str], approval_calls: list[str]) -> AgentLoopV2:
+    loop = AgentLoopV2(
+        _noop_llm,
+        [_make_tool("demo", executed)],
+        enable_checkpoint=False,
+        approval_enabled=True,
+        chain="main",
+        hook_runtime=rt,
+    )
+
+    async def _fake_approval(tc: ToolCall, **_kw: Any) -> None:
+        approval_calls.append(tc.id)
+        return None
+
+    loop._request_approval = _fake_approval  # type: ignore[method-assign]
+    return loop
+
+
+async def test_allow_hook_skips_approval_and_executes(monkeypatch: pytest.MonkeyPatch) -> None:
+    executed: list[str] = []
+    approval_calls: list[str] = []
+    monkeypatch.setenv("TOOL_APPROVAL_HIGH_RISK_TOOLS", "demo")
+
+    register_lifecycle_hook(
+        HookKind.PRE_TOOL_USE,
+        lambda payload: {"permission_decision": "allow"},
+        name="wiring-allow",
+    )
+    loop = _high_risk_loop(build_registered_hook_runtime(), executed, approval_calls)
+    tr = await loop._execute_single(ToolCall(id="c3", name="demo", args={}))
+    assert tr.error is None
+    assert executed == ["demo"]
+    assert approval_calls == []  # allow 真的省掉了一次弹窗
+    assert loop._decision_hints["c3"][0] == "hook_allow_skip_approval"
+
+
+async def test_ask_hook_forces_approval_even_for_low_risk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executed: list[str] = []
+    approval_calls: list[str] = []
+    # 不设 TOOL_APPROVAL_HIGH_RISK_TOOLS:demo 本非高危,ask 必须把它抬进审批门。
+    register_lifecycle_hook(
+        HookKind.PRE_TOOL_USE,
+        lambda payload: {"permission_decision": "ask"},
+        name="wiring-ask",
+    )
+    loop = _high_risk_loop(build_registered_hook_runtime(), executed, approval_calls)
+    tr = await loop._execute_single(ToolCall(id="c4", name="demo", args={}))
+    assert approval_calls == ["c4"]
+    assert tr.error is None
+
+
+async def test_no_hook_still_asks_for_high_risk(monkeypatch: pytest.MonkeyPatch) -> None:
+    executed: list[str] = []
+    approval_calls: list[str] = []
+    monkeypatch.setenv("TOOL_APPROVAL_HIGH_RISK_TOOLS", "demo")
+    loop = _high_risk_loop(build_registered_hook_runtime(), executed, approval_calls)
+    await loop._execute_single(ToolCall(id="c5", name="demo", args={}))
+    assert approval_calls == ["c5"]  # 阳性对照:无钩子时审批门照旧
+
+
+# ---------------------------------------------------------------------------
 # 4. 三处生产构造入口确实传入非空 runtime(动态捕获 + 静态源锁)
 # ---------------------------------------------------------------------------
 class _CapturingLoop:

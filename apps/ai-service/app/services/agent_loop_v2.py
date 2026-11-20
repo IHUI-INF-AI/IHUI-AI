@@ -8185,6 +8185,82 @@ class AgentLoopV2:
                 "工具级审批策略 never:该工具免审批直接执行",
             )
 
+        # 批 39 接线:PRE_TOOL_USE 生命周期钩子(批 30 移植,可选注入)。
+        # 2026-11-20 移位:本段从 guarded_pipeline 之后**移到审批门之前** ——
+        # 钩子的 permissionDecision(allow/ask)只有在审批判定之前生效才有意义
+        # (此前跑在 _request_approval 之后,allow 永远救不回一次弹窗)。
+        # 顺序:角色矩阵/plan/denylist(硬边界,更早) → 审批策略计算 → **本段** →
+        # 污点闸门 → auto-review → 真实审批。钩子 deny 不弹窗直接拒绝;
+        # allow 免审批但记 decision_hint;ask 强制抬升为需批。
+        # 钩子未注册/未配置 ⇒ outcome 空 ⇒ 逐零等价(这是默认档)。
+        if self._hook_runtime is not None:
+            try:
+                from ..core.hook_runtime import HookKind as _HookKind
+
+                # G-815970 同型补刀(2026-10-24):生命周期钩子运行(逐钩子
+                # 超时/重试由 HookRuntime 内部管理)此前是裸 await,取消信号要等
+                # 钩子跑完才生效。包进同一 _wait_interruptible;无取消时原样返回,
+                # 钩子自身超时/异常面不变。_LoopInterrupted 必须直通,不能被下面
+                # "钩子异常降级放行"的 except Exception 吞掉。
+                _hk_outcome = await self._wait_interruptible(
+                    self._hook_runtime.run(
+                        _HookKind.PRE_TOOL_USE,
+                        {"tool_name": tc.name, "tool_call_id": tc.id, "args": tc.args},
+                    )
+                )
+                if _hk_outcome.denial_reason is not None:
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result={"blocked": True, "reason": _hk_outcome.denial_reason},
+                        error=f"工具被 pre_tool_use 钩子拒绝: {_hk_outcome.denial_reason}",
+                        duration_ms=(time.time() - start) * 1000,
+                        error_type="hook_denied",
+                    )
+                # 钩子权限裁决:allow 是"本次免审批"的授权(不增加可执行面 ——
+                # 角色矩阵/plan/双轴 FORBID 都在更早的出口判过),ask 是保守抬升。
+                _hk_perm = getattr(_hk_outcome, "permission_decision", None)
+                if _hk_perm == "allow" and needs_approval:
+                    needs_approval = False
+                    self._decision_hints[tc.id] = (
+                        "hook_allow_skip_approval",
+                        "pre_tool_use 钩子给出 allow,本次免审批",
+                    )
+                    logger.info(
+                        "钩子放行免审批: tool=%s, session=%s",
+                        tc.name,
+                        self._session_id or "",
+                    )
+                elif _hk_perm == "ask" and not needs_approval:
+                    needs_approval = self._approval_enabled
+                    if needs_approval:
+                        self._decision_hints[tc.id] = (
+                            "hook_ask_require_approval",
+                            "pre_tool_use 钩子要求人工确认,本次抬升为需审批",
+                        )
+                # 批 57 接线:P1 用户可见缺口——消费 PRE_TOOL_USE 钩子注入的
+                # 附加上下文(对标 Codex additionalContext / ContextualUserFragment),
+                # 并入模型输入历史。非注入 / 列表为空 = 零行为变化;异常隔离,
+                # 绝不阻塞工具执行主链路。消息形态对齐本文件 developer 片段。
+                try:
+                    if self._messages is not None:
+                        for _ctx in getattr(_hk_outcome, "additional_contexts", None) or []:
+                            _ctx_text = str(_ctx)[:4000]
+                            if _ctx_text:
+                                self._messages.append(
+                                    {
+                                        "role": "developer",
+                                        "content": [{"type": "input_text", "text": _ctx_text}],
+                                    }
+                                )
+                except Exception as e:  # noqa: BLE001 - 上下文注入失败隔离,不阻塞主链路
+                    logger.warning("pre_tool_use 附加上下文注入异常(降级跳过): %s", e)
+            except _LoopInterrupted:
+                # 取消/暂停穿透钩子等待段:不得按"钩子异常降级放行"吞掉。
+                raise
+            except Exception as e:  # noqa: BLE001 - 钩子运行时异常隔离,不阻塞主链路
+                logger.warning("pre_tool_use 钩子运行时异常(降级放行): %s", e)
+
         # P0-2 污点标记(会话级):工具入参含可解析凭据占位符 ⇒ 标记 VAULT 污点
         if self._session_id and isinstance(getattr(tc, "args", None), dict):
             try:
@@ -8350,57 +8426,6 @@ class AgentLoopV2:
                 duration_ms=0,
                 error_type="unknown",
             )
-
-        # 批 39 接线:PRE_TOOL_USE 生命周期钩子(批 30 移植,可选注入)。
-        # 任一钩子 decision=deny 即拒绝(denial_reason 带原因),不执行、
-        # error_type=hook_denied;钩子未注册时 outcome 空 = 零行为变化;
-        # 失败隔离/超时由 HookRuntime 内部处理,运行时异常降级放行不阻塞。
-        if self._hook_runtime is not None:
-            try:
-                from ..core.hook_runtime import HookKind as _HookKind
-
-                # G-815970 同型补刀(2026-10-24):生命周期钩子运行(逐钩子
-                # 超时/重试由 HookRuntime 内部管理)此前是裸 await,取消信号要等
-                # 钩子跑完才生效。包进同一 _wait_interruptible;无取消时原样返回,
-                # 钩子自身超时/异常面不变。_LoopInterrupted 必须直通,不能被下面
-                # "钩子异常降级放行"的 except Exception 吞掉。
-                _hk_outcome = await self._wait_interruptible(
-                    self._hook_runtime.run(
-                        _HookKind.PRE_TOOL_USE,
-                        {"tool_name": tc.name, "tool_call_id": tc.id, "args": tc.args},
-                    )
-                )
-                if _hk_outcome.denial_reason is not None:
-                    return ToolResult(
-                        tool_call_id=tc.id,
-                        name=tc.name,
-                        result={"blocked": True, "reason": _hk_outcome.denial_reason},
-                        error=f"工具被 pre_tool_use 钩子拒绝: {_hk_outcome.denial_reason}",
-                        duration_ms=(time.time() - start) * 1000,
-                        error_type="hook_denied",
-                    )
-                # 批 57 接线:P1 用户可见缺口——消费 PRE_TOOL_USE 钩子注入的
-                # 附加上下文(对标 Codex additionalContext / ContextualUserFragment),
-                # 并入模型输入历史。非注入 / 列表为空 = 零行为变化;异常隔离,
-                # 绝不阻塞工具执行主链路。消息形态对齐本文件 developer 片段。
-                try:
-                    if self._messages is not None:
-                        for _ctx in getattr(_hk_outcome, "additional_contexts", None) or []:
-                            _ctx_text = str(_ctx)[:4000]
-                            if _ctx_text:
-                                self._messages.append(
-                                    {
-                                        "role": "developer",
-                                        "content": [{"type": "input_text", "text": _ctx_text}],
-                                    }
-                                )
-                except Exception as e:  # noqa: BLE001 - 上下文注入失败隔离,不阻塞主链路
-                    logger.warning("pre_tool_use 附加上下文注入异常(降级跳过): %s", e)
-            except _LoopInterrupted:
-                # 取消/暂停穿透钩子等待段:不得按"钩子异常降级放行"吞掉。
-                raise
-            except Exception as e:  # noqa: BLE001 - 钩子运行时异常隔离,不阻塞主链路
-                logger.warning("pre_tool_use 钩子运行时异常(降级放行): %s", e)
 
         # P0-3(2026-09-12):guarded_pipeline 前置守卫——prompt 注入探测 +
         # 危险入参扫描(fail-closed),作为所有工具执行的默认包装层。
