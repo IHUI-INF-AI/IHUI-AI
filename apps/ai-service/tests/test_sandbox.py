@@ -656,13 +656,17 @@ class TestExecuteLocal:
         mock_proc = MagicMock()
         mock_proc.communicate = slow_communicate
         mock_proc.kill = MagicMock()
+        mock_proc.wait = AsyncMock(return_value=0)
 
-        if sys.platform == "win32":
-            patch_target = "app.services.sandbox.asyncio.create_subprocess_shell"
-        else:
-            patch_target = "app.services.sandbox.asyncio.create_subprocess_exec"
-
-        with patch(patch_target, return_value=mock_proc):
+        # 两处修正:
+        # ① 批 58 之后 Windows 也可能走 create_subprocess_exec(派生 argv),原先按平台只
+        #    patch 一路 ⇒ 另一路拿到真实 spawn;这里两路一起 patch。
+        # ② 生产是 `await create_subprocess_*(...)`,MagicMock 直接当返回值不可 await,
+        #    会先在 await 处炸成 "execution failed"，走到不了超时分支 ⇒ 用 AsyncMock 交回 proc。
+        fake_spawn = AsyncMock(return_value=mock_proc)
+        with patch(
+            "app.services.sandbox.asyncio.create_subprocess_exec", new=fake_spawn
+        ), patch("app.services.sandbox.asyncio.create_subprocess_shell", new=fake_spawn):
             result = await executor._execute_local("echo test", 1, ".", None)
         assert result.exit_code == -1
         assert result.timed_out is True
