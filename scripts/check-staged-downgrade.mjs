@@ -78,8 +78,9 @@ import { deltaParents } from './lib/merge-delta.mjs'
 import {
   ANCESTOR_WINDOW_DEFAULT,
   ancestorBlobOf,
+  ancestorBlobsOfBatch,
   ancestorContentMatch,
-  headBlobOf,
+  headBlobBatch,
   intentionalRevertOf,
   describeMatch,
 } from './lib/ancestor-downgrade.mjs'
@@ -214,6 +215,10 @@ export function judge({
   // 两面都空 = 没有判据对象,不是"判过且通过"(§0.3:枚举到 0 个候选判死不记绿)。
   if (paths.length === 0 && worktreePaths.length === 0)
     return { state: 'not-applicable', judged: 0, stale: [], paths: [], normalizedJudged: 0 }
+  // HEAD oid 一轮只验一次(2026-11-16):此前每路径各跑一次 `rev-parse HEAD`,实测 88 次派生
+  // 里绝大多数是它;清单/父面/工作树面共用同一枚 HEAD,重复验纯属浪费。取不到时 headOid=null,
+  // 下游仍按原口径逐条判(不在这里折成任何结论)。
+  const headHint = headBlobBatch([], { root }).headOid
   let oids = new Map()
   if (paths.length > 0) {
     try {
@@ -293,6 +298,24 @@ export function judge({
       return { state: 'undetermined', judged: judgedSet.size, why: `索引面正文取不到:${String(e?.message ?? e).split('\n')[0]}` }
     }
   }
+  // 逐字档批量收口(2026-11-16):候选 =「内容与 HEAD 不同且非父面归因」的索引 M 路径。
+  // 祖先清单仍按路径各取一次(语义就是逐路径 rev-list,不存在批量等价形态),
+  // 但祖先 blob 由原先"逐路径各起一次 cat-file --batch"收成**一次**全取。
+  const arm1Candidates = new Map()
+  for (const p of paths) {
+    const h = oids.get(`HEAD:${p}`)
+    const i = oids.get(`:${p}`)
+    if (!h || !i) continue // 缺键交由主循环按原口径判未判定
+    const hh = String(h).toLowerCase()
+    const ii = String(i).toLowerCase()
+    if (hh === ii) continue
+    if (parentOidByPath.get(p)?.has(ii)) continue
+    arm1Candidates.set(p, ii)
+  }
+  const arm1Batch =
+    arm1Candidates.size > 0
+      ? ancestorBlobsOfBatch([...arm1Candidates.keys()], arm1Candidates, { root, windowSize, headOid: headHint })
+      : { judged: true, why: null, byPath: new Map() }
   // 索引面三档(逐字 / 归一化 / 标识符集合)
   for (const p of paths) {
     const headOid = oids.get(`HEAD:${p}`)
@@ -308,8 +331,14 @@ export function judge({
       attributedToParent += 1
       continue
     }
-    const anc = ancestorBlobOf(p, indexOid, { root, windowSize })
-    if (!anc.judged) return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why}` }
+    const anc = arm1Batch.byPath.get(p) ?? {
+      judged: false,
+      match: null,
+      scanned: 0,
+      why: arm1Batch.why ?? '批量面缺键(不猜)',
+    }
+    if (!anc.judged)
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why ?? arm1Batch.why}` }
     if (anc.match) {
       stale.push({
         path: p,
@@ -326,7 +355,7 @@ export function judge({
     if (face === undefined)
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: 索引面正文键缺失(不折成"没命中")` }
     if (face === null) continue // 该路径在索引面取不到正文 = 非 blob 形态,交由逐字档那一步判
-    const nm = ancestorContentMatch(p, face, { root, windowSize })
+    const nm = ancestorContentMatch(p, face, { root, windowSize, headOid: headHint })
     if (!nm.judged) return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${nm.why}` }
     normalizedJudged += 1
     if (nm.normalizedEqualHead) {
@@ -353,10 +382,18 @@ export function judge({
   // 这不是放宽:要提交的旧档必在声明集里,索引臂本身就已点名(make 时 index blob = 祖先)。
   const worktreeScoped = scope.length > 0
   const wtOidMap = worktreeBlobOids(worktreePaths, root)
+  // HEAD 面一次批量取齐(headBlobBatch 就是为治这型 fork 风暴立的):判序、三态与逐条
+  // `headBlobOf` 等价(HEAD 验一次 + `HEAD:<rel>` 走一条 cat-file --batch)。
+  const wtHeads = headBlobBatch(worktreePaths, { root })
   for (const p of worktreePaths) {
     if (stale.some((s) => s.path === p)) continue // 同一路径已被索引面点名,不重复报
     if (worktreeScoped && !scope.includes(p)) continue // 提交路径:别席残渣不替他们判(射程同归一化臂)
-    const hb = headBlobOf(p, { root })
+    const hb = wtHeads.byPath.get(p) ?? {
+      judged: false,
+      oid: null,
+      missing: false,
+      why: wtHeads.why ?? `HEAD:${p} 批量面缺键(不猜)`,
+    }
     if (!hb.judged)
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${hb.why ?? 'HEAD blob 取不到'}` }
     if (hb.missing) continue // HEAD 没有该路径(真新文件/已被删):不构成"HEAD 已有更新档"这一格
@@ -372,7 +409,7 @@ export function judge({
       attributedToParent += 1
       continue
     }
-    const anc = ancestorBlobOf(p, wtOid, { root, windowSize })
+    const anc = ancestorBlobOf(p, wtOid, { root, windowSize, headOid: headHint })
     if (!anc.judged)
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why}` }
     if (anc.match) {
