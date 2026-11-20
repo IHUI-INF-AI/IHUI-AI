@@ -185,7 +185,8 @@ export function splitModelCatalog<M extends LlmModel>(models: M[]): ModelCatalog
 
   for (const model of models) {
     const category = categoryOf(model)
-    if (isSelectableChatModel(category, tierOf(model))) primary.push(model)
+    // 2026-11-21 追加第三判据:图像/视频里没有接通生成通道的(非 agnes 前缀)不展示
+    if (isSelectableChatModel(category, tierOf(model), model.id)) primary.push(model)
   }
 
   return {
