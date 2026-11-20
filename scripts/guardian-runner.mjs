@@ -41,6 +41,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { triggersTouch } from './lib/guardian-triggers.mjs'
+// push 面内容级预筛(2026-11-20):300 的判据本体就是 api-endpoint-literals 的逐行字面量抽取,
+// 预筛直接复用同一个提取器 —— 不新造第二套正则,避免"预筛说没有、门体说有"的分裂。
+import { scanLineLiterals } from './lib/api-endpoint-literals.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 // BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
 // 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
@@ -8044,6 +8047,9 @@ const pushGateChecks = [
       'scripts/lib/gate-face.mjs',
     ],
     skipEnv: 'HUSKY_SKIP_API_ENDPOINT_DELTA',
+    // 内容级预筛声明:判据 = 端内直拼 /api 字面量集合,故只有本次改动行里存在字面量时才跑。
+    // 未声明本字段的门不预筛(照跑);见 8390 起的预筛块。
+    pushContentGuard: 'api-endpoint-literals',
     onFailHint: [
       '  💡 红 = 端内出现共享端点清单里没有的前缀,且台账没有新登记行。',
       '     改法:改走 @ihui/api-client 的共享端点,或在 scripts/data/api-endpoint-delta-ledger.jsonl 登记',
@@ -8060,7 +8066,12 @@ const pushGateChecks = [
     args: [],
     mode: 'blocking',
     stagedTriggers: [
-      'apps/web/',
+      // 2026-11-20:原触发面是整个 apps/web/(连 src/components 的一行样式改动也算),
+      // 但门体实际只读 registry + 小程序在册页(cov.collectShared / cov.collectMiniapp),
+      // web 侧只有"路由树是否存在"这一维相关 ⇒ 收窄到路由树与注册面,组件/样式改动不再拉这道门。
+      'apps/web/src/app/',
+      'apps/web/src/routes/',
+      'apps/web/src/pages/',
       'apps/miniapp-taro/src/app.config.ts',
       'packages/app/src/features/',
       'scripts/data/web-rn-screen-map.jsonl',
@@ -8397,6 +8408,70 @@ if (pushGate) {
           `(触发面取 PUSH_SCOPE_FILES 现读,共 ${_pushScopeFiles.length} 个文件;无触发面声明的门一律照跑)`,
       )
       effectiveChecks = _kept
+    }
+    // ── 第二轮:内容级预筛(只对显式声明 pushContentGuard 的门生效)──────────────
+    // 第一轮只按"路径面"收窄,再往下还有一个多余维度:路径命中了,但本次改动的**行内容**
+    // 与门体判据毫无关系。典型 300(17.3s):判据是"端内直拼 /api 字面量是否登记",
+    // 改一个 className 高度不会新增/删除任何端点字面量,门跑完结论必然与基线同形。
+    // 预筛口径刻意保守:
+    //   · 只对声明了 pushContentGuard 的门生效(未声明 = 不预筛,照跑);
+    //   · base 取 merge-base(origin/main, HEAD),取不到 ⇒ 不预筛;范围只会更大不会更小;
+    //   · 改动文件 > 300 个 ⇒ 不预筛(大面直接跑,不做逐行解析);git 派生失败 ⇒ 不预筛;
+    //   · 命中判定复用门体自己的提取器(scanLineLiterals),任一行有字面量就不跳。
+    // 失效方向与第一轮一致:拿不准就不跳。
+    const _contentSkipped = []
+    if (effectiveChecks.some((c) => c.pushContentGuard)) {
+      if (_pushScopeFiles.length > 300) {
+        console.info('ℹ️  push 面内容级预筛未启用:改动文件 > 300(大面直接跑门)')
+      } else {
+        let _diffLines = null
+        try {
+          const _git = resolveGitBin()
+          const _mb = String(
+            execFileSync(_git, ['-c', 'safe.directory=*', 'merge-base', 'origin/main', 'HEAD'], {
+              encoding: 'utf8',
+              cwd: process.cwd(),
+              windowsHide: true,
+              stdio: ['ignore', 'pipe', 'pipe'],
+              timeout: 30_000,
+            }) || '',
+          ).trim()
+          if (_mb) {
+            const _diff = String(
+              execFileSync(_git, ['-c', 'safe.directory=*', 'diff', '-U0', _mb, 'HEAD', '--', ..._pushScopeFiles], {
+                encoding: 'utf8',
+                cwd: process.cwd(),
+                windowsHide: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                timeout: 60_000,
+                maxBuffer: 64 * 1024 * 1024,
+              }) || '',
+            )
+            _diffLines = _diff
+              .split(/\r?\n/)
+              .filter((l) => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---'))
+          } else {
+            console.info('ℹ️  push 面内容级预筛未启用:取不到 origin/main..HEAD 的公共基(面不明 ⇒ 照跑)')
+          }
+        } catch {
+          console.info('ℹ️  push 面内容级预筛未启用:git 派生失败(面不明 ⇒ 照跑)')
+        }
+        if (_diffLines) {
+          const _hasApiLiteral = _diffLines.some((l) => scanLineLiterals(l).length > 0)
+          const _kept2 = []
+          for (const c of effectiveChecks) {
+            if (c.pushContentGuard === 'api-endpoint-literals' && !_hasApiLiteral) _contentSkipped.push(String(c.id))
+            else _kept2.push(c)
+          }
+          if (_contentSkipped.length > 0) {
+            console.info(
+              `⏭️  push 面内容级预筛:${_contentSkipped.length} 道门的判据在本次改动行里零命中 ⇒ 跳过[${_contentSkipped.join(', ')}]` +
+                `(版本区间 origin/main..HEAD 共 ${_diffLines.length} 行变更,复用门体字面量提取器判命中)`,
+            )
+            effectiveChecks = _kept2
+          }
+        }
+      }
     }
   } else {
     console.info('ℹ️  push 面收窄未启用:PUSH_SCOPE_FILES 为空(面不明 ⇒ 按全量门照跑,不猜)')
