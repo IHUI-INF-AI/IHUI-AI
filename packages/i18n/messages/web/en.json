@@ -12513,7 +12513,7 @@
       "switchedToAuto": "Switched to auto-approve",
       "switchedToAutoDesc": "Only asks before running detected risky actions",
       "switchedToFull": "Switched to full access",
-      "switchedToFullDesc": "AI can now run any action without confirmation (undo within 5s, previous:{prev})",
+      "switchedToFullDesc": "AI can now run any action without confirmation (previous:{prev})",
       "switchedToFullError": "Switch failed: {error}",
       "switchedToModeAsk": "Switched to ask-for-approval mode",
       "switchedToModeAuto": "Switched to auto-approve mode",

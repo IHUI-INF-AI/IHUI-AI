@@ -12513,7 +12513,7 @@
       "switchedToAuto": "已切換到替我審批",
       "switchedToAutoDesc": "僅對檢測到的風險操作請求批准",
       "switchedToFull": "已切換到完全訪問",
-      "switchedToFullDesc": "AI 現在可執行任何操作,無需確認(5 秒內可撤銷,之前:{prev})",
+      "switchedToFullDesc": "AI 現在可執行任何操作,無需確認(之前:{prev})",
       "switchedToFullError": "切換失敗:{error}",
       "switchedToModeAsk": "已切換到請求批准模式",
       "switchedToModeAuto": "已切換到替我審批模式",
