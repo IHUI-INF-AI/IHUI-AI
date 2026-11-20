@@ -117,6 +117,33 @@ BRACKETED_PASTE_END: Final = "\x1b[201~"
 #: 一次粘贴的字节上限:超过就拒(不静默截断 —— 截断的粘贴比拒绝更难查)。
 MAX_PASTE_BYTES: Final = 65_536
 
+#: 鼠标上报(DEC 私有模式 1000/1002/1003 + 坐标编码 1006/1005/1015)。**发不发事件是程序说了算**:
+#: vim/htop/less 用 `DECSET 1000/1002/1003` 明确"把鼠标给我",终端侧只能跟随;程序没请求就发,
+#: 那些字节只会变成它的输入垃圾。三档模式位 + 三档编码位是同一机制的**单一真相源**。
+MOUSE_CLICK_MODE: Final = 1000  # 只报按下/松开(点选)
+MOUSE_DRAG_MODE: Final = 1002  # 按下期间的拖动
+MOUSE_MOVE_MODE: Final = 1003  # 任何移动(不看按键)
+MOUSE_SGR_ENCODING: Final = 1006  # `ESC[<b;x;yM|m`:十进制坐标,无 223 上限
+MOUSE_UTF8_ENCODING: Final = 1005  # 老形状 + UTF-8 承载远坐标
+MOUSE_URXVT_ENCODING: Final = 1015  # `ESC[b;x;yM`:十进制坐标
+
+#: 鼠标键名 → 基础码(sgr 与老编码同码,只有封装方式不同)。滚轮是 64/65,与按键位并行。
+MOUSE_BUTTON_CODES: Final[dict[str, int]] = {
+    "left": 0,
+    "middle": 1,
+    "right": 2,
+    "wheel-up": 64,
+    "wheel-down": 65,
+}
+MOUSE_MODIFIER_BITS: Final[dict[str, int]] = {"shift": 4, "alt": 8, "meta": 8, "ctrl": 16}
+#: 无按键的移动(1003 any-motion)与老编码的"松开"都取 3。
+MOUSE_NO_BUTTON: Final = 3
+MOUSE_MOTION_FLAG: Final = 32
+#: 老 x10 编码把「码 + 32」塞进单字节:单字节上限 255 ⇒ 坐标上限 223。更远的坐标必须由程序
+#: 先点 1005/1015/1006,否则只能如实拒 —— 截断/夹紧的坐标比报错更难查。
+MOUSE_LEGACY_MAX_COORD: Final = 223
+MOUSE_MAX_COORD: Final = 65_535
+
 #: 终端转义序列的归一正则(**单一真相源**)。快照与检索只回"人读得到的字",但**不能**靠
 #: "顺手 replace 掉 ESC":那样 OSC 的标题串(`ESC]0;…BEL`)会把路径漏成正文。三档分开收:
 #: ① OSC(`ESC ] … BEL|ST`),② CSI(`ESC [ 参数 中间字节 终止字节`),③ 其余两字节 ESC 序列。
@@ -136,6 +163,10 @@ _OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
 _OSC_ANY_RE: Final = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 #: 标题长度上界:失控程序连发 OSC 时不让会话账本跟着膨胀。
 MAX_TITLE_CHARS: Final = 200
+
+#: DEC 私有模式位(`DECSET`=`?…h` / `DECRST`=`?…l`)。一条序列可带多个模式(`?1002;1006h`),
+#: 所以按"整段取数再逐枚落账"解析;只由输出驱动(**模式位从来不是调用方声明的**)。
+_DEC_PRIVATE_MODE_RE: Final = re.compile(r"\x1b\[\?([0-9;]+)([hl])")
 
 #: 快照最多回多少行(超过就只回**末尾**那段,并在信封里说 `truncated`)。
 MAX_SNAPSHOT_LINES: Final = 500
@@ -317,6 +348,9 @@ class TerminalSession:
     title: str = ""
     #: 响铃次数(程序发 BEL)。累计值,不清零 —— 回答"这个会话闹过几次",不是"刚才那一下"。
     bell_count: int = 0
+    #: 程序请求过的 DEC 私有模式位集合(鼠标 1000/1002/1003、编码 1006/1005/1015、粘贴 2004 …)。
+    #: 只由输出解析写入;`mouse_mode`/`mouse_encoding` 是它的**派生视图**(不另存一份状态)。
+    private_modes: set[int] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         # deque 的 default_factory 拿不到实例字段,所以"上限"必须在这里落到缓冲上;
@@ -333,6 +367,36 @@ class TerminalSession:
 
     def running(self) -> bool:
         return self.proc.poll() is None
+
+    @property
+    def mouse_mode(self) -> str:
+        """程序请求的鼠标上报档:`move`(1003)/`drag`(1002)/`click`(1000)/空串(没请求)。
+
+        1003 ⊃ 1002 ⊃ 1000(能报"任何移动"的必然也能报拖动),所以取**最宽**的那一档,
+        而不是把三个位分别回给调用方 —— 调用方只需要知道"现在能发哪类事件"。
+        """
+        if MOUSE_MOVE_MODE in self.private_modes:
+            return "move"
+        if MOUSE_DRAG_MODE in self.private_modes:
+            return "drag"
+        if MOUSE_CLICK_MODE in self.private_modes:
+            return "click"
+        return ""
+
+    @property
+    def mouse_encoding(self) -> str:
+        """坐标封装:`sgr`(1006)优先,其次 `urxvt`(1015)/`utf8`(1005),都没点则是老 `x10`。
+
+        优先级不是偏好而是兼容序:程序同时点 1006 与 1005 时,SGR 是它真正能解的那一种
+        (1005 只影响老形状的坐标承载)。回给调用方的是**真要用的那一种**,不是"点过哪些"。
+        """
+        if MOUSE_SGR_ENCODING in self.private_modes:
+            return "sgr"
+        if MOUSE_URXVT_ENCODING in self.private_modes:
+            return "urxvt"
+        if MOUSE_UTF8_ENCODING in self.private_modes:
+            return "utf8"
+        return "x10"
 
     def first_seq(self) -> int:
         """当前仍可读到的**最早** seq(缓冲空时 = 下一个将要产出的 seq)。"""
@@ -357,6 +421,8 @@ class TerminalSession:
             "buffer_lines": self.buffer_lines,
             "title": self.title,
             "bell_count": self.bell_count,
+            "mouse_mode": self.mouse_mode,
+            "mouse_encoding": self.mouse_encoding,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -587,6 +653,22 @@ class _PtyLineSplitter:
             return text
 
 
+def _track_private_modes(session: TerminalSession, text: str) -> None:
+    """按输出里的 `DECSET`/`DECRST` 记私有模式位(鼠标上报靠它,不靠调用方声明)。
+
+    一条序列可带多个模式(`?1002;1006h`),所以先把整段数字拆开再一次性落账:逐字节扫
+    "h/l 前面那个数"会把 `1002;1006` 只认出 1006。`h` 置位、`l` 清位,与 DEC 语义一致。
+    """
+    for m in _DEC_PRIVATE_MODE_RE.finditer(text):
+        modes = {int(p) for p in m.group(1).split(";") if p.isdigit()}
+        if not modes:
+            continue
+        if m.group(2) == "h":
+            session.private_modes |= modes
+        else:
+            session.private_modes -= modes
+
+
 def _track_terminal_state(session: TerminalSession, text: str) -> None:
     """从输出里读**终端状态信号**(单一出口):bracketed paste 模式位、窗口标题、响铃次数。
 
@@ -599,7 +681,11 @@ def _track_terminal_state(session: TerminalSession, text: str) -> None:
 
     标题只留可打印字符并截到 `MAX_TITLE_CHARS`:`OSC` 可以由一个失控的程序连发,不设上界
     等于让它把会话账本撑爆;控制字符进信封还会破坏调用方的版式。
+
+    私有模式位(`DECSET`/`DECRST`)在同一出口落账:鼠标上报(1000/1002/1003 + 编码
+    1006/1005/1015)是程序点了才允许发的,终端侧不读这一位就只能靠猜。
     """
+    _track_private_modes(session, text)
     if BRACKETED_PASTE_ON in text:
         session.bracketed_paste = True
     if BRACKETED_PASTE_OFF in text:
@@ -1233,6 +1319,190 @@ def paste_terminal(
         "bracketed": bracketed,
         "lines": len(text.split("\n")),
         "running": session.running(),
+    }
+
+
+def _mouse_sequence(*, code: int, x: int, y: int, release: bool, encoding: str) -> str:
+    """把一次鼠标事件编成字节序列(**单一真相源**)。
+
+    四种封装不是四种风格而是四代协议:
+    - `sgr`(1006):`ESC[<code;x;yM`(松开用 `m` 收尾)。十进制坐标、无 223 上限,现代默认。
+    - `urxvt`(1015):`ESC[code;x;yM`,十进制坐标但松开仍是"码 3 + M"。
+    - `utf8`(1005) / `x10`:老形状 `ESC[M` + 三字节。1005 靠 UTF-8 多字节承载远坐标;
+      什么都没点时就是单字节 x10(**坐标上限 223**,由调用方先校验)。
+    """
+    if encoding == "sgr":
+        return f"\x1b[<{code};{x};{y}{'m' if release else 'M'}"
+    if encoding == "urxvt":
+        return f"\x1b[{code + 32};{x + 32};{y + 32}M"
+    return "\x1b[M" + "".join(chr(v) for v in (code + 32, x + 32, y + 32))
+
+
+def mouse_terminal(
+    terminal_id: str,
+    *,
+    event: str = "press",
+    button: str | None = None,
+    x: int | str = 1,
+    y: int | str = 1,
+    modifiers: Sequence[str] = (),
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """把一次鼠标事件作为**输入字节**上报给真 tty 程序(vim/htop/less 的鼠标交互入口)。
+
+    为什么必须由程序先"点单":鼠标上报是 DEC 私有模式(1000 点击 / 1002 拖动 / 1003 任何
+    移动),只有程序自己发 `DECSET` 请求后,终端发的 `ESC[M…` / `ESC[<…M` 才会被它当事件解;
+    没请求就发的字节在规范模式下只是垃圾输入。所以本函数先读会话账本里由输出解析出来的
+    `mouse_mode`,程序没请求就显式拒(错误码 `TERMINAL_MOUSE_DISABLED`),不"先发发看"。
+
+    坐标是**1 基单元格**(与 `snapshot` 的行号口径同族),上界 `cols/rows` 由调用方自己按屏宽
+    换算;这里只挡非正数与超过 `MOUSE_MAX_COORD` 的值。老 x10 编码的单字节上限 223 属协议
+    事实:超了只能拒(让程序先点 1005/1015/1006),夹紧或截断会让点击落到错误格子上。
+
+    `event="click"` 是一次按下+松开的**成对**序列(不是两次独立调用):程序按 `press` 收到后
+    期待同一坐标的 `release`,中间插进别的输入会被当成拖动。
+    """
+    event_name = str(event or "press").strip().lower()
+    if event_name not in {"press", "release", "move", "click"}:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"未知鼠标事件: {event_name}(支持 press/release/move/click)",
+        }
+    button_name = re.sub(r"[\s_]+", "-", str(button or "").strip().lower())
+    if event_name == "move":
+        if button_name in {"", "none"}:
+            base = MOUSE_NO_BUTTON
+        elif button_name in MOUSE_BUTTON_CODES:
+            base = MOUSE_BUTTON_CODES[button_name]
+        else:
+            return {
+                "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+                "error": f"未知鼠标键: {button_name}(支持 left/middle/right/wheel-up/wheel-down,"
+                         "移动可省 button)",
+            }
+    elif button_name not in MOUSE_BUTTON_CODES:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"未知鼠标键: {button_name}(支持 left/middle/right/wheel-up/wheel-down)",
+        }
+    else:
+        base = MOUSE_BUTTON_CODES[button_name]
+    try:
+        xi = int(str(x).strip())
+        yi = int(str(y).strip())
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "x/y 需要正整数单元格坐标",
+        }
+    if xi < 1 or yi < 1 or xi > MOUSE_MAX_COORD or yi > MOUSE_MAX_COORD:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"x/y 超出可用范围(1..{MOUSE_MAX_COORD},实得 {xi}/{yi})",
+        }
+    bits = 0
+    for raw in modifiers:
+        norm = re.sub(r"[\s_]+", "-", str(raw).strip().lower())
+        bit = MOUSE_MODIFIER_BITS.get(norm)
+        if bit is None:
+            return {
+                "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+                "error": f"未知修饰键: {norm}(支持 shift/alt/ctrl)",
+            }
+        bits |= bit
+
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.backend != "pty":
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_A_TTY",
+            "error": "管道路径不是 tty:鼠标事件只能作为输入字节上报给真 tty 程序"
+                     "(用 IHUI_INTERACTIVE_PTY=1 开会话)",
+            "terminal": session.to_dict(),
+        }
+    mode = session.mouse_mode
+    if not mode:
+        return {
+            "ok": False, "errorCode": "TERMINAL_MOUSE_DISABLED",
+            "error": "程序没有请求鼠标(DECSET 1000/1002/1003);现在发过去只会变成垃圾输入",
+            "terminal": session.to_dict(),
+        }
+    if event_name == "move" and mode == "click":
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "程序只请求了点击(1000),没有请求移动(1002/1003)",
+            "terminal": session.to_dict(),
+        }
+    if button_name in {"wheel-up", "wheel-down"} and event_name != "press":
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "滚轮只有 press:一次滚动就是一格,协议里没有滚轮松开",
+            "terminal": session.to_dict(),
+        }
+    encoding = session.mouse_encoding
+    if encoding == "x10" and max(xi, yi) > MOUSE_LEGACY_MAX_COORD:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"老 x10 编码的单字节坐标上限是 {MOUSE_LEGACY_MAX_COORD}(实得 {xi}/{yi});"
+                     "请让程序先开 1005/1015/1006",
+            "terminal": session.to_dict(),
+        }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再发鼠标事件;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    code = base | bits | (MOUSE_MOTION_FLAG if event_name == "move" else 0)
+    release_code = code if encoding == "sgr" else (MOUSE_NO_BUTTON | bits)
+    if event_name == "click":
+        sequences = [
+            _mouse_sequence(code=code, x=xi, y=yi, release=False, encoding=encoding),
+            _mouse_sequence(code=release_code, x=xi, y=yi, release=True, encoding=encoding),
+        ]
+    elif event_name == "release":
+        sequences = [
+            _mouse_sequence(code=release_code, x=xi, y=yi, release=True, encoding=encoding)
+        ]
+    else:
+        sequences = [_mouse_sequence(code=code, x=xi, y=yi, release=False, encoding=encoding)]
+    payload = "".join(sequences)
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "本会话没有可写输入通道", "terminal": session.to_dict(),
+        }
+    try:
+        sink.write(payload)
+        sink.flush()
+    except (BrokenPipeError, OSError, ValueError) as e:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": f"鼠标事件写入失败: {e}", "terminal": session.to_dict(),
+        }
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "event": event_name,
+        "button": button_name,
+        "x": xi,
+        "y": yi,
+        "mouse_mode": mode,
+        "encoding": encoding,
+        "bytes_written": len(payload.encode("utf-8")),
+        "sequences": sequences,
     }
 
 
@@ -2319,5 +2589,19 @@ __test__ = {
     "MAX_ROWS": MAX_ROWS,
     "PTY_REQUEST_ENV": PTY_REQUEST_ENV,
     "PTY_TRUTHY": _PTY_TRUTHY,
+    "mouse_terminal": mouse_terminal,
+    "mouse_sequence": _mouse_sequence,
+    "track_private_modes": _track_private_modes,
+    "DEC_PRIVATE_MODE_RE": _DEC_PRIVATE_MODE_RE,
+    "MOUSE_CLICK_MODE": MOUSE_CLICK_MODE,
+    "MOUSE_DRAG_MODE": MOUSE_DRAG_MODE,
+    "MOUSE_MOVE_MODE": MOUSE_MOVE_MODE,
+    "MOUSE_SGR_ENCODING": MOUSE_SGR_ENCODING,
+    "MOUSE_UTF8_ENCODING": MOUSE_UTF8_ENCODING,
+    "MOUSE_URXVT_ENCODING": MOUSE_URXVT_ENCODING,
+    "MOUSE_BUTTON_CODES": MOUSE_BUTTON_CODES,
+    "MOUSE_MODIFIER_BITS": MOUSE_MODIFIER_BITS,
+    "MOUSE_LEGACY_MAX_COORD": MOUSE_LEGACY_MAX_COORD,
+    "MOUSE_MAX_COORD": MOUSE_MAX_COORD,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
