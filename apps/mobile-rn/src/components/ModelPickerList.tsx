@@ -32,7 +32,7 @@ import {
   MODEL_CATEGORY_META,
   MODEL_CATEGORY_ORDER,
   MODEL_TIER_ORDER,
-  isArchivedModel,
+  isSelectableChatModel,
   normalizeCategory,
   normalizeTier,
 } from '@ihui/shared'
@@ -89,20 +89,17 @@ export default function ModelPickerList({
   const [keyword, setKeyword] = useState('')
   useUiTextField({ label: t('chat.modelHistorySearch'), value: keyword, setValue: setKeyword })
 
-  // ── 分区:默认列表 vs 历史模型 ──
+  // ── 分区:选择器只展示可选模型(2026-11-20 定档:取消历史模型折叠区) ──
   const { primary, archived } = useMemo(() => {
     const visible: ModelListItem[] = []
-    const hidden: ModelListItem[] = []
     for (const item of items) {
       const category: ModelUsageCategory = normalizeCategory(item.category)
       const tier: ModelTier = normalizeTier(item.modelTier)
-      if (isArchivedModel(category, tier)) {
-        hidden.push(item)
-      } else {
-        visible.push(item)
-      }
+      // legacy(清单命中或版本比较判旧的)与专用用途模型一律不展示,不再折叠。
+      if (!isSelectableChatModel(category, tier)) continue
+      visible.push(item)
     }
-    return { primary: visible.sort(comparePrimary), archived: hidden }
+    return { primary: visible.sort(comparePrimary), archived: [] as ModelListItem[] }
   }, [items])
 
   // ── 默认列表分组 ──

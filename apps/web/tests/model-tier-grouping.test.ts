@@ -51,7 +51,7 @@ function opt(
   return { value, label: value, category, tier, capabilities }
 }
 
-describe('splitByTier — 默认区 vs 历史模型折叠区', () => {
+describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区)', () => {
   it('latest + 对话类进默认区', () => {
     const { primary, archived } = splitByTier([
       opt('gpt-5.6', 'chat', 'latest'),
@@ -61,25 +61,25 @@ describe('splitByTier — 默认区 vs 历史模型折叠区', () => {
     expect(archived).toHaveLength(0)
   })
 
-  it('standard 对话类进默认区,legacy 折叠(2026-10-21 定档)', () => {
+  it('standard 对话类保留,legacy 直接消失(不再折叠进历史区)', () => {
     const { primary, archived } = splitByTier([
       opt('glm-5.2', 'chat', 'standard'),
       opt('gpt-4o', 'vision', 'legacy'),
       opt('bge-m3', 'embedding', 'standard'),
     ])
     expect(primary.map((m) => m.value)).toEqual(['glm-5.2'])
-    // legacy 对话类 + 非对话专用 standard 都进折叠区
-    expect(archived.map((m) => m.value)).toEqual(['gpt-4o', 'bge-m3'])
+    // legacy 与非对话专用模型都不再出现在任何分区
+    expect(archived).toHaveLength(0)
   })
 
-  it('非对话专用模型即使 latest 也必须折叠', () => {
+  it('非对话专用模型即使 latest 也不展示', () => {
     const { primary, archived } = splitByTier([
       opt('bge-m3', 'embedding', 'latest'),
       opt('step-tts-mini', 'tts', 'latest'),
       opt('flux-1-schnell', 'image', 'latest'),
     ])
     expect(primary).toHaveLength(0)
-    expect(archived).toHaveLength(3)
+    expect(archived).toHaveLength(0)
   })
 
   it('字段缺失时按最新对话模型处理(不误藏)', () => {
@@ -92,15 +92,16 @@ describe('splitByTier — 默认区 vs 历史模型折叠区', () => {
   })
 
   it('未知枚举值按兜底处理而非崩溃', () => {
-    const { primary } = splitByTier([
+    const { primary, archived } = splitByTier([
       opt(
         'weird',
         'not-a-category' as ModelOption['category'],
         'future-tier' as ModelOption['tier'],
       ),
     ])
-    // 未知 category 归一化为 chat,未知 tier 归一化为 latest → 进默认区
+    // 未知 category 归一化为 chat,未知 tier 归一化为 latest → 保留
     expect(primary).toHaveLength(1)
+    expect(archived).toHaveLength(0)
   })
 })
 
