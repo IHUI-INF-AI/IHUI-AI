@@ -70,8 +70,11 @@ def filter_frontier(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [m for m in models if not is_legacy_model(str(m.get("id") or ""))]
 
 
-#: 聊天选择器认可的用途(2026-11-20 立):视觉模型可在对话里用,其余专用用途不选。
-_SELECTOR_CATEGORIES = frozenset({"chat", "vision"})
+#: 选择器挡在门外的用途(2026-11-20 立,同日按机主要求收窄)。
+#: 只挡"拣选/打分/审核/未归类"这类流水线中间件:它们不是另一种模态,选中后聊天产不出可读回复。
+#: 图像(image)/视频(video)/语音(tts/asr)/视觉(vision)/OCR(ocr)一律**展示**。
+#: 与 ``model_catalog.MIDDLEWARE_CATEGORIES`` 同口径(改动必须同笔对齐)。
+_SELECTOR_EXCLUDED_CATEGORIES = frozenset({"embedding", "rerank", "guard", "other"})
 
 
 def is_hidden_from_selector(model: dict[str, Any]) -> bool:
@@ -81,7 +84,8 @@ def is_hidden_from_selector(model: dict[str, Any]) -> bool:
       1. 命中 ``LEGACY_MODEL_IDS`` —— 与 ``/llm/models`` 出口同一份清单裁决;
       2. ``model_tier == "legacy"`` —— 版本比较判旧的(如 gpt-4o 对 gpt-5.6),
          清单没收但确实旧一代的也一并藏掉;
-      3. 用途不在 chat/vision —— 嵌入/重排/语音/图像/视频等专用模型不进聊天选择器。
+      3. 用途落在 ``_SELECTOR_EXCLUDED_CATEGORIES`` —— 嵌入/重排/审核这类中间件
+         不进聊天选择器;图像/视频/语音等**照常展示**(机主 2026-11-20 追加要求)。
 
     刻意**不改** ``/llm/models`` 目录本身:模型市场、Agent 创建器、图像/视频工具要按用途
     看全量目录,只在"选择器"这一消费面收窄。``MODEL_CATALOG_HIDE_LEGACY=0`` 时整体恢复
@@ -93,5 +97,5 @@ def is_hidden_from_selector(model: dict[str, Any]) -> bool:
         return True
     if str(model.get("model_tier") or "") == "legacy":
         return True
-    return str(model.get("category") or "chat") not in _SELECTOR_CATEGORIES
+    return str(model.get("category") or "chat") in _SELECTOR_EXCLUDED_CATEGORIES
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

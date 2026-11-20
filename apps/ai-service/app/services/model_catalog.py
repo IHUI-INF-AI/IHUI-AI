@@ -37,9 +37,12 @@ TTS / ASR / 图像生成等非对话模型,以及 `-preview-09-2025` 快照、`:
 1. 用途分类:rerank → embedding → tts → asr → image → video → guard → ocr → vision → chat
    (`bge-reranker` 同时含 `bge`,故 rerank 必须先于 embedding 判)
 2. 代次档位:
-   a. 非对话用途(embedding/rerank/tts/asr/image/video/guard/ocr)→ 一律 legacy
-      (聊天场景调不通,默认不进聊天选择器;点开"历史模型"才能看到,且按用途分组标注)
+   a. 流水线中间件(embedding/rerank/guard/other)→ 一律 legacy
+      (选了也产不出可读回复,不进聊天选择器)
+      模态模型(tts/asr/image/video/ocr)自 2026-11-20 起与对话模型同一套口径:
+      照常走白名单/版本比较,同系列旧代次同样压 legacy(机主要求这些分类能选)
    b. release_date 早于 `LEGACY_RELEASE_DAYS`(默认 365 天)→ legacy
+      (模态模型不适用该时间窗:图像/视频/语音换代周期远长于对话模型)
    c. `-preview-09-2025` / `-0813` / `-20260420` 日期快照,`:free` `:batch` 价格变体 → standard
    d. 精选白名单 `CURATED_LATEST`(代次关键词,如 `claude-opus-5` / `deepseek-v4`)→ **候选**
       latest —— 仍需过第二趟同系列版本比较
@@ -121,23 +124,37 @@ class ModelTier(StrEnum):
     LEGACY = "legacy"  # 已过时 —— 折叠区,排在最后
 
 
-#: 对话类用途(聊天模型选择器默认只展示这些)
+#: 对话类用途(聊天模型选择器的主力)
 CONVERSATIONAL_CATEGORIES = frozenset({ModelCategory.CHAT, ModelCategory.VISION})
 
-#: 非对话用途(聊天场景调不通,一律不进默认列表)
-NON_CONVERSATIONAL_CATEGORIES = frozenset(
+#: 模态模型(2026-11-20 机主追加:图像/视频/语音等分类要能在选择器里选)。
+#: 它们是"另一种产出形态",不是流水线中间件 —— 选中后能产出可见结果,
+#: 因此照常判定代次、照常展示;旧代次仍由同系列版本比较压成 legacy。
+MODALITY_CATEGORIES = frozenset(
     {
-        ModelCategory.EMBEDDING,
-        ModelCategory.RERANK,
         ModelCategory.TTS,
         ModelCategory.ASR,
         ModelCategory.IMAGE,
         ModelCategory.VIDEO,
-        ModelCategory.GUARD,
         ModelCategory.OCR,
+    }
+)
+
+#: 流水线中间件(选了也产不出可读回复:向量 / 重排分 / 审核判定 / 未归类)
+MIDDLEWARE_CATEGORIES = frozenset(
+    {
+        ModelCategory.EMBEDDING,
+        ModelCategory.RERANK,
+        ModelCategory.GUARD,
         ModelCategory.OTHER,
     }
 )
+
+#: 非对话用途 = 模态 + 中间件(保留旧名,供"不是聊天模型"这类判断引用)
+NON_CONVERSATIONAL_CATEGORIES = MODALITY_CATEGORIES | MIDDLEWARE_CATEGORIES
+
+#: 参与同系列代次比较的用途:对话类 + 模态(中间件不进比较,直接 legacy)
+FAMILY_COMPARABLE_CATEGORIES = CONVERSATIONAL_CATEGORIES | MODALITY_CATEGORIES
 
 #: release_date 早于 N 天 → legacy
 LEGACY_RELEASE_DAYS = 365
@@ -657,14 +674,16 @@ def classify_model(
 
     provider_code = (provider or "").lower()
 
-    # 1. 非对话用途 → 直接 legacy(聊天场景调不通)
-    if category in NON_CONVERSATIONAL_CATEGORIES:
+    # 1. 流水线中间件 → 直接 legacy(选了也产不出可读回复)。
+    #    模态模型(图像/视频/语音/OCR)自 2026-11-20 起**不再**在这里被压死,
+    #    继续走后续白名单/版本比较,与对话模型同一套代次口径。
+    if category in MIDDLEWARE_CATEGORIES:
         return ModelClassification(
             category=category,
             tier=ModelTier.LEGACY,
             family=family,
             generation=generation,
-            reason=f"non-conversational ({cat_reason})",
+            reason=f"middleware ({cat_reason})",
         )
 
     # 2. 显式废弃标记
@@ -677,9 +696,10 @@ def classify_model(
             reason="deprecated-marker",
         )
 
-    # 3. 发布时间窗
+    # 3. 发布时间窗(模态模型不适用:图像/视频/语音换代周期远长于对话模型,
+    #    用 365 天窗会把仍在服役的整类模态模型全部压死,旧代交给第二趟版本比较)
     released = _parse_release_date(release_date)
-    if released is not None:
+    if released is not None and category not in MODALITY_CATEGORIES:
         now_dt = now or datetime.now(UTC)
         if released < now_dt - timedelta(days=LEGACY_RELEASE_DAYS):
             return ModelClassification(
@@ -882,7 +902,8 @@ def annotate_models(
     # ---- 第二趟:同系列代次比较 ----
     by_family: dict[str, list[int]] = {}
     for idx, cls in enumerate(classifications):
-        if cls.category not in CONVERSATIONAL_CATEGORIES:
+        # 对话类与模态模型同一套代次口径(2026-11-20);中间件已在第一趟判 legacy
+        if cls.category not in FAMILY_COMPARABLE_CATEGORIES:
             continue
         if not cls.generation:
             continue

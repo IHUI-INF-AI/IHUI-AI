@@ -101,10 +101,29 @@ export function isArchivedModel(category: ModelUsageCategory, tier: ModelTier): 
 }
 
 /**
+ * 选择器不展示的用途(2026-11-20 机主追加:图片/视频/语音等分类要能选)。
+ *
+ * 只有"选了也产不出可读结果"的流水线中间件才挡在选择器外:
+ * embedding(向量,产出的是 float 数组)、rerank(重排得分)、guard(内容审核判定)、
+ * other(未归类兜底)。它们不是"另一种模态",是流水线中间件。
+ * 图像(image)/视频(video)/语音(tts/asr)/视觉(vision)/OCR(ocr)等一律**展示**。
+ *
+ * 与后端 `model_catalog.py` 的 `MIDDLEWARE_CATEGORIES` 同口径(单一真相源在两侧各自语言内,
+ * 改动必须同笔对齐,否则会一边显示一边判 legacy)。
+ */
+export const SELECTOR_EXCLUDED_CATEGORIES: readonly ModelUsageCategory[] = [
+  'embedding',
+  'rerank',
+  'guard',
+  'other',
+]
+
+/**
  * 聊天模型选择器是否展示该模型(2026-11-20 机主定档:取消「历史模型」折叠区)。
  *
- * 只有"可对话用途 + 非 legacy"进选择器;legacy(过时版本)与专用用途模型
- * (embedding / rerank / TTS / ASR / 图像 / 视频…)一律**不渲染** —— 不是折叠,是不出现。
+ * 判据 = "非 legacy ∧ 用途不在 `SELECTOR_EXCLUDED_CATEGORIES`":legacy(过时版本)
+ * 直接不出现;图像/视频/语音等专用模型**照常展示**(机主 2026-11-20 追加要求),
+ * 只有检索/审核类中间件被挡掉。
  *
  * 与 `isArchivedModel` 的分工:后者仍是"看目录"场景(模型市场 / Agent 创建器)的归档分组
  * 判据,语义未变;选择器改用本判据,避免把市场页一起掏空(市场页要能看到全量目录)。
@@ -113,6 +132,6 @@ export function isArchivedModel(category: ModelUsageCategory, tier: ModelTier): 
  * 宁可多显示也不误藏,保证选择器不会整片空掉。
  */
 export function isSelectableChatModel(category: ModelUsageCategory, tier: ModelTier): boolean {
-  return isConversationalCategory(category) && tier !== 'legacy'
+  return tier !== 'legacy' && !SELECTOR_EXCLUDED_CATEGORIES.includes(category)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

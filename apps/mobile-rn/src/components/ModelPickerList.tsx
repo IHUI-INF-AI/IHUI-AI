@@ -95,21 +95,45 @@ export default function ModelPickerList({
     for (const item of items) {
       const category: ModelUsageCategory = normalizeCategory(item.category)
       const tier: ModelTier = normalizeTier(item.modelTier)
-      // legacy(清单命中或版本比较判旧的)与专用用途模型一律不展示,不再折叠。
+      // legacy(清单命中或版本比较判旧的)与检索/审核类中间件一律不展示;图像/视频/语音照常展示。
       if (!isSelectableChatModel(category, tier)) continue
       visible.push(item)
     }
     return { primary: visible.sort(comparePrimary), archived: [] as ModelListItem[] }
   }, [items])
 
-  // ── 默认列表分组 ──
-  const primaryGroups: ModelListGroup[] = useMemo(
-    () =>
-      primary.length > 0
-        ? [{ title: defaultGroupTitle ?? t('chat.modelLabel'), models: primary }]
-        : [],
-    [primary, defaultGroupTitle, t],
-  )
+  // ── 默认列表分组:对话类合并成默认组,其余用途(图像/视频/语音…)各成一节 ──
+  // 2026-11-20 机主追加:图像/视频/语音等分类模型要能选,这里按用途分节,避免混排认不出模态。
+  const primaryGroups: ModelListGroup[] = useMemo(() => {
+    if (primary.length === 0) return []
+    const buckets = new Map<ModelUsageCategory, ModelListItem[]>()
+    for (const item of primary) {
+      const category = normalizeCategory(item.category)
+      const bucket = buckets.get(category)
+      if (bucket) {
+        bucket.push(item)
+      } else {
+        buckets.set(category, [item])
+      }
+    }
+    const groups: ModelListGroup[] = []
+    const conversational = [
+      ...(buckets.get('chat') ?? []),
+      ...(buckets.get('vision') ?? []),
+    ].sort(comparePrimary)
+    if (conversational.length > 0) {
+      groups.push({ title: defaultGroupTitle ?? t('chat.modelLabel'), models: conversational })
+    }
+    for (const category of MODEL_CATEGORY_ORDER) {
+      if (category === 'chat' || category === 'vision') continue
+      const bucket = buckets.get(category)
+      if (!bucket || bucket.length === 0) continue
+      bucket.sort(comparePrimary)
+      const label = t(`chat.${MODEL_CATEGORY_META[category].labelKey}`)
+      groups.push({ title: `${label} (${bucket.length})`, models: bucket })
+    }
+    return groups
+  }, [primary, defaultGroupTitle, t])
 
   // ── 归档区:先按关键词过滤,再按用途分类分组 ──
   const archiveGroups: ModelListGroup[] = useMemo(() => {
