@@ -61,8 +61,10 @@ from __future__ import annotations
 import contextlib
 import ctypes
 import importlib
+import io
 import os
 import re
+import select
 import signal as _signal
 import struct
 import subprocess
@@ -261,6 +263,10 @@ _PTY_TRUTHY: Final[frozenset[str]] = frozenset({"1", "true", "yes", "on"})
 TERMINAL_IDLE_TTL_ENV: Final = "IHUI_TERMINAL_IDLE_TTL_S"
 #: PTY 读循环每次最多吐多少字节(行切分在 _pump_pty 里做,这里只控单次 read 上界)。
 _PTY_READ_CHUNK: Final = 65_536
+#: 管道路径的"有没有新字节"轮询间隔:POSIX 走 `select` 超时,Windows 走"睡一下再问"。
+#: 50ms 是"读端感知不到延迟、又不把 CPU 空转满"的折中;与 `PTY_IDLE_FLUSH_S`(吐帧窗口)
+#: 是两件事,不共用一个数。
+_PIPE_POLL_S: Final = 0.05
 #: PTY 输出"静默多久算一帧"。TUI 只写 `\r` 不写 `\n`,死等换行会让读端在子进程
 #: 活着时读到空;0.25s 是"人能感知为一帧、又不把真正的慢输出切碎"的折中值。
 PTY_IDLE_FLUSH_S: Final = 0.25
@@ -618,17 +624,72 @@ def _push(session: TerminalSession, tag: str, text: str) -> None:
 
 
 def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
-    """管道路径:逐行读一条 stream 入缓冲。readline 到 EOF('')自然收敛。"""
+    """管道路径:**按行切 + 空闲即吐**,与 PTY 共用同一份 `_PtyLineSplitter` 与同一个窗口。
+
+    为什么不能只 `readline` 循环:`readline` 在"没有 `\\n`"时永不返回,子进程只写 `\\r`
+    刷帧(TUI/进度条/密码提示/单行进度)时读端拿到的是空 —— 这是"屏上写着却读不到"的真缺陷。
+
+    读法按宿主分两条(系统能力不同,不是偏好):
+    - Windows:管道没有 `select` 语义,用 `PeekNamedPipe` 先问"现在可读多少字节",
+      有才 `os.read`(读不阻塞);没数据就让 CPU 让出 `_PIPE_POLL_S`。
+    - POSIX:管道可用 `select` 等 `_PIPE_POLL_S`,可读才 read;read 回 `b""` = 写端关闭 = EOF。
+    收尾时 pending 尾巴一律吐出,不丢尾。
+    """
+    splitter = _PtyLineSplitter()
     try:
-        for line in iter(stream.readline, ""):
-            _push_output(session, tag, line)
-    except (OSError, ValueError):
-        pass
+        fd = stream.fileno()
+    except (AttributeError, OSError, ValueError):
+        return
+    try:
+        while True:
+            try:
+                data: bytes | None
+                if os.name == "nt":
+                    avail = _pipe_available(fd)
+                    if avail > 0:
+                        data = os.read(fd, min(avail, _PTY_READ_CHUNK))
+                    elif session.proc.poll() is not None:
+                        break  # 进程已退且管道已空 ⇒ 读端收尾(不空转)
+                    else:
+                        data = None
+                else:
+                    readable, _, _ = select.select([fd], [], [], _PIPE_POLL_S)
+                    data = os.read(fd, _PTY_READ_CHUNK) if readable else None
+            except (OSError, ValueError):
+                break  # close_terminal 关了 fd,或写端断裂
+            if data is None:
+                idle = splitter.take_idle(PTY_IDLE_FLUSH_S)
+                if idle:
+                    _push_output(session, tag, idle)
+                continue
+            if not data:
+                break  # EOF:写端已关闭
+            for line in splitter.feed(data):
+                _push_output(session, tag, line)
     finally:
-        try:
+        tail = splitter.take_all()
+        if tail:
+            _push_output(session, tag, tail)
+        with contextlib.suppress(OSError, ValueError):
             stream.close()
-        except OSError:
-            pass
+
+
+def _pipe_available(fd: int) -> int:
+    """Windows 管道当前**可读字节数**(`PeekNamedPipe`)。
+
+    POSIX 不走这条(那边用 `select`)。`PeekNamedPipe` 只窥视不消费,所以"有才读"不会阻塞;
+    句柄必须按指针宽度传(`c_void_p`),否则 64 位句柄被截成 32 位会指向错的管道。
+    """
+    k32 = _conpty_kernel32()
+    msvcrt = importlib.import_module("msvcrt")
+    handle = msvcrt.get_osfhandle(fd)
+    avail = ctypes.c_ulong(0)
+    ok = k32.PeekNamedPipe(
+        ctypes.c_void_p(handle), None, 0, None, ctypes.byref(avail), None
+    )
+    if not ok:
+        raise OSError("PeekNamedPipe 失败(管道已关闭或句柄无效)")
+    return int(avail.value)
 
 
 class _PtyLineSplitter:
@@ -640,23 +701,26 @@ class _PtyLineSplitter:
 
     所以口径改为:完整行(`\\n`)即时吐出;末尾不完整片段由看门狗线程在"距上次收到
     字节 ≥ `PTY_IDLE_FLUSH_S`"时当作一条 chunk 吐出(**不带 `\\n`**,不伪造换行)。
+
+    pending 存**字节**不存已解码文本:一次 read 可能把多字节字符切成两半,先解码就会把
+    半个 `中` 变成替换字符(读端看到 `�` 而不是 `中`)。按 `\\n`(单字节)切行后再整行解码,
+    跨 read 的字符自然拼得回来。
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._pending = ""
+        self._pending = b""
         self._last_feed = time.monotonic()
 
     def feed(self, data: bytes) -> list[str]:
         """喂入原始字节,回已完成的整行(每行自带 `\\n`)。"""
-        text = data.decode("utf-8", errors="replace")
         with self._lock:
-            self._pending += text
+            self._pending += data
             self._last_feed = time.monotonic()
             lines: list[str] = []
-            while "\n" in self._pending:
-                line, self._pending = self._pending.split("\n", 1)
-                lines.append(f"{line}\n")
+            while b"\n" in self._pending:
+                line, self._pending = self._pending.split(b"\n", 1)
+                lines.append(line.decode("utf-8", errors="replace") + "\n")
             return lines
 
     def take_idle(self, idle_s: float) -> str:
@@ -664,13 +728,13 @@ class _PtyLineSplitter:
         with self._lock:
             if not self._pending or time.monotonic() - self._last_feed < idle_s:
                 return ""
-            text, self._pending = self._pending, ""
-            return text
+            data, self._pending = self._pending, b""
+            return data.decode("utf-8", errors="replace")
 
     def take_all(self) -> str:
         with self._lock:
-            text, self._pending = self._pending, ""
-            return text
+            data, self._pending = self._pending, b""
+            return data.decode("utf-8", errors="replace")
 
 
 def _track_private_modes(session: TerminalSession, text: str) -> None:
@@ -777,8 +841,23 @@ def _prune_for_new_session() -> None:
             _sessions.pop(session.terminal_id, None)
 
 
-def _spawn_pipe(command: str, cwd: str, env_extra: dict[str, str] | None) -> subprocess.Popen[str]:
-    """默认后端:三条匿名管道(逐字节沿用改前实现)。"""
+def _pipe_stdin_text(proc: subprocess.Popen[bytes]) -> Any:
+    """管道路径 stdin 的**文本**写面(`send`/`paste`/`eof` 一律写 str)。
+
+    为什么要在这一层适配:读侧必须拿到**无缓冲的裸 fd**(Windows 要 `PeekNamedPipe` 判断可读、
+    POSIX 要 `select`+`os.read`),而 `text=True` 会把三条管道都包成文本流、还会自带行缓冲
+    (`bufsize=1`),读侧一混用就踩"数据躺在缓冲里、`os.read` 却读不到"的竞态。所以管道整体
+    走二进制无缓冲,只在**写入口**包一层文本适配(编码/异常策略与改前一致)。
+    """
+    if proc.stdin is None:  # 理论不可达(Popen 指定了 PIPE);防御性返回 None
+        return None
+    return io.TextIOWrapper(
+        proc.stdin, encoding="utf-8", errors="replace", write_through=True
+    )
+
+
+def _spawn_pipe(command: str, cwd: str, env_extra: dict[str, str] | None) -> subprocess.Popen[bytes]:
+    """默认后端:三条匿名管道(**二进制 + 无缓冲**,读侧要能非阻塞探询)。"""
     flags = 0
     extra_kwargs: dict[str, Any] = {}
     if os.name == "nt":
@@ -792,10 +871,8 @@ def _spawn_pipe(command: str, cwd: str, env_extra: dict[str, str] | None) -> sub
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        bufsize=1,
+        text=False,
+        bufsize=0,
         env=_strict_child_env(env_extra),
         creationflags=flags,
         **extra_kwargs,
@@ -1085,7 +1162,7 @@ def open_terminal(
             cwd=cwd,
             proc=proc,
             created_ts=time.time(),
-            write_io=proc.stdin,
+            write_io=_pipe_stdin_text(proc),
             backend="pipes",
             buffer_lines=_buffer_lines(),
         )
@@ -2325,6 +2402,12 @@ def _conpty_kernel32() -> Any:
         k32.CloseHandle.restype = ctypes.c_int
         k32.GetExitCodeProcess.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
         k32.GetExitCodeProcess.restype = ctypes.c_int
+        # 管道"现在有没有可读字节"(管道路径的读端轮询用;只窥视不消费)。
+        k32.PeekNamedPipe.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong,
+            ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong), ctypes.c_void_p,
+        ]
+        k32.PeekNamedPipe.restype = ctypes.c_int
         k32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
         k32.WaitForSingleObject.restype = ctypes.c_ulong
         k32.TerminateProcess.argtypes = [ctypes.c_void_p, ctypes.c_uint]
