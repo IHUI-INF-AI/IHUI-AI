@@ -13,13 +13,10 @@ import { permissionModeWire } from '@ihui/types/permission-mode'
 import { updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { recordModeChange } from '@/lib/permission-mode-history'
 
-/** 撤销 toast 持续时间(ms)。与 PermissionModePopover 保持一致 */
-const UNDO_TOAST_DURATION = 5000
-
 /** 首次启用高风险模式确认弹窗桥接组件(2026-07-25 深化,深度遵循统一工程规范)
  *  - 监听 ai-panel store.pendingFullAccess 控制 Dialog open
  *  - confirm:FullAccessConfirmDialog 内部已写 localStorage(suppressed 或 acknowledged),
- *    此处只关弹窗 + 触发实际切模式 + 弹 5s 撤销 toast
+ *    此处只关弹窗 + 触发实际切模式 + 弹一条切换成功提示(无撤销入口)
  *  - cancel:只 setPendingFullAccess(false),不动 activeWorkspace.mode
  * 单独抽组件是避免污染主组件 useEffect deps + 减少主函数重渲染 */
 export function FullAccessConfirmBridge() {
@@ -60,21 +57,11 @@ export function FullAccessConfirmBridge() {
       } catch {
         // 历史模块不可用时静默
       }
-      // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
-      toast(t('switchedToFull'), {
+      // 2026-11-20 机主定案:模式选定即固定,撤销/降级只来自用户本人的下一次显式切换。
+      // 原先这里的"5s 撤销 toast(点撤销即切回上一档)"已去掉,只留一句切换成功提示。
+      toast.success(t('switchedToFull'), {
         description: t('switchedToFullDesc', { prev: previousMode ?? 'default' }),
-        duration: UNDO_TOAST_DURATION,
-        action: {
-          label: t('undo'),
-          onClick: async () => {
-            // 2026-08-31:未绑定工作区时也检查暂存模式
-            const currentStore = useAiPanelStore.getState()
-            const nowMode = currentStore.activeWorkspace?.mode ?? currentStore.pendingPermissionMode
-            if (nowMode === 'bypass-permissions') {
-              await switchPermissionMode(previousMode ?? 'default')
-            }
-          },
-        },
+        duration: 3000,
       })
     })()
   }, [setPendingFullAccess, t])
