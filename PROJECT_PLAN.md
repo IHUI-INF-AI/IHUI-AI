@@ -12231,7 +12231,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 | F 测试 | `apps/web/src/lib/__tests__/plugin-view-runtime.test.ts` | 115 | vitest **13 passed**（实测 node node_modules/vitest/vitest.mjs run，环境 v4.1.10） |
 #### B. 复用判定（不重造，单一真相源）
 - **A 终端执行**：`exec_policy.py` 命令级策略已有，本轮不重造。
-- **B 快照回滚**：⑦–⑦第四波会话腿已闭环（128→179 全绿），本轮不碰。
+- **B 快照回滚**：⑦–⑦第四波会话腿已落地并全绿（128→179），本轮不碰。
 - **C 权限引擎**：`capability_gate.py`（1103 行，Principal/verify_principal_header）为第二层真相源，permission_entry 只做第一层收口不越权下结论。
 - **D 搜索预算**：`tool_surface_budget.py`（select_tool_surface/BudgetTable）已有 schema 字节分层，符号图产候选交它排预算。
 - **E 跨平台桥**：desktop 实测为 **Tauri**（src-tauri，非 Electron）⇒ Trae/Qoder 的 Electron fuse/asar 硬化**不适用**，不硬套；跨平台由共享层 adapter 注入承担（§3）。

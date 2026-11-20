@@ -24,6 +24,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.services.agent_teams import (
     ResultAggregator,
     TeamContributor,
@@ -469,4 +471,94 @@ async def test_round_router_success(client, monkeypatch):
     assert resp.json()["code"] == 0
     assert resp.json()["data"]["summary_context"] == "summary-block"
     assert resp.json()["data"]["objective"] == "目标"
+
+
+# =============================================================================
+# TeamOrchestrator.run_recursive —— RLM 的**整合档**(复用 run_round/聚合/并发闸)
+# =============================================================================
+
+
+async def _echo_runner(size: int = 0):
+    """fake runner:每支回一条带名字的结论;size>0 时结论正文加长为指定量。"""
+
+    async def _run(tasks, max_concurrency):
+        return [
+            TeamContributor(
+                name=t["name"],
+                task=t["task"],
+                status="completed",
+                output=f"结论[{t['name']}]" + ("x" * size),
+            )
+            for t in tasks
+        ]
+
+    return _run
+
+
+async def test_recursive_single_layer_map_reduce():
+    """depth=1:每片一个 member,仅一层,汇总正文含各片结论。"""
+    runner = await _echo_runner()
+    orch = TeamOrchestrator(orchestrator=object())
+    res = await orch.run_recursive(
+        objective="定位失败原因", chunks=["日志A", "日志B"], runner=runner, depth=1
+    )
+    assert res["nodes"] == 2
+    assert len(res["levels"]) == 1
+    assert "结论[part-1]" in res["merged_text"]
+    assert "定位失败原因" in res["final_summary_context"]
+
+
+async def test_recursive_second_layer_when_over_budget():
+    """聚合正文超预算 → 自动再切一层(层数受 depth 夹紧)。"""
+    runner = await _echo_runner(size=3000)
+    orch = TeamOrchestrator(orchestrator=object())
+    res = await orch.run_recursive(
+        objective="归纳", chunks=["片1"], runner=runner, depth=2, max_chars_per_node=1000
+    )
+    assert len(res["levels"]) == 2
+    assert res["nodes"] > 1
+
+
+async def test_recursive_node_limit_rejects(monkeypatch: pytest.MonkeyPatch):
+    """节点预算与子代理并发闸同源:env 压到 1 时两片立刻整次拒绝。"""
+    monkeypatch.setenv("IHUI_MAX_RUNNING_SUBAGENTS", "1")
+    runner = await _echo_runner()
+    orch = TeamOrchestrator(orchestrator=object())
+    res = await orch.run_recursive(
+        objective="o", chunks=["a", "b"], runner=runner, depth=1
+    )
+    assert res["ok"] is False
+    assert res["errorCode"] == "RECURSIVE_NODE_LIMIT"
+    assert res["limit"] == 1
+
+
+async def test_recursive_empty_chunks_skips():
+    runner = await _echo_runner()
+    orch = TeamOrchestrator(orchestrator=object())
+    res = await orch.run_recursive(objective="o", chunks=["  "], runner=runner)
+    assert res["nodes"] == 0 and res["skipped"] == "no_chunks"
+
+
+async def test_recursive_endpoint_contract(client, monkeypatch: pytest.MonkeyPatch):
+    """路由契约:超预算回 code=400(可判拒绝),成功回 code=0 且透传 levels/nodes。"""
+    async def fake_recursive(**kwargs):
+        return {"ok": False, "errorCode": "RECURSIVE_NODE_LIMIT", "error": "超了", "limit": 20}
+
+    monkeypatch.setattr(team_orchestrator, "run_recursive", fake_recursive)
+    resp = await client.post("/api/orchestration/teams/recursive", json={
+        "objective": "o", "chunks": ["a"], "depth": 1,
+    })
+    assert resp.json()["code"] == 400
+    assert resp.json()["data"]["errorCode"] == "RECURSIVE_NODE_LIMIT"
+
+    async def fake_ok(**kwargs):
+        return {"objective": "o", "depth": 1, "levels": [], "nodes": 1,
+                "merged_text": "", "final_summary_context": ""}
+
+    monkeypatch.setattr(team_orchestrator, "run_recursive", fake_ok)
+    resp2 = await client.post("/api/orchestration/teams/recursive", json={
+        "objective": "o", "chunks": ["a"], "depth": 1,
+    })
+    assert resp2.json()["code"] == 0
+    assert resp2.json()["data"]["nodes"] == 1
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
