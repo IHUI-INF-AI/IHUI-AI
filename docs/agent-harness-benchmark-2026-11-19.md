@@ -29,11 +29,12 @@
 | REA 6.4.0 | `D:\DevEnv\tools\npm-global\node_modules\rea-agents\scripts\rea.mjs`，`--deep` | 可用 |
 | craft-anything 0.6.1 | `D:\DevEnv\craft-anything\0.6.1\craft-anything-cli.exe`，`--deep` | 可用 |
 | REA 二进制布局 | `inspect-binary-layout` 对 Windows PE 返回 `capability_unavailable`（仅 Linux x64） | 不可用 |
-| Ghidra / IDA / Hopper | 均未安装（`D:\DevEnv\ghidra_12.1.4` 不存在） | 不可用 |
+| Ghidra 12.1.4 | `D:\DevEnv\ghidra_12.1.4`（`ghidra_12.1.4_PUBLIC_20260921.zip`，sha256 `ddac49f9…d4db` 与发布说明逐字一致）+ JDK 21 Temurin `D:\DevEnv\jdk-21.0.13+9`；`rea doctor` 的 ghidra / ghidra-platform / ghidra-headless / ghidra-java 全 healthy | 可用（2026-11-20 补装） |
+| IDA / Hopper | 未安装 | 不可用 |
 | 自写 ASAR 只读解析器 | `D:\IHUI-AI\.ihui-agent\tmp\recon\asar-tool.mjs`（list/extract） | 可用 |
 | 字符串提取 | node 遍历可打印 ASCII 段并去重 | 可用 |
 
-> 用户给出的 `E:\桌面\rea-rea-agents-6.4.0.lnk` 与 `.ihui/mcp.json` 指向的 `E:\ct-craft-anything\...0.5.0` 在本机不可达（E 盘无挂载）；上式为本机实际可用件，属环境事实差异，非"没跑"。
+> 用户给出的 `E:\桌面\rea-rea-agents-6.4.0.lnk` 在本机不可达（E 盘无挂载），故取证一律走 `D:\DevEnv\tools\npm-global` 的 REA 6.4.0。`.ihui/mcp.json` 里失效的 `E:\ct-craft-anything\...0.5.0` 已于 2026-11-20 改为本机实际件 `D:\DevEnv\craft-anything\0.6.1\craft-anything-cli.exe`（`doctor` = healthy、MCP self-test 30 tools），`JAVA_HOME` 同步指向 `D:\DevEnv\jdk-21.0.13+9`；属环境事实差异，非"没跑"。
 
 ## 3. 四款对照程序画像
 
@@ -68,7 +69,8 @@
   - 源码路径泄露 `crates\tui\src\compaction.rs` ⇒ 压缩实现位。
   - 斜杠命令原文：前缀缓存命中统计、上下文检查器、会话成本明细、cycle handoff 列表、`BM25 over message text` 历史归档检索、RLM turn、子代理四方阵 `sequential | mixture | distill | deliberate`、`/trust add`、YOLO 模式、快照回滚、`/stash` 草稿。
 - 可借鉴点：三级阈值 + **周期重启（cycle restart）**、`resident_file` 缓存租约、远程沙箱 `sandbox_url/api_key`。前两项与 IHUI 已有四道阈值线高度重合，**不重复造**；第三项是 IHUI 确无的形态（见 §6）。
-- 不可做：原生反编译（工具缺失，见 §2）。
+- **函数级追加取证（2026-11-20，Ghidra 12.1.4）**：从字符串级抬到"串 → 引用它的函数"，主体 100,518 函数、380 条关键字引用行、199 个函数带上下文；副件 23,476 函数 / 175 行。要点：配置 37 字段在 `FUN_14041cae0` 一处成型；`--max-subagents`（`FUN_140623630`）与 `DEEPSEEK_MAX_SUBAGENTS`（`FUN_1403ed140`）是同一上限的两个入口；`SubAgentStatus{Interrupted,Failed,Cancelled}`（`FUN_140a392f0`）为独立状态机；`/rlm` 帮助串落在 `FUN_140486980`（`crates\tui\src\commands\skills.rs`）；`auto_compact` 两处（`FUN_14029f370` / `FUN_1405f4810`）；审批四值 `default|allow|deny|audit`（`FUN_1403f52a0`）；沙箱含 `danger-full-access`（`FUN_1403f2c20`）；`.deepseek/handoff.md`（`FUN_1401cf810`）。逐条证据与复现命令见 `docs/benchmark-evidence/2026-11/deepseek-tui-native-20261120.md`，原始 TSV 同目录。
+- 原生反编译仍不做：Decompiler Parameter ID 在本机 36MB 主体上 45 分钟未收敛，本次改走"关反编译、保留反汇编+引用图"通道（这是取证手段选择，不是能力缺口）。
 
 ## 4. 能力矩阵（对照 IHUI 现状）
 
@@ -317,7 +319,7 @@
 ## 7. Limitations（如实记录，不作安全结论）
 
 - Qoder 图谱含 15 处 JS 解析失败与 9 条 native dll 重签名冲突，属打包后常见现象；不作为"有问题"的证据。
-- deepseek-tui 仅字符串级取证：无类型信息、无控制流，不能据此推断其内部实现细节或安全姿态。
+- deepseek-tui 为"字符串级 + 函数级引用图"：函数边界与串引用是静态事实，但 **Decompiler Parameter ID 未跑完**（36MB 主体单次会话未收敛），因此无控制流/语句序，不能据此推断某个分支一定在何时执行；函数名被剥离，一律 `FUN_*`，靠"它引用的文案 + 结构体名"认领（证据见 `docs/benchmark-evidence/2026-11/deepseek-tui-native-20261120.md`）。
 - Trae 本地包可能只是壳，云端实现完全不可见；"本地命中 0"不等于"产品无此能力"。
 - WorkBuddy 四件为抽取件，未做全量模块扫描（11,587 个模块）。
 - 本次未运行全仓 `pnpm turbo build typecheck lint test`；仅运行改动面相关测试与 `@ihui/api` typecheck。全量验证留给提交链/CI。
