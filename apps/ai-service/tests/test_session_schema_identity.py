@@ -166,7 +166,8 @@ def test_store_adopts_only_when_env_names_the_source(monkeypatch: pytest.MonkeyP
             assert store._adopted_schema == legacy, "显式指名 ⇒ 必须接管"
         finally:
             store.close()
-        # 未指名时不得自动接管(库面上可能并存上百个旧 schema,猜一次就可能接管测试残留)
+        # 未指名 ∧ 旧名与本路径算出来的哈希对不上 ⇒ 不得接管(库面上可能并存上百个
+        # 旧 schema,只有"当前 db_path 当年算出来的那一枚"才算可推导,其余一律不猜)
         monkeypatch.delenv("SESSION_STORE_ADOPT_LEGACY_SCHEMA", raising=False)
         _drop(conn, "sess_main")
         _seed_legacy(conn, "sess_deadbeefdead")
@@ -178,6 +179,33 @@ def test_store_adopts_only_when_env_names_the_source(monkeypatch: pytest.MonkeyP
     finally:
         if seeded:
             _drop(conn, "sess_deadbeefdead")
+        _drop(conn, "sess_main")
+        _drop(conn, legacy)
+        session.close()
+
+
+@pytest.mark.skipif(not DSN, reason="无 DATABASE_URL/SESSION_PG_DSN ⇒ 真库面不判")
+def test_store_adopts_path_derived_legacy_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """不写任何 env:旧名由**当前 db_path** 现算得出 ⇒ 命中即原地接管(不是从库面上猜)。"""
+    session = SyncPgSession(DSN)
+    conn = PgShim(session)
+    path = pathlib.Path("G:/proj/data/sessions.db")
+    legacy = ss._legacy_schema_for_path(path)
+    try:
+        if ss._schema_row_count(conn, "sess_main") > 0:
+            pytest.skip("本库 sess_main 已有会话数据 ⇒ 接管面不可在本用例里复现")
+        _seed_full_legacy(session, legacy)
+        monkeypatch.delenv("SESSION_STORE_SCHEMA", raising=False)
+        monkeypatch.delenv("SESSION_STORE_ADOPT_LEGACY_SCHEMA", raising=False)
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)  # 模拟生产进程
+        store = ss.SessionStore(path)
+        try:
+            assert store._schema == "sess_main"
+            assert store._adopted_schema == legacy, "路径哈希命中的旧 schema 必须被接管"
+            assert len(store.list_threads(limit=5).threads) >= 1, "接管是改名不是搬行:旧数据必须原地可读"
+        finally:
+            store.close()
+    finally:
         _drop(conn, "sess_main")
         _drop(conn, legacy)
         session.close()
