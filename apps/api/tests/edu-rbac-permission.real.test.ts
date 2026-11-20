@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 import { sql } from 'drizzle-orm'
-import { db, dbClient } from '../src/db/index.js'
+import { db } from '../src/db/index.js'
 import { users, roles, permissions, rolePermissions, userRoles } from '@ihui/database'
 import {
   mockAuthenticate,
@@ -62,8 +62,9 @@ describe('edu-rbac-permission — 教师角色 RBAC 权限链路(2026-08-30 教�
 
   afterAll(async () => {
     await server.close()
-    // 关闭路由模块共享的 db 连接池,避免 vitest 因连接未释放而挂起
-    await dbClient.end()
+    // 不在这里关闭 db 连接池:dbClient 是进程级共享池,setup-real-db 的 afterAll 还要用它
+    // 跑 cleanupRealDb;先 end() 会让那次 TRUNCATE 打在被关闭的 socket 上,整文件判
+    // CONNECTION_ENDED(CONNECTION_ENDED, 2026-11-20 CI 实测)。进程退出由 vitest 回收。
   })
 
   beforeEach(async () => {
