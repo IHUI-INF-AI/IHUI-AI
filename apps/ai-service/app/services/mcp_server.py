@@ -8947,17 +8947,12 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/read/signal/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
-    跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
-    read 增量取输出、wait_for 等到提示符/关键字出现(命中/超时/已退出三态)、signal 中断、
-    resize 改窗口尺寸、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys 显式拒
-    TERMINAL_STDIN_CLOSED)、close 收尾。open 还可带 `cols`/`rows` 直接**开在**目标尺寸
-    (真终端本就该在启动时定尺寸;先按 120×30 起再 resize 会让 TUI 首屏白排一遍)。
+    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、close 收尾。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
-    子进程环境走 sandbox 严档白名单,不整份继承宿主环境(PTY 后端在此之上补 TERM/COLORTERM
-    默认值 —— 真 tty 缺 TERM 会退化成 dumb 终端)。
+    子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
     """
     from . import interactive_terminal as term
 
@@ -8996,10 +8991,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             user_id=user_id,
             session_id=session_id,
             env_extra=env_extra,
-            # 尺寸原样交给模块判(非整数/越界由 _normalize_size 单一出口拒)——
-            # 工具层再抄一份 int() 判断只会造出第二个真相源。
-            cols=arguments.get("cols"),
-            rows=arguments.get("rows"),
         )
         return {"tool": "terminal", "action": "open", **result}
 
@@ -9033,28 +9024,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "send", **result}
 
-    if action == "keys":
-        keys_raw = arguments.get("keys")
-        if isinstance(keys_raw, str):
-            keys = [k for k in keys_raw.replace(",", " ").split() if k]
-        elif isinstance(keys_raw, list):
-            keys = [str(k) for k in keys_raw]
-        else:
-            keys = []
-        if not keys:
-            return {
-                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-                "error": "keys 需要键名(字符串或数组),如 [\"up\",\"tab\",\"escape\"]",
-            }
-        result = await asyncio.to_thread(
-            term.send_terminal_keys,
-            terminal_id,
-            keys,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return {"tool": "terminal", "action": "keys", **result}
-
     if action == "read":
         try:
             since_seq = int(arguments.get("since_seq", 0))
@@ -9079,38 +9048,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "read", **result}
 
-    if action == "wait_for":
-        pattern = arguments.get("pattern")
-        if not isinstance(pattern, str) or not pattern:
-            return {
-                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-                "error": "wait_for 需要非空字符串 pattern",
-            }
-        try:
-            since_seq = int(arguments.get("since_seq", 0))
-        except (TypeError, ValueError):
-            since_seq = 0
-        try:
-            timeout_s = float(arguments.get("timeout_s", 10.0))
-        except (TypeError, ValueError):
-            timeout_s = 10.0
-        try:
-            max_chars = int(arguments.get("max_chars", 8000))
-        except (TypeError, ValueError):
-            max_chars = 8000
-        result = await asyncio.to_thread(
-            term.wait_terminal,
-            terminal_id,
-            pattern=pattern,
-            user_id=user_id,
-            session_id=session_id,
-            since_seq=max(0, since_seq),
-            timeout_s=max(0.0, min(timeout_s, term.MAX_WAIT_S)),
-            max_chars=max(1, min(max_chars, term.MAX_READ_CHARS)),
-            regex=bool(arguments.get("regex", False)),
-        )
-        return {"tool": "terminal", "action": "wait_for", **result}
-
     if action == "signal":
         result = await asyncio.to_thread(
             term.signal_terminal,
@@ -9120,36 +9057,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
         )
         return {"tool": "terminal", "action": "signal", **result}
-
-    if action == "resize":
-        try:
-            # 经 str() 收敛:工具入参可能是 JSON 数字也可能是字符串;None → "None" 走 ValueError,
-            # 非数值同档显式拒(不把脏值喂给内核)。
-            cols = int(str(arguments.get("cols")).strip())
-            rows = int(str(arguments.get("rows")).strip())
-        except (TypeError, ValueError):
-            return {
-                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-                "error": "resize 需要整数 cols 与 rows",
-            }
-        result = await asyncio.to_thread(
-            term.resize_terminal,
-            terminal_id,
-            cols=cols,
-            rows=rows,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return {"tool": "terminal", "action": "resize", **result}
-
-    if action == "eof":
-        result = await asyncio.to_thread(
-            term.eof_terminal,
-            terminal_id,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return {"tool": "terminal", "action": "eof", **result}
 
     if action == "close":
         result = await asyncio.to_thread(
@@ -9162,10 +9069,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": (
-            f"不支持的 action: {action}"
-            "(open/send/keys/read/wait_for/signal/resize/eof/close/list)"
-        ),
+        "error": f"不支持的 action: {action}(open/send/read/signal/close/list)",
     }
 
 
@@ -9277,6 +9181,19 @@ from ..tools import (  # noqa: E402
     ai_tax_filing as _ai_tax_filing,
 )
 
+# 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加。
+# 实现分文件(单一职责),描述文案单源在各工具文件(与 D09 专家包共用,§0.6 不写第二份);
+# 纯计算 + tmp/artifacts 产物 ⇒ 与 ai_bookkeeping 同档,不入 _ADMIN_ONLY_TOOLS。
+from ..tools import (  # noqa: E402
+    ai_reimbursement as _ai_reimbursement,
+)
+from ..tools import (  # noqa: E402
+    social_insurance_calc as _social_insurance_calc,
+)
+from ..tools import (  # noqa: E402
+    special_deduction_calc as _special_deduction_calc,
+)
+
 # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
 # payload 落 tmp/artifacts 白名单目录 + 元数据经 artifacts_store 挂会话附件)
 from ..tools import (  # noqa: E402
@@ -9327,6 +9244,17 @@ from ..tools import (
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
+)
+
+# 财务部五腿扩展描述常量(2026-11-13):文案单源在各工具文件
+from ..tools.reimbursement_tools import (  # noqa: E402
+    AI_REIMBURSEMENT_DESCRIPTION,
+)
+from ..tools.social_insurance_tools import (  # noqa: E402
+    SOCIAL_INSURANCE_DESCRIPTION,
+)
+from ..tools.special_deduction_tools import (  # noqa: E402
+    SPECIAL_DEDUCTION_DESCRIPTION,
 )
 
 # 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
@@ -16383,6 +16311,101 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 财务部五腿·AI 一键报销(2026-11-13 立):入参口径单源 = AI_REIMBURSEMENT_DESCRIPTION
+        name="ai_reimbursement",
+        description=AI_REIMBURSEMENT_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "reimbursements": {
+                    "type": "string",
+                    "description": (
+                        "报销明细 JSON 数组:每条 {employee,category(travel_transport/travel_lodging/"
+                        "travel_meal/entertainment/education/welfare/office/other),amount(字符串金额),"
+                        "date,invoice_type(special/general/e_general/none),description,"
+                        "vat_rate(缺省 0.06),city_tier(一线/新一线/二线),nights(住宿晚数),"
+                        "fund_source(资金科目,缺省 银行存款)};金额一律字符串防精度漂移"
+                    ),
+                },
+                "revenue": {"type": "string", "description": "营业收入(算业务招待费 0.5% 限额)"},
+                "wage_total": {"type": "string", "description": "工资薪金总额(算教育 8% / 福利 14% 限额)"},
+                "city_tier": {
+                    "type": "string",
+                    "description": "城市档(一线/新一线/二线,定住宿限额缺省)",
+                },
+                "period": {"type": "string", "description": "所属期间,如 2026-11(跨期费用 warning 用)"},
+                "state": {"type": "string", "description": "上一阶段返回的 state JSON(续跑用)"},
+                "output_dir": {
+                    "type": "string",
+                    "description": "报销单草案输出目录(默认 tmp/artifacts,必须位于项目根)",
+                },
+            },
+            "required": ["reimbursements"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 财务部五腿·社保医保精算(2026-11-13 立):入参口径单源 = SOCIAL_INSURANCE_DESCRIPTION
+        name="social_insurance_calc",
+        description=SOCIAL_INSURANCE_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "period": {"type": "string", "description": "缴费期间,如 2026-11(必填)"},
+                "employees": {
+                    "type": "string",
+                    "description": (
+                        "参保人员 JSON 数组:每条 {name, gross(应发), base(缴费基数,缺省=gross),"
+                        "injury_class(1~8 工伤行业费率档,可选)};兼容 JSON 字符串"
+                    ),
+                },
+                "social_avg_wage": {"type": "string", "description": "社平工资(定基数上下限锚,缺省 8000)"},
+                "city": {"type": "string", "description": "参保城市(提示口径差异)"},
+                "province": {"type": "string", "description": "参保省份(提示口径差异)"},
+                "base_floor_ratio": {"type": "string", "description": "基数下限比例(缺省 0.60)"},
+                "base_cap_ratio": {"type": "string", "description": "基数上限比例(缺省 3.0)"},
+                "output_dir": {
+                    "type": "string",
+                    "description": "精算明细输出目录(默认 tmp/artifacts,必须位于项目根)",
+                },
+            },
+            "required": ["period", "employees"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 财务部五腿·个税专项附加(2026-11-13 立):入参口径单源 = SPECIAL_DEDUCTION_DESCRIPTION
+        name="special_deduction_calc",
+        description=SPECIAL_DEDUCTION_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "employees": {
+                    "type": "string",
+                    "description": (
+                        "员工及扣除信息 JSON 数组(简化形态只给若干字段其余按单项标准缺省);"
+                        "兼容 JSON 字符串;合计直接喂 ai_tax_filing 工资表 special_deduction 字段"
+                    ),
+                },
+                "period": {"type": "string", "description": "扣除期间,如 2026-11(缺省当月)"},
+                "child_edu_monthly": {"type": "string", "description": "子女教育每孩每月覆盖(缺省 2000)"},
+                "infant_monthly": {"type": "string", "description": "婴幼儿照护每孩每月覆盖(缺省 2000)"},
+                "housing_loan_monthly": {"type": "string", "description": "房贷利息每月覆盖(缺省 1000)"},
+                "rent_tier": {
+                    "type": "string",
+                    "description": "住房租金城市档覆盖(top/city_pop_gt_1m/city_pop_le_1m)",
+                },
+                "elderly_only_monthly": {"type": "string", "description": "赡养老人独生子女每月覆盖(缺省 3000)"},
+                "output_dir": {
+                    "type": "string",
+                    "description": "扣除明细输出目录(默认 tmp/artifacts,必须位于项目根)",
+                },
+            },
+            "required": ["employees"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="parse_document",
         description=(
             "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
@@ -18302,6 +18325,10 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "ai_tax_filing": _ai_tax_filing,
     # 人事部→财务部交割(2026-11-13 立):生成某月薪资的财务交割凭证
     "ai_payroll_handoff": _ai_payroll_handoff,
+    # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加
+    "ai_reimbursement": _ai_reimbursement,
+    "social_insurance_calc": _social_insurance_calc,
+    "special_deduction_calc": _special_deduction_calc,
     # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
     "create_artifact": _create_artifact,
     # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)

@@ -367,6 +367,57 @@ class TestTaxFiling:
         assert withheld == Decimal("390.60"), d["iit"]
 
     @pytest.mark.asyncio
+    async def test_cumulative_iit_per_employee_independent(self) -> None:
+        """P0 回归锁(2026-11-13):累计口径按员工独立,不同员工互不串扰。
+
+        反向用例(修复前必红):旧实现把所有行平铺进同一组累计变量,李四的应纳税
+        所得额会把张三的收入一并累计(33220 → 46240 跨入 10% 档),税额虚增 716.80。
+        """
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "compute",
+                "period": "2026-11",
+                **self.GENERAL,
+                "wages": json.dumps(
+                    [
+                        {"name": "张三", "gross": "19800", "social": "1780.00", "special_deduction": "0"},
+                        {"name": "李四", "gross": "40000", "social": "1780.00", "special_deduction": "0"},
+                    ],
+                    ensure_ascii=False,
+                ),
+            },
+        )
+        assert r["ok"]
+        emps = json.loads(r["state"])["detail"]["iit"]["employees"]
+        # 张三:19800 − 1780 − 5000 = 13020 ⇒ 3% = 390.60(独立)
+        assert Decimal(emps[0]["withheld"]) == Decimal("390.60"), emps
+        # 李四:40000 − 1780 − 5000 = 33220 ⇒ 3% = 996.60(独立;串扰时会虚增至 1713.40)
+        assert Decimal(emps[1]["withheld"]) == Decimal("996.60"), emps
+
+        # 同名员工跨行(跨月)仍共享各自累计口径:张三第二行按累计预扣继续
+        r2 = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "compute",
+                "period": "2026-12",
+                **self.GENERAL,
+                "wages": json.dumps(
+                    [
+                        {"name": "张三", "gross": "19800", "social": "1780.00", "special_deduction": "0"},
+                        {"name": "张三", "gross": "19800", "social": "1780.00", "special_deduction": "0"},
+                    ],
+                    ensure_ascii=False,
+                ),
+            },
+        )
+        assert r2["ok"]
+        emps2 = json.loads(r2["state"])["detail"]["iit"]["employees"]
+        # 行1:13020 ⇒ 390.60;行2:累计 26040 ⇒ 781.20 − 已扣 390.60 = 390.60
+        assert Decimal(emps2[0]["withheld"]) == Decimal("390.60"), emps2
+        assert Decimal(emps2[1]["withheld"]) == Decimal("390.60"), emps2
+
+    @pytest.mark.asyncio
     async def test_validate_flags_and_never_mutates(self) -> None:
         # 印花税税基传 0 ⇒ 勾稽红旗"印花税为零";validate 只报数,绝不改 cit 等既有值
         args = {
