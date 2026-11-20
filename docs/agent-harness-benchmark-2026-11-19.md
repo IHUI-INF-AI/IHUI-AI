@@ -12,7 +12,6 @@
 
 
 
-
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -21,7 +20,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **33 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **34 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -97,7 +96,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（33 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（34 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -465,6 +464,14 @@
 
 验证：`pytest test_session_end_hook.py test_lifecycle_hooks.py` → `9 passed`（新增 4 例：事件名必须映射到存在的 HookKind / 载荷与 result 同源 / `decision=block` 不改写返回值 / 钩子抛错不阻断）；`ruff check` 全过；`mypy --strict` 对两个 core 模块 `Success: no issues found`。
 
+### 5.35 第 34 项：`pre/post_model_request` 钩子挂载点（请求前后观察面）
+
+- 缺口：契约 14 事件里的 `pre_model_request` / `post_model_request` 同样只有名字没有挂载点。对照程序在这两个点能做的事（请求前审查将要发出的提示、请求后审计实际产出的形状）在本仓此前一件也做不了 —— 配置面看得见、执行链摸不着。
+- 处置：`HookKind.PRE_MODEL_REQUEST / POST_MODEL_REQUEST` + `_KIND_BY_EVENT` 同批接上；`_run_model_request_hooks()` 挂在 `_llm_call_with_retry` 的**请求发起前**与**成功返回点**（流式与非流式两条返回各一处），复用既有 `HookRuntime` 与 `hook.run` 观察通道。
+- 语义边界：两个点都是**观察 + additionalContext 注入面**。请求前钩子只在本次请求的**第一枚尝试**前点一次（重试/溢出救赎不重复点火，免得一次上游抖动把同一钩子打成 N 遍）；模型产出的改写**刻意不做** —— 工具产出改写已有 `POST_TOOL_USE` 受审通道，模型产出若也能被钩子替换，"这句是模型说的还是钩子说的"将无法归因；`decision/stop` 一律不解读，拿钩子改模型调用控制流等于绕开预算与取消语义。
+- 超越轴：对照程序这两个点只给遥测（无结构化回执、失败静默）；本仓把载荷钉成可判读的形状（`message_count / tool_count / tool_names / iteration / streaming` 与 `content_length / tool_call_count / finish_reason / streamed`），运行结果进同一条 `hook.run` SSE，前端面板与工具面钩子同形可见。
+
+验证：`pytest test_model_request_hooks.py` → `4 passed`（事件名映射 / 前后各点火一次且载荷来自真实返回值 / 钩子抛错不改写 `final_response` / 请求前 `additionalContext` 真的进到模型入参）；回归 `test_hook_engine.py test_hook_run_sse.py` → `155 passed`；`ruff check` 全过；`mypy --strict` 对两个 core 模块 `Success: no issues found`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
