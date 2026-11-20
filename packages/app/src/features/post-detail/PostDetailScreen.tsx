@@ -157,7 +157,9 @@ export function PostDetailScreen({
         <Text style={styles.detailText}>截止时间：{item.closingTime}</Text>
       ) : null}
       {item.contact ? <Text style={styles.detailText}>联系方式：{item.contact}</Text> : null}
-      {/* 互动动作栏:项数/顺序/可点性全部由 post-actions.contract 判定,不再在此硬编码。
+      {/* 互动动作栏:项数/顺序/可点性全部由 `@ihui/shared/social/post-actions` 判定,不再在此硬编码。
+          (2026-11-14 契约已迁到 shared;本包内的兼容壳 post-actions.contract.ts 于 2026-11-20 删除,
+           注释同批改指真相源,免得后人照着去找一个不存在的文件。)
           2026-11-14 的教训:这里曾写死两颗 TouchableOpacity —— 按下去会变暗、却什么都不发生,
           是标准的假按钮。契约里"没回调 ⇒ interactive=false ⇒ 渲染只读 View"就是那条判据的固化。 */}
       <View style={styles.statRow}>

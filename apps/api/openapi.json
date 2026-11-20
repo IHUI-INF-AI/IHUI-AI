@@ -34624,6 +34624,15 @@
         }
       }
     },
+    "/api/admin/relay/models/manual": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/models/stats": {
       "get": {
         "responses": {

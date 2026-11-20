@@ -460,10 +460,10 @@ html[data-tabular-nums='true'] body {
 html[data-reduce-motion='true'] *,
 html[data-reduce-motion='true'] *::before,
 html[data-reduce-motion='true'] *::after {
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important; /* -- ihui-allow-important: 应用内「减弱动效」开关与系统偏好同语义;选择器特异度 0,必须 !important 才压过未被 @layer 包裹的 .animate-* 类 */
+  animation-iteration-count: 1 !important; /* -- ihui-allow-important: 同上,单次迭代才能让 0.01ms 的时长真正生效 */
+  transition-duration: 0.01ms !important; /* -- ihui-allow-important: 同上,过渡同样需要压过组件自带动效 */
+  scroll-behavior: auto !important; /* -- ihui-allow-important: 同上,关掉平滑滚动是「减弱动效」的一部分 */
 }
 
 html[data-high-contrast='true'] {
