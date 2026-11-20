@@ -265,6 +265,45 @@ async def test_non_object_updated_input_is_ignored() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 3d. 2026-11-20:PermissionRequest 审批前置裁决(allow/deny)
+# ---------------------------------------------------------------------------
+async def test_permission_request_allow_skips_user_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    executed: list[str] = []
+    approval_calls: list[str] = []
+    monkeypatch.setenv("TOOL_APPROVAL_HIGH_RISK_TOOLS", "demo")
+    register_lifecycle_hook(
+        HookKind.PERMISSION_REQUEST,
+        lambda payload: {"permission_behavior": "allow"},
+        name="wiring-pr-allow",
+    )
+    loop = _high_risk_loop(build_registered_hook_runtime(), executed, approval_calls)
+    tr = await loop._execute_single(ToolCall(id="c8", name="demo", args={}))
+    assert tr.error is None
+    assert executed == ["demo"]
+    assert approval_calls == []
+    assert loop._decision_hints["c8"][0] == "hook_permission_allow"
+
+
+async def test_permission_request_deny_blocks_without_side_effect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executed: list[str] = []
+    approval_calls: list[str] = []
+    monkeypatch.setenv("TOOL_APPROVAL_HIGH_RISK_TOOLS", "demo")
+    register_lifecycle_hook(
+        HookKind.PERMISSION_REQUEST,
+        lambda payload: {"permission_behavior": "deny", "reason": "工作时段禁止写盘"},
+        name="wiring-pr-deny",
+    )
+    loop = _high_risk_loop(build_registered_hook_runtime(), executed, approval_calls)
+    tr = await loop._execute_single(ToolCall(id="c9", name="demo", args={}))
+    assert tr.error_type == "permission_request_denied"
+    assert "工作时段禁止写盘" in (tr.error or "")
+    assert executed == []  # 副作用零发生
+    assert approval_calls == []  # 也没惊动用户
+
+
+# ---------------------------------------------------------------------------
 # 4. 三处生产构造入口确实传入非空 runtime(动态捕获 + 静态源锁)
 # ---------------------------------------------------------------------------
 class _CapturingLoop:
