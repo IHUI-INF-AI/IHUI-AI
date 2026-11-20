@@ -4,11 +4,11 @@
 
 """号池模型代次判定内部端点测试(2026-11-20 立)。
 
-覆盖:鉴权三态(未配置 503 / 错密钥 401 / 对放行)、判定结果与平台目录同口径
-(命中 model_catalog_policy 过时清单 ⇒ hidden、白名单新代次 ⇒ latest 不隐藏、
-未知模型 ⇒ 不隐藏)、MODEL_CATALOG_HIDE_LEGACY=0 时隐藏被整体关闭(开关语义
-必须与 /llm/models 完全一致)、单批上限 413、以及"响应里每条都带 provider"
-(api 侧按 provider+id 成对回填,不靠猜归属)。
+覆盖:鉴权三态(未配置 503 / 错密钥 401 / 对放行)、选择器口径(2026-11-20 机主取消
+「历史模型」折叠区:命中过时清单、版本比较判 legacy、非对话专用用途三条并集一律
+hidden;白名单新代次与 standard 不隐藏)、MODEL_CATALOG_HIDE_LEGACY=0 时整体恢复
+(开关语义与 /llm/models 出口共用)、单批上限 413、以及响应里每条都带 provider
+(api 侧按 provider+id 成对回填,不猜归属)。
 """
 
 from __future__ import annotations
@@ -69,24 +69,29 @@ async def test_过时清单命中即隐藏_白名单新代次不隐藏_未知原
     assert by_id["workbuddy/kimi-k3"]["category"] == "chat"
 
 
-async def test_同系列旧代号按代次比较压档(client):
-    """清单没收录的同族旧代,也应由版本比较压档(只折叠不隐藏)。"""
+async def test_同系列旧代号按代次比较判legacy并隐藏(client):
+    """清单没收录的同族旧代,也应由版本比较判 legacy 并直接隐藏(2026-11-20 取消折叠区)。"""
     resp = await _post(
         client,
         [
             {"id": "vendor/gpt-4o", "provider": "vendor"},
             {"id": "vendor/gpt-5.1", "provider": "vendor"},
             {"id": "vendor/gpt-5.6", "provider": "vendor"},
+            {"id": "vendor/bge-m3", "provider": "vendor"},
         ],
     )
     assert resp.status_code == 200, resp.text
     by_id = {item["id"]: item for item in resp.json()["items"]}
-    # 主版本落后一代 → legacy(进「历史模型」折叠区)
+    # 主版本落后一整代 → legacy 且选择器不展示
     assert by_id["vendor/gpt-4o"]["model_tier"] == "legacy"
-    assert by_id["vendor/gpt-4o"]["hidden"] is False
-    # 同主版本、次版本偏低 → standard(仍在默认区,能调通的不能藏)
+    assert by_id["vendor/gpt-4o"]["hidden"] is True
+    # 同主版本、次版本偏低 → standard,仍展示(能调通的不能藏)
     assert by_id["vendor/gpt-5.1"]["model_tier"] == "standard"
+    assert by_id["vendor/gpt-5.1"]["hidden"] is False
     assert by_id["vendor/gpt-5.6"]["model_tier"] == "latest"
+    # 非对话专用用途(嵌入)不进聊天选择器,即使 tier 不是 legacy
+    assert by_id["vendor/bge-m3"]["category"] == "embedding"
+    assert by_id["vendor/bge-m3"]["hidden"] is True
 
 
 async def test_隐藏开关关闭时清单不生效(client, monkeypatch):

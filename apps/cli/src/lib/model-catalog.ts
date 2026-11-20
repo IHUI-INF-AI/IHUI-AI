@@ -14,9 +14,7 @@
  */
 
 import {
-  MODEL_CATEGORY_ORDER,
-  MODEL_TIER_ORDER,
-  isArchivedModel,
+  isSelectableChatModel,
   normalizeCategory,
   normalizeTier,
 } from '@ihui/shared/constants';
@@ -79,48 +77,24 @@ export function tierOf(model: CatalogModel): ModelTier {
   return normalizeTier(model.model_tier);
 }
 
-/** 组内排序:standard 在前、legacy 在后,再按名称 */
-function compareWithinGroup(a: CatalogModel, b: CatalogModel): number {
-  const ta = MODEL_TIER_ORDER[tierOf(a)];
-  const tb = MODEL_TIER_ORDER[tierOf(b)];
-  if (ta !== tb) return ta - tb;
-  const na = a.name || a.id;
-  const nb = b.name || b.id;
-  return na < nb ? -1 : na > nb ? 1 : 0;
-}
-
 /**
- * 把模型列表拆成"默认展示"与"历史模型折叠区"。
+ * 模型选择器的可选项(2026-11-20 定档:取消「历史模型」折叠区)。
  *
- * 折叠区按 MODEL_CATEGORY_ORDER 排序,组内按代次 + 名称排序。
- * 后端字段缺失时两个兜底都会把模型留在默认列表,保证列表不会空掉。
+ * 只保留 `isSelectableChatModel` 为真的模型;legacy 与专用用途模型直接不展示。
+ * `archived` 恒为空,仅为兼容既有调用方结构保留。
  */
 export function splitModelCatalog<M extends CatalogModel>(models: M[]): ModelCatalogSplit<M> {
   const primary: M[] = [];
-  const buckets = new Map<ModelUsageCategory, M[]>();
 
   for (const model of models) {
     const category = categoryOf(model);
-    if (isArchivedModel(category, tierOf(model))) {
-      const bucket = buckets.get(category);
-      if (bucket) bucket.push(model);
-      else buckets.set(category, [model]);
-    } else {
-      primary.push(model);
-    }
-  }
-
-  const archived: ModelCategoryGroup<M>[] = [];
-  for (const category of MODEL_CATEGORY_ORDER) {
-    const bucket = buckets.get(category);
-    if (!bucket || bucket.length === 0) continue;
-    archived.push({ category, items: [...bucket].sort(compareWithinGroup) });
+    if (isSelectableChatModel(category, tierOf(model))) primary.push(model);
   }
 
   return {
     primary,
-    archived,
-    archivedCount: archived.reduce((sum, g) => sum + g.items.length, 0),
+    archived: [],
+    archivedCount: 0,
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
