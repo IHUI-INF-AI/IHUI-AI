@@ -12444,7 +12444,6 @@
       "historyOpenButton": "歷史",
       "historyOpenExternal": "查看歷史",
       "historySource": {
-        "auto-revert": "自動",
         "popover": "彈窗",
         "shift-tab": "Shift+Tab",
         "slash": "斜槓",

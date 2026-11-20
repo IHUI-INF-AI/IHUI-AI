@@ -12444,7 +12444,6 @@
       "historyOpenButton": "履歴",
       "historyOpenExternal": "履歴を表示",
       "historySource": {
-        "auto-revert": "自動",
         "popover": "ポップオーバー",
         "shift-tab": "Shift+Tab",
         "slash": "スラッシュ",
