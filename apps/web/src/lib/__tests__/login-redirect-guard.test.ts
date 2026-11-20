@@ -19,6 +19,7 @@
  */
 import { createElement } from 'react'
 import type { ReactNode } from 'react'
+import type * as ApiClientModule from '@ihui/api-client'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 
@@ -38,7 +39,7 @@ vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 // (setTokenProvider / setBaseUrl …)后会立刻出现"mock 少一项 ⇒ 模块图初始化即崩"。
 // 故按真模块展开再覆盖本测试关心的那两项,后续新增导出自动继承。
 vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  const actual = await importOriginal<typeof ApiClientModule>()
   return {
     ...actual,
     refreshAccessTokenOnce: vi.fn(async () => null),
