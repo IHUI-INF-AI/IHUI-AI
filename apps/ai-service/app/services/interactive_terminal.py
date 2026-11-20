@@ -25,7 +25,9 @@
   `\\x04`),之后 send/keys 显式 `TERMINAL_STDIN_CLOSED`,不是只能 kill;
 - `reap_idle_terminals`:闲置回收(env `IHUI_TERMINAL_IDLE_TTL_S` > 0 才启用,默认关闭;
   开新会话前自动跑一次),回收了谁/闲了多久逐条回报,不静默杀;
-- `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
+- `signal_terminal`:interrupt/terminate/kill;**interrupt 在 PTY 后端写 `^C` 输入字节**
+  0x03(等价于用户亲手按 Ctrl+C,由行规程/程序自己解释),只有管道后端才走进程信号
+  (POSIX SIGINT / Windows CTRL_BREAK);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
 
@@ -94,6 +96,11 @@ MAX_PATTERN_CHARS: Final = 200
 #: 回传的命中文本上限:正则 `(.*)` 这类会整段回吐,不做上界等于把会话缓冲塞进信封。
 _MAX_MATCHED_TEXT: Final = 500
 
+#: 真终端里 Ctrl+C 的输入字节。PTY 后端的 `interrupt` 统一写这一个字节
+#: (规范模式下由行规程转成前台进程组的 SIGINT,raw 模式下由程序自己解释);
+#: 键表里的 `ctrl-c` 也取它 —— 两处必须是同一个字节,不是两份字面量。
+TTY_INTERRUPT_BYTE: Final = "\x03"
+
 #: 按键名 → 字节序列(**单一真相源**)。名字大小写不敏感,`-`/`_`/`+`/空格 视为同一种分隔。
 #: 立因:方向键/Esc 是转义序列、Ctrl 组合是控制码,这些用 `send` 写文本写不出来 ——
 #: REPL 补全(Tab)、TUI 菜单(方向键)、vim(Esc)只认字节。
@@ -120,7 +127,7 @@ KEY_SEQUENCES: Final[dict[str, str]] = {
     "pagedown": "\x1b[6~",
     "ctrl-a": "\x01",
     "ctrl-b": "\x02",
-    "ctrl-c": "\x03",
+    "ctrl-c": TTY_INTERRUPT_BYTE,
     "ctrl-d": "\x04",
     "ctrl-e": "\x05",
     "ctrl-f": "\x06",
@@ -970,9 +977,10 @@ def send_terminal_keys(
 ) -> dict[str, Any]:
     """按**键名**给会话发控制输入(方向键 / Tab / Esc / Ctrl 组合),不是写文本。
 
-    与 `signal_terminal("interrupt")` 的分工:后者走进程信号语义(POSIX SIGINT /
-    Windows CTRL_BREAK),对挂在 ConPTY 自己控制台上的子进程要靠行规程 0x03;本函数是
-    **纯输入字节**通道 —— 它与真终端里你亲手按下的键等价,由行规程/程序自己解释。
+    与 `signal_terminal("interrupt")` 的分工:后者在 **PTY 后端**同样走"输入字节"路线
+    (`TTY_INTERRUPT_BYTE` = 0x03,经行规程/程序自己解释,等价于用户亲手按 Ctrl+C);
+    只有**管道后端**才走进程信号语义(POSIX SIGINT / Windows CTRL_BREAK)。本函数是
+    **纯输入字节**通道 —— 由行规程/程序自己解释。
 
     如实说明一条边界(真终端的物理事实,不是本实现丢字节):程序仍处于**规范(canonical)
     输入模式**时,行规程会当场消费 ESC/方向键之类的编辑键 —— POSIX 把它们当普通字符留在
@@ -1309,6 +1317,26 @@ def wait_terminal(
     }
 
 
+def _tty_interrupt(session: TerminalSession) -> tuple[bool, str]:
+    """真终端里的 Ctrl+C = **写输入字节 0x03**,由行规程(规范模式)/程序(raw 模式)自己解释。
+
+    这是 `interrupt` 在 PTY 后端上的**唯一出口**。为什么不能绕过 tty 直接 `send_signal`:
+    子进程是 `setsid` 出来的会话首进程,**前台进程组**才是行规程送 SIGINT 的对象;直接给
+    单个 pid 发信号会让"shell 里正在跑的前台命令"收不到(用户视角就是"按了 Ctrl+C 没停"),
+    而 raw 模式里自己处理 `^C` 的程序(vim/less)则永远看不到这次按键。
+    与 Windows ConPTY 同语义(那边也是往输入写 0x03),两平台只差"字节怎么送进子进程"。
+    """
+    sink = session.write_io
+    if sink is None:
+        return False, "本会话没有可写输入通道"
+    try:
+        sink.write(TTY_INTERRUPT_BYTE)
+        sink.flush()
+    except (OSError, ValueError) as e:
+        return False, f"写入 ^C 字节失败: {e}"
+    return True, ""
+
+
 def signal_terminal(
     terminal_id: str,
     *,
@@ -1330,6 +1358,18 @@ def signal_terminal(
         }
     try:
         if signal_name == "interrupt":
+            if session.backend == "pty":
+                ok, why = _tty_interrupt(session)
+                if not ok:
+                    return {
+                        "ok": False, "errorCode": "TERMINAL_SIGNAL_FAILED",
+                        "error": why, "terminal": session.to_dict(),
+                    }
+                return {
+                    "ok": True, "terminal_id": terminal_id, "signal": "interrupt",
+                    "delivery": "tty-byte",
+                    "running": proc.poll() is None,
+                }
             if os.name == "nt":
                 proc.send_signal(_WIN_CTRL_BREAK_EVENT)
             else:
@@ -1710,9 +1750,13 @@ class ConPtyProcess:
         self.terminate()
 
     def send_signal(self, sig: int) -> None:
-        """`interrupt` 走行规程输入字节 0x03;其余信号(terminate/kill)不经过这里。"""
+        """`interrupt` 走行规程输入字节(`TTY_INTERRUPT_BYTE`);其余信号不经过这里。
+
+        注:`signal_terminal` 现在**统一**在 PTY 分支调 `_tty_interrupt`(两平台同一出口),
+        本方法保留只为满足 `_ProcLike` 协议形状;字节值仍取自同一常量(不另抄一份字面量)。
+        """
         if sig == _WIN_CTRL_BREAK_EVENT and self.write_io is not None:
-            self.write_io.write("\x03")
+            self.write_io.write(TTY_INTERRUPT_BYTE)
             self.write_io.flush()
             return
         self.terminate()
@@ -1844,6 +1888,8 @@ __test__ = {
     "reap_idle_terminals": reap_idle_terminals,
     "idle_ttl_s": _idle_ttl_s,
     "TERMINAL_IDLE_TTL_ENV": TERMINAL_IDLE_TTL_ENV,
+    "tty_interrupt": _tty_interrupt,
+    "TTY_INTERRUPT_BYTE": TTY_INTERRUPT_BYTE,
     "read_terminal": read_terminal,
     "PTY_TERM": PTY_TERM,
     "PTY_COLORTERM": PTY_COLORTERM,

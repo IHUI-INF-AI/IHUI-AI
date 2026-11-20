@@ -172,7 +172,7 @@ def test_conpty_interrupt_goes_through_line_discipline_bytes() -> None:
     0x03 由行规程转成真 ^C,这才是真终端的中断语义。
     """
     src = _conpty_source()
-    assert 'self.write_io.write("\\x03")' in src
+    assert src.count('self.write_io.write(TTY_INTERRUPT_BYTE)') >= 1
     assert "_CTRL_BREAK_EVENT" in src
     # 判据是"没有这个**调用**"(注释里解释为何不用它是允许的)。
     assert "GenerateConsoleCtrlEvent(" not in src
@@ -1342,6 +1342,70 @@ def test_terminal_is_owner_scoped_and_listed(tmp_path) -> None:
     )
     assert denied["ok"] is False
     assert denied["errorCode"] == "TERMINAL_NOT_FOUND"
+
+
+def test_tty_interrupt_is_input_byte_and_single_source() -> None:
+    """判据单源:PTY 的 Ctrl+C 只许是**输入字节**(不绕过 tty 直发进程信号)。
+
+    两件事一起锁:
+    - `TTY_INTERRUPT_BYTE` 就是 0x03,且全文只出现一处赋值(第二份字面量即漂移);
+    - `signal_terminal` 的 pty 分支必须排在任何 `send_signal(` 之前 —— 顺序反了等于
+      又把"用户按键"退化成"外部杀进程"(shell 里的前台命令会收不到)。
+    """
+    assert _TEST["TTY_INTERRUPT_BYTE"] == "\x03"
+    src = _conpty_source()
+    assert src.count('TTY_INTERRUPT_BYTE: Final = ') == 1
+    # 字面量只许出现在常量定义那一行本身;别处再写一份 0x03 就是第二真相源
+    assert src.count('"\\x03"') == 1, "0x03 字面量只许在常量定义处出现一次"
+    pty_branch = src.index("if session.backend == \"pty\":", src.index("def signal_terminal("))
+    assert pty_branch < src.index("proc.send_signal(", pty_branch)
+
+
+def test_tty_interrupt_writes_byte_not_signal(tmp_path, monkeypatch) -> None:
+    """PTY:interrupt 的投递方式是 tty-byte,而不是 send_signal(用捕获流做变异夹具)。"""
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "sleep_intr.py", _SLEEP_SCRIPT), tmp_path)
+    assert opened["ok"] is True and opened["terminal"]["backend"] == "pty"
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        _read_until(tid, "started")
+        session = term._sessions[tid]
+        cap = io.StringIO()
+        session.write_io = cap  # type: ignore[assignment]
+        signaled = term.signal_terminal(
+            tid, signal_name="interrupt", user_id="u-term", session_id="s-term"
+        )
+        assert signaled["ok"] is True
+        assert signaled["delivery"] == "tty-byte"
+        assert cap.getvalue() == "\x03"
+    finally:
+        term.reset_terminals()
+
+
+def test_pty_interrupt_stops_child_and_reports_delivery(monkeypatch, tmp_path) -> None:
+    """真 PTY 端到端:0x03 经行规程送到前台进程组,子进程真停(Win/ConPTY 本机实测路径)。"""
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "sleep_intr2.py", _SLEEP_SCRIPT), tmp_path)
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        _read_until(tid, "started", timeout=15.0)
+        signaled = term.signal_terminal(
+            tid, signal_name="interrupt", user_id="u-term", session_id="s-term"
+        )
+        assert signaled["ok"] is True and signaled["delivery"] == "tty-byte"
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            res = term.read_terminal(
+                tid, user_id="u-term", session_id="s-term", wait_s=0.3
+            )
+            if not res["running"]:
+                break
+        assert res["running"] is False, "PTY interrupt 未送达 ⇒ 0x03 没经行规程生效"
+        assert res["exit_code"] not in (0, None)
+    finally:
+        term.reset_terminals()
 
 
 def test_signal_interrupt_stops_process(tmp_path) -> None:
