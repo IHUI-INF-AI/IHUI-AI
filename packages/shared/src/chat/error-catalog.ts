@@ -1251,6 +1251,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'TERMINAL_SPAWN_FAILED.action',
     category: 'environmentInitFailed',
   },
+  TERMINAL_STDIN_CLOSED: {
+    titleKey: 'TERMINAL_STDIN_CLOSED.title',
+    actionKey: 'TERMINAL_STDIN_CLOSED.action',
+    category: 'backendExited',
+  },
   TERMINAL_WRITE_FAILED: {
     titleKey: 'TERMINAL_WRITE_FAILED.title',
     actionKey: 'TERMINAL_WRITE_FAILED.action',

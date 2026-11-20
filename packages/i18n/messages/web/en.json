@@ -9736,7 +9736,11 @@
           "title": "Terminal failed to start",
           "action": "Check the host environment"
         },
-        "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_STDIN_CLOSED": {
+    "title": "Terminal stdin is closed",
+    "action": "Reopen the terminal session before sending input"
+  },
+  "TERMINAL_WRITE_FAILED": {
           "title": "Terminal write failed",
           "action": "Retry the write"
         },

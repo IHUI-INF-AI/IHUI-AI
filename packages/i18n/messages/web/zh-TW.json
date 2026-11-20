@@ -9736,7 +9736,11 @@
           "title": "終端機啟動失敗",
           "action": "檢查宿主環境"
         },
-        "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_STDIN_CLOSED": {
+    "title": "終端機輸入通道已關閉",
+    "action": "重新開啟終端機會話後再送出輸入"
+  },
+  "TERMINAL_WRITE_FAILED": {
           "title": "終端機寫入失敗",
           "action": "重試寫入"
         },
