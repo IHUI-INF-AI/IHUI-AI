@@ -19,6 +19,7 @@ import {
   parseMessageSendEvent,
   parseAgentQuestionEvent,
   parseAgentQuestionResolvedEvent,
+  parseHookRunEvent,
 } from '@ihui/shared'
 import type {
   SelfHealEvent,
@@ -28,6 +29,7 @@ import type {
   AgentTerminalDeltaEvent,
   AgentTransientStatusEvent,
   AgentMessageSendEvent,
+  AgentHookRunEvent,
 } from '@ihui/shared'
 // D27(2026-09-20 立):session_end wire payload 新增可选 deliverables 字段的二次提取。
 // shared 白名单解析会丢弃新字段,故在 handler 层从 raw e.data 提取(不碰 shared)。
@@ -94,6 +96,8 @@ export interface UseAgentRuntimeReturn {
   thinkingContent: string
   /** P0-5:plan 步骤时间线(step_index 幂等 upsert) */
   planSteps: AgentPlanStepEvent[]
+  /** 2026-11-20:逐钩子运行结果 FIFO(最多 MAX_HOOK_RUNS 条,hook.run 帧到达即追加) */
+  hookRuns: AgentHookRunEvent[]
   /** P1(2026-09-19):session 结束摘要(最后一次 session_end 事件) */
   sessionEnd: AgentSessionEndEvent | null
   /** P1(2026-09-19):权限模式切换(最后一次 permission-mode 事件) */
@@ -126,6 +130,8 @@ const MAX_HEAL_EVENTS = 50
 const MAX_PLAN_STEPS = 100
 /** terminal-delta FIFO 上限(4 行/帧,200 帧 ≈ 800 行输出,防长命令刷爆内存) */
 const MAX_TERMINAL_DELTAS = 200
+/** hook-run FIFO 上限(每枚工具调用最多几条钩子,50 帧足够覆盖一次会话的诊断面) */
+const MAX_HOOK_RUNS = 50
 
 // 2026-09-19:content 匿名形态已删除(/agents/tasks/stream 全部为命名事件,
 // onmessage 运行时不可达),SsePayload 仅保留守门认可的 tool_call/tool_result 分支形态。
@@ -154,6 +160,11 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
   const [thinkingContent, setThinkingContent] = React.useState('')
   /** P0-5(2026-09-13):plan 步骤时间线(命名 SSE 事件 plan-step) */
   const [planSteps, setPlanSteps] = React.useState<AgentPlanStepEvent[]>([])
+  /**
+   * 2026-11-20 第 26 项:hook-run 逐钩子运行结果(命名 SSE 事件 hook-run,FIFO)。
+   * 与 hook-failed(钩子自己挂了)分工:这里报"钩子跑了并给出裁决/改写/超时"。
+   */
+  const [hookRuns, setHookRuns] = React.useState<AgentHookRunEvent[]>([])
   /** P1(2026-09-19):session 结束摘要(命名 SSE 事件 session_end,单值覆盖) */
   const [sessionEnd, setSessionEnd] = React.useState<AgentSessionEndEvent | null>(null)
   /** P1(2026-09-19):权限模式切换(命名 SSE 事件 permission-mode,单值覆盖) */
@@ -361,6 +372,18 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       })
     })
 
+    // 2026-11-20 第 26 项:hook-run 是命名 SSE 事件(hook "hook.run"→"hook-run"),
+    // 载荷 {run_id, tool_name, tool_call_id, hooks:[{name,kind,status,durationMs}]}。
+    // 空 hooks 帧在共享解析层已被拒(后端同样"空表不发"),这里只做 FIFO 追加。
+    es.addEventListener(AGENT_TASK_EVENTS.HOOK_RUN, (e) => {
+      const evt = parseHookRunEvent(e.data)
+      if (!evt) return
+      setHookRuns((prev) => {
+        const next = [...prev, evt]
+        return next.length > MAX_HOOK_RUNS ? next.slice(next.length - MAX_HOOK_RUNS) : next
+      })
+    })
+
     // P1(2026-09-19):session_end 是命名 SSE 事件(hook "session.end"→"session_end"),
     // payload {session_id,user_id,success,stop_reason,total_iterations,total_duration_ms}。
     // t4(2026-09-19):wire 解析迁移至共享 parseSessionEndEvent,此处仅保留单值覆盖。
@@ -460,6 +483,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     healEvents,
     thinkingContent,
     planSteps,
+    hookRuns,
     sessionEnd,
     permissionMode,
     terminalDeltas,

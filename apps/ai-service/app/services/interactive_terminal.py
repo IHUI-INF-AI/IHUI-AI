@@ -26,18 +26,21 @@
   setsid + `TIOCSCTTY` 造**真 tty** —— 子进程 `isatty()` 为真,npm/cargo/pytest-v 这类按
   tty 出进度/颜色的程序表现与其在自己终端里一致;stdout 与 stderr 由 tty 行规程合并为
   单一 `pty` 通道(这是真终端的物理事实,非本实现的缺陷)。子进程环境**仍同经
-  `_strict_child_env`**,PTY 不放宽任何环境边界。**Windows 暂不接 ConPTY**:开启 PTY 时
-  显式返回 `TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM`,**绝不静默回落管道冒充已 PTY**
-  (§0.3「没判绝不写成判过」;真 PTY 的 Windows 后端要引原生 ConPTY ctypes 绑定,属独立的
-  安全敏感面改造,须机主另拍)。
+  `_strict_child_env`**,PTY 不放宽任何环境边界。**Windows 走原生 ConPTY**
+  (`conpty_win.py`:ctypes 直连 kernel32 的 `CreatePseudoConsole` + `CreateProcessW`
+  启动属性表,零第三方依赖),子进程同样 `isatty()` 为真;宿主/内核不支持时**显式返回
+  `TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM`**,绝不静默回落管道冒充已 PTY(§0.3
+  「没判绝不写成判过」)。
 
 对照程序:WB/Trae 的 harness 用原生 `pty.node`/`conpty.node`(:lydell/node-pty),deepseek-tui
-用管道。本实现取"CI 真能跑通 + 零第三方依赖"的那一档(标准库 pty + 原生 ConPTY 留待专章)。
+用管道。本实现取"CI 真能跑通 + 零第三方依赖"的那一档(POSIX 标准库 `pty` + Windows
+ctypes 直连 ConPTY,不绑任何原生 addon)。
 """
 
 from __future__ import annotations
 
 import contextlib
+import ctypes
 import importlib
 import os
 import signal as _signal
@@ -48,7 +51,7 @@ import uuid
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 from .sandbox import _strict_child_env
 
@@ -78,10 +81,44 @@ def _pty_requested(env: Mapping[str, str] | None = None) -> bool:
     return (source.get(PTY_REQUEST_ENV, "") or "").strip().lower() in _PTY_TRUTHY
 
 
+def _conpty_available() -> bool:
+    """当前宿主是否真能跑 ConPTY(实现见文末 Windows 专章 `_conpty_probe`)。
+
+    取不到任何一环(`ctypes.WinDLL` 不存在/老内核没导出 `CreatePseudoConsole`/加载失败)
+    都判 False —— 不让"看起来能 import"冒充"能跑"(§0.3)。
+    """
+    if os.name != "nt":
+        return False
+    return _conpty_probe()
+
+
 def _pty_supported_on_host() -> bool:
-    """当前宿主是否有 PTY 后端实现。Windows 走 ConPTY(未接)→ False;fail-closed,
-    不靠"看起来能 import"骗过判定。"""
-    return os.name != "nt"
+    """当前宿主是否有 PTY 后端实现:POSIX 恒有(标准库 `pty`),Windows 看 ConPTY 探测。
+
+    fail-closed:探测不透的一律 False,`open_terminal` 据此硬拒而不是回落管道冒充已 PTY。
+    """
+    return os.name != "nt" or _conpty_available()
+
+
+class _ProcLike(Protocol):
+    """会话编排真正用到的进程面。
+
+    管道后端是 `subprocess.Popen[str]`,ConPTY 后端是 `conpty_win.ConPtyProcess` ——
+    两者同形,编排层(上限/信号/宽限收尾)不按后端分叉。
+    """
+
+    pid: int
+    stdin: Any
+
+    def poll(self) -> int | None: ...
+
+    def wait(self, timeout: float | None = ...) -> int: ...
+
+    def terminate(self) -> None: ...
+
+    def kill(self) -> None: ...
+
+    def send_signal(self, sig: int) -> None: ...
 
 
 @dataclass
@@ -91,7 +128,7 @@ class TerminalSession:
     owner_session_id: str | None
     command: str
     cwd: str
-    proc: subprocess.Popen[str]
+    proc: _ProcLike
     created_ts: float
     # 写侧统一出口:管道路径 = proc.stdin;PTY 路径 = master 的写 fdopen。send_terminal
     # 永不直接碰 `session.proc.stdin`(PTY 模式下它是 None),只走这个,两条后端同形。
@@ -148,6 +185,15 @@ def _force_stop(session: TerminalSession) -> None:
 
 def _close_io(session: TerminalSession) -> None:
     """释放会话持有的额外 IO(PTY 的 master 读写 fd);管道路径靠 proc 回收,无需此处。"""
+    # ConPTY 后端:先关伪控制台与进程/线程句柄(幂等)。ClosePseudoConsole 会驱动
+    # conhost 退出,把退出前最后的输出吐进管道,再关读 fd 才不会截掉尾巴。
+    release = getattr(session.proc, "release", None)
+    if callable(release):
+        with contextlib.suppress(Exception):
+            release()
+    # 有界等读线程收敛(最多 0.2s/路):超时即放弃,绝不无限挂。
+    for pump in session.pumps:
+        pump.join(timeout=0.2)
     if session.pty_read_fd is not None:
         with contextlib.suppress(OSError):
             os.close(session.pty_read_fd)
@@ -252,15 +298,16 @@ def _spawn_pipe(command: str, cwd: str, env_extra: dict[str, str] | None) -> sub
 def _make_ctty_setter() -> Any:
     """返回一个子进程 preexec_fn:把 slave(fd 0)设为该会话的**控制终端**并 setsid,
     使前台进程组信号(SIGINT/SIGTTOU 等)与 tty 语义生效。fcntl/termios 用 importlib 取
-    (Windows 无此模块 → 返回 None 不进入 PTY 分支 anyway);失败不致命(isatty 已成立)。"""
+    (Windows 无此模块);失败不致命(isatty 已成立)。**唯一调用方是 `_spawn_pty`(POSIX
+    专路)**,Windows 走 `_spawn_conpty`,本函数在那边根本不会被调用到。"""
     fcntl = importlib.import_module("fcntl")
     termios = importlib.import_module("termios")
     tiocsctty = getattr(termios, "TIOCSCTTY", None)
 
     def _preexec() -> None:
         # `os.setsid`/`fcntl`/`termios` 只在 POSIX 存在;类型检查按宿主(可能是 Windows)
-        # 分析,直接用 `os.setsid` 会被判 attr-defined,故经 getattr 取(取不到 = None,
-        # 而本函数只在 `_pty_supported_on_host()` 为真时才会跑到,Windows 分支进不来)。
+        # 分析,直接用 `os.setsid` 会被判 attr-defined,故经 getattr 取(取不到 = None)。
+        # 本函数只被 `_spawn_pty`(POSIX 专路)调用,Windows 走 ConPTY 分支,不会跑到这里。
         setsid = getattr(os, "setsid", None)
         if callable(setsid):
             with contextlib.suppress(Exception):
@@ -320,6 +367,26 @@ def _spawn_pty(
     return proc, master_read_fd, master_write_io
 
 
+def _spawn_conpty(
+    command: str, cwd: str, env_extra: dict[str, str] | None
+) -> tuple[_ProcLike, int, Any]:
+    """PTY 后端(Windows):原生 ConPTY,返回 `(proc, 读 fd, 写端)`。
+
+    命令统一经 `COMSPEC /d /s /c "<command>"` 走 shell 语义 —— 与管道路径的
+    `shell=True` 对齐(`|`、`&&` 这类管道/串接在会话里照旧可用)。环境**仍取自**
+    `_strict_child_env`,ConPTY 不放宽任何环境边界(本层只负责按 Unicode 环境块编码)。
+    """
+    comspec = os.environ.get("COMSPEC", "cmd.exe")
+    proc = _conpty_spawn(
+        command_line=f'{comspec} /d /s /c "{command}"',
+        cwd=cwd,
+        env=_strict_child_env(env_extra),
+        cols=120,
+        rows=30,
+    )
+    return proc, int(proc.read_fd), proc.write_io
+
+
 def _open_pty_session(
     *, command: str, cwd: str, user_id: str | None, session_id: str | None,
     env_extra: dict[str, str] | None,
@@ -333,7 +400,10 @@ def _open_pty_session(
             "error": f"终端会话已达上限({MAX_SESSIONS}),请先 close 不再使用的会话",
         }
     try:
-        proc, read_fd, write_io = _spawn_pty(command, cwd, env_extra)
+        if os.name == "nt":
+            proc, read_fd, write_io = _spawn_conpty(command, cwd, env_extra)
+        else:
+            proc, read_fd, write_io = _spawn_pty(command, cwd, env_extra)
     except OSError as e:
         return {"ok": False, "errorCode": "TERMINAL_SPAWN_FAILED", "error": f"PTY 启动失败: {e}"}
     session = TerminalSession(
@@ -366,15 +436,16 @@ def open_terminal(
     """启动长驻子进程;返回 terminal_id 与初始元数据(含 `backend`:"pipes"|"pty")。"""
     if not command.strip():
         return {"ok": False, "errorCode": "TERMINAL_INVALID_COMMAND", "error": "command 为空"}
-    # PTY 是显式 opt-in:请求了但当前宿主没实现(Windows 未接 ConPTY)→ fail-closed 硬拒,
-    # 不静默回落管道冒充已 PTY(否则消费方以为拿到真 tty,实则块缓冲)。
+    # PTY 是显式 opt-in:请求了但当前宿主跑不了(POSIX 无 pty / Windows 无 ConPTY)
+    # → fail-closed 硬拒,不静默回落管道冒充已 PTY(否则消费方以为拿到真 tty,实则块缓冲)。
     if _pty_requested() and not _pty_supported_on_host():
         return {
             "ok": False,
             "errorCode": "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM",
             "error": (
-                f"已要求 PTY({PTY_REQUEST_ENV}),但平台 {os.name} 暂未接 ConPTY;会话未创建。"
-                "置空该环境变量以使用管道路径,或等 Windows ConPTY 后端落地。"
+                f"已要求 PTY({PTY_REQUEST_ENV}),但平台 {os.name} 的 PTY 后端不可用"
+                "(Windows 需内核支持 ConPTY);会话未创建。"
+                "置空该环境变量以使用管道路径。"
             ),
         }
     with _registry_lock:
@@ -619,10 +690,354 @@ def default_shell() -> str:
     return os.environ.get("SHELL", "/bin/sh")
 
 
+# ─────────────────── Windows 原生 ConPTY 后端(平台专章,2026-11-20 立) ───────────────────
+# 只在 `os.name == "nt"` 且内核导出 `CreatePseudoConsole`(Win10 1809+)时被调用;非 Windows
+# 宿主上本段只有纯 ctypes 常量与结构体定义(不碰 WinDLL),import 期安全。
+#
+# 设计口径:
+# - 零第三方依赖:`ctypes` 直连 kernel32(`CreatePseudoConsole` + `CreateProcessW` 启动属性
+#   表),不对齐外部实现绑原生 `.node` addon 的那一档;
+# - 环境边界不放松:env 由调用方以映射传入(调用方已过 `_strict_child_env`),本层只负责按
+#   Unicode 环境块编码;
+# - **不继承父句柄**:`CreateProcessW` 以 `bInheritHandles=FALSE` + `STARTF_USESTDHANDLES`
+#   (hStd* 全 NULL)启动 —— 本机实测踩点:继承父句柄时子进程把输出直接写进父控制台,
+#   ConPTY 输出管道只收到初始化转义序列、`isatty()` 反为 False(等于白接);
+# - ConPTY 自己持有输入/输出两端副本,父进程那份必须关掉,否则输出端永远等不到 EOF;
+# - `interrupt` 走行规程输入字节 0x03(子进程退出码 `0xC000013A` = STATUS_CONTROL_C_EXIT),
+#   不走 `GenerateConsoleCtrlEvent` —— 子进程挂在 ConPTY 自己的控制台上,不在本进程组里。
+
+_EXTENDED_STARTUPINFO_PRESENT: Final = 0x0008_0000
+_CREATE_UNICODE_ENVIRONMENT: Final = 0x0000_0400
+#: ProcThreadAttributeValue(22, Thread=FALSE, Input=TRUE, Additive=FALSE) = 22 | 0x20000
+_PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE: Final = 0x0002_0016
+_STARTF_USESTDHANDLES: Final = 0x0000_0100
+_STILL_ACTIVE: Final = 259
+_WAIT_TIMEOUT: Final = 258
+_INFINITE: Final = 0xFFFF_FFFF
+
+_CONPTY_K32: Any = None
+_CONPTY_K32_LOCK = threading.Lock()
+
+
+class _ConPtyCoord(ctypes.Structure):
+    _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+
+class _ConPtyStartupInfo(ctypes.Structure):
+    _fields_ = [
+        ("cb", ctypes.c_ulong),
+        ("lpReserved", ctypes.c_wchar_p),
+        ("lpDesktop", ctypes.c_wchar_p),
+        ("lpTitle", ctypes.c_wchar_p),
+        ("dwX", ctypes.c_ulong),
+        ("dwY", ctypes.c_ulong),
+        ("dwXSize", ctypes.c_ulong),
+        ("dwYSize", ctypes.c_ulong),
+        ("dwXCountChars", ctypes.c_ulong),
+        ("dwYCountChars", ctypes.c_ulong),
+        ("dwFillAttribute", ctypes.c_ulong),
+        ("dwFlags", ctypes.c_ulong),
+        ("wShowWindow", ctypes.c_ushort),
+        ("cbReserved2", ctypes.c_ushort),
+        ("lpReserved2", ctypes.c_void_p),
+        ("hStdInput", ctypes.c_void_p),
+        ("hStdOutput", ctypes.c_void_p),
+        ("hStdError", ctypes.c_void_p),
+    ]
+
+
+class _ConPtyStartupInfoEx(ctypes.Structure):
+    _fields_ = [("StartupInfo", _ConPtyStartupInfo), ("lpAttributeList", ctypes.c_void_p)]
+
+
+class _ConPtyProcessInfo(ctypes.Structure):
+    _fields_ = [
+        ("hProcess", ctypes.c_void_p),
+        ("hThread", ctypes.c_void_p),
+        ("dwProcessId", ctypes.c_ulong),
+        ("dwThreadId", ctypes.c_ulong),
+    ]
+
+
+def _conpty_kernel32() -> Any:
+    """惰性加载并绑定 kernel32 原型(import 期不碰 Win32,便于非 Windows 侧静态分析)。"""
+    global _CONPTY_K32
+    if _CONPTY_K32 is not None:
+        return _CONPTY_K32
+    with _CONPTY_K32_LOCK:
+        if _CONPTY_K32 is not None:
+            return _CONPTY_K32
+        factory = getattr(ctypes, "WinDLL", None)
+        if factory is None:  # 非 Windows 宿主:显式失败,由调用方 fail-closed
+            raise OSError("当前宿主没有 ctypes.WinDLL(非 Windows),ConPTY 不可用")
+        k32 = factory("kernel32", use_last_error=True)
+        k32.CreatePipe.argtypes = [
+            ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+            ctypes.c_void_p, ctypes.c_ulong,
+        ]
+        k32.CreatePipe.restype = ctypes.c_int
+        k32.CreatePseudoConsole.argtypes = [
+            _ConPtyCoord, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong,
+            ctypes.POINTER(ctypes.c_void_p),
+        ]
+        k32.CreatePseudoConsole.restype = ctypes.c_long
+        k32.ResizePseudoConsole.argtypes = [ctypes.c_void_p, _ConPtyCoord]
+        k32.ResizePseudoConsole.restype = ctypes.c_long
+        k32.ClosePseudoConsole.argtypes = [ctypes.c_void_p]
+        k32.InitializeProcThreadAttributeList.argtypes = [
+            ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong,
+            ctypes.POINTER(ctypes.c_size_t),
+        ]
+        k32.InitializeProcThreadAttributeList.restype = ctypes.c_int
+        k32.UpdateProcThreadAttribute.argtypes = [
+            ctypes.c_void_p, ctypes.c_ulong, ctypes.c_size_t, ctypes.c_void_p,
+            ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p,
+        ]
+        k32.UpdateProcThreadAttribute.restype = ctypes.c_int
+        k32.DeleteProcThreadAttributeList.argtypes = [ctypes.c_void_p]
+        k32.CreateProcessW.argtypes = [
+            ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p, ctypes.c_void_p,
+            ctypes.c_int, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_wchar_p,
+            ctypes.POINTER(_ConPtyStartupInfoEx), ctypes.POINTER(_ConPtyProcessInfo),
+        ]
+        k32.CreateProcessW.restype = ctypes.c_int
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        k32.CloseHandle.restype = ctypes.c_int
+        k32.GetExitCodeProcess.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
+        k32.GetExitCodeProcess.restype = ctypes.c_int
+        k32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        k32.WaitForSingleObject.restype = ctypes.c_ulong
+        k32.TerminateProcess.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        k32.TerminateProcess.restype = ctypes.c_int
+        _CONPTY_K32 = k32
+        return k32
+
+
+def _conpty_probe() -> bool:
+    """kernel32 是否真导出 `CreatePseudoConsole`(取不到一律 False,不抛给调用方)。"""
+    try:
+        return callable(getattr(_conpty_kernel32(), "CreatePseudoConsole", None))
+    except (OSError, AttributeError):
+        return False
+
+
+def _conpty_create_pipe(k32: Any) -> tuple[int, int]:
+    read_handle = ctypes.c_void_p()
+    write_handle = ctypes.c_void_p()
+    if not k32.CreatePipe(ctypes.byref(read_handle), ctypes.byref(write_handle), None, 0):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return int(read_handle.value or 0), int(write_handle.value or 0)
+
+
+def _conpty_close_handle(k32: Any, handle: int) -> None:
+    if handle:
+        with contextlib.suppress(OSError):
+            k32.CloseHandle(ctypes.c_void_p(handle))
+
+
+def _conpty_handle_int(value: Any) -> int:
+    """ctypes 的 `c_void_p` 字段读出时可能是 int 也可能是 None(视原型而定),统一成 int。"""
+    if value is None:
+        return 0
+    if isinstance(value, int):
+        return value
+    return int(getattr(value, "value", 0) or 0)
+
+
+def _conpty_attr_list(k32: Any, hpcon: Any) -> tuple[Any, Any]:
+    """建 PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 属性表;返回 (keepalive, ptr)。"""
+    size = ctypes.c_size_t(0)
+    k32.InitializeProcThreadAttributeList(None, 1, 0, ctypes.byref(size))
+    buf = ctypes.create_string_buffer(size.value)
+    ptr = ctypes.cast(buf, ctypes.c_void_p)
+    if not k32.InitializeProcThreadAttributeList(ptr, 1, 0, ctypes.byref(size)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        ok = k32.UpdateProcThreadAttribute(
+            ptr, 0, _PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+            hpcon, ctypes.sizeof(ctypes.c_void_p), None, None,
+        )
+    except BaseException:
+        with contextlib.suppress(Exception):
+            k32.DeleteProcThreadAttributeList(ptr)
+        raise
+    if not ok:
+        with contextlib.suppress(Exception):
+            k32.DeleteProcThreadAttributeList(ptr)
+        raise ctypes.WinError(ctypes.get_last_error())
+    return buf, ptr
+
+
+def _conpty_env_block(env: Mapping[str, str]) -> Any:
+    """按 CreateProcessW 的 Unicode 环境块形态编码(每条 `K=V\\0`,整块再补一个 `\\0`)。
+
+    用原始字节而不是 `c_wchar_p`:后者对含内嵌 NUL 的整块不可靠,会静默截断。
+    """
+    raw = ("".join(f"{key}={value}\0" for key, value in env.items()) + "\0").encode("utf-16-le")
+    return ctypes.create_string_buffer(raw, len(raw))
+
+
+class ConPtyProcess:
+    """`CreateProcessW` 子进程的最小 Popen 兼容壳(只覆盖会话编排真正用到的面)。"""
+
+    stdin: Any = None
+
+    def __init__(
+        self, *, proc_info: _ConPtyProcessInfo, hpcon: Any,
+        read_fd: int, write_io: Any, command_line: str,
+    ) -> None:
+        self._k32 = _conpty_kernel32()
+        self._pi = proc_info
+        self._hpcon = hpcon
+        self._command_line = command_line
+        self._released = False
+        self._read_fd = read_fd
+        self.write_io = write_io
+        self.pid = int(proc_info.dwProcessId)
+
+    @property
+    def read_fd(self) -> int:
+        return self._read_fd
+
+    def poll(self) -> int | None:
+        code = ctypes.c_ulong(0)
+        if not self._k32.GetExitCodeProcess(self._pi.hProcess, ctypes.byref(code)):
+            return None
+        return None if code.value == _STILL_ACTIVE else int(code.value)
+
+    def wait(self, timeout: float | None = None) -> int:
+        millis = _INFINITE if timeout is None else max(0, int(timeout * 1000))
+        rc = self._k32.WaitForSingleObject(self._pi.hProcess, millis)
+        if rc == _WAIT_TIMEOUT:
+            # timeout=None 走 _INFINITE,不可能超时;这里 timeout 必为已给出的值。
+            raise subprocess.TimeoutExpired(self._command_line, float(timeout or 0.0))
+        code = self.poll()
+        return 0 if code is None else code
+
+    def terminate(self) -> None:
+        with contextlib.suppress(OSError):
+            self._k32.TerminateProcess(self._pi.hProcess, 1)
+
+    def kill(self) -> None:
+        self.terminate()
+
+    def send_signal(self, sig: int) -> None:
+        """`interrupt` 走行规程输入字节 0x03;其余信号(terminate/kill)不经过这里。"""
+        if sig == _WIN_CTRL_BREAK_EVENT and self.write_io is not None:
+            self.write_io.write("\x03")
+            self.write_io.flush()
+            return
+        self.terminate()
+
+    def release(self) -> None:
+        """关伪控制台 + 进程/线程句柄(幂等)。由 `_close_io` 在会话摘除后调用。"""
+        if self._released:
+            return
+        self._released = True
+        with contextlib.suppress(OSError, ValueError):
+            self._k32.ClosePseudoConsole(self._hpcon)
+        _conpty_close_handle(self._k32, _conpty_handle_int(self._pi.hProcess))
+        _conpty_close_handle(self._k32, _conpty_handle_int(self._pi.hThread))
+
+
+def _conpty_spawn(
+    *, command_line: str, cwd: str, env: Mapping[str, str], cols: int = 120, rows: int = 30,
+) -> ConPtyProcess:
+    """在 ConPTY 里起子进程。任何一步失败都回滚已开句柄并抛 OSError(不抛裸 WinError)。"""
+    k32 = _conpty_kernel32()
+    msvcrt = importlib.import_module("msvcrt")
+    in_read, in_write = _conpty_create_pipe(k32)
+    try:
+        out_read, out_write = _conpty_create_pipe(k32)
+    except OSError:
+        _conpty_close_handle(k32, in_read)
+        _conpty_close_handle(k32, in_write)
+        raise
+
+    hpcon = ctypes.c_void_p()
+    hr = k32.CreatePseudoConsole(
+        _ConPtyCoord(max(1, cols), max(1, rows)),
+        ctypes.c_void_p(in_read), ctypes.c_void_p(out_write),
+        0, ctypes.byref(hpcon),
+    )
+    if hr != 0:
+        for handle in (in_read, in_write, out_read, out_write):
+            _conpty_close_handle(k32, handle)
+        raise OSError(f"CreatePseudoConsole 失败(HRESULT={hr})")
+    # ConPTY 已持有两端副本;父侧这份必须关,否则输出端等不到 EOF(读循环会一直挂住)。
+    _conpty_close_handle(k32, in_read)
+    _conpty_close_handle(k32, out_write)
+
+    proc_info = _ConPtyProcessInfo()
+    attr_ptr: Any = None
+    try:
+        _keepalive, attr_ptr = _conpty_attr_list(k32, hpcon)
+        si = _ConPtyStartupInfoEx()
+        si.StartupInfo.cb = ctypes.sizeof(_ConPtyStartupInfoEx)
+        # 不继承父句柄 + hStd* 全 NULL:让 ConPTY 接管子进程 stdio(否则子进程把输出
+        # 写进父控制台、isatty 反为 False —— 本机实测踩点)。
+        si.StartupInfo.dwFlags = _STARTF_USESTDHANDLES
+        si.StartupInfo.hStdInput = None
+        si.StartupInfo.hStdOutput = None
+        si.StartupInfo.hStdError = None
+        si.lpAttributeList = attr_ptr
+        env_buf = _conpty_env_block(env)
+        created = k32.CreateProcessW(
+            None, command_line, None, None, 0,
+            _EXTENDED_STARTUPINFO_PRESENT | _CREATE_UNICODE_ENVIRONMENT,
+            ctypes.cast(env_buf, ctypes.c_void_p), cwd,
+            ctypes.byref(si), ctypes.byref(proc_info),
+        )
+    except BaseException:
+        with contextlib.suppress(Exception):
+            k32.ClosePseudoConsole(hpcon)
+        _conpty_close_handle(k32, in_write)
+        _conpty_close_handle(k32, out_read)
+        raise
+    finally:
+        if attr_ptr is not None:
+            with contextlib.suppress(Exception):
+                k32.DeleteProcThreadAttributeList(attr_ptr)
+    if not created:
+        with contextlib.suppress(Exception):
+            k32.ClosePseudoConsole(hpcon)
+        _conpty_close_handle(k32, in_write)
+        _conpty_close_handle(k32, out_read)
+        raise ctypes.WinError(ctypes.get_last_error())
+
+    try:
+        read_fd = msvcrt.open_osfhandle(out_read, os.O_RDONLY | os.O_BINARY)
+    except (OSError, ValueError):
+        _conpty_close_handle(k32, in_write)
+        _conpty_close_handle(k32, out_read)
+        with contextlib.suppress(Exception):
+            k32.ClosePseudoConsole(hpcon)
+        with contextlib.suppress(Exception):
+            _conpty_close_handle(k32, _conpty_handle_int(proc_info.hProcess))
+        with contextlib.suppress(Exception):
+            _conpty_close_handle(k32, _conpty_handle_int(proc_info.hThread))
+        raise
+    try:
+        write_fd = msvcrt.open_osfhandle(in_write, os.O_WRONLY | os.O_BINARY)
+        write_io = os.fdopen(write_fd, "w", encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        with contextlib.suppress(OSError):
+            os.close(read_fd)
+        _conpty_close_handle(k32, in_write)
+        with contextlib.suppress(Exception):
+            k32.ClosePseudoConsole(hpcon)
+        raise
+    return ConPtyProcess(
+        proc_info=proc_info, hpcon=hpcon, read_fd=read_fd,
+        write_io=write_io, command_line=command_line,
+    )
+
+
 # 暴露给镜像测试的形状锁/判据出口(§22c:测试 import 真实判定,不复制常量)。
 __test__ = {
     "pty_requested": _pty_requested,
     "pty_supported_on_host": _pty_supported_on_host,
+    "conpty_available": _conpty_available,
     "PTY_REQUEST_ENV": PTY_REQUEST_ENV,
     "PTY_TRUTHY": _PTY_TRUTHY,
 }

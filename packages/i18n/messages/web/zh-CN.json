@@ -8741,6 +8741,11 @@
       "runtimeStatusPausing": "正在暂停…",
       "runtimeStatusCancelling": "正在取消…",
       "runtimePermissionMode": "权限模式 {mode} · {tool} · {decision}",
+      "runtimeHookRunTitle": "钩子运行",
+      "runtimeHookRunMeta": "{tool} · {count} 枚",
+      "runtimeHookRunOk": "通过",
+      "runtimeHookRunTimeout": "超时",
+      "runtimeHookRunError": "失败",
       "runtimeMessageSend": "第 {iteration} 轮请求已发出 · {count} 条消息",
       "runtimeSessionEndSuccess": "会话已完成 · {iterations} 轮 · 用时 {duration}",
       "runtimeSessionEndFailed": "会话异常结束 · {iterations} 轮 · 用时 {duration}",
@@ -9699,6 +9704,10 @@
         "TERMINAL_NOT_FOUND": {
           "title": "终端不存在",
           "action": "重新创建终端"
+        },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "平台不支持 PTY",
+          "action": "改用管道模式,或检查宿主 ConPTY 支持"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "终止信号发送失败",

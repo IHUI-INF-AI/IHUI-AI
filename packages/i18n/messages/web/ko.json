@@ -8741,6 +8741,11 @@
       "runtimeStatusPausing": "일시 중지 중…",
       "runtimeStatusCancelling": "취소 중…",
       "runtimePermissionMode": "권한 모드 {mode} · {tool} · {decision}",
+      "runtimeHookRunTitle": "훅 실행",
+      "runtimeHookRunMeta": "{tool} · {count}개",
+      "runtimeHookRunOk": "통과",
+      "runtimeHookRunTimeout": "시간 초과",
+      "runtimeHookRunError": "실패",
       "runtimeMessageSend": "{iteration}라운드 요청 전송됨 · 메시지 {count}개",
       "runtimeSessionEndSuccess": "세션 완료 · {iterations}라운드 · 소요 시간 {duration}",
       "runtimeSessionEndFailed": "세션 비정상 종료 · {iterations}라운드 · 소요 시간 {duration}",
@@ -9699,6 +9704,10 @@
         "TERMINAL_NOT_FOUND": {
           "title": "터미널 없음",
           "action": "터미널을 새로 만드세요"
+        },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "이 플랫폼에서는 PTY를 지원하지 않습니다",
+          "action": "파이프 모드로 전환하거나 호스트 ConPTY 지원을 확인하세요"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "신호 전송 실패",
