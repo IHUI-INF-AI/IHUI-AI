@@ -58,6 +58,10 @@ class _StubLoop:
     async def _emit(self, **kwargs: Any) -> None:
         self.emitted.append(kwargs)
 
+    async def _wait_interruptible(self, coro: Any, cancel_event: Any = None) -> Any:
+        # AIS-064 起 _request_approval 经此等待;stub 无 cancel/pause 标志,透明 await。
+        return await coro
+
 
 @pytest.fixture()
 def v2():
