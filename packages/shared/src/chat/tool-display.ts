@@ -53,12 +53,12 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   generate_report: 'toolGenerateReport',
   // 2026-11-21:人事六枚 hr_* 此前在这张表里一行都没有 ⇒ 界面上退化成裸码名
   // (用户实报"一堆英文的调用普通用户哪会知道")。这里补全五语言功能名。
-  hr_insurance_readiness: 'toolHrInsuranceReadinessCard',
-  hr_payroll_calc: 'toolHrPayrollCalcCard',
-  hr_my_payroll: 'toolHrMyPayrollCard',
-  hr_my_payroll_periods: 'toolHrMyPayrollPeriodsCard',
-  hr_my_attendance: 'toolHrMyAttendanceCard',
-  hr_my_leaves: 'toolHrMyLeavesCard',
+  hr_insurance_readiness: 'toolHrInsuranceReadiness',
+  hr_payroll_calc: 'toolHrPayrollCalc',
+  hr_my_payroll: 'toolHrMyPayroll',
+  hr_my_payroll_periods: 'toolHrMyPayrollPeriods',
+  hr_my_attendance: 'toolHrMyAttendance',
+  hr_my_leaves: 'toolHrMyLeaves',
   // G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
   create_artifact: 'toolCreateArtifact',
   // G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化
@@ -236,13 +236,6 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   ai_reimbursement: 'toolAiReimbursement',
   social_insurance_calc: 'toolSocialInsuranceCalc',
   special_deduction_calc: 'toolSpecialDeductionCalc',
-  // 2026-11-21 补齐(守门 55):人事部自助/算薪六枚(hr_tools 实装当日,五语言文案同批)
-  hr_insurance_readiness: 'toolHrInsuranceReadiness',
-  hr_my_attendance: 'toolHrMyAttendance',
-  hr_my_leaves: 'toolHrMyLeaves',
-  hr_my_payroll: 'toolHrMyPayroll',
-  hr_my_payroll_periods: 'toolHrMyPayrollPeriods',
-  hr_payroll_calc: 'toolHrPayrollCalc',
   read_image: 'toolReadImage',
   session_search: 'toolSessionSearch',
   sheet_formula_eval: 'toolSheetFormulaEval',
