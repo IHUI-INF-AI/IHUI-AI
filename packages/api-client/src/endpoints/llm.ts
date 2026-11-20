@@ -822,6 +822,12 @@ export interface PoolChatModel {
   category?: string
   /** latest / standard / legacy */
   modelTier?: string
+  /**
+   * 该模型实测可用的推理强度档位(2026-11-21 立)。
+   * 上游不公布枚举,只能实弹逐档核对后记下来;空数组 = 明确都不支持;
+   * 缺省 = 还没测过(前端回落通用档,不猜)。
+   */
+  reasoning_efforts?: string[]
 }
 
 /**
