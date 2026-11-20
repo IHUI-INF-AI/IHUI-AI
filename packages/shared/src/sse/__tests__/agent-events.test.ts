@@ -36,6 +36,7 @@ import {
   parseAgentQuestionEvent,
   parseAgentQuestionResolvedEvent,
   parseHookRunEvent,
+  parseAgentTaskEventStrict,
   parseAgentTaskEvent,
   sseFieldFaultCounts,
   resetSseFieldTelemetry,
@@ -830,6 +831,26 @@ describe('parseHookRunEvent', () => {
     expect(
       parseHookRunEvent(JSON.stringify({ type: 'tool.before', payload: frame.payload })),
     ).toBeNull()
+  })
+
+  // 2026-11-21 第 40 项:hook-run 进严格档(此前走 fallback,严格模式对它等于没开)
+  it('严格档:合法帧仍解析成事件', () => {
+    const strict = parseAgentTaskEventStrict('hook-run', JSON.stringify(frame))
+    expect(strict).not.toBeNull()
+    expect('fault' in (strict as object)).toBe(false)
+  })
+
+  it('严格档:缺 hooks ⇒ 返回字段级故障而不是悄悄走宽松', () => {
+    const bad = { type: 'hook-run', payload: { run_id: 's' } }
+    const strict = parseAgentTaskEventStrict('hook-run', JSON.stringify(bad))
+    expect(strict).not.toBeNull()
+    expect((strict as { field?: string }).field).toBe('hooks')
+  })
+
+  it('严格档:空 hooks ⇒ 字段级故障(与宽松档的拒帧同一条纪律)', () => {
+    const empty = { type: 'hook-run', payload: { run_id: 's', hooks: [] } }
+    const strict = parseAgentTaskEventStrict('hook-run', JSON.stringify(empty))
+    expect((strict as { field?: string }).field).toBe('hooks')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
