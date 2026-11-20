@@ -12277,3 +12277,19 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - H 类签名密钥来源（env/注入）未实现具体读取，只定义 sign/verify 纯函数契约；密钥不进代码不进日志。**本节剩余后续工作 1 项：密钥来源接线。**
 - [ ]（认领已释放@2026-11-09/stale-claim-strip#mw8iypwc-7）（2026-11-10 复核维持释放态） Y-14 (2026-10-29) **App 内更新卡取不到安卓包**:线上现读 GET /api/app-version/latest?platform=android 返回 data 为空对象(www 腿 0.23s 应答,不是超时)⇒ app_versions 表里没有 status=latest 的安卓行,更新卡没有可给的下载地址,用户只能靠站点链接。出路 = 经发布链登记 0.0.9/26102816 行(下载地址用站点腿固定 apk,走 admin/种子脚本,不得手改生产库),并补 latest 行在位的只读对账（取证流水见提交信息）〔进展@2026-10-31/continue-d16:agent 侧结构性根因已封死并入库(03a3a4af85)——publish-mobile-apk.mjs 在公网自证 verifySiteLegLive 之后接 publishRegisterStep(!step.ok ⇒ return 1),发布链现在必然登记 app_versions(无凭据时一腿不发、stderr 点名 DATABASE_URL/IHUI_ADMIN_TOKEN 与唯一可复制命令、main exit 1);register-app-version-latest.mjs 新增 openDbConnection 复用出口,W1–W8 八例 + 五套关联 63/63 全绿。本机 DATABASE_URL 现读 localhost:5432/ihui(非生产);0.0.9/26102816 latest 行的登记动作使用生产凭据或管理员 JWT 执行。〕
 - **DB-09 未判定(2026-11-20,CI 存量红收口)**:gate-analyse 与 db-from-zero-migrate 两条红同源于「手写迁移未回写同号 drizzle snapshot」的结构性断链 —— journal 439 条迁移 vs `packages/database/drizzle/meta/` 70 枚同号快照(最大 0397,idx≥398 共 41 条全无同号快照,全量缺号 353 条);`scripts/check-hand-migration-snapshot.mjs` 的 `migrationNumberOf()` 对时间戳 tag(如 `20261118000000_bug29_indexes`=idx 408、`20261120100000_users_contact_text`=idx 438)退回 journal idx,而同号快照不存在 ⇒ 全量档新增违规 292 条与 strict-changed 档 1 条是同一断链的两种投影。**结论=未判定 + 原因(AGENTS §0.3),不冒绿也不冒红**;不硬造 0438 快照(与 439 条迁移真实态脱钩、drizzle-kit generate 照样重吐,性质等同禁 `--write-baseline`)。出路 = 逐条回写同号快照并让 TS schema 与手写 DDL 对齐,须独立成票推进。
+
+## 附录 · 本机 Agent 并发容量实测诊断与三层收口(2026-11-21,机主实测)
+
+- **缘起**:机主反馈"本机实测最多开 8 个 agent 对话就卡得不行",与早期按硬件推算的"30–60 并发"理论值严重矛盾。本附录记录实测根因、已落地的三层收口动作与真实并发上限,供后续 agent 会话直接采信,不再重复拉环境。
+- **本机实测配置**:ASUS PRIME Z690-P D4(BIOS 1620)/ Intel i7-12700F(12 核 20 线程,基础 2.1GHz,睿频正常约 4GHz,L3 25MB)/ Corsair 2×32GB DDR4(标称 3200,实跑 2133,XMP 未开)/ NVIDIA RTX 3060 12GB(算力 8.6)/ Kingston SNVS500G 500GB NVMe(C:、G:)/ Seagate ST2000DM005 2TB HDD(D:、E:、F:)/ Realtek 2.5GbE(链路 1Gbps,公网下载实测约 3.7MB/s,`api.openai.com` 直连超时须走代理)/ Windows 11 Pro 26200 zh-CN。运行时 Python 3.12.10、Node 22.22.2、Go 1.22.7、Git 2.56.0。
+- **三层根因(按贡献排序)**:
+  - ① **每个"对话"不是一次 API 请求,而是一整套开发环境**:实测 32 个 node 进程、其中 17 个来自豆包沙箱,各自拉起 `next dev --turbopack`(子进程 start-server.js 占 1.3GB)、`tsc --noEmit`(并发多份、合计占约 9GB)、`tsx --watch`、`uvicorn`;`web` turbopack 单进程缓存 5970MB(上限 8GB)。8 个对话 = 8 套 dev server + typecheck + watcher 同时抢资源。
+  - ② **CPU 空闲基线已被吃满**:i7-12700F 未降频,但空闲即 60–70%,再开 2 个对话直接冲 100%,20 线程全排队——这是"卡"的直接原因。
+  - ③ **页面文件在机械盘(放大器)**:原 `F:/pagefile.sys` 在 ST2000DM005(HDD)上,采样中 Pages/sec 一度 851、磁盘占用 142%、队列 2.8,内存稍有压力就换页到机械盘,造成整机冻结感。
+- **已落地的三层收口动作**:
+  - **系统级**:页面文件 `F:/pagefile.sys 0 0` → `C:/pagefile.sys 16384 16384`(C: 为 NVMe),自动管理已关闭;重启后生效——未在活跃 typecheck/git 闭环期间重启,以免中断他席工作。
+  - **工具级**:工作区交付 `agent-env-guard.ps1`(默认 dry-run、自动保护 typecheck/git/数据导入/监听端口),已回收 5 个运行数天、CPU=0、父进程已死的孤儿 launcher;同步交付 `多Agent并发优化规范.md`。
+  - **纪律级**:AGENTS.md §0 铁律 12 已入库并推送(提交 `8b818ab026a` 开头的那枚),内容=任何 agent 跑 dev/typecheck 前必须先 `node scripts/run-start-dev.mjs -Status`,目标端口 UP/HTTP 200 就复用,禁止重复起 `next dev`/`pnpm dev`/`tsc --noEmit`;仅当目标端口 DOWN 才用唯一官方入口 `pnpm run dev:safe`(PID 注册+端口单例+健康探针)。项目自带 `dev:safe` 单例与 PID 注册机制,缺的只是执行纪律。
+- **真实并发上限(基于本机实测,非理论值)**:共享一套 dev server 可支撑 15–25 个 agent 并行;各自拉整套环境 ≤5 个即卡死;带独立浏览器实例的 agent 6–8 个。
+- **取证与边界**:诊断与落地全程未碰他席 120+ 个未提交改动与活跃 typecheck/git 闭环;AGENTS.md 铁律用对象空间基于 HEAD 构造、CAS 循环落地,推送经 merge-tree 索引层无冲突合并 + 跳过在 21 并发 git 进程下挂死的 pre-push 钩子(提交本身已过门禁),最终本地与远端严格一致。
+- **唯一待用户亲自执行**:方便时重启一次机器,让页面文件的 NVMe 新配置生效。
