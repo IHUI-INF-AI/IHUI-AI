@@ -154,8 +154,8 @@ export function ReasoningEffortAxis({
       </div>
 
       {expanded && (
-        // 左右各留 10px:滑块半径 9px,首末档贴边时不被卡片描边裁掉
-        <div className="mt-1.5 px-2.5 pb-0.5">
+        // 左右各留 12px:滑块半径 10px,首末档贴边时不被卡片描边裁掉
+        <div className="mt-1.5 px-3 pb-0.5">
           <div
             className="relative h-5"
             role="radiogroup"
@@ -165,14 +165,14 @@ export function ReasoningEffortAxis({
             {/* 贯通紫轨道(参考样式:整条常亮,不是进度条) */}
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-1/2 h-2.5 -translate-y-1/2 rounded-full bg-violet-500"
+              className="pointer-events-none absolute inset-x-0 top-1/2 h-3.5 -translate-y-1/2 rounded-full bg-violet-500"
             />
             {/* 档位圆点:每档一枚,当前档被白色滑块盖住 */}
             {tiers.map((effort, index) => (
               <span
                 key={`dot-${effort}`}
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/50"
+                className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45"
                 style={{ left: `${percentOf(index)}%` }}
               />
             ))}
@@ -180,7 +180,7 @@ export function ReasoningEffortAxis({
             {activeIndex >= 0 && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-black/5"
+                className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-black/5"
                 style={{ left: `${percentOf(activeIndex)}%` }}
                 data-testid="reasoning-effort-knob"
               />
