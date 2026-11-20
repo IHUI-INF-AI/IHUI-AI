@@ -122,6 +122,9 @@ export type { DataTableColumn, DataTableLabels, DataTableProps } from './compone
 export { ResizableHandle } from './components/resizable'
 export type { ResizableHandleProps } from './components/resizable'
 export { WebViewFrame } from './components/webview-frame'
+// 沙箱档常量随入口导出(2026-11-20):web 侧插件视图运行时、模型产物预览需要引用同一份,
+// 否则各处只能手写字面量,一旦有人改一处就出现两套档(档的单一真相源必须可达)。
+export { MODEL_CONTENT_SANDBOX, STRICT_SANDBOX } from './components/webview-frame'
 export type { WebViewFrameProps, WebViewMode, WebViewStatus } from './components/webview-frame'
 export type { WebViewFrameLabels } from './components/webview-frame'
 export { WorkPanel } from './components/work-panel'
