@@ -14,6 +14,7 @@ import {
   bigint,
   jsonb,
   numeric,
+  uuid,
   index,
   unique,
   uniqueIndex,
@@ -330,6 +331,46 @@ export const aiModelToolCallVerifications = pgTable(
   }),
 )
 
+/**
+ * 模型调价审计(2026-11-13 立,迁移 20261113190000_model_price_audit)
+ *
+ * 为什么单独立表:定价从"一次性脚本快照"变成"持续过程"以后,任何价格变动
+ * (自动补价 / 人工调价 / 审批上架 / 上游同步)都必须留痕,否则出问题回溯不到
+ * "谁、何时、按什么依据改的价"。审计表铁律:只追加,不更新,不删除。
+ *
+ * 2026-11-20 补定义(从零重放门实测):这张表由手写迁移建出、schema 里一直没有,
+ * 于是 `check-migration-from-zero` 的"迁移后库 ↔ schema"双向 diff 判红
+ * (`多表(库里有、schema 没有)[1]: ai_model_price_audit`)。补在这里让它有单一真相源。
+ */
+export const aiModelPriceAudit = pgTable(
+  'ai_model_price_audit',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    modelId: varchar('model_id', { length: 255 }).notNull(),
+    /** 命中的模型配置行;上游同步/兜底场景可能为空 */
+    configId: integer('config_id'),
+    oldInputPer1k: numeric('old_input_per_1k', { precision: 18, scale: 6 }),
+    oldOutputPer1k: numeric('old_output_per_1k', { precision: 18, scale: 6 }),
+    newInputPer1k: numeric('new_input_per_1k', { precision: 18, scale: 6 }).notNull(),
+    newOutputPer1k: numeric('new_output_per_1k', { precision: 18, scale: 6 }).notNull(),
+    /** 变动来源:auto-sweep(定时巡检) / manual(人工调价) / approve(审批上架) / public-sync */
+    changeSource: varchar('change_source', { length: 64 }).notNull(),
+    /** 定价档位:exact / alias / family / provider-fallback / global-fallback / manual */
+    changeTier: varchar('change_tier', { length: 32 }),
+    /** 兜底时参照的模型(审计复核用) */
+    refModel: varchar('ref_model', { length: 255 }),
+    operatorId: uuid('operator_id'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    modelCreatedIdx: index('idx_amp_audit_model').on(t.modelId, t.createdAt),
+    createdIdx: index('idx_amp_audit_created').on(t.createdAt),
+  }),
+)
+
+export type AiModelPriceAudit = typeof aiModelPriceAudit.$inferSelect
+export type NewAiModelPriceAudit = typeof aiModelPriceAudit.$inferInsert
 export type AiModelToolCallVerification = typeof aiModelToolCallVerifications.$inferSelect
 export type AiModelConfigGroup = typeof aiModelConfigGroups.$inferSelect
 export type NewAiModelConfigGroup = typeof aiModelConfigGroups.$inferInsert
