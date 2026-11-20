@@ -384,3 +384,4 @@
 {"path":"apps/api/tmp-dev-pool-check.mjs","reason":"临时诊断与取证脚本(tmp-diag/tmp-probe/tmp-cookie/tmp-dev),非产品代码;上游清理提交已删除,合并结果随之摘除"}
 {"path":"apps/web/src/lib/import-analysis-catalog.generated.ts","reason":"2026-11-19 收敛补录:origin/main 已删本生成物(2026-10-03 下沉 packages/shared 的收尾),本侧相对基底未改动;knip.jsonc 里为它保留的旧 ignore 条目同笔摘除,删除随合并传播","until":null}
 {"path":"packages/database/drizzle-pending-review/20261106150000_fix_missing_indexes_fks.sql","reason":"2026-11-19 收敛补录:origin/main 已删本迁移审阅件(该迁移已并入正式迁移链),本侧相对基底未改动,删除随合并传播","until":null}
+{"path":"packages/app/src/features/post-detail/post-actions.contract.ts","reason":"2026-11-20 收敛补录:origin/main 已删本契约件(改为内联类型收口),本侧相对基底未改动;落地树 0 引用,删除随合并传播","until":null}
