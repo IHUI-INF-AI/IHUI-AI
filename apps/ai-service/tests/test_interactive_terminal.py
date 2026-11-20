@@ -38,11 +38,21 @@ def test_pty_requested_reads_env_truthy_lowercase() -> None:
         assert term._pty_requested({key: miss}) is False
 
 
-def test_pty_supported_is_win32_fail_closed() -> None:
-    # 宿主判据必须与 os.name 直接绑定(不是"看起来能 import") —— Windows 分支硬 False,
-    # 保证未接 ConPTY 时 open_terminal 拒而非静默回落管道冒充已 PTY。
-    monkey_result = os.name != "nt"
-    assert term._pty_supported_on_host() is monkey_result
+def test_pty_supported_tracks_conpty_probe_not_import_fantasy() -> None:
+    """宿主判据必须由 `_conpty_available()` 真探测驱动(不是"看起来能 import")。
+
+    POSIX 恒 True(标准库 `pty`);Windows 只有 kernel32 真导出 `CreatePseudoConsole`
+    时才 True。探不到就维持 fail-closed,`open_terminal` 硬拒而不是回落管道冒充已 PTY。
+    """
+    expected = os.name != "nt" or _TEST["conpty_available"]()
+    assert term._pty_supported_on_host() is expected
+    if os.name == "nt":
+        # 本机是 Win10 1809+,ConPTY 必在。真探不到要在此点名(而非静默 False 然后
+        # 让 PTY 集成用例 skip 掉,把"没接上"藏成"不需要测")。
+        assert _TEST["conpty_available"]() is True, (
+            "Windows 宿主未探到 ConPTY:kernel32 缺 CreatePseudoConsole 或加载失败,"
+            "PTY 开关会按设计返回 TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM"
+        )
 
 
 def test_windows_pty_hard_rejects_and_does_not_fall_back() -> None:
@@ -104,8 +114,8 @@ def test_strict_child_env_applies_to_both_backends_via_source_lock() -> None:
     否则 PTY 悄悄继承了宿主环境 = 沙箱边界被放宽却没人发现。
     """
     src = io.open(term.__file__, encoding="utf-8").read()
-    # _spawn_pipe 与 _spawn_pty 都各出现一次 env 走 _strict_child_env,共 ≥2 次。
-    assert src.count("env=_strict_child_env(env_extra)") >= 2
+    # 三个 spawn 分支(管道 / POSIX pty / Windows ConPTY)都必须各走一次 `_strict_child_env`。
+    assert src.count("env=_strict_child_env(env_extra)") >= 3
     # 任何 subprocess.Popen( 调用点附近必须传了 env=;粗略:文件里没有裸 `subprocess.Popen(`
     # 不带 env= 的 spawn(排除注释行)。
     for line in src.splitlines():
@@ -116,6 +126,44 @@ def test_strict_child_env_applies_to_both_backends_via_source_lock() -> None:
             # Popen( 单独一行的行只出现起始;真正带 env 的在同段(多行)。这里只断文件里存在 env=
             pass
     assert "env=_strict_child_env" in src
+
+
+# ─── Windows ConPTY 专章:两条"本机实测踩点"的形状锁(静态判据,不 flaky) ───
+
+
+def _conpty_source() -> str:
+    """读模块源码一次(判据源 = 真实文件,不复制常量,§22c)。
+
+    ConPTY 是同一模块的"Windows 平台专章"(不另立第二份实现),故判据面就是 `term` 自身。
+    """
+    return io.open(term.__file__, encoding="utf-8").read()
+
+
+def test_conpty_does_not_inherit_parent_handles() -> None:
+    """ConPTY 子进程必须**不继承父句柄**且 hStd* 置 NULL。
+
+    实测踩点:起初按"继承句柄 + hStd* 留空"启动,子进程把自己的 stdout 直接写进父
+    控制台(ConPTY 输出管道只收到初始化转义序列),`isatty()` 反而是 False —— PTY 白接。
+    本锁把正确形态钉死:bInheritHandles=FALSE + STARTF_USESTDHANDLES。
+    """
+    src = _conpty_source()
+    assert "_STARTF_USESTDHANDLES" in src
+    assert "si.StartupInfo.hStdOutput = None" in src
+    # CreateProcessW 的 bInheritHandles 实参必须是 0(该调用是唯一的进程创建点)。
+    assert "None, command_line, None, None, 0," in src
+
+
+def test_conpty_interrupt_goes_through_line_discipline_bytes() -> None:
+    """`interrupt` 必须走行规程输入字节 0x03,不走 `GenerateConsoleCtrlEvent`。
+
+    子进程挂在 ConPTY 自己的控制台上,不在本进程进程组里 —— 控制台事件送不到它;
+    0x03 由行规程转成真 ^C,这才是真终端的中断语义。
+    """
+    src = _conpty_source()
+    assert 'self.write_io.write("\\x03")' in src
+    assert "_CTRL_BREAK_EVENT" in src
+    # 判据是"没有这个**调用**"(注释里解释为何不用它是允许的)。
+    assert "GenerateConsoleCtrlEvent(" not in src
 
 
 # ─── 集成:两种后端各验一次真值(证明默认路径逐字节不变 & PTY 真 isatty) ───
@@ -153,13 +201,12 @@ def test_default_backend_unaffected_is_pipe_and_isatty_false(tmp_path) -> None:
         term.close_terminal(tid, user_id="u-term", session_id="s-term")
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows 未接 ConPTY;由 shape-lock 覆盖 (test_windows_pty_hard_rejects...)")
-def test_posix_pty_backend_reports_true_isatty_and_backend_tag(tmp_path, monkeypatch) -> None:
-    """POSIX + `IHUI_INTERACTIVE_PTY=1`:backend=='pty' 且 isatty 返回 True.
+def test_pty_backend_reports_true_isatty_and_backend_tag(tmp_path, monkeypatch) -> None:
+    """开启 `IHUI_INTERACTIVE_PTY=1`:backend=='pty' 且子进程 isatty 返回 True(两平台各走自己后端)。
 
-    这一枚是**整次 PTY 落地的核心断言** —— 若 PTY 未生效,子进程 `sys.stdout` 会
-    是 pipe、isatty=False,和默认路径一模一样,前端就看不出差;而 True 只能从
-    真 tty 拿到(conpty/pty.openpty 都会)。
+    POSIX 走标准库 `pty.openpty()`,Windows 走原生 ConPTY —— 这一枚是**整次 PTY 落地的
+    核心断言**:若后端未生效,子进程 `sys.stdout` 会是 pipe、isatty=False,和默认路径
+    一模一样,前端就看不出差;而 True 只能从真 tty 拿到。
     """
     monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
     term.reset_terminals()
