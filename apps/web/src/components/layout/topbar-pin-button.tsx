@@ -5,11 +5,11 @@
 'use client'
 
 import * as React from 'react'
-import { Pin, PinOff } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
+import { PinToggleIcon } from '@/components/common/pin-toggle-icon'
 import { useDesktop } from '@/hooks/use-desktop'
 
 /**
@@ -77,7 +77,10 @@ export function TopBarPinButton() {
           pending && 'opacity-60',
         )}
       >
-        {pinned ? <PinOff /> : <Pin />}
+        {/* 状态式图标（2026-11-21）：已置顶=实心图钉、未置顶=划掉图钉。
+            旧写法 `pinned ? PinOff : Pin` 画的是"点击动作"，而这枚按钮带高亮 + aria-pressed，
+            又与 Min/Max/Close 同簇 ⇒ 用户把"划掉的图钉"读成"未置顶"，与高亮态正好相反。 */}
+        <PinToggleIcon pressed={pinned} />
       </button>
     </Tooltip>
   )

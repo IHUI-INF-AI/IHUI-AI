@@ -11,11 +11,12 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { FolderOpen, Pin, PinOff } from 'lucide-react'
+import { FolderOpen, Pin } from 'lucide-react'
 
 import { normalizeOrgName, ORG_FOLDER_MAX_LENGTH } from '@ihui/shared'
 
 import { cn } from '@/lib/utils'
+import { PinToggleIcon } from '@/components/common/pin-toggle-icon'
 import {
   Button,
   Dialog,
@@ -116,11 +117,17 @@ export function MoveToGroupDialog({
                 <button
                   type="button"
                   aria-label={pinned ? t('groupUnpin') : t('groupPin')}
+                  aria-pressed={pinned}
+                  data-state={pinned ? 'on' : 'off'}
                   data-testid={`move-dialog-pin-toggle-${folder}`}
                   onClick={() => onTogglePin(folder)}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className={cn(
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-accent hover:text-accent-foreground',
+                    pinned ? 'text-primary' : 'text-muted-foreground',
+                  )}
                 >
-                  {pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                  {/** 状态式图标:已置顶=实心图钉,未置顶=划掉图钉(2026-11-21) */}
+                  <PinToggleIcon pressed={pinned} className="h-3 w-3" />
                 </button>
               </div>
             )
