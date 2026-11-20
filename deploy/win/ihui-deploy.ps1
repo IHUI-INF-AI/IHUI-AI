@@ -3621,6 +3621,18 @@ function Invoke-GitWithTimeout {
     return @{ ExitCode = $proc.ExitCode; Output = $text; TimedOut = $false }
 }
 
+# ── 隧道服务自愈调用(2026-11-20 立;实现见同目录 heal-tunnel-service.ps1)──────────
+# 位置刻意排在"取源"之前:即使本轮 fetch/merge/构建全失败,公网入口也先被拉起来。
+# 子脚本自带幂等 + 全程 try/catch;取不到子脚本只打一行,不影响本轮部署判定。
+try {
+    $tunnelHealer = Join-Path $PSScriptRoot 'heal-tunnel-service.ps1'
+    if (Test-Path -LiteralPath $tunnelHealer) {
+        & $tunnelHealer 2>&1 | ForEach-Object { Log "$_" }
+    } else {
+        Log "WARN  TUNNEL-HEAL 子脚本缺失:$tunnelHealer(跳过)"
+    }
+} catch { Log "WARN  TUNNEL-HEAL 调用异常:$($_.Exception.Message)" }
+
 # ── 取源(2026-10-23 定稿:只有两个源,镜像已彻底移出部署链)─────────────────────
 # 病灶史:origin(GitHub)不可达 → 旧代码落到**国内镜像** → 镜像 main 是另一条收敛线
 # (实测与 prod HEAD 真分叉:HEAD 侧 5 枚 / 镜像侧 53 枚,54 文件 +3311/−3903)→
