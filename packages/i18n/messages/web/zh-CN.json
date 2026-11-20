@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "上次登记 {by}",      "hookFailures": {
         "title": "Hook 执行失败",
         "evidenceMissing": "未记录最终结果:该次执行既不在执行日志、也不在死信队列里,无法确认成败。",
         "state": {
@@ -8748,7 +8749,6 @@
       "runtimeHookRunError": "失败",
       "runtimeHookConfigUntrusted": "钩子配置 {count} 条未受信任,改动后需在本机重新登记信任",
       "runtimeHookConfigInvalid": "钩子配置文件损坏,已按无配置运行",
-      "runtimeHookConfigStaleBy": "上次登记 {by}",
       "runtimeMessageSend": "第 {iteration} 轮请求已发出 · {count} 条消息",
       "runtimeSessionEndSuccess": "会话已完成 · {iterations} 轮 · 用时 {duration}",
       "runtimeSessionEndFailed": "会话异常结束 · {iterations} 轮 · 用时 {duration}",
@@ -8860,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "终端输入通道已关闭",
+          "action": "重新打开终端会话后再发送输入"
+        },        "102": {
           "title": "请求时间校验失败",
           "action": "校准系统时间后重试"
         },
@@ -9736,11 +9740,7 @@
           "title": "终端启动失败",
           "action": "检查宿主环境"
         },
-        "TERMINAL_STDIN_CLOSED": {
-    "title": "终端输入通道已关闭",
-    "action": "重新打开终端会话后再发送输入"
-  },
-  "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_WRITE_FAILED": {
           "title": "终端写入失败",
           "action": "重试写入"
         },
@@ -13237,6 +13237,8 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortXhigh": "极深",
     "reasoningEffortMax": "极限",
+    "reasoningEffortUltra": "超极限",
+    "reasoningEffortDefault": "默认",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",
@@ -21119,28 +21121,58 @@
     "countSummary": "已加载 {loaded}/{total} 个产物"
   },
   "financeAi": {
-    "automationTitle": "国标平台自动化 · 内置浏览器执行腿",
-    "automationDesc": "代账与申报的对外腿:AI 用项目内置浏览器在电子税务局/社保医保网报厅データ取得、预填、走到提交闸;原生客户端场景走桌面自动化面(人在旁)。",
+    "annualBonusLabel": "年终奖(单独计税)",
+    "annualBonusPh": "0.00(可留空)",
+    "fieldAnnualBonus": "年终奖 {value}",
+    "reimbursementTitle": "AI 一键报销",
+    "reimbursementDesc": "费用明细 → 进项抵扣 + 个税口径 + 合规校验 + 分录草案",
+    "reimbursementCta": "发起一键报销",
+    "reimbursementJsonLabel": "报销明细(JSON 数组)",
+    "reimbursementJsonPh": "[{\"employee\":\"张三\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
+    "reimbursementHint": "支持 lodging_city_tier / travel_per_diem / conference / 进项转出 / 借款冲销 / 部门分摊扩展字段;草案须财务复核",
+    "reimbursementInvalid": "报销明细必须是合法的 JSON 数组",
+    "revenueLabel": "营业收入(招待费限额)",
+    "wageTotalLabel": "工资薪金总额(教育/福利限额)",
+    "fieldRevenue": "营业收入 {value}",
+    "fieldWageTotal": "工资薪金总额 {value}",
+    "promptReimbursement": "请调用 ai_reimbursement 执行一键报销。报销明细 JSON(逐条如实,金额一律字符串,禁止改动数字):{payload}",
+    "socialTitle": "社保医保精算",
+    "socialDesc": "逐人五险一金 + 医保个人账户/统筹拆分 + 基数封顶保底",
+    "socialCta": "发起社保精算",
+    "socialEmployeesLabel": "参保人员(JSON 数组)",
+    "socialEmployeesPh": "[{\"name\":\"张三\",\"gross\":\"19800\",\"base\":\"19800\"}]",
+    "socialAvgWageLabel": "社平工资(基数上下限锚)",
+    "fieldSocialAvgWage": "社平工资 {value}",
+    "socialInvalid": "参保人员必须是合法的 JSON 数组",
+    "promptSocial": "请调用 social_insurance_calc 做社保医保月度精算。期间:{period};参保人员 JSON(逐人如实,禁止改数):{payload}",
+    "deductionTitle": "个税专项附加",
+    "deductionDesc": "七项逐人计算,合计直接喂报税工资表",
+    "deductionCta": "计算专项附加",
+    "deductionEmployeesLabel": "员工扣除信息(JSON 数组)",
+    "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
+    "deductionInvalid": "员工扣除信息必须是合法的 JSON 数组",
+    "promptDeduction": "请调用 special_deduction_calc 逐人计算个税七项专项附加扣除。期间:{period};员工扣除信息 JSON:{payload}",    "automationTitle": "国标平台自动化 · 内置浏览器执行腿",
+    "automationDesc": "代账与申报的对外腿:AI 用项目内置浏览器在电子税务局/社保医保网报厅取数、预填、走到提交闸;原生客户端场景走桌面自动化面(人在旁)。",
     "targetEtaxInvoiceLedger": "电子税务局·发票底账/勾选认证",
-    "targetEtaxVatDeclaration": "电子税务局·增值税及지방세申报",
+    "targetEtaxVatDeclaration": "电子税务局·增值税及地方税附加申报",
     "targetEtaxCitQuarterly": "电子税务局·企业所得税季缴",
     "targetEtaxIitDeclaration": "个税·工资薪金扣缴申报",
     "targetSocialInsurance": "社保·单位增减员与缴费",
     "targetMedicalInsurance": "医保·单位增减员与缴费",
-    "targetBankStatement": "企业网银·回单与流水データ取得",
+    "targetBankStatement": "企业网银·回单与流水取数",
     "submitModeLabel": "提交闸门",
     "submitModeManual": "停在提交前一步,由我亲自点击(推荐)",
     "submitModeConfirmed": "AI 复述关键数字并获我确认后执行提交",
-    "provinceLabel": "성(省)拼音(展开电子税务局域名)",
+    "provinceLabel": "省份拼音(展开电子税务局域名)",
     "portalLabel": "平台入口 JSON(可选)",
     "portalPh": "例:'{'\"etax_portal\":\"https://etax.henan.chinatax.gov.cn\",\"bank_portal\":\"https://...\",\"social_portal\":\"https://...\",\"medical_portal\":\"https://...\"'}'",
     "portalInvalid": "portal 必须是合法的 JSON 对象",
     "automationNoTargets": "请至少勾选一个平台目标",
     "automationCta": "发起平台自动化(内置浏览器)",
-    "browserPrereq": "前置:打开本工作台所在浏览器页面并保持登录态(内置扩展/WorkPanel 连接);登录/验证码/人脸/U 盾环节由人完成,AI 只在已登录页面内データ取得与填报。",
+    "browserPrereq": "前置:打开本工作台所在浏览器页面并保持登录态(内置扩展/WorkPanel 连接);登录/验证码/人脸/U 盾环节由人完成,AI 只在已登录页面内取数与填报。",
     "automationTrust": "对外申报的最终责任在纳税人:提交动作默认保留给人;所有数字可回溯到平台回执或系统草案,平台校验差异会被如实上报而不是改数凑平。",
-    "automationPrompt": "【财务部·国标平台自动化】申报/データ取得期间 {period},提交闸门档位 {mode}(manual_gate=停在提交前一步由我亲自点击;user_confirmed=先向我复述目标·期间·应缴额并明示确认后才执行提交步)。请调用 ai_tax_filing phase=automation(targets={targets}{portals})产出分步计划,然后用内置浏览器工具(browser_*;页面在本工作台,经 tool-delegate 执行)逐步在当前会话执行并逐步汇报进度(每完成一步报:第几目标·第几步);登录态、验证码、人脸、U 盾等环节暂停等我完成后继续;TARGET_NOT_CONNECTED 时指导我连接后从断点续跑;缺入口地址先问我、绝不猜 URL;平台校验差异、申报数字要能指回草案或平台回执。",
-    "promptAutomationNote": "如需要,先取发票底账与银行回单(可与 ai_bookkeeping phase=automation 的データ取得計画配合),再回到账与税的计算链。",
+    "automationPrompt": "【财务部·国标平台自动化】申报/取数期间 {period},提交闸门档位 {mode}(manual_gate=停在提交前一步由我亲自点击;user_confirmed=先向我复述目标·期间·应缴额并明示确认后才执行提交步)。请调用 ai_tax_filing phase=automation(targets={targets}{portals})产出分步计划,然后用内置浏览器工具(browser_*;页面在本工作台,经 tool-delegate 执行)逐步在当前会话执行并逐步汇报进度(每完成一步报:第几目标·第几步);登录态、验证码、人脸、U 盾等环节暂停等我完成后继续;TARGET_NOT_CONNECTED 时指导我连接后从断点续跑;缺入口地址先问我、绝不猜 URL;平台校验差异、申报数字要能指回草案或平台回执。",
+    "promptAutomationNote": "如需要,先取发票底账与银行回单(可与 ai_bookkeeping phase=automation 的取数計画配合),再回到账与税的计算链。",
     "title": "财务部",
     "intro": "与人事部并列的部门板块。AI 一键代账与 AI 一键报税以插件形态接入对话：AI 自动调用会计内核分阶段执行，过程与进度实时回显。",
     "bookkeepingTitle": "AI 一键代账",

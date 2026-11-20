@@ -1661,9 +1661,10 @@ export function MessageInput({
                   与 Stop 并列(时间敏感动作必须 1 击可达);空闲仍只有发送一枚。 */}
               <div className="ai-input-toolbar-right flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
                 <div className="ai-input-toolbar-actions flex min-w-0 flex-wrap items-center justify-end gap-1">
-                  {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
+                  {/* 模型选择器 + 顶部推理强度卡片(2026-11-20 用户定档):D130 第三轴由弹层
+                    **底栏**上移到弹层**顶部**,样式为"模型名 + 当前档位 + 紫色滑轨"一枚卡片。
                     D130 守门判据要求 <ReasoningEffortInputAxis model={model} 挂载行留在本文件,
-                    footer 节点即该挂载点 —— 摘掉它档位就永远进不了请求(测试①③) */}
+                    header 节点即该挂载点 —— 摘掉它档位就永远进不了请求(测试①③) */}
                   <ModelSelector
                     value={model}
                     onChange={onModelChange}
@@ -1671,9 +1672,18 @@ export function MessageInput({
                     autoResolvedModel={autoResolvedModel}
                     menuOpen={modelMenuOpen}
                     onMenuOpenChange={setModelMenuOpen}
+                    header={
+                      <ReasoningEffortInputAxis
+                        model={model}
+                        disabled={isStreaming}
+                        // auto 是路由档:卡面写宿主解析出的实际模型,无信号时退回「自动」
+                        modelName={
+                          model === 'auto' ? (autoResolvedModel ?? t('modelAuto')) : undefined
+                        }
+                      />
+                    }
                     footer={
                       <>
-                        <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
                         {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                           自定义 system prompt,会话级持久化,随请求下发 LLM 网关。
                           2026-11-15:先关模型弹层再开面板(面板挂在本组件,不挂在菜单里)。 */}

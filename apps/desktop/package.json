@@ -1,1 +1,22 @@
-ewogICJuYW1lIjogIkBpaHVpL2Rlc2t0b3AiLAogICJ2ZXJzaW9uIjogIjAuMS44NSIsCiAgImxpY2Vuc2UiOiAiQXBhY2hlLTIuMCIsCiAgInByaXZhdGUiOiB0cnVlLAogICJ0eXBlIjogIm1vZHVsZSIsCiAgInNjcmlwdHMiOiB7CiAgICAiZGV2IjogIm5vZGUgLi4vLi4vc2NyaXB0cy9kZXNrdG9wLWJ1aWxkLm1qcyAtLWRldiAtLSAtLWNvbmZpZyBzcmMtdGF1cmkvdGF1cmkuZGV2Lmpzb24iLAogICAgImRldjpjZHAiOiAibm9kZSAuLi8uLi9zY3JpcHRzL2Rlc2t0b3AtYnVpbGQubWpzIC0tZGV2IC0tIC0tY29uZmlnIHNyYy10YXVyaS90YXVyaS5jZHAuanNvbiIsCiAgICAiYnVpbGQiOiAibm9kZSAuLi8uLi9zY3JpcHRzL2Rlc2t0b3AtYnVpbGQubWpzIiwKICAgICJ0YXVyaSI6ICJ0YXVyaSIsCiAgICAiYnVpbGQ6ZGVidWciOiAibm9kZSAuLi8uLi9zY3JpcHRzL2Rlc2t0b3AtYnVpbGQubWpzIC0tZGVidWciLAogICAgImljb25zOnJlZ2VuIjogIm5vZGUgc2NyaXB0cy9tYWtlLXJvdW5kZWQtaWNvbi5tanMgJiYgdGF1cmkgaWNvbiBzcmMtdGF1cmkvaWNvbnMvc291cmNlLXJvdW5kZWQucG5nIiwKICAgICJjbGVhbiI6ICJyaW1yYWYgZGlzdCBub2RlX21vZHVsZXMgLnR1cmJvIHNyYy10YXVyaS90YXJnZXQiCiAgfSwKICAiZGV2RGVwZW5kZW5jaWVzIjogewogICAgIkB0YXVyaS1hcHBzL2NsaSI6ICJeMi4xMS40IiwKICAgICJyaW1yYWYiOiAiY2F0YWxvZzoiCiAgfSwKICAiYXV0aG9yIjogIuadjuaYpeW3nSAoTGkgQ2h1bmNodWFuKSA8SUhVSSBBSSAo5pm65rGHQUkpPiIsCiAgImhvbWVwYWdlIjogImh0dHBzOi8vYWl6aHMudG9wIgp9Cg==
+{
+  "name": "@ihui/desktop",
+  "version": "0.1.85",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/desktop-build.mjs --dev -- --config src-tauri/tauri.dev.json",
+    "dev:cdp": "node ../../scripts/desktop-build.mjs --dev -- --config src-tauri/tauri.cdp.json",
+    "build": "node ../../scripts/desktop-build.mjs",
+    "tauri": "tauri",
+    "build:debug": "node ../../scripts/desktop-build.mjs --debug",
+    "icons:regen": "node scripts/make-rounded-icon.mjs && tauri icon src-tauri/icons/source-rounded.png",
+    "clean": "rimraf dist node_modules .turbo src-tauri/target"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "rimraf": "catalog:"
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top"
+}

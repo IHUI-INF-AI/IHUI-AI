@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "前回の承認 {by}",      "hookFailures": {
         "title": "Hook の実行に失敗しました",
         "evidenceMissing": "最終結果が未記録:この実行は実行ログにもデッドレターキューにも存在しないため、成否を確認できません。",
         "state": {
@@ -8748,7 +8749,6 @@
       "runtimeHookRunError": "失敗",
       "runtimeHookConfigUntrusted": "フック設定 {count} 件が未承認 — 変更後はこのマシンで再承認が必要",
       "runtimeHookConfigInvalid": "フック設定が壊れているため、未設定として実行中",
-      "runtimeHookConfigStaleBy": "前回の承認 {by}",
       "runtimeMessageSend": "第 {iteration} ラウンドのリクエスト送信済み · {count} 件のメッセージ",
       "runtimeSessionEndSuccess": "セッション完了 · {iterations} ラウンド · 所要時間 {duration}",
       "runtimeSessionEndFailed": "セッションが異常終了 · {iterations} ラウンド · 所要時間 {duration}",
@@ -8860,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "ターミナルの入力チャネルは閉じています",
+          "action": "ターミナルセッションを開き直してから入力してください"
+        },        "102": {
           "title": "リクエスト時刻の検証に失敗しました",
           "action": "システム時計を同期してから再試行"
         },
@@ -9736,11 +9740,7 @@
           "title": "ターミナルの起動に失敗しました",
           "action": "ホスト環境を確認してください"
         },
-        "TERMINAL_STDIN_CLOSED": {
-    "title": "ターミナルの入力チャネルは閉じています",
-    "action": "ターミナルセッションを開き直してから入力してください"
-  },
-  "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_WRITE_FAILED": {
           "title": "ターミナルへの書き込みに失敗しました",
           "action": "再試行してください"
         },
@@ -13237,6 +13237,8 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortXhigh": "超熟考",
     "reasoningEffortMax": "極限",
+    "reasoningEffortUltra": "超高",
+    "reasoningEffortDefault": "既定",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
     "analysisOpen": "シナリオ分析を見る",
@@ -21118,7 +21120,37 @@
     "countSummary": "{total} 件中 {loaded} 件の成果物を読み込み済み"
   },
   "financeAi": {
-    "automationTitle": "国家プラットフォーム自動化 · 内蔵ブラウザ実行レッグ",
+    "annualBonusLabel": "賞与(単独課税)",
+    "annualBonusPh": "0.00(空欄可)",
+    "fieldAnnualBonus": "賞与 {value}",
+    "reimbursementTitle": "AI 経費精算",
+    "reimbursementDesc": "費用明細 → 仕入税額控除 + 所得税判定 + コンプライアンス確認 + 仕訳草案",
+    "reimbursementCta": "経費精算を開始",
+    "reimbursementJsonLabel": "費用明細(JSON 配列)",
+    "reimbursementJsonPh": "[{\"employee\":\"张三\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
+    "reimbursementHint": "lodging_city_tier / travel_per_diem / conference / 仕入税額転出 / 仮払金相殺 / 部門配賦の拡張項目に対応。草案は財務責任者の確認が必要",
+    "reimbursementInvalid": "費用明細は有効な JSON 配列である必要があります",
+    "revenueLabel": "売上高(接待費限度額)",
+    "wageTotalLabel": "給与総額(教育/福利厚生限度額)",
+    "fieldRevenue": "売上高 {value}",
+    "fieldWageTotal": "給与総額 {value}",
+    "promptReimbursement": "ai_reimbursement ツールで経費精算を実行してください。費用明細 JSON(金額は文字列のまま、数値を改変しないこと): {payload}",
+    "socialTitle": "社会保険精算",
+    "socialDesc": "従業員別の五保険+住宅積立金、医療個人勘定/プール分割、基数上下限の判定",
+    "socialCta": "保険精算を開始",
+    "socialEmployeesLabel": "被保険者(JSON 配列)",
+    "socialEmployeesPh": "[{\"name\":\"张三\",\"gross\":\"19800\",\"base\":\"19800\"}]",
+    "socialAvgWageLabel": "社会平均賃金(基数基準)",
+    "fieldSocialAvgWage": "社会平均賃金 {value}",
+    "socialInvalid": "被保険者は有効な JSON 配列である必要があります",
+    "promptSocial": "social_insurance_calc で社会・医療保険の月次計算を実行してください。期間: {period};被保険者 JSON(数値を改変しないこと): {payload}",
+    "deductionTitle": "所得税特別控除",
+    "deductionDesc": "7 項目を従業員別に計算し、合計は申告用賃金表に直結",
+    "deductionCta": "特別控除を計算",
+    "deductionEmployeesLabel": "従業員控除情報(JSON 配列)",
+    "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
+    "deductionInvalid": "控除情報は有効な JSON 配列である必要があります",
+    "promptDeduction": "special_deduction_calc で従業員別の所得税特別控除 7 項目を計算してください。期間: {period};従業員 JSON: {payload}",    "automationTitle": "国家プラットフォーム自動化 · 内蔵ブラウザ実行レッグ",
     "automationDesc": "記帳と申告の対外レッグ:AI が本プロジェクトの内蔵ブラウザで電子税務局／社保・医療保険のポータルからデータ取得・事前入力し、提出ゲートの直前まで進める。ネイティブクライアントはデスクトップ自動化面（人が同席）で実行。",
     "targetEtaxInvoiceLedger": "電子税務局・請求書台帳／選択認証",
     "targetEtaxVatDeclaration": "電子税務局・増値税・付加税申告",

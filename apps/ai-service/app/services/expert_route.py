@@ -253,6 +253,90 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "guide the user to connect the browser and resume from the blocked step."
         ),
     ),
+    ExpertPack(
+        # 财务部五腿·一键报销(2026-11-13 立):触发即自动并入 ai_reimbursement。
+        slug="finance-reimbursement",
+        title="一键报销",
+        terms=(
+            "一键报销",
+            "报销",
+            "报账",
+            "费用报销",
+            "差旅报销",
+            "招待费报销",
+            "报销单",
+            "进项转出",
+            "借款冲销",
+            "费用分摊",
+            "reimbursement",
+        ),
+        tools=(
+            "ai_reimbursement",
+            "ai_bookkeeping",
+            "parse_document",
+            "document_tables",
+            "extract_document_assets",
+            "create_artifact",
+            "generate_report",
+        ),
+        hint=(
+            "## Expert pack active: finance-reimbursement\n"
+            "The user wants AI expense reimbursement (一键报销). Gather the expense list first "
+            "(employee, category, amount, date, invoice type — ask for missing items; never "
+            "invent amounts). Extract receipts/invoices via parse_document / document_tables "
+            "when the user uploads files, then call ai_reimbursement with the reimbursements "
+            "JSON (amounts as strings to avoid precision drift). The tool returns four-dimension "
+            "review (input-VAT deduction / IIT treatment / compliance caps like 招待费 0.5% · "
+            "教育 8% · 福利 14% / journal-entry draft) plus an HTML+JSON draft under tmp/artifacts. "
+            "Surface every compliance finding honestly; the draft is NOT a booking — route the "
+            "approved entries into ai_bookkeeping transactions and remind the user that a "
+            "finance supervisor must review before posting. Never fabricate caps or rates; "
+            "policy defaults in the tool are overridable per request."
+        ),
+    ),
+    ExpertPack(
+        # 财务部五腿·社保医保(2026-11-13 立):触发即自动并入 social_insurance_calc
+        # (+ special_deduction_calc 同族);公积金/基数口径以参保地核定为准。
+        slug="social-insurance",
+        title="社保医保",
+        terms=(
+            "社保基数",
+            "五险一金",
+            "社保精算",
+            "公积金基数",
+            "医保统筹",
+            "医保个人账户",
+            "缴费基数",
+            "社保缴费",
+            "社保滞纳金",
+            "基数调整",
+            "补充医疗",
+            "工伤保险",
+            "social insurance",
+        ),
+        tools=(
+            "social_insurance_calc",
+            "special_deduction_calc",
+            "ai_tax_filing",
+            "ai_bookkeeping",
+            "create_artifact",
+            "generate_chart",
+        ),
+        hint=(
+            "## Expert pack active: social-insurance\n"
+            "The user wants social/medical insurance payroll computation (社保医保精算). Gather "
+            "period + employee list (name, gross, base if overridden) first; ask for the "
+            "参保地 (city/province) — base floors/caps and rate splits differ by region, never "
+            "guess regional policy. Call social_insurance_calc: it returns per-employee 五险一金 "
+            "breakdown, employer monthly total, employee withholding total (feed directly into "
+            "ai_bookkeeping salary entries and ai_tax_filing wages social field), medical "
+            "account-vs-pool split, and per-person floor/cap flags. Optional extensions: "
+            "multi-city groups, annual base adjustment, late fee, supplementary medical, "
+            "cross-year interest. For IIT special deductions use special_deduction_calc and "
+            "hand its total to the wages special_deduction field. All results are drafts — "
+            "以参保地人社/医保核定为准; no external filing, no network."
+        ),
+    ),
 )
 
 

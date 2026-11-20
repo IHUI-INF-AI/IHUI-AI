@@ -38,9 +38,15 @@ export interface ReasoningEffortInputAxisProps {
   model: string
   /** 外部禁用(流式生成中),与工具栏其余控件同一口径 */
   disabled?: boolean
+  /** 卡片头行左侧的展示名(2026-11-20 用户附图样式要求卡面写明当前模型);缺省由展示件回退到轴标题 */
+  modelName?: string
 }
 
-export function ReasoningEffortInputAxis({ model, disabled }: ReasoningEffortInputAxisProps) {
+export function ReasoningEffortInputAxis({
+  model,
+  disabled,
+  modelName,
+}: ReasoningEffortInputAxisProps) {
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   const conversationId = chatStore((s) => s.conversationId)
@@ -54,12 +60,17 @@ export function ReasoningEffortInputAxis({ model, disabled }: ReasoningEffortInp
     [byConversation, conversationId, defaults],
   )
 
-  // 当前模型的能力位。'auto' 是路由档(后端替用户挑模型),对它谈"这个模型支不支持"没有意义
-  // ⇒ 按未知处理、不置灰,与 model-tier-utils 的 filterByCapabilities 同一语义。
-  const [capabilities, setCapabilities] = React.useState<ModelCapabilities | undefined>(undefined)
+  // 当前模型的能力位 + 展示名。'auto' 是路由档(后端替用户挑模型),对它谈"这个模型支不支持"
+  // 没有意义 ⇒ 按未知处理、不置灰,与 model-tier-utils 的 filterByCapabilities 同一语义。
+  // 展示名(2026-11-20 用户附图样式要求卡面写明模型)与能力位取自**同一次**列表拉取,
+  // 不新增第三个出口;拉不到 name 时展示件回退到轴标题。
+  const [meta, setMeta] = React.useState<{
+    capabilities?: ModelCapabilities
+    name?: string
+  }>({})
   React.useEffect(() => {
     if (!model || model === 'auto') {
-      setCapabilities(undefined)
+      setMeta({})
       return
     }
     let cancelled = false
@@ -68,10 +79,11 @@ export function ReasoningEffortInputAxis({ model, disabled }: ReasoningEffortInp
     fetchSelectorModels()
       .then((models) => {
         if (cancelled) return
-        setCapabilities(models.find((m) => m.id === model)?.capabilities)
+        const hit = models.find((m) => m.id === model)
+        setMeta({ capabilities: hit?.capabilities, name: hit?.name })
       })
       .catch(() => {
-        if (!cancelled) setCapabilities(undefined)
+        if (!cancelled) setMeta({})
       })
     return () => {
       cancelled = true
@@ -81,9 +93,10 @@ export function ReasoningEffortInputAxis({ model, disabled }: ReasoningEffortInp
   return (
     <ReasoningEffortAxis
       value={params.reasoningEffort}
-      capabilities={capabilities}
+      capabilities={meta.capabilities}
       notice={notice}
       disabled={disabled}
+      modelName={modelName ?? meta.name ?? (model === 'auto' ? undefined : model)}
       onChange={(next?: ReasoningEffort) => setParam(conversationId, 'reasoningEffort', next)}
     />
   )
