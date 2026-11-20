@@ -904,6 +904,12 @@ export function AgentTaskProgressPane() {
       : hookConfig?.status === 'invalid'
         ? t('runtimeHookConfigInvalid')
         : null
+  // 2026-11-21 第 32 项:未受信任时补一句"上一次是谁登记的" —— 只有审计元数据在,
+  // "谁改的/为什么失效"才有落点;旧信任文件没有这两个键时整句不出现。
+  const hookConfigStaleBy =
+    hookConfig?.status === 'untrusted' && hookConfig.trustedBy
+      ? t('runtimeHookConfigStaleBy', { by: hookConfig.trustedBy })
+      : null
   const hookStatusLabel = (status: 'ok' | 'timeout' | 'error'): string =>
     status === 'timeout'
       ? t('runtimeHookRunTimeout')
@@ -2089,6 +2095,11 @@ export function AgentTaskProgressPane() {
             >
               <ShieldAlert className="h-3 w-3 shrink-0" aria-hidden />
               <span className="min-w-0 truncate">{hookConfigNotice}</span>
+              {hookConfigStaleBy && (
+                <span className="shrink-0 text-muted-foreground opacity-70">
+                  {hookConfigStaleBy}
+                </span>
+              )}
             </div>
           )}
 

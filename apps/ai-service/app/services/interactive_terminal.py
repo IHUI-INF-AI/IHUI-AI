@@ -11,12 +11,16 @@
 
 本模块补最小闭环:
 - `open_terminal`:启动一个长驻子进程(管道路径下为 stdin/stdout/stderr 管道 + 读线程);
+  可带 `cols`/`rows` **开在**目标窗口尺寸(PTY 在 spawn 前/中钉住,管道只记账并回
+  `size_ignored`);
 - `send_terminal`:写入一行(可选追加换行);
 - `send_terminal_keys`:按**键名**发控制输入(Tab/Esc/方向键/Ctrl 组合) —— 方向键与 Esc
   是文本写不出来的字节序列,REPL 补全、TUI 菜单、vim 这类程序只认它们;
 - `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;
 - `wait_terminal`:等输出里出现某个 pattern(子串或正则),命中/超时/进程退出三种收口
   —— 轮询式 `read` 拼不出"等提示符"这件事(`wait_s` 单次上限 10s,且没有命中语义);
+- `eof_terminal`:送"输入结束"让按 EOF 收尾的程序自己收尾(管道关 stdin / PTY 写
+  `\\x04`),之后 send/keys 显式 `TERMINAL_STDIN_CLOSED`,不是只能 kill;
 - `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
@@ -30,8 +34,11 @@
   setsid + `TIOCSCTTY` 造**真 tty** —— 子进程 `isatty()` 为真,npm/cargo/pytest-v 这类按
   tty 出进度/颜色的程序表现与其在自己终端里一致;stdout 与 stderr 由 tty 行规程合并为
   单一 `pty` 通道(这是真终端的物理事实,非本实现的缺陷)。子进程环境**仍同经
-  `_strict_child_env`**,PTY 不放宽任何环境边界。**Windows 走原生 ConPTY**
-  (`conpty_win.py`:ctypes 直连 kernel32 的 `CreatePseudoConsole` + `CreateProcessW`
+  `_strict_child_env`**,PTY 不放宽任何环境边界;在这之上由 `_pty_child_env` 用
+  `setdefault` 补 `TERM=xterm-256color` / `COLORTERM=truecolor` —— 真 tty 缺 `TERM`
+  时程序会当 dumb 终端(颜色与光标控制全关、分页退化),而这两键不在宿主白名单里;
+  调用方显式传值仍以调用方为准,管道后端不补(那边不是 tty)。**Windows 走原生 ConPTY**
+  (ctypes 直连 kernel32 的 `CreatePseudoConsole` + `CreateProcessW`
   启动属性表,零第三方依赖),子进程同样 `isatty()` 为真;宿主/内核不支持时**显式返回
   `TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM`**,绝不静默回落管道冒充已 PTY(§0.3
   「没判绝不写成判过」)。
@@ -139,6 +146,11 @@ KEY_SEQUENCES: Final[dict[str, str]] = {
 MAX_KEYS_PER_CALL: Final = 32
 MAX_KEY_BYTES: Final = 4_096
 
+#: PTY 会话的终端身份两键(**只在调用方没显式给时补**)。真 tty 缺 `TERM` 时,程序
+#: (`ls --color` / `git` / `less` / `vim`)会按 dumb 终端处理:颜色与光标控制全关、分页退化。
+PTY_TERM: Final = "xterm-256color"
+PTY_COLORTERM: Final = "truecolor"
+
 #: 伪终端初始/上限尺寸。真 tty 必须有非零窗口尺寸 —— POSIX `pty.openpty()` 缺省给
 #: 0x0,按 tty 出进度的程序会算出荒谬的宽度;ConPTY 也要求 cols/rows > 0。故两套后端
 #: 都在开会话时钉住初始尺寸,并允许 `resize_terminal` 运行期改。
@@ -182,7 +194,7 @@ def _pty_supported_on_host() -> bool:
 class _ProcLike(Protocol):
     """会话编排真正用到的进程面。
 
-    管道后端是 `subprocess.Popen[str]`,ConPTY 后端是 `conpty_win.ConPtyProcess` ——
+    管道后端是 `subprocess.Popen[str]`,ConPTY 后端是本模块的 `ConPtyProcess` ——
     两者同形,编排层(上限/信号/宽限收尾)不按后端分叉。
     """
 
@@ -225,6 +237,8 @@ class TerminalSession:
     #: 当前窗口尺寸(PTY 才有意义;管道路径仅作记账,tty 语义不存在)。
     cols: int = DEFAULT_COLS
     rows: int = DEFAULT_ROWS
+    #: 是否已送过 EOF:送过之后 send/keys 一律显式拒,不静默丢字节。
+    stdin_closed: bool = False
 
     def running(self) -> bool:
         return self.proc.poll() is None
@@ -242,6 +256,7 @@ class TerminalSession:
             "backend": self.backend,
             "cols": self.cols,
             "rows": self.rows,
+            "stdin_closed": self.stdin_closed,
         }
 
 
@@ -403,6 +418,21 @@ def _make_ctty_setter() -> Any:
     return _preexec
 
 
+def _normalize_size(cols: Any, rows: Any) -> tuple[int, int, str]:
+    """窗口尺寸收敛的**单一出口**(open 的初始尺寸与 resize 共用,§0.6 只留一份判据)。
+
+    返回 `(cols, rows, 错误文案)`;错误文案非空即未通过(此时前两项无意义,调用方不得使用)。
+    非整数/越界一律显式拒,绝不把 0 或负数喂给内核(`TIOCSWINSZ` 收到 0 会让程序算出荒谬宽度)。
+    """
+    try:
+        cols_i, rows_i = int(str(cols).strip()), int(str(rows).strip())
+    except (TypeError, ValueError):
+        return 0, 0, "cols/rows 必须是整数"
+    if not (1 <= cols_i <= MAX_COLS and 1 <= rows_i <= MAX_ROWS):
+        return 0, 0, f"cols 需在 1..{MAX_COLS}、rows 需在 1..{MAX_ROWS}(实得 {cols_i}x{rows_i})"
+    return cols_i, rows_i, ""
+
+
 def _posix_set_winsize(fd: int, cols: int, rows: int) -> bool:
     """POSIX:对 master fd 写 `TIOCSWINSZ`,行规程据此更新前台进程组的窗口尺寸。
 
@@ -421,7 +451,12 @@ def _posix_set_winsize(fd: int, cols: int, rows: int) -> bool:
 
 
 def _spawn_pty(
-    command: str, cwd: str, env_extra: dict[str, str] | None
+    command: str,
+    cwd: str,
+    env_extra: dict[str, str] | None,
+    *,
+    cols: int = DEFAULT_COLS,
+    rows: int = DEFAULT_ROWS,
 ) -> tuple[subprocess.Popen[str], int, Any]:
     """PTY 后端(POSIX):master/slave 开伪终端,slave 作子进程 std* 并设控制终端。
 
@@ -432,6 +467,10 @@ def _spawn_pty(
     """
     pty_mod = importlib.import_module("pty")
     master_fd, slave_fd = pty_mod.openpty()
+    # `pty.openpty()` 给的是 0×0 窗口。**必须在 Popen 之前**钉尺寸:子进程一启动(哪怕只是
+    # `print(shutil.get_terminal_size())`)就可能读窗口,事后补会先给它一次荒谬宽度,
+    # 首屏按错尺寸排完版的程序(`vim`/`top`/`less`)不会重排。失败不致命,isatty 仍成立。
+    _posix_set_winsize(master_fd, cols, rows)
     try:
         proc = subprocess.Popen(
             command,
@@ -444,7 +483,7 @@ def _spawn_pty(
             encoding="utf-8",
             errors="replace",
             bufsize=1,
-            env=_strict_child_env(env_extra),
+            env=_pty_child_env(env_extra),
             start_new_session=True,
             preexec_fn=_make_ctty_setter(),
             close_fds=True,
@@ -469,28 +508,51 @@ def _spawn_pty(
 
 
 def _spawn_conpty(
-    command: str, cwd: str, env_extra: dict[str, str] | None
+    command: str,
+    cwd: str,
+    env_extra: dict[str, str] | None,
+    *,
+    cols: int = DEFAULT_COLS,
+    rows: int = DEFAULT_ROWS,
 ) -> tuple[_ProcLike, int, Any]:
     """PTY 后端(Windows):原生 ConPTY,返回 `(proc, 读 fd, 写端)`。
 
     命令统一经 `COMSPEC /d /s /c "<command>"` 走 shell 语义 —— 与管道路径的
     `shell=True` 对齐(`|`、`&&` 这类管道/串接在会话里照旧可用)。环境**仍取自**
     `_strict_child_env`,ConPTY 不放宽任何环境边界(本层只负责按 Unicode 环境块编码)。
+
+    尺寸在 `CreatePseudoConsole` 时一次钉死(这就是 Windows 侧"开在指定尺寸"的唯一时机:
+    ConPTY 的客户缓冲由 conhost 按该尺寸建,事后 `ResizePseudoConsole` 才改)。
     """
     comspec = os.environ.get("COMSPEC", "cmd.exe")
     proc = _conpty_spawn(
         command_line=f'{comspec} /d /s /c "{command}"',
         cwd=cwd,
-        env=_strict_child_env(env_extra),
-        cols=DEFAULT_COLS,
-        rows=DEFAULT_ROWS,
+        env=_pty_child_env(env_extra),
+        cols=cols,
+        rows=rows,
     )
     return proc, int(proc.read_fd), proc.write_io
+
+
+def _pty_child_env(env_extra: dict[str, str] | None) -> dict[str, str]:
+    """PTY 子进程环境 = 严档白名单 + 调用方显式键 + 终端身份两键的默认值。
+
+    **仍经 `_strict_child_env`**:PTY 不放宽任何环境边界,这里只补两个"真终端本该有、
+    而宿主白名单里没有"的键。`setdefault` 而非覆盖 —— 调用方显式传 `TERM` 时以它为准
+    (有人故意要 `dumb` 也得能要得到)。管道后端不用它:那边不是 tty,塞 `TERM` 只会骗程序。
+    """
+    env = _strict_child_env(env_extra)
+    env.setdefault("TERM", PTY_TERM)
+    env.setdefault("COLORTERM", PTY_COLORTERM)
+    return env
 
 
 def _open_pty_session(
     *, command: str, cwd: str, user_id: str | None, session_id: str | None,
     env_extra: dict[str, str] | None,
+    cols: int = DEFAULT_COLS,
+    rows: int = DEFAULT_ROWS,
 ) -> dict[str, Any]:
     """PTY 后端开会话(仅限 POSIX)。满额/起不来 → 结构化错误,不抛。"""
     _prune_for_new_session()
@@ -502,16 +564,18 @@ def _open_pty_session(
         }
     try:
         if os.name == "nt":
-            proc, read_fd, write_io = _spawn_conpty(command, cwd, env_extra)
+            proc, read_fd, write_io = _spawn_conpty(
+                command, cwd, env_extra, cols=cols, rows=rows
+            )
         else:
-            proc, read_fd, write_io = _spawn_pty(command, cwd, env_extra)
+            proc, read_fd, write_io = _spawn_pty(
+                command, cwd, env_extra, cols=cols, rows=rows
+            )
     except OSError as e:
         return {"ok": False, "errorCode": "TERMINAL_SPAWN_FAILED", "error": f"PTY 启动失败: {e}"}
-    if os.name != "nt":
-        # `pty.openpty()` 缺省是 0x0 窗口:按 tty 出进度的程序会算出荒谬宽度。开会话即钉
-        # 初始尺寸(失败不致命,isatty 仍成立)。ConPTY 由 CreatePseudoConsole 的 size 参数
-        # 直接钉住,无需事后补。
-        _posix_set_winsize(read_fd, DEFAULT_COLS, DEFAULT_ROWS)
+    # 尺寸在 spawn 那一刻就钉住(POSIX 在 Popen 前 ioctl master,Windows 由
+    # CreatePseudoConsole 的 size 参数给),这里只做账本记账 —— 不再"起完再补一次",
+    # 因为补的那次永远晚于子进程的第一次读数。
     session = TerminalSession(
         terminal_id=f"term_{uuid.uuid4().hex[:12]}",
         owner_user_id=user_id or None,
@@ -523,8 +587,8 @@ def _open_pty_session(
         write_io=write_io,
         pty_read_fd=read_fd,
         backend="pty",
-        cols=DEFAULT_COLS,
-        rows=DEFAULT_ROWS,
+        cols=cols,
+        rows=rows,
     )
     _sessions[session.terminal_id] = session
     thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
@@ -540,10 +604,27 @@ def open_terminal(
     user_id: str | None,
     session_id: str | None,
     env_extra: dict[str, str] | None = None,
+    cols: int | None = None,
+    rows: int | None = None,
 ) -> dict[str, Any]:
-    """启动长驻子进程;返回 terminal_id 与初始元数据(含 `backend`:"pipes"|"pty")。"""
+    """启动长驻子进程;返回 terminal_id 与初始元数据(含 `backend`:"pipes"|"pty")。
+
+    `cols`/`rows` = **开会话那一刻的窗口尺寸**(真终端本来就该在进程启动时定尺寸):
+    - PTY 后端在 spawn 之前/之中钉住(POSIX 在 Popen 前 `TIOCSWINSZ` master,Windows 由
+      `CreatePseudoConsole` 的 size 参数给),子进程**第一次读窗口**就是对的 —— 先按
+      120×30 起步再 resize 会让 `vim`/`top`/`less` 首屏按错尺寸排完版且不会重排;
+    - 管道后端没有 tty 语义:尺寸只记账不进内核,响应里显式回 `size_ignored=True` 与原因
+      (不静默 no-op,也不假装"已按你要的尺寸开会话");
+    - 缺省(都不传)= `DEFAULT_COLS`×`DEFAULT_ROWS`,与既有行为逐字节一致。
+    """
     if not command.strip():
         return {"ok": False, "errorCode": "TERMINAL_INVALID_COMMAND", "error": "command 为空"}
+    want_cols = DEFAULT_COLS if cols is None else cols
+    want_rows = DEFAULT_ROWS if rows is None else rows
+    # 越界/非整数在**建会话之前**拒:否则先把进程拉起来再报错,等于留下一枚尺寸未知的会话。
+    cols_i, rows_i, size_err = _normalize_size(want_cols, want_rows)
+    if size_err:
+        return {"ok": False, "errorCode": "TERMINAL_INVALID_SIZE", "error": size_err}
     # PTY 是显式 opt-in:请求了但当前宿主跑不了(POSIX 无 pty / Windows 无 ConPTY)
     # → fail-closed 硬拒,不静默回落管道冒充已 PTY(否则消费方以为拿到真 tty,实则块缓冲)。
     if _pty_requested() and not _pty_supported_on_host():
@@ -556,11 +637,15 @@ def open_terminal(
                 "置空该环境变量以使用管道路径。"
             ),
         }
+    # 管道后端没有 tty 语义:尺寸不进内核,账本也只记缺省值(把它记成 100×40 会让读账本的人
+    # 以为内核真按 100×40 排版,那才是骗)。调用方显式要过尺寸时,响应如实回 size_ignored。
+    size_requested = cols is not None or rows is not None
     with _registry_lock:
         if _pty_requested() and _pty_supported_on_host():
             return _open_pty_session(
                 command=command, cwd=cwd, user_id=user_id,
                 session_id=session_id, env_extra=env_extra,
+                cols=cols_i, rows=rows_i,
             )
         _prune_for_new_session()
         if len(_sessions) >= MAX_SESSIONS:
@@ -594,6 +679,16 @@ def open_terminal(
         thread = threading.Thread(target=_pump, args=(session, stream, tag), daemon=True)
         thread.start()
         session.pumps.append(thread)
+    if size_requested:
+        return {
+            "ok": True,
+            "terminal": session.to_dict(),
+            "size_ignored": {"cols": cols_i, "rows": rows_i},
+            "size_ignored_reason": (
+                "管道路径没有 tty 语义:窗口尺寸只对真 tty 生效;"
+                f"要以 tty 开会话请设 {PTY_REQUEST_ENV}=1"
+            ),
+        }
     return {"ok": True, "terminal": session.to_dict()}
 
 
@@ -610,6 +705,12 @@ def send_terminal(
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
+        }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再写入;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
         }
     if not session.running():
         return {
@@ -714,6 +815,12 @@ def send_terminal_keys(
             "ok": False, "errorCode": code,
             "error": f"按键总字节超上限 {MAX_KEY_BYTES}(实得 {detail})",
         }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再发按键;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
     if not session.running():
         return {
             "ok": False, "errorCode": "TERMINAL_EXITED",
@@ -742,6 +849,77 @@ def send_terminal_keys(
         "keys": detail.split("|"),
         "bytes_written": len(payload),
     }
+
+def eof_terminal(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """给会话送"输入结束"(EOF),让按 EOF 收尾的程序正常收尾,而不是只能被 kill。
+
+    真终端的 EOF 不是"写一个特殊字符"那么单一,两条后端语义不同,这里如实区分:
+
+    - **管道**:直接关闭 stdin 写端 → 子进程下一次读到真 EOF(不可逆,也是标准 unix 做法);
+    - **PTY / POSIX**:写 `\\x04`(Ctrl-D)→ 由**行规程**解释为"本行结束,且无内容可读";
+    - **PTY / Windows ConPTY**:写 `\\x1a\\r`(Ctrl-Z + 回车)。本机实测:`\\x04` 与不带回车的
+      `\\x1a` 都**不产生 EOF**(conhost 把 `^D` 当普通字符回显、单发 `^Z` 也不提交),
+      只有 `^Z` + 回车才让子进程读到 EOF —— 这是 Windows 控制台的 EOF 字符约定,
+      不是本实现自选的口径;照抄 `\\x04` 会在这里变成一条"说了能收尾、其实收不了"的谎。
+
+    程序的输入模式同样决定成败:它在 raw 模式(自己管输入,如 `vim` 的编辑态)时,EOF 字节
+    只是普通字节,不保证收尾 —— 那是程序决定的,不是本层丢语义。
+
+    幂等:重复调用只回 `already_closed=True`。送过 EOF 后 `send` / `keys` 一律
+    `TERMINAL_STDIN_CLOSED` 显式拒(不静默丢字节,也不假装写成功)。
+
+    时序建议(本机实测):EOF 字节**晚于子进程就绪**再送。子进程还没起来时写进 ConPTY 的
+    输入可能只被 conhost 回显(`^Z` 直接当普通字符),不产生 EOF —— 先 `wait_for` 提示符
+    再 eof;这不是本层的缺陷,而是"往还没挂上输入处理的终端写字节"的通病。
+    """
+    session = _sessions.get(terminal_id)
+    if session is None or not _owned(session, user_id, session_id):
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.stdin_closed:
+        return {
+            "ok": True, "terminal_id": terminal_id, "backend": session.backend,
+            "already_closed": True,
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "无可用写入端",
+            "terminal": session.to_dict(),
+        }
+    with session.lock:
+        try:
+            if session.backend == "pty":
+                sink.write("\x1a\r" if os.name == "nt" else "\x04")
+                sink.flush()
+            else:
+                sink.close()
+        except (BrokenPipeError, OSError, ValueError) as e:
+            return {
+                "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+                "error": f"送 EOF 失败: {e}",
+                "terminal": session.to_dict(),
+            }
+        session.stdin_closed = True
+    return {
+        "ok": True, "terminal_id": terminal_id, "backend": session.backend,
+        "eof_sent": True,
+    }
+
 
 def read_terminal(
     terminal_id: str,
@@ -986,19 +1164,11 @@ def resize_terminal(
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
         }
-    try:
-        cols_i, rows_i = int(cols), int(rows)
-    except (TypeError, ValueError):
+    # 尺寸判据与 open 共用同一出口(_normalize_size),两处不再各写一份 1..MAX 的判断。
+    cols_i, rows_i, size_err = _normalize_size(cols, rows)
+    if size_err:
         return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_SIZE",
-            "error": "cols/rows 必须是整数",
-        }
-    if not (1 <= cols_i <= MAX_COLS and 1 <= rows_i <= MAX_ROWS):
-        return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_SIZE",
-            "error": (
-                f"cols 需在 1..{MAX_COLS}、rows 需在 1..{MAX_ROWS}(实得 {cols_i}x{rows_i})"
-            ),
+            "ok": False, "errorCode": "TERMINAL_INVALID_SIZE", "error": size_err,
         }
     if session.backend != "pty":
         return {
@@ -1443,8 +1613,13 @@ __test__ = {
     "pty_supported_on_host": _pty_supported_on_host,
     "conpty_available": _conpty_available,
     "resize_terminal": resize_terminal,
+    "normalize_size": _normalize_size,
     "wait_terminal": wait_terminal,
     "send_terminal_keys": send_terminal_keys,
+    "eof_terminal": eof_terminal,
+    "pty_child_env": _pty_child_env,
+    "PTY_TERM": PTY_TERM,
+    "PTY_COLORTERM": PTY_COLORTERM,
     "pattern_judge": _pattern_judge,
     "keys_payload": _keys_payload,
     "key_sequences": KEY_SEQUENCES,

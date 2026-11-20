@@ -46,9 +46,11 @@ import json
 import logging
 import os
 import re
+import socket
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -212,16 +214,25 @@ def _parse_specs(raw: Mapping[str, Any]) -> list[CommandHookSpec]:
     return specs
 
 
-def _read_trusted_hash(trust_path: Path) -> str | None:
+def _read_trust_record(trust_path: Path) -> dict[str, Any]:
+    """读信任文件的**整条记录**(哈希 + 登记元数据)。
+
+    兼容只写了 ``trusted_content_hash`` 的旧文件:元数据键缺省为空,
+    不影响信任判定(判定只认哈希)。文件不存在 = 空记录。
+    """
     if not trust_path.exists():
-        return None
+        return {}
     try:
         data = json.loads(trust_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise CommandHookError(f"信任文件不可读: {exc}") from exc
     if not isinstance(data, Mapping):
         raise CommandHookError("信任文件必须是对象")
-    value = data.get("trusted_content_hash")
+    return {k: v for k, v in data.items() if isinstance(k, str)}
+
+
+def _read_trusted_hash(trust_path: Path) -> str | None:
+    value = _read_trust_record(trust_path).get("trusted_content_hash")
     return value if isinstance(value, str) and value else None
 
 
@@ -297,6 +308,9 @@ def describe_command_hooks(config_path: Path | None = None) -> dict[str, Any]:
         "error": None,
         "content_hash": None,
         "trusted_hash": None,
+        "trusted_at": None,
+        "trusted_by": None,
+        "trusted_host": None,
         "specs": [],
     }
     if not path.exists():
@@ -326,11 +340,16 @@ def describe_command_hooks(config_path: Path | None = None) -> dict[str, Any]:
         info["status"] = "empty"
         return info
     try:
-        trusted = _read_trusted_hash(_trust_path(path))
+        record = _read_trust_record(_trust_path(path))
     except CommandHookError as exc:
         info.update(status="invalid", error=str(exc))
         return info
+    trusted_raw = record.get("trusted_content_hash")
+    trusted = trusted_raw if isinstance(trusted_raw, str) and trusted_raw else None
     info["trusted_hash"] = trusted
+    info["trusted_at"] = record.get("trusted_at") if isinstance(record.get("trusted_at"), str) else None
+    info["trusted_by"] = record.get("trusted_by") if isinstance(record.get("trusted_by"), str) else None
+    info["trusted_host"] = record.get("host") if isinstance(record.get("host"), str) else None
     ok = bool(trusted) and hmac.compare_digest(trusted, info["content_hash"])
     info["status"] = "trusted" if ok else "untrusted"
     if not ok:
@@ -338,18 +357,32 @@ def describe_command_hooks(config_path: Path | None = None) -> dict[str, Any]:
     return info
 
 
-def trust_hooks_config(config_path: Path | None = None) -> str:
+def trust_hooks_config(config_path: Path | None = None, *, actor: str | None = None) -> str:
     """把当前配置内容登记为受信任(写 ``.ihui/hooks-trust.json``)。
 
     这是**显式的用户动作**:内容一改哈希就变,旧信任自动失效(不做"信任整目录")。
+
+    2026-11-21:信任记录从"一个哈希"扩成**可审计的一条登记**——``trusted_at`` /
+    ``trusted_by`` / ``host`` / ``config_path``。理由:本机命令钩子等于把 shell
+    执行权交给配置文件,事后追责必须能回答"谁在什么时候信任了哪份内容";只留
+    哈希时这三个问题一个都答不上。新增键不参与判定(判定仍只认哈希),旧格式
+    照读。
     """
     path = config_path or _default_config_path()
     raw_bytes = path.read_bytes()
     digest = hooks_content_hash(raw_bytes)
     trust_path = _trust_path(path)
     trust_path.parent.mkdir(parents=True, exist_ok=True)
+    who = actor or os.environ.get("USERNAME") or os.environ.get("USER") or "unknown"
+    record = {
+        "trusted_content_hash": digest,
+        "trusted_at": datetime.now(UTC).isoformat(),
+        "trusted_by": who,
+        "host": socket.gethostname(),
+        "config_path": str(path),
+    }
     trust_path.write_text(
-        json.dumps({"trusted_content_hash": digest}, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(record, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return digest
@@ -473,6 +506,7 @@ _KIND_BY_EVENT: Final[dict[str, HookKind]] = {
     "post_tool_use": HookKind.POST_TOOL_USE,
     "permission_request": HookKind.PERMISSION_REQUEST,
     "session_start": HookKind.SESSION_START,
+    "session_end": HookKind.SESSION_END,
     "user_prompt_submit": HookKind.USER_PROMPT_SUBMIT,
     "pre_compact": HookKind.PRE_COMPACT,
     "post_compact": HookKind.POST_COMPACT,
@@ -518,14 +552,58 @@ def install_command_hooks(config_path: Path | None = None) -> int:
     return installed
 
 
+def _print_trust_preview(path: Path, specs: list[CommandHookSpec]) -> None:
+    """本机操作者看的待信任清单(**完整命令行**只在这里出现)。
+
+    为什么这里可以打全文:信任动作只允许在本机 shell 里做,能读到这段输出的人
+    与能改这份配置文件的人同等权限;而 HTTP 自述面刻意只给可执行名(见
+    ``_describe_spec``),两个面权限不同,展示粒度也就不同。
+    """
+    print(f"配置文件: {path}")
+    for spec in specs:
+        print(f"  [{spec.event}] matcher={spec.matcher} timeout={spec.timeout:g}s name={spec.name}")
+        print(f"      command: {spec.command}")
+    print("信任 = 允许上述命令在本机 shell 执行;配置内容一改,信任自动失效。")
+
+
 def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="命令钩子配置信任闸")
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--trust", action="store_true", help="登记当前内容为受信任")
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="配合 --trust:跳过交互确认(非交互环境必须显式给)",
+    )
     parser.add_argument("--list", action="store_true", help="列出可执行钩子(过闸后)")
     args = parser.parse_args(argv)
     if args.trust:
-        digest = trust_hooks_config(args.config)
+        path = args.config or _default_config_path()
+        if not path.exists():
+            print(f"配置文件不存在: {path}", file=sys.stderr)
+            return 2
+        try:
+            raw = json.loads(path.read_bytes())
+            specs = _parse_specs(raw) if isinstance(raw, Mapping) else []
+        except (CommandHookError, json.JSONDecodeError, OSError) as exc:
+            print(f"配置不合法,拒绝登记信任: {exc}", file=sys.stderr)
+            return 2
+        if not specs:
+            print("配置里没有可执行钩子(空表),无需登记信任", file=sys.stderr)
+            return 2
+        _print_trust_preview(path, specs)
+        if not args.yes:
+            if not sys.stdin.isatty():
+                print(
+                    "非交互环境:必须显式 --yes 才能登记信任(不给就按未判定退出)",
+                    file=sys.stderr,
+                )
+                return 2
+            answer = input("确认信任以上命令? 输入 yes 继续: ").strip().lower()
+            if answer not in ("yes", "y"):
+                print("已取消(未写信任文件)", file=sys.stderr)
+                return 2
+        digest = trust_hooks_config(path)
         print(f"trusted {digest}")
         return 0
     if args.list:
