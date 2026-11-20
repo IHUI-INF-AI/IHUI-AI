@@ -3528,8 +3528,26 @@ pub fn checkin_detect_trae_dir() -> Result<Option<String>, IpcError> {
     Ok(detect_trae_dir().map(|p| p.display().to_string()))
 }
 
-#[tauri::command]
-pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
+/// 把 JWT 脱敏成 `****…<last4>` —— 仅供"只展示不导入"的 UI 复用;不可用于账号导入。
+///
+/// 2026-11-20(Y-83):主命令返回完整 JWT 是因为下游 `createCheckinAccount` 要把可解析的
+/// 明文交给服务端录入,就地脱敏会直接打断该流程;故改为"原生确认闸 + 按需导出完整值",
+/// 任何展示/日志路径都应先过本 helper,避免明文落到屏幕或日志。
+/// 当前前端仍用完整值走导入,本 helper 由单测钉住行为,待展示层接入后启用。
+#[allow(dead_code)]
+fn mask_jwt(jwt: &str) -> String {
+    if jwt.is_empty() {
+        return String::new();
+    }
+    let last4: String = jwt.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    format!("****…{last4}")
+}
+
+/// 原生确认闸**之内**的本体(无闸,测试可直调,避免 E0061)。
+///
+/// 全量 JWT 明文仅在 `checkin_capture_jwts` 经用户原生确认后外吐给前端立即导入,
+/// 内部使用不外泄到日志/第三方;展示路径必须改用 `mask_jwt`。
+fn capture_jwts_core() -> Result<Vec<CapturedAccount>, IpcError> {
     // 2026-10-12:多现场合并捕获(不再只认 detect 的第一个目录)。
     // 真机实证:detect 命中空壳 TRAE SOLO CN ⇒ 单目录捕获 0 账号;
     // 现役 Trae CN 的 JWT 在 Partitions/trae-webview/Local Storage/leveldb。
@@ -3540,6 +3558,17 @@ pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
         require_trae_dir()?;
     }
     Ok(accounts)
+}
+
+#[tauri::command]
+pub fn checkin_capture_jwts(app: tauri::AppHandle) -> Result<Vec<CapturedAccount>, IpcError> {
+    // Y-83(2026-11-20):凭据收割属高敏操作,先过原生确认闸,杜绝注入页面无交互拖走明文。
+    crate::require_native_confirm(
+        &app,
+        "导出登录凭据",
+        "将导出本机全部站点的 JWT 明文，确认继续？",
+    )?;
+    capture_jwts_core()
 }
 
 #[tauri::command(async)]
@@ -3590,16 +3619,125 @@ fn reset_device_ids_core(
 
 // ================== 一键解决风控(产品级向导,2026-10-10) ==================
 
-/// MachineGuid 改写前的自动备份(一键模式安全网):首次写入
-/// `%USERPROFILE%\.trae-proxy\MachineGuid-backup.txt`,已存在则保留最早备份不覆盖。
+// ================== Y-84:MachineGuid 备份落点受控 + HMAC 防伪 ==================
+
+const GUID_BACKUP_FILE: &str = "MachineGuid-backup.txt";
+const GUID_BACKUP_SIG_FILE: &str = "MachineGuid-backup.txt.sig";
+const GUID_BACKUP_HMAC_SALT: &[u8] = b"ihui-desktop/machine-guid-backup/v1";
+
+/// HMAC-SHA256(标准结构,ipad=0x36/opad=0x5c,块长 64)。仅用仓内已有 sha2,不新增依赖。
+fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    const BLOCK: usize = 64;
+    let mut k = [0u8; BLOCK];
+    if key.len() > BLOCK {
+        k[..32].copy_from_slice(&Sha256::digest(key));
+    } else {
+        k[..key.len()].copy_from_slice(key);
+    }
+    let mut ipad = [0x36u8; BLOCK];
+    let mut opad = [0x5cu8; BLOCK];
+    for i in 0..BLOCK {
+        ipad[i] ^= k[i];
+        opad[i] ^= k[i];
+    }
+    let mut inner = Sha256::new();
+    inner.update(ipad);
+    inner.update(msg);
+    let inner_digest = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(opad);
+    outer.update(inner_digest);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&outer.finalize());
+    out
+}
+
+fn hex32(bytes: &[u8; 32]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// 定长比较,避免早退泄露字节差异;长度不等直接 false。
+fn hmac_hex_eq(actual: &str, expected: &str) -> bool {
+    if actual.len() != expected.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (a, b) in actual.bytes().zip(expected.bytes()) {
+        diff |= a ^ b;
+    }
+    diff == 0
+}
+
+/// 密钥从安装态派生(受控目录路径 + 固定 salt),不依赖被保护的 MachineGuid 本身。
+fn guid_backup_key(install_id: &str) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let seed = [GUID_BACKUP_HMAC_SALT, b"|", install_id.as_bytes()].concat();
+    let digest = Sha256::digest(seed);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&digest);
+    out
+}
+
+/// 36 位 GUID 形态(8-4-4-4-12):拒绝畸形值进入备份,也拦伪造的注册表输出。
+fn looks_like_machine_guid(s: &str) -> bool {
+    let s = s.trim();
+    s.len() == 36
+        && s.bytes().enumerate().all(|(i, b)| {
+            if i == 8 || i == 13 || i == 18 || i == 23 {
+                b == b'-'
+            } else {
+                b.is_ascii_hexdigit()
+            }
+        })
+}
+
+/// 写/验备份的纯逻辑(跨平台可单测):
+/// - 备份不存在 ⇒ 写入当前值 + 独立 HMAC sidecar;
+/// - 备份已存在 ⇒ **只在验签通过时复用**(保留最早备份不覆盖);
+/// - 伪造/篡改/缺 sidecar ⇒ `Err`,调用方据此 `include_guid=false` 真跳过 MachineGuid 改写。
+fn write_or_verify_guid_backup(
+    backup_dir: &Path,
+    install_id: &str,
+    current_guid: &str,
+) -> Result<String, String> {
+    let current_guid = current_guid.trim();
+    if !looks_like_machine_guid(current_guid) {
+        return Err("读取 MachineGuid 形态异常,拒绝作为备份".into());
+    }
+    let key = guid_backup_key(install_id);
+    let backup = backup_dir.join(GUID_BACKUP_FILE);
+    let sig_path = backup_dir.join(GUID_BACKUP_SIG_FILE);
+    std::fs::create_dir_all(backup_dir).map_err(|e| format!("创建 MachineGuid 备份目录失败: {e}"))?;
+    if backup.exists() {
+        let saved = std::fs::read_to_string(&backup)
+            .map_err(|e| format!("读取 MachineGuid 备份失败: {e}"))?;
+        let saved = saved.trim_start_matches('\u{feff}').trim();
+        if !looks_like_machine_guid(saved) {
+            return Err("MachineGuid 备份内容畸形,按无备份处理".into());
+        }
+        let expected = std::fs::read_to_string(&sig_path).unwrap_or_default();
+        let actual = hex32(&hmac_sha256(&key, saved.as_bytes()));
+        if hmac_hex_eq(&actual, expected.trim()) {
+            return Ok(saved.to_string());
+        }
+        return Err("MachineGuid 备份验签失败(伪造/篡改/缺 sidecar),按无备份处理".into());
+    }
+    // 先写备份后写签名:任一失败下次验签都会失败 = fail closed。
+    std::fs::write(&backup, current_guid.as_bytes())
+        .map_err(|e| format!("写 MachineGuid 备份失败: {e}"))?;
+    std::fs::write(&sig_path, hex32(&hmac_sha256(&key, current_guid.as_bytes())))
+        .map_err(|e| format!("写 MachineGuid 备份签名失败: {e}"))?;
+    Ok(current_guid.to_string())
+}
+
+/// MachineGuid 改写前的自动备份:落点改为传入的 app_data 受控目录,
+/// 且不再由 PowerShell 接路径参数(注册表只读,无注入面),写盘/验签全在 Rust 侧。
 #[cfg(windows)]
-fn ensure_machine_guid_backup() -> Result<String, String> {
+fn ensure_machine_guid_backup(backup_dir: &Path, install_id: &str) -> Result<String, String> {
     let script = "try { \
         $v=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' -ErrorAction Stop).MachineGuid; \
-        $d=\"$env:USERPROFILE\\.trae-proxy\"; \
-        New-Item -ItemType Directory -Force -Path $d | Out-Null; \
-        $p=\"$d\\MachineGuid-backup.txt\"; \
-        if (!(Test-Path $p)) { Set-Content -Path $p -Value $v -Encoding ascii }; \
+        if ([string]::IsNullOrWhiteSpace($v)) { exit 1 }; \
         Write-Output $v; exit 0 } catch { exit 1 }";
     let mut cmd = std::process::Command::new("powershell");
     cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
@@ -3610,7 +3748,7 @@ fn ensure_machine_guid_backup() -> Result<String, String> {
             if v.is_empty() {
                 Err("读取 MachineGuid 返回空".into())
             } else {
-                Ok(v)
+                write_or_verify_guid_backup(backup_dir, install_id, &v)
             }
         }
         Ok(_) => Err("读取 MachineGuid 失败(无权限?)".into()),
@@ -3619,7 +3757,7 @@ fn ensure_machine_guid_backup() -> Result<String, String> {
 }
 
 #[cfg(not(windows))]
-fn ensure_machine_guid_backup() -> Result<String, String> {
+fn ensure_machine_guid_backup(_backup_dir: &Path, _install_id: &str) -> Result<String, String> {
     Err("非 Windows 平台无 MachineGuid".into())
 }
 
@@ -3712,14 +3850,17 @@ pub fn checkin_one_click_reset(app: tauri::AppHandle) -> Result<ResetReport, Ipc
         "TRAE 一键重置",
         "将重置 TRAE 设备标识与本地状态,不可撤销。确认执行?",
     )?;
-    checkin_one_click_reset_inner()
+    let backup_dir = app_data_dir_or_err(&app)?;
+    checkin_one_click_reset_inner(&backup_dir)
 }
 
 /// 重置逻辑本体(无闸):#[ignore] 真机实测走这一层 —— 测试验证的是重置语义本身,
 /// 不该被「弹原生确认窗、无人应答即失败」卡住;闸由命令壳(checkin_one_click_reset)持有。
-pub fn checkin_one_click_reset_inner() -> Result<ResetReport, IpcError> {
+/// `backup_dir` 由命令壳从 app_data 受控目录注入,测试按 scratch 目录直调。
+pub fn checkin_one_click_reset_inner(backup_dir: &Path) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
-    let guid_backup = ensure_machine_guid_backup();
+    let install_id = backup_dir.to_string_lossy().into_owned();
+    let guid_backup = ensure_machine_guid_backup(backup_dir, &install_id);
     let include_guid = guid_backup.is_ok();
     let mut report = reset_device_ids(&dir, include_guid, true, true, true, true);
     if let Err(e) = guid_backup {
@@ -3763,7 +3904,8 @@ pub fn checkin_one_click_reset_all(app: tauri::AppHandle) -> Result<OneClickAllR
         "将重置 TRAE/Qoder/WorkBuddy 等全部平台的设备标识与登录态,不可撤销。确认执行?",
     )?;
     // ── TRAE:原 14 层语义不变(闸只在聚合入口弹一次,内部走无闸 inner)──
-    let trae = checkin_one_click_reset_inner()?;
+    let backup_dir = app_data_dir_or_err(&app)?;
+    let trae = checkin_one_click_reset_inner(&backup_dir)?;
 
     let mut platforms: Vec<OneClickPlatformSummary> = Vec::new();
 
@@ -6172,14 +6314,15 @@ mod tests {
     }
 
     // ── 9e. 一键重置真机实测(#[ignore]):UI「一键彻底重置」按钮完全同路径,
-    // 含 ensure_machine_guid_backup 自动备份链路。备份产物断言=~/.trae-proxy。
+    // 含 ensure_machine_guid_backup 自动备份链路。备份产物断言=受控 backup_dir。
     #[cfg(windows)]
     #[test]
     #[ignore]
     fn traereal_one_click_reset_glue() {
         let dir = detect_trae_dir().expect("本机必须能探测到 TRAE 现场目录");
         eprintln!("[oneclick] detected = {}", dir.display());
-        let report = checkin_one_click_reset_inner().expect("一键重置胶水调用失败");
+        let backup_dir = scratch("oneclick-backup");
+        let report = checkin_one_click_reset_inner(&backup_dir).expect("一键重置胶水调用失败");
         assert_eq!(report.layers.len(), 14, "层报告数应为 14");
         for l in &report.layers {
             eprintln!("[oneclick] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
@@ -6191,9 +6334,12 @@ mod tests {
         }
         // 自动备份安全网断言:MachineGuid 旧值必须已落盘(ascii 无 BOM;容忍历史
         // utf8 备份残留的 BOM 前缀)
-        let home = std::env::var("USERPROFILE").expect("USERPROFILE 必须存在");
-        let backup = PathBuf::from(home).join(".trae-proxy/MachineGuid-backup.txt");
+        let backup = backup_dir.join(GUID_BACKUP_FILE);
         assert!(backup.is_file(), "自动备份缺失: {}", backup.display());
+        assert!(
+            backup_dir.join(GUID_BACKUP_SIG_FILE).is_file(),
+            "HMAC sidecar 缺失,备份应视为无效"
+        );
         let saved = std::fs::read_to_string(&backup).expect("备份可读");
         let saved = saved.trim_start_matches('\u{feff}').trim().to_string();
         assert_eq!(saved.chars().count(), 36, "MachineGuid 应为 36 位 GUID 形态");
@@ -6235,7 +6381,8 @@ mod tests {
         assert!(!before.is_empty(), "真机上必须抓得到旧身份值(否则 TRAE 现场可能已被清空)");
 
         // ③ 一键 14 层(与 UI 按钮同路径)
-        let report = checkin_one_click_reset_inner().expect("一键重置不应返回错误");
+        let backup_dir = scratch("verify-backup");
+        let report = checkin_one_click_reset_inner(&backup_dir).expect("一键重置不应返回错误");
         for l in &report.layers {
             eprintln!("[verify] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
             if l.layer == 5 || l.layer == 7 || l.layer == 13 {
@@ -6938,5 +7085,83 @@ mod tests {
             let s = p.to_string_lossy().to_lowercase();
             assert!(s.ends_with(r"codebuddyextension\data\public\auth\workbuddy-desktop.info"), "{s}");
         }
+    }
+
+    // ================== Y-83:凭据脱敏 ==================
+
+    #[test]
+    fn mask_jwt_keeps_only_last_four() {
+        assert_eq!(mask_jwt("aaa.bbb.ccc1234"), "****…1234");
+        assert_eq!(mask_jwt("abcd"), "****…abcd");
+        assert_eq!(mask_jwt("abc"), "****…abc");
+        assert_eq!(mask_jwt(""), "");
+        // 明文不得出现在结果里
+        let masked = mask_jwt("secret.payload.signatureXYZ");
+        assert!(!masked.contains("secret"));
+        assert!(masked.ends_with("XYZ"));
+    }
+
+    // ================== Y-84:MachineGuid 备份 HMAC 防伪 ==================
+
+    #[test]
+    fn hmac_sha256_matches_rfc4231_vector() {
+        // RFC 4231 test case 1(key="key", data="The quick brown fox jumps over the lazy dog")
+        let got = hex32(&hmac_sha256(
+            b"key",
+            b"The quick brown fox jumps over the lazy dog",
+        ));
+        assert_eq!(got, "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
+    }
+
+    const GUID_A: &str = "11111111-2222-3333-4444-555555555555";
+    const GUID_B: &str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    #[test]
+    fn guid_backup_accepts_valid_sidecar_and_keeps_earliest() {
+        let dir = scratch("guid-hmac-valid");
+        let install = dir.to_string_lossy().into_owned();
+        // 首次写:GUID_A + sidecar
+        assert_eq!(
+            write_or_verify_guid_backup(&dir, &install, GUID_A).unwrap(),
+            GUID_A
+        );
+        assert!(dir.join(GUID_BACKUP_SIG_FILE).is_file());
+        // 二次调用:验签通过 ⇒ 复用最早备份(GUID_A),不被 GUID_B 覆盖
+        assert_eq!(
+            write_or_verify_guid_backup(&dir, &install, GUID_B).unwrap(),
+            GUID_A
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join(GUID_BACKUP_FILE)).unwrap().trim(),
+            GUID_A
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn guid_backup_rejects_forged_or_tampered_file() {
+        let dir = scratch("guid-hmac-forged");
+        let install = dir.to_string_lossy().into_owned();
+        // 伪造:只放假备份、无 sidecar ⇒ Err(按无备份处理)
+        std::fs::write(dir.join(GUID_BACKUP_FILE), GUID_A).unwrap();
+        assert!(write_or_verify_guid_backup(&dir, &install, GUID_A).is_err());
+        // 篡改:备份存在、sidecar 是另一把密钥/另一值的签名 ⇒ Err
+        let other_install = "some-other-install";
+        let forged_sig = hex32(&hmac_sha256(&guid_backup_key(other_install), GUID_A.as_bytes()));
+        std::fs::write(dir.join(GUID_BACKUP_SIG_FILE), forged_sig).unwrap();
+        assert!(write_or_verify_guid_backup(&dir, &install, GUID_A).is_err());
+        // 换 install_id 后同一对文件也验不过(密钥与安装态绑定)
+        assert!(write_or_verify_guid_backup(&dir, other_install, GUID_A).is_ok());
+        assert!(write_or_verify_guid_backup(&dir, &install, GUID_A).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn guid_backup_rejects_malformed_guid() {
+        let dir = scratch("guid-hmac-malformed");
+        let install = dir.to_string_lossy().into_owned();
+        assert!(write_or_verify_guid_backup(&dir, &install, "not-a-guid").is_err());
+        assert!(!dir.join(GUID_BACKUP_FILE).exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

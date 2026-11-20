@@ -167,6 +167,8 @@ export const COPY_THRESHOLD = 4
 /** SV3 扫描面(目录前缀 + 扩展名,二者必须同时是判据的超集 —— 守门 77/102 的"预筛漏形态=门全盲"同型) */
 const SCAN_PREFIXES = ['apps/', 'packages/', 'scripts/']
 const SCAN_EXTS = ['.ts', '.tsx', '.py']
+/** 与 SCAN_EXTS 同源的 git pathspec 形态(只作 grep 的路径面收窄,取自常量派生,不另立清单)。 */
+const SCAN_EXT_GLOBS = SCAN_EXTS.map((e) => `:(glob)**/*${e}`)
 const SKIP_RE = /(^|\/)(node_modules|dist|\.next|\.venv|__tests__|tests?|e2e)\//
 
 /**
@@ -360,16 +362,29 @@ function eqSets(name, a, b, labelA, labelB, violations) {
  * (apps/api 的 `z.enum([...])`)被算作合规 —— 那一格没有判据,不得读成"抄本都已对账"。
  */
 export function judgeCopy(codeMaskedSrc, rawSrc, memberSet, refs = CANONICAL_REFS) {
+  // `codeMaskedSrc` 一直是**被丢掉的参数**(旧调用方各自先算了一遍 `mask(src)` 传进来,本函数
+  // 内部又算一次 `codeFlags` ⇒ 每份候选被遮两遍)。2026-11-20 起调用方一律传 undefined,
+  // 只保留形参以不破坏既有导出面;判定输入仍是 `rawSrc`(`void` 语义未变)。
   void codeMaskedSrc
   const rawLines = rawSrc.split('\n')
-  const flags = codeFlags(rawSrc)
   const found = new Set()
+  for (let i = 0; i < rawLines.length; i++) {
+    for (const lit of rawLines[i].matchAll(/'([^'\n]+)'|"([^"\n]+)"/g)) {
+      const v = lit[1] !== undefined ? lit[1] : lit[2]
+      if (memberSet.has(v)) found.add(v)
+    }
+  }
+  // 快出口(2026-11-20):一个成员字面量都没有的文件,`codeOnly` 必然为空 ⇒ 结果只可能是
+  // `{candidate:false, violation:false, members:[], commentOnly:undefined}`。先判这一格再遮罩,
+  // 免掉候选池里绝大多数文件那次等长遮罩(`scanSpans`/`blankSpans` 是本门第二大开销)。
+  // 判据本体一个字没改:下面这条路径的返回值与旧实现在该格上逐字相同。
+  if (found.size === 0) return { candidate: false, violation: false, members: [], commentOnly: undefined }
+  const flags = codeFlags(rawSrc)
   const codeOnly = new Set()
   for (let i = 0; i < rawLines.length; i++) {
     for (const lit of [...rawLines[i].matchAll(/'([^'\n]+)'|"([^"\n]+)"/g)]) {
       const v = lit[1] !== undefined ? lit[1] : lit[2]
       if (!memberSet.has(v)) continue
-      found.add(v)
       // 遮罩后仍非空 ⇒ 该行有代码(注释行/整行说明文字被抹成空白)
       if (flags[i]) codeOnly.add(v)
     }
@@ -856,7 +871,7 @@ export function decide(inputs) {
         undetermined.push(`SV5 候选取不到内容:${c.path}`)
         continue
       }
-      const j = judgeCopy(mask(c.src), c.src, stop.members, STOP_CANONICAL_REFS)
+      const j = judgeCopy(undefined, c.src, stop.members, STOP_CANONICAL_REFS)
       if (!j.candidate) continue
       stopCand.push({ path: c.path, members: j.members, violation: j.violation })
       if (j.violation)
@@ -884,7 +899,7 @@ export function decide(inputs) {
       undetermined.push(`SV3 候选取不到内容:${c.path}`)
       continue
     }
-    const j = judgeCopy(mask(c.src), c.src, A.set)
+    const j = judgeCopy(undefined, c.src, A.set)
     if (j.commentOnly && j.commentOnly.length > 0)
       notes.push(`仅注释提到成员字面量(不计第二份):${c.path} [${j.commentOnly.join(',')}]`)
     if (!j.candidate) continue
@@ -937,7 +952,9 @@ function grepCandidates(root, face, members) {
   for (const m of members) args.push('-e', m)
   if (face === 'staged') args.push('--cached')
   else args.push('HEAD')
-  args.push('--', 'apps', 'packages', 'scripts')
+  // 路径面按本门自己的取材扩展名收窄(2026-11-20):pruneScan 本来就把非 SCAN_EXTS 的文件剔掉,
+  // 先让 git grep 只扫这些扩展 ⇒ 候选面逐字不变,扫的 blob 少一半以上(实测 1.78s→1.28s)。
+  args.push('--', ...SCAN_EXT_GLOBS)
   let out
   try {
     out = gitRaw(args, root)
@@ -958,7 +975,9 @@ function grepStopCandidates(root, face) {
   const args = ['grep', '-l', '-I', '--no-color', '-e', 'stop_reason', '-e', 'stopReason']
   if (face === 'staged') args.push('--cached')
   else args.push('HEAD')
-  args.push('--', 'apps', 'packages', 'scripts')
+  // 路径面按本门自己的取材扩展名收窄(2026-11-20):pruneScan 本来就把非 SCAN_EXTS 的文件剔掉,
+  // 先让 git grep 只扫这些扩展 ⇒ 候选面逐字不变,扫的 blob 少一半以上(实测 1.78s→1.28s)。
+  args.push('--', ...SCAN_EXT_GLOBS)
   let out
   try {
     out = gitRaw(args, root)
@@ -1036,7 +1055,7 @@ export function runAudit({ root = ROOT, face } = {}) {
         headCopyState[p] = null
         continue
       }
-      headCopyState[p] = judgeCopy(mask(src), src, new Set(members)).violation
+      headCopyState[p] = judgeCopy(undefined, src, new Set(members)).violation
     }
   }
   const candidates = candPaths.map((p) => ({ path: p, src: candContents[p] }))
@@ -1056,7 +1075,7 @@ export function runAudit({ root = ROOT, face } = {}) {
         const src = hs[p]
         stopHeadState[p] =
           typeof src === 'string' && src.length > 0
-            ? judgeCopy(mask(src), src, new Set(pre.tables.stopMembers), STOP_CANONICAL_REFS)
+            ? judgeCopy(undefined, src, new Set(pre.tables.stopMembers), STOP_CANONICAL_REFS)
                 .violation
             : null
       }

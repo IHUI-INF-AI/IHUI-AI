@@ -438,6 +438,10 @@ export function WebWorkPanel() {
         const err = await openDockedBrowser(targetUrl, rect, !st.paused)
         if (!err) dockedRef.current = { open: true, url: targetUrl, rect }
         else console.warn('[work-panel] docked open failed:', err)
+      } catch (e) {
+        // void sync() / ResizeObserver / setInterval 都会丢弃该 promise:
+        // 任一 await 拒绝必须在此收口,否则成为 unhandled rejection。
+        console.warn('[work-panel] docked sync failed:', e)
       } finally {
         busy = false
       }
