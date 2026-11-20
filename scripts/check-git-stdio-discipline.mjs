@@ -1124,22 +1124,40 @@ function logicDigest() {
   }
 }
 
-/** HEAD 面上每个射程内路径的 blob oid(一次 ls-tree -z)。取不到 ⇒ null。 */
-function headOids(root) {
+/** 该面每个射程内路径的 blob oid。head 走 ls-tree(HEAD 树),staged 走 ls-files -s(索引);
+ *  worktree 面无 oid 概念 ⇒ null(不做记忆化)。取不到 ⇒ null。 */
+function faceOids(root, face) {
   try {
-    const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD', '--', ...SCAN_ROOTS], root, {
-      timeout: GIT_TIMEOUT,
-    })
     const map = new Map()
-    for (const rec of out.split('\0')) {
-      if (!rec) continue
-      const tab = rec.indexOf('\t')
-      if (tab < 0) continue
-      const meta = rec.slice(0, tab).split(' ')
-      if (meta.length < 3) continue
-      map.set(norm(rec.slice(tab + 1)), meta[2])
+    if (face === 'head') {
+      const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD', '--', ...SCAN_ROOTS], root, {
+        timeout: GIT_TIMEOUT,
+      })
+      for (const rec of out.split('\0')) {
+        if (!rec) continue
+        const tab = rec.indexOf('\t')
+        if (tab < 0) continue
+        const meta = rec.slice(0, tab).split(' ')
+        if (meta.length < 3) continue
+        map.set(norm(rec.slice(tab + 1)), meta[2])
+      }
+      return map
     }
-    return map
+    if (face === 'staged') {
+      const out = gitRaw(['ls-files', '-s', '-z', '--', ...SCAN_ROOTS], root, {
+        timeout: GIT_TIMEOUT,
+      })
+      for (const rec of out.split('\0')) {
+        if (!rec) continue
+        const tab = rec.indexOf('\t')
+        if (tab < 0) continue
+        const meta = rec.slice(0, tab).split(' ')
+        if (meta.length < 3) continue
+        map.set(norm(rec.slice(tab + 1)), meta[1])
+      }
+      return map
+    }
+    return null
   } catch {
     return null
   }
@@ -1178,10 +1196,12 @@ export function evaluate(root, face) {
   const files = all.filter(isSourceFile)
   const skippedExt = all.length - files.length
   // 内容寻址记忆化:只判**内容变过**的文件(同一 oid 的其余文件直接复用上次结论)。
-  const logic = face === 'head' ? logicDigest() : null
-  const oids = face === 'head' ? headOids(root) : null
-  const cache = face === 'head' && oids ? loadScanCache(logic) : null
-  const cacheWhy = face !== 'head' ? '非 HEAD 面不启用' : oids ? (cache?.why ?? null) : 'HEAD oid 清单取不到'
+  // head 用 HEAD 树 oid、staged 用索引 oid —— 两者都是"这份字节"的地址,同一张缓存可共用。
+  const cacheable = face === 'head' || face === 'staged'
+  const logic = cacheable ? logicDigest() : null
+  const oids = cacheable ? faceOids(root, face) : null
+  const cache = cacheable && oids ? loadScanCache(logic) : null
+  const cacheWhy = !cacheable ? 'worktree 面不启用' : oids ? (cache?.why ?? null) : '该面 oid 清单取不到'
   const results = new Map()
   let cacheHits = 0
   const need = []
@@ -1218,7 +1238,7 @@ export function evaluate(root, face) {
   }
   // 只留本面当前键集(避免缓存随历史无限膨胀);写不进去只告警,结论不受影响。
   const cacheWriteOk =
-    face === 'head' && logic
+    cacheable && logic
       ? saveScanCache(
           logic,
           Object.fromEntries(
