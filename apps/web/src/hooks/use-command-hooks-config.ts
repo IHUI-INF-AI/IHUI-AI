@@ -31,6 +31,9 @@ export interface CommandHooksConfig {
   configured: boolean
   status: CommandHookConfigStatus
   error: string | null
+  /** 2026-11-21:上一次信任登记是谁/何时做的(审计面;旧信任文件缺这两键时为 null) */
+  trustedBy: string | null
+  trustedAt: string | null
   specs: CommandHookSpecView[]
 }
 
@@ -59,6 +62,8 @@ function toView(raw: unknown): CommandHooksConfig | null {
     configured: body.configured === true,
     status,
     error: typeof body.error === 'string' ? body.error : null,
+    trustedBy: typeof body.trusted_by === 'string' ? body.trusted_by : null,
+    trustedAt: typeof body.trusted_at === 'string' ? body.trusted_at : null,
     specs: specs.map((s) => ({
       name: String(s.name ?? ''),
       event: String(s.event ?? ''),
