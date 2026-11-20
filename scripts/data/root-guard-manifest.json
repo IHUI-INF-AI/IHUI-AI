@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-20T04:00:25.224Z",
+  "sealedAt": "2026-11-20T09:17:43.383Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 7df2cdac4a6 的 pg-only 触发面扩展(合法规则改动),重新封存清单以解除部署环 fail-closed",
+  "reason": "goal bug-zero:并发对侧 union merge 把 guardian-runner/land-gate-rerun 推进 HEAD,清单需按其当前 HEAD 面重封(零判据语义改动)",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "c53abb927a07718824e27e2ad03dbb97af5664f57593b6ad73603472bfe90cd4"
+      "sha256": "2d15420dacd553b7951dbf6c512b73f94752fdf5b754c3c82dee7e14209d56ad"
     },
     {
       "id": "judgement-libs",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "9691f27fe8aaf1c6aea1c963fb5b52562b56e495c9c74e8887127cbac8d3fd71"
+      "sha256": "9a92df191bd5e5573c39cb0f1c7e690cb8c297cce2c0ede32b6415474c43e66a"
     },
     {
       "id": "guardian-pushgate-cache",
