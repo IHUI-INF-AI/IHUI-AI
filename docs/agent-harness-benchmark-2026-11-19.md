@@ -10,6 +10,7 @@
 
 
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -18,7 +19,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **26 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **27 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -94,7 +95,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（26 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（27 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -380,6 +381,19 @@
 - 超越轴：对照程序把"钩子运行"当调试日志（默认不进事件流，需要开 debug 才可见）；本仓直接把逐钩子结果做成**与 plan-step 同级的命名 SSE 事件**，并保持"空表不发"与"拒绝路径也发"两条语义，前端不必为一个开关再申请一次调试模式。
 
 验证：`pytest test_hook_run_sse.py` → `4 passed`（前置 deny 可见 / 零钩子零事件 / 后置改写可见 / 下行失败 fail-open）；`test_hook_run_sse + test_hook_runtime_injection_wiring + test_post_tool_hooks + test_command_hooks` → `35 passed`；`mypy --strict`（agent_loop_v2 + agent_events + hook_engine）→ `Success: no issues found in 3 source files`；`ruff check`（含新测试）→ `All checks passed!`。
+
+### 5.28 第 27 项：SESSION_START / USER_PROMPT_SUBMIT 挂载点（入口上下文注入）
+
+- 缺口：`HookKind` 8 个值里，`session_start` 与 `user_prompt_submit` 只有契约与 `command_hooks` 映射，`agent_loop_v2` 没有任何执行点 —— 用户在 `.ihui/hooks.json` 配了"会话开始时读项目规范 / 提交提示词时补充约束"也不会被执行（典型 §0.9 "契约在、执行链不在"）。
+- 处置：
+  - `run()` 入口在 `self._messages = messages` 之后、记忆/画像注入之前执行两枚钩子（payload 带 `session_id / user_id / conversation_id / cwd`，`user_prompt_submit` 另带末条用户消息文本，截断 4000）；
+  - 复用同一 `HookRuntime` 与 `_wait_interruptible`（不新造第二套执行器，取消语义与 session.start 事件一致）；
+  - 语义边界：这两个 `HookKind` 的契约里没有裁决字段，本层**只消费 `additionalContext`**（注入为 developer 消息，截断 4000），不把 `stop` / `decision` 凭空解读成 deny/allow —— 语义要发明就得先改契约；
+  - `_append_hook_contexts()` 抽成模块级单一实现：`post_tool_use` 改写面与本层共用一份，不再各抄一遍（轻量测试替身缺实例方法时也能走同一函数）；
+  - fail-open：钩子抛错/超时只 warning，`_LoopInterrupted` 交主循环既有分支收口，零钩子时 `run()` 行为与接线前逐零差异。
+- 超越轴：对照程序把入口钩子当"只能加 prompt 文本"的旁路；本仓把它接进**同一事件流**（`hook.run` 帧逐钩子可见，第 26 项通道直接复用），入口注入也能被前端审计到。
+
+验证：`pytest test_lifecycle_hooks.py` → `5 passed`（session_start 注入落地 / user_prompt_submit 收到 prompt 并注入 / 零钩子零变化 / 钩子抛错不阻断 / 入口钩子结果进 SSE）；`test_post_tool_hooks + test_hook_runtime_injection_wiring + test_hook_run_sse + test_lifecycle_hooks` → `29 passed`；`mypy --strict`（agent_loop_v2）→ `Success`；`ruff check`（含新测试）→ `All checks passed!`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
