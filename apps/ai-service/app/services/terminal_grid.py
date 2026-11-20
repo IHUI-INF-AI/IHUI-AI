@@ -185,6 +185,25 @@ class Grid:
             out.pop()
         return out
 
+    def line_at(self, row: int) -> str:
+        """第 `row` 行(**1 起**)的文本;越界给空串(不抛异常:问"屏幕上有这一行吗"是合法问题)。"""
+        if not 1 <= row <= self.rows:
+            return ""
+        return row_text(self._buf.cells[row - 1])
+
+    def cell_at(self, row: int, col: int) -> str:
+        """第 `row` 行第 `col` 列(**1 起**)那一格是什么。
+
+        占位格(宽字符的第二格)与空白格都回空串:问"这一格有什么字"时两者答案都是"没有"。
+        越界同样回空串 —— 点击坐标越界时上层要能问出"那儿什么都没有",而不是吃异常。
+        """
+        if not (1 <= row <= self.rows and 1 <= col <= self.cols):
+            return ""
+        ch = self._buf.cells[row - 1][col - 1]
+        if ch == WIDE_TAIL:
+            return ""
+        return ch if ch else ""
+
     def cursor(self) -> dict[str, Any]:
         """光标位置(行列 **1 起**)+ 它所在那一行的文本。"""
         scr = self._buf

@@ -45,7 +45,12 @@
   `text` 与 `url` 一起回以防"显示的字 ≠ 真实目标"(OSC 8 的已知钓鱼面),本层从不代为打开;
 - `cursor_terminal`:**光标现在停在哪**(真 VT 屏幕网格 `terminal_grid.Grid`),`include_screen`
   可连整屏一起回。这是唯一能回答"第 3 行第 12 列是什么"的出口 —— `snapshot` 给的是行流水
-  (`\\r` 刷新在流水里是换行、在屏幕上是同一格被改写),拿它推光标必然错。
+  (`\\r` 刷新在流水里是换行、在屏幕上是同一格被改写),拿它推光标必然错;
+- `cell_at_terminal`:取屏幕某一格(row/col 1 起)。点击自动化要知道"点到的是哪个字",而屏幕
+  坐标只认网格;宽字符第二格与越界都回空串并用 `in_range` 把"越界"与"空格"分开;
+- `prompt_terminal`:"程序现在在等谁"(`OSC 133` shell 集成 A/B/C/D 四标记 + `OSC 7` 上报的
+  工作目录)。`shell_integration=False` 时 `prompt_state` 恒 `unknown` —— 这是**没信号**,
+  不是"没在等";`done`(上一条跑完)也不等于"现在可以输入"(要等下一次 `A`)。
 
 `strip_ansi` 是"输出流 → 人读文本"的**唯一**出口(剥控制序列 / `\\r` 折行 / 丢残余控制符在
 **一次**扫描里完成,同一次扫描顺手产出 OSC 8 台账),快照/检索/链接三处共用同一份实现,
@@ -95,6 +100,7 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
+from urllib.parse import unquote
 
 from .sandbox import _strict_child_env
 from .terminal_grid import Grid
@@ -201,6 +207,19 @@ _OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
 _OSC_ANY_RE: Final = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 #: 标题长度上界:失控程序连发 OSC 时不让会话账本跟着膨胀。
 MAX_TITLE_CHARS: Final = 200
+
+#: `OSC 7` 工作目录上报(`ESC ] 7 ; file://<host><path> ST|BEL`):shell 每次画提示符前报一次,
+#: 是**程序自己说**"我现在在哪个目录"的唯一权威来源(比"open 时那个 cwd"真实)。
+#: 只认 `file://` 形态(POSIX 与 Git Bash 都这么发);host 段允许空(本地)。
+_OSC_CWD_RE: Final = re.compile(r"\x1b\]7;file://([^/\x07\x1b]*)([^\x07\x1b]*)(?:\x07|\x1b\\)")
+#: 工作目录长度上界(同标题的护栏理由)。
+MAX_CWD_CHARS: Final = 4096
+#: `OSC 133` shell 集成标记(`ESC ] 133 ; <kind> [; <参数>] ST|BEL`):A=提示符开始、B=命令输入
+#: 开始(仍在提示符上)、C=命令开始执行、D=命令结束(参数是退出码)。这是"程序现在在等谁"
+#: 的机读信号 —— 光看输出是没法判断"这条命令跑完了没有"的(提示符长得像什么没有标准)。
+_OSC_PROMPT_RE: Final = re.compile(
+    r"\x1b\]133;(?P<kind>[ABCD])(?:;(?P<arg>[^\x07\x1b]*))?(?:\x07|\x1b\\)"
+)
 
 #: OSC 8 超链接:`ESC ] 8 ; <params> ; <URI> ST|BEL`,URI 为空的那一条表示"链接到此结束"。
 #: 参数段(`id=xxx` 之类)被刻意只做透传判据不进台账:台账只关心"哪段文字链到哪个地址"。
@@ -432,6 +451,20 @@ class TerminalSession:
     #: 「屏幕上第 3 行第 12 列是什么」。缓冲是行流水,`\r` 刷新在流水里是换行、在屏幕上是
     #: 同一格被改写 —— 拿流水冒充屏幕算光标,答案必然是错的,所以这块网格是真的。
     grid: Any = field(default=None, repr=False)
+    #: 程序上报的工作目录(`OSC 7`)。空串 = 程序没报过(此时 `prompt_terminal` 回退到 `cwd`,
+    #: 并在回执里用 `cwd_source` 说明这个值是哪来的 —— 两者的可信度不一样)。
+    cwd_reported: str = ""
+    #: `OSC 133` 的当前阶段:`unknown`(程序没启用 shell 集成)/ `prompt`(画完提示符等输入)/
+    #: `input`(还在输入这条命令)/ `running`(命令执行中)/ `done`(上一条命令结束)。
+    #: 它回答的是自动化最想要的那个问题:"现在该我输入了吗?"
+    prompt_state: str = "unknown"
+    #: 程序是否发过 `OSC 133`(即 shell 集成是否启用)。没启用时 prompt_state 恒 unknown,
+    #: 不得拿它去猜"跑完了没有" —— 那只是没信号,不是"没在跑"。
+    shell_integration: bool = False
+    #: 已结束的命令条数(`OSC 133;D` 的次数)。
+    command_count: int = 0
+    #: 上一条命令的退出码(`OSC 133;D;<exit>`);None = 没有 D 标记或参数不是整数。
+    last_command_exit: int | None = None
 
     def __post_init__(self) -> None:
         # deque 的 default_factory 拿不到实例字段,所以"上限"必须在这里落到缓冲上;
@@ -523,6 +556,9 @@ class TerminalSession:
             "mouse_encoding": self.mouse_encoding,
             "alt_screen": self.alt_screen,
             "focus_events": self.focus_events,
+            "cwd_reported": self.cwd_reported,
+            "prompt_state": self.prompt_state,
+            "shell_integration": self.shell_integration,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -848,6 +884,10 @@ def _track_terminal_state(session: TerminalSession, text: str) -> None:
 
     私有模式位(`DECSET`/`DECRST`)在同一出口落账:鼠标上报(1000/1002/1003 + 编码
     1006/1005/1015)是程序点了才允许发的,终端侧不读这一位就只能靠猜。
+
+    shell 集成(`OSC 7` / `OSC 133`)也在这里读:`OSC 7` 是 shell 自己报"我在哪个目录"
+    (比 open 时那个 cwd 真实),`OSC 133` 是"提示符/命令"四阶段标记 —— 它们是**程序**给的
+    机读信号,不是我们对提示符长相的猜测。没发过 `133` 就不许把 prompt_state 当成已知。
     """
     _track_private_modes(session, text)
     if BRACKETED_PASTE_ON in text:
@@ -858,6 +898,26 @@ def _track_terminal_state(session: TerminalSession, text: str) -> None:
         title = ANSI_NOISE_RE.sub("", m.group(1)).strip()
         if title:
             session.title = title[:MAX_TITLE_CHARS]
+    for m in _OSC_CWD_RE.finditer(text):
+        # `file://<host>/<path>`:只取 path 段并解百分号编码(Git Bash 会把中文目录编成 %XX)。
+        # 空 path 不覆盖上一个值 —— "报了个空"不等于"目录变成了空"。
+        raw_path = unquote(ANSI_NOISE_RE.sub("", m.group(2)))
+        if raw_path:
+            session.cwd_reported = raw_path[:MAX_CWD_CHARS]
+    for m in _OSC_PROMPT_RE.finditer(text):
+        kind = m.group("kind")
+        session.shell_integration = True
+        if kind == "A":
+            session.prompt_state = "prompt"
+        elif kind == "B":
+            session.prompt_state = "input"
+        elif kind == "C":
+            session.prompt_state = "running"
+        else:  # D:结束 + 退出码(参数可能为空或非整数 ⇒ 如实记 None)
+            session.prompt_state = "done"
+            session.command_count += 1
+            arg = (m.group("arg") or "").strip()
+            session.last_command_exit = int(arg) if arg.lstrip("-").isdigit() else None
     bells = _OSC_ANY_RE.sub("", text).count("\x07")
     if bells:
         session.bell_count += bells
@@ -2152,6 +2212,107 @@ def snapshot_terminal(
     }
 
 
+def cell_at_terminal(
+    terminal_id: str,
+    *,
+    row: int,
+    col: int,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """取**屏幕**第 `row` 行第 `col` 列那一格(1 起)—— 点击自动化要用的那个原语。
+
+    为什么不能用 `snapshot` 的行:那是**输出流**的行,一屏全屏重绘在流里是几十行、在屏幕上
+    只占一屏,拿它的第 3 行去对屏幕坐标,点的多半是别的字。屏幕坐标只认网格。
+    宽字符的第二格与空白格都回空串(问"这一格有什么字"时两者都是"没有");越界同样回空串,
+    让上层能问出"那儿什么都没有"而不吃异常 —— 同时回 `in_range` 把"越界"与"空"分开。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.grid is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "该会话没有屏幕网格(未启用 VT 记账)",
+        }
+    try:
+        row_i, col_i = int(row), int(col)
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"row/col 必须是整数(实得 {row!r}/{col!r})",
+        }
+    with session.lock:
+        cols, rows = session.grid.cols, session.grid.rows
+        in_range = 1 <= row_i <= rows and 1 <= col_i <= cols
+        char = session.grid.cell_at(row_i, col_i)
+        line = session.grid.line_at(row_i)
+        cursor = session.grid.cursor()
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "row": row_i,
+        "col": col_i,
+        "in_range": in_range,
+        "char": char,
+        "line": line,
+        "cols": cols,
+        "rows": rows,
+        "cursor": {"row": cursor["row"], "col": cursor["col"]},
+    }
+
+
+def prompt_terminal(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """回"程序现在在等谁":`at_prompt` + 四阶段 + 工作目录 + 命令计数。
+
+    这是自动化里最常问的那个问题("我该输入了吗"),而它**不能**从输出长相推 —— 提示符长什么样
+    没有标准(`$`/`%`/`❯`/带颜色的括号都行)。机读信号只有一条:`OSC 133` 的 A/B/C/D 四标记
+    (shell 集成,PowerShell/bash/zsh/fish 都能配)。所以:
+
+    - `shell_integration=False` ⇒ `prompt_state` 恒 `unknown`,`at_prompt` 恒 False。
+      这是**没信号**,不是"没在等" —— 拿 unknown 当成"可以输入了"就是猜(§0.3 不猜)。
+    - `A` ⇒ `prompt`、`B` ⇒ `input`(两者都算在提示符上,`at_prompt=True`);
+      `C` ⇒ `running`、`D` ⇒ `done`(上一条命令结束,退出码在 `last_command_exit`)。
+    - `D` 之后要等下一次 `A` 才会回到"在提示符上":`done` 只说明"上一条跑完了",
+      不代表"现在可以输入"。把这两件事混成一个 bool 是这类实现最常见的假绿。
+
+    `cwd` 优先用程序上报的 `OSC 7`(`cwd_source="reported"`),没报过才回退到 open 时那个
+    `cwd`(`cwd_source="session"`)—— 回执里写明来源,因为两者的可信度不同:前者是 shell
+    此刻的真实位置,后者只是**开会话时**的位置(`cd` 之后就不对了)。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    reported = session.cwd_reported
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "at_prompt": session.prompt_state in ("prompt", "input"),
+        "prompt_state": session.prompt_state,
+        "shell_integration": session.shell_integration,
+        "command_count": session.command_count,
+        "last_command_exit": session.last_command_exit,
+        "cwd": reported or session.cwd,
+        "cwd_source": "reported" if reported else "session",
+        "running": session.running(),
+        "exit_code": session.proc.poll(),
+        "idle_s": session.idle_s(),
+        "alt_screen": session.alt_screen,
+        "title": session.title,
+    }
+
+
 def cursor_terminal(
     terminal_id: str,
     *,
@@ -3105,6 +3266,10 @@ __test__ = {
     "hyperlinks": hyperlinks,
     "links_terminal": links_terminal,
     "cursor_terminal": cursor_terminal,
+    "cell_at_terminal": cell_at_terminal,
+    "prompt_terminal": prompt_terminal,
+    "OSC_CWD_RE": _OSC_CWD_RE,
+    "OSC_PROMPT_RE": _OSC_PROMPT_RE,
     "Grid": Grid,
     "OSC_HYPERLINK_RE": _OSC_HYPERLINK_RE,
     "MAX_LINKS": MAX_LINKS,
