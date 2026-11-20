@@ -9103,7 +9103,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/paste/focus/mouse/links/cursor/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/focus/mouse/links/prompt/cell/cursor/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合;
@@ -9125,6 +9125,10 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     `cursor` 回**光标现在停在哪**(行/列 1 起)+ 所在行文本;`include_screen=true` 时连整块
     屏面一起回。它与 `snapshot` 是两种视图:snapshot 是"输出流最近 N 行"(行流水,cursor
     是"程序此刻把光标摆在哪一格"(真 VT 网格)—— 拿 snapshot 推光标位置必然错。
+    `prompt` 回"程序现在在等谁"(`OSC 133` shell 集成四标记:A/B=在提示符上、C=执行中、
+    D=上一条结束):`shell_integration=false` 时 `prompt_state` 恒 `unknown`,这是没信号、
+    不是"没在等",不得当"可以输入了"用。`cell` 取屏幕某格(row/col 1 起):点击自动化要知道
+    点的是哪个字,而屏幕坐标只认网格、不认输出流行号。
     `snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
     只要末尾 max_lines 行,truncated 说明还有更早的行),按**当前屏面**取:主屏与 alt 屏
     (vim/htop 切屏)互不混入,回执的 `alt_screen` 说明现在在哪一块屏;`search` 在同一份归一文本里按行
@@ -9294,6 +9298,26 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "links", **result}
 
+    if action == "prompt":
+        result = await asyncio.to_thread(
+            term.prompt_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "prompt", **result}
+
+    if action == "cell":
+        result = await asyncio.to_thread(
+            term.cell_at_terminal,
+            terminal_id,
+            row=arguments.get("row", 1),
+            col=arguments.get("col", 1),
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "cell", **result}
+
     if action == "cursor":
         result = await asyncio.to_thread(
             term.cursor_terminal,
@@ -9452,7 +9476,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": (
             f"不支持的 action: {action}"
-            "(open/send/keys/paste/focus/mouse/links/cursor/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
+            "(open/send/keys/paste/focus/mouse/links/prompt/cell/cursor/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
         ),
     }
 
