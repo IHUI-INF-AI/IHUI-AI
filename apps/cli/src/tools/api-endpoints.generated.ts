@@ -8,8 +8,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/scan-api-routes.mjs
-// sourceCommit: f54c7d6f21f3a138363d72c34f2a887e202d24b8
-// inputsSha256: b6d9997a40c725a8d24c89a62b5aec848ea5e9d622f68913f2add7adbe177730
+// sourceCommit: 1b5772276cfe7d76504f337feef79d7cfa2e876b
+// inputsSha256: 06efecb605e035ce106fadc213c1f01721dd5f2a2ab65667fee95ba82564dfc8
 // input: apps/api/src/plugins/terminal-cleanup.ts c561f522419123bcf264e279c6aa5f9e5bf66b1d07fbe983bb0e6e6298f7f61a
 // input: apps/api/src/plugins/terminal-ws.ts d1693b1743170adb38494d59c2c026053eec50be1e67e011ae40d9ea286a06d9
 // input: apps/api/src/routes/ab-testing.ts 18d5edae3f025b98897bc36989f48373956aaffcdb010ebfe97060b8d537a2ec
@@ -451,7 +451,7 @@
 // input: apps/api/src/routes/spec.ts 7c6c411ab26c525298b06afb56e73fa62ccc318bdd44840e00912988f601434e
 // input: apps/api/src/routes/srs-review.ts ba5adb3eaf13c876779775a2d63b6e7d77e6273faf2090da58e17abe10e53519
 // input: apps/api/src/routes/srs.ts fee6af96fdfd153ada0d848ec08aca6a8f2952938bb3238f8b2f2e163786afa3
-// input: apps/api/src/routes/statistics.ts 55a2011fcfc453b1e91a5b376944cf0e0b8e61a6bff67788780c032d5ce29f09
+// input: apps/api/src/routes/statistics.ts fc16141e7d9af1178e724df39962dc41461dcedf746775e27c1e848395cba246
 // input: apps/api/src/routes/stock.ts 8b811984203763a27f5af4a9a50bcef6d4d2f157aecb671bdbf678a2383d14c5
 // input: apps/api/src/routes/subagent-dispatch.ts 0d0a2c8e166fb797c182ebe091facd5b5754ff3e0eb512bba58104b32d59ac6e
 // input: apps/api/src/routes/subagents-extended-routes.ts 6f38fc84f407a6d90ad6546ae2db8a5fba5971f7d7c446b1d7be3e07281f105a
@@ -546,7 +546,7 @@
 // input: packages/design-tokens/src/index.ts 74cd658ce6f667a5877e9da21fd52fa299d6de9d937788b6fb7f52d05c99754e
 // files: 534
 // endpoints: 5633
-// generatedAt: 2026-11-20T11:23:59.070Z
+// generatedAt: 2026-11-20T13:59:32.137Z
 // IHUI-GEN-PIN-END
 export const API_ENDPOINTS_RAW = `GET	/.well-known/apple-app-site-association	.well-known	apps/api/src/routes/apple-app-site-association.ts	exact
 GET	/.well-known/oauth-authorization-server	.well-known	apps/api/src/routes/oauth-authorization-server.ts	exact
@@ -6182,5 +6182,5 @@ GET	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	
 POST	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	exact
 GET	/ws/live-chat	ws	apps/api/src/routes/ws/live-chat.ts	exact
 `
-export const API_ENDPOINTS_GENERATED_AT = '2026-11-20T11:23:59.070Z'
+export const API_ENDPOINTS_GENERATED_AT = '2026-11-20T13:59:32.137Z'
 export const API_ENDPOINT_LINE_COUNT = 5633

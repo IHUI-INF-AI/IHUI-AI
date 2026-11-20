@@ -866,8 +866,19 @@ export function batchExecFileAsync(file, args, opts = {}) {
     let child = null
     let timer = null
     let settled = false
+    /**
+     * `binary` 档(2026-11-20 补,门 30a 的整面 raw 读数要用它):
+     * 同步孪生 `batchExecFileSync` 的 binary 档返回 **Buffer**(`encoding:null`),异步档原先
+     * 只会 `String(d)` 累加 —— 对 8 位字节流来说那是"解码再拼",非 UTF-8 字节会被改形,
+     * 而 30a 的整面读数要按字节找 0x00 逐段解码,解码错一位就是判据错一位。
+     * 所以这里按 Buffer 收集、按**字节数**判 maxBuffer(与同步档同义),出参仍是四元组。
+     */
+    const binary = Boolean(opts2.binary)
+    const chunks = []
     let stdout = ''
     let stderr = ''
+    let bytes = 0
+    const outSoFar = () => (binary ? Buffer.concat(chunks) : stdout)
     const finish = (v) => {
       if (settled) return
       settled = true
@@ -895,13 +906,20 @@ export function batchExecFileAsync(file, args, opts = {}) {
     if (typeof opts2.timeout === 'number' && opts2.timeout > 0) {
       timer = setTimeout(() => {
         kill()
-        finish({ ok: false, status: null, stdout, stderr, spawnError: null })
+        finish({ ok: false, status: null, stdout: outSoFar(), stderr, spawnError: null })
       }, opts2.timeout)
     }
     child.stdout?.on('data', (d) => {
-      stdout += String(d)
-      // 与 execFileSync 的 maxBuffer 同义：超限即杀并判"没拿到完整读数"，不静默截断当完整。
-      if (Buffer.byteLength(stdout, 'utf8') > maxBuffer) {
+      if (binary) {
+        const buf = Buffer.isBuffer(d) ? d : Buffer.from(String(d), 'utf8')
+        chunks.push(buf)
+        bytes += buf.length
+      } else {
+        stdout += String(d)
+        // 与 execFileSync 的 maxBuffer 同义：超限即杀并判"没拿到完整读数"，不静默截断当完整。
+        bytes = Buffer.byteLength(stdout, 'utf8')
+      }
+      if (bytes > maxBuffer) {
         kill()
         finish({ ok: false, status: null, stdout: '', stderr: 'maxBuffer 超限', spawnError: null })
       }
@@ -915,7 +933,7 @@ export function batchExecFileAsync(file, args, opts = {}) {
       finish({
         ok: okExit,
         status: typeof code === 'number' ? code : null,
-        stdout,
+        stdout: outSoFar(),
         stderr,
         spawnError: null,
       })
