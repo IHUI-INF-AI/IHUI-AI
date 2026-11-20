@@ -78,7 +78,6 @@ import { AddMenuPopover } from '@/components/chat/add-menu-popover'
 // D124(G-238):发送前位图标注 —— 图片附件可进 canvas 标注编辑器,结果回填为新附件
 import { ImageAnnotator, dataUrlToFile } from '@/components/chat/image-annotator'
 import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
-import { usePermissionAutoRevert } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
@@ -310,12 +309,8 @@ export function MessageInput({
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const activeWorkspaceMode = activeWorkspace?.mode
   const isHighRisk = isHighRiskPermissionMode(activeWorkspaceMode)
-  // 高风险模式自动撤销倒计时(2026-07-25 深化,深度遵循统一工程规范):
-  // - 切到 bypass-permissions 时启动 1h 倒计时,显示剩余时间
-  // - 倒计时归零 → 自动切回 default
-  // - 用户可点"取消自动撤销"维持当前模式(但视觉警告仍存在)
-  // - 用户主动切走其他模式 → 自动清掉计时
-  const autoRevert = usePermissionAutoRevert()
+  // 2026-11-20 机主定案:去掉"完全访问 1 小时后自动撤回"——高风险模式只在用户
+  // 自己切换时结束,这里不再持有倒计时 hook(见 high-risk-warning-banner 注释)
   // 当前会话 ID(W27 草稿 per-conversation 化;手动压缩上下文按钮也消费;未持久化会话按钮禁用)
   const conversationId = chatStore((s) => s.conversationId)
   // W27(2026-09-14):草稿 key 按会话隔离 —— 新会话(未持久化)共用 'chat:draft',
@@ -1198,8 +1193,8 @@ export function MessageInput({
         {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对齐统一规范)
             - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
-            - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
-        <HighRiskWarningBanner autoRevert={autoRevert} />
+            - 2026-11-20 去掉倒计时透传:完全访问不再 1 小时后自动撤回 */}
+        <HighRiskWarningBanner />
         {/* 任务进度常驻状态条:此刻最该被看到的动态信息(流式时自动展开明细,空闲时零占位) */}
         <TaskStatusBar />
         {/* A 节单状态槽(2026-09-30 深度对齐二轮):断连/下行告警/MCP/润色保稿/diff 意见/
