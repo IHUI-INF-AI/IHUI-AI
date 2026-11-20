@@ -13,6 +13,7 @@ import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
 import { buildSchema } from '../utils/swagger.js'
 import { validateInsuranceConfig, collectInsuranceAdvisories } from '../services/hr-payroll.js'
+import { onInsuranceConfigWritten } from '../services/hr-insurance-watch.js'
 
 /**
  * 薪资配置管理路由(2026-11-13 立)。
@@ -342,7 +343,7 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
       try {
         const d = parsed.data
         const [existing] = await db
-          .select({ id: hrInsuranceRateConfig.id })
+          .select()
           .from(hrInsuranceRateConfig)
           .where(
             and(
@@ -378,6 +379,18 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
               .where(eq(hrInsuranceRateConfig.id, existing.id))
               .returning()
           : await db.insert(hrInsuranceRateConfig).values(values).returning()
+
+        // 2026-11-21:基数/费率被写入即"事件"——留审计 + 立刻通知管理员级账号。
+        // 只在本轮确有字段变化时触发(重复提交同值不打扰人);失败不阻断写配置本身。
+        if (!row) throw new AppError('社保费率写入未返回行', 500, 'INSURANCE_WRITE_NO_ROW')
+        const operatorId = (request.user as { id?: string } | undefined)?.id
+        await onInsuranceConfigWritten({
+          before: existing ?? null,
+          after: row,
+          operatedBy: operatorId,
+          resourceId: String(row.id),
+        })
+
         reply.send(success(row))
       } catch (err) {
         sendErr(err, reply)
