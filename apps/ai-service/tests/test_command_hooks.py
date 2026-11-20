@@ -177,6 +177,35 @@ def test_install_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert install_command_hooks() == 0
 
 
+def test_permission_request_behavior_mapping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PermissionRequest 是嵌套 decision.behavior(不是扁平键),映射要逐字对上。"""
+    body = """
+import json, sys
+json.loads(sys.stdin.read())
+json.dump({"hookSpecificOutput": {"hookEventName": "PermissionRequest",
+           "decision": {"behavior": "deny", "message": "策略拒绝"}}}, sys.stdout)
+"""
+    path = tmp_path / ".ihui" / "hooks.json"
+    _write_config(
+        path,
+        {
+            "hooks": {
+                "permission_request": [
+                    {"matcher": "*", "hooks": [{"type": "command", "command": _script(tmp_path, body)}]}
+                ]
+            }
+        },
+    )
+    trust_hooks_config(path)
+    monkeypatch.setenv("IHUI_HOOKS_CONFIG", str(path))
+    runtime = build_registered_hook_runtime()
+    outcome = asyncio.run(runtime.run(HookKind.PERMISSION_REQUEST, {"tool_name": "run_command"}))
+    assert outcome.permission_behavior == "deny"
+    assert outcome.denial_reason == "策略拒绝"
+
+
 def test_permission_allow_is_transparent_not_faked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
