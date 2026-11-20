@@ -27,6 +27,8 @@ describe('normalizeHookAuditSummary', () => {
       truncated: false,
       linesRead: 0,
       backupBytes: null,
+      sizeBytes: null,
+      maxBytes: null,
     })
   })
 
@@ -47,6 +49,28 @@ describe('normalizeHookAuditSummary', () => {
     expect(
       normalizeHookAuditSummary({ available: true, total: 0, backupBytes: null }),
     ).toBeNull()
+  })
+
+  it('第49项:容量两格原样收下;`0` 与缺失都按 null(不把"没写"报成 0%)', () => {
+    const on = normalizeHookAuditSummary({
+      available: true,
+      total: 3,
+      ok: 3,
+      sizeBytes: 4_800_000,
+      maxBytes: 5_242_880,
+    })
+    expect(on?.sizeBytes).toBe(4_800_000)
+    expect(on?.maxBytes).toBe(5_242_880)
+
+    const zeros = normalizeHookAuditSummary({
+      available: true,
+      total: 3,
+      ok: 3,
+      sizeBytes: 0,
+      maxBytes: 0,
+    })
+    expect(zeros?.sizeBytes).toBeNull()
+    expect(zeros?.maxBytes).toBeNull()
   })
 
   it('第44项:截断标记与读到行数原样收下(字段缺失按未截断)', () => {

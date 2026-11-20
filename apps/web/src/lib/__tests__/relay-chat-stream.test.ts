@@ -169,6 +169,37 @@ describe('streamRelayChat', () => {
     await p
   })
 
+  it('reasoningEffort 表态 ⇒ 上行 reasoning_effort;缺省 ⇒ 整键不发(2026-11-21 补链锁)', async () => {
+    const p = streamRelayChat({
+      model: 'm',
+      messages: [{ role: 'user', content: 'a' }],
+      reasoningEffort: 'high',
+      onDelta: () => {},
+    })
+    const sock = FakeWebSocket.instances[0]!
+    sock.openSelf()
+    sock.emit({ type: 'ready', userId: 'u-1' })
+    const sent = JSON.parse(sock.sent[0]!) as Record<string, unknown>
+    // 下行按 snake 写,与 /api/ai/chat 那条腿同一个字段名(§0.6 不另造第二套名字)
+    expect(sent.reasoning_effort).toBe('high')
+    sock.emit({ type: 'done', id: sent.id })
+    await p
+
+    // 反向牙:没表态时整键不得出现 —— 空串下行会被后端当成"显式低档"
+    const p2 = streamRelayChat({
+      model: 'm',
+      messages: [{ role: 'user', content: 'a' }],
+      onDelta: () => {},
+    })
+    const sock2 = FakeWebSocket.instances[1]!
+    sock2.openSelf()
+    sock2.emit({ type: 'ready', userId: 'u-1' })
+    const sent2 = JSON.parse(sock2.sent[0]!) as Record<string, unknown>
+    expect('reasoning_effort' in sent2).toBe(false)
+    sock2.emit({ type: 'done', id: sent2.id })
+    await p2
+  })
+
   it('chunk 带 usage ⇒ onUsage 按 camelCase 回调', async () => {
     const usages: Array<{ totalTokens: number }> = []
     const p = streamRelayChat({

@@ -40,6 +40,12 @@ export type HookAuditStats = HookRunStats & {
    * 刚轮转完时当前台账是空的(total=0),没有这一格就会和"从没跑过"长得一样。
    */
   backupBytes: number | null
+  /**
+   * 2026-11-21 第 49 项:当前台账字节数与轮转上限(均实测;`null` = 取不到,不折 0)。
+   * 只保留"当前 + 一份备份",到上限即覆盖备份 ⇒ 容量是"历史还能留多久"的读数。
+   */
+  sizeBytes: number | null
+  maxBytes: number | null
 }
 
 /** 只做收窄:数字字段逐个校验,负数按 0 处理(远端坏数据不许把面板画成负数)。 */
@@ -56,6 +62,11 @@ export function normalizeHookAuditSummary(raw: unknown): HookAuditStats | null {
     typeof backupRaw === 'number' && Number.isFinite(backupRaw) && backupRaw > 0
       ? Math.floor(backupRaw)
       : null
+  // 第 49 项:容量两格同样只认正有限数;`0` 字节等于"还没写",按 null 呈现(不报"0%"协同假读数)。
+  const posOrNull = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null
+  const sizeBytes = posOrNull(body.sizeBytes)
+  const maxBytes = posOrNull(body.maxBytes)
   // 第 45 项:当前台账为空但备份还在时,后端 `available` 就是 false ——
   // 这一态必须报(否则轮转被读成零次);"取不到且无备份"才归 null。
   if (body.available !== true && backupBytes === null) return null
@@ -71,10 +82,9 @@ export function normalizeHookAuditSummary(raw: unknown): HookAuditStats | null {
     truncated: body.truncated === true,
     linesRead: Math.floor(num('linesRead')),
     backupBytes,
+    sizeBytes,
+    maxBytes,
   }
-  // 三态之和若超过 total,说明远端计数自相矛盾 ⇒ 不呈现(宁可空着也不报错数)。
-  if (stats.ok + stats.timeout + stats.error > total) return null
-  return stats
   // 三态之和若超过 total,说明远端计数自相矛盾 ⇒ 不呈现(宁可空着也不报错数)。
   if (stats.ok + stats.timeout + stats.error > total) return null
   return stats

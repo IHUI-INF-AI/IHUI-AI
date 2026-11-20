@@ -162,6 +162,10 @@ def summarize_hook_audit(
     # 只读当前文件时,"刚轮转完"与"从没跑过"在读数上完全一样(total=0)——
     # 这里把备份的存在与字节数单独报出来,让前端能说"只剩历史备份",不冒充零次。
     backup = path.with_name(path.name + ".1")
+    # 2026-11-21 第 49 项:容量读数。台账只保留"当前 + 一份备份",轮转到 5MB 时
+    # 旧备份被覆盖 ⇒ 容量不是内部细节,而是"历史还能留多久"的可读信号。
+    # 两个值都只报实测:stat 失败回 None(`0` 会被读成"空台账")。
+    max_bytes = _max_bytes()
     result: dict[str, Any] = {
         "path": str(path),
         "available": False,
@@ -176,12 +180,20 @@ def summarize_hook_audit(
         "truncated": False,
         "linesRead": 0,
         "backupBytes": None,
+        "sizeBytes": None,
+        "maxBytes": max_bytes,
     }
     try:
         result["backupBytes"] = backup.stat().st_size if backup.exists() else None
     except OSError as exc:
         logger.warning("hook_audit: stat failed for backup %s: %s", backup, exc)
         result["backupBytes"] = None
+    try:
+        result["sizeBytes"] = path.stat().st_size
+    except OSError as exc:
+        # 不存在/读不到都回 None:前者本来就没有容量,后者是"未判定"。
+        logger.debug("hook_audit: stat skipped for %s: %s", path, exc)
+        result["sizeBytes"] = None
     try:
         if not path.exists():
             return result

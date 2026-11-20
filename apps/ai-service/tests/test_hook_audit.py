@@ -202,6 +202,33 @@ def test_summary_reports_no_backup_when_absent(
     assert s["backupBytes"] is None
 
 
+def test_summary_reports_capacity_readings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """第 49 项:容量两格必须实测 —— 当前字节 + 轮转上限,且上限与实际文件大小可对账。"""
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_MAX_BYTES", "1024")
+    hook_audit.record_hook_run(_payload())
+    s = hook_audit.summarize_hook_audit()
+    assert s["maxBytes"] == 1024
+    assert s["sizeBytes"] == target.stat().st_size
+    assert isinstance(s["sizeBytes"], int)
+    assert s["sizeBytes"] > 0
+
+
+def test_summary_capacity_is_unknown_when_ledger_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """第 49 项:台账不存在 ⇒ sizeBytes 为 None(不折 0,0 会被读成"空台账")。"""
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    s = hook_audit.summarize_hook_audit()
+    assert s["available"] is False
+    assert s["sizeBytes"] is None
+    assert isinstance(s["maxBytes"], int)
+
+
 def test_error_text_is_redacted_before_persisting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

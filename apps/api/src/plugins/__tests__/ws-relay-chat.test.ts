@@ -226,6 +226,52 @@ describe('/ws/relay/chat', () => {
     c.close()
   })
 
+  it('帧里的 reasoning_effort 必须走到转发层(2026-11-21 补链锁)', async () => {
+    forwardMock.mockResolvedValueOnce({
+      ok: true,
+      response: new Response(''),
+      channel: {},
+      latencyMs: 1,
+      latencyTrusted: true,
+    })
+    pipeMock.mockImplementationOnce(async () => ({}))
+
+    const c = await connect()
+    await c.waitFor((f) => f.type === 'ready', 'ready')
+    c.send({
+      type: 'chat',
+      id: 'r-eff',
+      model: 'doubao/x',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoning_effort: 'high',
+    })
+    await c.waitFor((f) => f.type === 'done' && f.id === 'r-eff', 'done')
+
+    // 反向牙:此前 web 端就在发这个键、转发层也有该字面段,只中间这一跳没读 ⇒ 档位静默丢失。
+    const args = forwardMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+    expect(args?.reasoningEffort).toBe('high')
+
+    // 没表态 ⇒ 该字段必须缺席(不能落成空串,空串会被适配器当"显式低档")
+    forwardMock.mockResolvedValueOnce({
+      ok: true,
+      response: new Response(''),
+      channel: {},
+      latencyMs: 1,
+      latencyTrusted: true,
+    })
+    pipeMock.mockImplementationOnce(async () => ({}))
+    c.send({
+      type: 'chat',
+      id: 'r-eff-none',
+      model: 'doubao/x',
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+    await c.waitFor((f) => f.type === 'done' && f.id === 'r-eff-none', 'done2')
+    const args2 = forwardMock.mock.calls[1]?.[0] as Record<string, unknown> | undefined
+    expect(args2?.reasoningEffort).toBeUndefined()
+    c.close()
+  })
+
   it('一条连接可连续跑多轮(长连接复用,不是一次一连接)', async () => {
     forwardMock.mockResolvedValue({
       ok: true,
