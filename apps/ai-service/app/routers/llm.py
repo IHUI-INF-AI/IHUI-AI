@@ -4099,6 +4099,19 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                     "release_date": r["release_date"],
                     "tags": list(r["tags"] or []),
                 }
+                # 上游真实推理档位声明(D137,2026-11-21):metadata 里带
+                # reasoning_efforts 才透出,缺键 = 未声明(前端回落通用四档)。
+                _declared_meta = r.get("metadata", None)
+                # 本仓 DB 池把 jsonb 按文本回读(实测 str),两种形态都要认
+                if isinstance(_declared_meta, str):
+                    try:
+                        _declared_meta = json.loads(_declared_meta)
+                    except Exception:
+                        _declared_meta = None
+                if isinstance(_declared_meta, dict):
+                    _declared_efforts = _declared_meta.get("reasoning_efforts")
+                    if isinstance(_declared_efforts, list):
+                        _entry["reasoning_efforts"] = _declared_efforts
                 # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
                 # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
                 if provider_code == "token6688":
