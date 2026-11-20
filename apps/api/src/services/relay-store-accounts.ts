@@ -16,6 +16,7 @@ import { aiRelayAccountPool } from '@ihui/database'
 import { STORE_PLATFORMS, storePlatformOf } from '@ihui/shared/constants/store-platforms'
 import { db } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
+import { KEEPALIVE_FOREVER_KEY } from './relay-account-pool-scheduler.js'
 
 export interface StoreSeedResult {
   /** 本次新写入的平台数 */
@@ -65,9 +66,9 @@ export async function createStoreAccount(
       healthStatus: 'unknown',
       extraMetadata: {
         storePlatform: true,
-        // 商店账号没有 AI 凭据,tempUnschedulable 已摘出调度;但仍属需要长期保留的资产,
-        // 与 AI 客户端号同口径登记永久保活(避免被通用清理判据当成闲置号摘掉)。
-        keepAliveForever: true,
+        // 永久保活档:商店账号是运营手工录入的长期号,不能被调度器按普通池号退避摘除。
+        // 键名单源 = relay-account-pool-scheduler:KEEPALIVE_FOREVER_KEY(不各写一份字面量)。
+        [KEEPALIVE_FOREVER_KEY]: true,
         loginUrl: platform.loginUrl,
         ...(platform.note ? { note: platform.note } : {}),
         createdAt: now.toISOString(),
