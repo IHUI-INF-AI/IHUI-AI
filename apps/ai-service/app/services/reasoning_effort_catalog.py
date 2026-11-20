@@ -46,7 +46,7 @@ import sys
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -149,7 +149,9 @@ def load_cache_index() -> dict[str, list[str]]:
     except OSError:
         return {}
     if _cache_state["mtime"] == mtime:
-        return _cache_state["index"]
+        # `_cache_state` 是 dict[str, Any] 的进程内小缓存;写入口只有下面那次 `index` 赋值,
+        # 读回时按写入口类型收窄(mypy 2.3.1 判 no-any-return,2026-11-21)。
+        return cast("dict[str, list[str]]", _cache_state["index"])
     try:
         raw = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, ValueError):
