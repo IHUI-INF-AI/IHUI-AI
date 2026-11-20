@@ -400,6 +400,189 @@ def _clean_terminals():
     term.reset_terminals()
 
 
+# ─── wait_for(expect 原语):命中 / 超时 / 已退出 三态必须互不冒充 ───
+
+_WAIT_SCRIPT = """\
+import sys
+print("[READY]", flush=True)
+for line in sys.stdin:
+    line = line.strip()
+    if line == "quit":
+        break
+    print(f"[ECHO]{line}", flush=True)
+"""
+
+_EXIT_SCRIPT = """\
+print("[BYEBYE]", flush=True)
+"""
+
+
+def test_wait_for_matches_output_and_advances_seq(tmp_path) -> None:
+    """命中即返回:matched/reason/matched_text 三件齐,且 `next_seq` 真前进 —— 用第二次
+    等待从新 seq 起扫,绝不该再命中同一段(否则调用方会重复消费、无限拿到旧输出)。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "wait_ready.py", _WAIT_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        first = term.wait_terminal(
+            tid, pattern="[READY]", user_id="u-term", session_id="s-term", timeout_s=10.0
+        )
+        assert first["ok"] is True, first
+        assert first["matched"] is True
+        assert first["reason"] == "matched"
+        assert first["matched_text"] == "[READY]"
+        assert "[READY]" in "".join(c["text"] for c in first["chunks"])
+        seq = first["next_seq"]
+
+        # 从命中后的 seq 起等同一 pattern:窗口里已没有它 ⇒ 只能是超时,不是命中。
+        again = term.wait_terminal(
+            tid, pattern="[READY]", user_id="u-term", session_id="s-term",
+            since_seq=seq, timeout_s=0.5,
+        )
+        assert again["matched"] is False, again
+        assert again["reason"] == "timeout"
+        assert again["running"] is True
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_wait_for_times_out_while_process_still_alive(tmp_path) -> None:
+    """进程活着但没输出 ⇒ `timeout` 且 `running=True`:超时不得被读成"已退出"。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "wait_silent.py", _SLEEP_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = term.wait_terminal(
+            tid, pattern="never-appears", user_id="u-term", session_id="s-term",
+            timeout_s=0.4,
+        )
+        assert res["ok"] is True, res
+        assert (res["matched"], res["reason"], res["running"]) == (False, "timeout", True)
+        assert res["waited_s"] >= 0.3, res["waited_s"]
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_wait_for_reports_exited_when_process_ends_before_match(tmp_path) -> None:
+    """进程先退出 ⇒ `reason='exited'` 并带 exit_code;尾行仍要可读(不丢退出前输出)。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "wait_exit.py", _EXIT_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = term.wait_terminal(
+            tid, pattern="never-appears", user_id="u-term", session_id="s-term",
+            timeout_s=5.0,
+        )
+        assert res["ok"] is True, res
+        assert res["matched"] is False
+        assert res["reason"] == "exited"
+        assert res["running"] is False
+        assert res["exit_code"] is not None
+        assert "[BYEBYE]" in "".join(c["text"] for c in res["chunks"])
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_wait_for_rejects_empty_and_bad_regex_before_touching_session(tmp_path) -> None:
+    """空 pattern / 超长 / 正则语法错一律 `TERMINAL_INVALID_PATTERN`(在碰会话之前拒)。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "wait_bad.py", _SLEEP_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    max_chars = _TEST["MAX_PATTERN_CHARS"]
+    try:
+        for kwargs in ({"pattern": ""}, {"pattern": "x" * (max_chars + 1)}):
+            res = term.wait_terminal(
+                tid, user_id="u-term", session_id="s-term", **kwargs
+            )
+            assert res["ok"] is False, (kwargs, res)
+            assert res["errorCode"] == "TERMINAL_INVALID_PATTERN", (kwargs, res)
+        res = term.wait_terminal(
+            tid, pattern="(", regex=True, user_id="u-term", session_id="s-term"
+        )
+        assert res["errorCode"] == "TERMINAL_INVALID_PATTERN", res
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_wait_for_regex_group_records_actual_match(tmp_path) -> None:
+    """正则档回传**真实命中片段**(不是 pattern 原文),且默认档按固定子串判。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "wait_re.py", _WAIT_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = term.wait_terminal(
+            tid, pattern=r"\[(READY|WAIT)\]", regex=True,
+            user_id="u-term", session_id="s-term", timeout_s=10.0,
+        )
+        assert res["matched"] is True, res
+        assert res["matched_text"] == "[READY]", res["matched_text"]
+        # 固定子串档对同一正则原文不命中(证明两档不是同一套判定)。
+        assert term.wait_terminal(
+            tid, pattern=r"\[(READY|WAIT)\]", user_id="u-term", session_id="s-term",
+            timeout_s=0.3,
+        )["matched"] is False
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_wait_for_works_on_pty_backend(tmp_path, monkeypatch) -> None:
+    """真 tty 后端也必须走同一条等待判据:ConPTY 会先吐初始化转义序列,命中判据不能被它们干扰。"""
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "wait_pty.py", _WAIT_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pty", opened["terminal"]
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        ready = term.wait_terminal(
+            tid, pattern="[READY]", user_id="u-term", session_id="s-term", timeout_s=15.0,
+        )
+        assert ready["matched"] is True, ready
+        assert ready["reason"] == "matched"
+        assert term.send_terminal(tid, "hi", user_id="u-term", session_id="s-term")["ok"] is True
+        res = term.wait_terminal(
+            tid, pattern="[ECHO]hi", user_id="u-term", session_id="s-term",
+            since_seq=ready["next_seq"], timeout_s=15.0,
+        )
+        assert res["matched"] is True, res
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_wait_for_action(tmp_path, monkeypatch) -> None:
+    """工具层必须把 wait_for 路由到模块(不能落进"不支持的 action"),且参数脏值显式拒。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    opened = await _tool_terminal(
+        {
+            "action": "open",
+            "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "wait_tool.py", _WAIT_SCRIPT)}"',
+            "cwd": str(tmp_path),
+            **_OWNER,
+        }
+    )
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = await _tool_terminal(
+            {"action": "wait_for", "terminal_id": tid, "pattern": "[READY]", **_OWNER}
+        )
+        assert res["action"] == "wait_for", res
+        assert res["ok"] is True and res["matched"] is True, res
+        bad = await _tool_terminal(
+            {"action": "wait_for", "terminal_id": tid, "pattern": "", **_OWNER}
+        )
+        assert bad["errorCode"] == "INVALID_PARAMS", bad
+    finally:
+        await _tool_terminal({"action": "close", "terminal_id": tid, **_OWNER})
+
+
 def _script_path(tmp_path, name: str, body: str) -> str:
     path = tmp_path / name
     path.write_text(body, encoding="utf-8")
