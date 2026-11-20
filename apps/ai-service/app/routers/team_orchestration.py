@@ -78,6 +78,18 @@ class TeamRunBody(BaseModel):
     rounds: list[RoundSpec] = Field(..., description="逐轮任务/策略")
 
 
+class TeamRecursiveBody(BaseModel):
+    """递归分解(Map-Reduce over chunks):对 RLM 能力的整合档,不新起执行器。"""
+
+    objective: str = Field(..., description="总目标")
+    chunks: list[str] = Field(..., description="已切好的材料分片(切分不在本层重复实现)")
+    strategy: str = Field("merge", description="merge/best_of/consensus")
+    max_concurrency: int = Field(5, ge=1, le=20)
+    depth: int = Field(1, ge=1, le=3, description="递归层数(1 = 只做一层 map-reduce)")
+    max_chars_per_node: int = Field(8192, ge=1024, le=64000,
+                                    description="单节点正文预算,超了才再切一层")
+
+
 class TeamAggregateBody(BaseModel):
     """对已收集结果做纯聚合(无需重新派发)。"""
 
@@ -237,6 +249,29 @@ async def run_team_multi_rounds(body: TeamRunBody) -> dict[str, Any]:
             objective=body.objective,
             rounds=[r.model_dump() for r in body.rounds],
         )
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.post("/orchestration/teams/recursive")
+async def run_team_recursive(body: TeamRecursiveBody) -> dict[str, Any]:
+    """递归分解:分片 → 并行 map → 聚合 → 超预算再切一层(节点闸与子代理同源)。
+
+    `ok=False`(节点超预算)按项目契约回 `{code:400, message, data}` —— 这是**可判的
+    拒绝**,不是 500;执行路径复用 `run_round`(与 /round、/run 同一条链路)。
+    """
+    try:
+        data = await team_orchestrator.run_recursive(
+            objective=body.objective,
+            chunks=body.chunks,
+            merge_strategy=body.strategy,  # type: ignore[arg-type]
+            max_concurrency=body.max_concurrency,
+            depth=body.depth,
+            max_chars_per_node=body.max_chars_per_node,
+        )
+        if data.get("ok") is False:
+            return {"code": 400, "message": str(data.get("error") or "递归预算拒绝"), "data": data}
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}

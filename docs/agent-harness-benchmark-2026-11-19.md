@@ -12,12 +12,13 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **19 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **20 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
    - **子代理没有常驻文件租约** → `resident_file` 独占租约 + 定界注入。
    - **`read_file` / `list_dir` 无预算**、**模型没有检索能力**（`grep`/`glob` 只有 HTTP 端点没注册成工具）→ 同族预算 + 总量自述 + 续查指引，并顺手修掉 `**/` 零层语义塌陷。
+   - **递归分解（RLM）没有** → 不新造执行器/聚合器，把"分片 → 并行 → 聚合 → 超预算再切"并入既有 `TeamOrchestrator.run_recursive`；节点预算直接消费子代理并发闸那个数（单一真相源）。
 3. 原生层（deepseek-tui）在本机**无法做反编译**：Ghidra 未安装、IDA/Hopper 未安装、REA 的 `inspect-binary-layout` 仅支持 Linux x64。原生结论全部来自二进制可打印字符串（22,471 条去重），是"观察"，不是"反编译推断"。
 4. Trae CN 的本地扩展面很薄（`apply_patch`/`edit_file`/`subagent` 命中 0），其 agent 能力在云端；**本地可借鉴物极少**，这一点如实记录，不用"已分析"冒充"有产出"。
 
@@ -83,9 +84,9 @@
 | MCP | – | `builtin-mcp` | MCP apps 宿主 | `mcp_config_path` | `mcp_client` + 工件挂载（token/TTL/分页）+ 卡片内外双入口 | **缺口已补（5.13/5.17/5.18）** |
 | 检查点/回滚 | – | – | `checkpoint` | snapshots + `--fresh` | `agent_checkpoint`/`checkpoint_rewind` | 已覆盖 |
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
-| RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
+| RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸） | **缺口已补（5.20）** |
 
-## 5. 本次落地（19 项，含验证证据）
+## 5. 本次落地（20 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -278,6 +279,18 @@
 
 验证：`pytest tests/test_subagent_jobs.py` → `11 passed`（新增 env 夹紧 5 态 / 超限拒绝且不提交 / 另一会话不受影响 / 终态后可再 spawn）；`mypy --strict` 0。
 
+### 5.20 递归分解（RLM）：**整合进既有 TeamOrchestrator**，不另起执行器
+
+- 事实：deepseek-tui 有 `RLM turn`（递归分解 + 每层结论回注）。本仓此前零实现，上一轮结论是"低 ROI、不做"——用户否决，并给出硬约束：**"不能借鉴整合优化吗？谁也不许再编一套出来"**。
+- 处置（不新增模块/文件/执行器/真相源）：
+  - `TeamOrchestrator.run_recursive()` 追加在既有的 `run_round` / `run_multi_rounds` 旁边（`apps/ai-service/app/services/agent_teams.py`）。每层只是**再调一次 `run_round`**：并行分发仍走 `_default_runner → orchestrator.invoke_parallel`，聚合仍走 `ResultAggregator`，摘要仍走 `_build_summary_context`，失败语义（`completed/failed/partial`）原样继承。
+  - 层数上限 `RECURSIVE_MAX_DEPTH=3`、单节点正文预算 `RECURSIVE_NODE_MAX_CHARS=8192`（与 `tool_result_pruner` 的 `DEFAULT_THRESHOLD_CHARS` 同量级，不新造数字档）；两辅助函数 `_chunk_task` / `_split_text_for_recursion` 落在同文件常量区，`_split_text_for_recursion` 的 docstring 明确"只服务这一处，通用切分器本仓已有 `codebase_indexer`，不另立"。
+  - **节点预算 = `subagent_jobs.resolve_running_cap()`**（惰性 import，env 只可下调、恒夹 [1,20]）：一层要派 20 片就撞 20 的上限，超了**整次拒绝**（`RECURSIVE_NODE_LIMIT`），不跑半截再报错——与第 19 项同一个数，不写第二份上限。
+  - HTTP 面只加一条薄封装：`POST /api/orchestration/teams/recursive`（`TeamRecursiveBody`：`objective` / `chunks` / `strategy` / `max_concurrency` / `depth` / `max_chars_per_node`），拒绝态回 `code=400`，走既有 `/api/orchestration` 信封，不新开路由族。
+- 超越轴：对照件的 RLM 是独立 turn 类型，层数与并发上限各写一份；本仓把**递归节点预算和子代理并发闸绑成同一个数**，并给"层数夹紧 + 节点整次拒绝 + 空片直通"三条边界显式语义（对照件在超预算时是中途失败，本仓是先算后拒）。
+
+验证：`pytest apps/ai-service/tests/test_agent_teams.py` → `30 passed`（新增 5 例：单层直通 / 超预算自动再切一层 / env 压到 1 时两片整次拒绝 / 空片 `skipped=no_chunks` / 端点契约 `code=400` 与 `code=0` 两条）；`mypy --strict app/services/agent_teams.py app/routers/team_orchestration.py` → `Success: no issues found in 2 source files`。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -287,6 +300,7 @@
 3. **BM25 / 混合检索** → 已有等价且更强：`mcp_server.py` 的 `search_codebase` 已是 pgvector + BM25 的 RRF 混合通道（注释 `:1707`）。纯 BM25 再写一份会在离线/在线两态给出两套排序。
 4. **前缀缓存统计** → 统计早已有（`cost_ledger.py:510` 段 `total_cached_tokens / cache_creation_tokens / cache_hit_count` + `model_pricing.py` 三段计价 + `rollout_budget.py` 归一）；本轮把"读数"装成会话级一等端点（§5.16），只剩前端图形化看板属产品形态。
 5. **MCP apps 宿主 UI** → 后端挂载（§5.13）+ 卡片外链（§5.17）+ 卡片内嵌分页预览（§5.18）三件齐备，"点开看到完整输出"这条链路已闭环；剩下的只是要不要给 HTML 类产物加 iframe 沙盒卡片这一产品形态选择，不再有功能缺件。
+6. **RLM（递归分解）** → 原判"低 ROI、不做"已撤回：按"借鉴整合、不另造"的口径并入 `TeamOrchestrator.run_recursive`（§5.20），复用并行分发/聚合/摘要三条既有链路，节点预算与子代理并发闸同源。至此 §4 矩阵中对照件的能力项**全部有落点**，无"已知缺口未补"。
 
 ## 7. Limitations（如实记录，不作安全结论）
 
