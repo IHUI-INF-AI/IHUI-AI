@@ -43,14 +43,19 @@ export interface StreamRelayChatOptions {
   signal?: AbortSignal
   /** 会话级亲和键(号池据此把多轮落到同一账号 + 同一上游会话) */
   conversationId?: string
+  /**
+   * 2026-11-21:推理强度档位(D130 的号池腿)。此前 web 侧就往这里传,但选项类型没声明
+   * ⇒ tsc 报"对象字面量只能指定已知属性",线上被类型闸挡住。键名下行按 snake 写成
+   * `reasoning_effort`,与 `/api/ai/chat` 那条腿同一字段(§0.6 不另造名字)。
+   * `undefined` = 用户没表态,不发该键(后端按默认档)。
+   */
+  reasoningEffort?: string
   onDelta: (delta: string) => void
   onDone?: () => void
   onError?: (message: string, info?: { errorCode?: string }) => void
   onUsage?: (usage: RelayChatUsage) => void
   /** 空闲超时(毫秒):从发出请求到收到下一次帧的最长等待,默认 180s */
   idleTimeoutMs?: number
-  /** 推理强度档位(2026-11-21):号池通道同样透传,由上游决定是否认这一个档 */
-  reasoningEffort?: string
 }
 
 /** 服务端 → 客户端帧(形状见 ws-relay-chat.ts 头注) */
@@ -218,8 +223,9 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
               )
               .map((m) => ({ role: m.role, content: m.content })),
             stream: true,
-            ...(opts.reasoningEffort ? { reasoning_effort: opts.reasoningEffort } : {}),
             ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
+            // 2026-11-21:推理档位只在用户表态时下发(空串/undefined 不发,后端按默认档)。
+            ...(opts.reasoningEffort ? { reasoning_effort: opts.reasoningEffort } : {}),
           }),
         )
       } catch (err) {
