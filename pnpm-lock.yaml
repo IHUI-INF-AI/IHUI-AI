@@ -936,8 +936,8 @@ importers:
         specifier: ^7.29.7
         version: 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       '@babel/plugin-transform-block-scoping':
-        specifier: ^7.29.7
-        version: 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+        specifier: ^8.0.10
+        version: 8.0.10(@babel/core@7.29.7(supports-color@8.1.1))
       '@babel/plugin-transform-class-properties':
         specifier: ^7.29.7
         version: 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
@@ -1788,7 +1788,7 @@ importers:
         version: 19.2.18
       react-native:
         specifier: ^0.86.0
-        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@react-native/metro-config@0.87.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
+        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -2196,6 +2196,12 @@ packages:
   '@babel/helper-plugin-utils@7.29.7':
     resolution: {integrity: sha512-G7sHYigPY17oO5SYWnfD/0MTBwVR781S/JI643e/JhUYgVgWE/61SoW3NH9KWUKyKq5LVh3npif99Wkt6j86Jw==}
     engines: {node: '>=6.9.0'}
+
+  '@babel/helper-plugin-utils@8.0.1':
+    resolution: {integrity: sha512-3PKFgjTyPlhFhorfP+SjKQxLViIL++zWjFOO4hGriYU+Bsm983DxEM1JmDRJVWXV0O9npu+xXRqz7Pbd3mh70g==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+    peerDependencies:
+      '@babel/core': ^8.0.0
 
   '@babel/helper-remap-async-to-generator@7.22.9':
     resolution: {integrity: sha512-8WWC4oR4Px+tr+Fp0X3RHDVfINGpF3ad1HIbrc8A77epiR6eMMc6jsgozkzT2uDiOOdoS9cLIQ+XD2XvI2WSmQ==}
@@ -2793,6 +2799,12 @@ packages:
     engines: {node: '>=6.9.0'}
     peerDependencies:
       '@babel/core': ^7.0.0-0
+
+  '@babel/plugin-transform-block-scoping@8.0.10':
+    resolution: {integrity: sha512-quUFdseabc7Z/gALDVAKy7iaLrErgiuiHR31oxLEzUs+Wn8nYqLGHnunM7WOU24SNEk0DrCHV+oKwlJ6Bp8OGA==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+    peerDependencies:
+      '@babel/core': ^8.0.0
 
   '@babel/plugin-transform-class-properties@7.29.7':
     resolution: {integrity: sha512-GtcpjFvanPfzNQi3eTitsCqtRRmmqzpy/A+yhTR1HaZo1Ly3EA8ZXxlPyHdR8/IuRMYc3E4wdGBewB2QKQjAaA==}
@@ -23092,6 +23104,10 @@ snapshots:
 
   '@babel/helper-plugin-utils@7.29.7': {}
 
+  '@babel/helper-plugin-utils@8.0.1(@babel/core@7.29.7(supports-color@8.1.1))':
+    dependencies:
+      '@babel/core': 7.29.7(supports-color@8.1.1)
+
   '@babel/helper-remap-async-to-generator@7.22.9(@babel/core@7.21.4(supports-color@8.1.1))(supports-color@8.1.1)':
     dependencies:
       '@babel/core': 7.21.4(supports-color@8.1.1)
@@ -23801,6 +23817,11 @@ snapshots:
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/helper-plugin-utils': 7.29.7
+
+  '@babel/plugin-transform-block-scoping@8.0.10(@babel/core@7.29.7(supports-color@8.1.1))':
+    dependencies:
+      '@babel/core': 7.29.7(supports-color@8.1.1)
+      '@babel/helper-plugin-utils': 8.0.1(@babel/core@7.29.7(supports-color@8.1.1))
 
   '@babel/plugin-transform-class-properties@7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)':
     dependencies:
