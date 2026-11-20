@@ -324,26 +324,13 @@ const MODEL_TIER_ORDER: Readonly<Record<string, number>> = {
   legacy: 2,
 }
 
-/** 把 legacy 档模型收编进尾部「历史模型(N)」独立分组(数据级折叠:ModelList 分组标题
- *  字段 title 直承接住,不改共享组件;对齐 web 历史模型折叠语义)。
- *  收编行的 description 从档位标签换成厂商名 —— 分组标题不再承载厂商信息。
- *  非 legacy 分组保持原序;无 legacy 时原样返回。 */
-function foldLegacyGroups(
-  groups: ModelListGroup[],
-  historyLabelOf: (count: number) => string,
-): ModelListGroup[] {
-  const primary = groups
+/** 过滤掉 legacy 档模型(2026-11-20 机主定档:取消「历史模型」独立分组)。
+ *  legacy 不再被收编成尾部分组,而是直接从分组里摘掉;非 legacy 分组保持原序。
+ *  原实现把 legacy 收进尾部「历史模型(N)」组,现按新口径删除该组。 */
+function foldLegacyGroups(groups: ModelListGroup[]): ModelListGroup[] {
+  return groups
     .map((g) => ({ ...g, models: g.models.filter((m) => m.modelTier !== 'legacy') }))
     .filter((g) => g.models.length > 0)
-  const legacy: ModelListItem[] = []
-  for (const g of groups) {
-    for (const m of g.models) {
-      if (m.modelTier === 'legacy') legacy.push({ ...m, description: g.vendor ?? '' })
-    }
-  }
-  return legacy.length > 0
-    ? [...primary, { title: historyLabelOf(legacy.length), models: legacy }]
-    : primary
 }
 
 /** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
@@ -1117,7 +1104,7 @@ export function HomeScreen() {
           ),
         }))
         .filter((g) => g.models.length > 0)
-      return foldLegacyGroups(hit, (n) => t('home.historyGroupCount', { count: n }))
+      return foldLegacyGroups(hit)
     }
     if (modelModalTab === 'skills') return []
     const filtered = realModelGroups
@@ -1129,10 +1116,8 @@ export function HomeScreen() {
       }))
       .filter((g) => g.models.length > 0)
     return filtered.length > 0
-      ? foldLegacyGroups(filtered, (n) => t('home.historyGroupCount', { count: n }))
-      : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab]), (n) =>
-          t('home.historyGroupCount', { count: n }),
-        )
+      ? foldLegacyGroups(filtered)
+      : foldLegacyGroups(localizePlaceholderGroups(PLACEHOLDER_MODELS[modelModalTab]))
   }, [modelModalTab, realModelGroups, modelSearch, t])
   const modalModelCount = useMemo(
     () => modalModelGroups.reduce((n, g) => n + g.models.length, 0),

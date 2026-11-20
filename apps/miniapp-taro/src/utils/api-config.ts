@@ -46,7 +46,7 @@ const IS_H5 = process.env.TARO_ENV === 'h5'
  * 注意:这不是 localhost,不会触发 BUG-41① 担忧的"手机上 localhost 不存在"白屏;
  * 启动链仍由 assertApiBaseConfigured() 硬失败 + 上报(见下),本兜底只是防御纵深。
  */
-const PROD_API_BASE_URL = 'https://api.aizhs.top/api'
+const PROD_API_BASE_URL = 'https://www.aizhs.top/api'
 
 /** 读取 TARO_APP_API_BASE_URL(编译期内联为字面量;缺失时运行期访问,try/catch 兜底无 process 场景)。 */
 function getEnvApiBase(): string | undefined {

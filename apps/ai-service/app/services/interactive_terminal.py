@@ -44,6 +44,7 @@ import ctypes
 import importlib
 import os
 import signal as _signal
+import struct
 import subprocess
 import threading
 import time
@@ -67,6 +68,14 @@ _WIN_CREATE_NEW_PROCESS_GROUP: Final[int] = getattr(subprocess, "CREATE_NEW_PROC
 _WIN_CTRL_BREAK_EVENT: Final[int] = getattr(_signal, "CTRL_BREAK_EVENT", 0)
 MAX_READ_CHARS: Final = 32_000
 CLOSE_GRACE_S: Final = 2.0
+
+#: 伪终端初始/上限尺寸。真 tty 必须有非零窗口尺寸 —— POSIX `pty.openpty()` 缺省给
+#: 0x0,按 tty 出进度的程序会算出荒谬的宽度;ConPTY 也要求 cols/rows > 0。故两套后端
+#: 都在开会话时钉住初始尺寸,并允许 `resize_terminal` 运行期改。
+DEFAULT_COLS: Final = 120
+DEFAULT_ROWS: Final = 30
+MAX_COLS: Final = 500
+MAX_ROWS: Final = 200
 
 # PTY 后端开关(读时机敏感:每次 open_terminal 现读 env,便于测试 monkeypatch)。
 PTY_REQUEST_ENV: Final = "IHUI_INTERACTIVE_PTY"
@@ -143,6 +152,9 @@ class TerminalSession:
     pty_read_fd: int | None = None
     #: 真 tty(PTY)还是匿名管道 —— 进 to_dict 给消费方/前端标会话类型。
     backend: str = "pipes"
+    #: 当前窗口尺寸(PTY 才有意义;管道路径仅作记账,tty 语义不存在)。
+    cols: int = DEFAULT_COLS
+    rows: int = DEFAULT_ROWS
 
     def running(self) -> bool:
         return self.proc.poll() is None
@@ -158,6 +170,8 @@ class TerminalSession:
             "next_seq": self.seq,
             "created_ts": self.created_ts,
             "backend": self.backend,
+            "cols": self.cols,
+            "rows": self.rows,
         }
 
 
@@ -319,6 +333,23 @@ def _make_ctty_setter() -> Any:
     return _preexec
 
 
+def _posix_set_winsize(fd: int, cols: int, rows: int) -> bool:
+    """POSIX:对 master fd 写 `TIOCSWINSZ`,行规程据此更新前台进程组的窗口尺寸。
+
+    `fcntl`/`termios` 用 importlib 取(Windows 无此模块;本函数只被 POSIX 分支调用)。
+    失败返回 False 而不抛 —— 调用方据此区分"改了"与"内核不认"。
+    """
+    try:
+        fcntl = importlib.import_module("fcntl")
+        termios = importlib.import_module("termios")
+        # struct winsize { unsigned short ws_row, ws_col, ws_xpixel, ws_ypixel }
+        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+    except (OSError, AttributeError, ImportError, ValueError):
+        return False
+    return True
+
+
 def _spawn_pty(
     command: str, cwd: str, env_extra: dict[str, str] | None
 ) -> tuple[subprocess.Popen[str], int, Any]:
@@ -381,8 +412,8 @@ def _spawn_conpty(
         command_line=f'{comspec} /d /s /c "{command}"',
         cwd=cwd,
         env=_strict_child_env(env_extra),
-        cols=120,
-        rows=30,
+        cols=DEFAULT_COLS,
+        rows=DEFAULT_ROWS,
     )
     return proc, int(proc.read_fd), proc.write_io
 
@@ -406,6 +437,11 @@ def _open_pty_session(
             proc, read_fd, write_io = _spawn_pty(command, cwd, env_extra)
     except OSError as e:
         return {"ok": False, "errorCode": "TERMINAL_SPAWN_FAILED", "error": f"PTY 启动失败: {e}"}
+    if os.name != "nt":
+        # `pty.openpty()` 缺省是 0x0 窗口:按 tty 出进度的程序会算出荒谬宽度。开会话即钉
+        # 初始尺寸(失败不致命,isatty 仍成立)。ConPTY 由 CreatePseudoConsole 的 size 参数
+        # 直接钉住,无需事后补。
+        _posix_set_winsize(read_fd, DEFAULT_COLS, DEFAULT_ROWS)
     session = TerminalSession(
         terminal_id=f"term_{uuid.uuid4().hex[:12]}",
         owner_user_id=user_id or None,
@@ -417,6 +453,8 @@ def _open_pty_session(
         write_io=write_io,
         pty_read_fd=read_fd,
         backend="pty",
+        cols=DEFAULT_COLS,
+        rows=DEFAULT_ROWS,
     )
     _sessions[session.terminal_id] = session
     thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
@@ -632,6 +670,72 @@ def signal_terminal(
         "ok": True, "terminal_id": terminal_id, "signal": signal_name,
         "running": proc.poll() is None,
     }
+
+
+def resize_terminal(
+    terminal_id: str,
+    *,
+    cols: int,
+    rows: int,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """改 PTY 会话的窗口尺寸。
+
+    POSIX 走 `TIOCSWINSZ`,Windows 走 `ResizePseudoConsole`。**管道后端显式拒绝**
+    (`TERMINAL_NOT_A_TTY`)而不是静默 no-op —— 管道没有 tty 语义,"改成了"这句话
+    在那边是假的(§0.3);越界尺寸同样显式拒,避免把 0/负数喂给内核。
+    """
+    session = _sessions.get(terminal_id)
+    if session is None or not _owned(session, user_id, session_id):
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    try:
+        cols_i, rows_i = int(cols), int(rows)
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_SIZE",
+            "error": "cols/rows 必须是整数",
+        }
+    if not (1 <= cols_i <= MAX_COLS and 1 <= rows_i <= MAX_ROWS):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_SIZE",
+            "error": (
+                f"cols 需在 1..{MAX_COLS}、rows 需在 1..{MAX_ROWS}(实得 {cols_i}x{rows_i})"
+            ),
+        }
+    if session.backend != "pty":
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_A_TTY",
+            "error": (
+                "管道路径没有 tty 语义,resize 无意义;"
+                f"要以 tty 开会话请设 {PTY_REQUEST_ENV}"
+            ),
+            "terminal": session.to_dict(),
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    if os.name == "nt":
+        resize = getattr(session.proc, "resize", None)
+        ok = bool(resize(cols_i, rows_i)) if callable(resize) else False
+    else:
+        fd = session.pty_read_fd
+        ok = fd is not None and _posix_set_winsize(fd, cols_i, rows_i)
+    if not ok:
+        return {
+            "ok": False, "errorCode": "TERMINAL_RESIZE_FAILED",
+            "error": "改尺寸被内核拒绝(伪终端已失效?)",
+            "terminal": session.to_dict(),
+        }
+    with session.lock:
+        session.cols, session.rows = cols_i, rows_i
+    return {"ok": True, "terminal_id": terminal_id, "cols": cols_i, "rows": rows_i}
 
 
 def close_terminal(
@@ -929,6 +1033,12 @@ class ConPtyProcess:
             return
         self.terminate()
 
+    def resize(self, cols: int, rows: int) -> bool:
+        """改伪控制台尺寸;`ResizePseudoConsole` 返回 HRESULT,0 = 成功。"""
+        if self._released:
+            return False
+        return int(self._k32.ResizePseudoConsole(self._hpcon, _ConPtyCoord(cols, rows))) == 0
+
     def release(self) -> None:
         """关伪控制台 + 进程/线程句柄(幂等)。由 `_close_io` 在会话摘除后调用。"""
         if self._released:
@@ -1038,6 +1148,11 @@ __test__ = {
     "pty_requested": _pty_requested,
     "pty_supported_on_host": _pty_supported_on_host,
     "conpty_available": _conpty_available,
+    "resize_terminal": resize_terminal,
+    "DEFAULT_COLS": DEFAULT_COLS,
+    "DEFAULT_ROWS": DEFAULT_ROWS,
+    "MAX_COLS": MAX_COLS,
+    "MAX_ROWS": MAX_ROWS,
     "PTY_REQUEST_ENV": PTY_REQUEST_ENV,
     "PTY_TRUTHY": _PTY_TRUTHY,
 }
