@@ -396,6 +396,11 @@ _OWNER = {"__user_id": "u-term", "__session_id": "s-term"}
 
 # ─── 窗口尺寸(resize):真 tty 才有的能力面 ───
 
+_BURST_SCRIPT = """\
+import sys
+for i in range(40):
+    print("L%03d" % i, flush=True)
+"""
 _SIZE_SCRIPT = """\
 import shutil, sys
 print("[READY]", flush=True)
@@ -664,6 +669,90 @@ def test_size_validation_is_single_source_and_pinned_before_spawn() -> None:
     assert src.index("_posix_set_winsize(master_fd, cols, rows)") < src.index(
         "        proc = subprocess.Popen("
     )
+
+
+def test_history_gap_counts_evicted_chunks_and_keeps_lifetime_fact() -> None:
+    """缺口判据(纯函数边界):只回答"这一窗口丢没丢",累计丢量另算且不清零。
+
+    `gap` 与 `dropped_chunks` 必须分工 —— 同一个 `dropped_chunks` 拿来当 `gap` 用
+    会让"曾经丢过"的会话永远报缺口(告警一旦触发永不复原),反之亦然。
+    """
+    gap_of = _TEST["history_gap"]
+    # 缓冲空:first_seq == next_seq+1,任何 since_seq 都不缺口
+    assert gap_of(11, 0, 10) == {
+        "first_seq": 11, "gap": False, "gap_chunks": 0, "dropped_chunks": 0,
+    }
+    # 攒了 3 条被挤掉:since_seq=0 跨过缺口,且说明丢的是 3 条
+    assert gap_of(4, 3, 0) == {
+        "first_seq": 4, "gap": True, "gap_chunks": 3, "dropped_chunks": 3,
+    }
+    # 游标已跟上(first_seq 前一条):本次窗口不缺口,但累计仍是 3(历史事实不清零)
+    assert gap_of(4, 3, 3) == {
+        "first_seq": 4, "gap": False, "gap_chunks": 0, "dropped_chunks": 3,
+    }
+    # 越界游标(比 first_seq 还靠后)不得算出负数
+    assert gap_of(4, 3, 99)["gap_chunks"] == 0
+
+
+def test_read_reports_gap_when_buffer_evicts(monkeypatch, tmp_path) -> None:
+    """端到端:缓冲满时最老的块被挤掉,read 必须**显式报缺口**而不是静默少一段。
+
+    形状锁口径:把 `MAX_BUFFER_LINES` 调小后,`first_seq` 必须严格大于 1(dropped>0),
+    `gap_chunks == dropped_chunks`,且 `next_seq == dropped + 保留条数` —— 三条一起成立
+    才说明"挤掉的条数与 seq 账本对得上"(只测 gap=True 会漏掉计数漂移)。
+    """
+    term.reset_terminals()
+    monkeypatch.setattr(term, "MAX_BUFFER_LINES", 8, raising=True)
+    try:
+        opened = _open(_script_path(tmp_path, "burst.py", _BURST_SCRIPT), tmp_path)
+        assert opened["ok"] is True
+        tid = opened["terminal"]["terminal_id"]
+        deadline = time.time() + 20.0
+        last: dict = {}
+        while time.time() < deadline:
+            last = term.read_terminal(
+                tid, user_id="u-term", session_id="s-term", since_seq=0, wait_s=0.2
+            )
+            if not last["running"]:
+                break
+        assert last.get("ok") is True
+        assert last["dropped_chunks"] >= 1, f"未发生驱逐,用例前提不成立:{last}"
+        assert last["gap"] is True
+        assert last["gap_chunks"] == last["dropped_chunks"]
+        assert last["first_seq"] == last["dropped_chunks"] + 1
+        # seq 账本自洽:总产出 = 被挤掉的 + 仍保留的
+        assert last["next_seq"] == last["dropped_chunks"] + len(last["chunks"])
+        assert len(last["chunks"]) <= 8
+        # 游标跟上之后:本次窗口不再缺口,但累计丢量保留(历史事实)
+        clean = term.read_terminal(
+            tid, user_id="u-term", session_id="s-term",
+            since_seq=last["next_seq"], wait_s=0.0,
+        )
+        assert clean["gap"] is False and clean["gap_chunks"] == 0
+        assert clean["dropped_chunks"] == last["dropped_chunks"]
+    finally:
+        term.reset_terminals()
+
+
+def test_list_terminals_exposes_dropped_chunks(monkeypatch, tmp_path) -> None:
+    """注册表读面必须带同一口径:看得到"这个会话丢过输出",否则前端只能猜。"""
+    term.reset_terminals()
+    monkeypatch.setattr(term, "MAX_BUFFER_LINES", 2, raising=True)
+    try:
+        opened = _open(_script_path(tmp_path, "burst2.py", _BURST_SCRIPT), tmp_path)
+        assert opened["ok"] is True
+        tid = opened["terminal"]["terminal_id"]
+        deadline = time.time() + 20.0
+        while time.time() < deadline:
+            listed = term.list_terminals(user_id="u-term", session_id="s-term")
+            row = next(t for t in listed["terminals"] if t["terminal_id"] == tid)
+            if not row["running"]:
+                break
+            time.sleep(0.1)
+        assert row["dropped_chunks"] >= 1
+        assert row["first_seq"] == row["dropped_chunks"] + 1
+    finally:
+        term.reset_terminals()
 
 
 @pytest.mark.asyncio

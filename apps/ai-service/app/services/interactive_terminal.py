@@ -239,9 +239,19 @@ class TerminalSession:
     rows: int = DEFAULT_ROWS
     #: 是否已送过 EOF:送过之后 send/keys 一律显式拒,不静默丢字节。
     stdin_closed: bool = False
+    #: 缓冲满时被挤掉的块数(deque maxlen 会**静默**丢弃最老的)。这是唯一能让
+    #: "按 next_seq 续读却读不到中间那段"变成可判事实的计数;恒为 0 才说明零丢失。
+    dropped_chunks: int = 0
 
     def running(self) -> bool:
         return self.proc.poll() is None
+
+    def first_seq(self) -> int:
+        """当前仍可读到的**最早** seq(缓冲空时 = 下一个将要产出的 seq)。"""
+        with self.lock:
+            if self.chunks:
+                return int(self.chunks[0]["seq"])
+            return self.seq + 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -252,6 +262,8 @@ class TerminalSession:
             "running": self.running(),
             "exit_code": self.proc.poll(),
             "next_seq": self.seq,
+            "first_seq": self.first_seq(),
+            "dropped_chunks": self.dropped_chunks,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -313,8 +325,16 @@ def _owned(
 
 
 def _push(session: TerminalSession, tag: str, text: str) -> None:
-    """把一个文本片段作为一条 chunk 入缓冲(seq 单调 +1)。PTY/管道共用同一入队口径。"""
+    """把一个文本片段作为一条 chunk 入缓冲(seq 单调 +1)。PTY/管道共用同一入队口径。
+
+    deque 满载时 python 会**静默**挤掉最老的一条 —— 对读端来说这就是"按 next_seq
+    续读却凭空少了一段"。所以驱逐必须在同一个出口里记数(`dropped_chunks`),
+    由 read/wait 回信封里的 `gap` 显式告知(§0.3:丢过就说丢过)。
+    """
     with session.lock:
+        maxlen = session.chunks.maxlen
+        if maxlen is not None and len(session.chunks) >= maxlen:
+            session.dropped_chunks += 1
         session.seq += 1
         session.chunks.append({"seq": session.seq, "stream": tag, "text": text})
 
@@ -921,6 +941,24 @@ def eof_terminal(
     }
 
 
+def _history_gap(first_seq: int, dropped_chunks: int, since_seq: int) -> dict[str, Any]:
+    """读窗口缺口判据(**唯一**出口,read/wait 共用,§22c 不写第二份)。
+
+    `since_seq` 之后本该有 `first_seq - 1 - since_seq` 条,但缓冲里最早的已经是
+    `first_seq` ⇒ 中间那段被 deque 挤掉了。三个字段分工:
+    - `gap`:本次窗口**有没有**跨过缺口(消费方据此决定要不要告警);
+    - `gap_chunks`:本次窗口跨过多少条;
+    - `dropped_chunks`:生命周期累计丢过多少条(回答"曾经丢过没有",不随窗口清零)。
+    """
+    lost = max(0, first_seq - 1 - max(0, since_seq))
+    return {
+        "first_seq": first_seq,
+        "gap": lost > 0,
+        "gap_chunks": lost,
+        "dropped_chunks": dropped_chunks,
+    }
+
+
 def read_terminal(
     terminal_id: str,
     *,
@@ -930,18 +968,26 @@ def read_terminal(
     wait_s: float = 1.0,
     max_chars: int = 8000,
 ) -> dict[str, Any]:
+    """读增量输出(`since_seq` 之后的所有块)。
+
+    缓冲是有界的(`MAX_BUFFER_LINES`):消费方太慢时最老的块会被挤掉。此时**不会**
+    假装"什么都没发生"——信封里 `gap=True` / `gap_chunks` / `dropped_chunks` 明说丢了多少。
+    """
     session = _sessions.get(terminal_id)
     if session is None or not _owned(session, user_id, session_id):
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
         }
+    since = max(0, int(since_seq))
     deadline = time.monotonic() + max(0.0, min(wait_s, 10.0))
     while True:
         with session.lock:
-            pending = [c for c in session.chunks if c["seq"] > int(since_seq)]
+            pending = [c for c in session.chunks if c["seq"] > since]
             running = session.running()
             next_seq = session.seq
+            first_seq = int(session.chunks[0]["seq"]) if session.chunks else session.seq + 1
+            dropped = session.dropped_chunks
         # 进程已退出不等于读线程已把管道/PTY 尾部吐完:等 pump 全部结束后再收尾,
         # 否则最后一次 read 可能丢掉退出前的最后几行(模型通常读到 running=false 就停)。
         drained = not any(t.is_alive() for t in session.pumps)
@@ -965,6 +1011,7 @@ def read_terminal(
         "terminal_id": terminal_id,
         "chunks": out,
         "next_seq": next_seq,
+        **_history_gap(first_seq, dropped, since),
         "running": running,
         "exit_code": session.proc.poll(),
         "truncated": used >= max_chars and len(pending) > len(out),
@@ -1040,15 +1087,18 @@ def wait_terminal(
             "error": why_bad,
         }
     started = time.monotonic()
+    since = max(0, int(since_seq))
     deadline = started + max(0.0, min(float(timeout_s), MAX_WAIT_S))
     matched = False
     matched_text = ""
     reason = "timeout"
     while True:
         with session.lock:
-            pending = [c for c in session.chunks if c["seq"] > int(since_seq)]
+            pending = [c for c in session.chunks if c["seq"] > since]
             running = session.running()
             next_seq = session.seq
+            first_seq = int(session.chunks[0]["seq"]) if session.chunks else session.seq + 1
+            dropped = session.dropped_chunks
         hit, hit_text = judge("".join(str(c["text"]) for c in pending))
         if hit:
             matched, matched_text, reason = True, hit_text, "matched"
@@ -1082,6 +1132,7 @@ def wait_terminal(
         "reason": reason,
         "chunks": out,
         "next_seq": next_seq,
+        **_history_gap(first_seq, dropped, since),
         "running": running,
         "exit_code": session.proc.poll(),
         "truncated": used >= max_chars and len(pending) > len(out),
@@ -1618,6 +1669,8 @@ __test__ = {
     "send_terminal_keys": send_terminal_keys,
     "eof_terminal": eof_terminal,
     "pty_child_env": _pty_child_env,
+    "history_gap": _history_gap,
+    "read_terminal": read_terminal,
     "PTY_TERM": PTY_TERM,
     "PTY_COLORTERM": PTY_COLORTERM,
     "pattern_judge": _pattern_judge,
