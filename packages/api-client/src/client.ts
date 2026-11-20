@@ -3,18 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import {
-  GoalWireStatus,
-  ReasoningEffort,
-  ApiResult,
-  PlanUpdateEvent,
-  TerminalStartEvent,
-  TerminalEndEvent,
-  CitationsEvent,
+  type GoalWireStatus,
+  type ReasoningEffort,
+  type ApiResult,
+  type PlanUpdateEvent,
+  type TerminalStartEvent,
+  type TerminalEndEvent,
+  type CitationsEvent,
 } from '@ihui/types'
 // #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
 export type { CitationsEvent }
-import { CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
+import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
 // 客户端签名注入(三端注册的 provider 在这里落到 X-IHUI-Client 头;算法本体在 @ihui/shared)
 // 后缀必须是 .js:本包 `"type": "module"` 是纯 ESM,tsc 输出 dist 后由 Node ESM 消费,
 // 无后缀在 dist 里会被判 Cannot find module(extension 构建实测踩过),故与包内既有 import 同形。
@@ -26,7 +26,7 @@ import {
   requireAbortSignal,
   runtimeSupportsAbort,
   startTimeoutWatchdog,
-  TransportInit,
+  type TransportInit,
 } from './transport.js'
 // D138(承 V4 #96):流式传输注入口(streamChat 的 fetch 腿改经此,小程序注入 Taro adapter)
 import { getStreamTransport } from './stream-transport.js'
@@ -37,8 +37,8 @@ import { recordStreamFrame } from './stream-frame-log.js'
 import {
   isFrameGap,
   readFrameWatermark,
-  FrameWatermark,
-  FrameWatermarkCursor,
+  type FrameWatermark,
+  type FrameWatermarkCursor,
 } from './frame-watermark.js'
 // b76-15(2026-10-29 立):seq 维水位生产点(从网关 `id: <seq>` 行派生连续性事实)
 import {
@@ -52,7 +52,7 @@ import {} from './frame-watermark-producer.js'
 // G-816030:帧归属屏障 —— 本包零依赖边界下的同形移植(判据源在 shared,对账测试钉住);
 // 溢出错误(FrameBarrierOverflowError)由屏障 activate 命中溢出记录时构造抛出,
 // reason/droppedCount 以屏障内记录为准,本侧不重复构造。
-import { createFrameOwnershipBarrier, BarrierFrame } from './frame-ownership-barrier.js'
+import { createFrameOwnershipBarrier, type BarrierFrame } from './frame-ownership-barrier.js'
 // G-816031:权威信封路由 —— 恢复闸门在 SSE 帧流上的生产消费点(判据源在 shared,本包同形移植)
 import { createStreamAuthorityRouter, StreamAuthorityResubscribeError } from './stream-authority.js'
 import {} from './recovery-gate.js'
@@ -1849,17 +1849,17 @@ export async function fetchWithAuthRefresh(
 // 公开面由 `export *` 逐名等值转出,包内其他模块的 import 路径不变。
 export * from './stream.js'
 import {
-  GoalUpdateEvent,
+  type GoalUpdateEvent,
   parseContextLedgerSnapshot,
   parseCompactBoundarySnapshot,
   parseUsageCacheTokens,
-  StreamChatOptions,
+  type StreamChatOptions,
   parseStreamLine,
   extractAgentId,
-  AlertSeverity,
-  HookFailureEvent,
-  FormRequestEvent,
-  FormResponseEvent,
+  type AlertSeverity,
+  type HookFailureEvent,
+  type FormRequestEvent,
+  type FormResponseEvent,
   projectToolApprovalDecisionInfo,
   projectToolApprovalExpiredFact,
   projectToolApprovalEnvFacts,
