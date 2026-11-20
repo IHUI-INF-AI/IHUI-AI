@@ -78,6 +78,12 @@ from .sandbox import _strict_child_env
 
 MAX_SESSIONS: Final = 16
 MAX_BUFFER_LINES: Final = 2000
+#: 缓冲块数上限的运行期旋钮(默认就是 `MAX_BUFFER_LINES`,设了这个 env 才变):
+#: 长跑会话(output 量大但消费方慢)可以把窗口放大;反过来把显存/内存吃紧的部署可以调小。
+#: 上界 `MAX_BUFFER_LINES_CEILING` 是硬护栏 —— 一个 50 万块的 deque 就是一次 OOM 事故。
+TERMINAL_BUFFER_LINES_ENV: Final = "IHUI_TERMINAL_BUFFER_LINES"
+MAX_BUFFER_LINES_CEILING: Final = 20_000
+MIN_BUFFER_LINES: Final = 100
 
 # Windows 专属进程组常量:typeshed 按宿主平台裁剪 —— `signal.CTRL_BREAK_EVENT` 与
 # `subprocess.CREATE_NEW_PROCESS_GROUP` 只存在于 Windows 的 stub 里,Linux runner 上
@@ -304,10 +310,19 @@ class TerminalSession:
     last_activity_ts: float = field(default_factory=time.monotonic)
     #: 程序是否已请求 bracketed paste(DECSET 2004)。由输出解析驱动,不靠调用方声明。
     bracketed_paste: bool = False
+    #: 输出缓冲的块数上限(open 那一刻从 `IHUI_TERMINAL_BUFFER_LINES` 现读,缺省 2000)。
+    #: 只记账:**改它要重开会话** —— 已存在的 deque 的 maxlen 不能就地改(`deque.maxlen` 只读)。
+    buffer_lines: int = MAX_BUFFER_LINES
     #: 窗口标题(程序的 `OSC 0/1/2` 设;空串 = 程序没设过)。前端标签页/日志抬头用它。
     title: str = ""
     #: 响铃次数(程序发 BEL)。累计值,不清零 —— 回答"这个会话闹过几次",不是"刚才那一下"。
     bell_count: int = 0
+
+    def __post_init__(self) -> None:
+        # deque 的 default_factory 拿不到实例字段,所以"上限"必须在这里落到缓冲上;
+        # 两处各写一份 `deque(maxlen=…)` 就会漂开(§22c)。
+        if self.chunks.maxlen != self.buffer_lines:
+            self.chunks = deque(maxlen=self.buffer_lines)
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -339,6 +354,7 @@ class TerminalSession:
             "dropped_chunks": self.dropped_chunks,
             "idle_s": self.idle_s(),
             "bracketed_paste": self.bracketed_paste,
+            "buffer_lines": self.buffer_lines,
             "title": self.title,
             "bell_count": self.bell_count,
             "created_ts": self.created_ts,
@@ -361,6 +377,25 @@ def reset_terminals() -> None:
     for session in sessions:
         _force_stop(session)
         _close_io(session)
+
+
+def _buffer_lines(env: Mapping[str, str] | None = None) -> int:
+    """输出缓冲块数上限:未设/空/非法/非正一律回落 `MAX_BUFFER_LINES`(**fail-safe,不猜**)。
+
+    合法值夹在 `[MIN_BUFFER_LINES, MAX_BUFFER_LINES_CEILING]` 之间:下限挡住"把窗口调到
+    0 条 ⇒ 每次 read 都丢光"的自伤,上限挡住"50 万块 deque"的 OOM。每次现读 env,不在导入期定格。
+    """
+    source = os.environ if env is None else env
+    raw = (source.get(TERMINAL_BUFFER_LINES_ENV, "") or "").strip()
+    if not raw:
+        return MAX_BUFFER_LINES
+    try:
+        value = int(raw)
+    except ValueError:
+        return MAX_BUFFER_LINES
+    if value <= 0:
+        return MAX_BUFFER_LINES
+    return max(MIN_BUFFER_LINES, min(value, MAX_BUFFER_LINES_CEILING))
 
 
 def _idle_ttl_s(env: Mapping[str, str] | None = None) -> float:
@@ -854,6 +889,7 @@ def _open_pty_session(
         backend="pty",
         cols=cols,
         rows=rows,
+        buffer_lines=_buffer_lines(),
     )
     _sessions[session.terminal_id] = session
     thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
@@ -943,6 +979,7 @@ def open_terminal(
             created_ts=time.time(),
             write_io=proc.stdin,
             backend="pipes",
+            buffer_lines=_buffer_lines(),
         )
         _sessions[session.terminal_id] = session
     assert proc.stdout is not None and proc.stderr is not None
@@ -2242,6 +2279,10 @@ __test__ = {
     "strip_ansi": strip_ansi,
     "track_terminal_state": _track_terminal_state,
     "MAX_TITLE_CHARS": MAX_TITLE_CHARS,
+    "buffer_lines": _buffer_lines,
+    "TERMINAL_BUFFER_LINES_ENV": TERMINAL_BUFFER_LINES_ENV,
+    "MAX_BUFFER_LINES_CEILING": MAX_BUFFER_LINES_CEILING,
+    "MIN_BUFFER_LINES": MIN_BUFFER_LINES,
     "search_matcher": _search_matcher,
     "buffer_face": _buffer_face,
     "plain_lines": _plain_lines,
