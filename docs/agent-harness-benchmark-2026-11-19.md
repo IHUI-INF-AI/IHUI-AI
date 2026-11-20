@@ -11,6 +11,7 @@
 
 
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -19,7 +20,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **27 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **28 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -95,7 +96,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（27 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（28 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -395,6 +396,18 @@
 
 验证：`pytest test_lifecycle_hooks.py` → `5 passed`（session_start 注入落地 / user_prompt_submit 收到 prompt 并注入 / 零钩子零变化 / 钩子抛错不阻断 / 入口钩子结果进 SSE）；`test_post_tool_hooks + test_hook_runtime_injection_wiring + test_hook_run_sse + test_lifecycle_hooks` → `29 passed`；`mypy --strict`（agent_loop_v2）→ `Success`；`ruff check`（含新测试）→ `All checks passed!`。
 
+### 5.29 第 28 项：STOP 钩子（正常完成的"再想一轮"哨点，硬上限 1 段）
+
+- 缺口：`HookKind.STOP` 有契约有运行时，但 `run()` 完成后没有任何哨点 —— 用户想"每次答完先自检一遍测试再收尾"只能靠提示词祈祷模型记得；且配置面 `decision: "block"` 在本仓没有翻译层，配了也不生效。
+- 处置：
+  - `command_hooks`：STOP 点把 `decision: "block"` 或 `continue: true` **显式翻译**成运行时认的 `stop/stop_reason`（`reason` 作续跑指令；缺省给 `hook <name> 要求继续`）——消费端只认一种方言，不让两种写法各说各话；
+  - `agent_loop_v2._maybe_continue_on_stop_hook()`：只对 `stop_reason == COMPLETED` 触发；取消/暂停/异常/预算不足/达到上限一律不触发（那些结局不是"可以再想想"的结局，拿钩子复活它们等于绕过用户主动操作或安全停止）；
+  - block ⇒ `reason` 作 developer 指令注入并**再跑一段循环**（`prior_iterations`/`prior_tokens` 承接，结果面连续），**硬上限 1 段**防钩子自激；
+  - 不 block 时只注入 `additionalContext` 后照常结束；钩子异常/超时降级为照常结束（失败隔离在运行时层，`hook.run` 帧照发）。
+- 超越轴：对照程序把 Stop hook 的 block 语义做得比"再推一次模型"更宽（还能触发自定义动作链）；本仓刻意收窄成**一次续跑 + 上下文注入**，并把触发条件钉死在"正常完成"，避免"用户点了取消却被钩子拉回来继续烧 token"这类越权副作用。
+
+验证：`pytest test_stop_hook.py` → `5 passed`（block 真续跑 / continue 同义 / 不 block 只注入且不续跑 / 钩子抛错降级 / 配置面 block 映射到运行时）；`test_lifecycle_hooks + test_post_tool_hooks + test_hook_runtime_injection_wiring + test_hook_run_sse + test_command_hooks` → `40 passed`；`mypy --strict`（agent_loop_v2 + command_hooks）→ `Success: no issues found in 2 source files`；`ruff check`（含新测试）→ `All checks passed!`。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -413,4 +426,5 @@
 - Trae 本地包可能只是壳，云端实现完全不可见；"本地命中 0"不等于"产品无此能力"。
 - WorkBuddy 四件为抽取件，未做全量模块扫描（11,587 个模块）。
 - 本次未运行全仓 `pnpm turbo build typecheck lint test`；仅运行改动面相关测试与 `@ihui/api` typecheck。全量验证留给提交链/CI。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
