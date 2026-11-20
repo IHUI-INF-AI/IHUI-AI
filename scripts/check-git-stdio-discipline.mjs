@@ -111,7 +111,8 @@
  *   node scripts/check-git-stdio-discipline.mjs --strict     # 第 3b 条那一维的存量问责档
  *   node scripts/check-git-stdio-discipline.mjs --self-test
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -1052,8 +1053,13 @@ export function listScoped(root, face) {
   )
   const scoped = Array.from(new Set(paths))
   if (face === 'head') {
+    // 2026-11-20:把这张"HEAD 有什么"的全树枚举收到射程内(`-- scripts`)。
+    // 它只被 `has.has(rel)` 消费,而 rel 恒来自 scoped(已在 SCAN_ROOTS 内)⇒ 收窄是**逐字等价**的,
+    // 只是不再为 2.3 万条射程外条目跑一遍解析(实测这一段是本门固定开销的大头)。
     const has = new Set(
-      gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], root, { timeout: GIT_TIMEOUT })
+      gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...SCAN_ROOTS], root, {
+        timeout: GIT_TIMEOUT,
+      })
         .split('\0')
         .filter(Boolean)
         .map(norm),
@@ -1087,14 +1093,145 @@ export function readFace(root, face, paths) {
  * **少扫一个文件不是"没有违规"**(文件头口径第2 条)。
  *
  * @returns {{files, sources, unread, bad, skippedByReason, misses, shellFlagged, libFiles, testFiles,
- *            inputBad, inputUndetermined, inputExempted}}
+ *            inputBad, inputUndetermined, inputExempted, cacheHits, cacheMisses, cacheState}}
  */
+
+// ── 内容寻址记忆化(2026-11-20)───────────────────────────────────────────────
+/**
+ * 逐文件判定是 `(blob 正文, selfExempt)` 的**纯函数**,而 HEAD 面上某路径的内容由它那一枚 blob
+ * oid 完全决定 ⇒ 按 `oid:self` 记结论,内容没变的文件不再重扫。
+ *
+ * 动机(实测):本门单跑 5.9s(2557 个源码文件 / 46MB 正文),而在 push 批次里与 T1/302p 抢核会
+ * 涨到 27.6s —— 一次 push 真正改动的 scripts 文件通常只有个位数,其余每次都在重扫同一批字节,
+ * 只为得出同一批结论。
+ *
+ * 为什么这不算放宽判据:
+ *  - 命中条件 = **同一 oid** ∧ 同一 selfExempt 标记 ⇒ 被判的字节与上次逐字相同(内容寻址);
+ *  - 命中项仍逐条过**当轮**的具名台账豁免(台账不进缓存),台账改一个字节立刻生效;
+ *  - 缓存里带**本门自身源码的 sha256**(logicDigest):scanSource / markHidden / judgeInputStdin
+ *    这些判据改任何一个字节,整份缓存自动失效 —— 不需要依赖"人记得 bump 版本"这条纪律;
+ *  - 读不出 / 写不进缓存 ⇒ 退化成"全量重扫"(= 旧行为),绝不退化成"跳过判定";
+ *  - 只对 `head` 面启用:staged 面的索引 oid 语义与 worktree 面的盘上态另算,一律不掺进来。
+ */
+const SCAN_CACHE_FILE = join(REPO, '.ihui-agent', 'state', 'git-stdio-scan-cache.json')
+
+/** 本门自身源码的 sha256。取不到 ⇒ null ⇒ 整份缓存不可用(安全侧)。 */
+function logicDigest() {
+  try {
+    return createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex')
+  } catch {
+    return null
+  }
+}
+
+/** HEAD 面上每个射程内路径的 blob oid(一次 ls-tree -z)。取不到 ⇒ null。 */
+function headOids(root) {
+  try {
+    const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD', '--', ...SCAN_ROOTS], root, {
+      timeout: GIT_TIMEOUT,
+    })
+    const map = new Map()
+    for (const rec of out.split('\0')) {
+      if (!rec) continue
+      const tab = rec.indexOf('\t')
+      if (tab < 0) continue
+      const meta = rec.slice(0, tab).split(' ')
+      if (meta.length < 3) continue
+      map.set(norm(rec.slice(tab + 1)), meta[2])
+    }
+    return map
+  } catch {
+    return null
+  }
+}
+
+/** 读缓存。形状/版本任何一格不成立 ⇒ 返回 null(调用方按"没有缓存"处理,并报数)。 */
+function loadScanCache(logic) {
+  if (!logic) return { entries: {}, why: '本门源码摘要取不到' }
+  let parsed
+  try {
+    parsed = JSON.parse(readFileSync(SCAN_CACHE_FILE, 'utf8'))
+  } catch {
+    return { entries: {}, why: '缓存不存在/不可读' }
+  }
+  if (!parsed || parsed.logic !== logic) return { entries: {}, why: '判据源码已变(摘要不符)' }
+  if (!parsed.entries || typeof parsed.entries !== 'object') return { entries: {}, why: '缓存形状异常' }
+  return { entries: parsed.entries, why: null }
+}
+
+/** 写缓存(原子替换)。写不进去只告警,绝不影响结论。返回是否写成功。 */
+function saveScanCache(logic, entries) {
+  if (!logic) return false
+  try {
+    mkdirSync(dirname(SCAN_CACHE_FILE), { recursive: true })
+    const tmp = `${SCAN_CACHE_FILE}.${process.pid}.tmp`
+    writeFileSync(tmp, JSON.stringify({ logic, entries }), 'utf8')
+    renameSync(tmp, SCAN_CACHE_FILE)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function evaluate(root, face) {
   const all = listScoped(root, face)
   const files = all.filter(isSourceFile)
   const skippedExt = all.length - files.length
-  const texts = readFace(root, face, files)
-  const unread = files.filter((rel) => typeof texts.get(rel) !== 'string')
+  // 内容寻址记忆化:只判**内容变过**的文件(同一 oid 的其余文件直接复用上次结论)。
+  const logic = face === 'head' ? logicDigest() : null
+  const oids = face === 'head' ? headOids(root) : null
+  const cache = face === 'head' && oids ? loadScanCache(logic) : null
+  const cacheWhy = face !== 'head' ? '非 HEAD 面不启用' : oids ? (cache?.why ?? null) : 'HEAD oid 清单取不到'
+  const results = new Map()
+  let cacheHits = 0
+  const need = []
+  for (const rel of files) {
+    const oid = oids?.get(rel)
+    const key = oid ? `${oid}:${isSelfExempt(rel) ? 1 : 0}` : null
+    const hit = key ? cache?.entries[key] : null
+    // 形状校验:只复用"看起来确实是 scanSource 的返回"的那一条;否则按未命中重扫(安全侧)。
+    if (
+      hit &&
+      typeof hit === 'object' &&
+      Array.isArray(hit.misses) &&
+      Array.isArray(hit.skipped) &&
+      Array.isArray(hit.inputBad) &&
+      Array.isArray(hit.inputUndetermined) &&
+      typeof hit.shellFlagged === 'number'
+    ) {
+      results.set(rel, hit)
+      cacheHits += 1
+      continue
+    }
+    need.push(rel)
+  }
+  const texts = readFace(root, face, need)
+  const unread = need.filter((rel) => typeof texts.get(rel) !== 'string')
+  const freshEntries = {}
+  for (const rel of need) {
+    const raw = texts.get(rel)
+    if (typeof raw !== 'string') continue
+    const r = scanSource(raw, { selfExempt: isSelfExempt(rel) })
+    results.set(rel, r)
+    const oid = oids?.get(rel)
+    if (oid) freshEntries[`${oid}:${isSelfExempt(rel) ? 1 : 0}`] = r
+  }
+  // 只留本面当前键集(避免缓存随历史无限膨胀);写不进去只告警,结论不受影响。
+  const cacheWriteOk =
+    face === 'head' && logic
+      ? saveScanCache(
+          logic,
+          Object.fromEntries(
+            files
+              .map((rel) => {
+                const oid = oids?.get(rel)
+                const key = oid ? `${oid}:${isSelfExempt(rel) ? 1 : 0}` : null
+                return key && results.has(rel) ? [key, results.get(rel)] : null
+              })
+              .filter(Boolean),
+          ),
+        )
+      : false
   const { entries, malformed, absent } = loadExemptions(root)
   const bad = []
   const inputBad = []
@@ -1108,9 +1245,8 @@ export function evaluate(root, face) {
   let exempted = 0
   let inputExempted = 0
   for (const rel of files) {
-    const raw = texts.get(rel)
-    if (typeof raw !== 'string') continue
-    const r = scanSource(raw, { selfExempt: isSelfExempt(rel) })
+    const r = results.get(rel)
+    if (!r) continue
     for (const s of r.skipped) addSkip(s.why)
     shellFlagged += r.shellFlagged
     const kept = []
@@ -1173,6 +1309,11 @@ export function evaluate(root, face) {
     inputExempted,
     libFiles: files.filter((f) => norm(f).startsWith('scripts/lib/')).length,
     testFiles: files.filter(isTestSurface).length,
+    // 记忆化读数(必须报数:复用多少、重扫多少、缓存是否可用 —— 复用量看不见就等于没有)
+    cacheHits,
+    cacheMisses: need.length,
+    cacheWhy,
+    cacheWriteOk,
   }
 }
 
@@ -1943,6 +2084,16 @@ function run(argv) {
   )
   if (out.skippedExt > 0) {
     console.log(`   (非源码扩展名跳过 ${out.skippedExt} 个,如实报数不静默)`)
+  }
+  // 记忆化读数必须现读出来:复用多少、重扫多少、缓存为什么不可用 —— 看不见的复用等于没有
+  // (读日志的人无法分辨"扫过了 2557 个"和"复用了 2557 个")。
+  if (out.cacheHits > 0 || out.cacheMisses > 0) {
+    console.log(
+      `   判定面记忆化(按 blob oid 记账):复用 ${out.cacheHits} 个 / 重扫 ${out.cacheMisses} 个` +
+        (out.cacheHits > 0 && out.cacheMisses === 0 ? '(整面命中)' : '') +
+        (out.cacheWhy ? ` / 缓存不可用:${out.cacheWhy}` : '') +
+        (out.cacheWriteOk ? '' : ' / 缓存未写回(不影响结论)'),
+    )
   }
   if (out.ledgerAbsent) {
     console.log(
