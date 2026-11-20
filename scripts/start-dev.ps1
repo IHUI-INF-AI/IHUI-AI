@@ -195,6 +195,18 @@ function Test-HealthUrl([string]$url, [int]$timeoutSec = 10) {
 }
 
 # ============================================================
+# 函数:进程守卫(2026-11-21 立,治"共享端口假绿")
+# registry 里带 processName 的服务(desktop),它的 port/health 是**别人的**(共享 web 的
+# 8801)—— 只看 HTTP 200 就等于"web 在跑"冒充"desktop 在跑",失败也报 PASS。
+# 这类服务的"真活着"由本函数判定:目标进程必须在。取不到进程名 ⇒ 不参与判定(不影响
+# 其他服务的既有语义)。
+# ============================================================
+function Test-ProcessGuard([string]$processName) {
+  if ([string]::IsNullOrEmpty($processName)) { return $true }
+  return [bool](Get-Process -Name $processName -ErrorAction SilentlyContinue)
+}
+
+# ============================================================
 # 函数:健康检查(带超时轮询)
 # ============================================================
 function Wait-Healthy([string]$name, [int]$port, [string]$healthUrl, [int]$timeoutSec) {
@@ -260,6 +272,7 @@ function Start-ServiceProcess {
     [string]$Cwd,
     [int]$Port,
     [string]$HealthUrl,
+    [string]$ReusePortOf,
     [int]$TimeoutSec,
     [bool]$IsForeground,
     [bool]$SkipHealth
@@ -280,7 +293,18 @@ function Start-ServiceProcess {
   }
 
   # 1. 端口冲突检测
-  if (Test-PortInUse $port) {
+  # 共享端口(reusePortOf):desktop 的 8801 不是它自己的端口 —— tauri 不自占端口,
+  # devUrl 指向共享 web(registry: reusePortOf="web")。共享方已 UP ⇒ 复用,不判冲突、
+  # 不 kill(§0.12 铁律:多会话复用同一套 dev server;再拉一份 next dev 会撞端口并把
+  # tauri 拖死在等 devUrl)。共享方 DOWN ⇒ 落到下面的常规判定(beforeDevCommand 会自起)。
+  $reusePort = 0
+  if ($ReusePortOf) {
+    $reuseSvc = $registry.services.$ReusePortOf
+    if ($null -ne $reuseSvc) { $reusePort = [int]$reuseSvc.port }
+  }
+  if ($ReusePortOf -and $reusePort -gt 0 -and $reusePort -eq $Port -and (Test-PortInUse $reusePort)) {
+    Write-Ok "端口 $Port 已由 $ReusePortOf 占用 ⇒ $Name 复用之(不再重复拉起该端口上的服务)"
+  } elseif (Test-PortInUse $port) {
     $owner = Get-PortOwner $port
     if ($Force) {
       Write-Warn "端口 $port 被 PID=$owner 占用,-Force 模式直接 kill"
@@ -426,7 +450,12 @@ function Show-Status {
     $svc = $registry.services.$name
     $port = [int]$svc.port
     $health = $svc.health
+    $procName = [string]$svc.processName
+    $reuseOf = [string]$svc.reusePortOf
     $portInUse = Test-PortInUse $port
+    # 共享端口服务(desktop):端口上跑的是别人的服务,UP/DOWN 必须按自己的进程判,
+    # 否则 web 在跑就把 desktop 显示成 UP(2026-11-21 实报"双击启动不了"就是被这行假绿骗过)。
+    if ($procName) { $portInUse = Test-ProcessGuard $procName }
     $pidInfo = ''
     if ($map.ContainsKey($name)) {
       $procId = [int]$map[$name].pid
@@ -440,6 +469,7 @@ function Show-Status {
       $ok = Test-HealthUrl $health 10
       $httpText = if ($ok) { ' / HTTP 200' } else { ' / HTTP NO-RESP' }
     }
+    if ($reuseOf) { $httpText += " (port 共享自 $reuseOf)" }
     $pidText = if ($pidInfo) { "  [$pidInfo]" } else { '' }
     Write-Host ("  {0,-15} port {1,-5} {2}{3}{4}" -f $name, $port, $statusText, $httpText, $pidText) -ForegroundColor $statusColor
   }
@@ -537,7 +567,7 @@ function Show-Help {
   启动模式(默认后台模式,SIGINT 免疫):
     pwsh -File scripts/start-dev.ps1                        # 启动默认组 web+api+ai-service
     pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service
-    pwsh -File scripts/start-dev.ps1 -Desktop              # 桌面端:api+ai-service+desktop(desktop 自带 web 8801,自动注入 cargo PATH)
+    pwsh -File scripts/start-dev.ps1 -Desktop              # 桌面端:api+ai-service+desktop(desktop 复用共享 web 8801,cargo PATH 按当次实测注入)
     pwsh -File scripts/start-dev.ps1 -All                   # 启动全部 8 端(注意:含 desktop 时需先 -Stop 停掉 web,两者互斥)
     pwsh -File scripts/start-dev.ps1 -Foreground            # 前台(不推荐,会被 SIGINT 杀)
 
@@ -629,7 +659,8 @@ if ($All) {
     $toStart += $s
   }
 } elseif ($Desktop) {
-  # 桌面端模式:desktop 自带 web dev(8801),只需 api + ai-service 作为后端
+  # 桌面端模式:desktop 复用共享 web(8801,见 registry reusePortOf),另起 api + ai-service 作后端;
+  # 8801 未起时由 beforeDevCommand 自行派生 web dev。
   $toStart = @('api', 'ai-service', 'desktop')
 } else {
   # 默认:registry.default
@@ -642,31 +673,37 @@ if ($toStart.Count -eq 0) {
   exit 1
 }
 
-# desktop 与 web 互斥:desktop 的 beforeDevCommand 自起 web(8801),
-# 同时启动 web 会触发 next dev 端口冲突(交互询问导致卡死)。
+# desktop 与 web 可以同组启动(2026-11-21 起):desktop 复用共享 web 的 8801,
+# 不再重复拉起 next dev,所以旧版"desktop 自带 web,与 web 互斥"的硬门已取消。
+# 仍保留一条提醒:同组时若 8801 尚未就绪,desktop 的 beforeDevCommand 会补起 web,
+# 与本脚本起的 web 争同一端口 —— 因此同组时请让 web 先起(Fast 模式并行发射时由
+# next dev 的端口单例/dev 锁兜底,不会静默换端口)。
 if ($toStart -contains 'desktop' -and $toStart -contains 'web') {
-  Write-Err "desktop 自带 web dev(8801),不能与 web 同时启动。"
-  Write-Err "  仅桌面端:  pwsh -File scripts/start-dev.ps1 -Desktop"
-  Write-Err "  仅 Web 端:  pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service"
-  exit 1
+  Write-Info "desktop 与 web 同组:desktop 复用共享 web(8801);若 8801 未就绪,由 beforeDevCommand 补起。"
 }
 
 # Tauri 桌面端需要两样东西都在 PATH 上,**不是只有 cargo**:
-#   (1) cargo —— 取 %USERPROFILE%\.cargo\bin,该处已是指向
-#       D:\DevEnv\cache\userhome\.cargo 的 junction(缓存实体不在 C 盘),且原写
-#       D:\caches\cargo\bin 是本机不存在的死路径,导致 desktop 启动时 cargo 从未被注入 PATH。
+#   (1) cargo —— 位置按当次实测取:Get-Command 解析到哪儿就用哪儿(本机实测
+#       D:\caches\cargo\bin)。旧写法写死 %USERPROFILE%\.cargo\bin,该目录在本机
+#       不存在 ⇒ 恒定 WARN 且 cargo 从未被注入(纯噪音,并让人误以为工具链缺失)。
 #   (2) MSVC 工具链(提供 link.exe)—— 本脚本**不**注入,见下方只读诊断。
 #       .cargo/config.toml 里 `linker = "link.exe"` 是裸名、按 PATH 解析,
 #       所以"只有 cargo 也能编"是错的:linker 那一步会在 PATH 上被顶掉或干脆找不到。
 if ($toStart -contains 'desktop') {
-  $cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
-  if (Test-Path (Join-Path $cargoBin 'cargo.exe')) {
+  # cargo 位置按**当次实测**取(§0/§5f:机器事实不得写死)。本机 cargo 在
+  # D:\caches\cargo\bin 且在 PATH 上;旧判据写死的 %USERPROFILE%\.cargo\bin 在本机
+  # 不存在 ⇒ 恒定 WARN + cargo 从未被注入(纯噪音,还会让人以为工具链缺失)。
+  $cargoCmd = Get-Command cargo.exe -ErrorAction SilentlyContinue
+  if ($cargoCmd) {
+    $cargoBin = Split-Path -Parent $cargoCmd.Source
     if ($env:PATH -notlike "*$cargoBin*") {
       $env:PATH = "$cargoBin;$env:PATH"
       Write-Ok "已注入 cargo PATH: $cargoBin"
+    } else {
+      Write-Info "cargo 已在 PATH: $($cargoCmd.Source)"
     }
   } else {
-    Write-Warn "未找到 cargo($cargoBin),桌面端 Rust 编译将失败。请先安装 Rust 工具链(或检查 CARGO_HOME)。"
+    Write-Warn "PATH 上解析不到 cargo.exe,桌面端 Rust 编译将失败。请安装 Rust 工具链或把 cargo 所在目录加入 PATH。"
   }
 
   # ── 只读诊断:link.exe 是否会被非 MSVC 的同名程序遮蔽 ────────────────────────
@@ -729,6 +766,7 @@ if ($Fast -and -not $Foreground) {
       -Cwd (Join-Path $RepoRoot $svc.cwd) `
       -Port ([int]$svc.port) `
       -HealthUrl $svc.health `
+      -ReusePortOf ([string]$svc.reusePortOf) `
       -TimeoutSec ([int]$svc.timeout_sec) `
       -IsForeground:$false `
       -SkipHealth:$true
@@ -745,6 +783,7 @@ else {
       -Cwd (Join-Path $RepoRoot $svc.cwd) `
       -Port ([int]$svc.port) `
       -HealthUrl $svc.health `
+      -ReusePortOf ([string]$svc.reusePortOf) `
       -TimeoutSec ([int]$svc.timeout_sec) `
       -IsForeground:([bool]$Foreground)
   }
@@ -781,10 +820,16 @@ Write-Hdr "端到端自检(HTTP 实测,按服务独立等待)"
 $healthTargets = foreach ($name in $toStart) {
   $svc = $registry.services.$name
   if (-not $svc.health) { continue }
+  # 共享端口服务(desktop)不参与 HTTP 自检:它的 health 是共享 web 的地址,HTTP 200
+  # 只证明 web 活着;而它自己何时"活"取决于 Rust 编译(冷启动实测 ~3 分钟,远超
+  # Fast 的 90s 窗口)——放进来要么假绿(原病灶),要么假红。真判定交给进程 + 窗口,
+  # 由入口脚本(启动桌面端.ps1)轮询 MainWindowHandle 完成,本脚本只报当前事实。
+  if ($svc.processName) { continue }
   [pscustomobject]@{
     Name    = $name
     Port    = [int]$svc.port
     Health  = $svc.health
+    Process = [string]$svc.processName
     Timeout = [int]$svc.timeout_sec
     Ok      = $false
   }
@@ -800,6 +845,22 @@ foreach ($s in $skipTargets) {
   Write-Host "  {0,-15} port {1,-5} SKIP(无 HTTP 探针)" -f $s.Name, $s.Port -ForegroundColor DarkGray
 }
 
+# 共享端口服务:只报当前进程事实,不参与 PASS/FAIL(编译期不该被记成失败,也不该因
+# 共享端口的 HTTP 200 被记成通过)。
+$procTargets = @(foreach ($name in $toStart) {
+    $svc = $registry.services.$name
+    if (-not $svc.processName) { continue }
+    [pscustomobject]@{ Name = $name; Port = [int]$svc.port; Process = [string]$svc.processName; Health = [string]$svc.health }
+  })
+foreach ($s in $procTargets) {
+  $proc = Get-Process -Name $s.Process -ErrorAction SilentlyContinue | Select-Object -First 1
+  $state = if ($proc) {
+    if ($proc.MainWindowHandle -ne 0) { "窗口已显示,pid=$($proc.Id)" } else { "进程已起,窗口待出现,pid=$($proc.Id)" }
+  } else { '进程尚未出现(Rust 编译中或已失败,见日志)' }
+  $line = "  {0,-15} port {1,-5} SKIP(共享端口,按进程判;{2})" -f $s.Name, $s.Port, $state
+  Write-Host $line -ForegroundColor DarkGray
+}
+
 if ($Fast) {
   # 合并窗口 90s 硬上限:日常冷启动三端 ~10-20s 就绪,90s 已足够宽裕;
   # 超过视为异常直接 FAIL 出日志,比默认模式串行等 240s 更快发现异常。
@@ -809,7 +870,7 @@ if ($Fast) {
     $pending = @($healthTargets | Where-Object { -not $_.Ok })
     if ($pending.Count -eq 0) { break }
     $probes = foreach ($p in $pending) {
-      $p.Name, (Test-HealthUrl $p.Health 5)
+      $p.Name, ((Test-HealthUrl $p.Health 5) -and (Test-ProcessGuard $p.Process))
     }
     for ($i = 0; $i -lt $pending.Count; $i++) {
       if ($probes[$i * 2 + 1]) { $pending[$i].Ok = $true }
@@ -821,18 +882,30 @@ else {
   foreach ($t in $healthTargets) {
     $svcDeadline = (Get-Date).AddSeconds($t.Timeout)
     while ((Get-Date) -lt $svcDeadline) {
-      if (Test-HealthUrl $t.Health 10) { $t.Ok = $true; break }
+      if ((Test-HealthUrl $t.Health 10) -and (Test-ProcessGuard $t.Process)) { $t.Ok = $true; break }
       Start-Sleep -Milliseconds 1000
     }
   }
 }
 
 foreach ($t in $healthTargets) {
+  # 共享端口服务(desktop)的 HTTP 面已经是"别人的",PASS 只是必要条件;
+  # 真活着由进程判,进程在但窗口还没画出来时把窗口状态打出来(不再一律绿到底)。
+  $procNote = ''
+  if ($t.Process) {
+    $proc = Get-Process -Name $t.Process -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($proc) {
+      $winState = if ($proc.MainWindowHandle -ne 0) { 'window=ready' } else { 'window=pending' }
+      $procNote = " [pid=$($proc.Id) $winState]"
+    } else {
+      $procNote = ' [process=absent]'
+    }
+  }
   if ($t.Ok) {
-    $line = "  {0,-15} port {1,-5} PASS  {2}" -f $t.Name, $t.Port, $t.Health
+    $line = "  {0,-15} port {1,-5} PASS  {2}{3}" -f $t.Name, $t.Port, $t.Health, $procNote
     Write-Host $line -ForegroundColor Green
   } else {
-    $line = "  {0,-15} port {1,-5} FAIL  {2}" -f $t.Name, $t.Port, $t.Health
+    $line = "  {0,-15} port {1,-5} FAIL  {2}{3}" -f $t.Name, $t.Port, $t.Health, $procNote
     Write-Host $line -ForegroundColor Red
     Write-Host "          ↳ 请检查日志: $LogDir\$($t.Name).log(.err)" -ForegroundColor DarkGray
   }
