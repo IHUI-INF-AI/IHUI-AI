@@ -8749,6 +8749,8 @@
       "runtimeHookRunError": "失敗",
       "runtimeHookStatsTitle": "鉤子累計",
       "runtimeHookAuditTitle": "鉤子稽核(本機臺帳)",
+      "runtimeHookAuditTruncated": "僅讀到臺帳尾部 {lines} 行",
+      "runtimeHookAuditHistoryOnly": "當前臺帳為空,僅存歷史備份 {kb} KB",
       "runtimeHookStats": "共 {total} 次 · 通過 {ok} / 逾時 {timeout} / 失敗 {error} · 均值 {avg}ms · 峰值 {slowest}ms",
       "runtimeHookConfigUntrusted": "鉤子設定 {count} 條未受信任,改動後需在本機重新登記信任",
       "runtimeHookConfigInvalid": "鉤子設定檔損壞,已按無設定運行",
