@@ -90,6 +90,8 @@ function stubSelectReads(rowsSets: unknown[][]) {
     const builder: Record<string, unknown> = {}
     builder.from = vi.fn(() => builder)
     builder.where = vi.fn(() => builder)
+    // F-339 起禁用 key 轮转多了 orderBy(asc(healthCheckedAt));链式桩必须原样接住
+    builder.orderBy = vi.fn(() => builder)
     builder.limit = vi.fn(() => Promise.resolve(rows))
     builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(rows).then(resolve)
     return builder
@@ -138,7 +140,11 @@ describe('relay-health-check 禁用 key 恢复探测', () => {
     const restore = updates.find((u) => u['isEnabled'] === true)
     expect(restore).toBeDefined()
     expect(restore?.['healthStatus']).toBe('healthy')
-    expect((restore?.['extraMetadata'] as Record<string, unknown>)['consecutiveFailures']).toBe(0)
+    // 生产已改成行级原子合并 SQL(`extra_metadata || '{"consecutiveFailures":0}'`),
+    // 不再整列回写对象快照 —— 断言补丁载荷本身,而不是回写后的成品对象。
+    const metaPatch = JSON.stringify(restore?.['extraMetadata'] ?? '')
+    expect(metaPatch).toContain('consecutiveFailures')
+    expect(metaPatch).toContain('\\":0')
     expect(restore?.['lastErrorMessage']).toBeNull()
   })
 

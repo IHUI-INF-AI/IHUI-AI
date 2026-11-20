@@ -6,6 +6,7 @@ import 'dotenv/config'
 import http from 'node:http'
 import type { Worker } from 'bullmq'
 import { buildServer } from './server.js'
+import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initOtel } from './plugins/otel.js'
@@ -43,6 +44,9 @@ async function startWorkerProcess(): Promise<void> {
   declareProcessRole('worker')
 
   const server = await buildServer()
+  // F-368:worker 不属主亲和性清理定时器(buildServer 只经 import 载入路由);
+  // 显式停一次,把"万一有模块级自启"也清掉 —— worker 侧不该持有这份 ref。
+  stopRelayChannelRouterSweep()
 
   const workers: Worker[] = startWorkers(server)
   const schedulerWorker: Worker = startSchedulerWorker(server)

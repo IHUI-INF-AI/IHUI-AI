@@ -40,7 +40,9 @@ describe('F-448:ab_test_results 唯一约束 schema↔迁移不漂移', () => {
   it('接线锁:schema 侧必须存在 (variant_id,bucket) 唯一约束', () => {
     const src = readFileSync(schemaPath, 'utf8')
     // 必须用表级 unique() 约束(对齐迁移 CONSTRAINT UNIQUE),不能退化成可空的独立索引
-    expect(src).toMatch(/unique\(\s*'ab_test_results_variant_bucket_uniq'[^)]*\)\.on\(\s*t\.variantId,\s*t\.bucket,\s*\)/)
+    expect(src).toContain(
+      "unique('ab_test_results_variant_bucket_uniq').on(t.variantId, t.bucket)",
+    )
   })
 
   it('接线锁:迁移侧必须存在同名约束且 bucket SET NOT NULL', () => {

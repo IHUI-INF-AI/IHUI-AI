@@ -98,6 +98,9 @@ vi.mock('../src/db/index.js', () => {
       'leftJoin',
       'values',
       'returning',
+      // 行锁(F-644 起 completeOrder/cancel/refund 都在事务内 FOR UPDATE)
+      'for',
+      'forUpdate',
       'set',
       'onConflict',
       'doNothing',

@@ -71,9 +71,14 @@ describe('ai-callback G-165 权限档盖章并入 metadata', () => {
     getPermission.mockResolvedValue(undefined)
   })
 
-  it('会话绑定工作区且档位可识别时,章随 metadata 下发并与其他元数据共存', async () => {
-    findConversationById.mockResolvedValue({ metadata: { workspacePath: '/ws/demo' } })
-    getPermission.mockResolvedValue({ mode: 'acceptEdits' })
+  it('会话里已有绑定时刻盖章时,章随 metadata 下发并与其他元数据共存', async () => {
+    // F-300 起盖章来源前移到流式入口绑定时:回调只按 messageId 读不可变事实,
+    // 不读会话级 workspacePath、也不在回调时刻查当前档位。
+    findConversationById.mockResolvedValue({
+      metadata: {
+        permissionStamps: { 'msg-1': { mode: 'accept-edits', workspacePath: '/ws/demo' } },
+      },
+    })
     const { server, add } = await buildServerWithQueue()
 
     const res = await server.inject({
@@ -99,16 +104,20 @@ describe('ai-callback G-165 权限档盖章并入 metadata', () => {
       model: 'stepfun/step-3.7-flash',
       toolCalls: [{ id: 'tc-1', toolName: 'read_file' }],
     })
-    // 取值链路必须是服务端自取:会话 → workspacePath → workspace_permissions
+    // 取值链路必须是服务端自取:回调按 messageId 读绑定时刻事实,
+    // 不再回查 workspace_permissions(那是流式入口绑定时的事)。
     expect(findConversationById).toHaveBeenCalledWith('conv-1')
-    expect(getPermission).toHaveBeenCalledWith('user-1', '/ws/demo')
+    expect(getPermission).not.toHaveBeenCalled()
 
     await server.close()
   })
 
   it('历史 kebab 拼写同样归一为 wire 值(单一真相源,不产生第二套拼写)', async () => {
-    findConversationById.mockResolvedValue({ metadata: { workspacePath: '/ws/demo' } })
-    getPermission.mockResolvedValue({ mode: 'bypass-permissions' })
+    findConversationById.mockResolvedValue({
+      metadata: {
+        permissionStamps: { 'msg-2': { mode: 'bypass-permissions', workspacePath: '/ws/demo' } },
+      },
+    })
     const { server, add } = await buildServerWithQueue()
 
     await server.inject({
@@ -117,7 +126,7 @@ describe('ai-callback G-165 权限档盖章并入 metadata', () => {
       headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复',
-        metadata: { conversationId: 'conv-1', userId: 'user-1' },
+        metadata: { conversationId: 'conv-1', userId: 'user-1', messageId: 'msg-2' },
       },
     })
     expect(lastMetadata(add).metadata).toMatchObject({ permissionMode: 'bypass-permissions' })
@@ -148,9 +157,8 @@ describe('ai-callback G-165 权限档盖章并入 metadata', () => {
     await server.close()
   })
 
-  it('workspace_permissions 无记录时不写 key(不回退用户全局默认档)', async () => {
+  it('会话里没有该 messageId 的盖章时不写 key(不回退当前档位)', async () => {
     findConversationById.mockResolvedValue({ metadata: { workspacePath: '/ws/demo' } })
-    getPermission.mockResolvedValue(undefined)
     const { server, add } = await buildServerWithQueue()
 
     await server.inject({
@@ -162,15 +170,18 @@ describe('ai-callback G-165 权限档盖章并入 metadata', () => {
         metadata: { conversationId: 'conv-1', userId: 'user-1' },
       },
     })
-    expect(getPermission).toHaveBeenCalledWith('user-1', '/ws/demo')
+    expect(getPermission).not.toHaveBeenCalled()
     expect(lastMetadata(add).metadata).not.toHaveProperty('permissionMode')
 
     await server.close()
   })
 
   it('档位认不出时不写 key,绝不静默降级成 default', async () => {
-    findConversationById.mockResolvedValue({ metadata: { workspacePath: '/ws/demo' } })
-    getPermission.mockResolvedValue({ mode: 'yolo-mode' })
+    findConversationById.mockResolvedValue({
+      metadata: {
+        permissionStamps: { 'msg-3': { mode: 'yolo-mode', workspacePath: '/ws/demo' } },
+      },
+    })
     const { server, add } = await buildServerWithQueue()
 
     await server.inject({
@@ -179,7 +190,7 @@ describe('ai-callback G-165 权限档盖章并入 metadata', () => {
       headers: { 'x-internal-secret': 'test-secret' },
       payload: {
         content: 'AI 回复',
-        metadata: { conversationId: 'conv-1', userId: 'user-1' },
+        metadata: { conversationId: 'conv-1', userId: 'user-1', messageId: 'msg-3' },
       },
     })
     expect(lastMetadata(add).metadata).not.toHaveProperty('permissionMode')

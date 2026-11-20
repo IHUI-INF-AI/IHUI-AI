@@ -191,11 +191,13 @@ describe('接线锁:机制前提与鉴权成对', () => {
         readFileSync(new URL(f, dir), 'utf-8').includes('exposeRelayPoolRoutesToPublicNetwork('),
       )
       .sort()
-    // _shared.ts 是定义处(函数签名里带同名),消费方只许号池两文件
+    // _shared.ts 是定义处(函数签名里带同名),消费方只许号池管理面族三文件
+    // (relay-auth-sessions 是 2026-11 并入同族的会话管理面,与号池同一出口、同一 requireAdmin)
     expect(consumers).toEqual([
       '_shared.ts',
       'relay-account-pool-capability.ts',
       'relay-account-pool.ts',
+      'relay-auth-sessions.ts',
     ])
   })
 })

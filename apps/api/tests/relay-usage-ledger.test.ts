@@ -535,7 +535,8 @@ describe('relay-usage-ledger', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/admin/relay/account-pool/sweep',
-        body: { ids: ['acc-1'] },
+        // 点名单轮只收账号 UUID(生产 schema z.string().uuid()),夹具用合法 id
+        body: { ids: ['00000000-0000-4000-8000-0000000000a1'] },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)

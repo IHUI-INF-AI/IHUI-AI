@@ -47,12 +47,20 @@ vi.mock('../src/db/index.js', () => {
     }
     return api
   }
+  const txApi = () => ({
+    select: () => makeApi(),
+    insert: () => makeApi(),
+    update: () => makeApi(),
+    delete: () => makeApi(),
+  })
   return {
     db: {
       select: () => makeApi(),
       insert: () => makeApi(),
       update: () => makeApi(),
       delete: () => makeApi(),
+      // 2026-11 起发版与降级 latest 同事务,缺 transaction 直接 500
+      transaction: async (cb: (tx: unknown) => unknown) => cb(txApi()),
     },
     dbRead: { select: () => makeApi() },
   }

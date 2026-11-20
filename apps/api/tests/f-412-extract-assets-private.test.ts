@@ -49,13 +49,13 @@ describe('F-412:私有文档内嵌资产不得落入匿名公开目录', () => {
   })
 
   it('接线锁:新增的资产读取端点带鉴权、属主校验与路径边界', () => {
-    const start = filesSrc.indexOf("server.get('/files/assets/:owner/:filename'")
+    const start = filesSrc.search(/server\.get\(\s*'\/files\/assets\/:owner\/:filename'/)
     expect(start).toBeGreaterThan(-1)
     const body = filesSrc.slice(start, filesSrc.indexOf('// POST /files/:id/tags', start))
     expect(body).toMatch(/requireAuth\(request, reply\)/)
     expect(body).toMatch(/owner !== request\.userId/)
     expect(body).toMatch(/target\.startsWith\(resolve\(PRIVATE_ASSETS_DIR\) \+ sep\)/)
-    expect(body).toMatch(/filename: z\.string\(\)\.regex\(/)
+    expect(body).toMatch(/filename:\s*z\s*\.string\(\)\s*\.regex\(/)
   })
 
   it('对照锁:server.ts 静态服务仍只暴露 uploads/public(未放宽鉴权面)', () => {

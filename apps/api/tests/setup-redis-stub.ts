@@ -116,8 +116,25 @@ vi.mock('ioredis', () => {
     async keys(): Promise<string[]> {
       return [...store.keys()].filter((k) => alive(k))
     }
-    async scan(_cursor: string, ..._args: unknown[]): Promise<[string, string[]]> {
-      return ['0', [...store.keys()].filter((k) => alive(k))]
+    /**
+     * SCAN 必须真的按 MATCH 过滤:旧实现直接返回全库键,于是任何
+     * `resetCounters(['sms:rl:'])` 都会把 `echo:*` 等别的族一起删掉 ——
+     * 表现为配额类用例"每帧都从 1 开始计数",永远撞不到上限。
+     */
+    async scan(_cursor: string, ...args: unknown[]): Promise<[string, string[]]> {
+      const matchIdx = args.findIndex((a) => String(a).toUpperCase() === 'MATCH')
+      const pattern = matchIdx >= 0 ? String(args[matchIdx + 1] ?? '*') : '*'
+      const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(
+        `^${pattern
+          .split('*')
+          .map((part) => escape(part))
+          .join('.*')}$`,
+      )
+      return [
+        '0',
+        [...store.keys()].filter((k) => alive(k) && regex.test(k)),
+      ]
     }
     async mget(...keys: string[]): Promise<Array<string | null>> {
       return keys.map((k) => alive(k)?.value ?? null)

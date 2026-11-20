@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
-import { createRequire } from 'node:module'
 import { __test__ as sms } from '../src/services/sms.js'
 
 /**
@@ -19,8 +18,6 @@ import { __test__ as sms } from '../src/services/sms.js'
  *     ⇒ 三条腿都把"根本没发出去"记成"已发送"。
  * 两型的共同形态是"失败长得像成功",所以夹具必须成对:每一档各给正反两个输入。
  */
-
-const req = createRequire(import.meta.url)
 
 describe('resolveDefaultCtor：CJS↔ESM 互操作的多层形态', () => {
   class Real {}
@@ -59,11 +56,17 @@ describe('loadAliyunSdk：装好的 SDK 必须真能构造出客户端', () => {
   // 生产 Node 下还要再剥一层)。2026-10-22 的变异自证实测:剥掉第三层剥离时,翻红的是上面
   // 那组纯形状夹具,本例照样绿。所以真锁是 `resolveDefaultCtor` 那三档成对输入,别删。
   it('已安装 ⇒ 拿到的 Client/Config/SendSmsRequest 三者都能 new', async () => {
+    // 探针必须是真 `import()`:createRequire.resolve 只看包在不在,而 CJS 包可能因
+    // 传递依赖缺失在加载时抛(MODULE_NOT_FOUND),那时 loadAliyunSdk 的正确行为是降级 null。
+    let sdkLoadable = true
     try {
-      req.resolve('@alicloud/dysmsapi20170525')
+      await import('@alicloud/dysmsapi20170525')
+      await import('@alicloud/openapi-client')
     } catch {
-      // 可选依赖在该环境确实未安装 ⇒ 降级路径由 dispatchSms 那侧负责,这里不判死
-      expect(sms.loadAliyunSdk()).resolves.toBeNull()
+      sdkLoadable = false
+    }
+    if (!sdkLoadable) {
+      expect(await sms.loadAliyunSdk()).toBeNull()
       return
     }
     const sdk = await sms.loadAliyunSdk()

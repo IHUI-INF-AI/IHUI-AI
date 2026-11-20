@@ -1186,6 +1186,8 @@ describe('O93 选号策略(selectAccountCandidates 接线)', () => {
 
 describe('O93 全局在途并发闸(maxInFlightGlobal)', () => {
   it('闸本体:占满即回绝、归还即可再占、release 幂等(内存兜底档)', async () => {
+    // 全局 ioredis 替身恒 ready ⇒ 内存档语义必须显式关掉共享存储
+    sharedState.forceMemory(true)
     expect(sharedState.backend()).toBe('memory')
     const h = await tryAcquireGlobalInflight(1)
     expect(h && h.backend).toBe('memory')
@@ -1203,6 +1205,7 @@ describe('O93 全局在途并发闸(maxInFlightGlobal)', () => {
   })
 
   it('正向(满坑被跳过)与反向(放坑即成功):env=1 的转发请求在坑位被占时以带标签失败回绝', async () => {
+    sharedState.forceMemory(true)
     providerRows = [{ providerCode: 'trae', configId: 7 }]
     accountRows = [accountRow('acct-global-gate')]
     registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))

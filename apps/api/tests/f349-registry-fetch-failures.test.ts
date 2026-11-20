@@ -151,7 +151,8 @@ describe('worker 不再把全失败读成 skipped', () => {
       .mockRejectedValueOnce(new Error('timeout mcp'))
       .mockRejectedValueOnce(new Error('timeout plugin'))
     const processor = startAndGetProcessor()
-    await processor(makeJob('trig-2'))
+    // F-497:来源拉取失败必须抛错(BullMQ failed 可见),sync_log/trigger 已在此之前写好
+    await expect(processor(makeJob('trig-2'))).rejects.toThrow(/来源拉取失败 2 项/)
     const log = m.insertSyncLog.mock.calls[0]![0] as { status: string; errorMessage: string }
     expect(log.status).toBe('fail')
     expect(log.errorMessage).toContain('来源拉取失败 2 项')

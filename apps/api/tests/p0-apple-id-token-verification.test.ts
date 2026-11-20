@@ -211,7 +211,7 @@ describe('Apple id_token 验签(P0)', () => {
     const valid = await signToken(genuine, { sub: REAL_SUB })
     const res = await callback(valid)
     expect(res.statusCode, res.body).toBe(200)
-    expect(spies.findThirdPartyAccount).toHaveBeenCalledWith('apple', REAL_SUB)
+    expect(spies.findThirdPartyAccount).toHaveBeenCalledWith('apple', REAL_SUB, undefined)
   })
 
   it('alg=none → 拒绝且零下游', async () => {

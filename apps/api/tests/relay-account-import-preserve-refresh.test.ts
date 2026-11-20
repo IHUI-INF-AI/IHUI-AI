@@ -341,8 +341,14 @@ describe('secretsEnc 单列合并(模板/设备材料同列共存)', () => {
  */
 describe('importAccounts 永久保活默认登记(keepAliveForever)', () => {
   it('新导入未给 keepAliveForever ⇒ extraMetadata 默认 true', async () => {
+    // 2026-11-15 起「裸残票」(无 refresh/cookies/secrets)不再默认进保活档(防每 6h 空撞),
+    // 本用例测的是默认登记本身 ⇒ 载荷给一条能续期的 cookie,保持"合法凭据"前提。
     const r = await importAccounts('trae', [
-      { name: '账号A', token: jwt({ sub: 'u-ka-1', exp: FUTURE }) },
+      {
+        name: '账号A',
+        token: jwt({ sub: 'u-ka-1', exp: FUTURE }),
+        cookies: [{ name: 'sid', value: 'v1' }],
+      },
     ])
     expect(r.imported).toBe(1)
     const extra = lastInsert()['extraMetadata'] as Record<string, unknown>
@@ -368,7 +374,12 @@ describe('importAccounts 永久保活默认登记(keepAliveForever)', () => {
   it('覆盖导入同样默认登记:update 写回的 extraMetadata 带 keepAliveForever=true', async () => {
     hoisted.mockSelectRows.push({ id: 'row-1', hasRefreshToken: true })
     const r = await importAccounts('trae', [
-      { name: '账号D', token: jwt({ sub: 'u-ka-4', exp: FUTURE }) },
+      {
+        name: '账号D',
+        token: jwt({ sub: 'u-ka-4', exp: FUTURE }),
+        // 同上:合法续期凭据,避免撞上「裸残票不登记保活」的新闸门
+        cookies: [{ name: 'sid', value: 'v2' }],
+      },
     ])
     expect(r.updated).toBe(1)
     const extra = lastUpdateSet()['extraMetadata'] as Record<string, unknown>

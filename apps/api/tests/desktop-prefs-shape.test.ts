@@ -35,6 +35,7 @@ const VALID: DesktopPrefs = {
   showTrayIcon: true,
   closeBehavior: 'ask',
   launchMinimized: false,
+  alwaysOnTop: false,
   traySingleClick: 'toggle_window',
   unreadBadge: true,
   trayMenuItems: ['open', 'settings'],
@@ -67,12 +68,23 @@ describe('① checkDesktopPrefs:jsonb 载荷的唯一判据', () => {
 
   it('缺任意一个键都拒(半吊子载荷落库后,下一次读的人会以为默认值生效了)', () => {
     for (const key of DESKTOP_PREFS_KEYS) {
+      // alwaysOnTop 是 2026-11-18 才升格的档:存量行/旧客户端不带该键,
+      // 缺失按 false 补(见 checkDesktopPrefs 口径 1),不属于"缺键即拒"族。
+      if (key === 'alwaysOnTop') continue
       const partial = { ...VALID } as Record<string, unknown>
       delete partial[key]
       const result = checkDesktopPrefs(partial)
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.reason).toContain(key)
     }
+    // 反向牙:alwaysOnTop 缺失仍合法,且补成 false;显式非布尔才拒
+    const legacy = { ...VALID } as Record<string, unknown>
+    delete legacy.alwaysOnTop
+    expect(checkDesktopPrefs(legacy)).toEqual({
+      ok: true,
+      value: { ...VALID, alwaysOnTop: false },
+    })
+    expect(checkDesktopPrefs({ ...VALID, alwaysOnTop: 'yes' }).ok).toBe(false)
   })
 
   it('多余键拒,且点名是哪一根', () => {

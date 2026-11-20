@@ -18,21 +18,19 @@ const src = readFileSync(
 )
 
 describe('F-428 batch 保存路径的 Redis 连接释放', () => {
-  it('连接变量在 try 外声明,disconnect 在 finally 内', () => {
+  it('F-279 起不再每请求建连接:走 getBatchInputRedis(server) 共享连接,无需 disconnect', () => {
     const start = src.indexOf("if (purpose === 'batch')")
     expect(start).toBeGreaterThan(-1)
     const block = src.slice(start, src.indexOf('const filename = data.filename', start))
-    expect(block).toContain('let batchRedis')
-    expect(block).toContain('batchRedis = redis')
-    const finallyAt = block.lastIndexOf('finally {')
-    expect(finallyAt).toBeGreaterThan(-1)
-    expect(block.slice(finallyAt)).toContain('batchRedis?.disconnect()')
+    expect(block).toContain('getBatchInputRedis(server)')
+    expect(block).not.toMatch(/new IORedis\(/)
+    expect(block).not.toContain('batchRedis')
   })
 
-  it('成功路径不再单独提前 disconnect(统一由 finally 释放)', () => {
+  it('成功与失败路径都不再自行 disconnect(连接归 redis 插件 onClose 统一 quit)', () => {
     const start = src.indexOf("if (purpose === 'batch')")
     const block = src.slice(start, src.indexOf('const filename = data.filename', start))
-    expect(block.includes('redis.disconnect()')).toBe(false)
+    expect(block.includes('disconnect()')).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

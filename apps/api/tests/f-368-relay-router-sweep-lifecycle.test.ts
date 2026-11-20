@@ -122,10 +122,13 @@ afterEach(() => {
 })
 
 describe('F-368 relay-channel-router 亲和性清理定时器生命周期', () => {
-  it('① import 导出 start/stop,且恰自动创建 1 个 10min 定时器(API 侧零回归)', async () => {
+  it('① import 导出 start/stop,import 本身不自启,显式 start 恰创建 1 个 10min 定时器', async () => {
     mod = await import(MODULE_PATH)
     expect(typeof mod.startRelayChannelRouterSweep).toBe('function')
     expect(typeof mod.stopRelayChannelRouterSweep).toBe('function')
+    // F-368:定时器不再模块级自启 —— API 入口显式 start,worker 侧不持有
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+    mod.startRelayChannelRouterSweep()
     expect(setIntervalSpy).toHaveBeenCalledTimes(1)
     expect(setIntervalSpy.mock.calls[0]?.[1]).toBe(SWEEP_INTERVAL_MS)
     expect(setIntervalSpy.mock.calls[0]?.[0]).toBeTypeOf('function')
@@ -140,6 +143,7 @@ describe('F-368 relay-channel-router 亲和性清理定时器生命周期', () =
 
   it('③ stop 清掉定时器且幂等,停后可再 start 恢复', async () => {
     mod = await import(MODULE_PATH)
+    mod.startRelayChannelRouterSweep()
     const timer = setIntervalSpy.mock.results[0]?.value
 
     mod.stopRelayChannelRouterSweep()

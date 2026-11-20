@@ -194,6 +194,7 @@ import {
   type TaskStep,
   type TaskStepCaller,
 } from '../src/services/ai-task-executor.js'
+import { bizDayKey } from '../src/utils/biz-day.js'
 
 /** 统一重置:把表对象接进账本 + 清空世界状态(每个用例前跑)。 */
 beforeEach(() => {
@@ -388,7 +389,8 @@ describe('runAiTask 执行契约', () => {
 
   it('用例5:幂等命中 ⇒ skipped=true、caller 未被调用、不落新痕', async () => {
     seedTemplate('幂等', [{ method: 'GET', path: '/a' }])
-    H.existingRuns.add('tpl-1\u0000幂等:2026-11-11') // (templateId, idemKey) 预置命中
+    // 幂等键的业务窗口是"当下"的上海业务日:写死历史日期会让预置命中在跨日后永远失效
+    H.existingRuns.add(`tpl-1\u0000幂等:${bizDayKey(new Date())}`) // (templateId, idemKey) 预置命中
     const { caller, calls } = makeFakeCaller()
     const outcome = await runAiTask('幂等', caller, { manual: false }) // cron 形态,同窗口键
     expect(outcome.skipped).toBe(true)

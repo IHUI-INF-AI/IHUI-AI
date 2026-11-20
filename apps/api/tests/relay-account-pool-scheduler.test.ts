@@ -41,7 +41,9 @@ vi.mock('../src/db/index.js', () => {
       if (arg && typeof arg === 'object') updateCalls.push(arg as Record<string, unknown>)
       return step
     })
-    return withSettlers(step, () => [])
+    // 健康回写走 credVersion CAS(生产只在 applied.length>0 才计 healthChecked);
+    // 写桩默认返回命中一行,代表"版本未变、落库成功"的正常路径。
+    return withSettlers(step, () => [{ id: 'ok' }])
   }
   return {
     db: { select: chainSelect, update: chainWrite, insert: chainWrite, delete: chainWrite },

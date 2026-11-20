@@ -199,18 +199,20 @@ describe('GET /api/plaza/list 首屏真实结论面', () => {
     expect(toUserFriendlyMessage(new Error(fourHundredMessage))).not.toBe(messageOnlyFrom401)
   })
 
-  it('⑤ 身份链同一份输入两臂:带 status 得「登录已过期」,只取 message 得「提交的信息有误」', () => {
+  it('⑤ 身份链两臂同归「登录已过期」:status 与文案词序双向正则各兜一层', () => {
     // ② 那根响应体逐字搬过来:{ code: 401, message: 'Invalid or expired token' } 无 errorCode
     const withStatus = toUserFriendlyMessage(
       apiFailureToError({ error: 'Invalid or expired token', status: 401 }),
     )
+    // 2026-11-14 起英文正则补了「形容词在前」的词序(Invalid or expired token),
+    // 丢掉 status 也仍被判成鉴权身份,不再落到参数类 /invalid/ 的「提交的信息有误」。
     const messageOnly = toUserFriendlyMessage(
       apiFailureToError({ error: 'Invalid or expired token' }),
     )
     expect(withStatus).toBe('登录已过期,请重新登录')
-    expect(messageOnly).toBe('提交的信息有误,请检查后重试')
-    // 两臂必须不同形:相同就说明 status 这一档没被判序吃到,本票的支点就没了
-    expect(withStatus).not.toBe(messageOnly)
+    expect(messageOnly).toBe('登录已过期,请重新登录')
+    // 身份判据的反向对照:真参数错误不得被吸进鉴权档
+    expect(messageOnly).not.toBe(toUserFriendlyMessage(new Error('invalid pageSize')))
   })
 
   it('⑥ 未鉴权绝不进 handler:401 那一趟不产生任何 db 调用(副作用没发生)', async () => {
