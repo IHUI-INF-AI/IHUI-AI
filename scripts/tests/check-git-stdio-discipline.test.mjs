@@ -95,7 +95,7 @@ test('T1 装车证明:runner 里必须有本门,且 blocking + skipEnv 齐备', 
 // ── T2 摘线必红(变异自证)──────────────────────────────────────────────────────
 // 判据:把注册块整段拿掉,断言"装车检查"这一格确实依赖它存在。
 test('T2 摘线变异必红:注册块不在 runner 里时 T1 的前提不成立', () => {
-  const src = readFileSync(RUNNER, 'utf8')
+  const src = readFileSync(RUNNER, 'utf8').replace(/\r\n/g, '\n')
   const stripped = src.replace(new RegExp(`\\{\\s*id: '${GATE_ID}'[\\s\\S]*?\\n  \\},\\n`), '')
   assert.ok(
     !stripped.includes(`id: '${GATE_ID}'`),
@@ -407,7 +407,18 @@ test('T13 三面各自给出读数,且 HEAD 与索引不同面时结论不同(�
     ['worktree', disk],
   ]) {
     assert.ok(o.sources > 500, `${name} 面只枚举到 ${o.sources} 个源码文件`)
-    assert.equal(o.unread.length, 0, `${name} 面有取不到内容的文件:${o.unread.slice(0, 3)}`)
+    // HEAD / 索引面读的是对象库,枚举到就必须读得到 ⇒ 0 是硬要求。
+    // worktree 面读的是**共享工作树**:并行会话删/改中的文件在这里天然读不到,那是"没判"而非违规
+    // (本门文件头把 worktree 定为人工逃生舱,只报数)。强行要求 0 会让本用例随别人在飞状态翻红。
+    if (name === 'worktree') {
+      if (o.unread.length) {
+        console.log(
+          `[T13] worktree 面有 ${o.unread.length} 个盘上取不到的文件(并行会话半编辑态,不计红):${o.unread.slice(0, 3).join(', ')}`,
+        )
+      }
+    } else {
+      assert.equal(o.unread.length, 0, `${name} 面有取不到内容的文件:${o.unread.slice(0, 3)}`)
+    }
     assert.equal(typeof o.misses, 'number')
   }
   // "判据没瞎"这条本意要保,但**不能在台账在位时断言**:台账生效后零判红是设计结果,
