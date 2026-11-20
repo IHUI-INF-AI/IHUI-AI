@@ -34,6 +34,12 @@ import type {
 // D27(2026-09-20 立):session_end wire payload 新增可选 deliverables 字段的二次提取。
 // shared 白名单解析会丢弃新字段,故在 handler 层从 raw e.data 提取(不碰 shared)。
 import { extractSessionDeliverables } from '@/types/agent-delivery'
+// 2026-11-21 第 38 项:会话级钩子累计(逐条目计数/耗时),与 hookRuns 同源不同视图。
+import {
+  EMPTY_HOOK_RUN_STATS,
+  accumulateHookRunStats,
+  type HookRunStats,
+} from '@/hooks/hook-run-stats'
 import type { TaskDeliverables } from '@/types/agent-delivery'
 // 2026-11-17 立:工作台提问帧落到内联卡。问题体复用聊天侧同一份运行时 schema
 // (questionId/prompt/options/allowCustom/allowMultiple/header/expiresAt 一处定义)。
@@ -98,6 +104,11 @@ export interface UseAgentRuntimeReturn {
   planSteps: AgentPlanStepEvent[]
   /** 2026-11-20:逐钩子运行结果 FIFO(最多 MAX_HOOK_RUNS 条,hook.run 帧到达即追加) */
   hookRuns: AgentHookRunEvent[]
+  /**
+   * 2026-11-21 第 38 项:会话级钩子累计(逐条目计数 + 耗时合计/峰值)。
+   * 与 `hookRuns` 同源不同视图 —— FIFO 淘汰不影响累计,面板可报"这一轮 200 次里 3 次超时"。
+   */
+  hookStats: HookRunStats
   /** P1(2026-09-19):session 结束摘要(最后一次 session_end 事件) */
   sessionEnd: AgentSessionEndEvent | null
   /** P1(2026-09-19):权限模式切换(最后一次 permission-mode 事件) */
@@ -165,6 +176,11 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
    * 与 hook-failed(钩子自己挂了)分工:这里报"钩子跑了并给出裁决/改写/超时"。
    */
   const [hookRuns, setHookRuns] = React.useState<AgentHookRunEvent[]>([])
+  /**
+   * 2026-11-21 第 38 项:会话级累计。**刻意与 hookRuns 分开存**:FIFO 只留 50 条,
+   * 用它算总数会让"跑过 200 次"被截成"50 次",失败率分母失真。
+   */
+  const [hookStats, setHookStats] = React.useState<HookRunStats>(EMPTY_HOOK_RUN_STATS)
   /** P1(2026-09-19):session 结束摘要(命名 SSE 事件 session_end,单值覆盖) */
   const [sessionEnd, setSessionEnd] = React.useState<AgentSessionEndEvent | null>(null)
   /** P1(2026-09-19):权限模式切换(命名 SSE 事件 permission-mode,单值覆盖) */
@@ -378,6 +394,8 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     es.addEventListener(AGENT_TASK_EVENTS.HOOK_RUN, (e) => {
       const evt = parseHookRunEvent(e.data)
       if (!evt) return
+      // 第 38 项:先累计(不受 FIFO 淘汰影响),再追加滚动窗口。
+      setHookStats((prev) => accumulateHookRunStats(prev, evt))
       setHookRuns((prev) => {
         const next = [...prev, evt]
         return next.length > MAX_HOOK_RUNS ? next.slice(next.length - MAX_HOOK_RUNS) : next
@@ -463,10 +481,13 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setTerminalDeltas([])
       setAgentStatus(null)
       setLastMessageSend(null)
+      setHookRuns([])
       setSessionDeliverables(null)
       setPendingQuestion(null)
       // 2026-11-08(W-09):切换 agentId 时一并清空事件派生状态。
       // 漏掉这四项会让 A 的 token 流/工具链挂到 B 上(toolCallChain 还是追加写)。
+      // 第 38 项:累计同批清空(否则 A 的超时计数会挂到 B 的失败率里)。
+      setHookStats(EMPTY_HOOK_RUN_STATS)
       setTokenStream([])
       setToolCallChain([])
       setHealEvents([])
@@ -484,6 +505,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     thinkingContent,
     planSteps,
     hookRuns,
+    hookStats,
     sessionEnd,
     permissionMode,
     terminalDeltas,

@@ -8747,6 +8747,8 @@
       "runtimeHookRunOk": "通過",
       "runtimeHookRunTimeout": "逾時",
       "runtimeHookRunError": "失敗",
+      "runtimeHookStatsTitle": "鉤子累計",
+      "runtimeHookStats": "共 {total} 次 · 通過 {ok} / 逾時 {timeout} / 失敗 {error} · 均值 {avg}ms · 峰值 {slowest}ms",
       "runtimeHookConfigUntrusted": "鉤子設定 {count} 條未受信任,改動後需在本機重新登記信任",
       "runtimeHookConfigInvalid": "鉤子設定檔損壞,已按無設定運行",
       "runtimeMessageSend": "第 {iteration} 輪請求已發出 · {count} 則訊息",
