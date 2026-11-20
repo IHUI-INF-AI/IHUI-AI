@@ -38,14 +38,24 @@ export interface ReasoningEffortInputAxisProps {
   model: string
   /** 外部禁用(流式生成中),与工具栏其余控件同一口径 */
   disabled?: boolean
+  /** auto 档下宿主解析出的实际模型 ID(2026-11-20):只用来把展示名换成列表里的可读名,
+   *  **不参与置灰**(auto 的能力仍是"未知") */
+  resolvedModel?: string
   /** 卡片头行左侧的展示名(2026-11-20 用户附图样式要求卡面写明当前模型);缺省由展示件回退到轴标题 */
   modelName?: string
+  /** 卡片头行右侧圆钮 = 刷新模型列表(2026-11-21 用户定档);由模型弹层自己提供 */
+  onRefreshModels?: () => void
+  /** 刷新进行中(钮转圈) */
+  refreshingModels?: boolean
 }
 
 export function ReasoningEffortInputAxis({
   model,
   disabled,
+  resolvedModel,
   modelName,
+  onRefreshModels,
+  refreshingModels,
 }: ReasoningEffortInputAxisProps) {
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
@@ -69,7 +79,9 @@ export function ReasoningEffortInputAxis({
     name?: string
   }>({})
   React.useEffect(() => {
-    if (!model || model === 'auto') {
+    // auto 档:能力位保持"未知"(不置灰),但若宿主给了实际模型 ID,仍去列表换一个可读名
+    const lookupId = model === 'auto' ? resolvedModel : model
+    if (!lookupId || lookupId === 'auto') {
       setMeta({})
       return
     }
@@ -79,8 +91,11 @@ export function ReasoningEffortInputAxis({
     fetchSelectorModels()
       .then((models) => {
         if (cancelled) return
-        const hit = models.find((m) => m.id === model)
-        setMeta({ capabilities: hit?.capabilities, name: hit?.name })
+        const hit = models.find((m) => m.id === lookupId)
+        setMeta({
+          capabilities: model === 'auto' ? undefined : hit?.capabilities,
+          name: hit?.name,
+        })
       })
       .catch(() => {
         if (!cancelled) setMeta({})
@@ -88,7 +103,7 @@ export function ReasoningEffortInputAxis({
     return () => {
       cancelled = true
     }
-  }, [model])
+  }, [model, resolvedModel])
 
   return (
     <ReasoningEffortAxis
@@ -97,6 +112,8 @@ export function ReasoningEffortInputAxis({
       notice={notice}
       disabled={disabled}
       modelName={modelName ?? meta.name ?? (model === 'auto' ? undefined : model)}
+      onRefreshModels={onRefreshModels}
+      refreshingModels={refreshingModels}
       onChange={(next?: ReasoningEffort) => setParam(conversationId, 'reasoningEffort', next)}
     />
   )

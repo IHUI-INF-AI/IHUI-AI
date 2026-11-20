@@ -19,7 +19,6 @@ import {
   History,
   Loader2,
   Lock,
-  RefreshCw,
   Settings,
   Sparkles,
   TriangleAlert,
@@ -136,6 +135,12 @@ const AUTO_OPTION: ModelOption = {
   vendor: 'auto',
 }
 
+/** 顶部扩展段渲染函数拿到的上下文:刷新动作与刷新态都只来自本弹层(单一真相源)。 */
+export interface ModelSelectorHeaderContext {
+  refreshModels: () => void
+  refreshingModels: boolean
+}
+
 interface ModelSelectorProps {
   value: string
   onChange: (model: string) => void
@@ -148,8 +153,11 @@ interface ModelSelectorProps {
    *  "模型相关调参"控件收纳进模型弹层 footer,宿主以 ReactNode 传入。 */
   footer?: React.ReactNode
   /** 弹层顶部扩展段(2026-11-20 用户定档):推理强度卡片上移到模型列表**顶部**,
-   *  不再压在列表最下面 —— 打开列表先看到"当前模型 + 当前档位 + 滑轨",再往下挑模型。 */
-  header?: React.ReactNode
+   *  不再压在列表最下面 —— 打开列表先看到"当前模型 + 当前档位 + 滑轨",再往下挑模型。
+   *  2026-11-21:改成「节点或渲染函数」两形态 —— 渲染函数拿得到本弹层自己的
+   *  `refreshModels`/`refreshingModels`,于是"刷新模型列表"能装进卡片头行那枚圆钮,
+   *  不必再从宿主层多引一个出口(刷新逻辑只在本文件,单一真相源)。 */
+  header?: React.ReactNode | ((ctx: ModelSelectorHeaderContext) => React.ReactNode)
   /** 受控开合(2026-11-15):宿主需要在 footer 里的动作弹窗打开前先关掉本弹层,
    * 否则 z-popover 弹层会盖住 z-modal 对话框,且 menu 关闭会卸载 footer 内的 Dialog 状态。 */
   menuOpen?: boolean
@@ -1326,8 +1334,13 @@ export function ModelSelector({
         >
           {/* 顶部扩展段(2026-11-20 用户定档):推理强度卡片放**顶上**,不再压在最下面。
               非 DropdownMenu.Item 的普通节点:点滑轨/折叠/恢复默认都不会触发 Radix 自动关单。 */}
-          {header ? <div className="px-1 pb-1.5 pt-0.5">{header}</div> : null}
-          {/* 自定义配置模型入口 */}
+          {header ? (
+            <div className="px-1 pb-1.5 pt-0.5">
+              {typeof header === 'function' ? header({ refreshModels, refreshingModels }) : header}
+            </div>
+          ) : null}
+          {/* 自定义配置模型入口。2026-11-21:「刷新模型列表」不再单独占一行,已移植到顶部
+              推理强度卡片头行那枚圆钮(用户定档);这里只留跳设置页的入口。 */}
           <DropdownMenu.Group>
             <DropdownMenu.Item
               onSelect={() => router.push('/settings/llm')}
@@ -1341,27 +1354,6 @@ export function ModelSelector({
                 <Settings className="h-3.5 w-3.5" />
               </div>
               <span className="flex-1 truncate font-medium">{t('manageModels')}</span>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              onSelect={(e) => {
-                // preventDefault 保持菜单打开,便于看到进度文案变化
-                e.preventDefault()
-                void refreshModels()
-              }}
-              disabled={refreshingModels}
-              className={cn(
-                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
-                'focus:bg-accent focus:text-accent-foreground',
-                '[&>span]:translate-y-[var(--text-vcenter-offset)]',
-                refreshingModels && 'cursor-default opacity-70',
-              )}
-            >
-              <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <RefreshCw className={cn('h-3.5 w-3.5', refreshingModels && 'animate-spin')} />
-              </div>
-              <span className="flex-1 truncate font-medium">
-                {refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}
-              </span>
             </DropdownMenu.Item>
           </DropdownMenu.Group>
           {/* 自动选项(2026-08-06 改:自动模式显示 "Auto Mode" + "0.05x" 风格,
