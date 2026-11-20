@@ -23,12 +23,15 @@
  *                 注意:登录/SSO 类应用常被限权(钉钉 errcode=88)或 IP 白名单(企微 errcode=60020);
  *                 CI runner 出口 IP 不固定,IM 通道生产可用需配专用消息机器人 webhook。
  *                 任一通道失败只 WARN,不影响发版结论。
+ *   serverchan    Server酱 Turbo 通用 push:POST sctapi.ftqq.com/<key>.send(form:title/desp),
+ *                 凭据 SERVERCHAN_SENDKEY(CI secret)。通用 push 通道,不受 IM 登录应用权限/IP 白名单限制,
+ *                 是"机主加群机器人 webhook"之外可用的替代路径。未列入默认通道串,需 --channels 显式启用。
  *
  * 用法:
  *   node .github/scripts/notify-desktop-release.mjs \
  *     --tag desktop-v0.1.78 --version 0.1.78 \
  *     --run-url https://github.com/.../actions/runs/123 \
- *     [--channels admin-email,inapp,broadcast,im] [--dry-run] [--strict]
+ *     [--channels admin-email,inapp,broadcast,im[,serverchan]] [--dry-run] [--strict]
  *
  * 环境变量(全部可选,缺哪个就跳过对应通道):
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM / ALERT_EMAIL_TO
@@ -38,6 +41,7 @@
  *   app 凭据: DINGTALK_APP_KEY / DINGTALK_APP_SECRET / DINGTALK_APP_AGENT_ID
  *             WECOM_CORP_ID / WECOM_SECRET / WECOM_AGENT_ID
  *             FEISHU_APP_ID / FEISHU_APP_SECRET / FEISHU_CHAT_ID(需群ID)
+ *   SERVERCHAN_SENDKEY      (Server酱 Turbo SendKey;未配置则 serverchan 通道跳过)
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -167,6 +171,29 @@ function notifyApi(kind) {
   record(kind, true, `POST ${path} ok`)
 }
 
+/**
+ * Server酱 Turbo 通用 push:POST https://sctapi.ftqq.com/<key>.send (form 字段 title/desp)。
+ * 通用 push 通道,不受 IM 登录应用权限/IP 白名单限制;凭据仅从 env 读,任何 record 都不回显 SendKey。
+ */
+function notifyServerChan() {
+  const key = (process.env.SERVERCHAN_SENDKEY || '').trim()
+  if (!key) { record('serverchan', false, 'SERVERCHAN_SENDKEY 未配置,跳过'); return }
+  if (dryRun) { record('serverchan', true, 'dry-run: POST serverchan'); return }
+  const desp = `${summary}\n\n[下载页](${downloadUrl}) · [Release](${releaseUrl})${runUrl ? ` · [Run](${runUrl})` : ''}`
+  const body = new URLSearchParams({ title, desp }).toString()
+  const url = `https://sctapi.ftqq.com/${encodeURIComponent(key)}.send`
+  const res = spawnSync('curl', ['--silent', '--show-error', '--max-time', '30',
+    '-X', 'POST', url, '-H', 'Content-Type: application/x-www-form-urlencoded',
+    '--data-binary', body], { encoding: 'utf8' })
+  const out = (res.stdout || '').slice(0, 200)
+  if (res.error || res.status !== 0) { record('serverchan', false, `Server酱 失败:${res.error?.message || out || res.status}`); return }
+  // Server酱即便业务失败也常回 HTTP 200,须看 body.code===0 才算真成功(同 errcode 判例)
+  let json = null
+  try { json = JSON.parse((res.stdout || '').trim()) } catch { /* 非 JSON 响应 */ }
+  const ok = json?.code === 0
+  record('serverchan', ok, ok ? 'Server酱 已推送' : `Server酱 失败 code=${json?.code ?? '-'} ${json?.message || out}`)
+}
+
 /** 用 curl 取 JSON(带 HTTP 状态),零依赖 */
 function httpJson(url, opts = {}) {
   const { method = 'GET', body, headers = [] } = opts
@@ -280,6 +307,7 @@ for (const ch of channels) {
     else if (ch === 'inapp') notifyApi('inapp')
     else if (ch === 'broadcast') notifyApi('broadcast')
     else if (ch === 'im') notifyIm()
+    else if (ch === 'serverchan') notifyServerChan()
     else record(ch, false, `未知通道:${ch}`)
   } catch (e) {
     record(ch, false, `异常:${String(e?.message || e).slice(0, 120)}`)
