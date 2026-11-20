@@ -7852,23 +7852,24 @@ const checks = [
   },
   {
     // pg-only(2026-11-19 立,机主定档:项目数据层只允许 PostgreSQL,禁止 sqlite)
-    // 差值棘轮而不是绝对红:HEAD 面现有 9 个文件带 sqlite 调用(5 个是我们自己的存储模块 +
-    // 4 个测试夹具),逐文件命中数登记在 scripts/data/sqlite-write-paths-baseline.json。
-    // 只拦"本次把这个数加上去"或"出现清单外的新写路径";清存量时只报数。
-    // 升绝对档的前置 = 基线归零(五模块全迁到 app.core.db_pool 的 PostgreSQL)。
+    // 现档 = 零容忍:五处自有写路径(work_admission / memory_sweeper / approval_persistence /
+    // sso_identity_store / session_store)已全部迁 PG,基线 files 已清空 ⇒ 任何 sqlite 写形态
+    // 一律判红。唯一放行面 = 门体的 NON_STORE_FIXTURES(两条"读别人格式"的测试夹具,带理由),
+    // 且每轮核对其存活(路径消失即 state=new new=lapsed)。
+    // 面旗:--staged 判索引 blob / 默认判 HEAD blob;工作树面只用于人工排查(不枚举未跟踪文件)。
     id: 'pg-only',
-    label: '🐘 数据层禁 sqlite 写路径(差值棘轮,只拦新增)',
+    label: '🐘 数据层禁 sqlite 写路径(零容忍)',
     script: 'check-sqlite-write-paths.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SQLITE_WRITE_PATHS',
     stagedTriggers: ['apps/ai-service/', 'apps/api/', 'packages/database/', 'packages/shared/', 'scripts/data/sqlite-write-paths-baseline.json'],
     onFailHint: [
-      '  💡 数据层只允许 PostgreSQL(机主 2026-11-19 定档):',
-      '     1. node scripts/check-sqlite-write-paths.mjs  (逐文件报现读数与基线数)',
-      '     2. 出口 = 改用 app.core.db_pool 的 asyncpg 共享池;读别人的库请用只读 URI(mode=ro)',
-      '     3. 基线只许减不许增:迁完一个模块就从 scripts/data/sqlite-write-paths-baseline.json 删掉该键',
-      '     4. 存量五模块迁移序:work_admission → memory_sweeper → approval_persistence → session_store → sso_identity_store',
+      '  💡 数据层只允许 PostgreSQL(机主 2026-11-19 定档,自有写路径已清零 ⇒ 零容忍):',
+      '     1. node scripts/check-sqlite-write-paths.mjs  (逐文件报现读数;--staged 判暂存面)',
+      '     2. 出口 = 改用 app.core.pg_sync 的 SyncPgSession / asyncpg 共享池;读别人的库请用只读 URI(mode=ro)',
+      '     3. 确属"不是我们的存储"(外部格式夹具)才可进 NON_STORE_FIXTURES,必须带理由并保证路径长期存活',
+      '     4. 基线已无增量空间:files 必须保持 {} —— 想加回基线等于重开 sqlite,不予受理',
       '',
     ].join('\n'),
   },

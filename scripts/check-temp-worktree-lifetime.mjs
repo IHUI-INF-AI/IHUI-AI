@@ -35,6 +35,8 @@ import { join, dirname, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 判面层接线(门312 R1):统一 git 二进制解析,保证直跑与 guardian-runner 判面一致。
+import { gitBinary } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -206,7 +208,7 @@ function evaluateWorktrees({ worktrees, now, scopes }) {
 
 function gitWorktreeList(root) {
   try {
-    const out = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+    const out = execFileSync(gitBinary(), ['worktree', 'list', '--porcelain'], {
       cwd: root,
       encoding: 'utf8',
       timeout: 15000,
