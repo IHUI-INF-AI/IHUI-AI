@@ -562,6 +562,69 @@ fn try_acquire_install_slot() -> Option<InstallSlot> {
 /// 已是最新、以及被新检查取代而作废;`false` 仅指**检查本身没成立**(updater 初始化失败 /
 /// feed 不可达 / manifest 非法)。调用方据此决定启动近侧要不要补一次重试 ——
 /// 此前该函数无返回值,首检失败只能等下一个整点小时,静默期内故障与「已是最新」不可区分。
+/// 构造一次自更新检查用的 `Updater`(2026-11-21 加固,0.1.91)。
+///
+/// 职责:① 给底层 reqwest client 硬超时(总 30s / 连接 10s)—— 插件默认没有总超时,
+/// 一个半开连接就能把整条检查挂到下一个整点;② 保留退出准备钩子(安装器覆盖 exe 前
+/// 先落窗口状态);③ 按策略注入代理:`Some(Some(url))` 显式代理、`Some(None)` 强制
+/// 直连、`None` 走默认(即 reqwest 读 env,本机空代理变量已在 0.1.84 清掉)。
+fn build_updater_for_check(
+    app: &tauri::AppHandle,
+    proxy: Option<Option<tauri::Url>>,
+) -> Result<tauri_plugin_updater::Updater, String> {
+    let mut builder = app
+        .updater_builder()
+        .configure_client(|cb| {
+            cb.timeout(Duration::from_secs(30))
+                .connect_timeout(Duration::from_secs(10))
+        })
+        .on_before_exit({
+            let app = app.clone();
+            move || {
+                let _ = crate::save_window_state(Some("main".to_string()), app.clone());
+                let _ = crate::save_window_state(Some("admin".to_string()), app.clone());
+            }
+        });
+    match proxy {
+        Some(Some(url)) => builder = builder.proxy(url),
+        Some(None) => builder = builder.no_proxy(),
+        None => {}
+    }
+    builder.build().map_err(|e| err_chain(&e))
+}
+
+/// 把错误连同 `source()` 链摊平成一行(2026-11-21)。
+///
+/// 立因:插件只打 Display,现场只有 `error sending request for url (...)` 一句 ——
+/// 底层是 DNS / 连接被重置 / TLS / 超时哪一层完全看不出,用户与运维都无从解释。
+/// 此函数沿 `std::error::Error::source` 最多展 6 层,不打印任何响应体或凭据。
+fn err_chain(e: &dyn std::error::Error) -> String {
+    let mut out = e.to_string();
+    let mut cur = e.source();
+    let mut depth = 0;
+    while let Some(s) = cur {
+        depth += 1;
+        if depth > 6 {
+            break;
+        }
+        out.push_str(" ← ");
+        out.push_str(&s.to_string());
+        cur = s.source();
+    }
+    out
+}
+
+/// 读系统代理(WinINET)并解析成 URL。非 Windows 平台恒为 None。
+#[cfg(windows)]
+fn current_system_proxy_url() -> Option<tauri::Url> {
+    system_proxy_url().and_then(|s| tauri::Url::parse(&s).ok())
+}
+
+#[cfg(not(windows))]
+fn current_system_proxy_url() -> Option<tauri::Url> {
+    None
+}
+
 async fn check_app_update(app: &tauri::AppHandle) -> bool {
     // 开发构建(debug_assertions:`tauri dev` / `tauri build --debug`)一律不自更新。
     // 实测危害:`pnpm dev:desktop:saas` 起来的壳照样读线上 feed,下载 7.9MB 后静默安装并
@@ -579,28 +642,57 @@ async fn check_app_update(app: &tauri::AppHandle) -> bool {
     // 提供的退出前钩子(install_inner 尾部拉起安装器 + std::process::exit(0) 之前
     // 调用,updater.rs:837-863):安装器覆盖可执行文件前,先把窗口状态落盘 ——
     // 与 lib.rs restart_app 的退出准备同款,静默更新不得丢窗口位置/尺寸。
-    let updater = match app
-        .updater_builder()
-        .on_before_exit({
-            let app = app.clone();
-            move || {
-                let _ = crate::save_window_state(Some("main".to_string()), app.clone());
-                let _ = crate::save_window_state(Some("admin".to_string()), app.clone());
-            }
-        })
-        .build()
-    {
-        Ok(u) => u,
-        Err(e) => {
-            log::warn!("[auto-refresh] updater 初始化失败: {e}");
-            return false;
-        }
-    };
+    // 2026-11-21 加固(0.1.91):检查请求改走"多路 + 硬超时 + 完整诊断链"。
+    // 现场(0.1.89 06:15 整点检查,UTC 22:15):`failed to check for updates: error
+    // sending request for url (...desktop-feed.json)`,而同时刻直连探测 10/10 成功
+    // (300ms)—— 不是网络层故障;插件只打 Display 丢掉 source 链,且失败后要等
+    // 下一个整点小时才重试,用户侧只能看到"更新失败"。故:① client 配 30s 总超时 /
+    // 10s 连接超时,不再无限挂;② 默认 → 系统代理 → 强制直连 三条路逐条试,任一条
+    // 成立即用;③ 每路失败都摊平 source 链打 WARN;④ 上层改指数退避(失败 2/10/30
+    // 分钟再试,成功恢复每小时)。
+    let mut attempts: Vec<(String, Option<Option<tauri::Url>>)> =
+        vec![("默认(env 代理/直连)".to_string(), None)];
+    if let Some(url) = current_system_proxy_url() {
+        attempts.push(("系统代理".to_string(), Some(Some(url))));
+    }
+    attempts.push(("强制直连(no_proxy)".to_string(), Some(None)));
     // ⚠️ 原先写作 `let Ok(Some(update)) = updater.check().await else { return }`,
     // 把「无新版」与「feed 404 / manifest 解析失败 / 版本号不合法 / 网络不可达」
     // 一并静默吞掉。自更新是后台无人触发的链路,静默 = 用户永远收不到更新而日志里
     // 一行痕迹都没有,故障与"本来就是最新版"不可区分。改为三分支,只有 None 静默。
-    let check_result = updater.check().await;
+    let mut check_result: Result<Option<tauri_plugin_updater::Update>, String> =
+        Err("未发起任何一次检查(updater 初始化全部失败)".to_string());
+    let total = attempts.len();
+    for (idx, (label, proxy)) in attempts.iter().enumerate() {
+        let updater = match build_updater_for_check(app, proxy.clone()) {
+            Ok(u) => u,
+            Err(e) => {
+                log::warn!("[auto-refresh] updater 初始化失败({label}): {e}");
+                check_result = Err(e);
+                continue;
+            }
+        };
+        match updater.check().await {
+            Ok(r) => {
+                if idx > 0 {
+                    log::info!("[auto-refresh] 自更新检查第 {}/{total} 路({label})成立", idx + 1);
+                }
+                check_result = Ok(r);
+                break;
+            }
+            Err(e) => {
+                let chain = err_chain(&e);
+                log::warn!(
+                    "[auto-refresh] 自更新检查第 {}/{total} 路({label})失败: {chain}",
+                    idx + 1
+                );
+                check_result = Err(chain);
+                if idx + 1 < total {
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                }
+            }
+        }
+    }
     // G-698:结果处理前校验世代 —— check().await 期间若托盘链发起了新检查,
     // 本次即成旧世代,迟到结果(含"无更新"与"发现新版")一律作废。
     if is_stale_update_check(check_id) {
@@ -1266,6 +1358,11 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         let mut round: u32 = 0;
         let mut last_reload: Option<std::time::Instant> = None;
         let mut pending_reload = false;
+        // 自更新检查节奏(0.1.91):显式状态机,不再是"整点碰运气"。
+        // 首检 round==10(启动 5 分钟);失败按 2/10/30 分钟退避(round +4/+20/+60);
+        // 成功则恢复每小时(round +120)。
+        let mut next_update_check_round: u32 = 10;
+        let mut update_check_fail_streak: u32 = 0;
 
         // ── 常驻循环准入(票 P1 僵尸实例,2026-10-22)──
         // 判据与立因见 `should_enter_resident_loop` 头注。放在启动探活**之后**是必须的:
@@ -1442,16 +1539,30 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     }
                 }
 
-                // 应用自更新:启动 5 分钟(round==10)先检一次,失败 1 分钟后(round==12)重试,
-                // 此后每小时(round % 120 == 0)一次。
+                // 应用自更新:启动 5 分钟先检一次,失败按 2/10/30 分钟退避,成功恢复每小时。
                 // 立因(2026-11-20 实测):原先只在 round % 120 触发 = 启动满 60 分钟才有第一次检查,
                 // 而桌面端多数会话不足 60 分钟 —— 当天全部 7 份日志里没有一条 updater 记录,
                 // 「自动更新失败」与「从未尝试过」在日志上完全不可区分。
-                if round == 10 || round == 12 || (round > 0 && round % 120 == 0) {
+                // 立因二(2026-11-21 实测):0.1.89 在 06:15 整点检查失败后,按旧逻辑要再等
+                // 整整 1 小时才重试;而那次失败与"网络其实通"同时成立 ⇒ 一次偶发就演化成
+                // 用户看到的"更新又失败了"。退避把偶发失败变成 2 分钟后自动再试。
+                if round >= next_update_check_round {
                     let ok = check_app_update(&app).await;
-                    if !ok {
+                    if ok {
+                        update_check_fail_streak = 0;
+                        next_update_check_round = round + 120;
+                    } else {
+                        update_check_fail_streak = update_check_fail_streak.saturating_add(1);
+                        let backoff_rounds: u32 = match update_check_fail_streak {
+                            0 | 1 => 4,
+                            2 => 20,
+                            _ => 60,
+                        };
+                        next_update_check_round = round + backoff_rounds;
                         log::warn!(
-                            "[auto-refresh] 第 {round} 轮自更新检查未成立 → 下一个检查点继续重试"
+                            "[auto-refresh] 第 {round} 轮自更新检查未成立(连续第 {} 次)→ {} 分钟后重试",
+                            update_check_fail_streak,
+                            backoff_rounds / 2
                         );
                     }
                 }
