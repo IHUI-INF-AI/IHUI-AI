@@ -255,7 +255,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           onPointerUp={handleResizeEnd}
           onPointerCancel={handleResizeEnd}
           onKeyDown={handleResizeKeyDown}
-          className="absolute -top-1 left-1/2 z-10 h-2 w-14 -translate-x-1/2 cursor-ns-resize touch-none select-none rounded-full border border-input bg-card p-0 transition-colors hover:bg-accent focus:outline-none"
+          className="absolute -top-1 left-1/2 z-10 h-1.5 w-14 -translate-x-1/2 cursor-ns-resize touch-none select-none rounded-full border border-input bg-card p-0 transition-colors hover:bg-accent focus:outline-none"
         />
         {/* Predictive Edit 建议条(2026-10-25 接线):仅 suggested 且草稿未变时出现。
             no_action / undetermined / failed 都不渲染任何东西 —— 预测失败对用户不可见。
