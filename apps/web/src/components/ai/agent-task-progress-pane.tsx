@@ -70,8 +70,8 @@ import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useAgentRuntime } from '@/hooks/use-agent-runtime'
 import { useCommandHooksConfig } from '@/hooks/use-command-hooks-config'
 // 2026-11-21 第 41 项:均值/峰值只从累计模块取,组件内不重算一份口径。
-import { hookRunStatsAverageMs } from '@/hooks/hook-run-stats'
 import { useHookAuditSummary } from '@/hooks/use-hook-audit-summary'
+import { HookReadout } from '@/components/ai/hook-readout'
 import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
@@ -900,19 +900,6 @@ export function AgentTaskProgressPane() {
   // 2026-11-20 第 26 项:hook-run 只展示"最近一帧"(每帧已是同一工具调用的全部钩子),
   // 钩子状态三态各自配色;文案进 i18n 目录,不在组件里手写中文。
   const lastHookRun = runtimeHookRuns[runtimeHookRuns.length - 1]
-  // 2026-11-21 第 38 项:累计读数只在跑过钩子时出(零次不出,避免空面板噪声)。
-  // 均值来自 totalDurationMs/total,与逐帧 durationMs 同源,不另算一份。
-  const hookStatsLine =
-    runtimeHookStats.total > 0
-      ? t('runtimeHookStats', {
-          total: runtimeHookStats.total,
-          ok: runtimeHookStats.ok,
-          timeout: runtimeHookStats.timeout,
-          error: runtimeHookStats.error,
-          avg: hookRunStatsAverageMs(runtimeHookStats),
-          slowest: runtimeHookStats.slowestMs,
-        })
-      : null
   // 2026-11-21 第 41 项:内存态累计为 0(刷新页面/重进会话)时回落到台账摘要。
   // 会话号只有收到过 hook.run 帧才知道 ⇒ 没有帧时按"本机台账全量"查,文案里写明。
   const hookAuditStats = useHookAuditSummary(
@@ -2062,39 +2049,13 @@ export function AgentTaskProgressPane() {
             </div>
           )}
 
-          {/* 2026-11-21 第 38 项:会话级累计(不受 50 条 FIFO 淘汰)。
-              只报"这一轮总共跑了多少次、几次没成功、峰值多慢",与下一行的
-              "最近一帧明细"分工:上面看趋势,下面看这一次。 */}
-          {hookStatsLine && (
-            <div
-              className="mx-2 mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
-              data-testid="pane-runtime-hook-stats"
-            >
-              <span className="shrink-0 font-medium">{t('runtimeHookStatsTitle')}</span>
-              <span className="font-mono tabular-nums">{hookStatsLine}</span>
-            </div>
-          )}
-
-          {/* 2026-11-21 第 41 项:内存累计为空但台账有记录(刷新页面后仍能看见)。
-              只在这种情况下出现:两条都显示会让人以为"跑了两次"。 */}
-          {!hookStatsLine && hookAuditStats && (
-            <div
-              className="mx-2 mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
-              data-testid="pane-runtime-hook-audit"
-            >
-              <span className="shrink-0 font-medium">{t('runtimeHookAuditTitle')}</span>
-              <span className="font-mono tabular-nums">
-                {t('runtimeHookStats', {
-                  total: hookAuditStats.total,
-                  ok: hookAuditStats.ok,
-                  timeout: hookAuditStats.timeout,
-                  error: hookAuditStats.error,
-                  avg: hookRunStatsAverageMs(hookAuditStats),
-                  slowest: hookAuditStats.slowestMs,
-                })}
-              </span>
-            </div>
-          )}
+          {/* 2026-11-21 第 43 项:两条挂载点读数(会话累计 / 台账回落)抽成组件,
+              显示优先级只在组件内一份;这里只决定要不要渲染它。 */}
+          <HookReadout
+            sessionStats={runtimeHookStats}
+            auditStats={hookAuditStats}
+            t={t}
+          />
 
           {/* 2026-11-20 第 26 项:hook-run 逐钩子结果(命名 SSE 事件,最近一帧)。
               与 hook-failed 分工:这里报"钩子正常工作并给出裁决/改写/超时"。 */}

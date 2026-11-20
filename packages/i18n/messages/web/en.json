@@ -9731,6 +9731,10 @@
           "title": "Terminal mouse reporting is off",
           "action": "Have the program request mouse tracking (DECSET 1000/1002/1003) before sending mouse events"
         },
+        "TERMINAL_FOCUS_DISABLED": {
+          "title": "Terminal focus reporting is off",
+          "action": "Have the program request focus events (DECSET 1004) before reporting focus in/out"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "Terminal is not a tty",
           "action": "Restart the session in PTY mode"

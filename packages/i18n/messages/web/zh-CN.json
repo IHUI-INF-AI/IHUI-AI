@@ -9731,6 +9731,10 @@
           "title": "终端未启用鼠标上报",
           "action": "先让程序请求鼠标(DECSET 1000/1002/1003),再发送鼠标事件"
         },
+        "TERMINAL_FOCUS_DISABLED": {
+          "title": "终端未启用焦点上报",
+          "action": "先让程序请求焦点事件(DECSET 1004),再上报焦点进/出"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "终端不是 tty",
           "action": "以 PTY 模式重启会话"

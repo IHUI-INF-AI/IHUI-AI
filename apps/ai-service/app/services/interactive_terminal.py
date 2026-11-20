@@ -164,6 +164,15 @@ ANSI_ESCAPE_RE: Final = re.compile(
 #: 这些字节对"人读文本"没有语义(光标控制已由 `\r`/`\n` 归一覆盖),留着只会让检索正则踩空。
 ANSI_NOISE_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
+#: **一次扫描**取代"先 subs 再 replace"的三趟处理(2026-11-21):同一条终端流要同时回答三件事
+#: —— 人读文本长什么样、这段文字链到哪个 URL、链接落在第几行。三趟各扫一遍必然在行号上漂开
+#: (先剥 OSC 再数 `\r` 与"边扫边数"在跨转义序列的 `\r\n` 边界上给出不同行号),所以在
+#: 字符流上只走一次:`esc` = 控制序列(按 `ANSI_ESCAPE_RE` 同一份定义取材),`noise` = 残余控制符。
+#: 两个命名组都**不带捕获组里层**,所以整条正则不会打乱调用方的 group 编号。
+_SCAN_RE: Final = re.compile(
+    f"(?P<esc>{ANSI_ESCAPE_RE.pattern})|(?P<noise>{ANSI_NOISE_RE.pattern})"
+)
+
 #: 窗口标题(`OSC 0/1/2 ; <title> BEL|ST`):xterm 用 `OSC 2` 设标签页名字,`OSC 0` 同时设图标名与
 #: 标题,`OSC 1` 只设图标名 —— 三种在"这块屏叫什么"这件事上等价,统一记成 `session.title`。
 _OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
@@ -171,6 +180,19 @@ _OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
 _OSC_ANY_RE: Final = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 #: 标题长度上界:失控程序连发 OSC 时不让会话账本跟着膨胀。
 MAX_TITLE_CHARS: Final = 200
+
+#: OSC 8 超链接:`ESC ] 8 ; <params> ; <URI> ST|BEL`,URI 为空的那一条表示"链接到此结束"。
+#: 参数段(`id=xxx` 之类)被刻意只做透传判据不进台账:台账只关心"哪段文字链到哪个地址"。
+#: 为什么值得单独记:终端里"点一下能打开什么"是**程序**给的,而 OSC 8 有一个已知钓鱼面 ——
+#: 显示文字与真实目标是两回事(可以显示 `https://bank.com` 却链到别处)。本模块的立场是把
+#: `text` 与 `url` **一起**回给调用方,让"看到的就是要打开的"这件事可校验;绝不代替调用方打开。
+_OSC_HYPERLINK_RE: Final = re.compile(r"\x1b\]8;([^;]*);([^\x07\x1b]*)(?:\x07|\x1b\\)")
+#: 台账上界:失控程序连发链接时不让会话账本/信封膨胀。
+MAX_LINKS: Final = 100
+MAX_LINK_URL_CHARS: Final = 2048
+MAX_LINK_TEXT_CHARS: Final = 300
+#: URI 协议名的取值形态(RFC 3986 scheme);取不到就当"没有协议头"(相对地址/裸词)。
+_LINK_SCHEME_RE: Final = re.compile(r"^(?P<scheme>[a-zA-Z][a-zA-Z0-9+.\-]*):")
 
 #: DEC 私有模式位(`DECSET`=`?…h` / `DECRST`=`?…l`)。一条序列可带多个模式(`?1002;1006h`),
 #: 所以按"整段取数再逐枚落账"解析;只由输出驱动(**模式位从来不是调用方声明的**)。
@@ -254,6 +276,14 @@ APP_CURSOR_KEY_SEQUENCES: Final[dict[str, str]] = {
     "end": "\x1bOF",
 }
 APP_CURSOR_MODE: Final = 1
+
+#: 焦点事件上报(DEC 私有模式 1004)。与鼠标同族:程序自己发 `DECSET 1004` 点单后,终端才在
+#: 窗口获得/失去焦点时各上报一次 —— tmux 用它决定"这块窗格现在收不收键",vim 用它刷光标形状。
+#: 两条序列是协议常量(`ESC[I` = 进焦点,`ESC[O` = 出焦点),不是随手拼的字节;和鼠标一样,
+#: 程序没点单就发,到了程序那边只是垃圾输入,所以本模块显式拒(`TERMINAL_FOCUS_DISABLED`)。
+FOCUS_MODE: Final = 1004
+FOCUS_IN_SEQUENCE: Final = "\x1b[I"
+FOCUS_OUT_SEQUENCE: Final = "\x1b[O"
 
 #: PTY 会话的终端身份两键(**只在调用方没显式给时补**)。真 tty 缺 `TERM` 时,程序
 #: (`ls --color` / `git` / `less` / `vim`)会按 dumb 终端处理:颜色与光标控制全关、分页退化。
@@ -433,6 +463,11 @@ class TerminalSession:
         """
         return bool(ALT_SCREEN_MODES & self.private_modes)
 
+    @property
+    def focus_events(self) -> bool:
+        """程序是否请求了焦点事件上报(`DECSET 1004`)。与 `mouse_mode` 同族:输出驱动,不由调用方声明。"""
+        return FOCUS_MODE in self.private_modes
+
     def first_seq(self) -> int:
         """当前仍可读到的**最早** seq(缓冲空时 = 下一个将要产出的 seq)。"""
         with self.lock:
@@ -459,6 +494,7 @@ class TerminalSession:
             "mouse_mode": self.mouse_mode,
             "mouse_encoding": self.mouse_encoding,
             "alt_screen": self.alt_screen,
+            "focus_events": self.focus_events,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -1634,6 +1670,84 @@ def mouse_terminal(
     }
 
 
+def focus_terminal(
+    terminal_id: str,
+    *,
+    state: str = "in",
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """把一次**窗口焦点变化**作为输入字节上报给程序(`ESC[I` 进焦点 / `ESC[O` 出焦点)。
+
+    为什么是由服务端发而不是程序自己知道:焦点是**终端侧**的事实(用户的窗口/标签页切走了),
+    子进程看不见。DEC 私有模式 1004 就是程序对终端说的"有人切走/切回来时告我一声":tmux 靠它
+    决定这块窗格收不收键,vim 靠它刷光标形状。程序没点 `DECSET 1004` 就发过去,这两条序列在
+    它眼里只是两串垃圾输入 —— 所以先读账本,没点单显式拒(`TERMINAL_FOCUS_DISABLED`)。
+
+    **两条后端都支持**(与 `mouse_terminal` 的 `TERMINAL_NOT_A_TTY` 不同,这是有意的):
+    鼠标坐标落在**屏幕网格**上,没有 tty 就没有格子,报表无意义;焦点是一个纯粹的**事件字节**,
+    不依附任何网格 —— 管道路径下字节同样原样落到子进程 stdin,语义不打折。
+
+    `state` 除 `in`/`out` 也接受 `focus`/`blur` 两个同义写法(模型侧更容易自然表述),
+    归一后回执里的 `state` 只有 `in`/`out` 两种,不做第三态。
+    """
+    raw = re.sub(r"[\s_]+", "-", str(state or "").strip().lower())
+    normal = {"in": "in", "focus": "in", "gain": "in", "out": "out", "blur": "out", "lose": "out"}
+    state_name = normal.get(raw)
+    if state_name is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"未知焦点状态: {state}(支持 in/out,亦接受 focus/blur)",
+        }
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if not session.focus_events:
+        return {
+            "ok": False, "errorCode": "TERMINAL_FOCUS_DISABLED",
+            "error": "程序没有请求焦点事件(DECSET 1004);现在发过去只会变成垃圾输入",
+            "terminal": session.to_dict(),
+        }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再报焦点事件;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    sequence = FOCUS_IN_SEQUENCE if state_name == "in" else FOCUS_OUT_SEQUENCE
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "本会话没有可写输入通道", "terminal": session.to_dict(),
+        }
+    try:
+        sink.write(sequence)
+        sink.flush()
+    except (BrokenPipeError, OSError, ValueError) as e:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": f"焦点事件写入失败: {e}", "terminal": session.to_dict(),
+        }
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "state": state_name,
+        "sequence": sequence,
+        "bytes_written": len(sequence.encode("utf-8")),
+        "focus_events": True,
+    }
+
+
 def eof_terminal(
     terminal_id: str,
     *,
@@ -1801,29 +1915,149 @@ def _buffer_face(session: TerminalSession) -> tuple[str, int, int]:
     return text, first_seq, dropped
 
 
+def _scan_face(text: str) -> tuple[str, list[dict[str, Any]]]:
+    """**一次**从左到右扫完整条终端流,同时产出「人读文本」与「OSC 8 链接台账」(唯一出口)。
+
+    为什么必须是一次:同一条流上有三个互相牵动的量 —— 可见文字、这段文字链到哪个地址、
+    它在归一后文本的第几行。分三趟做(先 `sub` 掉 OSC 再 `sub` 掉 `\\r` 再数行)会在
+    "转义序列内部/外部恰好夹着 `\\r\\n`"这类边界上给出互相矛盾的行号(链接落在第 3 行、
+    快照却说第 4 行)。一次扫完就没有这个缝:两边同源、逐字对得上。
+
+    归一规则与旧版 `strip_ansi` **逐字等价**(它有 85 条用例与 `check-replacement-chars`
+    盯着,不能悄悄改口径):
+    - 控制序列(`_SCAN_RE` 的 `esc` 支)整段丢弃,但 OSC 8 那一条先记进台账;
+    - 残余单字节控制符(`noise` 支)丢弃;
+    - `\\r` 折行:`\\r+\\n` 折成**一个** `\\n`(子进程在文本模式下把 `\\r\\n` 又翻成 `\\r\\r\\n`
+      也走这条),纯 `\\r` 串(行内回车刷新)按个数折成同样多的 `\\n`,绝不能反过来做 ——
+      反过来会把 `\\r\\r\\n` 分成两行。
+
+    链接台账:URI 为空的那条 `ESC]8;;` 表示"链接结束";一段链接的正文取**可见字符**(已归一),
+    起始行号取链接开启那一刻的行号。按 `(url, text)` 去重并保留首次出现 —— TUI 每帧重绘
+    同一个链接上百次,不去重就等于把一屏变成一整本书。
+    """
+    links: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    out: list[str] = []
+    line = 1
+    pending_cr = 0
+    # 当前链接状态(不在链接里时 url 为 None)
+    cur_url: str | None = None
+    cur_chars: list[str] = []
+    cur_line = 1
+
+    def _flush_link() -> None:
+        nonlocal cur_url, cur_chars
+        if cur_url is None:
+            return
+        body = "".join(cur_chars)
+        # 空正文的链接没有可点的东西,不进台账(程序常先开链接再写文字)
+        if body.strip():
+            body = body[:MAX_LINK_TEXT_CHARS]
+            key = (cur_url, body)
+            if key not in seen:
+                seen.add(key)
+                match = _LINK_SCHEME_RE.match(cur_url)
+                links.append(
+                    {
+                        "url": cur_url,
+                        "text": body,
+                        "line_no": cur_line,
+                        "scheme": match.group("scheme").lower() if match else "",
+                    }
+                )
+        cur_url = None
+        cur_chars = []
+
+    def _emit(visible: str) -> None:
+        """把一段**已归一**的可见文字落到正文与当前链接正文上。"""
+        nonlocal pending_cr, line
+        for ch in visible:
+            if ch == "\r":
+                pending_cr += 1
+                continue
+            if ch == "\n":
+                # `\r+\n` 折成一个换行;没有待折的 `\r` 时 `\n` 本身就是换行
+                out.append("\n")
+                if cur_url is not None:
+                    cur_chars.append("\n")
+                line += 1
+                pending_cr = 0
+                continue
+            if pending_cr:
+                # 纯 `\r` 串:每个都是一个换行(与 `re.sub("\\r", "\\n")` 同口径)
+                out.append("\n" * pending_cr)
+                if cur_url is not None:
+                    cur_chars.append("\n" * pending_cr)
+                line += pending_cr
+                pending_cr = 0
+            out.append(ch)
+            if cur_url is not None:
+                cur_chars.append(ch)
+
+    last = 0
+    for m in _SCAN_RE.finditer(text):
+        seg = text[last : m.start()]
+        if seg:
+            _emit(seg)
+        last = m.end()
+        esc = m.group("esc")
+        if esc is None:
+            continue  # noise 支:丢弃
+        if esc.startswith("\x1b]8;"):
+            hyper = _OSC_HYPERLINK_RE.match(esc)
+            if hyper is not None:
+                uri = hyper.group(2).strip()
+                _flush_link()
+                if uri:
+                    cur_url = uri[:MAX_LINK_URL_CHARS]
+                    cur_line = line
+                    cur_chars = []
+                # uri 为空 ⇒ 只关闭上一段(上面已经 flush)
+    if text[last:]:
+        _emit(text[last:])
+    # 收尾:`\r` 串末尾没有后续字符时,每个 `\r` 也是一个换行
+    if pending_cr:
+        out.append("\n" * pending_cr)
+        if cur_url is not None:
+            cur_chars.append("\n" * pending_cr)
+        line += pending_cr
+        pending_cr = 0
+    _flush_link()
+    return "".join(out), links
+
+
 def strip_ansi(text: str) -> str:
     """把终端流归一成**人读文本**(快照/检索的唯一出口,§22c 不写第二份)。
 
-    三件事按序做:① 剥控制序列(`ANSI_ESCAPE_RE`);② `\\r\\n` / 裸 `\\r` 统一成 `\\n`
-    (终端用 `\\r` 做行内回车刷新,直接按它分行会把一行 TUI 拆成几十行);③ 丢掉残余单字节
-    控制符(`ANSI_NOISE_RE`)。宽字符、颜色文本内容本身不受影响 —— 剥的是控制序列,不是字。
+    实现在 `_scan_face` 里:剥控制序列、`\\r` 折行、丢残余控制符三件事在**一次**扫描中完成,
+    与 `hyperlinks` 共用同一次扫描 ⇒ 链接行号与快照行号天然同源。宽字符与颜色文本的内容
+    本身不受影响 —— 剥的是控制序列,不是字。
     """
-    out = ANSI_ESCAPE_RE.sub("", text)
-    # `\r+\n`(含子进程在文本模式下把 `\r\n` 又翻成 `\r` 的 `\r\r\n`)先折成单个 `\n`,
-    # 再把剩下的裸 `\r`(行内回车刷新)当换行 —— 反过来做会把 `\r\r\n` 分成两个空行。
-    out = re.sub("\r+\n", "\n", out)
-    out = out.replace("\r", "\n")
-    return ANSI_NOISE_RE.sub("", out)
+    # 快速路径:既没有 ESC 也没有 `\r`/残余控制符 ⇒ 原文就是人读文本(零拷贝)
+    if "\x1b" not in text and "\r" not in text and ANSI_NOISE_RE.search(text) is None:
+        return text
+    return _scan_face(text)[0]
 
 
-def _plain_lines(text: str) -> list[str]:
-    """`strip_ansi` 之后按行切,并遵守"文末换行不是一个空行"(与读侧的计行口径同源)。"""
-    if text == "":
+def hyperlinks(text: str) -> list[dict[str, Any]]:
+    """OSC 8 链接台账(`url` / `text` / `line_no` / `scheme`),按 `(url, text)` 去重。"""
+    return _scan_face(text)[1]
+
+
+
+def _lines_of(plain: str) -> list[str]:
+    """把**已归一**的文本按行切,并遵守"文末换行不是一个空行"(与读侧的计行口径同源)。"""
+    if plain == "":
         return []
-    parts = strip_ansi(text).split("\n")
+    parts = plain.split("\n")
     if parts and parts[-1] == "":
         parts.pop()
     return parts
+
+
+def _plain_lines(text: str) -> list[str]:
+    """`strip_ansi` 之后按行切(`_lines_of` 的原文入参版本;同一份计行口径)。"""
+    return _lines_of(strip_ansi(text))
 
 
 def snapshot_terminal(
@@ -1856,7 +2090,9 @@ def snapshot_terminal(
         }
     keep = max(1, min(keep, MAX_SNAPSHOT_LINES))
     text, first_seq, dropped = _buffer_face(session)
-    all_lines = _plain_lines(text)
+    # 与行数同一次扫描取:`_scan_face` 同时给出可见文本与链接台账(两处不各扫一遍)
+    plain, found_links = _scan_face(text)
+    all_lines = _lines_of(plain)
     truncated = len(all_lines) > keep
     lines = all_lines[-keep:]
     return {
@@ -1866,6 +2102,7 @@ def snapshot_terminal(
         "lines": len(lines),
         "total_lines": len(all_lines),
         "truncated": truncated,
+        "link_count": len(found_links),
         "first_seq": first_seq,
         "dropped_chunks": dropped,
         "running": session.running(),
@@ -1876,6 +2113,64 @@ def snapshot_terminal(
         "title": session.title,
         "bell_count": session.bell_count,
         "alt_screen": session.alt_screen,
+    }
+
+
+def links_terminal(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    max_links: int = 20,
+) -> dict[str, Any]:
+    """回**这一屏上的超链接**(OSC 8):每条给出 `url` / `text` / `line_no` / `scheme`。
+
+    为什么值得单列一个原语:超链接是"屏幕上可点的那一层",它与人读文本是两套东西 ——
+    剥掉转义序列之后,`<https://…|点我>` 的对应关系就没了;而 CLI 程序(构建日志、
+    `gh`、`ls --hyperlink`、现代 `grep`)越来越多地在输出里带 OSC 8。要在"点第 3 行那个链接"
+    这件事上做自动化,就必须能把链接单独取出来。
+
+    **安全立场(必须与 `text` 一起用)**:OSC 8 有一个众所周知的钓鱼面 —— 显示的字符与真实
+    目标可以完全不同(写 `https://bank.com` 却链到别处是合法的 OSC 8)。所以本函数的回执
+    **同时**给 `text` 与 `url`,让调用方/渲染方有机会把两者摆在一起核对;本模块**从不**代替
+    调用方打开任何地址,也不过滤 `scheme`(它只如实汇报,拦不拦由上层决定)。
+
+    `line_no` 与 `snapshot`/`search` 的行号是**同一个扫描器**算出来的(`_scan_face`),
+    所以"链接在第 N 行"与"快照第 N 行"逐字对得上,不存在两套数法。
+    去重口径 = `(url, text)`:全屏程序每帧重绘同一个链接,不去重会把一屏变成一整本书;
+    这也意味着同一链接在屏幕不同行重复出现时只报**首次**那一行。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    try:
+        cap = int(max_links)
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"max_links 必须是整数(实得 {max_links!r})",
+        }
+    cap = max(1, min(cap, MAX_LINKS))
+    text, first_seq, dropped = _buffer_face(session)
+    found = hyperlinks(text)
+    shown = found[:cap]
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "links": shown,
+        "count": len(shown),
+        "total": len(found),
+        "truncated": len(found) > len(shown),
+        "first_seq": first_seq,
+        "dropped_chunks": dropped,
+        "running": session.running(),
+        "exit_code": session.proc.poll(),
+        "alt_screen": session.alt_screen,
+        "title": session.title,
+        "bell_count": session.bell_count,
     }
 
 
@@ -1958,8 +2253,9 @@ def search_terminal(
         }
     cap = max(1, min(cap, MAX_SEARCH_MATCHES))
     text, first_seq, dropped = _buffer_face(session)
+    plain, _links = _scan_face(text)
     matches: list[dict[str, Any]] = []
-    for idx, line in enumerate(_plain_lines(text), start=1):
+    for idx, line in enumerate(_lines_of(plain), start=1):
         hit = matcher(line)
         if hit is None:
             continue
@@ -2707,6 +3003,12 @@ __test__ = {
     "search_matcher": _search_matcher,
     "buffer_face": _buffer_face,
     "plain_lines": _plain_lines,
+    "scan_face": _scan_face,
+    "hyperlinks": hyperlinks,
+    "links_terminal": links_terminal,
+    "OSC_HYPERLINK_RE": _OSC_HYPERLINK_RE,
+    "MAX_LINKS": MAX_LINKS,
+    "MAX_LINK_TEXT_CHARS": MAX_LINK_TEXT_CHARS,
     "ANSI_ESCAPE_RE": ANSI_ESCAPE_RE,
     "MAX_SNAPSHOT_LINES": MAX_SNAPSHOT_LINES,
     "MAX_SEARCH_MATCHES": MAX_SEARCH_MATCHES,
@@ -2749,5 +3051,9 @@ __test__ = {
     "push_output": _push_output,
     "APP_CURSOR_KEY_SEQUENCES": APP_CURSOR_KEY_SEQUENCES,
     "APP_CURSOR_MODE": APP_CURSOR_MODE,
+    "focus_terminal": focus_terminal,
+    "FOCUS_MODE": FOCUS_MODE,
+    "FOCUS_IN_SEQUENCE": FOCUS_IN_SEQUENCE,
+    "FOCUS_OUT_SEQUENCE": FOCUS_OUT_SEQUENCE,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

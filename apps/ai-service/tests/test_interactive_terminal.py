@@ -436,8 +436,9 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    # 12 = send / keys / paste / mouse / snapshot / search / eof / read / wait / signal / resize / close
-    assert src.count("_live(terminal_id, user_id, session_id)") == 12, (
+    # 14 = send / keys / paste / mouse / focus / links / snapshot / search / eof / read
+    #      / wait / signal / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 14, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -1974,6 +1975,28 @@ class _AliveProc:
         return None
 
 
+class _DeadProc:
+    """已退出进程的假身:同 `_AliveProc` 的接口,但 `poll` 回 0(会话"活着登记、进程已退")。"""
+
+    pid = 4243
+    stdin = None
+
+    def poll(self) -> int | None:
+        return 0
+
+    def wait(self, timeout: float | None = None) -> int:
+        return 0
+
+    def terminate(self) -> None:
+        return None
+
+    def kill(self) -> None:
+        return None
+
+    def send_signal(self, sig: int) -> None:
+        return None
+
+
 def _mouse_session(
     *, backend: str = "pty", modes: set[int] | None = None
 ) -> term.TerminalSession:
@@ -2262,5 +2285,219 @@ async def test_tool_layer_routes_mouse(monkeypatch) -> None:
     assert seen["event"] == "click" and seen["button"] == "left"
     assert seen["x"] == 4 and seen["y"] == 5
     assert seen["modifiers"] == ["ctrl", "shift"]
+
+
+# ─── 焦点事件(DEC 1004):程序点单才发,`ESC[I` 进 / `ESC[O` 出 ───
+
+
+def test_focus_mode_tracks_decset_and_derives_flag() -> None:
+    """1004 与鼠标位同走 `_track_private_modes` 的通用记账,`focus_events` 是它的派生视图。"""
+    term.reset_terminals()
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        assert session.focus_events is False
+        track(session, "\x1b[?1004h")
+        assert session.focus_events is True and session.to_dict()["focus_events"] is True
+        # 一条序列里与鼠标位混发:两边都要各自落账,不能只认最后一个数
+        track(session, "\x1b[?1004l\x1b[?1000;1004h")
+        assert session.focus_events is True and session.mouse_mode == "click"
+        track(session, "\x1b[?1004l")
+        assert session.focus_events is False
+    finally:
+        term.reset_terminals()
+
+
+def test_focus_writes_protocol_sequence_only_after_request() -> None:
+    """没点 1004 → FOCUS_DISABLED(不是"先发发看");点了之后 `in`/`out` 各三个字节。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        _mouse_session(modes=set())
+        disabled = term.focus_terminal("t-mouse", state="in", **owner)
+        assert disabled["errorCode"] == "TERMINAL_FOCUS_DISABLED"
+        assert disabled["terminal"]["focus_events"] is False
+
+        session = _mouse_session(modes={1004})
+        inbound = term.focus_terminal("t-mouse", state="in", **owner)
+        assert inbound["ok"] is True and inbound["state"] == "in"
+        assert inbound["sequence"] == "\x1b[I" and inbound["bytes_written"] == 3
+        # focus/blur 是同义写法,归一后回执仍只有 in/out
+        blur = term.focus_terminal("t-mouse", state="blur", **owner)
+        assert blur["state"] == "out" and blur["sequence"] == "\x1b[O"
+        assert session.write_io.getvalue() == "\x1b[I\x1b[O"
+    finally:
+        term.reset_terminals()
+
+
+def test_focus_works_on_pipes_backend_but_respects_eof_and_exit() -> None:
+    """焦点是纯事件字节、不依附屏幕网格 ⇒ 管道后端也成立(mouse 的 NOT_A_TTY 不适用)。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(backend="pipes", modes={1004})
+        res = term.focus_terminal("t-mouse", state="focus", **owner)
+        assert res["ok"] is True and res["state"] == "in"
+        assert session.write_io.getvalue() == "\x1b[I"
+
+        session.stdin_closed = True
+        assert term.focus_terminal("t-mouse", **owner)["errorCode"] == "TERMINAL_STDIN_CLOSED"
+        session.stdin_closed = False
+        session.proc = _DeadProc()
+        assert term.focus_terminal("t-mouse", **owner)["errorCode"] == "TERMINAL_EXITED"
+    finally:
+        term.reset_terminals()
+
+
+def test_focus_rejects_bad_state_before_touching_session() -> None:
+    """未知状态在碰会话之前拒:不存在的 id 也先报参数错(不靠 NOT_FOUND 掩盖入参错误)。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        for bad in ("toggle", "", "IN-AND-OUT"):
+            assert (
+                term.focus_terminal("no-such", state=bad, **owner)["errorCode"]
+                == "TERMINAL_INVALID_INPUT"
+            )
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_focus(monkeypatch) -> None:
+    """工具层要把 focus 路由进模块(state 原样传下去,缺省 in)。"""
+    term.reset_terminals()
+    seen: dict[str, object] = {}
+
+    def _stub(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen.update({"terminal_id": terminal_id, **kwargs})
+        return {"ok": True, "terminal_id": terminal_id}
+
+    monkeypatch.setattr(term, "focus_terminal", _stub)
+    out = await _tool_terminal(
+        {"action": "focus", "terminal_id": "t1", "state": "out", **_OWNER}
+    )
+    assert out["ok"] is True and out["action"] == "focus"
+    assert seen["state"] == "out"
+    default = await _tool_terminal({"action": "focus", "terminal_id": "t1", **_OWNER})
+    assert default["ok"] is True and seen["state"] == "in"
+
+
+# ─── OSC 8 超链接:文字 ↔ URI,行号与快照同源 ───
+
+
+def _osc8(url: str, text: str) -> str:
+    return f"\x1b]8;;{url}\x07{text}\x1b]8;;\x07"
+
+
+def test_strip_ansi_unchanged_by_single_pass_scanner() -> None:
+    """一次扫描必须与旧口径**逐字等价**(旧版是 `sub`→`sub`→`replace` 三趟,不能用新算法改口径)。"""
+    strip = _TEST["strip_ansi"]
+    assert strip("中文\nnext\n") == "中文\nnext\n"
+    assert strip("a\r\r\nb") == "a\nb"  # `\r+\n` 折成一个换行
+    assert strip("a\rb") == "a\nb"  # 行内回车刷新 = 换行
+    assert strip("a\r\rb") == "a\n\nb"  # 纯 `\r` 串按个数
+    assert strip("x\r") == "x\n"  # 末尾 `\r` 也是换行
+    assert strip("\x1b[31merror\x1b[0m") == "error"
+    assert strip("\x1b]0;title\x07text") == "text"  # OSC 整段吃掉
+    assert strip("tab\there") == "tab\there"  # `\t` 不是噪音
+    assert strip("bell\x00nul") == "bellnul"  # 残余控制符丢弃
+    # 转义序列**内部**夹着 `\r\n` 时,行号/折行仍按可见字符算
+    assert strip("a\r\n\x1b[31m\r\nb") == "a\n\nb"
+    # 零拷贝快速路径:干净文本原样返回(不能因为重构就开始复制)
+    clean = "纯文本,无控制符"
+    assert strip(clean) is clean
+
+
+def test_hyperlinks_records_url_and_text_with_line_numbers() -> None:
+    """台账要同时给 `url` 与 `text`:这正是 OSC 8 钓鱼面的防御(显示的字 ≠ 目标地址)。"""
+    scan = _TEST["scan_face"]
+    raw = (
+        "header\n"
+        + _osc8("https://example.com/docs", "点我")
+        + "\nplain\n"
+        + _osc8("mailto:a@b.c", "写信")
+    )
+    plain, links = scan(raw)
+    assert plain == "header\n点我\nplain\n写信"
+    assert [l["url"] for l in links] == ["https://example.com/docs", "mailto:a@b.c"]
+    assert [l["text"] for l in links] == ["点我", "写信"]
+    assert [l["line_no"] for l in links] == [2, 4], f"行号必须落在归一文本的行上:{links}"
+    assert [l["scheme"] for l in links] == ["https", "mailto"]
+
+
+def test_hyperlink_line_number_matches_snapshot_line_number(tmp_path) -> None:
+    """`links` 的行号与 `snapshot` 的行号必须**同源**(两处各扫一遍就会漂开)。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session()
+        push = _TEST["push_output"]
+        push(session, "out", "one\r\ntwo\n")
+        push(session, "out", _osc8("https://ihui.ai", "site") + "\n")
+        shot = term.snapshot_terminal("t-mouse", **owner)
+        found = term.links_terminal("t-mouse", **owner)
+        assert shot["text"] == "one\ntwo\nsite", f"快照口径被改动了:{shot['text']!r}"
+        assert shot["link_count"] == 1
+        assert found["count"] == 1 and found["total"] == 1
+        line_no = found["links"][0]["line_no"]
+        assert shot["text"].split("\n")[line_no - 1] == "site", (
+            f"链接报第 {line_no} 行,但快照那一行不是链接文字:{shot['text']!r}"
+        )
+    finally:
+        term.reset_terminals()
+
+
+def test_hyperlinks_dedupes_redraws_and_drops_empty_body() -> None:
+    """全屏程序每帧重绘同一链接 ⇒ 台账按 `(url, text)` 去重;没有文字的空链接不入账。"""
+    scan = _TEST["scan_face"]
+    frame = _osc8("https://a.b/c", "go")
+    plain, links = scan(frame * 5)
+    assert plain == "go" * 5
+    assert len(links) == 1, f"重绘 5 次仍应只记 1 条:{links}"
+    # 先开链接再写文字会被记到;开后立刻关(无文字)则不入账
+    _, empty = scan(_osc8("https://a.b/c", ""))
+    assert empty == []
+    # 同一 URL 不同文字是不同链接(不是去重对象)
+    _, two = scan(_osc8("https://a.b/c", "甲") + _osc8("https://a.b/c", "乙"))
+    assert [l["text"] for l in two] == ["甲", "乙"]
+
+
+def test_links_terminal_caps_and_flags_truncation() -> None:
+    """`max_links` 有上界且 `truncated` 如实说明还有多少条没回。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session()
+        push = _TEST["push_output"]
+        for i in range(40):
+            push(session, "out", _osc8(f"https://x/{i}", f"l{i}") + "\n")
+        capped = term.links_terminal("t-mouse", max_links=3, **owner)
+        assert capped["count"] == 3 and capped["total"] == 40 and capped["truncated"] is True
+        assert [l["url"] for l in capped["links"]] == ["https://x/0", "https://x/1", "https://x/2"]
+        assert term.links_terminal("t-mouse", max_links="bad", **owner)["errorCode"] == (
+            "TERMINAL_INVALID_INPUT"
+        )
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_links(monkeypatch) -> None:
+    """工具层要把 links 路由进模块(落进"不支持的 action"就是没接)。"""
+    term.reset_terminals()
+    seen: dict[str, object] = {}
+
+    def _stub(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen.update({"terminal_id": terminal_id, **kwargs})
+        return {"ok": True, "terminal_id": terminal_id, "links": []}
+
+    monkeypatch.setattr(term, "links_terminal", _stub)
+    res = await _tool_terminal(
+        {"action": "links", "terminal_id": "t1", "max_links": 5, **_OWNER}
+    )
+    assert res["ok"] is True and res["action"] == "links"
+    assert seen["max_links"] == 5
+
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

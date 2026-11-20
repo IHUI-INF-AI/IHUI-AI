@@ -44,7 +44,7 @@ import json
 import os
 import sys
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -142,7 +142,7 @@ async def sync_openrouter_reasoning_efforts(conn: Any) -> dict[str, int]:
            JOIN ai_model_config c ON m.config_id = c.id
            WHERE c.provider_code = 'openrouter' AND m.enabled = true"""
     )
-    stamp = datetime.now(timezone.utc).isoformat()
+    stamp = datetime.now(UTC).isoformat()
     stats = {"rows": len(rows), "declared": 0, "unsupported": 0, "undeclared": 0, "unchanged": 0}
     updates: list[tuple[Any, str]] = []
     for row in rows:
@@ -161,13 +161,15 @@ async def sync_openrouter_reasoning_efforts(conn: Any) -> dict[str, int]:
         }
         updates.append((row["id"], json.dumps(patch)))
         stats["declared" if efforts else "unsupported"] += 1
-    for row_id, patch in updates:
+    # 变量名分开写:上面同一函数体的 `patch` 是 dict[str, Any](补丁体),
+    # 这里若是同名会被 mypy 判成「str 赋给 dict[str, Sequence[str]]」(2026-11-21 修)。
+    for row_id, patch_json in updates:
         await conn.execute(
             """UPDATE ai_model_config_models
                SET metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb
                WHERE id = $1""",
             row_id,
-            patch,
+            patch_json,
         )
     stats["written"] = len(updates)
     return stats
