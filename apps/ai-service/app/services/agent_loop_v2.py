@@ -1913,6 +1913,63 @@ class AgentEventStream:
             "reason": reason,
         })
 
+    async def emit_hook_run(
+        self,
+        run_id: str,
+        events: list[dict[str, Any]],
+        *,
+        tool_name: str | None = None,
+        tool_call_id: str | None = None,
+    ) -> None:
+        """钩子运行事件(2026-11-20 立)。
+
+        HookRunEvent 此前只写服务端日志 ⇒ 前端看不到"哪个钩子拦了/改了/超时了"。
+        本事件把逐钩子结果下发到同一 SSE 通道(字段与 HookRunEvent.as_dict 同形,
+        只补归属信息),空表不发(零钩子 = 零事件,不污染时间线)。
+        """
+        if not events:
+            return
+        payload: dict[str, Any] = {
+            "run_id": run_id,
+            "tool_name": tool_name,
+            "tool_call_id": tool_call_id,
+            "hooks": events,
+        }
+        if self._trace_id and "trace_id" not in payload:
+            payload["trace_id"] = self._trace_id
+        try:
+            # 观察事实不走 emit():HOOK_EVENTS 是"用户可配触发器白名单",塞进去会让
+            # 每次钩子运行再点火一轮用户钩子(自激)。与 hook.failed 同一条纪律。
+            hook_engine.publish_observation("hook.run", payload)
+        except Exception as e:
+            logger.warning("hook.run 事件下行失败(降级,不阻塞): %s", e)
+
+
+async def _emit_hook_run_event(
+    stream: "AgentEventStream | None",
+    run_id: str,
+    outcome: Any,
+    *,
+    tool_name: str | None = None,
+    tool_call_id: str | None = None,
+) -> None:
+    """钩子运行结果下行(fail-open)。
+
+    独立成函数的两个理由:① 三处调用点(前置/审批/后置)共用一个出口;
+    ② 轻量测试替身不一定装配 `_events`(None ⇒ 不发,不改变主链路行为)。
+    """
+    if stream is None:
+        return
+    events = getattr(outcome, "events_as_dicts", None)
+    if events is None:
+        return
+    await stream.emit_hook_run(
+        run_id,
+        events(),
+        tool_name=tool_name,
+        tool_call_id=tool_call_id,
+    )
+
 
 # ---------------------------------------------------------------------------
 # 1-8 上下文超限压缩(2026-09-07 立):接近 token 上限时自动压缩旧消息,
@@ -7376,6 +7433,13 @@ class AgentLoopV2:
             outcome = await self._wait_interruptible(
                 self._hook_runtime.run(_HookKind.POST_TOOL_USE, payload)
             )
+            await _emit_hook_run_event(
+                getattr(self, "_events", None),
+                self._session_id or "",
+                outcome,
+                tool_name=tc.name,
+                tool_call_id=tc.id,
+            )
             if outcome.updated_output is not NO_UPDATED_OUTPUT:
                 result.result = outcome.updated_output
             if self._messages is not None:
@@ -8208,6 +8272,13 @@ class AgentLoopV2:
                         {"tool_name": tc.name, "tool_call_id": tc.id, "args": tc.args},
                     )
                 )
+                await _emit_hook_run_event(
+                    getattr(self, "_events", None),
+                    self._session_id or "",
+                    _hk_outcome,
+                    tool_name=tc.name,
+                    tool_call_id=tc.id,
+                )
                 if _hk_outcome.denial_reason is not None:
                     return ToolResult(
                         tool_call_id=tc.id,
@@ -8403,6 +8474,13 @@ class AgentLoopV2:
                             "session_id": self._session_id or "",
                         },
                     )
+                )
+                await _emit_hook_run_event(
+                    getattr(self, "_events", None),
+                    self._session_id or "",
+                    _pr_outcome,
+                    tool_name=tc.name,
+                    tool_call_id=tc.id,
                 )
                 if _pr_outcome.permission_behavior == "deny":
                     reason = _pr_outcome.denial_reason or "permission_request 钩子拒绝"

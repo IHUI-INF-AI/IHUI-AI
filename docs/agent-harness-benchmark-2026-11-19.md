@@ -9,6 +9,7 @@
 
 
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -17,7 +18,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **25 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **26 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -93,7 +94,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（25 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（26 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -366,6 +367,19 @@
 - 超越轴：事件语义严格限定为"即将请求权限"，不需要问人的调用根本不产生该事件 —— 对照程序按"每次工具调用"触发会让审计面被无意义事件淹没。
 
 验证：`pytest test_hook_runtime_injection_wiring.py` → `15 passed`（新增 2 例：allow 免弹窗且真执行 / deny 零副作用）；`test_command_hooks.py` → `11 passed`（新增 1 例：嵌套 `decision.behavior` 映射逐字对上）；`+ test_post_tool_hooks` → `31 passed`；回归 `test_tool_approval + test_permission_modes + test_hook_event_ordering` → `47 passed`；`mypy --strict` → `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
+
+### 5.27 第 26 项：钩子运行结果进 SSE（"哪个钩子拦了、改了、超时了"前端可见）
+
+- 缺口：`HookRuntime` 已产出逐钩子 `HookRunEvent`（name / kind / status / durationMs / error），但消费面只有服务端日志 —— 前端时间线看不到"这次调用被哪个钩子拦下、哪个钩子改写了产出、哪个钩子超时降级"。同一个 `hook.failed` 通道只覆盖"钩子自己挂了"，不覆盖"钩子正常跑完并给出了裁决"。
+- 处置：
+  - `AgentEventStream.emit_hook_run()`：空表直接返回（**零钩子 = 零事件**，不往时间线塞空表噪声）；载荷 `{run_id, tool_name, tool_call_id, hooks}`，`hooks` 元素形状直接复用 `HookRunEvent.as_dict()`（不另抄一份键名，单一真相源）；
+  - 三处调用点：`pre_tool_use`（放在 deny 分支 `return` **之前**，拒绝路径同样可见）、`permission_request`（放在 deny 分支之前）、`post_tool_use`（在产出改写与上下文注入判定之前，事件与最终结果同批可见）；
+  - 下行通道**刻意不走 `emit()`**：`HOOK_EVENTS` 是"用户可配的触发器白名单"，把 `hook.run` 塞进去等于允许"钩子运行结果"去点火用户钩子 —— 每跑一枚钩子再发一次事件，自激成环。新增 `HookEngine.publish_observation()` 只走订阅面，与 `hook.failed` 同一条纪律；
+  - `agent_events` 三处登记（`HOOK_RUN` 常量、`HOOK_EVENT_TO_SSE` → `hook-run`、`AGENT_SUBSCRIBE_EVENTS` 补一行）⇒ 三个 SSE 端点（execute/stream、tasks/stream、`{agent_id}/stream`）一处补齐三处生效；
+  - fail-open：`publish_observation` 抛错只 warning，主链路不受影响；轻量测试替身未装配 `_events` 时 `getattr` 取 None ⇒ 不发（不改变既有测试行为）。
+- 超越轴：对照程序把"钩子运行"当调试日志（默认不进事件流，需要开 debug 才可见）；本仓直接把逐钩子结果做成**与 plan-step 同级的命名 SSE 事件**，并保持"空表不发"与"拒绝路径也发"两条语义，前端不必为一个开关再申请一次调试模式。
+
+验证：`pytest test_hook_run_sse.py` → `4 passed`（前置 deny 可见 / 零钩子零事件 / 后置改写可见 / 下行失败 fail-open）；`test_hook_run_sse + test_hook_runtime_injection_wiring + test_post_tool_hooks + test_command_hooks` → `35 passed`；`mypy --strict`（agent_loop_v2 + agent_events + hook_engine）→ `Success: no issues found in 3 source files`；`ruff check`（含新测试）→ `All checks passed!`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
