@@ -94,7 +94,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 路由文件 | 714 | `apiRouteFiles` |
 | AI 服务路由 | 685 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
-| 入库模型清单 | 100 | `llmModels` |
+| 入库模型清单 | 103 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 18 | `sharedPackages` |
@@ -109,7 +109,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 370 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
-| 跟踪文件 | 23061 | `trackedFiles` |
+| 跟踪文件 | 23062 | `trackedFiles` |
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-20。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 <!-- END GENERATED NUMBERS -->
