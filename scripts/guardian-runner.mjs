@@ -7857,13 +7857,16 @@ const checks = [
     // 一律判红。唯一放行面 = 门体的 NON_STORE_FIXTURES(两条"读别人格式"的测试夹具,带理由),
     // 且每轮核对其存活(路径消失即 state=new new=lapsed)。
     // 面旗:--staged 判索引 blob / 默认判 HEAD blob;工作树面只用于人工排查(不枚举未跟踪文件)。
+    // 射程 = 门体 SUBROOTS(apps/packages/scripts)+ 全部源码后缀;触发面同此全域(2026-11-20 扩):
+    // 零容忍下"写路径能长在任何一端",只盯 ai-service/api/database/shared 会漏掉 apps/cli、
+    // apps/desktop 与 scripts 自带的本地状态库 —— 那正好是"数据层只允许 PostgreSQL"最想拦的地方。
     id: 'pg-only',
     label: '🐘 数据层禁 sqlite 写路径(零容忍)',
     script: 'check-sqlite-write-paths.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SQLITE_WRITE_PATHS',
-    stagedTriggers: ['apps/ai-service/', 'apps/api/', 'packages/database/', 'packages/shared/', 'scripts/data/sqlite-write-paths-baseline.json'],
+    stagedTriggers: ['apps/', 'packages/', 'scripts/'],
     onFailHint: [
       '  💡 数据层只允许 PostgreSQL(机主 2026-11-19 定档,自有写路径已清零 ⇒ 零容忍):',
       '     1. node scripts/check-sqlite-write-paths.mjs  (逐文件报现读数;--staged 判暂存面)',
