@@ -9324,6 +9324,8 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             timeout_s=max(0.0, min(timeout_s, term.MAX_WAIT_S)),
             max_chars=max(1, min(max_chars, term.MAX_READ_CHARS)),
             regex=bool(arguments.get("regex", False)),
+            # plain=按**归一文本**判断(TUI 把提示符拆在几条颜色序列之间时,原文匹配不到)。
+            plain=bool(arguments.get("plain", False)),
         )
         return {"tool": "terminal", "action": "wait_for", **result}
 

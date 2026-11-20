@@ -1606,6 +1606,7 @@ def wait_terminal(
     timeout_s: float = 10.0,
     max_chars: int = 8000,
     regex: bool = False,
+    plain: bool = False,
 ) -> dict[str, Any]:
     """等输出里出现 `pattern`(传统终端的 expect 原语),三种收口显式区分。
 
@@ -1619,6 +1620,10 @@ def wait_terminal(
 
     `since_seq` 语义与 `read_terminal` 一致:只扫该 seq **之后**的块。进程退出后仍等
     pump 排空(与 read 同一条收尾判据),否则可能漏掉退出前最后一行命中。
+
+    `plain=True` 把判定面换成**归一文本**(`strip_ansi`):TUI 把一句话拆在几条颜色/光标序列
+    之间时,按原文字节永远匹配不到,而屏上明明写着 —— 这种"看得见、等不到"的假超时是本参
+    存在的唯一理由。回执里的 `chunks` 仍是**原文**,不因判定面换了视图而改写消费方读到的字节。
     """
     session = _live(terminal_id, user_id, session_id)
     if session is None:
@@ -1645,7 +1650,10 @@ def wait_terminal(
             next_seq = session.seq
             first_seq = int(session.chunks[0]["seq"]) if session.chunks else session.seq + 1
             dropped = session.dropped_chunks
-        hit, hit_text = judge("".join(str(c["text"]) for c in pending))
+            acc = "".join(str(c["text"]) for c in pending)
+        # `plain=True` 的判定面是**归一文本**:TUI 把提示符拆在几条颜色序列之间时,
+        # 原文按定义匹配不到,人眼却看得到 —— 那时该问"屏上写了什么",不是"字节怎么排"。
+        hit, hit_text = judge(strip_ansi(acc) if plain else acc)
         if hit:
             matched, matched_text, reason = True, hit_text, "matched"
             break
@@ -1683,6 +1691,7 @@ def wait_terminal(
         "exit_code": session.proc.poll(),
         "truncated": used >= max_chars and len(pending) > len(out),
         "waited_s": round(time.monotonic() - started, 3),
+        "plain": plain,
     }
 
 
