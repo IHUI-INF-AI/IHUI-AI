@@ -1552,6 +1552,17 @@ export function worktreeHashObjectBatch(root, rels, opts = {}) {
  * 超过条数护栏的清单同样交回老路。其它派生故障一律原样抛,不吞。
  * @returns {Map<string,Buffer|null>|null} null = 本支不适用/缓冲不足,由调用方走老路
  */
+/**
+ * 尺寸预检跳过档(2026-11-20 立):小集先按"整块"读,省掉一次尺寸查表派生(本机 ~0.4s/次);
+ * 真把缓冲区撑爆(ENOBUFS)⇒ 由 catBatchRaw 带 noSizeSkip 重进一次老路,绝不把"缓冲不足"
+ * 降级成"取不到"。逃生舱 IHUI_FACE_SIZE_SKIP=0 强制走老路(对照/排障用)。
+ */
+const SIZE_SKIP_MAX = 2500
+function sizeSkipFor(n) {
+  if (process.env.IHUI_FACE_SIZE_SKIP === '0') return false
+  return n > 1 && n <= SIZE_SKIP_MAX
+}
+
 function catBatchPureOids(root, list, opts, maxCount) {
   for (const s of list) if (!OID_SPEC_RE.test(s)) return null
   const uniq = [...new Set(list)]
@@ -1597,7 +1608,7 @@ function catBatchRaw(root, revs, opts = {}) {
   // 抛 Undetermined 都与原链同源),成功 ⇒ 返回值与原链逐字节等价;任何异常(截断、巨型 blob
   // 顶爆 maxBuffer、派生失败)⇒ 吞掉并落回下面**一字未动的老路**,字节预算、切块与错误文案
   // 全部保持原样。因此这条快路最坏只是白跑一趟派生,不可能让任何一道门变差。
-  if (list.length >= 2 && list.length <= SMALL_DIRECT_SPECS && process.env.IHUI_FACE_SMALL_DIRECT !== '0') {
+  if (list.length >= 1 && list.length <= SMALL_DIRECT_SPECS && process.env.IHUI_FACE_SMALL_DIRECT !== '0') {
     try {
       const out = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
         cwd: root,
@@ -1621,7 +1632,9 @@ function catBatchRaw(root, revs, opts = {}) {
   const oidOfSpec = resolveSpecOids(root, list, opts)
   const query = foldSpecsByOid(oidOfSpec)
   if (query.length === 0) return new Map(list.map((s) => [s, null]))
-  const sizes = query.length > 1 ? catBatchSizesByOid(root, query, opts, list.length) : new Map()
+  const skipSizes = !opts.noSizeSkip && sizeSkipFor(query.length)
+  const sizes =
+    query.length > 1 && !skipSizes ? catBatchSizesByOid(root, query, opts, list.length) : new Map()
   const bytesOf = (o) => sizes.get(o) ?? 0
   const blocks = packByBytes(query, bytesOf, { maxBytes, maxCount })
   const byOid = new Map()
@@ -1642,6 +1655,9 @@ function catBatchRaw(root, revs, opts = {}) {
         stdio: ['pipe', 'pipe', 'pipe'],
       })
     } catch (e) {
+      // 跳过尺寸预检的那一档把缓冲区撑爆 ⇒ 带 noSizeSkip 重进一次(按字节重切),判据与老路同义
+      const overflow = e?.code === 'ENOBUFS' || e?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+      if (skipSizes && overflow) return catBatchRaw(root, revs, { ...opts, noSizeSkip: true })
       throw new Undetermined(
         `git cat-file --batch 失败,${root} 的判定面无法取材(第 ${c + 1}/${blocks.length} 块,${part.length} 个规格): ${spawnCauseText(e, budget, `块 ${c + 1}/${blocks.length}`)}`,
       )
