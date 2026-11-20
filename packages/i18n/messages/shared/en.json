@@ -2344,6 +2344,8 @@
       "autoSkipApproval": "Auto-approved (no approval needed)",
       "autoReviewAllow": "Auto-review allowed",
       "skillGrantSkipApproval": "Skill grant allows this tool (no approval needed)",
+      "hookAllowSkipApproval": "Hook allowed this tool (no approval needed)",
+      "hookAskRequireApproval": "Hook requires your confirmation",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "taintEgressGate": "Session taint: network access needs approval",
