@@ -311,6 +311,78 @@ function scopeDegradeAllowed(widen) {
   return !!widen && widen.ok === true
 }
 
+// ─── T1 归因(2026-11-21):判红时把「报错文件落在推送面的哪一格」打出来 ─────────
+// 病历:一次推送墙钟 351s 全花在 T1 上,红了之后输出只说「2/2 个报错文件在本次改动范围内」,
+// 读不出这些错误是**推送内容**带来的(该修),还是**别席工作树里的半成品**带来的(不在推送范围)。
+// 于是下一轮排查又从「是不是推送流程慢」开始,白烧半天。
+// 本块只做归因打印:退出码、降级判据、回执写入一个字节都不动。
+// 失效方向:git 取不到脏面 ⇒ 该格打 undetermined 并跳过,绝不推断成「没有脏面」。
+function dirtyWorktreeTsFiles() {
+  try {
+    const out = gitRaw(['status', '--porcelain', '-z'], ROOT, { timeout: 60_000 })
+    const rows = []
+    let pendingRenameSrc = false
+    for (const tok of String(out || '').split('\u0000')) {
+      if (!tok) continue
+      if (/^[A-Z?][A-Z?] /.test(tok) && tok.length > 3) {
+        rows.push(tok.slice(3).replaceAll('\\', '/'))
+        // -z 形态里 rename/copy 的源路径紧跟在第一条之后、且不带状态前缀
+        pendingRenameSrc = tok[0] === 'R' || tok[0] === 'C'
+      } else if (pendingRenameSrc) {
+        rows.push(tok.replaceAll('\\', '/'))
+        pendingRenameSrc = false
+      }
+    }
+    return rows.filter((f) => {
+      const base = f.slice(f.lastIndexOf('/') + 1)
+      return TS_INPUT_EXT_RE.test(f) || /^tsconfig.*\.json$/i.test(base) || base === 'package.json'
+    })
+  } catch {
+    return null
+  }
+}
+
+/** 归因分类(纯函数,也是 --self-test 的测试缝):报错文件落在 原始面 / 仅闭包加宽 / 面外,以及命中脏面几个 */
+function attributeT1Failure(errorFiles, { rawFiles, widenedFiles, dirty } = {}) {
+  const list = Array.isArray(errorFiles) ? errorFiles : []
+  const raw = Array.isArray(rawFiles) ? rawFiles : []
+  const wide = Array.isArray(widenedFiles) ? widenedFiles : raw
+  const inRaw = []
+  const onlyWiden = []
+  const outside = []
+  for (const f of list) {
+    if (isPathInStaged(f, raw)) inRaw.push(f)
+    else if (isPathInStaged(f, wide)) onlyWiden.push(f)
+    else outside.push(f)
+  }
+  const dirtyHit = Array.isArray(dirty) ? list.filter((f) => isPathInStaged(f, dirty)) : []
+  return { inRaw, onlyWiden, outside, dirtyHit, dirtyCount: Array.isArray(dirty) ? dirty.length : null }
+}
+
+function printT1Attribution(errorFiles, attr) {
+  const n = (errorFiles || []).length
+  if (n === 0 || !attr) return
+  console.log('🔎 T1 归因(报错文件 vs 本次推送面):')
+  console.log(
+    `   - 报错文件 ${n} 个:原始推送面命中 ${attr.inRaw.length};仅反向依赖闭包纳入 ${attr.onlyWiden.length};面外 ${attr.outside.length}`,
+  )
+  console.log(
+    `   - 工作树未提交 TS 级脏面 ${attr.dirtyCount === null ? '(取不到,不推断)' : `${attr.dirtyCount} 个`};其中被判红报错文件命中 ${attr.dirtyHit.length} 个`,
+  )
+  for (const f of attr.dirtyHit.slice(0, 10)) console.log(`     · 脏面且报错: ${f}`)
+  if (attr.inRaw.length === 0 && attr.dirtyHit.length > 0) {
+    console.log('   - 结论:推送内容本身不含这些错误,红由工作树未提交改动引入(不在本次推送范围)')
+  } else if (attr.inRaw.length > 0) {
+    console.log('   - 结论:报错落在本次推送面内,属推送内容,须先修再推')
+  } else if (attr.dirtyCount === null) {
+    console.log('   - 结论:脏面取不到 ⇒ 归因未判定(不推断,失败结论原样保留)')
+  }
+  // 机器可读末行(RP-67 式的稳定签名):留给 hook / 日志检索,不必再解析人话块
+  console.log(
+    `[IHUI-T1-ATTRIB] raw=${attr.inRaw.length} widened_only=${attr.onlyWiden.length} outside=${attr.outside.length} dirty=${attr.dirtyCount === null ? 'undetermined' : attr.dirtyCount} dirty_hit=${attr.dirtyHit.length}`,
+  )
+}
+
 // ─── --self-test:内置样例验证解析/匹配/降级分支(不跑 typecheck);断言失败以 exit 1 硬失败 ───
 if (SELF_TEST) {
   let failedCount = 0
@@ -544,6 +616,64 @@ if (SELF_TEST) {
   assert(
     !scopeDegradeAllowed(null) && !scopeDegradeAllowed({}),
     '样例23 拿不到 ok(未判定/异常形状)⇒ 同样不放行(fail-closed 偏好)',
+  )
+
+  // 样例24-27(2026-11-21):T1 归因分类 —— 只做打印,不参与任何退出/降级判定。
+  // 病历样例:推送面含 apps/web/src/components/chat/*,报错文件 agent-task-progress-pane.tsx
+  // 既不在原始面、也不在闭包加宽面,且该文件工作树有未提交改动 ⇒ 必须被归成「脏面引入」。
+  const attrNoise = attributeT1Failure(
+    ['src/components/ai/agent-task-progress-pane.tsx'],
+    {
+      rawFiles: ['apps/web/src/components/chat/model-selector.tsx'],
+      widenedFiles: ['apps/web/src/components/chat/model-selector.tsx'],
+      dirty: ['apps/web/src/hooks/use-command-hooks-config.ts'],
+    },
+  )
+  assert(
+    attrNoise.inRaw.length === 0 && attrNoise.outside.length === 1,
+    '样例24a 报错文件既不在原始面也不在闭包面 ⇒ 计入「面外」,不得算作推送内容',
+  )
+  assert(
+    attrNoise.dirtyHit.length === 0 && attrNoise.dirtyCount === 1,
+    '样例24b 脏面清单要原样计数;报错文件与脏面不同文件 ⇒ dirtyHit=0(不得攀亲)',
+  )
+  // 同一个报错文件自己就是脏面 ⇒ 必须命中,这才是「他席半成品把 T1 打红」的铁证
+  const attrOwnDirty = attributeT1Failure(
+    ['src/hooks/use-command-hooks-config.ts'],
+    {
+      rawFiles: ['apps/web/src/components/chat/model-selector.tsx'],
+      widenedFiles: ['apps/web/src/components/chat/model-selector.tsx'],
+      dirty: ['apps/web/src/hooks/use-command-hooks-config.ts'],
+    },
+  )
+  assert(
+    attrOwnDirty.outside.length === 1 && attrOwnDirty.dirtyHit.length === 1,
+    '样例25 报错文件与脏面同一文件 ⇒ dirtyHit=1(归因到工作树未提交改动)',
+  )
+  // 面内命中优先:报错落在原始推送面 ⇒ 属推送内容,与脏面无关
+  const attrInFace = attributeT1Failure(['apps/web/src/components/chat/model-selector.tsx'], {
+    rawFiles: ['apps/web/src/components/chat/model-selector.tsx'],
+    widenedFiles: ['apps/web/src/components/chat/model-selector.tsx'],
+    dirty: [],
+  })
+  assert(
+    attrInFace.inRaw.length === 1 && attrInFace.outside.length === 0 && attrInFace.dirtyCount === 0,
+    '样例26 报错落在原始推送面 ⇒ 归「推送内容」(dirtyCount=0 不冒充「取不到」)',
+  )
+  // 取不到脏面(dirty=null)⇒ dirtyCount 必须落 null(未判定),不得折成 0
+  const attrUnknown = attributeT1Failure(['apps/x/src/a.ts'], {
+    rawFiles: ['apps/x/src/b.ts'],
+    widenedFiles: ['apps/x/src/b.ts'],
+    dirty: null,
+  })
+  assert(
+    attrUnknown.dirtyCount === null && attrUnknown.dirtyHit.length === 0,
+    '样例27 脏面取不到 ⇒ dirtyCount=null(未判定),不得用 0 冒充「没有脏面」',
+  )
+  assert(
+    attributeT1Failure([], { rawFiles: [], widenedFiles: [], dirty: [] }).outside.length === 0 &&
+      printT1Attribution.length >= 1,
+    '样例27b 零报错文件 ⇒ 分类为空、打印函数存在(不崩)',
   )
 
   process.env.PUSH_SCOPE_FILES = prevEnv
@@ -1273,6 +1403,15 @@ if (_receiptOn) {
         )
         for (const f of _in.slice(0, 20)) console.log(`   - ${f}`)
       }
+      // T1 归因:红了必须一眼看出「推送内容 vs 别席脏面」,不让人再从「推送为啥慢」查起
+      printT1Attribution(
+        _rf,
+        attributeT1Failure(_rf, {
+          rawFiles: scopeFilesRaw,
+          widenedFiles: scopeFiles,
+          dirty: dirtyWorktreeTsFiles(),
+        }),
+      )
     }
     console.error(`❌ 全量 typecheck 失败(近期结论回放,exit ${_rc.exitCode}),推送已阻止`)
     process.exit(_rc.exitCode)
@@ -1444,6 +1583,15 @@ child.on('close', (code, signal) => {
       for (const f of inScope.slice(0, 20)) console.log(`   - ${f}`)
     }
   }
+  // T1 归因(同上方回放路径):告警面外/闭包纳入/工作树脏面三格逐格报数,失败结论不变
+  printT1Attribution(
+    errorFiles,
+    attributeT1Failure(errorFiles, {
+      rawFiles: scopeFilesRaw,
+      widenedFiles: scopeFiles,
+      dirty: dirtyWorktreeTsFiles(),
+    }),
+  )
   if (scopeEnabled && errorFiles.length === 0) {
     console.log(
       'ℹ️ 退出码非 0 但未解析到任何报错文件路径(tsc 未能真正运行/环境故障),按失败处理(§22b)',
