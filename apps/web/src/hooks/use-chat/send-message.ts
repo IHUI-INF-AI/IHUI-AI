@@ -102,6 +102,7 @@ import {
   eduToolsFor,
   fileToolsFor,
   financeToolsFor,
+  hrToolsFor,
   mergeAgentTools,
   uiControlToolsFor,
   videoToolsFor,
@@ -1719,6 +1720,7 @@ export function createSendMessage(
               ...fileToolsFor(content),
               ...videoToolsFor(content),
               ...financeToolsFor(content),
+              ...hrToolsFor(content),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}
@@ -1781,6 +1783,8 @@ export function createSendMessage(
           messages: streamOpts.messages,
           signal: controller.signal,
           conversationId: conversationId ?? undefined,
+          // 推理强度同样进号池通道(2026-11-21):平台腿早已透传,号池腿此前漏带。
+          reasoningEffort: samplingParams.reasoningEffort,
           onDelta: streamOpts.onDelta,
           onDone: streamOpts.onDone,
           // 号池错误只给一句人话给既有错误卡;errorCode 由上层文案兜底(formatSSEError)

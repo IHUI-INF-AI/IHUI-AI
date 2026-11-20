@@ -614,6 +614,74 @@ export function financeToolsFor(content: string): string[] {
   return [...out]
 }
 
+/**
+ * 人事部条件携带(2026-11-21 立)。
+ *
+ * 病灶: web 发送链当年只给财务(ai_bookkeeping/ai_tax_filing)、教育、文件、视频这四族
+ * 条件携带,人事六枚 hr_* 一枚都没进 agentTools —— 用户在 AI 输入框里说"帮我算工资",
+ * 模型视野里根本没有 hr_payroll_calc(真机实测模型的答复是"我没有找到这个人事工具"),
+ * 与"在 AI 输入框里一键记账/算薪"的验收口径直接冲突(= 造好没装车)。
+ *
+ * 与 financeToolsFor 同一范式:
+ * - 命中才带,普通问答返回 [] 保住打字机流式;
+ * - 带工具只表示"模型可见",权限仍由 apps/api 逐请求判(hr:payroll:manage / requireSelf),
+ *   越权调用会 403,不会因为前端带了名字就放宽;
+ * - 人名对账:工具名必须与 ai-service 的 hr_tools._TOOLS + mcp_server 注册名逐字相等,
+ *   拼错即静默失效,由 __tests__/hr-tools-intent.test.ts 钉住。
+ */
+export const HR_SELF_TOOLS = [
+  'hr_my_payroll',
+  'hr_my_payroll_periods',
+  'hr_my_attendance',
+  'hr_my_leaves',
+] as const
+export const HR_MANAGE_TOOLS = ['hr_payroll_calc', 'hr_insurance_readiness'] as const
+export const HR_TOOLS = [...HR_SELF_TOOLS, ...HR_MANAGE_TOOLS] as const
+
+/** 工资/薪资 + 结算动词 ⇒ 管理面(算薪、体检)同带,让模型自己选先体检还是直接算 */
+const HR_PAYROLL_WORDS = ['工资', '薪资', '薪酬'] as const
+const HR_ACT_WORDS = ['算', '结算', '核算', '计算', '发放', '补发'] as const
+const HR_SELF_ONLY_WORDS = [
+  '工资条',
+  '我的考勤',
+  '打卡记录',
+  '我的请假',
+  '请假余额',
+  '年假余额',
+] as const
+const HR_MANAGE_ONLY_WORDS = [
+  '算薪',
+  '工资表',
+  '应发',
+  '实发',
+  '社保基数',
+  '社保费率',
+  '社保配置',
+  '公积金基数',
+  '公积金配置',
+  '薪资方案',
+  '薪资配置',
+  'hr_payroll_calc',
+  'hr_insurance_readiness',
+] as const
+
+export function hrToolsFor(content: string): string[] {
+  if (!content) return []
+  const text = content.toLowerCase()
+  const has = (...kws: readonly string[]) => kws.some((kw) => text.includes(kw))
+  const out = new Set<string>()
+  const payroll = has(...HR_PAYROLL_WORDS)
+  const selfie = has('我的', '本人', '个人')
+  if ((payroll && selfie) || has(...HR_SELF_ONLY_WORDS)) {
+    for (const t of HR_SELF_TOOLS) out.add(t)
+  }
+  if (has(...HR_MANAGE_ONLY_WORDS) || (payroll && has(...HR_ACT_WORDS))) {
+    for (const t of HR_SELF_TOOLS) out.add(t)
+    for (const t of HR_MANAGE_TOOLS) out.add(t)
+  }
+  return [...out]
+}
+
 /** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
 export const BROWSER_TOOL_NAMES = new Set([
   'browser_navigate',

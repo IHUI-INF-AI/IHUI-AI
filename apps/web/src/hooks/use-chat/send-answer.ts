@@ -54,6 +54,7 @@ import {
   eduToolsFor,
   fileToolsFor,
   financeToolsFor,
+  hrToolsFor,
   mergeAgentTools,
   videoToolsFor,
 } from './tool-config'
@@ -643,6 +644,7 @@ export function createSendAnswer(
               ...fileToolsFor(answer),
               ...videoToolsFor(answer),
               ...financeToolsFor(answer),
+              ...hrToolsFor(answer),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}
