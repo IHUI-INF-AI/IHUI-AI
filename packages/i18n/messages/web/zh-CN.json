@@ -8749,6 +8749,7 @@
       "runtimeHookRunError": "失败",
       "runtimeHookStatsTitle": "钩子累计",
       "runtimeHookAuditTitle": "钩子审计(本机台账)",
+      "runtimeHookAuditTruncated": "仅读到台账尾部 {lines} 行",
       "runtimeHookStats": "共 {total} 次 · 通过 {ok} / 超时 {timeout} / 失败 {error} · 均值 {avg}ms · 峰值 {slowest}ms",
       "runtimeHookConfigUntrusted": "钩子配置 {count} 条未受信任,改动后需在本机重新登记信任",
       "runtimeHookConfigInvalid": "钩子配置文件损坏,已按无配置运行",

@@ -18,8 +18,27 @@ import React from 'react'
 import { fetchAiServiceJson } from '@/lib/api'
 import type { HookRunStats } from '@/hooks/hook-run-stats'
 
+/**
+ * 2026-11-21 第 44 项:台账摘要比会话累计多两格「读数可信度」。
+ *
+ * 起因:后端 `summarize_hook_audit` 只读台账尾部 `max_lines` 行(默认 20000),
+ * 超过就置 `truncated: true`;第 42 项刚把这个判定从「读到行数 ≥ 上限」改成
+ * 「总行数 > 上限」,恰好等于上限不再误报。但前端第 41 项只收了六个计数,
+ * 把 `truncated` / `linesRead` 直接丢掉 ⇒ 「尾部截取」与「全量」在面板上长得一模一样,
+ * 用户会把两万行之后的历史当成"没跑过"。
+ *
+ * 这里把这两格显式收进类型,显示层由 `HookReadout` 负责标注;`linesRead` 不许
+ * 冒充 `total`(截断时前者只是读到的份数)。
+ */
+export type HookAuditStats = HookRunStats & {
+  /** 台账总行数超过读取上限 ⇒ 计数只覆盖尾部 */
+  truncated: boolean
+  /** 本次实际读到的台账行数(未截断时等于台账行数) */
+  linesRead: number
+}
+
 /** 只做收窄:数字字段逐个校验,负数按 0 处理(远端坏数据不许把面板画成负数)。 */
-export function normalizeHookAuditSummary(raw: unknown): HookRunStats | null {
+export function normalizeHookAuditSummary(raw: unknown): HookAuditStats | null {
   if (!raw || typeof raw !== 'object') return null
   const body = raw as Record<string, unknown>
   if (body.available !== true) return null
@@ -29,13 +48,16 @@ export function normalizeHookAuditSummary(raw: unknown): HookRunStats | null {
   }
   const total = Math.floor(num('total'))
   if (total === 0) return null
-  const stats: HookRunStats = {
+  const stats: HookAuditStats = {
     total,
     ok: Math.floor(num('ok')),
     timeout: Math.floor(num('timeout')),
     error: Math.floor(num('error')),
     totalDurationMs: Math.floor(num('totalDurationMs')),
     slowestMs: Math.floor(num('slowestMs')),
+    // 只有显式 `true` 才算截断:字段缺失/坏值一律按"未截断"呈现(失效方向 = 少标一次,不多标)。
+    truncated: body.truncated === true,
+    linesRead: Math.floor(num('linesRead')),
   }
   // 三态之和若超过 total,说明远端计数自相矛盾 ⇒ 不呈现(宁可空着也不报错数)。
   if (stats.ok + stats.timeout + stats.error > total) return null
@@ -49,8 +71,8 @@ export function normalizeHookAuditSummary(raw: unknown): HookRunStats | null {
 export function useHookAuditSummary(
   sessionId: string | null,
   enabled: boolean,
-): HookRunStats | null {
-  const [stats, setStats] = React.useState<HookRunStats | null>(null)
+): HookAuditStats | null {
+  const [stats, setStats] = React.useState<HookAuditStats | null>(null)
 
   React.useEffect(() => {
     if (!enabled) {

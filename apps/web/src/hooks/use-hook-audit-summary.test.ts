@@ -24,7 +24,39 @@ describe('normalizeHookAuditSummary', () => {
       error: 1,
       totalDurationMs: 1200,
       slowestMs: 900,
+      truncated: false,
+      linesRead: 0,
     })
+  })
+
+  it('第44项:截断标记与读到行数原样收下(字段缺失按未截断)', () => {
+    const stats = normalizeHookAuditSummary({
+      available: true,
+      total: 5,
+      ok: 5,
+      timeout: 0,
+      error: 0,
+      totalDurationMs: 500,
+      slowestMs: 200,
+      truncated: true,
+      linesRead: 20000,
+    })
+    expect(stats?.truncated).toBe(true)
+    expect(stats?.linesRead).toBe(20000)
+  })
+
+  it('第44项:truncated 只认显式 true(字符串 "true"/缺字段都不许标截断)', () => {
+    const base = {
+      available: true,
+      total: 1,
+      ok: 1,
+      timeout: 0,
+      error: 0,
+      totalDurationMs: 100,
+      slowestMs: 100,
+    }
+    expect(normalizeHookAuditSummary({ ...base, truncated: 'true' })?.truncated).toBe(false)
+    expect(normalizeHookAuditSummary({ ...base, truncated: undefined })?.truncated).toBe(false)
   })
 
   it('台账不存在(available=false)⇒ null,不冒充零次运行', () => {
