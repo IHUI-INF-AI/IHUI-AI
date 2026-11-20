@@ -76,14 +76,16 @@ test('T2 形状锁:消费侧真的读 widen.ok,且三处降级判定都挂 gate(
   )
   // 三处降级判定(定向快通道 / 全量分支 / 回执回放档,2026-11-10 T1 长期票加第三处)
   // 都必须挂 gate;漏挂任何一条路径 = 该路径 fail-open。
-  const gated = SRC.match(/scopeDegradeOk && scopeEnabled && [^\n]*shouldDegrade\(/g) || []
+  // 2026-11-20:容许条件跨行书写(定向快通道那条因加 app 维度被折成多行,单行正则读不到),
+  // 但"闸与 shouldDegrade 必须同在一段 300 字内"这条要求没松 —— 摘掉闸仍然会红。
+  const gated = SRC.match(/scopeDegradeOk\s*&&[\s\S]{0,300}?shouldDegrade\(/g) || []
   assert.equal(gated.length, 3, `三处降级判定都必须挂 scopeDegradeOk,实测 ${gated.length} 处`)
 })
 
 test('T3 签名行生产者:三个降级块末尾各打一行 [IHUI-SCOPE-DEGRADE] 且格式命中正则', () => {
   // 从源码抽真实字面量(不自造),逐条喂给只读 import 来的正则验格式。
-  const sigLines = [...SRC.matchAll(/console\.log\('(\[IHUI-SCOPE-DEGRADE\][^']*)'\)/g)].map(
-    (m) => m[1],
+  const sigLines = [...SRC.matchAll(/console\.log\((['`])(\[IHUI-SCOPE-DEGRADE\][^'`]*)\1\)/g)].map(
+    (m) => m[2],
   )
   assert.equal(
     sigLines.length,
@@ -97,13 +99,22 @@ test('T3 签名行生产者:三个降级块末尾各打一行 [IHUI-SCOPE-DEGRAD
       `签名行必须命中 SCOPE_DEGRADE_EVIDENCE_RE(格式不得自创): ${line}`,
     )
   }
-  // 必须落在降级块**末尾**:紧随「判定:本次 push 放行」之后、exit 0 之前
+  // 必须落在降级块**末尾**:紧随放行判定之后、exit 0 之前
   // (push-attempt-triage 注释:放末尾保证 .husky/pre-push 的 tail -40 不把它截掉)。
-  const inBlock =
-    SRC.match(
-      /判定:本次 push 放行[^\n]*\n[\s\S]{0,260}?\[IHUI-SCOPE-DEGRADE\][^\n]*\n\s*process\.exit\(0\)/g,
-    ) || []
-  assert.equal(inBlock.length, 3, `签名行必须落在三处降级块末尾(exit 0 前),实测 ${inBlock.length}`)
+  // 2026-11-20:定向快通道改成逐 app 判定后,放行措辞是「判定:本 app 放行」,签名行落在
+  // `if (_fastDegraded > 0)` 里、exit 0 之前。改为逐条按**位置**核对(不用一条跨行正则去猜
+  // 缩进与间隔):每条签名行之前 2500 字内必须出现过放行判定,之后 2500 字内必须出现 exit 0。
+  // 「签名行必须在放行之后、exit 0 之前」这条要求没松 —— 挪到别处/挪出降级块仍会红。
+  const sigIdx = [...SRC.matchAll(/console\.log\((['`])\[IHUI-SCOPE-DEGRADE\][^'`]*\1\)/g)].map(
+    (m) => m.index,
+  )
+  assert.equal(sigIdx.length, 3, `源码里应有三处签名行,实测 ${sigIdx.length}`)
+  for (const i of sigIdx) {
+    const before = SRC.slice(Math.max(0, i - 2500), i)
+    const after = SRC.slice(i, i + 2500)
+    assert.match(before, /判定:(?:本次 push|本 app)\s*放行/, `签名行之前必须有放行判定(位置 ${i})`)
+    assert.match(after, /process\.exit\(0\)/, `签名行之后必须有 exit 0(位置 ${i})`)
+  }
 })
 
 test('T4 反向对照:证据正则有选择性,签名行不是恒真守卫', () => {
