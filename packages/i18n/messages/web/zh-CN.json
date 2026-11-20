@@ -13244,6 +13244,7 @@
     "reasoningEffortUltra": "超极限",
     "reasoningEffortDefault": "默认",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
+    "reasoningEffortReset": "重置推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",
     "reviewTargetGroupLabel": "审查对象选择",
