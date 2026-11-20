@@ -59,10 +59,13 @@ import { installSignalExit } from './lib/signal-exit.mjs'
 import {
   dirtyPaths,
   headBlobMap,
+  legInputDigest,
+  planLegReceipt,
   planProjectReceipts,
   readReceipts,
   receiptEnabled,
   receiptTtlMs,
+  writeLegReceipts,
   writeReceipts,
 } from './lib/typecheck-project-receipt.mjs'
 
@@ -614,10 +617,20 @@ let _rcProjects = _projects
 let _rcSkipped = []
 let _rcDigests = new Map()
 let _rcPrev = new Map()
+// 三个面同时供后面的 e2e / mypy 两条腿复用(一次 git 派生,不重复取 HEAD/脏面)
+let _rcBlobs = null
+let _rcDirty = null
+let _rcLegs = new Map()
+let _rcTtl = receiptTtlMs()
+let _tsVersion = null
+let _rcDepDirsOf = () => []
 if (_rcMode) {
   const _blobs = headBlobMap(ROOT)
   const _dirty = dirtyPaths(ROOT)
   const _prevReceipts = readReceipts(ROOT)
+  _rcBlobs = _blobs
+  _rcDirty = _dirty
+  _rcLegs = _prevReceipts.legs ?? new Map()
   _rcPrev = _prevReceipts.map
   let _graph = new Map()
   try {
@@ -660,7 +673,8 @@ if (_rcMode) {
     }
     return [...seen].map((n) => _dirOf.get(n)).filter(Boolean)
   }
-  let _tsVersion = null
+  _rcDepDirsOf = _depDirsOf
+  _tsVersion = null
   try {
     _tsVersion = JSON.parse(readFileSync(resolve(ROOT, 'node_modules/typescript/package.json'), 'utf8'))?.version ?? null
   } catch {
@@ -679,7 +693,7 @@ if (_rcMode) {
       // 全局基座:它的 blob 变了,所有 program 的边界都可能变
       base: _blobs?.get('tsconfig.base.json') ?? null,
     },
-    ttlMs: receiptTtlMs(),
+    ttlMs: _rcTtl,
   })
   if (_plan.blocked) {
     console.log(`[typecheck:full] ⚠️ 逐包回执本层不启用(${_plan.blocked})⇒ 全部包照原路径重跑`)
@@ -750,25 +764,67 @@ if (existsSync(webE2eTsconfig)) {
       '\n[typecheck:full] ⚠️  HUSKY_SKIP_E2E_TYPECHECK=1 — 已跳过 e2e typecheck(不推荐, e2e 类型错误不会阻塞 push)',
     )
   } else {
-    console.log('\n[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...')
-    const e2eResult = spawnSync('pnpm', ['--filter', '@ihui/web', 'typecheck:e2e'], {
-      cwd: ROOT,
-      stdio: 'inherit',
-      shell: true,
-      windowsHide: true,
-    })
+    // 腿级回执(2026-11-21):e2e 的输入 = e2e 目录 + @ihui/web 的 workspace 依赖 + 两个基座文件。
+    const WEB_DEP_DIRS = () => (typeof _rcDepDirsOf === 'function' ? _rcDepDirsOf({ name: '@ihui/web' }) || [] : [])
+    const e2eWatchedDirs = ['apps/web/e2e', ...WEB_DEP_DIRS()]
+    const e2eDigest =
+      _rcMode && _rcBlobs
+        ? legInputDigest({
+            leg: 'typecheck:e2e',
+            blobs: _rcBlobs,
+            dirs: e2eWatchedDirs,
+            exactFiles: ['tsconfig.base.json', 'apps/web/tsconfig.json', 'apps/web/package.json'],
+            exts: ['.ts', '.tsx', '.mts', '.cts', '.json'],
+            command: 'pnpm --filter @ihui/web typecheck:e2e',
+            envNode: { node: process.version, ts: _tsVersion },
+          })
+        : null
+    const e2ePlan = _rcMode
+      ? planLegReceipt({
+          leg: 'typecheck:e2e',
+          blobs: _rcBlobs,
+          dirty: _rcDirty,
+          receipts: _rcLegs,
+          digest: e2eDigest,
+          ttlMs: _rcTtl,
+          dirtyRelevant: (p) =>
+            e2eWatchedDirs.some((d) => p.startsWith(`${d}/`)) &&
+            (/\.(ts|tsx|mts|cts)$/i.test(p) || /(^|\/)(tsconfig[^/]*\.json|package\.json)$/i.test(p)),
+        })
+      : { skip: false, why: '回执层未启用' }
+    if (e2ePlan.skip) {
+      console.log(`\n[typecheck:full] ♻️ e2e typecheck 回执命中(${e2ePlan.why})⇒ 不重跑`)
+      console.log(
+        '[typecheck:full]    判据未放宽:摘要含 e2e 目录与其依赖包的 TS blob、tsconfig 基座、node/tsc 版本与命令串;任一变化或相关脏面即重跑。',
+      )
+    } else {
+      console.log(`\n[typecheck:full] 运行 apps/web/e2e typecheck (blocking)... (回执未命中:${e2ePlan.why})`)
+      const e2eT0 = Date.now()
+      const e2eResult = spawnSync('pnpm', ['--filter', '@ihui/web', 'typecheck:e2e'], {
+        cwd: ROOT,
+        stdio: 'inherit',
+        shell: true,
+        windowsHide: true,
+      })
 
-    if (e2eResult.status !== 0) {
-      console.error(
-        `\n[typecheck:full] ❌ e2e typecheck 失败(exit ${e2eResult.status ?? 'unknown'}),apps/web/e2e/ 类型错误需修复`,
-      )
-      console.error('[typecheck:full]    修复后验证:pnpm --filter @ihui/web typecheck:e2e')
-      console.error(
-        '[typecheck:full]    跳过(不推荐):HUSKY_SKIP_E2E_TYPECHECK=1 pnpm typecheck:full',
-      )
-      process.exit(e2eResult.status ?? 1)
+      if (e2eResult.status !== 0) {
+        console.error(
+          `\n[typecheck:full] ❌ e2e typecheck 失败(exit ${e2eResult.status ?? 'unknown'}),apps/web/e2e/ 类型错误需修复`,
+        )
+        console.error('[typecheck:full]    修复后验证:pnpm --filter @ihui/web typecheck:e2e')
+        console.error(
+          '[typecheck:full]    跳过(不推荐):HUSKY_SKIP_E2E_TYPECHECK=1 pnpm typecheck:full',
+        )
+        process.exit(e2eResult.status ?? 1)
+      }
+      if (_rcMode && e2eDigest) {
+        const ok = writeLegReceipts(ROOT, [
+          ['typecheck:e2e', { digest: e2eDigest, ms: Date.now() - e2eT0 }],
+        ])
+        if (!ok) console.log('[typecheck:full] ─ e2e 回执写盘失败:下次照旧重跑')
+      }
+      console.log('[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)')
     }
-    console.log('[typecheck:full] ✅ e2e typecheck 通过(apps/web/e2e/ 无类型错误)')
   }
 } else {
   console.log('\n[typecheck:full] 未发现 apps/web/e2e/tsconfig.json,跳过 e2e typecheck 阶段')
@@ -828,28 +884,87 @@ if (existsSync(aiServiceDir)) {
           '[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。',
       )
     } else {
-      console.log(`\n[typecheck:full] 运行 apps/ai-service mypy (blocking) [${mypyExecutable}]...`)
-      const mypyResult = spawnSync(mypyExecutable, ['app/'], {
-        cwd: aiServiceDir,
-        stdio: 'inherit',
-        shell: true,
-        windowsHide: true,
-      })
-
-      if (mypyResult.status !== 0) {
-        console.error(
-          `\n[typecheck:full] ❌ mypy 失败(exit ${mypyResult.status ?? 'unknown'}),Python 类型错误需修复`,
-        )
-        console.error(
-          '[typecheck:full]    详细配置:见 apps/ai-service/pyproject.toml [tool.mypy] 段注释',
-        )
-        console.error(
-          '[typecheck:full]    既有错误清单(基线):见 commit message "mypy 升级 blocking 基线" 段',
-        )
-        console.error('[typecheck:full]    跳过(不推荐):HUSKY_SKIP_MYPY=1 pnpm typecheck:full')
-        process.exit(mypyResult.status ?? 1)
+      // 腿级回执(2026-11-21):mypy 的输入 = apps/ai-service/app 下全部 .py/.pyi + pyproject.toml
+      // + 执行面(mypy 版本 / 该 .venv 的 python 版本)。任何一项变了就重跑。
+      let mypyVersion = null
+      if (_rcMode) {
+        try {
+          const v = spawnSync(mypyExecutable, ['--version'], { encoding: 'utf8', windowsHide: true })
+          if (v.status === 0) mypyVersion = String(v.stdout || '').trim().split(/\r?\n/)[0] || null
+        } catch {
+          mypyVersion = null
+        }
       }
-      console.log('[typecheck:full] ✅ mypy 通过(无 Python 类型错误)')
+      const pyExe = join(aiServiceDir, '.venv/Scripts/python.exe')
+      let pyVersion = null
+      if (_rcMode && existsSync(pyExe)) {
+        try {
+          const v = spawnSync(pyExe, ['-V'], { encoding: 'utf8', windowsHide: true })
+          if (v.status === 0) pyVersion = String(v.stdout || v.stderr || '').trim() || null
+        } catch {
+          pyVersion = null
+        }
+      }
+      const MYPY_DIRS = ['apps/ai-service/app']
+      const MYPY_EXACTS = ['apps/ai-service/pyproject.toml', 'apps/ai-service/mypy.ini']
+      const mypyDigest =
+        _rcMode && _rcBlobs
+          ? legInputDigest({
+              leg: 'mypy',
+              blobs: _rcBlobs,
+              dirs: MYPY_DIRS,
+              exactFiles: MYPY_EXACTS,
+              exts: ['.py', '.pyi'],
+              command: 'mypy app/',
+              envNode: { node: process.version, mypy: mypyVersion, py: pyVersion },
+            })
+          : null
+      const mypyPlan = _rcMode
+        ? planLegReceipt({
+            leg: 'mypy',
+            blobs: _rcBlobs,
+            dirty: _rcDirty,
+            receipts: _rcLegs,
+            digest: mypyDigest,
+            ttlMs: _rcTtl,
+            dirtyRelevant: (p) =>
+              MYPY_DIRS.some((d) => p.startsWith(`${d}/`)) && /\.pyi?$/i.test(p),
+          })
+        : { skip: false, why: '回执层未启用' }
+      if (mypyPlan.skip) {
+        console.log(`\n[typecheck:full] ♻️ mypy 回执命中(${mypyPlan.why})⇒ 不重跑`)
+        console.log(
+          '[typecheck:full]    判据未放宽:摘要含 apps/ai-service/app 全部 .py/.pyi、pyproject.toml、mypy 与 python 版本;任一变化或相关脏面即重跑。',
+        )
+      } else {
+        console.log(`\n[typecheck:full] 运行 apps/ai-service mypy (blocking) [${mypyExecutable}]... (回执未命中:${mypyPlan.why})`)
+        const mypyT0 = Date.now()
+        const mypyResult = spawnSync(mypyExecutable, ['app/'], {
+          cwd: aiServiceDir,
+          stdio: 'inherit',
+          shell: true,
+          windowsHide: true,
+        })
+
+        if (mypyResult.status !== 0) {
+          console.error(
+            `\n[typecheck:full] ❌ mypy 失败(exit ${mypyResult.status ?? 'unknown'}),Python 类型错误需修复`,
+          )
+          console.error(
+            '[typecheck:full]    详细配置:见 apps/ai-service/pyproject.toml [tool.mypy] 段注释',
+          )
+          console.error(
+            '[typecheck:full]    既有错误清单(基线):见 commit message "mypy 升级 blocking 基线" 段',
+          )
+          console.error('[typecheck:full]    跳过(不推荐):HUSKY_SKIP_MYPY=1 pnpm typecheck:full')
+          process.exit(mypyResult.status ?? 1)
+        }
+        if (_rcMode && mypyDigest) {
+          const ok = writeLegReceipts(ROOT, [['mypy', { digest: mypyDigest, ms: Date.now() - mypyT0 }]])
+          if (!ok) console.log('[typecheck:full] ─ mypy 回执写盘失败:下次照旧重跑')
+        }
+        console.log('[typecheck:full] ✅ mypy 通过(无 Python 类型错误)')
+      }
     }
   }
 } else {

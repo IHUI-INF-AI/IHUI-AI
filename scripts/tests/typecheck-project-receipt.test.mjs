@@ -20,9 +20,12 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 import {
+  legInputDigest,
+  planLegReceipt,
   planProjectReceipts,
   projectInputDigest,
   readReceipts,
+  writeLegReceipts,
   writeReceipts,
 } from '../lib/typecheck-project-receipt.mjs'
 
@@ -151,6 +154,130 @@ test('⑦ 回执落盘/读回:结构坏 ⇒ 空表(不抛)', () => {
   const broken = readReceipts(root)
   assert.equal(broken.ok, false)
   assert.equal(broken.map.size, 0)
+  rmSync(root, { recursive: true, force: true })
+})
+
+// ─── 非包腿(e2e / mypy)回执的判据锁(2026-11-21) ────────────────────────────
+const LEG_ENV = { node: 'v-test', mypy: '1.13.0', py: 'Python 3.12.4' }
+
+test('⑧ 腿摘要:.py 改 ⇒ 变;无关目录改 ⇒ 不变;exact 文件缺失与出现不同(absent≠有 blob)', () => {
+  const base = new Map([
+    ['apps/ai-service/app/a.py', 'p1'],
+    ['apps/ai-service/app/b.pyi', 'p2'],
+    ['apps/web/e2e/x.spec.ts', 'e1'],
+    ['apps/ai-service/pyproject.toml', 'cfg1'],
+  ])
+  const run = (blobs) =>
+    legInputDigest({
+      leg: 'mypy',
+      blobs,
+      dirs: ['apps/ai-service/app'],
+      exactFiles: ['apps/ai-service/pyproject.toml'],
+      exts: ['.py', '.pyi'],
+      command: 'mypy app/',
+      envNode: LEG_ENV,
+    })
+  const a = run(base)
+  const pyChanged = new Map(base)
+  pyChanged.set('apps/ai-service/app/a.py', 'p9')
+  assert.notEqual(a, run(pyChanged), '.py 改了必须重跑')
+
+  const pyiChanged = new Map(base)
+  pyiChanged.set('apps/ai-service/app/b.pyi', 'p9')
+  assert.notEqual(a, run(pyiChanged), '.pyi 改了必须重跑')
+
+  const unrelated = new Map(base)
+  unrelated.set('apps/web/e2e/x.spec.ts', 'e9')
+  assert.equal(a, run(unrelated), '无关目录的改动不该作废本腿')
+
+  const cfgChanged = new Map(base)
+  cfgChanged.set('apps/ai-service/pyproject.toml', 'cfg2')
+  assert.notEqual(a, run(cfgChanged), 'pyproject.toml 改了必须重跑')
+
+  const cfgGone = new Map(base)
+  cfgGone.delete('apps/ai-service/pyproject.toml')
+  assert.notEqual(a, run(cfgGone), '精确钉的文件消失 ⇒ 摘要必变(不能当成"没变化")')
+})
+
+test('⑨ 腿摘要:扩展名过滤生效(非 .py 的新增不算进 mypy 输入)', () => {
+  const base = new Map([['apps/ai-service/app/a.py', 'p1']])
+  const withReadme = new Map(base)
+  withReadme.set('apps/ai-service/app/README.md', 'r1')
+  const digest = (blobs) =>
+    legInputDigest({
+      leg: 'mypy',
+      blobs,
+      dirs: ['apps/ai-service/app'],
+      exactFiles: [],
+      exts: ['.py', '.pyi'],
+      command: 'mypy app/',
+      envNode: LEG_ENV,
+    })
+  assert.equal(digest(base), digest(withReadme), 'README 不进 mypy 输入面')
+})
+
+test('⑩ 腿跳过决策:命中/脏面/TTL/取不到面 四态', () => {
+  const digest = 'd1'
+  const receipts = new Map([['mypy', { digest, at: Date.now(), ms: 9 }]])
+  const ok = planLegReceipt({
+    leg: 'mypy',
+    blobs: new Map(),
+    dirty: new Set(),
+    receipts,
+    digest,
+  })
+  assert.equal(ok.skip, true, '干净面 + 摘要一致 ⇒ 跳过')
+
+  const dirtyHit = planLegReceipt({
+    leg: 'mypy',
+    blobs: new Map(),
+    dirty: new Set(['apps/ai-service/app/a.py']),
+    receipts,
+    digest,
+  })
+  assert.equal(dirtyHit.skip, false, '相关 .py 脏 ⇒ 重跑')
+  assert.match(dirtyHit.why, /脏面/)
+
+  const dirtyIrrelevant = planLegReceipt({
+    leg: 'mypy',
+    blobs: new Map(),
+    dirty: new Set(['apps/ai-service/app/README.md']),
+    receipts,
+    digest,
+    dirtyRelevant: (p) => /\.pyi?$/i.test(p),
+  })
+  assert.equal(dirtyIrrelevant.skip, true, '非 .py 脏面不作废(判据按 dirtyRelevant 收窄)')
+
+  const stale = planLegReceipt({
+    leg: 'mypy',
+    blobs: new Map(),
+    dirty: new Set(),
+    receipts: new Map([['mypy', { digest, at: Date.now() - 8 * 24 * 3600 * 1000, ms: 9 }]]),
+    digest,
+    ttlMs: 7 * 24 * 3600 * 1000,
+  })
+  assert.equal(stale.skip, false, '超 TTL ⇒ 重跑')
+  assert.match(stale.why, /TTL/)
+
+  const noFace = planLegReceipt({ leg: 'mypy', blobs: null, dirty: new Set(), receipts, digest })
+  assert.equal(noFace.skip, false, 'HEAD 面取不到 ⇒ 不跳过(fail-closed)')
+  assert.match(noFace.why, /HEAD 面/)
+
+  const noDigest = planLegReceipt({ leg: 'mypy', blobs: new Map(), dirty: new Set(), receipts, digest: null })
+  assert.equal(noDigest.skip, false, '摘要算不出 ⇒ 不跳过')
+})
+
+test('⑪ 包级与腿级回执共用一份文件且互不吞掉(写一类保留另一类)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcr-'))
+  writeReceipts(root, [['@t/a', { digest: 'd1', ms: 3 }]])
+  writeLegReceipts(root, [['mypy', { digest: 'L1', ms: 7 }]])
+  const back = readReceipts(root)
+  assert.equal(back.map.get('@t/a')?.digest, 'd1', '写腿级不该抹掉包级')
+  assert.equal(back.legs.get('mypy')?.digest, 'L1')
+  writeReceipts(root, [['@t/b', { digest: 'd2', ms: 4 }]])
+  const back2 = readReceipts(root)
+  assert.equal(back2.legs.get('mypy')?.digest, 'L1', '写包级不该抹掉腿级')
+  assert.equal(back2.map.get('@t/b')?.digest, 'd2')
   rmSync(root, { recursive: true, force: true })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -147,30 +147,58 @@ export function projectInputDigest({ root, project, blobs, depDirs = [], envNode
 export function readReceipts(root) {
   try {
     const abs = join(root, RECEIPT_REL)
-    if (!existsSync(abs)) return { ok: true, map: new Map(), at: null }
+    if (!existsSync(abs)) return { ok: true, map: new Map(), legs: new Map(), at: null }
     const j = JSON.parse(readFileSync(abs, 'utf8'))
     const map = new Map()
     for (const [k, v] of Object.entries(j?.projects ?? {})) {
       if (typeof v?.digest === 'string' && typeof v?.at === 'number') map.set(k, v)
     }
-    return { ok: true, map, at: j?.at ?? null }
+    const legs = new Map()
+    for (const [k, v] of Object.entries(j?.legs ?? {})) {
+      if (typeof v?.digest === 'string' && typeof v?.at === 'number') legs.set(k, v)
+    }
+    return { ok: true, map, legs, at: j?.at ?? null }
   } catch {
-    return { ok: false, map: new Map(), at: null }
+    return { ok: false, map: new Map(), legs: new Map(), at: null }
   }
 }
 
-/** 写回执(调用方只在 rc=0 之后调)。失败不抛:回执是加速件,写不进去只是下次再跑。 */
-export function writeReceipts(root, entries, nowMs = Date.now()) {
+function readRaw(root) {
+  try {
+    return JSON.parse(readFileSync(join(root, RECEIPT_REL), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writeRaw(root, payload, nowMs) {
   try {
     const abs = join(root, RECEIPT_REL)
     mkdirSync(dirname(abs), { recursive: true })
-    const projects = {}
-    for (const [name, e] of entries) projects[name] = { digest: e.digest, at: nowMs, ms: e.ms ?? null }
-    writeFileSync(abs, JSON.stringify({ v: 1, at: nowMs, projects }, null, 2))
+    writeFileSync(abs, JSON.stringify({ v: 1, at: nowMs, ...payload }, null, 2))
     return true
   } catch {
     return false
   }
+}
+
+/**
+ * 写包级回执(调用方只在 rc=0 之后调)。失败不抛:回执是加速件,写不进去只是下次再跑。
+ * 与腿级回执共用同一份文件 ⇒ 写包级时保留已有 legs,反之亦然(互不吞掉对方的结论)。
+ */
+export function writeReceipts(root, entries, nowMs = Date.now()) {
+  const prev = readRaw(root)
+  const projects = {}
+  for (const [name, e] of entries) projects[name] = { digest: e.digest, at: nowMs, ms: e.ms ?? null }
+  return writeRaw(root, { projects, legs: prev?.legs ?? {} }, nowMs)
+}
+
+/** 写腿级回执(非包腿:e2e typecheck / mypy)。语义同 writeReceipts。 */
+export function writeLegReceipts(root, entries, nowMs = Date.now()) {
+  const prev = readRaw(root)
+  const legs = { ...(prev?.legs ?? {}) }
+  for (const [leg, e] of entries) legs[leg] = { digest: e.digest, at: nowMs, ms: e.ms ?? null }
+  return writeRaw(root, { projects: prev?.projects ?? {}, legs }, nowMs)
 }
 
 /**
@@ -235,5 +263,73 @@ export function planProjectReceipts({
     skip.push({ name: p.name, why: `输入摘要未变(${digest.slice(0, 12)}…)` })
   }
   return { skip, run, digests, blocked: null }
+}
+
+/**
+ * 非包腿的输入摘要(2026-11-21 立)。
+ *
+ * 立因:`typecheck:full` 除 23 个 workspace 包之外还有两条**每次都全跑**的腿 ——
+ *   e2e typecheck(`apps/web/e2e`,独立 tsconfig)与 mypy(`apps/ai-service`,1011 个 .py)。
+ * 它们的结论同样只由"这批文件的内容 + 执行面版本"决定,所以用同一套摘要判据收口:
+ * 输入没变 ⇒ 不跑;任一相关脏面 ⇒ 跑;摘要算不出 ⇒ 跑(失效方向不变,只多跑不少判)。
+ *
+ * @param {object} o
+ * @param {string} o.leg 腿名(回执键)
+ * @param {Map<string,string>} o.blobs HEAD 面 path→blob
+ * @param {string[]} [o.dirs] 目录前缀(仓库相对)
+ * @param {string[]} [o.exactFiles] 逐文件钉(如 tsconfig.base.json / pyproject.toml)
+ * @param {string[]|null} [o.exts] 目录内只计这些扩展名(null = 全部)
+ * @param {string} o.command 执行串(变了就得重跑)
+ * @param {object} o.envNode 执行面版本(node / tsc / mypy / python …)
+ */
+export function legInputDigest({ leg, blobs, dirs = [], exactFiles = [], exts = null, command, envNode }) {
+  if (!blobs) return null
+  const parts = []
+  for (const d of dirs) {
+    const prefix = `${String(d).replace(/\\/g, '/')}/`
+    const rows = []
+    for (const [p, blob] of blobs) {
+      if (!p.startsWith(prefix)) continue
+      if (exts && !exts.some((e) => p.toLowerCase().endsWith(e))) continue
+      rows.push(`${p}:${blob}`)
+    }
+    rows.sort()
+    parts.push(`${d}::${rows.length}::${sha256(rows.join('\n'))}`)
+  }
+  parts.sort()
+  const exact = exactFiles
+    .map((f) => {
+      const k = String(f).replace(/\\/g, '/')
+      return `${k}:${blobs.get(k) ?? 'absent'}`
+    })
+    .sort()
+  return sha256(JSON.stringify({ v: 'v1', leg, dirs: parts, exact, cmd: command, env: envNode }))
+}
+
+/**
+ * 单腿的跳过决策(判据同 planProjectReceipts,只是面向"一条腿"而非"一个包")。
+ *
+ * @returns {{skip:boolean, why:string}}
+ */
+export function planLegReceipt({
+  leg,
+  blobs,
+  dirty,
+  receipts,
+  digest,
+  ttlMs = DEFAULT_TTL_MS,
+  nowMs = Date.now(),
+  dirtyRelevant = () => true,
+}) {
+  if (!blobs) return { skip: false, why: 'HEAD 面文件清单取不到' }
+  if (!dirty) return { skip: false, why: '工作树脏面取不到' }
+  if (!digest) return { skip: false, why: '本腿输入摘要算不出' }
+  const hit = [...dirty].find((p) => dirtyRelevant(p))
+  if (hit) return { skip: false, why: `工作树有相关脏面:${hit}` }
+  const rec = receipts?.get?.(leg) ?? null
+  if (!rec) return { skip: false, why: '无上一轮回执' }
+  if (rec.digest !== digest) return { skip: false, why: '输入摘要变了' }
+  if (nowMs - Number(rec.at) > ttlMs) return { skip: false, why: '回执超 TTL' }
+  return { skip: true, why: `输入摘要未变(${digest.slice(0, 12)}…)` }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
