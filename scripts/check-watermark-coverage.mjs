@@ -56,14 +56,16 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { readWorktreeFile, catBatch, Undetermined } from './lib/face-reader.mjs'
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
 import { coverageFileSetForFace } from './lib/watermark-scope.mjs'
+// push 收窄档的缺口扫描走**同一个 scanCoverage**(单一真相源),不再派生子进程跑 CLI:
+// 子进程要重跑一次 ls-tree + ls-files,而本门同一轮早已派生过这两份清单(实测 4.2s 里占 2.4s)。
+import { __test__ as watermarkTest } from './watermark.mjs'
 // G-1018220 口径②:自愈清单行的结构化豁免键从归因层 **import,不抄字面量**(与尺子导入
 // FINDING_LINE_RE 同条纪律:两处各写一遍必然漂移)。键只打在"我刚修复"的清单行上 ——
 // reportGap 报红块 / 注入失败行一个字不带,归因层因此只豁免自愈动作点名,真失败点名照旧定责。
@@ -556,9 +558,42 @@ const run = (cmd, args) =>
   })
 
 /**
+ * push scope 收窄档的**进程内**扫描(2026-11-20):与 `watermark.mjs list-uncovered --files-from`
+ * 调的是同一个 `scanCoverage`、同一面(head)、同一份排除面谓词,只是不再起子进程。
+ * 原来那一层要在子进程里重跑一次 `git ls-tree -r`(全树 2.3 万条目)和一次 `git ls-files`,
+ * 而父进程这一侧上一行就已经派生过两份同样的清单 —— 本门实测 4.2s 里 2.4s 花在这。
+ * 判据一个字没改:候选面仍 = 同面清单 ∩ restrict,单文件判定仍走 scanCoverage 自己的循环;
+ * 缺口集合 = `list-uncovered` 打印的那四路并集(顺序逐字对齐)。
+ * 取不到 ⇒ { paths: null, error } 交给 decideCoverage 折成「未判定」(既不记绿也不冒红)。
+ * @returns {{paths: string[]|null, error: string|null}}
+ */
+function scanUncoveredInProcess({ restrict, listed, excl }) {
+  try {
+    const cov = watermarkTest.scanCoverage(null, { face: 'head', restrictTo: restrict, listed, excl })
+    // 结构性防护(2026-11-20):收窄面非空而候选面为 0 ⇒ 传进去的同面清单与 restrict 没对上
+    // (空清单 / 别面清单 / 口径漂移)。这不是"本次改动都没水印问题",而是**没判**,
+    // 折成未判定交给 decideCoverage 拦下 —— 否则这一层会静默把整门判成通过。
+    if (restrict.length > 0 && cov.candidates === 0) {
+      return {
+        paths: null,
+        error: '收窄面清单与同面枚举清单 0 条交集(判定面自相矛盾,未判定)',
+      }
+    }
+    return {
+      paths: [...cov.corrupted, ...cov.bannerlessList, ...cov.residues, ...cov.missing],
+      error: null,
+    }
+  } catch (e) {
+    const why = String(e?.message ?? e).split('\n').filter(Boolean)[0] || String(e)
+    return { paths: null, error: `${e instanceof Undetermined ? '对面报无法判定:' : ''}${why}` }
+  }
+}
+
+/**
  * watermark.mjs list-uncovered → 载荷损坏 + 仅隐写 + 残迹 + 未覆盖(相对仓库根, / 分隔)。
  * `faceArgs` 把**判定面旗原样传给 watermark.mjs** —— 清单与内容同面同轮的纪律住在对面那份实现里。
  * 对面以 exit 2 报「无法判定」时,这里如实把 error 带上去(不得折成"没有缺口")。
+ * 只服务全量面(push 清单 head=full / --full-face / 提交档 / 默认档);push 收窄档走上面那层进程内扫描。
  * @returns {{paths: string[]|null, error: string|null}}
  */
 function listUncovered(faceArgs = []) {
@@ -766,14 +801,6 @@ function sweepDupBanners({ face, scope, isExcluded }) {
   return { dupBanner, dupSamples, swept: sweepFiles.length }
 }
 
-/** 把收窄后的 HEAD 路径写成 watermark.mjs `--files-from` 能吃的临时清单(>300 文件也不撑命令行)。 */
-function writePushScopeManifest(paths) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-push-scope-'))
-  const file = join(dir, 'files.txt')
-  writeFileSync(file, paths.join('\n') + '\n', 'utf8')
-  return { file, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
-}
-
 // ---------- 主流程(§22d 守卫;判据本体是纯函数 decideCoverage,镜像测试直接 import) ----------
 async function main() {
   if (process.argv.includes('--self-test')) return selfTest()
@@ -868,17 +895,15 @@ async function main() {
     } else {
       const pushSet = new Set(cred.paths)
       const narrowed = (headScope.files ?? []).filter((f) => pushSet.has(f))
-      let manifest = null
-      try {
-        if (narrowed.length > 0) {
-          manifest = writePushScopeManifest(narrowed)
-          uncovered = listUncovered(['--files-from', manifest.file])
-        } else {
-          // scope 已取到,只是本次 push 没碰任何 HEAD 面文件(纯删除/非可判类型):这不是"判不了"。
-          uncovered = { paths: [], error: null }
-        }
-      } finally {
-        if (manifest) manifest.cleanup()
+      if (narrowed.length > 0) {
+        uncovered = scanUncoveredInProcess({
+          restrict: narrowed,
+          listed: headScope.indexFiles,
+          excl: exclusion,
+        })
+      } else {
+        // scope 已取到,只是本次 push 没碰任何 HEAD 面文件(纯删除/非可判类型):这不是"判不了"。
+        uncovered = { paths: [], error: null }
       }
       // indexFiles 仍取 HEAD 全树:decideCoverage 的"分母为空 ⇒ 未判定"闸门需要它;
       // files 才是本次分母 —— 两者同面(HEAD),只是后者收窄。

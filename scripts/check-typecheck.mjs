@@ -49,7 +49,7 @@ import { dirname, join, resolve } from 'node:path'
 const TYPECHECK_TIMEOUT_MIN = Number(process.env.IHUI_TYPECHECK_TIMEOUT_MIN || 20)
 const TYPECHECK_TIMEOUT_MS = TYPECHECK_TIMEOUT_MIN * 60 * 1000
 import { fileURLToPath } from 'node:url'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 // G-611:128+N 族码的集合/分类/产出侧全部住 scripts/lib/signal-exit.mjs —— 本文件的消费侧
 // 与两个被派生方的产出侧用**同一把尺子**,字面量集合在本文件不得再出现(镜像测试形状锁)。
 import { classifySpawnOutcome, installSignalExit, TEMPFAIL_EXIT_CODE } from './lib/signal-exit.mjs'
@@ -859,12 +859,25 @@ if (_noTsInput) {
 }
 
 const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
+// 段落判据常量(2026-11-20):定义必须在使用点之前 —— 之前放在函数区(行号靠后)时,
+// 上面的"命令:"打印先调用 resolveTypecheckLauncher,踩到 const 的 TDZ,异常被 catch 吞成 null,
+// 于是打印仍写 pnpm、且直调静默失效(实测踩过:函数体里 for(const _fast of …) 同名 TDZ 同型)。
+const TSC_SEGMENT_RE = /^tsc(\s|$)/
+const ECHO_SEGMENT_RE = /^echo(\s|$)/
+
 if (_fast) {
   console.log(
     `[check-typecheck] 🚀 定向快速通道:改动集中在 apps/${_fast.apps.map((a) => a.app).join(' + ')} → 仅对这些 app 跑 tsc(其余包不参与)`,
   )
   console.log(
-    `[check-typecheck] 命令: ${_fast.apps.map((a) => `pnpm --filter ${a.name} run typecheck`).join(' && ')}`,
+    `[check-typecheck] 命令: ${_fast.apps
+      .map((a) => {
+        const l = resolveTypecheckLauncher(a.app)
+        if (l?.kind === 'noop') return `(no-op echo 桩:apps/${a.app},直传)`
+        if (l?.kind === 'steps') return `${l.bin.replace(ROOT, '.').replace(/\\/g, '/')} [${l.steps.length} 段](cwd apps/${a.app};直调,不经 pnpm)`
+        return `pnpm --filter ${a.name} run typecheck`
+      })
+      .join(' && ')}`,
   )
   // ─── 陈旧 dist 前置(2026-11-06 补) ──────────────────────────────────────────
   // 全量通道在跑 tsc 之前有一段 staleDistPreflight()(见 typecheck-full.mjs 文件头「陈旧 dist 前置重建」),
@@ -927,16 +940,97 @@ if (_fast) {
   //
   // 2026-11-20 多 app 版:同一个尺子逐 app 复用。任一 app 拿到不可降级的结论失败 ⇒ 整体失败;
   // 全部通过或全部报错都属他人噪音 ⇒ 放行(降级签名行只在末尾打一次,下游按行尾识别)。
+/**
+ * 定向档的启动方式(2026-11-20 立):能直调 tsc 就不经 pnpm 中转。
+ *
+ * 立因是实测,不是口味:同一台机上 `pnpm --filter @ihui/web run typecheck` 冷态一次
+ * **114s**,紧接着同一条命令连跑两次是 14.3s / 12.2s;而 `tsc -p apps/web/tsconfig.json --noEmit`
+ * 恒定 12~14s。也就是说 pnpm 这一层平时只值 ~0s,但它的**冷态尖峰**是 100s 级 —— 正好是
+ * 「推一行也跑五分钟」那种形状。把尖峰从热路径上摘掉,平均几乎不动,尾部风险归零。
+ *
+ * 只在脚本形如**纯 tsc** 时直调(`tsc --noEmit` / `tsc --noEmit -p tsconfig.scripts.json` 这类);
+ * 带 `&&`、`wxt prepare` 等复合命令的 app(extension)照旧回落 pnpm,覆盖面一字不减。
+ * 语义等价:同一个 tsc 二进制、同一串参数、cwd = 该 app 目录(pnpm run 也是在这里执行)。
+ */
+function resolveTypecheckLauncher(appDir) {
+  try {
+    const pkgPath = join(ROOT, 'apps', appDir, 'package.json')
+    if (!existsSync(pkgPath)) return null
+    const script = String(JSON.parse(readFileSync(pkgPath, 'utf8'))?.scripts?.typecheck ?? '').trim()
+    if (!script) return null
+    const segs = script
+      .split('&&')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    // 纯 echo 桩(ai-service:Python 侧由 mypy 兜):直传,不经 pnpm,退出码与输出逐字一致。
+    if (segs.every((s) => ECHO_SEGMENT_RE.test(s))) return { kind: 'noop', text: segs.join('\n') }
+    // 只认"每段都是 tsc"的脚本 —— api 的 `tsc --noEmit && tsc -p tsconfig.scripts.json` 也在内
+    // (逐段顺序执行,cwd 相同,与 pnpm 跑同一条脚本逐字等价)。
+    if (!segs.every((s) => TSC_SEGMENT_RE.test(s))) return null
+    const bin = tscBinFor(appDir)
+    if (!bin) return null
+    return {
+      kind: 'steps',
+      bin,
+      steps: segs.map((s) => ({
+        file: process.execPath,
+        args: [bin, ...s.split(/\s+/).slice(1)],
+        cwd: join(ROOT, 'apps', appDir),
+      })),
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 该 app 自己的 tsc(优先),拿不到回落根目录。顺序不能反:版本漂移会改类型结论。 */
+function tscBinFor(appDir) {
+  const candidates = [
+    join(ROOT, 'apps', appDir, 'node_modules', 'typescript', 'bin', 'tsc'),
+    join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
+  ]
+  return candidates.find((p) => existsSync(p)) || null
+}
+
   let _fastDegraded = 0
   for (const _fastApp of _fast.apps) {
-    const r = spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck'], {
-      cwd: ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true,
-      windowsHide: true,
-      env: { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' }, // 防该 app 脚本再套全量门
-      timeout: TYPECHECK_TIMEOUT_MS,
-    })
+    const _launcher = resolveTypecheckLauncher(_fastApp.app)
+    const _childEnv = { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' } // 防该 app 脚本再套全量门
+    let r
+    if (_launcher?.kind === 'noop') {
+      // 该 app 的 typecheck 是纯 echo 桩(ai-service:Python 侧由 mypy 管),直传更直白,
+      // 不经 pnpm —— 少一次 100s 级冷态派生的机会,结论逐字相同(exit 0 + 同一行输出)。
+      process.stdout.write(`${_launcher.text}\n`)
+      r = { status: 0, signal: null, stdout: '', stderr: '', error: null }
+    } else if (_launcher?.kind === 'steps') {
+      const acc = { status: 0, signal: null, stdout: '', stderr: '', error: null }
+      for (const st of _launcher.steps) {
+        const one = spawnSync(st.file, st.args, {
+          cwd: st.cwd,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: false,
+          windowsHide: true,
+          env: _childEnv,
+          timeout: TYPECHECK_TIMEOUT_MS,
+        })
+        acc.stdout += String(one.stdout || '')
+        acc.stderr += String(one.stderr || '')
+        acc.status = one.status ?? null
+        acc.signal = one.signal ?? null
+        if (one.error) acc.error = one.error
+        if (one.error || (one.status ?? 1) !== 0) break
+      }
+      r = acc
+    } else {
+      r = spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck'], {
+        cwd: ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true,
+        windowsHide: true,
+        env: _childEnv,
+        timeout: TYPECHECK_TIMEOUT_MS,
+      })
+    }
     const _fout = String(r.stdout || '')
     const _ferr = String(r.stderr || '')
     if (_fout) process.stdout.write(_fout)

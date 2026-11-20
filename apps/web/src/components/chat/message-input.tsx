@@ -1307,7 +1307,12 @@ export function MessageInput({
             data-testid="side-task-lifecycle"
           />
         ) : null}
-        <PendingCommandHint conversationId={conversationId ?? null} revision={isStreaming} />
+        {/* 待确认指令提示:只在草稿可能重复那条指令时才占位,平时零占高(见组件内 matchPendingDraft) */}
+        <PendingCommandHint
+          conversationId={conversationId ?? null}
+          revision={isStreaming}
+          draft={value}
+        />
         {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
             形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}
         <AgentNoticeBar />

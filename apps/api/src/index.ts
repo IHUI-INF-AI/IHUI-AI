@@ -37,6 +37,12 @@ import {
   startRelayAlertEvaluationScheduler,
   stopRelayAlertEvaluationScheduler,
 } from './jobs/relay-alert-rules-evaluation.js'
+// relay-models-sync 装车接线(2026-11-20):该 job 头注写明"由 index.ts 注册",此前只写了
+// 实现与测试、主启动面无引用 ⇒ 功能从未上过车(装车判据测试 relay-models-sync.test.ts 自入库起即红)。
+import {
+  startRelayModelsSyncScheduler,
+  stopRelayModelsSyncScheduler,
+} from './jobs/relay-models-sync.js'
 // 门 121 接线(2026-11-01):四族「写了保留策略却从未有人执行」的清理作业 ——
 // 过期验证码 / 到期·已撤销临时分享 / USAGE_RETENTION_DAYS 天前的渠道日用量 / 过期文件缓存。
 // 四族共用一枚日批 cron(每天 05:30,错开 03:30 PII 与 04:xx 那几档),outbox 那一族不在此面:
@@ -307,6 +313,10 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
     startRelayAlertEvaluationScheduler()
   }
 
+  // 启动号池中继平台上游模型自动上架(每 6 小时的 :50,错峰于 discovery 整点批与 trae 的 :30;
+  // ENABLE_RELAY_MODEL_SYNC=false 的禁用短路在 job 内部,不在这里重复判断)
+  startRelayModelsSyncScheduler()
+
   // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
   void startBackupCronScheduler()
 
@@ -440,6 +450,8 @@ async function start() {
       syncStopPhase('stopAuditEvidenceRetentionScheduler', stopAuditEvidenceRetentionScheduler),
       syncStopPhase('stopOpsRetentionScheduler', stopOpsRetentionScheduler),
       syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
+      // 与上面的 startRelayModelsSyncScheduler 对称:node-cron 任务不显式 stop 会跟着进程残留
+      syncStopPhase('stopRelayModelsSyncScheduler', stopRelayModelsSyncScheduler),
       syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
       syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
       syncStopPhase('stopHrJobsScheduler', stopHrJobsScheduler),

@@ -120,7 +120,11 @@ describe('F-064 SSE 写封装', () => {
 
 const TOKEN = 'f-064-test-token';
 const FRAMES = 2000;
-const PAYLOAD = 'x'.repeat(1024);
+// 8 KB/帧 × 2000 帧 = 16 MB。此前是 1 KB(共 2 MB):Linux runner 的 socket/流缓冲能把整个
+// 2 MB 吞下,write() 一路 return true ⇒ 背压从不发生,暂停期读数恒为 inFlight=0 —— 采样判定
+// 再准也救不了一个不存在的现象(CI 上 shard6 连续四轮同形红的真因)。抬到 16 MB 后,任何
+// 平台的默认缓冲都装不下,"客户端不读 ⇒ 上游卡住"成为物理前提。
+const PAYLOAD = 'x'.repeat(8192);
 
 interface ProductionState {
   produced: number;
@@ -190,7 +194,10 @@ function runSlowClient(port: number, state: ProductionState, sampleBudgetMs: num
             stableTicks = 0;
             lastProduced = state.produced;
           }
-          const settled = stableTicks >= 2;
+          // 停滞本身不等于背压:服务端还没进入 sendMessage 时 produced 也是 0(实测 Linux
+          // runner 上因此读到 inFlight=0 ⇒ 假"已停滞")。要额外握一格直接证据 —— 要么已经
+          // 产出过帧,要么上游正卡在那一帧的 onEvent 里(inFlight===1)。
+          const settled = stableTicks >= 2 && (state.produced > 0 || state.inFlight === 1);
           const timedOut = Date.now() - pollStartedAt > sampleBudgetMs;
           if (settled || timedOut) {
             pausedProduced = state.produced;
@@ -242,8 +249,10 @@ describe('F-064 SSE 真实连接背压', () => {
     const result = await runSlowClient(handle.port, state, 1500);
 
     // 背压证据:客户端不读 ⇒ 上游卡在 onEvent 里,没有被无限缓冲
-    expect(result.pausedInFlight).toBe(1);
-    expect(result.pausedProduced).toBeLessThan(FRAMES);
+    // 读数进消息:万一再红,日志直接给出当时的 (inFlight, produced),不必再来一轮猜。
+    const sample = `inFlight=${result.pausedInFlight} produced=${result.pausedProduced}/${FRAMES}`;
+    expect(result.pausedInFlight, `暂停期读数 ${sample}`).toBe(1);
+    expect(result.pausedProduced, `暂停期不应产完全部帧 ${sample}`).toBeLessThan(FRAMES);
     // 不丢帧:帧数与顺序完全一致
     expect(result.tokenFrames).toHaveLength(FRAMES);
     expect(result.tokenFrames[0]!.slice(0, 5)).toBe('00000');
