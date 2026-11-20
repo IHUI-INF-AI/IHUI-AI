@@ -191,8 +191,7 @@ import { interpretQuestionResponse } from '@ihui/shared/chat/question-response';
 // 截断判据:唯一实现 = 共享层 finish-reason,端内不复制"哪些 finishReason 算截断"。
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason';
 import {
-  MODEL_CATEGORY_META,
-  isArchivedModel,
+  isSelectableChatModel,
   normalizeCategory,
   normalizeTier,
   type ModelUsageCategory,
@@ -244,25 +243,13 @@ function categoryLabel(category: ModelUsageCategory): string {
  */
 function splitModelTiers(models: LlmModel[]): { primary: LlmModel[]; archived: LlmModel[] } {
   const primary: LlmModel[] = [];
-  const archived: LlmModel[] = [];
   for (const m of models) {
-    if (isArchivedModel(normalizeCategory(m.category), normalizeTier(m.model_tier))) {
-      archived.push(m);
-    } else {
+    // 2026-11-20 定档:取消历史模型折叠区 —— legacy 与专用用途模型直接不展示。
+    if (isSelectableChatModel(normalizeCategory(m.category), normalizeTier(m.model_tier))) {
       primary.push(m);
     }
   }
-  // 组内:standard 在前 legacy 在后,再按名称
-  archived.sort((a, b) => {
-    const ca = MODEL_CATEGORY_META[normalizeCategory(a.category)].order;
-    const cb = MODEL_CATEGORY_META[normalizeCategory(b.category)].order;
-    if (ca !== cb) return ca - cb;
-    const ta = normalizeTier(a.model_tier);
-    const tb = normalizeTier(b.model_tier);
-    if (ta !== tb) return ta === 'legacy' ? 1 : -1;
-    return (a.name || a.id).localeCompare(b.name || b.id);
-  });
-  return { primary, archived };
+  return { primary, archived: [] };
 }
 
 /** 拉取可用模型列表(失败时回退 FALLBACK_MODELS)— 与 desktop/extension/mobile-rn 三端一致;offline 模式直接回退不发网络请求 */

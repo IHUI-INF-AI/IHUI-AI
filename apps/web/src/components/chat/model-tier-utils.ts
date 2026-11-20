@@ -16,7 +16,7 @@
 import {
   MODEL_CATEGORY_META,
   MODEL_TIER_ORDER,
-  isArchivedModel,
+  isSelectableChatModel,
   normalizeCategory,
   normalizeTier,
   type ModelCapabilities,
@@ -190,26 +190,26 @@ export function filterByCapabilities(
 }
 
 /**
- * 把模型拆成"默认展示"与"历史模型"两区。
+ * 模型选择器的可选项(2026-11-20 机主定档:取消「历史模型」折叠区)。
  *
- * 「代次=latest/standard 且 用于对话」的进默认列表,其余全部收进历史模型折叠区
- * (过时 legacy 版本 + 嵌入/重排/语音/图像等聊天场景调不通的专用模型)。
- * 后端字段缺失时(老后端 / 降级种子数据)一律按"最新对话模型"处理,
- * 宁可多显示也不误藏 —— 避免列表整体空掉。
+ * 只保留 `isSelectableChatModel` 为真的模型;legacy(清单命中或版本比较判旧的)与
+ * 专用用途模型(嵌入/重排/语音/图像/视频…)一律**直接不展示**,不再折叠成历史区。
+ * 后端字段缺失时兜底为 chat+latest ⇒ 保留,宁可多显示也不误藏。
+ *
+ * 返回值仍保留 `archived`(恒为空)只为兼容调用方的既有结构;UI 侧
+ * `archived.length > 0` 的条件会让历史区整块不再渲染。
  */
 export function splitByTier(options: ModelOption[]): {
   primary: ModelOption[]
   archived: ModelOption[]
 } {
   const primary: ModelOption[] = []
-  const archived: ModelOption[] = []
   for (const opt of options) {
     const category = normalizeCategory(opt.category)
     const tier = normalizeTier(opt.tier)
-    if (isArchivedModel(category, tier)) archived.push(opt)
-    else primary.push(opt)
+    if (isSelectableChatModel(category, tier)) primary.push(opt)
   }
-  return { primary, archived }
+  return { primary, archived: [] }
 }
 
 /**
