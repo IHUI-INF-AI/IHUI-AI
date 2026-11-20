@@ -1945,6 +1945,23 @@ class AgentEventStream:
             logger.warning("hook.run 事件下行失败(降级,不阻塞): %s", e)
 
 
+def _append_hook_contexts(messages: list[dict[str, Any]], outcome: Any) -> None:
+    """把钩子 additionalContext 注入消息流(单一实现,两处复用)。
+
+    形态与 post_tool_use 改写面一致(developer 消息 + input_text),截断 4000
+    字符防止一条钩子把预算吃穿;空串不注入。
+    """
+    for _ctx in outcome.additional_contexts:
+        _ctx_text = str(_ctx)[:4000]
+        if _ctx_text:
+            messages.append(
+                {
+                    "role": "developer",
+                    "content": [{"type": "input_text", "text": _ctx_text}],
+                }
+            )
+
+
 async def _emit_hook_run_event(
     stream: "AgentEventStream | None",
     run_id: str,
@@ -4333,6 +4350,35 @@ class AgentLoopV2:
             )
         self._ensure_session_id()
         self._messages = messages
+        # 第 27 项(2026-11-20):会话入口 / 用户提交生命周期钩子。此前 HookKind 里
+        # 这两个值只有契约没有挂载点 —— `.ihui/hooks.json` 配了也不会被执行
+        # (AGENTS §0.9"契约在、执行链不在")。这里复用同一 runtime,只消费
+        # additionalContext(不发明裁决语义),失败/中断一律不阻断会话启动。
+        try:
+            from ..core.hook_runtime import HookKind as _LifecycleKind
+
+            _entry_payload: dict[str, Any] = {
+                "session_id": self._session_id or "",
+                "user_id": self._user_id or "",
+                "conversation_id": self._conversation_id or "",
+                "cwd": os.getcwd(),
+            }
+            await self._run_entry_lifecycle_hooks(
+                _LifecycleKind.SESSION_START, _entry_payload, stage="session_start"
+            )
+            _prompt_text = ""
+            for _m in reversed(messages):
+                if isinstance(_m, dict) and _m.get("role") == "user":
+                    _c = _m.get("content")
+                    _prompt_text = _c if isinstance(_c, str) else str(_c)
+                    break
+            await self._run_entry_lifecycle_hooks(
+                _LifecycleKind.USER_PROMPT_SUBMIT,
+                {**_entry_payload, "prompt": _prompt_text[:4000]},
+                stage="user_prompt_submit",
+            )
+        except Exception as e:  # noqa: BLE001 - 生命周期钩子整体降级
+            logger.warning("会话入口生命周期钩子降级(不阻断): %s", e)
         # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
         # 后台发起预热任务;关闭时零动作、首回合零额外延迟,与现状逐零差异。
         await self._maybe_start_startup_prewarm()
@@ -7443,20 +7489,47 @@ class AgentLoopV2:
             if outcome.updated_output is not NO_UPDATED_OUTPUT:
                 result.result = outcome.updated_output
             if self._messages is not None:
-                for _ctx in outcome.additional_contexts:
-                    _ctx_text = str(_ctx)[:4000]
-                    if _ctx_text:
-                        self._messages.append(
-                            {
-                                "role": "developer",
-                                "content": [{"type": "input_text", "text": _ctx_text}],
-                            }
-                        )
+                _append_hook_contexts(self._messages, outcome)
         except _LoopInterrupted:
             raise
         except Exception as e:  # noqa: BLE001 - 钩子异常不阻断结果返回
             logger.warning("post_tool_use 钩子异常(保留原始产出): %s", e)
         return result
+
+    def _inject_hook_contexts(self, outcome: Any) -> None:
+        """实例入口(委托模块级单一实现;轻量替身可直接调模块函数)。"""
+        if self._messages is None:
+            return
+        _append_hook_contexts(self._messages, outcome)
+
+    async def _run_entry_lifecycle_hooks(
+        self,
+        kind: Any,
+        payload: dict[str, Any],
+        *,
+        stage: str,
+    ) -> None:
+        """会话入口 / 用户提交类生命周期钩子(2026-11-20 第 27 项)。
+
+        与工具面的三个挂载点(PRE_TOOL_USE / POST_TOOL_USE / PERMISSION_REQUEST)
+        复合同一个 `HookRuntime`,不新造第二套执行器;本层只兑现"注入上下文"这一
+        件事:`HookKind.SESSION_START` / `USER_PROMPT_SUBMIT` 的契约里没有裁决字段,
+        强行解读成 deny/allow 会凭空发明语义。`stop` 交主循环处理(resume 语义不在此)。
+        """
+        if self._hook_runtime is None:
+            return
+        try:
+            outcome = await self._wait_interruptible(self._hook_runtime.run(kind, payload))
+        except _LoopInterrupted:
+            logger.info("%s 钩子期间收到中断,交主循环按既有分支收口", stage)
+            return
+        except Exception as e:  # noqa: BLE001 - 钩子异常必须不阻断会话启动
+            logger.warning("%s 钩子异常(降级,不阻断): %s", stage, e)
+            return
+        await _emit_hook_run_event(
+            getattr(self, "_events", None), self._session_id or "", outcome
+        )
+        self._inject_hook_contexts(outcome)
 
     @staticmethod
     def _tool_llm_usage_fields(result: Any) -> dict[str, Any]:
