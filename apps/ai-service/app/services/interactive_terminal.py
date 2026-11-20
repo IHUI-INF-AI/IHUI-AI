@@ -12,6 +12,8 @@
 本模块补最小闭环:
 - `open_terminal`:启动一个长驻子进程(管道路径下为 stdin/stdout/stderr 管道 + 读线程);
 - `send_terminal`:写入一行(可选追加换行);
+- `send_terminal_keys`:按**键名**发控制输入(Tab/Esc/方向键/Ctrl 组合) —— 方向键与 Esc
+  是文本写不出来的字节序列,REPL 补全、TUI 菜单、vim 这类程序只认它们;
 - `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;
 - `wait_terminal`:等输出里出现某个 pattern(子串或正则),命中/超时/进程退出三种收口
   —— 轮询式 `read` 拼不出"等提示符"这件事(`wait_s` 单次上限 10s,且没有命中语义);
@@ -53,7 +55,7 @@ import threading
 import time
 import uuid
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
@@ -78,6 +80,64 @@ MAX_WAIT_S: Final = 30.0
 MAX_PATTERN_CHARS: Final = 200
 #: 回传的命中文本上限:正则 `(.*)` 这类会整段回吐,不做上界等于把会话缓冲塞进信封。
 _MAX_MATCHED_TEXT: Final = 500
+
+#: 按键名 → 字节序列(**单一真相源**)。名字大小写不敏感,`-`/`_`/`+`/空格 视为同一种分隔。
+#: 立因:方向键/Esc 是转义序列、Ctrl 组合是控制码,这些用 `send` 写文本写不出来 ——
+#: REPL 补全(Tab)、TUI 菜单(方向键)、vim(Esc)只认字节。
+KEY_SEQUENCES: Final[dict[str, str]] = {
+    "enter": "\r",
+    "return": "\r",
+    "tab": "\t",
+    "space": " ",
+    "backspace": "\x7f",
+    "bs": "\x7f",
+    "escape": "\x1b",
+    "esc": "\x1b",
+    "up": "\x1b[A",
+    "down": "\x1b[B",
+    "right": "\x1b[C",
+    "left": "\x1b[D",
+    "home": "\x1b[H",
+    "end": "\x1b[F",
+    "insert": "\x1b[2~",
+    "ins": "\x1b[2~",
+    "delete": "\x1b[3~",
+    "del": "\x1b[3~",
+    "pageup": "\x1b[5~",
+    "pagedown": "\x1b[6~",
+    "ctrl-a": "\x01",
+    "ctrl-b": "\x02",
+    "ctrl-c": "\x03",
+    "ctrl-d": "\x04",
+    "ctrl-e": "\x05",
+    "ctrl-f": "\x06",
+    "ctrl-g": "\x07",
+    "ctrl-h": "\x08",
+    "ctrl-i": "\x09",
+    "ctrl-k": "\x0b",
+    "ctrl-l": "\x0c",
+    "ctrl-m": "\x0d",
+    "ctrl-n": "\x0e",
+    "ctrl-o": "\x0f",
+    "ctrl-p": "\x10",
+    "ctrl-q": "\x11",
+    "ctrl-r": "\x12",
+    "ctrl-s": "\x13",
+    "ctrl-t": "\x14",
+    "ctrl-u": "\x15",
+    "ctrl-v": "\x16",
+    "ctrl-w": "\x17",
+    "ctrl-x": "\x18",
+    "ctrl-y": "\x19",
+    "ctrl-z": "\x1a",
+    "ctrl-backslash": "\x1c",
+    "ctrl-]": "\x1d",
+    "ctrl-^": "\x1e",
+    "ctrl-_": "\x1f",
+}
+#: 单次最多发多少个按键 / 总字节上界(防"一次塞 10 万次方向键"把读缓冲挤爆)。
+MAX_KEYS_PER_CALL: Final = 32
+MAX_KEY_BYTES: Final = 4_096
 
 #: 伪终端初始/上限尺寸。真 tty 必须有非零窗口尺寸 —— POSIX `pty.openpty()` 缺省给
 #: 0x0,按 tty 出进度的程序会算出荒谬的宽度;ConPTY 也要求 cols/rows > 0。故两套后端
@@ -576,6 +636,112 @@ def send_terminal(
         }
     return {"ok": True, "terminal_id": terminal_id, "bytes_written": len(payload)}
 
+
+def _normalize_key(name: str) -> str:
+    """键名规范化:`Ctrl+Up` / `ctrl_up` / ` Ctrl Up ` 都归到 `ctrl-up`(查表前的唯一入口)。
+
+    连续分隔符折叠成一个:不折叠的话 `" Ctrl + C "` 会规成 `ctrl---c`,同一按键因写法不同
+    被判未知 —— 那是最典型的"看起来很严,其实只是没归一"。
+    """
+    return re.sub(r"[\s_+]+", "-", name.strip().lower()).strip("-")
+
+
+def _keys_payload(keys: Sequence[str]) -> tuple[str | None, str, str]:
+    """把键名列表拼成字节序列,返回 (payload, errorCode, 逐键归一结果 / 出错细节)。
+
+    校验与拼接在**碰会话之前**做完:未知键、超量、超长一律显式拒,不让半截输入写进子进程
+    (写一半再报错 = 子进程收到残缺序列,后续状态全是脏的)。
+    """
+    if not keys:
+        return None, "TERMINAL_EMPTY_KEYS", ""
+    if len(keys) > MAX_KEYS_PER_CALL:
+        return None, "TERMINAL_TOO_MANY_KEYS", str(len(keys))
+    parts: list[str] = []
+    seqs: list[str] = []
+    for raw in keys:
+        norm = _normalize_key(str(raw))
+        seq = KEY_SEQUENCES.get(norm)
+        if seq is None:
+            return None, "TERMINAL_UNKNOWN_KEY", str(raw)
+        parts.append(seq)
+        seqs.append(norm)
+    payload = "".join(parts)
+    if len(payload) > MAX_KEY_BYTES:
+        return None, "TERMINAL_KEY_PAYLOAD_TOO_LARGE", str(len(payload))
+    return payload, "", "|".join(seqs)
+
+
+def send_terminal_keys(
+    terminal_id: str,
+    keys: Sequence[str],
+    *,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """按**键名**给会话发控制输入(方向键 / Tab / Esc / Ctrl 组合),不是写文本。
+
+    与 `signal_terminal("interrupt")` 的分工:后者走进程信号语义(POSIX SIGINT /
+    Windows CTRL_BREAK),对挂在 ConPTY 自己控制台上的子进程要靠行规程 0x03;本函数是
+    **纯输入字节**通道 —— 它与真终端里你亲手按下的键等价,由行规程/程序自己解释。
+
+    如实说明一条边界(真终端的物理事实,不是本实现丢字节):程序仍处于**规范(canonical)
+    输入模式**时,行规程会当场消费 ESC/方向键之类的编辑键 —— POSIX 把它们当普通字符留在
+    行里随回车送达;Windows ConPTY 的 conhost 会直接吃掉(本机实测)。要让程序**原样**拿到
+    这些字节,它自己必须先切到 raw/非规范模式(vim、less 这类本来就会切)。
+    """
+    session = _sessions.get(terminal_id)
+    if session is None or not _owned(session, user_id, session_id):
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    payload, code, detail = _keys_payload(keys)
+    if payload is None:
+        if code == "TERMINAL_UNKNOWN_KEY":
+            return {
+                "ok": False, "errorCode": code,
+                "error": f"未知键名: {detail}",
+                "supported": sorted(KEY_SEQUENCES),
+            }
+        if code == "TERMINAL_EMPTY_KEYS":
+            return {"ok": False, "errorCode": code, "error": "keys 不能为空"}
+        if code == "TERMINAL_TOO_MANY_KEYS":
+            return {
+                "ok": False, "errorCode": code,
+                "error": f"一次最多 {MAX_KEYS_PER_CALL} 个键(实得 {detail})",
+            }
+        return {
+            "ok": False, "errorCode": code,
+            "error": f"按键总字节超上限 {MAX_KEY_BYTES}(实得 {detail})",
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "无可用写入端",
+            "terminal": session.to_dict(),
+        }
+    try:
+        sink.write(payload)
+        sink.flush()
+    except (BrokenPipeError, OSError, ValueError) as e:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": f"写入失败: {e}",
+            "terminal": session.to_dict(),
+        }
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "keys": detail.split("|"),
+        "bytes_written": len(payload),
+    }
 
 def read_terminal(
     terminal_id: str,
@@ -1278,7 +1444,12 @@ __test__ = {
     "conpty_available": _conpty_available,
     "resize_terminal": resize_terminal,
     "wait_terminal": wait_terminal,
+    "send_terminal_keys": send_terminal_keys,
     "pattern_judge": _pattern_judge,
+    "keys_payload": _keys_payload,
+    "key_sequences": KEY_SEQUENCES,
+    "MAX_KEYS_PER_CALL": MAX_KEYS_PER_CALL,
+    "MAX_KEY_BYTES": MAX_KEY_BYTES,
     "MAX_WAIT_S": MAX_WAIT_S,
     "MAX_PATTERN_CHARS": MAX_PATTERN_CHARS,
     "DEFAULT_COLS": DEFAULT_COLS,
