@@ -7906,6 +7906,30 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 钩子审计台账健康(2026-11-21 第 51 项)-----------------------------------------------
+  // 面板只在有人开会话时看容量(第 49 项);台账到 5MB 轮转会把唯一备份 `.1` 覆盖掉,
+  // "没人在看"就是历史消失的唯一原因。本门把同一批事实搬到守护侧,§0.2 恒红门禁令:
+  // 量的是机器存量(容量/坏行/失败率)⇒ warn 档只点名不拦提交,也不出其邮件告警
+  // (红了人的动作是"去看哪条钩子在挂",不是运维故障,§5e-1)。
+  {
+    id: '326',
+    label: '🪵 钩子审计台账健康(warn:容量 ≥90% / 坏行 / 近窗失败率越线)',
+    script: 'check-hook-audit-health.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_HOOK_AUDIT_HEALTH',
+    // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers,走周期派发。
+    onFailHint: [
+      '',
+      '  💡 钩子审计台账(.ihui-agent/state/hook-audit.jsonl)有存量问题,逐条已在门体输出点名。',
+      '     容量 ≥90%:轮转会覆盖唯一备份 .1 ⇒ 要留的历史先另存;或调大 hook_audit.py 的 HOOK_AUDIT_MAX_BYTES 常量(单一源头)。',
+      '     坏行:写盘被中断/并发撕裂 ⇒ 用 summarize 的 lastTs 定位是哪一段,再决定是否重建台账。',
+      '     失败率越线:先按 slowest/lastTs 找出挂掉的是哪条钩子,别先放宽超时。',
+      '     单独复现:node scripts/check-hook-audit-health.mjs(自检 --self-test)。',
+      '     应急跳过(不推荐):HUSKY_SKIP_HOOK_AUDIT_HEALTH=1',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
