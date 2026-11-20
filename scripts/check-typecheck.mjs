@@ -667,6 +667,53 @@ function resolveNoTsInputFace(files) {
   return { files: files.slice(), tsconfigCount: cfgs.length }
 }
 
+// ─── T1 面裁剪:把"必然不在任何 tsc program 输入集合里"的文件剔出去(2026-11-20) ──
+// 定义必须排在**所有**调用点之前(dry-run 也会调它;函数声明提升救不了 let 的 TDZ ——
+// 常量定义靠后会踩出"异常被 catch 吞成 null"这类静默失效,本文件已踩过一次)。
+// 实测形状:一次 push 面 = `apps/cli/src/tools/*.generated.ts` + `scripts/*.mjs`(两席同一批推)。
+// 因为清单里有 `scripts/` 前缀,resolveFastScopeApp 按「守门自身改动必须全量回归」整体回全量档,
+// 白跑 235.8s;而 .mjs 不进任何 program(全仓 41 个 tsconfig 无一 allowJs),那 235s 对类型结论
+// 零贡献。这里把同一条判据从"整面带"降到"逐文件":tsc 的输入集合只由 .ts/.tsx/.mts/.cts、
+// tsconfig*/package.json/锁文件/.npmrc、以及被 extends 的共享基座决定,别的文件改了也不影响结论。
+// 失效方向仍是安全侧:tsconfig 清单取不到、任一正文读不到、或存在 allowJs:true ⇒ **原样返回**
+// (不裁剪、照旧回落全量),宁可多跑一次也不许把可能的输入面漏掉。
+let _tsconfCache
+function tsconfigFace() {
+  if (_tsconfCache) return _tsconfCache
+  const cfgs = listTsconfigPaths()
+  if (!cfgs) return null
+  let allowJs = false
+  for (const p of cfgs) {
+    let text = null
+    try {
+      text = readFileSync(resolve(ROOT, p), 'utf8')
+    } catch {
+      return null
+    }
+    if (/allowJs\s*:\s*true/i.test(text)) allowJs = true
+  }
+  _tsconfCache = { cfgSet: new Set(cfgs.map((p) => p.replace(/\\/g, '/'))), allowJs }
+  return _tsconfCache
+}
+function tsInputOnly(files) {
+  if (!Array.isArray(files)) return files
+  const face = tsconfigFace()
+  if (!face || face.allowJs) return files
+  return files.filter((raw) => {
+    const f = String(raw).replace(/\\/g, '/').replace(/^\.\//, '')
+    const base = f.slice(f.lastIndexOf('/') + 1)
+    return (
+      TS_INPUT_EXT_RE.test(f) ||
+      TS_INPUT_BASENAMES.has(base) ||
+      /^tsconfig.*\.json$/i.test(base) ||
+      face.cfgSet.has(f) ||
+      base === '.npmrc'
+    )
+  })
+}
+
+const _tsFaceFiles = scopeEnabled ? tsInputOnly(scopeFilesRaw) : null
+
 // 新档判定提前到 --dry-run 之前:只读勘察(scout)必须能看见"这一趟会走哪条路",
 // 否则勘察报的是"将运行 typecheck-full",实际却走了无 TS 输入面档 —— 勘察结论与真跑不一致。
 // 注意:提前的只是**判定**,exit 0 的动作仍在主流程里(dry-run 不许改变任何退出语义)。
@@ -695,7 +742,7 @@ if (DRY_RUN) {
   )
   // 快通道只看**原始**改动清单(边界 1):闭包跨端会把快通道关掉,单文件 push 从定向
   // 几分钟变成全量 25 分钟 —— 那是拿另一类恒红换本票的绿。
-  const _dryFast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
+   const _dryFast = scopeEnabled ? resolveFastScopeApp(_tsFaceFiles) : null
   console.log(
     `[check-typecheck] 将运行路线: ${
       _noTsInput
@@ -858,7 +905,16 @@ if (_noTsInput) {
   process.exit(0)
 }
 
-const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
+const _fast = scopeEnabled ? resolveFastScopeApp(_tsFaceFiles) : null
+// 面裁剪必须报数(不静默):少判的每一格都能被看见,才有资格做判据。
+if (scopeEnabled && Array.isArray(_tsFaceFiles) && _tsFaceFiles.length !== scopeFilesRaw.length) {
+  console.log(
+    `[check-typecheck] 面裁剪:改动 ${scopeFilesRaw.length} 个里有 ${scopeFilesRaw.length - _tsFaceFiles.length} 个不在任何 tsc program 的输入集合里,不参与判定(依据:tsconfig 实扫,无 allowJs:true)`,
+  )
+  for (const f of scopeFilesRaw.filter((f) => !_tsFaceFiles.includes(f)).slice(0, 20)) {
+    console.log(`  · 不计入: ${f}`)
+  }
+}
 // 段落判据常量(2026-11-20):定义必须在使用点之前 —— 之前放在函数区(行号靠后)时,
 // 上面的"命令:"打印先调用 resolveTypecheckLauncher,踩到 const 的 TDZ,异常被 catch 吞成 null,
 // 于是打印仍写 pnpm、且直调静默失效(实测踩过:函数体里 for(const _fast of …) 同名 TDZ 同型)。
