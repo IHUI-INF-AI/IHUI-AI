@@ -5508,11 +5508,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:死代码棘轮 files 维逐族归因 —— 58 件落档,删 2 件真残留 (93bd931604)
 - 🚀 新功能/改进:快捷键说明面板去掉"Undo 5s"行(撤销入口已退役,不再教一个不存在的动作) (e546b5f396)
 - 🐞 修复:收回 3 条无人调用的远端授权 + workbuddy 号池重登按 F-060 降 none (0988c55542)
-
 **2026-11-20**
 - 🔧 工程/其他:追认两枚未签名受保护面提交(AGENTS 体积裁剪/land-gate-rerun 面旗)解除本地积压推送阻塞 (6556e29907)
 - 🐞 修复:RP-7 取远端更全形态补回维度拆解注记 (d23c8aba4d)
-
 **2026-11-20**
 - 🚀 新功能/改进:用户命令钩子配置面(信任闸+并入既有HookRuntime) + 报告§5.22 (94599d460b)
 - 🐞 修复:补齐 SqliteTicketStore 退役漏改的 chat 派工准入用例 (ab409351ab)
@@ -5596,7 +5594,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:macOS 无架构标记判 universal 双键 显式 x86_64 标记仍走单键 (699cc1209c)
 - 🐞 修复:macOS 无架构标记判 universal,显式 x86_64 标记仍走单键 (e0f9575d85)
 - 🔧 工程/其他:烘焙 0.1.80 更新器 feed(四平台 latest.json 1:1) (a23052e301)
-
 **2026-11-19**
 - 📚 文档:生成块按合并树自洽对齐(readme-align-from-tree) (ef92cca07a)
 - 🚀 新功能/改进:edit_file 保留 BOM（Windows .ps1/.md 常见） (8b054d313d)
@@ -5743,7 +5740,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:R128 Google Workspace export bridge contract, 91.8% -> 92.4% (1584415faa)
 - 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
 - 🔧 工程/其他:追认 npm-execpath 包管理器判别修复 (92bc0e594e)
-
 **2026-11-18**
 - 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
 - 🔧 工程/其他:回潮护栏 30→5 分钟(并发会话重建 IHUI* 任务时快速清零) (f59448a04a)
@@ -5908,7 +5904,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:并入两处主线所需修复(ahead 仅 queued 档 + 发布 scp 255 重试) (963695c34e)
 - 🚀 新功能/改进:R84 hook 定义对象二进制坐实(7 中 6 认证/3 共享一址/PostToolUse 未定位) (c8b910b01b)
 - 🚀 新功能/改进:R83 滑动窗口认领16结构(跨源认证1枚/薄证据2枚/覆盖321/长run切分收益0) (6c608e5908)
-
 **2026-11-20**
 - 🐞 修复:摘掉 PROJECT_PLAN 里一行孤立 ======= 冲突残留 —— 它把⑪节切成两段,门12才把"已闭环"与"未实现"读成同段互斥 (4caa6c3726e)
 - 📚 文档:生成块计数对齐合并后现算(trackedFiles 23027->23026 / apiRouteFiles 715->714) (df01f54b94a)
@@ -5988,7 +5983,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:macOS 无架构标记判 universal 双键 显式 x86_64 标记仍走单键 (699cc1209c9)
 - 🐞 修复:macOS 无架构标记判 universal,显式 x86_64 标记仍走单键 (e0f9575d850)
 - 🔧 工程/其他:烘焙 0.1.80 更新器 feed(四平台 latest.json 1:1) (a23052e301e)
-
 **2026-11-19**
 - 📚 文档:生成块按合并树自洽对齐(readme-align-from-tree) (ef92cca07a7)
 - 🚀 新功能/改进:edit_file 保留 BOM（Windows .ps1/.md 常见） (8b054d313d2)
@@ -6135,7 +6129,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:R128 Google Workspace export bridge contract, 91.8% -> 92.4% (1584415faab)
 - 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9f)
 - 🔧 工程/其他:追认 npm-execpath 包管理器判别修复 (92bc0e594ea)
-
 **2026-11-18**
 - 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f6)
 - 🔧 工程/其他:回潮护栏 30→5 分钟(并发会话重建 IHUI* 任务时快速清零) (f59448a04a0)
@@ -6300,7 +6293,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:并入两处主线所需修复(ahead 仅 queued 档 + 发布 scp 255 重试) (963695c34ec)
 - 🚀 新功能/改进:R84 hook 定义对象二进制坐实(7 中 6 认证/3 共享一址/PostToolUse 未定位) (c8b910b01b3)
 - 🚀 新功能/改进:R83 滑动窗口认领16结构(跨源认证1枚/薄证据2枚/覆盖321/长run切分收益0) (6c608e59084)
-
 **2026-11-19**
 - 🚀 新功能/改进:号池模型目录每 6 小时自动对账 + 启动首轮即投递(Y-97) (766e65c55d9)
 - 📚 文档:Y-72 系统级两格已落地(哨兵计划任务+告警拉起) (986357c889b)
@@ -7022,20 +7014,20 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - `scripts/check-web-rn-style-tiers.mjs`
 **wire-strictness**
 - `scripts/check-wire-strictness.mjs`
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 | API 路由 | 4771 | `apiRoutes` |
 | WebSocket 端点 | 43 | `wsEndpoints` |
 | CLI 命令文件 | 76 | `cliCommandFiles` |
 | CLI 工具文件 | 104 | `cliToolFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5924 | `testFiles` |
 | 工程守门 | 362 | `guardianGates` |
 | — blocking | 333 | `guardianBlocking` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 **2026-11-12**
 | **签到常驻腿(7×24 最小常驻)** | `node scripts/register-signin-residency-task.mjs --register/--query/--run-now/--unregister`(内层执行体 `scripts/ensure-ai-service-residency.mjs --ensure/--status/--stop`) | 2026-11-16 机主定向裁决落地:签到调度器与进程保活心跳住在 ai-service 进程内,而 dev 服务按 2026-11-10「按需启停」⇒ 服务不在时自动签到静默断供(本机实测流水停摆 4 天)。本腿 = 计划任务 `IHUI AI Service Signin Residency` 每 30 分钟幂等自检:探测 GET `:8803/health` 在位 ⇒ 零动作;不在位 ∧ pid 账本无活进程 ⇒ spawn `venv python -m uvicorn`(venv 优先、回落 `uv run`;`--workers/--reload` 被 `scripts/lib/ai-service-residency-runtime.mjs` 的 `guardSingleWorker` 纯判据当场拒——OutboundGate/APScheduler 是进程级状态,run-ai.ps1 头注单 worker 契约的机器化);账本 `.ihui-agent/state/ai-service-residency.pid` 带进程创建时刻双证(stop 侧 pid 复用即拒杀,缺失回测自愈补账);env 装配 = 根 .env ∪ apps/api/.env 覆盖 + `CHECKIN_CRON_ENABLED` 未设则 true(run-ai.ps1:59 同一注入语义)。闸 = `dev-stack-residency-policy.judgeSigninLegResidency`(例外只覆盖这一枚进程,**不解除** 11-10 对 dev 全家桶的锁);机主收回授权两出口:环境 `IHUI_SIGNIN_RESIDENCY_DISABLE=1`(注册器拒装留痕)或 `--unregister`(卸载正道)。真机闭环实测:注册→点火→11 个 job 全部注册→RESUMED/STOPPED/RESUMED 账形逐一对上。本机跨池重复补账同批:`dedupeCrossPoolDuplicates` 收敛 6 组(qoder 5+trae 1,合并前元数据快照落 `.ihui-agent/state/pool-dedupe-pre-apply-snapshot.json`)→ `20261114160000` 唯一索引迁移过 fail-closed 前置落地 |
 | 数据库表 | 651 | `dbTables` |
@@ -7923,8 +7915,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
 - 🔧 工程/其他:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
 - 🚀 新功能/改进:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 - 🔧 工程/其他:.gitignore 补凭据隔离+恢复核查临时件兜底,根治并发污染 (b66962b673)
 - 🔧 工程/其他:RP-76/77/78/81 认领释放号对齐远端(isolate: 与 origin 同一批摘牌的另一枚释放号,正文逐字相同) (52ca336fbb)
 - 🐞 修复:长上下文针测把 relay 错误帧与"上游无此模型服务"分开处理 (db5c3dc0c6)
@@ -8201,10 +8193,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 > ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 - 🔧 工程/其他:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
 - 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
 - 🐞 修复:告警降噪补全与出口去重修复 (7bfb45a4c5)
@@ -8631,8 +8623,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:branch-delete-with-backup 补自动留痕 —— 治"手工调用不留痕"的结构性缺口 (beb7d0463d)
 - 🔧 工程/其他:门 47p 自愈重新注入 streaming-tail-frame 水印 (44800c59c5)
 - 🔧 工程/其他:补 D2 末帧/整体替换的浏览器侧集成冒烟(判别力边界已实测登记) (939ebb689a)
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 - 🔧 工程/其他:收敛并行会话改动(水印补注+streaming-audit+考勤HR文档+cli文档) (53848eabcbe)
 - 🐞 修复:修复workflow-todo.ts溯源水印载荷丢失 (872f61b1255)
 - 🐞 修复:收口新四档 CSS 等值落档、装车 finance-ai-hub、修 lander null 崩溃 (79afad39223)
@@ -8641,19 +8633,43 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:修复源码文件溯源水印载荷丢失+清理死代码 (2af1a280cc2)
 - 🐞 修复:AI对话流式显示P1修复 —— web早退持久化/并发幂等 + ai-service网关三缺陷 (274b1b6eda6)
 | 路由文件 | 703 | `apiRouteFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 | 数据库表 | 651 | `dbTables` |
 | API 路由 | 4832 | `apiRoutes` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-19。
 - 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
 - 🔧 工程/其他:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
 **2026-11-18**
 **2026-11-18**
+| 跟踪文件 | 23043 | `trackedFiles` |
+| 测试文件 | 5924 | `testFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
+| 跟踪文件 | 23043 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
 | 测试文件 | 5927 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
