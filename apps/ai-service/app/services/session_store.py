@@ -826,8 +826,9 @@ def _schema_row_count(conn: Any, schema: str) -> int:
 def _adopt_named_legacy_schema(conn: Any, target: str, source: str) -> str | None:
     """把**人指名**的旧 schema 原地改名成固定逻辑 schema(`ALTER SCHEMA ... RENAME`)。
 
-    为什么不自动挑:本机实测一个开发库里有 **969 个** `sess_<12hex>` 旧 schema 都带行
-    (历次测试未回收的残留)。"哪个是生产"在库面上根本判不出来,按计数猜一次就可能把
+    为什么不自动挑:本机实测一个开发库里有 **1177 个** `sess_<12hex>` 旧 schema 都带行
+    (历次测试未回收的残留;2026-11-20 `scripts/audit_session_schemas.py` 现读,空壳 249 个
+    已清掉)。"哪个是生产"在库面上根本判不出来,按计数猜一次就可能把
     某个测试残留当生产数据接管 —— 这比"看不见"更坏。所以接管**只认显式指名**
     (`SESSION_STORE_ADOPT_LEGACY_SCHEMA`),机器只做三件可验证的事:
 
@@ -1017,6 +1018,10 @@ class SessionStore:
         self._session.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
         self._session.execute(f'SET search_path TO "{self._schema}"')
         self._fts_enabled = False
+        # 检索后端(可观测):`trgm` = ILIKE 能走 GIN 候选集,`like` = 全表扫(降级)。
+        # 这是**能力事实**,不是配置项 —— 供健康检查/排障现读,免得"装不上扩展"只在
+        # 版本表里静静躺一行、生产上没人知道自己在全表扫。
+        self._search_backend = "like"
         self._migrate()
 
     @property
@@ -1034,6 +1039,15 @@ class SessionStore:
                 "SELECT MAX(version) AS v FROM schema_version"
             ).fetchone()
         return 0 if row is None or row["v"] is None else _row_int(row, "v")
+
+    @property
+    def search_backend(self) -> str:
+        """检索实际走哪条腿:`trgm`(ILIKE 命中 GIN 候选集)或 `like`(全表扫降级)。
+
+        这是可观测性,不是开关:调用方/健康检查读它来回答"生产到底有没有用上 pg_trgm",
+        不需要去翻 schema_version 的 description 才知道自己在降级。
+        """
+        return self._search_backend
 
     def close(self) -> None:
         with self._lock:
@@ -1088,6 +1102,15 @@ class SessionStore:
             # 扩展装不上(无权限 / 非标准镜像)⇒ 保持全表扫并在版本行里写明降级,
             # 绝不让检索从"慢"变成"不可用"。
             trgm = self._ensure_trgm_index()
+            self._search_backend = "trgm" if trgm else "like"
+            if not trgm:
+                # 降级必须**响一声**:检索仍可用(慢),但"能不能装、要不要找 DBA"这个
+                # 判断不该等出事才做。warning 一次即够,不刷日志(检索路径每次都会用到它)。
+                logger.warning(
+                    "session_store: pg_trgm 不可用(schema=%s)⇒ 检索退回 ILIKE 全表扫;"
+                    "结论仍正确,只是慢。若为权限问题,可由 DBA 预装扩展后重启进程自动建索引",
+                    self._schema,
+                )
             if not self._has_version(5):
                 self._add_version(
                     5,

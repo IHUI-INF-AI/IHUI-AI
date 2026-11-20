@@ -45,6 +45,7 @@
  * 退出码:0 = 只在基线内 / 1 = 出现新增(blocking) / 2 = 未判定或用法错。
  */
 import { existsSync, readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -86,8 +87,50 @@ export const HIT_PATTERNS = [
 export const ALLOW_MARKERS = ['mode=ro', "mode: 'ro'", 'mode: "ro"', ':memory:']
 
 const USAGE = [
-  '用法: node scripts/check-sqlite-write-paths.mjs [--staged|--worktree|--emit-baseline|--self-test] [--root <仓库根>]',
+  '用法: node scripts/check-sqlite-write-paths.mjs [--staged|--worktree|--emit-baseline|--self-test|--parity] [--root <仓库根>]',
 ]
+
+/**
+ * 预筛用的**宽**正则(2026-11-20 立,治"全域触发面 × 全量逐个 blob ⇒ 每次提交 12–14 秒")。
+ *
+ * 为什么可以用 grep 先筛:命中族只在**极少数文件**里出现(清零后是 0 文件),而门体要的是
+ * "有没有 / 几处"这个精确数。先用一条宽正则把候选文件捞出来(单进程一次),再只对候选文件
+ * 做逐行精确计数 —— 精确判据仍是 `classifyLine`,**没有第二份判据**(§0.6)。
+ *
+ * 宽 = 宁可多捞不可漏:不带 `\b`(`git grep -E` 是 POSIX,不认 `\b`/`\s`),`connect` 前允许空白。
+ * 漏捞的代价是"假绿",所以还留了三道保险:
+ *  ① 预筛失败(exit >1 / 起不来)⇒ 自动退回全量逐 blob 扫描(慢但正确);
+ *  ② `--parity` 对账档:同一面同时跑"预筛路径"与"全量路径",计数不等即 exit 1(测试与人工核验用);
+ *  ③ `IHUI_SQLITE_GATE_FULL_SCAN=1` 强制走全量路径(排障时用)。
+ */
+export const GREP_RE =
+  'sqlite3\\.[[:space:]]*connect|aiosqlite|better-sqlite3|sqlite3\\.Database|new[[:space:]]+Database'
+
+/** 用 `git grep -l` 在**同一个判定面**上捞候选文件(`HEAD` / 索引)。取不到面 ⇒ 抛错交调用方退全量。 */
+function grepCandidates(root, face) {
+  const base = ['grep', '-l', '-I', '--full-name']
+  let args
+  if (face === 'head') args = [...base, '-E', GREP_RE, 'HEAD']
+  else if (face === 'staged') args = [...base, '--cached', '-E', GREP_RE]
+  else throw new Error(`预筛不支持的面:${face}`)
+  args.push('--', ...SUBROOTS)
+  const r = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+  })
+  if (r.error) throw r.error
+  if (r.status === 0) {
+    const out = String(r.stdout ?? '')
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+    return new Set(out)
+  }
+  if (r.status === 1) return new Set() // 无一命中是合法结论,不是失败
+  throw new Error(`git grep 失败(rc=${String(r.status)}):${String(r.stderr ?? '').slice(0, 200)}`)
+}
 
 /** 该行是否命中的唯一判据(供扫描与自检共用)。 */
 export function classifyLine(line) {
@@ -128,35 +171,87 @@ function readBaseline(root) {
   return raw
 }
 
-/** 扫描一个判定面,返回逐文件命中表。 */
-function scanFace({ root, face }) {
-  const listed = listFaceFiles(root, face, { paths: SUBROOTS })
-  const targets = listed.filter(
-    (rel) => underSubroots(rel) && isSource(rel) && !SKIP_SELF.has(rel) && !NON_STORE_FIXTURES.has(rel),
-  )
-  if (!targets.length) throw new Error(`目录枚举到 0 个候选(${face} 面)`)
+/**
+ * 扫描一个判定面,返回逐文件命中表。
+ *
+ * `prefilter` 三态:`auto`(默认,先 grep 预筛,失败退全量)/ `off`(强制全量)/ `only`(只给预筛用,
+ * `--parity` 对账时两路各跑一次再比)。
+ */
+function scanFace({ root, face, prefilter = 'auto' }) {
+  const fullScan = face === 'worktree' || prefilter === 'off' || process.env.IHUI_SQLITE_GATE_FULL_SCAN === '1'
+  let candidates = null
+  if (!fullScan) {
+    try {
+      candidates = grepCandidates(root, face)
+    } catch (e) {
+      if (prefilter === 'only') throw e
+      console.log(`⚠️ 预筛不可用(${String(e?.message ?? e).slice(0, 80)}),退回全量逐 blob 扫描`)
+      candidates = null
+    }
+  }
+
+  // 预筛命中时**不再枚举整棵面**(那步本身就是几秒):`git grep` 的输出已经证明候选在面内;
+  // 豁免存活核对只需要那两条路径,单独按两条路径取一次枚举即可。
+  const listedArr = candidates
+    ? listFaceFiles(root, face, { paths: [...NON_STORE_FIXTURES.keys(), ...SKIP_SELF] })
+    : listFaceFiles(root, face, { paths: SUBROOTS })
+  const listed = new Set(listedArr)
+  const eligible = candidates
+    ? [...candidates]
+        .filter((rel) => underSubroots(rel) && isSource(rel) && !SKIP_SELF.has(rel) && !NON_STORE_FIXTURES.has(rel))
+        .sort()
+    : listedArr.filter(
+        (rel) => underSubroots(rel) && isSource(rel) && !SKIP_SELF.has(rel) && !NON_STORE_FIXTURES.has(rel),
+      )
+  if (!eligible.length && candidates === null) throw new Error(`目录枚举到 0 个候选(${face} 面)`)
+  const targets = eligible
 
   const hits = new Map()
-  if (face === 'worktree') {
+  if (face === 'worktree' || candidates === null) {
+    if (face === 'worktree') {
+      for (const rel of targets) {
+        const abs = join(root, rel)
+        if (!existsSync(abs)) continue
+        const n = countHits(readFileSync(abs, 'utf8'))
+        if (n > 0) hits.set(rel, n)
+      }
+      return { hits, scanned: targets.length, eligible: eligible.length, listed: new Set(listed), prefiltered: false }
+    }
+    const spec = (rel) => (face === 'head' ? `HEAD:${rel}` : `:${rel}`)
+    const batch = catBatch(root, targetedSpecs(targets, spec))
     for (const rel of targets) {
-      const abs = join(root, rel)
-      if (!existsSync(abs)) continue
-      const n = countHits(readFileSync(abs, 'utf8'))
+      const content = batch.get(spec(rel))
+      if (content === null || content === undefined) throw new Error(`blob 取不到(${face}:${rel})`)
+      const n = countHits(content)
       if (n > 0) hits.set(rel, n)
     }
-    return { hits, scanned: targets.length, listed: new Set(listed) }
+    return { hits, scanned: targets.length, eligible: eligible.length, listed: new Set(listed), prefiltered: false }
   }
-  const spec = (rel) => (face === 'head' ? `HEAD:${rel}` : `:${rel}`)
-  const batch = catBatch(root, targets.map(spec))
-  for (const rel of targets) {
-    const content = batch.get(spec(rel))
-    if (content === null || content === undefined) {
-      throw new Error(`blob 取不到(${face}:${rel})`)
+
+  // 预筛路径:候选文件通常只有个位数,仍然逐行跑同一把精确尺子。
+  if (targets.length) {
+    const spec = (rel) => (face === 'head' ? `HEAD:${rel}` : `:${rel}`)
+    const batch = catBatch(root, targetedSpecs(targets, spec))
+    for (const rel of targets) {
+      const content = batch.get(spec(rel))
+      if (content === null || content === undefined) throw new Error(`blob 取不到(${face}:${rel})`)
+      const n = countHits(content)
+      if (n > 0) hits.set(rel, n)
     }
-    const n = countHits(content)
-    if (n > 0) hits.set(rel, n)
   }
-  return { hits, scanned: targets.length, listed: new Set(listed) }
+  return {
+    hits,
+    scanned: targets.length,
+    eligible: eligible.length,
+    listed: new Set(listed),
+    prefiltered: true,
+    candidates: candidates.size,
+  }
+}
+
+/** 只对"确有候选"的文件取 blob —— 全量档也复用这条,避免一次甩 2 万条 spec 给 cat-file。 */
+function targetedSpecs(targets, spec) {
+  return targets.map(spec)
 }
 
 /** 基线 vs 现读 ⇒ 新增集。 */
@@ -215,13 +310,14 @@ function selfTest({ quiet = false } = {}) {
 }
 
 function parseArgv(argv) {
-  const out = { face: 'head', emitBaseline: false, selfTest: false, root: ROOT, error: null }
+  const out = { face: 'head', emitBaseline: false, selfTest: false, parity: false, root: ROOT, error: null }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--staged') out.face = 'staged'
     else if (a === '--worktree') out.face = 'worktree'
     else if (a === '--emit-baseline') out.emitBaseline = true
     else if (a === '--self-test') out.selfTest = true
+    else if (a === '--parity') out.parity = true
     else if (a === '--root') {
       const v = argv[i + 1]
       if (!v) out.error = '--root 缺参数'
@@ -232,6 +328,34 @@ function parseArgv(argv) {
     } else out.error = `未知参数 ${a}`
   }
   return out
+}
+
+/**
+ * 预筛对账档(`--parity`):同一个面各跑一次"预筛路径"与"全量路径",逐文件命中数必须逐项相等。
+ *
+ * 为什么要有它:预筛是**加速件**,唯一风险是"漏捞 ⇒ 假绿"。这里不写第二份判据,只把两条取材
+ * 路径的结果摆在一起比 —— 相等才说明预筛没漏;不等就点名差异文件并 exit 1(§0.3:判不了不放行)。
+ */
+function parityCheck({ root, face }) {
+  const fast = scanFace({ root, face, prefilter: face === 'worktree' ? 'off' : 'only' })
+  const slow = scanFace({ root, face, prefilter: 'off' })
+  const keys = new Set([...fast.hits.keys(), ...slow.hits.keys()])
+  const diffs = []
+  for (const rel of [...keys].sort()) {
+    const a = fast.hits.get(rel) ?? 0
+    const b = slow.hits.get(rel) ?? 0
+    if (a !== b) diffs.push({ path: rel, fast: a, slow: b })
+  }
+  console.log(
+    `面=${face} · 预筛候选 ${fast.prefiltered ? String(fast.candidates) : 'N/A'} 文件 / 全量扫 ${slow.scanned} 文件`,
+  )
+  for (const d of diffs) console.log(`  · ${d.path}: 预筛 ${d.fast} ≠ 全量 ${d.slow}`)
+  if (diffs.length) {
+    console.log(`SQLITE-WRITE-PATHS-PARITY state=mismatch diffs=${diffs.length} face=${face}`)
+    return 1
+  }
+  console.log(`SQLITE-WRITE-PATHS-PARITY state=equal files=${fast.hits.size} face=${face}`)
+  return 0
 }
 
 function main() {
@@ -261,6 +385,7 @@ function main() {
 
   let scanned
   try {
+    if (a.parity) return parityCheck({ root: a.root, face: a.face })
     scanned = scanFace({ root: a.root, face: a.face })
   } catch (e) {
     console.log('SQLITE-WRITE-PATHS-RESULT state=undetermined new=NA base=NA face=' + a.face)
@@ -298,7 +423,10 @@ function main() {
   const baseCount = Object.keys(baseline.files).length
 
   console.log(
-    `面=${a.face} · 扫源文件 ${scanned.scanned} · 命中 ${hits.size} 文件 / ${total} 处 · 基线 ${baseCount} 文件`,
+    (scanned.prefiltered
+      ? `面=${a.face} · 预筛 ${scanned.candidates} 文件 → 精扫 ${scanned.scanned}`
+      : `面=${a.face} · 全量精扫 ${scanned.scanned}`) +
+      ` · 命中 ${hits.size} 文件 / ${total} 处 · 基线 ${baseCount} 文件`,
   )
   for (const [rel, n] of [...hits.entries()].sort()) {
     const was = baseline.files[rel]
