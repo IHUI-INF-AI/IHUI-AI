@@ -8750,6 +8750,7 @@
       "runtimeHookStatsTitle": "훅 누적",
       "runtimeHookAuditTitle": "훅 감사(로컬 원장)",
       "runtimeHookAuditTruncated": "원장 마지막 {lines}행만",
+      "runtimeHookAuditNearFull": "원장이 용량의 {pct}%에 도달, 곧 순환됩니다 (이전 백업은 덮어씁니다)",
       "runtimeHookAuditHistoryOnly": "현재 원장 비어 있음, {kb}KB 백업만 남음",
       "runtimeHookStats": "총 {total}회 · 통과 {ok} / 시간 초과 {timeout} / 실패 {error} · 평균 {avg}ms · 최대 {slowest}ms",
       "runtimeHookConfigUntrusted": "훅 설정 {count}개가 신뢰되지 않음 — 수정 후 이 컴퓨터에서 다시 신뢰 등록 필요",

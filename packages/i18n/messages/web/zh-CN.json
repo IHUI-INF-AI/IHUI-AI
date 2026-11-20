@@ -8750,6 +8750,7 @@
       "runtimeHookStatsTitle": "钩子累计",
       "runtimeHookAuditTitle": "钩子审计(本机台账)",
       "runtimeHookAuditTruncated": "仅读到台账尾部 {lines} 行",
+      "runtimeHookAuditNearFull": "台账已占 {pct}% 容量,接近轮转(旧备份将被覆盖)",
       "runtimeHookAuditHistoryOnly": "当前台账为空,仅存历史备份 {kb} KB",
       "runtimeHookStats": "共 {total} 次 · 通过 {ok} / 超时 {timeout} / 失败 {error} · 均值 {avg}ms · 峰值 {slowest}ms",
       "runtimeHookConfigUntrusted": "钩子配置 {count} 条未受信任,改动后需在本机重新登记信任",

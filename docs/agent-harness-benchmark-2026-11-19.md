@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **48 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **49 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（48 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（49 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -589,6 +589,14 @@
 - 测试：新增 `__tests__/hook-run-detail.test.tsx` 4 例 —— 标题带工具名与**条目数**（不是帧数）；逐行 `data-hook-status` 顺序与三态文案一一对应；错误文本只挂在出错那条、正常条目不出 `null`；`toolName` 缺失时用 `—` 占位而不是空白（空白会被读成"没跑钩子"）。
 
 验证：`vitest run hook-run-detail.test.tsx hook-readout.test.tsx use-hook-audit-summary.test.ts` → `19 passed`（15 旧 + 4 新）；`watermark verify` 覆盖 1/1。`@ihui/web` 全量 typecheck 当前红点是别席在飞文件 `send-message.ts` 的 `reasoningEffort`（不在本项文件面），本项三文件无 TS 报错。
+### 5.50 第 49 项：台账容量要报出来（轮转到 5MB 会覆盖唯一备份）
+
+- 问题：`hook_audit` 只保留"当前台账 + 一份 `.1` 备份"，到 5MB 轮转时旧备份被直接覆盖 ⇒ 之前的钩子历史永久消失。但后端摘要只报了 `total/ok/timeout/error/truncated/linesRead/backupBytes`，**当前文件多大、上限多少**都不在读数里：面板只能看到"跑过 N 次"，看不到"再写一点就没有历史了"。
+- 处置：`summarize_hook_audit` 增报 `sizeBytes`（当前台账字节，stat 失败/不存在 ⇒ `null`，不折 0）与 `maxBytes`（`_max_bytes()` 的现读值）；前端 `HookAuditStats` 收下两格，`normalizeHookAuditSummary` 只认正有限数（`0` 按 `null`，"还没写"不许画成 0%），`HookReadout` 用 `nearFullPct` 在 **≥90%** 时报一行 `runtimeHookAuditNearFull`（整数百分比，封顶 100），低于 90% 不打扰；任一格取不到 ⇒ 不判（不拿 0 当"没满"）。
+- 语义边界：容量是"历史还能留多久"，不是"性能"；不触发轮转、不改 `HOOK_AUDIT_MAX_BYTES` 默认值，只把已有事实搬进读数。轮转本身仍由写入路径决定。
+- 测试：后端新增 2 例（`maxBytes` 与 `sizeBytes` 实测且能对账文件大小 / 台账缺失时 `sizeBytes` 为 `None` 而 `maxBytes` 仍是整数）；前端新增 2 例（95% 报 `runtimeHookAuditNearFull:92`、低于 90% 与容量未知都不出现），并补齐既有 fixture 的两格。
+
+验证：`pytest test_hook_audit.py` → `15 passed`；`vitest run hook-readout / use-hook-audit-summary / hook-run-detail` → `22 passed`；`mypy --strict app/core/hook_audit.py` 与 `ruff check` 通过；`check-i18n-keys` → 5 语言 parity OK（新键 `runtimeHookAuditNearFull` 已在 zh-CN / en / zh-TW / ja / ko 同批落地）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

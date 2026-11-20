@@ -8750,6 +8750,7 @@
       "runtimeHookStatsTitle": "フック累計",
       "runtimeHookAuditTitle": "フック監査(ローカル台帳)",
       "runtimeHookAuditTruncated": "台帳の末尾 {lines} 行のみ",
+      "runtimeHookAuditNearFull": "台帳が容量の {pct}% に達し、まもなくローテーション(旧バックアップは上書きされます)",
       "runtimeHookAuditHistoryOnly": "現在の台帳は空、{kb} KB の履歴のみ",
       "runtimeHookStats": "計 {total} 回 · 成功 {ok} / タイムアウト {timeout} / 失敗 {error} · 平均 {avg}ms · 最大 {slowest}ms",
       "runtimeHookConfigUntrusted": "フック設定 {count} 件が未承認 — 変更後はこのマシンで再承認が必要",
