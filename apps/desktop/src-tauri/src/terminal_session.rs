@@ -208,6 +208,11 @@ impl JobObject {
     /// 建一个「杀时整树终止」的作业对象（不挂进程）。
     ///
     /// `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`：作业句柄关闭时自动终止组内全部进程。
+    /// `JOB_OBJECT_LIMIT_BREAKAWAY_OK`：允许子进程**显式请求**脱离作业。
+    /// 缺这一条自更新必挂：主进程 `exit(0)` 会关作业句柄 ⇒ 内核 `TerminateJobObject`
+    /// 把已启动的安装器一起杀掉（2026-11-21 实测：安装器 pid 已起来、2 秒内消失、
+    /// 版本不变、日志一片空白，而同一份包手动跑 `/UPDATE /S` 一次就装上）。
+    /// 只有请求 `CREATE_BREAKAWAY_FROM_JOB` 的子进程才脱离，终端会话照旧继承（语义不变）。
     /// 这是 WorkBuddy job-object 模式的复现，供两条线复用同一份建立逻辑
     /// （单一真相源，不复制）：
     /// - 终端会话：``attach_job_object`` 把子进程挂进来（逐会话）；
@@ -216,7 +221,8 @@ impl JobObject {
     pub fn create_kill_on_close() -> Option<Self> {
         use winapi::um::jobapi2::{CreateJobObjectW, SetInformationJobObject};
         use winapi::um::winnt::{
-            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_BREAKAWAY_OK,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
         };
         unsafe {
             let job = CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
@@ -224,7 +230,8 @@ impl JobObject {
                 return None;
             }
             let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            info.BasicLimitInformation.LimitFlags =
+                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
             if SetInformationJobObject(
                 job,
                 winapi::um::winnt::JobObjectExtendedLimitInformation,
