@@ -12,6 +12,7 @@ import { requirePermission } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
 import { buildSchema } from '../utils/swagger.js'
+import { validateInsuranceConfig } from '../services/hr-payroll.js'
 
 /**
  * 薪资配置管理路由(2026-11-13 立)。
@@ -231,6 +232,88 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(desc(hrInsuranceRateConfig.effectiveYear), hrInsuranceRateConfig.regionName)
         .limit(200)
       reply.send(success({ count: rows.length, rows }))
+    },
+  )
+
+  // B1.5 GET /api/hr-salary-config/insurance/ready — 算薪前体检:当年(某地区)配置能不能直接算
+  //
+  // 算薪引擎现在是"配置缺失/不完整就拒绝出单"(宁可不出单,不出错单),
+  // 所以前端/AI 在点"算工资"之前必须先知道配置够不够,这个接口就是那份体检单。
+  server.get(
+    '/insurance/ready',
+    {
+      preHandler: requirePermission(HR_PAYROLL),
+      schema: buildSchema({
+        tags: ['人事-薪资配置'],
+        summary: '算薪社保配置体检(是否就绪 / 缺什么 / 已有配置清单)',
+        description:
+          '按 地区+年度 返回 ready、缺失与非法项清单、以及库里已有的全部配置记录,' +
+          '便于在算薪前把缺的口径补齐。',
+      }),
+    },
+    async (request, reply) => {
+      const q = request.query as { regionName?: string; effectiveYear?: string }
+      const year =
+        q.effectiveYear && /^\d{4}$/.test(q.effectiveYear)
+          ? Number(q.effectiveYear)
+          : new Date().getFullYear()
+      const regionName = q.regionName?.trim() || undefined
+
+      const filters = [
+        eq(hrInsuranceRateConfig.effectiveYear, year),
+        eq(hrInsuranceRateConfig.enabled, true),
+      ]
+      if (regionName) filters.push(eq(hrInsuranceRateConfig.regionName, regionName))
+      const [config] = await db
+        .select()
+        .from(hrInsuranceRateConfig)
+        .where(and(...filters))
+        .limit(1)
+
+      const roster = await db
+        .select({
+          regionName: hrInsuranceRateConfig.regionName,
+          effectiveYear: hrInsuranceRateConfig.effectiveYear,
+          enabled: hrInsuranceRateConfig.enabled,
+        })
+        .from(hrInsuranceRateConfig)
+        .orderBy(desc(hrInsuranceRateConfig.effectiveYear), hrInsuranceRateConfig.regionName)
+        .limit(200)
+
+      const issues: string[] = []
+      if (!config) {
+        issues.push(
+          `${year} 年${regionName ? `「${regionName}」` : ''}没有启用的社保费率配置;` +
+            '请先 POST /api/hr-salary-config/insurance 录入(养老/医疗/失业个人费率 + 公积金费率 + 缴费基数上下限)',
+        )
+      } else {
+        issues.push(...validateInsuranceConfig(config))
+      }
+
+      if (!regionName) {
+        const regionsThisYear = [
+          ...new Set(
+            roster.filter((r) => r.effectiveYear === year && r.enabled).map((r) => r.regionName),
+          ),
+        ]
+        if (regionsThisYear.length > 1) {
+          issues.push(
+            `该年存在多个参保地(${regionsThisYear.join('、')}),算薪必须传 regionName,` +
+              '否则引擎会拒绝(PAYROLL_REGION_AMBIGUOUS)',
+          )
+        }
+      }
+
+      reply.send(
+        success({
+          ready: issues.length === 0,
+          effectiveYear: year,
+          regionName: regionName ?? null,
+          config: config ?? null,
+          issues,
+          roster,
+        }),
+      )
     },
   )
 

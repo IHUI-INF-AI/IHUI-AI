@@ -9601,6 +9601,9 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     hr_payroll_calc as _hr_payroll_calc,
 )
+from ..tools import (  # noqa: E402
+    hr_insurance_readiness as _hr_insurance_readiness,
+)
 
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
@@ -9615,6 +9618,7 @@ from ..tools.payroll_handoff_tools import (  # noqa: E402
 
 # 人事部自助/算薪描述常量(2026-11-21 实装):文案单源在 hr_tools
 from ..tools.hr_tools import (  # noqa: E402
+    HR_INSURANCE_READINESS_DESCRIPTION,
     HR_MY_ATTENDANCE_DESCRIPTION,
     HR_MY_LEAVES_DESCRIPTION,
     HR_MY_PAYROLL_DESCRIPTION,
@@ -16769,6 +16773,26 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 社保配置体检(2026-11-21):算薪前先查"当年+参保地"配置齐不齐。
+        # 算薪在配置缺失/不完整时会直接 400 拒绝,这枚工具让 AI 能提前把原因讲清。
+        name="hr_insurance_readiness",
+        description=HR_INSURANCE_READINESS_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "effectiveYear": {
+                    "type": "integer",
+                    "description": "费率配置所属年份(4 位,可选;默认取当年)",
+                },
+                "regionName": {
+                    "type": "string",
+                    "description": "参保地名(可选;同一年存在多个参保地时算薪必须指定)",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         # 财务部五腿·AI 一键报销(2026-11-13 立):入参口径单源 = AI_REIMBURSEMENT_DESCRIPTION
         name="ai_reimbursement",
         description=AI_REIMBURSEMENT_DESCRIPTION,
@@ -18789,6 +18813,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "hr_my_attendance": _hr_my_attendance,
     "hr_my_leaves": _hr_my_leaves,
     "hr_payroll_calc": _hr_payroll_calc,
+    "hr_insurance_readiness": _hr_insurance_readiness,
     # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加
     "ai_reimbursement": _ai_reimbursement,
     "social_insurance_calc": _social_insurance_calc,

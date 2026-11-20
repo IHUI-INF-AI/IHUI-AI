@@ -25,11 +25,13 @@ import pytest
 
 from app.tools import hr_tools
 from app.tools.hr_tools import (
+    HR_INSURANCE_READINESS_DESCRIPTION,
     HR_MY_ATTENDANCE_DESCRIPTION,
     HR_MY_LEAVES_DESCRIPTION,
     HR_MY_PAYROLL_DESCRIPTION,
     HR_MY_PAYROLL_PERIODS_DESCRIPTION,
     HR_PAYROLL_CALC_DESCRIPTION,
+    hr_insurance_readiness,
     hr_my_attendance,
     hr_my_leaves,
     hr_my_payroll,
@@ -43,6 +45,7 @@ TOOL_NAMES = (
     "hr_my_attendance",
     "hr_my_leaves",
     "hr_payroll_calc",
+    "hr_insurance_readiness",
 )
 
 
@@ -302,6 +305,83 @@ class TestPayrollCalc:
         assert got["errorCode"] == "NETWORK_ERROR"
 
 
+class TestInsuranceReadiness:
+    """社保配置体检(2026-11-21):算薪前那道关,必须只读、必须把缺失项原样转述。"""
+
+    def test_ready_true_summary(self, monkeypatch) -> None:
+        _stub_ticket(monkeypatch, "u-1")
+        calls = _install_fake_httpx(
+            monkeypatch,
+            payload={
+                "code": 0,
+                "data": {
+                    "ready": True,
+                    "effectiveYear": 2026,
+                    "regionName": "长春",
+                    "config": {"regionName": "长春", "effectiveYear": 2026},
+                    "issues": [],
+                    "roster": [],
+                },
+            },
+        )
+        got = _run(
+            hr_insurance_readiness(
+                {"__user_id": "u-1", "effectiveYear": 2026, "regionName": "长春"}
+            )
+        )
+        assert got["ok"] is True
+        assert got["ready"] is True
+        assert "已就绪" in got["message"]
+        assert calls[0]["method"] == "GET"
+        assert calls[0]["url"] == "http://api.test/api/hr-salary-config/insurance/ready"
+        assert calls[0]["params"] == {"effectiveYear": "2026", "regionName": "长春"}
+
+    def test_not_ready_lists_issues_verbatim(self, monkeypatch) -> None:
+        _stub_ticket(monkeypatch, "u-1")
+        _install_fake_httpx(
+            monkeypatch,
+            payload={
+                "code": 0,
+                "data": {
+                    "ready": False,
+                    "effectiveYear": 2026,
+                    "regionName": None,
+                    "config": None,
+                    "issues": ["2026 年没有启用的社保费率配置"],
+                    "roster": [],
+                },
+            },
+        )
+        got = _run(hr_insurance_readiness({"__user_id": "u-1"}))
+        assert got["ready"] is False
+        assert got["issues"] == ["2026 年没有启用的社保费率配置"]
+        assert "没有启用的社保费率配置" in got["message"]
+        assert "算薪会被拒绝" in got["message"]
+
+    def test_illegal_year_rejected_before_request(self, monkeypatch) -> None:
+        _stub_ticket(monkeypatch, "u-1")
+        calls = _install_fake_httpx(monkeypatch, payload={"code": 0, "data": {}})
+        got = _run(hr_insurance_readiness({"__user_id": "u-1", "effectiveYear": "明年"}))
+        assert got["ok"] is False
+        assert got["errorCode"] == "INVALID_YEAR"
+        assert calls == []
+
+    def test_out_of_range_year_rejected(self, monkeypatch) -> None:
+        _stub_ticket(monkeypatch, "u-1")
+        calls = _install_fake_httpx(monkeypatch, payload={"code": 0, "data": {}})
+        got = _run(hr_insurance_readiness({"__user_id": "u-1", "effectiveYear": 999}))
+        assert got["ok"] is False
+        assert got["errorCode"] == "INVALID_YEAR"
+        assert calls == []
+
+    def test_missing_user_fails_closed(self, monkeypatch) -> None:
+        calls = _install_fake_httpx(monkeypatch, payload={"code": 0, "data": {}})
+        got = _run(hr_insurance_readiness({}))
+        assert got["ok"] is False
+        assert got["errorCode"] == "MISSING_USER"
+        assert calls == []
+
+
 class TestWiring:
     def test_descriptions_are_exported(self) -> None:
         for text in (
@@ -310,6 +390,7 @@ class TestWiring:
             HR_MY_ATTENDANCE_DESCRIPTION,
             HR_MY_LEAVES_DESCRIPTION,
             HR_PAYROLL_CALC_DESCRIPTION,
+            HR_INSURANCE_READINESS_DESCRIPTION,
         ):
             assert isinstance(text, str)
             assert len(text) >= 20
@@ -351,6 +432,7 @@ class TestWiring:
         merged = merge_tools(route, ["read_file"])
         assert "read_file" in merged
         assert "hr_payroll_calc" in merged
+        assert "hr_insurance_readiness" in merged
         assert "ai_payroll_handoff" in merged
 
     def test_expert_pack_routes_self_service(self) -> None:

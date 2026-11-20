@@ -36,11 +36,13 @@ from .finance_tools import (
     ai_tax_filing,
 )
 from .hr_tools import (
+    HR_INSURANCE_READINESS_DESCRIPTION,
     HR_MY_ATTENDANCE_DESCRIPTION,
     HR_MY_LEAVES_DESCRIPTION,
     HR_MY_PAYROLL_DESCRIPTION,
     HR_MY_PAYROLL_PERIODS_DESCRIPTION,
     HR_PAYROLL_CALC_DESCRIPTION,
+    hr_insurance_readiness,
     hr_my_attendance,
     hr_my_leaves,
     hr_my_payroll,
@@ -84,6 +86,7 @@ __all__ = [
     "hr_my_attendance",
     "hr_my_leaves",
     "hr_payroll_calc",
+    "hr_insurance_readiness",
     "AI_BOOKKEEPING_DESCRIPTION",
     "AI_TAX_FILING_DESCRIPTION",
     "AI_REIMBURSEMENT_DESCRIPTION",

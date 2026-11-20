@@ -76,6 +76,19 @@ HR_PAYROLL_CALC_DESCRIPTION = (
 )
 
 
+HR_INSURANCE_READINESS_DESCRIPTION = (
+    "人事财务-社保配置体检:算薪前检查「某年 + 某参保地」的社保公积金费率配置能不能直接用来算薪。"
+    "返回 ready(是否就绪)、issues(缺失/非法项清单)、config(命中的配置快照,含个人费率与缴费基数"
+    "上下限)、roster(库里已有的全部配置)。**算薪引擎在配置缺失或不完整时会直接拒绝出单**"
+    "(宁可不出单,不出错单),所以算薪前先跑这枚工具最稳。"
+    "可选 effectiveYear(4 位年份,默认当年)、regionName(参保地名;同一年有多个参保地时必须指定)。"
+    "ready=False 时如实转述 issues,不要臆测费率;补齐入口是薪资配置页(或 "
+    "POST /api/hr-salary-config/insurance)。本工具**只读**,不改任何配置。"
+    "社保费率与缴费基数上下限没有外部实时数据源,全靠这张配置表按年维护 —— 若 issues 提示某年无配置,"
+    "说明当年还没录,不是系统故障。"
+)
+
+
 # ---------------------------------------------------------------------------
 # HTTP 出口(与 ai_payroll_handoff 同一条内部票腿)
 # ---------------------------------------------------------------------------
@@ -335,17 +348,72 @@ async def hr_payroll_calc(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def hr_insurance_readiness(arguments: dict[str, Any]) -> dict[str, Any]:
+    """社保配置体检(GET /api/hr-salary-config/insurance/ready),只读。"""
+    tool = "hr_insurance_readiness"
+    uid, err = _uid_or_fail(tool, arguments)
+    if err:
+        return err
+
+    params: dict[str, Any] = {}
+    year = arguments.get("effectiveYear")
+    if year is not None:
+        try:
+            y = int(year)
+        except (TypeError, ValueError):
+            return _fail(tool, "INVALID_YEAR", "effectiveYear 必须是 4 位年份整数,如 2026")
+        if y < 2000 or y > 2100:
+            return _fail(tool, "INVALID_YEAR", "effectiveYear 超出合理范围(2000~2100)")
+        params["effectiveYear"] = str(y)
+    region = arguments.get("regionName")
+    if isinstance(region, str) and region.strip():
+        params["regionName"] = region.strip()
+
+    result = await _hr_request(
+        "GET",
+        "/api/hr-salary-config/insurance/ready",
+        tool=tool,
+        user_id=uid,
+        params=params or None,
+    )
+    if not result.get("ok"):
+        return result
+
+    issues = [str(i) for i in (result.get("issues") or [])]
+    ready = bool(result.get("ready"))
+    where = f"{result.get('effectiveYear')} 年"
+    if result.get("regionName"):
+        where += f"「{result['regionName']}」"
+    return {
+        "tool": tool,
+        "ok": True,
+        "ready": ready,
+        "effectiveYear": result.get("effectiveYear"),
+        "regionName": result.get("regionName"),
+        "issues": issues,
+        "config": result.get("config"),
+        "roster": result.get("roster") or [],
+        "message": (
+            f"{where}社保公积金配置已就绪,可以直接算薪。"
+            if ready
+            else f"{where}社保配置不可用,算薪会被拒绝:\n- " + "\n- ".join(issues)
+        ),
+    }
+
+
 __all__ = [
     "HR_MY_PAYROLL_DESCRIPTION",
     "HR_MY_PAYROLL_PERIODS_DESCRIPTION",
     "HR_MY_ATTENDANCE_DESCRIPTION",
     "HR_MY_LEAVES_DESCRIPTION",
     "HR_PAYROLL_CALC_DESCRIPTION",
+    "HR_INSURANCE_READINESS_DESCRIPTION",
     "hr_internal_headers",
     "hr_my_payroll",
     "hr_my_payroll_periods",
     "hr_my_attendance",
     "hr_my_leaves",
     "hr_payroll_calc",
+    "hr_insurance_readiness",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
