@@ -197,6 +197,10 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
             stop: frame.stop as string | string[] | undefined,
             tools: Array.isArray(frame.tools) ? frame.tools : undefined,
             toolChoice: frame.tool_choice,
+            // 2026-11-21:推理档位透传(web 帧发 `reasoning_effort`;转发层已有该字段,
+            // 账号池由适配器映射到平台专有键)。缺省/非字符串 ⇒ undefined,按默认档。
+            reasoningEffort:
+              typeof frame.reasoning_effort === 'string' ? frame.reasoning_effort : undefined,
           })
 
           if (result === null) {
