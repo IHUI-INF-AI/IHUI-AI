@@ -16,11 +16,15 @@
 - `send_terminal`:写入一行(可选追加换行);
 - `send_terminal_keys`:按**键名**发控制输入(Tab/Esc/方向键/Ctrl 组合) —— 方向键与 Esc
   是文本写不出来的字节序列,REPL 补全、TUI 菜单、vim 这类程序只认它们;
-- `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;
+- `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;缓冲是有界的,
+  消费方太慢时最老的块被挤掉 —— 此时回 `gap`/`gap_chunks`/`dropped_chunks` 明说丢了多少,
+  绝不"按 next_seq 续读却凭空少段落还装没事";
 - `wait_terminal`:等输出里出现某个 pattern(子串或正则),命中/超时/进程退出三种收口
   —— 轮询式 `read` 拼不出"等提示符"这件事(`wait_s` 单次上限 10s,且没有命中语义);
 - `eof_terminal`:送"输入结束"让按 EOF 收尾的程序自己收尾(管道关 stdin / PTY 写
   `\\x04`),之后 send/keys 显式 `TERMINAL_STDIN_CLOSED`,不是只能 kill;
+- `reap_idle_terminals`:闲置回收(env `IHUI_TERMINAL_IDLE_TTL_S` > 0 才启用,默认关闭;
+  开新会话前自动跑一次),回收了谁/闲了多久逐条回报,不静默杀;
 - `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
@@ -41,7 +45,9 @@
   (ctypes 直连 kernel32 的 `CreatePseudoConsole` + `CreateProcessW`
   启动属性表,零第三方依赖),子进程同样 `isatty()` 为真;宿主/内核不支持时**显式返回
   `TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM`**,绝不静默回落管道冒充已 PTY(§0.3
-  「没判绝不写成判过」)。
+  「没判绝不写成判过」)。PTY 输出的行切同样不按"死等换行":整行即时吐,末尾不完整
+  片段在静默 `PTY_IDLE_FLUSH_S` 后当一帧吐出 —— TUI(htop/vim/进度条)的刷新帧只写
+  `\\r` 不写 `\\n`,死等换行会让读端在"子进程活着、屏幕明明有内容"时读到空。
 
 对照程序:WB/Trae 的 harness 用原生 `pty.node`/`conpty.node`(:lydell/node-pty),deepseek-tui
 用管道。本实现取"CI 真能跑通 + 零第三方依赖"的那一档(POSIX 标准库 `pty` + Windows
@@ -162,6 +168,10 @@ MAX_ROWS: Final = 200
 # PTY 后端开关(读时机敏感:每次 open_terminal 现读 env,便于测试 monkeypatch)。
 PTY_REQUEST_ENV: Final = "IHUI_INTERACTIVE_PTY"
 _PTY_TRUTHY: Final[frozenset[str]] = frozenset({"1", "true", "yes", "on"})
+#: 闲置会话回收窗口(秒)。**默认关闭(空/0)** —— 既有会话语义逐字节不变;设成 >0 的
+#: 秒数才启用:任何超过该窗口没被交互碰过的会话会被回收(子进程 terminate + 释放 fd)。
+#: 这是防"跑着没人管"的会话把 MAX_SESSIONS 占满、把句柄泄漏出去的根治手段。
+TERMINAL_IDLE_TTL_ENV: Final = "IHUI_TERMINAL_IDLE_TTL_S"
 #: PTY 读循环每次最多吐多少字节(行切分在 _pump_pty 里做,这里只控单次 read 上界)。
 _PTY_READ_CHUNK: Final = 65_536
 #: PTY 输出"静默多久算一帧"。TUI 只写 `\r` 不写 `\n`,死等换行会让读端在子进程
@@ -245,6 +255,16 @@ class TerminalSession:
     #: 缓冲满时被挤掉的块数(deque maxlen 会**静默**丢弃最老的)。这是唯一能让
     #: "按 next_seq 续读却读不到中间那段"变成可判事实的计数;恒为 0 才说明零丢失。
     dropped_chunks: int = 0
+    #: 最近一次"被交互碰到"的单调时刻(open/send/keys/eof/read/wait/resize/signal 刷新)。
+    #: 闲置回收只认这一个时钟 —— 用 wall clock 会在系统改时间时误杀/漏杀。
+    last_activity_ts: float = field(default_factory=time.monotonic)
+
+    def touch(self) -> None:
+        """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
+        self.last_activity_ts = time.monotonic()
+
+    def idle_s(self) -> float:
+        return round(time.monotonic() - self.last_activity_ts, 1)
 
     def running(self) -> bool:
         return self.proc.poll() is None
@@ -267,6 +287,7 @@ class TerminalSession:
             "next_seq": self.seq,
             "first_seq": self.first_seq(),
             "dropped_chunks": self.dropped_chunks,
+            "idle_s": self.idle_s(),
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -287,6 +308,59 @@ def reset_terminals() -> None:
     for session in sessions:
         _force_stop(session)
         _close_io(session)
+
+
+def _idle_ttl_s(env: Mapping[str, str] | None = None) -> float:
+    """闲置回收窗口(秒)。未设/空/非法/负数一律 0.0 = **关闭**(fail-safe,不猜)。
+
+    每次现读 env(不在导入期定格),便于运行期调参与测试。
+    """
+    source = os.environ if env is None else env
+    raw = (source.get(TERMINAL_IDLE_TTL_ENV, "") or "").strip()
+    if not raw:
+        return 0.0
+    try:
+        value = float(raw)
+    except ValueError:
+        return 0.0
+    if value != value or value <= 0:  # NaN / 负数 / 零 都当"关闭"
+        return 0.0
+    return value
+
+
+def reap_idle_terminals(*, ttl_s: float | None = None) -> dict[str, Any]:
+    """回收闲置会话,并把"回收了谁、闲了多久"原样回报(**不静默杀**)。
+
+    `ttl_s` 显式传入时优先;否则读 `IHUI_TERMINAL_IDLE_TTL_S`。十字段:
+    - `disabled`:窗口未启用,一条也不动(既有语义不变);
+    - `ttl`:窗口启用,按 `last_activity_ts` 判;每条回收都带回 `terminal_id` / `idle_s` /
+      `exit_code`(回收前先 terminate,所以这个码是"被我们打断后"的真实退出码)。
+    """
+    ttl = _idle_ttl_s() if ttl_s is None else (ttl_s if ttl_s > 0 else 0.0)
+    if ttl <= 0:
+        return {"ok": True, "ttl_s": 0.0, "reason": "disabled", "reaped": []}
+    now = time.monotonic()
+    with _registry_lock:
+        victims = [
+            s for s in _sessions.values() if now - s.last_activity_ts >= ttl
+        ]
+        for session in victims:
+            _sessions.pop(session.terminal_id, None)
+    reaped: list[dict[str, Any]] = []
+    for session in victims:
+        idle = round(now - session.last_activity_ts, 1)
+        was_running = session.running()
+        _force_stop(session)
+        _close_io(session)
+        reaped.append(
+            {
+                "terminal_id": session.terminal_id,
+                "idle_s": idle,
+                "was_running": was_running,
+                "exit_code": session.proc.poll(),
+            }
+        )
+    return {"ok": True, "ttl_s": ttl, "reason": "ttl", "reaped": reaped}
 
 
 def _force_stop(session: TerminalSession) -> None:
@@ -318,6 +392,13 @@ def _close_io(session: TerminalSession) -> None:
             write_io.close()
 
 
+def _with_reaped(payload: dict[str, Any], reaped: list[dict[str, Any]]) -> dict[str, Any]:
+    """只有真回收了东西才加 `reaped_idle` —— TTL 未启用时响应形状与既有**逐字节一致**。"""
+    if reaped:
+        payload["reaped_idle"] = reaped
+    return payload
+
+
 def _owned(
     session: TerminalSession, user_id: str | None, session_id: str | None
 ) -> bool:
@@ -325,6 +406,26 @@ def _owned(
         session.owner_user_id == (user_id or None)
         and session.owner_session_id == (session_id or None)
     )
+
+
+def _touch(session: TerminalSession) -> None:
+    """刷新闲置计时的**唯一出口**(§22c:不在各 API 各写一份 `time.monotonic`)。"""
+    session.touch()
+
+
+def _live(
+    terminal_id: str, user_id: str | None, session_id: str | None
+) -> TerminalSession | None:
+    """取会话 + 归属校验 + 刷新闲置计时,三件事一个出口。
+
+    闲置回收(`reap_idle_terminals`)只认 `last_activity_ts`;若各入口各写一份赋值,
+    迟早漏一处 ⇒ 正在用的会话被当闲置杀掉(误杀比泄漏更坏)。
+    """
+    session = _sessions.get(terminal_id)
+    if session is None or not _owned(session, user_id, session_id):
+        return None
+    _touch(session)
+    return session
 
 
 def _push(session: TerminalSession, tag: str, text: str) -> None:
@@ -719,12 +820,18 @@ def open_terminal(
     # 管道后端没有 tty 语义:尺寸不进内核,账本也只记缺省值(把它记成 100×40 会让读账本的人
     # 以为内核真按 100×40 排版,那才是骗)。调用方显式要过尺寸时,响应如实回 size_ignored。
     size_requested = cols is not None or rows is not None
+    # 开新会话之前先回收闲置会话(仅 `IHUI_TERMINAL_IDLE_TTL_S` 启用时生效,默认 0 = 不动),
+    # 免得"跑着没人管"的会话把 MAX_SESSIONS 占死;回收了谁一律在响应里点名,不静默杀。
+    reaped_idle = reap_idle_terminals()["reaped"]
     with _registry_lock:
         if _pty_requested() and _pty_supported_on_host():
-            return _open_pty_session(
-                command=command, cwd=cwd, user_id=user_id,
-                session_id=session_id, env_extra=env_extra,
-                cols=cols_i, rows=rows_i,
+            return _with_reaped(
+                _open_pty_session(
+                    command=command, cwd=cwd, user_id=user_id,
+                    session_id=session_id, env_extra=env_extra,
+                    cols=cols_i, rows=rows_i,
+                ),
+                reaped_idle,
             )
         _prune_for_new_session()
         if len(_sessions) >= MAX_SESSIONS:
@@ -759,16 +866,19 @@ def open_terminal(
         thread.start()
         session.pumps.append(thread)
     if size_requested:
-        return {
-            "ok": True,
-            "terminal": session.to_dict(),
-            "size_ignored": {"cols": cols_i, "rows": rows_i},
-            "size_ignored_reason": (
-                "管道路径没有 tty 语义:窗口尺寸只对真 tty 生效;"
-                f"要以 tty 开会话请设 {PTY_REQUEST_ENV}=1"
-            ),
-        }
-    return {"ok": True, "terminal": session.to_dict()}
+        return _with_reaped(
+            {
+                "ok": True,
+                "terminal": session.to_dict(),
+                "size_ignored": {"cols": cols_i, "rows": rows_i},
+                "size_ignored_reason": (
+                    "管道路径没有 tty 语义:窗口尺寸只对真 tty 生效;"
+                    f"要以 tty 开会话请设 {PTY_REQUEST_ENV}=1"
+                ),
+            },
+            reaped_idle,
+        )
+    return _with_reaped({"ok": True, "terminal": session.to_dict()}, reaped_idle)
 
 
 def send_terminal(
@@ -779,8 +889,8 @@ def send_terminal(
     session_id: str | None,
     enter: bool = True,
 ) -> dict[str, Any]:
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -869,8 +979,8 @@ def send_terminal_keys(
     行里随回车送达;Windows ConPTY 的 conhost 会直接吃掉(本机实测)。要让程序**原样**拿到
     这些字节,它自己必须先切到 raw/非规范模式(vim、less 这类本来就会切)。
     """
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -956,8 +1066,8 @@ def eof_terminal(
     输入可能只被 conhost 回显(`^Z` 直接当普通字符),不产生 EOF —— 先 `wait_for` 提示符
     再 eof;这不是本层的缺陷,而是"往还没挂上输入处理的终端写字节"的通病。
     """
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -1032,8 +1142,8 @@ def read_terminal(
     缓冲是有界的(`MAX_BUFFER_LINES`):消费方太慢时最老的块会被挤掉。此时**不会**
     假装"什么都没发生"——信封里 `gap=True` / `gap_chunks` / `dropped_chunks` 明说丢了多少。
     """
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -1133,8 +1243,8 @@ def wait_terminal(
     `since_seq` 语义与 `read_terminal` 一致:只扫该 seq **之后**的块。进程退出后仍等
     pump 排空(与 read 同一条收尾判据),否则可能漏掉退出前最后一行命中。
     """
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -1206,8 +1316,8 @@ def signal_terminal(
     user_id: str | None,
     session_id: str | None,
 ) -> dict[str, Any]:
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -1268,8 +1378,8 @@ def resize_terminal(
     (`TERMINAL_NOT_A_TTY`)而不是静默 no-op —— 管道没有 tty 语义,"改成了"这句话
     在那边是假的(§0.3);越界尺寸同样显式拒,避免把 0/负数喂给内核。
     """
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -1315,8 +1425,8 @@ def resize_terminal(
 def close_terminal(
     terminal_id: str, *, user_id: str | None, session_id: str | None
 ) -> dict[str, Any]:
-    session = _sessions.get(terminal_id)
-    if session is None or not _owned(session, user_id, session_id):
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
         return {
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
@@ -1731,6 +1841,9 @@ __test__ = {
     "history_gap": _history_gap,
     "pty_line_splitter": _PtyLineSplitter,
     "PTY_IDLE_FLUSH_S": PTY_IDLE_FLUSH_S,
+    "reap_idle_terminals": reap_idle_terminals,
+    "idle_ttl_s": _idle_ttl_s,
+    "TERMINAL_IDLE_TTL_ENV": TERMINAL_IDLE_TTL_ENV,
     "read_terminal": read_terminal,
     "PTY_TERM": PTY_TERM,
     "PTY_COLORTERM": PTY_COLORTERM,

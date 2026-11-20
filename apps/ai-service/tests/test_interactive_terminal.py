@@ -291,6 +291,86 @@ def test_pty_idle_flush_is_wired_in_pump_source() -> None:
     assert src.count("PTY_IDLE_FLUSH_S: Final =") == 1
 
 
+# ─── 闲置会话回收(TTL):默认关闭;启用后回收必须点名,且不误杀活跃会话 ───
+
+
+def test_idle_ttl_env_parsing_defaults_off(monkeypatch) -> None:
+    """判据单源:空/非法/0/负数/NaN 一律 0.0 = 关闭(fail-safe,不猜一个窗口出来)。"""
+    ttl_of = _TEST["idle_ttl_s"]
+    key = _TEST["TERMINAL_IDLE_TTL_ENV"]
+    assert ttl_of({}) == 0.0
+    for bad in ("", "  ", "abc", "0", "-5", "nan"):
+        assert ttl_of({key: bad}) == 0.0, f"{bad!r} 不该被读成启用"
+    assert ttl_of({key: " 900 "}) == 900.0
+    monkeypatch.delenv(key, raising=False)
+    assert term._idle_ttl_s() == 0.0
+
+
+def test_reap_disabled_keeps_every_session_and_response_shape(monkeypatch, tmp_path) -> None:
+    """TTL 未启用:一条都不动,且 open 响应**不多** `reaped_idle`(既有形状逐字节一致)。"""
+    monkeypatch.delenv(_TEST["TERMINAL_IDLE_TTL_ENV"], raising=False)
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "sleep0.py", _SLEEP_SCRIPT), tmp_path)
+        assert opened["ok"] is True
+        assert "reaped_idle" not in opened
+        res = _TEST["reap_idle_terminals"]()
+        assert res["ok"] is True and res["reason"] == "disabled" and res["reaped"] == []
+        assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 1
+    finally:
+        term.reset_terminals()
+
+
+def test_reap_closes_stale_and_skips_active(tmp_path) -> None:
+    """启用窗口后:到点的回收(带回 idle_s / was_running / exit_code),没到点的一条不碰。"""
+    term.reset_terminals()
+    try:
+        stale = _open(_script_path(tmp_path, "sleep_stale.py", _SLEEP_SCRIPT), tmp_path)
+        active = _open(_script_path(tmp_path, "sleep_active.py", _SLEEP_SCRIPT), tmp_path)
+        stale_tid = stale["terminal"]["terminal_id"]
+        active_tid = active["terminal"]["terminal_id"]
+        term._sessions[stale_tid].last_activity_ts -= 3600.0
+        term._sessions[active_tid].touch()
+        res = _TEST["reap_idle_terminals"](ttl_s=600.0)
+        assert res["reason"] == "ttl" and len(res["reaped"]) == 1, res
+        victim = res["reaped"][0]
+        assert victim["terminal_id"] == stale_tid
+        assert victim["idle_s"] >= 3600.0 and victim["was_running"] is True
+        listed = term.list_terminals(user_id="u-term", session_id="s-term")
+        assert [t["terminal_id"] for t in listed["terminals"]] == [active_tid]
+        assert term._sessions[active_tid].running() is True
+        assert stale_tid not in term._sessions
+    finally:
+        term.reset_terminals()
+
+
+def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_path) -> None:
+    """开新会话前自动回收 + 响应点名:回收了谁、闲了多久一眼可见(不静默杀)。"""
+    monkeypatch.setenv(_TEST["TERMINAL_IDLE_TTL_ENV"], "600")
+    term.reset_terminals()
+    try:
+        first = _open(_script_path(tmp_path, "sleep_first.py", _SLEEP_SCRIPT), tmp_path)
+        first_tid = first["terminal"]["terminal_id"]
+        term._sessions[first_tid].last_activity_ts -= 7200.0
+        second = _open(_script_path(tmp_path, "sleep_second.py", _SLEEP_SCRIPT), tmp_path)
+        assert second["ok"] is True
+        assert [r["terminal_id"] for r in second["reaped_idle"]] == [first_tid]
+        assert first_tid not in term._sessions
+        assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 1
+    finally:
+        term.reset_terminals()
+
+
+def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
+    """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
+    src = _conpty_source()
+    assert src.count("_live(terminal_id, user_id, session_id)") == 8, (
+        "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
+    )
+    assert "def _touch(session" in src
+    assert "last_activity_ts" in src
+
+
 # ─── 终端身份键(TERM/COLORTERM):只在真 tty 上补,且不覆盖调用方显式值 ───
 
 _ENV_SCRIPT = """\
