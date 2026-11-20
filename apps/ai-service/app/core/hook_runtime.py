@@ -71,6 +71,10 @@ class HookKind(StrEnum):
     POST_MODEL_REQUEST = "post_model_request"
     # 2026-11-21:契约有 interrupt,本仓无挂载点 ⇒ "取消时通知外部/落审计"无处可挂。
     INTERRUPT = "interrupt"
+    # 2026-11-21:契约有 subagent_start / subagent_stop,本仓无挂载点 ⇒
+    # 子代理派发面既不能注入策略,也不能在收尾处审计(挂在 mcp_server 派发链)。
+    SUBAGENT_START = "subagent_start"
+    SUBAGENT_STOP = "subagent_stop"
     STOP = "stop"
 
 
