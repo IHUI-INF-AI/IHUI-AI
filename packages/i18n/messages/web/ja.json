@@ -9736,7 +9736,11 @@
           "title": "ターミナルの起動に失敗しました",
           "action": "ホスト環境を確認してください"
         },
-        "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_STDIN_CLOSED": {
+    "title": "ターミナルの入力チャネルは閉じています",
+    "action": "ターミナルセッションを開き直してから入力してください"
+  },
+  "TERMINAL_WRITE_FAILED": {
           "title": "ターミナルへの書き込みに失敗しました",
           "action": "再試行してください"
         },

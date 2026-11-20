@@ -9736,7 +9736,11 @@
           "title": "终端启动失败",
           "action": "检查宿主环境"
         },
-        "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_STDIN_CLOSED": {
+    "title": "终端输入通道已关闭",
+    "action": "重新打开终端会话后再发送输入"
+  },
+  "TERMINAL_WRITE_FAILED": {
           "title": "终端写入失败",
           "action": "重试写入"
         },

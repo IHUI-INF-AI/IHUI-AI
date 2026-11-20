@@ -9736,7 +9736,11 @@
           "title": "터미널 시작 실패",
           "action": "호스트 환경을 확인하세요"
         },
-        "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_STDIN_CLOSED": {
+    "title": "터미널 입력 채널이 닫혔습니다",
+    "action": "터미널 세션을 다시 연 뒤 입력을 보내세요"
+  },
+  "TERMINAL_WRITE_FAILED": {
           "title": "터미널 쓰기 실패",
           "action": "쓰기를 다시 시도하세요"
         },
