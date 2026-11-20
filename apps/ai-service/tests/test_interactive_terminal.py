@@ -326,6 +326,43 @@ def test_pipe_backend_idle_flush_hands_partial_frame(monkeypatch, tmp_path) -> N
         term.reset_terminals()
 
 
+# ─── DECCKM 应用光标键模式(DEC 1):程序点了才发 SS3 形态 ───
+
+
+def test_keys_payload_switches_cursor_keys_in_app_mode() -> None:
+    """方向键/Home/End 在两套编码间切换;不受 DECCKM 影响的键两态必须逐字节一致(表只写增量)。"""
+    keys_payload = _TEST["keys_payload"]
+    assert keys_payload(["up", "left"])[0] == "\x1b[A\x1b[D"
+    assert keys_payload(["up", "left"], app_cursor=True)[0] == "\x1bOA\x1bOD"
+    assert keys_payload(["home", "end"], app_cursor=True)[0] == "\x1bOH\x1bOF"
+    for unaffected in ("tab", "escape", "ctrl-c", "delete", "pageup"):
+        assert (
+            keys_payload([unaffected])[0]
+            == keys_payload([unaffected], app_cursor=True)[0]
+        ), f"{unaffected} 不该被 DECCKM 影响"
+
+
+def test_send_keys_follows_decset_mode_one_and_reports_form() -> None:
+    """端到端(假会话):`DECSET 1` 后 `keys` 发 SS3,`DECRST 1` 后回 CSI;回执如实说明形态。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        track(session, "\x1b[?1h")
+        app = term.send_terminal_keys("t-mouse", ["up", "home"], **owner)
+        assert app["ok"] is True and app["app_cursor"] is True
+        assert session.write_io.getvalue() == "\x1bOA\x1bOH"
+
+        track(session, "\x1b[?1l")
+        session.write_io = io.StringIO()
+        normal = term.send_terminal_keys("t-mouse", ["up", "home"], **owner)
+        assert normal["ok"] is True and normal["app_cursor"] is False
+        assert session.write_io.getvalue() == "\x1b[A\x1b[H"
+    finally:
+        term.reset_terminals()
+
+
 # ─── 闲置会话回收(TTL):默认关闭;启用后回收必须点名,且不误杀活跃会话 ───
 
 

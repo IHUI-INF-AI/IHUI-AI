@@ -241,6 +241,20 @@ KEY_SEQUENCES: Final[dict[str, str]] = {
 MAX_KEYS_PER_CALL: Final = 32
 MAX_KEY_BYTES: Final = 4_096
 
+#: 应用光标键模式(DEC 私有模式 1,DECCKM)。程序点 `DECSET 1` 后,方向键/Home/End 改发 SS3
+#: (`ESC O A` …)而不是 CSI(`ESC [ A` …);VT100 起就是两套编码,只认其中一套的程序收到另一套
+#: 会当普通字符。表**只覆盖被 DECCKM 影响的那 6 个键**,其余键照 `KEY_SEQUENCES` ——
+#: 把整表复制一份才是第二真相源(§22c),这里刻意只写增量。
+APP_CURSOR_KEY_SEQUENCES: Final[dict[str, str]] = {
+    "up": "\x1bOA",
+    "down": "\x1bOB",
+    "right": "\x1bOC",
+    "left": "\x1bOD",
+    "home": "\x1bOH",
+    "end": "\x1bOF",
+}
+APP_CURSOR_MODE: Final = 1
+
 #: PTY 会话的终端身份两键(**只在调用方没显式给时补**)。真 tty 缺 `TERM` 时,程序
 #: (`ls --color` / `git` / `less` / `vim`)会按 dumb 终端处理:颜色与光标控制全关、分页退化。
 PTY_TERM: Final = "xterm-256color"
@@ -1243,21 +1257,29 @@ def _normalize_key(name: str) -> str:
     return re.sub(r"[\s_+]+", "-", name.strip().lower()).strip("-")
 
 
-def _keys_payload(keys: Sequence[str]) -> tuple[str | None, str, str]:
+def _keys_payload(
+    keys: Sequence[str], *, app_cursor: bool = False
+) -> tuple[str | None, str, str]:
     """把键名列表拼成字节序列,返回 (payload, errorCode, 逐键归一结果 / 出错细节)。
 
     校验与拼接在**碰会话之前**做完:未知键、超量、超长一律显式拒,不让半截输入写进子进程
     (写一半再报错 = 子进程收到残缺序列,后续状态全是脏的)。
+
+    `app_cursor` 只影响 `APP_CURSOR_KEY_SEQUENCES` 覆盖的那 6 个键(方向键/Home/End):
+    程序 `DECSET 1` 后它们必须发 SS3,否则只认应用模式的程序会把 `ESC[A` 当垃圾字符。
     """
     if not keys:
         return None, "TERMINAL_EMPTY_KEYS", ""
     if len(keys) > MAX_KEYS_PER_CALL:
         return None, "TERMINAL_TOO_MANY_KEYS", str(len(keys))
+    table = (
+        {**KEY_SEQUENCES, **APP_CURSOR_KEY_SEQUENCES} if app_cursor else KEY_SEQUENCES
+    )
     parts: list[str] = []
     seqs: list[str] = []
     for raw in keys:
         norm = _normalize_key(str(raw))
-        seq = KEY_SEQUENCES.get(norm)
+        seq = table.get(norm)
         if seq is None:
             return None, "TERMINAL_UNKNOWN_KEY", str(raw)
         parts.append(seq)
@@ -1286,6 +1308,10 @@ def send_terminal_keys(
     输入模式**时,行规程会当场消费 ESC/方向键之类的编辑键 —— POSIX 把它们当普通字符留在
     行里随回车送达;Windows ConPTY 的 conhost 会直接吃掉(本机实测)。要让程序**原样**拿到
     这些字节,它自己必须先切到 raw/非规范模式(vim、less 这类本来就会切)。
+
+    光标键形态跟着程序走:程序点过 `DECSET 1`(DECCKM,应用光标键模式)后,方向键/Home/End
+    改发 SS3(`ESC O A` …),否则发 CSI(`ESC [ A` …)。回执里的 `app_cursor` 如实说明这次
+    实际用的是哪一种 —— 不靠调用方假设。
     """
     session = _live(terminal_id, user_id, session_id)
     if session is None:
@@ -1293,13 +1319,15 @@ def send_terminal_keys(
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
         }
-    payload, code, detail = _keys_payload(keys)
+    with session.lock:
+        app_cursor = APP_CURSOR_MODE in session.private_modes
+    payload, code, detail = _keys_payload(keys, app_cursor=app_cursor)
     if payload is None:
         if code == "TERMINAL_UNKNOWN_KEY":
             return {
                 "ok": False, "errorCode": code,
                 "error": f"未知键名: {detail}",
-                "supported": sorted(KEY_SEQUENCES),
+                "supported": sorted({**KEY_SEQUENCES, **APP_CURSOR_KEY_SEQUENCES}),
             }
         if code == "TERMINAL_EMPTY_KEYS":
             return {"ok": False, "errorCode": code, "error": "keys 不能为空"}
@@ -1345,6 +1373,7 @@ def send_terminal_keys(
         "terminal_id": terminal_id,
         "keys": detail.split("|"),
         "bytes_written": len(payload),
+        "app_cursor": app_cursor,
     }
 
 def paste_terminal(
@@ -2718,5 +2747,7 @@ __test__ = {
     "MOUSE_MAX_COORD": MOUSE_MAX_COORD,
     "ALT_SCREEN_MODES": ALT_SCREEN_MODES,
     "push_output": _push_output,
+    "APP_CURSOR_KEY_SEQUENCES": APP_CURSOR_KEY_SEQUENCES,
+    "APP_CURSOR_MODE": APP_CURSOR_MODE,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
