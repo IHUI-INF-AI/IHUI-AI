@@ -8741,13 +8741,6 @@
       "runtimeStatusPausing": "正在暂停…",
       "runtimeStatusCancelling": "正在取消…",
       "runtimePermissionMode": "权限模式 {mode} · {tool} · {decision}",
-      "runtimeHookRunTitle": "钩子运行",
-      "runtimeHookRunMeta": "{tool} · {count} 枚",
-      "runtimeHookRunOk": "通过",
-      "runtimeHookRunTimeout": "超时",
-      "runtimeHookRunError": "失败",
-      "runtimeHookConfigUntrusted": "钩子配置 {count} 条未受信任,改动后需在本机重新登记信任",
-      "runtimeHookConfigInvalid": "钩子配置文件损坏,已按无配置运行",
       "runtimeMessageSend": "第 {iteration} 轮请求已发出 · {count} 条消息",
       "runtimeSessionEndSuccess": "会话已完成 · {iterations} 轮 · 用时 {duration}",
       "runtimeSessionEndFailed": "会话异常结束 · {iterations} 轮 · 用时 {duration}",
@@ -9706,26 +9699,6 @@
         "TERMINAL_NOT_FOUND": {
           "title": "终端不存在",
           "action": "重新创建终端"
-        },
-        "TERMINAL_INVALID_PATTERN": {
-          "title": "终端匹配模式无效",
-          "action": "检查正则写法后重试"
-        },
-        "TERMINAL_INVALID_SIZE": {
-          "title": "终端尺寸无效",
-          "action": "传入正整数行列后重试"
-        },
-        "TERMINAL_NOT_A_TTY": {
-          "title": "终端不是 tty",
-          "action": "以 PTY 模式重启会话"
-        },
-        "TERMINAL_RESIZE_FAILED": {
-          "title": "终端尺寸调整失败",
-          "action": "重建终端后重试"
-        },
-        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
-          "title": "平台不支持 PTY",
-          "action": "改用管道模式,或检查宿主 ConPTY 支持"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "终止信号发送失败",
@@ -13232,6 +13205,9 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortXhigh": "极深",
     "reasoningEffortMax": "极限",
+    "reasoningEffortUltra": "超极限",
+    "reasoningEffortDefault": "默认",
+    "reasoningEffortReset": "恢复默认",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析",

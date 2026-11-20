@@ -8741,13 +8741,6 @@
       "runtimeStatusPausing": "일시 중지 중…",
       "runtimeStatusCancelling": "취소 중…",
       "runtimePermissionMode": "권한 모드 {mode} · {tool} · {decision}",
-      "runtimeHookRunTitle": "훅 실행",
-      "runtimeHookRunMeta": "{tool} · {count}개",
-      "runtimeHookRunOk": "통과",
-      "runtimeHookRunTimeout": "시간 초과",
-      "runtimeHookRunError": "실패",
-      "runtimeHookConfigUntrusted": "훅 설정 {count}개가 신뢰되지 않음 — 수정 후 이 컴퓨터에서 다시 신뢰 등록 필요",
-      "runtimeHookConfigInvalid": "훅 설정이 손상되어 미설정 상태로 실행 중",
       "runtimeMessageSend": "{iteration}라운드 요청 전송됨 · 메시지 {count}개",
       "runtimeSessionEndSuccess": "세션 완료 · {iterations}라운드 · 소요 시간 {duration}",
       "runtimeSessionEndFailed": "세션 비정상 종료 · {iterations}라운드 · 소요 시간 {duration}",
@@ -9706,26 +9699,6 @@
         "TERMINAL_NOT_FOUND": {
           "title": "터미널 없음",
           "action": "터미널을 새로 만드세요"
-        },
-        "TERMINAL_INVALID_PATTERN": {
-          "title": "터미널 매칭 패턴이 올바르지 않습니다",
-          "action": "정규식을 확인한 뒤 다시 시도하세요"
-        },
-        "TERMINAL_INVALID_SIZE": {
-          "title": "터미널 크기가 올바르지 않습니다",
-          "action": "양의 정수 행/열을 지정하세요"
-        },
-        "TERMINAL_NOT_A_TTY": {
-          "title": "터미널이 tty가 아닙니다",
-          "action": "PTY 모드로 세션을 다시 시작하세요"
-        },
-        "TERMINAL_RESIZE_FAILED": {
-          "title": "터미널 크기 조정 실패",
-          "action": "터미널을 다시 만든 뒤 재시도하세요"
-        },
-        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
-          "title": "이 플랫폼에서는 PTY를 지원하지 않습니다",
-          "action": "파이프 모드로 전환하거나 호스트 ConPTY 지원을 확인하세요"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "신호 전송 실패",
@@ -13232,6 +13205,9 @@
     "reasoningEffortHigh": "심층",
     "reasoningEffortXhigh": "초심층",
     "reasoningEffortMax": "극한",
+    "reasoningEffortUltra": "울트라",
+    "reasoningEffortDefault": "기본",
+    "reasoningEffortReset": "기본값으로",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
     "analysisOpen": "시나리오 분석 보기",
