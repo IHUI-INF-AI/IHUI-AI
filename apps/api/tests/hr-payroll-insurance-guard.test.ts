@@ -20,7 +20,9 @@ vi.mock('../src/utils/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-const { validateInsuranceConfig } = await import('../src/services/hr-payroll.js')
+const { validateInsuranceConfig, collectInsuranceAdvisories } = await import(
+  '../src/services/hr-payroll.js'
+)
 
 type RateRow = Parameters<typeof validateInsuranceConfig>[0]
 
@@ -121,5 +123,51 @@ describe('validateInsuranceConfig — 配置完整性判据', () => {
       }),
     )
     expect(issues.length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe('collectInsuranceAdvisories — 防"悄悄沿用了旧年度数据"', () => {
+  it('记录时间早于生效年度 → 提示疑似未更新', () => {
+    const advisories = collectInsuranceAdvisories(
+      makeRow({ effectiveYear: 2026, updatedAt: new Date('2025-06-01T00:00:00Z') }),
+    )
+    expect(advisories.some((a) => a.includes('疑似沿用旧年度数据未更新'))).toBe(true)
+  })
+
+  it('记录时间与生效年度同年 → 不提示', () => {
+    const advisories = collectInsuranceAdvisories(
+      makeRow({ effectiveYear: 2026, updatedAt: new Date('2026-07-01T00:00:00Z') }),
+    )
+    expect(advisories.some((a) => a.includes('疑似沿用旧年度数据未更新'))).toBe(false)
+  })
+
+  it('个人费率与公积金全为 0 → 提示核对', () => {
+    const advisories = collectInsuranceAdvisories(
+      makeRow({
+        pensionPersonal: '0',
+        medicalPersonal: '0',
+        unemploymentPersonal: '0',
+        housingFundRate: '0',
+      }),
+    )
+    expect(advisories.some((a) => a.includes('均为 0'))).toBe(true)
+  })
+
+  it('未单独配置公积金上下限 → 提示回退社保上下限', () => {
+    const advisories = collectInsuranceAdvisories(
+      makeRow({ fundBaseMin: null, fundBaseMax: null }),
+    )
+    expect(advisories.some((a) => a.includes('回退社保上下限'))).toBe(true)
+  })
+
+  it('配置完整且已单独配公积金上下限 → 零提醒', () => {
+    const advisories = collectInsuranceAdvisories(
+      makeRow({
+        fundBaseMin: '2000.00',
+        fundBaseMax: '15000.00',
+        updatedAt: new Date('2026-07-01T00:00:00Z'),
+      }),
+    )
+    expect(advisories).toEqual([])
   })
 })

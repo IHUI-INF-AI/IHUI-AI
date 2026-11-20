@@ -123,6 +123,8 @@ export interface PayrollBuildResult {
   insuranceConfigMissing: boolean
   /** 社保配置问题清单(空数组 = 配置完整可用) */
   insuranceConfigIssues: string[]
+  /** 配置级提醒(不阻断算薪,但提示"可能沿用了旧年度数据") */
+  insuranceConfigAdvisories: string[]
 }
 
 /** 四舍五入到分 */
@@ -236,6 +238,45 @@ export function validateInsuranceConfig(
 }
 
 /**
+ * 配置级"提醒"(不阻断,但必须让财务看见)。
+ *
+ * `validateInsuranceConfig` 管的是"能不能算",这里管的是"会不会悄悄算旧了" ——
+ * 后者系统无法自动判定对错(没有外部权威数据源),只能把可疑迹象摆出来:
+ *   · 配置记录建立时间早于它标称的生效年度 → 极可能是复制上一年数据没更新;
+ *   · 个人费率与公积金费率全为 0 → 要么真的不缴,要么漏填;
+ *   · 公积金上下限没单填 → 计算时回退社保上下限,而当地两者常常不同。
+ */
+export function collectInsuranceAdvisories(
+  row: typeof hrInsuranceRateConfig.$inferSelect,
+): string[] {
+  const advisories: string[] = []
+
+  const updatedYear = new Date(row.updatedAt).getUTCFullYear()
+  if (Number.isFinite(updatedYear) && updatedYear < row.effectiveYear) {
+    advisories.push(
+      `该费率配置的记录时间(${updatedYear} 年)早于生效年度(${row.effectiveYear} 年),` +
+        '疑似沿用旧年度数据未更新 —— 每年调基后请核对当地人社公布的最新费率与缴费基数上下限',
+    )
+  }
+
+  const personalSum =
+    Number(row.pensionPersonal ?? 0) +
+    Number(row.medicalPersonal ?? 0) +
+    Number(row.unemploymentPersonal ?? 0)
+  if (personalSum === 0 && Number(row.housingFundRate ?? 0) === 0) {
+    advisories.push('个人社保三项费率与公积金费率均为 0:确为不缴可忽略,否则请核对配置')
+  }
+
+  if (row.fundBaseMin === null || row.fundBaseMax === null) {
+    advisories.push(
+      '未单独配置公积金缴费基数上下限,计算时回退社保上下限;若当地两者不同请补填 fundBaseMin/fundBaseMax',
+    )
+  }
+
+  return advisories
+}
+
+/**
  * 生成某月工资单。
  *
  * 前置:该月的 hr_attendance_monthly 必须已生成(否则缺勤天数无从判断)。
@@ -307,6 +348,7 @@ export async function buildPayroll(params: {
 
   const insurance = await resolveInsuranceRates(year, regionName)
   let insuranceIssues: string[] = []
+  const insuranceAdvisories = insurance ? collectInsuranceAdvisories(insurance) : []
 
   if (!insurance) {
     insuranceIssues = [`${year} 年未配置社保公积金费率配置(地区:${regionName ?? '未指定'})`]
@@ -411,6 +453,8 @@ export async function buildPayroll(params: {
     }
 
     const warnings: string[] = []
+    // 配置级提醒透到每张工资单的 breakdown,审计时能直接看到"这条费率可能旧了"
+    if (insuranceAdvisories.length > 0) warnings.push(...insuranceAdvisories)
 
     // ---- 输入 ----
     const baseSalary = Number(config.baseSalary)
@@ -686,6 +730,7 @@ export async function buildPayroll(params: {
     totalNet: round2(totalNet),
     insuranceConfigMissing: insuranceIssues.length > 0,
     insuranceConfigIssues: insuranceIssues,
+    insuranceConfigAdvisories: insuranceAdvisories,
   }
 }
 
