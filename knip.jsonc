@@ -29,7 +29,22 @@
     "benchmarks/**",
     ".ihui/skills/**",
     "docs/**",
-    ".ihui-agent/**"
+    ".ihui-agent/**",
+    // 2026-11-20(剩余盲区收口,与上面七条同族):外部界面逆向复刻的**取证工程**,由人工/脚本
+    // 以独立 vite 工程直跑,不在任何产品运行时 import 图里,也不参与本仓构建与发版。
+    // 逐面实证:① 全仓 git grep(排除自身目录)只在 scripts/check-radius-single-source.mjs:309
+    // 命中一次,且那一处是**显式排除**(`re: /^craft-rebuild\//`),即判据本身已把它划在产品面之外;
+    // ② 两目录均无 package.json 声明进 pnpm workspace;③ 共 63 个 tracked 文件,14 个进 knip files 维。
+    // 注意这不是「白名单遮盖产品死代码」:craft-rebuild/ 的 src 是复刻对照程序的 DOM 结构,
+    // 按 AGENTS §0.12 红线它本就不该被当作产品代码审判,也不该被接进产品。
+    // 到期复核 2027-05-01:若取证工程迁出仓库(推荐)或改造为独立仓,删本条。
+    "craft-rebuild/**",
+    ".craft-shots/**",
+    // 2026-11-20(同族):`packages/agent-sdk/tests/tool-use-id.typecheck.ts` 是**编译期类型用例**,
+    // 由 packages/agent-sdk/tsconfig.tests.json 显式收录(该文件 :3 注释逐字写着"含编译期用例")。
+    // 它只被 tsc 读到、不被任何运行时代码 import ⇒ knip 的 import 图结构上看不见,属判据面盲区,
+    // 不是死代码。到期复核 2027-05-01:若该用例改由 vitest 运行时断言承载,删本条。
+    "packages/agent-sdk/tests/tool-use-id.typecheck.ts"
   ],
   // 2026-09-25(B6 定性票):CI 工作流 run 步骤里以 root 上下文调用的真二进制 = 框架装载型,非未声明依赖。
   // 立因:knip 把 .github/workflows/e2e-browser-hub.yml 的 `pnpm exec playwright`(L157)与
@@ -87,7 +102,24 @@
       // `command: ['node','apps/api/dist/worker-entry.js']` 启动它(relay-standalone 同款第二处),
       // 属**进程入口**,不是死代码 —— knip 看不见 compose 的命令串。
       "entry": ["src/server.ts", "src/worker-entry.ts"],
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      // 2026-11-20(Knip 棘轮 files 维归因,5 件)。这一族的判据与别处不同 —— 它们**不是**
+      // knip 看不见装载机制,而是实测确实没人引用:
+      //   · src/routes/agent-combos.ts / src/routes/hr-salary-config.ts:路由实现已写全,但
+      //     `src/server.ts` 与 `src/index.ts` 对二者**零命中**(未注册),全仓(排除自身)零 import。
+      //     即"接口写好了、路由没挂" —— 属未接线,不是判据盲区。按 §7 三问它承载了功能定义,
+      //     不能删(删了将来接线要从零重写),故登记豁免并留复核期。
+      //   · src/services/attendance-sync/index.ts / sync-cursor.ts:同目录的 feishu/dingtalk
+      //     provider 与 sync-status **在役**(被 attendance-sync-job.ts 与 routes/hr-attendance.ts
+      //     引用),但这两个文件自身零引用 ⇒ index.ts 是没接的 barrel、sync-cursor 是没接的游标模块。
+      // 到期复核 2027-01-31:路由两个要么挂进 server.ts(并删本条)、要么按产品定档删除;
+      // attendance-sync 两个若确认并入 job 流程则删本条;helpers 一件到期直接删文件。
+      "ignore": [
+        "src/routes/agent-combos.ts",
+        "src/routes/hr-salary-config.ts",
+        "src/services/attendance-sync/index.ts",
+        "src/services/attendance-sync/sync-cursor.ts"
+      ]
     },
     "apps/web": {
       // 2026-11-04:两条都是「唯一消费方在 knip 射程之外」的静态盲区,加 entry 会把它们
@@ -98,7 +130,26 @@
       //   · src/lib/import-analysis-catalog.generated.ts 已于 2026-11-19 随合并摘除
       //     (2026-10-03 下沉 packages/shared 的收尾):文件不在树里,ignore 条目同笔删掉。
       "ignore": [
-        "src/lib/py-line-count.ts"
+        "src/lib/py-line-count.ts",
+        // 2026-11-20(Knip 棘轮 files 维归因,7 件):"先落组件、页面未接"族,与本卷
+        // miniapp/mobile-rn 同批取证(逐文件在 apps/packages 内检索 `from '…/<名>'` 全 0 命中)。
+        // 逐件 ——
+        //   · turn-trace-table —— AI 会话轨迹表,未挂进任何面板
+        //   · capability-app/{app-proposal-card,capability-app-rail} —— 能力应用侧栏/提议卡,
+        //     消费页(app/(main)/admin/capability-apps)尚未接线
+        //   · common/CurrencySwitcher —— 币种切换,未接进任何设置页
+        //   · settings/shortcut-recorder —— 快捷键录制器,未接进设置页
+        //   · sidebar/SidebarScrollFades —— 侧栏滚动渐隐(注:本仓禁 mask-image 渐变遮罩,
+        //     若接线须改用显式 UI 元素,不得带 mask 回潮)
+        //   · hooks/use-textarea-auto-height —— 文本域自适应高度,零消费者
+        // 到期复核 2027-01-31:接线则删本条;确认不做则按 §7 三问删除文件。
+        "src/components/ai/turn-trace-table.tsx",
+        "src/components/capability-app/app-proposal-card.tsx",
+        "src/components/capability-app/capability-app-rail.tsx",
+        "src/components/common/CurrencySwitcher.tsx",
+        "src/components/settings/shortcut-recorder.tsx",
+        "src/components/sidebar/SidebarScrollFades.tsx",
+        "src/hooks/use-textarea-auto-height.ts"
       ],
       // 2026-11-04(假债根因,实测 -599 项):entry 是 **override**,不是 merge ——
       // 只写 page/layout 就把 vitest/playwright 插件推断出的测试入口**全覆盖掉**了,
@@ -110,7 +161,11 @@
         "e2e/**/*.{spec,setup}.ts",
         "tests/**/*.{test,spec}.{ts,tsx}",
         "playwright.stream-lifecycle.config.ts",
-        "playwright.visual.config.ts"
+        "playwright.visual.config.ts",
+        // 2026-11-20:第三个 playwright 配置(尾部/长跑用例集)。上面两条列了 stream-lifecycle 与
+        // visual,漏了它 ⇒ 该配置文件本身被判"未引用文件"。它是**配置入口**,由
+        // `pnpm exec playwright test -c playwright.tail.config.ts` 直跑,不是产品代码。
+        "playwright.tail.config.ts"
       ],
       "project": ["**/*.{ts,tsx}"]
     },
@@ -188,7 +243,35 @@
         // **到期复核**:`grep -r alipayNotOpen apps/mobile-rn/src` 归零(即支付宝开通)之日,
         // 必须删本条并把 alipay.ts 真正接进 AppTopupScreen。注意本段不是"先落组件、屏幕在途"
         // 那一族(那两条是屏幕不存在,本条是屏幕在、产品态关闭),口径不得混用。
-        "src/lib/alipay.ts"
+        "src/lib/alipay.ts",
+        // 2026-11-20(Knip 棘轮 files 维归因,死链两族):
+        // 族① `src/platform/**`(16 个 tracked 文件,knip 报 4 件)—— 与 miniapp 侧同型,
+        //   是上一代平台适配层。取证:逐文件在本仓 apps/packages 内检索 `from '…/<名>'`
+        //   (排除本目录)全部 0 命中;目录内 asset/audio/fs/blur 等互相引用属链内自循环。
+        // 族② `src/lib/web-stubs/**`(4 件)—— react-native-web 的平台桩,本该由 metro 的
+        //   web 解析面选中;实测全仓零 import,且 metro.config.cjs 的 resolveRequest 未登记这四个
+        //   名字 ⇒ 不是「knip 看不见平台后缀」那类盲区,是真没接。
+        // 到期复核 2027-01-31:确认 rn-compat/平台解析面接管后整目录删除,不要续挂。
+        "src/platform/**",
+        "src/lib/web-stubs/**",
+        // 2026-11-20(同批归因,8 件):"先落组件、消费屏幕未接"族 + 1 件历史残留。
+        // 取证同上(逐文件 0 命中)。逐件 ——
+        //   · 组件 4 件:CommissionFloatingIcon / EarningsStatisticsCard / PersonalInformationCard、
+        //     agent-runtime-panel-labels(标签字典)
+        //   · hooks 2 件:use-biometrics / use-push(链尾:platform/{biometrics,push} 只被它们引用,
+        //     而它们自身零入口 ⇒ 整链没有外部入口)
+        //   · 屏幕 1 件:NewsCategoryPagedScreen(未挂进导航)
+        //   · 残留 1 件:FloatingActionButton —— 2026-11-04 曾按真死代码删过,现又回到树里,
+        //     属回潮件;本条只免 files 维,不改变"该删"的判断(下次清理优先处理它)。
+        // 到期复核 2027-01-31:接入导航/屏幕后删本条;FloatingActionButton 到期即删文件。
+        "src/components/CommissionFloatingIcon.tsx",
+        "src/components/EarningsStatisticsCard.tsx",
+        "src/components/FloatingActionButton.tsx",
+        "src/components/PersonalInformationCard.tsx",
+        "src/components/agent-runtime-panel-labels.ts",
+        "src/hooks/use-biometrics.ts",
+        "src/hooks/use-push.ts",
+        "src/screens/NewsCategoryPagedScreen.tsx"
       ],
       // @lobehub/icons 由 brand-icon.web.tsx 以深路径 default 导入(react-native-web 平台扩展 .web.tsx),
       // knip 静态面不解析 .web.tsx 平台变体,会把这条真实依赖误报为未用;2026-10-17 厂商矢量图标接入(f72e53becd)。
@@ -792,7 +875,61 @@
         "src/components/Input.tsx",
         "src/components/Switch.tsx",
         "src/components/VipBadge.tsx",
-        "src/constants/web-portal.ts"
+        "src/constants/web-portal.ts",
+        // 2026-11-20(Knip 棘轮 files 维归因,15 件):`src/platform/**` 是**上一代平台适配层**,
+        // 已被 `src/rn-compat/**` 取代(rn-compat 里 native-asset/native-audio/native-secure/
+        // native-document/native-extras 等各有对应实现,并由 paths 映射接管)。
+        // 取证:该目录 18 个 tracked 文件,**逐文件**在本仓 `apps/** packages/**` 内检索
+        // `from '…/<名>'`(排除本目录自身)全部 0 命中;目录内相互引用(asset→audio、camera-impl→camera)
+        // 只是链内自循环,没有外部入口。可复跑 D:\DevEnv\Temp\knip_refs.py。
+        // 到期复核 2027-01-31:确认 rn-compat 完全接管后整目录删除(不要续挂白名单)。
+        "src/platform/**",
+        // 2026-11-20(同批归因,17 件):"先落文件、消费方未接"族。同一取证脚本逐文件 0 命中,
+        // 且均不在 `components/index.ts` 导出面。逐族如下 ——
+        //   · 展示组件 10 件:CountdownTimer / DistributionStats / LevelBadge / LoadingSpinner /
+        //     ProgressBar / SkeletonCard / TagInput / Toast / VipPayConfirm / VipUpgradeToast
+        //   · 页面 6 件(未登记进 app.config.ts 的 pages/subPackages):distribution/commission-overview、
+        //     exam/host-overlays、member/vip-levels、register/agreement-row、pages/sag2/index、
+        //     setting/notification-save-bar
+        //   · 分包页 5 件(未登记进对应 subPackages):pkg-user/{api-keys,groups,patrol,repo-wiki,team-knowledge}/index
+        //   · 纯函数/工具 2 件:pkg-ai/ai/{conversation-import-analysis,question-card-core}
+        //   · 分包内区块 2 件:pkg-shop/vip-trader/index/trader-sections、pkg-shop/vip/levels-section
+        // 这一族与「判据面盲区」不同:它们是**真没接线**,不是 knip 看不见装载机制。
+        // 到期复核 2027-01-31:要么接进 pages/子包并从这里删掉,要么按 §7 三问删除文件。
+        "src/components/CountdownTimer.tsx",
+        "src/components/DistributionStats.tsx",
+        "src/components/LevelBadge.tsx",
+        "src/components/LoadingSpinner.tsx",
+        "src/components/ProgressBar.tsx",
+        "src/components/SkeletonCard.tsx",
+        "src/components/TagInput.tsx",
+        "src/components/Toast.tsx",
+        "src/components/VipPayConfirm.tsx",
+        "src/components/VipUpgradeToast.tsx",
+        "src/pages/distribution/commission-overview.tsx",
+        "src/pages/exam/host-overlays.tsx",
+        "src/pages/member/vip-levels.tsx",
+        "src/pages/register/agreement-row.tsx",
+        "src/pages/sag2/index.tsx",
+        "src/pages/setting/notification-save-bar.tsx",
+        "src/pkg-ai/ai/conversation-import-analysis.tsx",
+        "src/pkg-ai/ai/question-card-core.ts",
+        "src/pkg-shop/vip-trader/index/trader-sections.tsx",
+        "src/pkg-shop/vip/levels-section.tsx",
+        "src/pkg-user/api-keys/index.tsx",
+        "src/pkg-user/groups/index.tsx",
+        "src/pkg-user/patrol/index.tsx",
+        "src/pkg-user/repo-wiki/index.tsx",
+        "src/pkg-user/team-knowledge/index.tsx",
+        // 2026-11-20:两件的判据面与上面「未接线」族不同 ——
+        //   · src/utils/index.ts 是本端 utils 的 barrel,产品侧零 import;它只以 `input:` 哈希行
+        //     出现在 src/constants/ui-routes.generated.ts 的生成器输入清单里(那是生成器锚点,
+        //     不是消费方,别把它读成"有人在用")。
+        //   · tests/stubs/lucide-react-native.ts 由 vitest.config.ts:60 的 alias 直接装载
+        //     (`react-native` 系图标统一指到这个零依赖桩),结构上不是 import 图成员。
+        // 到期复核 2027-01-31:utils barrel 要么被真实接线、要么按 §7 三问删;stub 随 alias 保留。
+        "src/utils/index.ts",
+        "tests/stubs/lucide-react-native.ts"
       ]
     },
     "packages/database": {
