@@ -1365,6 +1365,8 @@ try {
 }
 
 const _receiptOn = !receiptDisabled() && Boolean(_treeSha || _inputDigest)
+// 耗时自述用到的回执面三态(off=回执关闭 / miss=没命中 / hit=命中回放),由下方 exit 钩子读
+let _receiptFace = _receiptOn ? 'miss' : 'off'
 if (_receiptOn) {
   const _rc = readReceipt(_receiptAbs)
   const _usable = receiptUsable(_rc, {
@@ -1375,6 +1377,7 @@ if (_receiptOn) {
     ttlMs: receiptTtlMs(),
   })
   if (_usable.ok) {
+    _receiptFace = 'hit'
     console.log(
       `[check-typecheck] ♻️ 命中近期全量结论(${_usable.reason},exit ${_rc.exitCode})⇒ 不再 spawn tsc`,
     )
@@ -1431,6 +1434,18 @@ if (_widen.widened) {
 let out = ''
 let err = ''
 const _fullT0 = Date.now()
+// ── T1 耗时自述(2026-11-21)───────────────────────────────────────────────
+// 一次推送 351s 全花在 T1 上,而日志里只有逐包 tsc 的耗时,读不出"这道门总共花了多久、
+// 是不是又在脏面上整轮重跑"。这里在**任何结局**(通过/降级/判红/超时/未判定)都打一行
+// 稳定签名,让"为什么又跑了五分钟"三秒内可答。只打印,不参与任何判定。
+// 失效方向:时间戳取不到 ⇒ 打 0.0s,绝不影响退出码。
+process.on('exit', (code) => {
+  if (SELF_TEST || DRY_RUN) return
+  const sec = ((Date.now() - _fullT0) / 1000).toFixed(1)
+  console.log(
+    `[IHUI-T1-TIMING] exit=${code} elapsed=${sec}s receipt=${_receiptFace} scopeFiles=${scopeEnabled ? scopeFiles.length : 0}`,
+  )
+})
 const _writeReceipt = (exitCode, errorFiles) => {
   // v2:键 = tsc 输入面摘要 + 环境指纹(取不到 digest 时退回 v1 的整树键,不丢结论)。
   if (_inputDigest) {
