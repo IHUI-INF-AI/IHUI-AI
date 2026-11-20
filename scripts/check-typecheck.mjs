@@ -928,8 +928,8 @@ if (_fast) {
   // 2026-11-20 多 app 版:同一个尺子逐 app 复用。任一 app 拿到不可降级的结论失败 ⇒ 整体失败;
   // 全部通过或全部报错都属他人噪音 ⇒ 放行(降级签名行只在末尾打一次,下游按行尾识别)。
   let _fastDegraded = 0
-  for (const _fast of _fast.apps) {
-    const r = spawnSync('pnpm', ['--filter', String(_fast.name), 'run', 'typecheck'], {
+  for (const _fastApp of _fast.apps) {
+    const r = spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck'], {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,
@@ -943,12 +943,12 @@ if (_fast) {
     if (_ferr) process.stderr.write(_ferr)
     if (r.error && r.error.code === 'ETIMEDOUT') {
       console.error(
-        `[check-typecheck] ⏰ apps/${_fast.app} 定向 typecheck 超过 ${TYPECHECK_TIMEOUT_MIN} 分钟,终止(非类型结论)`,
+        `[check-typecheck] ⏰ apps/${_fastApp.app} 定向 typecheck 超过 ${TYPECHECK_TIMEOUT_MIN} 分钟,终止(非类型结论)`,
       )
       process.exit(1)
     }
     if (r.status === 0) {
-      console.log(`[check-typecheck] ✅ apps/${_fast.app} 定向 typecheck 通过(exit 0)`)
+      console.log(`[check-typecheck] ✅ apps/${_fastApp.app} 定向 typecheck 通过(exit 0)`)
       continue
     }
     // G-611:快通道与全量通道同一把尺子 —— 定向 typecheck 被信号杀死(exit 130/143/
@@ -957,7 +957,7 @@ if (_fast) {
     const fastOutcome = classifySpawnOutcome({ status: r.status ?? null, signal: r.signal ?? null })
     if (fastOutcome.kind === 'interrupt') {
       console.error(
-        `[check-typecheck] ⚠️ apps/${_fast.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`,
+        `[check-typecheck] ⚠️ apps/${_fastApp.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`,
       )
       console.error(
         `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
@@ -974,7 +974,7 @@ if (_fast) {
     ) {
       console.log('')
       console.log(
-        `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
+        `ℹ️ apps/${_fastApp.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
       )
       for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
       console.log('ℹ️ 判定:本 app 放行;报错由其所属会话负责修复')
@@ -982,7 +982,7 @@ if (_fast) {
       continue
     }
     console.error(
-      `[check-typecheck] ❌ apps/${_fast.app} 定向 typecheck 失败(exit ${r.status})——报错命中本次改动范围或不满足降级条件,按失败处理`,
+      `[check-typecheck] ❌ apps/${_fastApp.app} 定向 typecheck 失败(exit ${r.status})——报错命中本次改动范围或不满足降级条件,按失败处理`,
     )
     process.exit(r.status ?? 1)
   }

@@ -40,6 +40,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
+import { triggersTouch } from './lib/guardian-triggers.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 // BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
 // 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
@@ -8075,9 +8076,8 @@ const pushGateChecks = [
       '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // --- push 收窄档:跨端漂移/文案/平台纯度 + 三条已收敛生成器(2026-11-06 立)--------------
-  // 与 commit 面同一判据、同一脚本,只是"是否阻断"不同:R5 要求 id 跨两数组唯一,故 push 档以 p 结尾。
-  // push 面不按 stagedTriggers 过滤(全目录只有 pre-push 一处),任何一次推送都会跑。
+  // 2026-11-20:push 面已按推送改动面(PUSH_SCOPE_FILES)消费 stagedTriggers ⇒ 下面这些
+  // 收窄档各自声明触发面;未声明的(T1/47p/IG/193)仍恒跑。声明缺失 = 恒跑,不是恒跳。
   {
     id: '302p',
     label: '🧪 跨端漂移回归门(push blocking:相对基线新增/恶化即拦;存量只报数)',
@@ -8085,6 +8085,15 @@ const pushGateChecks = [
     args: ['--gate', '--push'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
+    stagedTriggers: [
+      'apps/web/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+      'scripts/data/cross-end-drift-gate-baseline.json',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/web-rn-screen-map.jsonl',
+    ],
   },
   {
     id: '303p',
@@ -8093,6 +8102,13 @@ const pushGateChecks = [
     args: ['--gate', '--push'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_CROSS_END_WORDING',
+    stagedTriggers: [
+      'packages/i18n/messages/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/src/',
+      'scripts/data/i18n-cross-end-waivers.jsonl',
+      'scripts/data/i18n-cross-end-wording-baseline.json',
+    ],
   },
   {
     id: '304p',
@@ -8101,6 +8117,7 @@ const pushGateChecks = [
     args: ['--platform-purity'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SHARED_LAYER_PURITY',
+    stagedTriggers: ['packages/', 'scripts/data/shared-layer-purity-ledger.jsonl'],
   },
   {
     id: '306p',
@@ -8109,6 +8126,7 @@ const pushGateChecks = [
     args: ['--check'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_KNIP_TARO',
+    stagedTriggers: ['apps/miniapp-taro/', 'pnpm-lock.yaml', '**/package.json'],
   },
   {
     id: '307p',
@@ -8117,6 +8135,7 @@ const pushGateChecks = [
     args: ['--check'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
+    stagedTriggers: ['apps/ai-service/'],
   },
   {
     id: '308p',
@@ -8125,6 +8144,11 @@ const pushGateChecks = [
     args: ['--all'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/',
+      'scripts/data/cross-end-screen-registry.json',
+    ],
   },
   {
     id: '305p',
@@ -8133,6 +8157,7 @@ const pushGateChecks = [
     args: ['--strict'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+    stagedTriggers: ['.husky/', 'scripts/'],
   },
 ]
 
@@ -8343,6 +8368,40 @@ async function runGateSelfTests(checkList) {
 
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
+
+// ── push 面按推送改动面收窄(2026-11-20)─────────────────────────────────────
+// 改前:push 面**不**按 stagedTriggers 过滤,任何一次推送都跑满 14 道全量门 ——
+// 一行 className 改动也要跟着跑跨端漂移/小程序薄壳/AI 服务生成物/RN 骨架那一族,
+// 实测整轮 568s。改后就地消费注册条目里已有的 stagedTriggers(同一个纯函数
+// triggersTouch,不新造第二套 glob 语义),触发面只有一个来源:PUSH_SCOPE_FILES
+// (由 .husky/pre-push 依 git 传入的 remote_sha..local_sha 算好并导出)。
+// 失效方向按 §0.10:面取不到(空/未导出)⇒ **一道不跳**,仍跑满 —— 宁可多跑,
+// 绝不把"面不明"读成"与我没关系"。无 stagedTriggers 的门(T1/47p/IG 等)恒跑。
+if (pushGate) {
+  const _pushScopeRaw = String(process.env.PUSH_SCOPE_FILES || '')
+  const _pushScopeFiles = _pushScopeRaw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (_pushScopeFiles.length > 0) {
+    const _kept = []
+    const _skipped = []
+    for (const c of effectiveChecks) {
+      const _trig = Array.isArray(c.stagedTriggers) ? c.stagedTriggers : null
+      if (_trig && _trig.length > 0 && !triggersTouch(_pushScopeFiles, _trig)) _skipped.push(String(c.id))
+      else _kept.push(c)
+    }
+    if (_skipped.length > 0) {
+      console.info(
+        `⏭️  push 面按改动面收窄:${_skipped.length} 道门的触发面本次未命中 ⇒ 跳过[${_skipped.join(', ')}]` +
+          `(触发面取 PUSH_SCOPE_FILES 现读,共 ${_pushScopeFiles.length} 个文件;无触发面声明的门一律照跑)`,
+      )
+      effectiveChecks = _kept
+    }
+  } else {
+    console.info('ℹ️  push 面收窄未启用:PUSH_SCOPE_FILES 为空(面不明 ⇒ 按全量门照跑,不猜)')
+  }
+}
 
 // ── --only=<id|script>:单门直跑走派发层(2026-11-08 立)───────────────────────
 // 直跑 `node scripts/check-x.mjs` 会绕过判面层自检(只有 import 判面层的门例外)。
