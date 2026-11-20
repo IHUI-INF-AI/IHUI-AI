@@ -96,7 +96,7 @@ class TestRead:
         out = read_resident_text(str(f))
         assert out["ok"] is True
         assert out["text"] == "hello 常驻"
-        assert out["bytes"] == len("hello 常驻".encode("utf-8"))
+        assert out["bytes"] == len("hello 常驻".encode())
 
     def test_rejects_too_large(self, tmp_path):
         f = tmp_path / "big.md"
