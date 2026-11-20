@@ -63,6 +63,8 @@ RECURSIVE_MAX_DEPTH = 3
 # 单节点正文预算(与 tool_result_pruner 的 DEFAULT_THRESHOLD_CHARS 同量级):
 # 超过就说明"这一层结论已经喂不进下一层上下文",该再切一层。
 RECURSIVE_NODE_MAX_CHARS = 8192
+# 再切一层的下限:低于该值切分只会把句子切碎,拒绝而不是硬切。
+RECURSIVE_MIN_CHARS = 1024
 
 
 def _chunk_task(objective: str, chunk: str, index: int, total: int) -> str:

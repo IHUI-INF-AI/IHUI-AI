@@ -167,9 +167,9 @@ def orchestration_budget_s(args: Mapping[str, Any] | None) -> float:
                 rounds = default_rounds
         rounds = max(1, min(rounds, 3))
         waves = rounds * max(1, agent_count)
-    elif mode == "decompose":
-        # 分解器默认最多 10 个子任务,批次可能串行;直接给硬上限,
-        # 避免 2 波估算把长任务误杀。
+    elif mode in ("decompose", "recursive"):
+        # 分解器默认最多 10 个子任务,批次可能串行;recursive 按层数×分片成波次。
+        # 两者都直接给硬上限,避免 2 波估算把长任务误杀。
         return HARD_CEILING_S
     else:
         waves = 1

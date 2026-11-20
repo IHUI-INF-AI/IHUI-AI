@@ -198,7 +198,16 @@ def test_schema_advertises_all_modes() -> None:
     assert tool.input_schema["properties"]["mode"]["enum"] == list(
         mcp_mod._DISPATCH_MODES
     )
-    for key in ("agents", "steps", "strategy", "aggregation", "max_rounds"):
+    for key in (
+        "agents",
+        "steps",
+        "strategy",
+        "aggregation",
+        "max_rounds",
+        "chunks",
+        "depth",
+        "max_chars_per_node",
+    ):
         assert key in tool.input_schema["properties"], key
 
 
@@ -620,4 +629,80 @@ async def test_stub_steps_not_reported_success(
     assert out["stub"] is True
     assert out["status"] == "stub"
     assert out["errorCode"] == "STUB_RESPONSE"
+
+
+# =============================================================================
+# recursive 模式:RLM 整合档的模型可达面(复用 TeamOrchestrator.run_recursive)
+# =============================================================================
+
+
+async def test_recursive_mode_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """chunks 两片 → 一层 Map-Reduce;真走 team 的默认 runner,不是另造执行器。"""
+    fake = _FakeOrchestrator()
+    _use(monkeypatch, fake)
+    out = await _tool_dispatch_subagent({
+        "mode": "recursive",
+        "task": "归纳这批材料",
+        "chunks": ["甲段", "乙段"],
+        "depth": 1,
+    })
+    assert out["ok"] is True
+    assert out["mode"] == "recursive"
+    assert out["nodes"] == 2
+    assert out["depth"] == 1
+    assert "out-part-1" in out["final_output"]
+    # 唯一执行路径就是既有 invoke_parallel(没有新增执行器)
+    assert [c[0] for c in fake.calls] == ["team_parallel"]
+
+
+async def test_recursive_requires_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    _use(monkeypatch, _FakeOrchestrator())
+    out = await _tool_dispatch_subagent({
+        "mode": "recursive", "task": "归纳", "chunks": [],
+    })
+    assert out["ok"] is False
+    assert out["errorCode"] == "MISSING_PARAMS"
+
+
+async def test_recursive_rejects_agents_and_depth_bool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _use(monkeypatch, _FakeOrchestrator())
+    out = await _tool_dispatch_subagent({
+        "mode": "recursive", "task": "归纳", "chunks": ["a"], "agents": ["coder"],
+    })
+    assert out["ok"] is False and out["errorCode"] == "INVALID_PARAMS"
+    out2 = await _tool_dispatch_subagent({
+        "mode": "recursive", "task": "归纳", "chunks": ["a"], "depth": True,
+    })
+    assert out2["ok"] is False and out2["errorCode"] == "INVALID_PARAMS"
+
+
+async def test_chunks_rejected_in_other_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """chunks 只属于 recursive;team 误传必须显式拒绝而不是静默忽略。"""
+    _use(monkeypatch, _FakeOrchestrator())
+    out = await _tool_dispatch_subagent({
+        "mode": "team",
+        "task": "x",
+        "agents": ["coder"],
+        "chunks": ["a"],
+    })
+    assert out["ok"] is False
+    assert out["errorCode"] == "INVALID_PARAMS"
+    assert "chunks" in out["error"]
+
+
+async def test_recursive_node_budget_same_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """节点预算与子代理闸同源:env 压到 1 时两片整次拒绝,错误码透传给模型。"""
+    monkeypatch.setenv("IHUI_MAX_RUNNING_SUBAGENTS", "1")
+    fake = _FakeOrchestrator()
+    _use(monkeypatch, fake)
+    out = await _tool_dispatch_subagent({
+        "mode": "recursive", "task": "归纳", "chunks": ["a", "b"],
+    })
+    assert out["ok"] is False
+    assert out["errorCode"] == "RECURSIVE_NODE_LIMIT"
+    assert fake.calls == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
