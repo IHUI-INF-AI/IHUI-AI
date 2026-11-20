@@ -140,4 +140,35 @@ def test_summary_reads_tail_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert s["truncated"] is True
     assert s["linesRead"] == 2
     assert s["total"] == 2
+
+
+def test_summary_exact_boundary_is_not_truncated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    for _ in range(2):
+        hook_audit.record_hook_run(_payload())
+
+    s = hook_audit.summarize_hook_audit(max_lines=2)
+    # 恰好两行 = 一行都没丢 ⇒ 不能标 truncated(否则"全量"被报成"截过")
+    assert s["truncated"] is False
+    assert s["linesRead"] == 2
+
+
+def test_rotation_moves_oversized_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_MAX_BYTES", "300")
+    hook_audit.record_hook_run(_payload())
+    hook_audit.record_hook_run(_payload())
+    hook_audit.record_hook_run(_payload())
+
+    rotated = target.with_name(target.name + ".1")
+    assert rotated.exists()
+    assert target.exists()
+    # 轮转后追加的这枚落在新文件里,旧行不丢(.1 里保留)
+    assert hook_audit.summarize_hook_audit()["available"] is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

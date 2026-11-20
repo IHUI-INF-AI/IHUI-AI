@@ -59,9 +59,22 @@ def hook_audit_path() -> Path:
     return Path(__file__).resolve().parents[3] / HOOK_AUDIT_REL
 
 
+def _max_bytes() -> int:
+    """轮转阈值:env `IHUI_HOOK_AUDIT_MAX_BYTES` 可调(测试与小盘环境用),坏值回落默认。"""
+    raw = os.environ.get("IHUI_HOOK_AUDIT_MAX_BYTES")
+    if raw:
+        try:
+            value = int(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            logger.warning("hook_audit: invalid IHUI_HOOK_AUDIT_MAX_BYTES=%r", raw)
+    return HOOK_AUDIT_MAX_BYTES
+
+
 def _rotate_if_needed(path: Path) -> None:
     try:
-        if path.exists() and path.stat().st_size >= HOOK_AUDIT_MAX_BYTES:
+        if path.exists() and path.stat().st_size >= _max_bytes():
             path.replace(path.with_name(path.name + ".1"))
     except OSError as exc:  # 轮转失败不影响本次追加(写不进去就写不进去)
         logger.warning("hook_audit: rotate failed for %s: %s", path, exc)
@@ -155,15 +168,18 @@ def summarize_hook_audit(
         return result
     result["available"] = True
     lines: deque[str] = deque(maxlen=max(1, max_lines))
+    total_lines = 0
     try:
         with path.open("r", encoding="utf-8", errors="replace") as fh:
             for line in fh:
+                total_lines += 1
                 lines.append(line)
     except Exception as exc:  # noqa: BLE001 —— 读失败回"不可用",不冒充 0
         logger.warning("hook_audit: read failed for %s: %s", path, exc)
         result["available"] = False
         return result
-    result["truncated"] = len(lines) >= max(1, max_lines)
+    # 只有"真的存在被丢掉的行"才算截断:恰好等于上限时一行都没丢。
+    result["truncated"] = total_lines > max(1, max_lines)
     for line in lines:
         if not line.strip():
             continue
