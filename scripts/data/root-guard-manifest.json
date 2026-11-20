@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-20T16:08:56.562Z",
+  "sealedAt": "2026-11-20T21:30:08.968Z",
   "sealedBy": "root-guard --seal",
-  "reason": "同枚重封:新增 auditTmpBloat tmp 体积只读哨兵派发腿(规则面 git-guardian.mjs)刷新其条目哈希,其余 target 保持 HEAD 旧值",
+  "reason": "复核 2be0a1df413 对 scripts/git-guardian.mjs 的 +92 行(gitee 发版资产补齐,该枚已由 IG 门具名追认)后重封清单;此前未同枚重封导致生产部署环 root-guard fail-closed 全面阻塞",
   "targets": [
     {
       "id": "guardian-runner",
@@ -22,13 +22,13 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
+      "sha256": "920256384306dbea2b12370f6c62a2cdce231e1df039ef2ecf169f79be2643c8"
     },
     {
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "942bcb68478b8ac2ec6ade3a5cfe150d7aea34b82d94b77e66d6a13aae345335"
+      "sha256": "43bf5a51c4411ff863e027c651d32216516eeabf3315bb322d274dfc1f50b048"
     },
     {
       "id": "gate-scope",
