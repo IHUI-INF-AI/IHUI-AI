@@ -1604,6 +1604,10 @@
       "owner": null
     },
     {
+      "script": "check-toggle-icon-semantics.mjs",
+      "owner": null
+    },
+    {
       "script": "check-token-literal-debt.mjs",
       "owner": null
     },

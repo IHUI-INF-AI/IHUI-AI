@@ -1954,6 +1954,33 @@ if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   console.log(`⏭  Button 高度/宽度覆盖守门(${skipCause('HUSKY_SKIP_BUTTON_HEIGHT_GUARD')}, 跳过)`)
 }
 
+// 🧭 toggle 图标语义守门(2026-11-21 立,blocking)
+// 背景:常驻开关(aria-pressed + 高亮)的真值态画了"解除型"图标(PinOff/EyeOff…),
+//      视觉上与开启态正好相反 —— 用户实报「桌面端窗口置顶按钮逻辑正好相反」。
+//      面板已改为状态式,并抽了唯一实现 <PinToggleIcon>;本门守住不再写反。
+//      判据窄到"按不住"可机械判定的三条件(menu 项/带文字/关闭态族全部不判)。
+// 本地只读暂存 tsx(<1s),工具/文档提交 0 候选直接绿,不受 TOOL_ONLY 跳过影响。
+// 跳过方法(紧急):HUSKY_SKIP_TOGGLE_ICON_SEMANTICS=1 git commit ...
+if (process.env.HUSKY_SKIP_TOGGLE_ICON_SEMANTICS !== '1') {
+  if (
+    !run(
+      '🧭 toggle 图标语义守门(常驻开关必须画状态, 2026-11-21 立)...',
+      'node scripts/check-toggle-icon-semantics.mjs --staged',
+    )
+  ) {
+    console.error('❌ toggle 图标语义守门失败,提交已阻止')
+    console.error('   修复:真值支改用开启态图标({pressed ? <Pin/> : <PinOff/>}),')
+    console.error(
+      '        或复用 @/components/common/pin-toggle-icon 的 <PinToggleIcon pressed={...}/>',
+    )
+    console.error('   自检: node scripts/check-toggle-icon-semantics.mjs --self-test')
+    console.error('   紧急跳过:HUSKY_SKIP_TOGGLE_ICON_SEMANTICS=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log(`⏭  toggle 图标语义守门(${skipCause('HUSKY_SKIP_TOGGLE_ICON_SEMANTICS')}, 跳过)`)
+}
+
 // 🔑 凭据前缀一致性守门(2026-09-13 立,blocking)
 // 背景:IHUI 对外 API 的 Bearer 只能用公开标识 `ihui_xxx`;`sk_xxx`(secret)只走 X-Api-Secret 头。
 //      2026-09-13 生产实测确认 `Bearer sk_...` 必 401,而当时 8 个 UI 页面/文档把 Bearer 写成

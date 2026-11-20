@@ -1344,6 +1344,10 @@
     "scripts/check-screen-registration-sync.mjs": {
       "face": "staged",
       "reason": "补声明(2026-11-19):门内 parseArgv 缺省 face=staged(见该脚本 parseArgv 的 `argv.includes('--worktree') ? 'worktree' : 'staged'`),判据素材=本次暂存改动面;此前未声明 ⇒ 派发层判「未声明判面」,该门没有资格回答(§0.3 未判定)"
+    },
+    "scripts/check-toggle-icon-semantics.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     }
   }
 }
