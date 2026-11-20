@@ -698,17 +698,35 @@ async fn launch_verified_installer(
     let installer = dir.join(format!("ihui-{ver}-setup.exe"));
     std::fs::write(&installer, &bytes).map_err(|e| format!("写入安装器失败: {e}"))?;
     // `/S` 静默 + `/R` 装完重启应用 + `/UPDATE` 覆盖升级(与人工实测可用的参数一致)。
-    let mut cmd = std::process::Command::new(&installer);
-    cmd.args(["/S", "/R", "/UPDATE"]);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // DETACHED_PROCESS:安装器不继承本进程的句柄/控制台,父进程退出不会把它带走。
-        cmd.creation_flags(0x0000_0008);
-    }
-    let child = cmd
-        .spawn()
-        .map_err(|e| format!("拉起安装器失败({}): {e}", installer.display()))?;
+    //
+    // 2026-11-21 第二次实测:主进程被 `orphan_guard::install` 挂在
+    // `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 作业里,子进程默认继承该作业;
+    // 主进程 `exit(0)` 会关作业句柄 ⇒ 内核 `TerminateJobObject` 连安装器一起杀。
+    // 现场特征与"没启动"几乎一样:pid 已打出来、两秒内消失、版本不变、无日志。
+    // 必须 `CREATE_BREAKAWAY_FROM_JOB`(0x0100_0000)显式脱离(作业侧已开
+    // `JOB_OBJECT_LIMIT_BREAKAWAY_OK`),安装器生命才与本次运行解耦。
+    // 若脱离被拒(旧作业/权限),退回普通拉起并留下 WARN,不静默丢失败。
+    let spawn_installer = |breakaway: bool| {
+        let mut cmd = std::process::Command::new(&installer);
+        cmd.args(["/S", "/R", "/UPDATE"]);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            // DETACHED_PROCESS(0x8):安装器不继承控制台/句柄;
+            // CREATE_BREAKAWAY_FROM_JOB(0x0100_0000):脱离 kill-on-close 作业。
+            let flags = if breakaway { 0x0000_0008 | 0x0100_0000 } else { 0x0000_0008 };
+            cmd.creation_flags(flags);
+        }
+        cmd.spawn()
+    };
+    let child = match spawn_installer(true) {
+        Ok(child) => child,
+        Err(first) => {
+            log::warn!("[auto-refresh] 脱离作业拉起安装器失败({first}) → 退回普通拉起");
+            spawn_installer(false)
+                .map_err(|e| format!("拉起安装器失败({}): {e}", installer.display()))?
+        }
+    };
     log::info!(
         "[auto-refresh] 安装器已启动 pid={} path={}",
         child.id(),
