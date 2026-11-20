@@ -9570,6 +9570,30 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,
 )
+from ..tools import (  # noqa: E402
+    hr_insurance_readiness as _hr_insurance_readiness,
+)
+
+# 人事部 AI 工具(2026-11-21 实装):员工自助 4 枚 + 月度算薪 1 枚。
+# 自助四枚只走本人作用域端点(/mine*、/my-*),身份票主体 = 宿主注入的 __user_id;
+# hr_payroll_calc 是管理侧算薪,权限 hr:payroll:manage 由 apps/api RBAC 逐请求现问
+# (与 ai_payroll_handoff 同口径,不入 _ADMIN_ONLY_TOOLS:对话链 user_role 默认 0,
+# 入档等于把管理员也挡在门外,见 image_generation 的历史结论)。
+from ..tools import (  # noqa: E402
+    hr_my_attendance as _hr_my_attendance,
+)
+from ..tools import (  # noqa: E402
+    hr_my_leaves as _hr_my_leaves,
+)
+from ..tools import (  # noqa: E402
+    hr_my_payroll as _hr_my_payroll,
+)
+from ..tools import (  # noqa: E402
+    hr_my_payroll_periods as _hr_my_payroll_periods,
+)
+from ..tools import (  # noqa: E402
+    hr_payroll_calc as _hr_payroll_calc,
+)
 
 # D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
 from ..tools import (
@@ -9594,39 +9618,10 @@ from ..tools import (  # noqa: E402
     special_deduction_calc as _special_deduction_calc,
 )
 
-# 人事部 AI 工具(2026-11-21 实装):员工自助 4 枚 + 月度算薪 1 枚。
-# 自助四枚只走本人作用域端点(/mine*、/my-*),身份票主体 = 宿主注入的 __user_id;
-# hr_payroll_calc 是管理侧算薪,权限 hr:payroll:manage 由 apps/api RBAC 逐请求现问
-# (与 ai_payroll_handoff 同口径,不入 _ADMIN_ONLY_TOOLS:对话链 user_role 默认 0,
-# 入档等于把管理员也挡在门外,见 image_generation 的历史结论)。
-from ..tools import (  # noqa: E402
-    hr_my_attendance as _hr_my_attendance,
-)
-from ..tools import (  # noqa: E402
-    hr_my_leaves as _hr_my_leaves,
-)
-from ..tools import (  # noqa: E402
-    hr_my_payroll as _hr_my_payroll,
-)
-from ..tools import (  # noqa: E402
-    hr_my_payroll_periods as _hr_my_payroll_periods,
-)
-from ..tools import (  # noqa: E402
-    hr_payroll_calc as _hr_payroll_calc,
-)
-from ..tools import (  # noqa: E402
-    hr_insurance_readiness as _hr_insurance_readiness,
-)
-
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
-)
-
-# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
-from ..tools.payroll_handoff_tools import (  # noqa: E402
-    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 # 人事部自助/算薪描述常量(2026-11-21 实装):文案单源在 hr_tools
@@ -9637,6 +9632,11 @@ from ..tools.hr_tools import (  # noqa: E402
     HR_MY_PAYROLL_DESCRIPTION,
     HR_MY_PAYROLL_PERIODS_DESCRIPTION,
     HR_PAYROLL_CALC_DESCRIPTION,
+)
+
+# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
+from ..tools.payroll_handoff_tools import (  # noqa: E402
+    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 # 财务部五腿扩展描述常量(2026-11-13):文案单源在各工具文件
