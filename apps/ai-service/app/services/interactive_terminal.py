@@ -164,6 +164,9 @@ PTY_REQUEST_ENV: Final = "IHUI_INTERACTIVE_PTY"
 _PTY_TRUTHY: Final[frozenset[str]] = frozenset({"1", "true", "yes", "on"})
 #: PTY 读循环每次最多吐多少字节(行切分在 _pump_pty 里做,这里只控单次 read 上界)。
 _PTY_READ_CHUNK: Final = 65_536
+#: PTY 输出"静默多久算一帧"。TUI 只写 `\r` 不写 `\n`,死等换行会让读端在子进程
+#: 活着时读到空;0.25s 是"人能感知为一帧、又不把真正的慢输出切碎"的折中值。
+PTY_IDLE_FLUSH_S: Final = 0.25
 
 
 def _pty_requested(env: Mapping[str, str] | None = None) -> bool:
@@ -353,14 +356,70 @@ def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
             pass
 
 
+class _PtyLineSplitter:
+    """PTY 输出的行切器:**按 `\\n` 切,空闲即吐**。
+
+    为什么不能只按 `\\n` 切:TUI(htop/vim/进度条)的刷新帧经常只写 `\\r` 重绘、
+    **一个 `\\n` 都不写**。纯行切会把整帧滞留在 pending 里,直到程序某天换行或退出 ——
+    读端在"子进程活着、屏幕上明明有内容"的那一刻读到空,这是真缺陷,不是延迟问题。
+
+    所以口径改为:完整行(`\\n`)即时吐出;末尾不完整片段由看门狗线程在"距上次收到
+    字节 ≥ `PTY_IDLE_FLUSH_S`"时当作一条 chunk 吐出(**不带 `\\n`**,不伪造换行)。
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._pending = ""
+        self._last_feed = time.monotonic()
+
+    def feed(self, data: bytes) -> list[str]:
+        """喂入原始字节,回已完成的整行(每行自带 `\\n`)。"""
+        text = data.decode("utf-8", errors="replace")
+        with self._lock:
+            self._pending += text
+            self._last_feed = time.monotonic()
+            lines: list[str] = []
+            while "\n" in self._pending:
+                line, self._pending = self._pending.split("\n", 1)
+                lines.append(f"{line}\n")
+            return lines
+
+    def take_idle(self, idle_s: float) -> str:
+        """静默够久就把 pending 交出去(空串 = 还没到点/没东西)。"""
+        with self._lock:
+            if not self._pending or time.monotonic() - self._last_feed < idle_s:
+                return ""
+            text, self._pending = self._pending, ""
+            return text
+
+    def take_all(self) -> str:
+        with self._lock:
+            text, self._pending = self._pending, ""
+            return text
+
+
 def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
-    """PTY 路径:master 读原始字节,按 \\n 切成行入队(与管道口径一致,消费方无需分叉)。
+    """PTY 路径:master 读原始字节,按行切 + **空闲即吐**(见 `_PtyLineSplitter`)。
 
     子进程退出后,master 的 os.read 在 POSIX 返回 EOF(b"")或抛 EIO —— 两种都判收尾。
-    行缓冲的尾巴(若退出前最后一行无 \\n)也吐出,不丢尾。本线程不负责关 fd ——
+    收尾时把 pending 尾巴一律吐出,不丢尾。本线程不负责关 fd ——
     fd 由 `_close_io`/close_terminal 统一直close,避免 read 线程与 close 抢关。
     """
-    buffered = ""
+    splitter = _PtyLineSplitter()
+    stop = threading.Event()
+
+    def _watch_idle() -> None:
+        # 看门狗只负责"静默吐 pending";读线程一结束就停(收尾 flush 由 finally 负责),
+        # 所以不会出现"读线程已退出、尾巴永远留在 pending"的窗口。
+        while not stop.wait(PTY_IDLE_FLUSH_S / 2):
+            idle_text = splitter.take_idle(PTY_IDLE_FLUSH_S)
+            if idle_text:
+                _push(session, tag, idle_text)
+
+    watcher = threading.Thread(
+        target=_watch_idle, name=f"pty-idle-{session.terminal_id}", daemon=True
+    )
+    watcher.start()
     try:
         while True:
             try:
@@ -369,13 +428,13 @@ def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
                 break  # EOF / EIO:子进程已退,读端失效
             if not data:
                 break
-            buffered += data.decode("utf-8", errors="replace")
-            while "\n" in buffered:
-                line, buffered = buffered.split("\n", 1)
-                _push(session, tag, f"{line}\n")
+            for line in splitter.feed(data):
+                _push(session, tag, line)
     finally:
-        if buffered:
-            _push(session, tag, buffered)
+        stop.set()
+        tail = splitter.take_all()
+        if tail:
+            _push(session, tag, tail)
 
 
 def _prune_for_new_session() -> None:
@@ -1670,6 +1729,8 @@ __test__ = {
     "eof_terminal": eof_terminal,
     "pty_child_env": _pty_child_env,
     "history_gap": _history_gap,
+    "pty_line_splitter": _PtyLineSplitter,
+    "PTY_IDLE_FLUSH_S": PTY_IDLE_FLUSH_S,
     "read_terminal": read_terminal,
     "PTY_TERM": PTY_TERM,
     "PTY_COLORTERM": PTY_COLORTERM,
