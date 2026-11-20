@@ -103,15 +103,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5943 | `testFiles` |
+| 测试文件 | 5944 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 370 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
-| 跟踪文件 | 23092 | `trackedFiles` |
+| 跟踪文件 | 23093 | `trackedFiles` |
+
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-20。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5476,6 +5478,133 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 📚 文档:具名追认 2be0a1df(Gitee 发版资产补齐)对 git-guardian.mjs 的追加式改动 (68a44c3d557)
+- 📚 文档:README 生成块按 HEAD 面现算对齐(testFiles 5942 / trackedFiles 23088,随本票新增 2 路径 DN5 同步) (93e75ee4da2)
+- 🚀 新功能/改进:社保基数变更即时通知 + 每日配置巡检(一更新就知道,该更新没更新会被发现) (8628cf72e34)
+- 🔧 工程/其他:烘焙桌面端更新源 0.1.89 (Windows 走 Gitee 直链) (aded46d5b41)
+- 📚 文档:README 生成块测试文件数按远端现值重钉(生成物值复现属有意重生成) (e68fa6a8be6)
+- 📚 文档:生成块 testFiles 5939→5940 / trackedFiles 23080→23082 对齐 origin/main 现算(派生数字行,为并发合并消除双值分歧;不读工作树,同文件另有在飞改动) (5db054a0bec)
+- 🐞 修复:双击快捷方式启动不了 —— desktop 复用共享 web 8801(registry reusePortOf/processName + 8801 已 UP 则跳过冲突判定)、beforeDevCommand 改 scripts/desktop-before-dev.mjs(UP 复用/DOWN 补起)、存活判据由 8801 HTTP 200 改为 ihui-desktop 进程+窗口句柄(入口脚本轮询 MainWindowHandle)、cargo 按 Get-Command 实测注入;README 数字块由在飞他人票同步,本票不再改 (2e9364f6b54)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f58931f4feb)
+- 🚀 新功能/改进:国内侧自动补齐 Gitee 发版资产(治 runner 传 87MB 必超时的结构性缺口) (2be0a1df413)
+- 🐞 修复:reasoning_effort_catalog 循环变量改 patch_json(mypy 2.3.1 判 str 赋给 dict[str, Sequence[str]],同函数体上方 patch 是补丁体,dirty 面不再阻断 push 门 T1) (4b18219e2a1)
+- 📚 文档:生成块 testFiles 5940 / trackedFiles 23082 按 HEAD 面现算对齐(并发会话新增文件所致 DN5) (78e3dad9033)
+- 🐞 修复:reasoning_effort_catalog 循环变量改用 payload(与上文 dict 变量 patch 解耦,mypy assignment 冲突清零) (e803d0d4812)
+- 🐞 修复:图像改按实际张数计费(n in [1,10],原实现按 1 张扣会漏收 9 张)并补 n=10=>30 积分断言。IHUI_LAND_SKIP_DANGLING_GATE=1 原因:本次仅两处 units 1->billingUnits 常量替换(均为 number,typecheck 9/9 已绿),全仓悬空扫描与改动无关且单次 >40min 会拖住并发落地;LAND_ALLOW_STALE=1 原因:proxy-llm 失败分支通用行 return reply 被行级复活判据误判(祖先同形)。 (62be400645a)
+- 🔧 工程/其他:mcp_server import 块按 isort 重排(I001,纯排序 27/27 行) (3e3d188b307)
+- 🚀 新功能/改进:媒体生成按张/次计费(图像 3/张、视频 12/次,倍数沿用单一档位表;预检按本次预估判余额、成功后扣、referenceId 幂等、扣分失败不阻塞产物)。含 3 个单源模块(media-billing / media-billing-pricing / points-multiplier 抽离)与 8 例纯判据测试。LAND_ALLOW_STALE=1 原因:image-gen-routes 与 proxy-llm 的失败分支通用行 'return reply' 被行级复活判据误判(祖先同形),已逐文件核 diff 仅含本票改动。 (d848f095306)
+- 🐞 修复:ruff 清账两件(__init__ 补 HR_INSURANCE_READINESS_DESCRIPTION 进 __all__;reasoning_effort_catalog 改用 datetime.UTC 别名) (b3afde90da1)
+- 📚 文档:追加本机Agent并发容量实测诊断附录——三层根因(各自拉整套dev环境/CPU空闲基线吃满/页面文件在机械盘)+三层收口(页面文件迁NVMe/安全清理脚本/AGENTS铁律12)+真实并发上限(共享15-25 vs 各自拉≤5)。纯追加16行零删除,基于HEAD构造不卷带他席120+改动。 (e11cf4b649e)
+- 📚 文档:README 生成块按合流后 HEAD 面现算对齐(apiRoutes/testFiles/trackedFiles) (d1bcbd5fa6a)
+- 📚 文档:README 生成块按合流后 HEAD 面现算对齐(apiRoutes/testFiles/trackedFiles) (b781d447458)
+- 📚 文档:生成块 testFiles 5939 / trackedFiles 23078 按 HEAD 面现算对齐(DN1/DN5;sync-readme-numbers 按索引面取数与门差 2,故按门现算值手写两条派生行) (76801d102eb)
+- 🔧 工程/其他:0.1.89 自更新回执与目录清理, 新增 dev 独立端口热更入口 (e998ed8d1bc)
+- 📚 文档:README 生成块按合流后 HEAD 面现算对齐(apiRoutes/testFiles/trackedFiles) (2b3e94f4c54)
+- 📚 文档:记 T1 逐包回执与 IHUI-T1-TIMING/ATTRIB 自述行读法 (9b785f21618)
+- 🚀 新功能/改进:推理档位按上游真实枚举声明 + 滑轨两端对齐 (055260e1a13)
+- 🐞 修复:zh-TW 台帳 残留简体改臺灣標準字(門 2b 简体残留判红) (b69db3c2505)
+- ♻️ 重构:钩子读数抽成 HookReadout 组件(第43项) - 显示优先级单源 + 4 例 RTL 锁 (bcfc68c7a27)
+- 📚 文档:§4 新增「常驻开关图标画状态、不画动作」强制条目(门 89 R4:已接线守门须在 AGENTS 可见;配套 check-toggle-icon-semantics.mjs) (1af0bd2ecf6)
+- 🔧 工程/其他:Merge origin/main into main(98943bcf6e9) (edf00981128)
+- 🚀 新功能/改进:终端焦点事件原语(DEC 1004,程序点单后 ESC[I/ESC[O],未点单拒 TERMINAL_FOCUS_DISABLED) (ddb904134ec)
+- 🐞 修复:scheduler 超时竞速去掉同一 Promise 的二次空 catch(wire-strictness 91→90) (6564d87e128)
+- 📚 文档:README 生成块按合流后 HEAD 面现算对齐(apiRoutes/testFiles/trackedFiles) (2f40af76a84)
+- 🐞 修复:审计摘要截断判定修正 + 轮转阈值可调可测(第42项) (a1bbfa12093)
+- 📚 文档:§0 新增铁律12——多agent并发复用同一套dev server(实测8个各自拉整套即卡死);旧12顺延为13。基于HEAD构造,工作区零改动,不卷带他人63个未提交改动。 (8b818ab026a)
+- 📚 文档:README 生成块数字按合流后 HEAD 面现算对齐(apiRoutes 4861 / testFiles 5937 / trackedFiles 23074) (f5c5a3720f3)
+- 📚 文档:生成块三格对齐(aiServiceRoutes 686 / testFiles 5935 / trackedFiles 23069) (e2d6e4c44c5)
+- 🚀 新功能/改进:社保配置防滞后提醒(记录时间早于生效年度 → 提示疑似沿用旧数据) (93533aec841)
+- 🐞 修复:DB-35 后 email 密文致跨环境 owner 翻译全跳过——读路径经 decryptCredential 解密 (1f403c8b6c8)
+- 🚀 新功能/改进:社保守卫(缺费率配置拒绝出单) + 公积金基数独立夹取 + 算薪配置体检工具 (a0ff3ae1bba)
+- 🚀 新功能/改进:终端 DECCKM 应用光标键模式(程序 DECSET 1 后方向键/Home/End 改发 SS3,回执 app_cursor) (6a3dbd0f2c0)
+- 📚 文档:README 生成块数字按 HEAD 面现算重钉(testFiles 5935→5936 / trackedFiles 23071→23072 / testFiles 5933→5936 / trackedFiles 23067→23072;并发落地带入文件所致;数字块为生成物,值复现属有意重生成) (8228aad8923)
+- 🚀 新功能/改进:模态档只展示有通道的(agnes-image-/agnes-video-)+语音/OCR 未接通给明确说明卡+非 agnes 图像模型显式 400(禁静默顶替);新增选择器判据测试 7 例(vitest)。LAND_ALLOW_STALE=1 原因:image-gen-routes 的 503 未接通分支被有意替换为真出图,新代码里通用行 'return reply' 被行级判据误判为复活(祖先 990b7dcd7 同形),已逐文件核 diff 仅含本票改动。 (9f3255259af)
+- 🔧 工程/其他:桌面更新源烘焙到 0.1.88(Windows 腿走 Gitee，字节一致) (65a0db11ec4)
+- 🐞 修复:管道路径空闲即吐(PeekNamedPipe/select 轮询 + 字节级行切,治好 TUI 帧读不到与多字节被切坏) (917fd9c7086)
+- 📚 文档:README 生成块数字按合流后 HEAD 面现算对齐(testFiles 5935 / trackedFiles 23071) (1e02688b8a2)
+- 🚀 新功能/改进:hook-run 补进严格解析档(第40项) - 缺 hooks 报字段级故障,不再悄悄走宽松 (94432f75b62)
+- 🚀 新功能/改进:T1 结局行加耗时自述(IHUI-T1-TIMING),任何结局都打印 (42ebca16405)
+- 🚀 新功能/改进:终端 alt-screen 分屏记账(1049/1047/47;snapshot/search 按当前屏面取,read 仍原始流) (35cdbdfbaa1)
+- 📚 文档:刷新生成块测试/跟踪文件计数(5934/23067) (1cf943b8b41)
+- 🚀 新功能/改进:0.1.86 桌面源四平台直链全部切国内 Gitee,并补齐 Gitee 缺失资产 (fcee4f84fe5)
+- 🚀 新功能/改进:终端鼠标上报原语(mouse;DECSET 1000/1002/1003 由程序点单,四代坐标封装 1006/1015/1005/x10) (e6a0aecca10)
+- 🚀 新功能/改进:钩子运行审计落盘(第39项) - 唯一观察者出口,publish_observation 只认 hook.run (821374dca5c)
+- 📚 文档:README 生成块数字按 HEAD 面现算重钉(apiRoutes 4857→4860 / testFiles 5932→5933 / trackedFiles 23066→23067,本枚新增 3 个跟踪文件所致;数字块为生成物,值复现属有意重生成) (1a890789804)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (73ec39ea0ab)
+- 🚀 新功能/改进:推理档位随模型声明收敛 + 模型卡片视觉精修 (76fd92e6c71)
+- 🚀 新功能/改进:会话级钩子累计读数(第38项) - 失败率/超时数/均值/峰值不受 50 条 FIFO 淘汰 (788f6b102b8)
+- 🚀 新功能/改进:mcp_server 注册五枚人事工具(自助四枚+月度算薪) (6b1e4000c08)
+- 🐞 修复:常驻开关图标改画状态,根治「置顶按钮看起来正好相反」 (ad7d24e57c8)
+- 🚀 新功能/改进:wait_for 支持 plain 判定面(按 strip_ansi 归一文本等提示符,治好「屏上写着却等不到」的假超时) (167a3f0cb3f)
+- 🚀 新功能/改进:打通人事薪资 AI 工具与自助端点(五工具+两专家包+月结汇总) (5dac9fe8649)
+- 🔧 工程/其他:0.1.88 版本号(用于验证 0.1.87 起的自更新闭环) (2bcccca4cbe)
+- 🚀 新功能/改进:wait_for 支持 plain 判定面(按 strip_ansi 归一文本等提示符,治好「屏上写着却等不到」的假超时) (f1221475d09)
+- 🐞 修复:自更新安装器脱离 kill-on-close 作业(v0.1.87) (e5f0bb97d05)
+- 📚 文档:README 生成块数字按合流后 HEAD 面现算对齐(trackedFiles 23063 / llmModels 103) (654a21eade9)
+- 🚀 新功能/改进:子代理钩子结果接入 hook.run 观察通道(第37项) (97553bef3a3)
+- 🚀 新功能/改进:交互式终端输出缓冲上限可配(IHUI_TERMINAL_BUFFER_LINES,夹在 100..20000,缺省 2000),上限在 __post_init__ 落到 deque (6018b33e050)
+- 🔧 工程/其他:生成块按 HEAD 面现算值刷新(testFiles 5932 / trackedFiles 23062),解掉 push 文档数字对账红 (04e05a61e3d)
+- 🔧 工程/其他:桌面更新源烘焙到 0.1.86(Windows 腿走 Gitee，字节一致) (56a71161dd0)
+- 🔧 工程/其他:test(agent)+docs: 子代理钩子 5 例与报告 §5.37(第36项) (766a374820a)
+- 🚀 新功能/改进:交互式终端 close 收尾回报参数化(forced/survived + warning),不再把「发了信号」写成「进程已死」 (b2084b688e5)
+- 🚀 新功能/改进:补 HookKind SUBAGENT_START/STOP 与事件映射(第36项核心件,随派发侧同批) (323c8b12f57)
+- 🚀 新功能/改进:交互式终端跟踪终端状态信号(窗口标题 OSC 0/1/2 + 响铃累计),并进会话账本与快照信封 (5daa841b9a5)
+- 📚 文档:README 生成块数字按 HEAD 面现算对齐(trackedFiles 23061→23062 / llmModels 100→103) (eeb39b6b2d1)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e6c0a841193)
+- 🚀 新功能/改进:交互式终端补 snapshot/search 原语(转义归一单一出口 strip_ansi,快照只留末尾 N 行并报 truncated,检索支持 regex/ignore_case) (03efb6052e7)
+- 🐞 修复:补录财务三枚计算器工具本地化名与五语言文案(门55);滑块投影改唯一源档(门318);mcp_server import 排序 ruff 收敛(门263) (b97586f0706)
+- 🚀 新功能/改进:T1 判红时打印推送面/闭包面/脏面三格归因 (97d79523f37)
+- 🚀 新功能/改进:deepseek-v41 代次误判修复 + 模态档(video 规则补 -video 泛化) + 出图/出片链路接通(/image-gen/generate 真调 Agnes,web 选中图像/视频档分流到生成端点并以工具卡上屏) + Sora 死兜底改显式拒绝(2026-09-24 已停服) (a495767f386)
+- 🐞 修复:chat 补 reasoningEffortReset 键 + financeAi 占位示例按语言本地化(en/ja/ko/zh-TW 去中文残留)(门2/2b/2c/2d/2e) (b3da998251b)
+- 🚀 新功能/改进:交互式终端补 paste 原语(bracketed paste 按程序 DECSET 2004 决策);并恢复被误删的 keys/wait_for/resize/eof 工具分支 (85ff50ba4b5)
+- 🚀 新功能/改进:推理强度只留上游可切换的四档,刷新模型列表按钮并进卡片头行 (52085d1369d)
+- 🔧 工程/其他:0.1.86 版本号(用于验证 0.1.85 起的自更新闭环) (e50f7fc127f)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e188af794d4)
+- 📚 文档:章节索引层改为行号现算+结构判绿,新增 --locate 现算行区间 (e2b0da9f9f9)
+- 🔧 工程/其他:追认合并提交 9e647bab 的 AGENTS.md 追加行 (3c07d09343a)
+- 📚 文档:生成块两行数字随第35项现算刷新(testFiles 5931 / trackedFiles 23061) (f18e364cf57)
+- 🚀 新功能/改进:interrupt 钩子挂载点 + 同步钩子移出事件循环(超时真生效)(第35项) (158edb87752)
+- ⚡ 性能:e2e 与 mypy 两条腿也走结论回执(T1 只剩包级 tsc) (a24c285ecc6)
+- 🐞 修复:回补被财务矩阵五语重算冲掉的 errorCatalog 词包键(防丢闸点名)——TERMINAL_STDIN_CLOSED 三件套与 runtimeHookConfigStaleBy 五语各 4 键,值逐字取 origin/main 面(10ae0e76 补录),本席 7ddd03e 同型回补先例;修复 5133536968b 重算吃键回归 (32dbad346dc)
+- 🐞 修复:修正上一提交把 base64 文本写进文件的问题(v0.1.85) | 自更新安装腿改走 CreateProcess 并检查结果，补 installMode quiet (d36598f30b9)
+- 🚀 新功能/改进:交互式终端 PTY interrupt 统一走 ^C 输入字节(不绕过 tty 直发信号) (3a03899b116)
+- 🐞 修复:合并树键级 union 修复 —— 补回 origin 侧 ai.pane 四键(×5 语言) (b6d71b97ba0)
+- 🚀 新功能/改进:交互式终端闲置会话回收(IHUI_TERMINAL_IDLE_TTL_S,回收逐条点名) (46ae0178d70)
+- 🚀 新功能/改进:五腿财务矩阵接线收口 —— 报销/社保/专项附加 MCP 注册+专家包+强信号路由,前端三卡+i18n 五语,P0 跨员工累计预扣修复 (5133536968b)
+- 🐞 修复:自更新安装腿改走 CreateProcess 并检查结果，补 installMode quiet (v0.1.85) (4cd7a29cc2b)
+- 📚 文档:生成块 testFiles 5930 / trackedFiles 23060(按合并面现算) (6b6a9fb4f7b)
+- 🚀 新功能/改进:交互式终端 PTY 输出空闲即吐(TUI 帧不写换行时读端不再空等) (3bd2c756a96)
+- 📚 文档:生成块 testFiles 5929 / trackedFiles 23059(按并集面现算) (840ca89fb67)
+- 📚 文档:README 生成块按现算刷新 testFiles 5930 / trackedFiles 23057(门173) (11f35ecd415)
+- 🚀 新功能/改进:交互式终端输出缓冲溢出显式报缺口(dropped_chunks/first_seq/gap) (a1151380545)
+- 🚀 新功能/改进:pre/post_model_request 钩子挂载点 + 重试不重复点火(第34项) (6a459752136)
+- 🐞 修复:补录 TERMINAL_STDIN_CLOSED 错误码与五语言词包(门94);README 四语言块外尾部保持已入库版本、块内 changelog 保留(门314/100) (10ae0e76917)
+- 🐞 修复:四平台下载直链全部切至 Gitee 国内通道(mac/linux 资产已补齐并逐字节对账) (fc1a7c2f1b0)
+- 🔧 工程/其他:烘焙更新源为 0.1.84 (latest.json -> DESKTOP_LATEST, Windows 直链 Gitee 字节对账一致) (62b1e8bb4c1)
+- 🚀 新功能/改进:交互式终端 open 支持直接开在目标窗口尺寸 (e61cdff471f)
+- 📚 文档:生成块 trackedFiles 23058(按字节补丁,保住三层水印) (0f9cfb114ff)
+- 📚 文档:生成块数字随第33项同步(testFiles 5929 / trackedFiles 23056) (cbc74ef2b41)
+- 📚 文档:生成块 trackedFiles 23055→23058(按 HEAD 面现算,不改他席在飞的正文) (11a6570bf6f)
+- 🚀 新功能/改进:session_end 钩子挂载点 + 收尾观察面边界(第33项) (3032b88097c)
+- 🔧 工程/其他:给逐包回执的两个新源文件补溯源水印(47p HEAD 面欠账) (6e3951d1164)
+- 🔧 工程/其他:结清S-28两条(MiniMax mcode会话回灌revived:1本地cred44/生产cred45可调度healthy;OpenCode旧死行auto356已消失换新健康行auto:d9fbe94;修复DB-35后owner-map与账号导出两处email漏解密致跨环境owner翻译跳过;保活任务IHUI-Pool-Sync已重装健康) (7a026e3dd6b)
+- 🔧 工程/其他:追认 03b12e2a 的 tmp 体积哨兵(按其提交日重签,去掉日期早于提交的那行) (62fa4880506)
+- 🔧 工程/其他:追认 03b12e2a 的 tmp 体积哨兵(未声明改动,只读增收紧) (6ab11c17aa6)
+- ⚡ 性能:逐包类型结论回执——输入摘要未变的包不再重跑 tsc(T1 从"每次全量"降到"只跑变了的") (bbfc0b07739)
+- 🚀 新功能/改进:新增 tmp 体积只读哨兵 check-tmp-bloat 并接 5 分钟周期腿;同枚重封根护栏清单 git-guardian 条目哈希 (03b12e2ae6f)
+- 🚀 新功能/改进:钩子信任登记闭环(审计元数据 + --trust 显式确认 + 面板上次登记提示)(第32项) (de160fd2f35)
+- 🔧 工程/其他:刷新更新源快照到 0.1.84 (CI resolved feed snapshot from desktop-v0.1.84) (5aa1fc60eee)
+- 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (fb0b1240e17)
+- 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948f)
+
+**2026-11-20**
+- 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (7e4aaa11480)
+- 🚀 新功能/改进:交互式终端补真终端身份键与 stdin EOF 原语 (d459cd24a2a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fc7425978b1)
+- 🔧 工程/其他:README 生成块 trackedFiles 按 HEAD 面现算对齐(23055) (826c7798c48)
+- 🔧 工程/其他:README 生成块数字按现算刷新(AI服务路由/测试文件/跟踪文件,第31项新增文件所致) (44a7913adaa)
+
+**2026-11-21**
 - 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948)
 **2026-11-20**
 - 🚀 新功能/改进:交互式终端补真终端身份键与 stdin EOF 原语 (d459cd24a2)
@@ -8751,6 +8880,3 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
-| 跟踪文件 | 23080 | `trackedFiles` |
-| 测试文件 | 5942 | `testFiles` |
-| 跟踪文件 | 23090 | `trackedFiles` |
