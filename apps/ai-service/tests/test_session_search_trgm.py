@@ -81,4 +81,35 @@ def test_version_row_records_degradation_honestly(store) -> None:
     desc = str(row["description"])
     assert desc.startswith("search: "), desc
     assert ("pg_trgm" in desc) or ("降级" in desc), desc
+
+
+def test_search_backend_is_observable_and_matches_index(store) -> None:
+    """检索后端必须能现读:`trgm` ⟺ 索引真的在。降级不许只藏在版本表里。"""
+    assert store.search_backend in {"trgm", "like"}, store.search_backend
+    has_index = "idx_items_search_trgm" in _indexes(store)
+    assert (store.search_backend == "trgm") == has_index, (
+        f"search_backend={store.search_backend} 与索引存在性({has_index})不一致"
+    )
+
+
+def test_search_backend_degrades_when_extension_unavailable(tmp_path, monkeypatch) -> None:
+    """装不上扩展时必须落 `like`(不是崩、也不是谎报 trgm),并且只降级不改变结论。"""
+    monkeypatch.setattr(
+        SessionStore, "_ensure_trgm_index", lambda self: False, raising=True
+    )
+    s = SessionStore(tmp_path / "degraded.db")
+    try:
+        assert s.search_backend == "like", s.search_backend
+        th = s.create_thread(title="降级也要能搜")
+        turn = s.start_turn(th.thread_id)
+        s.append_item(turn.turn_id, UserMessageItem(content="地三鲜"))
+        hits = s.full_text_search("三鲜", thread_id=th.thread_id)
+        assert hits, "降级路径必须仍能返回正确命中(慢但不坏)"
+        row = s._conn.execute(
+            "SELECT description FROM schema_version WHERE version = ?", (5,)
+        ).fetchone()
+        assert row is not None and "降级" in str(row["description"]), row
+    finally:
+        s.close()
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -791,8 +791,18 @@ def _schema_name_for(path: Path) -> str:
             )
         return explicit
     if _ephemeral_store(path):
-        return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
+        return _legacy_schema_for_path(path)
     return _DEFAULT_SCHEMA
+
+
+def _legacy_schema_for_path(path: Path) -> str:
+    """旧命名规则(2026-11-19 之前):schema 名 = `sess_` + sha1(绝对路径)[:12]。
+
+    仍然两处要用它:① 临时库(pytest)靠它拿互不干扰的独立 schema;② 非临时库启动时
+    用它算"这份数据当年住在哪个 schema",命中就把那一枚原地改名接管 —— 名字由当前
+    `db_path` 现算,不是从库面上猜最大的一枚。
+    """
+    return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
 
 
 def _quote_ident(name: str) -> str:
@@ -826,8 +836,9 @@ def _schema_row_count(conn: Any, schema: str) -> int:
 def _adopt_named_legacy_schema(conn: Any, target: str, source: str) -> str | None:
     """把**人指名**的旧 schema 原地改名成固定逻辑 schema(`ALTER SCHEMA ... RENAME`)。
 
-    为什么不自动挑:本机实测一个开发库里有 **969 个** `sess_<12hex>` 旧 schema 都带行
-    (历次测试未回收的残留)。"哪个是生产"在库面上根本判不出来,按计数猜一次就可能把
+    为什么不自动挑:本机实测一个开发库里有 **1177 个** `sess_<12hex>` 旧 schema 都带行
+    (历次测试未回收的残留;2026-11-20 `scripts/audit_session_schemas.py` 现读,空壳 249 个
+    已清掉)。"哪个是生产"在库面上根本判不出来,按计数猜一次就可能把
     某个测试残留当生产数据接管 —— 这比"看不见"更坏。所以接管**只认显式指名**
     (`SESSION_STORE_ADOPT_LEGACY_SCHEMA`),机器只做三件可验证的事:
 
@@ -1014,9 +1025,20 @@ class SessionStore:
             if (adopt_source and not self._ephemeral)
             else None
         )
+        # 没指名时再试**可推导**的那一枚:旧命名规则 = `sess_` + sha1(绝对路径)[:12]。
+        # 这不是"猜生产":源名是由**当前 db_path** 现算出来的,与旧代码当年的算法同一份,
+        # 命中即可证"这份数据的旧地址就是它"。库面上另外上千个 schema 一个都不碰。
+        if self._adopted_schema is None and not self._ephemeral:
+            self._adopted_schema = _adopt_named_legacy_schema(
+                self._conn, self._schema, _legacy_schema_for_path(self._path)
+            )
         self._session.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
         self._session.execute(f'SET search_path TO "{self._schema}"')
         self._fts_enabled = False
+        # 检索后端(可观测):`trgm` = ILIKE 能走 GIN 候选集,`like` = 全表扫(降级)。
+        # 这是**能力事实**,不是配置项 —— 供健康检查/排障现读,免得"装不上扩展"只在
+        # 版本表里静静躺一行、生产上没人知道自己在全表扫。
+        self._search_backend = "like"
         self._migrate()
 
     @property
@@ -1034,6 +1056,15 @@ class SessionStore:
                 "SELECT MAX(version) AS v FROM schema_version"
             ).fetchone()
         return 0 if row is None or row["v"] is None else _row_int(row, "v")
+
+    @property
+    def search_backend(self) -> str:
+        """检索实际走哪条腿:`trgm`(ILIKE 命中 GIN 候选集)或 `like`(全表扫降级)。
+
+        这是可观测性,不是开关:调用方/健康检查读它来回答"生产到底有没有用上 pg_trgm",
+        不需要去翻 schema_version 的 description 才知道自己在降级。
+        """
+        return self._search_backend
 
     def close(self) -> None:
         with self._lock:
@@ -1088,6 +1119,15 @@ class SessionStore:
             # 扩展装不上(无权限 / 非标准镜像)⇒ 保持全表扫并在版本行里写明降级,
             # 绝不让检索从"慢"变成"不可用"。
             trgm = self._ensure_trgm_index()
+            self._search_backend = "trgm" if trgm else "like"
+            if not trgm:
+                # 降级必须**响一声**:检索仍可用(慢),但"能不能装、要不要找 DBA"这个
+                # 判断不该等出事才做。warning 一次即够,不刷日志(检索路径每次都会用到它)。
+                logger.warning(
+                    "session_store: pg_trgm 不可用(schema=%s)⇒ 检索退回 ILIKE 全表扫;"
+                    "结论仍正确,只是慢。若为权限问题,可由 DBA 预装扩展后重启进程自动建索引",
+                    self._schema,
+                )
             if not self._has_version(5):
                 self._add_version(
                     5,
