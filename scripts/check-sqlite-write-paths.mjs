@@ -116,6 +116,7 @@ function grepCandidates(root, face) {
   args.push('--', ...SUBROOTS)
   const r = spawnSync('git', args, {
     cwd: root,
+    stdio: ['pipe', 'pipe', 'pipe'],
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
