@@ -29,6 +29,7 @@ import {
   TerminalSquare,
   Package,
   Webhook,
+  ShieldAlert,
 } from 'lucide-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
@@ -67,6 +68,7 @@ import { useTimelineStore } from '@/stores/timeline-store'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useAgentRuntime } from '@/hooks/use-agent-runtime'
+import { useCommandHooksConfig } from '@/hooks/use-command-hooks-config'
 import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
@@ -893,6 +895,15 @@ export function AgentTaskProgressPane() {
   // 2026-11-20 第 26 项:hook-run 只展示"最近一帧"(每帧已是同一工具调用的全部钩子),
   // 钩子状态三态各自配色;文案进 i18n 目录,不在组件里手写中文。
   const lastHookRun = runtimeHookRuns[runtimeHookRuns.length - 1]
+  // 2026-11-20 第 31 项:钩子配置面只读自述 —— 只在"配了但不生效"时给一行提示,
+  // trusted/未配置都不打扰(前者已正常工作,后者是合法默认档)。
+  const hookConfig = useCommandHooksConfig(Boolean(open && threadId))
+  const hookConfigNotice =
+    hookConfig?.status === 'untrusted'
+      ? t('runtimeHookConfigUntrusted', { count: hookConfig.specs.length })
+      : hookConfig?.status === 'invalid'
+        ? t('runtimeHookConfigInvalid')
+        : null
   const hookStatusLabel = (status: 'ok' | 'timeout' | 'error'): string =>
     status === 'timeout'
       ? t('runtimeHookRunTimeout')
@@ -2066,6 +2077,18 @@ export function AgentTaskProgressPane() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 2026-11-20 第 31 项:钩子配置未生效时给出原因(未受信任 / 配置损坏)。
+              trusted / 未配置都不显示 —— 后者是合法默认档,不该报警。 */}
+          {hookConfigNotice && (
+            <div
+              className="mx-2 mt-1 flex items-center gap-1 text-[10px] text-amber-600"
+              data-testid="pane-runtime-hook-config"
+            >
+              <ShieldAlert className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="min-w-0 truncate">{hookConfigNotice}</span>
             </div>
           )}
 

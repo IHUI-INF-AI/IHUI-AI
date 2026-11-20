@@ -1382,6 +1382,26 @@ class SecurityConfigUpdateRequest(BaseModel):
     pipeline_record_enabled: bool | None = Field(None, description="安全管线步骤录制开关")
 
 
+@router.get("/agent/command-hooks")
+async def get_agent_command_hooks(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """钩子配置**只读自述**(2026-11-20,第 31 项)。
+
+    配置面此前只有"跑起来才发现没生效"这条观测路径:没建文件 / JSON 写坏 /
+    哈希未登记 / 空表,四种结局在运行时都表现为"钩子没跑"。本端点把它们区分开
+    (``status`` = not-configured / empty / invalid / untrusted / trusted),
+    供前端面板与排障使用;判据单源在 ``core.command_hooks.describe_command_hooks``
+    (复用形状解析/信任读取/内容哈希,不另写一套)。
+
+    O19:必须登录 —— 配置路径与结构属进程级信息,匿名可读等于公开运维面。
+    展示面有意**不带完整命令行**(只给可执行文件名 + 参数个数),见实现注释。
+    """
+    from ..core.command_hooks import describe_command_hooks
+
+    return {"code": 0, "message": "ok", "data": describe_command_hooks()}
+
+
 @router.get("/agent/security-config")
 async def get_agent_security_config(
     current_user: str = Depends(require_request_user_id),

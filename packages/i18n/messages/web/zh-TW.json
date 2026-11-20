@@ -8746,6 +8746,8 @@
       "runtimeHookRunOk": "通過",
       "runtimeHookRunTimeout": "逾時",
       "runtimeHookRunError": "失敗",
+      "runtimeHookConfigUntrusted": "鉤子設定 {count} 條未受信任,改動後需在本機重新登記信任",
+      "runtimeHookConfigInvalid": "鉤子設定檔損壞,已按無設定運行",
       "runtimeMessageSend": "第 {iteration} 輪請求已發出 · {count} 則訊息",
       "runtimeSessionEndSuccess": "會話已完成 · {iterations} 輪 · 耗時 {duration}",
       "runtimeSessionEndFailed": "會話異常結束 · {iterations} 輪 · 耗時 {duration}",
@@ -9706,7 +9708,7 @@
           "action": "重新建立終端機"
         },
         "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
-          "title": "平台不支援 PTY",
+          "title": "平臺不支援 PTY",
           "action": "改用管道模式,或檢查宿主 ConPTY 支援"
         },
         "TERMINAL_SIGNAL_FAILED": {

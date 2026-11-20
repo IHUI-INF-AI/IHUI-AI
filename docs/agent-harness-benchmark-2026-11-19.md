@@ -21,7 +21,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **30 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **31 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -97,7 +97,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（30 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（31 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -433,6 +433,17 @@
 
 验证：`pnpm --filter @ihui/shared exec vitest run src/sse/__tests__/agent-events.test.ts` → `50 passed`（新增 4 例：三态逐条投影 / 未知 status 拒帧 / 空 hooks 拒帧 / 事件名不符拒帧；并同步把常量集合计数改 18 + `HOOK_RUN` 值侧断言）；`node scripts/check-i18n-parity.mjs` → `✅ 所有被测端键集一致`（web 5 locale 均为 554 keys）；改动文件定向 `tsc --noEmit`（`use-agent-runtime.ts` + `agent-task-progress-pane.tsx` + 共享 `agent-events.ts`）→ 0 错。全量 `pnpm turbo typecheck --filter=@ihui/web` 当前有 1 条错，位置在**他席未跟踪在飞文件** `apps/web/src/hooks/use-permission-auto-revert.ts`（`'auto-revert'` 不在 `ModeChangeSource` 联合里），与本项无关，本会话不动他人现场。
 
+### 5.32 第 31 项：钩子配置面只读自述（`/api/agent/command-hooks`）
+
+- 缺口：钩子配置面此前只有"跑起来才发现没生效"这一条观测路径。文件没建 / JSON 写坏 / 哈希没登记（未受信任）/ 空表，四种结局在运行时**一律表现为"钩子没跑"**，用户无法区分"我没配"和"我配了但没被信任"——这正是 §0.9 反面：能力在、可观测性不在。
+- 处置（判据零新增，复用既有形状/信任/哈希三件）：
+  - `core/command_hooks.describe_command_hooks()`：返回 `status` 五态（`not-configured` / `empty` / `invalid` / `untrusted` / `trusted`）、`content_hash`、`trusted_hash`、`error`、`specs`；`_parse_specs` / `_read_trusted_hash` / `hooks_content_hash` 直接复用，**任何输入都不抛错**（自述面失败不能把排障端点拖红）。
+  - 端点 `GET /api/agent/command-hooks`（登录必需）：进程级全局配置，故展示面**刻意不带完整命令行**——每条 spec 只给 `event / matcher / timeout / command_preview`（可执行文件名）+ `arg_count`。完整 argv 可能带令牌或私有路径，复制到第二个读面等于多开一个凭据面；要看全文就按写它的权限去读本机配置。
+  - web 侧 `useCommandHooksConfig()` 取数 + 面板 `pane-runtime-hook-config`：**只在 `untrusted` / `invalid` 时出现一行琥珀提示**（"配了 N 条但未受信任" / "配置文件损坏，已按无配置运行"），trusted 与未配置都不打扰（后者是合法默认档，不该报警）。取不到一律 `null`，不冒充"未配置"。
+- 超越轴：对照程序的 `/hooks` 只告诉你"配了什么"，不说"为什么没生效"；本仓把**无效原因**显式化并且把展示面收窄成"认领信息 + 计数"，既不泄露 argv 又把三方（配置文件 / 信任哈希 / 运行时登记）的差异说清楚。
+
+验证：`pytest test_command_hooks_describe.py` → `7 passed`（未配置 / 空表 / 坏 JSON / 形状坏 / 未受信任且 argv 不外泄 / 已信任 / 信任后改动回退未受信任）；`ruff check`（command_hooks + agents 路由 + 新测试）→ `All checks passed!`；`mypy --strict`（command_hooks）→ `Success: no issues found`；`check-i18n-keys.mjs` → `通过, 1716 文件 / 20692 键 / 5 语言 parity OK`；`check-i18n-parity.mjs` → `✅ 键集一致`；改动文件定向 `tsc --noEmit` → 0 错。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -451,5 +462,4 @@
 - Trae 本地包可能只是壳，云端实现完全不可见；"本地命中 0"不等于"产品无此能力"。
 - WorkBuddy 四件为抽取件，未做全量模块扫描（11,587 个模块）。
 - 本次未运行全仓 `pnpm turbo build typecheck lint test`；仅运行改动面相关测试与 `@ihui/api` typecheck。全量验证留给提交链/CI。
-
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
