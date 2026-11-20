@@ -35,19 +35,31 @@ export type HookAuditStats = HookRunStats & {
   truncated: boolean
   /** 本次实际读到的台账行数(未截断时等于台账行数) */
   linesRead: number
+  /**
+   * 2026-11-21 第 45 项:轮转备份 `<台账>.1` 的字节数;`null` = 没有备份。
+   * 刚轮转完时当前台账是空的(total=0),没有这一格就会和"从没跑过"长得一样。
+   */
+  backupBytes: number | null
 }
 
 /** 只做收窄:数字字段逐个校验,负数按 0 处理(远端坏数据不许把面板画成负数)。 */
 export function normalizeHookAuditSummary(raw: unknown): HookAuditStats | null {
   if (!raw || typeof raw !== 'object') return null
   const body = raw as Record<string, unknown>
-  if (body.available !== true) return null
   const num = (key: string): number => {
     const v = body[key]
     return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0
   }
-  const total = Math.floor(num('total'))
-  if (total === 0) return null
+  const total = body.available === true ? Math.floor(num('total')) : 0
+  const backupRaw = body.backupBytes
+  const backupBytes =
+    typeof backupRaw === 'number' && Number.isFinite(backupRaw) && backupRaw > 0
+      ? Math.floor(backupRaw)
+      : null
+  // 第 45 项:当前台账为空但备份还在时,后端 `available` 就是 false ——
+  // 这一态必须报(否则轮转被读成零次);"取不到且无备份"才归 null。
+  if (body.available !== true && backupBytes === null) return null
+  if (total === 0 && backupBytes === null) return null
   const stats: HookAuditStats = {
     total,
     ok: Math.floor(num('ok')),
@@ -58,7 +70,11 @@ export function normalizeHookAuditSummary(raw: unknown): HookAuditStats | null {
     // 只有显式 `true` 才算截断:字段缺失/坏值一律按"未截断"呈现(失效方向 = 少标一次,不多标)。
     truncated: body.truncated === true,
     linesRead: Math.floor(num('linesRead')),
+    backupBytes,
   }
+  // 三态之和若超过 total,说明远端计数自相矛盾 ⇒ 不呈现(宁可空着也不报错数)。
+  if (stats.ok + stats.timeout + stats.error > total) return null
+  return stats
   // 三态之和若超过 total,说明远端计数自相矛盾 ⇒ 不呈现(宁可空着也不报错数)。
   if (stats.ok + stats.timeout + stats.error > total) return null
   return stats

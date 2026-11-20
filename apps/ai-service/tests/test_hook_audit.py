@@ -171,4 +171,33 @@ def test_rotation_moves_oversized_ledger(
     assert target.exists()
     # 轮转后追加的这枚落在新文件里,旧行不丢(.1 里保留)
     assert hook_audit.summarize_hook_audit()["available"] is True
+
+
+def test_summary_reports_rotation_backup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """第 45 项:轮转后当前台账为空时,必须报出"只剩历史备份",不许冒充零次。"""
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_MAX_BYTES", "300")
+    for _ in range(3):
+        hook_audit.record_hook_run(_payload())
+
+    backup = target.with_name(target.name + ".1")
+    assert backup.stat().st_size > 0
+    # 模拟"刚轮转、当前文件还没写入":把当前台账移走,备份仍在
+    target.unlink()
+    s = hook_audit.summarize_hook_audit()
+    assert s["available"] is False
+    assert s["total"] == 0
+    assert isinstance(s["backupBytes"], int)
+    assert s["backupBytes"] > 0
+
+
+def test_summary_reports_no_backup_when_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    hook_audit.record_hook_run(_payload())
+    s = hook_audit.summarize_hook_audit()
+    assert s["backupBytes"] is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

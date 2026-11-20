@@ -47,21 +47,35 @@ export function HookReadout({ sessionStats, auditStats, t }: HookReadoutProps) {
       </div>
     )
   }
-  if (auditStats && auditStats.total > 0) {
+  if (auditStats && (auditStats.total > 0 || auditStats.backupBytes !== null)) {
+    const historyOnly = auditStats.total === 0 && auditStats.backupBytes !== null
     return (
       <div
         className="mx-2 mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
         data-testid="pane-runtime-hook-audit"
       >
         <span className="shrink-0 font-medium">{t('runtimeHookAuditTitle')}</span>
-        <span className="font-mono tabular-nums">{statsBody(t, auditStats)}</span>
+        {auditStats.total > 0 ? (
+          <span className="font-mono tabular-nums">{statsBody(t, auditStats)}</span>
+        ) : null}
         {/*
           2026-11-21 第 44 项:台账只读尾部时必须显式标注 —— 否则「两万行之前的历史」
           会被读成「没跑过」。只在截断时出现,不复述 total/linesRead 的算术。
         */}
-        {auditStats.truncated ? (
+        {auditStats.total > 0 && auditStats.truncated ? (
           <span className="shrink-0" data-testid="pane-runtime-hook-audit-truncated">
             {t('runtimeHookAuditTruncated', { lines: auditStats.linesRead })}
+          </span>
+        ) : null}
+        {/*
+          2026-11-21 第 45 项:轮转刚发生时当前台账是空的,只有备份还在 ——
+          这一格说明"历史不等于零次",避免把轮转读成"从没跑过"。
+        */}
+        {historyOnly ? (
+          <span className="shrink-0" data-testid="pane-runtime-hook-audit-history-only">
+            {t('runtimeHookAuditHistoryOnly', {
+              kb: Math.max(1, Math.round((auditStats.backupBytes ?? 0) / 1024)),
+            })}
           </span>
         ) : null}
       </div>

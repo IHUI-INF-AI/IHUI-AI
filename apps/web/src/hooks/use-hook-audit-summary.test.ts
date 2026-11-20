@@ -26,7 +26,27 @@ describe('normalizeHookAuditSummary', () => {
       slowestMs: 900,
       truncated: false,
       linesRead: 0,
+      backupBytes: null,
     })
+  })
+
+  it('第45项:当前台账为空但备份还在 ⇒ 不归 null,报"仅存历史备份"', () => {
+    const stats = normalizeHookAuditSummary({
+      available: false,
+      total: 0,
+      ok: 0,
+      timeout: 0,
+      error: 0,
+      backupBytes: 40 * 1024,
+    })
+    expect(stats?.total).toBe(0)
+    expect(stats?.backupBytes).toBe(40 * 1024)
+  })
+
+  it('第45项:零条目又无备份 ⇒ 仍归 null(不留空噪声)', () => {
+    expect(
+      normalizeHookAuditSummary({ available: true, total: 0, backupBytes: null }),
+    ).toBeNull()
   })
 
   it('第44项:截断标记与读到行数原样收下(字段缺失按未截断)', () => {
