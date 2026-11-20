@@ -40,7 +40,12 @@
  */
 import { DESKTOP_LATEST } from '@/config/desktop-latest.generated'
 import { buildDesktopFeedPayload } from '@/config/desktop-feed-payload'
-import { resolveDesktopFeedForUpdater } from '@/config/desktop-feed-live'
+import {
+  desktopRepo,
+  desktopTagOf,
+  preferGiteePlatforms,
+  resolveDesktopFeedForUpdater,
+} from '@/config/desktop-feed-live'
 import type { DesktopFeedPayload } from '@/config/desktop-feed-payload'
 
 // ISR 10 分钟:新发版能较快推给客户端,又远低于 GitHub 公开 API 的 60 req/h 限流。
@@ -56,15 +61,54 @@ function isValidPayload(p: unknown): p is DesktopFeedPayload {
   )
 }
 
+/**
+ * 烘焙快照的**直链国内优先**(2026-11-21 立,治"每发一版都要人重新烘焙 mac/linux 直链")。
+ *
+ * 起因:烘焙只是"把 CI 的 latest.json 抄进仓库",而资产能不能在国内下是**另一件事** ——
+ * Gitee 侧的大件(AppImage / app.tar.gz)要靠本机补齐(CI 的 runner 传 87MB 必超时),
+ * 补齐完成时间晚于烘焙,于是每一版的烘焙出来时 Gitee 还不齐,只能写回 GitHub;
+ * 等补齐了又没人再烘焙一次 ⇒ 国内用户长期走 GitHub(实测 ~20KB/s)。
+ *
+ * 现在把两个面拆开:烘焙只提供 version/notes/签名(与包体天然配对的那份),直链由
+ * **同一把尺子**在运行期决定 —— Gitee 附件 Content-Length 与 GitHub 原件相等 ⇒ 用 Gitee,
+ * 否则保持 GitHub。判据主体仍是 `preferGiteePlatforms`(single source),这里只补它缺的
+ * `sizes`(GitHub API 元数据;生产机 api.github.com 可达,资产 CDN 不可达也不影响本判据)。
+ * 取不到 ⇒ 原样返回烘焙值并保持"零依赖"行为(fail-safe,不吐破损 feed)。
+ */
+async function giteePreferredBaked(payload: DesktopFeedPayload): Promise<DesktopFeedPayload> {
+  const tag = desktopTagOf(payload.version)
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${desktopRepo()}/releases/tags/${tag}`,
+      {
+        headers: { Accept: 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(6000),
+        next: { revalidate: 600 },
+      },
+    )
+    if (!r.ok) return payload
+    const rel = (await r.json()) as { assets?: { name?: string; size?: number }[] }
+    const sizes = new Map<string, number>()
+    for (const a of rel.assets ?? []) {
+      if (a?.name && typeof a.size === 'number') sizes.set(a.name, a.size)
+    }
+    const preferred = await preferGiteePlatforms(payload, tag, sizes)
+    return preferred ?? payload
+  } catch {
+    return payload
+  }
+}
+
 export async function GET() {
   // 优先:部署时烘焙进仓库的发布源快照 —— 生产机本地直读,零运行时外部依赖。
   if (isValidPayload(DESKTOP_LATEST)) {
-    return Response.json(DESKTOP_LATEST, {
+    const served = await giteePreferredBaked(DESKTOP_LATEST)
+    return Response.json(served, {
       headers: {
         'Cache-Control': 'public, max-age=300',
         // 该 feed 是否已经反映到最新 release(肉眼可见的陈旧度)。
         // 旧形态把"线上最新"与"降级快照"渲染成同一个版本号 ⇒ 自动化静默死掉完全不可观测。
-        'X-Desktop-Feed-Version': DESKTOP_LATEST.version,
+        'X-Desktop-Feed-Version': served.version,
       },
     })
   }
