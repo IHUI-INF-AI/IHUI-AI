@@ -150,14 +150,14 @@ def test_client_carried_list_matches_registered_surface() -> None:
 
 
 def test_register_page_control_tools_counts_and_idempotent() -> None:
-    assert pc.register_page_control_tools() == 7
+    assert pc.register_page_control_tools() == len(pc.PAGE_CONTROL_VERBS)
     assert pc.register_page_control_tools() == 0  # 同名不覆盖
     names = {t.name for t in mcp_server.list_tools()}
     assert set(_PAGE_TOOLS) <= names
 
 
 def test_register_disabled_env_unregisters(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert pc.register_page_control_tools() == 7
+    assert pc.register_page_control_tools() == len(pc.PAGE_CONTROL_VERBS)
     monkeypatch.setenv("PAGE_CONTROL_TOOLS", "false")
     assert pc.register_page_control_tools() == 0
     names = {t.name for t in mcp_server.list_tools()}
@@ -220,7 +220,7 @@ async def test_identity_reaches_handler_via_call_tool(captured: list[dict[str, A
     刻意不断言"直接调 handler 也能拿到 userId"(它拿不到,那是设计):这一族的授权对象是
     会话主人,只能来自 request.state.user_id,不能来自模型给的参数。
     """
-    assert pc.register_page_control_tools() == 7
+    assert pc.register_page_control_tools() == len(pc.PAGE_CONTROL_VERBS)
     out = await mcp_server.call_tool("browser_page_snapshot", {}, user_id=_USER)
     assert len(captured) == 1
     assert captured[0]["json"]["userId"] == _USER
@@ -395,5 +395,6 @@ def test_page_tools_are_not_registered_as_local_mcp_handlers() -> None:
     from app.services.mcp_server import list_external_tools_injected
 
     injected = [n for n in list_external_tools_injected() if n.startswith("browser_page_")]
-    assert len(injected) == 7
+    # 数量按 PAGE_CONTROL_VERBS 现取,不写死 —— 写死的数字在动词增删时必然漂开(同仓计数漂移教训)
+    assert len(injected) == len(pc.PAGE_CONTROL_VERBS)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
