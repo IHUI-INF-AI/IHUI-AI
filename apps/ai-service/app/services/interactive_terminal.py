@@ -111,6 +111,25 @@ BRACKETED_PASTE_END: Final = "\x1b[201~"
 #: 一次粘贴的字节上限:超过就拒(不静默截断 —— 截断的粘贴比拒绝更难查)。
 MAX_PASTE_BYTES: Final = 65_536
 
+#: 终端转义序列的归一正则(**单一真相源**)。快照与检索只回"人读得到的字",但**不能**靠
+#: "顺手 replace 掉 ESC":那样 OSC 的标题串(`ESC]0;…BEL`)会把路径漏成正文。三档分开收:
+#: ① OSC(`ESC ] … BEL|ST`),② CSI(`ESC [ 参数 中间字节 终止字节`),③ 其余两字节 ESC 序列。
+ANSI_ESCAPE_RE: Final = re.compile(
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC:… BEL 或 … ESC \
+    r"|\x1b\[[0-?]*[ -/]*[@-~]"  # CSI:颜色/光标/清屏/DECSET 全在这一族
+    r"|\x1b[@-_]"  # 其余 bare-ESC 两字节序列
+)
+#: 归一后仍然剩下的单字节控制符(除 `\n`/`\t`):`\x00`–`\x08`、`\x0b`/`\x0c`、`\x0e`–`\x1f` 与 DEL。
+#: 这些字节对"人读文本"没有语义(光标控制已由 `\r`/`\n` 归一覆盖),留着只会让检索正则踩空。
+ANSI_NOISE_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+#: 快照最多回多少行(超过就只回**末尾**那段,并在信封里说 `truncated`)。
+MAX_SNAPSHOT_LINES: Final = 500
+#: 检索最多回多少条命中(超出回 `truncated=True`,不静默截断)。
+MAX_SEARCH_MATCHES: Final = 100
+#: 检索命中的**那一行**回传时的字符上限(一行可能极长,不做上界等于把缓冲塞进信封)。
+_MAX_SEARCH_LINE_CHARS: Final = 400
+
 #: 按键名 → 字节序列(**单一真相源**)。名字大小写不敏感,`-`/`_`/`+`/空格 视为同一种分隔。
 #: 立因:方向键/Esc 是转义序列、Ctrl 组合是控制码,这些用 `send` 写文本写不出来 ——
 #: REPL 补全(Tab)、TUI 菜单(方向键)、vim(Esc)只认字节。
@@ -1301,36 +1320,212 @@ def read_terminal(
     }
 
 
-def _pattern_judge(pattern: str, regex: bool) -> tuple[Callable[[str], tuple[bool, str]] | None, str]:
-    """把 pattern 收敛成"在累积文本上找一次"的判定函数,返回 (judge, 错误原因)。
+def _buffer_face(session: TerminalSession) -> tuple[str, int, int]:
+    """一次取齐"缓冲全文 / 最早 seq / 累计丢块数"(快照与检索共用的**唯一**取样出口)。
 
-    固定子串与正则两种形态在这里合成**一个出口**,等待循环里零分支(§22c:同一件事只许
-    一份实现)。空 pattern / 超长 / 正则语法错都在**碰会话之前**拒,绝不喂给等待循环。
+    在锁内一次取完:三样分别取会读到"两次取样之间被 pump 推过"的拼接面,那样快照的行号
+    与 `first_seq` 就对不上,k 检索命中也会落在已被挤掉的窗口里而无人自知。
+    """
+    with session.lock:
+        text = "".join(str(c["text"]) for c in session.chunks)
+        first_seq = int(session.chunks[0]["seq"]) if session.chunks else session.seq + 1
+        dropped = session.dropped_chunks
+    return text, first_seq, dropped
+
+
+def strip_ansi(text: str) -> str:
+    """把终端流归一成**人读文本**(快照/检索的唯一出口,§22c 不写第二份)。
+
+    三件事按序做:① 剥控制序列(`ANSI_ESCAPE_RE`);② `\\r\\n` / 裸 `\\r` 统一成 `\\n`
+    (终端用 `\\r` 做行内回车刷新,直接按它分行会把一行 TUI 拆成几十行);③ 丢掉残余单字节
+    控制符(`ANSI_NOISE_RE`)。宽字符、颜色文本内容本身不受影响 —— 剥的是控制序列,不是字。
+    """
+    out = ANSI_ESCAPE_RE.sub("", text)
+    # `\r+\n`(含子进程在文本模式下把 `\r\n` 又翻成 `\r` 的 `\r\r\n`)先折成单个 `\n`,
+    # 再把剩下的裸 `\r`(行内回车刷新)当换行 —— 反过来做会把 `\r\r\n` 分成两个空行。
+    out = re.sub("\r+\n", "\n", out)
+    out = out.replace("\r", "\n")
+    return ANSI_NOISE_RE.sub("", out)
+
+
+def _plain_lines(text: str) -> list[str]:
+    """`strip_ansi` 之后按行切,并遵守"文末换行不是一个空行"(与读侧的计行口径同源)。"""
+    if text == "":
+        return []
+    parts = strip_ansi(text).split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return parts
+
+
+def snapshot_terminal(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    max_lines: int = 200,
+) -> dict[str, Any]:
+    """给**屏幕快照**:缓冲里去掉转义序列后的纯文本,只要末尾 `max_lines` 行。
+
+    与 `read_terminal` 的分工:read 是"增量、带 seq、给程序读";snapshot 是"现在这块屏长什么样",
+    给**人和模型**看 —— 带 `\\x1b[2J`/光标移动的帧直接读出来是一团控制符,渲染方还得自己剥一次。
+    剥法只有 `strip_ansi` 一份(检索也用同一份),不存在"快照剥一套、检索再剥一套"的漂移面。
+
+    `truncated=True` 表示缓冲里的行比你要求的多,回的是**末尾**那段(屏幕语义:最新的在下面)。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    try:
+        keep = int(max_lines)
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"max_lines 必须是整数(实得 {max_lines!r})",
+        }
+    keep = max(1, min(keep, MAX_SNAPSHOT_LINES))
+    text, first_seq, dropped = _buffer_face(session)
+    all_lines = _plain_lines(text)
+    truncated = len(all_lines) > keep
+    lines = all_lines[-keep:]
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "text": "\n".join(lines),
+        "lines": len(lines),
+        "total_lines": len(all_lines),
+        "truncated": truncated,
+        "first_seq": first_seq,
+        "dropped_chunks": dropped,
+        "running": session.running(),
+        "exit_code": session.proc.poll(),
+        "cols": session.cols,
+        "rows": session.rows,
+        "bracketed_paste": session.bracketed_paste,
+    }
+
+
+def _search_matcher(
+    pattern: str, *, regex: bool, ignore_case: bool
+) -> tuple[Callable[[str], str | None] | None, str]:
+    """把 pattern 收敛成"在一段文本里找一次"的匹配函数,返回 (matcher, 错误原因)。
+
+    **单行检索与整段等待共用这一份**(`_pattern_judge` 就是它的整段包装):两处各写一套
+    "空/超长/正则语法"校验,必然在某一处漏掉一条拒法(§22c)。
     """
     if not pattern:
         return None, "pattern 不能为空"
     if len(pattern) > MAX_PATTERN_CHARS:
         return None, f"pattern 过长({len(pattern)} > {MAX_PATTERN_CHARS} 字符)"
-    if not regex:
+    flags = re.IGNORECASE if ignore_case else 0
+    if regex:
+        try:
+            compiled = re.compile(pattern, flags)
+        except re.error as e:
+            return None, f"正则语法无效: {e}"
 
-        def judge_substr(text: str) -> tuple[bool, str]:
-            hit = pattern in text
-            return hit, pattern if hit else ""
+        def match_regex(line: str) -> str | None:
+            m = compiled.search(line)
+            if m is None:
+                return None
+            # group(0) 可能很长(如 `(?s).*`),在这里就截断,不让信封随缓冲膨胀。
+            return m.group(0)[:_MAX_MATCHED_TEXT]
 
-        return judge_substr, ""
+        return match_regex, ""
+    needle = pattern.casefold() if ignore_case else pattern
+
+    def match_substr(line: str) -> str | None:
+        hay = line.casefold() if ignore_case else line
+        idx = hay.find(needle)
+        if idx < 0:
+            return None
+        return line[idx : idx + len(pattern)]
+
+    return match_substr, ""
+
+
+def search_terminal(
+    terminal_id: str,
+    *,
+    pattern: str,
+    user_id: str | None,
+    session_id: str | None,
+    regex: bool = False,
+    ignore_case: bool = False,
+    max_matches: int = 20,
+) -> dict[str, Any]:
+    """在**归一后**的缓冲里按行检索(传统终端的 scrollback search)。
+
+    与 `wait_terminal` 的分工:wait 是"等未来那一下出现",search 是"在**已经发生**的输出里找"
+    —— TUI 程序把提示符刷在屏幕某处时,等不到新输出,只能回头搜。
+
+    判定面是 `strip_ansi` 后的纯文本,所以带颜色的 `\\x1b[32mError\\x1b[0m` 也能按 `Error` 搜到;
+    `line_no` 是该行在**整个归一缓冲**里的 1 基行号(不是本次窗口内的相对行号)。
+    找不到不是错误:`matched=False` + `count=0`(空缓冲/越界/版式不符都是这条正常结论)。
+    """
+    matcher, err = _search_matcher(pattern, regex=regex, ignore_case=ignore_case)
+    if matcher is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_PATTERN",
+            "error": err,
+        }
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
     try:
-        compiled = re.compile(pattern)
-    except re.error as e:
-        return None, f"正则语法无效: {e}"
+        cap = int(max_matches)
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"max_matches 必须是整数(实得 {max_matches!r})",
+        }
+    cap = max(1, min(cap, MAX_SEARCH_MATCHES))
+    text, first_seq, dropped = _buffer_face(session)
+    matches: list[dict[str, Any]] = []
+    for idx, line in enumerate(_plain_lines(text), start=1):
+        hit = matcher(line)
+        if hit is None:
+            continue
+        if len(matches) >= cap:
+            break
+        matches.append({"line_no": idx, "text": line[:_MAX_SEARCH_LINE_CHARS], "match": hit})
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "pattern": pattern,
+        "matched": bool(matches),
+        "count": len(matches),
+        "matches": matches,
+        "truncated": len(matches) >= cap,
+        "first_seq": first_seq,
+        "dropped_chunks": dropped,
+        "running": session.running(),
+        "exit_code": session.proc.poll(),
+    }
 
-    def judge_regex(text: str) -> tuple[bool, str]:
-        m = compiled.search(text)
-        if m is None:
-            return False, ""
-        # group(0) 可能很长(如 `(?s).*`),在这里就截断,不让信封随缓冲膨胀。
-        return True, m.group(0)[:_MAX_MATCHED_TEXT]
 
-    return judge_regex, ""
+def _pattern_judge(pattern: str, regex: bool) -> tuple[Callable[[str], tuple[bool, str]] | None, str]:
+    """把 pattern 收敛成"在累积文本上找一次"的判定函数,返回 (judge, 错误原因)。
+
+    固定子串与正则两种形态在 `_search_matcher` 里合成**一个出口**,等待循环里零分支
+    (§22c:同一件事只许一份实现)。空 pattern / 超长 / 正则语法错都在**碰会话之前**拒,
+    绝不喂给等待循环。
+    """
+    matcher, err = _search_matcher(pattern, regex=regex, ignore_case=False)
+    if matcher is None:
+        return None, err
+
+    def judge(text: str) -> tuple[bool, str]:
+        hit = matcher(text)
+        return (hit is not None), (hit or "")
+
+    return judge, ""
 
 
 def wait_terminal(
@@ -1997,6 +2192,15 @@ __test__ = {
     "tty_interrupt": _tty_interrupt,
     "TTY_INTERRUPT_BYTE": TTY_INTERRUPT_BYTE,
     "paste_terminal": paste_terminal,
+    "snapshot_terminal": snapshot_terminal,
+    "search_terminal": search_terminal,
+    "strip_ansi": strip_ansi,
+    "search_matcher": _search_matcher,
+    "buffer_face": _buffer_face,
+    "plain_lines": _plain_lines,
+    "ANSI_ESCAPE_RE": ANSI_ESCAPE_RE,
+    "MAX_SNAPSHOT_LINES": MAX_SNAPSHOT_LINES,
+    "MAX_SEARCH_MATCHES": MAX_SEARCH_MATCHES,
     "BRACKETED_PASTE_ON": BRACKETED_PASTE_ON,
     "BRACKETED_PASTE_OFF": BRACKETED_PASTE_OFF,
     "BRACKETED_PASTE_START": BRACKETED_PASTE_START,

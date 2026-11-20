@@ -224,6 +224,10 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   ai_bookkeeping: 'toolAiBookkeeping',
   ai_payroll_handoff: 'toolAiPayrollHandoff',
   ai_tax_filing: 'toolAiTaxFiling',
+  // 2026-11-20 补齐(守门 55):财务三枚计算器工具(报销/社保/专项扣除)
+  ai_reimbursement: 'toolAiReimbursement',
+  social_insurance_calc: 'toolSocialInsuranceCalc',
+  special_deduction_calc: 'toolSpecialDeductionCalc',
   read_image: 'toolReadImage',
   session_search: 'toolSessionSearch',
   sheet_formula_eval: 'toolSheetFormulaEval',

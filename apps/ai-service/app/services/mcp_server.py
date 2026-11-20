@@ -490,6 +490,10 @@ _SUBAGENT_MAX_CONCURRENT = max(1, int(os.environ.get("SUBAGENT_MAX_CONCURRENT", 
 _SUBAGENT_SEMAPHORE = asyncio.Semaphore(_SUBAGENT_MAX_CONCURRENT)
 # 嵌套深度上限(≤2):contextvar 记录当前深度,子代理执行时 +1,超限拒绝
 _SUBAGENT_MAX_DEPTH = 2
+#: 子代理钩子(第 36 项):每个 start/stop 点的硬上限。钩子是外部脚本,
+#: 不能让一份卡住的配置把整条派发链拖慢到超时。
+_SUBAGENT_HOOK_TIMEOUT_SECONDS: Final[float] = 5.0
+_SUBAGENT_HOOK_RUNTIME: Any = None
 _subagent_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
     "subagent_depth", default=0
 )
@@ -7854,6 +7858,50 @@ def _mark_stub_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _get_subagent_hook_runtime() -> Any:
+    """子代理钩子运行时(惰性单例;构造失败降级为 None,不挡派发)。"""
+    global _SUBAGENT_HOOK_RUNTIME
+    if _SUBAGENT_HOOK_RUNTIME is None:
+        try:
+            from ..core.hook_runtime import build_registered_hook_runtime
+
+            _SUBAGENT_HOOK_RUNTIME = build_registered_hook_runtime()
+        except Exception as e:  # noqa: BLE001 - 钩子装不上就不装,派发优先
+            logger.warning("子代理钩子运行时构造失败(降级,不阻断派发): %s", e)
+            _SUBAGENT_HOOK_RUNTIME = False
+    return _SUBAGENT_HOOK_RUNTIME or None
+
+
+async def _run_subagent_hooks(kind_name: str, payload: dict[str, Any]) -> str:
+    """跑 subagent_start / subagent_stop(2026-11-21 第 36 项)。
+
+    返回可注入子任务提示词的 additionalContext 拼接串(stop 点恒为空串)。
+    语义边界:
+    - start 点是**上下文注入面**:钩子给的 additionalContext 只加在子任务正文前,
+      不动 resident 前缀缓存段(前缀缓存按字节命中,动了就整段失效);
+    - stop 点是**观察面**:结果已定型,不解读 decision/stop,不改写 status/output;
+    - 异常/超时一律降级(5s 硬上限),不阻断派发。
+    """
+    rt = _get_subagent_hook_runtime()
+    if rt is None:
+        return ""
+    try:
+        from ..core.hook_runtime import HookKind
+
+        kind = getattr(HookKind, kind_name)
+        outcome = await asyncio.wait_for(
+            rt.run(kind, payload), timeout=_SUBAGENT_HOOK_TIMEOUT_SECONDS
+        )
+    except (TimeoutError, asyncio.CancelledError):
+        logger.warning("%s 子代理钩子超时/被取消(派发照常继续)", kind_name)
+        return ""
+    except Exception as e:  # noqa: BLE001 - 钩子异常不阻断派发
+        logger.warning("%s 子代理钩子异常(降级): %s", kind_name, e)
+        return ""
+    contexts = getattr(outcome, "additional_contexts", None) or []
+    return "\n".join(str(c) for c in contexts if c)
+
+
 async def _invoke_subagent_for_job(
     agent_name: str, user_input: str, session_id: str | None
 ) -> dict[str, Any]:
@@ -7866,16 +7914,38 @@ async def _invoke_subagent_for_job(
     async with _SUBAGENT_SEMAPHORE:
         _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
         try:
+            _bg_ctx = await _run_subagent_hooks(
+                "SUBAGENT_START",
+                {
+                    "agent_name": agent_name,
+                    "mode": "background",
+                    "session_id": session_id or "",
+                    "depth": _subagent_depth.get(),
+                    "task_preview": user_input[:800],
+                },
+            )
             step_result = await asyncio.wait_for(
                 orchestrator.invoke(
                     agent_name=agent_name,
-                    user_input=user_input,
+                    user_input=(f"{_bg_ctx}\n\n{user_input}" if _bg_ctx else user_input),
                     session_id=session_id,
                 ),
                 timeout=_get_subagent_timeout(),
             )
         finally:
             _subagent_depth.reset(_dtok)
+        await _run_subagent_hooks(
+            "SUBAGENT_STOP",
+            {
+                "agent_name": agent_name,
+                "mode": "background",
+                "ok": step_result.status == "completed",
+                "needs_help": bool(getattr(step_result, "needs_help", False)),
+                "iterations": step_result.iterations,
+                "duration_ms": float(getattr(step_result, "duration_ms", 0.0) or 0.0),
+                "output_preview": str(step_result.output or "")[:400],
+            },
+        )
     return {
         "status": step_result.status,
         "output": step_result.output,
@@ -8186,9 +8256,25 @@ async def _tool_dispatch_subagent(
                 # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
                 _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
                 try:
+                    # 第 36 项:每个子任务的 start 钩子各点一次(只改正文,不动结构字段)。
+                    _par_tasks: list[dict[str, Any]] = []
+                    for _t in tasks:
+                        _pctx = await _run_subagent_hooks(
+                            "SUBAGENT_START",
+                            {
+                                "agent_name": str(_t.get("name") or ""),
+                                "mode": "parallel",
+                                "session_id": str(arguments.get("session_id") or ""),
+                                "depth": _subagent_depth.get(),
+                                "task_preview": str(_t.get("task") or "")[:800],
+                            },
+                        )
+                        _par_tasks.append(
+                            {**_t, "task": (f"{_pctx}\n\n{_t['task']}" if _pctx else _t["task"])}
+                        )
                     result = await asyncio.wait_for(
                         orchestrator.invoke_parallel(
-                            tasks=tasks,
+                            tasks=_par_tasks,
                             max_concurrency=max_concurrency,
                             **surface_extra,
                         ),
@@ -8205,6 +8291,24 @@ async def _tool_dispatch_subagent(
                 for r in (_par_results if isinstance(_par_results, list) else [])
                 if isinstance(r, dict)
             )
+            # 第 36 项:stop 钩子逐个子代理收尾(只观察,不改写合计与单条结果)。
+            for _r in _par_results if isinstance(_par_results, list) else []:
+                if not isinstance(_r, dict):
+                    continue
+                await _run_subagent_hooks(
+                    "SUBAGENT_STOP",
+                    {
+                        "agent_name": str(_r.get("name") or ""),
+                        "mode": "parallel",
+                        "ok": str(_r.get("status") or "") == "completed",
+                        "needs_help": bool(_r.get("needs_help") or _r.get("needsHelp")),
+                        "iterations": int(_r.get("iterations") or 0),
+                        "duration_ms": float(_r.get("duration_ms") or 0.0),
+                        "output_preview": str(
+                            _r.get("output") or _r.get("error") or ""
+                        )[:400],
+                    },
+                )
             # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
             _emit({
                 "phase": "parallel_done",
@@ -8379,10 +8483,25 @@ async def _tool_dispatch_subagent(
             # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
             _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
             try:
+                # 第 36 项:start 钩子的上下文只加在正文前,resident 前缀逐字留给前缀缓存。
+                _sg_ctx = await _run_subagent_hooks(
+                    "SUBAGENT_START",
+                    {
+                        "agent_name": name,
+                        "mode": "single",
+                        "session_id": session_id or "",
+                        "depth": _subagent_depth.get(),
+                        "task_preview": task[:800],
+                    },
+                )
                 step_result = await asyncio.wait_for(
                     orchestrator.invoke(
                         agent_name=name,
-                        user_input=resident_prefix + task,
+                        user_input=(
+                            resident_prefix
+                            + (f"{_sg_ctx}\n\n" if _sg_ctx else "")
+                            + task
+                        ),
                         session_id=session_id,
                         **surface_extra,
                     ),
@@ -8394,6 +8513,22 @@ async def _tool_dispatch_subagent(
                     resident_lease_registry.release(resident_key, resident_owner)
         _single_ok = step_result.status == "completed"
         _single_needs_help = bool(getattr(step_result, "needs_help", False))
+        # 第 36 项:stop 钩子只观察(结果已定型,不改写 status/output)。
+        await _run_subagent_hooks(
+            "SUBAGENT_STOP",
+            {
+                "agent_name": name,
+                "mode": "single",
+                "ok": _single_ok,
+                "needs_help": _single_needs_help,
+                "iterations": step_result.iterations,
+                "duration_ms": float(getattr(step_result, "duration_ms", 0.0) or 0.0),
+                "output_preview": str(
+                    step_result.output if _single_ok else (step_result.error or step_result.output)
+                    or ""
+                )[:400],
+            },
+        )
         # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
         _emit({
             "phase": "single_done",
@@ -8947,7 +9082,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/paste/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
@@ -8955,8 +9090,11 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     resize 改窗口尺寸、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys 显式拒
     TERMINAL_STDIN_CLOSED)、close 收尾。`paste` 是**整段多行粘贴**(不追加回车、不逐行
     执行);程序开了 bracketed paste(DECSET 2004)时自动用 `ESC[200~…ESC[201~` 包裹,回执
-    里的 `bracketed` 如实说明这次包没包。open 还可带 `cols`/`rows` 直接**开在**目标尺寸
-    (真终端本就该在启动时定尺寸;先按 120×30 起再 resize 会让 TUI 首屏白排一遍)。
+    里的 `bracketed` 如实说明这次包没包。`snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
+    只要末尾 max_lines 行,truncated 说明还有更早的行);`search` 在同一份归一文本里按行
+    检索(scrollback search,支持 regex/ignore_case,命中回 line_no/text/match)。open 还可带
+    `cols`/`rows` 直接**开在**目标尺寸(真终端本就该在启动时定尺寸;先按 120×30 起再 resize
+    会让 TUI 首屏白排一遍)。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
     子进程环境走 sandbox 严档白名单,不整份继承宿主环境(PTY 后端在此之上补 TERM/COLORTERM
     默认值 —— 真 tty 缺 TERM 会退化成 dumb 终端)。
@@ -9075,6 +9213,43 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "paste", **result}
 
+    if action == "snapshot":
+        try:
+            max_lines = int(arguments.get("max_lines", 200))
+        except (TypeError, ValueError):
+            max_lines = 200
+        result = await asyncio.to_thread(
+            term.snapshot_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+            max_lines=max_lines,
+        )
+        return {"tool": "terminal", "action": "snapshot", **result}
+
+    if action == "search":
+        pattern = arguments.get("pattern")
+        if not isinstance(pattern, str) or not pattern:
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "search 需要非空字符串 pattern",
+            }
+        try:
+            max_matches = int(arguments.get("max_matches", 20))
+        except (TypeError, ValueError):
+            max_matches = 20
+        result = await asyncio.to_thread(
+            term.search_terminal,
+            terminal_id,
+            pattern=pattern,
+            user_id=user_id,
+            session_id=session_id,
+            regex=bool(arguments.get("regex", False)),
+            ignore_case=bool(arguments.get("ignore_case", False)),
+            max_matches=max_matches,
+        )
+        return {"tool": "terminal", "action": "search", **result}
+
     if action == "read":
         try:
             since_seq = int(arguments.get("since_seq", 0))
@@ -9184,7 +9359,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": (
             f"不支持的 action: {action}"
-            "(open/send/keys/read/wait_for/signal/resize/eof/close/list)"
+            "(open/send/keys/paste/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
         ),
     }
 
@@ -9293,9 +9468,6 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     ai_payroll_handoff as _ai_payroll_handoff,
 )
-from ..tools import (  # noqa: E402
-    ai_tax_filing as _ai_tax_filing,
-)
 
 # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加。
 # 实现分文件(单一职责),描述文案单源在各工具文件(与 D09 专家包共用,§0.6 不写第二份);
@@ -9304,10 +9476,7 @@ from ..tools import (  # noqa: E402
     ai_reimbursement as _ai_reimbursement,
 )
 from ..tools import (  # noqa: E402
-    social_insurance_calc as _social_insurance_calc,
-)
-from ..tools import (  # noqa: E402
-    special_deduction_calc as _special_deduction_calc,
+    ai_tax_filing as _ai_tax_filing,
 )
 
 # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
@@ -9355,11 +9524,22 @@ from ..tools import (
 from ..tools import (
     sheet_formula_validate as _sheet_formula_validate,
 )
+from ..tools import (  # noqa: E402
+    social_insurance_calc as _social_insurance_calc,
+)
+from ..tools import (  # noqa: E402
+    special_deduction_calc as _special_deduction_calc,
+)
 
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
+)
+
+# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
+from ..tools.payroll_handoff_tools import (  # noqa: E402
+    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 # 财务部五腿扩展描述常量(2026-11-13):文案单源在各工具文件
@@ -9371,11 +9551,6 @@ from ..tools.social_insurance_tools import (  # noqa: E402
 )
 from ..tools.special_deduction_tools import (  # noqa: E402
     SPECIAL_DEDUCTION_DESCRIPTION,
-)
-
-# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
-from ..tools.payroll_handoff_tools import (  # noqa: E402
-    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 
