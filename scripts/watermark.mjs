@@ -792,7 +792,12 @@ function scanCoverage(scope, opts = {}) {
   const toolGenIssues = []
   const distExempt = []
   const distIssues = []
-  const excl = exclusion()
+  // opts.excl / opts.listed(2026-11-20):进程内调用方(守门 47p)已自行算出排除面、且已按同一面
+  //   枚举过清单 ⇒ 直接复用,免得同一轮再派生两次 git(子进程 + 父进程各一遍 = 47p 4.2s 里的 2.4s)。
+  //   两者都是**可选**,不传时行为与旧版逐字一致(子进程/CLI 路径一律走默认)。
+  //   形状校验在这里做:给的排除面临界值不是函数、清单不是数组 ⇒ 按"没给"处理(失效方向安全)。
+  const excl =
+    typeof opts.excl?.isExcluded === 'function' ? opts.excl : exclusion()
   // 显式点名(scope 非空)= 工作树面(那份在盘上,用户指的是它);批量档按 opts.face。
   const face = scope ? 'worktree' : opts.face || DEFAULT_BATCH_FACE
   if (face !== 'worktree' && face !== 'head' && face !== 'staged') {
@@ -802,7 +807,9 @@ function scanCoverage(scope, opts = {}) {
   if (scope) {
     candidates = scope
   } else {
-    const listed = coverageFileSetForFace({ root: ROOT, face })
+    const listed = Array.isArray(opts.listed)
+      ? { files: opts.listed, error: null }
+      : coverageFileSetForFace({ root: ROOT, face })
     if (listed.error) throw new Undetermined(listed.error)
     // push-scope 等收窄档(2026-11-03):面内候选先与调用方点名清单求交,再进下面的既有判据。
     // 只收窄分母,不改任何单文件判定 —— 交集外的路径既不算通过也不算缺口,判据本体零改动。
@@ -891,6 +898,9 @@ function scanCoverage(scope, opts = {}) {
   }
   return {
     total,
+    // 候选面大小(2026-11-20):进程内调用方靠它证明"我给的同面清单真的和 restrict 对上了" ——
+    // 清单给错(空/别面/口径不同)时 candidates 会是 0,那时缺口语义不是"通过",必须折成未判定。
+    candidates: candidates.length,
     marked,
     residue,
     skipped,
