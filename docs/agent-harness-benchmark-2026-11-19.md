@@ -7,6 +7,8 @@
 
 
 
+
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -15,7 +17,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **23 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **25 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -91,7 +93,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（23 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（25 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -342,6 +344,28 @@
 - 超越轴：对照程序把 permissionDecision 与审批门混在一处判定，本仓显式分成"策略层（可被本地配置翻转）→ 钩子层（会话级表态）→ 污点/审查层（安全地板不可被 allow 穿透）"三段，allow 越不过安全地板，ask 也不会压掉硬边界。
 
 验证：`pytest test_hook_runtime_injection_wiring.py` → 新增 3 例（allow 省掉审批且真执行 / ask 把低危工具抬进审批 / 无钩子阳性对照照旧弹审批）；`test_hook_runtime_injection_wiring + test_hook_event_ordering + test_tool_approval` → `43 passed`；`test_permission_modes + test_permission_axis_gate + test_permissions_instructions_56 + test_post_tool_hooks + test_parallel_tool_abort_54` → `63 passed`；`mypy --strict`（hook_runtime + agent_loop_v2 + command_hooks）→ `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
+
+### 5.25 第 24 项：updatedInput 真正替换工具入参（安全语义：只改做什么，不改允许谁做）
+
+- 缺口：`PreToolUseHookSpecificOutputWire.updatedInput` 一直只被当字段透出——本轮之前的消费端完全不读它，钩子"脱敏/改写路径"的能力等于零。
+- 处置：
+  - `HookOutcome.updated_input` 用与产出改写同一枚哨兵区分"没给 / 显式给空对象"；`_absorb` 只接受 **dict**（非对象改写会让下游工具拿到形状外的入参，比不改更危险），首个改写生效；
+  - `command_hooks` 把 `hookSpecificOutput.updatedInput` 映射进运行时；
+  - `agent_loop_v2` 在钩子段内真正执行 `tc.args = updated_input`，并落 `hook_updated_input` 决策提示（`setdefault`：同一调用上 `allow` 豁免是更强的审计事实，不被覆盖）。
+- 安全语义（这是"超越轴"）：改写发生在**所有硬边界之后、guarded_pipeline / 路径校验 / 审批门之前** ⇒ 改写后的入参仍要过注入探测、危险入参扫描与审批；钩子只能改"这次做什么"，不能改"谁被允许做"，也不能借改写把高危参数洗成低危。
+
+验证：`pytest test_hook_runtime_injection_wiring.py` → `13 passed`（新增 2 例：改写真替换 + 非对象改写被忽略且工具收到原入参）；`test_hook_runtime_injection_wiring + test_post_tool_hooks + test_command_hooks` → `28 passed`；`mypy --strict` → `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
+
+### 5.26 第 25 项：PermissionRequest 审批前置裁决（allow 免弹窗 / deny 不惊动人）
+
+- 缺口：契约 `PermissionRequestHookSpecificOutputWire.decision.behavior = allow|deny` 存在，但本仓 `HookKind` 没有 `permission_request` 挂载点 ⇒ 审批是"只能问人"的死路，钩子无法提前放行或提前拒绝。
+- 处置：
+  - `HookKind.PERMISSION_REQUEST` + `HookOutcome.permission_behavior`（首个表态生效；deny 同时落 `denial_reason`）；
+  - `command_hooks` 解析嵌套 `hookSpecificOutput.decision.behavior`（契约形状就是嵌套对象，不是扁平键），`message` 作拒绝原因；
+  - `agent_loop_v2` 在 `_request_approval` **之前**、仅在 `needs_approval` 为真时执行：`allow` ⇒ 免弹窗 + `gate_approved=True`（exec_policy PROMPT 档也不会二次弹）+ 落 `hook_permission_allow`；`deny` ⇒ `error_type=permission_request_denied`、副作用零发生、**不惊动用户**；钩子异常 ⇒ 降级为"照旧问人"，不改变审批默认档。
+- 超越轴：事件语义严格限定为"即将请求权限"，不需要问人的调用根本不产生该事件 —— 对照程序按"每次工具调用"触发会让审计面被无意义事件淹没。
+
+验证：`pytest test_hook_runtime_injection_wiring.py` → `15 passed`（新增 2 例：allow 免弹窗且真执行 / deny 零副作用）；`test_command_hooks.py` → `11 passed`（新增 1 例：嵌套 `decision.behavior` 映射逐字对上）；`+ test_post_tool_hooks` → `31 passed`；回归 `test_tool_approval + test_permission_modes + test_hook_event_ordering` → `47 passed`；`mypy --strict` → `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

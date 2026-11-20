@@ -78,6 +78,7 @@
 - 真正的**新增面**只有三类，且**全部落在"机主拍板 + 桌面原生专章"射程**，不是"逆向-复现能直接榨走"的：① `process-snapshot`（工具执行瞬间子进程快照）② `conpty/portable-pty`（交互式 PTY，跑 TUI 子代理）③ 原生 `perf_metrics`/剪贴板序数监听。IHUI 当前对其**零消费点**，按 §0.9"声明必须有消费者"与"失效方向只能是多要一次定向说明、不能放宽立项"，本席**不自动落地任何一项**，只登记证据 + 待拍板。
 - **与 `qoder-capability-gap-matrix.md` 终判合流**：那里 Qoder 侧已收口"能榨的已榨干，剩余要么需先建前提基建要么平台绑定"。本册给出 **WB 对称结论**——WB 全量扫描 + addon 溯源后，harness 通用机制无一遗漏地对位或证明"形态不同非缺件"，余下是微信/设备身份产品绑定（⚫）与三枚待拍板原生候选。
 - 至此 2026-11-19 §7 唯一还开着的"WB 未全量扫描"限制**关闭**：升级为"已全量扫描（9,089 文件 / 769 模块 / 34 native-addon 节点 / addon 逐枚源码归属）"。
+- **命令审计档（deepseek `default|allow|deny|audit` 四值枚举）＝ 🔵 本轮主动试做、被证据证伪为"已对等/更全"，明确不造**：本席 18:25 现读核证 IHUI——`mcp_server.py:4305,4323,4346` 有运行期 `_exec_mode=="audit"` 观察态（PROMPT/DENY 记录后放行，普通模式 DENY 仍硬拒不降级）；`apps/api/src/routes/cli-tool-invoke-audit.ts:6–39` 每次工具调用无条件进 HMAC 审计链 `audit_logs_chain`（0 新表，`accepted` 取库侧确认集 = 门 134 同律）；`mcp_server.py:18798/18868/18902` `_audit_logs`+`get_audit_logs()` 第三处承载。对照把 `audit` 做成"逐命令枚举档"，IHUI 以"全进程可切观察态 + 全局防篡改留痕"承载，更宽且与阻断裁决解耦——故**不给 `Decision` 加第四态**（加它会把"是否阻断"与"是否留痕"重新耦合进 `_SEVERITY{allow:0,prompt:1,deny:2}` 与 `detect_shadows`，正是并行席对 `input_replacements` 同型要避的"牵动核心类型"架构级改动）。登记此负结论免后续席位重复踩（同 `qoder-capability-gap-matrix.md` §5 `peer_devices` 复核更正型）；未粘对照枚举源码、未触发凭据/付费面。
 
 ## 6. Limitations（如实，不冒绿）
 

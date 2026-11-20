@@ -8238,6 +8238,31 @@ class AgentLoopV2:
                             "hook_ask_require_approval",
                             "pre_tool_use 钩子要求人工确认,本次抬升为需审批",
                         )
+                # updatedInput(契约 PreToolUseHookSpecificOutputWire.updatedInput):
+                # 真正替换工具入参,而不是只透出字段。位置刻意在**所有硬边界之后**、
+                # 守卫/审批/执行之前 ⇒ 改写后的入参仍要过 guarded_pipeline、路径校验
+                # 与审批门,钩子不能借改写绕过任何闸门(只改"做什么",不改"允许谁做")。
+                from ..core.hook_runtime import NO_UPDATED_OUTPUT as _NO_INPUT
+
+                _hk_input = getattr(_hk_outcome, "updated_input", _NO_INPUT)
+                if _hk_input is not _NO_INPUT and isinstance(_hk_input, dict):
+                    if _hk_input != tc.args:
+                        logger.info(
+                            "钩子改写工具入参: tool=%s, keys=%s, session=%s",
+                            tc.name,
+                            sorted(_hk_input.keys()),
+                            self._session_id or "",
+                        )
+                    tc.args = _hk_input
+                    # setdefault:同一调用上 allow 豁免是更强的审计事实,不被"改写
+                    # 入参"这条提示覆盖掉(两条都发生过时保留先落的那一条)。
+                    self._decision_hints.setdefault(
+                        tc.id,
+                        (
+                            "hook_updated_input",
+                            "pre_tool_use 钩子改写了本次工具入参",
+                        ),
+                    )
                 # 批 57 接线:P1 用户可见缺口——消费 PRE_TOOL_USE 钩子注入的
                 # 附加上下文(对标 Codex additionalContext / ContextualUserFragment),
                 # 并入模型输入历史。非注入 / 列表为空 = 零行为变化;异常隔离,
@@ -8357,6 +8382,61 @@ class AgentLoopV2:
                         duration_ms=(time.time() - start) * 1000,
                         error_type="auto_review_denied",
                     )
+
+        # PermissionRequest 审批裁决面(2026-11-20 立):契约里
+        # PermissionRequestHookSpecificOutputWire.decision.behavior = allow/deny,
+        # 本仓此前没有挂载点 ⇒ "审批可编程前置裁决"整段落空。位置刻意只在
+        # needs_approval 为真时进入:不需要问人的调用不产生审批事件(事件语义
+        # 是"即将请求权限",不是"每次工具调用")。
+        if needs_approval and self._hook_runtime is not None:
+            try:
+                from ..core.hook_runtime import HookKind as _HookKindPr
+
+                _pr_outcome = await self._wait_interruptible(
+                    self._hook_runtime.run(
+                        _HookKindPr.PERMISSION_REQUEST,
+                        {
+                            "tool_name": tc.name,
+                            "tool_call_id": tc.id,
+                            "args": tc.args,
+                            "permission_mode": self._permission_mode,
+                            "session_id": self._session_id or "",
+                        },
+                    )
+                )
+                if _pr_outcome.permission_behavior == "deny":
+                    reason = _pr_outcome.denial_reason or "permission_request 钩子拒绝"
+                    self._report_tool_error(
+                        tc, reason, "permission_request_denied", (time.time() - start) * 1000
+                    )
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result={"approved": False, "reason": "permission_request_denied"},
+                        error=f"审批被 permission_request 钩子拒绝: {reason}",
+                        duration_ms=(time.time() - start) * 1000,
+                        error_type="permission_request_denied",
+                    )
+                if _pr_outcome.permission_behavior == "allow":
+                    needs_approval = False
+                    # 与"用户已批准"同形:exec_policy PROMPT 档不再二次弹窗。
+                    gate_approved = True
+                    self._decision_hints.setdefault(
+                        tc.id,
+                        (
+                            "hook_permission_allow",
+                            "permission_request 钩子提前批准,本次不弹审批",
+                        ),
+                    )
+                    logger.info(
+                        "钩子提前批准: tool=%s, session=%s",
+                        tc.name,
+                        self._session_id or "",
+                    )
+            except _LoopInterrupted:
+                raise
+            except Exception as e:  # noqa: BLE001 - 钩子异常降级为"照旧问人"
+                logger.warning("permission_request 钩子异常(降级照旧审批): %s", e)
 
         if needs_approval:
             denial = await self._request_approval(tc, auto_review=auto_review_payload)
