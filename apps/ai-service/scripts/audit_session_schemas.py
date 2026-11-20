@@ -21,7 +21,7 @@
 
 用法:
   python scripts/audit_session_schemas.py                # 表格:每个 schema 的行数
-  python scripts/audit_session_schemas.py --json         # 机读
+  python scripts/audit_session_schemas.py --json         # 机读(stdout 是纯 JSON,结论行走 stderr)
   python scripts/audit_session_schemas.py --drop-empty   # 真删空壳(只删 0 行 ∧ 非 sess_main)
 
 退出码:0 = 审计完成(有无空壳都算完成)/ 1 = 删除动作里有失败 / 2 = 未判定。
@@ -35,7 +35,7 @@ import os
 import pathlib
 import re
 import sys
-from typing import Any
+from typing import Any, TextIO
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -136,6 +136,16 @@ def drop_empty(dsn: str, report: dict[str, Any]) -> tuple[list[str], list[str]]:
     return dropped, failed
 
 
+def _marker_stream(json_mode: bool) -> TextIO:
+    """机读档的结论行走 stderr。
+
+    `--json` 时 stdout 必须能被整体 `json.loads`:结论行 `SESSION-SCHEMAS-RESULT ...`
+    贴在 JSON 尾巴上会变成 `Extra data: line N`(实测如此),把"能机读"的承诺弄坏。
+    所以机读档把结论行改投 stderr —— 内容一个字不少,只是不再污染数据流。
+    """
+    return sys.stderr if json_mode else sys.stdout
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="审计 session_store 的 sess_* schema")
     ap.add_argument("--json", action="store_true", help="机读输出")
@@ -145,13 +155,19 @@ def main(argv: list[str] | None = None) -> int:
     dsn = _dsn()
     if not dsn:
         print("❌ 未判定:没有 SESSION_PG_DSN / DATABASE_URL(不回落任何默认库)", file=sys.stderr)
-        print("SESSION-SCHEMAS-RESULT state=undetermined total=NA with_rows=NA empty=NA")
+        print(
+            "SESSION-SCHEMAS-RESULT state=undetermined total=NA with_rows=NA empty=NA",
+            file=_marker_stream(args.json),
+        )
         return 2
     try:
         report = audit(dsn)
     except Exception as e:  # noqa: BLE001 - 连不上就是未判定
         print(f"❌ 未判定:连不上/查不动({e})", file=sys.stderr)
-        print("SESSION-SCHEMAS-RESULT state=undetermined total=NA with_rows=NA empty=NA")
+        print(
+            "SESSION-SCHEMAS-RESULT state=undetermined total=NA with_rows=NA empty=NA",
+            file=_marker_stream(args.json),
+        )
         return 2
 
     dropped: list[str] = []
@@ -194,7 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"SESSION-SCHEMAS-RESULT state={state} total={report['total']} "
         f"with_rows={report['with_rows']} empty={report['empty']}"
-        + (f" dropped={len(dropped)} failed={len(failed)}" if args.drop_empty else "")
+        + (f" dropped={len(dropped)} failed={len(failed)}" if args.drop_empty else ""),
+        file=_marker_stream(args.json),
     )
     return 1 if failed else 0
 

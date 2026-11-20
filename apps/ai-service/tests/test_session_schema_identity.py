@@ -209,4 +209,33 @@ def test_store_adopts_path_derived_legacy_schema(monkeypatch: pytest.MonkeyPatch
         _drop(conn, "sess_main")
         _drop(conn, legacy)
         session.close()
+@pytest.mark.skipif(not DSN, reason="无 DATABASE_URL/SESSION_PG_DSN ⇒ 真库面不判")
+def test_ephemeral_store_registers_and_cleanup_drops_schema() -> None:
+    """测试库的根因闸:临时路径的 store 必须登记进进程级回收表,回收后名字真的消失。
+
+    现状成因(2026-11-20 实测):pytest 进程里 `_ephemeral` 故意为假(同路径 close→reopen
+    要能读到数据),所以 close() 不丢库;而 schema 名按 tmp 路径哈希派生 ⇒ 每跑一次 pytest
+    就多一个永不清理的 `sess_<12hex>`,库面上堆到上千个。回收表就是这条的出口。
+    """
+    session = SyncPgSession(DSN)
+    conn = PgShim(session)
+    store = ss.SessionStore(pathlib.Path(tempfile.mkdtemp()) / "sessions.db")
+    name = store._schema
+    try:
+        assert name in ss._TEST_SCHEMAS, "临时路径的 store 必须登记进进程级回收表"
+        assert store.schema_name == name
+        dropped = ss._drop_test_schemas({name})
+        assert dropped == [name], f"回收必须真的丢掉了这个 schema,实际 {dropped}"
+        rows = session.fetchall("SELECT 1 FROM pg_namespace WHERE nspname = $1", (name,))
+        assert list(rows) == [], "回收后 schema 名必须已不存在"
+        assert name not in ss._TEST_SCHEMAS, "回收成功后要从登记表里摘掉(避免重复 DROP)"
+    finally:
+        store.close()
+        _drop(conn, name)
+        session.close()
+
+
+def test_cleanup_is_noop_without_registration() -> None:
+    """没登记就没有回收对象 —— 空集必须是一次纯空转(不是"全库扫一遍找像测试的")。"""
+    assert ss._drop_test_schemas(set()) == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

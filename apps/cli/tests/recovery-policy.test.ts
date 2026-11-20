@@ -70,13 +70,16 @@ describe('已登记方法', () => {
   });
 
   it('幂等写可重试', () => {
-    for (const m of ['session/set_mode', 'x.ai/goal/update']) {
+    // x.ai/goal/iterate:重放同一组 verdicts 收敛到同一状态(server.ts#iterateGoal 只在
+    // status==='active' 时迁 achieved,runGoalLoop 的 iterate 回调不落库)⇒ 归幂等写。
+    for (const m of ['session/set_mode', 'x.ai/goal/update', 'x.ai/goal/iterate']) {
       expect(canRetryAfterCrash(m), `${m} 应可重试`).toBe(true);
+      expect(recoveryPolicyOf(m).crashDisposition).toBe('retry_after_recovery');
     }
   });
 
   it('非幂等写不可重试(新建实体类)', () => {
-    for (const m of ['session/fork', 'x.ai/turn/create', 'x.ai/goal/create', 'x.ai/goal/iterate']) {
+    for (const m of ['session/fork', 'x.ai/turn/create', 'x.ai/goal/create']) {
       expect(canRetryAfterCrash(m), `${m} 不应可重试`).toBe(false);
       expect(recoveryPolicyOf(m).crashDisposition).toBe('outcome_unknown');
     }
