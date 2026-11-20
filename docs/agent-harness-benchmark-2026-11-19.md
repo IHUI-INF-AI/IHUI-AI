@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **46 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **47 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（46 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（47 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -575,6 +575,12 @@
 - 测试：`test_error_text_is_redacted_before_persisting` 用 `OPENAI_API_KEY=sk-live-…` 造错误行，断言台账里没有明文、含 `[REDACTED_SECRET]`、且 `failed` 仍在。
 
 验证：`pytest tests/test_hook_audit.py` → `13 passed`；`mypy --strict app/core/hook_audit.py` 与 `ruff check` 通过。
+### 5.48 第 47 项：新增帧的端能力缺口不许静默（hook-run 六端按档登记）
+
+- 问题：第 26/37 项把 `hook-run`（钩子运行结果）接进 SSE 后，`config/agent-event-end-capability.json` 只描述了旧帧。端能力门（`scripts/check-agent-event-parity.mjs`，判据住 `scripts/lib/agent-event-coverage.mjs`）按档案逐端核对"后端生产、该端是否消费"，档案里没有 `hook-run` 也没登记缺口 ⇒ 六端（miniapp-taro / mobile-rn / packages/app / extension / desktop / cli）各报一条"未消费且档案未登记"，共 12 行（每端正反两段各一遍）。门给的两条出路里，"补该端消费"在本轮不成立（这些端没有钩子运行 pane），正解是按同一口径**显式登记为已知缺口**。
+- 处置：六个 profile 的 `knownGaps` 各登记 `"hook-run"`，`reason` 追加一句"后端新增帧、本端暂无消费面 ⇒ 按同一口径显式登记、不静默"，`until` 沿用同组 `2026-12-31`。登记不等于生效：到期要么补消费面，要么删条目（门的 until 过期判红就是干这个的）。
+- 语义边界：`events`（声明已接）与 `knownGaps`（承认未接）必须二选一，不许两边都写；本次只动 `knownGaps`，已接清单一行未改 —— Web 侧经 `use-agent-runtime` 已有 `hookRuns`/`hookStats` 消费，不在缺口之列。
+- 验证：`node scripts/check-agent-event-parity.mjs` 的"端能力缺口"行从 12 降为 0（`hook-run` 这一族清零）；该门剩余 8 行"字段面断裂"属别席既有提交（chunk / error / fallback / reasoning / tool-approval / tool-call-args-delta 的声明键与解析面读点口径），与本项无关，未动其判据 —— 本门未接提交链，此 8 行不阻塞任何落地。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
