@@ -12,8 +12,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import os
+import subprocess
 import sys
 import time
 
@@ -1692,6 +1694,52 @@ def test_title_and_bell_tracked_from_child_output(tmp_path) -> None:
         assert "[T1]" in shot["text"] and shot["title"] not in shot["text"]
     finally:
         term.reset_terminals()
+
+
+def test_close_reports_graceful_path_and_escalation_flags(tmp_path) -> None:
+    """收尾回报必须能区分"体面退出"与"升到 kill 仍然活着" —— 不许统一回 closed=True。"""
+    opened = _open(_script_path(tmp_path, "stub.py", _SLEEP_SCRIPT), tmp_path)
+    tid = opened["terminal"]["terminal_id"]
+    _read_until(tid, "started")
+    graceful = term.close_terminal(tid, user_id="u-term", session_id="s-term")
+    assert graceful["ok"] is True and graceful["closed"] is True
+    assert graceful["forced"] is False and graceful["survived"] is False
+
+    stubborn_open = _open(_script_path(tmp_path, "stub2.py", _SLEEP_SCRIPT), tmp_path)
+    stid = stubborn_open["terminal"]["terminal_id"]
+    _read_until(stid, "started")
+
+    class _Stubborn:
+        pid = 424242
+        stdin = None
+
+        def poll(self) -> int | None:
+            return None
+
+        def wait(self, timeout: float | None = None) -> int:
+            raise subprocess.TimeoutExpired("stubborn", timeout or 0)
+
+        def terminate(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+        def send_signal(self, sig: int) -> None:
+            return None
+
+    session = term._sessions[stid]
+    real = session.proc
+    session.proc = _Stubborn()  # type: ignore[assignment]
+    try:
+        res = term.close_terminal(stid, user_id="u-term", session_id="s-term")
+        assert res["ok"] is True and res["closed"] is True
+        assert res["forced"] is True, "升到 kill 的那一步没被记下来"
+        assert res["survived"] is True and res["exit_code"] is None
+        assert "warning" in res, "kill 后仍活着必须显式警告,不许静默报绿"
+    finally:
+        with contextlib.suppress(OSError):
+            real.kill()
 
 
 def test_signal_interrupt_stops_process(tmp_path) -> None:
