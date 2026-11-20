@@ -98,6 +98,10 @@ import {
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
 import { resolveRoundModel } from './model-switch'
+// 2026-11-21 修:号池通道判定的单一真相 —— 选择器实际登记过的号池模型 id 集合
+// (见 pool-model-routing.ts)。UI 通路的 onModelChange 只有单参签名,带不上 channel,
+// 这里用它补齐,避免号池模型被静默送进平台链路。
+import { isPoolModelId } from './pool-model-routing'
 import {
   eduToolsFor,
   fileToolsFor,
@@ -1777,7 +1781,15 @@ export function createSendMessage(
       // 2026-11-12 立:模型通道分流 —— 「我的号池」模型走 /ws/relay/chat(登录态直连号池),
       // 平台模型保持既有 agent runtime。两条腿共用同一套 onDelta/onError/onDone 回调,
       // 气泡渲染、错误卡、收尾与账本完全复用,不另起一条 UI 通路。
-      if (chatStore.getState().currentModelChannel === 'pool') {
+      // 2026-11-21 修:UI 通路(MessageInput.onModelChange 单参签名)不携带通道,
+      // store 的 currentModelChannel 长期停在 'platform' ⇒ 号池模型(如
+      // workbuddy/hy4flash-free)被送进 ai-service 平台链路,那里认不出号池别名,
+      // 回 MODEL_NOT_CONFIGURED / "LLM Provider NOT provided",界面只剩
+      // "本轮没有返回任何内容"。登记集合命中即按号池通道发 —— 判据取自
+      // pool-model-routing 同一份 set,不在本文件再造前缀猜测。
+      const modelIsFromPool =
+        chatStore.getState().currentModelChannel === 'pool' || isPoolModelId(effectiveModel)
+      if (modelIsFromPool) {
         await streamRelayChat({
           model: effectiveModel,
           messages: streamOpts.messages,
