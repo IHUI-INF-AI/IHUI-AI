@@ -436,9 +436,9 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    # 15 = send / keys / paste / mouse / focus / links / cursor / snapshot / search / eof
-    #      / read / wait / signal / resize / close
-    assert src.count("_live(terminal_id, user_id, session_id)") == 15, (
+    # 17 = send / keys / paste / mouse / focus / links / prompt / cell / cursor / snapshot
+    #      / search / eof / read / wait / signal / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 17, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -2598,6 +2598,146 @@ async def test_tool_layer_routes_cursor(monkeypatch) -> None:
     )
     assert res["ok"] is True and res["action"] == "cursor"
     assert seen["include_screen"] is True
+
+
+# ─── shell 集成(OSC 7 / OSC 133)与屏幕取字 ───
+
+
+def test_osc7_reports_real_cwd_and_decodes_percent_escapes() -> None:
+    """`OSC 7` 是 shell 自己报的目录:百分号编码必须解回来(中文目录就这么发)。"""
+    term.reset_terminals()
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        track(session, "\x1b]7;file://host/D:/IHUI-AI\x07")
+        assert session.cwd_reported == "/D:/IHUI-AI"
+        track(session, "\x1b]7;file://host/%E6%96%87%E6%A1%A3/app\x07")  # 「文档」
+        assert session.cwd_reported == "/文档/app"
+        # 空 path 不覆盖上一个值:报了个空 ≠ 目录变成空
+        track(session, "\x1b]7;file://host\x07")
+        assert session.cwd_reported == "/文档/app"
+        # 非 file:// 形态(如 ssh://)不认:只认本机目录这一种
+        track(session, "\x1b]7;ssh://host/tmp\x07")
+        assert session.cwd_reported == "/文档/app"
+    finally:
+        term.reset_terminals()
+
+
+def test_osc133_tracks_four_marks_and_exit_codes() -> None:
+    """A=提示符、B=输入、C=执行、D=结束(带退出码);计数与退出码逐条落账。"""
+    term.reset_terminals()
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        for seq, want in (
+            ("\x1b]133;A\x07", "prompt"),
+            ("\x1b]133;B\x07", "input"),
+            ("\x1b]133;C\x07", "running"),
+        ):
+            track(session, seq)
+            assert session.prompt_state == want
+            assert session.shell_integration is True
+        track(session, "\x1b]133;D;0\x07")
+        assert session.prompt_state == "done"
+        assert session.command_count == 1 and session.last_command_exit == 0
+        track(session, "\x1b]133;A\x07")
+        track(session, "\x1b]133;C\x07")
+        track(session, "\x1b]133;D;127\x07")  # 命令不存在
+        assert session.command_count == 2 and session.last_command_exit == 127
+        # 参数不是整数(或缺失)⇒ 如实记 None,不猜一个 0 出来
+        track(session, "\x1b]133;A\x07\x1b]133;C\x07\x1b]133;D\x07")
+        assert session.command_count == 3 and session.last_command_exit is None
+        assert session.to_dict()["prompt_state"] == "done"
+    finally:
+        term.reset_terminals()
+
+
+def test_prompt_primitive_refuses_to_guess_without_integration() -> None:
+    """没启用 shell 集成 ⇒ `at_prompt` 恒 False、`prompt_state` 恒 unknown(没信号不等于可输入)。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session()
+        push = _TEST["push_output"]
+        push(session, "out", "shell$ ls\r\nfile1\r\n")
+        first = term.prompt_terminal("t-mouse", **owner)
+        assert first["ok"] is True
+        assert first["shell_integration"] is False
+        assert first["prompt_state"] == "unknown" and first["at_prompt"] is False
+        # 开了集成之后:在提示符上 ⇒ True;跑完了但还没画下一个提示符 ⇒ 仍是 False
+        push(session, "out", "\x1b]133;A\x07\x1b]133;B\x07")
+        mid = term.prompt_terminal("t-mouse", **owner)
+        assert mid["at_prompt"] is True and mid["prompt_state"] == "input"
+        push(session, "out", "\x1b]133;C\x07")
+        assert term.prompt_terminal("t-mouse", **owner)["at_prompt"] is False
+        push(session, "out", "\x1b]133;D;0\x07")
+        after = term.prompt_terminal("t-mouse", **owner)
+        assert after["at_prompt"] is False and after["prompt_state"] == "done"
+        assert after["last_command_exit"] == 0 and after["command_count"] == 1
+    finally:
+        term.reset_terminals()
+
+
+def test_prompt_primitive_prefers_reported_cwd_and_names_its_source() -> None:
+    """`cwd` 的来源必须在回执里写清楚:reported 是"此刻的真实位置",session 只是"开会话时"。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session()
+        fallback = term.prompt_terminal("t-mouse", **owner)
+        assert fallback["cwd"] == session.cwd and fallback["cwd_source"] == "session"
+        _TEST["track_terminal_state"](session, "\x1b]7;file://host/tmp/work\x07")
+        reported = term.prompt_terminal("t-mouse", **owner)
+        assert reported["cwd"] == "/tmp/work" and reported["cwd_source"] == "reported"
+    finally:
+        term.reset_terminals()
+
+
+def test_cell_at_reads_screen_grid_not_stream_lines() -> None:
+    """点第 3 行第 2 列拿到的必须是**屏幕**那一格,不是输出流第 3 行那一行。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=12, rows=4)
+        push = _TEST["push_output"]
+        push(session, "out", "abc\r\n下的xyz\r\n最后一")
+        cell = term.cell_at_terminal("t-mouse", row=2, col=1, **owner)
+        assert cell["ok"] is True and cell["in_range"] is True
+        assert cell["char"] == "下" and cell["line"] == "下的xyz"
+        # 宽字符的第二格是占位:回空串(那一格没有独立字)
+        assert term.cell_at_terminal("t-mouse", row=2, col=2, **owner)["char"] == ""
+        # 越界:回空串且 in_range False(不抛异常,也不假装那里有字)
+        out = term.cell_at_terminal("t-mouse", row=9, col=99, **owner)
+        assert out["in_range"] is False and out["char"] == "" and out["line"] == ""
+        assert term.cell_at_terminal("t-mouse", row="x", col=1, **owner)["errorCode"] == (
+            "TERMINAL_INVALID_INPUT"
+        )
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_prompt_and_cell(monkeypatch) -> None:
+    term.reset_terminals()
+    seen: dict[str, object] = {}
+
+    def _stub_prompt(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen["prompt"] = {"terminal_id": terminal_id, **kwargs}
+        return {"ok": True, "at_prompt": True}
+
+    def _stub_cell(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen["cell"] = {"terminal_id": terminal_id, **kwargs}
+        return {"ok": True, "char": "a"}
+
+    monkeypatch.setattr(term, "prompt_terminal", _stub_prompt)
+    monkeypatch.setattr(term, "cell_at_terminal", _stub_cell)
+    assert (await _tool_terminal({"action": "prompt", "terminal_id": "t1", **_OWNER}))["ok"]
+    res = await _tool_terminal(
+        {"action": "cell", "terminal_id": "t1", "row": 3, "col": 2, **_OWNER}
+    )
+    assert res["ok"] is True and res["action"] == "cell"
+    assert seen["cell"]["row"] == 3 and seen["cell"]["col"] == 2  # type: ignore[index]
+
 
 
 
