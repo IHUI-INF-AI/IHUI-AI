@@ -82,6 +82,9 @@ KNOWN_NON_DRIZZLE_TABLES: frozenset[str] = frozenset({
 #   work_admission_tickets                  -> app/services/work_admission.py
 #   memory_sweeper_logs / memory_sweeper_memories / memory_sweeper_schema_version
 #                                           -> app/services/memory_sweeper.py
+#   approval_grants                         -> app/services/approval_persistence.py
+#      (2026-11-19 已从 sqlite 迁 PostgreSQL,仍是**本服务自建自管**;迁移跑完而服务未启动时
+#       库里必然没有它 —— 与"TS schema 有定义待补 migration"是两件事,故归懒建表族)
 LAZY_SELF_CREATED_TABLES: frozenset[str] = frozenset({
     "sag2_chunks",
     "sag2_documents",
@@ -100,6 +103,7 @@ LAZY_SELF_CREATED_TABLES: frozenset[str] = frozenset({
     "memory_sweeper_logs",
     "memory_sweeper_memories",
     "memory_sweeper_schema_version",
+    "approval_grants",
 })
 
 # packages/database/src/schema 目录(用于解析 TS schema)

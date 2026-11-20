@@ -511,19 +511,22 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
+      # 注:step 级 working-directory 是相对 **GITHUB_WORKSPACE** 解析,不是相对 job 级
+      # defaults ⇒ 写 `../..` 会跑到 /home/runner/work(仓外)并报 ERR_PNPM_NO_PKG_MANIFEST。
+      # 这里显式用 `.` / `packages/database`,与 workspace 根对齐。
       - name: Install JS dependencies
         id: install-js-deps
-        working-directory: ../..
+        working-directory: .
         run: pnpm install --frozen-lockfile
 
       - name: Build database package
         id: build-database
-        working-directory: ../..
+        working-directory: .
         run: pnpm --filter @ihui/database build
 
       - name: Enable pgvector extension
         id: enable-pgvector
-        working-directory: ../../packages/database
+        working-directory: packages/database
         run: |
           node --input-type=module -e "
             import postgres from 'postgres';
@@ -535,7 +538,7 @@ jobs:
 
       - name: Apply migrations to test DB
         id: apply-migrations
-        working-directory: ../../packages/database
+        working-directory: packages/database
         run: npx drizzle-kit migrate
 
       - name: Setup Python
