@@ -19,6 +19,11 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from .model_catalog import MODALITY_CATEGORIES
+
+#: 模态用途的字符串值集合(与 model_catalog.MODALITY_CATEGORIES 同源,禁另写一份)
+_MODALITY_CATEGORY_VALUES = frozenset(c.value for c in MODALITY_CATEGORIES)
+
 # 历史模型清单(2026-11-12 目录快照)。
 # 保留:workbuddy/kimi-k2.8-preview、kimi-k3-1;glm-5.2、glm-5.3(+flash/5v-turbo);
 #      deepseek-v4-flash/pro、v4.1-flash;minimax-m3、m3.1-flash;agnes-3.0-flash;
@@ -98,4 +103,30 @@ def is_hidden_from_selector(model: dict[str, Any]) -> bool:
     if str(model.get("model_tier") or "") == "legacy":
         return True
     return str(model.get("category") or "chat") in _SELECTOR_EXCLUDED_CATEGORIES
+
+
+def restore_modality_entries(
+    originals: list[dict[str, Any]],
+    kept: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """把被"chat 探针"误杀的模态档补回(2026-11-21 立,纯判据,无 IO)。
+
+    病灶:``model_health.filter_available`` 的探针打的是 chat completion,对
+    image/video/tts/asr/ocr 模型必然失败,于是把模态档整批判死 —— 生产实测
+    ``/llm/models`` 只剩 21 条全 chat,image/video/vision 一条不剩,选择器里
+    自然看不到它们。"能不能产出"对媒体模型该由生成通道裁决(POST /image-gen
+    对未接通模型回 400 并给可用清单),不该由 chat 探针代判。
+
+    只补**被摘掉的**模态条目(``kept`` 里已有 id 一律不动),因此重复调用幂等;
+    非模态条目与"探针判死"的聊天模型行为逐字不变。
+    """
+    kept_ids = {str(m.get("id") or "") for m in kept}
+    restored = list(kept)
+    for m in originals:
+        mid = str(m.get("id") or "")
+        if not mid or mid in kept_ids:
+            continue
+        if str(m.get("category") or "chat") in _MODALITY_CATEGORY_VALUES:
+            restored.append(m)
+    return restored
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
