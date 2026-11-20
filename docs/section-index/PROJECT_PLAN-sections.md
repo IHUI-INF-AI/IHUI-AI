@@ -6,15 +6,19 @@
 
 # PROJECT_PLAN.md 章节可寻址索引
 
-> **本索引是派生物,原文才是真相源。** 行号区间由生成器按当前原文扫描得出;
-> 原文被改写后行号即漂移,必须重跑生成器刷新本索引,不得手工改行号。
+> **本索引是派生物,原文才是真相源。**
+> **行号是生成时刻的快照**:PROJECT_PLAN.md 每次提交都可能被生成块/数字块重写,标题行号会整体漂移;
+> 取现行号请用 `node scripts/gen-doc-section-index.mjs --locate --file PROJECT_PLAN.md --title "<标题>"` 现算,
+> 不要照抄本页快照区间。
+> `--check` 判的是**标题结构**(层级 + 标题原文 + 出现顺序),不比绝对行号;标题未增删、未改序即绿。
 
-- 生成命令(重写本索引):`node scripts/gen-doc-section-index.mjs --write`
-- 漂移校验(不一致 exit 1):`node scripts/gen-doc-section-index.mjs --check`
-- 被索引原文:`PROJECT_PLAN.md`(4,267,222 字节 / 12,299 物理行 / 915 个标题)
+- 生成命令(重写本索引快照):`node scripts/gen-doc-section-index.mjs --write`
+- 结构校验(标题集合/顺序不一致 exit 1):`node scripts/gen-doc-section-index.mjs --check`
+- 现行号现算:`node scripts/gen-doc-section-index.mjs --locate --file PROJECT_PLAN.md --title "<标题原文>"`
+- 快照时刻原文:`PROJECT_PLAN.md`(4,267,222 字节 / 12,299 物理行 / 915 个标题)
 - 区间口径:标题行起,到下一个同级或更高级标题之前;行数 = 结束行 - 起始行 + 1。
 - 围栏口径:``` / ~~~ 按出现次序成对切换;原文存在漏闭合围栏时,个别 shell 注释行可能被计入标题。
-- 取用命令(区间 `Lstart-Lend`,在仓库根目录执行;每行已附 Bash 命令):
+- 取用命令(快照区间 `Lstart-Lend`,在仓库根目录执行;现行号以 `--locate` 为准):
   - Bash / Git Bash:`sed -n '<Lstart>,<Lend>p' PROJECT_PLAN.md`
   - PowerShell:`Get-Content PROJECT_PLAN.md | Select-Object -Skip <Lstart-1> -First <Lend-Lstart+1>`
 
