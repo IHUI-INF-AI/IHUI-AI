@@ -2,24 +2,5 @@
   "$comment": "守门 7(check-dedupe)的存量碎片点名台账。判据:本次 `pnpm dedupe --check` 报告的每一项(- pkg@version)按 pkg+version 命中本表且 reviewBy 未过期 ⇒ 点名放行;命中不了的新碎片 ⇒ 红;本表条目在本次报告里一条没命中 ⇒ 清单腐烂红(必须删条目);到期 ⇒ 红(回队列重裁)。登记门槛:必须是**pnpm dedupe 自己也消不掉**的存量,新引入的碎片一律不许进这里。",
   "version": 1,
   "issuesAt": "2026-11-20",
-  "entries": [
-    {
-      "pkg": "fs-extra",
-      "version": "11.4.0",
-      "reason": "peer 依赖版本不同的双副本:实测 pnpm dedupe 跑完仍留在报告里(dedupe 消不掉),按 §0.7 登记,待上游统一版本后删除",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "pkg": "schema-utils",
-      "version": "4.3.3",
-      "reason": "peer 依赖版本不同的双副本:实测 pnpm dedupe 跑完仍留在报告里(dedupe 消不掉),按 §0.7 登记,待上游统一版本后删除",
-      "reviewBy": "2027-05-31"
-    },
-    {
-      "pkg": "tapable",
-      "version": "2.3.3",
-      "reason": "peer 依赖版本不同的双副本:实测 pnpm dedupe 跑完仍留在报告里(dedupe 消不掉),按 §0.7 登记,待上游统一版本后删除",
-      "reviewBy": "2027-05-31"
-    }
-  ]
+  "entries": []
 }
