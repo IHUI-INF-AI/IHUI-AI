@@ -9711,6 +9711,46 @@
         "TERMINAL_WRITE_FAILED": {
           "title": "終端機寫入失敗",
           "action": "重試寫入"
+        },
+        "RECURSIVE_NODE_LIMIT": {
+          "title": "遞歸節點數超限",
+          "action": "減少遞歸層級或拆分任務"
+        },
+        "RESIDENT_INVALID": {
+          "title": "常駐子代理請求無效",
+          "action": "檢查請求參數後重試"
+        },
+        "RESIDENT_LEASE_HELD": {
+          "title": "常駐租約被佔用",
+          "action": "等待目前租約釋放或改用其他代理"
+        },
+        "RESIDENT_NOT_FOUND": {
+          "title": "常駐子代理不存在",
+          "action": "重新整理列表後重試"
+        },
+        "RESIDENT_NOT_TEXT": {
+          "title": "常駐內容不是文字",
+          "action": "僅支援文字內容"
+        },
+        "RESIDENT_PATH_NOT_ALLOWED": {
+          "title": "常駐檔案路徑不允許",
+          "action": "選擇允許目錄內的檔案"
+        },
+        "RESIDENT_READ_FAILED": {
+          "title": "常駐檔案讀取失敗",
+          "action": "檢查檔案權限後重試"
+        },
+        "RESIDENT_TOO_LARGE": {
+          "title": "常駐檔案過大",
+          "action": "壓縮或拆分檔案後重試"
+        },
+        "RESIDENT_UNSUPPORTED_MODE": {
+          "title": "不支援的常駐模式",
+          "action": "切換為支援的模式"
+        },
+        "SUBAGENT_RUNNING_LIMIT": {
+          "title": "並行子代理數超限",
+          "action": "等待執行中的子代理結束後重試"
         }
       },
       "worktree": {

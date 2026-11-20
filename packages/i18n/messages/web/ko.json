@@ -9711,6 +9711,46 @@
         "TERMINAL_WRITE_FAILED": {
           "title": "터미널 쓰기 실패",
           "action": "쓰기를 다시 시도하세요"
+        },
+        "RECURSIVE_NODE_LIMIT": {
+          "title": "재귀 노드 수 한도 초과",
+          "action": "재귀 깊이를 줄이거나 작업을 분할하세요"
+        },
+        "RESIDENT_INVALID": {
+          "title": "상주 하위 에이전트 요청이 유효하지 않습니다",
+          "action": "요청 매개변수를 확인한 후 다시 시도하세요"
+        },
+        "RESIDENT_LEASE_HELD": {
+          "title": "상주 리스가 사용 중입니다",
+          "action": "현재 리스가 해제될 때까지 기다리거나 다른 에이전트를 사용하세요"
+        },
+        "RESIDENT_NOT_FOUND": {
+          "title": "상주 하위 에이전트를 찾을 수 없습니다",
+          "action": "목록을 새로 고친 후 다시 시도하세요"
+        },
+        "RESIDENT_NOT_TEXT": {
+          "title": "상주 콘텐츠가 텍스트가 아닙니다",
+          "action": "텍스트 콘텐츠만 지원됩니다"
+        },
+        "RESIDENT_PATH_NOT_ALLOWED": {
+          "title": "상주 파일 경로가 허용되지 않습니다",
+          "action": "허용된 디렉터리 내 파일을 선택하세요"
+        },
+        "RESIDENT_READ_FAILED": {
+          "title": "상주 파일 읽기에 실패했습니다",
+          "action": "파일 권한을 확인한 후 다시 시도하세요"
+        },
+        "RESIDENT_TOO_LARGE": {
+          "title": "상주 파일이 너무 큽니다",
+          "action": "파일을 압축하거나 분할한 후 다시 시도하세요"
+        },
+        "RESIDENT_UNSUPPORTED_MODE": {
+          "title": "지원되지 않는 상주 모드입니다",
+          "action": "지원되는 모드로 전환하세요"
+        },
+        "SUBAGENT_RUNNING_LIMIT": {
+          "title": "병렬 하위 에이전트 수 한도 초과",
+          "action": "실행 중인 하위 에이전트가 끝날 때까지 기다린 후 다시 시도하세요"
         }
       },
       "worktree": {

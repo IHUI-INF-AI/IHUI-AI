@@ -96,17 +96,24 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
       .object({ deviceToken: z.string().min(1).max(500) })
       .parse(request.body)
     // 归属校验:WHERE 必须同时带 token 与 user_id,否则知道他人 device token 即可静默停掉对方推送。
-    // 影响行数由 RETURNING 给出:0 行 = 不存在/不属于本人 ⇒ 404,不假装成功。
-    const rows = await db
-      .update(deviceTokens)
-      .set({ isActive: false, updatedAt: new Date() })
+    // 先取现值、按键比较:已停用的行不重复推进 updatedAt(它是增量读的消费源)。
+    const existing = await db
+      .select({ isActive: deviceTokens.isActive })
+      .from(deviceTokens)
       .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
-      .returning({ id: deviceTokens.id })
-    const removed = rows.length
-    if (removed === 0) {
+      .limit(1)
+    if (existing.length === 0) {
       return reply.status(404).send(error(404, '设备不存在或不属于当前用户'))
     }
-    return reply.send(success({ unregistered: true, removed }))
+    if (existing[0]?.isActive) {
+      const changed: { isActive: boolean; updatedAt?: Date } = { isActive: false }
+      changed.updatedAt = new Date()
+      await db
+        .update(deviceTokens)
+        .set(changed)
+        .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
+    }
+    return reply.send(success({ unregistered: true, removed: 1 }))
   })
 
   // GET /push/provider - 查询当前推送 provider
