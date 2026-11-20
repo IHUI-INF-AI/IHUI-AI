@@ -22,8 +22,9 @@ POST /internal/model-catalog/classify
   入参: {"models": [{"id": "...", "provider": "..."}]}(单批上限 500)
   出参: {"items": [{id, provider, category, model_tier, family, generation,
                     classify_reason, hidden}]}
-  hidden 与 /llm/models 同口径(命中 model_catalog_policy 过时清单且隐藏开关开启),
-  由 filter_frontier 本身判定而不是这里另读一次清单 —— 开关语义必须一模一样。
+  hidden 与选择器口径同源(model_catalog_policy.is_hidden_from_selector):命中过时清单、
+  版本比较判 legacy、用途不在 chat/vision 三条并集;2026-11-20 机主定档取消「历史模型」
+  折叠区,这些一律不展示。开关 MODEL_CATALOG_HIDE_LEGACY 与 /llm/models 出口共用。
 
 失效方向
 --------
@@ -41,7 +42,7 @@ from pydantic import BaseModel, Field
 
 from app.core.internal_secret_auth import authorize_internal_secret_call
 from app.services.model_catalog import annotate_models
-from app.services.model_catalog_policy import filter_frontier
+from app.services.model_catalog_policy import is_hidden_from_selector
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +82,10 @@ async def classify(request: Request, payload: ClassifyIn) -> dict[str, Any]:
         {"id": m.id, "provider": m.provider} for m in payload.models
     ]
     annotate_models(dicts)
-    kept = filter_frontier(dicts)
-    kept_keys = {(str(m.get("provider") or ""), str(m.get("id") or "")) for m in kept}
-
+    # hidden 走策略模块本身而不是自己重读清单(§0.6 单一真相源):
+    #   清单命中 / 版本比较判 legacy / 用途不在 chat+vision ⇒ 选择器不展示
+    #   (2026-11-20 机主定档:取消「历史模型」折叠区,旧代与专用用途一律隐藏)。
+    # 开关 MODEL_CATALOG_HIDE_LEGACY 的语义与 /llm/models 出口共用同一实现。
     items = [
         {
             "id": str(m.get("id") or ""),
@@ -93,7 +95,7 @@ async def classify(request: Request, payload: ClassifyIn) -> dict[str, Any]:
             "family": str(m.get("family") or ""),
             "generation": m.get("generation"),
             "classify_reason": str(m.get("classify_reason") or ""),
-            "hidden": (str(m.get("provider") or ""), str(m.get("id") or "")) not in kept_keys,
+            "hidden": is_hidden_from_selector(m),
         }
         for m in dicts
     ]

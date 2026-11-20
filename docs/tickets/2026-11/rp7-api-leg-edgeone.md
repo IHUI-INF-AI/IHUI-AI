@@ -37,7 +37,27 @@
 
 **判定**:`api.aizhs.top` 这类"新建子域"在该免费版站点上不会被边缘下发,属于平台侧准入问题,仓库内任何配置都改不动它;需要腾讯云工单(报 `EO-LOG-UUID`)或升级套餐后重试。
 
-## 三、复现与再切
+## 三、客户端基址现状与本次改动
+
+**REST/SSE 全端已以 www 为准**,本次只补两处仍指向 api 的默认值:
+
+- `apps/miniapp-taro/src/utils/api-config.ts`:`PROD_API_BASE_URL` `https://api.aizhs.top/api` → `https://www.aizhs.top/api`(/api 后缀不变)。
+- `apps/desktop/scripts/ensure-web-out.mjs`:`NEXT_PUBLIC_API_BASE_URL` 与 `NEXT_PUBLIC_STREAM_API_BASE_URL` 默认 `api.aizhs.top` → `www.aizhs.top`(该脚本仅手动运行;生产 `desktop-build-saas.mjs` 原本就用 apex)。
+
+已经是 www 的:移动端 `eas.json`(`EXPO_PUBLIC_API_BASE_URL=https://www.aizhs.top`)、管理接口工具 `ihui-admin-session.cjs`(`IHUI_API_BASE` 默认 www)、web 生产同源 `/api`(由 www 承载)。扩展白名单本就允许 `*.aizhs.top`,无需改。
+
+**WS 必须留在 api,不能迁 www(带真实令牌实测)**:
+
+| 请求 | 结果 |
+| --- | --- |
+| `wss://www.aizhs.top/ws/notifications?token=<有效令牌>` | **404**(边缘剥掉 Upgrade,源站按普通 GET 处理) |
+| `wss://api.aizhs.top/ws/notifications?token=<有效令牌>` | **101** |
+
+EdgeOne 免费版默认不放开 WebSocket(`WebSocket 最大超时时间` 在免费版为 ✕),故 `NEXT_PUBLIC_WS_BASE_URL` / `EXPO_PUBLIC_WS_BASE_URL` 一处未动。
+
+**未迁 www 的另一处**是 api 上的非 `/api` 路径:`https://api.aizhs.top/landing` = 200,而 `https://www.aizhs.top/landing` = 308→`/`(web 应用没有该路由)。VIP 页外链因此保持 api。
+
+## 四、复现与再切
 
 - 证书 `D:\DevEnv\secrets\ssl\api.aizhs.top.{crt,key}.pem`、`acme-account.key`(生产机,未入仓),有效期至 2027-02-18。
 - CF DNS 备份 `D:/DevEnv/ihui-prod/.ihui-agent/state/rp7-api-dns-before.json`。
