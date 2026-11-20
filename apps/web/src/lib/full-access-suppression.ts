@@ -132,7 +132,7 @@ function writeGrant(subject: FullAccessGuardSubject, grant: Grant): void {
   }
 }
 
-/** 逐字段验类型(参照 AutoRevertRecord 的 readRecord)。返回 null = 记录不可判 ⇒ 当作 malformed。 */
+/** 逐字段验类型(同本文件其他 readRecord)。返回 null = 记录不可判 ⇒ 当作 malformed。 */
 function parseRecord(raw: string): SuppressionRecord | null {
   let parsed: unknown
   try {
@@ -159,12 +159,18 @@ function parseGrant(value: unknown): Grant | null {
   const g = value as Partial<Grant>
   if (typeof g.policyVersion !== 'number' || typeof g.acknowledgedAt !== 'number') return null
   if (!(g.expiresAt === null || typeof g.expiresAt === 'number')) return null
-  return { policyVersion: g.policyVersion, acknowledgedAt: g.acknowledgedAt, expiresAt: g.expiresAt }
+  return {
+    policyVersion: g.policyVersion,
+    acknowledgedAt: g.acknowledgedAt,
+    expiresAt: g.expiresAt,
+  }
 }
 
 /** 守卫对象是否已登记(闭集判据,不接受"未知 subject 默认放行")。 */
 export function isFullAccessGuardSubject(value: unknown): value is FullAccessGuardSubject {
-  return typeof value === 'string' && (FULL_ACCESS_GUARD_SUBJECTS as readonly string[]).includes(value)
+  return (
+    typeof value === 'string' && (FULL_ACCESS_GUARD_SUBJECTS as readonly string[]).includes(value)
+  )
 }
 
 /**
@@ -177,11 +183,19 @@ export function evaluateFullAccessSuppression(
   now: number = Date.now(),
 ): SuppressionDecision {
   if (!isFullAccessGuardSubject(subject)) {
-    return { suppressed: false, state: 'subject_unregistered', detail: `守卫对象未登记:${String(subject)}` }
+    return {
+      suppressed: false,
+      state: 'subject_unregistered',
+      detail: `守卫对象未登记:${String(subject)}`,
+    }
   }
   const read = readRaw()
   if (read.kind === 'unavailable') {
-    return { suppressed: false, state: 'undetermined', detail: 'localStorage 不可读(SSR 或隐私模式)' }
+    return {
+      suppressed: false,
+      state: 'undetermined',
+      detail: 'localStorage 不可读(SSR 或隐私模式)',
+    }
   }
   if (read.kind === 'missing') {
     return { suppressed: false, state: 'absent', detail: '没有任何确认记录' }
@@ -233,7 +247,10 @@ export function evaluateFullAccessSuppression(
 }
 
 /** 写:用户勾了"我了解风险"(未必勾"不再提醒")⇒ 只记确认时刻,下次仍问。 */
-export function recordFullAccessAcknowledgement(subject: FullAccessGuardSubject, now: number = Date.now()): void {
+export function recordFullAccessAcknowledgement(
+  subject: FullAccessGuardSubject,
+  now: number = Date.now(),
+): void {
   writeGrant(subject, {
     policyVersion: FULL_ACCESS_GUARD_POLICY_VERSION,
     acknowledgedAt: now,
@@ -242,7 +259,10 @@ export function recordFullAccessAcknowledgement(subject: FullAccessGuardSubject,
 }
 
 /** 写:用户同时勾了"不再提醒"⇒ 有期限、绑档、绑版本的静默。 */
-export function grantFullAccessSuppression(subject: FullAccessGuardSubject, now: number = Date.now()): void {
+export function grantFullAccessSuppression(
+  subject: FullAccessGuardSubject,
+  now: number = Date.now(),
+): void {
   writeGrant(subject, {
     policyVersion: FULL_ACCESS_GUARD_POLICY_VERSION,
     acknowledgedAt: now,

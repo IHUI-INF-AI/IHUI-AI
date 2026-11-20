@@ -58,6 +58,7 @@ import {
   formatDuration,
   formatRelativeTime,
   type ModeChangeEntry,
+  type ModeChangeSource,
 } from '@/lib/permission-mode-history'
 import {
   isFullAccessConfirmSuppressed,
@@ -89,14 +90,12 @@ const MODE_ICON: Record<WorkspacePermissionMode, React.ComponentType<{ className
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`historySource.${sourceKey}`)` 单变量动态拼接 */
-type HistorySourceKey = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog' | 'auto-revert'
+type HistorySourceKey = ModeChangeSource
 const HISTORY_SOURCE_KEY: Record<HistorySourceKey, string> = {
   popover: 'historySource.popover',
   'shift-tab': 'historySource.shift-tab',
   slash: 'historySource.slash',
   'confirm-dialog': 'historySource.confirm-dialog',
-  // auto-revert 来源已废弃(1h 自动降级功能移除),仅保留用于兼容旧 localStorage 历史数据
-  'auto-revert': 'historySource.auto-revert',
 }
 
 /** 把绝对路径简化为"父目录/末级"用于紧凑展示(避免长路径占满 UI) */
@@ -131,16 +130,8 @@ function HistoryList({ entries, now }: HistoryListProps) {
         const wire = permissionModeWire(entry.mode)
         const Icon = wire ? (MODE_ICON[wire] ?? Hand) : Hand
         const isHighRisk = wire === 'bypass-permissions'
-        const sourceKey =
-          entry.source === 'popover'
-            ? 'popover'
-            : entry.source === 'shift-tab'
-              ? 'shift-tab'
-              : entry.source === 'slash'
-                ? 'slash'
-                : entry.source === 'confirm-dialog'
-                  ? 'confirm-dialog'
-                  : 'auto-revert'
+        // 来源标签查表(旧 auto-revert 记录在 readAll 已丢弃,这里只管 4 档)
+        const sourceKey = HISTORY_SOURCE_KEY[entry.source] ?? 'historySource.unknown'
         return (
           <li
             key={`${entry.timestamp}-${idx}`}
@@ -167,7 +158,7 @@ function HistoryList({ entries, now }: HistoryListProps) {
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                   <span aria-hidden="true">·</span>
-                  <span>{t(HISTORY_SOURCE_KEY[sourceKey] ?? 'historySource.unknown')}</span>
+                  <span>{t(sourceKey)}</span>
                 </span>
               </div>
               <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
