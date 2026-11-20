@@ -8749,6 +8749,8 @@
       "runtimeHookRunError": "failed",
       "runtimeHookStatsTitle": "Hook totals",
       "runtimeHookAuditTitle": "Hook audit (local ledger)",
+      "runtimeHookAuditTruncated": "tail only: last {lines} lines",
+      "runtimeHookAuditHistoryOnly": "current ledger empty; only a {kb} KB backup remains",
       "runtimeHookStats": "{total} runs · ok {ok} / timeout {timeout} / failed {error} · avg {avg}ms · peak {slowest}ms",
       "runtimeHookConfigUntrusted": "{count} hooks configured but untrusted — re-trust on this machine after edits",
       "runtimeHookConfigInvalid": "Hook config is broken; running as if unconfigured",

@@ -228,6 +228,13 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   ai_reimbursement: 'toolAiReimbursement',
   social_insurance_calc: 'toolSocialInsuranceCalc',
   special_deduction_calc: 'toolSpecialDeductionCalc',
+  // 2026-11-21 补齐(守门 55):人事部自助/算薪六枚(hr_tools 实装当日,五语言文案同批)
+  hr_insurance_readiness: 'toolHrInsuranceReadiness',
+  hr_my_attendance: 'toolHrMyAttendance',
+  hr_my_leaves: 'toolHrMyLeaves',
+  hr_my_payroll: 'toolHrMyPayroll',
+  hr_my_payroll_periods: 'toolHrMyPayrollPeriods',
+  hr_payroll_calc: 'toolHrPayrollCalc',
   read_image: 'toolReadImage',
   session_search: 'toolSessionSearch',
   sheet_formula_eval: 'toolSheetFormulaEval',

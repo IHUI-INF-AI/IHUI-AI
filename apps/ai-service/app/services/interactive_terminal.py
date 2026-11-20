@@ -77,6 +77,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
 from .sandbox import _strict_child_env
+from .terminal_grid import Grid
 
 MAX_SESSIONS: Final = 16
 MAX_BUFFER_LINES: Final = 2000
@@ -407,12 +408,19 @@ class TerminalSession:
     #: 程序请求过的 DEC 私有模式位集合(鼠标 1000/1002/1003、编码 1006/1005/1015、粘贴 2004 …)。
     #: 只由输出解析写入;`mouse_mode`/`mouse_encoding` 是它的**派生视图**(不另存一份状态)。
     private_modes: set[int] = field(default_factory=set)
+    #: 屏幕网格(VT 记账)。它回答的是缓冲**回答不了**的那类问题:「光标现在停在哪」
+    #: 「屏幕上第 3 行第 12 列是什么」。缓冲是行流水,`\r` 刷新在流水里是换行、在屏幕上是
+    #: 同一格被改写 —— 拿流水冒充屏幕算光标,答案必然是错的,所以这块网格是真的。
+    grid: Any = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         # deque 的 default_factory 拿不到实例字段,所以"上限"必须在这里落到缓冲上;
         # 两处各写一份 `deque(maxlen=…)` 就会漂开(§22c)。
         if self.chunks.maxlen != self.buffer_lines:
             self.chunks = deque(maxlen=self.buffer_lines)
+        # 网格按 open 那一刻的窗口尺寸建;之后只经 `resize_terminal` 改(单一入口)
+        if self.grid is None:
+            self.grid = Grid(self.cols, self.rows)
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -836,8 +844,16 @@ def _track_terminal_state(session: TerminalSession, text: str) -> None:
 
 
 def _push_output(session: TerminalSession, tag: str, text: str) -> None:
-    """输出入缓冲的**唯一出口**:先读状态信号,再入队(两件事不会各自被忘掉)。"""
+    """输出入缓冲的**唯一出口**:先读状态信号,再喂屏幕网格,最后入队(三件事不会各自被忘掉)。
+
+    屏面必须在**入队就喂**(而不是等 `snapshot` 时从缓冲重放):网格要的是原始字节序,
+    而缓冲在 deque 满时会把最老的块静默挤掉 —— 那时重放已经少了开头,光标会算错。
+    喂网格持 `session.lock`:网格不是线程安全的,PTY 读线程与空闲看门狗都会往这里送。
+    """
     _track_terminal_state(session, text)
+    if session.grid is not None:
+        with session.lock:
+            session.grid.feed(text)
     _push(session, tag, text)
 
 
@@ -2116,6 +2132,64 @@ def snapshot_terminal(
     }
 
 
+def cursor_terminal(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    include_screen: bool = False,
+) -> dict[str, Any]:
+    """回**光标现在停在哪**(行列 1 起)+ 它所在那一行,可选连整块屏面一起回。
+
+    这是"屏幕网格"这条线的对外出口。它回答的问题与 `snapshot` **不是一回事**:
+    snapshot 给的是"输出流里最近的 N 行"(行流水,`\\r` 刷新在里面是换行);cursor 给的是
+    "程序此刻把光标摆在哪一格"。两者都需要,但拿前者去推后者必然错 —— 一帧全屏重绘在流水里
+    是几十行,在屏幕上只有一屏;`\\r` 刷新在流水里是换行,在屏幕上是同一格被改写。
+
+    回执里 `pending_wrap` 是 xterm 的边界态:光标**停在**末格且"下一字符要折行"。
+    它必须如实给出 —— 把 pending 当成"还没到头"去算"这一行还剩几格可写",差一格就会
+    把后续文本的落点算错。`visible` 是程序自己点的 `?25`(隐藏光标在 TUI 里很常见)。
+    `include_screen=True` 时附 `screen`(整屏按行,行内空白保留、右侧空白裁掉),
+    它是**屏幕**,不是缓冲 —— 与 `snapshot` 的 `total_lines` 对不上是正常的、也是对的。
+
+    缓冲被挤掉(`dropped_chunks > 0`)时网格**仍然准确**:网格在输出入队那一刻就喂过了
+    (见 `_push_output`),不依赖缓冲留存。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.grid is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "该会话没有屏幕网格(未启用 VT 记账)",
+        }
+    with session.lock:
+        cur = session.grid.cursor()
+        screen = session.grid.lines() if include_screen else None
+    out: dict[str, Any] = {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "cols": cur["cols"],
+        "rows": cur["rows"],
+        "row": cur["row"],
+        "col": cur["col"],
+        "pending_wrap": cur["pending_wrap"],
+        "visible": cur["visible"],
+        "alt_screen": cur["alt_screen"],
+        "line": cur["line"],
+        "running": session.running(),
+        "exit_code": session.proc.poll(),
+        "dropped_chunks": session.dropped_chunks,
+    }
+    if screen is not None:
+        out["screen"] = screen
+        out["screen_lines"] = len(screen)
+    return out
+
+
 def links_terminal(
     terminal_id: str,
     *,
@@ -2539,6 +2613,10 @@ def resize_terminal(
         }
     with session.lock:
         session.cols, session.rows = cols_i, rows_i
+        # 网格跟着新尺寸走(不做 reflow:旧内容按新窗口裁切 —— 重排会把程序当年按
+        # 80 列排的版改成另一种内容,那是另一件事,不该在"改尺寸"里偷偷发生)
+        if session.grid is not None:
+            session.grid.resize(cols_i, rows_i)
     return {"ok": True, "terminal_id": terminal_id, "cols": cols_i, "rows": rows_i}
 
 
@@ -3006,6 +3084,8 @@ __test__ = {
     "scan_face": _scan_face,
     "hyperlinks": hyperlinks,
     "links_terminal": links_terminal,
+    "cursor_terminal": cursor_terminal,
+    "Grid": Grid,
     "OSC_HYPERLINK_RE": _OSC_HYPERLINK_RE,
     "MAX_LINKS": MAX_LINKS,
     "MAX_LINK_TEXT_CHARS": MAX_LINK_TEXT_CHARS,

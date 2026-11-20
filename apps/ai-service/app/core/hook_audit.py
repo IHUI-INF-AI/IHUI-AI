@@ -146,6 +146,10 @@ def summarize_hook_audit(
     全量读进来算聚合会随运行时长线性变慢。
     """
     path = hook_audit_path()
+    # 2026-11-21 第 45 项:轮转会把旧台账挪到 `<name>.1` 并被下一次轮转覆盖。
+    # 只读当前文件时,"刚轮转完"与"从没跑过"在读数上完全一样(total=0)——
+    # 这里把备份的存在与字节数单独报出来,让前端能说"只剩历史备份",不冒充零次。
+    backup = path.with_name(path.name + ".1")
     result: dict[str, Any] = {
         "path": str(path),
         "available": False,
@@ -159,7 +163,13 @@ def summarize_hook_audit(
         "lastTs": None,
         "truncated": False,
         "linesRead": 0,
+        "backupBytes": None,
     }
+    try:
+        result["backupBytes"] = backup.stat().st_size if backup.exists() else None
+    except OSError as exc:
+        logger.warning("hook_audit: stat failed for backup %s: %s", backup, exc)
+        result["backupBytes"] = None
     try:
         if not path.exists():
             return result

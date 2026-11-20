@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **43 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **45 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（43 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（45 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -549,6 +549,24 @@
 
 验证：`vitest src/components/ai/__tests__/hook-readout.test.tsx` → `4 passed`（会话优先不重复 / 台账回落且均值 100ms、峰值 500ms 由同一算法给出 / 两边全空不渲染 / 台账零条不冒充跑过）；定向 `tsc` 五文件无错误。
 
+### 5.45 第 44 项：台账"只读到尾部"必须在读数上标出来（truncated 不许被吞）
+
+- 缺口：第 42 项把后端 `truncated` 的判定改成「台账总行数 > 读取上限」（恰好等于上限不再误报），可第 41 项的前端收窄只收了六个计数，`truncated` / `linesRead` 被直接丢掉 —— 于是「两万行之后还有历史」和「全量」在面板上长得一模一样，用户会把截断后的尾部当成"这一轮没跑过"。这正是第 42 项在账面上治过、展示面又漏回来的同一类问题。
+- 处置：`use-hook-audit-summary.ts` 新增 `HookAuditStats = HookRunStats & { truncated, linesRead }`，`normalizeHookAuditSummary` 显式收下两格（`truncated` 只认字面 `true`，字符串/缺失一律按未截断 —— 失效方向恒为"少标一次"）；`HookReadout` 只在截断时追加 `runtimeHookAuditTruncated`（`{lines}` = 实际读到行数），未截断的台账不许多带一个"仅尾部"。
+- 语义边界：截断只说明**覆盖范围**，不改写已读到的计数 —— 面板仍按 `total` 显示三态与均值/峰值；`linesRead` 不许冒充 `total`。
+- 测试卫生：本文件此前没显式 `cleanup()`，新增用例时实测到「Found multiple elements」（vitest 未开全局 auto-cleanup，上一例的 DOM 留在 body 里）；补 `afterEach(cleanup)` 后 6 例各自隔离。
+- 超越轴：对照实现的统计面板把"截断/全量"混在同一句文案里；本仓把可信度做成类型字段 + 独立 testid（`pane-runtime-hook-audit-truncated`），截断/未截断/坏值三态各有一条断言，靠机器锁住而不是靠文案自觉。
+
+验证：`vitest src/components/ai/__tests__/hook-readout.test.tsx src/hooks/use-hook-audit-summary.test.ts` → `12 passed`（截断显示 TAIL:20000 / 未截断无标记 / `truncated:"true"` 字符串按未截断 / 计数仍按 total 呈现）；i18n 五语言新增 `runtimeHookAuditTruncated`（JSON 复核过 `ai.pane` 段）。
+### 5.46 第 45 项：轮转后的"当前台账为空"不许冒充"从没跑过"（备份字节进读数）
+
+- 缺口：`_rotate_if_needed` 到 5MB 就把台账挪到 `<台账>.1`,下一次轮转直接覆盖上一份 —— 轮转刚发生时当前文件是空的,`summarize_hook_audit` 只读当前文件 ⇒ `total=0`,而前端把 `total=0` 归成 `null`(什么都不显示)。于是"历史被轮转走了"和"钩子从没跑过"在面板上一模一样,**静默丢历史**比报错更难发现。
+- 处置：摘要新增 `backupBytes`(`<台账>.1` 的字节数,`null` = 没有备份;stat 失败也只回 `null`,不折成 0);前端 `HookAuditStats` 收下这格,`normalize` 在"当前台账不可用但备份还在"时**不归 null** 而是返回 `total=0 + backupBytes`,并把 `available!==true` 时的计数强制为 0(不给不存在的台账编数)。
+- 展示：`HookReadout` 在 `total=0 ∧ backupBytes>0` 时只渲染一行"当前台账为空,仅存历史备份 {kb} KB"(独立 testid `pane-runtime-hook-audit-history-only`),不画三态计数;有计数时(常态)不出这行,避免两句话互相矛盾。
+- 语义边界：备份只报"存在与体积",**不读它的内容**——把它也聚合进来会让摘要耗时随历史线性增长,而且 `.1` 只保留一代,读它反而制造"历史是全的"错觉。字节数是"还有多少没被计入"的下界,不是精确行数。
+- 超越轴：对照实现的台账轮转后只剩"空表",没有任何"历史还在"的信号;本仓把备份存在性当成一等读数(后端 stat + 前端类型 + 独立断言),三态(无备份 / 有备份零计数 / 有备份有计数)各一条测试。
+
+验证：`pytest tests/test_hook_audit.py` → `12 passed`(轮转后当前文件缺失仍报 backupBytes>0 / 无备份回 None);`vitest hook-readout + use-hook-audit-summary` → `15 passed`(备份零计数报 HIST:40 / 无备份仍归 null / 有计数不显示"仅历史");`mypy --strict app/core/hook_audit.py` 与 `ruff check` 均通过。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
