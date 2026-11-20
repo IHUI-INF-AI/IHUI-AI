@@ -4,6 +4,8 @@
 
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import Fastify from 'fastify'
+// consistent-type-imports 禁内联 `import()` 类型标注:真面类型另取名,运行时零导入(type-only 会被擦除)
+import type * as conversationTitleFace from '../src/utils/conversation-title.js'
 
 const { mockAuthenticate, mockFindHistoryTurnPage, mockFindConversationById } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
@@ -74,7 +76,7 @@ vi.mock('../src/utils/semantic-summary.js', () => ({
 }))
 vi.mock('../src/utils/conversation-title.js', async (importOriginal) => ({
   // 2026-11-19:展开真面再覆盖,避免上游新增导出(如 TITLE_STRATEGIES)把路线在加载期打崩
-  ...(await importOriginal<typeof import('../src/utils/conversation-title.js')>()),
+  ...(await importOriginal<typeof conversationTitleFace>()),
   generateConversationTitle: vi.fn(),
   DEFAULT: [],
 }))
@@ -282,7 +284,11 @@ describe('GET /conversations/:id/history(D35 turn 分片)', () => {
     mockFindConversationById.mockResolvedValueOnce({
       id: CONV_ID,
       userId: 'user-victim',
-      historyProjectionState: { nextRolloutByteOffset: 1, nextRolloutOrdinal: 1, lastRolledAt: 'x' },
+      historyProjectionState: {
+        nextRolloutByteOffset: 1,
+        nextRolloutOrdinal: 1,
+        lastRolledAt: 'x',
+      },
     })
     const res = await server.inject({ method: 'GET', url: `/conversations/${CONV_ID}/history` })
     expect(res.statusCode).toBe(403)
