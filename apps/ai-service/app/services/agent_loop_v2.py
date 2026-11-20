@@ -5150,6 +5150,30 @@ class AgentLoopV2:
         # 「上游明示装不下且本地压得动」时才走得到;普通瞬时故障的退避重试次数
         # 与本次改动之前逐字节相同(llm_retry_max=0 的调用方遇到溢出也能救回一次,
         # 而按旧上界它连一次重试名额都没有 —— 那是必死路径)。
+        # 第 34 项(2026-11-21):模型请求前钩子(契约有、执行链无)。
+        # 只在本次请求的第一枚尝试前跑一次;重试/溢出救赎不重复点火,
+        # 免得一次上游抖动把同一个钩子打成 N 遍。
+        try:
+            from ..core.hook_runtime import HookKind as _ModelKind
+
+            await self._run_model_request_hooks(
+                _ModelKind.PRE_MODEL_REQUEST,
+                {
+                    "session_id": self._session_id or "",
+                    "iteration": iteration,
+                    "message_count": len(messages),
+                    "tool_count": len(tools_schema or []),
+                    "tool_names": [
+                        str(t.get("name") or "")
+                        for t in (tools_schema or [])
+                        if isinstance(t, dict)
+                    ][:64],
+                    "streaming": bool(allow_stream and self._llm_supports_on_chunk),
+                },
+                stage="pre_model_request",
+            )
+        except Exception as e:  # noqa: BLE001 - 钩子整体降级
+            logger.warning("pre_model_request 钩子降级(不阻断请求): %s", e)
         for attempt in range(self.llm_retry_max + 1 + MAX_OVERFLOW_RECOVERY_ATTEMPTS):
             # G-200:每次尝试重置 finish_reason(重试轮新开请求,旧值不能留);
             # sink 按引用共享,网关在请求面写、此处成功后读。
@@ -5175,6 +5199,7 @@ class AgentLoopV2:
                     self._last_finish_reason = _call_params.get(
                         "_finish_reason_sink", {}
                     ).get("finish_reason")
+                    await self._run_post_model_request_hooks(result, iteration=iteration)
                     return result
                 result = cast(
                     dict[str, Any],
@@ -5183,6 +5208,7 @@ class AgentLoopV2:
                 self._last_finish_reason = _call_params.get("_finish_reason_sink", {}).get(
                     "finish_reason"
                 )
+                await self._run_post_model_request_hooks(result, iteration=iteration)
                 return result
             except asyncio.CancelledError:
                 raise
@@ -7625,6 +7651,68 @@ class AgentLoopV2:
             getattr(self, "_events", None), self._session_id or "", outcome
         )
         self._inject_hook_contexts(outcome)
+
+    async def _run_model_request_hooks(
+        self,
+        kind: Any,
+        payload: dict[str, Any],
+        *,
+        stage: str,
+    ) -> None:
+        """模型请求前后钩子(2026-11-21 第 34 项)。
+
+        契约(`codex_hook_config_contract.HOOK_EVENTS`)与 `.ihui/hooks.json` 一直有
+        `pre_model_request` / `post_model_request`,而 `HookKind` 先前没有这两格。
+        语义边界:这两个点都是**观察 + 上下文注入面** —— 模型请求的入参改写已经有
+        `updatedInput` 那条受审面(工具面)承担,这里不新造"改提示词"通道;
+        `decision/stop` 一律不解读(拿钩子去改写模型调用的控制流等于绕开预算与
+        取消语义)。异常/中断降级为"照常请求"。
+        """
+        if self._hook_runtime is None:
+            return
+        try:
+            outcome = await self._wait_interruptible(self._hook_runtime.run(kind, payload))
+        except _LoopInterrupted:
+            logger.info("%s 钩子期间收到中断,交主循环按既有分支收口", stage)
+        except Exception as e:  # noqa: BLE001 - 钩子异常不阻断模型请求
+            logger.warning("%s 钩子异常(降级,不阻断): %s", stage, e)
+            return
+        await _emit_hook_run_event(
+            getattr(self, "_events", None), self._session_id or "", outcome
+        )
+        self._inject_hook_contexts(outcome)
+
+    async def _run_post_model_request_hooks(
+        self, result: dict[str, Any], *, iteration: int
+    ) -> None:
+        """模型请求后钩子(第 34 项):只观察、只注入上下文,不改写返回值。
+
+        产出改写在这一层**刻意不做**:工具产出改写已有 POST_TOOL_USE 的受审通道,
+        模型产出若也能被钩子替换,失败归因会变成"模型说的"还是"钩子说的"分不清。
+        """
+        if self._hook_runtime is None:
+            return
+        try:
+            from ..core.hook_runtime import HookKind as _ModelKind
+
+            _content = result.get("content") if isinstance(result, dict) else None
+            _calls = result.get("tool_calls") if isinstance(result, dict) else None
+            await self._run_model_request_hooks(
+                _ModelKind.POST_MODEL_REQUEST,
+                {
+                    "session_id": self._session_id or "",
+                    "iteration": iteration,
+                    "content_length": len(_content) if isinstance(_content, str) else 0,
+                    "tool_call_count": len(_calls) if isinstance(_calls, list) else 0,
+                    "finish_reason": self._last_finish_reason,
+                    "streamed": bool(result.get("_streamed"))
+                    if isinstance(result, dict)
+                    else False,
+                },
+                stage="post_model_request",
+            )
+        except Exception as e:  # noqa: BLE001 - 钩子降级不影响本轮产出
+            logger.warning("post_model_request 钩子降级(不阻断): %s", e)
 
     async def _run_session_end_hooks(self, result: AgentLoopResult) -> None:
         """会话收尾钩子(2026-11-21 第 33 项)。

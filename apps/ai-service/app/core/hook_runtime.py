@@ -65,6 +65,10 @@ class HookKind(StrEnum):
     # 2026-11-21:契约(codex_hook_config_contract.HOOK_EVENTS)与 .ihui/hooks.json
     # 一直有 session_end,本仓 HookKind 缺这一格 ⇒ 配置了也永远不执行。补挂载点。
     SESSION_END = "session_end"
+    # 2026-11-21:契约 14 事件里 pre/post_model_request 一直有,本仓无挂载点 ⇒
+    # "模型请求前可编程旁路 / 请求后可编程审计"两件事在配置面写了也不生效。
+    PRE_MODEL_REQUEST = "pre_model_request"
+    POST_MODEL_REQUEST = "post_model_request"
     STOP = "stop"
 
 
