@@ -9711,6 +9711,46 @@
         "TERMINAL_WRITE_FAILED": {
           "title": "ターミナルへの書き込みに失敗しました",
           "action": "再試行してください"
+        },
+        "RECURSIVE_NODE_LIMIT": {
+          "title": "再帰ノード数の上限を超えました",
+          "action": "再帰の深さを減らすかタスクを分割してください"
+        },
+        "RESIDENT_INVALID": {
+          "title": "常駐サブエージェントのリクエストが無効です",
+          "action": "リクエストパラメータを確認して再試行してください"
+        },
+        "RESIDENT_LEASE_HELD": {
+          "title": "常駐リースが使用中です",
+          "action": "現在のリースが解放されるのを待つか、別のエージェントを使用してください"
+        },
+        "RESIDENT_NOT_FOUND": {
+          "title": "常駐サブエージェントが見つかりません",
+          "action": "一覧を更新して再試行してください"
+        },
+        "RESIDENT_NOT_TEXT": {
+          "title": "常駐コンテンツがテキストではありません",
+          "action": "テキストコンテンツのみ対応しています"
+        },
+        "RESIDENT_PATH_NOT_ALLOWED": {
+          "title": "常駐ファイルパスは許可されていません",
+          "action": "許可されたディレクトリ内のファイルを選択してください"
+        },
+        "RESIDENT_READ_FAILED": {
+          "title": "常駐ファイルの読み取りに失敗しました",
+          "action": "ファイルの権限を確認して再試行してください"
+        },
+        "RESIDENT_TOO_LARGE": {
+          "title": "常駐ファイルが大きすぎます",
+          "action": "ファイルを圧縮または分割して再試行してください"
+        },
+        "RESIDENT_UNSUPPORTED_MODE": {
+          "title": "サポートされていない常駐モードです",
+          "action": "サポートされているモードに切り替えてください"
+        },
+        "SUBAGENT_RUNNING_LIMIT": {
+          "title": "並列サブエージェント数が上限を超えました",
+          "action": "実行中のサブエージェントの終了を待って再試行してください"
         }
       },
       "worktree": {

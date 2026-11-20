@@ -1231,6 +1231,57 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'TERMINAL_WRITE_FAILED.action',
     category: 'backendExited',
   },
+  // —— 守门 94(R1)补录:递归子代理 / 常驻子代理族(2026-11-20)
+  RECURSIVE_NODE_LIMIT: {
+    titleKey: 'RECURSIVE_NODE_LIMIT.title',
+    actionKey: 'RECURSIVE_NODE_LIMIT.action',
+    category: 'resourceLimitExceeded',
+  },
+  RESIDENT_INVALID: {
+    titleKey: 'RESIDENT_INVALID.title',
+    actionKey: 'RESIDENT_INVALID.action',
+    category: 'entrypointInvalid',
+  },
+  RESIDENT_LEASE_HELD: {
+    titleKey: 'RESIDENT_LEASE_HELD.title',
+    actionKey: 'RESIDENT_LEASE_HELD.action',
+    category: 'resourceLimitExceeded',
+  },
+  RESIDENT_NOT_FOUND: {
+    titleKey: 'RESIDENT_NOT_FOUND.title',
+    actionKey: 'RESIDENT_NOT_FOUND.action',
+    category: 'resourceNotFound',
+  },
+  RESIDENT_NOT_TEXT: {
+    titleKey: 'RESIDENT_NOT_TEXT.title',
+    actionKey: 'RESIDENT_NOT_TEXT.action',
+    category: 'invalidResponse',
+  },
+  RESIDENT_PATH_NOT_ALLOWED: {
+    titleKey: 'RESIDENT_PATH_NOT_ALLOWED.title',
+    actionKey: 'RESIDENT_PATH_NOT_ALLOWED.action',
+    category: 'authForbidden',
+  },
+  RESIDENT_READ_FAILED: {
+    titleKey: 'RESIDENT_READ_FAILED.title',
+    actionKey: 'RESIDENT_READ_FAILED.action',
+    category: 'runtimeException',
+  },
+  RESIDENT_TOO_LARGE: {
+    titleKey: 'RESIDENT_TOO_LARGE.title',
+    actionKey: 'RESIDENT_TOO_LARGE.action',
+    category: 'resourceLimitExceeded',
+  },
+  RESIDENT_UNSUPPORTED_MODE: {
+    titleKey: 'RESIDENT_UNSUPPORTED_MODE.title',
+    actionKey: 'RESIDENT_UNSUPPORTED_MODE.action',
+    category: 'capabilityNotOffered',
+  },
+  SUBAGENT_RUNNING_LIMIT: {
+    titleKey: 'SUBAGENT_RUNNING_LIMIT.title',
+    actionKey: 'SUBAGENT_RUNNING_LIMIT.action',
+    category: 'resourceLimitExceeded',
+  },
 })
 
 /**

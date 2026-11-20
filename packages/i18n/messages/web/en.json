@@ -9711,6 +9711,46 @@
         "TERMINAL_WRITE_FAILED": {
           "title": "Terminal write failed",
           "action": "Retry the write"
+        },
+        "RECURSIVE_NODE_LIMIT": {
+          "title": "Recursive node limit exceeded",
+          "action": "Reduce recursion depth or split the task"
+        },
+        "RESIDENT_INVALID": {
+          "title": "Invalid resident sub-agent request",
+          "action": "Check the request parameters and retry"
+        },
+        "RESIDENT_LEASE_HELD": {
+          "title": "Resident lease is held",
+          "action": "Wait for the current lease to be released or use another agent"
+        },
+        "RESIDENT_NOT_FOUND": {
+          "title": "Resident sub-agent not found",
+          "action": "Refresh the list and retry"
+        },
+        "RESIDENT_NOT_TEXT": {
+          "title": "Resident content is not text",
+          "action": "Only text content is supported"
+        },
+        "RESIDENT_PATH_NOT_ALLOWED": {
+          "title": "Resident file path not allowed",
+          "action": "Choose a file inside an allowed directory"
+        },
+        "RESIDENT_READ_FAILED": {
+          "title": "Failed to read resident file",
+          "action": "Check file permissions and retry"
+        },
+        "RESIDENT_TOO_LARGE": {
+          "title": "Resident file is too large",
+          "action": "Compress or split the file and retry"
+        },
+        "RESIDENT_UNSUPPORTED_MODE": {
+          "title": "Unsupported resident mode",
+          "action": "Switch to a supported mode"
+        },
+        "SUBAGENT_RUNNING_LIMIT": {
+          "title": "Too many running sub-agents",
+          "action": "Wait for running sub-agents to finish and retry"
         }
       },
       "worktree": {
