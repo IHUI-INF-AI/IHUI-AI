@@ -101,6 +101,10 @@ const REGISTRY: Readonly<Record<string, RecoveryKind>> = Object.freeze({
   'x.ai/rewind/points': 'read',
   'x.ai/mcp/listServers': 'read',
   'x.ai/mcp/serverStatus': 'read',
+  // 2026-11-20:三个只读方法此前只实现未注册(登记表按"真实存在"原则补齐)
+  'x.ai/turn/parked': 'read',
+  'x.ai/turn/chronicle': 'read',
+  'x.ai/workflow/plan': 'read',
 
   // ── 幂等写(重复执行结果相同)───────────────────────────────────────
   'session/set_mode': 'idempotent_mutation',
@@ -108,6 +112,8 @@ const REGISTRY: Readonly<Record<string, RecoveryKind>> = Object.freeze({
   'x.ai/session/repair': 'idempotent_mutation',
   'x.ai/goal/update': 'idempotent_mutation',
   'x.ai/checkpoint/restore': 'idempotent_mutation',
+  // 同一组 verdicts 重放会收敛到同一状态(达成态不再迁移),故按幂等写登记
+  'x.ai/goal/iterate': 'idempotent_mutation',
 
   // ── 非幂等写(每次调用产生新实体,崩溃后结果未知)─────────────────
   'session/fork': 'mutation',

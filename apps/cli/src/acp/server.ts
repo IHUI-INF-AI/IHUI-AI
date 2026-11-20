@@ -2100,6 +2100,45 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
       castParams<McpReconnectParams>(),
       (ctx) => rpcMethod((p: McpReconnectParams) => agent.mcpReconnect(p))(ctx.params),
     )
+    // 2026-11-20:四个「实现体逐字存在、分发链一条没注册」的方法 —— 调用方拿到的
+    // 永远是 "Method not found",能力等于没做(与 2026-11-19 那批同病)。
+    // 参数/返回类型一律取方法签名本身(Parameters/ReturnType),不另抄一份形状,免得两处漂移。
+    .onRequest<Parameters<IhuiAcpAgent['iterateGoal']>[0], Awaited<ReturnType<IhuiAcpAgent['iterateGoal']>>>(
+      'x.ai/goal/iterate',
+      castParams<Parameters<IhuiAcpAgent['iterateGoal']>[0]>(),
+      (ctx) =>
+        rpcMethod((p: Parameters<IhuiAcpAgent['iterateGoal']>[0]) => agent.iterateGoal(p))(ctx.params),
+    )
+    .onRequest<
+      Parameters<IhuiAcpAgent['listParkedTurns']>[0],
+      Awaited<ReturnType<IhuiAcpAgent['listParkedTurns']>>
+    >(
+      'x.ai/turn/parked',
+      castParams<Parameters<IhuiAcpAgent['listParkedTurns']>[0]>(),
+      (ctx) =>
+        rpcMethod((p: Parameters<IhuiAcpAgent['listParkedTurns']>[0]) => agent.listParkedTurns(p))(
+          ctx.params,
+        ),
+    )
+    .onRequest<
+      Parameters<IhuiAcpAgent['getTurnChronicle']>[0],
+      Awaited<ReturnType<IhuiAcpAgent['getTurnChronicle']>>
+    >(
+      'x.ai/turn/chronicle',
+      castParams<Parameters<IhuiAcpAgent['getTurnChronicle']>[0]>(),
+      (ctx) =>
+        rpcMethod((p: Parameters<IhuiAcpAgent['getTurnChronicle']>[0]) => agent.getTurnChronicle(p))(
+          ctx.params,
+        ),
+    )
+    .onRequest<
+      Parameters<IhuiAcpAgent['planWorkflow']>[0],
+      Awaited<ReturnType<IhuiAcpAgent['planWorkflow']>>
+    >(
+      'x.ai/workflow/plan',
+      castParams<Parameters<IhuiAcpAgent['planWorkflow']>[0]>(),
+      (ctx) => rpcMethod((p: Parameters<IhuiAcpAgent['planWorkflow']>[0]) => agent.planWorkflow(p))(ctx.params),
+    )
     .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
 }
 
