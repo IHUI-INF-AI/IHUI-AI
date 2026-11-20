@@ -379,11 +379,29 @@ _FINANCE_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"\b(tax filing|file (my |the )?tax(es)?|tax return)\b", re.IGNORECASE),
         re.compile(r"\be-?tax|elektronische? belasting", re.IGNORECASE),
     ),
+    # 财务部五腿扩展(2026-11-13):报销 / 社保精算 / 个税专项附加强信号
+    "ai_reimbursement": (
+        re.compile(r"一键报销|报销|报账|费用报销|差旅报销|招待费报销|报销单"),
+        re.compile(r"进项(税额)?转出|借款冲销|费用分摊|差旅费(标准|限额)"),
+        re.compile(r"\breimbursement\b", re.IGNORECASE),
+    ),
+    "social_insurance_calc": (
+        re.compile(r"五险一金|社保(基数|精算|缴费|费用|滞纳金)|医保(基数|统筹|个人账户|缴费)"),
+        re.compile(r"(公积金|养老保险|医疗保险|失业保险|工伤保险|生育保险).{0,6}(基数|缴费|比例|费率)"),
+        re.compile(r"(社保|公积金)基数(调整|上下限|封顶|保底)|基数补差|跨年补缴"),
+        re.compile(r"\bsocial insurance\b", re.IGNORECASE),
+    ),
+    "special_deduction_calc": (
+        re.compile(r"专项附加(扣除)?|子女教育(扣除|抵扣)?|婴幼儿照护|继续教育(扣除|抵扣)?"),
+        re.compile(r"大病医疗(扣除|抵扣)?|住房(贷款利息|租金)(扣除|抵扣)?|赡养老人(扣除|抵扣)?"),
+        re.compile(r"扣除申报|个税扣除|七项扣除"),
+    ),
 }
 
 # 财务部工具使用规范(注入 system):分阶段推进 + 绝不为配平改数 + 草案红线转述。
 _FINANCE_RENDER_PROMPT = (
-    "财务部插件(ai_bookkeeping / ai_tax_filing)使用规范(务必遵守):\n"
+    "财务部插件(ai_bookkeeping / ai_tax_filing / ai_reimbursement / social_insurance_calc / "
+    "special_deduction_calc)使用规范(务必遵守):\n"
     "- 先收资料:缺会计期间/流水/税额基数时先向用户索取,或用 parse_document、document_tables "
     "从上传发票与银行回单中抽取,禁止凭空编造金额\n"
     "- 分阶段推进:ai_bookkeeping 按 classify→voucher→trial_balance→close→report 依次调用"
@@ -391,6 +409,10 @@ _FINANCE_RENDER_PROMPT = (
     "让用户实时看到代账进度;续下一阶段必须回传上一次输出的 state\n"
     "- ai_tax_filing 按 compute→validate→draft 依次调用;validate 勾稽校验报出的异常项必须"
     "逐条向用户列明,不得为了让报表数字好看而回改入参\n"
+    "- 五腿协同(2026-11-13):报销先用 ai_reimbursement 出四维判定与分录草案,获认可后把分录"
+    "并入 ai_bookkeeping transactions;社保医保用 social_insurance_calc 逐人精算,代扣合计直接"
+    "喂工资表 social 字段;专项附加用 special_deduction_calc 逐人算七项,合计喂 special_deduction "
+    "字段——三条腿产物都是草案,须复核后才入账\n"
     "- 诚实红线:VOUCHER_UNBALANCED / TRIAL_UNBALANCED 等不平错误要如实报差异;"
     "ok=false 时原样转述 errorCode 与 message,严禁假装已平、假装已报\n"
     "- 草案纪律:报税产物是申报表**草案**,必须转述「正式申报须纳税主体与执业资格人员复核,"
