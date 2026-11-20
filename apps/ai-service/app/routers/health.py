@@ -52,6 +52,19 @@ async def health_ready() -> dict[str, Any]:
     checks["llm_configured"] = not stub_mode
     checks["stub_mode"] = stub_mode
 
+    # 会话存储:只在"进程里已经建过"时报一个检索后端(trgm / like)。
+    # 探针**不建库**(peek 而不是 get):健康检查不该有副作用,更不该在探活的机器上
+    # 顺手 CREATE SCHEMA。没建过就如实不报,不是"绿"。
+    try:
+        from app.routers.sessions import peek_session_store
+
+        store = peek_session_store()
+    except Exception:  # noqa: BLE001 - 探针自身不许把服务判成 not_ready
+        store = None
+    if store is not None:
+        checks["session_store_search_backend"] = store.search_backend
+        checks["session_store_schema"] = store.schema_name
+
     if not stub_mode:
         # 真实模式检查 litellm 是否可导入
         try:
