@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "前回の承認 {by}",      "hookFailures": {
         "title": "Hook の実行に失敗しました",
         "evidenceMissing": "最終結果が未記録:この実行は実行ログにもデッドレターキューにも存在しないため、成否を確認できません。",
         "state": {
@@ -8859,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "ターミナルの入力チャネルは閉じています",
+          "action": "ターミナルセッションを開き直してから入力してください"
+        },        "102": {
           "title": "リクエスト時刻の検証に失敗しました",
           "action": "システム時計を同期してから再試行"
         },

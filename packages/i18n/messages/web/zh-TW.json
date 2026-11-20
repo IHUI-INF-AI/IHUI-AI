@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "上次登記 {by}",      "hookFailures": {
         "title": "Hook 執行失敗",
         "evidenceMissing": "未記錄最終結果:該次執行既不在執行日誌、也不在死信佇列裡,無法確認成敗。",
         "state": {
@@ -8859,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "終端機輸入通道已關閉",
+          "action": "重新開啟終端機會話後再送出輸入"
+        },        "102": {
           "title": "請求時間驗證失敗",
           "action": "校準系統時間後重試"
         },

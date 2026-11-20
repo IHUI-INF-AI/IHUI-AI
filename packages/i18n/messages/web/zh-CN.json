@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "上次登记 {by}",      "hookFailures": {
         "title": "Hook 执行失败",
         "evidenceMissing": "未记录最终结果:该次执行既不在执行日志、也不在死信队列里,无法确认成败。",
         "state": {
@@ -8859,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "终端输入通道已关闭",
+          "action": "重新打开终端会话后再发送输入"
+        },        "102": {
           "title": "请求时间校验失败",
           "action": "校准系统时间后重试"
         },
