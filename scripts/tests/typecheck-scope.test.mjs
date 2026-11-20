@@ -114,12 +114,27 @@ test('T5 边界1:加宽只喂降级判据,定向快通道仍只看原始改动�
   assert.equal(callLines.length, 2, `预期两处快通道调用点,实测 ${callLines.length}`)
   for (const line of callLines) {
     const arg = line.match(/resolveFastScopeApp\((\w+)\)/)[1]
-    assert.equal(
+    // 2026-11-20:允许一圈显式间接 —— 两处调用点改吃 `_tsFaceFiles`(T1 面裁剪的结果)。
+    // 间接**不放宽**这条锁:该变量必须由 scopeFilesRaw 派生(下一段断言),且绝不许来自加宽闭包。
+    assert.notEqual(
       arg,
-      'scopeFilesRaw',
-      `快通道必须用 scopeFilesRaw,实测用了 ${arg}(会把快通道关掉): ${line.trim()}`,
+      'scopeFiles',
+      `快通道不许用加宽后的 scopeFiles(会把快通道关掉): ${line.trim()}`,
     )
+    assert.equal(arg, '_tsFaceFiles', `快通道调用点必须吃裁剪后的原始面,实测 ${arg}: ${line.trim()}`)
   }
+  // 裁剪的唯一来源必须是原始改动清单,而且只经 tsInputOnly(剔"不在任何 tsc program 输入集合里"的文件)。
+  assert.match(
+    SRC,
+    /const _tsFaceFiles = scopeEnabled \? tsInputOnly\(scopeFilesRaw\) : null/,
+    '快通道的面必须由 scopeFilesRaw 经 tsInputOnly 派生(不得换成加宽闭包,也不得绕过裁剪)',
+  )
+  // 裁剪实现自身的失效方向锁:tsconfig 清单取不到 / 正文读不到 / 存在 allowJs ⇒ 原样返回(不裁剪)。
+  assert.match(
+    SRC,
+    /if \(!face \|\| face\.allowJs\) return files/,
+    '面裁剪在拿不准时必须原样返回(宁可多跑一次全量,不许把可能的输入面漏掉)',
+  )
   // 反向对照:判据侧确实用的是加宽后的 scopeFiles(否则本票等于没接)。
   assert.match(
     SRC,
@@ -154,7 +169,9 @@ test('T7 接线形态:快通道必须先跑 typecheck-full --preflight-only,再 
   )
   const iPreflight = SRC.indexOf("'--preflight-only'")
   // 与 T3 同坑:spawn 形态在文件头注里也出现过,基准必须落在真跑它的那次调用。
-  const iFastTsc = SRC.indexOf("spawnSync('pnpm', ['--filter', String(_fast.name), 'run', 'typecheck']")
+  const iFastTsc = SRC.indexOf(
+    "spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck']",
+  )
   assert.ok(iPreflight > 0, '快通道的陈旧 dist 前置被摘线 ⇒ 回到"拿旧产物下结论"的原病')
   assert.ok(iFastTsc > 0, '找不到快通道的真 typecheck spawn(主流程被改写 ⇒ 本锁须同步)')
   assert.ok(iPreflight < iFastTsc, '前置必须早于快通道 tsc,否则等于没接')
@@ -226,7 +243,9 @@ test('T10 行为双向:纯非 TS 面 ⇒ 走本档;含任一 .ts ⇒ 必须回�
 
 test('T11 出口顺序与措辞:必须在快通道之前,且不得自称 skip', () => {
   const iExit = SRC.indexOf('if (_noTsInput) {')
-  const iFastCall = SRC.indexOf('const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null')
+  const iFastCall = SRC.indexOf(
+    'const _fast = scopeEnabled ? resolveFastScopeApp(_tsFaceFiles) : null',
+  )
   assert.ok(iExit > 0 && iFastCall > 0, '结构变了(找不到出口或快通道调用),本锁须同步')
   assert.ok(
     iExit < iFastCall,
