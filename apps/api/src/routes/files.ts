@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { extname, join, resolve, sep } from 'node:path'
 import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import sharp from 'sharp'
 import { authenticate } from '../plugins/auth.js'
 import { findFileById } from '../db/workspace-queries.js'
@@ -36,6 +37,11 @@ import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 import { registerUploadedFile } from '../services/upload-file-registry.js'
 
 const ADMIN_ROLE_ID = 1
+/**
+ * 文档转换/资产提取在读入前的硬上限(F-146):解析器是多 MB 的内存放大器,
+ * 超限文件必须在 stat 阶段就拒,不得先读进堆再判 —— 触顶只回 413,不回 422。
+ */
+const MAX_CONVERTIBLE_DOC_SIZE = 20 * 1024 * 1024
 
 // P2 修复(2026-08-25):上传接口返回的 path 由磁盘绝对路径改为公开可访问 URL。
 // 配置 FILE_CDN_BASE(可选,如 https://file.aizhs.top)时返回 CDN 前缀地址;
@@ -482,6 +488,11 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       // 2026-09-08:path 为 URL 形态(/uploads/<id>),需先还原本地磁盘路径;
       // 落盘名为无后缀 UUID,类型判定须传原始文件名 file.name
       const filePath = resolveDiskPath(file.path)
+      // F-146:读入前先按磁盘真实大小拦截,超限 413 且转换器一次都不跑
+      const fileStat = await stat(filePath).catch(() => null)
+      if (fileStat && fileStat.size > MAX_CONVERTIBLE_DOC_SIZE) {
+        return reply.status(413).send(error(413, '文件超过 20MB 上限,无法转换'))
+      }
       const result = await convertToMarkdownDetailed(filePath, file.name)
       if (!result.markdown) {
         return reply.status(422).send(error(422, result.error ?? '不支持的文件类型或转换失败'))
@@ -524,6 +535,11 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       // F-412:按源文件可见性分流落盘目录 —— 公开源文件仍写 uploads/public(URL 不变);
       // 私有源文件的资产写 uploads/private/assets/<owner>/ 并只暴露鉴权端点。
       const filePath = resolveDiskPath(file.path)
+      // F-146:资产提取同一条读入前闸,提示语按本端点语义单独给
+      const fileStat = await stat(filePath).catch(() => null)
+      if (fileStat && fileStat.size > MAX_CONVERTIBLE_DOC_SIZE) {
+        return reply.status(413).send(error(413, '文件超过 20MB 上限,无法提取内嵌资产'))
+      }
       const sourceIsPublic = !isPrivateSourcePath(filePath)
       const assetDir = sourceIsPublic ? UPLOAD_DIR : join(PRIVATE_ASSETS_DIR, userId)
       if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true })

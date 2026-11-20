@@ -318,6 +318,12 @@ async function streamAnthropicMessages(
     if (state.messageStarted && !state.contentBlockStarted) {
       // 已经收尾了,跳过
     } else if (state.messageStarted) {
+      // F-295④:兜底必须是"可观测"的 —— 上游没发结束原因这件事本身要留痕,
+      // 不允许静默补一个 end_turn 让调用方无从分辨"正常说完"与"信号丢失"。
+      request.log.warn(
+        { model: opts.model },
+        '上游流结束帧未提供 finishReason,按既有兜底 end_turn 收尾',
+      )
       const stopChunk = {
         id: `chatcmpl-${randomUUID()}`,
         model: opts.model,

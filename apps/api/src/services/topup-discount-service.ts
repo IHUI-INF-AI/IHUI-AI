@@ -128,10 +128,17 @@ export async function calculateTopupBonus(
   const sortedTiers = [...config.tiers].sort((a, b) => b.minAmount - a.minAmount)
   const matched = sortedTiers.find((t) => amount >= t.minAmount)
   if (!matched) {
-    return { multiplier: 1, bonus: 0, actualCredit: Math.round(amount) }
+    return { multiplier: 1, bonus: 0, actualCredit: roundCents(amount) }
   }
-  const actualCredit = Math.round(amount * matched.multiplier) + matched.bonus
+  // F-633:按"分"取整(两位小数),不再 Math.round 到整元 —— 100.50×1.2 必须得 120.60,
+  // 整元取整会把 0.6 元的余额静默多送/少送(赠送分由调用方 round((到账-实付)*100) 折算)。
+  const actualCredit = roundCents(amount * matched.multiplier) + matched.bonus
   return { multiplier: matched.multiplier, bonus: matched.bonus, actualCredit }
+}
+
+/** 金额按"分"取整(0.01 元精度),消除浮点尾差。 */
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 // =============================================================================

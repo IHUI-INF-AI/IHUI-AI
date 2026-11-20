@@ -12,6 +12,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { deviceTokens } from '@ihui/database'
 import { sendPushBatch, detectPushProvider, type PushMessage } from '../services/push-provider.js'
+import { resolveTruncation } from '../services/agent-runtime/session-store.js'
 
 // =============================================================================
 // Zod schemas
@@ -94,26 +95,18 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
     const { deviceToken } = z
       .object({ deviceToken: z.string().min(1).max(500) })
       .parse(request.body)
-    // 归属校验:WHERE 必须同时带 token 与 user_id,否则知道他人 device token 即可静默停掉对方推送
-    const [current] = await db
-      .select({ id: deviceTokens.id, isActive: deviceTokens.isActive })
-      .from(deviceTokens)
+    // 归属校验:WHERE 必须同时带 token 与 user_id,否则知道他人 device token 即可静默停掉对方推送。
+    // 影响行数由 RETURNING 给出:0 行 = 不存在/不属于本人 ⇒ 404,不假装成功。
+    const rows = await db
+      .update(deviceTokens)
+      .set({ isActive: false, updatedAt: new Date() })
       .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
-      .limit(1)
-    if (!current) {
+      .returning({ id: deviceTokens.id })
+    const removed = rows.length
+    if (removed === 0) {
       return reply.status(404).send(error(404, '设备不存在或不属于当前用户'))
     }
-    // G-998153 出口形态:先取现值、按键比较,只有真变化才写 —— 已停用设备的重复注销
-    // 不再空转 UPDATE 推进 updatedAt(增量读消费源),应答契约不变(仍 unregistered:true, removed:1)。
-    const changed: { isActive?: boolean } = {}
-    if (current.isActive) changed.isActive = false
-    if (Object.keys(changed).length > 0) {
-      await db
-        .update(deviceTokens)
-        .set({ ...changed, updatedAt: new Date() })
-        .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
-    }
-    return reply.send(success({ unregistered: true, removed: 1 }))
+    return reply.send(success({ unregistered: true, removed }))
   })
 
   // GET /push/provider - 查询当前推送 provider
@@ -185,7 +178,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
         .from(deviceTokens)
         .where(and(inArray(deviceTokens.userId, memberIds), eq(deviceTokens.isActive, true)))
         .limit(PUSH_RECIPIENT_LIMIT + 1)
-      const truncated = rows.length > PUSH_RECIPIENT_LIMIT
+      const { truncated } = resolveTruncation(rows, PUSH_RECIPIENT_LIMIT, 'probed')
       if (truncated) {
         console.warn(
           `[push] 收件人超过上限 ${PUSH_RECIPIENT_LIMIT},已截断: memberIds=${memberIds.length}`,

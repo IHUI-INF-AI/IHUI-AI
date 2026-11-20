@@ -28,6 +28,7 @@ import {
   sanitizeText,
 } from '../../services/log-sanitizer.js'
 import { redactCredentialText } from '../../plugins/log-sanitizer.js'
+import { toSafeCount } from '../../utils/safe-count.js'
 import { buildSensitiveKeySet, sanitizeData } from '../../plugins/response-sanitizer.js'
 import { sumRelayCostCentsSql } from '../../services/relay-cost.js'
 
@@ -480,10 +481,10 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
           // F-667: token 三列同口径收口(去掉末端 ::int 后必须在此 Number(),否则响应变字符串)。
           rows: rows.map((r) => ({
             ...r,
-            totalTokens: Number(r.totalTokens),
-            promptTokens: Number(r.promptTokens),
-            completionTokens: Number(r.completionTokens),
-            totalCostCents: Number(r.totalCostCents),
+            totalTokens: toSafeCount(r.totalTokens),
+            promptTokens: toSafeCount(r.promptTokens),
+            completionTokens: toSafeCount(r.completionTokens),
+            totalCostCents: toSafeCount(r.totalCostCents),
           })),
         }),
       )

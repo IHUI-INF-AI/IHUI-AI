@@ -19,6 +19,8 @@ export enum DLQAction {
   DROP = 'DROP',
   /** 隔离 (重投失败或无重投器) */
   QUARANTINE = 'QUARANTINE',
+  /** F-715:未知/已过期 id 的 no-op —— 既没重投也没丢弃,绝不能报成 DROP */
+  NOOP = 'NOOP',
 }
 
 /** 死信条目. */
@@ -156,13 +158,13 @@ export class DeadLetterQueue {
     return this.items.delete(taskId)
   }
 
-  /** 重投一条死信 (F-715:未知 id 与过期条目一律 NOOP 式 DROP,不把过期死信当可重投)。 */
+  /** 重投一条死信 (F-715:未知 id 与过期条目一律 NOOP,不把过期死信当可重投也不算丢弃)。 */
   replay(taskId: string): DLQAction {
     const item = this.items.get(taskId)
-    if (!item) return DLQAction.DROP
+    if (!item) return DLQAction.NOOP
     if (this.isExpired(item)) {
       this.items.delete(taskId)
-      return DLQAction.DROP
+      return DLQAction.NOOP
     }
     const fn = this.replayFn
     if (!fn) return DLQAction.QUARANTINE

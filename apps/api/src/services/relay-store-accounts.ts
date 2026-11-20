@@ -65,6 +65,9 @@ export async function createStoreAccount(
       healthStatus: 'unknown',
       extraMetadata: {
         storePlatform: true,
+        // 商店账号没有 AI 凭据,tempUnschedulable 已摘出调度;但仍属需要长期保留的资产,
+        // 与 AI 客户端号同口径登记永久保活(避免被通用清理判据当成闲置号摘掉)。
+        keepAliveForever: true,
         loginUrl: platform.loginUrl,
         ...(platform.note ? { note: platform.note } : {}),
         createdAt: now.toISOString(),

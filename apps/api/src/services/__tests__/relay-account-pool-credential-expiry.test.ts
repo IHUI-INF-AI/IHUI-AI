@@ -201,6 +201,8 @@ describe('号池到期列与上游接受态同口径', () => {
         }),
     })
     accountRows = [poolRow()]
+    // 回写真落定(CAS 命中)才算 healthChecked:默认空返回是「快照过期」语义
+    writeResult = [{ id: 'acct-expiry' }]
 
     const out = await sweepAccountPool()
     expect(out.healthChecked).toBe(1)
@@ -222,6 +224,8 @@ describe('号池到期列与上游接受态同口径', () => {
         }),
     })
     accountRows = [poolRow()]
+    // 回写真落定(CAS 命中)才算 healthChecked:默认空返回是「快照过期」语义
+    writeResult = [{ id: 'acct-expiry' }]
 
     const out = await sweepAccountPool()
     expect(out.healthChecked).toBe(1)

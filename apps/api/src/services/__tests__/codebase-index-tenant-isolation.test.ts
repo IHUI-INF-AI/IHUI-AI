@@ -173,11 +173,10 @@ describe('检索面归属隔离', () => {
 
     const out = await codebaseIndexService.search({ query: 'anything' })
 
-    // 关键:即便 DB 假返回了行,无 ownerUuid 也必须被谓词挡住 —— 断言谓词为 1=0
-    const sqlText = renderSql(captured.find((c) => c.op === 'execute')?.where)
-    expect(sqlText).toContain('1 = 0')
-    // 说明:真实 DB 会据此返回 0 行;这里能断言的是谓词本身(fail-closed 方向正确)
-    expect(Array.isArray(out)).toBe(true)
+    // SDB-39 起无归属在消耗 embedding / 发 SQL 之前就直接返回 [](比"谓词 1=0"更严):
+    // 连一次查询都不许发,假 DB 里预置的行自然不可能漏出来。
+    expect(captured.filter((c) => c.op === 'execute')).toHaveLength(0)
+    expect(out).toEqual([])
   })
 
   it('search 带 ownerUuid 时谓词含该归属(而不是被跳过)', async () => {

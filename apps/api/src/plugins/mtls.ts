@@ -230,8 +230,8 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (cnAllowList && cnAllowList.length > 0) {
       if (!authorized) {
         reply
-          .status(401)
-          .send(error(401, 'Client certificate chain not authorized; CN allow list not applicable'))
+          .status(403)
+          .send(error(403, 'Client certificate not verified; CN allow list not applicable'))
         return
       }
       const cn = asString(cert.subject.CN)
@@ -259,9 +259,15 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
 
     // --- 5. 注入客户端身份到 request ---
-    // F-710:verified=authorized。降级模式下链校验失败的证书仍注入(保留出口诊断事实),
-    // 但 verified=false;下游授权判据**必须**只认 verified=true,不得拿未验证 CN 做授权。
-    request.mtlsClient = buildClientIdentity(cert, authorized)
+    // F-710:未验证(链校验失败)的证书不得产出任何可授权身份 —— 降级模式下
+    // 连诊断用的 mtlsClient 都不注入,下游只能看到"无 mTLS 身份"。
+    if (!authorized) {
+      logger.warn('mTLS: unverified client certificate, identity not injected', {
+        route: request.url,
+      })
+      return
+    }
+    request.mtlsClient = buildClientIdentity(cert, true)
   })
 }
 

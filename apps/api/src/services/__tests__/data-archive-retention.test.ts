@@ -292,6 +292,10 @@ describe('archiveDailyData · chat_messages / conversation_message_archives 365 
   })
 
   it('分批:超过单批 1000 行的过期数据被分多批删干净(不留尾巴)', async () => {
+    // 分批循环每满批会让出事件循环(setTimeout 0);假计时器下那个 await 永远不会兑现,
+    // 用例会自锁。此处换真计时器(仍用 setSystemTime 冻结"现在"),批间让步才能完成。
+    vi.useRealTimers()
+    vi.setSystemTime(NOW)
     // 2500 行全过期 ⇒ 1000 + 1000 + 500 三批
     seed('chat_messages', 2500, 400)
     // 混入 10 行未过期,它们不该被删

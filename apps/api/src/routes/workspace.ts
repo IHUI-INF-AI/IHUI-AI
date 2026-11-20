@@ -34,7 +34,7 @@ import {
   updateProject,
   deleteProject,
   listFilesByProject,
-  listAllFilesByProject,
+  listFilesByProjectIncludeTrashed,
   findFileById,
   findFileByIdIncludeTrashed,
   createFile,
@@ -331,7 +331,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     // 删除项目关联的文件（磁盘）
     // F-431:删项目会级联删除 files 行(含回收站软删行),磁盘清理必须覆盖回收站,
     // 否则这些 blob 永久成孤儿;GET 列表仍用 listFilesByProject(不含回收站)。
-    const projectFiles = await listAllFilesByProject(id)
+    const projectFiles = await listFilesByProjectIncludeTrashed(id)
     for (const f of projectFiles) {
       try {
         if (existsSync(f.path)) unlinkSync(f.path)
@@ -967,6 +967,8 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         acp: {
           type: 'begin_prompt',
           sessionId: data.sessionId,
+          // 日志/转发面只认 wire 拼写:camel 入参已在上面归一,不得原样泄出
+          mode: modeWire,
           promptLength: data.prompt.length,
           attachmentCount,
           attachmentBytes,

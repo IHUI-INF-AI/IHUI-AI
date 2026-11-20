@@ -148,8 +148,57 @@ function getOutputExtension(preset: TranscodePreset): string {
 // 核心转码逻辑
 // =============================================================================
 
+/** 删除输出目录的最佳努力清理(F-198:只在子进程确认退出后才允许调用)。 */
+async function cleanupOutputDir(outputDir: string): Promise<void> {
+  try {
+    await rm(outputDir, { recursive: true, force: true })
+  } catch {
+    // 忽略清理失败
+  }
+}
+
+/**
+ * F-198(2026-11-20):淘汰/取消/超时三类回收**必须先杀子进程、等它真退出,再删目录**。
+ *
+ * 旧实现直接 `rm -rf` 输出目录,而 ffmpeg 仍在写盘:Windows 上句柄占用会让删除失败,
+ * 更糟的是转码进程继续跑、目录被后人重建,出现"删了又回来"的僵尸任务。
+ * 收尾语义:
+ * - 有子进程 → kill(SIGKILL);等 close,上限 5s;
+ * - 上限已到仍存活 → 再 kill 一次作最后努力,**但仍不删目录**;
+ * - 只在拿到 close(确认退出)之后才 rm;超时未退出的,把 rm 挂到 close 上异步执行。
+ */
+async function terminateJobChildAndCleanup(job: TranscodeJob): Promise<void> {
+  const child = childProcesses.get(job.id)
+  childProcesses.delete(job.id)
+  if (!child) {
+    await cleanupOutputDir(job.outputDir)
+    return
+  }
+  const exited = new Promise<boolean>((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolve(true)
+      return
+    }
+    child.once('close', () => resolve(true))
+  })
+  child.kill('SIGKILL')
+  const confirmed = await Promise.race([
+    exited,
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
+  ])
+  if (confirmed) {
+    await cleanupOutputDir(job.outputDir)
+    return
+  }
+  // 最后努力:再投一次 SIGKILL;仍不删目录,rm 挂到真正的 close 上
+  child.kill('SIGKILL')
+  child.once('close', () => {
+    void cleanupOutputDir(job.outputDir)
+  })
+}
+
 /** LRU 淘汰:优先删最旧的非活跃任务(completed/failed/cancelled);全活跃则 FIFO 删最早插入的。 */
-function evictOldestJob(): void {
+async function evictOldestJob(): Promise<void> {
   for (const [id, job] of jobs) {
     if (job.status !== 'pending' && job.status !== 'processing') {
       jobs.delete(id)
@@ -164,9 +213,9 @@ function evictOldestJob(): void {
   if (oldestId !== undefined) {
     const job = jobs.get(oldestId)
     jobs.delete(oldestId)
-    childProcesses.delete(oldestId)
     if (job) {
-      rm(job.outputDir, { recursive: true, force: true }).catch(() => {})
+      // F-198:活跃任务可能仍有 ffmpeg 在写盘 ⇒ 先杀等 close 再删
+      await terminateJobChildAndCleanup(job)
     }
   }
 }
@@ -194,7 +243,7 @@ function redactTail(stderr: string, cap: number = REDACT_TAIL_MAX_CHARS): string
 export async function createTranscodeJob(input: TranscodeInput): Promise<TranscodeJob> {
   // P1 修复:内存泄露防护 — 超过 MAX_JOBS 时淘汰最旧任务
   if (jobs.size >= MAX_JOBS) {
-    evictOldestJob()
+    await evictOldestJob()
   }
   const jobId = randomUUID()
   const outputDir = join(TRANSCODE_DIR, jobId)
@@ -339,7 +388,6 @@ export async function cancelTranscodeJob(jobId: string): Promise<TranscodeJob | 
   if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
     return job
   }
-  const child = childProcesses.get(jobId)
   // P0 修复(2026-08-02):先设 cancelled 状态,再 kill,等 close 事件再返回,
   // 防止 startTranscodeJob 的 close 回调把 cancelled 覆盖为 failed + 避免僵尸进程。
   job.status = 'cancelled'
@@ -349,21 +397,8 @@ export async function cancelTranscodeJob(jobId: string): Promise<TranscodeJob | 
     job.terminationKind = 'expected'
     job.terminationKindLocked = true
   }
-  if (child) {
-    child.kill('SIGKILL')
-    // 等 close 事件再继续,避免僵尸进程;5s 超时兜底防卡死
-    await new Promise<void>((resolve) => {
-      child.once('close', () => resolve())
-      setTimeout(resolve, 5000)
-    })
-    childProcesses.delete(jobId)
-  }
-  // 清理输出目录
-  try {
-    await rm(job.outputDir, { recursive: true, force: true })
-  } catch {
-    // 忽略清理失败
-  }
+  // F-198:先 kill、等 close 再删目录;超时未退出则把 rm 挂到 close 上(绝不在进程仍写盘时 rm)
+  await terminateJobChildAndCleanup(job)
   return job
 }
 

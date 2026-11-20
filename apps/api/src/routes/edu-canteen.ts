@@ -34,6 +34,7 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { bizDayKey } from '../utils/biz-day.js'
 import {
   eduCanteenSupplier,
   eduCanteenProcurement,
@@ -70,7 +71,8 @@ const imageField = z
   .max(13 * 1024 * 1024, '图片过大')
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  // F-579:业务日必须走统一上海日口径,不能用 UTC 的 toISOString().slice(0,10)
+  return bizDayKey()
 }
 
 /** numeric 列(返回 string)→ number | null。 */

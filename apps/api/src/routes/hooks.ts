@@ -224,6 +224,10 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // F-184:script 动作会执行服务端代码,只有管理员能创建/改写
+    if (parsed.data.action?.type === 'script' && (request.jwtPayload?.roleId ?? 0) < 1) {
+      return reply.status(403).send(error(403, '仅管理员可创建 script 类型 Hook'))
+    }
     const hook = await createHook(request, parsed.data)
     if (hook === null) {
       return reply.status(503).send(error(503, 'Hook 引擎不可用(ai-service 无响应)'))
@@ -408,6 +412,10 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     const parsed = updateHookSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // F-184:把既有 Hook 改成 script 等价于获得服务端执行权,普通登录用户一律 403(且不落库)
+    if (parsed.data.action?.type === 'script' && (request.jwtPayload?.roleId ?? 0) < 1) {
+      return reply.status(403).send(error(403, '仅管理员可将 Hook 改为 script 类型'))
     }
     const hook = await updateHook(request, params.data.id, parsed.data)
     if (hook === null) {

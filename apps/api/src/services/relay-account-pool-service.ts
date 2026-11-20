@@ -2286,6 +2286,20 @@ export function buildExportPayload(
       // 2026-11-11 补:此前 default 直接拒出,导致小浣熊号永远无法参与跨环境同步。
       base['token'] = creds.token
       if (creds.refreshToken) base['refreshToken'] = creds.refreshToken
+      // 到期时刻必须回带:auth.json 无 refresh_token 的裸票,重导侧只能靠这个键复现到期状态
+      if (row.tokenExpiresAt) base['expiresAt'] = row.tokenExpiresAt.toISOString()
+      // 账号级 meta.officeIdentity 是 auth.json 的形状键:首导存 secrets.meta,重导未被
+      // 平台映射收编时按外来键透传进 extraMetadata ⇒ 两处都认,保证二次导出仍复现。
+      const raccoonMeta = s['meta']
+      const officeIdentity =
+        raccoonMeta && typeof raccoonMeta === 'object' && !Array.isArray(raccoonMeta)
+          ? cstr((raccoonMeta as Record<string, unknown>)['officeIdentity'])
+          : ''
+      const extraOfficeIdentity = cstr(
+        (row.extraMetadata as Record<string, unknown> | null)?.['officeIdentity'],
+      )
+      if (officeIdentity || extraOfficeIdentity)
+        base['officeIdentity'] = officeIdentity || extraOfficeIdentity
       break
     }
     case 'grokbot': {

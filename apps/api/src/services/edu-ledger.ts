@@ -213,12 +213,14 @@ export function deriveEnrollmentLedger(input: LedgerInput): EnrollmentLedger {
     const paid = paidBySchedule.get(s.id) ?? 0
     const refunded = refundBySchedule.get(s.id) ?? 0
     const netPaid = Math.max(0, paid - refunded)
-    const overdueDays = Math.max(0, dayDiff(today, s.dueDate) - Math.max(0, s.graceDays))
+    const rawOverdueDays = Math.max(0, dayDiff(today, s.dueDate) - Math.max(0, s.graceDays))
     let status: string
     if (s.amountDue > 0 && netPaid >= s.amountDue) status = 'paid'
     else if (netPaid > 0) status = 'partial'
-    else if (overdueDays > 0) status = 'overdue'
+    else if (rawOverdueDays > 0) status = 'overdue'
     else status = 'pending'
+    // F-317:已缴清账期不得背逾期天数(旧实现按日期差算,已结清期次会永久报"逾期 347 天")
+    const overdueDays = status === 'paid' ? 0 : rawOverdueDays
     // 逾期判定独立于 status:部分缴且已过宽限期同样算逾期。
     // 否则"交了一点点"的期次会永久躲开逾期视图,而那恰恰是最该被看见的一档。
     return {

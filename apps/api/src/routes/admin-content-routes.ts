@@ -585,11 +585,12 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     const prev = parseJson<{ isEnabled: boolean }>(existing.value, { isEnabled: false })
     const key = recommendKey(b.name)
-    const [dup] = await db
+    // 同分类内同 key 视为重名;自身不算重名(按返回集过滤,SQL 面仍带分类限定)
+    const keyRows = await db
       .select({ id: systemConfigs.id })
       .from(systemConfigs)
-      .where(and(eq(systemConfigs.key, key), ne(systemConfigs.id, id)))
-      .limit(1)
+      .where(and(eq(systemConfigs.key, key), eq(systemConfigs.category, 'recommendation')))
+    const dup = keyRows.find((r) => r.id !== id)
     if (dup) return reply.status(409).send(error(409, '推荐位名称已被占用'))
     await db
       .update(systemConfigs)

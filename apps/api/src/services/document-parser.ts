@@ -32,6 +32,68 @@ import mammoth from 'mammoth'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { parseXlsx, parseXls, parseCsv } from './xlsx-parser.js'
 import { logger } from '../utils/logger.js'
+import { checkMagicNumber } from '../utils/file-type-validator.js'
+
+/**
+ * F-533:声明 MIME → 魔数判据用的扩展名。判据本身仍在 file-type-validator 单源,
+ * 这里只做"MIME 到判据入口"的映射,不复制第二份魔数表。
+ */
+const MAGIC_EXT_BY_MIME: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.oasis.opendocument.text': 'odt',
+  'application/vnd.oasis.opendocument.spreadsheet': 'ods',
+  'application/vnd.oasis.opendocument.presentation': 'odp',
+  'application/epub+zip': 'epub',
+  'application/rtf': 'rtf',
+  'text/rtf': 'rtf',
+}
+
+/** 纯文本族:无魔数可查,但必须拒绝二进制载荷(NUL/控制字符) */
+const TEXT_MIMES = new Set([
+  'text/plain',
+  'text/markdown',
+  'text/x-markdown',
+  'text/csv',
+  'text/tab-separated-values',
+  'text/html',
+  'application/json',
+  'text/json',
+])
+
+function looksBinary(buffer: Buffer): boolean {
+  const probe = buffer.subarray(0, 8192)
+  let control = 0
+  for (const byte of probe) {
+    if (byte === 0) return true
+    // 允许 \t \n \r 与常见可打印字符;其余 C0 控制字符计为二进制信号
+    if (byte < 0x09 || (byte > 0x0d && byte < 0x20)) control++
+  }
+  return probe.length > 0 && control / probe.length > 0.1
+}
+
+/**
+ * F-533:客户端自报 MIME 不得单独决定解析器。解析器分发前按真实字节复核:
+ * - 容器类(PDF/OOXML/OLE2/ODF/EPUB/RTF):必须有对应文件头;
+ * - 纯文本类:出现 NUL 或大量控制字符即判二进制,拒绝按 UTF-8 入库。
+ */
+function assertContentMatchesMime(buffer: Buffer, mime: string): void {
+  const ext = MAGIC_EXT_BY_MIME[mime]
+  if (ext) {
+    if (!checkMagicNumber(ext, buffer)) {
+      throw new Error(`文件内容与声明类型不一致(magic number 校验失败: ${mime})`)
+    }
+    return
+  }
+  if (TEXT_MIMES.has(mime) && looksBinary(buffer)) {
+    throw new Error(`二进制载荷与文本类型声明不一致: ${mime}`)
+  }
+}
 
 /** 单文件上限 20MB(防止 OOM,与 Fastify multipart 全局 100MB 配合,本端点更严格) */
 export const MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -228,6 +290,9 @@ export async function parseDocument(opts: {
   const mime =
     provided && provided !== 'application/octet-stream' ? provided : detectByExt(filename)
 
+  // F-533:分发前按真实字节复核声明类型(自报 MIME 不得单独决定解析器)
+  assertContentMatchesMime(buffer, mime)
+
   // ---- anydoc 主路径 ----
   const anydoc = await loadAnydoc()
   if (anydoc && ANYDOC_MIMES.has(mime)) {
@@ -354,6 +419,8 @@ export async function parseDocumentWithEnvelope(opts: {
   const provided = (opts.mimeType ?? '').toLowerCase().trim()
   const mime =
     provided && provided !== 'application/octet-stream' ? provided : detectByExt(filename)
+  // F-533:预览链与入库链同一把尺子,防止"预览拒绝、入库放行"的半修
+  assertContentMatchesMime(buffer, mime)
   const fallbacks: PreviewFallback[] = []
   const t0 = Date.now()
 

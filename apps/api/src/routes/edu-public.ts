@@ -391,6 +391,10 @@ export async function sendStudentReport(
     sections: flattenReportToSections(data),
     generatedAt: new Date(),
   })
+  // F-537:渲染失败如实报 503 JSON,不得回空白 PDF + 200
+  if (!pdfResult.ok) {
+    return reply.status(503).send(error(503, '学习报告 PDF 生成失败,请稍后重试'))
+  }
   return reply
     .header('Content-Type', 'application/pdf')
     .header(

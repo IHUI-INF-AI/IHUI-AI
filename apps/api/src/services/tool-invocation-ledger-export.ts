@@ -55,6 +55,7 @@ import {
   type AuditExportPayload,
 } from './siem-exporter.js'
 import { TOOL_INVOCATION_LEDGER_OUTCOMES } from './tool-invocation-ledger-service.js'
+import { resolveTruncation } from './agent-runtime/session-store.js'
 
 /** 明细账导出固定 JSON Lines(账行没有 CEF/LEEF 映射,不扩需求)。 */
 export const TOOL_LEDGER_EXPORT_FORMAT = 'json' as const
@@ -287,8 +288,7 @@ export async function buildSignedToolInvocationLedgerExport(
   const selectRows = deps.selectRows ?? defaultSelectRows
   // 多取一行探测溢出:探到的第 limit+1 行只作"还有更多"的物证,不进数据体。
   const fetched = await selectRows(parsed.data, limit + 1)
-  const truncated = fetched.length > limit
-  const rows = truncated ? fetched.slice(0, limit) : fetched
+  const { truncated, items: rows } = resolveTruncation(fetched, limit, 'probed')
   const lines = rows.map((row) => canonicalStringify(row as unknown as Record<string, unknown>))
 
   const payload: ToolInvocationLedgerExportPayload = {

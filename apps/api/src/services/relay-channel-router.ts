@@ -832,15 +832,29 @@ export async function selectChannelCandidates(
     return { baseUrl, configId: cfg.id, providerCode: keyData.providerCode }
   }
 
+  let decryptFailures = 0
   const pushCandidate = (keyData: KeyPoolRow, groupId: string, groupName: string) => {
     if (seen.has(keyData.id)) return
     const target = resolveCandidateTarget(keyData)
     if (!target) return
+    // 先登记 seen:解密失败的候选也算"已处理",否则 fallback 会再试一遍(重复告警)
     seen.add(keyData.id)
+    // F-179:单个 Key 解密失败只淘汰该候选,不得连坐整条路由;留痕只带 keyPoolId,
+    // 不带密文也不带异常原文(异常原文可能夹带密文片段)。
+    let apiKey: string
+    try {
+      apiKey = decryptApiKey(keyData.apiKeyEnc)
+    } catch {
+      decryptFailures++
+      console.warn(`[relay-router] key decrypt failed, skip candidate ${keyData.id}`, {
+        reason: 'decrypt_failed',
+      })
+      return
+    }
     ordered.push({
       candidate: {
         keyPoolId: keyData.id,
-        apiKey: decryptApiKey(keyData.apiKeyEnc),
+        apiKey,
         baseUrl: target.baseUrl,
         providerCode: target.providerCode,
         configId: target.configId,
@@ -906,6 +920,10 @@ export async function selectChannelCandidates(
       continue
     }
     result.push(candidate)
+  }
+  // 全部候选都解密失败 ⇒ 路由级失败,但错误串只说结论,不夹带任何密文
+  if (result.length === 0 && decryptFailures > 0) {
+    throw new Error('无可用候选:全部候选 Key 解密失败')
   }
   return result
 }

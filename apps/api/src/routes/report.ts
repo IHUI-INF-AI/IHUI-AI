@@ -261,6 +261,10 @@ export const adminReportRoutes: FastifyPluginAsync = async (server) => {
       sections: def.sections(data),
       generatedAt: new Date(),
     })
+    // F-537:渲染失败如实报 503,不得把空白 PDF 冒充成功
+    if (!pdfResult.ok) {
+      return reply.status(503).send(error(503, '报表 PDF 生成失败,请稍后重试'))
+    }
     return reply
       .header('Content-Type', 'application/pdf')
       .header('Content-Disposition', `attachment; filename="${type}-${startDate}-${endDate}.pdf"`)

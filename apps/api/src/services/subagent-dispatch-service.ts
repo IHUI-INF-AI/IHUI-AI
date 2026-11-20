@@ -626,6 +626,8 @@ interface DispatchRuntime {
   messages: CommunicationMessage[]
   /** DAG 节点执行状态(stepId → status) */
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
+  /** SDB-38①:DAG 会话累计 token 用量(跨节点共享,配额判据的唯一口径) */
+  dagTokensUsed?: number
   /** F4:上游结果产物缓存(stepId → artifact;全文同时落 Redis,进程内留一份便于即时取回) */
   artifacts: Map<string, DispatchArtifact>
   /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
@@ -1099,7 +1101,16 @@ function workerExecFields(cwd?: string): Record<string, unknown> {
 type AiCallResult =
   | { ok: true; finalOutput: string; data: AiOrchestrationResult | null }
   | { ok: false; reason: 'not_implemented'; message: string }
-  | { ok: false; reason: 'failed'; message: string }
+  | { ok: false; reason: 'failed'; message: string; httpStatus?: number }
+
+/** SDB-38③:可重试的上游状态码 —— 5xx/408/429 与传输层失败(status 缺省)可退避重试,其余 4xx 不重试。 */
+function isRetryableAiFailure(result: AiCallResult): boolean {
+  if (result.ok) return true
+  if (result.reason === 'not_implemented') return false
+  const status = result.httpStatus
+  if (status === undefined) return true
+  return status >= 500 || status === 408 || status === 429
+}
 
 /**
  * 调 ai-service agent_orchestrator 对应编排接口。
@@ -1192,6 +1203,8 @@ async function callAiServiceEndpoint(
         ok: false,
         reason: 'failed',
         message: `ai-service 返回 ${res.status} ${res.statusText}`,
+        // SDB-38③:4xx(除 408/429)属确定性请求错误,重试只会白烧调用
+        httpStatus: res.status,
       }
     }
     const json = (await res.json()) as AiServiceResponse
@@ -3283,8 +3296,8 @@ export class SubagentDispatchService {
         return
       }
 
-      // failed → 检查是否还有重试机会
-      if (attempt < effectiveMaxAttempts) {
+      // failed → 检查是否还有重试机会(SDB-38③:确定性 4xx 直接进 failed,不占重试名额)
+      if (attempt < effectiveMaxAttempts && isRetryableAiFailure(result)) {
         const waitMs = delayMs * 2 ** (attempt - 1)
         // outbox:把「重试意图」落 Redis 后再等 —— 等待窗口内进程重启,恢复时
         // 从 attempt+1 继续,不会把已经失败的那次再执行一遍。
@@ -3503,12 +3516,17 @@ export class SubagentDispatchService {
           tokenUsage = callResult.ok
             ? extractTokenUsage(callResult.data, callResult.finalOutput)
             : emptyTokenUsage()
+          // SDB-38①:DAG 会话累计用量(尝试不论成败都计入,失败尝试同样消耗上游 token)
+          runtime.dagTokensUsed = (runtime.dagTokensUsed ?? 0) + tokenUsage.total
 
-          const tokenExceeded = tokenQuota > 0 && tokenUsage.total > tokenQuota
+          const tokenExceeded = tokenQuota > 0 && (runtime.dagTokensUsed ?? 0) > tokenQuota
           const timeoutExceeded = timeoutMs > 0 && stepDuration > timeoutMs
           if (tokenExceeded || timeoutExceeded) {
+            // SDB-38①:DAG 是"会话累计"配额 —— 超限判据必须把本节点已耗的 token 记进累计值,
+            // 报数也用累计值(单节点 600 各自不超 1000,合起来 1200 才是真超限)
+            const cumulativeTokens = runtime.dagTokensUsed ?? 0
             const quotaError = tokenExceeded
-              ? `token 超限(${tokenUsage.total} > ${tokenQuota})`
+              ? `token 超限(${cumulativeTokens} > ${tokenQuota})`
               : `超时(${stepDuration}ms > ${timeoutMs}ms)`
             quotaErrorInDag = quotaError
             runtime.dagNodeStatus.set(nodeId, 'quota_exceeded')
@@ -3541,6 +3559,8 @@ export class SubagentDispatchService {
           if (callResult.ok) break
           // not_implemented 与单链一致:不重试,直接记 failed
           if (callResult.reason === 'not_implemented') break
+          // SDB-38③:确定性 4xx 不重试(否则同一坏请求被白烧 3 次)
+          if (!isRetryableAiFailure(callResult)) break
           if (attempt < maxAttempts) {
             await sleep(delayMs * 2 ** (attempt - 1))
           }
@@ -3593,17 +3613,43 @@ export class SubagentDispatchService {
       await Promise.all(layerPromises)
 
       // 评估条件边:决定下游节点是否继续
+      // 汇聚节点判据单源:只有「全部前驱都已死」才取消,只要还有一条存活上游就继续跑。
+      const isDeadStatus = (s: ExtendedDispatchStatus | undefined): boolean =>
+        s === 'cancelled' || s === 'quota_exceeded'
+      const cancelIfAllPredecessorsDead = (targetId: string): void => {
+        const predecessors = dag.edges.filter((e) => e.to === targetId).map((e) => e.from)
+        if (predecessors.length === 0) return
+        if (predecessors.every((p) => isDeadStatus(runtime.dagNodeStatus.get(p)))) {
+          runtime.dagNodeStatus.set(targetId, 'cancelled')
+        }
+      }
       for (const nodeId of layer) {
-        // 已被取消的节点没有结果:条件判据不能用空结果再评估一次(否则会越过
-        // 「全部前驱已取消」的传播判据直接取消汇聚节点),交给跳过分支持续向下游传播。
-        if (runtime.dagNodeStatus.get(nodeId) === 'cancelled') continue
+        const nodeStatus = runtime.dagNodeStatus.get(nodeId)
+        // SDB-38①:配额超限/已取消的前驱没有可用结果 —— 只有在所有前驱都死掉时才取消下游,
+        // 否则 b 被跳过就会把 b+c 汇聚的 d 一起误伤(SDB-37④)。
+        if (isDeadStatus(nodeStatus)) {
+          for (const edge of dag.edges.filter((e) => e.from === nodeId)) {
+            if (runtime.dagNodeStatus.get(edge.to) === undefined) {
+              cancelIfAllPredecessorsDead(edge.to)
+            }
+          }
+          continue
+        }
         const nodeResult = results.get(nodeId) ?? ''
         const downstreamEdges = dag.edges.filter((e) => e.from === nodeId)
         for (const edge of downstreamEdges) {
           const shouldContinue = evaluateCondition(edge.condition, nodeResult)
           if (!shouldContinue) {
-            // 条件不满足 → 标记下游节点为 cancelled(跳过)
-            runtime.dagNodeStatus.set(edge.to, 'cancelled')
+            // 条件不满足 → 标记下游节点为 cancelled(跳过)。只有「除本边源点外的前驱也都已死」
+            // 才取消:条件边只是砍掉一条路,仍有其它存活前驱的汇聚节点必须继续跑。
+            const predecessors = dag.edges.filter((e) => e.to === edge.to).map((e) => e.from)
+            if (
+              predecessors.every(
+                (p) => p === nodeId || isDeadStatus(runtime.dagNodeStatus.get(p)),
+              )
+            ) {
+              runtime.dagNodeStatus.set(edge.to, 'cancelled')
+            }
             await this._persistLog(id, {
               ts: nowIso(),
               level: 'info',

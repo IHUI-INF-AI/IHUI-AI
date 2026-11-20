@@ -194,7 +194,8 @@ async function claimResolvedCoupon(
       .where(eq(userCoupons.id, referrerUserCouponId))
       .limit(1)
     if (referrerCoupon && referrerCoupon.couponId === coupon.id) {
-      referrerUserId = referrerCoupon.userId
+      // F-311:自荐(分享人==领取人)不得触发裂变奖励,也不得把自荐写进归属字段
+      referrerUserId = referrerCoupon.userId === userId ? null : referrerCoupon.userId
     }
   }
 
