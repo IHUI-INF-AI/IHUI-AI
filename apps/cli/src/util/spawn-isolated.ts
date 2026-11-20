@@ -160,15 +160,18 @@ export function killProcessTree(child: ChildProcess): void {
   } catch {
     // b75-4#9:组 kill 失败分两说 —— ESRCH=组已消亡,补刀无的放矢;EPERM 等=组仍存活
     // (无权发信号 ≠ 组已死),才退到单进程补刀。旧写法不看存活性一律补刀。
+    // 无论哪一说,先兜底收掉直接子进程本身(对齐 util/kill-tree.ts 的 POSIX 口径):
+    // detached 未建组 / 组已消亡时 -pid 不是任何组,组杀报 ESRCH,直接子进程仍在本端
+    // 所有权内;不补刀它就会跑满自己的自然时长才退(CI Linux 实测 abort 后 8s 才收)。
+    try { child.kill('SIGKILL') } catch {}
     if (isPosixProcessGroupAlive(child.pid)) {
-      try { child.kill('SIGKILL') } catch {}
-    } else {
-      // L11520:组已消亡(ESRCH)不等于全员死透 —— setsid 脱组的 detached 后代
-      // 不在原进程组里,组 kill 永远够不着;按生前快照逐个补信号(win32 快照
-      // 是 unsupported,这里结构性 no-op,绝无信号发出)。
-      const snapshot = processGroupSnapshotRegistry.get(child)
-      if (snapshot) signalDetachedGroupMembers(snapshot)
+      return
     }
+    // L11520:组已消亡(ESRCH)不等于全员死透 —— setsid 脱组的 detached 后代
+    // 不在原进程组里,组 kill 永远够不着;按生前快照逐个补信号(win32 快照
+    // 是 unsupported,这里结构性 no-op,绝无信号发出)。
+    const snapshot = processGroupSnapshotRegistry.get(child)
+    if (snapshot) signalDetachedGroupMembers(snapshot)
   }
 }
 
