@@ -24,7 +24,8 @@ const STREAM = read('../src/routes/ai-chat-stream.ts')
 const CALLBACK = read('../src/routes/ai-callback.ts')
 const QUEUE = read('../src/plugins/queue.ts')
 const WORKER = read('../src/workers/ai-callback-worker.ts')
-const CLIENT = read('../../../packages/api-client/src/client.ts')
+// 下划线前缀=本票无针对它的断言,但保留这次 read():api-client 主入口缺失时当场抛,不当静默通过
+const _CLIENT = read('../../../packages/api-client/src/client.ts')
 const CLIENT_TYPES = read('../../../packages/api-client/src/stream.ts')
 const ENDPOINTS = read('../../../packages/api-client/src/endpoints/chat.ts')
 
