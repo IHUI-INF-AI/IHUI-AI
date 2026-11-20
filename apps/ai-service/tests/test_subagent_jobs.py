@@ -37,6 +37,45 @@ def _ok_invoker(output: str, calls: list[str] | None = None, delay: float = 0.01
     return _invoke
 
 
+def test_running_cap_env_clamped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """env 只能下调:0→1、99→20、坏值→默认 20。"""
+    monkeypatch.delenv(jobs.RUNNING_CAP_ENV, raising=False)
+    assert jobs.resolve_running_cap() == jobs.MAX_RUNNING_SUBAGENTS
+    monkeypatch.setenv(jobs.RUNNING_CAP_ENV, "5")
+    assert jobs.resolve_running_cap() == 5
+    monkeypatch.setenv(jobs.RUNNING_CAP_ENV, "0")
+    assert jobs.resolve_running_cap() == 1
+    monkeypatch.setenv(jobs.RUNNING_CAP_ENV, "99")
+    assert jobs.resolve_running_cap() == jobs.MAX_RUNNING_SUBAGENTS
+    monkeypatch.setenv(jobs.RUNNING_CAP_ENV, "abc")
+    assert jobs.resolve_running_cap() == jobs.MAX_RUNNING_SUBAGENTS
+
+
+@pytest.mark.asyncio
+async def test_running_limit_rejects_before_submit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """并发达上限时 spawn 立即拒绝(不提交后台任务),终态后可再 spawn。"""
+    monkeypatch.setenv(jobs.RUNNING_CAP_ENV, "1")
+    first = await jobs.start_job(
+        name="a", task="t1", user_id="u1", session_id="s1",
+        invoker=_ok_invoker("ok", delay=30),
+    )
+    assert first["ok"] is True
+    second = await jobs.start_job(
+        name="b", task="t2", user_id="u1", session_id="s1",
+        invoker=_ok_invoker("ok"),
+    )
+    assert second["ok"] is False
+    assert second["errorCode"] == "SUBAGENT_RUNNING_LIMIT"
+    assert second["limit"] == 1 and second["running"] == 1
+    # 另一会话不受本会话计数影响(闸按 (身份, 会话) 计)
+    other = await jobs.start_job(
+        name="c", task="t3", user_id="u1", session_id="s2",
+        invoker=_ok_invoker("ok"),
+    )
+    assert other["ok"] is True
+    await jobs.cancel_job(first["job"]["job_id"], user_id="u1", session_id="s1")
+
+
 @pytest.mark.asyncio
 async def test_spawn_list_wait_round_trip() -> None:
     started = await jobs.start_job(

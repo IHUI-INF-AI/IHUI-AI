@@ -23,6 +23,7 @@ IHUI 现状:`dispatch_subagent` 同步等子 agent 跑完,长任务期间父级�
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -33,6 +34,11 @@ from ..core.multi_agent_config_gate import clamp_wait_timeout_s
 from .background_tasks import background_task_manager
 
 MAX_JOBS: Final = 100
+#: 并发子代理作业上限(对标 deepseek-tui `max_subagents` 的 1–20 区间)。
+#: 超过就在 spawn 处显式拒绝,而不是把进程/额度打满后才"跑崩"。
+MAX_RUNNING_SUBAGENTS: Final = 20
+#: env 可下调上界(仍被夹在 [1, MAX_RUNNING_SUBAGENTS],不能借 env 抬高上限)。
+RUNNING_CAP_ENV: Final = "IHUI_MAX_RUNNING_SUBAGENTS"
 #: 单次 wait 的轮询粒度(秒):作业完成由列表自身感知,不需要额外 Event。
 _POLL_S: Final = 0.05
 #: 结果摘要长度(避免大对象撑爆父级上下文)。
@@ -116,6 +122,27 @@ def _summarize(result: Any) -> Any:
     return text[:_RESULT_PREVIEW]
 
 
+def resolve_running_cap() -> int:
+    """并发上限:env 可下调,但恒被夹在 [1, MAX_RUNNING_SUBAGENTS];坏值回落默认。"""
+    raw = os.getenv(RUNNING_CAP_ENV, "")
+    try:
+        cap = int(raw)
+    except ValueError:
+        return MAX_RUNNING_SUBAGENTS
+    return max(1, min(MAX_RUNNING_SUBAGENTS, cap))
+
+
+def running_count(*, user_id: str | None, session_id: str | None) -> int:
+    """当前未终态作业数(按同一宿主身份 + 同一会话计;两者皆空时按全局计)。"""
+    return sum(
+        1
+        for j in _jobs.values()
+        if not j.finished
+        and (user_id is None or j.user_id == user_id)
+        and (session_id is None or j.session_id == session_id)
+    )
+
+
 async def start_job(
     *,
     name: str,
@@ -127,7 +154,25 @@ async def start_job(
     parent_job_id: str | None = None,
     lineage_id: str | None = None,
 ) -> dict[str, Any]:
-    """后台启动一个子 agent 作业;立即返回 job_id(不阻塞父级)。"""
+    """后台启动一个子 agent 作业;立即返回 job_id(不阻塞父级)。
+
+    并发闸:同一宿主身份 + 同一会话未终态作业达到 `resolve_running_cap()` 时,
+    **在提交后台任务之前**拒绝(SUBAGENT_RUNNING_LIMIT),并在 error 里点名计数与上限;
+    先起后拒会把进程/额度打满,等于没闸。
+    """
+    cap = resolve_running_cap()
+    running = running_count(user_id=user_id, session_id=session_id)
+    if running >= cap:
+        return {
+            "ok": False,
+            "errorCode": "SUBAGENT_RUNNING_LIMIT",
+            "error": (
+                f"并发子代理已达上限 {cap}(当前运行 {running});"
+                f"请先 wait 到终态或 cancel 再 spawn"
+            ),
+            "running": running,
+            "limit": cap,
+        }
     job = SubagentJob(
         job_id=uuid.uuid4().hex[:12],
         lineage_id=lineage_id or uuid.uuid4().hex[:12],
