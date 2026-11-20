@@ -25,7 +25,7 @@ from app.services.memory import memory_store
 from app.services.work_admission import (
     Assessment,
     Ledger,
-    SqliteTicketStore,
+    MemoryTicketStore,
     build_chat_trigger,
     get_ledger,
     reset_for_test,
@@ -206,11 +206,15 @@ async def test_cancel_drops_inflight_ticket(monkeypatch: pytest.MonkeyPatch) -> 
 
 async def test_restarted_ledger_does_not_redispatch(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
 ) -> None:
-    """派工、丢弃、模拟未完成写进会话库后,新账本按同一 trigger 读回且不再派。"""
-    db = tmp_path / "sessions.db"
-    reset_for_test(SqliteTicketStore(db))
+    """派工、丢弃、模拟未完成写进账本后,新账本实例按同一 trigger 读回且不再派。
+
+    机主 2026-11-19 定档数据层只允许 PG,SqliteTicketStore 已退役(0af2145f1b);
+    本用例钉的是**换 Ledger 实例后同一 trigger 的终态还在**这一语义,与存储载体无关,
+    故改走显式共享的进程内账(两个 store 实例注入同一份账本对象)。
+    """
+    db = MemoryTicketStore()
+    reset_for_test(db)
     stub = _RecordingOrchestrator(status="stub")
     monkeypatch.setattr("app.services.mcp_server._get_orchestrator", lambda: stub)
     stub_out = await _tool_dispatch_subagent(
@@ -238,7 +242,7 @@ async def test_restarted_ledger_does_not_redispatch(
         )
     assert cancel.calls == 1
 
-    restarted = Ledger(store=SqliteTicketStore(db))
+    restarted = Ledger(store=db)
     try:
         stub_rec = restarted.find_trigger("user-1:stub-keep")
         drop_rec = restarted.find_trigger("user-1:drop-keep")
@@ -250,7 +254,7 @@ async def test_restarted_ledger_does_not_redispatch(
     finally:
         restarted.close()
 
-    reset_for_test(SqliteTicketStore(db))
+    reset_for_test(db)
     again = _RecordingOrchestrator()
     monkeypatch.setattr("app.services.mcp_server._get_orchestrator", lambda: again)
     replay = await _tool_dispatch_subagent(
