@@ -3,7 +3,7 @@
   "identifier": "com.ihui.desktop.dev.local",
   "build": {
     "devUrl": "http://localhost:8877",
-    "beforeDevCommand": "node ../../scripts/dev-web-8877.mjs"
+    "beforeDevCommand": "node D:/IHUI-AI/scripts/dev-web-8877.mjs"
   },
   "app": {
     "windows": [
