@@ -294,6 +294,38 @@ def test_pty_idle_flush_is_wired_in_pump_source() -> None:
     assert src.count("PTY_IDLE_FLUSH_S: Final =") == 1
 
 
+def test_line_splitter_keeps_multibyte_chars_across_feeds() -> None:
+    """一次 read 把多字节字符切成两半时不能先解码:半个「中」会变成 `�`。
+
+    pending 必须按**字节**存,整行(以单字节 `\\n` 为界)切完再解码,跨 read 的字符才拼得回来。
+    """
+    splitter = _TEST["pty_line_splitter"]()
+    payload = "中文\n".encode()
+    assert splitter.feed(payload[:2]) == []          # 半个「中」:不出替换字符、也不出半行
+    assert splitter.feed(payload[2:]) == ["中文\n"]  # 拼回来是完整一行
+
+
+def test_pipe_backend_idle_flush_hands_partial_frame(monkeypatch, tmp_path) -> None:
+    """管道后端也要"空闲即吐":子进程只写 `[PART]` 停 1.5s,此刻读端就该拿到,而不是等换行。
+
+    判别器与 PTY 那条同源:`[PART]X` 粘连出现即证明仍是纯 `readline`(整帧被压在 pending 里
+    直到子进程写下 `X\\n`)。这条把"管道侧 TUI 读不到画面"钉成机器判据。
+    """
+    monkeypatch.delenv(_TEST["PTY_REQUEST_ENV"], raising=False)
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "pipe_partial.py", _PARTIAL_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pipes", "本用例必须落在管道路径(确认没被 PTY 开关劫走)"
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        text, _ = _read_until(tid, "[PART]", timeout=8.0)
+        assert "[PART]" in text, f"管道活着却读不到任何输出(纯行切回归):{text!r}"
+        assert "[PART]X" not in text, f"片段被拼到换行之后 ⇒ 管道侧未做空闲即吐:{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+        term.reset_terminals()
+
+
 # ─── 闲置会话回收(TTL):默认关闭;启用后回收必须点名,且不误杀活跃会话 ───
 
 
