@@ -239,7 +239,7 @@ async def test_exec_policy_gate_approved_skips_second_popup(
     set_security_config(exec_policy_mode="enforce")
     approval_calls: list[str] = []
 
-    async def fake_approval(tc: ToolCall) -> None:
+    async def fake_approval(tc: ToolCall, *, auto_review=None) -> None:
         approval_calls.append(tc.name)
         return None
 
