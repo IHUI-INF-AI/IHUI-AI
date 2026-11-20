@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **36 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **37 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（36 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（37 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -486,6 +486,14 @@
 - 超越轴：对照程序的子代理钩子只有"通知"语义；本仓把注入与观察分成两面、三条腿（单/并行/后台）共用同一出口，并显式钉住"注入不得污染缓存前缀"这条在本仓特有的约束。
 
 验证：`pytest test_subagent_hooks.py` → `5 passed`（事件映射 / 单路注入进正文且 stop 收到定型结果 / 并行逐任务各点一次 / 钩子抛错不改派发结果 / 零钩子正文逐字不变）；回归 `test_dispatch_subagent / test_dispatch_subagent_orchestration / test_dispatch_subagent_tool_surface / test_d08_subagent_handoff / test_subagent_resident_lease / test_chat_dispatch_admission / test_subagent_jobs` → `98 passed`；`ruff check` 全过；`mypy --strict`（含 `mcp_server.py` 本体）`Success: no issues found`。
+### 5.38 第 37 项：子代理钩子接入 `hook.run` 观察通道
+
+- 缺口：第 36 项把 `subagent_start/stop` 挂进派发链后，钩子会跑了，但**结果看不见** —— 前 12 个挂载点都把逐钩子结果发 `hook.run` SSE（面板可判"哪个钩子拦了/超时了"），唯独子代理派发面这条腿只在服务端日志里留一行。同一个能力两种可见度，排障时会误判成"钩子没跑"。
+- 处置：`_run_subagent_hooks()` 在拿到 `HookOutcome` 后，复用 `hook_engine.publish_observation("hook.run", {...})`（与 `agent_loop_v2._emit_hook_run_event` 同一通道、同一纪律：**刻意不进 `HOOK_EVENTS`**，否则每跑一枚钩子再点火用户钩子形成自激）；载荷带 `session_id / run_id / tool_name=orchestrate_agents / hooks`，空表不发，下行失败只 warning。
+- 语义边界：这是**观察面**，不下发、不改写任何派发结果；`session_id` 必带（agents.py 的转发按 session_id 过滤，不带键的帧会被属主过滤 fail-closed 丢掉，且丢得无声）。
+- 超越轴：对照程序的钩子观测按"钩子自身"聚；本仓把子代理钩子并进**同一运行时间线**（与工具面钩子同形字段），"钩子失败"和"子代理失败"不再各看一处。
+
+验证：`pytest test_subagent_hooks.py` → `6 passed`（新增"子代理钩子结果必须出现在 hook.run 且带 session_id"1 例）；`ruff check` 全过；`mypy --strict`（`mcp_server.py`）`Success: no issues found`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
