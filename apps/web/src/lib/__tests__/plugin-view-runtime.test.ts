@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
+import { MODEL_CONTENT_SANDBOX } from '@ihui/ui-react'
 import {
   PLUGIN_VIEW_SANDBOX,
   hostInitMessage,
@@ -71,6 +72,11 @@ describe('插件视图 manifest 校验', () => {
 })
 
 describe('沙箱桥', () => {
+  it('PLUGIN_VIEW_SANDBOX 绑定 ui-react 唯一档常量(不是第二份字面量)', () => {
+    // 反证:本常量若被改回手写字面量,这条会先红 —— 档只能有一份
+    expect(PLUGIN_VIEW_SANDBOX).toBe(MODEL_CONTENT_SANDBOX)
+  })
+
   it('iframePropsFor 恒给 allow-scripts 断源 sandbox(核心安全铁律)', () => {
     const m = validatePluginViewManifest({ id: 'a', title: 'A', html: '<p>1</p>' }).manifest!
     const props = iframePropsFor(m)

@@ -86,7 +86,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（20 项，含验证证据）
+## 5. 本次落地（20 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -292,6 +292,17 @@
 
 验证：`pytest apps/ai-service/tests/test_agent_teams.py` → `30 passed`（新增 5 例：单层直通 / 超预算自动再切一层 / env 压到 1 时两片整次拒绝 / 空片 `skipped=no_chunks` / 端点契约 `code=400` 与 `code=0` 两条）；`pytest apps/ai-service/tests/test_dispatch_subagent_orchestration.py` → `33 passed`（新增 5 例：schema 广告三参 / 端到端走既有 `invoke_parallel` / 缺 chunks 拒绝 / recursive 拒绝 agents 与布尔 depth / chunks 在 team 被显式拒绝 / 预算同源拒绝且一次都不派发）；`mypy --strict`（mcp_server + agent_teams + tool_timeout_policy）→ `Success: no issues found in 3 source files`。
 
+### 5.21 加固：iframe 沙箱档的单一真相源（并入既有常量，不另造第二份）
+
+- 事实：HTML 类产物预览本仓早已具备（图表 `.html` 走签名 URL `<iframe>`（`tool-call-card.tsx` 的 `ChartArtifactBlock`）、聊天内联 HTML 走 `srcDoc` 沙箱（`artifact-canvas.tsx`）），**功能不缺**；缺的是"档"的唯一性 —— `apps/web/src/lib/plugin-view-runtime.ts` 里另有一份 `PLUGIN_VIEW_SANDBOX = 'allow-scripts'` 字面量，与 `packages/ui-react/src/components/webview-frame.tsx` 的 `MODEL_CONTENT_SANDBOX` 同值两份写。
+- 处置（按"谁也不许再编一套"）：
+  - `packages/ui-react/src/index.ts` 补导出 `MODEL_CONTENT_SANDBOX` / `STRICT_SANDBOX`（常量早就存在，只是入口不可达；web 侧此前"引不到档常量"是审计测试文件头自己写下的原因）。
+  - `PLUGIN_VIEW_SANDBOX` 改为**绑定**该常量（`= MODEL_CONTENT_SANDBOX`），不再写字面量；文件头那句"禁止各处手写字符串"从此对所有消费方成立。
+  - 四处 `sandbox="allow-scripts"` 字面量**刻意保留**：`apps/web/tests/iframe-sandbox-declaration.test.tsx` 的源码审计只认标签内的字面量，并要求每一处宽档带 `iframe-sandbox-relax: <原因>`；改成 `sandbox={表达式}` 会让这四处从审计里消失（判据失明比重复更贵），而字面量本身已被那把尺子逐字对账到同一份常量，漂移照样红。
+- 超越轴：不是"再补一个预览组件"，而是把"档只能有一份"变成**可判定**的：新增用例断言 `PLUGIN_VIEW_SANDBOX === MODEL_CONTENT_SANDBOX`（谁把它改回手写字面量就先红）。
+
+验证：`vitest run src/lib/__tests__/plugin-view-runtime.test.ts tests/iframe-sandbox-declaration.test.tsx` → `2 files / 22 passed`；`pnpm turbo typecheck --filter=@ihui/ui-react --filter=@ihui/web` → `9 successful, 9 total`（含 `@ihui/ui-react:build` 重建 dist）。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -300,7 +311,7 @@
 2. **三级阈值 + cycle restart** → 已有等价（`app/core/context_compaction.py` 的 `assess_context_pressure` + `_build_structured_summary`、`compaction_retention.py` / `compaction_quality.py` / `compaction_canary.py`、`CompactionBoundaryItem`）；"交接"这层本轮补齐为可导出产物（§5.15）。
 3. **BM25 / 混合检索** → 已有等价且更强：`mcp_server.py` 的 `search_codebase` 已是 pgvector + BM25 的 RRF 混合通道（注释 `:1707`）。纯 BM25 再写一份会在离线/在线两态给出两套排序。
 4. **前缀缓存统计** → 统计早已有（`cost_ledger.py:510` 段 `total_cached_tokens / cache_creation_tokens / cache_hit_count` + `model_pricing.py` 三段计价 + `rollout_budget.py` 归一）；本轮把"读数"装成会话级一等端点（§5.16），只剩前端图形化看板属产品形态。
-5. **MCP apps 宿主 UI** → 后端挂载（§5.13）+ 卡片外链（§5.17）+ 卡片内嵌分页预览（§5.18）三件齐备，"点开看到完整输出"这条链路已闭环；剩下的只是要不要给 HTML 类产物加 iframe 沙盒卡片这一产品形态选择，不再有功能缺件。
+5. **MCP apps 宿主 UI** → 后端挂载（§5.13）+ 卡片外链（§5.17）+ 卡片内嵌分页预览（§5.18）三件齐备，"点开看到完整输出"这条链路已闭环；HTML 类产物预览既有实现（图表 iframe / 聊天 srcDoc），本轮只把沙箱档收口成一份（§5.21），不再有功能缺件。
 6. **RLM（递归分解）** → 原判"低 ROI、不做"已撤回：按"借鉴整合、不另造"的口径并入 `TeamOrchestrator.run_recursive`（§5.20），复用并行分发/聚合/摘要三条既有链路，节点预算与子代理并发闸同源。至此 §4 矩阵中对照件的能力项**全部有落点**，无"已知缺口未补"。
 
 ## 7. Limitations（如实记录，不作安全结论）
