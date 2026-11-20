@@ -804,7 +804,7 @@ export function __setImageTaskRedisForTest(redis: Redis | null): void {
 export function resolveVideoVendorRoute(
   vendor: string | undefined,
   input: Record<string, unknown>,
-): { path: string; body: Record<string, unknown> } {
+): { path: string; body: Record<string, unknown>; reject?: string } {
   const v = (vendor ?? 'sora2').trim().toLowerCase()
   const body: Record<string, unknown> = { ...input }
   // 三个厂商把 image 改名(先取出值再删键 —— 原写法读的是 handler 的局部变量)
@@ -850,7 +850,17 @@ export function resolveVideoVendorRoute(
     // 顶层 duration 上游不认(2.5 系列输出时长由 num_frames/frame_rate 决定)⇒ 不透传,定价按 'call'。
     path = '/api/ai/agnes/video'
     delete body.duration
-  } else path = '/api/ai/sora2/generate'
+  } else {
+    // Sora 通道已停服(2026-11-21 现读 OpenAI 官方公告:Sora 网页版/App 2026-04-26 停服、
+    // Sora API 2026-09-24 停服)。此前这里静默落到 `/api/ai/sora2/generate`:
+    // 提交能返回 taskId、按次照扣费,但任务永远查不到结果 —— 计费与出片两头都对不上,
+    // 且账面全绿。现在改成显式拒绝,让"这个厂商没接通"在提交那一刻就可见。
+    return {
+      path: '',
+      body: {},
+      reject: `视频厂商「${vendor ?? '(未指定)'}」未接通:默认兜底通道 Sora 已于 2026-09-24 停服`,
+    }
+  }
   return { path, body }
 }
 
@@ -1858,6 +1868,8 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       if (duration) seedBody.duration = duration
       // vendor → path + 字段适配的唯一实现见 resolveVideoVendorRoute(模块级导出,可测)
       const route = resolveVideoVendorRoute(vendor, seedBody)
+      // 未接通/已停服的厂商在提交时就拒绝,绝不落到死通道再扣费(见 resolve 注释)
+      if (route.reject) return reply.status(400).send(error(400, route.reject))
       const path = route.path
       const body = route.body
       // 视频计费(2026-09-13):提交成功即按次/按秒扣费(乐观计费防漏损),

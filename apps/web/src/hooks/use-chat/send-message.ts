@@ -149,6 +149,8 @@ import {
   tryHandleToolSlash,
 } from './slash-commands'
 import { persistMessageSafe, persistQuestionSafe } from './persistence'
+// 2026-11-21 立:选中图像/视频档时改走生成端点(见 media-model-send.ts 头注)
+import { handleMediaModelSend, mediaKindOfModel } from './media-model-send'
 // 2026-11-08 立:SSE `question-resolved` 结算帧解析与落地(按 questionId 匹配清挂起态)
 import { applyQuestionResolvedEvent, parseQuestionResolvedPayload } from './question-resolved'
 // Runtime 插话能力声明落库口(帧载荷 → store;D69 runtimeSupportsInterjection 的数据源)
@@ -167,7 +169,10 @@ function resolveDeeplinkTarget(
 ): string {
   const sp = new URLSearchParams(window.location.search)
   sp.set('conversationId', conversationId)
-  const path = opts?.stayOnPage === true ? window.location.pathname : chatDeeplinkPath(window.location.pathname)
+  const path =
+    opts?.stayOnPage === true
+      ? window.location.pathname
+      : chatDeeplinkPath(window.location.pathname)
   return `${path}?${sp.toString()}`
 }
 
@@ -570,6 +575,46 @@ export function createSendMessage(
         scroll: false,
       })
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+    }
+
+    // 2026-11-21 立:选中的是图像/视频档 ⇒ 走生成端点,不把模态模型送进 /chat/completions
+    // (上游按对话协议收画图/出片模型必然 400,用户看到的就是"列表里能选、发出去不出东西")。
+    // 分流放在会话已解析之后,user/assistant 两条都能落库;重新生成模式/版本族重跑不接管
+    // (历史里没有可再生的模态轮次)。在途锁保持到生成结束,避免 40s 出图期间连发两条。
+    if (!isRegenerate && !version) {
+      const mediaModel = chatStore.getState().currentModel
+      const mediaKind = mediaKindOfModel(mediaModel)
+      if (mediaKind) {
+        const perm = useAiPanelStore.getState()
+        try {
+          return await handleMediaModelSend({
+            text,
+            model: mediaModel,
+            kind: mediaKind,
+            permissionMode: perm.activeWorkspace?.mode ?? perm.pendingPermissionMode ?? undefined,
+            deps: {
+              addMessage: (msg) => chatStore.getState().addMessage(msg),
+              updateToolCall: (mid, tcid, updates) =>
+                chatStore.getState().updateToolCall(mid, tcid, updates),
+              persist: (c, role) => {
+                if (conversationId) {
+                  void persistMessageSafe(
+                    conversationId,
+                    c,
+                    role,
+                    undefined,
+                    undefined,
+                    undefined,
+                    chatStore,
+                  )
+                }
+              },
+            },
+          })
+        } finally {
+          sendInFlightRef.current = false
+        }
+      }
     }
 
     // 1.5「已 accepted 未投影」准入判定(G-816008 接线,2026-10-29)

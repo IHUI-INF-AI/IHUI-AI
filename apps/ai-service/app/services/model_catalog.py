@@ -190,7 +190,10 @@ _CATEGORY_RULES: tuple[tuple[ModelCategory, str], ...] = (
     (
         ModelCategory.VIDEO,
         r"sora|kling|wan2|wan-|text-to-video|video-gen|hunyuan-video|seedance|"
-        r"video-generation|ltx-video|cogvideo",
+        # `-video` / `-video-` 泛化(2026-11-21 立):Agnes 这类上游把视频档直接命名成
+        # `agnes-video-2.5-flash`,既不含 video-gen 也不含 seedance ⇒ 原先落到兜底 chat,
+        # 在选择器里被当成对话模型。图像侧早有同形规则(`-image(?:$|-)`),视频侧补齐。
+        r"video-generation|ltx-video|cogvideo|-video(?:$|[-_])",
     ),
     (ModelCategory.GUARD, r"guard|safety|moderation|shield|llama-?guard"),
     (ModelCategory.OCR, r"ocr|paddle-?ocr|dots-?ocr"),
@@ -506,6 +509,14 @@ def _extract_family_and_version(name: str) -> tuple[str, str | None]:
     if len(parts) > 1:
         if tail and tail[0] in ("b", "m", "k", "t") or _RE_PARAM_SCALE_JOIN.match(f"{parts[-1]}{tail}"):
             version = ".".join(parts[:-1])
+    # 紧凑版本写法归一(2026-11-21 立):Cursor 上游把 deepseek-v4.1 挂成
+    # `deepseek-v41-flash`,`_RE_VERSION` 抓到 "41" 后按字面比较就成了第 41 代 ——
+    # 第二趟把同一家族里所有 4.x(含真正的 v4.1)判成 "旧代",实测导致
+    # 4.1 / 4-pro 全族在选择器里消失(用户侧表现成"最新版被筛掉")。
+    # 只在家族名以 `v` 结尾且版本是两位以上纯数字时还原成 `4.1`;
+    # 单位数(`deepseek-v4`)与带点号(`deepseek-v4.1`)写法不受影响。
+    if version.isdigit() and len(version) >= 2 and head.lower().endswith("v"):
+        version = f"{version[0]}.{version[1:]}"
     return (head, version)
 
 
