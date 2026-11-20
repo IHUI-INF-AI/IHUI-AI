@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import {
   isTauri,
   checkForUpdates,
@@ -48,6 +49,41 @@ const INITIAL_STATE: UpdaterState = {
 
 /** 静默检查延迟(启动后 5 秒,避免与初始化竞争资源)。 */
 const SILENT_CHECK_DELAY_MS = 5000
+
+/**
+ * 启动静默检查失败后的退避重试间隔(毫秒):30s / 2min / 10min,三次封顶(含首检共 4 次)。
+ * 2026-11-20 立:此前首检失败即彻底放弃,要等桌面端 Rust 侧下一个整点小时才可能重试 ——
+ * 启动瞬间网络/代理未就绪、后端刚发布这类瞬时失败于是表现为「自动更新永远失败」。
+ */
+const SILENT_RETRY_DELAYS_MS: readonly number[] = [30_000, 120_000, 600_000]
+
+/** 静默检查失败的现场留痕键(仅本机 localStorage,不上报、不弹窗)。 */
+const LAST_UPDATE_ERROR_KEY = 'ihui:last-update-error'
+
+/**
+ * 记一条静默检查失败留痕。
+ * 立因(2026-11-20):静默失败原先只把 state 置回 idle,既不落盘也不打日志,导致
+ * 「更新链故障」与「已是最新」在事后取证时完全不可区分。这里只做留痕,不改交互。
+ */
+function recordSilentUpdateFailure(message: string): void {
+  try {
+    localStorage.setItem(
+      LAST_UPDATE_ERROR_KEY,
+      JSON.stringify({ at: new Date().toISOString(), message: message.slice(0, 400) }),
+    )
+  } catch {
+    // 隐私模式 / 配额满:留痕尽力而为,绝不让它反过来影响检查链路
+  }
+  console.warn('[updater] 启动静默检查失败:', message)
+  // 2026-11-20:同时落到应用日志。tauri_plugin_log 已注册、log:default 在本能力面,
+  // 于是失败可以直接在 %LOCALAPPDATA%\com.ihui.desktop\logs\ihui-desktop.log 取证 ——
+  // 此前只能靠「零 DNS / 零 TCP」这类间接推断,永远拿不到原始错误串。
+  // 非 Tauri / 权限缺失时静默退化,绝不影响检查链路本身。
+  void invoke('plugin:log|log', {
+    level: 'Warn',
+    message: `[updater] 启动静默检查失败: ${message.slice(0, 400)}`,
+  }).catch(() => {})
+}
 
 /** 安装完成后的自动重启倒计时(秒)。默认 60 秒,用户可在倒计时内选择"稍后重启"或"立即重启"。 */
 export const RESTART_COUNTDOWN_SECONDS = 60
@@ -257,7 +293,7 @@ export function useUpdater() {
 
   /** 检查更新。silent=true 时不显示 error(静默启动检查)。autoInstall=true 时发现更新后自动下载安装。 */
   const checkForUpdate = React.useCallback(
-    async (silent = false, autoInstall = false) => {
+    async (silent = false, autoInstall = false): Promise<boolean> => {
       // G-698:发起检查先领取自增 checkGeneration —— 本函数之后所有异步分支
       // (检查结果/无更新/失败)只在「仍是当前世代」时才允许写 state。
       const checkGeneration = ++checkGenerationRef.current
@@ -271,10 +307,10 @@ export function useUpdater() {
             !mountedRef.current ||
             isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
           )
-            return
+            return true
           setAvailableUpdateSession(null)
           setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
-          return
+          return true
         }
         setState({ ...INITIAL_STATE, status: 'checking' })
         await new Promise((r) => setTimeout(r, 800))
@@ -282,7 +318,7 @@ export function useUpdater() {
           !mountedRef.current ||
           isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
         )
-          return
+          return true
         const mockSession = createMockSession()
         if (autoInstall) {
           // 自动安装:跳过 available 状态,直接进入下载
@@ -292,10 +328,10 @@ export function useUpdater() {
           setAvailableUpdateSession(mockSession)
           setState({ ...INITIAL_STATE, status: 'available', session: mockSession })
         }
-        return
+        return true
       }
 
-      if (!isTauri()) return
+      if (!isTauri()) return true
       setState({ ...INITIAL_STATE, status: 'checking' })
       // 2026-09-21 根治"托盘检查更新点了没反应":bridge 改为失败上抛(区分失败与无更新),
       // 此处分别给出反馈——失败→error(非静默)/静默回 idle;无更新→up-to-date(非静默,弹窗提示)/静默回 idle。
@@ -308,13 +344,17 @@ export function useUpdater() {
           !mountedRef.current ||
           isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
         )
-          return
+          return true
+        const message = e instanceof Error ? e.message : 'check_failed'
+        // 2026-11-20:静默失败不再纯吞 —— 不弹窗,但必须留痕(见 recordSilentUpdateFailure),
+        // 否则「更新链故障」与「已是最新」在事后取证时完全不可区分。
+        if (silent) recordSilentUpdateFailure(message)
         setState({
           ...INITIAL_STATE,
           status: silent ? 'idle' : 'error',
-          error: silent ? null : e instanceof Error ? e.message : 'check_failed',
+          error: silent ? null : message,
         })
-        return
+        return false
       }
       // G-698:检查结果只接受当前世代 —— await 期间若另一条链(托盘检查/重试)
       // 已发起新检查,本次即成旧世代,迟到结果(含"无更新"与"发现新版")丢弃。
@@ -322,12 +362,12 @@ export function useUpdater() {
         !mountedRef.current ||
         isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
       )
-        return
+        return true
       if (!session) {
         // 已是最新
         setAvailableUpdateSession(null)
         setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
-        return
+        return true
       }
       if (autoInstall) {
         // 自动安装:跳过 available 状态,直接进入下载
@@ -341,6 +381,7 @@ export function useUpdater() {
           session,
         })
       }
+      return true
     },
     [startDownload],
   )
@@ -377,10 +418,25 @@ export function useUpdater() {
     // 2026-10-15:桌面 dev 壳不跑启动静默检查/自动安装。上面 `?dev-update=1` 那条是**显式**试验
     // 通道,不受本判据限制;托盘「检查更新」这类人工触发同样照常(判据只挡"自动")。
     if (isDesktopDevShell()) return
-    const timer = setTimeout(() => {
-      void checkForUpdate(true, true)
-    }, SILENT_CHECK_DELAY_MS)
-    return () => clearTimeout(timer)
+    // 2026-11-20 根治「自动更新失败且无声」:首检失败不再一路静默到桌面端下一个整点小时,
+    // 而是按 SILENT_RETRY_DELAYS_MS 退避重试(30s→2min→10min)。启动瞬间网络/代理未就绪、
+    // 后端刚发布这类瞬时失败由此自愈;四次仍失败则已留痕,可现场取证。
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const schedule = (attempt: number, delay: number) => {
+      timer = setTimeout(() => {
+        void (async () => {
+          const ok = await checkForUpdate(true, true)
+          if (cancelled || ok || attempt >= SILENT_RETRY_DELAYS_MS.length) return
+          schedule(attempt + 1, SILENT_RETRY_DELAYS_MS[attempt] ?? 600_000)
+        })()
+      }, delay)
+    }
+    schedule(0, SILENT_CHECK_DELAY_MS)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
   }, [checkForUpdate])
 
   // 2026-09-01 修复"检查更新一直转圈"(第二层兜底):
