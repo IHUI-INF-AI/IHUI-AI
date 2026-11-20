@@ -12,7 +12,40 @@
  * 真实触发路径:让 AI 导航一次,回到聊天页看历史 tool call 即复现。
  */
 import { describe, it, expect } from 'vitest'
-import { deriveDiffInfo } from '@/components/ai/tool-call-card'
+import { deriveDiffInfo, extractToolArtifact } from '@/components/ai/tool-call-card'
+
+describe('extractToolArtifact - 工件指针只认严格形状', () => {
+  const ID = '0123456789abcdef0123456789abcdef'
+
+  it('对象形态:命中 artifactId 并带 originalChars', () => {
+    expect(extractToolArtifact({ artifactId: ID, originalChars: 20480 })).toEqual({
+      artifactId: ID,
+      originalChars: 20480,
+    })
+  })
+
+  it('字符串形态:JSON 文本同样解析', () => {
+    expect(extractToolArtifact(JSON.stringify({ artifactId: ID }))).toEqual({
+      artifactId: ID,
+      originalChars: undefined,
+    })
+  })
+
+  it('形状不符一律 null(不做拼接式猜测)', () => {
+    expect(extractToolArtifact(undefined)).toBeNull()
+    expect(extractToolArtifact('not-json')).toBeNull()
+    expect(extractToolArtifact({ artifactId: 'zzzz' })).toBeNull()
+    expect(extractToolArtifact({ artifactId: ID.toUpperCase() })).toBeNull()
+    expect(extractToolArtifact([{ artifactId: ID }])).toBeNull()
+  })
+
+  it('originalChars 非正数时降级为 undefined', () => {
+    expect(extractToolArtifact({ artifactId: ID, originalChars: 0 })?.originalChars).toBeUndefined()
+    expect(
+      extractToolArtifact({ artifactId: ID, originalChars: -1 })?.originalChars,
+    ).toBeUndefined()
+  })
+})
 
 describe('deriveDiffInfo - args 缺失必须兜底', () => {
   it('无参工具的 args 为 undefined 时不抛错,返回 null', () => {

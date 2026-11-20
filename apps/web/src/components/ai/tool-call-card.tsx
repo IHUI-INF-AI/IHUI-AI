@@ -353,6 +353,92 @@ function extractChartArtifact(
   return { filePath: filePath.trim(), fileName, relativePath }
 }
 
+/** 提取工具输出工件指针(2026-11-20,对标 WorkBuddy 的 artifact 挂载面)。
+ *
+ *  后端 `tool_output_artifacts.maybe_spill_tool_output` 在输出被裁剪时把完整正文落为
+ *  工件,并在 result 里带 `artifactId`(32 位小写 hex)与 `originalChars`。前端据此
+ *  按需换一条 10 分钟签名链接,让"模型只看到头尾"的输出仍可被人完整查看。
+ *  形状不符一律返回 null —— 不猜、不拼路径(工件 id 命中不了就当作没有)。 */
+export function extractToolArtifact(
+  result: unknown,
+): { artifactId: string; originalChars?: number } | null {
+  let data: unknown = result
+  if (typeof result === 'string') {
+    try {
+      data = JSON.parse(result)
+    } catch {
+      return null
+    }
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  const obj = data as Record<string, unknown>
+  const id = obj.artifactId
+  if (typeof id !== 'string' || !/^[0-9a-f]{32}$/.test(id)) return null
+  const rawChars = obj.originalChars
+  return {
+    artifactId: id,
+    originalChars: typeof rawChars === 'number' && rawChars > 0 ? rawChars : undefined,
+  }
+}
+
+/** 工具输出工件挂载块:完整输出按需查看(点击时才换 token,不做逐卡预取)。
+ *
+ *  取链接失败(未登录 / 已过期 / 工件被清)统一降级为"打开失败",不静默当成功;
+ *  链接带 noopener/noreferrer 新窗口打开,避免工件页拿到本站 window.opener。 */
+function ToolArtifactMountBlock({
+  artifactId,
+  originalChars,
+}: {
+  artifactId: string
+  originalChars?: number
+}) {
+  const t = useTranslations('ai.toolCall')
+  const [state, setState] = React.useState<'idle' | 'loading' | 'failed'>('idle')
+
+  const handleOpen = React.useCallback(() => {
+    setState('loading')
+    void fetchApi<{ token: string; url: string; expires_in: number }>(
+      `/api/artifacts/tool/token?artifact_id=${encodeURIComponent(artifactId)}`,
+    ).then((res) => {
+      if (res.success && res.data?.url) {
+        setState('idle')
+        window.open(res.data.url, '_blank', 'noopener,noreferrer')
+        return
+      }
+      setState('failed')
+    })
+  }, [artifactId])
+
+  return (
+    <div className="rounded-sm border border-stroke-subtle bg-muted/20 px-2 py-1.5">
+      <div className="flex items-center gap-1.5">
+        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="text-[10px] font-medium text-muted-foreground">
+          {t('toolOutputArtifact')}
+          {originalChars ? ` · ${originalChars} chars` : ''}
+        </span>
+        <button
+          type="button"
+          data-testid="tool-artifact-open"
+          disabled={state === 'loading'}
+          onClick={handleOpen}
+          className="ml-auto inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+        >
+          {state === 'loading' ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <ExternalLink className="h-3 w-3" />
+          )}
+          {t('toolOutputOpen')}
+        </button>
+      </div>
+      <p className="mt-0.5 pl-5 text-[10px] text-muted-foreground/70">
+        {state === 'failed' ? t('toolOutputOpenFailed') : t('toolOutputHint')}
+      </p>
+    </div>
+  )
+}
+
 /** W13(2026-09-13 立):从引用文本中提取首个 http(s) URL。
  *  knowledge_lookup 等后端 citations 是纯字符串(如 "知识卡片: 标题 https://..."),
  *  提取后该条渲染为可点击外链(target=_blank + rel),无 URL 时维持纯文本 chip。 */
@@ -1562,6 +1648,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // 不依赖 toolName 判断,纯字段驱动,保证任何携带 citations/file_path 的工具都兼容
   const citations = React.useMemo(() => extractCitations(result), [result])
   const chartArtifact = React.useMemo(() => extractChartArtifact(result), [result])
+  // 工具输出工件:大输出被裁剪时后端带 artifactId,渲染"查看完整输出"挂载块
+  const toolArtifact = React.useMemo(() => extractToolArtifact(result), [result])
   // 图表 Artifact 命中时替代原始 result pre 渲染(与 image/summary 处理方式一致)
   const showChartArtifact = !!chartArtifact && status === 'success'
   // 2026-11-14(遵循统一工程规范):present_files 成功且解析出条目时,用交付清单替代原始 JSON。
@@ -1766,6 +1854,13 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                 )}
                 {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
                 {citations.length > 0 && <CitationsBlock citations={citations} />}
+                {/* 工具输出工件:result 带 artifactId 时给"查看完整输出"入口(10 分钟有效期) */}
+                {toolArtifact && status === 'success' && (
+                  <ToolArtifactMountBlock
+                    artifactId={toolArtifact.artifactId}
+                    originalChars={toolArtifact.originalChars}
+                  />
+                )}
                 {/* 图表 Artifact:generate_chart 等返回本地 .html 时渲染产物卡片 */}
                 {showChartArtifact && chartArtifact ? (
                   <ChartArtifactBlock
