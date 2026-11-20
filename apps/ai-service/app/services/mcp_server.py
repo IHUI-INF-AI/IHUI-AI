@@ -9552,6 +9552,27 @@ from ..tools import (  # noqa: E402
     special_deduction_calc as _special_deduction_calc,
 )
 
+# 人事部 AI 工具(2026-11-21 实装):员工自助 4 枚 + 月度算薪 1 枚。
+# 自助四枚只走本人作用域端点(/mine*、/my-*),身份票主体 = 宿主注入的 __user_id;
+# hr_payroll_calc 是管理侧算薪,权限 hr:payroll:manage 由 apps/api RBAC 逐请求现问
+# (与 ai_payroll_handoff 同口径,不入 _ADMIN_ONLY_TOOLS:对话链 user_role 默认 0,
+# 入档等于把管理员也挡在门外,见 image_generation 的历史结论)。
+from ..tools import (  # noqa: E402
+    hr_my_attendance as _hr_my_attendance,
+)
+from ..tools import (  # noqa: E402
+    hr_my_leaves as _hr_my_leaves,
+)
+from ..tools import (  # noqa: E402
+    hr_my_payroll as _hr_my_payroll,
+)
+from ..tools import (  # noqa: E402
+    hr_my_payroll_periods as _hr_my_payroll_periods,
+)
+from ..tools import (  # noqa: E402
+    hr_payroll_calc as _hr_payroll_calc,
+)
+
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
@@ -9561,6 +9582,15 @@ from ..tools.finance_tools import (  # noqa: E402
 # 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
 from ..tools.payroll_handoff_tools import (  # noqa: E402
     PAYROLL_HANDOFF_DESCRIPTION,
+)
+
+# 人事部自助/算薪描述常量(2026-11-21 实装):文案单源在 hr_tools
+from ..tools.hr_tools import (  # noqa: E402
+    HR_MY_ATTENDANCE_DESCRIPTION,
+    HR_MY_LEAVES_DESCRIPTION,
+    HR_MY_PAYROLL_DESCRIPTION,
+    HR_MY_PAYROLL_PERIODS_DESCRIPTION,
+    HR_PAYROLL_CALC_DESCRIPTION,
 )
 
 # 财务部五腿扩展描述常量(2026-11-13):文案单源在各工具文件
@@ -16623,6 +16653,93 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 人事部自助(2026-11-21 实装):只查本人,入参里没有任何"指定他人"的字段。
+        # 身份由 call_tool 注入 __user_id,后端 /mine* 端点票面主体恒为本人。
+        name="hr_my_payroll",
+        description=HR_MY_PAYROLL_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "periodMonth": {
+                    "type": "string",
+                    "description": "工资月,格式 YYYY-MM(必填,如 2026-10)",
+                },
+            },
+            "required": ["periodMonth"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="hr_my_payroll_periods",
+        description=HR_MY_PAYROLL_PERIODS_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="hr_my_attendance",
+        description=HR_MY_ATTENDANCE_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "periodMonth": {
+                    "type": "string",
+                    "description": "月份 YYYY-MM(传则返回该月月结汇总;不传返回最近考勤明细)",
+                },
+                "startDate": {
+                    "type": "string",
+                    "description": "明细起始日 YYYY-MM-DD(仅不传 periodMonth 时生效)",
+                },
+                "endDate": {
+                    "type": "string",
+                    "description": "明细截止日 YYYY-MM-DD(仅不传 periodMonth 时生效)",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="hr_my_leaves",
+        description=HR_MY_LEAVES_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "description": "请假状态过滤(可选,如 pending/approved/rejected)",
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 管理侧算薪(2026-11-21):写工资单但不改审批状态、不发放;
+        # 权限由 apps/api requirePermission('hr:payroll:manage') 逐请求现问。
+        name="hr_payroll_calc",
+        description=HR_PAYROLL_CALC_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "periodMonth": {
+                    "type": "string",
+                    "description": "薪资月,格式 YYYY-MM(必填,该月考勤须已月结)",
+                },
+                "regionName": {
+                    "type": "string",
+                    "description": "参保地区名(对应社保费率配置;不传取该年首条启用配置)",
+                },
+                "overwriteApproved": {
+                    "type": "boolean",
+                    "description": "是否覆盖已审批周期(默认 false,财务审过的账不许改)",
+                },
+            },
+            "required": ["periodMonth"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         # 财务部五腿·AI 一键报销(2026-11-13 立):入参口径单源 = AI_REIMBURSEMENT_DESCRIPTION
         name="ai_reimbursement",
         description=AI_REIMBURSEMENT_DESCRIPTION,
@@ -18637,6 +18754,12 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "ai_tax_filing": _ai_tax_filing,
     # 人事部→财务部交割(2026-11-13 立):生成某月薪资的财务交割凭证
     "ai_payroll_handoff": _ai_payroll_handoff,
+    # 人事部 AI 工具(2026-11-21 实装):员工自助四枚 + 月度算薪一枚
+    "hr_my_payroll": _hr_my_payroll,
+    "hr_my_payroll_periods": _hr_my_payroll_periods,
+    "hr_my_attendance": _hr_my_attendance,
+    "hr_my_leaves": _hr_my_leaves,
+    "hr_payroll_calc": _hr_payroll_calc,
     # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加
     "ai_reimbursement": _ai_reimbursement,
     "social_insurance_calc": _social_insurance_calc,
