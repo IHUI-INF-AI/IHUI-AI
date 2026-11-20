@@ -29,9 +29,7 @@
 
 import {
   TRAE_WEB_LOGIN_URL,
-  WB_WEB_LOGIN_URL,
   checkinTraeWebLoginProbe,
-  checkinWorkbuddyWebLoginProbe,
   type DoubaoWebLoginCookie,
   type TraeWebLoginProbe,
   type WorkbuddyWebLoginProbe,
@@ -94,11 +92,24 @@ export const RELAY_WEB_LOGIN: Record<RelayWebLoginProvider, WebLoginCapable | We
       probe: async () => normalizeTraeProbe(await checkinTraeWebLoginProbe()),
     },
     workbuddy: {
-      kind: 'ipc-workbuddy',
-      providerCode: 'workbuddy',
-      loginUrl: WB_WEB_LOGIN_URL,
-      tabTitle: 'WorkBuddy 网页登录(号池重登)',
-      probe: async () => normalizeWorkbuddyProbe(await checkinWorkbuddyWebLoginProbe()),
+      kind: 'none',
+      /*
+       * F-060(在册,P3):会话 Cookie 整串经 IPC 回传前端是缺陷本体的**上游**——
+       * 只要 Rust 的 `WebLoginProbe::Ok` 还带 `cookie` 字段(checkin_web_login.rs:225/297/324),
+       * 前端拿到它再入池,就等于把凭据在 JS 侧多留一份,线上一处 XSS 即可取走。
+       * 2026-11-12 的裁决是「cookie 不出 Rust,入库改 Rust 现读 jar 直投后端」;
+       * 2026-11-14 只做了单侧复位(Rust 又回传 cookie)⇒ 本条目按当时的裁决降 none,
+       * **不冒认半截链**:池内 token 此刻无源,一键重登不做,如实给出行得通的出路。
+       *
+       * 收口条件(前后端必须同批,缺一即写出空 jwt):Rust 删 Ok.cookie 字段 +
+       * 签到页 jar 路径改 invoke `checkin_workbuddy_web_import`(该命令已在 Rust 侧注册)。
+       * 收口后本条目应换成 ipc-workbuddy 并恢复 WB_WEB_LOGIN_URL 与探针。
+       */
+      reason:
+        'F-060:cookie 经 IPC 回传前端后入池,凭据在 JS 侧多留一份(线上一处 XSS 即可取走),' +
+        '按 F-060 裁决降 none —— 池内 token 此刻无源,不冒认半截链。' +
+        '当下真出路:后台「导入账号」粘/拖导出 JSON,或 node scripts/relay-account-pool.mjs --file <json> --provider workbuddy' +
+        '。收口需 Rust 删 WebLoginProbe::Ok.cookie 与签到页 jar 直投同批改。',
     },
     qoder: {
       kind: 'none',

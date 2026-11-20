@@ -28,7 +28,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { segmentFilePathInside } from '../util/path-guard.js';
-import type { TurnPhase, TurnRecord, WakeCondition } from './turn-lifecycle.js';
+import { isWakeable, type TurnPhase, type TurnRecord, type WakeCondition } from './turn-lifecycle.js';
+import { parseCron } from './cron.js';
 
 /** 目标态。目标是一等实体,不是散在对话里的一句话。 */
 export interface GoalRecord {
@@ -178,8 +179,7 @@ export function listWakeableTurns(now: number): { sessionId: string; turn: TurnR
     const raw = readJson<RuntimeFile>(path.join(dir, name));
     if (!raw || raw.version !== RUNTIME_VERSION) continue;
     for (const t of raw.turns) {
-      if (t.phase !== 'parked' || !t.wake) continue;
-      if (t.wake.notBefore !== undefined && t.wake.notBefore <= now) {
+      if (isWakeable(t, now)) {
         out.push({ sessionId: raw.sessionId, turn: t });
       }
     }
@@ -191,11 +191,15 @@ export function listWakeableTurns(now: number): { sessionId: string; turn: TurnR
 export function parkUntil(params: {
   reason: WakeCondition['reason'];
   notBefore?: number;
+  cron?: string;
   note?: string;
 }): WakeCondition {
+  // 构造期校验 cron:非法表达式不落一个永远醒不来的挂起(与 isWakeable 的"不醒"失效方向配套)
+  if (params.cron !== undefined) parseCron(params.cron);
   return {
     reason: params.reason,
     ...(params.notBefore === undefined ? {} : { notBefore: params.notBefore }),
+    ...(params.cron === undefined ? {} : { cron: params.cron }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 }

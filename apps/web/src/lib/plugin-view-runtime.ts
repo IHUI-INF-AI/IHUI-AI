@@ -23,12 +23,18 @@
  * - manifest 校验 `validatePluginViewManifest` 是唯一入口,产 `PluginViewManifest`。
  */
 
+import { MODEL_CONTENT_SANDBOX } from '@ihui/ui-react'
+
 /**
  * 插件视图 iframe 的 sandbox 属性。
  * 只给 `allow-scripts`:iframe 内容能跑脚本但**非同源**,读不到
  * window.parent.document / localStorage / 会话 cookie(同设计器预览铁律)。
+ *
+ * 2026-11-20:本常量不再写字面量,直接绑定 `@ihui/ui-react` 的
+ * `MODEL_CONTENT_SANDBOX` —— 档的唯一真相源在 `webview-frame.tsx`,
+ * 这里只是它的消费方(第二份 `'allow-scripts'` 字面量会随对方一改就漂)。
  */
-export const PLUGIN_VIEW_SANDBOX = 'allow-scripts'
+export const PLUGIN_VIEW_SANDBOX = MODEL_CONTENT_SANDBOX
 
 /** 插件视图与宿主通信的消息通道字面量(两侧契约,改须同批)。 */
 export const PLUGIN_VIEW_MSG = 'ihui-plugin-view' as const
