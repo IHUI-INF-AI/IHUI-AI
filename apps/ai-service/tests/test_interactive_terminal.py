@@ -364,7 +364,8 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    assert src.count("_live(terminal_id, user_id, session_id)") == 8, (
+    # 9 = send / keys / paste / eof / read / wait / signal / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 9, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -1404,6 +1405,103 @@ def test_pty_interrupt_stops_child_and_reports_delivery(monkeypatch, tmp_path) -
                 break
         assert res["running"] is False, "PTY interrupt 未送达 ⇒ 0x03 没经行规程生效"
         assert res["exit_code"] not in (0, None)
+    finally:
+        term.reset_terminals()
+
+
+# ─── 多行粘贴:bracketed paste 由程序的 DECSET 2004 驱动,不靠猜 ───
+
+_BP_SCRIPT = """\
+import sys
+sys.stdout.write("\\x1b[?2004h")
+sys.stdout.flush()
+print("[BP-ON]", flush=True)
+data = sys.stdin.read()
+sys.stdout.write("\\x1b[?2004l")
+sys.stdout.flush()
+start = data.find("\\x1b[200~")
+end = data.find("\\x1b[201~")
+print("[PASTE]bracketed=%s len=%d" % (start >= 0 and end > start, len(data)), flush=True)
+"""
+
+_PLAIN_ECHO_SCRIPT = """\
+import sys
+data = sys.stdin.read()
+print("[PLAIN]len=%d" % len(data), flush=True)
+"""
+
+
+def test_terminal_modes_tracked_from_output_only() -> None:
+    """模式位判据:`DECSET/DECRST 2004` 由输出解析驱动,且四枚常量各只一处。"""
+    on, off = _TEST["BRACKETED_PASTE_ON"], _TEST["BRACKETED_PASTE_OFF"]
+    assert on == "\x1b[?2004h" and off == "\x1b[?2004l"
+    src = _conpty_source()
+    assert src.count("BRACKETED_PASTE_ON: Final") == 1
+    assert src.count("BRACKETED_PASTE_OFF: Final") == 1
+
+
+def test_paste_wraps_only_after_program_requests_bracketed_paste(tmp_path) -> None:
+    """端到端:程序发 2004h 后 paste 被包裹;程序没发就原样写(不塞垃圾转义序列)。"""
+    term.reset_terminals()
+    try:
+        wrapped = _open(_script_path(tmp_path, "bp.py", _BP_SCRIPT), tmp_path)
+        tid = wrapped["terminal"]["terminal_id"]
+        _read_until(tid, "[BP-ON]", timeout=15.0)
+        assert term._sessions[tid].bracketed_paste is True, "DECSET 2004 未被识别"
+        pasted = term.paste_terminal(
+            tid, "line1\nline2\n", user_id="u-term", session_id="s-term"
+        )
+        assert pasted["ok"] is True and pasted["bracketed"] is True
+        assert pasted["bytes_written"] > len("line1\nline2\n")
+        assert pasted["lines"] == 3  # split 计数口径:两行 + 末尾空段
+        term.eof_terminal(tid, user_id="u-term", session_id="s-term")
+        text, _ = _read_until(tid, "[PASTE]", timeout=15.0)
+        assert "bracketed=True" in text, f"包裹没到子进程:{text!r}"
+
+        plain = _open(_script_path(tmp_path, "plain.py", _PLAIN_ECHO_SCRIPT), tmp_path)
+        ptid = plain["terminal"]["terminal_id"]
+        assert term._sessions[ptid].bracketed_paste is False
+        res = term.paste_terminal(
+            ptid, "a\nb\n", user_id="u-term", session_id="s-term"
+        )
+        assert res["ok"] is True and res["bracketed"] is False
+        assert res["bytes_written"] == len("a\nb\n")
+    finally:
+        term.reset_terminals()
+
+
+def test_paste_rejects_empty_before_touching_child(tmp_path) -> None:
+    """空内容拒(不写零字节假装成功);拒之前不碰子进程。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "p2.py", _SLEEP_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        res = term.paste_terminal(tid, "", user_id="u-term", session_id="s-term")
+        assert res["ok"] is False and res["errorCode"] == "TERMINAL_INVALID_INPUT"
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_paste_action(tmp_path, monkeypatch) -> None:
+    """工具层必须把 paste 路由进模块(落进"不支持的 action"就是没接)。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    try:
+        opened = await _tool_terminal(
+            {
+                "action": "open",
+                "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "p3.py", _PLAIN_ECHO_SCRIPT)}"',
+                "cwd": str(tmp_path),
+                **_OWNER,
+            }
+        )
+        tid = opened["terminal"]["terminal_id"]
+        res = await _tool_terminal(
+            {"action": "paste", "terminal_id": tid, "text": "x\ny\n", **_OWNER}
+        )
+        assert res["ok"] is True and res["bracketed"] is False
+        assert res["bytes_written"] == len("x\ny\n")
     finally:
         term.reset_terminals()
 

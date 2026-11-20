@@ -101,6 +101,16 @@ _MAX_MATCHED_TEXT: Final = 500
 #: 键表里的 `ctrl-c` 也取它 —— 两处必须是同一个字节,不是两份字面量。
 TTY_INTERRUPT_BYTE: Final = "\x03"
 
+#: bracketed paste(DEC 2004):程序先发 `DECSET 2004` 表示"请把整段粘贴包起来",终端侧
+#: 用 START/END 包裹后,程序不会把粘贴里的换行当成回车逐条执行(vim 的 "-- INSERT --"、
+#: readline 的整段插入都靠这一位)。四枚常量是同一机制的**单一真相源**。
+BRACKETED_PASTE_ON: Final = "\x1b[?2004h"
+BRACKETED_PASTE_OFF: Final = "\x1b[?2004l"
+BRACKETED_PASTE_START: Final = "\x1b[200~"
+BRACKETED_PASTE_END: Final = "\x1b[201~"
+#: 一次粘贴的字节上限:超过就拒(不静默截断 —— 截断的粘贴比拒绝更难查)。
+MAX_PASTE_BYTES: Final = 65_536
+
 #: 按键名 → 字节序列(**单一真相源**)。名字大小写不敏感,`-`/`_`/`+`/空格 视为同一种分隔。
 #: 立因:方向键/Esc 是转义序列、Ctrl 组合是控制码,这些用 `send` 写文本写不出来 ——
 #: REPL 补全(Tab)、TUI 菜单(方向键)、vim(Esc)只认字节。
@@ -265,6 +275,8 @@ class TerminalSession:
     #: 最近一次"被交互碰到"的单调时刻(open/send/keys/eof/read/wait/resize/signal 刷新)。
     #: 闲置回收只认这一个时钟 —— 用 wall clock 会在系统改时间时误杀/漏杀。
     last_activity_ts: float = field(default_factory=time.monotonic)
+    #: 程序是否已请求 bracketed paste(DECSET 2004)。由输出解析驱动,不靠调用方声明。
+    bracketed_paste: bool = False
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -295,6 +307,7 @@ class TerminalSession:
             "first_seq": self.first_seq(),
             "dropped_chunks": self.dropped_chunks,
             "idle_s": self.idle_s(),
+            "bracketed_paste": self.bracketed_paste,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -454,7 +467,7 @@ def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
     """管道路径:逐行读一条 stream 入缓冲。readline 到 EOF('')自然收敛。"""
     try:
         for line in iter(stream.readline, ""):
-            _push(session, tag, line)
+            _push_output(session, tag, line)
     except (OSError, ValueError):
         pass
     finally:
@@ -506,6 +519,25 @@ class _PtyLineSplitter:
             return text
 
 
+def _track_terminal_modes(session: TerminalSession, text: str) -> None:
+    """从输出里读终端模式开关(**DECSET/DECRST**),只认 bracketed paste(2004)。
+
+    为什么读输出而不是"由调用方声明":bracketed paste 是**程序**决定的(DECSET 2004 由
+    readline/vim/less 自己发),终端侧只是跟着开/关。不读这一位就只能靠猜 —— 猜错要么
+    把 `\\x1b[200~` 当垃圾写进程序,要么多行粘贴被逐行执行(一条粘贴炸成三条命令)。
+    """
+    if BRACKETED_PASTE_ON in text:
+        session.bracketed_paste = True
+    if BRACKETED_PASTE_OFF in text:
+        session.bracketed_paste = False
+
+
+def _push_output(session: TerminalSession, tag: str, text: str) -> None:
+    """输出入缓冲的**唯一出口**:先读模式位,再入队(两件事不会各自被忘掉)。"""
+    _track_terminal_modes(session, text)
+    _push(session, tag, text)
+
+
 def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
     """PTY 路径:master 读原始字节,按行切 + **空闲即吐**(见 `_PtyLineSplitter`)。
 
@@ -522,7 +554,7 @@ def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
         while not stop.wait(PTY_IDLE_FLUSH_S / 2):
             idle_text = splitter.take_idle(PTY_IDLE_FLUSH_S)
             if idle_text:
-                _push(session, tag, idle_text)
+                _push_output(session, tag, idle_text)
 
     watcher = threading.Thread(
         target=_watch_idle, name=f"pty-idle-{session.terminal_id}", daemon=True
@@ -537,12 +569,12 @@ def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
             if not data:
                 break
             for line in splitter.feed(data):
-                _push(session, tag, line)
+                _push_output(session, tag, line)
     finally:
         stop.set()
         tail = splitter.take_all()
         if tail:
-            _push(session, tag, tail)
+            _push_output(session, tag, tail)
 
 
 def _prune_for_new_session() -> None:
@@ -1046,6 +1078,80 @@ def send_terminal_keys(
         "keys": detail.split("|"),
         "bytes_written": len(payload),
     }
+
+def paste_terminal(
+    terminal_id: str,
+    text: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """粘贴一段**多行**文本:整段一次性写入,**不追加回车、不逐行执行**。
+
+    与 `send_terminal` 的分工:send 是"敲一行 + 回车",粘贴是"把剪贴板倒进去"。多行内容
+    走 send 会被程序当成多次回车(shell 里一条粘贴炸成三条命令),这不是延迟问题而是语义问题。
+
+    包裹口径照真终端:程序发过 `DECSET 2004`(`session.bracketed_paste=True`)才用
+    `ESC[200~ … ESC[201~` 包;没请求就原样写(此时写入 `ESC[200~` 只会被当垃圾字符)。
+    `bracketed` 字段如实回答"这次到底包了没有",不靠调用方假设。
+
+    上限 `MAX_PASTE_BYTES`:超了显式拒,不静默截断(截断的粘贴比拒绝更难查)。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再写入;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    if not text:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "paste 的内容不能为空",
+        }
+    payload = text
+    if len(payload.encode("utf-8")) > MAX_PASTE_BYTES:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"paste 内容过大(> {MAX_PASTE_BYTES} 字节),请分批粘贴",
+        }
+    bracketed = session.bracketed_paste
+    if bracketed:
+        payload = f"{BRACKETED_PASTE_START}{payload}{BRACKETED_PASTE_END}"
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "本会话没有可写输入通道", "terminal": session.to_dict(),
+        }
+    try:
+        sink.write(payload)
+        sink.flush()
+    except (OSError, ValueError) as e:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": f"粘贴写入失败: {e}", "terminal": session.to_dict(),
+        }
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "bytes_written": len(payload.encode("utf-8")),
+        "bracketed": bracketed,
+        "lines": len(text.split("\n")),
+        "running": session.running(),
+    }
+
 
 def eof_terminal(
     terminal_id: str,
@@ -1890,6 +1996,12 @@ __test__ = {
     "TERMINAL_IDLE_TTL_ENV": TERMINAL_IDLE_TTL_ENV,
     "tty_interrupt": _tty_interrupt,
     "TTY_INTERRUPT_BYTE": TTY_INTERRUPT_BYTE,
+    "paste_terminal": paste_terminal,
+    "BRACKETED_PASTE_ON": BRACKETED_PASTE_ON,
+    "BRACKETED_PASTE_OFF": BRACKETED_PASTE_OFF,
+    "BRACKETED_PASTE_START": BRACKETED_PASTE_START,
+    "BRACKETED_PASTE_END": BRACKETED_PASTE_END,
+    "MAX_PASTE_BYTES": MAX_PASTE_BYTES,
     "read_terminal": read_terminal,
     "PTY_TERM": PTY_TERM,
     "PTY_COLORTERM": PTY_COLORTERM,
