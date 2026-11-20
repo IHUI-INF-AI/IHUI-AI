@@ -9705,6 +9705,10 @@
           "title": "ターミナルが見つかりません",
           "action": "新しく作成してください"
         },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "このプラットフォームでは PTY を利用できません",
+          "action": "パイプモードに切り替えるか、ホストの ConPTY 対応を確認してください"
+        },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "シグナル送信に失敗しました",
           "action": "再試行するか強制終了してください"

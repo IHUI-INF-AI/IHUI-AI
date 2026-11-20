@@ -9705,6 +9705,10 @@
           "title": "終端機不存在",
           "action": "重新建立終端機"
         },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "平台不支援 PTY",
+          "action": "改用管道模式,或檢查宿主 ConPTY 支援"
+        },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "終止訊號傳送失敗",
           "action": "重試或強制關閉"

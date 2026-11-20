@@ -9705,6 +9705,10 @@
           "title": "Terminal not found",
           "action": "Create a new terminal"
         },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "PTY not supported on this platform",
+          "action": "Use pipe mode, or check host ConPTY support"
+        },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "Failed to send signal",
           "action": "Retry or force close"

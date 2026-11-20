@@ -1216,6 +1216,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'TERMINAL_NOT_FOUND.action',
     category: 'invalidResponse',
   },
+  TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM: {
+    titleKey: 'TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM.title',
+    actionKey: 'TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM.action',
+    category: 'environmentInitFailed',
+  },
   TERMINAL_SIGNAL_FAILED: {
     titleKey: 'TERMINAL_SIGNAL_FAILED.title',
     actionKey: 'TERMINAL_SIGNAL_FAILED.action',
