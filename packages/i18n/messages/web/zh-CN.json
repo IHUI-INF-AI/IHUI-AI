@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "上次登记 {by}",      "hookFailures": {
         "title": "Hook 执行失败",
         "evidenceMissing": "未记录最终结果:该次执行既不在执行日志、也不在死信队列里,无法确认成败。",
         "state": {
@@ -8859,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "终端输入通道已关闭",
+          "action": "重新打开终端会话后再发送输入"
+        },        "102": {
           "title": "请求时间校验失败",
           "action": "校准系统时间后重试"
         },
@@ -9715,6 +9720,10 @@
           "title": "终端尺寸无效",
           "action": "传入正整数行列后重试"
         },
+        "TERMINAL_INVALID_INPUT": {
+          "title": "终端输入无效",
+          "action": "检查粘贴或发送的内容后重试"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "终端不是 tty",
           "action": "以 PTY 模式重启会话"
@@ -9778,10 +9787,6 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "并行子代理数超限",
           "action": "等待运行中的子代理结束后重试"
-        },
-        "TERMINAL_STDIN_CLOSED": {
-          "title": "终端输入通道已关闭",
-          "action": "重新打开终端会话后再发送输入"
         }
       },
       "worktree": {
@@ -9951,8 +9956,7 @@
         "creating": "创建中",
         "create": "新建变更请求",
         "createHint": "从当前分支创建 PR"
-      },
-      "runtimeHookConfigStaleBy": "上次登记 {by}"
+      }
     },
     "permissionConfirm": {
       "allow": "允许",
@@ -21151,8 +21155,7 @@
     "deductionEmployeesLabel": "员工扣除信息(JSON 数组)",
     "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
     "deductionInvalid": "员工扣除信息必须是合法的 JSON 数组",
-    "promptDeduction": "请调用 special_deduction_calc 逐人计算个税七项专项附加扣除。期间:{period};员工扣除信息 JSON:{payload}",
-    "automationTitle": "国标平台自动化 · 内置浏览器执行腿",
+    "promptDeduction": "请调用 special_deduction_calc 逐人计算个税七项专项附加扣除。期间:{period};员工扣除信息 JSON:{payload}",    "automationTitle": "国标平台自动化 · 内置浏览器执行腿",
     "automationDesc": "代账与申报的对外腿:AI 用项目内置浏览器在电子税务局/社保医保网报厅取数、预填、走到提交闸;原生客户端场景走桌面自动化面(人在旁)。",
     "targetEtaxInvoiceLedger": "电子税务局·发票底账/勾选认证",
     "targetEtaxVatDeclaration": "电子税务局·增值税及地方税附加申报",
