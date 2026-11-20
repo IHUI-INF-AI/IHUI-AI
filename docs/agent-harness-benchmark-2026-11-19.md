@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **50 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **51 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（50 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（51 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -605,6 +605,14 @@
 - 测试：`relay-chat-stream.test.ts` 新增一例双向牙（表态 ⇒ 帧内 `reasoning_effort='high'`；不表态 ⇒ 整键缺席）；`ws-relay-chat.test.ts` 新增一例（真 WS 帧带 `reasoning_effort` ⇒ `forwardToChannel` 收到的 `reasoningEffort` 为 `'high'`，缺省时为 `undefined`）。
 
 验证：`vitest run src/lib/__tests__/relay-chat-stream.test.ts` → `9 passed`；`@ihui/api` 的 `ws-relay-chat.test.ts` → `11 passed`；`node scripts/check-typecheck.mjs` → 全量 TS + mypy 通过（`exit=0 elapsed=214.5s scopeFiles=6302`），此前阻塞全仓推送的 `send-message.ts:1041 TS2353` 随之消除。
+### 5.52 第 51 项：台账容量只进面板、不进守护（"没人在看"就是历史消失的唯一原因）
+
+- 问题：第 49 项把容量占比搬进了面板，但面板只在**有人打开会话**时才看一眼；`hook_audit` 到 5MB 轮转时 `.1` 会被**下一次轮转**直接覆盖，那段历史永久消失。也就是说：读数存在 ≠ 会有人看见 ⇒ 缺的是守护侧的那条腿。另外两型同样没有哨兵：写盘被中断/并发撕裂产生的坏行（审计读数里静默丢事件）、以及某条钩子连续挂掉（单条失败正常，近半都在挂就值得人看一眼）。
+- 处置：新增 `scripts/check-hook-audit-health.mjs`（只读尺子）。上限**不抄数字**：从 Python 唯一源头 `apps/ai-service/app/core/hook_audit.py` 现读 `HOOK_AUDIT_MAX_BYTES` 的字面表达式（只接受 `数字 * 数字 …` 形态），读不到 ⇒ exit 2 未判定，绝不回落硬编码；台账路径与 `hook_audit_path()` 同口径（env `IHUI_HOOK_AUDIT_PATH` 优先）。四判据：容量 ≥90%、坏行枚数、近 50 条里 `error+timeout ≥30%` 且至少 5 条、以及台账不存在时判 `absent`（一次钩子都没跑过是合法形态，不记绿也不冒红）。在 `guardian-runner.mjs` 登记为 **warn** 档（id `326`）、不挂 `stagedTriggers`（量的是磁盘存量不是本次提交内容，走周期派发）。
+- 语义边界：90% 与前端 `HookReadout.nearFullPct` **同一个档**——两处读数不同档会让人不再信任何一处；`warn` 不出邮件告警（§5e-1：红了人的动作是"去看哪条钩子在挂"，不是运维故障；告警通道仍只有邮件一条，不被这类存量读数占用）。
+- 测试：`scripts/tests/check-hook-audit-health.test.mjs` 4 例 —— 上限从 Python 源头现读且判定层无硬编码字节字面量（形状锁切掉 `selfTest` 夹具段）；近满档与 web `nearFullPct` 数值相等；三态与阈值（单条失败算 healthy、20 条里 10 条失败算 warn、容量 ≥90% 必须给可执行下一步、上限取不到算未判定）；装车证明（`guardian-runner` 里登记为 warn、无 `stagedTriggers:` 属性、带应急跳过变量）。器物自带 `--self-test` 9 例。
+
+验证：`node scripts/check-hook-audit-health.mjs --self-test` → `9/9`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `4 passed`；真机实跑 → `结论 absent`（本机尚未跑过钩子，属合法形态）、exit 0；`guardian-runner --help` 门数 359→360。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
