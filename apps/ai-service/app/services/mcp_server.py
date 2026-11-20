@@ -8947,11 +8947,12 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/read/wait_for/signal/resize/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/read/wait_for/signal/resize/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
-    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、wait_for 等到提示符/关键字
-    出现(命中/超时/已退出三态)、signal 中断、resize 改窗口尺寸(仅 PTY 后端)、close 收尾。
+    跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
+    read 增量取输出、wait_for 等到提示符/关键字出现(命中/超时/已退出三态)、signal 中断、
+    resize 改窗口尺寸(仅 PTY 后端)、close 收尾。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
     子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
     """
@@ -9024,6 +9025,28 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             enter=bool(arguments.get("enter", True)),
         )
         return {"tool": "terminal", "action": "send", **result}
+
+    if action == "keys":
+        keys_raw = arguments.get("keys")
+        if isinstance(keys_raw, str):
+            keys = [k for k in keys_raw.replace(",", " ").split() if k]
+        elif isinstance(keys_raw, list):
+            keys = [str(k) for k in keys_raw]
+        else:
+            keys = []
+        if not keys:
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "keys 需要键名(字符串或数组),如 [\"up\",\"tab\",\"escape\"]",
+            }
+        result = await asyncio.to_thread(
+            term.send_terminal_keys,
+            terminal_id,
+            keys,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "keys", **result}
 
     if action == "read":
         try:
@@ -9123,7 +9146,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": f"不支持的 action: {action}(open/send/read/wait_for/signal/resize/close/list)",
+        "error": f"不支持的 action: {action}(open/send/keys/read/wait_for/signal/resize/close/list)",
     }
 
 
