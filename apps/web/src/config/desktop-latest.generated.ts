@@ -14,7 +14,7 @@ export const DESKTOP_LATEST: DesktopFeedPayload = {
     'windows-x86_64': {
       signature:
         'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGZ6dTE4R3pBbEdpTWxGQ1BGRWhwZmJnTVNPbCt2ZTVwOUxoaHNTaEhRUjBuVThSMFBKRXVwbTV4ZzBScGVWeUZ3bkJCUE43Rko2dTFGbW5ZSWlmVlFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MTgwNzE5CWZpbGU65pm65rGHQUlfMC4xLjgzX3g2NC1zZXR1cC5leGUKaUxLOENxRDd1WVd4WVRKZk05c0s4Uk54d1lVVTJQLzNPalV5d1RpalNIOHNyQzh2elRic1BSZlZLVXlTNUhzcktRcEtRdHM4MTlOVkV6WVZtbnNxQ1E9PQo=',
-      url: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.83/AI_0.1.83_x64-setup.exe',
+      url: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.83/AI_0.1.83_x64-setup.exe',
     },
     'linux-x86_64': {
       signature:

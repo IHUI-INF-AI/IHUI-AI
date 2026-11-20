@@ -237,14 +237,14 @@ function categoryLabel(category: ModelUsageCategory): string {
 }
 
 /**
- * 按代次拆分模型(2026-08-29 立):
- * 只有「latest + 对话类」进默认列表,其余(历史过时版本 + 嵌入/语音/图像等专用模型)
- * 收进历史模型区,并按用途分类排序。判定规则来自后端 model_catalog,此处只做消费。
+ * 按代次拆分模型(2026-08-29 立;2026-11-20 取消历史模型折叠区,同日放开模态模型):
+ * 只保留非 legacy 且非检索/审核类中间件的模型;图像/视频/语音等照常可选。
+ * 判定规则来自后端 model_catalog,此处只做消费。
  */
 function splitModelTiers(models: LlmModel[]): { primary: LlmModel[]; archived: LlmModel[] } {
   const primary: LlmModel[] = [];
   for (const m of models) {
-    // 2026-11-20 定档:取消历史模型折叠区 —— legacy 与专用用途模型直接不展示。
+    // 2026-11-20 定档:取消历史模型折叠区 —— legacy 直接不展示;模态模型照常可选。
     if (isSelectableChatModel(normalizeCategory(m.category), normalizeTier(m.model_tier))) {
       primary.push(m);
     }
