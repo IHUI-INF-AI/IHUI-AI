@@ -1767,6 +1767,43 @@ def test_buffer_lines_env_defaults_and_clamps(monkeypatch, tmp_path) -> None:
         monkeypatch.delenv(key, raising=False)
 
 
+_SPLIT_PROMPT_SCRIPT = """\
+import sys, time
+sys.stdout.write("\\x1b[32mPRO\\x1b[0m")
+sys.stdout.flush()
+time.sleep(0.4)
+sys.stdout.write("\\x1b[1mMPT>\\x1b[0m\\n")
+sys.stdout.flush()
+time.sleep(8)
+"""
+
+
+def test_wait_for_plain_matches_prompt_split_across_escape_sequences(tmp_path) -> None:
+    """同一段提示符被颜色序列切开:原文等不到(超时),plain=True 必须等到。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "split.py", _SPLIT_PROMPT_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        raw = term.wait_terminal(
+            tid, pattern="PROMPT>", user_id="u-term", session_id="s-term", timeout_s=2.0
+        )
+        assert raw["matched"] is False and raw["reason"] == "timeout"
+        assert raw["plain"] is False
+        plain = term.wait_terminal(
+            tid,
+            pattern="PROMPT>",
+            user_id="u-term",
+            session_id="s-term",
+            timeout_s=2.0,
+            plain=True,
+        )
+        assert plain["matched"] is True and plain["reason"] == "matched"
+        assert plain["matched_text"] == "PROMPT>" and plain["plain"] is True
+        assert any("\x1b" in c["text"] for c in plain["chunks"]), "chunks 必须是原文"
+    finally:
+        term.reset_terminals()
+
+
 def test_signal_interrupt_stops_process(tmp_path) -> None:
     opened = _open(_script_path(tmp_path, "sleep.py", _SLEEP_SCRIPT), tmp_path)
     terminal_id = opened["terminal"]["terminal_id"]

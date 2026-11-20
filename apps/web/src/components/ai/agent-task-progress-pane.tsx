@@ -69,6 +69,8 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useAgentRuntime } from '@/hooks/use-agent-runtime'
 import { useCommandHooksConfig } from '@/hooks/use-command-hooks-config'
+// 2026-11-21 第 38 项:均值/峰值只从累计模块取,组件内不重算一份口径。
+import { hookRunStatsAverageMs } from '@/hooks/hook-run-stats'
 import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
@@ -880,6 +882,8 @@ export function AgentTaskProgressPane() {
     planSteps: runtimePlanSteps,
     // 2026-11-20 第 26 项:逐钩子运行结果(hook-run 帧,FIFO)
     hookRuns: runtimeHookRuns,
+    // 2026-11-21 第 38 项:会话级累计(不受 FIFO 淘汰),面板顶行报失败率/均值
+    hookStats: runtimeHookStats,
     sessionEnd: runtimeSessionEnd,
     permissionMode: runtimePermissionMode,
     terminalDeltas: runtimeTerminalDeltas,
@@ -895,6 +899,19 @@ export function AgentTaskProgressPane() {
   // 2026-11-20 第 26 项:hook-run 只展示"最近一帧"(每帧已是同一工具调用的全部钩子),
   // 钩子状态三态各自配色;文案进 i18n 目录,不在组件里手写中文。
   const lastHookRun = runtimeHookRuns[runtimeHookRuns.length - 1]
+  // 2026-11-21 第 38 项:累计读数只在跑过钩子时出(零次不出,避免空面板噪声)。
+  // 均值来自 totalDurationMs/total,与逐帧 durationMs 同源,不另算一份。
+  const hookStatsLine =
+    runtimeHookStats.total > 0
+      ? t('runtimeHookStats', {
+          total: runtimeHookStats.total,
+          ok: runtimeHookStats.ok,
+          timeout: runtimeHookStats.timeout,
+          error: runtimeHookStats.error,
+          avg: hookRunStatsAverageMs(runtimeHookStats),
+          slowest: runtimeHookStats.slowestMs,
+        })
+      : null
   // 2026-11-20 第 31 项:钩子配置面只读自述 —— 只在"配了但不生效"时给一行提示,
   // trusted/未配置都不打扰(前者已正常工作,后者是合法默认档)。
   const hookConfig = useCommandHooksConfig(Boolean(open && threadId))
@@ -2035,6 +2052,19 @@ export function AgentTaskProgressPane() {
                   <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 2026-11-21 第 38 项:会话级累计(不受 50 条 FIFO 淘汰)。
+              只报"这一轮总共跑了多少次、几次没成功、峰值多慢",与下一行的
+              "最近一帧明细"分工:上面看趋势,下面看这一次。 */}
+          {hookStatsLine && (
+            <div
+              className="mx-2 mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
+              data-testid="pane-runtime-hook-stats"
+            >
+              <span className="shrink-0 font-medium">{t('runtimeHookStatsTitle')}</span>
+              <span className="font-mono tabular-nums">{hookStatsLine}</span>
             </div>
           )}
 
