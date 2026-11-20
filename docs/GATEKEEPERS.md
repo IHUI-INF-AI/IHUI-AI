@@ -88,6 +88,17 @@ git commit
 - 工作区有未提交改动时打印明确指引(3 个选项)
 - 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(紧急 push,不推荐)
 
+### 2.5 T1 逐包类型结论回执与耗时/归因自述
+
+T1 判的是**工作树**(不是 HEAD 面),所以「本轮哪些包真的需要重跑 tsc」决定墙钟。判定实现唯一源 = `scripts/lib/typecheck-project-receipt.mjs`,由 `scripts/check-typecheck.mjs` 与 `scripts/typecheck-full.mjs` 调用;判据测试 `scripts/tests/typecheck-project-receipt.test.mjs`。
+
+- **摘要键**:`sha256{unit, cmd, node 版本, tsc 版本, tsconfig.base blob, 该包自己目录全部 HEAD blob 摘要, 每个 workspace 依赖含传递闭包目录的 HEAD blob 摘要}`。只有 `.ts/.tsx/.mts/.cts`、`tsconfig*`、`package.json` 脏面才作废;README/css/i18n 不作废。
+- **失效方向一律 fail-closed**:回执取不到、摘要算不出、node/tsc 版本取不到 ⇒ **不跳过,照常跑**,绝不把"没判"写成"判过"(§0.3)。
+- **存储**:`.ihui-agent/state/typecheck-project-receipts.json`(被 `.gitignore` 忽略),包级与腿级(e2e / mypy)分开记。
+- **旋钮**:`IHUI_TYPECHECK_PROJECT_RECEIPT=0` 关掉回执走全量(排查回执本身是否误命中);`IHUI_TYPECHECK_PROJECT_RECEIPT_TTL_HOURS` 调 TTL,默认 7 天。两条都是"多跑一遍"的开关,**不存在"少跑一遍"的开关**。
+- **自述行(任何结局都打印,便于定位"这次为啥慢")**:`[IHUI-T1-TIMING] exit=<码> elapsed=<秒>s receipt=off|miss|hit scopeFiles=<N>`;判红时另有 `printT1Attribution` 打印「报错文件 N 个:原始推送面命中 A / 仅反向依赖闭包纳入 B / 面外 C」「工作树未提交 TS 级脏面 M 个 / 脏面且报错命中 D 个」与机器签名行 `[IHUI-T1-ATTRIB] raw= widened_only= outside= dirty= dirty_hit=`。
+- **读法**:`elapsed` 大且 `receipt=miss` ⇒ 别席在工作树留下了半成品(回执作废、整轮重跑),看 `dirty=` 与 `dirty_hit=` 点名;`elapsed` 小且 `receipt=hit` ⇒ 命中回执,正常。
+
 ---
 
 ## 3. 守门脚本分类详解
