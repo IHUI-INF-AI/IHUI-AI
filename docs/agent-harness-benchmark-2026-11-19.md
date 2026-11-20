@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **37 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **38 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（37 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（38 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -494,6 +494,16 @@
 - 超越轴：对照程序的钩子观测按"钩子自身"聚；本仓把子代理钩子并进**同一运行时间线**（与工具面钩子同形字段），"钩子失败"和"子代理失败"不再各看一处。
 
 验证：`pytest test_subagent_hooks.py` → `6 passed`（新增"子代理钩子结果必须出现在 hook.run 且带 session_id"1 例）；`ruff check` 全过；`mypy --strict`（`mcp_server.py`）`Success: no issues found`。
+
+### 5.39 第 38 项：会话级钩子累计（失败率 / 超时数 / 均值 / 峰值）
+
+- 缺口：`hook.run` 到了前端只有 **50 条 FIFO** 的逐帧视图（第 26 项）。一次长会话跑 200 次钩子、其中 3 次超时，早期那 3 条会被挤掉，面板显示"全部通过" —— 排障时把"偶发超时"看成"没发生过"。这是**观察面失真**，不是钩子本身的问题，所以修在读数侧而不是再加一帧。
+- 处置：新增纯函数 `apps/web/src/hooks/hook-run-stats.ts`（`HookRunStats` / `EMPTY_HOOK_RUN_STATS` / `accumulateHookRunStats` / `hookRunStatsAverageMs`），`use-agent-runtime.ts` 在 `hook-run` 监听器里**先累计再入 FIFO**，并把 `hookStats` 作为 `UseAgentRuntimeReturn` 一等字段暴露；断流 / 切换 agent 时与 `hookRuns` 同批归零。**不新增 SSE 事件名、不新增后端帧** —— 同一份输入的两个视图，不是第二份真相源。
+- 语义边界：按**钩子条目**计数而非帧数（一帧可含多枚）；未知 `status` 计入 `error`（不静默算成功），而解析层对非三态本来就 `fail-closed` 拒帧；`total=0` 时均值为 `0`（不是 `NaN`）；面板只在 `total>0` 出一行，零次不留空噪声。
+- 超越轴：对照程序的钩子观测要么只报"最近一次"、要么全局日志；本仓把"趋势（累计）"与"这一次（最近帧）"分层落在同一面板，且累计**不受滚动窗口淘汰**影响。
+
+验证：`pnpm --filter @ihui/web exec vitest run src/hooks/hook-run-stats.test.ts` → `4 passed`（按条目计数 / 跨帧累加保留峰值 / 未知状态不冒成功 / 零条目均值不为 NaN）；`pnpm exec tsc -p <临时 tsconfig 点名四文件>` → 无错误；`check-i18n-keys` / `check-i18n-parity` → 5 语言 `26245` 键 parity OK；`scan-i18n-zh-residue zh-TW` → 无中文残留。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
