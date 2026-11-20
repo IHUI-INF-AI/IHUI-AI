@@ -31,7 +31,6 @@ from app.services.acp_bridge import (
 )
 from app.services.session_store import (
     CompactionBoundaryItem,
-    LLMMessage,
     Thread,
     ThreadPage,
     UserMessageItem,

@@ -16,11 +16,9 @@ from app.services.work_admission import (
     SPEAK_UNAVAILABLE,
     Assessment,
     HostView,
-    Ledger,
     evaluate_host_view,
     get_ledger,
     namespaced_trigger_id,
-    note_worker_finished,
     propose_scope,
     report_assignment,
     request_stop,
@@ -29,7 +27,6 @@ from app.services.work_admission import (
     revalidate,
     server_accept_mode,
     set_assessor_for_test,
-    trigger_disposition,
 )
 
 
