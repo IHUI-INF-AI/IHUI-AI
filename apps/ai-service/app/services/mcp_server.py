@@ -9106,7 +9106,9 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     """terminal:长驻交互式终端(open/send/keys/paste/mouse/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
-    跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
+    跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合;
+    程序点过 `DECSET 1`(DECCKM)后方向键/Home/End 自动改发 SS3 应用形态,回执 `app_cursor`
+    如实说明这次用的是哪套编码)、
     read 增量取输出、wait_for 等到提示符/关键字出现(命中/超时/已退出三态)、signal 中断、
     resize 改窗口尺寸、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys 显式拒
     TERMINAL_STDIN_CLOSED)、close 收尾。`paste` 是**整段多行粘贴**(不追加回车、不逐行
