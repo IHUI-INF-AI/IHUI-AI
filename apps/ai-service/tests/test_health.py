@@ -42,4 +42,44 @@ class TestHealth:
         resp = await client.get("/health/ready")
         assert resp.status_code == 200
         assert resp.json()["status"] == "ready"
+
+    @pytest.mark.asyncio
+    async def test_ready_probe_has_no_side_effect_on_session_store(self, client):
+        """探活不许顺手建库:没建过就不报,而且回来还是没建过。"""
+        from app.routers import sessions as sessions_router
+
+        sessions_router.reset_session_store()
+        assert sessions_router.peek_session_store() is None
+        resp = await client.get("/health/ready")
+        assert resp.status_code == 200
+        checks = resp.json()["checks"]
+        assert "session_store_search_backend" not in checks
+        assert sessions_router.peek_session_store() is None, "探针把 SessionStore 建出来了"
+
+    @pytest.mark.asyncio
+    async def test_ready_reports_search_backend_of_live_store(self, client, tmp_path):
+        """进程里已建过库 ⇒ ready 如实报后端与 schema(这是排障入口,不是开关)。"""
+        from app.routers import sessions as sessions_router
+        from app.services.session_store import SessionStore
+
+        dsn = _live_dsn()
+        if not dsn:
+            pytest.skip("无 DATABASE_URL/SESSION_PG_DSN ⇒ 真库面不判")
+        store = SessionStore(tmp_path / "healthy.db")
+        sessions_router.reset_session_store()
+        sessions_router._store = store
+        try:
+            resp = await client.get("/health/ready")
+            assert resp.status_code == 200
+            checks = resp.json()["checks"]
+            assert checks["session_store_search_backend"] in ("trgm", "like")
+            assert checks["session_store_schema"].startswith("sess_")
+        finally:
+            sessions_router.reset_session_store()
+
+
+def _live_dsn() -> str:
+    import os
+
+    return os.environ.get("SESSION_PG_DSN") or os.environ.get("DATABASE_URL") or ""
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
