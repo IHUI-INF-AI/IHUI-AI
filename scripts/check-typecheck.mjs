@@ -859,6 +859,12 @@ if (_noTsInput) {
 }
 
 const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
+// 段落判据常量(2026-11-20):定义必须在使用点之前 —— 之前放在函数区(行号靠后)时,
+// 上面的"命令:"打印先调用 resolveTypecheckLauncher,踩到 const 的 TDZ,异常被 catch 吞成 null,
+// 于是打印仍写 pnpm、且直调静默失效(实测踩过:函数体里 for(const _fast of …) 同名 TDZ 同型)。
+const TSC_SEGMENT_RE = /^tsc(\s|$)/
+const ECHO_SEGMENT_RE = /^echo(\s|$)/
+
 if (_fast) {
   console.log(
     `[check-typecheck] 🚀 定向快速通道:改动集中在 apps/${_fast.apps.map((a) => a.app).join(' + ')} → 仅对这些 app 跑 tsc(其余包不参与)`,
@@ -867,9 +873,9 @@ if (_fast) {
     `[check-typecheck] 命令: ${_fast.apps
       .map((a) => {
         const l = resolveTypecheckLauncher(a.app)
-        return l
-          ? `node ${l.bin.replace(ROOT, '.').replace(/\\/g, '/')} ${l.args.slice(1).join(' ')}(cwd apps/${a.app};直调,不经 pnpm)`
-          : `pnpm --filter ${a.name} run typecheck`
+        if (l?.kind === 'noop') return `(no-op echo 桩:apps/${a.app},直传)`
+        if (l?.kind === 'steps') return `${l.bin.replace(ROOT, '.').replace(/\\/g, '/')} [${l.steps.length} 段](cwd apps/${a.app};直调,不经 pnpm)`
+        return `pnpm --filter ${a.name} run typecheck`
       })
       .join(' && ')}`,
   )
@@ -951,45 +957,80 @@ function resolveTypecheckLauncher(appDir) {
     const pkgPath = join(ROOT, 'apps', appDir, 'package.json')
     if (!existsSync(pkgPath)) return null
     const script = String(JSON.parse(readFileSync(pkgPath, 'utf8'))?.scripts?.typecheck ?? '').trim()
-    if (!/^tsc(\s|$)/.test(script)) return null
-    if (/&&|\|\||;|>/.test(script)) return null
-    const args = script.split(/\s+/).slice(1)
-    // 二进制一律**先找该 app 自己的** node_modules(pnpm 工作区隔离:`pnpm run` 走的就是
-    // apps/<app>/node_modules/.bin/tsc);拿不到才回落根目录那份。版本漂移(两边不同 TS)
-    // 会改类型结论,所以顺序不能反。
-    const candidates = [
-      join(ROOT, 'apps', appDir, 'node_modules', 'typescript', 'bin', 'tsc'),
-      join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
-    ]
-    const bin = candidates.find((p) => existsSync(p))
+    if (!script) return null
+    const segs = script
+      .split('&&')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    // 纯 echo 桩(ai-service:Python 侧由 mypy 兜):直传,不经 pnpm,退出码与输出逐字一致。
+    if (segs.every((s) => ECHO_SEGMENT_RE.test(s))) return { kind: 'noop', text: segs.join('\n') }
+    // 只认"每段都是 tsc"的脚本 —— api 的 `tsc --noEmit && tsc -p tsconfig.scripts.json` 也在内
+    // (逐段顺序执行,cwd 相同,与 pnpm 跑同一条脚本逐字等价)。
+    if (!segs.every((s) => TSC_SEGMENT_RE.test(s))) return null
+    const bin = tscBinFor(appDir)
     if (!bin) return null
-    return { file: process.execPath, args: [bin, ...args], cwd: join(ROOT, 'apps', appDir), bin }
+    return {
+      kind: 'steps',
+      bin,
+      steps: segs.map((s) => ({
+        file: process.execPath,
+        args: [bin, ...s.split(/\s+/).slice(1)],
+        cwd: join(ROOT, 'apps', appDir),
+      })),
+    }
   } catch {
     return null
   }
+}
+
+/** 该 app 自己的 tsc(优先),拿不到回落根目录。顺序不能反:版本漂移会改类型结论。 */
+function tscBinFor(appDir) {
+  const candidates = [
+    join(ROOT, 'apps', appDir, 'node_modules', 'typescript', 'bin', 'tsc'),
+    join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
+  ]
+  return candidates.find((p) => existsSync(p)) || null
 }
 
   let _fastDegraded = 0
   for (const _fastApp of _fast.apps) {
     const _launcher = resolveTypecheckLauncher(_fastApp.app)
     const _childEnv = { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' } // 防该 app 脚本再套全量门
-    const r = _launcher
-      ? spawnSync(_launcher.file, _launcher.args, {
-          cwd: _launcher.cwd,
+    let r
+    if (_launcher?.kind === 'noop') {
+      // 该 app 的 typecheck 是纯 echo 桩(ai-service:Python 侧由 mypy 管),直传更直白,
+      // 不经 pnpm —— 少一次 100s 级冷态派生的机会,结论逐字相同(exit 0 + 同一行输出)。
+      process.stdout.write(`${_launcher.text}\n`)
+      r = { status: 0, signal: null, stdout: '', stderr: '', error: null }
+    } else if (_launcher?.kind === 'steps') {
+      const acc = { status: 0, signal: null, stdout: '', stderr: '', error: null }
+      for (const st of _launcher.steps) {
+        const one = spawnSync(st.file, st.args, {
+          cwd: st.cwd,
           stdio: ['ignore', 'pipe', 'pipe'],
           shell: false,
           windowsHide: true,
           env: _childEnv,
           timeout: TYPECHECK_TIMEOUT_MS,
         })
-      : spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck'], {
-          cwd: ROOT,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          shell: true,
-          windowsHide: true,
-          env: _childEnv,
-          timeout: TYPECHECK_TIMEOUT_MS,
-        })
+        acc.stdout += String(one.stdout || '')
+        acc.stderr += String(one.stderr || '')
+        acc.status = one.status ?? null
+        acc.signal = one.signal ?? null
+        if (one.error) acc.error = one.error
+        if (one.error || (one.status ?? 1) !== 0) break
+      }
+      r = acc
+    } else {
+      r = spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck'], {
+        cwd: ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true,
+        windowsHide: true,
+        env: _childEnv,
+        timeout: TYPECHECK_TIMEOUT_MS,
+      })
+    }
     const _fout = String(r.stdout || '')
     const _ferr = String(r.stderr || '')
     if (_fout) process.stdout.write(_fout)
