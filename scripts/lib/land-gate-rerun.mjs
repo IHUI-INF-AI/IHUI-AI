@@ -291,6 +291,10 @@ export function extractEntryFields(entryText) {
     // 而恒红的复跑臂只会逼人设 IHUI_LAND_SKIP_AFFECTED_GATES=1(§12e 同型)。
     rerunAnchor: /\brerunAnchor:\s*true\b/.test(text),
     args: arr('args'),
+    // 门自己声明"没有隐式面,整面检查要显式面旗"(如 47 的 --full-face)。
+    // 漏读它 ⇒ 原地复跑时门体只能报 rc=2 未判定,每次旁路落地都喊一次"无法判定"(§0.3 方向反了:
+    // 该给面的面没给)。复跑档就是把提交链上相同的面显式补齐,不猜默认。
+    fullFaceArgs: arr('fullFaceArgs'),
     stagedTriggers: arr('stagedTriggers'),
   }
 }
@@ -722,6 +726,8 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 这里剥掉 —— 落地后"本次改动"在 HEAD 面,全量档判 HEAD blob 才是落地面;
       // 共享索引里可能挂着他人暂存文件,--staged 档会把别人的面算进本轮结论。
       const BUILTIN_SCRIPTS = new Set(['check-mypy.mjs', 'check-staged-typecheck.mjs'])
+      // 面旗全集(门体只认这几档;出现任意一档就不再补 fullFaceArgs,避免同一臂两套面)。
+      const FACE_FLAGS = new Set(['--staged', '--full-face', '--push-scope', '--worktree', '--files'])
       const REGISTRY_CAP = 30
       // 落地面注入的上限:声明面通常 10-20 条,给足余量又避免 argv 爆长(Windows 命令行 32K)。
       const RUN_FILES_CAP = 200
@@ -755,6 +761,11 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         // 并发批量池只改"等谁",argv 仍逐字同串行档 ⇒ 锚点参数在 batchPlan 这一层拼,与筛臂同处。
         const gateArgs = g.args.filter((a) => a !== '--staged')
         if (g.rerunAnchor) gateArgs.push('--rev', 'HEAD', '--anchor', 'HEAD^')
+        // 无隐式面的门(自持取材面,不给面旗就 rc=2 未判定):把注册条目声明的整面旗显式补上。
+        // 只在复跑 argv 还没有任何面旗时补 —— 已有面旗的臂逐字不动,免得一臂两套面互相顶。
+        if (g.fullFaceArgs?.length && !gateArgs.some((a) => FACE_FLAGS.has(a))) {
+          gateArgs.push(...g.fullFaceArgs)
+        }
         // 落地面档(2026-11-11 立):有的门体自持取材面(恒按共享索引判),声明在
         // scripts/data/land-gate-rerun-faces.json 里,由本通道把"本次落地声明面"以 --files 注入。
         if (filesFaceScripts.has(g.script) && declared.length) {

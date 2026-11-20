@@ -75,6 +75,7 @@ const checks = [
     id: "9",
     script: "check-dbl.mjs",
     mode: "warn",
+    fullFaceArgs: ["--full-face"],
     stagedTriggers: ["apps/web/"],
   },
 ]
@@ -87,6 +88,7 @@ const checks = [
   assert.deepEqual(byId['35'].stagedTriggers, [])
   assert.deepEqual(byId['207'].stagedTriggers, ['AGENTS.md'])
   assert.deepEqual(byId['207'].args, ['--foo'])
+  assert.deepEqual(byId['9'].fullFaceArgs, ['--full-face'])
   assert.equal(byId['207'].skipEnv, 'HUSKY_SKIP_AGENTS_DOC_SIZE')
   assert.equal(byId['9'].mode, 'warn') // 双引号形态不得隐身(gate-registry-insert 头注②的教训)
 })
@@ -102,6 +104,12 @@ test('T2 parseGateRegistry:真 guardian-runner 的门 35/207 条目按字段解�
   assert.ok(byId['207'], '门 207(AGENTS.md 体积)必须在解析结果里')
   assert.deepEqual(byId['207'].stagedTriggers, ['AGENTS.md'])
   assert.equal(byId['207'].mode, 'blocking')
+  assert.ok(byId['47'], '门 47(水印覆盖)必须在解析结果里')
+  assert.deepEqual(
+    byId['47'].fullFaceArgs,
+    ['--full-face'],
+    '门 47 声明了"无隐式面"⇒ 复跑通道必须把它读出来并补面旗,否则原地复跑只能 rc=2 未判定',
+  )
   assert.ok(entries.length > 100, `条目数应覆盖全注册表(实测 ${entries.length})`)
 })
 
@@ -275,6 +283,31 @@ test('T7 注册表臂:stagedTriggers 命中的门真被复跑;blocking rc=1 ⇒ 
   })
   assert.equal(ok.verdict, 0)
   assert.equal(ok.ran.filter((f) => f.kind === 'registry').length, 2)
+})
+
+// ── T7b 无隐式面的门:注册条目声明 fullFaceArgs ⇒ 复跑 argv 必须显式补面旗 ──
+test('T7b fullFaceArgs:复跑 argv 补整面旗(否则门体只能 rc=2 未判定)', (t) => {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  const stubGate = join(dir, 'scripts', 'stub-gate.mjs')
+  writeFileSync(stubGate, STUB_SRC)
+  const reg = join(dir, 'stub-registry.txt')
+  writeFileSync(
+    reg,
+    `const checks = [
+  { id: '903', label: 'stub full-face', script: 'stub-gate.mjs', args: ['--keep'], fullFaceArgs: ['--full-face'], mode: 'blocking', stagedTriggers: ['pkg/'] },
+]\n`,
+  )
+  const marker = join(dir, 'marker.txt')
+  const res = rerunAffectedGates({
+    root: dir,
+    paths: ['pkg/readme.md'],
+    env: { LAND_GATE_RERUN_REGISTRY: reg, STUB_RC: '0', STUB_MARKER: marker },
+  })
+  assert.equal(res.verdict, 0)
+  const argv = readFileSync(marker, 'utf8')
+  assert.match(argv, /--keep/)
+  assert.match(argv, /--full-face/)
 })
 
 // ── T8 换仓通道守卫:根不是本仓且没给桩 ⇒ 内置臂点名"未跑",不得静默读成绿 ──
