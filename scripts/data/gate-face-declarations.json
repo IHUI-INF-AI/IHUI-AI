@@ -961,6 +961,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-sqlite-write-paths.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面,否则默认 HEAD 面;--worktree 仅人工逃生舱(pg-only 零容忍,基线 files 必须为空)"
+    },
     "scripts/check-sidebar-width-consistency.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
