@@ -468,20 +468,13 @@ EOF
 # 同时挂在 post-commit(每次落提交即报警,--no-verify 绕不过),本处在推送前硬拦。
 # 跳过:HUSKY_SKIP_STALE_BASELINE_SENTINEL=1(不推荐)。未判定(exit≠0,1 之外,如 origin/main
 # 解析不到)= 不阻断推送(防误拦);只有确证整份回退(exit 1)才拦。
+_sent_job=''
+_doc_job=''
 if [ "${HUSKY_SKIP_STALE_BASELINE_SENTINEL:-0}" = "1" ]; then
   printf '%s\n' "ℹ️  旧底稿哨兵已按 HUSKY_SKIP_STALE_BASELINE_SENTINEL=1 跳过" >&2
 else
-  wscript //nologo scripts/hook-run-hidden.vbs pre-push-stale-sentinel scripts/check-stale-baseline-sentinel.mjs --range origin/main..HEAD --push-gate
-  _sentinel_rc=$?
-  if [ "$_sentinel_rc" -eq 1 ]; then
-    tail -40 .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log >&2 || true
-    printf '%s\n' "❌ 旧底稿整份回退哨兵检出推送区间内存在整份退回旧版,推送已阻止(按 HEAD 面回植后重建提交,或走 git revert / 在提交信息写 intentional-revert: <理由>;日志: .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log)" >&2
-    exit 1
-  elif [ "$_sentinel_rc" -ne 0 ]; then
-    printf '%s\n' "⚠️  旧底稿哨兵未判定(exit $_sentinel_rc,取值失败或 origin/main 解析不到)⇒ 不阻断推送(防误拦);日志: .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log)" >&2
-  else
-    tail -3 .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log >&2 || true
-  fi
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-stale-sentinel scripts/check-stale-baseline-sentinel.mjs --range origin/main..HEAD --push-gate &
+  _sent_job=$!
 fi
 
 # ─── 文档数字对账(DN2 head 面全量,2026-11-05 挂 pre-push) ─────────────────────
@@ -500,7 +493,41 @@ else
     printf '%s\n' "ℹ️  数字门判据面已冻结为本枚推送的 local sha: ${_doc_head}" >&2
   fi
   printf '\n%s\n' "🔍 文档数字对账(DN2 head 面全量:正文/生成块必须等于现算值)..." >&2
-  wscript //nologo scripts/hook-run-hidden.vbs pre-push-doc-numbers scripts/check-doc-numbers.mjs --strict --push
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-doc-numbers scripts/check-doc-numbers.mjs --strict --push &
+  _doc_job=$!
+fi
+
+# ─── 尾部三段并行(2026-11-20 提速)────────────────────────────────────────
+# 立因:哨兵 + 数字门 + i18n 原先串行,实测在整次 push 里占约 20s,而三者互不共享输入/输出
+# (哨兵读推送区间提交、数字门读 IHUI_DOC_HEAD_REF、i18n 读工作树叶与自己的日志)。
+# 现三段同时起飞,再按**原次序** wait + 回放各自 tail:阈值、退出码、拦截文案一字未改,
+# 只是把"等前一段跑完再起下一段"换成"同时跑、按序收";任何一段判红仍在本段内 exit 1。
+# i18n 仍恒非阻塞(原语义 || true),它排在最后收,失败不回传。
+# ─── i18n 死 key 审计警告(2026-07-26 集成,非阻塞) ─────────────────────
+# 扫描 zh-CN.json 中已声明但代码无 t()/useTranslations() 引用的死 key,
+# 仅打印末尾 3 行摘要,exit 1 由 || true 吞掉,不阻塞 push(对应 CI 阻塞).
+# 跳过方法:HUSKY_SKIP_I18N_AUDIT=1(不推荐,CI 仍会阻塞).
+wscript //nologo scripts/hook-run-hidden.vbs pre-push-i18n scripts/scan-dead-i18n-keys.mjs --dry-run &
+_i18n_job=$!
+
+# 收①:哨兵(硬拦,label 与原分支逐字一致)
+if [ -n "$_sent_job" ]; then
+  wait "$_sent_job"
+  _sentinel_rc=$?
+  if [ "$_sentinel_rc" -eq 1 ]; then
+    tail -40 .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log >&2 || true
+    printf '%s\n' "❌ 旧底稿整份回退哨兵检出推送区间内存在整份退回旧版,推送已阻止(按 HEAD 面回植后重建提交,或走 git revert / 在提交信息写 intentional-revert: <理由>;日志: .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log)" >&2
+    exit 1
+  elif [ "$_sentinel_rc" -ne 0 ]; then
+    printf '%s\n' "⚠️  旧底稿哨兵未判定(exit $_sentinel_rc,取值失败或 origin/main 解析不到)⇒ 不阻断推送(防误拦);日志: .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log)" >&2
+  else
+    tail -3 .ihui-agent/state/hook-logs/pre-push-stale-sentinel.log >&2 || true
+  fi
+fi
+
+# 收②:文档数字对账(硬拦)
+if [ -n "$_doc_job" ]; then
+  wait "$_doc_job"
   if [ $? -ne 0 ]; then
     tail -30 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
     printf '%s\n' "❌ 文档数字对账失败,推送已阻止(修 README 正文/块后重推;日志: .ihui-agent/state/hook-logs/pre-push-doc-numbers.log)" >&2
@@ -509,9 +536,6 @@ else
   tail -3 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
 fi
 
-# ─── i18n 死 key 审计警告(2026-07-26 集成,非阻塞) ─────────────────────
-# 扫描 zh-CN.json 中已声明但代码无 t()/useTranslations() 引用的死 key,
-# 仅打印末尾 3 行摘要,exit 1 由 || true 吞掉,不阻塞 push(对应 CI 阻塞).
-# 跳过方法:HUSKY_SKIP_I18N_AUDIT=1(不推荐,CI 仍会阻塞).
-wscript //nologo scripts/hook-run-hidden.vbs pre-push-i18n scripts/scan-dead-i18n-keys.mjs --dry-run || true
+# 收③:i18n 死 key 审计(非阻塞 —— 原语义 || true,这里 wait 掉但忽略状态)
+wait "$_i18n_job" 2>/dev/null || true
 tail -3 .ihui-agent/state/hook-logs/pre-push-i18n.log >&2 || true
