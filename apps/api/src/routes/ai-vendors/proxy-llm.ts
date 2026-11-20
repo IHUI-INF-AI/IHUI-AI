@@ -26,6 +26,8 @@ import {
   multimodalBody,
 } from './_shared.js'
 import { spendPoints } from '../../services/points-service.js'
+import { inferPointsMultiplier } from '../../services/points-multiplier.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { findUserPoints } from '../../db/gamification-queries.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
@@ -120,64 +122,11 @@ const doubaoImageEditBody = z.object({
   response_format: z.string().optional(),
 })
 
-/** 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
-export function inferPointsMultiplier(modelId: string): number {
-  const mid = (modelId || '').toLowerCase()
-  // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
-  const IHUI_POINTS_MAP: Record<string, number> = {
-    // 倍率 = 上游扣费比例 × 3(统一利润系数),2026-08-31 按官方套餐扣费比例重配
-    'ihui/auto-model': 3, // 上游扣费 1:1
-    'ihui/minimax-m2.7': 6, // 上游扣费 1:2
-    'ihui/minimax-m2.7-highspeed': 15, // 上游扣费 1:5
-    'ihui/minimax-m3': 15, // 上游扣费 1:5
-    'ihui/deepseek-v4-flash-0731': 15, // 上游扣费 1:5
-    'ihui/glm-5.1': 18, // 上游扣费 1:6
-    'ihui/glm-5.2': 18, // 上游扣费 1:6
-    'ihui/glm-5.3-flash': 18, // 上游扣费 1:6
-    'ihui/kimi-k2.6': 18, // 上游扣费 1:6
-    'ihui/deepseek-v4-pro': 18, // 上游扣费 1:6
-    'ihui/deepseek-v4-pro-0813': 18, // 上游扣费 1:6
-    'ihui/grok-4.5': 18, // 上游扣费 1:6(未列套餐,按次旗舰估)
-    'ihui/glm-5.3': 30, // 上游扣费 1:10
-    'ihui/gpt-5.6': 30, // 上游扣费 1:10
-    'ihui/grok-4.6': 30, // 上游扣费 1:10
-    'ihui/qwen3.7-max': 30, // 上游扣费 1:10
-    'ihui/kimi-k2.7-code': 30, // 上游扣费 1:10
-  }
-  if (IHUI_POINTS_MAP[mid] !== undefined) return IHUI_POINTS_MAP[mid]
-  // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
-  if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  // 旗舰(30x)
-  if (['opus', 'thinking', 'o1-preview', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k)))
-    return 30
-  // 高级(10x)
-  if (
-    [
-      'gpt-4-turbo',
-      'gpt-4.5',
-      'claude-3-opus',
-      'gemini-pro',
-      'o1-mini',
-      'o3-mini',
-      'qwen-max-longcontext',
-    ].some((k) => mid.includes(k))
-  )
-    return 10
-  // 标准(3x)
-  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k)))
-    return 3
-  // 经济(1x)
-  if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  // 免费(0x)
-  if (
-    ['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) =>
-      mid.includes(k),
-    )
-  )
-    return 0
-  // 默认经济(1x)
-  return 1
-}
+/**
+ * 倍数判定已抽到 services/points-multiplier.ts(2026-11-21):LLM 的按 token 计费与媒体的按张/次
+ * 计费必须共用同一张档位表,不该有第二份实现。本文件保持原有导出面,调用方零改动。
+ */
+export { inferPointsMultiplier }
 
 /** LLM token 用量(兼容 OpenAI usage 与 Gemini usageMetadata) */
 interface TokenUsage {
@@ -379,6 +328,9 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = agnesImageBody.parse(request.body)
+      // 计费(2026-11-21):图像按张计分,预检按本次预估(见 services/media-billing.ts 口径)。
+      const billingModel = body.model ?? 'agnes-image-2.5-flash'
+      if (!(await ensureMediaPointsBalance(request, reply, billingModel, 'image', 1))) return
       // Agnes 同步出图约 40-50s,timeout 90s 防误断(与 ai-service 侧一致)
       const data = await callVendor(
         'agnes',
@@ -398,6 +350,8 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const task = createTask(request.userId!, 'agnes', 'image', data)
       task.status = 'succeeded'
       recordUsage(request.userId!, 'agnes')
+      // 上游已产出可渲染结果才扣分(失败分支在上方已 return),referenceId=任务 id ⇒ 幂等。
+      await chargeMediaPoints(request, billingModel, 'image', 1, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
