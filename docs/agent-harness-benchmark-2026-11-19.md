@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **40 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **41 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（40 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（41 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -521,6 +521,15 @@
 - 超越轴：对照实现的"严格/宽容"是全局开关，一开就把不认识的帧全丢掉；本仓按事件逐张字段表登记，**严格档缺失可被单独发现并补位**，且补齐不改变宽松档的既有行为。
 
 验证：`pnpm --filter @ihui/shared exec vitest run src/sse/__tests__/agent-events.test.ts` → `53 passed`（新增 3 例：合法帧严格通过 / 缺 `hooks` 返回 `field='hooks'` 的字段级故障 / 空 `hooks` 同判）；回归 `tests/field-loss.test.ts` → `7 passed`；`pnpm turbo typecheck --filter=@ihui/shared` → `4 successful`；`check-stale-dist` → 无陈旧。
+
+### 5.42 第 41 项：审计台账只读摘要（前端刷新后仍能看见）
+
+- 缺口：第 39 项只给了**写入口**。台账落盘之后，回答"这一轮跑了几次、失败几次"仍要人肉 `tail` 一个 5MB 的 JSONL；而第 38 项的会话累计在刷新页面/重进会话时归零 —— 内存态一清，"刚跑过钩子"这件事就此消失。
+- 处置：`hook_audit.summarize_hook_audit(session_id, max_lines)` 只读尾部 `deque(maxlen)` 聚合（避免长会话下随文件增长线性变慢），暴露 `GET /api/agent/hook-audit/summary`（必须登录，台账含 session_id 与工具名）；前端新增 `use-hook-audit-summary.ts` 的 `normalizeHookAuditSummary`（形状收窄，不重算计数），面板在"内存累计为 0"时渲染 `pane-runtime-hook-audit` 一行。
+- 语义边界：`available=false`（台账不存在）与"有台账但零条"**分开报**，前端只在真有条目时显示；数字字段逐个校验、负数归 0、三态之和超出 total 直接不呈现（宁可空着也不报错数）；只读尾部 20000 行，`truncated=true` 表示更早的行未纳入聚合；没有会话号时按"本机台账全量"查，文案里写明，不冒充本会话。
+- 超越轴：对照实现的钩子观测止于"当前进程内"；本仓把"实时帧 / 会话内存累计 / 落盘摘要"三层串起来，任一层失效时下一层仍能回答同一个问题，且三层共用同一份字段集与同一份判据。
+
+验证：`pytest test_hook_audit.py` → `8 passed`（新增 4 例：按条目聚合 / 按会话过滤 / 台账缺失报 `available=false` / 只读尾部并标 `truncated`）；`ruff check` → `All checks passed!`；`mypy --strict`（`hook_audit.py`）→ `Success: no issues found`；`vitest use-hook-audit-summary.test.ts` → `4 passed`；`check-api-routes` → 通过（新增 0 处死调用）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

@@ -69,8 +69,9 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useAgentRuntime } from '@/hooks/use-agent-runtime'
 import { useCommandHooksConfig } from '@/hooks/use-command-hooks-config'
-// 2026-11-21 第 38 项:均值/峰值只从累计模块取,组件内不重算一份口径。
+// 2026-11-21 第 41 项:均值/峰值只从累计模块取,组件内不重算一份口径。
 import { hookRunStatsAverageMs } from '@/hooks/hook-run-stats'
+import { useHookAuditSummary } from '@/hooks/use-hook-audit-summary'
 import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
@@ -912,6 +913,12 @@ export function AgentTaskProgressPane() {
           slowest: runtimeHookStats.slowestMs,
         })
       : null
+  // 2026-11-21 第 41 项:内存态累计为 0(刷新页面/重进会话)时回落到台账摘要。
+  // 会话号只有收到过 hook.run 帧才知道 ⇒ 没有帧时按"本机台账全量"查,文案里写明。
+  const hookAuditStats = useHookAuditSummary(
+    lastHookRun?.sessionId ?? null,
+    Boolean(open && threadId) && runtimeHookStats.total === 0,
+  )
   // 2026-11-20 第 31 项:钩子配置面只读自述 —— 只在"配了但不生效"时给一行提示,
   // trusted/未配置都不打扰(前者已正常工作,后者是合法默认档)。
   const hookConfig = useCommandHooksConfig(Boolean(open && threadId))
@@ -2065,6 +2072,27 @@ export function AgentTaskProgressPane() {
             >
               <span className="shrink-0 font-medium">{t('runtimeHookStatsTitle')}</span>
               <span className="font-mono tabular-nums">{hookStatsLine}</span>
+            </div>
+          )}
+
+          {/* 2026-11-21 第 41 项:内存累计为空但台账有记录(刷新页面后仍能看见)。
+              只在这种情况下出现:两条都显示会让人以为"跑了两次"。 */}
+          {!hookStatsLine && hookAuditStats && (
+            <div
+              className="mx-2 mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
+              data-testid="pane-runtime-hook-audit"
+            >
+              <span className="shrink-0 font-medium">{t('runtimeHookAuditTitle')}</span>
+              <span className="font-mono tabular-nums">
+                {t('runtimeHookStats', {
+                  total: hookAuditStats.total,
+                  ok: hookAuditStats.ok,
+                  timeout: hookAuditStats.timeout,
+                  error: hookAuditStats.error,
+                  avg: hookRunStatsAverageMs(hookAuditStats),
+                  slowest: hookAuditStats.slowestMs,
+                })}
+              </span>
             </div>
           )}
 
