@@ -167,4 +167,37 @@ async def test_zero_hooks_leave_task_verbatim(monkeypatch: pytest.MonkeyPatch) -
     await mcp_server._tool_dispatch_subagent({"name": "backend", "task": "修 bug"})
 
     assert fake.invoke_calls[0]["user_input"] == "修 bug"
+
+
+async def test_subagent_hook_run_is_visible_on_sse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """子代理钩子也必须走同一条 hook.run 观察通道(第 37 项)。
+
+    此前 12 个挂载点都能在面板看见,唯独子代理派发面的钩子失败/超时无影无踪。
+    """
+    from app.services.hook_engine import hook_engine
+
+    seen: list[tuple[str, dict[str, Any]]] = []
+
+    def _fake_publish(event: str, payload: dict[str, Any]) -> None:
+        seen.append((event, dict(payload)))
+
+    monkeypatch.setattr(hook_engine, "publish_observation", _fake_publish)
+    register_lifecycle_hook(
+        HookKind.SUBAGENT_START, lambda p: {"additional_context": "x"}, name="sg-visible"
+    )
+    fake = _FakeOrchestrator()
+    _wire(monkeypatch, fake)
+
+    await mcp_server._tool_dispatch_subagent(
+        {"name": "backend", "task": "修 bug", "session_id": "s-1"}
+    )
+
+    names = [
+        h["name"]
+        for e, p in seen
+        if e == "hook.run"
+        for h in p.get("hooks", [])
+    ]
+    assert "sg-visible" in names
+    assert all(p.get("session_id") == "s-1" for e, p in seen if e == "hook.run")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
