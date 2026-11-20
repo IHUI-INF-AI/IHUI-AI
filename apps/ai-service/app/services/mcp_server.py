@@ -9103,7 +9103,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/paste/mouse/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/focus/mouse/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合;
@@ -9116,6 +9116,9 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     里的 `bracketed` 如实说明这次包没包。`mouse` 把一次鼠标事件当输入字节上报给真 tty 程序
     (vim/htop 的鼠标交互):程序必须先用 `DECSET 1000/1002/1003` 请求鼠标,编码按它点的
     1006/1005/1015 选(回执里的 `mouse_mode`/`encoding` 就是实际用的那一种);坐标是 1 基单元格。
+    `focus` 把一次**窗口焦点变化**上报给程序(DEC 1004):程序先 `DECSET 1004` 点单才发,
+    `state=in` 送 `ESC[I`、`out` 送 `ESC[O`(亦接受 focus/blur 同义写法);没点单显式拒
+    TERMINAL_FOCUS_DISABLED。与 mouse 不同的是它不依赖屏幕网格,两种后端都成立。
     `snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
     只要末尾 max_lines 行,truncated 说明还有更早的行),按**当前屏面**取:主屏与 alt 屏
     (vim/htop 切屏)互不混入,回执的 `alt_screen` 说明现在在哪一块屏;`search` 在同一份归一文本里按行
@@ -9239,6 +9242,16 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
         )
         return {"tool": "terminal", "action": "paste", **result}
+
+    if action == "focus":
+        result = await asyncio.to_thread(
+            term.focus_terminal,
+            terminal_id,
+            state=str(arguments.get("state") or "in"),
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "focus", **result}
 
     if action == "mouse":
         mods_raw = arguments.get("modifiers")
@@ -9409,7 +9422,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": (
             f"不支持的 action: {action}"
-            "(open/send/keys/paste/mouse/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
+            "(open/send/keys/paste/focus/mouse/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
         ),
     }
 

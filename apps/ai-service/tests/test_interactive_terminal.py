@@ -436,8 +436,9 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    # 12 = send / keys / paste / mouse / snapshot / search / eof / read / wait / signal / resize / close
-    assert src.count("_live(terminal_id, user_id, session_id)") == 12, (
+    # 13 = send / keys / paste / mouse / focus / snapshot / search / eof / read / wait / signal
+    #      / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 13, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -1974,6 +1975,28 @@ class _AliveProc:
         return None
 
 
+class _DeadProc:
+    """已退出进程的假身:同 `_AliveProc` 的接口,但 `poll` 回 0(会话"活着登记、进程已退")。"""
+
+    pid = 4243
+    stdin = None
+
+    def poll(self) -> int | None:
+        return 0
+
+    def wait(self, timeout: float | None = None) -> int:
+        return 0
+
+    def terminate(self) -> None:
+        return None
+
+    def kill(self) -> None:
+        return None
+
+    def send_signal(self, sig: int) -> None:
+        return None
+
+
 def _mouse_session(
     *, backend: str = "pty", modes: set[int] | None = None
 ) -> term.TerminalSession:
@@ -2262,5 +2285,102 @@ async def test_tool_layer_routes_mouse(monkeypatch) -> None:
     assert seen["event"] == "click" and seen["button"] == "left"
     assert seen["x"] == 4 and seen["y"] == 5
     assert seen["modifiers"] == ["ctrl", "shift"]
+
+
+# ─── 焦点事件(DEC 1004):程序点单才发,`ESC[I` 进 / `ESC[O` 出 ───
+
+
+def test_focus_mode_tracks_decset_and_derives_flag() -> None:
+    """1004 与鼠标位同走 `_track_private_modes` 的通用记账,`focus_events` 是它的派生视图。"""
+    term.reset_terminals()
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        assert session.focus_events is False
+        track(session, "\x1b[?1004h")
+        assert session.focus_events is True and session.to_dict()["focus_events"] is True
+        # 一条序列里与鼠标位混发:两边都要各自落账,不能只认最后一个数
+        track(session, "\x1b[?1004l\x1b[?1000;1004h")
+        assert session.focus_events is True and session.mouse_mode == "click"
+        track(session, "\x1b[?1004l")
+        assert session.focus_events is False
+    finally:
+        term.reset_terminals()
+
+
+def test_focus_writes_protocol_sequence_only_after_request() -> None:
+    """没点 1004 → FOCUS_DISABLED(不是"先发发看");点了之后 `in`/`out` 各三个字节。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        _mouse_session(modes=set())
+        disabled = term.focus_terminal("t-mouse", state="in", **owner)
+        assert disabled["errorCode"] == "TERMINAL_FOCUS_DISABLED"
+        assert disabled["terminal"]["focus_events"] is False
+
+        session = _mouse_session(modes={1004})
+        inbound = term.focus_terminal("t-mouse", state="in", **owner)
+        assert inbound["ok"] is True and inbound["state"] == "in"
+        assert inbound["sequence"] == "\x1b[I" and inbound["bytes_written"] == 3
+        # focus/blur 是同义写法,归一后回执仍只有 in/out
+        blur = term.focus_terminal("t-mouse", state="blur", **owner)
+        assert blur["state"] == "out" and blur["sequence"] == "\x1b[O"
+        assert session.write_io.getvalue() == "\x1b[I\x1b[O"
+    finally:
+        term.reset_terminals()
+
+
+def test_focus_works_on_pipes_backend_but_respects_eof_and_exit() -> None:
+    """焦点是纯事件字节、不依附屏幕网格 ⇒ 管道后端也成立(mouse 的 NOT_A_TTY 不适用)。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(backend="pipes", modes={1004})
+        res = term.focus_terminal("t-mouse", state="focus", **owner)
+        assert res["ok"] is True and res["state"] == "in"
+        assert session.write_io.getvalue() == "\x1b[I"
+
+        session.stdin_closed = True
+        assert term.focus_terminal("t-mouse", **owner)["errorCode"] == "TERMINAL_STDIN_CLOSED"
+        session.stdin_closed = False
+        session.proc = _DeadProc()
+        assert term.focus_terminal("t-mouse", **owner)["errorCode"] == "TERMINAL_EXITED"
+    finally:
+        term.reset_terminals()
+
+
+def test_focus_rejects_bad_state_before_touching_session() -> None:
+    """未知状态在碰会话之前拒:不存在的 id 也先报参数错(不靠 NOT_FOUND 掩盖入参错误)。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        for bad in ("toggle", "", "IN-AND-OUT"):
+            assert (
+                term.focus_terminal("no-such", state=bad, **owner)["errorCode"]
+                == "TERMINAL_INVALID_INPUT"
+            )
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_focus(monkeypatch) -> None:
+    """工具层要把 focus 路由进模块(state 原样传下去,缺省 in)。"""
+    term.reset_terminals()
+    seen: dict[str, object] = {}
+
+    def _stub(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen.update({"terminal_id": terminal_id, **kwargs})
+        return {"ok": True, "terminal_id": terminal_id}
+
+    monkeypatch.setattr(term, "focus_terminal", _stub)
+    out = await _tool_terminal(
+        {"action": "focus", "terminal_id": "t1", "state": "out", **_OWNER}
+    )
+    assert out["ok"] is True and out["action"] == "focus"
+    assert seen["state"] == "out"
+    default = await _tool_terminal({"action": "focus", "terminal_id": "t1", **_OWNER})
+    assert default["ok"] is True and seen["state"] == "in"
+
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
