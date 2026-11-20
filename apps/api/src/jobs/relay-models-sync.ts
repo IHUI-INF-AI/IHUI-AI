@@ -36,7 +36,7 @@ import { isRelayProviderCode, type RelayProviderCode } from '../services/relay-a
 import { fetchUpstreamModelIdsForProvider } from '../services/relay-account-pool-service.js'
 
 // 逐条写入的结局:新增 / 已存在跳过(不覆盖管理员手置的展示名/定价)
-export type RelayModelWriteOutcome = 'inserted' | 'exists'
+type RelayModelWriteOutcome = 'inserted' | 'exists'
 
 export type RelayModelWriter = (
   configId: number,
@@ -84,7 +84,7 @@ export interface RelayModelSyncLoopResult {
 // 来源:各 *-adapter.ts 顶部端点常量。缺省回退占位(不影响转发)。
 // 导出供 admin「手动从零登记模型」端点复用 —— 父行建法单一真相源,禁止第二份映射。
 // ─────────────────────────────────────────────────────────────────────────────
-export const PROVIDER_CONFIG_BASE_URL: Partial<Record<RelayProviderCode, string>> = {
+const PROVIDER_CONFIG_BASE_URL: Partial<Record<RelayProviderCode, string>> = {
   trae: 'https://trae-api-cn.mchost.guru',
   qoder: 'https://openapi.qoder.com.cn',
   workbuddy: 'https://copilot.tencent.com',
@@ -99,7 +99,7 @@ export const PROVIDER_CONFIG_BASE_URL: Partial<Record<RelayProviderCode, string>
 }
 
 /** 缺父表行时自动建的显示名(平台可读名,便于 admin 识别)。导出供 admin 手动登记端点复用。 */
-export const PROVIDER_CONFIG_NAME: Partial<Record<RelayProviderCode, string>> = {
+const PROVIDER_CONFIG_NAME: Partial<Record<RelayProviderCode, string>> = {
   trae: 'Trae 账号池',
   qoder: 'Qoder 账号池(反代)',
   workbuddy: 'WorkBuddy 账号池(反代)',
