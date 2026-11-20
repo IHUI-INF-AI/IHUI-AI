@@ -91,6 +91,10 @@ const HEAD_ACTION_CLASS =
   'transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none ' +
   'focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40'
 
+/** 滑块直径(px)。坐标层左右各让出半径 ⇒ 首末档手柄边缘与轨道两端齐平,真能拉到头。 */
+const KNOB_SIZE = 18
+const KNOB_INSET = KNOB_SIZE / 2
+
 export function ReasoningEffortAxis({
   value,
   onChange,
@@ -232,18 +236,24 @@ export function ReasoningEffortAxis({
               aria-hidden
               className="pointer-events-none absolute inset-x-0 top-1/2 h-4 -translate-y-1/2 rounded-full bg-violet-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]"
             />
-            {/* 档位坐标层:左右各缩进 16px,让首末两档的圆点/滑块落在胶囊内部,
-                不被两端的半圆端头吃掉,也给 18px 滑块留出呼吸位(参考图里首末点也是内缩的) */}
-            <div className="absolute inset-y-0 left-4 right-4">
-              {/* 档位圆点:每档一枚,当前档被白色滑块盖住 */}
-              {tiers.map((effort, index) => (
-                <span
-                  key={`dot-${effort}`}
-                  aria-hidden
-                  className="pointer-events-none absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60"
-                  style={{ left: `${percentOf(index)}%` }}
-                />
-              ))}
+            {/* 档位坐标层:左右各让出一个滑块半径,首末档的手柄边缘正好与轨道两端齐平
+                (2026-11-21 用户定档:手柄必须真能拉到头,不能留一截空当) */}
+            <div
+              className="absolute inset-y-0"
+              style={{ left: `${KNOB_INSET}px`, right: `${KNOB_INSET}px` }}
+            >
+              {/* 档位圆点只画中间档:首末两档的位置由滑块的极左/极右端表达,
+                  再画一枚圆点只会和手柄叠在一起(用户定档:去掉第一个和最后一个) */}
+              {tiers.map((effort, index) =>
+                index === 0 || index === tiers.length - 1 ? null : (
+                  <span
+                    key={`dot-${effort}`}
+                    aria-hidden
+                    className="pointer-events-none absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60"
+                    style={{ left: `${percentOf(index)}%` }}
+                  />
+                ),
+              )}
               {/* 当前档滑块:未选档时不画(不给一个假装选中的位置);移动带过渡 */}
               {activeIndex >= 0 && (
                 <span
