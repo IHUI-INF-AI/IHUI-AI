@@ -366,8 +366,8 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    # 11 = send / keys / paste / snapshot / search / eof / read / wait / signal / resize / close
-    assert src.count("_live(terminal_id, user_id, session_id)") == 11, (
+    # 12 = send / keys / paste / mouse / snapshot / search / eof / read / wait / signal / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 12, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -1663,9 +1663,13 @@ def test_track_terminal_state_does_not_mistake_osc_terminator_for_bell() -> None
     track = _TEST["track_terminal_state"]
 
     class _Fake:
-        bracketed_paste = False
-        title = ""
-        bell_count = 0
+        # `_track_terminal_state` 现在还要落 DEC 私有模式位(鼠标上报用),假对象补一份
+        # 每实例独立的集合 —— 类级 set 会被跨用例共享,是隐形串扰。
+        def __init__(self) -> None:
+            self.bracketed_paste = False
+            self.title = ""
+            self.bell_count = 0
+            self.private_modes: set[int] = set()
 
     fake = _Fake()
     track(fake, "\x1b]2;TITLE\x07")  # 只有标题,没有任何响铃
@@ -1872,4 +1876,256 @@ async def test_handler_validates_cwd_against_workspace(tmp_path, monkeypatch) ->
         {"action": "close", "terminal_id": terminal_id, **_OWNER}
     )
     assert closed["ok"] is True
+
+
+# ─── 鼠标上报:程序点了(DECSET 1000/1002/1003)才发,编码按 1006/1005/1015 选 ───
+
+
+class _AliveProc:
+    """鼠标用例的假进程:`poll` 恒 None(会话活着),其余动作都是无副作用的空实现。"""
+
+    pid = 4242
+    stdin = None  # `_close_io` 会拿 write_io 与它比"是不是同一个";PTY 会话下它本来就是 None
+
+    def poll(self) -> int | None:
+        return None
+
+    def wait(self, timeout: float | None = None) -> int:
+        return 0
+
+    def terminate(self) -> None:
+        return None
+
+    def kill(self) -> None:
+        return None
+
+    def send_signal(self, sig: int) -> None:
+        return None
+
+
+def _mouse_session(
+    *, backend: str = "pty", modes: set[int] | None = None
+) -> term.TerminalSession:
+    """造一个已登记、输出端可读回的会话(StringIO 当 write_io,看得见到底写了什么字节)。"""
+    session = term.TerminalSession(
+        terminal_id="t-mouse",
+        owner_user_id="u-term",
+        owner_session_id="s-term",
+        command="true",
+        cwd=os.getcwd(),
+        proc=_AliveProc(),
+        created_ts=time.time(),
+    )
+    session.backend = backend
+    session.write_io = io.StringIO()
+    session.private_modes = set(modes or ())
+    term._sessions[session.terminal_id] = session
+    return session
+
+
+def test_private_modes_track_multi_bit_sequences_and_mouse_mode() -> None:
+    """一条 `?1002;1006h` 必须两个位一起落账(只认最后一个数是错的),`l` 逐位清。"""
+    term.reset_terminals()
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        track(session, "\x1b[?1002;1006h")
+        assert session.mouse_mode == "drag" and session.mouse_encoding == "sgr"
+        assert session.to_dict()["mouse_mode"] == "drag"
+        track(session, "\x1b[?1002l")
+        assert session.mouse_mode == "" and session.mouse_encoding == "sgr"
+        track(session, "\x1b[?1000h")
+        assert session.mouse_mode == "click"
+        track(session, "\x1b[?1000;1006l")
+        assert session.mouse_mode == "" and session.mouse_encoding == "x10"
+    finally:
+        term.reset_terminals()
+
+
+def test_mouse_mode_is_widest_bit_and_encoding_prefers_sgr() -> None:
+    """1003 ⊃ 1002 ⊃ 1000;编码兼容序 1006 > 1015 > 1005 > 老 x10。"""
+    term.reset_terminals()
+    try:
+        session = _mouse_session(modes={1000})
+        assert session.mouse_mode == "click" and session.mouse_encoding == "x10"
+        session.private_modes = {1000, 1002}
+        assert session.mouse_mode == "drag"
+        session.private_modes = {1000, 1002, 1003}
+        assert session.mouse_mode == "move"
+        session.private_modes = {1005}
+        assert session.mouse_encoding == "utf8"
+        session.private_modes = {1005, 1015}
+        assert session.mouse_encoding == "urxvt"
+        session.private_modes = {1005, 1015, 1006}
+        assert session.mouse_encoding == "sgr"
+    finally:
+        term.reset_terminals()
+
+
+def test_mouse_sequence_covers_sgr_urxvt_utf8_and_x10() -> None:
+    """四种封装逐字节钉住:SGR 松开用 `m`,老形状松开用码 3,远坐标靠 UTF-8 多字节。"""
+    seq = _TEST["mouse_sequence"]
+    assert seq(code=0, x=10, y=5, release=False, encoding="sgr") == "\x1b[<0;10;5M"
+    assert seq(code=0, x=10, y=5, release=True, encoding="sgr") == "\x1b[<0;10;5m"
+    assert seq(code=0, x=10, y=5, release=False, encoding="urxvt") == "\x1b[32;42;37M"
+    assert seq(code=0, x=10, y=5, release=False, encoding="x10") == (
+        "\x1b[M" + chr(32) + chr(42) + chr(37)
+    )
+    far = seq(code=0, x=300, y=5, release=False, encoding="utf8")
+    assert far.startswith("\x1b[M") and chr(332) in far
+    # ESC + "[" + "M" 三字节 + 单字节 + 双字节(UTF-8 承载 332)+ 单字节 = 7 字节
+    assert len(far.encode("utf-8")) == 7
+
+
+def test_mouse_rejects_bad_params_before_touching_session() -> None:
+    """未知事件/未知键/非正坐标都在碰会话之前拒:不存在的 id 也报参数错。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    assert term.mouse_terminal("no-such", event="spin", **owner)["errorCode"] == "TERMINAL_INVALID_INPUT"
+    assert (
+        term.mouse_terminal("no-such", event="press", button="thumb", **owner)["errorCode"]
+        == "TERMINAL_INVALID_INPUT"
+    )
+    assert (
+        term.mouse_terminal("no-such", event="press", button="left", x=0, y=3, **owner)["errorCode"]
+        == "TERMINAL_INVALID_INPUT"
+    )
+    assert (
+        term.mouse_terminal(
+            "no-such", event="click", button="left", modifiers=["hyper"], **owner
+        )["errorCode"]
+        == "TERMINAL_INVALID_INPUT"
+    )
+
+
+def test_mouse_requires_pty_backend_and_program_request() -> None:
+    """管道路径没有 tty 语义 → NOT_A_TTY;真 tty 但程序没点 → MOUSE_DISABLED(不是"先发发看")。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        _mouse_session(backend="pipes", modes={1000})
+        pipes = term.mouse_terminal(
+            "t-mouse", event="click", button="left", x=1, y=1, **owner
+        )
+        assert pipes["errorCode"] == "TERMINAL_NOT_A_TTY"
+        _mouse_session(modes=set())
+        disabled = term.mouse_terminal(
+            "t-mouse", event="click", button="left", x=1, y=1, **owner
+        )
+        assert disabled["errorCode"] == "TERMINAL_MOUSE_DISABLED"
+        assert disabled["terminal"]["mouse_mode"] == ""
+    finally:
+        term.reset_terminals()
+
+
+def test_mouse_click_writes_sgr_press_then_release() -> None:
+    """click 是**成对**序列(同坐标 press+release),不是只发一个按下。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(modes={1000, 1006})
+        res = term.mouse_terminal(
+            "t-mouse", event="click", button="left", x=3, y=4, **owner
+        )
+        assert res["ok"] is True and res["event"] == "click" and res["encoding"] == "sgr"
+        assert session.write_io.getvalue() == "\x1b[<0;3;4M\x1b[<0;3;4m"
+        assert res["sequences"] == ["\x1b[<0;3;4M", "\x1b[<0;3;4m"]
+    finally:
+        term.reset_terminals()
+
+
+def test_mouse_modifiers_and_wheel_semantics() -> None:
+    """修饰键取位或 (shift 4 + ctrl 16 = 20);滚轮 64/65 只有 press,协议里没有松开。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        _mouse_session(modes={1000, 1006})
+        pressed = term.mouse_terminal(
+            "t-mouse", event="press", button="left", x=2, y=2,
+            modifiers=["SHIFT", "ctrl"], **owner,
+        )
+        assert pressed["ok"] is True and pressed["sequences"] == ["\x1b[<20;2;2M"]
+        wheel = term.mouse_terminal(
+            "t-mouse", event="press", button="wheel_up", x=2, y=2, **owner
+        )
+        assert wheel["sequences"] == ["\x1b[<64;2;2M"]
+        assert (
+            term.mouse_terminal(
+                "t-mouse", event="release", button="wheel-up", x=2, y=2, **owner
+            )["errorCode"]
+            == "TERMINAL_INVALID_INPUT"
+        )
+    finally:
+        term.reset_terminals()
+
+
+def test_mouse_legacy_x10_limit_and_utf8_escape() -> None:
+    """x10 单字节坐标上限 223(超了如实拒);程序点 1005 后同一坐标就能走 UTF-8 承载。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(modes={1000})
+        far = term.mouse_terminal(
+            "t-mouse", event="press", button="left", x=300, y=5, **owner
+        )
+        assert far["errorCode"] == "TERMINAL_INVALID_INPUT"
+        session.private_modes = {1000, 1005}
+        ok = term.mouse_terminal(
+            "t-mouse", event="press", button="left", x=300, y=5, **owner
+        )
+        assert ok["ok"] is True and ok["encoding"] == "utf8"
+        assert len(ok["sequences"][0].encode("utf-8")) == 7
+    finally:
+        term.reset_terminals()
+
+
+def test_mouse_move_needs_drag_or_move_mode() -> None:
+    """只点了 1000(点击)时移动事件无处可报;点了 1002 才带 motion 位(32)上报。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(modes={1000})
+        blocked = term.mouse_terminal(
+            "t-mouse", event="move", button="left", x=2, y=2, **owner
+        )
+        assert blocked["errorCode"] == "TERMINAL_INVALID_INPUT"
+        session.private_modes = {1000, 1002}
+        moved = term.mouse_terminal(
+            "t-mouse", event="move", button="left", x=2, y=2, **owner
+        )
+        assert moved["ok"] is True and moved["mouse_mode"] == "drag"
+        # 老 x10 形状:码 = left(0) | motion(32) = 32,+32 = 64;坐标 2 → 34
+        assert moved["sequences"] == ["\x1b[M" + chr(64) + chr(34) + chr(34)]
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_mouse(monkeypatch) -> None:
+    """工具层必须把 mouse 路由进模块(落进"不支持的 action"就是没接),修饰键串要拆成数组。"""
+    term.reset_terminals()
+    seen: dict[str, object] = {}
+
+    def _stub(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen.update({"terminal_id": terminal_id, **kwargs})
+        return {"ok": True, "terminal_id": terminal_id}
+
+    monkeypatch.setattr(term, "mouse_terminal", _stub)
+    result = await _tool_terminal(
+        {
+            "action": "mouse",
+            "terminal_id": "t1",
+            "event": "click",
+            "button": "left",
+            "x": 4,
+            "y": 5,
+            "modifiers": "ctrl,shift",
+            **_OWNER,
+        }
+    )
+    assert result["ok"] is True and result["action"] == "mouse"
+    assert seen["event"] == "click" and seen["button"] == "left"
+    assert seen["x"] == 4 and seen["y"] == 5
+    assert seen["modifiers"] == ["ctrl", "shift"]
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

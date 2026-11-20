@@ -9726,6 +9726,10 @@
           "title": "终端输入无效",
           "action": "检查粘贴或发送的内容后重试"
         },
+        "TERMINAL_MOUSE_DISABLED": {
+          "title": "终端未启用鼠标上报",
+          "action": "先让程序请求鼠标(DECSET 1000/1002/1003),再发送鼠标事件"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "终端不是 tty",
           "action": "以 PTY 模式重启会话"

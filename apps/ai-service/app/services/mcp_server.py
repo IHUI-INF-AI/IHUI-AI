@@ -9103,7 +9103,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/paste/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/mouse/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
@@ -9111,7 +9111,10 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     resize 改窗口尺寸、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys 显式拒
     TERMINAL_STDIN_CLOSED)、close 收尾。`paste` 是**整段多行粘贴**(不追加回车、不逐行
     执行);程序开了 bracketed paste(DECSET 2004)时自动用 `ESC[200~…ESC[201~` 包裹,回执
-    里的 `bracketed` 如实说明这次包没包。`snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
+    里的 `bracketed` 如实说明这次包没包。`mouse` 把一次鼠标事件当输入字节上报给真 tty 程序
+    (vim/htop 的鼠标交互):程序必须先用 `DECSET 1000/1002/1003` 请求鼠标,编码按它点的
+    1006/1005/1015 选(回执里的 `mouse_mode`/`encoding` 就是实际用的那一种);坐标是 1 基单元格。
+    `snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
     只要末尾 max_lines 行,truncated 说明还有更早的行);`search` 在同一份归一文本里按行
     检索(scrollback search,支持 regex/ignore_case,命中回 line_no/text/match)。open 还可带
     `cols`/`rows` 直接**开在**目标尺寸(真终端本就该在启动时定尺寸;先按 120×30 起再 resize
@@ -9233,6 +9236,27 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
         )
         return {"tool": "terminal", "action": "paste", **result}
+
+    if action == "mouse":
+        mods_raw = arguments.get("modifiers")
+        if isinstance(mods_raw, str):
+            mods = [m for m in mods_raw.replace(",", " ").split() if m]
+        elif isinstance(mods_raw, list):
+            mods = [str(m) for m in mods_raw]
+        else:
+            mods = []
+        result = await asyncio.to_thread(
+            term.mouse_terminal,
+            terminal_id,
+            event=str(arguments.get("event") or "press"),
+            button=arguments.get("button"),
+            x=arguments.get("x", 1),
+            y=arguments.get("y", 1),
+            modifiers=mods,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "mouse", **result}
 
     if action == "snapshot":
         try:
@@ -9382,7 +9406,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": (
             f"不支持的 action: {action}"
-            "(open/send/keys/paste/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
+            "(open/send/keys/paste/mouse/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
         ),
     }
 
