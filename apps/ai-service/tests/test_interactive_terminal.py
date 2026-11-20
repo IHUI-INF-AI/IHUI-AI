@@ -240,6 +240,57 @@ def test_pty_backend_reports_true_isatty_and_backend_tag(tmp_path, monkeypatch) 
         assert term.list_terminals(user_id="u-term", session_id="s-term")["total"] == 0
 
 
+# ─── PTY 空闲即吐: TUI 帧不写 \n,死等换行 = 读端拿不到画面 ───
+
+
+def test_pty_line_splitter_hands_pending_on_idle_not_only_on_newline() -> None:
+    """行切器判据:整行(`\\n`)立即吐;不完整片段必须能"静默即吐",且不伪造换行。"""
+    splitter = _TEST["pty_line_splitter"]()
+    assert splitter.feed(b"[PART]") == []
+    assert splitter.take_idle(0.0) == "[PART]"          # 立即到点 → 交出 pending
+    assert splitter.take_idle(0.0) == ""                 # 交过一次就空了(不重复吐)
+    assert splitter.feed(b"d\nef\n") == ["d\n", "ef\n"]  # 整行照旧即时吐
+    assert splitter.take_all() == ""
+
+
+def test_pty_idle_flush_hand_the_partial_frame_while_child_still_running(
+    monkeypatch, tmp_path
+) -> None:
+    """端到端(真 PTY):子进程只写 `[PART]` 停住 1.5s,**此刻**读端就该拿到 "[PART]"。
+
+    判别器:`[PART]X` 这条**粘连**是否已经出现。
+    - 空闲已吐 ⇒ 读到 `[PART]` 时后面的 `X\\n` 还没被写出来,不存在 `[PART]X` 粘连
+      (后面可能跟 conhost 的控制序列如 OSC 窗口标题,那是终端 chrome,不是子进程输出);
+    - 退化成纯行切 ⇒ 读到时要等 1.5s 后的 `X\\n` 才成行,必然粘成 `[PART]X`。
+    这条把"TUI 活着却读不到画面"钉成机器判据,而不是靠人测。
+    """
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "partial.py", _PARTIAL_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pty"
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        text, _ = _read_until(tid, "[PART]", timeout=8.0)
+        assert "[PART]" in text, f"PTY 活着却读不到任何输出(纯行切回归):{text!r}"
+        assert "[PART]X" not in text, (
+            f"片段被拼到了换行之后 ⇒ 空闲未吐:{text!r}"
+        )
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+        term.reset_terminals()
+
+
+def test_pty_idle_flush_is_wired_in_pump_source() -> None:
+    """形状锁:读线程必须挂看门狗 + 收尾 flush,且节流常量单一(不另抄一份 0.25)。"""
+    src = _conpty_source()
+    assert "PTY_IDLE_FLUSH_S" in src
+    assert "splitter.take_idle(" in src
+    assert "splitter.take_all()" in src
+    # 常量只许定义一次;第二处赋值(`PTY_IDLE_FLUSH_S = 0.2` 之类)即视为第二真相源
+    assert src.count("PTY_IDLE_FLUSH_S: Final =") == 1
+
+
 # ─── 终端身份键(TERM/COLORTERM):只在真 tty 上补,且不覆盖调用方显式值 ───
 
 _ENV_SCRIPT = """\
@@ -400,6 +451,15 @@ _BURST_SCRIPT = """\
 import sys
 for i in range(40):
     print("L%03d" % i, flush=True)
+"""
+# TUI 形态:先写一段**不带换行**的内容停住,再补完 —— 纯行切实现此刻读不到任何东西。
+_PARTIAL_SCRIPT = """\
+import sys, time
+sys.stdout.write("[PART]")
+sys.stdout.flush()
+time.sleep(1.5)
+sys.stdout.write("X\\n")
+sys.stdout.flush()
 """
 _SIZE_SCRIPT = """\
 import shutil, sys
