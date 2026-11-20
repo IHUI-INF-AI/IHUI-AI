@@ -19,22 +19,31 @@
  *     - 当前各项计数 <= 基线 → 通过(exit 0),并提示可收紧基线;
  *     - 任一项 > 基线 → 失败(exit 1),打印增量明细与修复指引。
  *
+ * 2026-11-20 升级为「清单级差值棘轮」(计数棘轮的根本缺陷实测暴露后):
+ *   计数基线的容差恒为 0,而 knip 跨平台会抖 1-2 项 ⇒ 要么恒红、要么放宽容差;
+ *   放宽之后又看不见真新增。更致命的是**存量替换**:清 3 个旧死导出、新进 3 个新的,
+ *   计数不变 ⇒ 门判绿而新债已入库。
+ *   现值形态:基线里存每个未用符号的稳定键(文件::符号,不含行号),判定只问
+ *   「当前面里不在基线清单的项」—— 新增即红,存量只报数,清偿了只提示收紧。
+ *
  * 用法:
  *   node scripts/check-knip-ratchet.mjs             # 校验(CI 用)
- *   node scripts/check-knip-ratchet.mjs --update    # 用当前状态重写 knip-baseline.json(收紧基线)
- *   node scripts/check-knip-ratchet.mjs --print     # 只打印当前计数,不校验、不写基线
+ *   node scripts/check-knip-ratchet.mjs --update    # 用当前状态重写 knip-baseline.json(须干净面)
+ *   node scripts/check-knip-ratchet.mjs --print     # 只打印当前计数与清单项数,不校验、不写基线
+ *   node scripts/check-knip-ratchet.mjs --update-from <json> --provenance "<说明>"
+ *                                                   # 用别处(干净 HEAD 树)量出的 knip JSON 写基线
  *
  * 环境变量:
- *   KNIP_RATCHET_TOLERANCE   每类允许的容差(默认 0)。仅在确认跨平台计数抖动时临时放宽。
+ *   KNIP_RATCHET_TOLERANCE   每类允许的新增项数(默认 0)。仅在确认跨平台抖动时临时放宽。
  *
  * 说明:计数取自 `knip --reporter json` 的 issues 聚合,与终端报告的分节数字同源。
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
-import { classifyFace, detectConfigLoadFailures, provenanceNote } from './lib/knip-ratchet-face.mjs'
+import { classifyFace, detectConfigLoadFailures, diffItems, expandItems, provenanceNote } from './lib/knip-ratchet-face.mjs'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(SCRIPT_DIR, '..')
@@ -171,6 +180,13 @@ function total(counts) {
 const args = new Set(process.argv.slice(2))
 const tolerance = Number.parseInt(process.env.KNIP_RATCHET_TOLERANCE ?? '0', 10) || 0
 
+/** 取带值选项(如 `--update-from <file>`);缺失返回 null。 */
+function argValue(flag) {
+  const argv = process.argv.slice(2)
+  const i = argv.indexOf(flag)
+  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
+}
+
 /**
  * 口径闸门(2026-09-26 立):`knip` 读磁盘,而基线锚点是**内容**读数 —— 本机共享工作树常年
  * 带着并发会话的未提交改动,此时量到的数与 CI(干净检出)结构上不可比:拿它判红会误伤,
@@ -220,7 +236,9 @@ const face = classifyFace({
   insideRepo,
 })
 const forced = args.has('--allow-dirty')
-if (face.verdict !== 'comparable' && !forced && !args.has('--print')) {
+// `--update-from` 的读数来自别处的 JSON(典型:git archive 出的干净 HEAD 树里跑的 knip),
+// 与本机工作树的脏与否无关;它的可比性由 --provenance 的必填说明承担。故不受脏面闸门拦截。
+if (face.verdict !== 'comparable' && !forced && !args.has('--print') && !args.has('--update-from')) {
   console.error(`[knip-ratchet] ❌ 口径不可比(${face.verdict}):${face.reason}`)
   printDirtyPaths(dirtyPaths)
   console.error('[knip-ratchet]    问责面是 CI 的干净检出;本机只想看数请跑 --print(不判、不写基线)。')
@@ -228,12 +246,83 @@ if (face.verdict !== 'comparable' && !forced && !args.has('--print')) {
   process.exit(2)
 }
 
-const counts = countByCategory(runKnipJson())
+
+// ---------------------------------------------------------------- 人工写基线(两条通道)
+/**
+ * `--update-from <json> --provenance <说明>`:用**别处量出来的 knip JSON**写基线。
+ * 这条通道存在的唯一理由:基线必须来自干净面,而本机是常年几百个未提交改动的共享工作树
+ * (`--update` 会被脏面闸门拦下)。正确做法是 `git archive <sha>` 出只读树、接好依赖、在其中
+ * 跑一次 `knip --reporter json`,再把那份 JSON 交给这里。
+ * 因此它**不校验配置加载完整性**(stderr 不在 JSON 里) —— 由 --provenance 的必填说明自证,
+ * 说明会逐字写进基线的 recordedFrom,供审查追溯。
+ */
+function buildBaselinePayload({ fromItems, fromCounts, recordedFrom: fromNote }) {
+  return {
+    // 说明:这是「允许存在的历史债上限」。只允许通过修复来收紧(重新 --update),
+    // 不允许为了过门禁而放大——放大会在 PR 审查中被看见。
+    note: 'Knip 棘轮基线(差值棘轮形态):counts 只作报数;判定看 items——当前面里凡是基线 items 没有的符号一律判红(只拦新增,存量不判)。',
+    recordedFrom: fromNote,
+    generatedAt: new Date().toISOString(),
+    total: total(fromCounts),
+    counts: fromCounts,
+    items: fromItems,
+  }
+}
+
+const updateFrom = argValue('--update-from')
+if (updateFrom) {
+  const provenance = argValue('--provenance')
+  if (!provenance || provenance.trim().length < 8) {
+    console.error(
+      '[knip-ratchet] ❌ --update-from 必须同时给 --provenance "<这份 JSON 从哪量出来的,含 sha/环境>"(≥8 字)。' +
+        '该说明会逐字写进基线 recordedFrom,是这条通道唯一的可比性凭据。',
+    )
+    process.exit(2)
+  }
+  let raw
+  try {
+    raw = readFileSync(updateFrom, 'utf8')
+  } catch (e) {
+    console.error(`[knip-ratchet] ❌ 读不到 --update-from 指定的 JSON:${updateFrom}(${e.message})`)
+    process.exit(2)
+  }
+  let reportFrom
+  try {
+    reportFrom = JSON.parse(raw)
+  } catch (e) {
+    console.error(`[knip-ratchet] ❌ --update-from 的 JSON 解析失败:${e.message}`)
+    process.exit(2)
+  }
+  if (!Array.isArray(reportFrom?.issues)) {
+    console.error('[knip-ratchet] ❌ --update-from 的 JSON 不是 `knip --reporter json` 的产物(缺 issues 数组)')
+    process.exit(2)
+  }
+  const fromCounts = countByCategory(reportFrom)
+  const fromItems = expandItems(reportFrom, CATEGORIES)
+  const payload = buildBaselinePayload({
+    fromItems,
+    fromCounts,
+    recordedFrom: `recordedFrom: manual-json(${updateFrom.split(/[\\/]/).pop()}) —— ${provenance.trim()}`,
+  })
+  writeFileSync(BASELINE_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+  console.log(`[knip-ratchet] 已从外部 JSON 写入基线(total=${payload.total},来源:${provenance.trim()})`)
+  console.log('[knip-ratchet] 请把 knip-baseline.json 一并提交(它是门禁的一部分)。')
+  process.exit(0)
+}
+
+// 到这里才真正跑 knip:--update-from 的读数来自外部 JSON,不该为它白跑一遍全仓扫描。
+const report = runKnipJson()
+const counts = countByCategory(report)
+// 清单是判定面,计数只作报数(见 expandItems 的注释:计数维容差恒 0 挡不住"存量替换")
+const items = expandItems(report, CATEGORIES)
 const currentTotal = total(counts)
 
 if (args.has('--print')) {
   console.log(`[knip-ratchet] 当前计数 total=${currentTotal}`)
-  for (const c of CATEGORIES) console.log(`  ${c.padEnd(24)} ${counts[c]}`)
+  for (const c of CATEGORIES) {
+    const symCount = Object.values(items[c] ?? {}).reduce((a, arr) => a + arr.length, 0)
+    console.log(`  ${c.padEnd(24)} ${String(counts[c]).padStart(6)} 清单项=${symCount}`)
+  }
   process.exit(0)
 }
 
@@ -248,10 +337,9 @@ if (!existsSync(BASELINE_PATH)) {
 }
 
 if (args.has('--update')) {
-  const payload = {
-    // 说明:这是「允许存在的历史债上限」。只允许通过修复来收紧(重新 --update),
-    // 不允许为了过门禁而放大——放大会在 PR 审查中被看见。
-    note: 'Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。',
+  const payload = buildBaselinePayload({
+    fromItems: items,
+    fromCounts: counts,
     // 出处必须随数走:同一组数字从脏树量出来和从干净检出量出来不是一回事(见 classifyFace)。
     recordedFrom: provenanceNote({
       comparable: face.verdict === 'comparable',
@@ -259,10 +347,7 @@ if (args.has('--update')) {
       forced,
       isolated,
     }),
-    generatedAt: new Date().toISOString(),
-    total: currentTotal,
-    counts,
-  }
+  })
   writeFileSync(BASELINE_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
   console.log(`[knip-ratchet] 已更新基线 → knip-baseline.json(total=${currentTotal})`)
   console.log('[knip-ratchet] 请把该文件一并提交(它是门禁的一部分)。')
@@ -271,49 +356,97 @@ if (args.has('--update')) {
 
 const baseline = JSON.parse(readWorktreeFile(ROOT, 'knip-baseline.json') ?? '')
 const baseCounts = baseline.counts ?? {}
+// 基线形态决定判据:items 在位 = 差值棘轮(只拦新增);缺 items = 老形态,只能按计数判(存量会误红)。
+const baseItems = baseline.items && typeof baseline.items === 'object' ? baseline.items : null
+const itemDiff = baseItems ? diffItems(items, baseItems) : null
 
-console.log('[knip-ratchet] 类别             当前    基线    增量')
+if (!baseItems) {
+  console.error(
+    '[knip-ratchet] ⚠️ 基线尚未升级到「清单形态」(无 items 字段)⇒ 本次只能按计数判定,' +
+      '在役文件里的历史存量会把结果判成红。升级方式:干净面跑 knip --reporter json,' +
+      '再 `--update-from <json> --provenance "<sha 与环境>"`。',
+  )
+}
+
+console.log('[knip-ratchet] 类别                    当前    基线    增量')
 const regressions = []
+const addedByCat = []
 for (const c of CATEGORIES) {
   const cur = counts[c] ?? 0
   const base = baseCounts[c] ?? 0
   const delta = cur - base
-  const flag = delta > tolerance ? ' ❌' : ''
+  const added = itemDiff ? (itemDiff.added[c] ?? []) : []
+  const flag = itemDiff ? (added.length > tolerance ? ' ❌' : '') : delta > tolerance ? ' ❌' : ''
   console.log(
-    `[knip-ratchet] ${c.padEnd(22)} ${String(cur).padStart(5)} ${String(base).padStart(7)} ${String(
+    `[knip-ratchet] ${c.padEnd(24)} ${String(cur).padStart(5)} ${String(base).padStart(7)} ${String(
       delta >= 0 ? `+${delta}` : delta,
-    ).padStart(7)}${flag}`,
+    ).padStart(7)}  新增项=${itemDiff ? added.length : '-'}${flag}`,
   )
-  if (delta > tolerance) regressions.push({ c, cur, base, delta })
+  if (itemDiff) {
+    if (added.length > 0) addedByCat.push({ c, added })
+  } else if (delta > tolerance) regressions.push({ c, cur, base, delta })
 }
 
-if (regressions.length > 0) {
+const addedTotal = addedByCat.reduce((a, x) => a + x.added.length, 0)
+const resolvedTotal = itemDiff
+  ? Object.values(itemDiff.resolved).reduce((a, arr) => a + arr.length, 0)
+  : 0
+
+if (itemDiff && addedTotal > tolerance) {
   console.error('')
   console.error(
-    `[knip-ratchet] ❌ 检出新增死代码/依赖问题(共 ${regressions.length} 类超出基线,容差 ${tolerance}):`,
+    `[knip-ratchet] ❌ 本次新增死代码/依赖问题 ${addedTotal} 项(基线里没有的符号;存量 ${resolvedTotal} 项已清偿不判):`,
+  )
+  for (const { c, added } of addedByCat) {
+    console.error(`[knip-ratchet]    · ${CATEGORY_LABEL[c] ?? c}(${c}) +${added.length}:`)
+    const shown = added.slice(0, 12)
+    for (const a of shown) console.error(`[knip-ratchet]        ${a.file} :: ${a.key}`)
+    if (added.length > shown.length) console.error(`[knip-ratchet]        …另有 ${added.length - shown.length} 项`)
+  }
+  console.error('[knip-ratchet]    修复:删除/内联上述符号,或为其补上真实消费方;框架装载型依赖补 knip.jsonc 的')
+  console.error('[knip-ratchet]    ignoreDependencies / ignoreBinaries(附理由)。')
+  console.error('[knip-ratchet]    门禁只拦「新增」:历史存量已在基线清单里,不需要你承受。')
+  process.exit(1)
+}
+
+if (!itemDiff && regressions.length > 0) {
+  console.error('')
+  console.error(
+    `[knip-ratchet] ❌ 检出新增死代码/依赖问题(共 ${regressions.length} 类超出计数基线,容差 ${tolerance}):`,
   )
   for (const r of regressions) {
     console.error(
       `[knip-ratchet]    · ${CATEGORY_LABEL[r.c] ?? r.c}(${r.c}):${r.base} → ${r.cur} (+${r.delta})`,
     )
   }
-  console.error('[knip-ratchet]    修复:删除/内联相关死代码,或为框架装载型依赖补充 knip.jsonc 的')
-  console.error('[knip-ratchet]    ignoreDependencies / ignoreBinaries(附理由)。')
   console.error(
-    '[knip-ratchet]    确属有意引入且无法消除者:node scripts/check-knip-ratchet.mjs --update',
+    '[knip-ratchet]    这是老形态(计数字典)下的判定:先按下面的方式把基线升级成清单形态,' +
+      '再判断红的是不是本次引入:',
   )
-  console.error('[knip-ratchet]    收紧基线并提交(该动作会出现在 diff 中,便于审查)。')
+  console.error(
+    '[knip-ratchet]    node scripts/check-knip-ratchet.mjs --update-from <干净面 JSON> --provenance "<sha 与环境>"',
+  )
   process.exit(1)
 }
 
 console.log('')
-console.log(
-  `[knip-ratchet] ✅ 未超过基线(total ${currentTotal} ≤ ${baseline.total ?? '?'};容差 ${tolerance})`,
-)
-if (currentTotal < (baseline.total ?? Number.POSITIVE_INFINITY)) {
+if (itemDiff) {
   console.log(
-    `[knip-ratchet] 💡 已低于基线 ${(baseline.total ?? 0) - currentTotal} 项,可运行 --update 收紧基线。`,
+    `[knip-ratchet] ✅ 无新增项(当前 total ${currentTotal};基线清单存量 ${baseline.total ?? '?'};` +
+      `本次已清偿 ${resolvedTotal} 项;容差 ${tolerance})`,
   )
+  if (resolvedTotal > 0) {
+    console.log('[knip-ratchet] 💡 有存量被清偿,可在干净面重跑 --update 收紧基线(把清单一起收紧)。')
+  }
+} else {
+  console.log(
+    `[knip-ratchet] ✅ 未超过计数基线(total ${currentTotal} ≤ ${baseline.total ?? '?'};容差 ${tolerance})`,
+  )
+  if (currentTotal < (baseline.total ?? Number.POSITIVE_INFINITY)) {
+    console.log(
+      `[knip-ratchet] 💡 已低于基线 ${(baseline.total ?? 0) - currentTotal} 项,可运行 --update 收紧基线。`,
+    )
+  }
 }
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

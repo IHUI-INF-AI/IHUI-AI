@@ -13,7 +13,6 @@
  *
  * 数据流:
  * - 写入:permission-mode-popover / cyclePermissionMode(Shift+Tab) / use-chat.ts 拦截的 /permission 切
- *   + 自动撤销 1h 计时器归零 → auto-revert 来源
  *   调 recordModeChange 追加
  * - 读取:PermissionHistoryPanel(挂载在 message-input 末尾)
  *   调 getRecentHistory 渲染最近 10 条
@@ -35,14 +34,14 @@ import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspa
 // 统计与徽章判定都必须先归一,否则错得很安静。
 import { permissionModeWire } from '@ihui/types/permission-mode'
 
-/** localStorage 键,与 full-access-acknowledged / auto-revert-bypass 同前缀保持一致 */
+/** localStorage 键,与 full-access-acknowledged 同前缀保持一致 */
 export const PERMISSION_HISTORY_KEY = 'ihui:permission-mode-history'
 
 /** 最多保留条数(防无限增长) */
 export const MAX_HISTORY_ENTRIES = 50
 
 /** 切换来源(用于历史面板展示"通过什么方式切的") */
-export type ModeChangeSource = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog' | 'auto-revert'
+export type ModeChangeSource = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog'
 
 export interface ModeChangeEntry {
   mode: WorkspacePermissionMode
@@ -67,7 +66,10 @@ function readAll(): ModeChangeEntry[] {
         typeof (e as ModeChangeEntry).timestamp === 'number' &&
         typeof (e as ModeChangeEntry).mode === 'string' &&
         typeof (e as ModeChangeEntry).workspacePath === 'string' &&
-        typeof (e as ModeChangeEntry).source === 'string',
+        typeof (e as ModeChangeEntry).source === 'string' &&
+        // 旧数据兼容:1h 自动降级已移除,历史里残留的 auto-revert 条目不展示(不是新记录,直接丢弃)
+        // 现类型已收窄到 4 档,故按 string 比较(旧 localStorage 里仍可能带这个值)
+        String((e as ModeChangeEntry).source) !== 'auto-revert',
     )
   } catch {
     // 隐私模式 / JSON 损坏静默忽略
@@ -88,7 +90,7 @@ function writeAll(entries: ModeChangeEntry[]): void {
  * 追加一条模式切换记录(2026-07-25 立)
  *
  * 调用时机:任何 mode 实际发生变化的代码路径切完后再调
- * (popover handleSelect / cyclePermissionMode / use-chat.ts /permission 拦截 / auto-revert hook)
+ * (popover handleSelect / cyclePermissionMode / use-chat.ts /permission 拦截)
  *
  * 实现细节:
  * - 写到 localStorage 末尾(最新在前)
@@ -105,9 +107,9 @@ export function recordModeChange(entry: ModeChangeEntry): void {
  * 更新最新一条记录的 source(2026-07-25 深化,来源精细化)
  *
  * 调用时机:模式切换先由 message-input useEffect 写入 source='popover' 占位,
- * 真正的来源(shift-tab / slash / auto-revert)在自己的代码路径切完模式后
- * 调本函数覆盖最新一条的 source,避免在 5 个调用点 (popover handleSelect /
- * cyclePermissionMode / use-chat.ts /permission / auto-revert hook /
+ * 真正的来源(shift-tab / slash)在自己的代码路径切完模式后
+ * 调本函数覆盖最新一条的 source,避免在 4 个调用点 (popover handleSelect /
+ * cyclePermissionMode / use-chat.ts /permission /
  * FullAccessConfirmBridge) 重复改 useEffect 内的 if 分支。
  *
  * @param source - 新的来源标识

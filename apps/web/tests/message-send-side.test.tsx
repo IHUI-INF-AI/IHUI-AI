@@ -134,13 +134,6 @@ vi.mock('@/components/ai/permission-mode-popover', () => ({
   PermissionModePopover: () => null,
   isHighRiskPermissionMode: () => false,
 }))
-vi.mock('@/hooks/use-permission-auto-revert', () => ({
-  usePermissionAutoRevert: () => ({
-    isActive: false,
-    remainingMs: 0,
-  }),
-  formatRemaining: () => '0s',
-}))
 vi.mock('@/hooks/use-slash-commands', () => ({
   useSlashCommands: () => [],
 }))

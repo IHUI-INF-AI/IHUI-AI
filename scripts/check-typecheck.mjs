@@ -49,7 +49,7 @@ import { dirname, join, resolve } from 'node:path'
 const TYPECHECK_TIMEOUT_MIN = Number(process.env.IHUI_TYPECHECK_TIMEOUT_MIN || 20)
 const TYPECHECK_TIMEOUT_MS = TYPECHECK_TIMEOUT_MIN * 60 * 1000
 import { fileURLToPath } from 'node:url'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 // G-611:128+N 族码的集合/分类/产出侧全部住 scripts/lib/signal-exit.mjs —— 本文件的消费侧
 // 与两个被派生方的产出侧用**同一把尺子**,字面量集合在本文件不得再出现(镜像测试形状锁)。
 import { classifySpawnOutcome, installSignalExit, TEMPFAIL_EXIT_CODE } from './lib/signal-exit.mjs'
@@ -701,12 +701,12 @@ if (DRY_RUN) {
       _noTsInput
         ? `无 TS 输入面档(exit 0,不改动任何 tsc program 的输入集合)`
         : _dryFast
-          ? `定向快速通道(改动全部位于 apps/${_dryFast.app})`
+          ? `定向快速通道(改动集中在 apps/${_dryFast.apps.map((a) => a.app).join(' + ')})`
           : '全量门'
     }`,
   )
   console.log(
-    `[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`,
+    `[check-typecheck] 将运行命令: ${_dryFast ? `${_dryFast.apps.map((a) => `pnpm --filter ${a.name} run typecheck`).join(' && ')}(定向快速通道:改动集中在 apps/${_dryFast.apps.map((a) => a.app).join(' + ')})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`,
   )
   process.exit(0)
 }
@@ -797,26 +797,44 @@ installSignalExit({
 //   4. 所有文件前缀必须是同一个 apps/<app>/;5. 该 app 的 package.json 必须有 typecheck 脚本。
 function resolveFastScopeApp(files) {
   if (!Array.isArray(files) || files.length === 0) return null
-  let app = null
+  // 2026-11-20 放宽为多 app 定向(此前要求"全部落在同一个 app"):共享 main 上一次 push
+  // 常带着多个会话的票,单 app 硬门槛把整批推回全量档 —— 实测 568 秒里大半是这种误伤。
+  // 放宽的边界一字未松:凡是会改变**下游类型结论**的面仍旧回全量档,包括
+  // scripts/ / .husky/(守门自身)、tsconfig*/package.json/锁文件(program 边界)、
+  // packages/ 下的 .ts/.tsx 契约(被依赖层)、apps 之外的根级 TS。
+  const appSet = new Set()
   for (const raw of files) {
-    const f = String(raw).replace(/\\/g, '/')
+    const f = String(raw).replace(/\\/g, '/').replace(/^\.\//, '')
+    if (!f) continue
     if (f.startsWith('scripts/') || f.startsWith('.husky/')) return null
-    if (f.startsWith('packages/')) return null
+    if (/(^|\/)(tsconfig[^/]*\.json|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc)$/i.test(f)) {
+      return null
+    }
+    if (f.startsWith('packages/')) {
+      if (/\.(ts|tsx|mts|cts)$/i.test(f)) return null
+      // packages/ 下的非 TS 资产(i18n json、md、css)不参与任何 tsc program,放行
+      continue
+    }
+    if (/\.(ts|tsx|mts|cts)$/i.test(f) && !f.startsWith('apps/')) return null
     const m = f.match(/^apps\/([^/]+)\//)
-    if (!m) return null
-    if (app === null) app = m[1]
-    else if (app !== m[1]) return null
+    if (m) appSet.add(m[1])
+    // apps/ 之外的其余非 TS 资产(根级 README/docs、i18n json)不产生 app 结论
   }
-  if (!app) return null
-  const pkgPath = resolve(ROOT, 'apps', app, 'package.json')
-  let pkg = null
-  try {
-    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
-  } catch {
-    return null
+  const apps = [...appSet]
+  if (apps.length === 0) return null
+  const entries = []
+  for (const app of apps) {
+    const pkgPath = resolve(ROOT, 'apps', app, 'package.json')
+    let pkg = null
+    try {
+      pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+    } catch {
+      return null
+    }
+    if (!pkg?.scripts?.typecheck) return null
+    entries.push({ app, name: pkg.name || app })
   }
-  if (!pkg?.scripts?.typecheck) return null
-  return { app, name: pkg.name || app }
+  return { app: entries[0].app, name: entries[0].name, apps: entries }
 }
 
 // ─── 主流程第一档:无 TS 输入面 ──────────────────────────────────────
@@ -843,9 +861,11 @@ if (_noTsInput) {
 const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
 if (_fast) {
   console.log(
-    `[check-typecheck] 🚀 定向快速通道:改动全部位于 apps/${_fast.app} → 仅对该 app 全量 tsc(其余包不参与)`,
+    `[check-typecheck] 🚀 定向快速通道:改动集中在 apps/${_fast.apps.map((a) => a.app).join(' + ')} → 仅对这些 app 跑 tsc(其余包不参与)`,
   )
-  console.log(`[check-typecheck] 命令: pnpm --filter ${_fast.name} run typecheck`)
+  console.log(
+    `[check-typecheck] 命令: ${_fast.apps.map((a) => `pnpm --filter ${a.name} run typecheck`).join(' && ')}`,
+  )
   // ─── 陈旧 dist 前置(2026-11-06 补) ──────────────────────────────────────────
   // 全量通道在跑 tsc 之前有一段 staleDistPreflight()(见 typecheck-full.mjs 文件头「陈旧 dist 前置重建」),
   // 而定向快速通道原先**直接 spawn** app 自己的 typecheck,把这一段绕开了。消费方按包清单的
@@ -904,64 +924,77 @@ if (_fast) {
   // stdio 必须 pipe:inherit 拿不到输出,就无法沿用下述 scope 降级判定。
   // 降级必要性(不做 = 行为退化):原先全量路径会「报错文件不在本次改动范围内 → 降级放行」,
   // 若快通道改成直接失败,则他人未提交的类型噪音会阻塞只改单文件的会话推送。
-  const r = spawnSync('pnpm', ['--filter', String(_fast.name), 'run', 'typecheck'], {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true,
-    windowsHide: true,
-    env: { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' }, // 防该 app 脚本再套全量门
-    timeout: TYPECHECK_TIMEOUT_MS,
-  })
-  const _fout = String(r.stdout || '')
-  const _ferr = String(r.stderr || '')
-  if (_fout) process.stdout.write(_fout)
-  if (_ferr) process.stderr.write(_ferr)
-  if (r.error && r.error.code === 'ETIMEDOUT') {
+  //
+  // 2026-11-20 多 app 版:同一个尺子逐 app 复用。任一 app 拿到不可降级的结论失败 ⇒ 整体失败;
+  // 全部通过或全部报错都属他人噪音 ⇒ 放行(降级签名行只在末尾打一次,下游按行尾识别)。
+  let _fastDegraded = 0
+  for (const _fastApp of _fast.apps) {
+    const r = spawnSync('pnpm', ['--filter', String(_fastApp.name), 'run', 'typecheck'], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
+      windowsHide: true,
+      env: { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' }, // 防该 app 脚本再套全量门
+      timeout: TYPECHECK_TIMEOUT_MS,
+    })
+    const _fout = String(r.stdout || '')
+    const _ferr = String(r.stderr || '')
+    if (_fout) process.stdout.write(_fout)
+    if (_ferr) process.stderr.write(_ferr)
+    if (r.error && r.error.code === 'ETIMEDOUT') {
+      console.error(
+        `[check-typecheck] ⏰ apps/${_fastApp.app} 定向 typecheck 超过 ${TYPECHECK_TIMEOUT_MIN} 分钟,终止(非类型结论)`,
+      )
+      process.exit(1)
+    }
+    if (r.status === 0) {
+      console.log(`[check-typecheck] ✅ apps/${_fastApp.app} 定向 typecheck 通过(exit 0)`)
+      continue
+    }
+    // G-611:快通道与全量通道同一把尺子 —— 定向 typecheck 被信号杀死(exit 130/143/
+    // 3221225786,或阻塞派生返回时只剩 signal 无码)不是"该包类型检查失败",
+    // 归 75 让 push 侧带 hook 重试;有结论的失败(如 exit 2)照旧落到下面的降级判定。
+    const fastOutcome = classifySpawnOutcome({ status: r.status ?? null, signal: r.signal ?? null })
+    if (fastOutcome.kind === 'interrupt') {
+      console.error(
+        `[check-typecheck] ⚠️ apps/${_fastApp.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`,
+      )
+      console.error(
+        `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
+      )
+      process.exit(TEMPFAIL_EXIT_CODE)
+    }
+    // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
+    const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
+    if (
+      scopeDegradeOk &&
+      scopeEnabled &&
+      fastErrorFiles.length > 0 &&
+      shouldDegrade(fastErrorFiles, scopeFiles)
+    ) {
+      console.log('')
+      console.log(
+        `ℹ️ apps/${_fastApp.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
+      )
+      for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
+      console.log('ℹ️ 判定:本 app 放行;报错由其所属会话负责修复')
+      _fastDegraded += 1
+      continue
+    }
     console.error(
-      `[check-typecheck] ⏰ apps/${_fast.app} 定向 typecheck 超过 ${TYPECHECK_TIMEOUT_MIN} 分钟,终止(非类型结论)`,
+      `[check-typecheck] ❌ apps/${_fastApp.app} 定向 typecheck 失败(exit ${r.status})——报错命中本次改动范围或不满足降级条件,按失败处理`,
     )
-    process.exit(1)
+    process.exit(r.status ?? 1)
   }
-  if (r.status === 0) {
-    console.log(`[check-typecheck] ✅ apps/${_fast.app} 定向 typecheck 通过(exit 0)`)
-    process.exit(0)
-  }
-  // G-611:快通道与全量通道同一把尺子 —— 定向 typecheck 被信号杀死(exit 130/143/
-  // 3221225786,或阻塞派生返回时只剩 signal 无码)不是"该包类型检查失败",
-  // 归 75 让 push 侧带 hook 重试;有结论的失败(如 exit 2)照旧落到下面的降级判定。
-  const fastOutcome = classifySpawnOutcome({ status: r.status ?? null, signal: r.signal ?? null })
-  if (fastOutcome.kind === 'interrupt') {
-    console.error(
-      `[check-typecheck] ⚠️ apps/${_fast.app} 定向 typecheck 被中断(${fastOutcome.reason}),非类型检查结论`,
-    )
-    console.error(
-      `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
-    )
-    process.exit(TEMPFAIL_EXIT_CODE)
-  }
-  // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
-  const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
-  if (
-    scopeDegradeOk &&
-    scopeEnabled &&
-    fastErrorFiles.length > 0 &&
-    shouldDegrade(fastErrorFiles, scopeFiles)
-  ) {
-    console.log('')
-    console.log(
-      `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
-    )
-    for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
-    console.log('ℹ️ 判定:本次 push 放行(exit 0);报错由其所属会话负责修复')
+  if (_fastDegraded > 0) {
     // RP-67:降级块末尾的机器签名行(SCOPE_DEGRADE_EVIDENCE_RE 第二半的生产者);
     // 放末尾保证 .husky/pre-push 的 tail -40 不把它截掉。
-    console.log('[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)')
-    process.exit(0)
+    console.log(`[IHUI-SCOPE-DEGRADE] ${_fastDegraded} 个 app 的报错文件均不在本次推送范围,降级为警告(exit 0)`)
   }
-  console.error(
-    `[check-typecheck] ❌ apps/${_fast.app} 定向 typecheck 失败(exit ${r.status})——报错命中本次改动范围或不满足降级条件,按失败处理`,
+  console.log(
+    `[check-typecheck] ✅ 定向快通道全通过(${_fast.apps.map((a) => a.app).join(' + ')};降级 app ${_fastDegraded} 个)`,
   )
-  process.exit(r.status ?? 1)
+  process.exit(0)
 }
 
 // ─── 全量档前置:近期结论回执命中即不再 spawn tsc(T1 长期票) ────────────────
@@ -985,13 +1018,6 @@ try {
 function readJsonSafe(rel) {
   try {
     return JSON.parse(readFileSync(resolve(ROOT, rel), 'utf8'))
-  } catch {
-    return null
-  }
-}
-function statSizeSafe(rel) {
-  try {
-    return statSync(resolve(ROOT, rel)).size
   } catch {
     return null
   }

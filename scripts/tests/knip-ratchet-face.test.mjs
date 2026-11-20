@@ -10,7 +10,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classifyFace, detectConfigLoadFailures, provenanceNote } from '../lib/knip-ratchet-face.mjs'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { classifyFace, detectConfigLoadFailures, diffItems, expandItems, provenanceNote } from '../lib/knip-ratchet-face.mjs'
 
 test('K1 本地脏树必判 incomparable,且理由里带条数(不许只说"不可比")', () => {
   const r = classifyFace({ ci: false, dirtyCount: 238 })
@@ -100,6 +103,102 @@ test('K11 无配置加载失败时返回空(反向锁:判据不是见 ERROR 就�
     ),
     [],
   )
+})
+
+// ---------------------------------------------------------------- 清单差值(差值棘轮的判据面)
+// 2026-11-20:计数棘轮的容差恒 0 挡不住"存量替换"(清 2 个旧死导出 + 新进 2 个新的 ⇒ 计数不变),
+// 判定面因此升级为逐符号清单。下面每条都是那次升级的反面锁。
+const CATS = ['files', 'exports', 'types', 'duplicates', 'unlisted']
+
+test('K13 键要带命名空间(exports/types 同文件同名不同空间不得并成一项)', () => {
+  const items = expandItems(
+    {
+      issues: [
+        { file: 'a.ts', exports: [{ name: 'x', line: 1, col: 1, pos: 0 }] },
+        { file: 'a.ts', types: [{ namespace: 'api', name: 'Y', line: 9, col: 1, pos: 0 }] },
+      ],
+    },
+    CATS,
+  )
+  assert.deepEqual(items.exports['a.ts'], ['x'])
+  assert.deepEqual(items.types['a.ts'], ['api.Y'])
+})
+
+test('K14 duplicates 的 item 是数组 ⇒ 一组同名导出压成一个键,不拆成多项', () => {
+  const items = expandItems(
+    {
+      issues: [
+        {
+          file: 'b.ts',
+          duplicates: [
+            [
+              { name: 'DayBar', line: 23 },
+              { name: 'default', line: 65 },
+            ],
+          ],
+        },
+      ],
+    },
+    CATS,
+  )
+  assert.deepEqual(items.duplicates['b.ts'], ['DayBar|default'])
+})
+
+test('K15 files 类的键就是路径本身,且空数组不得造出空文件条目', () => {
+  const items = expandItems(
+    { issues: [{ file: 'c.tsx', files: [{ name: 'c.tsx' }] }, { file: 'd.tsx', files: [], exports: [] }] },
+    CATS,
+  )
+  assert.deepEqual(items.files['c.tsx'], ['c.tsx'])
+  assert.equal(items.files['d.tsx'], undefined)
+  assert.deepEqual(Object.keys(items.exports), [])
+})
+
+test('K16 行号/列号/pos 抖动不得产生"新增项" —— 键里不含位置', () => {
+  const before = expandItems({ issues: [{ file: 'a.ts', exports: [{ name: 'x', line: 1, col: 2, pos: 3 }] }] }, CATS)
+  const after = expandItems({ issues: [{ file: 'a.ts', exports: [{ name: 'x', line: 400, col: 9, pos: 9999 }] }] }, CATS)
+  const d = diffItems(after, before)
+  assert.equal(d.added.exports.length, 0)
+  assert.equal(d.resolved.exports.length, 0)
+})
+
+test('K17 真新增被点名(文件路径 + 符号键都要在),且分不清类的不会误报', () => {
+  const base = expandItems({ issues: [{ file: 'a.ts', exports: [{ name: 'x' }] }] }, CATS)
+  const cur = expandItems(
+    {
+      issues: [
+        { file: 'a.ts', exports: [{ name: 'x' }, { name: 'brandNew' }] },
+        { file: 'n.ts', types: [{ namespace: 'api', name: 'NewType' }] },
+      ],
+    },
+    CATS,
+  )
+  const d = diffItems(cur, base)
+  assert.deepEqual(d.added.exports, [{ file: 'a.ts', key: 'brandNew' }])
+  assert.deepEqual(d.added.types, [{ file: 'n.ts', key: 'api.NewType' }])
+  assert.equal(d.added.unlisted.length, 0)
+})
+
+test('K18 存量被清偿只进 resolved,绝不进 added(棘轮方向:只拦加回来)', () => {
+  const base = expandItems({ issues: [{ file: 'a.ts', exports: [{ name: 'old1' }, { name: 'keep' }] }] }, CATS)
+  const cur = expandItems({ issues: [{ file: 'a.ts', exports: [{ name: 'keep' }] }] }, CATS)
+  const d = diffItems(cur, base)
+  assert.equal(d.added.exports.length, 0)
+  assert.deepEqual(d.resolved.exports, [{ file: 'a.ts', key: 'old1' }])
+})
+
+test('K19 仓库里的 knip-baseline.json 必须自洽(清单形态 + 自比 0 差)', () => {
+  // 反面锁:基线一旦退回"只有计数"的老形态,门就会重新按计数判 —— 存量会把 CI 判红。
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const baseline = JSON.parse(readFileSync(join(root, 'knip-baseline.json'), 'utf8'))
+  assert.equal(typeof baseline.items, 'object', '基线缺 items ⇒ 退化成计数棘轮')
+  for (const c of CATS) assert.ok(baseline.items[c], `基线缺 ${c} 的清单`)
+  const d = diffItems(baseline.items, baseline.items)
+  for (const c of CATS) {
+    assert.equal(d.added[c].length, 0, `${c} 自比出现新增项`)
+    assert.equal(d.resolved[c].length, 0, `${c} 自比出现清偿项`)
+  }
+  assert.match(baseline.recordedFrom, /recordedFrom:/)
 })
 
 test('K12 多面同时失败时逐条点名,一条不漏', () => {

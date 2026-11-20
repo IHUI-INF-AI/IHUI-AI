@@ -154,7 +154,7 @@ interface SlowClientResult {
   sawResult: boolean;
 }
 
-function runSlowClient(port: number, state: ProductionState, pauseMs: number): Promise<SlowClientResult> {
+function runSlowClient(port: number, state: ProductionState, sampleBudgetMs: number): Promise<SlowClientResult> {
   const body = Buffer.from(JSON.stringify({ text: 'hi' }), 'utf-8');
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -177,12 +177,30 @@ function runSlowClient(port: number, state: ProductionState, pauseMs: number): P
 
         let pausedProduced = -1;
         let pausedInFlight = -1;
-        setTimeout(() => {
-          // 客户端仍在暂停:此刻上游产出必须已被背压挡住
-          pausedProduced = state.produced;
-          pausedInFlight = state.inFlight;
-          res.resume();
-        }, pauseMs);
+        // 跨平台确定性取样:不按固定时长猜背压是否成立,而是轮询到上游产出连续两拍
+        // 停滞(卡在 onEvent 的 drain 等待上)再读数。Linux 内核/流缓冲比 Windows 大,
+        // 固定 200ms 采样可能命中间隙(inFlight=0);停滞判定与平台缓冲大小无关,
+        // 背压真发生后上游持续挂在那一帧的 await 上,inFlight 才稳定为 1。
+        let lastProduced = -1;
+        let stableTicks = 0;
+        const pollStartedAt = Date.now();
+        const poll = (): void => {
+          if (state.produced === lastProduced) stableTicks += 1;
+          else {
+            stableTicks = 0;
+            lastProduced = state.produced;
+          }
+          const settled = stableTicks >= 2;
+          const timedOut = Date.now() - pollStartedAt > sampleBudgetMs;
+          if (settled || timedOut) {
+            pausedProduced = state.produced;
+            pausedInFlight = state.inFlight;
+            res.resume();
+            return;
+          }
+          setTimeout(poll, 20);
+        };
+        setTimeout(poll, 20);
 
         res.on('end', () => {
           const raw = Buffer.concat(chunks).toString('utf-8');
@@ -221,7 +239,7 @@ describe('F-064 SSE 真实连接背压', () => {
     const state: ProductionState = { produced: 0, inFlight: 0 };
     handle = await startAgentServer(slowCore(state), { port: 0, token: TOKEN });
 
-    const result = await runSlowClient(handle.port, state, 200);
+    const result = await runSlowClient(handle.port, state, 1500);
 
     // 背压证据:客户端不读 ⇒ 上游卡在 onEvent 里,没有被无限缓冲
     expect(result.pausedInFlight).toBe(1);

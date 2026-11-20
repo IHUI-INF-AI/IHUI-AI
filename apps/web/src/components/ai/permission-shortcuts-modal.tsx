@@ -34,7 +34,6 @@ import {
   ShieldCheck,
   History,
   Hand,
-  Undo2,
   SquareSlash,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
@@ -77,10 +76,9 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     titleKey: 'shortcutsSectionAudit',
-    rows: [
-      { key: 'Undo 5s', descKey: 'shortcutsItemUndoKbd', icon: Undo2 },
-      { labelKey: 'historyOpenExternal', descKey: 'shortcutsItemHistoryKbd', icon: History },
-    ],
+    // 2026-11-20 机主定案:模式选定即固定,撤销/降级只来自用户本人的下一次显式切换,
+    // 「Undo 5s」这一行随撤销 toast 一并退役(留着就是在教一个不存在的动作)。
+    rows: [{ labelKey: 'historyOpenExternal', descKey: 'shortcutsItemHistoryKbd', icon: History }],
   },
 ]
 

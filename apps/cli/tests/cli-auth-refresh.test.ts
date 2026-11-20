@@ -25,6 +25,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getToken, refreshAccessTokenOnce, setTokenProvider } from '@ihui/api-client';
+import { __resetRefreshStateForTest } from '@ihui/api-client/client';
 
 import { getSettingsPath } from '../src/commands/settings.js';
 import {
@@ -118,6 +119,10 @@ describe('CLI 凭据续期单点', () => {
   });
 
   afterEach(() => {
+    // 清模块级刷新单例(成功档的 lastRefreshSuccessToken / 冷却 / 单飞)——
+    // 否则上一枚刚成功的 token 会在复用窗口内被后续「覆盖源」用例命中,
+    // 绕过 ownsRotation=false 的拒续期,把旧身份顶出来(CI 同秒生成的 JWT 串相等即踩中)。
+    __resetRefreshStateForTest();
     vi.unstubAllGlobals();
     setTokenProvider({ getToken: () => null });
     fs.rmSync(tmpDir, { recursive: true, force: true });
