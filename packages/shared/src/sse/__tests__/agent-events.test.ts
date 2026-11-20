@@ -35,6 +35,7 @@ import {
   parseToolApprovalEvent,
   parseAgentQuestionEvent,
   parseAgentQuestionResolvedEvent,
+  parseHookRunEvent,
   parseAgentTaskEvent,
   sseFieldFaultCounts,
   resetSseFieldTelemetry,
@@ -47,9 +48,9 @@ import { unknownSseEventCounts, resetUnknownSseEventTelemetry } from '../unknown
 // ============ 1. 事件名常量集合 ============
 
 describe('AGENT_TASK_EVENTS 常量集合', () => {
-  it('包含全部 17 个 Agent 任务流事件', () => {
-    expect(Object.keys(AGENT_TASK_EVENTS)).toHaveLength(17)
-    expect(AGENT_TASK_EVENT_NAMES).toHaveLength(17)
+  it('包含全部 18 个 Agent 任务流事件', () => {
+    expect(Object.keys(AGENT_TASK_EVENTS)).toHaveLength(18)
+    expect(AGENT_TASK_EVENT_NAMES).toHaveLength(18)
   })
 
   it('值无重复(事件判别名唯一)', () => {
@@ -76,6 +77,8 @@ describe('AGENT_TASK_EVENTS 常量集合', () => {
     // 2026-11-17:工作台提问两帧与主聊天流同名同形
     expect(AGENT_TASK_EVENTS.QUESTION).toBe('question')
     expect(AGENT_TASK_EVENTS.QUESTION_RESOLVED).toBe('question-resolved')
+    // 2026-11-20:逐钩子运行结果(与 hook-failed 分工不同)
+    expect(AGENT_TASK_EVENTS.HOOK_RUN).toBe('hook-run')
   })
 })
 
@@ -778,6 +781,55 @@ describe('G-896418 信封显式校验(JSON.parse 去 as)', () => {
   it('非 JSON 字符串仍返回 null(既有行为),不进信封计数(它不是错型帧)', () => {
     expect(parseThinkingEvent('not-json')).toBeNull()
     expect(unknownSseEventCounts()['<envelope-invalid>']).toBeUndefined()
+  })
+})
+
+// ============ hook-run(2026-11-20 第 26 项) ============
+
+describe('parseHookRunEvent', () => {
+  const frame = {
+    type: 'hook-run',
+    payload: {
+      run_id: 's1',
+      tool_name: 'write_file',
+      tool_call_id: 'c1',
+      hooks: [
+        { name: 'policy-a', kind: 'pre_tool_use', status: 'ok', durationMs: 3 },
+        {
+          name: 'slow',
+          kind: 'post_tool_use',
+          status: 'timeout',
+          durationMs: 5000,
+          error: 'timeout after 5s',
+        },
+      ],
+    },
+  }
+
+  it('三态逐条投影,归属字段在位', () => {
+    const evt = parseHookRunEvent(JSON.stringify(frame))
+    expect(evt).not.toBeNull()
+    expect(evt!.toolName).toBe('write_file')
+    expect(evt!.toolCallId).toBe('c1')
+    expect(evt!.hooks.map((h) => h.status)).toEqual(['ok', 'timeout'])
+    expect(evt!.hooks[1]!.error).toContain('timeout')
+  })
+
+  it('未知 status ⇒ 拒帧(不让读不懂变成跑成功)', () => {
+    const bad = JSON.parse(JSON.stringify(frame))
+    bad.payload.hooks[0].status = 'blur'
+    expect(parseHookRunEvent(JSON.stringify(bad))).toBeNull()
+  })
+
+  it('空 hooks ⇒ 拒帧(后端同样"空表不发")', () => {
+    const empty = { type: 'hook-run', payload: { run_id: 's', hooks: [] } }
+    expect(parseHookRunEvent(JSON.stringify(empty))).toBeNull()
+  })
+
+  it('事件名不符 ⇒ 拒帧', () => {
+    expect(
+      parseHookRunEvent(JSON.stringify({ type: 'tool.before', payload: frame.payload })),
+    ).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

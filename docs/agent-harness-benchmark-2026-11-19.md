@@ -21,7 +21,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **29 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **30 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -97,7 +97,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（29 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（30 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -421,6 +421,18 @@
 
 验证：`pytest test_compaction_hooks.py` → `5 passed`（无压力零事件 / pre 上下文进压缩前消息 / pre stop 叫停压缩且原对象返回 / post 上下文进产物 / 钩子抛错压缩照常）；五个既有压缩套件 `test_agent_loop_compaction + micro_compaction + compaction_wiring + context_pressure_micro_compaction + compaction_metrics` → `64 passed`；`mypy --strict`（agent_loop_v2）→ `Success`；`ruff check`（含新测试）→ `All checks passed!`。
 
+### 5.31 第 30 项：`hook.run` 前端消费面
+
+- 缺口：第 26 项已把"逐钩子运行结果"发到 SSE，但前端没有消费点 —— 后端发帧、前端无人认，属 §0.9 的"契约在、执行链不在"。既有的"钩子失败"卡（`packages/shared/src/chat/hook-failures.ts` + `apps/web/src/components/chat/message-list/hook-failure-card.tsx`）是六态失败专用通道，只讲"失败与处置"，讲不了"这一轮跑了哪些钩子、各自多久、谁超时"。
+- 处置（同一帧只解析一次，三端共用一份实现）：
+  - 共享层 `packages/shared/src/sse/agent-events.ts`：新增 `AGENT_TASK_EVENTS.HOOK_RUN = 'hook-run'`、`AgentHookRunEntry`（`name / kind / status / durationMs / error?`）、`AgentHookRunEvent`（`toolName / toolCallId / runId / hooks`）、`HOOK_RUN_FIELDS` zod 表与 `parseHookRunEvent()`；`status` 只认 `ok / timeout / error` 三值，**未知 status 或空 hooks 一律拒帧** —— 读不懂的帧不冒充成功，也不会在面板上渲染成一条"看起来跑通了"的记录。
+  - `apps/web/src/hooks/use-agent-runtime.ts`：`hookRuns` 环形缓存（`MAX_HOOK_RUNS = 50`），监听器挂在 `PLAN_STEP` 之后、`SESSION_END` 之前，换 agent 时随既有清理逻辑归零。
+  - `apps/web/src/components/ai/agent-task-progress-pane.tsx`：`data-testid="pane-runtime-hook-runs"` 区块，位于 plan 步骤之后、权限模式之前（"先看干了什么、再看钩子怎么判、最后看权限档"的阅读序），带 `Webhook` 图标 + 每钩子状态标签。
+  - 文案走 i18n，5 个 web locale（zh-CN / en / zh-TW / ja / ko）各 5 键（标题 / 元信息 `{tool}` `{count}` / ok / timeout / error），不写死中文。
+- 超越轴：对照程序把钩子运行结果混在通用日志流里；本仓让它成为**结构化一等帧 + 独立面板**，且与失败卡分工（运行面 vs 故障处置面），同一份 `HookRunEvent.as_dict()` 既是后端事实也是前端类型的来源，不另造第二份字段表。
+
+验证：`pnpm --filter @ihui/shared exec vitest run src/sse/__tests__/agent-events.test.ts` → `50 passed`（新增 4 例：三态逐条投影 / 未知 status 拒帧 / 空 hooks 拒帧 / 事件名不符拒帧；并同步把常量集合计数改 18 + `HOOK_RUN` 值侧断言）；`node scripts/check-i18n-parity.mjs` → `✅ 所有被测端键集一致`（web 5 locale 均为 554 keys）；改动文件定向 `tsc --noEmit`（`use-agent-runtime.ts` + `agent-task-progress-pane.tsx` + 共享 `agent-events.ts`）→ 0 错。全量 `pnpm turbo typecheck --filter=@ihui/web` 当前有 1 条错，位置在**他席未跟踪在飞文件** `apps/web/src/hooks/use-permission-auto-revert.ts`（`'auto-revert'` 不在 `ModeChangeSource` 联合里），与本项无关，本会话不动他人现场。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -439,6 +451,5 @@
 - Trae 本地包可能只是壳，云端实现完全不可见；"本地命中 0"不等于"产品无此能力"。
 - WorkBuddy 四件为抽取件，未做全量模块扫描（11,587 个模块）。
 - 本次未运行全仓 `pnpm turbo build typecheck lint test`；仅运行改动面相关测试与 `@ihui/api` typecheck。全量验证留给提交链/CI。
-
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
