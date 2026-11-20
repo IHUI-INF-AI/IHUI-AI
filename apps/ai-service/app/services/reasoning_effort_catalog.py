@@ -44,7 +44,7 @@ import json
 import os
 import sys
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -142,7 +142,7 @@ async def sync_openrouter_reasoning_efforts(conn: Any) -> dict[str, int]:
            JOIN ai_model_config c ON m.config_id = c.id
            WHERE c.provider_code = 'openrouter' AND m.enabled = true"""
     )
-    stamp = datetime.now(timezone.utc).isoformat()
+    stamp = datetime.now(UTC).isoformat()
     stats = {"rows": len(rows), "declared": 0, "unsupported": 0, "undeclared": 0, "unchanged": 0}
     updates: list[tuple[Any, str]] = []
     for row in rows:
