@@ -234,7 +234,7 @@ export function ReasoningEffortAxis({
             {/* 贯通紫轨道(参考样式:整条常亮,不是进度条);内阴影让它像一条实体滑轨 */}
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-1/2 h-4 -translate-y-1/2 rounded-full bg-violet-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]"
+              className="pointer-events-none absolute inset-x-0 top-1/2 h-4 -translate-y-1/2 rounded-full bg-violet-500 shadow-elevation-none ring-1 ring-inset ring-black/10"
             />
             {/* 档位坐标层:左右各让出一个滑块半径,首末档的手柄边缘正好与轨道两端齐平
                 (2026-11-21 用户定档:手柄必须真能拉到头,不能留一截空当) */}
@@ -258,7 +258,7 @@ export function ReasoningEffortAxis({
               {activeIndex >= 0 && (
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 transition-[left] duration-200 ease-out"
+                  className="pointer-events-none absolute top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-elevation-sm ring-1 ring-black/10 transition-[left] duration-200 ease-out"
                   style={{ left: `${percentOf(activeIndex)}%` }}
                   data-testid="reasoning-effort-knob"
                 />
