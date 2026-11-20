@@ -9707,6 +9707,22 @@
           "title": "终端不存在",
           "action": "重新创建终端"
         },
+        "TERMINAL_INVALID_PATTERN": {
+          "title": "终端匹配模式无效",
+          "action": "检查正则写法后重试"
+        },
+        "TERMINAL_INVALID_SIZE": {
+          "title": "终端尺寸无效",
+          "action": "传入正整数行列后重试"
+        },
+        "TERMINAL_NOT_A_TTY": {
+          "title": "终端不是 tty",
+          "action": "以 PTY 模式重启会话"
+        },
+        "TERMINAL_RESIZE_FAILED": {
+          "title": "终端尺寸调整失败",
+          "action": "重建终端后重试"
+        },
         "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
           "title": "平台不支持 PTY",
           "action": "改用管道模式,或检查宿主 ConPTY 支持"

@@ -399,7 +399,11 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
               if (conns.size === 0) connections.delete(virtualKey)
             }
             // 坐席断开：若没有其他连接则置 offline
-            await updateAgentStatus(agent.id, 'offline').catch(() => {})
+            try {
+              await updateAgentStatus(agent.id, 'offline')
+            } catch {
+              // 断开清理路径:状态落库失败不阻断连接槽释放
+            }
             // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
             releaseSlot()
           })

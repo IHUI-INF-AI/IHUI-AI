@@ -113,7 +113,8 @@ def test_strict_child_env_applies_to_both_backends_via_source_lock() -> None:
     """形状锁(读源码一次):PTY 分支必须**与管道分支同经** `_strict_child_env`,
     否则 PTY 悄悄继承了宿主环境 = 沙箱边界被放宽却没人发现。
     """
-    src = io.open(term.__file__, encoding="utf-8").read()
+    with open(term.__file__, encoding="utf-8") as fh:
+        src = fh.read()
     # 三个 spawn 分支(管道 / POSIX pty / Windows ConPTY)都必须各走一次 `_strict_child_env`。
     assert src.count("env=_strict_child_env(env_extra)") >= 3
     # 任何 subprocess.Popen( 调用点附近必须传了 env=;粗略:文件里没有裸 `subprocess.Popen(`
@@ -136,7 +137,8 @@ def _conpty_source() -> str:
 
     ConPTY 是同一模块的"Windows 平台专章"(不另立第二份实现),故判据面就是 `term` 自身。
     """
-    return io.open(term.__file__, encoding="utf-8").read()
+    with open(term.__file__, encoding="utf-8") as fh:
+        return fh.read()
 
 
 def test_conpty_does_not_inherit_parent_handles() -> None:
@@ -179,7 +181,7 @@ def _open_env_backend(tmp_path, *, with_pty: bool):
     script = _script_path(tmp_path, "isatty_probe.py", _ISATTY_SCRIPT)
     cmd = f'"{sys.executable}" -u "{script}"'
     if with_pty:
-        import os as _o  # noqa: PLC0415
+        import os as _o
         assert _o.environ.get(_TEST["PTY_REQUEST_ENV"]) is not None
     return term.open_terminal(
         command=cmd, cwd=str(tmp_path), user_id="u-term", session_id="s-term"
@@ -398,6 +400,142 @@ def _clean_terminals():
     term.reset_terminals()
     yield
     term.reset_terminals()
+
+
+# ─── keys(按键原语):转义序列与控制码只能走字节通道 ───
+
+_KEYS_SCRIPT = """\
+import sys
+print("[READY]", flush=True)
+buf = sys.stdin.buffer
+while True:
+    b = buf.read(1)
+    if not b:
+        break
+    print("[KEY]" + b.hex(), flush=True)
+"""
+
+
+def test_key_table_is_single_source_with_loose_aliases() -> None:
+    """键表只有一份;别名/大小写/分隔符都归一到同一 key,不为每种写法各写一条。"""
+    table = _TEST["key_sequences"]
+    assert table["up"] == "\x1b[A" and table["down"] == "\x1b[B"
+    assert table["escape"] == table["esc"] == "\x1b"
+    assert table["ctrl-c"] == "\x03" and table["ctrl-d"] == "\x04"
+    norm = term._normalize_key
+    for raw in ("Ctrl+C", "ctrl_c", " Ctrl + C ", "CTRL-C"):
+        assert norm(raw) == "ctrl-c", raw
+    for raw in ("Up", "UP", " up "):
+        assert norm(raw) == "up", raw
+
+
+def test_keys_payload_rejects_unknown_empty_and_oversize_before_write() -> None:
+    """校验必须在拼出 payload 的这一层就完成:写一半再报错等于给子进程喂了残缺序列。"""
+    payload, _, _ = _TEST["keys_payload"](["up", "tab"])
+    assert payload == "\x1b[A\t"
+    for keys, want in (
+        ([], "TERMINAL_EMPTY_KEYS"),
+        (["nope"], "TERMINAL_UNKNOWN_KEY"),
+        (["up"] * (_TEST["MAX_KEYS_PER_CALL"] + 1), "TERMINAL_TOO_MANY_KEYS"),
+    ):
+        got, code, _ = _TEST["keys_payload"](keys)
+        assert got is None, keys
+        assert code == want, (keys, code)
+
+
+def test_keys_reach_child_as_bytes_on_pipe_backend(tmp_path) -> None:
+    """管道后端:Esc 与方向键必须**原样字节**到达子进程(0x1b / 0x1b 0x5b 0x41)。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "key_probe.py", _KEYS_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        assert term.wait_terminal(
+            tid, pattern="[READY]", user_id="u-term", session_id="s-term"
+        )["matched"] is True
+        sent = term.send_terminal_keys(
+            tid, ["escape", "up"], user_id="u-term", session_id="s-term"
+        )
+        assert sent["ok"] is True, sent
+        assert sent["keys"] == ["escape", "up"]
+        assert sent["bytes_written"] == 4  # 1b + 1b 5b 41
+        for want in ("[KEY]1b", "[KEY]5b", "[KEY]41"):
+            res = term.wait_terminal(
+                tid, pattern=want, user_id="u-term", session_id="s-term", timeout_s=5.0
+            )
+            assert res["matched"] is True, (want, res)
+        # 未知键在**碰会话之前**就拒:不写任何字节,子进程不会多收到一行 [KEY]。
+        bad = term.send_terminal_keys(
+            tid, ["definitely-not-a-key"], user_id="u-term", session_id="s-term"
+        )
+        assert bad["ok"] is False
+        assert bad["errorCode"] == "TERMINAL_UNKNOWN_KEY"
+        assert "up" in bad["supported"]
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_keys_reach_child_on_pty_backend(tmp_path, monkeypatch) -> None:
+    """真 tty 后端:按键字节确实进了这条 PTY 通道(按平台各自的规范模式事实断言)。
+
+    Windows(ConPTY)的 conhost 在规范模式下会吃掉 ESC/方向键(本机实测),能到子进程的是
+    回车 0x0d;POSIX 的行规程把 ESC/方向键当普通字符留在行里,随回车一并送达。两档测的都是
+    "按键通道真的通",不是"方向键能穿透行规程" —— 后者需要程序自己切 raw 模式。
+    """
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "key_probe_pty.py", _KEYS_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pty"
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        assert term.wait_terminal(
+            tid, pattern="[READY]", user_id="u-term", session_id="s-term", timeout_s=15.0
+        )["matched"] is True
+        keys = ["enter"] if os.name == "nt" else ["up", "enter"]
+        expects = ("[KEY]0d",) if os.name == "nt" else ("[KEY]1b", "[KEY]41")
+        sent = term.send_terminal_keys(tid, keys, user_id="u-term", session_id="s-term")
+        assert sent["ok"] is True, sent
+        for want in expects:
+            res = term.wait_terminal(
+                tid, pattern=want, user_id="u-term", session_id="s-term", timeout_s=15.0
+            )
+            assert res["matched"] is True, (want, res)
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_keys_action(tmp_path, monkeypatch) -> None:
+    """工具层:数组与空格分隔字符串两种入参都认;空键显式 INVALID_PARAMS。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    opened = await _tool_terminal(
+        {
+            "action": "open",
+            "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "key_tool.py", _KEYS_SCRIPT)}"',
+            "cwd": str(tmp_path),
+            **_OWNER,
+        }
+    )
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        listed = await _tool_terminal(
+            {"action": "keys", "terminal_id": tid, "keys": ["tab", "escape"], **_OWNER}
+        )
+        assert listed["action"] == "keys", listed
+        assert listed["ok"] is True and listed["keys"] == ["tab", "escape"], listed
+        spaced = await _tool_terminal(
+            {"action": "keys", "terminal_id": tid, "keys": "up down", **_OWNER}
+        )
+        assert spaced["ok"] is True and spaced["keys"] == ["up", "down"], spaced
+        empty = await _tool_terminal(
+            {"action": "keys", "terminal_id": tid, "keys": [], **_OWNER}
+        )
+        assert empty["errorCode"] == "INVALID_PARAMS", empty
+    finally:
+        await _tool_terminal({"action": "close", "terminal_id": tid, **_OWNER})
 
 
 # ─── wait_for(expect 原语):命中 / 超时 / 已退出 三态必须互不冒充 ───

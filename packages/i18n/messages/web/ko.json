@@ -9707,6 +9707,22 @@
           "title": "터미널 없음",
           "action": "터미널을 새로 만드세요"
         },
+        "TERMINAL_INVALID_PATTERN": {
+          "title": "터미널 매칭 패턴이 올바르지 않습니다",
+          "action": "정규식을 확인한 뒤 다시 시도하세요"
+        },
+        "TERMINAL_INVALID_SIZE": {
+          "title": "터미널 크기가 올바르지 않습니다",
+          "action": "양의 정수 행/열을 지정하세요"
+        },
+        "TERMINAL_NOT_A_TTY": {
+          "title": "터미널이 tty가 아닙니다",
+          "action": "PTY 모드로 세션을 다시 시작하세요"
+        },
+        "TERMINAL_RESIZE_FAILED": {
+          "title": "터미널 크기 조정 실패",
+          "action": "터미널을 다시 만든 뒤 재시도하세요"
+        },
         "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
           "title": "이 플랫폼에서는 PTY를 지원하지 않습니다",
           "action": "파이프 모드로 전환하거나 호스트 ConPTY 지원을 확인하세요"
