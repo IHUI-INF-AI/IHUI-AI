@@ -493,6 +493,51 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
 
+      # 2026-11-20 根因修复:本 job 起了一个真空库就直接 pytest,实测整片用例红在
+      #   `relation "audit_logs" does not exist` / `type "vector" does not exist` ——
+      #   ai-service 自有 SQL 已全迁 PostgreSQL(守门 pg-only),但 Drizzle 侧的表(users/
+      #   audit_logs/ai_model_config/agent_memory_semantic 等)要靠迁移建出。缺这一步时
+      #   "库里没有表"被误读成"代码有 bug"。
+      # 与 ai-service-schema-check job 同款前置(同镜像、同 CREATE EXTENSION、同 drizzle-kit migrate),
+      # 单一真相源仍是 packages/database/drizzle/*.sql,不另起建库脚本。
+      - name: Install pnpm
+        id: install-pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install JS dependencies
+        id: install-js-deps
+        working-directory: ../..
+        run: pnpm install --frozen-lockfile
+
+      - name: Build database package
+        id: build-database
+        working-directory: ../..
+        run: pnpm --filter @ihui/database build
+
+      - name: Enable pgvector extension
+        id: enable-pgvector
+        working-directory: ../../packages/database
+        run: |
+          node --input-type=module -e "
+            import postgres from 'postgres';
+            const sql = postgres(process.env.DATABASE_URL);
+            await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
+            await sql.end();
+            console.log('pgvector extension enabled');
+          "
+
+      - name: Apply migrations to test DB
+        id: apply-migrations
+        working-directory: ../../packages/database
+        run: npx drizzle-kit migrate
+
       - name: Setup Python
         id: setup-python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -546,8 +591,14 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout setup-python install-uv install-deps probe-dev-extra pytest syntax-check
+          TRIAGE_IDS: checkout install-pnpm setup-node install-js-deps build-database enable-pgvector apply-migrations setup-python install-uv install-deps probe-dev-extra pytest syntax-check
           O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL_JS_DEPS: ${{ steps.install-js-deps.outcome }}
+          O_BUILD_DATABASE: ${{ steps.build-database.outcome }}
+          O_ENABLE_PGVECTOR: ${{ steps.enable-pgvector.outcome }}
+          O_APPLY_MIGRATIONS: ${{ steps.apply-migrations.outcome }}
           O_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
           O_INSTALL_UV: ${{ steps.install-uv.outcome }}
           O_INSTALL_DEPS: ${{ steps.install-deps.outcome }}
