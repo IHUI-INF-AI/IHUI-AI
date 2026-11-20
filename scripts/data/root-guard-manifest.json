@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-20T09:17:43.383Z",
+  "sealedAt": "2026-11-20T10:28:01.190Z",
   "sealedBy": "root-guard --seal",
-  "reason": "goal bug-zero:并发对侧 union merge 把 guardian-runner/land-gate-rerun 推进 HEAD,清单需按其当前 HEAD 面重封(零判据语义改动)",
+  "reason": "部署环 fail-closed 解封:guardian-runner/guardian-executor 两条哈希在 HEAD 面(并发会话推进)已变而清单未同笔重封;按该面 blob 重算,零判据语义改动(2026-11-20 隧道恢复后一格)",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "2d15420dacd553b7951dbf6c512b73f94752fdf5b754c3c82dee7e14209d56ad"
+      "sha256": "d09648b1e80e139bc33816fb8410a12533f62a49bbaac5fc03718361ed587922"
     },
     {
       "id": "judgement-libs",
@@ -40,7 +40,7 @@
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "0684f509d55143054069a75961e24c955b180857c0d59066e54664995005fbcf"
+      "sha256": "0a0d7cc85166187121c3ec43a00e21cb95b9002cc1c48d65ffc2c6f941182e8d"
     },
     {
       "id": "gate-failure-kind",
