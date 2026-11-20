@@ -81,6 +81,8 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
+from app.core.reasoning_effort_pin import ReasoningEffortPin
+
 __all__ = [
     "ModelCategory",
     "ModelTier",
@@ -273,6 +275,52 @@ _REASONING_NAME_RULES: tuple[str, ...] = (
     r"deepseek-r\d",
     r"gpt-5|gpt-6",
 )
+
+
+def derive_reasoning_efforts(model: dict[str, Any]) -> list[str] | None:
+    """该模型**上游声明**的推理档位子集(纯函数,无 I/O;2026-11-21 立)。
+
+    为什么需要:此前前端只按"通用四档"画滑轨,点上去可能上游根本不认(见 OpenAI 文档
+    "Supported values are model-dependent / Some models support only a subset")。
+    真正的权威清单只能来自上游或人工声明,而本仓已经有两处这样的来源:
+
+      · `reasoning_effort_config`(Trae model_list 的原生形状:`{support_thinking,
+        options, default_level}`)—— `apps/api/src/services/upstream-adapters/
+        trae-protocol.ts:resolveReasoningEffortLevel` 已在发送侧按它裁决;这里用同一份
+        `options` 决定**画哪几档**,两侧口径逐值一致。
+      · `reasoning_efforts`:人工声明(default_models.json / DB metadata 均可写),
+        用于"上游不返回枚举但我们实证过"的模型。
+
+    三态(消费方据此决定呈现):
+      - `None`  → 未声明/取不到 ⇒ 不上报该字段,前端按通用档位呈现(未知不误藏);
+      - `[]`    → 上游明确说不支持(`support_thinking: false`)⇒ 前端置灰;
+      - 非空列表 → 该模型可切的档位(只含契约值域内的名字,非法值一律丢弃不猜)。
+
+    值域不在这里写第二份:成员资格问 `ReasoningEffortPin().known_efforts`(与
+    packages/types/src/reasoning-effort.ts 同一封闭集,由 check-model-capacity-parity 对账)。
+    """
+    declared = model.get("reasoning_efforts")
+    source = declared if isinstance(declared, list) else None
+    config = model.get("reasoning_effort_config")
+    if source is None and isinstance(config, dict):
+        if config.get("support_thinking") is False:
+            return []
+        options = config.get("options")
+        source = options if isinstance(options, list) else None
+    if source is None:
+        return None
+    known = ReasoningEffortPin().known_efforts
+    out: list[str] = []
+    for item in source:
+        if not isinstance(item, str):
+            # Trae 的 options 可能是数字等级;数字无法对到契约名,不猜、不映射
+            continue
+        value = item.strip().lower()
+        if value in known and value not in out:
+            out.append(value)
+    # 声明了但一个契约值都没命中 ⇒ 视为"未声明"(而不是"不支持"):
+    # 上游可能在用别的词表,硬判成空集会把轴整片关掉,方向是误藏
+    return out or None
 
 
 def derive_capabilities(
@@ -1010,6 +1058,13 @@ def annotate_models(
                 if key in _CAPABILITY_KEYS and isinstance(val, bool):
                     caps[key] = val
         m["capabilities"] = caps
+        # 第四趟(2026-11-21):该模型**上游声明**的推理档位子集。取不到就**不写这个键**
+        # (前端按"未声明"呈现通用档位),写空集才表示"明确不支持" —— 两种含义不能混。
+        efforts = derive_reasoning_efforts(m)
+        if efforts is not None:
+            m["reasoning_efforts"] = efforts
+        else:
+            m.pop("reasoning_efforts", None)
 
     return models
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
