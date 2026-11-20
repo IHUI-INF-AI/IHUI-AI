@@ -45,6 +45,7 @@ import os
 import sys
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -53,6 +54,10 @@ from app.core.reasoning_effort_pin import ReasoningEffortPin
 
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 SOURCE_TAG = "openrouter:/api/v1/models"
+# 落盘镜像:供应商池同步会整体重写 metadata(D137 实测 436 条被清成 0),
+# 所以真值必须另存一份文件,目录构建时优先读 metadata、缺失回落本文件。
+_CACHE_REL = Path(".ihui-agent") / "state" / "openrouter-reasoning-efforts.json"
+_cache_state: dict[str, Any] = {"mtime": None, "index": {}}
 # `none` 是上游"关掉推理"的档位,契约层没有同名项,落到最低档 minimal(极简)。
 _UPSTREAM_ALIASES: Mapping[str, str] = {"none": "minimal"}
 
@@ -113,7 +118,51 @@ def build_openrouter_index(payload: Any) -> dict[str, list[str]]:
 
 def resolve_efforts(index: Mapping[str, list[str]], model_id: str) -> list[str] | None:
     """本地模型 id → 档位清单;`None` = 上游没声明(不猜,交由前端回落)。"""
-    return index.get(_full_key(model_id)) or index.get(_variant_key(model_id))
+    exact = index.get(_full_key(model_id))
+    if exact is not None:
+        return exact
+    return index.get(_variant_key(model_id))
+
+
+def cache_path() -> Path:
+    """镜像文件位置(仓库根下,与本模块相对位置推导;不写死盘符)。"""
+    return Path(__file__).resolve().parents[4] / _CACHE_REL
+
+
+def write_cache(index: Mapping[str, list[str]]) -> None:
+    target = cache_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "source": SOURCE_TAG,
+        "synced_at": datetime.now(UTC).isoformat(),
+        "models": dict(index.items()),
+    }
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    _cache_state["mtime"] = None
+
+
+def load_cache_index() -> dict[str, list[str]]:
+    """读镜像(按 mtime 记忆化);文件缺失/损坏 ⇒ 空索引(未声明,不猜)。"""
+    try:
+        target = cache_path()
+        mtime = target.stat().st_mtime
+    except OSError:
+        return {}
+    if _cache_state["mtime"] == mtime:
+        return _cache_state["index"]
+    try:
+        raw = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    models = raw.get("models") if isinstance(raw, Mapping) else None
+    index: dict[str, list[str]] = {}
+    if isinstance(models, Mapping):
+        for key, efforts in models.items():
+            if isinstance(key, str) and isinstance(efforts, list):
+                index[key] = [e for e in efforts if isinstance(e, str)]
+    _cache_state["index"] = index
+    _cache_state["mtime"] = mtime
+    return index
 
 
 async def fetch_openrouter_payload(client: httpx.AsyncClient | None = None) -> Any:
@@ -136,6 +185,8 @@ async def sync_openrouter_reasoning_efforts(conn: Any) -> dict[str, int]:
     未声明的一律不写(失效方向 = 前端多画通用四档,不漏画)。
     """
     index = build_openrouter_index(await fetch_openrouter_payload())
+    # 先落镜像再写库:池同步会整体重写 metadata,镜像才是跨轮存续的那份。
+    write_cache(index)
     rows = await conn.fetch(
         """SELECT m.id, m.model_id, m.metadata
            FROM ai_model_config_models m

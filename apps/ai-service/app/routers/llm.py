@@ -4048,6 +4048,11 @@ async def build_model_catalog() -> list[dict[str, Any]]:
             except Exception:
                 rows = await conn.fetch(_base_sql.format(extra=""))
         seen = {m["id"] for m in default_models}
+        # D137 后续:供应商池同步会整体重写 metadata(实测 436 条被清成 0),
+        # 真值镜像落在 .ihui-agent/state,metadata 缺键时回落到它(仍由上游枚举而来)。
+        from ..services.reasoning_effort_catalog import load_cache_index, resolve_efforts
+
+        _effort_index = load_cache_index()
         for r in rows:
             mid = r["model_id"]
             provider_code = r["provider_code"]
@@ -4112,6 +4117,11 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                     _declared_efforts = _declared_meta.get("reasoning_efforts")
                     if isinstance(_declared_efforts, list):
                         _entry["reasoning_efforts"] = _declared_efforts
+                if "reasoning_efforts" not in _entry:
+                    # metadata 被池同步清掉时的存续那份;按全名/尾名匹配上游枚举。
+                    _resolved = resolve_efforts(_effort_index, mid)
+                    if _resolved is not None:
+                        _entry["reasoning_efforts"] = _resolved
                 # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
                 # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
                 if provider_code == "token6688":
