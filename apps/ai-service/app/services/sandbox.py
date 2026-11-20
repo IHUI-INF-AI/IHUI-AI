@@ -468,6 +468,9 @@ class SandboxExecutor:
                 duration_ms=0, backend="local", timed_out=False,
             )
         # 3. 执行(asyncio subprocess + 超时);严档只继承白名单环境变量
+        # proc 预置 None:spawn 本身就抛(权限/argv/资源)时它从未绑定,
+        # 而下面 except Exception 还要读它 —— 不预置就把"执行失败"变成 UnboundLocalError。
+        proc: asyncio.subprocess.Process | None = None
         try:
             if profile.full_env:
                 full_env = {**os.environ, **env} if env else None
@@ -569,7 +572,8 @@ class SandboxExecutor:
             )
         except Exception as e:
             # AIS-026: 任何执行异常也要回收可能仍在跑的子进程。
-            if proc.returncode is None:
+            # 这里的"可能"必须现判:异常发生在 spawn 之前/之中时 proc 还是 None。
+            if proc is not None and proc.returncode is None:
                 with contextlib.suppress(ProcessLookupError):
                     proc.kill()
                 with contextlib.suppress(ProcessLookupError):
