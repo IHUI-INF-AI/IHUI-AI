@@ -58,6 +58,40 @@ logger = logging.getLogger(__name__)
 # 聚合策略(对齐 packages/types/src/agent-runtime.ts P3-3 契约)
 AggregationStrategy = Literal["merge", "best_of", "consensus"]
 
+# 递归分解(RLM 整合档)边界:层数上限与单节点预算。宁可小,超了显式拒绝。
+RECURSIVE_MAX_DEPTH = 3
+# 单节点正文预算(与 tool_result_pruner 的 DEFAULT_THRESHOLD_CHARS 同量级):
+# 超过就说明"这一层结论已经喂不进下一层上下文",该再切一层。
+RECURSIVE_NODE_MAX_CHARS = 8192
+
+
+def _chunk_task(objective: str, chunk: str, index: int, total: int) -> str:
+    """分片任务文本:同一 objective + 第 i/N 片材料(不引入新的任务模板语言)。"""
+    return f"{objective}\n(本支处理第 {index}/{total} 片材料,只就该片给结论)\n---\n{chunk}"
+
+
+def _split_text_for_recursion(text: str, max_chars: int) -> list[str]:
+    """把上一层聚合正文按 `max_chars` 再切(优先段落边界,硬边界兜底)。
+
+    只服务递归分解这一处:通用文本切分器本仓已有 `codebase_indexer` 的代码切分
+    (按 AST/正则),语义不同;这里要的是**保序、不重叠、可拼回**的等长切片。
+    """
+    limit = max(1, int(max_chars))
+    text = str(text)
+    if len(text) <= limit:
+        return [text] if text else []
+    out: list[str] = []
+    pos = 0
+    while pos < len(text):
+        end = min(len(text), pos + limit)
+        if end < len(text):
+            nl = text.rfind("\n\n", pos, end)
+            if nl > pos + limit // 2:
+                end = nl + 2
+        out.append(text[pos:end])
+        pos = end
+    return out
+
 # 贡献者输出里的结构化尾巴(2026-11-16):best_of 需要 score、consensus 需要 conclusion。
 # 没有显式字段时从正文解析,避免 invoke_parallel 不产出这两个字段导致聚合退化。
 _CONCLUSION_RE = re.compile(
@@ -500,6 +534,110 @@ class TeamOrchestrator:
             "objective": objective,
             "rounds": result_dicts,
             "final_summary_context": transcript[-1] if transcript else "",
+        }
+
+    async def run_recursive(
+        self,
+        objective: str,
+        chunks: list[str],
+        *,
+        runner: TeamRunner | None = None,
+        merge_strategy: AggregationStrategy = "merge",
+        max_concurrency: int = 5,
+        depth: int = 1,
+        max_chars_per_node: int = RECURSIVE_NODE_MAX_CHARS,
+    ) -> dict[str, Any]:
+        """递归分解(Map-Reduce over chunks) —— 对参照件 RLM 的**整合**,不是新执行器。
+
+        为什么不另起一套:RLM 的三件事本仓都已经有零件 —— 并行分发是
+        `run_round → _default_runner → orchestrator.invoke_parallel`,聚合是
+        `ResultAggregator`,压缩是裁剪器的头/尾预算与 `summary_context`。本方法只是把
+        它们按"层"串起来,所以执行路径、失败语义、并发闸全部沿用既有实现。
+
+        行为:
+        - 第 1 层:每个 chunk 一个 member(名 `part-i`),任务 = `_chunk_task`;
+        - 每层结果走既有聚合;当 `depth > 1` 且聚合正文 > `max_chars_per_node` 时,
+          把聚合正文**再切**一次进下一层(层数上限 `RECURSIVE_MAX_DEPTH`);
+        - 节点总数(所有层的 chunk 数之和)不得超过 `resolve_running_cap()` —— 与
+          子代理并发闸同一个数,超了整次拒绝(不跑半截再报错)。
+        """
+        chunks = [str(c) for c in chunks if str(c).strip()]
+        depth = max(1, min(RECURSIVE_MAX_DEPTH, int(depth)))
+        # 惰性 import:并发闸的单一真相源在 subagent_jobs,这里只消费它的数,
+        # 不在本层另写一份上限(§0.6)。
+        from .subagent_jobs import resolve_running_cap
+
+        node_budget = resolve_running_cap()
+        if not chunks:
+            rr = await self.run_round(
+                objective=objective, tasks=[], strategy=merge_strategy,
+                max_concurrency=max_concurrency, runner=runner,
+            )
+            return {
+                "objective": objective,
+                "depth": depth,
+                "levels": [rr.to_dict()],
+                "merged_text": "",
+                "final_summary_context": rr.summary_context,
+                "nodes": 0,
+                "skipped": "no_chunks",
+            }
+
+        levels: list[dict[str, Any]] = []
+        nodes = 0
+        current = chunks
+        current_objective = objective
+        for level in range(depth):
+            if nodes + len(current) > node_budget:
+                return {
+                    "ok": False,
+                    "errorCode": "RECURSIVE_NODE_LIMIT",
+                    "error": (
+                        f"递归节点数将达 {nodes + len(current)}(上限 {node_budget});"
+                        f"请减少 chunks 或降低 depth"
+                    ),
+                    "limit": node_budget,
+                }
+            tasks = [
+                {
+                    "name": f"part-{i + 1}",
+                    "task": _chunk_task(current_objective, chunk, i + 1, len(current)),
+                }
+                for i, chunk in enumerate(current)
+            ]
+            rr = await self.run_round(
+                objective=current_objective,
+                tasks=tasks,
+                strategy=merge_strategy,
+                max_concurrency=max_concurrency,
+                runner=runner,
+                round_index=level,
+                round_count=depth,
+            )
+            nodes += len(current)
+            levels.append(rr.to_dict())
+            merged = str(rr.aggregate.get("merged_text") or "")
+            if level + 1 >= depth or len(merged) <= max_chars_per_node:
+                return {
+                    "objective": objective,
+                    "depth": depth,
+                    "levels": levels,
+                    "merged_text": merged,
+                    "final_summary_context": rr.summary_context,
+                    "nodes": nodes,
+                }
+            current = _split_text_for_recursion(merged, max_chars_per_node)
+            current_objective = f"{objective}(第 {level + 2} 层:汇总上一层结论)"
+
+        # 理论不可达(depth 已夹紧);显式返回而不是隐式 None。
+        last = levels[-1]
+        return {
+            "objective": objective,
+            "depth": depth,
+            "levels": levels,
+            "merged_text": last.get("aggregate", {}).get("merged_text", ""),
+            "final_summary_context": last.get("summary_context", ""),
+            "nodes": nodes,
         }
 
 
