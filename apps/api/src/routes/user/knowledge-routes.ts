@@ -40,7 +40,9 @@ const knowledgeRoutes: FastifyPluginAsync = async (server) => {
   server.get('/knowledge/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const knowledge = await findKnowledgeById(id)
+    // F-94:作者本人可预览自己的草稿/下线条目 —— 可见性谓词必须带 viewerId,
+    // 匿名(未登录)仍只走公开可见条件。
+    const knowledge = await findKnowledgeById(id, { viewerId: request.userId })
     if (!knowledge) return reply.status(404).send(error(404, '知识库不存在'))
     return reply.send(success({ knowledge }))
   })

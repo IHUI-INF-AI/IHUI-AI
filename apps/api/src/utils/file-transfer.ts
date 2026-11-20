@@ -140,14 +140,37 @@ export async function downloadFileFromUrl(url: string): Promise<DownloadResult |
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS)
 
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': DEFAULT_USER_AGENT,
-        Accept: '*/*',
-      },
-      signal: controller.signal,
-      redirect: 'follow',
-    })
+    // F-707:重定向必须逐跳复检。`redirect:'follow'` 会把每一跳交给 fetch 自己跟,
+    // 首跳的 SSRF 校验对后续 Location 完全不生效 ⇒ 一个公网 302 就能把服务端
+    // 引到 169.254.169.254。改为 manual + 手写跳数上限(5),每一跳先过 SSRF 闸再发。
+    const MAX_REDIRECTS = 5
+    let currentUrl = url
+    let redirects = 0
+    let resp: Response
+    while (true) {
+      resp = await fetch(currentUrl, {
+        headers: {
+          'User-Agent': DEFAULT_USER_AGENT,
+          Accept: '*/*',
+        },
+        signal: controller.signal,
+        redirect: 'manual',
+      })
+      const location = resp.headers.get('location')
+      if (resp.status >= 300 && resp.status < 400 && location) {
+        if (redirects >= MAX_REDIRECTS) {
+          clearTimeout(timeout)
+          logger.error(`[file-transfer] too many redirects (>${MAX_REDIRECTS}): ${url}`)
+          return null
+        }
+        const nextUrl = new URL(location, currentUrl).toString()
+        await ensureSafeFetchUrl(nextUrl)
+        currentUrl = nextUrl
+        redirects++
+        continue
+      }
+      break
+    }
 
     clearTimeout(timeout)
 

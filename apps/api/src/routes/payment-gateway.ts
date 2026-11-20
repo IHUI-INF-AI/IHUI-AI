@@ -770,9 +770,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,
@@ -1308,9 +1307,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,
@@ -1638,9 +1636,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           }
           try {
             if (!result.order.userId) throw new Error('order has no userId')
-            const tokenQuantity = await getBalance(result.order.userId)
             await feedbackInvite(
-              { id: result.order.userId, tokenQuantity },
+              { id: result.order.userId },
               {
                 id: result.order.id,
                 amount: result.order.amount,
@@ -1809,9 +1806,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,

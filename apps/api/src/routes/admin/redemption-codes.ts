@@ -29,6 +29,7 @@ import {
   listCodes,
   disableCode,
   getStats,
+  MAX_REDEMPTION_TOKEN_AMOUNT,
 } from '../../services/redemption-code-service.js'
 
 const batchBodySchema = z.object({
@@ -36,8 +37,8 @@ const batchBodySchema = z.object({
   count: z.number().int().min(1).max(1000),
   /** 面值(分,如 990 = ¥9.90) */
   faceValueCents: z.number().int().min(0),
-  /** 兑换后到账 token 数 */
-  tokenAmount: z.number().int().positive(),
+  /** 兑换后到账 token 数(F-668:与 service 共用同一上限) */
+  tokenAmount: z.number().int().positive().max(MAX_REDEMPTION_TOKEN_AMOUNT),
   /** 过期时间(ISO 8601 字符串,可选) */
   expiresAt: z
     .transform(emptyToUndefined)

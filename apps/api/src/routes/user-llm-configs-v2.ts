@@ -51,7 +51,7 @@ import { db } from '../db/index.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { safeFetch } from '../utils/ssrf-guard.js'
+import { safeFetch, ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
 import { normalizeModelId } from '@ihui/shared'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
@@ -625,6 +625,15 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     const baseUrl = data.baseUrlOverride || tpl.baseUrl
     if (!baseUrl) return reply.status(400).send(error(400, 'Base URL 未配置'))
 
+    // F-187:保存链必须做 SSRF 守卫 —— 用户自定义 baseUrl 会成为 ai-service 的
+    // api_base,不拦就等于允许把内网/云元数据地址写进调用链。字面 IP 直接命中,
+    // 域名走解析后逐 IP 复检;上游常用非常端,故放行自定义端口。
+    try {
+      await ensureSafeFetchUrl(baseUrl, { allowCustomPort: true })
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+
     const userId = request.userId!
     const [created] = await db
       .insert(aiModelConfig)
@@ -676,7 +685,15 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
 
     const update: Record<string, unknown> = { updatedAt: new Date() }
     if (body.data.name !== undefined) update.name = body.data.name
-    if (body.data.baseUrlOverride !== undefined) update.baseUrl = body.data.baseUrlOverride
+    if (body.data.baseUrlOverride !== undefined) {
+      // F-187:更新链与创建链同一把尺子,防"先建合法再改成内网"
+      try {
+        await ensureSafeFetchUrl(body.data.baseUrlOverride, { allowCustomPort: true })
+      } catch (e) {
+        return reply.status(400).send(error(400, (e as Error).message))
+      }
+      update.baseUrl = body.data.baseUrlOverride
+    }
     if (body.data.apiFormat !== undefined) update.apiFormat = body.data.apiFormat
     if (body.data.description !== undefined) update.description = body.data.description
     if (body.data.enabled !== undefined) update.enabled = body.data.enabled

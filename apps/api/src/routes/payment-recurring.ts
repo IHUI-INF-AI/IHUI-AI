@@ -16,6 +16,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { env } from 'node:process'
+import { Readable } from 'node:stream'
 import { z } from 'zod'
 import { eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -42,6 +43,9 @@ import {
 } from '../services/wechat-pay.js'
 
 const ADMIN_ROLE_ID = 1
+
+/** F-399:验签必须吃 HTTP 原始字节,不能被 JSON 重序列化(空白/键序都会变)。 */
+const rawWebhookBodyKey = Symbol('recurring-wechat-raw-body')
 
 // =============================================================================
 // Zod schemas
@@ -440,13 +444,27 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         response: swaggerSchemas.callback,
       }),
       config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+      preParsing: (request, _reply, payload, done) => {
+        const chunks: Buffer[] = []
+        payload.on('data', (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        })
+        payload.on('error', (err) => done(err))
+        payload.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8')
+          ;(request as unknown as Record<symbol, string>)[rawWebhookBodyKey] = raw
+          done(null, Readable.from(Buffer.from(raw, 'utf8')))
+        })
+      },
     },
     async (request, reply) => {
       try {
         const timestamp = request.headers['wechatpay-timestamp'] as string
         const nonce = request.headers['wechatpay-nonce'] as string
         const signature = request.headers['wechatpay-signature'] as string
-        const rawBody = JSON.stringify(request.body)
+        const rawBody =
+          (request as unknown as Record<symbol, string>)[rawWebhookBodyKey] ??
+          JSON.stringify(request.body)
         const body = request.body as Record<string, unknown>
 
         if (timestamp && nonce && signature) {

@@ -13,6 +13,7 @@ import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { judgeBoundedSystemJob, type BoundedJobVerdict } from '../utils/process-probe.js'
+import { resolveTruncation } from './agent-runtime/session-store.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
 import {
@@ -4734,7 +4735,7 @@ agentLoop.registerTool({
       `${GREP_HARD_LIMIT}），或先用 outputMode=files_with_matches 定位文件。`
     if (outputMode === 'files_with_matches') {
       const files = result.files ?? []
-      const truncated = result.truncated || files.length > limit
+      const truncated = result.truncated || resolveTruncation(files, limit, 'probed').truncated
       return JSON.stringify({
         ok: true,
         mode: outputMode,
@@ -4747,7 +4748,7 @@ agentLoop.registerTool({
     if (outputMode === 'count') {
       const counts = result.counts ?? {}
       const entries = Object.entries(counts)
-      const truncated = result.truncated || entries.length > limit
+      const truncated = result.truncated || resolveTruncation(entries, limit, 'probed').truncated
       return JSON.stringify({
         ok: true,
         mode: outputMode,
@@ -4758,7 +4759,7 @@ agentLoop.registerTool({
       })
     }
     const matches = result.matches ?? []
-    const truncated = result.truncated || matches.length > limit
+    const truncated = result.truncated || resolveTruncation(matches, limit, 'probed').truncated
     return JSON.stringify({
       ok: true,
       mode: outputMode,
@@ -4783,7 +4784,7 @@ agentLoop.registerTool({
       pattern: String(args['pattern'] ?? ''),
       maxFiles: GLOB_SCAN_FILES,
     })
-    const truncated = result.truncated || result.files.length > limit
+    const truncated = result.truncated || resolveTruncation(result.files, limit, 'probed').truncated
     return JSON.stringify({
       ok: true,
       total: result.files.length,

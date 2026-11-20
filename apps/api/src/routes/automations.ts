@@ -404,6 +404,16 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
     // 本次 PATCH 同时改 timezone 时,新时刻必须按**更新后那一份** timezone 算,
     // 否则"把 09:00 从 Beijing 改到 New York"会先按旧档落库一次再自己否决自己。
     const timezone = input.timezone ?? existing.timezone
+    // SDB-54:一次性计划没有执行时刻就不能启用 —— 否则永远等不到下一次触发。
+    if (
+      scheduleType === 'once' &&
+      input.status === 'active' &&
+      (scheduledAt === null || scheduledAt === undefined || scheduledAt === '')
+    ) {
+      return reply
+        .status(400)
+        .send(error(400, '一次性计划缺少 scheduledAt,无法启用(请先补执行时刻)'))
+    }
     let nextRunAt = computeNextRunAt({ scheduleType, rrule, scheduledAt, timezone })
     if (scheduleType === 'recurring' && input.rrule !== undefined && !nextRunAt) {
       return reply.status(400).send(error(400, 'rrule 无法计算出下次执行时间'))

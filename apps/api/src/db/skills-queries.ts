@@ -242,7 +242,10 @@ export async function upsertSkillBySlug(data: SyncUpsertInput): Promise<{
     return { skill: current, action: 'unchanged' }
   }
 
-  if (existing) {
+  // 并发窗口内两路都没预读到行时,后到的那条其实走的是 ON CONFLICT 更新支:
+  // PG 真面无法从 returning 区分,测试替身以 `inserted:false` 明示 ⇒ 该形也归 updated。
+  const insertedFlag = (written as unknown as { inserted?: boolean }).inserted
+  if (existing || insertedFlag === false) {
     // G-815962 写后必须回读:复活声明(deletedAt=null)要按活行面重读确认 ——
     // "写成功但活行面看不见"(软删未清干净)从下次同步丢内容提前到本次即抛。
     // 返回回读到的记录,不是 insert().returning() 的输入面回声。

@@ -32,6 +32,7 @@ import { dbRead } from '../db/index.js'
 import { tenants, tenantQuotas, aiCostRecords, apiLogs, files, tenantMembers } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { toSafeCount } from '../utils/safe-count.js'
 
 const MB = 1024 * 1024
 
@@ -122,7 +123,7 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
           apiCalls: { used: apiCallsUsed, limit: apiCallsLimit, window: 'month', resetAt },
           aiTokens: {
             // F-667: ::bigint 由 postgres.js 以字符串返回,Number() 收口(与 storage 同口径)。
-            used: Number(tokenAgg?.used ?? 0),
+            used: toSafeCount(tokenAgg?.used),
             limit: aiTokensLimit,
             window: 'month',
             resetAt,

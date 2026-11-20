@@ -673,6 +673,8 @@ export interface AccountPoolSweepResult {
    */
   keepalive: number
   healthChecked: number
+  /** 检查或落库失败数(含 CAS 落空):与 healthChecked 互斥,两者之和 = 本轮实际尝试数 */
+  healthFailed: number
   healthRecovered: number
   // O64 checkinReconcile/checkinRetry 两键不得进产出面(2026-10-24 定案 099b843,由
   // apps/api/tests/relay-account-pool-sweep-result.test.ts 三例钉住):①两条分支必须同键集,
@@ -1388,6 +1390,7 @@ export async function sweepAccountPool(
       refreshSkipped: 0,
       keepalive: 0,
       healthChecked: 0,
+      healthFailed: 0,
       healthRecovered: 0,
       skipped: true,
       refreshExpiresAt: null,
@@ -1415,6 +1418,7 @@ async function runSweepOnce(
     refreshSkipped: 0,
     keepalive: 0,
     healthChecked: 0,
+    healthFailed: 0,
     healthRecovered: 0,
     skipped: false,
     refreshExpiresAt: null,
@@ -1615,7 +1619,6 @@ async function runSweepOnce(
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
         proxyUrl,
       })
-      out.healthChecked++
       const now = new Date()
       // 健康回写同样走 credVersion CAS(SDB-32):checkHealth 是数秒的 HTTP,期间转发层
       // 401 自愈 / 管理面自愈可能已换票并 credVersion+1;旧快照回写会把新票判 down,
@@ -1641,14 +1644,24 @@ async function runSweepOnce(
         .returning({ id: aiRelayAccountPool.id })
       if (applied.length === 0) {
         // 快照之后已有别的路径换票成功 ⇒ 本次结论随旧快照作废(不重试、不覆盖新票)
+        out.healthFailed++
         logger.warn('[relay-account-pool] 健康回写 CAS 未命中:快照版本已过期,跳过回写', {
           accountId: row.id,
           providerCode: row.providerCode,
           snapshotCredVersion: row.credVersion,
         })
+        return
       }
-    } catch {
-      /* 单账号检查异常不中断整轮 */
+      // 只有结论真的落到库里才算"检查过":落库失败时 healthChecked 不虚增
+      out.healthChecked++
+    } catch (err) {
+      // 单账号检查/落库异常不中断整轮,但必须进账 —— 否则"这号看过没"永远无答案
+      out.healthFailed++
+      logger.warn('[relay-account-pool] 健康检查/落库异常', {
+        accountId: row.id,
+        providerCode: row.providerCode,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   })
 

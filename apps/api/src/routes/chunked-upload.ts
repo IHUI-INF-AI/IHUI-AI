@@ -432,6 +432,16 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
+    // F-380:先按读到的状态拒一次,非 uploading 的会话连"条件迁移"都不该发起 ——
+    // 否则 completed/cancelled/merging 的会话仍会被写一次 status=merging 再靠
+    // 条件 UPDATE 打空,账面留下"试过合并"的假动作。下面的条件迁移只用于
+    // 兜住"读与写之间状态被并发改走"的竞态。
+    if (session.status !== UPLOAD_SESSION_STATUS.uploading) {
+      return reply
+        .status(409)
+        .send(error(409, '上传会话状态非 uploading,无法合并(可能已完成、已取消或正在合并)'))
+    }
+
     // 历史超档行(本修复前创建)一律拒绝合并:合并阶段会按 1..totalChunks 逐片读盘,
     // 不设这道闸就等于把旧漏洞留在数据面上(2026-11-08 修 F-28)。
     if (session.totalChunks > PROTOCOL_UPLOAD_LIMITS.maxTotalChunks) {

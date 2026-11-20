@@ -2869,11 +2869,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
         try {
-          const { saveBatchInput } = await import('../queue/batch-queue.js')
-          // F-279:复用 server.redis(由 redis 插件 onClose 统一 quit),不再每请求 new IORedis
-          // —— 后者异常路径会泄漏连接与重连定时器。batch-worker 读侧同用 server.redis,
-          // 键按 fileId 唯一,不做 apiKeyId 二次分区(与 batch-queue 现签名一致)。
-          await saveBatchInput(server.redis, apiKey.id, batchFileId, content)
+          const { saveBatchInput, getBatchInputRedis } = await import('../queue/batch-queue.js')
+          // F-279:唯一取连接点复用 server.redis(由 redis 插件 onClose 统一 quit),不再每请求 new IORedis
+          // —— 后者异常路径会泄漏连接与重连定时器。batch-worker 读侧同用该出口。
+          await saveBatchInput(getBatchInputRedis(server), apiKey.id, batchFileId, content)
           return reply.status(201).send({
             id: batchFileId,
             object: 'file',

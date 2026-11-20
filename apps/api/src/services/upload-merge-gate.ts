@@ -813,23 +813,11 @@ export function createLayeredUploadMergeGate(
       record.releasedAtMs = now()
       outerActive = Math.max(0, outerActive - 1)
       releasedCount += 1
-      // Redis 侧隔离记录同步终态:接管者读到的是"收口已完成"的记录,不是半路尸检报告。
+      // F-266:收口成功即清掉隔离字段与时间索引,不留"已收口但仍在 hash 里"的存量。
       try {
-        if (semaphore) {
-          await semaphore.quarantine(
-            record.token,
-            JSON.stringify({
-              owner: record.owner,
-              label: record.label,
-              pendingResources: record.pendingResources,
-              failedAtMs: record.failedAtMs,
-              state: 'released',
-              releasedAtMs: record.releasedAtMs,
-            }),
-          )
-        }
+        if (semaphore) await semaphore.clearQuarantine(record.token)
       } catch {
-        /* 状态回写失败不改变放锁事实;槽位已释放,记录留在 stop-failed 态可容忍 */
+        /* 清理失败不改变放锁事实;槽位已释放,残留字段由读侧按保留窗口惰性清理 */
       }
     }
     return releasedCount

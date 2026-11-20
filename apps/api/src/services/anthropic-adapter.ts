@@ -89,7 +89,7 @@ export interface AnthropicMessagesResponse {
   role: 'assistant'
   model: string
   content: Array<AnthropicTextBlock | AnthropicToolUseBlock>
-  stop_reason: 'end_turn' | 'max_tokens' | 'tool_use' | 'stop_sequence'
+  stop_reason: 'end_turn' | 'max_tokens' | 'tool_use' | 'stop_sequence' | 'refusal'
   stop_sequence: string | null
   usage: { input_tokens: number; output_tokens: number }
 }
@@ -388,7 +388,8 @@ const FINISH_REASON_MAP: Record<string, AnthropicMessagesResponse['stop_reason']
   length: 'max_tokens',
   tool_calls: 'tool_use',
   function_call: 'tool_use',
-  content_filter: 'end_turn',
+  // F-295:拒答(content_filter)必须如实报成 refusal,不得洗成"正常说完"(end_turn)
+  content_filter: 'refusal',
 }
 
 /**

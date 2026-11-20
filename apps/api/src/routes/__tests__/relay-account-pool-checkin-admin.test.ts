@@ -75,6 +75,12 @@ vi.mock('../../db/index.js', () => ({
         },
       }),
     }),
+    // 立即签到成功后会顺手落一条签到历史;写失败应被吞掉,但 mock 至少要有这条链
+    insert: () => ({
+      values: () => ({
+        onConflictDoNothing: async () => [],
+      }),
+    }),
   },
   dbRead: {
     select: () => ({
@@ -99,6 +105,11 @@ vi.mock('@ihui/database', () => ({
       (cache[prop as string] ??= { name: String(prop), toString: () => String(prop) }),
   }),
   aiRelayAccountPool: new Proxy(
+    {},
+    { get: (_t, prop) => ({ __col: typeof prop === 'string' ? prop : String(prop) }) },
+  ),
+  // 签到历史表(立即签到成功路径的落点)同样是纯表身份桩
+  aiRelayCheckinHistory: new Proxy(
     {},
     { get: (_t, prop) => ({ __col: typeof prop === 'string' ? prop : String(prop) }) },
   ),

@@ -73,6 +73,9 @@ describe('DistributedLock watchdog 续约失败通知 (F-708)', () => {
       ttlMs: 100,
       watchdog: true,
       watchdogIntervalMs: 50,
+      // F-708 默认容忍连续 3 次抖动;本用例要钉的是"抛异常这一型会通知",
+      // 故显式把容忍数压到 1,一次续约失败即停表通知。
+      maxRenewFailures: 1,
       onLost,
     })
     expect(acquired).not.toBeNull()

@@ -339,7 +339,7 @@ describe('Auth Apple Callback — POST /auth/:platform/callback', () => {
     expect(body.data.token).toBe('mock-access-token')
     expect(body.data.refreshToken).toBe('mock-refresh-token')
     expect(body.data.user.email).toBe(appleEmail)
-    expect(findThirdPartyAccount).toHaveBeenCalledWith('apple', appleSub)
+    expect(findThirdPartyAccount).toHaveBeenCalledWith('apple', appleSub, undefined)
     expect(createUser).toHaveBeenCalled()
     expect(createThirdPartyBinding).toHaveBeenCalledWith(
       expect.objectContaining({ openId: appleSub, platform: 'apple' }),

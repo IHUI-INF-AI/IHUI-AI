@@ -18,6 +18,7 @@ import {
   type WithdrawalFlow,
 } from '@ihui/database'
 import { withAudit, withAuditBoth } from '../utils/audit.js'
+import { toSafeCount } from '../utils/safe-count.js'
 import type { DbTx } from './payment-queries.js'
 
 /**
@@ -72,8 +73,8 @@ export async function getTokenFlowTotals(
     .from(tokenFlows)
     .where(eq(tokenFlows.userId, userId))
   return {
-    totalEarned: toSafeAmount(rows[0]?.totalEarned),
-    totalUsed: toSafeAmount(rows[0]?.totalUsed),
+    totalEarned: toSafeCount(rows[0]?.totalEarned),
+    totalUsed: toSafeCount(rows[0]?.totalUsed),
   }
 }
 
@@ -393,7 +394,7 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
     )
   return {
     totalAmount: toSafeAmount(rows[0]?.totalAmount),
-    totalToken: toSafeAmount(rows[0]?.totalToken),
+    totalToken: toSafeCount(rows[0]?.totalToken),
     commissionDay: windowDays,
   }
 }

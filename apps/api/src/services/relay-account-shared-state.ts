@@ -38,8 +38,11 @@ import { DEFAULT_SOCKET_IDLE_TIMEOUT_MS } from './relay-socket-transport.js'
 
 let redisClient: Redis | null = null
 let redisInitFailed = false
+/** 测试专用:强制走进程内兜底档(全局 redis 替身会 fake 出 `status='ready'`,无法测内存档语义)。 */
+let redisForceMemory = false
 
 function getRedis(): Redis | null {
+  if (redisForceMemory) return null
   if (redisClient) return redisClient
   if (redisInitFailed) return null
   try {
@@ -551,6 +554,11 @@ export const __test__ = {
   backend(): 'redis' | 'memory' {
     const r = getRedis()
     return r && r.status === 'ready' ? 'redis' : 'memory'
+  },
+  /** 测试专用:强制内存兜底档(全局 ioredis 替身恒 ready,内存档用例必须显式关掉共享存储)。 */
+  forceMemory(enabled: boolean): void {
+    redisForceMemory = enabled
+    if (enabled) redisClient = null
   },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

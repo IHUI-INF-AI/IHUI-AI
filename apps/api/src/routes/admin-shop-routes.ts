@@ -14,6 +14,7 @@ import { eq, or, ilike, desc, sql, and, inArray, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { toSafeCount } from '../utils/safe-count.js'
 import { isUuidString } from '../utils/uuid.js'
 import { TOKEN_FLOW_OP } from '../services/relay-billing-service.js'
 // DB-35:email/phone 列存密文;提现列表的 user 筛选降级为 lookup 精确匹配
@@ -160,8 +161,9 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         userId: tokenFlows.userId,
         // F-394:口径统一 —— 充值/消耗都按绝对值累计,提现等负号流水不得把消耗合计抵小;
         // opType 走 TOKEN_FLOW_OP,不再写魔法数字。
-        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.RECHARGE} then abs(${tokenFlows.quantity}) else 0 end), 0)::int`,
-        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.CONSUME} then abs(${tokenFlows.quantity}) else 0 end), 0)::int`,
+        // F-667:聚合必须落 ::bigint —— int4 在 2^31 处溢出,累加会静默回绕成负数
+        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.RECHARGE} then abs(${tokenFlows.quantity}) else 0 end), 0)::bigint`,
+        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.CONSUME} then abs(${tokenFlows.quantity}) else 0 end), 0)::bigint`,
       })
       .from(tokenFlows)
       .where(inArray(tokenFlows.opType, [TOKEN_FLOW_OP.RECHARGE, TOKEN_FLOW_OP.CONSUME]))
@@ -175,8 +177,9 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         user: r.username ?? r.email ?? r.phone ?? r.userId,
         balance: r.balance,
         frozen: r.frozen,
-        totalRecharge: f?.totalRecharge ?? 0,
-        totalConsume: f?.totalConsume ?? 0,
+        // F-667: ::bigint 由 postgres.js 以字符串返回,出口统一收口成 number
+        totalRecharge: toSafeCount(f?.totalRecharge),
+        totalConsume: toSafeCount(f?.totalConsume),
         updatedAt: r.updatedAt.toISOString(),
       }
     })
@@ -329,6 +332,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     account: z.string().max(255),
     status: withdrawalStatusSchema.default('pending'),
   })
+  // F-333:管理端 PUT 只允许改"待审单的账户信息",金额/归属/状态一律不可达。
+  // strictObject:带了不可变字段直接 400,而不是被静默 strip 后照写。
+  const withdrawalPatchSchema = z.strictObject({
+    account: z.string().min(1).max(255),
+    channel: z.enum(['alipay', 'wechat', 'bank']).optional(),
+  })
 
   server.get('/shop/withdrawals', async (request: FastifyRequest, reply: FastifyReply) => {
     const q = withdrawalQuerySchema.safeParse(request.query)
@@ -467,21 +476,19 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
-    const b = withdrawalBodySchema.safeParse(request.body)
+    const b = withdrawalPatchSchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    // 条件 UPDATE 只命中 pending 行:已批准/已完成的单不允许借这次 patch 改写任何字段。
     const [row] = await db
       .update(withdrawalFlows)
       .set({
-        userId: b.data.user,
-        amount: b.data.amount,
-        method: b.data.channel,
         accountInfo: { account: b.data.account },
-        status: WITHDRAWAL_INT[b.data.status],
+        ...(b.data.channel ? { method: b.data.channel } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(withdrawalFlows.id, p.data.id))
+      .where(and(eq(withdrawalFlows.id, p.data.id), eq(withdrawalFlows.status, WITHDRAWAL_INT.pending)))
       .returning()
-    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    if (!row) return reply.status(409).send(error(409, '提现单不存在或已不是待审状态'))
     return reply.send(success({ id: row.id }))
   })
 

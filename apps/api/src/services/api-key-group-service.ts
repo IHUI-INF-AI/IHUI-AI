@@ -18,6 +18,7 @@ import { eq, and, gt, sql, inArray, gte } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { db, dbRead } from '../db/index.js'
 import { toSafeAmount } from '../db/commission-queries.js'
+import { toSafeCount } from '../utils/safe-count.js'
 import {
   apiKeyGroups,
   apiKeyGroupMembers,
@@ -158,7 +159,7 @@ export async function getGroupMembers(groupId: string): Promise<GroupMemberUsage
   for (const u of usageRows) {
     if (u.apiKeyId) {
       usageMap.set(u.apiKeyId, {
-        usedTokens: toSafeAmount(u.usedTokens),
+        usedTokens: toSafeCount(u.usedTokens),
         usedCostCents: toSafeAmount(u.usedCostCents),
       })
     }

@@ -71,6 +71,15 @@ export function normalizeCode(code: string): string {
   return code.trim().toUpperCase().replace(/\s+/g, '')
 }
 
+/**
+ * 单张兑换码 tokenAmount 的写侧上限(F-668)。
+ *
+ * 统计接口按 BIGINT 聚合、JS 侧 Number() 收口;但写侧若允许离谱值,单张就能让
+ * 汇总口径失真(且历史上 `::bigint::int` 会直接 22003 → 500)。上限取 int4 正区间
+ * 的安全档,路由 zod 与 service 共用本常量,禁止第二处硬编码。
+ */
+export const MAX_REDEMPTION_TOKEN_AMOUNT = 2_000_000_000
+
 export interface BatchGenerateInput {
   count: number
   faceValueCents: number
@@ -104,6 +113,9 @@ export async function batchGenerateCodes(input: BatchGenerateInput): Promise<Red
   }
   if (!Number.isInteger(tokenAmount) || tokenAmount <= 0) {
     throw new Error('tokenAmount 必须是大于 0 的整数')
+  }
+  if (tokenAmount > MAX_REDEMPTION_TOKEN_AMOUNT) {
+    throw new Error(`tokenAmount 不能超过 ${MAX_REDEMPTION_TOKEN_AMOUNT}`)
   }
 
   const batchId = randomUUID()
