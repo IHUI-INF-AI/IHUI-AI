@@ -7899,6 +7899,27 @@ async def _run_subagent_hooks(kind_name: str, payload: dict[str, Any]) -> str:
         logger.warning("%s 子代理钩子异常(降级): %s", kind_name, e)
         return ""
     contexts = getattr(outcome, "additional_contexts", None) or []
+    # 第 37 项:子代理钩子结果也下发 hook.run —— 此前只有 agent_loop 的 12 个挂载点
+    # 可见,子代理派发面的钩子失败/超时在面板上完全空白。走同一观察通道
+    # (publish_observation,不进 HOOK_EVENTS,防自激);空表不发。
+    events_fn = getattr(outcome, "events_as_dicts", None)
+    if events_fn is not None:
+        try:
+            from .hook_engine import hook_engine as _he
+
+            _evts = events_fn()
+            if _evts:
+                _he.publish_observation(
+                    "hook.run",
+                    {
+                        "session_id": str(payload.get("session_id") or ""),
+                        "run_id": str(payload.get("session_id") or payload.get("agent_name") or ""),
+                        "tool_name": "orchestrate_agents",
+                        "hooks": _evts,
+                    },
+                )
+        except Exception as e:  # noqa: BLE001 - 下行失败不影响派发
+            logger.warning("子代理 hook.run 下行失败(降级): %s", e)
     return "\n".join(str(c) for c in contexts if c)
 
 
