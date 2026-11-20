@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+from app.core import command_hooks
 from app.core.command_hooks import (
     describe_command_hooks,
     trust_hooks_config,
@@ -130,4 +131,46 @@ def test_tampered_after_trust_flips_back_to_untrusted(tmp_path: Path) -> None:
     assert info["status"] == "untrusted"
     assert info["trusted_hash"] != info["content_hash"]
     assert len(info["specs"]) == 2
+
+
+def test_trust_record_carries_audit_metadata(tmp_path: Path) -> None:
+    """信任不再只是一个哈希:谁/何时/在哪台机信任了哪份内容,事后可追。"""
+    path = tmp_path / "hooks.json"
+    _write_config(path, _config())
+    digest = trust_hooks_config(path, actor="li")
+    trust = json.loads((tmp_path / "hooks-trust.json").read_text(encoding="utf-8"))
+    assert trust["trusted_content_hash"] == digest
+    assert trust["trusted_by"] == "li"
+    assert trust["trusted_at"]
+    assert trust["config_path"] == str(path)
+    info = describe_command_hooks(path)
+    assert info["status"] == "trusted"
+    assert info["trusted_by"] == "li"
+    assert info["trusted_at"]
+
+
+def test_cli_refuses_noninteractive_trust_without_yes(tmp_path: Path, monkeypatch) -> None:
+    """不给 --yes 的非交互调用必须拒绝,且**不写**信任文件(失效方向=多拒一次)。"""
+    path = tmp_path / "hooks.json"
+    _write_config(path, _config())
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    rc = command_hooks._main(["--config", str(path), "--trust"])
+    assert rc == 2
+    assert not (tmp_path / "hooks-trust.json").exists()
+
+
+def test_cli_trust_with_yes_writes_record(tmp_path: Path) -> None:
+    path = tmp_path / "hooks.json"
+    _write_config(path, _config())
+    rc = command_hooks._main(["--config", str(path), "--trust", "--yes"])
+    assert rc == 0
+    assert describe_command_hooks(path)["status"] == "trusted"
+
+
+def test_cli_trust_on_empty_table_refuses(tmp_path: Path) -> None:
+    path = tmp_path / "hooks.json"
+    _write_config(path, {"hooks": {}})
+    rc = command_hooks._main(["--config", str(path), "--trust", "--yes"])
+    assert rc == 2
+    assert not (tmp_path / "hooks-trust.json").exists()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
