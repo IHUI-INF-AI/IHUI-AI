@@ -83,18 +83,27 @@ test('T2 反例①:改一个无下游的文件 ⇒ scope 逐字不变,不得夹�
 
 test('T3 反例②:非图顶点的改动(如 .sql)⇒ 行为与"闭包为空"逐字一致,不崩不静默扩大', () => {
   const out = dryRun(['packages/database/drizzle/20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql'])
-  assert.match(out, /反向依赖加宽\(G-406 ②\): 未加宽/, `.sql 不在 import 图内,应走"闭包为空"分支:\n${out}`)
-  assert.equal(scopeCount(out), 1, '非顶点改动的判据面应逐字不变')
-  assert.match(out, /改动集无源码扩展名\(\.ts\/\.tsx\/\.js\/\.mjs 等\),import 图闭包必然为空,跳过建图/, '必须给出"非源码扩展名早退"的可读理由')
+  // 2026-11-20:判定顺序改了 —— `.sql` 不进任何 tsc program ⇒ 先命中"无 TS 输入面档"(exit 0),
+  // 不必再建全仓 import 图。本用例要钉的两件事因此改口径:① 不崩、② 不静默扩大判据面。
+  assert.match(out, /将运行路线: 无 TS 输入面档|反向依赖加宽\(G-406 ②\): 未加宽/, `.sql 不应触发建图/扩大:\n${out}`)
+  assert.equal(scopeCount(out), 1, '非 TS 输入改动的判据面应逐字不变')
+  assert.match(
+    out,
+    /无需反向依赖加宽|改动集无源码扩展名/,
+    '必须给出"不进 tsc 输入集合 ⇒ 不建图"的可读理由',
+  )
 })
 
 test('T4 接线形态:主流程必须真的调 widen(变异掉这一步时本用例是防线)', () => {
   // 变异实测:把这一行换成常量对象后 --self-test 仍全绿 ⇒ 只有本层能拦住。
+  // 2026-11-20:无 TS 输入面档提前到建图之前(那张图对非 TS 改动是纯白跑),
+  // 于是这行变成条件式。**调用必须还在**:无 TS 面时用等价的空加宽对象顶替,其余一律真建图。
   assert.match(
     SRC,
-    /const _widen = widenScopeOverDependents\(scopeFilesRaw\)/,
+    /const _widen =[\s\S]{0,400}?widenScopeOverDependents\(scopeFilesRaw\)/,
     '主流程未调用 widenScopeOverDependents —— 加宽被摘掉,self-test 测不到(实测仍全绿)',
   )
+  assert.match(SRC, /const _noTsInput = resolveNoTsInputFace\(scopeFilesRaw\)/, '无 TS 输入面判定必须现算')
   assert.match(
     SRC,
     /import \{ buildFileGraph, widenFilesOverDependents \} from '\.\/lib\/import-graph\.mjs'/,
