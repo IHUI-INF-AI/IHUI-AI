@@ -77,6 +77,8 @@ export function ReasoningEffortInputAxis({
   const [meta, setMeta] = React.useState<{
     capabilities?: ModelCapabilities
     name?: string
+    /** 该模型上游声明的档位子集(未声明 = undefined,轴按通用档呈现) */
+    efforts?: ReasoningEffort[]
   }>({})
   React.useEffect(() => {
     // auto 档:能力位保持"未知"(不置灰),但若宿主给了实际模型 ID,仍去列表换一个可读名
@@ -95,6 +97,13 @@ export function ReasoningEffortInputAxis({
         setMeta({
           capabilities: model === 'auto' ? undefined : hit?.capabilities,
           name: hit?.name,
+          // 声明面与能力位同一来源(2026-11-21 D136):auto 档不采用,同样是"未知"
+          efforts:
+            model === 'auto'
+              ? undefined
+              : Array.isArray(hit?.reasoning_efforts)
+                ? hit?.reasoning_efforts
+                : undefined,
         })
       })
       .catch(() => {
@@ -109,6 +118,7 @@ export function ReasoningEffortInputAxis({
     <ReasoningEffortAxis
       value={params.reasoningEffort}
       capabilities={meta.capabilities}
+      efforts={meta.efforts}
       notice={notice}
       disabled={disabled}
       modelName={modelName ?? meta.name ?? (model === 'auto' ? undefined : model)}

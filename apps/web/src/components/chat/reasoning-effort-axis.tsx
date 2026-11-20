@@ -28,7 +28,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import { ChevronDown, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import {
@@ -66,6 +66,12 @@ export interface ReasoningEffortAxisProps {
   onRefreshModels?: () => void
   /** 刷新进行中(钮转圈并置灰,与弹层原行同一姿态) */
   refreshingModels?: boolean
+  /**
+   * 该模型**上游声明**的推理档位子集(2026-11-21 D136;来源 /llm/models 的
+   * `reasoning_efforts`,ai-service 只认上游枚举与人工声明)。
+   * 三态:未传 = 未声明(按通用四档呈现,不误藏);空数组 = 上游明确不支持;非空 = 只画这几档。
+   */
+  efforts?: ReasoningEffort[]
 }
 
 /** 档位 → chat 命名空间下的词表键(五语言同批,见 §19)。 */
@@ -79,11 +85,11 @@ const LABEL_KEY = {
   ultra: 'reasoningEffortUltra',
 } as const satisfies Record<ReasoningEffort, string>
 
-/** 头行右侧两个小动作的共用基座(与工具栏图标按钮同档 24×20,不做第三套尺寸)。 */
+/** 头行小动作的共用基座(与工具栏图标按钮同档 24×24,不做第三套尺寸)。 */
 const HEAD_ACTION_CLASS =
-  'inline-flex h-6 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground ' +
+  'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground ' +
   'transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none ' +
-  'focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40'
+  'focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40'
 
 export function ReasoningEffortAxis({
   value,
@@ -94,6 +100,7 @@ export function ReasoningEffortAxis({
   modelName,
   onRefreshModels,
   refreshingModels,
+  efforts,
 }: ReasoningEffortAxisProps) {
   const t = useTranslations('chat')
   // 未知不误藏:capabilities 缺失 ⇒ 整轴可用;在位且 reasoning!==true ⇒ 逐档置灰并给原因
@@ -101,33 +108,58 @@ export function ReasoningEffortAxis({
   // 滑轨默认展开:档位是本卡片的正文,收起只留给"刚选完想省点高度"的场景
   const [expanded, setExpanded] = React.useState(true)
 
-  // 档位序仍只取契约层那一份(REASONING_EFFORT_ORDER),端内不另排一份;
-  // 但**只呈现上游真能切换的那几档**(2026-11-21 用户质疑"上游有这么多档吗"):
-  // 契约层 wire 值域是 7 档(与 ai-service known_efforts 逐名等值),其中 xhigh/max/ultra
-  // 属扩展档 —— 主流网关只认 minimal/low/medium/high,点上去也是被后端钉回,属于"给用户
-  // 一个点了不生效的旋钮"。所以滑轨只画前四档,扩展档仍可经 API 直写(显示时照常出档位名)。
-  const tiers = REASONING_EFFORT_ORDER.slice(0, 4)
+  // 该画哪几档(2026-11-21 D136):
+  //  · `efforts` 未传 ⇒ 未声明。画通用四档(上游 OpenAI 兼容面覆盖最广的交集),扩展档
+  //    (xhigh/max/ultra)仍可经 API 直写 —— 契约值域不动,只是不给"点了多半不生效"的旋钮;
+  //  · `efforts: []` ⇒ 上游明确不支持(`support_thinking: false`),轴关掉并给原因;
+  //  · 非空 ⇒ 只画该模型**真能切**的那几档,可能少于四档,也可能多到七档(上游真支持时)。
+  // 顺序一律取契约层 `REASONING_EFFORT_ORDER` 过滤,端内不另排第二份序。
+  const tiers = React.useMemo<readonly ReasoningEffort[]>(
+    () =>
+      efforts === undefined
+        ? REASONING_EFFORT_ORDER.slice(0, 4)
+        : REASONING_EFFORT_ORDER.filter((tier) => efforts.includes(tier)),
+    [efforts],
+  )
   const activeIndex = value ? tiers.indexOf(value) : -1
-  /** 第 i 档在轨道上的百分比位置(首档压左端、末档压右端,两端各留 10px 给滑块出头) */
+  /** 已选档位不在该模型支持集内(换模型后的遗留值):不画滑块,并显式说明会被调整 */
+  const outsideLevels = value !== undefined && activeIndex < 0
+  const railDisabled = !selectable || tiers.length === 0
+  /** 只有一档时没有"切换"这件事,轨道不画(留头行胶囊即可) */
+  const showRail = expanded && tiers.length > 1
+
+  /** 第 i 档在轨道上的百分比位置(首档压左端、末档压右端) */
   const percentOf = (index: number) => (tiers.length > 1 ? (index / (tiers.length - 1)) * 100 : 100)
+
+  /** 键盘左右切换(radiogroup 的常规约定;未选档时从端点起步) */
+  const moveByKeyboard = (delta: 1 | -1) => {
+    if (!onChange || railDisabled || tiers.length === 0) return
+    const from = activeIndex >= 0 ? activeIndex : delta > 0 ? -1 : tiers.length
+    const next = Math.min(tiers.length - 1, Math.max(0, from + delta))
+    onChange(tiers[next])
+  }
 
   return (
     <div
-      className="rounded-lg border border-stroke-subtle bg-card px-2 py-1.5"
+      className="rounded-lg border border-stroke-subtle bg-card px-3 py-2.5 transition-colors"
       data-testid="reasoning-effort-axis"
-      data-selectable={selectable ? 'true' : 'false'}
+      data-selectable={selectable && tiers.length > 0 ? 'true' : 'false'}
+      data-declared={efforts !== undefined ? 'true' : 'false'}
     >
-      {/* 头行(用户附图样式):模型名 · 当前档位(品牌紫) · 折叠 · 刷新模型列表 */}
-      <div className="flex items-center gap-1">
+      {/* 头行(用户附图样式):模型名 · 当前档位(品牌紫胶囊) · 折叠 · 刷新模型列表 */}
+      <div className="flex items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate text-body font-medium">
           {modelName ?? t('reasoningEffortLabel')}
         </span>
         <span
           className={cn(
-            'shrink-0 text-label font-semibold',
-            value ? 'text-violet-600 dark:text-violet-400' : 'text-muted-foreground',
+            'shrink-0 rounded-md px-1.5 py-0.5 text-label font-semibold leading-none transition-colors',
+            value
+              ? 'bg-violet-500/10 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300'
+              : 'bg-muted text-muted-foreground',
           )}
           data-testid="reasoning-effort-current"
+          data-outside-levels={outsideLevels ? 'true' : undefined}
         >
           {value ? t(LABEL_KEY[value]) : t('reasoningEffortDefault')}
         </span>
@@ -139,11 +171,12 @@ export function ReasoningEffortAxis({
           data-testid="reasoning-effort-toggle"
           className={HEAD_ACTION_CLASS}
         >
-          {expanded ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 transition-transform duration-200',
+              expanded && 'rotate-180',
+            )}
+          />
         </button>
         {/* 本件是独立可挂的展示件(单测裸渲染、弹层内也自成一体):自带 Provider,
             不依赖宿主的 Tooltip 上下文 —— 缺了它 Radix 会当场抛"must be used within
@@ -166,36 +199,56 @@ export function ReasoningEffortAxis({
         ) : null}
       </div>
 
-      {expanded && (
-        <div className="mt-1.5 px-3 pb-0.5">
+      {showRail && (
+        <div className="mt-2 px-3">
           <div
-            className="relative h-5"
+            className={cn(
+              'relative h-5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60',
+              railDisabled && 'opacity-60',
+            )}
             role="radiogroup"
+            tabIndex={0}
             aria-label={t('reasoningEffortLabel')}
             data-testid="reasoning-effort-track"
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                event.preventDefault()
+                moveByKeyboard(1)
+                return
+              }
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                event.preventDefault()
+                moveByKeyboard(-1)
+                return
+              }
+              if ((event.key === 'Home' || event.key === 'End') && onChange && !railDisabled) {
+                event.preventDefault()
+                onChange(event.key === 'Home' ? tiers[0] : tiers[tiers.length - 1])
+              }
+            }}
           >
-            {/* 贯通紫轨道(参考样式:整条常亮,不是进度条) */}
+            {/* 贯通紫轨道(参考样式:整条常亮,不是进度条);内阴影让它像一条实体滑轨 */}
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-1/2 h-3.5 -translate-y-1/2 rounded-full bg-violet-500"
+              className="pointer-events-none absolute inset-x-0 top-1/2 h-4 -translate-y-1/2 rounded-full bg-violet-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.18)]"
             />
-            {/* 档位坐标层:左右各缩进 12px,让首末两档的圆点/滑块落在胶囊内部,
-                不被两端的半圆端头吃掉(参考图里首末点也是内缩的);滑块半径 10px < 12px */}
-            <div className="absolute inset-y-0 left-3 right-3">
+            {/* 档位坐标层:左右各缩进 16px,让首末两档的圆点/滑块落在胶囊内部,
+                不被两端的半圆端头吃掉,也给 18px 滑块留出呼吸位(参考图里首末点也是内缩的) */}
+            <div className="absolute inset-y-0 left-4 right-4">
               {/* 档位圆点:每档一枚,当前档被白色滑块盖住 */}
               {tiers.map((effort, index) => (
                 <span
                   key={`dot-${effort}`}
                   aria-hidden
-                  className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45"
+                  className="pointer-events-none absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60"
                   style={{ left: `${percentOf(index)}%` }}
                 />
               ))}
-              {/* 当前档滑块:未选档时不画(不给一个假装选中的位置) */}
+              {/* 当前档滑块:未选档时不画(不给一个假装选中的位置);移动带过渡 */}
               {activeIndex >= 0 && (
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-elevation-sm ring-1 ring-black/5"
+                  className="pointer-events-none absolute top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] ring-1 ring-black/10 transition-[left] duration-200 ease-out"
                   style={{ left: `${percentOf(activeIndex)}%` }}
                   data-testid="reasoning-effort-knob"
                 />
@@ -203,7 +256,7 @@ export function ReasoningEffortAxis({
               {/* 每档一枚透明点击热区:选中/再点清除(既有语义,判据钉着这一条) */}
               {tiers.map((effort, index) => {
                 const active = value === effort
-                const blocked = !selectable
+                const blocked = railDisabled || disabled === true
                 return (
                   <button
                     key={effort}
@@ -211,16 +264,14 @@ export function ReasoningEffortAxis({
                     role="radio"
                     aria-checked={active}
                     aria-label={t(LABEL_KEY[effort])}
-                    disabled={blocked || disabled === true}
+                    disabled={blocked}
                     data-testid={`reasoning-effort-${effort}`}
-                    data-disabled={blocked ? 'true' : 'false'}
+                    data-disabled={railDisabled ? 'true' : 'false'}
                     onClick={() => onChange?.(active ? undefined : effort)}
                     className={cn(
-                      'absolute top-0 h-5 w-5 -translate-x-1/2 rounded-sm',
-                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                      blocked || disabled === true
-                        ? 'cursor-not-allowed'
-                        : 'cursor-pointer hover:bg-foreground/5',
+                      'absolute top-0 h-5 w-5 -translate-x-1/2 rounded-full transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-white/10',
                     )}
                     style={{ left: `${percentOf(index)}%` }}
                   />
@@ -234,7 +285,7 @@ export function ReasoningEffortAxis({
       {/* 回落可见:后端把选定档位钉回时,轴上必须显式写出来 —— 静默降档是本票点名的病 */}
       {notice?.fallback ? (
         <p
-          className="mt-1 text-label text-amber-600 dark:text-amber-400"
+          className="mt-1.5 text-label text-amber-600 dark:text-amber-400"
           data-testid="reasoning-effort-fallback"
           role="status"
         >
@@ -243,12 +294,22 @@ export function ReasoningEffortAxis({
             effective: notice.effective ?? '-',
           })}
         </p>
-      ) : !selectable ? (
+      ) : railDisabled ? (
         <p
-          className="mt-1 text-label text-muted-foreground"
+          className="mt-1.5 text-label text-muted-foreground"
           data-testid="reasoning-effort-unsupported"
         >
           {t('reasoningEffortUnsupported')}
+        </p>
+      ) : outsideLevels ? (
+        <p
+          className="mt-1.5 text-label text-muted-foreground"
+          data-testid="reasoning-effort-outside-levels"
+        >
+          {t('reasoningEffortFallback', {
+            requested: value ? t(LABEL_KEY[value]) : '-',
+            effective: t('reasoningEffortDefault'),
+          })}
         </p>
       ) : null}
     </div>

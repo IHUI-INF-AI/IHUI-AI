@@ -121,9 +121,14 @@ export const SELECTOR_EXCLUDED_CATEGORIES: readonly ModelUsageCategory[] = [
 /**
  * 聊天模型选择器是否展示该模型(2026-11-20 机主定档:取消「历史模型」折叠区)。
  *
- * 判据 = "非 legacy ∧ 用途不在 `SELECTOR_EXCLUDED_CATEGORIES`":legacy(过时版本)
- * 直接不出现;图像/视频/语音等专用模型**照常展示**(机主 2026-11-20 追加要求),
+ * 判据 = "非 legacy ∧ 用途不在 `SELECTOR_EXCLUDED_CATEGORIES` ∧ 模态档有可用生成通道":
+ * legacy(过时版本)直接不出现;图像/视频/语音等专用模型**照常展示**(机主 2026-11-20 追加要求),
  * 只有检索/审核类中间件被挡掉。
+ *
+ * 第三判据(2026-11-21 追加):图像/视频里**没有接通生成通道**的模型不展示 —— 展示即承诺
+ * "选了就出图/出片",而当前唯一能真跑的是 agnes 两条通道(`agnes-image-*` / `agnes-video-*`)。
+ * 其余图像档(stable-diffusion-inpainting 这类需参考图、以及非生成器的 detector)留在
+ * 选择器里只会重演"显示了但选了不能用"。`modelId` 缺位时该判据不生效(向后兼容老调用方)。
  *
  * 与 `isArchivedModel` 的分工:后者仍是"看目录"场景(模型市场 / Agent 创建器)的归档分组
  * 判据,语义未变;选择器改用本判据,避免把市场页一起掏空(市场页要能看到全量目录)。
@@ -131,7 +136,41 @@ export const SELECTOR_EXCLUDED_CATEGORIES: readonly ModelUsageCategory[] = [
  * 后端字段缺失(老后端 / 缓存 / 降级种子)时兜底为 chat+latest ⇒ 返回 true,
  * 宁可多显示也不误藏,保证选择器不会整片空掉。
  */
-export function isSelectableChatModel(category: ModelUsageCategory, tier: ModelTier): boolean {
-  return tier !== 'legacy' && !SELECTOR_EXCLUDED_CATEGORIES.includes(category)
+export function isSelectableChatModel(
+  category: ModelUsageCategory,
+  tier: ModelTier,
+  modelId?: string | null,
+): boolean {
+  if (tier === 'legacy') return false
+  if (SELECTOR_EXCLUDED_CATEGORIES.includes(category)) return false
+  if (modelId && !isExecutableMediaModel(modelId, category)) return false
+  return true
+}
+
+/** 已接通真实生成通道的模态档 id 前缀(2026-11-21 立)。
+ *  agnes 是当下唯一"不用新 key 就能真出图/出片"的 provider(见 apps/api 的
+ *  ai-vendors/_shared.ts VENDORS.agnes + proxy-llm.ts 的 /agnes/image、proxy-media.ts 的
+ *  /agnes/video)。新增通道时必须同笔把前缀登记到这里,否则新通道会在选择器里被藏掉。 */
+export const MEDIA_GENERATION_ID_PREFIXES: readonly string[] = ['agnes-image-', 'agnes-video-']
+
+/**
+ * 该模态档是否已有真实生成通路可执行(2026-11-21 立)。
+ *
+ * - 非图像/视频(chat/vision/tts/asr/ocr…)一律 true —— 语音等档的"未接通"由发送侧
+ *   给明确提示卡,不在目录层判死(机主要求语音档可见)。
+ * - 图像/视频:裸模型名(去掉 provider 前缀)命中 `MEDIA_GENERATION_ID_PREFIXES` 才算可执行。
+ *
+ * 取裸名而不是整串匹配:上游目录既有 `agnes/agnes-image-2.5-flash` 也有不带前缀的形态,
+ * 两种都要认,同时不会把 `xxx-vision` 这类对话档误判。
+ */
+export function isExecutableMediaModel(
+  modelId: string | null | undefined,
+  category: ModelUsageCategory,
+): boolean {
+  if (category !== 'image' && category !== 'video') return true
+  const id = (modelId ?? '').trim().toLowerCase()
+  if (!id) return true // 取不到 id ⇒ 不判死(失效方向恒为多显示一次)
+  const bare = id.slice(id.lastIndexOf('/') + 1)
+  return MEDIA_GENERATION_ID_PREFIXES.some((prefix) => bare.startsWith(prefix))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

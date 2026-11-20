@@ -149,12 +149,21 @@ export const imageGenRoutes: FastifyPluginAsync = async (server) => {
     // 出图链路(2026-11-21 接通):没给现成 imageUrl ⇒ 真调到 Agnes /v1/images/generations。
     // 现状唯一无需新 key 就能出图的通道就是 agnes(provider 健康 ok,keyEnv=AGNES_API_KEY);
     // 其余厂商要新配凭据,未接通前不静默回落。失败一律显式 5xx,绝不伪造 imageUrl 冒充成功。
+    // 显式点名了非 agnes 的图像模型 ⇒ 明确 400,不静默用 agnes 顶替(否则用户以为出的是自己选的模型)。
     let imageUrl = explicitImageUrl
     if (!imageUrl) {
       const requestedModel = body.data.model?.trim() ?? ''
-      const model = requestedModel.startsWith('agnes-image-')
-        ? requestedModel
-        : 'agnes-image-2.5-flash'
+      if (requestedModel && !requestedModel.startsWith('agnes-image-')) {
+        return reply
+          .status(400)
+          .send(
+            error(
+              400,
+              `图像模型「${requestedModel}」当前没有接通的生成通道;可用: agnes-image-2.5-flash / agnes-image-2.1-flash`,
+            ),
+          )
+      }
+      const model = requestedModel || 'agnes-image-2.5-flash'
       const size = body.data.size?.trim()
       const payload = {
         model,
