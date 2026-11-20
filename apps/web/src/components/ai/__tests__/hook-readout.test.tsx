@@ -17,6 +17,7 @@ const t = (key: string, values?: Record<string, string | number>): string => {
   if (key === 'runtimeHookAuditTitle') return 'AUDIT'
   if (key === 'runtimeHookAuditTruncated') return `TAIL:${values?.lines}`
   if (key === 'runtimeHookAuditHistoryOnly') return `HIST:${values?.kb}`
+  if (key === 'runtimeHookAuditNearFull') return `runtimeHookAuditNearFull:${values?.pct}`
   if (key === 'runtimeHookStats') {
     return `${values?.total}/${values?.ok}/${values?.timeout}/${values?.error}/${values?.avg}ms/${values?.slowest}ms`
   }
@@ -34,7 +35,17 @@ const audit = {
   truncated: false,
   linesRead: 9,
   backupBytes: null,
+  sizeBytes: null,
+  maxBytes: null,
 }
+// 第 49 项:容量到 95% ⇒ 迟早轮转并覆盖唯一备份,必须在读数里说出来
+const auditNearFull = {
+  ...audit,
+  sizeBytes: 4_800_000,
+  maxBytes: 5_242_880,
+}
+// 第 49 项:容量取不到(stat 失败) ⇒ 不判,不许用 0 冒充"没满"
+const auditCapacityUnknown = { ...audit, sizeBytes: null, maxBytes: null }
 // 第 44 项:台账总行数超过读取上限 ⇒ 计数只覆盖尾部,必须标出来
 const auditTruncated = { ...audit, truncated: true, linesRead: 20000 }
 // 第 45 项:刚轮转完,当前台账为空、备份还在(40KB) ⇒ 不许呈现为"零次"
@@ -48,6 +59,8 @@ const auditHistoryOnly = {
   truncated: false,
   linesRead: 0,
   backupBytes: 40 * 1024,
+  sizeBytes: null,
+  maxBytes: null,
 }
 
 describe('HookReadout', () => {
@@ -82,6 +95,8 @@ describe('HookReadout', () => {
           truncated: false,
           linesRead: 0,
           backupBytes: null,
+          sizeBytes: null,
+          maxBytes: null,
         }}
         t={t}
       />,
@@ -92,6 +107,33 @@ describe('HookReadout', () => {
   it('未截断时不出现尾部标记(全量台账不许自带"仅尾部")', () => {
     render(<HookReadout sessionStats={EMPTY_HOOK_RUN_STATS} auditStats={audit} t={t} />)
     expect(screen.queryByTestId('pane-runtime-hook-audit-truncated')).toBeNull()
+  })
+
+  it('第49项:容量到 90% 以上才报"接近轮转",并给整数百分比', () => {
+    const { unmount } = render(
+      <HookReadout sessionStats={EMPTY_HOOK_RUN_STATS} auditStats={auditNearFull} t={t} />,
+    )
+    // 4.8MB / 5MB ≈ 92%
+    expect(screen.getByTestId('pane-runtime-hook-audit-near-full').textContent).toBe(
+      'runtimeHookAuditNearFull:92',
+    )
+    unmount()
+    // 低于 90% ⇒ 不打扰
+    render(
+      <HookReadout
+        sessionStats={EMPTY_HOOK_RUN_STATS}
+        auditStats={{ ...audit, sizeBytes: 1_000_000, maxBytes: 5_242_880 }}
+        t={t}
+      />,
+    )
+    expect(screen.queryByTestId('pane-runtime-hook-audit-near-full')).toBeNull()
+  })
+
+  it('第49项:容量取不到时不判(不许拿 0 当"没满")', () => {
+    render(
+      <HookReadout sessionStats={EMPTY_HOOK_RUN_STATS} auditStats={auditCapacityUnknown} t={t} />,
+    )
+    expect(screen.queryByTestId('pane-runtime-hook-audit-near-full')).toBeNull()
   })
 
   it('截断时显式标注只读到尾部 N 行(linesRead 不许冒充 total)', () => {

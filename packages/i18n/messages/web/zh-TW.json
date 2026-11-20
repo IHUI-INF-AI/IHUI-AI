@@ -8750,6 +8750,7 @@
       "runtimeHookStatsTitle": "鉤子累計",
       "runtimeHookAuditTitle": "鉤子稽核(本機臺帳)",
       "runtimeHookAuditTruncated": "僅讀到臺帳尾部 {lines} 行",
+      "runtimeHookAuditNearFull": "臺帳已佔 {pct}% 容量,接近輪轉(舊備份將被覆蓋)",
       "runtimeHookAuditHistoryOnly": "當前臺帳為空,僅存歷史備份 {kb} KB",
       "runtimeHookStats": "共 {total} 次 · 通過 {ok} / 逾時 {timeout} / 失敗 {error} · 均值 {avg}ms · 峰值 {slowest}ms",
       "runtimeHookConfigUntrusted": "鉤子設定 {count} 條未受信任,改動後需在本機重新登記信任",

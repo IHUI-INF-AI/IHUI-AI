@@ -35,6 +35,16 @@ function statsBody(t: HookReadoutTranslate, stats: HookRunStats): string {
   })
 }
 
+/**
+ * 2026-11-21 第 49 项:容量占用的"要不要说"判据(>=90% 才报,四舍五入成整数百分比)。
+ * 任一格取不到 ⇒ null(不判),避免把"没测到"画成"没满"。
+ */
+export function nearFullPct(stats: HookAuditStats): number | null {
+  if (stats.sizeBytes === null || stats.maxBytes === null || stats.maxBytes <= 0) return null
+  const pct = Math.round((stats.sizeBytes / stats.maxBytes) * 100)
+  return pct >= 90 ? Math.min(100, pct) : null
+}
+
 export function HookReadout({ sessionStats, auditStats, t }: HookReadoutProps) {
   if (sessionStats.total > 0) {
     return (
@@ -76,6 +86,16 @@ export function HookReadout({ sessionStats, auditStats, t }: HookReadoutProps) {
             {t('runtimeHookAuditHistoryOnly', {
               kb: Math.max(1, Math.round((auditStats.backupBytes ?? 0) / 1024)),
             })}
+          </span>
+        ) : null}
+        {/*
+          2026-11-21 第 49 项:容量到 90% 就说出来 —— 轮转会覆盖唯一的历史备份,
+          到那时"之前的钩子历史"永久消失;这不是内部细节,是读数的一部分。
+          两格任一取不到就不判(不拿 0 当"没满")。
+        */}
+        {nearFullPct(auditStats) !== null ? (
+          <span className="shrink-0" data-testid="pane-runtime-hook-audit-near-full">
+            {t('runtimeHookAuditNearFull', { pct: nearFullPct(auditStats) ?? 0 })}
           </span>
         ) : null}
       </div>
