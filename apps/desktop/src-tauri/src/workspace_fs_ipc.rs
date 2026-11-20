@@ -283,7 +283,6 @@ fn try_authorize(state: &WorkspaceFsState, root: &str) -> Result<String, Reject>
     }
     let text = display_path(&candidate);
     state.set_root(text.clone());
-    persist_root(&text);
     Ok(text)
 }
 
@@ -324,7 +323,6 @@ fn try_authorize_picked(state: &WorkspaceFsState, root: &str) -> Result<String, 
         return Err(Reject::RootNotAuthorized);
     }
     state.set_root(text.clone());
-    persist_root(&text);
     Ok(text)
 }
 
@@ -340,11 +338,13 @@ pub async fn workspace_authorize_root(
     match try_authorize_picked(&state, &root) {
         Ok(text) => {
             log::info!("[workspace-fs] authorize(凭证) 通过: {text}");
+            persist_root(&text);
             Ok(FsReply::ok(&text))
         }
         Err(first) => match try_authorize(&state, &root) {
             Ok(text) => {
                 log::info!("[workspace-fs] authorize(bases 兜底) 通过: {text}");
+                persist_root(&text);
                 Ok(FsReply::ok(&text))
             }
             Err(second) => {
@@ -419,6 +419,13 @@ pub async fn workspace_pick_root(
 #[tauri::command]
 pub fn workspace_fs_info(state: tauri::State<'_, WorkspaceFsState>) -> Result<FsReply, String> {
     let root = state.stored_root().unwrap_or_default();
+    // 现场可核对：日志里能直接看到"这次打开弹窗时壳认为的工作区是哪一个"
+    log::info!(
+        "[workspace-fs] fs_info root={} picked={} bases={}",
+        if root.is_empty() { "(none)" } else { &root },
+        state.picked_root().unwrap_or_default(),
+        state.bases.len()
+    );
     let mut reply = FsReply::ok(&root);
     reply.reason = state.boundary_note();
     Ok(reply)
