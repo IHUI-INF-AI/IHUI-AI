@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **51 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **52 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（51 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（52 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -613,6 +613,16 @@
 - 测试：`scripts/tests/check-hook-audit-health.test.mjs` 4 例 —— 上限从 Python 源头现读且判定层无硬编码字节字面量（形状锁切掉 `selfTest` 夹具段）；近满档与 web `nearFullPct` 数值相等；三态与阈值（单条失败算 healthy、20 条里 10 条失败算 warn、容量 ≥90% 必须给可执行下一步、上限取不到算未判定）；装车证明（`guardian-runner` 里登记为 warn、无 `stagedTriggers:` 属性、带应急跳过变量）。器物自带 `--self-test` 9 例。
 
 验证：`node scripts/check-hook-audit-health.mjs --self-test` → `9/9`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `4 passed`；真机实跑 → `结论 absent`（本机尚未跑过钩子，属合法形态）、exit 0；`guardian-runner --help` 门数 359→360。
+### 5.53 第 52 项：失败率恒为 0（读数读过一层）+ "按 slowestMs 定位钩子"是空头路径
+
+- 问题：第 51 项自己踩了两个坑，都在"读数把人读错"这一型里：
+  ① 失败率读的是 `row.status`，而真实台账行是**一帧一条**、`status` 在 `hooks[]` 里 ⇒ 顶层永远没有这个键，失败率恒为 0、那条"越线"的判据一次都不会响（上一轮真机 `absent` 掩盖了它，`--self-test` 用的是扁平夹具也掩盖了它 —— 夹具与真实行形不同，等于没测）。
+  ② 门体 warn 文本写"先按 `summarize` 的 slowest/lastTs 定位是哪条钩子"，但 `slowestMs` **只有一个毫秒数、没有钩子名** ⇒ 这是一条跑不通的出路（§0.8）。`summarize_hook_audit` 也确实没报"哪条最慢/哪条在挂"。
+- 处置：`failRate` 改成按 `hooks[]` 计数（窗口仍按行取，计数按钩子算）；新增 `blameHooks()` 从台账原始行汇总逐钩子的 `失败数/总数/最慢毫秒`，warn 文本直接落钩子名（`失败最多的是 lint-on-edit(失败 10/20,最慢 30ms)`）。**没有往 Python 加第二套聚合**：原始行里 `name/status/durationMs` 都在，为读一个名字再造一层聚合就违背 §0.6。
+- 语义边界：只点名**失败过**的钩子（按失败数、再按最慢毫秒排序，最多 3 条）；零失败时不出这一段，不让"最慢但一直成功"的钩子冒充故障。
+- 测试：`--self-test` 增 `7b`（夹具改用真实行形：`ts/toolName/hooks[]`）10/10；镜像测试 ③ 改用真实行形并三条断言 —— 失败率按钩子计 20 条里 10 条失败、`blameHooks` 必须点名 `lint-on-edit`、warn 文本里必须出现钩子名。
+
+验证：`node scripts/check-hook-audit-health.mjs --self-test` → `10/10`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `4 passed`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
