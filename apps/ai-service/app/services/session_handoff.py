@@ -580,3 +580,83 @@ def apply_handoff(handoff: HandoffPacket, **kwargs: Any) -> dict[str, Any]:
 def recommend_with_cost(handoff: HandoffPacket, ledger: Any = None) -> list[dict[str, Any]]:
     """Convenience wrapper over SessionHandoff.recommend_with_cost."""
     return session_handoff.recommend_with_cost(handoff, ledger)
+
+
+# ==================== 交接文档导出(cycle handoff 产物,2026-11-20) ====================
+# 对标取证(deepseek-tui 的 "/cycle handoff"、WorkBuddy 的交接摘要)都要求"会话能交出
+# 一份别人接得住的文档"。本仓此前只有结构化 HandoffPacket 与 CompactionBoundaryItem,
+# 没有"人可直接读/带走的版式"。版式放在这里而不是路由里:导出是唯一真相源,前端、
+# CLI、后续 LLM 注入都复用它,避免第二份拼装器(§0.6)。
+HANDOFF_MARKDOWN_MAX_ITEMS = 20  # 每段最多列这么多条(超出只报总数,不静默截断)
+HANDOFF_MARKDOWN_MAX_CHARS = 400  # 单条正文裁剪上限(字符)
+
+
+def _clip(value: Any, limit: int = HANDOFF_MARKDOWN_MAX_CHARS) -> str:
+    text = " ".join(str(value or "").split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _pick(d: dict[str, Any], keys: tuple[str, ...], default: str = "") -> str:
+    for key in keys:
+        value = d.get(key)
+        if value:
+            return _clip(value)
+    return default
+
+
+def render_handoff_markdown(packet: HandoffPacket) -> str:
+    """把交接包渲染成可导出的 Markdown 交接文档。
+
+    确定性、无 IO、无 LLM:同一 packet 永远渲染出同一份文档。四段(待接任务 /
+    本轮学习 / 上下文残留 / 下一步建议)对应 HandoffPacket 的四个字段,段内条数超过
+    `HANDOFF_MARKDOWN_MAX_ITEMS` 时只列前若干条并写明"另有 N 条",不丢总数。
+    """
+    lines: list[str] = [
+        f"# 会话交接 · {packet.session_id or '(unknown session)'}",
+        "",
+        f"- packet_id: `{packet.packet_id}`",
+        f"- created_at: {packet.created_at}",
+        f"- 待接任务: {len(packet.pending_tasks)} 条 / 学习: {len(packet.learnings)} 条"
+        f" / 上下文块: {len(packet.context_blocks)} 块 / 建议: {len(packet.recommendations)} 条",
+        "",
+    ]
+
+    def _section(title: str, rows: list[str], total: int) -> None:
+        lines.append(f"## {title}")
+        if not rows:
+            lines.extend(["（无）", ""])
+            return
+        lines.extend(rows[:HANDOFF_MARKDOWN_MAX_ITEMS])
+        if total > HANDOFF_MARKDOWN_MAX_ITEMS:
+            lines.append(f"- …另有 {total - HANDOFF_MARKDOWN_MAX_ITEMS} 条（见 packet JSON）")
+        lines.append("")
+
+    _section(
+        "待接任务",
+        [
+            "- " + (_pick(t, ("title", "summary", "objective", "text"), "(未命名任务)")
+                     + (f" · {t['status']}" if t.get("status") else ""))
+            for t in packet.pending_tasks
+        ],
+        len(packet.pending_tasks),
+    )
+    _section(
+        "本轮学习",
+        ["- " + _pick(l, ("content", "text", "summary", "title"), _clip(l)) for l in packet.learnings],
+        len(packet.learnings),
+    )
+    _section(
+        "上下文残留",
+        ["- **" + str(b.get("kind") or "?") + "**：" + _clip(b.get("text")) for b in packet.context_blocks],
+        len(packet.context_blocks),
+    )
+    _section(
+        "下一步建议",
+        [
+            f"- [{r.priority}] {r.action} —— {r.reason}"
+            + (f"（budget: {r.budget_hint}）" if r.budget_hint else "")
+            for r in packet.recommendations
+        ],
+        len(packet.recommendations),
+    )
+    return "\n".join(lines).rstrip() + "\n"
