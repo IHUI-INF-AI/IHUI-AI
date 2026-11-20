@@ -84,7 +84,7 @@
 | MCP | – | `builtin-mcp` | MCP apps 宿主 | `mcp_config_path` | `mcp_client` + 工件挂载（token/TTL/分页）+ 卡片内外双入口 | **缺口已补（5.13/5.17/5.18）** |
 | 检查点/回滚 | – | – | `checkpoint` | snapshots + `--fresh` | `agent_checkpoint`/`checkpoint_rewind` | 已覆盖 |
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
-| RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸） | **缺口已补（5.20）** |
+| RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
 ## 5. 本次落地（20 项，含验证证据）
 
@@ -287,9 +287,10 @@
   - 层数上限 `RECURSIVE_MAX_DEPTH=3`、单节点正文预算 `RECURSIVE_NODE_MAX_CHARS=8192`（与 `tool_result_pruner` 的 `DEFAULT_THRESHOLD_CHARS` 同量级，不新造数字档）；两辅助函数 `_chunk_task` / `_split_text_for_recursion` 落在同文件常量区，`_split_text_for_recursion` 的 docstring 明确"只服务这一处，通用切分器本仓已有 `codebase_indexer`，不另立"。
   - **节点预算 = `subagent_jobs.resolve_running_cap()`**（惰性 import，env 只可下调、恒夹 [1,20]）：一层要派 20 片就撞 20 的上限，超了**整次拒绝**（`RECURSIVE_NODE_LIMIT`），不跑半截再报错——与第 19 项同一个数，不写第二份上限。
   - HTTP 面只加一条薄封装：`POST /api/orchestration/teams/recursive`（`TeamRecursiveBody`：`objective` / `chunks` / `strategy` / `max_concurrency` / `depth` / `max_chars_per_node`），拒绝态回 `code=400`，走既有 `/api/orchestration` 信封，不新开路由族。
+  - **模型可达面（不新开工具）**：既有唯一编排入口 `orchestrate_agents` 增 `mode=recursive`，schema 加 `chunks` / `depth` / `max_chars_per_node` 三参，分支里仍只调 `TeamOrchestrator.run_recursive`；`chunks` 传进其它 mode 显式拒绝，`depth`/`max_chars_per_node` 的边界从 `agent_teams` 惰性 import（不在 MCP 层复制第二份上限）。超时预算在 `tool_timeout_policy` 里与 `decompose` 同档（多波次 → 硬上限）。
 - 超越轴：对照件的 RLM 是独立 turn 类型，层数与并发上限各写一份；本仓把**递归节点预算和子代理并发闸绑成同一个数**，并给"层数夹紧 + 节点整次拒绝 + 空片直通"三条边界显式语义（对照件在超预算时是中途失败，本仓是先算后拒）。
 
-验证：`pytest apps/ai-service/tests/test_agent_teams.py` → `30 passed`（新增 5 例：单层直通 / 超预算自动再切一层 / env 压到 1 时两片整次拒绝 / 空片 `skipped=no_chunks` / 端点契约 `code=400` 与 `code=0` 两条）；`mypy --strict app/services/agent_teams.py app/routers/team_orchestration.py` → `Success: no issues found in 2 source files`。
+验证：`pytest apps/ai-service/tests/test_agent_teams.py` → `30 passed`（新增 5 例：单层直通 / 超预算自动再切一层 / env 压到 1 时两片整次拒绝 / 空片 `skipped=no_chunks` / 端点契约 `code=400` 与 `code=0` 两条）；`pytest apps/ai-service/tests/test_dispatch_subagent_orchestration.py` → `33 passed`（新增 5 例：schema 广告三参 / 端到端走既有 `invoke_parallel` / 缺 chunks 拒绝 / recursive 拒绝 agents 与布尔 depth / chunks 在 team 被显式拒绝 / 预算同源拒绝且一次都不派发）；`mypy --strict`（mcp_server + agent_teams + tool_timeout_policy）→ `Success: no issues found in 3 source files`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

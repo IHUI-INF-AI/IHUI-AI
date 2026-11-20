@@ -518,6 +518,7 @@ _DISPATCH_MODES: Final[tuple[str, ...]] = (
     "critique",
     "decompose",
     "team",
+    "recursive",
 )
 _ORCHESTRATION_MODES: Final[tuple[str, ...]] = (
     "pipeline",
@@ -526,6 +527,7 @@ _ORCHESTRATION_MODES: Final[tuple[str, ...]] = (
     "critique",
     "decompose",
     "team",
+    "recursive",
 )
 # 单次编排的参与者/步骤/轮次上限(防一次调用打满并发与 token 预算)
 _ORCHESTRATION_MAX_AGENTS = 5
@@ -7177,9 +7179,10 @@ def _get_orchestrator() -> "AgentOrchestrator":
 _DISPATCH_SUBAGENT_DESC_CORE = (
     "派发子智能体执行独立任务(子任务分解 / 多视角审查 / 并行执行)。"
     "调用后子智能体独立执行并返回结果,不污染主对话上下文。"
-    "唯一入口支持 8 种模式:single(单 agent)/parallel(tasks 并行)/"
+    "唯一入口支持 9 种模式:single(单 agent)/parallel(tasks 并行)/"
     "pipeline(串行流水线)/debate(多轮辩论)/vote(方案投票)/"
-    "critique(提案-批判-改进)/decompose(任务自动分解调度)/team(团队并行 + 结构化聚合)。"
+    "critique(提案-批判-改进)/decompose(任务自动分解调度)/team(团队并行 + 结构化聚合)/"
+    "recursive(材料递归归纳:分片并行 → 聚合 → 超预算再切一层)。"
     "复杂任务按性质自主选择 mode;简单任务直接回答,不要派发。"
 )
 
@@ -7404,6 +7407,20 @@ async def _run_orchestration_mode(
         return _orchestration_error(
             mode, "mode=decompose 不接受 agents/steps;参与者由分解器自动分配", "INVALID_PARAMS"
         )
+    # recursive 的参与者由材料切片决定,同样不接受手写参与者/步骤。
+    if mode == "recursive" and (
+        arguments.get("agents") is not None or arguments.get("steps") is not None
+    ):
+        return _orchestration_error(
+            mode,
+            "mode=recursive 不接受 agents/steps;参与者由 chunks 切片自动生成",
+            "INVALID_PARAMS",
+        )
+    # chunks 只属于 recursive;其它模式误传时显式拒绝,不静默忽略。
+    if arguments.get("chunks") is not None and mode != "recursive":
+        return _orchestration_error(
+            mode, f"mode={mode} 不接受 chunks(仅 recursive)", "INVALID_PARAMS"
+        )
     if arguments.get("max_rounds") is not None and mode not in ("debate", "critique"):
         return _orchestration_error(
             mode, f"mode={mode} 不接受 max_rounds(仅 debate/critique)", "INVALID_PARAMS"
@@ -7412,9 +7429,9 @@ async def _run_orchestration_mode(
         return _orchestration_error(
             mode, f"mode={mode} 不接受 strategy(仅 decompose)", "INVALID_PARAMS"
         )
-    if arguments.get("aggregation") is not None and mode != "team":
+    if arguments.get("aggregation") is not None and mode not in ("team", "recursive"):
         return _orchestration_error(
-            mode, f"mode={mode} 不接受 aggregation(仅 team)", "INVALID_PARAMS"
+            mode, f"mode={mode} 不接受 aggregation(仅 team/recursive)", "INVALID_PARAMS"
         )
 
     agents: list[str] = []
@@ -7477,8 +7494,9 @@ async def _run_orchestration_mode(
             )
 
     # team 的聚合策略与 decompose 的分解策略是两个语义,各用独立参数,不共用一个枚举。
+    # recursive 复用 team 的聚合封闭集(它就是"每层一次 team 聚合")。
     aggregation = "merge"
-    if mode == "team":
+    if mode in ("team", "recursive"):
         aggregation = str(arguments.get("aggregation") or "merge").strip().lower()
         if aggregation not in _TEAM_AGGREGATIONS:
             return _orchestration_error(
@@ -7486,6 +7504,50 @@ async def _run_orchestration_mode(
                 f"aggregation 非法: {aggregation!r},须为 {list(_TEAM_AGGREGATIONS)} 之一",
                 "INVALID_PARAMS",
             )
+
+    chunks: list[str] = []
+    depth = 1
+    max_chars_per_node = 0
+    if mode == "recursive":
+        # 边界与切分实现都在 agent_teams;本层不复制第二份上限(§0.6)。
+        from .agent_teams import RECURSIVE_MAX_DEPTH, RECURSIVE_MIN_CHARS
+
+        raw_chunks = arguments.get("chunks")
+        if not isinstance(raw_chunks, list) or not raw_chunks:
+            return _orchestration_error(
+                mode,
+                "mode=recursive 需要 chunks(非空字符串数组:待归纳的材料切片)",
+                "MISSING_PARAMS",
+            )
+        for i, item in enumerate(raw_chunks):
+            if not isinstance(item, str) or not item.strip():
+                return _orchestration_error(
+                    mode, f"chunks[{i}] 须为非空字符串", "INVALID_PARAMS"
+                )
+        chunks = [str(item) for item in raw_chunks]
+        raw_depth = arguments.get("depth")
+        if isinstance(raw_depth, bool):
+            return _orchestration_error(
+                mode, "depth 须为整数,不能是布尔值", "INVALID_PARAMS"
+            )
+        try:
+            depth = int(raw_depth) if raw_depth is not None else 1
+        except (TypeError, ValueError):
+            return _orchestration_error(mode, "depth 须为整数", "INVALID_PARAMS")
+        depth = max(1, min(depth, RECURSIVE_MAX_DEPTH))
+        raw_chars = arguments.get("max_chars_per_node")
+        if isinstance(raw_chars, bool):
+            return _orchestration_error(
+                mode, "max_chars_per_node 须为整数,不能是布尔值", "INVALID_PARAMS"
+            )
+        if raw_chars is not None:
+            try:
+                max_chars_per_node = int(raw_chars)
+            except (TypeError, ValueError):
+                return _orchestration_error(
+                    mode, "max_chars_per_node 须为整数", "INVALID_PARAMS"
+                )
+            max_chars_per_node = max(RECURSIVE_MIN_CHARS, min(max_chars_per_node, 64000))
 
     raw_rounds = arguments.get("max_rounds")
     if isinstance(raw_rounds, bool):
@@ -7523,6 +7585,7 @@ async def _run_orchestration_mode(
 
     timeout_s = orchestration_budget_s(arguments)
     team_round: Any = None
+    recursive_result: dict[str, Any] | None = None
     result: Any = None
     async with _SUBAGENT_SEMAPHORE:
         # 与单/并行派发同一深度语义:编排期间子代理再派发会被深度闸拦住。
@@ -7569,6 +7632,30 @@ async def _run_orchestration_mode(
                     ),
                     timeout=timeout_s,
                 )
+            elif mode == "recursive":
+                # 与 team 同源:同一条 TeamOrchestrator,只是把"每层一次 run_round"
+                # 串成递归;节点预算仍由 subagent_jobs 那一个数兜住。
+                from .agent_teams import RECURSIVE_NODE_MAX_CHARS, TeamOrchestrator
+
+                recursive_result = await asyncio.wait_for(
+                    TeamOrchestrator(orchestrator).run_recursive(
+                        objective=task,
+                        chunks=chunks,
+                        merge_strategy=cast(Any, aggregation),
+                        max_concurrency=_SUBAGENT_MAX_CONCURRENT,
+                        depth=depth,
+                        max_chars_per_node=max_chars_per_node or RECURSIVE_NODE_MAX_CHARS,
+                    ),
+                    timeout=timeout_s,
+                )
+                if recursive_result.get("ok") is False:
+                    return _orchestration_error(
+                        mode,
+                        str(recursive_result.get("error") or "递归分解被拒绝"),
+                        str(recursive_result.get("errorCode") or "RECURSIVE_FAILED"),
+                        limit=recursive_result.get("limit"),
+                    )
+                result = None
             else:  # team:fan-out + 结构化聚合(merge/best_of/consensus)
                 from .agent_teams import TeamOrchestrator
 
@@ -7598,6 +7685,47 @@ async def _run_orchestration_mode(
             return _orchestration_error(mode, str(e), "ORCHESTRATION_FAILED")
         finally:
             _subagent_depth.reset(_dtok)
+
+    if recursive_result is not None:
+        # 与 team 同一回包形状:final_output 承载最后一层聚合正文,
+        # 中间层只留可判读数(层号 / 成败计数 / 该层正文长度),避免整棵中间树进上下文。
+        levels = recursive_result.get("levels") or []
+        payload = {
+            "tool": "orchestrate_agents",
+            "mode": "recursive",
+            "ok": True,
+            "status": "completed",
+            "nodes": recursive_result.get("nodes", 0),
+            "depth": recursive_result.get("depth", 1),
+            "levels": [
+                {
+                    "round_index": lv.get("round_index"),
+                    "succeeded": lv.get("succeeded"),
+                    "failed": lv.get("failed"),
+                    "partial": lv.get("partial"),
+                    "merged_chars": len(
+                        str((lv.get("aggregate") or {}).get("merged_text") or "")
+                    ),
+                }
+                for lv in levels
+                if isinstance(lv, dict)
+            ],
+            "final_output": recursive_result.get("merged_text", ""),
+            "summary": (recursive_result.get("final_summary_context") or "")[:500],
+            "trace": [{
+                "mode": "recursive",
+                "depth": recursive_result.get("depth", 1),
+                "nodes": recursive_result.get("nodes", 0),
+            }],
+        }
+        emit({
+            "phase": "orchestration_done",
+            "mode": "recursive",
+            "ok": payload["ok"],
+            "status": payload["status"],
+            "nodes": payload["nodes"],
+        })
+        return payload
 
     if team_round is not None:
         # TeamRoundResult 与 OrchestrationResult 统一成同一个回包形状:
@@ -15099,7 +15227,8 @@ _TOOLS: list[MCPTool] = [
                         "有 steps → pipeline,有 name/task → single)。"
                         "编排模式:pipeline(串行流水线)/debate(多轮辩论)/"
                         "vote(方案投票)/critique(提案-批判-改进)/"
-                        "decompose(任务自动分解调度)/team(共享黑板协作)。"
+                        "decompose(任务自动分解调度)/team(共享黑板协作)/"
+                        "recursive(材料递归归纳:chunks 分片并行 → 聚合 → 超预算再切一层)。"
                     ),
                 },
                 "agents": {
@@ -15136,8 +15265,27 @@ _TOOLS: list[MCPTool] = [
                     "type": "string",
                     "enum": list(_TEAM_AGGREGATIONS),
                     "description": (
-                        "team 的结果聚合策略:merge 合并全文 / best_of 择优 / "
+                        "team/recursive 的结果聚合策略:merge 合并全文 / best_of 择优 / "
                         "consensus 共识与冲突检测(默认 merge)"
+                    ),
+                },
+                "chunks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "recursive 模式待归纳的材料切片(非空字符串数组,保序)。"
+                        "已分片直接用;整段材料可交给单 agent 先切再回填。"
+                    ),
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "recursive 最大层数(1-3,默认 1=只做一层 Map-Reduce)",
+                },
+                "max_chars_per_node": {
+                    "type": "integer",
+                    "description": (
+                        "recursive 单节点正文预算(1024-64000,默认 8192)。"
+                        "某层聚合正文超过它才再切一层,否则提前收口。"
                     ),
                 },
                 "max_rounds": {
