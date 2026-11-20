@@ -5,10 +5,10 @@
 """号池模型代次判定内部端点测试(2026-11-20 立)。
 
 覆盖:鉴权三态(未配置 503 / 错密钥 401 / 对放行)、选择器口径(2026-11-20 机主取消
-「历史模型」折叠区:命中过时清单、版本比较判 legacy、非对话专用用途三条并集一律
-hidden;白名单新代次与 standard 不隐藏)、MODEL_CATALOG_HIDE_LEGACY=0 时整体恢复
-(开关语义与 /llm/models 出口共用)、单批上限 413、以及响应里每条都带 provider
-(api 侧按 provider+id 成对回填,不猜归属)。
+「历史模型」折叠区:命中过时清单、版本比较判 legacy 一律 hidden;同日追加要求
+图像/视频/语音等分类模型可见,只有嵌入/重排/审核中间件 hidden;白名单新代次与 standard
+不隐藏)、MODEL_CATALOG_HIDE_LEGACY=0 时整体恢复(开关语义与 /llm/models 出口共用)、
+单批上限 413、以及响应里每条都带 provider(api 侧按 provider+id 成对回填,不猜归属)。
 """
 
 from __future__ import annotations
@@ -89,9 +89,44 @@ async def test_同系列旧代号按代次比较判legacy并隐藏(client):
     assert by_id["vendor/gpt-5.1"]["model_tier"] == "standard"
     assert by_id["vendor/gpt-5.1"]["hidden"] is False
     assert by_id["vendor/gpt-5.6"]["model_tier"] == "latest"
-    # 非对话专用用途(嵌入)不进聊天选择器,即使 tier 不是 legacy
+    # 检索类中间件(嵌入)不进聊天选择器,即使 tier 不是 legacy
     assert by_id["vendor/bge-m3"]["category"] == "embedding"
     assert by_id["vendor/bge-m3"]["hidden"] is True
+
+
+async def test_模态模型可见_旧代模态仍按代次隐藏(client):
+    """2026-11-20 机主追加:图像/视频/语音等分类模型要能选;
+
+    同时"不要历史模型"的口径对模态同样成立 —— 同系列旧代次(seedream-4 对 seedream-5)
+    仍由版本比较压 legacy 并隐藏,不是整类放行。
+    """
+    resp = await _post(
+        client,
+        [
+            {"id": "vendor/flux-1-schnell", "provider": "vendor"},
+            {"id": "vendor/step-tts-mini", "provider": "vendor"},
+            {"id": "vendor/whisper-large-v3", "provider": "vendor"},
+            {"id": "vendor/seedream-5", "provider": "vendor"},
+            {"id": "vendor/seedream-4", "provider": "vendor"},
+            {"id": "vendor/bge-reranker-v2", "provider": "vendor"},
+        ],
+    )
+    assert resp.status_code == 200, resp.text
+    by_id = {item["id"]: item for item in resp.json()["items"]}
+    # 模态模型:分类正确且不被隐藏
+    assert by_id["vendor/flux-1-schnell"]["category"] == "image"
+    assert by_id["vendor/flux-1-schnell"]["hidden"] is False
+    assert by_id["vendor/step-tts-mini"]["category"] == "tts"
+    assert by_id["vendor/step-tts-mini"]["hidden"] is False
+    assert by_id["vendor/whisper-large-v3"]["category"] == "asr"
+    assert by_id["vendor/whisper-large-v3"]["hidden"] is False
+    # 同系列模态模型:新一代显示,旧一代按代次压掉(不要历史模型)
+    assert by_id["vendor/seedream-5"]["hidden"] is False
+    assert by_id["vendor/seedream-4"]["model_tier"] == "legacy"
+    assert by_id["vendor/seedream-4"]["hidden"] is True
+    # 重排类中间件仍挡在选择器外
+    assert by_id["vendor/bge-reranker-v2"]["category"] == "rerank"
+    assert by_id["vendor/bge-reranker-v2"]["hidden"] is True
 
 
 async def test_隐藏开关关闭时清单不生效(client, monkeypatch):

@@ -173,10 +173,12 @@ function tierOf<M extends Pick<LlmModel, 'model_tier'>>(model: M): ModelTier {
 }
 
 /**
- * 模型选择器的可选项(2026-11-20 机主定档:取消「历史模型」折叠区)。
+ * 模型选择器的可选项(2026-11-20 机主定档:取消「历史模型」折叠区;
+ * 同日追加:图像/视频/语音等分类模型要能选)。
  *
- * 只保留 `isSelectableChatModel` 为真的模型;legacy 与专用用途模型(嵌入/重排/语音/
- * 图像/视频…)直接不展示。`archived` 恒为空,仅为兼容既有调用方结构保留。
+ * 只保留 `isSelectableChatModel` 为真的模型:legacy 与检索/审核类中间件
+ * (embedding / rerank / guard)直接不展示;图像/视频/语音/OCR 照常出现。
+ * `archived` 恒为空,仅为兼容既有调用方结构保留。
  */
 export function splitModelCatalog<M extends LlmModel>(models: M[]): ModelCatalogSplit<M> {
   const primary: M[] = []

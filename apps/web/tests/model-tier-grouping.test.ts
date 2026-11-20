@@ -6,9 +6,9 @@
  * 模型选择器"默认区 / 历史模型折叠区"分组逻辑单测(2026-08-29 立)
  *
  * 守的是三条产品红线:
- *   1. 「latest/standard + 对话类(chat/vision)」进默认列表
- *      (2026-10-21 起:standard 是仍可调用的正式代次,折叠会造成"能调通的没显示")
- *   2. 非对话专用模型(嵌入/语音/图像…)即使 tier=latest 也必须折叠(聊天场景调不通)
+ *   1. 「latest/standard」进默认列表(2026-10-21 起:standard 是仍可调用的正式代次)
+ *   2. 图像/视频/语音/OCR 等模态模型照常可选(2026-11-20 机主追加);
+ *      只有 embedding / rerank / guard 这类中间件不进聊天选择器
  *   3. **后端字段缺失时不能把模型藏起来** —— 老后端/缓存数据没这两个可选字段时,
  *      一律按"最新对话模型"处理,宁可多显示也不让选择器空掉
  *
@@ -51,7 +51,7 @@ function opt(
   return { value, label: value, category, tier, capabilities }
 }
 
-describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区)', () => {
+describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区/放开模态模型)', () => {
   it('latest + 对话类进默认区', () => {
     const { primary, archived } = splitByTier([
       opt('gpt-5.6', 'chat', 'latest'),
@@ -68,15 +68,33 @@ describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区
       opt('bge-m3', 'embedding', 'standard'),
     ])
     expect(primary.map((m) => m.value)).toEqual(['glm-5.2'])
-    // legacy 与非对话专用模型都不再出现在任何分区
+    // legacy 与检索类中间件都不再出现在任何分区
     expect(archived).toHaveLength(0)
   })
 
-  it('非对话专用模型即使 latest 也不展示', () => {
+  it('图像/视频/语音/OCR 等模态模型照常展示(2026-11-20 机主追加)', () => {
+    const { primary, archived } = splitByTier([
+      opt('flux-1-schnell', 'image', 'latest'),
+      opt('veo-3', 'video', 'latest'),
+      opt('step-tts-mini', 'tts', 'latest'),
+      opt('whisper-large-v3', 'asr', 'latest'),
+      opt('paddle-ocr-v4', 'ocr', 'latest'),
+    ])
+    expect(primary.map((m) => m.value)).toEqual([
+      'flux-1-schnell',
+      'veo-3',
+      'step-tts-mini',
+      'whisper-large-v3',
+      'paddle-ocr-v4',
+    ])
+    expect(archived).toHaveLength(0)
+  })
+
+  it('检索/审核类中间件不展示(选了也产不出可读回复)', () => {
     const { primary, archived } = splitByTier([
       opt('bge-m3', 'embedding', 'latest'),
-      opt('step-tts-mini', 'tts', 'latest'),
-      opt('flux-1-schnell', 'image', 'latest'),
+      opt('bge-reranker-v2', 'rerank', 'latest'),
+      opt('shield-guard', 'guard', 'latest'),
     ])
     expect(primary).toHaveLength(0)
     expect(archived).toHaveLength(0)
