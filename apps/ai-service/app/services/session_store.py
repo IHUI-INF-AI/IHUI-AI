@@ -45,6 +45,72 @@ from .branch_generation import bump_branch_generation
 
 logger = logging.getLogger(__name__)
 
+# ---- 测试 schema 的进程级回收(2026-11-20 立,治"每跑一次 pytest 就多几个 sess_<hash>") ----
+# 现状成因:`_ephemeral` 对 pytest **故意为假**(同路径 close→reopen 必须还能读到数据,
+# 有用例就断言这一条),于是 close() 不会丢库,而 schema 名是按 tmp 路径哈希派生的 ——
+# 每次 pytest 都换一个 tmp 路径 ⇒ 库里多一个永不清理的 `sess_<12hex>`。本机实测库面上
+# 已经堆到上千个,`audit_session_schemas.py` 只能"报数 + 人工判归属",这正是它要盯的东西。
+#
+# 回收口径 = **本进程亲手建的那几个**,不是"看起来像测试的全清":
+#   ① 只有走 `_ephemeral_store()`(临时路径 / pytest 进程)的 store 才登记;
+#   ② 登记的是**本次 CREATE SCHEMA IF NOT EXISTS 之后确实存在的那个名字**;
+#   ③ 进程退出时逐个 DROP IF EXISTS,失败只记日志(不留假绿,也不阻断退出)。
+# `SESSION_STORE_KEEP_TEST_SCHEMAS=1` 可留现场排查。
+_TEST_SCHEMAS: set[str] = set()
+_TEST_SCHEMA_ATEXIT_ARMED = False
+_KEEP_TEST_SCHEMAS_ENV = "SESSION_STORE_KEEP_TEST_SCHEMAS"
+
+
+def _drop_test_schemas(schemas: set[str] | None = None) -> list[str]:
+    """把本进程建的测试 schema 逐个丢掉,返回真的丢掉了的名字。
+
+    取不到 DSN / 连不上 ⇒ 返回空列表(退出路径上不能抛;调用方自己决定要不要打印)。
+    """
+    todo = sorted(_TEST_SCHEMAS if schemas is None else schemas)
+    if not todo:
+        return []
+    dsn = _resolve_dsn()
+    if not dsn:
+        return []
+    dropped: list[str] = []
+    session: SyncPgSession | None = None
+    try:
+        session = SyncPgSession(dsn)
+        for name in todo:
+            if name == _DEFAULT_SCHEMA:
+                continue
+            try:
+                session.execute(f'DROP SCHEMA IF EXISTS "{name}" CASCADE')
+                dropped.append(name)
+            except Exception as e:  # noqa: BLE001 - 单条失败不影响其余
+                logger.warning("测试 schema 回收失败 %s: %s", name, e)
+    except Exception as e:  # noqa: BLE001 - 退出路径,不抛
+        logger.warning("测试 schema 回收跳过(连不上): %s", e)
+        return dropped
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:  # noqa: BLE001
+                pass
+    for name in dropped:
+        _TEST_SCHEMAS.discard(name)
+    return dropped
+
+
+def _arm_test_schema_cleanup() -> None:
+    """进程退出时跑一次 `_drop_test_schemas()`(幂等:只挂一回)。"""
+    global _TEST_SCHEMA_ATEXIT_ARMED
+    if _TEST_SCHEMA_ATEXIT_ARMED:
+        return
+    if os.environ.get(_KEEP_TEST_SCHEMAS_ENV, "").strip().lower() in ("1", "on", "true", "yes"):
+        return
+    import atexit
+
+    atexit.register(_drop_test_schemas)
+    _TEST_SCHEMA_ATEXIT_ARMED = True
+
+
 # ==================== Fork 边界对齐(批58十四,遵循统一工程规范) ====================
 
 _FORK_BOUNDARY_ALIGN_ENV = "IHUI_SESSION_FORK_BOUNDARY_ALIGN"
@@ -1014,6 +1080,11 @@ class SessionStore:
         # 命名隔离与"close 丢库"是**两件事**:pytest 进程只借路径哈希拿到独立 schema,
         # 但它的库并不丢(同路径 close→reopen 必须还能读到数据 —— 有用例就断言这一条)。
         self._ephemeral = _is_temp_path(self._path)
+        # 顺手登记"这是本进程建的临时库",进程退出时统一回收 —— 否则每跑一次 pytest
+        # 就在同一个 PG 实例里多一个永不清理的 `sess_<12hex>`(本机实测堆到上千个)。
+        if _ephemeral_store(self._path):
+            _TEST_SCHEMAS.add(self._schema)
+            _arm_test_schema_cleanup()
         self._session = SyncPgSession(dsn)
         self._conn = PgShim(self._session)
         # 逻辑 schema 的接管必须在"建壳 + 钉 search_path"之前 —— 否则空壳会把旧
