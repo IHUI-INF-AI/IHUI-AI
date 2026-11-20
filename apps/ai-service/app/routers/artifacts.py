@@ -27,7 +27,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jwt as pyjwt
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -333,16 +333,31 @@ async def issue_tool_artifact_token(
 
 @router.get("/artifacts/tool/f/{token}")
 async def serve_tool_artifact(
+    request: Request,
     token: str,
     offset: int = Query(0, ge=0),
-) -> PlainTextResponse:
-    """按 token 返回工件分页纯文本；过期/无效一律 404 `Mount Expired`（对外与"不存在"同形）。"""
+    format: Literal["text", "json"] = Query("text"),
+) -> Any:
+    """按 token 返回工件分页;过期/无效一律 404 `Mount Expired`(对外与"不存在"同形)。
+
+    format=text(默认)回 `text/plain` + `X-Artifact-Next/Complete` 头,供外链直接打开;
+    format=json 回 `{content,next,complete,totalChars}`,供卡片内嵌预览分页消费 ——
+    JSON 分支只读回包,不发任何一份正文的第二份副本(与 text 分支同一 `read_tool_output_page`)。
+    """
     artifact_id = verify_tool_artifact_token(token)
     if artifact_id is None:
         raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
     page = await asyncio.to_thread(read_tool_output_page, artifact_id, offset=offset)
     if not page.get("ok"):
         raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    if format == "json":
+        request.state.skip_response_sanitization = True
+        return {
+            "content": str(page.get("content") or ""),
+            "next": int(page.get("next") or 0),
+            "complete": bool(page.get("complete")),
+            "totalChars": int(page.get("totalChars") or 0),
+        }
     return PlainTextResponse(
         str(page.get("content") or ""),
         headers={
