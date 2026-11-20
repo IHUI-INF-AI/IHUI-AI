@@ -126,7 +126,7 @@ jobs:
       # 只要**空 venv**:实测被判据模块 `_load_lifecycle.py` 只 import 标准库
       # (time/dataclasses/ast/re),不装 ai-service 依赖。
       - name: Setup Python (判据在 Python 里的那族守门要它)
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
 
