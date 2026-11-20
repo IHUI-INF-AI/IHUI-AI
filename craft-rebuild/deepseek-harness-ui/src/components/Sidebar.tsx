@@ -62,7 +62,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <button
           type="button"
           data-new-session
-          className="flex h-[38px] w-full items-center justify-center gap-1.5 rounded-lg bg-bg px-3 text-[13px] font-medium ring-1 ring-black/10 hover:bg-bg-subtle"
+          className="flex h-[38px] w-full items-center justify-center gap-1.5 rounded-sm bg-bg px-3 text-[13px] font-medium ring-1 ring-black/10 hover:bg-bg-subtle"
           onClick={() => {
             newSession()
             onNavigate?.()
