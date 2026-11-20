@@ -16,10 +16,13 @@
 from __future__ import annotations
 
 import time
+from types import SimpleNamespace
+from typing import Any
 
 import jwt as pyjwt
 import pytest
 from fastapi import HTTPException
+from fastapi.responses import PlainTextResponse
 
 from app.core.config import settings
 from app.routers import artifacts as art
@@ -92,7 +95,56 @@ def test_missing_secret_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 async def test_mount_expired_404_shape() -> None:
     with pytest.raises(HTTPException) as exc:
-        await art.serve_tool_artifact("not-a-token")
+        await art.serve_tool_artifact(_req(), "not-a-token")
     assert exc.value.status_code == 404
     assert exc.value.detail == art.MOUNT_EXPIRED_DETAIL
+
+
+def _req() -> Any:
+    """最小 Request 替身:只需 request.state(JSON 分支要置 skip 标记)。"""
+    return SimpleNamespace(state=SimpleNamespace())
+
+
+ART_ID = "0123456789abcdef0123456789abcdef"
+
+
+@pytest.mark.asyncio
+async def test_json_format_serves_page_dict(monkeypatch: pytest.MonkeyPatch) -> None:
+    """format=json:卡片内嵌预览分页消费 —— 只回页面字典,不发第二份正文副本。"""
+    monkeypatch.setattr(
+        art,
+        "read_tool_output_page",
+        lambda artifact_id, offset=0: {
+            "ok": True,
+            "content": "page-1",
+            "next": 2000,
+            "complete": False,
+            "totalChars": 5000,
+        },
+    )
+    token = art.sign_tool_artifact_token(ART_ID)
+    out = await art.serve_tool_artifact(_req(), token, 0, "json")
+    assert out == {"content": "page-1", "next": 2000, "complete": False, "totalChars": 5000}
+
+
+@pytest.mark.asyncio
+async def test_text_format_keeps_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认 text 分支行为不变:纯文本 + X-Artifact-Next/Complete 头。"""
+    monkeypatch.setattr(
+        art,
+        "read_tool_output_page",
+        lambda artifact_id, offset=0: {
+            "ok": True,
+            "content": "page-1",
+            "next": 2000,
+            "complete": False,
+            "totalChars": 5000,
+        },
+    )
+    token = art.sign_tool_artifact_token(ART_ID)
+    res = await art.serve_tool_artifact(_req(), token)
+    assert isinstance(res, PlainTextResponse)
+    assert res.body == b"page-1"
+    assert res.headers["x-artifact-next"] == "2000"
+    assert res.headers["x-artifact-complete"] == "false"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
