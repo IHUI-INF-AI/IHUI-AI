@@ -249,6 +249,150 @@ print("done", flush=True)
 _OWNER = {"__user_id": "u-term", "__session_id": "s-term"}
 
 
+# ─── 窗口尺寸(resize):真 tty 才有的能力面 ───
+
+_SIZE_SCRIPT = """\
+import shutil, sys
+print("[READY]", flush=True)
+for line in sys.stdin:
+    line = line.strip()
+    if line == "quit":
+        break
+    if line == "size":
+        ts = shutil.get_terminal_size()
+        print(f"[SIZE]{ts.columns}x{ts.lines}", flush=True)
+"""
+
+
+def _read_from(terminal_id: str, seq: int, needle: str, timeout: float = 15.0) -> tuple[str, int]:
+    """从指定 seq 续读,直到命中 needle 或进程退出。返回 (本次累计文本, 新 seq)。"""
+    text = ""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        res = term.read_terminal(
+            terminal_id, user_id="u-term", session_id="s-term",
+            since_seq=seq, wait_s=0.5,
+        )
+        seq = res["next_seq"]
+        text += "".join(c["text"] for c in res["chunks"])
+        if needle in text or not res["running"]:
+            break
+    return text, seq
+
+
+def test_pty_resize_reaches_child_and_pins_initial_size(tmp_path, monkeypatch) -> None:
+    """真 tty 才有窗口尺寸:开会话即 DEFAULT_COLS×DEFAULT_ROWS,resize 后**子进程侧**读到新值。
+
+    POSIX 走 `TIOCSWINSZ`(且必须补掉 `pty.openpty()` 的 0×0 缺省),Windows 走
+    `ResizePseudoConsole` —— 只改自己账本不算数,必须子进程 `get_terminal_size()` 能看到。
+    """
+    monkeypatch.setenv(_TEST["PTY_REQUEST_ENV"], "1")
+    term.reset_terminals()
+    opened = term.open_terminal(
+        command=f'"{sys.executable}" -u "{_script_path(tmp_path, "size_probe.py", _SIZE_SCRIPT)}"',
+        cwd=str(tmp_path),
+        user_id="u-term",
+        session_id="s-term",
+    )
+    assert opened["ok"] is True
+    assert opened["terminal"]["backend"] == "pty"
+    want = (_TEST["DEFAULT_COLS"], _TEST["DEFAULT_ROWS"])
+    assert (opened["terminal"]["cols"], opened["terminal"]["rows"]) == want
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        text, seq = _read_from(tid, 0, "[READY]")
+        assert "[READY]" in text, f"会话未就绪:{text!r}"
+
+        assert term.send_terminal(tid, "size", user_id="u-term", session_id="s-term")["ok"] is True
+        text, seq = _read_from(tid, seq, "[SIZE]")
+        assert f"[SIZE]{want[0]}x{want[1]}" in text, f"初始尺寸未钉住:{text!r}"
+
+        resized = term.resize_terminal(
+            tid, cols=100, rows=40, user_id="u-term", session_id="s-term"
+        )
+        assert resized["ok"] is True, resized
+        assert (resized["cols"], resized["rows"]) == (100, 40)
+        session = term._sessions[tid]
+        assert (session.cols, session.rows) == (100, 40)
+        assert (session.to_dict()["cols"], session.to_dict()["rows"]) == (100, 40)
+
+        assert term.send_terminal(tid, "size", user_id="u-term", session_id="s-term")["ok"] is True
+        text, seq = _read_from(tid, seq, "[SIZE]")
+        assert "[SIZE]100x40" in text, f"resize 没到子进程侧:{text!r}"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_resize_on_pipe_backend_is_explicit_not_a_tty(tmp_path) -> None:
+    """管道后端没有 tty 语义 ⇒ 显式 `TERMINAL_NOT_A_TTY`,绝不静默"改成功"。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "hold.py", _SLEEP_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = term.resize_terminal(
+            tid, cols=100, rows=40, user_id="u-term", session_id="s-term"
+        )
+        assert res["ok"] is False
+        assert res["errorCode"] == "TERMINAL_NOT_A_TTY"
+        assert res["terminal"]["backend"] == "pipes"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+def test_resize_rejects_out_of_range_and_non_int(tmp_path) -> None:
+    """越界/非整数尺寸在**碰后端之前**就显式拒(避免把 0/负数喂给内核)。"""
+    term.reset_terminals()
+    opened = _open(_script_path(tmp_path, "hold2.py", _SLEEP_SCRIPT), tmp_path)
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    max_cols = _TEST["MAX_COLS"]
+    max_rows = _TEST["MAX_ROWS"]
+    try:
+        for cols, rows in ((0, 30), (30, 0), (-1, 30), (max_cols + 1, 30), (30, max_rows + 1)):
+            res = term.resize_terminal(
+                tid, cols=cols, rows=rows, user_id="u-term", session_id="s-term"
+            )
+            assert res["ok"] is False, (cols, rows, res)
+            assert res["errorCode"] == "TERMINAL_INVALID_SIZE", (cols, rows, res)
+        # 非整数(工具层可能直传字符串)同档显式拒
+        res = term.resize_terminal(
+            tid, cols="abc", rows=30, user_id="u-term", session_id="s-term"  # type: ignore[arg-type]
+        )
+        assert res["errorCode"] == "TERMINAL_INVALID_SIZE"
+    finally:
+        term.close_terminal(tid, user_id="u-term", session_id="s-term")
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_resize_action(tmp_path, monkeypatch) -> None:
+    """工具层必须把 resize 路由到模块(不能落进"不支持的 action"),且两档拒绝都穿透到信封。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    opened = await _tool_terminal(
+        {
+            "action": "open",
+            "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "hold3.py", _SLEEP_SCRIPT)}"',
+            "cwd": str(tmp_path),
+            **_OWNER,
+        }
+    )
+    assert opened["ok"] is True
+    tid = opened["terminal"]["terminal_id"]
+    try:
+        res = await _tool_terminal(
+            {"action": "resize", "terminal_id": tid, "cols": 100, "rows": 40, **_OWNER}
+        )
+        assert res["action"] == "resize"
+        assert res["ok"] is False and res["errorCode"] == "TERMINAL_NOT_A_TTY"
+        bad = await _tool_terminal(
+            {"action": "resize", "terminal_id": tid, "cols": "x", "rows": 1, **_OWNER}
+        )
+        assert bad["errorCode"] == "INVALID_PARAMS"
+    finally:
+        await _tool_terminal({"action": "close", "terminal_id": tid, **_OWNER})
+
+
 @pytest.fixture(autouse=True)
 def _clean_terminals():
     term.reset_terminals()

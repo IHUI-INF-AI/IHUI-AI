@@ -8947,10 +8947,11 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/read/signal/close/list)。
+    """terminal:长驻交互式终端(open/send/read/signal/resize/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
-    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、close 收尾。
+    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、resize 改窗口
+    尺寸(仅 PTY 后端)、close 收尾。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
     子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
     """
@@ -9058,6 +9059,27 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "signal", **result}
 
+    if action == "resize":
+        try:
+            # 经 str() 收敛:工具入参可能是 JSON 数字也可能是字符串;None → "None" 走 ValueError,
+            # 非数值同档显式拒(不把脏值喂给内核)。
+            cols = int(str(arguments.get("cols")).strip())
+            rows = int(str(arguments.get("rows")).strip())
+        except (TypeError, ValueError):
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "resize 需要整数 cols 与 rows",
+            }
+        result = await asyncio.to_thread(
+            term.resize_terminal,
+            terminal_id,
+            cols=cols,
+            rows=rows,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "resize", **result}
+
     if action == "close":
         result = await asyncio.to_thread(
             term.close_terminal,
@@ -9069,7 +9091,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": f"不支持的 action: {action}(open/send/read/signal/close/list)",
+        "error": f"不支持的 action: {action}(open/send/read/signal/resize/close/list)",
     }
 
 
