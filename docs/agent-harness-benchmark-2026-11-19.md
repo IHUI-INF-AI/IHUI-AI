@@ -6,6 +6,7 @@
 
 
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -14,7 +15,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **22 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **23 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -90,7 +91,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（22 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（23 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -330,6 +331,17 @@
 - 超越轴：对照程序把钩子结果串成"链式改写"，但没有区分"未提供"与"显式清空"；本仓用哨兵把这两种情形分开，后注册钩子按"最后写赢"覆盖而非静默叠加 —— 顺序与结果都可预测。
 
 验证：`pytest apps/ai-service/tests/test_post_tool_hooks.py apps/ai-service/tests/test_command_hooks.py` → `15 passed`（改写映射 / 显式 null / 静默哨兵 / 消费端真替换+上下文 / 无钩子零变化 / 未配置 / 未信任 / 非命令变体 / 幂等 / allow 不伪造）；回归 `test_hook_event_ordering + test_hook_exit_contract + test_parallel_tool_abort_54 + test_tool_approval + test_tool_invocation_ledger_b04 + test_hook_event_kind` → `102 passed`；`mypy --strict`（command_hooks + hook_runtime + agent_loop_v2）→ `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
+
+### 5.24 第 23 项：permissionDecision 提前到审批门之前（allow/ask 真正生效）
+
+- 缺口：上一轮把 `PreToolUse` 的 deny 与上下文接好了，但整段钩子跑在 `_request_approval` **之后** ⇒ 钩子给 `allow` 也救不回一次已经弹给用户的审批框，`ask` 更是永远无法抬升低危工具。契约里的 `PreToolUsePermissionDecisionWire = (allow, deny, ask)` 因此只有 `deny` 一路有效。
+- 处置：
+  - `HookOutcome` 增 `permission_decision`（None = 不表态），`_absorb` 按"首个表态生效"聚合；
+  - `agent_loop_v2` 把整段钩子调用**移位**到审批策略计算（skill 授权 / auto 免审 / bypass / MCP 注解 / 双轴 / 工具级策略）之后、污点闸门与 auto-review 之前：`allow` ⇒ `needs_approval=False` 且落 `hook_allow_skip_approval` 决策提示；`ask` ⇒ 抬升为需审批并落 `hook_ask_require_approval`；`deny` ⇒ 不弹窗直接拒绝（与上一轮同形）；
+  - 硬边界顺序不变：plan 白名单、turn-scoped denylist、角色矩阵、双轴 `FORBID` 都在更早的出口，钩子 `allow` **只替换"要不要问用户"这一步，不增加可执行面**。
+- 超越轴：对照程序把 permissionDecision 与审批门混在一处判定，本仓显式分成"策略层（可被本地配置翻转）→ 钩子层（会话级表态）→ 污点/审查层（安全地板不可被 allow 穿透）"三段，allow 越不过安全地板，ask 也不会压掉硬边界。
+
+验证：`pytest test_hook_runtime_injection_wiring.py` → 新增 3 例（allow 省掉审批且真执行 / ask 把低危工具抬进审批 / 无钩子阳性对照照旧弹审批）；`test_hook_runtime_injection_wiring + test_hook_event_ordering + test_tool_approval` → `43 passed`；`test_permission_modes + test_permission_axis_gate + test_permissions_instructions_56 + test_post_tool_hooks + test_parallel_tool_abort_54` → `63 passed`；`mypy --strict`（hook_runtime + agent_loop_v2 + command_hooks）→ `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

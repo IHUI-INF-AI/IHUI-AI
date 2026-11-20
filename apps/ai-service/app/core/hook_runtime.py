@@ -88,6 +88,8 @@ class HookOutcome:
     stop_reason: str | None = None
     additional_contexts: list[str] = field(default_factory=list)
     denial_reason: str | None = None  # PRE_TOOL_USE:非 None 即拒绝
+    # PRE_TOOL_USE:钩子给出的权限裁决(allow/deny/ask)。None = 不表态,沿用审批门。
+    permission_decision: str | None = None
     # POST_TOOL_USE:钩子给出的产出替换值(对齐 updatedMCPToolOutput)。哨兵对象
     # 区分"没给"与"给了 None"—— 后者是合法的"抹掉结果",不能被当成未提供。
     updated_output: Any = field(default=NO_UPDATED_OUTPUT)
@@ -207,6 +209,20 @@ class HookRuntime:
                 outcome.denial_reason = (
                     reason if isinstance(reason, str) and reason else f"denied by hook '{reg.name}'"
                 )
+            perm = result.get("permission_decision")
+            if (
+                outcome.permission_decision is None
+                and isinstance(perm, str)
+                and perm in ("allow", "deny", "ask")
+            ):
+                # 首个表态生效:多钩子给出相反裁决时由先注册者说了算,顺序确定。
+                outcome.permission_decision = perm
+                if perm == "deny" and outcome.denial_reason is None:
+                    reason = result.get("reason")
+                    outcome.denial_reason = (
+                        reason if isinstance(reason, str) and reason
+                        else f"denied by hook '{reg.name}'"
+                    )
         if kind is HookKind.POST_TOOL_USE and "updated_output" in result:
             # 后注册的钩子看到的仍是"原始产出"而不是前一枚改写后的值 —— 顺序确定、
             # 结果可预测;首个改写生效,后续改写按"最后写赢"覆盖(与 Codex 的链式
