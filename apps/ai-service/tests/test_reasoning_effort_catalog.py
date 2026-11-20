@@ -94,6 +94,7 @@ async def test_sync_writes_declaration_skips_undeclared_and_unchanged(monkeypatc
         return payload
 
     monkeypatch.setattr(cat, "fetch_openrouter_payload", fake_payload)
+    monkeypatch.setattr(cat, "write_cache", lambda index: None)
     rows = [
         {"id": 1, "model_id": "gpt-5.6", "metadata": {}},
         {"id": 2, "model_id": "vendor/no-effort", "metadata": {"priceSource": {"tier": "x"}}},
@@ -112,4 +113,18 @@ async def test_sync_writes_declaration_skips_undeclared_and_unchanged(monkeypatc
     assert patches[2]["reasoning_efforts"] == []
     assert 3 not in patches
     assert 4 not in patches
+
+
+def test_cache_roundtrip_and_missing_file(monkeypatch, tmp_path):
+    """镜像必须能跨进程存续(池同步会清 metadata);缺失时回落空索引不猜。"""
+    target = tmp_path / "efforts.json"
+    monkeypatch.setattr(cat, "cache_path", lambda: target)
+    monkeypatch.setattr(cat, "_cache_state", {"mtime": None, "index": {}})
+    assert cat.load_cache_index() == {}
+    cat.write_cache({"gpt-5.6": ["high", "low", "minimal"], "no-effort": []})
+    index = cat.load_cache_index()
+    assert index["gpt-5.6"] == ["high", "low", "minimal"]
+    assert index["no-effort"] == []
+    # 尾名匹配仍可命中(本地裸 id 场景)
+    assert cat.resolve_efforts(index, "openrouter/gpt-5.6") == ["high", "low", "minimal"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
