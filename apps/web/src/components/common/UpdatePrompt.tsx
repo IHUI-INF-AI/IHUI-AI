@@ -342,19 +342,17 @@ export function UpdatePrompt() {
                   </span>
                 </div>
                 <div className="flex w-full items-center gap-2">
-                  {/* 圆角跟卡内状态条/图标容器统一 rounded-lg(8px),旧值 rounded-sm(4px) 在此
-                      8px 圆角体系里读起来像没对齐的直角块 */}
                   <button
                     type="button"
                     onClick={() => void postponeRestart()}
-                    className="h-8 flex-1 rounded-lg border border-border bg-card px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="h-8 flex-1 rounded-sm border border-border bg-card px-3 text-label font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {t('restartLater')}
                   </button>
                   <button
                     type="button"
                     onClick={() => void restartNow()}
-                    className="h-8 flex-1 rounded-lg bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+                    className="h-8 flex-1 rounded-sm bg-cta px-3 text-label font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                   >
                     {t('restartNow')}
                   </button>

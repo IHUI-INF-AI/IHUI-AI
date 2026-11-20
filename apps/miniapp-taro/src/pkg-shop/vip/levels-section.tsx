@@ -53,7 +53,7 @@ export default function LevelsSection({
                     {level.levelName}
                   </Text>
                   {isCurrent ? (
-                    <Text className="px-[16rpx] py-[4rpx] rounded-md bg-[var(--color-vip-gold-start)] text-badge font-semibold text-[var(--color-vip-card)]">
+                    <Text className="ui-chip px-[16rpx] py-[4rpx] rounded-md bg-[var(--color-vip-gold-start)] text-badge font-semibold text-[var(--color-vip-card)]">
                       {t('vip.currentBadge')}
                     </Text>
                   ) : null}
