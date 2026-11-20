@@ -4193,7 +4193,18 @@ async def list_models(request: Request) -> dict[str, Any]:
 
         model_health.observe_catalog(default_models)
         before_model_health = len(default_models)
+        # 2026-11-21 立:模态档(image/video/tts/asr/ocr)不参与 chat 探针判定。
+        # 探针打的是 chat completion,对媒体模型必然失败 ⇒ 把模态档整批误杀
+        # (生产实测 21 条全 chat,image/video/vision 一条不剩,选择器看不到它们)。
+        # 媒体"能不能产出"由生成通道裁决(/image-gen 对未接通模型回 400 + 可用清单),
+        # 这里只先分类拿 category(annotate_models 幂等,后段还会再跑一次,值相同)。
+        from ..services.model_catalog import annotate_models as _annotate_models
+        from ..services.model_catalog_policy import restore_modality_entries
+
+        _annotate_models(default_models)
+        _before_health_snapshot = list(default_models)
         default_models = model_health.filter_available(default_models)
+        default_models = restore_modality_entries(_before_health_snapshot, default_models)
         logger.info(
             "[llm/models] model-health filter: %d → %d (down %d)",
             before_model_health,
