@@ -153,32 +153,43 @@ export async function runScheduleTaskNow(
   id: string,
   status: 'running' | 'queued' = 'running',
 ): Promise<{ task: ScheduleTask; log: ScheduleLog } | undefined> {
-  const task = await findScheduleTaskById(id)
-  if (!task) return undefined
   const now = new Date()
-  const [updated] = await db
-    .update(scheduleTasks)
-    .set({
-      lastRunTime: now,
-      lastRunStatus: status,
-      lastRunMessage: '手动触发执行',
-      updatedAt: now,
-    })
-    .where(eq(scheduleTasks.id, id))
-    .returning()
-  const logRows = await db
-    .insert(scheduleLogs)
-    .values({
-      taskId: task.id,
-      taskName: task.name,
-      status,
-      startTime: now,
-      message: '手动触发执行',
-    })
-    .returning()
-  const log = logRows[0]
-  if (!updated || !log) return undefined
-  return { task: updated, log }
+  // F-644:任务读取 + 标记已运行 + 写日志必须在同一事务 —— 旧形态日志写失败时,
+  // 任务已被标成"已运行"却没有执行记录,状态与日志永久对不上;且"已写库但拿不到日志"
+  // 会被 `return undefined` 伪装成任务不存在(404),调用方无从分辨。
+  return db.transaction(async (tx) => {
+    const [task] = await tx
+      .select()
+      .from(scheduleTasks)
+      .where(eq(scheduleTasks.id, id))
+      .limit(1)
+    if (!task) return undefined
+    const [updated] = await tx
+      .update(scheduleTasks)
+      .set({
+        lastRunTime: now,
+        lastRunStatus: status,
+        lastRunMessage: '手动触发执行',
+        updatedAt: now,
+      })
+      .where(eq(scheduleTasks.id, id))
+      .returning()
+    if (!updated) throw new Error('更新定时任务状态失败')
+    const logRows = await tx
+      .insert(scheduleLogs)
+      .values({
+        taskId: task.id,
+        taskName: task.name,
+        status,
+        startTime: now,
+        message: '手动触发执行',
+      })
+      .returning()
+    const log = logRows[0]
+    // 日志落地失败(空行而非抛错)同样抛出去回滚,不得以 undefined 冒充"任务不存在"
+    if (!log) throw new Error('写入定时任务执行日志失败')
+    return { task: updated, log }
+  })
 }
 
 // =============================================================================

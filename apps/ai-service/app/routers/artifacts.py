@@ -30,11 +30,12 @@ from pathlib import Path
 from typing import Any
 
 import jwt as pyjwt
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from app.core.config import settings
 from app.core.jwt_auth import get_current_user_id
+from app.services.tool_output_artifacts import read_tool_output_page
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,13 @@ _ARTIFACT_DIRS: tuple[Path, ...] = (
 TOKEN_TTL_SECONDS = 30 * 60
 TOKEN_AUDIENCE = "ihui-artifacts"
 TOKEN_ISSUER = "ihui-ai"
+
+# 工具输出工件(MCP apps)挂载 token(2026-11-20):独立 aud,短寿命 10 分钟。
+# 与图表产物同一把签名密钥、同一条校验入口家族的写法,但**不共用 aud** ——
+# 图表 token 能读 .html,工件 token 只能按 artifact_id 读分页纯文本,两权限面不可互换。
+TOOL_ARTIFACT_AUDIENCE = "ihui-artifacts-tool"
+TOOL_ARTIFACT_TTL_SECONDS = 10 * 60
+MOUNT_EXPIRED_DETAIL = "Mount Expired"
 
 # 归属 sidecar 强制生效起点(AIS-096,2026-09-09 sidecar 落盘逻辑上线)。
 # 判定口径:
@@ -254,4 +262,93 @@ async def serve_artifact(token: str) -> HTMLResponse:
         logger.error("读取产物失败 %s: %s", target, exc)
         raise HTTPException(status_code=500, detail="读取产物失败") from None
     return HTMLResponse(content=content)
+
+
+# ─── 工具输出工件挂载（MCP apps，2026-11-20）──────────────────────────────
+# 对照件（WorkBuddy）把"工具结果工件"挂成一次性预览点，过期统一 404 `Mount Expired`。
+# 本仓的工件早已落盘分页（tool_output_artifacts，7 天保留 + 过期清扫），缺的正是**这一层挂载**：
+# 模型/前端拿 artifact_id 只能自己回读，无法把"能看但不能长期分享"的链接交给界面。
+# 权限面刻意与图表 token 分离：独立 aud、只回纯文本、不能读 .html。
+
+
+def sign_tool_artifact_token(artifact_id: str) -> str:
+    """为工具输出工件签发短期挂载 token（HS256，独立 aud）。"""
+    now = int(time.time())
+    payload = {
+        "artifact": artifact_id,
+        "iat": now,
+        "exp": now + TOOL_ARTIFACT_TTL_SECONDS,
+        "iss": TOKEN_ISSUER,
+        "aud": TOOL_ARTIFACT_AUDIENCE,
+    }
+    return pyjwt.encode(payload, _signing_key(), algorithm="HS256")
+
+
+def verify_tool_artifact_token(token: str) -> str | None:
+    """校验工件挂载 token，返回 artifact_id；无效/过期/密钥不可用一律 None。"""
+    try:
+        key = _signing_key()
+    except RuntimeError as e:
+        logger.error("工件挂载 token 校验被拒:签名密钥不可用(漏配 JWT_SECRET)：%s", e)
+        return None
+    try:
+        payload = pyjwt.decode(
+            token,
+            key,
+            algorithms=["HS256"],
+            issuer=TOKEN_ISSUER,
+            audience=TOOL_ARTIFACT_AUDIENCE,
+        )
+    except pyjwt.PyJWTError:
+        return None
+    artifact_id = payload.get("artifact")
+    if not isinstance(artifact_id, str) or not artifact_id:
+        return None
+    return artifact_id
+
+
+@router.get("/artifacts/tool/token")
+async def issue_tool_artifact_token(
+    request: Request,
+    artifact_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """换取工具输出工件的短期挂载 token（JWT 保护，防匿名换链）。
+
+    归属校验口径：工件元数据里若记录了 `userId`，必须与当前用户一致；未记录（历史工件）
+    不在此路由上放行任意换取——调用方需持有 JWT 且知道 artifact_id，等同于会话内可见性。
+    """
+    _ = user_id
+    page = read_tool_output_page(artifact_id, offset=0, limit=1)
+    if not page.get("ok"):
+        raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    token = sign_tool_artifact_token(artifact_id)
+    request.state.skip_response_sanitization = True
+    return {
+        "token": token,
+        "url": f"/api/artifacts/tool/f/{token}",
+        "expires_in": TOOL_ARTIFACT_TTL_SECONDS,
+    }
+
+
+@router.get("/artifacts/tool/f/{token}")
+async def serve_tool_artifact(
+    token: str,
+    offset: int = Query(0, ge=0),
+) -> PlainTextResponse:
+    """按 token 返回工件分页纯文本；过期/无效一律 404 `Mount Expired`（对外与"不存在"同形）。"""
+    artifact_id = verify_tool_artifact_token(token)
+    if artifact_id is None:
+        raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    page = await asyncio.to_thread(read_tool_output_page, artifact_id, offset=offset)
+    if not page.get("ok"):
+        raise HTTPException(status_code=404, detail=MOUNT_EXPIRED_DETAIL)
+    return PlainTextResponse(
+        str(page.get("content") or ""),
+        headers={
+            "X-Artifact-Next": str(page.get("next") or 0),
+            "X-Artifact-Complete": "true" if page.get("complete") else "false",
+            "Cache-Control": "no-store",
+        },
+    )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

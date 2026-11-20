@@ -102,33 +102,37 @@ export async function touchLastAccessed(userId: string, workspacePath: string): 
  * 在位才是"没删掉";反之主记录删掉了这一路就是成功的。
  */
 export async function deletePermission(userId: string, workspacePath: string): Promise<string[]> {
-  // 级联清理:规则 + 审计日志 + 主记录
-  await db
-    .delete(workspacePermissionRules)
-    .where(
-      and(
-        eq(workspacePermissionRules.userId, userId),
-        eq(workspacePermissionRules.workspacePath, workspacePath),
-      ),
-    )
-  await db
-    .delete(workspacePermissionAuditLogs)
-    .where(
-      and(
-        eq(workspacePermissionAuditLogs.userId, userId),
-        eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
-      ),
-    )
-  const rows = await db
-    .delete(workspacePermissions)
-    .where(
-      and(
-        eq(workspacePermissions.userId, userId),
-        eq(workspacePermissions.workspacePath, workspacePath),
-      ),
-    )
-    .returning({ id: workspacePermissions.id })
-  return rows.map((r) => r.id)
+  // F-599:三张表的清理必须同生共死 —— 规则/审计日志清掉而主记录还在,权限就
+  // 变成"看起来还存在但规则丢光"的半删形态。整体走一个事务,任一步抛错即回滚。
+  return db.transaction(async (tx) => {
+    // 级联清理:规则 + 审计日志 + 主记录
+    await tx
+      .delete(workspacePermissionRules)
+      .where(
+        and(
+          eq(workspacePermissionRules.userId, userId),
+          eq(workspacePermissionRules.workspacePath, workspacePath),
+        ),
+      )
+    await tx
+      .delete(workspacePermissionAuditLogs)
+      .where(
+        and(
+          eq(workspacePermissionAuditLogs.userId, userId),
+          eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
+        ),
+      )
+    const rows = await tx
+      .delete(workspacePermissions)
+      .where(
+        and(
+          eq(workspacePermissions.userId, userId),
+          eq(workspacePermissions.workspacePath, workspacePath),
+        ),
+      )
+      .returning({ id: workspacePermissions.id })
+    return rows.map((r) => r.id)
+  })
 }
 
 // =============================================================================
