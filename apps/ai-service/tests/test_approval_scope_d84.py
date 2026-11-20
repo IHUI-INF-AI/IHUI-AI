@@ -65,6 +65,11 @@ class _StubLoop:
     async def _emit(self, **kwargs: Any) -> None:
         self.emitted.append(kwargs)
 
+    async def _wait_interruptible(self, coro: Any, cancel_event: Any = None) -> Any:
+        # AIS-064 起 _request_approval 经此等待;stub 无 cancel/pause 标志,
+        # 透明 await 即保持原测试语义(生产路径由 test_turn_stop_p0b 族覆盖)。
+        return await coro
+
 
 def _drive_approve(v2, scope: str | None, decision: str = "approve", reason: str | None = None):
     """驱动真实 _request_approval 到结算,返回 (结果, cache_key)。"""
