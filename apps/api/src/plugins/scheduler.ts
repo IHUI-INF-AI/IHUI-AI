@@ -455,19 +455,18 @@ async function upsertWithTimeout<T>(
   timeoutMs: number,
 ): Promise<UpsertOutcome<T>> {
   // 掐表之后原 Promise 仍可能迟到 reject(超时后 Redis 才真正报错):
-  // 先挂空 catch,保证不变成 unhandledRejection。
-  pending.catch(() => {})
+  // 由下面这一次 then 的 reject 分支担住它 —— 不再对同一 Promise 二次挂空 catch,
+  // 既不会变成 unhandledRejection,也不留"空吞错"的静默点。
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<UpsertOutcome<T>>((resolve) => {
     timer = setTimeout(() => resolve({ ok: false, kind: 'timeout' }), timeoutMs)
   })
+  const settled = pending.then(
+    (value): UpsertOutcome<T> => ({ ok: true, value }),
+    (error): UpsertOutcome<T> => ({ ok: false, kind: 'error', error }),
+  )
   try {
-    return await Promise.race([
-      pending.then((value): UpsertOutcome<T> => ({ ok: true, value })),
-      timeout,
-    ])
-  } catch (error) {
-    return { ok: false, kind: 'error', error }
+    return await Promise.race([settled, timeout])
   } finally {
     if (timer) clearTimeout(timer)
   }
