@@ -61,28 +61,33 @@ const SILENT_RETRY_DELAYS_MS: readonly number[] = [30_000, 120_000, 600_000]
 const LAST_UPDATE_ERROR_KEY = 'ihui:last-update-error'
 
 /**
- * 记一条静默检查失败留痕。
+ * 记一条更新链失败。
  * 立因(2026-11-20):静默失败原先只把 state 置回 idle,既不落盘也不打日志,导致
- * 「更新链故障」与「已是最新」在事后取证时完全不可区分。这里只做留痕,不改交互。
+ * 「更新链故障」与「已是最新」在事后取证时完全不可区分。手动触发(托盘「检查更新」)
+ * 的失败也同样只显示分类文案、不留原始错误串 —— 两条路径都补齐。
  */
-function recordSilentUpdateFailure(message: string): void {
-  try {
-    localStorage.setItem(
-      LAST_UPDATE_ERROR_KEY,
-      JSON.stringify({ at: new Date().toISOString(), message: message.slice(0, 400) }),
-    )
-  } catch {
-    // 隐私模式 / 配额满:留痕尽力而为,绝不让它反过来影响检查链路
+function recordUpdateFailure(message: string, silent: boolean): void {
+  if (silent) {
+    try {
+      localStorage.setItem(
+        LAST_UPDATE_ERROR_KEY,
+        JSON.stringify({ at: new Date().toISOString(), message: message.slice(0, 400) }),
+      )
+    } catch {
+      // 隐私模式 / 配额满:留痕尽力而为,绝不让它反过来影响检查链路
+    }
   }
-  console.warn('[updater] 启动静默检查失败:', message)
-  // 2026-11-20:同时落到应用日志。tauri_plugin_log 已注册、log:default 在本能力面,
-  // 于是失败可以直接在 %LOCALAPPDATA%\com.ihui.desktop\logs\ihui-desktop.log 取证 ——
-  // 此前只能靠「零 DNS / 零 TCP」这类间接推断,永远拿不到原始错误串。
-  // 非 Tauri / 权限缺失时静默退化,绝不影响检查链路本身。
-  void invoke('plugin:log|log', {
-    level: 'Warn',
-    message: `[updater] 启动静默检查失败: ${message.slice(0, 400)}`,
-  }).catch(() => {})
+  console.warn('[updater] 检查更新失败:', message)
+  logUpdateEvent('Warn', `[updater] 检查更新失败(${silent ? '静默' : '手动'}): ${message}`)
+}
+
+/**
+ * 把一条更新链事件写进应用日志(tauri-plugin-log 已注册、log:default 在 remote 授权面)。
+ * 非 Tauri / 权限缺失时静默退化。**这是「检查到底有没有跑、结果如何」的唯一真机证据**——
+ * 2026-11-20 之前只能靠 ETW 的「零 DNS / 零 TCP」间接推断,拿不到任何原始错误串。
+ */
+function logUpdateEvent(level: 'Info' | 'Warn', message: string): void {
+  void invoke('plugin:log|log', { level, message: message.slice(0, 400) }).catch(() => {})
 }
 
 /** 安装完成后的自动重启倒计时(秒)。默认 60 秒,用户可在倒计时内选择"稍后重启"或"立即重启"。 */
@@ -348,7 +353,7 @@ export function useUpdater() {
         const message = e instanceof Error ? e.message : 'check_failed'
         // 2026-11-20:静默失败不再纯吞 —— 不弹窗,但必须留痕(见 recordSilentUpdateFailure),
         // 否则「更新链故障」与「已是最新」在事后取证时完全不可区分。
-        if (silent) recordSilentUpdateFailure(message)
+        recordUpdateFailure(message, silent)
         setState({
           ...INITIAL_STATE,
           status: silent ? 'idle' : 'error',
@@ -365,9 +370,13 @@ export function useUpdater() {
         return true
       if (!session) {
         // 已是最新
+        if (silent) logUpdateEvent('Info', '[updater] 启动静默检查完成: 已是最新')
         setAvailableUpdateSession(null)
         setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
         return true
+      }
+      if (silent) {
+        logUpdateEvent('Info', '[updater] 启动静默检查完成: 发现新版本,开始后台下载安装')
       }
       if (autoInstall) {
         // 自动安装:跳过 available 状态,直接进入下载
