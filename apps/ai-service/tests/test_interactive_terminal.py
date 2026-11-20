@@ -12,8 +12,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import os
+import subprocess
 import sys
 import time
 
@@ -1638,6 +1640,131 @@ async def test_tool_layer_routes_snapshot_and_search(tmp_path, monkeypatch) -> N
         assert found["ok"] is True and found["count"] == 1
     finally:
         term.reset_terminals()
+
+
+# ─── 终端状态信号:窗口标题(OSC 0/1/2)与响铃(BEL) ───
+
+_TITLE_SCRIPT = """\
+import sys, time
+sys.stdout.write("\\x1b]2;IHUI-BUILD\\x07")
+sys.stdout.write("[T1]\\n")
+sys.stdout.flush()
+time.sleep(1.0)
+sys.stdout.write("\\x07")
+sys.stdout.write("\\x1b]0;second\\x1b\\\\")
+sys.stdout.write("[T2]\\n")
+sys.stdout.flush()
+time.sleep(8)
+"""
+
+
+def test_track_terminal_state_does_not_mistake_osc_terminator_for_bell() -> None:
+    """OSC 的终止符本身就是 BEL:先吃 OSC 再数 BEL,否则每次设标题都多记一次响铃。"""
+    track = _TEST["track_terminal_state"]
+
+    class _Fake:
+        bracketed_paste = False
+        title = ""
+        bell_count = 0
+
+    fake = _Fake()
+    track(fake, "\x1b]2;TITLE\x07")  # 只有标题,没有任何响铃
+    assert fake.title == "TITLE" and fake.bell_count == 0
+    track(fake, "noise\x1b]0;x\x1b\\more\x07")  # ST 终止的 OSC + 一次真响铃
+    assert fake.title == "x" and fake.bell_count == 1
+    track(fake, "\x1b[?2004h")
+    assert fake.bracketed_paste is True
+
+
+def test_title_and_bell_tracked_from_child_output(tmp_path) -> None:
+    """端到端:标题跟着程序的 OSC 换,响铃按次数累计,两样都进会话账本与快照信封。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "title.py", _TITLE_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        _read_until(tid, "[T2]", timeout=15.0)
+        session = term._sessions[tid]
+        assert session.title == "second", f"标题没跟着 OSC 换:{session.title!r}"
+        assert session.bell_count == 1, f"响铃计数不对:{session.bell_count}"
+        listed = term.list_terminals(user_id="u-term", session_id="s-term")
+        row = next(t for t in listed["terminals"] if t["terminal_id"] == tid)
+        assert row["title"] == "second" and row["bell_count"] == 1
+        shot = term.snapshot_terminal(tid, user_id="u-term", session_id="s-term")
+        assert shot["title"] == "second" and shot["bell_count"] == 1
+        assert "[T1]" in shot["text"] and shot["title"] not in shot["text"]
+    finally:
+        term.reset_terminals()
+
+
+def test_close_reports_graceful_path_and_escalation_flags(tmp_path) -> None:
+    """收尾回报必须能区分"体面退出"与"升到 kill 仍然活着" —— 不许统一回 closed=True。"""
+    opened = _open(_script_path(tmp_path, "stub.py", _SLEEP_SCRIPT), tmp_path)
+    tid = opened["terminal"]["terminal_id"]
+    _read_until(tid, "started")
+    graceful = term.close_terminal(tid, user_id="u-term", session_id="s-term")
+    assert graceful["ok"] is True and graceful["closed"] is True
+    assert graceful["forced"] is False and graceful["survived"] is False
+
+    stubborn_open = _open(_script_path(tmp_path, "stub2.py", _SLEEP_SCRIPT), tmp_path)
+    stid = stubborn_open["terminal"]["terminal_id"]
+    _read_until(stid, "started")
+
+    class _Stubborn:
+        pid = 424242
+        stdin = None
+
+        def poll(self) -> int | None:
+            return None
+
+        def wait(self, timeout: float | None = None) -> int:
+            raise subprocess.TimeoutExpired("stubborn", timeout or 0)
+
+        def terminate(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+        def send_signal(self, sig: int) -> None:
+            return None
+
+    session = term._sessions[stid]
+    real = session.proc
+    session.proc = _Stubborn()  # type: ignore[assignment]
+    try:
+        res = term.close_terminal(stid, user_id="u-term", session_id="s-term")
+        assert res["ok"] is True and res["closed"] is True
+        assert res["forced"] is True, "升到 kill 的那一步没被记下来"
+        assert res["survived"] is True and res["exit_code"] is None
+        assert "warning" in res, "kill 后仍活着必须显式警告,不许静默报绿"
+    finally:
+        with contextlib.suppress(OSError):
+            real.kill()
+
+
+def test_buffer_lines_env_defaults_and_clamps(monkeypatch, tmp_path) -> None:
+    """缓冲上限:未设/0/非法一律回落默认;合法值夹在 [下限, 上限] 之间,且真落到 deque 上。"""
+    parse = _TEST["buffer_lines"]
+    key = _TEST["TERMINAL_BUFFER_LINES_ENV"]
+    assert parse({}) == term.MAX_BUFFER_LINES
+    for bad in ("", "   ", "0", "-5", "abc"):
+        assert parse({key: bad}) == term.MAX_BUFFER_LINES
+    assert parse({key: "500"}) == 500
+    assert parse({key: "50"}) == _TEST["MIN_BUFFER_LINES"]
+    assert parse({key: "999999"}) == _TEST["MAX_BUFFER_LINES_CEILING"]
+
+    term.reset_terminals()
+    monkeypatch.setenv(key, "500")
+    try:
+        opened = _open(_script_path(tmp_path, "buf.py", _SLEEP_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        session = term._sessions[tid]
+        assert session.buffer_lines == 500
+        assert session.chunks.maxlen == 500, "上限只记在账本上、没落到 deque ⇒ 等于没设"
+        assert opened["terminal"]["buffer_lines"] == 500
+    finally:
+        term.reset_terminals()
+        monkeypatch.delenv(key, raising=False)
 
 
 def test_signal_interrupt_stops_process(tmp_path) -> None:

@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **35 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **36 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（35 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（36 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -475,6 +475,17 @@
 - 超越轴：对照程序的钩子超时只保证主线程不被协程挂住；本仓把同步钩子也移出事件循环，并把"取消上限"写成常量而非散落魔法数 —— 这两条都不依赖调用方自觉。
 
 验证：`pytest test_interrupt_hook.py test_lifecycle_hooks.py test_session_end_hook.py` → `13 passed`（含"同步 sleep(3) 钩子 timeout=0.5 不能拖住取消"那条，改动前实测 5.0s 失败、改动后通过）；回归 `test_hook_engine / test_hook_run_sse / test_stop_hook / test_compaction_hooks / test_post_tool_hooks / test_hook_init_is_interruptible` → `174 passed`；`ruff check` 全过；`mypy --strict` 两个 core 模块 `Success: no issues found`。
+### 5.37 第 36 项：`subagent_start` / `subagent_stop` 钩子挂载点（派发链）
+
+- 缺口：契约 14 事件里最后两个没有挂载点的是 `subagent_start` / `subagent_stop`。子代理派发链（`mcp_server._tool_dispatch_subagent`）走的是独立执行面，不在 `AgentLoopV2` 里，所以此前"给子代理注入策略"、"在子代理收尾处审计"两件事都无处可挂 —— 配置面看得见、派发链摸不着。
+- 处置：`HookKind.SUBAGENT_START / SUBAGENT_STOP` + `_KIND_BY_EVENT` 同批接上；`_get_subagent_hook_runtime()` 惰性单例（构造失败降级为 `None`，不挡派发），`_run_subagent_hooks()` 统一出口，5s 硬上限。挂载三处：
+  - 单路同步派发：`start` 在 `invoke` 之前、`stop` 在结果定型之后；
+  - 并行派发：`start` 逐个子任务各点一次（只改 `task` 正文），`stop` 逐条结果收尾；
+  - 后台作业：`_invoke_subagent_for_job` 内部同形挂载（后台与同步两条腿不各写一份判据）。
+- 语义边界：`start` 是**上下文注入面** —— `additionalContext` 只加在子任务正文前，`resident_prefix` 逐字不动（前缀缓存按字节命中，动了整段失效）；`stop` 是**观察面** —— 结果已定型，不解读 `decision/stop`，不改写 `status/output/needs_help`；异常/超时一律降级。
+- 超越轴：对照程序的子代理钩子只有"通知"语义；本仓把注入与观察分成两面、三条腿（单/并行/后台）共用同一出口，并显式钉住"注入不得污染缓存前缀"这条在本仓特有的约束。
+
+验证：`pytest test_subagent_hooks.py` → `5 passed`（事件映射 / 单路注入进正文且 stop 收到定型结果 / 并行逐任务各点一次 / 钩子抛错不改派发结果 / 零钩子正文逐字不变）；回归 `test_dispatch_subagent / test_dispatch_subagent_orchestration / test_dispatch_subagent_tool_surface / test_d08_subagent_handoff / test_subagent_resident_lease / test_chat_dispatch_admission / test_subagent_jobs` → `98 passed`；`ruff check` 全过；`mypy --strict`（含 `mcp_server.py` 本体）`Success: no issues found`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
