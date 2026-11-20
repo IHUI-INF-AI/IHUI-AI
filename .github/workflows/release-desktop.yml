@@ -1509,13 +1509,16 @@ jobs:
           DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL || secrets.WECHAT_WEBHOOK_URL }}
+          # Server酱 Turbo 通用 push(不受 IM 登录应用权限/IP 白名单限制)
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
           VERSION="${TAG#desktop-v}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           echo "发版通知: tag=$TAG version=$VERSION run=$RUN_URL" >> $GITHUB_STEP_SUMMARY
           node .github/scripts/notify-desktop-release.mjs \
-            --tag "$TAG" --version "$VERSION" --run-url "$RUN_URL"
+            --tag "$TAG" --version "$VERSION" --run-url "$RUN_URL" \
+            --channels "admin-email,inapp,broadcast,im,serverchan"
 
   # ── 方案 c(2026-11-04):Gitee 源码只读快照,发版即刷新 ──
   # 与 .github/workflows/snapshot-to-cn.yml(周更)共用 .github/scripts/gitee-snapshot.py:

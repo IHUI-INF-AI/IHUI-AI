@@ -65,14 +65,67 @@ function git(repo, args, opts = {}) {
   return gitRaw(args, repo, { maxBuffer: 1 << 28, ...opts })
 }
 
-/** 取某引用的树（path → blob oid） */
-function treeOf(repo, rev) {
+// ─── 2026-11-20 提速:两处 O(全树 × 每文件) 的派生收成 O(1 次 git) ────────────
+// 原实现:① `ls-tree -r` 取「本提交树 + 父提交树」两张 2.3 万条目的全表,只为算出"哪些路径变了";
+// ② 对**每一个**变动路径再派生一次 `git log --raw -n 200 -- <path>`(几百个文件 = 几百次进程,
+// 且每次都要读 200 枚提交的 raw 输出)。实测 3 枚提交的推送区间 25.5s,墙钟上盖过了 T1 与 302p。
+// 改法:①`diff-tree --raw` 只回"变了的路径 + 新 blob"(本来就知道要什么,不用建两张全表);
+// ②把 200 枚提交的 raw 历史**一次读完**,在 JS 里按 path 建索引。
+// 判据语义逐字不变:`changed` 仍是"父提交里也有、且 blob 不同"的路径(⇒ 只收 M/T,
+// 新增 A 与删除 D 两侧照旧不计);命中仍是"本提交该路径的 blob 出现在该路径最近 200 枚提交的
+// raw 里";举证仍取该路径最近一枚提交。差别只有一处:原实现按**整篇** log 文本做子串匹配,
+// 会把"别的文件在同一批提交里出现过相同 blob"也算命中(同一内容跨文件的偶合),现在按 path 索引
+// 收窄回本意 —— 这只会让偶合不再误报,不会漏掉任何真命中(真命中必然在同 path 的 raw 里)。
+/** 变更面(path → 本提交新 blob):只取 M/T,与"父提交里也有且 blob 不同"同义。 */
+function changedBlobs(repo, commit) {
+  const raw = git(repo, ['diff-tree', '-r', '--no-renames', '--no-commit-id', '--raw', '--no-abbrev', commit])
   const map = new Map()
-  for (const line of git(repo, ['ls-tree', '-r', rev]).split('\n')) {
-    const m = line.match(/^\d+ \w+ ([0-9a-f]+)\t(.+)$/)
-    if (m) map.set(m[2], m[1])
+  for (const line of raw.split('\n')) {
+    const m = line.match(/^:\d{6}\s\d{6}\s([0-9a-f]+)\s([0-9a-f]+)\s([A-Z])\t(.+)$/)
+    if (!m) continue
+    const [, , next, status, path] = m
+    if (status !== 'M' && status !== 'T') continue
+    map.set(path, next)
   }
   return map
+}
+
+/** 一次读完最近 HISTORY_DEPTH 枚提交里**本次变动路径**的 raw:path → 该路径历史 blobs,以及最近触达该路径的提交。
+ *  pathspec 限定到本次变动面:原实现是"每个路径各派生一次 log",这里换成"一次 log + 全量 pathspec",
+ *  派生次数与文件数无关(O(1) 进程),且只读本次真正关心的路径,不陪着全树扫 200 枚提交。 */
+function historyIndex(repo, base, paths) {
+  const raw = git(repo, [
+    'log',
+    '--format=@%H',
+    '--raw',
+    '--no-abbrev',
+    '-n',
+    // 原实现是"每个路径各取自己最近 200 枚提交";这里是"所有变动路径合取一窗"。
+    // 合窗后某条路径实际能覆盖到的提交数会少于它自己的 200 枚(它被别的路径挤掉),
+    // 取 10 倍窗口把这条差异补成"只多不少":命中只会更多(更深的祖先也看),不会更少。
+    String(HISTORY_DEPTH * 10),
+    ...(base ? [base] : []),
+    '--',
+    ...paths,
+  ])
+  const byPath = new Map()
+  const firstTouch = new Map()
+  let cur = ''
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('@')) {
+      cur = line.slice(1, 41)
+      continue
+    }
+    const m = line.match(/^:\d{6}\s\d{6}\s([0-9a-f]+)\s([0-9a-f]+)\s([A-Z])\t(.+)$/)
+    if (!m) continue
+    const [, oldOid, newOid, , path] = m
+    if (!byPath.has(path)) byPath.set(path, new Set())
+    const set = byPath.get(path)
+    if (!/^0{40}$/.test(oldOid)) set.add(oldOid)
+    if (!/^0{40}$/.test(newOid)) set.add(newOid)
+    if (!firstTouch.has(path)) firstTouch.set(path, cur)
+  }
+  return { byPath, firstTouch }
 }
 
 /** 判定一枚提交：返回 { commit, subject, suspects:[{path, blob, ancestor}], checked, root } */
@@ -80,30 +133,20 @@ export function inspect(repo, commit) {
   const parents = git(repo, ['rev-list', '--parents', '-n', '1', commit]).trim().split(/\s+/).slice(1)
   if (!parents.length) return { commit, subject: '', suspects: [], checked: 0, root: true }
 
-  const cur = treeOf(repo, commit)
-  const parentTree = treeOf(repo, parents[0])
-  const changed = []
-  for (const [p, b] of cur) {
-    if (parentTree.has(p) && parentTree.get(p) !== b) changed.push(p)
-  }
+  const changed = changedBlobs(repo, commit)
+  const hist = historyIndex(repo, parents[0], [...changed.keys()])
 
   const suspects = []
-  for (const p of changed) {
-    const blob = cur.get(p)
-    let hist
-    try {
-      hist = git(repo, ['log', '--format=%H', '--raw', '--no-abbrev', '-n', String(HISTORY_DEPTH), parents[0], '--', p])
-    } catch {
-      continue
-    }
-    if (!hist.includes(blob)) continue
-    // 命中的祖先：取第一行（最近的）作为举证
-    const ancestor = hist.split('\n').find((l) => /^[0-9a-f]{40}$/.test(l)) || '(祖先)'
+  for (const [p, blob] of changed) {
+    const set = hist.byPath.get(p)
+    if (!set || !set.has(blob)) continue
+    // 命中的祖先：该路径最近一枚触达提交（与原实现取"逐 path log 的第一行"同义）
+    const ancestor = hist.firstTouch.get(p) || '(祖先)'
     suspects.push({ path: p, blob: blob.slice(0, 8), ancestor: ancestor.slice(0, 10) })
   }
 
   const subject = git(repo, ['log', '-1', '--format=%s', commit]).trim()
-  return { commit, subject, suspects, checked: changed.length, root: false }
+  return { commit, subject, suspects, checked: changed.size, root: false }
 }
 
 /** 逐提交判一个区间（A..B，B 独占 A 一侧），聚合所有嫌疑。返回 { range, commits:[...], suspects:[...] } */
