@@ -23,8 +23,10 @@
  * 兼容旧形态:旧记录是裸字符串 `'1'`(没有绑的对象、没有期限)⇒ 判 `malformed` ⇒ 重新问一次。
  * 这不是打断用户,而是"没有绑定期限的静默不算授权"这一判据的必然结论;问过一次即写入新记录。
  *
- * 参照同仓既有形态:`apps/web/src/hooks/use-permission-auto-revert.ts` 的 `AutoRevertRecord`
- * (readRecord 逐字段验类型,旧版缺字段视为无效)—— 同一套"记录必须是可判结构"的写法,不再另起。
+ * 参照同仓既有形态:权限模式历史 `apps/web/src/lib/permission-mode-history.ts` 的
+ * `readRecord` 写法(逐字段验类型,旧版缺字段视为无效)—— 同一套"记录必须是可判结构",
+ * 不再另起。(原参照的 `use-permission-auto-revert.ts` 已于 2026-11-20 随
+ * "完全访问 1 小时自动撤回"一并移除。)
  */
 
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
