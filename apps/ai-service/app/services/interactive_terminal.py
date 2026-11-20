@@ -13,6 +13,8 @@
 - `open_terminal`:启动一个长驻子进程(管道路径下为 stdin/stdout/stderr 管道 + 读线程);
 - `send_terminal`:写入一行(可选追加换行);
 - `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;
+- `wait_terminal`:等输出里出现某个 pattern(子串或正则),命中/超时/进程退出三种收口
+  —— 轮询式 `read` 拼不出"等提示符"这件事(`wait_s` 单次上限 10s,且没有命中语义);
 - `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
@@ -43,6 +45,7 @@ import contextlib
 import ctypes
 import importlib
 import os
+import re
 import signal as _signal
 import struct
 import subprocess
@@ -50,7 +53,7 @@ import threading
 import time
 import uuid
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
@@ -68,6 +71,13 @@ _WIN_CREATE_NEW_PROCESS_GROUP: Final[int] = getattr(subprocess, "CREATE_NEW_PROC
 _WIN_CTRL_BREAK_EVENT: Final[int] = getattr(_signal, "CTRL_BREAK_EVENT", 0)
 MAX_READ_CHARS: Final = 32_000
 CLOSE_GRACE_S: Final = 2.0
+
+#: `wait_terminal` 的两条上限:单次最多等多久、pattern 最长多少字符(含 regex 源码)。
+#: 30s 是"人类等一条构建/提示符"的量级,同时给工具层的阻塞线程一个上界。
+MAX_WAIT_S: Final = 30.0
+MAX_PATTERN_CHARS: Final = 200
+#: 回传的命中文本上限:正则 `(.*)` 这类会整段回吐,不做上界等于把会话缓冲塞进信封。
+_MAX_MATCHED_TEXT: Final = 500
 
 #: 伪终端初始/上限尺寸。真 tty 必须有非零窗口尺寸 —— POSIX `pty.openpty()` 缺省给
 #: 0x0,按 tty 出进度的程序会算出荒谬的宽度;ConPTY 也要求 cols/rows > 0。故两套后端
@@ -617,6 +627,124 @@ def read_terminal(
     }
 
 
+def _pattern_judge(pattern: str, regex: bool) -> tuple[Callable[[str], tuple[bool, str]] | None, str]:
+    """把 pattern 收敛成"在累积文本上找一次"的判定函数,返回 (judge, 错误原因)。
+
+    固定子串与正则两种形态在这里合成**一个出口**,等待循环里零分支(§22c:同一件事只许
+    一份实现)。空 pattern / 超长 / 正则语法错都在**碰会话之前**拒,绝不喂给等待循环。
+    """
+    if not pattern:
+        return None, "pattern 不能为空"
+    if len(pattern) > MAX_PATTERN_CHARS:
+        return None, f"pattern 过长({len(pattern)} > {MAX_PATTERN_CHARS} 字符)"
+    if not regex:
+
+        def judge_substr(text: str) -> tuple[bool, str]:
+            hit = pattern in text
+            return hit, pattern if hit else ""
+
+        return judge_substr, ""
+    try:
+        compiled = re.compile(pattern)
+    except re.error as e:
+        return None, f"正则语法无效: {e}"
+
+    def judge_regex(text: str) -> tuple[bool, str]:
+        m = compiled.search(text)
+        if m is None:
+            return False, ""
+        # group(0) 可能很长(如 `(?s).*`),在这里就截断,不让信封随缓冲膨胀。
+        return True, m.group(0)[:_MAX_MATCHED_TEXT]
+
+    return judge_regex, ""
+
+
+def wait_terminal(
+    terminal_id: str,
+    *,
+    pattern: str,
+    user_id: str | None,
+    session_id: str | None,
+    since_seq: int = 0,
+    timeout_s: float = 10.0,
+    max_chars: int = 8000,
+    regex: bool = False,
+) -> dict[str, Any]:
+    """等输出里出现 `pattern`(传统终端的 expect 原语),三种收口显式区分。
+
+    为什么不是一个"更长的 read":读是"给我现在有的",等是"给我直到命中的"——
+    后者要回答命中位置、命中文本、以及**没命中时是超时还是进程已退出**,这三件事
+    轮询 read 拼不出来(调用方只能在 `wait_s≤10` 的窗口里反复猜)。
+
+    返回:`matched`(是否命中)、`reason`(`matched` / `timeout` / `exited`)、
+    `matched_text`、`chunks`(本次窗口内已产出的输出,形状同 `read_terminal`)、
+    `next_seq`(从该 seq 续读即不会重复消费)、`running` / `exit_code`。
+
+    `since_seq` 语义与 `read_terminal` 一致:只扫该 seq **之后**的块。进程退出后仍等
+    pump 排空(与 read 同一条收尾判据),否则可能漏掉退出前最后一行命中。
+    """
+    session = _sessions.get(terminal_id)
+    if session is None or not _owned(session, user_id, session_id):
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    judge, why_bad = _pattern_judge(pattern, regex)
+    if judge is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_PATTERN",
+            "error": why_bad,
+        }
+    started = time.monotonic()
+    deadline = started + max(0.0, min(float(timeout_s), MAX_WAIT_S))
+    matched = False
+    matched_text = ""
+    reason = "timeout"
+    while True:
+        with session.lock:
+            pending = [c for c in session.chunks if c["seq"] > int(since_seq)]
+            running = session.running()
+            next_seq = session.seq
+        hit, hit_text = judge("".join(str(c["text"]) for c in pending))
+        if hit:
+            matched, matched_text, reason = True, hit_text, "matched"
+            break
+        # 退出不等于读线程已吐完(与 read_terminal 同一条判据,§22c 不写第二份)。
+        drained = not any(t.is_alive() for t in session.pumps)
+        if not running and drained:
+            reason = "exited"
+            break
+        if time.monotonic() >= deadline:
+            reason = "timeout"
+            break
+        time.sleep(0.05)
+
+    out: list[dict[str, Any]] = []
+    used = 0
+    for chunk in pending:
+        text = str(chunk["text"])
+        remain = max(0, max_chars - used)
+        if remain <= 0:
+            break
+        if len(text) > remain:
+            text = text[:remain]
+        out.append({"seq": chunk["seq"], "stream": chunk["stream"], "text": text})
+        used += len(text)
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "matched": matched,
+        "matched_text": matched_text,
+        "reason": reason,
+        "chunks": out,
+        "next_seq": next_seq,
+        "running": running,
+        "exit_code": session.proc.poll(),
+        "truncated": used >= max_chars and len(pending) > len(out),
+        "waited_s": round(time.monotonic() - started, 3),
+    }
+
+
 def signal_terminal(
     terminal_id: str,
     *,
@@ -1149,6 +1277,10 @@ __test__ = {
     "pty_supported_on_host": _pty_supported_on_host,
     "conpty_available": _conpty_available,
     "resize_terminal": resize_terminal,
+    "wait_terminal": wait_terminal,
+    "pattern_judge": _pattern_judge,
+    "MAX_WAIT_S": MAX_WAIT_S,
+    "MAX_PATTERN_CHARS": MAX_PATTERN_CHARS,
     "DEFAULT_COLS": DEFAULT_COLS,
     "DEFAULT_ROWS": DEFAULT_ROWS,
     "MAX_COLS": MAX_COLS,
