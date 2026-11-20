@@ -1382,7 +1382,7 @@ export function ModelSelector({
               <DropdownMenu.Group key={label}>
                 <DropdownMenu.Label
                   className={cn(
-                    'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
+                    'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold tracking-wide',
                     'bg-card text-muted-foreground',
                   )}
                 >
@@ -1495,7 +1495,7 @@ export function ModelSelector({
                         <DropdownMenu.Label
                           className={cn(
                             'flex items-center gap-1.5 bg-card px-2 py-1.5',
-                            'text-label font-semibold uppercase tracking-wide text-muted-foreground',
+                            'text-label font-semibold tracking-wide text-muted-foreground',
                           )}
                         >
                           <span className="flex-1 truncate">
