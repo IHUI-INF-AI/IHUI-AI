@@ -15,6 +15,7 @@ import { db, dbRead } from '../../db/index.js'
 import { aiGcContent, contentGenerationTemplates, imageGenFavorites } from '@ihui/database'
 import { parsePagination } from './_shared.js'
 import { callVendor, recordUsage, VENDORS } from '../ai-vendors/_shared.js'
+import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 
 /** Agnes 图像端点支持的尺寸档(1K/2K/3K/4K);其余形态(如 1024x1024)不透传,避免上游 400。 */
 const AGNES_SIZE_TIERS = new Set(['1K', '2K', '3K', '4K'])
@@ -164,6 +165,9 @@ export const imageGenRoutes: FastifyPluginAsync = async (server) => {
           )
       }
       const model = requestedModel || 'agnes-image-2.5-flash'
+      // 计费预检(2026-11-21):按本次预估积分判余额,不足即 402,不让用户跑到上游才发现。
+      // 显式给了 imageUrl 的请求(不真生成)不预检、不扣费 —— 没有上游消耗。
+      if (!(await ensureMediaPointsBalance(request, reply, model, 'image', 1))) return
       const size = body.data.size?.trim()
       const payload = {
         model,
@@ -204,6 +208,17 @@ export const imageGenRoutes: FastifyPluginAsync = async (server) => {
         status: 1,
       })
       .returning()
+    // 计费(2026-11-21):产物与记录都已成立才扣分,referenceId 用记录 id ⇒ 重试/重复推送不会二次扣费。
+    // 只对"真调用上游生成"的路径扣;显式 imageUrl 直传(转存/引用)不计费。
+    if (!explicitImageUrl && item?.id) {
+      await chargeMediaPoints(
+        request,
+        (body.data.model?.trim() || 'agnes-image-2.5-flash'),
+        'image',
+        1,
+        item.id,
+      )
+    }
     return reply.status(201).send(success({ item, imageUrl }))
   })
 
