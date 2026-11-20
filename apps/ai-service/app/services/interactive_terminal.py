@@ -144,6 +144,12 @@ MOUSE_MOTION_FLAG: Final = 32
 MOUSE_LEGACY_MAX_COORD: Final = 223
 MOUSE_MAX_COORD: Final = 65_535
 
+#: 备用屏幕(DEC 私有模式 1049 / 1047 / 47)。1049 = 保存光标 + 清屏 + 切 alt(现代 xterm 默认),
+#: 1047 = 切 alt(退出清屏),47 = 老式 alt(不保存光标)。三者**任一**在位就视为"现在在 alt 屏"。
+#: 这条位的物理意义:全屏程序(vim/htop/less)的画面**不进主屏 scrollback** —— 退出后往回翻
+#: 主屏历史,不该翻出 vim 那一屏。快照/检索必须按当前屏面取,不能把两块屏拼成一条流水。
+ALT_SCREEN_MODES: Final[frozenset[int]] = frozenset({1049, 1047, 47})
+
 #: 终端转义序列的归一正则(**单一真相源**)。快照与检索只回"人读得到的字",但**不能**靠
 #: "顺手 replace 掉 ESC":那样 OSC 的标题串(`ESC]0;…BEL`)会把路径漏成正文。三档分开收:
 #: ① OSC(`ESC ] … BEL|ST`),② CSI(`ESC [ 参数 中间字节 终止字节`),③ 其余两字节 ESC 序列。
@@ -398,6 +404,15 @@ class TerminalSession:
             return "utf8"
         return "x10"
 
+    @property
+    def alt_screen(self) -> bool:
+        """当前是否在**备用屏幕**(全屏程序切屏;DEC 1049/1047/47 任一在位即真)。
+
+        alt 屏的画面不进主屏 scrollback —— 这是真终端的行为,不是取舍:退出 vim 后往上翻,
+        看到的应当是进 vim 之前的 shell 历史,而不是 vim 那一屏。快照/检索据此按屏面取。
+        """
+        return bool(ALT_SCREEN_MODES & self.private_modes)
+
     def first_seq(self) -> int:
         """当前仍可读到的**最早** seq(缓冲空时 = 下一个将要产出的 seq)。"""
         with self.lock:
@@ -423,6 +438,7 @@ class TerminalSession:
             "bell_count": self.bell_count,
             "mouse_mode": self.mouse_mode,
             "mouse_encoding": self.mouse_encoding,
+            "alt_screen": self.alt_screen,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -594,7 +610,11 @@ def _push(session: TerminalSession, tag: str, text: str) -> None:
         if maxlen is not None and len(session.chunks) >= maxlen:
             session.dropped_chunks += 1
         session.seq += 1
-        session.chunks.append({"seq": session.seq, "stream": tag, "text": text})
+        # `alt` 在**入队那一刻**定格:同一条 chunk 里既切屏又写内容时,先由
+        # `_track_terminal_state` 更新模式位、再到这里落标志(顺序由 `_push_output` 保证)。
+        session.chunks.append(
+            {"seq": session.seq, "stream": tag, "text": text, "alt": session.alt_screen}
+        )
 
 
 def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
@@ -663,10 +683,12 @@ def _track_private_modes(session: TerminalSession, text: str) -> None:
         modes = {int(p) for p in m.group(1).split(";") if p.isdigit()}
         if not modes:
             continue
-        if m.group(2) == "h":
-            session.private_modes |= modes
-        else:
-            session.private_modes -= modes
+        # 两个 pump(stdout/stderr)会并发调到这里:`|=` / `-=` 是读-改-写,不加锁会丢位。
+        with session.lock:
+            if m.group(2) == "h":
+                session.private_modes |= modes
+            else:
+                session.private_modes -= modes
 
 
 def _track_terminal_state(session: TerminalSession, text: str) -> None:
@@ -1655,13 +1677,19 @@ def read_terminal(
 
 
 def _buffer_face(session: TerminalSession) -> tuple[str, int, int]:
-    """一次取齐"缓冲全文 / 最早 seq / 累计丢块数"(快照与检索共用的**唯一**取样出口)。
+    """一次取齐"当前屏面全文 / 缓冲最早 seq / 累计丢块数"(快照与检索共用的**唯一**取样出口)。
 
     在锁内一次取完:三样分别取会读到"两次取样之间被 pump 推过"的拼接面,那样快照的行号
     与 `first_seq` 就对不上,k 检索命中也会落在已被挤掉的窗口里而无人自知。
+
+    **按屏面取**(真终端语义):在主屏时排除 alt 屏的块,在 alt 屏时只取 alt 块 —— 全屏程序
+    的画面不进主屏 scrollback,退出 vim 往上翻不应翻出 vim 那一屏。`first_seq`/`dropped_chunks`
+    仍报整条缓冲的读窗口事实(read 那一侧的口径),不随屏面收窄。
     """
     with session.lock:
-        text = "".join(str(c["text"]) for c in session.chunks)
+        want_alt = session.alt_screen
+        shown = [c for c in session.chunks if bool(c.get("alt", False)) == want_alt]
+        text = "".join(str(c["text"]) for c in shown)
         first_seq = int(session.chunks[0]["seq"]) if session.chunks else session.seq + 1
         dropped = session.dropped_chunks
     return text, first_seq, dropped
@@ -1741,6 +1769,7 @@ def snapshot_terminal(
         "bracketed_paste": session.bracketed_paste,
         "title": session.title,
         "bell_count": session.bell_count,
+        "alt_screen": session.alt_screen,
     }
 
 
@@ -1845,6 +1874,7 @@ def search_terminal(
         "exit_code": session.proc.poll(),
         "title": session.title,
         "bell_count": session.bell_count,
+        "alt_screen": session.alt_screen,
     }
 
 
@@ -2603,5 +2633,7 @@ __test__ = {
     "MOUSE_MODIFIER_BITS": MOUSE_MODIFIER_BITS,
     "MOUSE_LEGACY_MAX_COORD": MOUSE_LEGACY_MAX_COORD,
     "MOUSE_MAX_COORD": MOUSE_MAX_COORD,
+    "ALT_SCREEN_MODES": ALT_SCREEN_MODES,
+    "push_output": _push_output,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

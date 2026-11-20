@@ -9115,7 +9115,8 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     (vim/htop 的鼠标交互):程序必须先用 `DECSET 1000/1002/1003` 请求鼠标,编码按它点的
     1006/1005/1015 选(回执里的 `mouse_mode`/`encoding` 就是实际用的那一种);坐标是 1 基单元格。
     `snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
-    只要末尾 max_lines 行,truncated 说明还有更早的行);`search` 在同一份归一文本里按行
+    只要末尾 max_lines 行,truncated 说明还有更早的行),按**当前屏面**取:主屏与 alt 屏
+    (vim/htop 切屏)互不混入,回执的 `alt_screen` 说明现在在哪一块屏;`search` 在同一份归一文本里按行
     检索(scrollback search,支持 regex/ignore_case,命中回 line_no/text/match)。open 还可带
     `cols`/`rows` 直接**开在**目标尺寸(真终端本就该在启动时定尺寸;先按 120×30 起再 resize
     会让 TUI 首屏白排一遍)。
