@@ -17,6 +17,9 @@ import {
   checkPhoneExists,
   cancelUserAccount,
 } from '../src/db/queries.js'
+// DB-35:直插 users 行也要走"密文 + lookup 盲索引"写入对,否则 phone/email 分支
+// 按 lookup 等值查不到;读出的密文须用 decryptUserContact 解密后再比对明文。
+import { contactWritePair, decryptUserContact } from '../src/utils/user-contact.js'
 
 describe('auth queries — 真实 DB 集成测试', () => {
   beforeEach(async () => {
@@ -31,7 +34,8 @@ describe('auth queries — 真实 DB 集成测试', () => {
     })
 
     expect(user.id).toBeDefined()
-    expect(user.phone).toBe('13800000001')
+    // phone 列存密文,读出后解密再比对明文
+    expect(decryptUserContact(user.phone)).toBe('13800000001')
     expect(user.status).toBe(1)
     expect(user.roleId).toBe(0)
 
@@ -42,28 +46,50 @@ describe('auth queries — 真实 DB 集成测试', () => {
   })
 
   it('findUserByAccount — username/phone/email 三选一', async () => {
+    // 直插行同样写密文 + lookup,phone/email 分支才能按盲索引命中
+    const phonePair = contactWritePair('phone', '13800000002')
+    const emailPair = contactWritePair('email', 'test@example.com')
     await db.insert(users).values({
-      phone: '13800000002',
-      email: 'test@example.com',
+      phone: phonePair.value,
+      phoneLookup: phonePair.lookup,
+      email: emailPair.value,
+      emailLookup: emailPair.lookup,
       username: 'testuser',
       nickname: '账号用户',
     })
 
-    expect((await findUserByAccount('testuser'))?.phone).toBe('13800000002')
-    expect((await findUserByAccount('13800000002'))?.email).toBe('test@example.com')
-    expect((await findUserByAccount('test@example.com'))?.username).toBe('testuser')
+    const byUsername = await findUserByAccount('testuser')
+    expect(byUsername).toBeDefined()
+    expect(decryptUserContact(byUsername!.phone)).toBe('13800000002')
+
+    const byPhone = await findUserByAccount('13800000002')
+    expect(byPhone).toBeDefined()
+    expect(decryptUserContact(byPhone!.email)).toBe('test@example.com')
+
+    const byEmail = await findUserByAccount('test@example.com')
+    expect(byEmail).toBeDefined()
+    expect(byEmail!.username).toBe('testuser')
     expect(await findUserByAccount('nonexistent')).toBeUndefined()
   })
 
   it('findUserByEmail + findUserByUsername', async () => {
+    const phonePair = contactWritePair('phone', '13800000003')
+    const emailPair = contactWritePair('email', 'email-test@example.com')
     await db.insert(users).values({
-      phone: '13800000003',
-      email: 'email-test@example.com',
+      phone: phonePair.value,
+      phoneLookup: phonePair.lookup,
+      email: emailPair.value,
+      emailLookup: emailPair.lookup,
       username: 'unique-user',
     })
 
-    expect((await findUserByEmail('email-test@example.com'))?.username).toBe('unique-user')
-    expect((await findUserByUsername('unique-user'))?.email).toBe('email-test@example.com')
+    const byEmail = await findUserByEmail('email-test@example.com')
+    expect(byEmail).toBeDefined()
+    expect(byEmail!.username).toBe('unique-user')
+
+    const byUsername = await findUserByUsername('unique-user')
+    expect(byUsername).toBeDefined()
+    expect(decryptUserContact(byUsername!.email)).toBe('email-test@example.com')
   })
 
   it('findUserById — 按 ID 查询', async () => {
@@ -88,7 +114,7 @@ describe('auth queries — 真实 DB 集成测试', () => {
     })
 
     expect(updated.nickname).toBe('新昵称')
-    expect(updated.email).toBe('new@example.com')
+    expect(decryptUserContact(updated.email)).toBe('new@example.com')
     expect(updated.bio).toBe('个人简介')
   })
 

@@ -63,6 +63,8 @@ async function seedLive() {
     const result = await upsertByUnique(db, {
       table: liveCategories,
       uniqueBy: { column: liveCategories.name, value: c.name },
+      // live_channels.category_id 是 uuid 外键 ⇒ 显式回传主键,不能把分类名当 id
+      idColumn: liveCategories.id,
       insertValues: { name: c.name, sort: c.sort, status: 1 },
       updateValues: { sort: c.sort, status: 1 },
     })
@@ -93,6 +95,8 @@ async function seedLive() {
     const { id } = await upsertByUnique(db, {
       table: liveLecturers,
       uniqueBy: { column: liveLecturers.name, value: l.name },
+      // live_channels.lecturer_id 是 uuid 外键 ⇒ 显式回传主键
+      idColumn: liveLecturers.id,
       insertValues: { ...l, status: 1 },
     })
     lectMap[l.name] = String(id)
@@ -251,6 +255,8 @@ async function seedExam() {
     const { id } = await upsertByUnique(db, {
       table: examCategories,
       uniqueBy: { column: examCategories.name, value: c.name },
+      // exam_papers.category_id 是 uuid 外键 ⇒ 显式回传主键
+      idColumn: examCategories.id,
       insertValues: { name: c.name, sort: c.sort, status: 1 },
     })
     catMap[c.name] = String(id)
@@ -463,6 +469,8 @@ async function seedExam() {
     const { id: paperId, action: paperAction } = await upsertByUnique(db, {
       table: examPapers,
       uniqueBy: { column: examPapers.title, value: p.title },
+      // exam_questions.paper_id 是 uuid 外键 ⇒ 显式回传主键
+      idColumn: examPapers.id,
       insertValues: {
         title: p.title,
         description: p.description,
@@ -517,6 +525,8 @@ async function seedNews() {
     const { id } = await upsertByUnique(db, {
       table: newsCategories,
       uniqueBy: { column: newsCategories.name, value: c.name },
+      // news_articles.category_id 是 uuid 外键 ⇒ 显式回传主键
+      idColumn: newsCategories.id,
       insertValues: { name: c.name, sort: c.sort, status: 1 },
     })
     catMap[c.name] = String(id)

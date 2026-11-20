@@ -84,7 +84,9 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
       expect(s.lessonTotal).toBe(4)
       expect(s.lessonPublished).toBe(2)
       expect(s.signupTotal).toBe(2)
-      expect(s.viewSum).toBe(160)
+      // F-603:viewSum 与已发布课程同口径(isPublished=true 且 status=1),
+      // L3 未发布、L4 下架(status=0)的浏览不计入 ⇒ 100+50=150。
+      expect(s.viewSum).toBe(150)
     })
   })
 

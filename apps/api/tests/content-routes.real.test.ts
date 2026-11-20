@@ -198,12 +198,13 @@ describe('content-routes — 路由层真实 DB 集成测试', () => {
   // Help Articles
   // ===========================================================================
 
-  it('GET /api/help/articles — 返回全部文章(含未发布,公开端点不过滤)', async () => {
+  it('GET /api/help/articles — 公开端点仅返回已发布文章(草稿不可匿名读,F-173)', async () => {
     await createHelpArticle({ title: '已发布', slug: 'pub-1', isPublished: true })
     await createHelpArticle({ title: '草稿', slug: 'draft-1', isPublished: false })
     const res = await server.inject({ method: 'GET', url: '/api/help/articles' })
     const body = res.json()
-    expect(body.data.list).toHaveLength(2)
+    expect(body.data.list).toHaveLength(1)
+    expect(body.data.list[0].title).toBe('已发布')
   })
 
   it('GET /api/help/articles — category 筛选', async () => {
