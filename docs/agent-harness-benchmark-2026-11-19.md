@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **45 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **46 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（45 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（46 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -567,6 +567,14 @@
 - 超越轴：对照实现的台账轮转后只剩"空表",没有任何"历史还在"的信号;本仓把备份存在性当成一等读数(后端 stat + 前端类型 + 独立断言),三态(无备份 / 有备份零计数 / 有备份有计数)各一条测试。
 
 验证：`pytest tests/test_hook_audit.py` → `12 passed`(轮转后当前文件缺失仍报 backupBytes>0 / 无备份回 None);`vitest hook-readout + use-hook-audit-summary` → `15 passed`(备份零计数报 HIST:40 / 无备份仍归 null / 有计数不显示"仅历史");`mypy --strict app/core/hook_audit.py` 与 `ruff check` 均通过。
+### 5.47 第 46 项：钩子错误文本落盘前脱敏（台账不许变成凭据仓库）
+
+- 缺口：`hook.run` 里的 `error` 就是钩子进程的 stderr（`hook_engine` 会截到 `HOOK_FAILED_STDERR_MAX` 直接上抛），而第 39/41 项把它**原样**写进 `.ihui-agent/state/hook-audit.jsonl`。钩子最常见的失败姿势恰恰是把命令回显进错误里——`OPENAI_API_KEY=…`、`Authorization: Bearer …` 会在磁盘上长期留存，且这条文件比日志活得更久（5MB 轮转）。日志/输出层已有脱敏闸，台账这条腿此前没接。
+- 处置：`_extract` 在构造落盘记录时对 `error` 调 `app.core.output_cleaning.redact_secrets`（与 `main.py` 凭据收口闸同一份判据，§0.6 单源，不另写正则）。非字符串/空串原样返回；非凭据部分保留（`failed` 等排查信息不许一起吞）。
+- 语义边界：只脱敏 `error` 字段；`name`/`kind`/`status`/`durationMs` 是结构字段，不做文本处理。脱敏在**落盘前**，不是在读取时——读取时脱敏等于把明文已经落过盘。
+- 测试：`test_error_text_is_redacted_before_persisting` 用 `OPENAI_API_KEY=sk-live-…` 造错误行，断言台账里没有明文、含 `[REDACTED_SECRET]`、且 `failed` 仍在。
+
+验证：`pytest tests/test_hook_audit.py` → `13 passed`；`mypy --strict app/core/hook_audit.py` 与 `ruff check` 通过。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
