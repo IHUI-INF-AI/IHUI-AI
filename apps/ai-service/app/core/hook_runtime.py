@@ -62,6 +62,9 @@ class HookKind(StrEnum):
     PERMISSION_REQUEST = "permission_request"
     PRE_COMPACT = "pre_compact"
     POST_COMPACT = "post_compact"
+    # 2026-11-21:契约(codex_hook_config_contract.HOOK_EVENTS)与 .ihui/hooks.json
+    # 一直有 session_end,本仓 HookKind 缺这一格 ⇒ 配置了也永远不执行。补挂载点。
+    SESSION_END = "session_end"
     STOP = "stop"
 
 
