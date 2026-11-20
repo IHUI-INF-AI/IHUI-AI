@@ -43,6 +43,8 @@ describe('agents-queries — 真实 DB 集成测试', () => {
     // agent_category_links 已随 2026-08-31 表治理删除(commit 291cb36c9e)
     await db.execute(sql`DELETE FROM agents`)
     await db.execute(sql`DELETE FROM agent_categories`)
+    // createRealDbUser 落的夹具 users 一并清掉,避免跨文件/跨跑残留累积
+    await db.execute(sql`DELETE FROM users WHERE nickname = 'real-db-fixture'`)
   })
 
   describe('Agents 智能体 CRUD', () => {

@@ -268,13 +268,14 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     expect(body.data.method).toBe('wechat')
     expect(body.data.status).toBe(0)
 
-    // 事务内原子执行:token -= actualAmount,frozen += actualAmount
+    // F-406:事务内原子执行 —— token 按毛额扣减(手续费含在申请毛额内),
+    // 冻结只加净额 actualAmount。300 提现:fee=6、actual=294 ⇒ token 1000-300=700,frozen 0+294=294。
     const [margin] = await db
       .select()
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin!.tokenQuantity).toBe(706)
+    expect(margin!.tokenQuantity).toBe(700)
     expect(margin!.frozenQuantity).toBe(294)
   })
 
@@ -305,14 +306,15 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       body: { amount: 200, account: 'acc', accountType: 'wechat' },
     })
     // 2026-09-10 real-db CI:applyWithdrawal 的原子校验是 token_quantity >= actualAmount,
-    // 不扣减已冻结部分;token=500 ≥ 196(200-2% 手续费) → 提现成功
+    // 不扣减已冻结部分;token=500 ≥ 196(200-2% 手续费) → 提现成功。
+    // F-406:token 按毛额扣减 ⇒ 500-200=300;冻结只加净额 196 ⇒ 400+196=596。
     expect(res.statusCode).toBe(201)
     const [margin] = await db
       .select()
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin!.tokenQuantity).toBe(304)
+    expect(margin!.tokenQuantity).toBe(300)
     expect(margin!.frozenQuantity).toBe(596)
   })
 
