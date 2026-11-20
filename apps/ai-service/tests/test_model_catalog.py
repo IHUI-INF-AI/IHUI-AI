@@ -194,14 +194,22 @@ def test_latest_alias_is_curated(model_id: str) -> None:
 
 
 def test_mimo_flagship_curated_but_specialized_variants_are_not() -> None:
-    """MiMo 官方回裸名(mimo-v2.5 而非 xiaomi/mimo-*),白名单要按裸名命中;
-    同代次的 tts/asr 属专用模型,不能被抬进聊天默认区。"""
+    """MiMo 官方回裸名(mimo-v2.5 而非 xiaomi/mimo-*),白名单要按裸名命中。
+
+    同代次的 tts/asr 是模态模型(2026-11-20 起选择器可选),但分类必须落在模态档,
+    不能被白名单当成 chat 主力抬进对话区。
+    """
     assert _tier_of("mimo-v2.5", "mimo") == ModelTier.LATEST.value
     assert _tier_of("mimo-v2.5-pro", "mimo") == ModelTier.LATEST.value
     assert _cat_of("mimo-v2.5", "mimo") == "chat"
-    for specialized in ("mimo-v2.5-tts", "mimo-v2.5-asr", "mimo-v2.5-tts-voiceclone"):
-        assert _tier_of(specialized, "mimo") != ModelTier.LATEST.value
-    assert _tier_of("mimo-v2.5-free", "mimo") != ModelTier.LATEST.value
+    for specialized, expected_cat in (
+        ("mimo-v2.5-tts", ModelCategory.TTS.value),
+        ("mimo-v2.5-asr", ModelCategory.ASR.value),
+        ("mimo-v2.5-tts-voiceclone", ModelCategory.TTS.value),
+    ):
+        assert _cat_of(specialized, "mimo") == expected_cat
+    variant_tier = classify_model("mimo-v2.5-free", "mimo", now=NOW).tier.value
+    assert variant_tier != ModelTier.LATEST.value
 
 
 def test_latest_alias_of_old_generation_still_demoted() -> None:
@@ -260,11 +268,36 @@ def test_category_detection(model_id: str, expected: str) -> None:
 
 @pytest.mark.parametrize(
     "model_id",
-    ["@cf/baai/bge-m3", "stepfun/step-tts-mini", "@cf/black-forest-labs/flux-1-schnell"],
+    ["@cf/baai/bge-m3", "@cf/baai/bge-reranker-base"],
 )
-def test_non_conversational_models_are_legacy(model_id: str) -> None:
-    """聊天场景调不通嵌入/语音/图像模型,一律不进默认列表。"""
+def test_middleware_models_are_legacy(model_id: str) -> None:
+    """流水线中间件(嵌入/重排)选了也产不出可读回复,一律不进选择器。"""
     assert _tier_of(model_id, "cloudflare_workers_ai") == ModelTier.LEGACY.value
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "stepfun/step-tts-mini",
+        "@cf/black-forest-labs/flux-1-schnell",
+        "@cf/openai/whisper-large-v3-turbo",
+    ],
+)
+def test_modality_models_are_selectable_not_legacy(model_id: str) -> None:
+    """2026-11-20 机主追加:图像/视频/语音等分类模型要能选,不再一律压 legacy。
+
+    仍走同一套代次口径(同系列旧代次由第二趟版本比较压掉),只是不再"整类沉底"。
+    """
+    assert _tier_of(model_id, "cloudflare_workers_ai") != ModelTier.LEGACY.value
+
+
+def test_old_modality_generation_still_suppressed() -> None:
+    """模态模型也吃"不要历史模型"的口径:同系列旧代次压 legacy,新代次可见。"""
+    models = [_mk("vendor/seedream-4"), _mk("vendor/seedream-5")]
+    annotate_models(models, now=NOW)
+    by_id = {m["id"]: m["model_tier"] for m in models}
+    assert by_id["vendor/seedream-4"] == ModelTier.LEGACY.value
+    assert by_id["vendor/seedream-5"] != ModelTier.LEGACY.value
 
 
 # ---------------------------------------------------------------------------
