@@ -91,9 +91,11 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          # 提交消息经 env 块注入为环境变量,不做 shell 双引号插值;否则消息里的
+          # 双引号/换行会破串,被 bash 当成命令执行(exit 127)。
+          HEAD_MSG: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
-          HEAD_MSG="${{ github.event.head_commit.message }}"
           if [[ "${HEAD_MSG}" == *"${AUTO_MARK}"* ]]; then
             echo "检测到自触发哨兵标记,跳过以避免死循环"
             echo "can_write=false" >> "$GITHUB_OUTPUT"
