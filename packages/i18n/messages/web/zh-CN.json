@@ -8746,6 +8746,8 @@
       "runtimeHookRunOk": "通过",
       "runtimeHookRunTimeout": "超时",
       "runtimeHookRunError": "失败",
+      "runtimeHookConfigUntrusted": "钩子配置 {count} 条未受信任,改动后需在本机重新登记信任",
+      "runtimeHookConfigInvalid": "钩子配置文件损坏,已按无配置运行",
       "runtimeMessageSend": "第 {iteration} 轮请求已发出 · {count} 条消息",
       "runtimeSessionEndSuccess": "会话已完成 · {iterations} 轮 · 用时 {duration}",
       "runtimeSessionEndFailed": "会话异常结束 · {iterations} 轮 · 用时 {duration}",

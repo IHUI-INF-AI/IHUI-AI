@@ -74,6 +74,7 @@ __all__ = [
     "CommandHookError",
     "CommandHookSpec",
     "load_command_hooks",
+    "describe_command_hooks",
     "install_command_hooks",
     "trust_hooks_config",
     "hooks_content_hash",
@@ -254,6 +255,87 @@ def load_command_hooks(config_path: Path | None = None) -> list[CommandHookSpec]
             f"trusted={trusted or 'none'} current={current}"
         )
     return specs
+
+
+def _describe_spec(spec: CommandHookSpec) -> dict[str, Any]:
+    """把一条钩子压成**可展示的元信息**,刻意不带完整命令行。
+
+    配置是进程级全局文件(不是某个用户的私有数据),而读面只要求登录——
+    完整 argv 可能带令牌/私有路径,展示给所有登录用户就是把一份可能的凭据
+    面复制到第二个位置。展示面只给"能认领是哪一条"的信息:事件、matcher、
+    超时、可执行文件名、参数个数;要看全文去读本机配置(与写它的权限同级)。
+    """
+    tokens = spec.command.split()
+    exe = Path(tokens[0]).name if tokens else ""
+    return {
+        "name": spec.name,
+        "event": spec.event,
+        "matcher": spec.matcher,
+        "timeout": spec.timeout,
+        "command_preview": exe[:40],
+        "arg_count": max(len(tokens) - 1, 0),
+    }
+
+
+def describe_command_hooks(config_path: Path | None = None) -> dict[str, Any]:
+    """只读自述钩子配置面(不执行、不信任、不改盘)。
+
+    存在的意义:配置面此前只有"跑起来才发现没生效"这一条观测路径 ——
+    文件没建 / JSON 写坏 / 哈希没登记(未受信任)/ 空表,四种结局在运行时
+    都表现为"钩子没跑",用户无从区分。本函数把这四态显式化,并复用
+    ``_parse_specs`` / ``_read_trusted_hash`` / ``hooks_content_hash``
+    (单一真相源,不另写一套判据)。
+
+    ``status``: ``not-configured`` / ``empty`` / ``invalid`` / ``untrusted`` /
+    ``trusted``。**任何输入都不抛错** —— 自述面失败不能把调用方拖红。
+    """
+    path = config_path or _default_config_path()
+    info: dict[str, Any] = {
+        "configured": False,
+        "config_path": str(path),
+        "status": "not-configured",
+        "error": None,
+        "content_hash": None,
+        "trusted_hash": None,
+        "specs": [],
+    }
+    if not path.exists():
+        return info
+    info["configured"] = True
+    try:
+        raw_bytes = path.read_bytes()
+    except OSError as exc:
+        info.update(status="invalid", error=f"钩子配置不可读: {exc}")
+        return info
+    info["content_hash"] = hooks_content_hash(raw_bytes)
+    try:
+        raw = json.loads(raw_bytes)
+    except json.JSONDecodeError as exc:
+        info.update(status="invalid", error=f"钩子配置不是合法 JSON: {exc}")
+        return info
+    if not isinstance(raw, Mapping):
+        info.update(status="invalid", error="钩子配置顶层必须是对象")
+        return info
+    try:
+        specs = _parse_specs(raw)
+    except CommandHookError as exc:
+        info.update(status="invalid", error=str(exc))
+        return info
+    info["specs"] = [_describe_spec(spec) for spec in specs]
+    if not specs:
+        info["status"] = "empty"
+        return info
+    try:
+        trusted = _read_trusted_hash(_trust_path(path))
+    except CommandHookError as exc:
+        info.update(status="invalid", error=str(exc))
+        return info
+    info["trusted_hash"] = trusted
+    ok = bool(trusted) and hmac.compare_digest(trusted, info["content_hash"])
+    info["status"] = "trusted" if ok else "untrusted"
+    if not ok:
+        info["error"] = "钩子配置未受信任(内容哈希未登记): 改动后需重新登记信任"
+    return info
 
 
 def trust_hooks_config(config_path: Path | None = None) -> str:
