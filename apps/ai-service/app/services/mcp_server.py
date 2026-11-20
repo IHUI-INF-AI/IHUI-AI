@@ -9103,7 +9103,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/paste/focus/mouse/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/focus/mouse/links/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合;
@@ -9119,6 +9119,9 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     `focus` 把一次**窗口焦点变化**上报给程序(DEC 1004):程序先 `DECSET 1004` 点单才发,
     `state=in` 送 `ESC[I`、`out` 送 `ESC[O`(亦接受 focus/blur 同义写法);没点单显式拒
     TERMINAL_FOCUS_DISABLED。与 mouse 不同的是它不依赖屏幕网格,两种后端都成立。
+    `links` 回**这一屏上的超链接**(OSC 8):每条给 `url`/`text`/`line_no`/`scheme`,行号与
+    `snapshot`/`search` 同源(同一个扫描器算出来的);`text` 与 `url` 一起回是为了让调用方
+    能核对"显示的字是否就是真要打开的地址"(OSC 8 的已知钓鱼面),本层从不代为打开。
     `snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
     只要末尾 max_lines 行,truncated 说明还有更早的行),按**当前屏面**取:主屏与 alt 屏
     (vim/htop 切屏)互不混入,回执的 `alt_screen` 说明现在在哪一块屏;`search` 在同一份归一文本里按行
@@ -9274,6 +9277,20 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "mouse", **result}
 
+    if action == "links":
+        try:
+            max_links = int(arguments.get("max_links", 20))
+        except (TypeError, ValueError):
+            max_links = 20
+        result = await asyncio.to_thread(
+            term.links_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+            max_links=max_links,
+        )
+        return {"tool": "terminal", "action": "links", **result}
+
     if action == "snapshot":
         try:
             max_lines = int(arguments.get("max_lines", 200))
@@ -9422,7 +9439,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": (
             f"不支持的 action: {action}"
-            "(open/send/keys/paste/focus/mouse/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
+            "(open/send/keys/paste/focus/mouse/links/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
         ),
     }
 
