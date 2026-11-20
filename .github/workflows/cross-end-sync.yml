@@ -128,8 +128,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: 安装依赖(级联与各 check 仅用 node:*/同目录 lib,无需 build)
+      - name: 安装依赖(frozen lockfile = 依赖真值)
         run: pnpm install --frozen-lockfile
+
+      # 全新检出只 install 不会构建 workspace 包的 dist(dist 是 gitignored 产物,不入库)。
+      # 声明入口走 dist 的 packages 此时缺 dist,rebuild-dist 段(check-stale-dist ⇒
+      # heal-stale-dist)会把它们判为落后待重建;一轮超过 MAX_BUILDS_PER_ROUND=6 即
+      # refused(rc=3),级联随之 exit 1。本步按 turbo 拓扑闭包先把 packages 的 dist 补齐
+      # (不卷入 apps 的 next/tauri 重型构建),让 rebuild-dist 在干净检出上复量为 clean;
+      # 判据阈值护栏一字未改,本步只补环境缺失的产物。
+      - name: 构建 packages 的 dist 闭包(级联前补齐 workspace 产物)
+        run: pnpm turbo run build --filter=./packages/*
 
       - name: 运行跨端级联(web→RN→小程序,自动落地)
         if: steps.can-write.outputs.can_write == 'true'
