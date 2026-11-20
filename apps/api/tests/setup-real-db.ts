@@ -4,11 +4,13 @@
 
 import { sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
-import { beforeAll } from 'vitest'
+import { beforeAll, afterAll } from 'vitest'
 
 /**
  * Real DB 测试全局 setup:
- * - beforeAll(全局): 确认 DB 连接可用 + 清理所有业务表数据
+ * - beforeAll(每文件开始前): 确认 DB 连接可用 + 清理所有业务表数据
+ * - afterAll(每文件结束后): 同一套清理再跑一遍,避免"最后执行的文件"留下夹具行,
+ *   导致连跑两遍的残留行数随文件执行顺序抖动(users 夹具/注销态用户等)。
  *
  * 解决 21 个 real test 文件共享 users/lessons 等表导致的 ordering-dependent 失败。
  * 用 beforeAll(每文件开始前清理一次)代替 beforeEach(每测试前清理),
@@ -20,10 +22,7 @@ import { beforeAll } from 'vitest'
  * - users 表单独 DELETE WHERE is_system_admin = false(保留系统管理员)
  * - 恢复 session_replication_role = 'origin'
  */
-beforeAll(async () => {
-  // 确认 DB 连接可用
-  await db.execute(sql`SELECT 1`)
-
+async function cleanupRealDb() {
   // 禁用 RLS + 触发器,允许 TRUNCATE 所有表
   // 2026-10-23 实测:这条 GUC 是超级用户专属,而本机 apps/api/.env 用的是库属主角色
   // (`ihui`,usesuper=false)⇒ 整个 *.real.test.ts 桶在标准入口 pnpm test:real 上 beforeAll 即崩
@@ -66,5 +65,13 @@ beforeAll(async () => {
 
   // 恢复 RLS + 触发器
   if (replicaRoleOff) await db.execute(sql`SET session_replication_role = 'origin'`)
+}
+
+beforeAll(async () => {
+  // 确认 DB 连接可用
+  await db.execute(sql`SELECT 1`)
+  await cleanupRealDb()
 })
+
+afterAll(cleanupRealDb)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

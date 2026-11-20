@@ -36,6 +36,8 @@ export async function seedCrossDomain() {
     const { id } = await upsertByUnique(db, {
       table: newsCategories,
       uniqueBy: { column: newsCategories.name, value: c.name },
+      // news_articles.category_id 是 uuid 外键 ⇒ 显式回传主键
+      idColumn: newsCategories.id,
       insertValues: { name: c.name, sort: c.sort, status: 1 },
     })
     catMap[c.name] = String(id)

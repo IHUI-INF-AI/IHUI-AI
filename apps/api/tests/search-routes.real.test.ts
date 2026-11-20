@@ -203,13 +203,17 @@ describe('search-routes — 需鉴权路由真实 DB 集成测试', () => {
 
   it('GET /api/search — limit 参数限制返回数量', async () => {
     for (let i = 0; i < 5; i++) {
-      await createUser(`100${i}`, `User${i}`)
+      // DB-35:phone 列存密文,数字前缀不可中缀模糊;5 人共用同一 nickname 单 token,
+      // 走 search_vector 全文命中,再由 limit 截断。
+      await createUser(`100${i}`, 'LimitAlpha')
     }
     const user = await createUser('admin', 'Admin')
     // 搜索需要 admin 角色,因为 RLS 限制了非 admin 只能看自己
     setMockAdmin(user.id)
-    // 用 phone 前缀 "100" 搜索(search_vector fallback 路径不搜索 nickname)
-    const res = await server.inject({ method: 'GET', url: '/api/search?q=100&type=user&limit=2' })
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/search?q=LimitAlpha&type=user&limit=2',
+    })
     const body = res.json()
     expect(body.data.users.length).toBe(2)
   })
