@@ -33,6 +33,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
+from app.core.output_cleaning import redact_secrets
+
 logger = logging.getLogger(__name__)
 
 HOOK_AUDIT_REL: Final = ".ihui-agent/state/hook-audit.jsonl"
@@ -88,13 +90,23 @@ def _extract(payload: dict[str, Any]) -> dict[str, Any] | None:
     for item in hooks_raw:
         if not isinstance(item, dict):
             continue
+        raw_error = item.get("error")
+        # 2026-11-21 第 46 项:钩子 stderr 会原样带进 error 文本,而台账是**落盘**的
+        # 长期文件 —— 命令里回显的 token(`OPENAI_API_KEY=…` / `Authorization: Bearer …`)
+        # 会在磁盘上一直留着。落盘前必须过与日志/输出同一份脱敏实现(§0.6 单源),
+        # 不在这里另写一套规则。
+        error = (
+            redact_secrets(raw_error)
+            if isinstance(raw_error, str)
+            else raw_error
+        )
         hooks.append(
             {
                 "name": item.get("name"),
                 "kind": item.get("kind"),
                 "status": item.get("status"),
                 "durationMs": item.get("durationMs"),
-                "error": item.get("error"),
+                "error": error,
             }
         )
     if not hooks:
