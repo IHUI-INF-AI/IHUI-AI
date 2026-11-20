@@ -1216,6 +1216,26 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'TERMINAL_NOT_FOUND.action',
     category: 'invalidResponse',
   },
+  TERMINAL_INVALID_PATTERN: {
+    titleKey: 'TERMINAL_INVALID_PATTERN.title',
+    actionKey: 'TERMINAL_INVALID_PATTERN.action',
+    category: 'invalidResponse',
+  },
+  TERMINAL_INVALID_SIZE: {
+    titleKey: 'TERMINAL_INVALID_SIZE.title',
+    actionKey: 'TERMINAL_INVALID_SIZE.action',
+    category: 'invalidResponse',
+  },
+  TERMINAL_NOT_A_TTY: {
+    titleKey: 'TERMINAL_NOT_A_TTY.title',
+    actionKey: 'TERMINAL_NOT_A_TTY.action',
+    category: 'environmentInitFailed',
+  },
+  TERMINAL_RESIZE_FAILED: {
+    titleKey: 'TERMINAL_RESIZE_FAILED.title',
+    actionKey: 'TERMINAL_RESIZE_FAILED.action',
+    category: 'backendExited',
+  },
   TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM: {
     titleKey: 'TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM.title',
     actionKey: 'TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM.action',

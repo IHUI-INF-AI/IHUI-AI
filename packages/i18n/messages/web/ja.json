@@ -9707,6 +9707,22 @@
           "title": "ターミナルが見つかりません",
           "action": "新しく作成してください"
         },
+        "TERMINAL_INVALID_PATTERN": {
+          "title": "ターミナルのマッチパターンが不正です",
+          "action": "正規表現を確認して再試行してください"
+        },
+        "TERMINAL_INVALID_SIZE": {
+          "title": "ターミナルのサイズが不正です",
+          "action": "正の整数の行数・列数を指定してください"
+        },
+        "TERMINAL_NOT_A_TTY": {
+          "title": "ターミナルが tty ではありません",
+          "action": "PTY モードでセッションを再起動してください"
+        },
+        "TERMINAL_RESIZE_FAILED": {
+          "title": "ターミナルのサイズ変更に失敗しました",
+          "action": "ターミナルを作り直して再試行してください"
+        },
         "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
           "title": "このプラットフォームでは PTY を利用できません",
           "action": "パイプモードに切り替えるか、ホストの ConPTY 対応を確認してください"
