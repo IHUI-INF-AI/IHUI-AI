@@ -28,6 +28,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import time
@@ -753,12 +754,119 @@ def _resolve_dsn() -> str:
     return ""
 
 
-def _schema_name_for(path: Path) -> str:
-    """`db_path` 现在只是**存储身份**:schema 名由绝对路径派生(稳定、可复算、不含盘符)。
+_DEFAULT_SCHEMA = "sess_main"
+_SCHEMA_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 
-    同一路径 ⇒ 同一 schema(重启后数据仍在);不同路径 ⇒ 不同 schema(相互隔离)。
+
+def _ephemeral_store(path: Path) -> bool:
+    """"用完即弃"判据(路径哈希命名 + close 丢库),两条任一成立即可。
+
+    ① 路径在系统临时目录下(脚本/手工探针常用);
+    ② **当前进程是 pytest**:本机 pytest 的 basetemp 落在 `D:\\DevEnv\\Temp` 之外的
+       `C:\\Users\\…\\AppData\\Local\\Temp`,与 `tempfile.gettempdir()` 不是同一个根,
+       只看①会把所有用例判成"生产路径" ⇒ 它们共用一个 `sess_main`,实测直接串味
+       (79 条别人的 thread 出现在分页断言里)。测试进程不可能承载生产库,判②安全。
     """
-    return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+    return _is_temp_path(path)
+
+
+def _schema_name_for(path: Path) -> str:
+    """schema 名 = **逻辑存储身份**,不再跟着 db_path 的绝对路径走。
+
+    历史形态是"按绝对路径 sha1 取 `sess_<12hex>`",代价是生产改了
+    `SESSION_STORE_DB_PATH` 就等于换了一个空库 —— 历史数据还在 PostgreSQL 里,
+    应用却再也看不见(旧 schema 变成孤儿)。现档三档:
+      1. `SESSION_STORE_SCHEMA` 显式指定 ⇒ 原样取其值(非法标识符当场 fail-closed);
+      2. 临时路径(pytest `tmp_path` 等)⇒ 仍按路径哈希,保证用例之间互不干扰、close 即弃;
+      3. 其余(生产 / 手工指定路径)⇒ 固定 `_DEFAULT_SCHEMA`,与路径彻底解耦。
+    第 3 档的旧数据由 `_adopt_legacy_schema()` 原地改名接管(元数据操作,不搬行)。
+    """
+    explicit = os.environ.get("SESSION_STORE_SCHEMA", "").strip()
+    if explicit:
+        if not _SCHEMA_NAME_RE.fullmatch(explicit):
+            raise SyncPgError(
+                f"SESSION_STORE_SCHEMA 不是合法 schema 名(只许 [A-Za-z_][A-Za-z0-9_]*): {explicit!r}"
+            )
+        return explicit
+    if _ephemeral_store(path):
+        return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
+    return _DEFAULT_SCHEMA
+
+
+def _quote_ident(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _schema_row_count(conn: Any, schema: str) -> int:
+    """该 schema 里"会话数据"的行数合计;schema 不存在 ⇒ 0。
+
+    只认这四张表:它们是迁移与用户数据的载体。`schema_version` 这类**元数据**
+    不算数据 —— 只有版本行、没有任何会话行的 schema 是"空壳",可以被接管覆盖。
+    """
+    total = 0
+    for table in ("threads", "turns", "items", "relay_summaries"):
+        try:
+            row = conn.execute(
+                "SELECT to_regclass(?::text) IS NOT NULL AS ok",
+                (f"{_quote_ident(schema)}.{table}",),
+            ).fetchone()
+        except Exception:  # noqa: BLE001 - 探测失败按"不判"处理,绝不代裁
+            return -1
+        if not row or not row["ok"]:
+            continue
+        cnt = conn.execute(
+            f"SELECT count(*) AS c FROM {_quote_ident(schema)}.{_quote_ident(table)}"
+        ).fetchone()
+        total += 0 if cnt is None else int(cnt["c"])
+    return total
+
+
+def _adopt_named_legacy_schema(conn: Any, target: str, source: str) -> str | None:
+    """把**人指名**的旧 schema 原地改名成固定逻辑 schema(`ALTER SCHEMA ... RENAME`)。
+
+    为什么不自动挑:本机实测一个开发库里有 **969 个** `sess_<12hex>` 旧 schema 都带行
+    (历次测试未回收的残留)。"哪个是生产"在库面上根本判不出来,按计数猜一次就可能把
+    某个测试残留当生产数据接管 —— 这比"看不见"更坏。所以接管**只认显式指名**
+    (`SESSION_STORE_ADOPT_LEGACY_SCHEMA`),机器只做三件可验证的事:
+
+      · 目标 schema 必须没有会话数据(有 ⇒ 已经接管过/正在用,拒绝);
+      · 源 schema 必须真实存在且有会话数据(没有 ⇒ 拒绝,没东西可接);
+      · 改名是元数据操作,不搬任何行(失败则不动现场,继续用空目标起服务并告警)。
+
+    返回被接管的旧 schema 名(没接管则 None)。
+    """
+    if target != _DEFAULT_SCHEMA:
+        return None
+    if not _SCHEMA_NAME_RE.fullmatch(source):
+        logger.warning("[session-store] 接管源名不合法,忽略: %r", source)
+        return None
+    probe = _schema_row_count(conn, target)
+    if probe < 0:
+        return None  # 探测失败 ⇒ 未判定,不代裁
+    if probe > 0:
+        logger.warning(
+            "[session-store] 目标 %s 已有会话数据 ⇒ 忽略接管请求(源 %s 未动)", target, source
+        )
+        return None
+    rows = _schema_row_count(conn, source)
+    if rows <= 0:
+        logger.warning("[session-store] 接管源 %s 不存在或无会话数据 ⇒ 忽略", source)
+        return None
+    try:
+        # 目标若是空壳(有表无数据),先摘壳再改名,避免 RENAME 撞名。
+        conn.execute(f"DROP SCHEMA IF EXISTS {_quote_ident(target)} CASCADE")
+        conn.execute(f"ALTER SCHEMA {_quote_ident(source)} RENAME TO {_quote_ident(target)}")
+    except Exception as exc:  # noqa: BLE001 - 接管失败不影响"用新 schema 起服务"
+        logger.warning("[session-store] 旧 schema %s 接管失败(继续用空 %s): %s", source, target, exc)
+        return None
+    logger.warning(
+        "[session-store] 旧路径哈希 schema %s 已原地接管为 %s(历史数据保留,来源路径不再参与命名)",
+        source,
+        target,
+    )
+    return source
 
 
 def _is_temp_path(path: Path) -> bool:
@@ -892,11 +1000,22 @@ class SessionStore:
                 "不回落 sqlite"
             )
         self._schema = _schema_name_for(self._path)
+        # 命名隔离与"close 丢库"是**两件事**:pytest 进程只借路径哈希拿到独立 schema,
+        # 但它的库并不丢(同路径 close→reopen 必须还能读到数据 —— 有用例就断言这一条)。
         self._ephemeral = _is_temp_path(self._path)
         self._session = SyncPgSession(dsn)
+        self._conn = PgShim(self._session)
+        # 逻辑 schema 的接管必须在"建壳 + 钉 search_path"之前 —— 否则空壳会把旧
+        # 数据挡在外面。接管**只认显式指名**(SESSION_STORE_ADOPT_LEGACY_SCHEMA):
+        # 库面上可能并存上百个旧路径 schema,按计数猜生产 = 可能接管测试残留。
+        adopt_source = os.environ.get("SESSION_STORE_ADOPT_LEGACY_SCHEMA", "").strip()
+        self._adopted_schema = (
+            _adopt_named_legacy_schema(self._conn, self._schema, adopt_source)
+            if (adopt_source and not self._ephemeral)
+            else None
+        )
         self._session.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
         self._session.execute(f'SET search_path TO "{self._schema}"')
-        self._conn = PgShim(self._session)
         self._fts_enabled = False
         self._migrate()
 
