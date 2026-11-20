@@ -108,12 +108,24 @@ pub struct WorkspaceFsState {
 }
 
 impl WorkspaceFsState {
+    /// 启动即恢复上次授权的工作区（2026-11-20 立）。
+    ///
+    /// 为什么：Qoder / Trae / WorkBuddy 打开就是"上次那个工程"，用户不该每次
+    /// 重新点一遍对话框；而每次点之前，前端 `localRoot` 为空会落到服务端白名单
+    /// 分支，用户看到的就是"读取不到本地"。恢复时仍走完整校验（存在 ∧ 是目录 ∧
+    /// canon 成功），任何一项不成立就当没存过，绝不猜。
     pub fn from_env() -> Self {
-        WorkspaceFsState {
-            root: Mutex::new(None),
-            picked: Mutex::new(None),
+        let restored = load_persisted_root();
+        let state = WorkspaceFsState {
+            root: Mutex::new(restored.clone()),
+            picked: Mutex::new(restored.clone()),
             bases: bases_from_env(),
+        };
+        match restored {
+            Some(root) => log::info!("[workspace-fs] 已恢复上次授权的工作区: {root}"),
+            None => log::info!("[workspace-fs] 无历史工作区（等宿主选择器授权）"),
         }
+        state
     }
 
     /// 宿主原生选择器最近一次选中的路径（canonical 文本）。
@@ -165,6 +177,71 @@ fn canon(path: &Path) -> std::io::Result<PathBuf> {
     path.canonicalize()
 }
 
+/// canonicalize 在 Windows 会给 `\\?\G:\...` 这种 verbatim 前缀 —— 只用来校验，
+/// **对外文本必须剥成 `G:\...`**，否则前端把它当用户可见路径拼相对路径会错位。
+fn display_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) => rest.to_string(),
+        None => text.to_string(),
+    }
+}
+
+/// 已授权工作区的持久化位置 —— 与 `window-state.json` 同目录
+/// （`%APPDATA%\com.ihui.desktop\`），删掉即等于"忘掉这个工程"。
+fn root_store_path() -> Option<PathBuf> {
+    let base = std::env::var_os("APPDATA")?;
+    Some(
+        PathBuf::from(base)
+            .join("com.ihui.desktop")
+            .join("workspace-root.json"),
+    )
+}
+
+/// 记住当前工作区。**只在授权成功之后写**，失败一律不落（免得下次恢复一个死路径）。
+fn persist_root(text: &str) {
+    let Some(path) = root_store_path() else { return };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let body = serde_json::json!({
+        "root": text,
+        "updatedAtUnix": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    });
+    match serde_json::to_string_pretty(&body) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(&path, json) {
+                log::warn!("[workspace-fs] 写工作区记忆失败({}): {e}", path.display());
+            }
+        }
+        Err(e) => log::warn!("[workspace-fs] 序列化工作区记忆失败: {e}"),
+    }
+}
+
+/// 读回上次工作区：必须 canon 成功 ∧ 仍是目录，否则当没存过（不猜、不回落）。
+fn load_persisted_root() -> Option<String> {
+    let path = root_store_path()?;
+    let body = std::fs::read_to_string(&path).ok()?;
+    let parsed: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let root = parsed.get("root")?.as_str()?.trim().to_string();
+    if root.is_empty() {
+        return None;
+    }
+    match canon(Path::new(&root)) {
+        Ok(real) if real.is_dir() => Some(display_path(&real)),
+        _ => {
+            log::warn!("[workspace-fs] 上次工作区已不可用，忽略: {root}");
+            None
+        }
+    }
+}
+
 /// 授权一个 root。**幂等**。
 ///
 /// 两道证：① 落在 permitted bases 之内（canonicalize 后比组件前缀）；
@@ -204,8 +281,9 @@ fn try_authorize(state: &WorkspaceFsState, root: &str) -> Result<String, Reject>
             candidate.display()
         )));
     }
-    let text = candidate.to_string_lossy().to_string();
+    let text = display_path(&candidate);
     state.set_root(text.clone());
+    persist_root(&text);
     Ok(text)
 }
 
@@ -227,7 +305,7 @@ fn try_authorize_picked(state: &WorkspaceFsState, root: &str) -> Result<String, 
             candidate.display()
         )));
     }
-    let text = candidate.to_string_lossy().to_string();
+    let text = display_path(&candidate);
     let inside_picked = match state.picked_root() {
         Some(picked) => match canon(Path::new(&picked)) {
             Ok(picked_canon) => within_root(&picked_canon, &candidate),
@@ -246,6 +324,7 @@ fn try_authorize_picked(state: &WorkspaceFsState, root: &str) -> Result<String, 
         return Err(Reject::RootNotAuthorized);
     }
     state.set_root(text.clone());
+    persist_root(&text);
     Ok(text)
 }
 
@@ -259,9 +338,15 @@ pub async fn workspace_authorize_root(
     root: String,
 ) -> Result<FsReply, String> {
     match try_authorize_picked(&state, &root) {
-        Ok(text) => Ok(FsReply::ok(&text)),
+        Ok(text) => {
+            log::info!("[workspace-fs] authorize(凭证) 通过: {text}");
+            Ok(FsReply::ok(&text))
+        }
         Err(first) => match try_authorize(&state, &root) {
-            Ok(text) => Ok(FsReply::ok(&text)),
+            Ok(text) => {
+                log::info!("[workspace-fs] authorize(bases 兜底) 通过: {text}");
+                Ok(FsReply::ok(&text))
+            }
             Err(second) => {
                 // 两条都拒时，回那条更具体的拒因：凭证制拒（root_not_authorized）
                 // 往往只是"页面自己传了个没选过的路径"，而 bases 拒会点明到底哪个基目录不同族。
@@ -269,6 +354,11 @@ pub async fn workspace_authorize_root(
                     (Reject::RootNotAuthorized, other) => other.clone(),
                     (other, _) => other.clone(),
                 };
+                log::warn!(
+                    "[workspace-fs] authorize 拒绝 kind={} root={root} reason={}",
+                    reject.kind(),
+                    reject.reason()
+                );
                 Ok(FsReply::reject("", reject))
             }
         },
@@ -313,9 +403,11 @@ pub async fn workspace_pick_root(
                     Reject::TypeMismatch(format!("所选路径不是目录：{}", picked.display())),
                 ));
             }
-            let text = picked.to_string_lossy().to_string();
+            let text = display_path(&picked);
             state.set_picked(text.clone());
             state.set_root(text.clone());
+            persist_root(&text);
+            log::info!("[workspace-fs] 原生选择器授权工作区: {text}");
             Ok(FsReply::ok(&text))
         }
         Ok(None) => Ok(FsReply::reject("", Reject::SuspiciousInput("用户取消了选择".into()))),
@@ -755,7 +847,7 @@ mod tests {
         ));
         // 模拟宿主选择器选中 tmp ⇒ 其后代可授权，bases 为空也不拦
         let picked = canon(&tmp).expect("canon 失败");
-        state.set_picked(picked.to_string_lossy().to_string());
+        state.set_picked(display_path(&picked));
         let ok = try_authorize_picked(&state, &sub.to_string_lossy()).expect("选择器凭证应可授权");
         assert!(ok.to_lowercase().contains("ihui-ai"));
         // 未选中的旁路目录仍拒（换一个与 tmp 不同族的盘符根）
@@ -765,6 +857,48 @@ mod tests {
                 try_authorize_picked(&state, outside),
                 Err(Reject::RootNotAuthorized)
             ));
+        }
+    }
+
+    /// 真实路径冒烟（默认跳过，`cargo test -- --ignored` 时按 env 生效）：
+    /// 模拟"宿主选择器选中 → 授权 → 列根目录 → 读一个文件"，
+    /// 用来证明家目录之外的盘（如 `G:\IHUI-AI`）在本机通道里真能用。
+    #[test]
+    #[ignore]
+    fn selftest_real_workspace_roundtrip() {
+        let root = match std::env::var("IHUI_WS_SELFTEST_ROOT") {
+            Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+            _ => return,
+        };
+        let state = WorkspaceFsState {
+            root: Mutex::new(None),
+            picked: Mutex::new(None),
+            bases: vec![],
+        };
+        let picked = canon(Path::new(&root)).expect("real root 不可解析");
+        state.set_picked(display_path(&picked));
+        let authorized = try_authorize_picked(&state, &root).expect("真实工作区应可授权");
+        println!("SELFTEST authorized root = {authorized}");
+        let (_, _, real_root) = resolve_target(&state, "", true).expect("解析根失败");
+        let rd = std::fs::read_dir(&real_root).expect("列根目录失败");
+        let mut names: Vec<String> = Vec::new();
+        for item in rd.flatten() {
+            names.push(item.file_name().to_string_lossy().to_string());
+            if names.len() >= 8 {
+                break;
+            }
+        }
+        println!("SELFTEST entries(first8) = {:?}", names);
+        for n in &names {
+            let (_, rel, real) = match resolve_target(&state, n, true) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            if real.is_file() {
+                let bytes = std::fs::read(&real).map(|b| b.len()).unwrap_or(0);
+                println!("SELFTEST read file = {rel} ({bytes} bytes)");
+                break;
+            }
         }
     }
 }
