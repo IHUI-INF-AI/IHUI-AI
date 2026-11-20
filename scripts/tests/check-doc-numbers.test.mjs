@@ -18,6 +18,7 @@
  *     从未匹配过,而"违规=0"的断言会替瞎掉的尺子发合格证,所以这一条同时钉"写法唯一"与"真能抓到";
  *     其 ③ 段是英文分支的正向断言(G-1104173:testFiles / wsEndpoints 的英文措辞必被抓点名)。
  */
+import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -27,7 +28,7 @@ import { test } from 'node:test'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { catBatch } from '../lib/face-reader.mjs'
 import { BLOCK_BEGIN, BLOCK_END, faceListArgs, parseFaceArg } from '../gen-doc-numbers.mjs'
-import { CLAIMS, LEGACY_GROUP_RE, decide, findStaleClaims, usesNumFabric } from '../check-doc-numbers.mjs'
+import { CLAIMS, LEGACY_GROUP_RE, classifyDn5, decide, findStaleClaims, readPushScope, usesNumFabric } from '../check-doc-numbers.mjs'
 import { UPDATES_BEGIN, UPDATES_END } from '../check-doc-numbers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -370,9 +371,16 @@ test('T11 差值棘轮接在裁决路径上,且盲区在结论行披露', () => 
   const src = readFileSync(P, 'utf8').replace(/\r\n/g, '\n')
   const checks = [
     [/export function splitArchiveStock\(/, 'splitArchiveStock 定义被摘 —— 棘轮不存在'],
+    // 2026-11-20:门体把 head 档的 `'HEAD^'` 改成了 `<headRef()>^`(支持非标准 HEAD ref,
+    // 形如 `git show HEAD:...` 取不到时的裸 ref),本锁按**语义**钉:HEAD 档必须是"当前 HEAD 的父",
+    // 不再要求字面 'HEAD^'。摘掉档位分派(写死单一基线面)仍会翻红。
     [
-      /const baselineRef = face === 'head' \? 'HEAD\^' : face === 'staged' \? stagedBaseline\.ref : 'HEAD'/,
-      '基线面未按档位取(HEAD 档取 HEAD^;staged 档取本地 origin/main 快照)',
+      /const baselineRef =[^;]*face === 'head' \? `?\$\{(?:headRef\(\)|'HEAD')\}\^`?/,
+      '基线面未按档位取(HEAD 档必须取当前 HEAD 的父提交)',
+    ],
+    [
+      /const baselineRef =[^;]*: face === 'staged' \? stagedBaseline\.ref/,
+      '基线面未按档位取(staged 档取本地 origin/main 快照)',
     ],
     [
       /splitArchiveStock\(r\.violations, text, baselines\.get\(rel\) \?\? null, \{ baselineTexts: snapshots \}\)/,
@@ -594,6 +602,35 @@ test('T13 staged 基准快照 = 本地 origin/main:存量红不阻断 / 本票�
     if (noRef.code !== 1) throw new Error(`无 ref 必须退回全判(exit 1),实得 ${noRef.code}\n${noRef.stdout}${noRef.stderr}`)
     if (!/origin\/main|取不到|全判/.test(noRef.stdout + noRef.stderr))
       throw new Error(`无 ref 必须点名为什么不可判:\n${noRef.stdout}\n${noRef.stderr}`)
+  } finally {
+    rmScratch(s)
+  }
+})
+
+// T10(2026-11-20)DN5 差值棘轮:push 档只把"README 在本次推送面里"的生成块差算作本次内容问题。
+// 反面对照必须同时钉住——非 push 档、README 在面里、推送面取不到,三态都得维持硬拦。
+test('T10 DN5 差值棘轮:push 档按推送面判责,取不到面 fail-closed', () => {
+  const p = ['生成块 `trackedFiles` = 23048,现算 23049 ⇒ 跑 sync-readme-numbers 刷新块']
+  const off = classifyDn5({ pushMode: false, problems: p, scope: { files: ['scripts/x.mjs'], source: 'push-scope' } })
+  assert.equal(off.blocking.length, 1, '非 push 档必须维持硬拦(提交链语义不动)')
+  const outside = classifyDn5({ pushMode: true, problems: p, scope: { files: ['scripts/x.mjs'], source: 'push-scope' } })
+  assert.equal(outside.blocking.length, 0, 'README 不在推送面 ⇒ 不得阻断')
+  assert.equal(outside.stock.length, 1, 'README 不在推送面 ⇒ 必须进存量报数')
+  const carrier = classifyDn5({ pushMode: true, problems: p, scope: { files: ['README.md'], source: 'push-scope' } })
+  assert.equal(carrier.blocking.length, 1, 'README 在推送面 ⇒ 必须判红')
+  const noScope = classifyDn5({ pushMode: true, problems: p, scope: { files: null, source: 'unavailable' } })
+  assert.equal(noScope.blocking.length, 1, '推送面取不到 ⇒ fail-closed')
+  const noScopeEmpty = classifyDn5({ pushMode: true, problems: p, scope: { files: [], source: 'push-scope' } })
+  assert.equal(noScopeEmpty.blocking.length, 1, '空面不得读成"没有改动"')
+
+  // 取数口径:环境变量优先、清单文件次之、都取不到 ⇒ files=null(调用侧据此 fail-closed)
+  const s = mkScratch('docnum-scope-')
+  try {
+    assert.deepEqual(readPushScope(s, { PUSH_SCOPE_FILES: 'a.ts\r\nb.ts' }).files, ['a.ts', 'b.ts'])
+    writeFileSync(`${s}/scope.txt`, 'c.ts\n')
+    assert.deepEqual(readPushScope(s, { PUSH_SCOPE_MANIFEST: 'scope.txt' }).files, ['c.ts'])
+    assert.equal(readPushScope(s, {}).files, null)
+    assert.equal(readPushScope(s, { PUSH_SCOPE_MANIFEST: 'missing.txt' }).files, null, '清单读不到 ⇒ null')
   } finally {
     rmScratch(s)
   }

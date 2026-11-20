@@ -80,7 +80,7 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
@@ -694,6 +694,56 @@ export function judgeTrackedInventory({ docText, numbers, inventory }) {
 }
 
 /**
+ * push 档的推送面取数(.husky/pre-push 已在整条钩子里算好并导出,本门只消费不重算)。
+ *   PUSH_SCOPE_FILES    → 换行分隔的路径清单(<=300 个文件)
+ *   PUSH_SCOPE_MANIFEST → 清单文件路径(>300 个文件时钩子落盘传路径)
+ * 两处都取不到 ⇒ files=null ⇒ 调用侧 fail-closed(维持硬拦),绝不把"取不到面"读成"没有改动"。
+ */
+export function readPushScope(root, env = process.env) {
+  const fromEnv = String(env.PUSH_SCOPE_FILES ?? '')
+    .split(/\r?\n/)
+    .map((l) => l.trim().replaceAll('\\', '/'))
+    .filter(Boolean)
+  if (fromEnv.length > 0) return { files: fromEnv, source: 'push-scope' }
+  const manifest = String(env.PUSH_SCOPE_MANIFEST ?? '').trim()
+  if (manifest) {
+    try {
+      const abs = isAbsolute(manifest) ? manifest : resolve(root, manifest)
+      const text = readFileSync(abs, 'utf8')
+      const files = text
+        .split(/\r?\n/)
+        .map((l) => l.trim().replaceAll('\\', '/'))
+        .filter(Boolean)
+      if (files.length > 0) return { files, source: 'push-scope-manifest' }
+    } catch {
+      return { files: null, source: 'manifest-unreadable' }
+    }
+  }
+  return { files: null, source: 'unavailable' }
+}
+
+/** 被审文档里哪些属于"生成块"对账对象(README 与各语言 README 共用同一块的实现)。 */
+const BLOCK_DOC_RE = /^README(\.[\w-]+)?\.md$/i
+
+/**
+ * DN5 差值棘轮(push 档,2026-11-20,§12e 差值维):
+ * `trackedFiles` 与清单现算的差,只有**README 被本次推送携带**时才是本次带进来的内容问题;
+ * 否则是别席推进文件清单后没人刷块留下的存量漂移 ⇒ 只报数不阻断(恒红门禁令 §0.2)。
+ * 推送面取不到 ⇒ 维持硬拦(fail-closed:宁可多要一次定向说明,不多放一次)。
+ * 非 push 档(提交链 staged/head / 人工 worktree 面)行为一字不变。
+ */
+export function classifyDn5({ pushMode, problems, scope }) {
+  const list = Array.isArray(problems) ? problems : []
+  if (list.length === 0) return { blocking: [], stock: [], reason: '无 DN5 问题' }
+  if (!pushMode) return { blocking: list, stock: [], reason: '非 push 档 ⇒ 维持原判' }
+  if (!scope || !Array.isArray(scope.files) || scope.files.length === 0)
+    return { blocking: list, stock: [], reason: '推送面取不到 ⇒ fail-closed,维持硬拦' }
+  const carrier = scope.files.find((f) => BLOCK_DOC_RE.test(f))
+  if (carrier) return { blocking: list, stock: [], reason: `本次推送携带 ${carrier} ⇒ 判本次内容问题` }
+  return { blocking: [], stock: list, reason: `README 不在本次推送面(${scope.source})⇒ 存量漂移只报数` }
+}
+
+/**
  * 被审文档在"本轮判定"里是否真的被改动(只列路径,不读内容 —— 与 `cat-file` 不同,这是枚举)。
  *   staged:索引 vs HEAD(`git diff --cached`);HEAD 取不到(仓库无提交)⇒ 全算被触及。
  *   head   :HEAD vs HEAD^(merge 比第一父即可);HEAD^ 取不到(根提交)⇒ 全算被触及。
@@ -1145,6 +1195,19 @@ export function selfTest() {
     return c.re.test('<code>542</code> 张表')
   })
   ok('S30e 阴性对照:不归一(原始行直跑 CLAIMS)⇒ 0 命中,证明 S30a 有牙', s30eRawHits.length === 0)
+  // ── S31-S34:DN5 差值棘轮(push 档)四态,正反成对,且 fail-closed 方向单独钉一条 ──
+  const dn5p = ['生成块 `trackedFiles` = 23048,现算 23049 ⇒ 跑 node scripts/sync-readme-numbers.mjs 刷新块']
+  const dn5Off = classifyDn5({ pushMode: false, problems: dn5p, scope: { files: ['scripts/x.mjs'], source: 'push-scope' } })
+  ok('S31 非 push 档 ⇒ 维持硬拦(提交链/人工面语义不动)', dn5Off.blocking.length === 1 && dn5Off.stock.length === 0)
+  const dn5Outside = classifyDn5({ pushMode: true, problems: dn5p, scope: { files: ['scripts/x.mjs', 'apps/web/a.tsx'], source: 'push-scope' } })
+  ok(
+    'S32 push 档 + README 不在推送面 ⇒ 降为存量只报数',
+    dn5Outside.blocking.length === 0 && dn5Outside.stock.length === 1 && /存量漂移只报数/.test(dn5Outside.reason),
+  )
+  const dn5Carrier = classifyDn5({ pushMode: true, problems: dn5p, scope: { files: ['README.md'], source: 'push-scope' } })
+  ok('S33 push 档 + README 在推送面 ⇒ 仍判红(正对照)', dn5Carrier.blocking.length === 1 && dn5Carrier.stock.length === 0)
+  const dn5NoScope = classifyDn5({ pushMode: true, problems: dn5p, scope: { files: null, source: 'unavailable' } })
+  ok('S34 推送面取不到 ⇒ fail-closed 维持硬拦(不把取不到读成没有改动)', dn5NoScope.blocking.length === 1 && dn5NoScope.stock.length === 0)
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -1212,7 +1275,10 @@ function main(argv) {
     return 2
   }
   const inv = judgeTrackedInventory({ docText: docsText.get('README.md') ?? '', numbers: derived.numbers, inventory })
-  const dn5Problems = inv.ok ? [] : inv.problems
+  // DN5 差值棘轮(push 档):生成块 `trackedFiles` 的差只有"README 在本次推送面里"才算本次内容问题;
+  // 否则是别席推进清单留下的存量漂移 ⇒ 只报数(§12e 差值维 / §0.2 恒红门禁令)。
+  const dn5Scope = pushMode ? readPushScope(root) : null
+  const dn5 = classifyDn5({ pushMode, problems: inv.ok ? [] : inv.problems, scope: dn5Scope })
   if (inv.applicable) candidates += 1
   // 按**文档**分别问责:strict/worktree 面全判;提交链面只判"本轮被触及的那份" ——
   // 否则改 zh 的那枚会为 en 的旧账挡路(别人欠的债钉红无关提交,§12e 同型),
@@ -1378,7 +1444,7 @@ function main(argv) {
 
   const { code, why } = decide({
     violations,
-    blockProblems: [...blockProblems, ...dn5Problems],
+    blockProblems: [...blockProblems, ...dn5.blocking],
     descProblems,
     undetermined,
     strict,
@@ -1387,11 +1453,14 @@ function main(argv) {
   })
   const driftCount = driftDocs.reduce((a, d) => a + d.n, 0)
   if (!plan.enforce) {
-    const drift = driftCount + violations.length + blockProblems.length + dn5Problems.length + descProblems.length
+    const drift = driftCount + violations.length + blockProblems.length + dn5.blocking.length + dn5.stock.length + descProblems.length
     console.log(`face=${face} · 现算 ${Object.keys(derived.numbers).length} 个数字 · ${plan.why}`)
     if (inv.applicable) {
       if (inv.ok) console.log(`   DN5 清单不变式:✅ ${inv.note}`)
-      else for (const p of inv.problems) console.log(`❌ ${p}`)
+      else if (dn5.blocking.length > 0) for (const p of dn5.blocking) console.log(`❌ ${p}`)
+      else
+        for (const p of dn5.stock)
+          console.log(`ℹ DN5 差值棘轮(push 档):${p} —— README 不在本次推送面(${dn5Scope?.source ?? '未知'}),只报数不阻断;下一次携带 README 的提交必须刷新生成块`)
     }
     if (drift > 0) console.log(`   当前漂移 ${drift} 处(只报数)—— 明细:node scripts/check-doc-numbers.mjs --strict`)
     if (code !== 0) console.log(`结论:${why}`)
@@ -1404,7 +1473,10 @@ function main(argv) {
     console.log(`   ${driftDocs.map((d) => `${d.rel}(${d.n} 处漂移)`).join('、')} 本轮未被触及 ⇒ 不判,被改动那枚必判`)
   if (inv.applicable) {
     if (inv.ok) console.log(`✅ DN5 清单不变式:${inv.note}`)
-    else for (const p of inv.problems) console.log(`❌ ${p}`)
+    else if (dn5.blocking.length > 0) for (const p of dn5.blocking) console.log(`❌ ${p}`)
+    else
+      for (const p of dn5.stock)
+        console.log(`ℹ DN5 差值棘轮(push 档):${p} —— README 不在本次推送面(${dn5Scope?.source ?? '未知'}),只报数不阻断;下一次携带 README 的提交必须刷新生成块`)
   }
   for (const v of violations)
     console.log(`❌ ${v.file}:${v.line} \`${v.key}\` 写着 ${v.found},现算 ${v.want} —— ${v.excerpt}`)

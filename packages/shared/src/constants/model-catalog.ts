@@ -99,4 +99,20 @@ export function isConversationalCategory(category: ModelUsageCategory): boolean 
 export function isArchivedModel(category: ModelUsageCategory, tier: ModelTier): boolean {
   return tier === 'legacy' || !isConversationalCategory(category)
 }
+
+/**
+ * 聊天模型选择器是否展示该模型(2026-11-20 机主定档:取消「历史模型」折叠区)。
+ *
+ * 只有"可对话用途 + 非 legacy"进选择器;legacy(过时版本)与专用用途模型
+ * (embedding / rerank / TTS / ASR / 图像 / 视频…)一律**不渲染** —— 不是折叠,是不出现。
+ *
+ * 与 `isArchivedModel` 的分工:后者仍是"看目录"场景(模型市场 / Agent 创建器)的归档分组
+ * 判据,语义未变;选择器改用本判据,避免把市场页一起掏空(市场页要能看到全量目录)。
+ *
+ * 后端字段缺失(老后端 / 缓存 / 降级种子)时兜底为 chat+latest ⇒ 返回 true,
+ * 宁可多显示也不误藏,保证选择器不会整片空掉。
+ */
+export function isSelectableChatModel(category: ModelUsageCategory, tier: ModelTier): boolean {
+  return isConversationalCategory(category) && tier !== 'legacy'
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
