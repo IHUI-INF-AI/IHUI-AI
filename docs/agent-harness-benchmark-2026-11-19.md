@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **47 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **48 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（47 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（48 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -581,6 +581,14 @@
 - 处置：六个 profile 的 `knownGaps` 各登记 `"hook-run"`，`reason` 追加一句"后端新增帧、本端暂无消费面 ⇒ 按同一口径显式登记、不静默"，`until` 沿用同组 `2026-12-31`。登记不等于生效：到期要么补消费面，要么删条目（门的 until 过期判红就是干这个的）。
 - 语义边界：`events`（声明已接）与 `knownGaps`（承认未接）必须二选一，不许两边都写；本次只动 `knownGaps`，已接清单一行未改 —— Web 侧经 `use-agent-runtime` 已有 `hookRuns`/`hookStats` 消费，不在缺口之列。
 - 验证：`node scripts/check-agent-event-parity.mjs` 的"端能力缺口"行从 12 降为 0（`hook-run` 这一族清零）；该门剩余 8 行"字段面断裂"属别席既有提交（chunk / error / fallback / reasoning / tool-approval / tool-call-args-delta 的声明键与解析面读点口径），与本项无关，未动其判据 —— 本门未接提交链，此 8 行不阻塞任何落地。
+### 5.49 第 48 项：钩子明细块搬出面板（最近一帧的三态读数有了组件级断言）
+
+- 问题：第 26 项把 `hook.run` 的逐钩子明细直接写在 `agent-task-progress-pane.tsx` 的 JSX 里（约 800 行面板的一角），三态文案 `hookStatusLabel` 与配色也定义在面板的渲染作用域内。结果是：`pane-runtime-hook-runs` 这个 testid、`data-hook-status` 逐行读数、错误文本只在出错条出现，全都没有组件级断言 —— 任何一次 JSX 重排都可能在无人察觉时把"哪条超时、哪条报错"读错。
+- 处置：新增 `apps/web/src/components/ai/hook-run-detail.tsx` 的 `HookRunDetail({ run, t })`，把明细块的布局、三态文案、三态配色、`data-hook-status` 一并收进组件；面板只剩 `{lastHookRun && <HookRunDetail run={lastHookRun} t={t} />}`，`hookStatusLabel` 与 `Webhook` 图标导入同步删除（不留第二份）。类型直接取共享层的 `AgentHookRunEvent`（§0.6 不另造一份帧形状）。
+- 语义边界：明细块仍只呈现**最近一帧**（一帧即同一次工具调用的全部钩子），跨帧累计留在 `HookReadout`；两块分工不变，不重复计数。
+- 测试：新增 `__tests__/hook-run-detail.test.tsx` 4 例 —— 标题带工具名与**条目数**（不是帧数）；逐行 `data-hook-status` 顺序与三态文案一一对应；错误文本只挂在出错那条、正常条目不出 `null`；`toolName` 缺失时用 `—` 占位而不是空白（空白会被读成"没跑钩子"）。
+
+验证：`vitest run hook-run-detail.test.tsx hook-readout.test.tsx use-hook-audit-summary.test.ts` → `19 passed`（15 旧 + 4 新）；`watermark verify` 覆盖 1/1。`@ihui/web` 全量 typecheck 当前红点是别席在飞文件 `send-message.ts` 的 `reasoningEffort`（不在本项文件面），本项三文件无 TS 报错。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
