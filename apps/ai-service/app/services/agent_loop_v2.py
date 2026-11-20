@@ -8238,6 +8238,31 @@ class AgentLoopV2:
                             "hook_ask_require_approval",
                             "pre_tool_use 钩子要求人工确认,本次抬升为需审批",
                         )
+                # updatedInput(契约 PreToolUseHookSpecificOutputWire.updatedInput):
+                # 真正替换工具入参,而不是只透出字段。位置刻意在**所有硬边界之后**、
+                # 守卫/审批/执行之前 ⇒ 改写后的入参仍要过 guarded_pipeline、路径校验
+                # 与审批门,钩子不能借改写绕过任何闸门(只改"做什么",不改"允许谁做")。
+                from ..core.hook_runtime import NO_UPDATED_OUTPUT as _NO_INPUT
+
+                _hk_input = getattr(_hk_outcome, "updated_input", _NO_INPUT)
+                if _hk_input is not _NO_INPUT and isinstance(_hk_input, dict):
+                    if _hk_input != tc.args:
+                        logger.info(
+                            "钩子改写工具入参: tool=%s, keys=%s, session=%s",
+                            tc.name,
+                            sorted(_hk_input.keys()),
+                            self._session_id or "",
+                        )
+                    tc.args = _hk_input
+                    # setdefault:同一调用上 allow 豁免是更强的审计事实,不被"改写
+                    # 入参"这条提示覆盖掉(两条都发生过时保留先落的那一条)。
+                    self._decision_hints.setdefault(
+                        tc.id,
+                        (
+                            "hook_updated_input",
+                            "pre_tool_use 钩子改写了本次工具入参",
+                        ),
+                    )
                 # 批 57 接线:P1 用户可见缺口——消费 PRE_TOOL_USE 钩子注入的
                 # 附加上下文(对标 Codex additionalContext / ContextualUserFragment),
                 # 并入模型输入历史。非注入 / 列表为空 = 零行为变化;异常隔离,

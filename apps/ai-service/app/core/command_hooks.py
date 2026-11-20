@@ -349,6 +349,10 @@ def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
             # 消费侧认的键;给了 null 也是"显式替换为空",不能当未提供。
             if "updatedMCPToolOutput" in specific:
                 out["updated_output"] = specific["updatedMCPToolOutput"]
+            # PreToolUse 的入参改写面(契约字段 updatedInput):只对本仓支持的
+            # 对象形状透出,非对象由运行时侧再拒一次。
+            if "updatedInput" in specific:
+                out["updated_input"] = specific["updatedInput"]
         return out or None
 
     _hook.__name__ = spec.name.replace(":", "_").replace("-", "_")

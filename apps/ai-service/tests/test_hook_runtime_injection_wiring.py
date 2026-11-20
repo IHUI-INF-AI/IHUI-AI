@@ -196,6 +196,75 @@ async def test_no_hook_still_asks_for_high_risk(monkeypatch: pytest.MonkeyPatch)
 
 
 # ---------------------------------------------------------------------------
+# 3c. 2026-11-20:updatedInput 真正替换工具入参(不是只透出字段)
+# ---------------------------------------------------------------------------
+async def test_updated_input_rewrites_args_before_execution() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def executor(args: dict[str, Any]) -> dict[str, Any]:
+        seen.append(dict(args))
+        return {"ok": True}
+
+    tool = ToolDefinition(
+        name="demo",
+        description="demo tool",
+        parameters={"type": "object"},
+        executor=executor,
+    )
+    register_lifecycle_hook(
+        HookKind.PRE_TOOL_USE,
+        lambda payload: {"updated_input": {"note": "sanitized"}},
+        name="wiring-rewrite",
+    )
+    loop = AgentLoopV2(
+        _noop_llm,
+        [tool],
+        enable_checkpoint=False,
+        approval_enabled=False,
+        chain="main",
+        hook_runtime=build_registered_hook_runtime(),
+    )
+    tr = await loop._execute_single(
+        ToolCall(id="c6", name="demo", args={"note": "raw-secret"})
+    )
+    assert tr.error is None
+    assert seen == [{"note": "sanitized"}]
+    assert loop._decision_hints["c6"][0] == "hook_updated_input"
+
+
+async def test_non_object_updated_input_is_ignored() -> None:
+    """非对象改写比不改更危险:运行时侧必须拒绝(工具仍收到原入参)。"""
+    seen: list[dict[str, Any]] = []
+
+    async def executor(args: dict[str, Any]) -> dict[str, Any]:
+        seen.append(dict(args))
+        return {"ok": True}
+
+    tool = ToolDefinition(
+        name="demo",
+        description="demo tool",
+        parameters={"type": "object"},
+        executor=executor,
+    )
+    register_lifecycle_hook(
+        HookKind.PRE_TOOL_USE,
+        lambda payload: {"updated_input": "not-a-dict"},
+        name="wiring-rewrite-bad",
+    )
+    loop = AgentLoopV2(
+        _noop_llm,
+        [tool],
+        enable_checkpoint=False,
+        approval_enabled=False,
+        chain="main",
+        hook_runtime=build_registered_hook_runtime(),
+    )
+    await loop._execute_single(ToolCall(id="c7", name="demo", args={"keep": True}))
+    assert seen == [{"keep": True}]
+    assert "c7" not in loop._decision_hints
+
+
+# ---------------------------------------------------------------------------
 # 4. 三处生产构造入口确实传入非空 runtime(动态捕获 + 静态源锁)
 # ---------------------------------------------------------------------------
 class _CapturingLoop:
