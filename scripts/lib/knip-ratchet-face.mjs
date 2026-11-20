@@ -95,4 +95,95 @@ export function detectConfigLoadFailures(stderr) {
   }
   return failures
 }
+
+/**
+ * 把 knip 的 JSON 报告展平成「可比的符号清单」(2026-11-20 立,差值棘轮的判据基础)。
+ *
+ * 为什么必须从「计数」升级到「清单」(实测代价):
+ *   计数基线的容差恒为 0,而 knip 对同一份内容在不同平台上会抖 1-2 项(实测 CI=本机+1),
+ *   于是要么永远红、要么被迫放宽容差;放宽之后又看不见真正的新增。更致命的是**存量替换**:
+ *   清掉 3 个旧死导出、同时新进 3 个新死导出,计数不变 ⇒ 门判绿而新债已入库。
+ *   逐项清单把这两件事同时解决:只拦「当前有、基线没有」的键,行号抖动不产生新键。
+ *
+ * 键的形态(行号/列号**故意不入键** —— 一次 append 就挪位,和 AGENTS 里"证据指针禁行号"同源):
+ *   · files            → 文件路径本身
+ *   · exports/types/…  → `namespace.name`(有命名空间时)或 `name`
+ *   · duplicates       → 同一文件里的重复名用 `|` 串起来(该类的 item 是数组,不是对象)
+ *   · 其余(依赖/二进制等) → `name`
+ *
+ * 返回 `{ [category]: { [file]: string[] } }`,每个文件的键已排序去重,便于 diff 与稳定序列化。
+ *
+ * @param {{ issues?: Array<Record<string, unknown>> }} report knip --reporter json 的产物
+ * @param {readonly string[]} categories 需要展开的类别清单(与棘轮 CATEGORIES 同源)
+ */
+export function expandItems(report, categories) {
+  const out = Object.fromEntries(categories.map((c) => [c, new Map()]))
+  for (const issue of report?.issues ?? []) {
+    const file = typeof issue.file === 'string' ? issue.file : ''
+    for (const c of categories) {
+      const arr = issue[c]
+      if (!Array.isArray(arr)) continue
+      const bucket = out[c]
+      if (!bucket.has(file)) bucket.set(file, new Set())
+      const keys = bucket.get(file)
+      for (const item of arr) {
+        const k = itemKey(item)
+        if (k) keys.add(k)
+      }
+    }
+  }
+  const result = {}
+  for (const c of categories) {
+    const files = {}
+    for (const [file, keys] of out[c]) {
+      if (keys.size > 0) files[file] = [...keys].sort()
+    }
+    result[c] = files
+  }
+  return result
+}
+
+/** 单个 knip issue 条目 → 稳定键。认不出的形状返回空串(宁可漏一个键,不制造假键)。 */
+function itemKey(item) {
+  if (Array.isArray(item)) {
+    // duplicates:一条 = 一个文件里的一组同名导出
+    const names = item.map((x) => (x && typeof x.name === 'string' ? x.name : '')).filter(Boolean)
+    return names.length > 0 ? names.join('|') : ''
+  }
+  if (!item || typeof item.name !== 'string' || item.name === '') return ''
+  const ns = typeof item.namespace === 'string' && item.namespace !== '' ? `${item.namespace}.` : ''
+  return `${ns}${item.name}`
+}
+
+/**
+ * 清单差值:当前面相对基线**新增了哪些项**、清偿了哪些项。
+ *
+ * 语义与 AGENTS §0.5「棘轮锚点 = 该文件 HEAD 自身的违规数、只拦把违规加回来」同向:
+ *   · `added`    当前有、基线没有 ⇒ 这才是红;
+ *   · `resolved` 基线有、当前没有 ⇒ 存量被清偿,合法,只作收紧提示。
+ *
+ * @param {Record<string, Record<string, string[]>>} current expandItems 的产物
+ * @param {Record<string, Record<string, string[]>>} baseline 基线里的同名结构
+ */
+export function diffItems(current, baseline) {
+  const added = {}
+  const resolved = {}
+  const files = new Set([...Object.keys(current ?? {}), ...Object.keys(baseline ?? {})])
+  for (const c of files) {
+    const hitAdded = []
+    const hitResolved = []
+    const filesCur = current?.[c] ?? {}
+    const filesBase = baseline?.[c] ?? {}
+    const allFiles = new Set([...Object.keys(filesCur), ...Object.keys(filesBase)])
+    for (const file of allFiles) {
+      const cur = new Set(filesCur[file] ?? [])
+      const base = new Set(filesBase[file] ?? [])
+      for (const k of cur) if (!base.has(k)) hitAdded.push({ file, key: k })
+      for (const k of base) if (!cur.has(k)) hitResolved.push({ file, key: k })
+    }
+    added[c] = hitAdded
+    resolved[c] = hitResolved
+  }
+  return { added, resolved }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
