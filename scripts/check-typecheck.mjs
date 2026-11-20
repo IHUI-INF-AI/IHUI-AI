@@ -572,12 +572,31 @@ if (_noFileFace) {
   console.error(`[check-typecheck] ⚠️ ${_noFileFace.reason} ⇒ 不启用无文件面档,按原路径判定`)
 }
 
+// **TS 输入面**的判据常量(2026-11-20):定义上移到主流程之前。
+// 原因同本文件已踩过的两处 TDZ:无 TS 输入面的判定现在跑在"建图之前"(省掉对空面白建全仓 import 图),
+// 若这两个 const 仍留在后面,模块求值到这里时它们还在 TDZ ⇒ 直接 ReferenceError 崩掉。
+const TS_INPUT_BASENAMES = new Set(['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+const TS_INPUT_EXT_RE = /\.(ts|tsx|mts|cts)$/i
+
 // ─── 主流程 ───
 const scope = getScopeFiles()
 const scopeFilesRaw = scope.files
+// 2026-11-20:无 TS 输入面的判定提到**建图之前**。
+// 原先顺序是「先 widenScopeOverDependents(建全仓 import 图)→ 才发现一个 TS 输入都没碰 → exit 0」,
+// 那张图对"不进任何 tsc program 的改动"是纯白跑(实测 scripts/*.mjs 面 4.1s 里 ~3.5s 花在建图上)。
+// 判据依赖只有 scopeFilesRaw 与 tsconfig 实扫,提前计算不改变任何结论。
+const _noTsInput = resolveNoTsInputFace(scopeFilesRaw)
 // G-406 ②:降级判据用**加宽后**的 scope(改契约要红 importer);
 // 定向快通道仍用 scopeFilesRaw(见 widenScopeOverDependents 边界 1)。
-const _widen = widenScopeOverDependents(scopeFilesRaw)
+const _widen = _noTsInput
+  ? {
+      files: scopeFilesRaw,
+      added: [],
+      widened: false,
+      ok: true,
+      reason: '无 TS 输入面:本次改动全部不在任何 tsc program 的输入集合里,无需反向依赖加宽',
+    }
+  : widenScopeOverDependents(scopeFilesRaw)
 const scopeFiles = _widen.files
 // RP-67:消费 import-graph 的 ok 信号 —— 建图/闭包失败(ok:false)时 files 退回窄面,
 // 拿窄面判「范围外」并放行是 fail-open;此时关闭放行方向、维持原失败结论。
@@ -612,8 +631,7 @@ const scopeLabel =
 //      "此刻的仓态"这个快照 —— 快照会漂移,而漂移是安静的。
 // 出口:命中 ⇒ 打印逐条清单与 (c) 的扫描依据,exit 0。这是「射程之外的通过」,不是 skip:
 //       tsc 的输入集合没变,结论就必然不变(§0.3 的出题前提)。
-const TS_INPUT_EXT_RE = /\.(ts|tsx|mts|cts)$/i
-const TS_INPUT_BASENAMES = new Set(['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+// (两个判据常量已上移到主流程之前:此处若再声明一份就是重复声明,且会把 TDZ 带回来。)
 
 /** 列出 git 索引里的全部 tsconfig(含 packages/tsconfig/*.json 这类基座)。取不到返回 null ⇒ 判据不可用。 */
 function listTsconfigPaths() {
@@ -717,7 +735,7 @@ const _tsFaceFiles = scopeEnabled ? tsInputOnly(scopeFilesRaw) : null
 // 新档判定提前到 --dry-run 之前:只读勘察(scout)必须能看见"这一趟会走哪条路",
 // 否则勘察报的是"将运行 typecheck-full",实际却走了无 TS 输入面档 —— 勘察结论与真跑不一致。
 // 注意:提前的只是**判定**,exit 0 的动作仍在主流程里(dry-run 不许改变任何退出语义)。
-const _noTsInput = scopeEnabled ? resolveNoTsInputFace(scopeFilesRaw) : null
+// 判定本身已在主流程开头算好(建图之前,见上方注释),这里只做引用。
 
 if (DRY_RUN) {
   console.log('[check-typecheck] --dry-run 干跑:不实际运行 typecheck')
