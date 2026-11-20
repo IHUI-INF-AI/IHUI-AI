@@ -72,6 +72,12 @@ export const AGENT_TASK_EVENTS = {
   QUESTION: 'question',
   /** hook question-resolved → 提问结算帧(工作台,四态 + 可选 continued) */
   QUESTION_RESOLVED: 'question-resolved',
+  /**
+   * hook hook.run → 逐钩子运行结果(2026-11-20 第 26 项)。
+   * 与 hook-failed 的分工:hook-failed 报"钩子自己挂了";本事件报"钩子跑了并给出了
+   * 裁决/改写/超时",载荷 hooks[] 逐条 name/kind/status/durationMs。
+   */
+  HOOK_RUN: 'hook-run',
 } as const
 
 /** 全部 Agent 任务流事件名的联合类型。 */
@@ -1002,11 +1008,81 @@ export function parseAgentQuestionResolvedEvent(raw: unknown): AgentQuestionReso
   }
 }
 
+// ============================================================================
+// hook.run(2026-11-20 第 26 项):逐钩子运行结果
+// ============================================================================
+
+/** 单枚钩子的运行结果(status 三态,未知值拒收 —— 不让"读不懂"变成"跑成功")。 */
+export interface AgentHookRunEntry {
+  name: string
+  kind: string
+  status: 'ok' | 'timeout' | 'error'
+  durationMs: number
+  error: string | null
+}
+
+/** hook.run 解析后视图。 */
+export interface AgentHookRunEvent {
+  type: 'hook-run'
+  runId: string
+  toolName: string | null
+  toolCallId: string | null
+  hooks: AgentHookRunEntry[]
+  sessionId: string
+}
+
+const HOOK_RUN_STATUSES: ReadonlySet<string> = new Set(['ok', 'timeout', 'error'])
+
+const HOOK_RUN_FIELDS = z.object({
+  type: z.string(),
+  run_id: z.string().optional(),
+  tool_name: z.string().optional(),
+  tool_call_id: z.string().optional(),
+  hooks: z.array(z.record(z.string(), z.unknown())).optional(),
+})
+
+/** hook.run 解析:任何一条钩子状态不在三态内 ⇒ 拒帧;空 hooks 也拒(空表不下发)。 */
+export function parseHookRunEvent(raw: unknown): AgentHookRunEvent | null {
+  const data = parseEnvelope(raw)
+  if (!data || data.type !== AGENT_TASK_EVENTS.HOOK_RUN) return null
+  const p = data.payload as Record<string, unknown> | undefined
+  if (!p) return null
+  const gate = HOOK_RUN_FIELDS.safeParse({ type: AGENT_TASK_EVENTS.HOOK_RUN, ...p })
+  if (!gate.success) {
+    recordRouteRejections(AGENT_TASK_EVENTS.HOOK_RUN, gate, p)
+    return null
+  }
+  const rawHooks = Array.isArray(p['hooks']) ? p['hooks'] : []
+  const hooks: AgentHookRunEntry[] = []
+  for (const item of rawHooks) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+    const rec = item as Record<string, unknown>
+    const status = rec['status']
+    if (typeof status !== 'string' || !HOOK_RUN_STATUSES.has(status)) return null
+    if (typeof rec['name'] !== 'string') return null
+    hooks.push({
+      name: rec['name'],
+      kind: typeof rec['kind'] === 'string' ? rec['kind'] : '',
+      status: status as AgentHookRunEntry['status'],
+      durationMs: typeof rec['durationMs'] === 'number' ? rec['durationMs'] : 0,
+      error: typeof rec['error'] === 'string' ? rec['error'] : null,
+    })
+  }
+  if (hooks.length === 0) return null
+  return {
+    type: 'hook-run',
+    runId: String(p['run_id'] ?? ''),
+    toolName: typeof p['tool_name'] === 'string' ? p['tool_name'] : null,
+    toolCallId: typeof p['tool_call_id'] === 'string' ? p['tool_call_id'] : null,
+    hooks,
+    sessionId: String(data.session_id ?? p['session_id'] ?? ''),
+  }
+}
+
 /**
  * 严格投影工厂(b76-05 票1):路由闸通过后,对整张字段表逐字段全型校验。
  * 声明字段违规 ⇒ 返回带 `fault.sse.fieldRejected` 码的 SseFieldFault(**不是 null**)——
- * 这一形状就是"读不懂"在账面上的样子;未知键照常进 unknownSseFieldCounts。
- * 全型通过 ⇒ 交回主工厂拿同一份事件对象(路由闸是字段表的 .pick 派生,严格通过
+ * 这一形状就是"读不懂"在账面上的样子;未知键照常进 unknownSseFieldCounts。 * 全型通过 ⇒ 交回主工厂拿同一份事件对象(路由闸是字段表的 .pick 派生,严格通过
  * 则路由必通过,此处不会出现"严格绿而路由红")。
  * 字段表之外的事件名交回主工厂(含未知名计数),不造第二份路由判据。
  */
@@ -1067,6 +1143,7 @@ export type AgentTaskEvent =
   | { name: typeof AGENT_TASK_EVENTS.TOOL_APPROVAL; event: ToolApprovalEvent }
   | { name: typeof AGENT_TASK_EVENTS.QUESTION; event: AgentQuestionEvent }
   | { name: typeof AGENT_TASK_EVENTS.QUESTION_RESOLVED; event: AgentQuestionResolvedEvent }
+  | { name: typeof AGENT_TASK_EVENTS.HOOK_RUN; event: AgentHookRunEvent }
 
 /**
  * 按事件名路由到对应解析器(EventSink 协议统一入口)。
@@ -1118,6 +1195,10 @@ export function parseAgentTaskEvent(name: string, raw: unknown): AgentTaskEvent 
     }
     case AGENT_TASK_EVENTS.QUESTION_RESOLVED: {
       const event = parseAgentQuestionResolvedEvent(raw)
+      return event ? { name, event } : null
+    }
+    case AGENT_TASK_EVENTS.HOOK_RUN: {
+      const event = parseHookRunEvent(raw)
       return event ? { name, event } : null
     }
     default:
