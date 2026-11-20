@@ -51,10 +51,16 @@ describe('消息中心数据钩子接线锁', () => {
     expect(zh.messageCenter?.deleteConfirm).toBeUndefined()
   })
   it('B 真端点在 api 薄封装上齐(与 apps/api message.ts 现读路由逐条对应)', () => {
-    expect(apiSrc).toMatch(/markMessageRead[\s\S]*`\/messages\/\$\{id\}\/read`/)
-    expect(apiSrc).toMatch(/deleteMessage[\s\S]*`\/messages\/\$\{id\}`/)
-    expect(apiSrc).toMatch(/markPrivateRead[\s\S]*`\/messages\/private\/\$\{pid\}\/read`/)
-    expect(apiSrc).toMatch(/deletePrivateMessage[\s\S]*`\/messages\/private\/\$\{pid\}`/)
+    // 2026-11-20 对齐:薄封装侧早已给 path 参数加了 encodeURIComponent(id/pid) 加固
+    // (防 id 注入 URL),本节断言随之同形 —— 判的仍是"端点在、路径骨架对",不是照抄实现。
+    expect(apiSrc).toMatch(/markMessageRead[\s\S]*\/messages\/\$\{encodeURIComponent\(id\)\}\/read/)
+    expect(apiSrc).toMatch(/deleteMessage[\s\S]*\/messages\/\$\{encodeURIComponent\(id\)\}/)
+    expect(apiSrc).toMatch(
+      /markPrivateRead[\s\S]*\/messages\/private\/\$\{encodeURIComponent\(pid\)\}\/read/,
+    )
+    expect(apiSrc).toMatch(
+      /deletePrivateMessage[\s\S]*\/messages\/private\/\$\{encodeURIComponent\(pid\)\}/,
+    )
     expect(apiSrc).toMatch(/getMessages[\s\S]*'\/messages'/)
   })
   it('B2 页面按行来源分轨调用(公告/系统 vs 私信不混出口)', () => {
