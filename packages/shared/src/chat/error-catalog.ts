@@ -1231,6 +1231,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'TERMINAL_INVALID_INPUT.action',
     category: 'invalidResponse',
   },
+  TERMINAL_MOUSE_DISABLED: {
+    titleKey: 'TERMINAL_MOUSE_DISABLED.title',
+    actionKey: 'TERMINAL_MOUSE_DISABLED.action',
+    category: 'invalidResponse',
+  },
   TERMINAL_NOT_A_TTY: {
     titleKey: 'TERMINAL_NOT_A_TTY.title',
     actionKey: 'TERMINAL_NOT_A_TTY.action',
