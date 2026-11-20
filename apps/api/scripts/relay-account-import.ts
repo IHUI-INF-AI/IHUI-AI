@@ -55,6 +55,8 @@ const {
   validateExportRoundTrip,
 } = await import('../src/services/relay-account-pool-service.js')
 const { db, dbRead, closeDbPools } = await import('../src/db/index.js')
+// DB-35(2026-11-16):users.email 存 enc:v1: 密文;owner 身份键须解密为明文才能跨环境比对(同 relay-pool-owner-map.ts)。
+const { decryptCredential } = await import('../src/utils/crypto.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
 const { getRelayAdapter, isRefreshableProviderCode } =
   await import('../src/services/relay-upstream-adapters.js')
@@ -404,8 +406,11 @@ async function loadOwnerEmailById(ownerIds: string[]): Promise<Record<string, st
   `)
   for (const r of toRows(raw)) {
     const id = String(r.owner_id ?? '')
-    const email = r.email === null || r.email === undefined ? '' : String(r.email).trim()
-    if (id && email) out[id] = email
+    const emailRaw = r.email === null || r.email === undefined ? '' : String(r.email).trim()
+    if (!id || !emailRaw) continue
+    // DB-35:解密为明文身份键(密文还原 / 存量明文原样);解密失败 fail-closed 抛错,绝不把密文当 ownerEmail 导出。
+    const email = decryptCredential(emailRaw)
+    if (email) out[id] = email
   }
   return out
 }
