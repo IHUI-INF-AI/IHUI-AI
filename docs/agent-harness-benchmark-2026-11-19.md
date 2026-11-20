@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **49 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **50 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（49 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（50 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -597,6 +597,14 @@
 - 测试：后端新增 2 例（`maxBytes` 与 `sizeBytes` 实测且能对账文件大小 / 台账缺失时 `sizeBytes` 为 `None` 而 `maxBytes` 仍是整数）；前端新增 2 例（95% 报 `runtimeHookAuditNearFull:92`、低于 90% 与容量未知都不出现），并补齐既有 fixture 的两格。
 
 验证：`pytest test_hook_audit.py` → `15 passed`；`vitest run hook-readout / use-hook-audit-summary / hook-run-detail` → `22 passed`；`mypy --strict app/core/hook_audit.py` 与 `ruff check` 通过；`check-i18n-keys` → 5 语言 parity OK（新键 `runtimeHookAuditNearFull` 已在 zh-CN / en / zh-TW / ja / ko 同批落地）。
+### 5.51 第 50 项：推理档位在号池腿上被静默丢弃（契约字段有、执行链断一跳）
+
+- 问题：`UpstreamForwardRequest.reasoningEffort` 早在渠道路径就声明了（`relay-upstream-forwarder.ts` 注释写明"reasoning_effort 透传，账号池由适配器映射到平台专有键"），HTTP 那条腿（`ai-chat-stream.ts`）也在传；web 客户端 `sendRelayChat` 的调用点同样已经把 `reasoningEffort` 递进去。唯独 WS 号池腿（`ws-relay-chat.ts` 的 `forwardToChannel` 调用）**没读帧里的这个键**——于是用户在号池模型上选的推理档位被静默忽略，而类型系统因为选项接口没声明该字段，把这件事报成了一行 `TS2353`，看起来像"web 写错了"，实际是**中间一跳缺读点**。
+- 处置：把这一跳补齐，而不是删字段（删掉等于承认"号池永远按默认档"，与 `UpstreamForwardRequest` 的既有承诺相反）。`StreamRelayChatOptions` 增 `reasoningEffort?: string`（注释写明下行键名按 snake 写、`undefined` 不发键）；`sendChat` 的 chat 帧按需追加 `reasoning_effort`；`ws-relay-chat.ts` 在转发调用里按 `typeof frame.reasoning_effort === 'string'` 取值传给 `reasoningEffort`。
+- 语义边界：三处都只做"有值才传"——空串/`undefined` 不上行、不落成 `''`（空串到适配器会被当成"显式低档"，比不传更糟）。字段名一律 `reasoning_effort`（下行）/ `reasoningEffort`（TS 面），不另造第二套名字（§0.6）。
+- 测试：`relay-chat-stream.test.ts` 新增一例双向牙（表态 ⇒ 帧内 `reasoning_effort='high'`；不表态 ⇒ 整键缺席）；`ws-relay-chat.test.ts` 新增一例（真 WS 帧带 `reasoning_effort` ⇒ `forwardToChannel` 收到的 `reasoningEffort` 为 `'high'`，缺省时为 `undefined`）。
+
+验证：`vitest run src/lib/__tests__/relay-chat-stream.test.ts` → `9 passed`；`@ihui/api` 的 `ws-relay-chat.test.ts` → `11 passed`；`node scripts/check-typecheck.mjs` → 全量 TS + mypy 通过（`exit=0 elapsed=214.5s scopeFiles=6302`），此前阻塞全仓推送的 `send-message.ts:1041 TS2353` 随之消除。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
