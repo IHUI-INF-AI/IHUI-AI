@@ -255,6 +255,14 @@ APP_CURSOR_KEY_SEQUENCES: Final[dict[str, str]] = {
 }
 APP_CURSOR_MODE: Final = 1
 
+#: 焦点事件上报(DEC 私有模式 1004)。与鼠标同族:程序自己发 `DECSET 1004` 点单后,终端才在
+#: 窗口获得/失去焦点时各上报一次 —— tmux 用它决定"这块窗格现在收不收键",vim 用它刷光标形状。
+#: 两条序列是协议常量(`ESC[I` = 进焦点,`ESC[O` = 出焦点),不是随手拼的字节;和鼠标一样,
+#: 程序没点单就发,到了程序那边只是垃圾输入,所以本模块显式拒(`TERMINAL_FOCUS_DISABLED`)。
+FOCUS_MODE: Final = 1004
+FOCUS_IN_SEQUENCE: Final = "\x1b[I"
+FOCUS_OUT_SEQUENCE: Final = "\x1b[O"
+
 #: PTY 会话的终端身份两键(**只在调用方没显式给时补**)。真 tty 缺 `TERM` 时,程序
 #: (`ls --color` / `git` / `less` / `vim`)会按 dumb 终端处理:颜色与光标控制全关、分页退化。
 PTY_TERM: Final = "xterm-256color"
@@ -433,6 +441,11 @@ class TerminalSession:
         """
         return bool(ALT_SCREEN_MODES & self.private_modes)
 
+    @property
+    def focus_events(self) -> bool:
+        """程序是否请求了焦点事件上报(`DECSET 1004`)。与 `mouse_mode` 同族:输出驱动,不由调用方声明。"""
+        return FOCUS_MODE in self.private_modes
+
     def first_seq(self) -> int:
         """当前仍可读到的**最早** seq(缓冲空时 = 下一个将要产出的 seq)。"""
         with self.lock:
@@ -459,6 +472,7 @@ class TerminalSession:
             "mouse_mode": self.mouse_mode,
             "mouse_encoding": self.mouse_encoding,
             "alt_screen": self.alt_screen,
+            "focus_events": self.focus_events,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -1634,6 +1648,84 @@ def mouse_terminal(
     }
 
 
+def focus_terminal(
+    terminal_id: str,
+    *,
+    state: str = "in",
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """把一次**窗口焦点变化**作为输入字节上报给程序(`ESC[I` 进焦点 / `ESC[O` 出焦点)。
+
+    为什么是由服务端发而不是程序自己知道:焦点是**终端侧**的事实(用户的窗口/标签页切走了),
+    子进程看不见。DEC 私有模式 1004 就是程序对终端说的"有人切走/切回来时告我一声":tmux 靠它
+    决定这块窗格收不收键,vim 靠它刷光标形状。程序没点 `DECSET 1004` 就发过去,这两条序列在
+    它眼里只是两串垃圾输入 —— 所以先读账本,没点单显式拒(`TERMINAL_FOCUS_DISABLED`)。
+
+    **两条后端都支持**(与 `mouse_terminal` 的 `TERMINAL_NOT_A_TTY` 不同,这是有意的):
+    鼠标坐标落在**屏幕网格**上,没有 tty 就没有格子,报表无意义;焦点是一个纯粹的**事件字节**,
+    不依附任何网格 —— 管道路径下字节同样原样落到子进程 stdin,语义不打折。
+
+    `state` 除 `in`/`out` 也接受 `focus`/`blur` 两个同义写法(模型侧更容易自然表述),
+    归一后回执里的 `state` 只有 `in`/`out` 两种,不做第三态。
+    """
+    raw = re.sub(r"[\s_]+", "-", str(state or "").strip().lower())
+    normal = {"in": "in", "focus": "in", "gain": "in", "out": "out", "blur": "out", "lose": "out"}
+    state_name = normal.get(raw)
+    if state_name is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"未知焦点状态: {state}(支持 in/out,亦接受 focus/blur)",
+        }
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if not session.focus_events:
+        return {
+            "ok": False, "errorCode": "TERMINAL_FOCUS_DISABLED",
+            "error": "程序没有请求焦点事件(DECSET 1004);现在发过去只会变成垃圾输入",
+            "terminal": session.to_dict(),
+        }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再报焦点事件;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    sequence = FOCUS_IN_SEQUENCE if state_name == "in" else FOCUS_OUT_SEQUENCE
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "本会话没有可写输入通道", "terminal": session.to_dict(),
+        }
+    try:
+        sink.write(sequence)
+        sink.flush()
+    except (BrokenPipeError, OSError, ValueError) as e:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": f"焦点事件写入失败: {e}", "terminal": session.to_dict(),
+        }
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "state": state_name,
+        "sequence": sequence,
+        "bytes_written": len(sequence.encode("utf-8")),
+        "focus_events": True,
+    }
+
+
 def eof_terminal(
     terminal_id: str,
     *,
@@ -2749,5 +2841,9 @@ __test__ = {
     "push_output": _push_output,
     "APP_CURSOR_KEY_SEQUENCES": APP_CURSOR_KEY_SEQUENCES,
     "APP_CURSOR_MODE": APP_CURSOR_MODE,
+    "focus_terminal": focus_terminal,
+    "FOCUS_MODE": FOCUS_MODE,
+    "FOCUS_IN_SEQUENCE": FOCUS_IN_SEQUENCE,
+    "FOCUS_OUT_SEQUENCE": FOCUS_OUT_SEQUENCE,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

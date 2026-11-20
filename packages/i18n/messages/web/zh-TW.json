@@ -9731,6 +9731,10 @@
           "title": "終端機未啟用滑鼠回報",
           "action": "先讓程式請求滑鼠(DECSET 1000/1002/1003),再送出滑鼠事件"
         },
+        "TERMINAL_FOCUS_DISABLED": {
+          "title": "終端機未啟用焦點回報",
+          "action": "先讓程式請求焦點事件(DECSET 1004),再回報焦點進/出"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "終端機不是 tty",
           "action": "以 PTY 模式重啟工作階段"
