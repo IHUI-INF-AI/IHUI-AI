@@ -24,6 +24,8 @@ import { aiModelConfigModels, aiModelConfig, llmCallLogs } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
+import { isRelayProviderCode } from '../../services/relay-account-format.js'
+import { ensureProviderConfigRow } from '../../jobs/relay-models-sync.js'
 
 const listQuerySchema = paginationSchema.extend({
   /** 上架状态:all / public / private */
@@ -286,6 +288,64 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '切换上下架失败'))
+    }
+  })
+
+  // ===== 9. POST /admin/relay/models/manual — 从零手动登记模型行 =====
+  // 立因:codex/doubao 适配器无 listModels(上游无列模型端点),同步 job 拉不到清单 ⇒
+  //       永远不会自动建模型行;而端点 2(POST /admin/relay/models)只接受「已存在的 modelRowId」
+  //       做 UPDATE 上架 ⇒ 无行可上架,死锁。本端点补齐「从零 INSERT」这条腿,使这两个平台
+  //       (及任何无 listModels 平台)也能由 admin 手动登记模型给用户可选。
+  // 转发安全:缺父表行时复用同步 job 的 ensureProviderConfigRow 建(base_url 仅登记字段,
+  //          转发恒走适配器,不影响真实路由);codex/doubao 转发不消费 model 名(见各自适配器头注)。
+  // 幂等:按 (config_id, model_id) 唯一约束 onConflictDoNothing,重复登记不报错。
+  const manualBodySchema = z.object({
+    /** 目标中继平台(如 codex / doubao);必须是已知中继平台码 */
+    providerCode: z.string().max(64),
+    /** 上游模型标识(转发层原样透传;doubao 忽略 model 名走内部 key,仅作展示) */
+    modelId: z.string().min(1).max(200),
+    /** 展示名(为空用 modelId) */
+    displayName: z.string().max(256).optional(),
+  })
+  server.post('/admin/relay/models/manual', async (request, reply) => {
+    const parsed = manualBodySchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { providerCode, modelId, displayName } = parsed.data
+    if (!isRelayProviderCode(providerCode))
+      return reply.status(400).send(error(400, `未知中继平台: ${providerCode}`))
+
+    try {
+      // 1) 父表行(缺则自动建,复用同步 job 单一真相源)
+      const { configId, created } = await ensureProviderConfigRow(providerCode)
+
+      // 2) 子行 upsert(按 config_id+model_id 幂等;不覆盖既有行,避免抹掉 admin 手置字段)
+      const rows = await db
+        .insert(aiModelConfigModels)
+        .values({
+          configId,
+          modelId,
+          displayName: displayName ?? modelId,
+          enabled: true,
+          isRelayPublic: true,
+        })
+        .onConflictDoNothing({
+          target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],
+        })
+        .returning({ id: aiModelConfigModels.id })
+
+      return reply.status(201).send(
+        success({
+          configId,
+          configRowCreated: created,
+          modelRowId: rows[0]?.id ?? null,
+          inserted: rows.length > 0,
+          /** inserted=false = 该 (config_id, model_id) 已存在,未改动既有行 */
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '手动登记模型失败'))
     }
   })
 
