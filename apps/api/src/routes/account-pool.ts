@@ -22,6 +22,7 @@ import { isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { RELAY_PROVIDERS, isRelayProviderCode } from '../services/relay-account-format.js'
 import { importAccounts, listUserPoolModels } from '../services/relay-account-pool-service.js'
+import { attachPoolReasoningEfforts } from '../services/pool-reasoning-efforts.js'
 import {
   checkinPlatformFor,
   fetchPoolStatus,
@@ -324,7 +325,9 @@ const accountPoolRoutes: FastifyPluginAsync = async (server) => {
         // 只认 JWT 通道(includeInternalChannel=false),机器凭据不得借管理员归属升格。
         includeOpsPool: isSystemAdmin(request, { includeInternalChannel: false }),
       })
-      return reply.send(success({ list, total: list.length }))
+      // 实测档位随行下发(2026-11-21):上游不公布枚举,由探测脚本逐档核对后记账
+      const rows = attachPoolReasoningEfforts(list)
+      return reply.send(success({ list: rows, total: rows.length }))
     } catch (e) {
       request.log.error(e, '[account-pool] 拉取号池模型失败')
       return reply.status(500).send(error(500, '拉取模型清单失败'))

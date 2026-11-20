@@ -27,6 +27,7 @@
 import * as React from 'react'
 
 import type { ModelCapabilities, ReasoningEffort } from '@ihui/types'
+import { fetchPoolChatModels } from '@ihui/api-client'
 
 import ReasoningEffortAxis from '@/components/chat/reasoning-effort-axis'
 import { fetchSelectorModels } from '@/lib/models-api'
@@ -91,19 +92,31 @@ export function ReasoningEffortInputAxis({
     // 复用模型选择器那一个出口;失败/空返回 [] ⇒ capabilities 停在 undefined(未知),
     // 轴**不会**因为拉不到列表就把档位藏起来。
     fetchSelectorModels()
-      .then((models) => {
+      .then(async (models) => {
         if (cancelled) return
         const hit = models.find((m) => m.id === lookupId)
+        let efforts: ReasoningEffort[] | undefined =
+          model === 'auto'
+            ? undefined
+            : Array.isArray(hit?.reasoning_efforts)
+              ? (hit?.reasoning_efforts as ReasoningEffort[])
+              : undefined
+        // 号池私有别名模型(hy4std 这类)不在平台模型清单里,档位只能来自
+        // GET /api/account-pool/models 下发的**实测**结果(2026-11-21)。
+        if (!efforts && model !== 'auto') {
+          const pool = await fetchPoolChatModels()
+          if (cancelled) return
+          const poolHit = pool.find((m) => m.id === lookupId)
+          efforts = Array.isArray(poolHit?.reasoning_efforts)
+            ? (poolHit?.reasoning_efforts as ReasoningEffort[])
+            : undefined
+        }
+        if (cancelled) return
         setMeta({
           capabilities: model === 'auto' ? undefined : hit?.capabilities,
           name: hit?.name,
           // 声明面与能力位同一来源(2026-11-21 D136):auto 档不采用,同样是"未知"
-          efforts:
-            model === 'auto'
-              ? undefined
-              : Array.isArray(hit?.reasoning_efforts)
-                ? hit?.reasoning_efforts
-                : undefined,
+          efforts,
         })
       })
       .catch(() => {
