@@ -31,7 +31,7 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/chrome": "^0.2.5",
+    "@types/chrome": "^0.3.7",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "happy-dom": "^20.11.1",
