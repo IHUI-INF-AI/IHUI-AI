@@ -28,7 +28,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import {
@@ -61,6 +61,11 @@ export interface ReasoningEffortAxisProps {
   disabled?: boolean
   /** 卡片头行左侧的当前模型名(2026-11-20 用户附图样式);缺省回退到轴标题 */
   modelName?: string
+  /** 卡片头行右侧那枚圆钮 = 刷新模型列表(2026-11-21 用户定档:原「恢复默认」撤掉,
+   *  把弹层里独立的「刷新模型列表」行移植到这里);缺省则不渲染该钮 */
+  onRefreshModels?: () => void
+  /** 刷新进行中(钮转圈并置灰,与弹层原行同一姿态) */
+  refreshingModels?: boolean
 }
 
 /** 档位 → chat 命名空间下的词表键(五语言同批,见 §19)。 */
@@ -87,6 +92,8 @@ export function ReasoningEffortAxis({
   notice,
   disabled,
   modelName,
+  onRefreshModels,
+  refreshingModels,
 }: ReasoningEffortAxisProps) {
   const t = useTranslations('chat')
   // 未知不误藏:capabilities 缺失 ⇒ 整轴可用;在位且 reasoning!==true ⇒ 逐档置灰并给原因
@@ -94,8 +101,12 @@ export function ReasoningEffortAxis({
   // 滑轨默认展开:档位是本卡片的正文,收起只留给"刚选完想省点高度"的场景
   const [expanded, setExpanded] = React.useState(true)
 
-  // 档位序只取契约层那一份(REASONING_EFFORT_ORDER),端内不另排一份
-  const tiers = REASONING_EFFORT_ORDER
+  // 档位序仍只取契约层那一份(REASONING_EFFORT_ORDER),端内不另排一份;
+  // 但**只呈现上游真能切换的那几档**(2026-11-21 用户质疑"上游有这么多档吗"):
+  // 契约层 wire 值域是 7 档(与 ai-service known_efforts 逐名等值),其中 xhigh/max/ultra
+  // 属扩展档 —— 主流网关只认 minimal/low/medium/high,点上去也是被后端钉回,属于"给用户
+  // 一个点了不生效的旋钮"。所以滑轨只画前四档,扩展档仍可经 API 直写(显示时照常出档位名)。
+  const tiers = REASONING_EFFORT_ORDER.slice(0, 4)
   const activeIndex = value ? tiers.indexOf(value) : -1
   /** 第 i 档在轨道上的百分比位置(首档压左端、末档压右端,两端各留 10px 给滑块出头) */
   const percentOf = (index: number) => (tiers.length > 1 ? (index / (tiers.length - 1)) * 100 : 100)
@@ -106,7 +117,7 @@ export function ReasoningEffortAxis({
       data-testid="reasoning-effort-axis"
       data-selectable={selectable ? 'true' : 'false'}
     >
-      {/* 头行(用户附图样式):模型名 · 当前档位(品牌紫) · 折叠 · 恢复默认 */}
+      {/* 头行(用户附图样式):模型名 · 当前档位(品牌紫) · 折叠 · 刷新模型列表 */}
       <div className="flex items-center gap-1">
         <span className="min-w-0 flex-1 truncate text-body font-medium">
           {modelName ?? t('reasoningEffortLabel')}
@@ -137,24 +148,25 @@ export function ReasoningEffortAxis({
         {/* 本件是独立可挂的展示件(单测裸渲染、弹层内也自成一体):自带 Provider,
             不依赖宿主的 Tooltip 上下文 —— 缺了它 Radix 会当场抛"must be used within
             TooltipProvider",而这条在真机(Host 有全局 Provider)反而不复现。 */}
-        <TooltipProvider>
-          <Tooltip content={t('reasoningEffortReset')}>
-            <button
-              type="button"
-              onClick={() => onChange?.(undefined)}
-              disabled={disabled === true || value === undefined}
-              aria-label={t('reasoningEffortReset')}
-              data-testid="reasoning-effort-reset"
-              className={HEAD_ACTION_CLASS}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
-        </TooltipProvider>
+        {onRefreshModels ? (
+          <TooltipProvider>
+            <Tooltip content={refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}>
+              <button
+                type="button"
+                onClick={onRefreshModels}
+                disabled={disabled === true || refreshingModels === true}
+                aria-label={refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}
+                data-testid="reasoning-effort-refresh-models"
+                className={HEAD_ACTION_CLASS}
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5', refreshingModels && 'animate-spin')} />
+              </button>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
       </div>
 
       {expanded && (
-        // 左右各留 12px:滑块半径 10px,首末档贴边时不被卡片描边裁掉
         <div className="mt-1.5 px-3 pb-0.5">
           <div
             className="relative h-5"
@@ -167,50 +179,54 @@ export function ReasoningEffortAxis({
               aria-hidden
               className="pointer-events-none absolute inset-x-0 top-1/2 h-3.5 -translate-y-1/2 rounded-full bg-violet-500"
             />
-            {/* 档位圆点:每档一枚,当前档被白色滑块盖住 */}
-            {tiers.map((effort, index) => (
-              <span
-                key={`dot-${effort}`}
-                aria-hidden
-                className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45"
-                style={{ left: `${percentOf(index)}%` }}
-              />
-            ))}
-            {/* 当前档滑块:未选档时不画(不给一个假装选中的位置) */}
-            {activeIndex >= 0 && (
-              <span
-                aria-hidden
-                className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-black/5"
-                style={{ left: `${percentOf(activeIndex)}%` }}
-                data-testid="reasoning-effort-knob"
-              />
-            )}
-            {/* 每档一枚透明点击热区:选中/再点清除(既有语义,判据钉着这一条) */}
-            {tiers.map((effort, index) => {
-              const active = value === effort
-              const blocked = !selectable
-              return (
-                <button
-                  key={effort}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  aria-label={t(LABEL_KEY[effort])}
-                  disabled={blocked || disabled === true}
-                  data-testid={`reasoning-effort-${effort}`}
-                  data-disabled={blocked ? 'true' : 'false'}
-                  onClick={() => onChange?.(active ? undefined : effort)}
-                  className={cn(
-                    'absolute top-0 h-5 w-5 -translate-x-1/2 rounded-sm',
-                    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                    blocked || disabled === true
-                      ? 'cursor-not-allowed'
-                      : 'cursor-pointer hover:bg-foreground/5',
-                  )}
+            {/* 档位坐标层:左右各缩进 12px,让首末两档的圆点/滑块落在胶囊内部,
+                不被两端的半圆端头吃掉(参考图里首末点也是内缩的);滑块半径 10px < 12px */}
+            <div className="absolute inset-y-0 left-3 right-3">
+              {/* 档位圆点:每档一枚,当前档被白色滑块盖住 */}
+              {tiers.map((effort, index) => (
+                <span
+                  key={`dot-${effort}`}
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45"
                   style={{ left: `${percentOf(index)}%` }}
                 />
-              )
-            })}
+              ))}
+              {/* 当前档滑块:未选档时不画(不给一个假装选中的位置) */}
+              {activeIndex >= 0 && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-black/5"
+                  style={{ left: `${percentOf(activeIndex)}%` }}
+                  data-testid="reasoning-effort-knob"
+                />
+              )}
+              {/* 每档一枚透明点击热区:选中/再点清除(既有语义,判据钉着这一条) */}
+              {tiers.map((effort, index) => {
+                const active = value === effort
+                const blocked = !selectable
+                return (
+                  <button
+                    key={effort}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={t(LABEL_KEY[effort])}
+                    disabled={blocked || disabled === true}
+                    data-testid={`reasoning-effort-${effort}`}
+                    data-disabled={blocked ? 'true' : 'false'}
+                    onClick={() => onChange?.(active ? undefined : effort)}
+                    className={cn(
+                      'absolute top-0 h-5 w-5 -translate-x-1/2 rounded-sm',
+                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      blocked || disabled === true
+                        ? 'cursor-not-allowed'
+                        : 'cursor-pointer hover:bg-foreground/5',
+                    )}
+                    style={{ left: `${percentOf(index)}%` }}
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
       )}

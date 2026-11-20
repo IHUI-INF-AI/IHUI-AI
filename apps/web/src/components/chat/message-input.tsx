@@ -1672,16 +1672,23 @@ export function MessageInput({
                     autoResolvedModel={autoResolvedModel}
                     menuOpen={modelMenuOpen}
                     onMenuOpenChange={setModelMenuOpen}
-                    header={
+                    header={({ refreshModels, refreshingModels }) => (
                       <ReasoningEffortInputAxis
                         model={model}
                         disabled={isStreaming}
-                        // auto 是路由档:卡面写宿主解析出的实际模型,无信号时退回「自动」
+                        // auto 是路由档:传宿主解析出的实际模型 ID 供卡面换可读名;
+                        // 还没有信号(或信号就是 'auto')时卡面写「自动」
+                        resolvedModel={model === 'auto' ? autoResolvedModel : undefined}
                         modelName={
-                          model === 'auto' ? (autoResolvedModel ?? t('modelAuto')) : undefined
+                          model === 'auto' && (!autoResolvedModel || autoResolvedModel === 'auto')
+                            ? t('modelAuto')
+                            : undefined
                         }
+                        // 2026-11-21:卡片头行那枚圆钮 = 刷新模型列表(原独立菜单行已移植到此)
+                        onRefreshModels={refreshModels}
+                        refreshingModels={refreshingModels}
                       />
-                    }
+                    )}
                     footer={
                       <>
                         {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
