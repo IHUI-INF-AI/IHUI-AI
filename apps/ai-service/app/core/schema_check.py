@@ -76,11 +76,30 @@ KNOWN_NON_DRIZZLE_TABLES: frozenset[str] = frozenset({
 # 自建源:
 #   sag2_chunks / sag2_documents            -> app/services/sag2_lexical/pg_store.py
 #   sag2_lexical_chunks / sag2_lexical_docs -> app/services/sag2_lexical/pg_store.py
+#   schema_version / meta / threads / turns / items / rollbacks / relay_summaries
+#                                           -> app/services/session_store.py(会话库 7 表)
+#   sso_identities                          -> app/services/sso_identity_store.py
+#   work_admission_tickets                  -> app/services/work_admission.py
+#   memory_sweeper_logs / memory_sweeper_memories / memory_sweeper_schema_version
+#                                           -> app/services/memory_sweeper.py
 LAZY_SELF_CREATED_TABLES: frozenset[str] = frozenset({
     "sag2_chunks",
     "sag2_documents",
     "sag2_lexical_chunks",
     "sag2_lexical_docs",
+    # 会话库:DDL 只在 service 内以 CREATE TABLE IF NOT EXISTS 出现,迁移后未启动服务时必然不存在
+    "schema_version",
+    "meta",
+    "threads",
+    "turns",
+    "items",
+    "rollbacks",
+    "relay_summaries",
+    "sso_identities",
+    "work_admission_tickets",
+    "memory_sweeper_logs",
+    "memory_sweeper_memories",
+    "memory_sweeper_schema_version",
 })
 
 # packages/database/src/schema 目录(用于解析 TS schema)
