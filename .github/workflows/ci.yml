@@ -524,7 +524,7 @@ jobs:
         working-directory: .
         run: pnpm --filter @ihui/database build
 
-      - name: Enable pgvector extension
+      - name: Enable pgvector extension (+ 探测 pg_trgm 能力,不判红)
         id: enable-pgvector
         working-directory: packages/database
         run: |
@@ -532,8 +532,17 @@ jobs:
             import postgres from 'postgres';
             const sql = postgres(process.env.DATABASE_URL);
             await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
-            await sql.end();
             console.log('pgvector extension enabled');
+            // 会话检索的 pg_trgm GIN 是**可选加速**:建不出来时 session_store 自动降级
+            // 成 ILIKE 全表扫(结果不变,只是慢),所以这里只探测、只写日志,能力未知不该变成红灯。
+            try {
+              await sql.unsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+              const rows = await sql.unsafe(\"select extversion from pg_extension where extname = 'pg_trgm'\");
+              console.log('pg_trgm available:', rows[0]?.extversion ?? '(extversion 读不到)');
+            } catch (e) {
+              console.log('pg_trgm unavailable => 会话检索降级 ILIKE 全表扫:', e.message);
+            }
+            await sql.end();
           "
 
       - name: Apply migrations to test DB
