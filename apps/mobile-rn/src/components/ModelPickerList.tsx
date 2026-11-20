@@ -96,7 +96,9 @@ export default function ModelPickerList({
       const category: ModelUsageCategory = normalizeCategory(item.category)
       const tier: ModelTier = normalizeTier(item.modelTier)
       // legacy(清单命中或版本比较判旧的)与检索/审核类中间件一律不展示;图像/视频/语音照常展示。
-      if (!isSelectableChatModel(category, tier)) continue
+      // 2026-11-21 追加:图像/视频里没有接通生成通道的(非 agnes-image-/agnes-video-)不展示,
+      // 否则就是"显示了但选了出不了图/片"。
+      if (!isSelectableChatModel(category, tier, item.id)) continue
       visible.push(item)
     }
     return { primary: visible.sort(comparePrimary), archived: [] as ModelListItem[] }
@@ -117,10 +119,9 @@ export default function ModelPickerList({
       }
     }
     const groups: ModelListGroup[] = []
-    const conversational = [
-      ...(buckets.get('chat') ?? []),
-      ...(buckets.get('vision') ?? []),
-    ].sort(comparePrimary)
+    const conversational = [...(buckets.get('chat') ?? []), ...(buckets.get('vision') ?? [])].sort(
+      comparePrimary,
+    )
     if (conversational.length > 0) {
       groups.push({ title: defaultGroupTitle ?? t('chat.modelLabel'), models: conversational })
     }

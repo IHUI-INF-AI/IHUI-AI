@@ -4,7 +4,7 @@
 
 import type { FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
 import { verifyAccessToken } from '@ihui/auth'
-import { authenticate, requireActiveUser } from './auth.js'
+import { authenticate, checkAuthOrInternalService, requireActiveUser } from './auth.js'
 import { checkInternalServiceToken, hasInternalServiceToken } from './internal-service-token.js'
 import { checkAnyPermission } from '../db/rbac-queries.js'
 import { error as errorResponse } from '../utils/response.js'
@@ -170,6 +170,28 @@ export const requireAuth = async (request: FastifyRequest, reply: FastifyReply):
     return reply
       .status(statusCode)
       .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
+  }
+}
+
+/**
+ * 仅校验"主体已认证":人用 JWT **或**内部服务票二者其一(2026-11-21 立)。
+ *
+ * 与 `requireAuth` 的唯一差别就是接受 internal 通道。立因:
+ * 员工自助面(`/api/hr-payroll/mine*`、`/api/hr-attendance/me|my-*`)既要给浏览器里的
+ * 员工自己看,也要给 AI 对话里的 `hr_my_*` 工具查 —— 后者走 ai-service 的内部票
+ * (`internal_service_headers(uid, "api-tools")`),而 `requireAuth` 只认人用 JWT,
+ * 于是工具永远 401「请先登录」。注释里写的 `requireSelf` 此前从未存在。
+ *
+ * 归属判据:**主体只由承载层注入**。票里封的 subject 经 `checkInternalServiceToken`
+ * 验签后写入 `request.userId`,并与 `X-User-Id` 逐字比对(不一致 401);
+ * 客户端无法自报"查他人"。本中间件不读任何 query/body 里的用户字段。
+ */
+export const requireSelf = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  const ok = await checkAuthOrInternalService(request, reply)
+  // 用 raw.headersSent 而不是 reply.sent:后者在 Fastify 5 的某些路径上仍是 false,
+  // 补发会让 "Cannot write headers after they are sent" 变成一条假故障。
+  if (!ok && !reply.raw.headersSent) {
+    reply.status(401).send({ code: 401, message: 'Authentication required' })
   }
 }
 

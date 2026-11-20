@@ -281,6 +281,7 @@
     "check-test-judge-not-replicated.mjs",
     "check-test-paths.mjs",
     "check-theme-prop-wiring.mjs",
+    "check-toggle-icon-semantics.mjs",
     "check-token-literal-debt.mjs",
     "check-token-sync-registry.mjs",
     "check-tool-activity-coverage.mjs",

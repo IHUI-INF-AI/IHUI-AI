@@ -14,6 +14,12 @@
  * 输出:`{"<users.id>":"<email>", ...}` —— 只覆盖**池内出现过的** owner 且该用户在库里有 email;
  * 用 `__POOL_EXPORT_BEGIN__ / __POOL_EXPORT_END__` 边界标记包裹(与 --export-all 同规,
  * 隔离 dotenv/[db] 诊断对 stdout 的污染)。不输出任何凭据。
+ *
+ * DB-35(2026-11-16 迁移 20261116174441)后 users.email 列存 enc:v1: 密文(随机 IV),而本脚本
+ * 立于 11-12、当时 email 是明文 ⇒ 早期直接读 u.email 会把密文当身份键导出。跨环境同步用它
+ * 做 email 身份键比对(两端 users.id 不同、email 相同),一端密文一端明文必然翻译不出 ⇒
+ * 同步器 owner 翻译全跳过(2026-11-21 实证)。读路径必须经 decryptCredential 解密:
+ * 密文还原明文、存量明文原样透传(同函数兼容语义),两端因此都拿到明文 email、身份键才可比对。
  */
 import { config } from 'dotenv'
 import { resolve as resolvePath, dirname } from 'node:path'
@@ -26,6 +32,8 @@ config({ path: resolvePath(API_DIR, '.env') })
 
 const { sql } = await import('drizzle-orm')
 const { dbRead, closeDbPools } = await import('../src/db/index.js')
+// DB-35:email 列可能是 enc:v1: 密文;decryptCredential 密文解密、存量明文原样透传(读路径单源同 admin-queries)。
+const { decryptCredential } = await import('../src/utils/crypto.js')
 
 function toRows(raw: unknown): Record<string, unknown>[] {
   if (Array.isArray(raw)) return raw as Record<string, unknown>[]
@@ -46,8 +54,11 @@ async function main(): Promise<number> {
   const map: Record<string, string> = {}
   for (const r of toRows(raw)) {
     const id = String(r.owner_id ?? '').trim()
-    const email = String(r.email ?? '').trim()
-    if (id && email) map[id] = email
+    const emailRaw = String(r.email ?? '').trim()
+    if (!id || !emailRaw) continue
+    // DB-35:解密为明文身份键(密文还原 / 存量明文原样);解密失败 fail-closed 抛错,绝不把密文当身份键导出。
+    const email = decryptCredential(emailRaw)
+    if (email) map[id] = email
   }
   process.stdout.write(`__POOL_EXPORT_BEGIN__\n${JSON.stringify(map)}\n__POOL_EXPORT_END__\n`)
   return 0

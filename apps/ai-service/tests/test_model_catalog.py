@@ -31,6 +31,7 @@ from app.services.model_catalog import (
     annotate_models,
     classify_model,
     derive_capabilities,
+    derive_reasoning_efforts,
     is_fim_model,
     pick_fim_model,
 )
@@ -779,3 +780,71 @@ def test_provider_wide_identical_release_date_is_treated_as_seed_artifact() -> N
     assert all(m["model_tier"] != ModelTier.LATEST.value for m in real_old), by_real
     # 日期各不相同 → 时间窗照常生效(最高代次那条也是被"超期"判下,而不是被代次比较压下)
     assert str(by_real["oldv-2.0"]["classify_reason"]).startswith("released >365d"), by_real["oldv-2.0"]
+
+
+# ---------------------------------------------------------------------------
+# D136(2026-11-21):每模型推理档位子集 —— 只认权威声明,不做名字猜测
+# ---------------------------------------------------------------------------
+
+
+def test_reasoning_efforts_absent_when_nothing_declared() -> None:
+    """未声明 ⇒ None(消费方按通用档位呈现,不误藏、也不假装知道)。"""
+    assert derive_reasoning_efforts(_mk("gpt-5.6-sol")) is None
+
+
+def test_reasoning_efforts_from_upstream_config_options() -> None:
+    """Trae model_list 的原生形状:options 里的契约值原样保留,顺序不乱。"""
+    m = _mk(
+        "trae-some-model",
+        "trae",
+        reasoning_effort_config={
+            "support_thinking": True,
+            "options": ["medium", "high", "low"],
+            "default_level": "medium",
+        },
+    )
+    assert derive_reasoning_efforts(m) == ["medium", "high", "low"]
+
+
+def test_reasoning_efforts_support_thinking_false_is_explicit_empty() -> None:
+    """`support_thinking: false` 是"明确不支持",必须落空集而不是 None(两者语义不同)。"""
+    m = _mk(
+        "trae-no-thinking",
+        "trae",
+        reasoning_effort_config={"support_thinking": False, "options": ["low"]},
+    )
+    assert derive_reasoning_efforts(m) == []
+
+
+def test_reasoning_efforts_drops_non_contract_values() -> None:
+    """上游词表里的数字等级/未知词不映射、不猜;一个都不命中 ⇒ 回落未声明。"""
+    m = _mk(
+        "trae-numeric",
+        "trae",
+        reasoning_effort_config={"support_thinking": True, "options": [1, 3, "turbo"]},
+    )
+    assert derive_reasoning_efforts(m) is None
+
+
+def test_reasoning_efforts_explicit_declaration_is_deduped_and_filtered() -> None:
+    """人工声明的 reasoning_efforts:去重、去非法值,大小写归一。"""
+    m = _mk("manual-declared", reasoning_efforts=["HIGH", "high", "max", "bogus"])
+    assert derive_reasoning_efforts(m) == ["high", "max"]
+
+
+def test_annotate_models_attaches_reasoning_efforts_only_when_declared() -> None:
+    """annotate_models 只在有声明时写这个键;无声明的模型不得凭空长出档位表。"""
+    models = [
+        _mk("gpt-5.6-sol"),
+        _mk("declared-1", reasoning_efforts=["minimal", "low"]),
+        _mk(
+            "trae-off",
+            "trae",
+            reasoning_effort_config={"support_thinking": False, "options": ["low"]},
+        ),
+    ]
+    annotate_models(models, now=NOW)
+    by_id = {str(m["id"]): m for m in models}
+    assert "reasoning_efforts" not in by_id["gpt-5.6-sol"]
+    assert by_id["declared-1"]["reasoning_efforts"] == ["minimal", "low"]
+    assert by_id["trae-off"]["reasoning_efforts"] == []

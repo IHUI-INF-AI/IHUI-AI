@@ -18,6 +18,7 @@ import {
 import {
   hrAttendanceRule,
   hrAttendanceRecord,
+  hrAttendanceMonthly,
   hrEmployee,
   hrDepartment,
   hrLeaveRequest,
@@ -666,4 +667,28 @@ export async function listHrLeaves(
     .from(hrLeaveRequest)
     .where(and(...conds))
     .orderBy(desc(hrLeaveRequest.createdAt))
+}
+
+/**
+ * 员工自助 · 本人月度考勤汇总(2026-11-21 立)。
+ *
+ * 与全员管理面(`getHrAttendanceStats` 需 HR_VIEW)彻底分离:调用方必须先把
+ * **本人 employeeId** 解析出来再传进来,本函数不接受 userId,也不做任何跨员工查询
+ * —— 越权面在入口就断了,不靠过滤条件兜底。
+ *
+ * periodMonth 省略时返回最近 24 个月,供员工先选月再查明细。
+ * 金额/天数原样透出 numeric 列的字符串形态,不在服务层重算。
+ */
+export async function listMyAttendanceMonthly(params: {
+  employeeId: string
+  periodMonth?: string | undefined
+}): Promise<(typeof hrAttendanceMonthly.$inferSelect)[]> {
+  const conds: SQL[] = [eq(hrAttendanceMonthly.employeeId, params.employeeId)]
+  if (params.periodMonth) conds.push(eq(hrAttendanceMonthly.periodMonth, params.periodMonth))
+  return db
+    .select()
+    .from(hrAttendanceMonthly)
+    .where(and(...conds))
+    .orderBy(desc(hrAttendanceMonthly.periodMonth))
+    .limit(24)
 }

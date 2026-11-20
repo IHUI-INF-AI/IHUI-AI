@@ -129,6 +129,94 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         ),
     ),
     ExpertPack(
+        # 人事部·月度算薪(2026-11-21 立):触发即并入 hr_payroll_calc + 交割凭证工具。
+        # 与财务代账包无重叠词(工资/薪资族 vs 记账/凭证族),命中判定不会互抢。
+        slug="hr-payroll",
+        title="薪资核算",
+        terms=(
+            "算工资",
+            "算一下工资",
+            "计算工资",
+            "核算工资",
+            "工资核算",
+            "薪资核算",
+            "薪资计算",
+            "月度薪资",
+            "算薪",
+            "发工资",
+            "做工资",
+            "工资表",
+            "薪资周期",
+            "工资审批",
+            "payroll",
+        ),
+        tools=(
+            "hr_payroll_calc",
+            "hr_insurance_readiness",
+            "hr_my_payroll",
+            "hr_my_payroll_periods",
+            "hr_my_attendance",
+            "ai_payroll_handoff",
+            "parse_document",
+            "generate_report",
+            "create_artifact",
+            "api_endpoints_search",
+            "api_endpoint_call",
+        ),
+        hint=(
+            "## Expert pack active: hr-payroll\n"
+            "The user wants monthly payroll. Confirm periodMonth (YYYY-MM) first, then call "
+            "hr_insurance_readiness for the payroll year + region to confirm the social-insurance "
+            "rate config is complete (missing/incomplete config makes hr_payroll_calc refuse with "
+            "400 — never work around that by guessing rates), then call "
+            "hr_payroll_calc. Preconditions are hard: that month's attendance must already be "
+            "month-closed (hr_attendance_monthly) and each employee needs a salary config — "
+            "employees skipped for missing config are counted by skippedNoConfig, never guessed. "
+            "The period moves to 'calculated'; approval and payout are human finance actions — "
+            "never change approval status on your own. For the bookkeeping handoff voucher "
+            "(计提/发放 entries) call ai_payroll_handoff, which requires the period to be "
+            "approved. All amounts are Decimal strings: display them verbatim, never recompute. "
+            "For company-wide attendance checks use api_endpoints_search / api_endpoint_call "
+            "(hr:attendance:view), not the self-service hr_my_attendance."
+        ),
+    ),
+    ExpertPack(
+        # 人事部·员工自助(2026-11-21 立):员工问"我的工资/考勤/请假"时并入四枚本人作用域工具。
+        # 与 hr-payroll 包刻意不共享触发词:管理侧说"算工资",员工侧说"我的工资"。
+        slug="hr-self-service",
+        title="人事自助",
+        terms=(
+            "我的工资",
+            "我的工资条",
+            "我的工资单",
+            "查我的工资",
+            "我这个月工资",
+            "我的考勤",
+            "我的考勤记录",
+            "查我的考勤",
+            "我的请假",
+            "我的请假单",
+            "查我的请假",
+            "工资条",
+        ),
+        tools=(
+            "hr_my_payroll",
+            "hr_my_payroll_periods",
+            "hr_my_attendance",
+            "hr_my_leaves",
+        ),
+        hint=(
+            "## Expert pack active: hr-self-service\n"
+            "The employee is asking about their OWN payroll / attendance / leave. Use only the "
+            "hr_my_* tools: they are bound to the logged-in user and accept no 'other employee' "
+            "parameter — never claim you can look up someone else's salary. If a tool returns "
+            "employee=null or an empty list, say the account is not yet linked to an employee "
+            "record and point to the HR self-service page (人事部 → 员工自助) to submit a link "
+            "request. NOT_FOUND means that month has not been calculated yet: state it as-is, "
+            "never fabricate amounts; payroll amounts are strings — show them verbatim."
+        ),
+    ),
+    ExpertPack(
         # 财务部·AI 一键代账(RP-46,2026-11-12 立):触发即自动并入 ai_bookkeeping,
         # 按 phase 逐段调用 ⇒ 工具卡与 plan 步骤看板在对话里实时显示代账过程与进度。
         slug="finance-bookkeeping",

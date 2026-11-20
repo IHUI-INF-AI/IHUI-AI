@@ -22,6 +22,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ReasoningEffortInputAxis } from '@/components/chat/reasoning-effort-input-axis'
+import ReasoningEffortAxis from '@/components/chat/reasoning-effort-axis'
 import { getSamplingParams, useSamplingParamsStore } from '@/stores/sampling-params'
 import { useChatStore } from '@/stores/chat'
 // D130⑦⑧:被审的**生产实现**(不是它的源码文本)—— 续答链跑一次才有"通知上没上屏"的结论。
@@ -53,7 +54,10 @@ const API_CLIENT_INDEX_SRC = path.resolve(
 )
 const API_CLIENT_SRC = path.resolve(HERE, '../../../../../../packages/api-client/src/client.ts')
 /** SSE 帧解析与事件形状的现居地(守门 103 C1 下沉,2026-11-19 判据同步) */
-const API_CLIENT_STREAM_SRC = path.resolve(HERE, '../../../../../../packages/api-client/src/stream.ts')
+const API_CLIENT_STREAM_SRC = path.resolve(
+  HERE,
+  '../../../../../../packages/api-client/src/stream.ts',
+)
 
 /** 测试用词表:next-intl 换成**真词包**(packages/i18n/messages/web/zh-CN.json)。
  *  不用 `key=>key` 的桩 —— 那样文案断言会退化成"键名相等",新键漏进词包也测不出(§19)。 */
@@ -89,9 +93,9 @@ vi.mock('next-intl', async () => {
 
 /** 模型能力口的测试替身:置灰判据的输入只有 capabilities,所以这一格必须可造三种态。 */
 const fetchSelectorModelsMock = vi.fn(
-  async (): Promise<Array<{ id: string; capabilities?: unknown }>> => [
-    { id: 'gpt-test', capabilities: { reasoning: true } },
-  ],
+  async (): Promise<
+    Array<{ id: string; capabilities?: unknown; reasoning_efforts?: string[]; name?: string }>
+  > => [{ id: 'gpt-test', capabilities: { reasoning: true } }],
 )
 vi.mock('@/lib/models-api', () => ({
   fetchSelectorModels: () => fetchSelectorModelsMock(),
@@ -701,6 +705,86 @@ describe('D130⑧ 新一轮续答开始前必须清掉上一轮的通知', () =>
         `${label}: 发起前没清上一轮通知 ⇒ 旧通知冒充本轮`,
       ).toBe(true)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// D136(2026-11-21 立)—— 画哪几档由**模型声明**决定,不再一律四档
+//
+// 病:上游 reasoning_effort 的支持集按模型而定(OpenAI 文档 "Supported values are
+// model-dependent / Some models support only a subset"),而旧实现硬画四档 ⇒ 用户点上去
+// 上游不认。"未知不误藏"的另一面是"知道了就别假装不知道":声明了空集就该关轴。
+// ---------------------------------------------------------------------------
+describe('D136 档位由模型声明驱动', () => {
+  /** 裸渲染展示件(不经 store/拉列表),三条态一一对应。 */
+  function renderRaw(props: Parameters<typeof ReasoningEffortAxis>[0]) {
+    return render(<ReasoningEffortAxis {...props} />)
+  }
+
+  it('声明子集 ⇒ 只画声明的档,顺序仍按契约序(含扩展档 xhigh)', () => {
+    renderRaw({ efforts: ['xhigh', 'low', 'high'], capabilities: { reasoning: true } })
+    const radios = screen.getAllByRole('radio')
+    expect(radios.map((b) => b.getAttribute('data-testid'))).toEqual([
+      'reasoning-effort-low',
+      'reasoning-effort-high',
+      'reasoning-effort-xhigh',
+    ])
+  })
+
+  it('声明空集 ⇒ 明确不支持:不画轨道、逐档不存在、给原因', () => {
+    renderRaw({ efforts: [], capabilities: { reasoning: true } })
+    expect(screen.queryByTestId('reasoning-effort-track')).toBeNull()
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
+    expect(screen.getByTestId('reasoning-effort-axis').getAttribute('data-selectable')).toBe(
+      'false',
+    )
+    expect(screen.getByTestId('reasoning-effort-unsupported').textContent).toBe(
+      '该模型不支持选择推理强度',
+    )
+  })
+
+  it('未声明(字段缺失)⇒ 通用四档,行为与老后端逐一致', () => {
+    renderRaw({ capabilities: { reasoning: true } })
+    expect(screen.getAllByRole('radio')).toHaveLength(4)
+    expect(screen.queryByTestId('reasoning-effort-unsupported')).toBeNull()
+  })
+
+  it('已选档位不在声明集内 ⇒ 不画滑块,并说明会被调整', () => {
+    renderRaw({ value: 'medium', efforts: ['low', 'high'], capabilities: { reasoning: true } })
+    expect(screen.queryByTestId('reasoning-effort-knob')).toBeNull()
+    const note = screen.getByTestId('reasoning-effort-outside-levels')
+    expect(note.textContent).toContain('默认')
+  })
+
+  it('只有一档 ⇒ 没有可切换之事,不画轨道', () => {
+    renderRaw({ efforts: ['high'], capabilities: { reasoning: true } })
+    expect(screen.queryByTestId('reasoning-effort-track')).toBeNull()
+  })
+
+  it('列表接口带到 reasoning_efforts ⇒ 挂载层把它原样下发(端内不重排)', async () => {
+    fetchSelectorModelsMock.mockResolvedValue([
+      { id: 'gpt-test', capabilities: { reasoning: true }, reasoning_efforts: ['low', 'high'] },
+    ])
+    render(<ReasoningEffortInputAxis model="gpt-test" />)
+    await waitFor(() =>
+      expect(screen.getAllByRole('radio').map((b) => b.getAttribute('data-testid'))).toEqual([
+        'reasoning-effort-low',
+        'reasoning-effort-high',
+      ]),
+    )
+    expect(screen.getByTestId('reasoning-effort-axis').getAttribute('data-declared')).toBe('true')
+  })
+
+  it('键盘左右切换走同一条 onChange 通道(radiogroup 语义)', () => {
+    const onChange = vi.fn()
+    renderRaw({
+      value: 'low',
+      efforts: ['low', 'high'],
+      onChange,
+      capabilities: { reasoning: true },
+    })
+    fireEvent.keyDown(screen.getByTestId('reasoning-effort-track'), { key: 'ArrowRight' })
+    expect(onChange).toHaveBeenCalledWith('high')
   })
 })
 

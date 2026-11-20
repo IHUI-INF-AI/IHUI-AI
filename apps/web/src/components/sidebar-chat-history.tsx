@@ -80,6 +80,8 @@ import { useConversationGroupPinStore, usePinnedFolders } from '@/stores/convers
 import { resolveMoveToGroup, orderFoldersWithPinned } from '@/components/sidebar/move-to-group'
 // D165:移动对话框(受控;目标选择态归它自己,四态判定与写入归宿主)
 import { MoveToGroupDialog } from '@/components/sidebar/move-to-group-dialog'
+// 2026-11-21:置顶类常驻开关的图标唯一实现(状态式,防"图标与高亮态相反")
+import { PinToggleIcon } from '@/components/common/pin-toggle-icon'
 // D187:侧栏「标记为未读」客户端标记 store(localStorage 按 userId 分桶,打开即清)
 import {
   useConversationUnreadMarks,
@@ -1380,14 +1382,15 @@ export function SidebarChatHistory({
                           onClick={() => handleGroupPinToggle(f)}
                           aria-label={pinned ? t('groupUnpin') : t('groupPin')}
                           aria-pressed={pinned}
+                          data-state={pinned ? 'on' : 'off'}
                           data-testid={`conversation-group-pin-toggle-${f}`}
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                        >
-                          {pinned ? (
-                            <PinOff className="h-3.5 w-3.5" />
-                          ) : (
-                            <Pin className="h-3.5 w-3.5" />
+                          className={cn(
+                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-accent hover:text-accent-foreground',
+                            pinned ? 'text-primary' : 'text-muted-foreground',
                           )}
+                        >
+                          {/** 状态式图标:已置顶=实心图钉,未置顶=划掉图钉(2026-11-21) */}
+                          <PinToggleIcon pressed={pinned} className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )

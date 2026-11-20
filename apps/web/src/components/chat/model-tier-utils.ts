@@ -209,7 +209,7 @@ export function splitByTier(options: ModelOption[]): {
   for (const opt of options) {
     const category = normalizeCategory(opt.category)
     const tier = normalizeTier(opt.tier)
-    if (isSelectableChatModel(category, tier)) primary.push(opt)
+    if (isSelectableChatModel(category, tier, opt.id)) primary.push(opt)
   }
   return { primary, archived: [] }
 }

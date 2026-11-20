@@ -3,7 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '../client.js'
-import type { ApiResult, ModelCapabilities, ModelUsageCategory, ModelTier } from '@ihui/types'
+import type {
+  ApiResult,
+  ModelCapabilities,
+  ModelUsageCategory,
+  ModelTier,
+  ReasoningEffort,
+} from '@ihui/types'
 
 /** 模型能力位(Phase C+D:后端 /llm/models 返回的 caps 字段,可选,旧端点无此字段时缺失) */
 export interface LlmModelCaps {
@@ -49,6 +55,12 @@ export interface LlmModel {
    * 消费方必须能容忍缺失(缺字段时按"未知"处理,不做能力过滤/徽章)。
    */
   capabilities?: ModelCapabilities
+  /**
+   * 该模型上游声明的推理档位子集(2026-11-21 立,D136;ai-service 产出)。
+   * 缺失 = 未声明(按通用档位呈现);空数组 = 上游明确不支持;非空 = 可切档位。
+   * 语义与 `@ihui/types` 的 `ModelCatalogFields.reasoning_efforts` 同源。
+   */
+  reasoning_efforts?: ReasoningEffort[]
 }
 
 export interface FetchModelsResult {

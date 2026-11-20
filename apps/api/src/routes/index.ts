@@ -215,6 +215,9 @@ import { hrApprovalRoutes } from './hr-approval.js'
 import { hrImportRoutes } from './hr-import.js'
 import { hrSettleRoutes } from './hr-settle.js'
 import { hrPayrollRoutes } from './hr-payroll.js'
+// 薪资配置录入(2026-11-13 立):员工薪资/地区社保费率/个税专项 —— 算薪的前置数据入口。
+// 之前只建了路由文件没挂载,导致算薪永远缺配置、只能绕过 HTTP 直接改库。
+import { hrSalaryConfigRoutes } from './hr-salary-config.js'
 import { workflowTodoRoutes } from './workflow-todo.js'
 import { aiTaskTemplatesRoutes } from './ai-task-templates.js'
 // 教育食堂采购记账(2026-09-19 立):AI 小票三轮核对 + 台账/供应商/统计/导出
@@ -1011,6 +1014,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(hrSettleRoutes, { prefix: '/api/hr-settle' })
   // 人事薪资计算(HR-5 第 5 期,2026-11-12 立):月结考勤 → 工资单
   server.register(hrPayrollRoutes, { prefix: '/api/hr-payroll' })
+  // 薪资配置(2026-11-13 立):员工薪资 / 地区社保公积金费率 / 个税专项附加扣除
+  server.register(hrSalaryConfigRoutes, { prefix: '/api/hr-salary-config' })
   // 流程待办(HR-6 第 4 期,2026-11-13 立):需人工决策的点 → 可认领/可结清的条目
   server.register(workflowTodoRoutes, { prefix: '/api/workflow-todos' })
   // 教育食堂采购记账：AI 小票三轮核对 + 台账/供应商/统计/导出（2026-09-19 立）
