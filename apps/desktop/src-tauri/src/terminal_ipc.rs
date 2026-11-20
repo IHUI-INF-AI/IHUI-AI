@@ -100,7 +100,7 @@ pub fn terminal_poll(id: u64, mgr: State<'_, TerminalManager>) -> Result<serde_j
         })
         .ok_or_else(|| format!("会话 {id} 不存在"))?;
     let w: SessionWire = snap.into();
-    Ok(serde_json::to_value(w).unwrap())
+    serde_json::to_value(w).map_err(|e| format!("序列化会话快照失败: {e}"))
 }
 
 #[tauri::command]
@@ -149,7 +149,7 @@ pub fn terminal_kill(id: u64, mgr: State<'_, TerminalManager>) -> Result<serde_j
         })
         .ok_or_else(|| format!("会话 {id} 不存在"))?;
     let w: SessionWire = snap.into();
-    Ok(serde_json::to_value(w).unwrap())
+    serde_json::to_value(w).map_err(|e| format!("序列化会话快照失败: {e}"))
 }
 
 #[tauri::command]
