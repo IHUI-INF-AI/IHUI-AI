@@ -19,17 +19,17 @@ export const DESKTOP_LATEST: DesktopFeedPayload = {
     'linux-x86_64': {
       signature:
         'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFl0dlVSbFVrVWMzd0FnazJOaEhpVXQwVkp4dVJkQTdRdUpLVlpaUmNtU0E0UGt4Ym43c1hJOG1qZE4ySGs2UVU4VVk1WExiM09aNmMxVUlUSnVleEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MTgwNTk2CWZpbGU65pm65rGHQUlfMC4xLjgzX2FtZDY0LkFwcEltYWdlClZ4YmVhVGJzc1ZjbWNVMDFLdkY0R0piTG5mMEdRSEpVcXFZcFhMSXFjOHBNaDd0dkEvOW5iTUkvQWgxdzFKVG5lYW1URWx5RklNSU4vd0xjWHNlbUFnPT0K',
-      url: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.83/AI_0.1.83_amd64.AppImage',
+      url: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.83/AI_0.1.83_amd64.AppImage',
     },
     'darwin-x86_64': {
       signature:
         'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFFmV3g3OFFVRkV0NjFSQVlyZVlvUVB5YWczelhCcFBzbWZXUy8yT0tqU3Z3ZGpub1B2UTFiRTdnUy80MW84ZkcwdWNsVjdhWERxdUtIcmR6am9RWlFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MTgxMDUwCWZpbGU65pm65rGHQUkuYXBwLnRhci5negphTTFxczRnemJFZWlsY2VrVGx0R0lxSVdoM1BWb0pObnJNR1A0UEtSL0NHQUJERjc5TGJTVVFWZmFrUmNRbjdnZ1JGalNna3VIMzc0VTJmczlock9CQT09Cg==',
-      url: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.83/AI.app.tar.gz',
+      url: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.83/AI.app.tar.gz',
     },
     'darwin-aarch64': {
       signature:
         'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFFmV3g3OFFVRkV0NjFSQVlyZVlvUVB5YWczelhCcFBzbWZXUy8yT0tqU3Z3ZGpub1B2UTFiRTdnUy80MW84ZkcwdWNsVjdhWERxdUtIcmR6am9RWlFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MTgxMDUwCWZpbGU65pm65rGHQUkuYXBwLnRhci5negphTTFxczRnemJFZWlsY2VrVGx0R0lxSVdoM1BWb0pObnJNR1A0UEtSL0NHQUJERjc5TGJTVVFWZmFrUmNRbjdnZ1JGalNna3VIMzc0VTJmczlock9CQT09Cg==',
-      url: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.83/AI.app.tar.gz',
+      url: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.83/AI.app.tar.gz',
     },
   },
 }
