@@ -25,7 +25,9 @@
   `\\x04`),之后 send/keys 显式 `TERMINAL_STDIN_CLOSED`,不是只能 kill;
 - `reap_idle_terminals`:闲置回收(env `IHUI_TERMINAL_IDLE_TTL_S` > 0 才启用,默认关闭;
   开新会话前自动跑一次),回收了谁/闲了多久逐条回报,不静默杀;
-- `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
+- `signal_terminal`:interrupt/terminate/kill;**interrupt 在 PTY 后端写 `^C` 输入字节**
+  0x03(等价于用户亲手按 Ctrl+C,由行规程/程序自己解释),只有管道后端才走进程信号
+  (POSIX SIGINT / Windows CTRL_BREAK);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
 
@@ -94,6 +96,21 @@ MAX_PATTERN_CHARS: Final = 200
 #: 回传的命中文本上限:正则 `(.*)` 这类会整段回吐,不做上界等于把会话缓冲塞进信封。
 _MAX_MATCHED_TEXT: Final = 500
 
+#: 真终端里 Ctrl+C 的输入字节。PTY 后端的 `interrupt` 统一写这一个字节
+#: (规范模式下由行规程转成前台进程组的 SIGINT,raw 模式下由程序自己解释);
+#: 键表里的 `ctrl-c` 也取它 —— 两处必须是同一个字节,不是两份字面量。
+TTY_INTERRUPT_BYTE: Final = "\x03"
+
+#: bracketed paste(DEC 2004):程序先发 `DECSET 2004` 表示"请把整段粘贴包起来",终端侧
+#: 用 START/END 包裹后,程序不会把粘贴里的换行当成回车逐条执行(vim 的 "-- INSERT --"、
+#: readline 的整段插入都靠这一位)。四枚常量是同一机制的**单一真相源**。
+BRACKETED_PASTE_ON: Final = "\x1b[?2004h"
+BRACKETED_PASTE_OFF: Final = "\x1b[?2004l"
+BRACKETED_PASTE_START: Final = "\x1b[200~"
+BRACKETED_PASTE_END: Final = "\x1b[201~"
+#: 一次粘贴的字节上限:超过就拒(不静默截断 —— 截断的粘贴比拒绝更难查)。
+MAX_PASTE_BYTES: Final = 65_536
+
 #: 按键名 → 字节序列(**单一真相源**)。名字大小写不敏感,`-`/`_`/`+`/空格 视为同一种分隔。
 #: 立因:方向键/Esc 是转义序列、Ctrl 组合是控制码,这些用 `send` 写文本写不出来 ——
 #: REPL 补全(Tab)、TUI 菜单(方向键)、vim(Esc)只认字节。
@@ -120,7 +137,7 @@ KEY_SEQUENCES: Final[dict[str, str]] = {
     "pagedown": "\x1b[6~",
     "ctrl-a": "\x01",
     "ctrl-b": "\x02",
-    "ctrl-c": "\x03",
+    "ctrl-c": TTY_INTERRUPT_BYTE,
     "ctrl-d": "\x04",
     "ctrl-e": "\x05",
     "ctrl-f": "\x06",
@@ -258,6 +275,8 @@ class TerminalSession:
     #: 最近一次"被交互碰到"的单调时刻(open/send/keys/eof/read/wait/resize/signal 刷新)。
     #: 闲置回收只认这一个时钟 —— 用 wall clock 会在系统改时间时误杀/漏杀。
     last_activity_ts: float = field(default_factory=time.monotonic)
+    #: 程序是否已请求 bracketed paste(DECSET 2004)。由输出解析驱动,不靠调用方声明。
+    bracketed_paste: bool = False
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -288,6 +307,7 @@ class TerminalSession:
             "first_seq": self.first_seq(),
             "dropped_chunks": self.dropped_chunks,
             "idle_s": self.idle_s(),
+            "bracketed_paste": self.bracketed_paste,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -447,7 +467,7 @@ def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
     """管道路径:逐行读一条 stream 入缓冲。readline 到 EOF('')自然收敛。"""
     try:
         for line in iter(stream.readline, ""):
-            _push(session, tag, line)
+            _push_output(session, tag, line)
     except (OSError, ValueError):
         pass
     finally:
@@ -499,6 +519,25 @@ class _PtyLineSplitter:
             return text
 
 
+def _track_terminal_modes(session: TerminalSession, text: str) -> None:
+    """从输出里读终端模式开关(**DECSET/DECRST**),只认 bracketed paste(2004)。
+
+    为什么读输出而不是"由调用方声明":bracketed paste 是**程序**决定的(DECSET 2004 由
+    readline/vim/less 自己发),终端侧只是跟着开/关。不读这一位就只能靠猜 —— 猜错要么
+    把 `\\x1b[200~` 当垃圾写进程序,要么多行粘贴被逐行执行(一条粘贴炸成三条命令)。
+    """
+    if BRACKETED_PASTE_ON in text:
+        session.bracketed_paste = True
+    if BRACKETED_PASTE_OFF in text:
+        session.bracketed_paste = False
+
+
+def _push_output(session: TerminalSession, tag: str, text: str) -> None:
+    """输出入缓冲的**唯一出口**:先读模式位,再入队(两件事不会各自被忘掉)。"""
+    _track_terminal_modes(session, text)
+    _push(session, tag, text)
+
+
 def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
     """PTY 路径:master 读原始字节,按行切 + **空闲即吐**(见 `_PtyLineSplitter`)。
 
@@ -515,7 +554,7 @@ def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
         while not stop.wait(PTY_IDLE_FLUSH_S / 2):
             idle_text = splitter.take_idle(PTY_IDLE_FLUSH_S)
             if idle_text:
-                _push(session, tag, idle_text)
+                _push_output(session, tag, idle_text)
 
     watcher = threading.Thread(
         target=_watch_idle, name=f"pty-idle-{session.terminal_id}", daemon=True
@@ -530,12 +569,12 @@ def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
             if not data:
                 break
             for line in splitter.feed(data):
-                _push(session, tag, line)
+                _push_output(session, tag, line)
     finally:
         stop.set()
         tail = splitter.take_all()
         if tail:
-            _push(session, tag, tail)
+            _push_output(session, tag, tail)
 
 
 def _prune_for_new_session() -> None:
@@ -970,9 +1009,10 @@ def send_terminal_keys(
 ) -> dict[str, Any]:
     """按**键名**给会话发控制输入(方向键 / Tab / Esc / Ctrl 组合),不是写文本。
 
-    与 `signal_terminal("interrupt")` 的分工:后者走进程信号语义(POSIX SIGINT /
-    Windows CTRL_BREAK),对挂在 ConPTY 自己控制台上的子进程要靠行规程 0x03;本函数是
-    **纯输入字节**通道 —— 它与真终端里你亲手按下的键等价,由行规程/程序自己解释。
+    与 `signal_terminal("interrupt")` 的分工:后者在 **PTY 后端**同样走"输入字节"路线
+    (`TTY_INTERRUPT_BYTE` = 0x03,经行规程/程序自己解释,等价于用户亲手按 Ctrl+C);
+    只有**管道后端**才走进程信号语义(POSIX SIGINT / Windows CTRL_BREAK)。本函数是
+    **纯输入字节**通道 —— 由行规程/程序自己解释。
 
     如实说明一条边界(真终端的物理事实,不是本实现丢字节):程序仍处于**规范(canonical)
     输入模式**时,行规程会当场消费 ESC/方向键之类的编辑键 —— POSIX 把它们当普通字符留在
@@ -1038,6 +1078,80 @@ def send_terminal_keys(
         "keys": detail.split("|"),
         "bytes_written": len(payload),
     }
+
+def paste_terminal(
+    terminal_id: str,
+    text: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """粘贴一段**多行**文本:整段一次性写入,**不追加回车、不逐行执行**。
+
+    与 `send_terminal` 的分工:send 是"敲一行 + 回车",粘贴是"把剪贴板倒进去"。多行内容
+    走 send 会被程序当成多次回车(shell 里一条粘贴炸成三条命令),这不是延迟问题而是语义问题。
+
+    包裹口径照真终端:程序发过 `DECSET 2004`(`session.bracketed_paste=True`)才用
+    `ESC[200~ … ESC[201~` 包;没请求就原样写(此时写入 `ESC[200~` 只会被当垃圾字符)。
+    `bracketed` 字段如实回答"这次到底包了没有",不靠调用方假设。
+
+    上限 `MAX_PASTE_BYTES`:超了显式拒,不静默截断(截断的粘贴比拒绝更难查)。
+    """
+    session = _live(terminal_id, user_id, session_id)
+    if session is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再写入;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    if not text:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": "paste 的内容不能为空",
+        }
+    payload = text
+    if len(payload.encode("utf-8")) > MAX_PASTE_BYTES:
+        return {
+            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
+            "error": f"paste 内容过大(> {MAX_PASTE_BYTES} 字节),请分批粘贴",
+        }
+    bracketed = session.bracketed_paste
+    if bracketed:
+        payload = f"{BRACKETED_PASTE_START}{payload}{BRACKETED_PASTE_END}"
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "本会话没有可写输入通道", "terminal": session.to_dict(),
+        }
+    try:
+        sink.write(payload)
+        sink.flush()
+    except (OSError, ValueError) as e:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": f"粘贴写入失败: {e}", "terminal": session.to_dict(),
+        }
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "bytes_written": len(payload.encode("utf-8")),
+        "bracketed": bracketed,
+        "lines": len(text.split("\n")),
+        "running": session.running(),
+    }
+
 
 def eof_terminal(
     terminal_id: str,
@@ -1309,6 +1423,26 @@ def wait_terminal(
     }
 
 
+def _tty_interrupt(session: TerminalSession) -> tuple[bool, str]:
+    """真终端里的 Ctrl+C = **写输入字节 0x03**,由行规程(规范模式)/程序(raw 模式)自己解释。
+
+    这是 `interrupt` 在 PTY 后端上的**唯一出口**。为什么不能绕过 tty 直接 `send_signal`:
+    子进程是 `setsid` 出来的会话首进程,**前台进程组**才是行规程送 SIGINT 的对象;直接给
+    单个 pid 发信号会让"shell 里正在跑的前台命令"收不到(用户视角就是"按了 Ctrl+C 没停"),
+    而 raw 模式里自己处理 `^C` 的程序(vim/less)则永远看不到这次按键。
+    与 Windows ConPTY 同语义(那边也是往输入写 0x03),两平台只差"字节怎么送进子进程"。
+    """
+    sink = session.write_io
+    if sink is None:
+        return False, "本会话没有可写输入通道"
+    try:
+        sink.write(TTY_INTERRUPT_BYTE)
+        sink.flush()
+    except (OSError, ValueError) as e:
+        return False, f"写入 ^C 字节失败: {e}"
+    return True, ""
+
+
 def signal_terminal(
     terminal_id: str,
     *,
@@ -1330,6 +1464,18 @@ def signal_terminal(
         }
     try:
         if signal_name == "interrupt":
+            if session.backend == "pty":
+                ok, why = _tty_interrupt(session)
+                if not ok:
+                    return {
+                        "ok": False, "errorCode": "TERMINAL_SIGNAL_FAILED",
+                        "error": why, "terminal": session.to_dict(),
+                    }
+                return {
+                    "ok": True, "terminal_id": terminal_id, "signal": "interrupt",
+                    "delivery": "tty-byte",
+                    "running": proc.poll() is None,
+                }
             if os.name == "nt":
                 proc.send_signal(_WIN_CTRL_BREAK_EVENT)
             else:
@@ -1710,9 +1856,13 @@ class ConPtyProcess:
         self.terminate()
 
     def send_signal(self, sig: int) -> None:
-        """`interrupt` 走行规程输入字节 0x03;其余信号(terminate/kill)不经过这里。"""
+        """`interrupt` 走行规程输入字节(`TTY_INTERRUPT_BYTE`);其余信号不经过这里。
+
+        注:`signal_terminal` 现在**统一**在 PTY 分支调 `_tty_interrupt`(两平台同一出口),
+        本方法保留只为满足 `_ProcLike` 协议形状;字节值仍取自同一常量(不另抄一份字面量)。
+        """
         if sig == _WIN_CTRL_BREAK_EVENT and self.write_io is not None:
-            self.write_io.write("\x03")
+            self.write_io.write(TTY_INTERRUPT_BYTE)
             self.write_io.flush()
             return
         self.terminate()
@@ -1844,6 +1994,14 @@ __test__ = {
     "reap_idle_terminals": reap_idle_terminals,
     "idle_ttl_s": _idle_ttl_s,
     "TERMINAL_IDLE_TTL_ENV": TERMINAL_IDLE_TTL_ENV,
+    "tty_interrupt": _tty_interrupt,
+    "TTY_INTERRUPT_BYTE": TTY_INTERRUPT_BYTE,
+    "paste_terminal": paste_terminal,
+    "BRACKETED_PASTE_ON": BRACKETED_PASTE_ON,
+    "BRACKETED_PASTE_OFF": BRACKETED_PASTE_OFF,
+    "BRACKETED_PASTE_START": BRACKETED_PASTE_START,
+    "BRACKETED_PASTE_END": BRACKETED_PASTE_END,
+    "MAX_PASTE_BYTES": MAX_PASTE_BYTES,
     "read_terminal": read_terminal,
     "PTY_TERM": PTY_TERM,
     "PTY_COLORTERM": PTY_COLORTERM,

@@ -103,13 +103,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5930 | `testFiles` |
+| 测试文件 | 5931 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 370 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
-| 跟踪文件 | 23060 | `trackedFiles` |
+| 跟踪文件 | 23061 | `trackedFiles` |
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-20。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 <!-- END GENERATED NUMBERS -->
@@ -5475,6 +5475,73 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-21**
+- 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948)
+**2026-11-20**
+- 🚀 新功能/改进:交互式终端补真终端身份键与 stdin EOF 原语 (d459cd24a2)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fc7425978b)
+- 🔧 工程/其他:README 生成块 trackedFiles 按 HEAD 面现算对齐(23055) (826c7798c4)
+- ⚡ 性能:catBatch 小集跳过尺寸预检 + 单规格走直取,6 把跨端尺派生 96→77、302p 104→82 (6a37acbeb4)
+- 🔧 工程/其他:README 生成块数字按现算刷新(AI服务路由/测试文件/跟踪文件,第31项新增文件所致) (44a7913ada)
+- 🐞 修复:启动时去掉空值代理环境变量,根治自动更新请求零发出(reqwest Proxy::all("") 使 build() 失败); bump 0.1.84 (9e4c61af65)
+- 🚀 新功能/改进:交互终端补 keys（按键原语：转义序列与控制码字节通道） (b5444d02ab)
+- 🚀 新功能/改进:选择器放开图像/视频/语音/OCR 模态模型，仍按代次过滤旧代 (c20431b785)
+- 🔧 工程/其他:按 ai-service 侧 ruff 配置重排测试文件 import 分组(isort 第一方组) (060817e433)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9a2f3f0f54)
+- 📚 文档:数字块取对侧基线,合并后再按门现算重刷(消解合并时数字行的双侧同改) (d650a10004)
+- 🐞 修复:桌面更新源 Windows 直链改指 Gitee(匿名 200 且字节一致,实测 1.77MB/s vs GitHub 20KB/s) (5a8a4f02ba)
+- 🔧 工程/其他:README 生成块的跟踪文件数按 HEAD 面现算刷新(23051→23055) (4386b65592)
+- 🔧 工程/其他:追认 4b6ff40 的 AGENTS.md 体积清偿(未声明改动,已核逐字归档无条款删减) (efa8da085a)
+- ⚡ 性能:faceList 的 HEAD 面清单改进程内备忘(整树一次+前缀筛),同一棵树问 N 次只派 1 次 ls-tree (e596f8db4b)
+- 🐞 修复:补录交互终端 4 个 errorCode + 五语言词包、ruff 收口测试文件、WS 断开清理去 .catch 链、README 数字对齐(门94/263/182/173) (69b073294d)
+- 📚 文档:门 207 体积清偿——26 行历史叙述逐字移入 archive/AGENTS_trim-2026-11-20.md，规则条款零删减 (4b6ff400f3)
+- 🚀 新功能/改进:新增 README/PROJECT_PLAN 章节可寻址索引生成器与两件派生索引(按标题定位行号区间,--check 漂移校验) (b35d8a8415)
+- 🔧 工程/其他:README 生成块数字按 HEAD 面现算对齐(路由 685 / 测试 5928 / 跟踪 23051) (aa3f27382c)
+- 🐞 修复:代理解析候选由单端口扩为 7897/7900/7890(端口漂移曾致部署环 fetch 挂死停摆) (7a80d89ed6)
+- 🐞 修复:zh-TW PTY 标题去简体残留(平台→平臺) (8cb5f4abd8)
+- 🚀 新功能/改进:173 的 DN5 改差值棘轮(push 档按推送面判责,不再被别席清单漂移顶回来) (8c3dd18680)
+- 📚 文档:落 api 腿承载结论与 webhook 面迁移说明 (3a5bc717f5)
+- 🚀 新功能/改进:173 的 DN5 改差值棘轮(push 档按推送面判责,不再被别席清单漂移顶回来) (247e47d104)
+- 🚀 新功能/改进:取消历史模型折叠区，旧代与专用用途模型一律不展示 (e9c2c4d273)
+**2026-11-20**
+- 🚀 新功能/改进:交互终端补 wait_for（expect 原语，命中/超时/已退出三态） (13502ec3cf)
+- 🚀 新功能/改进:钩子配置只读自述端点 + 面板未生效提示(第31项) (910b5e3d56)
+- 🐞 修复:REST/SSE 基址改走 EdgeOne 承载的 www 臂(WS 仍钉 api 子域) (b03a443ed5)
+- 🔧 工程/其他:README 生成块 trackedFiles 23049 刷新 (c759895ef3)
+- 📚 文档:落 api 腿承载结论与 webhook 面迁移说明 (a0ac4cc111)
+- 🐞 修复:ai-endpoints 派生件按新 HEAD 面重钉(端点数据行零改动) (234bb2c119)
+- 🔧 工程/其他:给 8c87943 补具名追认(gate-body 无签名阻塞全仓 push) (c0257b063f)
+- ⚡ 性能:47 全量面 blob 装箱上限放大,块数 9+ → 2 (efe4acf74a)
+- 🐞 修复:结清 Y-73 hygiene尺人工问责出口(H3判据从祖先76599d688还原,--strict/--json三维实测,16/18自测绿;出口2 LAND_ALLOW_STALE 因trailer超长) (8c87943bf5)
+**2026-11-20**
+- 🚀 新功能/改进:交互终端补窗口尺寸 resize（POSIX TIOCSWINSZ / Windows ResizePseudoConsole） (c1c9cb39d2)
+- 🔧 工程/其他:部署环 fail-closed 复核——guardian-executor 清单按 HEAD 面 blob 重封(判据语义零改动) (e3e8882f31)
+- 🐞 修复:收录 TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM 错误码 + 五语言词包(守门 94 R1) (1dad924450)
+- 🚀 新功能/改进:hook.run 逐钩子运行结果前端消费面 + 报告 §5.31(第30项) (4d3aa6a635)
+- 🔧 工程/其他:README 生成块数字刷新(testFiles 5927 / trackedFiles 23048 / aiServiceRoutes 684) (d5afd8a89c)
+- ⚡ 性能:30a 整面 raw 读数预启动,与 fsck 并发、失败回落同步档 (636b82d012)
+- 🐞 修复:端点派生件(ai-endpoints/api-endpoints)按新 HEAD 面重钉 —— 正文零改动 (47de80224d)
+**2026-11-20**
+- 🚀 新功能/改进:交互终端补 Windows 原生 ConPTY 后端（零依赖 ctypes 直连 kernel32） (bec840f434)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (d1aee8dad7)
+- 📚 文档:生成块数字按 HEAD 面现算再对齐 (6054eeff81)
+- ⚡ 性能:298 逐字档与 HEAD 面收口,派生 217→110、单跑 94s→53s (8dd06139b0)
+- 🐞 修复:桌面端更新源快照刷新到 0.1.83(发版后 feed 未跟进) (1da8af80ed)
+- 📚 文档:采用远端生成数字块(解除合并吞行判红,数字随后按 HEAD 面重算) (08fe0f75d6)
+- 🐞 修复:桌面端更新源快照刷新到 0.1.83(发版后 feed 未跟进) (f130e93e23)
+- 🚀 新功能/改进:PRE/POST_COMPACT 压缩前后钩子接入压力判据闸 (db79c5c3a8)
+- 🔧 工程/其他:烘焙 desktop-v0.1.83 更新清单到站点快照 (1b5772276c)
+- 🐞 修复:页面控制族补齐 page_scroll / page_wait_for / page_drag —— 消除"静默少能" (03d2ee243f)
+- 🔧 工程/其他:刷新 README 生成块数字(trackedFiles/testFiles/aiServiceRoutes,唯一写入口 sync-readme-numbers) (b11c475dfa)
+- 📚 文档:生成块数字按 HEAD 面现算再对齐 (fe24a96eec)
+- ⚡ 性能:fsck 预启动并行化(76.2s->46.1s) (800a8d4be0)
+- 🚀 新功能/改进:号池模型接入目录代次判定，旧代与平台目录同口径过滤 (ed623c2009)
+- 🚀 新功能/改进:STOP 钩子接入正常完成哨点(block 续跑一段,硬上限 1) (f8a9300e7e)
+- 🐞 修复:结清 Y-86 agent-heat 详情端点时区错位(UTC改业务日键bizDayKey,北京00-08点不再漏最新一天;跨时区边界用例5/5) (fa601aab6e)
+- 🐞 修复:sandbox 本地执行异常路径不再抛 UnboundLocalError + test_timeout 补齐全形态 mock (eb3045a7d8)
+- ⚡ 性能:三道全仓扫描门并入快档重型清单(151/173/158) (490dcb405a)
+- ⚡ 性能:候选遮罩去重 + grep 按扩展名收窄(23.2s->11.9s) (75ebcdf107)
+- 🐞 修复:结清 Y-83/Y-84/Y-91/Y-92/Y-96 五张缺陷普查票(凭据收割确认闸+MachineGuid备份HMAC防伪+terminal锁中毒防护+to_value错误传播+work-panel sync 顶层catch) (832411eb5c)
 **2026-11-20**
 - 🐞 修复:root-guard 清单按并发演进后的 HEAD 面重封(guardian-runner/land-gate-rerun 两条差面) (85e3e10c11)
 - ⚡ 性能:push 面按推送改动面收窄 + 定向快通道多 app 循环变量重命名 (7017d9a74a)
@@ -8646,97 +8713,41 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5924 | `testFiles` |
 | 跟踪文件 | 23043 | `trackedFiles` |
 | 跟踪文件 | 23043 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
-| 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
-| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5928 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5928 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5928 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5928 | `testFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
 | 测试文件 | 5930 | `testFiles` |
-| 跟踪文件 | 23057 | `trackedFiles` |
-**2026-11-21**
-- 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948)
-**2026-11-20**
-- 🚀 新功能/改进:交互式终端补真终端身份键与 stdin EOF 原语 (d459cd24a2)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fc7425978b)
-- 🔧 工程/其他:README 生成块 trackedFiles 按 HEAD 面现算对齐(23055) (826c7798c4)
-- ⚡ 性能:catBatch 小集跳过尺寸预检 + 单规格走直取,6 把跨端尺派生 96→77、302p 104→82 (6a37acbeb4)
-- 🔧 工程/其他:README 生成块数字按现算刷新(AI服务路由/测试文件/跟踪文件,第31项新增文件所致) (44a7913ada)
-- 🐞 修复:启动时去掉空值代理环境变量,根治自动更新请求零发出(reqwest Proxy::all("") 使 build() 失败); bump 0.1.84 (9e4c61af65)
-- 🚀 新功能/改进:交互终端补 keys（按键原语：转义序列与控制码字节通道） (b5444d02ab)
-- 🚀 新功能/改进:选择器放开图像/视频/语音/OCR 模态模型，仍按代次过滤旧代 (c20431b785)
-- 🔧 工程/其他:按 ai-service 侧 ruff 配置重排测试文件 import 分组(isort 第一方组) (060817e433)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9a2f3f0f54)
-- 📚 文档:数字块取对侧基线,合并后再按门现算重刷(消解合并时数字行的双侧同改) (d650a10004)
-- 🐞 修复:桌面更新源 Windows 直链改指 Gitee(匿名 200 且字节一致,实测 1.77MB/s vs GitHub 20KB/s) (5a8a4f02ba)
-- 🔧 工程/其他:README 生成块的跟踪文件数按 HEAD 面现算刷新(23051→23055) (4386b65592)
-- 🔧 工程/其他:追认 4b6ff40 的 AGENTS.md 体积清偿(未声明改动,已核逐字归档无条款删减) (efa8da085a)
-- ⚡ 性能:faceList 的 HEAD 面清单改进程内备忘(整树一次+前缀筛),同一棵树问 N 次只派 1 次 ls-tree (e596f8db4b)
-- 🐞 修复:补录交互终端 4 个 errorCode + 五语言词包、ruff 收口测试文件、WS 断开清理去 .catch 链、README 数字对齐(门94/263/182/173) (69b073294d)
-- 📚 文档:门 207 体积清偿——26 行历史叙述逐字移入 archive/AGENTS_trim-2026-11-20.md，规则条款零删减 (4b6ff400f3)
-- 🚀 新功能/改进:新增 README/PROJECT_PLAN 章节可寻址索引生成器与两件派生索引(按标题定位行号区间,--check 漂移校验) (b35d8a8415)
-- 🔧 工程/其他:README 生成块数字按 HEAD 面现算对齐(路由 685 / 测试 5928 / 跟踪 23051) (aa3f27382c)
-- 🐞 修复:代理解析候选由单端口扩为 7897/7900/7890(端口漂移曾致部署环 fetch 挂死停摆) (7a80d89ed6)
-- 🐞 修复:zh-TW PTY 标题去简体残留(平台→平臺) (8cb5f4abd8)
-- 🚀 新功能/改进:173 的 DN5 改差值棘轮(push 档按推送面判责,不再被别席清单漂移顶回来) (8c3dd18680)
-- 📚 文档:落 api 腿承载结论与 webhook 面迁移说明 (3a5bc717f5)
-- 🚀 新功能/改进:173 的 DN5 改差值棘轮(push 档按推送面判责,不再被别席清单漂移顶回来) (247e47d104)
-- 🚀 新功能/改进:取消历史模型折叠区，旧代与专用用途模型一律不展示 (e9c2c4d273)
-**2026-11-20**
-- 🚀 新功能/改进:交互终端补 wait_for（expect 原语，命中/超时/已退出三态） (13502ec3cf)
-- 🚀 新功能/改进:钩子配置只读自述端点 + 面板未生效提示(第31项) (910b5e3d56)
-- 🐞 修复:REST/SSE 基址改走 EdgeOne 承载的 www 臂(WS 仍钉 api 子域) (b03a443ed5)
-- 🔧 工程/其他:README 生成块 trackedFiles 23049 刷新 (c759895ef3)
-- 📚 文档:落 api 腿承载结论与 webhook 面迁移说明 (a0ac4cc111)
-- 🐞 修复:ai-endpoints 派生件按新 HEAD 面重钉(端点数据行零改动) (234bb2c119)
-- 🔧 工程/其他:给 8c87943 补具名追认(gate-body 无签名阻塞全仓 push) (c0257b063f)
-- ⚡ 性能:47 全量面 blob 装箱上限放大,块数 9+ → 2 (efe4acf74a)
-- 🐞 修复:结清 Y-73 hygiene尺人工问责出口(H3判据从祖先76599d688还原,--strict/--json三维实测,16/18自测绿;出口2 LAND_ALLOW_STALE 因trailer超长) (8c87943bf5)
-**2026-11-20**
-- 🚀 新功能/改进:交互终端补窗口尺寸 resize（POSIX TIOCSWINSZ / Windows ResizePseudoConsole） (c1c9cb39d2)
-- 🔧 工程/其他:部署环 fail-closed 复核——guardian-executor 清单按 HEAD 面 blob 重封(判据语义零改动) (e3e8882f31)
-- 🐞 修复:收录 TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM 错误码 + 五语言词包(守门 94 R1) (1dad924450)
-- 🚀 新功能/改进:hook.run 逐钩子运行结果前端消费面 + 报告 §5.31(第30项) (4d3aa6a635)
-- 🔧 工程/其他:README 生成块数字刷新(testFiles 5927 / trackedFiles 23048 / aiServiceRoutes 684) (d5afd8a89c)
-- ⚡ 性能:30a 整面 raw 读数预启动,与 fsck 并发、失败回落同步档 (636b82d012)
-- 🐞 修复:端点派生件(ai-endpoints/api-endpoints)按新 HEAD 面重钉 —— 正文零改动 (47de80224d)
-**2026-11-20**
-- 🚀 新功能/改进:交互终端补 Windows 原生 ConPTY 后端（零依赖 ctypes 直连 kernel32） (bec840f434)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (d1aee8dad7)
-- 📚 文档:生成块数字按 HEAD 面现算再对齐 (6054eeff81)
-- ⚡ 性能:298 逐字档与 HEAD 面收口,派生 217→110、单跑 94s→53s (8dd06139b0)
-- 🐞 修复:桌面端更新源快照刷新到 0.1.83(发版后 feed 未跟进) (1da8af80ed)
-- 📚 文档:采用远端生成数字块(解除合并吞行判红,数字随后按 HEAD 面重算) (08fe0f75d6)
-- 🐞 修复:桌面端更新源快照刷新到 0.1.83(发版后 feed 未跟进) (f130e93e23)
-- 🚀 新功能/改进:PRE/POST_COMPACT 压缩前后钩子接入压力判据闸 (db79c5c3a8)
-- 🔧 工程/其他:烘焙 desktop-v0.1.83 更新清单到站点快照 (1b5772276c)
-- 🐞 修复:页面控制族补齐 page_scroll / page_wait_for / page_drag —— 消除"静默少能" (03d2ee243f)
-- 🔧 工程/其他:刷新 README 生成块数字(trackedFiles/testFiles/aiServiceRoutes,唯一写入口 sync-readme-numbers) (b11c475dfa)
-- 📚 文档:生成块数字按 HEAD 面现算再对齐 (fe24a96eec)
-- ⚡ 性能:fsck 预启动并行化(76.2s->46.1s) (800a8d4be0)
-- 🚀 新功能/改进:号池模型接入目录代次判定，旧代与平台目录同口径过滤 (ed623c2009)
-- 🚀 新功能/改进:STOP 钩子接入正常完成哨点(block 续跑一段,硬上限 1) (f8a9300e7e)
-- 🐞 修复:结清 Y-86 agent-heat 详情端点时区错位(UTC改业务日键bizDayKey,北京00-08点不再漏最新一天;跨时区边界用例5/5) (fa601aab6e)
-- 🐞 修复:sandbox 本地执行异常路径不再抛 UnboundLocalError + test_timeout 补齐全形态 mock (eb3045a7d8)
-- ⚡ 性能:三道全仓扫描门并入快档重型清单(151/173/158) (490dcb405a)
-- ⚡ 性能:候选遮罩去重 + grep 按扩展名收窄(23.2s->11.9s) (75ebcdf107)
-- 🐞 修复:结清 Y-83/Y-84/Y-91/Y-92/Y-96 五张缺陷普查票(凭据收割确认闸+MachineGuid备份HMAC防伪+terminal锁中毒防护+to_value错误传播+work-panel sync 顶层catch) (832411eb5c)
+| 跟踪文件 | 23060 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |

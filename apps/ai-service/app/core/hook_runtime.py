@@ -69,6 +69,8 @@ class HookKind(StrEnum):
     # "模型请求前可编程旁路 / 请求后可编程审计"两件事在配置面写了也不生效。
     PRE_MODEL_REQUEST = "pre_model_request"
     POST_MODEL_REQUEST = "post_model_request"
+    # 2026-11-21:契约有 interrupt,本仓无挂载点 ⇒ "取消时通知外部/落审计"无处可挂。
+    INTERRUPT = "interrupt"
     STOP = "stop"
 
 
@@ -167,7 +169,17 @@ class HookRuntime:
     ) -> tuple[HookRunEvent, Any]:
         started = time.perf_counter()
         try:
-            result = reg.func(payload)
+            # 2026-11-21:同步钩子此前**直接在本事件循环里调用**,`timeout` 只对
+            # 协程钩子生效 —— 一个 time.sleep(30) 的同步钩子能把整个 agent 循环冻住
+            # 30 秒(第 35 项的取消上限因此形同虚设)。现在:协程钩子照旧 await;
+            # 同步钩子一律丢线程池,外面套同一个 wait_for ⇒ 超时对两种钩子都成立。
+            if asyncio.iscoroutinefunction(reg.func):
+                result = await asyncio.wait_for(reg.func(payload), timeout=reg.timeout)
+            else:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(reg.func, payload), timeout=reg.timeout
+                )
+            # 兼容"同步函数返回 awaitable"的老写法:仍然等它,不吞成 coroutine 对象。
             if asyncio.iscoroutine(result):
                 result = await asyncio.wait_for(result, timeout=reg.timeout)
             duration_ms = int((time.perf_counter() - started) * 1000)

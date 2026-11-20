@@ -8947,12 +8947,19 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/read/signal/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
-    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、close 收尾。
+    跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
+    read 增量取输出、wait_for 等到提示符/关键字出现(命中/超时/已退出三态)、signal 中断、
+    resize 改窗口尺寸、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys 显式拒
+    TERMINAL_STDIN_CLOSED)、close 收尾。`paste` 是**整段多行粘贴**(不追加回车、不逐行
+    执行);程序开了 bracketed paste(DECSET 2004)时自动用 `ESC[200~…ESC[201~` 包裹,回执
+    里的 `bracketed` 如实说明这次包没包。open 还可带 `cols`/`rows` 直接**开在**目标尺寸
+    (真终端本就该在启动时定尺寸;先按 120×30 起再 resize 会让 TUI 首屏白排一遍)。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
-    子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
+    子进程环境走 sandbox 严档白名单,不整份继承宿主环境(PTY 后端在此之上补 TERM/COLORTERM
+    默认值 —— 真 tty 缺 TERM 会退化成 dumb 终端)。
     """
     from . import interactive_terminal as term
 
@@ -8991,6 +8998,10 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             user_id=user_id,
             session_id=session_id,
             env_extra=env_extra,
+            # 尺寸原样交给模块判(非整数/越界由 _normalize_size 单一出口拒)——
+            # 工具层再抄一份 int() 判断只会造出第二个真相源。
+            cols=arguments.get("cols"),
+            rows=arguments.get("rows"),
         )
         return {"tool": "terminal", "action": "open", **result}
 
@@ -9024,6 +9035,46 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "send", **result}
 
+    if action == "keys":
+        keys_raw = arguments.get("keys")
+        if isinstance(keys_raw, str):
+            keys = [k for k in keys_raw.replace(",", " ").split() if k]
+        elif isinstance(keys_raw, list):
+            keys = [str(k) for k in keys_raw]
+        else:
+            keys = []
+        if not keys:
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "keys 需要键名(字符串或数组),如 [\"up\",\"tab\",\"escape\"]",
+            }
+        result = await asyncio.to_thread(
+            term.send_terminal_keys,
+            terminal_id,
+            keys,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "keys", **result}
+
+    if action == "paste":
+        content = arguments.get("text")
+        if content is None:
+            content = arguments.get("input")
+        if not isinstance(content, str) or not content:
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "paste 需要非空字符串 text(多行内容整段粘贴,不逐行执行)",
+            }
+        result = await asyncio.to_thread(
+            term.paste_terminal,
+            terminal_id,
+            content,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "paste", **result}
+
     if action == "read":
         try:
             since_seq = int(arguments.get("since_seq", 0))
@@ -9048,6 +9099,38 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "read", **result}
 
+    if action == "wait_for":
+        pattern = arguments.get("pattern")
+        if not isinstance(pattern, str) or not pattern:
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "wait_for 需要非空字符串 pattern",
+            }
+        try:
+            since_seq = int(arguments.get("since_seq", 0))
+        except (TypeError, ValueError):
+            since_seq = 0
+        try:
+            timeout_s = float(arguments.get("timeout_s", 10.0))
+        except (TypeError, ValueError):
+            timeout_s = 10.0
+        try:
+            max_chars = int(arguments.get("max_chars", 8000))
+        except (TypeError, ValueError):
+            max_chars = 8000
+        result = await asyncio.to_thread(
+            term.wait_terminal,
+            terminal_id,
+            pattern=pattern,
+            user_id=user_id,
+            session_id=session_id,
+            since_seq=max(0, since_seq),
+            timeout_s=max(0.0, min(timeout_s, term.MAX_WAIT_S)),
+            max_chars=max(1, min(max_chars, term.MAX_READ_CHARS)),
+            regex=bool(arguments.get("regex", False)),
+        )
+        return {"tool": "terminal", "action": "wait_for", **result}
+
     if action == "signal":
         result = await asyncio.to_thread(
             term.signal_terminal,
@@ -9057,6 +9140,36 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
         )
         return {"tool": "terminal", "action": "signal", **result}
+
+    if action == "resize":
+        try:
+            # 经 str() 收敛:工具入参可能是 JSON 数字也可能是字符串;None → "None" 走 ValueError,
+            # 非数值同档显式拒(不把脏值喂给内核)。
+            cols = int(str(arguments.get("cols")).strip())
+            rows = int(str(arguments.get("rows")).strip())
+        except (TypeError, ValueError):
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "resize 需要整数 cols 与 rows",
+            }
+        result = await asyncio.to_thread(
+            term.resize_terminal,
+            terminal_id,
+            cols=cols,
+            rows=rows,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "resize", **result}
+
+    if action == "eof":
+        result = await asyncio.to_thread(
+            term.eof_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "eof", **result}
 
     if action == "close":
         result = await asyncio.to_thread(
@@ -9069,7 +9182,10 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": f"不支持的 action: {action}(open/send/read/signal/close/list)",
+        "error": (
+            f"不支持的 action: {action}"
+            "(open/send/keys/read/wait_for/signal/resize/eof/close/list)"
+        ),
     }
 
 
