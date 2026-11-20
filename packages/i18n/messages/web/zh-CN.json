@@ -9948,6 +9948,7 @@
       "chartGenerated": "图表已生成",
       "chartPreviewFailed": "图表预览加载失败,请复制路径后在本机浏览器打开。",
       "chartPreviewHint": "本地图表文件无法在网页内直接预览,请复制路径后在本机浏览器打开。",
+    "toolOutputArtifact": "输出较大，已保存为工件",     "toolOutputHint": "完整输出可分页查看，链接 10 分钟内有效。",     "toolOutputOpen": "查看完整输出",     "toolOutputOpenFailed": "打开失败，请重试。",     "toolOutputExpired": "预览链接已过期",
       "citationsTitle": "引用来源",
       "copyPath": "复制路径",
       "filePathLabel": "文件路径",

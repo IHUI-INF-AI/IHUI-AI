@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **16 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **17 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -85,7 +85,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（16 项，含验证证据）
+## 5. 本次落地（17 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -247,6 +247,17 @@
 
 验证同上文件 → `8 passed`（窗口未知 vs 已知两态、边界计数、缓存未命中三态）。
 
+### 5.17 前端工件挂载入口（工具卡片上的“查看完整输出”）
+
+- 事实：5.13 只把后端挂载面补齐，前端拿不到入口 ⇒ 用户眼里“大输出依旧被截断”。对照件把这一步做成卡片上的可点入口（WorkBuddy 的 `mount preview`、deepseek-tui 的 `/artifacts`）。
+- 新增（`apps/web/src/components/ai/tool-call-card.tsx`）：
+  - `extractToolArtifact(result)`：只认 `artifactId` 严格形状（32 位小写 hex），可选 `originalChars`；字符串 JSON 与对象两态都解析，其余一律 `null`（不猜、不拼路径）。
+  - `ToolArtifactMountBlock`：**点击时才**调 `/api/artifacts/tool/token` 换 10 分钟链接，`window.open(..., 'noopener,noreferrer')` 打开；失败（未登录/过期/工件被清）显示“打开失败”，不静默当成功；显示字符数，让用户知道被裁掉了多少。
+- 文案：`packages/i18n/messages/web` 五语言同批新增 5 个键（`toolOutputArtifact / toolOutputHint / toolOutputOpen / toolOutputOpenFailed / toolOutputExpired`），parity 门通过。
+- 超越轴：对照件的挂载是“卡片内嵌 iframe”，会与宿主同域共享风险；本仓先给**外链式最小面**（token 10 分钟、noopener 隔离、失败可见），内嵌沙盒留给产品定型，安全面不将就。
+
+验证：`vitest run tests/tool-call-card.test.ts` → `10 passed`（新增 4 例：严格 id 形状/JSON 文本形态/大小写与数组拒绝/`originalChars` 非正降级）；`@ihui/web` typecheck 0；`check-i18n-parity` / `check-i18n-keys` / `check-i18n-messages-exist` 全绿。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -255,7 +266,7 @@
 2. **三级阈值 + cycle restart** → 已有等价（`app/core/context_compaction.py` 的 `assess_context_pressure` + `_build_structured_summary`、`compaction_retention.py` / `compaction_quality.py` / `compaction_canary.py`、`CompactionBoundaryItem`）；"交接"这层本轮补齐为可导出产物（§5.15）。
 3. **BM25 / 混合检索** → 已有等价且更强：`mcp_server.py` 的 `search_codebase` 已是 pgvector + BM25 的 RRF 混合通道（注释 `:1707`）。纯 BM25 再写一份会在离线/在线两态给出两套排序。
 4. **前缀缓存统计** → 统计早已有（`cost_ledger.py:510` 段 `total_cached_tokens / cache_creation_tokens / cache_hit_count` + `model_pricing.py` 三段计价 + `rollout_budget.py` 归一）；本轮把"读数"装成会话级一等端点（§5.16），只剩前端图形化看板属产品形态。
-5. **MCP apps 宿主 UI** → 后端挂载面已补齐（§5.13：artifact 挂载、TTL、404 同形），本轮再加了会话级读数端点。宿主 UI 的卡片/沙盒/生命周期是**前端交互设计**，需产品拍板；后端已按判据就位，前端接上只是消费 `token` + `f/{token}` 两件事，不再有后端缺件。
+5. **MCP apps 宿主 UI** → 后端挂载面（§5.13）+ 前端可点入口（§5.17）都已就位，长输出现在能"看完"；内嵌 iframe 沙盒/卡片生命周期属前端交互设计，需产品拍板，且**不再是后端或协议缺件**。
 
 ## 7. Limitations（如实记录，不作安全结论）
 
