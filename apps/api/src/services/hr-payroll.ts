@@ -100,6 +100,10 @@ export interface PayrollBreakdown {
     medicalPersonal: number
     unemploymentPersonal: number
     housingFundRate: number
+    /** 实际参与计算的社保缴费基数(已按当地上下限夹取) */
+    insuranceBaseApplied?: number
+    /** 实际参与计算的公积金缴费基数(公积金上下限可能与社保不同) */
+    fundBaseApplied?: number
   } | null
   /** 计算过程中产生的提示(缺配置/异常值) */
   warnings: string[]
@@ -115,6 +119,10 @@ export interface PayrollBuildResult {
   skippedSigned: number
   totalGross: number
   totalNet: number
+  /** 本次算薪是否在"社保配置缺失/不完整"下完成(true = 社保按 0,仅在显式试算时出现) */
+  insuranceConfigMissing: boolean
+  /** 社保配置问题清单(空数组 = 配置完整可用) */
+  insuranceConfigIssues: string[]
 }
 
 /** 四舍五入到分 */
@@ -177,6 +185,57 @@ async function resolveInsuranceRates(
 }
 
 /**
+ * 校验一条地区费率配置是否"可用来算薪"。
+ *
+ * 判据只有一个:**该填的字段必须被显式填过**。
+ *   · `null` = 没填(不知道当地多少) → 不可用,因为按 0 算就是漏扣;
+ *   · `0`   = 明确为 0(如某地失业个人确实不缴) → 可用,这是有效值。
+ *
+ * 另外做区间校验,拦住明显录错的数据(比如把 8% 录成 8,会把社保算成工资的 8 倍)。
+ */
+export function validateInsuranceConfig(
+  row: typeof hrInsuranceRateConfig.$inferSelect,
+): string[] {
+  const issues: string[] = []
+
+  const personalRates: Array<[string, string, unknown]> = [
+    ['pensionPersonal', '养老个人费率', row.pensionPersonal],
+    ['medicalPersonal', '医疗个人费率', row.medicalPersonal],
+    ['unemploymentPersonal', '失业个人费率', row.unemploymentPersonal],
+  ]
+  for (const [field, label, value] of personalRates) {
+    if (value === null || value === undefined) {
+      issues.push(`${label}(${field})为空;若当地确为 0 请填 0,留空无法与"漏填"区分`)
+      continue
+    }
+    const n = Number(value)
+    if (!Number.isFinite(n) || n < 0 || n > 0.2) {
+      issues.push(`${label}取值 ${String(value)} 超出合理区间 0~0.2(即 0%~20%)`)
+    }
+  }
+
+  if (row.housingFundRate === null || row.housingFundRate === undefined) {
+    issues.push('公积金费率(housingFundRate)为空;若该员工不缴公积金也请填 0')
+  } else {
+    const n = Number(row.housingFundRate)
+    if (!Number.isFinite(n) || n < 0 || n > 0.25) {
+      issues.push(`公积金费率取值 ${String(row.housingFundRate)} 超出合理区间 0~0.25(即 0%~25%)`)
+    }
+  }
+
+  // 缴费基数上下限:缺了就无法判断"这个人的基数是否合法",也算不出封顶保底
+  const min = row.insuranceBaseMin === null ? null : Number(row.insuranceBaseMin)
+  const max = row.insuranceBaseMax === null ? null : Number(row.insuranceBaseMax)
+  if (min === null || max === null) {
+    issues.push('社保缴费基数上下限缺失(insuranceBaseMin / insuranceBaseMax 必须同时填)')
+  } else if (!(min > 0) || !(max >= min)) {
+    issues.push(`社保缴费基数上下限不合法:下限 ${min} / 上限 ${max}(要求 下限>0 且 上限≥下限)`)
+  }
+
+  return issues
+}
+
+/**
  * 生成某月工资单。
  *
  * 前置:该月的 hr_attendance_monthly 必须已生成(否则缺勤天数无从判断)。
@@ -188,8 +247,22 @@ export async function buildPayroll(params: {
   /** 是否覆盖已 approved 的周期(默认 false) */
   overwriteApproved?: boolean | undefined
   operatedBy?: string | undefined
+  /**
+   * 是否允许在"社保费率配置缺失/不完整"时照样出单(默认 false)。
+   *
+   * 默认 false 是**故意的**:缺配置时算出来的社保是 0,工资单看起来正常,
+   * 但员工实际少扣了社保,属于"错单"。只允许显式声明"我在试算"的场景传 true,
+   * 且此时结果里一定带 warning 与 insuranceConfigMissing 标记。
+   */
+  allowMissingInsurance?: boolean | undefined
 }): Promise<PayrollBuildResult> {
-  const { periodMonth, regionName, overwriteApproved = false, operatedBy } = params
+  const {
+    periodMonth,
+    regionName,
+    overwriteApproved = false,
+    operatedBy,
+    allowMissingInsurance = false,
+  } = params
 
   if (!/^\d{4}-\d{2}$/.test(periodMonth)) {
     throw new AppError('月份格式必须是 YYYY-MM', 400, 'PAYROLL_BAD_PERIOD')
@@ -200,6 +273,75 @@ export async function buildPayroll(params: {
   const monthStart = `${periodMonth}-01`
   const monthEnd = `${periodMonth}-${String(lastDay).padStart(2, '0')}`
   const year = y
+
+  // ==========================================================================
+  // 社保口径守卫:**宁可不出单,也不出错单**
+  //
+  // 社保费率与缴费基数上下限没有外部实时数据源(各地人社局每年公布,全国无统一
+  // API),所以系统只能依赖 hr_insurance_rate_config 里人工维护的当年数据。
+  // 旧实现在配置缺失时是「社保公积金按 0 + 一条 warning」——工资单照出,财务
+  // 很可能不看 warning 就把单发了,结果全员少扣社保,事后要补缴甚至被稽核。
+  //
+  // 现在改成硬失败:**配置缺失或字段不完整 → 直接拒绝算薪**,并在报错里说清
+  // 缺什么、哪个地区、哪一年、去哪个接口补。守卫放在建周期之前,失败时不留下
+  // 半成品周期行。
+  // ==========================================================================
+  // 参保地必须能唯一确定。库里同一年有多地区启用配置却没指定地区时,
+  // 旧实现会 limit(1) 随便取一条 —— 那可能拿 A 市的费率算 B 市的人,必错。
+  const regionRows = await db
+    .select({ regionName: hrInsuranceRateConfig.regionName })
+    .from(hrInsuranceRateConfig)
+    .where(
+      and(eq(hrInsuranceRateConfig.effectiveYear, year), eq(hrInsuranceRateConfig.enabled, true)),
+    )
+    .groupBy(hrInsuranceRateConfig.regionName)
+  const availableRegions = regionRows.map((r) => r.regionName)
+  if (!regionName && availableRegions.length > 1) {
+    throw new AppError(
+      `${year} 年存在多个参保地的费率配置(${availableRegions.join('、')}),必须指定 regionName 才能算薪` +
+        `(不能默认取第一条,否则可能用错地区费率)`,
+      400,
+      'PAYROLL_REGION_AMBIGUOUS',
+    )
+  }
+
+  const insurance = await resolveInsuranceRates(year, regionName)
+  let insuranceIssues: string[] = []
+
+  if (!insurance) {
+    insuranceIssues = [`${year} 年未配置社保公积金费率配置(地区:${regionName ?? '未指定'})`]
+    if (!allowMissingInsurance) {
+      throw new AppError(
+        `未配置 ${year} 年${regionName ? `「${regionName}」` : ''}社保公积金费率,拒绝算薪。` +
+          `(缺配置时社保会被算成 0,属于错单,因此直接阻断)`,
+        400,
+        'PAYROLL_INSURANCE_CONFIG_MISSING',
+      )
+    }
+    logger.warn('算薪在缺社保配置的情况下继续(allowMissingInsurance=true)', {
+      year,
+      regionName: regionName ?? null,
+      periodMonth,
+    })
+  } else {
+    const issues = validateInsuranceConfig(insurance)
+    insuranceIssues = issues
+    if (issues.length > 0) {
+      if (!allowMissingInsurance) {
+        throw new AppError(
+          `${year} 年「${insurance.regionName}」社保配置不完整,拒绝算薪:\n- ${issues.join('\n- ')}\n` +
+            `请通过 POST /api/hr-salary-config/insurance 补齐后重算。`,
+          400,
+          'PAYROLL_INSURANCE_CONFIG_INVALID',
+        )
+      }
+      logger.warn('算薪在社保配置不完整的情况下继续(allowMissingInsurance=true)', {
+        year,
+        regionName: insurance.regionName,
+        issues,
+      })
+    }
+  }
 
   // 周期:存在则校验状态,不存在则建
   const [existingPeriod] = await db
@@ -242,8 +384,6 @@ export async function buildPayroll(params: {
       'PAYROLL_NO_MONTHLY',
     )
   }
-
-  const insurance = await resolveInsuranceRates(year, regionName)
 
   let inserted = 0
   let updated = 0
@@ -333,22 +473,28 @@ export async function buildPayroll(params: {
     // ---- 步骤 6:社保公积金(个人部分)----
     let insurancePersonal = 0
     let housingFundPersonal = 0
+    // 实际生效的公积金费率:员工级 housingFundRate 优先,否则地区配置。
+    // 单独记下来是为了写进 breakdown.inputs —— 否则审计时看到 0 会误判"没缴公积金"。
+    let effectiveFundRate = Number(config.housingFundRate ?? 0)
     let rateSnapshot: PayrollBreakdown['rates'] = null
 
     if (insurance) {
-      // 缴费基数夹取上下限
-      if (
-        insurance.insuranceBaseMin !== null &&
-        insuranceBase < Number(insurance.insuranceBaseMin)
-      ) {
-        insuranceBase = Number(insurance.insuranceBaseMin)
+      // 缴费基数夹取上下限。夹取本身是合法的(封顶保底),但必须把原始申报值
+      // 露在 warning 里 —— 否则财务看到的是一个"看起来对"的基数,查不到源头。
+      const declaredBase = insuranceBase
+      const baseMin =
+        insurance.insuranceBaseMin === null ? null : Number(insurance.insuranceBaseMin)
+      const baseMax =
+        insurance.insuranceBaseMax === null ? null : Number(insurance.insuranceBaseMax)
+      if (baseMin !== null && insuranceBase < baseMin) insuranceBase = baseMin
+      if (baseMax !== null && insuranceBase > baseMax) insuranceBase = baseMax
+      if (insuranceBase !== declaredBase) {
+        warnings.push(
+          `社保缴费基数申报值 ${declaredBase} 不在当地上下限 ${baseMin ?? '?'}~${baseMax ?? '?'} 内,` +
+            `已夹取为 ${insuranceBase}(请核对 hr_salary_config.insuranceBase)`,
+        )
       }
-      if (
-        insurance.insuranceBaseMax !== null &&
-        insuranceBase > Number(insurance.insuranceBaseMax)
-      ) {
-        insuranceBase = Number(insurance.insuranceBaseMax)
-      }
+
       const pension = Number(insurance.pensionPersonal ?? 0)
       const medical = Number(insurance.medicalPersonal ?? 0)
       const unemployment = Number(insurance.unemploymentPersonal ?? 0)
@@ -356,7 +502,22 @@ export async function buildPayroll(params: {
 
       // 公积金:员工配置的 housingFundRate 优先,否则用地区配置
       const fundRate = Number(config.housingFundRate ?? insurance.housingFundRate ?? 0)
-      housingFundPersonal = round2(insuranceBase * fundRate)
+      effectiveFundRate = fundRate
+
+      // 公积金缴费基数**单独夹取**:很多城市公积金上下限与社保上下限并不相同,
+      // 直接拿社保基数算公积金会算错。未单独配置公积金上下限时回退社保上下限。
+      let fundBase = declaredBase
+      const fundMin = insurance.fundBaseMin === null ? baseMin : Number(insurance.fundBaseMin)
+      const fundMax = insurance.fundBaseMax === null ? baseMax : Number(insurance.fundBaseMax)
+      if (fundMin !== null && fundBase < fundMin) fundBase = fundMin
+      if (fundMax !== null && fundBase > fundMax) fundBase = fundMax
+      if (fundBase !== declaredBase) {
+        warnings.push(
+          `公积金缴费基数申报值 ${declaredBase} 不在当地公积金上下限 ${fundMin ?? '?'}~${fundMax ?? '?'} 内,` +
+            `已夹取为 ${fundBase}`,
+        )
+      }
+      housingFundPersonal = round2(fundBase * fundRate)
 
       rateSnapshot = {
         region: insurance.regionName,
@@ -365,6 +526,8 @@ export async function buildPayroll(params: {
         medicalPersonal: medical,
         unemploymentPersonal: unemployment,
         housingFundRate: fundRate,
+        insuranceBaseApplied: insuranceBase,
+        fundBaseApplied: fundBase,
       }
     } else {
       warnings.push(
@@ -437,7 +600,7 @@ export async function buildPayroll(params: {
         fixedAllowance,
         otBase,
         insuranceBase,
-        housingFundRate: Number(config.housingFundRate ?? 0),
+        housingFundRate: effectiveFundRate,
         scheduledDays,
         actualDays,
         absentDays,
@@ -521,6 +684,8 @@ export async function buildPayroll(params: {
     skippedSigned,
     totalGross: round2(totalGross),
     totalNet: round2(totalNet),
+    insuranceConfigMissing: insuranceIssues.length > 0,
+    insuranceConfigIssues: insuranceIssues,
   }
 }
 

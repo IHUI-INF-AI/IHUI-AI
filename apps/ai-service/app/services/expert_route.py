@@ -152,6 +152,7 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         ),
         tools=(
             "hr_payroll_calc",
+            "hr_insurance_readiness",
             "hr_my_payroll",
             "hr_my_payroll_periods",
             "hr_my_attendance",
@@ -165,6 +166,9 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         hint=(
             "## Expert pack active: hr-payroll\n"
             "The user wants monthly payroll. Confirm periodMonth (YYYY-MM) first, then call "
+            "hr_insurance_readiness for the payroll year + region to confirm the social-insurance "
+            "rate config is complete (missing/incomplete config makes hr_payroll_calc refuse with "
+            "400 — never work around that by guessing rates), then call "
             "hr_payroll_calc. Preconditions are hard: that month's attendance must already be "
             "month-closed (hr_attendance_monthly) and each employee needs a salary config — "
             "employees skipped for missing config are counted by skippedNoConfig, never guessed. "
