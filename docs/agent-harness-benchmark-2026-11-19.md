@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **38 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **39 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（38 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（39 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -503,6 +503,15 @@
 - 超越轴：对照程序的钩子观测要么只报"最近一次"、要么全局日志；本仓把"趋势（累计）"与"这一次（最近帧）"分层落在同一面板，且累计**不受滚动窗口淘汰**影响。
 
 验证：`pnpm --filter @ihui/web exec vitest run src/hooks/hook-run-stats.test.ts` → `4 passed`（按条目计数 / 跨帧累加保留峰值 / 未知状态不冒成功 / 零条目均值不为 NaN）；`pnpm exec tsc -p <临时 tsconfig 点名四文件>` → 无错误；`check-i18n-keys` / `check-i18n-parity` → 5 语言 `26245` 键 parity OK；`scan-i18n-zh-residue zh-TW` → 无中文残留。
+
+### 5.40 第 39 项：钩子运行审计落盘（唯一观察者出口）
+
+- 缺口：第 26/37/38 项都是**内存态**观察面 —— SSE 下行、前端 50 条 FIFO、会话累计。断开连接 / 进程重启 / 面板刷新之后，"昨天哪个钩子连续超时、哪条命令钩子把耗时从 3ms 涨到 900ms"没有任何可查痕迹，只能靠回忆翻日志。排障缺的是**只追加、可按会话切**的落盘事实。
+- 处置：新增 `apps/ai-service/app/core/hook_audit.py`（`HOOK_AUDIT_REL` / `HOOK_AUDIT_MAX_BYTES` / `hook_audit_path()` / `record_hook_run()` / `record_observation()`），并在 `HookEngine.publish_observation` **一个出口**接线 —— 且只在 `event == "hook.run"` 时落。两条腿（agent_loop 与子代理派发）本来就汇到这一处，不需要在每个挂载点各写一份（`借鉴整合、不另造第二套`）。
+- 语义边界：载荷与 `hook.run` 逐字同形（`run_id / session_id / tool_name / hooks`），台账行再补 `ts`；空 `hooks` 帧不落（与 SSE"空表不发"同纪律）；落盘失败只 warning、`record_hook_run` 返回 `False`，**绝不冒泡打断钩子下行** —— 审计是观察面的附属品，不能变成新的单点故障；超过 5MB 轮转为 `.jsonl.1`；台账落在 `.ihui-agent/state/`（已在 `.gitignore` 覆盖，不进仓）。
+- 超越轴：对照程序要么完全不落盘、要么把钩子日志与 agent 日志混在一份文本里；本仓把"实时帧（SSE）/ 会话累计（前端）/ 落盘审计（服务端）"三层各就各位，且写入口收敛到唯一一处，三层的字段口径天然一致。
+
+验证：`pytest test_hook_audit.py` → `4 passed`（同形落盘 / 空表不写 / 写不进去不冒泡 / 观察出口只认 `hook.run`）；回归 `test_hook_engine.py` 一起跑 → `155 passed`；`ruff check` → `All checks passed!`；`mypy --strict`（`hook_audit.py` + `hook_engine.py`）→ `Success: no issues found`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
