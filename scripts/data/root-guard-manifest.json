@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-20T10:28:01.190Z",
+  "sealedAt": "2026-11-20T14:20:27.974Z",
   "sealedBy": "root-guard --seal",
-  "reason": "部署环 fail-closed 解封:guardian-runner/guardian-executor 两条哈希在 HEAD 面(并发会话推进)已变而清单未同笔重封;按该面 blob 重算,零判据语义改动(2026-11-20 隧道恢复后一格)",
+  "reason": "部署环 fail-closed 复核:guardian-executor 清单 sha256=0a0d7cc85166 与 HEAD 面内容(实际 11c261e0afa3)不一致,按该面 blob 重算重封(判据语义零改动)",
   "targets": [
     {
       "id": "guardian-runner",
@@ -40,7 +40,7 @@
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "0a0d7cc85166187121c3ec43a00e21cb95b9002cc1c48d65ffc2c6f941182e8d"
+      "sha256": "11c261e0afa3a9e2797fa2e8297f326c75ec311db9ec87269f35ececed7488a8"
     },
     {
       "id": "gate-failure-kind",
