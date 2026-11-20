@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **18 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **19 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -77,15 +77,15 @@
 | 读前写保护 | – | – | – | `fs-observation-policy` | 无（`write_file` 盲写） | **缺口②已补** |
 | 重复调用治理 | – | – | – | `repeat-tool-reminder`（advisory） | `doom_loop.py`（WINDOW 10 / REPEAT 3，可终止） | 本仓更严，不抄 |
 | 上下文压缩 | – | `compact 19` 命中 | – | L1/L2/L3 + cycle | 8 个模块 + 四道阈值线 | 已覆盖 |
-| 沙箱 | Electron utility | 云端 | `sandbox-proxy` | `sandbox_backend/url/api_key` | `code_exec_sandbox`/`proc_sandbox`/enforcement gate | 已有；远程沙箱列候选 |
+| 沙箱 | Electron utility | 云端 | `sandbox-proxy` | `sandbox_backend/url/api_key` | `code_exec_sandbox`/`proc_sandbox`/enforcement gate + `remote-sandbox.ts` | **缺口已补（5.12）** |
 | 审批 | – | – | – | `approval_policy` + YOLO | `command_execution_approval_decision`/`approval_replay`/`mcp_tool_approval` | 已覆盖 |
-| 子代理 | – | 云端 | `proxy-agents` | `agent_type` 六型 + `resident_file` 租约 | `subagent_jobs`/`agent_teams` | 已有；缓存租约列候选 |
-| MCP | – | `builtin-mcp` | MCP apps 宿主 | `mcp_config_path` | `mcp_client` | 已有；宿主 UI 列候选 |
+| 子代理 | – | 云端 | `proxy-agents` | `agent_type` 六型 + `resident_file` 租约 + `max_subagents` 1–20 | `subagent_jobs`/`agent_teams` + resident 租约 + 并发闸 20 | **缺口已补（4/5.19）** |
+| MCP | – | `builtin-mcp` | MCP apps 宿主 | `mcp_config_path` | `mcp_client` + 工件挂载（token/TTL/分页）+ 卡片内外双入口 | **缺口已补（5.13/5.17/5.18）** |
 | 检查点/回滚 | – | – | `checkpoint` | snapshots + `--fresh` | `agent_checkpoint`/`checkpoint_rewind` | 已覆盖 |
-| 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
+| 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（18 项，含验证证据）
+## 5. 本次落地（19 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -266,6 +266,17 @@
 - 超越轴：对照件的预览是**整篇塞进 iframe**（首屏即拉全量）；本仓是**按需分页追加**，首屏只取一页、正文永不二次落盘，且同一 token 面同时支持"外链直开"与"内嵌翻页"两种消费方式。
 
 验证：`pytest tests/test_artifact_tool_mount.py` → `9 passed`（新增 JSON 页面字典 / text 头保持两例）；`mypy --strict` 0；`vitest run tests/tool-call-card.test.ts` → `10 passed`；`@ihui/web` typecheck 0。
+
+### 5.19 并发子代理闸（`max_subagents` 1–20 的同构实现）
+
+- 事实：deepseek-tui 的 `max_subagents` 是 1–20 的硬边界；本仓 `subagent_jobs.start_job` 此前**只对终态作业做有界淘汰（MAX_JOBS=100），对"同时在跑多少个"没有任何闸** —— 父级循环里连续 spawn 就能把后台任务与进程额度打满。
+- 新增（`apps/ai-service/app/services/subagent_jobs.py`）：
+  - `MAX_RUNNING_SUBAGENTS=20`、`RUNNING_CAP_ENV=IHUI_MAX_RUNNING_SUBAGENTS`、`resolve_running_cap()`（env 只能**下调**，恒夹在 [1,20]，坏值回落 20）；
+  - `running_count(user_id, session_id)`：未终态作业计数，按 (身份, 会话) 分桶；
+  - `start_job` 在**提交后台任务之前**判闸，超限返回 `SUBAGENT_RUNNING_LIMIT` 并点名 `running/limit`（先起后拒等于没闸）。
+- 超越轴：对照件把上限写死在配置里、越界只是报错文本；本仓给它一条**可下调不可上调**的 env 通道，并把计数按"身份+会话"而不是全局单桶 —— 多会话不会互相误伤。
+
+验证：`pytest tests/test_subagent_jobs.py` → `11 passed`（新增 env 夹紧 5 态 / 超限拒绝且不提交 / 另一会话不受影响 / 终态后可再 spawn）；`mypy --strict` 0。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
