@@ -106,10 +106,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 5943 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 370 | `guardianGates` |
+| 工程守门 | 371 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
-| — warn | 33 | `guardianWarn` |
-| 跟踪文件 | 23089 | `trackedFiles` |
+| — warn | 34 | `guardianWarn` |
+| 跟踪文件 | 23091 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-20。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
