@@ -135,6 +135,9 @@ describe('PermissionShortcutsModal — 收敛为权限模式专属帮助', () =>
     for (const kept of ['Keyboard', 'ShieldAlert', 'ShieldCheck', 'History', 'Hand']) {
       expect(source).toContain(kept)
     }
+    // 撤销行已随"完全访问不再自动撤销/可撤销"退役:不得再回潮教用户一个不存在的动作
+    expect(source).not.toContain('shortcutsItemUndoKbd')
+    expect(source).not.toContain('Undo2')
   })
 
   it('⑤ 五份 web 语言包对称且键位不入译文', () => {
