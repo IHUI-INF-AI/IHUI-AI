@@ -6,7 +6,7 @@
  * 步骤决策(D55 / G-66)词汇表 —— 跨端单一真相源。
  *
  * 数据来源:`apps/ai-service` 的 `_derive_step_decision()`(从结果可见路径推导)与
- * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 22 个字面量。
+ * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 24 个字面量。
  * 本模块只认**全集**,不另建第二套枚举(后端新增字面量时由用例与守门 57 一起逼齐)。
  *
  * 纪律:
@@ -40,6 +40,9 @@ export const STEP_DECISIONS = [
   'guardian_review_alternative_applied',
   // skill 的 allowed-tools 已授权该工具 ⇒ 本次免审批(agent_loop_v2 写 _decision_hints)
   'skill_grant_skip_approval',
+  // pre_tool_use 钩子的权限裁决:allow ⇒ 本次免审批;ask ⇒ 抬升为需人工确认(agent_loop_v2 写 _decision_hints)
+  'hook_allow_skip_approval',
+  'hook_ask_require_approval',
 ] as const
 
 export type StepDecision = (typeof STEP_DECISIONS)[number]
@@ -72,6 +75,8 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   guardian_review_suggested: 'decision.guardianReviewSuggested',
   guardian_review_alternative_applied: 'decision.guardianReviewAlternativeApplied',
   skill_grant_skip_approval: 'decision.skillGrantSkipApproval',
+  hook_allow_skip_approval: 'decision.hookAllowSkipApproval',
+  hook_ask_require_approval: 'decision.hookAskRequireApproval',
 }
 
 const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
@@ -106,6 +111,9 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   guardian_review_alternative_applied: 'approved',
   // skill allowed-tools 授权后免审批 ⇒ 工具照常执行,同 auto_skip_approval 的"已放行"面。
   skill_grant_skip_approval: 'approved',
+  // 钩子 allow 与 auto/skill_grant 同属「已放行」面;钩子 ask 在等人点头 ⇒ needsUser
+  hook_allow_skip_approval: 'approved',
+  hook_ask_require_approval: 'needsUser',
 }
 
 export function isStepDecision(value: unknown): value is StepDecision {
