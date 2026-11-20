@@ -1050,6 +1050,15 @@ class SessionStore:
         return self._fts_enabled
 
     @property
+    def schema_name(self) -> str:
+        """实际的 PostgreSQL schema 名(`sess_main` 或临时库的路径哈希名)。
+
+        与 `db_path` 一起构成"这份数据住在哪"的可观测面:排障时先看这两个,
+        就不用去猜"改了路径以后数据去哪了"。
+        """
+        return self._schema
+
+    @property
     def schema_version(self) -> int:
         with self._lock:
             row = self._conn.execute(
