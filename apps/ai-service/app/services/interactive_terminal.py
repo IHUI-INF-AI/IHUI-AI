@@ -78,6 +78,12 @@ from .sandbox import _strict_child_env
 
 MAX_SESSIONS: Final = 16
 MAX_BUFFER_LINES: Final = 2000
+#: 缓冲块数上限的运行期旋钮(默认就是 `MAX_BUFFER_LINES`,设了这个 env 才变):
+#: 长跑会话(output 量大但消费方慢)可以把窗口放大;反过来把显存/内存吃紧的部署可以调小。
+#: 上界 `MAX_BUFFER_LINES_CEILING` 是硬护栏 —— 一个 50 万块的 deque 就是一次 OOM 事故。
+TERMINAL_BUFFER_LINES_ENV: Final = "IHUI_TERMINAL_BUFFER_LINES"
+MAX_BUFFER_LINES_CEILING: Final = 20_000
+MIN_BUFFER_LINES: Final = 100
 
 # Windows 专属进程组常量:typeshed 按宿主平台裁剪 —— `signal.CTRL_BREAK_EVENT` 与
 # `subprocess.CREATE_NEW_PROCESS_GROUP` 只存在于 Windows 的 stub 里,Linux runner 上
@@ -122,6 +128,14 @@ ANSI_ESCAPE_RE: Final = re.compile(
 #: 归一后仍然剩下的单字节控制符(除 `\n`/`\t`):`\x00`–`\x08`、`\x0b`/`\x0c`、`\x0e`–`\x1f` 与 DEL。
 #: 这些字节对"人读文本"没有语义(光标控制已由 `\r`/`\n` 归一覆盖),留着只会让检索正则踩空。
 ANSI_NOISE_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+#: 窗口标题(`OSC 0/1/2 ; <title> BEL|ST`):xterm 用 `OSC 2` 设标签页名字,`OSC 0` 同时设图标名与
+#: 标题,`OSC 1` 只设图标名 —— 三种在"这块屏叫什么"这件事上等价,统一记成 `session.title`。
+_OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
+#: **任何** OSC 序列(数响铃前先把整段吃掉):OSC 的终止符本身就是 BEL,先数后吃会凭空多出响铃。
+_OSC_ANY_RE: Final = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+#: 标题长度上界:失控程序连发 OSC 时不让会话账本跟着膨胀。
+MAX_TITLE_CHARS: Final = 200
 
 #: 快照最多回多少行(超过就只回**末尾**那段,并在信封里说 `truncated`)。
 MAX_SNAPSHOT_LINES: Final = 500
@@ -296,6 +310,19 @@ class TerminalSession:
     last_activity_ts: float = field(default_factory=time.monotonic)
     #: 程序是否已请求 bracketed paste(DECSET 2004)。由输出解析驱动,不靠调用方声明。
     bracketed_paste: bool = False
+    #: 输出缓冲的块数上限(open 那一刻从 `IHUI_TERMINAL_BUFFER_LINES` 现读,缺省 2000)。
+    #: 只记账:**改它要重开会话** —— 已存在的 deque 的 maxlen 不能就地改(`deque.maxlen` 只读)。
+    buffer_lines: int = MAX_BUFFER_LINES
+    #: 窗口标题(程序的 `OSC 0/1/2` 设;空串 = 程序没设过)。前端标签页/日志抬头用它。
+    title: str = ""
+    #: 响铃次数(程序发 BEL)。累计值,不清零 —— 回答"这个会话闹过几次",不是"刚才那一下"。
+    bell_count: int = 0
+
+    def __post_init__(self) -> None:
+        # deque 的 default_factory 拿不到实例字段,所以"上限"必须在这里落到缓冲上;
+        # 两处各写一份 `deque(maxlen=…)` 就会漂开(§22c)。
+        if self.chunks.maxlen != self.buffer_lines:
+            self.chunks = deque(maxlen=self.buffer_lines)
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -327,6 +354,9 @@ class TerminalSession:
             "dropped_chunks": self.dropped_chunks,
             "idle_s": self.idle_s(),
             "bracketed_paste": self.bracketed_paste,
+            "buffer_lines": self.buffer_lines,
+            "title": self.title,
+            "bell_count": self.bell_count,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -347,6 +377,25 @@ def reset_terminals() -> None:
     for session in sessions:
         _force_stop(session)
         _close_io(session)
+
+
+def _buffer_lines(env: Mapping[str, str] | None = None) -> int:
+    """输出缓冲块数上限:未设/空/非法/非正一律回落 `MAX_BUFFER_LINES`(**fail-safe,不猜**)。
+
+    合法值夹在 `[MIN_BUFFER_LINES, MAX_BUFFER_LINES_CEILING]` 之间:下限挡住"把窗口调到
+    0 条 ⇒ 每次 read 都丢光"的自伤,上限挡住"50 万块 deque"的 OOM。每次现读 env,不在导入期定格。
+    """
+    source = os.environ if env is None else env
+    raw = (source.get(TERMINAL_BUFFER_LINES_ENV, "") or "").strip()
+    if not raw:
+        return MAX_BUFFER_LINES
+    try:
+        value = int(raw)
+    except ValueError:
+        return MAX_BUFFER_LINES
+    if value <= 0:
+        return MAX_BUFFER_LINES
+    return max(MIN_BUFFER_LINES, min(value, MAX_BUFFER_LINES_CEILING))
 
 
 def _idle_ttl_s(env: Mapping[str, str] | None = None) -> float:
@@ -538,22 +587,35 @@ class _PtyLineSplitter:
             return text
 
 
-def _track_terminal_modes(session: TerminalSession, text: str) -> None:
-    """从输出里读终端模式开关(**DECSET/DECRST**),只认 bracketed paste(2004)。
+def _track_terminal_state(session: TerminalSession, text: str) -> None:
+    """从输出里读**终端状态信号**(单一出口):bracketed paste 模式位、窗口标题、响铃次数。
 
-    为什么读输出而不是"由调用方声明":bracketed paste 是**程序**决定的(DECSET 2004 由
-    readline/vim/less 自己发),终端侧只是跟着开/关。不读这一位就只能靠猜 —— 猜错要么
-    把 `\\x1b[200~` 当垃圾写进程序,要么多行粘贴被逐行执行(一条粘贴炸成三条命令)。
+    为什么读输出而不是"由调用方声明":这三件事全部是**程序**决定的 —— bracketed paste 由
+    readline/vim/less 自己 `DECSET 2004`;窗口标题由程序的 `OSC 0/1/2` 设(xterm 用它做标签页
+    名字);BEL 是程序主动闹的那一声。终端侧只能跟着记,不读就只能靠猜。
+
+    顺序有意为之:先吃掉 OSC 整段,**再**数剩下的 BEL —— OSC 的终止符本身就是一个 BEL,
+    先数后吃会把"每次设标题"都记成一次响铃(假信号比没信号更坏)。
+
+    标题只留可打印字符并截到 `MAX_TITLE_CHARS`:`OSC` 可以由一个失控的程序连发,不设上界
+    等于让它把会话账本撑爆;控制字符进信封还会破坏调用方的版式。
     """
     if BRACKETED_PASTE_ON in text:
         session.bracketed_paste = True
     if BRACKETED_PASTE_OFF in text:
         session.bracketed_paste = False
+    for m in _OSC_TITLE_RE.finditer(text):
+        title = ANSI_NOISE_RE.sub("", m.group(1)).strip()
+        if title:
+            session.title = title[:MAX_TITLE_CHARS]
+    bells = _OSC_ANY_RE.sub("", text).count("\x07")
+    if bells:
+        session.bell_count += bells
 
 
 def _push_output(session: TerminalSession, tag: str, text: str) -> None:
-    """输出入缓冲的**唯一出口**:先读模式位,再入队(两件事不会各自被忘掉)。"""
-    _track_terminal_modes(session, text)
+    """输出入缓冲的**唯一出口**:先读状态信号,再入队(两件事不会各自被忘掉)。"""
+    _track_terminal_state(session, text)
     _push(session, tag, text)
 
 
@@ -827,6 +889,7 @@ def _open_pty_session(
         backend="pty",
         cols=cols,
         rows=rows,
+        buffer_lines=_buffer_lines(),
     )
     _sessions[session.terminal_id] = session
     thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
@@ -916,6 +979,7 @@ def open_terminal(
             created_ts=time.time(),
             write_io=proc.stdin,
             backend="pipes",
+            buffer_lines=_buffer_lines(),
         )
         _sessions[session.terminal_id] = session
     assert proc.stdout is not None and proc.stderr is not None
@@ -1405,6 +1469,8 @@ def snapshot_terminal(
         "cols": session.cols,
         "rows": session.rows,
         "bracketed_paste": session.bracketed_paste,
+        "title": session.title,
+        "bell_count": session.bell_count,
     }
 
 
@@ -1507,6 +1573,8 @@ def search_terminal(
         "dropped_chunks": dropped,
         "running": session.running(),
         "exit_code": session.proc.poll(),
+        "title": session.title,
+        "bell_count": session.bell_count,
     }
 
 
@@ -1773,11 +1841,16 @@ def close_terminal(
             "error": "终端不存在或无权访问",
         }
     proc = session.proc
+    # 收尾阶梯:`terminate`(给程序体面收尾的机会)→ 超时 `kill` → 再等一个宽限。
+    # 两件事必须如实回报:**升到 kill 了吗**(`forced`)**、kill 之后还活着吗**(`survived`)。
+    # 不报这两项等于把"我发了信号"写成"进程死了" —— 后者要 `proc.poll()` 才知道(§0.3)。
+    forced = False
     if proc.poll() is None:
         try:
             proc.terminate()
             proc.wait(timeout=CLOSE_GRACE_S)
         except subprocess.TimeoutExpired:
+            forced = True
             proc.kill()
             try:
                 proc.wait(timeout=CLOSE_GRACE_S)
@@ -1785,15 +1858,24 @@ def close_terminal(
                 pass
         except OSError:
             pass
+    exit_code = proc.poll()
     with _registry_lock:
         _sessions.pop(terminal_id, None)
     _close_io(session)  # 从注册表摘除后再关 IO:关 slave/写端以驱动 master 读线程收敛
-    return {
+    payload: dict[str, Any] = {
         "ok": True,
         "terminal_id": terminal_id,
         "closed": True,
-        "exit_code": proc.poll(),
+        "exit_code": exit_code,
+        "forced": forced,
+        "survived": exit_code is None,
     }
+    if exit_code is None:
+        payload["warning"] = (
+            f"已升级到 kill 但子进程在 {CLOSE_GRACE_S}s 内仍未退出(exit_code=None);"
+            "会话已从注册表摘除,进程是否需要外部清理请按平台处理"
+        )
+    return payload
 
 
 def list_terminals(
@@ -2195,6 +2277,12 @@ __test__ = {
     "snapshot_terminal": snapshot_terminal,
     "search_terminal": search_terminal,
     "strip_ansi": strip_ansi,
+    "track_terminal_state": _track_terminal_state,
+    "MAX_TITLE_CHARS": MAX_TITLE_CHARS,
+    "buffer_lines": _buffer_lines,
+    "TERMINAL_BUFFER_LINES_ENV": TERMINAL_BUFFER_LINES_ENV,
+    "MAX_BUFFER_LINES_CEILING": MAX_BUFFER_LINES_CEILING,
+    "MIN_BUFFER_LINES": MIN_BUFFER_LINES,
     "search_matcher": _search_matcher,
     "buffer_face": _buffer_face,
     "plain_lines": _plain_lines,
