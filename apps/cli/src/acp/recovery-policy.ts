@@ -86,7 +86,7 @@ export function policyOf(kind: RecoveryKind): RecoveryPolicy {
  * 对方的方法名在我们这里没有对应实现,登记了就是"申报了不存在的能力"。
  *
  * 判据解释:
- *   · `session/list` / `x.ai/turn/state` / `x.ai/turn/chronicle` 等纯读 ⇒ read;
+ *   · `session/list` / `x.ai/turn/state` 等纯读 ⇒ read;
  *   · `session/set_mode` / `set_config_option` 写同一字段,重复执行结果相同 ⇒ idempotent_mutation;
  *   · `session/fork` / `goal/create` / `turn/create` 每次调用产生**新实体** ⇒ mutation;
  *   · `session/close` / `session/cancel` 关闭类,重试无意义 ⇒ control。
@@ -95,12 +95,9 @@ const REGISTRY: Readonly<Record<string, RecoveryKind>> = Object.freeze({
   // ── 纯读 ──────────────────────────────────────────────────────────────
   'session/list': 'read',
   'x.ai/turn/state': 'read',
-  'x.ai/turn/chronicle': 'read',
-  'x.ai/turn/parked': 'read',
   'x.ai/checkpoint/list': 'read',
   'x.ai/checkpoint/read': 'read',
   'x.ai/goal/list': 'read',
-  'x.ai/workflow/plan': 'read',
   'x.ai/rewind/points': 'read',
   'x.ai/mcp/listServers': 'read',
   'x.ai/mcp/serverStatus': 'read',
@@ -119,7 +116,6 @@ const REGISTRY: Readonly<Record<string, RecoveryKind>> = Object.freeze({
   'x.ai/turn/transition': 'mutation',
   'x.ai/turn/synthetic-finish': 'mutation',
   'x.ai/goal/create': 'mutation',
-  'x.ai/goal/iterate': 'mutation',
   'x.ai/rewind/execute': 'mutation',
   'x.ai/mcp/callTool': 'mutation',
 
