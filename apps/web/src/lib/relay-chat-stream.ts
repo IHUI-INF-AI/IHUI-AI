@@ -49,6 +49,8 @@ export interface StreamRelayChatOptions {
   onUsage?: (usage: RelayChatUsage) => void
   /** 空闲超时(毫秒):从发出请求到收到下一次帧的最长等待,默认 180s */
   idleTimeoutMs?: number
+  /** 推理强度档位(2026-11-21):号池通道同样透传,由上游决定是否认这一个档 */
+  reasoningEffort?: string
 }
 
 /** 服务端 → 客户端帧(形状见 ws-relay-chat.ts 头注) */
@@ -216,6 +218,7 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
               )
               .map((m) => ({ role: m.role, content: m.content })),
             stream: true,
+            ...(opts.reasoningEffort ? { reasoning_effort: opts.reasoningEffort } : {}),
             ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
           }),
         )
