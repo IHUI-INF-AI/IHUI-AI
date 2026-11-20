@@ -123,6 +123,14 @@ ANSI_ESCAPE_RE: Final = re.compile(
 #: 这些字节对"人读文本"没有语义(光标控制已由 `\r`/`\n` 归一覆盖),留着只会让检索正则踩空。
 ANSI_NOISE_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
+#: 窗口标题(`OSC 0/1/2 ; <title> BEL|ST`):xterm 用 `OSC 2` 设标签页名字,`OSC 0` 同时设图标名与
+#: 标题,`OSC 1` 只设图标名 —— 三种在"这块屏叫什么"这件事上等价,统一记成 `session.title`。
+_OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
+#: **任何** OSC 序列(数响铃前先把整段吃掉):OSC 的终止符本身就是 BEL,先数后吃会凭空多出响铃。
+_OSC_ANY_RE: Final = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+#: 标题长度上界:失控程序连发 OSC 时不让会话账本跟着膨胀。
+MAX_TITLE_CHARS: Final = 200
+
 #: 快照最多回多少行(超过就只回**末尾**那段,并在信封里说 `truncated`)。
 MAX_SNAPSHOT_LINES: Final = 500
 #: 检索最多回多少条命中(超出回 `truncated=True`,不静默截断)。
@@ -296,6 +304,10 @@ class TerminalSession:
     last_activity_ts: float = field(default_factory=time.monotonic)
     #: 程序是否已请求 bracketed paste(DECSET 2004)。由输出解析驱动,不靠调用方声明。
     bracketed_paste: bool = False
+    #: 窗口标题(程序的 `OSC 0/1/2` 设;空串 = 程序没设过)。前端标签页/日志抬头用它。
+    title: str = ""
+    #: 响铃次数(程序发 BEL)。累计值,不清零 —— 回答"这个会话闹过几次",不是"刚才那一下"。
+    bell_count: int = 0
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -327,6 +339,8 @@ class TerminalSession:
             "dropped_chunks": self.dropped_chunks,
             "idle_s": self.idle_s(),
             "bracketed_paste": self.bracketed_paste,
+            "title": self.title,
+            "bell_count": self.bell_count,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -538,22 +552,35 @@ class _PtyLineSplitter:
             return text
 
 
-def _track_terminal_modes(session: TerminalSession, text: str) -> None:
-    """从输出里读终端模式开关(**DECSET/DECRST**),只认 bracketed paste(2004)。
+def _track_terminal_state(session: TerminalSession, text: str) -> None:
+    """从输出里读**终端状态信号**(单一出口):bracketed paste 模式位、窗口标题、响铃次数。
 
-    为什么读输出而不是"由调用方声明":bracketed paste 是**程序**决定的(DECSET 2004 由
-    readline/vim/less 自己发),终端侧只是跟着开/关。不读这一位就只能靠猜 —— 猜错要么
-    把 `\\x1b[200~` 当垃圾写进程序,要么多行粘贴被逐行执行(一条粘贴炸成三条命令)。
+    为什么读输出而不是"由调用方声明":这三件事全部是**程序**决定的 —— bracketed paste 由
+    readline/vim/less 自己 `DECSET 2004`;窗口标题由程序的 `OSC 0/1/2` 设(xterm 用它做标签页
+    名字);BEL 是程序主动闹的那一声。终端侧只能跟着记,不读就只能靠猜。
+
+    顺序有意为之:先吃掉 OSC 整段,**再**数剩下的 BEL —— OSC 的终止符本身就是一个 BEL,
+    先数后吃会把"每次设标题"都记成一次响铃(假信号比没信号更坏)。
+
+    标题只留可打印字符并截到 `MAX_TITLE_CHARS`:`OSC` 可以由一个失控的程序连发,不设上界
+    等于让它把会话账本撑爆;控制字符进信封还会破坏调用方的版式。
     """
     if BRACKETED_PASTE_ON in text:
         session.bracketed_paste = True
     if BRACKETED_PASTE_OFF in text:
         session.bracketed_paste = False
+    for m in _OSC_TITLE_RE.finditer(text):
+        title = ANSI_NOISE_RE.sub("", m.group(1)).strip()
+        if title:
+            session.title = title[:MAX_TITLE_CHARS]
+    bells = _OSC_ANY_RE.sub("", text).count("\x07")
+    if bells:
+        session.bell_count += bells
 
 
 def _push_output(session: TerminalSession, tag: str, text: str) -> None:
-    """输出入缓冲的**唯一出口**:先读模式位,再入队(两件事不会各自被忘掉)。"""
-    _track_terminal_modes(session, text)
+    """输出入缓冲的**唯一出口**:先读状态信号,再入队(两件事不会各自被忘掉)。"""
+    _track_terminal_state(session, text)
     _push(session, tag, text)
 
 
@@ -1405,6 +1432,8 @@ def snapshot_terminal(
         "cols": session.cols,
         "rows": session.rows,
         "bracketed_paste": session.bracketed_paste,
+        "title": session.title,
+        "bell_count": session.bell_count,
     }
 
 
@@ -1507,6 +1536,8 @@ def search_terminal(
         "dropped_chunks": dropped,
         "running": session.running(),
         "exit_code": session.proc.poll(),
+        "title": session.title,
+        "bell_count": session.bell_count,
     }
 
 
@@ -2195,6 +2226,8 @@ __test__ = {
     "snapshot_terminal": snapshot_terminal,
     "search_terminal": search_terminal,
     "strip_ansi": strip_ansi,
+    "track_terminal_state": _track_terminal_state,
+    "MAX_TITLE_CHARS": MAX_TITLE_CHARS,
     "search_matcher": _search_matcher,
     "buffer_face": _buffer_face,
     "plain_lines": _plain_lines,
