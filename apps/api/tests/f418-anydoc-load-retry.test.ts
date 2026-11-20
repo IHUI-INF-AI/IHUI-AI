@@ -33,16 +33,18 @@ vi.mock('@firecrawl/anydoc', () => {
 import { parseDocument } from '../src/services/document-parser.js'
 
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+/** F-533 起声明 MIME 要和真实字节对上;PPTX 是 zip 容器,给 PK 魔数才走得到 anydoc 分支。 */
+const FAKE_PPTX = Buffer.from('PK\x03\x04fake-pptx')
 
 describe('F-418 anydoc 加载失败不永久缓存', () => {
   it('首次加载失败后,下一次解析重新加载并成功', async () => {
     await expect(
-      parseDocument({ buffer: Buffer.from('fake-pptx'), mimeType: PPTX_MIME, filename: 'a.pptx' }),
+      parseDocument({ buffer: FAKE_PPTX, mimeType: PPTX_MIME, filename: 'a.pptx' }),
     ).rejects.toThrow()
     expect(state.reads).toBe(1)
 
     const text = await parseDocument({
-      buffer: Buffer.from('fake-pptx'),
+      buffer: FAKE_PPTX,
       mimeType: PPTX_MIME,
       filename: 'a.pptx',
     })

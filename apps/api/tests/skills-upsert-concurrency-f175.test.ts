@@ -48,7 +48,14 @@ vi.mock('../src/db/index.js', () => {
 
   const selectBuilder = () => {
     let key: { authorId: string; slug: string } | null = null
+    let idKey: string | null = null
+    let onlyLive = false
     const snapshot = () => {
+      if (idKey !== null) {
+        const row = state.rows.find((r) => r.id === idKey)
+        if (!row) return []
+        return onlyLive && row.deletedAt !== null ? [] : [{ ...row }]
+      }
       const row = key ? findRow(key.authorId, key.slug) : undefined
       return row ? [{ ...row }] : []
     }
@@ -56,8 +63,14 @@ vi.mock('../src/db/index.js', () => {
     for (const m of ['from', 'orderBy', 'offset']) b[m] = () => b
     b.where = (where: unknown) => {
       const q = new PgDialect().sqlToQuery(where as never)
-      if (q.params.length >= 2) {
+      // 写后回读面 = where(id) + isNull(deletedAt):只有 1 个参数时按 id 命中
+      if (q.params.length === 1) {
+        idKey = String(q.params[0])
+        onlyLive = /deleted_at.*is null/i.test(q.sql)
+      } else if (q.params.length >= 2) {
         key = { authorId: String(q.params[0]), slug: String(q.params[1]) }
+        idKey = null
+        onlyLive = false
       }
       return b
     }

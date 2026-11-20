@@ -44,7 +44,7 @@ function zcodeCtx(rowOverrides: Record<string, unknown>): AdapterAccountContext 
       token: 'zc-token',
       refreshToken: null,
       cookies: [],
-      secrets: { credentialMap: { zcodejwttoken: 'zc-jwt-fixture' } },
+      secrets: { credentialMap: { zcodejwttoken: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.sig' } },
     },
   } as unknown as AdapterAccountContext
 }

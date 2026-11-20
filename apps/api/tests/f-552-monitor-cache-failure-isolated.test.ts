@@ -90,6 +90,19 @@ vi.mock('ioredis', () => {
           cmds.push({ cmd: 'sadd', args: [key, id] })
           return pipe
         },
+        // F-560 processed 改 ZSET(与 f-559 同一生产实现),旧 SET 方法保留兼容
+        zscore: (key: string, id: string) => {
+          cmds.push({ cmd: 'zscore', args: [key, id] })
+          return pipe
+        },
+        zadd: (key: string, score: number, id: string) => {
+          cmds.push({ cmd: 'zadd', args: [key, score, id] })
+          return pipe
+        },
+        zremrangebyscore: (key: string, min: number, max: number) => {
+          cmds.push({ cmd: 'zremrangebyscore', args: [key, min, max] })
+          return pipe
+        },
         expire: (key: string, ttl: number) => {
           cmds.push({ cmd: 'expire', args: [key, ttl] })
           return pipe
@@ -105,6 +118,17 @@ vi.mock('ioredis', () => {
             }
             if (c.cmd === 'sadd') {
               const [key, id] = c.args as [string, string]
+              const set = h.processed.get(key) ?? new Set<string>()
+              set.add(id)
+              h.processed.set(key, set)
+              return [null, 1]
+            }
+            if (c.cmd === 'zscore') {
+              const [key, id] = c.args as [string, string]
+              return [null, h.processed.get(key)?.has(id) ? '1' : null]
+            }
+            if (c.cmd === 'zadd') {
+              const [key, , id] = c.args as [string, number, string]
               const set = h.processed.get(key) ?? new Set<string>()
               set.add(id)
               h.processed.set(key, set)
@@ -189,8 +213,8 @@ describe('F-552 缓存写失败与检测失败隔离', () => {
   it('① 仅缓存写失败 ⇒ 不计失败轮次、不触发回滚、warn，检测结果照常返回', async () => {
     h.state.buyRows = [{ id: 'buy-1' }, { id: 'buy-2' }]
     h.state.settlementRows = [{ id: 'st-1' }]
-    // sadd 失败 = markProcessed 写失败；set 失败 = recordSuccess 写失败
-    h.failCommands.add('sadd')
+    // F-560 起 markProcessed 写 ZSET:zadd 失败 = 缓存写失败;set 失败 = recordSuccess 写失败
+    h.failCommands.add('zadd')
     h.failCommands.add('set')
 
     const r = await startExpirationMonitor()

@@ -343,7 +343,8 @@ describe('Registry Sync Worker', () => {
     const job = createMockJob()
     const handler = workerHarness.getJobHandler()!
 
-    const result = await handler(job)
+    // F-497:全量 upsert 失败必须抛错让 BullMQ failed 事件可见,不再静默返回计数
+    await expect(handler(job)).rejects.toThrow(/registry-sync: 同步失败/)
 
     expect(mockInsertSyncLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -353,7 +354,6 @@ describe('Registry Sync Worker', () => {
         errorMessage: expect.stringContaining('2 个条目 upsert 失败'),
       }),
     )
-    expect(result).toEqual({ synced: 0, failed: 2, skipped: 0, total: 2 })
   })
 
   it('triggerId 存在时,完成后回写 webhook trigger 状态为 processed', async () => {
@@ -529,3 +529,4 @@ describe('Registry Sync Worker', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+

@@ -81,7 +81,8 @@ describe('payment-recurring calculateNextChargeTime 按 Asia/Shanghai 日历推�
     for (const zone of HOST_ZONES) {
       process.env.TZ = zone
       const month = calculateNextChargeTime('month', base).toISOString()
-      expect({ zone, month }).toEqual({ zone, month: '2026-03-02T22:00:00.000Z' }) // 上海 3 月 3 日 06:00
+      // 月末夹取:上海 1/31 06:00 的下一月周期落在 2 月末(2026 年 2 月只有 28 天)
+      expect({ zone, month }).toEqual({ zone, month: '2026-02-27T22:00:00.000Z' }) // 上海 2 月 28 日 06:00
       expect(calculateNextChargeTime(null, base).toISOString()).toBe(month)
       expect(calculateNextChargeTime(undefined, base).toISOString()).toBe(month)
       expect(calculateNextChargeTime('quarter', base).toISOString()).toBe(month)

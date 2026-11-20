@@ -20,6 +20,7 @@ import {
   MERGE_SEMAPHORE_COUNT_LUA,
   MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA,
   MERGE_SEMAPHORE_QUARANTINE_READ_LUA,
+  MERGE_SEMAPHORE_QUARANTINE_CLEAR_LUA,
   type MergeSemaphoreRedis,
 } from '../src/services/upload-merge-redis-semaphore.js'
 
@@ -64,6 +65,10 @@ function makeFakeRedis(): MergeSemaphoreRedis & { size(key: string): number } {
         const out: string[] = []
         for (const [f, v] of hashes.get(key) ?? []) out.push(f, v)
         return out
+      }
+      if (_script === MERGE_SEMAPHORE_QUARANTINE_CLEAR_LUA) {
+        // F-266:收口成功 HDEL 字段(本假 Redis 无 zset 索引,索引腿在 F-266 用例里测)
+        return hashes.get(key)?.delete(String(args[2])) ? 1 : 0
       }
       const m = set(key)
       if (_script === MERGE_SEMAPHORE_ACQUIRE_LUA) {
@@ -298,19 +303,11 @@ describe('⑥ G-998089 stop-failed:临界区失败但自有子资源未终态 �
     expect(after[0]?.state).toBe('released')
     expect(after[0]?.releasedAtMs).not.toBeNull()
 
-    // 收口后接管者拿得到槽,且**跨进程**能读到前者的隔离记录(在共享 Redis 侧,不是失败方内存)。
+    // 收口后接管者拿得到槽。F-266 起收口成功即 HDEL+ZREM:隔离记录是"停在半路"的证据,
+    // 收口完成后不应再留在共享 Redis 里(否则 hash 单调增长);本实例内存台账仍可回溯。
     expect((await semB.acquire('procB:1')).granted).toBe(true)
     const quarantines = await semB.readQuarantines()
-    const q = JSON.parse(quarantines['procA:1'] ?? 'null') as {
-      owner: string
-      label: string
-      pendingResources: string[]
-      state: string
-    } | null
-    expect(q).not.toBeNull()
-    expect(q?.owner).toBe('procA')
-    expect(q?.pendingResources).toEqual(pending)
-    expect(q?.state).toBe('released')
+    expect(quarantines['procA:1']).toBeUndefined()
   })
 
   it('对照:子资源已全部终态的正常失败(普通 Error)⇒ 照旧放锁,不留 stop-failed 记录', async () => {

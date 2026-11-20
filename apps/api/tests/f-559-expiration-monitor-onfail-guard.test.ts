@@ -99,6 +99,11 @@ vi.mock('ioredis', () => {
           cmds.push({ cmd: 'zremrangebyscore', args: [key, min, max] })
           return pipe
         },
+        // F-560 起 markProcessed 另带整键兜底 TTL
+        expire: (key: string, ttl: number) => {
+          cmds.push({ cmd: 'expire', args: [key, ttl] })
+          return pipe
+        },
         exec: async () => {
           for (const c of cmds) {
             if (h.failCommands.has(c.cmd)) throw new Error(`mock redis: ${c.cmd} 注入故障`)

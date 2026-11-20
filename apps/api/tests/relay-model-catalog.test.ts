@@ -234,8 +234,9 @@ describe('relay-model-catalog', () => {
     })
 
     it('查询异常 → null(降级透传,永不抛)', async () => {
+      // 用未被上一条用例缓存过的别名:命中缓存时不会走到 DB,也就测不到异常分支
       mockSelectResult.mockRejectedValueOnce(new Error('db down'))
-      await expect(resolveModelAlias('trae', 'kimi-k2')).resolves.toBeNull()
+      await expect(resolveModelAlias('trae', 'db-down-alias')).resolves.toBeNull()
     })
   })
 

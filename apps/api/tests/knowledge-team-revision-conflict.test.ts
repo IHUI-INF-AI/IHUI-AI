@@ -65,17 +65,23 @@ vi.mock('@ihui/auth', () => ({
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn(async () => 1),
 }))
-vi.mock('../src/db/index.js', () => ({
-  registerPoolTrackerCleanup: vi.fn(),
-  db: {
+vi.mock('../src/db/index.js', () => {
+  const base = {
     select: vi.fn(() => makeChain()),
     insert: vi.fn(() => makeChain(true)),
     update: vi.fn(() => makeChain(true)),
     delete: vi.fn(() => makeChain()),
     execute: vi.fn(async () => []),
-  },
-  dbRead: { select: vi.fn(() => makeChain()) },
-}))
+    // 团队改版冲突检测与落库同事务,缺 transaction 直接 500
+    transaction: vi.fn(),
+  }
+  base.transaction.mockImplementation(async (cb: (tx: unknown) => unknown) => cb(base))
+  return {
+    registerPoolTrackerCleanup: vi.fn(),
+    db: base,
+    dbRead: { select: vi.fn(() => makeChain()) },
+  }
+})
 
 import { knowledgeTeamRoutes } from '../src/routes/knowledge-team.js'
 

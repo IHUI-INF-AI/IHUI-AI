@@ -29,7 +29,8 @@ const mocks = vi.hoisted(() => ({
 
 function chain(rows: Row[]): Record<string, unknown> {
   const c: Record<string, unknown> = {}
-  for (const method of ['from', 'where', 'limit', 'orderBy', 'set', 'values', 'returning']) {
+  // 事务内锁行(FOR UPDATE / .for('update'))是生产基线,链式桩必须接住
+  for (const method of ['from', 'where', 'limit', 'orderBy', 'set', 'values', 'returning', 'for']) {
     c[method] = () => c
   }
   c.then = (resolve: (value: Row[]) => unknown) => Promise.resolve(resolve(rows))

@@ -37,7 +37,10 @@ vi.mock('../src/db/index.js', () => {
     insert: vi.fn(() => makeChain(mockSelectRows)),
     delete: vi.fn(() => makeChain(mockSelectRows)),
     execute: vi.fn().mockResolvedValue([]),
+    // 建档与 latest 降级同事务(与 app-version-store-dimension 同一生产契约)
+    transaction: vi.fn(),
   }
+  db.transaction.mockImplementation(async (cb: (tx: unknown) => unknown) => cb(db))
   return { db, dbRead: db }
 })
 

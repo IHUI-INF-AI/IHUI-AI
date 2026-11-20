@@ -25,6 +25,7 @@ const CALLBACK = read('../src/routes/ai-callback.ts')
 const QUEUE = read('../src/plugins/queue.ts')
 const WORKER = read('../src/workers/ai-callback-worker.ts')
 const CLIENT = read('../../../packages/api-client/src/client.ts')
+const CLIENT_TYPES = read('../../../packages/api-client/src/stream.ts')
 const ENDPOINTS = read('../../../packages/api-client/src/endpoints/chat.ts')
 
 describe('票59③:网关 ai-chat-stream 声明并透传坐标(不声明=被 zod strip 静默丢弃)', () => {
@@ -90,9 +91,9 @@ describe('票59③:api-client 跨包契约(返回类型 + metadata 类型)', () 
   })
 
   it('StreamChatOptions.metadata 类型扩两键(前端行为测试发得出,类型面先放行)', () => {
-    const i = CLIENT.indexOf('parentMessageId?: string')
+    const i = CLIENT_TYPES.indexOf('parentMessageId?: string')
     expect(i).toBeGreaterThan(-1)
-    expect(CLIENT.indexOf('siblingIndex?: number')).toBeGreaterThan(i)
+    expect(CLIENT_TYPES.indexOf('siblingIndex?: number')).toBeGreaterThan(i)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

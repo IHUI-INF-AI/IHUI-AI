@@ -151,7 +151,18 @@ vi.mock('../src/db/index.js', () => {
     })
     return proxy
   }
-  return { db: make(), dbRead: make() }
+  return {
+    db: make(),
+    dbRead: make(),
+    dbClient: {},
+    dbScoped: make(),
+    dbReadScoped: make(),
+    poolLeakDetector: { start: vi.fn(), stop: vi.fn() },
+    stopPoolTracker: vi.fn(),
+    // src/db/index.ts 装配期会注册连接池泄漏清理钩子,手写 mock 缺它同样整片崩
+    registerPoolTrackerCleanup: vi.fn(),
+    returningOne: vi.fn(async () => null),
+  }
 })
 
 // Mock @fastify/cookie:同 csrf.test.ts,用 fastify-plugin 包装避免 encapsulation 作用域问题。

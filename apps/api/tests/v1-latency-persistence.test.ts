@@ -109,6 +109,10 @@ vi.mock('../src/services/relay-billing-service.js', () => ({
   }),
   isByokCall: vi.fn(async () => false),
   modelToProviderCode: vi.fn(() => 'openai'),
+  // 2026-11-19 补:v1-public 起用同一出口把 billingModel 与原始 model 分开,
+  // 手抄 mock 缺这条导出会让整条结算链在模块加载期就崩。
+  resolveBillingModel: (requested: string, resolved?: string | null) =>
+    (resolved ?? '').trim().length > 0 ? (resolved as string).trim() : requested,
   preDeductQuota: vi.fn(async () => null),
   BillingUnavailableError: class BillingUnavailableError extends Error {},
 }))
@@ -518,6 +522,10 @@ describe('取证 2b:v1-public 非流式落库形态', () => {
         'clientIp',
         'httpStatus',
         'preDeducted',
+        // 2026-11 上游成本/额度双通道随调用落账(与耗时同批入参)
+        'upstreamCostUsd',
+        'upstreamCredits',
+        'creditsUnit',
       ].sort(),
     )
     expect([input?.promptTokens, input?.completionTokens, input?.totalTokens]).toEqual([3, 4, 7])

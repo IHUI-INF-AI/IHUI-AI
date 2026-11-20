@@ -114,7 +114,9 @@ describe('clawdbot ModelManager 模型管理', () => {
       mgr.register(mockModel('m1'))
       const r = await mgr.complete({ messages: [{ role: 'user', content: 'hi' }] })
       expect(r.modelId).toBe('m1')
-      expect(r.finishReason).toBe('stop')
+      // F-439: 未接入上游 SDK 的占位结果必须显式标 stub,终态不得伪装成 stop
+      expect(r.finishReason).toBe('not_implemented')
+      expect(r.stub).toBe(true)
     })
 
     it('使用指定模型', async () => {

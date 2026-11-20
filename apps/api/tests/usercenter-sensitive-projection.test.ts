@@ -113,17 +113,23 @@ const { mockVerifyAccessToken, makeDbMock, state } = vi.hoisted(() => {
     return chain
   }
   const returnRows = (arg: Sel | undefined) => Promise.resolve([arg ? pick(arg) : { ...FULL_ROW }])
-  const makeDbMock = () => ({
-    select: vi.fn((arg?: Sel) => selectChain(arg)),
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({ returning: vi.fn((arg?: Sel) => returnRows(arg)) })),
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(() => ({ returning: vi.fn((arg?: Sel) => returnRows(arg)) })),
+  const makeDbMock = () => {
+    const base = {
+      select: vi.fn((arg?: Sel) => selectChain(arg)),
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({ returning: vi.fn((arg?: Sel) => returnRows(arg)) })),
       })),
-    })),
-  })
+      update: vi.fn(() => ({
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({ returning: vi.fn((arg?: Sel) => returnRows(arg)) })),
+        })),
+      })),
+      // 资料变更与脱敏审计同事务,缺 transaction 直接 500
+      transaction: vi.fn(),
+    }
+    base.transaction.mockImplementation(async (cb: (tx: unknown) => unknown) => cb(base))
+    return base
+  }
   return { mockVerifyAccessToken: vi.fn(), FULL_ROW, makeDbMock, state }
 })
 
@@ -146,6 +152,13 @@ vi.mock('../src/db/index.js', () => ({ db: makeDbMock() }))
 vi.mock('../src/utils/password-crypto.js', () => ({
   hashPassword: vi.fn().mockResolvedValue('new-hash'),
   verifyPassword: vi.fn().mockResolvedValue(true),
+}))
+// DB-35 起 phone/email 落库前加密+盲索引;本档只判响应投影,不判密文形态 ⇒ 直通桩
+vi.mock('../src/utils/user-contact.js', () => ({
+  encryptUserContact: (v: string) => v,
+  decryptPublicContact: <T>(row: T) => row,
+  hashUserContact: (_kind: string, v: string) => v,
+  normalizeUserContact: (_kind: string, v: string) => v,
 }))
 
 import { usercenterRoutes } from '../src/routes/usercenter'

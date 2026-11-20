@@ -34,7 +34,7 @@ const indexSrc = readFileSync(resolve(REPO_ROOT, 'apps/api/src/index.ts'), 'utf8
 describe('F-524:worker 侧必须能执行 auto-rollback 关停相位', () => {
   it('接线锁:server.ts 同时 import start 与 stop', () => {
     expect(serverSrc).toMatch(
-      /stopAutoRollbackMonitor,[\s\S]*?from '\.\/services\/auto-rollback\.js'/,
+      /stopAutoRollbackMonitor\b[\s\S]*?from '\.\/services\/auto-rollback\.js'/,
     )
   })
 

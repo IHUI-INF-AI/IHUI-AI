@@ -153,7 +153,9 @@ describe('F-635 入口归一到分,本地订单/网关/风控同源', () => {
       'utf8',
     )
     expect(source).not.toContain('body.amount.toFixed(2)')
-    expect(source.match(/const amountCents = Math\.round\(body\.amount \* 100\)/g)).toHaveLength(2)
+    expect(
+      source.match(/const amountCents = (?:yuanToCents\(body\.amount\)|Math\.round\(body\.amount \* 100\))/g),
+    ).toHaveLength(2)
     expect(source.match(/total_amount: \(amountCents \/ 100\)\.toFixed\(2\)/g)).toHaveLength(2)
     expect(source.match(/amount: amountCents,/g)).toHaveLength(4)
   })

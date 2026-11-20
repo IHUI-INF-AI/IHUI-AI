@@ -148,7 +148,14 @@ describe('refundOrder 与充值侧对齐 productId 守卫', () => {
     expect(result.success).toBe(true)
     expect(result.order?.status).toBe('refunded')
     expect(mocks.refundTokenDeduct).not.toHaveBeenCalled()
-    expect(mocks.updateOrderStatus).toHaveBeenCalledWith(order.orderNo, 'refunded', 'paid')
+    // 事务上下文为 null 时仍走注入的 db 依赖(签名已扩为 orderNo/status/from/tx/db)
+    expect(mocks.updateOrderStatus).toHaveBeenCalledWith(
+      order.orderNo,
+      'refunded',
+      'paid',
+      null,
+      expect.anything(),
+    )
   })
 
   it('自定义金额充值(orderType=2 且 productId 为空)退款仍扣回已入账 token', async () => {

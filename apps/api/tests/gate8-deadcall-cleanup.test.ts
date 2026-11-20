@@ -303,8 +303,10 @@ describe('G-962 裁决批次(2026-10-22):真值面对齐后的防回潮源锁', 
 
   it('小程序错题删除/分享取文 方法与后端一致', () => {
     const src = stripComments(read('../../../apps/miniapp-taro/src/api/index.ts'))
-    expect(src).toContain('del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${id}`)')
-    expect(src).toContain('get(`/api/share/content/${code}`)')
+    expect(src).toContain(
+      'del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${encodeURIComponent(id)}`)',
+    )
+    expect(src).toContain('get(`/api/share/content/${encodeURIComponent(code)}`)')
   })
 
   it('移动端证照列表 GET /api/certificates 在位', () => {

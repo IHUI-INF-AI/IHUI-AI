@@ -122,13 +122,14 @@ describe('F-149 企业学习报表汇总必须与明细同口径', () => {
     expect(trend.params).toEqual(summary.params)
   })
 
-  it('② 给定时间范围时汇总条件包含两端边界', async () => {
+  it('② 给定时间范围时汇总条件为上海日半开区间(左端含、右端次日不含)', async () => {
     const captures = stubDb([[SUMMARY_ROW], []])
     await findCompanyStudyReport(FULL_QUERY)
 
     const { sql, params } = render(captures[0]?.where)
-    expect(sql).toMatch(/"lesson_sign_ups"\."created_at"\s*>=\s*\$\d+/)
-    expect(sql).toMatch(/"lesson_sign_ups"\."created_at"\s*<=\s*\$\d+/)
+    expect(sql).toMatch(/"lesson_sign_ups"\."created_at"\s*>=\s*\(\$\d+::timestamp AT TIME ZONE 'Asia\/Shanghai'\)/)
+    expect(sql).toMatch(/"lesson_sign_ups"\."created_at"\s*<\s*\(/)
+    expect(sql).toMatch(/AT TIME ZONE 'Asia\/Shanghai'/)
     expect(params).toContain('2026-01-01')
     expect(params).toContain('2026-01-31')
   })

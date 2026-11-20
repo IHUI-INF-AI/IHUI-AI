@@ -581,7 +581,8 @@ describe('isAuthFailure / isAuthError', () => {
     expect(workbuddyAdapter.isAuthFailure(500, 'server error')).toBe(false)
   })
   it('异常 message 命中也算', () => {
-    expect(workbuddyAdapter.isAuthError!(new Error('upstream said: 12153'))).toBe(true)
+    // 只认本模块自产的 `code=12153` 固定形;裸子串 12153 会误伤带随机 requestId 的上游响应体
+    expect(workbuddyAdapter.isAuthError!(new Error('refresh failed code=12153'))).toBe(true)
     expect(workbuddyAdapter.isAuthError!(new Error('network timeout'))).toBe(false)
   })
 })

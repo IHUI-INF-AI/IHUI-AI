@@ -255,8 +255,11 @@ describe('格② relay 健康巡检耗时经唯一出口', () => {
     // 恰一次写库(不可信样本既不让计数跳过,也不让流程重跑)
     expect(updates).toHaveLength(1)
     const payload = updates[0] as Record<string, unknown>
-    const meta = payload.extraMetadata as Record<string, unknown>
-    expect(meta.consecutiveFailures).toBe(3)
+    // 2026-11:连续失败计数改为行级 jsonb 原子合并 SQL(`extra_metadata || patch`),
+    // 不再是整列回写对象 ⇒ 对 SQL 参数里的 JSON 片段断言,而非对象键。
+    const metaText = JSON.stringify(payload.extraMetadata)
+    expect(metaText).toContain('consecutiveFailures')
+    expect(metaText).toContain('":3')
     expect(payload.healthStatus).toBe('down')
     expect(payload.isEnabled).toBe(false)
     // 实测:该服务不按耗时判熔断 ⇒ 落库载荷里不得出现任何耗时字段(耗时列在 schema 里也不存在)
@@ -273,8 +276,9 @@ describe('格② relay 健康巡检耗时经唯一出口', () => {
 
     expect(result.latencyMs).toBeNull()
     expect(updates).toHaveLength(1)
-    const meta = (updates[0] as Record<string, unknown>).extraMetadata as Record<string, unknown>
-    expect(meta.consecutiveFailures).toBe(0)
+    const metaText = JSON.stringify((updates[0] as Record<string, unknown>).extraMetadata)
+    expect(metaText).toContain('consecutiveFailures')
+    expect(metaText).toContain('":0')
   })
 })
 

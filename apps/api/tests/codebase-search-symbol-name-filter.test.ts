@@ -172,15 +172,17 @@ describe('向量腿 search()', () => {
 
   it('symbolName 是数据列不是身份:无归属仍 fail-closed(1 = 0 不被过滤位替代)', async () => {
     executeRows = corpus()
-    await codebaseIndexService.search({ query: 'q', topK: 2, symbolName: SYM })
-    expect(captured[0]).toContain('1 = 0')
-    expect(captured[0]).toContain(`"symbol_name" = '${SYM}'`)
+    // SDB-39 起无归属在消耗 embedding / 发 SQL 之前就直接拒绝,比"查一条恒空谓词"更严
+    captured.length = 0
+    const out = await codebaseIndexService.search({ query: 'q', topK: 2, symbolName: SYM })
+    expect(out).toEqual([])
+    expect(captured).toHaveLength(0)
     // 有归属时:归属值与符号值同批 AND 在一条 WHERE 里(而不是二选一)
     executeRows = []
     await codebaseIndexService.search({ query: 'q', symbolName: SYM, ownerUuid: OWNER })
-    expect(captured[1]).toContain(`owner_uuid`)
-    expect(captured[1]?.includes(OWNER)).toBe(true)
-    expect(captured[1]).toContain(`"symbol_name" = '${SYM}'`)
+    expect(captured[0]).toContain(`owner_uuid`)
+    expect(captured[0]?.includes(OWNER)).toBe(true)
+    expect(captured[0]).toContain(`"symbol_name" = '${SYM}'`)
   })
 })
 
