@@ -49,6 +49,8 @@ describe('estimateMediaPoints 公式', () => {
     expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 2)).toBe(6)
     expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 4)).toBe(12)
     expect(estimateMediaPoints('agnes-video-2.5-flash', 'video', 3)).toBe(36)
+    // 上游单次最多 n=10 张:一次请求必须按 10 张扣(按 1 张扣等于漏收 9 张的钱)
+    expect(estimateMediaPoints('agnes-image-2.5-flash', 'image', 10)).toBe(30)
   })
 
   it('units 非法(0/负数/NaN/Infinity)按 1 计,绝不产生 0 元或负数扣费', () => {

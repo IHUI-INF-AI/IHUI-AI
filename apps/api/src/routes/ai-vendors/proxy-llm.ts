@@ -328,9 +328,12 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = agnesImageBody.parse(request.body)
-      // 计费(2026-11-21):图像按张计分,预检按本次预估(见 services/media-billing.ts 口径)。
+      // 计费(2026-11-21):图像按张计分,n∈[1,10] 时必须按 n 计 —— 按 1 计会让 n=10 只扣一张的钱。
+      // 预检同样按本次总张数判余额(见 services/media-billing.ts 口径)。
       const billingModel = body.model ?? 'agnes-image-2.5-flash'
-      if (!(await ensureMediaPointsBalance(request, reply, billingModel, 'image', 1))) return
+      const billingUnits = body.n ?? 1
+      if (!(await ensureMediaPointsBalance(request, reply, billingModel, 'image', billingUnits)))
+        return
       // Agnes 同步出图约 40-50s,timeout 90s 防误断(与 ai-service 侧一致)
       const data = await callVendor(
         'agnes',
@@ -351,7 +354,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       task.status = 'succeeded'
       recordUsage(request.userId!, 'agnes')
       // 上游已产出可渲染结果才扣分(失败分支在上方已 return),referenceId=任务 id ⇒ 幂等。
-      await chargeMediaPoints(request, billingModel, 'image', 1, task.taskId)
+      await chargeMediaPoints(request, billingModel, 'image', billingUnits, task.taskId)
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
     },
   )
