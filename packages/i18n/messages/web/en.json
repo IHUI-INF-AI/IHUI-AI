@@ -8741,13 +8741,6 @@
       "runtimeStatusPausing": "Pausing…",
       "runtimeStatusCancelling": "Cancelling…",
       "runtimePermissionMode": "Permission mode {mode} · {tool} · {decision}",
-      "runtimeHookRunTitle": "Hook runs",
-      "runtimeHookRunMeta": "{tool} · {count} hooks",
-      "runtimeHookRunOk": "passed",
-      "runtimeHookRunTimeout": "timeout",
-      "runtimeHookRunError": "failed",
-      "runtimeHookConfigUntrusted": "{count} hooks configured but untrusted — re-trust on this machine after edits",
-      "runtimeHookConfigInvalid": "Hook config is broken; running as if unconfigured",
       "runtimeMessageSend": "Round {iteration} request sent · {count} messages",
       "runtimeSessionEndSuccess": "Session completed · {iterations} rounds · {duration}",
       "runtimeSessionEndFailed": "Session ended with errors · {iterations} rounds · {duration}",
@@ -9706,26 +9699,6 @@
         "TERMINAL_NOT_FOUND": {
           "title": "Terminal not found",
           "action": "Create a new terminal"
-        },
-        "TERMINAL_INVALID_PATTERN": {
-          "title": "Invalid terminal match pattern",
-          "action": "Check the regex and retry"
-        },
-        "TERMINAL_INVALID_SIZE": {
-          "title": "Invalid terminal size",
-          "action": "Pass positive integer rows and columns"
-        },
-        "TERMINAL_NOT_A_TTY": {
-          "title": "Terminal is not a tty",
-          "action": "Restart the session in PTY mode"
-        },
-        "TERMINAL_RESIZE_FAILED": {
-          "title": "Failed to resize terminal",
-          "action": "Recreate the terminal and retry"
-        },
-        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
-          "title": "PTY not supported on this platform",
-          "action": "Use pipe mode, or check host ConPTY support"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "Failed to send signal",
@@ -13232,6 +13205,9 @@
     "reasoningEffortHigh": "Deep",
     "reasoningEffortXhigh": "Deeper",
     "reasoningEffortMax": "Maximum",
+    "reasoningEffortUltra": "Ultra",
+    "reasoningEffortDefault": "Default",
+    "reasoningEffortReset": "Reset to default",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis",

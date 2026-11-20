@@ -8741,13 +8741,6 @@
       "runtimeStatusPausing": "正在暫停…",
       "runtimeStatusCancelling": "正在取消…",
       "runtimePermissionMode": "權限模式 {mode} · {tool} · {decision}",
-      "runtimeHookRunTitle": "鉤子執行",
-      "runtimeHookRunMeta": "{tool} · {count} 枚",
-      "runtimeHookRunOk": "通過",
-      "runtimeHookRunTimeout": "逾時",
-      "runtimeHookRunError": "失敗",
-      "runtimeHookConfigUntrusted": "鉤子設定 {count} 條未受信任,改動後需在本機重新登記信任",
-      "runtimeHookConfigInvalid": "鉤子設定檔損壞,已按無設定運行",
       "runtimeMessageSend": "第 {iteration} 輪請求已發出 · {count} 則訊息",
       "runtimeSessionEndSuccess": "會話已完成 · {iterations} 輪 · 耗時 {duration}",
       "runtimeSessionEndFailed": "會話異常結束 · {iterations} 輪 · 耗時 {duration}",
@@ -9706,26 +9699,6 @@
         "TERMINAL_NOT_FOUND": {
           "title": "終端機不存在",
           "action": "重新建立終端機"
-        },
-        "TERMINAL_INVALID_PATTERN": {
-          "title": "終端機匹配模式無效",
-          "action": "檢查正則寫法後重試"
-        },
-        "TERMINAL_INVALID_SIZE": {
-          "title": "終端機尺寸無效",
-          "action": "傳入正整數行列後重試"
-        },
-        "TERMINAL_NOT_A_TTY": {
-          "title": "終端機不是 tty",
-          "action": "以 PTY 模式重啟工作階段"
-        },
-        "TERMINAL_RESIZE_FAILED": {
-          "title": "終端機尺寸調整失敗",
-          "action": "重建終端機後重試"
-        },
-        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
-          "title": "平臺不支援 PTY",
-          "action": "改用管道模式,或檢查宿主 ConPTY 支援"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "終止訊號傳送失敗",
@@ -13232,6 +13205,9 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortXhigh": "極深",
     "reasoningEffortMax": "極限",
+    "reasoningEffortUltra": "超極限",
+    "reasoningEffortDefault": "預設",
+    "reasoningEffortReset": "恢復預設",
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析",

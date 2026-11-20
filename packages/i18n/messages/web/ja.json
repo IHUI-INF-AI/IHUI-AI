@@ -8741,13 +8741,6 @@
       "runtimeStatusPausing": "一時停止しています…",
       "runtimeStatusCancelling": "キャンセルしています…",
       "runtimePermissionMode": "権限モード {mode} · {tool} · {decision}",
-      "runtimeHookRunTitle": "フック実行",
-      "runtimeHookRunMeta": "{tool} · {count} 件",
-      "runtimeHookRunOk": "通過",
-      "runtimeHookRunTimeout": "タイムアウト",
-      "runtimeHookRunError": "失敗",
-      "runtimeHookConfigUntrusted": "フック設定 {count} 件が未承認 — 変更後はこのマシンで再承認が必要",
-      "runtimeHookConfigInvalid": "フック設定が壊れているため、未設定として実行中",
       "runtimeMessageSend": "第 {iteration} ラウンドのリクエスト送信済み · {count} 件のメッセージ",
       "runtimeSessionEndSuccess": "セッション完了 · {iterations} ラウンド · 所要時間 {duration}",
       "runtimeSessionEndFailed": "セッションが異常終了 · {iterations} ラウンド · 所要時間 {duration}",
@@ -9706,26 +9699,6 @@
         "TERMINAL_NOT_FOUND": {
           "title": "ターミナルが見つかりません",
           "action": "新しく作成してください"
-        },
-        "TERMINAL_INVALID_PATTERN": {
-          "title": "ターミナルのマッチパターンが不正です",
-          "action": "正規表現を確認して再試行してください"
-        },
-        "TERMINAL_INVALID_SIZE": {
-          "title": "ターミナルのサイズが不正です",
-          "action": "正の整数の行数・列数を指定してください"
-        },
-        "TERMINAL_NOT_A_TTY": {
-          "title": "ターミナルが tty ではありません",
-          "action": "PTY モードでセッションを再起動してください"
-        },
-        "TERMINAL_RESIZE_FAILED": {
-          "title": "ターミナルのサイズ変更に失敗しました",
-          "action": "ターミナルを作り直して再試行してください"
-        },
-        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
-          "title": "このプラットフォームでは PTY を利用できません",
-          "action": "パイプモードに切り替えるか、ホストの ConPTY 対応を確認してください"
         },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "シグナル送信に失敗しました",
@@ -13232,6 +13205,9 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortXhigh": "超熟考",
     "reasoningEffortMax": "極限",
+    "reasoningEffortUltra": "超高",
+    "reasoningEffortDefault": "既定",
+    "reasoningEffortReset": "既定に戻す",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
     "analysisOpen": "シナリオ分析を見る",
