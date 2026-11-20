@@ -364,8 +364,8 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    # 9 = send / keys / paste / eof / read / wait / signal / resize / close
-    assert src.count("_live(terminal_id, user_id, session_id)") == 9, (
+    # 11 = send / keys / paste / snapshot / search / eof / read / wait / signal / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 11, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -1502,6 +1502,140 @@ async def test_tool_layer_routes_paste_action(tmp_path, monkeypatch) -> None:
         )
         assert res["ok"] is True and res["bracketed"] is False
         assert res["bytes_written"] == len("x\ny\n")
+    finally:
+        term.reset_terminals()
+
+
+# ─── 屏幕快照 / 回滚检索:转义序列归一只有一份出口 ───
+
+_ANSI_SCRIPT = """\
+import sys, time
+sys.stdout.write("\\x1b]0;C:\\\\windows\\\\system32\\\\cmd.exe\\x07")
+sys.stdout.write("\\x1b[?25l\\x1b[32m")
+sys.stdout.flush()
+for i in range(3):
+    sys.stdout.write("LINE-%d\\x1b[0m\\n" % i)
+    sys.stdout.flush()
+sys.stdout.write("\\x1b[31mERROR-\\x1b[1mboom\\x1b[0m\\n")
+sys.stdout.write("\\x1b[?25h")
+sys.stdout.flush()
+time.sleep(8)
+"""
+
+
+def test_strip_ansi_normalizes_csi_osc_and_carriage_returns() -> None:
+    """归一出口:CSI/OSC 全剥、`\\r\\n` 折成 `\\n`、宽字符内容不受影响。"""
+    raw = "\x1b]0;C:\\windows\\system32\\cmd.exe\x07\x1b[32m中文\x1b[0m\r\nnext\r\n"
+    assert _TEST["strip_ansi"](raw) == "中文\nnext\n"
+    # 子进程在文本模式下把 `\r\n` 又翻成 `\r`(`\r\r\n`)时也只折成一个换行,不是两个空行
+    assert _TEST["strip_ansi"]("a\r\r\nb") == "a\nb"
+
+
+def test_snapshot_returns_plain_text_without_control_sequences(tmp_path) -> None:
+    """快照给人看:颜色/标题串/清屏序列都不该出现在 text 里。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "ansi.py", _ANSI_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        _read_until(tid, "ERROR-", timeout=15.0)
+        shot = term.snapshot_terminal(
+            tid, user_id="u-term", session_id="s-term", max_lines=50
+        )
+        assert shot["ok"] is True
+        assert "\x1b" not in shot["text"], f"快照里还留着控制序列:{shot['text']!r}"
+        assert "cmd.exe" not in shot["text"], "OSC 标题串被漏成了正文"
+        assert "LINE-0" in shot["text"] and "ERROR-boom" in shot["text"]
+        assert shot["truncated"] is False
+        assert shot["total_lines"] == shot["lines"]
+    finally:
+        term.reset_terminals()
+
+
+def test_snapshot_keeps_tail_and_flags_truncation(tmp_path) -> None:
+    """只要末尾 N 行(屏幕语义:最新在下面),多出来的必须显式说 truncated。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "tail.py", _ANSI_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        _read_until(tid, "ERROR-", timeout=15.0)
+        shot = term.snapshot_terminal(
+            tid, user_id="u-term", session_id="s-term", max_lines=2
+        )
+        assert shot["ok"] is True and shot["lines"] == 2
+        assert shot["truncated"] is True
+        assert len(shot["text"].split("\n")) == 2
+        assert "ERROR-boom" in shot["text"], f"末尾没留下最新的行:{shot['text']!r}"
+        assert "LINE-0" not in shot["text"]
+    finally:
+        term.reset_terminals()
+
+
+def test_search_finds_colored_lines_and_reports_line_numbers(tmp_path) -> None:
+    """检索判定面是归一文本:带颜色的一行也能按内容搜到,行号是整缓冲 1 基。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "find.py", _ANSI_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        _read_until(tid, "ERROR-", timeout=15.0)
+        hit = term.search_terminal(
+            tid, pattern=r"LINE-\d", user_id="u-term", session_id="s-term", regex=True
+        )
+        assert hit["ok"] is True and hit["matched"] is True
+        assert hit["count"] == 3 and hit["truncated"] is False
+        assert [m["match"] for m in hit["matches"]] == ["LINE-0", "LINE-1", "LINE-2"]
+        nums = [m["line_no"] for m in hit["matches"]]
+        assert nums == sorted(nums) and nums[1] == nums[0] + 1
+
+        colored = term.search_terminal(
+            tid, pattern="error-boom", user_id="u-term", session_id="s-term",
+            ignore_case=True,
+        )
+        assert colored["matched"] is True and colored["count"] == 1
+    finally:
+        term.reset_terminals()
+
+
+def test_search_rejects_bad_pattern_before_touching_session(tmp_path) -> None:
+    """空 pattern / 正则语法错都在**碰会话之前**拒:不存在的 id 也报 pattern 错。"""
+    term.reset_terminals()
+    res = term.search_terminal(
+        "no-such-terminal", pattern="", user_id="u-term", session_id="s-term"
+    )
+    assert res["ok"] is False and res["errorCode"] == "TERMINAL_INVALID_PATTERN"
+    bad = term.search_terminal(
+        "no-such-terminal", pattern="(", regex=True,
+        user_id="u-term", session_id="s-term",
+    )
+    assert bad["ok"] is False and bad["errorCode"] == "TERMINAL_INVALID_PATTERN"
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_snapshot_and_search(tmp_path, monkeypatch) -> None:
+    """工具层必须把 snapshot / search 路由进模块(落进"不支持的 action"就是没接)。"""
+    term.reset_terminals()
+    monkeypatch.setattr(mcp, "_get_workspace_roots", lambda: [str(tmp_path)])
+    try:
+        opened = await _tool_terminal(
+            {
+                "action": "open",
+                "command": f'"{sys.executable}" -u "{_script_path(tmp_path, "ansi2.py", _ANSI_SCRIPT)}"',
+                "cwd": str(tmp_path),
+                **_OWNER,
+            }
+        )
+        tid = opened["terminal"]["terminal_id"]
+        _read_until(tid, "ERROR-", timeout=15.0)
+        shot = await _tool_terminal(
+            {"action": "snapshot", "terminal_id": tid, "max_lines": 3, **_OWNER}
+        )
+        assert shot["ok"] is True and "\x1b" not in shot["text"]
+        found = await _tool_terminal(
+            {
+                "action": "search", "terminal_id": tid, "pattern": "LINE-1",
+                **_OWNER,
+            }
+        )
+        assert found["ok"] is True and found["count"] == 1
     finally:
         term.reset_terminals()
 
