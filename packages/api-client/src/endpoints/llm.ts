@@ -802,6 +802,14 @@ export interface PoolChatModel {
   inputPricePerMillion?: number
   /** 真实单价(元/百万 token,输出侧) */
   outputPricePerMillion?: number
+  /**
+   * 用途分类与代次档位(2026-11-20 立,由 ai-service 模型目录判据下发):
+   * 与平台模型(/llm/models 的 category/model_tier)同口径,前端据此把旧代号池模型
+   * 收进「历史模型」折叠区。判不了时缺省,按 latest+chat 兜底(宁可多显示不误藏)。
+   */
+  category?: string
+  /** latest / standard / legacy */
+  modelTier?: string
 }
 
 /**

@@ -110,6 +110,8 @@ import {
   FALLBACK_MODELS,
   humanizeToolText,
   describeToolCall,
+  normalizeCategory,
+  normalizeTier,
   type ToolCallView,
 } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
@@ -1162,6 +1164,11 @@ export default function AiAssistantN8nScreen() {
             provider: p.provider,
             context_length: 0,
             input_price: 0,
+            // 2026-11-20 立:号池模型带代次字段(ai-service 模型目录判据下发),
+            // 让 ModelPickerList 能把旧代号池模型折叠进「历史模型」;
+            // 判不了时缺省 ⇒ 共享层兜底 latest+chat,不误藏。
+            ...(p.category ? { category: normalizeCategory(p.category) } : {}),
+            ...(p.modelTier ? { model_tier: normalizeTier(p.modelTier) } : {}),
           }))
         const merged = [...base, ...extra]
         if (merged.length) setModelList(merged)

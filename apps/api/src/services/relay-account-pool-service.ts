@@ -31,6 +31,7 @@ import {
 import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
+import { classifyPoolModels, poolModelClassKey } from './model-catalog-classify-client.js'
 import {
   credentialShapeIssue,
   detectPhoneMask,
@@ -2367,6 +2368,14 @@ export interface UserPoolModelItem {
   verified: true
   /** 该结论的核对时刻(epoch ms) */
   verifiedAt: number
+  /**
+   * 用途分类与代次档位(2026-11-20 立,ai-service /internal/model-catalog/classify 下发):
+   * 选择器据此把旧代号池模型收进「历史模型」折叠区,与平台目录(/llm/models)同口径。
+   * 判不了(结果缺失)时留空,前端按 latest+chat 兜底 —— 宁可多显示也不误藏。
+   */
+  category?: string
+  /** latest / standard / legacy */
+  modelTier?: string
 }
 
 interface UserPoolModelCacheEntry {
@@ -2665,14 +2674,45 @@ export async function listUserPoolModels(
       upstreamIds: info.ids,
     })
   }
-  const hiddenTotal = hiddenByIntersection + hiddenByDown + hiddenByUnverified
+  // 2026-11-20 立:代次口径与平台目录对齐。
+  // 此前本腿只有「上游交集 + down」两维,平台上还挂着的 kimi-k2.5 / glm-4.7 会原样出现在
+  // 选择器默认区,而 /llm/models 里同一个模型早被 filter_frontier 摘掉。判据来自
+  // ai-service(单一真相源),本层只消费:
+  //   - hidden=true(命中过时清单)⇒ 不返回,与平台目录一致;
+  //   - 其余带上 category/modelTier ⇒ legacy 由前端折叠进「历史模型」;
+  //   - 判不了(classified === null)⇒ 原样返回,不隐藏也不标代次(fail-open,
+  //     绝不把"没判定"当成"旧代"把用户自己的号池打空)。
+  const classified = await classifyPoolModels(
+    items.map((item) => ({ id: item.id, provider: item.provider })),
+  )
+  let finalItems: UserPoolModelItem[] = items
+  let hiddenByLegacy = 0
+  if (classified) {
+    finalItems = []
+    for (const item of items) {
+      const cls = classified.get(poolModelClassKey(item.provider, item.id))
+      if (!cls) {
+        finalItems.push(item)
+        continue
+      }
+      if (cls.hidden) {
+        hiddenByLegacy += 1
+        continue
+      }
+      finalItems.push({ ...item, category: cls.category, modelTier: cls.modelTier })
+    }
+  } else {
+    logger.warn('[relay-account-pool] 模型代次判定不可用:号池照常返回(不隐藏、不标代次)')
+  }
+
+  const hiddenTotal = hiddenByIntersection + hiddenByDown + hiddenByUnverified + hiddenByLegacy
   if (hiddenTotal > 0) {
     logger.info(
-      `[relay-account-pool] 模型选择器连通过滤: ${items.length + hiddenTotal} → ${items.length}` +
+      `[relay-account-pool] 模型选择器过滤: ${finalItems.length + hiddenTotal} → ${finalItems.length}` +
         ` (隐藏 ${hiddenTotal}:交集未命中 ${hiddenByIntersection} + down ${hiddenByDown}` +
-        ` + 本轮无清单证据 ${hiddenByUnverified})`,
+        ` + 本轮无清单证据 ${hiddenByUnverified} + 过代次 ${hiddenByLegacy})`,
     )
   }
-  return items
+  return finalItems
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
