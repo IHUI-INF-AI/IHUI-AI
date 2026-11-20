@@ -20,6 +20,7 @@ import {
   createHrLeave,
   approveHrLeave,
   listHrLeaves,
+  listMyAttendanceMonthly,
   DEFAULT_HR_BACKFILL_DAYS,
 } from '../services/hr-attendance.js'
 import { runAttendanceSyncJob } from '../services/attendance-sync-job.js'
@@ -34,6 +35,7 @@ import {
   requireAnyPermission,
   requirePermission,
   requireAuth,
+  requireSelf,
 } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
@@ -526,7 +528,8 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]),
       schema: buildSchema({
         summary: '考勤同步最近运行状态',
-        description: '返回最近一次考勤 IM 同步的运行结果(启用态/扫描用户数/产出批次数/跳过与错误)。',
+        description:
+          '返回最近一次考勤 IM 同步的运行结果(启用态/扫描用户数/产出批次数/跳过与错误)。',
         tags: ['HR'],
       }),
     },
@@ -543,7 +546,7 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     '/me',
     {
-      preHandler: requireAuth,
+      preHandler: requireSelf,
       schema: buildSchema({
         summary: '自助 · 我的员工档案',
         description:
@@ -558,6 +561,135 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       // 已绑定就不再展示邀请(邀请在同意那一刻即落库绑定,残留 pending 无意义)
       const pendingLinks = employee ? [] : await listPendingLinksForUser(userId)
       return reply.send(success({ employee, pendingLinks }))
+    },
+  )
+
+  // ── 自助面 · 本人考勤明细 / 请假单 / 月度汇总(2026-11-21 补齐) ──
+  // 立因:前端三个自助页(hr/my-attendance、hr/my-leave)一直在调 /my-records 与
+  // /my-leaves,后端从无对应路由 ⇒ 页面恒 404。AI 侧 hr_my_attendance / hr_my_leaves
+  // 两个 MCP 工具也依赖这两条 —— 缺一条就是工具永远"查不到"。
+  //
+  // 数据隔离:员工身份只从登录态 userId 经 getSelfEmployeeForUser 解析,
+  // **不接受客户端传 employeeId**(传了也不读),未绑定一律返回空集 + employee=null,
+  // 不暴露"该账号对应哪条档案"的任何线索。三条端点都是 requireAuth,无 HR 权限点。
+  fastify.get(
+    '/my-records',
+    {
+      preHandler: requireSelf,
+      schema: buildSchema({
+        summary: '自助 · 我的考勤明细',
+        description:
+          '按登录态绑定的员工档案返回本人考勤记录(分页,默认 31 条)。未绑定员工档案返回空集。',
+        tags: ['HR'],
+        querystring: z.object({
+          limit: z.coerce.number().int().min(1).max(200).optional(),
+          offset: z.coerce.number().int().min(0).optional(),
+          startDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
+          endDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
+        }),
+      }),
+    },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const employee = await getSelfEmployeeForUser(userId)
+      if (!employee) return reply.send(success({ list: [], total: 0, employee: null }))
+      const q = request.query as Record<string, string | undefined>
+      const parsed = z
+        .object({
+          limit: z.coerce.number().int().min(1).max(200).optional(),
+          offset: z.coerce.number().int().min(0).optional(),
+          startDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
+          endDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
+        })
+        .safeParse(q)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+      }
+      const { list, total } = await listHrAttendanceRecords({
+        employeeId: employee.id,
+        startDate: parsed.data.startDate,
+        endDate: parsed.data.endDate,
+        limit: parsed.data.limit ?? 31,
+        offset: parsed.data.offset ?? 0,
+      })
+      return reply.send(success({ list, total, employee }))
+    },
+  )
+
+  fastify.get(
+    '/my-leaves',
+    {
+      preHandler: requireSelf,
+      schema: buildSchema({
+        summary: '自助 · 我的请假单',
+        description: '按登录态绑定的员工档案返回本人请假单。未绑定员工档案返回空集。',
+        tags: ['HR'],
+        querystring: z.object({
+          status: z.string().max(30).optional(),
+        }),
+      }),
+    },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const employee = await getSelfEmployeeForUser(userId)
+      if (!employee) return reply.send(success({ list: [], employee: null }))
+      const q = request.query as Record<string, string | undefined>
+      const list = await listHrLeaves({
+        employeeId: employee.id,
+        ...(q.status ? { status: q.status } : {}),
+      })
+      return reply.send(success({ list, employee }))
+    },
+  )
+
+  fastify.get(
+    '/my-monthly',
+    {
+      preHandler: requireSelf,
+      schema: buildSchema({
+        summary: '自助 · 我的月度考勤汇总',
+        description:
+          '按登录态绑定的员工档案返回本人月度考勤汇总(应出勤/实出勤/迟到/早退/缺勤/请假/加班)。' +
+          'periodMonth 省略时返回最近 24 个月。未绑定员工档案返回空集。',
+        tags: ['HR'],
+        querystring: z.object({
+          periodMonth: z
+            .string()
+            .regex(/^\d{4}-\d{2}$/)
+            .optional(),
+        }),
+      }),
+    },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
+      const employee = await getSelfEmployeeForUser(userId)
+      if (!employee) return reply.send(success({ list: [], employee: null }))
+      const q = request.query as Record<string, string | undefined>
+      if (q.periodMonth && !/^\d{4}-\d{2}$/.test(q.periodMonth)) {
+        return reply.status(400).send(error(400, 'periodMonth 必须是 YYYY-MM', 'VALIDATION_FAILED'))
+      }
+      const list = await listMyAttendanceMonthly({
+        employeeId: employee.id,
+        periodMonth: q.periodMonth,
+      })
+      return reply.send(success({ list, employee }))
     },
   )
 

@@ -35,6 +35,18 @@ from .finance_tools import (
     ai_bookkeeping,
     ai_tax_filing,
 )
+from .hr_tools import (
+    HR_MY_ATTENDANCE_DESCRIPTION,
+    HR_MY_LEAVES_DESCRIPTION,
+    HR_MY_PAYROLL_DESCRIPTION,
+    HR_MY_PAYROLL_PERIODS_DESCRIPTION,
+    HR_PAYROLL_CALC_DESCRIPTION,
+    hr_my_attendance,
+    hr_my_leaves,
+    hr_my_payroll,
+    hr_my_payroll_periods,
+    hr_payroll_calc,
+)
 from .init_agents_md import init_agents_md
 from .payroll_handoff_tools import ai_payroll_handoff
 from .reimbursement_tools import AI_REIMBURSEMENT_DESCRIPTION, ai_reimbursement
@@ -67,10 +79,20 @@ __all__ = [
     "ai_reimbursement",
     "social_insurance_calc",
     "special_deduction_calc",
+    "hr_my_payroll",
+    "hr_my_payroll_periods",
+    "hr_my_attendance",
+    "hr_my_leaves",
+    "hr_payroll_calc",
     "AI_BOOKKEEPING_DESCRIPTION",
     "AI_TAX_FILING_DESCRIPTION",
     "AI_REIMBURSEMENT_DESCRIPTION",
     "SOCIAL_INSURANCE_DESCRIPTION",
     "SPECIAL_DEDUCTION_DESCRIPTION",
+    "HR_MY_PAYROLL_DESCRIPTION",
+    "HR_MY_PAYROLL_PERIODS_DESCRIPTION",
+    "HR_MY_ATTENDANCE_DESCRIPTION",
+    "HR_MY_LEAVES_DESCRIPTION",
+    "HR_PAYROLL_CALC_DESCRIPTION",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
