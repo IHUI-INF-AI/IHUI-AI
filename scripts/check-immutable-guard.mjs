@@ -688,6 +688,91 @@ export function mergeIntroductionChanges(root, sha) {
 }
 
 /**
+ * 一批合并提交的"逐父交集"**一次读齐**（2026-11-20，本门提速）。
+ *
+ * 立因（当次实测）：单跑本门 8.6 秒里 98.7% 花在 `spawnSync`；`GIT_TRACE2_EVENT` 数到的
+ * 19 次派生中，4 次逐枚 `diff --name-status -M -z <parent> <sha>`（每枚合并 × 父数）与
+ * 2 次逐枚 `rev-list --parents -n 1` 是最大两块（本机每次派生 ≈0.5~0.7 秒）。
+ * `git log --no-walk=unsorted -m` 对每枚提交**逐父各吐一段** name-status ⇒ 四段 diff 收成
+ * 一次派生，父列表改由同一批记录的 `%P` 给出（省掉那两次 `rev-list --parents`）。
+ *
+ * 等值口径与 `mergeIntroductionChanges` 逐字一致：交集按 path 求，条目取"与第一父 diff"
+ * 那一份 status/oldPath（段序 = `git diff -m` 的父顺序，并用各段 `%P` 自证同一条记录）。
+ * 任一处对不上（段数与父数不等 / 各段 `%P` 不一致 / 分帧坏 / 传入非合并提交 / 取不到）
+ * ⇒ **整批作废返回空表** ⇒ `judgeBatch` 逐枚回落原路径（失效方向与逐枚档一致，§0.3）。
+ * @returns {Map<string,Array<{status:string,path:string,oldPath?:string}>>}
+ */
+export function batchMergeIntroductions(root, shas) {
+  const out = new Map()
+  const list = (Array.isArray(shas) ? shas : []).filter((s) => FULL_SHA_RE.test(String(s)))
+  if (list.length === 0) return out
+  for (let i = 0; i < list.length; i += BATCH_REV_ARGS) {
+    const part = batchMergeIntroductionsOnce(root, list.slice(i, i + BATCH_REV_ARGS))
+    if (part === null) return new Map()
+    for (const [sha, changes] of part) out.set(sha, changes)
+  }
+  return out
+}
+
+/** 单块实现：失败/分帧对不上/段数与父数对不上 ⇒ `null`（调用方按"整批作废"处理）。 */
+function batchMergeIntroductionsOnce(root, list) {
+  let raw
+  try {
+    raw = String(
+      gitRaw(
+        [
+          'log',
+          '--no-walk=unsorted',
+          '-m',
+          '-z',
+          `--format=${CHANGE_RECORD_SEP}%H %P`,
+          '--name-status',
+          '-M',
+          '-z',
+          ...list,
+        ],
+        root,
+        { maxBuffer: 1 << 28 },
+      ),
+    )
+  } catch {
+    return null
+  }
+  const perCommit = new Map()
+  const pieces = raw.split(CHANGE_RECORD_SEP)
+  for (const piece of pieces.slice(1)) {
+    // 分帧：`\x1e` + 40 位 sha + ` <p1> <p2>…` + `\x00`（可能再跟一个 `\n`）+ name-status 段
+    const nul = piece.indexOf('\u0000')
+    if (nul < 0) return null
+    const m = /^([0-9a-f]{40})((?: [0-9a-f]{40})+)$/.exec(piece.slice(0, nul))
+    if (!m) return null
+    const parents = m[2].trim().split(/\s+/)
+    if (parents.length < 2) return null
+    const body = piece.slice(nul + 1).replace(/^\r?\n/, '')
+    const rows = perCommit.get(m[1]) ?? []
+    rows.push({ parents, changes: parseNameStatusZ(body) })
+    perCommit.set(m[1], rows)
+  }
+  const out = new Map()
+  for (const sha of list) {
+    const rows = perCommit.get(sha)
+    if (!rows) return null
+    const first = rows[0]
+    // 父序是交集口径的前提：段数必须等于父数，且每段自述的 `%P` 逐字相同（同一条记录）。
+    if (rows.length !== first.parents.length) return null
+    if (rows.some((r) => r.parents.join(' ') !== first.parents.join(' '))) return null
+    const firstChanges = new Map(first.changes.map((c) => [c.path, c]))
+    let common = new Set(first.changes.map((c) => c.path))
+    for (const r of rows.slice(1)) {
+      const paths = new Set(r.changes.map((c) => c.path))
+      common = new Set([...common].filter((p) => paths.has(p)))
+    }
+    out.set(sha, [...common].map((p) => firstChanges.get(p)).filter(Boolean))
+  }
+  return out
+}
+
+/**
  * 按签名自己钉住的 base 重放索引差异集（v2 专用，只对 staged 面有意义）。
  * `git diff --cached <base>` 比的是**索引 vs 那枚旧提交的树**，与当前 HEAD 无关；
  * HEAD 被别席推进时这个面不变，所以合法提交不会再被"多出来的他席条目"顶成 sig-invalid。
@@ -1349,6 +1434,15 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
       : batch.map((sha) => `${sha}:${GUARD_DATA_REL}`),
   )
   const changesBatch = batchFaceChanges(root, batch)
+  // 合并提交的逐父交集也整批读（2026-11-20）：只把 `metas` 已判定"父数 > 1"的枚送进去，
+  // 批档对不上就整批作废 ⇒ 下面逐枚回落 `mergeIntroductionChanges`（判定一个字都不变）。
+  const mergeBatch = batchMergeIntroductions(
+    root,
+    batch.filter((sha) => {
+      const meta = metas.get(sha)
+      return !!meta && meta.parentCount > 1
+    }),
+  )
   const originSet = originMainMembership(root)
   for (const sha of batch) {
     const meta = metas.get(sha) ?? null
@@ -1357,8 +1451,9 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
     // 取不到交集就落 undetermined —— 绝不能把"判不了"读成"干净合并"(§0.3)。
     let mergeChanges
     if (parents > 1) {
+      const mergePre = mergeBatch.get(sha)
       try {
-        mergeChanges = mergeIntroductionChanges(root, sha)
+        mergeChanges = mergePre !== undefined ? mergePre : mergeIntroductionChanges(root, sha)
       } catch (e) {
         undetermined.push({
           sha,
@@ -3534,6 +3629,52 @@ export function selfTest() {
         undetermined: jbRoot.undetermined.map((u) => `${String(u.sha).slice(0, 8)}:${u.code}`),
       }),
     )
+    // 合并枚的逐父交集也整批读（2026-11-20）：批档读数必须与逐枚 `mergeIntroductionChanges` 逐字等值，
+    // 且"传入非合并提交 / 段数与父数对不上" ⇒ 整批作废（调用处逐枚回落，不拿"读不到"当"干净合并"）。
+    const curBranch = String(gitRaw(['rev-parse', '--abbrev-ref', 'HEAD'], root)).trim()
+    gitRaw(['checkout', '-q', '-b', 'st57-side'], root)
+    writeIn(root, 'docs/st57-side.md', '# side\n')
+    commitAll(root, 'docs: 合流侧改动')
+    gitRaw(['checkout', '-q', curBranch], root)
+    writeIn(root, 'docs/st57-main.md', '# main\n')
+    commitAll(root, 'docs: 主干侧改动')
+    gitRaw(['merge', '--no-ff', '-m', 'chore: 干净合并', 'st57-side'], root)
+    const mergeClean = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    // 解冲突时写下的第三版内容才是"merge 自己引入"的改动（交集非空），这一枚必须一起钉住。
+    gitRaw(['checkout', '-q', '-b', 'st57-conf'], root)
+    writeIn(root, 'docs/st57-conflict.md', '# side\n')
+    commitAll(root, 'docs: 冲突侧')
+    gitRaw(['checkout', '-q', curBranch], root)
+    writeIn(root, 'docs/st57-conflict.md', '# main\n')
+    commitAll(root, 'docs: 冲突主')
+    try {
+      gitRaw(['merge', '--no-ff', '-m', 'chore: 冲突合并', 'st57-conf'], root)
+    } catch {
+      // 冲突是非零退出：现场正是我们要的，接着解完它。
+    }
+    writeIn(root, 'docs/st57-conflict.md', '# resolved\n')
+    gitRaw(['add', '-A'], root)
+    gitRaw(['commit', '--no-verify', '-F', '-'], root, { input: 'chore: 冲突合并(解冲突后)' })
+    const mergeEvil = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const merges = [mergeClean, mergeEvil]
+    const mergeTable = batchMergeIntroductions(root, merges)
+    let mergeDiff = 0
+    for (const sha of merges) {
+      const got = mergeTable.get(sha)
+      const one = mergeIntroductionChanges(root, sha)
+      if (!got || JSON.stringify(got) !== JSON.stringify(one)) mergeDiff += 1
+    }
+    ok(
+      'ST57i 合并枚逐父交集批档与逐枚 mergeIntroductionChanges 逐字等值(干净合并 + 解冲突后第三版各一枚)',
+      mergeDiff === 0 && mergeTable.size === merges.length && parentCount(root, mergeEvil) === 2,
+      JSON.stringify({ mergeDiff, size: mergeTable.size, evil: mergeTable.get(mergeEvil) }),
+    )
+    ok(
+      'ST57j 合并批档遇到非合并提交 ⇒ 整批作废(调用处逐枚回落,不拿"读不到"当"干净合并")',
+      batchMergeIntroductions(root, [shaEmpty]).size === 0 &&
+        batchMergeIntroductions(root, [...merges, shaEmpty]).size === 0,
+      `size=${batchMergeIntroductions(root, [...merges, shaEmpty]).size}`,
+    )
     const texts = batchFaceTexts(
       root,
       shas
@@ -4268,6 +4409,8 @@ export const __test__ = {
   judgeBatch,
   batchCommitMeta,
   batchFaceChanges,
+  batchMergeIntroductions,
+  mergeIntroductionChanges,
   batchFaceTexts,
   originMainMembership,
   blobMapFor,
