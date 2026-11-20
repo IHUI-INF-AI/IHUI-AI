@@ -110,7 +110,7 @@
 | **XSS**          | sanitizer 绕过检测脚本守门(guardian-runner 注册门)                                   |
 | **API key 泄露** | `check-api-key-leak.mjs` 守门(guardian-runner 注册门)                                |
 | **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级    |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗           |
+| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 高风险模式仅用户手动切换 + 首启确认弹窗           |
 | **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
 | **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                    |
 | **2FA/MFA**      | TOTP RFC 6238 + 备份恢复码 + 设备指纹 + 信任设备管理                                  |
