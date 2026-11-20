@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "last trusted by {by}",      "hookFailures": {
         "title": "Hook execution failed",
         "evidenceMissing": "Result not recorded: this execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed.",
         "state": {
@@ -8859,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "Terminal stdin is closed",
+          "action": "Reopen the terminal session before sending input"
+        },        "102": {
           "title": "Request time validation failed",
           "action": "Sync your system clock and retry"
         },
