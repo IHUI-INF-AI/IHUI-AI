@@ -14,6 +14,7 @@ import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
 import { formatDateByTemplate } from '@ihui/shared'
+import { normalizeCategory, normalizeTier } from '@ihui/shared/constants/model-catalog'
 // 差距①(2026-11-13 立):发送准入回执的类型与判据都住在共享层(send-admission.ts)。
 // 本文件只透传类型;解析腿在 lib/tool-approval-frame.ts 的 parseAdmissionLine,
 // 那里调用共享 readSendAdmissionReceipt —— 端内不复制四档值域判据。
@@ -1844,6 +1845,10 @@ export const fetchModels = async (): Promise<FetchModelsResult> => {
       provider: p.provider,
       context_length: 0,
       input_price: 0,
+      // 2026-11-20 立:号池模型带代次字段(与平台目录 /llm/models 同口径),
+      // 旧代号池模型据此折叠进「历史模型」;判不了时缺省 ⇒ 兜底 latest+chat。
+      ...(p.category ? { category: normalizeCategory(p.category) } : {}),
+      ...(p.modelTier ? { model_tier: normalizeTier(p.modelTier) } : {}),
     }))
   return { ...res, models: [...(res.models ?? []), ...extra] }
 }

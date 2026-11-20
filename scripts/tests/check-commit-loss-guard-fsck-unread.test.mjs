@@ -75,34 +75,55 @@ export function batchExecFileSync(file, args, opts) {
   const mode = ${JSON.stringify(mode)}
   const argv = Array.isArray(args) ? args.map(String) : []
   // 只拦 fsck;其余动词(以及 real 层自己内部的派生)一律放行。
-  if (argv.includes('fsck')) {
-    if (mode === 'unreachable-nostatus') {
-      // 派生层没跑成:EBUSY 兜底也失败 / ENOENT / 超时 —— **没有 status**。
-      const e = new Error('spawnSync git EBUSY (EBUSY 兜底通道重试仍失败)')
-      e.code = 'EBUSY'
-      throw e
-    }
-    if (mode === 'unreachable-fatal') {
-      // git 自己拒绝执行(非仓库的形态):RC=128 + 空 stdout + stderr fatal。
-      const e = new Error('Command failed: git fsck')
-      e.status = 128
-      e.stdout = ''
-      e.stderr = 'fatal: not a git repository (or any of the parent directories): .git\\n'
-      throw e
-    }
-    if (mode === 'unreachable-rc2-with-data') {
-      // 本仓真实形态:RC=2(broken link 所致),而 unreachable 清单**完整可信**。
-      // 清单行形态取自 gate.UNREACHABLE_COMMIT_PREFIX(与判据同源,见 unreachableLine 注)。
-      const e = new Error('Command failed: git fsck')
-      e.status = 2
-      e.stdout = ${JSON.stringify([unreachableLine(H1), ...NON_JUDGMENT_LINES, unreachableLine(H2), ''].join('\n'))}
-      e.stderr = ''
-      throw e
-    }
-    // 'rc0-empty':真的跑完并报告零悬空 —— 合法读数,必须判绿。
-    return ''
-  }
+  if (argv.includes('fsck')) return fakeFsckSync(mode)
   return real.gitRaw(argv.slice(argv.indexOf('-C') + 2), process.cwd(), opts)
+}
+/**
+ * 异步通道(2026-11-20 起 30a 的 fsck 走预启动档)必须**同一格故障注入**:否则那条接线锁
+ * 只锁住同步分支,门换条通道就能绕过夹具 —— 那正是"多一个出口"的老形状。
+ * 结局形态与层里一致:一律 resolve 四元组,不抛异常。
+ */
+export function batchExecFileAsync(file, args, opts) {
+  const mode = ${JSON.stringify(mode)}
+  const argv = Array.isArray(args) ? args.map(String) : []
+  if (!argv.includes('fsck')) return real.batchExecFileAsync(file, args, opts)
+  try {
+    return Promise.resolve({ ok: true, status: 0, stdout: fakeFsckSync(mode), stderr: '', spawnError: null })
+  } catch (e) {
+    return Promise.resolve({
+      ok: false,
+      status: typeof e?.status === 'number' ? e.status : null,
+      stdout: typeof e?.stdout === 'string' ? e.stdout : '',
+      stderr: e?.stderr ?? '',
+      spawnError: e?.code === 'EBUSY' ? e : null,
+    })
+  }
+}
+function fakeFsckSync(mode) {
+  if (mode === 'unreachable-nostatus') {
+    // 派生层没跑成:EBUSY 兜底也失败 / ENOENT / 超时 —— **没有 status**。
+    const e = new Error('spawnSync git EBUSY (EBUSY 兜底通道重试仍失败)')
+    e.code = 'EBUSY'
+    throw e
+  }
+  if (mode === 'unreachable-fatal') {
+    // git 自己拒绝执行(非仓库的形态):RC=128 + 空 stdout + stderr fatal。
+    const e = new Error('Command failed: git fsck')
+    e.status = 128
+    e.stdout = ''
+    e.stderr = 'fatal: not a git repository (or any of the parent directories): .git\\n'
+    throw e
+  }
+  if (mode === 'unreachable-rc2-with-data') {
+    // 本仓真实形态:RC=2(broken link 所致),而 unreachable 清单**完整可信**。
+    const e = new Error('Command failed: git fsck')
+    e.status = 2
+    e.stdout = ${JSON.stringify([unreachableLine(H1), ...NON_JUDGMENT_LINES, unreachableLine(H2), ''].join('\n'))}
+    e.stderr = ''
+    throw e
+  }
+  // 'rc0-empty':真的跑完并报告零悬空 —— 合法读数,必须判绿。
+  return ''
 }
 `
 }

@@ -94,6 +94,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
+  batchExecFileAsync,
   batchExecFileSync,
   catBatchOids,
   gitBinary,
@@ -2181,66 +2182,133 @@ function listUnreachableHashes() {
   // 旧写法在这里挂 `2>&1`(只有 shell 通道才需要)。这里分别捕获 stdout/stderr,
   // 而本判据只取 stdout 上的 `unreachable commit` 行(git 的不可达对象清单本来就打在 stdout,
   // 诊断与警告才走 stderr)⇒ 去掉合并不会少一行,少了的行也不是判据输入。
-  const ARGS = ['fsck', '--connectivity-only', '--unreachable', '--no-reflogs']
-  // 与 gitRaw 同形的派生选项,按行为规格(绝对路径 git 由 gitBinary() 给足):
-  // safe.directory=* 是本仓共享工作区的硬需求,quotepath=false 防中文路径被转义。
-  const argv = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, ...ARGS]
+  // 命令面与超时预算一律向单一源取(`fsckArgv` / `fsckTimeoutMs`),不在本函数里另写一份。
+  const argv = fsckArgv()
   const opts = {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
-    // 显式数字 timeout:不让 fsck 无界挂起把 pre-commit 钉死。
-    // 2026-10-30 实测校准(60s → 240s):本机对象库 9.5GB / 181 个 pack,`--connectivity-only`
-    // 全库遍历 midx 前 92s、midx 后 59s —— 原值 60s 正好卡在噪声带宽里,于是这道门长期
-    // rc=2「fsck 判定面取不到」,而 rc=2 不报警,跑久了被当成绿的(§0.3)。
-    // 阈值必须与实测规模匹配,不是越短越安全:短到永远超时 = 这道门从未真正判过。
-    // 取 4× 实测值留出并发负载余量;真超了仍照旧 rc=2 并点名原因,不折成通过。
-    // ⚠️ 缺省值一律不动(240s 是 2026-10-30 按当次实测标的),但**必须能抬**:今天这台在并发
-    // fetch/fsck 争用下 240s 会撞穿,而撞穿之后的结论是 rc=2「没判成」—— 那道门既不报警也无法
-    // 被任何人在不改代码的前提下复核(唯一的旗是 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1`,那是跳门,方向相反)。
-    // 所以这里给一个**只抬预算、不改判据**的出口:先用它把真实耗时量出来,再把缺省改成量到的数,
-    // 而不是让下一个人只能在"跳门"和"改文件"之间二选一。取值坏/缺省 ⇒ 原样 240s(不读成无限)。
-    timeout: (() => {
-      const n = Number(process.env.IHUI_COMMIT_LOSS_FSCK_TIMEOUT_MS)
-      return Number.isFinite(n) && n > 0 ? n : 240_000
-    })(),
+    // 超时预算的取值理由(60s → 240s 的校准与"必须能抬"的出口)见 `fsckTimeoutMs`。
+    timeout: fsckTimeoutMs(),
     maxBuffer: 64 << 20,
     // stdio[0]='ignore':本环境 pipe-stdin spawn git 确定性 EBUSY(见 lib/gitdir.mjs 同款注),
     // 而 fsck 不读 stdin ⇒ ignore 无副作用,换来的是躲开那扇病窗。
     stdio: ['ignore', 'pipe', 'pipe'],
   }
-  let stdout = null
+  // 判据**一处**:这里只负责"把一次派生的结局收成四元组",读法全交给 `judgeFsckOutcome`。
+  let res
   try {
-    stdout = String(batchExecFileSync(gitBinary() || 'git', argv, opts) ?? '')
-  } catch (e) {
-    /**
-     * 读数成立的**充分必要条件**:git 真的跑完了(有数字 status,排除 EBUSY/ENOENT/超时/信号),
-     * 且 stdout 非空,且 stderr 没有 `fatal:`。
-     * - 无 status ⇒ 派生层没跑成(EBUSY 兜底也失败 / ENOENT / 超时 / 被信号杀)⇒ 取不到。
-     * - `fatal:` ⇒ git 自己拒绝执行(典型:不是仓库)⇒ 取不到。这条独立于 status:
-     *   非仓库是 RC=128 + 空 stdout,不写它就会掉进下面的 status 判据里。
-     * - status 有值但 stdout 空 ⇒ 拿到了退出码却没拿到清单,仍属取不到。
-     */
-    const ranOk = typeof e?.status === 'number'
-    const out = typeof e?.stdout === 'string' ? e.stdout : ''
-    const fatal = /(?:^|\n)fatal:/m.test(String(e?.stderr ?? ''))
-    if (!ranOk || !out || fatal) {
-      throw new Undetermined(
-        `fsck 判定面取不到(${ROOT}):${gitErrText(e)}` +
-          (ranOk ? ` [status=${e.status}]` : ' [派生层未取得退出码]') +
-          (fatal ? ' [git fatal]' : '') +
-          ' —— 不可判定,不得读成"零悬空"',
-      )
+    res = {
+      ok: true,
+      status: 0,
+      stdout: String(batchExecFileSync(gitBinary() || 'git', argv, opts) ?? ''),
+      stderr: '',
+      spawnError: null,
     }
-    stdout = out
+  } catch (e) {
+    res = {
+      ok: false,
+      status: typeof e?.status === 'number' ? e.status : null,
+      stdout: typeof e?.stdout === 'string' ? e.stdout : '',
+      stderr: e?.stderr ?? '',
+      spawnError: null,
+    }
   }
-  return parseUnreachableCommitLines(stdout)
+  return judgeFsckOutcome(res)
 }
 
-function detectUnreachable() {
+/**
+ * fsck 派生参数(**唯一一份**):同步档与预启动档都必须用它,否则两条通道的命令面会漂。
+ * safe.directory=* 是本仓共享工作区的硬需求,quotepath=false 防中文路径被转义。
+ */
+function fsckArgv() {
+  // --no-reflogs: 不遍历 reflog(只检查悬空 commit 对象)
+  const ARGS = ['fsck', '--connectivity-only', '--unreachable', '--no-reflogs']
+  return ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, ...ARGS]
+}
+
+/** 显式数字 timeout:不让 fsck 无界挂起把 pre-commit 钉死(取值理由见 `listUnreachableHashes` 内的原注)。 */
+function fsckTimeoutMs() {
+  const n = Number(process.env.IHUI_COMMIT_LOSS_FSCK_TIMEOUT_MS)
+  return Number.isFinite(n) && n > 0 ? n : 240_000
+}
+
+/**
+ * fsck 读数的**唯一判据**:给定一次派生的结局 → 合法清单 / 空清单(都是合法读数) / 抛
+ * `Undetermined`。同步档(`listUnreachableHashes`)与预启动档(`detectUnreachable`)共用这一处,
+ * 禁止两条通道各写一份(§0.6 单一真相源)。
+ *
+ * 读数成立的**充分必要条件**(`ok=false` 那一支):git 真的跑完了(有数字 status,排除
+ * EBUSY/ENOENT/超时/信号),且 stdout 非空,且 stderr 没有 `fatal:`。
+ * - 无 status ⇒ 派生层没跑成(EBUSY 兜底也失败 / ENOENT / 超时 / 被信号杀)⇒ 取不到。
+ * - `fatal:` ⇒ git 自己拒绝执行(典型:不是仓库)⇒ 取不到。这条独立于 status:
+ *   非仓库是 RC=128 + 空 stdout,不写它就会掉进下面的 status 判据里。
+ * - status 有值但 stdout 空 ⇒ 拿到了退出码却没拿到清单,仍属取不到。
+ * - `ok=true`(退出码 0)时 stdout **可以为空** —— 那是"跑完了、仓里没有悬空 commit"的合法零读数。
+ *
+ * @param {{ok:boolean,status:number|null,stdout:string,stderr:string,spawnError:any}} r
+ * @returns {string[]}
+ * @throws  {Undetermined} 取不到 ⇒ 调用方 fail-closed,绝不折成空数组
+ */
+function judgeFsckOutcome({ ok, status, stdout, stderr, spawnError }) {
+  if (ok && !spawnError) {
+    return parseUnreachableCommitLines(String(stdout ?? ''))
+  }
+  const out = typeof stdout === 'string' ? stdout : ''
+  const fatal = /(?:^|\n)fatal:/m.test(String(stderr ?? ''))
+  const ranOk = typeof status === 'number'
+  if (!ranOk || !out || fatal || spawnError) {
+    throw new Undetermined(
+      `fsck 判定面取不到(${ROOT}):${spawnError ? String(spawnError?.message ?? spawnError) : ''}` +
+        (ranOk ? ` [status=${status}]` : ' [派生层未取得退出码]') +
+        (fatal ? ' [git fatal]' : '') +
+        (!out && !spawnError ? ' [stdout 为空]' : '') +
+        ' —— 不可判定,不得读成"零悬空"',
+    )
+  }
+  return parseUnreachableCommitLines(out)
+}
+
+/**
+ * **预启动** fsck：在本门其它派生(标签清单/可达性表/缓存指纹/面读数)还在跑的时候,先把它
+ * 放到后台去跑,等在需要读数时再 `await`。
+ *
+ * 立因(2026-11-20 实测)：`GIT_TRACE2_EVENT` 下本门共 44 次派生、总 66s 采样,其中
+ * `fsck --connectivity-only` 单项 18.0s(全库对象图遍历),而它在这条串行链上排在中段,
+ * 前面还有 ~25s 的标签/指纹派生 —— 那段时间它与 CPU/IO 都在等同一个进程,纯闲置。
+ * 并发化之后这 18s 基本被前缀工作盖住(它不吃别的判据输入,也不改任何读数)。
+ *
+ * 语义与同步档逐字一致：同一份 `fsckArgv()`、同一条 240s 超时、同样 `stdio[0]='ignore'`
+ * (本环境 pipe-stdin spawn git 确定性 EBUSY,而 fsck 不读 stdin ⇒ ignore 无副作用),
+ * 结果仍交给唯一的 `judgeFsckOutcome` 判定。派生层失败(ENOENT/超时/被信号杀) ⇒ 一样抛
+ * `Undetermined`(不折成"零悬空")。
+ * @returns {Promise<{ok:boolean,status:number|null,stdout:string,stderr:string,spawnError:any}>}
+ */
+function launchFsck() {
+  return batchExecFileAsync(gitBinary() || 'git', fsckArgv(), {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: fsckTimeoutMs(),
+    maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+/**
+ * 悬空 commit 的原始 hash 列表。
+ *
+ * `prelaunched` = 本门在开头就用 `launchFsck()` 放出去的那份派生(见该函数立因)。
+ * 有它就 `await` 它(此时前缀的标签/指纹派生已经把 18s 盖住了),没有它(手动查询档、
+ * 或那一次预启动没发出)一律回落同步档 `listUnreachableHashes()` —— 两条通道读数由
+ * `judgeFsckOutcome` 一处判定,等价性不靠"两条实现一样"来保证。
+ * @returns {Promise<string[]>}
+ */
+async function detectUnreachable(prelaunched) {
   // --no-reflogs: 不遍历 reflog(只检查悬空 commit 对象)
   // 原始 hash 列表(用于后续丢失 commit 备份核对)
-  return listUnreachableHashes()
+  if (!prelaunched) return listUnreachableHashes()
+  return judgeFsckOutcome(await prelaunched)
 }
 
 /**
@@ -2865,6 +2933,13 @@ async function main() {
 
   console.log(`${C.cyan}${C.bold}🛡️  Commit 丢失防护守门(AGENTS.md §22 配套)${C.reset}`)
 
+  /**
+   * fsck 在这里**先放出去**(而不是等串行链走到它):它不吃任何别的判据输入,只读对象图,
+   * 而它前面还排着标签清单/可达性表/缓存指纹/面读数 ≈25s —— 并发跑能把那 18s 整个盖住。
+   * 派生层失败也只落一次未判定,不折成"零悬空"(见 `judgeFsckOutcome`)。
+   */
+  const fsckPrelaunch = launchFsck()
+
   // `--list-covered` 给了旗却取不到目标文件 ⇒ 未判定(§0.3):既不假装"列出 0 条"成功,
   // 也不静默不落盘(那两种都会让对账人把"没落"读成"空")。
   if (isListCovered && !listCoveredTarget) {
@@ -2906,7 +2981,7 @@ async function main() {
   const lossCacheInputs = collectLossCacheInputs(reachability)
   mark(`lossCacheInputs(${lossCacheInputs ? 'ok' : 'unavailable'})`)
 
-  const rawUnreachable = detectUnreachable()
+  const rawUnreachable = await detectUnreachable(fsckPrelaunch)
   mark(`detectUnreachable(${rawUnreachable.length})`)
 
   // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)

@@ -348,9 +348,10 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
       const { agentId } = z.object({ agentId: z.string() }).parse(request.params)
       const { startDate, endDate } =
         agentHeatQuery.pick({ startDate: true, endDate: true }).safeParse(request.query).data ?? {}
-      const end = endDate ?? new Date().toISOString().slice(0, 10)
-      const start =
-        startDate ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      // Y-86:与列表端点、写入侧同口径(bizDayKey,Asia/Shanghai)。旧用 UTC slice 会在
+      // 北京 00–08 点把"今天"查成昨天,漏掉最新一天热度。
+      const end = endDate ?? bizDayKey()
+      const start = startDate ?? shiftBizDayKey(end, -7)
 
       // 按日期聚合该 Agent 的热度
       const dailyRows = await db
