@@ -68,9 +68,6 @@ const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
  *   FullAccessConfirmBridge 确认后会自行调 switchPermissionMode
  * - 切完模式:把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
  */
-/** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
-const UNDO_TOAST_DURATION = 5000
-
 /** 普通提示 toast 持续时间(ms) */
 const INFO_TOAST_DURATION = 2000
 
@@ -193,29 +190,12 @@ export function usePermissionModeCycle(): {
     // 切完模式 → 把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
     // 避免在 useEffect 内的 source 写死 'popover' 让历史面板误把 Shift+Tab 记成 popover
     updateLatestRecordSource('shift-tab', (e) => e.mode === next)
-    // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
+    // 切到完全访问 → 成功提示(2026-11-20 机主定案:模式选定即固定,
+    // 撤销/降级只来自用户本人的下一次显式切换,故不再挂 5s 撤销按钮)
     if (next === 'bypass-permissions') {
-      toast(t('switchedToFull'), {
+      toast.success(t('switchedToFull'), {
         description: t('switchedToFullDesc', { prev: previousMode }),
-        duration: UNDO_TOAST_DURATION,
-        action: {
-          label: t('undo'),
-          onClick: async () => {
-            // 直接切回 previousMode，而不是再次 cycle（避免中间态跳错）
-            // 实时读取 store 避免 stale closure(2026-08-31 修复)
-            // 2026-08-31:未绑定工作区时也检查暂存模式
-            const currentStore = useAiPanelStore.getState()
-            const currentModeNow =
-              currentStore.activeWorkspace?.mode ?? currentStore.pendingPermissionMode
-            if (currentModeNow === 'bypass-permissions') {
-              if (previousMode !== undefined) {
-                await switchPermissionMode(previousMode)
-              } else {
-                await switchPermissionMode('default')
-              }
-            }
-          },
-        },
+        duration: INFO_TOAST_DURATION,
       })
     } else {
       // 上一版这里是一张端内标签键表(三档映射 + 一个占位值):一旦循环里多出任何一档

@@ -85,10 +85,10 @@ const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
  *   - 1/2/3 数字键直接选 ask/auto/full
  *   - Esc 关闭(由 Popover 组件处理)
  *
- * 高风险切换撤销(2026-07-25 深化,防误操作):
- *   - 切到 bypass-permissions 后,5s 内 toast 显示"已切换到完全访问" + 撤销按钮
- *   - 点撤销 → 切回上一个模式
- *   - 5s 倒计时由 sonner duration 控制
+ * 模式选择一旦生效就固定(2026-11-20 机主定案):
+ *   - 任何模式的撤销/降级都只来自用户本人的下一次显式切换
+ *   - 原"切到 bypass-permissions 后 5s 撤销 toast"已移除,只保留切换成功提示
+ *   - 历史上另有"完全访问 1 小时自动撤回"计时器,已于同日整体删除
  *
  * 持久化视觉警告(2026-07-25 深化,高风险模式醒目):
  *   - 触发器按钮:bypass-permissions 模式显示琥珀底色 + 琥珀图标
@@ -120,9 +120,6 @@ const MODE_OPTIONS_LIST: ModeOption[] = [
   { value: 'accept-edits', icon: ShieldCheck, risk: 'medium' },
   { value: 'bypass-permissions', icon: ShieldAlert, risk: 'high' },
 ]
-
-/** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
-const UNDO_TOAST_DURATION = 5000
 
 /** 普通提示 toast 持续时间(ms) */
 const INFO_TOAST_DURATION = 3000
@@ -235,7 +232,7 @@ export function PermissionModePopover({
    * 1. 同模式 → noop
    * 2. 乐观更新 store(立即反馈)
    * 3. mutation 落库,失败回滚
-   * 4. 切到 bypass-permissions → 弹 5s 撤销 toast
+   * 4. 切到 bypass-permissions → 弹一条成功提示(无撤销入口,选择即固定)
    * 5. 切到 accept-edits → 弹持久化视觉警告横幅(toast 较轻,只提醒一次)
    */
   const handleSelect = React.useCallback(
@@ -281,24 +278,13 @@ export function PermissionModePopover({
           toast.error(t('cycleError', { error: err instanceof Error ? err.message : String(err) }))
         },
         onSuccess: () => {
-          // 切到完全访问(bypass-permissions)→ 弹 5s 撤销 toast,防误操作
+          // 2026-11-20 机主定案:模式一旦选定就固定,只有用户自己再切换才会改变。
+          // 原先"切到完全访问 → 5s 撤销 toast(点撤销即切回上一档)"已去掉;这里只留一句切换成功提示。
+          // 误操作由下一次显式切换纠正,不再提供带时限的自动回退入口。
           if (mode === 'bypass-permissions' && previousMode) {
-            toast(t('switchedToFull'), {
+            toast.success(t('switchedToFull'), {
               description: t('switchedToFullDesc', { prev: previousMode }),
-              duration: UNDO_TOAST_DURATION,
-              action: {
-                label: t('undo'),
-                onClick: async () => {
-                  // 实时读取 store 避免 stale closure(2026-08-31 修复)
-                  // 仅当仍是完全访问(含未绑定工作区的暂存模式)时才撤销
-                  const currentStore = useAiPanelStore.getState()
-                  const nowMode =
-                    currentStore.activeWorkspace?.mode ?? currentStore.pendingPermissionMode
-                  if (nowMode === 'bypass-permissions') {
-                    await switchPermissionMode(previousMode ?? 'default')
-                  }
-                },
-              },
+              duration: INFO_TOAST_DURATION,
             })
           } else if (mode === 'accept-edits') {
             // 切到 accept-edits → 普通提示(无撤销,误操作风险低)
