@@ -10,20 +10,35 @@
 提示与逐步输入。
 
 本模块补最小闭环:
-- `open_terminal`:启动一个长驻子进程(stdin/stdout/stderr 管道 + 读线程);
+- `open_terminal`:启动一个长驻子进程(管道路径下为 stdin/stdout/stderr 管道 + 读线程);
 - `send_terminal`:写入一行(可选追加换行);
 - `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;
 - `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
 
-边界(与 外部实现 的差异如实记录):这里用管道而不是 PTY,面向 TTY 的程序(需要
-isatty 才输出进度条/颜色的)可能降级为块缓冲;子进程环境走 sandbox 严档白名单,
-不整份继承宿主环境。所有权按 (user_id, session_id) 判定,越权与不存在同形。
+两种 stdio 后端(会话编排 / 所有权 / 上限 / 信号完全一致,只差"管道怎么连到子进程"):
+- **默认 `pipes`**:三条匿名管道。边界(与外部实现的差异如实记录):面向 TTY 的程序
+  (需要 isatty 才输出进度条/颜色的)会拿到 False → 降级块缓冲、无色。子进程环境走
+  sandbox 严档白名单,不整份继承宿主环境。所有权按 (user_id, session_id) 判定,越权与
+  不存在同形。
+- **`pty`(env `IHUI_INTERACTIVE_PTY=1|true|yes|on`)**:POSIX 用标准库 `pty.openpty()` +
+  setsid + `TIOCSCTTY` 造**真 tty** —— 子进程 `isatty()` 为真,npm/cargo/pytest-v 这类按
+  tty 出进度/颜色的程序表现与其在自己终端里一致;stdout 与 stderr 由 tty 行规程合并为
+  单一 `pty` 通道(这是真终端的物理事实,非本实现的缺陷)。子进程环境**仍同经
+  `_strict_child_env`**,PTY 不放宽任何环境边界。**Windows 暂不接 ConPTY**:开启 PTY 时
+  显式返回 `TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM`,**绝不静默回落管道冒充已 PTY**
+  (§0.3「没判绝不写成判过」;真 PTY 的 Windows 后端要引原生 ConPTY ctypes 绑定,属独立的
+  安全敏感面改造,须机主另拍)。
+
+对照程序:WB/Trae 的 harness 用原生 `pty.node`/`conpty.node`(:lydell/node-pty),deepseek-tui
+用管道。本实现取"CI 真能跑通 + 零第三方依赖"的那一档(标准库 pty + 原生 ConPTY 留待专章)。
 """
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import os
 import signal as _signal
 import subprocess
@@ -31,6 +46,7 @@ import threading
 import time
 import uuid
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -49,6 +65,24 @@ _WIN_CTRL_BREAK_EVENT: Final[int] = getattr(_signal, "CTRL_BREAK_EVENT", 0)
 MAX_READ_CHARS: Final = 32_000
 CLOSE_GRACE_S: Final = 2.0
 
+# PTY 后端开关(读时机敏感:每次 open_terminal 现读 env,便于测试 monkeypatch)。
+PTY_REQUEST_ENV: Final = "IHUI_INTERACTIVE_PTY"
+_PTY_TRUTHY: Final[frozenset[str]] = frozenset({"1", "true", "yes", "on"})
+#: PTY 读循环每次最多吐多少字节(行切分在 _pump_pty 里做,这里只控单次 read 上界)。
+_PTY_READ_CHUNK: Final = 65_536
+
+
+def _pty_requested(env: Mapping[str, str] | None = None) -> bool:
+    """本次是否要求 PTY 后端。**每次现读** env(不在导入期定格),便于运行期开关与测试。"""
+    source = os.environ if env is None else env
+    return (source.get(PTY_REQUEST_ENV, "") or "").strip().lower() in _PTY_TRUTHY
+
+
+def _pty_supported_on_host() -> bool:
+    """当前宿主是否有 PTY 后端实现。Windows 走 ConPTY(未接)→ False;fail-closed,
+    不靠"看起来能 import"骗过判定。"""
+    return os.name != "nt"
+
 
 @dataclass
 class TerminalSession:
@@ -59,12 +93,19 @@ class TerminalSession:
     cwd: str
     proc: subprocess.Popen[str]
     created_ts: float
+    # 写侧统一出口:管道路径 = proc.stdin;PTY 路径 = master 的写 fdopen。send_terminal
+    # 永不直接碰 `session.proc.stdin`(PTY 模式下它是 None),只走这个,两条后端同形。
+    write_io: Any = None
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
     seq: int = 0
     chunks: deque[dict[str, Any]] = field(
         default_factory=lambda: deque(maxlen=MAX_BUFFER_LINES), repr=False
     )
     pumps: list[threading.Thread] = field(default_factory=list, repr=False)
+    # PTY 专属:master 的读 fd(关闭时显式 close);管道路径为 None。
+    pty_read_fd: int | None = None
+    #: 真 tty(PTY)还是匿名管道 —— 进 to_dict 给消费方/前端标会话类型。
+    backend: str = "pipes"
 
     def running(self) -> bool:
         return self.proc.poll() is None
@@ -79,6 +120,7 @@ class TerminalSession:
             "exit_code": self.proc.poll(),
             "next_seq": self.seq,
             "created_ts": self.created_ts,
+            "backend": self.backend,
         }
 
 
@@ -93,6 +135,7 @@ def reset_terminals() -> None:
         _sessions.clear()
     for session in sessions:
         _force_stop(session)
+        _close_io(session)
 
 
 def _force_stop(session: TerminalSession) -> None:
@@ -101,6 +144,18 @@ def _force_stop(session: TerminalSession) -> None:
             session.proc.kill()
     except OSError:
         pass
+
+
+def _close_io(session: TerminalSession) -> None:
+    """释放会话持有的额外 IO(PTY 的 master 读写 fd);管道路径靠 proc 回收,无需此处。"""
+    if session.pty_read_fd is not None:
+        with contextlib.suppress(OSError):
+            os.close(session.pty_read_fd)
+        session.pty_read_fd = None
+    write_io = session.write_io
+    if write_io is not None and write_io is not session.proc.stdin:
+        with contextlib.suppress(OSError, ValueError):
+            write_io.close()
 
 
 def _owned(
@@ -112,12 +167,18 @@ def _owned(
     )
 
 
+def _push(session: TerminalSession, tag: str, text: str) -> None:
+    """把一个文本片段作为一条 chunk 入缓冲(seq 单调 +1)。PTY/管道共用同一入队口径。"""
+    with session.lock:
+        session.seq += 1
+        session.chunks.append({"seq": session.seq, "stream": tag, "text": text})
+
+
 def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
+    """管道路径:逐行读一条 stream 入缓冲。readline 到 EOF('')自然收敛。"""
     try:
         for line in iter(stream.readline, ""):
-            with session.lock:
-                session.seq += 1
-                session.chunks.append({"seq": session.seq, "stream": tag, "text": line})
+            _push(session, tag, line)
     except (OSError, ValueError):
         pass
     finally:
@@ -127,6 +188,31 @@ def _pump(session: TerminalSession, stream: Any, tag: str) -> None:
             pass
 
 
+def _pump_pty(session: TerminalSession, fd: int, tag: str) -> None:
+    """PTY 路径:master 读原始字节,按 \\n 切成行入队(与管道口径一致,消费方无需分叉)。
+
+    子进程退出后,master 的 os.read 在 POSIX 返回 EOF(b"")或抛 EIO —— 两种都判收尾。
+    行缓冲的尾巴(若退出前最后一行无 \\n)也吐出,不丢尾。本线程不负责关 fd ——
+    fd 由 `_close_io`/close_terminal 统一直close,避免 read 线程与 close 抢关。
+    """
+    buffered = ""
+    try:
+        while True:
+            try:
+                data = os.read(fd, _PTY_READ_CHUNK)
+            except OSError:
+                break  # EOF / EIO:子进程已退,读端失效
+            if not data:
+                break
+            buffered += data.decode("utf-8", errors="replace")
+            while "\n" in buffered:
+                line, buffered = buffered.split("\n", 1)
+                _push(session, tag, f"{line}\n")
+    finally:
+        if buffered:
+            _push(session, tag, buffered)
+
+
 def _prune_for_new_session() -> None:
     """注册表有界:满了先清已结束的;仍满则拒绝(不悄悄杀活会话)。"""
     while len(_sessions) >= MAX_SESSIONS:
@@ -134,7 +220,139 @@ def _prune_for_new_session() -> None:
         if not closed:
             break
         for session in closed:
+            _close_io(session)
             _sessions.pop(session.terminal_id, None)
+
+
+def _spawn_pipe(command: str, cwd: str, env_extra: dict[str, str] | None) -> subprocess.Popen[str]:
+    """默认后端:三条匿名管道(逐字节沿用改前实现)。"""
+    flags = 0
+    extra_kwargs: dict[str, Any] = {}
+    if os.name == "nt":
+        flags = _WIN_CREATE_NEW_PROCESS_GROUP
+    else:
+        extra_kwargs["start_new_session"] = True
+    return subprocess.Popen(
+        command,
+        shell=True,
+        cwd=cwd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+        env=_strict_child_env(env_extra),
+        creationflags=flags,
+        **extra_kwargs,
+    )
+
+
+def _make_ctty_setter() -> Any:
+    """返回一个子进程 preexec_fn:把 slave(fd 0)设为该会话的**控制终端**并 setsid,
+    使前台进程组信号(SIGINT/SIGTTOU 等)与 tty 语义生效。fcntl/termios 用 importlib 取
+    (Windows 无此模块 → 返回 None 不进入 PTY 分支 anyway);失败不致命(isatty 已成立)。"""
+    fcntl = importlib.import_module("fcntl")
+    termios = importlib.import_module("termios")
+    tiocsctty = getattr(termios, "TIOCSCTTY", None)
+
+    def _preexec() -> None:
+        # `os.setsid`/`fcntl`/`termios` 只在 POSIX 存在;类型检查按宿主(可能是 Windows)
+        # 分析,直接用 `os.setsid` 会被判 attr-defined,故经 getattr 取(取不到 = None,
+        # 而本函数只在 `_pty_supported_on_host()` 为真时才会跑到,Windows 分支进不来)。
+        setsid = getattr(os, "setsid", None)
+        if callable(setsid):
+            with contextlib.suppress(Exception):
+                setsid()
+        if tiocsctty is not None:
+            with contextlib.suppress(Exception):
+                fcntl.ioctl(0, tiocsctty, 0)
+
+    return _preexec
+
+
+def _spawn_pty(
+    command: str, cwd: str, env_extra: dict[str, str] | None
+) -> tuple[subprocess.Popen[str], int, Any]:
+    """PTY 后端(POSIX):master/slave 开伪终端,slave 作子进程 std* 并设控制终端。
+
+    返回 `(proc, master_read_fd, master_write_io)`。master 的**读**与**写**各用独立 fd
+    (写侧 dup 后 fdopen),不让两个缓冲共用一个裸 fd —— 共用会在读循环触发
+    `OSError: [Errno 9] Bad file descriptor`(实测踩点)。调用方负责这三者的生命周期:
+    本函数内若任一步失败,逐个回滚已开 fd,不外泄 fd / 子进程。
+    """
+    pty_mod = importlib.import_module("pty")
+    master_fd, slave_fd = pty_mod.openpty()
+    try:
+        proc = subprocess.Popen(
+            command,
+            shell=True,
+            cwd=cwd,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            env=_strict_child_env(env_extra),
+            start_new_session=True,
+            preexec_fn=_make_ctty_setter(),
+            close_fds=True,
+        )
+    except OSError:
+        os.close(master_fd)
+        os.close(slave_fd)
+        raise
+    # 父进程不需要 slave(子进程已 dup2 到 0/1/2),关掉它,否则 master 不会在子退时 EOF。
+    os.close(slave_fd)
+    try:
+        write_fd = os.dup(master_fd)
+        master_write_io = os.fdopen(write_fd, "w", encoding="utf-8", errors="replace")
+        master_read_fd = os.dup(master_fd)
+    except OSError:
+        os.close(master_fd)
+        with contextlib.suppress(OSError):
+            proc.kill()
+        raise
+    os.close(master_fd)
+    return proc, master_read_fd, master_write_io
+
+
+def _open_pty_session(
+    *, command: str, cwd: str, user_id: str | None, session_id: str | None,
+    env_extra: dict[str, str] | None,
+) -> dict[str, Any]:
+    """PTY 后端开会话(仅限 POSIX)。满额/起不来 → 结构化错误,不抛。"""
+    _prune_for_new_session()
+    if len(_sessions) >= MAX_SESSIONS:
+        return {
+            "ok": False,
+            "errorCode": "TERMINAL_LIMIT",
+            "error": f"终端会话已达上限({MAX_SESSIONS}),请先 close 不再使用的会话",
+        }
+    try:
+        proc, read_fd, write_io = _spawn_pty(command, cwd, env_extra)
+    except OSError as e:
+        return {"ok": False, "errorCode": "TERMINAL_SPAWN_FAILED", "error": f"PTY 启动失败: {e}"}
+    session = TerminalSession(
+        terminal_id=f"term_{uuid.uuid4().hex[:12]}",
+        owner_user_id=user_id or None,
+        owner_session_id=session_id or None,
+        command=command,
+        cwd=cwd,
+        proc=proc,
+        created_ts=time.time(),
+        write_io=write_io,
+        pty_read_fd=read_fd,
+        backend="pty",
+    )
+    _sessions[session.terminal_id] = session
+    thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
+    thread.start()
+    session.pumps.append(thread)
+    return {"ok": True, "terminal": session.to_dict()}
 
 
 def open_terminal(
@@ -145,10 +363,26 @@ def open_terminal(
     session_id: str | None,
     env_extra: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """启动长驻子进程;返回 terminal_id 与初始元数据。"""
+    """启动长驻子进程;返回 terminal_id 与初始元数据(含 `backend`:"pipes"|"pty")。"""
     if not command.strip():
         return {"ok": False, "errorCode": "TERMINAL_INVALID_COMMAND", "error": "command 为空"}
+    # PTY 是显式 opt-in:请求了但当前宿主没实现(Windows 未接 ConPTY)→ fail-closed 硬拒,
+    # 不静默回落管道冒充已 PTY(否则消费方以为拿到真 tty,实则块缓冲)。
+    if _pty_requested() and not _pty_supported_on_host():
+        return {
+            "ok": False,
+            "errorCode": "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM",
+            "error": (
+                f"已要求 PTY({PTY_REQUEST_ENV}),但平台 {os.name} 暂未接 ConPTY;会话未创建。"
+                "置空该环境变量以使用管道路径,或等 Windows ConPTY 后端落地。"
+            ),
+        }
     with _registry_lock:
+        if _pty_requested() and _pty_supported_on_host():
+            return _open_pty_session(
+                command=command, cwd=cwd, user_id=user_id,
+                session_id=session_id, env_extra=env_extra,
+            )
         _prune_for_new_session()
         if len(_sessions) >= MAX_SESSIONS:
             return {
@@ -156,28 +390,8 @@ def open_terminal(
                 "errorCode": "TERMINAL_LIMIT",
                 "error": f"终端会话已达上限({MAX_SESSIONS}),请先 close 不再使用的会话",
             }
-        flags = 0
-        extra_kwargs: dict[str, Any] = {}
-        if os.name == "nt":
-            flags = _WIN_CREATE_NEW_PROCESS_GROUP
-        else:
-            extra_kwargs["start_new_session"] = True
         try:
-            proc = subprocess.Popen(
-                command,
-                shell=True,
-                cwd=cwd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-                env=_strict_child_env(env_extra),
-                creationflags=flags,
-                **extra_kwargs,
-            )
+            proc = _spawn_pipe(command, cwd, env_extra)
         except OSError as e:
             return {
                 "ok": False,
@@ -192,6 +406,8 @@ def open_terminal(
             cwd=cwd,
             proc=proc,
             created_ts=time.time(),
+            write_io=proc.stdin,
+            backend="pipes",
         )
         _sessions[session.terminal_id] = session
     assert proc.stdout is not None and proc.stderr is not None
@@ -223,11 +439,17 @@ def send_terminal(
             "terminal": session.to_dict(),
         }
     payload = text if not enter else f"{text}\n"
+    sink = session.write_io
+    if sink is None:  # 理论不可达:两种后端 open 时都设了 write_io;防御性返回而非裸 AttributeError
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "无可用写入端",
+            "terminal": session.to_dict(),
+        }
     try:
-        assert session.proc.stdin is not None
-        session.proc.stdin.write(payload)
-        session.proc.stdin.flush()
-    except (BrokenPipeError, OSError) as e:
+        sink.write(payload)
+        sink.flush()
+    except (BrokenPipeError, OSError, ValueError) as e:
         return {
             "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
             "error": f"写入失败: {e}",
@@ -257,7 +479,7 @@ def read_terminal(
             pending = [c for c in session.chunks if c["seq"] > int(since_seq)]
             running = session.running()
             next_seq = session.seq
-        # 进程已退出不等于读线程已把管道尾部吐完:等 pump 全部结束后再收尾,
+        # 进程已退出不等于读线程已把管道/PTY 尾部吐完:等 pump 全部结束后再收尾,
         # 否则最后一次 read 可能丢掉退出前的最后几行(模型通常读到 running=false 就停)。
         drained = not any(t.is_alive() for t in session.pumps)
         if pending or (not running and drained) or time.monotonic() >= deadline:
@@ -365,6 +587,7 @@ def close_terminal(
             pass
     with _registry_lock:
         _sessions.pop(terminal_id, None)
+    _close_io(session)  # 从注册表摘除后再关 IO:关 slave/写端以驱动 master 读线程收敛
     return {
         "ok": True,
         "terminal_id": terminal_id,
@@ -394,4 +617,13 @@ def default_shell() -> str:
     if os.name == "nt":
         return os.environ.get("COMSPEC", "cmd.exe")
     return os.environ.get("SHELL", "/bin/sh")
+
+
+# 暴露给镜像测试的形状锁/判据出口(§22c:测试 import 真实判定,不复制常量)。
+__test__ = {
+    "pty_requested": _pty_requested,
+    "pty_supported_on_host": _pty_supported_on_host,
+    "PTY_REQUEST_ENV": PTY_REQUEST_ENV,
+    "PTY_TRUTHY": _PTY_TRUTHY,
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

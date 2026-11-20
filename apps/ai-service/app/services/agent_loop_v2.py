@@ -4454,6 +4454,10 @@ class AgentLoopV2:
             prior_tokens=0,
             start_time=datetime.now(UTC),
         )
+        # 第 28 项(2026-11-20):STOP 钩子 —— 只在正常完成时给"再想一轮"的机会;
+        # 取消/暂停/异常/超限等结局不触发(那些不是"可以再想想"的结局)。
+        if result.stop_reason == TurnStopReason.COMPLETED:
+            result = await self._maybe_continue_on_stop_hook(result, messages)
         # 1-7 团队接力(2026-09-03 立):把本次 run 的接力注入元信息挂到产物,供上层读取。
         # 未启用 / 无接力上下文时 _team_relay_info 为 None,result.team_relay 保持 None(零差异)。
         if self._team_relay_info is not None:
@@ -7530,6 +7534,68 @@ class AgentLoopV2:
             getattr(self, "_events", None), self._session_id or "", outcome
         )
         self._inject_hook_contexts(outcome)
+
+    async def _maybe_continue_on_stop_hook(
+        self, result: AgentLoopResult, messages: list[dict[str, Any]]
+    ) -> AgentLoopResult:
+        """STOP 钩子(2026-11-20 第 28 项):回合"即将结束"时的可编程哨点。
+
+        语义边界(与 Codex Stop hook 对齐但更保守):
+        - 只在本回合**正常完成**(`stop_reason == COMPLETED`)时触发;取消/暂停/
+          预算不足/异常/达到上限都不触发 —— 那些结局不是"可以再想一想"的结局,
+          拿钩子去复活它们等于绕过用户主动操作或安全停止。
+        - `decision == "block"`(或 `continue: true`)⇒ 把 `reason` 当新指令注入,
+          **再跑一段**循环;最多续跑 1 段(硬上限),防止钩子自激把会话打成死循环。
+        - `additional_context` 无论是否 block 都注入(下一段/下一回合可见)。
+        - 钩子异常/超时一律降级为"照常结束",失败隔离在运行时层。
+        """
+        if self._hook_runtime is None:
+            return result
+        try:
+            from ..core.hook_runtime import HookKind as _StopKind
+
+            payload: dict[str, Any] = {
+                "session_id": self._session_id or "",
+                "stop_reason": str(result.stop_reason),
+                "final_response": str(result.final_response or "")[:4000],
+                "iterations": len(result.iterations),
+            }
+            outcome = await self._wait_interruptible(self._hook_runtime.run(_StopKind.STOP, payload))
+            await _emit_hook_run_event(
+                getattr(self, "_events", None), self._session_id or "", outcome
+            )
+            self._inject_hook_contexts(outcome)
+            # `_absorb` 把 `decision=block` 读成 should_stop=True + stop_reason=reason;
+            # 对 STOP 点而言这恰恰是"不要停"的语义反转,故此处按**有 stop_reason**
+            # 判定 block,并在下面把它当续跑指令。
+            block = outcome.should_stop and bool(outcome.stop_reason)
+            if not block:
+                return result
+            _reason = str(outcome.stop_reason or "STOP 钩子要求继续")
+            if self._messages is not None:
+                self._messages.append(
+                    {
+                        "role": "developer",
+                        "content": [{"type": "input_text", "text": _reason[:4000]}],
+                    }
+                )
+            logger.info(
+                "STOP 钩子要求继续: session=%s, reason=%s",
+                self._session_id or "",
+                _reason[:200],
+            )
+            return await self._run_loop(
+                messages=messages,
+                start_iteration=1,
+                prior_iterations=result.iterations,
+                prior_tokens=result.total_tokens_used,
+                start_time=datetime.now(UTC),
+            )
+        except _LoopInterrupted:
+            raise
+        except Exception as e:  # noqa: BLE001 - 停不下来的风险高于漏一次续跑
+            logger.warning("STOP 钩子异常(降级为照常结束): %s", e)
+            return result
 
     @staticmethod
     def _tool_llm_usage_fields(result: Any) -> dict[str, Any]:
