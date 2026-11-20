@@ -935,6 +935,47 @@ function lossSurfaceRaw(kind) {
 }
 
 /**
+ * 整面 raw 读数的**预启动**通道(2026-11-20 立,治 30a 串行链上的 11.5s)。
+ *
+ * 为什么是"预启动 + 失败回落"而不是把 `lossSurfaceRaw` 整个改成异步:
+ * 它被 `parseRawDiffZIter` 一族**同步迭代器**在深处消费,把整条链改异步等于动判据结构;
+ * 而本门已经证明过一次同型改法(见 `launchFsck`/`detectUnreachable(prelaunched)`):只挪时序、
+ * 判据一字不动,派生出故障就落回原同步档。
+ *
+ * argv 与 `gitRawOnce` **逐字对齐**(`-c safe.directory=* -c core.quotepath=false … -C root args`):
+ * 求生僻路径的转义形态与同步档一字节不差 —— 这份字节流后面要按 0x00 逐段解码,
+ * 少一个 quotepath 就可能把 `\342\200\213` 这类转义当成内容。
+ */
+function launchSurfaceRawPrelaunch(kind) {
+  const argv = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, ...lossSurfaceRawArgs(kind)]
+  return batchExecFileAsync(gitBinary() || 'git', argv, {
+    cwd: ROOT,
+    timeout: PATH_COVERAGE_TIMEOUT_MS,
+    maxBuffer: BULK_RAW_MAX_BUFFER,
+    // binary 档:按 Buffer 收齐,与同步档的 `encoding:null` 同形(见 face-reader 的异步孪生注释)。
+    binary: true,
+  })
+}
+
+/**
+ * 收口预启动读数。只有"跑成 + 退出码 0 + 拿到完整 Buffer + 该档还没被别的腿填过"才灌缓存;
+ * 其余情形**什么都不做**:`lossSurfaceRaw` 会照原样再走一遍同步档(含重试与未判定话术)。
+ */
+async function settleSurfaceRawPrelaunch(promise, kind = 'ref') {
+  let r = null
+  try {
+    r = await promise
+  } catch {
+    return
+  }
+  if (!r || !r.ok || r.spawnError || !Buffer.isBuffer(r.stdout)) return
+  if (lossSurfaceRawCache.has(kind)) return
+  if (r.stdout.length === 0) return // 空读数不顶替同步档(空面另有判据,不在这里折)
+  lossSurfaceRawCache.set(kind, r.stdout)
+  mark(`surface:${kind}-prelaunched(bytes=${r.stdout.length})`)
+}
+
+/**
  * 取本轮判据输入面(③ 见下;① 由调用方从 reachability 取,④ 由 fsck 之后补)。
  * 任何一项取不到 ⇒ 返回 null:既不复用旧结论,也不写新结论 —— 无法证明"旧结论仍然成立"
  * 时宁算一遍(§0.3:拿不到读数不是"没风险")。
@@ -2939,6 +2980,14 @@ async function main() {
    * 派生层失败也只落一次未判定,不折成"零悬空"(见 `judgeFsckOutcome`)。
    */
   const fsckPrelaunch = launchFsck()
+  /**
+   * 整面 raw 读数(`lossSurfaceRaw('ref')` = `log --exclude=… --all --raw`,本机 11.5s)
+   * 也在这里先放出去:它只读对象库、不依赖任何前序判据,而它第一次被消费要等到 3b
+   * (`computeTagBackupCoverage`),中间隔着标签清单/可达性表/缓存指纹近十秒 ——
+   * 并发跑能把这段整个盖住。**失败即回落**:settle 只在"跑成且是完整字节"时才灌进
+   * `lossSurfaceRawCache`,其余一律让原同步档照旧跑(重试/网络换腿/未判定话术一字不改)。
+   */
+  const surfacePrelaunch = launchSurfaceRawPrelaunch('ref')
 
   // `--list-covered` 给了旗却取不到目标文件 ⇒ 未判定(§0.3):既不假装"列出 0 条"成功,
   // 也不静默不落盘(那两种都会让对账人把"没落"读成"空")。
@@ -3214,6 +3263,9 @@ async function main() {
   // 这一维独立于上面的「悬空分档」:分档统计的是 `fsck --unreachable` 的 200 枚,
   // 这里统计的是**被 tag 变成可达、因而 fsck 看不到**的那一批。两档不得混算。
   console.log(header('3b. lost-commit/* tag 备份提交的逐路径清偿核对'))
+  // 整面 raw 读数(`log --all --raw`,本机实测 11.5s)在这里才第一次被消费,而它在入口就已
+  // 与 fsck 一起放出去了 —— 前面的标签清单/可达性表/缓存指纹把它整个盖住(见 launchSurfaceRaw)。
+  await settleSurfaceRawPrelaunch(surfacePrelaunch)
   const tagBackup = computeTagBackupCoverage({
     reachability,
     lostTags,
