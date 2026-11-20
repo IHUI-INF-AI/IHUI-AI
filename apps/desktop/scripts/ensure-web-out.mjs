@@ -36,10 +36,13 @@ const EXCLUDE = new Set(['node_modules', '.next', '.git', '.turbo', 'out']);
 // 仅手动运行本脚本时注入;桌面端构建链(2026-09-17 薄壳化后)已不经过本脚本,GitHub Pages 直接跑
 // build:static 同样不经过本脚本,行为不变。api 侧 CORS 已硬编码放行
 // http://tauri.localhost / tauri://localhost(server.ts DESKTOP_ORIGINS)。
+// 2026-11-20: REST/SSE 默认改走 EdgeOne 承载的 www 臂(国内节点,实测同一端点 0.4s vs 2.0s);
+// WS 仍钉 api 子域 —— 拿真实令牌实测 www 的 Upgrade 被边缘剥掉回 404、api 回 101(EO 免费版
+// 默认不放开 WebSocket)。见 scripts/build-mobile-rn-release.ps1 与 apps/web/src/lib/ws-url.ts。
 const DESKTOP_ENV_DEFAULTS = {
-  NEXT_PUBLIC_API_BASE_URL: process.env.DESKTOP_API_BASE_URL ?? 'https://api.aizhs.top',
+  NEXT_PUBLIC_API_BASE_URL: process.env.DESKTOP_API_BASE_URL ?? 'https://www.aizhs.top',
   NEXT_PUBLIC_STREAM_API_BASE_URL:
-    process.env.DESKTOP_STREAM_API_BASE_URL ?? 'https://api.aizhs.top',
+    process.env.DESKTOP_STREAM_API_BASE_URL ?? 'https://www.aizhs.top',
   NEXT_PUBLIC_AI_SERVICE_URL: process.env.DESKTOP_AI_SERVICE_URL ?? 'https://ai.aizhs.top',
 };
 for (const [k, v] of Object.entries(DESKTOP_ENV_DEFAULTS)) {
