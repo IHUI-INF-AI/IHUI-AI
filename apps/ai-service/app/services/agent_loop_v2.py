@@ -7303,6 +7303,9 @@ class AgentLoopV2:
                     self._maybe_record_step(tc, tr)
                     self._record_deliverable_step(tc, tr)
                 else:
+                    # POST_TOOL_USE 产出改写面:在录制/上报之前改,后续 step 事件与
+                    # 产物挂载看到的才是最终产出(否则改写结果只进历史不进报表)。
+                    item = await self._run_post_tool_hooks(tc, item)
                     results.append(item)
                     self._attach_tool_output_artifact(tc, item)
                     self._maybe_record_step(tc, item)
@@ -7324,6 +7327,7 @@ class AgentLoopV2:
                     # 与并行分支的响应性不对称。这里统一走 `_wait_interruptible`,
                     # `_LoopInterrupted` 由下方既有 except 接住并做"已完成前序 settle"。
                     result = await self._wait_interruptible(self._execute_single(tc))
+                    result = await self._run_post_tool_hooks(tc, result)
                     serial_results.append(result)
                     self._attach_tool_output_artifact(tc, result)
                     self._maybe_record_step(tc, result)
@@ -7338,6 +7342,57 @@ class AgentLoopV2:
                 await self._resume_settle_completed(tool_calls, serial_results)
                 raise
             return serial_results
+
+    async def _run_post_tool_hooks(self, tc: ToolCall, result: ToolResult) -> ToolResult:
+        """POST_TOOL_USE 产出改写面(2026-11-20 立)。
+
+        契约(`hook_definition_contract.PostToolUseHookSpecificOutputWire`)一直有
+        `updatedMCPToolOutput`,本仓此前只消费 PRE 侧字段 ⇒ 改写面整段落空。这里补的
+        是**消费端**:钩子给 `updated_output` 即替换 ``ToolResult.result``(给 None 也是
+        显式替换);给 `additional_context` 即并入模型输入,与 PRE 侧同一注入形态。
+
+        零行为变化:``_hook_runtime`` 未注入 / 无 POST 钩子 ⇒ outcome 空、哨兵原样,
+        直接返回同一对象。
+        """
+        if self._hook_runtime is None:
+            return result
+        try:
+            from ..core.hook_runtime import NO_UPDATED_OUTPUT
+            from ..core.hook_runtime import HookKind as _HookKind
+
+            try:
+                summary = json.dumps(result.result, ensure_ascii=False, default=str)
+            except Exception:  # noqa: BLE001 - 序列化失败只影响摘要,不影响改写
+                summary = str(result.result)
+            payload = {
+                "tool_name": tc.name,
+                "tool_call_id": tc.id,
+                "args": tc.args,
+                "result": summary[:4000],
+                "error": result.error,
+                "error_type": result.error_type,
+                "session_id": self._session_id or "",
+            }
+            outcome = await self._wait_interruptible(
+                self._hook_runtime.run(_HookKind.POST_TOOL_USE, payload)
+            )
+            if outcome.updated_output is not NO_UPDATED_OUTPUT:
+                result.result = outcome.updated_output
+            if self._messages is not None:
+                for _ctx in outcome.additional_contexts:
+                    _ctx_text = str(_ctx)[:4000]
+                    if _ctx_text:
+                        self._messages.append(
+                            {
+                                "role": "developer",
+                                "content": [{"type": "input_text", "text": _ctx_text}],
+                            }
+                        )
+        except _LoopInterrupted:
+            raise
+        except Exception as e:  # noqa: BLE001 - 钩子异常不阻断结果返回
+            logger.warning("post_tool_use 钩子异常(保留原始产出): %s", e)
+        return result
 
     @staticmethod
     def _tool_llm_usage_fields(result: Any) -> dict[str, Any]:

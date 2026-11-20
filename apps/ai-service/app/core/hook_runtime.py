@@ -35,15 +35,28 @@ from typing import Any
 
 DEFAULT_HOOK_TIMEOUT_SECS = 10.0
 
+
+class _NoUpdatedOutput:
+    """哨兵:钩子没给产出替换值时用它,避免与"显式改成 None"混淆。"""
+
+    def __repr__(self) -> str:  # pragma: no cover - 仅调试
+        return "<no-updated-output>"
+
+
+NO_UPDATED_OUTPUT = _NoUpdatedOutput()
+
 HookFunc = Callable[[dict[str, Any]], Any]
 
 
 class HookKind(StrEnum):
-    """生命周期挂载点(对齐 SessionStart/UserPromptSubmit/PreToolUse/Pre·PostCompact/Stop)。"""
+    """生命周期挂载点(对齐 SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/Pre·PostCompact/Stop)。"""
 
     SESSION_START = "session_start"
     USER_PROMPT_SUBMIT = "user_prompt_submit"
     PRE_TOOL_USE = "pre_tool_use"
+    # 2026-11-20:契约(HOOK_EVENTS)一直有 post_tool_use,本仓此前只有 PRE ——
+    # "产出改写面(updatedMCPToolOutput)"因此无挂载点,是典型的"契约在、执行链不在"。
+    POST_TOOL_USE = "post_tool_use"
     PRE_COMPACT = "pre_compact"
     POST_COMPACT = "post_compact"
     STOP = "stop"
@@ -75,6 +88,9 @@ class HookOutcome:
     stop_reason: str | None = None
     additional_contexts: list[str] = field(default_factory=list)
     denial_reason: str | None = None  # PRE_TOOL_USE:非 None 即拒绝
+    # POST_TOOL_USE:钩子给出的产出替换值(对齐 updatedMCPToolOutput)。哨兵对象
+    # 区分"没给"与"给了 None"—— 后者是合法的"抹掉结果",不能被当成未提供。
+    updated_output: Any = field(default=NO_UPDATED_OUTPUT)
     events: list[HookRunEvent] = field(default_factory=list)
 
     def events_as_dicts(self) -> list[dict[str, Any]]:
@@ -191,6 +207,11 @@ class HookRuntime:
                 outcome.denial_reason = (
                     reason if isinstance(reason, str) and reason else f"denied by hook '{reg.name}'"
                 )
+        if kind is HookKind.POST_TOOL_USE and "updated_output" in result:
+            # 后注册的钩子看到的仍是"原始产出"而不是前一枚改写后的值 —— 顺序确定、
+            # 结果可预测;首个改写生效,后续改写按"最后写赢"覆盖(与 Codex 的链式
+            # 改写同语义,但这里显式记录为覆盖而不是叠加)。
+            outcome.updated_output = result["updated_output"]
 
 
 # ---------------------------------------------------------------------------

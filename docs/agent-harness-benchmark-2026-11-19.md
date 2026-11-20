@@ -5,6 +5,7 @@
 -->
 
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -13,7 +14,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **21 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **22 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -89,7 +90,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（21 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（22 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -318,6 +319,17 @@
 - 超越轴：对照程序（Codex/Qoder 系）把 `hooks.state.trusted_content_hash` 存在自己的 sqlite 里；本仓把它落成同目录可审计的 JSON 信任文件 + 内容哈希，且"配置改动即降权"是哈希本身的性质，不依赖任何清理任务。另一轴：非命令变体不静默跳过而是明确拒绝——静默会被读成"已启用但没生效"。
 
 验证：`pytest apps/ai-service/tests/test_command_hooks.py` → `10 passed`（未配置 / 未登记事件 / matcher 组字段数 / 非命令变体 / 未信任 / 信任后 exit 2 真拦 / additionalContext 贯通 / matcher 不命中不跑 / 幂等 / allow 不被伪造）；回归 `pytest apps/ai-service/tests/test_hook_runtime_injection_wiring.py apps/ai-service/tests/test_hook_engine.py` → `159 passed`；`mypy --strict`（command_hooks + hook_runtime）→ `Success: no issues found in 2 source files`；`ruff check` → `All checks passed!`。
+
+### 5.23 第 22 项：PostToolUse 产出改写面（updatedMCPToolOutput 接进真实执行链）
+
+- 取证：`hook_definition_contract.PostToolUseHookSpecificOutputWire` 的 properties 是 `additionalContext / hookEventName / updatedMCPToolOutput`，但本仓 `HookKind` 只有 6 个挂载点、没有 `post_tool_use` ⇒ 这个字段**在任何执行链上都不可能被消费**（典型"契约在、执行链不在"）。
+- 处置：
+  - `hook_runtime.HookKind` 增 `POST_TOOL_USE`（值 `post_tool_use`，与 `HOOK_EVENTS` 逐字一致）；`HookOutcome` 增 `updated_output`，用哨兵 `NO_UPDATED_OUTPUT` 区分"没给"与"显式给 null"（后者是合法的"抹掉结果"）；
+  - `command_hooks` 把 `hookSpecificOutput.updatedMCPToolOutput` 映射成 `updated_output`，并把 `post_tool_use` 登记为可执行事件；matcher 对所有带 `tool_name` 的事件生效（不再只对 PRE）；
+  - `agent_loop_v2` 新增 `_run_post_tool_hooks()`：并行/串行**两条**分支都在录制 step 事件与产物挂载**之前**调用 ⇒ 后续报表看到的是最终产出；给 `updated_output` 即替换 `ToolResult.result`，给 `additionalContext` 即并入模型输入（与 PRE 同一注入形态）；`_hook_runtime` 未注入或没有 POST 钩子 ⇒ 返回同一对象，逐零等价。
+- 超越轴：对照程序把钩子结果串成"链式改写"，但没有区分"未提供"与"显式清空"；本仓用哨兵把这两种情形分开，后注册钩子按"最后写赢"覆盖而非静默叠加 —— 顺序与结果都可预测。
+
+验证：`pytest apps/ai-service/tests/test_post_tool_hooks.py apps/ai-service/tests/test_command_hooks.py` → `15 passed`（改写映射 / 显式 null / 静默哨兵 / 消费端真替换+上下文 / 无钩子零变化 / 未配置 / 未信任 / 非命令变体 / 幂等 / allow 不伪造）；回归 `test_hook_event_ordering + test_hook_exit_contract + test_parallel_tool_abort_54 + test_tool_approval + test_tool_invocation_ledger_b04 + test_hook_event_kind` → `102 passed`；`mypy --strict`（command_hooks + hook_runtime + agent_loop_v2）→ `Success: no issues found in 3 source files`；`ruff check` → `All checks passed!`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
