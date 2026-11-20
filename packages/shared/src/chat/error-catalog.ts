@@ -1226,6 +1226,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'TERMINAL_INVALID_SIZE.action',
     category: 'invalidResponse',
   },
+  TERMINAL_INVALID_INPUT: {
+    titleKey: 'TERMINAL_INVALID_INPUT.title',
+    actionKey: 'TERMINAL_INVALID_INPUT.action',
+    category: 'invalidResponse',
+  },
   TERMINAL_NOT_A_TTY: {
     titleKey: 'TERMINAL_NOT_A_TTY.title',
     actionKey: 'TERMINAL_NOT_A_TTY.action',
