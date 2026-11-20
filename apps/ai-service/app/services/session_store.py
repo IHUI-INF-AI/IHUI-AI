@@ -791,8 +791,18 @@ def _schema_name_for(path: Path) -> str:
             )
         return explicit
     if _ephemeral_store(path):
-        return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
+        return _legacy_schema_for_path(path)
     return _DEFAULT_SCHEMA
+
+
+def _legacy_schema_for_path(path: Path) -> str:
+    """旧命名规则(2026-11-19 之前):schema 名 = `sess_` + sha1(绝对路径)[:12]。
+
+    仍然两处要用它:① 临时库(pytest)靠它拿互不干扰的独立 schema;② 非临时库启动时
+    用它算"这份数据当年住在哪个 schema",命中就把那一枚原地改名接管 —— 名字由当前
+    `db_path` 现算,不是从库面上猜最大的一枚。
+    """
+    return "sess_" + hashlib.sha1(str(path.resolve()).encode()).hexdigest()[:12]
 
 
 def _quote_ident(name: str) -> str:
@@ -1015,6 +1025,13 @@ class SessionStore:
             if (adopt_source and not self._ephemeral)
             else None
         )
+        # 没指名时再试**可推导**的那一枚:旧命名规则 = `sess_` + sha1(绝对路径)[:12]。
+        # 这不是"猜生产":源名是由**当前 db_path** 现算出来的,与旧代码当年的算法同一份,
+        # 命中即可证"这份数据的旧地址就是它"。库面上另外上千个 schema 一个都不碰。
+        if self._adopted_schema is None and not self._ephemeral:
+            self._adopted_schema = _adopt_named_legacy_schema(
+                self._conn, self._schema, _legacy_schema_for_path(self._path)
+            )
         self._session.execute(f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"')
         self._session.execute(f'SET search_path TO "{self._schema}"')
         self._fts_enabled = False
