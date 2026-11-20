@@ -7934,8 +7934,7 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
-
-      "runtimeHookConfigStaleBy": "last trusted by {by}",      "hookFailures": {
+      "hookFailures": {
         "title": "Hook execution failed",
         "evidenceMissing": "Result not recorded: this execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed.",
         "state": {
@@ -8860,11 +8859,7 @@
         }
       },
       "errorCatalog": {
-
-        "TERMINAL_STDIN_CLOSED": {
-          "title": "Terminal stdin is closed",
-          "action": "Reopen the terminal session before sending input"
-        },        "102": {
+        "102": {
           "title": "Request time validation failed",
           "action": "Sync your system clock and retry"
         },
@@ -9783,6 +9778,10 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "Too many running sub-agents",
           "action": "Wait for running sub-agents to finish and retry"
+        },
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "Terminal stdin is closed",
+          "action": "Reopen the terminal session before sending input"
         }
       },
       "worktree": {
@@ -9952,7 +9951,8 @@
         "creating": "Creating…",
         "create": "New change request",
         "createHint": "Create a PR from the current branch"
-      }
+      },
+      "runtimeHookConfigStaleBy": "last trusted by {by}"
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -21147,7 +21147,8 @@
     "deductionEmployeesLabel": "Employee deduction info (JSON array)",
     "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
     "deductionInvalid": "Deduction info must be a valid JSON array",
-    "promptDeduction": "Call special_deduction_calc to compute the seven IIT special deductions per employee. Period: {period}; employee JSON: {payload}",    "automationTitle": "National-Platform Automation · Built-in Browser Leg",
+    "promptDeduction": "Call special_deduction_calc to compute the seven IIT special deductions per employee. Period: {period}; employee JSON: {payload}",
+    "automationTitle": "National-Platform Automation · Built-in Browser Leg",
     "automationDesc": "The outward leg of bookkeeping and filing: the AI drives THIS project's built-in browser to fetch ledgers, pre-fill forms, and advance to the submit gate on the e-tax bureau and social/medical insurance portals; native clients run on the desktop-automation surface with a human present.",
     "targetEtaxInvoiceLedger": "E-Tax · invoice ledger & credit selection",
     "targetEtaxVatDeclaration": "E-Tax · VAT and surcharges declaration",
