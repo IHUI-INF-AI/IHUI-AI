@@ -443,6 +443,16 @@ const RULE_SERVICE_PATH = fileURLToPath(
   new URL('../src/services/edu-attendance-rule.ts', import.meta.url),
 )
 const hasRoute = (registration: string): boolean => ROUTES_SOURCE.includes(registration)
+
+/**
+ * 构造"业务时区(Asia/Shanghai,UTC+8 无夏令时)墙钟 y-m-d h:mi"对应的绝对 Instant。
+ * 判定器按 BIZ_TIMEZONE 读墙钟;`new Date(y,m,d,h,mi)` 按进程本地时区解释,CI 容器
+ * TZ=UTC 时样本整体偏 +8h ⇒ 迟到/早退误判。样本时刻必须锚定业务时区,与进程 TZ 解耦
+ * (生产链路传入的是 ISO 串/now 绝对 Instant,不存在此夹具问题)。月份 0-based,同 Date.UTC。
+ */
+function shanghaiDate(y: number, mo: number, d: number, h: number, mi = 0): Date {
+  return new Date(Date.UTC(y, mo, d, h, mi) - 8 * 3600 * 1000)
+}
 /** 家长考勤端点是否已接承载层鉴权(checkAuthOrInternalService)——现读源码切片,不写行号。 */
 function parentAttendanceHandlerSlice(): string {
   const start = ROUTES_SOURCE.indexOf(`server.get('/parent/children/:childId/attendance'`)
@@ -910,11 +920,11 @@ describe('edu-attendance-rule 判定纯函数(迟到/早退/正常/输入缺失�
     if (!rule) return ctx.skip()
     const out = rule.judgeStatusDetailed({
       lateAfter: '08:30',
-      checkInTime: new Date(2026, 0, 5, 9, 30),
+      checkInTime: shanghaiDate(2026, 0, 5, 9, 30),
     })
     expect(out.status).toBe('late')
     expect(out.reason).toMatch(/^late:/)
-    expect(rule.judgeStatus({ lateAfter: '08:30', checkInTime: new Date(2026, 0, 5, 9, 30) })).toBe(
+    expect(rule.judgeStatus({ lateAfter: '08:30', checkInTime: shanghaiDate(2026, 0, 5, 9, 30) })).toBe(
       'late',
     )
   })
@@ -924,8 +934,8 @@ describe('edu-attendance-rule 判定纯函数(迟到/早退/正常/输入缺失�
     if (!rule) return ctx.skip()
     const out = rule.judgeStatusDetailed({
       earlyBefore: '16:00',
-      checkInTime: new Date(2026, 0, 5, 8, 0),
-      checkOutTime: new Date(2026, 0, 5, 14, 0),
+      checkInTime: shanghaiDate(2026, 0, 5, 8, 0),
+      checkOutTime: shanghaiDate(2026, 0, 5, 14, 0),
     })
     expect(out.status).toBe('early')
     expect(out.reason).toMatch(/^early:/)
@@ -937,8 +947,8 @@ describe('edu-attendance-rule 判定纯函数(迟到/早退/正常/输入缺失�
     const out = rule.judgeStatusDetailed({
       lateAfter: '08:30',
       earlyBefore: '16:00',
-      checkInTime: new Date(2026, 0, 5, 8, 0),
-      checkOutTime: new Date(2026, 0, 5, 16, 30),
+      checkInTime: shanghaiDate(2026, 0, 5, 8, 0),
+      checkOutTime: shanghaiDate(2026, 0, 5, 16, 30),
     })
     expect(out.status).toBe('present')
     expect(out.reason).toBe('ok')
@@ -953,14 +963,14 @@ describe('edu-attendance-rule 判定纯函数(迟到/早退/正常/输入缺失�
     // 没签退 ≠ 早退:早退维缺 checkOutTime 时不参与判定
     const noCheckOut = rule.judgeStatusDetailed({
       earlyBefore: '16:00',
-      checkInTime: new Date(2026, 0, 5, 8, 0),
+      checkInTime: shanghaiDate(2026, 0, 5, 8, 0),
       checkOutTime: null,
     })
     expect(noCheckOut.status).toBe('present')
     // 畸形阈值 ⇒ reason 必须是 unjudged:* 子因,而不是静默放行
     const malformed = rule.judgeStatusDetailed({
       lateAfter: '25:99',
-      checkInTime: new Date(2026, 0, 5, 8, 0),
+      checkInTime: shanghaiDate(2026, 0, 5, 8, 0),
     })
     expect(malformed.reason).toMatch(/^unjudged:/)
   })

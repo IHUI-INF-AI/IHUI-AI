@@ -84,6 +84,12 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 import { runSandboxedWindows } from '../src/tools/sandbox/platform/windows.js';
 import type { SandboxPolicy } from '../src/tools/sandbox/policy.js';
 
+// 本整组直测 Windows 后端(runSandboxedWindows)派生 taskkill /T /F 与 PowerShell 启动链;
+// POSIX 门面按 process.platform 分流到 unix 后端,windows 后端的 resolvePowerShellPath 在非
+// win32 上所有候选缺席、直接判未找到而不派生子进程,waitFor 永远等不到 "PowerShell 派生",
+// 用例在 Linux 上结构性不可复现 ⇒ 仅 Windows 跑(POSIX 杀树由 kill-tree.js / f-003 覆盖)。
+const itWinOnly = process.platform === 'win32' ? it : it.skip;
+
 const CWD = process.cwd();
 const TIMEOUT_MS = 1;
 
@@ -137,7 +143,7 @@ function taskkillRecords(): SpawnRecord[] {
 }
 
 describe('F-019 guard 兜底:Node 侧直接打整棵进程树', () => {
-  it('guard 触发后派生 taskkill /T /F /PID <ps pid>,杀树结束才收尾且仍返回 124', async () => {
+  itWinOnly('guard 触发后派生 taskkill /T /F /PID <ps pid>,杀树结束才收尾且仍返回 124', async () => {
     const pending = runSandboxedWindows(POLICY, 'echo hi', { cwd: CWD });
 
     await waitFor(() => spawnRecords.length === 1, 'PowerShell 派生');
@@ -178,7 +184,7 @@ describe('F-019 guard 兜底:Node 侧直接打整棵进程树', () => {
     expect(taskkill[0]!.args).not.toEqual(['/PID', String(ps.child.pid)]);
   });
 
-  it('PS 在 guard 前正常退出:不派生 taskkill,仍按原退出码返回', async () => {
+  itWinOnly('PS 在 guard 前正常退出:不派生 taskkill,仍按原退出码返回', async () => {
     const pending = runSandboxedWindows(POLICY, 'echo hi', { cwd: CWD });
 
     await waitFor(() => spawnRecords.length === 1, 'PowerShell 派生');

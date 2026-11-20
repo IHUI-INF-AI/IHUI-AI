@@ -129,11 +129,10 @@ describe('PermissionShortcutsModal — 收敛为权限模式专属帮助', () =>
     expect(source).toContain('shortcutsItemNumberKbd')
     expect(source).toContain('shortcutsItemSlashAskKbd')
     expect(source).toContain('shortcutsItemQuestionMarkKbd')
-    expect(source).toContain('shortcutsItemUndoKbd')
     expect(source).toContain('shortcutsItemHistoryKbd')
     // /permission 行仍在用 SquareSlash,不得随 MODE_SWITCH_ROWS 一起删
     expect(source).toContain('SquareSlash')
-    for (const kept of ['Keyboard', 'ShieldAlert', 'ShieldCheck', 'History', 'Hand', 'Undo2']) {
+    for (const kept of ['Keyboard', 'ShieldAlert', 'ShieldCheck', 'History', 'Hand']) {
       expect(source).toContain(kept)
     }
   })

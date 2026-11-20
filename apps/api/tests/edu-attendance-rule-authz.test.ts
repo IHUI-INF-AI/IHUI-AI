@@ -341,6 +341,15 @@ import {
   type AttendanceRuleRow,
 } from '../src/routes/edu-ai-management-attendance-helpers.js'
 
+/**
+ * 构造"业务时区(Asia/Shanghai,UTC+8 无夏令时)墙钟 y-m-d h:mi"对应的绝对 Instant。
+ * 判定器按 BIZ_TIMEZONE 读墙钟;`new Date(y,m,d,h,mi)` 按进程本地时区解释,CI 容器
+ * TZ=UTC 时样本整体偏 +8h ⇒ 迟到误判。样本时刻锚定业务时区,与进程 TZ 解耦。月份 0-based。
+ */
+function shanghaiDate(y: number, mo: number, d: number, h: number, mi = 0): Date {
+  return new Date(Date.UTC(y, mo, d, h, mi) - 8 * 3600 * 1000)
+}
+
 const PREFIX = '/api/edu-ai-management'
 const ROUTES_SOURCE = readFileSync(
   fileURLToPath(new URL('../src/routes/edu-ai-management.ts', import.meta.url)),
@@ -763,11 +772,11 @@ describe('B. PUT /attendance/rule 权限面(写面只认 edu:manage)', () => {
     expect(stored).toBe(normalizeHm('9:00'))
     const late = ruleJudge.judgeStatusDetailed({
       lateAfter: stored as string,
-      checkInTime: new Date(2026, 10, 6, 9, 31),
+      checkInTime: shanghaiDate(2026, 10, 6, 9, 31),
     })
     const onTime = ruleJudge.judgeStatusDetailed({
       lateAfter: stored as string,
-      checkInTime: new Date(2026, 10, 6, 8, 59),
+      checkInTime: shanghaiDate(2026, 10, 6, 8, 59),
     })
     expect(late.status).toBe('late')
     expect(onTime.status).toBe('present')
