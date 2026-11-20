@@ -12,7 +12,7 @@ import { requirePermission } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
 import { buildSchema } from '../utils/swagger.js'
-import { validateInsuranceConfig } from '../services/hr-payroll.js'
+import { validateInsuranceConfig, collectInsuranceAdvisories } from '../services/hr-payroll.js'
 
 /**
  * 薪资配置管理路由(2026-11-13 立)。
@@ -281,6 +281,7 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
         .limit(200)
 
       const issues: string[] = []
+      let advisories: string[] = []
       if (!config) {
         issues.push(
           `${year} 年${regionName ? `「${regionName}」` : ''}没有启用的社保费率配置;` +
@@ -288,6 +289,7 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
         )
       } else {
         issues.push(...validateInsuranceConfig(config))
+        advisories = collectInsuranceAdvisories(config)
       }
 
       if (!regionName) {
@@ -311,6 +313,7 @@ export const hrSalaryConfigRoutes: FastifyPluginAsync = async (server) => {
           regionName: regionName ?? null,
           config: config ?? null,
           issues,
+          advisories,
           roster,
         }),
       )
