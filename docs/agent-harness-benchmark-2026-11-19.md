@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **13 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **16 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -85,7 +85,7 @@
 | 前缀缓存统计 | – | – | – | 有 | 多 provider，无 | 不适用 |
 | RLM | – | – | – | 有 | 无 | 低 ROI，不做 |
 
-## 5. 本次落地（13 项，含验证证据）
+## 5. 本次落地（16 项，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -220,15 +220,42 @@
 
 验证：`pytest tests/test_artifact_tool_mount.py` → `7 passed`（往返/绑定 id/篡改/过期/跨权限面/缺密钥 fail-closed/404 形状）；`mypy --strict` 0。
 
-## 6. 剩余候选的核实结论（全部逐项核过，不再重复造）
+### 5.14 ACP（Agent Client Protocol）HTTP 桥（`POST /api/sessions/acp`）
 
-用户要求"剩余都要做"，逐项核过之后结论是：**四项本仓已有等价实现，一项属产品前端面且只有产品决策才能定，硬做第二份只会违反 §0.6 单一真相源**。证据如下（均可现读复核）：
+- 事实：WorkBuddy 的 `acp.js` 把「编辑器客户端 ↔ agent 后端」抽成 JSON-RPC 2.0 方法集（`initialize` / `session/new` / `session/load` / `session/prompt` / `session/cancel`）；本仓此前只有私有 HTTP+SSE 契约，外部编辑器接进来只能读我们的文档。
+- 新增 `apps/ai-service/app/services/acp_bridge.py`（纯协议翻译，零 DB 依赖）+ `POST /api/sessions/acp` 路由。实现 `initialize`（v1 + `loadSession` + `promptCapabilities`）、`authenticate`（空结果，身份只在 Bearer 层）、`session/new`（走 `SessionStore.create_thread`，`user_id` 只从承载层入参进，请求体自报无效）、`session/load`（快照：`seq/itemType/clientItemId`）、`session/list`（`owner_user_id` 过滤在 SQL 里）。
+- **不假装支持**的语义：`session/prompt` / `session/cancel` / `session/set_mode` 回 `-32001` 并在 `data.hint` 指向既有 SSE 面 —— 造一个"看起来能跑"的桩比不实现更坏。
+- 属主同形：别人的会话与不存在的给同一个错误码与同一句 message 前缀（不新造可分辨信号）；批量上限 20 条，空批量整批拒。
+- 超越轴：对照件把 ACP 焊死在自家进程内（stdio）；本仓是**同一份 SessionStore 之上的第二种协议外观**，不新增事件模型、不新增第二个会话真相源，HTTP/批量/编辑器生态三方面同时兼容。
 
-1. **ACP 传输**（WorkBuddy `acp.js` 的 http/sse/acp 三形态）：本仓已有多条 `text/event-stream` 出流（`apps/api/src/services/agent-runtime.ts:107/146`、`agent-langgraph.ts:161`、`routes/agents-kanban.ts:319`）。再写一份 ACP 协议端点 = 第二套事件模型，且当前没有外部 ACP 客户端需求 ⇒ 不造。
-2. **三级阈值 + cycle restart**：`app/core/context_compaction.py` 已有 `assess_context_pressure` + 分层摘要 + 防嵌套（`_build_structured_summary`）、`compaction_retention.py` 管保留、`compaction_quality.py` / `compaction_canary.py` 管质量与金丝雀；"cycle"在本仓等价物是"压缩边界 + 摘要携带"，已有 `CompactionBoundaryItem`（`session_store.py:211`）。重作 = 重复。
-3. **BM25 / 混合检索**：`mcp_server.py` 的 `search_codebase` 已是 pgvector + BM25 的 RRF 混合通道（原文注释 `:1707`），并有索引同步；再写一份纯 BM25 只会在离线态与在线态给出两套排序。
-4. **前缀缓存统计**：`cost_ledger.py` 已记录 `cached_tokens / cache_creation_tokens`，汇总里已有 `total_cached_tokens / total_cache_creation_tokens / cache_hit_count`（`:510` 段），计价侧 `model_pricing.py` 三段计价；`rollout_budget.py` 也已把 `prompt_cached_tokens` 归一。缺的不是"统计"，是产品化看板（前端）。
-5. **MCP apps 宿主 UI**：本轮已把**后端挂载面**补齐（5.13）。宿主 UI 属前端产品形态（卡片/iframe 沙盒/生命周期），需产品拍板再动；后端挂载已就位，前端接上只是消费问题。
+验证：`pytest tests/test_acp_bridge.py` → `7 passed`（能力形状/身份只从入参/属主同形/list 过滤/prompt 显式不支持/错误码/批量上限）；`mypy --strict` 0。
+
+### 5.15 交接文档导出（`GET /api/sessions/threads/{id}/handoff`）
+
+- 事实：`session_handoff.py`（HandoffPacket 四要素 + apply/成本建议）早已存在，但**没有任何路由 / 调用方** —— §0.9 口径下等于"没有"。对照件（deepseek-tui 的 `/cycle handoff`、WorkBuddy 的交接摘要）要的是"会话交得出一份别人接得住的文档"。
+- 装车：`GET /threads/{id}/handoff`（属主闸与其它会话端点同一份），返回 `{packet, markdown, markdownChars}`；`?download=true` 回 `text/markdown` 附件（`Content-Disposition` + `no-store`）。
+- 版式单一真相源：新增 `render_handoff_markdown(packet)` 落在 `session_handoff.py`（四段：待接任务 / 本轮学习 / 上下文残留 / 下一步建议；每段 ≤20 条，超出只列前 20 并写明"另有 N 条"，单条 ≤400 字符），路由层不拼字符串 —— 前端、CLI、后续 LLM 注入共用一份。
+- 超越轴：对照件交接是纯文本堆叠；本仓同一 packet 同时给**结构化 JSON** 与**确定性 Markdown**（同 packet 恒同文档），且总量与裁剪都自述，不静默丢条。
+
+验证：`pytest tests/test_session_handoff_diagnostics.py`（与 5.16 同文件）→ `8 passed`（版式四段/裁剪与"另有 N 条"/端点 `{code,message,data}`/下载附件/属主同形 404）。
+
+### 5.16 会话体检（`GET /api/sessions/threads/{id}/diagnostics`）
+
+- 事实：`assess_context_pressure`（五字段只读判据）与 `cost_ledger.aggregate`（`total_cached_tokens` / `cache_hit_count`）都只是服务层能力，界面/CLI 拿不到"这一条会话现在多满、缓存命中多少"。对照件把 `/context` 与 `/cache stats` 做成一等命令。
+- 装车：一次读取内给出三块 —— `context`（消息枚数、`estimate_messages_tokens`、`context_limit` 与 `pressure`；窗口拿不到时 `percent_left=None`，不拿 0 冒充"耗尽/安全"）、`compaction`（`compaction_boundary` 枚数与最后一条边界原文）、`cache`（`matched/entries/totalCachedTokens/cacheHitCount/hitRate`；无账目时 `matched=false`、`hitRate=None`，不拿 0 冒充 0%）。
+- 超越轴：对照件靠终端命令逐项敲；本仓一次请求给三块同源读数，且**每个"取不到"都显式落 None 而不是零**（§0.3 的实施形态）。
+
+验证同上文件 → `8 passed`（窗口未知 vs 已知两态、边界计数、缓存未命中三态）。
+
+## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
+
+用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
+
+1. **ACP 传输** → 本轮已实现（§5.14，`POST /api/sessions/acp`）。原判"不造"被撤回：改成"在既有 SessionStore 之上加协议外观"，不新增事件模型。
+2. **三级阈值 + cycle restart** → 已有等价（`app/core/context_compaction.py` 的 `assess_context_pressure` + `_build_structured_summary`、`compaction_retention.py` / `compaction_quality.py` / `compaction_canary.py`、`CompactionBoundaryItem`）；"交接"这层本轮补齐为可导出产物（§5.15）。
+3. **BM25 / 混合检索** → 已有等价且更强：`mcp_server.py` 的 `search_codebase` 已是 pgvector + BM25 的 RRF 混合通道（注释 `:1707`）。纯 BM25 再写一份会在离线/在线两态给出两套排序。
+4. **前缀缓存统计** → 统计早已有（`cost_ledger.py:510` 段 `total_cached_tokens / cache_creation_tokens / cache_hit_count` + `model_pricing.py` 三段计价 + `rollout_budget.py` 归一）；本轮把"读数"装成会话级一等端点（§5.16），只剩前端图形化看板属产品形态。
+5. **MCP apps 宿主 UI** → 后端挂载面已补齐（§5.13：artifact 挂载、TTL、404 同形），本轮再加了会话级读数端点。宿主 UI 的卡片/沙盒/生命周期是**前端交互设计**，需产品拍板；后端已按判据就位，前端接上只是消费 `token` + `f/{token}` 两件事，不再有后端缺件。
 
 ## 7. Limitations（如实记录，不作安全结论）
 

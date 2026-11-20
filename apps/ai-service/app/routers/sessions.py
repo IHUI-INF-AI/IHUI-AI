@@ -42,10 +42,15 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
 
+from app.core.context_compaction import assess_context_pressure, estimate_messages_tokens
 from app.core.jwt_auth import get_current_user_id
+from app.services.acp_bridge import handle_acp_payload
+from app.services.cost_ledger import cost_ledger
+from app.services.session_handoff import build_handoff, render_handoff_markdown
 from app.services.session_store import (
     ITEM_ADAPTER,
     CompactionBoundaryItem,
@@ -572,6 +577,131 @@ def search_sessions(
             "total": len(hits),
         },
     }
+
+
+# =============================================================================
+# 交接导出 / 会话诊断 / ACP 桥(2026-11-20,G-20261119-rea-harvest 第 14–16 项)
+# =============================================================================
+#
+# 三件事的共同前提:`SessionHandoff`、`assess_context_pressure`、`cost_ledger.aggregate`
+# 在本批之前都只是**服务层能力**(造好没装车 = 没有,§0.9)。这里只做装车(接线),
+# 判据与版式一律 import 各自的单一真相源,本文件不重写任何一条。
+
+HANDOFF_MAX_MESSAGES = 200  # 交接抽取只看最近这么多条,避免长会话把预算吃光
+DIAGNOSTICS_MAX_ITEMS = 5000  # 诊断只读这么多 item 来数压缩边界(够用且不爆内存)
+
+
+@router.get("/threads/{thread_id}/handoff")
+def export_handoff(
+    thread_id: str,
+    download: bool = Query(False, description="true 则直接回 Markdown 附件"),
+    user_id: str = Depends(get_current_user_id),
+    store: SessionStore = Depends(get_session_store),
+) -> Any:
+    """把本会话交成一份「下一班接得住」的交接文档(packet + Markdown)。
+
+    属主口径与其它端点同一份:别人的与不存在的同形 404,且不发任何副作用。
+    """
+    _thread_or_404(store, thread_id, user_id)
+    messages = store.resume(thread_id)[-HANDOFF_MAX_MESSAGES:]
+    goal = store.get_thread_goal_state(thread_id) or {}
+    objective = str(goal.get("objective") or "")
+    packet = build_handoff(
+        {
+            "session_id": thread_id,
+            "user_id": user_id,
+            "messages": [m.model_dump(mode="json") for m in messages],
+            "query": objective,
+            "objective": objective,
+        }
+    )
+    markdown = render_handoff_markdown(packet)
+    if download:
+        return PlainTextResponse(
+            markdown,
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="handoff-{thread_id}.md"',
+                "Cache-Control": "no-store",
+            },
+        )
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {"packet": packet.to_dict(), "markdown": markdown, "markdownChars": len(markdown)},
+    }
+
+
+@router.get("/threads/{thread_id}/diagnostics")
+def thread_diagnostics(
+    thread_id: str,
+    context_limit: int = Query(0, ge=0, description="模型窗口 token;0 = 拿不到窗口 ⇒ 未判定"),
+    user_id: str = Depends(get_current_user_id),
+    store: SessionStore = Depends(get_session_store),
+) -> dict[str, Any]:
+    """会话体检:上下文压力 + 压缩边界 + 缓存命中(对标 `/context` 与 `/cache stats`)。
+
+    三个数字各有自己的真相源,这里只做**同一批数据的一次读取**:
+    - 体积与压力:`context_compaction.estimate_messages_tokens` / `assess_context_pressure`
+      (窗口拿不到就 percent_left=None,不拿 0 冒充"耗尽"或"安全");
+    - 压缩边界:`list_items` 里 item_type=compaction_boundary 的枚数(与 resume 同源);
+    - 缓存:`cost_ledger.aggregate` 的 total_cached_tokens / cache_hit_count;
+      查不到任何账目 ⇒ matched=false、hit_rate=None(未判定,不拿 0 冒充 0%)。
+    """
+    _thread_or_404(store, thread_id, user_id)
+    messages = store.resume(thread_id)
+    payloads = [m.model_dump(mode="json") for m in messages]
+    estimated = estimate_messages_tokens(payloads)
+    pressure = assess_context_pressure(estimated, context_limit)
+
+    items = store.list_items(thread_id)[:DIAGNOSTICS_MAX_ITEMS]
+    boundaries = [i for i in items if i.item_type == "compaction_boundary"]
+    last_boundary = boundaries[-1].model_dump(mode="json") if boundaries else None
+
+    agg = cost_ledger.aggregate({"session_id": thread_id})
+    entries = int(agg.get("count") or 0)
+    cached = int(agg.get("total_cached_tokens") or 0)
+    hits = int(agg.get("cache_hit_count") or 0)
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "threadId": thread_id,
+            "context": {
+                "messageCount": len(messages),
+                "estimatedTokens": estimated,
+                "contextLimit": context_limit,
+                "pressure": pressure,
+            },
+            "compaction": {
+                "boundaries": len(boundaries),
+                "itemsScanned": len(items),
+                "lastBoundary": last_boundary,
+            },
+            "cache": {
+                "matched": entries > 0,
+                "entries": entries,
+                "totalCachedTokens": cached,
+                "cacheHitCount": hits,
+                "hitRate": round(hits / entries, 4) if entries > 0 else None,
+            },
+        },
+    }
+
+
+@router.post("/acp")
+def acp_endpoint(
+    body: Any = Body(...),
+    user_id: str = Depends(get_current_user_id),
+    store: SessionStore = Depends(get_session_store),
+) -> Any:
+    """ACP(Agent Client Protocol)HTTP 桥:JSON-RPC 2.0 进、JSON-RPC 2.0 出。
+
+    刻意不吃项目 `{code,message,data}` 信封 —— 对外协议面必须是客户端认得的形状。
+    身份由 Bearer 承载层给定;`session/prompt` 这类双向流式语义返回 -32001 并点名
+    既有 SSE 端点,不在这里造一个"看起来能跑"的桩。
+    """
+    return handle_acp_payload(body, store=store, user_id=user_id)
 
 
 __all__ = ["router", "get_session_store", "reset_session_store"]
