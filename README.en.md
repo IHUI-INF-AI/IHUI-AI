@@ -70,7 +70,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | schema 文件 | 253 | `dbSchemaFiles` |
 | API 路由 | 4859 | `apiRoutes` |
 | 路由文件 | 716 | `apiRouteFiles` |
-| AI 服务路由 | 682 | `aiServiceRoutes` |
+| AI 服务路由 | 683 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
