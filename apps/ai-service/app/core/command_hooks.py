@@ -286,7 +286,7 @@ def _matcher_matches(matcher: str, tool_name: str) -> bool:
 def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
     async def _hook(payload: dict[str, Any]) -> dict[str, Any] | None:
         tool_name = str(payload.get("tool_name") or "")
-        if spec.event == "pre_tool_use" and not _matcher_matches(spec.matcher, tool_name):
+        if tool_name and not _matcher_matches(spec.matcher, tool_name):
             return None
         stdin_payload = {
             "hook_event_name": spec.event,
@@ -345,6 +345,10 @@ def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
             perm_reason = specific.get("permissionDecisionReason")
             if isinstance(perm_reason, str) and perm_reason and "reason" not in out:
                 out["reason"] = perm_reason
+            # PostToolUse 的产出改写面(契约字段 updatedMCPToolOutput):写进运行时
+            # 消费侧认的键;给了 null 也是"显式替换为空",不能当未提供。
+            if "updatedMCPToolOutput" in specific:
+                out["updated_output"] = specific["updatedMCPToolOutput"]
         return out or None
 
     _hook.__name__ = spec.name.replace(":", "_").replace("-", "_")
@@ -353,6 +357,7 @@ def _build_func(spec: CommandHookSpec, cwd: Path) -> HookFunc:
 
 _KIND_BY_EVENT: Final[dict[str, HookKind]] = {
     "pre_tool_use": HookKind.PRE_TOOL_USE,
+    "post_tool_use": HookKind.POST_TOOL_USE,
     "session_start": HookKind.SESSION_START,
     "user_prompt_submit": HookKind.USER_PROMPT_SUBMIT,
     "pre_compact": HookKind.PRE_COMPACT,
