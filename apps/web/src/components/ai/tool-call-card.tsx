@@ -381,10 +381,11 @@ export function extractToolArtifact(
   }
 }
 
-/** 工具输出工件挂载块:完整输出按需查看(点击时才换 token,不做逐卡预取)。
+/** 工具输出工件挂载块:卡片内直接预览 + 外链兜底(点击时才换 token,不做逐卡预取)。
  *
- *  取链接失败(未登录 / 已过期 / 工件被清)统一降级为"打开失败",不静默当成功;
- *  链接带 noopener/noreferrer 新窗口打开,避免工件页拿到本站 window.opener。 */
+ *  预览走 `f/{token}?format=json` 分页(与 text 分支同一个读页原语),只追加不重取;
+ *  换链接/换页失败(未登录 / 已过期 / 工件被清)统一降级为"打开失败",不静默当成功;
+ *  外链带 noopener/noreferrer,避免工件页拿到本站 window.opener。 */
 function ToolArtifactMountBlock({
   artifactId,
   originalChars,
@@ -393,21 +394,72 @@ function ToolArtifactMountBlock({
   originalChars?: number
 }) {
   const t = useTranslations('ai.toolCall')
-  const [state, setState] = React.useState<'idle' | 'loading' | 'failed'>('idle')
+  const [tokenPath, setTokenPath] = React.useState<string | null>(null)
+  const [preview, setPreview] = React.useState('')
+  const [nextOffset, setNextOffset] = React.useState<number>(0)
+  const [busy, setBusy] = React.useState<'idle' | 'loading' | 'fetching'>('idle')
+  const [failed, setFailed] = React.useState(false)
 
-  const handleOpen = React.useCallback(() => {
-    setState('loading')
-    void fetchApi<{ token: string; url: string; expires_in: number }>(
+  const ensureToken = React.useCallback(async (): Promise<string | null> => {
+    if (tokenPath) return tokenPath
+    const res = await fetchApi<{ token: string; url: string; expires_in: number }>(
       `/api/artifacts/tool/token?artifact_id=${encodeURIComponent(artifactId)}`,
-    ).then((res) => {
-      if (res.success && res.data?.url) {
-        setState('idle')
-        window.open(res.data.url, '_blank', 'noopener,noreferrer')
+    )
+    if (!res.success || !res.data?.url) return null
+    setTokenPath(res.data.url)
+    return res.data.url
+  }, [artifactId, tokenPath])
+
+  const loadPage = React.useCallback(async (path: string, offset: number) => {
+    const res = await fetchApi<{
+      content: string
+      next: number
+      complete: boolean
+      totalChars: number
+    }>(`${path}?offset=${offset}&format=json`)
+    if (!res.success || !res.data) return false
+    setPreview((prev) => (prev ? `${prev}\n${res.data!.content}` : res.data!.content))
+    setNextOffset(res.data!.next)
+    return true
+  }, [])
+
+  const handlePreview = React.useCallback(() => {
+    setFailed(false)
+    setBusy('loading')
+    void ensureToken().then(async (path) => {
+      if (!path) {
+        setBusy('idle')
+        setFailed(true)
         return
       }
-      setState('failed')
+      setBusy('fetching')
+      const ok = await loadPage(path, 0)
+      setBusy('idle')
+      if (!ok) setFailed(true)
     })
-  }, [artifactId])
+  }, [ensureToken, loadPage])
+
+  const handleMore = React.useCallback(() => {
+    if (!tokenPath) return
+    setBusy('fetching')
+    void loadPage(tokenPath, nextOffset).then((ok) => {
+      setBusy('idle')
+      if (!ok) setFailed(true)
+    })
+  }, [tokenPath, nextOffset, loadPage])
+
+  const handleOpen = React.useCallback(() => {
+    setFailed(false)
+    void ensureToken().then((path) => {
+      if (!path) {
+        setFailed(true)
+        return
+      }
+      window.open(path, '_blank', 'noopener,noreferrer')
+    })
+  }, [ensureToken])
+
+  const expanded = preview.length > 0
 
   return (
     <div className="rounded-sm border border-stroke-subtle bg-muted/20 px-2 py-1.5">
@@ -419,22 +471,60 @@ function ToolArtifactMountBlock({
         </span>
         <button
           type="button"
-          data-testid="tool-artifact-open"
-          disabled={state === 'loading'}
-          onClick={handleOpen}
+          data-testid="tool-artifact-preview"
+          disabled={busy !== 'idle'}
+          onClick={handlePreview}
           className="ml-auto inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
         >
-          {state === 'loading' ? (
+          {busy === 'loading' ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <ExternalLink className="h-3 w-3" />
+            <FileText className="h-3 w-3" />
           )}
+          {t('toolOutputPreview')}
+        </button>
+        <button
+          type="button"
+          data-testid="tool-artifact-open"
+          disabled={busy !== 'idle'}
+          onClick={handleOpen}
+          className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
+        >
+          <ExternalLink className="h-3 w-3" />
           {t('toolOutputOpen')}
         </button>
       </div>
-      <p className="mt-0.5 pl-5 text-[10px] text-muted-foreground/70">
-        {state === 'failed' ? t('toolOutputOpenFailed') : t('toolOutputHint')}
-      </p>
+      {expanded && (
+        <pre
+          data-testid="tool-artifact-preview-body"
+          className="mt-1 max-h-[320px] overflow-auto rounded-sm bg-background/60 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-all"
+        >
+          {preview}
+        </pre>
+      )}
+      {(expanded || failed) && (
+        <div className="mt-1 flex items-center gap-2">
+          {expanded && nextOffset > 0 && (
+            <button
+              type="button"
+              data-testid="tool-artifact-more"
+              disabled={busy !== 'idle'}
+              onClick={handleMore}
+              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+            >
+              {busy === 'fetching' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              {t('toolOutputMore')}
+            </button>
+          )}
+          <p className="text-[10px] text-muted-foreground/70">
+            {failed
+              ? t('toolOutputOpenFailed')
+              : nextOffset > 0
+                ? t('toolOutputHint')
+                : t('toolOutputEnd')}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
