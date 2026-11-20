@@ -12513,7 +12513,7 @@
       "switchedToAuto": "自動承認に切替",
       "switchedToAutoDesc": "検出された危険な操作のみ確認します",
       "switchedToFull": "完全アクセスに切替",
-      "switchedToFullDesc": "AI は確認なしで任意の操作を実行できます(5 秒以内に取り消し可能,以前:{prev})",
+      "switchedToFullDesc": "AI は確認なしで任意の操作を実行できます(以前:{prev})",
       "switchedToFullError": "切り替えに失敗しました:{error}",
       "switchedToModeAsk": "リクエスト承認モードに切替",
       "switchedToModeAuto": "自動承認モードに切替",
