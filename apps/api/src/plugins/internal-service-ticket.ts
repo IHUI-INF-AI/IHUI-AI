@@ -60,6 +60,7 @@ export const INTERNAL_TICKET_SCOPES = [
   'relay-account-pool-credential', // ai-service 凭证回写号池
   'checkin-pool', // api → ai-service 号池/签到同步
   'prompt-scan-bypass', // api → ai-service 服务间正文免注入扫描
+  'model-catalog', // api → ai-service 号池模型的代次判定
 ] as const
 
 export type InternalTicketScope = (typeof INTERNAL_TICKET_SCOPES)[number]

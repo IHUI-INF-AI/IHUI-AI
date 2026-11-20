@@ -33,6 +33,10 @@ export const BROWSER_PAGE_CONTROL_TOOLS = [
   'browser_page_hover',
   'browser_page_press_key',
   'browser_page_pick_at_point',
+  // 2026-11-12 契约新增的三枚(CLI 与 ai-service 同日接入);携带清单漏一条 = 模型看不见该能力。
+  'browser_page_scroll',
+  'browser_page_wait_for',
+  'browser_page_drag',
 ] as const
 
 export const AGENT_TOOLS = [

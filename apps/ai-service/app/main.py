@@ -1355,6 +1355,11 @@ def create_app() -> FastAPI:
     from app.routers import internal_checkin_pool as checkin_internal_router
     app.include_router(checkin_internal_router.router, tags=["checkin-internal"])
 
+    # 2026-11-20 立:号池模型的代次判定内部端点(自带 /internal/model-catalog 前缀)。
+    # 判据单一真相源在 services/model_catalog*.py,apps/api 经本端点消费,不另抄旧代清单。
+    from app.routers import model_catalog_api as model_catalog_internal_router
+    app.include_router(model_catalog_internal_router.router, tags=["model-catalog-internal"])
+
     # 2026-10-26 立:账号保活中心(统一 Cookie / 密钥到期 / 签到凭证三条线的状态面)。
     # router 自带 /api/keepalive 前缀,鉴权用 require_request_user_id。
     # 落点必须在 app/routers/ —— 门 8 的注册面只枚举 app/routers/** 与 app/api/**,
