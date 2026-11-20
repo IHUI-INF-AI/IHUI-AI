@@ -436,9 +436,9 @@ def test_open_reaps_idle_when_ttl_enabled_and_names_the_victim(monkeypatch, tmp_
 def test_touch_single_exit_and_wired_on_all_interaction_entries() -> None:
     """形状锁:所有碰会话的入口统一走 `_live`(取会话+归属+刷新闲置计时),不各写一份。"""
     src = _conpty_source()
-    # 14 = send / keys / paste / mouse / focus / links / snapshot / search / eof / read
-    #      / wait / signal / resize / close
-    assert src.count("_live(terminal_id, user_id, session_id)") == 14, (
+    # 15 = send / keys / paste / mouse / focus / links / cursor / snapshot / search / eof
+    #      / read / wait / signal / resize / close
+    assert src.count("_live(terminal_id, user_id, session_id)") == 15, (
         "交互入口少了/多了 `_live` 调用 ⇒ 有一处没刷新闲置计时,会把在用的会话当闲置杀掉"
     )
     assert "def _touch(session" in src
@@ -1998,7 +1998,11 @@ class _DeadProc:
 
 
 def _mouse_session(
-    *, backend: str = "pty", modes: set[int] | None = None
+    *,
+    backend: str = "pty",
+    modes: set[int] | None = None,
+    cols: int = term.DEFAULT_COLS,
+    rows: int = term.DEFAULT_ROWS,
 ) -> term.TerminalSession:
     """造一个已登记、输出端可读回的会话(StringIO 当 write_io,看得见到底写了什么字节)。"""
     session = term.TerminalSession(
@@ -2009,6 +2013,8 @@ def _mouse_session(
         cwd=os.getcwd(),
         proc=_AliveProc(),
         created_ts=time.time(),
+        cols=cols,
+        rows=rows,
     )
     session.backend = backend
     session.write_io = io.StringIO()
@@ -2498,6 +2504,101 @@ async def test_tool_layer_routes_links(monkeypatch) -> None:
     )
     assert res["ok"] is True and res["action"] == "links"
     assert seen["max_links"] == 5
+
+
+# ─── 光标位置:屏幕网格(VT 记账),不是行流水 ───
+
+
+def test_cursor_reports_real_screen_position_not_line_stream_offset() -> None:
+    """`\\r` 刷新后光标必须回到**同一行**:流水会把 `\\r` 记成换行,屏幕不会。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=10, rows=4)
+        push = _TEST["push_output"]
+        push(session, "out", "下载 10%\r下载 99%")
+        cur = term.cursor_terminal("t-mouse", **owner)
+        assert cur["ok"] is True
+        assert (cur["row"], cur["col"]) == (1, 9), f"`\\r` 后应停在第 1 行:{cur}"
+        assert cur["line"] == "下载 99%"
+        # snapshot 是另一种视图(行流水):它把 `\r` 记成换行,所以行数更多
+        shot = term.snapshot_terminal("t-mouse", **owner)
+        assert shot["total_lines"] >= 2
+    finally:
+        term.reset_terminals()
+
+
+def test_cursor_tracks_cup_and_pending_wrap() -> None:
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=5, rows=3)
+        push = _TEST["push_output"]
+        push(session, "out", "abcde")  # 写满 ⇒ pending_wrap
+        cur = term.cursor_terminal("t-mouse", **owner)
+        assert (cur["row"], cur["col"], cur["pending_wrap"]) == (1, 5, True)
+        push(session, "out", "\x1b[3;2H")  # CUP 到第 3 行第 2 列
+        cur = term.cursor_terminal("t-mouse", **owner)
+        assert (cur["row"], cur["col"], cur["pending_wrap"]) == (3, 2, False)
+    finally:
+        term.reset_terminals()
+
+
+def test_cursor_survives_buffer_eviction() -> None:
+    """缓冲被挤掉时网格仍准:网格在**入队那一刻**就喂过了,不靠缓冲重放。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=20, rows=5)
+        push = _TEST["push_output"]
+        for i in range(5):
+            push(session, "out", f"line{i}\r\n")
+        push(session, "out", "line5")  # 最后一行不跟换行:光标停在它上面
+        session.buffer_lines = 1
+        session.chunks = type(session.chunks)(maxlen=1)
+        session.dropped_chunks = 5
+        cur = term.cursor_terminal("t-mouse", **owner)
+        assert cur["ok"] is True and cur["dropped_chunks"] == 5
+        assert cur["row"] == 5 and cur["line"] == "line5"
+    finally:
+        term.reset_terminals()
+
+
+def test_cursor_include_screen_and_alt_face() -> None:
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=12, rows=4)
+        push = _TEST["push_output"]
+        push(session, "out", "shell$ ls\r\nfile1")
+        push(session, "out", "\x1b[?1049h\x1b[2J\x1b[HVIM")
+        cur = term.cursor_terminal("t-mouse", include_screen=True, **owner)
+        assert cur["alt_screen"] is True and cur["screen"] == ["VIM"]
+        assert cur["line"] == "VIM"
+        push(session, "out", "\x1b[?1049l")  # 退出全屏 ⇒ 主屏原样回来
+        cur = term.cursor_terminal("t-mouse", include_screen=True, **owner)
+        assert cur["alt_screen"] is False
+        assert cur["screen"] == ["shell$ ls", "file1"]
+    finally:
+        term.reset_terminals()
+
+
+@pytest.mark.asyncio
+async def test_tool_layer_routes_cursor(monkeypatch) -> None:
+    term.reset_terminals()
+    seen: dict[str, object] = {}
+
+    def _stub(terminal_id: str, **kwargs: object) -> dict[str, object]:
+        seen.update({"terminal_id": terminal_id, **kwargs})
+        return {"ok": True, "terminal_id": terminal_id, "row": 1, "col": 1}
+
+    monkeypatch.setattr(term, "cursor_terminal", _stub)
+    res = await _tool_terminal(
+        {"action": "cursor", "terminal_id": "t1", "include_screen": True, **_OWNER}
+    )
+    assert res["ok"] is True and res["action"] == "cursor"
+    assert seen["include_screen"] is True
+
 
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
