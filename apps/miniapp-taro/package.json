@@ -48,7 +48,7 @@
     "@ihui/ui-native": "workspace:*",
     "@tarojs/components": "4.2.1",
     "@tarojs/helper": "4.2.1",
-    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.3.3",
     "@tarojs/plugin-html": "4.2.1",
     "@tarojs/plugin-platform-alipay": "4.2.1",
     "@tarojs/plugin-platform-h5": "4.2.1",
