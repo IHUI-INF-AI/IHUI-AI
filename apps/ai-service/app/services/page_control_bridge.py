@@ -83,6 +83,11 @@ PAGE_CONTROL_VERBS: tuple[str, ...] = (
     "page_hover",
     "page_press_key",
     "page_pick_at_point",
+    # 2026-11-12 契约加了这三枚动词(CLI 侧 browser_page_scroll/wait_for/drag 同日实现),
+    # Python 侧漏跟 ⇒ 新动词进不了模型工具面(静默少能),由 test_page_control_bridge 钉住。
+    "page_scroll",
+    "page_wait_for",
+    "page_drag",
 )
 
 _HANDLE_DESC = (
@@ -96,9 +101,12 @@ _RETRY_RULE = (
     "uncertain=事件已派发、之后页面发了什么不受观测保证(可能已提交表单),**严禁盲目重试**。"
 )
 
+# 只读族的副作用说明:scroll/wait 结构上不触碰 DOM,与 PAGE_READONLY_ACTIONS 同一判定。
+_side_effect_none = "本动词属只读族:sideEffect 恒为 none(未派发任何输入事件),可安全重试。"
+
 
 def _page_tools() -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]]:
-    """七个句柄族工具定义 + handler(描述里必须把"执行体在端侧"说清,否则模型以为本地能跑)。"""
+    """句柄族工具定义 + handler(描述里必须把"执行体在端侧"说清,否则模型以为本地能跑)。"""
     str_prop = {"type": "string"}
     specs: list[tuple[str, str, dict[str, Any]]] = [
         (
@@ -192,7 +200,69 @@ def _page_tools() -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[di
                 "required": ["x", "y"],
             },
         ),
+        (
+            "page_scroll",
+            "[页面快照|只读] 滚动整页或某个可滚动元素,把视口外的内容带进来。"
+            "比为了看见某块内容就去点它更便宜,也不派发任何输入事件。"
+            "direction 取 up/down/left/right(默认 down),amount 为像素(默认 600),"
+            "给 handle 就滚该元素、不给就滚整页;direction 非法回 PARAM_INVALID,"
+            f"句柄失效回 HANDLE_STALE。{_side_effect_none}",
+            {
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "description": "up | down | left | right(默认 down)",
+                    },
+                    "amount": {"type": "number", "description": "滚动像素(默认 600)"},
+                    "handle": {
+                        **str_prop,
+                        "description": "可选:滚这个元素而不是整页。" + _HANDLE_DESC,
+                    },
+                },
+            },
+        ),
+        (
+            "page_wait_for",
+            "[页面快照|只读] 等到条件成立或超时,用来替代盲目 sleep。"
+            "SPA 渲染意味着刚拿到的句柄可能指向尚未挂载的元素。"
+            "text=等到这段文字出现,textGone=等到它消失,handle=等到它解析成活元素;"
+            "三者至少给一个,都不给回 PARAM_INVALID;超时回 TIMEOUT。"
+            f"timeoutMs 默认 5000、上限 30000。{_side_effect_none}",
+            {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "等到这段文字出现"},
+                    "textGone": {"type": "string", "description": "等到这段文字消失"},
+                    "handle": {
+                        **str_prop,
+                        "description": "等到该句柄解析成活元素。" + _HANDLE_DESC,
+                    },
+                    "timeoutMs": {
+                        "type": "number",
+                        "description": "最长等待毫秒(默认 5000,上限 30000)",
+                    },
+                },
+            },
+        ),
+        (
+            "page_drag",
+            "[页面快照|用户浏览器执行] 从一个句柄拖到另一个句柄,走真实的按下-移动-释放序列。"
+            "两次点击替代不了它:拖拽库(dnd-kit / react-beautiful-dnd)依赖中间的 dragover 事件。"
+            + _HANDLE_DESC
+            + " from/to 任一缺失回 PARAM_INVALID,任一失效回 HANDLE_STALE。"
+            + _RETRY_RULE,
+            {
+                "type": "object",
+                "properties": {
+                    "from": {**str_prop, "description": "源句柄"},
+                    "to": {**str_prop, "description": "目标句柄"},
+                },
+                "required": ["from", "to"],
+            },
+        ),
     ]
+
     out: list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]] = []
     for verb, description, input_schema in specs:
         out.append(
