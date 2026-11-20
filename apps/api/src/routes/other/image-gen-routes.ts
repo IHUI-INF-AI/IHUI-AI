@@ -14,6 +14,20 @@ import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { aiGcContent, contentGenerationTemplates, imageGenFavorites } from '@ihui/database'
 import { parsePagination } from './_shared.js'
+import { callVendor, recordUsage, VENDORS } from '../ai-vendors/_shared.js'
+
+/** Agnes 图像端点支持的尺寸档(1K/2K/3K/4K);其余形态(如 1024x1024)不透传,避免上游 400。 */
+const AGNES_SIZE_TIERS = new Set(['1K', '2K', '3K', '4K'])
+
+/** 从 OpenAI images 协议响应里取可渲染地址:优先 data[0].url,次选 b64_json 转 data URL。 */
+function pickGeneratedImageUrl(raw: unknown): string | undefined {
+  const first = (raw as { data?: Array<{ url?: string; b64_json?: string }> } | null)?.data?.[0]
+  const url = typeof first?.url === 'string' ? first.url.trim() : ''
+  if (url) return url
+  const b64 = typeof first?.b64_json === 'string' ? first.b64_json.trim() : ''
+  if (b64) return `data:image/png;base64,${b64}`
+  return undefined
+}
 
 export const imageGenRoutes: FastifyPluginAsync = async (server) => {
   // GET /image-gen/favorites — 当前用户收藏的 AI 生成图片列表
@@ -96,17 +110,15 @@ export const imageGenRoutes: FastifyPluginAsync = async (server) => {
   // ① **入参兼容两端现发形态**:web 的 image-gen 页与 RN 的 ImageGenCreateScreen 都发
   //    {prompt, size},旧 schema 把 content 定为必填 ⇒ 两端恒 400。现接受 prompt / content
   //    两形态(同给时 content 优先 —— 它是旧契约的权威字段,不让 prompt 顶掉它),
-  //    并接住 size 与 imageUrl 两个透传键。**不新增生成能力**(§24):后端仍然只落一条
-  //    生成记录,没有任何模型调用被接进来。
-  // ② **响应侧同错的一半**:两端各自声明 GenResult{imageUrl} 并直接取 data.imageUrl。旧实现
-  //    回 success({item}),端上拿到 undefined 当成功用(渲染空图 / 保存失败)。现在带可渲染
-  //    imageUrl 的请求照旧落库并把 imageUrl 一并回该键;不带 imageUrl 的 = 生成链路没接通,
-  //    按既有错误码表回 503 + CAPABILITY_UNAVAILABLE(该档语义"此刻没有实例/未就绪、允许退避
-  //    重试"，与"未接通"正合;501 CAPABILITY_UNSUPPORTED 语义是"重试永远不可能成功",不适用)。
-  //    失败方向刻意是"明确报未接通",绝不伪造 imageUrl 冒充成功。
+  //    并接住 size、imageUrl、model 三个透传键。
+  // ② **响应侧同错的一半**:两端各自声明 GenResult{imageUrl} 并直接取 data.imageUrl。曾经
+  //    回 success({item}),端上拿到 undefined 当成功用(渲染空图 / 保存失败)。现在恒定回
+  //    可渲染的 imageUrl。
+  // ③ **出图能力已接通(2026-11-21)**:无现成 imageUrl 的请求会真调 Agnes
+  //    /v1/images/generations(当前唯一无需新凭据即可出图的通道,见 ai-vendors/_shared.ts 的
+  //    VENDORS.agnes);上游失败回 502,不伪造地址。此前的 503 CAPABILITY_UNAVAILABLE
+  //    "未接通"档已撤销 —— 现在只剩"上游真失败"这一种 5xx。
   server.post('/image-gen/generate', async (request, reply) => {
-    const GENERATE_UNREACHED_MESSAGE =
-      '图像生成能力未接通：服务端当前仅登记生成记录，尚未接入出图链路'
     const body = z
       .object({
         content: z.string().min(1).max(5000).optional(),
@@ -116,6 +128,9 @@ export const imageGenRoutes: FastifyPluginAsync = async (server) => {
         prompt: z.string().max(5000).optional(),
         size: z.string().max(32).optional(),
         imageUrl: z.string().max(2048).optional(),
+        // 选择器里选中的图像模型(2026-11-21 接通出图链路时新增);
+        // 缺位走 agnes 默认档,非 agnes-image 家族一律回落到默认,不把对话模型名送去画图。
+        model: z.string().max(96).optional(),
       })
       .superRefine((d, ctx) => {
         const text = d.content?.trim() || d.prompt?.trim()
@@ -129,14 +144,47 @@ export const imageGenRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     const content = (body.data.content?.trim() || body.data.prompt!.trim()).slice(0, 5000)
-    const imageUrl = body.data.imageUrl?.trim()
+    const explicitImageUrl = body.data.imageUrl?.trim()
+
+    // 出图链路(2026-11-21 接通):没给现成 imageUrl ⇒ 真调到 Agnes /v1/images/generations。
+    // 现状唯一无需新 key 就能出图的通道就是 agnes(provider 健康 ok,keyEnv=AGNES_API_KEY);
+    // 其余厂商要新配凭据,未接通前不静默回落。失败一律显式 5xx,绝不伪造 imageUrl 冒充成功。
+    let imageUrl = explicitImageUrl
     if (!imageUrl) {
-      // 未接通 ⇒ 不落库(被拒的请求不得留下半截 aiGcContent 行),
-      // message 原文透到端上(fetchApi 对非 2xx 取 body.message 优先),端上不再收到空 toast。
-      return reply
-        .status(503)
-        .send({ ...error(503, GENERATE_UNREACHED_MESSAGE), errorCode: 'CAPABILITY_UNAVAILABLE' })
+      const requestedModel = body.data.model?.trim() ?? ''
+      const model = requestedModel.startsWith('agnes-image-')
+        ? requestedModel
+        : 'agnes-image-2.5-flash'
+      const size = body.data.size?.trim()
+      const payload = {
+        model,
+        prompt: content,
+        ...(size && AGNES_SIZE_TIERS.has(size) ? { size } : {}),
+      }
+      const raw = await callVendor(
+        'agnes',
+        `${VENDORS.agnes!.baseUrl}/images/generations`,
+        reply,
+        { method: 'POST', body: JSON.stringify(payload) },
+        90_000,
+      )
+      if (raw === null) return
+      const upstreamError = (raw as { error?: { message?: string } | string }).error
+      if (upstreamError) {
+        const msg =
+          typeof upstreamError === 'string'
+            ? upstreamError
+            : upstreamError.message || JSON.stringify(upstreamError)
+        return reply.status(502).send(error(502, `图像生成失败: ${msg.slice(0, 300)}`))
+      }
+      const generated = pickGeneratedImageUrl(raw)
+      if (!generated) {
+        return reply.status(502).send(error(502, '图像生成失败: 上游未返回可渲染的图片地址'))
+      }
+      imageUrl = generated
+      recordUsage(request.userId!, 'agnes')
     }
+
     const [item] = await db
       .insert(aiGcContent)
       .values({

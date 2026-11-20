@@ -93,6 +93,60 @@ def test_qwen_group_max_generation_is_3_8_not_3_32() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 1b. 紧凑版本写法 `v41` 必须还原成 4.1(2026-11-21 立)
+# ---------------------------------------------------------------------------
+
+
+def test_compact_v_version_alias_is_expanded() -> None:
+    """Cursor 上游把 deepseek-v4.1 挂成 `deepseek-v41-flash`。
+
+    回归:`_RE_VERSION` 抓出 "41" 后按字面当第 41 代,第二趟把同家族所有 4.x
+    (含真正的 4.1)压成 legacy —— 用户侧表现成"最新的 4.1 反而被筛掉"。
+    """
+    cls = classify_model("cursor/deepseek-v41-flash-1017", "cursor", now=NOW)
+    assert cls.family == "deepseek-v"
+    assert cls.generation == "4.1"
+
+
+def test_compact_version_does_not_poison_family() -> None:
+    """同一家族里混入 `v41` 写法时,4.1 与 4-pro 都必须仍然可见。"""
+    models = [
+        _mk("opencode/deepseek-v4.1-flash"),
+        _mk("codearts/deepseek-v41-flash-1017"),
+        _mk("opencode/deepseek-v4-pro"),
+    ]
+    annotate_models(models, now=NOW)
+    by_id = {m["id"]: m["model_tier"] for m in models}
+    assert by_id["opencode/deepseek-v4.1-flash"] == ModelTier.LATEST.value
+    assert by_id["codearts/deepseek-v41-flash-1017"] != ModelTier.LEGACY.value
+    assert by_id["opencode/deepseek-v4-pro"] == ModelTier.STANDARD.value
+
+
+def test_generic_dash_video_name_is_video_category() -> None:
+    """`agnes-video-2.5-flash` 这类只带 `-video` 的命名必须落 video。
+
+    回归:原先 VIDEO 规则只认 video-gen/seedance/sora 等具体词,Agnes 的视频档
+    落到兜底 chat —— 选择器把它当对话模型,选中后根本不出片。
+    """
+    assert classify_model("agnes/agnes-video-2.5-flash", "agnes", now=NOW).category == ModelCategory.VIDEO
+    # 反例:对话档名里的 `vision`/`vl` 不得被 -video 规则误吞
+    assert classify_model("agnes/agnes-2.5-pro", "agnes", now=NOW).category == ModelCategory.CHAT
+
+
+def test_media_modalities_stay_visible() -> None:
+    """图像/视频档不得被判进 legacy 隐藏集(模态档不参与时间窗淘汰)。"""
+    models = [
+        _mk("agnes/agnes-image-2.5-flash"),
+        _mk("agnes/agnes-image-2.1-flash"),
+        _mk("agnes/agnes-video-2.5-flash"),
+    ]
+    annotate_models(models, now=NOW)
+    for m in models:
+        assert m["model_tier"] != ModelTier.LEGACY.value, m["id"]
+        assert m["category"] in (ModelCategory.IMAGE.value, ModelCategory.VIDEO.value), m["id"]
+
+
+# ---------------------------------------------------------------------------
 # 2. 白名单不得豁免代次比较
 # ---------------------------------------------------------------------------
 

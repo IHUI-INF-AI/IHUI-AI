@@ -556,19 +556,22 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     return proxyToSelfApi(server, 'GET', `/api/ai/kling/task/query/${taskId}`, request, reply)
   })
 
-  // POST /ai/sora/request → /api/ai/sora2/generate (Sora2 视频生成)
-  // 前端 body:buildIhuiLlmBody 透传
-  server.post('/ai/sora/request', async (request, reply) => {
-    return proxyToSelfApi(server, 'POST', '/api/ai/sora2/generate', request, reply, request.body)
+  // POST /ai/sora/request —— Sora 已停服(网页版/App 2026-04-26、API 2026-09-24,OpenAI 官方公告)
+  // 2026-11-21:原实现把请求转给 /api/ai/sora2/generate,上游已下线 ⇒ 显式 503,
+  // 不再让前端拿到一个永远查不到结果的 taskId。
+  const SORA_DISCONTINUED_MESSAGE =
+    'Sora 已于 2026-09-24 停服(OpenAI 官方公告),该通道不可用;请选择其他视频厂商'
+  server.post('/ai/sora/request', async (_request, reply) => {
+    return reply
+      .status(503)
+      .send({ ...error(503, SORA_DISCONTINUED_MESSAGE), errorCode: 'CAPABILITY_UNAVAILABLE' })
   })
 
-  // POST /ai/sora/request/end → GET /api/ai/sora2/tasks/:taskId (Sora2 任务查询)
-  // 前端 body:{task_id} → 提取 task_id 拼 URL,GET 请求
-  server.post('/ai/sora/request/end', async (request, reply) => {
-    const b = (request.body ?? {}) as Record<string, unknown>
-    const taskId = (b.task_id as string) ?? (b.taskId as string) ?? ''
-    if (!taskId) return reply.status(400).send(error(400, '缺少 task_id'))
-    return proxyToSelfApi(server, 'GET', `/api/ai/sora2/tasks/${taskId}`, request, reply)
+  // POST /ai/sora/request/end → Sora 任务查询,同样已停服
+  server.post('/ai/sora/request/end', async (_request, reply) => {
+    return reply
+      .status(503)
+      .send({ ...error(503, SORA_DISCONTINUED_MESSAGE), errorCode: 'CAPABILITY_UNAVAILABLE' })
   })
 
   // POST /ai/dashscope/image/generate → /api/ai/dashscope/image (通义万相图像)

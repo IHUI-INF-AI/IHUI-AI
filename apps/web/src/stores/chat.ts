@@ -613,7 +613,11 @@ export interface ChatState {
   /** 清空已选工具 */
   clearSelectedTools: () => void
   addMessage: (
-    msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode' | 'meta'>,
+    msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode' | 'meta'> & {
+      /** 2026-11-21 立:允许调用方直接给出工具卡(图像/视频生成结果没有 SSE 事件可挂,
+       *  由本地构造一条 image_generation / video_generation 工具卡随消息上屏)。 */
+      toolCalls?: ToolCall[]
+    },
   ) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
@@ -1125,6 +1129,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       permissionMode: msg.permissionMode,
       // W24(2026-09-14):透传附加元数据(/btw 侧聊标记 meta.sidechat 等)
       meta: msg.meta,
+      // 2026-11-21:本地构造的工具卡(图像/视频生成)随消息一起写入
+      toolCalls: msg.toolCalls,
     }
     set((s) => {
       // W16(2026-09-13):消息树地基 —— 新消息自动指向前一条消息(parentMessageId)。

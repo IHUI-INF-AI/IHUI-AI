@@ -72,6 +72,8 @@ export interface GenerateImageInput {
   agentId?: string
   size?: string
   imageUrl?: string
+  /** 2026-11-21:选中的图像模型(选择器里选了 agnes-image-* 时透传,缺位走上游默认档) */
+  model?: string
 }
 
 /** 公开图库 — GET /api/image-gen/gallery */
@@ -104,9 +106,7 @@ export async function generateImage(input: GenerateImageInput): Promise<ApiResul
 }
 
 /** 图像生成模板 — GET /api/image-gen/templates(固定 `{ list }`,不分页) */
-export async function getImageTemplates<T = ImageGenTemplate>(): Promise<
-  ApiResult<{ list: T[] }>
-> {
+export async function getImageTemplates<T = ImageGenTemplate>(): Promise<ApiResult<{ list: T[] }>> {
   return fetchApi<{ list: T[] }>('/api/image-gen/templates')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

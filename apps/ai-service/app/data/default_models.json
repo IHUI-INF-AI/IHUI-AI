@@ -36,6 +36,54 @@
       "model_tier": "latest"
     },
     {
+      "_note_2026_11_21": "图像生成档(2026-11-21 登记):Agnes /v1/images/generations 同步出图(OpenAI images 协议),内部端点 /api/ai/agnes/image(proxy-llm.ts),模型名按该端点注释与 /api/ai/agnes/models 现读。分类由 model_catalog._CATEGORY_RULES 的 image 规则命中,代次走同族比较(2.1 落后 2.5 落 standard,仍可见)。",
+      "id": "agnes/agnes-image-2.5-flash",
+      "name": "Agnes 图像 2.5 Flash (文生图,默认档)",
+      "provider": "agnes",
+      "context_length": 4096,
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": false,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      },
+      "tags": ["image"]
+    },
+    {
+      "_note_2026_11_21": "图像生成档:同族上一代,2.5-flash 上线后按代次比较自动落 standard(不判旧代、不进隐藏集)。",
+      "id": "agnes/agnes-image-2.1-flash",
+      "name": "Agnes 图像 2.1 Flash (文生图,上一代)",
+      "provider": "agnes",
+      "context_length": 4096,
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": false,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      },
+      "tags": ["image"]
+    },
+    {
+      "_note_2026_11_21": "视频生成档(2026-11-21 登记):Agnes POST /v1/videos 异步建任务,内部端点 /api/ai/agnes/video(proxy-media.ts,默认 agnes-video-2.5-flash 免费档),任务查询走 /api/ai/agnes/video/tasks/:taskId。Sora 已于 2026-09-24 停服,本条是当前唯一可用的视频通道登记。",
+      "id": "agnes/agnes-video-2.5-flash",
+      "name": "Agnes 视频 2.5 Flash (文生/图生视频,720P)",
+      "provider": "agnes",
+      "context_length": 4096,
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": false,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      },
+      "tags": ["video"]
+    },
+    {
       "_note_d208_2026_10_01": "gemini/gemini-2.5-flash 已于 2026-10-01 替换为本条目:D150 真机探针实证 2.5-flash 对新账号 Google 404(no longer available to new users,上游建议 gemini-3.8-flash);caps 沿用 gemini provider 口径(stream_usage=false 走 token_counter 兜底,见 provider_caps.py)。",
       "id": "gemini/gemini-3.8-flash",
       "name": "Gemini 3.8 Flash (Google AI Studio,1M 上下文)",
