@@ -18,7 +18,7 @@ import re
 from collections.abc import AsyncIterator, Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -1400,6 +1400,32 @@ async def get_agent_command_hooks(
     from ..core.command_hooks import describe_command_hooks
 
     return {"code": 0, "message": "ok", "data": describe_command_hooks()}
+
+
+@router.get("/agent/hook-audit/summary")
+async def get_agent_hook_audit_summary(
+    session_id: str | None = Query(None, description="按会话过滤;省略 = 全台账累计"),
+    max_lines: int = Query(20000, ge=1, le=200000, description="只读尾部 N 行"),
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """钩子审计台账**只读摘要**(2026-11-21 第 41 项)。
+
+    第 39 项把 `hook.run` 落了盘,但只有写入口 —— 排障仍要人肉 tail 5MB 的 JSONL。
+    本端点用同一份判据(`core.hook_audit.summarize_hook_audit`)聚合出
+    total/ok/timeout/error/均值/峰值,供面板在"本会话内存态累计为 0"(刷新页面、
+    重进会话)时回落显示落盘事实。
+
+    边界:台账不存在 ⇒ `available=false` 且计数字段为 0(**不是**"零次运行"),
+    前端据此区分"没跑过"与"取不到";只读尾部 `max_lines` 行,`truncated=true`
+    表示更早的行未纳入聚合。必须登录 —— 台账含 session_id 与工具名,属运维面。
+    """
+    from ..core.hook_audit import summarize_hook_audit
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": summarize_hook_audit(session_id=session_id, max_lines=max_lines),
+    }
 
 
 @router.get("/agent/security-config")
