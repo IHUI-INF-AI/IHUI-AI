@@ -131,7 +131,7 @@ test('预筛(gt;grep -l)不得变成第二份判据,且必须留对账档与全�
 
 test('预筛 vs 全量:同一份命中集必须逐文件相等(变体红 + 对账同轮)', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'pgonly-'))
-  const git = (...args) => execFileSync('git', args, { cwd: tmp, encoding: 'utf8' })
+  const git = (...args) => execFileSync('git', args, { cwd: tmp, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
   try {
     git('init', '-q')
     git('config', 'user.email', 't@t')
