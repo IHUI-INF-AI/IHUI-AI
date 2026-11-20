@@ -1640,6 +1640,60 @@ async def test_tool_layer_routes_snapshot_and_search(tmp_path, monkeypatch) -> N
         term.reset_terminals()
 
 
+# ─── 终端状态信号:窗口标题(OSC 0/1/2)与响铃(BEL) ───
+
+_TITLE_SCRIPT = """\
+import sys, time
+sys.stdout.write("\\x1b]2;IHUI-BUILD\\x07")
+sys.stdout.write("[T1]\\n")
+sys.stdout.flush()
+time.sleep(1.0)
+sys.stdout.write("\\x07")
+sys.stdout.write("\\x1b]0;second\\x1b\\\\")
+sys.stdout.write("[T2]\\n")
+sys.stdout.flush()
+time.sleep(8)
+"""
+
+
+def test_track_terminal_state_does_not_mistake_osc_terminator_for_bell() -> None:
+    """OSC 的终止符本身就是 BEL:先吃 OSC 再数 BEL,否则每次设标题都多记一次响铃。"""
+    track = _TEST["track_terminal_state"]
+
+    class _Fake:
+        bracketed_paste = False
+        title = ""
+        bell_count = 0
+
+    fake = _Fake()
+    track(fake, "\x1b]2;TITLE\x07")  # 只有标题,没有任何响铃
+    assert fake.title == "TITLE" and fake.bell_count == 0
+    track(fake, "noise\x1b]0;x\x1b\\more\x07")  # ST 终止的 OSC + 一次真响铃
+    assert fake.title == "x" and fake.bell_count == 1
+    track(fake, "\x1b[?2004h")
+    assert fake.bracketed_paste is True
+
+
+def test_title_and_bell_tracked_from_child_output(tmp_path) -> None:
+    """端到端:标题跟着程序的 OSC 换,响铃按次数累计,两样都进会话账本与快照信封。"""
+    term.reset_terminals()
+    try:
+        opened = _open(_script_path(tmp_path, "title.py", _TITLE_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        _read_until(tid, "[T2]", timeout=15.0)
+        session = term._sessions[tid]
+        assert session.title == "second", f"标题没跟着 OSC 换:{session.title!r}"
+        assert session.bell_count == 1, f"响铃计数不对:{session.bell_count}"
+        listed = term.list_terminals(user_id="u-term", session_id="s-term")
+        row = next(t for t in listed["terminals"] if t["terminal_id"] == tid)
+        assert row["title"] == "second" and row["bell_count"] == 1
+        shot = term.snapshot_terminal(tid, user_id="u-term", session_id="s-term")
+        assert shot["title"] == "second" and shot["bell_count"] == 1
+        assert "[T1]" in shot["text"] and shot["title"] not in shot["text"]
+    finally:
+        term.reset_terminals()
+
+
 def test_signal_interrupt_stops_process(tmp_path) -> None:
     opened = _open(_script_path(tmp_path, "sleep.py", _SLEEP_SCRIPT), tmp_path)
     terminal_id = opened["terminal"]["terminal_id"]
