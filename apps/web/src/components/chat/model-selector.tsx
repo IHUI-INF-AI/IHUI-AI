@@ -923,6 +923,10 @@ function withPoolModels(
       // 现拉上游清单核对过(取不到清单的平台整块不返回)⇒ 一律算已验证,不再标「未做探测」。
       verified: true,
       verifiedAt: m.verifiedAt,
+      // 2026-11-20 立:号池模型也带代次字段(ai-service 模型目录判据下发,与平台模型同口径)。
+      // 后端判不了时不带该字段 ⇒ splitByTier 的 normalizeTier 兜底 latest,不误藏。
+      ...(m.category ? { category: normalizeCategory(m.category) } : {}),
+      ...(m.modelTier ? { tier: normalizeTier(m.modelTier) } : {}),
       // 只有"禁用档"才带说明文案(裸 down 不算判死,别把用户吓退)
       healthError: deadReason && isBlockingReason(deadReason) ? '该模型已被判为不可用' : undefined,
       // 命中已判死清单 ⇒ 带上原因,行内会灰显 + 禁用 + 显示"额度已尽/密钥失效/已下线"
