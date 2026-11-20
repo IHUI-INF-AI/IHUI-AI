@@ -760,12 +760,24 @@ function scopeFromArgs(args) {
 /**
  * head/staged 面:一次 `cat-file --batch` 读完一批 blob(逐文件派生在真仓是 fork 风暴)。
  * 派生失败由 face-reader 抛 Undetermined;单条 null = 该面自相矛盾,由调用方折成未判定。
- * @returns {Map<string, string|null>}
+ *
+ * 装箱上限(2026-11-20 放大):本仓全量面 23048 枚 blob ≈ 577MB,层里默认的两条上限
+ * (2500 条/48MB)会把这一趟切成 **9 块以上**,每块一条 `git cat-file --batch` —— 本机实测
+ * 每次派生 ≈0.8s(几乎全是进程启动,不是读盘),整门 24.2s 里 23.1s 是 spawnSync。
+ * 本函数返回的 Map 本来就常驻全量正文,单块放大不增加常驻峰值 ⇒ 这里给足上限把块数压到 2 块。
+ * 判据一字未动:分块只是传输单位,`parseBatchBuffers` 的截断=未判定、missing=null 两条口径照旧。
  */
+const FACE_BATCH_CHUNK = 12000
+const FACE_BATCH_BYTES = 320 << 20
+
 function readFaceContents(face, rels) {
   const prefix = face === 'head' ? 'HEAD:' : ':'
   const specs = rels.map((r) => prefix + r)
-  const raw = catBatch(ROOT, specs)
+  const raw = catBatch(ROOT, specs, {
+    chunkSize: FACE_BATCH_CHUNK,
+    maxBytes: FACE_BATCH_BYTES,
+    maxBuffer: FACE_BATCH_BYTES + (1 << 20),
+  })
   const m = new Map()
   rels.forEach((r, i) => m.set(r, raw.get(specs[i]) ?? null))
   return m
