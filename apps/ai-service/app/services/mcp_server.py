@@ -8952,8 +8952,9 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
     read 增量取输出、wait_for 等到提示符/关键字出现(命中/超时/已退出三态)、signal 中断、
-    resize 改窗口尺寸(仅 PTY 后端)、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys
-    显式拒 TERMINAL_STDIN_CLOSED)、close 收尾。
+    resize 改窗口尺寸、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys 显式拒
+    TERMINAL_STDIN_CLOSED)、close 收尾。open 还可带 `cols`/`rows` 直接**开在**目标尺寸
+    (真终端本就该在启动时定尺寸;先按 120×30 起再 resize 会让 TUI 首屏白排一遍)。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
     子进程环境走 sandbox 严档白名单,不整份继承宿主环境(PTY 后端在此之上补 TERM/COLORTERM
     默认值 —— 真 tty 缺 TERM 会退化成 dumb 终端)。
@@ -8995,6 +8996,10 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             user_id=user_id,
             session_id=session_id,
             env_extra=env_extra,
+            # 尺寸原样交给模块判(非整数/越界由 _normalize_size 单一出口拒)——
+            # 工具层再抄一份 int() 判断只会造出第二个真相源。
+            cols=arguments.get("cols"),
+            rows=arguments.get("rows"),
         )
         return {"tool": "terminal", "action": "open", **result}
 
