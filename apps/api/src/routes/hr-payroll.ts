@@ -16,7 +16,7 @@ import {
   listMyPayrollPeriods,
   buildPayrollHandoffVoucher,
 } from '../services/hr-payroll.js'
-import { requirePermission, requireAuth } from '../plugins/require-permission.js'
+import { requirePermission, requireSelf } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
 import { buildSchema, errorCodeResponses } from '../utils/swagger.js'
@@ -342,9 +342,10 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
 
   /**
    * GET /mine/periods —— 员工自助:列出本人可见的工资月。
-   * 权限:登录即可(requireAuth),按 request.userId 查本人档案,无 manage 权限要求。
+   * 权限:本人已认证即可(requireSelf = 人用 JWT 或 ai-service 内部服务票),
+   * 按 request.userId 查本人档案,无 manage 权限要求。
    */
-  server.get('/mine/periods', { preHandler: requireAuth }, async (request, reply) => {
+  server.get('/mine/periods', { preHandler: requireSelf }, async (request, reply) => {
     const userId = request.userId
     if (!userId) {
       reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
@@ -358,7 +359,7 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
    * GET /mine?periodMonth=YYYY-MM —— 员工自助:查本人某月工资单。
    * 权限:登录即可。查不到本人档案或该月未算薪时返回 404(区分未配置/未生成)。
    */
-  server.get('/mine', { preHandler: requireAuth }, async (request, reply) => {
+  server.get('/mine', { preHandler: requireSelf }, async (request, reply) => {
     const userId = request.userId
     if (!userId) {
       reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
