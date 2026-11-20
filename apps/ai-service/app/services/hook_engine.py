@@ -547,6 +547,15 @@ class HookEngine:
             except Exception:
                 pass
 
+    def publish_observation(self, event: str, payload: dict[str, Any]) -> None:
+        """系统观察事实下行(2026-11-20 立)。
+
+        只走订阅面,**刻意不进 `HOOK_EVENTS`**:那张表是"用户可配的触发器白名单",
+        往里面塞系统事实等于允许"钩子运行结果"去点火用户钩子 —— 每跑一枚钩子就
+        再发一次 `hook.run`,自激成环。与 `hook.failed` 同一条纪律(直接 `_broadcast`)。
+        """
+        self._broadcast(event, payload)
+
     # ---------- Redis 持久化 ----------
 
     def set_redis_client(self, client: Any) -> None:
