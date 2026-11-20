@@ -110,10 +110,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
 | 跟踪文件 | 23057 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-20。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5479,7 +5477,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
 - 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948)
-
 **2026-11-20**
 - 🚀 新功能/改进:交互式终端补真终端身份键与 stdin EOF 原语 (d459cd24a2)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fc7425978b)
@@ -5506,7 +5503,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:落 api 腿承载结论与 webhook 面迁移说明 (3a5bc717f5)
 - 🚀 新功能/改进:173 的 DN5 改差值棘轮(push 档按推送面判责,不再被别席清单漂移顶回来) (247e47d104)
 - 🚀 新功能/改进:取消历史模型折叠区，旧代与专用用途模型一律不展示 (e9c2c4d273)
-
 **2026-11-20**
 - 🚀 新功能/改进:交互终端补 wait_for（expect 原语，命中/超时/已退出三态） (13502ec3cf)
 - 🚀 新功能/改进:钩子配置只读自述端点 + 面板未生效提示(第31项) (910b5e3d56)
@@ -5517,7 +5513,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:给 8c87943 补具名追认(gate-body 无签名阻塞全仓 push) (c0257b063f)
 - ⚡ 性能:47 全量面 blob 装箱上限放大,块数 9+ → 2 (efe4acf74a)
 - 🐞 修复:结清 Y-73 hygiene尺人工问责出口(H3判据从祖先76599d688还原,--strict/--json三维实测,16/18自测绿;出口2 LAND_ALLOW_STALE 因trailer超长) (8c87943bf5)
-
 **2026-11-20**
 - 🚀 新功能/改进:交互终端补窗口尺寸 resize（POSIX TIOCSWINSZ / Windows ResizePseudoConsole） (c1c9cb39d2)
 - 🔧 工程/其他:部署环 fail-closed 复核——guardian-executor 清单按 HEAD 面 blob 重封(判据语义零改动) (e3e8882f31)
@@ -5526,7 +5521,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:README 生成块数字刷新(testFiles 5927 / trackedFiles 23048 / aiServiceRoutes 684) (d5afd8a89c)
 - ⚡ 性能:30a 整面 raw 读数预启动,与 fsck 并发、失败回落同步档 (636b82d012)
 - 🐞 修复:端点派生件(ai-endpoints/api-endpoints)按新 HEAD 面重钉 —— 正文零改动 (47de80224d)
-
 **2026-11-20**
 - 🚀 新功能/改进:交互终端补 Windows 原生 ConPTY 后端（零依赖 ctypes 直连 kernel32） (bec840f434)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (d1aee8dad7)
@@ -5548,7 +5542,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - ⚡ 性能:三道全仓扫描门并入快档重型清单(151/173/158) (490dcb405a)
 - ⚡ 性能:候选遮罩去重 + grep 按扩展名收窄(23.2s->11.9s) (75ebcdf107)
 - 🐞 修复:结清 Y-83/Y-84/Y-91/Y-92/Y-96 五张缺陷普查票(凭据收割确认闸+MachineGuid备份HMAC防伪+terminal锁中毒防护+to_value错误传播+work-panel sync 顶层catch) (832411eb5c)
-
 **2026-11-20**
 - 🐞 修复:root-guard 清单按并发演进后的 HEAD 面重封(guardian-runner/land-gate-rerun 两条差面) (85e3e10c11)
 - ⚡ 性能:push 面按推送改动面收窄 + 定向快通道多 app 循环变量重命名 (7017d9a74a)
@@ -5580,11 +5573,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:死代码棘轮 files 维逐族归因 —— 58 件落档,删 2 件真残留 (93bd931604)
 - 🚀 新功能/改进:快捷键说明面板去掉"Undo 5s"行(撤销入口已退役,不再教一个不存在的动作) (e546b5f396)
 - 🐞 修复:收回 3 条无人调用的远端授权 + workbuddy 号池重登按 F-060 降 none (0988c55542)
-
 **2026-11-20**
 - 🔧 工程/其他:追认两枚未签名受保护面提交(AGENTS 体积裁剪/land-gate-rerun 面旗)解除本地积压推送阻塞 (6556e29907)
 - 🐞 修复:RP-7 取远端更全形态补回维度拆解注记 (d23c8aba4d)
-
 **2026-11-20**
 - 🚀 新功能/改进:用户命令钩子配置面(信任闸+并入既有HookRuntime) + 报告§5.22 (94599d460b)
 - 🐞 修复:补齐 SqliteTicketStore 退役漏改的 chat 派工准入用例 (ab409351ab)
@@ -5668,7 +5659,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:macOS 无架构标记判 universal 双键 显式 x86_64 标记仍走单键 (699cc1209c)
 - 🐞 修复:macOS 无架构标记判 universal,显式 x86_64 标记仍走单键 (e0f9575d85)
 - 🔧 工程/其他:烘焙 0.1.80 更新器 feed(四平台 latest.json 1:1) (a23052e301)
-
 **2026-11-19**
 - 📚 文档:生成块按合并树自洽对齐(readme-align-from-tree) (ef92cca07a)
 - 🚀 新功能/改进:edit_file 保留 BOM（Windows .ps1/.md 常见） (8b054d313d)
@@ -5815,7 +5805,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:R128 Google Workspace export bridge contract, 91.8% -> 92.4% (1584415faa)
 - 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
 - 🔧 工程/其他:追认 npm-execpath 包管理器判别修复 (92bc0e594e)
-
 **2026-11-18**
 - 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f)
 - 🔧 工程/其他:回潮护栏 30→5 分钟(并发会话重建 IHUI* 任务时快速清零) (f59448a04a)
@@ -5980,7 +5969,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:并入两处主线所需修复(ahead 仅 queued 档 + 发布 scp 255 重试) (963695c34e)
 - 🚀 新功能/改进:R84 hook 定义对象二进制坐实(7 中 6 认证/3 共享一址/PostToolUse 未定位) (c8b910b01b)
 - 🚀 新功能/改进:R83 滑动窗口认领16结构(跨源认证1枚/薄证据2枚/覆盖321/长run切分收益0) (6c608e5908)
-
 **2026-11-20**
 - 🐞 修复:摘掉 PROJECT_PLAN 里一行孤立 ======= 冲突残留 —— 它把⑪节切成两段,门12才把"已闭环"与"未实现"读成同段互斥 (4caa6c3726e)
 - 📚 文档:生成块计数对齐合并后现算(trackedFiles 23027->23026 / apiRouteFiles 715->714) (df01f54b94a)
@@ -6060,7 +6048,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:macOS 无架构标记判 universal 双键 显式 x86_64 标记仍走单键 (699cc1209c9)
 - 🐞 修复:macOS 无架构标记判 universal,显式 x86_64 标记仍走单键 (e0f9575d850)
 - 🔧 工程/其他:烘焙 0.1.80 更新器 feed(四平台 latest.json 1:1) (a23052e301e)
-
 **2026-11-19**
 - 📚 文档:生成块按合并树自洽对齐(readme-align-from-tree) (ef92cca07a7)
 - 🚀 新功能/改进:edit_file 保留 BOM（Windows .ps1/.md 常见） (8b054d313d2)
@@ -6207,7 +6194,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:R128 Google Workspace export bridge contract, 91.8% -> 92.4% (1584415faab)
 - 📚 文档:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9f)
 - 🔧 工程/其他:追认 npm-execpath 包管理器判别修复 (92bc0e594ea)
-
 **2026-11-18**
 - 🐞 修复:移除提权段,两份安装脚本回到实测零命中形态(火绒 NetLoader 根治收口) (bd46446f9f6)
 - 🔧 工程/其他:回潮护栏 30→5 分钟(并发会话重建 IHUI* 任务时快速清零) (f59448a04a0)
@@ -6372,7 +6358,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:并入两处主线所需修复(ahead 仅 queued 档 + 发布 scp 255 重试) (963695c34ec)
 - 🚀 新功能/改进:R84 hook 定义对象二进制坐实(7 中 6 认证/3 共享一址/PostToolUse 未定位) (c8b910b01b3)
 - 🚀 新功能/改进:R83 滑动窗口认领16结构(跨源认证1枚/薄证据2枚/覆盖321/长run切分收益0) (6c608e59084)
-
 **2026-11-19**
 - 🚀 新功能/改进:号池模型目录每 6 小时自动对账 + 启动首轮即投递(Y-97) (766e65c55d9)
 - 📚 文档:Y-72 系统级两格已落地(哨兵计划任务+告警拉起) (986357c889b)
@@ -8753,3 +8738,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5928 | `testFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
 | 跟踪文件 | 23048 | `trackedFiles` |
+| 测试文件 | 5930 | `testFiles` |
+| 跟踪文件 | 23060 | `trackedFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |
+| 测试文件 | 5927 | `testFiles` |

@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "마지막 신뢰 {by}",      "hookFailures": {
         "title": "Hook 실행 실패",
         "evidenceMissing": "최종 결과 미기록: 이 실행은 실행 로그에도, 데드레터 큐에도 없어 성공 여부를 확인할 수 없습니다.",
         "state": {
@@ -8748,7 +8749,6 @@
       "runtimeHookRunError": "실패",
       "runtimeHookConfigUntrusted": "훅 설정 {count}개가 신뢰되지 않음 — 수정 후 이 컴퓨터에서 다시 신뢰 등록 필요",
       "runtimeHookConfigInvalid": "훅 설정이 손상되어 미설정 상태로 실행 중",
-      "runtimeHookConfigStaleBy": "마지막 신뢰 {by}",
       "runtimeMessageSend": "{iteration}라운드 요청 전송됨 · 메시지 {count}개",
       "runtimeSessionEndSuccess": "세션 완료 · {iterations}라운드 · 소요 시간 {duration}",
       "runtimeSessionEndFailed": "세션 비정상 종료 · {iterations}라운드 · 소요 시간 {duration}",
@@ -8860,7 +8860,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "터미널 입력 채널이 닫혔습니다",
+          "action": "터미널 세션을 다시 연 뒤 입력을 보내세요"
+        },        "102": {
           "title": "요청 시간 검증 실패",
           "action": "시스템 시계를 동기화한 후 다시 시도"
         },
@@ -9736,11 +9740,7 @@
           "title": "터미널 시작 실패",
           "action": "호스트 환경을 확인하세요"
         },
-        "TERMINAL_STDIN_CLOSED": {
-    "title": "터미널 입력 채널이 닫혔습니다",
-    "action": "터미널 세션을 다시 연 뒤 입력을 보내세요"
-  },
-  "TERMINAL_WRITE_FAILED": {
+        "TERMINAL_WRITE_FAILED": {
           "title": "터미널 쓰기 실패",
           "action": "쓰기를 다시 시도하세요"
         },
@@ -13237,6 +13237,8 @@
     "reasoningEffortHigh": "심층",
     "reasoningEffortXhigh": "초심층",
     "reasoningEffortMax": "극한",
+    "reasoningEffortUltra": "울트라",
+    "reasoningEffortDefault": "기본",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
     "analysisOpen": "시나리오 분석 보기",
@@ -21118,7 +21120,37 @@
     "countSummary": "산출물 {total}개 중 {loaded}개 불러옴"
   },
   "financeAi": {
-    "automationTitle": "국가 플랫폼 자동화 · 내장 브라우저 실행 다리",
+    "annualBonusLabel": "상여금(분류과세)",
+    "annualBonusPh": "0.00(비워두어도 됨)",
+    "fieldAnnualBonus": "상여금 {value}",
+    "reimbursementTitle": "AI 경비 처리",
+    "reimbursementDesc": "비용 명세 → 매입세액공제 + 소득세 판정 + 컴플라이언스 검토 + 분개 초안",
+    "reimbursementCta": "경비 처리 시작",
+    "reimbursementJsonLabel": "비용 명세(JSON 배열)",
+    "reimbursementJsonPh": "[{\"employee\":\"张三\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
+    "reimbursementHint": "lodging_city_tier / travel_per_diem / conference / 매입세액 전출 / 가지급금 상계 / 부문 배분 확장 필드 지원. 초안은 재무 검토 필요",
+    "reimbursementInvalid": "비용 명세는 유효한 JSON 배열이어야 합니다",
+    "revenueLabel": "매출액(접대비 한도)",
+    "wageTotalLabel": "총 급여(교육/복리후생 한도)",
+    "fieldRevenue": "매출액 {value}",
+    "fieldWageTotal": "총 급여 {value}",
+    "promptReimbursement": "ai_reimbursement 도구로 경비 처리를 실행하세요. 비용 명세 JSON(금액은 문자열 그대로, 수치 변경 금지): {payload}",
+    "socialTitle": "사회보험 정산",
+    "socialDesc": "직원별 4대보험+주택적립금, 의료 개인계정/공용 분할, 기수 상하한 판정",
+    "socialCta": "보험 정산 시작",
+    "socialEmployeesLabel": "가입자(JSON 배열)",
+    "socialEmployeesPh": "[{\"name\":\"张三\",\"gross\":\"19800\",\"base\":\"19800\"}]",
+    "socialAvgWageLabel": "사회평균임금(기수 기준)",
+    "fieldSocialAvgWage": "사회평균임금 {value}",
+    "socialInvalid": "가입자는 유효한 JSON 배열이어야 합니다",
+    "promptSocial": "social_insurance_calc 로 사회·의료보험 월별 계산을 실행하세요. 기간: {period};가입자 JSON(수치 변경 금지): {payload}",
+    "deductionTitle": "소득세 특별공제",
+    "deductionDesc": "7개 항목을 직원별 계산, 합계는 신고용 급여표에 직결",
+    "deductionCta": "특별공제 계산",
+    "deductionEmployeesLabel": "직원 공제 정보(JSON 배열)",
+    "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
+    "deductionInvalid": "공제 정보는 유효한 JSON 배열이어야 합니다",
+    "promptDeduction": "special_deduction_calc 로 직원별 소득세 특별공제 7개 항목을 계산하세요. 기간: {period};직원 JSON: {payload}",    "automationTitle": "국가 플랫폼 자동화 · 내장 브라우저 실행 다리",
     "automationDesc": "기장과 신고의 대외 다리: AI가 이 프로젝트의 내장 브라우저로 전자세무국·사회보험·의료보험 포털에서 데이터 취득, 사전 기입, 제출 게이트 직전까지 진행합니다. 네이티브 클라이언트는 데스크톱 자동화 면(사람 동반)으로 실행.",
     "targetEtaxInvoiceLedger": "전자세무국·세금계산서 대장/선택 인증",
     "targetEtaxVatDeclaration": "전자세무국·부가가치세 신고(지방특별 부가세 포함)",

@@ -13,7 +13,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Calculator, MessageSquare, Scale, Wallet } from 'lucide-react'
+import { Calculator, ClipboardList, HeartPulse, MessageSquare, Receipt, Scale, Wallet } from 'lucide-react'
 
 import {
   Button,
@@ -63,6 +63,16 @@ export default function FinanceAiPage() {
   const [taxInput, setTaxInput] = React.useState('')
   const [taxProfit, setTaxProfit] = React.useState('')
   const [taxWages, setTaxWages] = React.useState('')
+  // 财务部五腿扩展(2026-11-13):年终奖单独计税 + 报销/社保/专项附加三张新卡
+  const [taxBonus, setTaxBonus] = React.useState('')
+  const [reimJson, setReimJson] = React.useState('')
+  const [reimRevenue, setReimRevenue] = React.useState('')
+  const [reimWageTotal, setReimWageTotal] = React.useState('')
+  const [socialPeriod, setSocialPeriod] = React.useState(currentMonth)
+  const [socialEmployees, setSocialEmployees] = React.useState('')
+  const [socialAvgWage, setSocialAvgWage] = React.useState('')
+  const [deductionPeriod, setDeductionPeriod] = React.useState(currentMonth)
+  const [deductionEmployees, setDeductionEmployees] = React.useState('')
 
   // 进度回显:取当前会话最近一条带 planSteps 的 assistant 消息(与气泡内 inline 卡同源数据)
   const planSteps = useChatStore((s) => {
@@ -119,6 +129,7 @@ export default function FinanceAiPage() {
       taxGeneral && taxOutput && t('fieldOutputTax', { value: taxOutput }),
       taxGeneral && taxInput && t('fieldInputTax', { value: taxInput }),
       taxProfit && t('fieldProfit', { value: taxProfit }),
+      taxBonus && t('fieldAnnualBonus', { value: taxBonus }),
       taxPayload && taxWages.trim()
         ? t('fieldWages', { payload: JSON.stringify(taxPayload) })
         : null,
@@ -128,6 +139,56 @@ export default function FinanceAiPage() {
     void launch(
       'taxFiling',
       `${t('promptTaxFiling')} ${t('phaseTaxFiling')}\n${facts}\n${t('promptTaxDraftNote')}`,
+    )
+  }
+
+  // 五腿扩展(2026-11-13):一键报销 / 社保精算 / 专项附加三张新卡的发起逻辑
+  const reimPayload = parseJsonOr(reimJson)
+  const reimOk = () => {
+    if (!reimJson.trim() || reimPayload === null) {
+      toast.error(t('reimbursementInvalid'))
+      return
+    }
+    const facts = [
+      reimRevenue && t('fieldRevenue', { value: reimRevenue }),
+      reimWageTotal && t('fieldWageTotal', { value: reimWageTotal }),
+    ]
+      .filter(Boolean)
+      .join('；')
+    void launch(
+      'reimbursement',
+      `${t('promptReimbursement', { payload: JSON.stringify(reimPayload) })}${facts ? `\n${facts}` : ''}`,
+    )
+  }
+
+  const socialPayload = parseJsonOr(socialEmployees)
+  const socialOk = () => {
+    if (!socialEmployees.trim() || socialPayload === null) {
+      toast.error(t('socialInvalid'))
+      return
+    }
+    const avgWage = socialAvgWage.trim() ? `\n${t('fieldSocialAvgWage', { value: socialAvgWage })}` : ''
+    void launch(
+      'socialInsurance',
+      `${t('promptSocial', {
+        period: socialPeriod,
+        payload: JSON.stringify(socialPayload),
+      })}${avgWage}`,
+    )
+  }
+
+  const deductionPayload = parseJsonOr(deductionEmployees)
+  const deductionOk = () => {
+    if (!deductionEmployees.trim() || deductionPayload === null) {
+      toast.error(t('deductionInvalid'))
+      return
+    }
+    void launch(
+      'deduction',
+      t('promptDeduction', {
+        period: deductionPeriod,
+        payload: JSON.stringify(deductionPayload),
+      }),
     )
   }
 
@@ -267,6 +328,16 @@ export default function FinanceAiPage() {
                   placeholder="0.00"
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tx-bonus">{t('annualBonusLabel')}</Label>
+                <Input
+                  id="tx-bonus"
+                  inputMode="decimal"
+                  value={taxBonus}
+                  onChange={(e) => setTaxBonus(e.target.value)}
+                  placeholder={t('annualBonusPh')}
+                />
+              </div>
               {taxGeneral ? (
                 <>
                   <div className="space-y-1.5">
@@ -309,6 +380,162 @@ export default function FinanceAiPage() {
               <span>{busy === 'taxFiling' ? t('starting') : t('taxCta')}</span>
             </Button>
             <p className="font-[weight:inherit] text-label text-muted-foreground">{t('draftNote')}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Receipt className="h-5 w-5 text-primary" />
+              {t('reimbursementTitle')}
+            </CardTitle>
+            <CardDescription>{t('reimbursementDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="reim-revenue">{t('revenueLabel')}</Label>
+                <Input
+                  id="reim-revenue"
+                  inputMode="decimal"
+                  value={reimRevenue}
+                  onChange={(e) => setReimRevenue(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reim-wage">{t('wageTotalLabel')}</Label>
+                <Input
+                  id="reim-wage"
+                  inputMode="decimal"
+                  value={reimWageTotal}
+                  onChange={(e) => setReimWageTotal(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="reim-json">{t('reimbursementJsonLabel')}</Label>
+              <textarea
+                id="reim-json"
+                value={reimJson}
+                onChange={(e) => setReimJson(e.target.value)}
+                rows={5}
+                spellCheck={false}
+                placeholder={t('reimbursementJsonPh')}
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+              />
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
+                {t('reimbursementHint')}
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="w-full gap-1.5"
+              disabled={busy !== null}
+              onClick={reimOk}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>{busy === 'reimbursement' ? t('starting') : t('reimbursementCta')}</span>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <HeartPulse className="h-5 w-5 text-primary" />
+              {t('socialTitle')}
+            </CardTitle>
+            <CardDescription>{t('socialDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="si-period">{t('periodLabel')}</Label>
+                <Input
+                  id="si-period"
+                  value={socialPeriod}
+                  onChange={(e) => setSocialPeriod(e.target.value)}
+                  placeholder="2026-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="si-avg">{t('socialAvgWageLabel')}</Label>
+                <Input
+                  id="si-avg"
+                  inputMode="decimal"
+                  value={socialAvgWage}
+                  onChange={(e) => setSocialAvgWage(e.target.value)}
+                  placeholder="8000"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="si-emp">{t('socialEmployeesLabel')}</Label>
+              <textarea
+                id="si-emp"
+                value={socialEmployees}
+                onChange={(e) => setSocialEmployees(e.target.value)}
+                rows={5}
+                spellCheck={false}
+                placeholder={t('socialEmployeesPh')}
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+              />
+            </div>
+            <Button
+              size="lg"
+              className="w-full gap-1.5"
+              disabled={busy !== null}
+              onClick={socialOk}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>{busy === 'socialInsurance' ? t('starting') : t('socialCta')}</span>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ClipboardList className="h-5 w-5 text-primary" />
+              {t('deductionTitle')}
+            </CardTitle>
+            <CardDescription>{t('deductionDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ded-period">{t('periodLabel')}</Label>
+              <Input
+                id="ded-period"
+                value={deductionPeriod}
+                onChange={(e) => setDeductionPeriod(e.target.value)}
+                placeholder="2026-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ded-emp">{t('deductionEmployeesLabel')}</Label>
+              <textarea
+                id="ded-emp"
+                value={deductionEmployees}
+                onChange={(e) => setDeductionEmployees(e.target.value)}
+                rows={5}
+                spellCheck={false}
+                placeholder={t('deductionEmployeesPh')}
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+              />
+            </div>
+            <Button
+              size="lg"
+              className="w-full gap-1.5"
+              disabled={busy !== null}
+              onClick={deductionOk}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>{busy === 'deduction' ? t('starting') : t('deductionCta')}</span>
+            </Button>
           </CardContent>
         </Card>
       </div>

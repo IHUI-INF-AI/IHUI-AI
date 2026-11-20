@@ -859,27 +859,33 @@ class _IIT:
 
 
 def _iit_cumulative(monthly: list[dict[str, Any]]) -> list[_IIT]:
-    """累计预扣法逐月计算(工资表 [{name, gross, social, special_deduction(子女教育/房贷等)}, ...])。"""
-    cumulative_income = Decimal(0)
-    cumulative_deductions = Decimal(0)
-    cumulative_paid = Decimal(0)
+    """累计预扣法逐月计算(工资表 [{name, gross, social, special_deduction(子女教育/房贷等)}, ...])。
+
+    P0 修复(2026-11-13):累计口径**按员工独立** —— 同名员工的跨行(跨月)收入共享
+    各自的累计预扣进度,不同员工之间互不串扰。旧实现把所有行平铺进同一组累计变量,
+    后面员工的应纳税所得额会把前面员工的收入一并累计,税额系统性虚增。
+    """
+    cumulative: dict[str, dict[str, Decimal]] = {}
     rows: list[_IIT] = []
     for idx, emp in enumerate(monthly):
         name = str(emp.get("name") or f"员工{idx + 1}")[:_MAX_TEXT_LEN]
         gross = _money(emp.get("gross"), f"employees[{idx}].gross")
         social = _money(emp.get("social") or 0, f"employees[{idx}].social")
         special = _money(emp.get("special_deduction") or 0, f"employees[{idx}].special_deduction")
-        cumulative_income += gross
-        cumulative_deductions += social + special + IIT_MONTHLY_DEDUCTION
-        taxable = max(Decimal(0), cumulative_income - cumulative_deductions)
+        acc = cumulative.setdefault(
+            name, {"income": Decimal(0), "deductions": Decimal(0), "paid": Decimal(0)}
+        )
+        acc["income"] += gross
+        acc["deductions"] += social + special + IIT_MONTHLY_DEDUCTION
+        taxable = max(Decimal(0), acc["income"] - acc["deductions"])
         for cap, rate, quick in _IIT_BRACKETS:
             if taxable <= cap:
                 total_due = (taxable * rate - quick).quantize(Decimal("0.01"))
                 break
         else:  # pragma: no cover 末档 10^15 必然覆盖
             total_due = taxable * Decimal("0.45")
-        month_tax = total_due - cumulative_paid
-        cumulative_paid = max(Decimal(0), cumulative_paid + month_tax)
+        month_tax = total_due - acc["paid"]
+        acc["paid"] = max(Decimal(0), acc["paid"] + month_tax)
         rows.append(_IIT(name=name, gross=gross, social=social, special=special, tax=month_tax))
     return rows
 

@@ -17,7 +17,7 @@
  * 用法：pnpm typecheck:full
  */
 
-import { readdirSync, statSync, rmSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -55,6 +55,16 @@ export { pickStalePackages }
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
+// 逐包类型结论回执(2026-11-20):输入摘要未变的包不再重跑 tsc。判据住在 lib,本文件只接线。
+import {
+  dirtyPaths,
+  headBlobMap,
+  planProjectReceipts,
+  readReceipts,
+  receiptEnabled,
+  receiptTtlMs,
+  writeReceipts,
+} from './lib/typecheck-project-receipt.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -594,16 +604,136 @@ if (_projects.length === 0) {
   console.error('[typecheck:full] ❌ 未发现任何带 typecheck 脚本的 workspace 包 —— 输入面为空,未判定(exit 2)')
   process.exit(2)
 }
-const _typecheckRun = await runTypecheckProjects({
-  projects: _projects,
-  concurrency: _typecheckConcurrency.limit,
-  root: ROOT,
-})
+
+// ─── 逐包类型结论回执(2026-11-20 立)─────────────────────────────────────────
+// 判据与失效方向全在 `lib/typecheck-project-receipt.mjs`;这里只做三件事:
+// ①取三个输入面(HEAD 文件清单 / 脏面 / 上一轮回执),②打印"跳过谁、为什么、重跑谁",
+// ③本轮**全过**之后把本轮摘要落盘。取不到任何一个面 ⇒ 整层不跳过,照原路径全跑。
+const _rcMode = receiptEnabled()
+let _rcProjects = _projects
+let _rcSkipped = []
+let _rcDigests = new Map()
+let _rcPrev = new Map()
+if (_rcMode) {
+  const _blobs = headBlobMap(ROOT)
+  const _dirty = dirtyPaths(ROOT)
+  const _prevReceipts = readReceipts(ROOT)
+  _rcPrev = _prevReceipts.map
+  let _graph = new Map()
+  try {
+    _graph = workspaceDependencyGraph(ROOT)
+  } catch {
+    _graph = new Map()
+  }
+  // 全部 workspace 包的 name→目录(含没有 typecheck 脚本的包:它们的源码同样是编译输入)
+  const _dirOf = new Map()
+  for (const base of ['apps', 'packages']) {
+    let names = []
+    try {
+      names = readdirSync(resolve(ROOT, base), { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name)
+    } catch {
+      names = []
+    }
+    for (const n of names) {
+      const pj = resolve(ROOT, base, n, 'package.json')
+      if (!existsSync(pj)) continue
+      try {
+        const name = String(JSON.parse(readFileSync(pj, 'utf8'))?.name ?? '').trim()
+        if (name) _dirOf.set(name, `${base}/${n}`)
+      } catch {
+        /* 坏清单:该包不参与摘要,调用方按"取不到"处理 */
+      }
+    }
+  }
+  const _depDirsOf = (p) => {
+    // 传递闭包:依赖包的 dist/*.d.ts 可能再导出自己的依赖类型
+    const seen = new Set()
+    const q = [...(_graph.get(p.name) ?? [])]
+    while (q.length > 0) {
+      const n = q.pop()
+      if (seen.has(n)) continue
+      seen.add(n)
+      const next = _graph.get(n)
+      if (next) for (const x of next) q.push(x)
+    }
+    return [...seen].map((n) => _dirOf.get(n)).filter(Boolean)
+  }
+  let _tsVersion = null
+  try {
+    _tsVersion = JSON.parse(readFileSync(resolve(ROOT, 'node_modules/typescript/package.json'), 'utf8'))?.version ?? null
+  } catch {
+    _tsVersion = null
+  }
+  const _plan = planProjectReceipts({
+    root: ROOT,
+    projects: _projects,
+    depDirsOf: _depDirsOf,
+    blobs: _blobs,
+    dirty: _dirty,
+    receipts: _prevReceipts.map,
+    envNode: {
+      node: process.version,
+      ts: _tsVersion,
+      // 全局基座:它的 blob 变了,所有 program 的边界都可能变
+      base: _blobs?.get('tsconfig.base.json') ?? null,
+    },
+    ttlMs: receiptTtlMs(),
+  })
+  if (_plan.blocked) {
+    console.log(`[typecheck:full] ⚠️ 逐包回执本层不启用(${_plan.blocked})⇒ 全部包照原路径重跑`)
+  } else {
+    _rcProjects = _plan.run
+    _rcSkipped = _plan.skip
+    _rcDigests = _plan.digests
+    if (_rcSkipped.length > 0) {
+      console.log(
+        `[typecheck:full] ♻️ 逐包回执命中 ${_rcSkipped.length}/${_projects.length} 个包(类型输入摘要与上一轮一致)⇒ 不重跑 tsc:`,
+      )
+      for (const s of _rcSkipped) console.log(`[typecheck:full]    · ${s.name} —— ${s.why}`)
+      console.log(
+        `[typecheck:full] 重跑 ${_rcProjects.length} 个包:${_rcProjects.map((p) => p.name).join(' / ') || '(无)'}`,
+      )
+      console.log(
+        '[typecheck:full] 判据未放宽:每个包的摘要含自己与依赖包的 TS 输入 blob、tsconfig 基座、node/tsc 版本与命令串;任一变化即重跑;取不到任何一面即整层不跳过。',
+      )
+    }
+  }
+}
+
+let _typecheckRun = { ok: true, exitCode: 0, results: [] }
+if (_rcProjects.length > 0) {
+  _typecheckRun = await runTypecheckProjects({
+    projects: _rcProjects,
+    concurrency: _typecheckConcurrency.limit,
+    root: ROOT,
+  })
+}
 if (!_typecheckRun.ok) {
   console.error(`\n[typecheck:full] 失败，退出码 ${_typecheckRun.exitCode}`)
   process.exit(_typecheckRun.exitCode ?? 1)
 }
-console.log(`[typecheck:full] ✅ ${_projects.length} 个包 typecheck 全部通过`)
+// 只在**本轮确实跑过且全过**之后落盘:失败 ⇒ 不写,下次照旧重跑(不拿失败结论当通过)。
+if (_rcMode && _rcDigests.size > 0) {
+  const merged = new Map(_rcPrev)
+  for (const p of _rcProjects) {
+    const digest = _rcDigests.get(p.name)
+    if (!digest) continue
+    const ms = _typecheckRun?.results?.find?.((r) => r?.name === p.name)?.ms ?? null
+    merged.set(p.name, { digest, at: Date.now(), ms })
+  }
+  const ok = writeReceipts(
+    ROOT,
+    [...merged.entries()].map(([name, e]) => [name, { digest: e.digest, ms: e.ms ?? null }]),
+  )
+  console.log(
+    `[typecheck:full] 🧾 逐包回执已落盘(${merged.size} 个包${_rcSkipped.length ? `,本轮回用 ${_rcSkipped.length} 个` : ''})${ok ? '' : '(写盘失败:下次照旧重跑)'}`,
+  )
+}
+console.log(
+  `[typecheck:full] ✅ ${_projects.length} 个包 typecheck 全部通过(本轮实跑 ${_rcProjects.length} 个${_rcSkipped.length ? `,按回执复用 ${_rcSkipped.length} 个` : ''})`,
+)
 
 // ─── Phase 1.5:e2e typecheck 阻断门(2026-07-26 立) ──
 // 背景:apps/web/e2e/ 有独立 tsconfig.json(extends tsconfig.base.json),

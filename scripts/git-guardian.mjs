@@ -6686,6 +6686,88 @@ export function sweepApiLiveness(opts = {}) {
   return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
 }
 
+// tmp 体积只读哨兵派发腿(2026-11-20 立,与 sweepApiLiveness 同型)。
+// `.ihui-agent/tmp/` 是 gitignored 运行时落盘面,提交链 stagedTriggers 结构上永远扫不到,
+// 只能由常驻 tick 的周期腿每轮枚举。判据(三读数 + 两档阈值点名)全在器物
+// `scripts/check-tmp-bloat.mjs`,本层只负责节流 + 派发 + 读结论行,零复算(§0.6)。
+// 阈值:单枚 >50MB = alarm / >20MB = watch;本腿只读不清理,越阈只读数点名。
+export function auditTmpBloat(opts = {}) {
+  const {
+    now = Date.now(),
+    // 5 分钟:与 api 活体体检同档 —— 器物只读一轮目录枚举,无落地不刷仓。
+    intervalMs = 5 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'tmp-bloat-dispatch-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-tmp-bloat.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ tmp 体积哨兵:器物不在位(scripts/check-tmp-bloat.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '哨兵不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ tmp 体积哨兵:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 5 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, code: 0, out: String(out ?? '') }
+          } catch (e) {
+            // rc=1 = 已判定越阈(watch/alarm);rc=2 = 未判定;都按"记一笔、下轮再看"带回
+            return {
+              ok: false,
+              code: typeof e?.status === 'number' ? e.status : 1,
+              out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+              err: String(e?.message ?? e),
+            }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows
+    .map((l) => l.match(/TMP-BLOAT\s+files=(\d+)\s+total=([\d.]+)\s+MB\s+max=([\d.]+)\s+MB\s+over50=(\d+)\s+over20=(\d+)\s+state=([A-Za-z]+)/) ?? null)
+    .find(Boolean)
+  const state = resultLine ? resultLine[6] : null
+  const kv = (i) => (resultLine ? resultLine[i] : null)
+  const line = resultLine ? resultLine[0].trim() : ''
+  let reading = null
+  if (state === 'ok') {
+    reading = `tmp ${kv(1)} 枚 / ${kv(2)}MB,最大 ${kv(3)}MB,无越阈单枚`
+  } else if (state === 'watch') {
+    reading = `${kv(5)} 枚 >20MB(watch 档,未达 50MB alarm 线);最大 ${kv(3)}MB`
+  } else if (state === 'alarm') {
+    reading = `🚨 ${kv(4)} 枚 >50MB 失控单枚;另 ${kv(5)} 枚 >20MB`
+  } else if (state === 'undetermined') {
+    reading = `未判定(尺子取不到 tmp 目录或枚列举)⇒ 本轮没判,不等于"盘面干净"`
+  }
+  logger(
+    reading !== null
+      ? `${state === 'ok' ? '✅' : '⚠️'} tmp 体积哨兵:${reading}${line ? ` ｜ ${line.slice(0, 160)}` : ''}`
+      : `${r.ok ? '✅' : '⚠️'} tmp 体积哨兵:${line || r.err || '未取到结论行(TMP-BLOAT)⇒ 本轮读数未判定,不等于"盘面干净"'}`,
+  )
+  return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
+}
+
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l4105(门 103 C1 收口)〉首意: 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
 export function sweepStaleClaimMarks(opts = {}) {
   const {
@@ -14822,6 +14904,9 @@ async function main() {
     // 冷启动停在"已登录无 token"混合态 ⇒ 模型选择器退回硬编码兜底。器物自带 5 分钟节流 +
     // 三道重启护栏(连续超阈 / 自证本仓 dev api / 24h 配额),本层只派发不判据(§0.6)。
     if (!CHECK_ONLY) sweepApiLiveness()
+    // tmp 体积只读哨兵(2026-11-20 立,5 分钟节流,器物 scripts/check-tmp-bloat.mjs)。
+    // tmp 是 gitignored 盘面,提交链扫不到,只能由常驻 tick 周期腿枚举;未判定(rc=2)不记绿。
+    if (!CHECK_ONLY) auditTmpBloat()
     // ref 位移丢提交守夜人(2026-11-18):计划任务实测会被删,关键判据不能只挂它(§5b)。
     if (!CHECK_ONLY) sweepRefMoveLoss()
     // 违禁桶兜底清扫(2026-10-25,等条件/待拍板两道机主禁令的执行器物化):union 收敛器与
@@ -15536,6 +15621,9 @@ function startDaemon(bootGuard = null) {
         // 2026-11-18 立:dev api 活体体检(5 分钟节流,器物 scripts/check-api-liveness.mjs)。
         // 只认器物自己打的 API-LIVENESS 结论行;未判定(rc=2)不记绿,器物的重启护栏全在器物内。
         sweepApiLiveness()
+        // tmp 体积只读哨兵(2026-11-20 立,5 分钟节流,器物 scripts/check-tmp-bloat.mjs)。
+        // 只认器物自己打的 TMP-BLOAT 结论行;未判定(rc=2)不记绿,本腿只读不清理。
+        auditTmpBloat()
         await sweepUiMirrorLeg()
         sweepWebStyleTiers()
         // ---- 第二批:原先整条链无节流的 4 条,用调用点 legThrottle 补上后才敢上常驻面 ----
@@ -16681,6 +16769,7 @@ export const __test__ = {
   parseGitFilterKeys,
   sweepStaleClosedRows,
   sweepApiLiveness,
+  auditTmpBloat,
   sweepBannedBuckets,
   sweepHeadRecallRows,
   sweepStaleClaimMarks,

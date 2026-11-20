@@ -147,6 +147,9 @@ interface ModelSelectorProps {
   /** 弹层底部扩展段(2026-09-30 底栏单行化):推理强度轴 + 采样参数入口等
    *  "模型相关调参"控件收纳进模型弹层 footer,宿主以 ReactNode 传入。 */
   footer?: React.ReactNode
+  /** 弹层顶部扩展段(2026-11-20 用户定档):推理强度卡片上移到模型列表**顶部**,
+   *  不再压在列表最下面 —— 打开列表先看到"当前模型 + 当前档位 + 滑轨",再往下挑模型。 */
+  header?: React.ReactNode
   /** 受控开合(2026-11-15):宿主需要在 footer 里的动作弹窗打开前先关掉本弹层,
    * 否则 z-popover 弹层会盖住 z-modal 对话框,且 menu 关闭会卸载 footer 内的 Dialog 状态。 */
   menuOpen?: boolean
@@ -952,6 +955,7 @@ export function ModelSelector({
   disabled,
   label,
   autoResolvedModel,
+  header,
   footer,
   menuOpen: controlledMenuOpen,
   onMenuOpenChange,
@@ -1320,6 +1324,9 @@ export function ModelSelector({
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
+          {/* 顶部扩展段(2026-11-20 用户定档):推理强度卡片放**顶上**,不再压在最下面。
+              非 DropdownMenu.Item 的普通节点:点滑轨/折叠/恢复默认都不会触发 Radix 自动关单。 */}
+          {header ? <div className="px-1 pb-1.5 pt-0.5">{header}</div> : null}
           {/* 自定义配置模型入口 */}
           <DropdownMenu.Group>
             <DropdownMenu.Item

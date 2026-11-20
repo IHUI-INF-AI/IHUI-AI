@@ -14,7 +14,13 @@
 - create_artifact: G3 统一交付物工具(artifact_tools,html_report/slides/sheet/doc/video_ref);
 - create_automation: G2 对话式自动化创建工具(automation_tools,经 apps/api automations 端点);
 - ai_bookkeeping / ai_tax_filing: 财务部板块插件(RP-46,2026-11-12,finance_tools,
-  AI 一键代账/一键报税,分阶段可续跑,过程经 tool-call 帧实时回显)。
+  AI 一键代账/一键报税,分阶段可续跑,过程经 tool-call 帧实时回显);
+- ai_reimbursement: AI 一键报账报销(reimbursement_tools,费用明细 → 进项抵扣 +
+  个税口径 + 合规校验 + 分录草案,财务部五腿扩展);
+- social_insurance_calc: 社保医保月度缴费精算(social_insurance_tools,逐人五险一金
+  + 医保个人账户/统筹拆分 + 基数封顶保底,财务部五腿扩展);
+- special_deduction_calc: 个税七项专项附加扣除计算(special_deduction_tools,
+  逐人七项明细 + 互斥合规校验,合计直接喂 ai_tax_filing 工资表,财务部五腿扩展)。
 """
 
 from .artifact_tools import create_artifact
@@ -31,7 +37,10 @@ from .finance_tools import (
 )
 from .init_agents_md import init_agents_md
 from .payroll_handoff_tools import ai_payroll_handoff
+from .reimbursement_tools import AI_REIMBURSEMENT_DESCRIPTION, ai_reimbursement
 from .report_tools import generate_report
+from .social_insurance_tools import SOCIAL_INSURANCE_DESCRIPTION, social_insurance_calc
+from .special_deduction_tools import SPECIAL_DEDUCTION_DESCRIPTION, special_deduction_calc
 from .spreadsheet_formula import sheet_formula_eval, sheet_formula_validate
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 
@@ -55,7 +64,13 @@ __all__ = [
     "ai_bookkeeping",
     "ai_tax_filing",
     "ai_payroll_handoff",
+    "ai_reimbursement",
+    "social_insurance_calc",
+    "special_deduction_calc",
     "AI_BOOKKEEPING_DESCRIPTION",
     "AI_TAX_FILING_DESCRIPTION",
+    "AI_REIMBURSEMENT_DESCRIPTION",
+    "SOCIAL_INSURANCE_DESCRIPTION",
+    "SPECIAL_DEDUCTION_DESCRIPTION",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
