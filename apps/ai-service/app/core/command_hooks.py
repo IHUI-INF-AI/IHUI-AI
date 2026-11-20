@@ -506,6 +506,7 @@ _KIND_BY_EVENT: Final[dict[str, HookKind]] = {
     "post_tool_use": HookKind.POST_TOOL_USE,
     "permission_request": HookKind.PERMISSION_REQUEST,
     "session_start": HookKind.SESSION_START,
+    "session_end": HookKind.SESSION_END,
     "user_prompt_submit": HookKind.USER_PROMPT_SUBMIT,
     "pre_compact": HookKind.PRE_COMPACT,
     "post_compact": HookKind.POST_COMPACT,
