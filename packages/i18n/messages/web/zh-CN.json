@@ -9705,6 +9705,10 @@
           "title": "终端不存在",
           "action": "重新创建终端"
         },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "平台不支持 PTY",
+          "action": "改用管道模式,或检查宿主 ConPTY 支持"
+        },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "终止信号发送失败",
           "action": "重试或强制关闭"

@@ -9705,6 +9705,10 @@
           "title": "터미널 없음",
           "action": "터미널을 새로 만드세요"
         },
+        "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
+          "title": "이 플랫폼에서는 PTY를 지원하지 않습니다",
+          "action": "파이프 모드로 전환하거나 호스트 ConPTY 지원을 확인하세요"
+        },
         "TERMINAL_SIGNAL_FAILED": {
           "title": "신호 전송 실패",
           "action": "다시 시도하거나 강제 종료하세요"
