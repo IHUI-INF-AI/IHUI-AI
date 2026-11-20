@@ -17,6 +17,8 @@
 - `read_terminal`:按 seq 增量读,支持有限等待(默认 1s)与字符上限;
 - `wait_terminal`:等输出里出现某个 pattern(子串或正则),命中/超时/进程退出三种收口
   —— 轮询式 `read` 拼不出"等提示符"这件事(`wait_s` 单次上限 10s,且没有命中语义);
+- `eof_terminal`:送"输入结束"让按 EOF 收尾的程序自己收尾(管道关 stdin / PTY 写
+  `\\x04`),之后 send/keys 显式 `TERMINAL_STDIN_CLOSED`,不是只能 kill;
 - `signal_terminal`:interrupt/terminate/kill(Windows 用 CTRL_BREAK_EVENT);
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
@@ -30,8 +32,11 @@
   setsid + `TIOCSCTTY` 造**真 tty** —— 子进程 `isatty()` 为真,npm/cargo/pytest-v 这类按
   tty 出进度/颜色的程序表现与其在自己终端里一致;stdout 与 stderr 由 tty 行规程合并为
   单一 `pty` 通道(这是真终端的物理事实,非本实现的缺陷)。子进程环境**仍同经
-  `_strict_child_env`**,PTY 不放宽任何环境边界。**Windows 走原生 ConPTY**
-  (`conpty_win.py`:ctypes 直连 kernel32 的 `CreatePseudoConsole` + `CreateProcessW`
+  `_strict_child_env`**,PTY 不放宽任何环境边界;在这之上由 `_pty_child_env` 用
+  `setdefault` 补 `TERM=xterm-256color` / `COLORTERM=truecolor` —— 真 tty 缺 `TERM`
+  时程序会当 dumb 终端(颜色与光标控制全关、分页退化),而这两键不在宿主白名单里;
+  调用方显式传值仍以调用方为准,管道后端不补(那边不是 tty)。**Windows 走原生 ConPTY**
+  (ctypes 直连 kernel32 的 `CreatePseudoConsole` + `CreateProcessW`
   启动属性表,零第三方依赖),子进程同样 `isatty()` 为真;宿主/内核不支持时**显式返回
   `TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM`**,绝不静默回落管道冒充已 PTY(§0.3
   「没判绝不写成判过」)。
@@ -139,6 +144,11 @@ KEY_SEQUENCES: Final[dict[str, str]] = {
 MAX_KEYS_PER_CALL: Final = 32
 MAX_KEY_BYTES: Final = 4_096
 
+#: PTY 会话的终端身份两键(**只在调用方没显式给时补**)。真 tty 缺 `TERM` 时,程序
+#: (`ls --color` / `git` / `less` / `vim`)会按 dumb 终端处理:颜色与光标控制全关、分页退化。
+PTY_TERM: Final = "xterm-256color"
+PTY_COLORTERM: Final = "truecolor"
+
 #: 伪终端初始/上限尺寸。真 tty 必须有非零窗口尺寸 —— POSIX `pty.openpty()` 缺省给
 #: 0x0,按 tty 出进度的程序会算出荒谬的宽度;ConPTY 也要求 cols/rows > 0。故两套后端
 #: 都在开会话时钉住初始尺寸,并允许 `resize_terminal` 运行期改。
@@ -182,7 +192,7 @@ def _pty_supported_on_host() -> bool:
 class _ProcLike(Protocol):
     """会话编排真正用到的进程面。
 
-    管道后端是 `subprocess.Popen[str]`,ConPTY 后端是 `conpty_win.ConPtyProcess` ——
+    管道后端是 `subprocess.Popen[str]`,ConPTY 后端是本模块的 `ConPtyProcess` ——
     两者同形,编排层(上限/信号/宽限收尾)不按后端分叉。
     """
 
@@ -225,6 +235,8 @@ class TerminalSession:
     #: 当前窗口尺寸(PTY 才有意义;管道路径仅作记账,tty 语义不存在)。
     cols: int = DEFAULT_COLS
     rows: int = DEFAULT_ROWS
+    #: 是否已送过 EOF:送过之后 send/keys 一律显式拒,不静默丢字节。
+    stdin_closed: bool = False
 
     def running(self) -> bool:
         return self.proc.poll() is None
@@ -242,6 +254,7 @@ class TerminalSession:
             "backend": self.backend,
             "cols": self.cols,
             "rows": self.rows,
+            "stdin_closed": self.stdin_closed,
         }
 
 
@@ -444,7 +457,7 @@ def _spawn_pty(
             encoding="utf-8",
             errors="replace",
             bufsize=1,
-            env=_strict_child_env(env_extra),
+            env=_pty_child_env(env_extra),
             start_new_session=True,
             preexec_fn=_make_ctty_setter(),
             close_fds=True,
@@ -481,11 +494,24 @@ def _spawn_conpty(
     proc = _conpty_spawn(
         command_line=f'{comspec} /d /s /c "{command}"',
         cwd=cwd,
-        env=_strict_child_env(env_extra),
+        env=_pty_child_env(env_extra),
         cols=DEFAULT_COLS,
         rows=DEFAULT_ROWS,
     )
     return proc, int(proc.read_fd), proc.write_io
+
+
+def _pty_child_env(env_extra: dict[str, str] | None) -> dict[str, str]:
+    """PTY 子进程环境 = 严档白名单 + 调用方显式键 + 终端身份两键的默认值。
+
+    **仍经 `_strict_child_env`**:PTY 不放宽任何环境边界,这里只补两个"真终端本该有、
+    而宿主白名单里没有"的键。`setdefault` 而非覆盖 —— 调用方显式传 `TERM` 时以它为准
+    (有人故意要 `dumb` 也得能要得到)。管道后端不用它:那边不是 tty,塞 `TERM` 只会骗程序。
+    """
+    env = _strict_child_env(env_extra)
+    env.setdefault("TERM", PTY_TERM)
+    env.setdefault("COLORTERM", PTY_COLORTERM)
+    return env
 
 
 def _open_pty_session(
@@ -611,6 +637,12 @@ def send_terminal(
             "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
             "error": "终端不存在或无权访问",
         }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再写入;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
     if not session.running():
         return {
             "ok": False, "errorCode": "TERMINAL_EXITED",
@@ -714,6 +746,12 @@ def send_terminal_keys(
             "ok": False, "errorCode": code,
             "error": f"按键总字节超上限 {MAX_KEY_BYTES}(实得 {detail})",
         }
+    if session.stdin_closed:
+        return {
+            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
+            "error": "本会话 stdin 已送过 EOF,不能再发按键;需要继续交互请开新会话",
+            "terminal": session.to_dict(),
+        }
     if not session.running():
         return {
             "ok": False, "errorCode": "TERMINAL_EXITED",
@@ -742,6 +780,73 @@ def send_terminal_keys(
         "keys": detail.split("|"),
         "bytes_written": len(payload),
     }
+
+def eof_terminal(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """给会话送"输入结束"(EOF),让按 EOF 收尾的程序正常收尾,而不是只能被 kill。
+
+    真终端的 EOF 不是"写一个特殊字符"那么单一,两条后端语义不同,这里如实区分:
+
+    - **管道**:直接关闭 stdin 写端 → 子进程下一次读到真 EOF(不可逆,也是标准 unix 做法);
+    - **PTY / POSIX**:写 `\\x04`(Ctrl-D)→ 由**行规程**解释为"本行结束,且无内容可读";
+    - **PTY / Windows ConPTY**:写 `\\x1a\\r`(Ctrl-Z + 回车)。本机实测:`\\x04` 与不带回车的
+      `\\x1a` 都**不产生 EOF**(conhost 把 `^D` 当普通字符回显、单发 `^Z` 也不提交),
+      只有 `^Z` + 回车才让子进程读到 EOF —— 这是 Windows 控制台的 EOF 字符约定,
+      不是本实现自选的口径;照抄 `\\x04` 会在这里变成一条"说了能收尾、其实收不了"的谎。
+
+    程序的输入模式同样决定成败:它在 raw 模式(自己管输入,如 `vim` 的编辑态)时,EOF 字节
+    只是普通字节,不保证收尾 —— 那是程序决定的,不是本层丢语义。
+
+    幂等:重复调用只回 `already_closed=True`。送过 EOF 后 `send` / `keys` 一律
+    `TERMINAL_STDIN_CLOSED` 显式拒(不静默丢字节,也不假装写成功)。
+    """
+    session = _sessions.get(terminal_id)
+    if session is None or not _owned(session, user_id, session_id):
+        return {
+            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
+            "error": "终端不存在或无权访问",
+        }
+    if session.stdin_closed:
+        return {
+            "ok": True, "terminal_id": terminal_id, "backend": session.backend,
+            "already_closed": True,
+        }
+    if not session.running():
+        return {
+            "ok": False, "errorCode": "TERMINAL_EXITED",
+            "error": f"终端已退出(exit_code={session.proc.poll()})",
+            "terminal": session.to_dict(),
+        }
+    sink = session.write_io
+    if sink is None:
+        return {
+            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+            "error": "无可用写入端",
+            "terminal": session.to_dict(),
+        }
+    with session.lock:
+        try:
+            if session.backend == "pty":
+                sink.write("\x1a\r" if os.name == "nt" else "\x04")
+                sink.flush()
+            else:
+                sink.close()
+        except (BrokenPipeError, OSError, ValueError) as e:
+            return {
+                "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
+                "error": f"送 EOF 失败: {e}",
+                "terminal": session.to_dict(),
+            }
+        session.stdin_closed = True
+    return {
+        "ok": True, "terminal_id": terminal_id, "backend": session.backend,
+        "eof_sent": True,
+    }
+
 
 def read_terminal(
     terminal_id: str,
@@ -1445,6 +1550,10 @@ __test__ = {
     "resize_terminal": resize_terminal,
     "wait_terminal": wait_terminal,
     "send_terminal_keys": send_terminal_keys,
+    "eof_terminal": eof_terminal,
+    "pty_child_env": _pty_child_env,
+    "PTY_TERM": PTY_TERM,
+    "PTY_COLORTERM": PTY_COLORTERM,
     "pattern_judge": _pattern_judge,
     "keys_payload": _keys_payload,
     "key_sequences": KEY_SEQUENCES,

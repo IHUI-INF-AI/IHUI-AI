@@ -8947,14 +8947,16 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/read/wait_for/signal/resize/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合)、
     read 增量取输出、wait_for 等到提示符/关键字出现(命中/超时/已退出三态)、signal 中断、
-    resize 改窗口尺寸(仅 PTY 后端)、close 收尾。
+    resize 改窗口尺寸(仅 PTY 后端)、eof 送输入结束让程序按 EOF 自行收尾(之后 send/keys
+    显式拒 TERMINAL_STDIN_CLOSED)、close 收尾。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
-    子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
+    子进程环境走 sandbox 严档白名单,不整份继承宿主环境(PTY 后端在此之上补 TERM/COLORTERM
+    默认值 —— 真 tty 缺 TERM 会退化成 dumb 终端)。
     """
     from . import interactive_terminal as term
 
@@ -9135,6 +9137,15 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "resize", **result}
 
+    if action == "eof":
+        result = await asyncio.to_thread(
+            term.eof_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "eof", **result}
+
     if action == "close":
         result = await asyncio.to_thread(
             term.close_terminal,
@@ -9146,7 +9157,10 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": f"不支持的 action: {action}(open/send/keys/read/wait_for/signal/resize/close/list)",
+        "error": (
+            f"不支持的 action: {action}"
+            "(open/send/keys/read/wait_for/signal/resize/eof/close/list)"
+        ),
     }
 
 
