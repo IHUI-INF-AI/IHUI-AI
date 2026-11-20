@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import threading
+from collections import deque
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -45,6 +46,7 @@ __all__ = [
     "hook_audit_path",
     "record_hook_run",
     "record_observation",
+    "summarize_hook_audit",
 ]
 
 
@@ -117,4 +119,83 @@ def record_observation(event: str, payload: dict[str, Any]) -> bool:
     if event != _AUDIT_EVENT:
         return False
     return record_hook_run(payload)
+
+
+def summarize_hook_audit(
+    session_id: str | None = None,
+    max_lines: int = 20000,
+) -> dict[str, Any]:
+    """台账摘要(2026-11-21 第 41 项):只读聚合,按会话切可选。
+
+    `available=False` 表示"台账不存在",与"存在但零条"**分开报** —— 前端据此
+    决定"回落显示 0"还是"不显示",不把取不到输入说成零。
+    只用 `deque(maxlen=max_lines)` 读尾部:台账 5MB 轮转、长会话上万行,
+    全量读进来算聚合会随运行时长线性变慢。
+    """
+    path = hook_audit_path()
+    result: dict[str, Any] = {
+        "path": str(path),
+        "available": False,
+        "sessionId": session_id,
+        "total": 0,
+        "ok": 0,
+        "timeout": 0,
+        "error": 0,
+        "totalDurationMs": 0,
+        "slowestMs": 0,
+        "lastTs": None,
+        "truncated": False,
+        "linesRead": 0,
+    }
+    try:
+        if not path.exists():
+            return result
+    except OSError as exc:
+        logger.warning("hook_audit: stat failed for %s: %s", path, exc)
+        return result
+    result["available"] = True
+    lines: deque[str] = deque(maxlen=max(1, max_lines))
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                lines.append(line)
+    except Exception as exc:  # noqa: BLE001 —— 读失败回"不可用",不冒充 0
+        logger.warning("hook_audit: read failed for %s: %s", path, exc)
+        result["available"] = False
+        return result
+    result["truncated"] = len(lines) >= max(1, max_lines)
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(row, dict):
+            continue
+        if session_id and row.get("sessionId") != session_id:
+            continue
+        hooks = row.get("hooks")
+        if not isinstance(hooks, list):
+            continue
+        for hook in hooks:
+            if not isinstance(hook, dict):
+                continue
+            result["total"] += 1
+            status = hook.get("status")
+            if status == "ok":
+                result["ok"] += 1
+            elif status == "timeout":
+                result["timeout"] += 1
+            else:
+                result["error"] += 1
+            duration = hook.get("durationMs")
+            if isinstance(duration, (int, float)) and duration > 0:
+                result["totalDurationMs"] += int(duration)
+                result["slowestMs"] = max(result["slowestMs"], int(duration))
+        ts = row.get("ts")
+        if isinstance(ts, str):
+            result["lastTs"] = ts
+        result["linesRead"] += 1
+    return result
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

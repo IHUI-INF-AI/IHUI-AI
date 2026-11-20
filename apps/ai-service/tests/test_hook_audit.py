@@ -78,4 +78,66 @@ def test_publish_observation_audits_hook_run_only(
     rows = [json.loads(line) for line in target.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
     assert rows[0]["runId"] == "r-1"
+
+
+# ---- 第 41 项:摘要读侧 ---------------------------------------------------------
+
+
+def test_summary_aggregates_hook_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    hook_audit.record_hook_run(
+        _payload(
+            hooks=[
+                {"name": "a", "kind": "pre_tool_use", "status": "ok", "durationMs": 10},
+                {"name": "b", "kind": "post_tool_use", "status": "timeout", "durationMs": 5000},
+            ]
+        )
+    )
+    hook_audit.record_hook_run(
+        _payload(hooks=[{"name": "c", "kind": "pre_tool_use", "status": "error", "durationMs": 3}])
+    )
+
+    s = hook_audit.summarize_hook_audit()
+    assert s["available"] is True
+    assert s["total"] == 3
+    assert (s["ok"], s["timeout"], s["error"]) == (1, 1, 1)
+    assert s["totalDurationMs"] == 5013
+    assert s["slowestMs"] == 5000
+    assert s["linesRead"] == 2
+    assert isinstance(s["lastTs"], str)
+
+
+def test_summary_filters_by_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    hook_audit.record_hook_run({**_payload(), "session_id": "s-a"})
+    hook_audit.record_hook_run({**_payload(), "session_id": "s-b"})
+
+    s = hook_audit.summarize_hook_audit(session_id="s-b")
+    assert s["total"] == 1
+    assert s["linesRead"] == 1
+
+
+def test_summary_reports_unavailable_when_ledger_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(tmp_path / "nope.jsonl"))
+    s = hook_audit.summarize_hook_audit()
+    assert s["available"] is False
+    assert s["total"] == 0
+
+
+def test_summary_reads_tail_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = tmp_path / "hook-audit.jsonl"
+    monkeypatch.setenv("IHUI_HOOK_AUDIT_PATH", str(target))
+    for _ in range(3):
+        hook_audit.record_hook_run(_payload())
+
+    s = hook_audit.summarize_hook_audit(max_lines=2)
+    assert s["truncated"] is True
+    assert s["linesRead"] == 2
+    assert s["total"] == 2
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

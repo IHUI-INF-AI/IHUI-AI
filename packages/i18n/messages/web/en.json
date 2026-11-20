@@ -8748,6 +8748,7 @@
       "runtimeHookRunTimeout": "timeout",
       "runtimeHookRunError": "failed",
       "runtimeHookStatsTitle": "Hook totals",
+      "runtimeHookAuditTitle": "Hook audit (local ledger)",
       "runtimeHookStats": "{total} runs · ok {ok} / timeout {timeout} / failed {error} · avg {avg}ms · peak {slowest}ms",
       "runtimeHookConfigUntrusted": "{count} hooks configured but untrusted — re-trust on this machine after edits",
       "runtimeHookConfigInvalid": "Hook config is broken; running as if unconfigured",
