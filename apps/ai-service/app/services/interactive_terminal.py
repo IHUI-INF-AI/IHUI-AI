@@ -31,6 +31,26 @@
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
 
+在此之上补齐"传统终端原语"那一层(顺序即产生顺序,每条都只回答**一个**问题):
+- `resize_terminal`:改窗口尺寸(POSIX `TIOCSWINSZ` / Windows `ResizePseudoConsole`),管道显式拒
+  `TERMINAL_NOT_A_TTY` 而不是静默 no-op;
+- `paste_terminal`:按程序是否点了 `DECSET 2004`(bracketed paste)决定是否包上
+  `ESC[200~…ESC[201~`,程序没点就不能替它决定"这段是粘贴";
+- `mouse_terminal`:鼠标上报(1000/1002/1003 由程序点单,没点单显式拒 `TERMINAL_MOUSE_DISABLED`),
+  四代坐标封装(SGR/urxvt/UTF-8/x10)由同一个出口产出;
+- `focus_terminal`:焦点事件(`DECSET 1004` + `ESC[I`/`ESC[O`);**不依附屏幕网格**,两种后端都成立;
+- `snapshot_terminal`:剥掉控制序列的**输出流**快照(末尾 N 行,`truncated` 如实);
+- `search_terminal`:在同一份归一文本上做 scrollback 检索(子串/正则,行号与快照同源);
+- `links_terminal`:`OSC 8` 超链接台账(`url`/`text`/`line_no`/`scheme`),行号与快照同源,
+  `text` 与 `url` 一起回以防"显示的字 ≠ 真实目标"(OSC 8 的已知钓鱼面),本层从不代为打开;
+- `cursor_terminal`:**光标现在停在哪**(真 VT 屏幕网格 `terminal_grid.Grid`),`include_screen`
+  可连整屏一起回。这是唯一能回答"第 3 行第 12 列是什么"的出口 —— `snapshot` 给的是行流水
+  (`\\r` 刷新在流水里是换行、在屏幕上是同一格被改写),拿它推光标必然错。
+
+`strip_ansi` 是"输出流 → 人读文本"的**唯一**出口(剥控制序列 / `\\r` 折行 / 丢残余控制符在
+**一次**扫描里完成,同一次扫描顺手产出 OSC 8 台账),快照/检索/链接三处共用同一份实现,
+不另造第二把尺子。
+
 两种 stdio 后端(会话编排 / 所有权 / 上限 / 信号完全一致,只差"管道怎么连到子进程"):
 - **默认 `pipes`**:三条匿名管道。边界(与外部实现的差异如实记录):面向 TTY 的程序
   (需要 isatty 才输出进度条/颜色的)会拿到 False → 降级块缓冲、无色。子进程环境走
