@@ -4705,6 +4705,51 @@ mod startup_health_gate_tests {
     }
 }
 
+/// `sanitize_blank_proxy_env` 清掉的枚数(日志插件在 setup 才初始化,run() 顶部拿不到
+/// `log!`;这里落一枚原子交给 setup 补记,否则"静默修好"与"从未出问题"事后不可区分)。
+static BLANK_PROXY_ENV_REMOVED: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// 空值代理环境变量清理(2026-11-20 立,自动更新根治)。
+///
+/// reqwest 的默认 `ClientBuilder` 会读进程环境变量里的代理(HTTP_PROXY/HTTPS_PROXY/
+/// ALL_PROXY/NO_PROXY,大小写都认)。变量「存在但值为空串」时,`reqwest::Proxy::all("")`
+/// 解析失败 ⇒ `build()` 返回 `Err` —— 而 `tauri-plugin-updater` 的 `check()` 用的正是
+/// 默认 builder,请求因此在 DNS 之前就失败:网络层零解析零连接,前端只能把错误归到
+/// 泛化的 "update failed",拿不到可解释原因。
+///
+/// 本机 2026-11-20 实测:注册表 Machine 级 `HTTP_PROXY/HTTPS_PROXY/NO_PROXY` 三枚
+/// 全部是「存在且空串」,自动更新自安装以来从未成功发出过一次请求(ETW 实测
+/// Kernel-Network 零 DNS、零非本地 TCP,日志里也一条 `[updater]` 都没有)。
+/// 手动删掉环境变量后,同一进程的 5 分钟首检立即发出解析请求并成功。
+///
+/// 这里在进程最早处移除空值代理(只清空值,绝不碰真实代理配置),让默认 Client
+/// 退回直连/系统代理判定;返回值 = 被移除的枚数,由 setup 内的日志留痕,
+/// 避免「静默修好又静默复发」。幂等:重复调用第二次移除 0 枚。
+fn sanitize_blank_proxy_env() -> usize {
+    const NAMES: [&str; 8] = [
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "NO_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+        "no_proxy",
+    ];
+    let mut removed = 0usize;
+    for name in NAMES {
+        if let Ok(v) = std::env::var(name) {
+            if v.trim().is_empty() {
+                std::env::remove_var(name);
+                removed += 1;
+            }
+        }
+    }
+    BLANK_PROXY_ENV_REMOVED.store(removed, std::sync::atomic::Ordering::SeqCst);
+    removed
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -4716,6 +4761,10 @@ pub fn run() {
     // 劈叉成两把锁(模块头注警告的"守护整体失效")。
     let context = tauri::generate_context!();
     let app_identifier = context.config().identifier.clone();
+    // 2026-11-20 立(自动更新根治):必须先于任何 reqwest Client 构造清掉空值代理环境变量,
+    // 否则 tauri-plugin-updater 的默认 Client 会在 build() 阶段被 `Proxy::all("")` 毒死,
+    // 更新请求零发出且只报一句不可解释的 "update failed"。详见函数头注。
+    let _ = sanitize_blank_proxy_env();
     // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
     // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
     // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
@@ -5121,6 +5170,15 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "windows")]
             webview2_runtime::check_and_report(app.handle());
+            let blank_proxy_env_removed =
+                BLANK_PROXY_ENV_REMOVED.load(std::sync::atomic::Ordering::SeqCst);
+            if blank_proxy_env_removed > 0 {
+                log::warn!(
+                    "[desktop] 启动时清除了 {blank_proxy_env_removed} 枚空值代理环境变量\
+                     (HTTP(S)_PROXY/ALL_PROXY/NO_PROXY);空串会使 reqwest 默认 Client build() 失败\
+                     ⇒ 自动更新请求零发出"
+                );
+            }
             // F-123:标签上限等设置必须在任何建标签路径之前进内存(默认 12/6 不变)。
             browser_settings::init(app.handle());
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
