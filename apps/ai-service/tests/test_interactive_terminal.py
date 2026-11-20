@@ -23,7 +23,6 @@ from app.services import interactive_terminal as term
 from app.services import mcp_server as mcp
 from app.services.mcp_server import _tool_terminal
 
-
 # ─── PTY 后端形状锁(不 flaky:静态判据 + 变异夹具,遵 memory: race-fix-shape-lock-over-timing-test) ───
 _TEST = term.__test__
 assert _TEST is not None, "模块必须挂 __test__,否则判据无法对账(§22c)"
