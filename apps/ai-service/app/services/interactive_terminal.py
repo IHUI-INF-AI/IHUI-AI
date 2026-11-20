@@ -1804,11 +1804,16 @@ def close_terminal(
             "error": "终端不存在或无权访问",
         }
     proc = session.proc
+    # 收尾阶梯:`terminate`(给程序体面收尾的机会)→ 超时 `kill` → 再等一个宽限。
+    # 两件事必须如实回报:**升到 kill 了吗**(`forced`)**、kill 之后还活着吗**(`survived`)。
+    # 不报这两项等于把"我发了信号"写成"进程死了" —— 后者要 `proc.poll()` 才知道(§0.3)。
+    forced = False
     if proc.poll() is None:
         try:
             proc.terminate()
             proc.wait(timeout=CLOSE_GRACE_S)
         except subprocess.TimeoutExpired:
+            forced = True
             proc.kill()
             try:
                 proc.wait(timeout=CLOSE_GRACE_S)
@@ -1816,15 +1821,24 @@ def close_terminal(
                 pass
         except OSError:
             pass
+    exit_code = proc.poll()
     with _registry_lock:
         _sessions.pop(terminal_id, None)
     _close_io(session)  # 从注册表摘除后再关 IO:关 slave/写端以驱动 master 读线程收敛
-    return {
+    payload: dict[str, Any] = {
         "ok": True,
         "terminal_id": terminal_id,
         "closed": True,
-        "exit_code": proc.poll(),
+        "exit_code": exit_code,
+        "forced": forced,
+        "survived": exit_code is None,
     }
+    if exit_code is None:
+        payload["warning"] = (
+            f"已升级到 kill 但子进程在 {CLOSE_GRACE_S}s 内仍未退出(exit_code=None);"
+            "会话已从注册表摘除,进程是否需要外部清理请按平台处理"
+        )
+    return payload
 
 
 def list_terminals(
