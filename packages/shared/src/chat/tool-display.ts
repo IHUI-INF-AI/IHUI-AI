@@ -236,13 +236,9 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   ai_reimbursement: 'toolAiReimbursement',
   social_insurance_calc: 'toolSocialInsuranceCalc',
   special_deduction_calc: 'toolSpecialDeductionCalc',
-  // 2026-11-21 补齐(守门 55):人事部自助/算薪六枚(hr_tools 实装当日,五语言文案同批)
-  hr_insurance_readiness: 'toolHrInsuranceReadiness',
-  hr_my_attendance: 'toolHrMyAttendance',
-  hr_my_leaves: 'toolHrMyLeaves',
-  hr_my_payroll: 'toolHrMyPayroll',
-  hr_my_payroll_periods: 'toolHrMyPayrollPeriods',
-  hr_payroll_calc: 'toolHrPayrollCalc',
+  // 2026-11-21 补齐(守门 55):人事六枚 hr_* 已在表前段登记(见本对象开头),
+  // 当初合并时这一段又被整块搬进来一次 ⇒ 同一对象内同名键重复(tsc TS1117)。
+  // 这里只保留前段那一份,本节删掉重复的 6 行;下面 6 枚(读图/跨库检索/公式/子代理/终端)才是本批新增。
   read_image: 'toolReadImage',
   session_search: 'toolSessionSearch',
   sheet_formula_eval: 'toolSheetFormulaEval',
