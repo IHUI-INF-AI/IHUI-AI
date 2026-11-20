@@ -6,6 +6,9 @@ import { describe, it, expect, afterAll, beforeEach } from 'vitest'
 import { eq, sql } from 'drizzle-orm'
 import { testDb, closeTestDb } from './helpers/test-db'
 import { users } from '@ihui/database'
+// DB-35:唯一索引在 phone_lookup(部分索引 WHERE lookup IS NOT NULL);直插明文行
+// lookup 为 NULL 不参与唯一性,须走密文+lookup 写入对,重复 lookup 才抛 23505。
+import { contactWritePair } from '../src/utils/user-contact.js'
 
 describe('users 表 — 真实 DB 集成测试', () => {
   afterAll(async () => {
@@ -41,10 +44,15 @@ describe('users 表 — 真实 DB 集成测试', () => {
   })
 
   it('phone 唯一约束 — 重复插入应报错', async () => {
-    await testDb.insert(users).values({ phone: '13800000002', nickname: '用户A' })
+    const pair = contactWritePair('phone', '13800000002')
+    await testDb
+      .insert(users)
+      .values({ phone: pair.value, phoneLookup: pair.lookup, nickname: '用户A' })
 
     await expect(
-      testDb.insert(users).values({ phone: '13800000002', nickname: '用户B' }),
+      testDb
+        .insert(users)
+        .values({ phone: pair.value, phoneLookup: pair.lookup, nickname: '用户B' }),
     ).rejects.toThrow()
   })
 
