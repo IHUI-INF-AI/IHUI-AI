@@ -14,7 +14,9 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -104,6 +106,87 @@ test('NON_STORE_FIXTURES:自有写路径清零后只留两条"不是我们的存
   ])
   for (const [rel, reason] of NON_STORE_FIXTURES) {
     assert.ok(typeof reason === 'string' && reason.trim().length >= 8, `${rel} 的豁免理由太短`)
+  }
+})
+
+test('预筛(gt;grep -l)不得变成第二份判据,且必须留对账档与全量逃生舱', () => {
+  // 2026-11-20 立:全域触发面 × 逐个 blob 精读 ⇒ 每次提交 12–14 秒。治法是用宽正则先捞候选文件,
+  // 但"捞候选"一旦变成"自己判命中",就等于写了第二把尺子(§0.6)⇒ 这里钉住三条:
+  //  ① 候选只按 GREP_RE 宽匹配捞文件,精确计数仍只走 classifyLine / countHits;
+  //  ② 必须存在 --parity 对账档(预筛 vs 全量逐文件比,不等即 exit 1);
+  //  ③ 必须有 IHUI_SQLITE_GATE_FULL_SCAN=1 全量逃生舱与"预筛失败退全量"的降级分支。
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /export const GREP_RE =/, '必须导出一条宽正则供预筛使用')
+  assert.match(src, /const n = countHits\(content\)/, '精确计数必须仍走 countHits')
+  assert.match(src, /function grepCandidates/, '预筛必须只有一条实现(grepCandidates)')
+  assert.match(src, /function parityCheck/, '必须提供 --parity 对账档')
+  assert.match(src, /SQLITE-WRITE-PATHS-PARITY state=(equal|mismatch)/, '对账档必须有机读末行')
+  assert.match(src, /IHUI_SQLITE_GATE_FULL_SCAN/, '必须留全量逃生舱')
+  assert.match(src, /预筛不可用.*退回全量逐 blob 扫描/s, '预筛失败必须降级到全量而不是判红/判绿')
+  // 宽正则不得含 POSIX ERE 不认的 \b / \s(那样 grep 会静默漏捞 ⇒ 假绿)
+  const re = src.match(/export const GREP_RE =\s*\n?\s*'([^']+)'/)?.[1] ?? ''
+  assert.ok(re.length > 10, 'GREP_RE 取值必须可解析')
+  assert.ok(!/\\b|\\s/.test(re), `GREP_RE 不得使用 \\b / \\s(POSIX ERE 不认):${re}`)
+})
+
+test('预筛 vs 全量:同一份命中集必须逐文件相等(变体红 + 对账同轮)', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'pgonly-'))
+  const git = (...args) => execFileSync('git', args, { cwd: tmp, encoding: 'utf8' })
+  try {
+    git('init', '-q')
+    git('config', 'user.email', 't@t')
+    git('config', 'user.name', 't')
+    mkdirSync(join(tmp, 'scripts', 'data'), { recursive: true })
+    mkdirSync(join(tmp, 'apps', 'x'), { recursive: true })
+    writeFileSync(
+      join(tmp, 'scripts', 'data', 'sqlite-write-paths-baseline.json'),
+      JSON.stringify({ files: {} }),
+      'utf8',
+    )
+    // 一处真命中 + 一处只读豁免(同一行 mode=ro)+ 一处拆开的针串(不该算)
+    writeFileSync(join(tmp, 'apps', 'x', 'store.py'), ['import sqlite3', `conn = ${PY_CONNECT}'a.db')`].join('\n'), 'utf8')
+    writeFileSync(
+      join(tmp, 'apps', 'x', 'reader.py'),
+      `conn = ${PY_CONNECT}` + "'file:p.db?mode=ro', uri=True)",
+      'utf8',
+    )
+    writeFileSync(join(tmp, 'apps', 'x', 'nonhit.py'), `x = 'sqlite3' '.connect('`, 'utf8')
+    // 豁免路径必须在面内存在:否则门按"豁免清单腐烂"判红(那是另一条判据,不是本用例要测的)
+    mkdirSync(join(tmp, 'apps', 'ai-service', 'tests'), { recursive: true })
+    for (const p of ['test_external_browser_profile.py', 'test_sag2_pg_integration.py']) {
+      writeFileSync(join(tmp, 'apps', 'ai-service', 'tests', p), '# fixture\n', 'utf8')
+    }
+    git('add', '.')
+
+    // 门判红时 exit 1 ⇒ execFileSync 会抛,统一在 helper 里把 stdout 取回来(判红是预期结果)
+    const runGate = (...args) => {
+      try {
+        return execFileSync(process.execPath, [GATE, '--root', tmp, ...args], { encoding: 'utf8' })
+      } catch (e) {
+        return String(e.stdout ?? '')
+      }
+    }
+
+    const staged = runGate('--staged')
+    assert.match(staged, /state=new new=1/, `真命中必须判红且只点名 store.py:${staged}`)
+    assert.match(staged, /apps\/x\/store\.py/, '新增必须点名具体文件')
+    assert.doesNotMatch(staged, /apps\/x\/nonhit\.py/, '拆开的针串不得算命中')
+
+    const parity = runGate('--parity', '--staged')
+    assert.match(parity, /SQLITE-WRITE-PATHS-PARITY state=equal/, `对账必须相等:${parity}`)
+
+    const forced = (() => {
+      const env = { ...process.env, IHUI_SQLITE_GATE_FULL_SCAN: '1' }
+      try {
+        return execFileSync(process.execPath, [GATE, '--root', tmp, '--staged'], { encoding: 'utf8', env })
+      } catch (e) {
+        return String(e.stdout ?? '')
+      }
+    })()
+    assert.match(forced, /state=new new=1/, '全量逃生舱必须给同一个结论')
+    assert.equal(staged.includes('new=1'), forced.includes('new=1'), '预筛与全量结论必须一致')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
   }
 })
 
