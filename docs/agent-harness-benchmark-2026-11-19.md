@@ -12,6 +12,7 @@
 
 
 
+
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -20,7 +21,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **28 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **29 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -96,7 +97,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（28 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（29 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -408,6 +409,18 @@
 
 验证：`pytest test_stop_hook.py` → `5 passed`（block 真续跑 / continue 同义 / 不 block 只注入且不续跑 / 钩子抛错降级 / 配置面 block 映射到运行时）；`test_lifecycle_hooks + test_post_tool_hooks + test_hook_runtime_injection_wiring + test_hook_run_sse + test_command_hooks` → `40 passed`；`mypy --strict`（agent_loop_v2 + command_hooks）→ `Success: no issues found in 2 source files`；`ruff check`（含新测试）→ `All checks passed!`。
 
+### 5.30 第 29 项：PRE_COMPACT / POST_COMPACT 压缩前后哨点
+
+- 缺口：`HookKind` 最后两个值 `pre_compact` / `post_compact` 只有契约，压缩实现里没有任何挂载点 —— "压缩前把关键约束塞进摘要 / 压缩后给新窗补上下文"两类诉求无法落地。
+- 处置：
+  - 触发面用**压力判据闸**：`estimate_messages_tokens` + `assess_context_pressure`（复用 `core/context_compaction` 的同一实现，不另写阈值）只在 `is_above_auto_compact` 为真时跑 `PRE_COMPACT` —— 不在每次迭代制造"差点压缩"的空跑噪音（这是对照程序最容易踩的坑）；
+  - `PRE_COMPACT` payload 带 `used_tokens / context_limit / percent_left / is_at_blocking`；`additionalContext` 注入**压缩前**消息（会被摘要带上）；`stop=true` ⇒ 放弃本次压缩并原样返回（Codex PreCompact 的"叫停"语义）；
+  - `POST_COMPACT` 只在 `info.compressed` 为真后运行，payload 带 `original_tokens / compressed_tokens / removed_count / trigger`，`additionalContext` 注入**压缩产物**（新窗可见，不写回旧消息）；
+  - `_run_compaction_hook()` 单出口：同一 `HookRuntime`、`hook.run` 帧照发、异常只 warning；压力判据本身失败也只 debug 降级，压缩主链路照常。
+- 超越轴：对照程序把 pre/post compact 当"总是跑"的旁路；本仓用**同一份压力判据**决定要不要跑，并让 pre 钩子有"叫停压缩"权力、post 钩子只写新窗 —— 审计面干净、语义不串台。
+
+验证：`pytest test_compaction_hooks.py` → `5 passed`（无压力零事件 / pre 上下文进压缩前消息 / pre stop 叫停压缩且原对象返回 / post 上下文进产物 / 钩子抛错压缩照常）；五个既有压缩套件 `test_agent_loop_compaction + micro_compaction + compaction_wiring + context_pressure_micro_compaction + compaction_metrics` → `64 passed`；`mypy --strict`（agent_loop_v2）→ `Success`；`ruff check`（含新测试）→ `All checks passed!`。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
@@ -426,5 +439,6 @@
 - Trae 本地包可能只是壳，云端实现完全不可见；"本地命中 0"不等于"产品无此能力"。
 - WorkBuddy 四件为抽取件，未做全量模块扫描（11,587 个模块）。
 - 本次未运行全仓 `pnpm turbo build typecheck lint test`；仅运行改动面相关测试与 `@ihui/api` typecheck。全量验证留给提交链/CI。
+
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

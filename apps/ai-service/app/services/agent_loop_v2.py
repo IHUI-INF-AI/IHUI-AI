@@ -3469,6 +3469,36 @@ class AgentLoopV2:
         )
         return reclaimed
 
+    async def _run_compaction_hook(
+        self,
+        kind: Any,
+        payload: dict[str, Any],
+        *,
+        stage: str,
+        target: list[dict[str, Any]],
+    ) -> Any:
+        """PRE/POST_COMPACT 钩子(2026-11-20 第 29 项)。
+
+        只在压缩**真的要发生 / 真的发生**时触发(调用方用压力判据闸过),
+        不在每次迭代空跑 —— 否则审计面会被无数"差点压缩"的黑白噪音淹没。
+        上下文注入目标:pre ⇒ 压缩前消息(pre 钩子加的内容会被摘要带上);
+        post ⇒ 压缩产物(post 钩子加的内容直接进新窗)。
+        """
+        if self._hook_runtime is None:
+            return None
+        try:
+            outcome = await self._wait_interruptible(self._hook_runtime.run(kind, payload))
+        except _LoopInterrupted:
+            raise
+        except Exception as e:  # noqa: BLE001 - 压缩链路绝不被审计钩子带崩
+            logger.warning("%s 钩子异常(降级,压缩照常): %s", stage, e)
+            return None
+        await _emit_hook_run_event(
+            getattr(self, "_events", None), self._session_id or "", outcome
+        )
+        _append_hook_contexts(target, outcome)
+        return outcome
+
     async def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """1-8 上下文超限压缩(2026-09-07 立):占用 ≥ context_limit*0.85 时压缩旧消息。
 
@@ -3497,6 +3527,44 @@ class AgentLoopV2:
         # 以下,下面 compress_messages_if_needed 自然判 compressed=False 直接返回回收产物)。
         # 复用现有 enabled/limit/fail_streak/new_context 四道守卫,不新增开关、不新增 env。
         messages = self._maybe_micro_compact(messages)
+        # 第 29 项(2026-11-20):PRE_COMPACT —— 只在压力**真的越过触发线**时才跑,
+        # 让"压缩前"钩子有机会加摘要素材或叫停这次压缩(否则审计面被空跑噪音淹没)。
+        try:
+            from app.core.context_compaction import (
+                assess_context_pressure,
+                estimate_messages_tokens,
+            )
+
+            _pressure = assess_context_pressure(
+                estimate_messages_tokens(messages),
+                self._compaction_context_limit,
+                trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
+            )
+            if _pressure.get("is_above_auto_compact"):
+                from ..core.hook_runtime import HookKind as _CompactKind
+
+                _pre = await self._run_compaction_hook(
+                    _CompactKind.PRE_COMPACT,
+                    {
+                        "session_id": self._session_id or "",
+                        "iteration": self._current_iteration,
+                        "used_tokens": estimate_messages_tokens(messages),
+                        "context_limit": self._compaction_context_limit,
+                        "percent_left": _pressure.get("percent_left"),
+                        "is_at_blocking": _pressure.get("is_at_blocking"),
+                    },
+                    stage="pre_compact",
+                    target=messages,
+                )
+                if _pre is not None and _pre.should_stop:
+                    logger.info(
+                        "PRE_COMPACT 钩子叫停本次压缩: session=%s reason=%s",
+                        self._session_id or "",
+                        str(_pre.stop_reason or "")[:200],
+                    )
+                    return messages
+        except Exception as e:  # noqa: BLE001 - 压力判据失败不得阻断压缩主链路
+            logger.debug("PRE_COMPACT 压力判据降级(压缩照常): %s", e)
         started = time.perf_counter()
         try:
             if llm_enabled:
@@ -3582,6 +3650,26 @@ class AgentLoopV2:
                     **({"boundary": info["boundary"]} if info.get("boundary") else {}),
                 },
             )
+            # 第 29 项(2026-11-20):POST_COMPACT —— 压缩真的发生后跑一次,
+            # 让"压缩后"钩子能补新窗所需的上下文(注入到压缩产物,不是旧消息)。
+            try:
+                from ..core.hook_runtime import HookKind as _PostKind
+
+                await self._run_compaction_hook(
+                    _PostKind.POST_COMPACT,
+                    {
+                        "session_id": self._session_id or "",
+                        "iteration": self._current_iteration,
+                        "original_tokens": info.get("original_tokens"),
+                        "compressed_tokens": info.get("compressed_tokens"),
+                        "removed_count": info.get("removed_count"),
+                        "trigger": "llm" if info.get("llm_summary") else "deterministic",
+                    },
+                    stage="post_compact",
+                    target=compressed,
+                )
+            except Exception as e:  # noqa: BLE001 - 后置审计钩子失败不得回滚压缩
+                logger.warning("POST_COMPACT 钩子降级(压缩结果保留): %s", e)
             logger.warning(
                 "[agent-loop] 上下文压缩触发: %s -> %s tokens(移除 %s 条, iter %s)",
                 info.get("original_tokens"),

@@ -154,17 +154,44 @@ export function headBlobBatch(rels, { root } = {}) {
  * 该路径在 HEAD 之前的祖先提交清单(逐字档与归一化档共用,不再各取一遍)。
  * 三态:HEAD 取不到 / rev-list 取不到 ⇒ judged:false(§0.3,不折成"没有祖先")。
  */
-export function ancestorCommitList(rel, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
+/**
+ * 祖先清单备忘录(2026-11-16 立,治门 298 每路径重复派生)。
+ *
+ * 立因:门 298 判一个声明件要连走两臂 —— `ancestorBlobOf`(逐字档)与
+ * `ancestorContentMatch`(内容档)对**同一路径同一窗口**各调一次本函数 ⇒ 每路径
+ * `rev-parse HEAD` + `rev-list --max-count=80` 各跑两遍。实测 217 次派生里 88 次是
+ * `rev-parse`、62 次是 `rev-list`,而 HEAD 在一轮判定里恒定、清单只由
+ * (HEAD, 窗口, 路径) 决定 ⇒ 同键可直接复用,判定逐字不变。
+ *
+ * 键里带 root 与 headOid:HEAD 变了/换仓了都不会复用旧清单(不吃跨提交的假绿)。
+ */
+const ANCESTOR_LIST_CACHE = new Map()
+
+export function ancestorCommitList(rel, { root, windowSize = ANCESTOR_WINDOW_DEFAULT, headOid = null } = {}) {
+  const win = Number(windowSize) || ANCESTOR_WINDOW_DEFAULT
+  let head
+  const hinted = typeof headOid === 'string' ? headOid.trim().toLowerCase() : ''
+  if (/^[0-9a-f]{40}$/.test(hinted)) head = hinted
+  else {
+    try {
+      head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    } catch (e) {
+      return { judged: false, list: [], scanned: 0, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
+    }
+  }
+  const memoKey = `${root}|${head}|${win}|${rel}`
+  const memo = ANCESTOR_LIST_CACHE.get(memoKey)
+  if (memo) return { judged: true, list: [...memo.list], scanned: memo.scanned, why: null }
   try {
-    const head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
     const list = String(
-      gitRaw(['rev-list', `--max-count=${Number(windowSize) || ANCESTOR_WINDOW_DEFAULT}`, 'HEAD', '--', rel], root),
+      gitRaw(['rev-list', `--max-count=${win}`, 'HEAD', '--', rel], root),
     )
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
       // HEAD 自身不是祖先:HEAD 触及该路径时 rev-list 会把它排在首位,那一条要摘掉。
       .filter((c) => c !== head)
+    ANCESTOR_LIST_CACHE.set(memoKey, { list: [...list], scanned: list.length })
     return { judged: true, list, scanned: list.length, why: null }
   } catch (e) {
     return { judged: false, list: [], scanned: 0, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
@@ -178,10 +205,10 @@ export function ancestorCommitList(rel, { root, windowSize = ANCESTOR_WINDOW_DEF
  *   { judged:true, match:{commit,blobOid}, scanned:N } —— 命中(commit = 最近的命中祖先)
  *   { judged:false, why }                              —— 该跑没跑成
  */
-export function ancestorBlobOf(rel, blobOid, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
+export function ancestorBlobOf(rel, blobOid, { root, windowSize = ANCESTOR_WINDOW_DEFAULT, headOid = null } = {}) {
   const oid = String(blobOid ?? '').trim().toLowerCase()
   if (!/^[0-9a-f]{40}$/.test(oid)) return { judged: false, why: `blob oid 非法:${blobOid}` }
-  const q = ancestorCommitList(rel, { root, windowSize })
+  const q = ancestorCommitList(rel, { root, windowSize, headOid })
   if (!q.judged) return { judged: false, why: q.why }
   if (q.list.length === 0) return { judged: true, match: null, scanned: 0 }
   try {
@@ -198,6 +225,54 @@ export function ancestorBlobOf(rel, blobOid, { root, windowSize = ANCESTOR_WINDO
   } catch (e) {
     return { judged: false, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
   }
+}
+
+/**
+ * 批量逐字档(2026-11-16 立):多路径一次判完,把每路径一次 `cat-file --batch` 收成一次。
+ *
+ * 立因:门 298 独立审计面一次判七十余路径 ⇒ `ancestorBlobOf` 逐条各起一次 `cat-file`,
+ * 实测派生里 78 次是这一型。本函数与 `ancestorBlobOf` **行为规格逐条等价**:
+ * 路径清单、祖先清单(窗口与 `--max-count` 同源)、命中取"最近一枚命中"、祖先里该路径被删
+ * (cat-file 报 null)一律跳过不折成"取不到";任一清单取不到 ⇒ 整批 `judged:false`(§0.3)。
+ *
+ * @returns {{ judged:boolean, why:string|null, byPath:Map<string,{judged:boolean,match:object|null,scanned:number}> }}
+ */
+export function ancestorBlobsOfBatch(rels, blobOidByRel, { root, windowSize = ANCESTOR_WINDOW_DEFAULT, headOid = null } = {}) {
+  const byPath = new Map()
+  const lists = []
+  for (const rel of rels) {
+    const target = String(blobOidByRel.get(rel) ?? '').trim().toLowerCase()
+    if (!/^[0-9a-f]{40}$/.test(target)) {
+      byPath.set(rel, { judged: false, match: null, scanned: 0 })
+      return { judged: false, why: `blob oid 非法:${blobOidByRel.get(rel)}`, byPath }
+    }
+    const q = ancestorCommitList(rel, { root, windowSize, headOid })
+    if (!q.judged) {
+      byPath.set(rel, { judged: false, match: null, scanned: 0 })
+      return { judged: false, why: q.why, byPath }
+    }
+    byPath.set(rel, { judged: true, match: null, scanned: q.scanned })
+    if (q.list.length > 0) lists.push({ rel, target, q })
+  }
+  if (lists.length === 0) return { judged: true, why: null, byPath }
+  const specs = []
+  for (const { rel, q } of lists) for (const c of q.list) specs.push(`${c}:${rel}`)
+  let map
+  try {
+    map = catBatchOids(root, specs)
+  } catch (e) {
+    return { judged: false, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}`, byPath }
+  }
+  for (const { rel, target, q } of lists) {
+    for (const c of q.list) {
+      const got = map.get(`${c}:${rel}`)
+      if (got && got.toLowerCase() === target) {
+        byPath.set(rel, { judged: true, match: { commit: c, blobOid: got.toLowerCase() }, scanned: q.scanned })
+        break
+      }
+    }
+  }
+  return { judged: true, why: null, byPath }
 }
 
 /**
@@ -256,11 +331,12 @@ export function ancestorContentMatch(
     windowSize = ANCESTOR_WINDOW_DEFAULT,
     tolerance = NORMALIZED_SIZE_TOLERANCE,
     minGap = MIN_HEAD_IDENTIFIER_GAP,
+    headOid = null,
   } = {},
 ) {
   if (typeof faceText !== 'string' || faceText === '')
     return { judged: false, match: null, why: '正文取不到(空文本不判,§0.3)' }
-  const q = ancestorCommitList(rel, { root, windowSize })
+  const q = ancestorCommitList(rel, { root, windowSize, headOid })
   if (!q.judged) return { judged: false, match: null, why: q.why }
   try {
     const faceNorm = normalizeContentStream(faceText)
