@@ -462,8 +462,11 @@ const MessageItem = React.memo(function MessageItem({
   const foldRows = React.useMemo(() => buildFoldRows(m.toolCalls ?? []), [m.toolCalls])
   const foldedAway = React.useMemo(() => foldedAwayIds(foldRows), [foldRows])
   const foldSummaryLine = React.useMemo(
-    () => foldSummaryText(foldRows, (key, values) => tStream(key, values)),
-    [foldRows, tStream],
+    // 2026-11-21 修:折叠计数短语的键在 `chat` 命名空间(fold-policy 的 FOLD_LABEL_KEYS
+    // 注释与词表位置都指向 chat.foldXxx),此处却传了 tStream(taskStatus) ⇒ 全部 miss,
+    // 界面直接吐出裸键 `taskStatus.foldOthers`。改回 t(chat) 后与词表同源。
+    () => foldSummaryText(foldRows, (key, values) => t(key, values)),
+    [foldRows, t],
   )
   const [foldedView, setFoldedView] = React.useState(false)
   // 折叠视图下一张都不挂时不必留着开关(`foldedAway` 为空 ⇒ 折叠没有意义)
