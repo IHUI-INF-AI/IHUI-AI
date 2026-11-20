@@ -96,6 +96,9 @@ export const hrEmployeeTaxProfile = pgTable(
     otherMonthlyDeduction: numeric('other_monthly_deduction', { precision: 12, scale: 2 })
       .default('0')
       .notNull(),
+    // 2026-11-20 补列:迁移 20261112220000_hr_monthly_payroll 建表时就带了 created_at,
+    // 而 schema 只写了 updatedAt ⇒ 从零重放门报"hr_employee_tax_profile 多列 [created_at]"。
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
