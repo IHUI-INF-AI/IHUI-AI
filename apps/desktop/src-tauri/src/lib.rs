@@ -5179,6 +5179,10 @@ pub fn run() {
                      ⇒ 自动更新请求零发出"
                 );
             }
+            // 2026-11-21 立(自更新可解释):核对上次安装回执,把"安装器静默失败"
+            // 变成一条可检索的 WARN;并延迟清理历史更新目录(每版约 10MB)。
+            auto_refresh::reconcile_pending_update(app.handle());
+            auto_refresh::spawn_stale_update_dir_cleanup();
             // F-123:标签上限等设置必须在任何建标签路径之前进内存(默认 12/6 不变)。
             browser_settings::init(app.handle());
             // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.ihui.desktop.dev.local",
+  "build": {
+    "devUrl": "http://localhost:8877",
+    "beforeDevCommand": "node ../../scripts/dev-web-8877.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "智汇AI（本地热更）",
+        "url": "http://localhost:8877/",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "width": 1600,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "theme": "Dark",
+        "dragDropEnabled": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "maximized": false,
+        "decorations": false,
+        "titleBarStyle": "Overlay",
+        "backgroundColor": "#242424",
+        "shadow": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:8877 ws://localhost:8877 https://aizhs.top https://www.aizhs.top https://api.aizhs.top wss://api.aizhs.top http://127.0.0.1:8803; font-src 'self' data:; frame-src 'self' http://localhost:8877 https://aizhs.top https://www.aizhs.top"
+    }
+  }
+}
