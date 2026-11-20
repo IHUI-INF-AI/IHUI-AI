@@ -17,6 +17,7 @@ import io
 import os
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
@@ -1670,6 +1671,7 @@ def test_track_terminal_state_does_not_mistake_osc_terminator_for_bell() -> None
             self.title = ""
             self.bell_count = 0
             self.private_modes: set[int] = set()
+            self.lock = threading.RLock()
 
     fake = _Fake()
     track(fake, "\x1b]2;TITLE\x07")  # 只有标题,没有任何响铃
@@ -2096,6 +2098,70 @@ def test_mouse_move_needs_drag_or_move_mode() -> None:
         assert moved["ok"] is True and moved["mouse_mode"] == "drag"
         # 老 x10 形状:码 = left(0) | motion(32) = 32,+32 = 64;坐标 2 → 34
         assert moved["sequences"] == ["\x1b[M" + chr(64) + chr(34) + chr(34)]
+    finally:
+        term.reset_terminals()
+
+
+# ─── 备用屏幕(alt-screen):全屏程序的画面不进主屏 scrollback ───
+
+
+def test_alt_screen_mode_bits_derive_from_decset() -> None:
+    """1049 / 1047 / 47 任一在位即"在 alt 屏";退出位清掉后立刻回主屏。"""
+    term.reset_terminals()
+    try:
+        track = _TEST["track_terminal_state"]
+        session = _mouse_session()
+        assert session.alt_screen is False
+        track(session, "\x1b[?1049h")
+        assert session.alt_screen is True and session.to_dict()["alt_screen"] is True
+        track(session, "\x1b[?1049l")
+        assert session.alt_screen is False
+        track(session, "\x1b[?47h")
+        assert session.alt_screen is True
+        track(session, "\x1b[?47l")
+        assert session.alt_screen is False
+        track(session, "\x1b[?1047h")
+        assert session.alt_screen is True
+        track(session, "\x1b[?1047l")
+        assert session.alt_screen is False
+    finally:
+        term.reset_terminals()
+
+
+def test_snapshot_and_search_switch_faces_while_read_keeps_raw_stream() -> None:
+    """主屏/alt 屏按**当前屏面**取:切进去看 alt,切回来看到"切屏前 + 切回后",alt 那屏不落回 scrollback。
+
+    read 的口径不同:`read` 是增量原始流,alt 屏的输出也必须照常读到(否则读端会断流),
+    只有快照/检索这类"这块屏现在长什么样"的面才按屏面切片。
+    """
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session()
+        push = _TEST["push_output"]
+        push(session, "out", "MAIN-1\n")
+        shot = term.snapshot_terminal("t-mouse", **owner)
+        assert shot["text"] == "MAIN-1" and shot["alt_screen"] is False
+
+        push(session, "out", "\x1b[?1049hALT-1\n")
+        inside = term.snapshot_terminal("t-mouse", **owner)
+        assert inside["text"] == "ALT-1", "在 alt 屏时快照不该带出主屏内容"
+        assert inside["alt_screen"] is True
+        assert term.search_terminal("t-mouse", pattern="MAIN-1", **owner)["count"] == 0
+        assert term.search_terminal("t-mouse", pattern="ALT-1", **owner)["count"] == 1
+
+        push(session, "out", "\x1b[?1049lMAIN-2\n")
+        back = term.snapshot_terminal("t-mouse", **owner)
+        assert back["text"] == "MAIN-1\nMAIN-2", f"切回主屏后不该看到 alt 那屏:{back['text']!r}"
+        assert back["alt_screen"] is False
+        assert term.search_terminal("t-mouse", pattern="ALT-1", **owner)["count"] == 0
+        assert term.search_terminal("t-mouse", pattern="MAIN-2", **owner)["count"] == 1
+
+        raw = term.read_terminal("t-mouse", since_seq=0, wait_s=0.05, **owner)
+        stream = "".join(str(c["text"]) for c in raw["chunks"])
+        assert "MAIN-1" in stream and "ALT-1" in stream and "MAIN-2" in stream, (
+            "read 是原始增量流,不能因屏面切片而被截"
+        )
     finally:
         term.reset_terminals()
 
