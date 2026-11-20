@@ -161,13 +161,13 @@ async def sync_openrouter_reasoning_efforts(conn: Any) -> dict[str, int]:
         }
         updates.append((row["id"], json.dumps(patch)))
         stats["declared" if efforts else "unsupported"] += 1
-    for row_id, patch in updates:
+    for row_id, payload in updates:
         await conn.execute(
             """UPDATE ai_model_config_models
                SET metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb
                WHERE id = $1""",
             row_id,
-            patch,
+            payload,
         )
     stats["written"] = len(updates)
     return stats
