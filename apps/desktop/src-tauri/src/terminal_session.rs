@@ -402,7 +402,7 @@ impl TerminalSession {
     ///
     /// `dropped > 0` 表示开头已被环形缓冲覆盖——调用方据此知道窗口不完整。
     pub fn read_out(&self, max: usize) -> (Vec<u8>, usize, usize, SessionState) {
-        let (bytes, dropped, seq) = self.ring.lock().unwrap().read_out(max);
+        let (bytes, dropped, seq) = self.ring.lock().unwrap_or_else(|p| p.into_inner()).read_out(max);
         (bytes, dropped, seq, self.state())
     }
 
@@ -427,7 +427,7 @@ impl TerminalSession {
         match child.try_wait() {
             Ok(Some(status)) => {
                 let code = status.code().unwrap_or(-1);
-                *self.exit_code.lock().unwrap() = Some(code);
+                *self.exit_code.lock().unwrap_or_else(|p| p.into_inner()) = Some(code);
                 let next = if code == 0 {
                     SessionState::Exited
                 } else {
@@ -481,11 +481,11 @@ impl TerminalSession {
     }
 
     fn state(&self) -> SessionState {
-        *self.state.lock().unwrap()
+        *self.state.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     fn set_state(&mut self, s: SessionState) {
-        *self.state.lock().unwrap() = s;
+        *self.state.lock().unwrap_or_else(|p| p.into_inner()) = s;
     }
 
     /// 运行时长（毫秒）。
@@ -499,7 +499,7 @@ impl TerminalSession {
         SessionInfo {
             id: self.id,
             state,
-            exit_code: *self.exit_code.lock().unwrap(),
+            exit_code: *self.exit_code.lock().unwrap_or_else(|p| p.into_inner()),
             elapsed_ms: self.elapsed_ms(),
             seq,
         }
@@ -522,7 +522,7 @@ fn spawn_reader<R: Read + Send + 'static>(mut stream: Option<R>, ring: Arc<Mutex
             match stream.read(&mut block) {
                 Ok(0) => break, // EOF
                 Ok(n) => {
-                    let _ = ring.lock().unwrap().write(&block[..n]);
+                    let _ = ring.lock().unwrap_or_else(|p| p.into_inner()).write(&block[..n]);
                 }
                 Err(_) => break, // 管道断（子进程退出）——正常退出路径之一
             }
@@ -586,7 +586,7 @@ impl TerminalManager {
     ) -> Result<u64, String> {
         let id = self.alloc_id();
         let sess = TerminalSession::spawn(id, program, args, cwd, timeout)?;
-        self.sessions.lock().unwrap().insert(id, sess);
+        self.sessions.lock().unwrap_or_else(|p| p.into_inner()).insert(id, sess);
         Ok(id)
     }
 
@@ -596,14 +596,14 @@ impl TerminalManager {
         id: u64,
         f: impl FnOnce(&mut TerminalSession) -> R,
     ) -> Option<R> {
-        let mut map = self.sessions.lock().unwrap();
+        let mut map = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
         map.get_mut(&id).map(f)
     }
 
     /// 列出全部会话快照（Trae list_owned 语义）。顺带把已终态且输出已读尽的
     /// 老会话留在表里（由调用方显式 remove），避免误删正在读回滚屏的会话。
     pub fn list(&self) -> Vec<SessionInfo> {
-        let mut map = self.sessions.lock().unwrap();
+        let mut map = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
         let mut v: Vec<SessionInfo> = map.values_mut().map(|s| s.info()).collect();
         v.sort_by_key(|s| s.id);
         v
@@ -611,7 +611,7 @@ impl TerminalManager {
 
     /// 移除一个已终态的会话（释放句柄）。对运行中的会话返回 Err。
     pub fn remove(&self, id: u64) -> Result<(), String> {
-        let mut map = self.sessions.lock().unwrap();
+        let mut map = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
         match map.remove(&id) {
             Some(s) if s.state().is_terminal() => Ok(()),
             Some(_) => {
@@ -624,7 +624,7 @@ impl TerminalManager {
 
     /// 退出时清空全部会话（防孤儿）。逐个 kill，忽略已终态的。
     pub fn kill_all(&self) {
-        let mut map = self.sessions.lock().unwrap();
+        let mut map = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
         for (_, s) in map.iter_mut() {
             if s.is_running() {
                 s.kill();
