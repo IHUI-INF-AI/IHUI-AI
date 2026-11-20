@@ -180,7 +180,7 @@ export function ReasoningEffortAxis({
             {activeIndex >= 0 && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-black/5"
+                className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-elevation-sm ring-1 ring-black/5"
                 style={{ left: `${percentOf(activeIndex)}%` }}
                 data-testid="reasoning-effort-knob"
               />

@@ -9293,9 +9293,6 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     ai_payroll_handoff as _ai_payroll_handoff,
 )
-from ..tools import (  # noqa: E402
-    ai_tax_filing as _ai_tax_filing,
-)
 
 # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加。
 # 实现分文件(单一职责),描述文案单源在各工具文件(与 D09 专家包共用,§0.6 不写第二份);
@@ -9304,10 +9301,7 @@ from ..tools import (  # noqa: E402
     ai_reimbursement as _ai_reimbursement,
 )
 from ..tools import (  # noqa: E402
-    social_insurance_calc as _social_insurance_calc,
-)
-from ..tools import (  # noqa: E402
-    special_deduction_calc as _special_deduction_calc,
+    ai_tax_filing as _ai_tax_filing,
 )
 
 # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具(artifact_tools,
@@ -9355,11 +9349,22 @@ from ..tools import (
 from ..tools import (
     sheet_formula_validate as _sheet_formula_validate,
 )
+from ..tools import (  # noqa: E402
+    social_insurance_calc as _social_insurance_calc,
+)
+from ..tools import (  # noqa: E402
+    special_deduction_calc as _special_deduction_calc,
+)
 
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
+)
+
+# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
+from ..tools.payroll_handoff_tools import (  # noqa: E402
+    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 # 财务部五腿扩展描述常量(2026-11-13):文案单源在各工具文件
@@ -9371,11 +9376,6 @@ from ..tools.social_insurance_tools import (  # noqa: E402
 )
 from ..tools.special_deduction_tools import (  # noqa: E402
     SPECIAL_DEDUCTION_DESCRIPTION,
-)
-
-# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
-from ..tools.payroll_handoff_tools import (  # noqa: E402
-    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 
