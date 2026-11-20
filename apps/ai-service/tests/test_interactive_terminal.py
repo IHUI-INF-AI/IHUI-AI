@@ -18,11 +18,9 @@ import sys
 import time
 
 import pytest
-
 from app.services import interactive_terminal as term
 from app.services import mcp_server as mcp
 from app.services.mcp_server import _tool_terminal
-
 
 # ─── PTY 后端形状锁(不 flaky:静态判据 + 变异夹具,遵 memory: race-fix-shape-lock-over-timing-test) ───
 _TEST = term.__test__
@@ -113,7 +111,8 @@ def test_strict_child_env_applies_to_both_backends_via_source_lock() -> None:
     """形状锁(读源码一次):PTY 分支必须**与管道分支同经** `_strict_child_env`,
     否则 PTY 悄悄继承了宿主环境 = 沙箱边界被放宽却没人发现。
     """
-    src = io.open(term.__file__, encoding="utf-8").read()
+    with open(term.__file__, encoding="utf-8") as fh:
+        src = fh.read()
     # 三个 spawn 分支(管道 / POSIX pty / Windows ConPTY)都必须各走一次 `_strict_child_env`。
     assert src.count("env=_strict_child_env(env_extra)") >= 3
     # 任何 subprocess.Popen( 调用点附近必须传了 env=;粗略:文件里没有裸 `subprocess.Popen(`
@@ -136,7 +135,8 @@ def _conpty_source() -> str:
 
     ConPTY 是同一模块的"Windows 平台专章"(不另立第二份实现),故判据面就是 `term` 自身。
     """
-    return io.open(term.__file__, encoding="utf-8").read()
+    with open(term.__file__, encoding="utf-8") as fh:
+        return fh.read()
 
 
 def test_conpty_does_not_inherit_parent_handles() -> None:
@@ -179,7 +179,7 @@ def _open_env_backend(tmp_path, *, with_pty: bool):
     script = _script_path(tmp_path, "isatty_probe.py", _ISATTY_SCRIPT)
     cmd = f'"{sys.executable}" -u "{script}"'
     if with_pty:
-        import os as _o  # noqa: PLC0415
+        import os as _o
         assert _o.environ.get(_TEST["PTY_REQUEST_ENV"]) is not None
     return term.open_terminal(
         command=cmd, cwd=str(tmp_path), user_id="u-term", session_id="s-term"

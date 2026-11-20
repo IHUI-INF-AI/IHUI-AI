@@ -9707,6 +9707,22 @@
           "title": "終端機不存在",
           "action": "重新建立終端機"
         },
+        "TERMINAL_INVALID_PATTERN": {
+          "title": "終端機匹配模式無效",
+          "action": "檢查正則寫法後重試"
+        },
+        "TERMINAL_INVALID_SIZE": {
+          "title": "終端機尺寸無效",
+          "action": "傳入正整數行列後重試"
+        },
+        "TERMINAL_NOT_A_TTY": {
+          "title": "終端機不是 tty",
+          "action": "以 PTY 模式重啟工作階段"
+        },
+        "TERMINAL_RESIZE_FAILED": {
+          "title": "終端機尺寸調整失敗",
+          "action": "重建終端機後重試"
+        },
         "TERMINAL_PTY_UNSUPPORTED_ON_PLATFORM": {
           "title": "平臺不支援 PTY",
           "action": "改用管道模式,或檢查宿主 ConPTY 支援"
