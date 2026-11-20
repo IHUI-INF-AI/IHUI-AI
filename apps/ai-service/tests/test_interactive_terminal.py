@@ -1742,6 +1742,31 @@ def test_close_reports_graceful_path_and_escalation_flags(tmp_path) -> None:
             real.kill()
 
 
+def test_buffer_lines_env_defaults_and_clamps(monkeypatch, tmp_path) -> None:
+    """缓冲上限:未设/0/非法一律回落默认;合法值夹在 [下限, 上限] 之间,且真落到 deque 上。"""
+    parse = _TEST["buffer_lines"]
+    key = _TEST["TERMINAL_BUFFER_LINES_ENV"]
+    assert parse({}) == term.MAX_BUFFER_LINES
+    for bad in ("", "   ", "0", "-5", "abc"):
+        assert parse({key: bad}) == term.MAX_BUFFER_LINES
+    assert parse({key: "500"}) == 500
+    assert parse({key: "50"}) == _TEST["MIN_BUFFER_LINES"]
+    assert parse({key: "999999"}) == _TEST["MAX_BUFFER_LINES_CEILING"]
+
+    term.reset_terminals()
+    monkeypatch.setenv(key, "500")
+    try:
+        opened = _open(_script_path(tmp_path, "buf.py", _SLEEP_SCRIPT), tmp_path)
+        tid = opened["terminal"]["terminal_id"]
+        session = term._sessions[tid]
+        assert session.buffer_lines == 500
+        assert session.chunks.maxlen == 500, "上限只记在账本上、没落到 deque ⇒ 等于没设"
+        assert opened["terminal"]["buffer_lines"] == 500
+    finally:
+        term.reset_terminals()
+        monkeypatch.delenv(key, raising=False)
+
+
 def test_signal_interrupt_stops_process(tmp_path) -> None:
     opened = _open(_script_path(tmp_path, "sleep.py", _SLEEP_SCRIPT), tmp_path)
     terminal_id = opened["terminal"]["terminal_id"]
