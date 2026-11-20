@@ -233,9 +233,6 @@ export const useAuthStore = create<AuthState>()(
         })()
         setAuthCookie(null)
         clearRefreshTokenCookie()
-        // 被动失效同样是"会话结束":换人登录前必须清掉上一用户的私有持久化
-        // (与 logout 同一个清收口,同步先跑,理由见 logout 分支注释)。
-        resetPrivateSessionState()
         set({
           token: null,
           refreshToken: null,
@@ -251,6 +248,9 @@ export const useAuthStore = create<AuthState>()(
         // 服务端明确否定凭据 ⇒ 也别再让下次冷启动为一份死 cookie 空转一次 refresh。
         clearSessionEstablished()
         clearRefreshTokenCookie()
+        // 被动失效同样是"会话结束":换人登录前必须清掉上一用户的私有持久化
+        // (与 logout 同一个清收口,同步先跑,理由见 logout 分支注释)。
+        resetPrivateSessionState()
         // 清 vault 必须是 CAS,不能盲清:桌面多窗口共用 auth.json,另一窗口可能已轮转并把
         // 新 token 写回;盲清会把它抹掉,下次冷启动无凭据可刷(与 lib/api.ts 的 rejected
         // 分支同一条判据)。不知道本窗口用过哪一份(冷启动时 state 里没有)时一律不碰 ——

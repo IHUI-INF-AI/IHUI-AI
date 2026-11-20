@@ -299,8 +299,9 @@ export default function CircleDetailPage() {
             </View>
           ) : null}
 
-          {/* 互动动作栏:项数/顺序/图标名/可点性全部来自 post-actions.contract 单一源。
-              2026-11-14 收敛前是 4 段手写 JSX;可点性判据(没回调 ⇒ 只读 View)现在只写在契约里。 */}
+          {/* 互动动作栏:项数/顺序/图标名/可点性全部来自 `@ihui/shared/social/post-actions` 单一源。
+              (2026-11-14 契约迁到 shared 后,packages/app 里的兼容壳 post-actions.contract.ts
+               已于 2026-11-20 删除,注释同批改指真相源。) */}
           <View className="cd-actions">
             {projectPostActions(
               {
