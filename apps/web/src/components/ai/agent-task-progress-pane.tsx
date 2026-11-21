@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   TerminalSquare,
   Package,
+  Webhook,
   ShieldAlert,
 } from 'lucide-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
@@ -71,7 +72,6 @@ import { useCommandHooksConfig } from '@/hooks/use-command-hooks-config'
 // 2026-11-21 第 41 项:均值/峰值只从累计模块取,组件内不重算一份口径。
 import { useHookAuditSummary } from '@/hooks/use-hook-audit-summary'
 import { HookReadout } from '@/components/ai/hook-readout'
-import { HookRunDetail } from '@/components/ai/hook-run-detail'
 import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
@@ -921,7 +921,12 @@ export function AgentTaskProgressPane() {
     hookConfig?.status === 'untrusted' && hookConfig.trustedBy
       ? t('runtimeHookConfigStaleBy', { by: hookConfig.trustedBy })
       : null
-  // 2026-11-21 第 48 项:钩子三态文案随明细块迁入 HookRunDetail,面板不再持有第二份。
+  const hookStatusLabel = (status: 'ok' | 'timeout' | 'error'): string =>
+    status === 'timeout'
+      ? t('runtimeHookRunTimeout')
+      : status === 'error'
+        ? t('runtimeHookRunError')
+        : t('runtimeHookRunOk')
 
   // 工作台答复:与聊天侧同一条结构化 REST(不发起新一轮、不新增用户消息)。
   // 失败向上抛给卡片(卡片自带失败提示与重试),不在这里吞掉。
@@ -2053,9 +2058,52 @@ export function AgentTaskProgressPane() {
           />
 
           {/* 2026-11-20 第 26 项:hook-run 逐钩子结果(命名 SSE 事件,最近一帧)。
-              与 hook-failed 分工:这里报"钩子正常工作并给出裁决/改写/超时"。
-              2026-11-21 第 48 项:明细块抽成 HookRunDetail,判据(三态文案/配色/逐行 data)只在组件一份。 */}
-          {lastHookRun && <HookRunDetail run={lastHookRun} t={t} />}
+              与 hook-failed 分工:这里报"钩子正常工作并给出裁决/改写/超时"。 */}
+          {lastHookRun && (
+            <div className="mx-2 mt-1.5" data-testid="pane-runtime-hook-runs">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Webhook className="h-3 w-3 shrink-0" aria-hidden />
+                <span>{t('runtimeHookRunTitle')}</span>
+                <span className="min-w-0 truncate font-mono opacity-70">
+                  {t('runtimeHookRunMeta', {
+                    tool: lastHookRun.toolName ?? '—',
+                    count: lastHookRun.hooks.length,
+                  })}
+                </span>
+              </div>
+              <div className="mt-0.5 space-y-0.5 text-[10px] leading-4">
+                {lastHookRun.hooks.map((hook, i) => (
+                  <div
+                    key={`${hook.name}-${i}`}
+                    className="flex items-center gap-1.5"
+                    data-hook-status={hook.status}
+                  >
+                    <span
+                      className={cn(
+                        'shrink-0',
+                        hook.status === 'error'
+                          ? 'text-red-500'
+                          : hook.status === 'timeout'
+                            ? 'text-amber-600'
+                            : 'text-emerald-600',
+                      )}
+                    >
+                      {hookStatusLabel(hook.status)}
+                    </span>
+                    <span className="min-w-0 truncate font-mono text-foreground/80">
+                      {hook.name}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground opacity-70 tabular-nums">
+                      {hook.durationMs}ms
+                    </span>
+                    {hook.error && (
+                      <span className="min-w-0 truncate text-red-500/80">{hook.error}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 2026-11-20 第 31 项:钩子配置未生效时给出原因(未受信任 / 配置损坏)。
               trusted / 未配置都不显示 —— 后者是合法默认档,不该报警。 */}

@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "generated": "2026-11-20",
+  "purpose": "BUG-29 ②段时序漂移复核：②段(11-06冻结)与 11-18诊断权威131 的差集复核",
+  "method": "权威131(pairs) - ②段154 去差 → 迁移链无该列索引者=真缺口",
+  "conclusion": "②段已过时，照原样上线会漏下列真缺口；不擅自扩三包(保持161计数已验证状态)，交机主定夺"
+ },
+ "still_missing_total": 15,
+ "gaps": [
+  {
+   "table": "comments",
+   "col": "parent_id",
+   "last_migration": "20261106150000_fix_missing_indexes_fks.sql"
+  },
+  {
+   "table": "hr_attendance_daily",
+   "col": "shift_id",
+   "last_migration": "20261111180000_hr_shift_daily.sql"
+  },
+  {
+   "table": "hr_attendance_monthly",
+   "col": "signed_by",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "hr_attendance_monthly",
+   "col": "source_batch_id",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "hr_import_batch",
+   "col": "uploaded_by",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "hr_import_row",
+   "col": "resolved_by",
+   "last_migration": "20261112190000_hr_import.sql"
+  },
+  {
+   "table": "hr_outgoing_record",
+   "col": "operated_by",
+   "last_migration": "20261112210000_hr_outgoing.sql"
+  },
+  {
+   "table": "hr_overtime_record",
+   "col": "operated_by",
+   "last_migration": "20261112200000_hr_import_leave_overtime.sql"
+  },
+  {
+   "table": "hr_payroll_period",
+   "col": "attendance_sheet_file_id",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "hr_payroll_period",
+   "col": "operator_id",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "hr_payroll_period",
+   "col": "payroll_sheet_file_id",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "hr_salary_config",
+   "col": "created_by",
+   "last_migration": "20261112220000_hr_monthly_payroll.sql"
+  },
+  {
+   "table": "traders",
+   "col": "user_id",
+   "last_migration": "0043_neat_the_spike.sql"
+  },
+  {
+   "table": "workflow_todo",
+   "col": "assignee_id",
+   "last_migration": "20261113100000_workflow_todo.sql"
+  },
+  {
+   "table": "workflow_todo",
+   "col": "resolved_by",
+   "last_migration": "20261113100000_workflow_todo.sql"
+  }
+ ]
+}

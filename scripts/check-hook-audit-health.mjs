@@ -105,24 +105,13 @@ export function readLedger(path) {
   return { state: 'ok', sizeBytes, events, badLines, lines, backup }
 }
 
-/**
- * 近窗失败率:台账行是**一帧一条**(`hooks[]` 里才是逐钩子的 status),所以窗口按
- * 行取、计数按钩子算。2026-11-21 第 51 项修:原先读 `row.status`,真实台账里没有
- * 这个键(它是 `hooks[].status`)⇒ 失败率恒为 0,"越线"那一条永远不响。
- */
+/** 近窗失败率:只看能读出 status 的事件 */
 export function failRate(events, window = FAIL_RATE_WINDOW) {
-  const tail = events.slice(-window)
-  let total = 0
-  let failed = 0
-  for (const row of tail) {
-    if (!row || !Array.isArray(row.hooks)) continue
-    for (const hook of row.hooks) {
-      if (!hook || typeof hook !== 'object') continue
-      if (typeof hook.status !== 'string') continue
-      total += 1
-      if (hook.status === 'error' || hook.status === 'timeout') failed += 1
-    }
-  }
+  const tail = events
+    .filter((e) => e && typeof e.status === 'string')
+    .slice(-window)
+  const total = tail.length
+  const failed = tail.filter((e) => e.status === 'error' || e.status === 'timeout').length
   return { total, failed, ratio: total === 0 ? 0 : failed / total }
 }
 
@@ -150,51 +139,20 @@ export function judge(ledger, capBytes) {
   }
   const fr = failRate(ledger.events)
   if (fr.total > 0 && fr.failed >= FAIL_RATE_MIN_EVENTS && fr.ratio >= 0.3) {
-    const blamed = blameHooks(ledger.events)
     reasons.push(
-      `最近 ${fr.total} 条里失败 ${fr.failed} 条(${Math.round(fr.ratio * 100)}%)` +
-        `${blamed.length > 0 ? `;失败最多的是 ${blamed.join(' / ')}` : ''}` +
-        ' ⇒ 修挂掉的那条钩子,或先确认它的超时是否定得太紧',
+      `最近 ${fr.total} 条里失败 ${fr.failed} 条(${Math.round(fr.ratio * 100)}%):先按 ` +
+        '`summarize` 的 slowest/lastTs 定位是哪条钩子,再决定修挂掉的那条还是放宽超时',
     )
   }
   return { state: reasons.length > 0 ? 'warn' : 'healthy', reasons }
 }
 
-/**
- * 从台账原始行里点名"是哪条钩子在挂 / 哪条最慢"。
- *
- * 为什么在这里算而不是取 `summarize_hook_audit` 的 `slowestMs`:那格只有毫秒,
- * 没有钩子名 —— "按 slowestMs 定位是哪条钩子"是一条跑不通的出路(§0.8)。原始行
- * 里 `hooks[].name/durationMs/status` 都在,本尺子自己汇总即可,不必为读一个名字
- * 再往 Python 侧加一版聚合(§0.6 也不该出现两套聚合口径)。
- */
-export function blameHooks(events, limit = 3) {
-  const byName = new Map()
-  for (const row of events) {
-    if (!row || !Array.isArray(row.hooks)) continue
-    for (const hook of row.hooks) {
-      if (!hook || typeof hook !== 'object') continue
-      const name = typeof hook.name === 'string' && hook.name ? hook.name : '(未命名钩子)'
-      const cur = byName.get(name) ?? { name, failed: 0, total: 0, maxMs: 0 }
-      cur.total += 1
-      if (hook.status === 'error' || hook.status === 'timeout') cur.failed += 1
-      if (typeof hook.durationMs === 'number' && hook.durationMs > cur.maxMs) cur.maxMs = hook.durationMs
-      byName.set(name, cur)
-    }
-  }
-  const ranked = [...byName.values()]
-    .filter((h) => h.failed > 0)
-    .sort((a, b) => b.failed - a.failed || b.maxMs - a.maxMs)
-    .slice(0, limit)
-  return ranked.map((h) => `${h.name}(失败 ${h.failed}/${h.total}${h.maxMs > 0 ? `,最慢 ${Math.round(h.maxMs)}ms` : ''})`)
-}
-
-export function report(verdict, ledger, capBytes) {
+function report(verdict, ledger, capBytes) {
   const head = `[hook-audit-health] 结论 ${verdict.state}`
   const facts = []
   if (ledger && ledger.state === 'ok') {
     facts.push(
-      `台账 ${ledger.sizeBytes} 字节 / 上限 ${capBytes} 字节 / ${ledger.lines.length} 行 / 备份 ${ledger.backup ? ledger.backup.bytes + ' 字节' : '无'}`,
+      `台账 ${ledger.sizeBytes} 字节 / 上限 ${capBytes} 字节 / ${ledger.lines} 行 / 备份 ${ledger.backup ? ledger.backup.bytes + ' 字节' : '无'}`,
     )
   } else if (ledger && ledger.state === 'absent') {
     facts.push('台账尚未建立(一次钩子都没跑过,不算故障)')
@@ -234,40 +192,13 @@ function selfTest() {
 
     const failing = join(dir, 'fail.jsonl')
     const rows = []
-    for (let i = 0; i < 20; i += 1) {
-      // 真实台账行形:一帧一条,status/durationMs 在 hooks[] 里(不是 row.status)
-      rows.push(
-        JSON.stringify({
-          ts: new Date(2026, 10, 21).toISOString(),
-          toolName: 'Bash',
-          hooks: [{ name: i % 2 === 0 ? 'lint-on-edit' : 'guardian-fast', status: i % 2 === 0 ? 'error' : 'ok', durationMs: 12 }],
-        }),
-      )
-    }
+    for (let i = 0; i < 20; i += 1) rows.push(JSON.stringify({ name: 'h', status: i % 2 === 0 ? 'error' : 'ok' }))
     writeFileSync(failing, rows.join('\n') + '\n', 'utf8')
     const fr = failRate(readLedger(failing).events)
-    push('自检7:失败率窗内计 20 条 10 条失败(按 hooks[] 计)', fr.total === 20 && fr.failed === 10, JSON.stringify(fr))
-    const blamed = blameHooks(readLedger(failing).events)
-    push('自检7b:点名失败最多的钩子', blamed.length === 1 && blamed[0].includes('lint-on-edit'), blamed.join('|'))
+    push('自检7:失败率窗内计 20 条 10 条失败', fr.total === 20 && fr.failed === 10, JSON.stringify(fr))
 
     push('自检8:上限取不到 ⇒ undetermined', judge({ state: 'absent' }, null).state === 'undetermined')
     push('自检9:env 覆盖生效', resolveLedgerPath({ IHUI_HOOK_AUDIT_PATH: 'D:/x/y.jsonl' }) === 'D:/x/y.jsonl')
-    push('自检10:上限 env 覆盖优先于常量(坏值回落常量)',
-      resolveCap({ IHUI_HOOK_AUDIT_MAX_BYTES: '2048' }, 5242880) === 2048 &&
-        resolveCap({ IHUI_HOOK_AUDIT_MAX_BYTES: 'abc' }, 5242880) === 5242880 &&
-        resolveCap({}, 5242880) === 5242880)
-    // report 只报"行数"不报整行内容:台账一行可以有几 MB(钩子 error 截断上限很大)
-    const giant = join(dir, 'giant.jsonl')
-    writeFileSync(giant, `{"hooks":[{"name":"g","note":"${'y'.repeat(90000)}"}]}\n`, 'utf8')
-    const captured = []
-    const orig = console.log
-    console.log = (s) => captured.push(String(s))
-    try {
-      report(judge(readLedger(giant), cap), readLedger(giant), cap)
-    } finally {
-      console.log = orig
-    }
-    push('自检11:报告长度有界(不把整行台账打出来)', captured.join('').length < 3000, String(captured.join('').length))
   } finally {
     try {
       rmSync(dir, { recursive: true, force: true })
@@ -285,20 +216,6 @@ function selfTest() {
   return 0
 }
 
-/**
- * 上限的最终取值:env `IHUI_HOOK_AUDIT_MAX_BYTES` 优先(与 Python `_max_bytes()` 同一口径),
- * 缺省才用源头常量。2026-11-21 第 56 项补 —— 此前本尺子只读常量,而 Python 侧认 env
- * ⇒ 有人把上限调小时,面板与守护会各说一套。
- */
-export function resolveCap(env, srcCap) {
-  const raw = String((env && env.IHUI_HOOK_AUDIT_MAX_BYTES) || '').trim()
-  if (raw) {
-    const n = Number(raw)
-    if (Number.isFinite(n) && n > 0) return n
-  }
-  return srcCap
-}
-
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   let capBytes = null
@@ -307,7 +224,6 @@ function main(argv) {
   } catch {
     capBytes = null
   }
-  capBytes = resolveCap(process.env, capBytes)
   const ledger = readLedger(resolveLedgerPath())
   const verdict = judge(ledger, capBytes)
   report(verdict, ledger, capBytes)

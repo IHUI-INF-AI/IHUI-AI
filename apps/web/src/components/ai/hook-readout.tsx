@@ -4,7 +4,6 @@
 
 import type { HookRunStats } from '@/hooks/hook-run-stats'
 import { hookRunStatsAverageMs } from '@/hooks/hook-run-stats'
-import type { HookAuditStats } from '@/hooks/use-hook-audit-summary'
 
 /** next-intl 的 t 在组件内的最小投影(只用到"键 + 变量"这一档)。 */
 export type HookReadoutTranslate = (
@@ -16,7 +15,7 @@ interface HookReadoutProps {
   /** 会话内存累计(第 38 项);`total>0` 时优先显示 */
   sessionStats: HookRunStats
   /** 落盘台账摘要(第 41 项);只在会话累计为空(刷新/重连)时回落 */
-  auditStats: HookAuditStats | null
+  auditStats: HookRunStats | null
   /**
    * 2026-11-21 第 43 项:把"该显示哪一条"收进组件 —— 两条同时出现会让人以为跑了两次。
    * 判断规则只有这里一份(此前写在 800 行面板的 JSX 表达式里,单测够不着)。
@@ -35,16 +34,6 @@ function statsBody(t: HookReadoutTranslate, stats: HookRunStats): string {
   })
 }
 
-/**
- * 2026-11-21 第 49 项:容量占用的"要不要说"判据(>=90% 才报,四舍五入成整数百分比)。
- * 任一格取不到 ⇒ null(不判),避免把"没测到"画成"没满"。
- */
-export function nearFullPct(stats: HookAuditStats): number | null {
-  if (stats.sizeBytes === null || stats.maxBytes === null || stats.maxBytes <= 0) return null
-  const pct = Math.round((stats.sizeBytes / stats.maxBytes) * 100)
-  return pct >= 90 ? Math.min(100, pct) : null
-}
-
 export function HookReadout({ sessionStats, auditStats, t }: HookReadoutProps) {
   if (sessionStats.total > 0) {
     return (
@@ -57,47 +46,14 @@ export function HookReadout({ sessionStats, auditStats, t }: HookReadoutProps) {
       </div>
     )
   }
-  if (auditStats && (auditStats.total > 0 || auditStats.backupBytes !== null)) {
-    const historyOnly = auditStats.total === 0 && auditStats.backupBytes !== null
+  if (auditStats && auditStats.total > 0) {
     return (
       <div
         className="mx-2 mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
         data-testid="pane-runtime-hook-audit"
       >
         <span className="shrink-0 font-medium">{t('runtimeHookAuditTitle')}</span>
-        {auditStats.total > 0 ? (
-          <span className="font-mono tabular-nums">{statsBody(t, auditStats)}</span>
-        ) : null}
-        {/*
-          2026-11-21 第 44 项:台账只读尾部时必须显式标注 —— 否则「两万行之前的历史」
-          会被读成「没跑过」。只在截断时出现,不复述 total/linesRead 的算术。
-        */}
-        {auditStats.total > 0 && auditStats.truncated ? (
-          <span className="shrink-0" data-testid="pane-runtime-hook-audit-truncated">
-            {t('runtimeHookAuditTruncated', { lines: auditStats.linesRead })}
-          </span>
-        ) : null}
-        {/*
-          2026-11-21 第 45 项:轮转刚发生时当前台账是空的,只有备份还在 ——
-          这一格说明"历史不等于零次",避免把轮转读成"从没跑过"。
-        */}
-        {historyOnly ? (
-          <span className="shrink-0" data-testid="pane-runtime-hook-audit-history-only">
-            {t('runtimeHookAuditHistoryOnly', {
-              kb: Math.max(1, Math.round((auditStats.backupBytes ?? 0) / 1024)),
-            })}
-          </span>
-        ) : null}
-        {/*
-          2026-11-21 第 49 项:容量到 90% 就说出来 —— 轮转会覆盖唯一的历史备份,
-          到那时"之前的钩子历史"永久消失;这不是内部细节,是读数的一部分。
-          两格任一取不到就不判(不拿 0 当"没满")。
-        */}
-        {nearFullPct(auditStats) !== null ? (
-          <span className="shrink-0" data-testid="pane-runtime-hook-audit-near-full">
-            {t('runtimeHookAuditNearFull', { pct: nearFullPct(auditStats) ?? 0 })}
-          </span>
-        ) : null}
+        <span className="font-mono tabular-nums">{statsBody(t, auditStats)}</span>
       </div>
     )
   }

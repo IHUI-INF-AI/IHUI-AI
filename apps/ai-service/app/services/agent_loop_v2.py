@@ -2042,10 +2042,6 @@ def _compaction_context_limit_from_env() -> int:
 #: 说明载荷本身就装不下(如单条巨型工具结果),再压只会继续丢历史 ⇒ 收手报原始错误。
 MAX_OVERFLOW_RECOVERY_ATTEMPTS = 2
 
-#: 取消时 interrupt 钩子的硬上限(秒)。取消的即时性优先于钩子:
-#: 钩子是外部脚本,可能卡在网络/磁盘上,绝不能让它把"用户点了停止"变成"等 30 秒"。
-_INTERRUPT_HOOK_TIMEOUT_SECONDS = 2.0
-
 #: 应急腿的触发/目标占用率,都比主动腿的 0.85/0.6 更狠。
 #: 为什么不能填 0:``compress_messages_if_needed`` 的 trigger_ratio 同时充当
 #: 「这次压缩算不算真见效」的地板(见 core/context_compaction.py 防循环保护 ——
@@ -6798,12 +6794,6 @@ class AgentLoopV2:
             {"session_id": self._ensure_session_id(), "status": "cancelling"},
         )
         self._cancel_requested = True
-        # 第 35 项(2026-11-21):interrupt 钩子 —— 契约有、执行链一直没有。
-        # 排在这里(而不是 _wait_interruptible)是因为本函数自己就是取消入口:
-        # 用 _wait_interruptible 会在 0.25s 内被自己的取消标志打死。
-        # 硬上限 2s:取消的即时性优先于钩子,钩子慢就让它超时(记 timeout 事件),
-        # 绝不因为外部脚本而拖住用户的取消动作。
-        await self._run_interrupt_hooks()
         if self._messages is not None:
             return await self._save_checkpoint_safe(
                 iteration=self._current_iteration,
@@ -7723,39 +7713,6 @@ class AgentLoopV2:
             )
         except Exception as e:  # noqa: BLE001 - 钩子降级不影响本轮产出
             logger.warning("post_model_request 钩子降级(不阻断): %s", e)
-
-    async def _run_interrupt_hooks(self) -> None:
-        """取消/中断钩子(第 35 项):只通知、不裁决,且不得拖住取消。
-
-        语义边界:
-        - 取消是用户的**最高优先级操作**,钩子只允许观察与旁路记录;
-          钩子回的 `decision/stop` 一律不解读(拿钩子阻止取消 = 绕过用户意志)。
-        - 硬上限 `_INTERRUPT_HOOK_TIMEOUT_SECONDS`:超时记 timeout 事件后继续取消,
-          且吞掉 `CancelledError`(取消钩子被取消不等于取消失败)。
-        """
-        if self._hook_runtime is None:
-            return
-        try:
-            from ..core.hook_runtime import HookKind as _KillKind
-
-            await asyncio.wait_for(
-                self._hook_runtime.run(
-                    _KillKind.INTERRUPT,
-                    {
-                        "session_id": self._ensure_session_id(),
-                        "user_id": self._user_id or "",
-                        "conversation_id": self._conversation_id or "",
-                        "iteration": self._current_iteration,
-                        "reason": "user_cancel",
-                        "has_messages": self._messages is not None,
-                    },
-                ),
-                timeout=_INTERRUPT_HOOK_TIMEOUT_SECONDS,
-            )
-        except (TimeoutError, asyncio.CancelledError):
-            logger.warning("interrupt 钩子超时或被取消(取消动作照常继续)")
-        except Exception as e:  # noqa: BLE001 - 钩子异常不得影响取消
-            logger.warning("interrupt 钩子异常(降级,不阻断取消): %s", e)
 
     async def _run_session_end_hooks(self, result: AgentLoopResult) -> None:
         """会话收尾钩子(2026-11-21 第 33 项)。
