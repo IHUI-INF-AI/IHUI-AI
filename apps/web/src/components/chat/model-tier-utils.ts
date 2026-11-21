@@ -207,9 +207,19 @@ export function filterByCapabilities(
  * 它既没老到 legacy 被筛掉,又确实是上一代。当前代但未进白名单的 standard
  * (`unclassified-default`)照旧保留,不能一刀切藏掉能调通的模型。
  *
+ * 2026-11-22 追加:展示名自称「上一代 / 旧代」的条目(数据侧标注,后端仍是
+ * preset:standard)一并跳过 —— 名字已经承认是上一代,就不该再出现在默认列表。
+ *
  * 返回值仍保留 `archived`(恒为空)只为兼容调用方的既有结构;UI 侧
  * `archived.length > 0` 的条件会让历史区整块不再渲染。
  */
+/**
+ * 展示名里自称"上一代"的条目(数据侧标记,如 `Agnes 图像 2.1 Flash (文生图,上一代)`)。
+ * 这类行后端 classify_reason 仍是 `preset:standard`,靠 minor-behind 抓不到;
+ * 2026-11-22 追加:名字已经写着上一代就不再展示,与"旧代不入列表"同一口径。
+ */
+const OLD_GEN_LABEL_RE = /上一代|旧代|老版/i
+
 export function splitByTier(options: ModelOption[]): {
   primary: ModelOption[]
   archived: ModelOption[]
@@ -217,6 +227,7 @@ export function splitByTier(options: ModelOption[]): {
   const primary: ModelOption[] = []
   for (const opt of options) {
     if (opt.classifyReason?.startsWith('minor-behind')) continue
+    if (OLD_GEN_LABEL_RE.test(opt.label)) continue
     const category = normalizeCategory(opt.category)
     const tier = normalizeTier(opt.tier)
     if (isSelectableChatModel(category, tier, opt.id)) primary.push(opt)

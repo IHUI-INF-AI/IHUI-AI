@@ -102,7 +102,7 @@ export function unavailableReason(kind: MediaModelKind, model: string): string |
   const bare = bareModelId(model)
   if (kind === 'image') {
     if (bare.startsWith(IMAGE_CHANNEL_PREFIX)) return null
-    return `图像模型「${model}」当前没有接通的生成通道(能真出图的只有 Agnes 系列)。请选用「图像」分组里的 agnes-image-2.5-flash 或 agnes-image-2.1-flash。`
+    return `图像模型「${model}」当前没有接通的生成通道(能真出图的只有 Agnes 系列)。请选用「图像」分组里的 agnes-image-2.5-flash。`
   }
   if (kind === 'video') {
     if (bare.startsWith(VIDEO_CHANNEL_PREFIX)) return null

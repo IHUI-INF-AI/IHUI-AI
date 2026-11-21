@@ -56,6 +56,10 @@ LEGACY_MODEL_IDS = frozenset(
         # Agnes:3.0 已取代 2.5(图像/视频模型不走本清单,由 chat 能力过滤负责)
         "agnes/agnes-2.5-flash",
         "agnes/agnes-2.5-pro",
+        # Agnes 图像:2.5 是当前代,2.1 / 2.0 属上一代(2026-11-22 机主点名:
+        # 2.1 展示名自己都写着"上一代",2.0 上游已下架 ⇒ 两条都不许再进选择器)
+        "agnes/agnes-image-2.1-flash",
+        "agnes/agnes-image-2.0-flash",
         # Liquid:lfm-3 已取代 lfm-2.5
         "openrouter/liquid/lfm-2.5-2.6b:free",
         # Grok:保留 4.6/4.7 与版本序不明的 4.20 变体,4.3/4.5 属旧代

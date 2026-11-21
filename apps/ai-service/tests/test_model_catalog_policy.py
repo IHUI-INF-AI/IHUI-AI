@@ -31,6 +31,9 @@ from app.services.model_catalog_policy import (
         "deepseek-ai/deepseek-r1-0528-qwen3-8b",
         "workbuddy/minimax-m2.5",
         "agnes/agnes-2.5-pro",
+        # 2026-11-22 机主点名:Agnes 图像 2.1(自称"上一代")与 2.0(上游下架)
+        "agnes/agnes-image-2.1-flash",
+        "agnes/agnes-image-2.0-flash",
         "grok-4.3",
         "ollama/llama3.3:70b",
     ],
