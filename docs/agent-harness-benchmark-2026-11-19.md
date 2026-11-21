@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **66 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **67 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（66 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（67 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -728,6 +728,29 @@
 - 现场三/四：两把自检锁把腿数写死 12（登记表第 60 项起已 16 枚）⇒ 补登记即整片假红；`dep-radar` 的 `ruler` 写的是 `scripts/dep-radar.mjs`（盘上**不存在**），`selfReportToken` 缺失且真值应为"依赖通告:未判定"。
 - 处置三/四：两把锁改成按登记表长度现读（结构锁同时校验 `none`/`coveredBy` 两类的合法形态、`outputRel` 必须是 state 相对路径且指向真实台账）；登记表按器物真名改回 `scripts/dep-advisory-radar.mjs` 并补 `selfReportToken`。
 - 验证：`node scripts/check-autonomy-leg-health.mjs --self-test` **98 例全绿**（新增 H62b 真静默 drift / H62c 无成功会话 unjudged）；`node --test scripts/tests/autonomy-leg-output.test.mjs` **24 passed**（T21/T22 改为动态腿数）；`autonomy-leg-health-output.test.mjs` 11 passed；体检现读 `AUTONOMY-LEG state=unjudged OK=13 DRIFT=0 UNJUDGED=2`（A12 的 1 枚 `deploy-feedback` 自报未判定 + A13 的存量档，都是点名不冒红）。
+### 5.67 第 67 项：自愈层漏掉的第五种形态(`AD`)与三格恒红的自检
+
+- 现场一（门 42 连续未判定）：`registry [门 42] rc=2`，门自己说 `未判定(2 个待扫文件不存在)` ——
+  `apps/api/src/lib/oauth-config-check.ts` 与 `apps/api/tests/oauth-config-check.test.ts`。查 `git status`：
+  两枚都是 `AD`（**索引里有、磁盘上没了、HEAD 里还没有**）。现行自愈层两条判据都不覆盖它：
+  第一层 ` D` 要求"索引 blob == HEAD blob"（AD 的索引 blob 是新内容、HEAD 无此路径）；第四层 `D `
+  要求"HEAD 有该路径"（同上不成立）。结果：文件内容还在索引里、磁盘空着，**没有任何器物点名**
+  "这枚文件存在过、索引里还有那份字节"，门只能永远读未判定。
+- 处置一：`heal-worktree-tracked.mjs` 增第七层 `findStagedAddMissing` + `checkout-index --force`
+  回盘（**只写工作树，不碰索引也不碰 HEAD**）。写盘前逐批复核"索引里那份字节还在 ∧ 盘上仍然缺"，
+  有有效删除通知书（或台账坏档）的不动 —— 与第一层同一条问句。输出面新增 `stagedAdd*` 七键
+  （dryRun 带可回盘清单、真跑带恢复枚数），人类档逐条点名。
+- 现场二（自检三格恒红）：`--self-test` 现读 `❌ ㉜a / ㉜b / ㉜d` 三格，而 `git show HEAD:` 的同一份
+  器物同样三红 —— 不是本次改动引入。根因是**旧例仍在测旧设计**：㉜ 夹具把 46 枚深（浅窗 40）的
+  祖先复归当成"窗口用尽 ⇒ 判不出"，而整块/拼合两条通道自 2026-10-25 起走 `analyze` 的**深档**
+  （浅窗用尽即回落全历史），46 枚深照样判得出并对齐。自检读数三红 = 下一次真缺陷混在里面也分不出。
+- 处置二：㉜a/㉜b/㉜d 按现设计重写（深档取到全历史 ⇒ 已判过并回到 HEAD、不进"未判定"）；补 ㉜e
+  单独钉**浅档**那一维：同一 46 枚深祖先，`blobInAncestry`（浅窗 40）仍必须点名
+  `beyond-window` + 窗口与已见枚数 —— 两档窗口各有出处，谁也不许拿对方的结果替自己作答。
+- 验证：`node scripts/heal-worktree-tracked.mjs --self-test` **88 例全绿**（改前三红）；
+  `node --test scripts/tests/heal-worktree-tracked.test.mjs` **25 passed**（新增 T24：前两层对同一
+  现场判不出 → dryRun 点名零写 → 真跑回盘且 `hash-object` 逐字等于索引 blob → 幂等 → 持通知书
+  不回盘）；`node scripts/check-event-closure-leak.mjs` 现读 `5 文件 0 命中`（门 42 已能判）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
