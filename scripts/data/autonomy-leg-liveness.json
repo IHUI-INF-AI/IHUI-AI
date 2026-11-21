@@ -105,6 +105,15 @@
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-05",
       "ruler": "scripts/gen-rn-shell-types.mjs(小程序壳承载页编译期契约;本票 2026-11-05 补上调度点)"
+    },
+    {
+      "stamp": "monitor-signal-intake-dispatch-last.json",
+      "owner": "dispatchMonitorSignalIntake",
+      "envVar": "IHUI_MONITOR_INTAKE_INTERVAL_MS",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-21",
+      "ruler": "scripts/monitor-signal-intake.mjs",
+      "knownBlocker": "三源取数面(apiLogs.jsonl / grafanaAlerts.url / userFeedback 导出)在 scripts/data/auto-triage-config.json 里皆空 ⇒ 器物每轮落 three-source-undetermined 属预期,本探测器量的是派发戳是否在跳,不是产出"
     }
   ]
 }
