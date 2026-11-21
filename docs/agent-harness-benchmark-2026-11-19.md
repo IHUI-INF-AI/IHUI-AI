@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **87 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **88 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（87 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（88 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1243,6 +1243,40 @@
 - 边界：本项不真的寄信（`--dry-run` 只回答"配置齐不齐"，不回答"网络通不通"）；真实投递能力要靠
   下一轮 down 才会被量到。`state=down` 的拉起动作仍是 `schtasks /run`（守护的兜底腿），
   不代启 nssm 服务 —— 那是服务面策略，不借本项夹带。
+
+### 5.88 第 88 项：只有兜底任务在跑，哨兵却报「守护健康」—— 谁在跑这件事从来没有被读出来
+
+- 现场（一手，来自第 87 项留下的读数盲区）：`IHUI-GIT-GUARD` 服务本轮实测**被停过一段时间**
+  （`Get-Service` 现读 Stopped），而计划任务 `\IHUI-AI git-guardian` 每分钟照跑一次性 `main()`，
+  三腿 tick 因此一直是新鲜的 ⇒ 哨兵报 `state=ok`（`pidSource` 明明写着 `pid-dead`）。
+  `.ihui-agent/state/git-guardian.log` 现读 `09:56 / 09:58` 两轮日志，而 pid 文件写的 daemon 启动时刻是
+  `10:02:20` —— 那两轮**必然不是 daemon 跑的**，是兜底任务跑的。
+- 根因精确到一行：`scripts/check-guardian-leg-health.mjs` 的总状态取 `const state = judgeLegHealth(legs)`，
+  **只看腿 tick、不看执行体**。腿 tick 只说"有人跑过"，不说"是谁在跑"；`pidSource` 只被当注记打印。
+  于是一台"常驻 daemon 已死、只剩每分钟兜底一轮"的机器，读数和健康机器一模一样。
+- 处置（同一套 runtime、同一份判据，不新造第二套）：
+  - 哨兵新增纯判据 `describeExecutor(snap, opts)`：入参是**轮级锁快照**，身份与 pid 复用判据
+    **只委托** `scripts/lib/guardian-lock.mjs` 的 `readLockSnapshot` / `isPidAlive` /
+    `isPidStartTimeMismatched`（§0.6，不在本文件另解析一遍锁格式）。`kind` 由锁里的
+    `role` 定：`git-guardian:daemon`（常驻执行体）/ `git-guardian:round`（一次性任务）。
+  - 哨兵新增纯判据 `judgeOverallState({ legState, pidSource, executor })`：`pid-dead` ⇒ **down**
+    （常驻执行体确实没了）；daemon 持锁但 pid 已死 ⇒ down；daemon 持锁而心跳越过锁自带的
+    `staleMs` ⇒ stale；`pid` 文件缺席（本机从没起过 daemon）**不据此判急** —— 否则每台新机必然恒红。
+  - 读数面：`--json` 增 `executor` 与 `legState` 两个键（保留 `state` 语义不变，runner 契约不动）；
+    文本档多打一行 `executor <kind> role=… pid=… alive=… hb=… stale=…`，并在"常驻 daemon 未持锁"
+    与"pid 已被无关进程复用"两种情形各追加一条 `⚠️` 说明。
+  - `scripts/check-guardian-leg-health-runner.ps1`：信文增一行"执行体=…"，且当 `pidSource=pid-dead`
+    而三腿仍新鲜时，判定行明写"常驻 daemon 已死；三腿仍新鲜说明只有一次性任务在兜底"
+    —— 收信人不用再从两个读数里自己拼。
+- 验证：`scripts/tests/guardian-leg-health.test.mjs` 改③并新增⑤/⑤b，现读 **7 passed**
+  （⑤ 含 `pid-dead ⇒ down`、`pid 缺席不判急`、三腿已 down 不被旁证拉回三条；⑤b 含 daemon pid 已死 ⇒ down、
+  心跳停 ⇒ stale、pid 被复用 ⇒ 降级成"不在了"、`round` 只标注不判红、锁缺失 ⇒ `kind=none`）。
+  现读 `node scripts/check-guardian-leg-health.mjs`：
+  `state=ok` + `executor daemon role=git-guardian:daemon pid=26136 alive=true hb=0min stale=false`；
+  `pwsh -File …-runner.ps1 -DryRun` 现读 `Parser` 0 错、`state=ok`、出口取径正常、exit 0。
+- 边界：本项**不改判红口径**——"只有兜底任务在跑"在腿还新鲜时仍按 ok，只在读数里点名（一次性任务
+  每分钟一轮是本机设计好的兜底腿，把它判红等于给每台没装服务的机器挂一盏恒红灯）；一旦有 pid 文件
+  而进程已死，才把总状态抬到 down 并走到人通道。不代启/不代停 nssm 服务（服务面策略不借本项夹带）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
