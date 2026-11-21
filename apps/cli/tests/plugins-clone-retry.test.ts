@@ -79,6 +79,10 @@ function cloneArgs(target: string, marker: string, body: string): string[] {
   return ['-e', body, target, marker, '--', SENSITIVE_URL, target];
 }
 
+// 2026-11-21 实测(turbo 全仓 28/32 轮):桩子进程冷启动在 Windows + 多包并发下实测可越过 1s,
+// 于是"第一轮挂起被杀、第二轮立即 exit"的对照组里**第二轮也被 1s 封顶误杀**,用例报"3 次尝试后仍未成功"。
+// 阈值抬到 6s(第一轮桩挂起 20s,远大于阈值 ⇒ 封顶判定依旧成立);800ms 那条(原阈值)(重试耗尽)一并抬到 6s,
+// 免得 3 次重试里每一次都被冷启动吃掉预算。断言与重试语义一条未改,只把"量机器负载"的边界让开。
 describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
   it('被封顶杀掉的挂起(ETIMEDOUT)会退避重试,并在第二轮成功', async () => {
     const dir = mkScratch('ihui-clone-retry-ok-');
@@ -90,7 +94,7 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
         // BUG-0037:Windows 上 node 冷启动实测可超过 200ms,原来的 200ms 会把"还没写完计数"
         // 的子进程当成挂起杀掉 ⇒ 计数永远读到 0。阈值必须是"足以覆盖冷启动"的量级,
         // 否则量的不是重试逻辑,而是机器负载。
-        timeoutMs: 1_000,
+        timeoutMs: 6_000,
         baseDelayMs: 30,
         attempts: 3,
       });
@@ -108,7 +112,7 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
       const body = fakeGit({ count: true, leftover: true, outcome: 'hang-first-only' });
       await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
         binary: process.execPath,
-        timeoutMs: 1_000,
+        timeoutMs: 6_000,
         baseDelayMs: 30,
         attempts: 3,
       });
@@ -159,7 +163,7 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
       try {
         await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
           binary: process.execPath,
-          timeoutMs: 800,
+          timeoutMs: 6_000,
           baseDelayMs: 20,
           attempts: 2,
         });
@@ -195,7 +199,7 @@ describe('G-816 execGitCloneWithRetry —— 只重试可重试类别', () => {
       try {
         await execGitCloneWithRetry(cloneArgs(target, dir, body), target, {
           binary: process.execPath,
-          timeoutMs: 1_000,
+          timeoutMs: 6_000,
           baseDelayMs: 6_000, // 刻意给一个远超测试窗口的退避:能被 abort 打断才算"可取消退避"
           attempts: 5,
           signal: controller.signal,
@@ -287,3 +291,4 @@ describe('G-816 退避与脱敏两个纯件', () => {
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
