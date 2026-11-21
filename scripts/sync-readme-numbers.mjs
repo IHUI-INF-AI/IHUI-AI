@@ -24,6 +24,13 @@
 //      ⇒ 判**未判定**(exit 3)、打印双方读数、不写盘 / 不 git add —— 不做「后写者赢」。
 //
 // 幂等:块内数字未变(忽略"最后核对日期"行)不写盘,不造自激提交。
+// 第 75 项(2026-11-21):"索引面 == 提交后会变成的 HEAD 面"在多会话共写工作区里**不成立** ——
+//   共享索引里常年挂着别的会话的暂存增删,索引面 counts 与 HEAD 面 counts 会差出一截;
+//   此时上面第 ① 条的"幂等无变化"会把"写手按索引面算够了"读成"文档数字已就绪",而 pre-push 的
+//   DN2 判 HEAD 面直接记红。现加两道:
+//   ①b 面齐平探针:两面现算块不同 ⇒ exit 2,把两面 trackedFiles/testFiles 一起印出,不写盘、不说"无变化";
+//   ② `--face=head --for-push`:显式声明目标是推送面才允许按 HEAD 取数(缺 --for-push 仍按原样拒绝)。
+//   无 --for-push 的 `--face=head` 一律 exit 2 —— 不拿"索引面绿"冒充"推送面绿"(§0.3)。
 // 安全闸:仅当"块外内容"相对索引版本无差异时才 git add,绝不吞并他人在飞的 prose 改动;
 //        块外有差异 ⇒ 只写盘不 add,并提示单独提交。
 // 退出码:0 = 成功(写盘或幂等无变化);2 = 拒绝(面不对 / 非唯一入口 / 锁被活进程持有);
@@ -44,6 +51,8 @@ const GEN = path.join(__dirname, 'gen-doc-numbers.mjs')
 const SELF_WRITER = 'sync-readme-numbers'
 /** 唯一取数面:索引面 == 提交后会变成的 HEAD 面,与门 173 同面。 */
 const WRITE_FACE = 'staged'
+/** 推送判据(DN2/pre-push)判的那一面 —— 第 75 项:`--face=head --for-push` 才允许按它写。 */
+const PUSH_FACE = 'head'
 
 const ARGV = process.argv.slice(2)
 function argValue(name) {
@@ -54,6 +63,8 @@ function argValue(name) {
 }
 /** `--root=<dir>`:夹具/子仓用;缺省 = 本脚本所在仓。 */
 const ROOT = path.resolve(argValue('--root') ?? SCRIPT_ROOT)
+/** 第 75 项:显式声明"本次目标是推送面"的旗,缺它时 `--face=head` 仍按原样拒绝。 */
+const FOR_PUSH = ARGV.some((a) => a === '--for-push')
 
 /**
  * 面旗判定:写手只认索引面。未知面 / 多面同给 / `--face=worktree|head` 全部 exit 2,
@@ -108,8 +119,8 @@ function git(args) {
  * 显式三件套:唯一取数面 `--face=staged`、唯一写手令牌 `--writer=<SELF_WRITER>`、目标仓 `--root`。
  * 少任何一件 gen-doc-numbers 都会 exit 2 —— 本器不给"默认值兜底"留口子。
  */
-function genBlockMarkdown() {
-  return execFileSync(process.execPath, [GEN, '--markdown', `--face=${WRITE_FACE}`, `--writer=${SELF_WRITER}`, `--root=${ROOT}`], {
+function genBlockMarkdown(face = WRITE_FACE) {
+  return execFileSync(process.execPath, [GEN, '--markdown', `--face=${face}`, `--writer=${SELF_WRITER}`, `--root=${ROOT}`], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
@@ -253,14 +264,42 @@ if (faceInfo.error) {
   console.error(`❌ 拒绝写入:${faceInfo.error}`)
   process.exit(2)
 }
-if (faceInfo.face !== WRITE_FACE) {
+if (faceInfo.face !== WRITE_FACE && !(faceInfo.face === PUSH_FACE && FOR_PUSH)) {
   console.error(
     `❌ 拒绝写入:本器是生成块的唯一写入口,只按索引面(--face=${WRITE_FACE})取数。\n` +
       `   收到 --face=${faceInfo.face} —— 工作树/HEAD 面写出的数会与门 173 判的面不同,同一份文件会出现两段互斥读数。\n` +
-      `   人工排查请改用:node scripts/gen-doc-numbers.mjs --face=${faceInfo.face} --json(只读、不产出可入库块)`,
+      `   人工排查请改用:node scripts/gen-doc-numbers.mjs --face=${faceInfo.face} --json(只读、不产出可入库块)\n` +
+      `   目标确为推送面(pre-push 的 DN2 判 HEAD):加 --for-push 才允许 --face=${PUSH_FACE}(第 75 项)。`,
   )
   process.exit(2)
 }
+// ── 闸①b:面齐平探针(第 75 项)────────────────────────────────────────
+// 立因(本轮现读,不是假想):共享索引里挂着别席在飞的暂存删除(10 个路径)⇒ 索引面 trackedFiles=23104、
+// HEAD 面 23147。写手按索引面"幂等无变化"地 exit 0 并打印"数字无变化,跳过",而 pre-push 的 DN2 判 HEAD 面
+// 直接记红 —— 同一轮里"写手说没事 / 推来说有事",两边都不是假绿,只是**从来没同过面**。
+// 处置:两面现算不同 ⇒ 不写盘、不说"无变化",按未判定 exit 2 并把两面读数一起印出来。
+/** 从生成块里取两项"会随文件增删变动"的读数,用于把两面差距打在报错里。 */
+function faceReadings(text) {
+  const tracked = /\|\s*跟踪文件\s*\|\s*(\d+)\s*\|/.exec(text)
+  const tests = /\|\s*测试文件\s*\|\s*(\d+)\s*\|/.exec(text)
+  return `trackedFiles=${tracked ? tracked[1] : '<无>'} testFiles=${tests ? tests[1] : '<无>'}`
+}
+if (faceInfo.face === WRITE_FACE) {
+  const headBlock = genBlockMarkdown(PUSH_FACE)
+  const stagedBlock = genBlockMarkdown(WRITE_FACE)
+  if (stripDateLine(headBlock) !== stripDateLine(stagedBlock)) {
+    console.error(
+      `❌ 拒绝写入(面不一致):索引面与 HEAD 面的现算数字不同 —— 共享索引里挂着其他会话的暂存增删;\n` +
+        `   本器"幂等无变化"的判据只覆盖索引面,而 pre-push 的 DN2 判 HEAD 面 ⇒ 同一块无法同时满足两面。\n` +
+        `   索引面:${faceReadings(stagedBlock)}\n` +
+        `   HEAD 面:${faceReadings(headBlock)}(推送判据判的就是这一面)\n` +
+        `   目标确为推送面时:node scripts/sync-readme-numbers.mjs --face=${PUSH_FACE} --for-push\n` +
+        `   无 --for-push 一律不写:绝不拿"索引面绿"冒充"推送面绿"(§0.3)。`,
+    )
+    process.exit(2)
+  }
+}
+console.log(`ℹ 取数面=${faceInfo.face}${faceInfo.face === PUSH_FACE ? '(显式 --for-push,推送面)' : ''}`)
 
 // ── 闸②:唯一写手锁(并发第二个写手 fail-loud)────────────────────────────
 const lock = acquireLock()
@@ -290,7 +329,7 @@ try {
     pre.set(f, { p, snap: readingsOf(p) })
   }
 
-  const freshFull = genBlockMarkdown()
+  const freshFull = genBlockMarkdown(faceInfo.face)
   const freshCmp = stripDateLine(freshFull)
 
   for (const [f, { p, snap }] of pre) {
@@ -381,7 +420,10 @@ try {
     }
   }
 
-  if (touched === 0 && exitCode === 0) console.log('  ✅ README 生成块数字无变化,跳过')
+  if (touched === 0 && exitCode === 0) {
+    // 第 75 项:这句"无变化"必须带面与读数 —— 它只覆盖本档取数面,不是"推送面也一致"的意思。
+    console.log(`  ✅ README 生成块数字无变化(取数面=${faceInfo.face};${faceReadings(freshFull)})`)
+  }
 } catch (e) {
   console.error(`❌ 生成器失败:${e?.message ?? e}`)
   exitCode = 2

@@ -12,9 +12,8 @@
  *   deviceTokens → pgTable('device_tokens', { userId: uuid('user_id'), token: text('token') ... })
  *   device_tokens_token_unique 唯一索引支撑 ON CONFLICT (token) upsert。
  *
- * 判据:注销必须用 deviceTokens 表,WHERE 同时带 token 与 user_id;
- * 0 行必须走 404、不得假装成功(取数形态可以在 UPDATE ... RETURNING 与"先 select 判存在性"
- * 之间演进 —— 判据锁语义,不锁某一种实现写法)。
+ * 判据:注销 UPDATE 必须用 deviceTokens 表,且 WHERE 同时带 token 与 user_id;
+ * 按影响行数决定返回(0 行 → 404),不得假装成功。
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -58,12 +57,8 @@ describe('推送设备注销:WHERE 必须带归属列(device_tokens.user_id)', (
 
   it('按影响行数决定返回:0 行返回 404,不假装成功', () => {
     const block = routeBlock(src(), UNREGISTER)!
-    // 取数形态不钉死:实现可以是 UPDATE ... RETURNING 取影响行数,也可以是"先按归属列
-    // select 判存在性(0 行 ⇒ 404)"。两者语义相同 —— 这里只锁「0 行必须 404、不回成功」,
-    // 把某一种实现形态写成判据会让下一次等价重构平白变红。
-    expect(block, '未按存在性/影响行数判定 0 行').toMatch(
-      /existing\.length\s*===\s*0|removed\s*===\s*0/,
-    )
+    expect(block, '未用 RETURNING 取影响行数').toContain('returning({ id: deviceTokens.id })')
+    expect(block, '未按影响行数判定').toContain('removed === 0')
     expect(block, '0 行未返回 404').toMatch(/status\(404\)/)
     expect(block, '成功响应未带回影响行数').toContain('unregistered: true, removed')
   })
@@ -81,9 +76,7 @@ describe('推送设备注销:WHERE 必须带归属列(device_tokens.user_id)', (
     const s = src()
     expect(unregisterOwnerScoped(s)).toBe(true)
 
-    // 全量替换而不是 String.replace(第一处):注销路由里同一条件现在出现在两处
-    // (select 判存在性 + update 的 WHERE),只摘第一处等于没摘 —— 那不是有效对照。
-    const stripped = s.split('eq(deviceTokens.userId, request.userId!)').join('true')
+    const stripped = s.replace('eq(deviceTokens.userId, request.userId!)', 'true')
     expect(stripped, '摘样本没摘到东西 ⇒ 这一格不成对照').not.toBe(s)
     expect(unregisterOwnerScoped(stripped)).toBe(false)
   })
