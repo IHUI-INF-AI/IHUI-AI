@@ -1031,7 +1031,7 @@ async fn refresh_baseline(
 /// webview 落点自愈)。本函数让探活与 webview 同路:env 代理优先(reqwest 默认),
 /// env 缺席时叠读系统代理。
 #[cfg(windows)]
-fn system_proxy_url() -> Option<String> {
+pub(crate) fn system_proxy_url() -> Option<String> {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
