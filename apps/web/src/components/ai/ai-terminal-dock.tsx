@@ -130,10 +130,17 @@ export function AiTerminalDock() {
           </Tooltip>
         </div>
       </div>
-      {/* 主体:两视图共用同一高度。IDE 视图挂载时自动 refreshSessions + 无 session 自动创建;
-          agent 视图只读轮询(取不到就如实写原因,不画空屏冒充"没输出") */}
-      <div className="min-h-0 overflow-hidden" style={{ height }}>
-        {showAgentFace ? <AgentTerminalFace conversationId={agentConversationId} /> : <TerminalPanel />}
+      {/* 主体:两视图共用同一高度。**IDE 视图永远挂载、不挪几何** —— 卸载或把 xterm 塞进
+          `hidden` 父层会让它按 0 尺寸重算(fit 成 0 列),再切回来要重排且可能丢 scrollback。
+          所以 agent 视图是**盖在它上面的一层**(absolute + 不透明底),关掉即移除。
+          agent 视图只读轮询(取不到如实写原因,不画空屏冒充"没输出") */}
+      <div className="relative min-h-0 overflow-hidden" style={{ height }}>
+        <TerminalPanel />
+        {showAgentFace && (
+          <div className="absolute inset-0 bg-card">
+            <AgentTerminalFace conversationId={agentConversationId} />
+          </div>
+        )}
       </div>
       {/* 底部 4px 拖拽调高命中区 */}
       <div
