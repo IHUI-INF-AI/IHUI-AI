@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.model_health import ModelHealthService, _classify_error
+from app.services.model_health import ModelHealthService, ModelProbeState, _classify_error
 
 CF_QUOTA = (
     "AiError: you have used up your daily free allocation of 10,000 neurons, "
@@ -84,4 +84,31 @@ def test_unclassified_failure_is_not_recorded(message: str, status: int) -> None
     svc = _service()
     assert svc.record_runtime_failure("a/b", message, status) == ""
     assert svc.get_state("a/b") is None
+
+
+def test_auth_failure_on_proven_model_does_not_kill_it() -> None:
+    """2026-11-22 根治:号池 relay 一次 401/403 不许把已实测能出字的模型判死。
+
+    真机:workbuddy/deepseek-v4.1-flash 被路由到一个坏号(403 request illegal),
+    运行时记账把模型写成 down+reason=auth,界面显示"密钥失效"并禁用,可同一份
+    状态里 stream_ok 又是 true、换条通道就能用。
+    """
+    svc = _service()
+    svc._states["workbuddy/deepseek-v4.1-flash"] = ModelProbeState(
+        status="healthy", stream_ok=True, checked_at=0.0
+    )
+    reason = svc.record_runtime_failure(
+        "workbuddy/deepseek-v4.1-flash", "HTTP 403: request illegal", 403
+    )
+    assert reason == ""
+    state = svc.get_state("workbuddy/deepseek-v4.1-flash")
+    assert state is not None
+    assert state.status == "healthy"
+    assert state.reason == ""
+
+
+def test_auth_failure_on_unproven_model_still_marks_down() -> None:
+    svc = _service()
+    reason = svc.record_runtime_failure("agnes/agnes-3.0-flash", "Invalid API key", 401)
+    assert reason == "auth"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

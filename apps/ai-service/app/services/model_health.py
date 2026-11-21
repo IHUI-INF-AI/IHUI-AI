@@ -261,6 +261,32 @@ _HARD_FAILURE_REASONS = frozenset({"quota", "auth", "model_missing"})
 _HARD_FAILURE_TTL_S = 6 * 3600
 
 
+def _is_infra_error(text: str) -> bool:
+    """传输层/基础设施错误(连不上、代理、超时、协议中断)。
+
+    2026-11-22 立:这类错误说明"这次没连上",不说明"这个模型不存在"。把它当成
+    模型死亡会让一条网络抖动永久写进健康状态,界面上表现为"密钥失效"。
+    """
+    lowered = (text or "").lower()
+    return any(
+        k in lowered
+        for k in (
+            "connecterror",
+            "all connection attempts failed",
+            "connecttimeout",
+            "pooltimeout",
+            "readtimeout",
+            "writetimeout",
+            "proxyerror",
+            "remoteprotocolerror",
+            "readerror",
+            "writeerror",
+            "toomanyredirects",
+            "connection reset",
+        )
+    )
+
+
 def _reason_of(text: str, status_code: int) -> str:
     """把上游错误归到一个**原因档**(空串 = 不归因,不记账)。
 
@@ -1190,6 +1216,13 @@ class ModelHealthService:
             state = ModelProbeState(status="pending")
             self._states[mid] = state
         now = time.time()
+        # 2026-11-22 根治:鉴权失败先问"这个模型自己实测通过过没有"。
+        # 账号池 relay(workbuddy 等)一次请求可能被路由到某个坏号(401/403),
+        # 可同一个模型在别的号上能正常出字 —— 这时把模型判死,选择器会显示
+        # "密钥失效"并禁用,而实际上换条通道就能用。故:已有流式/工具实测成功的
+        # 模型,单次鉴权失败不记账(交回 relay 的号级故障转移)。
+        if reason == "auth" and (state.stream_ok is True or state.tools_ok is True):
+            return ""
         if state.reason == reason and (now - state.checked_at) < _RUNTIME_FAILURE_DEDUP_S:
             return reason
         state.reason = reason
@@ -1269,6 +1302,17 @@ class ModelHealthService:
         if any(k in lowered for k in _ACCOUNT_LEVEL_KEYWORDS) and not any(
             k in lowered for k in _BALANCE_EXHAUSTED_KEYWORDS
         ):
+            return
+        # 2026-11-22 立:连不上/超时/代理这类基础设施错误不判死,也不许把已经
+        # 实测通过(流式/工具)的模型翻成 down —— 否则一次网络抖动就会让
+        # 选择器显示"密钥失效"并把能用的模型灰掉。
+        if _is_infra_error(error) or prev.stream_ok or prev.tools_ok:
+            self._states[cid] = replace(
+                prev,
+                checked_at=time.time(),
+                error=_redact_secrets(error or "connectivity test failed")[:200],
+            )
+            self._save_states()
             return
         self._states[cid] = replace(
             prev,
@@ -1475,7 +1519,14 @@ class ModelHealthService:
                     self._states[mid] = prev
                 else:
                     failures = prev.consecutive_failures + 1
-                    hide = outcome.model_level or failures >= MAX_CONSECUTIVE_FAILURES
+                    # 2026-11-22 根治:本轮只要有一条能力维度实测通过(流式出字 /
+                    # 工具调用成功),就不能把这个模型判死 —— 那说明它连通、能干活,
+                    # 失败只可能来自另一维(如长上下文预算、账号级鉴权),属账户/能力
+                    # 问题而不是"模型不存在"。此前 401/403 与 ConnectError 交替出现时,
+                    # 会把 workbuddy/deepseek-v4.1-flash 写成 down+reason=auth,界面上
+                    # 显示成"密钥失效"并禁用,可同一份状态里 stream_ok 又是 true。
+                    reachable = bool(outcome.stream_ok) or bool(outcome.tools_ok)
+                    hide = (outcome.model_level or failures >= MAX_CONSECUTIVE_FAILURES) and not reachable
                     # 探测也顺手归因:每轮体检自己就能得出"额度已尽/密钥失效/已下线",
                     # 不必等某次线上失败才带上原因(2026-11-18 立)。
                     probe_reason = _reason_of(outcome.error, outcome.http_status)
@@ -1488,6 +1539,14 @@ class ModelHealthService:
                         consecutive_failures=failures,
                         reason=probe_reason or prev.reason,
                     )
+                    # 已被误判为 down 的行,只要本轮有任一维度实测通过就当场救回:
+                    # 只刷新 checked_at 不摘 down,会把"密钥失效"永久粘在能用的模型上。
+                    if reachable and prev.status == "down":
+                        st = self._states[mid]
+                        st.status = "healthy"
+                        st.reason = ""
+                        st.error = ""
+                        st.consecutive_failures = 0
                 self._last_done += 1
 
         try:

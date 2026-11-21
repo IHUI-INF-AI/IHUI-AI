@@ -147,6 +147,22 @@ describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区
     ])
     expect(primary.map((m) => m.value)).toEqual(['no-reason', 'variant'])
   })
+
+  it('展示名自称「上一代」的条目也摘掉(数据侧标注,后端仍判 preset:standard)', () => {
+    const { primary } = splitByTier([
+      {
+        ...opt('agnes/agnes-image-2.1-flash', 'image', 'standard'),
+        label: 'Agnes 图像 2.1 Flash (文生图,上一代)',
+        classifyReason: 'preset:standard',
+      },
+      {
+        ...opt('agnes/agnes-image-2.5-flash', 'image', 'standard'),
+        label: 'Agnes 图像 2.5 Flash (文生图,默认档)',
+        classifyReason: 'preset:standard',
+      },
+    ])
+    expect(primary.map((m) => m.value)).toEqual(['agnes/agnes-image-2.5-flash'])
+  })
 })
 
 describe('groupByCategory — 历史模型区按用途分组', () => {

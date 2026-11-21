@@ -259,7 +259,7 @@ _REGISTRY: list[FreeProvider] = [
         # 2026-10-10 对齐 /v1/models 现存清单:agnes-image-2.0-flash 已下架(上游 503 model_not_found),移除
         default_models=[
             "agnes/agnes-2.5-flash", "agnes/agnes-2.5-pro",
-            "agnes/agnes-image-2.5-flash", "agnes/agnes-image-2.1-flash",
+            "agnes/agnes-image-2.5-flash",
         ],
         docs_url="https://agnes-ai.com/docs",
         notes="项目已配置 plan 套餐 key,自有模型平台,支持 agnes-2.5-flash / agnes-2.5-pro",
