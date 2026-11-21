@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **80 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **81 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（80 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（81 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1014,6 +1014,29 @@
 - 验证：落地后 `check-autonomy-leg-health` 现读 `A8 … ok=18 / drift=0`；`A12` 仍 `ok 4 / n/a 12 / drift 0`；
   `check-guardian-dispatch-claims` 保持 `声称 13 / 已接线 11 / 诚实说明 2` 无新增红。
 - 边界：本项只补登记与命名，不去救 user_feedback 的导出件（那是产品侧取数面），也不替 A8 放宽任何阈值。
+
+### 5.81 第 81 项：dev 库口令轮换窗口"诚实写着没人挂" —— 于是本机"从未轮换"这件事没有任何读数面
+
+- 现场（第 80 项收口后现读）：`check-guardian-dispatch-claims` 只剩两枚"诚实说明"，其中
+  `check-dev-db-rotation-window.mjs` 头注自述"默认只报 would-run，绝不 spawn"、"挂进 guardian 巡检轮的前提
+  就是它不能把一次 commit/push 拖成几十秒的停服务窗口"（尺子恒 exit 0、单口 300ms 探测、三并行）。
+  前提成立、代价是零，但守护器里零引用 ⇒ 这一维**永远没人看**。真跑一次现读：
+  `[dev-db-rotation-window] state=undetermined —— 留痕不可判(留痕不在位(.ihui-agent/state/dev-db-credential-rotation.jsonl)
+  ⇒ 从未成功轮换,超期不可判)⇒ 不触发` —— 即"本机 dev 库从未成功轮换过"这条事实，此前没有任何读数面。
+- 处置：新增 `sweepDevDbRotationWindow`（第 77 项那一族第四枚，同一形状）：
+  - 6 小时节流（`IHUI_DEV_DB_ROTATION_INTERVAL_MS` 可调），戳 `dev-db-rotation-window-dispatch-last.json`；
+  - **绝不** `--trigger`/`IHUI_ROTATE_DEV_DB`：函数体内唯一写盘目标 = 节流戳；
+  - 五态不并桶：`due` 逐行点名 + 给出可执行下一步（`node scripts/rotate-local-dev-db-password.mjs --apply`，
+    仅在 8801/8802/8803 全空时执行，本巡检不代做窗口判断）；`undetermined` 与无结论行记未判定（不记绿）；
+    `ok`/`deferred`/`skip` 记已判；
+  - 双挂点：`main()` 与 daemon tick；并登记进 `autonomy-leg-liveness.json`（19 腿）。
+- 验证：新增 `scripts/tests/dev-db-rotation-window-sweep.test.mjs` **3 passed**（①导出 + ≥2 挂点 /
+  ②due·undetermined·ok·skip 四态与无结论行 / ③6h 节流 + 尺子缺席不写戳）；真跑一次戳落盘且如实记 `undetermined`；
+  `node --check` 通过；落地后 `check-autonomy-leg-health` 现读 `A8 ok=19 drift=0`、
+  `check-guardian-dispatch-claims` 从"诚实说明 2"降到 1（只剩 `relay-account-keepalive`）。
+- 边界：本项只把"该换没换"变成有读数的一格，**不**替机器换口令（换库口令有停服半径）；
+  `relay-account-keepalive` 仍是诚实说明 —— 现读 `IHUI-API-GREEN` 在跑、token `lastRefreshAt` 今日仍有更新，
+  那条腿的前提（"api 停 ⇒ 保活停"）已不成立，属需要单独取证再决定的下一项，不并进本项。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
