@@ -373,7 +373,10 @@ describe('③ 源码接线与纪律(摘掉即红)', () => {
         if (typeof v !== 'string' || v.trim() === '') throw new Error(loc + ' 缺 chat.' + key)
       }
     }
-  })
+    // 判据是词包 parity,不是子进程吞吐:五语言各 spawn 一次 `git show` 读 HEAD 面大词包,
+    // 全量并发负载下可以吃掉 15s 默认预算(2026-11-21 turbo 全量实测超时)。
+    // 放宽到 60s 只改预算,不改断言。
+  }, 60_000)
 
   it('代码面(剥注释)零中文 ⇒ 界面串一律走 t();并禁 title/alert/confirm/prompt', () => {
     expect(CODE).not.toMatch(/[㐀-䶿一-鿿豈-﫿぀-ヿ가-힯]/)
