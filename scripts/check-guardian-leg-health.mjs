@@ -31,15 +31,31 @@ const _LOG_DIR = join(STATE_DIR, 'hook-logs')
 
 /** daemon PID 文件（git-guardian.mjs 写入: join(dirname(LOG),'git-guardian.pid') = state 根目录；内容 pid=<pid> at=<iso>） */
 const PID_FILE = join(STATE_DIR, 'git-guardian.pid')
-/** 三腿 tick 戳（guardian 每轮刷新；mtime 即最后一次落地时间） */
+/** 三腿 tick 戳（guardian 每轮刷新；mtime 即最后一次落地时间）
+ *
+ * 第 82 项(2026-11-21):三腿**节律不同**,不能用同一个 30 分钟阈值 ——
+ * `disk-root-hygiene` 每轮(~2min)跑;`temp-scrub` 与 `worktree-reap` 是 **24h** 节流
+ * (git-guardian 的 `TEMP_SCRUB_INTERVAL_MS` / `lib/git-guardian-worktree-reap.mjs` 的
+ * `REAP_INTERVAL_MS` 默认 86400000)。旧实现一律按 30min 判 stale ⇒ 每日有 23.5 小时
+ * 把"本来就该歇着"读成"腿卡住"(现读实测:temp 1032min / reap 983min,均未到 24h)。
+ */
 const LEG_TICKS = {
-  'disk-root-hygiene': join(STATE_DIR, 'disk-root-hygiene-audit-tick.ts'),
-  'temp-scrub': join(STATE_DIR, 'temp-scrub-tick.iso'),
-  'worktree-reap': join(STATE_DIR, 'worktree-reap-tick.iso'),
+  'disk-root-hygiene': {
+    path: join(STATE_DIR, 'disk-root-hygiene-audit-tick.ts'),
+    staleMs: 30 * 60 * 1000,
+    downMs: 24 * 60 * 60 * 1000,
+  },
+  'temp-scrub': {
+    path: join(STATE_DIR, 'temp-scrub-tick.iso'),
+    staleMs: 26 * 60 * 60 * 1000, // 24h 节律 + 2h 宽限
+    downMs: 7 * 24 * 60 * 60 * 1000,
+  },
+  'worktree-reap': {
+    path: join(STATE_DIR, 'worktree-reap-tick.iso'),
+    staleMs: 26 * 60 * 60 * 1000,
+    downMs: 7 * 24 * 60 * 60 * 1000,
+  },
 }
-
-const STALE_MS = 30 * 60 * 1000 // 30 分钟
-const DOWN_MS = 24 * 60 * 60 * 1000 // 24 小时
 
 /** 进程是否存活（POSIX kill(pid,0)；Windows 上退化为 pid 文件新鲜度判断） */
 function pidAlive(pid) {
@@ -65,6 +81,19 @@ function readDaemonPid() {
   }
 }
 
+/**
+ * 纯判据(导出供测试;CLI 与测试共用这一份,不在别处复制):
+ *   all down ⇒ down(进程/腿全死);任一 stale 或 down(但不是全 down)⇒ stale;否则 ok。
+ * 第 82 项把节律阈值下放到每腿(`staleMs`/`downMs`),本函数只做汇总,不持有阈值。
+ */
+export function judgeLegHealth(legs) {
+  const arr = Object.values(legs || {})
+  if (arr.length === 0) return 'down'
+  if (arr.every((l) => l.down)) return 'down'
+  if (arr.some((l) => l.stale || l.down)) return 'stale'
+  return 'ok'
+}
+
 function legAgeMs(p) {
   if (!existsSync(p)) return null
   try {
@@ -79,32 +108,39 @@ function main() {
   const daemonAlive = pid !== null && pidAlive(pid)
 
   const legs = {}
-  for (const [name, p] of Object.entries(LEG_TICKS)) {
-    const age = legAgeMs(p)
+  for (const [name, spec] of Object.entries(LEG_TICKS)) {
+    const age = legAgeMs(spec.path)
     legs[name] = {
-      path: p,
+      path: spec.path,
+      staleMs: spec.staleMs,
+      downMs: spec.downMs,
       exists: age !== null,
       ageMs: age,
       ageHuman: age === null ? 'never' : `${Math.round(age / 60000)}min`,
-      stale: age !== null && age > STALE_MS,
-      down: age === null || age > DOWN_MS,
+      stale: age !== null && age > spec.staleMs,
+      down: age === null || age > spec.downMs,
     }
   }
 
-  const allDown = Object.values(legs).every((l) => l.down)
-  const anyStale = Object.values(legs).some((l) => l.stale)
+  // 第 82 项(2026-11-21):判活以 tick 为主、pid 为旁证。
+  // 立因(现读实测):daemon 常驻进程在跑(pid 42092)、三腿 tick 18min 新鲜,而 pid 文件缺失
+  // (此前只有一次性 main() 会写)⇒ 旧逻辑 `daemonAlive = pid !== null && pidAlive(pid)`
+  // 直接判 `state=down / daemon pid=∅ alive=false` —— 把活着的判死。失效方向纠正为:
+  //   ① daemon 启动已补写 pid 文件(第 82 项,git-guardian 的 startDaemon);
+  //   ② 即便 pid 文件仍缺,凡有新鲜 tick 就按 tick 判活,并在读数里明写 pid 来源。
+  const pidSource = pid === null ? 'absent' : daemonAlive ? 'pid-alive' : 'pid-dead'
+  const state = judgeLegHealth(legs)
 
-  let state
-  if (!daemonAlive || allDown) state = 'down'
-  else if (anyStale) state = 'stale'
-  else state = 'ok'
-
-  const summary = { state, daemonAlive, pid, startedAt, legs }
+  const summary = { state, daemonAlive, pid, pidSource, startedAt, legs }
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(summary, null, 2))
   } else {
     console.log(`guardian 存活哨兵: state=${state}`)
-    console.log(`  daemon pid=${pid ?? '∅'} alive=${daemonAlive}${startedAt ? ` started=${startedAt}` : ''}`)
+    const pidNote =
+      pidSource === 'absent'
+        ? '∅ alive=unknown(pid 文件缺席 ⇒ 按三腿 tick 判活,见第 82 项)'
+        : `pid=${pid} alive=${daemonAlive}`
+    console.log(`  daemon ${pidNote}${startedAt ? ` started=${startedAt}` : ''}`)
     for (const [name, l] of Object.entries(legs)) {
       console.log(`  leg ${name.padEnd(18)} exists=${l.exists} age=${l.ageHuman} stale=${l.stale} down=${l.down}`)
     }

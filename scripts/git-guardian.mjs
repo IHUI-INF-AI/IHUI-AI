@@ -6613,7 +6613,7 @@ export async function sweepIpAttributionTrust(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = IP_TRUST_INTERVAL_MS,
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'ip-attribution-trust-sweep-last.json'),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'ip-attribution-dispatch-last.json'),
     logger = log,
     runner = null,
     scriptFile = null,
@@ -6747,6 +6747,77 @@ export function dispatchUserFeedbackIntake(opts = {}) {
   return { ran: true, ok: !undetermined }
 }
 
+
+/**
+ * 本机 dev 库口令轮换窗口巡检(第 81 项,2026-11-21)。
+ *
+ * 立因:尺子 `scripts/check-dev-db-rotation-window.mjs` 头注自述"默认只报 would-run,绝不 spawn"、
+ * "挂进 guardian 巡检轮的前提就是它不能把一次 commit/push 拖成几十秒的停服务窗口",但守护器里
+ * 零引用 —— 门 `check-guardian-dispatch-claims` 把它列为"诚实说明"(不判红):话是诚实的,
+ * 代价是"距上次轮换超期"这一维**永远没人看**(现读 `state=undetermined`:轮换留痕不在位 ⇒
+ * 本机 dev 库从未成功轮换过,而这条事实此前没有任何读数面)。
+ *
+ * 只判不换(与尺子同一条取向):本函数体内唯一写盘目标 = 节流戳,**绝不** `--trigger`。
+ * 三态不并桶(§0.3):ok/deferred/skip 记已判;due 逐行点名并给出可执行下一步(§5e-2:
+ * 该动作是 `node scripts/rotate-local-dev-db-password.mjs --apply`,不替机器决定窗口);
+ * undetermined(留痕不可判 / 端口探测未判定)记未判定,不记绿。
+ */
+const DEV_DB_ROTATION_INTERVAL_MS = Number(
+  process.env.IHUI_DEV_DB_ROTATION_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
+
+export async function sweepDevDbRotationWindow(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DEV_DB_ROTATION_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'dev-db-rotation-window-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script =
+    scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'check-dev-db-rotation-window.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ dev 库轮换窗口:尺子不在位(scripts/check-dev-db-rotation-window.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const lastAt = tick ? Date.parse(String(tick.attemptAt ?? '').trim()) : NaN
+  if (Number.isFinite(lastAt) && now - lastAt < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ dev 库轮换窗口:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧重判`)
+  }
+  const raw =
+    typeof runner === 'function' ? runner() : await runLegChild(script, [], 5 * 60 * 1000)
+  beatRoundLock()
+  const r = typeof raw === 'string' ? { status: 0, stdout: raw, stderr: '' } : raw
+  const stdout = String(r?.stdout ?? '')
+  const m = stdout.match(/\[dev-db-rotation-window\] state=(\w+) —— ([^\r\n]*)/)
+  if (!m) {
+    logger(`⚠️ dev 库轮换窗口:无结论行(exit=${r?.status ?? '?'};stdout 末尾=${stdout.trim().slice(-80) || '(空)'})⇒ 未判定,不记绿`)
+    return { ran: true, state: 'unjudged' }
+  }
+  const state = m[1]
+  if (state === 'due') {
+    logger(`⚠️ dev 库轮换窗口:due —— ${String(m[2]).slice(0, 160)}`)
+    logger('   出路: node scripts/rotate-local-dev-db-password.mjs --apply(仅在 8801/8802/8803 全空时执行;本巡检不代做)')
+    return { ran: true, state: 'due' }
+  }
+  if (state === 'undetermined') {
+    logger(`⚠️ dev 库轮换窗口:未判定 —— ${String(m[2]).slice(0, 160)}(不记绿:取不到输入 ≠ 没超期)`)
+    return { ran: true, state: 'undetermined' }
+  }
+  logger(`🧭 dev 库轮换窗口:${state} —— ${String(m[2]).slice(0, 140)}`)
+  return { ran: true, state }
+}
 
 /**
  * 监控三源入库派发器(第 58 项 / 第 77 项,2026-11-21)。
@@ -15226,6 +15297,8 @@ async function main() {
     if (!CHECK_ONLY) dispatchMonitorSignalIntake()
     // 第 78 项:IP 归属可信度尺自述"调度面 = 本守护巡检轮",同族同因,双挂点。
     sweepIpAttributionTrust().catch((e) => log(`⚠️ IP 归属巡检轮失败:${e?.message || e}`))
+    // 第 81 项:dev 库口令轮换窗口(尺子恒 exit 0、零 spawn,只报 would-run)同族双挂点。
+    sweepDevDbRotationWindow().catch((e) => log(`⚠️ dev 库轮换窗口巡检失败:${e?.message || e}`))
     // dev api 活体体检(2026-11-18 立):本机实测 api 跑满约 3 小时后 /api/auth/me 从毫秒级退化成
     // 20s 超时而 /health 仍 200 —— 只看端口/健康面测不出。后果放大到前端:refresh 走瞬时失败 ⇒
     // 冷启动停在"已登录无 token"混合态 ⇒ 模型选择器退回硬编码兜底。器物自带 5 分钟节流 +
@@ -15660,6 +15733,32 @@ function startDaemon(bootGuard = null) {
   }
   // daemon 从启动起一直持有轮级锁:30s 定时续约,长步骤完成点另有 beatRoundLock()。
   bindRoundLock(boot)
+  // 第 82 项(2026-11-21):daemon 也必须写存活 pid 文件。此前只有一次性 main() 的
+  // acquireSingleInstance 会写(退出即删),而 daemon 常驻则一次都不写 ⇒ 独立哨兵
+  // check-guardian-leg-health 读不到 pid 就报 `state=down / daemon pid=∅ alive=false`,
+  // 哪怕进程好好在跑(现读实测:pid 42092 在跑、三腿 tick 18min 新鲜,哨兵仍报 down)。
+  // 失效方向只能是"多给一条判活旁证",不能是"把活着的判死"。
+  try {
+    mkdirSync(dirname(GUARDIAN_PID_FILE), { recursive: true })
+    writeFileSync(
+      GUARDIAN_PID_FILE,
+      `pid=${process.pid} at=${new Date().toISOString()} role=daemon`,
+      'utf8',
+    )
+    process.on('exit', () => {
+      try {
+        if (
+          Number(String(readFileSync(GUARDIAN_PID_FILE, 'utf8')).match(/pid=(\d+)/)?.[1]) ===
+          process.pid
+        )
+          unlinkSync(GUARDIAN_PID_FILE)
+      } catch {
+        /* 退不掉就留着:哨兵按 pid 存活 + tick 双证判活 */
+      }
+    })
+  } catch (e) {
+    log(`⚠️ daemon pid 文件写不了(${String(e?.message ?? e).slice(0, 90)})⇒ 哨兵将退回按 tick 判活`)
+  }
   startHeartbeatGuardianLock(boot, {
     intervalMs: Number(process.env.IHUI_GUARDIAN_HEARTBEAT_MS || 30_000),
     onLost: (r) => log(`⚠️ daemon 轮级锁心跳丢失(${r.why || '未知'})⇒ 下轮 tick 重新 acquire`),
@@ -15961,6 +16060,8 @@ function startDaemon(bootGuard = null) {
         dispatchMonitorSignalIntake()
         // 第 78 项:同一族(头注写了巡检轮、代码面零引用)的第二枚,同样两处挂点。
         sweepIpAttributionTrust().catch((e) => log(`⚠️ IP 归属巡检轮失败:${e?.message || e}`))
+        // 第 81 项:dev 库轮换窗口,同一枚尺子同一套双挂点(6 小时节流)。
+        sweepDevDbRotationWindow().catch((e) => log(`⚠️ dev 库轮换窗口巡检失败:${e?.message || e}`))
         // 2026-11-18 立:dev api 活体体检(5 分钟节流,器物 scripts/check-api-liveness.mjs)。
         // 只认器物自己打的 API-LIVENESS 结论行;未判定(rc=2)不记绿,器物的重启护栏全在器物内。
         sweepApiLiveness()
