@@ -106,15 +106,15 @@ function faceOf(over: Partial<FacePayload> = {}): FacePayload {
 }
 
 describe('AgentTerminalFace / 三态不互相冒充', () => {
-  it('没有 ai-service 会话 id ⇒ 如实说明(不画空屏)', () => {
-    const { container } = render(<AgentTerminalFace sessionId={null} />)
+  it('没有会话 id ⇒ 如实说明(不画空屏)', () => {
+    const { container } = render(<AgentTerminalFace conversationId={null} />)
     expect(container.textContent).toContain('aiChat.agentTerminal.noSession')
     expect(container.querySelector('pre')).toBeNull()
   })
 
   it('有会话但没开终端 ⇒ empty', () => {
     setState({ terminals: [], face: null, error: null })
-    const { container } = render(<AgentTerminalFace sessionId="s1" />)
+    const { container } = render(<AgentTerminalFace conversationId="c1" />)
     expect(container.textContent).toContain('aiChat.agentTerminal.empty')
   })
 
@@ -124,7 +124,7 @@ describe('AgentTerminalFace / 三态不互相冒充', () => {
       face: null,
       error: 'HTTP 500: boom',
     })
-    const { container } = render(<AgentTerminalFace sessionId="s1" />)
+    const { container } = render(<AgentTerminalFace conversationId="c1" />)
     expect(container.textContent).toContain('aiChat.agentTerminal.failed')
     expect(container.textContent).toContain('HTTP 500: boom')
     expect(container.textContent).not.toContain('aiChat.agentTerminal.empty')
@@ -134,7 +134,7 @@ describe('AgentTerminalFace / 三态不互相冒充', () => {
 describe('AgentTerminalFace / 屏面渲染', () => {
   it('按行渲染且空白行不被吞掉;光标行有标记,屏面用 pre 保留空白', () => {
     setState({ terminals: [TERM], face: faceOf(), error: null })
-    const { container } = render(<AgentTerminalFace sessionId="s1" />)
+    const { container } = render(<AgentTerminalFace conversationId="c1" />)
     const rows = container.querySelectorAll('pre > div')
     expect(rows.length).toBe(4)
     // 第 3/4 行是空行:必须仍占一行(渲染成单个空格),不能渲染 0 个节点
@@ -155,7 +155,7 @@ describe('AgentTerminalFace / 屏面渲染', () => {
       }),
       error: null,
     })
-    const { container } = render(<AgentTerminalFace sessionId="s1" />)
+    const { container } = render(<AgentTerminalFace conversationId="c1" />)
     const html = container.innerHTML
     expect(html).toContain('https://bank.example')
     expect(html).toContain('https://evil.example/x')
@@ -182,7 +182,7 @@ describe('AgentTerminalFace / 屏面渲染', () => {
       }),
       error: null,
     })
-    const { container } = render(<AgentTerminalFace sessionId="s1" />)
+    const { container } = render(<AgentTerminalFace conversationId="c1" />)
     expect(container.textContent).toContain('aiChat.agentTerminal.noIntegration')
   })
 })

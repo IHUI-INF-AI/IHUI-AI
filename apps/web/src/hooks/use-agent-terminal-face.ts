@@ -21,6 +21,9 @@ import {
  * 1.5s 一次的只读 GET 在"人看模型干活"这个场景里足够(屏面本身也是模型
  * 每帧 `cursor` 才用得到的精度,人眼读不出更细)。
  *
+ * **`conversationId` 是会话 id,不是流会话 id**:agent 侧终端记账用的是 `metadata.conversationId`,
+ * 传 `aiStreamSessionId`(每次流随机生成)会永远拿到空列表 —— 这里刻意用 `s.conversationId`。
+ *
  * 三条硬纪律:
  * - **不并发**:上一次没回来就不再发(慢网下叠加请求只会更慢,还会把"卡"放大成雪崩)。
  * - **页面不可见就停**:后台标签页轮询纯属烧服务端 CPU(且 `visibilitychange` 已经够用)。
@@ -44,7 +47,7 @@ export interface AgentTerminalFaceState {
 }
 
 export function useAgentTerminalFace(
-  sessionId: string | null,
+  conversationId: string | null,
   enabled: boolean,
 ): AgentTerminalFaceState {
   const [terminals, setTerminals] = React.useState<AgentTerminalInfo[]>([])
@@ -58,7 +61,7 @@ export function useAgentTerminalFace(
 
   // 列表:进入视图/手动刷新时取一次,之后按间隔兜底(新开的终端不必等用户重开面板)
   React.useEffect(() => {
-    if (!enabled || !sessionId) {
+    if (!enabled || !conversationId) {
       setTerminals([])
       setActiveId(null)
       setFace(null)
@@ -71,7 +74,7 @@ export function useAgentTerminalFace(
       if (inFlight) return
       inFlight = true
       try {
-        const rows = await listAgentTerminals(sessionId)
+        const rows = await listAgentTerminals(conversationId)
         if (cancelled) return
         setTerminals(rows)
         setError(null)
@@ -93,11 +96,11 @@ export function useAgentTerminalFace(
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [enabled, sessionId, tick])
+  }, [enabled, conversationId, tick])
 
   // 屏面:只轮询**当前选中**那一块,失败即停在这一块上并如实报
   React.useEffect(() => {
-    if (!enabled || !sessionId || !activeId) {
+    if (!enabled || !conversationId || !activeId) {
       setFace(null)
       return
     }
@@ -111,7 +114,7 @@ export function useAgentTerminalFace(
       ctrlRef.current = ctrl
       try {
         setLoading(true)
-        const res = await getAgentTerminalFace(sessionId, activeId, { signal: ctrl.signal })
+        const res = await getAgentTerminalFace(conversationId, activeId, { signal: ctrl.signal })
         if (cancelled) return
         if (res.ok) {
           setFace(res.face)
@@ -143,7 +146,7 @@ export function useAgentTerminalFace(
       window.clearInterval(timer)
       ctrlRef.current?.abort()
     }
-  }, [enabled, sessionId, activeId, tick])
+  }, [enabled, conversationId, activeId, tick])
 
   const select = React.useCallback((terminalId: string) => {
     setActiveId(terminalId)

@@ -26,14 +26,14 @@ import { useAgentTerminalFace } from '@/hooks/use-agent-terminal-face'
  *   显示"文字 → 目标"且**不生成 <a>**,由人自己核对后再决定怎么办。
  * - **失败如实**:取不到就写原因,不画空屏冒充"终端没输出"。
  */
-export function AgentTerminalFace({ sessionId }: { sessionId: string | null }) {
+export function AgentTerminalFace({ conversationId }: { conversationId: string | null }) {
   const t = useTranslations('aiChat')
   const { terminals, activeId, face, loading, error, refresh, select } = useAgentTerminalFace(
-    sessionId,
+    conversationId,
     true,
   )
 
-  if (!sessionId) {
+  if (!conversationId) {
     return <Hint text={t('agentTerminal.noSession')} />
   }
   if (error) {
@@ -123,7 +123,7 @@ export function AgentTerminalFace({ sessionId }: { sessionId: string | null }) {
 
           {/* 屏面:整块按行,行内空白保留(用 pre,不用白空格塌陷的 div) */}
           <div className="min-h-0 flex-1 overflow-auto px-2 pb-1">
-            <pre className="font-mono text-xs leading-5">
+            <pre className="font-[weight:inherit] font-mono text-label leading-5">
               {face.screen.map((row, i) => (
                 <div
                   key={i}

@@ -10436,7 +10436,7 @@
       "failed": "屏面取不到",
       "links": "超链接(显示文字与真实目标并列,均不可点击)",
       "noIntegration": "未启用 shell 集成(无法判断是否在提示符)",
-      "noSession": "还没有 ai-service 会话 id(先发一条消息)",
+      "noSession": "还没有会话(先发一条消息)",
       "refresh": "立即刷新",
       "running": "运行中",
       "title": "模型终端屏面"
