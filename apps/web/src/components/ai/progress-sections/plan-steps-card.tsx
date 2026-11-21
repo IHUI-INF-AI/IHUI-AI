@@ -411,11 +411,14 @@ function PlanStepItem({
   // 长 reasoning 用 MarkdownViewer(支持代码块/列表),思考步骤始终用 MarkdownViewer;
   // 字号交给容器(stream-ui 的 StreamDetail / text-xs),此处不再自配 10/11px
   const markdownCls = '!text-xs prose-p:my-0.5 prose-pre:my-1 prose-code:!px-1 prose-code:!py-0'
+  // 2026-11-21:步骤说明文本可能含英文工具码名(后端写入形如"工具 hr_payroll_calc 已失败"),
+  // 界面对普通用户禁止直显码名 ⇒ 渲染前统一换成本地化功能名(humanizeToolText 单源)。
+  const explanationText = explanation ? humanizeToolText(explanation, (key) => tStatus(key)) : explanation
   const explanationNode =
     hasLongExplanation || isThinking ? (
-      <MarkdownViewer content={explanation ?? ''} className={markdownCls} />
+      <MarkdownViewer content={explanationText ?? ''} className={markdownCls} />
     ) : (
-      explanation
+      explanationText
     )
   const copyReasoningButton =
     isThinking && expanded && explanation ? (
