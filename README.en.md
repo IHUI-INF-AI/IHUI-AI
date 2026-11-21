@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7e7f0b68783)
+
+**2026-11-21**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3eff3f9df98)
 
 **2026-11-21**
@@ -535,14 +538,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:结清 RP-81(CI发版通知IM通道——Server酱通用push通道已落地+secret已写入+真发验证,完成即删) (ecb92c4fde)
 - 🚀 Feature/Improvement:审计脚本机读档不再被结论行污染 + CI 探测 pg_trgm 能力 (8b7d6162aa)
 - 🐞 Fix:待确认指令提示只在草稿要重复时才出现,平时零占高 (a4e98a3645)
-
-**2026-11-20**
-- 🐞 Fix:自动更新链路根治(首检提前到 5 分钟 + 失败必留痕 + 退避重试) (581d078c31)
-- 🚀 Feature/Improvement:updatedInput 真正替换工具入参(过守卫后再改写) + 报告§5.25 (3daac7de3e)
-- 📚 Docs:RP-7 行尾补「性能决策」一句(恢复后外部正证 + 定论,其余零改动) (95e53b326a)
-- 🚀 Feature/Improvement:RP-81 发版通知接 Server酱通用 push 通道(重落:前枚被收敛挤掉) (f46d674e8c)
-- 🔧 Chore/Other:为合并枚登记具名追认一行(AGENTS.md 活文档行 union) (3a1ee1181d)
-- ⚡ Perf:stale-baseline sentinel 25.5s -> 3.1s (4f7a419ac7)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
