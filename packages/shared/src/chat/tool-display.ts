@@ -53,12 +53,12 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   generate_report: 'toolGenerateReport',
   // 2026-11-21:人事六枚 hr_* 此前在这张表里一行都没有 ⇒ 界面上退化成裸码名
   // (用户实报"一堆英文的调用普通用户哪会知道")。这里补全五语言功能名。
-  hr_insurance_readiness: 'toolHrInsuranceReadiness',
-  hr_payroll_calc: 'toolHrPayrollCalc',
-  hr_my_payroll: 'toolHrMyPayroll',
-  hr_my_payroll_periods: 'toolHrMyPayrollPeriods',
-  hr_my_attendance: 'toolHrMyAttendance',
-  hr_my_leaves: 'toolHrMyLeaves',
+  hr_insurance_readiness: 'toolHrInsuranceReadinessCard',
+  hr_payroll_calc: 'toolHrPayrollCalcCard',
+  hr_my_payroll: 'toolHrMyPayrollCard',
+  hr_my_payroll_periods: 'toolHrMyPayrollPeriodsCard',
+  hr_my_attendance: 'toolHrMyAttendanceCard',
+  hr_my_leaves: 'toolHrMyLeavesCard',
   // G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
   create_artifact: 'toolCreateArtifact',
   // G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化
@@ -236,6 +236,9 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   ai_reimbursement: 'toolAiReimbursement',
   social_insurance_calc: 'toolSocialInsuranceCalc',
   special_deduction_calc: 'toolSpecialDeductionCalc',
+  // 2026-11-21 补齐(守门 55):人事六枚 hr_* 已在表前段登记(见本对象开头),
+  // 当初合并时这一段又被整块搬进来一次 ⇒ 同一对象内同名键重复(tsc TS1117)。
+  // 这里只保留前段那一份,本节删掉重复的 6 行;下面 6 枚(读图/跨库检索/公式/子代理/终端)才是本批新增。
   read_image: 'toolReadImage',
   session_search: 'toolSessionSearch',
   sheet_formula_eval: 'toolSheetFormulaEval',
@@ -255,6 +258,19 @@ export function toolDisplayKey(toolName: string): string | null {
  */
 export function humanizeToolText(text: string, translate: (key: string) => string): string {
   let out = text
+  // 2026-11-22 根治两处同源缺陷:
+  // ① 后端子代理 step 的 stepAction 有时直接给**带命名空间的 i18n 键**
+  //    (`taskStatus.toolDispatchSubagent`),而这里拿到的是裸键翻译器 ⇒ 查不到就原样回落,
+  //    界面上于是把键名本身显示出来("taskStatus.toolDispatchSuba…")。
+  // ② 下面的工具码名替换是**子串**匹配,而 `patch` 恰好嵌在 `Dispatch` 里 ⇒ 键被二次改写
+  //    成 `toolDistoolEditFileSubagent`(实测)。所以"整串就是一个 i18n 键"时必须先走翻译,
+  //    命中词条直接返回,不再进子串替换。
+  const keyLike = /^(?:taskStatus\.)?([A-Za-z0-9_]+)$/.exec(out.trim())
+  if (keyLike && keyLike[1]) {
+    const bare = keyLike[1]
+    const translated = translate(bare)
+    if (translated !== bare) return translated
+  }
   for (const [code, key] of Object.entries(TOOL_DISPLAY_KEYS)) {
     if (out.includes(code)) {
       out = out.split(code).join(translate(key))
