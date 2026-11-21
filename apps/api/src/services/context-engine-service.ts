@@ -615,11 +615,19 @@ class ContextEngineService {
           if (performance.now() - startedAt >= FOLDER_SCAN_MAX_MS) break
           if (!entry.isDirectory() || IGNORE_DIRS.has(entry.name)) continue
           const full = join(next.dir, entry.name)
-          let realFull: string
-          try {
-            realFull = await realpath(full)
-          } catch {
-            continue
+          // 目录项名来自 readdir(不含路径分隔符),父链自 root 起已 realpath 收敛 ⇒ 普通目录
+          // 的 join 结果必在 root 内,不必逐项 realpath。原先"每目录一次 realpath"是 O(目录数)
+          // 的系统调用:Windows 重负载下实测单次 20ms,500ms 预算在 25 条就吃光 ⇒ limit=50
+          // 只回 25 条,"按 limit 截断"退化成"按抢到的时间截断"(2026-11-21 全量档实测)。
+          // 防线不移:reparse point(junction/symlink 目录)在上一行 isDirectory()=false 时已被
+          // 跳过;这里对"同时报 isDirectory 与 isSymbolicLink"的怪态仍旧 realpath 收敛,越界不出结果。
+          let realFull = full
+          if (entry.isSymbolicLink()) {
+            try {
+              realFull = await realpath(full)
+            } catch {
+              continue
+            }
           }
           if (!isInsideRoot(realFull, root)) continue
           // 遍历不看 q:父目录不命中不代表子目录不命中,过滤只决定"入不入结果"
