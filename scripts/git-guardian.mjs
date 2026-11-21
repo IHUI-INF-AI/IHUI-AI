@@ -5593,7 +5593,7 @@ export function auditTunnelMetrics(opts = {}) {
 export function sweepGiteeAssetBackfill(opts = {}) {
   const {
     now = Date.now(),
-    intervalMs = 30 * 60 * 1000,
+    intervalMs = 10 * 60 * 1000,
     tickFile = join(WORKTREE, '.ihui-agent', 'state', 'gitee-backfill-tick.json'),
     logger = log,
     runner = null,
