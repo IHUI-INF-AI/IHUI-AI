@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **106 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **107 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（106 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（107 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1776,6 +1776,17 @@ B31 另带 `hitRefs` 点名那 1 条命中行（`MIN_HIT_REF` 20 字下限）。
 **处置**：离线取源只许钉**已推送基线**——先解析本机 gitdir 的 `refs/remotes/origin/main`，拿不到就跳过该源（不许退化成 `refs/heads/main`）；取到则把这一枚 sha 定格进 `$forcedRemoteTip`，下游**不读 `FETCH_HEAD`**（那一刻它指向的正是未推送的本机 main），并在基线对象不在本地对象库时 `Fail`（不猜）。本机 main 领先基线时点名"未推送 N 枚、本轮不部署"。离线可用 ≠ 离线随便取。
 
 **验证**：新增 `deploy/tests/fetch-source-pinning.test.mjs` 五条形状锁（基线 ref 必须解析、取不到必须 `continue`、`$forcedRemoteTip = $pushedTip` 必须在位、`FETCH_HEAD` 读取必须落在 `else` 分支、对象缺失必须 `Fail`、领先必须点名报数）⇒ **5/5 pass**；`[System.Management.Automation.Language.Parser]::ParseFile('deploy/win/ihui-deploy.ps1')` ⇒ `parse_err=0`。
+
+
+### 5.107 第 107 项：自动维护的 README「最近更新」块按文本段封顶 ⇒ 同一日期被记成十几个组
+
+**缺口形态**：判据/生成器写的容量上限，跟它实际数的东西不是一回事。
+
+**现场**（现读，改前）：`<!-- BEGIN RECENT UPDATES -->` 块内 **43 枚**日期头只对应 **7 个真日期**（`**2026-11-16**` 12 枚、`**2026-11-21**` 10 枚、`**2026-11-20**` 9 枚…），1589 条 bullet 里同一条提交被两个日期组各记一次。根因在 `scripts/auto-update-readme-recent.mjs` 的 `buildInner`：它把**既有整块**当一整段 `parts.push(existingInner)`，再 `split('\n\n')` 取前 `MAX_GROUPS=15` 段 —— 于是"每天新组置顶 + 旧块整体跟在后面"必然给同一天开出新组；而 `MAX_GROUPS` 数的也不是日期组，是文本段，结构上永远裁不到 15 个日期。
+
+**处置**：把"组"的身份从"文本段"改成**日期键**。`parseGroups()` 按 `\n\n` 切块并用 `^\*\*(20\d\d-\d\d-\d\d)\*\*$` 认日期头（首行不是日期头的组保留成"无日期组"，原样跟随、不参与封顶也不被裁 —— 块里可能有人写的小节，刷新器不碰）；`buildInner()` 同日合并（新条目前置）、条目按 `(sha)` 去重（无 sha 退回整行文本）、组按日期倒序、封顶单位 = 真日期组。**旧形态一次收口**：跑一遍刷新器就把 43 枚日期头折成 7 个真日期组。
+
+**验证**（数字现读）：改后同一块 **7 枚日期头**（`2026-11-21`…`2026-11-15`）/ 1370 条 bullet，按行尾 sha 查重 **0 组重复**；新增 `scripts/tests/auto-update-readme-recent-merge.test.mjs` 五条（同日合并 / 同 sha 只留一条 / 封顶单位是真日期组（20 组只留 15 组、末组是第 15 新日期）/ 无日期组原样跟随 / 解析-重排幂等）⇒ **5/5 pass**；原形状锁 `scripts/tests/auto-update-readme-recent.test.mjs` ⇒ **16/16 pass**（其中 S3"追加到文件末尾这条路不存在"是纯文本锁，新代码的数组累加器改名 `groups` 以不误触它，锁本体一字未松）。`node scripts/check-readme-recent-containment.mjs` ⇒ 四份 README 块外尾部未变，rc=0。
 
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
