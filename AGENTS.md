@@ -136,7 +136,7 @@ node scripts/guardian-runner.mjs --only=<id|script>   # 单门直跑的**唯一*
 ```
 ### 测试提速定稿(强制,禁止回退;2026-11-22 机主令「提速到极致且以后都要这么快」)
 - 定稿档:web `fileParallelism=true` + `maxWorkers=8` + `test.deps.optimizer.web` 预打包 react/@testing-library(**必须挂在 `test.deps` 下,放顶层 `deps` 会被 vitest 忽略且 tsc 报 TS2769**);api `maxWorkers=16`。A/B 全表与否决理由(12 worker 超订、isolate=false 179 条污染、threads 破 TZ)逐条写在各自 `vitest.config.ts` 注释里,**改配置前先读那张表**。
-- 实测(12C/20T,全量):web 30.7min→4.75min(931 文件全绿)、api 14.2min→5.5min(1866 文件/20203 用例全绿)、全仓约 45min→**11m19s(32/32 绿)**。
+- 实测(12C/20T,全量):web 30.7min→4.75min(931 文件全绿)、api 14.2min→5.5min(1866 文件/20203 用例全绿)、全仓 45min→**6m04s(32/32 全绿,最近一次读数;缓存命中 30/32 时只有 api+web 真跑)**。
 - 想再快只有两条正路:`turbo run test` 的 inputs 命中缓存(未改动的包秒回,勿加 `--force`)、或减少断言外的固有开销(每文件起环境/重建模块图);**禁止**用 isolate=false、串行、threads、降预算换来速度。
 ## 7. 删除/重构安全规则(强制)
 删除任何 git 对象(分支/stash/commit/文件)前必答三问:①承载什么功能?②有无等价实现?③无 ⇒ 不可删,先迁移/开发替代。禁止基于"路径不兼容""看起来是垃圾"擅自 drop;stash drop / branch -D 同样适用。
