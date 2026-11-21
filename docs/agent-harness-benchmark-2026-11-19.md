@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **85 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **86 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（85 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（86 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1168,6 +1168,42 @@
   不每轮刷屏"，真正的出路是改 ACL 或把它们移出封口清单（属配置决策，未擅自改）。
 - 机器事实：`C:\tmp` / `C:\tools` 既不是本项目的改道产物，也不是可删的垃圾（第三方/系统遗留的
   reparse point，隐藏项）——**一律不动**。
+
+### 5.86 第 86 项：一枚「救急保全」提交把两枚幽灵测试带进 HEAD —— 零容忍门常年红，且文案把历史快照当现状
+
+- 现场（第 85 项推送后现读）：`node scripts/check-dangling-local-imports.mjs` **exit 1**，
+  报 4 处 D1 悬空具名导入，全在两枚文件里：
+  `scripts/tests/git-guardian-worktree-age.test.mjs` 与 `…-derive.test.mjs`，符号是
+  `assessWorktreeAge` / `parseWorktreeListPorcelain`。
+- 一手取证（三层，都不是推断）：
+  - `git grep -n 'assessWorktreeAge\|parseWorktreeListPorcelain' HEAD` 的命中**只在这两枚测试文件自身**
+    ——`scripts/git-guardian.mjs` 里从来不存在这两个导出（`git log -S'assessWorktreeAge' --
+    scripts/git-guardian.mjs` 现读 0 枚提交）。也就是说这两枚测试**从入库那天起就不可能跑过**，
+    `import` 阶段就 `ERR_MODULE_NOT_FOUND`。
+  - 它们的来处是 `341f2295b3 chore(wip): 救急保全本地未提交改动` —— 一枚"先把现场收进库"的提交把
+    未实现函数的测试当成了资产；等价能力其实已落在 `scripts/agent-worktree.mjs` 的
+    `--reap --older-than`（`mtimeMsOf` / `dirMtimeMs` / porcelain 解析同源），属"两个名字算同一件事"的
+    重复实现诱因（§0.6）。
+  - 该门登记面齐全（`gate-channel-registry` / `gate-owners` / `gate-face-declarations` / guardian-runner
+    id 98 blocking + skipEnv 与镜像测试一致），但**它在 `uncoveredBaseline`（278 条"无通道"清单）里**：
+    提交链只跑 `--staged`、本地无人跑全量档，只有 CI 的 `guardian-runner --full-face` 会跑到 ⇒
+    这枚红在远端挂了很多天而本机每个会话都"绿着提交"，与 §12e 描述的"恒红门最后逼人绕过"同型。
+- 处置（两半，一起才算修完）：
+  - **状态面**：按 §7 三问判过再删 ——① 承载功能：无（引用的是从未存在过的函数）；
+    ② 等价实现：`agent-worktree.mjs --reap` 一整条年龄判据 + 调度层 `lib/git-guardian-worktree-reap.mjs`；
+    ③ 删了不丢覆盖，删的是"第二份名字"。删后 `check-dangling-local-imports.mjs` 全量档现读 **exit 0
+    / 悬空 0 处**。
+  - **读数面**：判红文案里那句「存量已于 2026-09-24 清零…**现读均为 0**」是把**立门当天的历史读数**
+    当成现状（HEAD 明明 4 处红）⇒ 改成只陈述规则与立门事实，并明写"那三天是历史读数,不是现状;
+    现状只认本行报数"。历史快照不得再冒充现算值。
+- 验证：`scripts/tests/check-dangling-local-imports.test.mjs` 追加 1 例（现读 `# pass 1 / # fail 0`）——
+  按**判红语句锚点取窗**判"发出去的那一句"，不在整文件上判（立因注释会引旧措辞，而 `maskComments`
+  不剥块注释；与第 84 项"只判真正发出去的那句"同一条教训）；`check-dangling-local-imports.mjs`
+  `--staged` 面在本枚提交上 exit 0；两文件水印 verify 完好。
+- 边界：本项**没有**把门 98 塞进提交链。理由写在这里备后人：它在 `uncoveredBaseline` 是**登记过的**
+  "无通道"事实，塞进 pre-commit 属改通道面（要同步 coverage 台账与 42 门钩子的预算），而本次要修的
+  是"存量红"与"文案撒谎"两格；通道面另立票，不借消红之名顺手夹带（§0.10）。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

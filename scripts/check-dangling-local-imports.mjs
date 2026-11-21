@@ -2360,7 +2360,13 @@ async function main() {
         d3Ledgered.map((v) => `\n   ${v.file}:${v.line} ${v.raw}`).join(''),
     )
   if (!isStaged && !FILES_MODE && total - d3Ledgered.length > 0) {
-    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js / barrel 同名导出重复 / 错名影子(存量已于 2026-09-24 清零,D4 立门当天、D5 立门当天(2026-10-19)与 D6 立门当天(2026-10-22)现读均为 0)`)
+    // 第 86 项(2026-11-21):旧文案把"立门当天清过零"当成现状("…现读均为 0"),
+    // 而 HEAD 实测 4 处红 ⇒ 一句写在代码里的历史快照冒充了读数(§0.3 的反面)。
+    // 现文案只陈述规则与立门事实,读数一律以本行 `${total}` 现算为准。
+    console.log(
+      `❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js / barrel 同名导出重复 / 错名影子` +
+        `(零容忍、无豁免族;立门 2026-09-24,D4/D5(2026-10-19)/D6(2026-10-22) 各自立门当天清零 —— 那三天是历史读数,不是现状;现状只认本行报数)`,
+    )
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
     console.log('   单独复现:node scripts/check-dangling-local-imports.mjs')
