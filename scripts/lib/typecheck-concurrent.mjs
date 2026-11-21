@@ -29,6 +29,26 @@ export const RESERVED_MEM_BYTES = 4 * 1024 ** 3
 export const RESERVED_CPUS = 1
 
 /**
+ * 实测上限(2026-11-22 立,不是拍脑袋)。
+ *
+ * 事故形态:默认上限按"核数/内存"算到 19(i7-12700F 20 线程 / 64GB),而 tsc 是**内存带宽 + 单核**
+ * 双吃重活 —— 19 个并发冷跑互相把对方拖慢,墙钟反而更长。同一台机器、同一批包、同一天实测:
+ *
+ *   | 并发 | T1 墙钟 |
+ *   |----|----|
+ *   | 19(按核/内存推导的旧默认) | 329s / 441s(两次批次) |
+ *   | 12 | 218s |
+ *   | **8** | **192s** |
+ *   | 6 | 228s |
+ *   | 10 | 381s(该轮与他席构建重叠,读数受争用污染,一并如实记录) |
+ *
+ * 结论:并发效率在 8 附近到顶(下限是 `@ihui/api` 单包冷跑),再往上只增加争用。
+ * 这个上限**不削弱任何判据**(每包仍原脚本原样、输出逐字节保留、任包 rc≠0 整体非零),
+ * 只改"同时开几个"。env `IHUI_TYPECHECK_CONCURRENCY` 仍可覆盖(排障/新机器复核用)。
+ */
+export const MEASURED_MAX_TASKS = 8
+
+/**
  * 算并发上限。env `IHUI_TYPECHECK_CONCURRENCY` 可显式覆盖(仅供夹具/排障;
  * 生产默认值必须由机器面推导,不写死)。
  * @returns {{limit:number, basis:string}}
@@ -39,6 +59,7 @@ export function resolveConcurrency({
   perTaskMemBytes = PER_TASK_MEM_BYTES,
   reservedMemBytes = RESERVED_MEM_BYTES,
   reservedCpus = RESERVED_CPUS,
+  measuredMax = MEASURED_MAX_TASKS,
   env = process.env,
 } = {}) {
   const override = env.IHUI_TYPECHECK_CONCURRENCY
@@ -50,11 +71,27 @@ export function resolveConcurrency({
   }
   const byCpu = Math.max(1, cpuCount - reservedCpus)
   const byMem = Math.max(1, Math.floor((totalMemBytes - reservedMemBytes) / perTaskMemBytes))
-  const limit = Math.max(1, Math.min(byCpu, byMem))
+  const limit = Math.max(1, Math.min(byCpu, byMem, measuredMax))
   return {
     limit,
-    basis: `逻辑核 ${cpuCount} → 上限 ${byCpu};内存 ${(totalMemBytes / 1024 ** 3).toFixed(1)}GB(每任务 ${(perTaskMemBytes / 1024 ** 3).toFixed(1)}GB、预留 ${(reservedMemBytes / 1024 ** 3).toFixed(1)}GB)→ 上限 ${byMem};取小 = ${limit}`,
+    basis: `逻辑核 ${cpuCount} → 上限 ${byCpu};内存 ${(totalMemBytes / 1024 ** 3).toFixed(1)}GB(每任务 ${(perTaskMemBytes / 1024 ** 3).toFixed(1)}GB、预留 ${(reservedMemBytes / 1024 ** 3).toFixed(1)}GB)→ 上限 ${byMem};实测最优上限 ${measuredMax}(2026-11-22 扫描 6/8/10/12/19);取小 = ${limit}`,
   }
+}
+
+/**
+ * 池的出发顺序(**LPT**:上一轮实测最慢的先开)。
+ *
+ * 立因(同一份实测):8 并发下 `@ihui/api` 冷跑 ~192s、`@ihui/web` ~166s,而按名字字母序排,**web
+ * 要等前面的包腾出槽位才开始** ⇒ 结束时间被推到 ~210s 之后。让慢包先上,墙钟回到 max(单包) 附近。
+ * 这不改判据:参数只是"谁先跑";未知耗时的包按已知最大值处理(宁可先开,不许拖尾)。
+ * 读不到耗时台账 ⇒ 原顺序原样(失效方向 = 与改前完全一致)。
+ */
+export function orderProjectsForPool(projects, durations = {}) {
+  const known = Object.values(durations ?? {}).filter((v) => Number(v) > 0).map(Number)
+  const fallback = known.length ? Math.max(...known) : 0
+  if (!known.length) return projects
+  const costOf = (p) => (Number(durations?.[p.name]) > 0 ? Number(durations[p.name]) : fallback)
+  return [...projects].sort((a, b) => costOf(b) - costOf(a))
 }
 
 /**

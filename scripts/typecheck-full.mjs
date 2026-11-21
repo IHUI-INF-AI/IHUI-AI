@@ -39,6 +39,7 @@ import { checkContentFresh, readManifest, writeManifest } from './lib/dist-conte
 import { isolateBuildInfoForRebuild } from './lib/buildinfo-isolation.mjs'
 import {
   discoverTypecheckProjects,
+  orderProjectsForPool,
   poolMap,
   resolveConcurrency,
   runOneProject,
@@ -718,8 +719,16 @@ if (_rcMode) {
 
 let _typecheckRun = { ok: true, exitCode: 0, results: [] }
 if (_rcProjects.length > 0) {
+  // 出发顺序 = 上一轮实测最慢的先开(LPT,判据无关,只改"谁先跑")。
+  // 耗时来源就是逐包回执里的 ms(不新开第二份台账,§0.6);读不到 ⇒ 原顺序原样。
+  let _dur = {}
+  try {
+    _dur = Object.fromEntries([...readReceipts(ROOT).map.entries()].map(([k, v]) => [k, Number(v?.ms) || 0]))
+  } catch {
+    _dur = {}
+  }
   _typecheckRun = await runTypecheckProjects({
-    projects: _rcProjects,
+    projects: orderProjectsForPool(_rcProjects, _dur),
     concurrency: _typecheckConcurrency.limit,
     root: ROOT,
   })
