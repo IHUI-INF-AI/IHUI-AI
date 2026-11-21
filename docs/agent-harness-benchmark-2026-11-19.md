@@ -718,6 +718,7 @@
 - 处置：按"每条腿自己的写盘分支"逐枚现读取值，不按腿名想象。① 有专属产出账的 4 腿：`auto-evolve`(`auto-evolve-ledger.jsonl`/ts)、`auto-triage`(`auto-triage-ledger.jsonl`/ts)、`deploy-feedback`(`deploy-feedback-ledger.jsonl`/ts)、`api-liveness`(`api-liveness.jsonl`/**at**，该器物自己用 `at` 键) ⇒ `always`；② 两腿共用 `incident-signals.jsonl`（`deploy-outcome-intake` / `monitor-signal-intake`）⇒ `coveredBy: A11-closure-output`，本维不重复量（同一份账被两条腿各算一次就是第二个真相源）；③ 其余 10 腿结构性无产出账（判据门 / 基线面 / 生成器，产物是文件不是留痕）⇒ `none`，仍由 A8 量戳。
 - 语义边界：`silenceCeilingMs` 一律 = 该腿 `nominalIntervalMs × 6`（连续 6 个班次零产出才报），是算出来的不是拍的数；不改判据、不改任何器物的写盘行为，只把"唯一输入面"补齐。
 - 二修（首落当场被读数打回）：`outputRel` 写成 `.ihui-agent/state/…` 全路径 ⇒ 判据层按 `LIVENESS_STATE_DIR_REL` 再拼一次，读盘 ENOENT 被当成「一次都没产过」⇒ 四腿立刻从「未判定」翻成「每轮必写却零产出」。改成相对 state 目录的形态后复跑 A12：`16 腿 = ok 13 / n/a 12? …`（当次现读；关键是 unjudged 0、四腿不再读成零产出）。**这条属于「字段形状也是判据」**：同一份登记表，值对而形态错，读出来就是另一个结论。
+- 三修（分类也必须取证）：首版把 auto-triage / deploy-feedback / api-liveness 都标成 `always`，于是「账静默 25373min / 5138min / 3676min 而派发戳新鲜」被判成零产出。逐条读它们的写盘分支后更正：三者的台账都是**事件驱动**（`api-liveness` 的 ok 支直接 `return` 不落账、`auto-triage`/`deploy-feedback` 只在真事件上 append），`conditional` 才是真实形态；只有 `auto-evolve` 每轮都落一行（`dispatched` 或 `no-whitelist-hit`）。改后 A12 读数按当次现读（`unjudged 0`、不再有假 drift）——**腿的分类不是凭名字想的，是从写盘分支读出来的**。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
