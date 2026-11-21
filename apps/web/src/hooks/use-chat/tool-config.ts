@@ -641,6 +641,19 @@ export const HR_TOOLS = [...HR_SELF_TOOLS, ...HR_MANAGE_TOOLS] as const
 /** 工资/薪资 + 结算动词 ⇒ 管理面(算薪、体检)同带,让模型自己选先体检还是直接算 */
 const HR_PAYROLL_WORDS = ['工资', '薪资', '薪酬'] as const
 const HR_ACT_WORDS = ['算', '结算', '核算', '计算', '发放', '补发'] as const
+/** 续做说法(2026-11-21 补):"再跑一次 11 月工资""试试工具"这类句子里没有"算"字,
+ *  此前被判据漏掉 ⇒ 模型看不见工具,只会答"我目前没有算薪工具"(真机实测)。 */
+const HR_REPEAT_WORDS = [
+  '再',
+  '又',
+  '继续',
+  '还是',
+  '试试',
+  '试一下',
+  '跑一次',
+  '重跑',
+  '重算',
+] as const
 const HR_SELF_ONLY_WORDS = [
   '工资条',
   '我的考勤',
@@ -675,7 +688,14 @@ export function hrToolsFor(content: string): string[] {
   if ((payroll && selfie) || has(...HR_SELF_ONLY_WORDS)) {
     for (const t of HR_SELF_TOOLS) out.add(t)
   }
-  if (has(...HR_MANAGE_ONLY_WORDS) || (payroll && has(...HR_ACT_WORDS))) {
+  // 2026-11-21 修:动作词之外再认续做说法。此前只认"算/结算/核算…",于是
+  // "再跑一次 11 月工资"这类延续句漏带 hr 工具,模型看不见工具时不会说自己缺工具,
+  // 只会回"我目前没有算薪工具"(真机实测),用户会误判成能力不存在。
+  // 失效方向必须是"多带一个工具",不是"少带一次";纯知识问句(无动作/续做词)仍不带。
+  if (
+    has(...HR_MANAGE_ONLY_WORDS) ||
+    (payroll && (has(...HR_ACT_WORDS) || has(...HR_REPEAT_WORDS)))
+  ) {
     for (const t of HR_SELF_TOOLS) out.add(t)
     for (const t of HR_MANAGE_TOOLS) out.add(t)
   }

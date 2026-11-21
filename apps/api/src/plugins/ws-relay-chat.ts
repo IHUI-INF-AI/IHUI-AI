@@ -194,13 +194,14 @@ export const wsRelayChat: FastifyPluginAsync = async (server) => {
             temperature: typeof frame.temperature === 'number' ? frame.temperature : undefined,
             maxTokens: typeof frame.max_tokens === 'number' ? frame.max_tokens : undefined,
             topP: typeof frame.top_p === 'number' ? frame.top_p : undefined,
+            // 推理强度:号池模型同样要能选档(2026-11-21,前端选档 → 上游字段)。
+            reasoningEffort:
+              typeof frame.reasoning_effort === 'string' || typeof frame.reasoning_effort === 'number'
+                ? frame.reasoning_effort
+                : undefined,
             stop: frame.stop as string | string[] | undefined,
             tools: Array.isArray(frame.tools) ? frame.tools : undefined,
             toolChoice: frame.tool_choice,
-            // 2026-11-21:推理档位透传(web 帧发 `reasoning_effort`;转发层已有该字段,
-            // 账号池由适配器映射到平台专有键)。缺省/非字符串 ⇒ undefined,按默认档。
-            reasoningEffort:
-              typeof frame.reasoning_effort === 'string' ? frame.reasoning_effort : undefined,
           })
 
           if (result === null) {

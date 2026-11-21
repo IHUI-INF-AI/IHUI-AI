@@ -562,69 +562,6 @@ fn try_acquire_install_slot() -> Option<InstallSlot> {
 /// 已是最新、以及被新检查取代而作废;`false` 仅指**检查本身没成立**(updater 初始化失败 /
 /// feed 不可达 / manifest 非法)。调用方据此决定启动近侧要不要补一次重试 ——
 /// 此前该函数无返回值,首检失败只能等下一个整点小时,静默期内故障与「已是最新」不可区分。
-/// 构造一次自更新检查用的 `Updater`(2026-11-21 加固,0.1.91)。
-///
-/// 职责:① 给底层 reqwest client 硬超时(总 30s / 连接 10s)—— 插件默认没有总超时,
-/// 一个半开连接就能把整条检查挂到下一个整点;② 保留退出准备钩子(安装器覆盖 exe 前
-/// 先落窗口状态);③ 按策略注入代理:`Some(Some(url))` 显式代理、`Some(None)` 强制
-/// 直连、`None` 走默认(即 reqwest 读 env,本机空代理变量已在 0.1.84 清掉)。
-fn build_updater_for_check(
-    app: &tauri::AppHandle,
-    proxy: Option<Option<tauri::Url>>,
-) -> Result<tauri_plugin_updater::Updater, String> {
-    let mut builder = app
-        .updater_builder()
-        .configure_client(|cb| {
-            cb.timeout(Duration::from_secs(30))
-                .connect_timeout(Duration::from_secs(10))
-        })
-        .on_before_exit({
-            let app = app.clone();
-            move || {
-                let _ = crate::save_window_state(Some("main".to_string()), app.clone());
-                let _ = crate::save_window_state(Some("admin".to_string()), app.clone());
-            }
-        });
-    match proxy {
-        Some(Some(url)) => builder = builder.proxy(url),
-        Some(None) => builder = builder.no_proxy(),
-        None => {}
-    }
-    builder.build().map_err(|e| err_chain(&e))
-}
-
-/// 把错误连同 `source()` 链摊平成一行(2026-11-21)。
-///
-/// 立因:插件只打 Display,现场只有 `error sending request for url (...)` 一句 ——
-/// 底层是 DNS / 连接被重置 / TLS / 超时哪一层完全看不出,用户与运维都无从解释。
-/// 此函数沿 `std::error::Error::source` 最多展 6 层,不打印任何响应体或凭据。
-fn err_chain(e: &dyn std::error::Error) -> String {
-    let mut out = e.to_string();
-    let mut cur = e.source();
-    let mut depth = 0;
-    while let Some(s) = cur {
-        depth += 1;
-        if depth > 6 {
-            break;
-        }
-        out.push_str(" ← ");
-        out.push_str(&s.to_string());
-        cur = s.source();
-    }
-    out
-}
-
-/// 读系统代理(WinINET)并解析成 URL。非 Windows 平台恒为 None。
-#[cfg(windows)]
-fn current_system_proxy_url() -> Option<tauri::Url> {
-    system_proxy_url().and_then(|s| tauri::Url::parse(&s).ok())
-}
-
-#[cfg(not(windows))]
-fn current_system_proxy_url() -> Option<tauri::Url> {
-    None
-}
-
 async fn check_app_update(app: &tauri::AppHandle) -> bool {
     // 开发构建(debug_assertions:`tauri dev` / `tauri build --debug`)一律不自更新。
     // 实测危害:`pnpm dev:desktop:saas` 起来的壳照样读线上 feed,下载 7.9MB 后静默安装并
@@ -642,57 +579,28 @@ async fn check_app_update(app: &tauri::AppHandle) -> bool {
     // 提供的退出前钩子(install_inner 尾部拉起安装器 + std::process::exit(0) 之前
     // 调用,updater.rs:837-863):安装器覆盖可执行文件前,先把窗口状态落盘 ——
     // 与 lib.rs restart_app 的退出准备同款,静默更新不得丢窗口位置/尺寸。
-    // 2026-11-21 加固(0.1.91):检查请求改走"多路 + 硬超时 + 完整诊断链"。
-    // 现场(0.1.89 06:15 整点检查,UTC 22:15):`failed to check for updates: error
-    // sending request for url (...desktop-feed.json)`,而同时刻直连探测 10/10 成功
-    // (300ms)—— 不是网络层故障;插件只打 Display 丢掉 source 链,且失败后要等
-    // 下一个整点小时才重试,用户侧只能看到"更新失败"。故:① client 配 30s 总超时 /
-    // 10s 连接超时,不再无限挂;② 默认 → 系统代理 → 强制直连 三条路逐条试,任一条
-    // 成立即用;③ 每路失败都摊平 source 链打 WARN;④ 上层改指数退避(失败 2/10/30
-    // 分钟再试,成功恢复每小时)。
-    let mut attempts: Vec<(String, Option<Option<tauri::Url>>)> =
-        vec![("默认(env 代理/直连)".to_string(), None)];
-    if let Some(url) = current_system_proxy_url() {
-        attempts.push(("系统代理".to_string(), Some(Some(url))));
-    }
-    attempts.push(("强制直连(no_proxy)".to_string(), Some(None)));
+    let updater = match app
+        .updater_builder()
+        .on_before_exit({
+            let app = app.clone();
+            move || {
+                let _ = crate::save_window_state(Some("main".to_string()), app.clone());
+                let _ = crate::save_window_state(Some("admin".to_string()), app.clone());
+            }
+        })
+        .build()
+    {
+        Ok(u) => u,
+        Err(e) => {
+            log::warn!("[auto-refresh] updater 初始化失败: {e}");
+            return false;
+        }
+    };
     // ⚠️ 原先写作 `let Ok(Some(update)) = updater.check().await else { return }`,
     // 把「无新版」与「feed 404 / manifest 解析失败 / 版本号不合法 / 网络不可达」
     // 一并静默吞掉。自更新是后台无人触发的链路,静默 = 用户永远收不到更新而日志里
     // 一行痕迹都没有,故障与"本来就是最新版"不可区分。改为三分支,只有 None 静默。
-    let mut check_result: Result<Option<tauri_plugin_updater::Update>, String> =
-        Err("未发起任何一次检查(updater 初始化全部失败)".to_string());
-    let total = attempts.len();
-    for (idx, (label, proxy)) in attempts.iter().enumerate() {
-        let updater = match build_updater_for_check(app, proxy.clone()) {
-            Ok(u) => u,
-            Err(e) => {
-                log::warn!("[auto-refresh] updater 初始化失败({label}): {e}");
-                check_result = Err(e);
-                continue;
-            }
-        };
-        match updater.check().await {
-            Ok(r) => {
-                if idx > 0 {
-                    log::info!("[auto-refresh] 自更新检查第 {}/{total} 路({label})成立", idx + 1);
-                }
-                check_result = Ok(r);
-                break;
-            }
-            Err(e) => {
-                let chain = err_chain(&e);
-                log::warn!(
-                    "[auto-refresh] 自更新检查第 {}/{total} 路({label})失败: {chain}",
-                    idx + 1
-                );
-                check_result = Err(chain);
-                if idx + 1 < total {
-                    tokio::time::sleep(Duration::from_secs(3)).await;
-                }
-            }
-        }
-    }
+    let check_result = updater.check().await;
     // G-698:结果处理前校验世代 —— check().await 期间若托盘链发起了新检查,
     // 本次即成旧世代,迟到结果(含"无更新"与"发现新版")一律作废。
     if is_stale_update_check(check_id) {
@@ -790,150 +698,23 @@ async fn launch_verified_installer(
     let installer = dir.join(format!("ihui-{ver}-setup.exe"));
     std::fs::write(&installer, &bytes).map_err(|e| format!("写入安装器失败: {e}"))?;
     // `/S` 静默 + `/R` 装完重启应用 + `/UPDATE` 覆盖升级(与人工实测可用的参数一致)。
-    //
-    // 2026-11-21 第二次实测:主进程被 `orphan_guard::install` 挂在
-    // `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 作业里,子进程默认继承该作业;
-    // 主进程 `exit(0)` 会关作业句柄 ⇒ 内核 `TerminateJobObject` 连安装器一起杀。
-    // 现场特征与"没启动"几乎一样:pid 已打出来、两秒内消失、版本不变、无日志。
-    // 必须 `CREATE_BREAKAWAY_FROM_JOB`(0x0100_0000)显式脱离(作业侧已开
-    // `JOB_OBJECT_LIMIT_BREAKAWAY_OK`),安装器生命才与本次运行解耦。
-    // 若脱离被拒(旧作业/权限),退回普通拉起并留下 WARN,不静默丢失败。
-    // 落一枚"待生效版本"回执:安装器是脱离作业的独立进程,它成功与否主进程看不到
-    // (spawn 成功后本进程立刻 exit(0))。真结果核对放在下次启动(见
-    // `reconcile_pending_update`),否则"安装器静默失败"与"从没进入过安装"在日志上
-    // 仍然无法区分 —— 这一型坑本轮已经返工过两次。
-    write_pending_update(app, &ver, &installer);
-    let spawn_installer = |breakaway: bool| {
-        let mut cmd = std::process::Command::new(&installer);
-        cmd.args(["/S", "/R", "/UPDATE"]);
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            // DETACHED_PROCESS(0x8):安装器不继承控制台/句柄;
-            // CREATE_BREAKAWAY_FROM_JOB(0x0100_0000):脱离 kill-on-close 作业。
-            let flags = if breakaway { 0x0000_0008 | 0x0100_0000 } else { 0x0000_0008 };
-            cmd.creation_flags(flags);
-        }
-        cmd.spawn()
-    };
-    let child = match spawn_installer(true) {
-        Ok(child) => child,
-        Err(first) => {
-            log::warn!("[auto-refresh] 脱离作业拉起安装器失败({first}) → 退回普通拉起");
-            spawn_installer(false)
-                .map_err(|e| format!("拉起安装器失败({}): {e}", installer.display()))?
-        }
-    };
+    let mut cmd = std::process::Command::new(&installer);
+    cmd.args(["/S", "/R", "/UPDATE"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // DETACHED_PROCESS:安装器不继承本进程的句柄/控制台,父进程退出不会把它带走。
+        cmd.creation_flags(0x0000_0008);
+    }
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("拉起安装器失败({}): {e}", installer.display()))?;
     log::info!(
         "[auto-refresh] 安装器已启动 pid={} path={}",
         child.id(),
         installer.display()
     );
     std::process::exit(0);
-}
-
-/// 自更新"待生效版本"账本文件名(位于 `app_local_data_dir()` 下)。
-const PENDING_UPDATE_FILE: &str = "pending-update.json";
-
-/// 写回执(best-effort):写不进去只损失可解释性,绝不能因此阻断安装。
-fn write_pending_update(app: &tauri::AppHandle, target: &str, installer: &std::path::Path) {
-    let Some(dir) = app.path().app_local_data_dir().ok() else {
-        log::warn!("[auto-refresh] 取不到数据目录 → 跳过更新回执");
-        return;
-    };
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        log::warn!("[auto-refresh] 建数据目录失败 → 跳过更新回执: {e}");
-        return;
-    }
-    let launched_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let payload = serde_json::json!({
-        "target": target,
-        "installer": installer.display().to_string(),
-        "launched_at": launched_at,
-    });
-    match serde_json::to_string_pretty(&payload) {
-        Ok(text) => {
-            if let Err(e) = std::fs::write(dir.join(PENDING_UPDATE_FILE), text) {
-                log::warn!("[auto-refresh] 写入更新回执失败(不影响安装): {e}");
-            }
-        }
-        Err(e) => log::warn!("[auto-refresh] 序列化更新回执失败(不影响安装): {e}"),
-    }
-}
-
-/// 启动时核对上次自更新是否真生效(2026-11-21)。
-///
-/// 安装器以 detached + breakaway 方式拉起后,主进程立刻 `exit(0)`,安装器成功与否
-/// 没有任何回执。若它静默失败(磁盘满/权限/安全软件拦截),现场就是"日志只有
-/// 『安装器已启动』一行、版本没变",与"从来没进入过安装"在日志上完全不可区分。
-/// 现在:成功 → INFO 一行;失败 → WARN 点名目标版本、当前版本与常见原因。
-pub(crate) fn reconcile_pending_update(app: &tauri::AppHandle) {
-    let Some(dir) = app.path().app_local_data_dir().ok() else {
-        return;
-    };
-    let path = dir.join(PENDING_UPDATE_FILE);
-    let Ok(raw) = std::fs::read_to_string(&path) else {
-        return; // 没有账本 = 上次没走到安装,正常态
-    };
-    let target = serde_json::from_str::<serde_json::Value>(&raw)
-        .ok()
-        .and_then(|v| {
-            v.get("target")
-                .and_then(|t| t.as_str())
-                .map(str::to_owned)
-        })
-        .unwrap_or_default();
-    let current = app.package_info().version.to_string();
-    if target.is_empty() {
-        log::warn!("[auto-refresh] 更新回执无法解析 → 丢弃:{raw}");
-    } else if current == target {
-        log::info!("[auto-refresh] 自更新回执核对一致:已升到 {target}");
-    } else {
-        log::warn!(
-            "[auto-refresh] 自更新未生效:上次尝试升到 {target},当前仍是 {current} —— \
-             安装器已启动但没完成安装(常见:磁盘空间不足/权限/安全软件拦截安装器)"
-        );
-    }
-    if let Err(e) = std::fs::remove_file(&path) {
-        log::warn!("[auto-refresh] 清理更新回执失败: {e}");
-    }
-}
-
-/// 延迟清理历史版本残留的更新目录(每个约 10MB)。
-///
-/// `launch_verified_installer` 拉起安装器后立刻 `exit(0)`,落盘目录不会走析构,
-/// 于是每升一版就在 `%TEMP%` 留一份安装器。启动后延迟 10 秒清:此刻若有安装器
-/// 正在收尾,那一份删不掉是正常态,只计数不报错。
-pub(crate) fn spawn_stale_update_dir_cleanup() {
-    std::thread::spawn(|| {
-        std::thread::sleep(Duration::from_secs(10));
-        let root = std::env::temp_dir();
-        let Ok(entries) = std::fs::read_dir(&root) else {
-            return;
-        };
-        let mut removed = 0usize;
-        let mut busy = 0usize;
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if !name.starts_with("ihui-update-") {
-                continue;
-            }
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            match std::fs::remove_dir_all(&path) {
-                Ok(()) => removed += 1,
-                Err(_) => busy += 1,
-            }
-        }
-        if removed > 0 || busy > 0 {
-            log::info!("[auto-refresh] 更新目录清理:删除 {removed} 个,仍被占用跳过 {busy} 个");
-        }
-    });
 }
 
 /// 累计读取是否已超过指纹抓取上限(纯函数,便于单测;饱和加法防溢出)。
@@ -1358,11 +1139,6 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         let mut round: u32 = 0;
         let mut last_reload: Option<std::time::Instant> = None;
         let mut pending_reload = false;
-        // 自更新检查节奏(0.1.91):显式状态机,不再是"整点碰运气"。
-        // 首检 round==10(启动 5 分钟);失败按 2/10/30 分钟退避(round +4/+20/+60);
-        // 成功则恢复每小时(round +120)。
-        let mut next_update_check_round: u32 = 10;
-        let mut update_check_fail_streak: u32 = 0;
 
         // ── 常驻循环准入(票 P1 僵尸实例,2026-10-22)──
         // 判据与立因见 `should_enter_resident_loop` 头注。放在启动探活**之后**是必须的:
@@ -1539,30 +1315,16 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     }
                 }
 
-                // 应用自更新:启动 5 分钟先检一次,失败按 2/10/30 分钟退避,成功恢复每小时。
+                // 应用自更新:启动 5 分钟(round==10)先检一次,失败 1 分钟后(round==12)重试,
+                // 此后每小时(round % 120 == 0)一次。
                 // 立因(2026-11-20 实测):原先只在 round % 120 触发 = 启动满 60 分钟才有第一次检查,
                 // 而桌面端多数会话不足 60 分钟 —— 当天全部 7 份日志里没有一条 updater 记录,
                 // 「自动更新失败」与「从未尝试过」在日志上完全不可区分。
-                // 立因二(2026-11-21 实测):0.1.89 在 06:15 整点检查失败后,按旧逻辑要再等
-                // 整整 1 小时才重试;而那次失败与"网络其实通"同时成立 ⇒ 一次偶发就演化成
-                // 用户看到的"更新又失败了"。退避把偶发失败变成 2 分钟后自动再试。
-                if round >= next_update_check_round {
+                if round == 10 || round == 12 || (round > 0 && round % 120 == 0) {
                     let ok = check_app_update(&app).await;
-                    if ok {
-                        update_check_fail_streak = 0;
-                        next_update_check_round = round + 120;
-                    } else {
-                        update_check_fail_streak = update_check_fail_streak.saturating_add(1);
-                        let backoff_rounds: u32 = match update_check_fail_streak {
-                            0 | 1 => 4,
-                            2 => 20,
-                            _ => 60,
-                        };
-                        next_update_check_round = round + backoff_rounds;
+                    if !ok {
                         log::warn!(
-                            "[auto-refresh] 第 {round} 轮自更新检查未成立(连续第 {} 次)→ {} 分钟后重试",
-                            update_check_fail_streak,
-                            backoff_rounds / 2
+                            "[auto-refresh] 第 {round} 轮自更新检查未成立 → 下一个检查点继续重试"
                         );
                     }
                 }

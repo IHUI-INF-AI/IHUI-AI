@@ -112,11 +112,14 @@
       //   · src/services/attendance-sync/index.ts / sync-cursor.ts:同目录的 feishu/dingtalk
       //     provider 与 sync-status **在役**(被 attendance-sync-job.ts 与 routes/hr-attendance.ts
       //     引用),但这两个文件自身零引用 ⇒ index.ts 是没接的 barrel、sync-cursor 是没接的游标模块。
+      //   · src/routes/__tests__/helpers/drizzle-sql-strings.ts:测试辅助函数,全仓零 import,
+      //     即测试根本没用到它 ⇒ 真残留,到期未接即删(不要继续挂在白名单里)。
       // 到期复核 2027-01-31:路由两个要么挂进 server.ts(并删本条)、要么按产品定档删除;
       // attendance-sync 两个若确认并入 job 流程则删本条;helpers 一件到期直接删文件。
       "ignore": [
         "src/routes/agent-combos.ts",
         "src/routes/hr-salary-config.ts",
+        "src/routes/__tests__/helpers/drizzle-sql-strings.ts",
         "src/services/attendance-sync/index.ts",
         "src/services/attendance-sync/sync-cursor.ts"
       ]
