@@ -40,10 +40,12 @@ import { readFileSync, statSync, writeFileSync, mkdtempSync, rmSync } from 'node
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { catBatch } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
-const PY_SOURCE = join(REPO, 'apps/ai-service/app/core/hook_audit.py')
+/** 判据源在被审面(HEAD blob),与「守门取材面纪律」同面:读工作树会把别人的半截改动当事实。 */
+const PY_SOURCE_REL = 'apps/ai-service/app/core/hook_audit.py'
 const NEAR_FULL_PCT = 90
 const FAIL_RATE_WINDOW = 50
 const FAIL_RATE_MIN_EVENTS = 5
@@ -303,7 +305,9 @@ function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   let capBytes = null
   try {
-    capBytes = readCapFromSource(readFileSync(PY_SOURCE, 'utf8'))
+    const spec = `HEAD:${PY_SOURCE_REL}`
+    const src = catBatch(REPO, [spec]).get(spec)
+    capBytes = src ? readCapFromSource(src) : null
   } catch {
     capBytes = null
   }
