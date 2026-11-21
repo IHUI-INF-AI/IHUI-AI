@@ -130,7 +130,13 @@ const KIND_ICON_TONE: Record<StreamStatus, string> = {
 
 /**
  * 行首语义图标:形状由语义档(kind)决定,颜色由状态(status)决定。
- * 运行态加轻微脉冲提示活动,尊重 prefers-reduced-motion。
+ *
+ * 2026-11-21 用户报「运行代码行的图标颜色跟别的不一致、衬线上下的图标也是」:根因不是 token 不统一
+ * (实测所有图标取的都是同一个 color: rgb(10,10,10)),而是**"进行中"用图标的不透明度呼吸来表达**
+ * (animate-pulse 把 opacity 在 1↔0.5 之间来回拉)。截图/肉眼随机落在 0.5 附近就读成"颜色不一致",
+ * 同一定格里两个 running 行还各不相同。
+ * 定档:图标颜色/不透明度**恒定**,状态不得用图标透明度表达;进行中的活动感交给行尾
+ * (耗时 tick、「执行中」字样)与非语义行的 Loader2 自转。错误态仍取红(语义色,非透明度)。
  */
 export function StreamKindIcon({
   kind,
@@ -142,17 +148,7 @@ export function StreamKindIcon({
   className?: string
 }) {
   const Icon = STREAM_KIND_ICONS[kind]
-  return (
-    <Icon
-      className={cn(
-        ICON_CLASS,
-        KIND_ICON_TONE[status],
-        status === 'running' && 'animate-pulse motion-reduce:animate-none',
-        className,
-      )}
-      aria-hidden
-    />
-  )
+  return <Icon className={cn(ICON_CLASS, KIND_ICON_TONE[status], className)} aria-hidden />
 }
 
 /**
