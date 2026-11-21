@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **61 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **62 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（61 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（62 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -690,6 +690,12 @@
 - 处置：① 补登记两条腿（owner=派发函数、nominal=源默认 300000、ruler=器物、verifiedAt=今天，并写明 knownBlocker）。② `scripts/lib/autonomy-leg-liveness.mjs` 增 `findDispatchStampsInSource(src)` + `judgeRegistryCoverage({sourceStamps, legs})`：源面（`git-guardian.mjs` 源码）里的 `*-dispatch-last.json` 字面量，源里有而表里没有 ⇒ drift 并逐枚点名；表里有而源面没有 ⇒ 只点名不判红（tickFile 可能由变量拼装，失效方向恒为"多要一次说明"）。③ `check-autonomy-leg-health.mjs` 的 A8 取料层按同一被审面读 `git-guardian.mjs`，把 coverage 并进同一条维度读数；源面读不到 ⇒ unjudged，不读成"源面没有派发器"。
 - 语义边界：不新增第二份登记表、不复算节律；`missing` 与盘上 `unregistered` 同档（都是"无人认领"），`orphan` 只是提示。
 - 验证：`node scripts/check-autonomy-leg-health.mjs` 落地前 `unregistered=2`，登记后 `腿 16 枚 ok=16 unregistered=0 ｜ 源面:源面 16 枚 / 登记 16 枚`；`scripts/tests/leg-registry-coverage.test.mjs` 6 passed（含"盘上无戳也能抓到新腿"的集成例）；`autonomy-leg-liveness.test.mjs` + `autonomy-leg-health-output.test.mjs` 22 passed。
+### 5.62 第 62 项：只挂 main 面的派发腿，常驻持锁时等于零派发
+
+- 现场：`node scripts/check-sweeper-liveness.mjs` 现读 `dispatch-parity state=stalled`，真名单里 `sweepGiteeAssetBackfill` 的戳 `gitee-backfill-tick.json` 冻结 127 分钟且**不在 daemon tick 面**。成因与 2026-11-03 那次 27 小时静默同型：daemon 常驻持轮级锁，`main()` 那一趟永远让路 ⇒ 只挂 main 的腿实际零派发，而"戳存在"看起来像它还活着。
+- 处置：`git-guardian.mjs` daemon tick 段按字母序补一枚 `sweepGiteeAssetBackfill()`（在 `sweepExposedCredentialRotation` 与 `sweepHeadRecallRows` 之间），器物自带 30 分钟节流与单文件 ≤50MB 守卫，本层只派发、零复算。
+- 语义边界：不新建腿、不改器物判据；`ref-move-watch` 那条仍判 live（仅 main 面但戳新鲜，任务档还活着）——背离判据按"戳冻结 ∧ 不在 tick 面"两条件同时成立才算，本项只补齐真正零派发的那一枚。
+- 验证：改前 `LIVENESS-RESULT state=stalled stalled=1`、改后 `state=live stalled=0 families=3`；`scripts/tests/gitee-backfill-daemon-wiring.test.mjs` 3 passed（main 挂点 + daemon 形状锁 + 真跑背离巡检的接线锁）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

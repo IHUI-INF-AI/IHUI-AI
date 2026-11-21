@@ -15958,6 +15958,10 @@ function startDaemon(bootGuard = null) {
         await sweepCssTokensSourceLeg()
         await sweepDanglingCommitAutotag()
         sweepExposedCredentialRotation()
+        // Gitee 发版资产国内侧补齐(第 62 项):此前只挂 main() 面,而 daemon 常驻持轮级锁
+        // ⇒ main 那趟永远让路,戳冻结 127 分钟且不在 tick 面(2026-11-03 的 27 小时静默同型)。
+        // 器物自带 30 分钟节流 + 单文件 ≤50MB 守卫,本层只派发(§0.6)。
+        sweepGiteeAssetBackfill()
         sweepHeadRecallRows()
         sweepIosIpaRelay()
         sweepKeepAliveForever()
