@@ -7215,6 +7215,9 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_DEV_DB_ROTATION_WINDOW',
+    // 第 68 项:结构性豁免必须写下来。本门判的是**本机 dev 库口令轮换窗口**(时间 + 端口空窗),
+    // 提交内容怎么改都改变不了它的读数 ⇒ 不声明 stagedTriggers 是对的,不是漏声明。
+    stagedTriggersOmitted: '判本机 dev 库轮换窗口(时间相关+端口探测),提交内容无从触发',
     onFailHint: [
       '  💡 本门只读数、恒 exit 0;打印 state=due 不等于"该在这里换口令",而是提示"窗口刚空出来"。',
       '     真跑(风险自担,会改本机 dev 库口令):node scripts/check-dev-db-rotation-window.mjs --trigger',
@@ -7892,6 +7895,8 @@ const checks = [
     // §12e warn 档:在飞 worktree 不能自动回收,只点名让归属席自决。
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_TEMP_WORKTREE_LIFETIME',
+    // 第 68 项:结构性豁免 —— 判的是"临时派生检出活了多久"(静默时长 + 账龄),与提交内容无关。
+    stagedTriggersOmitted: '判临时派生检出的存活时长与账龄,提交内容无从触发',
     // 本门量的是磁盘 worktree 目录老化,不依赖本次提交内容 ⇒ 不设 stagedTriggers,
     // 周期派发点 = git-guardian 的 auditTempWorktreeLifetime(第 54 项补;此前"走 guardian 周期派发"只是自述)。
     onFailHint: [
@@ -7918,6 +7923,8 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_HOOK_AUDIT_HEALTH',
+    // 第 68 项:结构性豁免 —— 判钩子审计台账的容量/坏行/近窗失败率,是**机器状态**不是本枚内容。
+    stagedTriggersOmitted: '判钩子审计台账容量与失败率(机器状态),提交内容无从触发',
     // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers;周期派发点 = git-guardian 的 auditHookAuditHealth。
     onFailHint: [
       '',
