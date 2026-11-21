@@ -189,12 +189,12 @@ export function blameHooks(events, limit = 3) {
   return ranked.map((h) => `${h.name}(失败 ${h.failed}/${h.total}${h.maxMs > 0 ? `,最慢 ${Math.round(h.maxMs)}ms` : ''})`)
 }
 
-function report(verdict, ledger, capBytes) {
+export function report(verdict, ledger, capBytes) {
   const head = `[hook-audit-health] 结论 ${verdict.state}`
   const facts = []
   if (ledger && ledger.state === 'ok') {
     facts.push(
-      `台账 ${ledger.sizeBytes} 字节 / 上限 ${capBytes} 字节 / ${ledger.lines} 行 / 备份 ${ledger.backup ? ledger.backup.bytes + ' 字节' : '无'}`,
+      `台账 ${ledger.sizeBytes} 字节 / 上限 ${capBytes} 字节 / ${ledger.lines.length} 行 / 备份 ${ledger.backup ? ledger.backup.bytes + ' 字节' : '无'}`,
     )
   } else if (ledger && ledger.state === 'absent') {
     facts.push('台账尚未建立(一次钩子都没跑过,不算故障)')
@@ -252,6 +252,22 @@ function selfTest() {
 
     push('自检8:上限取不到 ⇒ undetermined', judge({ state: 'absent' }, null).state === 'undetermined')
     push('自检9:env 覆盖生效', resolveLedgerPath({ IHUI_HOOK_AUDIT_PATH: 'D:/x/y.jsonl' }) === 'D:/x/y.jsonl')
+    push('自检10:上限 env 覆盖优先于常量(坏值回落常量)',
+      resolveCap({ IHUI_HOOK_AUDIT_MAX_BYTES: '2048' }, 5242880) === 2048 &&
+        resolveCap({ IHUI_HOOK_AUDIT_MAX_BYTES: 'abc' }, 5242880) === 5242880 &&
+        resolveCap({}, 5242880) === 5242880)
+    // report 只报"行数"不报整行内容:台账一行可以有几 MB(钩子 error 截断上限很大)
+    const giant = join(dir, 'giant.jsonl')
+    writeFileSync(giant, `{"hooks":[{"name":"g","note":"${'y'.repeat(90000)}"}]}\n`, 'utf8')
+    const captured = []
+    const orig = console.log
+    console.log = (s) => captured.push(String(s))
+    try {
+      report(judge(readLedger(giant), cap), readLedger(giant), cap)
+    } finally {
+      console.log = orig
+    }
+    push('自检11:报告长度有界(不把整行台账打出来)', captured.join('').length < 3000, String(captured.join('').length))
   } finally {
     try {
       rmSync(dir, { recursive: true, force: true })
@@ -269,6 +285,20 @@ function selfTest() {
   return 0
 }
 
+/**
+ * 上限的最终取值:env `IHUI_HOOK_AUDIT_MAX_BYTES` 优先(与 Python `_max_bytes()` 同一口径),
+ * 缺省才用源头常量。2026-11-21 第 56 项补 —— 此前本尺子只读常量,而 Python 侧认 env
+ * ⇒ 有人把上限调小时,面板与守护会各说一套。
+ */
+export function resolveCap(env, srcCap) {
+  const raw = String((env && env.IHUI_HOOK_AUDIT_MAX_BYTES) || '').trim()
+  if (raw) {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return srcCap
+}
+
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   let capBytes = null
@@ -277,6 +307,7 @@ function main(argv) {
   } catch {
     capBytes = null
   }
+  capBytes = resolveCap(process.env, capBytes)
   const ledger = readLedger(resolveLedgerPath())
   const verdict = judge(ledger, capBytes)
   report(verdict, ledger, capBytes)

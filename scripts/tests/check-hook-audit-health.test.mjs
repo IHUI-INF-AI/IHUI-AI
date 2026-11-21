@@ -160,6 +160,15 @@ test('⑦第55项:三把尺子收敛到同一个派发器,且各自两个挂点'
   assert.ok(/git-guardian/.test(mf), '该尺子头注仍自述守护派发')
 })
 
+test('⑧第56项:读数形态与长度都有界(结论行要被认出;台账行不许整行灌日志)', () => {
+  const g = read('scripts/git-guardian.mjs')
+  assert.ok(/结论\\s\+\(\[A-Za-z_-\]\+\)/.test(g), '派发器必须同时认 state= 与 结论 <x> 两种文本形态')
+  assert.ok(/line\.length > 400/.test(g), '门体行进日志前必须限长')
+  const checker = read('scripts/check-hook-audit-health.mjs')
+  assert.ok(/ledger\.lines\.length\} 行/.test(checker), '报告只许报行数,不许打印整行内容')
+  assert.ok(/export function resolveCap/.test(checker), '上限须 env 优先(与 Python _max_bytes 同口径)')
+})
+
 test('④装车证明:guardian-runner 登记为 warn、不挂 stagedTriggers', () => {
   const runner = read('scripts/guardian-runner.mjs')
   const at = runner.indexOf("script: 'check-hook-audit-health.mjs'")

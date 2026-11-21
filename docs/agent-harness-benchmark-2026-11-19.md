@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **55 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **56 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（55 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（56 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -647,6 +647,17 @@
 - 测试：镜像测试增第 ⑦ 例 —— 三个包装器各有**恰好两个**挂点、每个包装器体都必须是 `return runReadoutGate({`（防有人回头各抄一份）、`check-miniapp-mirror-fidelity.mjs` 的自述仍在（说明本项补的是它的落点）。
 
 验证：`node --check scripts/git-guardian.mjs`；真跑一轮 `auditMirrorFidelity`（临时节流戳）→ `{"ran":true,"state":"ok"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `7 passed`。
+### 5.57 第 56 项：刚接通的派发器有三个读数空洞（结论形态、整行灌日志、上限口径）
+
+- 问题：第 55 项把三把尺子收敛到 `runReadoutGate` 后，用真台账做一次 warn 路径的实测（env 把上限调到 2048 字节制造近满 + 20 条里 10 条失败），暴露三处：
+  ① 派发器只认 `state=<x>`，而钩子审计尺子的头行是 `[hook-audit-health] 结论 warn` ⇒ 每次 warn 都被记成"结论不可用/未判定"，读数方向正好反了；
+  ② 尺子的 `report()` 把 `ledger.lines`（**整行数组**）插进事实行，一行台账可以有几 MB（钩子 error 截断上限很大）——实测真机输出 4.7MB，等于把守护日志撑成噪音源；
+  ③ 尺子只读 Python 常量、不认 `IHUI_HOOK_AUDIT_MAX_BYTES`，而 Python `_max_bytes()` 认 env ⇒ 有人把上限调小时，面板与守护各说一套。
+- 处置：① `runReadoutGate` 的文本回退同时匹配 `state=` 与 `结论 <x>`；② 尺子只报 `ledger.lines.length`（行数），派发器对每行门体日志再做 400 字符截断（超出附原长）；③ 新增 `resolveCap(env, srcCap)`：env 正数优先、坏值回落到源头常量，`main()` 走它。
+- 语义边界：截断只作用于**日志**，不改门体结论；`report` 的容量/失败率关键数字一行不动。
+- 测试：`--self-test` 增 `自检10`（env 覆盖/坏值回落/缺省三档）与 `自检11`（9 万字节单行台账 ⇒ 报告总长 < 3000 字符，实测 71）→ `12/12`；镜像测试增第 ⑧ 例（源头里必须同时出现 `结论 <x>` 回退、400 字截断、`ledger.lines.length`、`resolveCap`）。
+
+验证：真机 warn 路径实测 —— 日志四行（结论 warn / 容量 100% 给"先另存或调大上限" / 失败 10/20 点名 `lint-on-edit`）、返回 `{"ran":true,"state":"warn"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `8 passed`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
