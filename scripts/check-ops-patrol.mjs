@@ -2733,7 +2733,49 @@ export async function checkHeadTypecheckLanded(opts = {}) {
         state: 'undetermined',
         detail: `复述被降级为未判定:当前 HEAD 取不到,无法确认旧结论(${String(prev.headSha || '(无 commit 锚)').slice(0, 9)})还在描述这份代码 —— "比不了"不得读成"仍成立"`,
       }
-    // 走到这里 = commit 变了(或旧行压根没有锚)⇒ 不复述,按本轮重跑走下面的真实判定
+    // **代码面零 diff 时不许重跑(2026-11-21 立,治"巡检自己把机器拖到卡死")**:
+    // commit 锚变 ≠ 本格量到的东西变。本仓常态是文档/README/数字/清单类提交每分钟一枚 ——
+    // 每一枚都让这一格冷跑一次全端 tsc(实测 apps/web 单端 3–4 分钟),与部署环那 19 分钟的
+    // next build 抢同一台机器的 CPU ⇒ 单端 240s 墙钟被**自身争用**顶穿(spawnSync ETIMEDOUT)
+    // ⇒ P12 长期"未判定",机器看着像卡死。判法只问一句:"anchor..HEAD 在代码面有没有 diff?"
+    // 取不到 diff(null)一律照旧重跑 —— 失效方向永远是"多跑一次",不是替人作证。
+    const codeFaceReader =
+      opts.codeFaceReader ??
+      ((from, to) => {
+        try {
+          return String(
+            gitRaw(['diff', '--name-only', from, to, '--', 'apps', 'packages', 'package.json', 'pnpm-lock.yaml', '*tsconfig*.json'], repoRoot, { timeout: 30_000 }) || '',
+          ).trim()
+        } catch {
+          return null
+        }
+      })
+    const faceDiff = codeFaceReader(anchor, headNow2)
+    if (faceDiff === '') {
+      // 结论仍描述这份代码 ⇒ 复述;同时把锚滑到新 HEAD,免得下一枚文档提交再判一次。
+      try {
+        writeFileSync(lastFile, JSON.stringify({ ...prev, headSha: headNow2, slidFrom: anchor }), 'utf8')
+        writeFileSync(tickFile, String(now), 'utf8')
+      } catch {
+        /* 落不下只是下轮再算 */
+      }
+      return {
+        id: 'P12',
+        state: prev.state,
+        detail:
+          '复述 ' +
+          Math.round((now - lastRunMs) / 60000) +
+          'min 前结论（窗口 ' +
+          Math.round(windowMs / 60000) +
+          'min；代码面自 commit ' +
+          anchor.slice(0, 9) +
+          ' 起零 diff，HEAD 虽动到 ' +
+          headNow2.slice(0, 9) +
+          ' 但本格没变，不重跑）：' +
+          String(prev.detail ?? ''),
+      }
+    }
+    // 走到这里 = 代码面确实变了(或 diff 取不到)⇒ 不复述,按本轮重跑走下面的真实判定
   }
   let stdout = ''
   try {
@@ -3762,6 +3804,55 @@ export async function selfTest() {
         'P12 HEAD 变了 ⇒ 必须重跑、不得复述(摘掉锚比对这一支,本例直接翻绿)',
         sp2 === 1 && !rB.detail.includes('复述'),
       )
+      // 代码面零 diff 支(2026-11-21 立):锚变了但代码面没变 ⇒ 复述且不派生,同时把锚滑到新 HEAD。
+      {
+        let spB = 0
+        writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
+        const rB2 = await checkHeadTypecheckLanded({
+          now: 20_000 + 60_000,
+          repoRoot: d,
+          tickFile: tA,
+          lastFile: lA,
+          windowMs: 10 ** 9,
+          headReader: () => 'b'.repeat(40),
+          codeFaceReader: () => '',
+          runner: async () => {
+            spB += 1
+            return NET
+          },
+        })
+        let slid = ''
+        try {
+          slid = String(JSON.parse(readFileSync(lA, 'utf8')).headSha || '')
+        } catch {
+          slid = ''
+        }
+        t(
+          'P12 锚变了但代码面零 diff ⇒ 复述且不派生、锚滑到新 HEAD(否则文档类提交每分钟逼一次全端 tsc,把机器拖到卡死)',
+          spB === 0 && rB2.state === 'finding' && rB2.detail.includes('代码面自 commit') && slid === 'b'.repeat(40),
+        )
+      }
+      {
+        let spC = 0
+        writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
+        const rB3 = await checkHeadTypecheckLanded({
+          now: 20_000 + 60_000,
+          repoRoot: d,
+          tickFile: tA,
+          lastFile: lA,
+          windowMs: 10 ** 9,
+          headReader: () => 'b'.repeat(40),
+          codeFaceReader: () => null,
+          runner: async () => {
+            spC += 1
+            return NET
+          },
+        })
+        t(
+          'P12 代码面 diff 取不到 ⇒ 照旧重跑(失效方向永远是"多跑一次",不得替人作证)',
+          spC === 1 && !rB3.detail.includes('代码面自 commit'),
+        )
+      }
       let sp3 = 0
       writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
       const rC = await checkHeadTypecheckLanded({
