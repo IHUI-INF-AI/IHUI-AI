@@ -535,9 +535,11 @@ export interface StreamGroupProps {
  * 除一行与行同字号的头外不设独立底色;2026-11-15 起头按钮带一档低对比描边,
  * 与正文拉开"可展开容器"的轻量边界,但不抢正文的视觉重量。
  *
- * 内容侧纪律:组内**裸正文**(无底色的文字块,如过程叙述的 markdown)必须套
- * `STREAM_GROUP_BODY_CLASS`,让出引导线所在的 7px 轨道;需要自成卡片的内容
- * (StreamDetail / 泳道卡)自带底色,由底色承担让位,不必再套本档。
+ * 组内左让位(2026-11-21 收口):引导线轨道 `left-[7px]` 是**本组**画的,所以让位也必须由
+ * 本组件一处施加 —— 展开体统一套 `STREAM_GROUP_BODY_CLASS`(18px),行内图标落在 22px,
+ * 轨道永远在图标左侧 15px,不会从图标身上穿过去。
+ * 旧口径要求**调用方**自己套(MessageItem 套了、sub-agent 泳道没套 ⇒ 泳道行的图标与竖线重合),
+ * 且忘套时没有任何判据可见;现在调用方一律不要套(再套一份就是 36px,行会缩进过头)。
  */
 export function StreamGroup({
   active,
@@ -617,7 +619,11 @@ export function StreamGroup({
         </button>
         {headerExtra}
       </div>
-      {open && <div className="pt-0.5">{children}</div>}
+      {open && (
+        <div className={cn(STREAM_GROUP_BODY_CLASS, 'pt-0.5')} data-stream-group-body="true">
+          {children}
+        </div>
+      )}
     </div>
   )
 }
