@@ -39,7 +39,9 @@ export function AiTerminalDock() {
   // 它画的是"模型此刻看到的屏幕"(网格/光标/提示符/链接),与 IDE 终端那条 WS 不是同一条链路;
   // 用 `aria-expanded`(展开/收起语义)而不是 `aria-pressed`,因为这不是一个常驻开关。
   const [showAgentFace, setShowAgentFace] = React.useState(false)
-  const agentSessionId = useChatStore((s) => s.aiStreamSessionId ?? null)
+  // 2026-11-21:必须用 conversationId —— agent 侧终端记账键是 metadata.conversationId,
+  // 而 aiStreamSessionId 是每次流新生成的随机 UUID(传它 = 面板永远空白)。
+  const agentConversationId = useChatStore((s) => s.conversationId ?? null)
 
   // 底部 4px 命中区拖拽调高:向上拖动 = 增大 height(startY - clientY > 0)
   const handleResizeStart = React.useCallback(
@@ -131,7 +133,7 @@ export function AiTerminalDock() {
       {/* 主体:两视图共用同一高度。IDE 视图挂载时自动 refreshSessions + 无 session 自动创建;
           agent 视图只读轮询(取不到就如实写原因,不画空屏冒充"没输出") */}
       <div className="min-h-0 overflow-hidden" style={{ height }}>
-        {showAgentFace ? <AgentTerminalFace sessionId={agentSessionId} /> : <TerminalPanel />}
+        {showAgentFace ? <AgentTerminalFace conversationId={agentConversationId} /> : <TerminalPanel />}
       </div>
       {/* 底部 4px 拖拽调高命中区 */}
       <div
