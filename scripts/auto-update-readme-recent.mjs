@@ -197,14 +197,74 @@ function renderGroup(date, entries, lang) {
   return lines.join('\n')
 }
 
-/** 把若干日期组拼接为块文本,并封顶到 MAX_GROUPS(丢弃最旧的尾部组)。 */
-function buildInner(newGroups, existingInner) {
-  const parts = newGroups.slice()
-  if (existingInner.trim()) parts.push(existingInner.trim())
-  // 按 "\n\n" 切分为日期组(组内 bullet 单行、组间空行),取前 MAX_GROUPS 组。
-  const groups = parts.join('\n\n').split('\n\n').filter(Boolean)
-  const capped = groups.slice(0, MAX_GROUPS)
-  return capped.join('\n\n')
+/** 日期组头(唯一形态:`**YYYY-MM-DD**`)。 */
+const GROUP_HEAD_RE = /^\*\*(20\d\d-\d\d-\d\d)\*\*$/
+
+/**
+ * 解析块内既有文本为日期组(2026-11-21,第 107 项)。
+ *
+ * 首行不是日期头的组不丢、不猜,按"无日期"原样保留 —— 块里可能有历史遗留的人写小节,
+ * 刷新器只负责自己产出的那些组,别的东西一律不动。
+ */
+export function parseGroups(inner) {
+  const groups = []
+  for (const raw of String(inner ?? '').split(/\n\s*\n/)) {
+    const chunk = raw.trim()
+    if (!chunk) continue
+    const lines = chunk.split('\n').map((x) => x.trimEnd())
+    const m = GROUP_HEAD_RE.exec(lines[0])
+    groups.push({ date: m ? m[1] : null, lines })
+  }
+  return groups
+}
+
+/** 条目身份:行尾 `(sha)` 是稳定身份;没有 sha 的退回整行文本。 */
+function bulletKey(line) {
+  const m = /\(([0-9a-f]{7,40})\)\s*$/.exec(line)
+  return m ? `sha:${m[1]}` : `text:${line}`
+}
+
+/**
+ * 把若干日期组拼接为块文本,并封顶到 MAX_GROUPS(丢弃最旧的尾部组)。
+ *
+ * 2026-11-21 第 107 项修的是"同一日期被记成十几个组":旧实现把**既有整块**当一整段追加,
+ * 再按 `\n\n` 切前 15 段 —— 于是同一个 `**2026-11-21**` 每天多一枚,`MAX_GROUPS=15` 也
+ * 从来没按"日期组"生效过(README 实测 43 枚日期头 / 7 个真日期,`**2026-11-16**` 12 枚)。
+ * 现在按日期合并:同日的新条目前置、旧条目在后,条目按 sha(退化到整行文本)去重;
+ * 组按日期倒序;封顶的计数单位 = **真日期组**,无日期组原样跟在后面(不参与封顶,也不被裁)。
+ */
+export function buildInner(newGroups, existingInner) {
+  const byDate = new Map()
+  const dateless = []
+  const seenSha = new Set()
+  const add = (date, lines) => {
+    if (!lines.length) return
+    if (!date) {
+      dateless.push({ date: null, lines })
+      return
+    }
+    if (!byDate.has(date)) byDate.set(date, { date, lines: [lines[0]] })
+    const g = byDate.get(date)
+    for (const line of lines.slice(1)) {
+      const key = bulletKey(line)
+      if (key.startsWith('sha:')) {
+        if (seenSha.has(key)) continue
+        seenSha.add(key)
+      } else if (g.lines.includes(line)) {
+        continue
+      }
+      g.lines.push(line)
+    }
+  }
+  // 新组先入 ⇒ 同日的新条目排在既有条目之前(中文 changelog 习惯:最新的在最上面)。
+  for (const raw of newGroups) {
+    const g = parseGroups(raw)[0]
+    if (!g) continue
+    add(g.date, g.lines)
+  }
+  for (const g of parseGroups(existingInner)) add(g.date, g.lines)
+  const dated = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, MAX_GROUPS)
+  return [...dated, ...dateless].map((g) => g.lines.join('\n')).join('\n\n')
 }
 
 /** 取块外内容(标记之前 + 标记之后);用于判断除自动区外是否另有改动。 */
@@ -359,6 +419,8 @@ function selfTest() {
 export const __test__ = {
   assessAnchors,
   countEntriesOutsideBlock,
+  parseGroups,
+  buildInner,
   BEGIN,
   END,
   READMES,
