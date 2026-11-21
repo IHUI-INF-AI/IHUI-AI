@@ -99,6 +99,15 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (43e8e2b9a81)
+- 🔧 Chore/Other:退役 README 数字对账门 173(数字滞后改人工定期刷新) (84572f3af05)
+- ⚡ Perf:scanFolders 普通目录不再逐项 realpath(O(目录数) 系统调用把 limit 截断退化成时间截断) (b3d8c73722b)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23150(删两枚幽灵测试) (9e18a5bede4)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23150(删两枚幽灵测试) (cf5fa8ccdfe)
+- 🐞 Fix:删掉两枚引用不存在符号的幽灵测试,判红文案不再把历史快照当现状 (1f27ed595f8)
+- 🔧 Chore/Other:三处重 I/O 用例预算放宽(并发档超时,单跑全绿) (b3c24001dd6)
+
+**2026-11-21**
 - 🔧 Chore/Other:撤回未推送的 three-jsx.d.ts(改动落在 apps/web 内会牵动 web 存量类型债闭包使 push 门不许降级) (67c802409a2)
 - 🐞 Fix:补 R3F 全局 JSX 元素类型注册(ThreeDViewer 7 处 TS2339)并把 theme-provider 改为透传 props(children 类型断链) (e3121c4d194)
 - 📚 Docs:生成块按合并后 HEAD 面现算对齐(testFiles 5952/trackedFiles 23154),并还原被并重的块内行 (662099cb18d)
@@ -535,36 +544,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 **2026-11-20**
 - 🐞 Fix:relay-models-sync 下架写入改先比现值再写(消盲写棘轮新增) (daf3f16745)
 - 🐞 Fix:heal-tunnel-service.ps1 补 UTF-8 BOM(正文零改动) (9331cfd9a0)
-
-**2026-11-20**
-- 🔧 Chore/Other:root-guard 清单按 origin tip 面重封(guardian-runner/guardian-executor 两条脱钩) (e2636202c8)
-- 🚀 Feature/Improvement:PreToolUse permissionDecision(allow/ask)前置到审批门 + 报告§5.24 (f0bf2104f3)
-- 📚 Docs:trackedFiles 23039→23040 对齐 63d02cfd(新增 workbuddy-5114 全量取证册 1 枚跟踪文件);取数唯一入口 readme-align-from-tree,对象空间落地不卷他席在飞 (7c31f1767c)
-- 📚 Docs:trackedFiles 按 HEAD 面现算对齐 (8f0d652766)
-- 📚 Docs:WorkBuddy 5.11.4 agent-harness 全量图谱 + 原生 addon 层首扫取证 (63d02cfdfb)
-- 📚 Docs:生成块 trackedFiles 对齐 HEAD 现算(23031 -> 23032) (ebd3afbd85)
-- 📚 Docs:trackedFiles 按合并后 HEAD 面现算对齐(23039) (43165f296b)
-- ⚡ Perf:push face content prefilter + 301 trigger narrowed to route tree (f8ba4e1ea8)
-- 🚀 Feature/Improvement:/health/ready 暴露会话存储后端(trgm/like)与 schema,且探活不建库 (a1de82b905)
-- 🐞 Fix:CloudflaredApi 隧道服务自愈(服务非 Running 即幂等拉起) (cfd91e244d)
-- 📚 Docs:重算生成块数字(testFiles/trackedFiles)以对齐本机 HEAD 面 (f96e94e46d)
-- 📚 Docs:生成块 trackedFiles 23028→23031(并发会话新增 3 个跟踪文件,按 HEAD 现算重钉) (ba250b8d73)
-- ⚡ Perf:尾部三段改为在 push 门批次之前起飞,与门批次重叠 (c83b0b959d)
-- 📚 Docs:生成块数字按合并后 HEAD 面现算对齐(testFiles 5920 / trackedFiles 23033) (fc9133a428)
-- 🔧 Chore/Other:结清 Y-82(C盘残留清理,现读22项全不存在目标已达成,完成即删) Y-82登记@11-15的22项残留(全profile递归现读:6文件False ihui-check-401/curl/redis/tenant.ps1+ihui-push.pack/ihui-relay2.pack,16个ihui-wt-escape-*目录count=0,连保留项IHUI-GIT-GUARD/scratch-root也不存在)——票面整套环境已不在本机,清理目标事实上达成无需再删;主会话已亲自复核确认。PROJECT_PLAN仅删此1行/0增,未勾行11→10 (2dbf52a8fa)
-- 📚 Docs:.env.example 补会话存储三键与旧 schema 审计入口 (9cb119808d)
-- 🚀 Feature/Improvement:BUG-29 索引补齐切片2 + 四格对账判据 格1外键列无索引:新迁移20261120110000_bug29_indexes_slice2.sql补15处,CREATE INDEX IF NOT EXISTS索引名全局唯一/表列全存在,附DROP回滚;journal仅追加idx439 新判据bug29-reconcile.mjs四格对账,反向测试4/4绿(旧判据漏检格1无索引被新判据检出);格3 audit-missing-indexes missing=[];五包幂等通过 格2唯一真缺hr_employee_link_request.user_id与格4的15处DDL类型冲突须机主生产库执行/复核,agent不代跑 注:对象空间落地(共享树孤儿rebase中+文档数字门点名他席staged README,pathspec进不了其内容) (0ba0d71841)
-- ⚡ Perf:pre-push 尾部三段(哨兵/数字门/i18n)改并行起飞、按原序收口 (b448d5f9fa)
-- 📚 Docs:生成块数字按 HEAD 面现算对齐(testFiles 5920 / trackedFiles 23033) (95face7d06)
-- 🚀 Feature/Improvement:会话库按 db_path 现算旧 schema 名并原地接管(不是从库面上猜) (26181fef49)
-- 🚀 Feature/Improvement:PostToolUse 产出改写面(updatedMCPToolOutput)接进执行链 + 报告§5.23 (98065763eb)
-- ⚡ Perf:T1/IG 并入 push 并行池,破例理由与判据写在白名单注释里 (eefc3f2c05)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (086bb4100f)
-- 🐞 Fix:给 check-sqlite-write-paths 的两处 git 派生补显式 stdio (abae812b12)
-- 📚 Docs:生成块 trackedFiles 23027→23028(本轮新增旧 schema 审计尺子) (fd28849f59)
-- ⚡ Perf:push 面重门收进只读并行池 (145ff02a4a)
-- ⚡ Perf:pg-only 预筛提速 + 会话检索后端可观测 + 旧 schema 审计尺子 (7e35880fd5)
-- 🐞 Fix:ai-endpoints 派生件按 HEAD 面重钉 —— 输入 codex_plugin_license_audit.py 已删除致钉块陈旧 (fdc68fd0ca)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

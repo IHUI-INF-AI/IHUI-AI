@@ -5478,6 +5478,15 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (43e8e2b9a81)
+- 🔧 工程/其他:退役 README 数字对账门 173(数字滞后改人工定期刷新) (84572f3af05)
+- ⚡ 性能:scanFolders 普通目录不再逐项 realpath(O(目录数) 系统调用把 limit 截断退化成时间截断) (b3d8c73722b)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23150(删两枚幽灵测试) (9e18a5bede4)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23150(删两枚幽灵测试) (cf5fa8ccdfe)
+- 🐞 修复:删掉两枚引用不存在符号的幽灵测试,判红文案不再把历史快照当现状 (1f27ed595f8)
+- 🔧 工程/其他:三处重 I/O 用例预算放宽(并发档超时,单跑全绿) (b3c24001dd6)
+
+**2026-11-21**
 - 🔧 工程/其他:撤回未推送的 three-jsx.d.ts(改动落在 apps/web 内会牵动 web 存量类型债闭包使 push 门不许降级) (67c802409a2)
 - 🐞 修复:补 R3F 全局 JSX 元素类型注册(ThreeDViewer 7 处 TS2339)并把 theme-provider 改为透传 props(children 类型断链) (e3121c4d194)
 - 📚 文档:生成块按合并后 HEAD 面现算对齐(testFiles 5952/trackedFiles 23154),并还原被并重的块内行 (662099cb18d)
