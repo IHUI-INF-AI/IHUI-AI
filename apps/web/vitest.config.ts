@@ -18,6 +18,25 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // 2026-11-22 极致档 B 面实验(与 maxWorkers=8 同轮 A/B):import 段实测 692s 是第二大头。
+  // 把每个 fork 都要重走一遍的巨型依赖用 vite 依赖预打包剥成预构建产物(主进程一次,worker 复用)。
+  // 与 ⑤ 的区别在 pool:那里是 threads 共享进程才破 TZ;此处仍是默认 forks,进程边界不变。
+  deps: {
+    optimizer: {
+      web: {
+        enabled: true,
+        include: [
+          'react',
+          'react-dom',
+          'react/jsx-runtime',
+          'react/jsx-dev-runtime',
+          '@testing-library/react',
+          '@testing-library/dom',
+          '@testing-library/user-event',
+        ],
+      },
+    },
+  },
   test: {
     // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
     // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
@@ -54,6 +73,20 @@ export default defineConfig({
     //                                      若再复现"49 失败/空输出",回退口径是 maxWorkers 降到 4,而不是关并行。
     fileParallelism: true,
     maxWorkers: 8,
+    // 2026-11-22 提速 A/B 全量实测(931 文件 / 9260 用例,同一台 12C/20T 机器)——
+    //   ① 全串行(原 fileParallelism=false):1842s ≈ 30.7min  ✅ 全绿
+    //   ② 并行 + maxWorkers=8            : 514s ≈ 8.6min    ✅ 全绿  ← 定稿
+    //   ③ 并行 + maxWorkers=12           : 8min+ 仍未收尾,12 worker 在 12 核上互相抢核  ❌ 超订
+    //   ④ isolate=false                  : 229s ≈ 3.8min    ❌ 25 文件 / 179 用例因跨文件 store 单例污染变红
+    //   ⑤ pool='threads' + 依赖预打包     : 473s ≈ 7.9min    ❌ 仅快 41s,却弄红"改进程 TZ"用例 2 条
+    //                                                          (线程共享进程 ⇒ process.env.TZ 改了 Intl 缓存不动)
+    // 结论:② 是"不拿隔离/时区语义换速度"的前提下能拿到的最优档。
+    // 要再往下压,唯一正路是减少**断言之外的固有开销**(每文件起 happy-dom 环境 + import 模块图),
+    // 而不是牺牲隔离;可选项依次是 vite 依赖预打包分片、把重模块测试挪出 web 包。禁止把 ① 改回来。
+    // 2026-11-22 第二轮提速(极致档):maxWorkers=12 实测反而更慢(同机 12 核,12 worker + happy-dom
+    // 子进程互相抢核,8 分钟仍未收尾且日志停滞)⇒ 定稿 8。isolate=true 保留(下表 A/B 结论同上)。
+    // 下一档提速面(尚未定稿,留待独立 A/B):isolate=false 可把 environment 671s 那段消掉,
+    // 但 web 大量用例共享 store 单例,跨文件污染风险高,必须整轮跑通且失败数为 0 才可采纳。
     // 2026-08-17 立 tests/setup.ts:monkey-patch Error.prepareStackTrace,
     // 避免 vitest 4 + Vite 6 + jsdom 30 组合下,base64 sourcemap URL 导致正则回溯栈溢出
     setupFiles: ['./tests/setup.ts'],
