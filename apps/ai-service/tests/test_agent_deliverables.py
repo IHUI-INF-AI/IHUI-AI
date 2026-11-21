@@ -200,7 +200,9 @@ async def test_loop_v2_wiring_success(monkeypatch):
     # write_file 属高危写工具,默认走审批门;测试环境无审批者会等待 60s 超时,
     # 导致工具未执行(tr.error 非空)→ diff 不进 filesChanged。
     # 此处将审批替换为立即放行:工具真实执行,diff 由 derive_step_evidence 从 args 推导。
-    async def approve_all(self, tc):
+    # auto_review 是 _request_approval 的 keyword-only 入参(源码签名必须逐字对齐,
+    # 否则调用点传它即 TypeError —— 测试桩不是"大约对得上"而是必须同签名)。
+    async def approve_all(self, tc, *, auto_review=None):
         return None
 
     monkeypatch.setattr(AgentLoopV2, "_request_approval", approve_all)

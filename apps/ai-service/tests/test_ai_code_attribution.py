@@ -515,16 +515,17 @@ async def test_write_io_failure_keeps_before_without_after(tmp_path, monkeypatch
     )
     target = tmp_path / "out.py"
     target.write_text("old\n", encoding="utf-8")
-    real_open = open
 
-    def guarded(file, mode="r", *args, **kwargs):
-        if str(file) == str(target) and "w" in str(mode):
-            raise OSError(13, "denied")
-        return real_open(file, mode, *args, **kwargs)
+    # 写盘已改为原子写(同目录临时件 + os.replace,见 mcp_server 内注释),
+    # 因此拦 builtins.open 对目标路径的 "w" 不再命中 —— 卡在原子写这一层,
+    # 判的仍是"写失败 ⇒ 不记 after_edit,但 before_edit 必须已落"。
+    def _boom(*_a, **_k):
+        raise OSError(13, "denied")
 
-    monkeypatch.setattr("builtins.open", guarded)
+    monkeypatch.setattr("app.services.mcp_server.write_bytes_atomic", _boom)
     out = await _tool_write_file({"path": str(target), "content": "new\n", "__session_id": "s"})
     assert out["ok"] is False
+    assert target.read_text(encoding="utf-8") == "old\n"
     rows, note = list_checkpoint_log()
     assert note == ""
     assert [row["hook_event_name"] for row in rows] == ["before_edit"]

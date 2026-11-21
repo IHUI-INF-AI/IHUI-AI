@@ -208,7 +208,13 @@ async def test_stream_injects_custom_system_prompt(client: AsyncClient, monkeypa
 
 
 async def test_stream_system_prompt_absent_leaves_messages(client: AsyncClient, monkeypatch):
-    """未传 system_prompt:不注入空 system 消息(消息条数与首条 role 不变)。"""
+    """未传 system_prompt:不注入**空** system 消息,用户消息原样保留。
+
+    2026-11-14 起 `_inject_deliverable_guidance` 在"无 system 消息"时会新插一条
+    交付物/文件引用规约(主聊天 v1 与引擎 v2 必须同段同标记,否则模型只在 agent
+    任务里才会内联图片与文件链接)。故本用例判的是"注入的那条非空且是交付物规约",
+    而不是"一条都不许出现" —— 后者是注入上线前的旧口径。
+    """
     from app.routers import llm as llm_router
 
     captured: dict[str, Any] = {}
@@ -227,8 +233,12 @@ async def test_stream_system_prompt_absent_leaves_messages(client: AsyncClient, 
     )
     assert resp.status_code == 200
     msgs = captured["messages"]
-    assert len(msgs) == 1
-    assert msgs[0]["role"] == "user"
+    # 唯一允许的注入:首条 system 是交付物规约(非空);用户消息逐字未动
+    assert len(msgs) == 2
+    assert msgs[0]["role"] == "system"
+    assert "<deliverable_file_references>" in msgs[0]["content"]
+    assert msgs[0]["content"].strip() != ""
+    assert msgs[1] == {"role": "user", "content": "你好"}
 
 
 # =============================================================================
