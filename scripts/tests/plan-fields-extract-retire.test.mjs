@@ -412,4 +412,28 @@ test('㉓ 同号族带凭据出口反向:活行自己没有侧车记录 ⇒ 不�
   assert.match(h.why, /\(ii\)/)
 })
 
+test('㉔ 遗留 T:<hex> 兜底键且台账面无行 ⇒ 可退(两个器物互相指对方的死循环就此闭环)', () => {
+  const legacy = rec('T:0123456789abcdef', { updatedBy: 'we-clear-20261023' })
+  const rp = ex.retirePlanOf(entriesOf(legacy), [], new Map())
+  assert.equal(rp.retireKeys, 1)
+  assert.equal(rp.retire[0].key, legacy.key)
+  assert.equal(rp.retire[0].legacyRowhash, true, '留痕必须自述这一族是兜底键退场,不是"孤儿复合主键"')
+  assert.equal(rp.conserved, true)
+})
+
+test('㉕ 遗留 T:<hex> 兜底键但最近写手是本器自写面 ⇒ 仍 held(只放宽键形态,孤儿证据一条不少)', () => {
+  const legacy = rec('T:0123456789abcdef', { updatedBy: 'plan-fields-extract-adopt' })
+  const rp = ex.retirePlanOf(entriesOf(legacy), [], new Map())
+  assert.equal(rp.retireKeys, 0)
+  assert.match(rp.held[0].why, /本器自写面/)
+})
+
+test('㉖ 放宽只针对 T:<hex> 纯哈希形:号段缺位 / 题面过短 / 非哈希形 T 键一律仍 held', () => {
+  const rp = ex.retirePlanOf(entriesOf(rec('T:notahashshort'), rec('G-1#短')), [], new Map())
+  assert.equal(rp.retireKeys, 0)
+  assert.equal(rp.held.length, 2)
+  assert.match(rp.held[0].why, /键形态不合法/)
+  assert.match(rp.held[1].why, /键形态不合法/)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

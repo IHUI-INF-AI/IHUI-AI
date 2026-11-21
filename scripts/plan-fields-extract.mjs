@@ -992,6 +992,37 @@ export function retirePlanOf(
   for (const [key, g] of byKey) {
     const i = key.indexOf('#')
     const anchor = i > 0 ? key.slice(i + 1) : ''
+    // 2026-11-21 第 100 项:遗留 `T:<hex>` 兜底键的闭环。这类键由旧写手(2026-10-23 `we-clear`)
+    // 产出,`fieldsFor` 只把 `号段#题面` 认作 id 形 ⇒ 它**永远不参与归属判定**(结构上是惰性的);
+    // 而台账行一旦不在,两个器物就互相指对方:本档要 `号段#题面`(形态不合法 ⇒ 不退),
+    // `--reclassify` 又要"该键在写面有对应登记行"(找不到行 ⇒ 整批不落) —— 7 条记录永久残留。
+    // 放行只放宽"键形态"这一条,孤儿证据一条不少:① 任何活行本体哈希恰为它 ⇒ 不退(行还在);
+    // ② 写面同形副本读不到(别席正改侧车)⇒ 不退;③ 本器自写面 ⇒ 不退(留给下一轮/声明档)。
+    const legacyRowhash = /^T:[0-9a-f]{12,}$/.test(key)
+    if (legacyRowhash) {
+      if (rowKeys.has(key)) {
+        held.push({ key, why: '活行本体哈希恰为该兜底键 ⇒ 行还在,不退', lines: g.lines })
+        continue
+      }
+      const byL = String(g.latest?.updatedBy ?? '')
+      if (selfStamps.has(byL) && !retireIntents?.get(key)) {
+        held.push({
+          key,
+          why: `最近一次 updatedBy=${byL}(本器自写面)⇒ 本轮不退;出路 = --retire-intent 声明档`,
+          lines: g.lines,
+        })
+        continue
+      }
+      if (faceIds) {
+        const offL = g.lines.filter((l) => !faceIds.has(faceIdentityOf(l.rec)))
+        if (offL.length > 0) {
+          held.push({ key, why: `盘上 ${offL.length} 行在被审面读不到同形副本(侧车正被别席改写)⇒ 不退`, lines: g.lines })
+          continue
+        }
+      }
+      retire.push({ key, updatedBy: byL, lines: g.lines, legacyRowhash: true, ...(retireIntents?.get(key) ? { intent: retireIntents.get(key) } : {}) })
+      continue
+    }
     if (i <= 0 || key.slice(0, i).trim() === '' || anchor.trim().length < 4) {
       held.push({
         key,

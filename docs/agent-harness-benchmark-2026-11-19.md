@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **99 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **100 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（99 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（100 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1616,6 +1616,39 @@
 
 验证现读：`check-service-binary-paths.mjs` exit **0**；`仓内基准：列出 28 / 本机在册 28 / 缺 0、Application 差异 0、基准路径存在性不符 0`；
 `运行时代码新鲜度：fresh 13 / stale 0 / 断链 0`；`STATE 分桶：running 23 / stopped 5 / paused 0 / pending 0`。
+
+### 5.100 第 100 项：侧车里的 `T:<hex>` 兜底键 —— 两个器物互相指对方，7 条记录永久残留
+
+门 234 现读曾长期挂 `orphan=23 rot=7`，其中 7 条腐烂记录形状是
+`{"key":"T:<16hex>","waiting":"human","updatedAt":"2026-10-23…","updatedBy":"we-clear-20261023"}`
+（键 `T:fb76477c48f6c35c` / `T:a6dc1552097ba2b2` / `T:040056060e262630` / `T:c0c6ff3abfeb6e96` /
+`T:13e8da04b3647421` / `T:26ab4c5be5bd21a1` / `T:098422afb8744bca`）。用 `keyOfRow` 逐行比对
+`PROJECT_PLAN.md` **零命中**（打开登记行 35 条、键形态全是裸编号如 `B50`/`RP-51`，`T:` 形态 0 条），
+即这 7 条确实是孤儿；但**两个器物把对方当出口**，谁都退不掉：
+
+- `plan-fields-extract --retire-orphans` 的键形态判据要求 `号段#题面`，`T:` 族一律 held，
+  理由写着"兜底键不得充当归属权威 ⇒ 不退，交 `--reclassify` 定向说明"；
+- `plan-fields-reclassify.mjs` 头注明写"该键在写面台账找不到对应登记行 ⇒ 整批不落"。
+
+于是 `orphan` 永远减不掉、`rot` 永远清不掉，而门 234 又只报数不判红 —— 典型"判据拿历史存量当现状"的
+翻版：**读数一直红着，却没有任何器物被允许动手**。
+
+处置（只放宽"键形态"这一条，孤儿证据一条不少）：在 `planRetire` 加 `legacyRowhash = /^T:[0-9a-f]{12,}$/.test(key)`
+分支，命中即走四条既有证据链 —— ① 活行本体哈希恰等于该键 ⇒ held；② `selfStamps`（本器自写面）且无
+intent ⇒ held；③ `faceIds` 在被审面读不到同形副本 ⇒ held；④ 三条全过才进 `retire`，并在留痕条目里带
+`legacyRowhash:true` 自述"这一族是兜底键退场，不是孤儿复合主键退场"。带 `#` 的 `T:…#题面` 形仍走原链路
+（它是"有题面的兜底键"，题面本身就是归属证据，不放宽）。
+
+另补一条如实记录：旧 rowhash 的**载荷无法重建**（`sha1`/`sha256` × 原样/trim/压空白/trim+压空白四种行文本
+变体，对 7 枚哈希 0 命中），所以本项不是"把它们搬回活行"，而是"确认它们结构上不参与任何归属判定（`fieldsFor`
+只把 `号段#题面` 认作 id 形）⇒ 惰性记录，退它不改变任何活行的桶"。
+
+验证现读：`--retire-orphans`（dry-run）`retireKeys=15 retireLines=15 heldKeys=7 entries=22`；
+`--apply` 实退 **15 键 / 15 行**（含那 7 条 `waiting:"human"`），留痕 15 条进
+`.ihui-agent/state/plan-row-drop.jsonl`；复跑 `state=clean retireKeys=0 entries=7`；
+门 234 `face=worktree` 现读 `rot=0 rotn=0 orphan=4`（原 23/7）。镜像测试
+`plan-fields-extract-retire.test.mjs` 26/26（新增 ㉔ 兜底键可退且留痕自述、㉕ 自写面仍 held、㉖ 放宽不溢出）；
+`plan-fields*` 全套 175/175。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
