@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **93 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **94 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（93 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（94 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1465,6 +1465,39 @@
 - 边界：本项不动 `coreHealthy` 本体、不动健康判据语义、不动 `check-sweeper-liveness` 的切片判据
   （T8/⑥ 借用的都是它 `__test__` 的唯一实现，§0.6 未新增第二份尺子）；`state=breach` 这类契约外
   取值仍**不喊人**（保持 §5e-1"不可整改不寄信"），只是不再被记成健康。
+
+### 5.94 第 94 项：守夜人的回补把「内容早就在线里」的对象拖成可达提交 —— 判据比的是当前头部，而内容其实是某个祖先
+
+- 现场（一手，2026-11-21）：第 92 项首次签名用错 subject，产出一枚被弃用的提交对象 `df7faf9a66`
+  （内容与已推送的 `b8478a5` 同树），随后用正确签名重造并推送 `b8478a5`。守夜人
+  （`scripts/check-ref-move-loss.mjs` 的 `tryRestore`）把这枚"掉出祖先线"的对象当成"被位移丢失的提交"，
+  用 `git merge-tree --write-tree` + `commit-tree` + CAS **以空改动合并回补**（`44a427444d`，
+  两父 = `1010bb2` + `df7faf9a`，树与 `1010bb2` 逐字节相同）。后果不是内容受损，而是：
+  一枚缺 trailer、验签不过的对象从此**可达**，push 门按 `origin/main..HEAD` 逐枚判时判红
+  `undeclared-unsigned / sig-invalid`，只能靠事后追认台账消化（同类先例在
+  `scripts/data/immutable-guard-acks.jsonl` 已有 c459d76e）。
+- 根因：回补前的唯一判据是 `judgeRestoreEquivalent(git diff --quiet <被丢> <当前头部>)`。它问的是
+  "与**当前头部**有没有文件差"，而这一型真正该问的是"这些内容是不是**已经在线里了**"——
+  当前头部可以是后一枚无关提交（本例是 README 数字块），与被丢对象确有文件差，于是判成
+  "确有内容差、照旧回补"，尽管被丢对象的树与当前头部的**父提交**完全相同。
+- 处置（`scripts/check-ref-move-loss.mjs`，单一实现，未新增第二把尺子）：
+  - 新增纯判据 `isTreeCovered(tree, historyTrees)`：被丢对象的 tree 只要等于主线**任一祖先提交**
+    的 tree ⇒ 内容早已在线里 ⇒ 跳过回补（取不到历史树集合 / 取不到 tree ⇒ 不判覆盖，
+    交回既有 diff 判据，既不猜也不放行）。
+  - `tryRestore` 里批起点先算一次 `git log --format=%T <curHead>` 得主线树集合（`curHead` 取批起点，
+    不随逐枚回补推进——问的是"批起点那条线里有没有"），逐枚先过覆盖判据，命中即进
+    `skipped`（`why` 点名"树 … 已出现在主线祖先里 ⇒ 回补不增加任何内容"），**一条 CAS 都不做**。
+  - 自检 12 → **16 例**：覆盖命中 / 未命中 / 历史集合取不到 / tree 读不到，四向都钉住。
+- 验证（现读）：
+  `node scripts/check-ref-move-loss.mjs --self-test` ⇒ **16/16**；
+  `node --test scripts/tests/ref-move-restore-tree-covered.test.mjs` ⇒ **3/3**，其中两档用真 git 仓库跑：
+  ① 同树对象 ⇒ `applied=[]`、`newHead` 原地不动、`refs/heads/main` 一枚未动（连空合并都不造）；
+  ② 反向对照（真有内容的对象）⇒ `applied=[B]`、合并树里 `b.txt` 真在（证明修的是"空回补"，
+  没把回补能力整个关掉）；③ 纯判据四向。
+  生产仓 `node scripts/check-ref-move-loss.mjs --check` ⇒ `未位移:8894dd4b772`（exit 0）。
+- 边界：本项**不改历史、不删对象**（`df7faf9a66` 与那枚空合并已在远端，靠 immutable-guard 的
+  具名追认台账带着到期日管住，2027-06-30 到期自动回到红）；也**不放宽** push 门的逐枚判据：
+  少造一枚空合并，比事后补一条追认更便宜。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
