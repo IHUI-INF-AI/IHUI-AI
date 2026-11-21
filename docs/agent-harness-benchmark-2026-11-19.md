@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **56 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **57 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（56 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（57 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -658,6 +658,17 @@
 - 测试：`--self-test` 增 `自检10`（env 覆盖/坏值回落/缺省三档）与 `自检11`（9 万字节单行台账 ⇒ 报告总长 < 3000 字符，实测 71）→ `12/12`；镜像测试增第 ⑧ 例（源头里必须同时出现 `结论 <x>` 回退、400 字截断、`ledger.lines.length`、`resolveCap`）。
 
 验证：真机 warn 路径实测 —— 日志四行（结论 warn / 容量 100% 给"先另存或调大上限" / 失败 10/20 点名 `lint-on-edit`）、返回 `{"ran":true,"state":"warn"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `8 passed`。
+### 5.58 第 57 项：守护派发面的第六处没人看，而它刚好断了一根真线
+
+- 问题一（measurable）：`check-gate-wiring.mjs` 只对五处权威接线点核对（runner 的 `script:` 值、pre-commit-hook.js、其余 husky、根 package.json、CI）。「头注自称走 git-guardian 周期派发、`git-guardian.mjs` 却零引用」这一型**不在任何候选面上** —— 第 53/54/55 项三处都是这么活下来的。
+- 问题二（live red）：把上面这条做成尺子后，第一轮就抓到 `check-ip-attribution-trust.mjs` 的「调度面 = git-guardian 巡检轮」。顺着查，它的 lib 审计层、镜像测试都在，而 `git-guardian.mjs` 里的 `from './lib/ip-attribution-trust-audit.mjs'` 与巡检轮调用**被一次并发合并整层摘掉** —— 镜像测试 ⑥「接线锁」当场翻红，全仓却没有一道门看得见这一面。
+- 处置：
+  ① 新只读尺子 `scripts/check-guardian-dispatch-claims.mjs`：扫门体**头部注释区**的肯定式声称（自称 本门/本器/本件 或直接写本体文件名），兑现面 = `git-guardian.mjs` **剥注释后的代码面**出现该 basename，另加**一跳**（git-guardian 直接 import 的 lib 也算派发面，worktree 回收就是 lib 里 spawn 的这一型）。精度优先：描述别人的脚本、描述守护自身节律、条件式（前提/若/如果）、否定式（未接/尚未/零调用点）一律不判 warn；枚举到 0 声称 ⇒ undetermined。
+  ② 复原 IP 归属信任巡检：`git-guardian` 补 import + `auditIpAttributionTrust` 包装器 + main/daemon 双挂点，`alertId` 与 severity 原样透传给 `notifyGuardRed`（防薄接线吃掉去重身份）。
+  ③ 新尺子本身也走同一派发器：`auditDispatchClaims` + `DISPATCH_CLAIMS_INTERVAL_MS = 6h` + 双挂点。
+- 语义边界：新尺子只量第六处，不重复 `check-gate-wiring` 的任何判断（R1/R4 的候选集一字未动）；只读、warn 档、不进提交链（§12e）。
+- 测试：`node scripts/check-guardian-dispatch-claims.mjs --self-test` → `8/8`；镜像测试 `scripts/tests/check-guardian-dispatch-claims.test.mjs` → `8 passed`（含精度四型、射程只到头部、段落归并、本尺子自身接线锁、IP 巡检接线复原锁）；`scripts/tests/ip-attribution-trust-audit.test.mjs` 由 `# fail 1` 转 `7 passed`。
+- 真机验证：`node scripts/check-guardian-dispatch-claims.mjs` 修前 `结论 warn`（声称 14 / 已接线 10 / 诚实说明 3，真缺口 1 枚 = IP 归属信任）；`auditIpAttributionTrust()` 真跑返回 `state=ok`（config 未设本键 ⇒ 全部条目属回环/私网），`auditDispatchClaims()` 真跑返回 `state=warn` 并把那枚缺口逐行点名。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
