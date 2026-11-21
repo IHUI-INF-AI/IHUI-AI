@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T10:32:52.258Z",
+  "sealedAt": "2026-11-21T14:20:47.088Z",
   "sealedBy": "root-guard --seal",
-  "reason": "门 173 退役:guardian-runner 摘除该门注册,按索引面重封清单,与规则文件同枚提交",
+  "reason": "第 93 项改 git-guardian.mjs(取值白名单收紧 + 节流戳两面显式)未同批重封,复核 HEAD 面改动后按 HEAD 重封清单",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "cb99bd09b6f13b2af29c314c4651a04354a2e6f205ee37673d16b7179fc371aa"
+      "sha256": "f0dad8972fbd00626ee42524a895b3d9a4bf543c7739db7f0e5e92b17f1cb6bf"
     },
     {
       "id": "gate-scope",
