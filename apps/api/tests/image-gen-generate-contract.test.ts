@@ -6,30 +6,43 @@
  * POST /api/image-gen/generate 契约收口用例(票:两端发 {prompt,size} 而后端只认
  * {content,agentId} ⇒ 该功能全端 400)。
  *
- * 2026-10-18 机主拍板「先修契约 + 显式报未接通」(不新增生成能力,§24):本文件锁四件事 ——
- *   ① 两端现发的形态(prompt + size)不再 400;
- *   ② 请求不带可渲染 imageUrl 时 ⇒ 503 + 稳定码 CAPABILITY_UNAVAILABLE + message 原文
- *      (不伪造"已生成",成功路径结构性进不来);
- *   ③ 旧 content 形态不带可渲染 imageUrl ⇒ **一并显式报未接通**(票面"响应侧同错"的另一半:
- *      旧实现回 201+{item},两端把 data.imageUrl=undefined 当成功用 ⇒ 渲染空图/保存失败;
- *      仓内除两端外无 content 形态调用方,假成功不是要兼容的行为,是要修的行为)。
- *      带 imageUrl 的请求才落库,且响应回 imageUrl 键(生成链路接通后的正向通路)。
- *   ④ 未接通那条路径**不得落库**(§5「身份/副作用不成对」同一条纪律的反面:被拒的请求
- *      不能留下半截 aiGcContent 行)。
+ * 2026-10-18 机主拍板「先修契约」。契约在 2026-11-21 又推进了一格:出图链路真接通
+ * Agnes(/v1/images/generations),503 CAPABILITY_UNAVAILABLE 的"未接通"档已撤销 ⇒ 本文件改锁:
+ *   ① 两端现发的形态(prompt + size)不再 400,而是真调上游、回 201 + 可渲染 imageUrl;
+ *   ② 上游报错 / 上游没回可渲染地址 ⇒ 502(唯一剩下的 5xx 形态),且**绝不伪造 imageUrl**
+ *      冒充成功、**不得落库**(被拒的请求不能留下半截 aiGcContent 行);
+ *   ③ 旧 content 形态随之走同一条生成链路(假成功 201+undefined 不是要兼容的行为,是要修的行为);
+ *   ④ 显式给 imageUrl 的请求不调上游、不扣费(转存/引用不是生成)。
  * 夹具形态与同目录 image-gen-favorites.test.ts 逐字同族(mockAuthenticate + 链式 db 队列),
- * 不另造第二套判据(§22c)。
+ * 上游与计费各自换成可控替身 —— 不另造第二套判据(§22c)。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyError } from 'fastify'
 
-const { mockAuthenticate, insertCalls, dbQueue } = vi.hoisted(() => ({
+const { mockAuthenticate, insertCalls, dbQueue, mockCallVendor } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
   insertCalls: { count: 0 },
   dbQueue: { items: [] as unknown[][] },
+  mockCallVendor: vi.fn(),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
+}))
+
+// 出图链路自 2026-11-21 起真调 Agnes(/v1/images/generations):测试必须把上游换成可控替身,
+// 否则每条用例都会打到真网络 —— 结果取决于凭据与配额,不是取决于被审的判据。
+vi.mock('../src/routes/ai-vendors/_shared.js', () => ({
+  callVendor: mockCallVendor,
+  recordUsage: vi.fn(),
+  VENDORS: { agnes: { baseUrl: 'https://agnes.example.test/v1' } },
+}))
+
+// 计费预检/扣分只在文档层面属于本票:余额不足时它自己回 402(另一条判据),
+// 本用例集合只管"入参形态 → 上游 → 落库"的契约,故固定返回放行。
+vi.mock('../src/services/media-billing.js', () => ({
+  ensureMediaPointsBalance: vi.fn(async () => true),
+  chargeMediaPoints: vi.fn(async () => true),
 }))
 
 vi.mock('../src/db/index.js', () => {
@@ -118,46 +131,65 @@ describe('image-gen generate route — POST /api/image-gen/generate', () => {
     dbQueue.items.length = 0
     insertCalls.count = 0
     mockAuthenticate.mockReset()
+    mockCallVendor.mockReset()
   })
 
-  it('两端现发形态 {prompt,size} 不带图 → 不再 400,而是 503 + CAPABILITY_UNAVAILABLE', async () => {
+  it('两端现发形态 {prompt,size} 不带图 → 不再 400,真调上游出图并回 201 + imageUrl', async () => {
     mockAuthed()
+    mockCallVendor.mockResolvedValueOnce({ data: [{ url: 'https://cdn.example.com/gen.png' }] })
+    const item = { id: 'gc-1', gcType: 'image', content: '一只猫', status: 1 }
+    enqueue([item])
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/image-gen/generate`,
       payload: { prompt: '一只猫', size: '1024x1024' },
     })
-    expect(res.statusCode).toBe(503)
+    expect(res.statusCode).toBe(201)
     const body = res.json()
-    expect(body.code).toBe(503)
-    expect(body.errorCode).toBe('CAPABILITY_UNAVAILABLE')
-    // message 必须原文含「未接通」:端上直接透出这句话,用户看到的不是"参数错误"也不是空toast
-    expect(body.message).toContain('未接通')
+    expect(body.code).toBe(0)
+    expect(body.data.imageUrl).toBe('https://cdn.example.com/gen.png')
+    expect(body.data.item).toEqual(item)
+    expect(insertCalls.count).toBe(1)
   })
 
-  it('未接通路径不得落库(反向锁:被拒的请求不能留下半截生成记录)', async () => {
+  it('上游报错 → 502 且不落库(被拒的请求不能留下半截生成记录)', async () => {
     mockAuthed()
+    mockCallVendor.mockResolvedValueOnce({ error: { message: 'quota exceeded' } })
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/image-gen/generate`,
       payload: { prompt: '一只猫', size: '1024x1024' },
     })
-    expect(res.statusCode).toBe(503)
+    expect(res.statusCode).toBe(502)
+    expect(res.json().message).toContain('图像生成失败')
     expect(insertCalls.count).toBe(0)
   })
 
-  it('旧 {content} 形态不带可渲染 imageUrl → 同样显式报未接通 503(不再假成功 201 让端上把 undefined 当图)', async () => {
+  it('上游没回可渲染地址 → 502 且不落库(绝不伪造 imageUrl 冒充成功)', async () => {
     mockAuthed()
+    mockCallVendor.mockResolvedValueOnce({ data: [] })
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/image-gen/generate`,
+      payload: { prompt: '一只猫', size: '1024x1024' },
+    })
+    expect(res.statusCode).toBe(502)
+    expect(insertCalls.count).toBe(0)
+  })
+
+  it('旧 {content} 形态同样走出图链路(不再假成功 201 让端上把 undefined 当图)', async () => {
+    mockAuthed()
+    mockCallVendor.mockResolvedValueOnce({ data: [{ url: 'https://cdn.example.com/gen2.png' }] })
+    const item = { id: 'gc-2', gcType: 'image', content: '画一座山', status: 1 }
+    enqueue([item])
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/image-gen/generate`,
       payload: { content: '画一座山' },
     })
-    expect(res.statusCode).toBe(503)
-    const body = res.json()
-    expect(body.errorCode).toBe('CAPABILITY_UNAVAILABLE')
-    // 被拒的请求不得留下半截 aiGcContent 行
-    expect(insertCalls.count).toBe(0)
+    expect(res.statusCode).toBe(201)
+    expect(res.json().data.imageUrl).toBe('https://cdn.example.com/gen2.png')
+    expect(insertCalls.count).toBe(1)
   })
 
   it('新形态带可渲染 imageUrl → 放行落库,且响应带 imageUrl(生成链路接通后的正向通路)', async () => {
@@ -176,6 +208,8 @@ describe('image-gen generate route — POST /api/image-gen/generate', () => {
     expect(body.data.imageUrl).toBe('https://cdn.example.com/cat.png')
     expect(body.data.item).toEqual(item)
     expect(insertCalls.count).toBe(1)
+    // 显式给了 imageUrl(转存/引用)就不该再去调上游 —— 那不是生成,也不该扣费。
+    expect(mockCallVendor).not.toHaveBeenCalled()
   })
 
   it('prompt 与 content 同给 → content 优先(不被 prompt 顶掉,归一化口径有唯一答案)', async () => {
