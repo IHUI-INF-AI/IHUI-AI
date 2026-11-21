@@ -127,6 +127,20 @@ test('⑤派发链:git-guardian 的 daemon tick 与 main 单轮都调了它(§0.
   assert.ok(!/notifyGuardRed/.test(fnBody), '台账健康是开发动作,不该进到人告警通道')
 })
 
+test('⑥325 号门同型补齐:临时检出寿命闸也真有周期挂点', () => {
+  const g = read('scripts/git-guardian.mjs')
+  const calls = g.match(/\bauditTempWorktreeLifetime\(\)/g) ?? []
+  assert.equal(calls.length, 2, `应有两个周期挂点,实际 ${calls.length}`)
+  assert.ok(/TEMP_WORKTREE_LIFETIME_INTERVAL_MS/.test(g), '应带节流窗常量')
+  // 登记处不许再写一句无法核实的"走周期派发":必须点名调度器(§0.8 不写跑不通的出路)
+  const runner = read('scripts/guardian-runner.mjs')
+  assert.ok(
+    !/走 guardian 周期派发\(与 keepalive 一型\)/.test(runner),
+    '325 号门的旧自述应改成点名真实调度器',
+  )
+  assert.ok(/auditTempWorktreeLifetime/.test(runner), '325 号门注释应点名 git-guardian 的调度器')
+})
+
 test('④装车证明:guardian-runner 登记为 warn、不挂 stagedTriggers', () => {
   const runner = read('scripts/guardian-runner.mjs')
   const at = runner.indexOf("script: 'check-hook-audit-health.mjs'")

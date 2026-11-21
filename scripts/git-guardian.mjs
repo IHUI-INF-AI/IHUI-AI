@@ -11644,6 +11644,97 @@ export function auditHookAuditHealth(opts = {}) {
 }
 
 /**
+ * 临时派生检出寿命闸的周期调度器(2026-11-21 第 54 项)—— `check-temp-worktree-lifetime.mjs`
+ * 此前在 `guardian-runner.mjs` 里自述"走 guardian 周期派发(与 keepalive 一型)",实测
+ * `git-guardian` **零引用**:与第 53 项同一型 —— 登记进注册表不等于会跑(§0.9)。本函数是它
+ * 唯一的周期调度器。
+ *
+ * 节流一小时:worktree 老化按"静默≥24h / 账龄≥48h"判,分钟级刷新没有信息增益,只烧 CPU。
+ * 不自动回收(§12d):命中只点名让归属席自决;孤儿壳给 `git worktree prune` 一条出路。
+ */
+export const TEMP_WORKTREE_LIFETIME_INTERVAL_MS = 60 * 60 * 1000
+
+export function auditTempWorktreeLifetime(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TEMP_WORKTREE_LIFETIME_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'temp-worktree-lifetime-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-temp-worktree-lifetime.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 临时检出寿命巡检:尺子不在位(scripts/check-temp-worktree-lifetime.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 临时检出寿命巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b
+              timeout: 90 * 1000, // 守门 80
+              maxBuffer: 1 << 20,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g
+            })
+            return { status: 0, out: String(out ?? ''), err: '' }
+          } catch (e) {
+            return {
+              status: typeof e?.status === 'number' ? e.status : null,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r?.out ?? '')
+  let doc = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) doc = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    doc = null
+  }
+  if (!doc || typeof doc.state !== 'string') {
+    logger(
+      `⚠️ 临时检出寿命巡检:结论不可用 —— 派生 rc=${r?.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'};` +
+        `stderr 前 120:${String(r?.err ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**(§0.3)`,
+    )
+    return { ran: true, state: 'undetermined' }
+  }
+  const hits = Array.isArray(doc.hits) ? doc.hits : []
+  const orphans = Array.isArray(doc.orphans) ? doc.orphans : []
+  if (doc.state === 'ok' && hits.length === 0 && orphans.length === 0) return { ran: true, state: 'ok' }
+  for (const h of hits) {
+    logger(
+      `⚠️ 临时检出寿命巡检:超阈残留 ${h.path ?? '(未给路径)'}(静默 ${h.idleHours ?? '?'}h / 账龄 ${h.ageHours ?? '?'}h)` +
+        ' ⇒ 归属席自决:git worktree remove --force <path> && git worktree prune',
+    )
+  }
+  for (const o of orphans) {
+    logger(`⚠️ 临时检出寿命巡检:孤儿壳 ${o.path ?? '(未给路径)'} ⇒ git worktree prune`)
+  }
+  return { ran: true, state: hits.length + orphans.length > 0 ? 'warn' : doc.state }
+}
+
+/**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
  * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
@@ -15375,6 +15466,10 @@ async function main() {
     // (pre-push 只跑 T1、全量档靠人工)⇒ 本函数是它唯一的周期调度点,自带节流戳。
     beatRoundLock()
     if (!CHECK_ONLY) auditHookAuditHealth()
+    // 临时派生检出寿命(2026-11-21 第 54 项):325 号门自述"走 guardian 周期派发"而实测零引用,
+    // 同为 §0.9 那一型 ⇒ 与上一条同节律挂 tick,共用各自节流戳。
+    beatRoundLock()
+    if (!CHECK_ONLY) auditTempWorktreeLifetime()
     beatRoundLock()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     beatRoundLock()
@@ -15650,6 +15745,8 @@ function startDaemon(bootGuard = null) {
         // 钩子审计台账健康(2026-11-21 第 53 项):同上一条的双挂点纪律 —— daemon 是唯一执行体时
         // 必须同挂 tick;两处共用一枚节流戳 ⇒ 并存时只有先到那个真跑,不翻倍派生。
         auditHookAuditHealth()
+        // 临时派生检出寿命(2026-11-21 第 54 项):同双挂点纪律,daemon 独占时也必须真判。
+        auditTempWorktreeLifetime()
         // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
         // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
         // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
