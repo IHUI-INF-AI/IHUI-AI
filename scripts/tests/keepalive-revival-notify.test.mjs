@@ -11,12 +11,15 @@
  *  R4 任一侧快照取不到 ⇒ null(未判定),严禁把"缺读数"写成"本轮无复活"(§0.3);
  *  R5 before 本来就不在喊人集合 ⇒ 零枚(不给一直健康的号发"复活"噪音);
  *  R6 身份稳定性:同一行两次调用逐字相等,且与告警身份不同前缀(守门 224:身份里零抖动量)。
+ *  R9 重复节奏按终态分层(2026-11-21 立,治"同一枚判死号每天一封"):判死留痕 ⇒ 30 天;
+ *     无留痕/留痕坏/旧产物不带此字段 ⇒ 7 天(fail-open 到"多提醒一次",不是跳门)。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { __test__ as keepalive } from '../relay-account-keepalive.mjs'
 
-const { alertTargetsOf, alertIdOf, revivalTransitionsOf, revivalAlertIdOf } = keepalive
+const { alertTargetsOf, alertIdOf, repeatHoursOf, revivalTransitionsOf, revivalAlertIdOf } =
+  keepalive
 
 function row(over = {}) {
   return {
@@ -110,5 +113,21 @@ test('R8 复活判据也排除商店号:设计态摘除不产生"复活"噪音',
   assert.equal(revivalTransitionsOf([storeBefore], [storeAfter]).length, 1)
   // 排除后无复活通知
   assert.equal(revivalTransitionsOf([storeBefore], [storeAfter], ['yyb-store']).length, 0)
+})
+
+test('R9 判死态 30 天、自救态 7 天;留痕缺失/坏掉一律回落自救态', () => {
+  const terminal = row({
+    terminalVerdict: { id: 'trae-refresh-invalid', credVersion: 87, at: '2026-11-18T09:00:00.000Z' },
+  })
+  assert.equal(repeatHoursOf(terminal), 720, '判死 = 上游不可逆、永不重试 ⇒ 终态低频')
+  // 自救态:有摘除/掉线但没有判死留痕 ⇒ 6h 后会被自动解摘重试
+  assert.equal(repeatHoursOf(row({ terminalVerdict: null })), 168)
+  assert.equal(repeatHoursOf(row({ terminalVerdict: undefined })), 168)
+  // 留痕坏(无 id / id 空 / 不是对象)⇒ fail-open 到"多提醒一次",绝不静默成"终态"
+  assert.equal(repeatHoursOf(row({ terminalVerdict: {} })), 168)
+  assert.equal(repeatHoursOf(row({ terminalVerdict: { id: '' } })), 168)
+  assert.equal(repeatHoursOf(row({ terminalVerdict: 'yes' })), 168)
+  // 结构锁:终态窗口必须远长于自救窗口(两者写反就是"判死号按周轰炸")
+  assert.ok(repeatHoursOf(terminal) > repeatHoursOf(row({ terminalVerdict: null })))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
