@@ -655,7 +655,7 @@ If this project is useful to you, a ⭐ is the most direct contribution.
 
 <!-- 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) -->
 Headline claims (same source as the table below, all live-computed): **654 tables · 4862 API routes ·
-40 WebSocket endpoints · 103 catalogued LLMs · 38 platforms auto-publishing · 5950 test files ·
+40 WebSocket endpoints · 103 catalogued LLMs · 38 platforms auto-publishing · 5953 test files ·
 332 engineering gates · 59 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 Headline claims (same source as the table below, all live-computed): **654 tables · 4862 API routes ·
 Headline claims (same source as the table below, all live-computed): **654 tables · 4862 API routes ·
