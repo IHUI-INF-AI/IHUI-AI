@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **108 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **109 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（108 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（109 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1798,6 +1798,17 @@ B31 另带 `hitRefs` 点名那 1 条命中行（`MIN_HIT_REF` 20 字下限）。
 **处置**：`305p` 出并行池（`PAR_GATE_IDS` 摘一行 + 段内写明因由），与门 7 出池同因同解：**判据一字不改、退出码一位不改**，只让它独占机器出结论。**不调大预算**——那等于让"预算"去背判据的锅（§12e 明令）。
 
 **验证**：`scripts/tests/guardian-gate-cache.test.mjs` ⇒ **6/6 pass**（T1 白名单子集锁仍在，出池不影响它）；`node scripts/check-hook-chain-refs.mjs --strict` ⇒ rc=0；出池后的 push 批次由下一次真实推送现读作证（不在此预写结论）。
+
+
+### 5.109 第 109 项：修表器与判据各算一套"现算" ⇒ 修表器说"零改动"，门说还红
+
+**缺口形态**：两个器物对同一句话（"现算值"）各按一个面取数 —— §0.6 说的"第二份判据必然漂移"，而且漂在**最难发现**的地方：修表器报了成功。
+
+**现场**（现读）：`README.en.md:658` 的 `testFiles`，门 173 默认档按 **HEAD 面**现算 `5953`，修表器按 **worktree 面**算 `5950` ⇒ 跑 `node scripts/scrub-doc-numbers.mjs --scope=archive --apply` 打印"✅ 本轮零改动:门 173 散文判据零违规"，再跑门仍然红在同一行。更糟的是同一份文件里买入两处取数：`derived = collectNumbers({root, face:'worktree'})` 与自证段的 `lastNumbers = collectNumbers({root, face:'worktree'})` —— 就算给第一处加了面参数，第二处仍会把"现算"读回旧面。
+
+**处置**：`--face` 显式可声明（`worktree`（缺省，人工逃生舱行为不变）/`head`/`staged`，非法值 `exit 2` 未判定、不落回缺省），并把**两处**取数同源到同一变量 —— 声明面后自证段也用同一面，否则"自证通过"证的是另一套数。跨面同一行不再各写一份。
+
+**验证**（数字现读）：`node scripts/scrub-doc-numbers.mjs --scope=archive --face=head --apply` ⇒ 写回后 `node scripts/check-doc-numbers.mjs` ⇒ **✅ 文档数字与现算值一致**（rc=0）；新增 `scripts/tests/scrub-doc-numbers-face.test.mjs` 三条（`--face` 解析与缺省面 / 取数面必须原样传给 `collectNumbers`（含反向锁"不许再有写死 worktree 的取数"）/ 非法面 exit 2）⇒ **3/3 pass**；缺省档复跑 `node scripts/scrub-doc-numbers.mjs` ⇒ 仍按 worktree 面报数（行为未变）。
 
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
