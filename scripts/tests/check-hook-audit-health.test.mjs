@@ -114,6 +114,19 @@ test('③absent 不算故障;坏行/失败率越线算 warn;上限取不到算�
   }
 })
 
+test('⑤派发链:git-guardian 的 daemon tick 与 main 单轮都调了它(§0.9 装车)', () => {
+  const g = read('scripts/git-guardian.mjs')
+  assert.ok(/export function auditHookAuditHealth/.test(g), '巡检函数必须导出')
+  const calls = g.match(/\bauditHookAuditHealth\(\)/g) ?? []
+  // 两处挂点(daemon tick + main 单轮):少一处则"计划任务档禁用后常驻守护永不判"
+  assert.equal(calls.length, 2, `应有两个周期挂点,实际 ${calls.length}`)
+  assert.ok(/HOOK_AUDIT_HEALTH_INTERVAL_MS/.test(g), '应带节流窗常量')
+  // 只读尺子 ⇒ 不许在函数体里写发信(§5e-1:这类存量读数不进告警通道)
+  const fnStart = g.indexOf('export function auditHookAuditHealth')
+  const fnBody = g.slice(fnStart, g.indexOf('export function auditCrossEndParityDrift'))
+  assert.ok(!/notifyGuardRed/.test(fnBody), '台账健康是开发动作,不该进到人告警通道')
+})
+
 test('④装车证明:guardian-runner 登记为 warn、不挂 stagedTriggers', () => {
   const runner = read('scripts/guardian-runner.mjs')
   const at = runner.indexOf("script: 'check-hook-audit-health.mjs'")

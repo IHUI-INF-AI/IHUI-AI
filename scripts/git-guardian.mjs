@@ -11556,10 +11556,98 @@ export function auditRootGuardManifestSync(opts = {}) {
   return { ran: true, state: 'ok', detail: rows }
 }
 
+/** 钩子审计台账健康巡检的节流窗(2026-11-21 第 53 项):台账增长慢,半小时一次足够。 */
+export const HOOK_AUDIT_HEALTH_INTERVAL_MS = 30 * 60 * 1000
+
+/**
+ * 钩子审计台账健康巡检(2026-11-21 第 53 项)—— `check-hook-audit-health.mjs` 唯一的周期调度器。
+ *
+ * 立因(§0.9「造好没装车 = 没有」):第 51 项把尺子写出来、登记进 `guardian-runner.mjs` 的 warn 档,
+ * 并在注释里写"走周期派发"。实测这条**不成立**:`guardian-runner.mjs` 只有 `.husky` 的 pre-push(`--push-gate`
+ * 只跑 T1 集合)与人工全量档会调,`git-guardian --daemon` 每 2 分钟那一轮**从不执行它** ⇒ 不设
+ * `stagedTriggers` 的门等于零派发。这与 325 号「临时派生检出寿命闸」的注释是同一型误判,不复制它。
+ *
+ * 为什么不发信(§5e-1):红了收信人能做的事是"修挂掉的那条钩子 / 把要留的历史另存",属开发动作,
+ * 不是运维故障;走日志即够。真正需要到人的那类是"台账把历史吃掉了"——那由容量阈值 + 本函数日志
+ * 里点名,不占用告警通道。
+ *
+ * 三态(§0.3):`warn` 逐条打印门体结论(可整改动作已在门体文本里);`undetermined` 只记日志不记绿;
+ * `healthy`/`absent` 静默。
+ */
+export function auditHookAuditHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = HOOK_AUDIT_HEALTH_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'hook-audit-health-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-hook-audit-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 钩子审计台账巡检:尺子不在位(scripts/check-hook-audit-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 钩子审计台账巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 90 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 20,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+            })
+            return { status: 0, out: String(out ?? ''), err: '' }
+          } catch (e) {
+            // exit 1 = 判出存量问题、exit 2 = 未判定;结论整份在 stdout,不当成"尺子坏了"
+            return {
+              status: typeof e?.status === 'number' ? e.status : null,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r?.out ?? '')
+  const lines = stdout.split(/\r?\n/).filter((l) => l.trim() !== '')
+  const head = lines[0] ?? ''
+  const verdict = /结论\s+(\w+)/.exec(head)?.[1] ?? null
+  if (r?.status === 0 && (verdict === 'healthy' || verdict === 'absent')) {
+    if (verdict === 'absent') logger('ℹ️ 钩子审计台账巡检:台账尚未建立(一次钩子都没跑过,不算故障)')
+    return { ran: true, state: verdict ?? 'ok' }
+  }
+  if (r?.status === 1) {
+    for (const line of lines) logger(`⚠️ 钩子审计台账巡检:${line}`)
+    return { ran: true, state: 'warn' }
+  }
+  logger(
+    `⚠️ 钩子审计台账巡检:结论不可用 —— 派生 rc=${r?.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'};` +
+      `stderr 前 120:${String(r?.err ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于台账健康(§0.3)`,
+  )
+  return { ran: true, state: 'undetermined' }
+}
+
 /**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
  * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
+ *
  *
  * 三态(§0.3):ok 只写一行读数(涨跌都要有证据链);regressed 到人(§5e-1:正文自带可执行
  * 下一步,去重身份 = 倒退维名,不把会抖动的明细清单塞进去重键);undetermined 只写 ⚠️,
@@ -15283,6 +15371,10 @@ async function main() {
     // .ihui-agent/state/root-guard-manifest-audit-last.json 节流戳 ⇒ 双执行体并存只先到那个真跑)
     beatRoundLock()
     if (!CHECK_ONLY) auditRootGuardManifestSync()
+    // 钩子审计台账健康(2026-11-21 第 53 项):guardian-runner 的 warn 档登记不在任何周期链上
+    // (pre-push 只跑 T1、全量档靠人工)⇒ 本函数是它唯一的周期调度点,自带节流戳。
+    beatRoundLock()
+    if (!CHECK_ONLY) auditHookAuditHealth()
     beatRoundLock()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     beatRoundLock()
@@ -15555,6 +15647,9 @@ function startDaemon(bootGuard = null) {
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
+        // 钩子审计台账健康(2026-11-21 第 53 项):同上一条的双挂点纪律 —— daemon 是唯一执行体时
+        // 必须同挂 tick;两处共用一枚节流戳 ⇒ 并存时只有先到那个真跑,不翻倍派生。
+        auditHookAuditHealth()
         // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
         // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
         // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
