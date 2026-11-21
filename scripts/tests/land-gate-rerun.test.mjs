@@ -22,6 +22,7 @@ import {
   rerunAffectedGates,
   countUntriggered,
   orderForRerunBudget,
+  planRerunBudget,
 } from '../lib/land-gate-rerun.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -514,5 +515,38 @@ test('T17 orderForRerunBudget:blocking 前置、同档保序、缺省 mode 按 b
   )
   assert.equal(orderForRerunBudget([]).length, 0)
   assert.deepEqual(orderForRerunBudget(null), [])
+})
+// ── T18 道数预算分配(第 72 项):blocking 全跑,预算只压 warn ──
+test('T18 planRerunBudget:blocking 超预算也全跑,延后集里不得出现 blocking', () => {
+  const l = (id, mode) => ({ id, script: `${id}.mjs`, mode })
+  const mk = (nb, nw) => [
+    ...Array.from({ length: nb }, (_, i) => l(`b${i}`, 'blocking')),
+    ...Array.from({ length: nw }, (_, i) => l(`w${i}`, 'warn')),
+  ]
+  // 现场形态:blocking 35 道 > cap 30 ⇒ 35 道全进批次,warn 一个坑都不占
+  const many = planRerunBudget(mk(35, 15), 30)
+  assert.equal(many.blockingCount, 35)
+  assert.equal(many.run.length, 35, 'blocking 超预算时必须全部进批次,不得截断')
+  assert.equal(many.run.filter((x) => x.mode === 'blocking').length, 35)
+  assert.equal(many.deferred.length, 15)
+  assert.equal(many.deferred.filter((x) => x.mode === 'blocking').length, 0, '延后集里出现 blocking = 不变量被破坏')
+
+  // 常态形态:blocking 10 + warn 25 ⇒ 30 坑里 blocking 全占,只延后 5 道 warn
+  const few = planRerunBudget(mk(10, 25), 30)
+  assert.equal(few.run.length, 30)
+  assert.equal(few.run.filter((x) => x.mode === 'blocking').length, 10)
+  assert.equal(few.deferred.length, 5)
+  assert.ok(few.deferred.every((x) => x.mode === 'warn'), '只许延后 warn')
+
+  // 缺省 mode 按 blocking 算(与注册表口径同一份)
+  const dflt = planRerunBudget([{ id: 'x', script: 'x.mjs' }], 0)
+  assert.equal(dflt.run.length, 1)
+  assert.equal(dflt.blockingCount, 1)
+
+  // 同档保序:blocking 内部、warn 内部都不得被重排
+  assert.deepEqual(
+    planRerunBudget([l('w1', 'warn'), l('b1', 'blocking'), l('b2', 'blocking'), l('w2', 'warn')], 4).run.map((x) => x.id),
+    ['b1', 'b2', 'w1', 'w2'],
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
