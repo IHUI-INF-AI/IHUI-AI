@@ -76,9 +76,19 @@ def test_classify_session_dead_permanent() -> None:
 
 
 def test_classify_blocked_and_ratelimit_cooldown_3600() -> None:
-    for code in (710010702, 710022002):
-        cls = _classify_code(code, 200)
-        assert cls == {"type": "BusinessError", "cooldown_seconds": 3600}
+    # 2026-11-18 抓包实证:710010702 是"缺 a_bogus 字节签名"而非频控 ⇒ 冷却拉到
+    # 21600s 少刷日志(campaign 每个请求都带签名,纯 HTTP 恒失败,重试无意义);
+    # 710022002 才是真·访问频繁 ⇒ 3600s。两者都带 reason 供排障区分。
+    assert _classify_code(710010702, 200) == {
+        "type": "BusinessError",
+        "cooldown_seconds": 21600,
+        "reason": "missing_abogus",
+    }
+    assert _classify_code(710022002, 200) == {
+        "type": "BusinessError",
+        "cooldown_seconds": 3600,
+        "reason": "rate_limit",
+    }
 
 
 def test_classify_other_codes_none() -> None:

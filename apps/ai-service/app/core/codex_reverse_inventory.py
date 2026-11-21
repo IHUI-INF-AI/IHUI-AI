@@ -95,10 +95,11 @@ MODULES_BY_AXIS: Final[Mapping[str, tuple[str, ...]]] = {
         "codex_desktop_state_keys",
         "codex_error_info",
     ),
-    # The shipped plugin bundle: manifests, marketplace, and the licence that governs it.
+    # The shipped plugin bundle: manifest, marketplace, and the licence that governs it.
+    # codex_plugin_license_audit(R96)已随 e6cfc77db5「排除 8 个陈旧回写件」连同其测试与
+    # R96 文档一并退役 ⇒ 索引必须同步移除,否则本模块自己违反「每条登记都在磁盘上」的承诺。
     PLUGIN_AXIS: (
         "codex_plugin_manifest",
-        "codex_plugin_license_audit",
     ),
     # Skill engines and their artefact contracts.
     SKILL_ENGINE_AXIS: (

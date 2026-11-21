@@ -34,6 +34,7 @@ from app.core.context_compaction import (
     DEFAULT_MIN_MESSAGES,
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
+    IMAGE_TOKEN_PLACEHOLDER,
     SUMMARY_MARKER,
     SUMMARY_RECENT_CHARS,
     SUMMARY_REMOTE_CHARS,
@@ -114,10 +115,11 @@ def test_estimate_messages_tokens_str_content():
 
 
 def test_estimate_messages_tokens_list_content_vision():
-    """list content(OpenAI vision 格式)应被处理。
+    """list content(OpenAI vision 格式)应被处理,图片按 IMAGE_TOKEN_PLACEHOLDER 起算。
 
-    part 无 text/content 字段时,text = '' (part.get("content", "") → '' → str('') = '')
-    所以 image_url part 贡献 estimate_tokens('') + 4 = 0 + 4 = 4。
+    2026-11 后的口径:image_url part 不再按"空文本 +4"计(那等于把一张图当 4 token,
+    严重低估会让上下文压缩阈值永远不触发),改按 IMAGE_TOKEN_PLACEHOLDER(1200)/张
+    起算 + part 级 4 字 overhead。
     """
     msgs = [
         {
@@ -130,8 +132,8 @@ def test_estimate_messages_tokens_list_content_vision():
     ]
     n = estimate_messages_tokens(msgs)
     # text part: estimate_tokens("what is this") + 4
-    # image_url part(无 text/content): text='' → 0 + 4
-    expected = estimate_tokens("what is this") + 4 + 0 + 4
+    # image_url part: IMAGE_TOKEN_PLACEHOLDER + 4
+    expected = estimate_tokens("what is this") + 4 + IMAGE_TOKEN_PLACEHOLDER + 4
     assert n == expected
 
 

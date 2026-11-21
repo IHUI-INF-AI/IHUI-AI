@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fastapi import HTTPException
 
 from app.core import executor_switch as es
 from app.core.executor_switch import (
@@ -670,7 +671,7 @@ class TestNoDoubleExecutionAtEachSite:
     def test_emit_event_refuses_before_touching_the_hub(
         self, monkeypatch: pytest.MonkeyPatch, _no_shared_db_pool: list[Any]
     ) -> None:
-        """站点 3:v2 档既不 emit 也不静默成功 —— 既有 except 把 marker 带回 500 信封。"""
+        """站点 3:v2 档既不 emit 也不静默成功 —— AIS-048 信封为 HTTPException(500, detail)。"""
         from app.routers import orchestration as orch_router
 
         emitted: list[Any] = []
@@ -682,9 +683,10 @@ class TestNoDoubleExecutionAtEachSite:
         monkeypatch.setattr(orch_router.orchestration_hub, "emit", _spy_emit)
         monkeypatch.setenv(EXECUTOR_ENV, "loop_v2")
         body = orch_router.EmitEventBody(event_type="spec.approved", source_pillar="spec")
-        res = asyncio.run(orch_router.emit_event(body))
-        assert res["code"] == 500
-        assert PILOT_ERROR_MARKER in res["message"]
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(orch_router.emit_event(body))
+        assert exc_info.value.status_code == 500
+        assert PILOT_ERROR_MARKER in str(exc_info.value.detail)
         assert emitted == [], "emit 被调用 = v2 档仍跑了旧路径"
         assert _no_shared_db_pool == []
 
@@ -707,9 +709,12 @@ class TestNoDoubleExecutionAtEachSite:
         monkeypatch.setattr(orch_router, "take_loop_v2_handoff", _fake_take)
         monkeypatch.setenv(EXECUTOR_ENV, "loop_v2")
         body = orch_router.EmitEventBody(event_type="spec.approved", source_pillar="spec")
-        res = asyncio.run(orch_router.emit_event(body))
-        assert res["code"] == 500
-        assert "拒绝静默丢弃" in res["message"]
+        # AIS-048 信封:HTTPException(500, detail=固定文案);"拒绝静默丢弃"这类现场
+        # 细节只进日志,不随 detail 上行 ⇒ 这里判 marker 与状态码,不判原文。
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(orch_router.emit_event(body))
+        assert exc_info.value.status_code == 500
+        assert PILOT_ERROR_MARKER in str(exc_info.value.detail)
         assert emitted == []
 
     def test_team_round_refuses_before_any_fan_out(

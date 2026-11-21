@@ -2022,7 +2022,11 @@ async def test_wb_task_routes_non_workbuddy_account_never_touches_upstream(
     client, fake_store, monkeypatch
 ):
     """平台闸:非 WorkBuddy 账号 ⇒ 两条入口都给可判定失败(ok=false + reason),
-    而不是未判定,且一个上游请求都不发。"""
+    而不是未判定,且一个上游请求都不发。
+
+    reason 由 app/services/checkin_task_capability.py 按平台能力表生成,必须点名
+    当前平台(trae)与未取证的那一侧,禁止笼统写"只支持 WorkBuddy"。
+    """
     calls = _stub_wb_upstream(monkeypatch)
     aid = await _seed_account(fake_store, name="Trae号", platform="trae")
 
@@ -2030,13 +2034,13 @@ async def test_wb_task_routes_non_workbuddy_account_never_touches_upstream(
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is False and body["kind"] == "list"
-    assert body["reason"] and "WorkBuddy" in body["reason"]
+    assert body["reason"] and "trae" in body["reason"]
 
     resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is False and body["kind"] == "growth"
-    assert body["reason"]
+    assert body["reason"] and "trae" in body["reason"]
 
     assert calls == []
 

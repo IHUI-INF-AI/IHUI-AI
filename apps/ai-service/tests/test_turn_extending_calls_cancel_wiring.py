@@ -47,18 +47,40 @@ def _callee_chain(node: ast.Call) -> tuple[str, ...]:
 
 
 def _wrapped_targets(src: str) -> dict[str, bool]:
-    """逐目标判"是否作为实参进 _wait_interruptible";返回 target -> wrapped。"""
+    """逐目标判"是否被取消穿透层包裹";返回 target -> wrapped。
+
+    两种合法包裹形态:
+    - ``self._wait_interruptible(...)``:长调用期间取消信号可立即生效;
+    - ``asyncio.wait_for(..., timeout=...)``:**仅 interrupt 钩子**可用 —— 它本身就是
+      取消动作的钩子,不能反过来等取消信号(否则取消途中再等取消 = 死锁),
+      而是靠硬超时兜底。除 interrupt 以外出现 wait_for 包裹一律判红。
+    """
     tree = ast.parse(src)
     wrapped_calls: set[int] = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or _callee_chain(node) != (
-            "self",
-            "_wait_interruptible",
-        ):
+        if not isinstance(node, ast.Call):
             continue
-        for arg in node.args:
-            if isinstance(arg, ast.Call):
-                wrapped_calls.add(id(arg))
+        chain = _callee_chain(node)
+        if chain == ("self", "_wait_interruptible"):
+            for arg in node.args:
+                if isinstance(arg, ast.Call):
+                    wrapped_calls.add(id(arg))
+        elif chain == ("asyncio", "wait_for"):
+            arg0 = node.args[0] if node.args else None
+            if not (
+                isinstance(arg0, ast.Call) and _callee_chain(arg0) in _TARGETS.values()
+            ):
+                continue  # 与回合延长无关的 wait_for 不在本尺子射程内
+            kinds = [
+                a.attr
+                for a in arg0.args
+                if isinstance(a, ast.Attribute) and a.attr == "INTERRUPT"
+            ]
+            assert kinds, (
+                "asyncio.wait_for 只允许包裹 interrupt 钩子(其余调用必须走 "
+                "_wait_interruptible,否则取消信号永远不生效)"
+            )
+            wrapped_calls.add(id(arg0))
     out: dict[str, bool] = {}
     for name, chain in _TARGETS.items():
         hits = [
