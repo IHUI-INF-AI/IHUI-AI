@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
-    "@types/chrome": "^0.2.2",
+    "@types/chrome": "^0.3.7",
     "typescript": "catalog:",
     "rimraf": "catalog:"
   },
