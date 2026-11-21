@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # BUG-29 索引与约束缺失族 — 全量量化对账（已复核更正）
 
 > 生成：2026-11-18 · 方法：程序化扫描 `packages/database/src/schema/*.ts`(253) + `packages/database/drizzle/*.sql`(438) + `meta/_journal.json`
@@ -6,13 +12,13 @@
 
 ## 总览（首扫 → 复核更正）
 
-| 格 | 票面 | 首扫 | **复核定论** | 说明 |
-|---|---|---|---|---|
-| 外键列无索引 | 123 | 131 | **131** | 确认（增长 8） |
-| userId 无 FK | 24 | 151 | **151**（notNull 14 / nullable 137） | 票面口径复测；与登记 24 分歧大，见下 |
-| schema 索引无 DDL | 10 | ~~40~~ | **0（无缺陷）** | 首扫严格 regex 误报；宽松 regex + 去注释后仅 1 条且在 schema 里是注释掉的 GIN 索引 ⇒ 不算声明 |
-| 同表 DDL 列类型不同 | "两份" | 15 | **15 真实冲突（8 破坏性）** | 过滤 squash 噪音后定位 |
-| orders 索引迁移重复 | 2 | — | **已修** | 收缩 31000，journal 不动 |
+| 格                  | 票面   | 首扫   | **复核定论**                         | 说明                                                                                          |
+| ------------------- | ------ | ------ | ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| 外键列无索引        | 123    | 131    | **131**                              | 确认（增长 8）                                                                                |
+| userId 无 FK        | 24     | 151    | **151**（notNull 14 / nullable 137） | 票面口径复测；与登记 24 分歧大，见下                                                          |
+| schema 索引无 DDL   | 10     | ~~40~~ | **0（无缺陷）**                      | 首扫严格 regex 误报；宽松 regex + 去注释后仅 1 条且在 schema 里是注释掉的 GIN 索引 ⇒ 不算声明 |
+| 同表 DDL 列类型不同 | "两份" | 15     | **15 真实冲突（8 破坏性）**          | 过滤 squash 噪音后定位                                                                        |
+| orders 索引迁移重复 | 2      | —      | **已修**                             | 收缩 31000，journal 不动                                                                      |
 
 > **格 2 口径分歧（须专票确认）**：票面登记 24 处，本次用票面口径（`userId: uuid('user_id')` 声明且该列定义无 `.references()`）全量复测得 **151 处**——票面点名的 8 个 schema 里就能数到 10 条，故 24 疑为登记时刻的部分表集估计，**须以本复测 151 为现值**。其中仅 14 处是 `notNull`（删用户即产生永久孤儿行，风险最高），137 处为 nullable（孤儿风险较低，加 FK 前须先清历史脏值）。
 
@@ -26,6 +32,7 @@ FK 声明总数 498，无索引覆盖 131。高发：`edu-ai-management.ts` 10 /
 ## 格 2：userId 列无 FK（151，notNull 14 / nullable 137）— 口径分歧待专票确认
 
 口径：`userId: uuid('user_id')` 声明且该列定义无 `.references()`。
+
 - 票面登记 **24**，本次全量复测 **151**（分歧见总览注）
 - **notNull 14 处风险最高**：删用户即产生永久孤儿行（票面点名 `user-automations` / `agent-event-triggers` / `agent-rule` / `analytics-events` / `clawdbot` / `exam-extended` / `user-memory` / `webhook-subscriptions` 等均命中）
 - 高发 schema：`customer-service.ts` 5 / `order.ts` 5 / `chat.ts`·`memory.ts`·`oauth.ts` 各 4
@@ -42,18 +49,18 @@ FK 声明总数 498，无索引覆盖 131。高发：`edu-ai-management.ts` 10 /
 
 ### 破坏性冲突（主键类型根本不兼容，8 项）⚠️
 
-| 表.列 | A ↔ B | 迁移 |
-|---|---|---|
-| video_generation_tasks.id | serial ↔ integer | 0038/0043 ↔ 0112 |
-| video_generation_tasks.task_id | varchar(36) ↔ uuid | 同上 |
-| video_generation_tasks.result | text ↔ jsonb | 同上 |
-| gen_table_column.table_id | bigint ↔ integer | 0038/0043 ↔ 20260831 |
-| tbox_bean.id | bigserial ↔ serial | 同上 |
-| tbox_bean.bean_data | text ↔ jsonb | 同上 |
-| live_gift.id | serial ↔ uuid | 0044 ↔ 20260831 |
-| live_gift.channel_id | integer ↔ uuid | 同上 |
-| live_gift.user_id | varchar(64) ↔ uuid | 同上 |
-| live_gift.total_price | integer ↔ numeric(20,4) | 同上 |
+| 表.列                          | A ↔ B                   | 迁移                 |
+| ------------------------------ | ----------------------- | -------------------- |
+| video_generation_tasks.id      | serial ↔ integer        | 0038/0043 ↔ 0112     |
+| video_generation_tasks.task_id | varchar(36) ↔ uuid      | 同上                 |
+| video_generation_tasks.result  | text ↔ jsonb            | 同上                 |
+| gen_table_column.table_id      | bigint ↔ integer        | 0038/0043 ↔ 20260831 |
+| tbox_bean.id                   | bigserial ↔ serial      | 同上                 |
+| tbox_bean.bean_data            | text ↔ jsonb            | 同上                 |
+| live_gift.id                   | serial ↔ uuid           | 0044 ↔ 20260831      |
+| live_gift.channel_id           | integer ↔ uuid          | 同上                 |
+| live_gift.user_id              | varchar(64) ↔ uuid      | 同上                 |
+| live_gift.total_price          | integer ↔ numeric(20,4) | 同上                 |
 
 现网结构取决于"哪枚最后跑"，schema 漂移不可控——优先级最高，须先查 `information_schema.columns` 实际类型定 ALTER 方向。
 
@@ -73,3 +80,4 @@ users.phone(11↔20) / gen_table_column.column_comment(1000↔500) / ab_test_res
 4. 所有迁移先生产 `db:migrate` 验证再上线（0364 硬约束）。
 
 机器可读数据：`scripts/data/bug29-index-audit.json`
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
