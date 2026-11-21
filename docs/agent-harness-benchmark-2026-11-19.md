@@ -717,7 +717,7 @@
 - 现场：`check-autonomy-leg-health` 现读 `A12-leg-output-reconciliation` = `16 腿 = ok 0 / n/a 0 / drift 0 / unjudged 16`，每条都是同一句 `登记表产出字段缺失/非法 ⇒ 不冒充判过`。判据本体（`scripts/lib/autonomy-leg-output.mjs`）三分类齐备、镜像用例齐备，但 `scripts/data/autonomy-leg-liveness.json` 的 16 条腿**一条都没有** `outputKind / outputRel / outputTimeField / silenceCeilingMs` —— 与第 60/61 项同族：不是判据错，是判据的唯一输入面从没被填过。
 - 处置：按"每条腿自己的写盘分支"逐枚现读取值，不按腿名想象。① 有专属产出账的 4 腿：`auto-evolve`(`auto-evolve-ledger.jsonl`/ts)、`auto-triage`(`auto-triage-ledger.jsonl`/ts)、`deploy-feedback`(`deploy-feedback-ledger.jsonl`/ts)、`api-liveness`(`api-liveness.jsonl`/**at**，该器物自己用 `at` 键) ⇒ `always`；② 两腿共用 `incident-signals.jsonl`（`deploy-outcome-intake` / `monitor-signal-intake`）⇒ `coveredBy: A11-closure-output`，本维不重复量（同一份账被两条腿各算一次就是第二个真相源）；③ 其余 10 腿结构性无产出账（判据门 / 基线面 / 生成器，产物是文件不是留痕）⇒ `none`，仍由 A8 量戳。
 - 语义边界：`silenceCeilingMs` 一律 = 该腿 `nominalIntervalMs × 6`（连续 6 个班次零产出才报），是算出来的不是拍的数；不改判据、不改任何器物的写盘行为，只把"唯一输入面"补齐。
-- 验证：落地后复跑 `node scripts/check-autonomy-leg-health.mjs`，A12 由 `unjudged 16` 转为可判（读数按当次现读，不在本文冻结）。
+- 二修（首落当场被读数打回）：`outputRel` 写成 `.ihui-agent/state/…` 全路径 ⇒ 判据层按 `LIVENESS_STATE_DIR_REL` 再拼一次，读盘 ENOENT 被当成「一次都没产过」⇒ 四腿立刻从「未判定」翻成「每轮必写却零产出」。改成相对 state 目录的形态后复跑 A12：`16 腿 = ok 13 / n/a 12? …`（当次现读；关键是 unjudged 0、四腿不再读成零产出）。**这条属于「字段形状也是判据」**：同一份登记表，值对而形态错，读出来就是另一个结论。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
