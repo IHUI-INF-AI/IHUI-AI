@@ -28,6 +28,7 @@ import {
 import { spendPoints } from '../../services/points-service.js'
 import { inferPointsMultiplier } from '../../services/points-multiplier.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
+import { bareMediaModelId } from '@ihui/shared'
 import { findUserPoints } from '../../db/gamification-queries.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
@@ -330,7 +331,11 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = agnesImageBody.parse(request.body)
       // 计费(2026-11-21):图像按张计分,n∈[1,10] 时必须按 n 计 —— 按 1 计会让 n=10 只扣一张的钱。
       // 预检同样按本次总张数判余额(见 services/media-billing.ts 口径)。
-      const billingModel = body.model ?? 'agnes-image-2.5-flash'
+      // 目录 id 带 provider 前缀(`agnes/agnes-image-2.5-flash`),上游只认裸名 ⇒ 取裸名后
+      // 回写进透传 body,否则上游 404 model_not_found(2026-11-21 实测:选择器选中却 400/404)。
+      const bareModel = bareMediaModelId(body.model) || 'agnes-image-2.5-flash'
+      const upstreamBody = { ...body, model: bareModel }
+      const billingModel = bareModel
       const billingUnits = body.n ?? 1
       if (!(await ensureMediaPointsBalance(request, reply, billingModel, 'image', billingUnits)))
         return
@@ -339,7 +344,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         'agnes',
         `${VENDORS.agnes!.baseUrl}/images/generations`,
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(upstreamBody) },
         90_000,
       )
       if (data === null) return

@@ -154,6 +154,18 @@ export function isSelectableChatModel(
 export const MEDIA_GENERATION_ID_PREFIXES: readonly string[] = ['agnes-image-', 'agnes-video-']
 
 /**
+ * 取模型 id 的裸名(去掉 provider 前缀,保留大小写)。
+ *
+ * 目录里的 id 带前缀(`agnes/agnes-image-2.5-flash`)而上游只认裸名
+ * (`agnes-image-2.5-flash`);两处必须同源取裸名,否则前端按目录 id 传过来,
+ * 后端前缀判定与前缀透传会双双击空(2026-11-21 实测:选了 agnes 图像档却回 400)。
+ */
+export function bareMediaModelId(modelId: string | null | undefined): string {
+  const id = (modelId ?? '').trim()
+  return id.slice(id.lastIndexOf('/') + 1)
+}
+
+/**
  * 该模态档是否已有真实生成通路可执行(2026-11-21 立)。
  *
  * - 非图像/视频(chat/vision/tts/asr/ocr…)一律 true —— 语音等档的"未接通"由发送侧
@@ -168,9 +180,8 @@ export function isExecutableMediaModel(
   category: ModelUsageCategory,
 ): boolean {
   if (category !== 'image' && category !== 'video') return true
-  const id = (modelId ?? '').trim().toLowerCase()
-  if (!id) return true // 取不到 id ⇒ 不判死(失效方向恒为多显示一次)
-  const bare = id.slice(id.lastIndexOf('/') + 1)
+  const bare = bareMediaModelId(modelId).toLowerCase()
+  if (!bare) return true // 取不到 id ⇒ 不判死(失效方向恒为多显示一次)
   return MEDIA_GENERATION_ID_PREFIXES.some((prefix) => bare.startsWith(prefix))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
