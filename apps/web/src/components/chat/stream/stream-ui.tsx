@@ -315,7 +315,7 @@ export function StreamRow({
       <span
         className={cn(
           'truncate text-foreground',
-          primary ? 'min-w-0 flex-1' : 'shrink-0 max-w-[45%]',
+          primary ? 'min-w-0 shrink' : 'shrink-0 max-w-[45%]',
         )}
       >
         {title}
@@ -325,14 +325,12 @@ export function StreamRow({
           data-stream-subject="true"
           className={cn(
             'min-w-0 truncate text-foreground/65',
-            primary ? 'shrink-0 max-w-[40%]' : 'flex-1',
+            primary ? 'shrink-0 max-w-[40%]' : 'min-w-0 truncate',
             STREAM_SUBJECT_MONO.test(subjectKind) && 'font-mono',
           )}
         >
           {subject}
         </span>
-      ) : !primary ? (
-        <span className="min-w-0 flex-1" />
       ) : null}
       {tags?.map((tag) => (
         <StreamTag key={tag}>{tag}</StreamTag>
@@ -350,6 +348,9 @@ export function StreamRow({
       {trailing !== undefined && trailing !== null && trailing !== '' && (
         <span className="shrink-0 text-muted-foreground/70">{trailing}</span>
       )}
+      {/* 2026-11-21 用户口径:行尾的度量/耗时/状态必须**紧跟前文**排,不再靠 flex-1 顶到行末。
+          弹性空位统一放在最后,只负责把展开箭头推到右沿。 */}
+      <span className="min-w-0 flex-1" aria-hidden />
       {interactive && (
         <ChevronRight
           className={cn(
@@ -588,7 +589,7 @@ export function StreamGroup({
           ) : (
             <StreamStatusIcon status={active ? 'running' : 'success'} />
           )}
-          <span className="min-w-0 flex-1 truncate">
+          <span className="min-w-0 shrink truncate">
             {headline || (active ? t('statusRunning') : t('stepCount', { n: stepCount }))}
           </span>
           {!active && stepCount > 0 && (
@@ -604,6 +605,7 @@ export function StreamGroup({
               {t('workedFor', { time: formatDuration(live) })}
             </span>
           )}
+          <span className="min-w-0 flex-1" aria-hidden />
           <ChevronRight
             className={cn(
               ICON_CLASS,

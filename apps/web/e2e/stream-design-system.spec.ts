@@ -273,6 +273,43 @@ test.describe('消息流活动区设计系统', () => {
     expect([...new Set(probe.rows.map((r) => r.translate))]).toEqual([`0px ${probe.token}`])
   })
 
+  // 2026-11-21 用户口径:行尾的度量/耗时/状态必须紧跟前文(不再被 flex-1 顶到行末)。
+  // 断言在真浏览器里量相邻文字的间距:任何一个间距超过一个 gap 档(6px)就说明中间被空位撑开了。
+  test('行尾内容紧跟前文排,弹性空位只在最末(间距不得超过一个 gap 档)', async ({
+    adminPage: page,
+  }) => {
+    const group = page.locator('[data-stream-group]').first()
+    await expect(group).toBeVisible()
+    const trigger = group.locator('[data-stream-group-trigger="true"]')
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+      await trigger.click()
+    }
+    const rows = group.locator('[data-stream-row="true"]')
+    await expect(rows.first()).toBeVisible()
+
+    const probe = await rows.evaluateAll((els) =>
+      els.map((el) => {
+        const parts = [...el.children]
+          .filter((c) => c.tagName === 'SPAN' && (c.textContent ?? '').trim())
+          .filter((c) => !c.className.includes('flex-1'))
+          .map((c) => c.getBoundingClientRect())
+        const gaps = parts.slice(1).map((r, i) => +(r.left - (parts[i]?.right ?? 0)).toFixed(2))
+        return {
+          label: (parts.length ? el.textContent : '')?.trim().slice(0, 12),
+          gaps,
+          spacers: [...el.children].filter((c) => c.className.includes('flex-1')).length,
+        }
+      }),
+    )
+
+    const withTrailing = probe.filter((r) => r.gaps.length > 0)
+    expect(withTrailing.length).toBeGreaterThanOrEqual(2)
+    // ① 相邻内容之间的间距只能是一个 gap 档(6px),放宽到 8px 吸收亚像素取整
+    expect(withTrailing.filter((r) => r.gaps.some((g) => g > 8))).toEqual([])
+    // ② 每行最多一个弹性空位(多于一个就说明又有人拿它去顶内容)
+    expect(withTrailing.filter((r) => r.spacers > 1)).toEqual([])
+  })
+
   // 此前头行靠"一块灰底 + 一圈低对比描边"圈出按钮,用户要求彻底去掉:过程行只留内容与箭头。
   // 断言三件事,全部在真浏览器里量计算样式(不是读类名):
   //  ① 常态底色透明(不是任何灰底);
