@@ -1833,9 +1833,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <div>
               <StreamLabel>
                 {/* 2026-11-21 定档:进行中只由文字扫光表达,不叠 opacity 呼吸 */}
-                <span className="text-shimmer">
-                  {t('streamingPreviewLabel')}
-                </span>
+                <span className="text-sweep">{t('streamingPreviewLabel')}</span>
               </StreamLabel>
               {/* 增量帧增长时贴底看最新段(容器级跟底由 use-message-list-scroll test7/8 纪律负责) */}
               <StreamCode
@@ -1854,9 +1852,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <div>
               <StreamLabel>
                 {/* 2026-11-21 定档:进行中只由文字扫光表达,不叠 opacity 呼吸 */}
-                <span className="text-shimmer">
-                  {t('streamingPreviewLabel')}
-                </span>
+                <span className="text-sweep">{t('streamingPreviewLabel')}</span>
               </StreamLabel>
               <JsonCode
                 text={JSON.stringify(partialArgs, null, 2)}

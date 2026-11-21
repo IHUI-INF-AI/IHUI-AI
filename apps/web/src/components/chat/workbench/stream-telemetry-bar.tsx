@@ -118,12 +118,7 @@ export function StreamTelemetryBar({ className }: { className?: string }) {
         ) : (
           <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden />
         )}
-        <span
-          className={cn(
-            'font-medium',
-            running ? 'text-shimmer' : 'text-muted-foreground',
-          )}
-        >
+        <span className={cn('font-medium', running ? 'text-sweep' : 'text-muted-foreground')}>
           {t(PHASE_KEYS[telemetry.phase])}
         </span>
       </span>
