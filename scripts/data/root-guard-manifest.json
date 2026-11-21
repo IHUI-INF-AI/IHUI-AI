@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T00:26:55.687Z",
+  "sealedAt": "2026-11-21T00:34:31.263Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第55项:git-guardian 新增 runReadoutGate 与 auditMirrorFidelity,并收敛53/54项实现;复核无判据放宽",
+  "reason": "第56项:runReadoutGate 结论形态/日志限长/上限env 三处修正后重封",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "ed8101afc30e522e84031c36a7856c160ebf5da396032ffd9baeda914d30528b"
+      "sha256": "604659742724fef7f10fdf9ee51f2bcfff4339ed86977f79f8eb44a7b8131b97"
     },
     {
       "id": "gate-scope",
