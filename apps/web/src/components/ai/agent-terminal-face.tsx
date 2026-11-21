@@ -123,7 +123,7 @@ export function AgentTerminalFace({ sessionId }: { sessionId: string | null }) {
 
           {/* 屏面:整块按行,行内空白保留(用 pre,不用白空格塌陷的 div) */}
           <div className="min-h-0 flex-1 overflow-auto px-2 pb-1">
-            <pre className="font-mono text-xs leading-5">
+            <pre className="font-[weight:inherit] font-mono text-label leading-5">
               {face.screen.map((row, i) => (
                 <div
                   key={i}
