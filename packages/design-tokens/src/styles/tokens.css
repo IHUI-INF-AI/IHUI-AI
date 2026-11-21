@@ -411,10 +411,13 @@
    * 为什么不能复用上面那两档:上面两条按"元素类型(button/a)"和"字号档(.text-xs)"触发,
    * 而行是否可点击由业务决定 ⇒ 同一列表里一半行 +0.3、另一半行 0,肉眼就是"没对齐"。
    * 本档只挂行根 [data-stream-row],与元素类型无关,一行一个值。
-   * 量取口径:canvas actualBoundingBoxAscent/Descent 取 ink 中心,与行盒中心比较;
-   * 13px/18px 下自然偏差 -0.5..0px(随字形而定),0.2px 把两侧误差收敛到 ±0.3px 内。
+   * 量取口径(2026-11-21 改成**像素真值**,不再用 canvas 字体度量 —— 后者在 CJK 字体族上取到的
+   * 是回退字体的 metrics,会把误差算反):8× 截图里分别求图标与文字的暗像素包围盒中心,与行盒中心比。
+   * 实测 13px/18px 行:图标墨心 11.88~12.25(行盒心 12.00),文字墨心 12.06~12.31(带 +0.2 位移时)。
+   * 结论 = 行内 flex 居中**本身就把墨迹居中了**,再叠 +0.2 反而让文字比图标低 0.25px;
+   * 故本档归零,只保留"覆盖全局 0.3/0.7"的作用(否则 button 行又比 div 行低 0.3px)。
    * 与上面两条同属性(translate),行根选择器优先级更高 ⇒ 覆盖而非叠加。 */
-  --text-vcenter-offset-row: 0.2px;
+  --text-vcenter-offset-row: 0px;
 
   /* css-tokens:managed:begin */
   /* 间距档(源:spacing.ts 的 SPACING_STEPS)→ p-md / gap-md / m-md / size-md */

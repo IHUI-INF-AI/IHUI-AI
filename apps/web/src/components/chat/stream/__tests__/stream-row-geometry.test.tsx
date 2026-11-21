@@ -68,5 +68,29 @@ describe('StreamRow 几何单一来源', () => {
     }
     expect(geometry(plain.container)).toEqual(geometry(clickable.container))
   })
+
+  it('行尾度量/耗时紧跟前文排,弹性空位只留在最后(不把内容顶到行末)', () => {
+    const { container } = render(
+      <StreamRow
+        status="success"
+        kind="fileRead"
+        title="读取文件内容"
+        subject="a.ts"
+        metricKind="lines"
+        metricValue={807}
+        elapsedMs={380}
+        onClick={() => {}}
+      />,
+    )
+    const root = container.firstElementChild as HTMLElement
+    const kids = [...root.children]
+    const spacerIdx = kids.findIndex((k) => k.className.includes('flex-1'))
+    const elapsedIdx = kids.findIndex((k) => (k.textContent ?? '').endsWith('ms'))
+    // 弹性空位必须排在耗时之后:否则内容会被它顶到行末
+    expect(spacerIdx).toBeGreaterThan(elapsedIdx)
+    expect(elapsedIdx).toBeGreaterThan(-1)
+    // 且每个前文元素都不许自己带 flex-1(它会把后面所有内容推开)
+    expect(kids.filter((k) => k.className.includes('flex-1'))).toHaveLength(1)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
