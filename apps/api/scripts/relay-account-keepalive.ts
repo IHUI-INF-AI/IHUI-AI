@@ -50,6 +50,9 @@ const { ACCOUNT_SCHEDULABLE_HEALTH_STATES } =
 const { touchClientHeartbeat } = await import('./relay-trae-session-sync.js')
 // 目标行池序判据单源(§0.6):与三条回灌腿共用同一条「运营池优先 / 个人池唯一行」规则
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
+// 判死留痕判据单源(§0.6):薄壳据此决定「这号是终态还是还能退避自救」——
+// 终态与自救态的重复播报节奏不同,身份不变(守门 224)。
+const { terminalVerdictOf } = await import('../src/services/relay-credential-revival.js')
 
 /** 一枚「某平台客户端此刻在跑」的心跳(薄壳按平台各探各的,2026-11-05) */
 export interface ClientActiveEntry {
@@ -297,6 +300,8 @@ export interface KeepAliveRow {
   refreshFailureCount: number
   credVersion: number
   clientActiveAt: string | null
+  /** 上游判死留痕(2026-11-21);null = 没有判死记录 = 失败仍可被退避自救。 */
+  terminalVerdict: { id: string; credVersion: number; at: string } | null
 }
 
 export async function listKeepAliveForever(): Promise<KeepAliveRow[]> {
@@ -335,6 +340,10 @@ export async function listKeepAliveForever(): Promise<KeepAliveRow[]> {
       lastRefreshAt: r.lastRefreshAt,
       refreshFailureCount: r.refreshFailureCount,
       credVersion: r.credVersion,
+      terminalVerdict: terminalVerdictOf({
+        extraMetadata: r.extraMetadata,
+        credVersion: r.credVersion,
+      } as never),
       clientActiveAt:
         typeof meta[CLIENT_ACTIVE_AT_KEY] === 'string' ? meta[CLIENT_ACTIVE_AT_KEY] : null,
     }
