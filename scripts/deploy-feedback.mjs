@@ -785,7 +785,16 @@ export function runRound({
     warn(`未判定:${out.why}`)
     for (const cluster of dispatchable) {
       const cand = candidateOf(cluster, byIdentity.get(cluster.clusterKey), minutes)
-      const entry = { ts: now.toISOString(), action: cand.action, identity: cand.identity, result: 'undetermined' }
+      const entry = {
+        ts: now.toISOString(),
+        action: cand.action,
+        identity: cand.identity,
+        result: 'undetermined',
+        // 第 70 项:undetermined **必须带 why**。旧台账只写 result=undetermined,于是事后回看
+        // 只能看到"这条腿连续 21 次没判定"却读不出"为什么没判定"(2026-11-21 实测:A12 因此
+        // 长期停在 1 枚 unjudged,`--status` 也只能复述 result)。截 200 字符:够定位,不把台账撑爆。
+        why: String(out.why ?? '').slice(0, 200),
+      }
       try {
         appendLedger(entry, ledgerPath)
         out.entries.push(entry)
@@ -834,12 +843,12 @@ export function runRound({
 
     if (recentlyRegistered(ledger, cand.identity, now.getTime())) {
       log(`⏭ 同身份 24h 内已登记 ⇒ 跳过(${cand.identity})`)
-      if (!record('skip')) break
+      if (!record('skip', { reason: 'already-registered-24h' })) break
       continue
     }
     if (attempts >= maxPerRun) {
       log(`⏸ 每轮登记上限 ${maxPerRun} 条已达 ⇒ 留待下一轮(${cand.identity})`)
-      if (!record('skip')) break
+      if (!record('skip', { reason: 'per-run-cap' })) break
       continue
     }
     attempts += 1
@@ -863,7 +872,8 @@ export function runRound({
       warn(`❌ 登记未判定:${reg.why}`)
       out.why = reg.why
       if (out.code === 0) out.code = 2
-      if (!record('undetermined')) break
+      // 第 70 项:同一条"undetermined 必须带 why"纪律,登记面这一支也照做。
+      if (!record('undetermined', { why: String(reg.why ?? '').slice(0, 200) })) break
       continue
     }
     log(`✅ 已登记:${cand.title}`)
@@ -984,7 +994,12 @@ export function statusReport({
   lines.push(`台账: ${ledgerPath} 共 ${ledger.length} 行,24h 内 registered ${dedupeWindow} 条`)
   lines.push('台账最近 5 条:')
   for (const e of ledger.slice(-5)) {
-    lines.push(`  ${e.ts} action=${e.action} identity=${e.identity} result=${e.result}`)
+    // 第 70 项:undetermined 行把 why 一并印出(旧台账没有这个键 ⇒ 印空,不伪造原因)
+    lines.push(
+      `  ${e.ts} action=${e.action} identity=${e.identity} result=${e.result}` +
+        (e.why ? ` why=${e.why}` : '') +
+        (e.reason ? ` reason=${e.reason}` : ''),
+    )
   }
 
   rep.status = rep.code === 0 ? 'judged' : 'undetermined'
@@ -1212,6 +1227,35 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       if (realFam.ok) log(`  取号族现读:${realFam.basis} 令牌=${realFam.token}`)
     }
 
+    t('⑬ undetermined 必须带 why(第 70 项):取号不可行时台账逐条记原因', () => {
+      const ledgerW = join(dir, 'ledger-why.jsonl')
+      const inW = join(dir, 'in-why.jsonl')
+      writeFileSync(inW, [JSON.stringify(signal()), JSON.stringify(signal({ at: at(30) }))].join('\n') + '\n', 'utf8')
+      let spawned = 0
+      const r = runRound({
+        inputPath: inW,
+        contract: V2,
+        now,
+        ledgerPath: ledgerW,
+        planContent: '- [ ] O88 假登记行\n',
+        tmpDir: join(dir, 'tmp-why'),
+        familyProbe: () => ({ ok: false, undetermined: true, why: '夹具:占用面判不出', readings: [] }),
+        spawn: () => {
+          spawned++
+          return { status: 0, stdout: '', stderr: '' }
+        },
+        log: () => {},
+        warn: () => {},
+      })
+      if (r.code !== 2) throw new Error(`取号不可行应 exit 2,实得 ${r.code}`)
+      if (spawned !== 0) throw new Error('取号不可行时不得 spawn 写盘器')
+      const rows = readLedger(ledgerW).filter((e) => e.result === 'undetermined')
+      if (!rows.length) throw new Error('取号不可行必须逐条落 undetermined 台账')
+      const bad = rows.filter((e) => typeof e.why !== 'string' || !e.why.trim())
+      if (bad.length) throw new Error(`undetermined 行缺 why:${JSON.stringify(bad[0])}`)
+      if (!rows.every((e) => /夹具|未判定/.test(e.why)))
+        throw new Error(`why 必须是真原因,实得 ${JSON.stringify(rows.map((e) => e.why))}`)
+    })
     t('⑪ 可发性探针:O 族租约窗拒发 ⇒ 按 D/B/A 退到真发得出号的族', () => {
       const plan3 = ['- [ ] O88 假登记行', '- [ ] D16 另一族', '- [ ] B66 第三族'].join('\n')
       const probe = () => ({
@@ -1369,3 +1413,4 @@ export const __test__ = {
   DeployFeedbackShapeError,
   DeployFeedbackWriteError,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
