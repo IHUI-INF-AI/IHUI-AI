@@ -24,6 +24,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitRaw } from '../lib/face-reader.mjs'
+
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 import {
@@ -1086,5 +1087,19 @@ test('D1 CJS 导出面:CJS/ESM 静态导出放行、真悬空判红、动态写�
   assert.match(src, /D1 CJS 导出面:不可静态判定/, 'CLI 必须把这一维与"悬空 N 处"同屏报数')
   assert.match(src, /D1 未判定 \$\{u\.file\}:\$\{u\.line\}/, '不可判定条目必须逐条点名(不许只报总数)')
   assert.match(src, /cjsUnpending\.length\)\s*\{[\s\S]{0,240}process\.exit\(2\)/, '不可判定必须 exit 2(不记绿也不冒红)')
+})
+
+// 第 86 项(2026-11-21):这段文案此前把"立门当天清过零"写成"现读均为 0",而 HEAD 实测 4 处红
+// —— 一句写在代码里的历史快照冒充了读数(§0.3 的反面)。钉住:判红文案只能以现算 total 为现状,
+// 历史清零日只能作为"历史读数"出现,不得带"现读"字样。
+test('第 86 项:全量档判红文案不得把历史快照当现状读数', () => {
+  // 只判"真正发出去的那一句":注释里引旧措辞属留痕,不是读数;而注释风格不止一种
+  // (maskComments 不剥块注释),所以按**判红语句锚点**取窗,不拿整文件当判定面。
+  const src = readFileSync(GUARD, 'utf8')
+  const at = src.indexOf('全量口径为零容忍:')
+  assert.ok(at > 0, '找不到判红语句锚点 ⇒ 本断言会退化成空判')
+  const emitted = src.slice(at, at + 600)
+  assert.doesNotMatch(emitted, /现读均为 0/, '把"立门当天清零"写成"现读" ⇒ 历史快照冒充读数')
+  assert.match(emitted, /现状只认本行报数/, '读数必须明确以现算 total 为准,不能引用历史快照')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
