@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T03:45:46.537Z",
+  "sealedAt": "2026-11-21T05:29:43.749Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第63项: daemon tick 面补挂 sweepRefMoveLoss(ref 位移守夜人此前只在一次性 main 里)",
+  "reason": "第68项:只给注册表三枚机器状态门补 stagedTriggersOmitted 字段(判据未变),重封清单",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "7e0a344c415e40d92296e764e3e2fdaf03013ab6d129bd85fca5650781103aa7"
+      "sha256": "6b5ecf148256edea1f36e90e152719ac4398bc8de60fa3e78e4a112d6be410e0"
     },
     {
       "id": "judgement-libs",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "9a92df191bd5e5573c39cb0f1c7e690cb8c297cce2c0ede32b6415474c43e66a"
+      "sha256": "4101cb6de867b93fed13f765a30cc9278191dddf90a1c9f5f6fc377b8b39f147"
     },
     {
       "id": "guardian-pushgate-cache",

@@ -296,6 +296,11 @@ export function extractEntryFields(entryText) {
     // 该给面的面没给)。复跑档就是把提交链上相同的面显式补齐,不猜默认。
     fullFaceArgs: arr('fullFaceArgs'),
     stagedTriggers: arr('stagedTriggers'),
+    // 2026-11-21(第 68 项):判**机器状态**的门(dev 库轮换窗口 / 临时检出寿命 / 钩子台账健康)
+    // 在提交内容里结构上无从触发,复跑也只会得到同一个时间相关的读数。这类"结构性豁免"必须
+    // **写下来**,不许留空让两条通道各自猜 —— 留空会被 countUntriggered 读成"漏声明",每次落地
+    // 都打一行像缺陷的警告(§0.2:判机器状态的一律不冒红)。
+    stagedTriggersOmitted: q('stagedTriggersOmitted'),
   }
 }
 
@@ -339,13 +344,29 @@ export function countUntriggered(entries) {
   //   stagedTriggers: ['**', '/*'].join('')   ← 等价的全匹配通配(此处用 join 只是为了让本行
   //   不出现注释终止符;注册表里直接写通配字面量即可,guardian-triggers 认它,实测根文件与
   //   深层文件都命中)
+  //
+  // 2026-11-21(第 68 项)**两档分离**:判机器状态的门在提交内容里结构上无从触发(口有轮换窗口、
+  // 临时检出寿命、钩子台账容量),复跑得到的永远是同一个时间相关读数。它们不声明 stagedTriggers
+  // 是**对的**,但"对的"必须写进注册条目(`stagedTriggersOmitted: '<理由>'`),否则本函数只看得见
+  // "空清单"这一个形状 ⇒ 每次落地都把这些读数打成"漏声明 N 道",读数把人读错(§0.2 同型)。
+  // 理由长度门槛与通知书同一口径(≥10 字):写一句"略"不算交代。
   const judges = (entries ?? []).filter((e) => e && e.script && e.mode !== 'info')
-  const missing = judges.filter((e) => !e.stagedTriggers || e.stagedTriggers.length === 0)
+  const noTrig = judges.filter((e) => !e.stagedTriggers || e.stagedTriggers.length === 0)
+  const reasonOf = (e) => String(e.stagedTriggersOmitted ?? '').trim()
+  const exempt = noTrig.filter((e) => reasonOf(e).length >= 10)
+  const missing = noTrig.filter((e) => reasonOf(e).length < 10)
   return {
     judges: judges.length,
     missing: missing.length,
     blocking: missing.filter((e) => e.mode === 'blocking').length,
     ids: missing.map((e) => String(e.id)),
+    exempt: exempt.length,
+    exemptIds: exempt.map((e) => String(e.id)),
+    exemptReasons: exempt.map((e) => `${String(e.id)}:${reasonOf(e)}`),
+    // 写了理由却同时写了 stagedTriggers(自相矛盾)⇒ 单列,免得"两套声明"静默共存
+    conflicting: judges.filter(
+      (e) => (e.stagedTriggers?.length ?? 0) > 0 && reasonOf(e).length >= 10,
+    ).length,
   }
 }
 
@@ -822,7 +843,22 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         res.notes.push(
           `注册表臂覆盖面:登记判据门 ${untrig.judges} 道,其中 ${untrig.missing} 道(blocking ${untrig.blocking})` +
             `未声明 stagedTriggers ⇒ 本通道**结构上不复跑**(提交通道把同一份缺省读成"任何提交都跑",两通道在此反义);` +
-            `本次"全绿"不覆盖这 ${untrig.missing} 道,要覆盖请在注册条目里显式声明射程(要"任何提交都跑"就写 ['**/*'])`,
+            `本次"全绿"不覆盖这 ${untrig.missing} 道,要覆盖请在注册条目里显式声明射程(要"任何提交都跑"就写 ['**/*']),` +
+            `确属判机器状态 ⇒ 写 stagedTriggersOmitted 理由`,
+        )
+      }
+      // 结构性豁免单列成一句**不是缺陷**的读数(第 68 项):理由写在注册条目里,读的人能一眼分开
+      // "漏声明"与"判机器状态的门本来就不该在这里跑"。
+      if (untrig.exempt > 0) {
+        res.notes.push(
+          `注册表臂覆盖面:另有 ${untrig.exempt} 道**结构性豁免**(判机器状态/台账,提交内容无从触发,复跑只会读到同一个时间相关值):` +
+            untrig.exemptReasons.slice(0, 6).join(' | ') +
+            (untrig.exemptReasons.length > 6 ? ' …' : ''),
+        )
+      }
+      if (untrig.conflicting > 0) {
+        res.notes.push(
+          `⚠️ 注册表臂覆盖面:${untrig.conflicting} 道条目同时声明 stagedTriggers 与 stagedTriggersOmitted ⇒ 两套声明并存,判据面未判定(§0.3)`,
         )
       }
     }
