@@ -71,6 +71,8 @@ beforeEach(() => {
 })
 
 describe('refreshToken 不明文落盘', () => {
+  // loadAuth() 是 resetModules + 冷 import ../auth(整条 api-client 模块图),本机重负载下
+  // 2026-11-21 实测 19.3s(单跑全绿,全量 turbo 并发档 15s 预算不够)⇒ 预算 45s,断言零改动。
   it('存量明文读入内存后抹掉;轮换先抹 refresh 再写 access,且原文不进 storage', async () => {
     expect(REFRESH_TOKEN_STORAGE_KEY).toBe(REFRESH_KEY)
     expect(TOKEN_STORAGE_KEY).toBe(TOKEN_KEY)
@@ -107,7 +109,7 @@ describe('refreshToken 不明文落盘', () => {
     expect(erasedAt).toBeGreaterThanOrEqual(0)
     expect(accessAt).toBeGreaterThan(erasedAt)
     warn.mockRestore()
-  })
+  }, 45_000)
 
   it('非字符串残留不进内存,并从盘上抹掉', async () => {
     taroStorage[REFRESH_KEY] = { leaked: 'nope' }
@@ -115,7 +117,7 @@ describe('refreshToken 不明文落盘', () => {
     expect(auth.getRefreshToken()).toBe('')
     expect(taroStorage[REFRESH_KEY]).toBeUndefined()
     expect(storageText()).not.toContain('nope')
-  })
+  }, 45_000)
 
   it('读失败不删盘,内存按没有 refresh 处理', async () => {
     taroStorage[REFRESH_KEY] = LEGACY

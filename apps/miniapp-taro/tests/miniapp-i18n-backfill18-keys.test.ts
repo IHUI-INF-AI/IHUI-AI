@@ -194,6 +194,8 @@ describe('miniapp tt 兜底键五语补齐结构锁(本批 18 枚)', () => {
     }
   })
 
+  // 五语 × 全量引用逐条 resolveValue,冷档要读五个大词包;2026-11-21 全量 turbo 并发档
+  // 本机实测 15s 不够(单跑该文件全绿)⇒ 预算 60s(判据是词包覆盖,不是读盘吞吐),断言零改动。
   it('L1 页面里每一枚带兜底的键在五语都有非空字符串取值(缺=该语言在屏上读中文兜底)', () => {
     for (const { file, key } of refs) {
       for (const lang of LOCALES) {
@@ -209,7 +211,7 @@ describe('miniapp tt 兜底键五语补齐结构锁(本批 18 枚)', () => {
         expect(value, `${lang}: ${key} 的取值等于键名本身(=把"没翻译"写成了文案)`).not.toBe(key)
       }
     }
-  })
+  }, 60_000)
 
   it('L2 本票触及的命名空间在五语键集完全一致(补齐不许只落四语)', () => {
     for (const ns of TICKET_NAMESPACES) {
