@@ -26,12 +26,12 @@
  * 改动持有(AGENTS §12 只报不动);接线由该两文件的持有者收尾时做,或等其干净后由主会话单写者落。
  *
  * 用法:node scripts/check-head-typecheck.mjs [--ends=apps/web,apps/api] [--timeout-ms=240000]
- *       [--budget-ms=600000] [--json] [--self-test]
+ *       [--budget-ms=600000] [--no-cache] [--json] [--self-test]
  * 退出码:0 = 无"已入库红"(含只有未判定的情形,末行会喊);1 = 至少一端红在已入库代码;
  *         2 = 一把都没跑到(脚本自身或环境失效,不得读成"没问题")。
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { attribBuildFailures } from './check-ops-patrol.mjs'
@@ -93,6 +93,44 @@ export function rebaseErrorPaths(text, rel) {
 export function tscEntry(root = ROOT) {
   const p = join(root, 'node_modules/typescript/bin/tsc')
   return existsSync(p) ? p : null
+}
+
+/**
+ * 增量缓存目录(2026-11-21 立,治"巡检自己把机器拖到卡死")。
+ *
+ * 立因(实测,不是推想):本工具的每一次「真跑」都是全端 tsc 冷启动。apps/web 单端冷跑实测 3–4 分钟,
+ * 而巡检 P12 只在「6h 窗口到期 ∧ HEAD 变了」才复跑 —— 本仓常态是文档/README/清单类提交每分钟一枚,
+ * 于是 HEAD 几乎每轮都变 ⇒ 每轮都冷跑一次全端 tsc ⇒ 与部署环那 19 分钟的 next build 抢同一台机器的
+ * CPU ⇒ 单端 240s 墙钟被**自身争用**顶穿(spawnSync ETIMEDOUT)⇒ P12 长期"未判定",机器看着像卡死。
+ *
+ * 处置只加**缓存**不加判据:`tsc --noEmit` 配 `--incremental --tsBuildInfoFile` 后,同一端第二次起只
+ * 重算改动面(实测 packages/types 4.0s → 1.7s,大头是 node 启动)。诊断集合不变(errors 仍是同一批),
+ * 所以三态归因口径一字不改。`composite: true` 的项目自带增量,再传这两个开关只会多一份缓存文件 ⇒ 跳过。
+ * 关掉的口子:`--no-cache` 或 `IHUI_HEAD_TYPECHECK_NO_CACHE=1`(留作对照实验,不做常态出口)。
+ */
+export function tscCacheDir(root = ROOT) {
+  return join(root, '.ihui-agent', 'state', 'tsc-cache')
+}
+
+/**
+ * 一端的 tsc 参数表(**纯函数**,便于自检钉住)。
+ * @returns {string[]} 依次为 tsc 入口、项目参数、(可选)增量缓存开关
+ */
+export function tscArgsFor(root, rel, { cache = true } = {}) {
+  const tsc = tscEntry(root)
+  const project = join(root, rel, 'tsconfig.json')
+  const base = [tsc, '--noEmit', '-p', project]
+  if (!tsc || !cache) return base
+  let raw = ''
+  try {
+    raw = readFileSync(project, 'utf8')
+  } catch {
+    return base
+  }
+  // tsconfig 允许注释 ⇒ 不用 JSON.parse,按裸文本判这一格(判错只是少/多一份缓存文件,不改结论)。
+  if (/"composite"\s*:\s*true/.test(raw)) return base
+  const info = join(tscCacheDir(root), rel.replace(/[\\/]/g, '__') + '.tsbuildinfo')
+  return [...base, '--incremental', '--tsBuildInfoFile', info]
 }
 
 /**
@@ -206,7 +244,7 @@ export function summarize(rows, { budgetMs, spentMs, skipped = [], dirtyCount = 
 }
 
 /** 主流程:逐端跑,超预算即停并把余下端列为未跑到(不得静默少跑)。 */
-export function runPatrolOnce({ root = ROOT, ends = null, timeoutMs = 240000, budgetMs = 600000, requireClean = false, spawn = spawnSync } = {}) {
+export function runPatrolOnce({ root = ROOT, ends = null, timeoutMs = 240000, budgetMs = 600000, requireClean = false, spawn = spawnSync, cache = process.env.IHUI_HEAD_TYPECHECK_NO_CACHE !== '1' } = {}) {
   const tsc = tscEntry(root)
   const list = ends && ends.length ? ends : discoverEnds(root)
   const deps = makeHeadFaceDeps({ root })
@@ -218,13 +256,20 @@ export function runPatrolOnce({ root = ROOT, ends = null, timeoutMs = 240000, bu
   if (!tsc) {
     return { ...summarize(rows, { budgetMs, spentMs: 0, skipped: list.map((e) => ({ end: e, why: '找不到仓内 tsc 入口' })), dirtyCount: Math.max(0, dirtyCount), requireClean }), list }
   }
+  if (cache) {
+    try {
+      mkdirSync(tscCacheDir(root), { recursive: true })
+    } catch {
+      /* 建不出缓存目录只意味着退回冷跑，不影响结论 */
+    }
+  }
   for (const rel of list) {
     if (Date.now() - t0 > budgetMs) {
       skipped.push({ end: rel, why: '超总预算,未起跑' })
       continue
     }
     const tEnd = Date.now()
-    const r = spawn(process.execPath, [tsc, '--noEmit', '-p', join(root, rel, 'tsconfig.json')], {
+    const r = spawn(process.execPath, tscArgsFor(root, rel, { cache }), {
       cwd: join(root, rel),
       encoding: 'utf8',
       maxBuffer: 1 << 26,
@@ -388,6 +433,29 @@ export function selfTest() {
     const s = summarize([{ end: 'a', state: 'landed', detail: '', ms: 1 }], { budgetMs: 1, spentMs: 1, dirtyCount: 5, requireClean: true })
     return s.rc === 2 && s.line.includes('候选')
   })())
+  t('S20 增量缓存参数表:非 composite 的端必须带 --incremental 与仓内 tsBuildInfoFile(否则每轮巡检都是冷跑,与部署构建抢 CPU 直到自己超时)', (() => {
+    const a = tscArgsFor(ROOT, 'packages/types')
+    return a.includes('--incremental') && a.some((x) => String(x).includes('.ihui-agent')) && a[a.length - 2] === '--tsBuildInfoFile'
+  })())
+  t('S21 cache=false ⇒ 参数表与改前逐字一致(对照实验通道不得夹带缓存开关)', (() => {
+    const a = tscArgsFor(ROOT, 'packages/types', { cache: false })
+    return a.length === 4 && a[1] === '--noEmit' && a[2] === '-p'
+  })())
+  t('S22 缺 tsc 入口 ⇒ 参数表仍成形且不带缓存开关(不得让缓存参数掩盖"跑不起来")', (() => {
+    const a = tscArgsFor(join(ROOT, '__no_such_root__'), 'packages/types')
+    return a[0] === null && !a.includes('--incremental')
+  })())
+  t('S23 派生时喂给 node 的第一项必须是 tsc 入口本身(2026-11-21 实测踩坑:漏掉它就成了 node "--noEmit" ⇒ 退出码 9 被读成未判定,整端永久瞎)', (() => {
+    let seen = null
+    runPatrolOnce({
+      ends: ['packages/types'],
+      spawn: (_exe, argv) => {
+        seen = argv
+        return { stdout: '', stderr: '', status: 0 }
+      },
+    })
+    return Array.isArray(seen) && String(seen[0]).includes('typescript') && seen[1] === '--noEmit'
+  })())
   return outs
 }
 
@@ -413,6 +481,7 @@ async function main() {
     timeoutMs: Number(arg('timeout-ms', 240000)),
     budgetMs: Number(arg('budget-ms', 600000)),
     requireClean: argv.includes('--require-clean'),
+    cache: argv.includes('--no-cache') ? false : process.env.IHUI_HEAD_TYPECHECK_NO_CACHE !== '1',
   })
   if (argv.includes('--json')) {
     console.log(JSON.stringify({ list: r.list, rows: r.rows, counts: r.counts, warn: r.warn, caveat: r.caveat, dirtyCount: r.dirtyCount }, null, 1))
@@ -437,6 +506,8 @@ if (isDirectRun) {
 export const __test__ = {
   discoverEnds,
   tscEntry,
+  tscCacheDir,
+  tscArgsFor,
   makeHeadFaceDeps,
   rebaseErrorPaths,
   judgeOneEnd,
