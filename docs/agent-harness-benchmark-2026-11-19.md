@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **94 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **95 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（94 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（95 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1498,6 +1498,25 @@
 - 边界：本项**不改历史、不删对象**（`df7faf9a66` 与那枚空合并已在远端，靠 immutable-guard 的
   具名追认台账带着到期日管住，2027-06-30 到期自动回到红）；也**不放宽** push 门的逐枚判据：
   少造一枚空合并，比事后补一条追认更便宜。
+
+### 5.95 第 95 项：盘根卫生的唯一一条常红，其实是「第三方应用安装目录」—— 白名单是封闭集合，没申报就只能天天红
+
+- 现场（一手）：`node scripts/check-disk-root-hygiene.mjs --json` 现读 `verdict=red`，
+  唯一违规 `{"root":"D:\\","kind":"stray-root-entry","entry":"小浣熊","path":"D:\\小浣熊"}`
+  （1.33GB，商汤「小浣熊」桌面端 Electron 安装目录：`商汤小浣熊.exe` + `locales/resources/*.pak`，
+  无 `.git`，全仓现役引用零）。`G:\` 维 `notApplicable`（本机没有这块盘）。
+- 根因：`config/disk-root-allowlist.json` 是**声明式封闭集合**（新增合法条目必须显式改配置并随 commit
+  提交 = 显式审批）。这一条三方应用安装目录从未申报 ⇒ 该维结构性常红，而它催不出任何整改动作
+  （"整改"只能是卸载机主在用的应用，方向本身是错的 —— §5e-1 里最贵的那一型）。
+  配置自己的 `note` 早已写明口径："第三方安装目录按声明放行"，缺的只是把这一条**登记上去**。
+- 处置：`roots.D.allow` 增 `小浣熊`，并把申报理由逐字写进 `note`（身份证据 = 可执行文件名 + 安装
+  布局 + 无 `.git`；性质归入 Trae / Qoder CN / MiniMaxCode 那一族）。**不挪、不删、不改名**。
+- 验证（现读）：`node scripts/check-disk-root-hygiene.mjs --json` ⇒
+  `verdict=green`、`diskRootStray=0`、`violations=[]`（此前 `red` / 1 条）；
+  `JSON.parse` 通过（配置仍是合法 JSON）；`orphanWorktreeShellInGrace=1` 与 `G:\ notApplicable`
+  两维保持原样（不在本项射程）。
+- 边界：本项只动"声明面"，不动盘上任何文件；`quarantine-disk-root-strays.mjs` 的
+  `PROJECT_NAME_RES` 仍认不出中文产品名（对已申报件无影响，属另一条影子尺子的口径差，未在本项改）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
