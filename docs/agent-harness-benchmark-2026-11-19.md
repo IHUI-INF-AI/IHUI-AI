@@ -1034,9 +1034,15 @@
   ②due·undetermined·ok·skip 四态与无结论行 / ③6h 节流 + 尺子缺席不写戳）；真跑一次戳落盘且如实记 `undetermined`；
   `node --check` 通过；落地后 `check-autonomy-leg-health` 现读 `A8 ok=19 drift=0`、
   `check-guardian-dispatch-claims` 从"诚实说明 2"降到 1（只剩 `relay-account-keepalive`）。
-- 边界：本项只把"该换没换"变成有读数的一格，**不**替机器换口令（换库口令有停服半径）；
-  `relay-account-keepalive` 仍是诚实说明 —— 现读 `IHUI-API-GREEN` 在跑、token `lastRefreshAt` 今日仍有更新，
-  那条腿的前提（"api 停 ⇒ 保活停"）已不成立，属需要单独取证再决定的下一项，不并进本项。
+- 收尾顺带把两处头注按现读改写（诚实说明必须能被证伪，否则它就是下一枚假绿）：
+  ① `check-dev-db-rotation-window.mjs` 的"挂进巡检轮的前提就是…"改成如实点名调度面
+     （`sweepDevDbRotationWindow`，第 81 项已接线），落地后门 `check-guardian-dispatch-claims` 该枚从
+     "诚实说明"转"已接线"；
+  ② `relay-account-keepalive.mjs` 的立项前提（"本机 api 是 tsx dev 进程、sc 里没有 api 服务 ⇒ 进程一停保活即停"）
+     **已不成立**：现读 `IHUI-API-GREEN` Running、账号台账 `lastRefreshAt` 今日仍有更新（08:05Z 一次）⇒
+     "挂一条腿代劳"会变成第二套续期 + 第二套到人（§0.6）。改写为"保留手动/应急入口 `--once`，不挂巡检轮；
+     若 api 长期停摆，正解是修承载体、不是并腿"。
+- 边界：本项只把"该换没换"变成有读数的一格，**不**替机器换口令（换库口令有停服半径）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

@@ -17,9 +17,10 @@
  *   ⇒ `due`。所以本器是**提醒/缺口读数**,不是第二个派发器:默认**只报 would-run,绝不 spawn**。
  *
  * 三条硬口径:
- *   ① **永不拦提交**:任何路径 exit 0(含未判定、含 spawn 失败)。挂进 guardian 巡检轮的前提就是
- *      它不能把一次 commit/push 拖成几十秒的停服务窗口(§12e 机器状态判据不进提交链的判据面,
- *      但"读数"可以进,前提是零动作、零等待)。
+ *   ① **永不拦提交**:任何路径 exit 0(含未判定、含 spawn 失败)。这正是不进提交链、改由
+ *      `git-guardian.mjs` 的 `sweepDevDbRotationWindow` 周期派发的前提(2026-11-21 第 81 项已接线:
+ *      6 小时节流、main 单轮与 daemon tick 双挂点、只报不换;它不能把一次 commit/push 拖成几十秒的
+ *      停服务窗口 —— §12e 机器状态判据不进提交链的判据面,但"读数"可以进,前提是零动作、零等待)。
  *   ② **默认不真换口令**:`due` 只打印 `would run: node scripts/rotate-local-dev-db-password.mjs --apply`;
  *      真要动必须显式 `--trigger` 或 `IHUI_ROTATE_DEV_DB=1`。生产/开发库上"巡检顺手换一次库口令"
  *      是比"没轮换"更坏的失效方向。
