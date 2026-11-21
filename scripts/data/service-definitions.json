@@ -1,6 +1,6 @@
 {
   "$comment": "本机 Windows 服务定义的入库快照(真相源)。用途:给 scripts/check-service-binary-paths.mjs 的仓内基准维(只报数、不参与 exitCode)与 scripts/check-service-inventory.mjs 的服务名册面一份仓内基准 —— \"这台机本来应该跑什么、从哪跑\"不必每次靠人回忆。 射程 = Windows 服务注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak) 的项目服务(本机现读 28 枚);计划任务承载的执行体不在本文件内(那是另一层,见 IHUI-* 计划任务)。 字段:source=nssm 时 application/parameters/appDirectory 取 nssm 的 AppApplication/AppParameters/AppDirectory;source=registry 时 application = ImagePath 第一个 token(去引号)、parameters = ImagePath 其余部分原样、appDirectory = parameters 里 `cd /d <路径> &&` 抽出的工作目录(没有则 null);startType 按注册表 Start 值映射 0=BOOT/1=SYSTEM/2=AUTOMATIC/3=MANUAL/4=DISABLED。 **不收 displayName**:check-service-inventory 的名册收集器会把 name 形态的 displayName 当成服务名(本机 IHUI-PostgreSQL 会被读成幽灵引用),展示名请直接查注册表。 脱敏:秘密只存 mask 形态(前6***后2 (len=N)),原始凭据永不入仓。 重建方式:无自动生成器 —— 先 `node scripts/check-service-inventory.mjs --snapshot > <临时文件>` 取本机现读,再按本文件同形逐条映射(name/application/appParameters/appDirectory/start→startType),同时刷新 generatedAt/host/repoRoot/ledger;不得手改单条,不得把别台机的读数抄来当本机读数。",
-  "generatedAt": "2026-11-04T02:07:20.236Z",
+  "generatedAt": "2026-11-21T13:45:58.735Z",
   "host": "服务器",
   "repoRoot": {
     "live": "D:\\IHUI-AI",
@@ -128,7 +128,7 @@
     },
     {
       "name": "IHUI-TMP-CHROME",
-      "application": "C:\\Users\\Administrator\\.agent-browser\\browsers\\chrome-156.0.8078.73\\chrome.exe",
+      "application": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
       "parameters": "--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=1440,900 --remote-debugging-port=9333 --user-data-dir=D:\\tmp\\cdp\\profile about:blank",
       "appDirectory": "D:\\tmp\\cdp",
       "startType": "MANUAL",
