@@ -914,6 +914,51 @@ export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = i
 }
 
 /**
+ * 第七层(2026-11-21,第 67 项):\`AD\` —— **索引里有、磁盘上没了、HEAD 里还没有**(会话刚 \`git add\`
+ * 的新增文件被外部清掉)。现行第一层判 \` D\` 且要求"索引 blob == HEAD blob",第四层判 \`D \` 且要求
+ * "HEAD 有该路径";本形态两条都不成立 ⇒ 整片漏判,盘上任何器物都读不到"这枚文件存在过"。
+ *
+ * 现场代价(实测):门 42(event-closure-leak)的两枚取样文件
+ * (\`apps/api/src/lib/oauth-config-check.ts\` / \`apps/api/tests/oauth-config-check.test.ts\`)以此形态
+ * 消失后,该门连续读 \`未判定(2 个待扫文件不存在)\`,落地器只报 \`registry 门42 rc=2\`,没有任何器物
+ * 点名"是工作区丢了文件、索引里还有那份字节"。
+ *
+ * 恢复只从**索引**取字节(\`checkout-index --force\`:读索引、只写工作树,不碰索引也不碰 HEAD);
+ * 有有效删除通知书的不动(与第一层同一条问句),通知书坏档同样不动(§0.3 判不出不是恢复的许可证)。
+ */
+export function findStagedAddMissing(repoRoot, { notices = null } = {}) {
+  const g = makeGit(repoRoot)
+  let st
+  try {
+    st = g(['status', '--porcelain', '-z'])
+  } catch (e) {
+    return {
+      safe: [],
+      declared: [],
+      verdict: 'undetermined',
+      reason: `status 取不到:${String(e?.message ?? e).slice(0, 120)}`,
+    }
+  }
+  const ns = notices ?? readFileDeletionNotices(repoRoot)
+  const safe = []
+  const declared = []
+  for (const rec of st.split('\0')) {
+    if (!rec) continue
+    // `AD` = 索引新增(A) ∧ 工作树删除(D)。注意 ` D` / `D ` 由第一、四层负责,本层不接管。
+    if (rec.slice(0, 2) !== 'AD') continue
+    const path = rec.slice(3).trim()
+    if (!path || existsSync(resolve(repoRoot, path))) continue
+    const decl = isDeletionDeclared(ns, path)
+    if (decl.declared || decl.verdict === 'undetermined') {
+      declared.push(path)
+      continue
+    }
+    safe.push(path)
+  }
+  return { safe, declared, verdict: 'ok' }
+}
+
+/**
  * 该 blob 是否出现在此路径的历史版本里 —— **四态**,不再是一个布尔(G-742 收口)。
  *
  * 旧实现是 `git log --max-count=30` 的布尔版:窗口用尽而窗外还有更早版本时,它和"历史就到
@@ -1725,6 +1770,38 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     orphanRestored = r.done.length
     orphanDeferred.push(...r.deferred)
   }
+  // ── 第七层(第 67 项):`AD`(索引有 / 盘缺 / HEAD 无)从索引回盘 ──
+  // 只写工作树:先逐批复核"索引里这份字节还在 ∧ 盘上仍然缺"(判据计算与写盘之间别的会话可能
+  // 已落了盘),判据不成立的一律不写并点名 —— 失效方向恒为"多留一次人工复核"。
+  const stagedAdd = findStagedAddMissing(repoRoot)
+  let stagedAddRestored = 0
+  const stagedAddDeferred = []
+  if (stagedAdd.safe.length && !dryRun) {
+    for (let i = 0; i < stagedAdd.safe.length; i += 40) {
+      const batch = stagedAdd.safe.slice(i, i + 40)
+      let stillMissing = []
+      try {
+        stillMissing = batch.filter((p) => {
+          const idx = g(['ls-files', '-s', '--', p]).trim()
+          return Boolean(idx) && !existsSync(resolve(repoRoot, p))
+        })
+      } catch {
+        stillMissing = []
+      }
+      if (!stillMissing.length) {
+        stagedAddDeferred.push(...batch)
+        continue
+      }
+      try {
+        g(['checkout-index', '--force', '--', ...stillMissing])
+        stagedAddRestored += stillMissing.length
+        const rest = batch.filter((p) => !stillMissing.includes(p))
+        if (rest.length) stagedAddDeferred.push(...rest)
+      } catch {
+        stagedAddDeferred.push(...batch)
+      }
+    }
+  }
   const bp = {
     bypassRestored: bypass.restored,
     bypassPaths: bypass.paths,
@@ -1753,6 +1830,16 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     orphanIntentDeclaredPaths: orphan.intentDeclared,
     orphanNoticeUndetermined: orphan.noticeUndetermined.length,
     orphanDeferred,
+    // 第 67 项:`AD`(已暂存新增/盘上丢失)这一档必须单独读数 —— 折进 orphanSafe 会让"索引==HEAD
+    // 的删除"与"索引里的新文件丢了"读起来像同一件事,而两者的修复动作、风险面都不同。
+    stagedAddVerdict: stagedAdd.verdict,
+    stagedAddRestored,
+    stagedAddSafe: stagedAdd.safe.length,
+    stagedAddPaths: dryRun ? stagedAdd.safe : [],
+    stagedAddDeclared: stagedAdd.declared.length,
+    stagedAddDeclaredPaths: stagedAdd.declared,
+    stagedAddDeferred,
+    ...(stagedAdd.reason ? { stagedAddReason: stagedAdd.reason } : {}),
   })
   /** 因"最近被写过"而本轮跳过判定的路径(活工作保护窗;见 alignFreshGuardMs 头注) */
   const recentSkips = []
@@ -3553,8 +3640,14 @@ function selfTestRun() {
       )
     }
     /* ------------------------------------------------------------------ *
-     * G-742 ㉜/㉝ —— 祖先窗口用尽必须**点名"判不出"**,不得写成"无需对齐"。
-     * 本层刻意不跑无界遍历补这一格:现测真仓一次全深度 `git log -- <热档>` >120s,
+     * G-742 ㉜/㉝ —— 祖先窗口的**两档**各归其位,谁也不许冒充对方。
+     * ㉝(索引刷新 / `blobInAncestry`)走守门 84 的浅窗 `windowFor`,窗尽必须点名"判不出";
+     * ㉜(整块/拼合两条漂移通道)走 `analyze` 的**深档**(2026-10-25 起:浅窗用尽即回落全历史)——
+     * 深档取到了 ⇒ 已判过(命中判红/未命中判绿),不得再点"未判定"。
+     * 2026-11-21(第 67 项)修正:㉜a/㉜b/㉜d 原先把"46 枚 > 浅窗 40"当成"判不出",而现设计下
+     * 深档会把它取到 ⇒ 三格恒红、`--self-test` 读数整片不可信。旧例测的是**旧设计**;
+     * 现改为钉现设计,并补 ㉜e 把浅档那一维的诚实面单独钉住(两档窗口不混用)。
+     * 本层刻意不跑无界遍历补浅档那一格:现测真仓一次全深度 `git log -- <热档>` >120s,
      * 而这一层每 2 分钟一轮(2026-09-30 现读:58 个可判定路径全深度问一遍跑了 ~4 分钟)。
      * ------------------------------------------------------------------ */
     {
@@ -3581,16 +3674,17 @@ function selfTestRun() {
         // 工作树回到**最老**那一版(深度 46,窗内取不到)
         writeFileSync(join(t7, 'deep.ts'), 'L0\n')
         ageWorktreeDriftsForSelfTest(t7, ['deep.ts'])
+        // ㉜a 深档:46 枚深(浅窗只有 win)的祖先复归,**整块通道照样判得出并回到 HEAD**。
+        // 这一格过去写成"保守不动"是旧设计(深档还没接上);现接上后,把"能判却说不判"当成绿
+        // 会让下一次有人把深档摘掉时本用例仍然全绿 —— 那才是真正的失明。
         const d32 = alignDrifts(t7)
         check(
-          '㉜a 窗外祖先复归 ⇒ 保守不动(不覆写别人的现场优先于把门弄绿)',
-          d32.aligned === 0 && readFileSync(join(t7, 'deep.ts'), 'utf8') === 'L0\n',
+          '㉜a 深档:46 枚深的祖先复归仍判得出并对齐到 HEAD(浅窗不缩小整块通道的射程)',
+          d32.aligned === 1 && readFileSync(join(t7, 'deep.ts'), 'utf8') === 'L45\n',
         )
         check(
-          `㉜b 但必须点名"窗口 ${win} 用尽未判定"(旧账面在这里只写"无需对齐")`,
-          d32.driftUndetermined.some(
-            (u) => u.path === 'deep.ts' && u.window === win && u.seen >= win,
-          ),
+          '㉜b 且不得进"未判定"名单(深档真取到了全历史 ⇒ 已判过,不许再冒充判不出)',
+          !d32.driftUndetermined.some((u) => u.path === 'deep.ts'),
         )
         // ㉜c 反例(点名不是放过):窗内祖先版本 ⇒ 照旧被识别并回到 HEAD
         writeFileSync(join(t7, 'deep.ts'), 'L40\n') // 深度 6,窗内
@@ -3602,16 +3696,23 @@ function selfTestRun() {
             readFileSync(join(t7, 'deep.ts'), 'utf8') === 'L45\n' &&
             !d32c.driftUndetermined.some((u) => u.path === 'deep.ts'),
         )
-        // ㉜d 第三态:既不是滞后也谈不上"已判定"——真新内容同样落在窗内没命中,而窗口用尽时
-        //    本层无从区分它和窗外复归 ⇒ 一律点名(把"没抓到"写成"没有回写"才是原缺陷)
+        // ㉜d 第三态:真新内容 —— 深档取到全历史、未命中任何版本 ⇒ **已判过且不动**。
+        //     (旧例把它读成"窗口用尽 ⇒ 判不出",同一旧设计假设;现在"取到全历史"是明文能力。)
         writeFileSync(join(t7, 'deep.ts'), 'X 从未在任何版本出现过的一行\n')
         ageWorktreeDriftsForSelfTest(t7, ['deep.ts'])
         const d32d = alignDrifts(t7)
         check(
-          '㉜d 真新内容 ⇒ 不动,且同样按"未判定"点名(不冒红也不记绿)',
+          '㉜d 真新内容 ⇒ 不动;深档取到全历史未命中 ⇒ 已判过,不点"未判定"',
           d32d.aligned === 0 &&
             readFileSync(join(t7, 'deep.ts'), 'utf8') === 'X 从未在任何版本出现过的一行\n' &&
-            d32d.driftUndetermined.some((u) => u.path === 'deep.ts'),
+            !d32d.driftUndetermined.some((u) => u.path === 'deep.ts'),
+        )
+        // ㉜e 浅档那一维的诚实面必须在:同一 46 枚深的祖先,`blobInAncestry`(浅窗 win)仍要点
+        //     `beyond-window` + 窗口与已见枚数。两档窗口各有出处,谁也不许拿对方的结果替自己作答。
+        const shallow = blobInAncestry(t7, 'deep.ts', firstOid)
+        check(
+          `㉜e 浅档(blobInAncestry,窗口 ${win})对同一 46 枚深祖先仍点名 beyond-window(两档不混用)`,
+          shallow.verdict === 'beyond-window' && shallow.window === win && shallow.seen >= win,
         )
         // ㉝ 同一件事在 refreshStaleIndex 那一维:索引停在**窗外**祖先 ⇒ 不刷新 + 点名 verdict
         writeFileSync(join(t7, 'deep.ts'), 'L45\n') // 工作树 == HEAD,排除别的通道
@@ -4005,6 +4106,25 @@ async function main() {
       for (const p of (d.orphanIntentDeclaredPaths || []).slice(0, 10)) console.log('   🚫 已声明删除 ' + p)
       for (const p of (d.orphanDeferred || []).slice(0, 10))
         console.log('   ⚠️ state A 延后(撞锁/前提复核不成立) ' + p)
+      // 第七层(第 67 项):`AD` 已暂存新增/盘上丢失
+      if (d.stagedAddRestored)
+        console.log(
+          `✅ 已从索引回盘 ${d.stagedAddRestored} 个"已暂存但磁盘丢失"的新增文件(索引有 blob / HEAD 无 / 盘缺;checkout-index 只写工作树,不碰索引与 HEAD)`,
+        )
+      if (dryRun && d.stagedAddSafe)
+        console.log(`[check] ${d.stagedAddSafe} 个已暂存新增文件在磁盘上缺失,可从索引回盘(未执行)`)
+      for (const p of (d.stagedAddPaths || []).slice(0, 10)) console.log('   - 可回盘 ' + p)
+      if (d.stagedAddDeclared)
+        console.log(
+          `🚫 ${d.stagedAddDeclared} 个已暂存新增文件有删除通知书(或台账坏档判不出)⇒ 不回盘(与第一层同一条问句)`,
+        )
+      for (const p of (d.stagedAddDeclaredPaths || []).slice(0, 10)) console.log('   🚫 已声明删除(暂存新增档) ' + p)
+      if (d.stagedAddDeferred?.length)
+        console.log(
+          `⚠️ ${d.stagedAddDeferred.length} 个已暂存新增文件本轮未回盘(前提取不到或撞锁,不猜):` +
+            (d.stagedAddDeferred || []).slice(0, 10).join(', '),
+        )
+      if (d.stagedAddReason) console.log(`⚠️ 已暂存新增档判不出:${d.stagedAddReason}`)
       if (d.landingAligned) {
         console.log(
           `✅ 落地欠回写已对齐 ${d.landingAligned} 个路径的**索引**回到 HEAD(工作树未动;判据=索引 blob 逐字节等于某枚旁路落地声明过该路径的前像,故零独有)`,
@@ -4229,6 +4349,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   findOrphanedDeletions,
+  // 第 67 项:`AD`(已暂存新增/盘上丢失)这一档的判据出口(镜像测按行为断言,不重抄判据 —— §22c)
+  findStagedAddMissing,
   // 2026-10-23 到期档三件(判据单源在此,测试不许另抄一份 —— §22c)
   stagedIntentLatestTsByPath,
   intentExpiryTtlHours,

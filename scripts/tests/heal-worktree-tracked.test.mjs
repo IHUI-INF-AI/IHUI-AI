@@ -51,6 +51,7 @@ const {
   refreshStaleIndex,
   alignLandingDebtIndex,
   findOrphanedDeletions,
+  findStagedAddMissing,
   heal,
 } = __test__
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -1109,4 +1110,87 @@ test('T23 判据④反向例外:HEAD 仍被引用的合入文件恢复,零引用
   }
 })
 
+/**
+ * T24 —— 第七层(2026-11-21,第 67 项):`AD` 形态(索引里有 / HEAD 里没有 / 磁盘上没了)。
+ *
+ * 为什么前两层都漏(判据面分析,不是"忘了写"):
+ *   第一层 ` D`:要求 索引 blob == HEAD blob —— AD 的索引 blob 是新内容、HEAD 无此路径 ⇒ 不成立;
+ *   第四层 `D `:要求 HEAD 有该路径 —— 同上 ⇒ 不成立。
+ * 现场代价:门 42(event-closure-leak)的两枚取样文件以此形态消失后,该门连续读
+ * `未判定(2 个待扫文件不存在)`,没有任何器物点名"是工作区丢了文件、索引里还有那份字节"。
+ * 本测钉五件:① 前两层对同一现场确实判不出(否则本层是重复实现,§0.6);② dryRun 点名零写;
+ * ③ 真跑从索引回盘且内容逐字等于索引 blob;④ 幂等;⑤ 有删除通知书 ⇒ 不回盘。
+ */
+test('T24 第七层:AD(索引有/HEAD无/盘缺)必须能从索引回盘,且持通知书不回盘', () => {
+  const dir = mkScratch('wt-heal-ad-')
+  try {
+    const g = (args) => gitRaw(args, dir, { timeout: 60000 })
+    g(['init', '-q', '--initial-branch=main'])
+    g(['config', 'user.email', 't@t'])
+    g(['config', 'user.name', 't'])
+    g(['config', 'core.autocrlf', 'false'])
+    writeFileSync(join(dir, 'a.ts'), 'a1\n')
+    g(['add', '-A'])
+    g(['commit', '-qm', 'base'])
+
+    writeFileSync(join(dir, 'born.ts'), 'staged but deleted on disk\n')
+    g(['add', 'born.ts'])
+    rmSync(join(dir, 'born.ts'))
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '夹具自证:盘上必须没有')
+    assert.match(gitRaw(['status', '--porcelain', '-z'], dir), /AD born\.ts/, '夹具自证:必须是 AD 形态')
+    assert.equal(gitRaw(['ls-tree', 'HEAD', '--', 'born.ts'], dir).trim(), '', '夹具自证:HEAD 里必须没有它')
+
+    const orphan = findOrphanedDeletions(dir)
+    assert.deepEqual(orphan.safe, [], '第一层要求 索引==HEAD,AD 不成立 ⇒ 不得进 safe')
+    assert.deepEqual(orphan.orphanIndex, [], '第四层要求 HEAD 有该路径 ⇒ 不得进 orphanIndex')
+
+    const found = findStagedAddMissing(dir)
+    assert.equal(found.verdict, 'ok')
+    assert.deepEqual(found.safe, ['born.ts'], 'AD 形态必须被点名')
+    const dry = alignDrifts(dir, { dryRun: true })
+    assert.equal(dry.stagedAddSafe, 1, '--check 档必须透出读数(不得只在写盘档可见)')
+    assert.deepEqual(dry.stagedAddPaths, ['born.ts'], 'dryRun 必须带出可回盘清单')
+    assert.equal(existsSync(join(dir, 'born.ts')), false, 'dryRun 零写')
+
+    const idxBlob = gitRaw(['ls-files', '-s', '--', 'born.ts'], dir).trim().split(/\s+/)[1]
+    const res = alignDrifts(dir)
+    assert.equal(res.stagedAddRestored, 1, '真跑必须回盘 1 个')
+    assert.equal(existsSync(join(dir, 'born.ts')), true, '文件必须真的回到工作树')
+    assert.equal(
+      gitRaw(['hash-object', '--', 'born.ts'], dir).trim(),
+      idxBlob,
+      '回盘内容必须逐字等于索引里那份字节(checkout-index 语义)',
+    )
+    assert.match(gitRaw(['status', '--porcelain', '--', 'born.ts'], dir), /^A\s/, '回盘后不得再是 AD')
+
+    const again = alignDrifts(dir)
+    assert.equal(again.stagedAddRestored, 0, '幂等:已回盘后不得重复计数')
+
+    writeFileSync(join(dir, 'declared.ts'), 'declared delete\n')
+    g(['add', 'declared.ts'])
+    rmSync(join(dir, 'declared.ts'))
+    const cli = copyCliInto(dir)
+    const declared = runCli(
+      cli,
+      [
+        '--declare-deletion',
+        'declared.ts',
+        '--reason',
+        '这次新增文件是误暂存,确认删除',
+        '--until',
+        '2099-12-31',
+      ],
+      dir,
+    )
+    assert.equal(declared.status, 0, `声明应 exit 0,stderr=${String(declared.stderr).slice(0, 300)}`)
+    const held = findStagedAddMissing(dir)
+    assert.deepEqual(held.declared, ['declared.ts'], '有通知书必须进 declared')
+    assert.deepEqual(held.safe, [], '有通知书不得再进可回盘集')
+    const run = alignDrifts(dir)
+    assert.equal(run.stagedAddRestored, 0, '有通知书 ⇒ 不回盘')
+    assert.equal(existsSync(join(dir, 'declared.ts')), false, '有通知书 ⇒ 磁盘保持缺失')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
