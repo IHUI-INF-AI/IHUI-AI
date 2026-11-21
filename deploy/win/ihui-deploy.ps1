@@ -2303,6 +2303,29 @@ function Build-Web {
             Log "构建尝试 $try/$MaxTries -> .next-$DistDir (源码面=$(if ($SrcWebDir) { '净面:' + $CleanBuildWt } else { '共享工作树' }))"
             Update-DeployLockHeartbeat      # 每次 try 开头续心跳(单次 try 墙钟 30 分钟 < 45 分钟上限)
             Remove-Item "$bwd\.next-$DistDir" -Recurse -Force -ErrorAction SilentlyContinue
+            # ── 缓存复用(2026-11-22 提速):try1 把**当前在服务那一色**的 Next 构建缓存灌进本次
+            #    dist,让本轮从"全量冷构建"变成"增量"。为什么只在 try1:上面那段冷构建的策略
+            #    是因 lightningcss 偶发假性解析失败(2026-09-14 实测)而立的,缓存不能当成
+            #    永远可信;try>=2 仍按冷构建重来 —— 既有安全阀一格不动。
+            #    失效方向保守:状态文件读不出 / 缓存目录不在 ⇒ 直接冷构建(只多一行日志)。
+            #    关掉:IHUI_DEPLOY_WEB_CACHE_SEED=0|false|off。
+            #    实测(2026-11-22 01:0x 手工同法):冷构建 ≈9 分钟 → 复用后 ≈4 分钟。
+            if ($try -eq 1 -and -not ($env:IHUI_DEPLOY_WEB_CACHE_SEED -match '^(?i:0|false|off)$')) {
+                try {
+                    $seedBuildDir = Get-WebActiveBuildDir
+                    $seedCache = if ($seedBuildDir) { Join-Path $seedBuildDir 'cache' } else { '' }
+                    if ($seedCache -and (Test-Path -LiteralPath $seedCache)) {
+                        $dstCache = "$bwd\.next-$DistDir\cache"
+                        New-Item -ItemType Directory -Path "$bwd\.next-$DistDir" -Force | Out-Null
+                        Copy-Item -LiteralPath $seedCache -Destination $dstCache -Recurse -Force
+                        Log "[CACHE-SEED] try1 复用活跃色构建缓存 → .next-$DistDir(来源 $(Split-Path -Leaf $seedBuildDir))"
+                    } else {
+                        Log '[CACHE-SEED] 取不到活跃色缓存 ⇒ 本轮冷构建(不冒绿:未判定只落日志)'
+                    }
+                } catch {
+                    Log "[CACHE-SEED] WARN 缓存复用失败(不阻断,继续冷构建):$($_.Exception.Message)"
+                }
+            }
             $env:IHUI_BUILD_DIST = ".next-$DistDir"
             # 2026-09-21 加固(实测):`& pnpm build` 直调出现过「构建进程 2 分钟内静默死亡,
             # pwsh 却因孤儿孙进程持有 stdout 管道而永久挂起」——守护进程等子进程退出才落日志,
