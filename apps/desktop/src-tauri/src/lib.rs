@@ -4750,6 +4750,55 @@ fn sanitize_blank_proxy_env() -> usize {
     removed
 }
 
+/// `sync_system_proxy_env` 注入的环境变量值(日志插件 setup 才就绪,同 BLANK_PROXY_ENV_REMOVED 的落子交 setup 补记)。
+static SYNCED_PROXY_ENV: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// 把 WinINET 系统代理同步进进程环境变量(2026-11-21 立,前端更新链根治)。
+///
+/// 立因:桌面端有两条更新链 —— 本进程 `auto_refresh::check_app_update`(显式三路兜底:
+/// 默认 / 系统代理 / 强制直连)与远程页 `useUpdater` 经 `tauri-plugin-updater` 的 JS
+/// `check()/downloadAndInstall()`。后者用**插件默认 reqwest Client**,它只读进程环境变量,
+/// **不读 WinINET**;本机系统代理(127.0.0.1:7900)对它不可见 ⇒ 直连:feed 5.3s、10MB 包
+/// 更慢,前端链 15s 超时后落 `check_timeout`/`update failed`,而同一时刻 Rust 链已走代理把
+/// 新版装好并重启 —— 用户看到的是红字「更新失败」,版本却真的升了。
+/// 本机 2026-11-21 实证:0.1.92 由 Rust 链装成,前端 localStorage 里留着 11-20 的
+/// `check_timeout`。根治方向不是再补一条兜底,而是让两条链共享同一个代理事实。
+///
+/// 三道安全闸:① 进程内已有非空代理配置 ⇒ 一律不覆盖(尊重现成);② 只在本机代理端口
+/// TCP 可连(1s)时才写 —— 避免把「代理没开、直连能通」改成「必然失败」;③ 只动
+/// HTTP_PROXY/HTTPS_PROXY 两枚,NO_PROXY 原值不碰。非 Windows 平台恒不执行。
+#[cfg(windows)]
+fn sync_system_proxy_env() -> Option<String> {
+    const NAMES: [&str; 6] = [
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ];
+    for name in NAMES {
+        if std::env::var(name)
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+        {
+            return None;
+        }
+    }
+    let raw = auto_refresh::system_proxy_url()?;
+    let url = tauri::Url::parse(&raw).ok()?;
+    let host = url.host_str()?;
+    let port = url.port_or_known_default()?;
+    use std::net::ToSocketAddrs;
+    let addr = format!("{host}:{port}").to_socket_addrs().ok()?.next()?;
+    if std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(1)).is_err() {
+        return None;
+    }
+    std::env::set_var("HTTP_PROXY", &raw);
+    std::env::set_var("HTTPS_PROXY", &raw);
+    Some(raw)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -4765,6 +4814,14 @@ pub fn run() {
     // 否则 tauri-plugin-updater 的默认 Client 会在 build() 阶段被 `Proxy::all("")` 毒死,
     // 更新请求零发出且只报一句不可解释的 "update failed"。详见函数头注。
     let _ = sanitize_blank_proxy_env();
+    // 2026-11-21 立(前端更新链根治):清掉空值代理后,若进程环境里仍无代理而系统开了 WinINET
+    // 代理,则把系统代理写进 HTTP_PROXY/HTTPS_PROXY —— tauri-plugin-updater 的默认 Client
+    // (远程页 useUpdater 走的正是它)只认环境变量,不认 WinINET,不写就会直连超时、把
+    // 「Rust 链已装好」说成「更新失败」。详见函数头注。
+    #[cfg(windows)]
+    if let Some(p) = sync_system_proxy_env() {
+        let _ = SYNCED_PROXY_ENV.set(p);
+    }
     // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
     // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
     // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
@@ -5181,6 +5238,11 @@ pub fn run() {
             }
             // 2026-11-21 立(自更新可解释):核对上次安装回执,把"安装器静默失败"
             // 变成一条可检索的 WARN;并延迟清理历史更新目录(每版约 10MB)。
+            if let Some(p) = SYNCED_PROXY_ENV.get() {
+                log::info!(
+                    "[desktop] 系统代理已注入进程环境变量(前端 updater 链与 Rust 链同路): {p}"
+                );
+            }
             auto_refresh::reconcile_pending_update(app.handle());
             auto_refresh::spawn_stale_update_dir_cleanup();
             // F-123:标签上限等设置必须在任何建标签路径之前进内存(默认 12/6 不变)。
