@@ -150,15 +150,22 @@ vi.mock('@/hooks/use-agent-progress', async () => {
   return { ...actual, useAgentProgress: () => progressMock() }
 })
 vi.mock('@/hooks/use-agent-runtime', () => ({
+  // 2026-11-21:mock 补齐 useAgentRuntime 真实契约里的 hookRuns / hookStats / pendingQuestion。
+  // 面板在组件体内直接读 hookRuns.length 与 hookStats.total(渲染侧真值守卫尚未覆盖这两处),
+  // mock 缺字段就会在渲染期抛 "Cannot read properties of undefined (reading 'length')" ——
+  // 这是 mock 与真实 hook 返回形状不一致,不是面板逻辑缺陷,故在此按契约补齐,不改被测组件。
   useAgentRuntime: () => ({
     thinkingContent: '',
     planSteps: [],
+    hookRuns: [],
+    hookStats: { total: 0, ok: 0, timeout: 0, error: 0, totalDurationMs: 0, slowestMs: 0 },
     sessionEnd: null,
     permissionMode: null,
     terminalDeltas: [],
     agentStatus: null,
     lastMessageSend: null,
     sessionDeliverables: null,
+    pendingQuestion: null,
   }),
 }))
 vi.mock('@ihui/api-client', async (importOriginal) => {
