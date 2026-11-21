@@ -119,6 +119,42 @@ const ok = (n, c) => {
   ok('键集面:少对侧键仍判红(纠偏未波及)', r3.ok === false && r3.violations.some((v) => v.kind === 'keys' && v.missingTheirs.includes('d')))
 }
 
+// ── 3b) 第 89 项:键面的「处置权」镜格 —— 对侧正当退役一道门的登记键,不得被读成内容丢失 ──
+{
+  const B = JSON.stringify({ gates: { 'check-x.mjs': { channel: 'commit' }, 'check-doc-numbers.mjs': { channel: 'push' } } })
+  // 本侧没动这一份(≈基底),对侧删掉一条登记键 ⇒ 归并结果 = 对侧
+  const O = B
+  const T = JSON.stringify({ gates: { 'check-x.mjs': { channel: 'commit' } } })
+  const M = T
+  const read = (rev) => ({ B, O, T, M })[rev]
+  const r = judgeContentLoss({ root: '.', ours: 'O', theirs: 'T', merged: 'M', base: 'B', paths: ['scripts/data/x.json'], read })
+  ok(
+    '3b.1 基底有 ∧ 只有对侧删 ⇒ 不判红,且逐条报名(不许静默折进"0 丢失")',
+    r.ok === true && r.dropped.some((d) => d.via.includes('对侧处置权已行使') && String(d.line).includes('check-doc-numbers')),
+  )
+
+  // 反证臂:本侧**新增**的键不在基底里,而被对侧删除的合并结果吞掉 ⇒ 照旧判红(不是统一放宽)
+  const O2 = JSON.stringify({ gates: { 'check-x.mjs': { channel: 'commit' }, 'check-new.mjs': { channel: 'push' } } })
+  const T2 = JSON.stringify({ gates: { 'check-x.mjs': { channel: 'commit' } } })
+  const r2 = judgeContentLoss({
+    root: '.',
+    ours: 'O',
+    theirs: 'T',
+    merged: 'M',
+    base: 'B',
+    paths: ['scripts/data/x.json'],
+    read: (rev) => ({ B, O: O2, T: T2, M: T2 })[rev],
+  })
+  ok(
+    '3b.2 本侧新增键被对侧删除吞掉 ⇒ 仍判红(处置权只认基底已有的键)',
+    r2.ok === false && r2.violations.some((v) => v.kind === 'keys' && v.missingOurs.includes('gates.check-new.mjs')),
+  )
+
+  // 底面取不到 ⇒ 一条都不放行(§0.3:没喂 base 不是放行许可证)
+  const r3 = judgeContentLoss({ root: '.', ours: 'O', theirs: 'T', merged: 'M', paths: ['scripts/data/x.json'], read })
+  ok('3b.3 未喂 base ⇒ 照旧判红', r3.ok === false && r3.violations.length === 1)
+}
+
 // ── 4) PROJECT_PLAN 无标记 ⇒ 行为等价(全含判行) ──
 {
   const O = '- [ ] RP-1 本侧票\n- [x] 已结清'
