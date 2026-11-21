@@ -193,7 +193,8 @@ export function BackgroundAgentsPanel({
           <span className="text-body font-medium">{t('title')}</span>
           {stats.running > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-label text-amber-600">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+              {/* 2026-11-21 定档:运行中圆点只动 scale,颜色恒定(不用 opacity 呼吸) */}
+              <span className="h-1.5 w-1.5 animate-status-breathe rounded-full bg-amber-500" />
               {t('runningCount', { count: stats.running })}
             </span>
           )}

@@ -25,6 +25,7 @@ vi.mock('next-intl', () => ({
 import {
   STREAM_GROUP_BODY_CLASS,
   STREAM_HEADER_ROW_CLASS,
+  STREAM_RUNNING_TEXT_CLASS,
   StreamGroup,
   StreamKindIcon,
   StreamRow,
@@ -138,6 +139,26 @@ describe('StreamRow 几何单一来源', () => {
     expect(classes.filter((c) => /animate-pulse|opacity-/.test(c.cls))).toEqual([])
     // 错误态仍取语义红(不是因为透明度变淡)
     expect(classes.find((c) => c.status === 'error')?.cls).toContain('text-red-500')
+  })
+
+  it('进行中的活信号只落在标题文字扫光上(STREAM_RUNNING_TEXT_CLASS),图标保持恒定', () => {
+    const { container } = render(<StreamRow status="running" kind="terminal" title="运行代码" />)
+    // 标题文字挂扫光档(左→右高光扫过字面,与对标程序一致)
+    const title = [...container.querySelectorAll('span')].find(
+      (el) => (el.textContent ?? '').trim() === '运行代码',
+    )
+    expect(title?.className).toContain(STREAM_RUNNING_TEXT_CLASS)
+    // 图标不叠任何动效类,只留恒定前景色
+    const icon = container.querySelector('svg')
+    expect((icon as SVGElement).getAttribute('class') ?? '').not.toMatch(
+      /animate-pulse|animate-status-breathe|opacity-/,
+    )
+    // 结束态不挂扫光(避免"已完成还在扫")
+    const done = render(<StreamRow status="success" kind="terminal" title="运行代码" />)
+    const doneTitle = [...done.container.querySelectorAll('span')].find(
+      (el) => (el.textContent ?? '').trim() === '运行代码',
+    )
+    expect(doneTitle?.className ?? '').not.toContain(STREAM_RUNNING_TEXT_CLASS)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

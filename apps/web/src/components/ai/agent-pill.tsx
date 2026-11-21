@@ -16,7 +16,8 @@ interface AgentPillProps {
 
 const STATUS_DOT: Record<AgentPillProps['status'], string> = {
   idle: 'bg-muted-foreground',
-  running: 'bg-amber-500 animate-pulse',
+  // 2026-11-21 定档:运行中的活动感只许走形变(scale),颜色/不透明度恒定
+  running: 'bg-amber-500 animate-status-breathe',
   done: 'bg-green-500',
   error: 'bg-red-500',
 }

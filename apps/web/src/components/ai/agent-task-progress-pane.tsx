@@ -1704,7 +1704,8 @@ export function AgentTaskProgressPane() {
                 <Timer
                   className={cn(
                     'h-2.5 w-2.5',
-                    isStreaming ? 'animate-pulse text-primary' : 'text-muted-foreground/60',
+                    // 2026-11-21 定档:计时图标颜色恒定,流式中的活信号由外层文字扫光承担
+                    isStreaming ? 'text-primary' : 'text-muted-foreground/60',
                   )}
                   aria-hidden
                 />
@@ -1790,7 +1791,8 @@ export function AgentTaskProgressPane() {
             aria-live="polite"
             data-testid="pane-celebration-banner"
           >
-            <Sparkles className="h-3 w-3 shrink-0 animate-pulse" aria-hidden />
+            {/* 2026-11-21 定档:完成庆祝是"已结束"态 —— 图标既不 opacity 呼吸,也不挂进行中的扫光 */}
+            <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
             <span className="flex-1 truncate">{t('celebrate')}</span>
           </div>
         )}

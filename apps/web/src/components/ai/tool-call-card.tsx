@@ -1832,7 +1832,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           {status === 'running' && partialDiff && (
             <div>
               <StreamLabel>
-                <span className="animate-pulse text-teal-600 dark:text-teal-400">
+                {/* 2026-11-21 定档:进行中只由文字扫光表达,不叠 opacity 呼吸 */}
+                <span className="text-shimmer">
                   {t('streamingPreviewLabel')}
                 </span>
               </StreamLabel>
@@ -1852,7 +1853,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           {status === 'running' && argsStreaming && partialArgs && (
             <div>
               <StreamLabel>
-                <span className="animate-pulse text-teal-600 dark:text-teal-400">
+                {/* 2026-11-21 定档:进行中只由文字扫光表达,不叠 opacity 呼吸 */}
+                <span className="text-shimmer">
                   {t('streamingPreviewLabel')}
                 </span>
               </StreamLabel>

@@ -355,9 +355,10 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             {subagent.role}
           </span>
         )}
-        {/* 深化C:待审批高亮 —— 子代理卡在等人工批准时,折叠行立刻显性提示,不用展开才发现 */}
+        {/* 深化C:待审批高亮 —— 子代理卡在等人工批准时,折叠行立刻显性提示,不用展开才发现。
+            2026-11-21 定档:徽章不给 opacity 呼吸,amber 底色已足够显性(状态不得用透明度表达) */}
         {subagent.pendingApproval && (
-          <span className="shrink-0 animate-pulse rounded-sm bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-600">
+          <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-600">
             待审批
           </span>
         )}

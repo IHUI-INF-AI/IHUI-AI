@@ -83,11 +83,11 @@ export function TerminalTab({
       ) : (
         <TerminalIcon className="h-3 w-3 shrink-0 opacity-60" />
       )}
-      {/* 录制中:红色圆点闪烁(纯装饰点,豁免 rounded-full,用 Tailwind animate-pulse) */}
+      {/* 录制中:红色圆点只动 scale(2026-11-21 定档:状态不得用 opacity 呼吸),纯装饰点豁免 rounded-full */}
       {isRecording && (
         <Tooltip content={t('terminalTabBar.recording')}>
           <span
-            className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse bg-red-500"
+            className="inline-block h-1.5 w-1.5 shrink-0 animate-status-breathe bg-red-500"
             style={{ borderRadius: '50%' }}
             aria-label={t('terminalTabBar.recording')}
           />

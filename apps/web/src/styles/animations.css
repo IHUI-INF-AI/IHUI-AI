@@ -2946,6 +2946,44 @@
   animation: barGrow var(--duration-unified) var(--ease-unified);
 }
 
+/* ============ 状态指示唯一的"活动感"档位(2026-11-21 用户定档) ============
+
+   用户口径:状态(进行中/运行中)不得用**透明度**表达 —— animate-pulse 把 opacity 在 1↔0.5 之间拉,
+   同一前景色在静帧里会被读成"颜色不一致"(过程行图标发灰事故同源)。
+
+   本仓许可的两条活动信号:
+     ① 文字类 → `.text-shimmer`(光带从左到右扫过字面,见 @keyframes shimmer);
+     ② 圆点/图标类 → 本文件的 `.animate-status-breathe`(只动 scale,**颜色与不透明度恒定**)。
+   rotate(自转 loader)不受限:它不动颜色也不动透明度。
+
+   非状态语义的 opacity 呼吸仍允许,但不得用于"进行中":骨架屏占位(animate-pulse 骨架块)、
+   倒计时危险态、高风险提示脉冲等各有其语义,不在此禁令射程内。 */
+@keyframes status-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.82);
+  }
+}
+.animate-status-breathe {
+  animation: status-breathe 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-status-breathe {
+    animation: none;
+  }
+  /* 减少动效:扫光停住,但文字必须仍可读(不能用透明字面当"静态态") */
+  .text-shimmer {
+    animation: none;
+    background-image: none;
+    color: var(--color-foreground);
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
 /* ============ 支付/VIP 动画工具类 ============ */
 
 .animate-badge-shine {
