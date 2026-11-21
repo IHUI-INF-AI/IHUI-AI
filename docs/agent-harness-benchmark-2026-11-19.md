@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **101 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **104 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（101 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（104 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1714,6 +1714,46 @@ B31 另带 `hitRefs` 点名那 1 条命中行（`MIN_HIT_REF` 20 字下限）。
 抽取器不许替人把它降级成 `actionable`（那会让一张等凭证的票被当成可领）。
 余下的 `stock=15` 因此是**设计口径**而不是缺口：那 15 行都是"散文可做/标头无等段但属 actionable"，
 抽取器按规矩一条记录都不造，门自己在读数行里就是这么写的 ⇒ 只报数、不判红、不进阻断档。
+
+### 5.102 第 102 项：把"目录不存在"与"读不到"折成同一个 null ⇒ P4c 一维天生恒未判定
+
+**缺口形态**：判据拿"判不出"冒充"判过了"的孪生兄弟 —— **把可知当不可知**，于是某一格永远不判。
+
+**现场**（现读）：`check-ops-patrol` 的 `P4c` 长期挂"未判定 量不到"，点名路径 `D:\IHUI-AI\.DevEnv\backups\archives`；而盘根 `D:\DevEnv\backups\archives` 也不存在（该目录是 §15b 的备份归档根，历史快照曾落在 `D:\DevEnv\backups\archives\lag-snapshot-2026-10-02`，现已被清空/移除）。`devEnvArtifactRoot('backups/archives')` 两候选都没件 ⇒ 交回主候选，`measureDir` 见 `!existsSync` 直接 `return null` ⇒ 巡检把它读成"量不到"。
+
+**真因**：`measureDir` 把两种完全不同的成因折成同一个 `null`：
+① 目录**不存在** —— 对"归档/保留根"这一族，它是**可枚举的 0**（0 条目 0 字节），不是盲区；
+② 目录**在但读不进去**（权限/IO/重解析点/路径其实是个文件）—— 这才是真盲区。
+同一处还有第二型：根目录 `readdirSync` 抛错时旧实现 `continue`，整棵树一路读成 0 字节/0 条目 ⇒ **把"读不到"写成"量到了 0"**（§0.3 两个方向都禁止）。
+
+**处置**：
+- `measureDir` 在遍历前先探一次根目录可读性，读不进去 ⇒ 整次返回 `null`（未判定），不再冒充 0；
+- `checkGrowth` 的 `one()` 增 `absent` 声明档（默认 `blind-spot`＝维持旧语义）：只有 `P4c` 声明 `no-object` —— 目录不存在时记绿并**点名成因**"这一维当前无对象（0 字节/0 条目，阈值不变；目录重建后自动恢复计量）"。`P4a`（Temp）、`P4b`（日志）**不开口**：它们本该有，缺了就是没判。
+- 为什么不是"建个空目录糊绿"：没人往那里写，建目录等于用一次 fs 操作换一行好看的字；判据改对了，目录重建那天自动恢复计量。
+
+**验证**（数字现读）：`node --test scripts/tests/check-ops-patrol.test.mjs` ⇒ **58/58**（新增一例三锁：P4c 缺目录记绿并点名"无对象" / P4b 缺目录仍落未判定 / "归档路径是个文件"不得被 absent 档放成绿）；`node scripts/check-ops-patrol.mjs` ⇒ 未判定 **1→0**，`P4c` 现读绿。
+
+### 5.103 第 103 项：P5b 把 `exit=1` 写死成字面量 ⇒ 回滚轮（exit=3）与"没回滚"合成一句话
+
+**缺口形态**：判据用一个字面量冒充另一档的事实（读数把人读错）。
+
+**现场**（现读）：`checkDeployLoopOutcome` 从日志里取了真实退出码，却把结论句写成 `最近一轮 exit=1,未切流` 的死字符串；而 `DG-13` 档的回滚轮收尾是 `exit=3`（"门禁未过已回滚、旧版本在线"）。两种现场的线上状态不同：前者可能半切，后者线上一定是旧版。写成同一句，读报告的人分不出该不该立刻介入。仓里 2026-09 就有一例镜像测试（`scripts/tests/check-ops-patrol.test.mjs` 的 "DG-13 回滚轮(exit=3)必须判红"）钉这件事，本轮实测它**一直是红的**（58 例里恒有 1 例 fail）—— 判据退化而测试没人跑，正是"已入库红"最典型的藏身处。
+
+**处置**：`exit=3` 单列一档，结论句 `最近一轮 exit=3(门禁未过已自动回滚,旧版本在线)`；其余非 0 档回显**真实退出码**（`exit=${last[1]}`）。两档都仍是 `finding`（这一轮确实没切流），只把"线上是什么状态"读对。
+
+**验证**：同一测试文件 **58/58** 全绿（DG-13 正反例同跑：`exit=0` 记绿、`exit=3` 记红且 detail 含"已自动回滚"、不含"收尾 exit=0"）。
+
+### 5.104 第 104 项：测试文件仍按旧 prop 名渲染 ⇒ 净面构建 TS 红把部署环打成 4 次重试全败
+
+**缺口形态**：契约齐但执行链断一跳 —— 组件与它的镜像测试分两批落地，改名只改了一侧。
+
+**现场**（现读）：部署环 `D:\DevEnv\ihui-prod\deploy\win\deploy-loop.log` 22:30 段连续 4 条
+`src/components/ai/__tests__/agent-terminal-face.test.tsx(137,53): error TS2322: Type '{ sessionId: string; }' is not assignable … Property 'sessionId' does not exist on type 'IntrinsicAttributes & { conversationId: string | null; }'`，
+构建尝试 2/4 直接失败 ⇒ 上一轮 `exit=1`、不切流（本轮 `P5b` 判红的真实原因，与根护栏无关，根护栏已在 `872d5ea8fe` 转 pass）。根因：HEAD 上 `agent-terminal-face.tsx` 的 props 已是 `{ conversationId: string | null }`，而它的测试文件仍用 `<AgentTerminalFace sessionId=…>`（6 处渲染行），**两侧在 HEAD 面就不一致**。
+
+**处置**：按 HEAD blob 逐处把 6 行 `sessionId=` 改成 `conversationId=`（不动工作树那份在飞副本的其它差异），净面构建即可通过。
+
+**验证**：改动面只差这 6 行 prop 名（`git show HEAD:<该测试>` → 替换后剩余 `sessionId` 渲染行 0）；部署环下一轮从 `origin/main` 取源重跑，构建与 `P5b` 转绿由 `deploy-loop.log` 的下一枚 `部署轮询结束(exit=0)` 现读作证（不在本文件里预写结论）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

@@ -208,6 +208,14 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
   } catch {
     return null
   }
+  // 根目录读不进去(权限/IO)时,后面的 `continue` 会让它一路读成 0 字节/0 条目 ——
+  // 那就是把"读不到"写成"量到了 0"(§0.3 两向都不许)。先探一次根:坏 ⇒ 整次落 null。
+  // 子目录读不进去仍是既有口径(预算内忽略),不在这条闸里冒充。
+  try {
+    readdirSync(path)
+  } catch {
+    return null
+  }
   while (stack.length) {
     const { dir, owner } = stack.pop()
     let names
@@ -1870,16 +1878,36 @@ export function checkGrowth({
   archivesDir = join(devEnv, 'backups/archives'),
 }) {
   const out = []
-  const one = (id, path, bytesLimit, entriesLimit) => {
+  const one = (id, path, bytesLimit, entriesLimit, { absent = 'blind-spot' } = {}) => {
     const m = measureDir(path, { byTop: true }) // 同一次遍历顺带归集归属,不走第二遍树
-    if (!m) return void out.push({ id, state: 'undetermined', detail: `量不到:${path}` })
+    if (!m) {
+      // "量不到"有两种成因,不得互相冒充(§0.3):
+      //   ① 目录**不存在**:对"按设计允许没有对象"的那一维(归档/保留根)它是**量到的 0**
+      //      —— 目录不在 ⇒ 0 条目 0 字节,这是可枚举的事实,不是盲区;它会随目录重建自动恢复计量。
+      //   ② 目录在但读不进去(权限/IO/重解析点/是个文件):这是真盲区 ⇒ 未判定。
+      // 所以 absent 档由调用方按维声明(默认仍是 blind-spot,即"该维本该有,缺了就是没判")。
+      if (absent === 'no-object' && !existsSync(path)) {
+        out.push({
+          id,
+          state: 'ok',
+          detail: `目录不存在 ⇒ 这一维当前无对象(0 字节/0 条目,阈值不变;该维按设计允许空缺,目录重建后自动恢复计量)`,
+        })
+        return
+      }
+      out.push({ id, state: 'undetermined', detail: `量不到:${path}` })
+      return
+    }
     out.push(growthRow(id, m, bytesLimit, entriesLimit))
   }
   // P4a 留在调用方传入的 scratch 根(仓内 .DevEnv):旧根那一份 5.87GB 是搬迁遗留,
   // 不属于"本链 scratch"这一维;P4b/P4c 是被搬迁拆开的件,由装配段按件选根后传入。
   one('P4a', join(devEnv, 'Temp'), LIMITS.devenvTempBytes, LIMITS.devenvTempEntries)
   one('P4b', logsDir, LIMITS.devenvLogsBytes)
-  one('P4c', archivesDir, LIMITS.devenvArchivesBytes)
+  // P4c 声明 absent=no-object:归档根是**按保留策略可有可无**的那一类(本机此刻 .DevEnv 与
+  // D:\DevEnv 两侧都没有 backups/archives ⇒ 过去一直读成"量不到"的恒未判定,
+  // 而它问的"归档有没有无上限增长"在目录不存在时答案是确定的 0)。
+  // P4a/P4b 不声明 —— 它们本该有(Temp/日志是运行副产物),缺了就是没判,不得记绿。
+  one('P4c', archivesDir, LIMITS.devenvArchivesBytes, undefined, { absent: 'no-object' })
   return out
 }
 
@@ -1912,9 +1940,23 @@ export function checkDeployLoopOutcome({
     return { id: 'P5b', state: 'ok', detail: `最近一轮收尾 exit=0${fails.length ? `(同段有 ${fails.length} 条 FAIL 历史行,只报数)` : ''}` }
   }
   const why = fails.length ? fails[fails.length - 1][1].trim().slice(0, 160) : '(尾部该段没抓到 FAIL 原文)'
-  const base = `最近一轮 exit=1,未切流。最后一条 FAIL:${why}`
   const attribution = attribBuildFailures(after, { readHeadLine, isDirty })
-  return { id: 'P5b', state: 'finding', detail: `${base}${attribution}` }
+  // 退出码必须**照实回显**(2026-11-21,第 102 项):旧版把这句写死成 `exit=1`,
+  // 于是 DG-13 档的回滚轮(exit=3,"门禁未过但已自动回滚、旧版本仍在线")在报告里
+  // 长得和"未切流且没回滚"一模一样 —— 两种现场的线上状态不同(旧版在线 / 可能半切),
+  // 合并成一句等于把判据的结论磨平(§0.3 同一族:不得用一个字面量冒充另一档的事实)。
+  if (last[1] === '3') {
+    return {
+      id: 'P5b',
+      state: 'finding',
+      detail: `最近一轮 exit=3(门禁未过已自动回滚,旧版本在线)。最后一条 FAIL:${why}${attribution}`,
+    }
+  }
+  return {
+    id: 'P5b',
+    state: 'finding',
+    detail: `最近一轮 exit=${last[1]},未切流。最后一条 FAIL:${why}${attribution}`,
+  }
 }
 
 /** 生产装配:HEAD 行文本与工作树脏态都走 face-reader 那一份实现(守门 118 的口径),测试注入替身。
