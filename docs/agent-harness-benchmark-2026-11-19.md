@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **59 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **61 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（59 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（61 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -683,6 +683,13 @@
 - 处置：① `autonomy-leg-liveness.json` 增 `monitor-signal-intake` 那条（owner=`dispatchMonitorSignalIntake`、envVar=`IHUI_MONITOR_INTAKE_INTERVAL_MS`、nominal=1800000 与源默认值逐字一致、ruler=器物、verifiedAt=2026-11-21），并写明 knownBlocker：三源取数面皆空 ⇒ 每轮 three-source-undetermined 属预期，探测器量的是戳是否在跳而非产出。② 测试改为每次运行生成唯一 tick 后缀，连跑两遍都 7/7。
 - 语义边界：不新增探测器、不改判据；`knownBlocker` 只作解释，不参与判定 —— 静默仍会被 A8 量到。
 - 验证：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` 连跑两次均 `7 passed`；登记后 A8 的 `unregistered` 名单里不再出现 `monitor-signal-intake`（落地前按 HEAD 面仍列旧账，落地后即消）。
+### 5.61 第 60-61 项：两条真派发腿不在登记表，而登记表的覆盖面自证结构上看不见"还没跑过的腿"
+
+- 现场（第 60 项）：A8 现读 `unregistered=2 ｜ api-liveness / tmp-bloat`。两条都是 `git-guardian.mjs` 里真在跑的派发器（`sweepApiLiveness` 5 分钟、`auditTmpBloat` 5 分钟，均无 env 覆盖），盘上有戳、登记表没条目 ⇒ 它们不受静默探测量。
+- 结构缺口（第 61 项）：`classifyLegs` 的覆盖面自证只拿**盘上的戳**与登记表对账 —— 一枚新挂的派发器在它跑过之前盘上没有戳，于是"登记表静默漏掉一条真腿"这一型永远看不见。这正是 60 项那两条腿漏过去的机制，不是一次性手误。
+- 处置：① 补登记两条腿（owner=派发函数、nominal=源默认 300000、ruler=器物、verifiedAt=今天，并写明 knownBlocker）。② `scripts/lib/autonomy-leg-liveness.mjs` 增 `findDispatchStampsInSource(src)` + `judgeRegistryCoverage({sourceStamps, legs})`：源面（`git-guardian.mjs` 源码）里的 `*-dispatch-last.json` 字面量，源里有而表里没有 ⇒ drift 并逐枚点名；表里有而源面没有 ⇒ 只点名不判红（tickFile 可能由变量拼装，失效方向恒为"多要一次说明"）。③ `check-autonomy-leg-health.mjs` 的 A8 取料层按同一被审面读 `git-guardian.mjs`，把 coverage 并进同一条维度读数；源面读不到 ⇒ unjudged，不读成"源面没有派发器"。
+- 语义边界：不新增第二份登记表、不复算节律；`missing` 与盘上 `unregistered` 同档（都是"无人认领"），`orphan` 只是提示。
+- 验证：`node scripts/check-autonomy-leg-health.mjs` 落地前 `unregistered=2`，登记后 `腿 16 枚 ok=16 unregistered=0 ｜ 源面:源面 16 枚 / 登记 16 枚`；`scripts/tests/leg-registry-coverage.test.mjs` 6 passed（含"盘上无戳也能抓到新腿"的集成例）；`autonomy-leg-liveness.test.mjs` + `autonomy-leg-health-output.test.mjs` 22 passed。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
