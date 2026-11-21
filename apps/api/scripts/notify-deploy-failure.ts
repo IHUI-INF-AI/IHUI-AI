@@ -148,6 +148,13 @@ interface CliArgs {
   probe: boolean
   /** 配合 --probe:确证到端要真发一封(唯一会真占收件人的档,调用方自己承担频次)。 */
   probeDeliver: boolean
+  /**
+   * 配合 --probe 的**单通道档**(2026-11-21 立):只验一条通道,另一条连结论都不出。
+   * 存在的理由:分流的常态是"SMTP 在就先用 SMTP",于是 `--probe-deliver` 永远只落到主通道,
+   * 备用通道(Resend)那条腿**结构上永远验不到** —— 想验它只能让主通道临时不可用,
+   * 而那等于改生产配置。单通道档让"验备用通道"变成一条明写参数的普通操作。
+   */
+  probeChannel: 'smtp' | 'resend' | null
   help: boolean
 }
 
@@ -181,6 +188,9 @@ const HELP_TEXT = [
   '                             含"配置缺失"与"Resend 无零投递出口"两种,二者都不得被读成"通道坏了")。',
   '  --probe-deliver            配合 --probe:真发一封"通道活性自测(不是故障)"到告警收件人,',
   '                             走同一品牌模板与同一去重身份(默认 4h 窗),用于验收 Resend 那一腿。',
+  '  --probe-channel <smtp|resend>  配合 --probe:只验被点名的那一条通道(另一条连结论都不出)。',
+  '                             不写它时按分流的常态先 SMTP 再 Resend ⇒ 备用通道永远落不到 ——',
+  '                             要验备用腿就显式点名它,不必临时改生产配置。',
   '  --help                     打印本用法',
 ].join('\n')
 
@@ -216,6 +226,7 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
     dryRun: false,
     probe: false,
     probeDeliver: false,
+    probeChannel: null,
     help: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
@@ -236,6 +247,16 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
       case '--probe-deliver':
         args.probeDeliver = true
         break
+      case '--probe-channel': {
+        const v = String(takeOptValue(argv, i, '--probe-channel') || '').trim().toLowerCase()
+        if (v !== 'smtp' && v !== 'resend') {
+          process.stderr.write(`--probe-channel 只接受 smtp / resend,实得 "${v}"(不猜,直接退 2)\n`)
+          process.exit(2)
+        }
+        args.probeChannel = v
+        i += 1
+        break
+      }
       case '--help':
       case '-h':
         args.help = true
@@ -581,12 +602,13 @@ async function dispatchMail(
   cfg: SendConfig,
   mail: RenderedMail,
   deps: { sendSmtp: SmtpSendFn; fetchResend: FetchLike },
+  only: 'smtp' | 'resend' | null = null,
 ): Promise<DispatchResult> {
   const reasons: string[] = []
   // 归一化一次:本脚本是 CLI 入口,mail 也可能由尚未跟进新契约的调用方构造。
   // 缺 attachments 只能是"没图",绝不能变成 TypeError 把最后一条到人通道打死(§5e)。
   const images: InlineImageAttachment[] = mail.attachments ?? []
-  if (cfg.smtp.available) {
+  if (cfg.smtp.available && only !== 'resend') {
     try {
       await deps.sendSmtp(
         {
@@ -614,7 +636,7 @@ async function dispatchMail(
   } else {
     reasons.push(`SMTP 通道不可用(缺 ${cfg.smtp.missing.join('、')})`)
   }
-  if (cfg.resend.available) {
+  if (cfg.resend.available && only !== 'smtp') {
     try {
       const res = await deps.fetchResend(RESEND_ENDPOINT, {
         method: 'POST',
@@ -1193,51 +1215,60 @@ function redactSecrets(text: string, secrets: readonly string[]): string {
 async function probeChannels(
   cfg: SendConfig,
   deps: { verifySmtp: SmtpVerifyFn; fetchResend: FetchLike; sendSmtp: SmtpSendFn },
-  opts: { deliver: boolean; probeMails: readonly RenderedMail[] },
+  opts: { deliver: boolean; probeMails: readonly RenderedMail[]; only?: 'smtp' | 'resend' | null },
 ): Promise<ProbeReport> {
   const channels: ChannelProbe[] = []
+  const only = opts.only ?? null
+  // 单通道档:没被点名的那条通道**连结论都不出**(不是记 undetermined)——
+  // 那样 report.rc 只反映被验的那一条,不会被"另一条本来就验不了"拉成未判定。
+  const judgeSmtp = only !== 'resend'
+  const judgeResend = only !== 'smtp'
 
-  if (!cfg.smtp.available) {
-    channels.push({
-      channel: 'smtp',
-      verdict: 'unconfigured',
-      why: `缺 ${cfg.smtp.missing.join('、')}(未判定,不是"坏了")`,
-    })
-  } else {
-    try {
-      await deps.verifySmtp({
-        host: cfg.smtp.host,
-        port: cfg.smtp.port,
-        secure: cfg.smtp.port === 465,
-        user: cfg.smtp.user,
-        pass: cfg.smtp.pass,
-      })
+  if (judgeSmtp) {
+    if (!cfg.smtp.available) {
       channels.push({
         channel: 'smtp',
-        verdict: 'ok',
-        why: `握手与认证通过(${cfg.smtp.host}:${cfg.smtp.port})`,
+        verdict: 'unconfigured',
+        why: `缺 ${cfg.smtp.missing.join('、')}(未判定,不是"坏了")`,
       })
-    } catch (e) {
-      channels.push({
-        channel: 'smtp',
-        verdict: 'fail',
-        why: redactSecrets(errText(e), [cfg.smtp.pass, cfg.smtp.user]),
-      })
+    } else {
+      try {
+        await deps.verifySmtp({
+          host: cfg.smtp.host,
+          port: cfg.smtp.port,
+          secure: cfg.smtp.port === 465,
+          user: cfg.smtp.user,
+          pass: cfg.smtp.pass,
+        })
+        channels.push({
+          channel: 'smtp',
+          verdict: 'ok',
+          why: `握手与认证通过(${cfg.smtp.host}:${cfg.smtp.port})`,
+        })
+      } catch (e) {
+        channels.push({
+          channel: 'smtp',
+          verdict: 'fail',
+          why: redactSecrets(errText(e), [cfg.smtp.pass, cfg.smtp.user]),
+        })
+      }
     }
   }
 
-  if (!cfg.resend.available) {
-    channels.push({
-      channel: 'resend',
-      verdict: 'unconfigured',
-      why: `缺 ${cfg.resend.missing.join('、')}(未判定,不是"坏了")`,
-    })
-  } else if (!opts.deliver) {
-    channels.push({
-      channel: 'resend',
-      verdict: 'undetermined',
-      why: '该通道没有零投递的核验出口 —— 要确证需 --probe-deliver 真发一封',
-    })
+  if (judgeResend) {
+    if (!cfg.resend.available) {
+      channels.push({
+        channel: 'resend',
+        verdict: 'unconfigured',
+        why: `缺 ${cfg.resend.missing.join('、')}(未判定,不是"坏了")`,
+      })
+    } else if (!opts.deliver) {
+      channels.push({
+        channel: 'resend',
+        verdict: 'undetermined',
+        why: '该通道没有零投递的核验出口 —— 要确证需 --probe-deliver 真发一封(或 --probe-channel resend 单验这一腿)',
+      })
+    }
   }
 
   let delivered = false
@@ -1250,10 +1281,15 @@ async function probeChannels(
      * 通道端到端可用(探针的目的是验通道,不是验某一封信)。
      */
     for (const probeMail of opts.probeMails) {
-      const r = await dispatchMail(cfg, probeMail, {
-        sendSmtp: deps.sendSmtp,
-        fetchResend: deps.fetchResend,
-      })
+      const r = await dispatchMail(
+        cfg,
+        probeMail,
+        {
+          sendSmtp: deps.sendSmtp,
+          fetchResend: deps.fetchResend,
+        },
+        only,
+      )
       delivered = delivered || r.ok
       if (r.channel) {
         const prev = channels.findIndex((c) => c.channel === r.channel)
@@ -1394,6 +1430,7 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
       },
       {
         deliver: args.probeDeliver,
+        only: args.probeChannel,
         probeMails: groups.map((g) =>
           renderAlertEmail({
             severity: 'info',

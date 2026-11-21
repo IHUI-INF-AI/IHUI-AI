@@ -3656,6 +3656,9 @@ if ($env:IHUI_DEPLOY_LOCAL_SOURCES) {
 }
 
 $fetchSource = $null
+# 离线取源钉住的"已推送基线"(2026-11-21 第 106 项):非空时下游**不读 FETCH_HEAD**,
+# 直接用这一枚 sha 作本轮远端 tip。
+$forcedRemoteTip = ''
 # 取源必须钉在 $Root(2026-10-26 实测事故):旧写法是**当前工作目录相对**的 git 调用,
 # 手工从别处(如主仓 D:\IHUI-AI)起脚本时,fetch 打进了主仓的 origin(SSH 通道),
 # 写的是主仓的 FETCH_HEAD;而 behind 的 HEAD 也是主仓的 HEAD ⇒ behind=0 ⇒
@@ -3680,11 +3683,30 @@ if (-not $fetchSource) {
             continue
         }
         Log "fetch $local main ..."
+        # 2026-11-21 第 106 项:离线取源只许取**已推送基线**(本机 gitdir 的 refs/remotes/origin/main),
+        # 不得跟随本机工作分支 main。病灶是实测出来的:22:52 origin fetch 25 秒超时 ⇒ 走本机取源 ⇒
+        # fetch 到另一会话**未推送**的 89dc712c69 ⇒ prod 按它构建、根护栏也按它通过、随后切流,
+        # 而这枚提交在 GitHub 上根本不存在 —— 生产跑着"没人验收、随时可能被 rebase 掉"的代码,
+        # 告警与回滚记录对着一个远端没有的 sha。离线可用 ≠ 离线随便取。
+        $pushedRef = 'refs/remotes/origin/main'
+        $pushedTip = (& git -C $local rev-parse --verify --quiet $pushedRef 2>&1 | Out-String).Trim()
+        if ($pushedTip -notmatch '^[0-9a-f]{40}$') {
+            Log "跳过本机取源 $local(没有可用的 $pushedRef ⇒ 无法确证哪一枚是已推送基线,不取未推送的本机 main)"
+            continue
+        }
         $lr = Invoke-GitWithTimeout -GitArgs @('-C', $Root, 'fetch', $local, 'main') -TimeoutSec 120
         $lr.Output.Trim() | Write-Host
         if ($lr.ExitCode -eq 0 -and -not $lr.TimedOut -and -not ($lr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+            $localMainTip = (& git -C $local rev-parse --verify --quiet 'refs/heads/main' 2>&1 | Out-String).Trim()
+            if ($localMainTip -match '^[0-9a-f]{40}$' -and $localMainTip -ne $pushedTip) {
+                $ahead = (& git -C $local rev-list --count "$pushedTip..$localMainTip" 2>&1 | Out-String).Trim()
+                if ($ahead -notmatch '^\d+$') { $ahead = '?' }
+                Log "WARN  本机 main=$($localMainTip.Substring(0,10)) 领先已推送基线 $($pushedTip.Substring(0,10))(未推送 $ahead 枚);离线取源只跟已推送基线,这些提交本轮不部署"
+            }
             $fetchSource = "local:$local"
-            Log "本机取源成功:$local(prod 只跟随本机 main,不合并、不推送)"
+            $forcedRemoteTip = $pushedTip
+            ## 上一行是本段的全部要害:下游 tip 由此定格,不再回看 FETCH_HEAD(它此刻是未推送的本机 main)。
+            Log "本机取源成功:$local(钉在已推送基线 $($pushedTip.Substring(0,10)))"
             break
         }
     }
@@ -3716,6 +3738,14 @@ Log "本轮取源 = $fetchSource"
 # 下游三处决策(behind / 挡路路径清单 / merge)一律只认这个变量,不再回头看 FETCH_HEAD。
 # 且必须**读 $Root 这一份** FETCH_HEAD(不是当前工作目录那一份):FETCH_HEAD 是**每个仓库各有一份**的
 # 文件,读错仓库就等于读了一枚与生产签出无关的 tip(见上方取源段的事故注)。
+if ($forcedRemoteTip) {
+    # 离线源(2026-11-21 第 106 项):tip 由取源段定格在"已推送基线",FETCH_HEAD 此刻指向的是
+    # 未推送的本机 main,读它等于把没推送的提交送进生产。
+    $remoteTip = $forcedRemoteTip
+    Log "本轮远端 sha = $remoteTip(离线取源钉在已推送基线)"
+    & git -C $Root cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail "离线取源的已推送基线对象不在本地对象库 ⇒ 本轮不部署、不切流" }
+} else {
 $remoteTipRaw = (& git -C $Root rev-parse FETCH_HEAD 2>&1 | Out-String).Trim()
 if ($remoteTipRaw -notmatch '^[0-9a-f]{40}$') {
     Log "git rev-parse FETCH_HEAD 未给出 40 位十六进制(实得:'$(($remoteTipRaw -split "`n")[0])'),无法判定远端在哪"
@@ -3734,6 +3764,7 @@ if ($LASTEXITCODE -ne 0) {
     $rr.Output.Trim() | Write-Host
     & git -C $Root cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "本轮远端 sha 的对象取不到,无法判定是否落后 ⇒ 本轮不部署、不切流" }
+}
 }
 $behindRaw = (& git -C $Root @gitNet rev-list --count "HEAD..$remoteTip" 2>&1 | Out-String).Trim()
 if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(本轮远端 sha 无效),本轮不部署" }
