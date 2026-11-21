@@ -52,7 +52,7 @@
     "@types/react-dom": "19.2.4",
     "typescript": "catalog:",
     "eslint": "catalog:",
-    "happy-dom": "^20.11.1",
+    "happy-dom": "^21.0.4",
     "rimraf": "catalog:",
     "react-dom": "^19.0.0",
     "vitest": "catalog:"
