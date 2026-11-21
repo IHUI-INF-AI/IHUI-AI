@@ -9819,8 +9819,24 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "並行子代理數超限",
           "action": "等待執行中的子代理結束後重試"
-        }
-      },
+        },
+          "INVALID_ARGUMENTS": {
+            "title": "檔案清單格式不對",
+            "action": "按 {path, description} 的陣列重新提交"
+          },
+          "INVALID_PATH": {
+            "title": "檔案路徑不合法",
+            "action": "改為真實存在、不含控制字元的路徑"
+          },
+          "TOO_MANY_FILES": {
+            "title": "一次登記的交付檔案太多",
+            "action": "只挑最終交付物，最多 8 個"
+          },
+          "TOOL_AUTO_REVIEW_DENIED": {
+            "title": "自動審查拒絕了這次執行",
+            "action": "調整審查規則或改用被允許的編輯方式"
+          }
+        },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -10421,7 +10437,7 @@
     },
     "agentTerminal": {
       "altScreen": "全螢幕",
-      "cursor": "游標",
+      "cursor": "遊標",
       "empty": "本會話還沒有 agent 終端(模型用 terminal 工具開啟會話後出現在這裡)",
       "exited": "已結束",
       "failed": "屏面取不到",

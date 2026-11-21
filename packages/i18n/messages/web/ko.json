@@ -9819,8 +9819,24 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "병렬 하위 에이전트 수 한도 초과",
           "action": "실행 중인 하위 에이전트가 끝날 때까지 기다린 후 다시 시도하세요"
-        }
-      },
+        },
+          "INVALID_ARGUMENTS": {
+            "title": "파일 목록 형식이 올바르지 않습니다",
+            "action": "{ path, description } 배열로 다시 제출하세요"
+          },
+          "INVALID_PATH": {
+            "title": "파일 경로가 올바르지 않습니다",
+            "action": "실제로 존재하고 제어 문자를 포함하지 않는 경로로 바꾸세요"
+          },
+          "TOO_MANY_FILES": {
+            "title": "한 번에 등록하는 파일이 너무 많습니다",
+            "action": "최종 산출물만 선택하세요(최대 8개)"
+          },
+          "TOOL_AUTO_REVIEW_DENIED": {
+            "title": "자동 검토가 이 실행을 거부했습니다",
+            "action": "검토 규칙을 조정하거나 허용된 편집 방식으로 바꾸세요"
+          }
+        },
       "worktree": {
         "title": "Worktree",
         "state": {

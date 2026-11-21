@@ -9819,8 +9819,24 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "並列サブエージェント数が上限を超えました",
           "action": "実行中のサブエージェントの終了を待って再試行してください"
-        }
-      },
+        },
+          "INVALID_ARGUMENTS": {
+            "title": "ファイル一覧の形式が不正です",
+            "action": "{ path, description } の配列で再送してください"
+          },
+          "INVALID_PATH": {
+            "title": "ファイルパスが不正です",
+            "action": "実在し、制御文字を含まないパスに変更してください"
+          },
+          "TOO_MANY_FILES": {
+            "title": "一度に登録するファイルが多すぎます",
+            "action": "最終成果物だけを選んでください（最大 8 個）"
+          },
+          "TOOL_AUTO_REVIEW_DENIED": {
+            "title": "自動レビューがこの実行を拒否しました",
+            "action": "レビュー規則を調整するか、許可された編集方法に変えてください"
+          }
+        },
       "worktree": {
         "title": "Worktree",
         "state": {
