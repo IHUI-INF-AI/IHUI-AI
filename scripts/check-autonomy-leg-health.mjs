@@ -1386,6 +1386,18 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
       next: '改成 observe 或 enforce 之一',
     }
   }
+  // 2026-11-21(第 66 项):规则表坏了必须**先**落未判定,不能先判"哑闸"。
+  // 原序是先看"有派发尝试却零 valve-* 留痕"⇒ 数据坏时闸本身可能已经抛错被吞,零留痕的成因
+  // 分不清"没走到"与"走到了但分类器炸了"⇒ 那一档的 drift 是拿"判不出"冒充"判过了"(§0.3)。
+  const covEarly = recomputeValveCoverage(events, { valveListText, now })
+  if (covEarly.status === 'bad') {
+    return {
+      dim: 'A6-human-valve-gate',
+      state: 'unjudged',
+      readout: `覆盖率复算:❌ 未判定(${covEarly.why})⇒ 闸留痕与"闸是否被走到"一并押后(不冒"哑闸"也不冒"全覆盖")`,
+      next: '先修规则表(scripts/data/human-valve-list.json 形状/JSON),再复跑本维',
+    }
+  }
   if (attempted > 0 && valveRows.length === 0) {
     return {
       dim: 'A6-human-valve-gate',
@@ -1407,7 +1419,7 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
   // 混在一个数里报,就会既有人拿"阀在拦"当成绩、也有人拿"unknown 很多"去拆 fail-closed 默认。
   const unknownStops = byRule[UNKNOWN_RULE_ID] ?? 0
   const namedStops = stopRows.length - unknownStops
-  const cov = recomputeValveCoverage(events, { valveListText, now })
+  const cov = covEarly
   const covText =
     cov.status === 'ok'
       ? ` / 覆盖率复算(当前规则表 ${cov.rules} 条,判 ${cov.faces} 枚票面):具名自决 ${cov.selfServe} · 具名停机 ${cov.namedStop} · 仍无规则 ${cov.stillUnknown}`
@@ -1554,22 +1566,64 @@ export function judgeArtifactLanding(
     .sort((a, b) => String(a.ts ?? '').localeCompare(String(b.ts ?? '')))
     .pop()
   if (landed.length === 0) {
+    // 2026-11-21(第 66 项):这一档原先把"历史累计落地 = 0"直接判红,而它读的是**全期存量**——
+    // 存量修复之后(第 64 项给落账腿补了"会话写类调用派生清单"这条取数面)它仍然红,因为其后
+    // 一枚会话都没跑过(台账近三轮全是 `no-whitelist-hit`)⇒ 把"腿没被要求答话"读成"腿坏了"。
+    // §0.2 对判历史存量的口径是只报数、红要落在可整改的那一跳上;这里的分界取**证据面**:
+    // 只有"会交产物的一轮"(会话结果档 ∩ PROGRESS_ACTIONS,即 session-ok)之后落账腿静默,
+    // 才说明它真接到了活却没答话。会话档里连一枚 session-ok 都没有 ⇒ 落地腿结构上从未被
+    // 要求答话,"它修好没修好"这一步判不出 ⇒ unjudged 并点名,由 A1/A2/A8/A14 去管"环为什么
+    // 跑不出成功会话"(那是另一条轴的归因,不让本维重复背锅)。
+    const answerable = sessions.filter((e) => PROGRESS_ACTIONS.includes(e.action))
+    const lastAnswerable = answerable[answerable.length - 1]
+    if (!lastAnswerable) {
+      return {
+        dim,
+        state: 'unjudged',
+        readout:
+          `历史累计落地 ${landed.length} 枚 / 拒绝 ${rejected.length} 枚(${dist || '无'})——` +
+          `但会话结果档 ${sessions.length} 枚里没有一枚"会交产物"的成功档(最近一枚 ${String(lastSession.ts ?? '?')} · ${String(lastSession.action)})` +
+          `⇒ 落地腿结构上从未被要求答话,修好没修好判不出;环为什么跑不出成功会话属 A1/A2/A8/A14 的轴`,
+        next:
+          '① 先读 A1/A2/A8 与台账 session-* 分布(失败 / 零写 / 零推进各占多少),那是"跑不出成功会话"的归因面;' +
+          '② 会话成功一次后本维立即转为可判:若那次之后仍无落地行,本条会当场转 drift(机制在下一档,不用改判据);' +
+          '③ 不得为了让本维转绿去编 `artifact-committed` 行或把历史拒绝档删掉 —— 存量只报数。',
+      }
+    }
+    // 最后一枚 session-ok 之后落账腿连"拒绝"都没写 ⇒ 它真接到了活却没答话 ⇒ 这才是本维要抓的红。
+    if (!lastArtifact || String(lastAnswerable.ts ?? '') > String(lastArtifact.ts ?? '')) {
+      return {
+        dim,
+        state: 'drift',
+        readout:
+          `最近一次"会交产物"的会话(${String(lastAnswerable.ts ?? '?')} · ${lastAnswerable.action})之后落账腿一枚没落:` +
+          `全期落地 0 枚 / 拒绝 ${rejected.length} 枚(${dist || '无'}),最后一条落账行 ${String(lastArtifact?.ts ?? '无')}`,
+        next:
+          '出路(按序,不许跳):① 现读 `.ihui-agent/state/ticket-artifacts/` 是否为空目录 —— 空 ⇒ 会话压根没写清单,问题在派发票与权限档,不在落账腿;' +
+          '② 有清单而整批被拒 ⇒ 逐枚看 why 里的档位(manifest-missing / invalid / stale / protected-face),每一档都得有自己的器物;' +
+          '③ 拿 `session-no-write` 与 `session-ok` 的比值判"会话是否真写了盘"(写工具命中为 0 的成功已被单列,别把它当成功);' +
+          '④ 不得靠"把 artifact-committed 加进豁免表"抹绿 —— 那正是 §0.7 禁的没验过就免。',
+      }
+    }
     return {
       dim,
-      state: 'drift',
-      readout: `自治环从未把产物送进 HEAD:会话结果档 ${sessions.length} 枚 / 落地档 0 枚 / 拒绝档 ${rejected.length} 枚(${dist || '无'})`,
+      state: 'unjudged',
+      readout:
+        `全期落地 0 枚 / 拒绝 ${rejected.length} 枚(${dist || '无'})属"会话成功但清单缺失"的**历史存量**` +
+        `(最后一枚 session-ok ${String(lastAnswerable.ts ?? '?')} 那一轮落账腿已答话 = 拒绝,最后一条落账行 ${String(lastArtifact.ts ?? '?')});` +
+        `此后没有新的 session-ok ⇒ 修好没修好判不出(下一枚 session-ok 一到即转可判)`,
       next:
-        '出路(按序,不许跳):① 现读 `.ihui-agent/state/ticket-artifacts/` 是否为空目录 —— 空 ⇒ 会话压根没写清单,问题在派发票与权限档,不在落账腿;' +
-        '② 有清单而整批被拒 ⇒ 逐枚看 why 里的档位(manifest-missing / invalid / stale / protected-face),每一档都得有自己的器物;' +
-        '③ 拿 `session-no-write` 与 `session-ok` 的比值判"会话是否真写了盘"(写工具命中为 0 的成功已被单列,别把它当成功);' +
-        '④ 不得靠"把 artifact-committed 加进豁免表"抹绿 —— 那正是 §0.7 禁的没验过就免。',
+        '存量只报数、不恒红(§0.2);要它转绿只需来一轮"会交产物"的会话:① 派单面出一枚命中白名单的票(政策面,见 A4);' +
+        '② 会话写盘后由落账腿按"会话清单优先 → 转录派生兜底"提交;③ 不得为转绿编 `artifact-committed` 行或删历史拒绝档。',
     }
   }
-  if (lastArtifact && String(lastSession.ts ?? '') > String(lastArtifact.ts ?? '')) {
+  // 与上一档同一口径:只问"会交产物的一轮"之后落账腿有没有答话;零写/失败的会话不该被要求落账。
+  const lastAnswerableSession = sessions.filter((e) => PROGRESS_ACTIONS.includes(e.action)).pop()
+  if (lastAnswerableSession && lastArtifact && String(lastAnswerableSession.ts ?? '') > String(lastArtifact.ts ?? '')) {
     return {
       dim,
       state: 'drift',
-      readout: `最近一次会话结果档(${String(lastSession.ts ?? '?')} · ${lastSession.action})之后落账腿没答话(最后一条落账行 ${String(lastArtifact.ts ?? '?')})⇒ 会话判成功而落账环节静默`,
+      readout: `最近一次"会交产物"的会话(${String(lastAnswerableSession.ts ?? '?')} · ${lastAnswerableSession.action})之后落账腿没答话(最后一条落账行 ${String(lastArtifact.ts ?? '?')})⇒ 会话判成功而落账环节静默`,
       next: '核 landTicketArtifacts 是否在 dispatchSession 返回后被调用、是否中途 return(静默中断就是这条判据要抓的形态)',
     }
   }
@@ -2110,7 +2164,7 @@ async function selfTest() {
       })
       return (
         r.state === 'ok' &&
-        r.readout.includes('仍无规则 0') &&
+        r.readout.includes('无规则可判 2') &&
         r.next.includes('旧版分类器') &&
         !r.next.includes('MATCHERS 补形态')
       )
@@ -2152,7 +2206,7 @@ async function selfTest() {
       })
       return (
         r.state === 'drift' &&
-        r.readout.includes('仍无规则 1') &&
+        r.readout.includes('记为"会拦" 1 条') &&
         r.next.includes('MATCHERS 补形态') &&
         r.next.includes('zzz-清单里从没人写过的动作')
       )
@@ -2827,13 +2881,14 @@ async function selfTest() {
     })(),
   )
   ok(
-    'H59 A12 取料层真跑给三态之一且覆盖全 12 腿(装车自证)',
+    'H59 A12 取料层真跑给三态之一且覆盖登记表全部腿(装车自证)',
     (() => {
       const r = judgeLegOutputsFace({ root: ROOT, now: N12 })
       return (
         ['ok', 'drift', 'unjudged'].includes(r.state) &&
         r.dim === 'A12-leg-output-reconciliation' &&
-        classifyLegOutputs({ legs: REG12().legs, ledgers: {}, now: N12 }).rows.length === 12
+        classifyLegOutputs({ legs: REG12().legs, ledgers: {}, now: N12 }).rows.length ===
+          REG12().legs.length
       )
     })(),
   )
@@ -2844,17 +2899,27 @@ async function selfTest() {
     ) && /if \(outputAll\) dims\.push\(outputAll\)/.test(healthSrc),
   )
   ok(
-    'H61 登记表 12 腿全覆盖且产出字段齐备(A12 覆盖面锁)',
+    'H61 登记表全腿覆盖且每腿产出字段齐备(或显式 coveredBy / none)(A12 覆盖面锁)',
     (() => {
       const reg = REG12()
+      const n = reg.legs.length
       return (
-        reg.legs.length === 12 &&
-        new Set(reg.legs.map((l) => l.stamp)).size === 12 &&
-        reg.legs.every(
-          (l) =>
-            ['always', 'conditional', 'none'].includes(l.outputKind) &&
-            Number.isInteger(l.silenceCeilingMs),
-        )
+        // 腿数不写死:第 60 项起登记表由"盘上真戳"补到 16 枚;写死 12 会让这把锁在补登记时整片假红。
+        n >= 12 &&
+        new Set(reg.legs.map((l) => l.stamp)).size === n &&
+        reg.legs.every((l) => {
+          if (l.coveredBy) return true
+          if (!['always', 'conditional', 'none'].includes(l.outputKind)) return false
+          // none = 结构性无产出账(判据门/基线面),由 A8 量戳,本来就没有产出窗口 ⇒ 不要求窗口/路径。
+          if (l.outputKind === 'none') return true
+          return (
+            typeof l.outputRel === 'string' &&
+            l.outputRel.length > 0 &&
+            !/\//.test(l.outputRel) && // 相对 .ihui-agent/state,写全路径会被判据层再拼一次(第 65 项二修实录)
+            ['ts', 'at'].includes(l.outputTimeField) &&
+            Number.isInteger(l.silenceCeilingMs)
+          )
+        })
       )
     })(),
   )
@@ -2870,14 +2935,44 @@ async function selfTest() {
     { sessionResultActions: S13 },
   )
   ok(
-    'H62 真况回放:有会话结果档而落地档为 0 ⇒ drift,读数报出拒绝分布与"从未"',
+    'H62 真况回放:会话成功过、落地档为 0、最后一轮已答话(拒绝)⇒ 存量报数 + unjudged(不恒红)',
     (() => {
       return (
         a13Never.dim === 'A13-artifact-landing' &&
-        a13Never.state === 'drift' &&
-        a13Never.readout.includes('从未把产物送进 HEAD') &&
+        a13Never.state === 'unjudged' &&
+        a13Never.readout.includes('历史存量') &&
         a13Never.readout.includes('artifact-manifest-missing×2') &&
-        a13Never.next.includes('ticket-artifacts')
+        a13Never.next.includes('存量只报数')
+      )
+    })(),
+  )
+  ok(
+    'H62b 反向:最后一枚 session-ok 之后连拒绝行都没有 ⇒ drift(真静默要抓住)',
+    (() => {
+      const r = judgeArtifactLanding(
+        [
+          { action: 'artifact-manifest-missing', ticketKey: 'k1', ts: '2026-11-04T07:00:05.000Z' },
+          { action: 'session-ok', ticketKey: 'k2', ts: '2026-11-04T08:00:00.000Z' },
+        ],
+        { sessionResultActions: S13 },
+      )
+      return r.state === 'drift' && r.readout.includes('一枚没落')
+    })(),
+  )
+  ok(
+    'H62c 会话档里没有一枚 session-ok ⇒ unjudged,点名"从未被要求答话"(不把环跑不出成功会话算成落地腿坏)',
+    (() => {
+      const r = judgeArtifactLanding(
+        [
+          { action: 'session-no-write', ticketKey: 'k1', ts: '2026-11-19T21:22:34.764Z' },
+          { action: 'session-failed', ticketKey: 'k2', ts: '2026-11-19T18:21:02.914Z' },
+        ],
+        { sessionResultActions: S13 },
+      )
+      return (
+        r.state === 'unjudged' &&
+        r.readout.includes('从未被要求答话') &&
+        r.next.includes('A1/A2/A8')
       )
     })(),
   )
@@ -2947,7 +3042,13 @@ async function selfTest() {
         gatesText: g,
         events: { ok: true, events: [] },
         ticketRows: [{ text: 'a', line: 1 }],
-        landing: a13Never,
+        landing: judgeArtifactLanding(
+          [
+            { action: 'artifact-manifest-missing', ticketKey: 'k1', ts: '2026-11-04T07:00:05.000Z' },
+            { action: 'session-ok', ticketKey: 'k2', ts: '2026-11-04T08:00:00.000Z' },
+          ],
+          { sessionResultActions: S13 },
+        ),
       })
       return r.state === 'drift' && r.dims.some((d) => d.dim === 'A13-artifact-landing')
     })(),
