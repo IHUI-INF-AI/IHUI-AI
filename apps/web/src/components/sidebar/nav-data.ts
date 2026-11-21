@@ -533,12 +533,14 @@ export const DEVELOPER_HUB_ITEMS: NavItem[] = [
 /**
  * /developer 域项(2026-08-30 瘦身 → 2026-10-23 P2 收敛第一批)
  *
- * 2026-10-20 简洁模式:本域除末尾 2 项 adminOnly 外全部落 `developer` 档 ——
+ * 2026-10-20 简洁模式:本域全部落 `developer` 档 ——
  * 整个域面向"来接 API 的外部开发者",与本站普通创作者/学习者毫无交集。
  * 档位与 adminOnly/permission 是三层独立判据,禁止合并成一个字段(AGENTS §4「侧边栏
  * 可见性三层分治」)。
- * 末尾两项 adminOnly(IoT TBox 设备后台 / Meta-Learner 自进化管理)原位保留:
- * 它们归 admin 组还是开发者组属管理域收敛批次的裁决,不在本批范围。
+ * 2026-11-21 归位:原挂在末尾的两枚 adminOnly 管理页(IoT TBox 设备后台 /
+ * Meta-Learner 自进化管理)已迁入 ADMIN_ITEMS。判据是"给谁用"—— 两者都是 admin
+ * 专属后台,与"接 API 的外部开发者"不是同一受众;留在本组会让侧边栏显出
+ * 「一个域入口 + 两枚孤立管理页」的异形,与其它分类「单入口 → 域落地页」不一致。
  * 〔2026-11-16 用户规范〕父项 children 已摘(侧边栏不许下拉),20 项子页面清单改由
  * DEVELOPER_HUB_ITEMS 导出;入口 href 改指域页 /domains/developer,与其他域同形态。
  */
@@ -549,10 +551,6 @@ const DEVELOPER_ITEMS: NavItem[] = [
     icon: Terminal,
     advancedOnly: 'developer',
   },
-  // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)——设备后台管理,仅 admin 可见
-  { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu, adminOnly: true },
-  // 2026-08-08 feature-final2:自进化系统管理(Meta-Learner)——/admin/* 后端 admin 权限,仅 admin 可见
-  { href: '/admin/meta-learner', labelKey: 'eduAiMetaLearner', icon: Brain, adminOnly: true },
 ]
 
 /** 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"可展开子菜单 */
@@ -777,6 +775,13 @@ const ADMIN_ITEMS: NavItem[] = [
     adminOnly: true,
     children: ADMIN_THEME_CHILDREN,
   },
+  // 2026-11-21 归位(开发者组迁入):这两枚一直是 admin 专属后台,留在侧边栏「开发者」
+  // 分组末尾会把该组做成「一个单入口 + 两枚孤立管理页」的异形(且该两枚不带域入口形态,
+  // 与其它分类「单入口 → 域落地页」不一致,用户实报"不像菜单按钮")。
+  // 判据按受众:开发者域服务"来接 API 的外部开发者",这两页服务 admin 的运营后台。
+  // 页面与 URL 一个不改,入口改由 /domains/admin 卡片网格承载(本清单即其唯一数据源)。
+  { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu, adminOnly: true },
+  { href: '/admin/meta-learner', labelKey: 'eduAiMetaLearner', icon: Brain, adminOnly: true },
   // 11 个 admin 运营域分组(运营/内容审核/财务/AI智能体/营销直播/课程考试/监控BI/客服工单/社区圈子/资源中心/开发者中心)
   ...ADMIN_NAV_GROUPS.map(adminGroupToNavItem),
 ]
@@ -872,8 +877,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   // 开发者分组(2026-07-20 新增):整合原 /developer/layout.tsx 14 项页面级菜单栏
   // 2026-11-16 用户规范:本组与其他域同为「单入口 → 右侧工作区页」形态 ——
-  // 侧边栏入口 /domains/developer(20 项子页面清单见 DEVELOPER_HUB_ITEMS,URL 全保留),
-  // 2 枚 adminOnly 管理项原位保留。
+  // 侧边栏入口 /domains/developer(20 项子页面清单见 DEVELOPER_HUB_ITEMS,URL 全保留)。
+  // 2026-11-21:原挂在组末尾的 2 枚 adminOnly 管理项(IoT TBox / Meta-Learner)迁入
+  // ADMIN_ITEMS —— 它们服务 admin 运营后台,不是"接 API 的外部开发者",本组回归单入口。
   {
     label: 'developerGroup',
     items: DEVELOPER_ITEMS,
@@ -976,9 +982,7 @@ const DOMAIN_ENTRY_ITEM_HREFS: Record<string, string[]> = Object.fromEntries(
       ['/domains/developer', DEVELOPER_HUB_ITEMS],
       ['/domains/admin', ADMIN_HUB_ITEMS],
     ] as const
-  ).map(
-    ([entry, items]) => [entry, flattenNavItems(items).map((item) => item.href)] as const,
-  ),
+  ).map(([entry, items]) => [entry, flattenNavItems(items).map((item) => item.href)] as const),
 )
 
 /**
