@@ -37,18 +37,23 @@ export default defineConfig({
     // `.gitignore` 的 `.ihui-agent/*` 拦不住这件事:那只管 git,收集面走的是文件系统 glob。
     // 必须带 `**/` 前缀:实测 picomatch.isMatch 下 `.ihui-agent/**` 只匹配顶层那一份,
     // 放过 `src/x/.ihui-agent/**` 这类任意嵌套落点(工位/工作树常直接落在包目录下)。
-    exclude: [
-      '**/node_modules/**',
-      '**/e2e/**',
-      '**/tests/visual/**',
-      '**/.ihui-agent/**',
-    ],
+    exclude: ['**/node_modules/**', '**/e2e/**', '**/tests/visual/**', '**/.ihui-agent/**'],
     // 2026-08-06 根治 .vite-temp 缓存污染:vite 的 loadConfigFromBundledFile 把转译后的
     // TS 配置文件写入 node_modules/.vite-temp/,多 vitest 进程/worker 并发写同一目录时
     // 互相覆盖 → 残留损坏 mjs → 全量跑偶发"49 失败"/空输出。
-    // fileParallelism=false 让测试文件串行执行,单 worker 写缓存,从源头杜绝并发冲突
-    // (此前靠跑前手动清 .vite-temp 只能治标,重启测试又再生)。
-    fileParallelism: false,
+    // 当时的处置是 fileParallelism=false 让测试文件串行执行、单 worker 写缓存。
+    //
+    // 2026-11-22 复评并改处置(极致提速,机主令):上面那条把 931 个文件**完全串行**跑,
+    // 单包全量 30 分钟(日志实测 transform 39s / setup 4s / import 692s / tests 235s /
+    // environment 671s —— 断言只占 4 分钟,其余全是"一个文件一个文件排队起环境+import")。
+    // 提速的正解不是改断言语义,而是把串行改回并行 + 给"缓存并发写"留安全边界:
+    //   · fileParallelism=true           —— 文件级并行,瓶颈直接从 ~30min 掉到分钟级;
+    //   · maxWorkers=8                   —— 12 核 / 20 线程留出余量(turbo 还会并行跑别的包),
+    //                                      同时把"8+ worker 极端争用 .vite-temp"的旧故障形态挡在外面;
+    //   · 配置只加载一次在主进程,旧故障是**多进程**争用,故并行 worker 本身不放大该风险;
+    //                                      若再复现"49 失败/空输出",回退口径是 maxWorkers 降到 4,而不是关并行。
+    fileParallelism: true,
+    maxWorkers: 8,
     // 2026-08-17 立 tests/setup.ts:monkey-patch Error.prepareStackTrace,
     // 避免 vitest 4 + Vite 6 + jsdom 30 组合下,base64 sourcemap URL 导致正则回溯栈溢出
     setupFiles: ['./tests/setup.ts'],

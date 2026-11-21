@@ -33,12 +33,18 @@ beforeEach(() => {
 
 /** 选中第一个推荐场景并点「发起分析」(DialogContent 走 portal ⇒ 一律用 screen 查 body) */
 async function pickScenarioAndSubmit(): Promise<void> {
-  await waitFor(() => {
-    expect(screen.getAllByTestId('import-analysis-recommended').length).toBeGreaterThan(0)
-  })
+  // 2026-11-22 实测(turbo 全仓轮):建议场景列表要等对话框挂载后异步填充,默认 waitFor 1s 预算
+  // 在多包并发 + 慢 IO 下被吃满 ⇒ 报「Unable to find element … import-analysis-recommended」。
+  // 抬到 5s;单跑 3 条用时 517ms,断言与交互语义一条未改。
+  await waitFor(
+    () => {
+      expect(screen.getAllByTestId('import-analysis-recommended').length).toBeGreaterThan(0)
+    },
+    { timeout: 5_000 },
+  )
   fireEvent.click(screen.getAllByTestId('import-analysis-recommended')[0]!)
   const submit = screen.getByTestId('import-analysis-submit') as HTMLButtonElement
-  await waitFor(() => expect(submit.disabled).toBe(false))
+  await waitFor(() => expect(submit.disabled).toBe(false), { timeout: 5_000 })
   fireEvent.click(submit)
 }
 
