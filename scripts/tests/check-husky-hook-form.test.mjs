@@ -110,6 +110,10 @@ t('M8 H3 装载位:core.hooksPath 指向不存在目录判红,齐备薄壳零违
   if (G.judgeHooksInstall(ROOT, { configValue: '.husky', exists: () => true }) !== null) throw new Error('齐备薄壳被误判')
   const unset = G.judgeHooksInstall(ROOT, { configValue: '', exists: (p) => /pre-commit$/.test(p) })
   if (!unset || !/\.git[\\/]hooks/.test(unset.detail)) throw new Error(`未设置时未回落到 .git/hooks:${JSON.stringify(unset)}`)
+  // 第 90 项反向牙:`.husky/_` 与 `.git/hooks` 两处都没有真钩子 ⇒ 是"没装",按未判定放行(不记绿)——
+  // 否则每台干净检出的 CI 都会被这盏红灯照到(§12e 恒红门)。
+  const none = G.judgeHooksInstall(ROOT, { configValue: '', exists: () => false })
+  if (!none || none.rule !== 'H3' || !none.undetermined) throw new Error(`没装 husky 应判未判定而非判红:${JSON.stringify(none)}`)
 })
 
 let pass = 0

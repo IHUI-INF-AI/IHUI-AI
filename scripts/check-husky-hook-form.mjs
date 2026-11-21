@@ -252,17 +252,26 @@ function judgeHooksInstall(root, { configValue, exists = existsSync } = {}) {
       val = '' // 未设置:git 回落到 .git/hooks(本仓默认无钩子 ⇒ 下面按缺件判红)
     }
   }
-  // 干净检出/CI 未安装 husky：hooksPath 未设置且 .husky/_ 不存在 ⇒ 装载面本身不存在,
-  // 判 H3 红是拿"没装"当"装错了"(结构上不可能满足,恒红)。按未判定放行,不记绿。
-  if (!val && !exists(join(root, '.husky', '_'))) {
+  // 干净检出/CI 未安装 husky：hooksPath 未设置 且 `.husky/_` 不存在 且 `.git/hooks` 里连一枚
+  // 真钩子都没有 ⇒ 装载面本身不存在,判 H3 红是拿"没装"当"装错了"(结构上不可能满足,恒红)。
+  // 按未判定放行,不记绿。
+  //
+  // 第 90 项(2026-11-21):本门的声明一直是「未设置按 .git/hooks 判」,而这里**只要 `.husky/_` 不在
+  // 就整片未判定** —— 一台真正用 `.git/hooks`(core.hooksPath 没设、钩子放默认位)的机器,
+  // 哪怕 pre-commit 缺失也永远判不出来。处置:未设置时先看 `.git/hooks` 有没有真钩子,
+  // 有 ⇒ 按默认位照判(缺件照样红);两者都没有才算"没装"⇒ 未判定。判据面只放宽了"没装"那一格。
+  const defaultHooksDir = resolve(root, '.git', 'hooks')
+  const defaultHasHook =
+    exists(join(defaultHooksDir, 'pre-commit')) || exists(join(defaultHooksDir, 'post-commit'))
+  if (!val && !exists(join(root, '.husky', '_')) && !defaultHasHook) {
     return {
       rule: 'H3',
       path: 'core.hooksPath',
       undetermined:
-        '未安装 husky(core.hooksPath 未设置且 .husky/_ 不存在) ⇒ 钩子装载面不存在,不判 H3',
+        '未安装 husky(core.hooksPath 未设置、.husky/_ 不存在、.git/hooks 也没有 pre-commit/post-commit) ⇒ 钩子装载面不存在,不判 H3',
     }
   }
-  const dir = val ? (isAbsolute(val) ? val : resolve(root, val)) : resolve(root, '.git', 'hooks')
+  const dir = val ? (isAbsolute(val) ? val : resolve(root, val)) : defaultHooksDir
   const missing = ['pre-commit', 'post-commit'].filter((h) => !exists(join(dir, h)))
   if (missing.length === 0) return null
   return {
