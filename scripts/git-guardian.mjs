@@ -2309,13 +2309,20 @@ function auditDiskRootHygiene() {
     }
     const c = parsed.counts || {}
     const uN = Number(c.diskRootUndetermined) || 0
+    // 第 83 项(2026-11-21):H3 起尺子单列 `declaredContentUndetermined`,但消费侧从未定义过它 ——
+    // 下面 red 分支的日志行引用了 `${cuN}`,每次判红都在拼字符串那一刻抛 ReferenceError,
+    // 被外层 catch 接住后只落一行「盘根卫生自身异常:cuN is not defined」⇒ **判红这件事本身
+    // 变成一次异常**,整改方向(哪几维没判)也从日志里消失。这正是「读数把人读错」。
+    // 取数面与尺子 counts 逐字同名,不再另起口径。
+    const cuN = Number(c.declaredContentUndetermined) || 0
     const wN = Number(c.worktreeUndetermined) || 0
     const nN = Number(c.diskRootNotApplicable) || 0
     if (parsed.verdict === 'undetermined') {
       // 未判定必须**逐维**报名:旧写法只印 worktree 一维,于是"本机盘根没在 config 申报"
       // 这一整格在日志里长得像"盘根那维已经判过了"(把没判写成判过了,同一条禁令)。
+      // 第 83 项:内容维(H3 申报目录对账)也必须有人念,否则它缺位时和"已判干净"同形。
       log(
-        `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
+        `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、申报内容维 ${cuN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
       )
       return
     }
@@ -2325,6 +2332,11 @@ function auditDiskRootHygiene() {
       // 那会把"尺子看不懂载荷"伪装成"又有一处落点外",既误导整改方向也污染信文)。
       const LABEL = {
         'stray-root-entry': (v) => `盘根外流: ${v.path || `${v.root}${v.entry}`}`,
+        // 第 83 项:尺子的 H3 内容维从 2026-11-13 起就会产出这一型(申报目录内、白名单外的
+        // 项目产物),而消费侧词汇表一直没登记它 ⇒ 信文把"申报目录内项目外流"喊成
+        // "未识别的违规类别,请核对尺子与本守护是否同代",整改方向直接被误导。措辞带账龄。
+        'stray-content-in-declared-dir': (v) =>
+          `申报目录内项目外流: ${v.path}(不在该目录白名单 ${String(v.entry ?? '')} 内,账龄 ${Number(v.ageHours) || 0}h ⇒ 移送白名单或清理)`,
         'worktree-outside-sanctioned-root': (v) =>
           `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`,
         // Y-71(临时派生检出寿命闸@2026-11-14):孤儿壳 = .git 链接已断,git prune 与
@@ -2356,7 +2368,7 @@ function auditDiskRootHygiene() {
       )
       log(
         `⚠️ 盘根卫生判红:外流 ${Number(c.diskRootStray) || 0} / 申报目录内 ${Number(c.declaredContentStray) || 0} / worktree 落点外 ${Number(c.worktreeOutside) || 0} / 孤儿壳 ${Number(c.orphanWorktreeShell) || 0}` +
-          `(未判定 盘根 ${uN}、内容 ${cuN}、worktree ${wN};不适用 ${nN})`,
+          `(未判定 盘根维 ${uN}、申报内容维 ${cuN}、worktree 维 ${wN};不适用盘根 ${nN})`,
       )
       return
     }
