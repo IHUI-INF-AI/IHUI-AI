@@ -219,7 +219,10 @@ describe('detectClientProcesses:镜像名可配(Qoder/Trae 搬家复用同一道
     }
     // 本用例真的 spawn 一次 tasklist:本机重负载下实测单次可吃 15s 预算(2026-11-21 全量档
     // 三次重试全超时),而判据是"返回形态"不是子进程吞吐 ⇒ 预算 60s,断言零改动。
-  }, 60_000)
+    // 2026-11-22 追加:web 并行提速后全仓争核更重,第 17 轮实测 60s 也被打穿
+    // ("Test timed out in 60000ms") ⇒ 抬到 120s。tasklist 是系统级重操作(多 worker 同时跑会
+    // 互相排队),预算随并发档调整,判据一条未改。
+  }, 120_000)
 })
 
 describe('main move --account:互斥 / apply / 逐条 undo', () => {
