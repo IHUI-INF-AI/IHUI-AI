@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **78 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **79 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（78 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（79 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -965,6 +965,31 @@
   `node --check scripts/git-guardian.mjs` 通过；落地后重跑 `check-guardian-dispatch-claims` 该枚
   从红项转为已接线（声称 14 / 已接线 11 / 诚实说明 3）。
 - 边界：本项只补调度，不替尺子改判据；breach 仍只出声不寄信（整改动作归 agent 当场做）。
+
+### 5.79 第 79 项：user_feedback 单源入口"器物齐、诚实写着零调用点"—— 那一源事实上永远进不了账
+
+- 现场：第 78 项落地后 `check-guardian-dispatch-claims` 现读 `ok: 声称 14 / 已接线 11 / 诚实说明 3`，
+  三枚"诚实说明"是 `check-dev-db-rotation-window`、`relay-account-keepalive`、`user-feedback-intake`。
+  前两枚的前提确实不成立（前者要等 DB 轮换窗口、后者的常驻腿已换承载体）；`user-feedback-intake.mjs`
+  头注自述"全仓 **零调用点** —— 没有 guardian 派发、没有 npm script、没有 CI 步骤（§0.9）"，
+  而它 import 的是 `incident-cluster` 的 `identityOf`、`monitor-signal-intake` 的 `planIntake/appendSignals`
+  —— 判据全对、映射全对，**一条调度面也没有**：本地导出件再新也没人读，`SOURCE_PLAN.user_feedback`
+  那一源永远是空的（`incident-signals.jsonl` 现读确无一条 user_feedback）。
+- 处置：新增 `dispatchUserFeedbackIntake`（第 77 项那一族的第三枚，同一形状）：
+  - 30 分钟节流（`IHUI_USER_FEEDBACK_INTAKE_INTERVAL_MS` 可调），戳 `user-feedback-intake-dispatch-last.json`；
+  - 关断 `IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_INTAKE=1`；器物缺席 ⇒ `ran:false` 且**不写戳**；
+  - 派发必带 `--apply --json`（器物默认 dry-run）；
+  - 三态只认结论行：`judged=0` 或 `undetermined≠0`（导出件缺失/陈旧/契约坏）⇒ `ok:false` 并逐行 warn，
+    `signals=N … undetermined=0` 才记绿；无结论行同样落未判定；
+  - 双挂点：`if (!CHECK_ONLY) dispatchUserFeedbackIntake()` 与 daemon tick 直调（与 monitor 入库相邻，
+    保住契约测试钉的那一行 `if (!CHECK_ONLY) dispatchMonitorSignalIntake()` 原样）。
+  - 器物头注的"零调用点"改为如实记载调度面（诚实说明必须能被证伪，否则它就是下一枚假绿）。
+- 验证：新增 `scripts/tests/user-feedback-intake-dispatch.test.mjs` **3 passed**（①导出 + ≥2 挂点 /
+  ②signals 记绿、`judged=0` 与 `undetermined≠0` 记未判定、无结论行记未判定 / ③节流 now·+60s·+31min、
+  关断开关、器物缺席不写戳）；连同第 77/78 项两枚接线锁一次跑 **13 passed**；
+  `node --check scripts/git-guardian.mjs` 通过；`check-guardian-dispatch-claims` 该枚从"诚实说明"转"已接线"。
+- 边界：本项只补调度与如实头注，不改 `planIntake`/`identityOf` 任何判据（单一真相源仍在那两处）；
+  导出件陈旧时仍记未判定，不替它伪造信号。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
