@@ -215,8 +215,13 @@ interface StatChipConfig {
   label: string
   /** 值为 0 时是否隐藏(默认隐藏,避免无意义展示) */
   hideOnZero?: boolean
-  /** 颜色样式 */
-  colorClass?: string
+  /**
+   * 仅「数值」的语义色(增绿/减红这种有方向的语义),**不作用于图标**。
+   * 2026-11-21 统一档:此前这里叫 colorClass 且作用在整个 chip 上,于是每个统计项
+   * 各配一色(blue/cyan/amber/violet/orange/sky/emerald/rose)⇒ 同一行里图标颜色
+   * 参差,与过程行「图标恒墨色、只有 error 才红」的标准直接冲突。装饰性配色一律撤销。
+   */
+  valueClass?: string
 }
 
 /** 单个统计 chip(折叠态一行显示) */
@@ -225,29 +230,26 @@ function StatChip({
   value,
   label,
   hideOnZero = true,
-  colorClass,
+  valueClass,
   testId,
 }: {
   Icon: React.ComponentType<{ className?: string }>
   value: number
   label: string
   hideOnZero?: boolean
-  colorClass?: string
+  valueClass?: string
   testId: string
 }) {
   if (hideOnZero && value === 0) return null
   return (
     <Tooltip content={label}>
       <span
-        className={cn(
-          'inline-flex h-4 min-w-4 shrink-0 items-center gap-1 rounded-sm bg-muted/50 px-1 text-[11px] leading-none tabular-nums text-muted-foreground',
-          colorClass,
-        )}
+        className="inline-flex h-4 min-w-4 shrink-0 items-center gap-1 rounded-sm bg-muted/50 px-1 text-[11px] leading-none tabular-nums text-foreground"
         aria-label={label}
         data-testid={testId}
       >
-        <Icon className="h-3 w-3" aria-hidden />
-        <span className="font-medium">{value}</span>
+        <Icon className="h-3 w-3 text-foreground" aria-hidden />
+        <span className={cn('font-medium', valueClass)}>{value}</span>
       </span>
     </Tooltip>
   )
@@ -467,21 +469,18 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       Icon: FileSearch,
       value: effectiveSummary.filesSearched,
       label: t('toolSummaryFilesSearched'),
-      colorClass: 'text-blue-500/80',
     },
     {
       key: 'webSearched',
       Icon: Globe,
       value: effectiveSummary.webSearched,
       label: t('toolSummaryWebSearched'),
-      colorClass: 'text-cyan-500/80',
     },
     {
       key: 'filesModified',
       Icon: FilePen,
       value: effectiveSummary.filesModified,
       label: t('toolSummaryFilesModified'),
-      colorClass: 'text-amber-500/80',
     },
     // ── 2026-10-29 补齐的三档(遵循统一工程规范
     //    edits / terminalCommands)。插在"文件修改"之后、"行数"之前:语义上先"动了什么"
@@ -495,7 +494,6 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             Icon: FolderTree,
             value: effectiveSummary.directories,
             label: t('toolSummaryDirectories'),
-            colorClass: 'text-violet-500/80',
           },
         ]
       : []),
@@ -506,7 +504,6 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             Icon: SquarePen,
             value: effectiveSummary.edits,
             label: t('toolSummaryEdits'),
-            colorClass: 'text-orange-500/80',
           },
         ]
       : []),
@@ -517,7 +514,6 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             Icon: Terminal,
             value: effectiveSummary.terminalCommands,
             label: t('toolSummaryTerminalCommands'),
-            colorClass: 'text-sky-500/80',
           },
         ]
       : []),
@@ -526,14 +522,14 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       Icon: Plus,
       value: effectiveSummary.linesAdded,
       label: t('toolSummaryLinesAdded'),
-      colorClass: 'text-emerald-500/80',
+      valueClass: 'text-emerald-500',
     },
     {
       key: 'linesDeleted',
       Icon: Minus,
       value: effectiveSummary.linesDeleted,
       label: t('toolSummaryLinesDeleted'),
-      colorClass: 'text-rose-500/80',
+      valueClass: 'text-rose-500',
     },
   ]
 
@@ -572,7 +568,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
                 Icon={Icon}
                 value={c.value}
                 label={c.label}
-                colorClass={c.colorClass}
+                valueClass={c.valueClass}
                 testId={`tool-call-summary-chip-${c.key}`}
               />
             )
@@ -581,11 +577,11 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             effectiveSummary.totalDurationMs > 0 && (
               <Tooltip content={t('toolSummaryDuration')}>
                 <span
-                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[11px] tabular-nums text-muted-foreground/70"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[11px] tabular-nums text-foreground"
                   aria-label={t('toolSummaryDuration')}
                   data-testid="tool-call-summary-chip-duration"
                 >
-                  <Clock className="h-3 w-3" aria-hidden />
+                  <Clock className="h-3 w-3 text-foreground" aria-hidden />
                   <span className="font-medium">
                     {formatDuration(effectiveSummary.totalDurationMs)}
                   </span>
