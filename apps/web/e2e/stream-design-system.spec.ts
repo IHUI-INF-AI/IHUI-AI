@@ -272,6 +272,13 @@ test.describe('消息流活动区设计系统', () => {
     //    (不钉字面串:token 归零时浏览器把 translate 序列化成 "0px",钉 "0px 0px" 会假红)
     expect(probe.token).not.toBe('')
     expect([...new Set(probe.rows.map((r) => r.translate))]).toHaveLength(1)
+
+    // ⑤ 引导线轨道不得压在图标上:组内让位由 StreamGroup 一处施加,行图标必须落在轨道右侧 ≥2px
+    const rail = await group.locator(':scope > span[aria-hidden="true"]').first().boundingBox()
+    if (rail) {
+      const railRight = rail.x + rail.width
+      expect(probe.rows.filter((r) => r.iconLeft !== null && r.iconLeft - railRight < 2)).toEqual([])
+    }
   })
 
   // 2026-11-21 用户口径:行尾的度量/耗时/状态必须紧跟前文(不再被 flex-1 顶到行末)。

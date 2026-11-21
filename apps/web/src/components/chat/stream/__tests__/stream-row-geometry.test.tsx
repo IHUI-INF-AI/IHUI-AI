@@ -22,7 +22,12 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
-import { STREAM_HEADER_ROW_CLASS, StreamRow } from '../stream-ui'
+import {
+  STREAM_GROUP_BODY_CLASS,
+  STREAM_HEADER_ROW_CLASS,
+  StreamGroup,
+  StreamRow,
+} from '../stream-ui'
 
 describe('StreamRow 几何单一来源', () => {
   it('可点击与展示两个分支的行几何逐字相同', () => {
@@ -91,6 +96,28 @@ describe('StreamRow 几何单一来源', () => {
     expect(elapsedIdx).toBeGreaterThan(-1)
     // 且每个前文元素都不许自己带 flex-1(它会把后面所有内容推开)
     expect(kids.filter((k) => k.className.includes('flex-1'))).toHaveLength(1)
+  })
+
+  it('组内左让位由 StreamGroup 一处施加(引导线轨道不会压在图标上)', () => {
+    const { container } = render(
+      <StreamGroup active={false} stepCount={2} headline="步骤" open onOpenChange={() => {}}>
+        <div className="space-y-1">
+          <StreamRow status="success" title="思考过程" />
+        </div>
+      </StreamGroup>,
+    )
+    // 展开体的唯一包裹层必须带让位档:漏套 = 行图标落回 4px 处、被 7px 轨道穿过
+    const body = container.querySelector('[data-stream-group-body="true"]')
+    expect(body).not.toBeNull()
+    expect(body?.className).toContain(STREAM_GROUP_BODY_CLASS)
+    // 拱起让位档的只有这一个节点,调用方再套一层就会变成双倍缩进
+    const indenters = [...container.querySelectorAll('[class]')].filter(
+      (el) =>
+        el.className.includes('ml-1.5') &&
+        el.className.includes('pl-3') &&
+        el.getAttribute('data-stream-group-body') === 'true',
+    )
+    expect(indenters).toHaveLength(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
