@@ -6613,7 +6613,7 @@ export async function sweepIpAttributionTrust(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = IP_TRUST_INTERVAL_MS,
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'ip-attribution-trust-sweep-last.json'),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'ip-attribution-dispatch-last.json'),
     logger = log,
     runner = null,
     scriptFile = null,
