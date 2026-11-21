@@ -10421,10 +10421,25 @@
     "shareCopied": "Link copied",
     "templates": "Templates",
     "terminalDock": {
+      "backToIde": "Back to IDE terminal",
+      "showAgentFace": "View agent terminal screen",
       "collapse": "Collapse",
       "newSession": "New Terminal",
       "resize": "Resize",
       "title": "PowerShell Terminal"
+    },
+    "agentTerminal": {
+      "altScreen": "Alt screen",
+      "cursor": "Cursor",
+      "empty": "No agent terminal in this session yet (it appears once the model opens one with the terminal tool)",
+      "exited": "Exited",
+      "failed": "Screen unavailable",
+      "links": "Hyperlinks (shown text and real target side by side, neither is clickable)",
+      "noIntegration": "No shell integration (cannot tell whether it is at a prompt)",
+      "noSession": "No ai-service session id yet (send a message first)",
+      "refresh": "Refresh now",
+      "running": "Running",
+      "title": "Agent terminal screen"
     },
     "thisMonth": "This Month",
     "earlier": "Earlier",

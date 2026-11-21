@@ -1024,3 +1024,151 @@ export async function revokeApprovalGrant(cacheKey: string, kind = 'exec_prefix'
     )
   }
 }
+
+/* ───────────────────────── agent 终端屏幕(只读读回) ─────────────────────────
+ * 2026-11-21 立:ai-service 的 `interactive_terminal` 是**模型侧**真 PTY,此前只有
+ * `terminal-input`(人类→程序)一条上行通道,模型开出来的终端在网页上完全看不见。
+ * 这两条是它的只读读回面(列表 + 一块屏),供面板画"模型此刻看到的屏"。
+ *
+ * 刻意**只读**:本层不提供任何写入口 —— 人类键入仍走既有 `terminal-input` 待决项通道
+ * (那条通道带审批/超时语义),在这里开一条"直接写"的口等于绕过它。
+ */
+
+/** agent 终端会话的元数据(不含屏面内容 —— 屏面在 `getTerminalFace` 单取)。 */
+export interface AgentTerminalInfo {
+  terminal_id: string
+  command: string
+  cwd: string
+  cols: number
+  rows: number
+  running: boolean
+  exit_code: number | null
+  backend: string
+  alt_screen?: boolean
+  title?: string
+  created_ts?: number
+}
+
+/** 屏面上的一条超链接(OSC 8)。`text` 与 `url` **必须一起展示**:两者可完全不同(钓鱼面)。 */
+export interface AgentTerminalLink {
+  url: string
+  text: string
+  line_no: number
+  scheme: string
+}
+
+/** `prompt` 子块:程序现在在等谁(shell 集成没开时 `prompt_state` 恒 `unknown`)。 */
+export interface AgentTerminalPrompt {
+  at_prompt: boolean
+  prompt_state: 'unknown' | 'prompt' | 'input' | 'running' | 'done'
+  shell_integration: boolean
+  command_count: number
+  last_command_exit: number | null
+  cwd: string
+  cwd_source: 'reported' | 'session'
+  running: boolean
+  alt_screen: boolean
+}
+
+/** 一块终端的**屏面**(网格 + 光标 + 提示符 + 链接,服务端 `terminal_face` 一次聚合)。 */
+export interface AgentTerminalFace {
+  terminal_id: string
+  cols: number
+  rows: number
+  /** 光标所在行(1 起) */
+  row: number
+  /** 光标所在列(1 起) */
+  col: number
+  /** 光标停在末格且下一字符要折行(xterm 边界态,不能当"还没到头"算) */
+  pending_wrap: boolean
+  visible: boolean
+  alt_screen: boolean
+  /** 光标所在那一行的文本 */
+  line: string
+  /** 整屏按行;行内空白保留、右侧空白裁掉 */
+  screen: string[]
+  screen_lines: number
+  dropped_chunks: number
+  prompt: AgentTerminalPrompt | null
+  links_ok: boolean
+  links: AgentTerminalLink[]
+  link_count: number
+  link_total: number
+  link_truncated: boolean
+  running: boolean
+  exit_code: number | null
+  title: string
+  bell_count: number
+}
+
+/**
+ * 列出本会话里 agent 开的终端。
+ *
+ * 归属只认令牌主体 + 会话 id(服务端判定),本函数不发送任何用户身份字段。
+ * 失败抛错:面板要能显示"取不到",而不是把失败画成空列表(那会被读成"没有终端")。
+ */
+export async function listAgentTerminals(sessionId: string): Promise<AgentTerminalInfo[]> {
+  if (!sessionId) throw new Error('listAgentTerminals: sessionId required')
+  const resp = await fetchWithAuthRefresh(
+    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(sessionId)}/terminals`,
+    { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' },
+  )
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '')
+    throw new Error(
+      `listAgentTerminals failed: HTTP ${resp.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+    )
+  }
+  const data = (await resp.json().catch(() => null)) as
+    | { ok?: boolean; terminals?: unknown }
+    | null
+  if (!data || data.ok !== true || !Array.isArray(data.terminals)) {
+    throw new Error('listAgentTerminals failed: invalid response shape')
+  }
+  // 形状收窄:脏行丢弃而非整列表报废(与 listApprovalGrants 同一条纪律)
+  return data.terminals.filter(
+    (t): t is AgentTerminalInfo =>
+      typeof t === 'object' &&
+      t !== null &&
+      typeof (t as AgentTerminalInfo).terminal_id === 'string' &&
+      typeof (t as AgentTerminalInfo).command === 'string',
+  )
+}
+
+/**
+ * 取一块终端的屏面。`maxLinks` 只影响链接条数(屏面永远整块回)。
+ *
+ * 两种失败**必须分开**:`notFound`(越权/不存在,服务端刻意同形)与 `error`
+ * (如"该会话没有屏幕网格")。把后者读成"没这块终端"会让面板反复重新列表。
+ */
+export async function getAgentTerminalFace(
+  sessionId: string,
+  terminalId: string,
+  options: { maxLinks?: number; signal?: AbortSignal } = {},
+): Promise<{ ok: true; face: AgentTerminalFace } | { ok: false; notFound: boolean; error: string }> {
+  if (!sessionId || !terminalId) throw new Error('getAgentTerminalFace: ids required')
+  const qs = options.maxLinks ? `?max_links=${encodeURIComponent(String(options.maxLinks))}` : ''
+  const resp = await fetchWithAuthRefresh(
+    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(sessionId)}/terminals/${encodeURIComponent(terminalId)}/face${qs}`,
+    {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: options.signal,
+    },
+  )
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '')
+    throw new Error(
+      `getAgentTerminalFace failed: HTTP ${resp.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+    )
+  }
+  const data = (await resp.json().catch(() => null)) as
+    | ({ ok?: boolean; error?: string; errorCode?: string } & Partial<AgentTerminalFace>)
+    | null
+  if (!data) throw new Error('getAgentTerminalFace failed: invalid response shape')
+  if (data.ok === true) return { ok: true, face: data as AgentTerminalFace }
+  const error = typeof data.error === 'string' ? data.error : 'terminal face unavailable'
+  return { ok: false, notFound: error === 'terminal not found', error }
+}
+
