@@ -77,6 +77,7 @@ import {
   sanitizeArtifactPaths,
   selectDirtyPaths,
   manifestPathOf,
+  manifestTextFromPaths,
 } from './lib/ticket-artifacts.mjs'
 // 提交后两腿与 safe-commit 用**同一份实现**(§0.6):正证留痕 + AI 归属 notes。换私有索引通道
 // 不等于放弃这两张证 —— 少了它们,读侧尺子会把每一枚自主提交都读成"没人跑过门/无归属"。
@@ -813,6 +814,7 @@ export function classifySessionWrites(stdout) {
   let writeOk = 0
   let writeTried = 0
   let toolResults = 0
+  const wrotePaths = []
   for (const raw of lines) {
     const t = raw.trim()
     if (!t.startsWith('{')) continue
@@ -824,13 +826,19 @@ export function classifySessionWrites(stdout) {
     }
     if (!e || typeof e.type !== 'string') continue
     if (e.type === 'complete' || e.type === 'tool_result' || e.type === 'tool_call') known = true
-    if (e.type === 'tool_call' && WRITE_TOOL_NAMES.includes(e.name)) writeTried++
+    if (e.type === 'tool_call' && WRITE_TOOL_NAMES.includes(e.name)) {
+      writeTried++
+      // 第 64 项:写类调用的落点就是"这次可能改了什么"的唯一证据面(成败在 tool_result,
+      // 真脏在 selectDirtyPaths)⇒ 这里只收路径,不判成败、不判提交。
+      const p = e?.arguments?.path ?? e?.arguments?.file_path ?? null
+      if (typeof p === 'string' && p.trim()) wrotePaths.push(p.trim())
+    }
     if (e.type === 'tool_result') {
       toolResults++
       if (e.success === true && WRITE_TOOL_NAMES.includes(e.name)) writeOk++
     }
   }
-  return { known, writeOk, writeTried, toolResults }
+  return { known, writeOk, writeTried, toolResults, wrotePaths }
 }
 
 export function todayKey(now = new Date()) {
@@ -2108,6 +2116,8 @@ function dispatchSession(gates, ticket, dryRun) {
     providerError: lastProviderError(stdout),
     writeOk: writes ? writes.writeOk : null,
     writeTried: writes ? writes.writeTried : null,
+    // 第 64 项:写类工具调用的落点清单(会话忘写 manifest 时的取证面;判提交仍走 lib 三道闸)。
+    wrotePaths: writes ? writes.wrotePaths : null,
     // 运行时是否被归一(裸 node ⇒ 当前进程可执行文件)。不记这一格,下次换机/换服务身份时
     // "会话根本没起来"又会只留下一个 exit=1 的 session-failed,没人看得见是 PATH 的哪一层。
     runtimeNormalized: rt.replaced,
@@ -3343,10 +3353,17 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       // ---- 会话后落账腿(2026-11-01 立)----
       // 会话退出码 0 只说明"它结束了";能不能落账要看它自己写的清单。这一步失败不许把整轮打崩:
       // 并发索引锁是常态,记 artifact-commit-failed 就够,下一轮还会再来。
+      //
+      // 第 64 项(2026-11-21):会话写的清单**永远优先**;它没写时,用本轮**写类工具调用的落点**
+      // 补一份取证清单 —— 判提交仍然走 lib 的三道闸(parse → sanitize → selectDirtyPaths),
+      // 补的是取数面而不是放宽判据:路径不脏照样 stale,票键不符照样 invalid。
+      const declaredManifest = readArtifactManifest(key)
+      const derivedManifest = declaredManifest == null ? manifestTextFromPaths(key, res.wrotePaths) : null
+      const manifestSource = declaredManifest != null ? 'session' : derivedManifest != null ? 'transcript' : 'none'
       const landed = landTicketArtifacts({
         ticketKey: key,
         ticketText: ticket.text,
-        manifestText: readArtifactManifest(key),
+        manifestText: declaredManifest ?? derivedManifest,
         statusFn: gitPorcelainOf,
         commitFn: runLandCommit,
         dryRun: false,
@@ -3358,6 +3375,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         ticketLine: ticket.text.slice(0, 200),
         files: landed.files,
         dropped: landed.dropped,
+        manifestSource,
         why: landed.why,
       })
       if (landed.action === 'artifact-committed') {
@@ -4205,17 +4223,9 @@ function selfTest() {
       mkdirSync(s11Dir, { recursive: true })
       const cand = join(s11Dir, 'fresh.json')
       // 指纹档才算"新鲜":没有指纹的旧档必须被重刷一次(自愈),所以这里给出当下票面指纹。
-      writeFileSync(
-        cand,
-        JSON.stringify({
-          source: {
-            planDigest: planFaceDigest(
-              readFileSync(join(ROOT, 'PROJECT_PLAN.md'), 'utf8').split(/\r?\n/),
-            ),
-          },
-        }),
-        'utf8',
-      )
+      // 指纹必须与生产读取同面(HEAD blob):拿工作树算会在多会话仓库里必然不等(本仓活文档常年被别席改写),
+      // 于是 S11a 会把"新鲜"判成"过期"—— 2026-11-21 现读实锤(headless 自检曾因该处 undefined 引用整段不执行)。
+      writeFileSync(cand, JSON.stringify({ source: { planDigest: planFaceDigestFromHead(ROOT) } }), 'utf8')
       let called = 0
       const r = refreshAutonomyCandidates({
         now: Date.now(),
