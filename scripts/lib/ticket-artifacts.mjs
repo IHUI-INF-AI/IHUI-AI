@@ -179,10 +179,35 @@ export function selectDirtyPaths(paths, statusFn) {
   return { dirty, stale }
 }
 
+/**
+ * 由「写类工具调用真的动过哪些文件」拼一份清单(2026-11-21,第 64 项)。
+ *
+ * 立因(现读):台账 262 行会话/落账档里 `artifact-committed` **恒 0**,13 枚拒绝全是
+ * `artifact-manifest-missing` —— 会话有改动却不写清单这条侧信道,落账腿就只能一遍遍记"没交清单"。
+ * 会话的 stdout 事件流里本来就有 `{"type":"tool_call","name":"write_file|edit_file|batch_edit",
+ * "arguments":{"path":…}}`,与 `classifySessionWrites` 数的是同一族证据。
+ *
+ * 边界(失效方向恒为"多留一层校验,不多放一次提交"):
+ *   · 这里只**拼清单文本**,不判提交;真判据仍走 parseArtifactManifest → sanitizeArtifactPaths → selectDirtyPaths。
+ *   · 拼出来的清单只在**会话自己没写清单**时用(会话写的那份永远优先),并在台账里单记 `manifestSource`。
+ *   · 空集 ⇒ null(上层照旧落 `artifact-manifest-missing`,不把"没动手"伪装成"有清单")。
+ */
+export function manifestTextFromPaths(ticketKey, files, { note = '' } = {}) {
+  const list = [...new Set((Array.isArray(files) ? files : []).map((f) => String(f ?? '').trim()).filter(Boolean))]
+  if (list.length === 0) return null
+  const body = {
+    ticketKey: String(ticketKey ?? '').trim(),
+    files: list,
+    note: String(note || '由会话写类工具调用派生(会话未写清单)').slice(0, 200),
+  }
+  return JSON.stringify(body)
+}
+
 export const __test__ = {
   parseArtifactManifest,
   sanitizeArtifactPaths,
   selectDirtyPaths,
   manifestPathOf,
+  manifestTextFromPaths,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

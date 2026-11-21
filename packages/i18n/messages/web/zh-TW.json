@@ -10412,10 +10412,25 @@
     "shareCopied": "連結已複製",
     "templates": "任務模板",
     "terminalDock": {
+      "backToIde": "切回 IDE 終端",
+      "showAgentFace": "檢視模型終端屏面",
       "collapse": "收起",
       "newSession": "新增終端",
       "resize": "調整高度",
       "title": "PowerShell 終端"
+    },
+    "agentTerminal": {
+      "altScreen": "全螢幕",
+      "cursor": "游標",
+      "empty": "本會話還沒有 agent 終端(模型用 terminal 工具開啟會話後出現在這裡)",
+      "exited": "已結束",
+      "failed": "屏面取不到",
+      "links": "超連結(顯示文字與真實目標並列,均不可點擊)",
+      "noIntegration": "未啟用 shell 整合(無法判斷是否在提示字元)",
+      "noSession": "還沒有 ai-service 會話 id(先送一則訊息)",
+      "refresh": "立即重新整理",
+      "running": "執行中",
+      "title": "模型終端屏面"
     },
     "thisMonth": "本月",
     "earlier": "更早",

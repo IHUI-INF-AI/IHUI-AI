@@ -8918,3 +8918,5 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | AI 服务路由 | 688 | `aiServiceRoutes` |
 | 测试文件 | 5947 | `testFiles` |
 | 跟踪文件 | 23106 | `trackedFiles` |
+| 测试文件 | 5948 | `testFiles` |
+| 跟踪文件 | 23109 | `trackedFiles` |
