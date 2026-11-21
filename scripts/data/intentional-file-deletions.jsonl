@@ -386,3 +386,6 @@
 {"path":"packages/database/drizzle-pending-review/20261106150000_fix_missing_indexes_fks.sql","reason":"2026-11-19 收敛补录:origin/main 已删本迁移审阅件(该迁移已并入正式迁移链),本侧相对基底未改动,删除随合并传播","until":null}
 {"path":"packages/app/src/features/post-detail/post-actions.contract.ts","reason":"2026-11-20 收敛补录:origin/main 已删本契约件(改为内联类型收口),本侧相对基底未改动;落地树 0 引用,删除随合并传播","until":null}
 {"path":"apps/api/src/routes/__tests__/helpers/drizzle-sql-strings.ts","reason":"2026-11-20 收敛补录:origin/main 已删本测试辅助件(全仓零 import),同笔已摘除 knip 陈旧 ignore 条目;落地树 0 引用,删除随合并传播","until":null}
+{"path":"apps/api/src/routes/admin/relay-switch-admin.ts","reason":"2026-11-21 收敛补录:origin/main 已按 F-519 删除该死路由与专属测试(引擎 core.ts 保留给 CLI);落地树唯一命中是 apps/api/tests 回归锁里以路径字面量断言其不存在,非真实 import"}
+{"path":"apps/api/src/routes/__tests__/relay-switch-admin.test.ts","reason":"2026-11-21 收敛补录:origin/main 已按 F-519 删除该死路由与专属测试(引擎 core.ts 保留给 CLI);落地树唯一命中是 apps/api/tests 回归锁里以路径字面量断言其不存在,非真实 import"}
+{"path":"apps/web/src/types/three-jsx.d.ts","reason":"本会话未推送的 R3F JSX 补丁撤回:改动落在 apps/web 内会牵动 web 存量类型债闭包,导致 push 门不许降级;改由后续单独清理 web 类型债时一并提交"}

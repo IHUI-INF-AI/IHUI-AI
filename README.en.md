@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b23a960c367)
+
+**2026-11-21**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7e7f0b68783)
 
 **2026-11-21**
@@ -507,37 +510,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-20**
 - 🚀 Feature/Improvement:交互终端补真 PTY 后端(POSIX stdlib pty,默认关,零依赖,Windows fail-closed) (77fcb6df0c)
-
-**2026-11-20**
-- 🐞 Fix:web 三枚测试收 import() 内联类型标注(3 处 consistent-type-imports error 归零) (978a82aee8)
-- 📚 Docs:生成块数字按 HEAD 面现算刷新(testFiles 5923 / trackedFiles 23042) (87df195c99)
-- 🚀 Feature/Improvement:SESSION_START/USER_PROMPT_SUBMIT 生命周期钩子接入会话入口 (7a794bdb97)
-- 🐞 Fix:更新链失败/成功双路径全量留痕(手动检查也落原始错误串) (42aaf9b26f)
-- ⚡ Perf:合并枚逐父交集整批读(本门单跑 8.3s→6.4s) (4ca6b55c95)
-- 🐞 Fix:模型选择器分组标题不再强制大写(品牌名按原样显示) (7cb1ed21ba)
-- 🐞 Fix:AIS-064 漏同步的 4 枚审批 stub 补 _wait_interruptible 透明等待(19 例复活) (e0f3eb8f2d)
-- 📚 Docs:更正本席 §5 对候选②的事实性判错——interactive_terminal.py(11-14 立)已做长寿命交互终端(open/send/read/signal/close/list+WIN CTRL_BREAK+身份归属,越权与不存在同形),非"零落地待拍板";唯一升级"管道 vs 真PTY"是模块 docstring 有意记录的沙箱受控面差异(补需原生PTY库+改 strict env 白名单),须机主拍板不由本席自补;③perf 已对等(sandbox_metrics/agent_metrics/turn_timing/startup_prewarm);①OS进程树快照无现成消费点按 §0.9 不立项,§5 三枚原生候选同步改为逐枚实测态 (49fbc65617)
-- ⚡ Perf:T1 无 TS 输入面判定提前到建图之前(scripts 面 4.1s→0.23s) (24953b857c)
-- 📚 Docs:生成数字块随新增测试文件刷新(testFiles 5922/trackedFiles 23041) (e755d5499b)
-- 🚀 Feature/Improvement:钩子运行结果进 SSE 通道(hook.run/hook-run) (0cb1a8d7e9)
-- ⚡ Perf:193 记忆化扩到索引面(staged 也按 oid 复用) (a418864254)
-- ⚡ Perf:193 逐文件判定按 blob oid 记忆化(5.9s→0.7s,批次内不再重扫 46MB) (25e0fa8b43)
-- 🔧 Chore/Other:版本 bump 0.1.83 —— 发布含小尺寸图标回退与能力收紧的正式包 (fea8382938)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9d65736750)
-- 🚀 Feature/Improvement:PermissionRequest 审批前置裁决(allow免弹窗/deny零副作用) + 报告§5.26 (fe4afc56c2)
-- 📚 Docs:WB 全量册补"命令审计档(deepseek default|allow|deny|audit 四值)已对等/更全"——_exec_mode=audit+cli-tool-invoke-audit HMAC链三处行号证伪负结论 (1a12e9cc63)
-- ⚡ Perf:T1 面裁剪 —— 非 TS 输入不参与判定(混合面 235.8s→7.6s) (01d3a0ec78)
-- 🐞 Fix:STEP_DECISIONS 补齐 pre_tool_use 钩子两枚裁决词并五语言同批挂键 (8f5e6cde48)
-- ⚡ Perf:47p 收窄档改进程内扫描(4.2s→1.3s) (4accb04bee)
-- 🐞 Fix:两枚端点派生件按新 HEAD 面重钉 —— 不在脏工作树跑生成器 (0e83258b53)
-- 🐞 Fix:测试 schema 进程级回收 —— 每跑一次 pytest 不再永久多几个 sess_<hash> (f54c7d6f21)
-- ⚡ Perf:T1 直调扩到多段与 no-op 桩(api 两段 tsc、ai-service echo) (7193f5e859)
-- 🔧 Chore/Other:结清 9 条回潮票行(RP-7/RP-6/RP-79/RP-37/B91/Y-37/RP-80/Y-82/Y-14)——纯删 9 行零新增,RP-81 旧行回潮已剔除 (2e8363b800)
-- ⚡ Perf:T1 定向档直调 app 本地 tsc(摘掉 pnpm 冷态 114s 尖峰) (56fa38903f)
-- 🐞 Fix:重放 required check 四条红修复到 origin tip —— 原枚 47624a37 被并发收敛挤掉 (04c87937b9)
-- 🔧 Chore/Other:结清 RP-81(CI发版通知IM通道——Server酱通用push通道已落地+secret已写入+真发验证,完成即删) (ecb92c4fde)
-- 🚀 Feature/Improvement:审计脚本机读档不再被结论行污染 + CI 探测 pg_trgm 能力 (8b7d6162aa)
-- 🐞 Fix:待确认指令提示只在草稿要重复时才出现,平时零占高 (a4e98a3645)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
