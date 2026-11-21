@@ -31,8 +31,14 @@ export default defineConfig({
       'src/routes/__tests__/**/*.real.test.ts',
       '**/.ihui-agent/**',
     ],
-    testTimeout: 15_000,
-    hookTimeout: 15_000,
+    // 2026-11-22 提速复评:15s 预算在"web 8 worker + api 并行 + cli 并行"的争核形态下被打穿
+    // (第 16 轮全仓实测 5 条纯 I/O 用例 —— terminal-confinement / f-519 全仓扫描 / g261 起 app /
+    //  relay-task-center 真模块 / v1-latency 落库 —— 全部 "Test timed out in 15000ms" 且 retry×2 仍红)。
+    // 这是**资源预算不足**,不是断言强弱,故抬到 30s;并给本包 maxWorkers=8,让 api 与 web(8)
+    // 合计 16 < 20 逻辑核,不再把对方挤到超时。
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+    maxWorkers: 8,
     // mock 测试不连真实 DB,可并行跑(真实 DB 测试在 vitest.real.config.ts 中串行)
     fileParallelism: true,
     // 全局重试 2 次:容忍 admin-missing-routes.test.ts 等套件在全量并发时偶发的资源争抢失败
