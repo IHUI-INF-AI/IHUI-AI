@@ -1,0 +1,18 @@
+{
+  "$comment": "`.ihui-agent/tmp` 大件的『有意保留』台账(消费者 = scripts/check-tmp-bloat.mjs)。这张表**不是豁免族**,不进守门 108 的族表:它换的不是『不判红』,而是『这枚是有主的、量到了也会被点名成 kept 而不是 alarm』。三条缺一不生效:① rel 精确命中(或以 `/` 结尾的前缀命中)且此刻确实越阈;② 带 reason(为什么必须留在这块 scratch 上);③ 带可解析 reviewBy(YYYY-MM-DD)—— 到期不续期即失效并逐条点名。台账读不到 / 形状坏 / 条目缺件 ⇒ 一律**不豁免**(方向是多喊一次,不是多静音一次,§0.10)。",
+  "owner": "机主(2026-11-21 立:一次 recon 产物把 50MB 阈值变成恒态告警)",
+  "entries": [
+    {
+      "rel": "recon/qoder-graph.json",
+      "reason": "Qoder 前端图逆向取证的一次性产物(第 1/2 项 recon 原文,157MB):再生成要重跑整条应用图抽取,是『并入 harness』的证据底座而不是垃圾;放在 scratch 是刻意的(不进仓、不带进 git 历史)。清理条件 = 第 1/2 项的结论已沉淀进 docs 且不再需要原文对照。",
+      "owner": "harness 席(m_0cweUryopJb 会话,2026-11-21)",
+      "reviewBy": "2026-12-21"
+    },
+    {
+      "rel": "ios-ipa-relay/ihui-ai-latest.ipa",
+      "reason": "iOS 侧包中转缓存:ipa-relay 腿每次发布把最新包落这里供内网/设备下载(38MB,每次发布会重写同一路径)。它是『当前可下载的那一版』,删了等于撤掉下载入口。",
+      "owner": "发布席(ios 包中转腿)",
+      "reviewBy": "2027-01-31"
+    }
+  ]
+}
