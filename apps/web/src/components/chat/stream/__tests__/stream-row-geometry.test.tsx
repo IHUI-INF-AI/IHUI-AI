@@ -26,8 +26,10 @@ import {
   STREAM_GROUP_BODY_CLASS,
   STREAM_HEADER_ROW_CLASS,
   StreamGroup,
+  StreamKindIcon,
   StreamRow,
 } from '../stream-ui'
+import type { StreamStatus } from '../stream-ui'
 
 describe('StreamRow 几何单一来源', () => {
   it('可点击与展示两个分支的行几何逐字相同', () => {
@@ -118,6 +120,24 @@ describe('StreamRow 几何单一来源', () => {
         el.getAttribute('data-stream-group-body') === 'true',
     )
     expect(indenters).toHaveLength(1)
+  })
+
+  it('行首图标颜色恒定:状态不得用图标透明度表达(running 不再呼吸)', () => {
+    const statuses: StreamStatus[] = ['running', 'success', 'pending', 'skipped', 'stub', 'error']
+    const classes = statuses.map((status) => {
+      const { container, unmount } = render(<StreamKindIcon kind="terminal" status={status} />)
+      const cls = (container.firstElementChild as HTMLElement).getAttribute('class') ?? ''
+      unmount()
+      return { status, cls }
+    })
+    // 进行中的图标类名与成功态逐字相同 ⇒ 不会因为呼吸帧落在 0.5 被读成"颜色不一致"
+    expect(classes.find((c) => c.status === 'running')?.cls).toBe(
+      classes.find((c) => c.status === 'success')?.cls,
+    )
+    // 任何状态都不许在图标上叠透明度动画/透明度档
+    expect(classes.filter((c) => /animate-pulse|opacity-/.test(c.cls))).toEqual([])
+    // 错误态仍取语义红(不是因为透明度变淡)
+    expect(classes.find((c) => c.status === 'error')?.cls).toContain('text-red-500')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
