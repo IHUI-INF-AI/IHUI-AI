@@ -2642,6 +2642,27 @@ function refreshRecoverySource() {
     log(`恢复源体检异常(忽略,不阻断其余守护):exit ${judge.code}`)
     return
   }
+  // 第 84 项(2026-11-21):必须把「恢复源缺席」与「恢复源落后」分开,否则读数把人读错。
+  // 现场(现读):本机 D:/DevEnv/backups/git/IHUI-AI.git-backup-20260912 整个不在 ⇒ `--check`
+  // 打印 `备份=(无)[missing]`、exit 1 ⇒ 旧逻辑接下去真跑一次 fetch(必然失败)、落一行
+  // 「刷新失败 ⇒ 下次 tick 自动重试」并按"刷新失败"寄信。而这一态**重试一万轮也不会自愈**
+  // (自动档禁建仓:--init 之外不许悄悄长出一棵仓),真实出路是人工建一份。
+  // 失效方向:缺席 ⇒ 如实说缺席 + 给可执行出路 + 24h 只报一次 + 不寄"刷新失败"信;
+  //           落后/损坏 ⇒ 原路径(重试 + 到人)一字不改。
+  if (/备份=\(无\)|\[missing\]/.test(String(judge.out || ''))) {
+    if (
+      legThrottle(
+        join(WORKTREE, '.ihui-agent', 'state', 'backup-absent-notice-last.json'),
+        24 * 60 * 60 * 1000,
+        Date.now(),
+        log,
+      )
+    )
+      log(
+        `ℹ️ 本地恢复源缺席(不是刷新失败:自愈层没有对象可刷)⇒ 需人工建一份:node scripts/git-backup-refresh.mjs --init(建完 --check 即转 exit 0;自动档不代建,§5b)`,
+      )
+    return
+  }
   const applied = call([], 15 * 60 * 1000) // 增量 fetch 大 gitdir 可到分钟级
   if (applied.code === 0) {
     const to = (applied.out.match(/→\s*([0-9a-f]{7,})/) || [])[1]
