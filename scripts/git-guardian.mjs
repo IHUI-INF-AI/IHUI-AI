@@ -15733,6 +15733,32 @@ function startDaemon(bootGuard = null) {
   }
   // daemon 从启动起一直持有轮级锁:30s 定时续约,长步骤完成点另有 beatRoundLock()。
   bindRoundLock(boot)
+  // 第 82 项(2026-11-21):daemon 也必须写存活 pid 文件。此前只有一次性 main() 的
+  // acquireSingleInstance 会写(退出即删),而 daemon 常驻则一次都不写 ⇒ 独立哨兵
+  // check-guardian-leg-health 读不到 pid 就报 `state=down / daemon pid=∅ alive=false`,
+  // 哪怕进程好好在跑(现读实测:pid 42092 在跑、三腿 tick 18min 新鲜,哨兵仍报 down)。
+  // 失效方向只能是"多给一条判活旁证",不能是"把活着的判死"。
+  try {
+    mkdirSync(dirname(GUARDIAN_PID_FILE), { recursive: true })
+    writeFileSync(
+      GUARDIAN_PID_FILE,
+      `pid=${process.pid} at=${new Date().toISOString()} role=daemon`,
+      'utf8',
+    )
+    process.on('exit', () => {
+      try {
+        if (
+          Number(String(readFileSync(GUARDIAN_PID_FILE, 'utf8')).match(/pid=(\d+)/)?.[1]) ===
+          process.pid
+        )
+          unlinkSync(GUARDIAN_PID_FILE)
+      } catch {
+        /* 退不掉就留着:哨兵按 pid 存活 + tick 双证判活 */
+      }
+    })
+  } catch (e) {
+    log(`⚠️ daemon pid 文件写不了(${String(e?.message ?? e).slice(0, 90)})⇒ 哨兵将退回按 tick 判活`)
+  }
   startHeartbeatGuardianLock(boot, {
     intervalMs: Number(process.env.IHUI_GUARDIAN_HEARTBEAT_MS || 30_000),
     onLost: (r) => log(`⚠️ daemon 轮级锁心跳丢失(${r.why || '未知'})⇒ 下轮 tick 重新 acquire`),

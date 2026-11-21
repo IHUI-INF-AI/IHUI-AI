@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **81 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **82 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（81 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（82 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1043,6 +1043,31 @@
      "挂一条腿代劳"会变成第二套续期 + 第二套到人（§0.6）。改写为"保留手动/应急入口 `--once`，不挂巡检轮；
      若 api 长期停摆，正解是修承载体、不是并腿"。
 - 边界：本项只把"该换没换"变成有读数的一格，**不**替机器换口令（换库口令有停服半径）。
+
+### 5.82 第 82 项：存活哨兵把活着的 daemon 判死，且拿一个 30 分钟阈值去读 24 小时节律的腿
+
+- 现场（第 81 项收口后现读）：常驻 daemon 是 `node.exe` PID 42092（`git-guardian.mjs --daemon`，15:48:10 启动），
+  三腿 tick 中 `disk-root-hygiene` 仅 18 分钟；而 `check-guardian-leg-health.mjs` 报
+  `state=down / daemon pid=∅ alive=false` —— **把活着的判死**。两处根因叠加：
+  1. pid 文件只有一次性 `main()` 的 `acquireSingleInstance` 会写（退出即删），daemon 常驻**一次都不写**
+     ⇒ 哨兵读不到 pid 就按 `daemonAlive=false` 直接落 `down`；
+  2. 三腿节律不同（`disk-root-hygiene` 每轮 ~2min；`temp-scrub` 与 `worktree-reap` 默认 **24h** 节流，
+     来自 `TEMP_SCRUB_INTERVAL_MS` / `REAP_INTERVAL_MS`），旧逻辑一律 30min 判 stale ⇒ 每天有 23.5 小时
+     把"本来就该歇着"读成"腿卡住"（现读实测 temp 1033min / reap 984min，均未到 24h，却都被判 stale）。
+- 处置（两处，都在既有运行时里改，不新造第二套哨兵）：
+  - `git-guardian.mjs` 的 `startDaemon`：接管轮级锁后**无条件**写 `GUARDIAN_PID_FILE`
+    （格式 `pid=<pid> at=<iso> role=daemon`，与哨兵正则一致），并在 exit 时"只删自己那枚"；写不了就日志点名，
+    哨兵退回按 tick 判活（失效方向是"多一条旁证"，不是"把活的判死"）。
+  - `check-guardian-leg-health.mjs`：节律阈值下放到每腿（`LEG_TICKS` 每条自带 `staleMs/downMs`：
+    disk-root-hygiene 30min/24h、temp-scrub 与 worktree-reap 26h/7d）；判活改「tick 为主、pid 为旁证」——
+    pid 文件缺席不再直接 `down`，读数明写 `alive=unknown(pid 文件缺席 ⇒ 按三腿 tick 判活)`；
+    汇总判据抽成 `export function judgeLegHealth(legs)`（CLI 与测试同一份，阈值不在函数里复写）。
+- 验证：`node scripts/check-guardian-leg-health.mjs` 现读 `state=ok`（temp 1033min / reap 984min 均判 fresh）；
+  新增 `scripts/tests/guardian-leg-health.test.mjs` **4 passed**（①汇总三态 / ②每腿阈值分化且不再用统一
+  STALE_MS / ③pid 缺席不再直接 down / ④`startDaemon` 体内必须真写 pid 文件且格式可被哨兵解析）；
+  `node --check` 两文件通过。
+- 边界：本项只修"读数把人读错"，不替 daemon 拉起/重启任何进程；新代码在常驻进程里的生效点仍是既有自重启窗口
+  （`auditGuardianCodeFreshness`，熔断 1 小时），生效后应现读到 `daemon pid=<真实 pid> alive=true`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
