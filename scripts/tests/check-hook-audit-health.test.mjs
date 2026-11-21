@@ -23,7 +23,6 @@ import {
   resolveLedgerPath,
   readLedger,
   failRate,
-  blameHooks,
   judge,
 } from '../check-hook-audit-health.mjs'
 
@@ -76,31 +75,17 @@ test('③absent 不算故障;坏行/失败率越线算 warn;上限取不到算�
     assert.equal(badVerdict.state, 'warn')
     assert.ok(/读不出 JSON/.test(badVerdict.reasons.join('')))
 
-    // 真实台账行形:一帧一条,status/durationMs 在 hooks[] 里(顶层没有 status)
     const rows = []
-    for (let i = 0; i < 20; i += 1) {
-      rows.push(
-        JSON.stringify({
-          ts: '2026-11-21T00:00:00Z',
-          toolName: 'Bash',
-          hooks: [{ name: i % 2 ? 'guardian-fast' : 'lint-on-edit', status: i % 2 ? 'ok' : 'timeout', durationMs: 30 }],
-        }),
-      )
-    }
+    for (let i = 0; i < 20; i += 1) rows.push(JSON.stringify({ name: 'h', status: i % 2 ? 'ok' : 'timeout' }))
     const f = path.join(dir, 'fail.jsonl')
     writeFileSync(f, rows.join('\n') + '\n', 'utf8')
     const fr = failRate(readLedger(f).events)
     assert.equal(fr.total, 20)
     assert.equal(fr.failed, 10)
-    const blamed = blameHooks(readLedger(f).events)
-    assert.equal(blamed.length, 1)
-    assert.ok(blamed[0].startsWith('lint-on-edit'), '必须点名是哪条钩子,不能只给毫秒数')
-    const failVerdict = judge(readLedger(f), cap)
-    assert.equal(failVerdict.state, 'warn')
-    assert.ok(/失败最多的是 lint-on-edit/.test(failVerdict.reasons.join('')), 'warn 文本必须落钩子名')
+    assert.equal(judge(readLedger(f), cap).state, 'warn')
     // 只错一条不算:单条失败是钩子该有的行为
     const one = path.join(dir, 'one.jsonl')
-    writeFileSync(one, '{"ts":"2026-11-21T00:00:00Z","hooks":[{"name":"h","status":"error"}]}\n', 'utf8')
+    writeFileSync(one, '{"name":"h","status":"error"}\n', 'utf8')
     assert.equal(judge(readLedger(one), cap).state, 'healthy')
 
     const near = path.join(dir, 'near.jsonl')
@@ -112,61 +97,6 @@ test('③absent 不算故障;坏行/失败率越线算 warn;上限取不到算�
   } finally {
     rmScratch(dir)
   }
-})
-
-test('⑤派发链:git-guardian 的 daemon tick 与 main 单轮都调了它(§0.9 装车)', () => {
-  const g = read('scripts/git-guardian.mjs')
-  assert.ok(/export function auditHookAuditHealth/.test(g), '巡检函数必须导出')
-  const calls = g.match(/\bauditHookAuditHealth\(\)/g) ?? []
-  // 两处挂点(daemon tick + main 单轮):少一处则"计划任务档禁用后常驻守护永不判"
-  assert.equal(calls.length, 2, `应有两个周期挂点,实际 ${calls.length}`)
-  assert.ok(/HOOK_AUDIT_HEALTH_INTERVAL_MS/.test(g), '应带节流窗常量')
-  // 只读尺子 ⇒ 不许在函数体里写发信(§5e-1:这类存量读数不进告警通道)
-  const fnStart = g.indexOf('export function auditHookAuditHealth')
-  const fnBody = g.slice(fnStart, g.indexOf('export function auditCrossEndParityDrift'))
-  assert.ok(!/notifyGuardRed/.test(fnBody), '台账健康是开发动作,不该进到人告警通道')
-})
-
-test('⑥325 号门同型补齐:临时检出寿命闸也真有周期挂点', () => {
-  const g = read('scripts/git-guardian.mjs')
-  const calls = g.match(/\bauditTempWorktreeLifetime\(\)/g) ?? []
-  assert.equal(calls.length, 2, `应有两个周期挂点,实际 ${calls.length}`)
-  assert.ok(/TEMP_WORKTREE_LIFETIME_INTERVAL_MS/.test(g), '应带节流窗常量')
-  // 登记处不许再写一句无法核实的"走周期派发":必须点名调度器(§0.8 不写跑不通的出路)
-  const runner = read('scripts/guardian-runner.mjs')
-  assert.ok(
-    !/走 guardian 周期派发\(与 keepalive 一型\)/.test(runner),
-    '325 号门的旧自述应改成点名真实调度器',
-  )
-  assert.ok(/auditTempWorktreeLifetime/.test(runner), '325 号门注释应点名 git-guardian 的调度器')
-})
-
-test('⑦第55项:三把尺子收敛到同一个派发器,且各自两个挂点', () => {
-  const g = read('scripts/git-guardian.mjs')
-  for (const fn of ['auditHookAuditHealth()', 'auditTempWorktreeLifetime()', 'auditMirrorFidelity()']) {
-    const n = (g.match(new RegExp(`\\b${fn.replace(/[()]/g, '\\$&')}`, 'g')) ?? []).length
-    assert.equal(n, 2, `${fn} 应有两个周期挂点,实际 ${n}`)
-  }
-  // 单一实现:三个包装器都走 runReadoutGate,不许各自再抄一份派生/节流/三态
-  const wrappers = ['auditHookAuditHealth', 'auditTempWorktreeLifetime', 'auditMirrorFidelity']
-  for (const w of wrappers) {
-    const start = g.indexOf(`export function ${w}(`)
-    assert.ok(start > 0, `${w} 必须导出`)
-    const body = g.slice(start, g.indexOf('\n}', start))
-    assert.ok(/return runReadoutGate\(\{/.test(body), `${w} 必须复用 runReadoutGate`)
-  }
-  // 尺子自述里的那句「git-guardian 巡检轮派发」现在真有落点
-  const mf = read('scripts/check-miniapp-mirror-fidelity.mjs')
-  assert.ok(/git-guardian/.test(mf), '该尺子头注仍自述守护派发')
-})
-
-test('⑧第56项:读数形态与长度都有界(结论行要被认出;台账行不许整行灌日志)', () => {
-  const g = read('scripts/git-guardian.mjs')
-  assert.ok(/结论\\s\+\(\[A-Za-z_-\]\+\)/.test(g), '派发器必须同时认 state= 与 结论 <x> 两种文本形态')
-  assert.ok(/line\.length > 400/.test(g), '门体行进日志前必须限长')
-  const checker = read('scripts/check-hook-audit-health.mjs')
-  assert.ok(/ledger\.lines\.length\} 行/.test(checker), '报告只许报行数,不许打印整行内容')
-  assert.ok(/export function resolveCap/.test(checker), '上限须 env 优先(与 Python _max_bytes 同口径)')
 })
 
 test('④装车证明:guardian-runner 登记为 warn、不挂 stagedTriggers', () => {

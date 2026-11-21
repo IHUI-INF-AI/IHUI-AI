@@ -2,19 +2,19 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import {
-  type GoalWireStatus,
-  type ReasoningEffort,
-  type ApiResult,
-  type PlanUpdateEvent,
-  type TerminalStartEvent,
-  type TerminalEndEvent,
-  type CitationsEvent,
+import type {
+  GoalWireStatus,
+  ReasoningEffort,
+  ApiResult,
+  PlanUpdateEvent,
+  TerminalStartEvent,
+  TerminalEndEvent,
+  CitationsEvent,
 } from '@ihui/types'
 // #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
 export type { CitationsEvent }
-import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker.js'
+import { CircuitOpenError, type CircuitBreaker } from './circuit-breaker.js'
 // 客户端签名注入(三端注册的 provider 在这里落到 X-IHUI-Client 头;算法本体在 @ihui/shared)
 // 后缀必须是 .js:本包 `"type": "module"` 是纯 ESM,tsc 输出 dist 后由 Node ESM 消费,
 // 无后缀在 dist 里会被判 Cannot find module(extension 构建实测踩过),故与包内既有 import 同形。

@@ -189,11 +189,6 @@ import {
 // worktree 自动回收调度层(2026-10-30):判据/执行在 scripts/agent-worktree.mjs --reap,
 // 本层只负责节流与结论落日志(归属纪律同 TEMP 清扫)。
 import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
-import {
-  IP_TRUST_INTERVAL_MS,
-  IP_TRUST_TICK_FILE,
-  runIpAttributionTrustAudit,
-} from './lib/ip-attribution-trust-audit.mjs'
 // 自陈述版本的判定口径:本进程 import 闭包单源(§0.6 不在守护里再拼一份 import 解析)
 import { relativeImportClosure } from './lib/scratch-module-closure.mjs'
 // 回收站「到期清理」调度层(2026-11-05 立,goal-b49 W7 未竟 1):判据与执行全在端内
@@ -5598,7 +5593,7 @@ export function auditTunnelMetrics(opts = {}) {
 export function sweepGiteeAssetBackfill(opts = {}) {
   const {
     now = Date.now(),
-    intervalMs = 10 * 60 * 1000,
+    intervalMs = 30 * 60 * 1000,
     tickFile = join(WORKTREE, '.ihui-agent', 'state', 'gitee-backfill-tick.json'),
     logger = log,
     runner = null,
@@ -11561,239 +11556,10 @@ export function auditRootGuardManifestSync(opts = {}) {
   return { ran: true, state: 'ok', detail: rows }
 }
 
-/** 钩子审计台账健康巡检的节流窗(2026-11-21 第 53 项):台账增长慢,半小时一次足够。 */
-export const HOOK_AUDIT_HEALTH_INTERVAL_MS = 30 * 60 * 1000
-
-/** 临时派生检出寿命闸的节流窗(第 54 项):老化阈值是天级,分钟级刷新没有信息增益。 */
-export const TEMP_WORKTREE_LIFETIME_INTERVAL_MS = 60 * 60 * 1000
-
-/** 小程序镜像保真度巡检的节流窗(第 55 项):存量缺口 avg≈24%,分钟级刷新只烧 CPU。 */
-export const MIRROR_FIDELITY_INTERVAL_MS = 60 * 60 * 1000
-
-/**
- * 「自述被守护派发」对账的节流窗(第 57 项):要读几百份门体 blob 的头部注释,是慢变量
- * (只在有人新造门或改头注时才会变),6 小时一巡足够。
- */
-export const DISPATCH_CLAIMS_INTERVAL_MS = 6 * 60 * 60 * 1000
-
-/**
- * 周期读数门的统一派发器(2026-11-21 第 55 项)。
- *
- * 第 53/54 项各写了一份"尺子是否存在 → 节流戳 → 派生 → 解析 → 三态日志"的实现;第三把尺子
- * (check-miniapp-mirror-fidelity.mjs,自述"git-guardian 巡检轮派发"而全仓零引用)如果再抄一份,
- * 就是同一段逻辑的第三种口径(§3 零冗余 / §0.6 单一真相源)。故收敛到这里:新增尺子只写一个 spec。
- *
- * 三态口径(§0.3):
- *  - 尺子给 JSON 且带 state ⇒ 用它;否则退到 stdout 的 state=<x>;两者都没有 ⇒ 只看退出码。
- *  - ok / healthy / absent 静默(absent 由 spec 自述一句,不当故障)。
- *  - 其余状态逐行打印门体结论 —— 门体文本里已带可整改动作,这里不另写一套出路。
- *  - 拿不到结论 ⇒ undetermined,只记日志不记绿。
- * 派生纪律:windowsHide(§5b)、显式 stdio(§12g)、超时上限(守门 80)。
- */
-export function runReadoutGate(spec) {
-  const {
-    name,
-    script: scriptName,
-    args = [],
-    intervalMs,
-    tickFile,
-    absentNote = null,
-    logger = log,
-    runner = null,
-  } = spec
-  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), scriptName)
-  if (!existsSync(scriptPath)) {
-    logger(`ℹ️ ${name}:尺子不在位(${scriptName})⇒ 本轮跳过,不记为已探测`)
-    return { ran: false, why: '尺子不在位' }
-  }
-  let last = NaN
-  try {
-    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
-  } catch {
-    /* 没跑过 */
-  }
-  const now = Date.now()
-  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
-  } catch (e) {
-    logger(`⚠️ ${name}:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
-  }
-  const run =
-    typeof runner === 'function'
-      ? runner
-      : () => {
-          try {
-            const out = execFileSync(process.execPath, [scriptPath, ...args], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true,
-              timeout: 90 * 1000,
-              maxBuffer: 1 << 20,
-              stdio: ['ignore', 'pipe', 'pipe'],
-            })
-            return { status: 0, out: String(out ?? ''), err: '' }
-          } catch (e) {
-            return {
-              status: typeof e?.status === 'number' ? e.status : null,
-              out: String(e?.stdout ?? ''),
-              err: String(e?.stderr ?? ''),
-            }
-          }
-        }
-  const r = run()
-  const stdout = String(r?.out ?? '')
-  const lines = stdout.split(/\r?\n/).filter((l) => l.trim() !== '')
-  let state = null
-  try {
-    const x = stdout.indexOf('{')
-    const y = stdout.lastIndexOf('}')
-    if (x >= 0 && y > x) {
-      const doc = JSON.parse(stdout.slice(x, y + 1))
-      if (doc && typeof doc.state === 'string') state = doc.state
-    }
-  } catch {
-    /* 退到文本形态 */
-  }
-  if (!state) {
-    // 两种文本形态都要认:`state=ok`(多数尺子)与 `[x] 结论 warn`(钩子审计那把,第 56 项修)。
-    // 只认前者时,后者每次 warn 都会被记成"结论不可用"(未判定),读数方向正好反了。
-    const m = /\bstate=([A-Za-z_-]+)/.exec(stdout) ?? /结论\s+([A-Za-z_-]+)/.exec(stdout)
-    if (m) state = m[1]
-  }
-  if (!state && r?.status === 0) state = 'ok'
-  if (state === 'ok' || state === 'healthy') return { ran: true, state: 'ok' }
-  if (state === 'absent') {
-    logger(`ℹ️ ${name}:${absentNote ?? '对象尚未建立'}`)
-    return { ran: true, state: 'absent' }
-  }
-  if (!state) {
-    logger(
-      `⚠️ ${name}:结论不可用 —— 派生 rc=${r?.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'};` +
-        `stderr 前 120:${String(r?.err ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**(§0.3)`,
-    )
-    return { ran: true, state: 'undetermined' }
-  }
-  // 单行限长 400:台账行/门体行都可能夹带大段内容(钩子 error 上限很大),整行灌进守护日志
-  // 会把日志本身撑成噪音源(守门 181 同类判据:错误文本必须有界)。
-  for (const line of lines) logger(`⚠️ ${name}:${line.length > 400 ? `${line.slice(0, 400)}…(共 ${line.length} 字符)` : line}`)
-  if (lines.length === 0) logger(`⚠️ ${name}:state=${state} 但门体没给结论行 ⇒ 只报状态`)
-  return { ran: true, state }
-}
-
-/**
- * 钩子审计台账健康巡检(第 53 项)—— check-hook-audit-health.mjs 唯一的周期调度器。
- *
- * 立因(§0.9「造好没装车 = 没有」):第 51 项把尺子写出来、登记进 guardian-runner.mjs 的 warn 档,
- * 并在注释里写"走周期派发"。实测这条**不成立**:guardian-runner.mjs 只有 .husky 的 pre-push
- * (--push-gate 只跑 T1 集合)与人工全量档会调,git-guardian --daemon 每 2 分钟那一轮**从不执行它**
- * ⇒ 不设 stagedTriggers 的门等于零派发。这与 325 号「临时派生检出寿命闸」的注释是同一型误判。
- *
- * 为什么不发信(§5e-1):红了收信人能做的事是"修挂掉的那条钩子 / 把要留的历史另存",属开发动作,
- * 不是运维故障;走日志即够。
- */
-export function auditHookAuditHealth(opts = {}) {
-  return runReadoutGate({
-    name: '钩子审计台账巡检',
-    script: 'check-hook-audit-health.mjs',
-    intervalMs: opts.intervalMs ?? HOOK_AUDIT_HEALTH_INTERVAL_MS,
-    tickFile: opts.tickFile ?? join(dirname(LOG), 'hook-audit-health-last.json'),
-    absentNote: '台账尚未建立(一次钩子都没跑过,不算故障)',
-    logger: opts.logger ?? log,
-    runner: opts.runner ?? null,
-  })
-}
-
-/**
- * 临时派生检出寿命闸的周期调度器(第 54 项)—— check-temp-worktree-lifetime.mjs 此前在
- * guardian-runner.mjs 里自述"走 guardian 周期派发(与 keepalive 一型)",实测 git-guardian **零引用**:
- * 登记进注册表不等于会跑(§0.9)。不自动回收(§12d):命中只点名让归属席自决。
- */
-export function auditTempWorktreeLifetime(opts = {}) {
-  return runReadoutGate({
-    name: '临时检出寿命巡检',
-    script: 'check-temp-worktree-lifetime.mjs',
-    args: ['--json'],
-    intervalMs: opts.intervalMs ?? TEMP_WORKTREE_LIFETIME_INTERVAL_MS,
-    tickFile: opts.tickFile ?? join(dirname(LOG), 'temp-worktree-lifetime-last.json'),
-    logger: opts.logger ?? log,
-    runner: opts.runner ?? null,
-  })
-}
-
-/**
- * 小程序镜像保真度巡检(第 55 项)—— check-miniapp-mirror-fidelity.mjs 的头注自述
- * 「根 package.json check:mirror-fidelity + git-guardian 巡检轮派发」,实测 git-guardian 只在一条
- * **注释**里提到文件名、没有任何派生点 ⇒ 自述的那条巡检轮不存在。存量缺口 avg≈24%,属 §12e
- * "判机器存量的门不许进提交链",故只做守护侧周期读数(不进 pre-commit/pre-push)。
- */
-export function auditMirrorFidelity(opts = {}) {
-  return runReadoutGate({
-    name: '小程序镜像保真度巡检',
-    script: 'check-miniapp-mirror-fidelity.mjs',
-    args: ['--json'],
-    intervalMs: opts.intervalMs ?? MIRROR_FIDELITY_INTERVAL_MS,
-    tickFile: opts.tickFile ?? join(dirname(LOG), 'mirror-fidelity-last.json'),
-    logger: opts.logger ?? log,
-    runner: opts.runner ?? null,
-  })
-}
-
-/**
- * IP 归属信任巡检(第 57 项:接线复原)。尺子 `check-ip-attribution-trust.mjs` 与审计层
- * `scripts/lib/ip-attribution-trust-audit.mjs` 都在,镜像测试 ⑥「接线锁」却当场翻红 ——
- * 本文件里的 `from './lib/ip-attribution-trust-audit.mjs'` 与巡检轮调用被一次并发合并整层摘掉,
- * 而全仓没有一道门看得见这一面(§0.9「契约存在、执行链不存在」:测试红了、注册还在、就是没人跑)。
- *
- * 语义照审计层:breach 只在**翻转**时寄信(alertId 透传,不许被薄接线吃掉);恢复后再寄一封;
- * 未判定只写日志不喊人也不记绿(§0.3)。小时级节流,自带 tick 戳 ⇒ 与计划任务档并存只先到那个真跑。
- */
-export function auditIpAttributionTrust(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = IP_TRUST_INTERVAL_MS,
-    tickFile = IP_TRUST_TICK_FILE,
-    logger = log,
-    runner = null,
-    notify = null,
-  } = opts
-  const notifyOpts = { severity: 'critical', alertId: 'ip-attribution-trust' }
-  return runIpAttributionTrustAudit({
-    now,
-    intervalMs,
-    tickFile,
-    logger,
-    runner,
-    notify:
-      notify ??
-      ((title, detail) => notifyGuardRed(title, detail, notifyOpts)),
-  })
-}
-
-/**
- * 「自述被守护派发」对账(第 57 项):尺子 `check-guardian-dispatch-claims.mjs` 量的是**第六处**
- * 接线面 —— 门体头注自称"走 git-guardian 周期派发"时,本文件代码面到底有没有引用它。
- * check-gate-wiring 只看五处权威点(其中 guardian-runner 的 `script:` 值算一处),
- * 所以"登记进注册表但 git-guardian 从没调过"这一型它结构性地看不见 —— 53/54/55 三处就是如此。
- * 只读、非阻断,不进提交链(§12e)。
- */
-export function auditDispatchClaims(opts = {}) {
-  return runReadoutGate({
-    name: '守护派发声称对账',
-    script: 'check-guardian-dispatch-claims.mjs',
-    intervalMs: opts.intervalMs ?? DISPATCH_CLAIMS_INTERVAL_MS,
-    tickFile: opts.tickFile ?? join(dirname(LOG), 'dispatch-claims-last.json'),
-    logger: opts.logger ?? log,
-    runner: opts.runner ?? null,
-  })
-}
-
 /**
  * 跨端对齐漂移巡检(2026-10-26 立):尺子 `check-cross-end-parity-drift.mjs` 的头注自述
  * 「供 git-guardian 巡检轮派发」,而全仓此前**零派发** —— 判据齐全却无人调度,失效形态是安静
  * (§0.9「造好没装车」= 没有)。本函数是它唯一的调度器。
- *
  *
  * 三态(§0.3):ok 只写一行读数(涨跌都要有证据链);regressed 到人(§5e-1:正文自带可执行
  * 下一步,去重身份 = 倒退维名,不把会抖动的明细清单塞进去重键);undetermined 只写 ⚠️,
@@ -15517,28 +15283,6 @@ async function main() {
     // .ihui-agent/state/root-guard-manifest-audit-last.json 节流戳 ⇒ 双执行体并存只先到那个真跑)
     beatRoundLock()
     if (!CHECK_ONLY) auditRootGuardManifestSync()
-    // 钩子审计台账健康(2026-11-21 第 53 项):guardian-runner 的 warn 档登记不在任何周期链上
-    // (pre-push 只跑 T1、全量档靠人工)⇒ 本函数是它唯一的周期调度点,自带节流戳。
-    beatRoundLock()
-    if (!CHECK_ONLY) auditHookAuditHealth()
-    // 临时派生检出寿命(2026-11-21 第 54 项):325 号门自述"走 guardian 周期派发"而实测零引用,
-    // 同为 §0.9 那一型 ⇒ 与上一条同节律挂 tick,共用各自节流戳。
-    beatRoundLock()
-    if (!CHECK_ONLY) auditTempWorktreeLifetime()
-    // 小程序镜像保真度(第 55 项):头注自述「巡检轮派发」而实测零引用,同双挂点纪律补齐。
-    beatRoundLock()
-    if (!CHECK_ONLY) auditMirrorFidelity()
-    // IP 归属信任(第 57 项):镜子测试 ⑥ 当场翻红 —— 本文件的 import 与巡检轮调用被一次并发
-    // 合并整层摘掉,而注册与尺子都还在(§0.9 那一型最贵的一格:测试红了却没人跑)。
-    beatRoundLock()
-    if (!CHECK_ONLY) auditIpAttributionTrust()
-    // 「自述被守护派发」对账(第 57 项):这把尺子只量第六处接线面(本文件的调度点),
-    // 与 check-gate-wiring 的五处权威点严格互补;同一 tick 双挂点。
-    beatRoundLock()
-    if (!CHECK_ONLY) auditDispatchClaims()
-    // 监控三源入库(第 58 项):器物在、契约在、零调度点 ⇒ 实测信号台账 37 行只有 deploy_outcome 一源。
-    beatRoundLock()
-    if (!CHECK_ONLY) dispatchMonitorSignalIntake()
     beatRoundLock()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     beatRoundLock()
@@ -15811,19 +15555,6 @@ function startDaemon(bootGuard = null) {
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
-        // 钩子审计台账健康(2026-11-21 第 53 项):同上一条的双挂点纪律 —— daemon 是唯一执行体时
-        // 必须同挂 tick;两处共用一枚节流戳 ⇒ 并存时只有先到那个真跑,不翻倍派生。
-        auditHookAuditHealth()
-        // 临时派生检出寿命(2026-11-21 第 54 项):同双挂点纪律,daemon 独占时也必须真判。
-        auditTempWorktreeLifetime()
-        // 小程序镜像保真度(第 55 项):同上,daemon 独占时也必须真判。
-        auditMirrorFidelity()
-        // IP 归属信任(第 57 项复原):同上,daemon 独占时也必须真判。
-        auditIpAttributionTrust()
-        // 「自述被守护派发」对账(第 57 项):同上,daemon 独占时也必须真判。
-        auditDispatchClaims()
-        // 监控三源入库(第 58 项):同上,daemon 独占时也必须真跑(--apply 才产信号)。
-        dispatchMonitorSignalIntake()
         // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
         // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
         // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
@@ -15958,10 +15689,6 @@ function startDaemon(bootGuard = null) {
         await sweepCssTokensSourceLeg()
         await sweepDanglingCommitAutotag()
         sweepExposedCredentialRotation()
-        // Gitee 发版资产国内侧补齐(第 62 项):此前只挂 main() 面,而 daemon 常驻持轮级锁
-        // ⇒ main 那趟永远让路,戳冻结 127 分钟且不在 tick 面(2026-11-03 的 27 小时静默同型)。
-        // 器物自带 30 分钟节流 + 单文件 ≤50MB 守卫,本层只派发(§0.6)。
-        sweepGiteeAssetBackfill()
         sweepHeadRecallRows()
         sweepIosIpaRelay()
         sweepKeepAliveForever()
@@ -15976,10 +15703,6 @@ function startDaemon(bootGuard = null) {
         sweepMiniappStyleTiers()
         sweepParityCockpit()
         sweepPoolIsolation()
-        // ref 位移丢提交守夜人(第 63 项):A9 现读它是"只在一次性 main 里"的唯一一条 ⇒ daemon 常驻持
-        // 轮级锁时那趟永远让路,守夜人等于不存在。自带 tick 节流(REF_MOVE_WATCH_INTERVAL_MS,
-        // ref-move-watch-last.json),双面并存只先到者真跑,零行为变更。
-        sweepRefMoveLoss()
         await sweepRnColorLiteralLeg()
         await sweepRnCompatLeg()
         await sweepRnHostShells()
@@ -16648,75 +16371,6 @@ export function dispatchDeployFeedback(opts = {}) {
   beatRoundLock()
   logger(
     `${r.ok ? '✅' : '⚠️'} 部署反馈派发:${r.ok ? '完成(--once 仅扫描)' : '异常'}｜${String(
-      r.out ?? '',
-    )
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .slice(-1)
-      .join('')
-      .slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`,
-  )
-  return { ran: true, ok: r.ok }
-}
-
-/**
- * 监控三源入库派发(第 58 项)。`monitor-signal-intake.mjs` 是契约 producers 段登记的
- * api_logs / grafana_alert / user_feedback 三源唯一生产器,而全仓零调度点 —— 实测
- * `incident-signals.jsonl` 37 行全部 source=deploy_outcome,另外三源一条都没有:感知腿名义上
- * "四源",实际只有一源在跑(§0.9「造好没装车 = 没有」)。
- *
- * 写盘纪律照器物自己的契约:默认 dry-run,`--apply` 才落账 ⇒ 本派发点必须带 `--apply`,
- * 否则"跑了但没有产出"会伪装成健康。去重由器物自己的 identityOf 完成(同输入重复跑幂等),
- * 与 deploy_outcome 源共用同一本台账,不新建第二份。
- *
- * 源读不到一律由器物落"未判定"并逐源点名:本层只把最后一行结论进日志,不寄信、不改退出码
- * (感知腿的沉默由 check-autonomy-leg-health 的 A8/A9 另量,§12e)。
- */
-export function dispatchMonitorSignalIntake(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = Number(process.env.IHUI_MONITOR_INTAKE_INTERVAL_MS || 30 * 60 * 1000),
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'monitor-signal-intake-dispatch-last.json'),
-    logger = log,
-    exists = existsSync,
-    runner = null,
-  } = opts
-  if (process.env.IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE === '1') {
-    logger('⏸ 监控三源入库派发:IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1 ⇒ 跳过')
-    return { ran: false, why: '被 env 关闭' }
-  }
-  const script = join(GUARDIAN_SCRIPTS_DIR, 'monitor-signal-intake.mjs')
-  if (!exists(script)) {
-    logger('ℹ 监控三源入库派发:器物不在位(scripts/monitor-signal-intake.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '器物缺席' }
-  }
-  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  stampDispatchTick(tickFile, now, logger)
-  const run =
-    runner ??
-    (() => {
-      try {
-        const out = execFileSync(process.execPath, [script, '--apply', '--json'], {
-          cwd: WORKTREE,
-          encoding: 'utf8',
-          windowsHide: true,
-          timeout: 10 * 60 * 1000,
-          maxBuffer: 1 << 22,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        })
-        return { ok: true, out: String(out ?? '') }
-      } catch (e) {
-        return {
-          ok: false,
-          out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
-          err: String(e?.message ?? e),
-        }
-      }
-    })
-  const r = run()
-  beatRoundLock()
-  logger(
-    `${r.ok ? '✅' : '⚠️'} 监控三源入库派发:${r.ok ? '完成(--apply)' : '异常(源未判定不影响其他源)'}｜${String(
       r.out ?? '',
     )
       .split(/\r?\n/)

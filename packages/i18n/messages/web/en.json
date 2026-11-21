@@ -7934,8 +7934,7 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
-
-      "runtimeHookConfigStaleBy": "last trusted by {by}",      "hookFailures": {
+      "hookFailures": {
         "title": "Hook execution failed",
         "evidenceMissing": "Result not recorded: this execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed.",
         "state": {
@@ -8765,12 +8764,6 @@
       "runtimeHookRunOk": "passed",
       "runtimeHookRunTimeout": "timeout",
       "runtimeHookRunError": "failed",
-      "runtimeHookStatsTitle": "Hook totals",
-      "runtimeHookAuditTitle": "Hook audit (local ledger)",
-      "runtimeHookAuditTruncated": "tail only: last {lines} lines",
-      "runtimeHookAuditNearFull": "Audit log at {pct}% capacity, nearing rotation (old backup will be overwritten)",
-      "runtimeHookAuditHistoryOnly": "current ledger empty; only a {kb} KB backup remains",
-      "runtimeHookStats": "{total} runs · ok {ok} / timeout {timeout} / failed {error} · avg {avg}ms · peak {slowest}ms",
       "runtimeHookConfigUntrusted": "{count} hooks configured but untrusted — re-trust on this machine after edits",
       "runtimeHookConfigInvalid": "Hook config is broken; running as if unconfigured",
       "runtimeMessageSend": "Round {iteration} request sent · {count} messages",
@@ -8884,11 +8877,7 @@
         }
       },
       "errorCatalog": {
-
-        "TERMINAL_STDIN_CLOSED": {
-          "title": "Terminal stdin is closed",
-          "action": "Reopen the terminal session before sending input"
-        },        "102": {
+        "102": {
           "title": "Request time validation failed",
           "action": "Sync your system clock and retry"
         },
@@ -9744,18 +9733,6 @@
           "title": "Invalid terminal size",
           "action": "Pass positive integer rows and columns"
         },
-        "TERMINAL_INVALID_INPUT": {
-          "title": "Invalid terminal input",
-          "action": "Check the pasted or sent content and retry"
-        },
-        "TERMINAL_MOUSE_DISABLED": {
-          "title": "Terminal mouse reporting is off",
-          "action": "Have the program request mouse tracking (DECSET 1000/1002/1003) before sending mouse events"
-        },
-        "TERMINAL_FOCUS_DISABLED": {
-          "title": "Terminal focus reporting is off",
-          "action": "Have the program request focus events (DECSET 1004) before reporting focus in/out"
-        },
         "TERMINAL_NOT_A_TTY": {
           "title": "Terminal is not a tty",
           "action": "Restart the session in PTY mode"
@@ -9819,6 +9796,10 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "Too many running sub-agents",
           "action": "Wait for running sub-agents to finish and retry"
+        },
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "Terminal stdin is closed",
+          "action": "Reopen the terminal session before sending input"
         }
       },
       "worktree": {
@@ -9988,7 +9969,8 @@
         "creating": "Creating…",
         "create": "New change request",
         "createHint": "Create a PR from the current branch"
-      }
+      },
+      "runtimeHookConfigStaleBy": "last trusted by {by}"
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -10421,25 +10403,10 @@
     "shareCopied": "Link copied",
     "templates": "Templates",
     "terminalDock": {
-      "backToIde": "Back to IDE terminal",
-      "showAgentFace": "View agent terminal screen",
       "collapse": "Collapse",
       "newSession": "New Terminal",
       "resize": "Resize",
       "title": "PowerShell Terminal"
-    },
-    "agentTerminal": {
-      "altScreen": "Alt screen",
-      "cursor": "Cursor",
-      "empty": "No agent terminal in this session yet (it appears once the model opens one with the terminal tool)",
-      "exited": "Exited",
-      "failed": "Screen unavailable",
-      "links": "Hyperlinks (shown text and real target side by side, neither is clickable)",
-      "noIntegration": "No shell integration (cannot tell whether it is at a prompt)",
-      "noSession": "No conversation yet (send a message first)",
-      "refresh": "Refresh now",
-      "running": "Running",
-      "title": "Agent terminal screen"
     },
     "thisMonth": "This Month",
     "earlier": "Earlier",
@@ -13291,7 +13258,6 @@
     "reasoningEffortUltra": "Ultra",
     "reasoningEffortDefault": "Default",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
-    "reasoningEffortReset": "Reset reasoning effort",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis",
     "reviewTargetGroupLabel": "Review target selection",
@@ -21176,7 +21142,7 @@
     "reimbursementDesc": "Expense list → input-VAT deduction + IIT treatment + compliance review + journal draft",
     "reimbursementCta": "Start reimbursement",
     "reimbursementJsonLabel": "Expense list (JSON array)",
-    "reimbursementJsonPh": "[{\"employee\":\"John Doe\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
+    "reimbursementJsonPh": "[{\"employee\":\"张三\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
     "reimbursementHint": "Supports lodging_city_tier / travel_per_diem / conference / input-tax transfer-out / advance offset / department allocation extensions; drafts require finance review",
     "reimbursementInvalid": "Expense list must be a valid JSON array",
     "revenueLabel": "Revenue (entertainment cap)",
@@ -21188,7 +21154,7 @@
     "socialDesc": "Per-employee five insurances + housing fund, medical account/pool split, base floor/cap flags",
     "socialCta": "Start insurance calc",
     "socialEmployeesLabel": "Insured employees (JSON array)",
-    "socialEmployeesPh": "[{\"name\":\"John Doe\",\"gross\":\"19800\",\"base\":\"19800\"}]",
+    "socialEmployeesPh": "[{\"name\":\"张三\",\"gross\":\"19800\",\"base\":\"19800\"}]",
     "socialAvgWageLabel": "Average social wage (base anchor)",
     "fieldSocialAvgWage": "Average social wage {value}",
     "socialInvalid": "Employees must be a valid JSON array",
@@ -21197,9 +21163,10 @@
     "deductionDesc": "Seven items per employee; totals feed the tax-filing wage table",
     "deductionCta": "Compute deductions",
     "deductionEmployeesLabel": "Employee deduction info (JSON array)",
-    "deductionEmployeesPh": "[{\"name\":\"John Doe\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
+    "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
     "deductionInvalid": "Deduction info must be a valid JSON array",
-    "promptDeduction": "Call special_deduction_calc to compute the seven IIT special deductions per employee. Period: {period}; employee JSON: {payload}",    "automationTitle": "National-Platform Automation · Built-in Browser Leg",
+    "promptDeduction": "Call special_deduction_calc to compute the seven IIT special deductions per employee. Period: {period}; employee JSON: {payload}",
+    "automationTitle": "National-Platform Automation · Built-in Browser Leg",
     "automationDesc": "The outward leg of bookkeeping and filing: the AI drives THIS project's built-in browser to fetch ledgers, pre-fill forms, and advance to the submit gate on the e-tax bureau and social/medical insurance portals; native clients run on the desktop-automation surface with a human present.",
     "targetEtaxInvoiceLedger": "E-Tax · invoice ledger & credit selection",
     "targetEtaxVatDeclaration": "E-Tax · VAT and surcharges declaration",
