@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **62 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **63 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（62 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（63 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -696,6 +696,14 @@
 - 处置：`git-guardian.mjs` daemon tick 段按字母序补一枚 `sweepGiteeAssetBackfill()`（在 `sweepExposedCredentialRotation` 与 `sweepHeadRecallRows` 之间），器物自带 30 分钟节流与单文件 ≤50MB 守卫，本层只派发、零复算。
 - 语义边界：不新建腿、不改器物判据；`ref-move-watch` 那条仍判 live（仅 main 面但戳新鲜，任务档还活着）——背离判据按"戳冻结 ∧ 不在 tick 面"两条件同时成立才算，本项只补齐真正零派发的那一枚。
 - 验证：改前 `LIVENESS-RESULT state=stalled stalled=1`、改后 `state=live stalled=0 families=3`；`scripts/tests/gitee-backfill-daemon-wiring.test.mjs` 3 passed（main 挂点 + daemon 形状锁 + 真跑背离巡检的接线锁）。
+### 5.63 第 63 项：一件事在 lib 里"有归属"，在尺子上却"无人认领"；另一条腿只挂 main 面
+
+- 现场一：`check-autonomy-leg-health` 现读 `A15-action-coverage [DRIFT] 1 枚台账动作没有任何维度认领:runner-budget-exhausted×37`。它在 `scripts/lib/autonomy-nonprogress.mjs` 的 `ACTION_EXEMPTIONS` 里早有归属（轮级发起腿额度停转、无票键），但门自己的 `ACTION_CLAIMS` 表没认它 ⇒ 37 轮只能从散文读。这正是 §0.9 那型：判据/词汇存在，消费它的那一格不存在。
+- 处置一：`ACTION_CLAIMS` 增一条 `runner-budget-exhausted: { dim: 'A15', kind: 'informational' }`，写清"豁免 ≠ 判过：仍进本维报数、不计 A7 空转"。改后本维读数里直接出现 `runner-budget-exhausted×37`。
+- 现场二：A9 现读 `main 区 109 / daemon 区 107 ⇒ 1 条只在一次性 main 里(sweepRefMoveLoss)`。daemon 常驻持轮级锁 ⇒ 只挂 main 的守夜人在常驻态等于不存在（与第 62 项同一成因家族）。
+- 处置二：daemon tick 段补 `sweepRefMoveLoss()`（自带 `REF_MOVE_WATCH_INTERVAL_MS` 节流与 `ref-move-watch-last.json` 戳，双面并存只先到者真跑，零行为变更）。
+- 语义边界：不改 lib 的豁免判据、不摘任何台账行、不为消音放宽前缀族；`sweepRefMoveLoss` 的"仅 main 但戳新鲜"在背离巡检里仍算 live，本项只补结构性承载面。
+- 验证：A15 由 `[DRIFT] 1 枚无人认领` 转 `[OK] 近窗动作 24 型全部有归属（认领表 49 条）`，informational 档现读含 `runner-budget-exhausted×37`；A9 落地后转 OK（面=head）；`autonomy-leg-health-output.test.mjs` 11 passed（含新增的第 63 项认领/报数断言）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
