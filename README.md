@@ -109,7 +109,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 370 | `guardianGates` |
 | — blocking | 338 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
-| 跟踪文件 | 23150 | `trackedFiles` |
+| 跟踪文件 | 23151 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5477,6 +5477,40 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-21**
+- 🐞 修复:test 任务透传浏览器探测所需 env(turbo 默认 strict 剥掉 LOCALAPPDATA/ProgramFiles ⇒ CDP 用例找不到 Chrome);cli/api 四处真 git·真 IO 用例预算 60s (c84d054513)
+- 📚 文档:跟踪文件数随第 92 项 +2(23148 → 23150) (1010bb2e1b)
+- 🚀 新功能/改进:tmp 体积哨兵加「有意保留」登记面,并修消费端正则(第 92 项) (b8478a5dda)
+- 🚀 新功能/改进:tmp 体积哨兵加「有意保留」登记面,并修消费端正则(第 92 项) (df7faf9a66)
+- 🔧 工程/其他:真 git/真 IO 用例全局预算 15s→60s(并发档反复打穿,单跑全绿) (0e93ee2d11)
+- 📚 文档:数字生成块按落地面刷新(第 91 项后) (fec4a5790a)
+- 🔧 工程/其他:302p 基线定向刷新 tierPending 10→21(别席 RN 7px 存量,非本批引入) (1df21d5b6f)
+- 🐞 修复:StreamDetail 的左右让位落回档表,不再用任意值(17px / 7px) (2f9187093b)
+- 🐞 修复:test 任务透传浏览器探测所需 env(strict 模式剥掉 LOCALAPPDATA/ProgramFiles 致 CDP 用例找不到 Chrome) + cli 两处真 git 用例预算 60s (d4a40f4cc7)
+- 🐞 修复:过程行几何从根统一(图标/文字列/行高/基线不再随可点击性变化) (07768a3318)
+- 🐞 修复:摘掉已退役门 173 的钩子腿,并把 H3 的「未设置按 .git/hooks 判」接到实现 (d3fef60264)
+- 🐞 修复:键面防丢闸补「处置权」维,对侧正当退役登记键不再把分叉收敛押死 (a979a3a89a)
+- 📚 文档:刷新生成块数字(别席退役门 173 后 trackedFiles/守门 数下降,87->88 项文档口径) (9cf61f2462)
+- 🐞 修复:总状态读执行体身份,pid 已死的 daemon 不再被兜底 tick 读成健康 (da57617be0)
+- 🔧 工程/其他:退役 README 数字对账门 173(数字滞后改人工定期刷新) (84572f3af0)
+- 🐞 修复:总状态读执行体身份,pid 已死的 daemon 不再被兜底 tick 读成健康 (29427e3110)
+- ⚡ 性能:scanFolders 普通目录不再逐项 realpath(O(目录数) 系统调用把 limit 截断退化成时间截断) (b3d8c73722)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23150(删两枚幽灵测试) (9e18a5bede)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23150(删两枚幽灵测试) (cf5fa8ccdf)
+- 🐞 修复:删掉两枚引用不存在符号的幽灵测试,判红文案不再把历史快照当现状 (1f27ed595f)
+- 📚 文档:生成块按合并后 HEAD 面现算对齐(testFiles 5952/trackedFiles 23154),并还原被并重的块内行 (662099cb18)
+- 🚀 新功能/改进:AI 面板流式态按钮四周旋转激光光带 (35836df0a4)
+- 🔧 工程/其他:三处重 I/O 用例预算放宽(并发档超时,单跑全绿) (b3c24001dd)
+- 📚 文档:生成块与最近更新区按远端正版重放(上次合并把块内行并重/散文插进表格/丢最近更新条目) (649f1596ae)
+- 🐞 修复:盘根封口不再把读不到当不存在(UNREADABLE 态),守护把失败原因逐条打进日志 (9f11b985f4)
+- 🔧 工程/其他:workspace-picker 五语言 parity 用例预算放宽到 60s (a3928f113a)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 更新 (3990e89914)
+- 🐞 修复:恢复源缺席不再冒充刷新失败,并真把本机恢复层建回来 (58cb4cfdbc)
+- 🔧 工程/其他:F-519 回归锁改为分段拼路径,消除旁路删除硬门误读路径字面量为引用 (c98c5581c0)
+- 📚 文档:生成块 trackedFiles 按合并后 HEAD 面现算对齐(23150->23152) (692a86bc22)
+- 📚 文档:生成块 trackedFiles 按 HEAD 面现算对齐(23147->23150,合并远端新增 3 路径) (5ed0fe74a2)
+- 📚 文档:生成块 5 项数字按 HEAD 面现算对齐(apiRoutes 4865/apiRouteFiles 716/aiServiceRoutes 686/testFiles 5952/trackedFiles 23147) (70f2ff6d00)
+
 **2026-11-21**
 - 🐞 修复:侧边栏开发者组两枚 admin 管理页归位到管理域 (00ed724d70)
 - 🐞 修复:AI 面板过程行去掉底色与描边,字号压到 13px (728358d835)
