@@ -323,6 +323,39 @@ export function orderForRerunBudget(entries) {
 }
 
 /**
+ * 道数预算的**唯一分配出口**(第 72 项,2026-11-21):
+ * blocking 一道都不许被截,warn 才吃剩余坑位。
+ *
+ * 立因(当次落地现读,不是假想):同一份日志里同时出现
+ * `✅ 落地后受影响判据复跑:32 臂全绿` 与 `⚠️ 复跑预算不覆盖 51 道 blocking 门(blocking 总数已超 30 道)`
+ * —— 也就是 `blocking` 从 30 名之后整段没跑,而整体结论仍是"全绿"。§0.3 的失效方向在这里被写反了:
+ * 第 69 项的排序只能保证"blocking 先跑",挡不住"blocking 总数本来就超预算"。
+ *
+ * 语义(单一真相源,调用方不得自己再 slice):
+ *  - `limit = max(cap, blocking.length)` —— blocking 全进批次,超预算时**只压 warn**;
+ *  - 因此 `deferred` 里结构上不可能出现 blocking;一旦出现就是排序不变量被破坏,调用方必须落
+ *    "未判定"而不是打一条 warn 就报绿(见调用侧 assert)。
+ *  - 同档保序:blocking 内部、warn 内部都保持注册表扫描序(理由同 orderForRerunBudget)。
+ */
+export function planRerunBudget(entries, cap = 30) {
+  const ordered = orderForRerunBudget(entries)
+  const blocking = ordered.filter((e) => (e.mode ?? 'blocking') === 'blocking')
+  const warn = ordered.filter((e) => (e.mode ?? 'blocking') !== 'blocking')
+  const limit = Math.max(Number.isFinite(cap) ? cap : 0, blocking.length)
+  const run = ordered.slice(0, limit)
+  const deferred = ordered.slice(limit)
+  return {
+    ordered,
+    run,
+    deferred,
+    blockingCount: blocking.length,
+    warnCount: warn.length,
+    cap,
+    limit,
+  }
+}
+
+/**
  * 路径→门映射:落地面触及某门声明的 stagedTriggers ⇒ 该门"受影响"。
  * 无 stagedTriggers 的恒跑门不入列(见头注);info 门不入列(它永不失败,复跑只是噪声)。
  * 触发面清单的归一化与"空清单当场抛错"都发生在共享模块 guardian-triggers 里
@@ -772,31 +805,35 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       const RUN_FILES_CAP = 200
       const toRun = affected.filter((g) => !BUILTIN_SCRIPTS.has(g.script))
       // 第 69 项:预算截断必须先截**warn**,不许把 blocking 排在一串 warn 门后面。
-      // 旧实现按注册表扫描序截前 30 道(现读常态 40+ 受影响),于是"超出复跑预算"的那一段里
-      // 完全可能躺着 blocking 门 —— 落地报绿,而真红门根本没跑;这比"没跑"更坏的是它**读起来像跑过**。
-      // 排序是稳定的(blocking 内部、warn 内部都保持注册表序),只换"先跑谁",不动 argv 与分级。
-      const ordered = orderForRerunBudget(toRun)
-      const deferred = ordered.slice(REGISTRY_CAP)
+      // 第 72 项:排序还不够 —— blocking 总数超预算时旧实现照样把后 21 道 blocking 延后,
+      // 而整体读数仍报"全绿"。道数分配改走 `planRerunBudget`(单一出口):blocking 全跑,
+      // 预算只压 warn;`deferred` 里出现 blocking = 不变量被破坏 ⇒ 落未判定,不打一句 warn 就报绿。
+      const plan = planRerunBudget(toRun, REGISTRY_CAP)
+      const ordered = plan.ordered
+      const deferred = plan.deferred
       for (const g of deferred) {
         console.log(
-          `⚠️ 注册表受影响门 [${g.id}] ${g.script}(mode=${g.mode ?? 'blocking'}) 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+          `⚠️ 注册表受影响门 [${g.id}] ${g.script}(mode=${g.mode ?? 'blocking'}) 超出复跑预算(${REGISTRY_CAP} 道;blocking ${plan.blockingCount} 道不占这 ${REGISTRY_CAP} 坑)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
         )
       }
       const deferredBlocking = deferred.filter((g) => (g.mode ?? 'blocking') === 'blocking')
       if (deferredBlocking.length > 0) {
-        // 排序之后还出现 blocking 被延后 ⇒ 说明 blocking 总数本身超了预算。这时整句"全绿"
-        // 必须带限定:这不是判过,是**面没铺满**(§0.3 同一取向)。
-        res.notes.push(
-          `⚠️ 复跑预算不覆盖 ${deferredBlocking.length} 道 blocking 门(blocking 总数已超 ${REGISTRY_CAP} 道)⇒ 本次"全绿"不覆盖它们:` +
-            deferredBlocking.map((g) => g.id).join(', '),
-        )
+        // planRerunBudget 的语义是"blocking 全跑",走到这里说明分配出口自身坏了(排序/上限被改)。
+        // 这时既不能报绿、也不能只打一句 warn:整轮结论落**未判定**(§0.3 —— 没判绝不写成判过)。
+        res.undetermined.push({
+          kind: 'registry-budget',
+          why:
+            `预算分配不变量被破坏:${deferredBlocking.length} 道 blocking 门被延后(` +
+            deferredBlocking.map((g) => g.id).join(', ') +
+            `)⇒ planRerunBudget 的"blocking 不吃道数预算"未生效,本轮结论不可用`,
+        })
       }
       // 执行:先按原顺序筛出**真要跑**的臂(缺门体/应急跳过都不进批次),再整体交给并发池。
       // 并发只改"等谁":argv、cwd、timeout、env 与逐臂串行时逐字相同;结果按输入下标回填,
       // 下面的归类循环保持原顺序 ⇒ ran/failed/warnFailures/undetermined 的内容与分级一字不变。
       // 依据(2026-10-28 实测):单臂 0.3s~34s 差两个数量级,串行的墙钟时间几乎全花在等最慢那几臂。
       const batchPlan = []
-      for (const g of ordered.slice(0, REGISTRY_CAP)) {
+      for (const g of plan.run) {
         const scriptPath = join(root, 'scripts', g.script)
         if (!existsSync(scriptPath)) {
           res.undetermined.push({
