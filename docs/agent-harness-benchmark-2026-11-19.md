@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **56 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **63 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（56 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（63 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -658,6 +658,52 @@
 - 测试：`--self-test` 增 `自检10`（env 覆盖/坏值回落/缺省三档）与 `自检11`（9 万字节单行台账 ⇒ 报告总长 < 3000 字符，实测 71）→ `12/12`；镜像测试增第 ⑧ 例（源头里必须同时出现 `结论 <x>` 回退、400 字截断、`ledger.lines.length`、`resolveCap`）。
 
 验证：真机 warn 路径实测 —— 日志四行（结论 warn / 容量 100% 给"先另存或调大上限" / 失败 10/20 点名 `lint-on-edit`）、返回 `{"ran":true,"state":"warn"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `8 passed`。
+### 5.58 第 57 项：守护派发面的第六处没人看，而它刚好断了一根真线
+
+- 问题一（measurable）：`check-gate-wiring.mjs` 只对五处权威接线点核对（runner 的 `script:` 值、pre-commit-hook.js、其余 husky、根 package.json、CI）。「头注自称走 git-guardian 周期派发、`git-guardian.mjs` 却零引用」这一型**不在任何候选面上** —— 第 53/54/55 项三处都是这么活下来的。
+- 问题二（live red）：把上面这条做成尺子后，第一轮就抓到 `check-ip-attribution-trust.mjs` 的「调度面 = git-guardian 巡检轮」。顺着查，它的 lib 审计层、镜像测试都在，而 `git-guardian.mjs` 里的 `from './lib/ip-attribution-trust-audit.mjs'` 与巡检轮调用**被一次并发合并整层摘掉** —— 镜像测试 ⑥「接线锁」当场翻红，全仓却没有一道门看得见这一面。
+- 处置：
+  ① 新只读尺子 `scripts/check-guardian-dispatch-claims.mjs`：扫门体**头部注释区**的肯定式声称（自称 本门/本器/本件 或直接写本体文件名），兑现面 = `git-guardian.mjs` **剥注释后的代码面**出现该 basename，另加**一跳**（git-guardian 直接 import 的 lib 也算派发面，worktree 回收就是 lib 里 spawn 的这一型）。精度优先：描述别人的脚本、描述守护自身节律、条件式（前提/若/如果）、否定式（未接/尚未/零调用点）一律不判 warn；枚举到 0 声称 ⇒ undetermined。
+  ② 复原 IP 归属信任巡检：`git-guardian` 补 import + `auditIpAttributionTrust` 包装器 + main/daemon 双挂点，`alertId` 与 severity 原样透传给 `notifyGuardRed`（防薄接线吃掉去重身份）。
+  ③ 新尺子本身也走同一派发器：`auditDispatchClaims` + `DISPATCH_CLAIMS_INTERVAL_MS = 6h` + 双挂点。
+- 语义边界：新尺子只量第六处，不重复 `check-gate-wiring` 的任何判断（R1/R4 的候选集一字未动）；只读、warn 档、不进提交链（§12e）。
+- 测试：`node scripts/check-guardian-dispatch-claims.mjs --self-test` → `8/8`；镜像测试 `scripts/tests/check-guardian-dispatch-claims.test.mjs` → `8 passed`（含精度四型、射程只到头部、段落归并、本尺子自身接线锁、IP 巡检接线复原锁）；`scripts/tests/ip-attribution-trust-audit.test.mjs` 由 `# fail 1` 转 `7 passed`。
+- 真机验证：`node scripts/check-guardian-dispatch-claims.mjs` 修前 `结论 warn`（声称 14 / 已接线 10 / 诚实说明 3，真缺口 1 枚 = IP 归属信任）；`auditIpAttributionTrust()` 真跑返回 `state=ok`（config 未设本键 ⇒ 全部条目属回环/私网），`auditDispatchClaims()` 真跑返回 `state=warn` 并把那枚缺口逐行点名。
+### 5.59 第 58 项：感知腿名义四源、实际一源（三源的生产器零调度）
+
+- 现场（现读，不是推测）：`.ihui-agent/state/incident-signals.jsonl` 37 行按 `source` 分组 —— `deploy_outcome` 37 / `api_logs` 0 / `grafana_alert` 0 / `user_feedback` 0。契约 `scripts/data/incident-signal-contract.json` 的 producers 段登记了四个来源，而 `scripts/monitor-signal-intake.mjs`（三源唯一生产器）全仓零调度点：它的 CLI 默认 dry-run，`--apply` 才落账 ⇒ 没人带 `--apply` 跑过，所以台账里那三源一条都没有。`user-feedback-intake.mjs` 同样零调度、且缺导出配置（真跑 `undetermined`）。
+- 处置：`git-guardian` 增 `dispatchMonitorSignalIntake()` —— 30 分钟节流（`IHUI_MONITOR_INTAKE_INTERVAL_MS`）、`IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1` 可关、`--apply --json` 落账、10 分钟超时、main 单轮与 daemon tick 双挂点；只把最后一行结论进日志，不寄信、不改守护退出码（感知腿的沉默归 `check-autonomy-leg-health` 的 A8/A9 另量，§12e）。器物头注补点名真实调度器，防它变成下一枚「自述有人调度」。
+- 语义边界：三源全部未判定时器物 exit 2 ⇒ 派发器记 `ok=false` 并**照原样点名**（不折成"跑成功"）；源未判定不影响其他源；去重仍由器物自己的 `identityOf` 完成，与 `deploy_outcome` 共用一本台账，不新建第二份。
+- 真机验证：修前 `incident-signals` 三源 0 行；`dispatchMonitorSignalIntake()` 真跑返回 `{ran:true, ok:false}`，日志逐字 `未判定:三个监控源全部未判定(没有任何可判定面)` —— 这是因为 `scripts/data/auto-triage-config.json` 的 `apiLogs.jsonl` / `grafanaAlerts.url` 皆空、也没有 `userFeedback` 键，本机缺导出与 Grafana 地址；派发点补上后这条缺口从"静默"变成"每 30 分钟点名"，配好取数面即产出。
+- 测试：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` → `7 passed`（装车/`--apply`/双挂点/节流三态/器物缺席不写戳/头注点名）。
+### 5.60 第 59 项：新派发腿没进"黑腿探测器"，而它自己的镜像测试有状态泄漏
+
+- 问题一（measurable）：`scripts/data/autonomy-leg-liveness.json` 的候选集 = 盘上所有 `*-dispatch-last.json`，盘上有而本表没有 ⇒ `unregistered` 点名（覆盖面自证）。第 58 项新挂的 `monitor-signal-intake-dispatch-last.json` 落盘后就会进这张点名单 —— 新腿不受探测量，等于把"是否在跳"交给记忆。
+- 问题二（live）：第 58 项的镜像测试用固定 tick 文件名，第一次跑留下戳，第二次跑就撞 30 分钟节流窗口 ⇒ `⑦ ran` 断言翻红。这不是实现缺陷，是测试自身带状态。
+- 处置：① `autonomy-leg-liveness.json` 增 `monitor-signal-intake` 那条（owner=`dispatchMonitorSignalIntake`、envVar=`IHUI_MONITOR_INTAKE_INTERVAL_MS`、nominal=1800000 与源默认值逐字一致、ruler=器物、verifiedAt=2026-11-21），并写明 knownBlocker：三源取数面皆空 ⇒ 每轮 three-source-undetermined 属预期，探测器量的是戳是否在跳而非产出。② 测试改为每次运行生成唯一 tick 后缀，连跑两遍都 7/7。
+- 语义边界：不新增探测器、不改判据；`knownBlocker` 只作解释，不参与判定 —— 静默仍会被 A8 量到。
+- 验证：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` 连跑两次均 `7 passed`；登记后 A8 的 `unregistered` 名单里不再出现 `monitor-signal-intake`（落地前按 HEAD 面仍列旧账，落地后即消）。
+### 5.61 第 60-61 项：两条真派发腿不在登记表，而登记表的覆盖面自证结构上看不见"还没跑过的腿"
+
+- 现场（第 60 项）：A8 现读 `unregistered=2 ｜ api-liveness / tmp-bloat`。两条都是 `git-guardian.mjs` 里真在跑的派发器（`sweepApiLiveness` 5 分钟、`auditTmpBloat` 5 分钟，均无 env 覆盖），盘上有戳、登记表没条目 ⇒ 它们不受静默探测量。
+- 结构缺口（第 61 项）：`classifyLegs` 的覆盖面自证只拿**盘上的戳**与登记表对账 —— 一枚新挂的派发器在它跑过之前盘上没有戳，于是"登记表静默漏掉一条真腿"这一型永远看不见。这正是 60 项那两条腿漏过去的机制，不是一次性手误。
+- 处置：① 补登记两条腿（owner=派发函数、nominal=源默认 300000、ruler=器物、verifiedAt=今天，并写明 knownBlocker）。② `scripts/lib/autonomy-leg-liveness.mjs` 增 `findDispatchStampsInSource(src)` + `judgeRegistryCoverage({sourceStamps, legs})`：源面（`git-guardian.mjs` 源码）里的 `*-dispatch-last.json` 字面量，源里有而表里没有 ⇒ drift 并逐枚点名；表里有而源面没有 ⇒ 只点名不判红（tickFile 可能由变量拼装，失效方向恒为"多要一次说明"）。③ `check-autonomy-leg-health.mjs` 的 A8 取料层按同一被审面读 `git-guardian.mjs`，把 coverage 并进同一条维度读数；源面读不到 ⇒ unjudged，不读成"源面没有派发器"。
+- 语义边界：不新增第二份登记表、不复算节律；`missing` 与盘上 `unregistered` 同档（都是"无人认领"），`orphan` 只是提示。
+- 验证：`node scripts/check-autonomy-leg-health.mjs` 落地前 `unregistered=2`，登记后 `腿 16 枚 ok=16 unregistered=0 ｜ 源面:源面 16 枚 / 登记 16 枚`；`scripts/tests/leg-registry-coverage.test.mjs` 6 passed（含"盘上无戳也能抓到新腿"的集成例）；`autonomy-leg-liveness.test.mjs` + `autonomy-leg-health-output.test.mjs` 22 passed。
+### 5.62 第 62 项：只挂 main 面的派发腿，常驻持锁时等于零派发
+
+- 现场：`node scripts/check-sweeper-liveness.mjs` 现读 `dispatch-parity state=stalled`，真名单里 `sweepGiteeAssetBackfill` 的戳 `gitee-backfill-tick.json` 冻结 127 分钟且**不在 daemon tick 面**。成因与 2026-11-03 那次 27 小时静默同型：daemon 常驻持轮级锁，`main()` 那一趟永远让路 ⇒ 只挂 main 的腿实际零派发，而"戳存在"看起来像它还活着。
+- 处置：`git-guardian.mjs` daemon tick 段按字母序补一枚 `sweepGiteeAssetBackfill()`（在 `sweepExposedCredentialRotation` 与 `sweepHeadRecallRows` 之间），器物自带 30 分钟节流与单文件 ≤50MB 守卫，本层只派发、零复算。
+- 语义边界：不新建腿、不改器物判据；`ref-move-watch` 那条仍判 live（仅 main 面但戳新鲜，任务档还活着）——背离判据按"戳冻结 ∧ 不在 tick 面"两条件同时成立才算，本项只补齐真正零派发的那一枚。
+- 验证：改前 `LIVENESS-RESULT state=stalled stalled=1`、改后 `state=live stalled=0 families=3`；`scripts/tests/gitee-backfill-daemon-wiring.test.mjs` 3 passed（main 挂点 + daemon 形状锁 + 真跑背离巡检的接线锁）。
+### 5.63 第 63 项：一件事在 lib 里"有归属"，在尺子上却"无人认领"；另一条腿只挂 main 面
+
+- 现场一：`check-autonomy-leg-health` 现读 `A15-action-coverage [DRIFT] 1 枚台账动作没有任何维度认领:runner-budget-exhausted×37`。它在 `scripts/lib/autonomy-nonprogress.mjs` 的 `ACTION_EXEMPTIONS` 里早有归属（轮级发起腿额度停转、无票键），但门自己的 `ACTION_CLAIMS` 表没认它 ⇒ 37 轮只能从散文读。这正是 §0.9 那型：判据/词汇存在，消费它的那一格不存在。
+- 处置一：`ACTION_CLAIMS` 增一条 `runner-budget-exhausted: { dim: 'A15', kind: 'informational' }`，写清"豁免 ≠ 判过：仍进本维报数、不计 A7 空转"。改后本维读数里直接出现 `runner-budget-exhausted×37`。
+- 现场二：A9 现读 `main 区 109 / daemon 区 107 ⇒ 1 条只在一次性 main 里(sweepRefMoveLoss)`。daemon 常驻持轮级锁 ⇒ 只挂 main 的守夜人在常驻态等于不存在（与第 62 项同一成因家族）。
+- 处置二：daemon tick 段补 `sweepRefMoveLoss()`（自带 `REF_MOVE_WATCH_INTERVAL_MS` 节流与 `ref-move-watch-last.json` 戳，双面并存只先到者真跑，零行为变更）。
+- 语义边界：不改 lib 的豁免判据、不摘任何台账行、不为消音放宽前缀族；`sweepRefMoveLoss` 的"仅 main 但戳新鲜"在背离巡检里仍算 live，本项只补结构性承载面。
+- 验证：A15 由 `[DRIFT] 1 枚无人认领` 转 `[OK] 近窗动作 24 型全部有归属（认领表 49 条）`，informational 档现读含 `runner-budget-exhausted×37`；A9 落地后转 OK（面=head）；`autonomy-leg-health-output.test.mjs` 11 passed（含新增的第 63 项认领/报数断言）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

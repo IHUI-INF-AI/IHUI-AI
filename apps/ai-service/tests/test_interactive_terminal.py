@@ -2739,6 +2739,73 @@ async def test_tool_layer_routes_prompt_and_cell(monkeypatch) -> None:
     assert seen["cell"]["row"] == 3 and seen["cell"]["col"] == 2  # type: ignore[index]
 
 
+def test_pty_input_notes_name_the_windows_line_discipline() -> None:
+    """ConPTY 的输入边界必须在 open 回执里**明说**,不能靠用户自己撞出来。
+
+    这条用例钉的是"可整改":提示里必须出现要改的两个标志与"不代改"的理由 ——
+    只写"按键可能不生效"是免责声明,用户照着改不了任何东西。
+    """
+    term.reset_terminals()
+    try:
+        notes = term.pty_input_notes("nt")
+        assert set(notes) == {"input_note"}
+        text = notes["input_note"]
+        assert "ENABLE_LINE_INPUT" in text and "ENABLE_VIRTUAL_TERMINAL_INPUT" in text
+        assert "ESC" in text
+        # POSIX 的 PTY 输入直落 master:不塞任何提示(塞了就是在讲一件不发生的事)
+        assert term.pty_input_notes("posix") == {}
+    finally:
+        term.reset_terminals()
+
+
+def test_terminal_face_composes_screen_cursor_prompt_and_links() -> None:
+    """面板要的那一屏:网格 + 光标 + 提示符 + 链接一次取齐,且**不复算**任何判据。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=20, rows=5)
+        push = _TEST["push_output"]
+        push(session, "out", "top\r\n")
+        push(session, "out", "x\x1b]133;A\x07\x1b]133;B\x07")
+        push(session, "out", "\x1b[1;1H\x1b]8;;https://a.example/x\x07点我\x1b]8;;\x07")
+        face = term.terminal_face("t-mouse", **owner)
+        assert face["ok"] is True
+        # 屏面/光标与 cursor 原语逐字一致(同一实现,不是第二把尺子)
+        cur = term.cursor_terminal("t-mouse", include_screen=True, **owner)
+        assert face["cols"] == cur["cols"] and face["row"] == cur["row"]
+        assert face["screen"] == cur["screen"]
+        assert face["screen_lines"] == len(face["screen"])
+        # 提示符与链接原样透传被调方的结论(不在这里重判)
+        assert face["prompt"]["at_prompt"] is True
+        assert face["prompt"]["prompt_state"] == "input"
+        assert face["links_ok"] is True
+        assert face["links"][0]["url"] == "https://a.example/x"
+        assert face["links"][0]["text"] == "点我"
+        # 越权/不存在:整体失败,而不是给一块空白屏充数
+        denied = term.terminal_face("t-mouse", user_id="other", session_id="s-term")
+        assert denied["ok"] is False and denied["errorCode"] == "TERMINAL_NOT_FOUND"
+    finally:
+        term.reset_terminals()
+
+
+def test_terminal_face_degrades_when_links_unavailable(monkeypatch) -> None:
+    """链接这一栏取不到时,屏面与光标照给 —— 面板宁可少一栏,不该整块空白。"""
+    term.reset_terminals()
+    owner = {"user_id": "u-term", "session_id": "s-term"}
+    try:
+        session = _mouse_session(cols=20, rows=5)
+        _TEST["push_output"](session, "out", "abc")
+        monkeypatch.setattr(
+            term, "links_terminal", lambda *a, **k: {"ok": False, "errorCode": "X"}
+        )
+        face = term.terminal_face("t-mouse", **owner)
+        assert face["ok"] is True
+        assert face["links_ok"] is False and face["links"] == [] and face["link_count"] == 0
+        assert face["screen"][0] == "abc"
+    finally:
+        term.reset_terminals()
+
+
 
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

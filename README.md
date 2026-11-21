@@ -110,10 +110,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
 | 跟踪文件 | 23100 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5516,7 +5514,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:人事部自助/算薪六枚工具补展示映射与五语言文案(守门 55:132/138→138/138) (721ff11a1a6)
 - 🐞 修复:推理档位真值落镜像文件,池同步清 metadata 后仍能匹配 (123ea4e01ce)
 - 🚀 新功能/改进:真 VT 屏幕网格 + cursor 原语(光标位置记账,不再拿行流水冒充屏幕) (bba52834acf)
-
 **2026-11-21**
 - 📚 文档:具名追认 2be0a1df(Gitee 发版资产补齐)对 git-guardian.mjs 的追加式改动 (68a44c3d557)
 - 📚 文档:README 生成块按 HEAD 面现算对齐(testFiles 5942 / trackedFiles 23088,随本票新增 2 路径 DN5 同步) (93e75ee4da2)
@@ -5636,14 +5633,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:刷新更新源快照到 0.1.84 (CI resolved feed snapshot from desktop-v0.1.84) (5aa1fc60eee)
 - 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (fb0b1240e17)
 - 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948f)
-
 **2026-11-20**
 - 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (7e4aaa11480)
 - 🚀 新功能/改进:交互式终端补真终端身份键与 stdin EOF 原语 (d459cd24a2a)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fc7425978b1)
 - 🔧 工程/其他:README 生成块 trackedFiles 按 HEAD 面现算对齐(23055) (826c7798c48)
 - 🔧 工程/其他:README 生成块数字按现算刷新(AI服务路由/测试文件/跟踪文件,第31项新增文件所致) (44a7913adaa)
-
 **2026-11-21**
 - 🔧 工程/其他:style+fix: 交互终端测试按 ai-service ruff 分组收敛 import;deploy 脚本补 UTF-8 BOM(门 263/265) (1b98d3b948)
 **2026-11-20**
@@ -8920,3 +8915,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
+| AI 服务路由 | 688 | `aiServiceRoutes` |
+| 测试文件 | 5947 | `testFiles` |
+| 跟踪文件 | 23106 | `trackedFiles` |

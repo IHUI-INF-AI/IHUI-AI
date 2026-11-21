@@ -8472,6 +8472,79 @@ async def post_terminal_input(
     return {"ok": True, "accepted": True, "terminalId": terminal_id}
 
 
+@router.get("/llm/complete/stream/{session_id}/terminals", response_model=None)
+async def get_session_terminals(request: Request, session_id: str) -> dict[str, Any]:
+    """列出**本会话**里由 agent 开的长驻终端(2026-11-21 立,给面板 `看模型终端` 用)。
+
+    与 `/terminal-input` 同一归属纪律:主体只从令牌取(`_resolve_owner_uuid`),body/query
+    里的任何 userId 一概不读。所有者 = (令牌主体, 会话 id) **两者都**匹配 —— 只按会话
+    id 过滤会让同一会话 id 下的另一个账号看见这些终端(mcp 侧存的就是这一对)。
+
+    返回的是**元数据**(id/命令/cwd/尺寸/是否活着),屏面内容在 `/face` 单独取:
+    列一遍就把每块屏都算一遍,十块屏的轮询会变成十次全屏扫描。
+    """
+    term = _terminal_module()
+    user_id = _resolve_owner_uuid(request)
+    rows = await asyncio.to_thread(
+        term.list_terminals, user_id=user_id, session_id=session_id
+    )
+    return {"ok": True, "sessionId": session_id, "terminals": rows, "count": len(rows)}
+
+
+@router.get(
+    "/llm/complete/stream/{session_id}/terminals/{terminal_id}/face",
+    response_model=None,
+)
+async def get_terminal_face(
+    request: Request, session_id: str, terminal_id: str, max_links: int = 20
+) -> dict[str, Any]:
+    """回一块终端的**屏面**(网格 + 光标 + 提示符 + 链接),面板轮询这一条即可。
+
+    只读:**本端点不写任何字节到子进程**(人类键入仍走既有的 `terminal-input` 待决项通道,
+    那条通道带审批/超时语义;在这里开一个"直接写"的口等于绕过它)。
+
+    越权与"没这块终端"**同形**(`{"ok": False, "error": "terminal not found"}`):
+    否则本端点就是一台"某 id 是否存在"的预言机。回包不吞 `screen` 为 null ——
+    网格没建起来(旧会话 / 管道后端)走模块自己的 `TERMINAL_INVALID_INPUT`,如实转达。
+    """
+    term = _terminal_module()
+    user_id = _resolve_owner_uuid(request)
+    face = await asyncio.to_thread(
+        term.terminal_face,
+        terminal_id,
+        user_id=user_id,
+        session_id=session_id,
+        max_links=max_links,
+    )
+    if not face.get("ok"):
+        logger.info(
+            "terminal face 未取到(session=%s, terminal=%s, code=%s)",
+            session_id,
+            terminal_id,
+            face.get("errorCode"),
+        )
+        if face.get("errorCode") == "TERMINAL_NOT_FOUND":
+            return {"ok": False, "error": "terminal not found"}
+        return {
+            "ok": False,
+            "error": face.get("error") or "terminal face unavailable",
+            "errorCode": face.get("errorCode"),
+        }
+    return {**face, "sessionId": session_id}
+
+
+def _terminal_module() -> Any:
+    """`interactive_terminal` 的**唯一**取用口(延迟导入)。
+
+    llm.py 是路由模块,顶部拉进 ctypes 直连 kernel32 的那套东西会让每条与终端无关的
+    请求都陪一份导入成本;延迟导入在进程内只发生一次。函数化是为了让上面两条端点在
+    测试里能 `monkeypatch` 掉整个模块(不真的起进程)。
+    """
+    from ..services import interactive_terminal
+
+    return interactive_terminal
+
+
 @router.post("/llm/sessions/{session_id}/goal", response_model=None)
 async def post_session_goal(
     request: Request,

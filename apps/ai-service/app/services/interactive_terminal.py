@@ -75,6 +75,10 @@
   「没判绝不写成判过」)。PTY 输出的行切同样不按"死等换行":整行即时吐,末尾不完整
   片段在静默 `PTY_IDLE_FLUSH_S` 后当一帧吐出 —— TUI(htop/vim/进度条)的刷新帧只写
   `\\r` 不写 `\\n`,死等换行会让读端在"子进程活着、屏幕明明有内容"时读到空。
+  **输入侧边界(2026-11-21)**:ConPTY 的输入先过控制台输入模式,程序未自行进入
+  raw/无回显态时 ESC 序列会进行编辑缓冲(按键"发出了"但程序没收到)——
+  `pty_input_notes(os.name)` 把这条随 `open` 回执**如实下发**并给出要改的标志位;
+  本层刻意不代程序改终端模式(代改会让 Ctrl-C 与行编辑失效)。
 
 对照程序:WB/Trae 的 harness 用原生 `pty.node`/`conpty.node`(:lydell/node-pty),deepseek-tui
 用管道。本实现取"CI 真能跑通 + 零第三方依赖"的那一档(POSIX 标准库 `pty` + Windows
@@ -1179,13 +1183,41 @@ def _pty_child_env(env_extra: dict[str, str] | None) -> dict[str, str]:
     return env
 
 
+def pty_input_notes(platform: str) -> dict[str, str]:
+    """PTY 输入边界的**如实告知**(2026-11-21 立,随 open 回执一起下发)。
+
+    为什么要在"开会话"这一格就讲:用户在会话说"按一下 Esc"时,期望是"程序收到了 ESC";
+    在 Windows ConPTY 上真发生的是"ESC 进了行规程的编辑缓冲"。这两件事在回执里长得一样,
+    于是最容易出现**假绿**——调用方以为按键原语坏了,或以为程序进入过 raw 模式。本层不代
+    程序改终端模式(替它 `stty raw` 会让 Ctrl-C/行编辑失效,那是程序自己的决定);
+
+    - `nt`:ConPTY 的输入先过控制台输入模式。子程序未自行关掉 `ENABLE_LINE_INPUT` /
+      `ENABLE_ECHO_INPUT` 并打开 `ENABLE_VIRTUAL_TERMINAL_INPUT` 时,ESC 序列(含 focus 的
+      `CSI I`/`CSI O`、鼠标上报、方向键)会被当普通字符进缓冲并回显。
+    - 其他宿主:PTY 的输入直接落 master,按键原语不做二次解释。
+
+    返回的是**可执行提示**(要改哪两个标志),不是免责声明:照做就能让按键真的到程序手里。
+    """
+    if platform == "nt":
+        return {
+            "input_note": (
+                "ConPTY 输入先过行规程:SCREEN/按键类转义(ESC 序列)要真到程序手里,"
+                "程序须自己关闭 ENABLE_LINE_INPUT|ENABLE_ECHO_INPUT 并开启 "
+                "ENABLE_VIRTUAL_TERMINAL_INPUT(或由它依赖的库里做同等设置)。"
+                "本模块刻意不代程序改终端模式 —— 代改会让 Ctrl-C 与行编辑一起失效。"
+            ),
+        }
+    return {}
+
+
 def _open_pty_session(
     *, command: str, cwd: str, user_id: str | None, session_id: str | None,
     env_extra: dict[str, str] | None,
     cols: int = DEFAULT_COLS,
     rows: int = DEFAULT_ROWS,
 ) -> dict[str, Any]:
-    """PTY 后端开会话(仅限 POSIX)。满额/起不来 → 结构化错误,不抛。"""
+    """PTY 后端开会话(POSIX 走 `_spawn_pty`,Windows 走 ConPTY,两者都不静默回落管道)。
+    满额/起不来 → 结构化错误,不抛。"""
     _prune_for_new_session()
     if len(_sessions) >= MAX_SESSIONS:
         return {
@@ -1226,7 +1258,7 @@ def _open_pty_session(
     thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
     thread.start()
     session.pumps.append(thread)
-    return {"ok": True, "terminal": session.to_dict()}
+    return {"ok": True, "terminal": session.to_dict(), **pty_input_notes(os.name)}
 
 
 def open_terminal(
@@ -2429,6 +2461,63 @@ def links_terminal(
     }
 
 
+def terminal_face(
+    terminal_id: str,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    max_links: int = 20,
+) -> dict[str, Any]:
+    """**给人看的那一屏**(2026-11-21 立):网格屏面 + 光标 + 提示符 + 链接,一次取齐。
+
+    存在的理由只有一个:面板要画一屏,就得多问三次(光标 / 提示符 / 链接),而三次之间
+    终端还在跑 —— 三次分别取会得到**三张不同时刻的屏**(光标停在第 3 行、屏面已是第 5 行),
+    拼起来那行"光标所在行"就成了幻觉。本函数是**唯一出口**,内部仍逐个调既有原语
+    (`cursor_terminal` / `prompt_terminal` / `links_terminal`)——它只做编排,**绝不复算**
+    任何一条判据(§22c:第二个真相源必漂移)。
+
+    刻意不给"稳定快照"的承诺:三路之间仍可能差一帧,度由 `dropped_chunks` 与
+    `screen_lines` 如实暴露;要严格一致的单帧就调 `cursor_terminal(include_screen=True)`。
+
+    `max_links` 透传上限(`MAX_LINKS` 由被调方钳),链接取不到(会话无网格)不算整体失败:
+    `links_ok=False` 逐项点名,屏面与光标照给 —— 面板宁可少一栏,也不该整块空白。
+    """
+    cursor = cursor_terminal(
+        terminal_id, user_id=user_id, session_id=session_id, include_screen=True
+    )
+    if not cursor.get("ok"):
+        return cursor
+    prompt = prompt_terminal(terminal_id, user_id=user_id, session_id=session_id)
+    links = links_terminal(
+        terminal_id, user_id=user_id, session_id=session_id, max_links=max_links
+    )
+    return {
+        "ok": True,
+        "terminal_id": terminal_id,
+        "cols": cursor["cols"],
+        "rows": cursor["rows"],
+        "row": cursor["row"],
+        "col": cursor["col"],
+        "pending_wrap": cursor["pending_wrap"],
+        "visible": cursor["visible"],
+        "alt_screen": cursor["alt_screen"],
+        "line": cursor["line"],
+        "screen": cursor.get("screen", []),
+        "screen_lines": cursor.get("screen_lines", 0),
+        "dropped_chunks": cursor["dropped_chunks"],
+        "prompt": prompt if prompt.get("ok") else None,
+        "links_ok": bool(links.get("ok")),
+        "links": links.get("links", []) if links.get("ok") else [],
+        "link_count": links.get("count", 0) if links.get("ok") else 0,
+        "link_total": links.get("total", 0) if links.get("ok") else 0,
+        "link_truncated": links.get("truncated", False) if links.get("ok") else False,
+        "running": cursor["running"],
+        "exit_code": cursor["exit_code"],
+        "title": links.get("title", "") if links.get("ok") else "",
+        "bell_count": links.get("bell_count", 0) if links.get("ok") else 0,
+    }
+
+
 def _search_matcher(
     pattern: str, *, regex: bool, ignore_case: bool
 ) -> tuple[Callable[[str], str | None] | None, str]:
@@ -3241,6 +3330,7 @@ __test__ = {
     "send_terminal_keys": send_terminal_keys,
     "eof_terminal": eof_terminal,
     "pty_child_env": _pty_child_env,
+    "pty_input_notes": pty_input_notes,
     "history_gap": _history_gap,
     "pty_line_splitter": _PtyLineSplitter,
     "PTY_IDLE_FLUSH_S": PTY_IDLE_FLUSH_S,
@@ -3268,6 +3358,7 @@ __test__ = {
     "cursor_terminal": cursor_terminal,
     "cell_at_terminal": cell_at_terminal,
     "prompt_terminal": prompt_terminal,
+    "terminal_face": terminal_face,
     "OSC_CWD_RE": _OSC_CWD_RE,
     "OSC_PROMPT_RE": _OSC_PROMPT_RE,
     "Grid": Grid,

@@ -105,6 +105,31 @@
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-05",
       "ruler": "scripts/gen-rn-shell-types.mjs(小程序壳承载页编译期契约;本票 2026-11-05 补上调度点)"
+    },
+    {
+      "stamp": "monitor-signal-intake-dispatch-last.json",
+      "owner": "dispatchMonitorSignalIntake",
+      "envVar": "IHUI_MONITOR_INTAKE_INTERVAL_MS",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-21",
+      "ruler": "scripts/monitor-signal-intake.mjs",
+      "knownBlocker": "三源取数面(apiLogs.jsonl / grafanaAlerts.url / userFeedback 导出)在 scripts/data/auto-triage-config.json 里皆空 ⇒ 器物每轮落 three-source-undetermined 属预期,本探测器量的是派发戳是否在跳,不是产出"
+    },
+    {
+      "stamp": "api-liveness-dispatch-last.json",
+      "owner": "sweepApiLiveness",
+      "nominalIntervalMs": 300000,
+      "verifiedAt": "2026-11-21",
+      "ruler": "scripts/check-api-liveness.mjs",
+      "knownBlocker": "退化判据要 3 小时量出来;rc=2 时器物显式 undetermined(端口未监听)⇒ 静默属未判定不是红"
+    },
+    {
+      "stamp": "tmp-bloat-dispatch-last.json",
+      "owner": "auditTmpBloat",
+      "nominalIntervalMs": 300000,
+      "verifiedAt": "2026-11-21",
+      "ruler": "scripts/check-tmp-bloat.mjs",
+      "knownBlocker": ".ihui-agent/tmp 属 gitignored 运行面,提交链 stagedTriggers 结构上扫不到 ⇒ 只能靠这条周期腿枚举;只读不清理"
     }
   ]
 }

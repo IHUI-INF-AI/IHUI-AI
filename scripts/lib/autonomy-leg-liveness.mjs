@@ -153,5 +153,35 @@ export function actionableRows(res) {
     .sort((a, b) => (b.silentMin ?? -1) - (a.silentMin ?? -1))
 }
 
-export const __test__ = { SILENCE_MULTIPLIER, MIN_SILENCE_MS, ROTATE_DAYS, FIRST_RUN_GRACE_MS, silenceWindowMs, classifyLegs, actionableRows }
+/**
+ * 源面覆盖面(2026-11-21,第 61 项):盘上的戳是"跑过的腿",而**新挂但一次没跑过**的派发器
+ * 在盘上没有戳 —— classifyLegs 的覆盖面自证结构上看不见它,登记表可以静默丢掉一条真腿而本器照旧 ok。
+ * 这里补另一半:从生产侧源码枚举 `'-dispatch-last.json'` 字面量。
+ * 源里有而表里没有 ⇒ drift(与 unregistered 同档:谁在派它、多久动一次无人认领);
+ * 表里有而源面没有 ⇒ 只作 note 点名(可能由变量拼装),不判红 —— 失效方向恒为"多要一次说明"。
+ */
+export const DISPATCH_STAMP_LITERAL_RE = /["'`]([a-z0-9][a-z0-9-]*-dispatch-last\.json)["'`]/gi
+
+export function findDispatchStampsInSource(src) {
+  const out = new Set()
+  for (const m of String(src ?? '').matchAll(DISPATCH_STAMP_LITERAL_RE)) out.add(m[1])
+  return [...out].sort()
+}
+
+export function judgeRegistryCoverage({ sourceStamps, legs } = {}) {
+  if (!Array.isArray(sourceStamps) || !Array.isArray(legs) || legs.length === 0) {
+    return { state: 'unjudged', missing: [], orphan: [], summary: '源面或登记表取不到 ⇒ 覆盖面未判定' }
+  }
+  const reg = new Set(legs.map((l) => String(l?.stamp ?? '')).filter(Boolean))
+  const src = new Set(sourceStamps)
+  const missing = [...src].filter((f) => !reg.has(f))
+  const orphan = [...reg].filter((f) => !src.has(f))
+  const summary =
+    `源面 ${src.size} 枚 / 登记 ${reg.size} 枚` +
+    (missing.length ? ` ｜ 源里有而表里没有:${missing.join(' / ')}` : '') +
+    (orphan.length ? ` ｜ 表里有而源面没有(只点名不判红):${orphan.join(' / ')}` : '')
+  return { state: missing.length ? 'drift' : 'ok', missing, orphan, summary }
+}
+
+export const __test__ = { SILENCE_MULTIPLIER, MIN_SILENCE_MS, ROTATE_DAYS, FIRST_RUN_GRACE_MS, silenceWindowMs, classifyLegs, actionableRows, findDispatchStampsInSource, judgeRegistryCoverage }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
