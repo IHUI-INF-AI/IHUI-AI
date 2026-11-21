@@ -90,8 +90,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 654 | `dbTables` |
 | schema 文件 | 253 | `dbSchemaFiles` |
-| API 路由 | 4865 | `apiRoutes` |
-| 路由文件 | 716 | `apiRouteFiles` |
+| API 路由 | 4862 | `apiRoutes` |
+| 路由文件 | 714 | `apiRouteFiles` |
 | AI 服务路由 | 686 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 103 | `llmModels` |
@@ -103,15 +103,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5952 | `testFiles` |
+| 测试文件 | 5951 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 371 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
-| 跟踪文件 | 23152 | `trackedFiles` |
+| 跟踪文件 | 23151 | `trackedFiles` |
+
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5476,6 +5478,67 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🐞 修复:补 4 枚错误码五语言词包并修 zh-TW agentTerminal.cursor 繁简残留 (32e3cc8c0e)
+- 🐞 修复:第69项 复跑预算 block 前置(blocking 门不许被 warn 挤出预算) (91894a2f5d)
+- 🐞 修复:第68项 结构性豁免写进注册表(落地覆盖面与门262各一层)+ 门262 镜像T5 按现结构重写 (42b13f7287)
+- 🐞 修复:第67项 自愈层补AD形态(已暂存新增/盘缺从索引回盘)+ 自检三格按现设计重写 (6350937b37)
+- 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.93 (6d4c372690)
+- 🐞 修复:号池保活告警按终态分层,判死号不再每天重播 (80d6e03af4)
+
+**2026-11-21**
+- 🐞 修复:修复 12 族真 bug(Windows 锁探活/僵尸锁、cmd 代码页、Auto 审查闸、多模态消息丢弃、任务状态误判错误体、交付物规约与 present_files 丢失等),pytest 分批全绿 (64500e176d)
+- 🐞 修复:第66项 历史存量不再当现状(A13 三档/A6 数据坏先未判定)+ 两把锁按登记表现读 (c55e6241aa)
+- 🐞 修复:统一 OAuth 回调地址,补 Google 换 token 出站代理与启动自检 | 线上两处真因:后端 GOOGLE_PC_REDIRECT_URI 仍指 localhost:8801 而前端内联 aizhs.top(Google 换 token 要求逐字符相等);直连 oauth2.googleapis.com 不通且 PROXY_URL 未配、该端点不在默认白名单。改动:proxy-dispatcher 与 ai-service 镜像表补 oauth2.googleapis.com;config/index.ts 新增 collectOAuthConfigWarnings(纯判据)+runtime-env-guard 6 例:生产启动把"回调指向本机""PROXY_URL 未配"喊出来(只告警不阻塞);oauth 上游错误体与 redirect_uri 进错误串;.env.production.template 回调段改正。验证:33 单测绿;python 双面等值 8 绿;门 116 绿;typecheck @ihui/api 绿。 (304c0fdbcb)
+- 🐞 修复:模型终端屏面改为盖在 IDE 终端之上的一层(不挪 xterm 几何,避免 hidden 父层按 0 尺寸重算丢 scrollback) (dbbfc9e28e)
+- 🐞 修复:0.1.93 根治「更新失败红字」—— 前端更新链与 Rust 链统一走系统代理 (47a5cb17cb)
+- 📚 文档:第65项 文档按现读校正 A12 读数(ok3/n-a12/drift0/unjudged1) (4d339a34c4)
+- 🔧 工程/其他:追认第64项 708477f 两枚受保护面(签发面 1 枚 ≠ 改动面 2 枚) (c68a023344)
+- 🐞 修复:第65项三修 always→conditional 按写盘分支取证(三条事件驱动腿不再报假 drift) (3081717cb8)
+- 🐞 修复:第65项二修 outputRel 改为 state 相对路径(A12 不再把读盘 ENOENT 读成零产出) (972dbb390d)
+- 🐞 修复:读回端点改按 conversationId 寻址(终端记账键,流会话 id 会让面板永远空白);noSession 措辞与文档同步 (6dc0a0b60a)
+- 🚀 新功能/改进:第65项 自治腿登记表补齐 A12 产出四格(16 腿全部未判定 → 可判) (e4b6bd506a)
+- 🚀 新功能/改进:第64项 会话写类调用派生产物清单(A13 落地腿接通)+ 自检未导入引用与 Ⓔ 锁错位修正 (708477f440)
+- 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.92 (ce91fbfd75)
+- 📚 文档:生成块数字随模型终端屏面(api-client/hook/组件/用例)刷新(testFiles 5948 / trackedFiles 23109) (818dac9c50)
+- 🚀 新功能/改进:模型终端屏面接进 AI 终端停靠面板(只读轮询 terminal_face)+ api-client 两条读回出口 + 五语词包;文档补记四 (8ffccdd0b5)
+- 🔧 工程/其他:第63项 重封根护栏清单 (856a254e1d)
+- 🐞 修复:第63项 A15 认领 runner-budget-exhausted + ref 位移守夜人补挂 daemon 面 (e265876eef)
+- 📚 文档:生成块数字随终端读回端点与用例刷新(aiServiceRoutes 688 / testFiles 5947 / trackedFiles 23106) (3a7d70cca4)
+- 📚 文档:数字按 HEAD 现算同步(trackedFiles 23106 / testFiles 5947 / aiServiceRoutes 688) (2264fed91b)
+- 🔧 工程/其他:追认回补进历史的旧消息副本 64b3916e5c (9cba5ad600)
+- 🚀 新功能/改进:终端屏面聚合原语 terminal_face + 只读读回端点(/terminals,/face);ConPTY 输入边界随 open 回执如实下发 (9f91ba8975)
+- 🔧 工程/其他:发 0.1.92 演示版 —— 仅版本号(0.1.91 -> 0.1.92) (a82b0d0139)
+- 🔧 工程/其他:第62项 重封根护栏清单(git-guardian=157777b0edd0) (5b030e17d7)
+- 🐞 修复:第62项 Gitee 资产补齐腿补挂 daemon tick 面(此前只挂 main ⇒ 零派发) (e2b37de93b)
+- 🚀 新功能/改进:第61项 A8 补源面覆盖面(登记表漏腿结构上看不见) (e8a83b0996)
+- 🚀 新功能/改进:第61项 A8 补源面覆盖面(登记表漏腿结构上看不见)+第60项两条真派发腿补登记 (64b3916e5c)
+- 🔧 工程/其他:第60项 两条真派发腿(api 活体体检 / tmp 体积哨兵)登记进黑腿探测器 (d8a8153a16)
+- 🔧 工程/其他:第59项 新派发腿登记进黑腿探测器 + 镜像测试状态泄漏修正(连跑两遍 7/7) (fb0af590ac)
+- 📚 文档:testFiles 按现算修正回 5946(trackedFiles 23103 不变) (e0dae5462c)
+- 🔧 工程/其他:第58项重封 root-guard 清单 (d10599088f)
+- 🚀 新功能/改进:监控三源入库派发装车(第58项) (1644af1ec8)
+- 📚 文档:生成块按 HEAD 面现算修正(trackedFiles 23102 / testFiles 5946) (4d5ca83919)
+- 🔧 工程/其他:第57项二次收敛后重封清单(git-guardian=3ede8c8ccc89) (0ab383bc9a)
+- 🔧 工程/其他:追认第57项 union 合并枚(bf3cf4db7e) (ad1e74364e)
+- 🔧 工程/其他:manifest 与 HEAD 面 git-guardian 对齐重封(部署环 fail-closed 解封) (2a5d8ccc41)
+- 🔧 工程/其他:第57项收敛归并后重封清单(git-guardian=3ede8c8ccc89) (7199e846ff)
+- 🔧 工程/其他:第57项重封 root-guard 清单(git-guardian=4cbbc9a018db) (ae9c4bf21e)
+- 🐞 修复:守护派发第六面成器 + IP归属信任巡检接线复原(第57项) (86df95839e)
+- 🔧 工程/其他:Gitee 资产补齐节流 30→10 分钟(压缩新版本国内可用窗口) (f1bc4c6dcc)
+- 📚 文档:生成块 testFiles 5946 / trackedFiles 23100 按 HEAD 面现算对齐(本票新增 1 测试文件) (e3be42de66)
+- 🐞 修复:模态档 id 前缀统一取裸名(目录 agnes/x 与上游 x 双形态)+9 例判据测试 (cf3f3dfe7d)
+- 🔧 工程/其他:第56项重封 root-guard 清单(git-guardian=604659742724) (c86194df62)
+- 🐞 修复:派发器三种读数空洞修正(第56项) (65b844c034)
+- 🔧 工程/其他:重封根护栏清单(第55项 runReadoutGate 收敛与镜像保真度接通后对齐) (bac9d5f53b)
+- ♻️ 重构:三把读数尺子收敛到 runReadoutGate 并接通镜像保真度(第55项) (b86fc43ec0)
+- 🔧 工程/其他:重封根护栏清单(第54项 双挂点与325自述改正后与规则对齐) (ce3963582d)
+- 🚀 新功能/改进:临时检出寿命闸接入双挂点并改正325自述(第54项) (fc2cc30cd8)
+- 🔧 工程/其他:重封根护栏清单(git-guardian 新增 auditHookAuditHealth 后与规则同枚对齐,恢复部署自洽) (eb29502db9)
+- 📚 文档:按 HEAD 树重钉生成块数字(守门/文件/测试计数) (712507cbf4)
+- 🐞 修复:执行计划步骤说明里的英文工具码名改为本地化功能名 (587b64573e)
+- 🐞 修复:模态档豁免 availability 过滤(chat 探针把 image/video/tts 整批判 DOWN)+ 分类前置 (a8b62e012a)
+
+**2026-11-21**
 - 🐞 修复:号池模型按登记集合判定通道(修「本轮没有返回任何内容」) (b87863c62ae)
 - 🐞 修复:删除 TOOL_DISPLAY_KEYS 内 hr_* 六枚重复键(TS1117 阻断生产 build)+ 键名对齐 i18n 五语言 (44297e93005)
 - 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.91 (e2098194515)
@@ -8915,69 +8978,4 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
-| 跟踪文件 | 23150 | `trackedFiles` |
-**2026-11-21**
-- 🐞 修复:补 4 枚错误码五语言词包并修 zh-TW agentTerminal.cursor 繁简残留 (32e3cc8c0e)
-- 🐞 修复:第69项 复跑预算 block 前置(blocking 门不许被 warn 挤出预算) (91894a2f5d)
-- 🐞 修复:第68项 结构性豁免写进注册表(落地覆盖面与门262各一层)+ 门262 镜像T5 按现结构重写 (42b13f7287)
-- 🐞 修复:第67项 自愈层补AD形态(已暂存新增/盘缺从索引回盘)+ 自检三格按现设计重写 (6350937b37)
-- 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.93 (6d4c372690)
-- 🐞 修复:号池保活告警按终态分层,判死号不再每天重播 (80d6e03af4)
-**2026-11-21**
-- 🐞 修复:修复 12 族真 bug(Windows 锁探活/僵尸锁、cmd 代码页、Auto 审查闸、多模态消息丢弃、任务状态误判错误体、交付物规约与 present_files 丢失等),pytest 分批全绿 (64500e176d)
-- 🐞 修复:第66项 历史存量不再当现状(A13 三档/A6 数据坏先未判定)+ 两把锁按登记表现读 (c55e6241aa)
-- 🐞 修复:统一 OAuth 回调地址,补 Google 换 token 出站代理与启动自检 | 线上两处真因:后端 GOOGLE_PC_REDIRECT_URI 仍指 localhost:8801 而前端内联 aizhs.top(Google 换 token 要求逐字符相等);直连 oauth2.googleapis.com 不通且 PROXY_URL 未配、该端点不在默认白名单。改动:proxy-dispatcher 与 ai-service 镜像表补 oauth2.googleapis.com;config/index.ts 新增 collectOAuthConfigWarnings(纯判据)+runtime-env-guard 6 例:生产启动把"回调指向本机""PROXY_URL 未配"喊出来(只告警不阻塞);oauth 上游错误体与 redirect_uri 进错误串;.env.production.template 回调段改正。验证:33 单测绿;python 双面等值 8 绿;门 116 绿;typecheck @ihui/api 绿。 (304c0fdbcb)
-- 🐞 修复:模型终端屏面改为盖在 IDE 终端之上的一层(不挪 xterm 几何,避免 hidden 父层按 0 尺寸重算丢 scrollback) (dbbfc9e28e)
-- 🐞 修复:0.1.93 根治「更新失败红字」—— 前端更新链与 Rust 链统一走系统代理 (47a5cb17cb)
-- 📚 文档:第65项 文档按现读校正 A12 读数(ok3/n-a12/drift0/unjudged1) (4d339a34c4)
-- 🔧 工程/其他:追认第64项 708477f 两枚受保护面(签发面 1 枚 ≠ 改动面 2 枚) (c68a023344)
-- 🐞 修复:第65项三修 always→conditional 按写盘分支取证(三条事件驱动腿不再报假 drift) (3081717cb8)
-- 🐞 修复:第65项二修 outputRel 改为 state 相对路径(A12 不再把读盘 ENOENT 读成零产出) (972dbb390d)
-- 🐞 修复:读回端点改按 conversationId 寻址(终端记账键,流会话 id 会让面板永远空白);noSession 措辞与文档同步 (6dc0a0b60a)
-- 🚀 新功能/改进:第65项 自治腿登记表补齐 A12 产出四格(16 腿全部未判定 → 可判) (e4b6bd506a)
-- 🚀 新功能/改进:第64项 会话写类调用派生产物清单(A13 落地腿接通)+ 自检未导入引用与 Ⓔ 锁错位修正 (708477f440)
-- 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.92 (ce91fbfd75)
-- 📚 文档:生成块数字随模型终端屏面(api-client/hook/组件/用例)刷新(testFiles 5948 / trackedFiles 23109) (818dac9c50)
-- 🚀 新功能/改进:模型终端屏面接进 AI 终端停靠面板(只读轮询 terminal_face)+ api-client 两条读回出口 + 五语词包;文档补记四 (8ffccdd0b5)
-- 🔧 工程/其他:第63项 重封根护栏清单 (856a254e1d)
-- 🐞 修复:第63项 A15 认领 runner-budget-exhausted + ref 位移守夜人补挂 daemon 面 (e265876eef)
-- 📚 文档:生成块数字随终端读回端点与用例刷新(aiServiceRoutes 688 / testFiles 5947 / trackedFiles 23106) (3a7d70cca4)
-- 📚 文档:数字按 HEAD 现算同步(trackedFiles 23106 / testFiles 5947 / aiServiceRoutes 688) (2264fed91b)
-- 🔧 工程/其他:追认回补进历史的旧消息副本 64b3916e5c (9cba5ad600)
-- 🚀 新功能/改进:终端屏面聚合原语 terminal_face + 只读读回端点(/terminals,/face);ConPTY 输入边界随 open 回执如实下发 (9f91ba8975)
-- 🔧 工程/其他:发 0.1.92 演示版 —— 仅版本号(0.1.91 -> 0.1.92) (a82b0d0139)
-- 🔧 工程/其他:第62项 重封根护栏清单(git-guardian=157777b0edd0) (5b030e17d7)
-- 🐞 修复:第62项 Gitee 资产补齐腿补挂 daemon tick 面(此前只挂 main ⇒ 零派发) (e2b37de93b)
-- 🚀 新功能/改进:第61项 A8 补源面覆盖面(登记表漏腿结构上看不见) (e8a83b0996)
-- 🚀 新功能/改进:第61项 A8 补源面覆盖面(登记表漏腿结构上看不见)+第60项两条真派发腿补登记 (64b3916e5c)
-- 🔧 工程/其他:第60项 两条真派发腿(api 活体体检 / tmp 体积哨兵)登记进黑腿探测器 (d8a8153a16)
-- 🔧 工程/其他:第59项 新派发腿登记进黑腿探测器 + 镜像测试状态泄漏修正(连跑两遍 7/7) (fb0af590ac)
-- 📚 文档:testFiles 按现算修正回 5946(trackedFiles 23103 不变) (e0dae5462c)
-- 🔧 工程/其他:第58项重封 root-guard 清单 (d10599088f)
-- 🚀 新功能/改进:监控三源入库派发装车(第58项) (1644af1ec8)
-- 📚 文档:生成块按 HEAD 面现算修正(trackedFiles 23102 / testFiles 5946) (4d5ca83919)
-- 🔧 工程/其他:第57项二次收敛后重封清单(git-guardian=3ede8c8ccc89) (0ab383bc9a)
-- 🔧 工程/其他:追认第57项 union 合并枚(bf3cf4db7e) (ad1e74364e)
-- 🔧 工程/其他:manifest 与 HEAD 面 git-guardian 对齐重封(部署环 fail-closed 解封) (2a5d8ccc41)
-- 🔧 工程/其他:第57项收敛归并后重封清单(git-guardian=3ede8c8ccc89) (7199e846ff)
-- 🔧 工程/其他:第57项重封 root-guard 清单(git-guardian=4cbbc9a018db) (ae9c4bf21e)
-- 🐞 修复:守护派发第六面成器 + IP归属信任巡检接线复原(第57项) (86df95839e)
-- 🔧 工程/其他:Gitee 资产补齐节流 30→10 分钟(压缩新版本国内可用窗口) (f1bc4c6dcc)
-- 📚 文档:生成块 testFiles 5946 / trackedFiles 23100 按 HEAD 面现算对齐(本票新增 1 测试文件) (e3be42de66)
-- 🐞 修复:模态档 id 前缀统一取裸名(目录 agnes/x 与上游 x 双形态)+9 例判据测试 (cf3f3dfe7d)
-- 🔧 工程/其他:第56项重封 root-guard 清单(git-guardian=604659742724) (c86194df62)
-- 🐞 修复:派发器三种读数空洞修正(第56项) (65b844c034)
-- 🔧 工程/其他:重封根护栏清单(第55项 runReadoutGate 收敛与镜像保真度接通后对齐) (bac9d5f53b)
-- ♻️ 重构:三把读数尺子收敛到 runReadoutGate 并接通镜像保真度(第55项) (b86fc43ec0)
-- 🔧 工程/其他:重封根护栏清单(第54项 双挂点与325自述改正后与规则对齐) (ce3963582d)
-- 🚀 新功能/改进:临时检出寿命闸接入双挂点并改正325自述(第54项) (fc2cc30cd8)
-- 🔧 工程/其他:重封根护栏清单(git-guardian 新增 auditHookAuditHealth 后与规则同枚对齐,恢复部署自洽) (eb29502db9)
-- 📚 文档:按 HEAD 树重钉生成块数字(守门/文件/测试计数) (712507cbf4)
-- 🐞 修复:执行计划步骤说明里的英文工具码名改为本地化功能名 (587b64573e)
-- 🐞 修复:模态档豁免 availability 过滤(chat 探针把 image/video/tts 整批判 DOWN)+ 分类前置 (a8b62e012a)
 | 跟踪文件 | 23100 | `trackedFiles` |
-| 跟踪文件 | 23152 | `trackedFiles` |
-| API 路由 | 4862 | `apiRoutes` |
-| 路由文件 | 714 | `apiRouteFiles` |
-| 测试文件 | 5951 | `testFiles` |
-| 跟踪文件 | 23151 | `trackedFiles` |
