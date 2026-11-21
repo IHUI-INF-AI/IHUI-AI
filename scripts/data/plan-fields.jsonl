@@ -1,7 +1,3 @@
-{"key":"G-18#file","owner":"机主微信开放平台","waiting":"none","updatedAt":"2026-10-24T17:49:01.833Z","updatedBy":"plan-fields-extract"}
-{"key":"G-870#file","owner":"机主微信开放平台","waiting":"none","updatedAt":"2026-10-30T07:07:32.587Z","updatedBy":"plan-fields-extract"}
 {"key":"RP-37#USDTTRC20ADDRESS仍空","owner":"机主收款地址面","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
-{"key":"RP-79#给旁路收敛器物scripts/git-sync-","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.087Z","updatedBy":"plan-fields-extract"}
 {"key":"D05#多用户协作会话","owner":"协作会话域 chat-collab 席","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
-{"key":"B31#邮件投递通道故障排查","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-03T11:34:42.340Z","updatedBy":"plan-fields-extract"}
 {"key":"Y-58#RN发布链路余两格","owner":"","waiting":"none","blocking":"①site-apk 站点落点缺失:生产签出副本 ihui-prod 本机任何候选根都不存在,下次出包会在 publish 腿失败;②Play 现网签名身份未量到(appSigningInfo 对本应用回 HTML 404,官网 keystore 62:B0:FF:0E… 与 EAS 那枚 62:0C:C9:58… 不同源)","next":"①把生产签出副本恢复到 D:/DevEnv/ihui-prod(不得落仓内 .DevEnv/,会造守门 208 嵌套 git 仓);②以本机 key 提交是否被拒属未判定,提交前必须先量一次,不得凭「应该可以」","evidence":["发布链五腿已由 scripts/release-mobile-rn.mjs 收成一处分档读数(OTA 两渠道实测 ready、Play 授权与轨道实测在位)","行内认领已释放@2026-11-05/stale-claim-strip#mw2toa1q-3","归属口径:未认领(unassigned),合入 origin/main 时门 234 A1 点名缺交代(2026-11-05)"],"updatedAt":"2026-11-11T12:24:47.773Z","updatedBy":"plan-fields-reclassify"}
