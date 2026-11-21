@@ -115,12 +115,28 @@ def test_goal_gate_constants_derive_from_the_enum():
 
 
 def test_producer_literals_stay_within_the_closed_set():
-    """生产点的 stop_reason 字面量赋值都落在集内(漂出集即红,与 done 帧判据同向)。"""
+    """生产点的 stop_reason 赋值都落在集内(漂出集即红,与 done 帧判据同向)。
+
+    2026-11-21 对齐:生产点已整体改引枚举成员(``stop_reason=TurnStopReason.X``),
+    尺子同步认两种写法 —— 枚举成员必须真存在于 ``TurnStopReason``,残余字符串
+    字面量必须仍在封闭集内;两种都扫不到任何生产点 ⇒ 判据腐烂,不得当全绿。
+    """
     src = PRODUCER.read_text(encoding="utf-8")
-    used = set(re.findall(r'stop_reason\s*=\s*"([a-z_]+)"', src))
-    assert used, "扫描不到任何生产点 ⇒ 尺子漂了,不得当成全绿"
-    assert used <= set(TURN_STOP_REASON_VALUES), (
-        f"发现封闭集之外的 stop_reason 档位:{sorted(used - set(TURN_STOP_REASON_VALUES))}"
+    pat = re.compile(r'stop_reason\s*=\s*(?:TurnStopReason\.([A-Z_]+)|"([a-z_]+)")')
+    enum_used: set[str] = set()
+    literal_vals: set[str] = set()
+    for m in pat.finditer(src):
+        if m.group(1):
+            enum_used.add(m.group(1))
+        elif m.group(2):
+            literal_vals.add(m.group(2))
+    assert enum_used or literal_vals, "扫描不到任何生产点 ⇒ 尺子漂了,不得当成全绿"
+    enum_names = {m.name for m in TurnStopReason}
+    assert enum_used <= enum_names, (
+        f"生产点引用了不存在的枚举成员:{sorted(enum_used - enum_names)}"
+    )
+    assert literal_vals <= set(TURN_STOP_REASON_VALUES), (
+        f"发现封闭集之外的 stop_reason 档位:{sorted(literal_vals - set(TURN_STOP_REASON_VALUES))}"
     )
 
 

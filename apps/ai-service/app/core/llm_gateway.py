@@ -1852,7 +1852,16 @@ def _repair_agent_loop_messages(
             continue
         if role in ("system", "user"):
             content = m.get("content")
-            if not isinstance(content, str) or content.strip() == "":
+            # 2026-11-21 补刀:user 可以是**多模态 list**(openai vision 形态:
+            # [{"type":"text"},{"type":"image_url"}])—— 早先只认 str 会把整条图片
+            # 用户消息当"空 content"丢弃,read_image 之后图片根本到不了 LLM。
+            if isinstance(content, str):
+                if content.strip() == "":
+                    continue
+            elif isinstance(content, list):
+                if not content:
+                    continue
+            else:
                 continue
         out = dict(m)
         if role == "assistant" and out.get("tool_calls"):
@@ -1901,7 +1910,19 @@ def repair_messages(
             removed += 1
             continue
         content = m.get("content")
-        if not isinstance(content, str) or content.strip() == "":
+        # 2026-11-21:多模态 user 的 content 是 list([{"type":"text"},{"type":"image_url"}])
+        # —— 只认 str 会把它当空 content 删掉,图片消息在 chat API 入口整条消失。
+        if isinstance(content, str):
+            if content.strip() == "":
+                reasons.append(f"移除空 content(role={role})")
+                removed += 1
+                continue
+        elif isinstance(content, list):
+            if not content:
+                reasons.append(f"移除空 content(role={role})")
+                removed += 1
+                continue
+        else:
             reasons.append(f"移除空 content(role={role})")
             removed += 1
             continue
@@ -1910,7 +1931,14 @@ def repair_messages(
     # Rule 3:去重连续相同 role(合并 content)
     deduped: list[dict[str, Any]] = []
     for m in cleaned:
-        if deduped and deduped[-1].get("role") == m.get("role"):
+        if (
+            deduped
+            and deduped[-1].get("role") == m.get("role")
+            # 2026-11-21:只在两侧都是字符串时才合并;多模态 list 合并会把
+            # 文本与 image_url 拼成脏值(且丢掉视觉段),必须原样分成两条。
+            and isinstance(deduped[-1].get("content"), str)
+            and isinstance(m.get("content"), str)
+        ):
             reasons.append(f"合并连续 {m.get('role')} 消息")
             deduped[-1]["content"] = f"{deduped[-1].get('content', '')}\n\n{m.get('content', '')}"
         else:

@@ -726,9 +726,11 @@ async def run_account_task(
     # 出口连点,会把风险放大到同 IP 全部账号 ⇒ 与手动签到/查余额同口径先停手。
     await _outbound_risk_precheck(account_id)
     device_map = dict(account.get("device_map") or {})
+    # AIS-045:必须经 run_family_exclusive 串行(与调度巡检同账号当日互斥),
+    # 直调 run_family 会让手动连点与调度轮在 claim 窗口撞车(上游非全幂等)。
     try:
-        result = await workbuddy_tasks.run_family(
-            body.kind, account["jwt"], device_map, dry_run=body.dry_run
+        result = await checkin_scheduler_mod.run_family_exclusive(
+            account_id, body.kind, account["jwt"], device_map, dry_run=body.dry_run
         )
     except OutboundPaused as e:
         raise HTTPException(status_code=429, detail=str(e)) from e

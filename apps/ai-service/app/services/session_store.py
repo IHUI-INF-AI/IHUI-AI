@@ -1148,12 +1148,10 @@ class SessionStore:
 
     def close(self) -> None:
         with self._lock:
-            if self._ephemeral:
-                # 测试隔离:临时路径的 schema 用完即弃(生产路径的数据不动)。
-                try:
-                    self._session.execute(f'DROP SCHEMA IF EXISTS "{self._schema}" CASCADE')
-                except Exception:  # noqa: BLE001 - 清理失败不改变"已关闭"这一事实
-                    pass
+            # 2026-11-21:临时 schema 的回收**只在进程退出**时做(_arm_test_schema_cleanup
+            # 的 atexit 腿)。close() 只关连接 —— 本文件上方契约写明"同路径 close→reopen
+            # 必须还能读到数据"(有用例断言它:test_engine_thread_persistence 的重启恢复)。
+            # 早先这里逐库 DROP SCHEMA 把那条契约当场作废,且与 atexit 回收职责重复。
             self._session.close()
 
     def __enter__(self) -> SessionStore:

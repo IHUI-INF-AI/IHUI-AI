@@ -84,8 +84,17 @@ class TestClassifyIntent:
 
         registered = {tool.name for tool in mcp_server.list_tools()}
         assert "not_a_real_tool_xyz" not in registered  # 对照:本检查确实能判假
+        # api_endpoints_search / api_endpoint_call 是 API 桥接的**常驻入口**,由
+        # api_tools_bridge 在启动拉取 OpenAPI spec 后经 register_external_tool 注入,
+        # 刻意不登记进静态 _TOOLS(README「A. API 全量工具化」同理)。测试进程不起桥接,
+        # 静态表里查不到属正常,不是包把工具名写错了。
+        bridge_entry_tools = {"api_endpoints_search", "api_endpoint_call"}
         for pack in EXPERT_PACKS:
-            missing = [tool for tool in pack.tools if tool not in registered]
+            missing = [
+                tool
+                for tool in pack.tools
+                if tool not in registered and tool not in bridge_entry_tools
+            ]
             assert not missing, f"{pack.slug} 引用了未注册工具: {missing}"
 
 
