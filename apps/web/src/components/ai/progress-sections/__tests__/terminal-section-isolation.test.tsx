@@ -50,9 +50,11 @@ vi.mock('next-intl', async () => {
 // CopyButton 走 radix Tooltip(需 TooltipProvider),与被测的交代行无关 → 直接剪掉
 vi.mock('../copy-button', () => ({ CopyButton: () => null }))
 
+const storeState = vi.hoisted(() => ({
+  terminalOutputs: {} as Record<string, string>,
+}))
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (selector: (s: { terminalOutputs: Record<string, string> }) => unknown) =>
-    selector({ terminalOutputs: {} }),
+  useChatStore: (selector: (s: typeof storeState) => unknown) => selector(storeState),
 }))
 
 import { TerminalSection } from '../terminal-section'
@@ -101,5 +103,21 @@ describe('终端隔离交代(G-154 渲染位)', () => {
     const row = getByTestId('terminal-isolation').parentElement?.textContent ?? ''
     expect(row).toContain('运行中')
     expect(row).toContain('失败')
+  })
+
+  it('命令结束自动收起:运行中展开实时输出,结束回到手动展开(不留在"默认展开"态)', () => {
+    storeState.terminalOutputs = { 't-flow': 'line1\nline2' }
+    const { getByTestId, rerender } = render(
+      <TerminalSection terminals={[task({ id: 't-flow', status: 'running' })]} />,
+    )
+    const row = () => getByTestId('terminal-item-t-flow')
+    expect(row().getAttribute('aria-expanded')).toBe('true')
+
+    rerender(
+      <TerminalSection
+        terminals={[task({ id: 't-flow', status: 'completed', output: 'line1\nline2' })]}
+      />,
+    )
+    expect(row().getAttribute('aria-expanded')).toBe('false')
   })
 })

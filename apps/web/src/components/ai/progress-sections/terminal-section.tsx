@@ -245,10 +245,18 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
   const exitCodeShown =
     term.exitCode !== undefined && term.exitCode !== 0 ? term.exitCode : undefined
 
-  // 运行中默认展开(实时可见是本次改造的目的),结束后回到手动展开
+  // 运行中默认展开(实时可见是本次改造的目的),**结束那一刻自动收起**回到手动展开。
+  // 2026-11-21 补:旧实现只写了"运行中展开",没写"结束收起" ⇒ 命令跑完后 expanded 一直为 true,
+  // 明细永远挂在行下,用户眼里就是"执行命令行默认展开"。运行→结束只在翻转那一次收起,
+  // 结束后用户再点开不会被本效果回收。
+  const wasRunningRef = React.useRef(isRunning)
   React.useEffect(() => {
     if (isRunning && liveOutput) setExpanded(true)
   }, [isRunning, liveOutput])
+  React.useEffect(() => {
+    if (wasRunningRef.current && !isRunning) setExpanded(false)
+    wasRunningRef.current = isRunning
+  }, [isRunning])
 
   const fullOutput = isRunning ? (liveOutput ?? '') : (effectiveOutput ?? '')
   // 运行中保留最新尾部(关注点永远在最后几行);结束后从头截,尾部由「显示更多」给出
