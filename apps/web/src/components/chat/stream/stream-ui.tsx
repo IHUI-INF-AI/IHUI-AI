@@ -52,8 +52,9 @@ import type { ToolMetricKind, ToolSubjectKind } from '@ihui/shared/chat'
  * 同一个气泡里出现四种互不相干的视觉语言,读起来像四个产品的拼接。遵循统一工程规范
  * Codex 的做法是**一种行模板贯穿全部过程信息**:
  *   状态图标 · 功能名 · 对象(等宽) ………… 度量 / 耗时
- * 字号唯一(12px)、图标唯一(14px)、行高唯一(24px)、状态色唯一,
+ * 字号唯一(13px)、图标唯一(14px)、行高唯一(24px)、状态色唯一,
  * 差异只体现在"内容"上。所有区段必须经本文件渲染,不得再自行拼 className。
+ * 2026-11-21 用户口径:过程行不画容器 —— 头行无底色、无描边,展开体也不铺底色。
  */
 
 /** 活动行状态 —— 与工具/步骤/终端的原始状态词汇统一收敛到这五种 */
@@ -154,23 +155,28 @@ export function StreamKindIcon({
   )
 }
 
-/** 行模板唯一字号:16px(与 --text-title 同值,行高 24px)。禁止在消息流活动区出现其它字号 */
-export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-[16px] leading-6'
+/**
+ * 行模板唯一字号:13px(--text-body-sm 档,行高 18px)。禁止在消息流活动区出现其它字号。
+ *
+ * 2026-11-21 用户口径:AI 面板里的过程行(思考过程 / 代码 / 命令 / 工具调用)整体压小一档,
+ * 16px 对过程信息过重(它们只交代"在做什么",不该和正文抢读)。
+ */
+export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-body-sm'
 
 /**
- * 可折叠容器头行唯一档(2026-11-16 立):思考行 / 过程叙述组头 / 代码块头共用。
+ * 可折叠容器头行唯一档(2026-11-16 立,2026-11-21 改无容器):思考行 / 过程叙述组头 /
+ * 代码块头 / 文件变更头共用。
  *
- * 用户口径:这些头行的字号、粗细、大小、背景完全一致,且**只有一层底色** ——
- * 32px 高(16px 字 + 上下各 4px 内边距)、16px/400 字、底色取内联 code 的
- * --color-muted-soft 实色 token(不用 alpha 档)。
- * 悬停不换底色,只把常态留的 1px 透明描边换成 stroke-subtle(几何零位移,AGENTS §4);
- * 聚焦取 stroke-focus。头行的这几项只允许来自本常量,禁止再手写组合。
+ * 用户口径:这些头行的字号、粗细、大小完全一致,且**不画容器** ——
+ * 28px 高(13px 字 + 上下内边距)、13px/400 字、**无底色、无描边**(悬停/聚焦都不出现边框),
+ * 可展开的暗示交给右端箭头,不再靠一块灰底 + 一圈框去"圈出按钮"。
+ * 聚焦反馈只留一档极浅底色(不带边框、零位移,AGENTS §4 的几何零位移仍成立)。
+ * 头行的这几项只允许来自本常量,禁止再手写组合。
  */
 export const STREAM_HEADER_ROW_CLASS = cn(
   STREAM_ROW_CLASS,
-  'h-8 rounded-sm px-1 text-left text-foreground',
-  'border border-transparent bg-muted-soft transition-colors',
-  'hover:border-stroke-subtle focus-visible:border-stroke-focus focus-visible:outline-none',
+  'h-7 rounded-sm px-1 text-left text-foreground',
+  'transition-colors focus-visible:bg-muted/20 focus-visible:outline-none',
 )
 
 /**
@@ -193,7 +199,8 @@ export const STREAM_GROUP_BODY_CLASS = 'ml-1.5 pl-3'
 /** 对象(路径/URL/命令)一律等宽;查询词与实体名用正文体 */
 export const STREAM_SUBJECT_MONO = /path|url|command/
 
-const ICON_CLASS = 'h-4 w-4 shrink-0'
+/** 行内图标唯一档:14px(2026-11-21 随行字号 16→13px 下调一档,不再比字身高一头) */
+const ICON_CLASS = 'h-3.5 w-3.5 shrink-0'
 
 /** 状态 → 图标 + 颜色(全消息流唯一口径) */
 export function StreamStatusIcon({
@@ -555,9 +562,8 @@ export function StreamGroup({
         className={cn(
           'absolute left-[7px] w-px transition-colors',
           // 引导线只在展开且确有内容时出现,收起态保持零装饰。
-          // 起点落在头行下沿(top-8 = 头行 32px 高),不从语义图标底部钻出来 ——
-          // 图标盒占 8..24,top-6 会正好抵住图标下边缘,读起来像线黏在图标上。
-          open ? 'top-8 bottom-1 bg-border/70' : 'h-0 opacity-0',
+          // 起点落在头行下沿(top-7 = 头行 28px 高,2026-11-21 头行 32→28px 后同步),不从语义图标底部钻出来。
+          open ? 'top-7 bottom-1 bg-border/70' : 'h-0 opacity-0',
         )}
       />
       <div className="flex items-center gap-1">
@@ -610,7 +616,12 @@ export function StreamGroup({
   )
 }
 
-/** 展开态明细容器:唯一的一档圆角与内边距(6px + p-2),不再各处自配 */
+/**
+ * 展开态明细容器:唯一的一档圆角与内边距(6px + p-2),不再各处自配。
+ *
+ * 2026-11-21 用户口径:过程区的展开体**不画容器色** —— 明细直接落在消息画布上,
+ * 靠缩进(与引导线同列)表达从属关系,不再套一层灰底去分区。
+ */
 export function StreamDetail({
   children,
   className,
@@ -622,7 +633,7 @@ export function StreamDetail({
 }) {
   return (
     <div
-      className={cn('ml-[7px] space-y-1.5 rounded-md bg-muted/30 p-2 pl-3 text-label', className)}
+      className={cn('ml-[7px] space-y-1.5 py-1 pl-3 text-label', className)}
       data-testid={testId}
     >
       {children}
@@ -710,7 +721,7 @@ export function StreamTag({
   ariaLabel?: string
 }) {
   const tagClass = cn(
-    'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[11px] leading-none tabular-nums',
+    'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md px-1 text-[10px] leading-none tabular-nums',
     strong && 'font-semibold',
     tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
     tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',

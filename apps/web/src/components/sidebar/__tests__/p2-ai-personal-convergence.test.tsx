@@ -296,10 +296,12 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
       contentGroup: 1,
       tradeGroup: 1,
       personalGroup: 1,
-      developerGroup: 3,
+      // 2026-11-21 归位:原末尾两枚 adminOnly 管理页(/edu-ai/tbox、/admin/meta-learner)
+      // 迁入 ADMIN_ITEMS(它们是 admin 运营后台,不属于"接 API 的外部开发者"),本组回归单入口。
+      developerGroup: 1,
     })
     expect(NAV_GROUPS).toHaveLength(11)
-    expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(13)
+    expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(11)
     // 条目没被删,只是不再平铺:域清单顶层条目数 == 收敛前两分组顶层条目数
     // 〔2026-10-30〕AI 域 +1(收敛后新入口 `/account-pool`,见上方快照注记)
     // 〔2026-11-16〕财务部 `/finance-ai` 移出到独立 financeGroup —— 它本不在本快照
