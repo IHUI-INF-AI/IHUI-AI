@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **71 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **72 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（71 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（72 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -826,6 +826,23 @@
     `A`；`deploy-feedback --once --apply` 首次 `registered=1`（登记 A50），台账写
     `result=registered`；`check-autonomy-leg-health` 由 `OK=13 DRIFT=0 UNJUDGED=2` 变为
     **`OK=14 DRIFT=0 UNJUDGED=1`**（A12 转判、仅剩 A13 的政策面窄那一格）。
+### 5.72 第 72 项：道数预算把 blocking 门截在"未跑"之外，而整句读数仍是"全绿"
+
+- 现场（当次落地日志同屏，逐字对照）：一行是
+  `✅ 落地后受影响判据复跑:32 臂全绿`，另一行是
+  `⚠️ 复跑预算不覆盖 51 道 blocking 门(blocking 总数已超 30 道)⇒ 本次"全绿"不覆盖它们:65, 84, 80 …`。
+  第 69 项只把 blocking 排到前面去，挡不住"blocking 总数本身就超过 30 道"：后 21 道 blocking 一道没跑，
+  而整体判词照旧是"全绿"。这正是 §0.3 里"没判写成判过"的形态，只是换了一个进口。
+- 处置（单一分配出口，调用方不再自己 slice）：
+  - 新增 `planRerunBudget(entries, cap)`：`limit = max(cap, blocking.length)` —— **blocking 一道都不截**，
+    预算只压 warn；同档保序（blocking 内部、warn 内部都保持注册表扫描序）。
+  - 批次执行改用 `plan.run`（不再 `ordered.slice(0, REGISTRY_CAP)`），延后打印补上
+    "blocking N 道不占这 30 坑"的读数。
+  - 不变量兜底：`deferred` 里一旦出现 blocking（说明分配出口被改坏），落
+    `res.undetermined kind=registry-budget` ⇒ 整轮结论变"未判定"，不再只打一句 warn 就报绿。
+- 验证：`node --test scripts/tests/land-gate-rerun.test.mjs` **20 passed**（新增 T18 四控：blocking 35 > cap 30
+  仍全跑 / 常态 10+25 只延后 5 道 warn / 缺省 mode 按 blocking / 同档保序）；`node --check` 通过。
+  代价只在"blocking 够多"的那些落地里多跑几臂 —— 用**面铺设完整**换掉"读起来像跑过"，方向不可反。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
