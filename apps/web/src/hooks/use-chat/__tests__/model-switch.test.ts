@@ -410,11 +410,15 @@ describe('换档入口必须真的可达(不只是机制就绪)', () => {
   const input = readInput('../../../components/chat/message-input.tsx')
 
   it('流式中不得再禁用模型选择器', () => {
-    // 切片只取 <ModelSelector 自身的开标签段(到 footer={ 为止):footer 里的
-    // ReasoningEffortInputAxis/SamplingParamsButton 自带 disabled={isStreaming} 是
-    // 合理禁用(不是选择器本身),原贪婪切片(到第一个 />)会被 footer 撑破而误判。
+    // 切片只取 <ModelSelector 自身的开标签段(到第一个 render prop 为止):2026-11-20 用户定档
+    // 把 ReasoningEffortInputAxis 从弹层底栏上移到顶部,render prop 由 footer={ 变成 header={ 且
+    // 排在 footer 之前 —— 终点固定写 footer={ 会把 header 段一起圈进来,于是自带 disabled={isStreaming}
+    // 的推理强度卡被误判成"选择器被禁用"。取两个 render prop 里先出现的那个作终点,断言意图不变。
     const start = input.indexOf('<ModelSelector')
-    const openTag = input.slice(start, input.indexOf('footer={', start))
+    const ends = ['header={', 'footer={']
+      .map((k) => input.indexOf(k, start))
+      .filter((i) => i > start)
+    const openTag = input.slice(start, ends.length ? Math.min(...ends) : start + 800)
     expect(openTag).not.toMatch(/disabled=\{isStreaming\}/)
     expect(openTag).toContain('onChange={onModelChange}')
   })

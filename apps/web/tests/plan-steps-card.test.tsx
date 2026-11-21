@@ -276,7 +276,7 @@ describe('PlanStepsCard', () => {
     expect((icon as HTMLElement).className).toContain('text-foreground')
   })
 
-  it('completed 步骤图标用基元统一口径(16px 图标 + 纯前景色,不再自配 emerald)', () => {
+  it('completed 步骤图标用基元统一口径(14px 图标 + 纯前景色,不再自配 emerald)', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', status: 'completed' })]} />,
     )
@@ -284,7 +284,10 @@ describe('PlanStepsCard', () => {
       '[data-status="completed"] [data-testid="icon-ListTodo"]',
     ) as HTMLElement | null
     expect(icon).toBeTruthy()
-    expect(icon?.className).toContain('h-4')
+    // 2026-11-21 定档:STREAM_ROW_CLASS 收成 24px 行高,行内图标随之收成 14px
+    // (stream-ui.tsx 的 ICON_CLASS = 'h-3.5 w-3.5 shrink-0');本用例原断言 16px
+    // 是 24px 档定型前的旧读数,现按基元现值校准,断言仍锁"取自基元、不手配尺寸"。
+    expect(icon?.className).toContain('h-3.5')
     expect(icon?.className).toContain('text-foreground')
   })
 

@@ -28,16 +28,7 @@ function readSrc(...rel: string[]): string {
   return readFileSync(join(here, ...rel), 'utf8')
 }
 
-const FINANCE_PAGE = readSrc(
-  '..',
-  '..',
-  '..',
-  '..',
-  'app',
-  '(main)',
-  'finance-ai',
-  'page.tsx',
-)
+const FINANCE_PAGE = readSrc('..', '..', '..', '..', 'app', '(main)', 'finance-ai', 'page.tsx')
 const SEND_MESSAGE = readSrc('..', 'send-message.ts')
 
 describe('RP-46 财务部板块就地发起落点回归锁', () => {
@@ -59,7 +50,12 @@ describe('RP-46 财务部板块就地发起落点回归锁', () => {
       SEND_MESSAGE.indexOf('function resolveDeeplinkTarget('),
       SEND_MESSAGE.indexOf('function resolveDeeplinkTarget(') + 500,
     )
-    expect(fn).toContain('opts?.stayOnPage === true ? window.location.pathname : chatDeeplinkPath(')
+    // 2026-11-21:实现被 prettier 折成三行三目(stayOnPage 判据 / pathname 分支 / chatDeeplinkPath
+    // 分支各占一行),原字面单行断言因此误红。改成允许空白/换行的正则,断言意图一字不变:
+    // 真分支取 window.location.pathname,假分支才走 chatDeeplinkPath 换页。
+    expect(fn).toMatch(
+      /opts\?\.stayOnPage === true\s*\?\s*window\.location\.pathname\s*:\s*chatDeeplinkPath\(/,
+    )
     expect(fn).toContain("sp.set('conversationId', conversationId)")
   })
 

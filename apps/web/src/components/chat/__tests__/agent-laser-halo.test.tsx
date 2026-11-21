@@ -90,7 +90,10 @@ describe('接线面:停止键 + 单源动画', () => {
   it('message-input 的停止键 relative + 真挂 LaserHaloRing', () => {
     const face = readFace('components/chat/message-input.tsx')
     expect(face).toMatch(/'relative bg-sky-500 text-white hover:bg-sky-600'/)
-    expect(face).toMatch(/data-testid="stop-button"[\s\S]{0,120}<LaserHaloRing active \/>/)
+    // 窗口 120 → 400:停止键里 data-testid 与 <LaserHaloRing/> 之间还隔着
+    // <Square className="h-4 w-4" fill="currentColor" /> 这枚图标,120 字符窗口装不下
+    // (2026-11-21 实测恰好越过边界),断言意图不变(同一按钮内真挂光带)。
+    expect(face).toMatch(/data-testid="stop-button"[\s\S]{0,400}<LaserHaloRing active \/>/)
   })
 
   it('模型下拉 / Agent 下拉不得挂光带(用户 2026-11-21 校订,防回潮)', () => {

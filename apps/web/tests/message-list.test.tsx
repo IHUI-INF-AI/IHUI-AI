@@ -556,16 +556,19 @@ describe('MessageList — v2 深度优化(对齐 AI 工作台)', () => {
       expect(mockChatStore.state.userScrolledUp).toBe(false)
     })
 
-    it('isStreaming 时红点随合并后的按钮出现', async () => {
+    it('isStreaming 时「进行中」由激光光带表达,不再有流式红点', async () => {
       const msg = makeAssistantMsg('m1', 'hi')
       const { container } = render(<MessageList {...baseProps} messages={[msg]} isStreaming />)
       await revealByScrollUp(container)
       await waitFor(() => {
-        expect(screen.getByTestId('message-list-jump-latest-dot')).toBeTruthy()
+        expect(screen.getByTestId('agent-laser-halo')).toBeTruthy()
       })
-      expect(
-        latestAffordance(container).contains(screen.getByTestId('message-list-jump-latest-dot')),
-      ).toBe(true)
+      expect(latestAffordance(container).contains(screen.getByTestId('agent-laser-halo'))).toBe(
+        true,
+      )
+      // 2026-11-21 用户定档(见 scroll-jump-buttons.tsx 头注):光带接管「进行中」语义,
+      // 原下翻按钮右上角的流式红点(animate-pulse 小圆点)一并删除,同一语义不留第二处标记。
+      expect(screen.queryByTestId('message-list-jump-latest-dot')).toBeNull()
     })
   })
 
