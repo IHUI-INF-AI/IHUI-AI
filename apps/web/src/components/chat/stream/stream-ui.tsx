@@ -637,7 +637,7 @@ export function StreamDetail({
 }) {
   return (
     <div
-      className={cn('ml-[7px] space-y-1.5 py-1 pl-[17px] text-label', className)}
+      className={cn('ml-2 space-y-1.5 py-1 pl-4 text-label', className)}
       data-testid={testId}
     >
       {children}
