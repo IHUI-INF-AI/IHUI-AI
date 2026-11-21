@@ -9,7 +9,9 @@ import { test, expect, type Page } from '../../e2e/fixtures'
  *
  * 守护目标:
  *   - /models 页面 SSR 渲染所有厂商图标(SVG)
- *   - 下拉菜单按厂商分组(DropdownMenu.Group + DropdownMenu.Label)
+ *   - 下拉菜单按厂商分组(DropdownMenu.Group + 可点击的组标题项)
+ *     2026-11-21:组标题从纯 Label 改为可折叠项(点一下展开/收起该平台),结构仍是
+ *     role="group" 容器,分组图标/文本断言口径不变。
  *   - 4 状态可视觉验证:default / hover / active / dark mode
  *   - 新增厂商(AWS/Azure/OpenRouter/HuggingFace/Cerebras 等)图标必须渲染
  *

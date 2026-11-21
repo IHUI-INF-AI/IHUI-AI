@@ -43,6 +43,14 @@ LEGACY_MODEL_IDS = frozenset(
         "workbuddy/glm-5.1",
         # DeepSeek:保留 v4 与 v4.1,v3-2 属上一代
         "workbuddy/deepseek-v3-2-volc",
+        # DeepSeek 无版本号的老别名(2026-11-21 机主点名:这两个也都是历史模型):
+        # 目录里没有 release_date、也没有同系列更高代次可比较,版本引擎判不出旧,
+        # 但 `deepseek-chat` / `deepseek-flash` 就是 V3 代别名,`deepseek-ai/deepseek-r1*`
+        # 是 R1 代蒸馏/原版。全部按显式清单摘除(选择器与模型目录同一份裁决)。
+        "deepseek-chat",
+        "deepseek-flash",
+        "deepseek-ai/deepseek-r1",
+        "deepseek-ai/deepseek-r1-0528-qwen3-8b",
         # MiniMax:m3/m3.1 已取代 m2.5
         "workbuddy/minimax-m2.5",
         # Agnes:3.0 已取代 2.5(图像/视频模型不走本清单,由 chat 能力过滤负责)

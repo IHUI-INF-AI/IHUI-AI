@@ -53,7 +53,6 @@ import type { BrandIconProps } from '@/components/ai/brand-icon'
 import { inferVendor } from '@/components/ai/vendor-infer'
 import {
   FALLBACK_MODELS,
-  DEMO_TIER_MODELS,
   VENDOR_LABEL,
   resolveVendorLabel,
   vendorGroupKey,
@@ -63,14 +62,23 @@ import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-te
 import {
   buildCapabilitySegments,
   filterByCapabilities,
+  formatModelDisplayLabel,
   groupByCategory,
   idProbeKeys,
+  sortByCategoryOrder,
   splitByTier,
   type CapsVerified,
   type ModelOption,
   type ModelCapabilityKey,
   type ModelUsageCategory,
 } from '@/components/chat/model-tier-utils'
+// 2026-11-21 立:厂商分组的折叠态(纯逻辑单源,便于脱离组件依赖树单测)
+import {
+  MODEL_SELECTOR_COLLAPSED_VENDORS_STORAGE_KEY,
+  parseCollapsedVendors,
+  serializeCollapsedVendors,
+  toggleCollapsedVendor,
+} from '@/components/chat/model-selector-collapse'
 
 // 兼容既有外部引用(model-selector 此前直接导出这些类型)
 export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/chat/model-tier-utils'
@@ -349,7 +357,9 @@ function ModelOptionRow({
   opt: ModelOption
   active: boolean
   warning: boolean
-  /** 历史模型区需要显示用途分类(嵌入/语音/图像…),默认区都是对话类无需标注 */
+  /** 历史模型区需要显示用途分类(嵌入/语音/图像…);
+   *  2026-11-21 起默认区也传 true —— 平台组内已按用途排序,
+   *  非对话类模型(图像/视频/语音/OCR)要能一眼认出模态。 */
   showCategory?: boolean
   onSelect: () => void
 }) {
@@ -512,7 +522,8 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
   )
 }
 
-/** 用途分类徽章(聊天类不显示,避免"对话"标签刷屏) */
+/** 用途分类徽章(对话类不显示,避免"对话"标签满屏刷屏;
+ *  2026-11-21 起默认区也用它标注图像/视频/语音/OCR 等非对话用途) */
 function ModelCategoryBadge({ category }: { category?: ModelUsageCategory }) {
   const t = useTranslations('chat')
   const cat = normalizeCategory(category)
@@ -577,7 +588,10 @@ interface VendorGroup {
 /** 按厂商分组模型
  *  2026-11-18 立:分组键改用 vendorGroupKey —— 同一品牌的不同接入 code
  *  (账号池的 workbuddy 与平台目录的 workbuddy_relay)必须合成一组,否则用户会看到
- *  两个同名分组,其中一个还带着内部 `_relay` 串。 */
+ *  两个同名分组,其中一个还带着内部 `_relay` 串。
+ *  2026-11-21 立(用户定档「保持平台一级、组内按用途排序」):组内条目按用途顺序排
+ *  (对话 → 视觉 → 语音 → 图像…),同类再按代次/名称 —— 排序口径直接复用
+ *  `groupByCategory`,不再另写一份。 */
 function groupByVendor(options: ModelOption[]): VendorGroup[] {
   const map = new Map<string, VendorGroup>()
   for (const opt of options) {
@@ -588,14 +602,16 @@ function groupByVendor(options: ModelOption[]): VendorGroup[] {
     else map.set(label, { label, vendor, items: [opt] })
   }
   const order = Object.keys(VENDOR_LABEL)
-  return Array.from(map.values()).sort((a, b) => {
-    const ia = order.indexOf(a.vendor)
-    const ib = order.indexOf(b.vendor)
-    if (ia === -1 && ib === -1) return a.label.localeCompare(b.label)
-    if (ia === -1) return 1
-    if (ib === -1) return -1
-    return ia - ib
-  })
+  return Array.from(map.values())
+    .map((group) => ({ ...group, items: sortByCategoryOrder(group.items) }))
+    .sort((a, b) => {
+      const ia = order.indexOf(a.vendor)
+      const ib = order.indexOf(b.vendor)
+      if (ia === -1 && ib === -1) return a.label.localeCompare(b.label)
+      if (ia === -1) return 1
+      if (ib === -1) return -1
+      return ia - ib
+    })
 }
 
 /** 模型行右侧:倍数 + 徽章 + 锁(2026-08-06 立,workbuddy 风格)
@@ -781,7 +797,33 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
   )
 }
 
-/** 初始/降级种子选项(FALLBACK + DEMO 演示档位,未登录/加载中展示) */
+/** 初始/降级种子选项(FALLBACK 当前代主力,未登录/加载中展示)
+ *
+ * 2026-11-21 改(用户报「模型列表里还有历史旧代模型」):不再把 `DEMO_TIER_MODELS`
+ * 并进种子。那批 `tier-demo/*` 是 2026-08 为了演示 5 档积分倍率造出来的**假模型**
+ * (Llama 3 8B / Gemini 2.0 Flash Lite / Step 2.1 / GLM-4 Plus …),前端却按
+ * category=chat、tier=latest 摆进选择器 —— 接口慢一拍或 401 时,用户看到的就是
+ * 一屏旧代名,而且真点了会被后端拒绝。演示档位常量保留给演示场景用,不进生产列表。 */
+function createSeedOptions(): ModelOption[] {
+  const seed = [...FALLBACK_MODELS]
+  return seed.map((m): ModelOption => ({
+    value: m.value,
+    label: m.label,
+    vendor: m.vendor,
+    descriptionKey: m.descriptionKey,
+    // FallbackModel 上 5 字段已显式提供(2026-08-06),透传
+    pointsMultiplier: m.pointsMultiplier ?? inferPointsMultiplier(m.value),
+    memberDiscountEligible: m.memberDiscountEligible,
+    isOfficial: m.isOfficial,
+    subsidy: m.subsidy,
+    locked: m.locked,
+    // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
+    category: 'chat',
+    tier: 'latest',
+    // 2026-11-11 立:硬编码种子从未做过连通性探测,一律按未验证展示
+    verified: false,
+  }))
+}
 /**
  * 用"已判死清单"把一批选项标死(2026-11-18 立)。
  *
@@ -815,27 +857,6 @@ function seedOptions(): ModelOption[] {
   return applyUnavailable(createSeedOptions(), readCachedUnavailable())
 }
 
-function createSeedOptions(): ModelOption[] {
-  const seed = [...FALLBACK_MODELS, ...DEMO_TIER_MODELS]
-  return seed.map((m): ModelOption => ({
-    value: m.value,
-    label: m.label,
-    vendor: m.vendor,
-    descriptionKey: m.descriptionKey,
-    // FallbackModel 上 5 字段已显式提供(2026-08-06),透传
-    pointsMultiplier: m.pointsMultiplier ?? inferPointsMultiplier(m.value),
-    memberDiscountEligible: m.memberDiscountEligible,
-    isOfficial: m.isOfficial,
-    subsidy: m.subsidy,
-    locked: m.locked,
-    // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
-    category: 'chat',
-    tier: 'latest',
-    // 2026-11-11 立:硬编码种子从未做过连通性探测,一律按未验证展示
-    verified: false,
-  }))
-}
-
 /** /llm/models 响应 → 选择器选项(2026-11-07 从 effect 抽出:刷新按钮复用同一套映射) */
 export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
   const merged = new Map<string, ModelOption>()
@@ -851,7 +872,9 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
     merged.set(m.id, {
       value: m.id,
-      label: m.name || m.id,
+      // 2026-11-21 立:后端 name 混着「人工展示名」与「裸代码」两种形态,
+      // 裸代码形统一整理成人类可读词形,避免同一列表里大小写风格打架。
+      label: formatModelDisplayLabel(m.name, m.id),
       vendor: m.provider || inferVendor(m.id),
       // 已知元数据优先(包括 memberDiscountEligible / isOfficial / subsidy / locked)
       ...known,
@@ -862,6 +885,8 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       category: normalizeCategory(m.category),
       tier: normalizeTier(m.model_tier),
       family: m.family,
+      // 2026-11-21 立:后端代次判定原因透传(驱动 splitByTier 摘掉"上一代"条目)
+      classifyReason: m.classify_reason,
       // 2026-09-19 D23 立:语义能力四布尔(后端 derive_capabilities 产出),
       // 驱动历史模型区"按能力过滤"与行内能力徽章;缺失时按未知处理不误藏
       capabilities: m.capabilities,
@@ -916,7 +941,7 @@ function withPoolModels(
       .find((reason): reason is string => Boolean(reason))
     base.push({
       value: m.id,
-      label: m.name || m.id,
+      label: formatModelDisplayLabel(m.name, m.id),
       // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
@@ -1197,6 +1222,41 @@ export function ModelSelector({
     })
   }, [])
 
+  // ── 反代平台(厂商分组)折叠态(2026-11-21 立)────────────────────────────
+  // 组键 = i18n key / 厂商 code(与语言无关);默认空集 = 全部展开,与改动前一致。
+  // 挂在 localStorage 是为了"这次收起的平台下次打开也别再铺一脸",只影响本机。
+  const [collapsedVendors, setCollapsedVendors] = React.useState<Set<string>>(() => new Set())
+  const collapsedVendorsRef = React.useRef(collapsedVendors)
+  collapsedVendorsRef.current = collapsedVendors
+
+  // 挂载后再读:渲染期读会与 SSR 首屏不一致(服务端没有本机存储)。
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const stored = parseCollapsedVendors(
+        window.localStorage.getItem(MODEL_SELECTOR_COLLAPSED_VENDORS_STORAGE_KEY),
+      )
+      if (stored.size > 0) setCollapsedVendors(stored)
+    } catch {
+      // 存储不可用(隐私模式 / 配额满):保持全部展开
+    }
+  }, [])
+
+  const toggleVendorCollapsed = React.useCallback((label: string) => {
+    // 用 ref 读最新值:同一帧内连点两下也不会丢一次切换。
+    const next = toggleCollapsedVendor(collapsedVendorsRef.current, label)
+    collapsedVendorsRef.current = next
+    setCollapsedVendors(next)
+    try {
+      window.localStorage.setItem(
+        MODEL_SELECTOR_COLLAPSED_VENDORS_STORAGE_KEY,
+        serializeCollapsedVendors(next),
+      )
+    } catch {
+      // 写不进去只影响"下次还记得",本次交互不受影响
+    }
+  }, [])
+
   /**
    * 派生展开态:默认列表为空时强制展开历史模型。
    * 后端 model_tier 字段是可选的,老后端 / 缓存数据缺失时若整批被判成非 latest,
@@ -1381,34 +1441,76 @@ export function ModelSelector({
             // 2026-11-18:label 是归并后的展示键(命中映射表才是 i18n key/显示名,
             // 未命中的未知厂商仍原样回退),不再把 `workbuddy_relay` 这类内部 code 摆给用户
             const labelKey = resolveVendorLabel(vendor).key
+            const groupName = labelKey?.startsWith('vendor.') ? t(labelKey) : (labelKey ?? label)
+            // 2026-11-21 立:每个反代平台可单独收起。收起时仍显示「当前选中的模型在这个组里」,
+            // 免得用户以为当前模型消失了(trigger 上虽有名字,但这里给一眼可见的落点)。
+            const collapsed = collapsedVendors.has(label)
+            const activeInGroup =
+              collapsed && value !== AUTO_OPTION.value
+                ? items.find((opt) => opt.value === value)
+                : undefined
             return (
               <DropdownMenu.Group key={label}>
-                <DropdownMenu.Label
+                {/* 组标题改成可点击项:点一下展开/收起该平台的全部模型;
+                    aria-expanded 让读屏软件也知道当前是开还是合。 */}
+                <DropdownMenu.Item
+                  data-vendor-group={label}
+                  data-vendor-collapsed={collapsed ? 'true' : 'false'}
+                  aria-expanded={!collapsed}
+                  onSelect={(e) => {
+                    // preventDefault 阻止 Radix 选中后自动关单 —— 折叠是"留在菜单里继续挑"
+                    e.preventDefault()
+                    toggleVendorCollapsed(label)
+                  }}
                   className={cn(
-                    'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold tracking-wide',
-                    'bg-card text-muted-foreground',
+                    'flex cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1.5 text-label font-semibold tracking-wide outline-none',
+                    'text-muted-foreground focus:bg-accent focus:text-accent-foreground',
                   )}
                 >
-                  <BrandIconDeferred vendor={vendor} size={12} className="text-muted-foreground" />
-                  <span className="flex-1 truncate">
-                    {labelKey?.startsWith('vendor.') ? t(labelKey) : (labelKey ?? label)}
+                  <BrandIconDeferred
+                    vendor={vendor}
+                    size={12}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                  <span className="min-w-0 shrink truncate">{groupName}</span>
+                  {activeInGroup ? (
+                    <span className="min-w-0 flex-1 truncate text-[10px] font-normal text-foreground/70">
+                      · {activeInGroup.label}
+                    </span>
+                  ) : (
+                    <span aria-hidden className="flex-1" />
+                  )}
+                  <span className="shrink-0 text-[10px] font-normal tabular-nums text-muted-foreground/80">
+                    {items.length}
                   </span>
                   {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
-                </DropdownMenu.Label>
-                {items.map((opt) => (
-                  <ModelOptionRow
-                    key={opt.value}
-                    opt={opt}
-                    active={opt.value === value && value !== AUTO_OPTION.value}
-                    // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
-                    warning={
-                      showConfigBadge &&
-                      !useApiOnly &&
-                      !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
-                    }
-                    onSelect={() => onChange(opt.value)}
-                  />
-                ))}
+                  {collapsed ? (
+                    <ChevronDown
+                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden
+                    />
+                  ) : (
+                    <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  )}
+                </DropdownMenu.Item>
+                {!collapsed &&
+                  items.map((opt) => (
+                    <ModelOptionRow
+                      key={opt.value}
+                      opt={opt}
+                      active={opt.value === value && value !== AUTO_OPTION.value}
+                      // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
+                      warning={
+                        showConfigBadge &&
+                        !useApiOnly &&
+                        !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
+                      }
+                      // 2026-11-21 立:默认区组内按用途排序后,非对话类要挂用途徽章
+                      // (图像/视频/语音/OCR…);对话类沿用原口径不挂,避免满屏"对话"。
+                      showCategory
+                      onSelect={() => onChange(opt.value)}
+                    />
+                  ))}
               </DropdownMenu.Group>
             )
           })}
