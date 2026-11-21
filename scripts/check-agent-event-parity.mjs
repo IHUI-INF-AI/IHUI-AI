@@ -169,6 +169,8 @@ function stripTsComments(src) {
 /** 事件名 → 来源文件集合 */
 const backendEvents = new Map();
 const frontendEvents = new Map();
+/** 2026-11-21 第 97 项:扩展消费面(stream.ts 等)抽到的键事实总数 —— 自检与失效守卫共用。 */
+let extraFaceFacts = 0;
 
 function addEvent(map, name, source) {
   if (!map.has(name)) map.set(name, new Set());
@@ -841,6 +843,27 @@ if (SELF_TEST) {
       ownSrc.includes(FIELD_COVERAGE_PATH) && ownSrc.includes('projectToolApprovalEnvFacts(p)') && ownSrc.includes('broadcastSSEEvent'),
       '退回只比事件名集合时本条红',
     ]);
+    // 2026-11-21 第 97 项:扩展消费面的牙 —— 摘掉扩展面 ⇒ 这些"真读了"的事件必须重新变成缺口。
+    const wide = extractFrontendReadKeys(new Set([...backendEvents.keys(), ...extractBackendWriteKeys().keys()]));
+    const narrow = extractFrontendReadKeys(new Set([...backendEvents.keys(), ...extractBackendWriteKeys().keys()]), { extraFace: [] });
+    const widened = ['chunk', 'error', 'fallback', 'reasoning', 'tool-call-args-delta'].filter((n) => {
+      const w = wide.get(n);
+      const nr = narrow.get(n);
+      return !!w && w.size > 0 && !(nr && nr.size > 0);
+    });
+    st.push([
+      'ST15 扩展消费面活体:摘掉扩展面后 chunk/error/fallback/reasoning/tool-call-args-delta 重新成缺口',
+      widened.length >= 3,
+      `扩展后比未扩展多认出的事件 ${JSON.stringify(widened)};扩展面键事实 ${extraFaceFacts}`,
+    ]);
+    st.push([
+      'ST16 形状锁:扩展消费面清单与分支限域取键都住在判据里(退回只扫两文件时本条红)',
+      ownSrc.includes('EXTRA_CONSUME_FILES') &&
+        ownSrc.includes('branchRegion') &&
+        ownSrc.includes('packages/api-client/src/stream.ts') &&
+        ownSrc.includes('apps/web/src/hooks/use-chat/stream-handlers.ts'),
+      '扩展面被摘掉/内联回两文件时本条红',
+    ]);
   } catch (e) {
     st.push(['ST4-7 字段段自检异常', false, String(e?.message ?? e).split('\n')[0]]);
   }
@@ -1116,7 +1139,7 @@ for (const w of FRONTEND_LEGACY_EVENTS) {
  * 键收集支持 camelCase(声明键是 camelCase,原 `[a-z_]` 口径会漏 messageId/toolCallId);
  * `json.X.Y` 只记顶层 X。
  */
-function extractFrontendReadKeys(knownNames = backendEvents) {
+function extractFrontendReadKeys(knownNames = backendEvents, opts = {}) {
   const out = new Map(); // wire 事件名 → Set(wire 键)
   const addKeys = (wire, keys) => {
     if (!wire) return;
@@ -1141,6 +1164,10 @@ function extractFrontendReadKeys(knownNames = backendEvents) {
     const candidates = [
       path.join(ROOT, 'packages/api-client/src/client.ts'),
       path.join(ROOT, 'packages/shared/src/chat/send-admission.ts'),
+      // 2026-11-21 第 97 项:projectToolApprovalEnvFacts 的实际定义住在 stream.ts。
+      // 只认前两个文件时 helperBody 恒空 ⇒ tool-approval 的 exec_environment /
+      // network_target / blocked_network_targets 三枚"真读了却被判没读"。
+      path.join(ROOT, 'packages/api-client/src/stream.ts'),
     ];
     let body = '';
     for (const f of candidates) {
@@ -1329,6 +1356,116 @@ function extractFrontendReadKeys(knownNames = backendEvents) {
     followParsers(seg, keys);
     addKeys(wire, keys);
   }
+
+  // —— 3) 其余真实消费面(2026-11-21 第 97 项)——
+  // 判据此前只认 agent-events.ts 的 parse* 与 client.ts;而 chunk / error / fallback /
+  // reasoning / tool-call-args-delta 的真实读取点住在 stream.ts、openai-tool-stream.ts、
+  // agent-runtime.ts、stream-handlers.ts ⇒ 六帧恒被判"解析面无读取点",8 条阻断恒红
+  // = 逼人 --no-verify(§0.2 恒红门禁令)。口径不变:按事件分支**限域取键**,只多认
+  // 分支内的载荷变量名(json/data/evt/p/entry/raw/payload/delta/event/chunk/frame),
+  // 不做全文扫(全文扫会把无关字段并进来,蒙掉真缺口)。
+  const EXTRA_CONSUME_FILES =
+    opts.extraFace ??
+    [
+      'packages/api-client/src/stream.ts',
+      'packages/api-client/src/endpoints/agent-runtime.ts',
+      'packages/api-client/src/openai-tool-stream.ts',
+      'apps/web/src/hooks/use-chat/stream-handlers.ts',
+    ];
+  const WIDE_CHAIN_RE =
+    /\b(?:json|data|evt|p|entry|raw|payload|delta|event|chunk|frame)((?:\??\.[A-Za-z_$][\w$]*)+)/g;
+  const wideCollect = (text, into) => {
+    for (const m of text.matchAll(WIDE_CHAIN_RE)) {
+      for (const seg of m[1].split(/\??\./)) if (seg) into.add(seg);
+    }
+  };
+  /** 以事件守卫比较 **或** case 标号为锚,取它自己那条语句/分支(不跨邻居)。
+   *  `!==` 早退守卫(反例分支)有意义的部分在 if 之后 ⇒ negate 时取该语句的后继正文。 */
+  const branchRegion = (text, idx, negate = false) => {
+    // 从最近的 `if (` 往前试若干个,只认**括号区间真包住 idx 的那一个**
+    // (prev 的 if 可能在更早位置且与本次比较无关,认错就把整段区域读歪)。
+    let searchFrom = idx;
+    for (let tries = 0; tries < 4; tries++) {
+      const pre = text.lastIndexOf('if (', searchFrom);
+      if (pre === -1) break;
+      let i = pre + 4;
+      let depth = 1;
+      while (i < text.length && depth > 0) {
+        const ch = text[i];
+        if (ch === '(') depth++;
+        else if (ch === ')') depth--;
+        i++;
+      }
+      if (depth === 0 && idx <= i) {
+        let j = i;
+        while (j < text.length && /\s/.test(text[j])) j++;
+        let end = toEndOfStatOrBlock(text, j);
+        if (negate) {
+          const stop = text.slice(end).search(/\n(?:export\s+)?(?:function|const)\s|\n\}/);
+          return text.slice(end, end + (stop === -1 ? 600 : stop));
+        }
+        return text.slice(j, end);
+      }
+      searchFrom = pre - 1;
+    }
+    const s = Math.max(text.lastIndexOf('\n', idx) + 1, idx - 200);
+    return text.slice(s, Math.min(text.length, idx + 320));
+  };
+  const absorb = (seg, keys) => {
+    collect(seg, keys);
+    wideCollect(seg, keys);
+    for (const hm of seg.matchAll(/\b(projectToolApprovalEnvFacts|readSendAdmissionReceipt)\s*\(/g)) {
+      collect(helperBody(hm[1]), keys);
+    }
+  };
+  /** 从语句起点算到该语句(块或单行)结束位置。 */
+  const toEndOfStatOrBlock = (text, j) => {
+    if (text[j] === '{') {
+      let d = 1;
+      const s = j + 1;
+      j++;
+      while (j < text.length && d > 0) {
+        const ch = text[j];
+        if (ch === '{') d++;
+        else if (ch === '}') d--;
+        j++;
+      }
+      return j - 1;
+    }
+    const nl = text.indexOf('\n', j);
+    return nl === -1 ? Math.min(text.length, j + 200) : nl;
+  };
+  for (const relPath of EXTRA_CONSUME_FILES) {
+    const f = path.join(ROOT, relPath);
+    if (!existsSync(f)) continue;
+    const text = stripTsComments(readFileSync(f, 'utf-8'));
+    // 同文件内的事件常量表(`const X_EVENT = '<wire>'`):守卫比较常量时按它自述解析,
+    // 不引第二份映射表(§0.6)。
+    const constMap = new Map();
+    for (const m of text.matchAll(/\bconst\s+([A-Z][A-Z_0-9]{2,})\s*=\s*['"]([a-z][\w-]*)['"]/g)) {
+      constMap.set(m[1], m[2]);
+    }
+    for (const m of text.matchAll(
+      /\b[A-Za-z_$][\w$]*\s*\??\.type\s*(===|!==)\s*(?:['"]([a-z][\w-]*)['"]|([A-Z][A-Z_0-9]{2,}))/g,
+    )) {
+      const wire = m[2] ?? constMap.get(m[3]);
+      if (!wire || !knownNames.has(wire)) continue;
+      const keys = new Set();
+      absorb(branchRegion(text, m.index, m[1] === '!=='), keys);
+      extraFaceFacts += keys.size;
+      addKeys(wire, keys);
+    }
+    for (const m of text.matchAll(/\bcase\s*['"]([a-z][\w-]*)['"]\s*:/g)) {
+      if (!knownNames.has(m[1])) continue;
+      const rest = text.slice(m.index + m[0].length);
+      const next = rest.search(/\n\s*(?:case\s*['"]|default\s*:)/);
+      const seg = next === -1 ? rest.slice(0, 320) : rest.slice(0, next);
+      const keys = new Set();
+      absorb(seg, keys);
+      extraFaceFacts += keys.size;
+      addKeys(m[1], keys);
+    }
+  }
   return out;
 }
 
@@ -1501,6 +1638,12 @@ let fieldGapTotal = 0;
 }
 if (frontendReadKeys.size < 9) {
   errors.push(`字段抽键器疑似失效: agent-events.ts 解析函数只识别 ${frontendReadKeys.size}/9 个事件`);
+}
+if (extraFaceFacts < 10) {
+  errors.push(
+    `字段抽键器疑似失效: 扩展消费面(stream.ts / openai-tool-stream.ts / agent-runtime.ts / ` +
+      `stream-handlers.ts)只抽到 ${extraFaceFacts} 个键(<10)—— 分支限域取键正则需随代码同步,禁止空转变绿`,
+  );
 }
 if (backendWriteKeys.size < 5) {
   errors.push(`字段抽键器疑似失效: 生产侧键集只覆盖 ${backendWriteKeys.size} 个事件(sse_contract.py / agents.py / services 抽取需同步)`);

@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **96 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **98 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（96 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（98 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1547,6 +1547,47 @@
   三枚文件 watermark verify 3/3 完整（历史版自带水印，未重注入）。
 - 边界：本项只恢复被判据引用的三枚实现/测试件；`341f2295` 那枚"救急保全"提交本身**不重写、不回滚**
   （它可能同时保全了别的东西）；`hook-run` 台账的既有限制（只存当前 + 一份 `.1` 备份）不变。
+
+### 5.97 第 97 项：字段面判据只认两个文件，真消费点一律"看不见" ⇒ 8 条阻断恒红
+
+- 现场（一手）：`node scripts/check-agent-event-parity.mjs` 现读 exit 1，阻断段 8 条：
+  `chunk` / `error` / `fallback` / `reasoning` / `tool-call-args-delta` 五帧判"生产侧声明了键集但解析面无读取点"，
+  `tool-approval` 判 `exec_environment` / `network_target` / `blocked_network_targets` 三键"前端解析面不读"。
+  这是一道进 `all-checks-runner` 的 blocking 门 ⇒ 每次提交都在逼人 `--no-verify`（§0.2 恒红门禁令原形）。
+- 根因（逐条取证，不是猜测）：
+  - 门里的解析面取材只扫 `packages/shared/src/sse/agent-events.ts` 的 `parse*Event` 与 `packages/api-client/src/client.ts`；
+  - 而这五帧的真实读取点住在别处：`stream.ts`（`json?.type === 'chunk' && typeof json.content === 'string'`、
+    `parseStreamLineReasoning` 的 `json.message`/`json.errorCode`/`json.content`、
+    `parseFallbackEvent` 的 `json.primary_model`/`backup_model`/`reason`）、
+    `openai-tool-stream.ts`（`frame.index/args/id/name/argsComplete/argsPartial`）、
+    `stream-handlers.ts`（`delta.args/argsComplete`）；
+  - `tool-approval` 那三键更隐蔽：`parseToolApprovalEvent` 确实调了 `projectToolApprovalEnvFacts(p)`，
+    但门里 `helperBody()` 只去 `client.ts` / `send-admission.ts` 找 helper 定义，而定义就住在 `stream.ts`
+    ⇒ helper 体恒为空，三枚"真读了"被判成"没读"。
+- 处置（同一判据上补取材面，不新增第二套尺子）：①`helperBody` 候选加 `stream.ts`；
+  ②新增扩展消费面 `EXTRA_CONSUME_FILES`（stream.ts / agent-runtime.ts / openai-tool-stream.ts / stream-handlers.ts），
+  按 `x.type === '<wire>'` 守卫（`!==` 早退守卫取 if **之后**那片正文，否则读到的是 `return null`）与
+  `case '<wire>':` 分支**限域取键**，绝不做全文扫（全文扫会把无关字段并进来，正好蒙掉真缺口）；
+  ③同文件内 `const X_EVENT = '<wire>'` 常量按它自述解析（不引第二份映射表，§0.6）；
+  ④守卫比较找不到其所属 `if` 时，若上一枚 `if (` 的括号区间不包住本次比较就不认它（第 96 项那类"取错区域"）。
+- 验证（现读）：门 exit **0**（`错误(阻断): 0`，此前 8）、`✅ Agent SSE 事件契约 parity 守门通过`；
+  `--self-test` **17/17**（新增 ST15 活体：摘掉扩展面后五帧重新成缺口；ST16 形状锁：扩展面清单与分支限域取键必须住在判据里）；
+  `scripts/tests/check-agent-event-parity.test.mjs` 与 `check-sse-parser-parity.test.mjs` 全绿；watermark 2/2 完整。
+
+### 5.98 第 98 项：同一份 deploy.sh 被两条判据互相判死 —— 运行副本被顺手 add 进版本树
+
+- 现场（一手）：`node --test scripts/tests/check-prod-bundle-shadow.test.mjs` 现读 `T4` 红：
+  "登记表漏了 1 对：deploy/prod-bundle/deploy.sh ← deploy/scripts/prod-bundle/deploy.sh"；
+  而按 T4 的提示把它登记进 `PAIRS` 之后，`node scripts/check-prod-bundle-shadow.mjs` 立刻判红
+  `S2 deploy/prod-bundle/deploy.sh 竟在版本树里 —— 登记表过期`。两条判据互斥 ⇒ 无论怎么做都有一红。
+- 根因：`deploy/prod-bundle/` 整个目录在 `.gitignore:557` 就被忽略，那份运行副本本该**在盘不在仓**；
+  但 `7bfd849850`（"104 prod-bundle/deploy.sh 与入库源逐字节同步"）顺手 `git add` 把它塞进了版本树。
+  T4 认的是"跟踪文件与入库源逐字节相同"，S2 认的是"运行副本不得被跟踪"——两者本不冲突，冲突来自这枚多余跟踪。
+- 处置（先纠正跟踪，再登记，顺序不能反）：`git rm --cached deploy/prod-bundle/deploy.sh`
+  （**只退出索引，盘上 19557B 文件原样保留，生产照跑**，`git check-ignore -v` 现读命中 `.gitignore:557`），
+  随后在 `PAIRS` 登记这一对并写明原因 ⇒ E1 枚举闭合、S2 不再过期、T4 不再漏判。
+- 验证（现读）：`check-prod-bundle-shadow.mjs` exit **0**、`✅ deploy/prod-bundle/deploy.sh == deploy/scripts/prod-bundle/deploy.sh(逐字节,19557 字节)`、
+  `ℹ E1 枚举闭合：23 个脚本类运行副本全部在登记表上`；`node --test scripts/tests/check-prod-bundle-shadow.test.mjs` **11/11**（此前 10/11）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

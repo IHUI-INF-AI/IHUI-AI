@@ -120,6 +120,16 @@ export const PAIRS = [
     runner: 'deploy/prod-bundle/health-check.sh',
     why: 'compose 链部署后健康检查(带 --json,是 deploy-diagnose 的输入)',
   },
+  // 2026-11-21 第 98 项:这一对是"两条判据互斥"的现场 —— 镜像测试 T4 点名"prod-bundle 里存在
+  // 逐字节相同的跟踪文件却没登记",而本门 S2 又判"运行副本竟在版本树里 ⇒ 登记表过期"。
+  // 根因是 deploy/prod-bundle/deploy.sh 被 7bfd8498 那枚提交顺手 add 进了版本树(该目录在
+  // .gitignore:557 本就整目录忽略)。治法按本文件头注的落点规则:运行副本退出索引(盘上文件
+  // 原样保留,生产照跑),入库源留在镜像目录,然后在此登记 ⇒ T4/S2 同时不再互相打架。
+  {
+    tracked: 'deploy/scripts/prod-bundle/deploy.sh',
+    runner: 'deploy/prod-bundle/deploy.sh',
+    why: 'compose 链部署主脚本(19557B,登录/隧道/健康检查编排全在此;两侧漂开即线上行为与入库源不一致)',
+  },
   {
     tracked: 'deploy/scripts/deploy-diagnose.sh',
     runner: 'deploy/prod-bundle/deploy-diagnose.sh',
