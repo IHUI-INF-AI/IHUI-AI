@@ -7,7 +7,8 @@
 // 起因:用户反馈"流式对话框内的内容、样式跟 Qoder / Trae / Codex 差太多,不一致"。
 // 根因是各过程区段(工具卡/计划步骤/终端/子代理/思考)各写各的字号、圆角、配色,并且
 // 行内只有功能名没有对象。现已统一到底层基元,本 spec 是防回潮闸:
-//   1. 活动行字号/行高必须全一致(唯一 16px / 24px),任何再手写 text-[9px] 档位都会红;
+//   1. 活动行字号/行高必须全一致(唯一 13px / 24px),任何再手写 text-[9px] 档位都会红;
+//      2026-11-21 用户口径:过程行再压小一档(16→13px),头行 28px、无底色无描边;
 //   2. 界面禁止出现英文工具码名(read_file 等),必须显示本地化功能名 + 对象 + 结果度量;
 //   3. 过程信息收在 StreamGroup 里(可展开,组头带步数与用时)。
 // 用 SSE mock,不依赖真实模型,CI 可重复。
@@ -188,7 +189,7 @@ test.describe('消息流活动区设计系统', () => {
     expect(await searchRow.locator('[data-testid="stream-metric"]').textContent()).toBe('2 个结果')
   })
 
-  test('全部活动行共用一档字号与行高(16px / 24px),不允许逐处自配', async ({ adminPage: page }) => {
+  test('全部活动行共用一档字号与行高(13px / 24px),不允许逐处自配', async ({ adminPage: page }) => {
     const group = page.locator('[data-stream-group]').first()
     await expect(group).toBeVisible()
     const trigger = group.locator('[data-stream-group-trigger="true"]')
@@ -196,7 +197,7 @@ test.describe('消息流活动区设计系统', () => {
       await trigger.click()
     }
     // 只看消息流内的活动行:输入区任务状态条等不归本闸管,避免跨区段误判;
-    // 区段头行(data-section-header)是 32px 另一档,单列在下方的 headStyle 断言里
+    // 区段头行(data-section-header)是 28px 另一档,单列在下方的 headStyle 断言里
     const rows = page.locator(
       '[data-message-id] [data-stream-status]:not([data-section-header]):not([data-stream-group-trigger])',
     )
@@ -214,22 +215,24 @@ test.describe('消息流活动区设计系统', () => {
     )
     expect(metrics.length).toBeGreaterThanOrEqual(2)
     // 失败时点名哪一行漂了 —— 不点名会让下一次偶发红变成无从下手的哑谜
-    expect(metrics.filter((m) => m.fontSize !== '16px' || m.height !== '24px')).toEqual([])
-    // 组头与活动行同字号,但头行多一档上下内边距(32px 高)
+    expect(metrics.filter((m) => m.fontSize !== '13px' || m.height !== '24px')).toEqual([])
+    // 组头与活动行同字号;头行高 28px(13px 字 + 上下内边距)
     const headStyle = await trigger.evaluate((el) => {
       const cs = getComputedStyle(el)
       return { fontSize: cs.fontSize, height: cs.height }
     })
-    expect(headStyle).toEqual({ fontSize: '16px', height: '32px' })
+    expect(headStyle).toEqual({ fontSize: '13px', height: '28px' })
   })
 
-  // 2026-11-17 立(用户口径):折叠头行 hover 时**背景色不变**,只用低对比描边做反馈。
-  // 此前 headStyle 只钉了字号/高度,底色与 hover 反馈无闸 —— 回潮到 bg 变色不会有人喊。
+  // 2026-11-21 立(用户口径):折叠头行**不画容器** —— 常态无底色、无描边,hover 也不许补回来。
+  // 此前头行靠"一块灰底 + 一圈低对比描边"圈出按钮,用户要求彻底去掉:过程行只留内容与箭头。
   // 断言三件事,全部在真浏览器里量计算样式(不是读类名):
-  //  ① 常态底色 = --color-muted-soft 实色(与内联 code 同一 token,单层底);
-  //  ② hover 后底色逐字不变;
-  //  ③ hover 后描边色 ≠ 常态透明描边(几何宽度恒 1px,不产生位移)。
-  test('折叠头行 hover 不换底色,只把透明描边换成低对比描边', async ({ adminPage: page }) => {
+  //  ① 常态底色透明(不是任何灰底);
+  //  ② 常态描边宽度 0(不是"透明但占 1px");
+  //  ③ hover 后底色与描边逐字不变(反馈只由右端箭头承担)。
+  test('折叠头行不画容器:常态无底色无描边,hover 也不出现底色与描边', async ({
+    adminPage: page,
+  }) => {
     const group = page.locator('[data-stream-group]').first()
     await expect(group).toBeVisible()
     const trigger = group.locator('[data-stream-group-trigger="true"]')
@@ -249,23 +252,17 @@ test.describe('消息流活动区设计系统', () => {
       })
 
     const rest = await readStyle()
-    // ① 常态底色必须是实色 muted-soft;透明/未铺底 = 与内联 code 不同深度,直接红
-    expect(rest.bg).not.toBe('rgba(0, 0, 0, 0)')
-    // ③ 常态描边是"留位但不可见":宽度 1px(几何恒定),颜色透明
-    expect(rest.borderWidth).toBe('1px')
+    // ① 常态底色透明:不再用灰底圈出可展开容器
+    expect(rest.bg).toBe('rgba(0, 0, 0, 0)')
+    // ② 常态根本没有描边(宽度 0,而不是"留 1px 透明位")
+    expect(rest.borderWidth).toBe('0px')
 
     await trigger.hover()
-    await expect
-      .poll(async () => (await readStyle()).borderColor, { timeout: 5000 })
-      .not.toBe(rest.borderColor)
-
+    // 这里要证的是"不变",不需要等动画:一旦 hover 支路真的换底色/描边,读取即已命中。
     const hovered = await readStyle()
-    // ② hover 只换描边颜色,底色逐字不变(本需求的硬约束)
     expect(hovered.bg).toBe(rest.bg)
-    // ③ 宽度不变 ⇒ 无 1px 位移抖动
-    expect(hovered.borderWidth).toBe(rest.borderWidth)
-    // hover 描边必须真的显形(不是拿透明换透明)
-    expect(hovered.borderColor).not.toBe('rgba(0, 0, 0, 0)')
+    expect(hovered.borderWidth).toBe('0px')
+    expect(hovered.borderColor).toBe(rest.borderColor)
   })
 
   test('过程组头带步数与用时摘要,展开后区段内容并入同一行模板', async ({ adminPage: page }) => {
