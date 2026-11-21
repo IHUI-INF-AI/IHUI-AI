@@ -7893,7 +7893,7 @@ const checks = [
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_TEMP_WORKTREE_LIFETIME',
     // 本门量的是磁盘 worktree 目录老化,不依赖本次提交内容 ⇒ 不设 stagedTriggers,
-    // 走 guardian 周期派发(与 keepalive 一型),不在 pre-commit 阻塞。
+    // 周期派发点 = git-guardian 的 auditTempWorktreeLifetime(第 54 项补;此前"走 guardian 周期派发"只是自述)。
     onFailHint: [
       '',
       '  💡 发现有临时派生 git worktree 长期躺在本机 scratch/ 或 D:\\DevEnv\\Temp\\(静默≥24h 或账龄≥48h)。',
@@ -7918,7 +7918,7 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_HOOK_AUDIT_HEALTH',
-    // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers,走周期派发。
+    // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers;周期派发点 = git-guardian 的 auditHookAuditHealth。
     onFailHint: [
       '',
       '  💡 钩子审计台账(.ihui-agent/state/hook-audit.jsonl)有存量问题,逐条已在门体输出点名。',

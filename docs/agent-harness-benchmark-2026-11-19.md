@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **53 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **54 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（53 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（54 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -631,6 +631,14 @@
 - 测试：镜像测试增第 ⑤ 例 —— 巡检函数必须导出、`git-guardian` 里**恰好两个** `auditHookAuditHealth()` 挂点（少一处 = 计划任务档禁用后常驻守护永不判）、带节流常量、函数体里不许出现 `notifyGuardRed`（防有人把它接进告警通道）。
 
 验证：`node --check scripts/git-guardian.mjs` 通过、`import` 后 `typeof auditHookAuditHealth === 'function'`；真跑一轮（临时节流戳）→ 日志 `ℹ️ 台账尚未建立(一次钩子都没跑过,不算故障)`、返回 `{"ran":true,"state":"absent"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `5 passed`；`node scripts/root-guard.mjs --check` 全 PASS、`check-root-guard-manifest-sync` 判「同面自洽」。
+### 5.55 第 54 项：同一句自述的第二个受害者（325 号门也零派发）
+
+- 问题：第 53 项修的是 326 号门。顺手按同一判据扫了全仓"自述有周期派发"的登记，命中只剩两处：325（临时派生检出寿命闸）与 326（本次新增）。325 的注释写着「走 guardian 周期派发（与 keepalive 一型）」，而 `git-guardian.mjs` 对 `check-temp-worktree-lifetime.mjs` **零引用** —— 与 326 是同一个病：注册表里"列出来"被当成"会跑"。它要防的是 scratch/Temp 里静默≥24h 或账龄≥48h 的残留检出（§12d 停用 worktree 后的清理腿），没人派发就等于这道门不存在。
+- 处置：`git-guardian.mjs` 新增 `auditTempWorktreeLifetime()`（唯一调度器）+ `TEMP_WORKTREE_LIFETIME_INTERVAL_MS = 1h` + 节流戳 `.ihui-agent/state/temp-worktree-lifetime-last.json`，同样双挂点（daemon tick + main 单轮）。解析尺子的 `--json`：`hits` 超阈残留逐条点名 + 给 `git worktree remove --force && prune` 出路，`orphans` 给 `git worktree prune`；`ok` 且零命中静默；结论不可用 ⇒ 未判定（§0.3）。**绝不自动回收**（§12d：命中只让归属席自决）。
+- 语义边界：节流 1 小时（老化阈值是天级，分钟级刷新没有信息增益）；不发信（属归属席动作，走日志）。
+- 测试：镜像测试增第 ⑥ 例 —— `auditTempWorktreeLifetime()` 必须恰好两个挂点、带节流常量、`guardian-runner` 里 325 的旧自述"走 guardian 周期派发(与 keepalive 一型)"必须已被替换成点名真实调度器（§0.8：不写跑不通的出路）。
+
+验证：`node --check scripts/git-guardian.mjs`；真跑一轮（临时节流戳）→ `{"ran":true,"state":"ok"}`（射程内 0 条超阈、0 条孤儿）；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `6 passed`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
