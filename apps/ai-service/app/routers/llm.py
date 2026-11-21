@@ -8476,9 +8476,16 @@ async def post_terminal_input(
 async def get_session_terminals(request: Request, session_id: str) -> dict[str, Any]:
     """列出**本会话**里由 agent 开的长驻终端(2026-11-21 立,给面板 `看模型终端` 用)。
 
+    **路径上这个 `session_id` 是会话的 `conversationId`,不是流会话 id** —— 这不是命名
+    随意,而是被迫的事实:agent 侧 `open_terminal` 收到的 `__session_id` 来自
+    `llm.py` 的 `_mcp.call_tool(..., session_id=req.metadata["conversationId"])`
+    (见 tool 循环那处注入),终端记录里存的 owner 就是它;而 `upstreamSessionId` 是
+    apps/api 每次流新生成的随机 UUID(只用于 question-response/steer 寻址)。
+    两者混用会让面板**永远空白**且看起来"功能没做"—— 所以这里按**记账用的那个键**取。
+
     与 `/terminal-input` 同一归属纪律:主体只从令牌取(`_resolve_owner_uuid`),body/query
-    里的任何 userId 一概不读。所有者 = (令牌主体, 会话 id) **两者都**匹配 —— 只按会话
-    id 过滤会让同一会话 id 下的另一个账号看见这些终端(mcp 侧存的就是这一对)。
+    里的任何 userId 一概不读。所有者 = (令牌主体, conversationId) **两者都**匹配 ——
+    只按会话 id 过滤会让同一会话 id 下的另一个账号看见这些终端(mcp 侧存的就是这一对)。
 
     返回的是**元数据**(id/命令/cwd/尺寸/是否活着),屏面内容在 `/face` 单独取:
     列一遍就把每块屏都算一遍,十块屏的轮询会变成十次全屏扫描。
@@ -8499,6 +8506,9 @@ async def get_terminal_face(
     request: Request, session_id: str, terminal_id: str, max_links: int = 20
 ) -> dict[str, Any]:
     """回一块终端的**屏面**(网格 + 光标 + 提示符 + 链接),面板轮询这一条即可。
+
+    路径上的 `session_id` 同 `/terminals`:**是 conversationId**(终端记账用的键),
+    传流会话 id 会永远 not-found。
 
     只读:**本端点不写任何字节到子进程**(人类键入仍走既有的 `terminal-input` 待决项通道,
     那条通道带审批/超时语义;在这里开一个"直接写"的口等于绕过它)。
