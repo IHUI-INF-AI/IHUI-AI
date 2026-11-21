@@ -34,6 +34,10 @@
  *
  * 去重:同 `identityOf` 在窗口内只产一次;`--out` 已有行也计入去重 ⇒ 同输入重复跑是幂等的。
  *
+ * 调度面(2026-11-21 第 58 项):由 git-guardian.mjs 的 dispatchMonitorSignalIntake 周期派发
+ * (--apply --json,30 分钟节流,IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1 可关),main 单轮与
+ * daemon tick 双挂点;人工入口仍是本文件的 CLI。
+ *
  * 用法:node scripts/monitor-signal-intake.mjs [--out <jsonl>] [--minutes 1440]
  *        [--api-jsonl <f>] [--feedback-jsonl <f>] [--grafana-url <u>] [--apply] [--json]
  *        | --self-test

@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **57 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **58 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（57 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（58 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -669,6 +669,13 @@
 - 语义边界：新尺子只量第六处，不重复 `check-gate-wiring` 的任何判断（R1/R4 的候选集一字未动）；只读、warn 档、不进提交链（§12e）。
 - 测试：`node scripts/check-guardian-dispatch-claims.mjs --self-test` → `8/8`；镜像测试 `scripts/tests/check-guardian-dispatch-claims.test.mjs` → `8 passed`（含精度四型、射程只到头部、段落归并、本尺子自身接线锁、IP 巡检接线复原锁）；`scripts/tests/ip-attribution-trust-audit.test.mjs` 由 `# fail 1` 转 `7 passed`。
 - 真机验证：`node scripts/check-guardian-dispatch-claims.mjs` 修前 `结论 warn`（声称 14 / 已接线 10 / 诚实说明 3，真缺口 1 枚 = IP 归属信任）；`auditIpAttributionTrust()` 真跑返回 `state=ok`（config 未设本键 ⇒ 全部条目属回环/私网），`auditDispatchClaims()` 真跑返回 `state=warn` 并把那枚缺口逐行点名。
+### 5.59 第 58 项：感知腿名义四源、实际一源（三源的生产器零调度）
+
+- 现场（现读，不是推测）：`.ihui-agent/state/incident-signals.jsonl` 37 行按 `source` 分组 —— `deploy_outcome` 37 / `api_logs` 0 / `grafana_alert` 0 / `user_feedback` 0。契约 `scripts/data/incident-signal-contract.json` 的 producers 段登记了四个来源，而 `scripts/monitor-signal-intake.mjs`（三源唯一生产器）全仓零调度点：它的 CLI 默认 dry-run，`--apply` 才落账 ⇒ 没人带 `--apply` 跑过，所以台账里那三源一条都没有。`user-feedback-intake.mjs` 同样零调度、且缺导出配置（真跑 `undetermined`）。
+- 处置：`git-guardian` 增 `dispatchMonitorSignalIntake()` —— 30 分钟节流（`IHUI_MONITOR_INTAKE_INTERVAL_MS`）、`IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1` 可关、`--apply --json` 落账、10 分钟超时、main 单轮与 daemon tick 双挂点；只把最后一行结论进日志，不寄信、不改守护退出码（感知腿的沉默归 `check-autonomy-leg-health` 的 A8/A9 另量，§12e）。器物头注补点名真实调度器，防它变成下一枚「自述有人调度」。
+- 语义边界：三源全部未判定时器物 exit 2 ⇒ 派发器记 `ok=false` 并**照原样点名**（不折成"跑成功"）；源未判定不影响其他源；去重仍由器物自己的 `identityOf` 完成，与 `deploy_outcome` 共用一本台账，不新建第二份。
+- 真机验证：修前 `incident-signals` 三源 0 行；`dispatchMonitorSignalIntake()` 真跑返回 `{ran:true, ok:false}`，日志逐字 `未判定:三个监控源全部未判定(没有任何可判定面)` —— 这是因为 `scripts/data/auto-triage-config.json` 的 `apiLogs.jsonl` / `grafanaAlerts.url` 皆空、也没有 `userFeedback` 键，本机缺导出与 Grafana 地址；派发点补上后这条缺口从"静默"变成"每 30 分钟点名"，配好取数面即产出。
+- 测试：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` → `7 passed`（装车/`--apply`/双挂点/节流三态/器物缺席不写戳/头注点名）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
