@@ -332,7 +332,11 @@ export function orderForRerunBudget(entries) {
  * 第 69 项的排序只能保证"blocking 先跑",挡不住"blocking 总数本来就超预算"。
  *
  * 语义(单一真相源,调用方不得自己再 slice):
- *  - `limit = max(cap, blocking.length)` —— blocking 全进批次,超预算时**只压 warn**;
+ *  - `cap` 只买 **warn 名额**,不买 blocking:第 72 项写成 `limit = max(cap, blocking.length)`,
+ *    在 blocking 84 道 > cap 30 的现场档里 warn 名额被算成 0 —— 打印却写"blocking 84 道不占这
+ *    30 坑",读起来像"warn 还有 30 个坑",实际一道没跑(第 73 项立因,2026-11-21);
+ *  - 现语义 `limit = blocking.length + cap` —— blocking 全进批次且**不动 warn 名额**,warn 恒有
+ *    `min(cap, warn.length)` 个坑,`deferred` 恰是被压掉的 warn;
  *  - 因此 `deferred` 里结构上不可能出现 blocking;一旦出现就是排序不变量被破坏,调用方必须落
  *    "未判定"而不是打一条 warn 就报绿(见调用侧 assert)。
  *  - 同档保序:blocking 内部、warn 内部都保持注册表扫描序(理由同 orderForRerunBudget)。
@@ -341,7 +345,9 @@ export function planRerunBudget(entries, cap = 30) {
   const ordered = orderForRerunBudget(entries)
   const blocking = ordered.filter((e) => (e.mode ?? 'blocking') === 'blocking')
   const warn = ordered.filter((e) => (e.mode ?? 'blocking') !== 'blocking')
-  const limit = Math.max(Number.isFinite(cap) ? cap : 0, blocking.length)
+  const base = Number.isFinite(cap) ? Math.max(0, cap) : 0
+  const warnSlots = Math.min(base, warn.length)
+  const limit = blocking.length + warnSlots
   const run = ordered.slice(0, limit)
   const deferred = ordered.slice(limit)
   return {
@@ -350,7 +356,8 @@ export function planRerunBudget(entries, cap = 30) {
     deferred,
     blockingCount: blocking.length,
     warnCount: warn.length,
-    cap,
+    warnSlots,
+    cap: base,
     limit,
   }
 }
@@ -808,12 +815,14 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 第 72 项:排序还不够 —— blocking 总数超预算时旧实现照样把后 21 道 blocking 延后,
       // 而整体读数仍报"全绿"。道数分配改走 `planRerunBudget`(单一出口):blocking 全跑,
       // 预算只压 warn;`deferred` 里出现 blocking = 不变量被破坏 ⇒ 落未判定,不打一句 warn 就报绿。
+      // 第 73 项:cap 只买 warn 名额(`limit = blocking + cap`),否则 blocking 84 道的现场档会把
+      // warn 名额算成 0,而打印仍说"不占这 30 坑" —— warn 面实际一道没跑却读成还有余量。
       const plan = planRerunBudget(toRun, REGISTRY_CAP)
       const ordered = plan.ordered
       const deferred = plan.deferred
       for (const g of deferred) {
         console.log(
-          `⚠️ 注册表受影响门 [${g.id}] ${g.script}(mode=${g.mode ?? 'blocking'}) 超出复跑预算(${REGISTRY_CAP} 道;blocking ${plan.blockingCount} 道不占这 ${REGISTRY_CAP} 坑)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+          `⚠️ 注册表受影响门 [${g.id}] ${g.script}(mode=${g.mode ?? 'blocking'}) 超出复跑 warn 名额(${plan.warnSlots} 道;blocking ${plan.blockingCount} 道全跑、不吃这名额)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
         )
       }
       const deferredBlocking = deferred.filter((g) => (g.mode ?? 'blocking') === 'blocking')

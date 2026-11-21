@@ -4,11 +4,9 @@
 
 import fs from 'node:fs'
 import 'dotenv/config'
-import {
-  isProductionGuard,
-  // Google 回调地址 / 出站代理启动自检(2026-11-21 线上"回调有问题"根治;判据本体可单测)
-  collectOAuthConfigWarningsAtStartup,
-} from './config/index.js'
+import { isProductionGuard } from './config/index.js'
+// Google 回调地址 / 出站代理启动自检(2026-11-21 线上"回调有问题"根治;判据本体可单测)
+import { collectOAuthConfigWarningsAtStartup } from './lib/oauth-config-check.js'
 import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
