@@ -296,7 +296,30 @@ export function extractEntryFields(entryText) {
     // 该给面的面没给)。复跑档就是把提交链上相同的面显式补齐,不猜默认。
     fullFaceArgs: arr('fullFaceArgs'),
     stagedTriggers: arr('stagedTriggers'),
+    // 2026-11-21(第 68 项):判**机器状态**的门(dev 库轮换窗口 / 临时检出寿命 / 钩子台账健康)
+    // 在提交内容里结构上无从触发,复跑也只会得到同一个时间相关的读数。这类"结构性豁免"必须
+    // **写下来**,不许留空让两条通道各自猜 —— 留空会被 countUntriggered 读成"漏声明",每次落地
+    // 都打一行像缺陷的警告(§0.2:判机器状态的一律不冒红)。
+    stagedTriggersOmitted: q('stagedTriggersOmitted'),
   }
+}
+
+/**
+ * 复跑预算的排序(第 69 项):blocking 先于 warn,同档保持注册表扫描序。
+ *
+ * 为什么必须显式排:**预算截断**是这条通道上唯一"合法不跑"的出口(REGISTRY_CAP=30,而常态
+ * 受影响门 40+)。旧实现直接 `slice(0, 30)` 按扫描序截,于是被延后的那一段里可能躺着 blocking
+ * 门 —— 落地打印"注册表受影响门 [NN] 超出复跑预算 ⇒ 本轮未跑"只是 warn 级噪音,而整体读数
+ * 是绿的,**读起来像"受影响面都跑过"**。排序把"最后 10 个坑让给 warn"变成结构事实:
+ * 只要 blocking 总数 ≤ 预算,任何 blocking 门都不会被延后。
+ * 同档内不改序:注册表扫描序本身携带"门之间的轻重先验"(例如 29 push-sync 紧邻 30a),
+ * 重排会改 argv 顺序以外的可见面,徒增不确定。
+ */
+export function orderForRerunBudget(entries) {
+  const list = (entries ?? []).filter(Boolean)
+  const blocking = list.filter((e) => (e.mode ?? 'blocking') === 'blocking')
+  const rest = list.filter((e) => (e.mode ?? 'blocking') !== 'blocking')
+  return blocking.concat(rest)
 }
 
 /**
@@ -339,13 +362,29 @@ export function countUntriggered(entries) {
   //   stagedTriggers: ['**', '/*'].join('')   ← 等价的全匹配通配(此处用 join 只是为了让本行
   //   不出现注释终止符;注册表里直接写通配字面量即可,guardian-triggers 认它,实测根文件与
   //   深层文件都命中)
+  //
+  // 2026-11-21(第 68 项)**两档分离**:判机器状态的门在提交内容里结构上无从触发(口有轮换窗口、
+  // 临时检出寿命、钩子台账容量),复跑得到的永远是同一个时间相关读数。它们不声明 stagedTriggers
+  // 是**对的**,但"对的"必须写进注册条目(`stagedTriggersOmitted: '<理由>'`),否则本函数只看得见
+  // "空清单"这一个形状 ⇒ 每次落地都把这些读数打成"漏声明 N 道",读数把人读错(§0.2 同型)。
+  // 理由长度门槛与通知书同一口径(≥10 字):写一句"略"不算交代。
   const judges = (entries ?? []).filter((e) => e && e.script && e.mode !== 'info')
-  const missing = judges.filter((e) => !e.stagedTriggers || e.stagedTriggers.length === 0)
+  const noTrig = judges.filter((e) => !e.stagedTriggers || e.stagedTriggers.length === 0)
+  const reasonOf = (e) => String(e.stagedTriggersOmitted ?? '').trim()
+  const exempt = noTrig.filter((e) => reasonOf(e).length >= 10)
+  const missing = noTrig.filter((e) => reasonOf(e).length < 10)
   return {
     judges: judges.length,
     missing: missing.length,
     blocking: missing.filter((e) => e.mode === 'blocking').length,
     ids: missing.map((e) => String(e.id)),
+    exempt: exempt.length,
+    exemptIds: exempt.map((e) => String(e.id)),
+    exemptReasons: exempt.map((e) => `${String(e.id)}:${reasonOf(e)}`),
+    // 写了理由却同时写了 stagedTriggers(自相矛盾)⇒ 单列,免得"两套声明"静默共存
+    conflicting: judges.filter(
+      (e) => (e.stagedTriggers?.length ?? 0) > 0 && reasonOf(e).length >= 10,
+    ).length,
   }
 }
 
@@ -732,10 +771,24 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 落地面注入的上限:声明面通常 10-20 条,给足余量又避免 argv 爆长(Windows 命令行 32K)。
       const RUN_FILES_CAP = 200
       const toRun = affected.filter((g) => !BUILTIN_SCRIPTS.has(g.script))
-      const deferred = toRun.slice(REGISTRY_CAP)
+      // 第 69 项:预算截断必须先截**warn**,不许把 blocking 排在一串 warn 门后面。
+      // 旧实现按注册表扫描序截前 30 道(现读常态 40+ 受影响),于是"超出复跑预算"的那一段里
+      // 完全可能躺着 blocking 门 —— 落地报绿,而真红门根本没跑;这比"没跑"更坏的是它**读起来像跑过**。
+      // 排序是稳定的(blocking 内部、warn 内部都保持注册表序),只换"先跑谁",不动 argv 与分级。
+      const ordered = orderForRerunBudget(toRun)
+      const deferred = ordered.slice(REGISTRY_CAP)
       for (const g of deferred) {
         console.log(
-          `⚠️ 注册表受影响门 [${g.id}] ${g.script} 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+          `⚠️ 注册表受影响门 [${g.id}] ${g.script}(mode=${g.mode ?? 'blocking'}) 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+        )
+      }
+      const deferredBlocking = deferred.filter((g) => (g.mode ?? 'blocking') === 'blocking')
+      if (deferredBlocking.length > 0) {
+        // 排序之后还出现 blocking 被延后 ⇒ 说明 blocking 总数本身超了预算。这时整句"全绿"
+        // 必须带限定:这不是判过,是**面没铺满**(§0.3 同一取向)。
+        res.notes.push(
+          `⚠️ 复跑预算不覆盖 ${deferredBlocking.length} 道 blocking 门(blocking 总数已超 ${REGISTRY_CAP} 道)⇒ 本次"全绿"不覆盖它们:` +
+            deferredBlocking.map((g) => g.id).join(', '),
         )
       }
       // 执行:先按原顺序筛出**真要跑**的臂(缺门体/应急跳过都不进批次),再整体交给并发池。
@@ -743,7 +796,7 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 下面的归类循环保持原顺序 ⇒ ran/failed/warnFailures/undetermined 的内容与分级一字不变。
       // 依据(2026-10-28 实测):单臂 0.3s~34s 差两个数量级,串行的墙钟时间几乎全花在等最慢那几臂。
       const batchPlan = []
-      for (const g of toRun.slice(0, REGISTRY_CAP)) {
+      for (const g of ordered.slice(0, REGISTRY_CAP)) {
         const scriptPath = join(root, 'scripts', g.script)
         if (!existsSync(scriptPath)) {
           res.undetermined.push({
@@ -822,7 +875,22 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
         res.notes.push(
           `注册表臂覆盖面:登记判据门 ${untrig.judges} 道,其中 ${untrig.missing} 道(blocking ${untrig.blocking})` +
             `未声明 stagedTriggers ⇒ 本通道**结构上不复跑**(提交通道把同一份缺省读成"任何提交都跑",两通道在此反义);` +
-            `本次"全绿"不覆盖这 ${untrig.missing} 道,要覆盖请在注册条目里显式声明射程(要"任何提交都跑"就写 ['**/*'])`,
+            `本次"全绿"不覆盖这 ${untrig.missing} 道,要覆盖请在注册条目里显式声明射程(要"任何提交都跑"就写 ['**/*']),` +
+            `确属判机器状态 ⇒ 写 stagedTriggersOmitted 理由`,
+        )
+      }
+      // 结构性豁免单列成一句**不是缺陷**的读数(第 68 项):理由写在注册条目里,读的人能一眼分开
+      // "漏声明"与"判机器状态的门本来就不该在这里跑"。
+      if (untrig.exempt > 0) {
+        res.notes.push(
+          `注册表臂覆盖面:另有 ${untrig.exempt} 道**结构性豁免**(判机器状态/台账,提交内容无从触发,复跑只会读到同一个时间相关值):` +
+            untrig.exemptReasons.slice(0, 6).join(' | ') +
+            (untrig.exemptReasons.length > 6 ? ' …' : ''),
+        )
+      }
+      if (untrig.conflicting > 0) {
+        res.notes.push(
+          `⚠️ 注册表臂覆盖面:${untrig.conflicting} 道条目同时声明 stagedTriggers 与 stagedTriggersOmitted ⇒ 两套声明并存,判据面未判定(§0.3)`,
         )
       }
     }

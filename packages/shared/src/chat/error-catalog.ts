@@ -63,6 +63,36 @@ export type TurnErrorClass = (typeof TURN_ERROR_CLASSES)[number]
  * 旧逐行判据当场把 106 条读成"未收录"—— 判据不得依附在排版上)。
  */
 export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = Object.freeze({
+  // —— 守门 94(R1)补录:present_files 三码由 apps/ai-service/app/services/mcp_server.py
+  //   (`_tool_present_files`)真实产出,分档按"病灶"而不是按"哪个工具"：
+  //   INVALID_ARGUMENTS / INVALID_PATH 都是"送进来的内容不合约"(files 不是非空数组、单项不是对象、
+  //   path 为空/含控制字符/超长)⇒ invalidResponse,与 EMPTY_TASKS / ADVISOR_PROMPT_EMPTY 同档,
+  //   动作是"按契约重传";TOO_MANY_FILES 是撞上限(一次超过 8 个)⇒ resourceLimitExceeded,
+  //   与 TEXT_TOO_LONG / BUDGET_EXHAUSTED 同档,动作是"只挑最终交付物"。
+  INVALID_ARGUMENTS: {
+    titleKey: 'INVALID_ARGUMENTS.title',
+    actionKey: 'INVALID_ARGUMENTS.action',
+    category: 'invalidResponse',
+  },
+  INVALID_PATH: {
+    titleKey: 'INVALID_PATH.title',
+    actionKey: 'INVALID_PATH.action',
+    category: 'invalidResponse',
+  },
+  TOO_MANY_FILES: {
+    titleKey: 'TOO_MANY_FILES.title',
+    actionKey: 'TOO_MANY_FILES.action',
+    category: 'resourceLimitExceeded',
+  },
+  // —— 守门 94(R1):TOOL_AUTO_REVIEW_DENIED 由 apps/ai-service/app/routers/llm.py 的 auto 审查闸
+  //   deny 分支产出(工具未执行)。语义是"策略明确拒绝执行",与 CREDIT_APPROVAL_REQUIRED /
+  //   ACCOUNT_RESTRICTED 同档(authForbidden);动作是"调整审查规则/改用被允许的编辑方式",
+  //   而不是原地重试(重试会再被拒一次)。
+  TOOL_AUTO_REVIEW_DENIED: {
+    titleKey: 'TOOL_AUTO_REVIEW_DENIED.title',
+    actionKey: 'TOOL_AUTO_REVIEW_DENIED.action',
+    category: 'authForbidden',
+  },
   ACCOUNT_RESTRICTED: {
     titleKey: 'ACCOUNT_RESTRICTED.title',
     actionKey: 'ACCOUNT_RESTRICTED.action',

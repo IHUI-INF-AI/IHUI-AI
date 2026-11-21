@@ -218,30 +218,38 @@ test('T20 聚合:drift 优先于 unjudged,summary 四类齐全', () => {
   assert.match(r.summary, /3 腿 = ok 0 \/ n\/a 1 \/ drift 1 \/ unjudged 1/)
 })
 
-test('T21 登记表结构锁:12 腿字段齐备,产腿路径真实,dep-radar 笔误已修', () => {
-  assert.equal(REG.legs.length, 12)
-  assert.equal(new Set(REG.legs.map((l) => l.stamp)).size, 12)
+test('T21 登记表结构锁:全腿字段齐备(none/coveredBy 各自合法),产腿路径真实,dep-radar 笔误已修', () => {
+  // 腿数不写死:第 60 项起登记表按"盘上真戳"补到 16 枚,写死 12 会在补登记时整片假红(2026-11-21 实测)。
+  const n = REG.legs.length
+  assert.ok(n >= 12, `登记表腿数 ${n} < 12`)
+  assert.equal(new Set(REG.legs.map((l) => l.stamp)).size, n, 'stamp 必须唯一')
   for (const l of REG.legs) {
+    if (l.coveredBy) continue // 已由他维精确对账:本维不重复量,也没有自己的 kind/窗口
     assert.ok(OUTPUT_KINDS.includes(l.outputKind), `${l.stamp} 的 outputKind 不在闭集`)
+    if (l.outputKind === 'none') continue // 结构性无产出账,本来就没有窗口与路径 // 结构性无产出账 / 已由他维精确对账,本来就没有窗口与路径
     assert.ok(TIME_FIELDS.includes(l.outputTimeField), `${l.stamp} 的时间字段不在闭集`)
     assert.ok(Number.isInteger(l.silenceCeilingMs) && l.silenceCeilingMs > 0, `${l.stamp} 天花板非法`)
-    if (l.outputKind !== 'none' && !l.coveredBy) {
-      assert.ok(typeof l.outputRel === 'string' && l.outputRel.endsWith('.jsonl'), `${l.stamp} 缺产出台账路径`)
-      assert.ok(existsSync(join(ROOT, '.ihui-agent', 'state', l.outputRel)), `${l.stamp} 指向的台账不在盘上:${l.outputRel}`)
-    }
+    assert.ok(typeof l.outputRel === 'string' && l.outputRel.endsWith('.jsonl'), `${l.stamp} 缺产出台账路径`)
+    assert.doesNotMatch(l.outputRel, /\//, `${l.stamp} 的 outputRel 必须相对 .ihui-agent/state(写全路径会被判据层再拼一次)`)
+    assert.ok(existsSync(join(ROOT, '.ihui-agent', 'state', l.outputRel)), `${l.stamp} 指向的台账不在盘上:${l.outputRel}`)
   }
   const dep = REG.legs.find((l) => l.stamp === 'dep-radar-dispatch-last.json')
   assert.equal(dep.ruler, 'scripts/dep-advisory-radar.mjs', 'ruler 笔误没修')
   assert.ok(existsSync(join(ROOT, dep.ruler)))
-  assert.equal(dep.selfReportToken, '依赖安全通告轮:未判定')
+  assert.equal(dep.selfReportToken, '依赖通告:未判定', '自报串必须与器物真文一致(scripts/dep-advisory-radar.mjs)')
   assert.equal(REG.legs.find((l) => l.stamp === 'deploy-outcome-intake-dispatch-last.json').coveredBy, 'A11-closure-output')
+  assert.equal(REG.legs.find((l) => l.stamp === 'monitor-signal-intake-dispatch-last.json').coveredBy, 'A11-closure-output')
 })
 
-test('T22 全 12 腿夹具:分类计数与真登记表一致,不许漏腿', () => {
+test('T22 全腿夹具:分类计数与真登记表一致,不许漏腿', () => {
   const r = classifyLegOutputs({ legs: REG.legs, ledgers: {}, now: NOW })
-  assert.equal(r.rows.length, 12)
-  assert.equal(r.rows.filter((x) => x.state === 'n/a').length, 8, '7 条 none + 1 条 coveredBy')
-  assert.equal(r.rows.filter((x) => x.state === 'unjudged').length, 4, '4 条产腿都取不到账 ⇒ 全 unjudged,不许冒充绿')
+  const n = REG.legs.length
+  const none = REG.legs.filter((l) => l.outputKind === 'none' && !l.coveredBy).length
+  const covered = REG.legs.filter((l) => l.coveredBy).length
+  const producive = n - none - covered
+  assert.equal(r.rows.length, n, '必须每条腿一行,不许漏腿')
+  assert.equal(r.rows.filter((x) => x.state === 'n/a').length, none + covered, `${none} 条 none + ${covered} 条 coveredBy`)
+  assert.equal(r.rows.filter((x) => x.state === 'unjudged').length, producive, '${producive} 条产腿都取不到账 ⇒ 全 unjudged,不许冒充绿')
 })
 
 test('T23 成对反向锁:自报未判定行不算有效产出,普通行才算', () => {

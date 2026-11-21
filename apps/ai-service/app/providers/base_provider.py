@@ -140,10 +140,26 @@ class BaseProvider(ABC):
                 )
             # AIS-066:HTTP 200 但响应体带 error(部分 OpenAI 兼容代理/自建网关行为),
             # 不能当成功返回空回复;有 error 即抛 ProviderError 让上层 fallback/重试。
-            if data.get("error"):
+            # A25(2026-11-21 补刀):429/503 的错误体常同时带 error 与 Retry-After 头 ——
+            # 这条分支此前先 raise,**跳过**了下方 status>=400 的 hint 生产点,Retry-After
+            # 与 x-should-retry 就随 error 体一起丢了(上层只能盲重试)。hint 与状态码
+            # 无关地在此一并提取:HTTP 200 + error 体时 hint 为 None,行为不变。
+            # 2026-11-21:任务轮询响应(带 state/is_final)里的 error 是**任务失败诊断**
+            # (含 error_class/stage/actual_cost),不是 API 错误体 —— 一刀切成
+            # "上游返回错误体"会把 get_task_status/_poll_task 的诊断字段全丢。
+            if data.get("error") and not (
+                "state" in data or "is_final" in data
+            ):
+                err_hint = (
+                    extract_server_retry_hint(resp.headers, data)
+                    if resp.status_code >= 400
+                    else None
+                )
                 raise ProviderError(
                     f"{self.__class__.__name__} 上游返回错误体: {data['error']}",
                     resp.status_code,
+                    retry_after_s=err_hint.retry_after_s if err_hint else None,
+                    should_retry=err_hint.should_retry if err_hint else True,
                 )
             if resp.status_code >= 400:
                 # A25 唯一生产点:上游用 Retry-After(头或体 retry_after 秒数)/

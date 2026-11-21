@@ -145,33 +145,51 @@ test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘�
 
 // ── T5 形状锁:本门体自己派生 git 的每一处都带 windowsHide(门 52 判生产代码) ──
 // 立因:门 52 现读点名本门两处漏 windowsHide。判据用门 52 的 `__test__.scanSource`,不在这里复制尺子。
-test('T5 形状锁:门体两处派生 git 都带 windowsHide;逐处摘掉即翻红(阳性对照)', () => {
+test('T5 形状锁:派生 git 的 stdio 纪律已收口到共用层;门体再出现裸派生 ⇒ 判据点名(正反两控)', () => {
+  // 2026-11-21(第 68 项)改判:上一版按字面 `windowsHide: true` 数两处做阳性对照,而 52c88a32cf
+  // 已把本门两处裸 git 迁到共享层 `gitRaw`(stdio 两态写死在出口)⇒ 字面量一处都不剩,
+  // 本测的阳性对照恒红、真正的纪律(不得再出现裸派生)反倒没人钉。现改为钉**现结构**:
+  //   ① 门体自身不得被门 52 点名;
+  //   ② 必须走 `gitRaw`(共用层出口);
+  //   ③ 注入一处裸 `execFileSync('git', …)` ⇒ 判据必须点名(阳性对照仍然是真的);
+  //   ④ 同一次调用补上 `windowsHide: true` ⇒ 不再点名(反控:判的是"有没有把 stdio 两态写死",
+  //      不是"有没有出现 execFileSync 这个词")。
   const src = readFileSync(SCRIPT, 'utf8')
   const hits = (text) =>
     V.scanSource(text, 'scripts/check-gate-triggers.mjs').filter((x) => x.kind === 'visible-spawn')
-  const TAG = 'windowsHide: true'
-  const MUT = 'hideWindows: true' // 与 TAG 等长:摘掉这一处 windowsHide 而不让后面的偏移漂移
-  const dropAt = (text, idxs) => {
-    const re = new RegExp(TAG.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-    const at = []
-    let m
-    while ((m = re.exec(text)) !== null) at.push(m.index)
-    assert.ok(at.length >= 2, `阳性对照需要 ≥2 处 ${TAG} 可摘,实得 ${at.length}`)
-    let out = ''
-    let prev = 0
-    for (let i = 0; i < at.length; i++) {
-      out += text.slice(prev, at[i]) + (idxs.includes(i) ? MUT : TAG)
-      prev = at[i] + TAG.length
-    }
-    return out + text.slice(prev)
-  }
   assert.deepEqual(
     hits(src).map((x) => x.line),
     [],
     `门体自身仍有漏 windowsHide 的派生点:${JSON.stringify(hits(src))}`,
   )
-  assert.equal(hits(dropAt(src, [0])).length, 1, '摘掉第一处 windowsHide ⇒ 判据必须点名这一处')
-  assert.equal(hits(dropAt(src, [1])).length, 1, '摘掉第二处 windowsHide ⇒ 判据必须点名这一处')
-  assert.equal(hits(dropAt(src, [0, 1])).length, 2, '两处都摘 ⇒ 判据必须点名两处')
+  assert.ok(
+    src.includes("from './lib/face-reader.mjs'"),
+    '本门必须走共用层的 git 出口(stdio 两态住那里;端内不许再抄一份)',
+  )
+  const bare = src + "\nconst __mutBare = execFileSync('git', ['status'])\n"
+  const hidden =
+    src + "\nconst __mutHidden = execFileSync('git', ['status'], { windowsHide: true })\n"
+  assert.ok(hits(bare).length >= 1, '注入裸派生 ⇒ 判据必须点名(阳性对照不得落空)')
+  assert.equal(hits(hidden).length, 0, '同一调用写死 windowsHide ⇒ 判据不得误报(反控)')
+})
+
+// ── T1b 结构性豁免(第 68 项):判机器状态的门写理由即合规;原有射程换成理由仍算摘射程 ──
+test('T1b 结构性豁免:stagedTriggersOmitted ≥10 字 ⇒ exempt-omitted;锚点原有射程被换成理由 ⇒ regressed', () => {
+  const cur = [
+    { id: '1', script: 'a.mjs', stagedTriggersOmitted: '判本机端口与时间窗口,提交内容无从触发' },
+    { id: '2', script: 'b.mjs', stagedTriggersOmitted: '判机器状态与提交内容无关的某个读数' },
+    { id: '3', script: 'c.mjs', stagedTriggersOmitted: '略' },
+    { id: '4', script: 'd.mjs', stagedTriggersOmitted: '判临时检出寿命,提交内容无从触发' },
+  ]
+  const anchor = [{ id: '4', script: 'd.mjs', stagedTriggers: ['pkg/'] }, { id: '3', script: 'c.mjs' }]
+  const r = T.judgeTriggers({ current: cur, anchor })
+  assert.deepEqual(
+    r.rows.map((x) => `${x.id}:${x.verdict}`),
+    ['1:exempt-omitted', '2:exempt-omitted', '3:existing', '4:regressed'],
+    '理由够长 ⇒ 免判;理由太短 ⇒ 仍算存量缺;锚点原有射程换成理由 ⇒ 仍判摘射程',
+  )
+  assert.equal(r.counts.exemptOmitted, 2, '豁免数必须单列')
+  assert.equal(r.counts.judges, 2, '判据门 = 条目 - info - 结构性豁免')
+  assert.deepEqual(r.red.map((x) => x.id), ['4'], '摘射程仍红;豁免与理由不足的存量不进红')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

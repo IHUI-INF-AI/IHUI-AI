@@ -24,6 +24,7 @@ from app.services.agent_loop_v2 import (
     AgentLoopV2,
     ToolCall,
     ToolDefinition,
+    TurnStopReason,
 )
 from app.services.hook_engine import HOOK_EVENTS, HookEngine
 
@@ -185,15 +186,22 @@ async def test_thinking_delta_emitted_when_reasoning_nonempty():
 
 
 async def test_thinking_delta_skipped_when_reasoning_empty():
-    """reasoning 为空 → 不发射 thinking.delta(其余事件不受影响)。"""
+    """reasoning 为空 → 不发射 thinking.delta。
+
+    AIS-059(2026-11-21 对齐现行为):空回复不得记为成功 —— 模型返回空 content
+    时循环直接以 success=False / stop_reason=ERROR 收尾(客户端据此重试),
+    因此这条用例同时钉住"空回复路径没有 thinking.delta 也没有 message.receive"。
+    """
     loop = _make_loop("")
     with patch("app.services.agent_loop_v2.hook_engine") as mock_he:
         mock_he.emit = AsyncMock()
         result = await loop.run([{"role": "user", "content": "hi"}])
-    assert result.success is True
+    assert result.success is False
+    assert result.stop_reason == TurnStopReason.ERROR
+    assert "空回复" in (result.error or "")
     assert _thinking_emits(mock_he) == []
-    # 无 tool_calls 单轮完成路径事件仍在(message.receive)
-    assert any(
+    # AIS-059:空回复提前返回,不产生 message.receive(它不是一次完成)
+    assert not any(
         c.args and c.args[0] == "message.receive"
         for c in mock_he.emit.await_args_list
     )

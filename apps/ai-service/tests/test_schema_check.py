@@ -372,8 +372,11 @@ class TestScanExcludesSqliteAndCte:
     """
 
     # approval_grants 已迁 PostgreSQL(2026-11-19,基线 sqlite 写路径 3/5 下线)⇒ 它现在是
-    # **本服务的真 PG 表**,不再属于幽灵集。剩下四个仍是 sqlite 侧资产。
-    SQLITE_GHOSTS = {"sso_identities", "cookies", "sqlite_master", "del"}
+    # **本服务的真 PG 表**,不再属于幽灵集。sso_identities 同理已迁 PG
+    # (sso_identity_store._PgBackend + SyncPgSession/PgShim,DDL 是 bigint IDENTITY/
+    #  text/UNIQUE 的 PG 形态,`?` 由 PgShim 换成 `$n`)—— 它也一样出列。
+    # 剩下两个(sqlite_master / cookies)才是真的 sqlite 侧资产。
+    SQLITE_GHOSTS = {"cookies", "sqlite_master", "del"}
 
     def test_real_app_dir_no_longer_yields_sqlite_or_cte_ghosts(self):
         tables = scan_ai_service_sql_tables(APP_DIR)
@@ -466,8 +469,9 @@ class TestBorrowedConnectionOwnership:
     # (合成用例用:approval_grants 已在 2026-11-19 迁 PG,但"借连接形态"这条纪律的
     #  尺子要用一个仍然成立的样本去量,合成文件不受真实架构影响,故保留原名)
     SQLITE_OWNED_TABLES = {"approval_grants", "sso_identities", "cookies", "sqlite_master"}
-    # 真树口径:现读 app/ 下仍然由 sqlite 驱动自建的表(approval_grants 已出列)
-    REAL_SQLITE_OWNED_TABLES = {"sso_identities", "cookies", "sqlite_master"}
+    # 真树口径:现读 app/ 下仍然由 sqlite 驱动自建的表
+    # (approval_grants / sso_identities 均已迁 PG,双双出列 —— 判据尺子不变,样本现读)
+    REAL_SQLITE_OWNED_TABLES = {"cookies", "sqlite_master"}
 
     def test_owned_sql_in_driver_file_is_excluded_from_pg_scan(self, tmp_path: Path):
         """正例:逐字 SQL 文本(取材现读 app/services/approval_persistence.py:476-477,非自造形态)
