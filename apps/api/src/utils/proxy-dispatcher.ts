@@ -26,7 +26,7 @@ import {
   EGRESS_NO_PROXY_VAR_NAMES,
 } from '@ihui/types'
 
-/** 内置默认白名单:被墙的 AI 厂商官方域名(可经 PROXY_DOMAINS 覆盖) */
+/** 内置默认白名单:被墙的 AI 厂商官方域名 + 认证端点(可经 PROXY_DOMAINS 覆盖) */
 const DEFAULT_PROXY_DOMAINS = [
   'api.openai.com',
   'generativelanguage.googleapis.com',
@@ -40,6 +40,12 @@ const DEFAULT_PROXY_DOMAINS = [
   'api.perplexity.ai',
   'integrate.api.nvidia.com',
   'openrouter.ai',
+  // Google OAuth 2.0(登录 code 换 token / tokeninfo)。它不属"AI 厂商推理端点",但同属
+  // 受限网络下不可直连的一跳,且住在**认证路径**上:2026-11-21 线上实测,api 侧既没配
+  // PROXY_URL、`oauth2.googleapis.com` 又不在表内 ⇒ 后缀匹配(只覆盖 generativelanguage)
+  // 不中 ⇒ Google 登录在换 token 这一步直连超时,用户看到的是"回调失败"。
+  // 加进默认表而非只依赖 .env 的 PROXY_DOMAINS:后者的缺省不影响本表,漏配即静默直连(§0.9 造好没装车)。
+  'oauth2.googleapis.com',
 ]
 
 let cachedAgent: ProxyAgent | null = null

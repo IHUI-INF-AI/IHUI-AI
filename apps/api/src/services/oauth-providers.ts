@@ -71,6 +71,23 @@ async function oauthFetch(url: string, init: RequestInit = {}): Promise<Response
   }
 }
 
+/**
+ * 读上游失败体的一段摘要(≤160 字符)。
+ *
+ * 立因(2026-11-21):Google 换 token 失败只抛一句 `failed: 400`,线上日志与浏览器现象之间
+ * 因此断链 —— 真正的 `redirect_uri_mismatch` / `invalid_grant` 全被丢掉,只能靠人再把
+ * 前端内联值、后端 .env、控制台注册值三方逐字符对一遍。错误体里只有
+ * error / error_description 两个键,不含凭据;这里只用于日志面,不进任何用户可见响应。
+ */
+async function oauthErrorDetail(resp: Response): Promise<string> {
+  try {
+    const text = await resp.text()
+    return text ? ` ${text.replace(/\s+/g, ' ').slice(0, 160)}` : ''
+  } catch {
+    return ''
+  }
+}
+
 /** 用 code 换 id_token → 校验 aud → 返回用户信息 */
 export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> {
   const tokenResp = await oauthFetch(GOOGLE_TOKEN_URL, {
@@ -84,7 +101,14 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> 
       grant_type: 'authorization_code',
     }).toString(),
   })
-  if (!tokenResp.ok) throw new Error(`Google token exchange failed: ${tokenResp.status}`)
+  if (!tokenResp.ok) {
+    // redirect_uri 带进错误串是刻意的:它必须与前端发起授权时的值**逐字符相等**,
+    // 两份真相不一致的现场,只有把后端这份打出来才看得见。
+    const detail = await oauthErrorDetail(tokenResp)
+    throw new Error(
+      `Google token exchange failed: ${tokenResp.status}${detail} (redirect_uri=${env.GOOGLE_PC_REDIRECT_URI ?? '(unset)'})`,
+    )
+  }
   const tokenData = (await tokenResp.json()) as { id_token: string }
   const idToken = tokenData.id_token
   return verifyGoogleIdToken(idToken)
@@ -93,7 +117,8 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> 
 /** 校验 id_token → 返回用户信息 */
 export async function verifyGoogleIdToken(idToken: string): Promise<GoogleUserInfo> {
   const resp = await oauthFetch(`${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`)
-  if (!resp.ok) throw new Error(`Google tokeninfo failed: ${resp.status}`)
+  if (!resp.ok)
+    throw new Error(`Google tokeninfo failed: ${resp.status}${await oauthErrorDetail(resp)}`)
   const data = (await resp.json()) as {
     sub: string
     email: string

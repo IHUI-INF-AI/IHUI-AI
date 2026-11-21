@@ -20,18 +20,18 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveEffectiveNodeEnv, RUNTIME_ENV_VALUES } from '../src/config/index.js'
+import {
+  resolveEffectiveNodeEnv,
+  RUNTIME_ENV_VALUES,
+  collectOAuthConfigWarnings,
+} from '../src/config/index.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const API_SRC = resolve(HERE, '../src')
 
 /** ① 验收①钉进测试:三个安全消费点不得再直接读原始 NODE_ENV。 */
 describe('安全分支不得直接读原始 NODE_ENV', () => {
-  const CASES = [
-    'plugins/csrf.ts',
-    'routes/agents.ts',
-    'routes/auth-extended.ts',
-  ] as const
+  const CASES = ['plugins/csrf.ts', 'routes/agents.ts', 'routes/auth-extended.ts'] as const
 
   for (const rel of CASES) {
     it(`${rel} 归零`, () => {
@@ -73,9 +73,9 @@ describe('resolveEffectiveNodeEnv —— 声明表对账与缺省方向', () => 
   })
 
   it('声明表外的注入值不认(落到下一档,不盲信)', () => {
-    expect(
-      resolveEffectiveNodeEnv({ ZCODE_RUNTIME_ENV: 'staging', NODE_ENV: 'development' }),
-    ).toBe('development')
+    expect(resolveEffectiveNodeEnv({ ZCODE_RUNTIME_ENV: 'staging', NODE_ENV: 'development' })).toBe(
+      'development',
+    )
   })
 
   it('缺省方向:两变量都缺 ⇒ production(fail-safe)', () => {
@@ -127,6 +127,75 @@ describe('config 模块缺省方向(真实加载)', () => {
     const fresh = await import('../src/config/index.js')
     expect(fresh.isProductionGuard).toBe(false)
     expect(fresh.isDevelopmentRuntime).toBe(true)
+  })
+})
+
+/**
+ * Google 登录链路 + 出站代理的启动自检(2026-11-21 线上"回调有问题"事故的判据面)。
+ *
+ * 每一条都对应那次事故里真实踩过的一格;断言的是**告警文本带得出定位信息**,
+ * 而不只是"有告警" —— 喊"配置有问题"却不说哪个键、值是什么,等于不喊。
+ */
+describe('collectOAuthConfigWarnings —— 登录/出站配置自检', () => {
+  const GOOD_PROXY = 'http://127.0.0.1:7900'
+
+  it('健康配置:公网回调 + 已配代理 ⇒ 零告警', () => {
+    expect(
+      collectOAuthConfigWarnings({
+        GOOGLE_PC_REDIRECT_URI: 'https://aizhs.top/google/callback',
+        PROXY_URL: GOOD_PROXY,
+      }),
+    ).toEqual([])
+  })
+
+  it('回调指向 localhost / 127.0.0.1 / ::1 ⇒ 告警且带出原值', () => {
+    for (const uri of [
+      'http://localhost:8801/google/callback',
+      'http://127.0.0.1:8801/google/callback',
+      'http://[::1]:8801/google/callback',
+    ]) {
+      const warnings = collectOAuthConfigWarnings({
+        GOOGLE_PC_REDIRECT_URI: uri,
+        PROXY_URL: GOOD_PROXY,
+      })
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('回调地址指向本机')
+      // 定位信息必须可读:把当时的实际值打出来,否则又要人去三方对字符
+      expect(warnings[0]).toContain(uri)
+    }
+  })
+
+  it('回调不是合法 URL ⇒ 单独一档告警(Google 会直接 400)', () => {
+    const warnings = collectOAuthConfigWarnings({
+      GOOGLE_PC_REDIRECT_URI: 'aizhs.top/google/callback',
+      PROXY_URL: GOOD_PROXY,
+    })
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('不是合法 URL')
+  })
+
+  it('PROXY_URL 缺失或不是 http(s) ⇒ 告警(墙外厂商与 Google OAuth 必超时)', () => {
+    for (const proxy of [undefined, '', '   ', '127.0.0.1:7900', 'socks5://127.0.0.1:7900']) {
+      const warnings = collectOAuthConfigWarnings({
+        GOOGLE_PC_REDIRECT_URI: 'https://aizhs.top/google/callback',
+        PROXY_URL: proxy,
+      })
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('PROXY_URL 未配置')
+    }
+  })
+
+  it('两维同时坏 ⇒ 两条都喊,不互相吞掉', () => {
+    const warnings = collectOAuthConfigWarnings({
+      GOOGLE_PC_REDIRECT_URI: 'http://localhost:8801/google/callback',
+      PROXY_URL: '',
+    })
+    expect(warnings).toHaveLength(2)
+  })
+
+  it('GOOGLE_PC_REDIRECT_URI 未配置时不冒充"指向本机"', () => {
+    const warnings = collectOAuthConfigWarnings({ PROXY_URL: GOOD_PROXY })
+    expect(warnings).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
