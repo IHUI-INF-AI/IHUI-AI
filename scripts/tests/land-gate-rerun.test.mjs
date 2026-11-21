@@ -523,20 +523,38 @@ test('T18 planRerunBudget:blocking 超预算也全跑,延后集里不得出现 b
     ...Array.from({ length: nb }, (_, i) => l(`b${i}`, 'blocking')),
     ...Array.from({ length: nw }, (_, i) => l(`w${i}`, 'warn')),
   ]
-  // 现场形态:blocking 35 道 > cap 30 ⇒ 35 道全进批次,warn 一个坑都不占
-  const many = planRerunBudget(mk(35, 15), 30)
+  // 现场形态(第 73 项):blocking 35 道 > cap 30 ⇒ 35 道全进批次,且 warn 仍拿到满额 30 个坑
+  const many = planRerunBudget(mk(35, 45), 30)
   assert.equal(many.blockingCount, 35)
-  assert.equal(many.run.length, 35, 'blocking 超预算时必须全部进批次,不得截断')
+  assert.equal(many.warnSlots, 30, 'blocking 超 cap 时 warn 名额不得被压成 0(第 73 项立因)')
+  assert.equal(many.run.length, 65, '批次 = blocking 全跑 + cap 个 warn 坑')
   assert.equal(many.run.filter((x) => x.mode === 'blocking').length, 35)
   assert.equal(many.deferred.length, 15)
   assert.equal(many.deferred.filter((x) => x.mode === 'blocking').length, 0, '延后集里出现 blocking = 不变量被破坏')
 
-  // 常态形态:blocking 10 + warn 25 ⇒ 30 坑里 blocking 全占,只延后 5 道 warn
+  // 极端档:blocking 84 道、cap 30 ⇒ warn 名额仍是 30 而不是 0(旧式 max(cap,blocking) 在这里把 warn 算成 0)
+  const blast = planRerunBudget(mk(84, 12), 30)
+  assert.equal(blast.warnSlots, 12)
+  assert.equal(blast.run.length, 96, '12 道 warn 少于 cap ⇒ 一道都不延后')
+
+  // 常态形态:blocking 10 + warn 25 ⇒ blocking 10 + warn 名额 30(只装得下 25),一道 warn 都不延后
   const few = planRerunBudget(mk(10, 25), 30)
-  assert.equal(few.run.length, 30)
+  assert.equal(few.run.length, 35)
   assert.equal(few.run.filter((x) => x.mode === 'blocking').length, 10)
-  assert.equal(few.deferred.length, 5)
-  assert.ok(few.deferred.every((x) => x.mode === 'warn'), '只许延后 warn')
+  assert.equal(few.deferred.length, 0, 'warn 总数小于名额 ⇒ 不许凭空延后')
+
+  // 真正的延后档:blocking 10 + warn 40 ⇒ 30 个 warn 坑装不下,b 全跑、只延后 10 道 warn
+  const over = planRerunBudget(mk(10, 40), 30)
+  assert.equal(over.warnSlots, 30)
+  assert.equal(over.run.length, 40)
+  assert.equal(over.deferred.length, 10)
+  assert.ok(over.deferred.every((x) => x.mode === 'warn'), '只许延后 warn')
+
+  // cap=0 ⇒ warn 名额真为 0(此时打印的读数必须说 0,而不是说"不占坑")
+  const zero = planRerunBudget(mk(2, 5), 0)
+  assert.equal(zero.warnSlots, 0)
+  assert.equal(zero.run.length, 2)
+  assert.equal(zero.deferred.length, 5)
 
   // 缺省 mode 按 blocking 算(与注册表口径同一份)
   const dflt = planRerunBudget([{ id: 'x', script: 'x.mjs' }], 0)

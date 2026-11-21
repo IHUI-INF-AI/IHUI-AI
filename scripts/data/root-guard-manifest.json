@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T06:57:01.343Z",
+  "sealedAt": "2026-11-21T07:31:41.419Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第72项 land-gate-rerun 预算分配改走 planRerunBudget",
+  "reason": "第73项 cap 只买 warn 名额",
   "targets": [
     {
       "id": "guardian-runner",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "c1891c694203dbc778a67a94edd7a80445e6afc0282ae5fb2f2ee419b3b9223d"
+      "sha256": "f85b4230187cc71b9b29821129d9d8a8147ced319eeaff9de01b00367898a533"
     },
     {
       "id": "guardian-pushgate-cache",

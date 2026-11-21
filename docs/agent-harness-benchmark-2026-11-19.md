@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **72 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **73 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（72 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（73 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -843,6 +843,26 @@
 - 验证：`node --test scripts/tests/land-gate-rerun.test.mjs` **20 passed**（新增 T18 四控：blocking 35 > cap 30
   仍全跑 / 常态 10+25 只延后 5 道 warn / 缺省 mode 按 blocking / 同档保序）；`node --check` 通过。
   代价只在"blocking 够多"的那些落地里多跑几臂 —— 用**面铺设完整**换掉"读起来像跑过"，方向不可反。
+### 5.73 第 73 项：`cap` 被当成"总道数上限"⇒ warn 名额被 blocking 吃光，打印却说"不占这 30 坑"
+
+- 现场（第 72 项刚落地就自证的读数矛盾）：当次落地日志每一条延后行都是
+  `⚠️ 注册表受影响门 [24b] … 超出复跑预算(30 道;blocking 84 道不占这 30 坑)⇒ 本轮未跑`。
+  第 72 项写的是 `limit = max(cap, blocking.length)`：blocking 84 道 > cap 30 时 `limit=84`，
+  **warn 名额被算成 0 道** —— 那批 warn 面一道都没跑，而打印句仍在说"blocking 不占这 30 坑"，
+  读起来像"warn 还剩 30 个坑"。这是第 72 项自己引入的"读数把人读错"：截断顺序改对了，
+  却在同一行把"没跑"说成"还有余量"。
+- 处置（改在同一个分配出口，调用方零改动）：
+  - `cap` 语义收窄为**只买 warn 名额**：`warnSlots = min(cap, warn.length)`、
+    `limit = blocking.length + warnSlots`。blocking 全跑且**不再消耗 warn 名额**，
+    warn 恒有 `cap` 个坑（warn 不足则一道都不延后）。
+  - 返回值补 `warnSlots`（读数与分配同源，打印不得自己再算一遍）；延后行改成
+    `超出复跑 warn 名额(<warnSlots> 道;blocking <blockingCount> 道全跑、不吃这名额)` ——
+    `warnSlots=0` 时句子直接说 0，不再有"不占坑"的暗示。
+- 验证：`node --test scripts/tests/land-gate-rerun.test.mjs` **20 passed**，T18 从"四控"重写成**六控**：
+  blocking 35 + cap30 + warn 45（warn 仍拿满 30、延后 15）/ blocking 84 + warn 12（warn 名额 12 不是 0）/
+  blocking 10 + warn 25（零延后）/ blocking 10 + warn 40（延后 10）/ cap=0（`warnSlots` 真为 0）/ 同档保序；
+  `node --check` 通过。
+
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
