@@ -92,7 +92,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | schema 文件 | 253 | `dbSchemaFiles` |
 | API 路由 | 4861 | `apiRoutes` |
 | 路由文件 | 714 | `apiRouteFiles` |
-| AI 服务路由 | 686 | `aiServiceRoutes` |
+| AI 服务路由 | 688 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 103 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -103,13 +103,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5946 | `testFiles` |
+| 测试文件 | 5947 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 371 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
-| 跟踪文件 | 23105 | `trackedFiles` |
+| 跟踪文件 | 23106 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5551,7 +5551,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:审计摘要截断判定修正 + 轮转阈值可调可测(第42项) (a1bbfa12093)
 - 📚 文档:§0 新增铁律12——多agent并发复用同一套dev server(实测8个各自拉整套即卡死);旧12顺延为13。基于HEAD构造,工作区零改动,不卷带他人63个未提交改动。 (8b818ab026a)
 - 📚 文档:README 生成块数字按合流后 HEAD 面现算对齐(apiRoutes 4861 / testFiles 5937 / trackedFiles 23074) (f5c5a3720f3)
-- 📚 文档:生成块三格对齐(aiServiceRoutes 686 / testFiles 5935 / trackedFiles 23069) (e2d6e4c44c5)
+- 📚 文档:生成块三格对齐(aiServiceRoutes 688 / testFiles 5935 / trackedFiles 23069) (e2d6e4c44c5)
 - 🚀 新功能/改进:社保配置防滞后提醒(记录时间早于生效年度 → 提示疑似沿用旧数据) (93533aec841)
 - 🐞 修复:DB-35 后 email 密文致跨环境 owner 翻译全跳过——读路径经 decryptCredential 解密 (1f403c8b6c8)
 - 🚀 新功能/改进:社保守卫(缺费率配置拒绝出单) + 公积金基数独立夹取 + 算薪配置体检工具 (a0ff3ae1bba)
@@ -5885,7 +5885,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:门104 摘过期影子登记;门70b 删 web 包 9 枚死键;门283 补 2 屏挂账;门289 补齐基线后 16 条新路由判决 + 5 张移动端门户条目(hr 三张自助页/外观设置/AI 应用台);门223 认下 write_desktop_prefs 这一条置顶去向 (f7b2e1d9ee)
 - 🐞 修复:摘掉 apps/api/scripts 下 9 枚 tmp-* 旧名(已改名 hr-*/workflow-*),消除重命名残留副本 (84e34cd1ac)
 - 🐞 修复:摘掉 9 枚 tmp-hr/tmp-workflow e2e 与 realign-ledger-hashes 的旧路径副本(迁入新位置后的重复) (dc60c08aac)
-- 🐞 修复:门 103 C1 收口(client.ts SSE 下沉 + 落地判据/规格投影拆分), 清理 D1/D2/D3 与过期例外 (582fb686b6)
+- 🐞 修复:门 103 C1 收口(client.ts SSE 下沉 + 落地判据/规格投影拆分), 清理 D1/D2/D3 与过期例外 (582fb688b6)
 - ♻️ 重构:门 182 —— SSE 控制面 schema 收进恒 strict 工厂 strictObj (abcd204d40)
 - 🔧 工程/其他:门 198 基线锚点收窄 329 → 317(清偿 12 处盲写 updatedAt 后只许减) (e19f826499)
 - 🐞 修复:hr-employee-link 两处块作用域 changed(门 198 逐行豁免口径) (1b3fc3aafc)
@@ -6274,7 +6274,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:门104 摘过期影子登记;门70b 删 web 包 9 枚死键;门283 补 2 屏挂账;门289 补齐基线后 16 条新路由判决 + 5 张移动端门户条目(hr 三张自助页/外观设置/AI 应用台);门223 认下 write_desktop_prefs 这一条置顶去向 (f7b2e1d9ee9)
 - 🐞 修复:摘掉 apps/api/scripts 下 9 枚 tmp-* 旧名(已改名 hr-*/workflow-*),消除重命名残留副本 (84e34cd1ac8)
 - 🐞 修复:摘掉 9 枚 tmp-hr/tmp-workflow e2e 与 realign-ledger-hashes 的旧路径副本(迁入新位置后的重复) (dc60c08aac1)
-- 🐞 修复:门 103 C1 收口(client.ts SSE 下沉 + 落地判据/规格投影拆分), 清理 D1/D2/D3 与过期例外 (582fb686b67)
+- 🐞 修复:门 103 C1 收口(client.ts SSE 下沉 + 落地判据/规格投影拆分), 清理 D1/D2/D3 与过期例外 (582fb688b67)
 - ♻️ 重构:门 182 —— SSE 控制面 schema 收进恒 strict 工厂 strictObj (abcd204d40a)
 - 🔧 工程/其他:门 198 基线锚点收窄 329 → 317(清偿 12 处盲写 updatedAt 后只许减) (e19f8264998)
 - 🐞 修复:hr-employee-link 两处块作用域 changed(门 198 逐行豁免口径) (1b3fc3aafcf)
@@ -7338,7 +7338,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:客户端会话镜像——根治双消费者轮换竞态(minimax grant 吊销实证) (de22e7492f)
 - 🐞 修复:切号三连修——G盘exe定位/explorer主通道/最小档兜底写回 (ba6fbdb528)
 - 🔧 工程/其他:活文档对齐远端归档移出后的最新面,消除收敛落地闸的滞后基线副本 (7729e5afef)
-- 🔧 工程/其他:重封清单对齐 4f4e686ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
+- 🔧 工程/其他:重封清单对齐 4f4e688ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
 - 🔧 工程/其他:结清 RP-64 判据面追认积压(IG 门红0/门29已同步) (dceaebc5bd)
 - 🔧 工程/其他:追认孤儿目录壳清扫腿枚 2e16a53572 的 AGENTS.md 判据面命中 (96be0510e3)
 - 🐞 修复:修复 RN 邮箱验证码「点了没反应/无倒计时/收不到」三处根因 (889a6e6984)
@@ -7413,7 +7413,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:客户端会话镜像——根治双消费者轮换竞态(minimax grant 吊销实证) (de22e7492f)
 - 🐞 修复:切号三连修——G盘exe定位/explorer主通道/最小档兜底写回 (ba6fbdb528)
 - 🔧 工程/其他:活文档对齐远端归档移出后的最新面,消除收敛落地闸的滞后基线副本 (7729e5afef)
-- 🔧 工程/其他:重封清单对齐 4f4e686ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
+- 🔧 工程/其他:重封清单对齐 4f4e688ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
 - 🔧 工程/其他:结清 RP-64 判据面追认积压(IG 门红0/门29已同步) (dceaebc5bd)
 - 🔧 工程/其他:追认孤儿目录壳清扫腿枚 2e16a53572 的 AGENTS.md 判据面命中 (96be0510e3)
 - 🐞 修复:修复 RN 邮箱验证码「点了没反应/无倒计时/收不到」三处根因 (889a6e6984)
@@ -7699,7 +7699,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:客户端会话镜像——根治双消费者轮换竞态(minimax grant 吊销实证) (de22e7492f)
 - 🐞 修复:切号三连修——G盘exe定位/explorer主通道/最小档兜底写回 (ba6fbdb528)
 - 🔧 工程/其他:活文档对齐远端归档移出后的最新面,消除收敛落地闸的滞后基线副本 (7729e5afef)
-- 🔧 工程/其他:重封清单对齐 4f4e686ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
+- 🔧 工程/其他:重封清单对齐 4f4e688ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
 - 🔧 工程/其他:结清 RP-64 判据面追认积压(IG 门红0/门29已同步) (dceaebc5bd)
 - 🔧 工程/其他:追认孤儿目录壳清扫腿枚 2e16a53572 的 AGENTS.md 判据面命中 (96be0510e3)
 - 🐞 修复:修复 RN 邮箱验证码「点了没反应/无倒计时/收不到」三处根因 (889a6e6984)
@@ -7962,7 +7962,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:客户端会话镜像——根治双消费者轮换竞态(minimax grant 吊销实证) (de22e7492f)
 - 🐞 修复:切号三连修——G盘exe定位/explorer主通道/最小档兜底写回 (ba6fbdb528)
 - 🔧 工程/其他:活文档对齐远端归档移出后的最新面,消除收敛落地闸的滞后基线副本 (7729e5afef)
-- 🔧 工程/其他:重封清单对齐 4f4e686ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
+- 🔧 工程/其他:重封清单对齐 4f4e688ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
 - 🔧 工程/其他:结清 RP-64 判据面追认积压(IG 门红0/门29已同步) (dceaebc5bd)
 - 🔧 工程/其他:追认孤儿目录壳清扫腿枚 2e16a53572 的 AGENTS.md 判据面命中 (96be0510e3)
 - 🐞 修复:修复 RN 邮箱验证码「点了没反应/无倒计时/收不到」三处根因 (889a6e6984)
@@ -8318,7 +8318,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:客户端会话镜像——根治双消费者轮换竞态(minimax grant 吊销实证) (de22e7492f)
 - 🐞 修复:切号三连修——G盘exe定位/explorer主通道/最小档兜底写回 (ba6fbdb528)
 - 🔧 工程/其他:活文档对齐远端归档移出后的最新面,消除收敛落地闸的滞后基线副本 (7729e5afef)
-- 🔧 工程/其他:重封清单对齐 4f4e686ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
+- 🔧 工程/其他:重封清单对齐 4f4e688ec39aab301cfe2f755ad65f664eed1e54 规则面(guardian-runner 等门改动同枚落库以放行部署环 fail-closed) (6b50bea596)
 - 🔧 工程/其他:结清 RP-64 判据面追认积压(IG 门红0/门29已同步) (dceaebc5bd)
 - 🔧 工程/其他:追认孤儿目录壳清扫腿枚 2e16a53572 的 AGENTS.md 判据面命中 (96be0510e3)
 - 🐞 修复:修复 RN 邮箱验证码「点了没反应/无倒计时/收不到」三处根因 (889a6e6984)
