@@ -5478,6 +5478,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3eff3f9df98)
+
+**2026-11-21**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (43e8e2b9a81)
 - 🔧 工程/其他:退役 README 数字对账门 173(数字滞后改人工定期刷新) (84572f3af05)
 - ⚡ 性能:scanFolders 普通目录不再逐项 realpath(O(目录数) 系统调用把 limit 截断退化成时间截断) (b3d8c73722b)

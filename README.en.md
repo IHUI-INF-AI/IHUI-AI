@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-21**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3eff3f9df98)
+
+**2026-11-21**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (43e8e2b9a81)
 - 🔧 Chore/Other:退役 README 数字对账门 173(数字滞后改人工定期刷新) (84572f3af05)
 - ⚡ Perf:scanFolders 普通目录不再逐项 realpath(O(目录数) 系统调用把 limit 截断退化成时间截断) (b3d8c73722b)
@@ -540,10 +543,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🚀 Feature/Improvement:RP-81 发版通知接 Server酱通用 push 通道(重落:前枚被收敛挤掉) (f46d674e8c)
 - 🔧 Chore/Other:为合并枚登记具名追认一行(AGENTS.md 活文档行 union) (3a1ee1181d)
 - ⚡ Perf:stale-baseline sentinel 25.5s -> 3.1s (4f7a419ac7)
-
-**2026-11-20**
-- 🐞 Fix:relay-models-sync 下架写入改先比现值再写(消盲写棘轮新增) (daf3f16745)
-- 🐞 Fix:heal-tunnel-service.ps1 补 UTF-8 BOM(正文零改动) (9331cfd9a0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
