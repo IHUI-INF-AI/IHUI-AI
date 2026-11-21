@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **64 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **65 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（64 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（65 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -712,6 +712,12 @@
 - 语义边界：**补的是取数面，不是判据** —— 派生清单照样过 `parseArtifactManifest` 票键/形状校验、`sanitizeArtifactPaths` 范围收口与 `selectDirtyPaths` 真脏判定，票键不符仍 `invalid`、路径不脏仍 `stale`；会话自己写的那份永远优先；dry-run 档不派生（没跑会话就没有证据）。
 - 顺带修掉两条同族缺陷（现读实测，均非本次引入）：① `auto-evolve.mjs` 的自检脚本在 S11a 里引用未导入的 `planFaceDigest`，整个 `--self-test` 直接 ReferenceError 打死（`--self-test` 由 2 连红转全绿）；② `scripts/tests/auto-evolve.test.mjs` 的 Ⓔ 锁用"全文件第一条 `spawn(process.execPath,[script,…])`"取 argv，实际抓到的是 check-ops-patrol 那条（`--json --apply`）⇒ 长期对着另一个器物喊红，真正要守的 auto-evolve 发射点反而没人看住；改为先锚 `'auto-evolve.mjs'` 取件处再取其后第一条 spawn。
 - 验证：`node scripts/auto-evolve.mjs --self-test` `self-test: 全绿`；`node --test scripts/tests/auto-evolve.test.mjs` 82 passed（新增 ⑬f 落点收入 / ⑬g 派生清单契约 / ⑬h 发射端顺位三例）；`node --test scripts/tests/auto-evolve-landing-e2e.test.mjs` 4 passed（真落地腿端到端未被改坏）。
+### 5.65 第 65 项：尺子建好了，登记表却一格产出字段都没有 —— 16 腿全部"未判定"
+
+- 现场：`check-autonomy-leg-health` 现读 `A12-leg-output-reconciliation` = `16 腿 = ok 0 / n/a 0 / drift 0 / unjudged 16`，每条都是同一句 `登记表产出字段缺失/非法 ⇒ 不冒充判过`。判据本体（`scripts/lib/autonomy-leg-output.mjs`）三分类齐备、镜像用例齐备，但 `scripts/data/autonomy-leg-liveness.json` 的 16 条腿**一条都没有** `outputKind / outputRel / outputTimeField / silenceCeilingMs` —— 与第 60/61 项同族：不是判据错，是判据的唯一输入面从没被填过。
+- 处置：按"每条腿自己的写盘分支"逐枚现读取值，不按腿名想象。① 有专属产出账的 4 腿：`auto-evolve`(`auto-evolve-ledger.jsonl`/ts)、`auto-triage`(`auto-triage-ledger.jsonl`/ts)、`deploy-feedback`(`deploy-feedback-ledger.jsonl`/ts)、`api-liveness`(`api-liveness.jsonl`/**at**，该器物自己用 `at` 键) ⇒ `always`；② 两腿共用 `incident-signals.jsonl`（`deploy-outcome-intake` / `monitor-signal-intake`）⇒ `coveredBy: A11-closure-output`，本维不重复量（同一份账被两条腿各算一次就是第二个真相源）；③ 其余 10 腿结构性无产出账（判据门 / 基线面 / 生成器，产物是文件不是留痕）⇒ `none`，仍由 A8 量戳。
+- 语义边界：`silenceCeilingMs` 一律 = 该腿 `nominalIntervalMs × 6`（连续 6 个班次零产出才报），是算出来的不是拍的数；不改判据、不改任何器物的写盘行为，只把"唯一输入面"补齐。
+- 验证：落地后复跑 `node scripts/check-autonomy-leg-health.mjs`，A12 由 `unjudged 16` 转为可判（读数按当次现读，不在本文冻结）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
