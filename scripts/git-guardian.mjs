@@ -15976,6 +15976,10 @@ function startDaemon(bootGuard = null) {
         sweepMiniappStyleTiers()
         sweepParityCockpit()
         sweepPoolIsolation()
+        // ref 位移丢提交守夜人(第 63 项):A9 现读它是"只在一次性 main 里"的唯一一条 ⇒ daemon 常驻持
+        // 轮级锁时那趟永远让路,守夜人等于不存在。自带 tick 节流(REF_MOVE_WATCH_INTERVAL_MS,
+        // ref-move-watch-last.json),双面并存只先到者真跑,零行为变更。
+        sweepRefMoveLoss()
         await sweepRnColorLiteralLeg()
         await sweepRnCompatLeg()
         await sweepRnHostShells()

@@ -1030,6 +1030,14 @@ export const ACTION_CLAIMS = {
     why: '调度层会话额度熔断停转(与日预算不同一桶):停的是节律不是缺陷,但出路不同 —— 放量属人工阀 budget-cap-change,改的是 scripts/data/cost-caps.json',
   },
   'dryrun-ticket': { dim: 'A15', kind: 'informational', why: '预演档:没动手,不得算产出' },
+  // 2026-11-21 第 63 项:`runner-budget-exhausted` 在 lib 的 ACTION_EXEMPTIONS 里早有归属(轮级发起腿
+  // 额度停转、无票键),但本表没认它 ⇒ A15 现读 37 轮"台账动作无人认领",这些轮次只能从散文读。
+  // 豁免 ≠ 判过:它仍要进本维报数(否则"停转了多少轮"在尺子上不存在),但不计进 A7 空转。
+  'runner-budget-exhausted': {
+    dim: 'A15',
+    kind: 'informational',
+    why: '轮级发起腿额度停转(无票键 ⇒ 没占任何一张票的班次):停的是节律不是缺陷,由本维点名报数',
+  },
   'task-registered': {
     dim: 'A15',
     kind: 'informational',
