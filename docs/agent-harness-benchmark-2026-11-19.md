@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **91 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **92 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（91 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（92 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1390,6 +1390,40 @@
 - 边界：台账只记**实测**（读不到/过期/坏形状一律回落旧行为，不拿"读不到"当放行）；
   它不改变封口语义（真能建的时候照旧建），也不把 `C:\` 根 ACL 的问题"修"掉 —— 那是机主职权面，
   本项只让这条事实**不再被重复告警**且 24h 后自动复核一次。
+
+### 5.92 第 92 项：体积哨兵「只报不处置」，盘上也没有一格能说"这枚我知道、它该在这儿" —— 一次 recon 产物把 50MB 阈值变成恒态告警
+
+- 现场（一手）：`node scripts/check-tmp-bloat.mjs --json` 现读 `state=alarm`，
+  `over50=[{"rel":"recon/qoder-graph.json","bytes":164966474}]`（157.32MB，第 1/2 项 Qoder 前端图
+  逆向取证的一次性产物），另有 `ios-ipa-relay/ihui-ai-latest.ipa`（38.45MB，包中转腿的"当前可下载
+  那一版"）。守护 `auditTmpBloat` 每 5 分钟派发一次，`git-guardian.log` 现读连续多轮同一句
+  `🚨 1 枚 >50MB 失控单枚;另 1 枚 >20MB` —— 一条**不会变**的读数被反复喊（§12e 那型的反面：
+  多喊一次没错，但同一条事实反复喊会把真的越阈件淹掉）。
+- 根因：判据侧只有阈值两档，**没有任何"有意保留"通道**；也没有任何一格写过"这 157MB 是谁的、
+  什么时候该复核"。于是"留着"这件事在账面上与"失控"完全同形。
+- 处置：
+  - 新增登记面 `scripts/data/tmp-bloat-keep.json`（消费者只有哨兵一个，§0.6）：每条必须有
+    `rel`（精确命中，或以 `/` 结尾的前缀命中）、`reason`、可解析 `reviewBy`。它不是豁免族，
+    不进守门 108 的族表 —— 它换的不是"不判红"，而是"量到了也照样点名成 kept 而不是 alarm"。
+  - `scripts/check-tmp-bloat.mjs` 增两个纯判据 `parseKeepLedger(raw)` / `applyKeep(result, entries, nowMs)`：
+    命中 ∧ 未到期 ⇒ 进 `kept`（**照旧逐条点名**，并打印 `reviewBy`）；到期 ⇒ 逐条进 `expired`
+    **且仍算越阈**（"登记过就永久静音"是被禁的失效方向）；缺 `rel/reason/reviewBy`、`rel` 跑出
+    `.ihui-agent/tmp` 根外（绝对路径 / `..` / 盘符）、台账读不到或 JSON 坏 ⇒ **一条都不豁免**并把
+    原因打进读数。结论行改为
+    `TMP-BLOAT … over50= … over20= … kept=<n> state=<ok|watch|alarm|undetermined>`。
+  - **消费端同一笔修**：`scripts/git-guardian.mjs` 的 `auditTmpBloat` 原正则把 `state=` 钉死在
+    `over20=` 之后，多一维 `kept=` 就整行匹配不上 ⇒ 派发腿会永远读到"未取到结论行"，而器物那边
+    已经判定过。这正是"契约加了字段、消费者没跟上"的老型，故 kept 设为可选捕获、state 取最后一维，
+    并在 ok/watch/alarm 三档读数里都带上"登记保留 N 枚"。
+- 验证（现读）：`node scripts/check-tmp-bloat.mjs --self-test` ⇒ **10/10**
+（新增 4 例：登记命中降档 / 到期仍越阈且点名 / 前缀只吃该目录 / 保留一件后另一件照落 watch）；
+  `node --test scripts/tests/check-tmp-bloat.test.mjs` ⇒ **6/6**（台账逐条 reviewBy 可解析且落在
+  tmp 根内、相似名不被顺手豁免、坏台账四个形态一条都不豁免、到期条仍占越阈栏、装车断言）；
+  `node scripts/check-tmp-bloat.mjs --json` 现读 `over50=0 over20=0 kept=2 state=ok`，
+  文本档逐条打印 `📌 已登记保留(不算越阈,reviewBy …)`；`auditTmpBloat` 现读
+  `{"state":"ok","reading":"tmp 3291 枚 / 880.46MB,最大 157.32MB,无越阈单枚(登记保留 2 枚,已点名)"}`。
+- 边界：本项**不删任何文件**（157MB 取证原文与 38MB 包缓存都留着，只是从此有主、有复核日）；
+  "该删了"仍由 `reviewBy` 到期把条目打回越阈来提醒，而不是靠人记得。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

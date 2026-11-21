@@ -34,6 +34,16 @@
  * 状态落机读快照到 `.ihui-agent/state/tmp-bloat-last.json`(与 api-liveness /
  * tunnel-leg-health 巡检腿同族运行时状态位,gitignored,不进仓)。
  *
+ * ## 「有意保留」登记面(2026-11-21 立,第 92 项)
+ *
+ * 立因:一次 recon 产物(157MB 的 `recon/qoder-graph.json`)把 50MB 阈值变成**恒态告警** ——
+ * 本器只报不处置,盘上也没有任何一格能说"这枚我知道、它该在这儿"。于是同一条事实每 5 分钟
+ * 报一次(§12e 恒红门禁令的反面:多喊一次没错,但一条不会变的读数反复喊就淹掉真的越阈件)。
+ * 登记面 `scripts/data/tmp-bloat-keep.json`:命中(精确 rel 或 `/` 结尾前缀)∧ 带 reason ∧
+ * reviewBy 未到期 ⇒ 该枚进 `kept`(照旧点名,但不算 over50/over20,故不抬 alarm)。
+ * 台账读不到 / JSON 坏 / 条目缺件 / 已到期 ⇒ **一条都不豁免**,并逐条把原因打出来
+ * (失效方向恒为多喊一次,§0.10)。`rel` 必须在 tmp 根之下,跑出根外的一律不认。
+ *
  * 用法:
  *   node scripts/check-tmp-bloat.mjs              # 只读巡检
  *   node scripts/check-tmp-bloat.mjs --json        # 机器可读快照
@@ -59,6 +69,9 @@ const WATCH_BYTES = WATCH_MB * MB
 
 const SELF_TEST = process.argv.includes('--self-test')
 const AS_JSON = process.argv.includes('--json')
+const KEEP_LEDGER = process.env.IHUI_TMP_BLOAT_KEEP_JSON
+  ? path.resolve(process.env.IHUI_TMP_BLOAT_KEEP_JSON)
+  : path.join(WORKTREE, 'scripts', 'data', 'tmp-bloat-keep.json')
 
 function log(line) {
   process.stdout.write(`${line}\n`)
@@ -93,8 +106,75 @@ export function classify(entries) {
   }
 }
 
-/** 递归枚举目录下普通文件(跳过符号链接防环),返回 {rel, bytes}[]。读不到抛错由 main 兜。 */
-export function scanDir(dir) {
+/**
+ * 纯判据:解析「有意保留」台账文本。零 IO、零副作用,供自检与镜像测试 import(§22c)。
+ * 形状坏 / 缺件 / rel 跑出 tmp 根 ⇒ 逐条进 problems(该条**不豁免**);不抛错,不影响主判定。
+ */
+export function parseKeepLedger(rawText) {
+  const problems = []
+  const entries = []
+  let parsed
+  try {
+    parsed = JSON.parse(String(rawText ?? ''))
+  } catch (e) {
+    return { entries: [], problems: [`台账不是合法 JSON(${String(e?.message ?? e).slice(0, 60)})⇒ 本轮一条都不豁免`] }
+  }
+  const list = Array.isArray(parsed?.entries) ? parsed.entries : []
+  if (!Array.isArray(parsed?.entries)) problems.push('台账缺 entries 数组 ⇒ 本轮一条都不豁免')
+  for (const e of list) {
+    const rel = typeof e?.rel === 'string' ? e.rel.trim().replace(/\\/g, '/') : ''
+    const reason = typeof e?.reason === 'string' ? e.reason.trim() : ''
+    const reviewBy = typeof e?.reviewBy === 'string' ? e.reviewBy.trim() : ''
+    if (!rel) {
+      problems.push('有一条缺 rel ⇒ 该条不豁免')
+      continue
+    }
+    // 登记面只能指向 tmp 根之内:绝对路径 / `..` 一律不认(否则一条台账能把盘上任意大文件"豁免"掉)
+    if (rel.startsWith('/') || rel.includes('..') || /^[a-zA-Z]:/.test(rel)) {
+      problems.push(`「${rel}」跑出 .ihui-agent/tmp 根外 ⇒ 该条不豁免`)
+      continue
+    }
+    if (!reason) {
+      problems.push(`「${rel}」缺 reason ⇒ 该条不豁免`)
+      continue
+    }
+    const at = /^(\d{4})-(\d{2})-(\d{2})$/.exec(reviewBy)
+    const stamp = at ? Date.parse(`${reviewBy}T23:59:59Z`) : NaN
+    if (!at || Number.isNaN(stamp)) {
+      problems.push(`「${rel}」缺可解析 reviewBy(YYYY-MM-DD)⇒ 该条不豁免`)
+      continue
+    }
+    entries.push({ rel, reason, reviewBy, expiresAt: stamp, prefix: rel.endsWith('/') })
+  }
+  return { entries, problems }
+}
+
+/** 纯判据:把越阈单枚按台账分流成越阈/保留两栏。零 IO。 */
+export function applyKeep(result, entries, nowMs = Date.now()) {
+  const all = [...(result?.over50 || []), ...(result?.over20 || [])]
+  const kept = []
+  const expired = []
+  const over50 = []
+  const over20 = []
+  const list = Array.isArray(entries) ? entries : []
+  for (const x of all) {
+    const bytes = Number(x.bytes) || 0
+    const hit = list.find((e) => (e.prefix ? x.rel.startsWith(e.rel) : x.rel === e.rel))
+    if (hit && hit.expiresAt <= nowMs) {
+      // 到期 = 不豁免:**仍算越阈**(否则"登记了就不再喊"会变成永久静音,正好是 §12e 那型)
+      expired.push({ rel: x.rel, bytes, reviewBy: hit.reviewBy })
+      if (bytes > ALARM_BYTES) over50.push(x)
+      else over20.push(x)
+    } else if (hit) {
+      kept.push({ rel: x.rel, bytes, reason: hit.reason, reviewBy: hit.reviewBy })
+    } else if (bytes > ALARM_BYTES) over50.push(x)
+    else over20.push(x)
+  }
+  const state = over50.length > 0 ? 'alarm' : over20.length > 0 ? 'watch' : 'ok'
+  return { over50, over20, kept, expired, state }
+}
+
+/** 递归枚举目录下普通文件(跳过符号链接防环),返回 {rel, bytes}[]。读不到抛错由 main 兜。 */export function scanDir(dir) {
   const out = []
   const walk = (abs, relBase) => {
     let entries
@@ -153,12 +233,42 @@ function selfTest() {
     { name: '空目录判 ok(不冒充越阈)', entries: [], want: 'ok', over50: 0, over20: 0 },
     { name: '恰好 50MB 不算 >50(边界严格大于)', entries: [{ rel: 'd/x', bytes: ALARM_BYTES }], want: 'watch', over50: 0, over20: 1 },
     { name: '恰好 20MB 不算 >20', entries: [{ rel: 'e/y', bytes: WATCH_BYTES }], want: 'ok', over50: 0, over20: 0 },
+    // 第 92 项:登记面的四条牙 —— 命中就降档、到期就失效、跑出根就作废、坏 JSON 一条都不豁免。
+    {
+      name: '登记命中 ⇒ 该枚进 kept,不抬 alarm',
+      keep: [{ rel: 'r/qoder-graph.json', reason: '取证产物', reviewBy: '2099-01-31', expiresAt: Date.parse('2099-01-31T23:59:59Z') }],
+      entries: [{ rel: 'r/qoder-graph.json', bytes: 160 * MB }],
+      want: 'ok', over50: 0, over20: 0, kept: 1,
+    },
+    {
+      name: '登记已到期 ⇒ 仍算越阈(且不静默)',
+      keep: [{ rel: 'r/qoder-graph.json', reason: '取证产物', reviewBy: '2000-01-01', expiresAt: Date.parse('2000-01-01T23:59:59Z') }],
+      entries: [{ rel: 'r/qoder-graph.json', bytes: 160 * MB }],
+      want: 'alarm', over50: 1, over20: 0, kept: 0, expired: 1,
+    },
+    {
+      name: '前缀登记只吃该目录,别的越阈件照旧 alarm',
+      keep: [{ rel: 'r/', reason: '目录级保留', reviewBy: '2099-01-31', expiresAt: Date.parse('2099-01-31T23:59:59Z'), prefix: true }],
+      entries: [{ rel: 'r/a.bin', bytes: 60 * MB }, { rel: 'other/b.bin', bytes: 60 * MB }],
+      want: 'alarm', over50: 1, over20: 0, kept: 1,
+    },
+    {
+      name: '保留后另一枚 watch 仍在 ⇒ 落 watch 档,不被登记整体压平',
+      keep: [{ rel: 'r/big.json', reason: '取证产物', reviewBy: '2099-01-31', expiresAt: Date.parse('2099-01-31T23:59:59Z') }],
+      entries: [{ rel: 'r/big.json', bytes: 160 * MB }, { rel: 'w/mid.bin', bytes: 25 * MB }],
+      want: 'watch', over50: 0, over20: 1, kept: 1,
+    },
   ]
   let failed = 0
   for (const c of cases) {
-    const r = classify(c.entries)
+    const base = classify(c.entries)
+    const r = c.keep ? { ...base, ...applyKeep(base, c.keep, Date.parse('2026-11-21T00:00:00Z')) } : base
     const ok =
-      r.state === c.want && r.over50.length === c.over50 && r.over20.length === c.over20
+      r.state === c.want &&
+      r.over50.length === c.over50 &&
+      r.over20.length === c.over20 &&
+      (c.kept === undefined || (r.kept || []).length === c.kept) &&
+      (c.expired === undefined || (r.expired || []).length === c.expired)
     log(`${ok ? '✅' : '❌'} self-test:${c.name}`)
     if (!ok) failed += 1
   }
@@ -168,7 +278,21 @@ function selfTest() {
 
 function conclusionLine(r) {
   return `TMP-BLOAT files=${r.files} total=${fmtMb(r.totalBytes)} MB max=${fmtMb(r.maxBytes)} MB ` +
-    `over50=${r.over50.length} over20=${r.over20.length} state=${r.state}`
+    `over50=${r.over50.length} over20=${r.over20.length} kept=${(r.kept || []).length} state=${r.state}`
+}
+
+/** 台账读不到 / 坏 ⇒ 不豁免(方向是多喊一次),但要把原因带进读数,不许静默。 */
+function loadKeep() {
+  let raw
+  try {
+    raw = readFileSync(KEEP_LEDGER, 'utf8')
+  } catch (e) {
+    return {
+      entries: [],
+      problems: [`台账读不到(${path.relative(WORKTREE, KEEP_LEDGER)}: ${String(e?.code ?? e?.message ?? e)})⇒ 本轮一条都不豁免`],
+    }
+  }
+  return parseKeepLedger(raw)
 }
 
 async function main() {
@@ -194,6 +318,8 @@ async function main() {
   }
 
   const r = classify(entries)
+  const keep = loadKeep()
+  const split = applyKeep(r, keep.entries)
   const snap = {
     checkedAt: new Date().toISOString(),
     files: r.files,
@@ -201,9 +327,12 @@ async function main() {
     totalMb: Number(fmtMb(r.totalBytes)),
     maxBytes: r.maxBytes,
     maxFile: r.maxFile,
-    over50: r.over50,
-    over20: r.over20,
-    state: r.state,
+    over50: split.over50,
+    over20: split.over20,
+    kept: split.kept,
+    expired: split.expired,
+    keepProblems: keep.problems,
+    state: split.state,
     alarmMb: ALARM_MB,
     watchMb: WATCH_MB,
   }
@@ -212,14 +341,20 @@ async function main() {
   if (AS_JSON) {
     log(JSON.stringify({ tool: 'check-tmp-bloat', ...snap }))
   } else {
-    log(conclusionLine(r))
-    for (const x of r.over50) log(`  🚨 alarm(>${ALARM_MB}MB): ${x.rel} — ${fmtMb(x.bytes)} MB`)
-    for (const x of r.over20) log(`  ⚠️ watch(>${WATCH_MB}MB): ${x.rel} — ${fmtMb(x.bytes)} MB`)
-    if (r.state === 'ok') log(`  全部单枚 ≤ ${WATCH_MB}MB`)
+    log(conclusionLine(snap))
+    for (const x of snap.over50) log(`  🚨 alarm(>${ALARM_MB}MB): ${x.rel} — ${fmtMb(x.bytes)} MB`)
+    for (const x of snap.over20) log(`  ⚠️ watch(>${WATCH_MB}MB): ${x.rel} — ${fmtMb(x.bytes)} MB`)
+    // 保留的大件**也要点名**(只报数不等于静音):否则下一个人看不出盘上那 157MB 是谁的、到哪天该续期。
+    for (const x of snap.kept)
+      log(`  📌 已登记保留(不算越阈,reviewBy ${x.reviewBy}): ${x.rel} — ${fmtMb(x.bytes)} MB`)
+    for (const x of snap.expired)
+      log(`  ⌛ 登记已到期(该条不豁免,仍算越阈): ${x.rel} — reviewBy ${x.reviewBy} 已过`)
+    for (const p of snap.keepProblems) log(`  ℹ️ 台账:${p}`)
+    if (snap.state === 'ok') log(`  全部单枚 ≤ ${WATCH_MB}MB(已扣除登记保留件)`)
   }
 
-  if (r.state === 'undetermined') process.exitCode = 2
-  else if (r.state === 'ok') process.exitCode = 0
+  if (snap.state === 'undetermined') process.exitCode = 2
+  else if (snap.state === 'ok') process.exitCode = 0
   else process.exitCode = 1
 }
 
@@ -231,5 +366,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { classify, scanDir, ALARM_BYTES, WATCH_BYTES, TMP_DIR, STATE_FILE }
+export const __test__ = { classify, parseKeepLedger, applyKeep, scanDir, ALARM_BYTES, WATCH_BYTES, TMP_DIR, STATE_FILE, KEEP_LEDGER }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
