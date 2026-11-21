@@ -37,6 +37,15 @@ export interface RelayChatUsage {
   totalTokens: number
 }
 
+/** 上游 model 请求的工具回调(2026-11-21):号池通道的 tool loop 在调用方跑 */
+export interface RelayToolCall {
+  /** 上游给的调用 id(缺省时由客户端生成,保证 UI 侧可定位) */
+  id: string
+  name: string
+  /** 原始 JSON 字符串(上游是分片拼出来的,这里已拼完整) */
+  arguments: string
+}
+
 export interface StreamRelayChatOptions {
   model: string
   messages: RelayChatMessage[]
@@ -56,6 +65,12 @@ export interface StreamRelayChatOptions {
   onUsage?: (usage: RelayChatUsage) => void
   /** 空闲超时(毫秒):从发出请求到收到下一次帧的最长等待,默认 180s */
   idleTimeoutMs?: number
+  /** OpenAI tools 定义(2026-11-21):带上后上游可回 tool_calls,由调用方执行并续跑 */
+  tools?: Array<Record<string, unknown>>
+  /** tool_choice(可选,原样透传) */
+  toolChoice?: string | Record<string, unknown>
+  /** 本轮工具调用回调(流收束时一次性给出已拼完整的调用清单) */
+  onToolCalls?: (calls: RelayToolCall[]) => void
 }
 
 /** 服务端 → 客户端帧(形状见 ws-relay-chat.ts 头注) */
@@ -67,14 +82,32 @@ interface RelayFrame {
   status?: unknown
 }
 
-/** 从 chunk.data 里抽正文增量与 usage;无法解析返回 null(心跳/注释行) */
+/** 一条 tool_calls 分片(OpenAI 规范:index 定位,function.arguments 是增量字符串) */
+interface ToolCallDelta {
+  index: number
+  id?: string
+  name?: string
+  argumentsChunk?: string
+}
+
+/** 从 chunk.data 里抽正文增量/usage/tool_calls 分片;无法解析返回 null(心跳/注释行) */
 function parseChunkData(data: string): {
   content: string
   usage?: RelayChatUsage
+  toolDeltas?: ToolCallDelta[]
 } | null {
   try {
     const json = JSON.parse(data) as {
-      choices?: Array<{ delta?: { content?: unknown } }>
+      choices?: Array<{
+        delta?: {
+          content?: unknown
+          tool_calls?: Array<{
+            index?: unknown
+            id?: unknown
+            function?: { name?: unknown; arguments?: unknown }
+          }>
+        }
+      }>
       usage?: {
         prompt_tokens?: unknown
         completion_tokens?: unknown
@@ -84,6 +117,21 @@ function parseChunkData(data: string): {
     let content = ''
     const delta = json.choices?.[0]?.delta
     if (delta && typeof delta.content === 'string') content = delta.content
+    // 工具调用分片:上游按 index 分多条增量下发,name/arguments 都是增量拼装
+    const toolDeltas: ToolCallDelta[] = []
+    if (delta && Array.isArray(delta.tool_calls)) {
+      for (const raw of delta.tool_calls) {
+        const index = typeof raw?.index === 'number' && raw.index >= 0 ? raw.index : 0
+        const piece: ToolCallDelta = { index }
+        if (typeof raw?.id === 'string' && raw.id) piece.id = raw.id
+        const fn = raw?.function
+        if (fn) {
+          if (typeof fn.name === 'string' && fn.name) piece.name = fn.name
+          if (typeof fn.arguments === 'string') piece.argumentsChunk = fn.arguments
+        }
+        toolDeltas.push(piece)
+      }
+    }
     let usage: RelayChatUsage | undefined
     if (json.usage && typeof json.usage === 'object') {
       const num = (v: unknown): number =>
@@ -94,7 +142,7 @@ function parseChunkData(data: string): {
         totalTokens: num(json.usage.total_tokens),
       }
     }
-    return { content, usage }
+    return { content, usage, ...(toolDeltas.length > 0 ? { toolDeltas } : {}) }
   } catch {
     return null
   }
@@ -127,6 +175,24 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
     let sentChat = false
     let socket: WebSocket | null = null
     let idleTimer: ReturnType<typeof setTimeout> | null = null
+    /** 本轮 tool_calls 分片累积(index → 拼装中的调用;arguments 是增量字符串) */
+    const toolAcc = new Map<number, { id?: string; name?: string; args: string }>()
+
+    /** 把累积的分片拼成完整调用清单(无 name 的片段丢弃:上游可能只发 arguments) */
+    const collectToolCalls = (): RelayToolCall[] => {
+      if (toolAcc.size === 0) return []
+      const out: RelayToolCall[] = []
+      for (const [index, piece] of [...toolAcc.entries()].sort((a, b) => a[0] - b[0])) {
+        const name = piece.name?.trim()
+        if (!name) continue
+        out.push({
+          id: piece.id || `pool-call-${index}-${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          arguments: piece.args || '{}',
+        })
+      }
+      return out
+    }
 
     const clearIdle = (): void => {
       if (idleTimer !== null) {
@@ -226,6 +292,9 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
             ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
             // 2026-11-21:推理档位只在用户表态时下发(空串/undefined 不发,后端按默认档)。
             ...(opts.reasoningEffort ? { reasoning_effort: opts.reasoningEffort } : {}),
+            // 2026-11-21:号池通道带上工具定义 ⇒ 上游可回 tool_calls(由调用方执行并续跑)
+            ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools } : {}),
+            ...(opts.toolChoice ? { tool_choice: opts.toolChoice } : {}),
           }),
         )
       } catch (err) {
@@ -267,11 +336,25 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
         if (!parsed) return
         if (parsed.content) opts.onDelta(parsed.content)
         if (parsed.usage) opts.onUsage?.(parsed.usage)
+        if (parsed.toolDeltas) {
+          for (const d of parsed.toolDeltas) {
+            const cur = toolAcc.get(d.index) ?? { args: '' }
+            if (d.id) cur.id = d.id
+            if (d.name) cur.name = d.name
+            if (d.argumentsChunk) cur.args += d.argumentsChunk
+            toolAcc.set(d.index, cur)
+          }
+        }
         return
       }
       if (frame.type === 'done') {
         completed = true
-        finish(() => opts.onDone?.())
+        // 工具调用先于收尾回调交出:调用方要在本轮流结束后立刻执行并续跑下一轮
+        const calls = collectToolCalls()
+        finish(() => {
+          if (calls.length > 0) opts.onToolCalls?.(calls)
+          opts.onDone?.()
+        })
         return
       }
       if (frame.type === 'error') {

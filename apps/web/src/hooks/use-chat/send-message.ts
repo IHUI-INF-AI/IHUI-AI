@@ -57,7 +57,9 @@ import { readTitleAutoUpdate } from '@/components/chat/title-update-policy'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
 // 2026-11-12 立:号池 WS 流式客户端 —— 选中「我的号池」模型时,主对话改走 /ws/relay/chat
-import { streamRelayChat } from '@/lib/relay-chat-stream'
+// 2026-11-21:改由 pool-tool-loop 承接(带工具回路:取 schema → 带 tools → 收 tool_calls → 执
+// 行 → 文本回灌续跑),对外仍是一条号池通道,平台腿的 onDelta/onError/onDone 回调口径不变。
+import { runPoolToolLoop } from '@/lib/pool-tool-loop'
 // P3 #30(2026-09-16 立):diff 评审意见 → agent 上下文注入
 import { appendDiffComments } from '@/lib/diff-comments'
 import { emitAgentHook } from '@/stores/agent-hooks'
@@ -1790,17 +1792,37 @@ export function createSendMessage(
       const modelIsFromPool =
         chatStore.getState().currentModelChannel === 'pool' || isPoolModelId(effectiveModel)
       if (modelIsFromPool) {
-        await streamRelayChat({
+        // 2026-11-21:号池通道补上工具回路 —— 此前该通道只做纯对话,模型看不见 hr_*/
+        // finance_* 等工具,用户问人事/财务时只能答"我无法调用工具"。回路在客户端跑
+        // (取 schema → 带 tools → 收 tool_calls → 调 /ai/mcp/tools/call → 文本回灌续跑),
+        // 权限矩阵/审计仍由 ai-service 判,前端不复制任何 RBAC 判据。
+        await runPoolToolLoop({
           model: effectiveModel,
           messages: streamOpts.messages,
+          ...(conversationId ? { conversationId } : {}),
           signal: controller.signal,
-          conversationId: conversationId ?? undefined,
           // 推理强度同样进号池通道(2026-11-21):平台腿早已透传,号池腿此前漏带。
           reasoningEffort: samplingParams.reasoningEffort,
+          toolNames: streamOpts.agentTools ?? [],
           onDelta: streamOpts.onDelta,
           onDone: streamOpts.onDone,
           // 号池错误只给一句人话给既有错误卡;errorCode 由上层文案兜底(formatSSEError)
           onError: (msg) => streamOpts.onError?.(msg),
+          onToolStart: (call, args) => {
+            chatStore.getState().addToolCall(assistantId, {
+              id: call.id,
+              toolName: call.name,
+              args,
+              status: 'running',
+            })
+          },
+          onToolEnd: (call, ok, output) => {
+            chatStore.getState().updateToolCall(assistantId, call.id, {
+              status: ok ? 'success' : 'error',
+              result: output,
+              ...(ok ? {} : { isError: true, error: output.slice(0, 300) }),
+            })
+          },
         })
       } else {
         await streamChat(streamOpts)
