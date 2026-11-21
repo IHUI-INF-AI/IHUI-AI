@@ -15536,6 +15536,9 @@ async function main() {
     // 与 check-gate-wiring 的五处权威点严格互补;同一 tick 双挂点。
     beatRoundLock()
     if (!CHECK_ONLY) auditDispatchClaims()
+    // 监控三源入库(第 58 项):器物在、契约在、零调度点 ⇒ 实测信号台账 37 行只有 deploy_outcome 一源。
+    beatRoundLock()
+    if (!CHECK_ONLY) dispatchMonitorSignalIntake()
     beatRoundLock()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     beatRoundLock()
@@ -15819,6 +15822,8 @@ function startDaemon(bootGuard = null) {
         auditIpAttributionTrust()
         // 「自述被守护派发」对账(第 57 项):同上,daemon 独占时也必须真判。
         auditDispatchClaims()
+        // 监控三源入库(第 58 项):同上,daemon 独占时也必须真跑(--apply 才产信号)。
+        dispatchMonitorSignalIntake()
         // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
         // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
         // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
@@ -16635,6 +16640,75 @@ export function dispatchDeployFeedback(opts = {}) {
   beatRoundLock()
   logger(
     `${r.ok ? '✅' : '⚠️'} 部署反馈派发:${r.ok ? '完成(--once 仅扫描)' : '异常'}｜${String(
+      r.out ?? '',
+    )
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .slice(-1)
+      .join('')
+      .slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`,
+  )
+  return { ran: true, ok: r.ok }
+}
+
+/**
+ * 监控三源入库派发(第 58 项)。`monitor-signal-intake.mjs` 是契约 producers 段登记的
+ * api_logs / grafana_alert / user_feedback 三源唯一生产器,而全仓零调度点 —— 实测
+ * `incident-signals.jsonl` 37 行全部 source=deploy_outcome,另外三源一条都没有:感知腿名义上
+ * "四源",实际只有一源在跑(§0.9「造好没装车 = 没有」)。
+ *
+ * 写盘纪律照器物自己的契约:默认 dry-run,`--apply` 才落账 ⇒ 本派发点必须带 `--apply`,
+ * 否则"跑了但没有产出"会伪装成健康。去重由器物自己的 identityOf 完成(同输入重复跑幂等),
+ * 与 deploy_outcome 源共用同一本台账,不新建第二份。
+ *
+ * 源读不到一律由器物落"未判定"并逐源点名:本层只把最后一行结论进日志,不寄信、不改退出码
+ * (感知腿的沉默由 check-autonomy-leg-health 的 A8/A9 另量,§12e)。
+ */
+export function dispatchMonitorSignalIntake(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_MONITOR_INTAKE_INTERVAL_MS || 30 * 60 * 1000),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'monitor-signal-intake-dispatch-last.json'),
+    logger = log,
+    exists = existsSync,
+    runner = null,
+  } = opts
+  if (process.env.IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE === '1') {
+    logger('⏸ 监控三源入库派发:IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1 ⇒ 跳过')
+    return { ran: false, why: '被 env 关闭' }
+  }
+  const script = join(GUARDIAN_SCRIPTS_DIR, 'monitor-signal-intake.mjs')
+  if (!exists(script)) {
+    logger('ℹ 监控三源入库派发:器物不在位(scripts/monitor-signal-intake.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '器物缺席' }
+  }
+  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  stampDispatchTick(tickFile, now, logger)
+  const run =
+    runner ??
+    (() => {
+      try {
+        const out = execFileSync(process.execPath, [script, '--apply', '--json'], {
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10 * 60 * 1000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        return { ok: true, out: String(out ?? '') }
+      } catch (e) {
+        return {
+          ok: false,
+          out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
+          err: String(e?.message ?? e),
+        }
+      }
+    })
+  const r = run()
+  beatRoundLock()
+  logger(
+    `${r.ok ? '✅' : '⚠️'} 监控三源入库派发:${r.ok ? '完成(--apply)' : '异常(源未判定不影响其他源)'}｜${String(
       r.out ?? '',
     )
       .split(/\r?\n/)
