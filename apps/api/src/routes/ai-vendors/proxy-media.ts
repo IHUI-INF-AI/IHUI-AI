@@ -29,6 +29,7 @@ import {
 } from './_shared.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
+import { bareMediaModelId } from '@ihui/shared'
 
 // Suno 音乐生成:官方完整参数(custom_mode/instrumental/style/title/seed 等)
 const sunoGenerateBody = z.object({
@@ -313,7 +314,9 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const { image, ...rest } = body
       // 2026-10-10:默认模型对齐 /v1/models 现存清单(v2.0 已下架,上游 503 model_not_found)
       // 默认走免费档 flash(机主拍板不充值:付费档 2.5 在余额 0 时上游 403 insufficient_user_quota)
-      const model = rest.model ?? 'agnes-video-2.5-flash'
+      // 目录 id 带 provider 前缀(`agnes/agnes-video-2.5-flash`),上游只认裸名 ⇒ 先取裸名,
+      // 否则 isV25 判假会走 v2.0 参数版(宽/高)并把 `agnes/` 前缀送去上游(404 model_not_found)。
+      const model = bareMediaModelId(rest.model) || 'agnes-video-2.5-flash'
       // 2.5 系列(现存):mode 必填(缺省按有无 image 补 text/image),size 仅 720P(缺省 720P),
       // 不收 width/height/num_frames/frame_rate
       // v2.0 分支保留仅为显式传旧模型时透传原参数(上游已 503,不做业务拦截)
