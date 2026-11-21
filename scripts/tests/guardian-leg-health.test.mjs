@@ -18,9 +18,22 @@ const leg = (over = {}) => ({ exists: true, stale: false, down: false, ...over }
 test('① 汇总判据:全 down ⇒ down;部分 stale ⇒ stale;全新鲜 ⇒ ok', () => {
   assert.equal(judgeLegHealth({ a: leg({ down: true }), b: leg({ down: true }) }), 'down')
   assert.equal(judgeLegHealth({ a: leg(), b: leg({ stale: true }) }), 'stale')
-  assert.equal(judgeLegHealth({ a: leg(), b: leg({ stale: true }), c: leg({ down: true }) }), 'stale')
+  // 第 87 项:任一腿越过 downMs 就必须是 down —— 旧规则这里给 stale,而 runner 对 stale 只登记不发信,
+  // 实测 disk-root-hygiene 25h 没跑时哨兵仍报 stale、到人通道一格都没走(单腿死只落 warn = 没有求救信号)。
+  assert.equal(judgeLegHealth({ a: leg(), b: leg({ stale: true }), c: leg({ down: true }) }), 'down')
+  assert.equal(judgeLegHealth({ a: leg(), b: leg({ down: true }) }), 'down', '单腿 down 必须喊人')
   assert.equal(judgeLegHealth({ a: leg(), b: leg(), c: leg() }), 'ok')
   assert.equal(judgeLegHealth({}), 'down')
+})
+
+test('①b 从未跑过(缺失)不等于死腿:全缺 ⇒ down,单腿缺 ⇒ 只是 stale', () => {
+  const missing = leg({ exists: false, missing: true, stale: false, down: false })
+  assert.equal(judgeLegHealth({ a: missing, b: missing }), 'down', '一台从没跑过守护的机器必须报 down')
+  assert.equal(judgeLegHealth({ a: leg(), b: missing }), 'stale', '该腿本机不适用时不得单独判急')
+  // 读数形状锁:缺失不得被写成 down(旧写法 `age === null || age > downMs`)
+  const src = readFileSync(join(ROOT, 'scripts', 'check-guardian-leg-health.mjs'), 'utf8')
+  assert.doesNotMatch(src, /down:\s*age\s*===\s*null\s*\|\|/, '缺失被折成 down ⇒ 单腿缺也会报急')
+  assert.match(src, /missing:\s*age\s*===\s*null/)
 })
 
 test('② 阈值按腿分化: 24h 腿 17h 不算 stale(旧代码统一 30min 会读错)', () => {
