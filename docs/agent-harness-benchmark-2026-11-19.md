@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **58 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **59 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（58 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（59 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -676,6 +676,13 @@
 - 语义边界：三源全部未判定时器物 exit 2 ⇒ 派发器记 `ok=false` 并**照原样点名**（不折成"跑成功"）；源未判定不影响其他源；去重仍由器物自己的 `identityOf` 完成，与 `deploy_outcome` 共用一本台账，不新建第二份。
 - 真机验证：修前 `incident-signals` 三源 0 行；`dispatchMonitorSignalIntake()` 真跑返回 `{ran:true, ok:false}`，日志逐字 `未判定:三个监控源全部未判定(没有任何可判定面)` —— 这是因为 `scripts/data/auto-triage-config.json` 的 `apiLogs.jsonl` / `grafanaAlerts.url` 皆空、也没有 `userFeedback` 键，本机缺导出与 Grafana 地址；派发点补上后这条缺口从"静默"变成"每 30 分钟点名"，配好取数面即产出。
 - 测试：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` → `7 passed`（装车/`--apply`/双挂点/节流三态/器物缺席不写戳/头注点名）。
+### 5.60 第 59 项：新派发腿没进"黑腿探测器"，而它自己的镜像测试有状态泄漏
+
+- 问题一（measurable）：`scripts/data/autonomy-leg-liveness.json` 的候选集 = 盘上所有 `*-dispatch-last.json`，盘上有而本表没有 ⇒ `unregistered` 点名（覆盖面自证）。第 58 项新挂的 `monitor-signal-intake-dispatch-last.json` 落盘后就会进这张点名单 —— 新腿不受探测量，等于把"是否在跳"交给记忆。
+- 问题二（live）：第 58 项的镜像测试用固定 tick 文件名，第一次跑留下戳，第二次跑就撞 30 分钟节流窗口 ⇒ `⑦ ran` 断言翻红。这不是实现缺陷，是测试自身带状态。
+- 处置：① `autonomy-leg-liveness.json` 增 `monitor-signal-intake` 那条（owner=`dispatchMonitorSignalIntake`、envVar=`IHUI_MONITOR_INTAKE_INTERVAL_MS`、nominal=1800000 与源默认值逐字一致、ruler=器物、verifiedAt=2026-11-21），并写明 knownBlocker：三源取数面皆空 ⇒ 每轮 three-source-undetermined 属预期，探测器量的是戳是否在跳而非产出。② 测试改为每次运行生成唯一 tick 后缀，连跑两遍都 7/7。
+- 语义边界：不新增探测器、不改判据；`knownBlocker` 只作解释，不参与判定 —— 静默仍会被 A8 量到。
+- 验证：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` 连跑两次均 `7 passed`；登记后 A8 的 `unregistered` 名单里不再出现 `monitor-signal-intake`（落地前按 HEAD 面仍列旧账，落地后即消）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

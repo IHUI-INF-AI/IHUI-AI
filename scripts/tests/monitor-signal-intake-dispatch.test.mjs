@@ -20,7 +20,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const guardian = readFileSync(path.join(ROOT, 'scripts/git-guardian.mjs'), 'utf8')
 const instrument = readFileSync(path.join(ROOT, 'scripts/monitor-signal-intake.mjs'), 'utf8')
 
-const tmpTick = (name) => path.join(ROOT, '.ihui-agent', 'tmp', `msi-test-${name}.json`)
+const RUN = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+const tmpTick = (name) => path.join(ROOT, '.ihui-agent', 'tmp', `msi-test-${RUN}-${name}.json`)
 
 test('① 派发器必须在位、导出、并真用 --apply(否则"跑了没产出"会伪装成健康)', () => {
   assert.match(guardian, /export function dispatchMonitorSignalIntake/)
