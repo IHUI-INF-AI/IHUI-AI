@@ -10427,7 +10427,7 @@
       "failed": "屏面取不到",
       "links": "超連結(顯示文字與真實目標並列,均不可點擊)",
       "noIntegration": "未啟用 shell 整合(無法判斷是否在提示字元)",
-      "noSession": "還沒有 ai-service 會話 id(先送一則訊息)",
+      "noSession": "還沒有會話(先送一則訊息)",
       "refresh": "立即重新整理",
       "running": "執行中",
       "title": "模型終端屏面"
