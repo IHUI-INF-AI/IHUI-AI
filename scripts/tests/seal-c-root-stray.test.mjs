@@ -9,7 +9,7 @@
 //   ② 守门是否 import 这份清单,而不是自己抄一份名字(两份真相必然漂移);
 //   ③ 改道目标是否仍落在 §15b 批准的落点内(清单被人挪去 C 盘就彻底背离初衷)。
 
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   existsSync,
@@ -27,6 +27,12 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+
+// 第 91 项:台账落点必须隔离。夹具里的 EPERM 若写进生产台账,后续任何用例都会继承
+// 那条"实测不可建"而集体误红(§5 测试隔离铁律:跑两次结果必须一样)。
+const LEDGER_ISOLATION = mkScratch('seal-ledger-iso-')
+process.env.IHUI_C_ROOT_SEAL_LEDGER = join(LEDGER_ISOLATION, 'c-root-seal-unreachable.json')
+after(() => rmScratch(LEDGER_ISOLATION))
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS = join(HERE, '..')
@@ -452,4 +458,130 @@ test('第 85 项:守护报这一态时不得只说"需人工看输出",须逐条
   assert.match(body, /c-root-seal-blocked-last\.json/, '缺 24h 节流戳 ⇒ 同一静态事实每轮刷屏')
   assert.match(body, /why\.join/, '缺"把逐条原因打进日志"那一句')
   assert.match(body, /不是"再跑一次就会好"/, '读数必须说清"重试不会变好",否则人按"重试"去治结构性不可达')
+})
+
+// ═══ 第 91 项(2026-11-21):「已实测不可建」台账 ═══
+// 病灶:结构性不可达(C:\ 根 ACL 拒 EPERM)在 --check 里恒判 MISSING ⇒ --apply 每 30 分钟
+// 撞同一面墙 ⇒ 守护日志天天「仍有未处置项」。台账要证明三件事:
+//   ① TTL 内的实测记录先于探测生效,且不计入 needsAction;
+//   ② 过期 / 坏 JSON / 读不到 ⇒ 回落旧行为(照常探测),不得拿"读不到"当放行;
+//   ③ 真封上 ⇒ 记录被销掉(否则下一次会凭一条过期事实不再尝试)。
+const T91 = __test__
+function writeLedger(path, obj) {
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, `${JSON.stringify(obj, null, 2)}\n`)
+}
+
+test('第91项:TTL 内「实测不可建」⇒ 该名判 UNREACHABLE/blocked,且不计入 needsAction', () => {
+  const base = mkScratch('seal-ledger-')
+  try {
+    const ledger = join(base, 'state', 'c-root-seal-unreachable.json')
+    const name = SEALED_DIRS[0].name
+    writeLedger(ledger, { [name]: { atMs: Date.now() - 60000, at: 'x', code: 'EPERM' } })
+    const r = run({ root: join(base, 'root'), devEnv: join(base, 'devenv'), mode: 'check', ledgerPath: ledger })
+    const idx = SEALED_DIRS.findIndex((e) => e.name === name)
+    const s = r.sealed[idx]
+    assert.equal(s.state, 'UNREACHABLE', '有新鲜实测记录却仍按旧探测判')
+    assert.equal(s.blocked, true, '缺 blocked 标记 ⇒ 会被折成"待处置"')
+    assert.equal(s.action, 'skip', 'TTL 内仍要动手 ⇒ 又去撞 EPERM')
+    assert.match(s.note, /不重试/, '读数必须说明本轮不重试')
+    assert.match(s.note, /24h 后自动复核/, '缺复核窗口 ⇒ 人以为永久豁免')
+    assert.equal(r.blocked.length >= 1, true, 'run() 没把 blocked 交出去 ⇒ 调用方数不到')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('第91项:记录过期 ⇒ 当没记过(照常探测),不得凭一条过期事实永久豁免', () => {
+  const base = mkScratch('seal-ledger-')
+  try {
+    const ledger = join(base, 'state', 'c-root-seal-unreachable.json')
+    const name = SEALED_DIRS[0].name
+    writeLedger(ledger, { [name]: { atMs: Date.now() - T91.UNREACHABLE_TTL_MS - 60000, at: 'x', code: 'EPERM' } })
+    assert.equal(T91.readUnreachableLedger(ledger).size, 0, '过期条目仍被读进台账')
+    const r = run({ root: join(base, 'root'), devEnv: join(base, 'devenv'), mode: 'check', ledgerPath: ledger })
+    const s = r.sealed[SEALED_DIRS.findIndex((e) => e.name === name)]
+    assert.notEqual(s.state, 'UNREACHABLE', '过期后仍走豁免分支 ⇒ 结构性事实会被永久固化')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('第91项:台账坏 JSON / 读不到 ⇒ 空表(= 回落旧行为),不得当成放行', () => {
+  const base = mkScratch('seal-ledger-')
+  try {
+    const ledger = join(base, 'state', 'c-root-seal-unreachable.json')
+    writeLedger(ledger, {})
+    writeFileSync(ledger, '{ not json')
+    assert.equal(T91.readUnreachableLedger(ledger).size, 0, '坏 JSON 仍读出条目')
+    assert.equal(T91.readUnreachableLedger(join(base, 'nope.json')).size, 0, '缺失台账应空表')
+    // 反向牙:空表 ≠ 全放行 —— 探测照旧,还是要把 MISSING 报成待处置
+    const r = run({ root: join(base, 'root'), devEnv: join(base, 'devenv'), mode: 'check', ledgerPath: ledger })
+    assert.equal(r.blocked.length, 0, '没有实测记录却报 blocked ⇒ 拿没测当测过(§0.3)')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('第91项:真封上以后旧「不可建」记录必须被销掉', () => {
+  const base = mkScratch('seal-ledger-')
+  try {
+    const ledger = join(base, 'state', 'c-root-seal-unreachable.json')
+    const root = join(base, 'root')
+    const devEnv = join(base, 'devenv')
+    const entry = SEALED_DIRS[0]
+    mkdirSync(join(root, entry.name), { recursive: true })
+    writeLedger(ledger, { [entry.name]: { atMs: Date.now() - 60000, at: 'x', code: 'EPERM' } })
+    // 先消费一次:TTL 内的记录会挡住 apply,所以要先让记录过期才动得了(与真实"复核窗口到了"同形)
+    writeLedger(ledger, {})
+    const r0 = run({ root, devEnv, mode: 'apply', ledgerPath: ledger })
+    assert.equal(r0.sealed[0].ok, true, '夹具 apply 失败,本断言失去意义')
+    assert.equal(T91.readUnreachableLedger(ledger).size, 0, '封上后记录仍在 ⇒ 下次会凭过期事实跳过复核')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('第91项:结构性失败(EPERM)才记账 —— 记录入口必须真的被 sealOne 调用', () => {
+  const src = readFileSync(join(SCRIPTS, 'seal-c-root-stray.mjs'), 'utf8')
+  const sealed = maskComments(src)
+  const at = sealed.indexOf('function sealOne(')
+  assert.ok(at > 0, '找不到 sealOne ⇒ 本断言会退化成空判')
+  const body = sealed.slice(at, at + 9000)
+  assert.match(body, /structural && !dryRun.*recordUnreachable/s, '实测不可达失败没记进台账 ⇒ 下一轮还是重试')
+  assert.match(body, /clearUnreachable\(entry\.name/, '成功路径没销记录 ⇒ 台账只增不减')
+})
+test('第91项:读不到/形态不可判 ⇒ 记 undetermined,同样不计入 needsAction', () => {
+  // 实测形态:C:\tmp / C:\tools 是既存 junction,node lstat 抛 EINVAL ⇒ 读不到。
+  // 旧写法把它算进 needsAction ⇒ check 恒 exit 1 ⇒ 守护每轮 apply 再撞一次墙。
+  // 夹具用 REAL-FILE(盘根同名项是文件)表达同一档:"有这个东西,但我不能按封口意图处置它"。
+  const base = mkScratch('seal-undet-')
+  try {
+    const root = join(base, 'root')
+    const name = SEALED_DIRS[0].name
+    mkdirSync(root, { recursive: true })
+    writeFileSync(join(root, name), 'i am a file')
+    const r = run({
+      root,
+      devEnv: join(base, 'devenv'),
+      mode: 'check',
+      ledgerPath: join(base, 'ledger.json'),
+    })
+    const s = r.sealed[SEALED_DIRS.findIndex((e) => e.name === name)]
+    assert.equal(s.state, 'REAL-FILE', '夹具没造出 REAL-FILE ⇒ 本断言退化成空判')
+    assert.equal(s.undetermined, true, '不可判项没打 undetermined ⇒ 会被折成待处置')
+    assert.equal(s.action, 'touch-nothing', '不可判项不该给出可执行动作')
+    assert.equal(r.undetermined.length >= 1, true, 'run() 没把 undetermined 交出去 ⇒ 调用方数不到')
+    // needsAction 的构成必须能逐条拆开:不可判项不许占一个名额。夹具里其余名字是 MISSING,
+    // 它们才是"待处置"的来源 —— 所以这里比的是"谁计入"而不是"总数是不是 false"。
+    const contributing = r.sealed.filter((x) => !x.blocked && !x.undetermined && (!x.ok || x.action !== 'skip'))
+    assert.equal(
+      r.needsAction,
+      contributing.length > 0 || r.orphans.some((o) => o.action === 'present'),
+      'needsAction 与"逐条可执行的待处置项"不闭合 ⇒ 有人把未判定也算成了要动手',
+    )
+    assert.equal(contributing.includes(s), false, '不可判项被算进了待处置集合')
+  } finally {
+    rmScratch(base)
+  }
 })

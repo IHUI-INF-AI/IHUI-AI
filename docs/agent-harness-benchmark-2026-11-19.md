@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **90 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **91 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（90 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（91 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1342,6 +1342,54 @@
   `root-guard --check` 现读 `verdict=pass`。
 - 边界：退役动作本身是别席的，本项只补"退役收口"这一跳，不改 173 的历史，也不把数字对账
   能力搬回来；H3 的放宽只落在"两处都没装"那一格，其余一律照判。
+
+### 5.91 第 91 项：一条结构性事实被写成恒红 —— 每轮都去建一个已被实测建不出来的东西，把真告警淹掉
+
+- 现场（一手，两条互不相干却同样"再跑一次还是同一读数"的形态）：
+  1. `node scripts/seal-c-root-stray.mjs --check` 现读 **exit 1**：`✖ common_attachment
+     [MISSING→create-link]`、`✖ persistent_data [MISSING→create-link]`。而在这块盘上新建
+     `C:\` 根 junction 是**结构性不可建**：`symlinkSync` 抛 `EPERM`，管理员 `mklink /J`
+     同样 `Access is denied`，`fsutil reparsepoint query` 亦 `Error 5`（盘根 ACL 拒写）。
+     守护 `healRootSeal` 每 30 分钟"check 非 0 ⇒ apply"一次 ⇒ 每轮都在同一面墙上撞一次，
+     把一条**静态 ACL 事实**写成恒红告警（§12e 明令禁止的那种红：与本次改动无关、只能靠
+     `--no-verify` 绕过），并淹掉真正会变的告警。
+  2. 同一张读数里 `tmp` / `tools` 是既存 junction，node 侧 `lstat` 抛 `EINVAL` ⇒ 判不出形态。
+     它被算进 `needsAction` ⇒ 即使不可建那两条解决了，`--check` 依旧**恒 exit 1**。
+     这属于 §0.3 的"未判定"，不是"待处置"：重跑一次读数一模一样。
+- 处置（`scripts/seal-c-root-stray.mjs`，单文件单真相源，不新造第二套状态）：
+  - 新增**实测台账** `.ihui-agent/state/c-root-seal-unreachable.json`（24h TTL）与三个出口
+    `readUnreachableLedger` / `recordUnreachable` / `clearUnreachable`。**只有实测失败才记**
+    （`EPERM`/`EACCES` 且非 dry-run），不是猜；TTL 到期自动复核（ACL 真改了就能转成 `SEALED`）。
+  - `sealOne` **探测之前**先查台账：命中 ⇒ `state=UNREACHABLE` / `action=skip` /
+    `blocked=true`，读数写明「本轮不重试，24h 后自动复核」与处置方向（改 ACL，或把该名移出封口清单）。
+    封口成功（`SEALED` 与新建成链接）两处 `clearUnreachable` —— 台账只存"此刻仍成立"的事实。
+  - `UNREADABLE` / `UNREADABLE-LINK` / `REAL-FILE` 打 `undetermined=true`：与 `blocked` 同样是
+    "没有可执行动作"，但原因不同（一个试过、一个读不到），读数**分两行报**，不许混成一条
+    （混了会让人按"改 ACL"去治"读不到"）。
+  - `run()` 的 `needsAction` 只认**可执行**的待处置项；返回值增 `blocked` / `undetermined` 两桶。
+    `main()` 的逐条读数改成三档符号：`✔` 封好 / `•` 不可执行（blocked·undetermined）/ `✖` 真待处置
+    —— 把前两类也画成 `✖` 是读数骗人。`--apply` 退出码容忍 `blocked`/`undetermined`（否则守护
+    每轮都 return 1，等于把"实测过的事实"写成失败）。
+  - **测试隔离（本项实测踩出来的教训）**：夹具跑的是假 root，但台账落点是**生产路径**，
+    于是自检里一次 `EPERM` 写进生产台账，后续用例继承那条"实测不可建"而**集体误红**
+    （自检一度 12/17、镜像 22/26）。修法是把落点做成可重定向（`opts.ledgerPath` 优先，
+    其次 `IHUI_C_ROOT_SEAL_LEDGER`，默认仍是生产路径），自检整段与镜像测试各自用自己的台账；
+    那条被夹具写脏的生产台账已删除后重新实测。
+- 验证（全部现读）：
+  - `node scripts/seal-c-root-stray.mjs --apply`（真实 `C:\`）：两条撞 `EPERM` 并按实测记账，
+    台账现读 `common_attachment` / `persistent_data` 各一条 `code=EPERM`；**不删任何东西**
+    （`MISSING` 分支只 `mkdirSync(target)` + `symlinkSync`）。
+  - `node scripts/seal-c-root-stray.mjs --check` 现读 **exit 0**，并打出两段：
+    `⇒ 结构性不可达 2 处(已实测,本轮不重试,24h 后自动复核):common_attachment / persistent_data`
+    与 `⇒ 未判定 2 处…:tmp[UNREADABLE] / tools[UNREADABLE]`。
+  - `--self-test` 现读 **17/17**（新增的隔离收口让原先被污染的 3 例转绿）；
+    `node --test scripts/tests/seal-c-root-stray.test.mjs` 现读 **27/27**（新增 6 例：
+    台账新鲜 ⇒ `blocked` 且不进 `needsAction` / 过期 ⇒ 照常探测 / 坏 JSON 与缺失 ⇒ 空表且不得放行 /
+    封上后记录被销 / `sealOne` 体内真有记账与销账两处 / 不可判项不进待处置集合）。
+  - `node scripts/watermark.mjs verify <两文件>` 现读 `覆盖 2/2，残迹 0`。
+- 边界：台账只记**实测**（读不到/过期/坏形状一律回落旧行为，不拿"读不到"当放行）；
+  它不改变封口语义（真能建的时候照旧建），也不把 `C:\` 根 ACL 的问题"修"掉 —— 那是机主职权面，
+  本项只让这条事实**不再被重复告警**且 24h 后自动复核一次。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
