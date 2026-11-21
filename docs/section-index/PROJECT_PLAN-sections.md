@@ -1,0 +1,942 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# PROJECT_PLAN.md 章节可寻址索引
+
+> **本索引是派生物,原文才是真相源。**
+> **行号是生成时刻的快照**:PROJECT_PLAN.md 每次提交都可能被生成块/数字块重写,标题行号会整体漂移;
+> 取现行号请用 `node scripts/gen-doc-section-index.mjs --locate --file PROJECT_PLAN.md --title "<标题>"` 现算,
+> 不要照抄本页快照区间。
+> `--check` 判的是**标题结构**(层级 + 标题原文 + 出现顺序),不比绝对行号;标题未增删、未改序即绿。
+
+- 生成命令(重写本索引快照):`node scripts/gen-doc-section-index.mjs --write`
+- 结构校验(标题集合/顺序不一致 exit 1):`node scripts/gen-doc-section-index.mjs --check`
+- 现行号现算:`node scripts/gen-doc-section-index.mjs --locate --file PROJECT_PLAN.md --title "<标题原文>"`
+- 快照时刻原文:`PROJECT_PLAN.md`(4,267,222 字节 / 12,299 物理行 / 915 个标题)
+- 区间口径:标题行起,到下一个同级或更高级标题之前;行数 = 结束行 - 起始行 + 1。
+- 围栏口径:``` / ~~~ 按出现次序成对切换;原文存在漏闭合围栏时,个别 shell 注释行可能被计入标题。
+- 取用命令(快照区间 `Lstart-Lend`,在仓库根目录执行;现行号以 `--locate` 为准):
+  - Bash / Git Bash:`sed -n '<Lstart>,<Lend>p' PROJECT_PLAN.md`
+  - PowerShell:`Get-Content PROJECT_PLAN.md | Select-Object -Skip <Lstart-1> -First <Lend-Lstart+1>`
+
+## 索引清单
+
+- L1 IHUI-AI 项目 | 10-12299 (12290 行) | `sed -n '10,12299p' PROJECT_PLAN.md`
+    - L3 已完成 | 58-63 (6 行) | `sed -n '58,63p' PROJECT_PLAN.md`
+  - L2 第四十六批(2026-09-25,竞品机制吸收:八包 clean-room 落地 + 顺手修出两条 P0) | 64-80 (17 行) | `sed -n '64,80p' PROJECT_PLAN.md`
+    - L3 用户提问与实测结论 | 80-80 (1 行) | `sed -n '80,80p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-23 全 8 端圆角单一源头收口(根治「手机上所有容器圆角与全局设定不一致」) | 81-102 (22 行) | `sed -n '81,102p' PROJECT_PLAN.md`
+    - L3 背景与根因(实测) | 82-85 (4 行) | `sed -n '82,85p' PROJECT_PLAN.md`
+    - L3 交付 | 86-87 (2 行) | `sed -n '86,87p' PROJECT_PLAN.md`
+    - L3 第二阶段(2026-09-24):那 72 项逐类定性并处置 | 88-88 (1 行) | `sed -n '88,88p' PROJECT_PLAN.md`
+    - L3 第二阶段(2026-09-24):那 72 项逐类定性并处置 | 89-90 (2 行) | `sed -n '89,90p' PROJECT_PLAN.md`
+    - L3 第三阶段(2026-09-24):盘根写歪项 = 载体替换,不是再删一次 | 91-94 (4 行) | `sed -n '91,94p' PROJECT_PLAN.md`
+    - L3 第三阶段(2026-09-24):盘根写歪项 = 载体替换,不是再删一次 | 95-97 (3 行) | `sed -n '95,97p' PROJECT_PLAN.md`
+    - L3 第二阶段(2026-09-24):那 72 项逐类定性并处置 | 98-98 (1 行) | `sed -n '98,98p' PROJECT_PLAN.md`
+    - L3 遗留(已量化,不在本次范围) | 99-100 (2 行) | `sed -n '99,100p' PROJECT_PLAN.md`
+    - L3 背景与根因(实测) | 101-101 (1 行) | `sed -n '101,101p' PROJECT_PLAN.md`
+    - L3 交付 | 102-102 (1 行) | `sed -n '102,102p' PROJECT_PLAN.md`
+  - L2 O1（一） 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 103-104 (2 行) | `sed -n '103,104p' PROJECT_PLAN.md`
+  - L2 O37（一） 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 105-108 (4 行) | `sed -n '105,108p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-23 弹窗根治:`start-all.bat` 改静默转发 dev-stack(平台独占:Windows 开发机启动入口) | 109-134 (26 行) | `sed -n '109,134p' PROJECT_PLAN.md`
+    - L3 根因(实测,非推测) | 110-114 (5 行) | `sed -n '110,114p' PROJECT_PLAN.md`
+    - L3 改法 | 115-119 (5 行) | `sed -n '115,119p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-23) | 120-125 (6 行) | `sed -n '120,125p' PROJECT_PLAN.md`
+    - L3 第二阶段(同日,用户追加硬要求:"一扇也不许弹 + 挂了要立刻重启") | 126-134 (9 行) | `sed -n '126,134p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-23 弹窗根治第三阶段:全部计划任务迁 S4U + 顺带修掉两个"修不好"的基础设施缺陷 | 135-195 (61 行) | `sed -n '135,195p' PROJECT_PLAN.md`
+    - L3 弹窗面:审计找到的 6 个残留注册点全部收口 | 139-148 (10 行) | `sed -n '139,148p' PROJECT_PLAN.md`
+    - L3 顺带修掉两个恒假阳/恒红的基础设施缺陷(守护日志每 2 分钟喊「需人工介入」) | 149-161 (13 行) | `sed -n '149,161p' PROJECT_PLAN.md`
+    - L3 一处判据盲区(守门 52)+ 一处与本改动对打的策略 | 162-172 (11 行) | `sed -n '162,172p' PROJECT_PLAN.md`
+    - L3 多会话纪律(本轮实际踩到并已机制化) | 173-193 (21 行) | `sed -n '173,193p' PROJECT_PLAN.md`
+    - L3 多端豁免声明(AGENTS.md §9) | 194-195 (2 行) | `sed -n '194,195p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」) | 196-226 (31 行) | `sed -n '196,226p' PROJECT_PLAN.md`
+    - L3 根因(逐层核到 SQL,非推测) | 198-202 (5 行) | `sed -n '198,202p' PROJECT_PLAN.md`
+    - L3 机制(真源单一化,不做全库双向同步) | 203-212 (10 行) | `sed -n '203,212p' PROJECT_PLAN.md`
+    - L3 验证(实测) | 213-215 (3 行) | `sed -n '213,215p' PROJECT_PLAN.md`
+    - L3 同日升级(用户追加要求:所有表都要同步 + 自动化跑在自己程序内) | 216-226 (11 行) | `sed -n '216,226p' PROJECT_PLAN.md`
+  - L2 O77 型 B 棘轮在 HEAD 上是红的:归属与精确修法(2026-09-25 登记,**未修**) | 227-263 (37 行) | `sed -n '227,263p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-22 AI 对话框"两套上下键"键位归属切分(单端:apps/web 键盘交互) | 264-287 (24 行) | `sed -n '264,287p' PROJECT_PLAN.md`
+    - L3 根因(读源码 + 真浏览器取证,非推测) | 266-274 (9 行) | `sed -n '266,274p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-22) | 275-281 (7 行) | `sed -n '275,281p' PROJECT_PLAN.md`
+    - L3 同批对照实跑暴露的两处既有红点(非本次引入,已用未改动的 8801 生产产物对照证明) | 282-284 (3 行) | `sed -n '282,284p' PROJECT_PLAN.md`
+    - L3 如实登记:一处非本任务的既有债务 | 285-287 (3 行) | `sed -n '285,287p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-22 对话列「跳到最新」浮动钮归一(单端:apps/web 浮动 affordance) | 288-305 (18 行) | `sed -n '288,305p' PROJECT_PLAN.md`
+    - L3 一手取证(私有 dev 8823 + admin 真实会话 4 条消息,Playwright 量 DOM,非目测) | 290-292 (3 行) | `sed -n '290,292p' PROJECT_PLAN.md`
+    - L3 方案与改法 | 293-303 (11 行) | `sed -n '293,303p' PROJECT_PLAN.md`
+    - L3 多端与文档 | 304-305 (2 行) | `sed -n '304,305p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-22 同类隐患全仓普查(键盘归属 / 重复 affordance / 隐藏态可聚焦 / 孤儿事件通道) | 306-508 (203 行) | `sed -n '306,508p' PROJECT_PLAN.md`
+    - L3 当场已修(2 处,均已绿) | 308-308 (1 行) | `sed -n '308,308p' PROJECT_PLAN.md`
+    - L3 复核推翻的误报(1 条,未采纳、未改代码) | 309-310 (2 行) | `sed -n '309,310p' PROJECT_PLAN.md`
+    - L3 登记待拍板(需要产品归属决策或成批铺开,本次一律未动他人/成体系代码) | 311-311 (1 行) | `sed -n '311,311p' PROJECT_PLAN.md`
+    - L3 第二轮收口(同日续做:把上一节所有"待办"清零时新查出的 6 项,均已修并取证) | 312-313 (2 行) | `sed -n '312,313p' PROJECT_PLAN.md`
+    - L3 第三轮收口(用户追加"直到没有任何未闭环"+全权授权后,清掉上一节自留的 3 条未闭环) | 314-316 (3 行) | `sed -n '314,316p' PROJECT_PLAN.md`
+    - L3 第四轮收口(用户二次授权"直到没有任何后续建议"后:两路只读审计 + 三路并行修复) | 317-319 (3 行) | `sed -n '317,319p' PROJECT_PLAN.md`
+    - L3 普查落点(供复核,含我否掉的自身误判) | 320-321 (2 行) | `sed -n '320,321p' PROJECT_PLAN.md`
+    - L3 收口过程中的两处工程侧问题(已当场治本,非登记项) | 322-322 (1 行) | `sed -n '322,322p' PROJECT_PLAN.md`
+    - L3 多端与文档 | 323-324 (2 行) | `sed -n '323,324p' PROJECT_PLAN.md`
+    - L3 第五轮收口(用户三次授权"完整收尾"后:七路并行清硬编码中文 + 我自己补做失败的那一路) | 325-329 (5 行) | `sed -n '325,329p' PROJECT_PLAN.md`
+    - L3 第五轮追加:溯源水印层两处静默缺陷(用户"检查是否还有类似隐患"的直达命中,commit `0f800b76f5` + `53bbb7ab68`) | 330-332 (3 行) | `sed -n '330,332p' PROJECT_PLAN.md`
+    - L3 第六轮收口:五组批量清单真正落包 + 四族页面 chrome 清零(2026-09-23,承第五轮"未闭环②"专票) | 333-337 (5 行) | `sed -n '333,337p' PROJECT_PLAN.md`
+    - L3 第七批:main 上属于本路的守门 70 越线清零(2026-09-23,commit `18598f4ac2`) | 338-342 (5 行) | `sed -n '338,342p' PROJECT_PLAN.md`
+    - L3 第八批:edu 三族页面 chrome 清零 + 8 族契约断言常驻化(2026-09-23,commit `3962f139a1`) | 343-346 (4 行) | `sed -n '343,346p' PROJECT_PLAN.md`
+    - L3 第九批:edu 剩余七族清零 + 契约测试 15 族(2026-09-23,commit `b49bb900c2`) | 347-349 (3 行) | `sed -n '347,349p' PROJECT_PLAN.md`
+    - L3 第十二批:跨端 4 族界面 chrome 清零(23 文件 / 93 键 × 5 语)+ 派单清单的自伤复盘(2026-09-23) | 350-354 (5 行) | `sed -n '350,354p' PROJECT_PLAN.md`
+    - L3 第十九批:守门 70 覆盖补齐三端(2026-09-24,commit `cd505a437`) | 355-369 (15 行) | `sed -n '355,369p' PROJECT_PLAN.md`
+    - L3 第十八批:修正第十七批的因果判断,并把 RN 付费按钮真缺陷修掉(2026-09-24) | 370-394 (25 行) | `sed -n '370,394p' PROJECT_PLAN.md`
+    - L3 第十七批:taro 39 枚死键**一枚不删**,因为它们背后是"RN 付费按钮从未本地化"的真缺陷(2026-09-24) | 395-416 (22 行) | `sed -n '395,416p' PROJECT_PLAN.md`
+    - L3 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24) | 417-436 (20 行) | `sed -n '417,436p' PROJECT_PLAN.md`
+    - L3 第十五批:web 端 5 枚孤儿键摘除(死键 5→0)+ 一桩"看着像污染其实只是 0.2MB"的核账(2026-09-24,commit `5cd864697`) | 437-465 (29 行) | `sed -n '437,465p' PROJECT_PLAN.md`
+    - L3 第十四批:ja 端盲区升精确判据 + 死键判据两处盲区(2026-09-23,commit `a5f8aa523` 等) | 466-498 (33 行) | `sed -n '466,498p' PROJECT_PLAN.md`
+    - L3 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票) | 499-504 (6 行) | `sed -n '499,504p' PROJECT_PLAN.md`
+    - L3 第十批:web 端 5 族界面 chrome 17 文件清零 + 他人两票的漏加词表补票(2026-09-23) | 505-508 (4 行) | `sed -n '505,508p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop) | 509-737 (229 行) | `sed -n '509,737p' PROJECT_PLAN.md`
+    - L3 三条根因(全部实测取证,非推测) | 511-520 (10 行) | `sed -n '511,520p' PROJECT_PLAN.md`
+    - L3 顺手根治的一条工程地雷(本人 `--write` 踩实) | 521-523 (3 行) | `sed -n '521,523p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-22 两批合并) | 524-534 (11 行) | `sed -n '524,534p' PROJECT_PLAN.md`
+    - L3 残余(未闭环,如实登记) | 535-537 (3 行) | `sed -n '535,537p' PROJECT_PLAN.md`
+    - L3 第二批(同日):卸载器全面主题化 + 两道门禁补扫描面 | 538-548 (11 行) | `sed -n '538,548p' PROJECT_PLAN.md`
+    - L3 第三批(同日):卸载零残留 | 549-579 (31 行) | `sed -n '549,579p' PROJECT_PLAN.md`
+    - L3 第五批(同日):视觉精修三处 + 完成态空白块 + 探针清理 + DPI 封顶 + 签名链核实 | 580-588 (9 行) | `sed -n '580,588p' PROJECT_PLAN.md`
+    - L3 第六批(同日):真包卸载全链路复核 —— 揪出两处"沙箱永远测不到"的缺陷并收口 | 589-597 (9 行) | `sed -n '589,597p' PROJECT_PLAN.md`
+    - L3 第七批(同日):updater 端到端本地验证跑通 —— 顺带揪出一个"自动更新永远装不上 + 无限重启"的高危缺陷 | 598-621 (24 行) | `sed -n '598,621p' PROJECT_PLAN.md`
+    - L3 第八批(同日):卸载完成页真正做出来 —— 上一批"作废"是误判,用户驳回后修对了 | 622-631 (10 行) | `sed -n '622,631p' PROJECT_PLAN.md`
+    - L3 第九批(同日):第八批两条结论**说过头了**,以及"多包共存"的机制级收口 | 632-641 (10 行) | `sed -n '632,641p' PROJECT_PLAN.md`
+    - L3 第十批(2026-09-23):完成钮白边的根源解,以及进度页百分比改成"双环表盘" | 642-648 (7 行) | `sed -n '642,648p' PROJECT_PLAN.md`
+    - L3 第十一批(2026-09-23):进度"一跳一跳"的根因是结构限制,解法是把真实步骤全报出来 | 649-658 (10 行) | `sed -n '649,658p' PROJECT_PLAN.md`
+    - L3 第十二批(2026-09-23):进度补间 —— 我上一条"结构上做不到"是错的,动画根本不需要定时器 | 659-680 (22 行) | `sed -n '659,680p' PROJECT_PLAN.md`
+    - L3 第十三批(2026-09-23):给本会话修掉的三条跨文件不变量装闸 —— 堵住"造好没装车" | 681-706 (26 行) | `sed -n '681,706p' PROJECT_PLAN.md`
+    - L3 第十四批(2026-09-23):真包端到端装卸闭环实测 —— 残余归因到上游,并记录本机缩放扰动使像素判定作废 | 707-715 (9 行) | `sed -n '707,715p' PROJECT_PLAN.md`
+    - L3 第十五批(2026-09-23):post-commit 弹窗根治 v2 —— 钩子改 Node,彻底拆掉"外部包装文件"这个单点 | 716-725 (10 行) | `sed -n '716,725p' PROJECT_PLAN.md`
+    - L3 第十六批(2026-09-23):重装确认页(维护页)样式统一 —— 实锤三缺陷与修复契约 | 726-737 (12 行) | `sed -n '726,737p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-23 桌面安装器"卡黑屏"根治:解压守卫与页面守卫同集 + 位图加载单一入口 + 失败降级原生向导(平台独占:apps/desktop) | 738-844 (107 行) | `sed -n '738,844p' PROJECT_PLAN.md`
+    - L3 取证结论(全部本机实测,非推测) | 740-746 (7 行) | `sed -n '740,746p' PROJECT_PLAN.md`
+    - L3 已落地(ihui-ui.nsi + ihui-uninstaller.nsi) | 747-751 (5 行) | `sed -n '747,751p' PROJECT_PLAN.md`
+    - L3 验证 | 752-753 (2 行) | `sed -n '752,753p' PROJECT_PLAN.md`
+    - L3 残余 | 754-755 (2 行) | `sed -n '754,755p' PROJECT_PLAN.md`
+    - L3 第十七批(2026-09-23):维护页卡片化收尾 —— 真包编译中断根因是 Var 作用域越界,并补两条跨文件不变量 | 756-766 (11 行) | `sed -n '756,766p' PROJECT_PLAN.md`
+    - L3 第十八批(2026-09-23):目录页输入框垂直居中 —— 单行 Edit 顶对齐文字,并给这条修复立跨文件闸 | 767-774 (8 行) | `sed -n '767,774p' PROJECT_PLAN.md`
+    - L3 第十九批(2026-09-23):守门 71 补两处编号族盲区 —— 裸编号复选任务行与批次标题行,判据用真实计划注入验证咬住 | 775-775 (1 行) | `sed -n '775,775p' PROJECT_PLAN.md`
+    - L3 第二十批(2026-09-23):守门 71 把"行首编号"这一路判活补上 —— 堵住上一批自己登记的那条残余 | 776-782 (7 行) | `sed -n '776,782p' PROJECT_PLAN.md`
+    - L3 第二十一批(2026-09-23):重装页 DPI 重锚的敞口**改判** —— 窗口框一直在跟,真正没跟的是窗口裁剪区域 | 783-788 (6 行) | `sed -n '783,788p' PROJECT_PLAN.md`
+    - L3 第二十二批(2026-09-23):清掉 1692 枚悬空 tag ref 并把"坏指针"变成推送前的显式红灯 —— 附两条注入才逼得出的判据坑 | 789-797 (9 行) | `sed -n '789,797p' PROJECT_PLAN.md`
+    - L3 第二十三批(2026-09-23):把上一批的"机制缺口"按数据源逐个封死 —— 三个复活入口现在都是零死引用 | 798-802 (5 行) | `sed -n '798,802p' PROJECT_PLAN.md`
+    - L3 第二十四批(2026-09-23):重装页 DPI 重锚补齐"两轮定档"并与 GUIINIT 同口径 —— 顺带钉出一条会把窗口甩出屏外的顺序陷阱 | 803-809 (7 行) | `sed -n '803,809p' PROJECT_PLAN.md`
+    - L3 第二十五批(2026-09-23):补上"批次正文找回"这条命令 —— 门 71 只保登记行,标题下的正文 bullet 此前无人能捞 | 810-826 (17 行) | `sed -n '810,826p' PROJECT_PLAN.md`
+    - L3 第二十八批(2026-09-24):守门 70 行尾 `//` 注释盲区清零 + PriceChart 取词化 —— 并登记"整条主线被他人一枚 commit 卡在远端 push-protection 之外" | 827-833 (7 行) | `sed -n '827,833p' PROJECT_PLAN.md`
+    - L3 第二十七批(2026-09-24):217 枚"仅本地"备份 tag 判定为结构性推不上去 —— 并钉死我自己那条会把"半路死"读成"完整"的抽样判据 | 834-843 (10 行) | `sed -n '834,843p' PROJECT_PLAN.md`
+    - L3 第二十六批(2026-09-24):批次号同日撞车逼出的唯一性策略 + 8.3 万条 fsck 坏链的范围取证 + 217 枚备份 tag 的远端补推 | 844-844 (1 行) | `sed -n '844,844p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」) | 845-865 (21 行) | `sed -n '845,865p' PROJECT_PLAN.md`
+    - L3 症状与真机实证 | 847-850 (4 行) | `sed -n '847,850p' PROJECT_PLAN.md`
+    - L3 根因(两层) | 851-858 (8 行) | `sed -n '851,858p' PROJECT_PLAN.md`
+    - L3 同批修掉「页面在离线兜底页 ↔ 线上前端之间反复抖动」 | 859-861 (3 行) | `sed -n '859,861p' PROJECT_PLAN.md`
+    - L3 顺手核清(非问题,已用线上产物实证排除) | 862-865 (4 行) | `sed -n '862,865p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-22 桌面端窗口控制三按钮模态压暗 + 层级守门自动化(平台独占:apps/desktop + apps/web) | 866-867 (2 行) | `sed -n '866,867p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-21 qwen/mimo 401 收口 + 并发回退丢失面全量回捞 + OpenAPI 漂移门禁修复 | 868-944 (77 行) | `sed -n '868,944p' PROJECT_PLAN.md`
+    - L3 顺手修掉的一条工程治理假红(2026-09-21) | 875-876 (2 行) | `sed -n '875,876p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-21) | 877-877 (1 行) | `sed -n '877,877p' PROJECT_PLAN.md`
+    - L3 二轮:额度感知改道 + 端上运行时取证 + 遗留项归属重判(2026-09-21 追加,3 个并行代理) | 878-915 (38 行) | `sed -n '878,915p' PROJECT_PLAN.md`
+    - L3 三轮:不充值可用心智的边界(2026-09-21 追加,含对本文件上方两条说法的更正) | 916-944 (29 行) | `sed -n '916,944p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-20 web 语言包含点键根治(84 → 0):en/ko 44 处"键名当文案"回退修复 + 防回潮 blocking | 945-948 (4 行) | `sed -n '945,948p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-21 生产迁移欠账 8 个已清零(根因:迁移失败被降格成一行 WARN) | 949-949 (1 行) | `sed -n '949,949p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-20 Windows 弹 git 黑窗根治(逐点收口 + 机器级默认值) | 950-957 (8 行) | `sed -n '950,957p' PROJECT_PLAN.md`
+    - L3 任务清单 | 953-953 (1 行) | `sed -n '953,953p' PROJECT_PLAN.md`
+    - L3 二轮彻底收口(用户追加"毫无遗漏"要求,5 个并行 agent) | 954-954 (1 行) | `sed -n '954,954p' PROJECT_PLAN.md`
+    - L3 三轮:本人引入的弹窗回归(诚实记录)+ 根因修复 | 955-957 (3 行) | `sed -n '955,957p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-20 AI 全量操控桥接（让 AI 自主操控本程序全部内容） | 958-985 (28 行) | `sed -n '958,985p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-20) | 968-985 (18 行) | `sed -n '968,985p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-20 Agent 全面开放工程（对外开放「功能」，不开放「数据」） | 986-1011 (26 行) | `sed -n '986,1011p' PROJECT_PLAN.md`
+    - L3 核心设计：开放三闸门 + 能力目录单一事实源 | 989-993 (5 行) | `sed -n '989,993p' PROJECT_PLAN.md`
+    - L3 P0 立即执行（安全收敛，开放前置） | 994-994 (1 行) | `sed -n '994,994p' PROJECT_PLAN.md`
+    - L3 P1 深度打磨（全域开放 + 标准协议） | 995-995 (1 行) | `sed -n '995,995p' PROJECT_PLAN.md`
+    - L3 P2 广度产品化（生态） | 996-1003 (8 行) | `sed -n '996,1003p' PROJECT_PLAN.md`
+    - L3 验收硬性指标 | 1004-1011 (8 行) | `sed -n '1004,1011p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-19 AI 能力二轮深度对标(Codex/Trae/Qoder/WorkBuddy)开发计划(2026-09-19 立,跨端:web + api + ai-service + desktop/miniapp/mobile-rn) | 1012-1368 (357 行) | `sed -n '1012,1368p' PROJECT_PLAN.md`
+    - L3 P0 立即执行(1-2 周,对话流显示细节) | 1014-1014 (1 行) | `sed -n '1014,1014p' PROJECT_PLAN.md`
+    - L3 P1 深度打磨(1 个月,上下文工程+运行闭环) | 1015-1015 (1 行) | `sed -n '1015,1015p' PROJECT_PLAN.md`
+    - L3 P2 广度产品化(3 个月,运行形态+生态) | 1016-1021 (6 行) | `sed -n '1016,1021p' PROJECT_PLAN.md`
+    - L3 第八批·交接 落地(2026-09-26 06:0x-06:4x,续会话执行;H-4 仍待人拍板) | 1022-1022 (1 行) | `sed -n '1022,1022p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-19 晚 第三轮元素级对标新增任务(V2 报告产出,D21-D32,依据 outputs/AI能力深度对标分析报告V2-2026-09-19.md 新增差距 G-28~G-38) | 1023-1026 (4 行) | `sed -n '1023,1026p' PROJECT_PLAN.md`
+      - L4 P0 立即执行(1 周内,显示收口+持久化补课) | 1024-1024 (1 行) | `sed -n '1024,1024p' PROJECT_PLAN.md`
+      - L4 P1 深度打磨(1 个月,运行时与交付审查) | 1025-1025 (1 行) | `sed -n '1025,1025p' PROJECT_PLAN.md`
+      - L4 P2 广度产品化(3 个月,生态与形态) | 1026-1026 (1 行) | `sed -n '1026,1026p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-21 第四轮**元素级**对标新增任务(V3 报告产出,D33-D51,依据 `outputs/AI能力深度对标分析报告V3-2026-09-21.md` 新增差距 G-39~G-62) | 1027-1038 (12 行) | `sed -n '1027,1038p' PROJECT_PLAN.md`
+      - L4 B1 数据面收口(1 周,根因层 S/P——先做,否则 B2 全要返工) | 1034-1037 (4 行) | `sed -n '1034,1037p' PROJECT_PLAN.md`
+      - L4 B2 渲染位补齐(2-3 周,根因层 R) | 1038-1038 (1 行) | `sed -n '1038,1038p' PROJECT_PLAN.md`
+    - L3 第六波（2026-09-25 11:3x–13:0x：三/四/五/六轮取证的落地 + 五道新门接线收尾） | 1039-1138 (100 行) | `sed -n '1039,1138p' PROJECT_PLAN.md`
+      - L4 B3 策略与形态(1 个月,根因层 O) | 1041-1041 (1 行) | `sed -n '1041,1041p' PROJECT_PLAN.md`
+      - L4 B4 跨端与自证缺陷(与 D19 合流) | 1042-1042 (1 行) | `sed -n '1042,1042p' PROJECT_PLAN.md`
+      - L4 B5 防返工机制(本轮"不可返工"的落地保证) | 1043-1045 (3 行) | `sed -n '1043,1045p' PROJECT_PLAN.md`
+      - L4 B4b 第 4 轮补证追加任务(G-63~G-70,证据全部为 E1 一手原文) | 1046-1049 (4 行) | `sed -n '1046,1049p' PROJECT_PLAN.md`
+      - L4 B4c 第 5 轮补证追加任务(G-71~G-83,「调用」维度与输入·发送可靠性) | 1050-1052 (3 行) | `sed -n '1050,1052p' PROJECT_PLAN.md`
+      - L4 第四轮硬性指标(H13-H23,聚合验收门——逐任务"验收"是必要条件,以下是充分条件) | 1053-1064 (12 行) | `sed -n '1053,1064p' PROJECT_PLAN.md`
+      - L4 第四轮风险清单(实施前须逐条核对) | 1065-1070 (6 行) | `sed -n '1065,1070p' PROJECT_PLAN.md`
+      - L4 AGENTS.md §9 端覆盖矩阵(D33-D64 实施时逐格对照,免"只改一端"与误豁免) | 1071-1138 (68 行) | `sed -n '1071,1138p' PROJECT_PLAN.md`
+    - L3 第四十二批·续三(2026-09-24 16:4x):`pnpm check:all` 第一次跑到 exit 0 —— 红点是 i18n 死键审计,而它"此刻不可执行"的理由今天已经不成立 | 1139-1176 (38 行) | `sed -n '1139,1176p' PROJECT_PLAN.md`
+    - L3 第四十二批·续二(2026-09-24 16:0x):被追问"没彻底闭环"之后重跑一遍清单的结果 —— 三条真清掉、一条按证据主动退回、两条留给持有人 | 1177-1265 (89 行) | `sed -n '1177,1265p' PROJECT_PLAN.md`
+      - L4 B4d 第 6-7 轮补证追加任务(G-84~G-94) | 1196-1196 (1 行) | `sed -n '1196,1196p' PROJECT_PLAN.md`
+      - L4 B4e 第 9 轮补证追加任务(G-97~G-105,状态词汇表与并行工作形态) | 1197-1197 (1 行) | `sed -n '1197,1197p' PROJECT_PLAN.md`
+      - L4 B4f 第 10 轮补证追加任务(G-106~G-111;**按本块自定约定从 D77 起号**) | 1198-1199 (2 行) | `sed -n '1198,1199p' PROJECT_PLAN.md`
+      - L4 B4g 第 11 轮补证（G-112~G-113 + 两处自我纠正） | 1200-1201 (2 行) | `sed -n '1200,1201p' PROJECT_PLAN.md`
+      - L4 B4h 第 12 轮定档结果(D80 已完成 + G-92/G-95/G-96/G-110 判定落地) | 1202-1204 (3 行) | `sed -n '1202,1204p' PROJECT_PLAN.md`
+      - L4 B4i 第 13 轮反向审计:对已登记断言的 3 条修正(报告 §15,判据均实测) | 1205-1209 (5 行) | `sed -n '1205,1209p' PROJECT_PLAN.md`
+      - L4 B4j 第 14 轮批量反向审计结果(43 条断言,12 落点覆盖;报告 §16) | 1210-1219 (10 行) | `sed -n '1210,1219p' PROJECT_PLAN.md`
+      - L4 B4k 第 16 轮补证追加任务(G-114~G-122;证据源=完整枚举的 Codex 中文串清单) | 1220-1221 (2 行) | `sed -n '1220,1221p' PROJECT_PLAN.md`
+      - L4 B4l 第 17 轮补证追加(G-123~G-126 + H27;Qoder 产物预览与失败学、Trae 思考卡本体) | 1222-1227 (6 行) | `sed -n '1222,1227p' PROJECT_PLAN.md`
+      - L4 B4m 第 18 轮补证追加(G-127~G-133 + H28;数据源=完整枚举 TSV,未再碰 asar) | 1228-1232 (5 行) | `sed -n '1228,1232p' PROJECT_PLAN.md`
+      - L4 B4o 第 19 轮补证追加(G-134~G-139 + H28 修订;数据源=完整枚举 TSV) | 1233-1243 (11 行) | `sed -n '1233,1243p' PROJECT_PLAN.md`
+      - L4 B4p 第 23-24 轮补证追加(G-140~G-144;数据源=完整枚举 TSV 的 `localConversation` 族,1,293 键) | 1244-1249 (6 行) | `sed -n '1244,1249p' PROJECT_PLAN.md`
+      - L4 B4q 第 25 轮补证追加(G-145~G-146;`agentActivity` / `pullRequest` / `mcpToolActivity` 取样) | 1250-1265 (16 行) | `sed -n '1250,1265p' PROJECT_PLAN.md`
+    - L3 本轮(第四轮)交付状态 | 1266-1287 (22 行) | `sed -n '1266,1287p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-07 AI 产品深度超越计划:P0-P3 全链路闭环(2026-09-07 立,跨端:ai-service + web + cli + packages,目标:真正远超对标数年) | 1288-1289 (2 行) | `sed -n '1288,1289p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H12) | 1290-1344 (55 行) | `sed -n '1290,1344p' PROJECT_PLAN.md`
+    - L3 本轮新增的三条防回潮守门(建议进 scripts/ 与 pre-commit) | 1345-1345 (1 行) | `sed -n '1345,1345p' PROJECT_PLAN.md`
+    - L3 第五十三波(2026-09-27 上午,主会话 + 4 路并行代理)—— 错误身份的第二半、守门表结构、门 140 装车,以及一次"代理读数不可信"的实录 | 1346-1368 (23 行) | `sed -n '1346,1368p' PROJECT_PLAN.md`
+  - L2 P0 AI 能力超越路线图 Phase 0:地基修正 8 项(2026-09-02 立,平台独占:apps/ai-service 为主) | 1369-1369 (1 行) | `sed -n '1369,1369p' PROJECT_PLAN.md`
+  - L2 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套) | 1370-1373 (4 行) | `sed -n '1370,1373p' PROJECT_PLAN.md`
+  - L2 P0 文档中心完整补齐 + 使用说明手册(2026-08-01 立,平台独占:apps/web + packages/i18n,AGENTS.md §24 用户已确认) | 1374-1396 (23 行) | `sed -n '1374,1396p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H10) | 1381-1381 (1 行) | `sed -n '1381,1381p' PROJECT_PLAN.md`
+    - L3 约束边界 | 1382-1392 (11 行) | `sed -n '1382,1392p' PROJECT_PLAN.md`
+    - L3 执行批次(3 批次,每批次独立 commit) | 1393-1396 (4 行) | `sed -n '1393,1396p' PROJECT_PLAN.md`
+  - L2 P0 SSO 全端补全 + 后端测试完善(2026-08-01 立,跨端:apps/api + apps/extension + apps/cli + apps/desktop + apps/web,AGENTS.md §24 用户已确认) | 1397-1448 (52 行) | `sed -n '1397,1448p' PROJECT_PLAN.md`
+    - L3 约束边界 | 1407-1414 (8 行) | `sed -n '1407,1414p' PROJECT_PLAN.md`
+    - L3 执行批次(2 批次,每批次独立 commit) | 1415-1417 (3 行) | `sed -n '1415,1417p' PROJECT_PLAN.md`
+    - L3 诊断期修复 + P0 修复(2026-08-01 立,H12 commit 后发现的 5 个问题) | 1418-1419 (2 行) | `sed -n '1418,1419p' PROJECT_PLAN.md`
+    - L3 4 端端到端实测 + 6 个闭环缺陷修复(2026-08-01 立,F1-F5 commit 后 4 端验证发现) | 1420-1430 (11 行) | `sed -n '1420,1430p' PROJECT_PLAN.md`
+      - L4 4 端实测结果 | 1422-1422 (1 行) | `sed -n '1422,1422p' PROJECT_PLAN.md`
+      - L4 6 个闭环缺陷修复(F6-F11) | 1423-1423 (1 行) | `sed -n '1423,1423p' PROJECT_PLAN.md`
+      - L4 验证证据 | 1424-1430 (7 行) | `sed -n '1424,1430p' PROJECT_PLAN.md`
+    - L3 路由不一致修复 + i18n 化 + Desktop 静态验证(2026-08-02 立,F1-F12 commit 后收尾) | 1431-1440 (10 行) | `sed -n '1431,1440p' PROJECT_PLAN.md`
+      - L4 验证证据 | 1433-1440 (8 行) | `sed -n '1433,1440p' PROJECT_PLAN.md`
+    - L3 P2 修复 + Desktop 动态实测 + plans 表列补齐(2026-08-02 立,F13-F15 commit 后收尾) | 1441-1448 (8 行) | `sed -n '1441,1448p' PROJECT_PLAN.md`
+      - L4 验证证据 | 1443-1448 (6 行) | `sed -n '1443,1448p' PROJECT_PLAN.md`
+  - L2 当前活跃任务:miniapp-taro 功能组件对齐 zhs_app-ZZ(2026-07-30 立,平台独占:仅 apps/miniapp-taro) | 1449-1449 (1 行) | `sed -n '1449,1449p' PROJECT_PLAN.md`
+  - L2 miniapp-taro 消费层样式对齐 web 准绳收尾(2026-09-03 立,平台独占:仅 apps/miniapp-taro + scripts/check-miniapp-taro-style-parity.mjs) | 1450-1474 (25 行) | `sed -n '1450,1474p' PROJECT_PLAN.md`
+    - L3 改动清单(45 文件:43 miniapp-taro + 1 守门脚本) | 1454-1461 (8 行) | `sed -n '1454,1461p' PROJECT_PLAN.md`
+    - L3 验收(全链,0 FAIL) | 1462-1469 (8 行) | `sed -n '1462,1469p' PROJECT_PLAN.md`
+    - L3 经验沉淀 | 1470-1474 (5 行) | `sed -n '1470,1474p' PROJECT_PLAN.md`
+  - L2 miniapp-taro 视觉/交互对齐收尾第二批(2026-09-09,平台独占:仅 apps/miniapp-taro + packages/design-tokens) | 1475-1476 (2 行) | `sed -n '1475,1476p' PROJECT_PLAN.md`
+  - L2 仓库瘦身批次 A(2026-09-09 晚,用户拍板"先做A + 历史清垃圾") | 1477-1479 (3 行) | `sed -n '1477,1479p' PROJECT_PLAN.md`
+  - L2 仓库瘦身批次 B(历史垃圾清理)+ GitWarden v3 重建(2026-09-09 深夜,用户拍板"去仓库删垃圾,不重建") | 1480-1482 (3 行) | `sed -n '1480,1482p' PROJECT_PLAN.md`
+  - L2 §1 后续任务建议(2026-07-26 维护成本优化批次) | 1483-1488 (6 行) | `sed -n '1483,1488p' PROJECT_PLAN.md`
+    - L3 P2 维护成本优化后续 | 1485-1485 (1 行) | `sed -n '1485,1485p' PROJECT_PLAN.md`
+    - L3 P0 安全与核心架构债清零 | 1486-1486 (1 行) | `sed -n '1486,1486p' PROJECT_PLAN.md`
+    - L3 P1 深度代码质量治理 | 1487-1488 (2 行) | `sed -n '1487,1488p' PROJECT_PLAN.md`
+  - L2 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI) | 1489-1489 (1 行) | `sed -n '1489,1489p' PROJECT_PLAN.md`
+  - L2 历史归档占位(2026-07-26 批次) | 1490-1499 (10 行) | `sed -n '1490,1499p' PROJECT_PLAN.md`
+  - L2 历史归档占位(2026-07-25 批次) | 1500-1500 (1 行) | `sed -n '1500,1500p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段1(2026-07-27,P1,降本 1.3x:6.8x->5.5x) | 1501-1505 (5 行) | `sed -n '1501,1505p' PROJECT_PLAN.md`
+    - L3 验证 | 1503-1505 (3 行) | `sed -n '1503,1505p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段2(2026-07-27,P0+P1,目标 5.5x->4.0x) | 1506-1510 (5 行) | `sed -n '1506,1510p' PROJECT_PLAN.md`
+    - L3 P0 高降本(预计 0.7-0.8x,3 subagent 并行) | 1508-1508 (1 行) | `sed -n '1508,1508p' PROJECT_PLAN.md`
+    - L3 P1 中降本(预计 0.6x,部分依赖 P0 完成) | 1509-1509 (1 行) | `sed -n '1509,1509p' PROJECT_PLAN.md`
+    - L3 P2 低降本(预计 0.2x,审计为主) | 1510-1510 (1 行) | `sed -n '1510,1510p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段3(2026-07-27,P2+安全降本,目标 4.2x->3.9x) | 1511-1511 (1 行) | `sed -n '1511,1511p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段3.5(2026-07-27,P2 类型契约扩散,目标 3.9x->3.7x) | 1512-1512 (1 行) | `sed -n '1512,1512p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段4(2026-07-28,P2 类型契约扩散,目标 3.7x->3.5x) | 1513-1513 (1 行) | `sed -n '1513,1513p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段5(2026-07-28,P2 类型契约扩散,目标 3.5x->3.3x) | 1514-1515 (2 行) | `sed -n '1514,1515p' PROJECT_PLAN.md`
+  - L2 BYOK 体验完善三件套收尾(2026-07-30 立,平台独占:apps/api + apps/web + scripts/ + AGENTS.md) | 1516-1520 (5 行) | `sed -n '1516,1520p' PROJECT_PLAN.md`
+    - L3 任务清单(5 项,3 subagent 并行 + 主 agent 收尾) | 1519-1520 (2 行) | `sed -n '1519,1520p' PROJECT_PLAN.md`
+  - L2 P0 中转站造血能力对标 SwiftAPI + New API 批次(2026-07-31 立,8 subagent 并行,平台独占:apps/api + apps/web + packages/database,AGENTS.md §24 用户已确认) | 1521-1532 (12 行) | `sed -n '1521,1532p' PROJECT_PLAN.md`
+    - L3 任务清单(8 项,8 subagent 并行) | 1523-1523 (1 行) | `sed -n '1523,1523p' PROJECT_PLAN.md`
+    - L3 跨端契约对齐 + 全链路验证 + commit/push(主 agent) | 1524-1524 (1 行) | `sed -n '1524,1524p' PROJECT_PLAN.md`
+    - L3 Git 同步证据 | 1525-1530 (6 行) | `sed -n '1525,1530p' PROJECT_PLAN.md`
+    - L3 任务范围内建议(无) | 1531-1532 (2 行) | `sed -n '1531,1532p' PROJECT_PLAN.md`
+  - L2 P0 中转站造血能力极致超越 SwiftAPI + New API 第二批次(2026-07-31 立,8 subagent 并行,平台独占:apps/api + apps/web + packages/database + packages/auth,AGENTS.md §24 用户已确认) | 1533-1536 (4 行) | `sed -n '1533,1536p' PROJECT_PLAN.md`
+    - L3 任务清单(8 项,8 subagent 并行,均独立新建文件) | 1535-1535 (1 行) | `sed -n '1535,1535p' PROJECT_PLAN.md`
+    - L3 主 agent 后续整合(8 subagent 全部交付后) | 1536-1536 (1 行) | `sed -n '1536,1536p' PROJECT_PLAN.md`
+  - L2 P0 中转站造血能力极致超越 SwiftAPI + New API 第三批次(2026-07-31 立,8 subagent 并行,平台独占:apps/api + apps/web + packages/auth + packages/database,AGENTS.md §24 用户已确认) | 1537-1543 (7 行) | `sed -n '1537,1543p' PROJECT_PLAN.md`
+    - L3 主 agent 后续整合(8 subagent 全部交付后) | 1539-1540 (2 行) | `sed -n '1539,1540p' PROJECT_PLAN.md`
+    - L3 主 agent 整合补充(2026-08-01 立,8 subagent 交付文件未集成收尾) | 1541-1543 (3 行) | `sed -n '1541,1543p' PROJECT_PLAN.md`
+  - L2 P0-20b 参数覆盖系统转发层集成(2026-08-01 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认) | 1544-1545 (2 行) | `sed -n '1544,1545p' PROJECT_PLAN.md`
+  - L2 P1 公开状态页(2026-08-01 立,平台独占:apps/web + apps/api,AGENTS.md §24 用户已确认) | 1546-1547 (2 行) | `sed -n '1546,1547p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x) | 1548-1548 (1 行) | `sed -n '1548,1548p' PROJECT_PLAN.md`
+  - L2 多端维护成本优化阶段7(2026-07-28,P0 schema 补齐 + 真实上传 + 类型显式化,目标 3.1x->2.9x) | 1549-1550 (2 行) | `sed -n '1549,1550p' PROJECT_PLAN.md`
+  - L2 P0 LLM 接入层系统性重构(2026-07-31 立,4 Phase 一次到位,平台独占:apps/ai-service + apps/web,AGENTS.md §24 用户已确认) | 1551-1560 (10 行) | `sed -n '1551,1560p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H8) | 1555-1555 (1 行) | `sed -n '1555,1555p' PROJECT_PLAN.md`
+    - L3 4 Phase 任务分解(多 subagent 并行) | 1556-1560 (5 行) | `sed -n '1556,1560p' PROJECT_PLAN.md`
+  - L2 AgentTaskProgressPane 折叠子区对齐 工作台(2026-07-28,/goal 完整达成) | 1561-1561 (1 行) | `sed -n '1561,1561p' PROJECT_PLAN.md`
+  - L2 AI 对话输入框字符数迁移 + i18n 孤儿键清理(2026-07-28,UI 收尾) | 1562-1562 (1 行) | `sed -n '1562,1562p' PROJECT_PLAN.md`
+  - L2 对话历史批量操作功能(2026-07-31 立,平台独占:apps/web + apps/api) | 1563-1573 (11 行) | `sed -n '1563,1573p' PROJECT_PLAN.md`
+    - L3 硬性指标 | 1572-1573 (2 行) | `sed -n '1572,1573p' PROJECT_PLAN.md`
+  - L2 工作台 流式输出深度对标 Phase 19 + Phase 20(2026-07-28,UI 极致对标 + 单测/E2E 深化,4 subagent 并行) | 1574-1575 (2 行) | `sed -n '1574,1575p' PROJECT_PLAN.md`
+  - L2 Phase 21 Timeline 实时响应 subagent SSE 事件(2026-07-29,映射层 + 接入 + 51 单测 + 17 E2E,3 subagent 并行) | 1576-1577 (2 行) | `sed -n '1576,1577p' PROJECT_PLAN.md`
+  - L2 Phase 22 工作台 深度对标 v3 — i18n 化 + 筛选 + hover tooltip + 记忆 + a11y(2026-07-29,3 subagent 并行,73 test case) | 1578-1579 (2 行) | `sed -n '1578,1579p' PROJECT_PLAN.md`
+  - L2 Phase 23 工作台 深度对标 v4 — 消息搜索 + 最小化模式 + 空状态(2026-07-29,2 subagent 并行,36 test case) | 1580-1581 (2 行) | `sed -n '1580,1581p' PROJECT_PLAN.md`
+  - L2 Phase 24 完整收尾 — Hydration 修复 + 浏览器验证 + 测试回归修复(2026-07-29,3 commit,1 浏览器验证,1 回归修复) | 1582-1617 (36 行) | `sed -n '1582,1617p' PROJECT_PLAN.md`
+    - L3 Phase 19-24 终态累计成果 | 1583-1592 (10 行) | `sed -n '1583,1592p' PROJECT_PLAN.md`
+    - L3 19 个 progress-sections 组件全部对齐 工作台 | 1593-1594 (2 行) | `sed -n '1593,1594p' PROJECT_PLAN.md`
+    - L3 零后续建议(终态确认) | 1595-1617 (23 行) | `sed -n '1595,1617p' PROJECT_PLAN.md`
+  - L2 P0 mock/空桩全面真实化(2026-08-04 立,3 subagent 并行,平台独占:apps/api + packages/database + packages/shared) | 1618-1638 (21 行) | `sed -n '1618,1638p' PROJECT_PLAN.md`
+    - L3 已完成清单 | 1621-1621 (1 行) | `sed -n '1621,1621p' PROJECT_PLAN.md`
+    - L3 研究结论(剩余空桩全量映射) | 1622-1631 (10 行) | `sed -n '1622,1631p' PROJECT_PLAN.md`
+    - L3 Git 同步证据(§20 硬定义 5 条全绿,3 个 commit) | 1632-1637 (6 行) | `sed -n '1632,1637p' PROJECT_PLAN.md`
+    - L3 已完成（§24 用户已确认,2026-08-04） | 1638-1638 (1 行) | `sed -n '1638,1638p' PROJECT_PLAN.md`
+  - L2 P1 mobile-rn 端第三方登录原生 SDK 授权(2026-08-04 立,平台独占:apps/mobile-rn,AGENTS.md §24 用户已确认) | 1639-1652 (14 行) | `sed -n '1639,1652p' PROJECT_PLAN.md`
+    - L3 背景 | 1641-1645 (5 行) | `sed -n '1641,1645p' PROJECT_PLAN.md`
+    - L3 硬性指标 | 1646-1646 (1 行) | `sed -n '1646,1646p' PROJECT_PLAN.md`
+    - L3 约束边界 | 1647-1652 (6 行) | `sed -n '1647,1652p' PROJECT_PLAN.md`
+  - L2 mobile-rn 登录页 4-tab 升级(2026-07-30,平台独占:仅 apps/mobile-rn + packages/app + packages/api-client) | 1653-1660 (8 行) | `sed -n '1653,1660p' PROJECT_PLAN.md`
+    - L3 验证证据 | 1657-1660 (4 行) | `sed -n '1657,1660p' PROJECT_PLAN.md`
+  - L2 P3 极限目标:全端共享率最大化(2026-07-29 立,/goal 模式,目标 2.9x → ≤1.7x) | 1661-1661 (1 行) | `sed -n '1661,1661p' PROJECT_PLAN.md`
+  - L2 P2-F 跨端共享组件适配层起步(2026-07-30 立,验证 packages/app → apps/miniapp-taro 桥接可行性,架构性阻塞项) | 1662-1680 (19 行) | `sed -n '1662,1680p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H5) | 1667-1667 (1 行) | `sed -n '1667,1667p' PROJECT_PLAN.md`
+    - L3 适配层架构设计原则(README 核心摘要) | 1668-1674 (7 行) | `sed -n '1668,1674p' PROJECT_PLAN.md`
+    - L3 验证结果(本批次自验通过) | 1675-1680 (6 行) | `sed -n '1675,1680p' PROJECT_PLAN.md`
+  - L2 P0 一键发布平台扩展 + 反风控工程批次(2026-07-31 立,平台独占:apps/ai-service,AGENTS.md §24 用户已确认) | 1681-1716 (36 行) | `sed -n '1681,1716p' PROJECT_PLAN.md`
+    - L3 反风控五层架构(所有 Playwright 适配器的地基) | 1686-1691 (6 行) | `sed -n '1686,1691p' PROJECT_PLAN.md`
+    - L3 硬性指标(R1-R10) | 1692-1692 (1 行) | `sed -n '1692,1692p' PROJECT_PLAN.md`
+    - L3 第二批扩展(2026-07-31)— 平台 26→38 + 反风控强化 + UI 精装修 | 1693-1693 (1 行) | `sed -n '1693,1693p' PROJECT_PLAN.md`
+    - L3 第三批深度强化(2026-08-01)— 反风控 50+ 检测点 + 平台规则 20+ 维度 + 便捷度 9 大场景(用户反馈"反风控不够/便捷度不够/未深度适配平台最新规则") | 1694-1696 (3 行) | `sed -n '1694,1696p' PROJECT_PLAN.md`
+    - L3 执行顺序(用户指定:先扩平台后精装修) | 1697-1701 (5 行) | `sed -n '1697,1701p' PROJECT_PLAN.md`
+    - L3 后续计划(本批次范围外,标注以备追踪) | 1702-1706 (5 行) | `sed -n '1702,1706p' PROJECT_PLAN.md`
+    - L3 关键发现 | 1707-1712 (6 行) | `sed -n '1707,1712p' PROJECT_PLAN.md`
+    - L3 协作规则 | 1713-1716 (4 行) | `sed -n '1713,1716p' PROJECT_PLAN.md`
+  - L2 全局顶栏(GlobalTopBar)整合 Plus 弹窗(2026-07-30 立,平台独占 web-only,AGENTS.md §9 显式标注) | 1717-1726 (10 行) | `sed -n '1717,1726p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H6) | 1723-1723 (1 行) | `sed -n '1723,1723p' PROJECT_PLAN.md`
+    - L3 进度记录 | 1724-1726 (3 行) | `sed -n '1724,1726p' PROJECT_PLAN.md`
+  - L2 后续任务建议(2026-07-30 立,本任务范围内,符合 §10 一致性约束) | 1727-1731 (5 行) | `sed -n '1727,1731p' PROJECT_PLAN.md`
+  - L2 IDE 可视化工作台路由接通 + Agent/MCP 面板深化(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注) | 1732-1767 (36 行) | `sed -n '1732,1767p' PROJECT_PLAN.md`
+    - L3 硬性指标(I1-I6) | 1736-1736 (1 行) | `sed -n '1736,1736p' PROJECT_PLAN.md`
+    - L3 进度记录 | 1737-1740 (4 行) | `sed -n '1737,1740p' PROJECT_PLAN.md`
+    - L3 /goal 达成总结(2026-07-31) | 1741-1756 (16 行) | `sed -n '1741,1756p' PROJECT_PLAN.md`
+    - L3 深度审计补完(2026-07-31,用户要求"完美细致完整毫无遗漏") | 1757-1767 (11 行) | `sed -n '1757,1767p' PROJECT_PLAN.md`
+  - L2 WorkPanel CDP 完整 Chrome 升级(2026-07-31 立,P0,平台独占 web+ai-service,AGENTS.md §9 显式标注) | 1768-1795 (28 行) | `sed -n '1768,1795p' PROJECT_PLAN.md`
+    - L3 硬性指标(C1-C6) | 1772-1772 (1 行) | `sed -n '1772,1772p' PROJECT_PLAN.md`
+    - L3 实施阶段 | 1773-1777 (5 行) | `sed -n '1773,1777p' PROJECT_PLAN.md`
+    - L3 技术方案 | 1778-1795 (18 行) | `sed -n '1778,1795p' PROJECT_PLAN.md`
+  - L2 CLI 全局命令注册 + 一键启动脚本(2026-07-31,平台独占:仅 apps/cli 工具链 + 用户 PowerShell 环境) | 1796-1796 (1 行) | `sed -n '1796,1796p' PROJECT_PLAN.md`
+  - L2 Web 端移动端/平板深度适配(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注) | 1797-1819 (23 行) | `sed -n '1797,1819p' PROJECT_PLAN.md`
+    - L3 现状调研结论 | 1799-1804 (6 行) | `sed -n '1799,1804p' PROJECT_PLAN.md`
+    - L3 已完成改动(本任务) | 1805-1805 (1 行) | `sed -n '1805,1805p' PROJECT_PLAN.md`
+    - L3 验证 | 1806-1819 (14 行) | `sed -n '1806,1819p' PROJECT_PLAN.md`
+  - L2 P0 AI 对话可视化深度接入批次(2026-07-31 立,平台独占 web+ai-service,AGENTS.md §24 用户已确认) | 1820-1842 (23 行) | `sed -n '1820,1842p' PROJECT_PLAN.md`
+    - L3 硬性指标(A1-A10) | 1825-1825 (1 行) | `sed -n '1825,1825p' PROJECT_PLAN.md`
+    - L3 约束边界 | 1826-1833 (8 行) | `sed -n '1826,1833p' PROJECT_PLAN.md`
+    - L3 实施顺序(主 agent 串行 + subagent 并行混合) | 1834-1842 (9 行) | `sed -n '1834,1842p' PROJECT_PLAN.md`
+  - L2 P1 AI 生涯指导页修复批次(2026-08-01 立,平台独占:apps/api + apps/web + packages/api-client + packages/i18n,AGENTS.md §24 用户报障修复) | 1843-1858 (16 行) | `sed -n '1843,1858p' PROJECT_PLAN.md`
+    - L3 验证 | 1846-1851 (6 行) | `sed -n '1846,1851p' PROJECT_PLAN.md`
+    - L3 影响文件(6) | 1852-1858 (7 行) | `sed -n '1852,1858p' PROJECT_PLAN.md`
+  - L2 P0 设备维度封控全链路激活(2026-08-02 立,8 端同步:apps/web + apps/api + apps/desktop + apps/extension + apps/mobile-rn + apps/miniapp-taro + apps/cli + packages/shared + packages/api-client + packages/database,AGENTS.md §24 用户已确认) | 1859-1885 (27 行) | `sed -n '1859,1885p' PROJECT_PLAN.md`
+    - L3 触发背景 | 1863-1870 (8 行) | `sed -n '1863,1870p' PROJECT_PLAN.md`
+    - L3 约束边界 | 1871-1880 (10 行) | `sed -n '1871,1880p' PROJECT_PLAN.md`
+    - L3 执行批次(3 阶段) | 1881-1885 (5 行) | `sed -n '1881,1885p' PROJECT_PLAN.md`
+  - L2 P1 staging area 同目录文件级污染根治(2026-08-06 立,工程治理,平台独占:scripts/ + .husky/ + AGENTS.md) | 1886-1914 (29 行) | `sed -n '1886,1914p' PROJECT_PLAN.md`
+    - L3 触发背景(真实事故) | 1887-1894 (8 行) | `sed -n '1887,1894p' PROJECT_PLAN.md`
+    - L3 修复方案(3 层防御) | 1895-1914 (20 行) | `sed -n '1895,1914p' PROJECT_PLAN.md`
+  - L2 P1 消息输入框附加栏 3 按钮高度统一根治(2026-08-07 立,平台独占:apps/web + apps/web/src/lib/nav-styles.ts,AGENTS.md §3 共享层优先) | 1915-1943 (29 行) | `sed -n '1915,1943p' PROJECT_PLAN.md`
+    - L3 触发背景(用户反馈 2026-08-07) | 1916-1917 (2 行) | `sed -n '1916,1917p' PROJECT_PLAN.md`
+    - L3 根因审计(Advisor 战略指导 + 代码实证) | 1918-1927 (10 行) | `sed -n '1918,1927p' PROJECT_PLAN.md`
+    - L3 修复方案(做减法,1 批 commit) | 1928-1935 (8 行) | `sed -n '1928,1935p' PROJECT_PLAN.md`
+    - L3 硬性指标 | 1936-1936 (1 行) | `sed -n '1936,1936p' PROJECT_PLAN.md`
+    - L3 约束边界 | 1937-1941 (5 行) | `sed -n '1937,1941p' PROJECT_PLAN.md`
+    - L3 平台独占 | 1942-1943 (2 行) | `sed -n '1942,1943p' PROJECT_PLAN.md`
+  - L2 P0 全项目统一 hover tooltip + 禁原生 title 属性(2026-08-07 立,平台独占:apps/web,用户规则) | 1944-1996 (53 行) | `sed -n '1944,1996p' PROJECT_PLAN.md`
+    - L3 任务拆分 | 1948-1949 (2 行) | `sed -n '1948,1949p' PROJECT_PLAN.md`
+    - L3 第一批已完成(2026-08-07) | 1950-1959 (10 行) | `sed -n '1950,1959p' PROJECT_PLAN.md`
+    - L3 验证证据(第一批) | 1960-1968 (9 行) | `sed -n '1960,1968p' PROJECT_PLAN.md`
+    - L3 第二批任务范围(P1,推荐 4 个 subagent 并行) | 1969-1975 (7 行) | `sed -n '1969,1975p' PROJECT_PLAN.md`
+    - L3 硬性指标(第二批 P1) | 1976-1996 (21 行) | `sed -n '1976,1996p' PROJECT_PLAN.md`
+  - L2 P0 aiSkill 系统深度开发 — /WorkBuddy 核心能力(2026-08-09 立,跨端:apps/ai-service + apps/web + packages/{api-client,shared,i18n}) | 1997-2045 (49 行) | `sed -n '1997,2045p' PROJECT_PLAN.md`
+      - L4 Phase 1:Skill 推荐引擎(2026-08-09) ✅ | 2020-2020 (1 行) | `sed -n '2020,2020p' PROJECT_PLAN.md`
+      - L4 Phase 2:可视化工作流编辑器(2026-08-09) ✅ | 2021-2021 (1 行) | `sed -n '2021,2021p' PROJECT_PLAN.md`
+      - L4 Phase 3:Skill 统计看板(2026-08-11) ✅ | 2022-2022 (1 行) | `sed -n '2022,2022p' PROJECT_PLAN.md`
+      - L4 Phase 4:Skill 市场/分享(2026-08-11) ✅ | 2023-2023 (1 行) | `sed -n '2023,2023p' PROJECT_PLAN.md`
+    - L3 约束边界 | 2024-2043 (20 行) | `sed -n '2024,2043p' PROJECT_PLAN.md`
+    - L3 执行顺序 | 2044-2045 (2 行) | `sed -n '2044,2045p' PROJECT_PLAN.md`
+  - L2 P0 AI教育管理 — 课程表/菜谱/学习计划 三模块全链路开发(2026-08-11 立,跨端:apps/web + apps/api + packages/database) | 2046-2062 (17 行) | `sed -n '2046,2062p' PROJECT_PLAN.md`
+    - L3 已完成(批次1-2) | 2049-2049 (1 行) | `sed -n '2049,2049p' PROJECT_PLAN.md`
+    - L3 剩余批次(批次3-6) | 2050-2054 (5 行) | `sed -n '2050,2054p' PROJECT_PLAN.md`
+      - L4 批次3:课程表前端(编辑/查看、学期切换、周/月视图) ✅ | 2051-2051 (1 行) | `sed -n '2051,2051p' PROJECT_PLAN.md`
+      - L4 批次4:菜谱前端(日/周/月视图、编辑、模板管理) ✅ | 2052-2052 (1 行) | `sed -n '2052,2052p' PROJECT_PLAN.md`
+      - L4 批次5:学习计划前端(月→周拆解、管理员制定、学生执行) ✅ | 2053-2053 (1 行) | `sed -n '2053,2053p' PROJECT_PLAN.md`
+      - L4 批次6:全链路联调 + 类型检查 + 验证交付 ✅ | 2054-2054 (1 行) | `sed -n '2054,2054p' PROJECT_PLAN.md`
+    - L3 约束边界 | 2055-2062 (8 行) | `sed -n '2055,2062p' PROJECT_PLAN.md`
+  - L2 Edu AI 管理模块二期 — 完整功能拓展 + 优化 | 2063-2063 (1 行) | `sed -n '2063,2063p' PROJECT_PLAN.md`
+  - L2 P0 移动端 RN 完整复刻 Uniapp 历史项目(2026-08-13 立,平台独占:apps/mobile-rn,AGENTS.md §24 用户已确认) | 2064-2098 (35 行) | `sed -n '2064,2098p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H30) | 2074-2078 (5 行) | `sed -n '2074,2078p' PROJECT_PLAN.md`
+      - L4 阶段 1:架构对齐(串行,3 项) | 2075-2075 (1 行) | `sed -n '2075,2075p' PROJECT_PLAN.md`
+      - L4 阶段 2:核心组件补全(并行,6 项) | 2076-2076 (1 行) | `sed -n '2076,2076p' PROJECT_PLAN.md`
+      - L4 阶段 3:缺失页面补全(并行,14 个) | 2077-2077 (1 行) | `sed -n '2077,2077p' PROJECT_PLAN.md`
+      - L4 阶段 4:样式细节对齐(串行,12 项) | 2078-2078 (1 行) | `sed -n '2078,2078p' PROJECT_PLAN.md`
+    - L3 约束边界 | 2079-2090 (12 行) | `sed -n '2079,2090p' PROJECT_PLAN.md`
+    - L3 执行批次(4 批次,每批次独立 commit) | 2091-2095 (5 行) | `sed -n '2091,2095p' PROJECT_PLAN.md`
+    - L3 收尾修复(2026-08-15,清理 + 类型 + i18n + 语义修正) | 2096-2096 (1 行) | `sed -n '2096,2096p' PROJECT_PLAN.md`
+    - L3 收尾补全(2026-08-21,测试基建 + 剩余三类真实链路) | 2097-2097 (1 行) | `sed -n '2097,2097p' PROJECT_PLAN.md`
+    - L3 测试基建 + i18n 死 key + Uniapp 未迁移页面审计(2026-08-21) | 2098-2098 (1 行) | `sed -n '2098,2098p' PROJECT_PLAN.md`
+  - L2 P0 双端功能完全互通工程(2026-08-26 立,跨端:apps/api + apps/web + apps/mobile-rn + packages,用户已确认全量双向) | 2099-2105 (7 行) | `sed -n '2099,2105p' PROJECT_PLAN.md`
+    - L3 里程碑(M0-M5) | 2101-2101 (1 行) | `sed -n '2101,2101p' PROJECT_PLAN.md`
+    - L3 进度记录 | 2102-2102 (1 行) | `sed -n '2102,2102p' PROJECT_PLAN.md`
+    - L3 双端矩阵落地入库确认(2026-08-27 00:3x 收尾) | 2103-2103 (1 行) | `sed -n '2103,2103p' PROJECT_PLAN.md`
+    - L3 WebView 会话打通(2026-08-27 04:3x 最终闭环) | 2104-2105 (2 行) | `sed -n '2104,2105p' PROJECT_PLAN.md`
+  - L2 P2 首屏 HTML 体积优化(2026-09-02 立,平台独占:apps/web,AGENTS.md §9 显式标注) | 2106-2129 (24 行) | `sed -n '2106,2129p' PROJECT_PLAN.md`
+    - L3 背景(2026-09-02 页面切换提速排查时的副产物,已实测量化) | 2108-2115 (8 行) | `sed -n '2108,2115p' PROJECT_PLAN.md`
+    - L3 根因(已定位,未修) | 2116-2120 (5 行) | `sed -n '2116,2120p' PROJECT_PLAN.md`
+    - L3 影响边界(重要,避免误判优先级) | 2121-2124 (4 行) | `sed -n '2121,2124p' PROJECT_PLAN.md`
+    - L3 待办 | 2125-2125 (1 行) | `sed -n '2125,2125p' PROJECT_PLAN.md`
+    - L3 关联 | 2126-2126 (1 行) | `sed -n '2126,2126p' PROJECT_PLAN.md`
+    - L3 关联 | 2127-2129 (3 行) | `sed -n '2127,2129p' PROJECT_PLAN.md`
+  - L2 P1 桌面端 SaaS 化:连接线上生产后端 aizhs.top(2026-09-02 立,跨端:apps/web + apps/api + scripts,用户已拍板) | 2130-2135 (6 行) | `sed -n '2130,2135p' PROJECT_PLAN.md`
+    - L3 背景与方案 | 2131-2132 (2 行) | `sed -n '2131,2132p' PROJECT_PLAN.md`
+    - L3 代码改动(2026-09-02 已完成,待提交) | 2133-2135 (3 行) | `sed -n '2133,2135p' PROJECT_PLAN.md`
+  - L2 P1 全站 Button 高度 token 统一(2026-09-07 收官,平台独占:apps/web + packages/ui-react) | 2136-2137 (2 行) | `sed -n '2136,2137p' PROJECT_PLAN.md`
+  - L2 P0 SDK 测试 + IDE e2e + 评测扩容(2026-09-07 收官,主会话手动执行——agent 配额 429 全灭后止损转串行) | 2138-2138 (1 行) | `sed -n '2138,2138p' PROJECT_PLAN.md`
+  - L2 P0 四竞品深度对标(CodeX/Trae/Qoder/WorkBuddy):AI 对话全链路 14 项补齐(2026-09-12 立,跨端:apps/web + apps/ai-service + packages/api-client + packages/i18n,AGENTS.md §24 用户确认) | 2139-2147 (9 行) | `sed -n '2139,2147p' PROJECT_PLAN.md`
+    - L3 第一梯队 P0:对话体验补齐(用户每天看得见) | 2141-2141 (1 行) | `sed -n '2141,2141p' PROJECT_PLAN.md`
+    - L3 第二梯队 P1:能力补课(一周内跟上) | 2142-2142 (1 行) | `sed -n '2142,2142p' PROJECT_PLAN.md`
+    - L3 第三梯队 P2:拉开身位(竞品没有或很弱的) | 2143-2143 (1 行) | `sed -n '2143,2143p' PROJECT_PLAN.md`
+    - L3 对标基线备忘(2026-09-12 摸排结论) | 2144-2147 (4 行) | `sed -n '2144,2147p' PROJECT_PLAN.md`
+  - L2 P1 e2e(Playwright)workflow 长期红根治(2026-09-13 立,平台独占:apps/web/e2e + playwright.config.ts + .github/workflows/e2e.yml) | 2148-2155 (8 行) | `sed -n '2148,2155p' PROJECT_PLAN.md`
+  - L2 P0 中转站全链路集成收官——凭据契约与模型名归一化(2026-09-13 立,跨端:apps/api + apps/ai-service + apps/web + apps/cli + docs + scripts) | 2156-2158 (3 行) | `sed -n '2156,2158p' PROJECT_PLAN.md`
+  - L2 P0 四竞品深度对标第二轮 V2:对话流程显示细节 22 项增量补齐(2026-09-15 立,跨端:apps/web + apps/ai-service + apps/api + packages/api-client + packages/i18n,AGENTS.md §24 用户确认) | 2159-2178 (20 行) | `sed -n '2159,2178p' PROJECT_PLAN.md`
+    - L3 第一梯队 P0:对话流显示层(用户每次对话都感知) | 2162-2162 (1 行) | `sed -n '2162,2162p' PROJECT_PLAN.md`
+    - L3 第二梯队 P1:传输健壮性 + 智能可见性(一周内跟上) | 2163-2163 (1 行) | `sed -n '2163,2163p' PROJECT_PLAN.md`
+    - L3 第三梯队 P2:拉开身位(竞品没有或很弱) | 2164-2164 (1 行) | `sed -n '2164,2164p' PROJECT_PLAN.md`
+    - L3 第四梯队 P3:五年领先愿景(2026-09-15 立,用户指令「远超对标程序起码五年」;均为竞品 5 年内难做齐的代差能力,15–36 补齐后逐项立项排期) | 2165-2178 (14 行) | `sed -n '2165,2178p' PROJECT_PLAN.md`
+      - L4 第四梯队立项设计(2026-09-16 立会话收口,每项 2-5 天专项工程,按资产协同度排序开工) | 2166-2178 (13 行) | `sed -n '2166,2178p' PROJECT_PLAN.md`
+  - L2 P0 四竞品深度对标第三轮 V3:能力真实性与主链路缝合 40 项(2026-09-26 立,跨端:apps/ai-service + apps/web + apps/api + apps/cli + apps/desktop + apps/miniapp-taro + packages/*,AGENTS.md §24 用户确认) | 2179-2205 (27 行) | `sed -n '2179,2205p' PROJECT_PLAN.md`
+    - L3 4-1 对外售卖模型 API 产品化补强完成报告(2026-09-16) | 2180-2180 (1 行) | `sed -n '2180,2180p' PROJECT_PLAN.md`
+    - L3 4-2 运营平台成熟度待办(2026-09-16 第四轮源码级对标产出,规格已核对竞品 backend/internal/server/routes/admin.go) | 2181-2181 (1 行) | `sed -n '2181,2181p' PROJECT_PLAN.md`
+    - L3 4-3 通用高阶能力 + 差异化(2026-09-16 第五轮对标产出;已核对竞品 379 端点/37 路由组) | 2182-2187 (6 行) | `sed -n '2182,2187p' PROJECT_PLAN.md`
+    - L3 4-4 中转站管理端补齐——后端有、前端零消费的 7 项一次性收口(2026-09-17 立,平台独占:仅 apps/web + packages/i18n) | 2188-2205 (18 行) | `sed -n '2188,2205p' PROJECT_PLAN.md`
+  - L2 并发合并回捞(2026-09-23 `merge main`) | 2206-2210 (5 行) | `sed -n '2206,2210p' PROJECT_PLAN.md`
+    - L3 来自本地 main `ddb78b1ca66`(14 行) | 2210-2210 (1 行) | `sed -n '2210,2210p' PROJECT_PLAN.md`
+  - L2 P1 mobile-rn :8806 Web 预览白屏排查(2026-09-23 部分闭环:消掉一个必然阻塞,预览仍空白,不称已修) | 2211-2215 (5 行) | `sed -n '2211,2215p' PROJECT_PLAN.md`
+  - L2 P1 :8806 Expo Web 预览白屏:四条假设逐一实测否证(2026-09-23 未闭环,已定位到"需断点级调试"这一步) | 2216-2242 (27 行) | `sed -n '2216,2242p' PROJECT_PLAN.md`
+  - L2 P1 深色收口剩余两族:被并发圆角会话整体阻塞(2026-09-23 登记,含重开判据与一份不可信清单的校正) | 2243-2274 (32 行) | `sed -n '2243,2274p' PROJECT_PLAN.md`
+    - L3 族一:次级按钮继承了主 CTA 填充(已确证,待文件转干净后改) | 2248-2255 (8 行) | `sed -n '2248,2255p' PROJECT_PLAN.md`
+    - L3 族二:媒体衬底的 `surface.light` 前景回正(清单需重推,派单结果不可信) | 2256-2270 (15 行) | `sed -n '2256,2270p' PROJECT_PLAN.md`
+    - L3 本会话对"244 处 `brand.DEFAULT` 填充"的处置结论 | 2271-2274 (4 行) | `sed -n '2271,2274p' PROJECT_PLAN.md`
+  - L2 O24 本会话自伤事故登记:对活文档做"全量 union 回补"造成 1543 行重复入库(2026-09-23 已撤销,未推送) | 2275-2277 (3 行) | `sed -n '2275,2277p' PROJECT_PLAN.md`
+  - L2 O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立)（进行中） | 2278-2278 (1 行) | `sed -n '2278,2278p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-24 共享工作区幻影漂移周期自愈装车 + 三道系统性红门清零(单端工程治理:scripts + .gitignore) | 2279-2285 (7 行) | `sed -n '2279,2285p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-24 本机对象库连通性存疑(如实登记为未闭环，判据已钉死，本票未修) | 2286-2289 (4 行) | `sed -n '2286,2289p' PROJECT_PLAN.md`
+  - L2 O38 全队看板(原登记为 O29,与他人 O29 撞号后改号)：推送被 GitHub 推送保护整段拒绝 + 4 道门红在 HEAD + 本地恢复源落后 97 提交(已修) + 一批幻影债改判(2026-09-24 立,单端工程治理:scripts + 文档) | 2290-2290 (1 行) | `sed -n '2290,2290p' PROJECT_PLAN.md`
+  - L2 O29 O25 遗留四件待拍板事项的落地(2026-09-23 立,用户逐项拍板后执行;单端工程治理:apps/api + apps/ai-service + monitoring) | 2291-2299 (9 行) | `sed -n '2291,2299p' PROJECT_PLAN.md`
+    - L3 第二十五批(2026-09-24):"未闭环三条"逐条先量再动 —— 门 71 补非登记行报数面、门 41 两处误判改正、对象库按服务端真值补全 | 2292-2299 (8 行) | `sed -n '2292,2299p' PROJECT_PLAN.md`
+  - L2 O30 O13b① 收尾(白名单 12 处 → 1 处)与 main 被他人密钥夹具卡死的"鸡生蛋"实证(2026-09-24 立,代码已入库/推送被阻塞) | 2300-2314 (15 行) | `sed -n '2300,2314p' PROJECT_PLAN.md`
+    - L3 第二十九批(2026-09-24):refs-heal 写 ref 前先验对象存在性 + 217 枚空壳 tag 定量到"救与不救"的界线 | 2313-2314 (2 行) | `sed -n '2313,2314p' PROJECT_PLAN.md`
+  - L2 O32 D92 闭环:对话流错误卡接上统一失败分类表(含 errorCode 全链透传),第二张表判定为"同主干细粒度层" | 2315-2329 (15 行) | `sed -n '2315,2329p' PROJECT_PLAN.md`
+  - L2 O31 三票并行派单边界登记（2026-09-24 立，进行中；主 agent 统一落地，代理一律不提交） | 2330-2333 (4 行) | `sed -n '2330,2333p' PROJECT_PLAN.md`
+  - L2 O34 存续自愈在 05:15:04 把 10 个"在飞删除"当成宿主误删恢复了（2026-09-24 实证，归属会话需重发删除） | 2334-2337 (4 行) | `sed -n '2334,2337p' PROJECT_PLAN.md`
+  - L2 O37（二） 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 2338-2338 (1 行) | `sed -n '2338,2338p' PROJECT_PLAN.md`
+  - L2 O1（二） 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 2339-2384 (46 行) | `sed -n '2339,2384p' PROJECT_PLAN.md`
+    - L3 第三十四批(2026-09-24):守门 74 消费端改按符号粒度认 —— 清零 HEAD 上 70 枚 blocking 恒红,并撤回一批会与并发会话抢键的交付 | 2340-2344 (5 行) | `sed -n '2340,2344p' PROJECT_PLAN.md`
+    - L3 第三十五批(2026-09-24):撤掉本会话自己那张"错杠杆"票 —— 干净检出 A/B 证明 70 枚恒红是判据已被修准而非缺键;并实测到提交链门禁已断 | 2345-2384 (40 行) | `sed -n '2345,2384p' PROJECT_PLAN.md`
+  - L2 环境事实(2026-09-24 本会话登记,零尾巴后续) | 2385-2387 (3 行) | `sed -n '2385,2387p' PROJECT_PLAN.md`
+  - L2 O45 凭据巡检根因收口:密钥库盘符按"存在探测"(五把 key 实测全有效)+ 守门 30a fsck 提速 | 2388-2388 (1 行) | `sed -n '2388,2388p' PROJECT_PLAN.md`
+  - L2 O50 真机 release 包启动即崩的根因收口 —— 守门 77 B6 括号形态盲区 + 新守门 98「HEAD 悬空具名导入」(2026-09-24) | 2389-2389 (1 行) | `sed -n '2389,2389p' PROJECT_PLAN.md`
+  - L2 O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据） | 2390-2398 (9 行) | `sed -n '2390,2398p' PROJECT_PLAN.md`
+    - L3 第三阶段(2026-09-24 00:20–00:55,三路并行 subagent + CI 发版) | 2394-2398 (5 行) | `sed -n '2394,2398p' PROJECT_PLAN.md`
+  - L2 O40 守门接线层第三批 —— 自己撞的号自己拦:改号 91→92、门 89 补 R4/R5/R6 三维、AGENTS 文档债当场清 | 2399-2401 (3 行) | `sed -n '2399,2401p' PROJECT_PLAN.md`
+  - L2 O48 全队提交链三条硬故障根治:Gitee 配额自激环路 / 2n-web parity 读脏工作树 / 根 .bin 缺 shim | 2402-2407 (6 行) | `sed -n '2402,2407p' PROJECT_PLAN.md`
+    - L3 O42 运维到人通道收口:第三方微信推送腿(Server酱)整体摘除,邮件为唯一通道且无总量封顶(2026-09-24,用户两次明确授权) | 2404-2405 (2 行) | `sed -n '2404,2405p' PROJECT_PLAN.md`
+    - L3 O45 运维到人通道收口:第三方微信推送腿(Server酱)整体摘除,邮件为唯一通道且无总量封顶(2026-09-24,用户两次明确授权) | 2406-2407 (2 行) | `sed -n '2406,2407p' PROJECT_PLAN.md`
+  - L2 O50（一） 真机 release 包启动即崩的根因收口 —— 守门 77 B6 括号形态盲区 + 新守门 98「HEAD 悬空具名导入」(2026-09-24) | 2408-2411 (4 行) | `sed -n '2408,2411p' PROJECT_PLAN.md`
+  - L2 O57 播放器屏的状态栏带色 —— 端内那条路已真机证伪,修法只剩单点那一处(2026-09-24 立,交 `apps/mobile-rn/App.tsx` 持有人) | 2412-2475 (64 行) | `sed -n '2412,2475p' PROJECT_PLAN.md`
+    - L3 第三十六批(2026-09-24):全量镜像测试首次统一开考 —— 130 文件 2131 例跑出 9 红并逐条归因;附守门链停摆期间共享文档被搅碎的现场证据 | 2431-2470 (40 行) | `sed -n '2431,2470p' PROJECT_PLAN.md`
+    - L3 第三十七批(2026-09-24):把提交链从"人人跳闸"里救出来 —— 一道判机器态的门改 warn(用户授权)、safe-commit 不再把锁争用当钩子失败、门 90 补承接面归因、门 78 五条链接补位;并登记我自己的两次交付不实 | 2471-2475 (5 行) | `sed -n '2471,2475p' PROJECT_PLAN.md`
+  - L2 O50（二） 真机 release 包启动即崩的根因收口 —— 守门 77 B6 括号形态盲区 + 新守门 98「HEAD 悬空具名导入」(2026-09-24) | 2476-2750 (275 行) | `sed -n '2476,2750p' PROJECT_PLAN.md`
+    - L3 第三十九批·清账与 union 收敛(2026-09-24,owner 指令"执行到底、不留后续建议") | 2477-2492 (16 行) | `sed -n '2477,2492p' PROJECT_PLAN.md`
+    - L3 第四十二批(2026-09-24):把"落不下去的合并"当成一门学问做完 —— 一枚合并撞四次、每次换一个真因;含我自己覆盖他人 717 行测试的自伤 | 2493-2572 (80 行) | `sed -n '2493,2572p' PROJECT_PLAN.md`
+    - L3 第四十三批(2026-09-24):CI 的 latest.json 生成链接上共享判据 —— 消掉第四十二批未闭环④,顺手把"装车证明"从相邻文本改成结构位 | 2573-2607 (35 行) | `sed -n '2573,2607p' PROJECT_PLAN.md`
+    - L3 第四十二批·续(2026-09-24):部署环被一次 I/O 阻塞钉死 20 分钟 —— 无界等待才是"生产停在旧提交"的下一颗雷 | 2608-2633 (26 行) | `sed -n '2608,2633p' PROJECT_PLAN.md`
+    - L3 第四十四批(2026-09-24):守门 93 从"只核手工映射"扩到基础档按名推导 —— 消掉第四十二批未闭环③;含两处取材缺陷与一把方向写反的回归锁 | 2634-2659 (26 行) | `sed -n '2634,2659p' PROJECT_PLAN.md`
+    - L3 第四十五批(2026-09-24,三路并行把 132 道守门在 HEAD 上全量考了一遍):修 4 补 1,并把"红"拆成仓库缺陷 / 判据坏了 / 机器态三类 | 2660-2660 (1 行) | `sed -n '2660,2660p' PROJECT_PLAN.md`
+    - L3 第四十三批·本会话交付（2026-09-25 凌晨，5 代理并行；开工前快照 106→120 个他人未提交路径并全程作为禁改清单） | 2661-2692 (32 行) | `sed -n '2661,2692p' PROJECT_PLAN.md`
+      - L4 第四十三批·续（同夜，2 枚追加票 + CI 回读判定） | 2677-2692 (16 行) | `sed -n '2677,2692p' PROJECT_PLAN.md`
+    - L3 O60b 本轮并行编码落地(2026-09-25 夜):D83 / D16 入库并逐道补跑门禁,D17 / D19 产出保留在工作树并挂认领 | 2693-2709 (17 行) | `sed -n '2693,2709p' PROJECT_PLAN.md`
+    - L3 O62 附:补跑守门链量到的两件事(2026-09-25,本票 CAS 提交绕钩子 ⇒ 门从未在该提交上跑过) | 2710-2711 (2 行) | `sed -n '2710,2711p' PROJECT_PLAN.md`
+    - L3 第四十八批(2026-09-25,按"再找未认领任务"这一动作本身查出的一处机制缺陷):认领扫描器只看行首,已闭环的项被数成无人认领 | 2712-2721 (10 行) | `sed -n '2712,2721p' PROJECT_PLAN.md`
+    - L3 第二波未闭环(不写作收口,各自给解阻判据) | 2722-2727 (6 行) | `sed -n '2722,2727p' PROJECT_PLAN.md`
+    - L3 第四十九批(2026-09-25,按"再找未认领任务"这一动作本身查出的一处机制缺陷):认领扫描器只看行首,已闭环的项被数成无人认领 | 2728-2731 (4 行) | `sed -n '2728,2731p' PROJECT_PLAN.md`
+    - L3 第三波(同夜 03:0x–03:4x,把上一节"未闭环"逐条判掉:能做的当场做完,做不完的给出归属与证据) | 2732-2732 (1 行) | `sed -n '2732,2732p' PROJECT_PLAN.md`
+    - L3 第四十九批(2026-09-25):生产库备份链接回 —— 断点是 09-24 04:47 那次 pg_hba 收紧,只剩"一次超管会话"没接上 | 2733-2750 (18 行) | `sed -n '2733,2750p' PROJECT_PLAN.md`
+  - L2 O73 危险操作确认旁路收口到工具层(五处收四处)+ 台账幻影债复测七条(2026-09-25) | 2751-2771 (21 行) | `sed -n '2751,2771p' PROJECT_PLAN.md`
+    - L3 O62 附⑥:把 R6 收到"真 v3 消费端"后量到的结论 —— `tailwind-alpha-plugin` 至今**零真实使用者**(2026-09-25) | 2752-2771 (20 行) | `sed -n '2752,2771p' PROJECT_PLAN.md`
+  - L2 O74 按转正后的派单表接两枚(2026-09-25):密钥文件结构性排除 + 阶段标签层立防回潮判据 | 2772-2849 (78 行) | `sed -n '2772,2849p' PROJECT_PLAN.md`
+    - L3 第四十九波·续 —— 返回键跨端清账落地(packages/app + mobile-rn + extension,2026-09-25) | 2775-2823 (49 行) | `sed -n '2775,2823p' PROJECT_PLAN.md`
+    - L3 第九波（2026-09-25 15:0x–15:4x：影子校验装车 + 门 115 + A26 用真尺子量完并否证） | 2824-2840 (17 行) | `sed -n '2824,2840p' PROJECT_PLAN.md`
+    - L3 第十波（2026-09-25 15:3x–16:0x：门 116 出站事实 + 影子校验落地后的三处如实登记） | 2841-2848 (8 行) | `sed -n '2841,2848p' PROJECT_PLAN.md`
+    - L3 第五十波·TEMP 夹具回收出口落地 + 一处 junction 虚高量算的自纠(2026-09-25 当日) | 2849-2849 (1 行) | `sed -n '2849,2849p' PROJECT_PLAN.md`
+  - L2 O75 并行五票：无人值守闭环三段 + queueItems + 收敛试点 + 跳转单一源（2026-09-25） | 2850-2855 (6 行) | `sed -n '2850,2855p' PROJECT_PLAN.md`
+  - L2 O76 第二波并行三票 + 两格"不接"的判定（2026-09-25，主会话单写登记） | 2856-2864 (9 行) | `sed -n '2856,2864p' PROJECT_PLAN.md`
+    - L3 第五十一波·记忆端点"认证≠授权"变成机器判据(守门 117,warn;2026-09-25) | 2862-2863 (2 行) | `sed -n '2862,2863p' PROJECT_PLAN.md`
+    - L3 第五十二波·"AI 自动生成规则"整条链四处断裂的实测定性与收口(2026-09-25,非移动端) | 2864-2864 (1 行) | `sed -n '2864,2864p' PROJECT_PLAN.md`
+  - L2 O82续四 本会话第二批(2026-09-26 用户批准后并行三票 + 两条自食其果更正) | 2865-2898 (34 行) | `sed -n '2865,2898p' PROJECT_PLAN.md`
+    - L3 环境与交接注意事项(接手 agent 必读) | 2866-2895 (30 行) | `sed -n '2866,2895p' PROJECT_PLAN.md`
+    - L3 剩余工作全景(按 V3 编号,接手 agent 按此开工) | 2896-2898 (3 行) | `sed -n '2896,2898p' PROJECT_PLAN.md`
+  - L2 P0 V3 对标第三轮 · 会话交接(2026-09-26 晚,交接给接手 agent,本分支 workbuddy/main-429651b5 删除前留档) | 2899-3256 (358 行) | `sed -n '2899,3256p' PROJECT_PLAN.md`
+    - L3 排期(Sprint,排序原则:先修「会误导的」再修「不好用的」) | 2905-2916 (12 行) | `sed -n '2905,2916p' PROJECT_PLAN.md`
+    - L3 第五十波·续末 —— 合并后终读、一处交接、以及一条"同一 seam 让位"的记录(2026-09-25 夜) | 2917-2949 (33 行) | `sed -n '2917,2949p' PROJECT_PLAN.md`
+      - L4 回补区 · 78c32a4fbe 覆盖掉的已入库登记行(逐字取自其父提交,非新增待办) | 2949-2949 (1 行) | `sed -n '2949,2949p' PROJECT_PLAN.md`
+    - L3 O62 附⑧补:那枚"开链"只完成了一半 —— 命名档已落地、**项目色档整族仍未落地**,并判死我自己的一处归因(2026-09-25 晚,四路并行复核) | 2950-2954 (5 行) | `sed -n '2950,2954p' PROJECT_PLAN.md`
+    - L3 第八批·交接:三件待执行(主会话上下文耗尽,不得当作已完成) | 2955-2967 (13 行) | `sed -n '2955,2967p' PROJECT_PLAN.md`
+    - L3 第八批·交接 落地(2026-09-26 06:0x-06:5x,续会话执行;H-1/H-3/H-4/H-5 已闭环,H-2 归并行会话) | 2968-2973 (6 行) | `sed -n '2968,2973p' PROJECT_PLAN.md`
+    - L3 第九批 ZCode 吸收线:六个未读切片并行取证 + 六票落地(2026-09-26,主会话 + 六路取证 + 六路实现) | 2974-2990 (17 行) | `sed -n '2974,2990p' PROJECT_PLAN.md`
+    - L3 第十批 ZCode 吸收线:五票并行落地 + 一枚新守门装进提交链(2026-09-26 上午,主会话 + 五路实现) | 2991-3104 (114 行) | `sed -n '2991,3104p' PROJECT_PLAN.md`
+    - L3 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26) | 3105-3143 (39 行) | `sed -n '3105,3143p' PROJECT_PLAN.md`
+    - L3 O62 附⑪:同一份构建配置实测出**三种产物形态**,昨日我登记的"端常态 34.89%"只是其中一档;补 C5/C6 与 `cssEntries`(2026-09-26) | 3144-3145 (2 行) | `sed -n '3144,3145p' PROJECT_PLAN.md`
+    - L3 第五十波·续末③ —— 三路并行审计推翻了我上一轮的两句结论;把"散文式后续"换成机器可见的欠账清单(2026-09-26) | 3146-3166 (21 行) | `sed -n '3146,3166p' PROJECT_PLAN.md`
+    - L3 O62 附⑫:构建漂移的**根因是 webpack 持久缓存**,以及一条我差点漏掉的"门自己作假证" | 3167-3180 (14 行) | `sed -n '3167,3180p' PROJECT_PLAN.md`
+    - L3 O61 领票前逐条实测:本轮从"可认领"清单里挑的 5 枚没有一枚是真待办(2026-09-25,只读取证) | 3181-3212 (32 行) | `sed -n '3181,3212p' PROJECT_PLAN.md`
+    - L3 O62 附⑬:dev(`--watch`)实测**同样**受这条持久缓存影响 —— 判据先在已知会漂移的那一档喂出红,再来读 dev | 3213-3248 (36 行) | `sed -n '3213,3248p' PROJECT_PLAN.md`
+    - L3 红米真机走屏:四条 UI 缺陷登记(2026-09-26,取证在 `.ihui-agent/tmp/rn-preview/`) | 3249-3256 (8 行) | `sed -n '3249,3256p' PROJECT_PLAN.md`
+  - L2 O82补 登记正文重登（2026-09-26，带主键前缀以进门 71 保护面） | 3257-3265 (9 行) | `sed -n '3257,3265p' PROJECT_PLAN.md`
+  - L2 O83 批次登记（2026-09-26：状态栏避让 / 纯黑描边根治 / 守门 8 补共享包面 / 109 与归并器互咬） | 3266-3270 (5 行) | `sed -n '3266,3270p' PROJECT_PLAN.md`
+  - L2 O82续三（一） 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据） | 3271-3352 (82 行) | `sed -n '3271,3352p' PROJECT_PLAN.md`
+  - L2 O82续三（二） 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据） | 3353-3436 (84 行) | `sed -n '3353,3436p' PROJECT_PLAN.md`
+    - L3 第五十一批·本会话编号(2026-09-26 20:0x–21:0x,主会话独立复跑;这一格只登记自己量到的读数) | 3360-3405 (46 行) | `sed -n '3360,3405p' PROJECT_PLAN.md`
+    - L3 第五十一波·续二末 —— 第二十四批:把"那几处同型残留"当成**形状**而不是清单(2026-09-26 夜,主会话独立复跑) | 3406-3409 (4 行) | `sed -n '3406,3409p' PROJECT_PLAN.md`
+    - L3 第五十一波·续二末补 —— 第二十五批:上一批我自己写的"未闭环"逐格清账(2026-09-26 深夜,主会话独立复跑) | 3410-3436 (27 行) | `sed -n '3410,3436p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-27 桌面安装包视觉三版「星澜 · Nebula」:氛围升级 + 开屏重排 + 安装页截环缺陷根治(平台独占:apps/desktop + scripts/desktop-installer-assets.mjs) | 3437-3465 (29 行) | `sed -n '3437,3465p' PROJECT_PLAN.md`
+    - L3 第五十一波·续三 —— 第二十六批:删除端点的 `deleted: true` 全部改成"库问出来的"(2026-09-27 凌晨,主会话独立复跑) | 3458-3465 (8 行) | `sed -n '3458,3465p' PROJECT_PLAN.md`
+  - L2 第五十二批(2026-09-27):"需拍板"项集中处置(用户授权「需要我拍板的我都同意,授权你去做」) | 3466-3478 (13 行) | `sed -n '3466,3478p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-27 AI 能力三轮深度对标(Codex GPT-5.3/Agent Teams 时代 · Trae SOLO · Qoder Quest · 腾讯 WorkBuddy)开发计划(2026-09-27 立,跨端:web + api + ai-service + desktop/miniapp/mobile-rn) | 3479-3480 (2 行) | `sed -n '3479,3480p' PROJECT_PLAN.md`
+    - L3 P0 立即执行(1-2 周,对话流显示细节;编号续 D112,G 续 G-226) | 3480-3480 (1 行) | `sed -n '3480,3480p' PROJECT_PLAN.md`
+  - L2 第五十三批(2026-09-27 续):G-222 落地 + RN 两处真机走查修复 + 守门通道清障 | 3481-3565 (85 行) | `sed -n '3481,3565p' PROJECT_PLAN.md`
+    - L3 第五十一波·续七补 —— 出库通道阻塞点（2026-09-27 早，实测登记，非本会话可解） | 3551-3565 (15 行) | `sed -n '3551,3565p' PROJECT_PLAN.md`
+  - L2 O86附⑤ 上面 O86附③ 那格"仍在本地"已经翻篇(同一批事实的现读更新) | 3566-3570 (5 行) | `sed -n '3566,3570p' PROJECT_PLAN.md`
+  - L2 O86附④ 门 137 上线后的第一次自我修正(它误判了自己看守的那一型) | 3571-3587 (17 行) | `sed -n '3571,3587p' PROJECT_PLAN.md`
+  - L2 O86附③ 推送收敛被两件事卡住(如实登记,不是已完成) | 3588-3595 (8 行) | `sed -n '3588,3595p' PROJECT_PLAN.md`
+  - L2 第五十四批(2026-09-27 续二):§29 tag GC 关账(safe-gc 回收 2.7GB)+ RN 构建阻塞取证 + 桌面端/移动端事项改派 | 3596-3608 (13 行) | `sed -n '3596,3608p' PROJECT_PLAN.md`
+    - L3 更正(2026-09-27 当日,由本会话上一格自我推翻)——上面「残余②」是错的,并据此把「残余③」的定性升级 | 3599-3602 (4 行) | `sed -n '3599,3602p' PROJECT_PLAN.md`
+    - L3 第五十一波·续八 —— 第三十三批~第三十六批：ZCode 第五轮对标，把四块"没读过的大切片"啃到能落地（2026-09-27 上午，主会话独立复验） | 3603-3608 (6 行) | `sed -n '3603,3608p' PROJECT_PLAN.md`
+  - L2 O86附⑥ 生产机现读 + 门 137 五处判据自我短路一次修清 | 3609-3610 (2 行) | `sed -n '3609,3610p' PROJECT_PLAN.md`
+  - L2 O86附⑦ 更正:邮件里那对经纬度的真实来源(上一轮 O86附①~⑤ 的结论方向是错的) | 3611-3679 (69 行) | `sed -n '3611,3679p' PROJECT_PLAN.md`
+    - L3 0.1.45 发版执行记录与两条新实测(2026-09-27,接上一格) | 3617-3626 (10 行) | `sed -n '3617,3626p' PROJECT_PLAN.md`
+    - L3 第五十一波·续十二 —— 提交链被一道"没人调度却自称已接线"的门挡住：只把表述改准，不替它接线（2026-09-27 午后，主会话独立复跑） | 3627-3637 (11 行) | `sed -n '3627,3637p' PROJECT_PLAN.md`
+    - L3 第五十一波·续十七 —— 批次 49：A36 第三步的 enforce 档落地，而**默认档刻意不动**（2026-09-27 午后，主会话独立复跑） | 3638-3639 (2 行) | `sed -n '3638,3639p' PROJECT_PLAN.md`
+    - L3 更正二(2026-09-27,推翻本会话「Ctrl+Q 新线索」那条里的定性) | 3640-3644 (5 行) | `sed -n '3640,3644p' PROJECT_PLAN.md`
+    - L3 0.1.45 分发链收口(2026-09-27,推翻本会话上一格"Windows 发版链已断"的未修状态) | 3645-3646 (2 行) | `sed -n '3645,3646p' PROJECT_PLAN.md`
+    - L3 第五十一波·续十六 —— 第六轮 ZCode 取证四路并行 + 批次 44/45/46（2026-09-27 午后，主会话独立复跑） | 3647-3670 (24 行) | `sed -n '3647,3670p' PROJECT_PLAN.md`
+    - L3 P0 登记(2026-09-27 实测):Windows 桌面端 CI 发版链已断,后续所有 Windows 用户拿不到更新 | 3671-3679 (9 行) | `sed -n '3671,3679p' PROJECT_PLAN.md`
+  - L2 O86附⑧ 收口三件（运维邮件唯一出口的闸门 / 门 137 最后一格安全收窄 / 退化指纹的关联闸）+ 两格否证 | 3680-3680 (1 行) | `sed -n '3680,3680p' PROJECT_PLAN.md`
+  - L2 O86附⑨ 独立复核两批(共 7 件)收口 + 五格移交(2026-09-27 登记,已入库与未闭环两侧都写) | 3681-3687 (7 行) | `sed -n '3681,3687p' PROJECT_PLAN.md`
+  - L2 第五十五批(2026-09-27 午后·第五波):守门 149 装车 + 门 101 假账清 + api 删除端点属主闸三格收口,含一次**我自己造成的误判**的完整复盘 | 3688-3718 (31 行) | `sed -n '3688,3718p' PROJECT_PLAN.md`
+    - L3 现读与待验 | 3695-3696 (2 行) | `sed -n '3695,3696p' PROJECT_PLAN.md`
+    - L3 ⑤ 隔离检出的同步方式换了一条 | 3697-3702 (6 行) | `sed -n '3697,3702p' PROJECT_PLAN.md`
+    - L3 ④ 一次值得留底的现场判读:磁盘副本"脏"不等于他人在飞 | 3703-3708 (6 行) | `sed -n '3703,3708p' PROJECT_PLAN.md`
+    - L3 ③ 函数形态 `style` 存量清零:29 站点 / 16 文件(守门 131 现读 0 处) | 3709-3712 (4 行) | `sed -n '3709,3712p' PROJECT_PLAN.md`
+    - L3 ② 一条"注册与脚本必须同枚入库"的实录:门 148 曾指向一个不在 HEAD 里的脚本 | 3713-3717 (5 行) | `sed -n '3713,3717p' PROJECT_PLAN.md`
+    - L3 ① 401 统一出口:RN / 小程序 / extension 三端补齐,并给它配一把常驻尺子(门 148) | 3718-3718 (1 行) | `sed -n '3718,3718p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 午后):会话失效出口三端补齐 + 函数形态 style 存量清零 + 一道门"注册先进仓、脚本还在门外"的成套收口 | 3719-3738 (20 行) | `sed -n '3719,3738p' PROJECT_PLAN.md`
+    - L3 更正三(2026-09-27):"Ctrl+Q 未触发"是**我的注入手段无效**,不是应用缺陷 —— 不得据此修 Ctrl+Q | 3730-3738 (9 行) | `sed -n '3730,3738p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 午后·第六波):两条全局锁的"判活"补上进程身份三元组(ZCode 吸收线批次 50)—— 大白话:以前只能猜"这人是死是活",现在能问出来 | 3739-3739 (1 行) | `sed -n '3739,3739p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 下午·第五波收尾):三把新尺子 + 一格静默失效补信号,含两处**我自己在收账过程中造的错** | 3740-3765 (26 行) | `sed -n '3740,3765p' PROJECT_PLAN.md`
+  - L2 第五十七批(2026-09-27 傍晚·第七波):第七轮 ZCode 取证三路回报,其中一条被我量成**跨用户敞口**,四路实现在飞 | 3766-3787 (22 行) | `sed -n '3766,3787p' PROJECT_PLAN.md`
+    - L3 第五十一波·续二十 —— 第七轮登记面的两批"我自己量错的账",与本轮唯一站得住的一条(2026-09-27 傍晚,主会话现测) | 3773-3773 (1 行) | `sed -n '3773,3773p' PROJECT_PLAN.md`
+    - L3 三、移交清单(本票不代裁;每格给归属与解阻判据) | 3774-3778 (5 行) | `sed -n '3774,3778p' PROJECT_PLAN.md`
+    - L3 二、第二批(提交 `5496f96d2` / `337ae3981` / `aeaf3e785`) | 3779-3785 (7 行) | `sed -n '3779,3785p' PROJECT_PLAN.md`
+    - L3 一、第一批(提交 `111323a3b`)——上一笔 `8d8310ced` 的"已封"里有一格是假的 | 3786-3787 (2 行) | `sed -n '3786,3787p' PROJECT_PLAN.md`
+  - L2 O86附⑨（一） 独立复核两批(共 7 件)收口 + 五格移交(2026-09-27 登记,已入库与未闭环两侧都写) | 3788-3792 (5 行) | `sed -n '3788,3792p' PROJECT_PLAN.md`
+  - L2 第五十七批(2026-09-27 下午·第五波清障):提交链 6 道红的逐道归因、§22 备份机制的一处漏网,以及我又犯一次的"退出码取自管道" | 3793-3812 (20 行) | `sed -n '3793,3812p' PROJECT_PLAN.md`
+    - L3 第五十六批·续 —— 会话失效出口的真机四轮定案(VC49→VC53):从"没跳"量到三层各自的原因 | 3812-3812 (1 行) | `sed -n '3812,3812p' PROJECT_PLAN.md`
+  - L2 第五十八批(2026-09-27 下午·根治波):一台取证包装器补上"agent 手跑判据没有载体"那一格,外加一次把 D33 从"要加列"纠成"零迁移"的只读勘察 | 3813-3815 (3 行) | `sed -n '3813,3815p' PROJECT_PLAN.md`
+  - L2 第五十八批(2026-09-27 傍晚·第七波落地):引擎属主 / 滚动权裁决 / mermaid 渲染预算 / 窗口探针入库,含我撤回自己一条错误登记 | 3816-3864 (49 行) | `sed -n '3816,3864p' PROJECT_PLAN.md`
+    - L3 2026-09-27 产品决策拍板(用户逐项确认,5 项全有结论;活未做完 ⇒ 上面票行仍是 `[ ]`,只加"已拍板"注记) | 3836-3864 (29 行) | `sed -n '3836,3864p' PROJECT_PLAN.md`
+  - L2 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251) | 3865-3869 (5 行) | `sed -n '3865,3869p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 午后·G-249 收口):线程身份改不动了 —— 顺带否证一条台账说法 | 3870-3881 (12 行) | `sed -n '3870,3881p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿一 —— 本轮现读的账与三条新登记(2026-09-27 午后,主会话现测) | 3871-3881 (11 行) | `sed -n '3871,3881p' PROJECT_PLAN.md`
+  - L2 第六十一批(2026-09-27 傍午·G-250 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权 | 3882-3887 (6 行) | `sed -n '3882,3887p' PROJECT_PLAN.md`
+  - L2 第六十二批(2026-09-27 傍午·G-253 收口):水印分母并上未跟踪面 + 落地器水印预检 | 3888-3892 (5 行) | `sed -n '3888,3892p' PROJECT_PLAN.md`
+  - L2 第六十三批(2026-09-27 傍午·G-258 A 组):容器运行与 Hook 面的归属对账 | 3893-3907 (15 行) | `sed -n '3893,3907p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿二 —— G-258 分组账(2026-09-27,普查用 ast 而非正则) | 3896-3907 (12 行) | `sed -n '3896,3907p' PROJECT_PLAN.md`
+  - L2 第六十四批(2026-09-27 夜·O87):RN 课程筛选屏的死调用与两根无数据源的筛选轴 —— 顺带补上"门自己的红被归因层洗成别人的"那一型 | 3908-3930 (23 行) | `sed -n '3908,3930p' PROJECT_PLAN.md`
+    - L3 第六十四批~第六十七批(2026-09-27 晚 · 身份消费普查的收口 + 一把常驻尺子) | 3916-3923 (8 行) | `sed -n '3916,3923p' PROJECT_PLAN.md`
+    - L3 第六十八批~第七十批(2026-09-27 深夜 · G-258 B 组四票收口 + G-255 的票面前提被量错) | 3924-3930 (7 行) | `sed -n '3924,3930p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 夜):台账状态归正 3 条(本会话现跑权威入口,不转述) + 本轮实测新暴露 4 格(每条带现读出口与"在等什么") | 3931-3932 (2 行) | `sed -n '3931,3932p' PROJECT_PLAN.md`
+  - L2 2026-09-27 深夜批次(续):备份的"能不能用"推到应用层,以及三处"看起来守着、其实永不响" | 3933-3933 (1 行) | `sed -n '3933,3933p' PROJECT_PLAN.md`
+  - L2 待办剥离区（从带完成标记的条目体内移出，2026-09-28） | 3934-3961 (28 行) | `sed -n '3934,3961p' PROJECT_PLAN.md`
+    - L3 第五十八波·续五 —— 第九轮 ZCode 全库取证·第 1+2 波（2026-09-28，22 路只读取证 + 主会话逐跳复验；代码提交 `d58b9093f`） | 3949-3961 (13 行) | `sed -n '3949,3961p' PROJECT_PLAN.md`
+  - L2 待办剥离区（从带完成标记的条目体内移出） | 3962-4071 (110 行) | `sed -n '3962,4071p' PROJECT_PLAN.md`
+    - L3 第五十八波·续六 —— 第九轮 ZCode 取证 W4(8 路)+W5(4 路)回报：五枚落地、一条被推翻的"假缺陷"、七条待拍板（2026-09-28，主会话逐跳复验） | 3972-3991 (20 行) | `sed -n '3972,3991p' PROJECT_PLAN.md`
+    - L3 未闭环(不写作收口) | 3992-3995 (4 行) | `sed -n '3992,3995p' PROJECT_PLAN.md`
+    - L3 未闭环(不写作收口) | 3996-4001 (6 行) | `sed -n '3996,4001p' PROJECT_PLAN.md`
+    - L3 归属证明(本批未新增红点,亦未代他人修) | 4002-4004 (3 行) | `sed -n '4002,4004p' PROJECT_PLAN.md`
+    - L3 第三十三批(2026-09-24):8 枚空壳 tag 全部补全并上远端 —— 两族 4283 枚本地/远端逐名零差异;并登记一条"工作区 PLAN 少 930 行"的在飞敞口 | 4005-4067 (63 行) | `sed -n '4005,4067p' PROJECT_PLAN.md`
+    - L3 第七十四批·ZCode 吸收(2026-09-30,三路只读代理整读 ui/lib 剩余 174 份 22299 行(exploreToolCall.ts→zcodeUiError.ts 连续段,b74-1/2/3 各 58 份);报告 .ihui-agent/tmp/zcode-study/reports/b74-{1,2,3}.md 均自报无 unread、HEAD=29628c9 核符;该 tmp 面 gitignore,本批为唯一持久记录):整文件读到体 1799→1973(44.0%→48.2%,可复核 495→669),新增 32 张票与 28 条否证 | 4068-4071 (4 行) | `sed -n '4068,4071p' PROJECT_PLAN.md`
+  - L2 第五十五批(2026-09-27 午后·第五波):守门 149 装车 + 门 101 假账清 + api 删除端点属主闸三格收口,含一次**我自己造成的误判**的完整复盘 | 4072-4087 (16 行) | `sed -n '4072,4087p' PROJECT_PLAN.md`
+    - L3 现读与待验 | 4076-4077 (2 行) | `sed -n '4076,4077p' PROJECT_PLAN.md`
+    - L3 ⑤ 隔离检出的同步方式换了一条 | 4078-4079 (2 行) | `sed -n '4078,4079p' PROJECT_PLAN.md`
+    - L3 ④ 一次值得留底的现场判读:磁盘副本"脏"不等于他人在飞 | 4080-4081 (2 行) | `sed -n '4080,4081p' PROJECT_PLAN.md`
+    - L3 ③ 函数形态 `style` 存量清零:29 站点 / 16 文件(守门 131 现读 0 处) | 4082-4085 (4 行) | `sed -n '4082,4085p' PROJECT_PLAN.md`
+    - L3 ② 一条"注册与脚本必须同枚入库"的实录:门 148 曾指向一个不在 HEAD 里的脚本 | 4086-4086 (1 行) | `sed -n '4086,4086p' PROJECT_PLAN.md`
+    - L3 ① 401 统一出口:RN / 小程序 / extension 三端补齐,并给它配一把常驻尺子(门 148) | 4087-4087 (1 行) | `sed -n '4087,4087p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 午后):会话失效出口三端补齐 + 函数形态 style 存量清零 + 一道门"注册先进仓、脚本还在门外"的成套收口 | 4088-4097 (10 行) | `sed -n '4088,4097p' PROJECT_PLAN.md`
+    - L3 更正三(2026-09-27):"Ctrl+Q 未触发"是**我的注入手段无效**,不是应用缺陷 —— 不得据此修 Ctrl+Q | 4093-4097 (5 行) | `sed -n '4093,4097p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 午后·第六波):两条全局锁的"判活"补上进程身份三元组(ZCode 吸收线批次 50)—— 大白话:以前只能猜"这人是死是活",现在能问出来 | 4098-4098 (1 行) | `sed -n '4098,4098p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 下午·第五波收尾):三把新尺子 + 一格静默失效补信号,含两处**我自己在收账过程中造的错** | 4099-4118 (20 行) | `sed -n '4099,4118p' PROJECT_PLAN.md`
+  - L2 第五十七批(2026-09-27 傍晚·第七波):第七轮 ZCode 取证三路回报,其中一条被我量成**跨用户敞口**,四路实现在飞 | 4119-4131 (13 行) | `sed -n '4119,4131p' PROJECT_PLAN.md`
+    - L3 第五十一波·续二十 —— 第七轮登记面的两批"我自己量错的账",与本轮唯一站得住的一条(2026-09-27 傍晚,主会话现测) | 4126-4131 (6 行) | `sed -n '4126,4131p' PROJECT_PLAN.md`
+  - L2 O86附⑨（二） 独立复核两批(共 7 件)收口 + 五格移交(2026-09-27 登记,已入库与未闭环两侧都写) | 4132-4132 (1 行) | `sed -n '4132,4132p' PROJECT_PLAN.md`
+  - L2 O92 跨端 UI 维护成本压降第一轮:门 128 触发面补齐 + Button 共享档位唯一源(2026-09-29 立并完成 P0 两票,跨端:packages/design-tokens + packages/ui-native + packages/ui-react + scripts) | 4133-4459 (327 行) | `sed -n '4133,4459p' PROJECT_PLAN.md`
+    - L3 第六轮竞品裁定立票（2026-09-30,D167-2 对话流清单 451 条现读 MISS 的家族级三态裁定产出;证据与逐行指针:docs/benchmark-evidence/2026-09/adjudication-2026-09-30/sixth-round-adjudication.md + 同目录 report-*.md 六份) | 4204-4215 (12 行) | `sed -n '4204,4215p' PROJECT_PLAN.md`
+    - L3 第七十五批·ZCode 吸收(2026-09-30,五路只读代理整读 settings/desktop-main/bootstrap/adapters/ui-v4 五域各 58 份计 290 份 75137 行;报告 .ihui-agent/tmp/zcode-study/reports/b75-{1..5}.md 均自报无 unread、HEAD=29628c9 核符;该 tmp 面 gitignore,本批为唯一持久记录):整文件读到体 1973→2263(49.9%→57.2%,可复核 669→959),新增 34 张票与 47 条否证 | 4216-4220 (5 行) | `sed -n '4216,4220p' PROJECT_PLAN.md`
+    - L3 第七十六批（ZCode 吸收 · 批次 76 · 25 路并行取证：01/02/03/04/05/06/07/08/08a/08b/09/09a/09b/10/11/12a/12b/12c/12d/12e/12f/12g/12h/13/14） | 4221-4417 (197 行) | `sed -n '4221,4417p' PROJECT_PLAN.md`
+      - L4 与既有活口归并（本批不另立编号，派单走活口） | 4232-4235 (4 行) | `sed -n '4232,4235p' PROJECT_PLAN.md`
+      - L4 票候选（按路归组，票号由落地器现算） | 4236-4236 (1 行) | `sed -n '4236,4236p' PROJECT_PLAN.md`
+      - L4 b76-01（路 01）票候选 8 张 | 4237-4237 (1 行) | `sed -n '4237,4237p' PROJECT_PLAN.md`
+      - L4 b76-02（路 02）票候选 5 张 | 4238-4238 (1 行) | `sed -n '4238,4238p' PROJECT_PLAN.md`
+      - L4 b76-03（路 03）票候选 4 张 | 4239-4239 (1 行) | `sed -n '4239,4239p' PROJECT_PLAN.md`
+      - L4 b76-04（路 04）票候选 7 张 | 4240-4240 (1 行) | `sed -n '4240,4240p' PROJECT_PLAN.md`
+      - L4 b76-05（路 05）票候选 6 张 | 4241-4241 (1 行) | `sed -n '4241,4241p' PROJECT_PLAN.md`
+      - L4 b76-06（路 06）票候选 5 张 | 4242-4242 (1 行) | `sed -n '4242,4242p' PROJECT_PLAN.md`
+      - L4 b76-07（路 07）票候选 5 张 | 4243-4252 (10 行) | `sed -n '4243,4252p' PROJECT_PLAN.md`
+      - L4 b76-08（路 08）票候选 6 张 | 4253-4253 (1 行) | `sed -n '4253,4253p' PROJECT_PLAN.md`
+      - L4 b76-08a（路 08a）票候选 6 张 | 4254-4254 (1 行) | `sed -n '4254,4254p' PROJECT_PLAN.md`
+      - L4 b76-08b（路 08b）票候选 5 张 | 4255-4255 (1 行) | `sed -n '4255,4255p' PROJECT_PLAN.md`
+      - L4 b76-09（路 09）票候选 5 张 | 4256-4256 (1 行) | `sed -n '4256,4256p' PROJECT_PLAN.md`
+      - L4 b76-09a（路 09a）票候选 6 张 | 4257-4257 (1 行) | `sed -n '4257,4257p' PROJECT_PLAN.md`
+      - L4 b76-09b（路 09b）票候选 5 张 | 4258-4258 (1 行) | `sed -n '4258,4258p' PROJECT_PLAN.md`
+      - L4 b76-10（路 10）票候选 0 张 | 4259-4260 (2 行) | `sed -n '4259,4260p' PROJECT_PLAN.md`
+      - L4 b76-11（路 11）票候选 4 张 | 4261-4261 (1 行) | `sed -n '4261,4261p' PROJECT_PLAN.md`
+      - L4 b76-12a（路 12a）票候选 3 张 | 4262-4262 (1 行) | `sed -n '4262,4262p' PROJECT_PLAN.md`
+      - L4 b76-12b（路 12b）票候选 3 张 | 4263-4263 (1 行) | `sed -n '4263,4263p' PROJECT_PLAN.md`
+      - L4 b76-12c（路 12c）票候选 4 张 | 4264-4264 (1 行) | `sed -n '4264,4264p' PROJECT_PLAN.md`
+      - L4 b76-12d（路 12d）票候选 5 张 | 4265-4265 (1 行) | `sed -n '4265,4265p' PROJECT_PLAN.md`
+      - L4 b76-12e（路 12e）票候选 6 张 | 4266-4266 (1 行) | `sed -n '4266,4266p' PROJECT_PLAN.md`
+      - L4 b76-12f（路 12f）票候选 5 张 | 4267-4267 (1 行) | `sed -n '4267,4267p' PROJECT_PLAN.md`
+      - L4 b76-12g（路 12g）票候选 6 张 | 4268-4268 (1 行) | `sed -n '4268,4268p' PROJECT_PLAN.md`
+      - L4 b76-12h（路 12h）票候选 3 张 | 4269-4269 (1 行) | `sed -n '4269,4269p' PROJECT_PLAN.md`
+      - L4 b76-13（路 13）票候选 5 张 | 4270-4270 (1 行) | `sed -n '4270,4270p' PROJECT_PLAN.md`
+      - L4 b76-14（路 14）票候选 5 张 | 4271-4271 (1 行) | `sed -n '4271,4271p' PROJECT_PLAN.md`
+      - L4 否证与重开条件（按路归组） | 4272-4272 (1 行) | `sed -n '4272,4272p' PROJECT_PLAN.md`
+      - L4 b76-01 否证 7 条 | 4273-4280 (8 行) | `sed -n '4273,4280p' PROJECT_PLAN.md`
+      - L4 b76-02 否证 4 条 | 4281-4285 (5 行) | `sed -n '4281,4285p' PROJECT_PLAN.md`
+      - L4 b76-03 否证 6 条 | 4286-4292 (7 行) | `sed -n '4286,4292p' PROJECT_PLAN.md`
+      - L4 b76-04 否证 5 条 | 4293-4298 (6 行) | `sed -n '4293,4298p' PROJECT_PLAN.md`
+      - L4 b76-05 否证 5 条 | 4299-4304 (6 行) | `sed -n '4299,4304p' PROJECT_PLAN.md`
+      - L4 b76-06 否证 7 条 | 4305-4312 (8 行) | `sed -n '4305,4312p' PROJECT_PLAN.md`
+      - L4 b76-07 否证 5 条 | 4313-4318 (6 行) | `sed -n '4313,4318p' PROJECT_PLAN.md`
+      - L4 b76-08 否证 5 条 | 4319-4324 (6 行) | `sed -n '4319,4324p' PROJECT_PLAN.md`
+      - L4 b76-08a 否证 6 条 | 4325-4331 (7 行) | `sed -n '4325,4331p' PROJECT_PLAN.md`
+      - L4 b76-08b 否证 4 条 | 4332-4336 (5 行) | `sed -n '4332,4336p' PROJECT_PLAN.md`
+      - L4 b76-09 否证 3 条 | 4337-4340 (4 行) | `sed -n '4337,4340p' PROJECT_PLAN.md`
+      - L4 b76-09a 否证 3 条 | 4341-4344 (4 行) | `sed -n '4341,4344p' PROJECT_PLAN.md`
+      - L4 b76-09b 否证 4 条 | 4345-4349 (5 行) | `sed -n '4345,4349p' PROJECT_PLAN.md`
+      - L4 b76-10 否证 0 条 | 4350-4351 (2 行) | `sed -n '4350,4351p' PROJECT_PLAN.md`
+      - L4 b76-11 否证 6 条 | 4352-4358 (7 行) | `sed -n '4352,4358p' PROJECT_PLAN.md`
+      - L4 b76-12a 否证 5 条 | 4359-4364 (6 行) | `sed -n '4359,4364p' PROJECT_PLAN.md`
+      - L4 b76-12b 否证 5 条 | 4365-4370 (6 行) | `sed -n '4365,4370p' PROJECT_PLAN.md`
+      - L4 b76-12c 否证 0 条 | 4371-4371 (1 行) | `sed -n '4371,4371p' PROJECT_PLAN.md`
+      - L4 b76-12d 否证 4 条 | 4372-4376 (5 行) | `sed -n '4372,4376p' PROJECT_PLAN.md`
+      - L4 b76-12e 否证 9 条 | 4377-4386 (10 行) | `sed -n '4377,4386p' PROJECT_PLAN.md`
+      - L4 b76-12f 否证 5 条 | 4387-4392 (6 行) | `sed -n '4387,4392p' PROJECT_PLAN.md`
+      - L4 b76-12g 否证 7 条 | 4393-4400 (8 行) | `sed -n '4393,4400p' PROJECT_PLAN.md`
+      - L4 b76-12h 否证 3 条 | 4401-4404 (4 行) | `sed -n '4401,4404p' PROJECT_PLAN.md`
+      - L4 b76-13 否证 4 条 | 4405-4409 (5 行) | `sed -n '4405,4409p' PROJECT_PLAN.md`
+      - L4 b76-14 否证 7 条 | 4410-4417 (8 行) | `sed -n '4410,4417p' PROJECT_PLAN.md`
+    - L3 第六十四批·续(2026-09-29,扫码登录修好后顺手量的"到底哪家发得出去") | 4418-4419 (2 行) | `sed -n '4418,4419p' PROJECT_PLAN.md`
+    - L3 第六十五批·发布线:批量扫码内置档换通道 + 思否扫码入口/iframe 裁剪 + 推广文案草稿(2026-09-29) | 4420-4428 (9 行) | `sed -n '4420,4428p' PROJECT_PLAN.md`
+    - L3 第六十五批·发布线:批量扫码内置档换通道 + 思否扫码入口/iframe 裁剪 + 推广文案草稿(2026-09-29) | 4429-4430 (2 行) | `sed -n '4429,4430p' PROJECT_PLAN.md`
+    - L3 第六十四批·续(2026-09-29,扫码登录修好后顺手量的"到底哪家发得出去") | 4431-4431 (1 行) | `sed -n '4431,4431p' PROJECT_PLAN.md`
+    - L3 第六十六批·发布线:扫码死链三平台实证收口(qq/sohu/zhihu_daily)+ 顺序点击计划/跨 frame 找码机制(2026-09-29) | 4432-4438 (7 行) | `sed -n '4432,4438p' PROJECT_PLAN.md`
+    - L3 第六十八批·发布线:Cookie 自动保活"接电"三断点 + 账号页保活状态角标(2026-09-29) | 4439-4439 (1 行) | `sed -n '4439,4439p' PROJECT_PLAN.md`
+    - L3 第六十九批·发布线:头条扫码链路三连修(tt_scid 假成功 / 占位码 / 受控扫码风控定论)(2026-09-29) | 4440-4450 (11 行) | `sed -n '4440,4450p' PROJECT_PLAN.md`
+    - L3 第七十批·发布线:oschina 微信码接入 + 站点故障用户可读化(2026-09-30) | 4451-4459 (9 行) | `sed -n '4451,4459p' PROJECT_PLAN.md`
+  - L2 P1 2026-09-30 G 盘清理收口轮(项目产物不外流:worktree 收编/盘根残留清扫/防回潮守门) | 4460-4479 (20 行) | `sed -n '4460,4479p' PROJECT_PLAN.md`
+  - L2 P1 2026-10-03 签到助手服务端化定案：引擎上 ai-service，全端 UI，apps/assistant 退役（进行中@2026-10-03/小汇） | 4480-4533 (54 行) | `sed -n '4480,4533p' PROJECT_PLAN.md`
+    - L3 G-1058615(2026-10-05,主会话)—— zh-TW 简体残留清至七面全绿,根因是修复器取面漂移 | 4481-4491 (11 行) | `sed -n '4481,4491p' PROJECT_PLAN.md`
+    - L3 G-1058617(2026-10-05,主会话登记)—— 死键清理器漏判"带兜底文案的 tt() 调用" | 4492-4492 (1 行) | `sed -n '4492,4492p' PROJECT_PLAN.md`
+    - L3 G-1058619(2026-10-05,g2-alltasks)—— 备份链在新机整体断裂(票①演练顺手取证),角色面+凭据面+调度面三段重建 | 4493-4493 (1 行) | `sed -n '4493,4493p' PROJECT_PLAN.md`
+    - L3 G-1058618(2026-10-05,主会话登记)—— 门 133 的 L1b「表外汉字即嫌疑」在真实语料上假阳性 256 处,收窄方案已量表且**两次都被证伪** | 4494-4495 (2 行) | `sed -n '4494,4495p' PROJECT_PLAN.md`
+    - L3 G-1058620(2026-10-05,主会话登记)—— union-converge 的 `rmScratch` 未走 bestEffort ⇒ 宿主批量删除闸一命中就把子进程报告与 exit 全吞掉,收敛读成"崩了" | 4496-4496 (1 行) | `sed -n '4496,4496p' PROJECT_PLAN.md`
+    - L3 G-1058621(2026-10-05,主会话登记)—— `i18n-outbound` 取词出口建好了但**恒回落 zh-CN**,IM 出站文案至今没按订阅用户语言渲染 | 4497-4497 (1 行) | `sed -n '4497,4497p' PROJECT_PLAN.md`
+    - L3 G-1058622(2026-10-05,主会话登记 + 同日量表)—— 活文档合并的搬运感知只挡"已归档行被带回",**不挡"同主键行被搬进别的区块"**;量表结论:真搬移残留面**小于预期**,不建议现在加判据 | 4498-4498 (1 行) | `sed -n '4498,4498p' PROJECT_PLAN.md`
+    - L3 G-1058623(2026-10-05,主会话登记)—— F1「同主键两态并存」**不剔**归并器自己写的 `【归并】重复登记副本` 注记,与 F4 口径不一致 ⇒ 现读 F1 唯一那 1 组正是被正确归并过的组 | 4499-4508 (10 行) | `sed -n '4499,4508p' PROJECT_PLAN.md`
+    - L3 G-1058625(2026-10-05,g2-alltasks)—— ai_model_config_models.extra_metadata 列与 GIN 索引下线迁移票(O19b B 案收尾) | 4509-4532 (24 行) | `sed -n '4509,4532p' PROJECT_PLAN.md`
+    - L3 第三阶段(2026-09-24):盘根写歪项 = 载体替换,不是再删一次 | 4533-4533 (1 行) | `sed -n '4533,4533p' PROJECT_PLAN.md`
+  - L2 号段租约登记区(取号器专用,千段租约制) | 4534-4564 (31 行) | `sed -n '4534,4564p' PROJECT_PLAN.md`
+  - L2 P0 V3 对标第三轮 · 会话交接(2026-09-26 晚,交接给接手 agent,本分支 workbuddy/main-429651b5 删除前留档)〔sha消歧:429651b5=已删分支名workbuddy/main-429651b5尾缀标识,非commit〕 | 4565-4595 (31 行) | `sed -n '4565,4595p' PROJECT_PLAN.md`
+    - L3 第七十四批·ZCode 吸收(2026-09-30,三路只读代理整读 ui/lib 剩余 174 份 22299 行(exploreToolCall.ts→zcodeUiError.ts 连续段,b74-1/2/3 各 58 份);报告 .ihui-agent/tmp/zcode-study/reports/b74-{1,2,3}.md 均自报无 unread、HEAD=29628c9 核符;该 tmp 面 gitignore,本批为唯一持久记录):整文件读到体 1799→1973(44.0%→48.2%,可复核 495→669),新增 32 张票与 28 条否证〔sha消歧:29628c9/29628c9ac=上游仓冻结克隆点(v3.14.3)的commit,不在本仓对象库,需取回时到上游仓按sha取〕 | 4580-4581 (2 行) | `sed -n '4580,4581p' PROJECT_PLAN.md`
+    - L3 第七十五批·ZCode 吸收(2026-09-30,五路只读代理整读 settings/desktop-main/bootstrap/adapters/ui-v4 五域各 58 份计 290 份 75137 行;报告 .ihui-agent/tmp/zcode-study/reports/b75-{1..5}.md 均自报无 unread、HEAD=29628c9 核符;该 tmp 面 gitignore,本批为唯一持久记录):整文件读到体 1973→2263(49.9%→57.2%,可复核 669→959),新增 34 张票与 47 条否证〔sha消歧:29628c9/29628c9ac=上游仓冻结克隆点(v3.14.3)的commit,不在本仓对象库,需取回时到上游仓按sha取〕 | 4582-4590 (9 行) | `sed -n '4582,4590p' PROJECT_PLAN.md`
+    - L3 并发旧基线回捞区(2026-10-09 · 出处 065412d709 的父提交 fdd172cad5) | 4591-4595 (5 行) | `sed -n '4591,4595p' PROJECT_PLAN.md`
+  - L2 P1 2026-10-12 弹窗根治第四阶段:dev 服务链换隐藏控制台(根治 tsx/next/expo 内部自派 worker 弹窗) | 4596-4652 (57 行) | `sed -n '4596,4652p' PROJECT_PLAN.md`
+    - L3 根因(2x2 矩阵实证,非推测) | 4600-4609 (10 行) | `sed -n '4600,4609p' PROJECT_PLAN.md`
+    - L3 改法(结构上无窗,不是逐点补 flag) | 4610-4619 (10 行) | `sed -n '4610,4619p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-10-12) | 4620-4652 (33 行) | `sed -n '4620,4652p' PROJECT_PLAN.md`
+  - L2 P2 2026-10-14 存量红门收尾轮:30a 判据适配 + 104 cloudflared 部署机同步(2026-10-14 立) | 4653-4713 (61 行) | `sed -n '4653,4713p' PROJECT_PLAN.md`
+  - L2 2026-10-18 释放票普查 NO 面归属总注记(39 张"认领已释放"票三批复核:YES 13 张已全部施工或翻勾,见各持有行同日注记;以下 NO 面如实注记归属,一律不代施工,行号锚 2026-10-18 审计面会漂移、以题面定位为准) | 4714-4719 (6 行) | `sed -n '4714,4719p' PROJECT_PLAN.md`
+  - L2 P0 2026-10-18 桌面端窗控三按钮改由窗口壳原生绘制(根治「按钮等网页渲染才出现」,原位/原样,不加任何标题栏) | 4720-4729 (10 行) | `sed -n '4720,4729p' PROJECT_PLAN.md`
+  - L2 P1 侧边栏收敛(2026-10-19 立,平台独占:apps/web,AGENTS.md §9 显式标注) | 4730-4731 (2 行) | `sed -n '4730,4731p' PROJECT_PLAN.md`
+  - L2 2026-10-19 发布前任务矩阵收口(6 项) | 4732-4734 (3 行) | `sed -n '4732,4734p' PROJECT_PLAN.md`
+  - L2 结论 | 4735-4736 (2 行) | `sed -n '4735,4736p' PROJECT_PLAN.md`
+  - L2 2026-10-19 RN↔web 能力对齐收口轮(apps/mobile-rn;取证面=工作树,**本轮未入库**) | 4737-4750 (14 行) | `sed -n '4737,4750p' PROJECT_PLAN.md`
+  - L2 P1 2026-10-19 LLM 观测失配修复轮(用户级指标 + 自伤并发闸 + 探测降噪 + 系统身份映射;李总裁决四项全推荐档) | 4751-4751 (1 行) | `sed -n '4751,4751p' PROJECT_PLAN.md`
+  - L2 2026-10-19 RN↔web 能力对齐收口轮(apps/mobile-rn;**本轮已入库 14 枚(含本登记节)**,取证面=HEAD blob) | 4752-5621 (870 行) | `sed -n '4752,5621p' PROJECT_PLAN.md`
+    - L3 RN↔Web 对齐收口:11 屏补全 + 平台独占标注 | 4755-5621 (867 行) | `sed -n '4755,5621p' PROJECT_PLAN.md`
+  - L2 2026-10-21 下午 RN↔web 对齐第二轮(生效链 + 三端半截收口;6 枚已入库,取证面=HEAD blob) | 5622-5624 (3 行) | `sed -n '5622,5624p' PROJECT_PLAN.md`
+  - L2 2026-10-20 守门普查净检出分桶带出的三件真工作 | 5625-5628 (4 行) | `sed -n '5625,5628p' PROJECT_PLAN.md`
+  - L2 2026-10-21 RN↔web 全量对齐收口轮(apps/mobile-rn + apps/api;本轮 3 枚已入库,取证面=HEAD blob) | 5629-5629 (1 行) | `sed -n '5629,5629p' PROJECT_PLAN.md`
+  - L2 O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 5630-5630 (1 行) | `sed -n '5630,5630p' PROJECT_PLAN.md`
+  - L2 O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 5631-5653 (23 行) | `sed -n '5631,5653p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P1(判定改造 + 侧车 + 守恒器物 + 新门 warn 档) | 5654-5654 (1 行) | `sed -n '5654,5654p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P2(行内投影 + 强制档) | 5655-5655 (1 行) | `sed -n '5655,5655p' PROJECT_PLAN.md`
+  - L2 2026-10-22 CF 收尾轮(机主拍板"都要做";五件全部完成 ✅,取证面=本轮落地提交+公网现读) | 5656-5820 (165 行) | `sed -n '5656,5820p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-19 晚 第三轮元素级对标新增任务(V2 报告产出,D21-D32,依据 outputs/AI能力深度对标分析报告V2-2026-09-19.md 新增差距 G-29〔旧号〕~G-39〔旧号〕) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 5685-5685 (1 行) | `sed -n '5685,5685p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-21 第四轮**元素级**对标新增任务(V3 报告产出,D33-D51,依据 `outputs/AI能力深度对标分析报告V3-2026-09-21.md` 新增差距 G-40〔旧号〕~G-61〔旧号〕) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 5686-5780 (95 行) | `sed -n '5686,5780p' PROJECT_PLAN.md`
+      - L4 B4b 第 4 轮补证追加任务(G-57〔旧号〕~G-64〔旧号〕,证据全部为 E1 一手原文) | 5690-5691 (2 行) | `sed -n '5690,5691p' PROJECT_PLAN.md`
+      - L4 B4c 第 5 轮补证追加任务(G-65〔旧号〕~G-73〔旧号〕,「调用」维度与输入·发送可靠性) | 5692-5693 (2 行) | `sed -n '5692,5693p' PROJECT_PLAN.md`
+      - L4 AGENTS.md §9 端覆盖矩阵(D33-D64 实施时逐格对照,免"只改一端"与误豁免) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 5694-5704 (11 行) | `sed -n '5694,5704p' PROJECT_PLAN.md`
+      - L4 B4d 第 6-7 轮补证追加任务(G-84〔旧号〕〔旧号〕~G-94〔旧号〕〔旧号〕) | 5705-5705 (1 行) | `sed -n '5705,5705p' PROJECT_PLAN.md`
+      - L4 B4e 第 9 轮补证追加任务(G-97〔旧号〕〔旧号〕~G-105〔旧号〕〔旧号〕,状态词汇表与并行工作形态) | 5706-5706 (1 行) | `sed -n '5706,5706p' PROJECT_PLAN.md`
+      - L4 B4f 第 10 轮补证追加任务(G-106〔旧号〕〔旧号〕~G-111〔旧号〕〔旧号〕;**按本块自定约定从 D77 起号**) | 5707-5707 (1 行) | `sed -n '5707,5707p' PROJECT_PLAN.md`
+      - L4 B4g 第 11 轮补证（G-112〔旧号〕〔旧号〕~G-68 + 两处自我纠正） | 5708-5709 (2 行) | `sed -n '5708,5709p' PROJECT_PLAN.md`
+      - L4 B4h 第 12 轮定档结果(D80 已完成 + G-92〔旧号〕〔旧号〕/G-95〔旧号〕〔旧号〕/G-96〔旧号〕〔旧号〕/G-110〔旧号〕〔旧号〕 判定落地) | 5710-5712 (3 行) | `sed -n '5710,5712p' PROJECT_PLAN.md`
+      - L4 B4k 第 16 轮补证追加任务(G-114〔旧号〕〔旧号〕~G-122〔旧号〕〔旧号〕;证据源=完整枚举的 Codex 中文串清单) | 5713-5713 (1 行) | `sed -n '5713,5713p' PROJECT_PLAN.md`
+      - L4 B4l 第 17 轮补证追加(G-123〔旧号〕〔旧号〕~G-126〔旧号〕〔旧号〕 + H27;Qoder 产物预览与失败学、Trae 思考卡本体) | 5714-5714 (1 行) | `sed -n '5714,5714p' PROJECT_PLAN.md`
+      - L4 B4m 第 18 轮补证追加(G-127〔旧号〕〔旧号〕~G-133〔旧号〕〔旧号〕 + H28;数据源=完整枚举 TSV,未再碰 asar) | 5715-5716 (2 行) | `sed -n '5715,5716p' PROJECT_PLAN.md`
+      - L4 B4o 第 19 轮补证追加(G-134〔旧号〕〔旧号〕~G-139〔旧号〕〔旧号〕 + H28 修订;数据源=完整枚举 TSV) | 5717-5726 (10 行) | `sed -n '5717,5726p' PROJECT_PLAN.md`
+      - L4 B4p 第 23-24 轮补证追加(G-140〔旧号〕〔旧号〕~G-144〔旧号〕〔旧号〕;数据源=完整枚举 TSV 的 `localConversation` 族,1,293 键) | 5727-5730 (4 行) | `sed -n '5727,5730p' PROJECT_PLAN.md`
+      - L4 B4q 第 25 轮补证追加(G-145〔旧号〕〔旧号〕~G-146〔旧号〕〔旧号〕;`agentActivity` / `pullRequest` / `mcpToolActivity` 取样) | 5731-5780 (50 行) | `sed -n '5731,5780p' PROJECT_PLAN.md`
+    - L3 硬性指标(A1-A10) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 5781-5789 (9 行) | `sed -n '5781,5789p' PROJECT_PLAN.md`
+    - L3 O60b 本轮并行编码落地(2026-09-25 夜):D83 / D16 入库并逐道补跑门禁,D12 / D19 产出保留在工作树并挂认领 | 5790-5819 (30 行) | `sed -n '5790,5819p' PROJECT_PLAN.md`
+    - L3 P0 立即执行(1-2 周,对话流显示细节;编号续 D112〔旧号〕〔旧号〕,G 续 G-226〔旧号〕〔旧号〕) | 5820-5820 (1 行) | `sed -n '5820,5820p' PROJECT_PLAN.md`
+  - L2 第五十三批(2026-09-27 续):G-222〔旧号〕〔旧号〕 落地 + RN 两处真机走查修复 + 守门通道清障 | 5821-5846 (26 行) | `sed -n '5821,5846p' PROJECT_PLAN.md`
+    - L3 第五十一波·续十七 —— 批次 49：A01 第三步的 enforce 档落地，而**默认档刻意不动**（2026-09-27 午后，主会话独立复跑） | 5828-5846 (19 行) | `sed -n '5828,5846p' PROJECT_PLAN.md`
+  - L2 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251〔旧号〕〔旧号〕) | 5847-5847 (1 行) | `sed -n '5847,5847p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 午后·G-249〔旧号〕〔旧号〕 收口):线程身份改不动了 —— 顺带否证一条台账说法 | 5848-5849 (2 行) | `sed -n '5848,5849p' PROJECT_PLAN.md`
+  - L2 第六十一批(2026-09-27 傍午·G-250〔旧号〕〔旧号〕 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权 | 5850-5851 (2 行) | `sed -n '5850,5851p' PROJECT_PLAN.md`
+  - L2 第六十二批(2026-09-27 傍午·G-253〔旧号〕〔旧号〕 收口):水印分母并上未跟踪面 + 落地器水印预检 | 5852-5852 (1 行) | `sed -n '5852,5852p' PROJECT_PLAN.md`
+  - L2 第六十三批(2026-09-27 傍午·G-258〔旧号〕〔旧号〕 A 组):容器运行与 Hook 面的归属对账 | 5853-6064 (212 行) | `sed -n '5853,6064p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿二 —— G-258〔旧号〕〔旧号〕 分组账(2026-09-27,普查用 ast 而非正则) | 5854-5861 (8 行) | `sed -n '5854,5861p' PROJECT_PLAN.md`
+    - L3 第六十八批~第七十批(2026-09-27 深夜 · G-258〔旧号〕〔旧号〕 B 组四票收口 + G-255〔旧号〕〔旧号〕 的票面前提被量错) | 5862-5891 (30 行) | `sed -n '5862,5891p' PROJECT_PLAN.md`
+    - L3 第六轮竞品裁定立票（2026-09-30,D167〔旧号〕〔旧号〕-2 对话流清单 451 条现读 MISS 的家族级三态裁定产出;证据与逐行指针:docs/benchmark-evidence/2026-09/adjudication-2026-09-30/sixth-round-adjudication.md + 同目录 report-*.md 六份) | 5892-5904 (13 行) | `sed -n '5892,5904p' PROJECT_PLAN.md`
+    - L3 G-1058615〔旧号〕〔旧号〕(2026-10-05,主会话)—— zh-TW 简体残留清至七面全绿,根因是修复器取面漂移 | 5905-5908 (4 行) | `sed -n '5905,5908p' PROJECT_PLAN.md`
+    - L3 G-1058617〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— 死键清理器漏判"带兜底文案的 tt() 调用" | 5909-5909 (1 行) | `sed -n '5909,5909p' PROJECT_PLAN.md`
+    - L3 G-1058619〔旧号〕〔旧号〕(2026-10-05,g2-alltasks)—— 备份链在新机整体断裂(票①演练顺手取证),角色面+凭据面+调度面三段重建 | 5910-5910 (1 行) | `sed -n '5910,5910p' PROJECT_PLAN.md`
+    - L3 G-1058618〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— 门 133 的 L1b「表外汉字即嫌疑」在真实语料上假阳性 256 处,收窄方案已量表且**两次都被证伪** | 5911-5911 (1 行) | `sed -n '5911,5911p' PROJECT_PLAN.md`
+    - L3 G-1058620〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— union-converge 的 `rmScratch` 未走 bestEffort ⇒ 宿主批量删除闸一命中就把子进程报告与 exit 全吞掉,收敛读成"崩了" | 5912-5912 (1 行) | `sed -n '5912,5912p' PROJECT_PLAN.md`
+    - L3 G-1058621〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— `i18n-outbound` 取词出口建好了但**恒回落 zh-CN**,IM 出站文案至今没按订阅用户语言渲染 | 5913-5913 (1 行) | `sed -n '5913,5913p' PROJECT_PLAN.md`
+    - L3 G-1058622〔旧号〕〔旧号〕(2026-10-05,主会话登记 + 同日量表)—— 活文档合并的搬运感知只挡"已归档行被带回",**不挡"同主键行被搬进别的区块"**;量表结论:真搬移残留面**小于预期**,不建议现在加判据 | 5914-5914 (1 行) | `sed -n '5914,5914p' PROJECT_PLAN.md`
+    - L3 G-1058623〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— F1「同主键两态并存」**不剔**归并器自己写的 `【归并】重复登记副本` 注记,与 F4 口径不一致 ⇒ 现读 F1 唯一那 1 组正是被正确归并过的组 | 5915-5915 (1 行) | `sed -n '5915,5915p' PROJECT_PLAN.md`
+    - L3 G-1058625〔旧号〕〔旧号〕(2026-10-05,g2-alltasks)—— ai_model_config_models.extra_metadata 列与 GIN 索引下线迁移票(O19b B 案收尾) | 5916-6064 (149 行) | `sed -n '5916,6064p' PROJECT_PLAN.md`
+  - L2 O65 AI 自进化调度系统 auto-evolve:四期系列总纲(2026-10-25 立,§24 代裁执行) | 6065-6071 (7 行) | `sed -n '6065,6071p' PROJECT_PLAN.md`
+    - L3 一期 P0 安全护栏(无人化先决,必须最先做) | 6066-6066 (1 行) | `sed -n '6066,6066p' PROJECT_PLAN.md`
+    - L3 二期 P1 感知与闭环 | 6067-6067 (1 行) | `sed -n '6067,6067p' PROJECT_PLAN.md`
+    - L3 三期 P2 验证与决策 | 6068-6068 (1 行) | `sed -n '6068,6068p' PROJECT_PLAN.md`
+    - L3 四期 P3 知识自举 + P4 治理 | 6069-6071 (3 行) | `sed -n '6069,6071p' PROJECT_PLAN.md`
+  - L2 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin) | 6072-6101 (30 行) | `sed -n '6072,6101p' PROJECT_PLAN.md`
+  - L2 2026-10-27 工程工具链待办(登记@2026-10-27/账号代理席) | 6102-6104 (3 行) | `sed -n '6102,6104p' PROJECT_PLAN.md`
+  - L2 2026-10-27 第三方 OAuth 通用回调同意闸(登记@2026-10-27/oauth-consent) | 6105-6105 (1 行) | `sed -n '6105,6105p' PROJECT_PLAN.md`
+  - L2 2026-10-28 号池账号命名统一手机号优先(登记@2026-10-28/WorkBuddy) | 6106-6107 (2 行) | `sed -n '6106,6107p' PROJECT_PLAN.md`
+  - L2 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen) | 6108-10389 (4282 行) | `sed -n '6108,10389p' PROJECT_PLAN.md`
+  - L2 2026-10-21 下午 RN↔web 对齐第二轮(生效链 + 三端半截收口;6 枚已入库,取证面=HEAD blob) | 10390-10392 (3 行) | `sed -n '10390,10392p' PROJECT_PLAN.md`
+  - L2 2026-10-20 守门普查净检出分桶带出的三件真工作 | 10393-10393 (1 行) | `sed -n '10393,10393p' PROJECT_PLAN.md`
+  - L2 2026-10-21 RN↔web 全量对齐收口轮(apps/mobile-rn + apps/api;本轮 3 枚已入库,取证面=HEAD blob) | 10394-10394 (1 行) | `sed -n '10394,10394p' PROJECT_PLAN.md`
+  - L2 O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 10395-10395 (1 行) | `sed -n '10395,10395p' PROJECT_PLAN.md`
+  - L2 O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 10396-10396 (1 行) | `sed -n '10396,10396p' PROJECT_PLAN.md`
+  - L2 O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 10397-10397 (1 行) | `sed -n '10397,10397p' PROJECT_PLAN.md`
+  - L2 O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 10398-10398 (1 行) | `sed -n '10398,10398p' PROJECT_PLAN.md`
+  - L2 O45 凭据巡检根因收口:密钥库盘符按"存在探测"(五把 key 实测全有效)+ 守门 30a fsck 提速 | 10399-10399 (1 行) | `sed -n '10399,10399p' PROJECT_PLAN.md`
+  - L2 O86附⑧ 收口三件（运维邮件唯一出口的闸门 / 门 137 最后一格安全收窄 / 退化指纹的关联闸）+ 两格否证 | 10400-10422 (23 行) | `sed -n '10400,10422p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P1(判定改造 + 侧车 + 守恒器物 + 新门 warn 档) | 10423-10423 (1 行) | `sed -n '10423,10423p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P2(行内投影 + 强制档) | 10424-10424 (1 行) | `sed -n '10424,10424p' PROJECT_PLAN.md`
+  - L2 2026-10-22 CF 收尾轮(机主拍板"都要做";五件全部完成 ✅,取证面=本轮落地提交+公网现读) | 10425-10593 (169 行) | `sed -n '10425,10593p' PROJECT_PLAN.md`
+  - L2 任务编号规则(2026-10-24 机主拍板:两位号,一族一系) | 10594-10775 (182 行) | `sed -n '10594,10775p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-19 晚 第三轮元素级对标新增任务(V2 报告产出,D21-D32,依据 outputs/AI能力深度对标分析报告V2-2026-09-19.md 新增差距 G-29〔旧号〕~G-39〔旧号〕) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 10606-10606 (1 行) | `sed -n '10606,10606p' PROJECT_PLAN.md`
+    - L3 P0 2026-09-21 第四轮**元素级**对标新增任务(V3 报告产出,D33-D51,依据 `outputs/AI能力深度对标分析报告V3-2026-09-21.md` 新增差距 G-40〔旧号〕~G-61〔旧号〕) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 10607-10742 (136 行) | `sed -n '10607,10742p' PROJECT_PLAN.md`
+      - L4 B4b 第 4 轮补证追加任务(G-57〔旧号〕~G-64〔旧号〕,证据全部为 E1 一手原文) | 10610-10611 (2 行) | `sed -n '10610,10611p' PROJECT_PLAN.md`
+      - L4 B4c 第 5 轮补证追加任务(G-65〔旧号〕~G-73〔旧号〕,「调用」维度与输入·发送可靠性) | 10612-10613 (2 行) | `sed -n '10612,10613p' PROJECT_PLAN.md`
+      - L4 AGENTS.md §9 端覆盖矩阵(D33-D64 实施时逐格对照,免"只改一端"与误豁免) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 10614-10621 (8 行) | `sed -n '10614,10621p' PROJECT_PLAN.md`
+      - L4 B4d 第 6-7 轮补证追加任务(G-84〔旧号〕〔旧号〕~G-94〔旧号〕〔旧号〕) | 10622-10622 (1 行) | `sed -n '10622,10622p' PROJECT_PLAN.md`
+      - L4 B4e 第 9 轮补证追加任务(G-97〔旧号〕〔旧号〕~G-105〔旧号〕〔旧号〕,状态词汇表与并行工作形态) | 10623-10623 (1 行) | `sed -n '10623,10623p' PROJECT_PLAN.md`
+      - L4 B4f 第 10 轮补证追加任务(G-106〔旧号〕〔旧号〕~G-111〔旧号〕〔旧号〕;**按本块自定约定从 D77 起号**) | 10624-10624 (1 行) | `sed -n '10624,10624p' PROJECT_PLAN.md`
+      - L4 B4g 第 11 轮补证（G-112〔旧号〕〔旧号〕~G-68 + 两处自我纠正） | 10625-10625 (1 行) | `sed -n '10625,10625p' PROJECT_PLAN.md`
+      - L4 B4h 第 12 轮定档结果(D80 已完成 + G-92〔旧号〕〔旧号〕/G-95〔旧号〕〔旧号〕/G-96〔旧号〕〔旧号〕/G-110〔旧号〕〔旧号〕 判定落地) | 10626-10627 (2 行) | `sed -n '10626,10627p' PROJECT_PLAN.md`
+      - L4 B4k 第 16 轮补证追加任务(G-114〔旧号〕〔旧号〕~G-122〔旧号〕〔旧号〕;证据源=完整枚举的 Codex 中文串清单) | 10628-10628 (1 行) | `sed -n '10628,10628p' PROJECT_PLAN.md`
+      - L4 B4l 第 17 轮补证追加(G-123〔旧号〕〔旧号〕~G-126〔旧号〕〔旧号〕 + H27;Qoder 产物预览与失败学、Trae 思考卡本体) | 10629-10629 (1 行) | `sed -n '10629,10629p' PROJECT_PLAN.md`
+      - L4 B4m 第 18 轮补证追加(G-127〔旧号〕〔旧号〕~G-133〔旧号〕〔旧号〕 + H28;数据源=完整枚举 TSV,未再碰 asar) | 10630-10631 (2 行) | `sed -n '10630,10631p' PROJECT_PLAN.md`
+      - L4 B4o 第 19 轮补证追加(G-134〔旧号〕〔旧号〕~G-139〔旧号〕〔旧号〕 + H28 修订;数据源=完整枚举 TSV) | 10632-10639 (8 行) | `sed -n '10632,10639p' PROJECT_PLAN.md`
+      - L4 B4p 第 23-24 轮补证追加(G-140〔旧号〕〔旧号〕~G-144〔旧号〕〔旧号〕;数据源=完整枚举 TSV 的 `localConversation` 族,1,293 键) | 10640-10648 (9 行) | `sed -n '10640,10648p' PROJECT_PLAN.md`
+      - L4 B4q 第 25 轮补证追加(G-145〔旧号〕〔旧号〕~G-146〔旧号〕〔旧号〕;`agentActivity` / `pullRequest` / `mcpToolActivity` 取样) | 10649-10742 (94 行) | `sed -n '10649,10742p' PROJECT_PLAN.md`
+    - L3 硬性指标(A1-A10) 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 〔旧号段,见快照〕 | 10743-10750 (8 行) | `sed -n '10743,10750p' PROJECT_PLAN.md`
+    - L3 O60b 本轮并行编码落地(2026-09-25 夜):D83 / D16 入库并逐道补跑门禁,D12 / D19 产出保留在工作树并挂认领 | 10751-10774 (24 行) | `sed -n '10751,10774p' PROJECT_PLAN.md`
+    - L3 P0 立即执行(1-2 周,对话流显示细节;编号续 D112〔旧号〕〔旧号〕,G 续 G-226〔旧号〕〔旧号〕) | 10775-10775 (1 行) | `sed -n '10775,10775p' PROJECT_PLAN.md`
+  - L2 第五十三批(2026-09-27 续):G-222〔旧号〕〔旧号〕 落地 + RN 两处真机走查修复 + 守门通道清障 | 10776-10838 (63 行) | `sed -n '10776,10838p' PROJECT_PLAN.md`
+    - L3 第五十一波·续十七 —— 批次 49：A01 第三步的 enforce 档落地，而**默认档刻意不动**（2026-09-27 午后，主会话独立复跑） | 10781-10838 (58 行) | `sed -n '10781,10838p' PROJECT_PLAN.md`
+  - L2 O65 AI 自进化调度系统 auto-evolve:四期系列总纲(2026-10-25 立,§24 代裁执行) | 10839-10842 (4 行) | `sed -n '10839,10842p' PROJECT_PLAN.md`
+  - L2 任务编号规则(2026-10-24 机主拍板:两位号,一族一系) | 10843-10850 (8 行) | `sed -n '10843,10850p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P1(判定改造 + 侧车 + 守恒器物 + 新门 warn 档) | 10851-10851 (1 行) | `sed -n '10851,10851p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P2(行内投影 + 强制档) | 10852-10852 (1 行) | `sed -n '10852,10852p' PROJECT_PLAN.md`
+  - L2 2026-10-22 CF 收尾轮(机主拍板"都要做";五件全部完成 ✅,取证面=本轮落地提交+公网现读) | 10853-10882 (30 行) | `sed -n '10853,10882p' PROJECT_PLAN.md`
+    - L3 一期 P0 安全护栏(无人化先决,必须最先做) | 10878-10878 (1 行) | `sed -n '10878,10878p' PROJECT_PLAN.md`
+    - L3 二期 P1 感知与闭环 | 10879-10879 (1 行) | `sed -n '10879,10879p' PROJECT_PLAN.md`
+    - L3 三期 P2 验证与决策 | 10880-10880 (1 行) | `sed -n '10880,10880p' PROJECT_PLAN.md`
+    - L3 四期 P3 知识自举 + P4 治理 | 10881-10882 (2 行) | `sed -n '10881,10882p' PROJECT_PLAN.md`
+  - L2 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin) | 10883-10913 (31 行) | `sed -n '10883,10913p' PROJECT_PLAN.md`
+  - L2 2026-10-27 工程工具链待办(登记@2026-10-27/账号代理席) | 10914-10916 (3 行) | `sed -n '10914,10916p' PROJECT_PLAN.md`
+  - L2 2026-10-27 第三方 OAuth 通用回调同意闸(登记@2026-10-27/oauth-consent) | 10917-10917 (1 行) | `sed -n '10917,10917p' PROJECT_PLAN.md`
+  - L2 2026-10-28 号池账号命名统一手机号优先(登记@2026-10-28/WorkBuddy) | 10918-10918 (1 行) | `sed -n '10918,10918p' PROJECT_PLAN.md`
+  - L2 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen) | 10919-10935 (17 行) | `sed -n '10919,10935p' PROJECT_PLAN.md`
+  - L2 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251〔旧号〕〔旧号〕) | 10936-10936 (1 行) | `sed -n '10936,10936p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 午后·G-249〔旧号〕〔旧号〕 收口):线程身份改不动了 —— 顺带否证一条台账说法 | 10937-10938 (2 行) | `sed -n '10937,10938p' PROJECT_PLAN.md`
+  - L2 第六十一批(2026-09-27 傍午·G-250〔旧号〕〔旧号〕 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权 | 10939-10940 (2 行) | `sed -n '10939,10940p' PROJECT_PLAN.md`
+  - L2 第六十二批(2026-09-27 傍午·G-253〔旧号〕〔旧号〕 收口):水印分母并上未跟踪面 + 落地器水印预检 | 10941-10941 (1 行) | `sed -n '10941,10941p' PROJECT_PLAN.md`
+  - L2 第六十三批(2026-09-27 傍午·G-258〔旧号〕〔旧号〕 A 组):容器运行与 Hook 面的归属对账 | 10942-10976 (35 行) | `sed -n '10942,10976p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿二 —— G-258〔旧号〕〔旧号〕 分组账(2026-09-27,普查用 ast 而非正则) | 10943-10948 (6 行) | `sed -n '10943,10948p' PROJECT_PLAN.md`
+    - L3 第六十八批~第七十批(2026-09-27 深夜 · G-258〔旧号〕〔旧号〕 B 组四票收口 + G-255〔旧号〕〔旧号〕 的票面前提被量错) | 10949-10976 (28 行) | `sed -n '10949,10976p' PROJECT_PLAN.md`
+  - L2 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251〔旧号〕〔旧号〕) | 10977-10977 (1 行) | `sed -n '10977,10977p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 午后·G-249〔旧号〕〔旧号〕 收口):线程身份改不动了 —— 顺带否证一条台账说法 | 10978-10981 (4 行) | `sed -n '10978,10981p' PROJECT_PLAN.md`
+  - L2 第六十一批(2026-09-27 傍午·G-250〔旧号〕〔旧号〕 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权 | 10982-10982 (1 行) | `sed -n '10982,10982p' PROJECT_PLAN.md`
+  - L2 第六十二批(2026-09-27 傍午·G-253〔旧号〕〔旧号〕 收口):水印分母并上未跟踪面 + 落地器水印预检 | 10983-10983 (1 行) | `sed -n '10983,10983p' PROJECT_PLAN.md`
+  - L2 第六十三批(2026-09-27 傍午·G-258〔旧号〕〔旧号〕 A 组):容器运行与 Hook 面的归属对账 | 10984-11102 (119 行) | `sed -n '10984,11102p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿二 —— G-258〔旧号〕〔旧号〕 分组账(2026-09-27,普查用 ast 而非正则) | 10985-10985 (1 行) | `sed -n '10985,10985p' PROJECT_PLAN.md`
+    - L3 第六十八批~第七十批(2026-09-27 深夜 · G-258〔旧号〕〔旧号〕 B 组四票收口 + G-255〔旧号〕〔旧号〕 的票面前提被量错) | 10986-10997 (12 行) | `sed -n '10986,10997p' PROJECT_PLAN.md`
+    - L3 第六轮竞品裁定立票（2026-09-30,D167〔旧号〕〔旧号〕-2 对话流清单 451 条现读 MISS 的家族级三态裁定产出;证据与逐行指针:docs/benchmark-evidence/2026-09/adjudication-2026-09-30/sixth-round-adjudication.md + 同目录 report-*.md 六份) | 10998-11010 (13 行) | `sed -n '10998,11010p' PROJECT_PLAN.md`
+    - L3 G-1058615〔旧号〕〔旧号〕(2026-10-05,主会话)—— zh-TW 简体残留清至七面全绿,根因是修复器取面漂移 | 11011-11014 (4 行) | `sed -n '11011,11014p' PROJECT_PLAN.md`
+    - L3 G-1058617〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— 死键清理器漏判"带兜底文案的 tt() 调用" | 11015-11015 (1 行) | `sed -n '11015,11015p' PROJECT_PLAN.md`
+    - L3 G-1058619〔旧号〕〔旧号〕(2026-10-05,g2-alltasks)—— 备份链在新机整体断裂(票①演练顺手取证),角色面+凭据面+调度面三段重建 | 11016-11016 (1 行) | `sed -n '11016,11016p' PROJECT_PLAN.md`
+    - L3 G-1058618〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— 门 133 的 L1b「表外汉字即嫌疑」在真实语料上假阳性 256 处,收窄方案已量表且**两次都被证伪** | 11017-11017 (1 行) | `sed -n '11017,11017p' PROJECT_PLAN.md`
+    - L3 G-1058620〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— union-converge 的 `rmScratch` 未走 bestEffort ⇒ 宿主批量删除闸一命中就把子进程报告与 exit 全吞掉,收敛读成"崩了" | 11018-11018 (1 行) | `sed -n '11018,11018p' PROJECT_PLAN.md`
+    - L3 G-1058621〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— `i18n-outbound` 取词出口建好了但**恒回落 zh-CN**,IM 出站文案至今没按订阅用户语言渲染 | 11019-11019 (1 行) | `sed -n '11019,11019p' PROJECT_PLAN.md`
+    - L3 G-1058622〔旧号〕〔旧号〕(2026-10-05,主会话登记 + 同日量表)—— 活文档合并的搬运感知只挡"已归档行被带回",**不挡"同主键行被搬进别的区块"**;量表结论:真搬移残留面**小于预期**,不建议现在加判据 | 11020-11020 (1 行) | `sed -n '11020,11020p' PROJECT_PLAN.md`
+    - L3 G-1058623〔旧号〕〔旧号〕(2026-10-05,主会话登记)—— F1「同主键两态并存」**不剔**归并器自己写的 `【归并】重复登记副本` 注记,与 F4 口径不一致 ⇒ 现读 F1 唯一那 1 组正是被正确归并过的组 | 11021-11021 (1 行) | `sed -n '11021,11021p' PROJECT_PLAN.md`
+    - L3 G-1058625〔旧号〕〔旧号〕(2026-10-05,g2-alltasks)—— ai_model_config_models.extra_metadata 列与 GIN 索引下线迁移票(O19b B 案收尾) | 11022-11102 (81 行) | `sed -n '11022,11102p' PROJECT_PLAN.md`
+  - L2 P0 2026-09-23 全 8 端圆角单一源头收口(根治「手机上所有容器圆角与全局设定不一致」) | 11103-11230 (128 行) | `sed -n '11103,11230p' PROJECT_PLAN.md`
+    - L3 背景与根因(实测) | 11104-11107 (4 行) | `sed -n '11104,11107p' PROJECT_PLAN.md`
+    - L3 交付 | 11108-11109 (2 行) | `sed -n '11108,11109p' PROJECT_PLAN.md`
+    - L3 第二阶段(2026-09-24):那 72 项逐类定性并处置 | 11110-11110 (1 行) | `sed -n '11110,11110p' PROJECT_PLAN.md`
+    - L3 遗留(已量化,不在本次范围) | 11111-11115 (5 行) | `sed -n '11111,11115p' PROJECT_PLAN.md`
+    - L3 改法 | 11116-11116 (1 行) | `sed -n '11116,11116p' PROJECT_PLAN.md`
+    - L3 多端豁免声明(AGENTS.md §9) | 11117-11119 (3 行) | `sed -n '11117,11119p' PROJECT_PLAN.md`
+    - L3 改法 | 11120-11120 (1 行) | `sed -n '11120,11120p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-22) | 11121-11121 (1 行) | `sed -n '11121,11121p' PROJECT_PLAN.md`
+    - L3 多端豁免声明(AGENTS.md §9) | 11122-11123 (2 行) | `sed -n '11122,11123p' PROJECT_PLAN.md`
+    - L3 验证证据(2026-09-22) | 11124-11124 (1 行) | `sed -n '11124,11124p' PROJECT_PLAN.md`
+    - L3 多端与文档 | 11125-11127 (3 行) | `sed -n '11125,11127p' PROJECT_PLAN.md`
+    - L3 改法 | 11128-11129 (2 行) | `sed -n '11128,11129p' PROJECT_PLAN.md`
+    - L3 验证 | 11130-11132 (3 行) | `sed -n '11130,11132p' PROJECT_PLAN.md`
+    - L3 任务清单 | 11133-11138 (6 行) | `sed -n '11133,11138p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H12) | 11139-11144 (6 行) | `sed -n '11139,11144p' PROJECT_PLAN.md`
+    - L3 目标 | 11145-11145 (1 行) | `sed -n '11145,11145p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11146-11148 (3 行) | `sed -n '11146,11148p' PROJECT_PLAN.md`
+    - L3 目标 | 11149-11149 (1 行) | `sed -n '11149,11149p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H12) | 11150-11150 (1 行) | `sed -n '11150,11150p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11151-11155 (5 行) | `sed -n '11151,11155p' PROJECT_PLAN.md`
+      - L4 验证证据 | 11152-11152 (1 行) | `sed -n '11152,11152p' PROJECT_PLAN.md`
+      - L4 验证证据 | 11153-11155 (3 行) | `sed -n '11153,11155p' PROJECT_PLAN.md`
+    - L3 经验沉淀 | 11156-11168 (13 行) | `sed -n '11156,11168p' PROJECT_PLAN.md`
+    - L3 验证 | 11169-11171 (3 行) | `sed -n '11169,11171p' PROJECT_PLAN.md`
+    - L3 任务清单(8 项,8 subagent 并行,均独立新建文件) | 11172-11172 (1 行) | `sed -n '11172,11172p' PROJECT_PLAN.md`
+    - L3 主 agent 后续整合(8 subagent 全部交付后) | 11173-11174 (2 行) | `sed -n '11173,11174p' PROJECT_PLAN.md`
+    - L3 目标 | 11175-11181 (7 行) | `sed -n '11175,11181p' PROJECT_PLAN.md`
+    - L3 目标 | 11182-11182 (1 行) | `sed -n '11182,11182p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11183-11186 (4 行) | `sed -n '11183,11186p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H5) | 11187-11188 (2 行) | `sed -n '11187,11188p' PROJECT_PLAN.md`
+    - L3 后续计划(本批次范围外,标注以备追踪) | 11189-11195 (7 行) | `sed -n '11189,11195p' PROJECT_PLAN.md`
+    - L3 验证 | 11196-11197 (2 行) | `sed -n '11196,11197p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11198-11199 (2 行) | `sed -n '11198,11199p' PROJECT_PLAN.md`
+    - L3 验证 | 11200-11202 (3 行) | `sed -n '11200,11202p' PROJECT_PLAN.md`
+    - L3 目标 | 11203-11203 (1 行) | `sed -n '11203,11203p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11204-11206 (3 行) | `sed -n '11204,11206p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11207-11207 (1 行) | `sed -n '11207,11207p' PROJECT_PLAN.md`
+    - L3 平台独占 | 11208-11209 (2 行) | `sed -n '11208,11209p' PROJECT_PLAN.md`
+    - L3 目标 | 11210-11210 (1 行) | `sed -n '11210,11210p' PROJECT_PLAN.md`
+    - L3 任务拆分 | 11211-11211 (1 行) | `sed -n '11211,11211p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11212-11213 (2 行) | `sed -n '11212,11213p' PROJECT_PLAN.md`
+    - L3 平台独占 | 11214-11219 (6 行) | `sed -n '11214,11219p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11220-11220 (1 行) | `sed -n '11220,11220p' PROJECT_PLAN.md`
+    - L3 平台独占 | 11221-11222 (2 行) | `sed -n '11221,11222p' PROJECT_PLAN.md`
+    - L3 约束边界 | 11223-11225 (3 行) | `sed -n '11223,11225p' PROJECT_PLAN.md`
+    - L3 目标 | 11226-11226 (1 行) | `sed -n '11226,11226p' PROJECT_PLAN.md`
+    - L3 目标 | 11227-11230 (4 行) | `sed -n '11227,11230p' PROJECT_PLAN.md`
+  - L2 环境事实(2026-09-24 本会话登记,零尾巴后续) | 11231-11231 (1 行) | `sed -n '11231,11231p' PROJECT_PLAN.md`
+  - L2 O45 凭据巡检根因收口:密钥库盘符按"存在探测"(五把 key 实测全有效)+ 守门 30a fsck 提速 | 11232-11232 (1 行) | `sed -n '11232,11232p' PROJECT_PLAN.md`
+  - L2 O50 真机 release 包启动即崩的根因收口 —— 守门 77 B6 括号形态盲区 + 新守门 98「HEAD 悬空具名导入」(2026-09-24) | 11233-11233 (1 行) | `sed -n '11233,11233p' PROJECT_PLAN.md`
+  - L2 O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据） | 11234-11234 (1 行) | `sed -n '11234,11234p' PROJECT_PLAN.md`
+  - L2 O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据） | 11235-11259 (25 行) | `sed -n '11235,11259p' PROJECT_PLAN.md`
+  - L2 O86附⑧ 收口三件（运维邮件唯一出口的闸门 / 门 137 最后一格安全收窄 / 退化指纹的关联闸）+ 两格否证 | 11260-11260 (1 行) | `sed -n '11260,11260p' PROJECT_PLAN.md`
+  - L2 O86附⑨ 独立复核两批(共 7 件)收口 + 五格移交(2026-09-27 登记,已入库与未闭环两侧都写) | 11261-11261 (1 行) | `sed -n '11261,11261p' PROJECT_PLAN.md`
+  - L2 第五十五批(2026-09-27 午后·第五波):守门 149 装车 + 门 101 假账清 + api 删除端点属主闸三格收口,含一次**我自己造成的误判**的完整复盘 | 11262-11274 (13 行) | `sed -n '11262,11274p' PROJECT_PLAN.md`
+    - L3 现读与待验 | 11263-11264 (2 行) | `sed -n '11263,11264p' PROJECT_PLAN.md`
+    - L3 ⑤ 隔离检出的同步方式换了一条 | 11265-11266 (2 行) | `sed -n '11265,11266p' PROJECT_PLAN.md`
+    - L3 ④ 一次值得留底的现场判读:磁盘副本"脏"不等于他人在飞 | 11267-11268 (2 行) | `sed -n '11267,11268p' PROJECT_PLAN.md`
+    - L3 ③ 函数形态 `style` 存量清零:29 站点 / 16 文件(守门 131 现读 0 处) | 11269-11272 (4 行) | `sed -n '11269,11272p' PROJECT_PLAN.md`
+    - L3 ② 一条"注册与脚本必须同枚入库"的实录:门 148 曾指向一个不在 HEAD 里的脚本 | 11273-11273 (1 行) | `sed -n '11273,11273p' PROJECT_PLAN.md`
+    - L3 ① 401 统一出口:RN / 小程序 / extension 三端补齐,并给它配一把常驻尺子(门 148) | 11274-11274 (1 行) | `sed -n '11274,11274p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 午后):会话失效出口三端补齐 + 函数形态 style 存量清零 + 一道门"注册先进仓、脚本还在门外"的成套收口 | 11275-11284 (10 行) | `sed -n '11275,11284p' PROJECT_PLAN.md`
+    - L3 更正三(2026-09-27):"Ctrl+Q 未触发"是**我的注入手段无效**,不是应用缺陷 —— 不得据此修 Ctrl+Q | 11280-11284 (5 行) | `sed -n '11280,11284p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 午后·第六波):两条全局锁的"判活"补上进程身份三元组(ZCode 吸收线批次 50)—— 大白话:以前只能猜"这人是死是活",现在能问出来 | 11285-11285 (1 行) | `sed -n '11285,11285p' PROJECT_PLAN.md`
+  - L2 第五十六批(2026-09-27 下午·第五波收尾):三把新尺子 + 一格静默失效补信号,含两处**我自己在收账过程中造的错** | 11286-11304 (19 行) | `sed -n '11286,11304p' PROJECT_PLAN.md`
+  - L2 第五十七批(2026-09-27 傍晚·第七波):第七轮 ZCode 取证三路回报,其中一条被我量成**跨用户敞口**,四路实现在飞 | 11305-11322 (18 行) | `sed -n '11305,11322p' PROJECT_PLAN.md`
+    - L3 第五十一波·续二十 —— 第七轮登记面的两批"我自己量错的账",与本轮唯一站得住的一条(2026-09-27 傍晚,主会话现测) | 11312-11312 (1 行) | `sed -n '11312,11312p' PROJECT_PLAN.md`
+    - L3 三、移交清单(本票不代裁;每格给归属与解阻判据) | 11313-11313 (1 行) | `sed -n '11313,11313p' PROJECT_PLAN.md`
+    - L3 二、第二批(提交 `5496f96d2` / `337ae3981` / `aeaf3e785`) | 11314-11316 (3 行) | `sed -n '11314,11316p' PROJECT_PLAN.md`
+    - L3 一、第一批(提交 `111323a3b`)——上一笔 `8d8310ced` 的"已封"里有一格是假的 | 11317-11322 (6 行) | `sed -n '11317,11322p' PROJECT_PLAN.md`
+  - L2 第五十七批(2026-09-27 下午·第五波清障):提交链 6 道红的逐道归因、§22 备份机制的一处漏网,以及我又犯一次的"退出码取自管道" | 11323-11342 (20 行) | `sed -n '11323,11342p' PROJECT_PLAN.md`
+    - L3 第五十六批·续 —— 会话失效出口的真机四轮定案(VC49→VC53):从"没跳"量到三层各自的原因 | 11342-11342 (1 行) | `sed -n '11342,11342p' PROJECT_PLAN.md`
+  - L2 第五十八批(2026-09-27 下午·根治波):一台取证包装器补上"agent 手跑判据没有载体"那一格,外加一次把 D33 从"要加列"纠成"零迁移"的只读勘察 | 11343-11345 (3 行) | `sed -n '11343,11345p' PROJECT_PLAN.md`
+  - L2 第五十八批(2026-09-27 傍晚·第七波落地):引擎属主 / 滚动权裁决 / mermaid 渲染预算 / 窗口探针入库,含我撤回自己一条错误登记 | 11346-11381 (36 行) | `sed -n '11346,11381p' PROJECT_PLAN.md`
+    - L3 2026-09-27 产品决策拍板(用户逐项确认,5 项全有结论;活未做完 ⇒ 上面票行仍是 `[ ]`,只加"已拍板"注记) | 11366-11381 (16 行) | `sed -n '11366,11381p' PROJECT_PLAN.md`
+  - L2 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251) | 11382-11382 (1 行) | `sed -n '11382,11382p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 午后·G-249 收口):线程身份改不动了 —— 顺带否证一条台账说法 | 11383-11391 (9 行) | `sed -n '11383,11391p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿一 —— 本轮现读的账与三条新登记(2026-09-27 午后,主会话现测) | 11384-11391 (8 行) | `sed -n '11384,11391p' PROJECT_PLAN.md`
+  - L2 第六十一批(2026-09-27 傍午·G-250 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权 | 11392-11392 (1 行) | `sed -n '11392,11392p' PROJECT_PLAN.md`
+  - L2 第六十二批(2026-09-27 傍午·G-253 收口):水印分母并上未跟踪面 + 落地器水印预检 | 11393-11393 (1 行) | `sed -n '11393,11393p' PROJECT_PLAN.md`
+  - L2 第六十三批(2026-09-27 傍午·G-258 A 组):容器运行与 Hook 面的归属对账 | 11394-11404 (11 行) | `sed -n '11394,11404p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿二 —— G-258 分组账(2026-09-27,普查用 ast 而非正则) | 11397-11404 (8 行) | `sed -n '11397,11404p' PROJECT_PLAN.md`
+  - L2 第六十四批(2026-09-27 夜·O87):RN 课程筛选屏的死调用与两根无数据源的筛选轴 —— 顺带补上"门自己的红被归因层洗成别人的"那一型 | 11405-11416 (12 行) | `sed -n '11405,11416p' PROJECT_PLAN.md`
+    - L3 第六十四批~第六十七批(2026-09-27 晚 · 身份消费普查的收口 + 一把常驻尺子) | 11406-11413 (8 行) | `sed -n '11406,11413p' PROJECT_PLAN.md`
+    - L3 第六十八批~第七十批(2026-09-27 深夜 · G-258 B 组四票收口 + G-255 的票面前提被量错) | 11414-11416 (3 行) | `sed -n '11414,11416p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 夜):台账状态归正 3 条(本会话现跑权威入口,不转述) + 本轮实测新暴露 4 格(每条带现读出口与"在等什么") | 11417-11418 (2 行) | `sed -n '11417,11418p' PROJECT_PLAN.md`
+  - L2 2026-09-27 深夜批次(续):备份的"能不能用"推到应用层,以及三处"看起来守着、其实永不响" | 11419-11419 (1 行) | `sed -n '11419,11419p' PROJECT_PLAN.md`
+  - L2 待办剥离区（从带完成标记的条目体内移出，2026-09-28） | 11420-11438 (19 行) | `sed -n '11420,11438p' PROJECT_PLAN.md`
+    - L3 第五十八波·续五 —— 第九轮 ZCode 全库取证·第 1+2 波（2026-09-28，22 路只读取证 + 主会话逐跳复验；代码提交 `d58b9093f`） | 11431-11438 (8 行) | `sed -n '11431,11438p' PROJECT_PLAN.md`
+  - L2 待办剥离区（从带完成标记的条目体内移出） | 11439-11485 (47 行) | `sed -n '11439,11485p' PROJECT_PLAN.md`
+    - L3 第五十八波·续六 —— 第九轮 ZCode 取证 W4(8 路)+W5(4 路)回报：五枚落地、一条被推翻的"假缺陷"、七条待拍板（2026-09-28，主会话逐跳复验） | 11451-11485 (35 行) | `sed -n '11451,11485p' PROJECT_PLAN.md`
+  - L2 O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 11486-11486 (1 行) | `sed -n '11486,11486p' PROJECT_PLAN.md`
+  - L2 O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档） | 11487-11487 (1 行) | `sed -n '11487,11487p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P1(判定改造 + 侧车 + 守恒器物 + 新门 warn 档) | 11488-11488 (1 行) | `sed -n '11488,11488p' PROJECT_PLAN.md`
+  - L2 2026-10-22 台账字段结构化 P2(行内投影 + 强制档) | 11489-11489 (1 行) | `sed -n '11489,11489p' PROJECT_PLAN.md`
+  - L2 2026-10-22 CF 收尾轮(机主拍板"都要做";五件全部完成 ✅,取证面=本轮落地提交+公网现读) | 11490-11619 (130 行) | `sed -n '11490,11619p' PROJECT_PLAN.md`
+  - L2 第五十九批(2026-09-27 午后·第七波续):elicitation 待决表带主 —— 结算侧最后一张裸 future 表(G-251〔旧号〕〔旧号〕) | 11620-11620 (1 行) | `sed -n '11620,11620p' PROJECT_PLAN.md`
+  - L2 第六十批(2026-09-27 午后·G-249〔旧号〕〔旧号〕 收口):线程身份改不动了 —— 顺带否证一条台账说法 | 11621-11622 (2 行) | `sed -n '11621,11622p' PROJECT_PLAN.md`
+  - L2 第六十一批(2026-09-27 傍午·G-250〔旧号〕〔旧号〕 收口):线程的只读面与销毁面按属主过滤 —— "取了身份又丢掉"等于没鉴权 | 11623-11623 (1 行) | `sed -n '11623,11623p' PROJECT_PLAN.md`
+  - L2 第六十二批(2026-09-27 傍午·G-253〔旧号〕〔旧号〕 收口):水印分母并上未跟踪面 + 落地器水印预检 | 11624-11624 (1 行) | `sed -n '11624,11624p' PROJECT_PLAN.md`
+  - L2 第六十三批(2026-09-27 傍午·G-258〔旧号〕〔旧号〕 A 组):容器运行与 Hook 面的归属对账 | 11625-11696 (72 行) | `sed -n '11625,11696p' PROJECT_PLAN.md`
+    - L3 第五十一波·续廿二 —— G-258〔旧号〕〔旧号〕 分组账(2026-09-27,普查用 ast 而非正则) | 11626-11630 (5 行) | `sed -n '11626,11630p' PROJECT_PLAN.md`
+    - L3 第六十八批~第七十批(2026-09-27 深夜 · G-258〔旧号〕〔旧号〕 B 组四票收口 + G-255〔旧号〕〔旧号〕 的票面前提被量错) | 11631-11696 (66 行) | `sed -n '11631,11696p' PROJECT_PLAN.md`
+  - L2 O65 AI 自进化调度系统 auto-evolve:四期系列总纲(2026-10-25 立,§24 代裁执行) | 11697-11703 (7 行) | `sed -n '11697,11703p' PROJECT_PLAN.md`
+    - L3 一期 P0 安全护栏(无人化先决,必须最先做) | 11698-11698 (1 行) | `sed -n '11698,11698p' PROJECT_PLAN.md`
+    - L3 二期 P1 感知与闭环 | 11699-11699 (1 行) | `sed -n '11699,11699p' PROJECT_PLAN.md`
+    - L3 三期 P2 验证与决策 | 11700-11700 (1 行) | `sed -n '11700,11700p' PROJECT_PLAN.md`
+    - L3 四期 P3 知识自举 + P4 治理 | 11701-11703 (3 行) | `sed -n '11701,11703p' PROJECT_PLAN.md`
+  - L2 2026-10-26 号池对标 workbuddy-switch 三件套(代码+测试已验绿并本地提交;待 monitor/deploy 那两席收敛后随链 FF 上 origin) | 11704-11705 (2 行) | `sed -n '11704,11705p' PROJECT_PLAN.md`
+  - L2 2026-10-27 工程工具链待办(登记@2026-10-27/账号代理席) | 11706-11716 (11 行) | `sed -n '11706,11716p' PROJECT_PLAN.md`
+  - L2 2026-10-27 第三方 OAuth 通用回调同意闸(登记@2026-10-27/oauth-consent) | 11717-11717 (1 行) | `sed -n '11717,11717p' PROJECT_PLAN.md`
+  - L2 2026-10-28 号池账号命名统一手机号优先(登记@2026-10-28/WorkBuddy) | 11718-11718 (1 行) | `sed -n '11718,11718p' PROJECT_PLAN.md`
+  - L2 2026-10-28 四端 ui-routes 自述钉追平已入库输入(登记@2026-10-28/ui-gen) | 11719-11875 (157 行) | `sed -n '11719,11875p' PROJECT_PLAN.md`
+    - L3 硬性指标(H1-H6) | 11806-11862 (57 行) | `sed -n '11806,11862p' PROJECT_PLAN.md`
+    - L3 缺陷深挖批次 2026-11-07（自动审查，DBG- 新字母族） | 11863-11872 (10 行) | `sed -n '11863,11872p' PROJECT_PLAN.md`
+    - L3 改动清单(45 文件:43 miniapp-taro + 1 守门脚本 + 1 台账) | 11873-11875 (3 行) | `sed -n '11873,11875p' PROJECT_PLAN.md`
+  - L2 2026-11-05 全仓缺陷普查(机器判定 + 8 组只读深审) | 11876-12198 (323 行) | `sed -n '11876,12198p' PROJECT_PLAN.md`
+    - L3 P0 致命（2 条） | 11881-11889 (9 行) | `sed -n '11881,11889p' PROJECT_PLAN.md`
+    - L3 P1 高（20 条） | 11890-11952 (63 行) | `sed -n '11890,11952p' PROJECT_PLAN.md`
+    - L3 P2 中（25 条） | 11953-12033 (81 行) | `sed -n '11953,12033p' PROJECT_PLAN.md`
+    - L3 P3 低（11 条） | 12034-12038 (5 行) | `sed -n '12034,12038p' PROJECT_PLAN.md`
+    - L3 机器判定面（4 条，全部为 `node scripts/all-checks-runner.mjs` 全量 28 步的实测红） | 12039-12039 (1 行) | `sed -n '12039,12039p' PROJECT_PLAN.md`
+    - L3 本批覆盖边界（未判的不写成判过） | 12040-12043 (4 行) | `sed -n '12040,12043p' PROJECT_PLAN.md`
+    - L3 第二轮补扫（直接代码核验子集，BUG-64~74） | 12044-12075 (32 行) | `sed -n '12044,12075p' PROJECT_PLAN.md`
+      - L4 跨端契约（6 条） | 12046-12058 (13 行) | `sed -n '12046,12058p' PROJECT_PLAN.md`
+      - L4 端侧安全/配置（5 条） | 12059-12069 (11 行) | `sed -n '12059,12069p' PROJECT_PLAN.md`
+      - L4 复核后排除（原补扫报告记载、实读不成立，登记以免重复审计） | 12070-12075 (6 行) | `sed -n '12070,12075p' PROJECT_PLAN.md`
+    - L3 第三轮补扫（ai-service 网络 / DTO 全量 / scripts 业务 / SQL 迁移 / web-api 五面并行深审，BUG-75~92） | 12076-12155 (80 行) | `sed -n '12076,12155p' PROJECT_PLAN.md`
+    - L3 第四轮补扫坐实（2026-11-06 深夜：待核闭环 + 四面全量扫描） | 12156-12198 (43 行) | `sed -n '12156,12198p' PROJECT_PLAN.md`
+  - L2 /goal goal-sag2 收口摘要（2026-11-08 · SAG2 词法多跳检索复现与超越） | 12199-12279 (81 行) | `sed -n '12199,12279p' PROJECT_PLAN.md`
+    - L3 取证（观察 / 推断 / 未知） | 12201-12205 (5 行) | `sed -n '12201,12205p' PROJECT_PLAN.md`
+    - L3 本仓自有实现（前后端能力，零新增第三方依赖） | 12206-12210 (5 行) | `sed -n '12206,12210p' PROJECT_PLAN.md`
+    - L3 超越轴 | 12211-12212 (2 行) | `sed -n '12211,12212p' PROJECT_PLAN.md`
+    - L3 验证证据（现读，非自评） | 12213-12217 (5 行) | `sed -n '12213,12217p' PROJECT_PLAN.md`
+    - L3 未判定与遗留（如实登记，不计绿） | 12218-12228 (11 行) | `sed -n '12218,12228p' PROJECT_PLAN.md`
+    - L3 ⑪四程序八类逆向-复现-超越落地（2026-11-15；对照 = Qoder / Trae / WorkBuddy / DeepSeek，取证用 rea + craft-anything） | 12229-12253 (25 行) | `sed -n '12229,12253p' PROJECT_PLAN.md`
+      - L4 A. 新增件（本轮 6 文件，全绿） | 12231-12239 (9 行) | `sed -n '12231,12239p' PROJECT_PLAN.md`
+      - L4 B. 复用判定（不重造，单一真相源） | 12240-12246 (7 行) | `sed -n '12240,12246p' PROJECT_PLAN.md`
+      - L4 C. 未判定与边界（如实登记） | 12247-12253 (7 行) | `sed -n '12247,12253p' PROJECT_PLAN.md`
+    - L3 ⑫ Cursor 桌面端逆向-复现-超越（2026-11-15；对照 = Cursor 3.27.22，本机 `C:\Users\Administrator\AppData\Local\Programs\cursor`） | 12254-12279 (26 行) | `sed -n '12254,12279p' PROJECT_PLAN.md`
+  - L2 2026-11-15 全仓缺陷深扫批次(Y-83~Y-96,多批并行只读深审) | 12280-12299 (20 行) | `sed -n '12280,12299p' PROJECT_PLAN.md`
+    - L3 ⑫ Cursor 桌面端逆向-复现-超越（2026-11-15；对照 = Cursor 3.27.22，本机 `C:\Users\Administrator\AppData\Local\Programs\cursor`） | 12287-12299 (13 行) | `sed -n '12287,12299p' PROJECT_PLAN.md`
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

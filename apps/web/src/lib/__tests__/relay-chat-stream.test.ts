@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { vi } from 'vitest'
 import { useAuthStore } from '@/stores/auth'
-import { streamRelayChat } from '../relay-chat-stream'
+import { streamRelayChat, type RelayToolCall } from '../relay-chat-stream'
 
 class FakeWebSocket {
   static readonly CONNECTING = 0
@@ -274,6 +274,66 @@ describe('streamRelayChat', () => {
     sock.drop()
     await p
     expect(onError).toHaveBeenCalledWith(expect.stringContaining('断'))
+  })
+
+  it('tools 进场 ⇒ 上行带 tools/tool_choice;分片 tool_calls 拼成完整调用交给 onToolCalls(2026-11-21 工具回路锁)', async () => {
+    const batches: RelayToolCall[][] = []
+    const tools = [
+      {
+        type: 'function',
+        function: { name: 'hr_payroll_calc', description: '算薪', parameters: { type: 'object' } },
+      },
+    ]
+    const p = streamRelayChat({
+      model: 'm',
+      messages: [{ role: 'user', content: '算 11 月工资' }],
+      tools,
+      toolChoice: 'auto',
+      onDelta: () => {},
+      onToolCalls: (calls) => batches.push(calls),
+    })
+    const sock = FakeWebSocket.instances[0]!
+    sock.openSelf()
+    sock.emit({ type: 'ready', userId: 'u-1' })
+    const sent = JSON.parse(sock.sent[0]!) as Record<string, unknown>
+    expect(sent.tools).toEqual(tools)
+    expect(sent.tool_choice).toBe('auto')
+    const id = sent.id as string
+
+    // 分片规范:第 1 片带 id/name + 参数前半,第 2 片只有参数增量(没有 id/name)
+    sock.emit({
+      type: 'chunk',
+      id,
+      data: JSON.stringify({
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'hr_payroll_calc', arguments: '{"month":' },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    })
+    sock.emit({
+      type: 'chunk',
+      id,
+      data: JSON.stringify({
+        choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '11}' } }] } }],
+      }),
+    })
+    sock.emit({ type: 'done', id })
+    await p
+    expect(batches).toHaveLength(1)
+    expect(batches[0]).toEqual([
+      { id: 'call_1', name: 'hr_payroll_calc', arguments: '{"month":11}' },
+    ])
   })
 
   it('未登录 ⇒ 不建连,直接 onError', async () => {

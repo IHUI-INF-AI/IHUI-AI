@@ -31,31 +31,6 @@
 - `close_terminal`:terminate → 2s 宽限 → kill,返回退出码;
 - `list_terminals`:按调用者身份列出会话。
 
-在此之上补齐"传统终端原语"那一层(顺序即产生顺序,每条都只回答**一个**问题):
-- `resize_terminal`:改窗口尺寸(POSIX `TIOCSWINSZ` / Windows `ResizePseudoConsole`),管道显式拒
-  `TERMINAL_NOT_A_TTY` 而不是静默 no-op;
-- `paste_terminal`:按程序是否点了 `DECSET 2004`(bracketed paste)决定是否包上
-  `ESC[200~…ESC[201~`,程序没点就不能替它决定"这段是粘贴";
-- `mouse_terminal`:鼠标上报(1000/1002/1003 由程序点单,没点单显式拒 `TERMINAL_MOUSE_DISABLED`),
-  四代坐标封装(SGR/urxvt/UTF-8/x10)由同一个出口产出;
-- `focus_terminal`:焦点事件(`DECSET 1004` + `ESC[I`/`ESC[O`);**不依附屏幕网格**,两种后端都成立;
-- `snapshot_terminal`:剥掉控制序列的**输出流**快照(末尾 N 行,`truncated` 如实);
-- `search_terminal`:在同一份归一文本上做 scrollback 检索(子串/正则,行号与快照同源);
-- `links_terminal`:`OSC 8` 超链接台账(`url`/`text`/`line_no`/`scheme`),行号与快照同源,
-  `text` 与 `url` 一起回以防"显示的字 ≠ 真实目标"(OSC 8 的已知钓鱼面),本层从不代为打开;
-- `cursor_terminal`:**光标现在停在哪**(真 VT 屏幕网格 `terminal_grid.Grid`),`include_screen`
-  可连整屏一起回。这是唯一能回答"第 3 行第 12 列是什么"的出口 —— `snapshot` 给的是行流水
-  (`\\r` 刷新在流水里是换行、在屏幕上是同一格被改写),拿它推光标必然错;
-- `cell_at_terminal`:取屏幕某一格(row/col 1 起)。点击自动化要知道"点到的是哪个字",而屏幕
-  坐标只认网格;宽字符第二格与越界都回空串并用 `in_range` 把"越界"与"空格"分开;
-- `prompt_terminal`:"程序现在在等谁"(`OSC 133` shell 集成 A/B/C/D 四标记 + `OSC 7` 上报的
-  工作目录)。`shell_integration=False` 时 `prompt_state` 恒 `unknown` —— 这是**没信号**,
-  不是"没在等";`done`(上一条跑完)也不等于"现在可以输入"(要等下一次 `A`)。
-
-`strip_ansi` 是"输出流 → 人读文本"的**唯一**出口(剥控制序列 / `\\r` 折行 / 丢残余控制符在
-**一次**扫描里完成,同一次扫描顺手产出 OSC 8 台账),快照/检索/链接三处共用同一份实现,
-不另造第二把尺子。
-
 两种 stdio 后端(会话编排 / 所有权 / 上限 / 信号完全一致,只差"管道怎么连到子进程"):
 - **默认 `pipes`**:三条匿名管道。边界(与外部实现的差异如实记录):面向 TTY 的程序
   (需要 isatty 才输出进度条/颜色的)会拿到 False → 降级块缓冲、无色。子进程环境走
@@ -75,10 +50,6 @@
   「没判绝不写成判过」)。PTY 输出的行切同样不按"死等换行":整行即时吐,末尾不完整
   片段在静默 `PTY_IDLE_FLUSH_S` 后当一帧吐出 —— TUI(htop/vim/进度条)的刷新帧只写
   `\\r` 不写 `\\n`,死等换行会让读端在"子进程活着、屏幕明明有内容"时读到空。
-  **输入侧边界(2026-11-21)**:ConPTY 的输入先过控制台输入模式,程序未自行进入
-  raw/无回显态时 ESC 序列会进行编辑缓冲(按键"发出了"但程序没收到)——
-  `pty_input_notes(os.name)` 把这条随 `open` 回执**如实下发**并给出要改的标志位;
-  本层刻意不代程序改终端模式(代改会让 Ctrl-C 与行编辑失效)。
 
 对照程序:WB/Trae 的 harness 用原生 `pty.node`/`conpty.node`(:lydell/node-pty),deepseek-tui
 用管道。本实现取"CI 真能跑通 + 零第三方依赖"的那一档(POSIX 标准库 `pty` + Windows
@@ -104,10 +75,8 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
-from urllib.parse import unquote
 
 from .sandbox import _strict_child_env
-from .terminal_grid import Grid
 
 MAX_SESSIONS: Final = 16
 MAX_BUFFER_LINES: Final = 2000
@@ -195,15 +164,6 @@ ANSI_ESCAPE_RE: Final = re.compile(
 #: 这些字节对"人读文本"没有语义(光标控制已由 `\r`/`\n` 归一覆盖),留着只会让检索正则踩空。
 ANSI_NOISE_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
-#: **一次扫描**取代"先 subs 再 replace"的三趟处理(2026-11-21):同一条终端流要同时回答三件事
-#: —— 人读文本长什么样、这段文字链到哪个 URL、链接落在第几行。三趟各扫一遍必然在行号上漂开
-#: (先剥 OSC 再数 `\r` 与"边扫边数"在跨转义序列的 `\r\n` 边界上给出不同行号),所以在
-#: 字符流上只走一次:`esc` = 控制序列(按 `ANSI_ESCAPE_RE` 同一份定义取材),`noise` = 残余控制符。
-#: 两个命名组都**不带捕获组里层**,所以整条正则不会打乱调用方的 group 编号。
-_SCAN_RE: Final = re.compile(
-    f"(?P<esc>{ANSI_ESCAPE_RE.pattern})|(?P<noise>{ANSI_NOISE_RE.pattern})"
-)
-
 #: 窗口标题(`OSC 0/1/2 ; <title> BEL|ST`):xterm 用 `OSC 2` 设标签页名字,`OSC 0` 同时设图标名与
 #: 标题,`OSC 1` 只设图标名 —— 三种在"这块屏叫什么"这件事上等价,统一记成 `session.title`。
 _OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
@@ -211,32 +171,6 @@ _OSC_TITLE_RE: Final = re.compile(r"\x1b\][012];([^\x07\x1b]*)(?:\x07|\x1b\\)")
 _OSC_ANY_RE: Final = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 #: 标题长度上界:失控程序连发 OSC 时不让会话账本跟着膨胀。
 MAX_TITLE_CHARS: Final = 200
-
-#: `OSC 7` 工作目录上报(`ESC ] 7 ; file://<host><path> ST|BEL`):shell 每次画提示符前报一次,
-#: 是**程序自己说**"我现在在哪个目录"的唯一权威来源(比"open 时那个 cwd"真实)。
-#: 只认 `file://` 形态(POSIX 与 Git Bash 都这么发);host 段允许空(本地)。
-_OSC_CWD_RE: Final = re.compile(r"\x1b\]7;file://([^/\x07\x1b]*)([^\x07\x1b]*)(?:\x07|\x1b\\)")
-#: 工作目录长度上界(同标题的护栏理由)。
-MAX_CWD_CHARS: Final = 4096
-#: `OSC 133` shell 集成标记(`ESC ] 133 ; <kind> [; <参数>] ST|BEL`):A=提示符开始、B=命令输入
-#: 开始(仍在提示符上)、C=命令开始执行、D=命令结束(参数是退出码)。这是"程序现在在等谁"
-#: 的机读信号 —— 光看输出是没法判断"这条命令跑完了没有"的(提示符长得像什么没有标准)。
-_OSC_PROMPT_RE: Final = re.compile(
-    r"\x1b\]133;(?P<kind>[ABCD])(?:;(?P<arg>[^\x07\x1b]*))?(?:\x07|\x1b\\)"
-)
-
-#: OSC 8 超链接:`ESC ] 8 ; <params> ; <URI> ST|BEL`,URI 为空的那一条表示"链接到此结束"。
-#: 参数段(`id=xxx` 之类)被刻意只做透传判据不进台账:台账只关心"哪段文字链到哪个地址"。
-#: 为什么值得单独记:终端里"点一下能打开什么"是**程序**给的,而 OSC 8 有一个已知钓鱼面 ——
-#: 显示文字与真实目标是两回事(可以显示 `https://bank.com` 却链到别处)。本模块的立场是把
-#: `text` 与 `url` **一起**回给调用方,让"看到的就是要打开的"这件事可校验;绝不代替调用方打开。
-_OSC_HYPERLINK_RE: Final = re.compile(r"\x1b\]8;([^;]*);([^\x07\x1b]*)(?:\x07|\x1b\\)")
-#: 台账上界:失控程序连发链接时不让会话账本/信封膨胀。
-MAX_LINKS: Final = 100
-MAX_LINK_URL_CHARS: Final = 2048
-MAX_LINK_TEXT_CHARS: Final = 300
-#: URI 协议名的取值形态(RFC 3986 scheme);取不到就当"没有协议头"(相对地址/裸词)。
-_LINK_SCHEME_RE: Final = re.compile(r"^(?P<scheme>[a-zA-Z][a-zA-Z0-9+.\-]*):")
 
 #: DEC 私有模式位(`DECSET`=`?…h` / `DECRST`=`?…l`)。一条序列可带多个模式(`?1002;1006h`),
 #: 所以按"整段取数再逐枚落账"解析;只由输出驱动(**模式位从来不是调用方声明的**)。
@@ -320,14 +254,6 @@ APP_CURSOR_KEY_SEQUENCES: Final[dict[str, str]] = {
     "end": "\x1bOF",
 }
 APP_CURSOR_MODE: Final = 1
-
-#: 焦点事件上报(DEC 私有模式 1004)。与鼠标同族:程序自己发 `DECSET 1004` 点单后,终端才在
-#: 窗口获得/失去焦点时各上报一次 —— tmux 用它决定"这块窗格现在收不收键",vim 用它刷光标形状。
-#: 两条序列是协议常量(`ESC[I` = 进焦点,`ESC[O` = 出焦点),不是随手拼的字节;和鼠标一样,
-#: 程序没点单就发,到了程序那边只是垃圾输入,所以本模块显式拒(`TERMINAL_FOCUS_DISABLED`)。
-FOCUS_MODE: Final = 1004
-FOCUS_IN_SEQUENCE: Final = "\x1b[I"
-FOCUS_OUT_SEQUENCE: Final = "\x1b[O"
 
 #: PTY 会话的终端身份两键(**只在调用方没显式给时补**)。真 tty 缺 `TERM` 时,程序
 #: (`ls --color` / `git` / `less` / `vim`)会按 dumb 终端处理:颜色与光标控制全关、分页退化。
@@ -451,33 +377,12 @@ class TerminalSession:
     #: 程序请求过的 DEC 私有模式位集合(鼠标 1000/1002/1003、编码 1006/1005/1015、粘贴 2004 …)。
     #: 只由输出解析写入;`mouse_mode`/`mouse_encoding` 是它的**派生视图**(不另存一份状态)。
     private_modes: set[int] = field(default_factory=set)
-    #: 屏幕网格(VT 记账)。它回答的是缓冲**回答不了**的那类问题:「光标现在停在哪」
-    #: 「屏幕上第 3 行第 12 列是什么」。缓冲是行流水,`\r` 刷新在流水里是换行、在屏幕上是
-    #: 同一格被改写 —— 拿流水冒充屏幕算光标,答案必然是错的,所以这块网格是真的。
-    grid: Any = field(default=None, repr=False)
-    #: 程序上报的工作目录(`OSC 7`)。空串 = 程序没报过(此时 `prompt_terminal` 回退到 `cwd`,
-    #: 并在回执里用 `cwd_source` 说明这个值是哪来的 —— 两者的可信度不一样)。
-    cwd_reported: str = ""
-    #: `OSC 133` 的当前阶段:`unknown`(程序没启用 shell 集成)/ `prompt`(画完提示符等输入)/
-    #: `input`(还在输入这条命令)/ `running`(命令执行中)/ `done`(上一条命令结束)。
-    #: 它回答的是自动化最想要的那个问题:"现在该我输入了吗?"
-    prompt_state: str = "unknown"
-    #: 程序是否发过 `OSC 133`(即 shell 集成是否启用)。没启用时 prompt_state 恒 unknown,
-    #: 不得拿它去猜"跑完了没有" —— 那只是没信号,不是"没在跑"。
-    shell_integration: bool = False
-    #: 已结束的命令条数(`OSC 133;D` 的次数)。
-    command_count: int = 0
-    #: 上一条命令的退出码(`OSC 133;D;<exit>`);None = 没有 D 标记或参数不是整数。
-    last_command_exit: int | None = None
 
     def __post_init__(self) -> None:
         # deque 的 default_factory 拿不到实例字段,所以"上限"必须在这里落到缓冲上;
         # 两处各写一份 `deque(maxlen=…)` 就会漂开(§22c)。
         if self.chunks.maxlen != self.buffer_lines:
             self.chunks = deque(maxlen=self.buffer_lines)
-        # 网格按 open 那一刻的窗口尺寸建;之后只经 `resize_terminal` 改(单一入口)
-        if self.grid is None:
-            self.grid = Grid(self.cols, self.rows)
 
     def touch(self) -> None:
         """刷新闲置计时。**所有**交互入口都要调(见 `_touch` 单出口)。"""
@@ -528,11 +433,6 @@ class TerminalSession:
         """
         return bool(ALT_SCREEN_MODES & self.private_modes)
 
-    @property
-    def focus_events(self) -> bool:
-        """程序是否请求了焦点事件上报(`DECSET 1004`)。与 `mouse_mode` 同族:输出驱动,不由调用方声明。"""
-        return FOCUS_MODE in self.private_modes
-
     def first_seq(self) -> int:
         """当前仍可读到的**最早** seq(缓冲空时 = 下一个将要产出的 seq)。"""
         with self.lock:
@@ -559,10 +459,6 @@ class TerminalSession:
             "mouse_mode": self.mouse_mode,
             "mouse_encoding": self.mouse_encoding,
             "alt_screen": self.alt_screen,
-            "focus_events": self.focus_events,
-            "cwd_reported": self.cwd_reported,
-            "prompt_state": self.prompt_state,
-            "shell_integration": self.shell_integration,
             "created_ts": self.created_ts,
             "backend": self.backend,
             "cols": self.cols,
@@ -888,10 +784,6 @@ def _track_terminal_state(session: TerminalSession, text: str) -> None:
 
     私有模式位(`DECSET`/`DECRST`)在同一出口落账:鼠标上报(1000/1002/1003 + 编码
     1006/1005/1015)是程序点了才允许发的,终端侧不读这一位就只能靠猜。
-
-    shell 集成(`OSC 7` / `OSC 133`)也在这里读:`OSC 7` 是 shell 自己报"我在哪个目录"
-    (比 open 时那个 cwd 真实),`OSC 133` 是"提示符/命令"四阶段标记 —— 它们是**程序**给的
-    机读信号,不是我们对提示符长相的猜测。没发过 `133` 就不许把 prompt_state 当成已知。
     """
     _track_private_modes(session, text)
     if BRACKETED_PASTE_ON in text:
@@ -902,42 +794,14 @@ def _track_terminal_state(session: TerminalSession, text: str) -> None:
         title = ANSI_NOISE_RE.sub("", m.group(1)).strip()
         if title:
             session.title = title[:MAX_TITLE_CHARS]
-    for m in _OSC_CWD_RE.finditer(text):
-        # `file://<host>/<path>`:只取 path 段并解百分号编码(Git Bash 会把中文目录编成 %XX)。
-        # 空 path 不覆盖上一个值 —— "报了个空"不等于"目录变成了空"。
-        raw_path = unquote(ANSI_NOISE_RE.sub("", m.group(2)))
-        if raw_path:
-            session.cwd_reported = raw_path[:MAX_CWD_CHARS]
-    for m in _OSC_PROMPT_RE.finditer(text):
-        kind = m.group("kind")
-        session.shell_integration = True
-        if kind == "A":
-            session.prompt_state = "prompt"
-        elif kind == "B":
-            session.prompt_state = "input"
-        elif kind == "C":
-            session.prompt_state = "running"
-        else:  # D:结束 + 退出码(参数可能为空或非整数 ⇒ 如实记 None)
-            session.prompt_state = "done"
-            session.command_count += 1
-            arg = (m.group("arg") or "").strip()
-            session.last_command_exit = int(arg) if arg.lstrip("-").isdigit() else None
     bells = _OSC_ANY_RE.sub("", text).count("\x07")
     if bells:
         session.bell_count += bells
 
 
 def _push_output(session: TerminalSession, tag: str, text: str) -> None:
-    """输出入缓冲的**唯一出口**:先读状态信号,再喂屏幕网格,最后入队(三件事不会各自被忘掉)。
-
-    屏面必须在**入队就喂**(而不是等 `snapshot` 时从缓冲重放):网格要的是原始字节序,
-    而缓冲在 deque 满时会把最老的块静默挤掉 —— 那时重放已经少了开头,光标会算错。
-    喂网格持 `session.lock`:网格不是线程安全的,PTY 读线程与空闲看门狗都会往这里送。
-    """
+    """输出入缓冲的**唯一出口**:先读状态信号,再入队(两件事不会各自被忘掉)。"""
     _track_terminal_state(session, text)
-    if session.grid is not None:
-        with session.lock:
-            session.grid.feed(text)
     _push(session, tag, text)
 
 
@@ -1183,41 +1047,13 @@ def _pty_child_env(env_extra: dict[str, str] | None) -> dict[str, str]:
     return env
 
 
-def pty_input_notes(platform: str) -> dict[str, str]:
-    """PTY 输入边界的**如实告知**(2026-11-21 立,随 open 回执一起下发)。
-
-    为什么要在"开会话"这一格就讲:用户在会话说"按一下 Esc"时,期望是"程序收到了 ESC";
-    在 Windows ConPTY 上真发生的是"ESC 进了行规程的编辑缓冲"。这两件事在回执里长得一样,
-    于是最容易出现**假绿**——调用方以为按键原语坏了,或以为程序进入过 raw 模式。本层不代
-    程序改终端模式(替它 `stty raw` 会让 Ctrl-C/行编辑失效,那是程序自己的决定);
-
-    - `nt`:ConPTY 的输入先过控制台输入模式。子程序未自行关掉 `ENABLE_LINE_INPUT` /
-      `ENABLE_ECHO_INPUT` 并打开 `ENABLE_VIRTUAL_TERMINAL_INPUT` 时,ESC 序列(含 focus 的
-      `CSI I`/`CSI O`、鼠标上报、方向键)会被当普通字符进缓冲并回显。
-    - 其他宿主:PTY 的输入直接落 master,按键原语不做二次解释。
-
-    返回的是**可执行提示**(要改哪两个标志),不是免责声明:照做就能让按键真的到程序手里。
-    """
-    if platform == "nt":
-        return {
-            "input_note": (
-                "ConPTY 输入先过行规程:SCREEN/按键类转义(ESC 序列)要真到程序手里,"
-                "程序须自己关闭 ENABLE_LINE_INPUT|ENABLE_ECHO_INPUT 并开启 "
-                "ENABLE_VIRTUAL_TERMINAL_INPUT(或由它依赖的库里做同等设置)。"
-                "本模块刻意不代程序改终端模式 —— 代改会让 Ctrl-C 与行编辑一起失效。"
-            ),
-        }
-    return {}
-
-
 def _open_pty_session(
     *, command: str, cwd: str, user_id: str | None, session_id: str | None,
     env_extra: dict[str, str] | None,
     cols: int = DEFAULT_COLS,
     rows: int = DEFAULT_ROWS,
 ) -> dict[str, Any]:
-    """PTY 后端开会话(POSIX 走 `_spawn_pty`,Windows 走 ConPTY,两者都不静默回落管道)。
-    满额/起不来 → 结构化错误,不抛。"""
+    """PTY 后端开会话(仅限 POSIX)。满额/起不来 → 结构化错误,不抛。"""
     _prune_for_new_session()
     if len(_sessions) >= MAX_SESSIONS:
         return {
@@ -1258,7 +1094,7 @@ def _open_pty_session(
     thread = threading.Thread(target=_pump_pty, args=(session, read_fd, "pty"), daemon=True)
     thread.start()
     session.pumps.append(thread)
-    return {"ok": True, "terminal": session.to_dict(), **pty_input_notes(os.name)}
+    return {"ok": True, "terminal": session.to_dict()}
 
 
 def open_terminal(
@@ -1798,84 +1634,6 @@ def mouse_terminal(
     }
 
 
-def focus_terminal(
-    terminal_id: str,
-    *,
-    state: str = "in",
-    user_id: str | None,
-    session_id: str | None,
-) -> dict[str, Any]:
-    """把一次**窗口焦点变化**作为输入字节上报给程序(`ESC[I` 进焦点 / `ESC[O` 出焦点)。
-
-    为什么是由服务端发而不是程序自己知道:焦点是**终端侧**的事实(用户的窗口/标签页切走了),
-    子进程看不见。DEC 私有模式 1004 就是程序对终端说的"有人切走/切回来时告我一声":tmux 靠它
-    决定这块窗格收不收键,vim 靠它刷光标形状。程序没点 `DECSET 1004` 就发过去,这两条序列在
-    它眼里只是两串垃圾输入 —— 所以先读账本,没点单显式拒(`TERMINAL_FOCUS_DISABLED`)。
-
-    **两条后端都支持**(与 `mouse_terminal` 的 `TERMINAL_NOT_A_TTY` 不同,这是有意的):
-    鼠标坐标落在**屏幕网格**上,没有 tty 就没有格子,报表无意义;焦点是一个纯粹的**事件字节**,
-    不依附任何网格 —— 管道路径下字节同样原样落到子进程 stdin,语义不打折。
-
-    `state` 除 `in`/`out` 也接受 `focus`/`blur` 两个同义写法(模型侧更容易自然表述),
-    归一后回执里的 `state` 只有 `in`/`out` 两种,不做第三态。
-    """
-    raw = re.sub(r"[\s_]+", "-", str(state or "").strip().lower())
-    normal = {"in": "in", "focus": "in", "gain": "in", "out": "out", "blur": "out", "lose": "out"}
-    state_name = normal.get(raw)
-    if state_name is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
-            "error": f"未知焦点状态: {state}(支持 in/out,亦接受 focus/blur)",
-        }
-    session = _live(terminal_id, user_id, session_id)
-    if session is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
-            "error": "终端不存在或无权访问",
-        }
-    if not session.focus_events:
-        return {
-            "ok": False, "errorCode": "TERMINAL_FOCUS_DISABLED",
-            "error": "程序没有请求焦点事件(DECSET 1004);现在发过去只会变成垃圾输入",
-            "terminal": session.to_dict(),
-        }
-    if session.stdin_closed:
-        return {
-            "ok": False, "errorCode": "TERMINAL_STDIN_CLOSED",
-            "error": "本会话 stdin 已送过 EOF,不能再报焦点事件;需要继续交互请开新会话",
-            "terminal": session.to_dict(),
-        }
-    if not session.running():
-        return {
-            "ok": False, "errorCode": "TERMINAL_EXITED",
-            "error": f"终端已退出(exit_code={session.proc.poll()})",
-            "terminal": session.to_dict(),
-        }
-    sequence = FOCUS_IN_SEQUENCE if state_name == "in" else FOCUS_OUT_SEQUENCE
-    sink = session.write_io
-    if sink is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
-            "error": "本会话没有可写输入通道", "terminal": session.to_dict(),
-        }
-    try:
-        sink.write(sequence)
-        sink.flush()
-    except (BrokenPipeError, OSError, ValueError) as e:
-        return {
-            "ok": False, "errorCode": "TERMINAL_WRITE_FAILED",
-            "error": f"焦点事件写入失败: {e}", "terminal": session.to_dict(),
-        }
-    return {
-        "ok": True,
-        "terminal_id": terminal_id,
-        "state": state_name,
-        "sequence": sequence,
-        "bytes_written": len(sequence.encode("utf-8")),
-        "focus_events": True,
-    }
-
-
 def eof_terminal(
     terminal_id: str,
     *,
@@ -2043,149 +1801,29 @@ def _buffer_face(session: TerminalSession) -> tuple[str, int, int]:
     return text, first_seq, dropped
 
 
-def _scan_face(text: str) -> tuple[str, list[dict[str, Any]]]:
-    """**一次**从左到右扫完整条终端流,同时产出「人读文本」与「OSC 8 链接台账」(唯一出口)。
-
-    为什么必须是一次:同一条流上有三个互相牵动的量 —— 可见文字、这段文字链到哪个地址、
-    它在归一后文本的第几行。分三趟做(先 `sub` 掉 OSC 再 `sub` 掉 `\\r` 再数行)会在
-    "转义序列内部/外部恰好夹着 `\\r\\n`"这类边界上给出互相矛盾的行号(链接落在第 3 行、
-    快照却说第 4 行)。一次扫完就没有这个缝:两边同源、逐字对得上。
-
-    归一规则与旧版 `strip_ansi` **逐字等价**(它有 85 条用例与 `check-replacement-chars`
-    盯着,不能悄悄改口径):
-    - 控制序列(`_SCAN_RE` 的 `esc` 支)整段丢弃,但 OSC 8 那一条先记进台账;
-    - 残余单字节控制符(`noise` 支)丢弃;
-    - `\\r` 折行:`\\r+\\n` 折成**一个** `\\n`(子进程在文本模式下把 `\\r\\n` 又翻成 `\\r\\r\\n`
-      也走这条),纯 `\\r` 串(行内回车刷新)按个数折成同样多的 `\\n`,绝不能反过来做 ——
-      反过来会把 `\\r\\r\\n` 分成两行。
-
-    链接台账:URI 为空的那条 `ESC]8;;` 表示"链接结束";一段链接的正文取**可见字符**(已归一),
-    起始行号取链接开启那一刻的行号。按 `(url, text)` 去重并保留首次出现 —— TUI 每帧重绘
-    同一个链接上百次,不去重就等于把一屏变成一整本书。
-    """
-    links: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
-    out: list[str] = []
-    line = 1
-    pending_cr = 0
-    # 当前链接状态(不在链接里时 url 为 None)
-    cur_url: str | None = None
-    cur_chars: list[str] = []
-    cur_line = 1
-
-    def _flush_link() -> None:
-        nonlocal cur_url, cur_chars
-        if cur_url is None:
-            return
-        body = "".join(cur_chars)
-        # 空正文的链接没有可点的东西,不进台账(程序常先开链接再写文字)
-        if body.strip():
-            body = body[:MAX_LINK_TEXT_CHARS]
-            key = (cur_url, body)
-            if key not in seen:
-                seen.add(key)
-                match = _LINK_SCHEME_RE.match(cur_url)
-                links.append(
-                    {
-                        "url": cur_url,
-                        "text": body,
-                        "line_no": cur_line,
-                        "scheme": match.group("scheme").lower() if match else "",
-                    }
-                )
-        cur_url = None
-        cur_chars = []
-
-    def _emit(visible: str) -> None:
-        """把一段**已归一**的可见文字落到正文与当前链接正文上。"""
-        nonlocal pending_cr, line
-        for ch in visible:
-            if ch == "\r":
-                pending_cr += 1
-                continue
-            if ch == "\n":
-                # `\r+\n` 折成一个换行;没有待折的 `\r` 时 `\n` 本身就是换行
-                out.append("\n")
-                if cur_url is not None:
-                    cur_chars.append("\n")
-                line += 1
-                pending_cr = 0
-                continue
-            if pending_cr:
-                # 纯 `\r` 串:每个都是一个换行(与 `re.sub("\\r", "\\n")` 同口径)
-                out.append("\n" * pending_cr)
-                if cur_url is not None:
-                    cur_chars.append("\n" * pending_cr)
-                line += pending_cr
-                pending_cr = 0
-            out.append(ch)
-            if cur_url is not None:
-                cur_chars.append(ch)
-
-    last = 0
-    for m in _SCAN_RE.finditer(text):
-        seg = text[last : m.start()]
-        if seg:
-            _emit(seg)
-        last = m.end()
-        esc = m.group("esc")
-        if esc is None:
-            continue  # noise 支:丢弃
-        if esc.startswith("\x1b]8;"):
-            hyper = _OSC_HYPERLINK_RE.match(esc)
-            if hyper is not None:
-                uri = hyper.group(2).strip()
-                _flush_link()
-                if uri:
-                    cur_url = uri[:MAX_LINK_URL_CHARS]
-                    cur_line = line
-                    cur_chars = []
-                # uri 为空 ⇒ 只关闭上一段(上面已经 flush)
-    if text[last:]:
-        _emit(text[last:])
-    # 收尾:`\r` 串末尾没有后续字符时,每个 `\r` 也是一个换行
-    if pending_cr:
-        out.append("\n" * pending_cr)
-        if cur_url is not None:
-            cur_chars.append("\n" * pending_cr)
-        line += pending_cr
-        pending_cr = 0
-    _flush_link()
-    return "".join(out), links
-
-
 def strip_ansi(text: str) -> str:
     """把终端流归一成**人读文本**(快照/检索的唯一出口,§22c 不写第二份)。
 
-    实现在 `_scan_face` 里:剥控制序列、`\\r` 折行、丢残余控制符三件事在**一次**扫描中完成,
-    与 `hyperlinks` 共用同一次扫描 ⇒ 链接行号与快照行号天然同源。宽字符与颜色文本的内容
-    本身不受影响 —— 剥的是控制序列,不是字。
+    三件事按序做:① 剥控制序列(`ANSI_ESCAPE_RE`);② `\\r\\n` / 裸 `\\r` 统一成 `\\n`
+    (终端用 `\\r` 做行内回车刷新,直接按它分行会把一行 TUI 拆成几十行);③ 丢掉残余单字节
+    控制符(`ANSI_NOISE_RE`)。宽字符、颜色文本内容本身不受影响 —— 剥的是控制序列,不是字。
     """
-    # 快速路径:既没有 ESC 也没有 `\r`/残余控制符 ⇒ 原文就是人读文本(零拷贝)
-    if "\x1b" not in text and "\r" not in text and ANSI_NOISE_RE.search(text) is None:
-        return text
-    return _scan_face(text)[0]
-
-
-def hyperlinks(text: str) -> list[dict[str, Any]]:
-    """OSC 8 链接台账(`url` / `text` / `line_no` / `scheme`),按 `(url, text)` 去重。"""
-    return _scan_face(text)[1]
-
-
-
-def _lines_of(plain: str) -> list[str]:
-    """把**已归一**的文本按行切,并遵守"文末换行不是一个空行"(与读侧的计行口径同源)。"""
-    if plain == "":
-        return []
-    parts = plain.split("\n")
-    if parts and parts[-1] == "":
-        parts.pop()
-    return parts
+    out = ANSI_ESCAPE_RE.sub("", text)
+    # `\r+\n`(含子进程在文本模式下把 `\r\n` 又翻成 `\r` 的 `\r\r\n`)先折成单个 `\n`,
+    # 再把剩下的裸 `\r`(行内回车刷新)当换行 —— 反过来做会把 `\r\r\n` 分成两个空行。
+    out = re.sub("\r+\n", "\n", out)
+    out = out.replace("\r", "\n")
+    return ANSI_NOISE_RE.sub("", out)
 
 
 def _plain_lines(text: str) -> list[str]:
-    """`strip_ansi` 之后按行切(`_lines_of` 的原文入参版本;同一份计行口径)。"""
-    return _lines_of(strip_ansi(text))
+    """`strip_ansi` 之后按行切,并遵守"文末换行不是一个空行"(与读侧的计行口径同源)。"""
+    if text == "":
+        return []
+    parts = strip_ansi(text).split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return parts
 
 
 def snapshot_terminal(
@@ -2218,9 +1856,7 @@ def snapshot_terminal(
         }
     keep = max(1, min(keep, MAX_SNAPSHOT_LINES))
     text, first_seq, dropped = _buffer_face(session)
-    # 与行数同一次扫描取:`_scan_face` 同时给出可见文本与链接台账(两处不各扫一遍)
-    plain, found_links = _scan_face(text)
-    all_lines = _lines_of(plain)
+    all_lines = _plain_lines(text)
     truncated = len(all_lines) > keep
     lines = all_lines[-keep:]
     return {
@@ -2230,7 +1866,6 @@ def snapshot_terminal(
         "lines": len(lines),
         "total_lines": len(all_lines),
         "truncated": truncated,
-        "link_count": len(found_links),
         "first_seq": first_seq,
         "dropped_chunks": dropped,
         "running": session.running(),
@@ -2241,280 +1876,6 @@ def snapshot_terminal(
         "title": session.title,
         "bell_count": session.bell_count,
         "alt_screen": session.alt_screen,
-    }
-
-
-def cell_at_terminal(
-    terminal_id: str,
-    *,
-    row: int,
-    col: int,
-    user_id: str | None,
-    session_id: str | None,
-) -> dict[str, Any]:
-    """取**屏幕**第 `row` 行第 `col` 列那一格(1 起)—— 点击自动化要用的那个原语。
-
-    为什么不能用 `snapshot` 的行:那是**输出流**的行,一屏全屏重绘在流里是几十行、在屏幕上
-    只占一屏,拿它的第 3 行去对屏幕坐标,点的多半是别的字。屏幕坐标只认网格。
-    宽字符的第二格与空白格都回空串(问"这一格有什么字"时两者都是"没有");越界同样回空串,
-    让上层能问出"那儿什么都没有"而不吃异常 —— 同时回 `in_range` 把"越界"与"空"分开。
-    """
-    session = _live(terminal_id, user_id, session_id)
-    if session is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
-            "error": "终端不存在或无权访问",
-        }
-    if session.grid is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
-            "error": "该会话没有屏幕网格(未启用 VT 记账)",
-        }
-    try:
-        row_i, col_i = int(row), int(col)
-    except (TypeError, ValueError):
-        return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
-            "error": f"row/col 必须是整数(实得 {row!r}/{col!r})",
-        }
-    with session.lock:
-        cols, rows = session.grid.cols, session.grid.rows
-        in_range = 1 <= row_i <= rows and 1 <= col_i <= cols
-        char = session.grid.cell_at(row_i, col_i)
-        line = session.grid.line_at(row_i)
-        cursor = session.grid.cursor()
-    return {
-        "ok": True,
-        "terminal_id": terminal_id,
-        "row": row_i,
-        "col": col_i,
-        "in_range": in_range,
-        "char": char,
-        "line": line,
-        "cols": cols,
-        "rows": rows,
-        "cursor": {"row": cursor["row"], "col": cursor["col"]},
-    }
-
-
-def prompt_terminal(
-    terminal_id: str,
-    *,
-    user_id: str | None,
-    session_id: str | None,
-) -> dict[str, Any]:
-    """回"程序现在在等谁":`at_prompt` + 四阶段 + 工作目录 + 命令计数。
-
-    这是自动化里最常问的那个问题("我该输入了吗"),而它**不能**从输出长相推 —— 提示符长什么样
-    没有标准(`$`/`%`/`❯`/带颜色的括号都行)。机读信号只有一条:`OSC 133` 的 A/B/C/D 四标记
-    (shell 集成,PowerShell/bash/zsh/fish 都能配)。所以:
-
-    - `shell_integration=False` ⇒ `prompt_state` 恒 `unknown`,`at_prompt` 恒 False。
-      这是**没信号**,不是"没在等" —— 拿 unknown 当成"可以输入了"就是猜(§0.3 不猜)。
-    - `A` ⇒ `prompt`、`B` ⇒ `input`(两者都算在提示符上,`at_prompt=True`);
-      `C` ⇒ `running`、`D` ⇒ `done`(上一条命令结束,退出码在 `last_command_exit`)。
-    - `D` 之后要等下一次 `A` 才会回到"在提示符上":`done` 只说明"上一条跑完了",
-      不代表"现在可以输入"。把这两件事混成一个 bool 是这类实现最常见的假绿。
-
-    `cwd` 优先用程序上报的 `OSC 7`(`cwd_source="reported"`),没报过才回退到 open 时那个
-    `cwd`(`cwd_source="session"`)—— 回执里写明来源,因为两者的可信度不同:前者是 shell
-    此刻的真实位置,后者只是**开会话时**的位置(`cd` 之后就不对了)。
-    """
-    session = _live(terminal_id, user_id, session_id)
-    if session is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
-            "error": "终端不存在或无权访问",
-        }
-    reported = session.cwd_reported
-    return {
-        "ok": True,
-        "terminal_id": terminal_id,
-        "at_prompt": session.prompt_state in ("prompt", "input"),
-        "prompt_state": session.prompt_state,
-        "shell_integration": session.shell_integration,
-        "command_count": session.command_count,
-        "last_command_exit": session.last_command_exit,
-        "cwd": reported or session.cwd,
-        "cwd_source": "reported" if reported else "session",
-        "running": session.running(),
-        "exit_code": session.proc.poll(),
-        "idle_s": session.idle_s(),
-        "alt_screen": session.alt_screen,
-        "title": session.title,
-    }
-
-
-def cursor_terminal(
-    terminal_id: str,
-    *,
-    user_id: str | None,
-    session_id: str | None,
-    include_screen: bool = False,
-) -> dict[str, Any]:
-    """回**光标现在停在哪**(行列 1 起)+ 它所在那一行,可选连整块屏面一起回。
-
-    这是"屏幕网格"这条线的对外出口。它回答的问题与 `snapshot` **不是一回事**:
-    snapshot 给的是"输出流里最近的 N 行"(行流水,`\\r` 刷新在里面是换行);cursor 给的是
-    "程序此刻把光标摆在哪一格"。两者都需要,但拿前者去推后者必然错 —— 一帧全屏重绘在流水里
-    是几十行,在屏幕上只有一屏;`\\r` 刷新在流水里是换行,在屏幕上是同一格被改写。
-
-    回执里 `pending_wrap` 是 xterm 的边界态:光标**停在**末格且"下一字符要折行"。
-    它必须如实给出 —— 把 pending 当成"还没到头"去算"这一行还剩几格可写",差一格就会
-    把后续文本的落点算错。`visible` 是程序自己点的 `?25`(隐藏光标在 TUI 里很常见)。
-    `include_screen=True` 时附 `screen`(整屏按行,行内空白保留、右侧空白裁掉),
-    它是**屏幕**,不是缓冲 —— 与 `snapshot` 的 `total_lines` 对不上是正常的、也是对的。
-
-    缓冲被挤掉(`dropped_chunks > 0`)时网格**仍然准确**:网格在输出入队那一刻就喂过了
-    (见 `_push_output`),不依赖缓冲留存。
-    """
-    session = _live(terminal_id, user_id, session_id)
-    if session is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
-            "error": "终端不存在或无权访问",
-        }
-    if session.grid is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
-            "error": "该会话没有屏幕网格(未启用 VT 记账)",
-        }
-    with session.lock:
-        cur = session.grid.cursor()
-        screen = session.grid.lines() if include_screen else None
-    out: dict[str, Any] = {
-        "ok": True,
-        "terminal_id": terminal_id,
-        "cols": cur["cols"],
-        "rows": cur["rows"],
-        "row": cur["row"],
-        "col": cur["col"],
-        "pending_wrap": cur["pending_wrap"],
-        "visible": cur["visible"],
-        "alt_screen": cur["alt_screen"],
-        "line": cur["line"],
-        "running": session.running(),
-        "exit_code": session.proc.poll(),
-        "dropped_chunks": session.dropped_chunks,
-    }
-    if screen is not None:
-        out["screen"] = screen
-        out["screen_lines"] = len(screen)
-    return out
-
-
-def links_terminal(
-    terminal_id: str,
-    *,
-    user_id: str | None,
-    session_id: str | None,
-    max_links: int = 20,
-) -> dict[str, Any]:
-    """回**这一屏上的超链接**(OSC 8):每条给出 `url` / `text` / `line_no` / `scheme`。
-
-    为什么值得单列一个原语:超链接是"屏幕上可点的那一层",它与人读文本是两套东西 ——
-    剥掉转义序列之后,`<https://…|点我>` 的对应关系就没了;而 CLI 程序(构建日志、
-    `gh`、`ls --hyperlink`、现代 `grep`)越来越多地在输出里带 OSC 8。要在"点第 3 行那个链接"
-    这件事上做自动化,就必须能把链接单独取出来。
-
-    **安全立场(必须与 `text` 一起用)**:OSC 8 有一个众所周知的钓鱼面 —— 显示的字符与真实
-    目标可以完全不同(写 `https://bank.com` 却链到别处是合法的 OSC 8)。所以本函数的回执
-    **同时**给 `text` 与 `url`,让调用方/渲染方有机会把两者摆在一起核对;本模块**从不**代替
-    调用方打开任何地址,也不过滤 `scheme`(它只如实汇报,拦不拦由上层决定)。
-
-    `line_no` 与 `snapshot`/`search` 的行号是**同一个扫描器**算出来的(`_scan_face`),
-    所以"链接在第 N 行"与"快照第 N 行"逐字对得上,不存在两套数法。
-    去重口径 = `(url, text)`:全屏程序每帧重绘同一个链接,不去重会把一屏变成一整本书;
-    这也意味着同一链接在屏幕不同行重复出现时只报**首次**那一行。
-    """
-    session = _live(terminal_id, user_id, session_id)
-    if session is None:
-        return {
-            "ok": False, "errorCode": "TERMINAL_NOT_FOUND",
-            "error": "终端不存在或无权访问",
-        }
-    try:
-        cap = int(max_links)
-    except (TypeError, ValueError):
-        return {
-            "ok": False, "errorCode": "TERMINAL_INVALID_INPUT",
-            "error": f"max_links 必须是整数(实得 {max_links!r})",
-        }
-    cap = max(1, min(cap, MAX_LINKS))
-    text, first_seq, dropped = _buffer_face(session)
-    found = hyperlinks(text)
-    shown = found[:cap]
-    return {
-        "ok": True,
-        "terminal_id": terminal_id,
-        "links": shown,
-        "count": len(shown),
-        "total": len(found),
-        "truncated": len(found) > len(shown),
-        "first_seq": first_seq,
-        "dropped_chunks": dropped,
-        "running": session.running(),
-        "exit_code": session.proc.poll(),
-        "alt_screen": session.alt_screen,
-        "title": session.title,
-        "bell_count": session.bell_count,
-    }
-
-
-def terminal_face(
-    terminal_id: str,
-    *,
-    user_id: str | None,
-    session_id: str | None,
-    max_links: int = 20,
-) -> dict[str, Any]:
-    """**给人看的那一屏**(2026-11-21 立):网格屏面 + 光标 + 提示符 + 链接,一次取齐。
-
-    存在的理由只有一个:面板要画一屏,就得多问三次(光标 / 提示符 / 链接),而三次之间
-    终端还在跑 —— 三次分别取会得到**三张不同时刻的屏**(光标停在第 3 行、屏面已是第 5 行),
-    拼起来那行"光标所在行"就成了幻觉。本函数是**唯一出口**,内部仍逐个调既有原语
-    (`cursor_terminal` / `prompt_terminal` / `links_terminal`)——它只做编排,**绝不复算**
-    任何一条判据(§22c:第二个真相源必漂移)。
-
-    刻意不给"稳定快照"的承诺:三路之间仍可能差一帧,度由 `dropped_chunks` 与
-    `screen_lines` 如实暴露;要严格一致的单帧就调 `cursor_terminal(include_screen=True)`。
-
-    `max_links` 透传上限(`MAX_LINKS` 由被调方钳),链接取不到(会话无网格)不算整体失败:
-    `links_ok=False` 逐项点名,屏面与光标照给 —— 面板宁可少一栏,也不该整块空白。
-    """
-    cursor = cursor_terminal(
-        terminal_id, user_id=user_id, session_id=session_id, include_screen=True
-    )
-    if not cursor.get("ok"):
-        return cursor
-    prompt = prompt_terminal(terminal_id, user_id=user_id, session_id=session_id)
-    links = links_terminal(
-        terminal_id, user_id=user_id, session_id=session_id, max_links=max_links
-    )
-    return {
-        "ok": True,
-        "terminal_id": terminal_id,
-        "cols": cursor["cols"],
-        "rows": cursor["rows"],
-        "row": cursor["row"],
-        "col": cursor["col"],
-        "pending_wrap": cursor["pending_wrap"],
-        "visible": cursor["visible"],
-        "alt_screen": cursor["alt_screen"],
-        "line": cursor["line"],
-        "screen": cursor.get("screen", []),
-        "screen_lines": cursor.get("screen_lines", 0),
-        "dropped_chunks": cursor["dropped_chunks"],
-        "prompt": prompt if prompt.get("ok") else None,
-        "links_ok": bool(links.get("ok")),
-        "links": links.get("links", []) if links.get("ok") else [],
-        "link_count": links.get("count", 0) if links.get("ok") else 0,
-        "link_total": links.get("total", 0) if links.get("ok") else 0,
-        "link_truncated": links.get("truncated", False) if links.get("ok") else False,
-        "running": cursor["running"],
-        "exit_code": cursor["exit_code"],
-        "title": links.get("title", "") if links.get("ok") else "",
-        "bell_count": links.get("bell_count", 0) if links.get("ok") else 0,
     }
 
 
@@ -2597,9 +1958,8 @@ def search_terminal(
         }
     cap = max(1, min(cap, MAX_SEARCH_MATCHES))
     text, first_seq, dropped = _buffer_face(session)
-    plain, _links = _scan_face(text)
     matches: list[dict[str, Any]] = []
-    for idx, line in enumerate(_lines_of(plain), start=1):
+    for idx, line in enumerate(_plain_lines(text), start=1):
         hit = matcher(line)
         if hit is None:
             continue
@@ -2883,10 +2243,6 @@ def resize_terminal(
         }
     with session.lock:
         session.cols, session.rows = cols_i, rows_i
-        # 网格跟着新尺寸走(不做 reflow:旧内容按新窗口裁切 —— 重排会把程序当年按
-        # 80 列排的版改成另一种内容,那是另一件事,不该在"改尺寸"里偷偷发生)
-        if session.grid is not None:
-            session.grid.resize(cols_i, rows_i)
     return {"ok": True, "terminal_id": terminal_id, "cols": cols_i, "rows": rows_i}
 
 
@@ -3330,7 +2686,6 @@ __test__ = {
     "send_terminal_keys": send_terminal_keys,
     "eof_terminal": eof_terminal,
     "pty_child_env": _pty_child_env,
-    "pty_input_notes": pty_input_notes,
     "history_gap": _history_gap,
     "pty_line_splitter": _PtyLineSplitter,
     "PTY_IDLE_FLUSH_S": PTY_IDLE_FLUSH_S,
@@ -3352,19 +2707,6 @@ __test__ = {
     "search_matcher": _search_matcher,
     "buffer_face": _buffer_face,
     "plain_lines": _plain_lines,
-    "scan_face": _scan_face,
-    "hyperlinks": hyperlinks,
-    "links_terminal": links_terminal,
-    "cursor_terminal": cursor_terminal,
-    "cell_at_terminal": cell_at_terminal,
-    "prompt_terminal": prompt_terminal,
-    "terminal_face": terminal_face,
-    "OSC_CWD_RE": _OSC_CWD_RE,
-    "OSC_PROMPT_RE": _OSC_PROMPT_RE,
-    "Grid": Grid,
-    "OSC_HYPERLINK_RE": _OSC_HYPERLINK_RE,
-    "MAX_LINKS": MAX_LINKS,
-    "MAX_LINK_TEXT_CHARS": MAX_LINK_TEXT_CHARS,
     "ANSI_ESCAPE_RE": ANSI_ESCAPE_RE,
     "MAX_SNAPSHOT_LINES": MAX_SNAPSHOT_LINES,
     "MAX_SEARCH_MATCHES": MAX_SEARCH_MATCHES,
@@ -3407,9 +2749,5 @@ __test__ = {
     "push_output": _push_output,
     "APP_CURSOR_KEY_SEQUENCES": APP_CURSOR_KEY_SEQUENCES,
     "APP_CURSOR_MODE": APP_CURSOR_MODE,
-    "focus_terminal": focus_terminal,
-    "FOCUS_MODE": FOCUS_MODE,
-    "FOCUS_IN_SEQUENCE": FOCUS_IN_SEQUENCE,
-    "FOCUS_OUT_SEQUENCE": FOCUS_OUT_SEQUENCE,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

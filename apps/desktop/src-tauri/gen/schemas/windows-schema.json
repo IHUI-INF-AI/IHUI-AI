@@ -3105,10 +3105,58 @@
           "markdownDescription": "Enables the workbuddy_reset_probe command without any pre-configured scope."
         },
         {
+          "description": "Enables the workspace_authorize_root command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-authorize-root",
+          "markdownDescription": "Enables the workspace_authorize_root command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_fs_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-fs-info",
+          "markdownDescription": "Enables the workspace_fs_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_fs_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-fs-list",
+          "markdownDescription": "Enables the workspace_fs_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_fs_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-fs-read",
+          "markdownDescription": "Enables the workspace_fs_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_fs_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-fs-remove",
+          "markdownDescription": "Enables the workspace_fs_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_fs_stat command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-fs-stat",
+          "markdownDescription": "Enables the workspace_fs_stat command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_fs_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-fs-write",
+          "markdownDescription": "Enables the workspace_fs_write command without any pre-configured scope."
+        },
+        {
           "description": "Enables the workspace_index_scan command without any pre-configured scope.",
           "type": "string",
           "const": "allow-workspace-index-scan",
           "markdownDescription": "Enables the workspace_index_scan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_pick_root command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-pick-root",
+          "markdownDescription": "Enables the workspace_pick_root command without any pre-configured scope."
         },
         {
           "description": "Enables the write_text_file command without any pre-configured scope.",
@@ -3873,10 +3921,58 @@
           "markdownDescription": "Denies the workbuddy_reset_probe command without any pre-configured scope."
         },
         {
+          "description": "Denies the workspace_authorize_root command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-authorize-root",
+          "markdownDescription": "Denies the workspace_authorize_root command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_fs_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-fs-info",
+          "markdownDescription": "Denies the workspace_fs_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_fs_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-fs-list",
+          "markdownDescription": "Denies the workspace_fs_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_fs_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-fs-read",
+          "markdownDescription": "Denies the workspace_fs_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_fs_remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-fs-remove",
+          "markdownDescription": "Denies the workspace_fs_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_fs_stat command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-fs-stat",
+          "markdownDescription": "Denies the workspace_fs_stat command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_fs_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-fs-write",
+          "markdownDescription": "Denies the workspace_fs_write command without any pre-configured scope."
+        },
+        {
           "description": "Denies the workspace_index_scan command without any pre-configured scope.",
           "type": "string",
           "const": "deny-workspace-index-scan",
           "markdownDescription": "Denies the workspace_index_scan command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_pick_root command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-pick-root",
+          "markdownDescription": "Denies the workspace_pick_root command without any pre-configured scope."
         },
         {
           "description": "Denies the write_text_file command without any pre-configured scope.",

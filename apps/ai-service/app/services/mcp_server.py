@@ -9103,7 +9103,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
-    """terminal:长驻交互式终端(open/send/keys/paste/focus/mouse/links/prompt/cell/cursor/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
+    """terminal:长驻交互式终端(open/send/keys/paste/mouse/snapshot/search/read/wait_for/signal/resize/eof/close/list)。
 
     2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、keys 发控制键(Tab/Esc/方向键/Ctrl 组合;
@@ -9116,19 +9116,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     里的 `bracketed` 如实说明这次包没包。`mouse` 把一次鼠标事件当输入字节上报给真 tty 程序
     (vim/htop 的鼠标交互):程序必须先用 `DECSET 1000/1002/1003` 请求鼠标,编码按它点的
     1006/1005/1015 选(回执里的 `mouse_mode`/`encoding` 就是实际用的那一种);坐标是 1 基单元格。
-    `focus` 把一次**窗口焦点变化**上报给程序(DEC 1004):程序先 `DECSET 1004` 点单才发,
-    `state=in` 送 `ESC[I`、`out` 送 `ESC[O`(亦接受 focus/blur 同义写法);没点单显式拒
-    TERMINAL_FOCUS_DISABLED。与 mouse 不同的是它不依赖屏幕网格,两种后端都成立。
-    `links` 回**这一屏上的超链接**(OSC 8):每条给 `url`/`text`/`line_no`/`scheme`,行号与
-    `snapshot`/`search` 同源(同一个扫描器算出来的);`text` 与 `url` 一起回是为了让调用方
-    能核对"显示的字是否就是真要打开的地址"(OSC 8 的已知钓鱼面),本层从不代为打开。
-    `cursor` 回**光标现在停在哪**(行/列 1 起)+ 所在行文本;`include_screen=true` 时连整块
-    屏面一起回。它与 `snapshot` 是两种视图:snapshot 是"输出流最近 N 行"(行流水,cursor
-    是"程序此刻把光标摆在哪一格"(真 VT 网格)—— 拿 snapshot 推光标位置必然错。
-    `prompt` 回"程序现在在等谁"(`OSC 133` shell 集成四标记:A/B=在提示符上、C=执行中、
-    D=上一条结束):`shell_integration=false` 时 `prompt_state` 恒 `unknown`,这是没信号、
-    不是"没在等",不得当"可以输入了"用。`cell` 取屏幕某格(row/col 1 起):点击自动化要知道
-    点的是哪个字,而屏幕坐标只认网格、不认输出流行号。
     `snapshot` 回**屏幕快照**(剥掉转义序列的纯文本,
     只要末尾 max_lines 行,truncated 说明还有更早的行),按**当前屏面**取:主屏与 alt 屏
     (vim/htop 切屏)互不混入,回执的 `alt_screen` 说明现在在哪一块屏;`search` 在同一份归一文本里按行
@@ -9253,16 +9240,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "terminal", "action": "paste", **result}
 
-    if action == "focus":
-        result = await asyncio.to_thread(
-            term.focus_terminal,
-            terminal_id,
-            state=str(arguments.get("state") or "in"),
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return {"tool": "terminal", "action": "focus", **result}
-
     if action == "mouse":
         mods_raw = arguments.get("modifiers")
         if isinstance(mods_raw, str):
@@ -9283,50 +9260,6 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
         )
         return {"tool": "terminal", "action": "mouse", **result}
-
-    if action == "links":
-        try:
-            max_links = int(arguments.get("max_links", 20))
-        except (TypeError, ValueError):
-            max_links = 20
-        result = await asyncio.to_thread(
-            term.links_terminal,
-            terminal_id,
-            user_id=user_id,
-            session_id=session_id,
-            max_links=max_links,
-        )
-        return {"tool": "terminal", "action": "links", **result}
-
-    if action == "prompt":
-        result = await asyncio.to_thread(
-            term.prompt_terminal,
-            terminal_id,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return {"tool": "terminal", "action": "prompt", **result}
-
-    if action == "cell":
-        result = await asyncio.to_thread(
-            term.cell_at_terminal,
-            terminal_id,
-            row=arguments.get("row", 1),
-            col=arguments.get("col", 1),
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return {"tool": "terminal", "action": "cell", **result}
-
-    if action == "cursor":
-        result = await asyncio.to_thread(
-            term.cursor_terminal,
-            terminal_id,
-            user_id=user_id,
-            session_id=session_id,
-            include_screen=bool(arguments.get("include_screen", False)),
-        )
-        return {"tool": "terminal", "action": "cursor", **result}
 
     if action == "snapshot":
         try:
@@ -9476,7 +9409,7 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
         "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": (
             f"不支持的 action: {action}"
-            "(open/send/keys/paste/focus/mouse/links/prompt/cell/cursor/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
+            "(open/send/keys/paste/mouse/snapshot/search/eof/read/wait_for/signal/resize/close/list)"
         ),
     }
 
@@ -9624,30 +9557,6 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,
 )
-from ..tools import (  # noqa: E402
-    hr_insurance_readiness as _hr_insurance_readiness,
-)
-
-# 人事部 AI 工具(2026-11-21 实装):员工自助 4 枚 + 月度算薪 1 枚。
-# 自助四枚只走本人作用域端点(/mine*、/my-*),身份票主体 = 宿主注入的 __user_id;
-# hr_payroll_calc 是管理侧算薪,权限 hr:payroll:manage 由 apps/api RBAC 逐请求现问
-# (与 ai_payroll_handoff 同口径,不入 _ADMIN_ONLY_TOOLS:对话链 user_role 默认 0,
-# 入档等于把管理员也挡在门外,见 image_generation 的历史结论)。
-from ..tools import (  # noqa: E402
-    hr_my_attendance as _hr_my_attendance,
-)
-from ..tools import (  # noqa: E402
-    hr_my_leaves as _hr_my_leaves,
-)
-from ..tools import (  # noqa: E402
-    hr_my_payroll as _hr_my_payroll,
-)
-from ..tools import (  # noqa: E402
-    hr_my_payroll_periods as _hr_my_payroll_periods,
-)
-from ..tools import (  # noqa: E402
-    hr_payroll_calc as _hr_payroll_calc,
-)
 
 # D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
 from ..tools import (
@@ -9672,10 +9581,39 @@ from ..tools import (  # noqa: E402
     special_deduction_calc as _special_deduction_calc,
 )
 
+# 人事部 AI 工具(2026-11-21 实装):员工自助 4 枚 + 月度算薪 1 枚。
+# 自助四枚只走本人作用域端点(/mine*、/my-*),身份票主体 = 宿主注入的 __user_id;
+# hr_payroll_calc 是管理侧算薪,权限 hr:payroll:manage 由 apps/api RBAC 逐请求现问
+# (与 ai_payroll_handoff 同口径,不入 _ADMIN_ONLY_TOOLS:对话链 user_role 默认 0,
+# 入档等于把管理员也挡在门外,见 image_generation 的历史结论)。
+from ..tools import (  # noqa: E402
+    hr_my_attendance as _hr_my_attendance,
+)
+from ..tools import (  # noqa: E402
+    hr_my_leaves as _hr_my_leaves,
+)
+from ..tools import (  # noqa: E402
+    hr_my_payroll as _hr_my_payroll,
+)
+from ..tools import (  # noqa: E402
+    hr_my_payroll_periods as _hr_my_payroll_periods,
+)
+from ..tools import (  # noqa: E402
+    hr_payroll_calc as _hr_payroll_calc,
+)
+from ..tools import (  # noqa: E402
+    hr_insurance_readiness as _hr_insurance_readiness,
+)
+
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
+)
+
+# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
+from ..tools.payroll_handoff_tools import (  # noqa: E402
+    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 # 人事部自助/算薪描述常量(2026-11-21 实装):文案单源在 hr_tools
@@ -9686,11 +9624,6 @@ from ..tools.hr_tools import (  # noqa: E402
     HR_MY_PAYROLL_DESCRIPTION,
     HR_MY_PAYROLL_PERIODS_DESCRIPTION,
     HR_PAYROLL_CALC_DESCRIPTION,
-)
-
-# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
-from ..tools.payroll_handoff_tools import (  # noqa: E402
-    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 # 财务部五腿扩展描述常量(2026-11-13):文案单源在各工具文件
