@@ -138,15 +138,17 @@ describe('ScrollJumpButtons — 跳到最新(归一后)', () => {
     expect(onJumpLatest).toHaveBeenCalledTimes(1)
   })
 
-  it('流式期间红点随该按钮出现并挂在其内,非流式时无红点', () => {
+  it('流式期间不得再出现红点(2026-11-21 用户定档:进行中只由激光光带表达)', () => {
     const streaming = renderButtons({ userScrolledUp: true, isStreaming: true })
-    const dot = streaming.container.querySelector('[data-testid="message-list-jump-latest-dot"]')
-    expect(dot).not.toBeNull()
-    expect(latest(streaming.container).contains(dot as Node)).toBe(true)
+    expect(
+      streaming.container.querySelector('[data-testid="message-list-jump-latest-dot"]'),
+    ).toBeNull()
+    const bottom = latest(streaming.container)
+    // 光带在,红点不在:两个标记不许并存
+    expect(bottom.querySelector('[data-testid="agent-laser-halo"]')).not.toBeNull()
+    expect(bottom.querySelector('.animate-pulse')).toBeNull()
+    expect(bottom.querySelector('.bg-red-500')).toBeNull()
     streaming.unmount()
-
-    const idle = renderButtons({ userScrolledUp: true, isStreaming: false })
-    expect(idle.container.querySelector('[data-testid="message-list-jump-latest-dot"]')).toBeNull()
   })
 
   it('两枚箭头同字形族:上 chevron-up、下 chevron-down(下是上的翻转,不混用 arrow-down)', () => {
