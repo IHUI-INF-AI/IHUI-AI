@@ -264,7 +264,7 @@ describe('PlanStepsCard', () => {
     expectRowIcon('s3', 'pending', 'text-foreground')
   })
 
-  it('in_progress 行图标带 animate-pulse(呼吸提示),不用 animate-spin', () => {
+  it('in_progress 行图标颜色恒定:不用透明度呼吸,也不转圈', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', status: 'in_progress' })]} />,
     )
@@ -272,7 +272,10 @@ describe('PlanStepsCard', () => {
     expect(li).toBeTruthy()
     const icon = li?.querySelector('[data-testid="icon-ListTodo"]')
     expect(icon).toBeTruthy()
-    expect((icon as HTMLElement).className).toContain('animate-pulse')
+    // 2026-11-21 定档(stream-ui.tsx StreamKindIcon 头注 + 提交「过程行图标不再用透明度呼吸
+    // 表达"进行中"」):用户报「运行代码行的图标颜色跟别的不一致」,根因是 animate-pulse 把
+    // opacity 拉到 0.5;现定档图标颜色/透明度恒定,进行中不再脉冲、也不换成自转图标。
+    expect((icon as HTMLElement).className).not.toMatch(/animate-pulse|animate-spin|opacity-/)
     expect((icon as HTMLElement).className).toContain('text-foreground')
   })
 
