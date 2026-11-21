@@ -2976,12 +2976,34 @@
     animation: none;
   }
   /* 减少动效:扫光停住,但文字必须仍可读(不能用透明字面当"静态态") */
-  .text-shimmer {
+  .text-shimmer,
+  .text-sweep {
     animation: none;
     background-image: none;
     color: var(--color-foreground);
     -webkit-text-fill-color: currentColor;
   }
+}
+
+/* 状态扫光档 `.text-sweep`(2026-11-21 立,过程行"进行中"专用):
+   与老 `.text-shimmer` 的区别在**底色**:shimmer 以 muted-foreground 打底,整行会显得比同列表的其它行浅
+   (用户刚为"颜色不一致"报过障,不能再制造一处);sweep 以**与兄弟行完全相同的前景**打底,
+   只在中间叠一条更亮的光带扫过去 —— 静帧看是同一个前景色,动起来的才是光带。
+   reduced-motion 下降级为静态前景色,不留透明字面。 */
+.text-sweep {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-foreground) 0%,
+    var(--color-foreground) 40%,
+    color-mix(in srgb, var(--color-foreground) 55%, transparent) 50%,
+    var(--color-foreground) 60%,
+    var(--color-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer 2s linear infinite;
 }
 
 /* ============ 支付/VIP 动画工具类 ============ */

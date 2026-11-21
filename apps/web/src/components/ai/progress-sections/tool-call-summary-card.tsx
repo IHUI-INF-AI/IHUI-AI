@@ -449,7 +449,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60">
             {/* 2026-11-21 定档:进行中只由文字扫光表达,图标颜色恒定(不再 opacity 呼吸) */}
             <Clock className="h-2.5 w-2.5" aria-hidden />
-            <span className="text-shimmer">{t('toolSummaryStreaming')}</span>
+            <span className="text-sweep">{t('toolSummaryStreaming')}</span>
           </span>
         </div>
       )

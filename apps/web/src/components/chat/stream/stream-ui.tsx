@@ -189,9 +189,11 @@ export const STREAM_HEADER_ROW_CLASS = cn(
  * 取证:对标 Trae CN 3.4.20 的 `task-sub-agent-header__subtitle--shimmer`(=90deg 渐变 + background-position
  * 200%→-200% 扫动,挂在运行中的子代理副标题文字上),Qoder CN 0.5.13 的 keyframes 表里没有扫光类,只有
  * aura 光晕与 opacity pulse;因此"扫光承担进行中"是对标程序里唯一既有的、且不与颜色冲突的做法。
- * 复用既有 `.text-shimmer`(animations.css,90deg 高光 ±200% 位移,已尊重 reduced-motion)。
+ *
+ * 取 `.text-sweep`(animations.css)而不是老 `.text-shimmer`:后者以 muted 打底,整行会比兄弟行浅,
+ * 等于在"统一颜色"的诉求里又制造一处不一致;sweep 以**同一前景色**打底,只让一条亮带扫过去。
  */
-export const STREAM_RUNNING_TEXT_CLASS = 'text-shimmer'
+export const STREAM_RUNNING_TEXT_CLASS = 'text-sweep'
 
 export const STREAM_HEADER_ACTION_CLASS =
   'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
