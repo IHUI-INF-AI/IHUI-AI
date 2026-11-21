@@ -173,14 +173,34 @@ test('⑥ 健康判据不得被两处调用点各自重抄:必须走 coreHealthy
     join(import.meta.dirname ? import.meta.dirname : process.cwd(), '..', 'git-guardian.mjs'),
     'utf8',
   )
-  const sites = src.match(/const coreOk = coreHealthy\(\w+\)/g) || []
-  assert.equal(sites.length, 2, `main 与 daemon 各须一处 coreHealthy(),实到 ${sites.length}`)
+  // 2026-11-21(第 93 项):本锁原先只认 `const coreOk = coreHealthy(\w+)` 这一种写法,而 main 面
+  // 现读是 `let coreOk = coreHealthy(before)` + 自愈后 `coreOk = coreHealthy(roundView)` 的**重赋**
+  // 形态(同一变量,两处都是判据函数)⇒ 死字面量让它读成"实到 1",把正确实现判成红。
+  // 现改成按**两个执行体各自的区段**判:每段至少要有一处 `= coreHealthy(...)`(判据不许被旁路),
+  // 且区段之外不得再出现第三份判据实现;判据函数本体只许一份定义。
+  assert.equal(
+    (src.match(/function coreHealthy\(/g) || []).length,
+    1,
+    '判据函数本体只许一份定义(第二份必然漂移)',
+  )
+  const mainStart = src.indexOf('async function main()')
+  const daemonIdx = src.indexOf('function startDaemon')
+  assert.ok(mainStart >= 0 && daemonIdx > mainStart, '找不到 main()/startDaemon 边界')
+  const inMain = (src.slice(mainStart, daemonIdx).match(/= coreHealthy\(\w+\)/g) || []).length
+  const inDaemon = (src.slice(daemonIdx).match(/= coreHealthy\(\w+\)/g) || []).length
+  assert.ok(inMain >= 1, 'main 段没有走 coreHealthy() ⇒ 主执行体绕过了判据')
+  assert.ok(inDaemon >= 1, 'daemon 段没有走 coreHealthy() ⇒ 常驻执行体绕过了判据')
   const inlined = src.match(/const coreOk = \w+\.pointerOk && \w+\.gitdirOk && \w+\.gitUsable/g) || []
   assert.equal(inlined.length, 0, '旧三项式内联写法不得回来(它会漏掉 worktreeUsable)')
   assert.match(
     src,
-    /after\.pointerOk && after\.gitdirOk && after\.gitUsable && after\.refsOk && after\.worktreeUsable/,
-    '自愈后的成功判定也必须含工作树可用(否则"自愈成功"日志会对裸档撒谎)',
+    /coreHealthy\(\w+\) && \w+\.refsOk \? `✅ 自愈成功/,
+    '自愈后的成功判定必须走 coreHealthy(...含 worktreeUsable...) && refsOk(否则"自愈成功"日志会对裸档撒谎)',
+  )
+  assert.match(
+    src,
+    /if \(!\(coreOk && roundView\.refsOk\)\)/,
+    'main 面的"自愈失败"判定必须落在 coreHealthy(roundView) 与自愈后 refs 上',
   )
 })
 
