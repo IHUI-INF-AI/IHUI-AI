@@ -9,7 +9,8 @@
  *
  * 本批把 developerGroup 顶层 7 项收敛为 1 个域入口「开发者工具」(/developer,
  * 工作台顶页即域落点,无需新增 /domains/developer)。四条判据各钉一件事:
- *  ① 顶层只剩 1 枚非 admin 域入口 + 2 枚 adminOnly 原位项(收敛本体);
+ *  ① 顶层只剩 1 枚域入口(收敛本体;2026-11-21 起两枚 adminOnly 管理页已迁入
+ *     ADMIN_ITEMS,本组回归严格单入口,与其它分类同形态);
  *  ② href 多重集 23 条逐字守恒(收敛不丢项、不造新链接);
  *  ③ 重复 href 只剩"父项+子菜单"设计意图那一对,且两个 labelKey 互不相同
  *     (React key=href 双条目是 P1 记档的同型病);
@@ -113,14 +114,12 @@ afterEach(() => {
 })
 
 describe('P2 收敛第一批:开发者域结构', () => {
-  it('① 顶层只剩 1 枚非 admin 域入口 + 2 枚 adminOnly 原位项', () => {
+  it('① 顶层只剩 1 枚域入口(adminOnly 管理页已迁入管理域)', () => {
     // 〔2026-11-16 用户规范〕域入口 href 改指 /domains/developer(与其他域同形态),
     // 20 项子清单已摘出 children(侧边栏不许下拉),改由 DEVELOPER_HUB_ITEMS 承载。
-    expect(developerGroup.items.map((i) => i.href)).toEqual([
-      '/domains/developer',
-      '/edu-ai/tbox',
-      '/admin/meta-learner',
-    ])
+    // 〔2026-11-21〕原末尾两枚 adminOnly 页(/edu-ai/tbox、/admin/meta-learner)迁入
+    // ADMIN_ITEMS:它们是 admin 运营后台,不是"接 API 的外部开发者",本组回归单入口。
+    expect(developerGroup.items.map((i) => i.href)).toEqual(['/domains/developer'])
     const hub = developerGroup.items[0]
     if (!hub) throw new Error('developerGroup 顶层首位必须是域入口')
     expect(hub.labelKey).toBe('developerTools')
@@ -129,12 +128,13 @@ describe('P2 收敛第一批:开发者域结构', () => {
     expect(hub.children).toBeUndefined()
   })
 
-  it('② href 守恒:侧边栏面收敛为域入口 + 2 admin 项,20 子项全量迁入 DEVELOPER_HUB_ITEMS', () => {
-    // 旧断言钉「侧边栏 flatten 23 条」——2026-11-16 收敛后侧边栏只剩域入口 1 枚(非 admin)
-    // + 2 枚 adminOnly;原 20 个子项未删,全量迁入 DEVELOPER_HUB_ITEMS(域入口页承载)。
-    // 这里改钉两层:侧边栏面 = 3 项;域清单 = 21 项(20 子项 + /developer 顶层入口),URL 全保留。
+  it('② href 守恒:侧边栏面只剩域入口,20 子项全量迁入 DEVELOPER_HUB_ITEMS', () => {
+    // 旧断言钉「侧边栏 flatten 23 条」;2026-11-16 收敛后侧边栏只剩域入口 1 枚,
+    // 2026-11-21 两枚 adminOnly 管理页迁入管理域后侧边栏面严格 1 项。
+    // 原 20 个子项未删,全量迁入 DEVELOPER_HUB_ITEMS(域入口页承载)。
+    // 这里改钉两层:侧边栏面 = 1 项;域清单 = 21 项(20 子项 + /developer 顶层入口),URL 全保留。
     const sidebarHrefs = collectHrefs(developerGroup.items)
-    expect(sidebarHrefs).toEqual(['/admin/meta-learner', '/domains/developer', '/edu-ai/tbox'])
+    expect(sidebarHrefs).toEqual(['/domains/developer'])
     // 域清单侧:20 项(去重后 20 个唯一 href),不丢项 —— URL 全保留
     const hubHrefs = collectHrefs(DEVELOPER_HUB_ITEMS)
     expect(hubHrefs).toHaveLength(20)
@@ -165,26 +165,28 @@ describe('P2 收敛第一批:开发者域结构', () => {
     }
   })
 
-  it('④ 三层可见性判据未合并:本域无 permission;role/tier 各管一头', () => {
+  it('④ 三层可见性判据未合并:本域无 permission/adminOnly;tier 一枚管到底', () => {
     // permission 层:开发者域全部条目都不带权限点(它不该有,带了就是本次误改)
     expect(flattenNavItems(developerGroup.items).some((i) => i.permission !== undefined)).toBe(
       false,
     )
-    // adminOnly 只随 role 动:tier 全藏也不影响两枚 admin 项(域入口已被档位藏掉)
+    // adminOnly 层:2026-11-21 迁出两枚管理页后本域零 adminOnly —— 再挂一枚就是没迁干净
+    expect(flattenNavItems(developerGroup.items).some((i) => i.adminOnly !== undefined)).toBe(false)
+    // tier 层:唯一一枚域入口就标 developer 档 —— 全档隐藏时连 admin 也不剩任何一项
     const adminAllTiers = sidebarStyleFilter(
       developerGroup.items,
       true,
       [],
       ['developer', 'relayOps', 'advancedAi', 'experimental'],
     )
-    expect(collectHrefs(adminAllTiers)).toEqual(['/admin/meta-learner', '/edu-ai/tbox'])
-    // tier 只随档位动:'developer' 档一藏,整域对普通用户归零(admin 项被 role 挡)
-    const normalHidden = sidebarStyleFilter(developerGroup.items, false, [], ['developer'])
-    expect(normalHidden).toHaveLength(0)
-    // 档位不藏时普通用户可见只剩域入口 1 枚(20 子项已移入域清单,role 挡掉的 2 枚 adminOnly)
+    expect(collectHrefs(adminAllTiers)).toEqual([])
+    // 正向对照:不藏档时管理者与普通用户同见这 1 枚入口(排除"项根本不在树上"的空过)
     const normalShown = sidebarStyleFilter(developerGroup.items, false, [], [])
     expect(flattenNavItems(normalShown)).toHaveLength(1)
     expect(collectHrefs(normalShown)).toEqual(['/domains/developer'])
+    // 藏『developer』一档即整域对普通用户归零
+    const normalHidden = sidebarStyleFilter(developerGroup.items, false, [], ['developer'])
+    expect(normalHidden).toHaveLength(0)
   })
 
   it('⑤ DomainHub 与 Sidebar 对同一清单过滤结果一致(共用 useNavVisibilityFilter)', () => {
