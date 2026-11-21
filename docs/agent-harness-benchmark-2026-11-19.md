@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **109 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **110 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（109 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（110 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1810,6 +1810,20 @@ B31 另带 `hitRefs` 点名那 1 条命中行（`MIN_HIT_REF` 20 字下限）。
 
 **验证**（数字现读）：`node scripts/scrub-doc-numbers.mjs --scope=archive --face=head --apply` ⇒ 写回后 `node scripts/check-doc-numbers.mjs` ⇒ **✅ 文档数字与现算值一致**（rc=0）；新增 `scripts/tests/scrub-doc-numbers-face.test.mjs` 三条（`--face` 解析与缺省面 / 取数面必须原样传给 `collectNumbers`（含反向锁"不许再有写死 worktree 的取数"）/ 非法面 exit 2）⇒ **3/3 pass**；缺省档复跑 `node scripts/scrub-doc-numbers.mjs` ⇒ 仍按 worktree 面报数（行为未变）。
 
+
+### 5.110 第 110 项:巡检 P12 每轮冷跑全端 tsc,与部署构建抢 CPU 直到把自己顶成"未判定"
+
+**缺口形态**:判据自己把自己跑死 —— 巡检是"主动出口",它的重活既没有缓存、也没有"面没变就不重跑"的闸;于是"仓库状态"这条读数被机器争用吞掉,用户看到的是**机器卡死**。
+
+**现场**(现读 2026-11-22 00:30 前后):P12 只在"6h 窗口到期 ∧ HEAD 变了"才复跑,而本仓常态是文档/README/数字/清单类提交每分钟一枚 ⇒ HEAD 几乎每轮都变 ⇒ 每轮冷跑一次全端 tsc(22 端,apps/web 单端实测 `174.8s`) ⇒ 与部署环那 19 分钟的 `next build` 抢同一台机器的 CPU ⇒ 单端 240s 墙钟被**自身争用**顶穿(`spawnSync … ETIMEDOUT`) ⇒ P12 长期"未判定"。这不是"某道门红了",是**尺子被自己拖垮**。
+
+**处置**(判据一字不改、退出码一位不改):
+1. `check-head-typecheck` 给 tsc 增量缓存(`--incremental` + 仓内 `.ihui-agent/state/tsc-cache/<end>.tsbuildinfo`,实测该端 `174.8s → 40.6s`);`composite: true` 的端跳过(自带增量);`--no-cache` / `IHUI_HEAD_TYPECHECK_NO_CACHE=1` 只留作对照实验。
+2. P12 增"**代码面零 diff 复述**":`anchor..HEAD` 在 `apps/packages/package.json/pnpm-lock.yaml/*tsconfig*.json` 上零 diff ⇒ 复述旧结论并把锚滑到新 HEAD,一次都不派生;diff **取不到** ⇒ 照旧重跑(失效方向永远是"多跑一次",不得替人作证)。
+
+**踩坑留痕**:`tscArgsFor` 返回的整表必须**原样**喂给 node;漏掉第一项就成了 `node "--noEmit"` ⇒ 退出码 9 ⇒ 被读成"tsc 退出码 9 但解不出报错行 ⇒ 未判定",整端永久瞎。已由自检 S23 钉住(第一项必须是 tsc 入口)。
+
+**验证**(现读):`node scripts/check-head-typecheck.mjs --self-test` ⇒ **27/27**;`scripts/tests/check-head-typecheck.test.mjs` ⇒ **10/10**;`node scripts/check-ops-patrol.mjs --self-test` ⇒ **101/101**;`scripts/tests/check-ops-patrol.test.mjs` ⇒ **59/59**;真跑巡检 ⇒ **9.7s / 红 0 / 未判定 0 / 绿 23**,P12 落"复述 6min 前结论(代码面自 commit 56ab5bccb 起零 diff)"(改前同一台机器上这一维要数分钟且常见未判定)。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
