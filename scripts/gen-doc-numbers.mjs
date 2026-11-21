@@ -11,12 +11,12 @@
  *   简介写「340 tables」、README 写「542 张表」、schema 源码现读是 583 个 `pgTable` 声明;
  *   简介写「176 LLMs」、而仓内唯一入库的模型清单(default_models.json)是 118 条。
  *   数字没有主键,就必然长成这样 —— 所以本文件是**这些数字唯一的算法**,
- *   文档只许引用它的输出(对账由 scripts/check-doc-numbers.mjs 负责)。
+ *   文档只许引用它的输出(对账门已于 2026-11-21 按用户定档整门退役,数字滞后改为人工按需刷新)。
  *
  * 取材口径与仓内其它判据同形(AGENTS §"门脚本取材面纪律"):
  *   内容一律经 `scripts/lib/face-reader.mjs` 的 `catBatch`,**不散写 git 取内容**;
  *   清单/枚举用 `ls-tree` / `ls-files`(不产生正文,不算散写读内容);清单与内容**同面同轮**。
- *   对"门"来说默认面是 HEAD(`check-doc-numbers.mjs`);**本工具是生成侧**,默认索引面
+ *   对"门"来说默认面是 HEAD;本工具是生成侧,默认索引面
  *   (`staged` = 提交之后就会变成的 HEAD 面),与写手、两道判据同面。
  *   工作树面只许 `--face=worktree` 人工排查,**产物不得入库**(未暂存/未跟踪会抬高总量)。
  *
@@ -30,13 +30,13 @@
  *   node scripts/sync-readme-numbers.mjs             # **写 README 生成块的唯一入口**(本器的 --markdown 已收口)
  *   node scripts/gen-doc-numbers.mjs --description    # 规范化的 GitHub 仓库简介一行
  *   node scripts/gen-doc-numbers.mjs --face=worktree --json # 仅供人工排查:未暂存/未跟踪会抬高总量,产物不得入库
- * 写 README / 简介一律只按**索引面**这一面(默认面):门 173 的 `--staged` 段判的也是索引面,
- * 写手与判据同面才不会有"一段绿一段红"的互斥读数(2026-11-07 收敛,此前默认是工作树面)。
+ * 写 README / 简介一律只按**索引面**这一面(默认面):写手与提交后 HEAD 面同面,
+ * 避免"一段绿一段红"的互斥读数(2026-11-07 收敛,此前默认是工作树面)。
  * 面旗统一写法(2026-11-05 修):`--face=head|worktree|index` 与 `--head|--staged|--worktree`
  * 等价(`index` ≡ 内部名 `staged`)。**面旗必须真的换取材面** —— 此前 `--face=head` 未被解析,
  * 于是"以为在算 HEAD 面,实际算的是工作树",同一份 README 在不同轮次读出 19178/19198/19201/19158
  * 四个值(门判 HEAD 面、数出自工作树面)。现在:未知面 ⇒ exit 2,绝不静默回落默认面。
- * 紧急跳过:无(本工具只读不判,不需要跳过通道;判据在 check-doc-numbers.mjs)
+ * 紧急跳过:无(本工具只读不判,不需要跳过通道;对账门已退役,本工具只供刷新与人工核对)
  */
 
 import { existsSync, readFileSync } from 'node:fs'

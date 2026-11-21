@@ -4543,26 +4543,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 文档数字对账(1 项,blocking)---
-  {
-    id: '173',
-    label:
-      '对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;DN5 清单不变式:本轮引入 A/D/R/C 时 trackedFiles 必须同步,与是否触及 README 无关;其余数字判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)',
-    script: 'check-doc-numbers.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_DOC_NUMBERS',
-    stagedTriggers: ['**/*'],
-    onFailHint: [
-      '',
-      '刷新块: node scripts/sync-readme-numbers.mjs —— 生成块的唯一写入口(只按索引面 staged 取数、持独占锁、写盘前后 CAS 复核;直接跑 gen-doc-numbers.mjs --markdown 会被拒绝并 exit 2)。逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
-      '本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。',
-      '例外(DN5):本轮引入新增/删除/改名/复制文件时,生成块 trackedFiles 必须同步,与是否触及 README 无关 —— 改清单的那枚会直接红。',
-      '红点绝大多数落在 README 的 END RECENT UPDATES 标记之后的旧版全文快照副本(现读 --strict 61098 条:标记之后占 61048,活性声明只占 45,另 5 条是生成块):那些副本记的是当时的账,批量按现算值逐行改写=把历史改成今天,不是结清(2026-10-31 实测一席的手写"收敛到绿"循环改了 23900 行,其中历史区 7217 行)。正解=先跑配套清偿器 node scripts/scrub-doc-numbers.mjs(默认 dry-run,--apply 才写盘),它复用本门自己的 CLAIMS 与生成块同源取值;整片快照的清偿属全仓维护债,不在逐行手改。',
-      '',
-    ].join('\n'),
-  },
-
   // --- 诊断面脱敏(1 项,blocking)---
   {
     id: '174',
@@ -7215,9 +7195,6 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_DEV_DB_ROTATION_WINDOW',
-    // 第 68 项:结构性豁免必须写下来。本门判的是**本机 dev 库口令轮换窗口**(时间 + 端口空窗),
-    // 提交内容怎么改都改变不了它的读数 ⇒ 不声明 stagedTriggers 是对的,不是漏声明。
-    stagedTriggersOmitted: '判本机 dev 库轮换窗口(时间相关+端口探测),提交内容无从触发',
     onFailHint: [
       '  💡 本门只读数、恒 exit 0;打印 state=due 不等于"该在这里换口令",而是提示"窗口刚空出来"。',
       '     真跑(风险自担,会改本机 dev 库口令):node scripts/check-dev-db-rotation-window.mjs --trigger',
@@ -7895,10 +7872,8 @@ const checks = [
     // §12e warn 档:在飞 worktree 不能自动回收,只点名让归属席自决。
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_TEMP_WORKTREE_LIFETIME',
-    // 第 68 项:结构性豁免 —— 判的是"临时派生检出活了多久"(静默时长 + 账龄),与提交内容无关。
-    stagedTriggersOmitted: '判临时派生检出的存活时长与账龄,提交内容无从触发',
     // 本门量的是磁盘 worktree 目录老化,不依赖本次提交内容 ⇒ 不设 stagedTriggers,
-    // 周期派发点 = git-guardian 的 auditTempWorktreeLifetime(第 54 项补;此前"走 guardian 周期派发"只是自述)。
+    // 走 guardian 周期派发(与 keepalive 一型),不在 pre-commit 阻塞。
     onFailHint: [
       '',
       '  💡 发现有临时派生 git worktree 长期躺在本机 scratch/ 或 D:\\DevEnv\\Temp\\(静默≥24h 或账龄≥48h)。',
@@ -7923,9 +7898,7 @@ const checks = [
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_HOOK_AUDIT_HEALTH',
-    // 第 68 项:结构性豁免 —— 判钩子审计台账的容量/坏行/近窗失败率,是**机器状态**不是本枚内容。
-    stagedTriggersOmitted: '判钩子审计台账容量与失败率(机器状态),提交内容无从触发',
-    // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers;周期派发点 = git-guardian 的 auditHookAuditHealth。
+    // 量的是磁盘台账存量,不依赖本次提交内容 ⇒ 不设 stagedTriggers,走周期派发。
     onFailHint: [
       '',
       '  💡 钩子审计台账(.ihui-agent/state/hook-audit.jsonl)有存量问题,逐条已在门体输出点名。',

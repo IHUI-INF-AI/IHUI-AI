@@ -420,10 +420,6 @@
       "owner": null
     },
     {
-      "script": "check-doc-numbers.mjs",
-      "owner": null
-    },
-    {
       "script": "check-dockerfile-copy-paths.mjs",
       "owner": null
     },

@@ -281,10 +281,6 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
-    "scripts/check-doc-numbers.mjs": {
-      "face": "auto",
-      "reason": "历史事故③:判 index 面而同轮写口走 worktree 面;缺省 auto,写口用 --face=staged"
-    },
     "scripts/check-dockerfile-copy-paths.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"

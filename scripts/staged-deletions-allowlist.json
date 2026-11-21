@@ -144,6 +144,36 @@
       "path": "apps/web/src/components/ai/__tests__/engine-mode-header-mount.test.ts",
       "reason": "2026-11-16 有意删除:该测试断言 AI 面板标题栏挂载 EngineModeControl(getByRole radio '自动'),控件随本轮从标题栏移除后断言对象不存在;标题栏不再承载引擎切换,改写只会测试不存在的挂载关系,故删除。设置页入口由 engine-mode-card 组件与 preferences 页覆盖。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
       "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-doc-numbers.mjs",
+      "reason": "2026-11-21 有意删除(用户定档:README 数字对账整门退役,数字滞后改为人工按需刷新)。门体、其配套器物 fix-doc-numbers-prose.mjs / scrub-doc-numbers.mjs 与 5 枚镜像/夹具用例同枚删除;保留 scripts/gen-doc-numbers.mjs(唯一算法)与 scripts/sync-readme-numbers.mjs(生成块唯一写入口)供人工刷新。门 173 在 guardian-runner 的注册与 pre-push 173p 通道同批摘除,gate-owners / gate-face-declarations / gate-channel-registry / generator-convergence-baseline 的 173 条目同步清理。问责复跑:node scripts/check-gate-wiring.mjs 与 node scripts/guardian-runner.mjs --list(不应再有 173)。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-doc-numbers.test.mjs",
+      "reason": "2026-11-21 随被测门同批退役:本文件是 check-doc-numbers.mjs 的 §22c 镜像锁,门体在本枚删除后它只剩自指;门 99 E1 点名『它测的模块仍在 scripts/gen-doc-numbers.mjs』属反向取证误判(该文件 import 的是生成器公共模块,不是仍在引用本测试的消费者)。数字刷新能力本身不受影响:gen-doc-numbers.mjs 与 sync-readme-numbers.mjs 保留并继续可跑。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/doc-numbers-single-face.test.mjs",
+      "reason": "2026-11-21 随被测门同批退役:本文件钉的是 check-doc-numbers.mjs 的取材面纪律(全量 HEAD / staged 索引 / worktree 人工三面),门体删除后无判据对象。门 99 报的『它测的模块仍在 scripts/lib/scratch-dir.mjs』是同一型反向取证误判(scratch-dir 是被使用的公共 lib)。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/doc-numbers-prose-extraction.test.mjs",
+      "reason": "2026-11-21 随被测门同批退役:本文件钉的是 check-doc-numbers.mjs 的散文数字抽取(CLAIMS 封闭集命中),门体删除后无判据对象;生成器自身的取数表仍由 gen-doc-numbers.mjs 提供,人工刷新不受影响。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/doc-numbers-single-writer.test.mjs",
+      "reason": "2026-11-21 随被测门同批退役:本文件钉的是『README 生成块唯一写入口 = sync-readme-numbers.mjs』这条判据的镜像,判据本体随门 173 退役;写入口本身保留且仍是唯一(gen-doc-numbers.mjs --markdown 继续 exit 2)。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/scrub-doc-numbers.test.mjs",
+      "reason": "2026-11-21 随被测器物同批退役:scrub-doc-numbers.mjs(数字清偿器)是 check-doc-numbers.mjs 的写回侧配套,两者本枚一并删除,本测试只剩自指。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
     }
   ]
 }

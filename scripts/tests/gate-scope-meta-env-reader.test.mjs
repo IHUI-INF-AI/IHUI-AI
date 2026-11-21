@@ -125,7 +125,7 @@ test('③ 回归:业务门仍被裁 / 原元门仍保留', () => {
   }
   // 4 道原本就在 meta 档的门:白名单若被误删前缀,这里先红。
   for (const s of [
-    'check-doc-numbers.mjs',
+    'check-lock-manifest-consistency.mjs',
     'check-gate-rot.mjs',
     'check-watermark-coverage.mjs',
     'check-plan-claims-vs-head.mjs',

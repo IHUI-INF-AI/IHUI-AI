@@ -32,7 +32,6 @@ import {
 
 const root = resolveRootFromModule(import.meta.url)
 const RUNNER_TIMEOUT_MS = 15 * 60 * 1000
-const DOC_TIMEOUT_MS = 5 * 60 * 1000
 const I18N_TIMEOUT_MS = 5 * 60 * 1000
 const MAX_LOOP = 3
 
@@ -205,15 +204,6 @@ function main() {
       }
 
       const env = buildRunnerEnv('')
-      const docRun = runNode('scripts/check-doc-numbers.mjs', ['--strict', '--push'], env, DOC_TIMEOUT_MS)
-      log(`文档数字门 rc=${docRun.rc} 用时 ${docRun.durationMs}ms`)
-      if (docRun.rc !== 0) {
-        log(`文档数字门未通过，不签发凭据。stdout 尾部:\n${tail(docRun.stdout)}`)
-        removeFileQuietly(marker)
-        marker = null
-        return 1
-      }
-
       const i18nRun = runNode('scripts/scan-dead-i18n-keys.mjs', ['--dry-run'], env, I18N_TIMEOUT_MS)
       // i18n 是非阻塞审计：只记录 rc，不参与准入。
       log(`i18n 审计 rc=${i18nRun.rc} 用时 ${i18nRun.durationMs}ms`)
@@ -235,14 +225,6 @@ function main() {
         durationMs: row.ms,
         cached: row.cached === true,
       }))
-      gateRows.push({
-        id: '173p',
-        script: 'check-doc-numbers.mjs',
-        args: ['--strict', '--push'],
-        mode: 'blocking',
-        rc: docRun.rc,
-        durationMs: docRun.durationMs,
-      })
       gateRows.push({
         id: 'i18n',
         script: 'scan-dead-i18n-keys.mjs',

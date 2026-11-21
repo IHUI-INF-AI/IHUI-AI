@@ -94,8 +94,8 @@
     },
     {
       "generator": "sync-readme-numbers",
-      "status": "covered-by-173",
-      "checkCommand": "node scripts/sync-readme-numbers.mjs(唯一写入口;gen-doc-numbers.mjs --markdown 已被收口,直接调用 exit 2)",
+      "status": "gate-retired-2026-11-21",
+      "checkCommand": "node scripts/sync-readme-numbers.mjs(唯一写入口;生成块按需手动刷新即可)",
       "firstReading": "exit 0 · README.md / README.en.md 生成块与生成器输出逐字节相同",
       "wired": [],
       "evidence": [
@@ -104,7 +104,7 @@
         "scripts/safe-commit.mjs:1015(主链调用)",
         "scripts/close-merge-reconcile.mjs:864(收口调用)"
       ],
-      "why": "它不是空转生成器(有真实调用点),且必写盘;只读等价判据已由门 173(README 数字校验)承担,重复接门=造重复门"
+      "why": "2026-11-21 用户定档:守门 173(README 数字对账)整门退役,数字滞后按人工定期刷新接受;生成器与唯一写入口保留,不再接判据门"
     }
   ],
   "unconverged": [
