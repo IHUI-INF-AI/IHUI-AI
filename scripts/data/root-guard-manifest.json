@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T07:46:47.240Z",
+  "sealedAt": "2026-11-21T07:56:00.120Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第74项 check-ref-move-loss 跳过内容已覆盖的回补",
+  "reason": "第76项 自愈腿搬入常驻 tick",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "43bf5a51c4411ff863e027c651d32216516eeabf3315bb322d274dfc1f50b048"
+      "sha256": "8283493e44888925630b93ccebaaf2c5bd40b5d05d2ad601aa32e7b366b08983"
     },
     {
       "id": "gate-scope",
