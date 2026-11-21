@@ -30,8 +30,10 @@ test('① 派发器必须在位、导出、并真用 --apply(否则"跑了没产
 })
 
 test('② 双挂点:main 单轮与 daemon tick 都必须调(计划任务档禁用后 daemon 是唯一执行体)', () => {
-  assert.match(guardian, /if \(!CHECK_ONLY\) dispatchMonitorSignalIntake\(\)/)
-  const bare = guardian.match(/^\s*dispatchMonitorSignalIntake\(\)/gm) || []
+  // 2026-11-21(第 93 项):两面现在都**显式传 tickFile**(结构锁 T8 要求戳名在 main 段也看得见),
+  // 因此不再匹配零参形态 `()`,但仍必须匹配"这个派发器真被调到"这一件事(允许带参)。
+  assert.match(guardian, /if \(!CHECK_ONLY\) dispatchMonitorSignalIntake\(/)
+  const bare = guardian.match(/^\s*dispatchMonitorSignalIntake\(/gm) || []
   assert.ok(bare.length >= 1, 'daemon tick 必须直调一次')
 })
 

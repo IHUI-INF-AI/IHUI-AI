@@ -407,6 +407,15 @@
    * 配套 Tailwind utility: `[&>span]:translate-y-[var(--text-vcenter-offset)]` */
   --text-vcenter-offset: 0.3px;
 
+  /* 消息流活动行专用偏移(2026-11-21 立,根治"同一列表里按钮行/普通行基线不一致")
+   * 为什么不能复用上面那两档:上面两条按"元素类型(button/a)"和"字号档(.text-xs)"触发,
+   * 而行是否可点击由业务决定 ⇒ 同一列表里一半行 +0.3、另一半行 0,肉眼就是"没对齐"。
+   * 本档只挂行根 [data-stream-row],与元素类型无关,一行一个值。
+   * 量取口径:canvas actualBoundingBoxAscent/Descent 取 ink 中心,与行盒中心比较;
+   * 13px/18px 下自然偏差 -0.5..0px(随字形而定),0.2px 把两侧误差收敛到 ±0.3px 内。
+   * 与上面两条同属性(translate),行根选择器优先级更高 ⇒ 覆盖而非叠加。 */
+  --text-vcenter-offset-row: 0.2px;
+
   /* css-tokens:managed:begin */
   /* 间距档(源:spacing.ts 的 SPACING_STEPS)→ p-md / gap-md / m-md / size-md */
   --spacing-none: 0px;
@@ -652,6 +661,15 @@
 :where(button, a, [role='button'], [role='menuitem']).text-xs:has(> span)
   > span:not([class~='flex']):not([class*='inline-flex']) {
   translate: 0 0.7px;
+}
+
+/* 消息流活动行:字形补偿挂在"行"上,不挂在元素类型上(2026-11-21 立)。
+   触发面 = 行根 [data-stream-row] 内的文字 span(含代码块头里嵌在触发按钮里的那种);
+   行本身是 button 还是 div 都不影响结果。用后代选择器是因为一行的可点区可能是内层 button。
+   豁免同上:自身是 flex 容器的 span(徽章/胶囊)不吃这份位移,由 flexbox 自己居中。
+   覆盖关系:本选择器 (0,1,1) 高于上面两条 (0,0,2),同属性 translate 单次生效、不叠 0.3+0.2。 */
+[data-stream-row] span:not([class~='flex']):not([class*='inline-flex']) {
+  translate: 0 var(--text-vcenter-offset-row);
 }
 
 /* color-scheme 属性(2026-07-31 /Claude Code):

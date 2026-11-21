@@ -36,6 +36,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join, parse, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { countScratchSegments } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
@@ -157,6 +158,83 @@ export const ORPHAN_FILES = [
 export function pathsFor(entry, root, devEnv) {
   return { link: join(root, entry.name), target: join(devEnv, ...entry.target.split('/')) }
 }
+
+/**
+ * 第 91 项(2026-11-21):「已实测不可建」台账。
+ *
+ * 病灶(一手):`common_attachment` / `persistent_data` 两枚在 `C:\` 根建 junction 属**结构性不可达**
+ * (本机实测:`symlinkSync` EPERM;`cmd /c mklink /J` 在管理员身份下同样 `Access is denied`;
+ * `fsutil reparsepoint query` 亦 `Error 5`)。第 85 项只做到"如实报 EPERM",但下一轮 `--check` 仍把
+ * 它们判成 MISSING ⇒ `--apply` 又去建一次 ⇒ 每 30 分钟撞同一面墙,守护日志天天「盘根封口仍有未处置项」。
+ * 这不是"这次没成、下次再来",而是同一条 ACL 事实;反复重试只会把一条真的告警淹掉(§12e 恒红门禁令)。
+ *
+ * 形状:盘上一次**实测失败**才记(不是猜),TTL 到期自动复核(真改了 ACL 就能转成 sealed);
+ * 台账读不到 / 形状坏 ⇒ 按空处理 ⇒ 回落旧行为(照常尝试),不拿"读不到"当放行。
+ */
+const UNREACHABLE_LEDGER = join(REPO, '.ihui-agent', 'state', 'c-root-seal-unreachable.json')
+const UNREACHABLE_TTL_MS = 24 * 60 * 60 * 1000
+// 台账落点必须可重定向(第 91 项实测教训):自检/镜像测试跑假 root,但**台账落点是真**的,
+// 一次夹具里的 EPERM 会写进生产台账 ⇒ 后续用例继承那条"实测不可建"而集体误红(§5 测试隔离)。
+// 默认值仍是生产路径,只在显式给了 opts.ledgerPath 或 env 时才改道。
+export function defaultLedgerPath() {
+  return process.env.IHUI_C_ROOT_SEAL_LEDGER || UNREACHABLE_LEDGER
+}
+
+export function readUnreachableLedger(path = UNREACHABLE_LEDGER, nowMs = Date.now()) {
+  const out = new Map()
+  let raw
+  try {
+    raw = readFileSync(path, 'utf8')
+  } catch {
+    return out
+  }
+  let obj
+  try {
+    obj = JSON.parse(raw)
+  } catch {
+    return out
+  }
+  if (!obj || typeof obj !== 'object') return out
+  for (const [name, rec] of Object.entries(obj)) {
+    const atMs = Number(rec?.atMs) || 0
+    const code = String(rec?.code ?? '')
+    if (!atMs || nowMs - atMs > UNREACHABLE_TTL_MS) continue // 过期 ⇒ 当没记过,重新实测
+    out.set(name, { atMs, code, at: String(rec?.at ?? new Date(atMs).toISOString()) })
+  }
+  return out
+}
+
+export function recordUnreachable(name, code, path = UNREACHABLE_LEDGER, nowMs = Date.now()) {
+  let prev = {}
+  try {
+    prev = JSON.parse(readFileSync(path, 'utf8')) || {}
+  } catch {
+    prev = {}
+  }
+  if (!prev || typeof prev !== 'object') prev = {}
+  prev[name] = { atMs: nowMs, at: new Date(nowMs).toISOString(), code: String(code) }
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, `${JSON.stringify(prev, null, 2)}\n`)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function clearUnreachable(name, path = UNREACHABLE_LEDGER) {
+  try {
+    const prev = JSON.parse(readFileSync(path, 'utf8')) || {}
+    if (!prev || typeof prev !== 'object' || !(name in prev)) return true
+    delete prev[name]
+    if (Object.keys(prev).length === 0) rmSync(path, { force: true })
+    else writeFileSync(path, `${JSON.stringify(prev, null, 2)}\n`)
+    return true
+  } catch {
+    return false
+  }
+}
+
 
 /**
  * 封口后给该 junction 的**链接本体**加 Hidden(用户 2026-09-24 拍板:"设隐藏,保留改道")。
@@ -363,8 +441,23 @@ function fingerprint(dir) {
  * 硬护栏:① 链接路径不得在仓库树内;② 目标不得落在链接内部;③ 真目录必须先
  * "复制 → 逐文件对账 → 才删源",对账不过就拒绝封口并保留原样(绝不丢数据)。
  */
-function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
+function sealOne(entry, root, devEnv, dryRun, acceptableRoots = [], unreachable = null, ledgerPath = defaultLedgerPath()) {
   const { link, target } = pathsFor(entry, root, devEnv)
+  // 第 91 项:TTL 内的"实测不可建"记录先于任何探测生效 —— 同一条 ACL 事实不该每轮重试一次。
+  const recorded = unreachable?.get?.(entry.name)
+  if (recorded) {
+    const ageMin = Math.round((Date.now() - recorded.atMs) / 60000)
+    return {
+      action: 'skip',
+      ok: false,
+      blocked: true,
+      state: 'UNREACHABLE',
+      note:
+        `已实测不可建(${recorded.code} @ ${recorded.at}, ${ageMin}min 前)⇒ 本轮不重试,` +
+        `${Math.round(UNREACHABLE_TTL_MS / 3600000)}h 后自动复核;` +
+        '处置方向:改 C:\\ 根 ACL 或把该名移出封口清单(不是"再跑一次就会好")',
+    }
+  }
   let st = null
   // 第 85 项:只把 ENOENT 当"不存在";其余错误码(`EPERM` / `EACCES` / `ENOTDIR` …)一律
   // 记"读不到",绝不拿它去驱动"建一个".现读实测:C:\tmp / C:\tools 是既存 junction,
@@ -400,6 +493,7 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
   if (state === 'SEALED') {
     // 已是链接也要确保隐藏属性在位:封口被人重建过(新链接不带 H)就会重新露出来
     const kept = entry.hide === false || dryRun || ensureHidden(link, dryRun)
+    if (!dryRun) clearUnreachable(entry.name, ledgerPath) // 第 91 项:真封上了就把旧"不可建"记录销掉
     return {
       action: 'skip',
       ok: kept,
@@ -411,10 +505,21 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
     return {
       action: 'touch-nothing',
       ok: false,
+      // 第 91 项:读不到 ≠ 待处置。它是一份"未判定"(§0.3),再跑一次读数一样 ——
+      // 折进 needsAction 就等于把结构性不可判写成恒红,真正会变的那几条被淹掉。
+      undetermined: true,
       note: `盘上有这个名、但本进程读不到(lstat ${unreadableWhy})⇒ 不建不删,按未判定(§0.3);处置方向:核实 ACL / 用能读它的身份复核,别对同一路径反复"建"`,
       state,
     }
-  if (state === 'FOREIGN-LINK' || state === 'UNREADABLE-LINK')
+  if (state === 'UNREADABLE-LINK')
+    return {
+      action: 'touch-nothing',
+      ok: false,
+      undetermined: true,
+      note: `该名字是指向别处的链接,但目标读不到(${linkTarget ?? '读不到'})⇒ 未判定,不建不删`,
+      state,
+    }
+  if (state === 'FOREIGN-LINK')
     return {
       action: 'touch-nothing',
       ok: false,
@@ -422,7 +527,13 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
       state,
     }
   if (state === 'REAL-FILE')
-    return { action: 'touch-nothing', ok: false, note: '盘根是个文件而非目录,不猜测意图', state }
+    return {
+      action: 'touch-nothing',
+      ok: false,
+      undetermined: true,
+      note: '盘根是个文件而非目录,不猜测意图',
+      state,
+    }
 
   // 目标若已存在且非空:只做**合并式**复制,不清目标 —— 目标里可能是上一次封口搬进来的内容。
   if (resolve(target).startsWith(resolve(link) + '\\') || resolve(target) === resolve(link))
@@ -510,6 +621,8 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
     // 本机实测 `cmd /c mklink /J` 在管理员身份下同样 `Access is denied`(#fsutil reparsepoint query
     // 对既有项也 `Error 5`)。把这句落到读数里,人才不会按"重试"去治结构性不可达(§0.10)。
     const structural = code === 'EPERM' || code === 'EACCES'
+    // 第 91 项:结构性不可达要**记成事实**,否则下一轮 --check 又判 MISSING、--apply 又撞同一面墙。
+    if (structural && !dryRun) recordUnreachable(entry.name, code, ledgerPath)
     return {
       action: 'link',
       ok: false,
@@ -521,6 +634,7 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
   }
   // 建完立刻按策略隐藏(用户 2026-09-24 拍板:"设隐藏,保留改道");失败只降级为提示,不算封口失败
   const hidden = entry.hide === false || ensureHidden(link, false)
+  clearUnreachable(entry.name, ledgerPath) // 第 91 项:建成了 ⇒ 旧的"不可建"记录不再成立
   return {
     action: 'sealed',
     ok: true,
@@ -555,19 +669,28 @@ export function run(opts = {}) {
   // 选项键拼错**必须抛错**:曾经有人(本仓的镜像测试作者,即我)把 `devEnv` 写成 `dev`,
   // 于是默认值生效 = **生产外置根 D:\DevEnv**,夹具内容被真写进 `D:\DevEnv\cache\c-root-stray\*`
   // 而测试照样全绿。静默降级比失败危险得多,这里直接拒。
-  const unknown = Object.keys(opts).filter((k) => !['root', 'devEnv', 'mode'].includes(k))
+  const unknown = Object.keys(opts).filter((k) => !['root', 'devEnv', 'mode', 'ledgerPath'].includes(k))
   if (unknown.length)
     throw new Error(`run() 收到不认识的选项:${unknown.join(', ')} —— 会被静默忽略并改用生产外置根`)
   const root = opts.root ?? 'C:'
   const devEnv = opts.devEnv ?? devEnvRoot()
   const mode = opts.mode ?? 'check'
+  const ledgerPath = opts.ledgerPath ?? defaultLedgerPath()
+  // 第 91 项:先读「已实测不可建」台账(TTL 内才生效;读不到 ⇒ 空表 ⇒ 回落旧行为)
+  const unreachable = readUnreachableLedger(ledgerPath)
   const sealed = SEALED_DIRS.map((e) =>
-    sealOne(e, root, devEnv, mode !== 'apply', devEnvTargetRoots()),
+    sealOne(e, root, devEnv, mode !== 'apply', devEnvTargetRoots(), unreachable, ledgerPath),
   )
   const orphans = mode === 'apply' ? removeOrphans(root, false) : probeOrphans(root)
+  // blocked = 已实测结构性不可达 ⇒ 不是"待处置"(它没有可执行动作),但仍要在读数里逐条点名。
+  const blocked = sealed.filter((s) => s.blocked)
+  // undetermined = 本进程读不到 / 形态不可判 ⇒ 同样不是"待处置":再跑一次读数一模一样(§0.3)。
+  const undetermined = sealed.filter((s) => s.undetermined)
+  const nonActionable = (s) => s.blocked || s.undetermined
   const needsAction =
-    sealed.some((s) => !s.ok || s.action !== 'skip') || orphans.some((o) => o.action === 'present')
-  return { root, devEnv, sealed, orphans, needsAction }
+    sealed.some((s) => !nonActionable(s) && (!s.ok || s.action !== 'skip')) ||
+    orphans.some((o) => o.action === 'present')
+  return { root, devEnv, sealed, orphans, needsAction, blocked, undetermined }
 }
 
 function probeOrphans(root) {
@@ -588,6 +711,16 @@ export function sealedFootprint(root, devEnv) {
 }
 
 function selfTest() {
+  // 第 91 项:整套自检必须活在**自己的台账**里。这是实测出来的:夹具里一次 EPERM 写进生产台账后,
+  // 后面所有用例都读到那条"实测不可建"而集体误红 —— 假 root 配真台账 = 测试之间互相污染。
+  const prevLedgerEnv = process.env.IHUI_C_ROOT_SEAL_LEDGER
+  const selfLedgerDir = join(tmpdir(), `seal-selfledger-${Date.now()}`)
+  mkdirSync(selfLedgerDir, { recursive: true })
+  process.env.IHUI_C_ROOT_SEAL_LEDGER = join(selfLedgerDir, 'ledger.json')
+  const restoreLedgerEnv = () => {
+    if (prevLedgerEnv === undefined) delete process.env.IHUI_C_ROOT_SEAL_LEDGER
+    else process.env.IHUI_C_ROOT_SEAL_LEDGER = prevLedgerEnv
+  }
   const cases = []
   const t = (name, fn) => cases.push({ name, fn })
   const eq = (a, b, msg) => {
@@ -682,7 +815,8 @@ function selfTest() {
   const marker = join(stray, 'sub', 'keep.bin')
   mkdirSync(join(stray, 'sub'), { recursive: true })
   writeFileSync(marker, 'must-survive')
-  const runFake = (mode) => run({ root: fakeRoot, devEnv: fakeDev, mode })
+  const fakeLedger = join(fake, 'ledger.json')
+  const runFake = (mode) => run({ root: fakeRoot, devEnv: fakeDev, mode, ledgerPath: fakeLedger })
 
   t('dry-run 不改盘:真目录仍在、无链接', () => {
     runFake('dry-run')
@@ -819,6 +953,9 @@ function selfTest() {
   }
   rmSync(fake, { recursive: true, force: true })
   rmSync(clash, { recursive: true, force: true })
+  // 台账隔离收口:自检期间改写了 env,必须还原 —— 否则同一进程里的后续调用会继承假落点。
+  restoreLedgerEnv()
+  rmSync(selfLedgerDir, { recursive: true, force: true })
   console.log(`\nseal-c-root-stray 自检:${cases.length - failed}/${cases.length} 通过`)
   return failed ? 1 : 0
 }
@@ -848,9 +985,10 @@ function main(argv) {
   console.log(`盘根写歪项封口 —— 模式 ${mode}(盘根 ${root} → 外置根 ${r.devEnv})`)
   // run() 按 SEALED_DIRS 顺序 map,故下标即身份;不靠 note 文案反查名字。
   r.sealed.forEach((s, i) => {
-    console.log(
-      `  ${s.ok ? '✔' : '✖'} ${SEALED_DIRS[i].name.padEnd(18)} [${s.state ?? '-'}→${s.action}] ${s.note}`,
-    )
+    // 三档符号:✔ 封好 / • 不可执行(blocked·undetermined)/ ✖ 真的待处置。
+    // 把前两类也画成 ✖ 是读数骗人:人看见 ✖ 会以为"再来一次就好",而那正是被禁的失效方向。
+    const mark = s.ok ? '✔' : s.blocked || s.undetermined ? '•' : '✖'
+    console.log(`  ${mark} ${SEALED_DIRS[i].name.padEnd(18)} [${s.state ?? '-'}→${s.action}] ${s.note}`)
   })
   for (const o of r.orphans) {
     const full = join(root, o.name)
@@ -860,6 +998,26 @@ function main(argv) {
   if (mode === 'check' && r.needsAction) {
     console.log('\n⇒ 有待处置项。执行:node scripts/seal-c-root-stray.mjs --apply(幂等,可反复跑)')
   }
+  if (r.blocked.length) {
+    const names = r.sealed
+      .map((s, i) => (s.blocked ? SEALED_DIRS[i].name : null))
+      .filter(Boolean)
+    console.log(
+      `\n⇒ 结构性不可达 ${names.length} 处(已实测,本轮不重试,24h 后自动复核):${names.join(' / ')}` +
+        '\n   处置方向:改 C:\\ 根 ACL 或把该名移出封口清单 —— 不是"再跑一次就会好"(§0.10)',
+    )
+  }
+  if (r.undetermined.length) {
+    const names = r.sealed
+      .map((s, i) => (s.undetermined ? `${SEALED_DIRS[i].name}[${s.state}]` : null))
+      .filter(Boolean)
+    // 与 blocked 分开报:这两类都**没有可执行动作**,但原因不同(一个试过、一个读不到),
+    // 混成一条会让人按"改 ACL"去治"读不到",或者把"读不到"当成"又要重试"。
+    console.log(
+      `\n⇒ 未判定 ${names.length} 处(本进程读不到/形态不可判,不建不删,重跑不会变):${names.join(' / ')}` +
+        '\n   处置方向:用能读它的身份复核 ACL 与重解析点;这属于体检口径问题,不是封口动作失败(§0.3)',
+    )
+  }
   if (mode === 'apply') {
     const fp = sealedFootprint(root, r.devEnv)
     const mb = fp.reduce((s, i) => s + i.bytes, 0) / 1048576
@@ -868,7 +1026,9 @@ function main(argv) {
     )
   }
   if (mode === 'check') return r.needsAction ? 1 : 0
-  return r.sealed.every((s) => s.ok) && r.orphans.every((o) => o.ok) ? 0 : 1
+  // 第 91 项:blocked / undetermined 都不是失败(前者"实测过、不可达、已记账",后者"读不到、按未判定"),
+  // 否则 apply 每次都 return 1 ⇒ 守护天天喊一条结构性事实,并淹掉真告警(§12e)。
+  return r.sealed.every((s) => s.ok || s.blocked || s.undetermined) && r.orphans.every((o) => o.ok) ? 0 : 1
 }
 
 // `sameFingerprint` 此前在本文件里是**死码**(定义了、除了 __test__ 没人调用),且它比的是
@@ -881,6 +1041,10 @@ export const __test__ = {
   devEnvRoot,
   devEnvTargetRoots,
   pathsFor,
+  readUnreachableLedger,
+  recordUnreachable,
+  clearUnreachable,
+  UNREACHABLE_TTL_MS,
   SEALED_DIRS,
   ORPHAN_FILES,
 }

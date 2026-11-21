@@ -493,7 +493,9 @@ describe('一次只进一步', () => {
     expect(plan.entries[0]?.reason).toBe('current-commit-unreachable');
     expect(plan.entries[0]?.to?.commit).toBe(v2);
     expect(snapshot(installedDir)).toBe(JSON.stringify(record.fileDigests));
-  });
+    // 全用真 git(多仓 init/commit/merge-base),本机重负载下 2026-11-21 全量档撞穿 15s;
+    // 判据是"无祖先关系 ⇒ unjudged"的归因语义 ⇒ 预算 60s。
+  }, 60_000);
 
   it('⑤b 领先两枚 ⇒ refused(not-direct-successor):不接受跳代,也不动盘', async () => {
     const v1 = initAndCommit(remote, { 'plugin.json': '{"name":"foo","version":"1.0.0"}\n' }, 'v1');
@@ -538,7 +540,9 @@ describe('一次只进一步', () => {
       .toMatchObject({ ok: true, relation: 'not-descendant', aheadBy: 0 });
     expect(await gitAncestryJudge({ repoDir: staged.repoDir, currentSha: 'f'.repeat(40), candidateSha: v3 }))
       .toMatchObject({ ok: false, reason: 'current-commit-unreachable' });
-  });
+    // 四次真 git merge-base + 一次真 fetch 夹具:本机重负载下 2026-11-21 全量档撞穿 15s;
+    // 判据是四档可分辨 ⇒ 预算 60s。
+  }, 60_000);
 });
 
 // ==================== 市场条目解析(复用既有索引判据) ====================

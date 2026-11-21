@@ -114,7 +114,9 @@ describe('票 07-B:临时索引范围提交', () => {
     const show = expectOk(dir, ['diff-tree', '-r', '--name-status', '--no-commit-id', 'HEAD'])
     expect(show).toMatch(/D\s+c\.txt/)
     expect(show).toMatch(/A\s+d\.txt/)
-  })
+    // 本用例串行跑 6 次真 git(临时仓库 commit/mv/add/ls-tree/diff-tree):本机重负载下
+    // 2026-11-21 全量档三次重试全撞 15s 预算,而判据是 rename 提交的树形态 ⇒ 预算 60s。
+  }, 60_000)
 
   it('范围内存在未解决冲突(stage≠0) ⇒ 拒绝提交且不动真实索引', async () => {
     const dir = makeRepoWithStaged('conflict.txt', 'other.txt')

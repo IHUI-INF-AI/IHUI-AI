@@ -133,6 +133,24 @@ export function judgeRestoreEquivalent(diffCode) {
 }
 
 /**
+ * 第 94 项(2026-11-21):回补前的第二道纯判据 —— 「被丢提交的树是否已出现在主线**祖先**里」。
+ *
+ * 为什么 `judgeRestoreEquivalent`(只看 `diff <被丢> <当前头部>`)不够:实测 2026-11-21 守夜人把
+ * 第 92 项被刻意弃用的错误签名对象 `df7faf9a` 以**空改动合并**回补进了 main。当时当前头部是
+ * `1010bb2`(README 数字块),它与被丢对象确有文件差 ⇒ `diff --quiet` 返回 1 ⇒ 判成"确有内容差、
+ * 照旧回补";但被丢对象的树与 `1010bb2` 的**父提交** `b8478a5` 逐字节相同 ⇒ 回补**没有增加任何内容**,
+ * 唯一后果是把一枚缺 trailer / 验签不过的对象拖成"可达提交",push 门逐枚判时判红,只能靠追认台账消化。
+ * 同型在 `scripts/data/immutable-guard-acks.jsonl` 已有先例(c459d76e,同为 ref-restore 回补的未签名前身)。
+ *
+ * 判据:被丢提交的 tree 只要等于主线任一**祖先提交**的 tree,回补就是纯噪声(内容早就在线里)。
+ * 失效方向:历史树集合取不到 ⇒ 交回既有 diff 判据并标未判定(不猜、也不放行)。
+ */
+export function isTreeCovered(tree, historyTrees) {
+  if (!tree || !historyTrees || typeof historyTrees.has !== 'function') return false
+  return historyTrees.has(tree)
+}
+
+/**
  * 自动回补(2026-11-18):被丢的提交仍在对象库里 —— 只要它与当前头部**无冲突**,
  * 就用「合并提交」把它接回 main(`commit-tree` + `update-ref <new> <expected-old>`)。
  * 这是真正让主线自愈的那一步;有冲突/超量/被 CAS 拒绝时**一律不硬做**,
@@ -140,6 +158,7 @@ export function judgeRestoreEquivalent(diffCode) {
  *
  * 第 74 项:先过 `judgeRestoreEquivalent` —— 内容已被当前头部覆盖的改写前形态**跳过回补**
  * (合并它只会在祖先线里多一枚同内容、且缺 trailer 的提交,把判据面永久记红)。
+ * 第 94 项:再过 `isTreeCovered` —— 树已出现在主线祖先里的对象同样跳过(理由见该函数头注)。
  */
 export function tryRestore({ curHead, droppedShas, root = ROOT, attest = true }) {
   if (process.env.IHUI_REF_MOVE_NO_RESTORE === '1') return { ok: false, why: 'kill-switch(IHUI_REF_MOVE_NO_RESTORE=1)' }
@@ -166,7 +185,27 @@ export function tryRestore({ curHead, droppedShas, root = ROOT, attest = true })
   let base = curHead
   const applied = []
   const skipped = []
+  // 主线祖先树集合只算一次(逐枚回补会推进 base,但"内容是否已在线里"问的是批起点那条线)。
+  let historyTrees
+  const treesOfMainLine = () => {
+    if (historyTrees !== undefined) return historyTrees
+    const r = run(['log', '--format=%T', curHead], { throwOn: false })
+    historyTrees = r.ok ? new Set(r.out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) : null
+    return historyTrees
+  }
+  const treeOf = (sha) => {
+    const r = run(['rev-parse', `${sha}^{tree}`], { throwOn: false })
+    return r.ok ? r.out : null
+  }
   for (const sha of droppedShas) {
+    const covered = isTreeCovered(treeOf(sha), treesOfMainLine())
+    if (covered) {
+      skipped.push({
+        sha,
+        why: `树 ${String(treeOf(sha) ?? '?').slice(0, 11)} 已出现在主线祖先里 ⇒ 回补不增加任何内容(且会把被刻意弃用的对象拖成可达提交,第 94 项)`,
+      })
+      continue
+    }
     const verdict = judgeRestoreEquivalent(codeOf(['diff', '--quiet', sha, base]))
     if (verdict.kind === 'unjudged') return { ok: false, why: `未判定:${sha.slice(0, 11)} ${verdict.why}`, applied, skipped }
     if (verdict.kind === 'equivalent') {
@@ -379,7 +418,12 @@ function selfTest() {
   eq('回补判据:diff=1 ⇒ 确有内容差(照旧回补)', judgeRestoreEquivalent(1).kind, 'differs')
   eq('回补判据:diff=128(对象缺失)⇒ 未判定', judgeRestoreEquivalent(128).kind, 'unjudged')
   eq('回补判据:diff=null(取不到)⇒ 未判定', judgeRestoreEquivalent(null).kind, 'unjudged')
-  console.log(fail === 0 ? '✅ self-test 12/12' : `❌ self-test ${12 - fail}/12`)
+  // 第 94 项:树已出现在主线祖先里 ⇒ 跳过回补(实测形态:被刻意弃用的对象把 push 区间判红)
+  eq('覆盖判据:树在主线祖先里 ⇒ 跳过', isTreeCovered('t1', new Set(['t1', 't2'])), true)
+  eq('覆盖判据:树不在主线祖先里 ⇒ 照旧回补', isTreeCovered('t3', new Set(['t1', 't2'])), false)
+  eq('覆盖判据:历史树集合取不到 ⇒ 不判(交回 diff 判据)', isTreeCovered('t1', null), false)
+  eq('覆盖判据:树对象读不到 ⇒ 不判', isTreeCovered(null, new Set(['t1'])), false)
+  console.log(fail === 0 ? '✅ self-test 16/16' : `❌ self-test ${16 - fail}/16`)
   return fail === 0 ? 0 : 1
 }
 

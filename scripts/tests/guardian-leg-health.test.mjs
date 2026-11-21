@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { judgeLegHealth } from '../check-guardian-leg-health.mjs'
+import { judgeLegHealth, describeExecutor, judgeOverallState } from '../check-guardian-leg-health.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -50,7 +50,8 @@ test('③ pid 文件缺席不再直接判 down:读数写明来源,判活交给 t
   const src = readFileSync(join(ROOT, 'scripts', 'check-guardian-leg-health.mjs'), 'utf8')
   assert.doesNotMatch(src, /if\s*\(!daemonAlive\s*\|\|\s*allDown\)\s*state\s*=\s*'down'/)
   assert.match(src, /pidSource\s*=\s*pid\s*===\s*null\s*\?\s*'absent'/)
-  assert.match(src, /const state = judgeLegHealth\(legs\)/)
+  // 第 88 项:总状态不再只由三腿汇总决定(pid-dead / daemon 持锁但心跳停必须能把它抬上去)
+  assert.match(src, /judgeOverallState\(\{\s*legState,\s*pidSource,\s*executor\s*\}\)/)
 })
 
 test('④ daemon 启动必须自己写 pid 文件(不论由 nssm/服务/计划任务拉起)', () => {
@@ -61,5 +62,55 @@ test('④ daemon 启动必须自己写 pid 文件(不论由 nssm/服务/计划�
   assert.match(body, /GUARDIAN_PID_FILE/, 'startDaemon 体内必须写 GUARDIAN_PID_FILE')
   assert.match(body, /writeFileSync\(/, 'startDaemon 体内必须真正落盘 pid 文件')
   assert.match(body, /pid=\$\{process\.pid\}/, '格式必须与哨兵读的 pid=(\d+) 一致')
+})
+
+// 第 88 项(2026-11-21):「只有兜底腿在跑」不得被读成「守护健康」。
+test('⑤ pid 文件在而进程已死 ⇒ down(腿 tick 再新鲜也不能说健康)', () => {
+  const legsOk = { a: leg(), b: leg(), c: leg() }
+  assert.equal(judgeLegHealth(legsOk), 'ok')
+  assert.equal(
+    judgeOverallState({ legState: 'ok', pidSource: 'pid-dead', executor: { present: false, kind: 'none' } }),
+    'down',
+    '常驻执行体没了,兜底任务写 tick 不等于守护在跑',
+  )
+  // pid 文件缺席(本机从没起过 daemon)时不据此判急 —— 否则每台新机必然报红
+  assert.equal(judgeOverallState({ legState: 'ok', pidSource: 'absent', executor: { present: false, kind: 'none' } }), 'ok')
+  // 三腿已判 down 时不得被"旁证 ok"拉回
+  assert.equal(judgeOverallState({ legState: 'down', pidSource: 'pid-alive', executor: null }), 'down')
+})
+
+test('⑤b 执行体判据:daemon 持锁但 pid 已死 ⇒ down;心跳停 ⇒ stale;一次性任务只标注不判红', () => {
+  const now = 1_700_000_000_000
+  const snap = (over = {}) => ({
+    ok: true,
+    pid: 4242,
+    role: 'git-guardian:daemon',
+    staleMs: 2760000,
+    mtimeMs: now - 60_000,
+    ...over,
+  })
+  const daemonDead = describeExecutor(snap(), { now, alive: false })
+  assert.equal(daemonDead.kind, 'daemon')
+  assert.equal(daemonDead.alive, false)
+  assert.equal(judgeOverallState({ legState: 'ok', pidSource: 'pid-alive', executor: daemonDead }), 'down')
+
+  const daemonHung = describeExecutor(snap({ mtimeMs: now - 3_600_000 }), { now, alive: true, reused: false })
+  assert.equal(daemonHung.stale, true)
+  assert.equal(judgeOverallState({ legState: 'ok', pidSource: 'pid-alive', executor: daemonHung }), 'stale')
+
+  // pid 被无关进程复用(kill(pid,0) 说活)必须降级成"不在了"
+  const reused = describeExecutor(snap(), { now, alive: true, reused: true })
+  assert.equal(reused.alive, false)
+  assert.equal(reused.pidReused, true)
+  assert.equal(judgeOverallState({ legState: 'ok', pidSource: 'pid-alive', executor: reused }), 'down')
+
+  const round = describeExecutor(snap({ role: 'git-guardian:round', pid: 5151 }), { now, alive: true, reused: false })
+  assert.equal(round.kind, 'round')
+  assert.equal(judgeOverallState({ legState: 'ok', pidSource: 'absent', executor: round }), 'ok', '一次性任务在跑属兜底常态,不据此判红')
+
+  const missing = describeExecutor({ ok: false, missing: true }, { now })
+  assert.equal(missing.present, false)
+  assert.equal(missing.kind, 'none')
+  assert.equal(missing.reason, 'lock-missing')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

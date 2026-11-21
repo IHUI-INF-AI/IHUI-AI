@@ -363,8 +363,37 @@ export function judgeContentLoss({
       }
       const missingOurs = missingKeys(mo.keys, mm.keys)
       const missingTheirs = missingKeys(mt.keys, mm.keys)
-      if (missingOurs.length || missingTheirs.length)
-        violations.push({ path: p, kind: 'keys', missingOurs, missingTheirs })
+      /**
+       * 第 89 项(2026-11-21)补「处置权」那一维的**键面镜格**。
+       *
+       * 立因(一手,分叉收敛实测):对侧正当退役一道门(删 `scripts/check-doc-numbers.mjs` 及其在
+       * `scripts/data/gate-channel-registry.json` 的登记键),本侧没动这两个文件;三方合并按 git
+       * 语义正确地把对侧的删除带了过来,结果 `oursKeys − mergedKeys` 非空 ⇒ 本层判「少带内容」,
+       * `git-sync-converge.mjs` 整条同步链恒拒,唯一出路变成手工搭合并绕过落地闸(§0.10 反向)。
+       *
+       * 判据与行面同一条(§0.6,不另立一套):**基底里有、且只有删除方那一侧没它** ⇒ 这是正当
+       * 处置权,归并结果照删除方走不算丢。两侧都没删、或删除方本来就没有这个键(说明是"另一侧新增
+       * 后被吞掉")⇒ 照旧判红。底面取不到(没喂 `base` 或解不开)⇒ 一条都不放行(§0.3)。
+       */
+      const baseKeys = base ? textKeySet(read(base, p), p) : null
+      const owedOurs = []
+      for (const k of missingOurs) {
+        if (baseKeys && !baseKeys.error && baseKeys.keys.has(k) && !mt.keys.has(k)) {
+          dropped.push({ path: p, side: '本侧', line: k, copies: 0, via: '对侧处置权已行使(基底有、对侧已删)' })
+          continue
+        }
+        owedOurs.push(k)
+      }
+      const owedTheirs = []
+      for (const k of missingTheirs) {
+        if (baseKeys && !baseKeys.error && baseKeys.keys.has(k) && !mo.keys.has(k)) {
+          dropped.push({ path: p, side: '对侧', line: k, copies: 0, via: '本侧处置权已行使(基底有、本侧已删)' })
+          continue
+        }
+        owedTheirs.push(k)
+      }
+      if (owedOurs.length || owedTheirs.length)
+        violations.push({ path: p, kind: 'keys', missingOurs: owedOurs, missingTheirs: owedTheirs })
       continue
     }
     // 活文档行级包含:生成块已剥(两侧数字互斥是常态,头注「判据纠偏」),人工段落一行不放宽。

@@ -641,11 +641,12 @@ const CodeBlockImpl = function CodeBlock({
   const codeBodyClass = 'bg-muted-soft'
   // G-842:代码块 header —— 折叠开关(文件图标 + 示例文件名)+ 右侧操作按钮组
   // 2026-11-15:header 即折叠开关,默认只露 header,点击展开正文。
-  // 2026-11-16:头行统一走 STREAM_HEADER_ROW_CLASS(28px 高 / 13px·400 字 / 无底色无描边),
+  // 2026-11-16:头行统一走 STREAM_HEADER_ROW_CLASS(24px 高 / 13px·400 字 / 无底色无描边),
   // 与思考行、过程叙述组头完全同档;底色只画在正文本体上 ⇒ 头行与消息画布同底。
+  // 2026-11-21:带 data-stream-row —— 行级字形补偿按"行"生效,与内层按钮/div 无关。
   // 展开指示不画箭头,整行仍是折叠开关。
   const codeHeader = (
-    <div data-testid="code-block-header" className={STREAM_HEADER_ROW_CLASS}>
+    <div data-testid="code-block-header" data-stream-row="true" className={STREAM_HEADER_ROW_CLASS}>
       {canCollapse ? (
         <button
           type="button"
