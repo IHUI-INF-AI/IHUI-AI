@@ -78,7 +78,7 @@ import {
   PLAN_TASKS,
 } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
-import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
+import { classifyLegs, actionableRows, findDispatchStampsInSource, judgeRegistryCoverage } from './lib/autonomy-leg-liveness.mjs'
 // A12 全腿产出对账(2026-11-04 /goal R3):判据独立成库,本层只搬运输入 + 包成维度。
 import { classifyLegOutputs } from './lib/autonomy-leg-output.mjs'
 // A13 的 artifact 词汇零复算(§0.6):落地档/拒绝档都从阶梯那张表按前缀派生
@@ -330,7 +330,7 @@ export function judgeWhitelist(events, whitelist) {
  * 号池哨兵盲 146 轮(19h)与部署反馈腿静默 36h,A 面当时一律报 OK=7 DRIFT=0。
  * @param {ReturnType<typeof classifyLegs>|null} res 取不到 ⇒ unjudged,不读成"没有黑腿"
  */
-export function judgeLegLiveness(res) {
+export function judgeLegLiveness(res, coverage = null) {
   if (!res || typeof res.state !== 'string') {
     return {
       dim: 'A8-leg-liveness',
@@ -346,16 +346,26 @@ export function judgeLegLiveness(res) {
       (r) =>
         `${r.id.replace(/-dispatch-last\.json$/, '')}(${r.state}${typeof r.silentMin === 'number' ? ` 静默${r.silentMin}min` : ''})`,
     )
+  const baseReadout = `${res.summary}${names.length ? ` ｜ ${names.join(' / ')}${bad.length > 4 ? ` …共 ${bad.length} 枚` : ''}` : ''}`
+  // 源面覆盖面(第 61 项):盘上的戳只能看见"跑过的腿",新挂但一次没跑过的派发器在盘上无戳 ⇒
+  // 登记表可以静默丢掉一条真腿而本维照旧 ok。源里有而表里没有 = 与 unregistered 同档。
+  const covDrift = coverage?.state === 'drift'
+  const covUnjudged = coverage?.state === 'unjudged'
+  const covState = covDrift ? 'drift' : covUnjudged ? 'unjudged' : 'ok'
+  const state = res.state === 'drift' || covDrift ? 'drift' : res.state === 'unjudged' || covUnjudged ? 'unjudged' : 'ok'
+  const readout = `${baseReadout}${coverage ? ` ｜ 源面:${coverage.summary}` : ''}`
   return {
     dim: 'A8-leg-liveness',
-    state: res.state,
-    readout: `${res.summary}${names.length ? ` ｜ ${names.join(' / ')}${bad.length > 4 ? ` …共 ${bad.length} 枚` : ''}` : ''}`,
+    state,
+    readout,
     next:
-      res.state === 'drift'
-        ? `出路(逐条,不得整片放宽判据):① 归属函数还在否(${bad[0]?.owner || '见登记表 owner'})→ 它的 env 开关是否被机器级关掉、器物是否在位;② 守护这一趟是否根本没走到该派发点;③ 这条腿确实该退役 ⇒ 摘条目并摘器物,别把清单留着腐烂。登记表 = scripts/data/autonomy-leg-liveness.json`
-        : res.state === 'unjudged'
-          ? '有条目判不出:先把输入取到(戳可读/attemptAt 可解析/时钟不失步)再谈放量'
-          : '',
+      covDrift
+        ? `${coverage.summary} ⇒ 把这几枚补进 scripts/data/autonomy-leg-liveness.json(owner=派发函数、nominalIntervalMs 现读源默认值、ruler=器物、verifiedAt=今天);不补就是新腿不受静默探测量`
+        : state === 'drift'
+          ? `出路(逐条,不得整片放宽判据):① 归属函数还在否(${bad[0]?.owner || '见登记表 owner'})→ 它的 env 开关是否被机器级关掉、器物是否在位;② 守护这一趟是否根本没走到该派发点;③ 这条腿确实该退役 ⇒ 摘条目并摘器物,别把清单留着腐烂。登记表 = scripts/data/autonomy-leg-liveness.json`
+          : state === 'unjudged'
+            ? `有面判不出:先把输入取到(戳可读/attemptAt 可解析/时钟不失步/源面可读)再谈放量${covState === 'unjudged' ? `(${coverage?.summary ?? ''})` : ''}`
+            : '',
   }
 }
 
@@ -403,7 +413,16 @@ export function judgeLivenessFace({ face = FACE_SEL.face, root = ROOT, now = Dat
       stamps[f] = { readable: false }
     }
   }
-  return judgeLegLiveness(classifyLegs({ legs, stamps, stampFilesOnDisk: onDisk, now }))
+  let cov = { state: 'unjudged', missing: [], orphan: [], summary: 'git-guardian 源面取不到 ⇒ 源面覆盖面未判定' }
+  try {
+    cov = judgeRegistryCoverage({
+      sourceStamps: findDispatchStampsInSource(readFaceText('scripts/git-guardian.mjs', face, root)),
+      legs,
+    })
+  } catch {
+    /* 源面读不到 ⇒ 保持 unjudged(§0.3),不读成"源面没有派发器" */
+  }
+  return judgeLegLiveness(classifyLegs({ legs, stamps, stampFilesOnDisk: onDisk, now }), cov)
 }
 
 /**
@@ -1011,6 +1030,14 @@ export const ACTION_CLAIMS = {
     why: '调度层会话额度熔断停转(与日预算不同一桶):停的是节律不是缺陷,但出路不同 —— 放量属人工阀 budget-cap-change,改的是 scripts/data/cost-caps.json',
   },
   'dryrun-ticket': { dim: 'A15', kind: 'informational', why: '预演档:没动手,不得算产出' },
+  // 2026-11-21 第 63 项:`runner-budget-exhausted` 在 lib 的 ACTION_EXEMPTIONS 里早有归属(轮级发起腿
+  // 额度停转、无票键),但本表没认它 ⇒ A15 现读 37 轮"台账动作无人认领",这些轮次只能从散文读。
+  // 豁免 ≠ 判过:它仍要进本维报数(否则"停转了多少轮"在尺子上不存在),但不计进 A7 空转。
+  'runner-budget-exhausted': {
+    dim: 'A15',
+    kind: 'informational',
+    why: '轮级发起腿额度停转(无票键 ⇒ 没占任何一张票的班次):停的是节律不是缺陷,由本维点名报数',
+  },
   'task-registered': {
     dim: 'A15',
     kind: 'informational',
@@ -3287,7 +3314,6 @@ export const __test__ = {
   LOG_TAIL_BYTES,
   classifyLegOutputs,
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* ── 对侧单行排版原文逐字保留(2026-11-07 三方归并)──
  * 语义已由本侧多行展开承载(import 多行成员/签名与调用多行形态含全部同参数 + round 成员),
@@ -3468,3 +3494,4 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
     'H26 档位取值非法 ⇒ drift(不猜档)',
     judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift',
 */
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
