@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **52 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **53 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（52 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（53 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -608,7 +608,7 @@
 ### 5.52 第 51 项：台账容量只进面板、不进守护（"没人在看"就是历史消失的唯一原因）
 
 - 问题：第 49 项把容量占比搬进了面板，但面板只在**有人打开会话**时才看一眼；`hook_audit` 到 5MB 轮转时 `.1` 会被**下一次轮转**直接覆盖，那段历史永久消失。也就是说：读数存在 ≠ 会有人看见 ⇒ 缺的是守护侧的那条腿。另外两型同样没有哨兵：写盘被中断/并发撕裂产生的坏行（审计读数里静默丢事件）、以及某条钩子连续挂掉（单条失败正常，近半都在挂就值得人看一眼）。
-- 处置：新增 `scripts/check-hook-audit-health.mjs`（只读尺子）。上限**不抄数字**：从 Python 唯一源头 `apps/ai-service/app/core/hook_audit.py` 现读 `HOOK_AUDIT_MAX_BYTES` 的字面表达式（只接受 `数字 * 数字 …` 形态），读不到 ⇒ exit 2 未判定，绝不回落硬编码；台账路径与 `hook_audit_path()` 同口径（env `IHUI_HOOK_AUDIT_PATH` 优先）。四判据：容量 ≥90%、坏行枚数、近 50 条里 `error+timeout ≥30%` 且至少 5 条、以及台账不存在时判 `absent`（一次钩子都没跑过是合法形态，不记绿也不冒红）。在 `guardian-runner.mjs` 登记为 **warn** 档（id `326`）、不挂 `stagedTriggers`（量的是磁盘存量不是本次提交内容，走周期派发）。
+- 处置：新增 `scripts/check-hook-audit-health.mjs`（只读尺子）。上限**不抄数字**：从 Python 唯一源头 `apps/ai-service/app/core/hook_audit.py` 现读 `HOOK_AUDIT_MAX_BYTES` 的字面表达式（只接受 `数字 * 数字 …` 形态），读不到 ⇒ exit 2 未判定，绝不回落硬编码；台账路径与 `hook_audit_path()` 同口径（env `IHUI_HOOK_AUDIT_PATH` 优先）。四判据：容量 ≥90%、坏行枚数、近 50 条里 `error+timeout ≥30%` 且至少 5 条、以及台账不存在时判 `absent`（一次钩子都没跑过是合法形态，不记绿也不冒红）。在 `guardian-runner.mjs` 登记为 **warn** 档（id `326`）、不挂 `stagedTriggers`；周期派发点由第 53 项补在 `git-guardian`（见 §5.54 —— 这句话原先只是声明，实测无人调度）。
 - 语义边界：90% 与前端 `HookReadout.nearFullPct` **同一个档**——两处读数不同档会让人不再信任何一处；`warn` 不出邮件告警（§5e-1：红了人的动作是"去看哪条钩子在挂"，不是运维故障；告警通道仍只有邮件一条，不被这类存量读数占用）。
 - 测试：`scripts/tests/check-hook-audit-health.test.mjs` 4 例 —— 上限从 Python 源头现读且判定层无硬编码字节字面量（形状锁切掉 `selfTest` 夹具段）；近满档与 web `nearFullPct` 数值相等；三态与阈值（单条失败算 healthy、20 条里 10 条失败算 warn、容量 ≥90% 必须给可执行下一步、上限取不到算未判定）；装车证明（`guardian-runner` 里登记为 warn、无 `stagedTriggers:` 属性、带应急跳过变量）。器物自带 `--self-test` 9 例。
 
@@ -623,6 +623,14 @@
 - 测试：`--self-test` 增 `7b`（夹具改用真实行形：`ts/toolName/hooks[]`）10/10；镜像测试 ③ 改用真实行形并三条断言 —— 失败率按钩子计 20 条里 10 条失败、`blameHooks` 必须点名 `lint-on-edit`、warn 文本里必须出现钩子名。
 
 验证：`node scripts/check-hook-audit-health.mjs --self-test` → `10/10`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `4 passed`。
+### 5.54 第 53 项：门登记进 runner ≠ 会跑（"走周期派发"是没被验证过的一句话）
+
+- 问题：第 51 项把哨兵登记进 `guardian-runner.mjs` 的 warn 档，并在注释/文档里写"不挂 `stagedTriggers`，走周期派发"。实测这句话**不成立**：`guardian-runner.mjs` 只有两处调用点 —— `.husky` 的 pre-push（`--push-gate` 只跑 T1 集合）与人工全量档；常驻的 `git-guardian --daemon`（`\IHUI-AI git-guardian` 计划任务 + `IHUI-GIT-GUARD` 服务，2 分钟一轮）**从不执行它**。于是"没设 stagedTriggers 的门"等于零派发 —— 尺子造好了，永不自行看台账。这正是 §0.9「造好没装车 = 没有」：登记进注册表只是"被列出来"，不是"被执行"。
+- 处置：在 `git-guardian.mjs` 新增 `auditHookAuditHealth()`（唯一的周期调度器）+ 节流常量 `HOOK_AUDIT_HEALTH_INTERVAL_MS = 30min` + 节流戳 `.ihui-agent/state/hook-audit-health-last.json`，并按本仓既有双挂点纪律挂在 **daemon tick 与 main 单轮两处**（共用一枚节流戳 ⇒ 并存时只有先到那个真跑，不翻倍派生）。派生一律 `windowsHide: true` + `stdio` 显式接管 + 90s 上限（§5b / §12g / 守门 80）。
+- 语义边界：**不发信**（§5e-1）—— 红了人的动作是"修挂掉的那条钩子 / 把要留的历史另存"，是开发动作不是运维故障，日志即够；`healthy`/`absent` 静默、`warn` 逐行打印门体结论、`undetermined` 只记日志不记绿（§0.3）。另外同批发现并修掉一堵墙：改了 `guardian-runner.mjs` 后 `root-guard` 清单与规则文件脱钩、部署环会 fail-closed，按既有口径 `--seal` 重封并单独成枚提交。
+- 测试：镜像测试增第 ⑤ 例 —— 巡检函数必须导出、`git-guardian` 里**恰好两个** `auditHookAuditHealth()` 挂点（少一处 = 计划任务档禁用后常驻守护永不判）、带节流常量、函数体里不许出现 `notifyGuardRed`（防有人把它接进告警通道）。
+
+验证：`node --check scripts/git-guardian.mjs` 通过、`import` 后 `typeof auditHookAuditHealth === 'function'`；真跑一轮（临时节流戳）→ 日志 `ℹ️ 台账尚未建立(一次钩子都没跑过,不算故障)`、返回 `{"ran":true,"state":"absent"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `5 passed`；`node scripts/root-guard.mjs --check` 全 PASS、`check-root-guard-manifest-sync` 判「同面自洽」。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
