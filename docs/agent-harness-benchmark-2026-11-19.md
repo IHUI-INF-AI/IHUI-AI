@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **73 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **74 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（73 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（74 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -862,6 +862,26 @@
   blocking 35 + cap30 + warn 45（warn 仍拿满 30、延后 15）/ blocking 84 + warn 12（warn 名额 12 不是 0）/
   blocking 10 + warn 25（零延后）/ blocking 10 + warn 40（延后 10）/ cap=0（`warnSlots` 真为 0）/ 同档保序；
   `node --check` 通过。
+
+### 5.74 第 74 项：守夜人把"作者自己改写过的提交"当成被丢工作合并回主链，判据面因此永久记红
+
+- 现场（本轮推送时逐字读到，非假想）：本席把 `e92e5c40` 改写成 `70664a0a`（只补了提交正文里的
+  `immutable-exempt` / `immutable-exempt-sig` 两行，工作树内容一字未动），紧接着 `check-ref-move-loss`
+  按"旧 HEAD 掉出祖先线"把它合并回 main，生成 `f0464fff`（双父：`70664a0a` + `5ec3033e`）。
+  三枚提交的树对象现读同一枚 `93a7e1e6`，也就是**同一份内容在祖先线里并存两枚提交**；而改写前那一枚
+  没有 trailer ⇒ `check-immutable-guard --range origin/main..HEAD` 对整段区间报 `sig-invalid`，
+  合并后没有任何一个内容提交能修它（它改的是历史，不是内容）。
+- 处置（判据住在 `check-ref-move-loss.mjs`，零新造）：
+  - 新增纯判据 `judgeRestoreEquivalent(diffCode)`：`git diff --quiet <被丢 sha> <当前头部>` 退出 0 ⇒
+    `equivalent`（回补不增加任何内容）；退出 1 ⇒ `differs`（照旧合并回补）；其它/取不到 ⇒ `unjudged`。
+  - `tryRestore` 逐枚先过该判据：`equivalent` ⇒ 记进 `skipped` 并**跳过回补**（一条 CAS 都不做）；
+    `unjudged` ⇒ 整轮不硬做（`ok:false` 并点名）；真丢失的内容仍走原合并路径。
+  - 台账 `ref-move-loss.jsonl` 的 `restore` 增 `skipped`（sha + 理由），`ref-move-watch.log` 增 `skippedCount`；
+    打印分三档：已回补 N 枚 / 未回补（结构上不需要，N 枚内容已覆盖）/ 未自动回补（带原因）。
+- 验证：`node scripts/check-ref-move-loss.mjs --self-test` **12/12**（新增四控：diff=0 跳过 / diff=1 照旧 /
+  diff=128 未判定 / diff=null 未判定）；`node --check` 通过；`--check` 现读 `未位移:8fccfc24be4`。
+- 代价边界：被跳过的那枚原件仍由 `preserve/refmove-*` 分支永久保全（§22 删除安全规则不变），
+  且"掉出祖先线"的事实照旧 exit 1 报红——本项只拒绝"用一枚重复祖先去冒充自愈"。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
