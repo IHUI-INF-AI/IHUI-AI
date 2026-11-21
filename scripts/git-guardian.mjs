@@ -6592,6 +6592,79 @@ export function sweepRefMoveLoss(opts = {}) {
   }
 }
 
+/**
+ * 监控三源入库派发器(第 58 项 / 第 77 项,2026-11-21)。
+ *
+ * 立因:契约 `monitor-signal-intake.mjs` 头注写明"由 git-guardian.mjs 的 dispatchMonitorSignalIntake
+ * 周期派发(--apply --json,30 分钟节流)",全仓零实现 —— 器物在、契约在、调度面一条不存在。
+ * 现读证据:`.ihui-agent/state/incident-signals.jsonl` 37 行全部 `source=deploy_outcome`,
+ * 三源(api_logs / grafana_alert / user_feedback)一条都没进过账;感知腿"名义四源、实际一源"
+ * (§0.9「造好没装车 = 没有」)。契约测试 `scripts/tests/monitor-signal-intake-dispatch.test.mjs`
+ * 逐条钉住下面每一行的形状,本函数照它实现,不另立判据。
+ *
+ * 三态只认器物自己的结论行(§0.3):无 `MONITOR-INTAKE` 结论行 ⇒ `ok=false`(未判定,不记绿)。
+ * 器物默认 dry-run ⇒ 调度面必须显式 `--apply`,否则永远零信号(测试①钉的就是这一条)。
+ * 节流 30 分钟、`IHUI_MONITOR_INTAKE_INTERVAL_MS` 可调、`IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1` 可关;
+ * 器物缺席 ⇒ `ran=false`(不写戳,不把"没跑"记成"跑过")。
+ */
+export function dispatchMonitorSignalIntake(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_MONITOR_INTAKE_INTERVAL_MS) || 30 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'monitor-signal-intake-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    exists = existsSync,
+  } = opts
+  if (String(process.env.IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE || '') === '1')
+    return { ran: false, why: 'kill-switch(IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1)' }
+  const script = join(WORKTREE, 'scripts', 'monitor-signal-intake.mjs')
+  if (!exists(script)) {
+    logger('ℹ️ 监控入库:器物不在位(scripts/monitor-signal-intake.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物缺席' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 ⇒ 首跑 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 监控入库:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const out = String(r?.out ?? '')
+  const rows = out.split(/\r?\n/)
+  const resultLine = rows.map((l) => l.match(/MONITOR-INTAKE(?:[^\r\n]*)/) ?? null).find(Boolean)
+  const tail = rows.filter((l) => /未判定|MONITOR-INTAKE|❌|拒绝/.test(l)).slice(-2).join(' / ')
+  if (!resultLine) logger(`⚠️ 监控入库:无结论行(${String(r?.err ?? out).slice(0, 120) || '静默'})⇒ 未判定,不记绿`)
+  else logger(`🧾 监控入库:${String(resultLine[0]).slice(0, 160)}`)
+  if (tail && !resultLine) logger(`   ${tail.slice(0, 160)}`)
+  return { ran: true, ok: !!r?.ok }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -14989,6 +15062,9 @@ async function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 第 77 项:监控三源入库只挂一次性 main() 会与 daemon 抢轮级锁(和 ref-move/gitee 同一条教训),
+    // 所以 main 与 daemon tick 双挂点都是必须的;节流戳在派发器自己身上(30 分钟)。
+    if (!CHECK_ONLY) dispatchMonitorSignalIntake()
     // dev api 活体体检(2026-11-18 立):本机实测 api 跑满约 3 小时后 /api/auth/me 从毫秒级退化成
     // 20s 超时而 /health 仍 200 —— 只看端口/健康面测不出。后果放大到前端:refresh 走瞬时失败 ⇒
     // 冷启动停在"已登录无 token"混合态 ⇒ 模型选择器退回硬编码兜底。器物自带 5 分钟节流 +
@@ -15718,6 +15794,9 @@ function startDaemon(bootGuard = null) {
         // 与 main() 并存时双执行体只先到者真跑 —— 节流戳是两条腿自己的,不是本层另造一份。
         sweepRefMoveLoss()
         sweepGiteeAssetBackfill()
+        // 第 77 项:同一族"契约写了派发、全仓零调度"的补跳 —— 器物 scripts/monitor-signal-intake.mjs
+        // 自带 30 分钟节流戳(monitor-signal-intake-dispatch-last.json),与 main 双挂点只先到者真跑。
+        dispatchMonitorSignalIntake()
         // 2026-11-18 立:dev api 活体体检(5 分钟节流,器物 scripts/check-api-liveness.mjs)。
         // 只认器物自己打的 API-LIVENESS 结论行;未判定(rc=2)不记绿,器物的重启护栏全在器物内。
         sweepApiLiveness()

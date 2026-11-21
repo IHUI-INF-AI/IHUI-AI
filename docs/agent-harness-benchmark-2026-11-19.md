@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **76 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **77 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（76 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（77 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -920,6 +920,30 @@
   `DRIFT(main 区 103 / daemon 100)` 转为 `OK(两区齐平)`，A9 的点名清单里不再出现这两条腿；
   `check-sweeper-liveness` 仍 `state=live stalled=0 undetermined=0`。
 - 边界：A9 判的是**载体面齐平**，不判腿的业务结论；本项只保证"会被叫到"，这两条腿判对判错仍归它们各自的器物。
+
+### 5.77 第 77 项：契约头注写着"由守护器周期派发"，守护器里零实现 ⇒ 三源入库从未上岗
+
+- 现场（逐字对照）：`scripts/monitor-signal-intake.mjs` 头注写明"调度面（第 58 项）：由
+  `git-guardian.mjs` 的 `dispatchMonitorSignalIntake` 周期派发（`--apply --json`，30 分钟节流，
+  `IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1` 可关），main 单轮与 daemon tick 双挂点"。
+  `grep -n "monitor-signal|MonitorSignal" scripts/git-guardian.mjs` 现读 **0 命中** —— 函数不存在、
+  两个挂点不存在、节流戳只由一个已死的实现留过一枚。同一时刻 `incident-signals.jsonl` 37 行全部
+  `source=deploy_outcome`：api_logs / grafana_alert / user_feedback 三源一条都没进过账
+  （§0.9「造好没装车 = 没有」）。同目录还躺着契约测试 `monitor-signal-intake-dispatch.test.mjs`，
+  它 import 的正是这个不存在的导出 —— 门 98（HEAD 悬空具名导入）现读 5 处里的 1 处就是它。
+- 处置（照契约测试实现，不新造第二份判据）：新增 `dispatchMonitorSignalIntake(opts)`：
+  - 器物缺席 ⇒ `{ran:false, why:"器物缺席"}` 且**不写戳**（不把"没跑"记成"跑过"）；
+  - 节流 30 分钟（`IHUI_MONITOR_INTAKE_INTERVAL_MS` 可调），戳落 `monitor-signal-intake-dispatch-last.json`；
+  - 关断开关 `IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1`；
+  - 派发必带 `--apply --json`（器物默认 dry-run，不带就永远零信号）；
+  - 三态只认器物自己打的 `MONITOR-INTAKE` 结论行，无结论行 ⇒ `ok:false` 并留一行 warn（未判定不记绿）。
+  - 挂点两处：`main()` 的 `if (!CHECK_ONLY) dispatchMonitorSignalIntake()` 与 daemon tick 直调 ——
+    计划任务档被禁用后 daemon 是唯一执行体，单挂任一侧都会重演第 76 项那条"每趟让路"。
+- 验证：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` **7 passed**（①导出与 `--apply`
+  形状 / ②双挂点 / ③节流与关断 / ④真跑 ok 透传 / ⑤窗口内不二次、过窗放行 / ⑥器物缺席不写戳 /
+  ⑦器物头注点名真实调度器）；`node --check scripts/git-guardian.mjs` 通过；门 98 对 `git-guardian.mjs`
+  的那一处悬空导入消失（余 4 处属另一席在飞的 worktree-age 测试，其删除已在其暂存面，不代裁）。
+- 边界：本项只补"这一跳装车"，三源各自读不到时仍由器物点名未判定；派发失败只 warn、下一轮重试。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
