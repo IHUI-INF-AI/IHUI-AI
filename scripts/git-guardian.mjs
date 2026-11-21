@@ -11559,32 +11559,40 @@ export function auditRootGuardManifestSync(opts = {}) {
 /** 钩子审计台账健康巡检的节流窗(2026-11-21 第 53 项):台账增长慢,半小时一次足够。 */
 export const HOOK_AUDIT_HEALTH_INTERVAL_MS = 30 * 60 * 1000
 
+/** 临时派生检出寿命闸的节流窗(第 54 项):老化阈值是天级,分钟级刷新没有信息增益。 */
+export const TEMP_WORKTREE_LIFETIME_INTERVAL_MS = 60 * 60 * 1000
+
+/** 小程序镜像保真度巡检的节流窗(第 55 项):存量缺口 avg≈24%,分钟级刷新只烧 CPU。 */
+export const MIRROR_FIDELITY_INTERVAL_MS = 60 * 60 * 1000
+
 /**
- * 钩子审计台账健康巡检(2026-11-21 第 53 项)—— `check-hook-audit-health.mjs` 唯一的周期调度器。
+ * 周期读数门的统一派发器(2026-11-21 第 55 项)。
  *
- * 立因(§0.9「造好没装车 = 没有」):第 51 项把尺子写出来、登记进 `guardian-runner.mjs` 的 warn 档,
- * 并在注释里写"走周期派发"。实测这条**不成立**:`guardian-runner.mjs` 只有 `.husky` 的 pre-push(`--push-gate`
- * 只跑 T1 集合)与人工全量档会调,`git-guardian --daemon` 每 2 分钟那一轮**从不执行它** ⇒ 不设
- * `stagedTriggers` 的门等于零派发。这与 325 号「临时派生检出寿命闸」的注释是同一型误判,不复制它。
+ * 第 53/54 项各写了一份"尺子是否存在 → 节流戳 → 派生 → 解析 → 三态日志"的实现;第三把尺子
+ * (check-miniapp-mirror-fidelity.mjs,自述"git-guardian 巡检轮派发"而全仓零引用)如果再抄一份,
+ * 就是同一段逻辑的第三种口径(§3 零冗余 / §0.6 单一真相源)。故收敛到这里:新增尺子只写一个 spec。
  *
- * 为什么不发信(§5e-1):红了收信人能做的事是"修挂掉的那条钩子 / 把要留的历史另存",属开发动作,
- * 不是运维故障;走日志即够。真正需要到人的那类是"台账把历史吃掉了"——那由容量阈值 + 本函数日志
- * 里点名,不占用告警通道。
- *
- * 三态(§0.3):`warn` 逐条打印门体结论(可整改动作已在门体文本里);`undetermined` 只记日志不记绿;
- * `healthy`/`absent` 静默。
+ * 三态口径(§0.3):
+ *  - 尺子给 JSON 且带 state ⇒ 用它;否则退到 stdout 的 state=<x>;两者都没有 ⇒ 只看退出码。
+ *  - ok / healthy / absent 静默(absent 由 spec 自述一句,不当故障)。
+ *  - 其余状态逐行打印门体结论 —— 门体文本里已带可整改动作,这里不另写一套出路。
+ *  - 拿不到结论 ⇒ undetermined,只记日志不记绿。
+ * 派生纪律:windowsHide(§5b)、显式 stdio(§12g)、超时上限(守门 80)。
  */
-export function auditHookAuditHealth(opts = {}) {
+export function runReadoutGate(spec) {
   const {
-    now = Date.now(),
-    intervalMs = HOOK_AUDIT_HEALTH_INTERVAL_MS,
-    tickFile = join(dirname(LOG), 'hook-audit-health-last.json'),
+    name,
+    script: scriptName,
+    args = [],
+    intervalMs,
+    tickFile,
+    absentNote = null,
     logger = log,
     runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-hook-audit-health.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 钩子审计台账巡检:尺子不在位(scripts/check-hook-audit-health.mjs)⇒ 本轮跳过,不记为已探测')
+  } = spec
+  const scriptPath = join(dirname(fileURLToPath(import.meta.url)), scriptName)
+  if (!existsSync(scriptPath)) {
+    logger(`ℹ️ ${name}:尺子不在位(${scriptName})⇒ 本轮跳过,不记为已探测`)
     return { ran: false, why: '尺子不在位' }
   }
   let last = NaN
@@ -11593,29 +11601,29 @@ export function auditHookAuditHealth(opts = {}) {
   } catch {
     /* 没跑过 */
   }
+  const now = Date.now()
   if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
     writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
   } catch (e) {
-    logger(`⚠️ 钩子审计台账巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+    logger(`⚠️ ${name}:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
   }
   const run =
     typeof runner === 'function'
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script], {
+            const out = execFileSync(process.execPath, [scriptPath, ...args], {
               cwd: WORKTREE,
               encoding: 'utf8',
-              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-              timeout: 90 * 1000, // 守门 80:热路径派生一律带上限
+              windowsHide: true,
+              timeout: 90 * 1000,
               maxBuffer: 1 << 20,
-              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              stdio: ['ignore', 'pipe', 'pipe'],
             })
             return { status: 0, out: String(out ?? ''), err: '' }
           } catch (e) {
-            // exit 1 = 判出存量问题、exit 2 = 未判定;结论整份在 stdout,不当成"尺子坏了"
             return {
               status: typeof e?.status === 'number' ? e.status : null,
               out: String(e?.stdout ?? ''),
@@ -11626,112 +11634,95 @@ export function auditHookAuditHealth(opts = {}) {
   const r = run()
   const stdout = String(r?.out ?? '')
   const lines = stdout.split(/\r?\n/).filter((l) => l.trim() !== '')
-  const head = lines[0] ?? ''
-  const verdict = /结论\s+(\w+)/.exec(head)?.[1] ?? null
-  if (r?.status === 0 && (verdict === 'healthy' || verdict === 'absent')) {
-    if (verdict === 'absent') logger('ℹ️ 钩子审计台账巡检:台账尚未建立(一次钩子都没跑过,不算故障)')
-    return { ran: true, state: verdict ?? 'ok' }
-  }
-  if (r?.status === 1) {
-    for (const line of lines) logger(`⚠️ 钩子审计台账巡检:${line}`)
-    return { ran: true, state: 'warn' }
-  }
-  logger(
-    `⚠️ 钩子审计台账巡检:结论不可用 —— 派生 rc=${r?.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'};` +
-      `stderr 前 120:${String(r?.err ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于台账健康(§0.3)`,
-  )
-  return { ran: true, state: 'undetermined' }
-}
-
-/**
- * 临时派生检出寿命闸的周期调度器(2026-11-21 第 54 项)—— `check-temp-worktree-lifetime.mjs`
- * 此前在 `guardian-runner.mjs` 里自述"走 guardian 周期派发(与 keepalive 一型)",实测
- * `git-guardian` **零引用**:与第 53 项同一型 —— 登记进注册表不等于会跑(§0.9)。本函数是它
- * 唯一的周期调度器。
- *
- * 节流一小时:worktree 老化按"静默≥24h / 账龄≥48h"判,分钟级刷新没有信息增益,只烧 CPU。
- * 不自动回收(§12d):命中只点名让归属席自决;孤儿壳给 `git worktree prune` 一条出路。
- */
-export const TEMP_WORKTREE_LIFETIME_INTERVAL_MS = 60 * 60 * 1000
-
-export function auditTempWorktreeLifetime(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = TEMP_WORKTREE_LIFETIME_INTERVAL_MS,
-    tickFile = join(dirname(LOG), 'temp-worktree-lifetime-last.json'),
-    logger = log,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-temp-worktree-lifetime.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 临时检出寿命巡检:尺子不在位(scripts/check-temp-worktree-lifetime.mjs)⇒ 本轮跳过,不记为已探测')
-    return { ran: false, why: '尺子不在位' }
-  }
-  let last = NaN
+  let state = null
   try {
-    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+    const x = stdout.indexOf('{')
+    const y = stdout.lastIndexOf('}')
+    if (x >= 0 && y > x) {
+      const doc = JSON.parse(stdout.slice(x, y + 1))
+      if (doc && typeof doc.state === 'string') state = doc.state
+    }
   } catch {
-    /* 没跑过 */
+    /* 退到文本形态 */
   }
-  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
-  } catch (e) {
-    logger(`⚠️ 临时检出寿命巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  if (!state) {
+    const m = /\bstate=([A-Za-z_-]+)/.exec(stdout)
+    if (m) state = m[1]
   }
-  const run =
-    typeof runner === 'function'
-      ? runner
-      : () => {
-          try {
-            const out = execFileSync(process.execPath, [script, '--json'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true, // §5b
-              timeout: 90 * 1000, // 守门 80
-              maxBuffer: 1 << 20,
-              stdio: ['ignore', 'pipe', 'pipe'], // §12g
-            })
-            return { status: 0, out: String(out ?? ''), err: '' }
-          } catch (e) {
-            return {
-              status: typeof e?.status === 'number' ? e.status : null,
-              out: String(e?.stdout ?? ''),
-              err: String(e?.stderr ?? ''),
-            }
-          }
-        }
-  const r = run()
-  const stdout = String(r?.out ?? '')
-  let doc = null
-  try {
-    const a = stdout.indexOf('{')
-    const b = stdout.lastIndexOf('}')
-    if (a >= 0 && b > a) doc = JSON.parse(stdout.slice(a, b + 1))
-  } catch {
-    doc = null
+  if (!state && r?.status === 0) state = 'ok'
+  if (state === 'ok' || state === 'healthy') return { ran: true, state: 'ok' }
+  if (state === 'absent') {
+    logger(`ℹ️ ${name}:${absentNote ?? '对象尚未建立'}`)
+    return { ran: true, state: 'absent' }
   }
-  if (!doc || typeof doc.state !== 'string') {
+  if (!state) {
     logger(
-      `⚠️ 临时检出寿命巡检:结论不可用 —— 派生 rc=${r?.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'};` +
+      `⚠️ ${name}:结论不可用 —— 派生 rc=${r?.status ?? '?'};stdout 前 120:${stdout.slice(0, 120) || '(空)'};` +
         `stderr 前 120:${String(r?.err ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**(§0.3)`,
     )
     return { ran: true, state: 'undetermined' }
   }
-  const hits = Array.isArray(doc.hits) ? doc.hits : []
-  const orphans = Array.isArray(doc.orphans) ? doc.orphans : []
-  if (doc.state === 'ok' && hits.length === 0 && orphans.length === 0) return { ran: true, state: 'ok' }
-  for (const h of hits) {
-    logger(
-      `⚠️ 临时检出寿命巡检:超阈残留 ${h.path ?? '(未给路径)'}(静默 ${h.idleHours ?? '?'}h / 账龄 ${h.ageHours ?? '?'}h)` +
-        ' ⇒ 归属席自决:git worktree remove --force <path> && git worktree prune',
-    )
-  }
-  for (const o of orphans) {
-    logger(`⚠️ 临时检出寿命巡检:孤儿壳 ${o.path ?? '(未给路径)'} ⇒ git worktree prune`)
-  }
-  return { ran: true, state: hits.length + orphans.length > 0 ? 'warn' : doc.state }
+  for (const line of lines) logger(`⚠️ ${name}:${line}`)
+  if (lines.length === 0) logger(`⚠️ ${name}:state=${state} 但门体没给结论行 ⇒ 只报状态`)
+  return { ran: true, state }
+}
+
+/**
+ * 钩子审计台账健康巡检(第 53 项)—— check-hook-audit-health.mjs 唯一的周期调度器。
+ *
+ * 立因(§0.9「造好没装车 = 没有」):第 51 项把尺子写出来、登记进 guardian-runner.mjs 的 warn 档,
+ * 并在注释里写"走周期派发"。实测这条**不成立**:guardian-runner.mjs 只有 .husky 的 pre-push
+ * (--push-gate 只跑 T1 集合)与人工全量档会调,git-guardian --daemon 每 2 分钟那一轮**从不执行它**
+ * ⇒ 不设 stagedTriggers 的门等于零派发。这与 325 号「临时派生检出寿命闸」的注释是同一型误判。
+ *
+ * 为什么不发信(§5e-1):红了收信人能做的事是"修挂掉的那条钩子 / 把要留的历史另存",属开发动作,
+ * 不是运维故障;走日志即够。
+ */
+export function auditHookAuditHealth(opts = {}) {
+  return runReadoutGate({
+    name: '钩子审计台账巡检',
+    script: 'check-hook-audit-health.mjs',
+    intervalMs: opts.intervalMs ?? HOOK_AUDIT_HEALTH_INTERVAL_MS,
+    tickFile: opts.tickFile ?? join(dirname(LOG), 'hook-audit-health-last.json'),
+    absentNote: '台账尚未建立(一次钩子都没跑过,不算故障)',
+    logger: opts.logger ?? log,
+    runner: opts.runner ?? null,
+  })
+}
+
+/**
+ * 临时派生检出寿命闸的周期调度器(第 54 项)—— check-temp-worktree-lifetime.mjs 此前在
+ * guardian-runner.mjs 里自述"走 guardian 周期派发(与 keepalive 一型)",实测 git-guardian **零引用**:
+ * 登记进注册表不等于会跑(§0.9)。不自动回收(§12d):命中只点名让归属席自决。
+ */
+export function auditTempWorktreeLifetime(opts = {}) {
+  return runReadoutGate({
+    name: '临时检出寿命巡检',
+    script: 'check-temp-worktree-lifetime.mjs',
+    args: ['--json'],
+    intervalMs: opts.intervalMs ?? TEMP_WORKTREE_LIFETIME_INTERVAL_MS,
+    tickFile: opts.tickFile ?? join(dirname(LOG), 'temp-worktree-lifetime-last.json'),
+    logger: opts.logger ?? log,
+    runner: opts.runner ?? null,
+  })
+}
+
+/**
+ * 小程序镜像保真度巡检(第 55 项)—— check-miniapp-mirror-fidelity.mjs 的头注自述
+ * 「根 package.json check:mirror-fidelity + git-guardian 巡检轮派发」,实测 git-guardian 只在一条
+ * **注释**里提到文件名、没有任何派生点 ⇒ 自述的那条巡检轮不存在。存量缺口 avg≈24%,属 §12e
+ * "判机器存量的门不许进提交链",故只做守护侧周期读数(不进 pre-commit/pre-push)。
+ */
+export function auditMirrorFidelity(opts = {}) {
+  return runReadoutGate({
+    name: '小程序镜像保真度巡检',
+    script: 'check-miniapp-mirror-fidelity.mjs',
+    args: ['--json'],
+    intervalMs: opts.intervalMs ?? MIRROR_FIDELITY_INTERVAL_MS,
+    tickFile: opts.tickFile ?? join(dirname(LOG), 'mirror-fidelity-last.json'),
+    logger: opts.logger ?? log,
+    runner: opts.runner ?? null,
+  })
 }
 
 /**
@@ -15470,6 +15461,9 @@ async function main() {
     // 同为 §0.9 那一型 ⇒ 与上一条同节律挂 tick,共用各自节流戳。
     beatRoundLock()
     if (!CHECK_ONLY) auditTempWorktreeLifetime()
+    // 小程序镜像保真度(第 55 项):头注自述「巡检轮派发」而实测零引用,同双挂点纪律补齐。
+    beatRoundLock()
+    if (!CHECK_ONLY) auditMirrorFidelity()
     beatRoundLock()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     beatRoundLock()
@@ -15747,6 +15741,8 @@ function startDaemon(bootGuard = null) {
         auditHookAuditHealth()
         // 临时派生检出寿命(2026-11-21 第 54 项):同双挂点纪律,daemon 独占时也必须真判。
         auditTempWorktreeLifetime()
+        // 小程序镜像保真度(第 55 项):同上,daemon 独占时也必须真判。
+        auditMirrorFidelity()
         // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
         // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
         // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
