@@ -1009,7 +1009,8 @@ export function SidebarChatHistory({
               >
                 <span
                   aria-hidden
-                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
+                  /* 2026-11-21 定档:运行中圆点只动 scale,颜色恒定(不用 opacity 呼吸) */
+                  className="h-1.5 w-1.5 animate-status-breathe rounded-full bg-emerald-500"
                 />
                 {tTask('activityRunning')}
               </span>

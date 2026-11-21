@@ -113,11 +113,17 @@ export function StreamTelemetryBar({ className }: { className?: string }) {
     >
       <span className="flex shrink-0 items-center gap-1.5">
         {running ? (
-          <Activity className="h-3 w-3 animate-pulse text-primary" aria-hidden />
+          /* 2026-11-21 定档:图标颜色恒定,进行中的活信号只由旁边的文字扫光承担 */
+          <Activity className="h-3 w-3 text-primary" aria-hidden />
         ) : (
           <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden />
         )}
-        <span className={cn('font-medium', running ? 'text-foreground' : 'text-muted-foreground')}>
+        <span
+          className={cn(
+            'font-medium',
+            running ? 'text-shimmer' : 'text-muted-foreground',
+          )}
+        >
           {t(PHASE_KEYS[telemetry.phase])}
         </span>
       </span>

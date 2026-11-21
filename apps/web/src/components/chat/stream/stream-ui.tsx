@@ -181,6 +181,18 @@ export const STREAM_HEADER_ROW_CLASS = cn(
  * 头行内紧凑图标动作(24px 档):头行高 24px,32px 的 IconButton 会把行撑高,
  * 破坏头行高度一致 —— 头行内动作按钮一律走本档,图标 14px 与行内图标同档。
  */
+/**
+ * 「进行中」文字动效唯一档(2026-11-21 用户定档,对标取证后立)。
+ *
+ * 用户口径:"运行中"的活信号必须是**文字从左到右扫光**(光带压过字面),
+ * 图标与圆点的颜色/不透明度**恒定** —— 禁止用 opacity 呼吸冒充状态。
+ * 取证:对标 Trae CN 3.4.20 的 `task-sub-agent-header__subtitle--shimmer`(=90deg 渐变 + background-position
+ * 200%→-200% 扫动,挂在运行中的子代理副标题文字上),Qoder CN 0.5.13 的 keyframes 表里没有扫光类,只有
+ * aura 光晕与 opacity pulse;因此"扫光承担进行中"是对标程序里唯一既有的、且不与颜色冲突的做法。
+ * 复用既有 `.text-shimmer`(animations.css,90deg 高光 ±200% 位移,已尊重 reduced-motion)。
+ */
+export const STREAM_RUNNING_TEXT_CLASS = 'text-shimmer'
+
 export const STREAM_HEADER_ACTION_CLASS =
   'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
 
@@ -312,6 +324,8 @@ export function StreamRow({
         className={cn(
           'truncate text-foreground',
           primary ? 'min-w-0 shrink' : 'shrink-0 max-w-[45%]',
+          // 进行中的活信号只落在标题文字上(光带从左到右扫过),图标保持恒定前景色
+          status === 'running' && STREAM_RUNNING_TEXT_CLASS,
         )}
       >
         {title}
@@ -587,7 +601,7 @@ export function StreamGroup({
           ) : (
             <StreamStatusIcon status={active ? 'running' : 'success'} />
           )}
-          <span className="min-w-0 shrink truncate">
+          <span className={cn('min-w-0 shrink truncate', active && STREAM_RUNNING_TEXT_CLASS)}>
             {headline || (active ? t('statusRunning') : t('stepCount', { n: stepCount }))}
           </span>
           {!active && stepCount > 0 && (

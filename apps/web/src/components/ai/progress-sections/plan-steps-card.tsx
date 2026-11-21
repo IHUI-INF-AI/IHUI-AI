@@ -276,11 +276,12 @@ function SegmentedProgressBar({
                 </div>
               }
             >
+              {/* 2026-11-21 定档:进度段不得用 opacity 呼吸表达 in_progress —— 段长与色档已经表达进度,
+                  透明度只会让同一前景色在静帧里读成"颜色不一致";进行中的活信号压在标题文字扫光上 */}
               <div
                 className={cn(
                   'h-full flex-1 rounded-sm transition-all duration-300 cursor-help',
                   s.error ? 'bg-red-500/70' : STATUS_BAR_CLS[s.status],
-                  s.status === 'in_progress' && !s.error && 'animate-pulse',
                 )}
                 data-testid={`${rootTestId}-segment-${s.id}`}
               />

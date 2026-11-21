@@ -170,7 +170,8 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
             <span
               className={cn(
                 'inline-flex h-2 w-2 rounded-full',
-                isPaused ? 'bg-amber-500' : 'animate-pulse bg-red-500',
+                // 2026-11-21 定档:录制中的活动感只走 scale,红点颜色恒定(不叠 opacity 呼吸)
+                isPaused ? 'bg-amber-500' : 'animate-status-breathe bg-red-500',
               )}
             />
             <span className="font-mono text-body tabular-nums">{formatTime(duration)}</span>
