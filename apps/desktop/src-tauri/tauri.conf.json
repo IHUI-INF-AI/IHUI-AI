@@ -5,7 +5,7 @@
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "node ../../scripts/desktop-before-dev.mjs",
-    "beforeBuildCommand": "node ../../scripts/desktop-installer-assets.mjs",
+    "beforeBuildCommand": "node ../../scripts/desktop-installer-assets.mjs && node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
     "devUrl": "http://localhost:8801",
     "frontendDist": "shell"
   },

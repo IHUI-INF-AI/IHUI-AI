@@ -100,4 +100,18 @@
 ; id=2→Cancel),把二者就地品牌化后点击直达核心,绕开"内层品牌按钮吞 WM_COMMAND"死结。
 !macro NSIS_HOOK_POSTINSTALL
   !insertmacro IHUI_INST_DONE_THEME
+
+  ; ===== 图标缓存刷新(2026-11-21 机主实报"图标变了") =====
+  ; Windows 图标缓存按「exe 路径 + 文件时间戳」缓存,覆盖安装后 Explorer
+  ; 常继续画旧图:0.1.81 曾把任务栏小图标改成透明底 ∞、0.1.82 当天回退成
+  ; 黑底原图,但机器上一直显示回退前那版,直到手工清 iconcache 才恢复。
+  ; 因此安装/更新收尾主动让 shell 重建图标,避免"新 exe + 旧图标"。
+  ; SHCNE_ASSOCCHANGED = 0x08000000,SHCNF_IDLIST = 0。
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+  ; ie4uinit -show 重建系统图标缓存(部分系统该文件缺失,Vista 前的老路径)。
+  IfFileExists "$SYSDIR\ie4uinit.exe" ihui_ie4uinit_ok
+  Goto ihui_icon_refresh_done
+  ihui_ie4uinit_ok:
+    ExecWait '"$SYSDIR\ie4uinit.exe" -show'
+  ihui_icon_refresh_done:
 !macroend
