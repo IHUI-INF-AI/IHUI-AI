@@ -404,6 +404,30 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /ai/mcp/tools — 全量 MCP 工具清单(name/description/input_schema)。
+  // 2026-11-21 立:号池模型通道的 tool loop 在前端跑,需自己取 schema 转 OpenAI tools
+  // (平台腿的 schema 由 ai-service 内部从 mcp_server 加载,客户端不必自带)。
+  server.get('/ai/mcp/tools', async (request, reply) => {
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools`, {
+        headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) {
+        return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
+      }
+      const data = (await resp.json()) as {
+        tools?: Array<Record<string, unknown>>
+        count?: number
+      }
+      const list = data.tools ?? []
+      return reply.send(success({ list, total: data.count ?? list.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, `ai-service 调用异常: ${toUserFriendlyMessage(e)}`))
+    }
+  })
+
   // GET /ai/mcp/servers/:id/tools — 列出指定 MCP 服务器的工具
   // 代理到 ai-service /api/mcp/tools,客户端按 serverId 过滤(ai-service 暂无按服务器查询端点)
   server.get('/ai/mcp/servers/:id/tools', async (request, reply) => {

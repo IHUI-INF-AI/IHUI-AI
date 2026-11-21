@@ -23,13 +23,16 @@ describe('hrToolsFor — 人事意图条件携带(web 发送链)', () => {
     },
   )
 
-  it.each(['帮我算一下这个月工资', '把 2026-11 的薪资结算做出来', '社保基数配置齐不齐'])(
-    '算薪/配置意图 ⇒ 自助面 + 管理面全带:%s',
-    (text) => {
-      const got = hrToolsFor(text)
-      for (const t of HR_TOOLS) expect(got).toContain(t)
-    },
-  )
+  it.each([
+    '帮我算一下这个月工资',
+    '把 2026-11 的薪资结算做出来',
+    '社保基数配置齐不齐',
+    // 2026-11-21 回归锁:续做说法没有"算"字,仍须带齐(真机曾因此答"我目前没有算薪工具")
+    '再用现有数据跑一次 11 月工资，试试工具',
+  ])('算薪/配置意图 ⇒ 自助面 + 管理面全带:%s', (text) => {
+    const got = hrToolsFor(text)
+    for (const t of HR_TOOLS) expect(got).toContain(t)
+  })
 
   it('显式点名工具名 ⇒ 命中(便于验收脚本与口头指令)', () => {
     expect(hrToolsFor('调用 hr_insurance_readiness 体检')).toContain('hr_insurance_readiness')
