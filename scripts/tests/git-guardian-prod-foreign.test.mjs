@@ -186,11 +186,16 @@ test('D6 untracked 洪水不改变发信语义:计数再大也不进任何告警
 // —— 装车与摘线(T1/T2/T3,与 check-env-drift.test.mjs 同一把尺子)——
 test('T1 挂点真接线:main() 在 !CHECK_ONLY 分支、健康早退之前;startDaemon 双覆盖', () => {
   const src = readFileSync(GUARDIAN, 'utf8')
-  const gateIdx = src.indexOf('if (coreOk && before.refsOk)')
   const hookIdx = src.indexOf('if (!CHECK_ONLY) auditProdForeignWork()')
+  assert.ok(hookIdx >= 0, '找不到调用点')
+  // 2026-11-21(第 93 项):本行原先把健康分支写成死字面量 `if (coreOk && before.refsOk)`,
+  // 而 RP-75 ① 已把门改成按**自愈后**快照判(变量名 roundView)。死字面量漂了以后本锁从
+  // "锁住挂点"退化成"恒找不到 ⇒ 恒红"。改为按形状认:必须有一行 `if (coreOk && <任意视图>.refsOk) {`,
+  // 且挂点落在它之后(方向不变:挂点若掉到健康分支之外仍是红)。
+  const gates = [...src.matchAll(/if \(coreOk && ([A-Za-z0-9_$]+)\.refsOk\) \{/g)]
+  const gateIdx = gates.filter((m) => m.index < hookIdx).map((m) => m.index).pop() ?? -1
+  assert.ok(gateIdx >= 0, '找不到健康分支边界(if (coreOk && <视图>.refsOk) {)')
   const earlyReturnIdx = src.indexOf('✅ .git 健康', hookIdx)
-  assert.ok(gateIdx >= 0 && hookIdx >= 0, '找不到健康分支边界或调用点')
-  assert.ok(hookIdx > gateIdx, '挂点在健康分支之外 ⇒ 该轮根本走不到')
   assert.ok(earlyReturnIdx > hookIdx, '挂点在健康轮次早退之后 ⇒ 永不执行(本文件踩过两次的那一型)')
   const daemonIdx = src.indexOf('auditProdForeignWork()', src.indexOf('function startDaemon'))
   assert.ok(daemonIdx > 0 && daemonIdx !== hookIdx, '常驻模式没挂这一层(双执行体覆盖不齐)')

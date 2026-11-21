@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **92 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **93 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（92 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（93 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1424,6 +1424,47 @@
   `{"state":"ok","reading":"tmp 3291 枚 / 880.46MB,最大 157.32MB,无越阈单枚(登记保留 2 枚,已点名)"}`。
 - 边界：本项**不删任何文件**（157MB 取证原文与 38MB 包缓存都留着，只是从此有主、有复核日）；
   "该删了"仍由 `reviewBy` 到期把条目打回越阈来提醒，而不是靠人记得。
+
+### 5.93 第 93 项：四枚"契约/结构锁已写好、实现没接"的结构红 —— 锁本身也死在了自己写死的字面量上
+
+- 现场（一手）：`node --test scripts/tests/git-guardian-*.test.mjs` 现读 **440 pass / 4 fail**，
+  四条都是"锁在、接线不在"或"锁自己读的是旧形态"型：
+  ① `daemon-audit-fanout` T8：`dispatchMonitorSignalIntake` 的节流戳只写在该函数默认入参里，
+  `main()` 段文本里没有这枚戳名 ⇒ 结构锁读不出"两面共用同一 tick 文件"，而本机执行体恰是无
+  `--daemon` 的单轮（A8 会把这枚腿恒判 rotting）。
+  ② `prod-foreign` T1：锁把健康分支写成死字面量 `if (coreOk && before.refsOk)`，而 RP-75 ①
+  已把门改成按自愈后快照判（`roundView`）⇒ 锁恒找不到边界，把**正确**接线判成红。
+  ③ `verdict-fail-open` 锁2：`sweepDesktopDiscoveryBudget` 的待核登记到期日 `2026-11-18` 已过，
+  而该腿现读仍是"`state` 是字符串就往下走"——尺子将来新增或拼错任何取值都会掉进末尾 ✅ OK。
+  ④ `worktree-bare` ⑥：锁只认 `const coreOk = coreHealthy(\w+)`，而 main 面现读是
+  `let coreOk = coreHealthy(before)` + 自愈后 `coreOk = coreHealthy(roundView)` 的**重赋**形态，
+  且文件里还有一处自愈成功日志里的 `coreHealthy(a)` ⇒ 锁读成"实到 1"。
+- 处置（逐条，改实现优先、改锁只在"锁量的是旧形态"时）：
+  - ① 实现侧：`main()` 与 daemon tick **两面都显式传 `tickFile`**，且戳名在两面都写成字面量
+    （`join(dirname(LOG), 'monitor-signal-intake-dispatch-last.json')`）⇒ 锁能读到"同一枚戳"，
+    不再是"藏在默认值里的暗接线"。
+  - ②④ 锁侧：两条死字面量改成**按形状认**。T1 认 `if (coreOk && <任意视图>.refsOk) {` 且挂点
+    在其后、健康早退之前（方向不变）；⑥ 改成"两个执行体各自的区段内至少一处 `= coreHealthy(...)`"
+    ＋"判据函数本体只许一份定义"＋旧三项式零命中＋自愈成功判定必须走 `coreHealthy(...) && refsOk`。
+    两条都保留了反向对照用例（摘线即红）。
+  - ③ 实现侧收紧：`sweepDesktopDiscoveryBudget` 的存在性守卫换成**取值白名单**
+    `!['pass','fail','undetermined'].includes(parsed.state)`（契约三值现读器物自身
+    `state = red.length>0?'fail':undetermined.length>0?'undetermined':'pass'`），不在契约里的取值
+    一律落"未判定,不记为已探测"。锁侧对应摘掉已过期的待核登记（锁自己的规矩就是"过期必须收紧或
+    续期，收紧后摘登记"，留着就是清单腐烂）。
+  - 契约测试同笔跟进：`scripts/tests/monitor-signal-intake-dispatch.test.mjs` ② 原匹配零参形态
+    `dispatchMonitorSignalIntake()`，两面显式传参后改成匹配"真被调到"（允许带参），锁的还是同一件事。
+- 验证（现读）：
+  `node --test scripts/tests/git-guardian-*.test.mjs` ⇒ **444 pass / 0 fail**（此前 440/4）；
+  `node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` ⇒ **7/7**；
+  `node scripts/check-sweeper-liveness.mjs` ⇒ `dispatch-parity` 键表 **91 条带戳腿全部在 tick 面有
+  非注释实调用**、`LIVENESS-RESULT state=idle-clean`，`--self-test` **39/39**；
+  行为面实测（注入 runner）：`state=breach`（契约外取值）⇒ `judged:false, why=结论不可解析`、零发信
+  （修前它会落进 ✅ OK）；`pass` ⇒ judged:true/reds:0；`fail` ⇒ reds:1 且发信 1 封；`undetermined`
+  ⇒ judged:false。`node --check scripts/git-guardian.mjs` ⇒ 0。
+- 边界：本项不动 `coreHealthy` 本体、不动健康判据语义、不动 `check-sweeper-liveness` 的切片判据
+  （T8/⑥ 借用的都是它 `__test__` 的唯一实现，§0.6 未新增第二份尺子）；`state=breach` 这类契约外
+  取值仍**不喊人**（保持 §5e-1"不可整改不寄信"），只是不再被记成健康。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

@@ -10028,9 +10028,16 @@ export function sweepDesktopDiscoveryBudget(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
-    if (!parsed || typeof parsed.state !== 'string') {
+    // 第 93 项(2026-11-21):原形是"存在性判定"——只要 state 是个字符串就往下走,
+    // 于是尺子将来新增/拼错任何取值(breach / unjudged / 空串)都会掉进末尾那条 ✅ OK,
+    // 等于"未知结论被写成判过且健康"(§0.3)。现改成**取值白名单**:不在契讥里的取值按未判定,
+    // 而且白名单必须覆盖下方分支比较过的每一个取值(结构锁 git-guardian-verdict-fail-open
+    // 的锁 1/锁 2 双向钉住)。契约取值现读器物 scripts/check-desktop-release-discovery-budget.mjs
+    // 的 `state = red.length > 0 ? 'fail' : undetermined.length > 0 ? 'undetermined' : 'pass'`。
+    if (!parsed || !['pass', 'fail', 'undetermined'].includes(parsed.state)) {
       logger(
-        `⚠️ 桌面发现射程巡检未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+        `⚠️ 桌面发现射程巡检未产出可判结论(state=${JSON.stringify(parsed?.state ?? null)} 不在契约 fail/pass/undetermined)` +
+          `(未判定,不记为已探测):rc=${call.status} ` +
           `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
       )
       return { ran: true, judged: false, why: '结论不可解析' }
@@ -15353,7 +15360,15 @@ async function main() {
     // 第 79 项:user_feedback 单源入口先落账(monitor-signal-intake 的三源里这一源由它单独供给),
     // 与监控入库同族:只挂 main 会与 daemon 抢轮级锁,双挂点是必须的。
     if (!CHECK_ONLY) dispatchUserFeedbackIntake()
-    if (!CHECK_ONLY) dispatchMonitorSignalIntake()
+    // 第 93 项(2026-11-21):节流戳必须两面都写,而且**写在哪一格必须看得见**。
+    // 此前 main 面调 `dispatchMonitorSignalIntake()` 不带 tickFile,戳路径只藏在该函数默认值里 ⇒
+    // 结构锁(scripts/tests/git-guardian-daemon-audit-fanout.test.mjs T8)在 main 段读不到这枚戳名,
+    // 键连"两条腿是否共用同一 tick 文件"这一条都判不出。现把戳名在 main 侧也显式点名。
+    const MAIN_MONITOR_INTAKE_TICK = join(
+      dirname(LOG),
+      'monitor-signal-intake-dispatch-last.json',
+    )
+    if (!CHECK_ONLY) dispatchMonitorSignalIntake({ tickFile: MAIN_MONITOR_INTAKE_TICK })
     // 第 78 项:IP 归属可信度尺自述"调度面 = 本守护巡检轮",同族同因,双挂点。
     sweepIpAttributionTrust().catch((e) => log(`⚠️ IP 归属巡检轮失败:${e?.message || e}`))
     // 第 81 项:dev 库口令轮换窗口(尺子恒 exit 0、零 spawn,只报 would-run)同族双挂点。
@@ -16116,7 +16131,10 @@ function startDaemon(bootGuard = null) {
         // 第 77 项:同一族"契约写了派发、全仓零调度"的补跳 —— 器物 scripts/monitor-signal-intake.mjs
         // 自带 30 分钟节流戳(monitor-signal-intake-dispatch-last.json),与 main 双挂点只先到者真跑。
         dispatchUserFeedbackIntake()
-        dispatchMonitorSignalIntake()
+        // 第 93 项:与 main 面共用同一枚戳(路径字面量两面都点名,结构锁才量得出"共用")。
+        dispatchMonitorSignalIntake({
+          tickFile: join(dirname(LOG), 'monitor-signal-intake-dispatch-last.json'),
+        })
         // 第 78 项:同一族(头注写了巡检轮、代码面零引用)的第二枚,同样两处挂点。
         sweepIpAttributionTrust().catch((e) => log(`⚠️ IP 归属巡检轮失败:${e?.message || e}`))
         // 第 81 项:dev 库轮换窗口,同一枚尺子同一套双挂点(6 小时节流)。
