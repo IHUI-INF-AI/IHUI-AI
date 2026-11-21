@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **54 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **55 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（54 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（55 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -639,6 +639,14 @@
 - 测试：镜像测试增第 ⑥ 例 —— `auditTempWorktreeLifetime()` 必须恰好两个挂点、带节流常量、`guardian-runner` 里 325 的旧自述"走 guardian 周期派发(与 keepalive 一型)"必须已被替换成点名真实调度器（§0.8：不写跑不通的出路）。
 
 验证：`node --check scripts/git-guardian.mjs`；真跑一轮（临时节流戳）→ `{"ran":true,"state":"ok"}`（射程内 0 条超阈、0 条孤儿）；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `6 passed`。
+### 5.56 第 55 项：第三把尺子同一型 + 三份派发实现收敛为一份
+
+- 问题：按"自述被守护派发"把全仓 `scripts/*.mjs` 扫了一遍（粗筛 + 逐条人工复核上下文），命中第三处：`check-miniapp-mirror-fidelity.mjs` 头注写着「根 package.json `check:mirror-fidelity` + git-guardian 巡检轮派发」，而 `git-guardian.mjs` 只在**一条注释**里提到文件名、没有任何派生点 —— 自述的那条巡检轮不存在，存量缺口 avg≈24% 的读数因此只在下线时被人手动敲一次。同时暴露另一个问题：第 53/54 项各抄了一份"存在性→节流→派生→解析→三态日志"，第三把尺子再抄就是第三种口径（§3 零冗余）。
+- 处置：先抽 `runReadoutGate(spec)` 统一实现（JSON `state` 优先、退到 stdout `state=`、再退到退出码；`ok/healthy/absent` 静默、其余逐行打印门体结论、拿不到结论记 `undetermined`；派生带 `windowsHide` + 显式 `stdio` + 90s 上限），再把三把尺子各写成 10 行的 spec 包装器，全部双挂点（daemon tick + main 单轮）。`check-miniapp-mirror-fidelity` 只进守护侧周期读数、**不进** pre-commit/pre-push（§12e：判机器存量的门不许进提交链）。
+- 语义边界：门体文本原样透传 —— 可整改动作在尺子自己那句结论里，守护侧不另写一套出路（§0.6 不造第二份判据）；三把尺子的节流窗各自独立常量（30min / 1h / 1h），不共用一个"魔法数"。
+- 测试：镜像测试增第 ⑦ 例 —— 三个包装器各有**恰好两个**挂点、每个包装器体都必须是 `return runReadoutGate({`（防有人回头各抄一份）、`check-miniapp-mirror-fidelity.mjs` 的自述仍在（说明本项补的是它的落点）。
+
+验证：`node --check scripts/git-guardian.mjs`；真跑一轮 `auditMirrorFidelity`（临时节流戳）→ `{"ran":true,"state":"ok"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `7 passed`。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

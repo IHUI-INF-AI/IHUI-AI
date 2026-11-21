@@ -141,6 +141,25 @@ test('⑥325 号门同型补齐:临时检出寿命闸也真有周期挂点', () 
   assert.ok(/auditTempWorktreeLifetime/.test(runner), '325 号门注释应点名 git-guardian 的调度器')
 })
 
+test('⑦第55项:三把尺子收敛到同一个派发器,且各自两个挂点', () => {
+  const g = read('scripts/git-guardian.mjs')
+  for (const fn of ['auditHookAuditHealth()', 'auditTempWorktreeLifetime()', 'auditMirrorFidelity()']) {
+    const n = (g.match(new RegExp(`\\b${fn.replace(/[()]/g, '\\$&')}`, 'g')) ?? []).length
+    assert.equal(n, 2, `${fn} 应有两个周期挂点,实际 ${n}`)
+  }
+  // 单一实现:三个包装器都走 runReadoutGate,不许各自再抄一份派生/节流/三态
+  const wrappers = ['auditHookAuditHealth', 'auditTempWorktreeLifetime', 'auditMirrorFidelity']
+  for (const w of wrappers) {
+    const start = g.indexOf(`export function ${w}(`)
+    assert.ok(start > 0, `${w} 必须导出`)
+    const body = g.slice(start, g.indexOf('\n}', start))
+    assert.ok(/return runReadoutGate\(\{/.test(body), `${w} 必须复用 runReadoutGate`)
+  }
+  // 尺子自述里的那句「git-guardian 巡检轮派发」现在真有落点
+  const mf = read('scripts/check-miniapp-mirror-fidelity.mjs')
+  assert.ok(/git-guardian/.test(mf), '该尺子头注仍自述守护派发')
+})
+
 test('④装车证明:guardian-runner 登记为 warn、不挂 stagedTriggers', () => {
   const runner = read('scripts/guardian-runner.mjs')
   const at = runner.indexOf("script: 'check-hook-audit-health.mjs'")
