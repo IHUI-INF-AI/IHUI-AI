@@ -13,9 +13,13 @@
  * apps/api/src/services/relay-account-pool-scheduler.ts,登记与执行落地住在
  * apps/api/scripts/relay-account-keepalive.ts(它直接调 sweepAccountPool,不写第二份)。
  * 本文件只做编排 + 到人通知:
- *  - 为什么需要这条腿:sweep 由 apps/api 的 BullMQ worker 驱动,而本机 api 是 tsx dev 进程
- *    (2026-10-31 实测 sc 里只有 PostgreSQL16IHUI,没有 api 服务)⇒ 进程一停保活即停。
- *    git-guardian 计划任务每 2 分钟常驻,由它派发本脚本才谈得上「永久」。
+ *  - 为什么还需要这条腿(2026-10-31 立;2026-11-21 前提复测后改口径):sweep 由 apps/api 的
+ *    BullMQ worker 驱动,而立项当天实测 api 是 tsx dev 进程(sc 里没有 api 服务)⇒ 进程一停保活即停。
+ *    **前提已不成立**(第 81 项同日现读):`Get-Service` 里 `IHUI-API-GREEN` 为 Running,
+ *    账号台账 `lastRefreshAt` 今日仍有更新(例 08:05Z 一次) ⇒ 续期链在跑,不由本脚本代劳;
+ *    因此**不**把它挂进 guardian 巡检轮(挂了就是第二套续期 + 第二套到人,§0.6)。
+ *    本器保留为**手动/应急**入口(`--once`):真要接手时由人显式执行,并有自己的告警去重。
+ *    若哪天 api 服务长期停摆,正解是修 api 承载体(§5e 通道可用性需被量到),不是并一条腿。
  *  - 发信一律经 apps/api/scripts/notify-deploy-failure.ts 唯一出口(§5e / 守门 81),
  *    收件人不在此解析(交出口自读 ALERT_EMAIL_TO),不传 --env-file。
  *  - 喊人的双向(2026-11-16):掉线/摘除 ⇒ warning 告警(relay-keepalive-*);
