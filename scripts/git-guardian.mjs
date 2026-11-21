@@ -11646,7 +11646,9 @@ export function runReadoutGate(spec) {
     /* 退到文本形态 */
   }
   if (!state) {
-    const m = /\bstate=([A-Za-z_-]+)/.exec(stdout)
+    // 两种文本形态都要认:`state=ok`(多数尺子)与 `[x] 结论 warn`(钩子审计那把,第 56 项修)。
+    // 只认前者时,后者每次 warn 都会被记成"结论不可用"(未判定),读数方向正好反了。
+    const m = /\bstate=([A-Za-z_-]+)/.exec(stdout) ?? /结论\s+([A-Za-z_-]+)/.exec(stdout)
     if (m) state = m[1]
   }
   if (!state && r?.status === 0) state = 'ok'
@@ -11662,7 +11664,9 @@ export function runReadoutGate(spec) {
     )
     return { ran: true, state: 'undetermined' }
   }
-  for (const line of lines) logger(`⚠️ ${name}:${line}`)
+  // 单行限长 400:台账行/门体行都可能夹带大段内容(钩子 error 上限很大),整行灌进守护日志
+  // 会把日志本身撑成噪音源(守门 181 同类判据:错误文本必须有界)。
+  for (const line of lines) logger(`⚠️ ${name}:${line.length > 400 ? `${line.slice(0, 400)}…(共 ${line.length} 字符)` : line}`)
   if (lines.length === 0) logger(`⚠️ ${name}:state=${state} 但门体没给结论行 ⇒ 只报状态`)
   return { ran: true, state }
 }
