@@ -280,7 +280,8 @@ function InlineHtmlPreview({ code }: { code: string }) {
 }
 
 // P1 #28(2026-09-16):代码块运行结果内联输出面板。
-// 样式与代码块一致(zinc-100 / dark:zinc-950),含命令、合并 stdout/stderr、exitCode 徽章、关闭按钮。
+// 2026-11-21 用户口径:过程类容器不画底色、不画描边 —— 本面板不再套 bg-muted-soft / stroke-default 外框,
+// 命令行、合并输出、exitCode 徽章直接落在画布上,层级靠缩进与字号表达。
 function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => void }) {
   const t = useTranslations('chat')
   const isSuccess = result.status === 'success'
@@ -301,10 +302,7 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
     ) : null
 
   return (
-    <div
-      data-testid="code-run-output"
-      className="mt-2 overflow-hidden rounded-lg border border-stroke-default bg-muted-soft"
-    >
+    <div data-testid="code-run-output" className="mt-1.5 overflow-hidden pl-1">
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
           {t('codeRun.title')}
@@ -637,12 +635,14 @@ const CodeBlockImpl = function CodeBlock({
     'bg-transparent text-foreground',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
-  // 2026-11-16:代码块正文面 —— 与内联 code 同一 --color-muted-soft 实色 token(单层实色)
-  const codeFrameClass = 'overflow-hidden rounded-lg bg-muted-soft'
+  // 2026-11-21 用户口径:头行不再画容器 —— 外框去掉底色,正文本体才画 --color-muted-soft 实色面,
+  // 于是 header 与消息画布同底(无灰底、无描边),代码面仍是单一实色档。
+  const codeFrameClass = 'overflow-hidden rounded-lg'
+  const codeBodyClass = 'bg-muted-soft'
   // G-842:代码块 header —— 折叠开关(文件图标 + 示例文件名)+ 右侧操作按钮组
   // 2026-11-15:header 即折叠开关,默认只露 header,点击展开正文。
-  // 2026-11-16:头行统一走 STREAM_HEADER_ROW_CLASS(自带单层实色底 + 32px 高 / 16px·400 字),
-  // 与思考行、过程叙述组头完全同档;嵌在同一 code frame 内 ⇒ 与正文同色无缝。
+  // 2026-11-16:头行统一走 STREAM_HEADER_ROW_CLASS(28px 高 / 13px·400 字 / 无底色无描边),
+  // 与思考行、过程叙述组头完全同档;底色只画在正文本体上 ⇒ 头行与消息画布同底。
   // 展开指示不画箭头,整行仍是折叠开关。
   const codeHeader = (
     <div data-testid="code-block-header" className={STREAM_HEADER_ROW_CLASS}>
@@ -659,12 +659,12 @@ const CodeBlockImpl = function CodeBlock({
           // 2026-11-16:悬停反馈由头行常量统一提供(与思考/过程叙述头行同档),开关本身不再单独变色
           className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <CodeBlockIcon className="h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+          <CodeBlockIcon className="h-3.5 w-3.5 shrink-0 text-foreground" aria-hidden="true" />
           <span className="min-w-0 truncate font-mono">{resolveCodeFileName(language)}</span>
         </button>
       ) : (
         <div className="flex h-full min-w-0 flex-1 items-center gap-1.5">
-          <CodeBlockIcon className="h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+          <CodeBlockIcon className="h-3.5 w-3.5 shrink-0 text-foreground" aria-hidden="true" />
           <span className="min-w-0 truncate font-mono">{resolveCodeFileName(language)}</span>
         </div>
       )}
@@ -683,7 +683,7 @@ const CodeBlockImpl = function CodeBlock({
           <div className={codeFrameClass}>
             {codeHeader}
             {/* G-827:横滚代码块的方向阴影线索。wrap 档无横向溢出,不套壳(避免无意义 DOM)。 */}
-            <div hidden={effectiveCollapsed}>
+            <div className={codeBodyClass} hidden={effectiveCollapsed}>
               <CodeOverflowShell wrap={!!wrap}>
                 <pre
                   ref={preRef}
@@ -705,7 +705,7 @@ const CodeBlockImpl = function CodeBlock({
 
   // 语法高亮失败时的降级渲染(头行在错误边界之外,降级只替换正文面板)
   const fallback = (
-    <div hidden={effectiveCollapsed}>
+    <div className={codeBodyClass} hidden={effectiveCollapsed}>
       <CodeOverflowShell wrap={!!wrap}>
         <pre
           ref={preRef}
@@ -726,7 +726,7 @@ const CodeBlockImpl = function CodeBlock({
         <div className={codeFrameClass}>
           {codeHeader}
           <CodeBlockErrorBoundary fallback={fallback}>
-            <div hidden={effectiveCollapsed}>
+            <div className={codeBodyClass} hidden={effectiveCollapsed}>
               <CodeOverflowShell wrap={!!wrap}>
                 <pre ref={preRef} className={preClassName}>
                   <SyntaxHighlighter

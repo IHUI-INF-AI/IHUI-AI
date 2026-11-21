@@ -148,7 +148,7 @@ export function FoldableSection({
         aria-expanded={open}
         aria-label={ariaLabel ?? title}
         data-section-header="true"
-        className="flex w-full items-center gap-1.5 py-1 text-left text-body font-medium text-muted-foreground/80 transition-colors hover:text-foreground/90 focus-visible:outline-none"
+        className="flex w-full items-center gap-1.5 py-1 text-left text-body-sm font-medium text-muted-foreground/80 transition-colors hover:text-foreground/90 focus-visible:outline-none"
       >
         <ChevronRight
           className={cn(
