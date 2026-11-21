@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **77 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **78 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（77 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（78 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -944,6 +944,27 @@
   ⑦器物头注点名真实调度器）；`node --check scripts/git-guardian.mjs` 通过；门 98 对 `git-guardian.mjs`
   的那一处悬空导入消失（余 4 处属另一席在飞的 worktree-age 测试，其删除已在其暂存面，不代裁）。
 - 边界：本项只补"这一跳装车"，三源各自读不到时仍由器物点名未判定；派发失败只 warn、下一轮重试。
+
+### 5.78 第 78 项：门自己抓到第 77 项的同族第二枚 —— IP 归属尺"头注写了巡检轮、代码面零引用"
+
+- 现场：第 77 项落地后立刻跑 `node scripts/check-guardian-dispatch-claims.mjs`，现读仍报
+  `❌ scripts/check-ip-attribution-trust.mjs:22 头注声称走 git-guardian 周期派发，但
+  scripts/git-guardian.mjs 代码面零引用「check-ip-attribution-trust.mjs」 ⇒ 登记了没人调度`。
+  该尺子判的是"`trustProxy` 表里一旦出现公网地址，admin 网络分段 / IP 信誉封禁 / 限流键就同时
+  退化成『填 127.0.0.1 即以内网身份通行』"——它守的正是"没人往信任表里加公网项"这个巧合，
+  而巧合消失的那一刻若没人按节拍看，盘面上不留痕迹。
+- 处置（照门给的出路做前一半、不改判据）：新增 `export async function sweepIpAttributionTrust`，
+  - 30 分钟节流（`IHUI_IP_TRUST_INTERVAL_MS` 可调），戳落 `ip-attribution-trust-sweep-last.json`；
+  - 尺子缺席 ⇒ `{ran:false, why:"尺子不在位"}` 且**不写戳**；
+  - 三态不并桶：ok 一行读数；breach 打印逐档点名 + 出路（§5e-2：出路是 agent 当场能做的
+    「先改 cf-connecting-ip 口径再保留本表项」⇒ 不寄信，出声在日志）；unjudged / 结论取不到
+    （尺子 `--json` 被写坏）一律记未判定，不记绿（§0.3）；
+  - 双挂点：`main()` 与 daemon tick 各一处（daemon 是计划任务档停用后的唯一执行体）。
+- 验证：新增接线锁 `scripts/tests/ip-attribution-trust-sweep.test.mjs` **3 passed**（①导出 + ≥2 挂点
+  / ②ok·breach·unjudged 分档 + 坏 JSON 算未判定 / ③节流 now·+60s·+31min + 尺子缺席不写戳）；
+  `node --check scripts/git-guardian.mjs` 通过；落地后重跑 `check-guardian-dispatch-claims` 该枚
+  从红项转为已接线（声称 14 / 已接线 11 / 诚实说明 3）。
+- 边界：本项只补调度，不替尺子改判据；breach 仍只出声不寄信（整改动作归 agent 当场做）。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
