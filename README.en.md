@@ -87,7 +87,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 工程守门 | 371 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
-| 跟踪文件 | 23151 | `trackedFiles` |
+| 跟踪文件 | 23152 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,45 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-21**
+- 🐞 Fix:侧边栏开发者组两枚 admin 管理页归位到管理域 (00ed724d70)
+- 🐞 Fix:AI 面板过程行去掉底色与描边,字号压到 13px (728358d835)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23151 (b4b96c0069)
+- 🐞 Fix:盘根卫生判红不再自己抛异常,内容维与 H3 kind 措辞补齐 (4c85889861)
+- 🐞 Fix:删掉 WIP 提交回捞的 F-519 死路由与其专属测试 (16e7b08309)
+- 🔧 Chore/Other:追认守夜人回补的未签名前身 c459d76e(内容与已推送 cab11e80 逐字相同) (d897e933b4)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23152 (f7983be795)
+- 🐞 Fix:存活哨兵不再把活着的 daemon 判死,并按腿节律判 stale (89834ed935)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23151 (cdb2e55d09)
+- 📚 Docs:第81项收尾 两处头注按现读改写 (cab11e8059)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23151 (a9f1e5c4e4)
+- 📚 Docs:第81项收尾 两处头注按现读改写 (c459d76e44)
+- 🐞 Fix:第81项 dev库口令轮换窗口巡检+双挂点+登记第19腿 (227a62ef86)
+- 🐞 Fix:第80项 新腿补进黑腿探测器登记表+戳名归族 (a86afc9c58)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23150 (9a8db2c83b)
+- 🐞 Fix:第79项 user_feedback单源入口派发器+双挂点 (7c2cd83d0a)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23149 (f7eb862856)
+- 🐞 Fix:第78项 IP归属可信度尺巡检轮+main/tick双挂点 (24c42126a0)
+- 🔧 Chore/Other:七件测试漂移跟上实现变更(SSO 基址 / sora2 停服 / 出图接通 / 注销取数形态 / 进程探测) (81147cd4b9)
+- 📚 Docs:生成块跟上 HEAD 面 trackedFiles 23148 (981812f365)
+- 🐞 Fix:第77项 补被契约声明的监控三源入库派发器+双挂点 (b1f5d4984b)
+- 🐞 Fix:图标同源守门——构建前校验 6 个 PNG + ico 每个尺寸层必须与源图同源派生;安装器收尾通知 shell 重建图标缓存 (079ab30a89)
+- 🐞 Fix:第76项 自愈腿搬进常驻 tick(ref-move-loss/gitee-backfill) (915a8c41c1)
+- 🐞 Fix:第75项 写手面与推送面不同时拒绝写入并报两面读数 (9d641a88c1)
+- 🔧 Chore/Other:七件测试漂移跟上实现变更(SSO 基址 / sora2 停服 / 出图接通 / 注销取数形态 / 进程探测) (e59b7e2632)
+- 🐞 Fix:第74项 守夜人不回补内容已被覆盖的改写前提交 (375fd9207e)
+- 📚 Docs:按 HEAD 面重算生成块数字(trackedFiles 23147 / testFiles 5952) (8fccfc24be)
+- 📚 Docs:按合并后 HEAD 面重算生成块数字(trackedFiles 23147 / testFiles 5952) (b980262432)
+- 🐞 Fix:第73项 cap 只买 warn 名额,blocking 不吃这名额 (d13f8d821b)
+- 🐞 Fix:第72项 复跑道数预算只压 warn,blocking 全跑 (70664a0a64)
+- 🔧 Chore/Other:救急保全本地未提交改动 —— license/hook审计、agent terminal、BUG29索引外键、relay-switch、i18n、desktop更新链与守护脚本 (341f2295b3)
+- 🐞 Fix:永久保活改用「刷新时钟」,忙号也照续(治主力号 rt 闲置到被上游回收) (4cf118dfb4)
+- 🐞 Fix:第71项 可发性探针与发号器同面(补远端/让位/结清三张面) (80c70a4983)
+- 🐞 Fix:钩子审计尺子改走统一取材层(HEAD blob) + AGENTS 门名点名补三枚 (7a490d402f)
+- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (94cb493b28)
+- 🚀 Feature/Improvement:号池通道补工具回路 —— 取 schema/带 tools/收 tool_calls/执行后文本回灌续跑; 顺带修 hr 工具判据的续做说法漏带与工具卡成败标注 (424b06d808)
+- 🐞 Fix:CORS_ORIGIN 模板补全 www/api/bsm 子域(漏列致预检被拒+WS 403,前端初始化卡死) (cce388a078)
+
 **2026-11-21**
 - 🐞 Fix:补 4 枚错误码五语言词包并修 zh-TW agentTerminal.cursor 繁简残留 (32e3cc8c0e)
 - 🐞 Fix:第69项 复跑预算 block 前置(blocking 门不许被 warn 挤出预算) (91894a2f5d)
@@ -444,38 +483,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - ⚡ Perf:push 面重门收进只读并行池 (145ff02a4a)
 - ⚡ Perf:pg-only 预筛提速 + 会话检索后端可观测 + 旧 schema 审计尺子 (7e35880fd5)
 - 🐞 Fix:ai-endpoints 派生件按 HEAD 面重钉 —— 输入 codex_plugin_license_audit.py 已删除致钉块陈旧 (fdc68fd0ca)
-
-**2026-11-20**
-- 🐞 Fix:root-guard 清单按并发演进后的 HEAD 面重封(guardian-runner/land-gate-rerun 两条差面) (85e3e10c11)
-- ⚡ Perf:push 面按推送改动面收窄 + 定向快通道多 app 循环变量重命名 (7017d9a74a)
-- 📚 Docs:README 与工程文档去掉"1h 自动撤销/5s 切换撤销"描述 —— 功能已退役,文档不得再宣称 (9c24b4bf63)
-- 📚 Docs:RP-7 外部投递正证已取得并修复 GitHub App webhook 401 回归 (0a198537ab)
-- 📚 Docs:生成块数字按 HEAD 面现算对齐(派生值) (e68506d290)
-- ⚡ Perf:typecheck 定向快通道放宽到多 app —— 一次 push 带多端改动时不再整批回全量(仍对 scripts/.husky/packages 契约/tsconfig/锁文件回全量);顺手删掉 HEAD 里零引用的 statSizeSafe (ec549b2e34)
-- 🐞 Fix:收口三条 CI 红 —— 动效 !important 走门自带行内豁免 / 契约补 manual 端点 / knip 取消内部符号 export (750510c97a)
-- 🔧 Chore/Other:结清 5 票(agent 侧已实现完成,完成即删) RP-6 混合陈旧底稿拦闸: R1s 判据已上线(check-stale-revert.mjs analyzeMixedStale + lib/intentional-deletions),mixed 测试 11/11 + 反向变异 A/B 同输入一红一绿,差值棘轮拦新增不误伤存量 RP-79 x2 (F4 同题双行同摘): union-converge 未知旗闸已接线,旗标清单单一真相源(lib/union-converge-flags.mjs)+USAGE 形状锁+转发面全覆盖,arg-guard 13/13 绿,--help 零副作用 RP-80 门320 基线盲区: plan-claims-baseline missing=[] 逐条裁决已清空 + guardian 注册块在 HEAD + 门现读 rc=0/存量 0/新增 0 + self-test/镜像测试绿 Y-14 安卓更新卡: 线上实测 GET /api/app-version/latest?platform=android 返回 status=latest 行(0.0.31/build 26111811/downloadUrl 有效),票面症状已消解 外部阻塞票(Y-58 需生产机执行权+Play Console / RP-7 需 gh 授权 / 其余机主凭据面)不摘,如实保留 (0ee78390ce)
-- 🐞 Fix:减动画 !important 四处补行内豁免理由(style-spec 的 no-important 门) (628593563d)
-- 🔧 Chore/Other:test(cli)+fix(cli): CI gate-test(6) 残余红的跨平台收口 (864cbf63bc)
-- 🔧 Chore/Other:清掉"自动撤销"功能撤除后残留的代码与测试锚点(object-space-land 落地) (9b573b0bad)
-- 🔧 Chore/Other:三份 IHUI-GEN-PIN 派生件按当前源头重生成 —— reading-trust 的 D/C 面红收口 (b954e71dbb)
-- 🐞 Fix:把 gate-test / lint / mypy / miniapp 五条红逐条修到根因(时区夹具 + POSIX 路径逃逸 + 平台守卫 + 双 React 口径) (a1ff65b0ec)
-- 📚 Docs:生成块 dbTables 653→654 / apiRoutes 4856→4857 / testFiles 5917→5919 / trackedFiles 23024→23026(按 HEAD 面现算;数字块是派生值,不是手写行) (68ba3f6edd)
-- 🔧 Chore/Other:并入本地已完成的 11 枚提交(web 快捷键面板退役/relay 成本价同步/round11 归档/i18n 死键重删) (4f5611d77f)
-- 📚 Docs:dbTables 653->654 对齐现算(合并引入新表) (76d00f09fc)
-- 🔧 Chore/Other:重删 16 个"自动撤销"死键 —— 本轮合并为避开合面防丢闸暂时取了远端旧词包,按 83725d7ac86 的结论重新落回(代码零引用,五语言同批) (36f428d1e8)
-- 🐞 Fix:摘掉 PROJECT_PLAN 里一行孤立 ======= 冲突残留 —— 它把⑪节切成两段,门12才把"已闭环"与"未实现"读成同段互斥 (4caa6c3726)
-- 🐞 Fix:ACP 四个「有实现无注册」的方法接线 + ruff 未用导入清零 (0a33050794)
-- 📚 Docs:生成块计数对齐合并后现算(trackedFiles 23027->23026 / apiRouteFiles 715->714) (df01f54b94)
-- 🔧 Chore/Other:删掉 historySource.auto-revert 标签(来源枚举已收窄到 4 档) (f1bf787710)
-- 🐞 Fix:收窄聊天输入框顶部拖拽手柄高度 h-2(8px) → h-1.5(6px) (8fb3751248)
-- 🔧 Chore/Other:棘轮判定面升级为「逐符号清单」—— 只拦新增,存量不再恒红 (3a46a520e6)
-- 🔧 Chore/Other:清掉 15 个"自动撤销"死键(chat.permission 内,代码零引用) — 1h 倒计时/5s 撤销/快捷键旧说明全部退役,五语言同批 (83725d7ac8)
-- 🚀 Feature/Improvement:relay 模型成本价同步（后端自动更新+按 key 去重） (f38186c74c)
-- 📚 Docs:补 R11–R133 编号账 —— 缺号是产物形态不是缺件,五状态逐号可复核 (bab64c621b)
-- 🐞 Fix:修 gate-test 分片里 web 侧两条实现回退 —— 交付面板文件行失效 + 被动失效没清私有态 (75bee19bdd)
-- 🔧 Chore/Other:死代码棘轮 files 维逐族归因 —— 58 件落档,删 2 件真残留 (93bd931604)
-- 🚀 Feature/Improvement:快捷键说明面板去掉"Undo 5s"行(撤销入口已退役,不再教一个不存在的动作) (e546b5f396)
-- 🐞 Fix:收回 3 条无人调用的远端授权 + workbuddy 号池重登按 F-060 降 none (0988c55542)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
