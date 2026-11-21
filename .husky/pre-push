@@ -205,7 +205,7 @@ if [ "$_art_undetermined" -eq 1 ]; then
 fi
 
 # >>> push-receipt-gate (begin) ─────────────────────────────────────────────
-# 提交侧 worker 已对「完整 HEAD 树」跑完 13 门 + 文档数字门 + i18n 审计并签发签名凭据时,
+# 提交侧 worker 已对「完整 HEAD 树」跑完 13 门 + i18n 审计并签发签名凭据时,
 # 推送侧只做内容寻址校验(tree/commit/远端基线/门脚本 blob/签名)即可放行。
 # fail-closed:凭据缺失、树不符、缺一门、签名坏、门脚本被改、过期 ⇒ 一律不 exit 0,
 # 继续走下方**原样保留**的真跑门路径。此处绝不伪造通过。
@@ -435,12 +435,11 @@ EOF
   export PUSH_NO_FILE_FACE PUSH_NO_FILE_FACE_BASIS
 
   # ─── 尾部三段**先起飞**(2026-11-20 提速)───────────────────────────────
-  # 哨兵 / 文档数字门 / i18n 死键三者与 push 门批次互相独立(谁都不读对方的结论),原先却排在
+  # 哨兵 / i18n 死键两者与 push 门批次互相独立(谁都不读对方的结论),原先却排在
   # 门批次**之后**串行跑,实测固定成本约 16s;门批次本身已并行到 20s 上下 ⇒ 两段只能相加。
   # 现改为在跑 push 门**之前**就后台起飞,门批次收口后再按原次序 wait + 回放 tail。
   # 阈值/退出码/拦截文案一字未改;任何一段判红仍在其回放段内 exit 1(i18n 仍恒非阻塞)。
   _sent_job=''
-  _doc_job=''
   if [ "${HUSKY_SKIP_STALE_BASELINE_SENTINEL:-0}" = "1" ]; then
     printf '%s\n' "ℹ️  旧底稿哨兵已按 HUSKY_SKIP_STALE_BASELINE_SENTINEL=1 跳过" >&2
   else
@@ -448,25 +447,9 @@ EOF
     _sent_job=$!
   fi
 
-  # 文档数字对账(DN2 head 面全量,2026-11-05 挂 pre-push):提交链只判"本轮触及 README 的那枚"
-  # (DN4 防恒红)⇒"只加测试不碰 README"会让正文静默过期;语义 = 不许把带过期正文的树推上去,
-  # 判据复用门 173,一行未改。
-  if [ "${PUSH_NO_FILE_FACE:-0}" = "1" ]; then
-    printf '%s\n' "ℹ️  零文件推送(已逐条证成)⇒ 不跑文档数字门:${PUSH_NO_FILE_FACE_BASIS}" >&2
-  else
-    # 判据面冻结(2026-11-18):钩子全程数分钟,这期间别的会话仍在推进 main ⇒ 门读活的 `HEAD`
-    # 就会"同一棵树前后算出不同现算值"⇒ 数字门恒红(与本次推送无关的红,§0.2 恒红门禁令)。
-    # 这里把**本次推送的 local sha** 冻进 IHUI_DOC_HEAD_REF,门的 face/基线/清单全部按它取数;
-    # 取不到就保持原行为(仍按 HEAD 判),绝不静默换成别的面。
-    _doc_head="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $3=="refs/heads/main"{print $2; exit}')"
-    if [ -n "$_doc_head" ]; then
-      export IHUI_DOC_HEAD_REF="$_doc_head"
-      printf '%s\n' "ℹ️  数字门判据面已冻结为本枚推送的 local sha: ${_doc_head}" >&2
-    fi
-    printf '\n%s\n' "🔍 文档数字对账(DN2 head 面全量:正文/生成块必须等于现算值)..." >&2
-    wscript //nologo scripts/hook-run-hidden.vbs pre-push-doc-numbers scripts/check-doc-numbers.mjs --strict --push &
-    _doc_job=$!
-  fi
+  # 文档数字对账门(173)已于 2026-11-21 退役(数字滞后改人工定期刷新),
+  # 这里**整段摘除**其起飞与收口 —— 钩子命令行还引用一个 HEAD 面已不存在的脚本 ⇒ 每次触发都会
+  # "找不到文件",链子等于没接(§0.8 不许写跑不通的出路;门 H2 现读就是因此判红)。
 
   # i18n 死 key 审计警告(2026-07-26 集成,非阻塞):扫描 zh-CN.json 中已声明但代码无
   # t()/useTranslations() 引用的死 key,仅打印末尾 3 行摘要,不阻塞 push(对应 CI 阻塞).
@@ -523,16 +506,7 @@ if [ -n "$_sent_job" ]; then
   fi
 fi
 
-# 收②:文档数字对账(硬拦)
-if [ -n "$_doc_job" ]; then
-  wait "$_doc_job"
-  if [ $? -ne 0 ]; then
-    tail -30 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
-    printf '%s\n' "❌ 文档数字对账失败,推送已阻止(修 README 正文/块后重推;日志: .ihui-agent/state/hook-logs/pre-push-doc-numbers.log)" >&2
-    exit 1
-  fi
-  tail -3 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
-fi
+# 收②:文档数字对账门已退役(2026-11-21,脚本已不在 HEAD 面)⇒ 该收口段一并摘除
 
 # 收③:i18n 死 key 审计(非阻塞 —— 原语义 || true,这里 wait 掉但忽略状态)
 wait "$_i18n_job" 2>/dev/null || true

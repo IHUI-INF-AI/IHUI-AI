@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **89 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **90 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（89 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（90 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1307,6 +1307,41 @@
   四条逐条点名 `← [对侧处置权已行使(基底有、对侧已删)] metaGates.check-doc-numbers.mjs` 等。
 - 边界：本项只补**基底可证**的那一半（`base` 已由 `union-converge.mjs` 端进来，`git-sync-converge`
   也已在用这条路径）；没有新增"任意删除都放行"的档，也没有引入第二份台账。
+
+### 5.90 第 90 项：一道门退役了，钩子还在调它 —— 退役只撤了脚本/登记，没撤执行链；顺带把 H3 的「没接上」判据补成真判
+
+- 现场（一手，两条当场现读的红/未判定）：
+  1. `node scripts/check-husky-hook-form.mjs` 现读 **exit 1**：
+     `❌ [H2] .husky/pre-push — 薄壳引用的「scripts/check-doc-numbers.mjs」在判定面上不存在 ⇒
+     每次触发都只会报"找不到文件",链子等于没接`。远端并发会话 `84572f3af0` 退役了门 173
+     （删脚本、删 `package.json` 脚本、删两份 `scripts/data` 登记），**唯独没有摘 `.husky/pre-push`
+     里那三处命令行引用**（起飞段 `wscript … scripts/check-doc-numbers.mjs --strict --push`、
+     `_doc_job=''`、收口段 `wait "$_doc_job"` 与拦截文案）。
+     本机之所以"还能推"，是因为被删的脚本仍躺在工作区（`git cat-file -e HEAD:…` 现读
+     `exists on disk, but not in 'HEAD'`）—— 任何干净检出/CI 上这条钩子第一次触发就只会报找不到文件。
+  2. 同一份镜像测试现读 `M8 H3 装载位 — 未设置时未回落到 .git/hooks`：本门声明的规则一直是
+     「未设置按 `.git/hooks` 判」，实现却在 `core.hooksPath` 未设置且 `.husky/_` 不存在时**整片**
+     判未判定 ⇒ 一台真把钩子放在默认位、且 `pre-commit` 缺失的机器，永远照不到这盏灯。
+- 处置：
+  - `.husky/pre-push`：起飞段 / `_doc_job` 初始化 / 收口段**整段摘除**，注释改为「173 已退役，
+    钩子命令行不许再引用 HEAD 面不存在的脚本（§0.8）」；顺带把两处仍把"文档数字门"算进尾段
+    起飞的注释改正。
+  - `scripts/data/gate-channel-registry.json`：`metaGates` 里那枚 `check-doc-numbers.mjs` 摘掉
+    （登记表里留一枚已经不存在的门，等于让后手以为 173 还活着）。
+  - `scripts/check-husky-hook-form.mjs` 的 `judgeHooksInstall`：`core.hooksPath` 未设置时**先看
+    `.git/hooks` 有没有 `pre-commit`/`post-commit`** —— 有 ⇒ 按默认位照判（缺件照样红）；
+    两处都没有才算"没装"⇒ 未判定（不记绿）。声明与实现自此同一条。
+  - `scripts/tests/check-husky-hook-form.test.mjs` 的 M8 增反向牙：`.husky/_` 与 `.git/hooks`
+    两处都没有真钩子 ⇒ 必须落 `undetermined` 而不是判红（否则干净检出的 CI 恒红，§12e）。
+- 验证：`node --test scripts/tests/check-husky-hook-form.test.mjs` 落地前现读 **9/10**（唯一红是 M7，
+  它按 HEAD 面判钩子文本 —— 修复落地后转绿）；**落地后复跑现读 10/10**，
+  `node scripts/check-husky-hook-form.mjs` 现读 **exit 0**：`8 枚钩子全部 sh 薄壳、且薄壳引用的
+  包装/正文在同面在位`；`bash -n .husky/pre-push` 现读 clean；
+  `scripts/data/gate-channel-registry.json` 现读 `JSON.parse` 通过；
+  `node scripts/check-hook-chain-refs.mjs --strict` 现读 0 红（钩子 spawn 入口仍在）；
+  `root-guard --check` 现读 `verdict=pass`。
+- 边界：退役动作本身是别席的，本项只补"退役收口"这一跳，不改 173 的历史，也不把数字对账
+  能力搬回来；H3 的放宽只落在"两处都没装"那一格，其余一律照判。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
