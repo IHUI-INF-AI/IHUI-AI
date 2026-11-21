@@ -9,8 +9,13 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'benchmarks/**/*.test.ts'],
     environment: 'node',
     globals: false,
-    testTimeout: 15_000,
-    hookTimeout: 15_000,
+    // 15s → 60s(2026-11-21)。本包大量用例串行跑**真 git**(临时仓 init/commit/merge-base/
+    // diff-tree)与真文件系统/真浏览器拉起:本机 20 线程在 turbo 多包并行下 import+transform
+    // 累计上千秒,15s 预算被反复打穿(plugin-update-plan 的 ①/②a/②b/⑤a/⑤c,git-scope-commit
+    // 的 rename 回归,均在三次全局重试后仍红),而单跑同一批文件全绿。超时是资源预算不是断言
+    // 强度 ⇒ 断言一条未改,只把预算抬到"重负载真 I/O 也跑得完"的量。
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     retry: 2,
     // locale 钉档:cli/src/i18n 的 activeLocale 在模块加载时按
     // `IHUI_LOCALE > LC_ALL > LC_MESSAGES > LANG > Intl` 解析;CI Linux runner 的
