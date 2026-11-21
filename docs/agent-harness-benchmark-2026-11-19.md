@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **95 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **96 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（95 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（96 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1517,6 +1517,36 @@
   两维保持原样（不在本项射程）。
 - 边界：本项只动"声明面"，不动盘上任何文件；`quarantine-disk-root-strays.mjs` 的
   `PROJECT_NAME_RES` 仍认不出中文产品名（对已申报件无影响，属另一条影子尺子的口径差，未在本项改）。
+
+### 5.96 第 96 项：一次「救急保全」把已交付的功能覆盖回旧壳 —— HEAD 上 mypy 红，而实现其实还躺在历史里
+
+- 现场（一手）：`node scripts/check-mypy.mjs`（HEAD 面物化后判定）现读
+  `app\routers\agents.py:1422: error: Module "app.core.hook_audit" has no attribute
+  "summarize_hook_audit"  [attr-defined]`，`Found 1 error in 1 file (checked 1014 source files)`。
+  这是 push 门里唯一一条真红，且它与本席改动无关（属另一条会话的功能链）。
+- 根因（可追责的事实，不是猜测）：钩子审计摘要这条链是分五项落地的
+  （第 41 项 `summarize_hook_audit` → 第 44 项 truncated/linesRead → 第 45 项 backupBytes →
+  第 49 项 sizeBytes/maxBytes，web 侧 `HookAuditStats` 同步收下）。随后一枚
+  `chore(wip): 救急保全本地未提交改动` 提交把**旧壳版本**的
+  `apps/ai-service/app/core/hook_audit.py` 与 `apps/web/src/hooks/use-hook-audit-summary.ts`
+  盖了回去（`git log -S 'def summarize_hook_audit'` 现读：实现在 `79db7d46c3` 之后就再没出现过，
+  pickaxe 在 341f2295 那枚只记到"新增/消失"的翻转）。
+  于是路由器仍引用 `summarize_hook_audit`、web 仍 import `HookAuditStats`，而两侧实现都不在
+  ⇒ 契约在、调用在、实现断了一整跳（§0.3 那型的镜像）。
+- 处置（**从历史恢复，不重写**）：以 `git checkout 79db7d46c3 -- <path>` 逐字节取回三枚
+  竖向文件（`app/core/hook_audit.py`、`tests/test_hook_audit.py`、`use-hook-audit-summary.ts`）；
+  **不动**工作树里另一席正在改的 `hook-readout.tsx` 与其测试（它们已是 `MM` 状态，
+  按 §12「不覆盖别人的在飞现场」保留其 WIP，恢复后的类型面正好与它们对齐）。
+- 验证（现读）：
+  `node scripts/check-mypy.mjs --worktree` ⇒ ✅ 0 errors（9.3s；恢复前同面 2 条 attr-defined）；
+  `pnpm check:pytest -- tests/test_hook_audit.py` ⇒ collect 15 / run **15 passed, 0 failed**，
+  `RESULT verdict=GREEN`；
+  `pnpm exec vitest run src/hooks/use-hook-audit-summary.test.ts src/components/ai/__tests__/hook-readout.test.tsx`
+  ⇒ **2 files / 18 tests passed**；
+  `pnpm turbo typecheck --filter=@ihui/web` ⇒ **8 tasks successful**(cache 7 + 1 miss)；
+  三枚文件 watermark verify 3/3 完整（历史版自带水印，未重注入）。
+- 边界：本项只恢复被判据引用的三枚实现/测试件；`341f2295` 那枚"救急保全"提交本身**不重写、不回滚**
+  （它可能同时保全了别的东西）；`hook-run` 台账的既有限制（只存当前 + 一份 `.1` 备份）不变。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
