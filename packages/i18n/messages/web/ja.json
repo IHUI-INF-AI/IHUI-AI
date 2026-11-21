@@ -10421,10 +10421,25 @@
     "shareCopied": "リンクをコピーしました",
     "templates": "テンプレート",
     "terminalDock": {
+      "backToIde": "IDE ターミナルに戻る",
+      "showAgentFace": "モデルのターミナル画面を見る",
       "collapse": "折りたたむ",
       "newSession": "新規ターミナル",
       "resize": "高さ調整",
       "title": "PowerShell ターミナル"
+    },
+    "agentTerminal": {
+      "altScreen": "全画面",
+      "cursor": "カーソル",
+      "empty": "このセッションにはまだ agent のターミナルがありません(モデルが terminal ツールで開くとここに表示されます)",
+      "exited": "終了済み",
+      "failed": "画面を取得できません",
+      "links": "ハイパーリンク(表示テキストと実際のリンク先を並記、どちらもクリック不可)",
+      "noIntegration": "shell 統合が未有効(プロンプト待ちかどうかを判定できません)",
+      "noSession": "ai-service のセッション id がまだありません(先にメッセージを送信してください)",
+      "refresh": "今すぐ更新",
+      "running": "実行中",
+      "title": "モデルのターミナル画面"
     },
     "thisMonth": "今月",
     "earlier": "それ以前",

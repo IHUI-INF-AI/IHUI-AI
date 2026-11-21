@@ -10421,10 +10421,25 @@
     "shareCopied": "链接已复制",
     "templates": "任务模板",
     "terminalDock": {
+      "backToIde": "切回 IDE 终端",
+      "showAgentFace": "查看模型终端屏面",
       "collapse": "收起",
       "newSession": "新建终端",
       "resize": "调整高度",
       "title": "PowerShell 终端"
+    },
+    "agentTerminal": {
+      "altScreen": "全屏",
+      "cursor": "光标",
+      "empty": "本会话还没有 agent 终端(模型用 terminal 工具开会话后出现在这里)",
+      "exited": "已退出",
+      "failed": "屏面取不到",
+      "links": "超链接(显示文字与真实目标并列,均不可点击)",
+      "noIntegration": "未启用 shell 集成(无法判断是否在提示符)",
+      "noSession": "还没有 ai-service 会话 id(先发一条消息)",
+      "refresh": "立即刷新",
+      "running": "运行中",
+      "title": "模型终端屏面"
     },
     "thisMonth": "本月",
     "earlier": "更早",
