@@ -141,7 +141,9 @@ beforeAll(async () => {
   const { mobileChatRoutes } = await import('../src/routes/mobile-chat-routes.js')
   await app.register(mobileChatRoutes, { prefix: '/api' })
   await app.ready()
-})
+  // 本钩子要动态 import 整条 mobile-chat 路由图再 app.ready():本机重负载(全量档 transform/import
+  // 累计上千秒)下实测 15s 打穿,hookTimeout 是资源预算不是契约 ⇒ 预算 60s,用例与断言零改动。
+}, 60_000)
 
 afterAll(async () => {
   await app.close()
