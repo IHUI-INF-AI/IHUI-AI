@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **75 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **76 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（75 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（76 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -903,6 +903,23 @@
   `ℹ 取数面=head(显式 --for-push,推送面)` + `✅ …无变化(取数面=head;trackedFiles=23147 testFiles=5952)`；`node --check` 通过。
 - 代价边界：门 173（判索引面）与 DN2（判 HEAD 面）在"索引≠HEAD"的窗口里仍会各报各的——本项不假装能同时满足两面，
   只把"两面不同"从沉默变成一句带两枚读数的事实；真正的单面收敛属判据面口径变更，需另立条目拍板。
+
+### 5.76 第 76 项：两条自愈腿只挂在一次性 `main()`，常驻 daemon 每趟让路 ⇒ 结构上跑不到（A9 判 drift）
+
+- 现场（A9-carrier-parity 现读，逐字）：`main 区 103 条 / daemon 常驻区 100 条 ⇒ 2 条只在一次性 main 里
+  (sweepGiteeAssetBackfill, sweepRefMoveLoss)`。而 `IHUI-GIT-GUARD` 服务从启动起一直持有轮级锁，
+  `main()`（2 分钟计划任务）每趟都静默让路 ⇒ 这两条腿"登记了、注册了、却永远轮不到"。
+  第 74/75 项修的正是 `sweepRefMoveLoss` 派发的那条判据：它自己已经改对了，但**派发面没搬进常驻 tick**，
+  等于修好的判据没人按 5 分钟节拍叫它（现读它还能活，是另一枚计划任务刚好在跑，属偶然）。
+- 处置（零行为变更的搬入，不新造节流）：`startDaemon` 的 tick 在 `sweepStaleClosedRows()` 之后补两行：
+  - `sweepRefMoveLoss()` —— 自带 5 分钟节流戳 `ref-move-watch-last.json`；
+  - `sweepGiteeAssetBackfill()` —— 自带 30 分钟节流戳 `gitee-backfill-tick.json`，器物缺位只报一行不下结论。
+  两条腿的节流都是**它们自己那份**（不是本层另抄一份），与 `main()` 并存时双执行体只先到者真跑；
+  派发失败只 warn、下一轮重试（失效方向 = 多跑一次，不是跳门）。
+- 验证：`node --check scripts/git-guardian.mjs` 通过；落地后 `check-autonomy-leg-health` 的 A9 由
+  `DRIFT(main 区 103 / daemon 100)` 转为 `OK(两区齐平)`，A9 的点名清单里不再出现这两条腿；
+  `check-sweeper-liveness` 仍 `state=live stalled=0 undetermined=0`。
+- 边界：A9 判的是**载体面齐平**，不判腿的业务结论；本项只保证"会被叫到"，这两条腿判对判错仍归它们各自的器物。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

@@ -15710,6 +15710,14 @@ function startDaemon(bootGuard = null) {
         sweepRnStyleTiers()
         sweepStaleClaimMarks()
         sweepStaleClosedRows()
+        // 第 76 项(2026-11-21,A9-carrier-parity 现读 drift 点名):这两条自愈腿此前只挂在一次性
+        // main() 里,而 daemon 从启动起一直持有轮级锁 ⇒ main() 每趟静默让路,两条腿**结构上跑不到**。
+        // 二者各自带节流戳,搬入常驻面零行为变更:
+        //   · sweepRefMoveLoss:5 分钟(ref-move-watch-last.json),派发器本身不自算判据;
+        //   · sweepGiteeAssetBackfill:30 分钟(gitee-backfill-tick.json),器物缺位只报一行不下结论。
+        // 与 main() 并存时双执行体只先到者真跑 —— 节流戳是两条腿自己的,不是本层另造一份。
+        sweepRefMoveLoss()
+        sweepGiteeAssetBackfill()
         // 2026-11-18 立:dev api 活体体检(5 分钟节流,器物 scripts/check-api-liveness.mjs)。
         // 只认器物自己打的 API-LIVENESS 结论行;未判定(rc=2)不记绿,器物的重启护栏全在器物内。
         sweepApiLiveness()
