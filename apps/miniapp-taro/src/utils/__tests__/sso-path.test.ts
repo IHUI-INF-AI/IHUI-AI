@@ -53,8 +53,8 @@ describe('miniapp-taro SSO 路径修复', () => {
     expect(url).toContain('/api/auth/sso/exchange')
     // 必须不含 /api/api/(双前缀)
     expect(url).not.toContain('/api/api/')
-    // 完整 URL 应为 https://api.aizhs.top/api/auth/sso/exchange
-    expect(url).toBe('https://api.aizhs.top/api/auth/sso/exchange')
+    // 完整 URL 应为 https://www.aizhs.top/api/auth/sso/exchange
+    expect(url).toBe('https://www.aizhs.top/api/auth/sso/exchange')
   })
 
   it('validateToken 请求 URL 不含双 /api 前缀', async () => {
@@ -64,7 +64,7 @@ describe('miniapp-taro SSO 路径修复', () => {
     const url = fetchCalls[0]!.url
     expect(url).toContain('/api/auth/sso/validate')
     expect(url).not.toContain('/api/api/')
-    expect(url).toBe('https://api.aizhs.top/api/auth/sso/validate')
+    expect(url).toBe('https://www.aizhs.top/api/auth/sso/validate')
   })
 
   it('ssoLogout 请求 URL 不含双 /api 前缀', async () => {
@@ -74,7 +74,7 @@ describe('miniapp-taro SSO 路径修复', () => {
     const url = fetchCalls[0]!.url
     expect(url).toContain('/api/auth/sso/logout')
     expect(url).not.toContain('/api/api/')
-    expect(url).toBe('https://api.aizhs.top/api/auth/sso/logout')
+    expect(url).toBe('https://www.aizhs.top/api/auth/sso/logout')
   })
 
   it('exchangeSsoCode 请求体含 code + clientId', async () => {
@@ -110,8 +110,9 @@ describe('miniapp-taro SSO 路径回归防护', () => {
     await Promise.all([exchangeSsoCode('c'), validateToken('t'), ssoLogout('t')])
     expect(fetchCalls).toHaveLength(3)
     for (const call of fetchCalls) {
+      // 基址自 b03a443ed5 起走 EdgeOne 承载的 www 臂(REST/SSE 同臂,仅 WS 钉 api 子域)
       expect(call.url).toMatch(
-        /^https:\/\/api\.aizhs\.top\/api\/auth\/sso\/(exchange|validate|logout)$/,
+        /^https:\/\/www\.aizhs\.top\/api\/auth\/sso\/(exchange|validate|logout)$/,
       )
     }
   })

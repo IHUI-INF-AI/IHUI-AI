@@ -11,7 +11,8 @@
     "build": "node ../../scripts/desktop-build.mjs",
     "tauri": "tauri",
     "build:debug": "node ../../scripts/desktop-build.mjs --debug",
-    "icons:regen": "node scripts/make-rounded-icon.mjs && tauri icon src-tauri/icons/source-rounded.png",
+    "icons:regen": "node scripts/make-rounded-icon.mjs && tauri icon src-tauri/icons/source-rounded.png && node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
+    "icons:check": "node ../../scripts/check-desktop-icons.mjs --icons-dir=src-tauri/icons",
     "clean": "rimraf dist node_modules .turbo src-tauri/target"
   },
   "devDependencies": {
