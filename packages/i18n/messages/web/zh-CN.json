@@ -9819,8 +9819,24 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "并行子代理数超限",
           "action": "等待运行中的子代理结束后重试"
-        }
-      },
+        },
+          "INVALID_ARGUMENTS": {
+            "title": "文件清单格式不对",
+            "action": "按 {path, description} 的数组重新提交"
+          },
+          "INVALID_PATH": {
+            "title": "文件路径不合法",
+            "action": "改为真实存在、不含控制字符的路径"
+          },
+          "TOO_MANY_FILES": {
+            "title": "一次登记的交付文件太多",
+            "action": "只挑最终交付物，最多 8 个"
+          },
+          "TOOL_AUTO_REVIEW_DENIED": {
+            "title": "自动审查拒绝了这次执行",
+            "action": "调整审查规则或改用被允许的编辑方式"
+          }
+        },
       "worktree": {
         "title": "Worktree",
         "state": {

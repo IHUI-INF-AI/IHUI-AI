@@ -9819,8 +9819,24 @@
         "SUBAGENT_RUNNING_LIMIT": {
           "title": "Too many running sub-agents",
           "action": "Wait for running sub-agents to finish and retry"
-        }
-      },
+        },
+          "INVALID_ARGUMENTS": {
+            "title": "Invalid file list",
+            "action": "Resubmit as an array of { path, description }"
+          },
+          "INVALID_PATH": {
+            "title": "Invalid file path",
+            "action": "Use a real path without control characters"
+          },
+          "TOO_MANY_FILES": {
+            "title": "Too many files at once",
+            "action": "Pick only the final deliverables (max 8)"
+          },
+          "TOOL_AUTO_REVIEW_DENIED": {
+            "title": "Auto-review denied this call",
+            "action": "Adjust the review rules or use an allowed edit path"
+          }
+        },
       "worktree": {
         "title": "Worktree",
         "state": {
