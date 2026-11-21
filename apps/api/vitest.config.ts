@@ -38,9 +38,13 @@ export default defineConfig({
     // 合计 16 < 20 逻辑核,不再把对方挤到超时。
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    // 2026-11-22 A/B:8 worker 单包实测 850s;提到 12(=物理核数)观察是否进一步压缩,
-    // 若单包不再更快或出现争核超时,回退 8(全仓关键路径由 api 这一包决定)。
-    maxWorkers: 12,
+    // 2026-11-22 A/B(全量 1870 文件 / 20203 用例,同一台 12C/20T):
+    //   8 worker  : 850s ≈ 14.2min  ✅
+    //   12 worker : 453s ≈ 7.6min   ✅ (首轮出现过 1 个文件级 teardown EBUSY,已在用例侧兜底)
+    //   16 worker : 331s ≈ 5.5min   ✅  ← 定稿
+    // import 段是最大头(16 worker 累加 3556s),它吃的是模块图重建 + 磁盘/CPU 混合等待,
+    // 所以在物理核上超订才有收益;再往上把核挤干会退回"争核超时"那一族。
+    maxWorkers: 16,
     // mock 测试不连真实 DB,可并行跑(真实 DB 测试在 vitest.real.config.ts 中串行)
     fileParallelism: true,
     // 全局重试 2 次:容忍 admin-missing-routes.test.ts 等套件在全量并发时偶发的资源争抢失败
