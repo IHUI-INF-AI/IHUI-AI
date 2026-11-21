@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **98 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **99 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（98 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（99 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1588,6 +1588,34 @@
   随后在 `PAIRS` 登记这一对并写明原因 ⇒ E1 枚举闭合、S2 不再过期、T4 不再漏判。
 - 验证（现读）：`check-prod-bundle-shadow.mjs` exit **0**、`✅ deploy/prod-bundle/deploy.sh == deploy/scripts/prod-bundle/deploy.sh(逐字节,19557 字节)`、
   `ℹ E1 枚举闭合：23 个脚本类运行副本全部在登记表上`；`node --test scripts/tests/check-prod-bundle-shadow.test.mjs` **11/11**（此前 10/11）。
+
+### 5.99 第 99 项：三台服务的"红"其实都是机器现场坏了 —— 判据没坏，现场坏了
+
+`node scripts/check-service-binary-paths.mjs` 现读 exit 1。逐台取证的结论是**判据全对、现场全坏**，
+处置按 §5e-2（删除类/机器类动作由 agent 自己查自己做，不推回用户）当场修完：
+
+- **ihui-promtail（PAUSED）**：`--config.file` 手动起真实二进制 ⇒ 立刻退出并报
+  `invalid yaml positions file [D:\DevEnv\monitor\promtail\positions.yaml]: yaml: control characters are not allowed`。
+  开箱取证：`positions.yaml` **1706 字节全是 NUL**（文件级损坏，不是 YAML 语法问题）。
+  nssm `AppExit=Restart` 在反复启动失败后进入节流 ⇒ 服务停在 PAUSED（这正是阈值表里"PAUSED 不是停着"那条的由来）。
+  处置：停服 → 把损坏件**改名隔离**（`positions.yaml.corrupt-20261121-214309`，留证据不删）→ 起服。
+  promtail 自建出合法 `positions: {}`（14B），`/metrics` 200、服务 RUNNING、`WIN32_EXIT_CODE=0`。
+  代价如实记录：positions 丢了 ⇒ 活日志头一次会从头重读（Loki 侧可能重复一小段；Loki 当前 `/ready` 503，重复面也随之推迟）。
+- **IHUI-IMAGE-CDN（stale 1595 分钟）**：进程 2026-11-18 15:09 启动，而它加载的
+  `deploy/cdn-server.js` 2026-11-19 17:44 才被改写 ⇒ 线上跑的是旧代码。处置：停服→起服，服务 RUNNING，
+  新鲜度分桶 `stale 0`；`GET /` 回 404 属该服务无 index 路由的设计，探针维仍判"应答"。
+- **IHUI-TMP-CHROME（路径全丢）**：`C:\Users\Administrator\.agent-browser\browsers\chrome-156.0.8078.73\chrome.exe`
+  与 `D:\tmp\cdp` 双双不存在（整棵浏览器缓存目录已不在）。仓库侧对它零建服源、零使用点，
+  台账也写明"由上游 agent 工具按需拉起/释放"。处置：**不删服务注册**（删了会让名册面多一条"缺"），
+  改指向本机现存的 Chrome（`%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe`）并补建 `D:\tmp\cdp\profile`；
+  `nssm get Application/AppDirectory` 现读已改指成功（服务 Manual、仍停着，不影响任何流量）。
+- **顺带把仓内基准件对齐现读**：`scripts/data/service-definitions.json` 是"这台机本来该跑什么"的入库快照，
+  头注明写"不得手改单条、无自动生成器 ⇒ 先 `check-service-inventory --snapshot` 取现读再按同形逐条映射"。
+  按其自述走完整重建（28 枚名册逐一校验同集），差异**只有** IHUI-TMP-CHROME 一枚（正是本项改的那台），
+  `generatedAt` 刷新到现读时刻。
+
+验证现读：`check-service-binary-paths.mjs` exit **0**；`仓内基准：列出 28 / 本机在册 28 / 缺 0、Application 差异 0、基准路径存在性不符 0`；
+`运行时代码新鲜度：fresh 13 / stale 0 / 断链 0`；`STATE 分桶：running 23 / stopped 5 / paused 0 / pending 0`。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
