@@ -396,3 +396,60 @@ test('封口器形状锁:必须 import 共用层,且不得再自带一份走树�
   const gateAt = src.indexOf('firstContentMismatch(')
   assert.ok(gateAt > 0 && rmAt > 0 && gateAt < rmAt, '内容闸排在删源之后 = 没有闸')
 })
+
+// 第 85 项(2026-11-21):「读不到」曾被当成「不存在」。
+// 现场:守护每 ~30 分钟落「盘根封口重封后体检仍非 0(exit 1)⇒ 需人工看 seal-c-root-stray 输出」。
+// 一手取证:C:\tmp / C:\tools 在盘上是既存 junction(PowerShell Test-Path=True、属性 Hidden+ReparsePoint),
+// 而 node 侧 `lstatSync` 抛 EINVAL/EPERM ⇒ 旧写法 `catch { st = null }` ⇒ exists=false ⇒ MISSING
+// ⇒ apply 去"建"一个已存在的东西 ⇒ EEXIST ⇒ check 永远有待处置 ⇒ 每轮重试、永不收敛(§0.3 的反面)。
+test('第 85 项:读不到(lstat 非 ENOENT)必须判 UNREADABLE,不得冒充 MISSING', () => {
+  const c = __test__.classifyEntry
+  assert.equal(
+    c({ exists: false, unreadable: true, isLink: false, linkTarget: null }),
+    'UNREADABLE',
+    '读不到被判成 MISSING ⇒ apply 会对已存在的路径反复建链接(EEXIST 死循环)',
+  )
+  assert.equal(
+    c({ exists: false, unreadable: false, isLink: false, linkTarget: null }),
+    'MISSING',
+    '真不存在(ENOENT)仍须是 MISSING,否则"该建的"永远不建',
+  )
+  assert.equal(
+    c({ exists: true, isLink: true, linkTarget: 'D:\\x', expectedTarget: 'D:\\x' }),
+    'SEALED',
+    '读得到的同名链接仍须按封口判定',
+  )
+})
+
+test('第 85 项:封口器的"不存在"判据必须只认 ENOENT,且读不到那支不得有任何写动作', () => {
+  const src = readFileSync(join(SCRIPTS, 'seal-c-root-stray.mjs'), 'utf8')
+  const sealed = maskComments(src)
+  assert.match(
+    sealed,
+    /e\.code\s*!==\s*'ENOENT'/,
+    '缺"非 ENOENT 一律不算不存在"的判据 ⇒ 又把读不到当不存在',
+  )
+  assert.match(sealed, /unreadable\s*=\s*true/, 'lstat 的非 ENOENT 失败没有落成 unreadable 标记')
+  assert.match(sealed, /unreadable,\s*\n?\s*isLink/, 'classifyEntry 调用点没有把 unreadable 传进去')
+  const branchAt = sealed.indexOf("state === 'UNREADABLE'")
+  assert.ok(branchAt > 0, '缺 UNREADABLE 专属分支')
+  const branch = sealed.slice(branchAt, branchAt + 400)
+  assert.match(branch, /touch-nothing/, '未判定态必须 touch-nothing')
+  assert.doesNotMatch(branch, /symlinkSync|rmSync|mkdirSync/, '未判定态不得有任何写动作')
+})
+
+test('第 85 项:守护报这一态时不得只说"需人工看输出",须逐条打原因并 24h 节流', () => {
+  const src = readFileSync(join(SCRIPTS, 'git-guardian.mjs'), 'utf8')
+  const sealed = maskComments(src)
+  const at = sealed.indexOf('function healRootSeal()')
+  assert.ok(at > 0, '找不到 healRootSeal ⇒ 本断言会退化成空判')
+  const body = sealed.slice(at, at + 2400)
+  assert.doesNotMatch(
+    body,
+    /需人工看 seal-c-root-stray 输出/,
+    '只喊"需人工看输出"= 把原因留在被吞掉的子进程 stdout 里(判据 §0.3 的反面)',
+  )
+  assert.match(body, /c-root-seal-blocked-last\.json/, '缺 24h 节流戳 ⇒ 同一静态事实每轮刷屏')
+  assert.match(body, /why\.join/, '缺"把逐条原因打进日志"那一句')
+  assert.match(body, /不是"再跑一次就会好"/, '读数必须说清"重试不会变好",否则人按"重试"去治结构性不可达')
+})

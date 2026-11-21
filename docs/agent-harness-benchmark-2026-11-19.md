@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **84 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **85 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（84 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（85 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1130,7 +1130,44 @@
   属"恢复层从无到有"的一次性写盘；本项不自动重建、不在守护里代建（自动档悄悄长仓仍是禁的）。
   首次全量 fetch 在本机实测超 15 分钟（守护侧 timeout 会杀它，属既有超时而非新缺陷），
   追平后后续增量只需秒级。
+### 5.85 第 85 项：把「读不到」当「不存在」—— 对既存 junction 反复「建」，每轮撞 EEXIST 永不收敛
 
+- 现场（第 84 项收口后从守护日志现读）：每 ~30 分钟一轮
+  `⚠️ 盘根封口重封后体检仍非 0(exit 1)⇒ 需人工看 seal-c-root-stray 输出`。而照它说的去看输出，
+  看到的是一串 `建 junction 失败:EEXIST` / `EPERM`，且**下一轮还是它** —— 这条"自愈"跑了这么多轮
+  一次没收敛。
+- 一手取证（不是推断）：`C:\tmp` 与 `C:\tools` 在盘上**本来就在**（PowerShell `Test-Path` = True、
+  属性 `Hidden, Directory, ReparsePoint`），而 node 侧 `lstatSync` 对它们抛 **EINVAL**（`existsSync`
+  得 false）；`C:\common_attachment` / `C:\persistent_data` 才是真 `ENOENT`。
+  旧码病灶精确到一行：`sealOne()` 的 `try { st = lstatSync(link) } catch { st = null }`
+  —— **任何错误码都被吞成"不存在"** ⇒ `exists:false` ⇒ `classifyEntry` 返回 `MISSING`
+  ⇒ `--apply` 去"建"一个已经存在的东西 ⇒ `EEXIST`（既有 junction 两枚）/ `EPERM`（盘根建链被 OS 拒）。
+- 处置（读数面 + 判据面，一起才算修完）：
+  - `seal-c-root-stray.mjs`：`classifyEntry` 增 `unreadable` 入参且**先于 `exists` 判**，新态
+    `UNREADABLE`；`sealOne` 改为「只把 `ENOENT` 当不存在，其余错误码一律记读不到（带 code）」；
+    `UNREADABLE` 分支落 `action:'touch-nothing'`、`ok:false`，note 明写
+    「盘上有这个名、但本进程读不到 ⇒ 不建不删,按未判定(§0.3)」+ 处置方向（核实 ACL / 用能读它的身份复核）。
+    失效方向：**读不到时一个写动作都不发**，绝不拿"读不到"去驱动"建一个"（§0.10）。
+  - 建链失败的分支补定性：`EPERM/EACCES` 落"盘根 ACL 拒绝 ⇒ 结构性不可达,重试不会好;处置方向:改
+    `C:\` 根 ACL 或把该名移出封口清单"，与"这次没成"区分开。
+  - `git-guardian.mjs` 的 `healRootSeal`：不再只喊"需人工看输出"，把子进程 stdout 里的
+    `✖` / `UNREADABLE` / `建 junction 失败` **逐条（≤3 条）打进守护日志**，并按 24h 节流
+    （`c-root-seal-blocked-last.json`）；文案改成"不是再跑一次就会好"。
+- 验证：`scripts/tests/seal-c-root-stray.test.mjs` 追加 3 例、全文件 **21 passed**
+  （① `unreadable` 先判 ⇒ `UNREADABLE`、真 `ENOENT` 仍 `MISSING`、读得到的同名链接仍 `SEALED`；
+  ② 源码形状锁：必须存在 `e.code !== 'ENOENT'` 判据、`unreadable = true` 落标、调用点把 `unreadable`
+  传进去、`UNREADABLE` 分支必须是 `touch-nothing` 且**不含 `symlinkSync/rmSync/mkdirSync`**；
+  ③ 守护形状锁：`healRootSeal` 段不得再出现"需人工看 seal-c-root-stray 输出"、必须有 24h 节流戳、
+  必须有 `why.join`、必须说清"重试不会好"）；`seal-c-root-stray --self-test` **17/17**；
+  `node --check` 两枚源文件通过；改后现读
+  `✖ tmp [UNREADABLE→touch-nothing] …(lstat EINVAL)…` / `✖ tools` 同形，
+  `common_attachment` / `persistent_data` 仍是 `✔ [MISSING→create-link]`（真不存在，该建）。
+- 边界（本机结构性事实，不假装能修）：在 `C:\` 根建链接本机不可行 —— `cmd /c mklink /J` 在
+  `IsInRole(Administrator)=True` 下仍 `Access is denied`，`fsutil reparsepoint query C:\tmp` 也 `Error 5`
+  ⇒ `common_attachment` / `persistent_data` 两枚属"盘根 ACL 层面不可达"，本项只做到"如实报、不乱建、
+  不每轮刷屏"，真正的出路是改 ACL 或把它们移出封口清单（属配置决策，未擅自改）。
+- 机器事实：`C:\tmp` / `C:\tools` 既不是本项目的改道产物，也不是可删的垃圾（第三方/系统遗留的
+  reparse point，隐藏项）——**一律不动**。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
