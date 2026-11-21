@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **79 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **80 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（79 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（80 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -954,7 +954,7 @@
   退化成『填 127.0.0.1 即以内网身份通行』"——它守的正是"没人往信任表里加公网项"这个巧合，
   而巧合消失的那一刻若没人按节拍看，盘面上不留痕迹。
 - 处置（照门给的出路做前一半、不改判据）：新增 `export async function sweepIpAttributionTrust`，
-  - 30 分钟节流（`IHUI_IP_TRUST_INTERVAL_MS` 可调），戳落 `ip-attribution-trust-sweep-last.json`；
+  - 30 分钟节流（`IHUI_IP_TRUST_INTERVAL_MS` 可调），戳落 `ip-attribution-dispatch-last.json`（第 80 项改名，见 5.80）；
   - 尺子缺席 ⇒ `{ran:false, why:"尺子不在位"}` 且**不写戳**；
   - 三态不并桶：ok 一行读数；breach 打印逐档点名 + 出路（§5e-2：出路是 agent 当场能做的
     「先改 cf-connecting-ip 口径再保留本表项」⇒ 不寄信，出声在日志）；unjudged / 结论取不到
@@ -990,6 +990,30 @@
   `node --check scripts/git-guardian.mjs` 通过；`check-guardian-dispatch-claims` 该枚从"诚实说明"转"已接线"。
 - 边界：本项只补调度与如实头注，不改 `planIntake`/`identityOf` 任何判据（单一真相源仍在那两处）；
   导出件陈旧时仍记未判定，不替它伪造信号。
+
+### 5.80 第 80 项：新腿一装车，黑腿探测器立刻点名 —— 两枚派发戳"谁在派、该多久动一次"无人认领
+
+- 现场（第 79 项落地后立刻量的，不是推断）：`node scripts/check-autonomy-leg-health.mjs` 现读
+  `[DRIFT] A8-leg-liveness :: 腿 16 枚 … ok=16 ｜ 源面 17 枚 / 登记 16 枚 ｜ 源里有而表里没有:
+  user-feedback-intake-dispatch-last.json`，并给出路"把这几枚补进 `scripts/data/autonomy-leg-liveness.json`
+  (owner=派发函数、nominalIntervalMs 现读源默认值、ruler=器物、verifiedAt=今天)；不补就是新腿不受静默探测量"。
+  这正是该探测器存在的意义：新装车的腿**默认是黑腿**，没人登记就没人量它的静默。
+- 处置两件：
+  ① 第 78 项那枚戳名 `ip-attribution-trust-sweep-last.json` 不合本族命名（`*-dispatch-last.json`），
+     源面字面量枚举按正则 `[a-z0-9][a-z0-9-]*-dispatch-last\.json` 收，非该形 = 探测器结构上看不见它 ⇒
+     改名为 `ip-attribution-dispatch-last.json`（避免"登记表一被删就变黑腿"）；
+  ② 往 `scripts/data/autonomy-leg-liveness.json` 补两条腿（16 → 18）：
+     `user-feedback-intake-dispatch-last.json`（owner=`dispatchUserFeedbackIntake`、env=`IHUI_USER_FEEDBACK_INTAKE_INTERVAL_MS`、
+     nominal=1800000 现读源默认、ruler=`scripts/user-feedback-intake.mjs`、coveredBy=A11，因它与 monitor 入库共用
+     `incident-signals.jsonl`）、`ip-attribution-dispatch-last.json`（owner=`sweepIpAttributionTrust`、
+     env=`IHUI_IP_TRUST_INTERVAL_MS`、nominal=1800000、ruler=`scripts/check-ip-attribution-trust.mjs`、outputKind=none，判据门无产出账）。
+- 顺手取证（真跑一次，不是只登记）：直接 import 守护器调两枚派发器，两枚戳当场落盘 ——
+  `user-feedback-intake-dispatch-last.json`（结论行 `USER-FEEDBACK-INTAKE judged=0 undetermined=1`，导出件缺失 ⇒ 如实记未判定）、
+  `ip-attribution-dispatch-last.json`（`state=ok`，config 默认仅回环）。这同时证明"登记的不是空条"：
+  两腿真跑得出结论，只是 user_feedback 那一源当前确实没导出件（未判定，不是绿）。
+- 验证：落地后 `check-autonomy-leg-health` 现读 `A8 … ok=18 / drift=0`；`A12` 仍 `ok 4 / n/a 12 / drift 0`；
+  `check-guardian-dispatch-claims` 保持 `声称 13 / 已接线 11 / 诚实说明 2` 无新增红。
+- 边界：本项只补登记与命名，不去救 user_feedback 的导出件（那是产品侧取数面），也不替 A8 放宽任何阈值。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
