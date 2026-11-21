@@ -18,25 +18,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // 2026-11-22 极致档 B 面实验(与 maxWorkers=8 同轮 A/B):import 段实测 692s 是第二大头。
-  // 把每个 fork 都要重走一遍的巨型依赖用 vite 依赖预打包剥成预构建产物(主进程一次,worker 复用)。
-  // 与 ⑤ 的区别在 pool:那里是 threads 共享进程才破 TZ;此处仍是默认 forks,进程边界不变。
-  deps: {
-    optimizer: {
-      web: {
-        enabled: true,
-        include: [
-          'react',
-          'react-dom',
-          'react/jsx-runtime',
-          'react/jsx-dev-runtime',
-          '@testing-library/react',
-          '@testing-library/dom',
-          '@testing-library/user-event',
-        ],
-      },
-    },
-  },
   test: {
     // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
     // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
@@ -73,6 +54,27 @@ export default defineConfig({
     //                                      若再复现"49 失败/空输出",回退口径是 maxWorkers 降到 4,而不是关并行。
     fileParallelism: true,
     maxWorkers: 8,
+    // 2026-11-22 极致档 B 面(与 maxWorkers=8 同轮 A/B):import 段实测 692s 是第二大头。
+    // 把每个 fork 都要重走一遍的巨型依赖用 vite 依赖预打包剥成预构建产物(主进程一次,worker 复用)。
+    // ⚠️ 必须在 test.deps.optimizer 下 —— 放顶层 `deps` 会被 vitest 忽略,且 tsc 直接报
+    //   "Object literal may only specify known properties, and 'deps' does not exist"(2026-11-22 实测踩过)。
+    // 与 ⑤ 的区别在 pool:那里是 threads 共享进程才破 TZ;此处仍是默认 forks,进程边界不变。
+    deps: {
+      optimizer: {
+        web: {
+          enabled: true,
+          include: [
+            'react',
+            'react-dom',
+            'react/jsx-runtime',
+            'react/jsx-dev-runtime',
+            '@testing-library/react',
+            '@testing-library/dom',
+            '@testing-library/user-event',
+          ],
+        },
+      },
+    },
     // 2026-11-22 提速 A/B 全量实测(931 文件 / 9260 用例,同一台 12C/20T 机器)——
     //   ① 全串行(原 fileParallelism=false):1842s ≈ 30.7min  ✅ 全绿
     //   ② 并行 + maxWorkers=8            : 514s ≈ 8.6min    ✅ 全绿  ← 定稿
