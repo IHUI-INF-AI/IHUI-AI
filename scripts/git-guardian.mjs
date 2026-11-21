@@ -7189,19 +7189,23 @@ export function auditTmpBloat(opts = {}) {
         }
   const r = run()
   const rows = String(r.out ?? '').split(/\r?\n/)
+  // 第 92 项:结论行尾部多了一维 `kept=`(登记保留件)。旧正则把 `state=` 钉死在 `over20=` 后面,
+  // 多一维就**整行匹配不上** ⇒ 派发腿永远读到"未取到结论行",而器物那边明明已判定 ——
+  // 这是"契约加了字段、消费者没跟上"的老型。这里把 kept 设为可选捕获,state 取最后一维。
   const resultLine = rows
-    .map((l) => l.match(/TMP-BLOAT\s+files=(\d+)\s+total=([\d.]+)\s+MB\s+max=([\d.]+)\s+MB\s+over50=(\d+)\s+over20=(\d+)\s+state=([A-Za-z]+)/) ?? null)
+    .map((l) => l.match(/TMP-BLOAT\s+files=(\d+)\s+total=([\d.]+)\s+MB\s+max=([\d.]+)\s+MB\s+over50=(\d+)\s+over20=(\d+)(?:\s+kept=(\d+))?\s+state=([A-Za-z]+)/) ?? null)
     .find(Boolean)
-  const state = resultLine ? resultLine[6] : null
+  const state = resultLine ? resultLine[7] : null
   const kv = (i) => (resultLine ? resultLine[i] : null)
   const line = resultLine ? resultLine[0].trim() : ''
+  const keptN = kv(6) === null ? null : Number(kv(6))
   let reading = null
   if (state === 'ok') {
-    reading = `tmp ${kv(1)} 枚 / ${kv(2)}MB,最大 ${kv(3)}MB,无越阈单枚`
+    reading = `tmp ${kv(1)} 枚 / ${kv(2)}MB,最大 ${kv(3)}MB,无越阈单枚${keptN ? `(登记保留 ${keptN} 枚,已点名)` : ''}`
   } else if (state === 'watch') {
-    reading = `${kv(5)} 枚 >20MB(watch 档,未达 50MB alarm 线);最大 ${kv(3)}MB`
+    reading = `${kv(5)} 枚 >20MB(watch 档,未达 50MB alarm 线);最大 ${kv(3)}MB${keptN ? `;另登记保留 ${keptN} 枚` : ''}`
   } else if (state === 'alarm') {
-    reading = `🚨 ${kv(4)} 枚 >50MB 失控单枚;另 ${kv(5)} 枚 >20MB`
+    reading = `🚨 ${kv(4)} 枚 >50MB 失控单枚;另 ${kv(5)} 枚 >20MB${keptN ? `(登记保留 ${keptN} 枚不计入)` : ''}`
   } else if (state === 'undetermined') {
     reading = `未判定(尺子取不到 tmp 目录或枚列举)⇒ 本轮没判,不等于"盘面干净"`
   }
