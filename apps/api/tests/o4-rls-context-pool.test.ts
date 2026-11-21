@@ -199,7 +199,15 @@ afterAll(async () => {
     const probe = await liveCheck?.probePortBusy(port)
     console.log(`[o4-rls-context-pool] 收尾:port=${port} busy=${probe?.busy ?? '未判定'}`)
   }
-  rmSync(CLUSTER_ROOT, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
+  // 2026-11-22:api 提到 12 worker 后实测 —— pg_ctl stop 返回时仍有句柄未释放,
+  // rmSync 的 maxRetries 10/500ms 不够,报 "EBUSY: resource busy or locked, rmdir …\data"
+  // 并被算成**文件级失败**(用例全绿、文件判红)。清理不是判据(下次 beforeAll 会先清掉),
+  // 故 retries 提到 30×1000ms,并兜底不抛 —— rmdir 失败不许把一条 RLS 行为断言判红。
+  try {
+    rmSync(CLUSTER_ROOT, { recursive: true, force: true, maxRetries: 30, retryDelay: 1000 })
+  } catch (err) {
+    console.warn(`[o4-rls-context-pool] 收尾清理残留失败(不影响判定):${String(err)}`)
+  }
 })
 
 describe('F-02 会话变量:同一池、同一条连接上的串租户与复位', () => {
