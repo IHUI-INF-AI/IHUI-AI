@@ -156,26 +156,28 @@ export function StreamKindIcon({
 }
 
 /**
- * 行模板唯一字号:13px(--text-body-sm 档,行高 18px)。禁止在消息流活动区出现其它字号。
+ * 行模板唯一几何档:13px/18px 字 · 24px 高 · 4px 左内边距。
  *
- * 2026-11-21 用户口径:AI 面板里的过程行(思考过程 / 代码 / 命令 / 工具调用)整体压小一档,
- * 16px 对过程信息过重(它们只交代"在做什么",不该和正文抢读)。
+ * 2026-11-21 用户口径(根治"七扭八歪"):**几何量不得随"能不能点"变化**。
+ * 此前可点击行走头行档(28px 高 + px-1),不可点击行走本档(24px 高 + 无左内边距)⇒
+ * 同一个列表里图标列时左时右、行高一个个跳、文字基线相差 0.3px,肉眼就是"没对齐"。
+ * 现在 px/高/字/图标全部收在本常量一处,可点击与否只改交互层(focus/悬停/箭头)。
  */
-export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-body-sm'
+export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 px-1 text-body-sm'
 
 /**
- * 可折叠容器头行唯一档(2026-11-16 立,2026-11-21 改无容器):思考行 / 过程叙述组头 /
- * 代码块头 / 文件变更头共用。
+ * 可折叠容器头行唯一档(2026-11-16 立,2026-11-21 改无容器 + 几何并档):思考行 / 过程叙述组头 /
+ * 代码块头 / 文件变更头 / 普通活动行共用。
  *
- * 用户口径:这些头行的字号、粗细、大小完全一致,且**不画容器** ——
- * 28px 高(13px 字 + 上下内边距)、13px/400 字、**无底色、无描边**(悬停/聚焦都不出现边框),
+ * 用户口径:这些头行的字号、粗细、大小、左内边距完全一致,且**不画容器** ——
+ * 24px 高(与普通活动行同档)、13px/400 字、**无底色、无描边**(悬停/聚焦都不出现边框),
  * 可展开的暗示交给右端箭头,不再靠一块灰底 + 一圈框去"圈出按钮"。
  * 聚焦反馈只留一档极浅底色(不带边框、零位移,AGENTS §4 的几何零位移仍成立)。
  * 头行的这几项只允许来自本常量,禁止再手写组合。
  */
 export const STREAM_HEADER_ROW_CLASS = cn(
   STREAM_ROW_CLASS,
-  'h-7 rounded-sm px-1 text-left text-foreground',
+  'rounded-sm text-left text-foreground',
   'transition-colors focus-visible:bg-muted/20 focus-visible:outline-none',
 )
 
@@ -369,11 +371,11 @@ export function StreamRow({
       <div
         className={cn(
           'group/stream-row',
-          STREAM_ROW_CLASS,
-          'gap-1.5',
+          STREAM_HEADER_ROW_CLASS,
           dimmed && 'opacity-60',
           className,
         )}
+        data-stream-row="true"
         data-testid={testId}
         data-stream-status={status}
       >
@@ -394,6 +396,7 @@ export function StreamRow({
         dimmed && 'opacity-60',
         className,
       )}
+      data-stream-row="true"
       data-testid={testId}
       data-stream-status={status}
       data-stream-expanded={expanded ? 'true' : 'false'}
@@ -562,8 +565,8 @@ export function StreamGroup({
         className={cn(
           'absolute left-[7px] w-px transition-colors',
           // 引导线只在展开且确有内容时出现,收起态保持零装饰。
-          // 起点落在头行下沿(top-7 = 头行 28px 高,2026-11-21 头行 32→28px 后同步),不从语义图标底部钻出来。
-          open ? 'top-7 bottom-1 bg-border/70' : 'h-0 opacity-0',
+          // 起点落在头行下沿(top-6 = 头行 24px 高;头行与普通行同档后同步改),不从语义图标底部钻出来。
+          open ? 'top-6 bottom-1 bg-border/70' : 'h-0 opacity-0',
         )}
       />
       <div className="flex items-center gap-1">
@@ -573,10 +576,11 @@ export function StreamGroup({
           aria-expanded={open}
           aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
           className={cn(
-            // 2026-11-16:组头与思考行/代码块头同走可折叠容器头行唯一档(含同一层实色底)
+            // 2026-11-16:组头与思考行/代码块头同走可折叠容器头行唯一档(同几何、无容器)
             'min-w-0 flex-1',
             STREAM_HEADER_ROW_CLASS,
           )}
+          data-stream-row="true"
           data-stream-group-trigger="true"
         >
           {kind ? (
@@ -633,7 +637,7 @@ export function StreamDetail({
 }) {
   return (
     <div
-      className={cn('ml-[7px] space-y-1.5 py-1 pl-3 text-label', className)}
+      className={cn('ml-[7px] space-y-1.5 py-1 pl-[17px] text-label', className)}
       data-testid={testId}
     >
       {children}
