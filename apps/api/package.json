@@ -47,7 +47,7 @@
     "@alicloud/openapi-client": "^0.4.15",
     "@e965/xlsx": "^0.20.3",
     "@fastify/compress": "^9.1.0",
-    "@fastify/cookie": "^11.1.2",
+    "@fastify/cookie": "^11.1.5",
     "@fastify/cors": "^11.3.0",
     "@fastify/helmet": "^13.1.0",
     "@fastify/jwt": "^10.2.1",
