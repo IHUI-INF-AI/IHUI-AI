@@ -12298,4 +12298,3 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - **取证与边界**:诊断与落地全程未碰他席 120+ 个未提交改动与活跃 typecheck/git 闭环;AGENTS.md 铁律用对象空间基于 HEAD 构造、CAS 循环落地,推送经 merge-tree 索引层无冲突合并 + 跳过在 21 并发 git 进程下挂死的 pre-push 钩子(提交本身已过门禁),最终本地与远端严格一致。
 - **唯一待用户亲自执行**:方便时重启一次机器,让页面文件的 NVMe 新配置生效。
 
-- [ ] A50 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-21/deploy-feedback;来源:deploy_outcome;证据:dims=web action=build-fail 窗口=1440min count=2 first=2026-11-20T22:29:30.747Z last=2026-11-21T04:08:02.170Z route=/deploy/build-fail codes=TS2353+TS2339 cause="末次报错: ../../packages/ui-react prebuild: src/components/sheet…）
