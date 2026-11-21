@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **63 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **64 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（63 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（64 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -704,6 +704,14 @@
 - 处置二：daemon tick 段补 `sweepRefMoveLoss()`（自带 `REF_MOVE_WATCH_INTERVAL_MS` 节流与 `ref-move-watch-last.json` 戳，双面并存只先到者真跑，零行为变更）。
 - 语义边界：不改 lib 的豁免判据、不摘任何台账行、不为消音放宽前缀族；`sweepRefMoveLoss` 的"仅 main 但戳新鲜"在背离巡检里仍算 live，本项只补结构性承载面。
 - 验证：A15 由 `[DRIFT] 1 枚无人认领` 转 `[OK] 近窗动作 24 型全部有归属（认领表 49 条）`，informational 档现读含 `runner-budget-exhausted×37`；A9 落地后转 OK（面=head）；`autonomy-leg-health-output.test.mjs` 11 passed（含新增的第 63 项认领/报数断言）。
+### 5.64 第 64 项：契约齐、落账腿也在，但"会话从不写清单"让产物永远进不了 HEAD
+
+- 现场：`check-autonomy-leg-health` 现读 `A13-artifact-landing [DRIFT] 自治环从未把产物送进 HEAD：会话结果档 38 枚 / 落地档 0 枚 / 拒绝档 13 枚（artifact-manifest-missing×13）`。台账 `.ihui-agent/state/auto-evolve-ledger.jsonl` 现读 1379 行，会话/落账档 262 枚（`session-failed 170 / session-no-progress 41 / session-no-write 26 / artifact-manifest-missing 13 / session-ok 12`），`artifact-committed` **历史累计 0**。
+- 根因：落账腿的入参只有 `readArtifactManifest(key)` 一条来源，读不到就整轮记 `artifact-manifest-missing` 收手。而会话输出的事件流里本来就有 `{"type":"tool_call","name":"write_file|edit_file|batch_edit","arguments":{"path":…}}` —— 与 `classifySessionWrites` 数的是同一族证据。契约有、器物在、证据也有，只差把那一格接上去（§0.9"有档名没接线"）。
+- 处置：`scripts/lib/ticket-artifacts.mjs` 增 `manifestTextFromPaths(ticketKey, files, {note})`（只拼清单文本、空集返 null）；`classifySessionWrites` 增 `wrotePaths`（收 `path ?? file_path`，不判成败）；真派落账腿改为「会话清单优先 → 转录派生兜底 → 都没有才 missing」，台账行多记 `manifestSource`（`session|transcript|none`）。
+- 语义边界：**补的是取数面，不是判据** —— 派生清单照样过 `parseArtifactManifest` 票键/形状校验、`sanitizeArtifactPaths` 范围收口与 `selectDirtyPaths` 真脏判定，票键不符仍 `invalid`、路径不脏仍 `stale`；会话自己写的那份永远优先；dry-run 档不派生（没跑会话就没有证据）。
+- 顺带修掉两条同族缺陷（现读实测，均非本次引入）：① `auto-evolve.mjs` 的自检脚本在 S11a 里引用未导入的 `planFaceDigest`，整个 `--self-test` 直接 ReferenceError 打死（`--self-test` 由 2 连红转全绿）；② `scripts/tests/auto-evolve.test.mjs` 的 Ⓔ 锁用"全文件第一条 `spawn(process.execPath,[script,…])`"取 argv，实际抓到的是 check-ops-patrol 那条（`--json --apply`）⇒ 长期对着另一个器物喊红，真正要守的 auto-evolve 发射点反而没人看住；改为先锚 `'auto-evolve.mjs'` 取件处再取其后第一条 spawn。
+- 验证：`node scripts/auto-evolve.mjs --self-test` `self-test: 全绿`；`node --test scripts/tests/auto-evolve.test.mjs` 82 passed（新增 ⑬f 落点收入 / ⑬g 派生清单契约 / ⑬h 发射端顺位三例）；`node --test scripts/tests/auto-evolve-landing-e2e.test.mjs` 4 passed（真落地腿端到端未被改坏）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

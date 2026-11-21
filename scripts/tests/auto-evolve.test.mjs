@@ -35,6 +35,7 @@ import {
   classifyTimedOutRound,
 } from '../auto-evolve.mjs'
 import { planFaceDigest, planFaceDigestFromHead } from '../autonomy-candidates.mjs'
+import * as TICKET_ARTIFACTS from '../lib/ticket-artifacts.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { TRANSPORT_FAILURE_SIGNS } from '../lib/autonomy-runner.mjs'
@@ -552,14 +553,46 @@ test('⑬d 取不到形状 ⇒ known=false ⇒ 上层不得据此改判(未判�
   assert.equal(w.writeOk, 0)
 })
 
-test('⑬e 发射端接线:known∧零写 ⇒ action 必须是 session-no-write(§0.9 有档名没发射=没有)', () => {
-  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
-  const at = src.indexOf("    action = 'session-ok'")
-  assert.ok(at > 0, "exit 0 那一支必须还在 `action = 'session-ok'` 处")
-  const branch = src.slice(at, at + 700)
-  assert.ok(branch.includes("action = 'session-no-write'"), '该支里必须紧跟零写改判')
-  assert.ok(branch.includes('w.known && w.writeOk === 0'), '改判判据必须是 known∧零写双条件')
+test('⑬f 写类调用的落点必须被收(wrotePaths):path 与 file_path 两种形态都认', () => {
+  const flow = [
+    '{"type":"tool_call","name":"write_file","arguments":{"path":"scripts/a.mjs","content":"x"}}',
+    '{"type":"tool_result","name":"write_file","success":true,"output":"已写入"}',
+    '{"type":"tool_call","name":"edit_file","arguments":{"file_path":"scripts/b.mjs","old":"a","new":"b"}}',
+    '{"type":"tool_result","name":"edit_file","success":false,"output":"未命中"}',
+    '{"type":"tool_call","name":"read_file","arguments":{"path":"scripts/c.mjs"}}',
+    '{"type":"complete","stopReason":"end_turn","usage":{"totalTokens":10}}',
+  ].join('\n')
+  const w = classifySessionWrites(flow)
+  assert.deepEqual(
+    w.wrotePaths,
+    ['scripts/a.mjs', 'scripts/b.mjs'],
+    '只读调用的 path 不得混进来;失败的写也要留路径(取证面不看成败)',
+  )
 })
+
+test('⑬g manifestTextFromPaths 契约:空集 ⇒ null(不把"没动手"伪装成有清单)', () => {
+  const { manifestTextFromPaths, parseArtifactManifest } = TICKET_ARTIFACTS
+  assert.equal(manifestTextFromPaths('k', []), null, '空集必须 null,让上层照旧落 missing')
+  assert.equal(manifestTextFromPaths('k', [' ', null]), null, '全是空白同样算空集')
+  const text = manifestTextFromPaths('k', ['a.mjs', 'a.mjs', 'b.mjs'])
+  const back = parseArtifactManifest(text, 'k')
+  assert.equal(back.state, 'ok', '拼出来的清单必须能被既有解析器认回(不在第二处实现判据)')
+  assert.deepEqual(back.files, ['a.mjs', 'b.mjs'], '必须去重')
+  assert.match(JSON.parse(text).note, /派生/, '派生清单要自述来源,便于台账回看')
+  assert.equal(parseArtifactManifest(text, 'other').state, 'invalid', '票键不符仍要 invalid(补的是取数面不是判据)')
+})
+
+test('⑬h 发射端接线:会话清单优先 → 转录派生兜底 → 都没有才 none', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const at = src.indexOf('const declaredManifest = readArtifactManifest(key)')
+  assert.ok(at > 0, '落账腿必须先读会话清单(会话写的那份永远是第一顺位)')
+  const block = src.slice(at, at + 900)
+  assert.match(block, /declaredManifest == null \? manifestTextFromPaths\(key, res\.wrotePaths\)/,
+    '会话没写时才允许派生,且证据必须取 res.wrotePaths')
+  assert.match(block, /manifestText: declaredManifest \?\? derivedManifest/, '真送进落账腿的必须是两者之一')
+  assert.match(block, /manifestSource,/, '台账必须记来源,否则回看时分不清是会话写的还是补的')
+})
+
 
 test('⑬f 写类工具名清单不得腐烂:每个名字必须在 CLI 源码里真注册', () => {
   // 只验存在性(改名/下架即翻红)。dangerLevel 档位本身分散在各工具文件里声明,本锁不重抄档位判据。
@@ -1019,9 +1052,15 @@ const runCli = (argv) =>
 test('Ⓔ 清单必须覆盖发射侧真传的 argv(少一枚就冻腿,红要落在加旗标那一枚)', () => {
   const known = ae.knownFlags()
   const guardian = readFileSync(new URL('../../scripts/git-guardian.mjs', import.meta.url), 'utf8')
-  const m = guardian.match(
-    /spawn\(\s*process\.execPath,\s*\[\s*script,\s*'(--[a-z-]+)'(?:,\s*'(--[a-z-]+)')?\s*\]/,
-  )
+  // 2026-11-21 修:原式在全文件里取**第一条** `spawn(process.execPath,[script,…])`,
+  // 而守护里第一条是 check-ops-patrol 那条(`--json --apply`)⇒ 本锁长期对着另一个器物喊红,
+  // 真正要守的 auto-evolve 发射点反而没被看住(造好没装车的另一种形态:锁对着路人)。
+  // 正解:先锚到 auto-evolve 的取件处,再在它之后的第一条 spawn 上取 argv。
+  const anchor = guardian.lastIndexOf(`'auto-evolve.mjs'`)
+  assert.ok(anchor > 0, '取不到守护侧 auto-evolve 取件处 ⇒ 本锁空转,必须喊响而不是默认通过')
+  const m = guardian
+    .slice(anchor)
+    .match(/spawn\(\s*process\.execPath,\s*\[\s*script,\s*'(--[a-z-]+)'(?:,\s*'(--[a-z-]+)')?\s*\]/)
   assert.ok(m, '取不到守护侧 argv ⇒ 本锁空转,必须喊响而不是默认通过')
   const passed = m.slice(1).filter(Boolean)
   for (const f of passed) assert.ok(known.includes(f), `守护侧传了 ${f} 而清单没有 ⇒ 生产腿会被拒`)

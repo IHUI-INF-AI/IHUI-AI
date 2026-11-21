@@ -6,13 +6,15 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { SquareTerminal, Plus, ChevronDown } from 'lucide-react'
+import { SquareTerminal, Plus, ChevronDown, Monitor } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { TerminalPanel } from '@/components/ide/terminal-panel'
 import { useTerminalSession } from '@/hooks/use-terminal-session'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
+import { useChatStore } from '@/stores/chat'
+import { AgentTerminalFace } from '@/components/ai/agent-terminal-face'
 
 /**
  * AI 面板底部 PowerShell 终端停靠面板(2026-08-17 立)。
@@ -33,6 +35,11 @@ export function AiTerminalDock() {
   const setResizing = useTerminalDockStore((s) => s.setResizing)
 
   const { createSession } = useTerminalSession()
+  // 2026-11-21:停靠面板多一个**只读**视图 —— agent 侧真 PTY 的屏面。
+  // 它画的是"模型此刻看到的屏幕"(网格/光标/提示符/链接),与 IDE 终端那条 WS 不是同一条链路;
+  // 用 `aria-expanded`(展开/收起语义)而不是 `aria-pressed`,因为这不是一个常驻开关。
+  const [showAgentFace, setShowAgentFace] = React.useState(false)
+  const agentSessionId = useChatStore((s) => s.aiStreamSessionId ?? null)
 
   // 底部 4px 命中区拖拽调高:向上拖动 = 增大 height(startY - clientY > 0)
   const handleResizeStart = React.useCallback(
@@ -77,6 +84,28 @@ export function AiTerminalDock() {
           {t('terminalDock.title')}
         </span>
         <div className="ml-auto flex items-center gap-0.5">
+          <Tooltip
+            content={
+              showAgentFace ? t('terminalDock.backToIde') : t('terminalDock.showAgentFace')
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setShowAgentFace((v) => !v)}
+              aria-expanded={showAgentFace}
+              aria-label={
+                showAgentFace ? t('terminalDock.backToIde') : t('terminalDock.showAgentFace')
+              }
+              className={cn(
+                'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+                showAgentFace
+                  ? 'bg-card text-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+            >
+              <Monitor className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
           <Tooltip content={t('terminalDock.newSession')}>
             <button
               type="button"
@@ -99,9 +128,10 @@ export function AiTerminalDock() {
           </Tooltip>
         </div>
       </div>
-      {/* 主体:TerminalPanel 挂载时自动 refreshSessions + 无 session 自动创建(useTerminalSession) */}
+      {/* 主体:两视图共用同一高度。IDE 视图挂载时自动 refreshSessions + 无 session 自动创建;
+          agent 视图只读轮询(取不到就如实写原因,不画空屏冒充"没输出") */}
       <div className="min-h-0 overflow-hidden" style={{ height }}>
-        <TerminalPanel />
+        {showAgentFace ? <AgentTerminalFace sessionId={agentSessionId} /> : <TerminalPanel />}
       </div>
       {/* 底部 4px 拖拽调高命中区 */}
       <div
