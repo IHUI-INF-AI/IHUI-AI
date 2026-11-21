@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **69 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **70 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（69 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（70 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -789,6 +789,20 @@
   排序只换"先跑谁":argv、cwd、timeout、env 与结果回填顺序、分级口径逐字未动。
 - 验证：`node --test scripts/tests/land-gate-rerun.test.mjs` **19 passed**（新增 T17,
   断言 blocking 前置 / 同档保序 / 缺省按 blocking / 空输入两向）。
+### 5.70 第 70 项：`undetermined` 台账不记原因，读数只能复述"没判定"
+
+- 现场（A12 唯一一枚 unjudged）：`deploy-feedback-ledger.jsonl` 近 5 条全是
+  `action=build-fail identity=deploy_outcome|alert_firing|route:/deploy/build-fail result=undetermined`，
+  每 ~20 分钟一条、全天重复。`--status` 只能把 `result=undetermined` 原样印回 —— **为什么没判定**这句
+  在台账里根本不存在（写盘的 code 2 分支只写 ts/action/identity/result）。同身份 24h 去重又让同一簇
+  反复重试，于是这条腿在自检面长期停在"未判定"，谁也说不清是取号族不可发、还是登记器报错。
+- 处置：`undetermined` **必须带 why**（两处写盘点都补上，截 200 字符）:取号不可行一支记
+  `out.why`，`registerToPlan` 未成一支记 `reg.why`；`--status` 的"最近 5 条"把 `why=` 印出
+  （历史行没有这个键 ⇒ 印空，不伪造原因）；两处 `skip` 同时补稳定的 `reason`
+  （`already-registered-24h` / `per-run-cap`），让"为什么跳过"也能事后复核。
+- 验证：`node scripts/deploy-feedback.mjs --self-test` **全绿**（新增 ⑬:取号不可行 ⇒ exit 2 ∧ 零 spawn ∧
+  逐条 `undetermined` 都带真原因）；`node --test scripts/tests/deploy-feedback.test.mjs` **17 passed**。
+  历史 1440 行不追改（追写会伪造原因），新行起带 why —— 失效方向是"以后能查"，不是"把过去补成绿色"。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
