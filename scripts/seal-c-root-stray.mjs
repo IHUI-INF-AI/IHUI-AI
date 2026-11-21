@@ -263,12 +263,18 @@ export function isHiddenInParentListing(lines, name) {
  */
 export function classifyEntry({
   exists,
+  unreadable,
   isLink,
   linkTarget,
   expectedTarget,
   isDir,
   acceptableTargets,
 }) {
+  // 第 85 项(2026-11-21):**读不到 ≠ 不存在**。实测 C:\tmp / C:\tools 是既存的 junction,
+  // 而本进程 `lstatSync` 对它们抛 EPERM(盘上在、问不到)⇒ 旧写法把它当 MISSING ⇒ apply 去
+  // "建"一个已存在的东西(EEXIST)⇒ check 永远报"有待处置",守护每轮喊"需人工看输出"。
+  // 未判定必须单独成态:既不记绿,也不触发任何写动作(§0.3 / §0.10)。
+  if (unreadable) return 'UNREADABLE'
   if (!exists) return 'MISSING'
   if (isLink) {
     if (!linkTarget) return 'UNREADABLE-LINK'
@@ -360,10 +366,18 @@ function fingerprint(dir) {
 function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
   const { link, target } = pathsFor(entry, root, devEnv)
   let st = null
+  // 第 85 项:只把 ENOENT 当"不存在";其余错误码(`EPERM` / `EACCES` / `ENOTDIR` …)一律
+  // 记"读不到",绝不拿它去驱动"建一个".现读实测:C:\tmp / C:\tools 是既存 junction,
+  // node 侧 lstat 抛 EPERM,而旧写法 st=null ⇒ exists=false ⇒ MISSING ⇒ EEXIST 死循环。
+  let unreadable = false
+  let unreadableWhy = ''
   try {
     st = lstatSync(link)
-  } catch {
-    st = null
+  } catch (e) {
+    if (e && e.code !== 'ENOENT') {
+      unreadable = true
+      unreadableWhy = String(e.code || e.message || e)
+    }
   }
   let linkTarget = null
   if (st && st.isSymbolicLink()) {
@@ -375,6 +389,7 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
   }
   const state = classifyEntry({
     exists: !!st,
+    unreadable,
     isLink: !!st && st.isSymbolicLink(),
     linkTarget,
     expectedTarget: target,
@@ -392,6 +407,13 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
       state,
     }
   }
+  if (state === 'UNREADABLE')
+    return {
+      action: 'touch-nothing',
+      ok: false,
+      note: `盘上有这个名、但本进程读不到(lstat ${unreadableWhy})⇒ 不建不删,按未判定(§0.3);处置方向:核实 ACL / 用能读它的身份复核,别对同一路径反复"建"`,
+      state,
+    }
   if (state === 'FOREIGN-LINK' || state === 'UNREADABLE-LINK')
     return {
       action: 'touch-nothing',
@@ -483,7 +505,19 @@ function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
   try {
     symlinkSync(target, link, 'junction')
   } catch (e) {
-    return { action: 'link', ok: false, note: `建 junction 失败:${e.code || e.message}`, state }
+    const code = String(e.code || e.message)
+    // 第 85 项(2026-11-21):在 C:\ 根建链接被 OS 拒(`EPERM`)不是"这次没成、下次再来",
+    // 本机实测 `cmd /c mklink /J` 在管理员身份下同样 `Access is denied`(#fsutil reparsepoint query
+    // 对既有项也 `Error 5`)。把这句落到读数里,人才不会按"重试"去治结构性不可达(§0.10)。
+    const structural = code === 'EPERM' || code === 'EACCES'
+    return {
+      action: 'link',
+      ok: false,
+      note: structural
+        ? `建 junction 失败:${code}(盘根 ACL 拒绝 ⇒ 结构性不可达,重试不会好;处置方向:改 C:\\ 根 ACL,或把该名移出封口清单)`
+        : `建 junction 失败:${code}`,
+      state,
+    }
   }
   // 建完立刻按策略隐藏(用户 2026-09-24 拍板:"设隐藏,保留改道");失败只降级为提示,不算封口失败
   const hidden = entry.hide === false || ensureHidden(link, false)

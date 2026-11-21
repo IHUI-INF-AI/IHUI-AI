@@ -2642,6 +2642,27 @@ function refreshRecoverySource() {
     log(`恢复源体检异常(忽略,不阻断其余守护):exit ${judge.code}`)
     return
   }
+  // 第 84 项(2026-11-21):必须把「恢复源缺席」与「恢复源落后」分开,否则读数把人读错。
+  // 现场(现读):本机 D:/DevEnv/backups/git/IHUI-AI.git-backup-20260912 整个不在 ⇒ `--check`
+  // 打印 `备份=(无)[missing]`、exit 1 ⇒ 旧逻辑接下去真跑一次 fetch(必然失败)、落一行
+  // 「刷新失败 ⇒ 下次 tick 自动重试」并按"刷新失败"寄信。而这一态**重试一万轮也不会自愈**
+  // (自动档禁建仓:--init 之外不许悄悄长出一棵仓),真实出路是人工建一份。
+  // 失效方向:缺席 ⇒ 如实说缺席 + 给可执行出路 + 24h 只报一次 + 不寄"刷新失败"信;
+  //           落后/损坏 ⇒ 原路径(重试 + 到人)一字不改。
+  if (/备份=\(无\)|\[missing\]/.test(String(judge.out || ''))) {
+    if (
+      legThrottle(
+        join(WORKTREE, '.ihui-agent', 'state', 'backup-absent-notice-last.json'),
+        24 * 60 * 60 * 1000,
+        Date.now(),
+        log,
+      )
+    )
+      log(
+        `ℹ️ 本地恢复源缺席(不是刷新失败:自愈层没有对象可刷)⇒ 需人工建一份:node scripts/git-backup-refresh.mjs --init(建完 --check 即转 exit 0;自动档不代建,§5b)`,
+      )
+    return
+  }
   const applied = call([], 15 * 60 * 1000) // 增量 fetch 大 gitdir 可到分钟级
   if (applied.code === 0) {
     const to = (applied.out.match(/→\s*([0-9a-f]{7,})/) || [])[1]
@@ -4225,8 +4246,30 @@ function healRootSeal() {
   const resealed = (applied.out.match(/\[(?:MISSING|REAL-DIR)→sealed\]/g) || []).length
   if (resealed) log(`✅ 盘根封口自愈:重封 ${resealed} 个被外部删除/回退的改道点`)
   const after = call(['--check'])
-  if (after.code !== 0)
-    log(`⚠️ 盘根封口重封后体检仍非 0(exit ${after.code})⇒ 需人工看 seal-c-root-stray 输出`)
+  if (after.code !== 0) {
+    // 第 85 项(2026-11-21):旧写法只喊「需人工看 seal-c-root-stray 输出」——原因全在被吞掉的
+    // 子进程 stdout 里,读的人还得自己再跑一遍才知道该干什么。现读实测本机:C:\tmp / C:\tools
+    // 是既存 junction 而 node 侧 lstat 抛 EINVAL(读不到 ⇒ 曾被判 MISSING ⇒ 反复"建"→EEXIST),
+    // 另两项在 C:\ 根建链接被拒(EPERM,管理员身份实测同样 Access is denied)⇒ 结构性不可达。
+    // 失效方向:① 把逐条原因(≤3 条)直接打进日志;② 该态不是"重试就会好",提示按 24h 节流。
+    const why = String(after.out || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => /^✖|^⚠|UNREADABLE|建 junction 失败/.test(l))
+      .slice(0, 3)
+    if (
+      legThrottle(
+        join(WORKTREE, '.ihui-agent', 'state', 'c-root-seal-blocked-last.json'),
+        24 * 60 * 60 * 1000,
+        Date.now(),
+        log,
+      )
+    )
+      log(
+        `⚠️ 盘根封口仍有未处置项(exit ${after.code}):不是"再跑一次就会好",逐条原因见下` +
+          (why.length ? `\n     ${why.join('\n     ')}` : '(子进程未给出行级原因,手动:node scripts/seal-c-root-stray.mjs --check)')
+      )
+  }
 }
 
 // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3027(门 103 C1 收口)〉首意: 看门人的看守(2026-09-23 立)。凭据/部署停摆巡检靠 schtasks 每 6 小时自跑,而它的故障
