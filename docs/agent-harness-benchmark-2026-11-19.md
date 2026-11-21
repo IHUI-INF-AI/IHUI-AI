@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **70 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **71 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（70 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（71 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -803,6 +803,29 @@
 - 验证：`node scripts/deploy-feedback.mjs --self-test` **全绿**（新增 ⑬:取号不可行 ⇒ exit 2 ∧ 零 spawn ∧
   逐条 `undetermined` 都带真原因）；`node --test scripts/tests/deploy-feedback.test.mjs` **17 passed**。
   历史 1440 行不追改（追写会伪造原因），新行起带 why —— 失效方向是"以后能查"，不是"把过去补成绿色"。
+### 5.71 第 71 项：可发性探针与发号器不同面 ⇒ 假"可发"把部署反馈腿锁在未判定
+
+- 现场（第 70 项补上 `why` 之后立刻现读出来）：`deploy-feedback --apply` 逐轮 `undetermined`，
+  `why=live-doc-edit rc=2 … SCAN_FACE_FULL`。而同一时刻 `--status` 说「B 可发性探针现读可发 首号=B42」。
+  同一条链上一个探针说可发、下一个发号器说拒发 —— 逐一对照后定位：`probeIdFamily` 把登记行交给
+  `resolveIdTokens` 时只递了 `machineId` 与 `worktreeText`，**丢了三张真发号器必喂的面**：
+  `remote`（`readRemoteIdBasis` 的远端号段上界）、`opts.yieldedIds`（已完成条目让位集）、
+  `opts.retiredLoader`（近期结清号避让集）。缺这三张时 B42 在探针面上是空闲，在真发号面（含结清避让）
+  已被避让 ⇒ 探针给出的"可发"是假话，而失败方向恰好是"每天都写一条读不出原因的未判定"。
+- 处置（同一套 runtime、同一份判据，不新造第二套）：
+  - `probeIdFamily` 增 `remote / yieldedIds / retiredLoader` 三个**显式可选**入参，原样透传进
+    `resolveIdTokens`；缺省 null ⇒ 与改动前逐字同形（测试夹具仍零副作用）。
+  - `pickIdFamily` 把三张面转发给每一族探针（`pickRegistrationFamily` 只在这一层装载真面：
+    `readRemoteIdBasis` / `loadYieldedIdSets` / `loadRetiredIdSets`，三者全是既有单源实现）。
+  - 远端问不到/对象不在本地 ⇒ 整轮落 **未判定**（`远端号段面判不出`），绝不拿"本地可发"冒充
+    "全局可发"；让位/结清面装载异常则点名"探针少这两维"（失效方向是多要一次定向说明）。
+- 验证：
+  - `node scripts/auto-triage.mjs --self-test` **全绿**（新增 T11i 面透传 / T11j 缺上界未判定）；
+  - `node --test scripts/tests/auto-triage.test.mjs` **23 passed**（新增 ⑰ 同形双控）；
+  - 现读端到端：探针逐族读数 `G/D/O/B exhausted（B:scan-filter 候选 4 枚全灭）`，首个真可发族落到
+    `A`；`deploy-feedback --once --apply` 首次 `registered=1`（登记 A50），台账写
+    `result=registered`；`check-autonomy-leg-health` 由 `OK=13 DRIFT=0 UNJUDGED=2` 变为
+    **`OK=14 DRIFT=0 UNJUDGED=1`**（A12 转判、仅剩 A13 的政策面窄那一格）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
