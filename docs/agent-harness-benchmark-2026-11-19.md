@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **87 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **94 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（87 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（94 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1243,6 +1243,261 @@
 - 边界：本项不真的寄信（`--dry-run` 只回答"配置齐不齐"，不回答"网络通不通"）；真实投递能力要靠
   下一轮 down 才会被量到。`state=down` 的拉起动作仍是 `schtasks /run`（守护的兜底腿），
   不代启 nssm 服务 —— 那是服务面策略，不借本项夹带。
+
+### 5.88 第 88 项：只有兜底任务在跑，哨兵却报「守护健康」—— 谁在跑这件事从来没有被读出来
+
+- 现场（一手，来自第 87 项留下的读数盲区）：`IHUI-GIT-GUARD` 服务本轮实测**被停过一段时间**
+  （`Get-Service` 现读 Stopped），而计划任务 `\IHUI-AI git-guardian` 每分钟照跑一次性 `main()`，
+  三腿 tick 因此一直是新鲜的 ⇒ 哨兵报 `state=ok`（`pidSource` 明明写着 `pid-dead`）。
+  `.ihui-agent/state/git-guardian.log` 现读 `09:56 / 09:58` 两轮日志，而 pid 文件写的 daemon 启动时刻是
+  `10:02:20` —— 那两轮**必然不是 daemon 跑的**，是兜底任务跑的。
+- 根因精确到一行：`scripts/check-guardian-leg-health.mjs` 的总状态取 `const state = judgeLegHealth(legs)`，
+  **只看腿 tick、不看执行体**。腿 tick 只说"有人跑过"，不说"是谁在跑"；`pidSource` 只被当注记打印。
+  于是一台"常驻 daemon 已死、只剩每分钟兜底一轮"的机器，读数和健康机器一模一样。
+- 处置（同一套 runtime、同一份判据，不新造第二套）：
+  - 哨兵新增纯判据 `describeExecutor(snap, opts)`：入参是**轮级锁快照**，身份与 pid 复用判据
+    **只委托** `scripts/lib/guardian-lock.mjs` 的 `readLockSnapshot` / `isPidAlive` /
+    `isPidStartTimeMismatched`（§0.6，不在本文件另解析一遍锁格式）。`kind` 由锁里的
+    `role` 定：`git-guardian:daemon`（常驻执行体）/ `git-guardian:round`（一次性任务）。
+  - 哨兵新增纯判据 `judgeOverallState({ legState, pidSource, executor })`：`pid-dead` ⇒ **down**
+    （常驻执行体确实没了）；daemon 持锁但 pid 已死 ⇒ down；daemon 持锁而心跳越过锁自带的
+    `staleMs` ⇒ stale；`pid` 文件缺席（本机从没起过 daemon）**不据此判急** —— 否则每台新机必然恒红。
+  - 读数面：`--json` 增 `executor` 与 `legState` 两个键（保留 `state` 语义不变，runner 契约不动）；
+    文本档多打一行 `executor <kind> role=… pid=… alive=… hb=… stale=…`，并在"常驻 daemon 未持锁"
+    与"pid 已被无关进程复用"两种情形各追加一条 `⚠️` 说明。
+  - `scripts/check-guardian-leg-health-runner.ps1`：信文增一行"执行体=…"，且当 `pidSource=pid-dead`
+    而三腿仍新鲜时，判定行明写"常驻 daemon 已死；三腿仍新鲜说明只有一次性任务在兜底"
+    —— 收信人不用再从两个读数里自己拼。
+- 验证：`scripts/tests/guardian-leg-health.test.mjs` 改③并新增⑤/⑤b，现读 **7 passed**
+  （⑤ 含 `pid-dead ⇒ down`、`pid 缺席不判急`、三腿已 down 不被旁证拉回三条；⑤b 含 daemon pid 已死 ⇒ down、
+  心跳停 ⇒ stale、pid 被复用 ⇒ 降级成"不在了"、`round` 只标注不判红、锁缺失 ⇒ `kind=none`）。
+  现读 `node scripts/check-guardian-leg-health.mjs`：
+  `state=ok` + `executor daemon role=git-guardian:daemon pid=26136 alive=true hb=0min stale=false`；
+  `pwsh -File …-runner.ps1 -DryRun` 现读 `Parser` 0 错、`state=ok`、出口取径正常、exit 0。
+- 边界：本项**不改判红口径**——"只有兜底任务在跑"在腿还新鲜时仍按 ok，只在读数里点名（一次性任务
+  每分钟一轮是本机设计好的兜底腿，把它判红等于给每台没装服务的机器挂一盏恒红灯）；一旦有 pid 文件
+  而进程已死，才把总状态抬到 down 并走到人通道。不代启/不代停 nssm 服务（服务面策略不借本项夹带）。
+
+### 5.89 第 89 项：对侧正当退役一道门，却把整条分叉收敛押死 —— 键面防丢闸没有「处置权」这一维
+
+- 现场（一手，第 88 项推送途中被本闸拦下）：远端并发会话 `84572f3af0` 退役了守门 173
+  （删 `scripts/check-doc-numbers.mjs` 及其在 `scripts/data/gate-channel-registry.json` /
+  `gate-face-declarations.json` 的登记键）。本侧没动这两个文件。`git-sync-converge.mjs` 现读：
+  `合并树 13048f704a2(无冲突)` → `❌ 内容级防丢闸拒绝落地:2 个路径少带内容` →
+  `· gate-channel-registry.json —— 本侧缺失键 1:metaGates.check-doc-numbers.mjs` 等 4 条。
+  三方合并按 git 语义**正确**地把对侧删除带了过来（这正是「对侧删除随合并传播」那一条自检所要求的），
+  但键面判据 `oursKeys − mergedKeys` 非空 ⇒ 判成"少带内容"⇒ 同步链整条恒拒。
+  当时的唯一出路是手工搭合并 / 手工 rebase 越过落地闸 —— §0.10 明令失效方向必须是"多要一次定向说明"，
+  绝不能是"多放一次跳门"。
+- 根因精确到一行：`scripts/lib/content-loss-gate.mjs` 的键面判据只量 `ours − merged` 与
+  `theirs − merged`，**不看基底**；行面早在 2026-11-06 就补了「本侧处置权已行使（基底有、本侧已删）」，
+  键面这一格一直空着 —— 同一份闸的两面各有一半能力，删键就被读成丢内容。
+- 处置（单一真相源、与该闸行面同一条判据形态，不另立"什么叫正当删除"）：
+  - `judgeContentLoss` 键面分支增**基底键集**：`missingOurs` 里的键若「基底有 ∧ 只有对侧没它」
+    ⇒ 判为 **对侧处置权已行使（基底有、对侧已删）**；`missingTheirs` 镜像为
+    **本侧处置权已行使（基底有、本侧已删）**；两种都进 `dropped` 逐条报名（§0.10，不许静默折进"0 丢失"）。
+  - 反向牙（不许变成"统一放宽"）：本侧**新增**的键不在基底里、却被对侧删除吞掉 ⇒ 照旧判红；
+    `base` 没喂或解不开 ⇒ 一条都不放行（§0.3 取不到不是放行许可证）。
+- 验证：`scripts/tests/content-loss-gate.test.mjs` 新增 §3b 三例（正当删键过 + 逐条报名 /
+  本侧新增键被吞仍红 / 未喂 base 仍红），现读 **24 例全绿**；
+  `node scripts/union-converge.mjs --self-test` 现读 **163 例通过**（含「对侧删除 ∧ 本侧未动 ⇒
+  删除随合并传播」与反向锁两例，判据未被削松）；
+  一手复放（真实三枚历史提交，不造夹具）：`ours=29427e3110` / `theirs=84572f3af05` /
+  `merged=13048f704a2` / `base=9d82ba91c4` ⇒ `ok=true violations=0 dropped=4 undetermined=0`，
+  四条逐条点名 `← [对侧处置权已行使(基底有、对侧已删)] metaGates.check-doc-numbers.mjs` 等。
+- 边界：本项只补**基底可证**的那一半（`base` 已由 `union-converge.mjs` 端进来，`git-sync-converge`
+  也已在用这条路径）；没有新增"任意删除都放行"的档，也没有引入第二份台账。
+
+### 5.90 第 90 项：一道门退役了，钩子还在调它 —— 退役只撤了脚本/登记，没撤执行链；顺带把 H3 的「没接上」判据补成真判
+
+- 现场（一手，两条当场现读的红/未判定）：
+  1. `node scripts/check-husky-hook-form.mjs` 现读 **exit 1**：
+     `❌ [H2] .husky/pre-push — 薄壳引用的「scripts/check-doc-numbers.mjs」在判定面上不存在 ⇒
+     每次触发都只会报"找不到文件",链子等于没接`。远端并发会话 `84572f3af0` 退役了门 173
+     （删脚本、删 `package.json` 脚本、删两份 `scripts/data` 登记），**唯独没有摘 `.husky/pre-push`
+     里那三处命令行引用**（起飞段 `wscript … scripts/check-doc-numbers.mjs --strict --push`、
+     `_doc_job=''`、收口段 `wait "$_doc_job"` 与拦截文案）。
+     本机之所以"还能推"，是因为被删的脚本仍躺在工作区（`git cat-file -e HEAD:…` 现读
+     `exists on disk, but not in 'HEAD'`）—— 任何干净检出/CI 上这条钩子第一次触发就只会报找不到文件。
+  2. 同一份镜像测试现读 `M8 H3 装载位 — 未设置时未回落到 .git/hooks`：本门声明的规则一直是
+     「未设置按 `.git/hooks` 判」，实现却在 `core.hooksPath` 未设置且 `.husky/_` 不存在时**整片**
+     判未判定 ⇒ 一台真把钩子放在默认位、且 `pre-commit` 缺失的机器，永远照不到这盏灯。
+- 处置：
+  - `.husky/pre-push`：起飞段 / `_doc_job` 初始化 / 收口段**整段摘除**，注释改为「173 已退役，
+    钩子命令行不许再引用 HEAD 面不存在的脚本（§0.8）」；顺带把两处仍把"文档数字门"算进尾段
+    起飞的注释改正。
+  - `scripts/data/gate-channel-registry.json`：`metaGates` 里那枚 `check-doc-numbers.mjs` 摘掉
+    （登记表里留一枚已经不存在的门，等于让后手以为 173 还活着）。
+  - `scripts/check-husky-hook-form.mjs` 的 `judgeHooksInstall`：`core.hooksPath` 未设置时**先看
+    `.git/hooks` 有没有 `pre-commit`/`post-commit`** —— 有 ⇒ 按默认位照判（缺件照样红）；
+    两处都没有才算"没装"⇒ 未判定（不记绿）。声明与实现自此同一条。
+  - `scripts/tests/check-husky-hook-form.test.mjs` 的 M8 增反向牙：`.husky/_` 与 `.git/hooks`
+    两处都没有真钩子 ⇒ 必须落 `undetermined` 而不是判红（否则干净检出的 CI 恒红，§12e）。
+- 验证：`node --test scripts/tests/check-husky-hook-form.test.mjs` 落地前现读 **9/10**（唯一红是 M7，
+  它按 HEAD 面判钩子文本 —— 修复落地后转绿）；**落地后复跑现读 10/10**，
+  `node scripts/check-husky-hook-form.mjs` 现读 **exit 0**：`8 枚钩子全部 sh 薄壳、且薄壳引用的
+  包装/正文在同面在位`；`bash -n .husky/pre-push` 现读 clean；
+  `scripts/data/gate-channel-registry.json` 现读 `JSON.parse` 通过；
+  `node scripts/check-hook-chain-refs.mjs --strict` 现读 0 红（钩子 spawn 入口仍在）；
+  `root-guard --check` 现读 `verdict=pass`。
+- 边界：退役动作本身是别席的，本项只补"退役收口"这一跳，不改 173 的历史，也不把数字对账
+  能力搬回来；H3 的放宽只落在"两处都没装"那一格，其余一律照判。
+
+### 5.91 第 91 项：一条结构性事实被写成恒红 —— 每轮都去建一个已被实测建不出来的东西，把真告警淹掉
+
+- 现场（一手，两条互不相干却同样"再跑一次还是同一读数"的形态）：
+  1. `node scripts/seal-c-root-stray.mjs --check` 现读 **exit 1**：`✖ common_attachment
+     [MISSING→create-link]`、`✖ persistent_data [MISSING→create-link]`。而在这块盘上新建
+     `C:\` 根 junction 是**结构性不可建**：`symlinkSync` 抛 `EPERM`，管理员 `mklink /J`
+     同样 `Access is denied`，`fsutil reparsepoint query` 亦 `Error 5`（盘根 ACL 拒写）。
+     守护 `healRootSeal` 每 30 分钟"check 非 0 ⇒ apply"一次 ⇒ 每轮都在同一面墙上撞一次，
+     把一条**静态 ACL 事实**写成恒红告警（§12e 明令禁止的那种红：与本次改动无关、只能靠
+     `--no-verify` 绕过），并淹掉真正会变的告警。
+  2. 同一张读数里 `tmp` / `tools` 是既存 junction，node 侧 `lstat` 抛 `EINVAL` ⇒ 判不出形态。
+     它被算进 `needsAction` ⇒ 即使不可建那两条解决了，`--check` 依旧**恒 exit 1**。
+     这属于 §0.3 的"未判定"，不是"待处置"：重跑一次读数一模一样。
+- 处置（`scripts/seal-c-root-stray.mjs`，单文件单真相源，不新造第二套状态）：
+  - 新增**实测台账** `.ihui-agent/state/c-root-seal-unreachable.json`（24h TTL）与三个出口
+    `readUnreachableLedger` / `recordUnreachable` / `clearUnreachable`。**只有实测失败才记**
+    （`EPERM`/`EACCES` 且非 dry-run），不是猜；TTL 到期自动复核（ACL 真改了就能转成 `SEALED`）。
+  - `sealOne` **探测之前**先查台账：命中 ⇒ `state=UNREACHABLE` / `action=skip` /
+    `blocked=true`，读数写明「本轮不重试，24h 后自动复核」与处置方向（改 ACL，或把该名移出封口清单）。
+    封口成功（`SEALED` 与新建成链接）两处 `clearUnreachable` —— 台账只存"此刻仍成立"的事实。
+  - `UNREADABLE` / `UNREADABLE-LINK` / `REAL-FILE` 打 `undetermined=true`：与 `blocked` 同样是
+    "没有可执行动作"，但原因不同（一个试过、一个读不到），读数**分两行报**，不许混成一条
+    （混了会让人按"改 ACL"去治"读不到"）。
+  - `run()` 的 `needsAction` 只认**可执行**的待处置项；返回值增 `blocked` / `undetermined` 两桶。
+    `main()` 的逐条读数改成三档符号：`✔` 封好 / `•` 不可执行（blocked·undetermined）/ `✖` 真待处置
+    —— 把前两类也画成 `✖` 是读数骗人。`--apply` 退出码容忍 `blocked`/`undetermined`（否则守护
+    每轮都 return 1，等于把"实测过的事实"写成失败）。
+  - **测试隔离（本项实测踩出来的教训）**：夹具跑的是假 root，但台账落点是**生产路径**，
+    于是自检里一次 `EPERM` 写进生产台账，后续用例继承那条"实测不可建"而**集体误红**
+    （自检一度 12/17、镜像 22/26）。修法是把落点做成可重定向（`opts.ledgerPath` 优先，
+    其次 `IHUI_C_ROOT_SEAL_LEDGER`，默认仍是生产路径），自检整段与镜像测试各自用自己的台账；
+    那条被夹具写脏的生产台账已删除后重新实测。
+- 验证（全部现读）：
+  - `node scripts/seal-c-root-stray.mjs --apply`（真实 `C:\`）：两条撞 `EPERM` 并按实测记账，
+    台账现读 `common_attachment` / `persistent_data` 各一条 `code=EPERM`；**不删任何东西**
+    （`MISSING` 分支只 `mkdirSync(target)` + `symlinkSync`）。
+  - `node scripts/seal-c-root-stray.mjs --check` 现读 **exit 0**，并打出两段：
+    `⇒ 结构性不可达 2 处(已实测,本轮不重试,24h 后自动复核):common_attachment / persistent_data`
+    与 `⇒ 未判定 2 处…:tmp[UNREADABLE] / tools[UNREADABLE]`。
+  - `--self-test` 现读 **17/17**（新增的隔离收口让原先被污染的 3 例转绿）；
+    `node --test scripts/tests/seal-c-root-stray.test.mjs` 现读 **27/27**（新增 6 例：
+    台账新鲜 ⇒ `blocked` 且不进 `needsAction` / 过期 ⇒ 照常探测 / 坏 JSON 与缺失 ⇒ 空表且不得放行 /
+    封上后记录被销 / `sealOne` 体内真有记账与销账两处 / 不可判项不进待处置集合）。
+  - `node scripts/watermark.mjs verify <两文件>` 现读 `覆盖 2/2，残迹 0`。
+- 边界：台账只记**实测**（读不到/过期/坏形状一律回落旧行为，不拿"读不到"当放行）；
+  它不改变封口语义（真能建的时候照旧建），也不把 `C:\` 根 ACL 的问题"修"掉 —— 那是机主职权面，
+  本项只让这条事实**不再被重复告警**且 24h 后自动复核一次。
+
+### 5.92 第 92 项：体积哨兵「只报不处置」，盘上也没有一格能说"这枚我知道、它该在这儿" —— 一次 recon 产物把 50MB 阈值变成恒态告警
+
+- 现场（一手）：`node scripts/check-tmp-bloat.mjs --json` 现读 `state=alarm`，
+  `over50=[{"rel":"recon/qoder-graph.json","bytes":164966474}]`（157.32MB，第 1/2 项 Qoder 前端图
+  逆向取证的一次性产物），另有 `ios-ipa-relay/ihui-ai-latest.ipa`（38.45MB，包中转腿的"当前可下载
+  那一版"）。守护 `auditTmpBloat` 每 5 分钟派发一次，`git-guardian.log` 现读连续多轮同一句
+  `🚨 1 枚 >50MB 失控单枚;另 1 枚 >20MB` —— 一条**不会变**的读数被反复喊（§12e 那型的反面：
+  多喊一次没错，但同一条事实反复喊会把真的越阈件淹掉）。
+- 根因：判据侧只有阈值两档，**没有任何"有意保留"通道**；也没有任何一格写过"这 157MB 是谁的、
+  什么时候该复核"。于是"留着"这件事在账面上与"失控"完全同形。
+- 处置：
+  - 新增登记面 `scripts/data/tmp-bloat-keep.json`（消费者只有哨兵一个，§0.6）：每条必须有
+    `rel`（精确命中，或以 `/` 结尾的前缀命中）、`reason`、可解析 `reviewBy`。它不是豁免族，
+    不进守门 108 的族表 —— 它换的不是"不判红"，而是"量到了也照样点名成 kept 而不是 alarm"。
+  - `scripts/check-tmp-bloat.mjs` 增两个纯判据 `parseKeepLedger(raw)` / `applyKeep(result, entries, nowMs)`：
+    命中 ∧ 未到期 ⇒ 进 `kept`（**照旧逐条点名**，并打印 `reviewBy`）；到期 ⇒ 逐条进 `expired`
+    **且仍算越阈**（"登记过就永久静音"是被禁的失效方向）；缺 `rel/reason/reviewBy`、`rel` 跑出
+    `.ihui-agent/tmp` 根外（绝对路径 / `..` / 盘符）、台账读不到或 JSON 坏 ⇒ **一条都不豁免**并把
+    原因打进读数。结论行改为
+    `TMP-BLOAT … over50= … over20= … kept=<n> state=<ok|watch|alarm|undetermined>`。
+  - **消费端同一笔修**：`scripts/git-guardian.mjs` 的 `auditTmpBloat` 原正则把 `state=` 钉死在
+    `over20=` 之后，多一维 `kept=` 就整行匹配不上 ⇒ 派发腿会永远读到"未取到结论行"，而器物那边
+    已经判定过。这正是"契约加了字段、消费者没跟上"的老型，故 kept 设为可选捕获、state 取最后一维，
+    并在 ok/watch/alarm 三档读数里都带上"登记保留 N 枚"。
+- 验证（现读）：`node scripts/check-tmp-bloat.mjs --self-test` ⇒ **10/10**
+（新增 4 例：登记命中降档 / 到期仍越阈且点名 / 前缀只吃该目录 / 保留一件后另一件照落 watch）；
+  `node --test scripts/tests/check-tmp-bloat.test.mjs` ⇒ **6/6**（台账逐条 reviewBy 可解析且落在
+  tmp 根内、相似名不被顺手豁免、坏台账四个形态一条都不豁免、到期条仍占越阈栏、装车断言）；
+  `node scripts/check-tmp-bloat.mjs --json` 现读 `over50=0 over20=0 kept=2 state=ok`，
+  文本档逐条打印 `📌 已登记保留(不算越阈,reviewBy …)`；`auditTmpBloat` 现读
+  `{"state":"ok","reading":"tmp 3291 枚 / 880.46MB,最大 157.32MB,无越阈单枚(登记保留 2 枚,已点名)"}`。
+- 边界：本项**不删任何文件**（157MB 取证原文与 38MB 包缓存都留着，只是从此有主、有复核日）；
+  "该删了"仍由 `reviewBy` 到期把条目打回越阈来提醒，而不是靠人记得。
+
+### 5.93 第 93 项：四枚"契约/结构锁已写好、实现没接"的结构红 —— 锁本身也死在了自己写死的字面量上
+
+- 现场（一手）：`node --test scripts/tests/git-guardian-*.test.mjs` 现读 **440 pass / 4 fail**，
+  四条都是"锁在、接线不在"或"锁自己读的是旧形态"型：
+  ① `daemon-audit-fanout` T8：`dispatchMonitorSignalIntake` 的节流戳只写在该函数默认入参里，
+  `main()` 段文本里没有这枚戳名 ⇒ 结构锁读不出"两面共用同一 tick 文件"，而本机执行体恰是无
+  `--daemon` 的单轮（A8 会把这枚腿恒判 rotting）。
+  ② `prod-foreign` T1：锁把健康分支写成死字面量 `if (coreOk && before.refsOk)`，而 RP-75 ①
+  已把门改成按自愈后快照判（`roundView`）⇒ 锁恒找不到边界，把**正确**接线判成红。
+  ③ `verdict-fail-open` 锁2：`sweepDesktopDiscoveryBudget` 的待核登记到期日 `2026-11-18` 已过，
+  而该腿现读仍是"`state` 是字符串就往下走"——尺子将来新增或拼错任何取值都会掉进末尾 ✅ OK。
+  ④ `worktree-bare` ⑥：锁只认 `const coreOk = coreHealthy(\w+)`，而 main 面现读是
+  `let coreOk = coreHealthy(before)` + 自愈后 `coreOk = coreHealthy(roundView)` 的**重赋**形态，
+  且文件里还有一处自愈成功日志里的 `coreHealthy(a)` ⇒ 锁读成"实到 1"。
+- 处置（逐条，改实现优先、改锁只在"锁量的是旧形态"时）：
+  - ① 实现侧：`main()` 与 daemon tick **两面都显式传 `tickFile`**，且戳名在两面都写成字面量
+    （`join(dirname(LOG), 'monitor-signal-intake-dispatch-last.json')`）⇒ 锁能读到"同一枚戳"，
+    不再是"藏在默认值里的暗接线"。
+  - ②④ 锁侧：两条死字面量改成**按形状认**。T1 认 `if (coreOk && <任意视图>.refsOk) {` 且挂点
+    在其后、健康早退之前（方向不变）；⑥ 改成"两个执行体各自的区段内至少一处 `= coreHealthy(...)`"
+    ＋"判据函数本体只许一份定义"＋旧三项式零命中＋自愈成功判定必须走 `coreHealthy(...) && refsOk`。
+    两条都保留了反向对照用例（摘线即红）。
+  - ③ 实现侧收紧：`sweepDesktopDiscoveryBudget` 的存在性守卫换成**取值白名单**
+    `!['pass','fail','undetermined'].includes(parsed.state)`（契约三值现读器物自身
+    `state = red.length>0?'fail':undetermined.length>0?'undetermined':'pass'`），不在契约里的取值
+    一律落"未判定,不记为已探测"。锁侧对应摘掉已过期的待核登记（锁自己的规矩就是"过期必须收紧或
+    续期，收紧后摘登记"，留着就是清单腐烂）。
+  - 契约测试同笔跟进：`scripts/tests/monitor-signal-intake-dispatch.test.mjs` ② 原匹配零参形态
+    `dispatchMonitorSignalIntake()`，两面显式传参后改成匹配"真被调到"（允许带参），锁的还是同一件事。
+- 验证（现读）：
+  `node --test scripts/tests/git-guardian-*.test.mjs` ⇒ **444 pass / 0 fail**（此前 440/4）；
+  `node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` ⇒ **7/7**；
+  `node scripts/check-sweeper-liveness.mjs` ⇒ `dispatch-parity` 键表 **91 条带戳腿全部在 tick 面有
+  非注释实调用**、`LIVENESS-RESULT state=idle-clean`，`--self-test` **39/39**；
+  行为面实测（注入 runner）：`state=breach`（契约外取值）⇒ `judged:false, why=结论不可解析`、零发信
+  （修前它会落进 ✅ OK）；`pass` ⇒ judged:true/reds:0；`fail` ⇒ reds:1 且发信 1 封；`undetermined`
+  ⇒ judged:false。`node --check scripts/git-guardian.mjs` ⇒ 0。
+- 边界：本项不动 `coreHealthy` 本体、不动健康判据语义、不动 `check-sweeper-liveness` 的切片判据
+  （T8/⑥ 借用的都是它 `__test__` 的唯一实现，§0.6 未新增第二份尺子）；`state=breach` 这类契约外
+  取值仍**不喊人**（保持 §5e-1"不可整改不寄信"），只是不再被记成健康。
+
+### 5.94 第 94 项：守夜人的回补把「内容早就在线里」的对象拖成可达提交 —— 判据比的是当前头部，而内容其实是某个祖先
+
+- 现场（一手，2026-11-21）：第 92 项首次签名用错 subject，产出一枚被弃用的提交对象 `df7faf9a66`
+  （内容与已推送的 `b8478a5` 同树），随后用正确签名重造并推送 `b8478a5`。守夜人
+  （`scripts/check-ref-move-loss.mjs` 的 `tryRestore`）把这枚"掉出祖先线"的对象当成"被位移丢失的提交"，
+  用 `git merge-tree --write-tree` + `commit-tree` + CAS **以空改动合并回补**（`44a427444d`，
+  两父 = `1010bb2` + `df7faf9a`，树与 `1010bb2` 逐字节相同）。后果不是内容受损，而是：
+  一枚缺 trailer、验签不过的对象从此**可达**，push 门按 `origin/main..HEAD` 逐枚判时判红
+  `undeclared-unsigned / sig-invalid`，只能靠事后追认台账消化（同类先例在
+  `scripts/data/immutable-guard-acks.jsonl` 已有 c459d76e）。
+- 根因：回补前的唯一判据是 `judgeRestoreEquivalent(git diff --quiet <被丢> <当前头部>)`。它问的是
+  "与**当前头部**有没有文件差"，而这一型真正该问的是"这些内容是不是**已经在线里了**"——
+  当前头部可以是后一枚无关提交（本例是 README 数字块），与被丢对象确有文件差，于是判成
+  "确有内容差、照旧回补"，尽管被丢对象的树与当前头部的**父提交**完全相同。
+- 处置（`scripts/check-ref-move-loss.mjs`，单一实现，未新增第二把尺子）：
+  - 新增纯判据 `isTreeCovered(tree, historyTrees)`：被丢对象的 tree 只要等于主线**任一祖先提交**
+    的 tree ⇒ 内容早已在线里 ⇒ 跳过回补（取不到历史树集合 / 取不到 tree ⇒ 不判覆盖，
+    交回既有 diff 判据，既不猜也不放行）。
+  - `tryRestore` 里批起点先算一次 `git log --format=%T <curHead>` 得主线树集合（`curHead` 取批起点，
+    不随逐枚回补推进——问的是"批起点那条线里有没有"），逐枚先过覆盖判据，命中即进
+    `skipped`（`why` 点名"树 … 已出现在主线祖先里 ⇒ 回补不增加任何内容"），**一条 CAS 都不做**。
+  - 自检 12 → **16 例**：覆盖命中 / 未命中 / 历史集合取不到 / tree 读不到，四向都钉住。
+- 验证（现读）：
+  `node scripts/check-ref-move-loss.mjs --self-test` ⇒ **16/16**；
+  `node --test scripts/tests/ref-move-restore-tree-covered.test.mjs` ⇒ **3/3**，其中两档用真 git 仓库跑：
+  ① 同树对象 ⇒ `applied=[]`、`newHead` 原地不动、`refs/heads/main` 一枚未动（连空合并都不造）；
+  ② 反向对照（真有内容的对象）⇒ `applied=[B]`、合并树里 `b.txt` 真在（证明修的是"空回补"，
+  没把回补能力整个关掉）；③ 纯判据四向。
+  生产仓 `node scripts/check-ref-move-loss.mjs --check` ⇒ `未位移:8894dd4b772`（exit 0）。
+- 边界：本项**不改历史、不删对象**（`df7faf9a66` 与那枚空合并已在远端，靠 immutable-guard 的
+  具名追认台账带着到期日管住，2027-06-30 到期自动回到红）；也**不放宽** push 门的逐枚判据：
+  少造一枚空合并，比事后补一条追认更便宜。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

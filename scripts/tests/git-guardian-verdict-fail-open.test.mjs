@@ -92,10 +92,10 @@ test('锁2 残余的存在性判定必须落在保守兜底上,并逐条登记�
       '实测(2026-11-04):未知 overall 直接 return ok:false + why=结论不可解析,不写 judged:true ⇒ 保守档',
   }
   // 待核登记 ≠ 豁免:它必须带到期日,过期即红(§0.7 "豁免必须验过才免且会到期")。
-  // sweepDesktopDiscoveryBudget 的尺子顶层取值(breach/unjudged/ok/fail/pass/partial/undetermined)
-  // 与派发器实际比较的键(只有 fail 与 undetermined)不对应 ⇒ 套白名单会连带改这条腿的语义,
-  // 归它自己的席位复核;在那之前它留在明处,不静默放行。
-  const NEEDS_OWNER_REVIEW = { sweepDesktopDiscoveryBudget: '2026-11-18' }
+  // 2026-11-21(第 93 项)现读:此前唯一一条登记 `sweepDesktopDiscoveryBudget`(到期 2026-11-18)
+  // 已过期 ⇒ 按本条自己的规矩,该腿的实现改成取值白名单(不在 fail/pass/undetermined 里的取值
+  // 一律按未判定,不再掉进末尾 ✅ OK),存在性形态消失 ⇒ 登记按同一规矩摘掉,不留腐烂条目。
+  const NEEDS_OWNER_REVIEW = {}
   const problems = []
   for (const f of uses) {
     for (const k of KEYS) {

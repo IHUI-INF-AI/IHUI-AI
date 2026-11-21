@@ -217,7 +217,9 @@ describe('detectClientProcesses:镜像名可配(Qoder/Trae 搬家复用同一道
     } else {
       expect(Array.isArray(detectClientProcesses(['node']))).toBe(true)
     }
-  })
+    // 本用例真的 spawn 一次 tasklist:本机重负载下实测单次可吃 15s 预算(2026-11-21 全量档
+    // 三次重试全超时),而判据是"返回形态"不是子进程吞吐 ⇒ 预算 60s,断言零改动。
+  }, 60_000)
 })
 
 describe('main move --account:互斥 / apply / 逐条 undo', () => {

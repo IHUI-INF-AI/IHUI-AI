@@ -103,11 +103,11 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5952 | `testFiles` |
+| 测试文件 | 5953 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 371 | `guardianGates` |
-| — blocking | 339 | `guardianBlocking` |
+| 工程守门 | 370 | `guardianGates` |
+| — blocking | 338 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
 | 跟踪文件 | 23154 | `trackedFiles` |
 

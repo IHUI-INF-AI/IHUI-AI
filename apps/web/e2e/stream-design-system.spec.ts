@@ -197,7 +197,7 @@ test.describe('消息流活动区设计系统', () => {
       await trigger.click()
     }
     // 只看消息流内的活动行:输入区任务状态条等不归本闸管,避免跨区段误判;
-    // 区段头行(data-section-header)是 28px 另一档,单列在下方的 headStyle 断言里
+    // 2026-11-21:头行与普通行同几何 —— 不再有"28px 头行"另一档
     const rows = page.locator(
       '[data-message-id] [data-stream-status]:not([data-section-header]):not([data-stream-group-trigger])',
     )
@@ -216,15 +216,63 @@ test.describe('消息流活动区设计系统', () => {
     expect(metrics.length).toBeGreaterThanOrEqual(2)
     // 失败时点名哪一行漂了 —— 不点名会让下一次偶发红变成无从下手的哑谜
     expect(metrics.filter((m) => m.fontSize !== '13px' || m.height !== '24px')).toEqual([])
-    // 组头与活动行同字号;头行高 28px(13px 字 + 上下内边距)
+    // 组头与活动行同字号同高(28px 那一档已并入 24px)
     const headStyle = await trigger.evaluate((el) => {
       const cs = getComputedStyle(el)
       return { fontSize: cs.fontSize, height: cs.height }
     })
-    expect(headStyle).toEqual({ fontSize: '13px', height: '28px' })
+    expect(headStyle).toEqual({ fontSize: '13px', height: '24px' })
   })
 
-  // 2026-11-21 立(用户口径):折叠头行**不画容器** —— 常态无底色、无描边,hover 也不许补回来。
+  // 2026-11-21 立(用户口径"图标文字都没对齐 / 七扭八歪"):几何量不得随"能不能点"变化。
+  // 旧实现:可点击行走头行档(28px + px-1),不可点击行走普通档(24px + 无左内边距)⇒
+  // 同一列表里图标列时左时右、行高跳、文字基线因为全局 vcenter 只认 button 而差 0.3px。
+  // 现在一行一个几何:高度、图标左沿、文字左沿、文字字形偏移四项逐行逐字相等。
+  test('活动行几何与可点击性无关:行高/图标列/文字列/字形偏移逐行一致', async ({
+    adminPage: page,
+  }) => {
+    const group = page.locator('[data-stream-group]').first()
+    await expect(group).toBeVisible()
+    const trigger = group.locator('[data-stream-group-trigger="true"]')
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+      await trigger.click()
+    }
+    const rows = group.locator('[data-stream-row="true"]')
+    await expect(rows.first()).toBeVisible()
+
+    const probe = await rows.evaluateAll((els) => {
+      const token = getComputedStyle(document.documentElement)
+        .getPropertyValue('--text-vcenter-offset-row')
+        .trim()
+      return {
+        token,
+        rows: els.map((el) => {
+          const svg = el.querySelector('svg')
+          const text = [...el.querySelectorAll('span')].find((s) => (s.textContent ?? '').trim())
+          const rect = el.getBoundingClientRect()
+          const txt = text?.getBoundingClientRect()
+          return {
+            tag: el.tagName,
+            height: +rect.height.toFixed(2),
+            iconLeft: svg ? +svg.getBoundingClientRect().left.toFixed(2) : null,
+            textLeft: txt ? +txt.left.toFixed(2) : null,
+            translate: text ? getComputedStyle(text).translate : null,
+          }
+        }),
+      }
+    })
+
+    expect(probe.rows.length).toBeGreaterThanOrEqual(3)
+    // ① 行高只有一个值(按钮行与展示行同档)
+    expect([...new Set(probe.rows.map((r) => r.height))]).toHaveLength(1)
+    // ② 图标列、③ 文字列各只有一个值(左内边距不再挂在"可点击"上)
+    expect([...new Set(probe.rows.map((r) => r.iconLeft))]).toHaveLength(1)
+    expect([...new Set(probe.rows.map((r) => r.textLeft))]).toHaveLength(1)
+    // ④ 字形补偿按"行"生效:每个文字 span 拿到同一个 token 值,不再分 button/div
+    expect(probe.token).not.toBe('')
+    expect([...new Set(probe.rows.map((r) => r.translate))]).toEqual([`0px ${probe.token}`])
+  })
+
   // 此前头行靠"一块灰底 + 一圈低对比描边"圈出按钮,用户要求彻底去掉:过程行只留内容与箭头。
   // 断言三件事,全部在真浏览器里量计算样式(不是读类名):
   //  ① 常态底色透明(不是任何灰底);

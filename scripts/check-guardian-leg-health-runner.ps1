@@ -167,12 +167,18 @@ if ($DryRun) {
 if ($mailExitUsable) {
     $detail = if ($json -and $json.legs) { (($json.legs.PSObject.Properties | Where-Object { $_.Value.stale -or $_.Value.down } | ForEach-Object { "{0}={1}({2})" -f $_.Name, $(if ($_.Value.down) { 'down' } else { 'stale' }), $_.Value.ageHuman }) -join '; ') } else { 'state=down(无 findings)' }
     if (-not $detail) { $detail = 'state=down(三腿均新鲜,daemon 侧判死)' }
+    # 第 88 项:三腿 tick 可能是兜底任务写的 —— 把"谁在跑"写进信文,否则收信人分不清"腿还活着"与"守护还活着"
+    $executorNote = if ($json -and $json.executor) {
+        "执行体=$($json.executor.kind) role=$($json.executor.role) pid=$($json.executor.pid) alive=$($json.executor.alive) hb=$($json.executor.heartbeatAgeHuman)$(if ($json.executor.pidReused) { ' ⚠️pid已被复用' } else { '' })"
+    } else { '执行体=-' }
+    if ($json -and $json.pidSource -eq 'pid-dead' -and $json.legState -ne 'down') { $detail = "常驻 daemon 已死(pid-dead);三腿仍新鲜说明只有一次性任务在兜底 ⇒ $detail" }
     # 哨兵 --json 的键是 `pid`(不是 daemonPid):旧写法取不到就恒打 "-",把"有 pid"读成"没有 pid"(第 87 项顺手修)
     $prevUndel = Read-Undelivered -Path $Undelivered
     $body = @(
         "guardian 存活哨兵判 down(Y-72)",
         "",
         "daemon pid: $(if ($json) { "$($json.pid)($($json.pidSource))" } else { '-' })",
+        $executorNote,
         "判定: $detail",
         "拉起动作: schtasks /run $guardianTask ⇒ rc=$pullRc",
         $(if ($prevUndel) { "此前未送达: $($prevUndel.rounds) 轮(自 $($prevUndel.since))" } else { "" }),
