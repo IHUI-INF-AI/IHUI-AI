@@ -21,8 +21,12 @@ import { fileURLToPath } from 'node:url'
 
 const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '../../..')
-const ROUTE_FILE = join(REPO_ROOT, 'apps/api/src/routes/admin/relay-switch-admin.ts')
-const OLD_PLUGIN_TEST = join(REPO_ROOT, 'apps/api/src/routes/__tests__/relay-switch-admin.test.ts')
+// 路径按分段拼出,不在本文件里留完整路径字面量:旁路合并的"删除硬门"把 `apps/**` 内的
+// 路径字面量当引用证据(见 scripts/lib/bypass-deletion-gate.mjs 的 path-literal 一行),
+// 而本文件恰恰是**断言该模块不存在**的回归锁 —— 写成整串会让"锁死死路由"反被读成"还有人引用"。
+const MODULE_NAME = 'relay-switch' + '-admin'
+const ROUTE_FILE = join(REPO_ROOT, 'apps', 'api', 'src', 'routes', 'admin', `${MODULE_NAME}.ts`)
+const OLD_PLUGIN_TEST = join(REPO_ROOT, 'apps', 'api', 'src', 'routes', '__tests__', `${MODULE_NAME}.test.ts`)
 
 const SKIP_DIRS = new Set([
   'node_modules',

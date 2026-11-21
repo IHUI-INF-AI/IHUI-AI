@@ -8,6 +8,7 @@ import * as React from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
+import { LaserHaloRing } from '@/components/chat/laser-halo-ring'
 
 /** 距顶/距底超过该阈值(px)时才渐显跳顶/跳底按钮(任务 D3 阈值 800px)。 */
 export const JUMP_FAR_THRESHOLD = 800
@@ -67,7 +68,9 @@ function visibilityProps(on: boolean, extraClass = '') {
  *  - 2026-09-22 归一:此前 MessageList 底部居中另挂了一枚同义的「跳到最新」
  *    (data-testid="message-list-jump-latest"),同屏两枚语义重复的按钮共处一条 300px 宽的
  *    对话列。现合并为本列的唯一「跳到最新」,行为改用 hook 的 scrollToBottom(滚到底 + 复位
- *    userScrolledUp),流式红点随该按钮。文案键沿用 jumpToTop/jumpToLatest,不新增键。
+ *    userScrolledUp)。文案键沿用 jumpToTop/jumpToLatest,不新增键。
+ *  - 2026-11-21 用户定档:该按钮的流式红点(右上角 animate-pulse 小圆点)已删除,
+ *    「进行中」只由 LaserHaloRing 光带表达,同一语义不留第二处标记。
  *  - 禁发光/蓝光边框;红点属 ≤8px 装饰点(AGENTS.md 圆角豁免项)
  *  - 2026-11-15 字形归族:跳底改用 ChevronDown(= 跳顶 ChevronUp 的翻转),
  *    不再混用带竖杆的 ArrowDown —— 同列两枚箭头必须同字形族,否则上下不像一套 */
@@ -117,13 +120,10 @@ export function ScrollJumpButtons({
         )}
       >
         <ChevronDown />
-        {isStreaming && (
-          <span
-            data-testid="message-list-jump-latest-dot"
-            className="absolute -right-0.5 -top-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
-            aria-hidden
-          />
-        )}
+        {/* 任务进行中:下翻按钮四周跑一圈激光光带(流式结束即卸载,动画自动停)。
+            2026-11-21 用户定档:光带接管「进行中」语义,原先右上角的流式红点(animate-pulse)
+            一并删除,不再留任何闪烁标记。 */}
+        <LaserHaloRing active={isStreaming && showLatest} />
       </Button>
     </div>
   )

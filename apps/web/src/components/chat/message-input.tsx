@@ -22,6 +22,7 @@ import { VoiceNote } from './voice-note'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { AgentPicker } from '@/components/chat/agent-picker'
+import { LaserHaloRing } from '@/components/chat/laser-halo-ring'
 import { AgentNoticeBar } from '@/components/chat/agent-notice-bar'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
@@ -1766,12 +1767,14 @@ export function MessageInput({
                           onClick={onStop}
                           className={cn(
                             ICON_BUTTON_ACTION_BASE_CLASS,
-                            'bg-sky-500 text-white hover:bg-sky-600',
+                            // relative:让「任务进行中」激光光带贴住本按钮四边;流式结束本键消失,光带随之卸载
+                            'relative bg-sky-500 text-white hover:bg-sky-600',
                           )}
                           aria-label={stopLabel ?? t('stop')}
                           data-testid="stop-button"
                         >
                           <Square className="h-4 w-4" fill="currentColor" />
+                          <LaserHaloRing active />
                         </button>
                       </Tooltip>
                     </>

@@ -110,10 +110,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
 | 跟踪文件 | 23150 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5515,7 +5513,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (94cb493b28)
 - 🚀 新功能/改进:号池通道补工具回路 —— 取 schema/带 tools/收 tool_calls/执行后文本回灌续跑; 顺带修 hr 工具判据的续做说法漏带与工具卡成败标注 (424b06d808)
 - 🐞 修复:CORS_ORIGIN 模板补全 www/api/bsm 子域(漏列致预检被拒+WS 403,前端初始化卡死) (cce388a078)
-
 **2026-11-21**
 - 🐞 修复:补 4 枚错误码五语言词包并修 zh-TW agentTerminal.cursor 繁简残留 (32e3cc8c0e)
 - 🐞 修复:第69项 复跑预算 block 前置(blocking 门不许被 warn 挤出预算) (91894a2f5d)
@@ -5523,7 +5520,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:第67项 自愈层补AD形态(已暂存新增/盘缺从索引回盘)+ 自检三格按现设计重写 (6350937b37)
 - 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.93 (6d4c372690)
 - 🐞 修复:号池保活告警按终态分层,判死号不再每天重播 (80d6e03af4)
-
 **2026-11-21**
 - 🐞 修复:修复 12 族真 bug(Windows 锁探活/僵尸锁、cmd 代码页、Auto 审查闸、多模态消息丢弃、任务状态误判错误体、交付物规约与 present_files 丢失等),pytest 分批全绿 (64500e176d)
 - 🐞 修复:第66项 历史存量不再当现状(A13 三档/A6 数据坏先未判定)+ 两把锁按登记表现读 (c55e6241aa)
@@ -5576,7 +5572,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:按 HEAD 树重钉生成块数字(守门/文件/测试计数) (712507cbf4)
 - 🐞 修复:执行计划步骤说明里的英文工具码名改为本地化功能名 (587b64573e)
 - 🐞 修复:模态档豁免 availability 过滤(chat 探针把 image/video/tts 整批判 DOWN)+ 分类前置 (a8b62e012a)
-
 **2026-11-21**
 - 🐞 修复:号池模型按登记集合判定通道(修「本轮没有返回任何内容」) (b87863c62ae)
 - 🐞 修复:删除 TOOL_DISPLAY_KEYS 内 hr_* 六枚重复键(TS1117 阻断生产 build)+ 键名对齐 i18n 五语言 (44297e93005)
@@ -9018,3 +9013,5 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 测试文件 | 5934 | `testFiles` |
 | 测试文件 | 5934 | `testFiles` |
 | 跟踪文件 | 23100 | `trackedFiles` |
+| 测试文件 | 5952 | `testFiles` |
+| 跟踪文件 | 23154 | `trackedFiles` |

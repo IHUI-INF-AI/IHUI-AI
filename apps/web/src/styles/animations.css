@@ -3592,8 +3592,70 @@
   }
 }
 
+/* ============ 任务进行中:按钮四周的旋转激光光带(2026-11-21 用户定档) ============ */
+/* 挂载点(用户校订):消息区「下翻/跳到最新」按钮、底栏流式态「停止」键。
+ * 语义:任务在跑 ⇒ 一束带尾的激光贴着按钮四边绕行;任务结束 ⇒ 组件卸载,动画随之停止。
+ * 画法:SVG 描边 + pathLength=100 + stroke-dasharray。彗尾由 14 枚首尾严格相接的短段拼成,
+ * 同一描边色、沿尾向逐段收窄减淡 ⇒ 连续渐隐;外加一层连续淡光晕做扩散,整体 0.5px 柔化。
+ * 不借 mask-image(§4 禁渐变遮罩),不铺底、不向按钮中心漏光;
+ * 配色只取品牌强调档(brand-accent / brand-accent-deep)。
+ * 注:rect 的 x/y/width/height/rx 走 CSS 几何属性(SVG2),Chromium 原生支持;
+ * 组件里同时给了同名 presentation 属性作降级兜底(CSS 优先)。 */
+.agent-laser-ring {
+  position: absolute;
+  inset: -2px;
+  z-index: 2;
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
+  overflow: visible;
+  pointer-events: none;
+  /* 柔化只在极小半径上做:毛边消失,但不至于糊成色块 */
+  filter: blur(0.35px);
+}
+
+.agent-laser-ring rect {
+  x: 1px;
+  y: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  rx: var(--radius-sm);
+  fill: none;
+  /* 对接边用平头(butt):圆头会在每段末端顶出一颗小圆点,读起来就是"一块一块" */
+  stroke-linecap: butt;
+  animation: agent-laser-sweep 2.4s linear infinite;
+}
+
+/* --laser-offset = 该段沿路径的起点(单位:%);所有段同速前进 ⇒ 拼成一个整体在跑。 */
+@keyframes agent-laser-sweep {
+  from {
+    stroke-dashoffset: var(--laser-offset, 0);
+  }
+  to {
+    stroke-dashoffset: calc(var(--laser-offset, 0) - 100);
+  }
+}
+
+/* 持续淡光晕:一截连续弧光(不做分段),给整束彗尾做扩散底 */
+.agent-laser-ring-glow {
+  stroke: color-mix(in srgb, var(--color-brand-accent) 32%, transparent);
+  stroke-width: 3.2;
+  stroke-dasharray: 17 83;
+}
+
+/* 彗尾段:颜色单一,宽度 2.2→1.15、不透明度 1→0.14 逐段衰减(数值由组件内联给出)。
+ * 取 accent 而非 deep:deep 比青底(停止键)还暗,满不透明度时会读成一道暗影而非光。 */
+.agent-laser-ring-tail {
+  stroke: var(--color-brand-accent);
+  stroke-dasharray: 1.25 98.75;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stream-caret-host > :last-child::after {
+    animation: none;
+  }
+
+  /* 减少动效:停转,保留静态弧光 —— 仍能读出"进行中",但不再扫动 */
+  .agent-laser-ring rect {
     animation: none;
   }
 }
