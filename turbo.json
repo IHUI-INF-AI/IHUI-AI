@@ -46,31 +46,7 @@
         "tsconfig*.json",
         "package.json"
       ],
-      "outputs": [],
-      "env": [
-        "NODE_ENV",
-        "CI",
-        "IHUI_BROWSER_EXECUTABLE",
-        "IHUI_BROWSER_CDP_URL",
-        "IHUI_BROWSER_HEADLESS",
-        "IHUI_BROWSER_CDP_WAIT_MS"
-      ],
-      "passThroughEnv": [
-        "LOCALAPPDATA",
-        "ProgramFiles",
-        "ProgramFiles(x86)",
-        "PROGRAMFILES",
-        "PROGRAMFILES(X86)",
-        "USERPROFILE",
-        "APPDATA",
-        "HOME",
-        "TEMP",
-        "TMP",
-        "TMPDIR",
-        "PATH",
-        "IHUI_*",
-        "EXPO_PUBLIC_*"
-      ]
+      "outputs": []
     },
     "test:e2e": {
       "dependsOn": ["^build"],
