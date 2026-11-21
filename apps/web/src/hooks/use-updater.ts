@@ -435,7 +435,12 @@ export function useUpdater() {
     const schedule = (attempt: number, delay: number) => {
       timer = setTimeout(() => {
         void (async () => {
-          const ok = await checkForUpdate(true, true)
+          // 2026-11-21 立(双链竞争根治):静默链只"检查 + 留痕",不再自己下载安装。
+          // 安装动作已由桌面端 Rust 内置自动更新(auto_refresh::check_app_update)承担
+          // (它带 30s/10s 硬超时 + 默认/系统代理/强制直连三路兜底 + 进程内安装互斥),
+          // 前端链若同时 autoInstall,会二次下载约 10MB 并与 Rust 链抢同一个安装器;
+          // 且本机实测该链此前未走系统代理,直连超时后把"Rust 链已装好"说成"更新失败"。
+          const ok = await checkForUpdate(true, false)
           if (cancelled || ok || attempt >= SILENT_RETRY_DELAYS_MS.length) return
           schedule(attempt + 1, SILENT_RETRY_DELAYS_MS[attempt] ?? 600_000)
         })()
@@ -509,7 +514,8 @@ export function useUpdater() {
     if (retryCount >= 3) return
     const timer = setTimeout(() => {
       setRetryCount((c) => c + 1)
-      void checkForUpdate(true, true)
+      // 2026-11-21:同样只重试「检查」,下载安装归 Rust 内置链(见启动静默链处头注)。
+      void checkForUpdate(true, false)
     }, 5000)
     return () => clearTimeout(timer)
   }, [state.status, retryCount, checkForUpdate])

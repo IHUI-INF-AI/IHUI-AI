@@ -66,7 +66,8 @@ import { guardDbDsn } from './lib/db-probe-client.mjs'
 // 登记行守卫(与 dep-advisory-radar 共用同一份):hex 串在台账行里会被守门 117 当短 sha 拒落。
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
 // 挑族用的判据 = 第一发号出口那一份(本器只调用、不复制;详见文件头"取号族现读"段)。
-import { resolveIdTokens } from './live-doc-edit.mjs'
+import { resolveIdTokens, loadYieldedIdSets, readRemoteIdBasis } from './live-doc-edit.mjs'
+import { loadRetiredIdSets } from './lib/plan-id-retire-io.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
 import { machineIdentity, describeExhaustion } from './lib/plan-id-lease.mjs'
 import { TASK_ID_PATTERN } from './check-plan-line-loss.mjs'
@@ -866,15 +867,35 @@ export function idFamilyLetters(pattern = TASK_ID_PATTERN) {
  *  - `pool-exhausted:<族>` ⇒ status='exhausted',exhaustion 读数原样交出(成因句由 lib 渲染);
  *  - `no-such-family:<族>` ⇒ status='no-rows'(该族在底稿一条登记行都没有 ⇒ 首行须手填开族,非本器职权);
  *  - 其余 reason / 抛异常 ⇒ status='rejected' 或 'undetermined',绝不冒充"能发"。
+ *
+ * **口径必须与发号器逐项同面(第 71 项,2026-11-21)**:探针先前只把 `machineId` + `worktreeText`
+ * 递给 `resolveIdTokens`,而真发号那一路还喂着三张面 —— 远端号段(`readRemoteIdBasis`)、已完成条目的
+ * 让位集(`loadYieldedIdSets`)、近期结清号的避让集(`retiredLoader`)。漏这三张的实测代价是
+ * "探针说 B42 可发,`live-doc-edit --apply` 当场 `SCAN_FACE_FULL` 拒发",deploy-feedback 于是
+ * 每天写一条 `undetermined` 却读不出原因。三张面改为**显式可选入参**,缺省 null ⇒ 与旧行为逐字
+ * 同形(测试夹具不碰真仓);生产调用方(`pickRegistrationFamily`)必须把真装载器递满。
  */
 export function probeIdFamily(
   family,
-  { faceText, worktreeText = null, machineId, resolve = resolveIdTokens } = {},
+  {
+    faceText,
+    worktreeText = null,
+    machineId,
+    resolve = resolveIdTokens,
+    remote = null,
+    yieldedIds = null,
+    retiredLoader = null,
+  } = {},
 ) {
   const row = `- [ ] {{NEXT_ID:${family}}} ${PROBE_TITLE}`
   let r
   try {
-    r = resolve([row], faceText, null, { machineId, worktreeText })
+    r = resolve([row], faceText, remote, {
+      machineId,
+      worktreeText,
+      yieldedIds,
+      retiredLoader,
+    })
   } catch (e) {
     return {
       family,
@@ -912,6 +933,9 @@ export function pickIdFamily({
   machineId,
   families = idFamilyLetters(),
   resolve = resolveIdTokens,
+  remote = null,
+  yieldedIds = null,
+  retiredLoader = null,
 } = {}) {
   if (typeof faceText !== 'string' || !faceText.trim())
     return {
@@ -929,7 +953,9 @@ export function pickIdFamily({
       readings: [],
       faceNotes: [],
     }
-  const readings = families.map((f) => probeIdFamily(f, { faceText, worktreeText, machineId, resolve }))
+  const readings = families.map((f) =>
+    probeIdFamily(f, { faceText, worktreeText, machineId, resolve, remote, yieldedIds, retiredLoader }),
+  )
   const first = readings.find((r) => r.ok)
   return {
     ok: Boolean(first),
@@ -961,6 +987,9 @@ export function pickRegistrationFamily({
   machineId = machineIdentity(root),
   collect = collectIdFace,
   readFile = (p) => readFileSync(p, 'utf8'),
+  remoteBasis = readRemoteIdBasis,
+  yieldedLoader = loadYieldedIdSets,
+  retiredLoaderFactory = (families) => loadRetiredIdSets({ root, families }),
 } = {}) {
   let faceText = null
   let worktreeText = null
@@ -998,7 +1027,47 @@ export function pickRegistrationFamily({
       )
     }
   }
-  const picked = pickIdFamily({ faceText, worktreeText, machineId, resolve })
+  // 第 71 项(2026-11-21):三张面与真发号那一路同源 —— 远端号段 / 让位集 / 结清避让集。
+  // 只在真仓档(没注入 face 夹具)装载:夹具档不碰网络与台账,保持"零副作用"语义。
+  const families = idFamilyLetters()
+  let remote = null
+  let yieldedIds = null
+  let retiredLoader = null
+  if (typeof face?.faceText !== 'string') {
+    try {
+      remote = remoteBasis({ root, doc, families })
+    } catch (e) {
+      // 远端面装载异常 ⇒ 不猜"可发":整轮按未判定交回(§0.3 不把没判写成判过)。
+      return {
+        ok: false,
+        undetermined: true,
+        why: `远端号段面装载异常:${String(e?.message ?? e).slice(0, 160)}`,
+        readings: [],
+        faceNotes: notes,
+      }
+    }
+    const remoteNotes = [...(remote?.notes ?? []), ...(remote?.info ?? [])]
+    if (remoteNotes.length) notes.push(...remoteNotes)
+    // 远端问不到/对象不在本地 ⇒ 上界这一维没判到。真发号器在同档下会自己放行,但"探针说可发"
+    // 在缺上界时是假话 ⇒ 本层落未判定(失效方向是多要一次定向说明,绝不假发一枚号)。
+    if (remote && remote.notes?.length && !remote.tipSha)
+      return {
+        ok: false,
+        undetermined: true,
+        why: `远端号段面判不出(${remote.notes.join(';')})⇒ 不猜哪一族可发`,
+        readings: [],
+        faceNotes: notes,
+      }
+    try {
+      yieldedIds = yieldedLoader({ root })
+      retiredLoader = (fams) => retiredLoaderFactory(fams)
+    } catch (e) {
+      notes.push(`让位/结清面装载异常(${String(e?.message ?? e).slice(0, 120)})⇒ 探针少这两维`)
+      yieldedIds = null
+      retiredLoader = null
+    }
+  }
+  const picked = pickIdFamily({ faceText, worktreeText, machineId, resolve, remote, yieldedIds, retiredLoader })
   return { ...picked, faceNotes: [...notes, ...picked.faceNotes] }
 }
 
@@ -1794,6 +1863,47 @@ async function selfTest() {
   ok(
     'T11g 探针行标题带 PROBE 字样且不含真登记语义 ⇒ 永远不会被当一条登记抄走',
     PROBE_TITLE.includes('不落台账') && !/^\s*- \[/.test(PROBE_TITLE),
+  )
+  // ── T11i/T11j 探针与发号器必须同面(第 71 项,2026-11-21)──
+  ok(
+    'T11i 探针把远端/让位/结清三张面原样递给唯一分配判据(不再只给 machineId+worktree)',
+    (() => {
+      const seen = []
+      const yielded = new Map([['B', new Set([41])]])
+      const retiredLoader = () => ({ state: 'ok', byFamily: new Map() })
+      const p = probeIdFamily('B', {
+        faceText: '- [ ] B1 既有行',
+        machineId: 'seatA',
+        remote: { tipSha: 'abc', max: {}, ids: {} },
+        yieldedIds: yielded,
+        retiredLoader,
+        resolve: (lines, base, remote, opts) => {
+          seen.push({ remote, opts })
+          return { ok: true, lines: ['- [ ] B42 PROBE'] }
+        },
+      })
+      const s = seen[0] ?? {}
+      return (
+        p.ok === true &&
+        s.remote?.tipSha === 'abc' &&
+        s.opts?.yieldedIds === yielded &&
+        s.opts?.retiredLoader === retiredLoader
+      )
+    })(),
+  )
+  ok(
+    'T11j 远端号段面判不出 ⇒ 整轮未判定(缺上界时不冒充"可发",绝不假发一枚号)',
+    (() => {
+      const r = pickRegistrationFamily({
+        collect: () => ({ ok: true, text: '- [ ] B1 既有行', notes: [], undetermined: [] }),
+        readFile: () => '',
+        remoteBasis: () => ({ notes: ['远端不可问(origin refs/heads/main)'], tipSha: '', max: {}, ids: {} }),
+        yieldedLoader: () => new Map(),
+        retiredLoaderFactory: () => () => ({ state: 'ok', byFamily: new Map() }),
+        machineId: 'seatA',
+      })
+      return r.ok === false && r.undetermined === true && /远端号段面判不出/.test(r.why)
+    })(),
   )
   ok('T11h --families 合法动作旗标且与 --once 互斥', (() => {
     const a = parseArgs(['--families'])

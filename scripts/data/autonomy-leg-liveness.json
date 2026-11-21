@@ -7,7 +7,8 @@
       "envVar": "IHUI_RELAY_CAPACITY_INTERVAL_MS",
       "nominalIntervalMs": 300000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/check-relay-capacity-zero.mjs"
+      "ruler": "scripts/check-relay-capacity-zero.mjs",
+      "outputKind": "none"
     },
     {
       "stamp": "auto-evolve-dispatch-last.json",
@@ -15,7 +16,11 @@
       "envVar": "IHUI_AUTO_EVOLVE_INTERVAL_MS",
       "nominalIntervalMs": 3600000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/auto-evolve.mjs"
+      "ruler": "scripts/auto-evolve.mjs",
+      "outputKind": "always",
+      "outputRel": "auto-evolve-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 21600000
     },
     {
       "stamp": "auto-triage-dispatch-last.json",
@@ -23,7 +28,11 @@
       "envVar": "IHUI_AUTO_TRIAGE_INTERVAL_MS",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/auto-triage.mjs"
+      "ruler": "scripts/auto-triage.mjs",
+      "outputKind": "conditional",
+      "outputRel": "auto-triage-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 10800000
     },
     {
       "stamp": "deploy-feedback-dispatch-last.json",
@@ -32,7 +41,11 @@
       "nominalIntervalMs": 1200000,
       "verifiedAt": "2026-11-04",
       "ruler": "scripts/deploy-feedback.mjs",
-      "knownBlocker": "机器级 IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 会把它整条短路(仓内无任何地方登记谁关的/为何/何时恢复)⇒ 静默属预期,本探测器正是要把这种静默量出来"
+      "knownBlocker": "机器级 IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 会把它整条短路(仓内无任何地方登记谁关的/为何/何时恢复)⇒ 静默属预期,本探测器正是要把这种静默量出来",
+      "outputKind": "conditional",
+      "outputRel": "deploy-feedback-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 7200000
     },
     {
       "stamp": "deploy-outcome-intake-dispatch-last.json",
@@ -40,7 +53,8 @@
       "envVar": "IHUI_DEPLOY_OUTCOME_INTERVAL_MS",
       "nominalIntervalMs": 1200000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/deploy-outcome-intake.mjs"
+      "ruler": "scripts/deploy-outcome-intake.mjs",
+      "coveredBy": "A11-closure-output"
     },
     {
       "stamp": "e2e-autofill-dispatch-last.json",
@@ -48,7 +62,8 @@
       "envVar": "IHUI_E2E_AUTOFILL_INTERVAL_MS",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/e2e-autofill.mjs"
+      "ruler": "scripts/e2e-autofill.mjs",
+      "outputKind": "none"
     },
     {
       "stamp": "gate-rot-dispatch-last.json",
@@ -56,7 +71,8 @@
       "envVar": "IHUI_GATE_ROT_INTERVAL_MS",
       "nominalIntervalMs": 21600000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/check-gate-rot.mjs"
+      "ruler": "scripts/check-gate-rot.mjs",
+      "outputKind": "none"
     },
     {
       "stamp": "dep-radar-dispatch-last.json",
@@ -64,7 +80,9 @@
       "envVar": "IHUI_DEP_RADAR_INTERVAL_MS",
       "nominalIntervalMs": 86400000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/dep-radar.mjs"
+      "ruler": "scripts/dep-advisory-radar.mjs",
+      "outputKind": "none",
+      "selfReportToken": "依赖通告:未判定"
     },
     {
       "stamp": "merge-addition-loss-dispatch-last.json",
@@ -72,7 +90,8 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-07",
-      "ruler": "scripts/check-merge-addition-loss.mjs"
+      "ruler": "scripts/check-merge-addition-loss.mjs",
+      "outputKind": "none"
     },
     {
       "stamp": "recovery-source-dispatch-last.json",
@@ -80,7 +99,8 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-07",
-      "ruler": "scripts/git-backup-refresh.mjs"
+      "ruler": "scripts/git-backup-refresh.mjs",
+      "outputKind": "none"
     },
     {
       "stamp": "run-log-rotate-dispatch-last.json",
@@ -88,7 +108,8 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-07",
-      "ruler": "本文件 rotateRunLogs"
+      "ruler": "本文件 rotateRunLogs",
+      "outputKind": "none"
     },
     {
       "stamp": "baseline-freshness-dispatch-last.json",
@@ -96,7 +117,8 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 3600000,
       "verifiedAt": "2026-11-07",
-      "ruler": "本文件 reportBaselineFreshness"
+      "ruler": "本文件 reportBaselineFreshness",
+      "outputKind": "none"
     },
     {
       "stamp": "rn-shell-types-dispatch-last.json",
@@ -104,7 +126,8 @@
       "envVar": "IHUI_RN_SHELL_TYPES_INTERVAL_MS",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-05",
-      "ruler": "scripts/gen-rn-shell-types.mjs(小程序壳承载页编译期契约;本票 2026-11-05 补上调度点)"
+      "ruler": "scripts/gen-rn-shell-types.mjs(小程序壳承载页编译期契约;本票 2026-11-05 补上调度点)",
+      "outputKind": "none"
     },
     {
       "stamp": "monitor-signal-intake-dispatch-last.json",
@@ -113,7 +136,8 @@
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-21",
       "ruler": "scripts/monitor-signal-intake.mjs",
-      "knownBlocker": "三源取数面(apiLogs.jsonl / grafanaAlerts.url / userFeedback 导出)在 scripts/data/auto-triage-config.json 里皆空 ⇒ 器物每轮落 three-source-undetermined 属预期,本探测器量的是派发戳是否在跳,不是产出"
+      "knownBlocker": "三源取数面(apiLogs.jsonl / grafanaAlerts.url / userFeedback 导出)在 scripts/data/auto-triage-config.json 里皆空 ⇒ 器物每轮落 three-source-undetermined 属预期,本探测器量的是派发戳是否在跳,不是产出",
+      "coveredBy": "A11-closure-output"
     },
     {
       "stamp": "api-liveness-dispatch-last.json",
@@ -121,7 +145,11 @@
       "nominalIntervalMs": 300000,
       "verifiedAt": "2026-11-21",
       "ruler": "scripts/check-api-liveness.mjs",
-      "knownBlocker": "退化判据要 3 小时量出来;rc=2 时器物显式 undetermined(端口未监听)⇒ 静默属未判定不是红"
+      "knownBlocker": "退化判据要 3 小时量出来;rc=2 时器物显式 undetermined(端口未监听)⇒ 静默属未判定不是红",
+      "outputKind": "conditional",
+      "outputRel": "api-liveness.jsonl",
+      "outputTimeField": "at",
+      "silenceCeilingMs": 1800000
     },
     {
       "stamp": "tmp-bloat-dispatch-last.json",
@@ -129,7 +157,9 @@
       "nominalIntervalMs": 300000,
       "verifiedAt": "2026-11-21",
       "ruler": "scripts/check-tmp-bloat.mjs",
-      "knownBlocker": ".ihui-agent/tmp 属 gitignored 运行面,提交链 stagedTriggers 结构上扫不到 ⇒ 只能靠这条周期腿枚举;只读不清理"
+      "knownBlocker": ".ihui-agent/tmp 属 gitignored 运行面,提交链 stagedTriggers 结构上扫不到 ⇒ 只能靠这条周期腿枚举;只读不清理",
+      "outputKind": "none"
     }
-  ]
+  ],
+  "note2": "产出字段(2026-11-21,第 65 项):A12 全腿产出对账要 outputKind/outputRel/outputTimeField/silenceCeilingMs 四格,本表此前 16/16 全缺 ⇒ 尺子装了却一条腿都量不到。四格取值一律现读器物自身写盘分支:只有 auto-evolve / auto-triage / deploy-feedback / api-liveness 四腿有专属产出账(时刻字段分别 ts/ts/ts/at);deploy-outcome-intake 与 monitor-signal-intake 共用 incident-signals.jsonl,归 A11 精确对账(coveredBy,本维不重复量);其余 10 腿结构性无产出账(判据门/基线面/生成器),由 A8 量戳。silenceCeilingMs 一律 = 该腿 nominalIntervalMs × 6(连续 6 个班次零产出才报),不是拍的数。 outputRel 一律相对 .ihui-agent/state(判据层的 LIVENESS_STATE_DIR_REL),不写全路径 —— 首轮落地写成 .ihui-agent/state/ 前缀 ⇒ 读盘 ENOENT ⇒ 四腿全读成“零产出”(现读实测后已改为相对形态)。 三修(2026-11-21 现读写盘分支):auto-triage / deploy-feedback / api-liveness 三条腿的台账都是**事件驱动**(无事件即不写),首版按“每轮必写”标成 always 是错的 —— conditional 才是它们的真实形态;auto-evolve 每轮必写(dispatch/no-whitelist-hit 都落一行)故仍 always。分类必须从写盘分支取证,不按腿名想当然。 四修(2026-11-21):dep-radar 那条 ruler 写成 scripts/dep-radar.mjs —— 盘上不存在该文件(A8/A12 的\"器物在位\"都读不到),按 owner dispatchDepAdvisoryRadar 的真器物名改回 scripts/dep-advisory-radar.mjs(T21 结构锁本来就是按真名写的,此前一直被它判红)。 selfReportToken 按器物真文补:scripts/dep-advisory-radar.mjs 自报的是「依赖通告:未判定」(登记表里原先写的是 T21 期望的「依赖安全通告轮:未判定」,两边都不是盘上真值)。"
 }

@@ -827,4 +827,37 @@ test('㉒ 轮次账 ≠ 缺陷账:去重指纹读数与行数并存,无指纹行
   assert.ok(lines.some((l) => /全期按处置 .*observed=6/.test(l)))
 })
 
+test('⑰ 探针与发号器同面(第 71 项):远端/让位/结清三张面必须原样递进,缺上界则未判定', () => {
+  const seen = []
+  const yielded = new Map([['B', new Set([41])]])
+  const retiredLoader = () => ({ state: 'ok', byFamily: new Map() })
+  const p1 = tr.probeIdFamily('B', {
+    faceText: '- [ ] B1 既有行',
+    machineId: 'seatA',
+    remote: { tipSha: 'abc', max: {}, ids: {} },
+    yieldedIds: yielded,
+    retiredLoader,
+    resolve: (lines, base, remote, opts) => {
+      seen.push({ remote, opts })
+      return { ok: true, lines: ['- [ ] B42 PROBE'] }
+    },
+  })
+  assert.equal(p1.ok, true)
+  assert.equal(seen.length, 1, '探针必须恰好调用一次唯一分配判据')
+  assert.equal(seen[0].remote.tipSha, 'abc', '远端面没递进去 ⇒ 探针会拿"本地可发"冒充"全局可发"')
+  assert.equal(seen[0].opts.yieldedIds, yielded, '让位集没递进去 ⇒ 已让位的号被读成空闲')
+  assert.equal(seen[0].opts.retiredLoader, retiredLoader, '结清避让面没递进去 ⇒ 刚结清的号当天被复用')
+
+  const p2 = tr.pickRegistrationFamily({
+    collect: () => ({ ok: true, text: '- [ ] B1 既有行', notes: [], undetermined: [] }),
+    readFile: () => '',
+    remoteBasis: () => ({ notes: ['远端不可问(origin refs/heads/main)'], tipSha: '', max: {}, ids: {} }),
+    yieldedLoader: () => new Map(),
+    retiredLoaderFactory: () => () => ({ state: 'ok', byFamily: new Map() }),
+    machineId: 'seatA',
+  })
+  assert.equal(p2.ok, false, '缺远端上界时不得声称某一族"可发"')
+  assert.equal(p2.undetermined, true)
+  assert.match(String(p2.why), /远端号段面判不出/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

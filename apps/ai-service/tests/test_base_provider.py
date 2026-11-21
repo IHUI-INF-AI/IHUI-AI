@@ -280,7 +280,11 @@ async def test_request_passes_timeout():
 
 
 async def test_request_4xx_raises_provider_error():
-    """4xx 响应应抛 ProviderError,含状态码。"""
+    """4xx 且响应体带 error 键 ⇒ 抛 ProviderError(AIS-066 分支)。
+
+    该分支的消息取自上游 error 体文本(HTTP 200 也可能走到这里,故消息内不掺
+    状态码,避免"200 unauthorized"这类误导),状态码走异常对象的 status_code 属性。
+    """
     p = _FakeProvider(api_key="k")
 
     fake_resp = MagicMock()
@@ -295,7 +299,7 @@ async def test_request_4xx_raises_provider_error():
             await p._request("POST", "http://api/x")
 
     assert exc_info.value.status_code == 401
-    assert "401" in str(exc_info.value)
+    assert "unauthorized" in str(exc_info.value)
 
 
 async def test_request_5xx_raises_provider_error():

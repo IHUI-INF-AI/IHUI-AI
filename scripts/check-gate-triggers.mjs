@@ -56,7 +56,7 @@
  *   node scripts/check-gate-triggers.mjs --json           # 机器可读
  *   node scripts/check-gate-triggers.mjs --list-existing  # 逐条列存量缺射程的门
  *   node scripts/check-gate-triggers.mjs --strict         # 全量档:存量也判红
- *   node scripts/check-gate-triggers.mjs --self-test      # 回归自检:判据九例 + 端到端七例
+ *   node scripts/check-gate-triggers.mjs --self-test      # 回归自检:判据十一例 + 端到端七例
  *
  * 镜像测试(§22c:判据一律 import 本文件 `__test__`,测试里不复制第二份):
  *   node --test scripts/tests/check-gate-triggers.test.mjs
@@ -134,6 +134,15 @@ export function readAnchorEntries(cwd, { face = 'head' } = {}) {
 }
 
 const hasTriggers = (e) => Array.isArray(e.stagedTriggers) && e.stagedTriggers.length > 0
+/**
+ * 结构性豁免(2026-11-21,第 68 项):判**机器状态**的门(dev 库轮换窗口 / 临时检出寿命 /
+ * 钩子台账健康)在提交内容里结构上无从触发,声明射程只会是伪造的通配。它们的合规凭据是
+ * `stagedTriggersOmitted: '<理由>'`(≥10 字,与通知书同一门槛),**不是**留空:
+ * 留空在两通道上语义相反,本门只看得见"空清单"⇒ 每次落地都被读成"漏声明"。
+ * 锚点里原本有射程、现在只剩理由 ⇒ 仍按 **regressed** 判红(那是真的把射程摘了)。
+ */
+const omittedReason = (e) => String(e.stagedTriggersOmitted ?? '').trim()
+const hasOmittedReason = (e) => omittedReason(e).length >= 10
 
 /**
  * 纯判据:给两面条目,返回逐条结论。抽成纯函数是为了 `--self-test` 直接喂用例,
@@ -154,6 +163,7 @@ export function judgeTriggers({ current, anchor, strict = false }) {
     let verdict
     if (mode === 'info') verdict = 'exempt-info'
     else if (hasTriggers(e)) verdict = 'ok'
+    else if (hasOmittedReason(e)) verdict = sameGate && hasTriggers(a) ? 'regressed' : 'exempt-omitted'
     else if (!sameGate) verdict = 'new-no-trigger'
     else if (hasTriggers(a)) verdict = 'regressed'
     else verdict = 'existing'
@@ -167,8 +177,9 @@ export function judgeTriggers({ current, anchor, strict = false }) {
     newNoTrigger: pick('new-no-trigger').length,
     regressed: pick('regressed').length,
     exemptInfo: pick('exempt-info').length,
+    exemptOmitted: pick('exempt-omitted').length,
   }
-  counts.judges = counts.entries - counts.exemptInfo
+  counts.judges = counts.entries - counts.exemptInfo - counts.exemptOmitted
   const newViolations = pick('new-no-trigger').concat(pick('regressed'))
   const red = strict ? newViolations.concat(pick('existing')) : newViolations
   return { rows, counts, newViolations, red }
@@ -200,6 +211,7 @@ export function report(result, { json = false, strict = false, listExisting = fa
           newNoTrigger: added.map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
           regressed: regressed.map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
           existingList: existing.map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
+          exemptOmittedList: by('exempt-omitted').map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
           face: faceMeta,
           undetermined,
         },
@@ -223,10 +235,18 @@ export function report(result, { json = false, strict = false, listExisting = fa
       say(`❌ [gate-triggers] 射程被摘掉(HEAD 有 stagedTriggers、现在没有),共 ${regressed.length} 道:`)
       for (const r of regressed) say(`     [${r.id}] ${r.script} (${r.mode})`)
     }
+    if (counts.exemptOmitted > 0) {
+      say(
+        `ℹ️  [gate-triggers] 结构性豁免(已写明 stagedTriggersOmitted 理由,判机器状态、提交内容无从触发)共 ${counts.exemptOmitted} 道` +
+          (listExisting ? ':' : '(要逐条列加 --list-existing)'),
+      )
+      if (listExisting) for (const r of by('exempt-omitted')) say(`     [${r.id}] ${r.script} (${r.mode})`)
+    }
     if (added.length + regressed.length > 0) {
       say('修复:在 scripts/guardian-runner.mjs 的对应条目上补一行射程声明 ——')
       say("  stagedTriggers: ['<这条门真正读的路径前缀或 glob>']  # 例:['apps/api/']、['**/*.ps1']")
       say("  要「任何提交都跑」也必须写出来(全匹配通配),不许留空 —— 留空在两通道上语义相反。")
+      say("  确属判机器状态(提交内容无从触发)⇒ 写 stagedTriggersOmitted: '<≥10 字理由>'(结构性豁免,不是漏声明)。")
     }
     if (undetermined) {
       say(`⚠️  [gate-triggers] 未判定(不记绿也不冒红):${undetermined.why}`)
@@ -245,7 +265,7 @@ export function report(result, { json = false, strict = false, listExisting = fa
   const lastLine =
     `[gate-triggers] 末行:面=${json ? 'json' : 'text'} 面=${faceMeta?.face ?? '-'} 条目=${counts.entries}` +
     ` 判据门=${counts.judges} 有射程=${counts.ok} 存量缺=${counts.existing}` +
-    ` 新增缺=${counts.newNoTrigger} 退化=${counts.regressed} 免判(info)=${counts.exemptInfo}` +
+    ` 新增缺=${counts.newNoTrigger} 退化=${counts.regressed} 免判(info)=${counts.exemptInfo} 结构性豁免=${counts.exemptOmitted}` +
     ` 未判定=${unjudged} 档=${strict ? 'strict' : 'ratchet'} exit=${exit}`
   if (json) process.stderr.write(lastLine + '\n')
   else console.log(lastLine)
@@ -286,7 +306,7 @@ export function scan({ cwd = ROOT, face = 'head', strict = false } = {}) {
 }
 
 function zeroCounts() {
-  return { entries: 0, ok: 0, existing: 0, newNoTrigger: 0, regressed: 0, exemptInfo: 0, judges: 0 }
+  return { entries: 0, ok: 0, existing: 0, newNoTrigger: 0, regressed: 0, exemptInfo: 0, exemptOmitted: 0, judges: 0 }
 }
 
 function selfTest() {
@@ -330,6 +350,24 @@ function selfTest() {
   )
   // ⑦ info 档不判
   chk('判据⑦:info 档免判', v([{ id: '9', script: 'n.mjs', mode: 'info' }], []), ['exempt-info'])
+  // ⑦b 结构性豁免(第 68 项):判机器状态的门声明 ≥10 字理由 ⇒ exempt-omitted,不许读成漏声明
+  chk(
+    '判据⑦b:声明 stagedTriggersOmitted 理由 ⇒ 结构性豁免',
+    v(
+      [{ id: '9', script: 'n.mjs', stagedTriggersOmitted: '判机器状态与提交内容无关的某个读数' }],
+      [],
+    ),
+    ['exempt-omitted'],
+  )
+  // ⑦c 锚点原有射程被换成理由 ⇒ 仍是摘射程(红),豁免不许拿来洗掉射程
+  chk(
+    '判据⑦c:原有射程换成理由 ⇒ 仍判摘射程',
+    v(
+      [{ id: '1', script: 'a.mjs', stagedTriggersOmitted: '判机器状态与提交内容无关的某个读数' }],
+      [{ id: '1', script: 'a.mjs', stagedTriggers: ['pkg/'] }],
+    ),
+    ['regressed'],
+  )
   // ⑧ 同 id 换脚本 = 换门 ⇒ 按新增判(锚点对不成立)
   chk(
     '判据⑧:同 id 换脚本按新增判',
@@ -434,7 +472,7 @@ function selfTest() {
     for (const d of dirs) rmScratch(d, { bestEffort: true })
   }
 
-  console.log(fail === 0 ? '\n自检通过(判据九例 + 端到端七例,红/绿/未判定三向都真跑)' : `\n自检失败:${fail} 例不符`)
+  console.log(fail === 0 ? '\n自检通过(判据十一例 + 端到端七例,红/绿/未判定三向都真跑)' : `\n自检失败:${fail} 例不符`)
   return fail === 0 ? 0 : 1
 }
 

@@ -185,6 +185,11 @@ async def test_stream_omits_repo_wiki_when_absent(client: AsyncClient, monkeypat
     )
     assert resp.status_code == 200, resp.text[:500]
     msgs = captured["messages"]
-    assert len(msgs) == 1
-    assert "<repo_wiki" not in msgs[0].get("content", "")
+    # 2026-11-21 口径修正:agent 入口会注入一条**交付物规约 system**(正当系统消息),
+    # 因此不再断言"只有 1 条",改为断言三条本意 —— ① 没有任何空 system 消息;
+    # ② 全文不含 <repo_wiki(未传 wiki_context 不注入);③ 末尾仍是原样的 user 输入。
+    assert all(m.get("content") for m in msgs), "存在空 content 消息(空 system 回归)"
+    assert all("<repo_wiki" not in str(m.get("content", "")) for m in msgs)
+    assert msgs[-1].get("role") == "user"
+    assert msgs[-1].get("content") == "hi"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

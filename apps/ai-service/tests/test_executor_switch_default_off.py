@@ -15,6 +15,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 
 from app.core import executor_switch as es
 from app.core.executor_switch import (
@@ -224,10 +225,12 @@ class TestWiredSurfaceRouters:
         monkeypatch.setattr(r_orch.orchestration_hub, "emit", _boom)
         monkeypatch.setenv(EXECUTOR_ENV, "loop_v2")
         body = r_orch.EmitEventBody(event_type="hook.emitted", source_pillar="hook")
-        res = asyncio.run(r_orch.emit_event(body))
-        # 既有 handler 的 except 信封:错误可见(code=500)且带稳定标记
-        assert res["code"] == 500
-        assert PILOT_ERROR_MARKER in res["message"]
+        # AIS-048 起信封从 {code:500} dict 换成 HTTPException(500, detail):
+        # marker 仍必达调用方,但形态是 detail 而不是 message 键。
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(r_orch.emit_event(body))
+        assert exc_info.value.status_code == 500
+        assert PILOT_ERROR_MARKER in str(exc_info.value.detail)
 
     def test_team_round_disabled_default_path_unchanged(
         self, monkeypatch: pytest.MonkeyPatch

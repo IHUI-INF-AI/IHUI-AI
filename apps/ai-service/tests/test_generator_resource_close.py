@@ -280,13 +280,18 @@ async def test_site1_half_consumed_then_closed_closes_underlying_once(monkeypatc
 
 
 async def test_site1_normal_exhaustion_output_unchanged(monkeypatch):
-    # 判据 B:同输入下产出序列与改动前逐字一致(两条 chunk,无多余事件、无异常)
+    # 判据 B:同输入下内容帧序列与改动前逐字一致(两条 chunk,无多余内容帧、无异常);
+    # 原生分支在正常耗尽后固定追加一条 done 收尾帧(带 model/usage/stub),它是 2026-11
+    # 起就有的既有行为,不是本票引入的多余事件 ⇒ 判 chunk 序列 + 末帧形状。
     stream = FakeStream(
         [{"type": "chunk", "content": "a"}, {"type": "chunk", "content": "b"}]
     )
     _wire_native_branch(monkeypatch, stream)
     out = [evt async for evt in _native_agen()]
-    assert out == [{"type": "chunk", "content": "a"}, {"type": "chunk", "content": "b"}]
+    chunks = [evt for evt in out if evt.get("type") == "chunk"]
+    assert chunks == [{"type": "chunk", "content": "a"}, {"type": "chunk", "content": "b"}]
+    assert [evt.get("type") for evt in out] == ["chunk", "chunk", "done"]
+    assert out[-1]["model"] == "fake/model"
     assert stream.aclose_count <= 1
     assert stream.body_finalized is True
 
@@ -302,8 +307,11 @@ def test_site2_disconnect_path_closes_before_break_and_finally_backstops():
     # ① 句柄在 try 之前就置 None ⇒ finally 不会 UnboundLocalError(llm_gateway 记过同型)
     assert "_native_fc_stream: AsyncIterator[dict[str, Any]] | None = None" in src
 
-    # ② break 之前就关:控制流必须出现在该 if 分支内、break 之前
-    loop_at = src.index("async for event in _native_fc_stream:")
+    # ② break 之前就关:控制流必须出现在该 if 分支内、break 之前。
+    #    锚点演进(2026-11):循环对象从借来的裸 `_native_fc_stream` 换成了心跳包装
+    #    `_native_fc_events`(AIS-004 首包前 15s ping 帧),关停对象也随之换 —— 判的是
+    #    "断开分支在 break 前调了 aclose_async_gen",不是锁死变量名。
+    loop_at = src.index("async for event in _native_fc_events:")
     tail = src[loop_at:]
     brk_at = tail.index("\n                    break\n")
     segment = tail[:brk_at]

@@ -693,6 +693,9 @@ _EGRESS_DEFAULT_PROXY_DOMAINS = (
     "api.perplexity.ai",
     "integrate.api.nvidia.com",
     "openrouter.ai",
+    # Google OAuth 2.0(code 换 token / tokeninfo)—— 与 TS 侧同名同序镜像;理由见
+    # apps/api/src/utils/proxy-dispatcher.ts 的 DEFAULT_PROXY_DOMAINS 该行注释。
+    "oauth2.googleapis.com",
 )
 
 

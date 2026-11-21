@@ -76,6 +76,16 @@ describe('collectEgressFacts —— 判据与路由同源', () => {
     expect(JSON.stringify(facts)).not.toContain('7897')
   })
 
+  it('Google OAuth 换 token 端点在**内置**默认表内(登录链路不得靠 .env 的 PROXY_DOMAINS 兜底)', () => {
+    // 2026-11-21 线上事故:默认表只有 generativelanguage.googleapis.com,后缀匹配不中
+    // oauth2.* ⇒ 未配 PROXY_DOMAINS 的部署里 Google 登录静默走直连、换 token 必超时。
+    process.env.PROXY_URL = 'http://127.0.0.1:7897'
+    const facts = collectEgressFacts('https://oauth2.googleapis.com/token')
+    expect(facts.proxied).toBe(true)
+    expect(facts.proxyDomainTable).toBe('builtin-default')
+    expect(facts.policyDeclined).toBe(null)
+  })
+
   it('PROXY_DOMAINS 覆盖内置表时,表格出处是事实之一', () => {
     process.env.PROXY_URL = 'http://127.0.0.1:7897'
     process.env.PROXY_DOMAINS = 'internal-saas.example'

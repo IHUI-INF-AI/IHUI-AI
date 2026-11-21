@@ -198,25 +198,36 @@ def test_all_effort_surfaces_updated_in_the_same_batch():
     from app.services.agent_engine import _REASONING_EFFORTS
 
     known = ReasoningEffortPin().known_efforts
-    assert known == frozenset({'minimal', 'low', 'medium', 'high', 'xhigh', 'max'})
+    assert known == frozenset({'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'})
     assert set(_REASONING_EFFORTS) == known, 'agent_engine 白名单与 known_efforts 漂开(第五份表失守)'
-    assert {'xhigh', 'max'} <= known
+    assert {'xhigh', 'max', 'ultra'} <= known
 
     types_src = _read('packages', 'types', 'src', 'reasoning-effort.ts')
     # 断言取"数组块内容"而非单行原文:packages/types 面在 prettier 射程内,
-    # 六元素超 printWidth 会被折成多行(工作树=提交后 lint-staged 的同一终态)。
-    assert re.search(r"REASONING_EFFORT_VALUES\s*=\s*\[[^\]]*'xhigh'[^\]]*'max'[^\]]*\]", types_src), 'VALUES 投影漏档'
+    # 元素超 printWidth 会被折成多行(工作树=提交后 lint-staged 的同一终态)。
+    assert re.search(
+        r"REASONING_EFFORT_VALUES\s*=\s*\[[^\]]*'xhigh'[^\]]*'max'[^\]]*'ultra'[^\]]*\]", types_src
+    ), 'VALUES 投影漏档'
     cli_arr = _read('apps', 'cli', 'src', 'subagents', 'precedence.ts')
-    assert re.search(r"REASONING_EFFORTS: readonly string\[\]\s*=\s*\[[^\]]*'xhigh'[^\]]*'max'[^\]]*\]", cli_arr), 'cli 运行时数组漏档'
+    assert re.search(
+        r"REASONING_EFFORTS: readonly string\[\]\s*=\s*\[[^\]]*'xhigh'[^\]]*'max'[^\]]*'ultra'[^\]]*\]",
+        cli_arr,
+    ), 'cli 运行时数组漏档'
     cli_union = _read('apps', 'cli', 'src', 'subagents', 'types.ts')
-    assert "'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'" in cli_union, 'cli 编译期联合漏档'
+    assert "'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra'" in cli_union, 'cli 编译期联合漏档'
     axis_src = _read('apps', 'web', 'src', 'components', 'chat', 'reasoning-effort-axis.tsx')
-    assert "xhigh: 'reasoningEffortXhigh'" in axis_src and "max: 'reasoningEffortMax'" in axis_src, (
-        'web 轴 LABEL_KEY 未穷尽新联合 ⇒ 六档渲染缺词'
-    )
+    assert (
+        "xhigh: 'reasoningEffortXhigh'" in axis_src
+        and "max: 'reasoningEffortMax'" in axis_src
+        and "ultra: 'reasoningEffortUltra'" in axis_src
+    ), 'web 轴 LABEL_KEY 未穷尽新联合 ⇒ 七档渲染缺词'
     for loc in ('zh-CN', 'zh-TW', 'en', 'ja', 'ko'):
         pack = _read('packages', 'i18n', 'messages', 'web', f'{loc}.json')
-        assert '"reasoningEffortXhigh"' in pack and '"reasoningEffortMax"' in pack, f'{loc} 词表缺档(§19 五语言同批)'
+        assert (
+            '"reasoningEffortXhigh"' in pack
+            and '"reasoningEffortMax"' in pack
+            and '"reasoningEffortUltra"' in pack
+        ), f'{loc} 词表缺档(§19 五语言同批)'
 
 
 if __name__ == '__main__':

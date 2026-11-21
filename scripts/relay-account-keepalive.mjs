@@ -18,10 +18,15 @@
  *    git-guardian 计划任务每 2 分钟常驻,由它派发本脚本才谈得上「永久」。
  *  - 发信一律经 apps/api/scripts/notify-deploy-failure.ts 唯一出口(§5e / 守门 81),
  *    收件人不在此解析(交出口自读 ALERT_EMAIL_TO),不传 --env-file。
- *  - 喊人是双向的(2026-11-16):掉线/摘除 ⇒ warning 告警(relay-keepalive-*);
+ *  - 喊人的双向(2026-11-16):掉线/摘除 ⇒ warning 告警(relay-keepalive-*);
  *    「巡检前还在告警集合、巡检后退出」⇒ info 复活通知(relay-keepalive-revival-*)。
  *    两把身份前缀不同,互不顶掉去重窗;复活判据复用同一个 alertTargetsOf,零第二份口径。
  *  - 喊人的身份 = provider + uid 前缀,不含计数/时刻/异常原文(守门 224:抖动进身份 = 每轮一封信)。
+ *  - **重复节奏按「收信人还能做什么」分层(2026-11-21 立,机主第三次报"一直轰炸")**:
+ *    判死留痕(extraMetadata.terminalVerdict)存在 ⇒ 上游已判不可逆、判死闸门让它永不重试,
+ *    人只有两条路(换凭据 / 摘号) ⇒ `TERMINAL_REPEAT_HOURS`(30 天)低频体检式提醒,不再按天重播;
+ *    没有判死留痕 ⇒ 6h 后会被自动解摘重试,机器自治 ⇒ `SELFHEAL_REPEAT_HOURS`(7 天)知会一次。
+ *    身份与射程一字未动:静音靠"同一身份 + 更长窗口",不是靠"把号移出告警集合"(§0.10 不跳门)。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -88,6 +93,35 @@ export function alertTargetsOf(keepAlive, excludeProviders = []) {
 /** 去重身份:provider + uid 前 8 位(稳定形态,不含会抖的量) */
 export function alertIdOf(row) {
   return `relay-keepalive-${row.providerCode}-${String(row.uid).slice(0, 8)}`
+}
+
+/**
+ * 判死态的重复播报窗口(小时,30 天)。判死 = 上游已明确判不可逆
+ * (config/relay-irreversible-verdicts.json),判死闸门让这号**永不重试**,人只有两条路:
+ * 换凭据(credVersion 前进才放行解摘)或从池里摘掉。同一件事 30 天内不必重播 ——
+ * 收信人第一次收到时信息已经完整,按天重播只是噪声(§5e-1 可整改性准入)。
+ */
+export const TERMINAL_REPEAT_HOURS = 720
+/**
+ * 非判死态的重复播报窗口(小时,7 天)。这类号被连续失败摘除后,6h 退避窗一到会被自动解摘
+ * 重试(KEEPALIVE_FOREVER_REVIVE_BACKOFF_HOURS),属机器自治范围;人只需要低频知会,
+ * 因此不进"每轮一封信"的节奏,也不移出告警集合(§0.10:失效方向不许是跳门)。
+ *
+ * 旧口径 24h 是 2026-11 上一版为"持续失败每 6h 重报"打的补丁;实测仍每天 5 封以上
+ * (判死号 × 24h 窗 × 6h 节拍),故按上面两层重定。
+ */
+export const SELFHEAL_REPEAT_HOURS = 168
+
+/**
+ * 这条告警该用多长的重复窗口。判据只看"有没有判死留痕",不看计数/时刻:
+ *  - 有留痕(且形状完整)⇒ 终态 ⇒ TERMINAL_REPEAT_HOURS;
+ *  - 无留痕 / 留痕坏 / 旧 ts 产物不带此字段 ⇒ 自救态 ⇒ SELFHEAL_REPEAT_HOURS
+ *    (失效方向 = 多提醒一次,不是跳门)。
+ */
+export function repeatHoursOf(row) {
+  const v = row && row.terminalVerdict
+  const ok = v && typeof v === 'object' && typeof v.id === 'string' && v.id !== ''
+  return ok ? TERMINAL_REPEAT_HOURS : SELFHEAL_REPEAT_HOURS
 }
 
 /**
@@ -159,24 +193,37 @@ function runKeepaliveTs(argv) {
 }
 
 /**
+ * 出口处置标记的判读(2026-11-21 修):出口对「被 --alert-id 窗口压住」也返回 exit 0,
+ * 旧实现用 `r.status === 0` 数「已投递」⇒ 每轮把 6 枚被压住的号报成"已投递 6 封"
+ * (§0.3:没寄不许写成寄过)。唯一判据是出口自己打的 `__DISPOSITION__=...` 令牌。
+ */
+function dispositionOf(stdout) {
+  const s = String(stdout ?? '')
+  if (s.includes('__DISPOSITION__=delivered')) return 'delivered'
+  if (s.includes('__DISPOSITION__=suppressed')) return 'suppressed'
+  return null
+}
+
+/**
  * 到人通知。出口不在位/投递失败 ⇒ 只报「未判定/未送达」,不冒充已发(§0.3)。
- * 返回投递枚数;真正的发信判据与版式都在出口里,本函数只组正文。
+ * 返回 { sent: 真投递枚数, suppressed: 被同身份窗口压住的枚数 };两者的判据只在出口的处置标记上。
  */
 function sendAlertMail(targets) {
-  if (targets.length === 0) return 0
+  const tally = { sent: 0, suppressed: 0 }
+  if (targets.length === 0) return tally
   if (!fs.existsSync(MAIL_SCRIPT)) {
     process.stderr.write('⚠️ 保活邮件未判定:唯一出口不在位(notify-deploy-failure.ts)\n')
-    return 0
+    return tally
   }
   const tsx = resolveTsxCli(ROOT)
   if (!tsx) {
     process.stderr.write('⚠️ 保活邮件未判定:未找到 tsx,出口无法执行\n')
-    return 0
+    return tally
   }
   fs.mkdirSync(TMP_DIR, { recursive: true })
-  let sent = 0
   for (const row of targets) {
     const msgFile = path.join(TMP_DIR, `alert-${alertIdOf(row)}.md`)
+    const verdict = row.terminalVerdict && row.terminalVerdict.id ? row.terminalVerdict : null
     // 无 BOM UTF-8 正文(§5e:多行中文一律走 --message-file)
     fs.writeFileSync(
       msgFile,
@@ -185,13 +232,24 @@ function sendAlertMail(targets) {
         '',
         `健康状态: ${row.healthStatus}`,
         `自动摘除: ${row.tempUnschedulable ? '是' : '否'}`,
+        `判死: ${verdict ? `是(码 ${verdict.id},判于 ${verdict.at},当时凭据代次 ${verdict.credVersion})` : '否'}`,
         `token 到期: ${row.tokenExpiresAt ?? '-'}`,
         `refreshToken 到期: ${row.refreshExpiresAt ?? '-'}`,
         `最近刷新: ${row.lastRefreshAt ?? '-'}`,
         `最近错误: ${row.lastErrorMessage ?? '-'}`,
         '',
         '这枚号已登记永久保活(掉线无法靠验证码重登,只能靠号池 + 一键切号)。',
-        '摘除态会在退避窗口后被自动解摘并重试;若持续失败,请人工核对上游凭据是否已被回收。',
+        verdict
+          ? `上游已判不可逆(命中判死码 ${verdict.id}),判死闸门不会再拿死票去撞上游 —— 这号不会自己活过来。` +
+            '需要你二选一:① 补一张新凭据(导入或客户端重新登录后回灌,凭据代次前进才会自动解摘);' +
+            '② 确认已放弃 ⇒ node scripts/relay-account-keepalive.mjs --mark ' +
+            row.uid +
+            ' --provider ' +
+            row.providerCode +
+            ' --off(取消永久保活登记,号仍留在池内可审计)。' +
+            '本条 30 天内最多再提醒一次。'
+          : '本轮是连续失败后的自动摘除,6 小时退避窗一到会解摘重试;若能自愈则无需任何动作。' +
+            '持续失败才会升级成判死码。人工核对凭据只能靠上面的错误原文判断,本条 7 天内最多再提醒一次。',
         '复核出口: node scripts/relay-account-keepalive.mjs --status',
       ].join('\n'),
       'utf8',
@@ -209,11 +267,12 @@ function sendAlertMail(targets) {
         'relay-account-keepalive',
         '--alert-id',
         alertIdOf(row),
-        // 持续保活失败的账号每 6h 重报同一持续态(身份固定 = providerCode+uid),默认 4h 窗
-        // 压不住 ⇒ 24h:每账号每天最多 1 封。正文仍逐条给健康/token/refresh/错误;
-        // 账号恢复后本去重自然不再触发。仅治重报节奏,severity/判据一字未动。
+        // 重复节奏按终态分层(2026-11-21):判死 ⇒ 30 天;退避自救中 ⇒ 7 天。
+        // 旧的 24h 是"每 6h 重报同一持续态"的补丁,实测仍每天 5 封以上 ⇒ 用户报"一直轰炸"。
+        // 身份一字未动(守门 224),只拉长窗口 —— 迁移期靠一次性把同身份旧键 winMs 抬到新窗口,
+        // 这样下一轮立即静默,而不是 48h 后逐出旧键再补发一轮。
         '--dedupe-hours',
-        '24',
+        String(repeatHoursOf(row)),
         '--message-file',
         msgFile,
       ],
@@ -230,33 +289,35 @@ function sendAlertMail(targets) {
     } catch {
       /* 用完即删,删不掉不遮蔽主流程 */
     }
-    if (r.status === 0) sent++
+    const disp = dispositionOf(r.stdout)
+    if (disp === 'delivered') tally.sent++
+    else if (disp === 'suppressed') tally.suppressed++
     else
       process.stderr.write(
-        `⚠️ 保活邮件未送达(${alertIdOf(row)}):${String(r.stderr ?? '').slice(-200)}\n`,
+        `⚠️ 保活邮件未判定(${alertIdOf(row)}):出口未给出处置标记(status=${r.status}) ${String(r.stderr ?? '').slice(-200)}\n`,
       )
   }
-  return sent
+  return tally
 }
 
 /**
  * 复活通知发信。severity=info,同走唯一出口 notify-deploy-failure.ts(§5e/守门 81);
  * 去重身份 = relay-keepalive-revival-*,24h 窗(号反复好坏翻转也不刷屏;真恢复必有一封)。
- * 出口/tsx 不在位 ⇒ 报「未判定」,不冒充已发(§0.3)。返回投递枚数。
+ * 出口/tsx 不在位 ⇒ 报「未判定」,不冒充已发(§0.3)。返回 { sent, suppressed }。
  */
 function sendRevivalMail(transitions) {
-  if (transitions.length === 0) return 0
+  const tally = { sent: 0, suppressed: 0 }
+  if (transitions.length === 0) return tally
   if (!fs.existsSync(MAIL_SCRIPT)) {
     process.stderr.write('⚠️ 复活邮件未判定:唯一出口不在位(notify-deploy-failure.ts)\n')
-    return 0
+    return tally
   }
   const tsx = resolveTsxCli(ROOT)
   if (!tsx) {
     process.stderr.write('⚠️ 复活邮件未判定:未找到 tsx,出口无法执行\n')
-    return 0
+    return tally
   }
   fs.mkdirSync(TMP_DIR, { recursive: true })
-  let sent = 0
   for (const t of transitions) {
     const row = t.after
     const msgFile = path.join(TMP_DIR, `revival-${revivalAlertIdOf(row)}.md`)
@@ -308,13 +369,15 @@ function sendRevivalMail(transitions) {
     } catch {
       /* 用完即删,删不掉不遮蔽主流程 */
     }
-    if (r.status === 0) sent++
+    const disp = dispositionOf(r.stdout)
+    if (disp === 'delivered') tally.sent++
+    else if (disp === 'suppressed') tally.suppressed++
     else
       process.stderr.write(
-        `⚠️ 复活邮件未送达(${revivalAlertIdOf(row)}):${String(r.stderr ?? '').slice(-200)}\n`,
+        `⚠️ 复活邮件未判定(${revivalAlertIdOf(row)}):出口未给出处置标记(status=${r.status}) ${String(r.stderr ?? '').slice(-200)}\n`,
       )
   }
-  return sent
+  return tally
 }
 
 async function main(argv) {
@@ -376,9 +439,14 @@ async function main(argv) {
   const exclude = storeCodes.ok ? storeCodes.codes : []
   const targets = alertTargetsOf(run.json?.keepAlive, exclude)
   let sent = 0
+  let suppressed = 0
   if (targets.length > 0) {
-    sent = sendAlertMail(targets)
-    process.stderr.write(`保活告警:需喊人 ${targets.length} 枚,已投递 ${sent} 封\n`)
+    const m = sendAlertMail(targets)
+    sent = m.sent
+    suppressed = m.suppressed
+    process.stderr.write(
+      `保活告警:需喊人 ${targets.length} 枚,真投递 ${sent} 封,同身份窗口内压住 ${suppressed} 封\n`,
+    )
   }
   // 复活通知(2026-11-16):两侧读数都由 ts 侧同一把 listKeepAliveForever 现读(前=巡检前,
   // 后=巡检后);判据 = 上面同一个 alertTargetsOf。before 缺失 ⇒ null = 未判定,不冒充"无复活"。
@@ -389,26 +457,33 @@ async function main(argv) {
     exclude,
   )
   let recoveryMailed = 0
+  let recoverySuppressed = 0
   if (transitions === null) {
     process.stderr.write('ℹ️ 复活通知未判定:汇总缺巡检前快照(keepAliveBefore),不冒充"无复活"\n')
   } else if (transitions.length > 0) {
-    recoveryMailed = sendRevivalMail(transitions)
+    const m = sendRevivalMail(transitions)
+    recoveryMailed = m.sent
+    recoverySuppressed = m.suppressed
     process.stderr.write(
-      `复活通知:退出喊人集合 ${transitions.length} 枚,已投递 ${recoveryMailed} 封\n`,
+      `复活通知:退出喊人集合 ${transitions.length} 枚,真投递 ${recoveryMailed} 封,窗口内压住 ${recoverySuppressed} 封\n`,
     )
   }
   // 结论行(ASCII 单行,供 git-guardian 判读):state 三态绝不并桶 ——
   // 汇总取不到 ⇒ undetermined,不得写成 ok(§0.3「没判」不写成「判过」)。
   const sweep = run.json?.sweep ?? null
   const state = !run.json || !sweep ? 'undetermined' : targets.length > 0 ? 'alert' : 'ok'
+  // 判死/自救分层计数(2026-11-21):state 词汇表不动(guardian 按 ok/alert/undetermined 节流),
+  // 分层只进附加键 —— 让运维在日志里就能看出"还有几枚是终态",不必翻台账。
+  const terminalCount = targets.filter((t) => repeatHoursOf(t) === TERMINAL_REPEAT_HOURS).length
   process.stdout.write(
     `KEEPALIVE-RESULT state=${state}` +
       ` registered=${Array.isArray(run.json?.keepAlive) ? run.json.keepAlive.length : '?'}` +
       ` refreshed=${sweep?.refreshed ?? '?'} refreshFailed=${sweep?.refreshFailed ?? '?'}` +
       ` keepalive=${sweep?.keepalive ?? '?'} heartbeat=${run.json?.heartbeated ?? '?'}` +
       ` foreverDeferred=${sweep?.foreverDeferred ?? '?'}` +
-      ` alerts=${targets.length} mailed=${sent}` +
-      ` recovered=${transitions === null ? '?' : transitions.length} recoveryMailed=${transitions === null ? '?' : recoveryMailed}\n`,
+      ` alerts=${targets.length} terminal=${terminalCount} mailed=${sent} suppressed=${suppressed}` +
+      ` recovered=${transitions === null ? '?' : transitions.length} recoveryMailed=${transitions === null ? '?' : recoveryMailed}` +
+      ` recoverySuppressed=${transitions === null ? '?' : recoverySuppressed}\n`,
   )
   return run.code
 }
@@ -427,6 +502,7 @@ export const __test__ = {
   parseArgs,
   alertTargetsOf,
   alertIdOf,
+  repeatHoursOf,
   revivalTransitionsOf,
   revivalAlertIdOf,
 }

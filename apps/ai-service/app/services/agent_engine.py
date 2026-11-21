@@ -71,6 +71,7 @@ import logging
 import os
 import shlex
 import shutil
+import subprocess
 import sys
 import time
 import uuid
@@ -349,7 +350,13 @@ def _shell_stream_codec() -> str:
             import ctypes
 
             kernel32 = ctypes.windll.kernel32
-            cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
+            # 2026-11-21 判据修正:此前优先读 GetConsoleCP(),而它反映的是**父进程
+            # 控制台**的 CP(本机实测 65001,因为会话里跑过 chcp 65001)。cmd.exe 的
+            # stdin 是管道,管道输入**恒按 OEM 代码页解码**,不吃 chcp —— 于是"探测到
+            # 65001 ⇒ 按 UTF-8 写命令"会让 cmd 把中文当 cp936 解成乱码,只回一句
+            # 「系统找不到指定的路径」,命令一次都不执行。OEM CP 才是与 cmd 管道
+            # I/O 对得上的那一套(输出侧同理)。
+            cp = int(kernel32.GetOEMCP() or 0)
         except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
             cp = 0
     else:
@@ -369,6 +376,31 @@ def _shell_stream_codec() -> str:
 
 
 _SHELL_STREAM_CODEC = _shell_stream_codec()
+
+
+def _shell_chcp_code() -> int:
+    """``chcp`` 要钉住的代码页数字(与 `_SHELL_STREAM_CODEC` 同源)。
+
+    子 shell 起进程时用 ``/K "chcp <cp> >nul"`` 显式钉住自己的控制台 CP:
+    cmd.exe 交互模式的 stdin/stdout 都按**当前控制台 CP** 解码/编码,而不钉住就
+    继承父控制台(本机父会话是 65001,与 stdin 管道的 OEM 语义对不上,实测中文
+    命令变成一串 ``?`` 后报"系统找不到指定的路径",命令一次都不执行)。
+    """
+    if _SHELL_STREAM_CODEC == "utf-8":
+        return 65001
+    if _SHELL_STREAM_CODEC.startswith("cp"):
+        try:
+            return int(_SHELL_STREAM_CODEC[2:])
+        except ValueError:
+            return 65001
+    return 65001
+
+
+# 子 shell 起进程时用 `chcp <cp>` 钉住自己的控制台 CP(见 _shell_chcp_code),
+# 于是 stdin/stdout 与输入侧同一套编解码 —— 不再单独探测"输出侧 CP"。
+# 旧实现按父进程 GetConsoleOutputCP() 另测一套,和 stdin 的 OEM 语义分叉,
+# 出现"命令能跑、回显乱码"的双口径(2026-11-21 收敛)。
+_SHELL_OUTPUT_CODEC = _SHELL_STREAM_CODEC
 
 
 def _encode_shell_input(text: str) -> bytes | None:
@@ -7237,7 +7269,7 @@ class AgentEngine:
             assert proc.stdout is not None
             # 增量解码:多字节字符正落在 4096 字节边界上时,逐块 decode 会各分成
             # 半个字符并各自变成替换符 —— 中文提示每 4KB 就可能出现一处乱码。
-            decoder = codecs.getincrementaldecoder(_SHELL_STREAM_CODEC)(errors="replace")
+            decoder = codecs.getincrementaldecoder(_SHELL_OUTPUT_CODEC)(errors="replace")
             while True:
                 chunk = await proc.stdout.read(4096)
                 if not chunk:
@@ -7391,11 +7423,13 @@ class AgentEngine:
                 with contextlib.suppress(Exception):
                     exec_env = snapshot_env_for_exec(snap, exec_env)
                     bootstrap_cmd = f". {shlex.quote(snap.path)}"
-            shell_argv = (
-                ["cmd.exe", "/Q", "/K"]
-                if os.name == "nt"
-                else ["bash", "--noprofile", "--norc"]
-            )
+            if os.name == "nt":
+                # 2026-11-21:子 shell 必须有**自己的**无窗口控制台,并在 /K 里把
+                # CP 钉死(见 _shell_chcp_code):不钉住就继承父控制台(本机 65001),
+                # 与 stdin 管道的 OEM 语义对不上 ⇒ 中文命令变一串 ? 后整条不执行。
+                shell_argv = ["cmd.exe", "/Q", "/K", f"chcp {_shell_chcp_code()} >nul"]
+            else:
+                shell_argv = ["bash", "--noprofile", "--norc"]
             # 编码检查排在起进程之前:编不出来就当场拒绝,不留一个空转的常驻会话。
             first_payload = _encode_shell_input(command)
             bootstrap_payload = (
@@ -7411,6 +7445,11 @@ class AgentEngine:
                     stdin=asyncio.subprocess.PIPE,
                     cwd=resolved_cwd,
                     env=exec_env,
+                    # Windows:CREATE_NO_WINDOW 给子 shell 一个**独立无窗口控制台**
+                    # ⇒ chcp 只作用于它自己(不改父会话 CP),也不弹窗。
+                    creationflags=(
+                        subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                    ),
                 )
                 # OS 级沙箱(第八批):交互 shell 同样收入 Job Object
                 sandbox = _apply_sandbox(proc)

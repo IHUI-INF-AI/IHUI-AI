@@ -7934,7 +7934,8 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
-      "hookFailures": {
+
+      "runtimeHookConfigStaleBy": "上次登記 {by}",      "hookFailures": {
         "title": "Hook 執行失敗",
         "evidenceMissing": "未記錄最終結果:該次執行既不在執行日誌、也不在死信佇列裡,無法確認成敗。",
         "state": {
@@ -8764,6 +8765,12 @@
       "runtimeHookRunOk": "通過",
       "runtimeHookRunTimeout": "逾時",
       "runtimeHookRunError": "失敗",
+      "runtimeHookStatsTitle": "鉤子累計",
+      "runtimeHookAuditTitle": "鉤子稽核(本機臺帳)",
+      "runtimeHookAuditTruncated": "僅讀到臺帳尾部 {lines} 行",
+      "runtimeHookAuditNearFull": "臺帳已佔 {pct}% 容量,接近輪轉(舊備份將被覆蓋)",
+      "runtimeHookAuditHistoryOnly": "當前臺帳為空,僅存歷史備份 {kb} KB",
+      "runtimeHookStats": "共 {total} 次 · 通過 {ok} / 逾時 {timeout} / 失敗 {error} · 均值 {avg}ms · 峰值 {slowest}ms",
       "runtimeHookConfigUntrusted": "鉤子設定 {count} 條未受信任,改動後需在本機重新登記信任",
       "runtimeHookConfigInvalid": "鉤子設定檔損壞,已按無設定運行",
       "runtimeMessageSend": "第 {iteration} 輪請求已發出 · {count} 則訊息",
@@ -8877,7 +8884,11 @@
         }
       },
       "errorCatalog": {
-        "102": {
+
+        "TERMINAL_STDIN_CLOSED": {
+          "title": "終端機輸入通道已關閉",
+          "action": "重新開啟終端機會話後再送出輸入"
+        },        "102": {
           "title": "請求時間驗證失敗",
           "action": "校準系統時間後重試"
         },
@@ -9733,6 +9744,18 @@
           "title": "終端機尺寸無效",
           "action": "傳入正整數行列後重試"
         },
+        "TERMINAL_INVALID_INPUT": {
+          "title": "終端機輸入無效",
+          "action": "檢查貼上或傳送的內容後重試"
+        },
+        "TERMINAL_MOUSE_DISABLED": {
+          "title": "終端機未啟用滑鼠回報",
+          "action": "先讓程式請求滑鼠(DECSET 1000/1002/1003),再送出滑鼠事件"
+        },
+        "TERMINAL_FOCUS_DISABLED": {
+          "title": "終端機未啟用焦點回報",
+          "action": "先讓程式請求焦點事件(DECSET 1004),再回報焦點進/出"
+        },
         "TERMINAL_NOT_A_TTY": {
           "title": "終端機不是 tty",
           "action": "以 PTY 模式重啟工作階段"
@@ -9797,11 +9820,23 @@
           "title": "並行子代理數超限",
           "action": "等待執行中的子代理結束後重試"
         },
-        "TERMINAL_STDIN_CLOSED": {
-          "title": "終端機輸入通道已關閉",
-          "action": "重新開啟終端機會話後再送出輸入"
-        }
-      },
+          "INVALID_ARGUMENTS": {
+            "title": "檔案清單格式不對",
+            "action": "按 {path, description} 的陣列重新提交"
+          },
+          "INVALID_PATH": {
+            "title": "檔案路徑不合法",
+            "action": "改為真實存在、不含控制字元的路徑"
+          },
+          "TOO_MANY_FILES": {
+            "title": "一次登記的交付檔案太多",
+            "action": "只挑最終交付物，最多 8 個"
+          },
+          "TOOL_AUTO_REVIEW_DENIED": {
+            "title": "自動審查拒絕了這次執行",
+            "action": "調整審查規則或改用被允許的編輯方式"
+          }
+        },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -9969,8 +10004,7 @@
         "creating": "建立中",
         "create": "新增變更請求",
         "createHint": "從目前分支建立 PR"
-      },
-      "runtimeHookConfigStaleBy": "上次登記 {by}"
+      }
     },
     "permissionConfirm": {
       "allow": "允許",
@@ -10394,10 +10428,25 @@
     "shareCopied": "連結已複製",
     "templates": "任務模板",
     "terminalDock": {
+      "backToIde": "切回 IDE 終端",
+      "showAgentFace": "檢視模型終端屏面",
       "collapse": "收起",
       "newSession": "新增終端",
       "resize": "調整高度",
       "title": "PowerShell 終端"
+    },
+    "agentTerminal": {
+      "altScreen": "全螢幕",
+      "cursor": "遊標",
+      "empty": "本會話還沒有 agent 終端(模型用 terminal 工具開啟會話後出現在這裡)",
+      "exited": "已結束",
+      "failed": "屏面取不到",
+      "links": "超連結(顯示文字與真實目標並列,均不可點擊)",
+      "noIntegration": "未啟用 shell 整合(無法判斷是否在提示字元)",
+      "noSession": "還沒有會話(先送一則訊息)",
+      "refresh": "立即重新整理",
+      "running": "執行中",
+      "title": "模型終端屏面"
     },
     "thisMonth": "本月",
     "earlier": "更早",
@@ -13258,6 +13307,7 @@
     "reasoningEffortUltra": "超極限",
     "reasoningEffortDefault": "預設",
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
+    "reasoningEffortReset": "重設推理強度",
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析",
     "reviewTargetGroupLabel": "審查對象選擇",
@@ -21117,7 +21167,7 @@
     "reimbursementDesc": "費用明細 → 進項抵扣 + 個稅口徑 + 合規校驗 + 分錄草案",
     "reimbursementCta": "發起一鍵報銷",
     "reimbursementJsonLabel": "報銷明細(JSON 陣列)",
-    "reimbursementJsonPh": "[{\"employee\":\"张三\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
+    "reimbursementJsonPh": "[{\"employee\":\"張三\",\"category\":\"travel_lodging\",\"amount\":\"880.00\",\"date\":\"2026-11-08\",\"invoice_type\":\"special\"}]",
     "reimbursementHint": "支援 lodging_city_tier / travel_per_diem / conference / 進項轉出 / 借款沖銷 / 部門分攤擴展欄位;草案須財務複核",
     "reimbursementInvalid": "報銷明細必須是合法的 JSON 陣列",
     "revenueLabel": "營業收入(招待費限額)",
@@ -21129,7 +21179,7 @@
     "socialDesc": "逐人五險一金 + 醫保個人帳戶/統籌拆分 + 基數封頂保底",
     "socialCta": "發起社保精算",
     "socialEmployeesLabel": "參保人員(JSON 陣列)",
-    "socialEmployeesPh": "[{\"name\":\"张三\",\"gross\":\"19800\",\"base\":\"19800\"}]",
+    "socialEmployeesPh": "[{\"name\":\"張三\",\"gross\":\"19800\",\"base\":\"19800\"}]",
     "socialAvgWageLabel": "社平工資(基數上下限錨)",
     "fieldSocialAvgWage": "社平工資 {value}",
     "socialInvalid": "參保人員必須是合法的 JSON 陣列",
@@ -21138,10 +21188,9 @@
     "deductionDesc": "七項逐人計算,合計直接餵報稅工資表",
     "deductionCta": "計算專項附加",
     "deductionEmployeesLabel": "員工扣除資訊(JSON 陣列)",
-    "deductionEmployeesPh": "[{\"name\":\"张三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
+    "deductionEmployeesPh": "[{\"name\":\"張三\",\"children\":1,\"housing\":{\"rent_city\":\"city_pop_gt_1m\"}}]",
     "deductionInvalid": "員工扣除資訊必須是合法的 JSON 陣列",
-    "promptDeduction": "請呼叫 special_deduction_calc 逐人計算個稅七項專項附加扣除。期間:{period};員工扣除資訊 JSON:{payload}",
-    "automationTitle": "國標平臺自動化 · 內建瀏覽器執行腿",
+    "promptDeduction": "請呼叫 special_deduction_calc 逐人計算個稅七項專項附加扣除。期間:{period};員工扣除資訊 JSON:{payload}",    "automationTitle": "國標平臺自動化 · 內建瀏覽器執行腿",
     "automationDesc": "記帳與申報的對外腿:AI 用專案內建瀏覽器在電子稅務局/社保醫保網報廳取數、預填、走到提交閘;原生用戶端場景走桌面自動化面(人在旁)。",
     "targetEtaxInvoiceLedger": "電子稅務局·發票底帳/勾選認證",
     "targetEtaxVatDeclaration": "電子稅務局·增值稅及地方稅附加申報",

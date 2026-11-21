@@ -20,6 +20,8 @@ import {
   selectAffectedGates,
   scanDuplicateDefinitions,
   rerunAffectedGates,
+  countUntriggered,
+  orderForRerunBudget,
 } from '../lib/land-gate-rerun.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -463,4 +465,54 @@ test('T15 冲突标记自证臂:被审根不是本仓且未给桩 ⇒ 逐条点�
   assert.equal(res.ran.some((f) => f.kind === 'conflict-markers'), false, '没跑却记成 ran = 把没判写成判过')
 })
 
+
+// ── T16 覆盖面读数三档(第 68 项):"漏声明"与"结构性豁免"必须分开读 ──
+test('T16 countUntriggered:漏声明 / 结构性豁免 / 两套声明并存 三档分离', () => {
+  const entries = [
+    { id: '1', script: 'a.mjs', mode: 'blocking', stagedTriggers: ['scripts/**'] },
+    { id: '2', script: 'b.mjs', mode: 'warn', stagedTriggers: [] },
+    { id: '3', script: 'c.mjs', mode: 'warn', stagedTriggers: [] },
+    { id: '4', script: 'd.mjs', mode: 'info', stagedTriggers: [] },
+    { id: '5', script: 'e.mjs', mode: 'warn', stagedTriggers: [], stagedTriggersOmitted: '判本机端口与时间窗口,提交内容无从触发' },
+    { id: '6', script: 'f.mjs', mode: 'warn', stagedTriggers: [], stagedTriggersOmitted: '略' },
+    { id: '7', script: 'g.mjs', mode: 'warn', stagedTriggers: ['scripts/**'], stagedTriggersOmitted: '判机器状态与提交内容无关的某个读数' },
+  ]
+  const u = countUntriggered(entries)
+  assert.equal(u.judges, 6, 'info 门不入判据面')
+  assert.equal(u.missing, 3, '空清单且无理由(2/3)/ 理由不足 10 字(6)⇒ 都算漏声明')
+  assert.deepEqual(u.ids, ['2', '3', '6'])
+  assert.equal(u.exempt, 1, '有 ≥10 字理由 ⇒ 结构性豁免单列')
+  assert.deepEqual(u.exemptIds, ['5'])
+  assert.match(u.exemptReasons[0], /^5:/)
+  assert.equal(u.conflicting, 1, '同时声明 triggers 与 omitted 理由 ⇒ 两套声明并存')
+})
+test('T16b 真注册表:结构性豁免三枚都已写明理由,漏声明为 0', () => {
+  const dir = dirname(fileURLToPath(import.meta.url))
+  const text = readFileSync(join(dir, '..', 'guardian-runner.mjs'), 'utf8')
+  const parsed = parseGateRegistry(text)
+  assert.equal(parsed.error, null, '注册表必须可解析')
+  const u = countUntriggered(parsed.entries)
+  assert.equal(u.missing, 0, `漏声明必须为 0,实得 ${JSON.stringify(u)}`)
+  assert.deepEqual(u.exemptIds.sort(), ['280', '325', '326'], '三枚机器状态门必须带 stagedTriggersOmitted 理由')
+})
+
+// ── T17 复跑预算排序(第 69 项):blocking 必须先占预算,不许被一串 warn 门挤掉 ──
+test('T17 orderForRerunBudget:blocking 前置、同档保序、缺省 mode 按 blocking 算', () => {
+  const l = (id, mode) => ({ id, script: `${id}.mjs`, ...(mode ? { mode } : {}) })
+  const ordered = orderForRerunBudget([
+    l('1', 'warn'),
+    l('2', 'warn'),
+    l('3', 'blocking'),
+    l('4'),
+    l('5', 'info'),
+    l('6', 'blocking'),
+  ])
+  assert.deepEqual(
+    ordered.map((x) => x.id),
+    ['3', '4', '6', '1', '2', '5'],
+    'blocking(含缺省)按注册表序在前,其余按注册表序在后;info 不在判据面但也不提前',
+  )
+  assert.equal(orderForRerunBudget([]).length, 0)
+  assert.deepEqual(orderForRerunBudget(null), [])
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

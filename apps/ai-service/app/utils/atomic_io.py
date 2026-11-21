@@ -15,6 +15,7 @@ import os
 import socket
 import stat
 import tempfile
+import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -121,9 +122,34 @@ _LOCK_MAX_WAIT_SECONDS = 10.0
 
 
 def _process_alive(pid: int) -> bool:
-    """判断本机进程 pid 是否存活。跨平台:Windows/POSIX 都可用 os.kill(pid, 0)。"""
+    """判断本机进程 pid 是否存活。
+
+    ⚠ Windows 硬事实(2026-11-21 修):Python 在 Windows 上的 ``os.kill(pid, 0)``
+    **不是探测**,而是 ``TerminateProcess(handle, 0)`` —— 直接把目标进程杀掉
+    (exit code 0)。旧实现照搬 POSIX 写法,结果每次抢锁都在"探测持有者"时把
+    对方(或自己)静默杀灭:表现为 pytest 进程中途消失、日志只有 START 没有 EXIT。
+    这里 Windows 走只读探活(OpenProcess + GetExitCodeProcess),POSIX 保留 kill(pid, 0)。
+    """
     if pid <= 0:
         return False
+    if os.name == "nt":  # pragma: no cover - 平台分支
+        import ctypes
+        from ctypes import wintypes
+
+        process_query_limited_information = 0x1000
+        still_active = 259
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+        if not handle:
+            # 5 = ACCESS_DENIED(存在但无权查询)⇒ 视为存活;87 = 参数无效 ⇒ 不存在
+            return ctypes.get_last_error() == 5
+        try:
+            code = wintypes.DWORD()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return code.value == still_active
+            return True
+        finally:
+            kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -162,6 +188,27 @@ def _write_lock_record(lock_path: Path, token: str) -> None:
     write_text_atomic(str(lock_path), json.dumps(record, ensure_ascii=False))
 
 
+_LOCAL_LOCKS: dict[str, threading.Lock] = {}
+_LOCAL_LOCKS_GUARD = threading.Lock()
+
+
+def _local_lock_for(key: str) -> threading.Lock:
+    """同进程内按锁路径取一把 threading.Lock(双层互斥的一半)。
+
+    2026-11-21 补:文件锁只负责**跨进程**互斥,同进程多线程仍会在 0.02s 轮询里
+    互相踩 —— 密集竞争时 ``write_text_atomic`` 的 ``os.replace`` 持续撞
+    WinError 32,拿锁线程在记录写入处抛错 ⇒ ``acquired`` 已置真却走不到 yield,
+    finally 不执行 ⇒ 僵尸锁(实测 4 线程 80 次里 61 次 5s 超时、计数器停在一半)。
+    同进程先用本地锁排队,只剩进程间竞争才走文件层。
+    """
+    with _LOCAL_LOCKS_GUARD:
+        lock = _LOCAL_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _LOCAL_LOCKS[key] = lock
+        return lock
+
+
 @contextlib.contextmanager
 def process_file_lock(
     path: str | Path,
@@ -187,65 +234,81 @@ def process_file_lock(
 
     target = Path(path)
     lock_path = target.with_name(target.name + ".lock")
+    # 同进程多线程先排队(见 _local_lock_for 注释):非同进程竞争不进文件层。
+    local_lock = _local_lock_for(str(lock_path))
+    if not local_lock.acquire(timeout=max(0.0, max_wait_seconds)):
+        raise TimeoutError(
+            f"process_file_lock: 同进程内获取锁超时({max_wait_seconds}s),"
+            f"锁文件: {lock_path}"
+        )
     token = secrets.token_hex(16)
     # token 参与一次 sha256,作为锁记录完整性的显式凭据(与 外部实现 hash 语义对齐)
     _ = hashlib.sha256(token.encode()).hexdigest()
     deadline = time.monotonic() + max(0.0, max_wait_seconds)
     acquired = False
 
-    while True:
-        try:
-            # 原子创建:已存在则 FileExistsError ⇒ 被占
-            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            os.close(fd)
-            _write_lock_record(lock_path, token)
-            acquired = True
-            break
-        except FileExistsError:
-            record = _read_lock_record(lock_path)
-            take_over = False
-            if record is not None:
-                holder_host = record.get("hostname")
-                holder_pid = record.get("pid")
-                if holder_host == socket.gethostname() and isinstance(holder_pid, int):
-                    if not _process_alive(holder_pid):
-                        take_over = True
-            if take_over:
-                # 崩溃遗留:先删陈旧锁文件,再用 O_EXCL 原子抢占 ⇒ 多个接管者只有一个成功
-                with contextlib.suppress(OSError):
-                    lock_path.unlink()
-                try:
-                    fd = os.open(
-                        str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600
-                    )
-                    os.close(fd)
-                    _write_lock_record(lock_path, token)
-                    acquired = True
-                    break
-                except FileExistsError:
-                    # 抢占失败 ⇒ 有别的接管者抢先,回到正常等待循环
+    try:
+        while True:
+            try:
+                # 原子创建:已存在则 FileExistsError ⇒ 被占
+                fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(fd)
+            except FileExistsError:
+                record = _read_lock_record(lock_path)
+                take_over = False
+                if record is not None:
+                    holder_host = record.get("hostname")
+                    holder_pid = record.get("pid")
+                    if holder_host == socket.gethostname() and isinstance(holder_pid, int):
+                        if not _process_alive(holder_pid):
+                            take_over = True
+                if take_over:
+                    # 崩溃遗留:先删陈旧锁文件,再用 O_EXCL 原子抢占 ⇒ 多个接管者只有一个成功
+                    with contextlib.suppress(OSError):
+                        lock_path.unlink()
+                    try:
+                        fd = os.open(
+                            str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600
+                        )
+                        os.close(fd)
+                    except FileExistsError:
+                        # 抢占失败 ⇒ 有别的接管者抢先,回到正常等待循环
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError(
+                                f"process_file_lock: 接管竞争后获取锁超时({max_wait_seconds}s)"
+                            ) from None
+                        time.sleep(_LOCK_POLL_SECONDS)
+                        continue
+                else:
                     if time.monotonic() >= deadline:
                         raise TimeoutError(
-                            f"process_file_lock: 接管竞争后获取锁超时({max_wait_seconds}s)"
+                            f"process_file_lock: 获取锁超时({max_wait_seconds}s),"
+                            f"持有者记录: {record!r}"
                         ) from None
                     time.sleep(_LOCK_POLL_SECONDS)
                     continue
-            if time.monotonic() >= deadline:
-                raise TimeoutError(
-                    f"process_file_lock: 获取锁超时({max_wait_seconds}s),"
-                    f"持有者记录: {record!r}"
-                ) from None
-            time.sleep(_LOCK_POLL_SECONDS)
-
-    try:
-        yield
-    finally:
-        if acquired:
-            record = _read_lock_record(lock_path)
-            # 只删仍属于自己(token 匹配)的锁:防接管者/后来者被误清
-            if record is not None and record.get("token") == token:
+            # 记录写入放在独立 try:写失败必须回收自己刚建的锁文件,否则
+            # acquired 已置真却进不到 yield,finally 永不执行 ⇒ 僵尸锁。
+            try:
+                _write_lock_record(lock_path, token)
+            except Exception:
                 with contextlib.suppress(OSError):
                     lock_path.unlink()
+                raise
+            acquired = True
+            break
+
+        try:
+            yield
+        finally:
+            if acquired:
+                record = _read_lock_record(lock_path)
+                # 只删仍属于自己(token 匹配)的锁:防接管者/后来者被误清
+                if record is not None and record.get("token") == token:
+                    with contextlib.suppress(OSError):
+                        lock_path.unlink()
+    finally:
+        local_lock.release()
 
 
 def read_json_with_lock(path: str | Path) -> Any:

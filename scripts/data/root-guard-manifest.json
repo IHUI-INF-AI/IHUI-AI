@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T00:56:15.338Z",
+  "sealedAt": "2026-11-21T05:37:09.571Z",
   "sealedBy": "root-guard --seal",
-  "reason": "部署环 fail-closed 解封:HEAD 面 scripts/git-guardian.mjs 已入库改动(并发会话推送),清单跟随对齐 same-commit",
+  "reason": "第69项:land-gate-rerun 增 orderForRerunBudget(预算排序),仅换执行顺序不改判据",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "7e0a344c415e40d92296e764e3e2fdaf03013ab6d129bd85fca5650781103aa7"
+      "sha256": "6b5ecf148256edea1f36e90e152719ac4398bc8de60fa3e78e4a112d6be410e0"
     },
     {
       "id": "judgement-libs",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "3758be1233c99e376c4579f29f8f811bff198832b7486192afa2a6e3ab4e75cb"
+      "sha256": "fb9333f66fd162d644d7bb0d522eef042d489411b2efbe0bbdb8558ee1b487c9"
     },
     {
       "id": "gate-scope",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "9a92df191bd5e5573c39cb0f1c7e690cb8c297cce2c0ede32b6415474c43e66a"
+      "sha256": "88ed7b36184e2263e1c495426cf5f0883af59f9efeafd8f8842a2e907d51fefe"
     },
     {
       "id": "guardian-pushgate-cache",

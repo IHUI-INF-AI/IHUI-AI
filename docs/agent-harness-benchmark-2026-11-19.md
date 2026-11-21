@@ -4,14 +4,6 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-
-
-
-
-
-
-
-
 # 本机 AI 编程客户端逆向取证与 IHUI-AI 能力对齐（2026-11-19）
 
 > 目标 `G-20261119-rea-harvest`。按 AGENTS §0.12 四步执行：定位对照 → 取证带 Evidence → 本仓自有实现复现 → 至少一轴超越。
@@ -20,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **34 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **71 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -96,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（34 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（71 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -472,6 +464,368 @@
 - 超越轴：对照程序这两个点只给遥测（无结构化回执、失败静默）；本仓把载荷钉成可判读的形状（`message_count / tool_count / tool_names / iteration / streaming` 与 `content_length / tool_call_count / finish_reason / streamed`），运行结果进同一条 `hook.run` SSE，前端面板与工具面钩子同形可见。
 
 验证：`pytest test_model_request_hooks.py` → `4 passed`（事件名映射 / 前后各点火一次且载荷来自真实返回值 / 钩子抛错不改写 `final_response` / 请求前 `additionalContext` 真的进到模型入参）；回归 `test_hook_engine.py test_hook_run_sse.py` → `155 passed`；`ruff check` 全过；`mypy --strict` 对两个 core 模块 `Success: no issues found`。
+### 5.36 第 35 项：`interrupt` 钩子挂载点 + 同步钩子超时根治
+
+- 缺口一：契约 14 事件里的 `interrupt` 没有挂载点 —— 取消/中断是"外部系统最想知道的时刻"（落审计、清临时资源、通知下游），此前完全无处挂。
+- 缺口二（本项排障时暴露的真缺陷）：`HookRuntime._run_one` 对**同步钩子直接在本事件循环里调用**，`asyncio.wait_for` 只包协程分支 ⇒ 一个 `time.sleep(30)` 的同步钩子能把整个 agent 循环冻住 30 秒，`timeout` 形同虚设。这不是 interrupt 独有的问题：所有 8 个挂载点的同步钩子都受影响。
+- 处置：
+  - `HookKind.INTERRUPT` + `_KIND_BY_EVENT["interrupt"]`；`AgentLoopV2.cancel()` 在置 `_cancel_requested` 之后、落快照之前触发（不能用 `_wait_interruptible` —— 本函数自己是取消入口，会在 0.25s 内被自己的取消标志打死）；`_INTERRUPT_HOOK_TIMEOUT_SECONDS = 2.0` 硬上限，超时/被取消都只记一行 warning 后**照常取消**；
+  - `_run_one` 改为：协程钩子 `await wait_for(...)`，同步钩子 `await wait_for(asyncio.to_thread(func, payload))`，并保留"同步函数返回 awaitable"的兼容分支 ⇒ 超时对两种钩子都真正成立。
+- 语义边界：取消是用户最高优先级操作，钩子只观察、不裁决；钩子回的 `decision/stop` 一律不解读（拿钩子阻止取消 = 绕过用户意志）。
+- 超越轴：对照程序的钩子超时只保证主线程不被协程挂住；本仓把同步钩子也移出事件循环，并把"取消上限"写成常量而非散落魔法数 —— 这两条都不依赖调用方自觉。
+
+验证：`pytest test_interrupt_hook.py test_lifecycle_hooks.py test_session_end_hook.py` → `13 passed`（含"同步 sleep(3) 钩子 timeout=0.5 不能拖住取消"那条，改动前实测 5.0s 失败、改动后通过）；回归 `test_hook_engine / test_hook_run_sse / test_stop_hook / test_compaction_hooks / test_post_tool_hooks / test_hook_init_is_interruptible` → `174 passed`；`ruff check` 全过；`mypy --strict` 两个 core 模块 `Success: no issues found`。
+### 5.37 第 36 项：`subagent_start` / `subagent_stop` 钩子挂载点（派发链）
+
+- 缺口：契约 14 事件里最后两个没有挂载点的是 `subagent_start` / `subagent_stop`。子代理派发链（`mcp_server._tool_dispatch_subagent`）走的是独立执行面，不在 `AgentLoopV2` 里，所以此前"给子代理注入策略"、"在子代理收尾处审计"两件事都无处可挂 —— 配置面看得见、派发链摸不着。
+- 处置：`HookKind.SUBAGENT_START / SUBAGENT_STOP` + `_KIND_BY_EVENT` 同批接上；`_get_subagent_hook_runtime()` 惰性单例（构造失败降级为 `None`，不挡派发），`_run_subagent_hooks()` 统一出口，5s 硬上限。挂载三处：
+  - 单路同步派发：`start` 在 `invoke` 之前、`stop` 在结果定型之后；
+  - 并行派发：`start` 逐个子任务各点一次（只改 `task` 正文），`stop` 逐条结果收尾；
+  - 后台作业：`_invoke_subagent_for_job` 内部同形挂载（后台与同步两条腿不各写一份判据）。
+- 语义边界：`start` 是**上下文注入面** —— `additionalContext` 只加在子任务正文前，`resident_prefix` 逐字不动（前缀缓存按字节命中，动了整段失效）；`stop` 是**观察面** —— 结果已定型，不解读 `decision/stop`，不改写 `status/output/needs_help`；异常/超时一律降级。
+- 超越轴：对照程序的子代理钩子只有"通知"语义；本仓把注入与观察分成两面、三条腿（单/并行/后台）共用同一出口，并显式钉住"注入不得污染缓存前缀"这条在本仓特有的约束。
+
+验证：`pytest test_subagent_hooks.py` → `5 passed`（事件映射 / 单路注入进正文且 stop 收到定型结果 / 并行逐任务各点一次 / 钩子抛错不改派发结果 / 零钩子正文逐字不变）；回归 `test_dispatch_subagent / test_dispatch_subagent_orchestration / test_dispatch_subagent_tool_surface / test_d08_subagent_handoff / test_subagent_resident_lease / test_chat_dispatch_admission / test_subagent_jobs` → `98 passed`；`ruff check` 全过；`mypy --strict`（含 `mcp_server.py` 本体）`Success: no issues found`。
+### 5.38 第 37 项：子代理钩子接入 `hook.run` 观察通道
+
+- 缺口：第 36 项把 `subagent_start/stop` 挂进派发链后，钩子会跑了，但**结果看不见** —— 前 12 个挂载点都把逐钩子结果发 `hook.run` SSE（面板可判"哪个钩子拦了/超时了"），唯独子代理派发面这条腿只在服务端日志里留一行。同一个能力两种可见度，排障时会误判成"钩子没跑"。
+- 处置：`_run_subagent_hooks()` 在拿到 `HookOutcome` 后，复用 `hook_engine.publish_observation("hook.run", {...})`（与 `agent_loop_v2._emit_hook_run_event` 同一通道、同一纪律：**刻意不进 `HOOK_EVENTS`**，否则每跑一枚钩子再点火用户钩子形成自激）；载荷带 `session_id / run_id / tool_name=orchestrate_agents / hooks`，空表不发，下行失败只 warning。
+- 语义边界：这是**观察面**，不下发、不改写任何派发结果；`session_id` 必带（agents.py 的转发按 session_id 过滤，不带键的帧会被属主过滤 fail-closed 丢掉，且丢得无声）。
+- 超越轴：对照程序的钩子观测按"钩子自身"聚；本仓把子代理钩子并进**同一运行时间线**（与工具面钩子同形字段），"钩子失败"和"子代理失败"不再各看一处。
+
+验证：`pytest test_subagent_hooks.py` → `6 passed`（新增"子代理钩子结果必须出现在 hook.run 且带 session_id"1 例）；`ruff check` 全过；`mypy --strict`（`mcp_server.py`）`Success: no issues found`。
+
+### 5.39 第 38 项：会话级钩子累计（失败率 / 超时数 / 均值 / 峰值）
+
+- 缺口：`hook.run` 到了前端只有 **50 条 FIFO** 的逐帧视图（第 26 项）。一次长会话跑 200 次钩子、其中 3 次超时，早期那 3 条会被挤掉，面板显示"全部通过" —— 排障时把"偶发超时"看成"没发生过"。这是**观察面失真**，不是钩子本身的问题，所以修在读数侧而不是再加一帧。
+- 处置：新增纯函数 `apps/web/src/hooks/hook-run-stats.ts`（`HookRunStats` / `EMPTY_HOOK_RUN_STATS` / `accumulateHookRunStats` / `hookRunStatsAverageMs`），`use-agent-runtime.ts` 在 `hook-run` 监听器里**先累计再入 FIFO**，并把 `hookStats` 作为 `UseAgentRuntimeReturn` 一等字段暴露；断流 / 切换 agent 时与 `hookRuns` 同批归零。**不新增 SSE 事件名、不新增后端帧** —— 同一份输入的两个视图，不是第二份真相源。
+- 语义边界：按**钩子条目**计数而非帧数（一帧可含多枚）；未知 `status` 计入 `error`（不静默算成功），而解析层对非三态本来就 `fail-closed` 拒帧；`total=0` 时均值为 `0`（不是 `NaN`）；面板只在 `total>0` 出一行，零次不留空噪声。
+- 超越轴：对照程序的钩子观测要么只报"最近一次"、要么全局日志；本仓把"趋势（累计）"与"这一次（最近帧）"分层落在同一面板，且累计**不受滚动窗口淘汰**影响。
+
+验证：`pnpm --filter @ihui/web exec vitest run src/hooks/hook-run-stats.test.ts` → `4 passed`（按条目计数 / 跨帧累加保留峰值 / 未知状态不冒成功 / 零条目均值不为 NaN）；`pnpm exec tsc -p <临时 tsconfig 点名四文件>` → 无错误；`check-i18n-keys` / `check-i18n-parity` → 5 语言 `26245` 键 parity OK；`scan-i18n-zh-residue zh-TW` → 无中文残留。
+
+### 5.40 第 39 项：钩子运行审计落盘（唯一观察者出口）
+
+- 缺口：第 26/37/38 项都是**内存态**观察面 —— SSE 下行、前端 50 条 FIFO、会话累计。断开连接 / 进程重启 / 面板刷新之后，"昨天哪个钩子连续超时、哪条命令钩子把耗时从 3ms 涨到 900ms"没有任何可查痕迹，只能靠回忆翻日志。排障缺的是**只追加、可按会话切**的落盘事实。
+- 处置：新增 `apps/ai-service/app/core/hook_audit.py`（`HOOK_AUDIT_REL` / `HOOK_AUDIT_MAX_BYTES` / `hook_audit_path()` / `record_hook_run()` / `record_observation()`），并在 `HookEngine.publish_observation` **一个出口**接线 —— 且只在 `event == "hook.run"` 时落。两条腿（agent_loop 与子代理派发）本来就汇到这一处，不需要在每个挂载点各写一份（`借鉴整合、不另造第二套`）。
+- 语义边界：载荷与 `hook.run` 逐字同形（`run_id / session_id / tool_name / hooks`），台账行再补 `ts`；空 `hooks` 帧不落（与 SSE"空表不发"同纪律）；落盘失败只 warning、`record_hook_run` 返回 `False`，**绝不冒泡打断钩子下行** —— 审计是观察面的附属品，不能变成新的单点故障；超过 5MB 轮转为 `.jsonl.1`；台账落在 `.ihui-agent/state/`（已在 `.gitignore` 覆盖，不进仓）。
+- 超越轴：对照程序要么完全不落盘、要么把钩子日志与 agent 日志混在一份文本里；本仓把"实时帧（SSE）/ 会话累计（前端）/ 落盘审计（服务端）"三层各就各位，且写入口收敛到唯一一处，三层的字段口径天然一致。
+
+验证：`pytest test_hook_audit.py` → `4 passed`（同形落盘 / 空表不写 / 写不进去不冒泡 / 观察出口只认 `hook.run`）；回归 `test_hook_engine.py` 一起跑 → `155 passed`；`ruff check` → `All checks passed!`；`mypy --strict`（`hook_audit.py` + `hook_engine.py`）→ `Success: no issues found`。
+
+### 5.41 第 40 项：`hook-run` 补进严格解析档（少一个事件 = 严格模式悄悄降级）
+
+- 缺口：`parseAgentTaskEventStrict` 的 `strictByEvent` 表登记了 11 个事件，`hook-run` **不在表里**，命中不到 schema 就直接 `return parseAgentTaskEvent(...)` 走宽松工厂。结果同一张"严格表"里少一个事件，**故障帧不会有字段级故障码**，只有 null —— 排障时"字段丢了"和"事件不认识"看起来一模一样。
+- 处置：新增载荷面判据 `HOOK_RUN_PAYLOAD_FIELDS`（`run_id / tool_name / tool_call_id / session_id` 可选，`hooks` 必填且 `.min(1)`），并登记进 `strictByEvent`。**刻意不复用带 `type` 的 `HOOK_RUN_FIELDS`** —— 后者是给整个信封造的，`type` 在信封不在载荷，拿它做严格校验会把每一帧都判成缺字段（这正是"表里少一个事件"之外的第二层坑）。
+- 语义边界：严格档只负责"缺字段要说得出是哪个字段"；逐条三态/名字仍由 `parseHookRunEvent` 拒帧（未知 status 一律拒收，不冒成功）。两档对**空 hooks** 的态度一致：都判不合格。
+- 超越轴：对照实现的"严格/宽容"是全局开关，一开就把不认识的帧全丢掉；本仓按事件逐张字段表登记，**严格档缺失可被单独发现并补位**，且补齐不改变宽松档的既有行为。
+
+验证：`pnpm --filter @ihui/shared exec vitest run src/sse/__tests__/agent-events.test.ts` → `53 passed`（新增 3 例：合法帧严格通过 / 缺 `hooks` 返回 `field='hooks'` 的字段级故障 / 空 `hooks` 同判）；回归 `tests/field-loss.test.ts` → `7 passed`；`pnpm turbo typecheck --filter=@ihui/shared` → `4 successful`；`check-stale-dist` → 无陈旧。
+
+### 5.42 第 41 项：审计台账只读摘要（前端刷新后仍能看见）
+
+- 缺口：第 39 项只给了**写入口**。台账落盘之后，回答"这一轮跑了几次、失败几次"仍要人肉 `tail` 一个 5MB 的 JSONL；而第 38 项的会话累计在刷新页面/重进会话时归零 —— 内存态一清，"刚跑过钩子"这件事就此消失。
+- 处置：`hook_audit.summarize_hook_audit(session_id, max_lines)` 只读尾部 `deque(maxlen)` 聚合（避免长会话下随文件增长线性变慢），暴露 `GET /api/agent/hook-audit/summary`（必须登录，台账含 session_id 与工具名）；前端新增 `use-hook-audit-summary.ts` 的 `normalizeHookAuditSummary`（形状收窄，不重算计数），面板在"内存累计为 0"时渲染 `pane-runtime-hook-audit` 一行。
+- 语义边界：`available=false`（台账不存在）与"有台账但零条"**分开报**，前端只在真有条目时显示；数字字段逐个校验、负数归 0、三态之和超出 total 直接不呈现（宁可空着也不报错数）；只读尾部 20000 行，`truncated=true` 表示更早的行未纳入聚合；没有会话号时按"本机台账全量"查，文案里写明，不冒充本会话。
+- 超越轴：对照实现的钩子观测止于"当前进程内"；本仓把"实时帧 / 会话内存累计 / 落盘摘要"三层串起来，任一层失效时下一层仍能回答同一个问题，且三层共用同一份字段集与同一份判据。
+
+验证：`pytest test_hook_audit.py` → `8 passed`（新增 4 例：按条目聚合 / 按会话过滤 / 台账缺失报 `available=false` / 只读尾部并标 `truncated`）；`ruff check` → `All checks passed!`；`mypy --strict`（`hook_audit.py`）→ `Success: no issues found`；`vitest use-hook-audit-summary.test.ts` → `4 passed`；`check-api-routes` → 通过（新增 0 处死调用）。
+
+### 5.43 第 42 项：审计读数不撒谎（截断判定修正 + 轮转阈值可调可测）
+
+- 缺口：第 41 项的 `truncated` 判据写的是"读到的行数 ≥ 上限"，于是**恰好等于上限**（一行都没丢）也标 `truncated=true` —— 读数把"全量"报成"截过"，正是本轮一直在治的那类"账面与事实不符"。另一半：轮转阈值是常量、5MB 才能触发，等于**没有测试能跑到它**，"超限会不会丢数据"全靠想象。
+- 处置：改为累计 `total_lines`，只有 `total_lines > max_lines` 才标 `truncated`；轮转阈值改走 `_max_bytes()`（env `IHUI_HOOK_AUDIT_MAX_BYTES` 可调，坏值 warning 后回落 5MB），于是"写满即轮转、旧行进 `.jsonl.1`"可以用 300 字节的夹具真跑一遍。
+- 语义边界：轮转失败仍只 warning、不冒泡；阈值是**字节**不是行数（大 error 串会占更多空间，这是有意的：防的是文件体积，不是条数）；env 坏值不静默吞掉，warning 里带原值。
+- 超越轴：对照实现的日志轮转通常只有"按大小切"、没有"切了之后读数怎么解释"；本仓把"轮转"与"摘要的截断自述"成对钉住 —— 一个 APPEND-only 台账必须同时说清"写到哪、读到哪、丢没丢"。
+
+验证：`pytest test_hook_audit.py` → `10 passed`（新增 2 例：恰好等于上限**不标** truncated / 300 字节阈值触发轮转且台账仍可读）；`ruff check` → `All checks passed!`。
+
+### 5.44 第 43 项：钩子读数抽成可测组件（显示优先级只有一份）
+
+- 缺口：第 38/41 项的两条读数（会话累计 / 台账回落）写在 800+ 行面板的 JSX 表达式里，"先会话、后台账、都空则不显示"这条**优先级规则**没有任何测试够得着 —— 一个 `&&` 写反就会出现"同一轮报两遍"，而 typecheck 对此永远绿。
+- 处置：抽出 `components/ai/hook-readout.tsx`（`HookReadout` + `HookReadoutTranslate`），规则收进组件内部；面板只负责"要不要渲染它"。均值/峰值仍取 `hookRunStatsAverageMs` 这一份算法，不在组件里再除一遍。
+- 语义边界：会话累计 `total>0` 优先；否则台账 `total>0` 才显示；两边都空 ⇒ 返回 `null`（零次不留空噪声）；`t` 由调用方注入（面板传 next-intl 的 `t`），组件本身不依赖 i18n Provider，因而可被 RTL 直接渲染。
+- 超越轴：对照实现的读数直接拼在 UI 里，"显示规则"与"数据来源"混在一起；本仓把规则做成纯展示面组件，四条分支（会话 / 回落 / 全空 / 台账零条）各有一条断言。
+
+验证：`vitest src/components/ai/__tests__/hook-readout.test.tsx` → `4 passed`（会话优先不重复 / 台账回落且均值 100ms、峰值 500ms 由同一算法给出 / 两边全空不渲染 / 台账零条不冒充跑过）；定向 `tsc` 五文件无错误。
+
+### 5.45 第 44 项：台账"只读到尾部"必须在读数上标出来（truncated 不许被吞）
+
+- 缺口：第 42 项把后端 `truncated` 的判定改成「台账总行数 > 读取上限」（恰好等于上限不再误报），可第 41 项的前端收窄只收了六个计数，`truncated` / `linesRead` 被直接丢掉 —— 于是「两万行之后还有历史」和「全量」在面板上长得一模一样，用户会把截断后的尾部当成"这一轮没跑过"。这正是第 42 项在账面上治过、展示面又漏回来的同一类问题。
+- 处置：`use-hook-audit-summary.ts` 新增 `HookAuditStats = HookRunStats & { truncated, linesRead }`，`normalizeHookAuditSummary` 显式收下两格（`truncated` 只认字面 `true`，字符串/缺失一律按未截断 —— 失效方向恒为"少标一次"）；`HookReadout` 只在截断时追加 `runtimeHookAuditTruncated`（`{lines}` = 实际读到行数），未截断的台账不许多带一个"仅尾部"。
+- 语义边界：截断只说明**覆盖范围**，不改写已读到的计数 —— 面板仍按 `total` 显示三态与均值/峰值；`linesRead` 不许冒充 `total`。
+- 测试卫生：本文件此前没显式 `cleanup()`，新增用例时实测到「Found multiple elements」（vitest 未开全局 auto-cleanup，上一例的 DOM 留在 body 里）；补 `afterEach(cleanup)` 后 6 例各自隔离。
+- 超越轴：对照实现的统计面板把"截断/全量"混在同一句文案里；本仓把可信度做成类型字段 + 独立 testid（`pane-runtime-hook-audit-truncated`），截断/未截断/坏值三态各有一条断言，靠机器锁住而不是靠文案自觉。
+
+验证：`vitest src/components/ai/__tests__/hook-readout.test.tsx src/hooks/use-hook-audit-summary.test.ts` → `12 passed`（截断显示 TAIL:20000 / 未截断无标记 / `truncated:"true"` 字符串按未截断 / 计数仍按 total 呈现）；i18n 五语言新增 `runtimeHookAuditTruncated`（JSON 复核过 `ai.pane` 段）。
+### 5.46 第 45 项：轮转后的"当前台账为空"不许冒充"从没跑过"（备份字节进读数）
+
+- 缺口：`_rotate_if_needed` 到 5MB 就把台账挪到 `<台账>.1`,下一次轮转直接覆盖上一份 —— 轮转刚发生时当前文件是空的,`summarize_hook_audit` 只读当前文件 ⇒ `total=0`,而前端把 `total=0` 归成 `null`(什么都不显示)。于是"历史被轮转走了"和"钩子从没跑过"在面板上一模一样,**静默丢历史**比报错更难发现。
+- 处置：摘要新增 `backupBytes`(`<台账>.1` 的字节数,`null` = 没有备份;stat 失败也只回 `null`,不折成 0);前端 `HookAuditStats` 收下这格,`normalize` 在"当前台账不可用但备份还在"时**不归 null** 而是返回 `total=0 + backupBytes`,并把 `available!==true` 时的计数强制为 0(不给不存在的台账编数)。
+- 展示：`HookReadout` 在 `total=0 ∧ backupBytes>0` 时只渲染一行"当前台账为空,仅存历史备份 {kb} KB"(独立 testid `pane-runtime-hook-audit-history-only`),不画三态计数;有计数时(常态)不出这行,避免两句话互相矛盾。
+- 语义边界：备份只报"存在与体积",**不读它的内容**——把它也聚合进来会让摘要耗时随历史线性增长,而且 `.1` 只保留一代,读它反而制造"历史是全的"错觉。字节数是"还有多少没被计入"的下界,不是精确行数。
+- 超越轴：对照实现的台账轮转后只剩"空表",没有任何"历史还在"的信号;本仓把备份存在性当成一等读数(后端 stat + 前端类型 + 独立断言),三态(无备份 / 有备份零计数 / 有备份有计数)各一条测试。
+
+验证：`pytest tests/test_hook_audit.py` → `12 passed`(轮转后当前文件缺失仍报 backupBytes>0 / 无备份回 None);`vitest hook-readout + use-hook-audit-summary` → `15 passed`(备份零计数报 HIST:40 / 无备份仍归 null / 有计数不显示"仅历史");`mypy --strict app/core/hook_audit.py` 与 `ruff check` 均通过。
+### 5.47 第 46 项：钩子错误文本落盘前脱敏（台账不许变成凭据仓库）
+
+- 缺口：`hook.run` 里的 `error` 就是钩子进程的 stderr（`hook_engine` 会截到 `HOOK_FAILED_STDERR_MAX` 直接上抛），而第 39/41 项把它**原样**写进 `.ihui-agent/state/hook-audit.jsonl`。钩子最常见的失败姿势恰恰是把命令回显进错误里——`OPENAI_API_KEY=…`、`Authorization: Bearer …` 会在磁盘上长期留存，且这条文件比日志活得更久（5MB 轮转）。日志/输出层已有脱敏闸，台账这条腿此前没接。
+- 处置：`_extract` 在构造落盘记录时对 `error` 调 `app.core.output_cleaning.redact_secrets`（与 `main.py` 凭据收口闸同一份判据，§0.6 单源，不另写正则）。非字符串/空串原样返回；非凭据部分保留（`failed` 等排查信息不许一起吞）。
+- 语义边界：只脱敏 `error` 字段；`name`/`kind`/`status`/`durationMs` 是结构字段，不做文本处理。脱敏在**落盘前**，不是在读取时——读取时脱敏等于把明文已经落过盘。
+- 测试：`test_error_text_is_redacted_before_persisting` 用 `OPENAI_API_KEY=sk-live-…` 造错误行，断言台账里没有明文、含 `[REDACTED_SECRET]`、且 `failed` 仍在。
+
+验证：`pytest tests/test_hook_audit.py` → `13 passed`；`mypy --strict app/core/hook_audit.py` 与 `ruff check` 通过。
+### 5.48 第 47 项：新增帧的端能力缺口不许静默（hook-run 六端按档登记）
+
+- 问题：第 26/37 项把 `hook-run`（钩子运行结果）接进 SSE 后，`config/agent-event-end-capability.json` 只描述了旧帧。端能力门（`scripts/check-agent-event-parity.mjs`，判据住 `scripts/lib/agent-event-coverage.mjs`）按档案逐端核对"后端生产、该端是否消费"，档案里没有 `hook-run` 也没登记缺口 ⇒ 六端（miniapp-taro / mobile-rn / packages/app / extension / desktop / cli）各报一条"未消费且档案未登记"，共 12 行（每端正反两段各一遍）。门给的两条出路里，"补该端消费"在本轮不成立（这些端没有钩子运行 pane），正解是按同一口径**显式登记为已知缺口**。
+- 处置：六个 profile 的 `knownGaps` 各登记 `"hook-run"`，`reason` 追加一句"后端新增帧、本端暂无消费面 ⇒ 按同一口径显式登记、不静默"，`until` 沿用同组 `2026-12-31`。登记不等于生效：到期要么补消费面，要么删条目（门的 until 过期判红就是干这个的）。
+- 语义边界：`events`（声明已接）与 `knownGaps`（承认未接）必须二选一，不许两边都写；本次只动 `knownGaps`，已接清单一行未改 —— Web 侧经 `use-agent-runtime` 已有 `hookRuns`/`hookStats` 消费，不在缺口之列。
+- 验证：`node scripts/check-agent-event-parity.mjs` 的"端能力缺口"行从 12 降为 0（`hook-run` 这一族清零）；该门剩余 8 行"字段面断裂"属别席既有提交（chunk / error / fallback / reasoning / tool-approval / tool-call-args-delta 的声明键与解析面读点口径），与本项无关，未动其判据 —— 本门未接提交链，此 8 行不阻塞任何落地。
+### 5.49 第 48 项：钩子明细块搬出面板（最近一帧的三态读数有了组件级断言）
+
+- 问题：第 26 项把 `hook.run` 的逐钩子明细直接写在 `agent-task-progress-pane.tsx` 的 JSX 里（约 800 行面板的一角），三态文案 `hookStatusLabel` 与配色也定义在面板的渲染作用域内。结果是：`pane-runtime-hook-runs` 这个 testid、`data-hook-status` 逐行读数、错误文本只在出错条出现，全都没有组件级断言 —— 任何一次 JSX 重排都可能在无人察觉时把"哪条超时、哪条报错"读错。
+- 处置：新增 `apps/web/src/components/ai/hook-run-detail.tsx` 的 `HookRunDetail({ run, t })`，把明细块的布局、三态文案、三态配色、`data-hook-status` 一并收进组件；面板只剩 `{lastHookRun && <HookRunDetail run={lastHookRun} t={t} />}`，`hookStatusLabel` 与 `Webhook` 图标导入同步删除（不留第二份）。类型直接取共享层的 `AgentHookRunEvent`（§0.6 不另造一份帧形状）。
+- 语义边界：明细块仍只呈现**最近一帧**（一帧即同一次工具调用的全部钩子），跨帧累计留在 `HookReadout`；两块分工不变，不重复计数。
+- 测试：新增 `__tests__/hook-run-detail.test.tsx` 4 例 —— 标题带工具名与**条目数**（不是帧数）；逐行 `data-hook-status` 顺序与三态文案一一对应；错误文本只挂在出错那条、正常条目不出 `null`；`toolName` 缺失时用 `—` 占位而不是空白（空白会被读成"没跑钩子"）。
+
+验证：`vitest run hook-run-detail.test.tsx hook-readout.test.tsx use-hook-audit-summary.test.ts` → `19 passed`（15 旧 + 4 新）；`watermark verify` 覆盖 1/1。`@ihui/web` 全量 typecheck 当前红点是别席在飞文件 `send-message.ts` 的 `reasoningEffort`（不在本项文件面），本项三文件无 TS 报错。
+### 5.50 第 49 项：台账容量要报出来（轮转到 5MB 会覆盖唯一备份）
+
+- 问题：`hook_audit` 只保留"当前台账 + 一份 `.1` 备份"，到 5MB 轮转时旧备份被直接覆盖 ⇒ 之前的钩子历史永久消失。但后端摘要只报了 `total/ok/timeout/error/truncated/linesRead/backupBytes`，**当前文件多大、上限多少**都不在读数里：面板只能看到"跑过 N 次"，看不到"再写一点就没有历史了"。
+- 处置：`summarize_hook_audit` 增报 `sizeBytes`（当前台账字节，stat 失败/不存在 ⇒ `null`，不折 0）与 `maxBytes`（`_max_bytes()` 的现读值）；前端 `HookAuditStats` 收下两格，`normalizeHookAuditSummary` 只认正有限数（`0` 按 `null`，"还没写"不许画成 0%），`HookReadout` 用 `nearFullPct` 在 **≥90%** 时报一行 `runtimeHookAuditNearFull`（整数百分比，封顶 100），低于 90% 不打扰；任一格取不到 ⇒ 不判（不拿 0 当"没满"）。
+- 语义边界：容量是"历史还能留多久"，不是"性能"；不触发轮转、不改 `HOOK_AUDIT_MAX_BYTES` 默认值，只把已有事实搬进读数。轮转本身仍由写入路径决定。
+- 测试：后端新增 2 例（`maxBytes` 与 `sizeBytes` 实测且能对账文件大小 / 台账缺失时 `sizeBytes` 为 `None` 而 `maxBytes` 仍是整数）；前端新增 2 例（95% 报 `runtimeHookAuditNearFull:92`、低于 90% 与容量未知都不出现），并补齐既有 fixture 的两格。
+
+验证：`pytest test_hook_audit.py` → `15 passed`；`vitest run hook-readout / use-hook-audit-summary / hook-run-detail` → `22 passed`；`mypy --strict app/core/hook_audit.py` 与 `ruff check` 通过；`check-i18n-keys` → 5 语言 parity OK（新键 `runtimeHookAuditNearFull` 已在 zh-CN / en / zh-TW / ja / ko 同批落地）。
+### 5.51 第 50 项：推理档位在号池腿上被静默丢弃（契约字段有、执行链断一跳）
+
+- 问题：`UpstreamForwardRequest.reasoningEffort` 早在渠道路径就声明了（`relay-upstream-forwarder.ts` 注释写明"reasoning_effort 透传，账号池由适配器映射到平台专有键"），HTTP 那条腿（`ai-chat-stream.ts`）也在传；web 客户端 `sendRelayChat` 的调用点同样已经把 `reasoningEffort` 递进去。唯独 WS 号池腿（`ws-relay-chat.ts` 的 `forwardToChannel` 调用）**没读帧里的这个键**——于是用户在号池模型上选的推理档位被静默忽略，而类型系统因为选项接口没声明该字段，把这件事报成了一行 `TS2353`，看起来像"web 写错了"，实际是**中间一跳缺读点**。
+- 处置：把这一跳补齐，而不是删字段（删掉等于承认"号池永远按默认档"，与 `UpstreamForwardRequest` 的既有承诺相反）。`StreamRelayChatOptions` 增 `reasoningEffort?: string`（注释写明下行键名按 snake 写、`undefined` 不发键）；`sendChat` 的 chat 帧按需追加 `reasoning_effort`；`ws-relay-chat.ts` 在转发调用里按 `typeof frame.reasoning_effort === 'string'` 取值传给 `reasoningEffort`。
+- 语义边界：三处都只做"有值才传"——空串/`undefined` 不上行、不落成 `''`（空串到适配器会被当成"显式低档"，比不传更糟）。字段名一律 `reasoning_effort`（下行）/ `reasoningEffort`（TS 面），不另造第二套名字（§0.6）。
+- 测试：`relay-chat-stream.test.ts` 新增一例双向牙（表态 ⇒ 帧内 `reasoning_effort='high'`；不表态 ⇒ 整键缺席）；`ws-relay-chat.test.ts` 新增一例（真 WS 帧带 `reasoning_effort` ⇒ `forwardToChannel` 收到的 `reasoningEffort` 为 `'high'`，缺省时为 `undefined`）。
+
+验证：`vitest run src/lib/__tests__/relay-chat-stream.test.ts` → `9 passed`；`@ihui/api` 的 `ws-relay-chat.test.ts` → `11 passed`；`node scripts/check-typecheck.mjs` → 全量 TS + mypy 通过（`exit=0 elapsed=214.5s scopeFiles=6302`），此前阻塞全仓推送的 `send-message.ts:1041 TS2353` 随之消除。
+### 5.52 第 51 项：台账容量只进面板、不进守护（"没人在看"就是历史消失的唯一原因）
+
+- 问题：第 49 项把容量占比搬进了面板，但面板只在**有人打开会话**时才看一眼；`hook_audit` 到 5MB 轮转时 `.1` 会被**下一次轮转**直接覆盖，那段历史永久消失。也就是说：读数存在 ≠ 会有人看见 ⇒ 缺的是守护侧的那条腿。另外两型同样没有哨兵：写盘被中断/并发撕裂产生的坏行（审计读数里静默丢事件）、以及某条钩子连续挂掉（单条失败正常，近半都在挂就值得人看一眼）。
+- 处置：新增 `scripts/check-hook-audit-health.mjs`（只读尺子）。上限**不抄数字**：从 Python 唯一源头 `apps/ai-service/app/core/hook_audit.py` 现读 `HOOK_AUDIT_MAX_BYTES` 的字面表达式（只接受 `数字 * 数字 …` 形态），读不到 ⇒ exit 2 未判定，绝不回落硬编码；台账路径与 `hook_audit_path()` 同口径（env `IHUI_HOOK_AUDIT_PATH` 优先）。四判据：容量 ≥90%、坏行枚数、近 50 条里 `error+timeout ≥30%` 且至少 5 条、以及台账不存在时判 `absent`（一次钩子都没跑过是合法形态，不记绿也不冒红）。在 `guardian-runner.mjs` 登记为 **warn** 档（id `326`）、不挂 `stagedTriggers`；周期派发点由第 53 项补在 `git-guardian`（见 §5.54 —— 这句话原先只是声明，实测无人调度）。
+- 语义边界：90% 与前端 `HookReadout.nearFullPct` **同一个档**——两处读数不同档会让人不再信任何一处；`warn` 不出邮件告警（§5e-1：红了人的动作是"去看哪条钩子在挂"，不是运维故障；告警通道仍只有邮件一条，不被这类存量读数占用）。
+- 测试：`scripts/tests/check-hook-audit-health.test.mjs` 4 例 —— 上限从 Python 源头现读且判定层无硬编码字节字面量（形状锁切掉 `selfTest` 夹具段）；近满档与 web `nearFullPct` 数值相等；三态与阈值（单条失败算 healthy、20 条里 10 条失败算 warn、容量 ≥90% 必须给可执行下一步、上限取不到算未判定）；装车证明（`guardian-runner` 里登记为 warn、无 `stagedTriggers:` 属性、带应急跳过变量）。器物自带 `--self-test` 9 例。
+
+验证：`node scripts/check-hook-audit-health.mjs --self-test` → `9/9`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `4 passed`；真机实跑 → `结论 absent`（本机尚未跑过钩子，属合法形态）、exit 0；`guardian-runner --help` 门数 359→360。
+### 5.53 第 52 项：失败率恒为 0（读数读过一层）+ "按 slowestMs 定位钩子"是空头路径
+
+- 问题：第 51 项自己踩了两个坑，都在"读数把人读错"这一型里：
+  ① 失败率读的是 `row.status`，而真实台账行是**一帧一条**、`status` 在 `hooks[]` 里 ⇒ 顶层永远没有这个键，失败率恒为 0、那条"越线"的判据一次都不会响（上一轮真机 `absent` 掩盖了它，`--self-test` 用的是扁平夹具也掩盖了它 —— 夹具与真实行形不同，等于没测）。
+  ② 门体 warn 文本写"先按 `summarize` 的 slowest/lastTs 定位是哪条钩子"，但 `slowestMs` **只有一个毫秒数、没有钩子名** ⇒ 这是一条跑不通的出路（§0.8）。`summarize_hook_audit` 也确实没报"哪条最慢/哪条在挂"。
+- 处置：`failRate` 改成按 `hooks[]` 计数（窗口仍按行取，计数按钩子算）；新增 `blameHooks()` 从台账原始行汇总逐钩子的 `失败数/总数/最慢毫秒`，warn 文本直接落钩子名（`失败最多的是 lint-on-edit(失败 10/20,最慢 30ms)`）。**没有往 Python 加第二套聚合**：原始行里 `name/status/durationMs` 都在，为读一个名字再造一层聚合就违背 §0.6。
+- 语义边界：只点名**失败过**的钩子（按失败数、再按最慢毫秒排序，最多 3 条）；零失败时不出这一段，不让"最慢但一直成功"的钩子冒充故障。
+- 测试：`--self-test` 增 `7b`（夹具改用真实行形：`ts/toolName/hooks[]`）10/10；镜像测试 ③ 改用真实行形并三条断言 —— 失败率按钩子计 20 条里 10 条失败、`blameHooks` 必须点名 `lint-on-edit`、warn 文本里必须出现钩子名。
+
+验证：`node scripts/check-hook-audit-health.mjs --self-test` → `10/10`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `4 passed`。
+### 5.54 第 53 项：门登记进 runner ≠ 会跑（"走周期派发"是没被验证过的一句话）
+
+- 问题：第 51 项把哨兵登记进 `guardian-runner.mjs` 的 warn 档，并在注释/文档里写"不挂 `stagedTriggers`，走周期派发"。实测这句话**不成立**：`guardian-runner.mjs` 只有两处调用点 —— `.husky` 的 pre-push（`--push-gate` 只跑 T1 集合）与人工全量档；常驻的 `git-guardian --daemon`（`\IHUI-AI git-guardian` 计划任务 + `IHUI-GIT-GUARD` 服务，2 分钟一轮）**从不执行它**。于是"没设 stagedTriggers 的门"等于零派发 —— 尺子造好了，永不自行看台账。这正是 §0.9「造好没装车 = 没有」：登记进注册表只是"被列出来"，不是"被执行"。
+- 处置：在 `git-guardian.mjs` 新增 `auditHookAuditHealth()`（唯一的周期调度器）+ 节流常量 `HOOK_AUDIT_HEALTH_INTERVAL_MS = 30min` + 节流戳 `.ihui-agent/state/hook-audit-health-last.json`，并按本仓既有双挂点纪律挂在 **daemon tick 与 main 单轮两处**（共用一枚节流戳 ⇒ 并存时只有先到那个真跑，不翻倍派生）。派生一律 `windowsHide: true` + `stdio` 显式接管 + 90s 上限（§5b / §12g / 守门 80）。
+- 语义边界：**不发信**（§5e-1）—— 红了人的动作是"修挂掉的那条钩子 / 把要留的历史另存"，是开发动作不是运维故障，日志即够；`healthy`/`absent` 静默、`warn` 逐行打印门体结论、`undetermined` 只记日志不记绿（§0.3）。另外同批发现并修掉一堵墙：改了 `guardian-runner.mjs` 后 `root-guard` 清单与规则文件脱钩、部署环会 fail-closed，按既有口径 `--seal` 重封并单独成枚提交。
+- 测试：镜像测试增第 ⑤ 例 —— 巡检函数必须导出、`git-guardian` 里**恰好两个** `auditHookAuditHealth()` 挂点（少一处 = 计划任务档禁用后常驻守护永不判）、带节流常量、函数体里不许出现 `notifyGuardRed`（防有人把它接进告警通道）。
+
+验证：`node --check scripts/git-guardian.mjs` 通过、`import` 后 `typeof auditHookAuditHealth === 'function'`；真跑一轮（临时节流戳）→ 日志 `ℹ️ 台账尚未建立(一次钩子都没跑过,不算故障)`、返回 `{"ran":true,"state":"absent"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `5 passed`；`node scripts/root-guard.mjs --check` 全 PASS、`check-root-guard-manifest-sync` 判「同面自洽」。
+### 5.55 第 54 项：同一句自述的第二个受害者（325 号门也零派发）
+
+- 问题：第 53 项修的是 326 号门。顺手按同一判据扫了全仓"自述有周期派发"的登记，命中只剩两处：325（临时派生检出寿命闸）与 326（本次新增）。325 的注释写着「走 guardian 周期派发（与 keepalive 一型）」，而 `git-guardian.mjs` 对 `check-temp-worktree-lifetime.mjs` **零引用** —— 与 326 是同一个病：注册表里"列出来"被当成"会跑"。它要防的是 scratch/Temp 里静默≥24h 或账龄≥48h 的残留检出（§12d 停用 worktree 后的清理腿），没人派发就等于这道门不存在。
+- 处置：`git-guardian.mjs` 新增 `auditTempWorktreeLifetime()`（唯一调度器）+ `TEMP_WORKTREE_LIFETIME_INTERVAL_MS = 1h` + 节流戳 `.ihui-agent/state/temp-worktree-lifetime-last.json`，同样双挂点（daemon tick + main 单轮）。解析尺子的 `--json`：`hits` 超阈残留逐条点名 + 给 `git worktree remove --force && prune` 出路，`orphans` 给 `git worktree prune`；`ok` 且零命中静默；结论不可用 ⇒ 未判定（§0.3）。**绝不自动回收**（§12d：命中只让归属席自决）。
+- 语义边界：节流 1 小时（老化阈值是天级，分钟级刷新没有信息增益）；不发信（属归属席动作，走日志）。
+- 测试：镜像测试增第 ⑥ 例 —— `auditTempWorktreeLifetime()` 必须恰好两个挂点、带节流常量、`guardian-runner` 里 325 的旧自述"走 guardian 周期派发(与 keepalive 一型)"必须已被替换成点名真实调度器（§0.8：不写跑不通的出路）。
+
+验证：`node --check scripts/git-guardian.mjs`；真跑一轮（临时节流戳）→ `{"ran":true,"state":"ok"}`（射程内 0 条超阈、0 条孤儿）；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `6 passed`。
+### 5.56 第 55 项：第三把尺子同一型 + 三份派发实现收敛为一份
+
+- 问题：按"自述被守护派发"把全仓 `scripts/*.mjs` 扫了一遍（粗筛 + 逐条人工复核上下文），命中第三处：`check-miniapp-mirror-fidelity.mjs` 头注写着「根 package.json `check:mirror-fidelity` + git-guardian 巡检轮派发」，而 `git-guardian.mjs` 只在**一条注释**里提到文件名、没有任何派生点 —— 自述的那条巡检轮不存在，存量缺口 avg≈24% 的读数因此只在下线时被人手动敲一次。同时暴露另一个问题：第 53/54 项各抄了一份"存在性→节流→派生→解析→三态日志"，第三把尺子再抄就是第三种口径（§3 零冗余）。
+- 处置：先抽 `runReadoutGate(spec)` 统一实现（JSON `state` 优先、退到 stdout `state=`、再退到退出码；`ok/healthy/absent` 静默、其余逐行打印门体结论、拿不到结论记 `undetermined`；派生带 `windowsHide` + 显式 `stdio` + 90s 上限），再把三把尺子各写成 10 行的 spec 包装器，全部双挂点（daemon tick + main 单轮）。`check-miniapp-mirror-fidelity` 只进守护侧周期读数、**不进** pre-commit/pre-push（§12e：判机器存量的门不许进提交链）。
+- 语义边界：门体文本原样透传 —— 可整改动作在尺子自己那句结论里，守护侧不另写一套出路（§0.6 不造第二份判据）；三把尺子的节流窗各自独立常量（30min / 1h / 1h），不共用一个"魔法数"。
+- 测试：镜像测试增第 ⑦ 例 —— 三个包装器各有**恰好两个**挂点、每个包装器体都必须是 `return runReadoutGate({`（防有人回头各抄一份）、`check-miniapp-mirror-fidelity.mjs` 的自述仍在（说明本项补的是它的落点）。
+
+验证：`node --check scripts/git-guardian.mjs`；真跑一轮 `auditMirrorFidelity`（临时节流戳）→ `{"ran":true,"state":"ok"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `7 passed`。
+### 5.57 第 56 项：刚接通的派发器有三个读数空洞（结论形态、整行灌日志、上限口径）
+
+- 问题：第 55 项把三把尺子收敛到 `runReadoutGate` 后，用真台账做一次 warn 路径的实测（env 把上限调到 2048 字节制造近满 + 20 条里 10 条失败），暴露三处：
+  ① 派发器只认 `state=<x>`，而钩子审计尺子的头行是 `[hook-audit-health] 结论 warn` ⇒ 每次 warn 都被记成"结论不可用/未判定"，读数方向正好反了；
+  ② 尺子的 `report()` 把 `ledger.lines`（**整行数组**）插进事实行，一行台账可以有几 MB（钩子 error 截断上限很大）——实测真机输出 4.7MB，等于把守护日志撑成噪音源；
+  ③ 尺子只读 Python 常量、不认 `IHUI_HOOK_AUDIT_MAX_BYTES`，而 Python `_max_bytes()` 认 env ⇒ 有人把上限调小时，面板与守护各说一套。
+- 处置：① `runReadoutGate` 的文本回退同时匹配 `state=` 与 `结论 <x>`；② 尺子只报 `ledger.lines.length`（行数），派发器对每行门体日志再做 400 字符截断（超出附原长）；③ 新增 `resolveCap(env, srcCap)`：env 正数优先、坏值回落到源头常量，`main()` 走它。
+- 语义边界：截断只作用于**日志**，不改门体结论；`report` 的容量/失败率关键数字一行不动。
+- 测试：`--self-test` 增 `自检10`（env 覆盖/坏值回落/缺省三档）与 `自检11`（9 万字节单行台账 ⇒ 报告总长 < 3000 字符，实测 71）→ `12/12`；镜像测试增第 ⑧ 例（源头里必须同时出现 `结论 <x>` 回退、400 字截断、`ledger.lines.length`、`resolveCap`）。
+
+验证：真机 warn 路径实测 —— 日志四行（结论 warn / 容量 100% 给"先另存或调大上限" / 失败 10/20 点名 `lint-on-edit`）、返回 `{"ran":true,"state":"warn"}`；`node --test scripts/tests/check-hook-audit-health.test.mjs` → `8 passed`。
+### 5.58 第 57 项：守护派发面的第六处没人看，而它刚好断了一根真线
+
+- 问题一（measurable）：`check-gate-wiring.mjs` 只对五处权威接线点核对（runner 的 `script:` 值、pre-commit-hook.js、其余 husky、根 package.json、CI）。「头注自称走 git-guardian 周期派发、`git-guardian.mjs` 却零引用」这一型**不在任何候选面上** —— 第 53/54/55 项三处都是这么活下来的。
+- 问题二（live red）：把上面这条做成尺子后，第一轮就抓到 `check-ip-attribution-trust.mjs` 的「调度面 = git-guardian 巡检轮」。顺着查，它的 lib 审计层、镜像测试都在，而 `git-guardian.mjs` 里的 `from './lib/ip-attribution-trust-audit.mjs'` 与巡检轮调用**被一次并发合并整层摘掉** —— 镜像测试 ⑥「接线锁」当场翻红，全仓却没有一道门看得见这一面。
+- 处置：
+  ① 新只读尺子 `scripts/check-guardian-dispatch-claims.mjs`：扫门体**头部注释区**的肯定式声称（自称 本门/本器/本件 或直接写本体文件名），兑现面 = `git-guardian.mjs` **剥注释后的代码面**出现该 basename，另加**一跳**（git-guardian 直接 import 的 lib 也算派发面，worktree 回收就是 lib 里 spawn 的这一型）。精度优先：描述别人的脚本、描述守护自身节律、条件式（前提/若/如果）、否定式（未接/尚未/零调用点）一律不判 warn；枚举到 0 声称 ⇒ undetermined。
+  ② 复原 IP 归属信任巡检：`git-guardian` 补 import + `auditIpAttributionTrust` 包装器 + main/daemon 双挂点，`alertId` 与 severity 原样透传给 `notifyGuardRed`（防薄接线吃掉去重身份）。
+  ③ 新尺子本身也走同一派发器：`auditDispatchClaims` + `DISPATCH_CLAIMS_INTERVAL_MS = 6h` + 双挂点。
+- 语义边界：新尺子只量第六处，不重复 `check-gate-wiring` 的任何判断（R1/R4 的候选集一字未动）；只读、warn 档、不进提交链（§12e）。
+- 测试：`node scripts/check-guardian-dispatch-claims.mjs --self-test` → `8/8`；镜像测试 `scripts/tests/check-guardian-dispatch-claims.test.mjs` → `8 passed`（含精度四型、射程只到头部、段落归并、本尺子自身接线锁、IP 巡检接线复原锁）；`scripts/tests/ip-attribution-trust-audit.test.mjs` 由 `# fail 1` 转 `7 passed`。
+- 真机验证：`node scripts/check-guardian-dispatch-claims.mjs` 修前 `结论 warn`（声称 14 / 已接线 10 / 诚实说明 3，真缺口 1 枚 = IP 归属信任）；`auditIpAttributionTrust()` 真跑返回 `state=ok`（config 未设本键 ⇒ 全部条目属回环/私网），`auditDispatchClaims()` 真跑返回 `state=warn` 并把那枚缺口逐行点名。
+### 5.59 第 58 项：感知腿名义四源、实际一源（三源的生产器零调度）
+
+- 现场（现读，不是推测）：`.ihui-agent/state/incident-signals.jsonl` 37 行按 `source` 分组 —— `deploy_outcome` 37 / `api_logs` 0 / `grafana_alert` 0 / `user_feedback` 0。契约 `scripts/data/incident-signal-contract.json` 的 producers 段登记了四个来源，而 `scripts/monitor-signal-intake.mjs`（三源唯一生产器）全仓零调度点：它的 CLI 默认 dry-run，`--apply` 才落账 ⇒ 没人带 `--apply` 跑过，所以台账里那三源一条都没有。`user-feedback-intake.mjs` 同样零调度、且缺导出配置（真跑 `undetermined`）。
+- 处置：`git-guardian` 增 `dispatchMonitorSignalIntake()` —— 30 分钟节流（`IHUI_MONITOR_INTAKE_INTERVAL_MS`）、`IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1` 可关、`--apply --json` 落账、10 分钟超时、main 单轮与 daemon tick 双挂点；只把最后一行结论进日志，不寄信、不改守护退出码（感知腿的沉默归 `check-autonomy-leg-health` 的 A8/A9 另量，§12e）。器物头注补点名真实调度器，防它变成下一枚「自述有人调度」。
+- 语义边界：三源全部未判定时器物 exit 2 ⇒ 派发器记 `ok=false` 并**照原样点名**（不折成"跑成功"）；源未判定不影响其他源；去重仍由器物自己的 `identityOf` 完成，与 `deploy_outcome` 共用一本台账，不新建第二份。
+- 真机验证：修前 `incident-signals` 三源 0 行；`dispatchMonitorSignalIntake()` 真跑返回 `{ran:true, ok:false}`，日志逐字 `未判定:三个监控源全部未判定(没有任何可判定面)` —— 这是因为 `scripts/data/auto-triage-config.json` 的 `apiLogs.jsonl` / `grafanaAlerts.url` 皆空、也没有 `userFeedback` 键，本机缺导出与 Grafana 地址；派发点补上后这条缺口从"静默"变成"每 30 分钟点名"，配好取数面即产出。
+- 测试：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` → `7 passed`（装车/`--apply`/双挂点/节流三态/器物缺席不写戳/头注点名）。
+### 5.60 第 59 项：新派发腿没进"黑腿探测器"，而它自己的镜像测试有状态泄漏
+
+- 问题一（measurable）：`scripts/data/autonomy-leg-liveness.json` 的候选集 = 盘上所有 `*-dispatch-last.json`，盘上有而本表没有 ⇒ `unregistered` 点名（覆盖面自证）。第 58 项新挂的 `monitor-signal-intake-dispatch-last.json` 落盘后就会进这张点名单 —— 新腿不受探测量，等于把"是否在跳"交给记忆。
+- 问题二（live）：第 58 项的镜像测试用固定 tick 文件名，第一次跑留下戳，第二次跑就撞 30 分钟节流窗口 ⇒ `⑦ ran` 断言翻红。这不是实现缺陷，是测试自身带状态。
+- 处置：① `autonomy-leg-liveness.json` 增 `monitor-signal-intake` 那条（owner=`dispatchMonitorSignalIntake`、envVar=`IHUI_MONITOR_INTAKE_INTERVAL_MS`、nominal=1800000 与源默认值逐字一致、ruler=器物、verifiedAt=2026-11-21），并写明 knownBlocker：三源取数面皆空 ⇒ 每轮 three-source-undetermined 属预期，探测器量的是戳是否在跳而非产出。② 测试改为每次运行生成唯一 tick 后缀，连跑两遍都 7/7。
+- 语义边界：不新增探测器、不改判据；`knownBlocker` 只作解释，不参与判定 —— 静默仍会被 A8 量到。
+- 验证：`node --test scripts/tests/monitor-signal-intake-dispatch.test.mjs` 连跑两次均 `7 passed`；登记后 A8 的 `unregistered` 名单里不再出现 `monitor-signal-intake`（落地前按 HEAD 面仍列旧账，落地后即消）。
+### 5.61 第 60-61 项：两条真派发腿不在登记表，而登记表的覆盖面自证结构上看不见"还没跑过的腿"
+
+- 现场（第 60 项）：A8 现读 `unregistered=2 ｜ api-liveness / tmp-bloat`。两条都是 `git-guardian.mjs` 里真在跑的派发器（`sweepApiLiveness` 5 分钟、`auditTmpBloat` 5 分钟，均无 env 覆盖），盘上有戳、登记表没条目 ⇒ 它们不受静默探测量。
+- 结构缺口（第 61 项）：`classifyLegs` 的覆盖面自证只拿**盘上的戳**与登记表对账 —— 一枚新挂的派发器在它跑过之前盘上没有戳，于是"登记表静默漏掉一条真腿"这一型永远看不见。这正是 60 项那两条腿漏过去的机制，不是一次性手误。
+- 处置：① 补登记两条腿（owner=派发函数、nominal=源默认 300000、ruler=器物、verifiedAt=今天，并写明 knownBlocker）。② `scripts/lib/autonomy-leg-liveness.mjs` 增 `findDispatchStampsInSource(src)` + `judgeRegistryCoverage({sourceStamps, legs})`：源面（`git-guardian.mjs` 源码）里的 `*-dispatch-last.json` 字面量，源里有而表里没有 ⇒ drift 并逐枚点名；表里有而源面没有 ⇒ 只点名不判红（tickFile 可能由变量拼装，失效方向恒为"多要一次说明"）。③ `check-autonomy-leg-health.mjs` 的 A8 取料层按同一被审面读 `git-guardian.mjs`，把 coverage 并进同一条维度读数；源面读不到 ⇒ unjudged，不读成"源面没有派发器"。
+- 语义边界：不新增第二份登记表、不复算节律；`missing` 与盘上 `unregistered` 同档（都是"无人认领"），`orphan` 只是提示。
+- 验证：`node scripts/check-autonomy-leg-health.mjs` 落地前 `unregistered=2`，登记后 `腿 16 枚 ok=16 unregistered=0 ｜ 源面:源面 16 枚 / 登记 16 枚`；`scripts/tests/leg-registry-coverage.test.mjs` 6 passed（含"盘上无戳也能抓到新腿"的集成例）；`autonomy-leg-liveness.test.mjs` + `autonomy-leg-health-output.test.mjs` 22 passed。
+### 5.62 第 62 项：只挂 main 面的派发腿，常驻持锁时等于零派发
+
+- 现场：`node scripts/check-sweeper-liveness.mjs` 现读 `dispatch-parity state=stalled`，真名单里 `sweepGiteeAssetBackfill` 的戳 `gitee-backfill-tick.json` 冻结 127 分钟且**不在 daemon tick 面**。成因与 2026-11-03 那次 27 小时静默同型：daemon 常驻持轮级锁，`main()` 那一趟永远让路 ⇒ 只挂 main 的腿实际零派发，而"戳存在"看起来像它还活着。
+- 处置：`git-guardian.mjs` daemon tick 段按字母序补一枚 `sweepGiteeAssetBackfill()`（在 `sweepExposedCredentialRotation` 与 `sweepHeadRecallRows` 之间），器物自带 30 分钟节流与单文件 ≤50MB 守卫，本层只派发、零复算。
+- 语义边界：不新建腿、不改器物判据；`ref-move-watch` 那条仍判 live（仅 main 面但戳新鲜，任务档还活着）——背离判据按"戳冻结 ∧ 不在 tick 面"两条件同时成立才算，本项只补齐真正零派发的那一枚。
+- 验证：改前 `LIVENESS-RESULT state=stalled stalled=1`、改后 `state=live stalled=0 families=3`；`scripts/tests/gitee-backfill-daemon-wiring.test.mjs` 3 passed（main 挂点 + daemon 形状锁 + 真跑背离巡检的接线锁）。
+### 5.63 第 63 项：一件事在 lib 里"有归属"，在尺子上却"无人认领"；另一条腿只挂 main 面
+
+- 现场一：`check-autonomy-leg-health` 现读 `A15-action-coverage [DRIFT] 1 枚台账动作没有任何维度认领:runner-budget-exhausted×37`。它在 `scripts/lib/autonomy-nonprogress.mjs` 的 `ACTION_EXEMPTIONS` 里早有归属（轮级发起腿额度停转、无票键），但门自己的 `ACTION_CLAIMS` 表没认它 ⇒ 37 轮只能从散文读。这正是 §0.9 那型：判据/词汇存在，消费它的那一格不存在。
+- 处置一：`ACTION_CLAIMS` 增一条 `runner-budget-exhausted: { dim: 'A15', kind: 'informational' }`，写清"豁免 ≠ 判过：仍进本维报数、不计 A7 空转"。改后本维读数里直接出现 `runner-budget-exhausted×37`。
+- 现场二：A9 现读 `main 区 109 / daemon 区 107 ⇒ 1 条只在一次性 main 里(sweepRefMoveLoss)`。daemon 常驻持轮级锁 ⇒ 只挂 main 的守夜人在常驻态等于不存在（与第 62 项同一成因家族）。
+- 处置二：daemon tick 段补 `sweepRefMoveLoss()`（自带 `REF_MOVE_WATCH_INTERVAL_MS` 节流与 `ref-move-watch-last.json` 戳，双面并存只先到者真跑，零行为变更）。
+- 语义边界：不改 lib 的豁免判据、不摘任何台账行、不为消音放宽前缀族；`sweepRefMoveLoss` 的"仅 main 但戳新鲜"在背离巡检里仍算 live，本项只补结构性承载面。
+- 验证：A15 由 `[DRIFT] 1 枚无人认领` 转 `[OK] 近窗动作 24 型全部有归属（认领表 49 条）`，informational 档现读含 `runner-budget-exhausted×37`；A9 落地后转 OK（面=head）；`autonomy-leg-health-output.test.mjs` 11 passed（含新增的第 63 项认领/报数断言）。
+### 5.64 第 64 项：契约齐、落账腿也在，但"会话从不写清单"让产物永远进不了 HEAD
+
+- 现场：`check-autonomy-leg-health` 现读 `A13-artifact-landing [DRIFT] 自治环从未把产物送进 HEAD：会话结果档 38 枚 / 落地档 0 枚 / 拒绝档 13 枚（artifact-manifest-missing×13）`。台账 `.ihui-agent/state/auto-evolve-ledger.jsonl` 现读 1379 行，会话/落账档 262 枚（`session-failed 170 / session-no-progress 41 / session-no-write 26 / artifact-manifest-missing 13 / session-ok 12`），`artifact-committed` **历史累计 0**。
+- 根因：落账腿的入参只有 `readArtifactManifest(key)` 一条来源，读不到就整轮记 `artifact-manifest-missing` 收手。而会话输出的事件流里本来就有 `{"type":"tool_call","name":"write_file|edit_file|batch_edit","arguments":{"path":…}}` —— 与 `classifySessionWrites` 数的是同一族证据。契约有、器物在、证据也有，只差把那一格接上去（§0.9"有档名没接线"）。
+- 处置：`scripts/lib/ticket-artifacts.mjs` 增 `manifestTextFromPaths(ticketKey, files, {note})`（只拼清单文本、空集返 null）；`classifySessionWrites` 增 `wrotePaths`（收 `path ?? file_path`，不判成败）；真派落账腿改为「会话清单优先 → 转录派生兜底 → 都没有才 missing」，台账行多记 `manifestSource`（`session|transcript|none`）。
+- 语义边界：**补的是取数面，不是判据** —— 派生清单照样过 `parseArtifactManifest` 票键/形状校验、`sanitizeArtifactPaths` 范围收口与 `selectDirtyPaths` 真脏判定，票键不符仍 `invalid`、路径不脏仍 `stale`；会话自己写的那份永远优先；dry-run 档不派生（没跑会话就没有证据）。
+- 顺带修掉两条同族缺陷（现读实测，均非本次引入）：① `auto-evolve.mjs` 的自检脚本在 S11a 里引用未导入的 `planFaceDigest`，整个 `--self-test` 直接 ReferenceError 打死（`--self-test` 由 2 连红转全绿）；② `scripts/tests/auto-evolve.test.mjs` 的 Ⓔ 锁用"全文件第一条 `spawn(process.execPath,[script,…])`"取 argv，实际抓到的是 check-ops-patrol 那条（`--json --apply`）⇒ 长期对着另一个器物喊红，真正要守的 auto-evolve 发射点反而没人看住；改为先锚 `'auto-evolve.mjs'` 取件处再取其后第一条 spawn。
+- 验证：`node scripts/auto-evolve.mjs --self-test` `self-test: 全绿`；`node --test scripts/tests/auto-evolve.test.mjs` 82 passed（新增 ⑬f 落点收入 / ⑬g 派生清单契约 / ⑬h 发射端顺位三例）；`node --test scripts/tests/auto-evolve-landing-e2e.test.mjs` 4 passed（真落地腿端到端未被改坏）。
+### 5.65 第 65 项：尺子建好了，登记表却一格产出字段都没有 —— 16 腿全部"未判定"
+
+- 现场：`check-autonomy-leg-health` 现读 `A12-leg-output-reconciliation` = `16 腿 = ok 0 / n/a 0 / drift 0 / unjudged 16`，每条都是同一句 `登记表产出字段缺失/非法 ⇒ 不冒充判过`。判据本体（`scripts/lib/autonomy-leg-output.mjs`）三分类齐备、镜像用例齐备，但 `scripts/data/autonomy-leg-liveness.json` 的 16 条腿**一条都没有** `outputKind / outputRel / outputTimeField / silenceCeilingMs` —— 与第 60/61 项同族：不是判据错，是判据的唯一输入面从没被填过。
+- 处置：按"每条腿自己的写盘分支"逐枚现读取值，不按腿名想象。① 有专属产出账的 4 腿：`auto-evolve`(`auto-evolve-ledger.jsonl`/ts)、`auto-triage`(`auto-triage-ledger.jsonl`/ts)、`deploy-feedback`(`deploy-feedback-ledger.jsonl`/ts)、`api-liveness`(`api-liveness.jsonl`/**at**，该器物自己用 `at` 键) ⇒ `always`；② 两腿共用 `incident-signals.jsonl`（`deploy-outcome-intake` / `monitor-signal-intake`）⇒ `coveredBy: A11-closure-output`，本维不重复量（同一份账被两条腿各算一次就是第二个真相源）；③ 其余 10 腿结构性无产出账（判据门 / 基线面 / 生成器，产物是文件不是留痕）⇒ `none`，仍由 A8 量戳。
+- 语义边界：`silenceCeilingMs` 一律 = 该腿 `nominalIntervalMs × 6`（连续 6 个班次零产出才报），是算出来的不是拍的数；不改判据、不改任何器物的写盘行为，只把"唯一输入面"补齐。
+- 二修（首落当场被读数打回）：`outputRel` 写成 `.ihui-agent/state/…` 全路径 ⇒ 判据层按 `LIVENESS_STATE_DIR_REL` 再拼一次，读盘 ENOENT 被当成「一次都没产过」⇒ 四腿立刻从「未判定」翻成「每轮必写却零产出」。改成相对 state 目录的形态后复跑 A12：`16 腿 = ok 13 / n/a 12? …`（当次现读；关键是 unjudged 0、四腿不再读成零产出）。**这条属于「字段形状也是判据」**：同一份登记表，值对而形态错，读出来就是另一个结论。
+- 三修（分类也必须取证）：首版把 auto-triage / deploy-feedback / api-liveness 都标成 `always`，于是「账静默 25373min / 5138min / 3676min 而派发戳新鲜」被判成零产出。逐条读它们的写盘分支后更正：三者的台账都是**事件驱动**（`api-liveness` 的 ok 支直接 `return` 不落账、`auto-triage`/`deploy-feedback` 只在真事件上 append），`conditional` 才是真实形态；只有 `auto-evolve` 每轮都落一行（`dispatched` 或 `no-whitelist-hit`）。改后 A12 现读 `16 腿 = ok 3 / n/a 12 / drift 0 / unjudged 1`：唯一一枚 `deploy-feedback` 是它自己连续多轮 `result=undetermined`（自报未判定）⇒ 按三分类落 `unjudged` 并点名"采集输入面断链"，**不冒充判过也不为了抹绿改标签**——**腿的分类不是凭名字想的，是从写盘分支读出来的**。
+### 5.66 第 66 项：把"历史存量"当现状读的四处（A13 恒红、A6 拿未判定当哑闸、两把锁写死 12 腿）
+
+- 现场一（A13）：读数 `自治环从未把产物送进 HEAD：会话结果档 38 枚 / 落地档 0 枚 / 拒绝档 13 枚`。第 64 项把落账腿的取数面接通之后它照旧红 —— 因为它读的是**全期存量**，而其后台账近三轮全是 `no-whitelist-hit`（一枚会话都没跑），修好没修好根本判不出。§0.2 对判历史存量的口径是只报数、红要落在可整改的那一跳上。
+- 处置一：A13 分三档，分界取证据面 —— ①会话档里**没有一枚**"会交产物"的档（`PROGRESS_ACTIONS` 交集为空：近 30 枚全是 failed/no-write/no-progress）⇒ `unjudged`，点名"落地腿结构上从未被要求答话，环为什么跑不出成功会话属 A1/A2/A8/A14 的轴"；②最后那枚 `session-ok` 之后连**拒绝行**都没有 ⇒ `drift`（保留抓力）；③最后一轮已答话（拒绝）⇒ `unjudged` 并把拒绝分布当**存量**报数。现读 `A13 = unjudged`（拒绝 13 枚照实报出）。
+- 现场二（A6）：`valveListText` 是坏 JSON 时它先命中"有派发尝试却零 valve-* 留痕"那条 ⇒ 判 `drift`。而规则表坏时分类器本身可能抛错被吞，零留痕分不清"没走到"与"走到了但炸了" ⇒ 这是拿"判不出"冒充"判过了"。
+- 处置二：覆盖率复算提前，`status=bad` **先**落 `unjudged`（读数保留 `覆盖率复算:❌ 未判定` 这一串），"哑闸"那一档只在其后生效。
+- 现场三/四：两把自检锁把腿数写死 12（登记表第 60 项起已 16 枚）⇒ 补登记即整片假红；`dep-radar` 的 `ruler` 写的是 `scripts/dep-radar.mjs`（盘上**不存在**），`selfReportToken` 缺失且真值应为"依赖通告:未判定"。
+- 处置三/四：两把锁改成按登记表长度现读（结构锁同时校验 `none`/`coveredBy` 两类的合法形态、`outputRel` 必须是 state 相对路径且指向真实台账）；登记表按器物真名改回 `scripts/dep-advisory-radar.mjs` 并补 `selfReportToken`。
+- 验证：`node scripts/check-autonomy-leg-health.mjs --self-test` **98 例全绿**（新增 H62b 真静默 drift / H62c 无成功会话 unjudged）；`node --test scripts/tests/autonomy-leg-output.test.mjs` **24 passed**（T21/T22 改为动态腿数）；`autonomy-leg-health-output.test.mjs` 11 passed；体检现读 `AUTONOMY-LEG state=unjudged OK=13 DRIFT=0 UNJUDGED=2`（A12 的 1 枚 `deploy-feedback` 自报未判定 + A13 的存量档，都是点名不冒红）。
+### 5.67 第 67 项：自愈层漏掉的第五种形态(`AD`)与三格恒红的自检
+
+- 现场一（门 42 连续未判定）：`registry [门 42] rc=2`，门自己说 `未判定(2 个待扫文件不存在)` ——
+  `apps/api/src/lib/oauth-config-check.ts` 与 `apps/api/tests/oauth-config-check.test.ts`。查 `git status`：
+  两枚都是 `AD`（**索引里有、磁盘上没了、HEAD 里还没有**）。现行自愈层两条判据都不覆盖它：
+  第一层 ` D` 要求"索引 blob == HEAD blob"（AD 的索引 blob 是新内容、HEAD 无此路径）；第四层 `D `
+  要求"HEAD 有该路径"（同上不成立）。结果：文件内容还在索引里、磁盘空着，**没有任何器物点名**
+  "这枚文件存在过、索引里还有那份字节"，门只能永远读未判定。
+- 处置一：`heal-worktree-tracked.mjs` 增第七层 `findStagedAddMissing` + `checkout-index --force`
+  回盘（**只写工作树，不碰索引也不碰 HEAD**）。写盘前逐批复核"索引里那份字节还在 ∧ 盘上仍然缺"，
+  有有效删除通知书（或台账坏档）的不动 —— 与第一层同一条问句。输出面新增 `stagedAdd*` 七键
+  （dryRun 带可回盘清单、真跑带恢复枚数），人类档逐条点名。
+- 现场二（自检三格恒红）：`--self-test` 现读 `❌ ㉜a / ㉜b / ㉜d` 三格，而 `git show HEAD:` 的同一份
+  器物同样三红 —— 不是本次改动引入。根因是**旧例仍在测旧设计**：㉜ 夹具把 46 枚深（浅窗 40）的
+  祖先复归当成"窗口用尽 ⇒ 判不出"，而整块/拼合两条通道自 2026-10-25 起走 `analyze` 的**深档**
+  （浅窗用尽即回落全历史），46 枚深照样判得出并对齐。自检读数三红 = 下一次真缺陷混在里面也分不出。
+- 处置二：㉜a/㉜b/㉜d 按现设计重写（深档取到全历史 ⇒ 已判过并回到 HEAD、不进"未判定"）；补 ㉜e
+  单独钉**浅档**那一维：同一 46 枚深祖先，`blobInAncestry`（浅窗 40）仍必须点名
+  `beyond-window` + 窗口与已见枚数 —— 两档窗口各有出处，谁也不许拿对方的结果替自己作答。
+- 验证：`node scripts/heal-worktree-tracked.mjs --self-test` **88 例全绿**（改前三红）；
+  `node --test scripts/tests/heal-worktree-tracked.test.mjs` **25 passed**（新增 T24：前两层对同一
+  现场判不出 → dryRun 点名零写 → 真跑回盘且 `hash-object` 逐字等于索引 blob → 幂等 → 持通知书
+  不回盘）；`node scripts/check-event-closure-leak.mjs` 现读 `5 文件 0 命中`（门 42 已能判）。
+### 5.68 第 68 项：覆盖面读数把"结构性豁免"读成"漏声明"（落地通道 + 门 262 各一层）
+
+- 现场：每次落地都打一行 `注册表臂覆盖面:登记判据门 359 道,其中 3 道(blocking 0)未声明 stagedTriggers ⇒ 本通道结构上不复跑`。
+  查这三枚（280 本机 dev 库轮换窗口 / 325 临时检出寿命 / 326 钩子台账健康）:全部 `mode: warn` ∧ 判的是**机器状态**
+  （时间 + 端口空窗 / 存活时长 / 台账容量与失败率）—— 提交内容怎么改都触发不了它们,不声明射程**本来就是对的**。
+  但注册表里只能表达"空清单"这一个形状 ⇒ 两条通道（落地 / 提交）把同一份缺省读成反义,读数层只能按"漏声明"报。
+  门 262（射程声明完备性）同型:它只看 `stagedTriggers` 一眼,于是这三枚在它账上**永远是"存量缺射程"**,
+  并且任何**新的**机器状态门都会被它按"新增门缺射程"判红 —— 逼人写一条伪造的通配 `['**/*']`,把"任何提交都跑"
+  变成噪声,反过来废掉射程声明本身的可信度。
+- 处置（同一份声明,三层各读一次）：
+  ① 注册条目新增 `stagedTriggersOmitted: '<≥10 字理由>'`（与通知书同一门槛,写"略"不算交代）,
+    三枚机器状态门各写一句"判的是什么、为什么提交内容无从触发"；
+  ② 落地通道 `countUntriggered` 三档分离:`missing`（无理由/理由不足）/ `exempt`（结构性豁免,单列并带理由）/
+     `conflicting`（同时写了射程与豁免理由的两个键 ⇒ 自相矛盾,按未判定报）；note 从"3 道漏声明"改成
+    "0 道漏声明 + 3 道结构性豁免（逐条带理由）"；
+  ③ 门 262 认同一份凭据:`exempt-omitted` 档免判并单列计数（末行新增 `结构性豁免=N`）,但**锚点里原有射程
+    被换成理由仍判 `regressed`** —— 豁免通道不许拿来洗掉一次真的摘射程。修复指引同步加一行。
+- 顺带修：门 262 的镜像测试 T5 阳性对照仍按字面数两处 `windowsHide: true`,而 52c88a32cf 早把本门两处裸 git
+  迁进共用层 `gitRaw`（字面量一处不剩）⇒ 该对照恒红、真正纪律（不得再出现裸派生）无人钉。改为钉现结构:
+  **注入一处裸** `execFileSync('git', …)` ⇒ 判据必须点名（正控）；同一次调用补上 `windowsHide: true` ⇒
+  不再点名（反控）；另加"必须从共用层 `face-reader.mjs` 取 git 出口"。
+- 验证：`check-gate-triggers.mjs --self-test` **判据十一例 + 端到端七例全绿**（新增 ⑦b/⑦c）；
+  `node --test scripts/tests/check-gate-triggers.test.mjs` **6 passed**（新增 T1b,重写 T5）；
+  `node --test scripts/tests/land-gate-rerun.test.mjs` **18 passed**（新增 T16/T16b 三档分离 + 真注册表锁定）；
+  注册表现读 `{"missing":0,"exempt":3,"exemptIds":["280","325","326"],"conflicting":0}`。
+### 5.69 第 69 项：复跑预算按扫描序截断，blocking 门可能被一串 warn 挤掉
+
+- 现场：每次落地都打出若干行 `注册表受影响门 [NN] xxx.mjs 超出复跑预算(30 道)⇒ 本轮未跑,请人工复现`。
+  常态受影响门 40+，而截断用的是 `toRun.slice(0, REGISTRY_CAP)` —— **按注册表扫描序**截前 30 道。
+  于是"被延后"的这一段完全可能躺着 blocking 门:落地整体读数是绿的,而真红门根本没跑。
+  这比"没跑"更坏的是它**读起来像跑过**（警告行是 `console.log` 级噪音，绿行不覆盖哪几道没人算）。
+- 处置：新增纯函数 `orderForRerunBudget`（blocking 先于 warn，同档保持注册表序，缺省 mode 按 blocking 算）,
+  截断与执行批次都走它:只要 blocking 总数 ≤ 预算，任何 blocking 门都不会被 warn 挤掉；
+  延后行补 `mode=` 标注；**blocking 总数本身超预算**时另打一条 note,
+  明说"本次全绿不覆盖这 N 道 blocking",不给"面没铺满"留"看起来跑过"的余地。
+  排序只换"先跑谁":argv、cwd、timeout、env 与结果回填顺序、分级口径逐字未动。
+- 验证：`node --test scripts/tests/land-gate-rerun.test.mjs` **19 passed**（新增 T17,
+  断言 blocking 前置 / 同档保序 / 缺省按 blocking / 空输入两向）。
+### 5.70 第 70 项：`undetermined` 台账不记原因，读数只能复述"没判定"
+
+- 现场（A12 唯一一枚 unjudged）：`deploy-feedback-ledger.jsonl` 近 5 条全是
+  `action=build-fail identity=deploy_outcome|alert_firing|route:/deploy/build-fail result=undetermined`，
+  每 ~20 分钟一条、全天重复。`--status` 只能把 `result=undetermined` 原样印回 —— **为什么没判定**这句
+  在台账里根本不存在（写盘的 code 2 分支只写 ts/action/identity/result）。同身份 24h 去重又让同一簇
+  反复重试，于是这条腿在自检面长期停在"未判定"，谁也说不清是取号族不可发、还是登记器报错。
+- 处置：`undetermined` **必须带 why**（两处写盘点都补上，截 200 字符）:取号不可行一支记
+  `out.why`，`registerToPlan` 未成一支记 `reg.why`；`--status` 的"最近 5 条"把 `why=` 印出
+  （历史行没有这个键 ⇒ 印空，不伪造原因）；两处 `skip` 同时补稳定的 `reason`
+  （`already-registered-24h` / `per-run-cap`），让"为什么跳过"也能事后复核。
+- 验证：`node scripts/deploy-feedback.mjs --self-test` **全绿**（新增 ⑬:取号不可行 ⇒ exit 2 ∧ 零 spawn ∧
+  逐条 `undetermined` 都带真原因）；`node --test scripts/tests/deploy-feedback.test.mjs` **17 passed**。
+  历史 1440 行不追改（追写会伪造原因），新行起带 why —— 失效方向是"以后能查"，不是"把过去补成绿色"。
+### 5.71 第 71 项：可发性探针与发号器不同面 ⇒ 假"可发"把部署反馈腿锁在未判定
+
+- 现场（第 70 项补上 `why` 之后立刻现读出来）：`deploy-feedback --apply` 逐轮 `undetermined`，
+  `why=live-doc-edit rc=2 … SCAN_FACE_FULL`。而同一时刻 `--status` 说「B 可发性探针现读可发 首号=B42」。
+  同一条链上一个探针说可发、下一个发号器说拒发 —— 逐一对照后定位：`probeIdFamily` 把登记行交给
+  `resolveIdTokens` 时只递了 `machineId` 与 `worktreeText`，**丢了三张真发号器必喂的面**：
+  `remote`（`readRemoteIdBasis` 的远端号段上界）、`opts.yieldedIds`（已完成条目让位集）、
+  `opts.retiredLoader`（近期结清号避让集）。缺这三张时 B42 在探针面上是空闲，在真发号面（含结清避让）
+  已被避让 ⇒ 探针给出的"可发"是假话，而失败方向恰好是"每天都写一条读不出原因的未判定"。
+- 处置（同一套 runtime、同一份判据，不新造第二套）：
+  - `probeIdFamily` 增 `remote / yieldedIds / retiredLoader` 三个**显式可选**入参，原样透传进
+    `resolveIdTokens`；缺省 null ⇒ 与改动前逐字同形（测试夹具仍零副作用）。
+  - `pickIdFamily` 把三张面转发给每一族探针（`pickRegistrationFamily` 只在这一层装载真面：
+    `readRemoteIdBasis` / `loadYieldedIdSets` / `loadRetiredIdSets`，三者全是既有单源实现）。
+  - 远端问不到/对象不在本地 ⇒ 整轮落 **未判定**（`远端号段面判不出`），绝不拿"本地可发"冒充
+    "全局可发"；让位/结清面装载异常则点名"探针少这两维"（失效方向是多要一次定向说明）。
+- 验证：
+  - `node scripts/auto-triage.mjs --self-test` **全绿**（新增 T11i 面透传 / T11j 缺上界未判定）；
+  - `node --test scripts/tests/auto-triage.test.mjs` **23 passed**（新增 ⑰ 同形双控）；
+  - 现读端到端：探针逐族读数 `G/D/O/B exhausted（B:scan-filter 候选 4 枚全灭）`，首个真可发族落到
+    `A`；`deploy-feedback --once --apply` 首次 `registered=1`（登记 A50），台账写
+    `result=registered`；`check-autonomy-leg-health` 由 `OK=13 DRIFT=0 UNJUDGED=2` 变为
+    **`OK=14 DRIFT=0 UNJUDGED=1`**（A12 转判、仅剩 A13 的政策面窄那一格）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

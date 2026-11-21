@@ -213,11 +213,22 @@ async def test_embeddings_success():
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(
-        return_value=_json_resp(200, {"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3]}]})
+        return_value=_json_resp(200, {"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]})
     )
     with _patch_http_client(client):
         result = await p.embeddings(["a", "b"])
-    assert result["embeddings"] == [[0.1, 0.2], [0.3]]
+    assert result["embeddings"] == [[0.1, 0.2], [0.3, 0.4]]
+
+
+async def test_embeddings_dimension_mismatch_raises():
+    """AIS-072:维度不一致必须抛错,不能把错位向量当成功交给检索层。"""
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(
+        return_value=_json_resp(200, {"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3]}]})
+    )
+    with _patch_http_client(client), pytest.raises(ProviderError, match="维度不一致"):
+        await p.embeddings(["a", "b"])
 
 
 # =============================================================================

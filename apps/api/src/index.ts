@@ -4,7 +4,11 @@
 
 import fs from 'node:fs'
 import 'dotenv/config'
-import { isProductionGuard } from './config/index.js'
+import {
+  isProductionGuard,
+  // Google 回调地址 / 出站代理启动自检(2026-11-21 线上"回调有问题"根治;判据本体可单测)
+  collectOAuthConfigWarningsAtStartup,
+} from './config/index.js'
 import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
@@ -180,6 +184,18 @@ function checkProductionConfig(): void {
   for (const e of errors) logger.error(`   - ${e}`)
   logger.error('   参考 .env.production.example 补齐证书配置(证书放置项目内 cert/ 目录)')
   process.exit(1)
+}
+
+/**
+ * Google 登录链路 + 出站代理的启动自检(2026-11-21 立;线上"回调有问题"事故的第二半根治)。
+ *
+ * 判据本体在 `lib/oauth-config-check.ts`(纯函数、可单测):前端构建期内联的回调地址与
+ * 后端 `GOOGLE_PC_REDIRECT_URI` 是同一件事的两份真相,加上 `PROXY_URL` 缺失导致换 token
+ * 直连超时 —— 两件都必须让下一次部署/启动时自己喊出来(完整立因见该模块头注)。
+ * 这里只按生产档位逐条 logger.warn:只告警不阻塞,判死会把一次登录故障换成"服务永久不起"。
+ */
+function checkOAuthEgressConfig(): void {
+  for (const warning of collectOAuthConfigWarningsAtStartup()) logger.warn(warning)
 }
 
 /**
@@ -407,6 +423,9 @@ async function start() {
 
   // 生产环境微信支付配置完整性检查(失败立即退出)
   checkProductionConfig()
+
+  // Google 回调地址 / 出站代理自检(只告警不阻塞,见函数头注)
+  checkOAuthEgressConfig()
 
   const server = await buildServer()
 
