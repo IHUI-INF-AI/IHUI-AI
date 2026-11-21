@@ -109,7 +109,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 371 | `guardianGates` |
 | — blocking | 339 | `guardianBlocking` |
 | — warn | 34 | `guardianWarn` |
-| 跟踪文件 | 23151 | `trackedFiles` |
+| 跟踪文件 | 23152 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5477,6 +5477,45 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-21**
+- 🐞 修复:侧边栏开发者组两枚 admin 管理页归位到管理域 (00ed724d70)
+- 🐞 修复:AI 面板过程行去掉底色与描边,字号压到 13px (728358d835)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23151 (b4b96c0069)
+- 🐞 修复:盘根卫生判红不再自己抛异常,内容维与 H3 kind 措辞补齐 (4c85889861)
+- 🐞 修复:删掉 WIP 提交回捞的 F-519 死路由与其专属测试 (16e7b08309)
+- 🔧 工程/其他:追认守夜人回补的未签名前身 c459d76e(内容与已推送 cab11e80 逐字相同) (d897e933b4)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23152 (f7983be795)
+- 🐞 修复:存活哨兵不再把活着的 daemon 判死,并按腿节律判 stale (89834ed935)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23151 (cdb2e55d09)
+- 📚 文档:第81项收尾 两处头注按现读改写 (cab11e8059)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23151 (a9f1e5c4e4)
+- 📚 文档:第81项收尾 两处头注按现读改写 (c459d76e44)
+- 🐞 修复:第81项 dev库口令轮换窗口巡检+双挂点+登记第19腿 (227a62ef86)
+- 🐞 修复:第80项 新腿补进黑腿探测器登记表+戳名归族 (a86afc9c58)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23150 (9a8db2c83b)
+- 🐞 修复:第79项 user_feedback单源入口派发器+双挂点 (7c2cd83d0a)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23149 (f7eb862856)
+- 🐞 修复:第78项 IP归属可信度尺巡检轮+main/tick双挂点 (24c42126a0)
+- 🔧 工程/其他:七件测试漂移跟上实现变更(SSO 基址 / sora2 停服 / 出图接通 / 注销取数形态 / 进程探测) (81147cd4b9)
+- 📚 文档:生成块跟上 HEAD 面 trackedFiles 23148 (981812f365)
+- 🐞 修复:第77项 补被契约声明的监控三源入库派发器+双挂点 (b1f5d4984b)
+- 🐞 修复:图标同源守门——构建前校验 6 个 PNG + ico 每个尺寸层必须与源图同源派生;安装器收尾通知 shell 重建图标缓存 (079ab30a89)
+- 🐞 修复:第76项 自愈腿搬进常驻 tick(ref-move-loss/gitee-backfill) (915a8c41c1)
+- 🐞 修复:第75项 写手面与推送面不同时拒绝写入并报两面读数 (9d641a88c1)
+- 🔧 工程/其他:七件测试漂移跟上实现变更(SSO 基址 / sora2 停服 / 出图接通 / 注销取数形态 / 进程探测) (e59b7e2632)
+- 🐞 修复:第74项 守夜人不回补内容已被覆盖的改写前提交 (375fd9207e)
+- 📚 文档:按 HEAD 面重算生成块数字(trackedFiles 23147 / testFiles 5952) (8fccfc24be)
+- 📚 文档:按合并后 HEAD 面重算生成块数字(trackedFiles 23147 / testFiles 5952) (b980262432)
+- 🐞 修复:第73项 cap 只买 warn 名额,blocking 不吃这名额 (d13f8d821b)
+- 🐞 修复:第72项 复跑道数预算只压 warn,blocking 全跑 (70664a0a64)
+- 🔧 工程/其他:救急保全本地未提交改动 —— license/hook审计、agent terminal、BUG29索引外键、relay-switch、i18n、desktop更新链与守护脚本 (341f2295b3)
+- 🐞 修复:永久保活改用「刷新时钟」,忙号也照续(治主力号 rt 闲置到被上游回收) (4cf118dfb4)
+- 🐞 修复:第71项 可发性探针与发号器同面(补远端/让位/结清三张面) (80c70a4983)
+- 🐞 修复:钩子审计尺子改走统一取材层(HEAD blob) + AGENTS 门名点名补三枚 (7a490d402f)
+- 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (94cb493b28)
+- 🚀 新功能/改进:号池通道补工具回路 —— 取 schema/带 tools/收 tool_calls/执行后文本回灌续跑; 顺带修 hr 工具判据的续做说法漏带与工具卡成败标注 (424b06d808)
+- 🐞 修复:CORS_ORIGIN 模板补全 www/api/bsm 子域(漏列致预检被拒+WS 403,前端初始化卡死) (cce388a078)
+
 **2026-11-21**
 - 🐞 修复:补 4 枚错误码五语言词包并修 zh-TW agentTerminal.cursor 繁简残留 (32e3cc8c0e)
 - 🐞 修复:第69项 复跑预算 block 前置(blocking 门不许被 warn 挤出预算) (91894a2f5d)
