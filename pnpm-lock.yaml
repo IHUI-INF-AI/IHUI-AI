@@ -733,8 +733,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2(@capacitor/core@7.6.9)
       '@capacitor/camera':
-        specifier: ^7.0.5
-        version: 7.0.5(@capacitor/core@7.6.9)
+        specifier: ^8.2.6
+        version: 8.2.6(@capacitor/core@7.6.9)
       '@capacitor/core':
         specifier: ^7.0.0
         version: 7.6.9
@@ -1788,7 +1788,7 @@ importers:
         version: 19.2.18
       react-native:
         specifier: ^0.86.0
-        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@react-native/metro-config@0.87.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
+        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -3454,10 +3454,10 @@ packages:
     peerDependencies:
       '@capacitor/core': '>=7.0.0'
 
-  '@capacitor/camera@7.0.5':
-    resolution: {integrity: sha512-+53f1xHq8on7O+ULXbgWp00ooWvn3fUkWxTP3p5zHi1nVriCxLbYnY0zTpZQqn52M96vclFKkoABbTVQ3x755w==}
+  '@capacitor/camera@8.2.6':
+    resolution: {integrity: sha512-jzvrMrEKs5ACw1/HmcgN5XwSlXYF+/xRKzWtBUESQs5ePf3tTfnR8Nk/p+aSEgay8yZEI0aZQ+2/1xDwMCdV2w==}
     peerDependencies:
-      '@capacitor/core': '>=7.0.0'
+      '@capacitor/core': '>=8.0.0'
 
   '@capacitor/cli@7.6.9':
     resolution: {integrity: sha512-QBDEf38yBAFTJehbi5FvAmhDWV1I/e7Zr3Z6XX0Bj+9T+/OY5EkGbw5/1e+3oIyyeepq3WtdSkLWHs3VNH2gCA==}
@@ -24907,7 +24907,7 @@ snapshots:
     dependencies:
       '@capacitor/core': 7.6.9
 
-  '@capacitor/camera@7.0.5(@capacitor/core@7.6.9)':
+  '@capacitor/camera@8.2.6(@capacitor/core@7.6.9)':
     dependencies:
       '@capacitor/core': 7.6.9
 
