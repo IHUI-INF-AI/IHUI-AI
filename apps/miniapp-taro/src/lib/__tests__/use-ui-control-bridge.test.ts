@@ -183,8 +183,9 @@ beforeEach(async () => {
   bridge = await import('../../hooks/use-ui-control-bridge')
   // 冷 CI 首枚 resetModules+import 要现算 bridge 模块图,默认 10s hookTimeout 不够
   // (2026-09-27 PR#65 run 36343143040 "start 立即上报" 红于 Hook timed out in 10000ms;
-  //  本地热盘全绿)。预算 60s,断言零改动。
-}, 60_000)
+  //  本地热盘全绿)。2026-11-21 全量 turbo 并发档本机实测 hook 吃满 60s 而单跑该文件全绿
+  // ⇒ 预算提到 120s(判据是模块图口径,不是 hook 吞吐),断言零改动。
+}, 120_000)
 
 afterEach(() => {
   vi.useRealTimers()
