@@ -352,8 +352,29 @@ export function accountIdleClock() {
 }
 
 /**
+ * 永久保活号的刷新时钟(2026-11-21 立,机主「RT 应该自动续期,怎么还能依赖客户端」)。
+ *
+ * 只用「上次成功刷新」,**刻意不含 lastUsedAt**。原实现与 accountIdleClock 共用同一枚
+ * `greatest(lastUsedAt, lastRefreshAt)` ⇒ 号被转发用得越勤,空闲时钟越新 ⇒ 24h 空闲永远不成立
+ * ⇒ **保活永远不触发**。于是主力号从最后一次刷新起就再没人管,rt 一路闲置到上游回收,
+ * 等 access 临期才去刷 —— 那时票已经死了。
+ *
+ * 实测(2026-11-21 现读):codearts 三枚 lastRefreshAt 停在 11-12(8 天)、trae 两枚停在 11-17
+ * (3.5 天),最后全部在 token 到期那几分钟被判死;而 11-20 17:42 能刷成功的那批,恰恰是
+ * 当时闲了 24h 以上的号。「保活只保闲号」与「永久保活」的立义正好相反。
+ *
+ * 取刷新时刻后语义回到本义:距上次成功刷新满窗口就续一次,与号忙不忙无关。
+ * 普通档(7 天空闲窗)仍用 accountIdleClock —— 那一档的用意就是「闲置才管」,不该跟着改。
+ */
+export function accountRefreshClock() {
+  return sql`coalesce(${aiRelayAccountPool.lastRefreshAt}, ${aiRelayAccountPool.createdAt})`
+}
+
+/**
  * 空闲保活的 where(导出供镜像测试锁形状):启用 + 未摘除 + 未判死 + 能自救续票,
- * 且空闲时钟早于窗口。不要求 tokenExpiresAt —— 临期档管「将过期」,这一档专管「闲置」;
+ * 且**普通档**空闲时钟早于窗口;永久保活档改用「刷新时钟」(accountRefreshClock,不含 lastUsedAt,
+ * 见其头注)早于 forever 窗口 —— 「闲置才管」只适用于普通号,永久保活号忙时也必须续。
+ * 不要求 tokenExpiresAt —— 临期档管「将过期」,这一档专管「闲置/该续期」;
  * 两档都汇进 refreshOne 的同一把失败计数,不各写一份摘除口径。
  *
  * 为什么窗口边界要显式绑 ISO 串 + `::timestamptz`(2026-10-28 生产实测):
@@ -383,7 +404,8 @@ export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
       standardIdle,
       and(
         keepAliveForeverCondition(),
-        lt(accountIdleClock(), sql`${foreverCutoff.toISOString()}::timestamptz`),
+        // 永久保活动档用「刷新时钟」而不是「空闲时钟」:号天天被转发也照续(§ 见 accountRefreshClock 头注)。
+        lt(accountRefreshClock(), sql`${foreverCutoff.toISOString()}::timestamptz`),
       ),
     ),
   )

@@ -268,6 +268,23 @@ describe('空闲保活候选面 keepaliveIdleWhere', () => {
     expect(w.sql).toMatch(/extra_metadata/)
     expect(w.sql).toContain("'true'")
   })
+  it('⑯ 永久保活档只认「上次刷新」:忙碌号也照续,不被 lastUsedAt 挡在门外(2026-11-21 根治)', () => {
+    // 反例(修复前的真实死法):号天天被转发 ⇒ lastUsedAt 极新 ⇒ 与 lastRefreshAt 取 greatest 后
+    // 空闲时钟永远新 ⇒ 24h 空闲永不成立 ⇒ 保活永不触发 ⇒ rt 闲置到上游回收。
+    const refreshClock = q(S.accountRefreshClock())
+    expect(refreshClock.sql).toMatch(/last_refresh_at/)
+    expect(refreshClock.sql).not.toMatch(/last_used_at/)
+
+    // 普通 7 天档的语义一字未改(那一档本来就该「闲置才管」)
+    expect(q(S.accountIdleClock()).sql).toMatch(/last_used_at/)
+    expect(q(S.accountIdleClock()).sql).toMatch(/greatest/)
+
+    // 候选面里 last_used_at 只允许出现一次(standardIdle),last_refresh_at 必须出现两次
+    // (idle 时钟 + refresh 时钟)—— 回潮时这里当场红。
+    const w = q(S.keepaliveIdleWhere(NOW, new Date(NOW.getTime() - 24 * 3600_000)))
+    expect((w.sql.match(/last_used_at/g) ?? []).length).toBe(1)
+    expect((w.sql.match(/last_refresh_at/g) ?? []).length).toBe(2)
+  })
 })
 
 describe('解摘档 keepAliveReviveWhere / reviveKeepAliveForeverAccounts', () => {
