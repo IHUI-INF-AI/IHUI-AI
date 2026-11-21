@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **68 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **69 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（68 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（69 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -776,6 +776,19 @@
   `node --test scripts/tests/check-gate-triggers.test.mjs` **6 passed**（新增 T1b,重写 T5）；
   `node --test scripts/tests/land-gate-rerun.test.mjs` **18 passed**（新增 T16/T16b 三档分离 + 真注册表锁定）；
   注册表现读 `{"missing":0,"exempt":3,"exemptIds":["280","325","326"],"conflicting":0}`。
+### 5.69 第 69 项：复跑预算按扫描序截断，blocking 门可能被一串 warn 挤掉
+
+- 现场：每次落地都打出若干行 `注册表受影响门 [NN] xxx.mjs 超出复跑预算(30 道)⇒ 本轮未跑,请人工复现`。
+  常态受影响门 40+，而截断用的是 `toRun.slice(0, REGISTRY_CAP)` —— **按注册表扫描序**截前 30 道。
+  于是"被延后"的这一段完全可能躺着 blocking 门:落地整体读数是绿的,而真红门根本没跑。
+  这比"没跑"更坏的是它**读起来像跑过**（警告行是 `console.log` 级噪音，绿行不覆盖哪几道没人算）。
+- 处置：新增纯函数 `orderForRerunBudget`（blocking 先于 warn，同档保持注册表序，缺省 mode 按 blocking 算）,
+  截断与执行批次都走它:只要 blocking 总数 ≤ 预算，任何 blocking 门都不会被 warn 挤掉；
+  延后行补 `mode=` 标注；**blocking 总数本身超预算**时另打一条 note,
+  明说"本次全绿不覆盖这 N 道 blocking",不给"面没铺满"留"看起来跑过"的余地。
+  排序只换"先跑谁":argv、cwd、timeout、env 与结果回填顺序、分级口径逐字未动。
+- 验证：`node --test scripts/tests/land-gate-rerun.test.mjs` **19 passed**（新增 T17,
+  断言 blocking 前置 / 同档保序 / 缺省按 blocking / 空输入两向）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：

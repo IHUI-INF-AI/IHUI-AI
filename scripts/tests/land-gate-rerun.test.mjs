@@ -21,6 +21,7 @@ import {
   scanDuplicateDefinitions,
   rerunAffectedGates,
   countUntriggered,
+  orderForRerunBudget,
 } from '../lib/land-gate-rerun.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -493,5 +494,25 @@ test('T16b 真注册表:结构性豁免三枚都已写明理由,漏声明为 0',
   const u = countUntriggered(parsed.entries)
   assert.equal(u.missing, 0, `漏声明必须为 0,实得 ${JSON.stringify(u)}`)
   assert.deepEqual(u.exemptIds.sort(), ['280', '325', '326'], '三枚机器状态门必须带 stagedTriggersOmitted 理由')
+})
+
+// ── T17 复跑预算排序(第 69 项):blocking 必须先占预算,不许被一串 warn 门挤掉 ──
+test('T17 orderForRerunBudget:blocking 前置、同档保序、缺省 mode 按 blocking 算', () => {
+  const l = (id, mode) => ({ id, script: `${id}.mjs`, ...(mode ? { mode } : {}) })
+  const ordered = orderForRerunBudget([
+    l('1', 'warn'),
+    l('2', 'warn'),
+    l('3', 'blocking'),
+    l('4'),
+    l('5', 'info'),
+    l('6', 'blocking'),
+  ])
+  assert.deepEqual(
+    ordered.map((x) => x.id),
+    ['3', '4', '6', '1', '2', '5'],
+    'blocking(含缺省)按注册表序在前,其余按注册表序在后;info 不在判据面但也不提前',
+  )
+  assert.equal(orderForRerunBudget([]).length, 0)
+  assert.deepEqual(orderForRerunBudget(null), [])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

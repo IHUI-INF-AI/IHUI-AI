@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T05:29:43.749Z",
+  "sealedAt": "2026-11-21T05:37:09.571Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第68项:只给注册表三枚机器状态门补 stagedTriggersOmitted 字段(判据未变),重封清单",
+  "reason": "第69项:land-gate-rerun 增 orderForRerunBudget(预算排序),仅换执行顺序不改判据",
   "targets": [
     {
       "id": "guardian-runner",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "4101cb6de867b93fed13f765a30cc9278191dddf90a1c9f5f6fc377b8b39f147"
+      "sha256": "88ed7b36184e2263e1c495426cf5f0883af59f9efeafd8f8842a2e907d51fefe"
     },
     {
       "id": "guardian-pushgate-cache",

@@ -305,6 +305,24 @@ export function extractEntryFields(entryText) {
 }
 
 /**
+ * 复跑预算的排序(第 69 项):blocking 先于 warn,同档保持注册表扫描序。
+ *
+ * 为什么必须显式排:**预算截断**是这条通道上唯一"合法不跑"的出口(REGISTRY_CAP=30,而常态
+ * 受影响门 40+)。旧实现直接 `slice(0, 30)` 按扫描序截,于是被延后的那一段里可能躺着 blocking
+ * 门 —— 落地打印"注册表受影响门 [NN] 超出复跑预算 ⇒ 本轮未跑"只是 warn 级噪音,而整体读数
+ * 是绿的,**读起来像"受影响面都跑过"**。排序把"最后 10 个坑让给 warn"变成结构事实:
+ * 只要 blocking 总数 ≤ 预算,任何 blocking 门都不会被延后。
+ * 同档内不改序:注册表扫描序本身携带"门之间的轻重先验"(例如 29 push-sync 紧邻 30a),
+ * 重排会改 argv 顺序以外的可见面,徒增不确定。
+ */
+export function orderForRerunBudget(entries) {
+  const list = (entries ?? []).filter(Boolean)
+  const blocking = list.filter((e) => (e.mode ?? 'blocking') === 'blocking')
+  const rest = list.filter((e) => (e.mode ?? 'blocking') !== 'blocking')
+  return blocking.concat(rest)
+}
+
+/**
  * 路径→门映射:落地面触及某门声明的 stagedTriggers ⇒ 该门"受影响"。
  * 无 stagedTriggers 的恒跑门不入列(见头注);info 门不入列(它永不失败,复跑只是噪声)。
  * 触发面清单的归一化与"空清单当场抛错"都发生在共享模块 guardian-triggers 里
@@ -753,10 +771,24 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 落地面注入的上限:声明面通常 10-20 条,给足余量又避免 argv 爆长(Windows 命令行 32K)。
       const RUN_FILES_CAP = 200
       const toRun = affected.filter((g) => !BUILTIN_SCRIPTS.has(g.script))
-      const deferred = toRun.slice(REGISTRY_CAP)
+      // 第 69 项:预算截断必须先截**warn**,不许把 blocking 排在一串 warn 门后面。
+      // 旧实现按注册表扫描序截前 30 道(现读常态 40+ 受影响),于是"超出复跑预算"的那一段里
+      // 完全可能躺着 blocking 门 —— 落地报绿,而真红门根本没跑;这比"没跑"更坏的是它**读起来像跑过**。
+      // 排序是稳定的(blocking 内部、warn 内部都保持注册表序),只换"先跑谁",不动 argv 与分级。
+      const ordered = orderForRerunBudget(toRun)
+      const deferred = ordered.slice(REGISTRY_CAP)
       for (const g of deferred) {
         console.log(
-          `⚠️ 注册表受影响门 [${g.id}] ${g.script} 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+          `⚠️ 注册表受影响门 [${g.id}] ${g.script}(mode=${g.mode ?? 'blocking'}) 超出复跑预算(${REGISTRY_CAP} 道)⇒ 本轮未跑,请人工复现:node scripts/${g.script}`,
+        )
+      }
+      const deferredBlocking = deferred.filter((g) => (g.mode ?? 'blocking') === 'blocking')
+      if (deferredBlocking.length > 0) {
+        // 排序之后还出现 blocking 被延后 ⇒ 说明 blocking 总数本身超了预算。这时整句"全绿"
+        // 必须带限定:这不是判过,是**面没铺满**(§0.3 同一取向)。
+        res.notes.push(
+          `⚠️ 复跑预算不覆盖 ${deferredBlocking.length} 道 blocking 门(blocking 总数已超 ${REGISTRY_CAP} 道)⇒ 本次"全绿"不覆盖它们:` +
+            deferredBlocking.map((g) => g.id).join(', '),
         )
       }
       // 执行:先按原顺序筛出**真要跑**的臂(缺门体/应急跳过都不进批次),再整体交给并发池。
@@ -764,7 +796,7 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
       // 下面的归类循环保持原顺序 ⇒ ran/failed/warnFailures/undetermined 的内容与分级一字不变。
       // 依据(2026-10-28 实测):单臂 0.3s~34s 差两个数量级,串行的墙钟时间几乎全花在等最慢那几臂。
       const batchPlan = []
-      for (const g of toRun.slice(0, REGISTRY_CAP)) {
+      for (const g of ordered.slice(0, REGISTRY_CAP)) {
         const scriptPath = join(root, 'scripts', g.script)
         if (!existsSync(scriptPath)) {
           res.undetermined.push({
