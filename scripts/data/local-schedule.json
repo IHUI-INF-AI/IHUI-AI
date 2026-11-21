@@ -4,6 +4,29 @@
   "migratedAt": "2026-11-18T14:50:59.442Z",
   "jobs": [
     {
+      "id": "IHUI Trae Pool to Client Sync",
+      "command": "node",
+      "args": ["G:\\IHUI-AI\\scripts\\trae-pool-to-client-sync.mjs", "--json"],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 5,
+      "cwd": "G:\\IHUI-AI"
+    },
+    {
+      "id": "IHUI Trae Silent Reauth Rescue",
+      "command": "node",
+      "args": [
+        "G:\\IHUI-AI\\apps\\api\\node_modules\\tsx\\dist\\cli.mjs",
+        "G:\\IHUI-AI\\scripts\\trae-reauth-rescue.mjs",
+        "--auto",
+        "--json"
+      ],
+      "enabled": true,
+      "kind": "interval",
+      "everyMinutes": 15,
+      "cwd": "G:\\IHUI-AI"
+    },
+    {
       "id": "IHUI C-Drive AutoMaintain",
       "command": "wscript.exe",
       "args": ["//B", "G:\\IHUI-AI\\scripts\\c-drive-maintain-hidden.vbs"],
