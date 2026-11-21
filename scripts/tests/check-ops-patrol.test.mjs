@@ -1388,4 +1388,41 @@ test('checkGrowth 按件取材:P4b/P4c 用传入的旧根目录,P4a 仍用 devEn
     rmScratch(base)
   }
 })
+
+// ────────────────────────────────────────────────────────────────────────────────
+// 2026-11-21(第 102 项):P4c 本机两侧(`.DevEnv` 与盘根 `DevEnv`)都没有 `backups/archives`,
+// 于是这一维从搬迁以来一直读成"量不到 ⇒ 未判定" —— 恒未判定等于这一格永远不判。
+// 真因是 `measureDir` 把**目录不存在**(可枚举的 0,归档根按设计允许空缺)与**目录在但读不进去**
+// (真盲区)折成同一个 null。修法按维声明:只有 P4c 声明 absent=no-object,其余维维持盲区语义。
+// 三条锁:`P4c` 缺目录记绿并点名成因 / `P4b` 缺目录仍落未判定 / "路径是个文件"不得被 absent 档放成绿。
+test('checkGrowth:P4c 目录不存在按"无对象"记绿,P4b 缺失仍落未判定(两向不得互相冒充)', () => {
+  const base = mkScratch('p4-absent-')
+  try {
+    const newRoot = join(base, 'new')
+    mkdirSync(join(newRoot, 'Temp'), { recursive: true })
+    writeFileSync(join(newRoot, 'Temp', 'scratch.tmp'), 'x', 'utf8')
+    const rows = mod.checkGrowth({
+      devEnv: newRoot,
+      logsDir: join(base, 'no-such-logs'),
+      archivesDir: join(base, 'no-such-archives'),
+    })
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]))
+    assert.equal(byId.P4c.state, 'ok', '归档根不存在 ⇒ 这一维当前无对象(量到的 0),不得一直挂未判定')
+    assert.match(byId.P4c.detail, /无对象/, `P4c 的绿档必须点名"无对象"这一成因,实得 ${byId.P4c.detail}`)
+    assert.equal(byId.P4b.state, 'undetermined', '日志目录不存在仍是盲区 ⇒ 未判定(本条只给归档根开口)')
+    // 反向对照:归档路径存在但不是目录 ⇒ 量不到(真盲区),absent 档不得把它放成绿
+    const fileAsDir = join(base, 'archives-is-a-file')
+    writeFileSync(fileAsDir, 'x', 'utf8')
+    const rows2 = mod.checkGrowth({
+      devEnv: newRoot,
+      logsDir: join(newRoot, 'Temp'),
+      archivesDir: fileAsDir,
+    })
+    const p4c2 = rows2.find((r) => r.id === 'P4c')
+    assert.equal(p4c2.state, 'undetermined', '路径是个文件 ⇒ 量不到,不得被 absent 档记绿')
+    assert.ok(p4c2.detail.includes(fileAsDir), `未判定原因必须点名取材路径,实得 ${p4c2.detail}`)
+  } finally {
+    rmScratch(base)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
