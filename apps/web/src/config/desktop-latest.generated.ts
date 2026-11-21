@@ -7,25 +7,25 @@
 import type { DesktopFeedPayload } from './desktop-feed-payload'
 
 export const DESKTOP_LATEST: DesktopFeedPayload = {
-  "version": "0.1.92",
+  "version": "0.1.93",
   "notes": "桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。",
-  "pub_date": "2026-11-21T03:49:55.666Z",
+  "pub_date": "2026-11-21T04:54:48.449Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFEvTExIalpUcGhhYzlNY1YvZDArYjdrMGRoQW5IcWVPcTIrWUNIVFlZNmFKbUtTRmpxd2xKaEtseTVlSUZHZzB6dnFLeSsvVzBycGNJVVNObTZiV3drPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjMyMzU5CWZpbGU65pm65rGHQUlfMC4xLjkyX3g2NC1zZXR1cC5leGUKdmxsRmdWSmdwbHQ0aUdtbmsySTFybU5zZStqUXpua1pRLys0cVdjazZoVGk4RGF2S25Lb3ZEV3FmMTZ1THhuL3Arc1lkQzRPMVdiY3hHM2x3dy9xREE9PQo=",
-      "url": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.92/AI_0.1.92_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFpiTGc3WERyYTAvWVNpbVorTE4wSWRxR3JqeDNCQ1JpZFRETHZ2UXFvbmNZdGowRjBZQWlPb0VycFZCNnN6MHpIRWpMZFFHL05RRkUwL2JoVUIydkE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjM2NTMwCWZpbGU65pm65rGHQUlfMC4xLjkzX3g2NC1zZXR1cC5leGUKRGRIaUVUZlNNRzlrb1lYRUpDWlpTbHEvOG05UjNOcHd6YzBQUzdIM2pjc2ZWOW5NRVN1dElSQitGNDJOQ2Z0WG1jdjRGL1ZxcnBpNVBNZENUOWlUQVE9PQo=",
+      "url": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.93/AI_0.1.93_x64-setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGRrdmZibjRSa1lDVnh6N3lpM1pONGtNR1FvSzhlU0pBOWlFZlpXZmd6Z0FuaEpIR2dhM1EvNVhWbXNtc0xORXh2S1Zya1pWemI0dmFvRVVvZ2hqWlFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjMyMjQ3CWZpbGU65pm65rGHQUlfMC4xLjkyX2FtZDY0LkFwcEltYWdlCldwdFhhZFBGYzlCU2p0UU5WUFY1QWJRQm1Lcm5SNXZBNERtQ0ora3VLOHJHdWo4ZXVoWXdSeHgxaS9RRGU1TGRlQUZSd05IS1p2VnpRK0dpdWlESkFnPT0K",
-      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.92/AI_0.1.92_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGRKYnBKL2tHYTBHUUNxT052dUtLMkRCbVpBR3RJNzBkWE9RUW92TzhCcE5CazlXT3BpMDM4WWZnWEJMODlENHE4M2pmUXUyMU1CR0ZaOWszajVsaXdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjM2NjkyCWZpbGU65pm65rGHQUlfMC4xLjkzX2FtZDY0LkFwcEltYWdlCnJqU3dOeEIyekRodkg4TnE1cEFWV0hOd1d0L0ZGeFQ0SDNISTA5QW1manIrK0w5TnZOT3M2NVUyYkRNcXF5RlFmaFdwdFJOSW9QbFpzdFN2N3BmWEF3PT0K",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.93/AI_0.1.93_amd64.AppImage"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGNXNjB2OGJxK2gvb004ZHdJaWVNQ2FFYkZ2WEdubTVJZWt4bG9aNVYwVnNucTRmNDFvOWpuS0JZS1hVUFkwTWhHM1hQSi9QbEhORDdBeks3ZUljOEFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjMyNTg3CWZpbGU65pm65rGHQUkuYXBwLnRhci5negorUjhBb2ZMWWRqN3FyRkdNVU5KR21WWmFjQkZyOEI3TFlidWc3Ryt5NkNtRlNEZHJLdU11RjBmUDNMVlZybDVOWFF4amZ3c1duQlVBcHg3MCtWOWVCQT09Cg==",
-      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.92/AI.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGQ1a21jZkVtVEhUUUt2L04xdk8xWm5tTXY3NzhSZllqOVBiRWJyRWpvdXpHVDh0T2RVakQvS05EOEwrZzA5eW0xLzNibjg1aSt0UHdrcUlMY2w5ZXdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjM2MjkwCWZpbGU65pm65rGHQUkuYXBwLnRhci5negpYM3o2QmtyQ2laSFNlZlFqdVVBL0d2VmlLWnRGTjRmSE95WXNtelBaQ3JLK0dsSldGS0l2alVVakgydnJXQ1hwelFjbTE0MlB1T1Uxc2I2aUJOMGpDdz09Cg==",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.93/AI.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGNXNjB2OGJxK2gvb004ZHdJaWVNQ2FFYkZ2WEdubTVJZWt4bG9aNVYwVnNucTRmNDFvOWpuS0JZS1hVUFkwTWhHM1hQSi9QbEhORDdBeks3ZUljOEFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjMyNTg3CWZpbGU65pm65rGHQUkuYXBwLnRhci5negorUjhBb2ZMWWRqN3FyRkdNVU5KR21WWmFjQkZyOEI3TFlidWc3Ryt5NkNtRlNEZHJLdU11RjBmUDNMVlZybDVOWFF4amZ3c1duQlVBcHg3MCtWOWVCQT09Cg==",
-      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.92/AI.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGQ1a21jZkVtVEhUUUt2L04xdk8xWm5tTXY3NzhSZllqOVBiRWJyRWpvdXpHVDh0T2RVakQvS05EOEwrZzA5eW0xLzNibjg1aSt0UHdrcUlMY2w5ZXdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MjM2MjkwCWZpbGU65pm65rGHQUkuYXBwLnRhci5negpYM3o2QmtyQ2laSFNlZlFqdVVBL0d2VmlLWnRGTjRmSE95WXNtelBaQ3JLK0dsSldGS0l2alVVakgydnJXQ1hwelFjbTE0MlB1T1Uxc2I2aUJOMGpDdz09Cg==",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.93/AI.app.tar.gz"
     }
   }
 }
