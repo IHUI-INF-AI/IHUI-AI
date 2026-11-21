@@ -409,7 +409,7 @@ export function chooseIdFamily(content, { probe = null, root = ROOT } = {}) {
       probeLabel: label,
       basis:
         `${requested}${requested !== family ? `(族字母 ${family}:live-doc-edit 令牌只吃 [A-Za-z]+)` : ''}` +
-        ` 可发性探针现读可发${label ? ` 首号=${label}` : ''}(取证面=HEAD⊕归档,与 live-doc-edit 同源)`,
+        ` 可发性探针现读可发${label ? ` 首号=${label}` : ''}(取证面=台账⊕归档⊕工作树⊕远端⊕让位⊕结清,与 live-doc-edit 同源)`,
       candidates,
       readings: slimReadings,
       faceNotes: Array.isArray(pr.faceNotes) ? pr.faceNotes : [],
