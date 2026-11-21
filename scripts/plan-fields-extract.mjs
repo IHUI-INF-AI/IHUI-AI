@@ -216,6 +216,14 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
     if (!m) {
       const ho = cleanOwner(headerOwner)
       if (ho === null) return null
+      // 2026-11-21(第 101 项):标头自带**真等段**时,这里必须**放弃造记录**,不能只搬 owner。
+      //  立因(现读实测):只搬 owner 会造出 `〔归:agent〕` 的记录,而行内是
+      //  `〔归:agent｜等:凭证+映射+企业考勤数据〕` ⇒ 按侧车重渲染必然少一段 ⇒ 门 234 A2 当场判红;
+      //  而把等段原样搬进侧车就是 `waiting-env` —— 那正是 F12 已禁形态(`rotReasonsOf` 点名)。
+      //  两条禁令合起来把这一族封在"不造记录"这一格:标头原地保留(它是归属的合法证据),
+      //  要不要处置这条被阻塞的票,是人的裁决,不是抽取器能替的。
+      const hwait = String(sidecarHeaderParts(line)?.wait ?? '').trim()
+      if (hwait !== '' && hwait !== '—') return null
       rec.owner = ho
       // 归属分支的 waiting 恒 none(词表同序:owner 优先于等待),等段不参与,见下面公共段的条件。
       return rec

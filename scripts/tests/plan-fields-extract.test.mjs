@@ -468,3 +468,17 @@ describe('声明式改判(2026-10-25):判据修正后侧车旧桶必须能被逐
     assert.equal(r.changes.length, 1)
   })
 })
+
+describe('标头自带真等段 ⇒ 不造记录(2026-11-21 第 101 项)', () => {
+  it('行首标头写着 等:X 且散文无归属句 ⇒ 抽取器放弃造记录', () => {
+    const line = '- [ ] 〔归:agent｜等:凭证+映射+企业考勤数据〕 RP-17 **考勤 IM 同步:端到端联调**'
+    const r = X.extractFromLine(line)
+    assert.equal(r, null, '等段只能落 waiting-env(F12 已禁形态)⇒ 造记录必然 A2 红或 rot 红,宁可不造')
+  })
+  it('行首标头只有归属(等段是占位 —)⇒ 仍造记录,且 owner 逐字带出', () => {
+    const line = '- [ ] 〔归:agent｜等:—〕 RP-9 **某题面足够长**'
+    const r = X.extractFromLine(line)
+    assert.ok(r, '等段是占位时它就是"没有等待",不封这一格')
+    assert.equal(r.owner, 'agent')
+  })
+})
