@@ -24,6 +24,15 @@
  * 三态(§0.3 不记绿也不冒红):
  *   0 = 推进且无丢失 / 1 = 检出丢失并已保全(此时"红"是事实,不是本器故障) / 2 = 未判定(取不到输入)
  *
+ * 第 74 项(2026-11-21):自动回补前先问「内容是否**已经**在当前头部里」。
+ *   现场(本仓现读,逐字可栈叠):作者把 `e92e5c40` 改写成 `70664a0a`(只补了 trailer,两枚树对象
+ *   同为 `93a7e1e6`,即工作树内容一字不差),本器按"掉出祖先线"把它合并回 main(`f0464fff`)——
+ *   同一份内容于是以两枚提交并存于祖先线,而**改写前那一枚**没有 `immutable-exempt[-sig]` trailer,
+ *   于是判据面(逐提交验签的 IGf)对整段区间**永久记红**,且没有任何内容提交能修它(它改的是历史)。
+ *   判法:`git diff --quiet <被丢 sha> <当前头部>` 退出 0 = 回补不增加任何内容 ⇒ 跳过并留痕;
+ *   退出 1 = 确有内容差 ⇒ 照旧回补;其它/取不到 = 未判定(不硬做)。
+ *   跳过不等于丢工作:原提交仍由 preserve 分支保全,内容已在当前头部。
+ *
  * 用法:
  *   node scripts/check-ref-move-loss.mjs            # 巡检 + 保全(默认;供定时任务/守卫轮调用)
  *   node scripts/check-ref-move-loss.mjs --check    # 只判不保全(只读)
@@ -114,10 +123,23 @@ export function attributeMove({ prevHead, curHead, parentOf }) {
 }
 
 /**
+ * 第 74 项:回补前的纯判据 —— 「被丢提交的内容是否已被当前头部覆盖」。
+ * 输入 = `git diff --quiet <被丢 sha> <当前头部>` 的退出码;三态,取不到一律未判定(§0.3)。
+ */
+export function judgeRestoreEquivalent(diffCode) {
+  if (diffCode === 0) return { kind: 'equivalent', why: '与当前头部之间无文件差 ⇒ 回补不增加任何内容' }
+  if (diffCode === 1) return { kind: 'differs', why: null }
+  return { kind: 'unjudged', why: `git diff --quiet 退出码=${diffCode === null || diffCode === undefined ? 'null' : diffCode}(判不出内容是否已覆盖)` }
+}
+
+/**
  * 自动回补(2026-11-18):被丢的提交仍在对象库里 —— 只要它与当前头部**无冲突**,
  * 就用「合并提交」把它接回 main(`commit-tree` + `update-ref <new> <expected-old>`)。
  * 这是真正让主线自愈的那一步;有冲突/超量/被 CAS 拒绝时**一律不硬做**,
  * 只留 preserve 分支 + 告警(失效方向永远是"多留一份",§0.10)。
+ *
+ * 第 74 项:先过 `judgeRestoreEquivalent` —— 内容已被当前头部覆盖的改写前形态**跳过回补**
+ * (合并它只会在祖先线里多一枚同内容、且缺 trailer 的提交,把判据面永久记红)。
  */
 export function tryRestore({ curHead, droppedShas, root = ROOT, attest = true }) {
   if (process.env.IHUI_REF_MOVE_NO_RESTORE === '1') return { ok: false, why: 'kill-switch(IHUI_REF_MOVE_NO_RESTORE=1)' }
@@ -132,21 +154,41 @@ export function tryRestore({ curHead, droppedShas, root = ROOT, attest = true })
       throw e
     }
   }
+  /** 只要退出码:0/1/其它,null = 取不到(未判定,绝不猜)。 */
+  const codeOf = (args) => {
+    try {
+      execFileSync('git', args, { cwd: root, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] })
+      return 0
+    } catch (e) {
+      return typeof e?.status === 'number' ? e.status : null
+    }
+  }
   let base = curHead
   const applied = []
+  const skipped = []
   for (const sha of droppedShas) {
+    const verdict = judgeRestoreEquivalent(codeOf(['diff', '--quiet', sha, base]))
+    if (verdict.kind === 'unjudged') return { ok: false, why: `未判定:${sha.slice(0, 11)} ${verdict.why}`, applied, skipped }
+    if (verdict.kind === 'equivalent') {
+      skipped.push({ sha, why: verdict.why })
+      continue
+    }
     const merged = run(['merge-tree', '--write-tree', base, sha])
-    if (!merged.ok) return { ok: false, why: `合并冲突,未回补:${sha.slice(0, 11)}`, applied }
+    if (!merged.ok) return { ok: false, why: `合并冲突,未回补:${sha.slice(0, 11)}`, applied, skipped }
     const tree = merged.out.split(/\r?\n/)[0].trim()
-    if (!/^[0-9a-f]{40}|[0-9a-f]{64}$/.test(tree)) return { ok: false, why: 'merge-tree 没给出树对象(未判定)', applied }
+    if (!/^[0-9a-f]{40}|[0-9a-f]{64}$/.test(tree)) return { ok: false, why: 'merge-tree 没给出树对象(未判定)', applied, skipped }
     const msg = `chore(ref-restore): 守夜人自动回补被位移丢弃的提交 ${sha.slice(0, 11)}\n\n原提交仍挂在 preserve 分支,本枚仅把它接回 main 的祖先线。`
     const made = run(['commit-tree', tree, '-p', base, '-p', sha, '-m', msg])
-    if (!made.ok) return { ok: false, why: 'commit-tree 失败', applied }
+    if (!made.ok) return { ok: false, why: 'commit-tree 失败', applied, skipped }
     base = made.out.trim()
     applied.push(sha)
   }
+  if (!applied.length) {
+    // 全部被跳过 ⇒ 一条 CAS 都不做(否则等于用一枚空合并去掉一段不需要的链路)。
+    return { ok: true, newHead: curHead, applied, skipped }
+  }
   const cas = run(['update-ref', 'refs/heads/main', base, curHead])
-  if (!cas.ok) return { ok: false, why: 'CAS 被拒(别人又推进了 main),不硬写', applied }
+  if (!cas.ok) return { ok: false, why: 'CAS 被拒(别人又推进了 main),不硬写', applied, skipped }
   if (attest) {
     try {
       fs.appendFileSync(
@@ -247,7 +289,13 @@ function main(argv) {
     preserveBranch: preserved ? branch : null,
     preserveError: preserveError || null,
     attribution,
-    restore: { ok: !!restore.ok, why: restore.why || null, newHead: restore.newHead || null, applied: restore.applied || [] },
+    restore: {
+      ok: !!restore.ok,
+      why: restore.why || null,
+      newHead: restore.newHead || null,
+      applied: restore.applied || [],
+      skipped: restore.skipped || [],
+    },
   }
   if (!flags.has('--check')) {
     fs.mkdirSync(STATE_DIR, { recursive: true })
@@ -264,6 +312,7 @@ function main(argv) {
     preserveBranch: preserved ? branch : null,
     restored: !!restore.ok,
     restoredHead: restore.newHead || null,
+    skippedCount: (restore.skipped || []).length,
     staleBase: attribution?.staleBase ?? null,
   })
 
@@ -283,11 +332,16 @@ function main(argv) {
   if (attribution?.staleBase) {
     console.log(`🔎 归因:新头部的父 ${String(attribution.curParent).slice(0, 11)} 不是旧头部 ⇒ 落地基线落后于主线(结构事实,不猜写入者)`)
   }
+  const skipped = restore.skipped || []
   console.log(
-    restore.ok
-      ? `🧵 已自动回补:${restore.applied.length} 枚接回 main(CAS 推进),新头部 ${restore.newHead.slice(0, 11)}`
-      : `ℹ️ 未自动回补:${restore.why || '无原因'}`,
+    restore.ok && restore.applied.length
+      ? `🧵 已自动回补:${restore.applied.length} 枚接回 main(CAS 推进),新头部 ${restore.newHead.slice(0, 11)}` +
+        (skipped.length ? `;另跳过 ${skipped.length} 枚(内容已覆盖,见下)` : '')
+      : restore.ok && skipped.length
+        ? `🧵 未回补(结构上不需要):${skipped.length} 枚被丢提交的内容已被当前头部逐字节覆盖 —— 合并它们只会在祖先线里多出缺 trailer 的重复提交,把判据面永久记红;原件仍由 preserve 分支保全`
+        : `ℹ️ 未自动回补:${restore.why || '无原因'}`,
   )
+  for (const s of skipped.slice(0, 5)) console.log(`    · 跳过 ${String(s.sha).slice(0, 11)}:${s.why}`)
   return 1
 }
 
@@ -320,7 +374,12 @@ function selfTest() {
     attributeMove({ prevHead: 'a', curHead: 'b', parentOf: () => null }).staleBase,
     null,
   )
-  console.log(fail === 0 ? '✅ self-test 8/8' : `❌ self-test ${8 - fail}/8`)
+  // 第 74 项:回补前的"内容是否已覆盖"判据三态(0=无差 1=有差 其它/null=未判定)
+  eq('回补判据:diff=0 ⇒ 内容已覆盖(跳过回补)', judgeRestoreEquivalent(0).kind, 'equivalent')
+  eq('回补判据:diff=1 ⇒ 确有内容差(照旧回补)', judgeRestoreEquivalent(1).kind, 'differs')
+  eq('回补判据:diff=128(对象缺失)⇒ 未判定', judgeRestoreEquivalent(128).kind, 'unjudged')
+  eq('回补判据:diff=null(取不到)⇒ 未判定', judgeRestoreEquivalent(null).kind, 'unjudged')
+  console.log(fail === 0 ? '✅ self-test 12/12' : `❌ self-test ${12 - fail}/12`)
   return fail === 0 ? 0 : 1
 }
 
