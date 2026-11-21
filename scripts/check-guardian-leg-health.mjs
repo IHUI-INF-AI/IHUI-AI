@@ -83,14 +83,20 @@ function readDaemonPid() {
 
 /**
  * 纯判据(导出供测试;CLI 与测试共用这一份,不在别处复制):
- *   all down ⇒ down(进程/腿全死);任一 stale 或 down(但不是全 down)⇒ stale;否则 ok。
+ *   全部从未跑过 ⇒ down;任一腿越过 downMs ⇒ down(**单腿死也要喊人**);
+ *   任一腿 stale 或从未跑过 ⇒ stale;否则 ok。
  * 第 82 项把节律阈值下放到每腿(`staleMs`/`downMs`),本函数只做汇总,不持有阈值。
+ * 第 87 项(2026-11-21)立因:旧规则是"全部 down 才算 down,否则一律 stale",而 runner 对 stale
+ * 只登记不发信 ⇒ 实测 `disk-root-hygiene` 已经 25 小时没跑(越过 downMs=24h),哨兵仍报 state=stale、
+ * 到人通道一格都没走 —— 一条腿真的死了却只落 warn,等于没有求救信号。单腿越 downMs 就必须是 down。
+ * 反向牙:从未存在过的腿(新机/该腿本机不适用)不单独判 down,否则每次装新机都必然报急。
  */
 export function judgeLegHealth(legs) {
   const arr = Object.values(legs || {})
   if (arr.length === 0) return 'down'
-  if (arr.every((l) => l.down)) return 'down'
-  if (arr.some((l) => l.stale || l.down)) return 'stale'
+  if (arr.every((l) => l.exists === false)) return 'down'
+  if (arr.some((l) => l.down)) return 'down'
+  if (arr.some((l) => l.stale || l.exists === false)) return 'stale'
   return 'ok'
 }
 
@@ -115,10 +121,12 @@ function main() {
       staleMs: spec.staleMs,
       downMs: spec.downMs,
       exists: age !== null,
+      // 第 87 项:从未跑过(缺失)与"跑过但过期"是两件事 —— 前者在新机上是常态,后者才是死腿。
+      missing: age === null,
       ageMs: age,
       ageHuman: age === null ? 'never' : `${Math.round(age / 60000)}min`,
       stale: age !== null && age > spec.staleMs,
-      down: age === null || age > spec.downMs,
+      down: age === null ? false : age > spec.downMs,
     }
   }
 

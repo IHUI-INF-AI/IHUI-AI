@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **86 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **87 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（86 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（87 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1203,6 +1203,46 @@
 - 边界：本项**没有**把门 98 塞进提交链。理由写在这里备后人：它在 `uncoveredBaseline` 是**登记过的**
   "无通道"事实，塞进 pre-commit 属改通道面（要同步 coverage 台账与 42 门钩子的预算），而本次要修的
   是"存量红"与"文案撒谎"两格；通道面另立票，不借消红之名顺手夹带（§0.10）。
+### 5.87 第 87 项：「到人通道不在位」只落一行日志 + 单腿死被判成 warn —— 求救信号两头都没发出去
+
+- 现场（第 86 项推送后读 `.ihui-agent/tmp/guardian-leg-health-runner.log`，一手）：
+  `15:53 / 16:08 / 16:23 / 16:38` 连续四轮 `🚨 state=down ⇒ 走告警+拉起腿`，而每一轮紧跟的那句都是
+  `⚠️ 品牌邮件出口不在位(tsx/mail 脚本)⇒ 告警未判定(不自制 SMTP,守门 81)`。
+  也就是说"守护死了"这件事**从来到不了人**（§5e 的单通道实际是断的），而日志读起来像"已告警、只是未判定"。
+- 一手取证（三处，逐条可复跑）：
+  1. runner 取 tsx 只有**一条硬编码路径** `node_modules/.bin/tsx.cmd`，本机现读
+     `Test-Path` = **False**；真正在用的一份在 `apps/api/node_modules/.bin/tsx.cmd`（现读 True）。
+     用后者跑 `apps/api/scripts/notify-deploy-failure.ts --dry-run` 现读
+     `通道判定 SMTP: 可用 / Resend: 可用 / 收件人 50***@qq.com / html 5368 字节`、exit 0
+     —— 出口一直是好的，坏的是"怎么找到出口"。
+  2. 同一份 runner 组信时用的是 `$json.daemonPid` / `$json.findings`，而哨兵 `--json` 的键是
+     `pid` / `pidSource` / `legs`（现读键名如此）⇒ 信文里 pid 恒为 `-`、判定恒为
+     "state=down(无 findings)"：**有 pid 读成没有 pid**，有腿详情读成没详情。
+  3. 哨兵 `judgeLegHealth` 旧规则是「全部 down 才算 down，否则一律 stale」，而 runner 对 `stale`
+     只登记不发信。实测把 `disk-root-hygiene` 的 tick 拨到 25 小时前（越过该腿 `downMs=24h`）：
+     哨兵仍报 `state=stale`，runner 落 `⚠️ stale(§12e):只登记,不发信不拉起`、**一格告警都没走**。
+     单腿真的死了，系统只当"轻微滞后"。
+- 处置（三处，缺一处这条链还是断的）：
+  - `scripts/check-guardian-leg-health-runner.ps1`：tsx 取径改**候选序**（根 → `apps/api`），
+    并把实际取到的路径打进日志（`ℹ️ 品牌邮件出口取径:tsx=… mail=…`）；不可用时**逐条点名试过的路径**。
+  - 同一份 runner 增 **UNDELIVERED 台账**（`.ihui-agent/state/guardian-leg-health-UNDELIVERED.json`）：
+    投递失败（出口缺失或 rc≠0）一律记账（轮次/原因/起始时刻）；下次投递成功时把"此前 N 轮未送达"
+    写进正文再清账；`state` 恢复正常时补一条"已恢复 + 此前 N 轮未送达"，成功才清账。失效方向：
+    绝不写"已告警"——没送到就说没送到（§5e / §5e-2）。
+  - 同一份 runner 的组信改读真键：`pid(pidSource)` 与由 `legs` 现算的判定明细（只列 stale/down 的腿）。
+  - `scripts/check-guardian-leg-health.mjs`：`judgeLegHealth` 改为「全部从未跑过 ⇒ down；**任一腿越过
+    `downMs` ⇒ down**；任一腿 stale 或缺失 ⇒ stale；否则 ok」，并把"缺失"与"过期"拆成
+    `missing` / `down` 两个字段（旧写法 `down: age === null || …` 会把"该腿本机不适用"折成急）。
+- 验证：`scripts/tests/guardian-leg-health.test.mjs` 改①②并新增 ①b，现读 **5 passed**
+  （① 含"单腿 down ⇒ down"与"stale+down ⇒ down"；①b 含"全缺 ⇒ down / 单腿缺 ⇒ stale"两条反向牙 +
+  形状锁"缺失不得被写成 down"）；`--json` 现读键名与 runner 取用一致；
+  `pwsh -File check-guardian-leg-health-runner.ps1 -DryRun` 在把 `disk-root-hygiene` 拨到 25h 后现读
+  `哨兵判定 state=down rc=2` → `ℹ️ 品牌邮件出口取径:tsx=D:\IHUI-AI\apps\api\node_modules\.bin\tsx.cmd`
+  → `[DryRun] 将 schtasks /run \IHUI-AI git-guardian` → `品牌邮件出口 ⇒ rc=dryrun`，且 DryRun 不写台账
+  （现读 `Test-Path UNDELIVERED` = False），拨回后 `sentinel rc=0`；三枚文件水印 verify 完好。
+- 边界：本项不真的寄信（`--dry-run` 只回答"配置齐不齐"，不回答"网络通不通"）；真实投递能力要靠
+  下一轮 down 才会被量到。`state=down` 的拉起动作仍是 `schtasks /run`（守护的兜底腿），
+  不代启 nssm 服务 —— 那是服务面策略，不借本项夹带。
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
