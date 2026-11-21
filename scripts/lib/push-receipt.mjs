@@ -41,7 +41,7 @@ export const RUNNER_CLOSURE = Object.freeze([
  * 推送门的唯一期望集合。
  * 与 scripts/guardian-runner.mjs 的 pushGateChecks 逐项一致（镜像夹具锁住），
  * 外加 bash 钩子里两条不在 runner 注册表里的推送步骤：
- *   173p check-doc-numbers.mjs --strict --push（阻塞）
+ *   173p check-doc-numbers.mjs --strict --push（已退役 2026-11-21:数字滞后接受人工定期刷新）
  *   i18n scan-dead-i18n-keys.mjs --dry-run（非阻塞审计，rc 不参与准入）
  */
 export const EXPECTED_GATES = Object.freeze([
@@ -59,7 +59,6 @@ export const EXPECTED_GATES = Object.freeze([
   { id: '307p', script: 'gen-tool-name-sets.mjs', args: ['--check'], mode: 'blocking' },
   { id: '308p', script: 'gen-rn-shell-scaffold.mjs', args: ['--all'], mode: 'blocking' },
   { id: '305p', script: 'check-hook-chain-refs.mjs', args: ['--strict'], mode: 'blocking' },
-  { id: '173p', script: 'check-doc-numbers.mjs', args: ['--strict', '--push'], mode: 'blocking' },
   { id: 'i18n', script: 'scan-dead-i18n-keys.mjs', args: ['--dry-run'], mode: 'advisory' },
 ])
 

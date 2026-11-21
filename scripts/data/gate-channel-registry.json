@@ -15,7 +15,6 @@
     "check-cross-end-parity-drift.mjs": "跨端漂移回归(302/302p push 通道同判)",
     "check-dev-db-rotation-window.mjs": "280 本机 dev 库口令轮换窗口(元判据)",
     "check-direct-run-guard.mjs": "直接运行守卫(元判据)",
-    "check-doc-numbers.mjs": "文档数字/引用(元判据)",
     "check-gate-body-direct-run-coverage.mjs": "直跑面判面层覆盖(元判据)",
     "check-gate-face-discipline.mjs": "门体取材面纪律(元判据)",
     "check-gate-presence-exemption.mjs": "豁免在场对账(元判据)",

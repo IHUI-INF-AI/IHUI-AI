@@ -26,7 +26,6 @@ const REAL_BATCH = [
   'apps/mobile-rn/src/components/IntroducePopup.tsx',
   'apps/web/app/(main)/admin/error-dashboard/page.tsx',
   'packages/shared/src/chat/tool-display.ts',
-  'scripts/check-doc-numbers.mjs',
 ]
 
 test('partitionI18nBatch: i18n messages 单独成批,其余原序留在 rest', () => {
