@@ -1425,4 +1425,60 @@ test('checkGrowth:P4c 目录不存在按"无对象"记绿,P4b 缺失仍落未判
     rmScratch(base)
   }
 })
+
+// ────────────────────────────────────────────────────────────────────────────────
+// 2026-11-21(第 105 项):Resend 腿**结构上**没有零投递出口(REST 直发,不发消息就没有握手可做),
+// 于是 P9 的 `resend=undetermined` 是恒定的;而出口层投递台账里 `disposition="probe" ∧ channel="resend"`
+// 的行就是"这条腿真寄出去过"的事实。判据只认新鲜且带收件人的那一行 —— 台账取不到/只有失败行/过期
+// 一律维持未判定(失效方向恒为"多要一次定向说明")。
+test('P9 resend 腿:台账里 probe/resend 的成功行是证据,不得让"无零投递出口"一直挂着', async () => {
+  const base = mkScratch('p9-resend-proof-')
+  try {
+    const repo = join(base, 'repo')
+    mkdirSync(join(repo, 'apps', 'api', 'node_modules', 'tsx', 'dist'), { recursive: true })
+    writeFileSync(join(repo, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs'), '// stub', 'utf8')
+    mkdirSync(join(repo, 'apps', 'api', 'scripts'), { recursive: true })
+    writeFileSync(join(repo, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts'), '// stub', 'utf8')
+    mkdirSync(join(repo, '.ihui-agent', 'state'), { recursive: true })
+    const now = Date.parse('2026-11-21T15:00:00Z')
+    const ledger = join(repo, '.ihui-agent', 'state', 'mail-send-ledger.jsonl')
+    const probeRow = (at, disposition, channel) =>
+      JSON.stringify({ at, schema: 2, source: 's', subject: 'x', alertId: '', disposition, channel, to: 'a***@qq.com', strict: false })
+    writeFileSync(
+      ledger,
+      probeRow('2026-11-20T02:00:00.000Z', 'probe', 'resend') +
+        '\n' +
+        probeRow('2026-11-10T02:00:00.000Z', 'failed', 'resend') +
+        '\n',
+      'utf8',
+    )
+    const proof = mod.readResendDeliveryProof({ repoRoot: repo, now })
+    assert.ok(proof && !proof.stale, '新鲜的 probe/resend 行必须被认成证据')
+    assert.ok(Math.abs(proof.atMs - Date.parse('2026-11-20T02:00:00Z')) < 1000, '证据时刻必须取最新那一行')
+    const probeOut =
+      '[probe] smtp=ok 握手与认证通过(smtp.qq.com:587)\n' +
+      '[probe] resend=undetermined 该通道没有零投递的核验出口\n' +
+      '[probe] 结论:至少一条通道确证可用;零投递,未占用收件人\n'
+    const row = await mod.checkMailChannelLiveness({
+      now,
+      repoRoot: repo,
+      loadRunner: async () => ({ status: 0, stdout: 'usage', stderr: '' }),
+      runner: async () => ({ status: 0, stdout: probeOut, stderr: '' }),
+      tickFile: join(repo, '.ihui-agent', 'state', 'mail-probe-tick.ts'),
+      lastFile: join(repo, '.ihui-agent', 'state', 'mail-probe-last.json'),
+    })
+    assert.equal(row.state, 'ok')
+    assert.match(row.detail, /resend=ok/, `台账证据必须把这一腿写成 ok,实得 ${row.detail}`)
+    // 反向对照三条:失败行不算证据 / 只有 smtp 行不算 / 过期不算
+    writeFileSync(ledger, probeRow('2026-11-20T02:00:00.000Z', 'failed', 'resend') + '\n', 'utf8')
+    assert.equal(mod.readResendDeliveryProof({ repoRoot: repo, now }), null, '失败行不得当证据')
+    writeFileSync(ledger, probeRow('2026-11-20T02:00:00.000Z', 'probe', 'smtp') + '\n', 'utf8')
+    assert.equal(mod.readResendDeliveryProof({ repoRoot: repo, now }), null, '别的通道的成功行不得给 resend 作证')
+    writeFileSync(ledger, probeRow('2026-05-01T02:00:00.000Z', 'probe', 'resend') + '\n', 'utf8')
+    const oldProof = mod.readResendDeliveryProof({ repoRoot: repo, now })
+    assert.equal(oldProof?.stale, true, '过期证据只能说"当年验过",不得替此刻背书')
+  } finally {
+    rmScratch(base)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

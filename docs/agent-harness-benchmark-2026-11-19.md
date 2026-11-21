@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **104 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **106 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（104 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（106 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -1754,6 +1754,29 @@ B31 另带 `hitRefs` 点名那 1 条命中行（`MIN_HIT_REF` 20 字下限）。
 **处置**：按 HEAD blob 逐处把 6 行 `sessionId=` 改成 `conversationId=`（不动工作树那份在飞副本的其它差异），净面构建即可通过。
 
 **验证**：改动面只差这 6 行 prop 名（`git show HEAD:<该测试>` → 替换后剩余 `sessionId` 渲染行 0）；部署环下一轮从 `origin/main` 取源重跑，构建与 `P5b` 转绿由 `deploy-loop.log` 的下一枚 `部署轮询结束(exit=0)` 现读作证（不在本文件里预写结论）。
+
+### 5.105 第 105 项：Resend 腿恒 `undetermined` ⇒ "没有零投递的核验出口"被当成"这条腿不可用"
+
+**缺口形态**：判据只能看见它有出口的那种证据，通道把"验不了"写成"未判定"，而"未判定"在读数里与"可能是坏的"同形。
+
+**现场**（现读）：`P9·邮件通道活性` 长期显示 `resend=undetermined(该通道没有零投递的核验出口 —— 要确证需 --probe-deliver 真发一封)`。结构上确实验不了：Resend 是 REST 直发、没有握手，零投递探针只对 SMTP 有意义；而 `dispatchMail` 常态先走 SMTP ⇒ `--probe-deliver` 打两轮都只落到主通道（台账新增两行 `probe/smtp`，`14:43:53.551Z` / `14:45:24.485Z`），`SMTP_ENABLED=0` 也压不住（配置由 `apps/api/.env` 补齐，该变量不参与 `planChannels`）。于是"这条腿到底能不能发信"永远没有证据。
+
+**处置**（两端，各补一个"能真看见"的出口）：
+1. `apps/api/scripts/notify-deploy-failure.ts` 增 `--probe-channel <smtp|resend>`（非法值 `exit 2`）：`probeChannels` 收 `only`，未点名的通道连结论都不出；`dispatchMail(cfg, mail, deps, only)` 两侧各加 `only !== '<另一条>'` 闸 —— 这样真投递可以**定向**落到 Resend，不必把 SMTP 关掉。
+2. `scripts/check-ops-patrol.mjs` 认"真投递台账"为证据：新增 `RESEND_PROOF_FRESH_DAYS = 100`（季度验收留一档余量）、`readResendDeliveryProof()`（只认 `disposition='probe' ∧ channel='resend' ∧ to 非空 ∧ at 可解析`，取最新，取不到/形状坏返回 `null`）、`withResendEvidence()`（只在 `resend.verdict==='undetermined'` 时改写为 `ok` 并把 `rc=2 ∧ 任一通道 ok` 落 0；已 `ok`/`fail`/`unconfigured` 的结论有它自己的来源，台账不去覆盖；证据过期一律原样返回）。**缓存路径与新鲜路径共用同一函数** —— 否则 24h 班次没到期时，缓存行会继续显示 `undetermined`（这正是本轮第一次改完仍读到旧结论的原因）。
+
+**验证**（数字现读）：`node scripts/check-ops-patrol.mjs` ⇒ `P9 ... smtp=ok(握手与认证通过(smtp.qq.com:587)) resend=ok(真投递台账证明该腿可用(at 2026-11-21T15:01:34.403Z))`，整体 `红 1 / 未判定 0 / 绿 22`（唯一红是 `P5b` 的部署环，与本项无关）；真证据由 `& 'apps\api\node_modules\.bin\tsx.cmd' 'apps/api/scripts/notify-deploy-failure.ts' --probe --probe-deliver --probe-channel resend` 产出（`resend=ok 真投递成功`，rc=0，台账新增 `2026-11-21T15:01:34.403Z` 一行）。`scripts/tests/check-ops-patrol.test.mjs` 新增一例含四条反向对照（`failed` 行不算 / 别的通道成功行不算 / 过期 `stale:true` / 失败行 `null`）。
+
+### 5.106 第 106 项：origin fetch 超时改走"本机取源" ⇒ 把**未推送**的提交送上生产
+
+**缺口形态**：离线回退把"取不到远端"顺手换成了"取本机能看到的任何 main"，于是回退链的语义从"跟随权威源"漂成"跟随本机工作分支"。
+
+**现场**（现读，`deploy-loop.log` 22:52-22:54 段）：`fetch origin main` 25 秒超时被杀 ⇒ `WARN origin fetch 失败,改从本机工作区 gitdir 取源` ⇒ `fetch D:/IHUI-AI-git-repo main` ⇒ `merge 完成,HEAD=89dc712c69` ⇒ `根护栏通过(闸面=HEAD=89dc712c69)` ⇒ 按它构建。而当轮 `origin/main` 仍是 `c3f011448d`：`89dc712c69` 是**另一会话本地提交、从未推送**的一枚。生产于是在跑"GitHub 上不存在、随时会被 rebase 掉"的代码，告警与回滚记录都对着一个幻影 sha；根护栏的"通过"也只证明这枚本地提交自洽，不证明它被验收过。
+
+**处置**：离线取源只许钉**已推送基线**——先解析本机 gitdir 的 `refs/remotes/origin/main`，拿不到就跳过该源（不许退化成 `refs/heads/main`）；取到则把这一枚 sha 定格进 `$forcedRemoteTip`，下游**不读 `FETCH_HEAD`**（那一刻它指向的正是未推送的本机 main），并在基线对象不在本地对象库时 `Fail`（不猜）。本机 main 领先基线时点名"未推送 N 枚、本轮不部署"。离线可用 ≠ 离线随便取。
+
+**验证**：新增 `deploy/tests/fetch-source-pinning.test.mjs` 五条形状锁（基线 ref 必须解析、取不到必须 `continue`、`$forcedRemoteTip = $pushedTip` 必须在位、`FETCH_HEAD` 读取必须落在 `else` 分支、对象缺失必须 `Fail`、领先必须点名报数）⇒ **5/5 pass**；`[System.Management.Automation.Language.Parser]::ParseFile('deploy/win/ihui-deploy.ps1')` ⇒ `parse_err=0`。
+
 
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 

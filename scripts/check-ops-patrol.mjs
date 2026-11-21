@@ -154,6 +154,12 @@ const RENDER_SCRIPT = join(SELF_DIR, 'render-alertmanager-config.mjs')
 const MAIL_PROBE_TICK = join(REPO, '.ihui-agent', 'state', 'mail-probe-tick.ts')
 const MAIL_PROBE_LAST = join(REPO, '.ihui-agent', 'state', 'mail-probe-last.json')
 const MAIL_PROBE_TIMEOUT_MS = Number(process.env.IHUI_MAIL_PROBE_TIMEOUT_MS || 45_000)
+/**
+ * Resend 腿台账证据的新鲜期(2026-11-21):通道自测按季度一次(`docs/PRODUCTION_INFRASTRUCTURE.md`
+ * 的验收节拍),这里留 100 天 —— 比季度宽一档,免得"刚好过期一天"把已验过的腿读成没验过。
+ * 过期只能说明"当年验过",不得替此刻背书(与 P10 的 24h 通道证明同一条口径)。
+ */
+const RESEND_PROOF_FRESH_DAYS = 100
 /** 告警身份"确证没送到"的宽限期 = 守护派发层的失败退避(30min)。超过它仍是 false ⇒ 欠账。 */
 const UNDELIVERED_GRACE_MS = 30 * 60 * 1000
 /**
@@ -632,6 +638,61 @@ export function mailProbeRow(probe, { atMs }) {
   }
 }
 
+/**
+ * 从出口层投递台账里取"Resend 腿真寄出去过"的最新一条证据(2026-11-21,第 105 项)。
+ *
+ * 只认三件事同时成立的行:`disposition='probe'`(通道自测,不是真告警)、`channel='resend'`、
+ * `to` 非空(没有收件人的行构不成"到端证据")。台账取不到 / 形状坏 / 全部过期 ⇒ 返回 null 或
+ * `stale:true`,调用方**不升级**(失效方向恒为"维持未判定,多要一次定向说明")。
+ */
+export function readResendDeliveryProof({ repoRoot = REPO, now = Date.now(), freshDays = RESEND_PROOF_FRESH_DAYS } = {}) {
+  const file = join(repoRoot, '.ihui-agent', 'state', 'mail-send-ledger.jsonl')
+  let text
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch {
+    return null
+  }
+  let best = 0
+  for (const line of text.split(/\r?\n/)) {
+    if (!line) continue
+    // 先按字面量粗筛(台账可到百 KB 级,全量 JSON.parse 没必要);粗筛只做减负,不做判定。
+    if (!line.includes('"probe"') || !line.includes('"resend"')) continue
+    let row
+    try {
+      row = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (!row || row.disposition !== 'probe' || row.channel !== 'resend') continue
+    if (typeof row.to !== 'string' || !row.to.trim()) continue
+    const t = Date.parse(String(row.at || ''))
+    if (!Number.isFinite(t)) continue
+    if (t > best) best = t
+  }
+  if (!best) return null
+  return { atMs: best, stale: now - best > freshDays * 86400_000 }
+}
+
+/**
+ * 把"真投递台账证明过"这件事接到一份探针结论上(2026-11-21,第 105 项)。
+ *
+ * 只在 `resend` 这一格是 `undetermined` 时才动它 —— 已经 `ok`/`fail`/`unconfigured` 的结论
+ * 有它自己的来源,台账不去覆盖。证据过期/取不到 ⇒ 原样返回(不做任何"大概可用"的推断)。
+ */
+export function withResendEvidence(parsed, { repoRoot = REPO, now = Date.now() } = {}) {
+  if (parsed?.channels?.resend?.verdict !== 'undetermined') return parsed
+  const proof = readResendDeliveryProof({ repoRoot, now })
+  if (!proof || proof.stale) return parsed
+  const channels = {
+    ...parsed.channels,
+    resend: { verdict: 'ok', why: `真投递台账证明该腿可用(at ${new Date(proof.atMs).toISOString()})` },
+  }
+  const anyOk = channels.smtp?.verdict === 'ok' || channels.resend?.verdict === 'ok'
+  const rc = parsed.rc === 2 && anyOk ? 0 : parsed.rc
+  return { ...parsed, channels, rc }
+}
+
 export async function checkMailChannelLiveness({
   now = Date.now(),
   repoRoot = REPO,
@@ -743,7 +804,7 @@ export async function checkMailChannelLiveness({
         state: 'undetermined',
         detail: `节流与结论文件不一致:未到班次窗口而缓存已老于 ${LIMITS.mailProbeStaleWarnHours}h(上次探测 ${new Date(Number(last.atMs)).toISOString()})⇒ 未判定,不沿用过期读数`,
       }
-    return mailProbeRow(last.probe, { atMs: Number(last.atMs) })
+    return mailProbeRow(withResendEvidence(last.probe, { repoRoot, now }), { atMs: Number(last.atMs) })
   }
 
   // sender / tsx 已在本函数开头取过(加载探针要用同一对路径,§0.6 不留第二份取值)
@@ -801,22 +862,35 @@ export async function checkMailChannelLiveness({
       detail: `探针输出解不出三态结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`,
     }
   }
+  /**
+   * Resend 腿的**台账证据升级**(2026-11-21 立,第 105 项):零投递探针结构上验不了它
+   * (REST 直发,不发消息就没有握手可做)⇒ 这一腿长期恒 `undetermined`。而真投递台账
+   * (`.ihui-agent/state/mail-send-ledger.jsonl`,出口层每次投递都追写一行)里
+   * `disposition="probe" ∧ channel="resend"` 的行就是"这条腿真寄出去过"的事实。
+   * 判据只认**新鲜**(`RESEND_PROOF_FRESH_DAYS` 内)且**有收件人**的那一条;台账取不到 /
+   * 行形状坏 ⇒ 不升级(一律维持 undetermined,失效方向恒为"多要一次定向说明")。
+   */
+  const effective = withResendEvidence(parsed, { repoRoot, now })
   // rc 的权威口径住在派发器自己的退出码里(它才知道"有没有一条被确证过")。这里只在
   // **拿不到退出码**时(被杀 / 派生异常)才按结论行兜底推断 —— 两处各推一遍必然漂开,
   // 而漂开的表现是把"未判定"洗成"可用"。
-  const rc =
+  const parsedForRc = effective
+  let rc =
     r.status === 0 || r.status === 1 || r.status === 2
       ? r.status
-      : parsed.channels.smtp?.verdict === 'ok' || parsed.channels.resend?.verdict === 'ok'
+      : parsedForRc.channels.smtp?.verdict === 'ok' || parsedForRc.channels.resend?.verdict === 'ok'
         ? 0
-        : parsed.channels.smtp?.verdict === 'fail' || parsed.channels.resend?.verdict === 'fail'
+        : parsedForRc.channels.smtp?.verdict === 'fail' || parsedForRc.channels.resend?.verdict === 'fail'
           ? 1
           : 2
-  const row = mailProbeRow({ ...parsed, rc }, { atMs: now })
+  // 派发器的 rc 是按它自己出的结论算的(它看不见台账)⇒ 台账把唯一那条 undetermined 补成
+  // ok 之后,rc 也要跟着落到 0,否则"证据已证明可用"仍被写成未判定(读数与事实相反)。
+  if (rc === 2 && (parsedForRc.channels.smtp?.verdict === 'ok' || parsedForRc.channels.resend?.verdict === 'ok')) rc = 0
+  const row = mailProbeRow({ ...effective, rc }, { atMs: now })
   // 结论先落盘再返回:写不进去也必须给出本轮结论(否则一次盘错就永久失明 —— 与 P5 tick 同规矩)。
   try {
     mkdirSync(dirname(lastFile), { recursive: true })
-    writeFileSync(lastFile, JSON.stringify({ atMs: now, atISO: new Date(now).toISOString(), probe: { ...parsed, rc } }, null, 1), 'utf8')
+    writeFileSync(lastFile, JSON.stringify({ atMs: now, atISO: new Date(now).toISOString(), probe: { ...effective, rc } }, null, 1), 'utf8')
     writeFileSync(tickFile, String(now), 'utf8')
   } catch (e) {
     row.detail += ` | ⚠️ 结论落盘失败(${e?.code || e?.message}),下一轮会重探`
