@@ -12,7 +12,7 @@
 ## 1. 结论摘要
 
 1. IHUI-AI 在 agent harness 的**绝大多数**能力上与四款对照程序已经同代（压缩、沙箱、审批、doom-loop、子代理、MCP、检查点），不存在"整体落后、需要大规模抄"的情况。可抄即抄只会制造重复实现（违反 §0.6 单一真相源）。
-2. 真正找到并已落地 **65 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
+2. 真正找到并已落地 **66 项**缺口（代码 + 测试 + 验证全绿，见 §5），集中在工具层、上下文预算与执行面：
    - **确定性工具结果裁剪器「有测试、零生产调用方」**，且默认预算是猜的 → 改为证据值并接进唯一消息出口，同时比对照多保留尾部。
    - **`write_file` 工具可盲写覆盖未读文件** → 加读前写保护（对照 `dsh-fs-observation-policy`），不改底层写盘原语。
    - **`edit_file` 根本没有**（只有 save 语义）→ 唯一匹配替换 + `replaceAll` / 原子 `edits[]` / `dryRun`，并修掉 Windows 上 CRLF 与 BOM 两类必失败场景。
@@ -88,7 +88,7 @@
 | 前缀缓存统计 | – | – | – | 有 | `cost_ledger` 缓存字段 + 会话级 `diagnostics` 读数（5.16） | **缺口已补** |
 | RLM | – | – | – | 有 | `agent_teams.run_recursive`（复用 run_round/聚合/并发闸；模型面 `orchestrate_agents` 的 `mode=recursive`） | **缺口已补（5.20）** |
 
-## 5. 本次落地（65 项能力 + 1 项加固，含验证证据）
+## 5. 本次落地（66 项能力 + 1 项加固，含验证证据）
 
 ### 5.1 工具结果裁剪器：从"造好没装车"到真接线
 
@@ -719,6 +719,15 @@
 - 语义边界：`silenceCeilingMs` 一律 = 该腿 `nominalIntervalMs × 6`（连续 6 个班次零产出才报），是算出来的不是拍的数；不改判据、不改任何器物的写盘行为，只把"唯一输入面"补齐。
 - 二修（首落当场被读数打回）：`outputRel` 写成 `.ihui-agent/state/…` 全路径 ⇒ 判据层按 `LIVENESS_STATE_DIR_REL` 再拼一次，读盘 ENOENT 被当成「一次都没产过」⇒ 四腿立刻从「未判定」翻成「每轮必写却零产出」。改成相对 state 目录的形态后复跑 A12：`16 腿 = ok 13 / n/a 12? …`（当次现读；关键是 unjudged 0、四腿不再读成零产出）。**这条属于「字段形状也是判据」**：同一份登记表，值对而形态错，读出来就是另一个结论。
 - 三修（分类也必须取证）：首版把 auto-triage / deploy-feedback / api-liveness 都标成 `always`，于是「账静默 25373min / 5138min / 3676min 而派发戳新鲜」被判成零产出。逐条读它们的写盘分支后更正：三者的台账都是**事件驱动**（`api-liveness` 的 ok 支直接 `return` 不落账、`auto-triage`/`deploy-feedback` 只在真事件上 append），`conditional` 才是真实形态；只有 `auto-evolve` 每轮都落一行（`dispatched` 或 `no-whitelist-hit`）。改后 A12 现读 `16 腿 = ok 3 / n/a 12 / drift 0 / unjudged 1`：唯一一枚 `deploy-feedback` 是它自己连续多轮 `result=undetermined`（自报未判定）⇒ 按三分类落 `unjudged` 并点名"采集输入面断链"，**不冒充判过也不为了抹绿改标签**——**腿的分类不是凭名字想的，是从写盘分支读出来的**。
+### 5.66 第 66 项：把"历史存量"当现状读的四处（A13 恒红、A6 拿未判定当哑闸、两把锁写死 12 腿）
+
+- 现场一（A13）：读数 `自治环从未把产物送进 HEAD：会话结果档 38 枚 / 落地档 0 枚 / 拒绝档 13 枚`。第 64 项把落账腿的取数面接通之后它照旧红 —— 因为它读的是**全期存量**，而其后台账近三轮全是 `no-whitelist-hit`（一枚会话都没跑），修好没修好根本判不出。§0.2 对判历史存量的口径是只报数、红要落在可整改的那一跳上。
+- 处置一：A13 分三档，分界取证据面 —— ①会话档里**没有一枚**"会交产物"的档（`PROGRESS_ACTIONS` 交集为空：近 30 枚全是 failed/no-write/no-progress）⇒ `unjudged`，点名"落地腿结构上从未被要求答话，环为什么跑不出成功会话属 A1/A2/A8/A14 的轴"；②最后那枚 `session-ok` 之后连**拒绝行**都没有 ⇒ `drift`（保留抓力）；③最后一轮已答话（拒绝）⇒ `unjudged` 并把拒绝分布当**存量**报数。现读 `A13 = unjudged`（拒绝 13 枚照实报出）。
+- 现场二（A6）：`valveListText` 是坏 JSON 时它先命中"有派发尝试却零 valve-* 留痕"那条 ⇒ 判 `drift`。而规则表坏时分类器本身可能抛错被吞，零留痕分不清"没走到"与"走到了但炸了" ⇒ 这是拿"判不出"冒充"判过了"。
+- 处置二：覆盖率复算提前，`status=bad` **先**落 `unjudged`（读数保留 `覆盖率复算:❌ 未判定` 这一串），"哑闸"那一档只在其后生效。
+- 现场三/四：两把自检锁把腿数写死 12（登记表第 60 项起已 16 枚）⇒ 补登记即整片假红；`dep-radar` 的 `ruler` 写的是 `scripts/dep-radar.mjs`（盘上**不存在**），`selfReportToken` 缺失且真值应为"依赖通告:未判定"。
+- 处置三/四：两把锁改成按登记表长度现读（结构锁同时校验 `none`/`coveredBy` 两类的合法形态、`outputRel` 必须是 state 相对路径且指向真实台账）；登记表按器物真名改回 `scripts/dep-advisory-radar.mjs` 并补 `selfReportToken`。
+- 验证：`node scripts/check-autonomy-leg-health.mjs --self-test` **98 例全绿**（新增 H62b 真静默 drift / H62c 无成功会话 unjudged）；`node --test scripts/tests/autonomy-leg-output.test.mjs` **24 passed**（T21/T22 改为动态腿数）；`autonomy-leg-health-output.test.mjs` 11 passed；体检现读 `AUTONOMY-LEG state=unjudged OK=13 DRIFT=0 UNJUDGED=2`（A12 的 1 枚 `deploy-feedback` 自报未判定 + A13 的存量档，都是点名不冒红）。
 ## 6. 剩余候选的处置结论（"剩余都要做"的兑现清单）
 
 用户要求"剩余都要做"，本轮的处置是**把能做的真做出来**（5.14–5.16 三项新落地），只对"已有等价实现"与"产品形态决策"两类给出硬证据：
