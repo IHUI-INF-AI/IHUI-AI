@@ -111,7 +111,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — warn | 34 | `guardianWarn` |
 | 跟踪文件 | 23099 | `trackedFiles` |
 
-上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-20。
+上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -5477,6 +5477,46 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-21**
+- 🐞 修复:号池模型按登记集合判定通道(修「本轮没有返回任何内容」) (b87863c62ae)
+- 🐞 修复:删除 TOOL_DISPLAY_KEYS 内 hr_* 六枚重复键(TS1117 阻断生产 build)+ 键名对齐 i18n 五语言 (44297e93005)
+- 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.91 (e2098194515)
+- 📚 文档:生成块 trackedFiles 23097 按 HEAD 面现算修正(上枚仅改对 testFiles) (00da6abe26a)
+- 📚 文档:生成块 testFiles 5945 / trackedFiles 23097 按 HEAD 面现算对齐(推送面含他人 README 提交,门 173 问责本枚;派生数字行) (f3b9486704e)
+- 📚 文档:数字块按 HEAD 树派生重钉(testFiles 5945 / trackedFiles 23097) (8644f208147)
+- 🐞 修复:补回 StreamRelayChatOptions.reasoningEffort 类型字段与透传参数(修生产构建 TS2353) (e589ceee441)
+- 📚 文档:跟踪文件数按推送面现算重钉(23097) (348a9dd0b7b)
+- 🐞 修复:模态档(image/video/tts/asr/ocr)不再被 chat 探针误杀。根因:model_health.filter_available 的探针打的是 chat completion,对媒体模型必然失败 ⇒ 生产 /llm/models 只剩 21 条全 chat,image/video/vision 一条不剩,选择器看不到模态档。修法:过滤前先分类拿 category,过滤后用新增纯判据 restore_modality_entries 只补回被摘掉的模态条目(幂等,不复活探针判死的聊天模型,不带回 embedding/rerank/guard);媒体能否产出仍由生成通道裁决(/image-gen 未接通回 400 + 可用清单)。测试 +3 例,30 passed;mypy strict 2 文件 Success。IHUI_LAND_SKIP_DANGLING_GATE=1 原因:改动仅 python 三文件,全仓悬空扫描与本次无关且单次 >40min。 (028370f04d6)
+- 🐞 修复:工具卡片改用 toolHr*Card 专属键名(避免与 taskStatus 同名重复) (20d28b34d23)
+- 📚 文档:派生数字按 HEAD 现算重钉(测试文件 5945 / 跟踪文件 23095) (1ba98379be5)
+- 🔧 工程/其他:README 生成块按 HEAD 面现算值刷新(testFiles 5945 / trackedFiles 23095) (5b6e4c76061)
+- 🚀 新功能/改进:shell 集成原语 prompt(OSC 133 四标记 + OSC 7 工作目录)与屏幕取字 cell (fe89d3d262f)
+- 🚀 新功能/改进:自更新检查加固 —— 多路兜底 + 硬超时 + 完整诊断链 + 失败退避 (0.1.91) (882f4efc936)
+- 📚 文档:刷新 trackedFiles 生成块(23095) (8fd8e3bb41a)
+- 🚀 新功能/改进:钩子明细块抽成 HookRunDetail 并补组件级断言(第48项) - 最近一帧的三态读数/逐行 data-hook-status 不再无测试 (707d80b22c4)
+- 🚀 新功能/改进:工具卡片补人事六枚 hr_* 的五语言功能名(界面不再显示英文码名) (eb66ec8474f)
+- 🚀 新功能/改进:号池模型推理档位实测落账并接入输入区 (04ee8dacc3a)
+- 🐞 修复:门44 白名单登记机主本地运维脚本 + 两枚文件补水印载荷(守门 44/47) (d460e012be0)
+- 🚀 新功能/改进:更新 feed 直链改由运行期按 Gitee 字节对账决定(烘焙只提供版本/签名,以后发版不再需要人重烘焙直链) (7e762ac4459)
+- 🚀 新功能/改进:AI 输入框补人事工具条件携带(此前 hr_* 六枚未进 agentTools,真机实测模型答复"找不到人事工具") (56582f28e60)
+- 📚 文档:hook-run 六端按档登记为已知缺口(第47项) - 新增帧不许静默,端能力门 hook-run 一族 12 行清零 (27e7a9a2344)
+- 🔧 工程/其他:烘焙桌面端更新 feed 到 0.1.90 (077491b33b4)
+- 🐞 修复:load_cache_index 缓存命中分支与上游同一形态收窄类型(no-any-return) (ac9694ca517)
+- 🐞 修复:load_cache_index 缓存命中分支显式收窄类型(no-any-return) - 写入口只有 typed index 赋值,读回 cast 到 dict[str,list[str]] (acdd3d4eb1d)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (346fc72dbdd)
+- 🐞 修复:dev:local 的 beforeDevCommand 改为绝对路径 (d0e5451163f)
+- 📚 文档:模块 docstring 补齐传统终端原语清单(focus/paste/mouse/links/cursor…) (fa17e7db27e)
+- 🐞 修复:重封根护栏清单 git-guardian 哈希(43bf5a51c441)。2be0a1df413 对 git-guardian.mjs +92 行(gitee 发版资产补齐,已具名追认)未同枚重封,导致生产部署环 root-guard fail-closed 全面阻塞(部署不推进 ⇒ ai-service 停在旧版 ⇒ 模型目录仍 21 条全 chat)。IHUI_LAND_SKIP_DANGLING_GATE=1 原因:本次仅清单哈希一行,全仓悬空扫描与改动无关且单次 >40min。 (b971e461908)
+- 🐞 修复:镜像索引返回值显式 cast,消 mypy no-any-return (b9210a0f5b6)
+- 📚 文档:派生数字按合并后 HEAD 现算重钉(测试文件 5943 / 跟踪文件 23092) (2fe9b1bc9a1)
+- 🔧 工程/其他:0.1.90 (版本号推进, 用于验证自更新回执闭环) (9f43b38d9ee)
+- 🐞 修复:推理力度滑块两处任意值投影归入 ELEVATION 唯一源(守门 318:轨道改 elevation-none+ring-inset,拇指改 elevation-sm) (6c23fa83f64)
+- 🚀 新功能/改进:桌面更新源 0.1.89 四平台直链全部切国内 Gitee(此前只有 Windows 走 Gitee,国内补齐后 mac/linux 也齐) (12dfbba37e5)
+- 📚 文档:派生数字按门现算值刷新(测试文件 5941 / 跟踪文件 23084) (33698e5f079)
+- 🚀 新功能/改进:人事部自助/算薪六枚工具补展示映射与五语言文案(守门 55:132/138→138/138) (721ff11a1a6)
+- 🐞 修复:推理档位真值落镜像文件,池同步清 metadata 后仍能匹配 (123ea4e01ce)
+- 🚀 新功能/改进:真 VT 屏幕网格 + cursor 原语(光标位置记账,不再拿行流水冒充屏幕) (bba52834acf)
+
 **2026-11-21**
 - 📚 文档:具名追认 2be0a1df(Gitee 发版资产补齐)对 git-guardian.mjs 的追加式改动 (68a44c3d557)
 - 📚 文档:README 生成块按 HEAD 面现算对齐(testFiles 5942 / trackedFiles 23088,随本票新增 2 路径 DN5 同步) (93e75ee4da2)
