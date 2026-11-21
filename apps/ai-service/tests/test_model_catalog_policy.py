@@ -24,6 +24,11 @@ from app.services.model_catalog_policy import (
         "workbuddy/glm-4.7",
         "workbuddy/glm-5.1",
         "workbuddy/deepseek-v3-2-volc",
+        # 2026-11-21 机主点名:无版本号的 DeepSeek 老别名与 R1 代也属历史模型
+        "deepseek-chat",
+        "deepseek-flash",
+        "deepseek-ai/deepseek-r1",
+        "deepseek-ai/deepseek-r1-0528-qwen3-8b",
         "workbuddy/minimax-m2.5",
         "agnes/agnes-2.5-pro",
         "grok-4.3",
@@ -81,9 +86,13 @@ def test_filter_frontier_can_be_disabled(monkeypatch):
 
 
 def test_every_legacy_id_is_a_full_model_id():
-    """清单必须是完整 id(带厂商前缀/大小写原样),否则过滤永远命不中。"""
+    """清单必须是完整 id(带厂商前缀/大小写原样),否则过滤永远命不中。
+
+    `deepseek-` 开头的是 provider 自带的裸 id(目录里就叫 `deepseek-chat`,
+    没有前缀),与 `grok-` / `llama` 同列 —— 不是漏写厂商前缀。
+    """
     for model_id in LEGACY_MODEL_IDS:
-        assert "/" in model_id or model_id.startswith(("grok-", "llama")), model_id
+        assert "/" in model_id or model_id.startswith(("grok-", "llama", "deepseek-")), model_id
         assert model_id == model_id.strip()
 
 

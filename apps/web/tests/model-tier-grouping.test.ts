@@ -22,7 +22,9 @@ import {
   buildCapabilitySegments,
   filterByCapabilities,
   formatContextTokens,
+  formatModelDisplayLabel,
   groupByCategory,
+  sortByCategoryOrder,
   splitByTier,
   type ModelOption,
 } from '@/components/chat/model-tier-utils'
@@ -121,6 +123,30 @@ describe('splitByTier — 选择器只留可选模型(2026-11-20 取消历史区
     expect(primary).toHaveLength(1)
     expect(archived).toHaveLength(0)
   })
+
+  it('后端判为 minor-behind(上一代)的模型不进默认列表', () => {
+    const { primary } = splitByTier([
+      {
+        ...opt('agnes-image-2.1-flash', 'image', 'standard'),
+        classifyReason: 'minor-behind (agnes-image 2.1 < 2.5)',
+      },
+      {
+        ...opt('agnes-image-2.5-flash', 'image', 'standard'),
+        classifyReason: 'unclassified-default (provider=agnes)',
+      },
+    ])
+    // 上一代被摘掉,当前代 standard 保留 —— 不一刀切藏掉能调通的模型
+    expect(primary.map((m) => m.value)).toEqual(['agnes-image-2.5-flash'])
+  })
+
+  it('classifyReason 缺失或非 minor-behind 时一律保留(不误藏)', () => {
+    const { primary } = splitByTier([
+      { ...opt('no-reason', 'chat', 'standard') },
+      { ...opt('variant', 'chat', 'standard'), classifyReason: 'pricing-or-snapshot-variant' },
+      { ...opt('older', 'chat', 'legacy'), classifyReason: 'older-generation (x 3 < 4)' },
+    ])
+    expect(primary.map((m) => m.value)).toEqual(['no-reason', 'variant'])
+  })
 })
 
 describe('groupByCategory — 历史模型区按用途分组', () => {
@@ -146,6 +172,103 @@ describe('groupByCategory — 历史模型区按用途分组', () => {
 
   it('空输入返回空分组', () => {
     expect(groupByCategory([])).toEqual([])
+  })
+})
+
+describe('sortByCategoryOrder — 平台组内按用途排序(2026-11-21 用户定档)', () => {
+  it('组间按 MODEL_CATEGORY_META.order:对话 → 视觉 → 语音 → 图像 → 视频 → OCR', () => {
+    const sorted = sortByCategoryOrder([
+      opt('flux-image', 'image', 'latest'),
+      opt('veo-video', 'video', 'latest'),
+      opt('whisper', 'asr', 'latest'),
+      opt('chat-b', 'chat', 'latest'),
+      opt('vision-a', 'vision', 'latest'),
+      opt('tts-a', 'tts', 'latest'),
+      opt('paddle-ocr', 'ocr', 'latest'),
+    ])
+    expect(sorted.map((m) => m.value)).toEqual([
+      'chat-b',
+      'vision-a',
+      'tts-a',
+      'whisper',
+      'flux-image',
+      'veo-video',
+      'paddle-ocr',
+    ])
+  })
+
+  it('同用途内:代次 latest 在前,再按名称升序', () => {
+    const sorted = sortByCategoryOrder([
+      opt('zebra-legacy', 'chat', 'legacy'),
+      opt('apple-latest', 'chat', 'latest'),
+      opt('mango-standard', 'chat', 'standard'),
+      opt('banana-latest', 'chat', 'latest'),
+    ])
+    expect(sorted.map((m) => m.value)).toEqual([
+      'apple-latest',
+      'banana-latest',
+      'mango-standard',
+      'zebra-legacy',
+    ])
+  })
+
+  it('category 缺失按对话处理,未知枚举同样回落对话而不是排到末尾', () => {
+    const sorted = sortByCategoryOrder([
+      opt('flux', 'image', 'latest'),
+      opt('no-category'),
+      opt('weird', 'nope' as ModelOption['category'], 'latest'),
+    ])
+    expect(sorted.map((m) => m.value)).toEqual(['no-category', 'weird', 'flux'])
+  })
+
+  it('不改传入数组(调用方 useMemo 里的原件不能被就地重排)', () => {
+    const input = [opt('flux', 'image', 'latest'), opt('chat', 'chat', 'latest')]
+    const before = input.map((m) => m.value)
+    sortByCategoryOrder(input)
+    expect(input.map((m) => m.value)).toEqual(before)
+  })
+
+  it('名称比较忽略大小写(2026-11-21 用户报「大小写没区分好」)', () => {
+    const sorted = sortByCategoryOrder([
+      { ...opt('b', 'chat', 'latest'), label: 'zeta' },
+      { ...opt('a', 'chat', 'latest'), label: 'Alpha' },
+      { ...opt('c', 'chat', 'latest'), label: 'beta' },
+    ])
+    // 忽略大小写后 alpha < beta < zeta;不能因为大写/小写把顺序打乱
+    expect(sorted.map((m) => m.label)).toEqual(['Alpha', 'beta', 'zeta'])
+  })
+
+  it('数字按数值序(V4.1 在 V4.10 之前),不按字典序', () => {
+    const sorted = sortByCategoryOrder([
+      { ...opt('a', 'chat', 'latest'), label: 'GLM V4.10' },
+      { ...opt('b', 'chat', 'latest'), label: 'GLM V4.1' },
+    ])
+    expect(sorted.map((m) => m.label)).toEqual(['GLM V4.1', 'GLM V4.10'])
+  })
+})
+
+describe('formatModelDisplayLabel — 统一模型名大小写形态(2026-11-21 立)', () => {
+  it('裸代码形名称整理成人类可读词形,品牌缩写保持大写', () => {
+    expect(formatModelDisplayLabel('deepseek-v4.1-flash', 'deepseek-v4.1-flash')).toBe(
+      'DeepSeek V4.1 Flash',
+    )
+    expect(formatModelDisplayLabel('gpt-5.4-mini', 'gpt-5.4-mini')).toBe('GPT 5.4 Mini')
+    expect(formatModelDisplayLabel('glm-5.3', 'glm-5.3')).toBe('GLM 5.3')
+  })
+
+  it('已有人工展示名(带大写或中文)一律原样保留,不改品牌写法', () => {
+    expect(formatModelDisplayLabel('DeepSeek-V4.1-Flash', 'x')).toBe('DeepSeek-V4.1-Flash')
+    expect(formatModelDisplayLabel('Agnes 图像 2.5 Flash (文生图,默认档)', 'x')).toBe(
+      'Agnes 图像 2.5 Flash (文生图,默认档)',
+    )
+    expect(formatModelDisplayLabel('GPT-6.2 Astra Pro', 'x')).toBe('GPT-6.2 Astra Pro')
+  })
+
+  it('name 缺失时退回整理 id;都为空时返回空串而不是崩', () => {
+    expect(formatModelDisplayLabel(undefined, 'qwen3.8-max')).toBe('Qwen3.8 Max')
+    // 带上游命名空间的 id 只留最后一段,不能把 zai-org 当模型名一起拼进去
+    expect(formatModelDisplayLabel(undefined, '@cf/zai-org/glm-4.7-flash')).toBe('GLM 4.7 Flash')
+    expect(formatModelDisplayLabel('', '')).toBe('')
   })
 })
 

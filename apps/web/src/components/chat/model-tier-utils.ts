@@ -58,6 +58,10 @@ export interface ModelOption {
   tier?: ModelTier
   /** 系列名(如 `deepseek-v`),代次比较用,调试可查 */
   family?: string
+  /** 后端代次判定原因(2026-11-21 立,`classify_reason` 原样透传):
+   *  `minor-behind` = 同系列次版本落后(上一代,如 Agnes 图像 2.1 < 2.5),
+   *  默认列表不再摆出来;其余原因(含字段缺失)按可展示处理,不误藏。 */
+  classifyReason?: string
   /** 语义能力四布尔(2026-09-19 D23 立,后端 capabilities 透传):驱动能力过滤与徽章 */
   capabilities?: ModelCapabilities
   /** 是否已通过连通性探测(2026-11-11 立):仅后端 health_status==='healthy' 时为 true;
@@ -198,6 +202,11 @@ export function filterByCapabilities(
  * 等模态模型照常出现,行内以用途徽章区分。后端字段缺失时兜底为 chat+latest ⇒ 保留,
  * 宁可多显示也不误藏。
  *
+ * 2026-11-21 追加(用户报「列表里还有历史旧代模型」):后端判为 `minor-behind`
+ * 的**同系列次版本落后**条目(如 `Agnes 图像 2.1 Flash(上一代)`)不再进默认列表 ——
+ * 它既没老到 legacy 被筛掉,又确实是上一代。当前代但未进白名单的 standard
+ * (`unclassified-default`)照旧保留,不能一刀切藏掉能调通的模型。
+ *
  * 返回值仍保留 `archived`(恒为空)只为兼容调用方的既有结构;UI 侧
  * `archived.length > 0` 的条件会让历史区整块不再渲染。
  */
@@ -207,6 +216,7 @@ export function splitByTier(options: ModelOption[]): {
 } {
   const primary: ModelOption[] = []
   for (const opt of options) {
+    if (opt.classifyReason?.startsWith('minor-behind')) continue
     const category = normalizeCategory(opt.category)
     const tier = normalizeTier(opt.tier)
     if (isSelectableChatModel(category, tier, opt.id)) primary.push(opt)
@@ -236,9 +246,105 @@ export function groupByCategory(
       const ta = MODEL_TIER_ORDER[normalizeTier(a.tier)]
       const tb = MODEL_TIER_ORDER[normalizeTier(b.tier)]
       if (ta !== tb) return ta - tb
-      return a.label.localeCompare(b.label)
+      // 2026-11-21 立(用户报「模型名大小写没区分好」):名称比较必须**忽略大小写**
+      // ——默认 sensitivity=variant 时 `GLM-5.3` 与 `glm-5.3-flash` 的先后受原始
+      // 大小写影响,列表看起来是乱的。numeric 让 v4.1 排在 v4.10 之前(数字序,
+      // 不是字典序);大小写完全相同的两个名字再回落到原始串比较,保证顺序稳定。
+      const byName = a.label.localeCompare(b.label, 'zh-Hans-CN', {
+        sensitivity: 'base',
+        numeric: true,
+      })
+      return byName !== 0 ? byName : a.label.localeCompare(b.label)
     })
   }
   return groups
+}
+
+const MODEL_BRAND_TOKENS: Record<string, string> = {
+  gpt: 'GPT',
+  glm: 'GLM',
+  qwen: 'Qwen',
+  deepseek: 'DeepSeek',
+  claude: 'Claude',
+  gemini: 'Gemini',
+  llama: 'Llama',
+  mistral: 'Mistral',
+  grok: 'Grok',
+  kimi: 'Kimi',
+  mimo: 'MiMo',
+  minimax: 'MiniMax',
+  whisper: 'Whisper',
+  flux: 'FLUX',
+  sdxl: 'SDXL',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  nvidia: 'NVIDIA',
+  xai: 'xAI',
+  hunyuan: 'Hunyuan',
+  ernie: 'ERNIE',
+  doubao: 'Doubao',
+  // 用途/能力缩写统一大写,避免 `mimo-v2.5-tts` 被整成 "Tts"
+  tts: 'TTS',
+  asr: 'ASR',
+  ocr: 'OCR',
+  vl: 'VL',
+  vlm: 'VLM',
+  oss: 'OSS',
+}
+
+/** 裸代码形名称:全小写 ASCII、带分隔符(如 `deepseek-v4.1-flash` / `gpt-5.4-mini`) */
+const RAW_MODEL_CODE_RE = /^[a-z0-9@][a-z0-9@._:/+-]*$/
+
+function isRawModelCode(value: string): boolean {
+  return !!value && RAW_MODEL_CODE_RE.test(value) && /[a-z]/.test(value)
+}
+
+/** 把裸模型代码整理成人类可读名:`deepseek-v4.1-flash` → `DeepSeek V4.1 Flash`。
+ *  只在名称本身是裸代码时才用,已带大写/中文的展示名一律原样保留(不乱改品牌写法)。 */
+function prettifyModelCode(code: string): string {
+  // 去掉上游命名空间(openrouter/、@cf/zai-org/…),只留最后一段模型本体
+  const raw = code.trim()
+  const body = raw.includes('/') ? raw.slice(raw.lastIndexOf('/') + 1) : raw
+  return body
+    .split(/[/\-_:\s]+/)
+    .filter(Boolean)
+    .map((token) => {
+      const lower = token.toLowerCase()
+      const brand = MODEL_BRAND_TOKENS[lower]
+      if (brand) return brand
+      if (/^v?\d+([.]\d+)*$/.test(lower)) return token.replace(/^v/i, 'V')
+      if (/^\d+[a-z]$/.test(lower)) return token.slice(0, -1) + token.slice(-1).toUpperCase()
+      return token.charAt(0).toUpperCase() + token.slice(1)
+    })
+    .join(' ')
+}
+
+/**
+ * 选择器展示名(2026-11-21 立,治「模型名有的还没区分好大小写字母」)。
+ *
+ * 后端 `name` 有两种形态:人工整理的展示名(`DeepSeek V4.1 Flash`)与从 id 抄来的
+ * 裸代码(`deepseek-v4.1-flash` / `gpt-5.4-mini`)。同一列表里混着两种,看起来就像
+ * 「大小写没区分好」。这里只把**裸代码形**整理成统一词形,其余原样返回:
+ *  - `name` 有内容且不是裸代码 → 原样用 `name`
+ *  - `name` 缺失或是裸代码 → 优先整理 `name`,再退回整理 `id`
+ *  - 都为空 → 返回 `id` 原值(不吞掉条目)
+ */
+export function formatModelDisplayLabel(name: string | undefined, id: string): string {
+  const shown = (name ?? '').trim()
+  if (shown && !isRawModelCode(shown)) return shown
+  const pretty = prettifyModelCode(shown || (id ?? '').trim())
+  return pretty || shown || (id ?? '')
+}
+
+/**
+ * 平台组内按用途排序(2026-11-21 立,用户定档「保持平台一级、组内按用途排序」)。
+ *
+ * 直接复用 `groupByCategory` 的分组与组内排序口径(§0.6 单一真相源):
+ * 组间顺序 = `MODEL_CATEGORY_META.order`(对话 → 视觉 → 语音 → 图像 → 视频…),
+ * 组内 = 代次(latest → standard → legacy)→ 名称。
+ * 返回新数组,不改传入列表(调用方在 useMemo 里持有 option 原件)。
+ */
+export function sortByCategoryOrder(options: ModelOption[]): ModelOption[] {
+  return groupByCategory(options).flatMap(([, items]) => items)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

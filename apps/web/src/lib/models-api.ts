@@ -67,6 +67,10 @@ export interface SelectorModel extends LlmModel {
     tools: boolean | null
     context: { ok: boolean | null; tokens: number }
   }
+  /** 后端代次判定原因(2026-11-21 立,`classify_reason` 原样透传)。
+   *  `minor-behind` = 同系列次版本落后(上一代),选择器默认不再摆出来;
+   *  字段缺失/其他原因按可展示处理,不误藏。 */
+  classify_reason?: string
 }
 
 /**
