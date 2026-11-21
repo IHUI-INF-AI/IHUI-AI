@@ -7,8 +7,12 @@
  * user-feedback-intake — user_feedback 源 → 事故事实信号 的单源入口(2026-10-28 立)。
  *
  * 为什么还需要这一格(现场实测,不是推测):
- *   `scripts/monitor-signal-intake.mjs` 的 `SOURCE_PLAN.user_feedback` 已经把映射做完了,但
- *   全仓 **零调用点** —— 没有 guardian 派发、没有 npm script、没有 CI 步骤(§0.9「造好没装车 = 没有」)。
+ *   `scripts/monitor-signal-intake.mjs` 的 `SOURCE_PLAN.user_feedback` 已经把映射做完了,而本器
+ *   是这一源**可被单独调度**的入口(2026-10-28 立时全仓没有任何调度面,§0.9「造好没装车 = 没有」;
+ *   2026-11-21 第 79 项已装车:调度面 = `git-guardian.mjs` 的 `dispatchUserFeedbackIntake`,
+ *   `--apply --json`、30 分钟节流、`IHUI_USER_FEEDBACK_INTAKE_INTERVAL_MS` 可调、
+ *   `IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_INTAKE=1` 可关,main 单轮与 daemon tick 双挂点;
+ *   结论行 `judged=0`/`undetermined≠0` 由调度面记未判定,不记绿)。
  *   而 user_feedback 的取数面是**本地导出件**(零网络、零 DB),与 api_logs / grafana 两源
  *   绑在同一个入口里跑是次优:任何一源的发现在同一轮里混着走,单源坏掉时谁都看不出是哪一段停摆。
  *   本器只补「可被单独调度的入口」这一格,不搬任何判据、不改任何既有语义。

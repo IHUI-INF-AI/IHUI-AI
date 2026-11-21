@@ -40,9 +40,15 @@ describe('POST /v1/videos/generations 的 vendor → 内部路由链', () => {
     expect(resolveVideoVendorRoute('agnes', SEED).path).not.toBe('/api/ai/sora2/generate')
   })
 
-  it('未登记 vendor 与缺省都落 sora2 兜底;vendor 大小写不敏感', () => {
-    expect(resolveVideoVendorRoute('nobody', SEED).path).toBe('/api/ai/sora2/generate')
-    expect(resolveVideoVendorRoute(undefined, SEED).path).toBe('/api/ai/sora2/generate')
+  it('未登记 vendor 与缺省都显式拒绝(不再静默落到已停服的 sora2);vendor 大小写不敏感', () => {
+    // Sora 通道 2026-09-24 停服 ⇒ 缺省兜底从"静默落 sora2"改成"提交即显式拒绝":
+    // 静默回落会让提交返回 taskId、按次照扣费,而任务永远查不到结果(计费与出片两头都对不上)。
+    const unknown = resolveVideoVendorRoute('nobody', SEED)
+    expect(unknown.path).toBe('')
+    expect(unknown.reject).toContain('未接通')
+    const fallback = resolveVideoVendorRoute(undefined, SEED)
+    expect(fallback.path).toBe('')
+    expect((fallback.reject ?? '').length).toBeGreaterThan(0)
     expect(resolveVideoVendorRoute('AGNES', SEED).path).toBe('/api/ai/agnes/video')
     expect(resolveVideoVendorRoute(' agnes ', SEED).path).toBe('/api/ai/agnes/video')
   })
@@ -53,7 +59,6 @@ describe('POST /v1/videos/generations 的 vendor → 内部路由链', () => {
     // 阳性对照(同一把尺子必须能打到别人):其余厂商的 duration 适配逐字不变
     expect(resolveVideoVendorRoute('kling', { ...SEED, duration: 5 }).body.duration).toBe('5')
     expect(resolveVideoVendorRoute('luma', { ...SEED, duration: 5 }).body.duration).toBe('5s')
-    expect(resolveVideoVendorRoute('sora2', { ...SEED, duration: 5 }).body.duration).toBe(5)
   })
 
   it('三个厂商的 image 改名(既有适配不得被改坏)', () => {

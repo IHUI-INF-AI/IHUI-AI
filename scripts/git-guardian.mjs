@@ -6592,6 +6592,235 @@ export function sweepRefMoveLoss(opts = {}) {
   }
 }
 
+/**
+ * IP 归属可信度巡检轮(第 78 项,2026-11-21)。
+ *
+ * 立因:尺子 `scripts/check-ip-attribution-trust.mjs` 头注自述"调度面 = git-guardian 巡检轮",
+ * 而守护器里零引用 —— 门 `check-guardian-dispatch-claims` 现读把它逐点名(
+ * `❌ … 头注声称走 git-guardian 周期派发,但 scripts/git-guardian.mjs 代码面零引用`)。
+ * 这一格瞎掉的后果不是"少一条读数":它判的是"admin 网络分段 / IP 信誉封禁 / 限流键会不会
+ * 退化成『填 127.0.0.1 即以内网身份通行』",靠的就是"没人往信任表里加公网地址"这个巧合。
+ * 没人按节拍看 ⇒ 巧合消失的那一刻没人知道。
+ *
+ * 只判不修(与本守护其余巡检轮同一取向):函数体内唯一写盘目标 = 节流戳。
+ * 三态绝不并桶(§0.3):ok 一行读数;breach 逐档点名与出路(§5e-2:出路是 agent 当场能做的
+ * 「先改 cf-connecting-ip 口径再保留本表项」⇒ 不寄信,出声在日志与节流戳两处);
+ * unjudged(.env 取不到)记未判定,不记绿 —— 下一轮照旧重判。
+ */
+const IP_TRUST_INTERVAL_MS = Number(process.env.IHUI_IP_TRUST_INTERVAL_MS || 30 * 60 * 1000)
+
+export async function sweepIpAttributionTrust(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = IP_TRUST_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'ip-attribution-trust-sweep-last.json'),
+    logger = log,
+    runner = null,
+    scriptFile = null,
+  } = opts
+  const script =
+    scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'check-ip-attribution-trust.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ IP 归属:尺子不在位(scripts/check-ip-attribution-trust.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const lastAt = tick ? Date.parse(String(tick.attemptAt ?? '').trim()) : NaN
+  if (Number.isFinite(lastAt) && now - lastAt < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ IP 归属:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧重判`)
+  }
+  const raw =
+    typeof runner === 'function' ? runner() : await runLegChild(script, ['--json'], 5 * 60 * 1000)
+  beatRoundLock()
+  const r = typeof raw === 'string' ? { status: 0, stdout: raw, stderr: '' } : raw
+  const stdout = String(r?.stdout ?? '')
+  let verdict = null
+  try {
+    verdict = JSON.parse(stdout.trim().split(/\r?\n/).filter(Boolean).pop() ?? '')
+  } catch {
+    verdict = null
+  }
+  const state = String(verdict?.state ?? '')
+  if (state === 'ok') {
+    logger(`🧭 IP 归属:ok —— ${String(verdict.reason ?? '').slice(0, 140)}`)
+    return { ran: true, state: 'ok' }
+  }
+  if (state === 'breach') {
+    logger(`🚨 IP 归属:breach —— ${String(verdict.reason ?? '').slice(0, 200)}`)
+    if (verdict.fix) logger(`   出路: ${String(verdict.fix).slice(0, 200)}`)
+    return { ran: true, state: 'breach' }
+  }
+  // 取不到结论 ⇒ 未判定(§0.3):不记绿、不冒红,逐条点名取不到的形态
+  logger(
+    `⚠️ IP 归属:未判定(${state === 'unjudged' ? String(verdict?.reason ?? '').slice(0, 140) : `结论取不到(exit=${r?.status ?? '?'};stdout 末尾=${stdout.trim().slice(-60) || '(空)'})`})`,
+  )
+  return { ran: true, state: 'unjudged' }
+}
+
+/**
+ * user_feedback 单源入口派发器(第 79 项,2026-11-21)。
+ *
+ * 立因:`scripts/user-feedback-intake.mjs` 的头注自述"全仓零调用点 —— 没有 guardian 派发、
+ * 没有 npm script、没有 CI 步骤(§0.9「造好没装车 = 没有」)",而它是 user_feedback 源的
+ * **单源入口**(身份/映射/去重全部 import monitor-signal-intake 与 incident-cluster,不另造判据)。
+ * 门 `check-guardian-dispatch-claims` 把它列为"诚实说明"(不判红)—— 诚实写在纸面,但那一源
+ * 事实上永远进不了账:本地导出件再新也没人读。
+ *
+ * 三态只认器物自己的结论行(§0.3):`USER-FEEDBACK-INTAKE judged=0 undetermined=1`
+ * (导出件缺失/陈旧/契约坏)⇒ `ok=false` 且逐行 warn,不记绿;`signals=0` 属已判定,记绿。
+ * 器物缺席 ⇒ `ran=false` 不写戳;节流 30 分钟(`IHUI_USER_FEEDBACK_INTAKE_INTERVAL_MS` 可调),
+ * 关断开关 `IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_INTAKE=1`。
+ */
+const USER_FEEDBACK_INTERVAL_MS = Number(
+  process.env.IHUI_USER_FEEDBACK_INTAKE_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function dispatchUserFeedbackIntake(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = USER_FEEDBACK_INTERVAL_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'user-feedback-intake-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    exists = existsSync,
+    scriptFile = null,
+  } = opts
+  if (String(process.env.IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_INTAKE || '') === '1')
+    return { ran: false, why: 'kill-switch(IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_INTAKE=1)' }
+  const script = scriptFile ?? join(WORKTREE, 'scripts', 'user-feedback-intake.mjs')
+  if (!exists(script)) {
+    logger('ℹ️ user_feedback 入库:器物不在位(scripts/user-feedback-intake.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物缺席' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 ⇒ 首跑 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ user_feedback 入库:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const out = String(r?.out ?? '')
+  const rows = out.split(/\r?\n/)
+  const resultLine = rows.map((l) => l.match(/USER-FEEDBACK-INTAKE(?:[^\r\n]*)/) ?? null).find(Boolean)
+  if (!resultLine) {
+    logger(`⚠️ user_feedback 入库:无结论行(${String(r?.err ?? out).slice(0, 120) || '静默'})⇒ 未判定,不记绿`)
+    return { ran: true, ok: false }
+  }
+  const line = String(resultLine[0])
+  const undetermined = /judged=0|undetermined=[1-9]/.test(line)
+  if (undetermined) logger(`⚠️ user_feedback 入库:未判定 —— ${line.slice(0, 160)}(导出件缺失/陈旧或契约坏,不记绿)`)
+  else logger(`🧾 user_feedback 入库:${line.slice(0, 160)}`)
+  return { ran: true, ok: !undetermined }
+}
+
+
+/**
+ * 监控三源入库派发器(第 58 项 / 第 77 项,2026-11-21)。
+ *
+ * 立因:契约 `monitor-signal-intake.mjs` 头注写明"由 git-guardian.mjs 的 dispatchMonitorSignalIntake
+ * 周期派发(--apply --json,30 分钟节流)",全仓零实现 —— 器物在、契约在、调度面一条不存在。
+ * 现读证据:`.ihui-agent/state/incident-signals.jsonl` 37 行全部 `source=deploy_outcome`,
+ * 三源(api_logs / grafana_alert / user_feedback)一条都没进过账;感知腿"名义四源、实际一源"
+ * (§0.9「造好没装车 = 没有」)。契约测试 `scripts/tests/monitor-signal-intake-dispatch.test.mjs`
+ * 逐条钉住下面每一行的形状,本函数照它实现,不另立判据。
+ *
+ * 三态只认器物自己的结论行(§0.3):无 `MONITOR-INTAKE` 结论行 ⇒ `ok=false`(未判定,不记绿)。
+ * 器物默认 dry-run ⇒ 调度面必须显式 `--apply`,否则永远零信号(测试①钉的就是这一条)。
+ * 节流 30 分钟、`IHUI_MONITOR_INTAKE_INTERVAL_MS` 可调、`IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1` 可关;
+ * 器物缺席 ⇒ `ran=false`(不写戳,不把"没跑"记成"跑过")。
+ */
+export function dispatchMonitorSignalIntake(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = Number(process.env.IHUI_MONITOR_INTAKE_INTERVAL_MS) || 30 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'monitor-signal-intake-dispatch-last.json'),
+    logger = log,
+    runner = null,
+    exists = existsSync,
+  } = opts
+  if (String(process.env.IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE || '') === '1')
+    return { ran: false, why: 'kill-switch(IHUI_GUARDIAN_DISABLE_MONITOR_INTAKE=1)' }
+  const script = join(WORKTREE, 'scripts', 'monitor-signal-intake.mjs')
+  if (!exists(script)) {
+    logger('ℹ️ 监控入库:器物不在位(scripts/monitor-signal-intake.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物缺席' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 ⇒ 首跑 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 监控入库:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply', '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const out = String(r?.out ?? '')
+  const rows = out.split(/\r?\n/)
+  const resultLine = rows.map((l) => l.match(/MONITOR-INTAKE(?:[^\r\n]*)/) ?? null).find(Boolean)
+  const tail = rows.filter((l) => /未判定|MONITOR-INTAKE|❌|拒绝/.test(l)).slice(-2).join(' / ')
+  if (!resultLine) logger(`⚠️ 监控入库:无结论行(${String(r?.err ?? out).slice(0, 120) || '静默'})⇒ 未判定,不记绿`)
+  else logger(`🧾 监控入库:${String(resultLine[0]).slice(0, 160)}`)
+  if (tail && !resultLine) logger(`   ${tail.slice(0, 160)}`)
+  return { ran: true, ok: !!r?.ok }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -14989,6 +15218,14 @@ async function main() {
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 第 77 项:监控三源入库只挂一次性 main() 会与 daemon 抢轮级锁(和 ref-move/gitee 同一条教训),
+    // 所以 main 与 daemon tick 双挂点都是必须的;节流戳在派发器自己身上(30 分钟)。
+    // 第 79 项:user_feedback 单源入口先落账(monitor-signal-intake 的三源里这一源由它单独供给),
+    // 与监控入库同族:只挂 main 会与 daemon 抢轮级锁,双挂点是必须的。
+    if (!CHECK_ONLY) dispatchUserFeedbackIntake()
+    if (!CHECK_ONLY) dispatchMonitorSignalIntake()
+    // 第 78 项:IP 归属可信度尺自述"调度面 = 本守护巡检轮",同族同因,双挂点。
+    sweepIpAttributionTrust().catch((e) => log(`⚠️ IP 归属巡检轮失败:${e?.message || e}`))
     // dev api 活体体检(2026-11-18 立):本机实测 api 跑满约 3 小时后 /api/auth/me 从毫秒级退化成
     // 20s 超时而 /health 仍 200 —— 只看端口/健康面测不出。后果放大到前端:refresh 走瞬时失败 ⇒
     // 冷启动停在"已登录无 token"混合态 ⇒ 模型选择器退回硬编码兜底。器物自带 5 分钟节流 +
@@ -15710,6 +15947,20 @@ function startDaemon(bootGuard = null) {
         sweepRnStyleTiers()
         sweepStaleClaimMarks()
         sweepStaleClosedRows()
+        // 第 76 项(2026-11-21,A9-carrier-parity 现读 drift 点名):这两条自愈腿此前只挂在一次性
+        // main() 里,而 daemon 从启动起一直持有轮级锁 ⇒ main() 每趟静默让路,两条腿**结构上跑不到**。
+        // 二者各自带节流戳,搬入常驻面零行为变更:
+        //   · sweepRefMoveLoss:5 分钟(ref-move-watch-last.json),派发器本身不自算判据;
+        //   · sweepGiteeAssetBackfill:30 分钟(gitee-backfill-tick.json),器物缺位只报一行不下结论。
+        // 与 main() 并存时双执行体只先到者真跑 —— 节流戳是两条腿自己的,不是本层另造一份。
+        sweepRefMoveLoss()
+        sweepGiteeAssetBackfill()
+        // 第 77 项:同一族"契约写了派发、全仓零调度"的补跳 —— 器物 scripts/monitor-signal-intake.mjs
+        // 自带 30 分钟节流戳(monitor-signal-intake-dispatch-last.json),与 main 双挂点只先到者真跑。
+        dispatchUserFeedbackIntake()
+        dispatchMonitorSignalIntake()
+        // 第 78 项:同一族(头注写了巡检轮、代码面零引用)的第二枚,同样两处挂点。
+        sweepIpAttributionTrust().catch((e) => log(`⚠️ IP 归属巡检轮失败:${e?.message || e}`))
         // 2026-11-18 立:dev api 活体体检(5 分钟节流,器物 scripts/check-api-liveness.mjs)。
         // 只认器物自己打的 API-LIVENESS 结论行;未判定(rc=2)不记绿,器物的重启护栏全在器物内。
         sweepApiLiveness()
