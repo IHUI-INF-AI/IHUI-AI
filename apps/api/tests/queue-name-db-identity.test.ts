@@ -305,6 +305,9 @@ async function driveFamilies(
   return out
 }
 
+// 2026-11-21 实测:本文件每条用例都要 `vi.resetModules()` 后重新 import 10+ 个 worker/queue 模块,
+// 单次 import 在 turbo 多包并发 + Windows 慢 IO 下可吃满 15s(日志实测 "Test timed out in 15000ms",
+// retry x2 后仍红)。这是**资源预算不足**,不是断言强弱 —— 故逐条给 60s 预算,一条断言都不改。
 describe('六族队列名 · 主库零扰动(契约①)', () => {
   it('主库 ihui、未设后缀 ⇒ 每族名字与线上现用字面量逐字节相同', async () => {
     const families = await driveFamilies(PRIMARY_DSN)
@@ -314,7 +317,7 @@ describe('六族队列名 · 主库零扰动(契约①)', () => {
     }
     // 号池族(修法在册的那一族)一起对照,防推广时把已接正的面改坏
     expect(families.relayAccountPool.producer).toBe(FAMILY_BASES.relayAccountPool)
-  })
+  }, 60_000)
 })
 
 describe('六族队列名 · 显式后缀隔离(契约②)', () => {
@@ -325,14 +328,14 @@ describe('六族队列名 · 显式后缀隔离(契约②)', () => {
       expect(families[key].consumer).toBe(`${FAMILY_BASES[key]}-slot-a`)
     }
     expect(families.relayAccountPool.producer).toBe(`${FAMILY_BASES.relayAccountPool}-slot-a`)
-  })
+  }, 60_000)
 
   it('隔离库 ihui_e2e(不设显式后缀)⇒ 六族带库名后缀(与号池族同一条规则)', async () => {
     const families = await driveFamilies(ISOLATED_DSN)
     for (const key of IN_SCOPE_FAMILIES) {
       expect(families[key].producer).toBe(`${FAMILY_BASES[key]}-ihui_e2e`)
     }
-  })
+  }, 60_000)
 
   it('任何一档产出都不许出现冒号(BullMQ QueueBase 见冒号即抛,启动会崩)', async () => {
     for (const [dsn, suffix] of [
@@ -347,7 +350,7 @@ describe('六族队列名 · 显式后缀隔离(契约②)', () => {
         expect(families[key].consumer.includes(':')).toBe(false)
       }
     }
-  })
+  }, 60_000)
 })
 
 describe('六族队列名 · 生产者与消费者同源(契约③)', () => {
@@ -365,6 +368,6 @@ describe('六族队列名 · 生产者与消费者同源(契约③)', () => {
         })
       }
     }
-  })
+  }, 60_000)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
