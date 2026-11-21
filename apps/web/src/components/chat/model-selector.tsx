@@ -309,10 +309,12 @@ function inferPointsMultiplier(modelId: string): number {
   return 1
 }
 
-/** Provider 健康状态 → 圆点徽章(装饰点豁免 rounded-full) */
-function ProviderHealthDot({ health }: { health: ProviderHealth }) {
+/** Provider 健康状态 → 圆点徽章(装饰点豁免 rounded-full)。
+ *  2026-11-22 根治:计数一律取"本组真实模型数",不再用上游 /models 的条数 ——
+ *  WorkBuddy 之类反代的上游 /models 返 0,组头会被读成"0 个模型可用",与实际 39 行自相矛盾。 */
+function ProviderHealthDot({ health, count }: { health: ProviderHealth; count: number }) {
   const t = useTranslations('chat')
-  const tip = t('providerHealthTip', { latency: health.latency_ms, count: health.model_count })
+  const tip = t('providerHealthTip', { latency: health.latency_ms, count })
   return (
     <Tooltip content={tip} side="top">
       <span
@@ -893,7 +895,11 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
       // 2026-11-11 立:只有 health_status==='healthy' 才是真 ping 通过;
       // 缺失/unknown/pending 均不可依赖,按未验证处理
       verified: m.health_status === 'healthy',
-      healthError: m.health_error,
+      // 2026-11-22 根治:后端 health_error 是探活期的上游原文(如 "ConnectError: All
+      // connection attempts failed"),只有"真被判死"的行才该把它挂出来;健康/可用行
+      // 带着这份陈旧错误串会让行 tooltip/无障碍名读成故障,与可用状态自相矛盾。
+      healthError:
+        m.health_reason && isBlockingReason(m.health_reason) ? m.health_error : undefined,
       // 2026-11-18 立:失败原因分档原样透传(quota/auth/model_missing/rate_limit),
       // 驱动行内"额度已尽/密钥失效/已下线"徽章与禁用态。
       healthReason: m.health_reason,
@@ -1483,7 +1489,9 @@ export function ModelSelector({
                   <span className="shrink-0 text-[10px] font-normal tabular-nums text-muted-foreground/80">
                     {items.length}
                   </span>
-                  {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
+                  {healthByVendor[vendor] && (
+                    <ProviderHealthDot health={healthByVendor[vendor]} count={items.length} />
+                  )}
                   {collapsed ? (
                     <ChevronDown
                       className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
