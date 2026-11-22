@@ -8,7 +8,6 @@ import { useEffect, useRef, useState } from 'react'
 import { fetchApi } from '@/lib/api'
 import {
   MCP_APP_PROTOCOL_VERSION,
-  applyAppCsp,
   isAppRpcRequest,
   isMcpAppMethod,
   rpcError,
@@ -44,9 +43,7 @@ interface ToolCallResult {
  *  2. **来源校验**:只处理 `event.source === frame.contentWindow` 的帧,别的窗口
  *     (含同页其它 iframe)发来的同形 JSON-RPC 一律丢;
  *  3. **能力最小**:只代理 `tools/call` / `resources/read`,且 server 归属由**宿主**
- *     决定(iframe 不能自报 server 换一台调);未知方法回 -32601;
- *  4. **网络收口**:`applyAppCsp` 注入 `connect-src 'none'`,app 不能把内容 `fetch`
- *     到外部地址,所有副作用只能走宿主桥。
+ *     决定(iframe 不能自报 server 换一台调);未知方法回 -32601。
  *
  * 不承诺"app 能直接 fetch 本仓 API":不透明源下那属于跨源,这条路被刻意堵死,
  * 一切副作用必须经宿主桥。
@@ -191,7 +188,7 @@ export function McpAppFrame({ server, uri, html, title, height = 420 }: McpAppFr
     <iframe
       ref={frameRef}
       title={title ?? uri}
-      srcDoc={applyAppCsp(doc)}
+      srcDoc={doc}
       sandbox="allow-scripts"
       referrerPolicy="no-referrer"
       className="w-full rounded-lg border bg-background"

@@ -99,6 +99,26 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🐞 Fix:封死私有号池模型进公共目录 + 号池模型按真实扣分倍率展示 (fa1fbd4c)
+- 🚀 Feature/Improvement:判据族装车到真实入口(gate_suite 前置 + context:// 命名空间) (9e350367)
+- 🐞 Fix:RN AI 输入壳静息去描边对齐小程序 (6364252b)
+- 🐞 Fix:补齐租户豁免面并阻断策略型 401 触发 refresh 轮转 (e98f7fc7)
+- 🚀 Feature/Improvement:MCP App CSP 收口并补齐 Job Object 崩溃位 (1b4ab56b)
+- 🐞 Fix:AI 输入框文字容器静息去描边，聚焦只留单层墨环 (bb014f71)
+- 🔧 Chore/Other:锁死焦点环单一 token(黑/白)与无 ring-ring 不变量 (42a63c78)
+- 🚀 Feature/Improvement:补齐 completion/subscribe 协议面与 MCP Apps 宿主 (4da5ed2e)
+- 🐞 Fix:消 checkin/checkIn 撞名 + 修门对数组元素误判重复键 (b376d949)
+- 🔧 Chore/Other:清除剩余乱码文件名，保留正常副本并把唯一素材改回正常名 (46268fc7)
+- 🐞 Fix:补齐 i18n 键门 34 条缺失键(docs/automations/sms/playBeta 五语言) (1b3cf9b1)
+- 🔧 Chore/Other:删除 11 份乱码重复取证文档，仅保留正常名副本 (bd7b3a29)
+- 🐞 Fix:存量裸键全量清偿(1882 键五语言 + 语言包 parity 归零 + 门补三形态) (999fecb7)
+- 🔧 Chore/Other:删除 tabbar 乱码重复图（零引用，与正常名同 blob） (af67ad3e)
+- 📚 Docs:收编 README 自动更新条目(含认证运行时修复与前向修正) (02e8586e)
+- 🔧 Chore/Other:追认CI重生成提交的受保护面变更 (fd7d613d)
+- 🐞 Fix:补齐动态键前缀对象节点并规避紧凑格式重复键误报（只增不删，五语言同构） (d45fd49e)
+- 🔧 Chore/Other:重生成派生件钉(ui-routes/api-endpoints)并补齐缺失溯源水印 (eaf8d847)
+- 🐞 Fix:补回 journal 登记却缺失的 lessons_difficulty 迁移与同号快照（从零库迁移链恢复可跑） (cd6db901)
+- 🐞 Fix:归位 import 顺序并补未用导出声明，ruff 全绿 (8236ae63)
 - 📚 Docs:收编 README 自动更新条目(含认证运行时修复与前向修正) (1bb960dd)
 - 🐞 Fix:撤回 c6136d71 误夹带的 README 自动更新块(前向修正) (59b4dddd)
 - 🐞 Fix:认证运行时收敛为 global 单例，根治分包致 refresh 整族吊销 (c6136d71)
@@ -110,6 +130,8 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:聚焦环去 2px 外扩间隙 + 颜色写法单一化(不透明 #rrggbb / 透明 rgba),三端派生同源并立不变量测试 (c20d99da)
 
 **2026-11-22**
+- 🔧 Chore/Other:追认仓库清理提交的受保护面变更 (3ca74ad0)
+- 🔧 Chore/Other:清理根目录杂物、乱码副本与失效截图并补忽略样例 (92ab7fd3)
 - 🐞 Fix:清主干 typecheck 存量红 —— 半径角色补档 / Teacher.isFollowed / 课程筛选轴走服务端 / VIP 权益投影收敛单源 (#252) (c3fa863e)
 - 🚀 Feature/Improvement:接线数据键门 2h-datakeys 并登记 AGENTS 19 节数据驱动键族红线 (650746ad)
 - 🔧 Chore/Other:追认 c8929519 判据面声明文件改动 (09a13154)

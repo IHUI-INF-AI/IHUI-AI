@@ -28,6 +28,9 @@ export * from './control-command-text'
 export * from './connectivity'
 // D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
 export * from './conversation-org'
+// 会话标题「纯文本安全化」唯一实现(2026-11-23 立):`**`/编号/`(think)`/`<think>` 一律不得
+// 出现在标题栏。服务端落库前、端内显示兜底、按首条消息截断的客户端共用这一份。
+export * from './conversation-title-text'
 export * from './dangerous-command-detector'
 // 命令风险的 AST 语义判定唯一出口(2026-11-04 立):先还原管道/子 shell/命令替换结构,
 // 再在"可执行位置"上判危险;字符串里的危险字样不算命令(旧正则实现只作兜底)。

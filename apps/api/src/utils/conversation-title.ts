@@ -14,6 +14,7 @@
  */
 
 import type { FastifyRequest } from 'fastify'
+import { plainTitleText } from '@ihui/shared'
 import { aiServiceFetch } from './ai-service-fetch.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { resolveDefaultChatModel } from './retired-providers.js'
@@ -52,14 +53,14 @@ const WRAP_QUOTES = [
 ]
 
 /**
- * 清洗 LLM 输出的标题:去包裹引号/空白/换行 + 硬截断。
+ * 清洗 LLM 输出的标题:先去共享层做纯文本净化(剥 `**`/行首编号/`(think)`/`<think>` 块,
+ * 并把"分析用户的请求"这类思考套话判废),再去包裹引号、「标题:」前缀,最后硬截断。
+ * 净化规则只留 packages/shared 一份(服务端/端内显示/首条消息截断共用),这里不重复实现。
  * 独立导出供单测锁定行为(清洗失败即静默降级,绝不写脏标题入库)。
  */
 export function sanitizeGeneratedTitle(raw: string): string | null {
-  let title = raw.trim()
-  // 去一行化:LLM 偶发输出多行,只取首行
-  const firstLine = title.split('\n')[0]?.trim() ?? ''
-  title = firstLine
+  let title = plainTitleText(raw)
+  if (!title) return null
   // 去成对包裹引号:首尾字符均为引号集合成员时剥离(中英直角弯引号 + ASCII 直引号)
   if (title.length >= 2 && WRAP_QUOTES.includes(title[0]!) && WRAP_QUOTES.includes(title.at(-1)!)) {
     title = title.slice(1, -1).trim()
@@ -148,8 +149,16 @@ export async function generateConversationTitle(
       if (title) {
         // 标题 LLM 消耗计入配额(与 semantic-summary 同模式;失败只 warn 不影响主流程)
         await recordTitleCost(request, model, json.usage, trimmed, title)
+        return title
       }
-      return title
+      // 模型答了,但整条是思考残渣(`1. **分析用户的请求:**`)——净化后判废。
+      // 首轮用首条用户消息做纯文本兜底:侧栏宁可显示一句用户原话,也不挂「新对话」
+      // 或一条假标题。多轮策略的输入是 transcript,不能拿来当标题,仍保持原标题。
+      if (strategy === 'first-turn') {
+        const fallback = plainTitleText(trimmed, TITLE_MAX_CHARS)
+        if (fallback) return fallback
+      }
+      return null
     } finally {
       clearTimeout(timer)
     }

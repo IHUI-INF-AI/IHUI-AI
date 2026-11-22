@@ -63,6 +63,7 @@ import {
   filterByFolder,
   getOrgMeta,
   listFolderNames,
+  plainTitleText,
   sortPinnedFirst,
   type ConversationOrgMap,
 } from '@ihui/shared'
@@ -875,6 +876,12 @@ export function SidebarChatHistory({
     // 历史会话没有留档时回退为当前标题,保证悬停始终能看到「创建时 / 当前」两行对比。
     const originalTitle = resolveOriginalTitle(item.metadata)
     const createdTitle = originalTitle ?? item.title
+    // 2026-11-23 立:标题显示兜底(历史脏数据)。落库侧已净化,但早先自动生成的标题可能
+    // 把模型开口的 `1. **分析用户的请求:**`、`<think>` 残留存进了 title / originalTitle ——
+    // 侧栏按纯文本渲染,`**` 与编号会原样露在用户眼前。这里再过一遍同一份净化规则,
+    // 保证老会话也不再出现星号与思考标记(净化实现只留 @ihui/shared 一份)。
+    const displayTitle = plainTitleText(item.title) ?? item.title
+    const displayCreatedTitle = plainTitleText(createdTitle) ?? displayTitle
     // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
     const unreadRaw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
     const unread = Number.isFinite(unreadRaw) && unreadRaw > 0 ? Math.floor(unreadRaw) : 0
@@ -900,7 +907,7 @@ export function SidebarChatHistory({
           <Checkbox
             checked={selection.isSelected(item.id)}
             onCheckedChange={(checked) => selection.toggleSelected(item.id, checked === true)}
-            aria-label={`${t('select')} ${item.title}`}
+            aria-label={`${t('select')} ${displayTitle}`}
             data-testid={`conversation-checkbox-${item.id}`}
             className="absolute left-0.5 top-2 z-10 h-3.5 w-3.5"
           />
@@ -944,15 +951,17 @@ export function SidebarChatHistory({
               content={
                 <span className="flex flex-col gap-0.5 text-left">
                   <span>
-                    {t('titleHistoryOriginal')} · {createdTitle}
+                    {t('titleHistoryOriginal')} · {displayCreatedTitle}
                   </span>
                   <span>
-                    {t('titleHistoryCurrent')} · {item.title}
+                    {t('titleHistoryCurrent')} · {displayTitle}
                   </span>
                 </span>
               }
             >
-              <span className="min-w-0 flex-1 truncate text-[12px] font-medium">{item.title}</span>
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                {displayTitle}
+              </span>
             </Tooltip>
             {item.pinned && (
               <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-hidden />

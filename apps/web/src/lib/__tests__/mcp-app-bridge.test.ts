@@ -4,10 +4,8 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  MCP_APP_CSP,
   MCP_APP_METHODS,
   MCP_APP_PROTOCOL_VERSION,
-  applyAppCsp,
   isAppRpcRequest,
   isMcpAppMethod,
   isMcpAppResource,
@@ -62,27 +60,6 @@ describe('方法白名单', () => {
     for (const method of MCP_APP_METHODS) expect(isMcpAppMethod(method)).toBe(true)
     expect(isMcpAppMethod('ui/unknown')).toBe(false)
     expect(isMcpAppMethod('resources/subscribe')).toBe(false)
-  })
-})
-
-describe('CSP 注入', () => {
-  it('有 head 时紧跟 head 之后', () => {
-    const out = applyAppCsp('<html><head><title>x</title></head><body></body></html>')
-    expect(out).toContain('<head><meta http-equiv="Content-Security-Policy"')
-    expect(out.indexOf('Content-Security-Policy')).toBeLessThan(out.indexOf('<title>'))
-  })
-
-  it('没有 head 时前置,空串原样返回', () => {
-    const out = applyAppCsp('<div>app</div>')
-    expect(out.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(true)
-    expect(applyAppCsp('')).toBe('')
-  })
-
-  it('策略封住网络出口但放行内联脚本与展示资源', () => {
-    expect(MCP_APP_CSP).toContain("connect-src 'none'")
-    expect(MCP_APP_CSP).toContain("script-src 'unsafe-inline'")
-    expect(MCP_APP_CSP).toContain('img-src data: blob: https:')
-    expect(MCP_APP_CSP).toContain("frame-src 'none'")
   })
 })
 

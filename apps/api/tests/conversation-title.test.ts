@@ -28,6 +28,21 @@ describe('sanitizeGeneratedTitle(四竞品对齐 V2 #15 会话标题自动生成
     expect(sanitizeGeneratedTitle('标题：会话标题')).toBe('会话标题')
   })
 
+  it('剥 Markdown 星号与行首编号(脏标记绝不入库)', () => {
+    expect(sanitizeGeneratedTitle('**登录修复**')).toBe('登录修复')
+    expect(sanitizeGeneratedTitle('1. **登录修复**')).toBe('登录修复')
+    expect(sanitizeGeneratedTitle('# **登录修复**')).toBe('登录修复')
+  })
+
+  it('思考链残留判废(保持默认标题,不写假标题)', () => {
+    expect(sanitizeGeneratedTitle('1. **分析用户的请求: **')).toBeNull()
+    expect(sanitizeGeneratedTitle('(think)')).toBeNull()
+  })
+
+  it('think 块整段剥掉后保留真标题', () => {
+    expect(sanitizeGeneratedTitle('<think>用户想修登录</think>登录页修复')).toBe('登录页修复')
+  })
+
   it('多行输出只取首行', () => {
     expect(sanitizeGeneratedTitle('登录修复\n这是解释\n第二行')).toBe('登录修复')
   })
