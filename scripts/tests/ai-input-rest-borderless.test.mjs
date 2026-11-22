@@ -22,8 +22,9 @@ const cssBlock = (text, selector) => {
   return open >= 0 && close > open ? text.slice(open + 1, close) : ''
 }
 
-test('RN 大输入框:外层独担焦点墨环,内层文字框不再画第二层', () => {
+test('RN 大输入框:外壳静息透明,外层独担焦点墨环,内层文字框不再画第二层', () => {
   const src = read('apps/mobile-rn/src/components/InputArea.tsx')
+  assert.match(src, /fieldShell:\s*\{[\s\S]*?borderColor: 'transparent'/)
   assert.match(src, /focusedStyle={styles\.inputFocusTransparent}/)
   assert.match(src, /fieldShellFocused/)
   assert.match(src, /inputFocusTransparent/)

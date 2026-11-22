@@ -876,7 +876,9 @@ const styles = StyleSheet.create({
     // 与 web 输入壳 rounded-xl(message-input.tsx 'ai-input-shell')同档
     borderRadius: rnRadiusFor.panel,
     borderWidth: INPUT_AREA_SHELL_BORDER_PX,
-    borderColor: tokens.border.light,
+    // 静息不画描边(2026-11-23 用户定档:AI 输入壳只要填充底,不要常驻灰框);
+    // 1px 宽度保留给聚焦墨档换色,零布局跳动。录音态另由 fieldShellRecording 覆盖。
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
     // 8/6 = web 壳内 px-2(8)档;原 4/2 实拍「太拥挤」,控件统一 32 高后同步放宽。
     // 纵向 6 与描边 1 已入 spec:TabBar 胶囊按外壳静态高取档,写死字面量会让那张卡悬空
