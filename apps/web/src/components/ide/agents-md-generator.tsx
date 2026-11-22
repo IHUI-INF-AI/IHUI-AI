@@ -136,7 +136,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             spellCheck={false}
-            className="h-40 w-full resize-y rounded-sm border border-border bg-background p-2 font-mono text-[11px] text-foreground outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
+            className="h-40 w-full resize-y rounded-sm border border-border bg-background p-2 font-mono text-[11px] text-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
           <div className="flex gap-2">
             <button

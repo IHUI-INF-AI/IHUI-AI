@@ -247,7 +247,7 @@ export function PlanReviewPanel({
             placeholder={t('revisionPlaceholder')}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
-            className="min-h-[64px] w-full resize-y rounded-sm border bg-background px-3 py-2 text-body outline-none transition-colors placeholder:text-muted-foreground focus:outline outline-2 outline-offset-0 outline-stroke-focus"
+            className="min-h-[64px] w-full resize-y rounded-sm border bg-background px-3 py-2 text-body transition-colors placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         )}
       </div>

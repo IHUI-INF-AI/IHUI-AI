@@ -198,7 +198,7 @@ export function MemoryGraphPanel() {
             if (e.key === 'Enter') void handleSearch()
           }}
           placeholder={t('searchPlaceholder')}
-          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-label outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
+          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           data-testid="memory-graph-input"
         />
         <button

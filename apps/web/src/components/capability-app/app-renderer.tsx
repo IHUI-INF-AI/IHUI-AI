@@ -748,7 +748,7 @@ function FieldControl({
   onChange: (value: string) => void
 }) {
   const inputClass =
-    'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus'
+    'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus'
   if (field.kind === 'textarea') {
     return (
       <textarea

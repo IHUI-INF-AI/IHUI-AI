@@ -249,7 +249,13 @@ describe('未同意时提交被拦下,且不发起登录请求', () => {
 
     submitForm(host)
 
-    expect(required, '未勾协议必须回调 onRequireAgree').toEqual(['required'])
+    // 2026-11-23 起"验证码输满 6 位即自动校验登录":填满那一刻自动路径先走一次同意提示,
+    // 随后的手动 submitForm 再走一次。两次都落在同一条 onRequireAgree 路径上(幂等),
+    // 关键是"一次登录请求都没有" —— 协议门禁在两条径路上同等生效。
+    expect(required, '未勾协议时无论自动还是手动提交都必须回调 onRequireAgree').toEqual([
+      'required',
+      'required',
+    ])
     expect(calls, '门禁拦下时不得发起任何登录请求').toEqual([])
   })
 
