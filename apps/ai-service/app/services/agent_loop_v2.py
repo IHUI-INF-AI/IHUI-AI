@@ -5803,6 +5803,27 @@ class AgentLoopV2:
                     messages[:] = _compacted
                     if self._messages is not None and self._messages is not messages:
                         self._messages[:] = messages
+                # 2026-11-23:图片上下文卸载(对齐 DSH dsh-compaction-image-offload)。
+                # 压缩只按 1200 token/张估算,不会真的把旧图移出请求;图片一多,
+                # 视觉 token 仍会压满窗口。这里保留最新 IMAGE_INLINE_BUDGET 张,
+                # 更旧的换成带原路径的文本占位(模型可 read_image 重读),选择随
+                # messages 留在历史里,后续路由/恢复都沿用。失败隔离,不阻塞回合。
+                try:
+                    from .tool_image_delivery import (
+                        offload_images_over_budget,
+                    )
+
+                    _offloaded_images = offload_images_over_budget(messages)
+                    if _offloaded_images:
+                        logger.info(
+                            "图片上下文卸载: %d 张旧图已换为路径占位(session=%s)",
+                            _offloaded_images,
+                            self._session_id or "",
+                        )
+                except Exception as _img_offload_err:  # noqa: BLE001 - 卸载失败不影响主链路
+                    logger.warning(
+                        "图片上下文卸载异常(降级保留原图): %s", _img_offload_err
+                    )
                 # 批 40 接线:当前时间提醒(对标 codex maybe_record_current_time_reminder)。
                 # 每次推理前按节流状态机判定;投递则把 developer 片段追加进历史。
                 # time_provider 未注入 = 功能关闭,零行为变化;时钟失败降级注入

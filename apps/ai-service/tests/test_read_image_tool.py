@@ -175,7 +175,9 @@ def test_repair_paths_preserve_multimodal_user_message() -> None:
     ]
 
     agent_repaired, _ = _repair_agent_loop_messages(messages)
-    assert agent_repaired[-1] is multimodal or agent_repaired[-1]["content"] == multimodal["content"]
+    assert (
+        agent_repaired[-1] is multimodal or agent_repaired[-1]["content"] == multimodal["content"]
+    )
 
     repaired, removed, _ = repair_messages(
         [{"role": "user", "content": "看图"}, multimodal], keep_trailing_user=True
@@ -224,7 +226,7 @@ async def test_agent_loop_delivers_image_as_user_multimodal_message(workspace) -
         },
         executor=_tool_read_image,
     )
-    loop = AgentLoopV2(mock_llm, [tool], max_iterations=3)
+    loop = AgentLoopV2(mock_llm, [tool], max_iterations=3, enable_checkpoint=False)
     result = await loop.run(
         [
             {"role": "system", "content": "你是助手"},
@@ -236,8 +238,7 @@ async def test_agent_loop_delivers_image_as_user_multimodal_message(workspace) -
     assert len(captured) == 2
     second = captured[1]
     image_messages = [
-        m for m in second
-        if m.get("role") == "user" and isinstance(m.get("content"), list)
+        m for m in second if m.get("role") == "user" and isinstance(m.get("content"), list)
     ]
     assert len(image_messages) == 1
     parts = image_messages[0]["content"]
@@ -245,6 +246,108 @@ async def test_agent_loop_delivers_image_as_user_multimodal_message(workspace) -
     # tool 正文只有元数据,base64 不在 tool 消息里
     tool_messages = [m for m in second if m.get("role") == "tool"]
     assert tool_messages and all("base64" not in str(m.get("content")) for m in tool_messages)
+
+
+def _vision_message(index: int, *, with_path: bool = True) -> dict:
+    parts: list[dict] = []
+    if with_path:
+        parts.append(
+            {
+                "type": "text",
+                "text": f"<path>shots/{index}.png</path>\n<type>image</type>",
+            }
+        )
+    parts.append(
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,AA{index}"},
+        }
+    )
+    return {"role": "user", "content": parts}
+
+
+def test_offload_old_images_keeps_newest_and_carries_original_path() -> None:
+    messages = [_vision_message(i) for i in range(6)]
+    total = sum(
+        1
+        for m in messages
+        for p in m["content"]
+        if isinstance(p, dict) and p.get("type") == "image_url"
+    )
+    assert total == 6
+
+    offloaded = delivery.offload_images_over_budget(messages, max_inline=2)
+
+    assert offloaded == 4
+    kept = [
+        p
+        for m in messages
+        for p in m["content"]
+        if isinstance(p, dict) and p.get("type") == "image_url"
+    ]
+    assert len(kept) == 2
+    # 保留的是最新两张(4、5),旧图按原位文本占位并带原路径
+    assert kept[0]["image_url"]["url"].endswith("AA4")
+    assert kept[1]["image_url"]["url"].endswith("AA5")
+    for index in range(4):
+        text = messages[index]["content"][1]["text"]
+        assert text.startswith(delivery.OFFLOADED_IMAGE_MARKER)
+        assert f"<path>shots/{index}.png</path>" in text
+        assert "base64" not in text
+    # 幂等:再跑一次不再计数
+    assert delivery.offload_images_over_budget(messages, max_inline=2) == 0
+
+
+def test_offload_without_path_is_honest_and_skips_non_user_roles() -> None:
+    messages = [
+        _vision_message(0, with_path=False),
+        {"role": "assistant", "content": [{"type": "image_url", "image_url": {"url": "data:x"}}]},
+        _vision_message(1),
+    ]
+    offloaded = delivery.offload_images_over_budget(messages, max_inline=1)
+
+    assert offloaded == 1
+    text = messages[0]["content"][0]["text"]
+    assert text.startswith(delivery.OFFLOADED_IMAGE_MARKER)
+    assert "path is unavailable" in text
+    # assistant 图不参与预算,也不会被改写
+    assert messages[1]["content"][0]["type"] == "image_url"
+    assert messages[2]["content"][1]["type"] == "image_url"
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_offloads_old_images_before_llm_call() -> None:
+    """接线判据:第 7 张大图之前,循环必须已把旧图换成路径占位(不只是函数存在)。"""
+    messages = [_vision_message(i) for i in range(6)]
+    captured: list[list[dict]] = []
+
+    async def mock_llm(msgs, tools):
+        captured.append([dict(m) for m in msgs])
+        return {"content": "done", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [], max_iterations=1, enable_checkpoint=False)
+    result = await loop.run(messages)
+
+    assert result.success is True
+    assert captured
+    first = captured[0]
+    image_parts = [
+        p
+        for m in first
+        for p in (m.get("content") if isinstance(m.get("content"), list) else [])
+        if isinstance(p, dict) and p.get("type") == "image_url"
+    ]
+    assert len(image_parts) == delivery.IMAGE_INLINE_BUDGET
+    offloaded_texts = [
+        p.get("text", "")
+        for m in first
+        for p in (m.get("content") if isinstance(m.get("content"), list) else [])
+        if isinstance(p, dict)
+        and p.get("type") == "text"
+        and str(p.get("text", "")).startswith(delivery.OFFLOADED_IMAGE_MARKER)
+    ]
+    assert len(offloaded_texts) == 6 - delivery.IMAGE_INLINE_BUDGET
+    assert "<path>shots/0.png</path>" in offloaded_texts[0]
 
 
 @pytest.mark.asyncio
@@ -268,4 +371,6 @@ async def test_read_image_applies_exif_orientation(workspace) -> None:
     images = delivery.take_images([meta["content_id"]])
     assert len(images) == 1
     assert images[0]["data_url"].startswith("data:image/")
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

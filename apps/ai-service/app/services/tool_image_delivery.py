@@ -20,6 +20,7 @@ IHUI 没有同一套附件库,这里用进程内有界暂存,续跑重放只回�
 
 from __future__ import annotations
 
+import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,13 @@ MAX_IMAGE_PIXELS = 50_000_000
 IMAGE_STASH_KEYS = 8
 #: 暂存寿命:循环在同一轮内取走;跨轮残留 10 分钟后自动过期
 IMAGE_STASH_TTL_S = 600.0
+#: 上下文中最多保留多少张内联图片(2026-11-23,对齐 DSH compaction-image-offload)。
+#: 超出的最旧图片替换为带原路径的文本占位:视觉 token 不再计费,模型仍可按路径
+#: 重新 read_image。4 张足以覆盖"最近几步都看图"的常见节奏,又不至于把窗口吃光。
+IMAGE_INLINE_BUDGET = 4
+#: 卸载占位以该前缀起首(测试与审计按它识别,不得改写)。
+OFFLOADED_IMAGE_MARKER = "[image offloaded from context"
+
 #: 聊天卡片缩略图的最长边与 JPEG 质量(g12:只服务前端可见性,追求体积小)
 PREVIEW_MAX_EDGE = 320
 PREVIEW_JPEG_QUALITY = 70
@@ -100,10 +108,7 @@ def prepare_image_file(path: Path) -> tuple[dict[str, Any] | None, dict[str, Any
     if len(raw) > MAX_IMAGE_BYTES:
         return None, {
             "errorCode": "IMAGE_TOO_LARGE",
-            "error": (
-                f"图片过大({len(raw)} bytes > {MAX_IMAGE_BYTES});"
-                "请先降采样再读取"
-            ),
+            "error": (f"图片过大({len(raw)} bytes > {MAX_IMAGE_BYTES});请先降采样再读取"),
         }
     media_type = sniff_image_media_type(raw)
     if media_type is None:
@@ -116,8 +121,7 @@ def prepare_image_file(path: Path) -> tuple[dict[str, Any] | None, dict[str, Any
         return None, {
             "errorCode": "IMAGE_TYPE_MISMATCH",
             "error": (
-                f"扩展名声明 {declared},但文件头实际是 {media_type};"
-                "文件可能损坏或改错了扩展名"
+                f"扩展名声明 {declared},但文件头实际是 {media_type};文件可能损坏或改错了扩展名"
             ),
         }
 
@@ -147,10 +151,7 @@ def _encode_image(
     if len(raw) > MAX_IMAGE_BYTES:
         return None, {
             "errorCode": "IMAGE_TOO_LARGE",
-            "error": (
-                f"图片过大({len(raw)} bytes > {MAX_IMAGE_BYTES});"
-                "请先降采样再读取"
-            ),
+            "error": (f"图片过大({len(raw)} bytes > {MAX_IMAGE_BYTES});请先降采样再读取"),
         }
     # 只读文件头拿尺寸(Pillow 惰性打开,不解码像素),先挡住解压炸弹与超大图;
     # 真正的降采样仍交给 image_preparation 单一实现,不在这里复算。
@@ -353,9 +354,7 @@ def build_image_followup_message(
     parts: list[dict[str, Any]] = []
     for item in images:
         parts.append({"type": "text", "text": format_image_envelope(item)})
-        parts.append(
-            {"type": "image_url", "image_url": {"url": str(item.get("data_url", ""))}}
-        )
+        parts.append({"type": "image_url", "image_url": {"url": str(item.get("data_url", ""))}})
     if missing > 0:
         parts.append(
             {
@@ -371,7 +370,78 @@ def build_image_followup_message(
     return {"role": "user", "content": parts}
 
 
+_IMAGE_PATH_RE = re.compile(r"<path>(.*?)</path>", re.DOTALL)
+
+
+def _offloaded_text(path: str | None) -> str:
+    if path:
+        return (
+            f"{OFFLOADED_IMAGE_MARKER} to stay within the inline image budget; "
+            f"re-read from <path>{path}</path> with read_image when needed]"
+        )
+    return (
+        f"{OFFLOADED_IMAGE_MARKER} to stay within the inline image budget; "
+        "the original path is unavailable, ask the user to re-send it if needed]"
+    )
+
+
+def offload_images_over_budget(
+    messages: list[dict[str, Any]],
+    *,
+    max_inline: int = IMAGE_INLINE_BUDGET,
+) -> int:
+    """把历史中最旧的内联图片换成带原路径的文本占位,返回卸载张数。
+
+    对齐 DSH ``dsh-compaction-image-offload`` 的持久选择语义:只处理 ``role=user``
+    的多模态消息(assistant 节点的图片不在此列),保留最新 ``max_inline`` 张,
+    更旧的 ``image_url`` 原位替换为文本。占位文本带 ``<path>``(来自同一条消息里
+    紧邻的 ``format_image_envelope``),模型仍可用 ``read_image`` 重读原图。
+
+    幂等:替换后的 part 已不是 ``image_url``,再次调用不会重复计数。
+    畸形内容(非 list / 非 dict / 无 url)跳过,不抛错;预算为负按 0 处理。
+    """
+    keep = max(0, int(max_inline))
+    positions: list[tuple[int, int, str | None]] = []
+    for message_index, message in enumerate(messages):
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        last_path: str | None = None
+        for part_index, part in enumerate(content):
+            if not isinstance(part, dict):
+                continue
+            part_type = part.get("type")
+            if part_type == "text":
+                text = part.get("text")
+                if isinstance(text, str):
+                    match = _IMAGE_PATH_RE.search(text)
+                    if match:
+                        last_path = match.group(1).strip() or None
+                continue
+            if part_type != "image_url":
+                continue
+            url_obj = part.get("image_url")
+            url = url_obj.get("url") if isinstance(url_obj, dict) else url_obj
+            if not isinstance(url, str) or not url:
+                continue
+            positions.append((message_index, part_index, last_path))
+            last_path = None
+
+    overflow = len(positions) - keep
+    if overflow <= 0:
+        return 0
+    for message_index, part_index, path in positions[:overflow]:
+        content = messages[message_index].get("content")
+        if isinstance(content, list):
+            content[part_index] = {"type": "text", "text": _offloaded_text(path)}
+    return overflow
+
+
 def reset_image_stash() -> None:
     """测试用:清空暂存。"""
     _PENDING.clear()
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
