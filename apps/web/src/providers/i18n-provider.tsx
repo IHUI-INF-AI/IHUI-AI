@@ -4,6 +4,9 @@
 
 'use client'
 
+import { NextIntlClientProvider } from 'next-intl'
+import type { AbstractIntlMessages, IntlError } from 'next-intl'
+
 /**
  * 客户端 I18n Provider(2026-07-27 立,修复语言切换功能失效)。
  *
@@ -25,14 +28,28 @@
  * 由 layout 的 suppressHydrationWarning 兜住,并在本 Provider 挂载时把 store 真值镜像回 cookie 收敛。
  */
 
-import { NextIntlClientProvider } from 'next-intl'
-import type { AbstractIntlMessages } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
 import { useLanguageStore } from '@/stores/language'
 import { writeLocaleCookie } from '@/lib/locale-cookie'
 import { isTauri, setWindowTitle } from '@/lib/tauri-bridge'
+
+// 缺键诊断(2026-11-22 立):next-intl 缺键**不抛错**,只回落成 `${namespace}.${key}` 直接画到界面上
+// —— 这正是"侧边栏显示 nav.hrGroup"那类事故的全部机制。静态门 check-i18n-data-keys.mjs 在提交链上拦,
+// 这里是运行期最后一道:一旦漏网,第一次取到缺键就在控制台点名(按消息去重,避免每帧刷屏),
+// 让人在页面上肉眼发现之前先看见日志。
+const missingMessageSeen = new Set<string>()
+function reportI18nError(error: IntlError): void {
+  if (error.code !== 'MISSING_MESSAGE') return
+  const msg = String(error.message ?? '')
+  if (missingMessageSeen.has(msg)) return
+  missingMessageSeen.add(msg)
+  console.error(
+    `[i18n] 词库缺少键,界面会显示裸键名:${msg} —— 补 packages/i18n/messages/web/<locale>.json,` +
+      `复验 node scripts/check-i18n-data-keys.mjs`,
+  )
+}
 
 // 默认语言(服务端恒按 zh-CN 渲染)静态保留;其余四种改为**按需动态加载**。
 // 现读:改前 10 份 JSON 全静态 import,构建出单个 4,972KB 的客户端 chunk —— 每个访客都要
@@ -126,7 +143,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [locale])
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Shanghai">
+    <NextIntlClientProvider
+      locale={locale}
+      messages={messages}
+      timeZone="Asia/Shanghai"
+      onError={reportI18nError}
+    >
       {children}
     </NextIntlClientProvider>
   )

@@ -1,0 +1,7 @@
+{
+  "_note": "数据模块 → i18n 命名空间登记表。数据表驱动的键(labelKey 一类)在本文件里没有 t() 调用,消费发生在别处;未被登记的模块门判不到(旧实现直接跳过)。新增数据驱动清单必须来此登记,否则 check-i18n-data-keys.mjs 对其视而不见。",
+  "modules": {
+    "apps/web/src/components/sidebar/nav-data.ts": ["nav"],
+    "apps/web/src/components/layout/admin-nav-groups.ts": ["nav"]
+  }
+}
