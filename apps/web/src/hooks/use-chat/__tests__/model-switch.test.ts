@@ -392,9 +392,13 @@ describe('装车证明:判据必须真接在主链路上', () => {
     // (POST /api/chat/auto-resolve 在建消息前 await 完成),平台轮仍取 effectiveModel。
     // 字面量锁同时钉住 streamChat 与 runPoolToolLoop 两处,防有人改回入口旧值。
     expect(src).toContain('model: autoPoolModel ?? effectiveModel')
-    // 号池决策腿接线锁:auto 轮主发送(非重生成)先问服务端,失败保持 'auto' 走平台腿
-    expect(src).toContain("if (roundModel === 'auto' && !isRegenerate)")
-    expect(src).toContain('poolCandidates: listPoolModelIds()')
+    // 号池决策腿接线锁:auto 轮主发送(非重生成)先问服务端,失败保持 'auto' 走平台腿。
+    // 2026-11-23(加固):候选为空时连请求都不发(服务端也只会回 platform),并给决策腿
+    // 3000ms 兜底预算 —— 判不了就回平台腿,绝不把发送拖住。
+    expect(src).toContain("roundModel === 'auto' && !isRegenerate ? listPoolModelIds() : []")
+    expect(src).toContain('if (autoPoolCandidates.length > 0)')
+    expect(src).toContain('poolCandidates: autoPoolCandidates')
+    expect(src).toContain('{ timeoutMs: 3_000 }')
     // assistant 消息 model 写实际模型(号池轮是 resolved;号池通道无 usage 帧,
     // 消息 model 是 conversationModel 三级回退的唯一显示源)
     expect(src).toContain('model: autoPoolModel ?? roundModel')
