@@ -414,7 +414,9 @@ function PlanStepItem({
   const markdownCls = '!text-xs prose-p:my-0.5 prose-pre:my-1 prose-code:!px-1 prose-code:!py-0'
   // 2026-11-21:步骤说明文本可能含英文工具码名(后端写入形如"工具 hr_payroll_calc 已失败"),
   // 界面对普通用户禁止直显码名 ⇒ 渲染前统一换成本地化功能名(humanizeToolText 单源)。
-  const explanationText = explanation ? humanizeToolText(explanation, (key) => tStatus(key)) : explanation
+  const explanationText = explanation
+    ? humanizeToolText(explanation, (key) => tStatus(key))
+    : explanation
   const explanationNode =
     hasLongExplanation || isThinking ? (
       <MarkdownViewer content={explanationText ?? ''} className={markdownCls} />
@@ -435,7 +437,7 @@ function PlanStepItem({
               'inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-label',
               'text-muted-foreground/70 transition-colors',
               'hover:bg-accent/60 hover:text-foreground',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
             )}
           >
             {copied ? (

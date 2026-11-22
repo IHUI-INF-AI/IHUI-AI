@@ -120,7 +120,7 @@
   font-size: var(--text-label);
   color: transparent;
   background: var(--color-background);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }

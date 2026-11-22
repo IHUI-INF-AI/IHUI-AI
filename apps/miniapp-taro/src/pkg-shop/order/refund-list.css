@@ -162,7 +162,7 @@
 .refund-action-primary {
   color: var(--color-primary);
   background: var(--color-border);
-  border-color: var(--color-ring);
+  border-color: var(--color-text-tertiary);
 }
 
 /* ===== 退款进度时间线 ===== */

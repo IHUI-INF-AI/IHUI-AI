@@ -100,7 +100,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               value={step.input ?? ''}
               onChange={(e) => setStr('input', e.target.value)}
               rows={3}
-              className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           </div>
         )}
@@ -133,7 +133,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
                 value={step.input ?? ''}
                 onChange={(e) => setStr('input', e.target.value)}
                 rows={3}
-                className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               />
             </div>
           </>

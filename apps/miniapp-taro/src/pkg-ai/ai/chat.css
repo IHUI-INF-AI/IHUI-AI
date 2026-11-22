@@ -976,7 +976,7 @@
 /* ============ tishi 渐变边框(对齐原项目 .tishi_box + .tishi_box_back) ============ */
 .tishi-box-gradient {
   padding: 2rpx;
-  background: linear-gradient(81deg, var(--color-ring) 54%, transparent 126%);
+  background: linear-gradient(81deg, var(--color-text-tertiary) 54%, transparent 126%);
   border-radius: var(--radius-sm);
   margin: var(--spacing-xs-loose) var(--spacing-sm);
 }

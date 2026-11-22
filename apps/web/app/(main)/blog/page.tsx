@@ -68,7 +68,7 @@ export default async function BlogIndexPage() {
             <li key={post.slug}>
               <Link
                 href={`/blog/${post.slug}`}
-                className="group block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+                className="group block h-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus rounded-lg"
               >
                 <Card
                   className={cn(

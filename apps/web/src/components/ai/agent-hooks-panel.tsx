@@ -53,7 +53,7 @@ export function AgentHooksPanel() {
   }
 
   const selectCls =
-    'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+    'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus'
 
   return (
     <div data-testid="agent-hooks-panel" className="space-y-3 text-body">
@@ -97,7 +97,7 @@ export function AgentHooksPanel() {
             onChange={(e) => setMatchTool(e.target.value)}
             placeholder={t('matchToolPlaceholder')}
             data-testid="agent-hooks-match-tool-input"
-            className="h-8 min-w-0 flex-1 rounded-sm border border-input bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-8 min-w-0 flex-1 rounded-sm border border-input bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         </div>
         <div className="flex gap-1.5">

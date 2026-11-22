@@ -30,7 +30,7 @@ export const ICON_BUTTON_ICON_SIZE = 'h-4 w-4'
 
 /** 图标按钮基础类名(尺寸之外共享的视觉) */
 export const ICON_BUTTON_BASE_CLASS =
-  'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+  'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50'
 
 /** 主行动图标按钮(发送/停止/Steer)基础类名 — 尺寸同源 ICON_BUTTON_SIZE,方形 CTA 档 */
 export const ICON_BUTTON_ACTION_BASE_CLASS = `inline-flex ${ICON_BUTTON_SIZE} items-center justify-center rounded-sm transition-colors`

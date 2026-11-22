@@ -231,7 +231,7 @@ export function GoalCard() {
               }
             }}
             aria-label={t('editAriaLabel')}
-            className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-body outline-none focus:ring-1 focus:ring-ring"
+            className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         ) : (
           <p className="min-w-0 flex-1 break-words font-medium">{goal.text}</p>
@@ -390,7 +390,7 @@ export function GoalCard() {
                   }
                 }}
                 placeholder={t('blockerPlaceholder')}
-                className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+                className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
               <button
                 type="button"

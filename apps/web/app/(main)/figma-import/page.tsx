@@ -114,7 +114,7 @@ export default function FigmaImportPage() {
             value={fileKey}
             onChange={(e) => setFileKey(e.target.value)}
             placeholder={t('fileKeyPlaceholder')}
-            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
           <input
             value={nodeId}
@@ -123,7 +123,7 @@ export default function FigmaImportPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('nodeIdPlaceholder')}
-            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
         </div>
 

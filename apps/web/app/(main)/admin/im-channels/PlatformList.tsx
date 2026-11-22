@@ -96,7 +96,7 @@ export default function PlatformList({
             aria-current={isSelected ? 'true' : undefined}
             className={cn(
               'flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-body transition-colors',
-              'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'hover:bg-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               isSelected && 'bg-muted',
             )}
           >

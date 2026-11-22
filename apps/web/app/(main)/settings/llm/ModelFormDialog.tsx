@@ -364,7 +364,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                       e.target.value === 'text' ? undefined : (e.target.value as 'json_object'),
                     )
                   }
-                  className="flex h-8 w-full rounded-sm border border-input bg-background px-2 text-label shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-8 w-full rounded-sm border border-input bg-background px-2 text-label shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 >
                   <option value="text">text</option>
                   <option value="json_object">json_object</option>
@@ -383,7 +383,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                 onChange={(e) => updateParam('systemPrompt', e.target.value)}
                 rows={3}
                 placeholder={tParams('systemPromptPlaceholder')}
-                className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 text-label font-mono shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 text-label font-mono shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               />
             </div>
 
@@ -399,7 +399,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                   onChange={(e) => setForm({ ...form, advancedJson: e.target.value })}
                   rows={6}
                   placeholder='{"temperature": 0.7, "max_tokens": 4096, "seed": 42}'
-                  className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 font-mono text-label shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 />
                 <p className="text-label text-muted-foreground">{tParams('advancedHint')}</p>
               </div>

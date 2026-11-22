@@ -196,7 +196,7 @@ export const STREAM_HEADER_ROW_CLASS = cn(
 export const STREAM_RUNNING_TEXT_CLASS = 'text-sweep'
 
 export const STREAM_HEADER_ACTION_CLASS =
-  'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+  'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50'
 
 /**
  * 组内正文左让位唯一档(2026-11-16 立):StreamGroup 的引导线占 `left-[7px]`,
@@ -656,10 +656,7 @@ export function StreamDetail({
   testId?: string
 }) {
   return (
-    <div
-      className={cn('ml-2 space-y-1.5 py-1 pl-4 text-label', className)}
-      data-testid={testId}
-    >
+    <div className={cn('ml-2 space-y-1.5 py-1 pl-4 text-label', className)} data-testid={testId}>
       {children}
     </div>
   )

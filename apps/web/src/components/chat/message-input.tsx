@@ -1378,7 +1378,7 @@ export function MessageInput({
               // 不叠琥珀 glow(2026-10-20 用户定档:全项目禁止橙色描边,
               // 风险信号由 animate-pulse-soft 独占承担)。
               isDragOver || isConvDragOver
-                ? 'ai-input-shell--dragging ring-2 ring-ring/20'
+                ? 'ai-input-shell--dragging ring-2 ring-stroke-focus/20'
                 : isHighRisk
                   ? 'ai-input-shell--high-risk animate-pulse-soft'
                   : 'ai-input-shell--idle',

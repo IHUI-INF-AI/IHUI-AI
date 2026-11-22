@@ -192,7 +192,7 @@ function platformOnlyProblems(src: string, side: string): string[] {
   if (side === 'web') {
     if (!/inline-flex/.test(code)) out.push('web 壳丢了平台专属 inline-flex(横排承载)')
     if (!/transition-colors/.test(code)) out.push('web 壳丢了平台专属 transition-colors')
-    if (!/focus:ring-2/.test(code)) out.push('web 壳丢了平台专属 focus:ring-2(focus 可达性)')
+    if (!/focus:outline-2/.test(code)) out.push('web 壳丢了平台专属 focus:outline-2(focus 可达性)')
     if (!/hover:bg-/.test(code)) out.push('web 壳丢了平台专属 hover:bg-*(:hover 通道)')
   }
   if (side === 'RN') {
@@ -352,9 +352,9 @@ describe('④ 平台专属项:允许不同形,但不许下沉时误删,也不许
     expect(platformOnlyProblems(RN_SRC, 'RN')).toEqual([])
   })
 
-  it('本锁有牙:web 壳删掉 focus-ring ⇒ 平台专属判据必须红', () => {
+  it('本锁有牙:web 壳删掉 focus 环 ⇒ 平台专属判据必须红', () => {
     const dirty = WEB_SRC.replace(
-      "'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',\n    ",
+      "'focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus',\n",
       '',
     )
     expect(dirty).not.toBe(WEB_SRC)

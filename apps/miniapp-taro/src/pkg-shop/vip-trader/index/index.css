@@ -318,7 +318,7 @@
   font-size: var(--text-body-sm);
   color: var(--color-foreground);
   background: var(--color-card);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
 .trader-package-btn-primary {

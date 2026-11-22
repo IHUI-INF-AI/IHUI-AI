@@ -68,6 +68,16 @@ DEFAULT_TIMEOUT = 30.0
 DEFAULT_RECONNECT_DELAY = 1.0
 MAX_RECONNECT_DELAY = 30.0
 
+# `resources/read` 单条正文的字符上限(2026-11-23 立)。
+# MCP 资源是外部 server 说了算的内容(text / base64 blob 都可能很大),而读回来的
+# 正文会直接进上下文。超限**显式截断并在结果里标 `truncated: true`**,不做"悄悄只给
+# 前半段"的静默降级 —— 截断这件事必须让模型和人都看得见(§0.10)。
+RESOURCE_CONTENT_LIMIT_CHARS = 400_000
+
+# 资源订阅台账上限(2026-11-23 立):只保留最近 N 个被更新过的 uri。
+# 超过即丢最旧的一条 —— 这是**观测窗口**不是审计账本,不做无界增长。
+RESOURCE_UPDATE_LIMIT = 256
+
 
 @dataclass
 class MCPClientTool:
@@ -80,6 +90,42 @@ class MCPClientTool:
     # 含 readOnlyHint/destructiveHint/openWorldHint;None = server 未提供)。
     # 语义判定交给 app/core/mcp_tool_approval(批 31 移植的 Codex 保守内核)。
     annotations: dict[str, Any] | None = None
+
+
+@dataclass
+class MCPClientResource:
+    """外部 MCP Server 的资源条目(`resources/list` 的 `result.resources` 一枚)。
+
+    只装协议字段 + 来源 server 名;授权与可见性不在这里判(归 `MCPClientManager.is_visible`)。
+    """
+    uri: str
+    name: str
+    description: str = ""
+    mime_type: str = ""
+    server_name: str = ""
+
+
+@dataclass
+class MCPClientResourceTemplate:
+    """外部 MCP Server 的资源模板(`resources/templates/list`;`uriTemplate` 带花括号)。"""
+    uri_template: str
+    name: str
+    description: str = ""
+    mime_type: str = ""
+    server_name: str = ""
+
+
+@dataclass
+class MCPClientPrompt:
+    """外部 MCP Server 的提示词条目(`prompts/list`)。
+
+    `arguments` 原样保留 server 侧声明的参数描述(name/required/description),
+    本层不解释模板 —— 渲染归调用方(与 `tools/list` 的 inputSchema 同一条纪律)。
+    """
+    name: str
+    description: str = ""
+    arguments: list[dict[str, Any]] = field(default_factory=list)
+    server_name: str = ""
 
 
 @dataclass
@@ -137,6 +183,11 @@ class MCPClient:
         self._reconnect_attempts = 0
         self._sse_buffer = b""
         self._session_id = ""
+        # 资源订阅的"最近更新"台账(2026-11-23 立):`notifications/resources/updated`
+        # 是 server→client 的单向通知,本层无推送通道,所以只记 uri→时刻(有界),
+        # 由 `GET /api/mcp/external/resources/updates` 供前端按需拉取。上限见常量。
+        self._resource_updates: dict[str, float] = {}
+        self._subscriptions: dict[str, float] = {}
         # 超限帧计数(第三十三批):丢弃必须留计数,不得静默变短。
         self._dropped_frames = 0
         self._dropped_frame_bytes = 0
@@ -349,6 +400,194 @@ class MCPClient:
         logger.error("list_tools 失败: %s", error.get("message", "未知错误"))
         return []
 
+    # ---- 资源与提示词(2026-11-23 立,对齐 dsh-mcp-resources 的资源面) ----
+    # 此前本仓只把外部 server 的**工具**接进 agent;resources / prompts 是 MCP 协议里
+    # 另外两条一等公民。只有工具时,外部知识(文件/条目/模板)只能靠"再调一次工具"取,
+    # 提示词模板则完全不可达。以下方法只做协议帧与解析;授权/可见性一律归
+    # `MCPClientManager`(与 `list_available_tools_async` 共用同一份 `is_visible`)。
+
+    async def list_resources(self) -> list[MCPClientResource]:
+        """发现资源列表(`resources/list`)。失败/未声明能力时返回空表并记日志。"""
+        resp = await self._send_request("resources/list")
+        if "result" in resp and isinstance(resp["result"], dict):
+            raw = resp["result"].get("resources", []) or []
+            return [
+                MCPClientResource(
+                    uri=r.get("uri", ""),
+                    name=r.get("name", ""),
+                    description=r.get("description", ""),
+                    mime_type=r.get("mimeType", r.get("mime_type", "")),
+                    server_name=self._config.name,
+                )
+                for r in raw
+                if isinstance(r, dict) and r.get("uri")
+            ]
+        error = resp.get("error", {})
+        logger.error("list_resources 失败: %s", error.get("message", "未知错误"))
+        return []
+
+    async def list_resource_templates(self) -> list[MCPClientResourceTemplate]:
+        """发现资源模板(`resources/templates/list`)。"""
+        resp = await self._send_request("resources/templates/list")
+        if "result" in resp and isinstance(resp["result"], dict):
+            raw = resp["result"].get("resourceTemplates", []) or []
+            return [
+                MCPClientResourceTemplate(
+                    uri_template=t.get("uriTemplate", t.get("uri_template", "")),
+                    name=t.get("name", ""),
+                    description=t.get("description", ""),
+                    mime_type=t.get("mimeType", t.get("mime_type", "")),
+                    server_name=self._config.name,
+                )
+                for t in raw
+                if isinstance(t, dict) and (t.get("uriTemplate") or t.get("uri_template"))
+            ]
+        error = resp.get("error", {})
+        logger.error("list_resource_templates 失败: %s", error.get("message", "未知错误"))
+        return []
+
+    async def read_resource(self, uri: str) -> dict[str, Any]:
+        """读取单个资源(`resources/read`)。
+
+        成功形状:`{"uri", "contents": [...], "truncated": bool}`;失败沿用
+        `call_tool` 的 `{"ok": False, "error", "code"}` 形状(调用方只需判 `ok is False`)。
+        单条 text/blob 超过 `RESOURCE_CONTENT_LIMIT_CHARS` 时截断并置 `truncated`。
+        """
+        resp = await self._send_request("resources/read", {"uri": uri})
+        if "result" in resp and isinstance(resp["result"], dict):
+            contents: list[dict[str, Any]] = []
+            truncated = False
+            for item in resp["result"].get("contents", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                out = dict(item)
+                for key in ("text", "blob"):
+                    value = out.get(key)
+                    if isinstance(value, str) and len(value) > RESOURCE_CONTENT_LIMIT_CHARS:
+                        out[key] = value[:RESOURCE_CONTENT_LIMIT_CHARS]
+                        truncated = True
+                contents.append(out)
+            return {"uri": uri, "contents": contents, "truncated": truncated}
+        error = resp.get("error", {})
+        return {
+            "ok": False,
+            "error": error.get("message", "未知错误"),
+            "code": error.get("code"),
+        }
+
+    async def list_prompts(self) -> list[MCPClientPrompt]:
+        """发现提示词模板(`prompts/list`)。"""
+        resp = await self._send_request("prompts/list")
+        if "result" in resp and isinstance(resp["result"], dict):
+            raw = resp["result"].get("prompts", []) or []
+            return [
+                MCPClientPrompt(
+                    name=p.get("name", ""),
+                    description=p.get("description", ""),
+                    arguments=list(p.get("arguments") or []),
+                    server_name=self._config.name,
+                )
+                for p in raw
+                if isinstance(p, dict) and p.get("name")
+            ]
+        error = resp.get("error", {})
+        logger.error("list_prompts 失败: %s", error.get("message", "未知错误"))
+        return []
+
+    async def get_prompt(
+        self, name: str, arguments: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """取提示词渲染结果(`prompts/get`),原样返回 `result`(messages/description)。
+
+        参数校验归 server(它声明的 `arguments` 才作数);本层不猜默认值,
+        缺参时把 server 的错误原样带回,便于调用方给用户一句"还差哪个参数"。
+        """
+        params: dict[str, Any] = {"name": name}
+        if arguments:
+            params["arguments"] = arguments
+        resp = await self._send_request("prompts/get", params)
+        if "result" in resp and isinstance(resp["result"], dict):
+            return resp["result"]
+        error = resp.get("error", {})
+        return {
+            "ok": False,
+            "error": error.get("message", "未知错误"),
+            "code": error.get("code"),
+        }
+
+    async def complete_argument(
+        self, ref: dict[str, Any], argument: dict[str, Any]
+    ) -> dict[str, Any]:
+        """参数自动补全(`completion/complete`,2026-11-23 立)。
+
+        `ref` 由调用方原样给出(MCP 定义的 `ref/prompt` 或 `ref/resource` 判别联合),
+        本层不猜类型;`argument` 形如 `{"name": "...", "value": "..."}`。
+        成功原样返回 `result.values/total/hasMore`,失败沿用 `{"ok": False,...}`。
+        """
+        resp = await self._send_request(
+            "completion/complete", {"ref": ref, "argument": argument}
+        )
+        if "result" in resp and isinstance(resp["result"], dict):
+            return resp["result"]
+        error = resp.get("error", {})
+        return {
+            "ok": False,
+            "error": error.get("message", "未知错误"),
+            "code": error.get("code"),
+        }
+
+    async def subscribe_resource(self, uri: str) -> dict[str, Any]:
+        """订阅资源更新(`resources/subscribe`)。
+
+        订阅成功后 server 会推 `notifications/resources/updated`;本层把 uri 记进
+        有界台账(见 `resource_updates`),不冒充"实时推送"。
+        """
+        resp = await self._send_request("resources/subscribe", {"uri": uri})
+        if "result" in resp:
+            self._subscriptions[uri] = time.time()
+            return {"ok": True, "uri": uri}
+        error = resp.get("error", {})
+        return {
+            "ok": False,
+            "error": error.get("message", "未知错误"),
+            "code": error.get("code"),
+        }
+
+    async def unsubscribe_resource(self, uri: str) -> dict[str, Any]:
+        """取消资源订阅(`resources/unsubscribe`)。"""
+        resp = await self._send_request("resources/unsubscribe", {"uri": uri})
+        if "result" in resp:
+            self._subscriptions.pop(uri, None)
+            self._resource_updates.pop(uri, None)
+            return {"ok": True, "uri": uri}
+        error = resp.get("error", {})
+        return {
+            "ok": False,
+            "error": error.get("message", "未知错误"),
+            "code": error.get("code"),
+        }
+
+    def resource_updates(self, *, limit: int = 64) -> list[dict[str, Any]]:
+        """已订阅资源的最近更新(按时刻倒序,最多 `limit` 条)。
+
+        只回答"哪些 uri 在订阅后被 server 通知过";正文要重新 `resources/read`。
+        """
+        self._prune_resource_updates()
+        items = sorted(self._resource_updates.items(), key=lambda kv: kv[1], reverse=True)
+        return [
+            {"uri": uri, "updatedAt": ts, "subscribed": uri in self._subscriptions}
+            for uri, ts in items[: max(0, limit)]
+        ]
+
+    def _prune_resource_updates(self) -> None:
+        """有界台账:超过 `RESOURCE_UPDATE_LIMIT` 时丢最旧(观测窗口,非审计)。"""
+        if len(self._resource_updates) <= RESOURCE_UPDATE_LIMIT:
+            return
+        drop = len(self._resource_updates) - RESOURCE_UPDATE_LIMIT
+        oldest = sorted(self._resource_updates.items(), key=lambda kv: kv[1])[:drop]
+        for uri, _ts in oldest:
+            self._resource_updates.pop(uri, None)
+
     async def call_tool(
         self, name: str, arguments: dict[str, Any], *, quota_run_id: str = ""
     ) -> Any:
@@ -520,7 +759,16 @@ class MCPClient:
                 logger.debug("收到未知请求 ID 的响应: %s", req_id)
         # 处理通知(无 id)
         elif isinstance(msg, dict) and "method" in msg:
-            logger.debug("收到通知: %s", msg.get("method"))
+            method = msg.get("method")
+            # 资源订阅通知:记进有界台账,正文由前端/调用方按需 resources/read 重取。
+            # 没有推送通道时**不假装推送**,只暴露"最近被通知过的 uri"这一事实。
+            if method == "notifications/resources/updated":
+                params = msg.get("params")
+                uri = params.get("uri") if isinstance(params, dict) else None
+                if isinstance(uri, str) and uri:
+                    self._resource_updates[uri] = time.time()
+                    self._prune_resource_updates()
+            logger.debug("收到通知: %s", method)
 
     # =========================================================================
     # stdio 传输
@@ -1442,6 +1690,142 @@ class MCPClientManager:
             logger.error("[mcp_quota] 注册工具面被具名拒绝(mcp_tool_limit):%s", result.reason)
             raise ToolBudgetExceededError(result.reason, result)
         return tools
+
+    # ---- 资源与提示词的聚合面(2026-11-23 立) ----
+    # 遍历面与 `list_available_tools_async` 同一条纪律:只枚举**该主体看得见**且
+    # 已连接的 client。资源清单/提示词清单本身就是那台 server 的配置内容,
+    # 清单比 server 清单更宽 = 越权面(见 `test_mcp_external_owner_authz`)。
+    # 这里刻意不接工具面配额 `mcp_tool_limit`:那一维量的是"注册进 agent 的工具枚数",
+    # 资源/提示词不注册成工具,混进去会把两件事量成一件事(§0.6 单一真相源)。
+
+    async def _visible_connected(
+        self, caller_user_id: str
+    ) -> list[tuple[str, MCPClient]]:
+        """可见且已连接的 client 清单(资源/提示词三条聚合入口共用)。"""
+        out: list[tuple[str, MCPClient]] = []
+        for name, client in self._clients.items():
+            if not self.is_visible(name, caller_user_id):
+                continue
+            if not client.is_connected():
+                continue
+            out.append((name, client))
+        return out
+
+    async def list_available_resources(
+        self, caller_user_id: str
+    ) -> list[MCPClientResource]:
+        """聚合该主体可见的外部资源清单(单台失败只记日志,不影响其它 server)。"""
+        resources: list[MCPClientResource] = []
+        for name, client in await self._visible_connected(caller_user_id):
+            try:
+                resources.extend(await client.list_resources())
+            except Exception as e:
+                logger.warning("获取 %s 资源列表失败: %s", name, e)
+        return resources
+
+    async def list_available_resource_templates(
+        self, caller_user_id: str
+    ) -> list[MCPClientResourceTemplate]:
+        """聚合该主体可见的外部资源模板。"""
+        templates: list[MCPClientResourceTemplate] = []
+        for name, client in await self._visible_connected(caller_user_id):
+            try:
+                templates.extend(await client.list_resource_templates())
+            except Exception as e:
+                logger.warning("获取 %s 资源模板失败: %s", name, e)
+        return templates
+
+    async def list_available_prompts(
+        self, caller_user_id: str
+    ) -> list[MCPClientPrompt]:
+        """聚合该主体可见的外部提示词清单。"""
+        prompts: list[MCPClientPrompt] = []
+        for name, client in await self._visible_connected(caller_user_id):
+            try:
+                prompts.extend(await client.list_prompts())
+            except Exception as e:
+                logger.warning("获取 %s 提示词列表失败: %s", name, e)
+        return prompts
+
+    async def read_external_resource(
+        self, server_name: str, uri: str, *, caller_user_id: str
+    ) -> dict[str, Any]:
+        """按主体读取外部资源:看不见那台 server ⇒ 与"没这台"同模板回。
+
+        与 `call_external_tool` 同一理由不回 403:读取会用**那台 server 的凭据**
+        取回内容,"这条 id 存在"本身就是要保护的信息。
+        """
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        client = self._clients.get(server_name)
+        if client is None or not client.is_connected():
+            return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
+        return await client.read_resource(uri)
+
+    async def get_external_prompt(
+        self,
+        server_name: str,
+        prompt_name: str,
+        arguments: dict[str, Any] | None,
+        *,
+        caller_user_id: str,
+    ) -> dict[str, Any]:
+        """按主体取外部提示词渲染结果(可见性判据同 `read_external_resource`)。"""
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        client = self._clients.get(server_name)
+        if client is None or not client.is_connected():
+            return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
+        return await client.get_prompt(prompt_name, arguments)
+
+    async def complete_external_argument(
+        self,
+        server_name: str,
+        ref: dict[str, Any],
+        argument: dict[str, Any],
+        *,
+        caller_user_id: str,
+    ) -> dict[str, Any]:
+        """参数补全的聚合入口(可见性判据同 `read_external_resource`)。"""
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        client = self._clients.get(server_name)
+        if client is None or not client.is_connected():
+            return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
+        return await client.complete_argument(ref, argument)
+
+    async def subscribe_external_resource(
+        self, server_name: str, uri: str, *, caller_user_id: str
+    ) -> dict[str, Any]:
+        """订阅资源更新的聚合入口(可见性判据同上)。"""
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        client = self._clients.get(server_name)
+        if client is None or not client.is_connected():
+            return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
+        return await client.subscribe_resource(uri)
+
+    async def unsubscribe_external_resource(
+        self, server_name: str, uri: str, *, caller_user_id: str
+    ) -> dict[str, Any]:
+        """取消资源订阅的聚合入口。"""
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        client = self._clients.get(server_name)
+        if client is None or not client.is_connected():
+            return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
+        return await client.unsubscribe_resource(uri)
+
+    def external_resource_updates(
+        self, server_name: str, *, caller_user_id: str, limit: int = 64
+    ) -> dict[str, Any]:
+        """某台可见 server 的"最近被通知更新"的资源清单(纯读取,不出站)。"""
+        if not self.is_visible(server_name, caller_user_id):
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        client = self._clients.get(server_name)
+        if client is None:
+            return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
+        return {"ok": True, "updates": client.resource_updates(limit=limit)}
 
     async def call_external_tool(
         self,

@@ -61,6 +61,36 @@ class PromptInvokeRequest(BaseModel):
     arguments: dict[str, Any] = Field(default_factory=dict, description="提示词参数")
 
 
+class ExternalResourceReadRequest(BaseModel):
+    """外部 MCP Server 资源读取请求(server 必须显式点名,不接受跨 server 猜)。"""
+
+    server: str = Field(..., description="外部 MCP Server 名")
+    uri: str = Field(..., description="资源 URI")
+
+
+class ExternalPromptGetRequest(BaseModel):
+    """外部 MCP Server 提示词渲染请求。"""
+
+    server: str = Field(..., description="外部 MCP Server 名")
+    name: str = Field(..., description="提示词名")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="提示词参数")
+
+
+class ExternalCompletionRequest(BaseModel):
+    """外部 MCP Server 参数补全请求(`completion/complete`)。"""
+
+    server: str = Field(..., description="外部 MCP Server 名")
+    ref: dict[str, Any] = Field(..., description="MCP ref(ref/prompt 或 ref/resource)")
+    argument: dict[str, Any] = Field(..., description="argument:{name, value}")
+
+
+class ExternalResourceSubscribeRequest(BaseModel):
+    """外部 MCP 资源订阅/退订请求。"""
+
+    server: str = Field(..., description="外部 MCP Server 名")
+    uri: str = Field(..., description="资源 URI")
+
+
 class SlashCommandRequest(BaseModel):
     """Slash 命令执行请求。"""
 
@@ -787,6 +817,167 @@ async def call_external_tool(
     except Exception as e:
         logger.error("调用外部 MCP 工具失败(%s/%s): %s", req.server, req.tool, e)
         return JSONResponse(status_code=500, content={"error": f"调用外部 MCP 工具失败: {e}"})
+
+
+@router.get("/mcp/external/resources", response_model=None)
+async def list_external_resources(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """列出该主体**看得见**的外部 MCP 资源与资源模板(判据同 `/external/tools`)。
+
+    2026-11-23 立:此前外部 server 只有工具面接进 agent,resources / prompts 两条
+    协议一等公民完全不可达(dsh-mcp-resources 对照取证)。可见集共用
+    `MCPClientManager.is_visible` —— 资源 URI/名称本身就是那台 server 的配置内容,
+    清单收窄而内容不收窄等于没收窄。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        resources = await manager.list_available_resources(user_id)
+        templates = await manager.list_available_resource_templates(user_id)
+        return {
+            "resources": [asdict(r) for r in resources],
+            "resourceTemplates": [asdict(t) for t in templates],
+            "count": len(resources),
+        }
+    except Exception as e:
+        logger.error("列出外部 MCP 资源失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP 资源失败: {e}"})
+
+
+@router.post("/mcp/external/resources/read", response_model=None)
+async def read_external_resource(
+    req: ExternalResourceReadRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """读取一台外部 MCP Server 的资源(看不见那台 ⇒ 与"没这台"同形回 400)。
+
+    正文超 `RESOURCE_CONTENT_LIMIT_CHARS` 时由 client 层截断并置 `truncated:true`,
+    端点原样透传 —— 截断可见,不做静默降级。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        result = await manager.read_external_resource(
+            req.server, req.uri, caller_user_id=user_id
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(status_code=400, content={"error": result.get("error", "读取失败")})
+        return result
+    except Exception as e:
+        logger.error("读取外部 MCP 资源失败(%s): %s", req.server, e)
+        return JSONResponse(status_code=500, content={"error": f"读取外部 MCP 资源失败: {e}"})
+
+
+@router.get("/mcp/external/prompts", response_model=None)
+async def list_external_prompts(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """列出该主体**看得见**的外部 MCP 提示词模板(可见性判据同上)。"""
+    try:
+        manager = get_mcp_client_manager()
+        prompts = await manager.list_available_prompts(user_id)
+        return {"prompts": [asdict(p) for p in prompts], "count": len(prompts)}
+    except Exception as e:
+        logger.error("列出外部 MCP 提示词失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP 提示词失败: {e}"})
+
+
+@router.post("/mcp/external/prompts/get", response_model=None)
+async def get_external_prompt(
+    req: ExternalPromptGetRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """取一台外部 MCP Server 的提示词渲染结果(messages/description 原样返回)。"""
+    try:
+        manager = get_mcp_client_manager()
+        result = await manager.get_external_prompt(
+            req.server, req.name, req.arguments, caller_user_id=user_id
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(
+                status_code=400, content={"error": result.get("error", "获取提示词失败")}
+            )
+        return result
+    except Exception as e:
+        logger.error("获取外部 MCP 提示词失败(%s/%s): %s", req.server, req.name, e)
+        return JSONResponse(status_code=500, content={"error": f"获取外部 MCP 提示词失败: {e}"})
+
+
+@router.post("/mcp/external/completion", response_model=None)
+async def complete_external_argument(
+    req: ExternalCompletionRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """外部 MCP 参数自动补全(`completion/complete`,2026-11-23 立)。
+
+    补全候选由 server 产出(提示词参数、资源模板参数);本层只做可见性闸与透传,
+    不猜 ref 类型、不拼候选。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        result = await manager.complete_external_argument(
+            req.server, req.ref, req.argument, caller_user_id=user_id
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(status_code=400, content={"error": result.get("error", "补全失败")})
+        return result
+    except Exception as e:
+        logger.error("外部 MCP 参数补全失败(%s): %s", req.server, e)
+        return JSONResponse(status_code=500, content={"error": f"外部 MCP 参数补全失败: {e}"})
+
+
+@router.post("/mcp/external/resources/subscribe", response_model=None)
+async def subscribe_external_resource(
+    req: ExternalResourceSubscribeRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """订阅外部 MCP 资源更新(`resources/subscribe`)。
+
+    订阅后 server 的 `notifications/resources/updated` 会进有界台账;
+    本端点不承诺"推送",只承诺"能查到最近被通知的 uri"。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        result = await manager.subscribe_external_resource(
+            req.server, req.uri, caller_user_id=user_id
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(status_code=400, content={"error": result.get("error", "订阅失败")})
+        return result
+    except Exception as e:
+        logger.error("订阅外部 MCP 资源失败(%s): %s", req.server, e)
+        return JSONResponse(status_code=500, content={"error": f"订阅外部 MCP 资源失败: {e}"})
+
+
+@router.post("/mcp/external/resources/unsubscribe", response_model=None)
+async def unsubscribe_external_resource(
+    req: ExternalResourceSubscribeRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """取消外部 MCP 资源订阅(`resources/unsubscribe`)。"""
+    try:
+        manager = get_mcp_client_manager()
+        result = await manager.unsubscribe_external_resource(
+            req.server, req.uri, caller_user_id=user_id
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(status_code=400, content={"error": result.get("error", "退订失败")})
+        return result
+    except Exception as e:
+        logger.error("退订外部 MCP 资源失败(%s): %s", req.server, e)
+        return JSONResponse(status_code=500, content={"error": f"退订外部 MCP 资源失败: {e}"})
+
+
+@router.get("/mcp/external/resources/updates", response_model=None)
+async def external_resource_updates(
+    server: str, limit: int = 64, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """查询某台外部 server 订阅后"最近被通知更新"的资源(纯读,不出站)。"""
+    try:
+        manager = get_mcp_client_manager()
+        result = manager.external_resource_updates(
+            server, caller_user_id=user_id, limit=max(0, min(limit, 256))
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(status_code=404, content={"error": result.get("error", "查询失败")})
+        return result
+    except Exception as e:
+        logger.error("查询外部 MCP 资源更新失败(%s): %s", server, e)
+        return JSONResponse(status_code=500, content={"error": f"查询外部 MCP 资源更新失败: {e}"})
 
 
 # ---------------------------------------------------------------------------

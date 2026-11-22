@@ -450,7 +450,7 @@ export function ImageAnnotator({ open, imageUrl, onClose, onApply }: ImageAnnota
                 className={cn(
                   'h-5 w-5 rounded-sm border border-input transition-shadow',
                   option.className,
-                  color === option.value && 'ring-2 ring-ring ring-offset-1',
+                  color === option.value && 'ring-2 ring-stroke-focus ring-offset-1',
                 )}
               />
             ))}

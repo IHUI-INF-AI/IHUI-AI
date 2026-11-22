@@ -51,10 +51,10 @@ export const EMPTY_FORM: EventForm = {
 }
 
 export const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 export const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 export function normList(d: unknown): SystemEvent[] {
   return Array.isArray(d) ? (d as SystemEvent[]) : ((d as { list?: SystemEvent[] })?.list ?? [])

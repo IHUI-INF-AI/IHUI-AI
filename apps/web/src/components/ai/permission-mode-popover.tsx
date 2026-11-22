@@ -512,7 +512,7 @@ export function PermissionModePopover({
           // 处理器据此豁免(否则 mousedown 落在本面板时外层卸载,后续 click 丢失)。
           data-composer-nested-panel=""
           tabIndex={-1}
-          className="space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="space-y-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           {/* 顶部标题 + 了解更多链接(Codex 风格:左标题,右链接) */}
           <div className="flex items-start justify-between gap-2 px-1 pb-1">

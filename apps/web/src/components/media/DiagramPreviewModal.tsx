@@ -528,7 +528,7 @@ export function DiagramPreviewModal({
           role="application"
           aria-label={t('mermaidPreviewCanvas')}
           data-testid="diagram-preview-scroll"
-          className="h-[60vh] w-full overflow-auto border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-[60vh] w-full overflow-auto border border-border outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           style={{ touchAction: 'none' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

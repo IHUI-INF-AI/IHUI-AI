@@ -293,7 +293,7 @@ function PathNav({
 
   if (mode === 'input') {
     return (
-      <div className="flex items-center gap-1.5 ui-card rounded-lg border bg-card px-2 py-1.5 ring-1 ring-ring/40">
+      <div className="flex items-center gap-1.5 ui-card rounded-lg border bg-card px-2 py-1.5 ring-1 ring-stroke-focus/40">
         <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
         <input
           ref={inputRef}
@@ -1003,7 +1003,7 @@ export function LocalFolderPicker({
                 role="listbox"
                 aria-label={t('title')}
                 onKeyDown={handleListKeyDown}
-                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/40 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
+                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
               >
                 {browsing ? (
                   <li>

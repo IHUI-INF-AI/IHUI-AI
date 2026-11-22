@@ -92,7 +92,7 @@ export function buildCsvText(rows: string[][]): string {
 }
 
 const ICON_BUTTON_BASE =
-  'inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 /** 工具栏按钮:文案走 §19 五语言词表 chat.markdownTable.*,hover 提示用项目 Tooltip(禁原生 title) */
 function ToolbarButton({

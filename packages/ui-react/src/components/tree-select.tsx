@@ -194,7 +194,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
               aria-expanded={hasChildren ? isExpanded : undefined}
               aria-level={depth + 1}
               className={cn(
-                'flex cursor-default select-none items-center gap-1 rounded-sm py-1.5 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'flex cursor-default select-none items-center gap-1 rounded-sm py-1.5 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                 value === node.id && 'bg-accent text-accent-foreground',
               )}
               style={{ paddingLeft: `${depth * 16 + 8}px` }}
@@ -251,7 +251,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           aria-haspopup="tree"
           onClick={() => setOpen((p) => !p)}
           className={cn(
-            'flex h-9 w-full items-center justify-between whitespace-nowrap rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm shadow-elevation-sm ring-offset-background placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50',
+            'flex h-9 w-full items-center justify-between whitespace-nowrap rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50',
             !selectedPath && 'text-muted-foreground',
           )}
         >

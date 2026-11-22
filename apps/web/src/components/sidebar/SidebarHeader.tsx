@@ -215,7 +215,7 @@ export function SidebarHeader({
               navigate('/')
             }
           }}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_img]:pointer-events-none"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus [&_img]:pointer-events-none"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img

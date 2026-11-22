@@ -311,7 +311,7 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
           type="button"
           onClick={onClose}
           data-testid="code-run-close"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           aria-label={t('codeRun.close')}
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -658,7 +658,7 @@ const CodeBlockImpl = function CodeBlock({
           aria-label={effectiveCollapsed ? '展开代码' : '收起代码'}
           data-testid="code-block-toggle"
           // 2026-11-16:悬停反馈由头行常量统一提供(与思考/过程叙述头行同档),开关本身不再单独变色
-          className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <CodeBlockIcon className="h-3.5 w-3.5 shrink-0 text-foreground" aria-hidden="true" />
           <span className="min-w-0 truncate font-mono">{resolveCodeFileName(language)}</span>
@@ -846,7 +846,7 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
     <button
       type="button"
       onClick={handleOpen}
-      className="my-0 block max-w-full overflow-hidden rounded-sm bg-streamed-container-bg transition-colors hover:bg-streamed-container-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+      className="my-0 block max-w-full overflow-hidden rounded-sm bg-streamed-container-bg transition-colors hover:bg-streamed-container-bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
       aria-label={alt ? `图片: ${alt}` : '点击放大图片'}
     >
       {effectiveStatus === 'error' ? (

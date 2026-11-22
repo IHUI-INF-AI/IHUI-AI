@@ -2,65 +2,82 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 历史基线快照 —— 见文件头说明,禁止演进。
+import { describe, expect, it } from 'vitest'
+import {
+  MCP_APP_METHODS,
+  MCP_APP_PROTOCOL_VERSION,
+  isAppRpcRequest,
+  isMcpAppMethod,
+  isMcpAppResource,
+  rpcError,
+  rpcResult,
+} from '../mcp-app-bridge'
 
-/**
- * 端内手搓的 `toJsonProperty` —— 「发给 provider 的 function parameters」在被 A13 投影器替换**之前**的产出路径。
- *
- * 取材(逐字,不做任何现代化改写):
- *   git show dd5142f2255^:apps/cli/src/tools/index.ts
- *   - 函数体 = 该版本第 529-540 行
- *   - parameters 组装 = 该版本 `toolsToProviderSchema` 第 546-565 行的 map 体
- *
- * 唯一用途:`apps/cli/tests/a13-projection-equivalence.test.ts` 的 **A/B 旧侧**。
- * 它是"旧实现长什么样"的入库证据,不是"希望旧实现长什么样"的自由发挥。
- *
- * ⚠️ 禁止演进:不得为了让等价性测试变绿而修改本文件 —— 那等于把断言改写成愿望。
- *    生产代码里已不存在这份实现(A13 已删),也不得加回(AGENTS.md §5「禁止端内手搓 parameters 对象」)。
- */
-import type { ToolParameter } from '../../src/tools/index.js'
+describe('isMcpAppResource', () => {
+  it('ui:// 前缀一律按 App 渲染', () => {
+    expect(isMcpAppResource(undefined, 'ui://dashboard/main.html')).toBe(true)
+    expect(isMcpAppResource('text/plain', 'ui://x')).toBe(true)
+  })
 
-/** 旧侧的最小工具形状:只有 parameters / required 参与 A/B */
-export interface LegacyProjectableTool {
-  name: string
-  parameters: Record<string, ToolParameter>
-  required: string[]
-}
+  it('只有带 mcp-app profile 的 text/html 才进宿主', () => {
+    expect(isMcpAppResource('text/html;profile=mcp-app', 'file:///a.html')).toBe(true)
+    expect(isMcpAppResource('Text/HTML; Profile=MCP-App', 'file:///a.html')).toBe(true)
+    expect(isMcpAppResource('text/html', 'file:///a.html')).toBe(false)
+    expect(isMcpAppResource('text/markdown', 'file:///a.md')).toBe(false)
+  })
+})
 
-/** 旧侧出口形态:与历史 `ProviderToolSchema['function']['parameters']` 同形 */
-export interface LegacyParameters {
-  type: 'object'
-  properties: Record<string, unknown>
-  required: string[]
-}
+describe('isAppRpcRequest', () => {
+  it('接受 JSON-RPC 2.0 请求', () => {
+    expect(
+      isAppRpcRequest({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name: 'x' },
+      }),
+    ).toBe(true)
+    expect(isAppRpcRequest({ jsonrpc: '2.0', id: 'abc', method: 'ping' })).toBe(true)
+  })
 
-/** 把单个 ToolParameter 递归转换为 JSON Schema(深拷贝,不共享引用) */
-export function toJsonProperty(p: ToolParameter): Record<string, unknown> {
-  const prop: Record<string, unknown> = { type: p.type, description: p.description }
-  if (p.enum) prop.enum = [...p.enum]
-  if (p.items) prop.items = toJsonProperty(p.items)
-  if (p.properties) {
-    const props: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(p.properties)) props[k] = toJsonProperty(v)
-    prop.properties = props
-  }
-  if (p.required) prop.required = [...p.required]
-  return prop
-}
+  it('拒绝通知(无 id)、坏版本、非对象', () => {
+    expect(isAppRpcRequest({ jsonrpc: '2.0', method: 'ping' })).toBe(false)
+    expect(isAppRpcRequest({ jsonrpc: '1.0', id: 1, method: 'ping' })).toBe(false)
+    expect(isAppRpcRequest({ jsonrpc: '2.0', id: 1, method: '' })).toBe(false)
+    expect(isAppRpcRequest({ jsonrpc: '2.0', id: 1, method: 'ping', params: null })).toBe(false)
+    expect(isAppRpcRequest(null)).toBe(false)
+    expect(isAppRpcRequest('ping')).toBe(false)
+  })
 
-/**
- * 历史 `toolsToProviderSchema` 里 `function.parameters` 的组装段(第 552-561 行原样搬运)。
- * 单独导出是为了让 A/B 的旧侧**只**由历史代码构成,不含任何本会话新写的逻辑。
- */
-export function legacyBuildParameters(tool: LegacyProjectableTool): LegacyParameters {
-  const properties: Record<string, unknown> = {}
-  for (const [name, p] of Object.entries(tool.parameters)) {
-    properties[name] = toJsonProperty(p)
-  }
-  return {
-    type: 'object' as const,
-    properties,
-    required: [...tool.required],
-  }
-}
+  it('id 只认 string | number', () => {
+    expect(isAppRpcRequest({ jsonrpc: '2.0', id: true, method: 'ping' })).toBe(false)
+    expect(isAppRpcRequest({ jsonrpc: '2.0', id: {}, method: 'ping' })).toBe(false)
+  })
+})
+
+describe('方法白名单', () => {
+  it('只放行四个方法', () => {
+    for (const method of MCP_APP_METHODS) expect(isMcpAppMethod(method)).toBe(true)
+    expect(isMcpAppMethod('ui/unknown')).toBe(false)
+    expect(isMcpAppMethod('resources/subscribe')).toBe(false)
+  })
+})
+
+describe('回包构造', () => {
+  it('成功包带同 id 与 result', () => {
+    expect(rpcResult(7, { ok: true })).toEqual({ jsonrpc: '2.0', id: 7, result: { ok: true } })
+  })
+
+  it('错误包带 code / message', () => {
+    expect(rpcError('x', -32601, '未知方法')).toEqual({
+      jsonrpc: '2.0',
+      id: 'x',
+      error: { code: -32601, message: '未知方法' },
+    })
+  })
+
+  it('协议版本与 MCP Apps 对齐', () => {
+    expect(MCP_APP_PROTOCOL_VERSION).toBe('2025-06-18')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -364,7 +364,7 @@ export function ProviderFormDialog({
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder={t('descriptionPlaceholder')}
               rows={2}
-              className="w-full rounded-sm border border-input bg-background px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-1.5 text-body focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
           </div>
 

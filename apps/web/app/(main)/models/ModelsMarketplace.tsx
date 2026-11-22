@@ -62,12 +62,7 @@ import {
 
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { QuickKeyDialog } from './QuickKeyDialog'
-import {
-  getFavoriteModelIds,
-  toggleFavoriteModel,
-  SORT_KEY,
-  QUICK_FILTER_KEY,
-} from './helpers'
+import { getFavoriteModelIds, toggleFavoriteModel, SORT_KEY, QUICK_FILTER_KEY } from './helpers'
 import type { Model, QuickFilter, SortKey, ViewMode } from './types'
 
 interface Props {
@@ -327,7 +322,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('market.searchPlaceholder')}
-            className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
+            className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus dark:bg-input/30"
           />
         </div>
 
@@ -622,7 +617,7 @@ function ModelCardGrid({
           onCardClick(model)
         }
       }}
-      className="group relative flex cursor-pointer flex-col gap-3 p-3 transition-all hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring/20 ui-lift"
+      className="group relative flex cursor-pointer flex-col gap-3 p-3 transition-all hover:bg-accent/40 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus ui-lift"
     >
       {/* 收藏星标按钮(右上角) */}
       <FavoriteStar
@@ -878,7 +873,7 @@ function ModelCardList({
           onCardClick(model)
         }
       }}
-      className="group flex cursor-pointer items-center gap-3 p-3 transition-all hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring/20"
+      className="group flex cursor-pointer items-center gap-3 p-3 transition-all hover:bg-accent/40 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
         <BrandIcon vendor={model.provider} size={18} />

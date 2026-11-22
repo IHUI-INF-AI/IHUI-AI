@@ -76,7 +76,7 @@ const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitives.Root>, 
           // 豁免类别:开关拨杆硬边描边(0 模糊),控件自身立体感
           'shadow-[3px_3px_0_var(--color-foreground)]',
           'transition-[background,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           'disabled:cursor-not-allowed disabled:opacity-50',
           // ON: 高级灰蓝背景 + 保持同一框色(与硬投影同色才不出现双层描边)
           'data-[state=checked]:bg-[var(--color-brand-accent)] data-[state=checked]:border-foreground', // border-ink-exempt: ON 态沿用同一新拟态框色,与 3px 硬投影同色才不出现双层描边;属同一定稿,理由同上行 until 2027-09-26

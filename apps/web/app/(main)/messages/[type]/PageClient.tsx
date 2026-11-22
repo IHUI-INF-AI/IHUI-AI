@@ -204,7 +204,7 @@ export default function MessageTypePage() {
                   if (!item.isRead) readMut.mutate(item.id)
                 }}
                 className={cn(
-                  'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                   !item.isRead && 'bg-primary/[0.03]',
                 )}
               >

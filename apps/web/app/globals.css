@@ -507,14 +507,15 @@ html[data-link-underline='true'] a {
 
 /* ---- v2:主色档(2026-11-15)---------------------------------------------
  * store 只存枚举,颜色值全在这一段(亮/暗各一套),不产生第二套主题系统。
- * 覆盖的 4 个变量都是既有语义 token:主色、主色前景、焦点环、品牌深色描边。
+ * 覆盖的 3 个变量都是既有语义 token:主色、主色前景、品牌深色描边。
+ * (2026-11-23:焦点环不再随主色变 —— --color-ring 灰档已整体删除,
+ *  全站聚焦环只认 --color-stroke-focus 一个墨档,亮黑/暗白。)
  * ---------------------------------------------------------------------- */
 html[data-accent='blue'],
 [data-accent-preview='blue'] {
   --color-primary: hsl(217 91% 45%);
   --color-primary-foreground: hsl(0 0% 100%);
   --color-primary-foreground-rgb: 255, 255, 255;
-  --color-ring: hsl(217 91% 60%);
   --color-brand-accent-deep: hsl(217 91% 34%);
 }
 
@@ -523,7 +524,6 @@ html.dark [data-accent-preview='blue'] {
   --color-primary: hsl(213 94% 68%);
   --color-primary-foreground: hsl(222 47% 11%);
   --color-primary-foreground-rgb: 17, 24, 39;
-  --color-ring: hsl(213 94% 70%);
   --color-brand-accent-deep: hsl(213 94% 80%);
 }
 
@@ -532,7 +532,6 @@ html[data-accent='violet'],
   --color-primary: hsl(262 83% 52%);
   --color-primary-foreground: hsl(0 0% 100%);
   --color-primary-foreground-rgb: 255, 255, 255;
-  --color-ring: hsl(262 83% 64%);
   --color-brand-accent-deep: hsl(262 83% 40%);
 }
 
@@ -541,7 +540,6 @@ html.dark [data-accent-preview='violet'] {
   --color-primary: hsl(258 90% 72%);
   --color-primary-foreground: hsl(260 40% 12%);
   --color-primary-foreground-rgb: 29, 20, 45;
-  --color-ring: hsl(258 90% 74%);
   --color-brand-accent-deep: hsl(258 90% 82%);
 }
 
@@ -550,7 +548,6 @@ html[data-accent='emerald'],
   --color-primary: hsl(160 84% 30%);
   --color-primary-foreground: hsl(0 0% 100%);
   --color-primary-foreground-rgb: 255, 255, 255;
-  --color-ring: hsl(160 84% 40%);
   --color-brand-accent-deep: hsl(160 84% 22%);
 }
 
@@ -559,7 +556,6 @@ html.dark [data-accent-preview='emerald'] {
   --color-primary: hsl(152 76% 62%);
   --color-primary-foreground: hsl(160 60% 10%);
   --color-primary-foreground-rgb: 10, 41, 32;
-  --color-ring: hsl(152 76% 64%);
   --color-brand-accent-deep: hsl(152 76% 78%);
 }
 
@@ -568,7 +564,6 @@ html[data-accent='amber'],
   --color-primary: hsl(32 95% 38%);
   --color-primary-foreground: hsl(0 0% 100%);
   --color-primary-foreground-rgb: 255, 255, 255;
-  --color-ring: hsl(32 95% 50%);
   --color-brand-accent-deep: hsl(32 95% 28%);
 }
 
@@ -577,7 +572,6 @@ html.dark [data-accent-preview='amber'] {
   --color-primary: hsl(38 92% 62%);
   --color-primary-foreground: hsl(30 50% 10%);
   --color-primary-foreground-rgb: 38, 26, 13;
-  --color-ring: hsl(38 92% 64%);
   --color-brand-accent-deep: hsl(38 92% 78%);
 }
 
@@ -586,7 +580,6 @@ html[data-accent='rose'],
   --color-primary: hsl(347 77% 46%);
   --color-primary-foreground: hsl(0 0% 100%);
   --color-primary-foreground-rgb: 255, 255, 255;
-  --color-ring: hsl(347 77% 58%);
   --color-brand-accent-deep: hsl(347 77% 34%);
 }
 
@@ -595,7 +588,6 @@ html.dark [data-accent-preview='rose'] {
   --color-primary: hsl(350 89% 68%);
   --color-primary-foreground: hsl(345 50% 10%);
   --color-primary-foreground-rgb: 38, 13, 20;
-  --color-ring: hsl(350 89% 70%);
   --color-brand-accent-deep: hsl(350 89% 80%);
 }
 
@@ -609,7 +601,6 @@ html[data-custom-theme='true'] {
   --color-primary-foreground: var(--custom-light-primary-foreground);
   --color-primary-foreground-rgb: var(--custom-light-primary-foreground-rgb);
   --color-brand-accent-deep: color-mix(in srgb, var(--custom-light-primary) 72%, black);
-  --color-ring: var(--custom-light-primary);
   --color-background: var(--custom-light-background);
   --color-foreground: var(--custom-light-foreground);
   --color-card: var(--custom-light-card);
@@ -635,7 +626,6 @@ html.dark[data-custom-theme='true'] {
   --color-primary-foreground: var(--custom-dark-primary-foreground);
   --color-primary-foreground-rgb: var(--custom-dark-primary-foreground-rgb);
   --color-brand-accent-deep: color-mix(in srgb, var(--custom-dark-primary) 72%, white);
-  --color-ring: var(--custom-dark-primary);
   --color-background: var(--custom-dark-background);
   --color-foreground: var(--custom-dark-foreground);
   --color-card: var(--custom-dark-card);
@@ -684,9 +674,9 @@ html[data-table-zebra='true'] [data-testid='markdown-stream'] tbody tr:nth-child
 }
 
 /* 键盘焦点环强化(仅在开关开启时接管 :focus-visible 外观)。
- * 颜色必须与描边 2.0 组件内聚焦同源(--color-stroke-focus):本规则特异度高于
- * `focus-visible:outline-stroke-focus` 工具类,若取 --color-ring(灰)会把输入框/弹层
- * 已统一的墨色环整体改灰,形成第二套聚焦外观。此处只扩大覆盖面,不改变外观。 */
+ * 颜色只有一个源(--color-stroke-focus,亮黑/暗白):灰环 --color-ring 已于
+ * 2026-11-23 整体删除,全站不再存在第二套聚焦色。本规则特异度高于组件内
+ * `focus-visible:outline-stroke-focus` 工具类,此处只扩大覆盖面,不改变外观。 */
 html[data-focus-ring='true'] :focus-visible {
   outline: 2px solid var(--color-stroke-focus);
   /* 2026-11-22 机主定档:取消 2px 外扩间隙,焦点环贴住控件边沿(与组件内
@@ -2012,8 +2002,8 @@ body::-webkit-scrollbar {
  *        focus-visible:outline-none,导致 :focus / :focus-visible 启发式匹配时显示
  *        浏览器默认 outline(Chrome 2-3px 黑色描边,很显眼)。
  *   修复:全局移除 button 默认 outline,焦点可见性由组件自身的 hover 背景色变化承担
- *        (用户规则:"有背景色区分不就可以了吗")。shadcn Button 自带的
- *        focus-visible:ring-1 focus-visible:ring-ring 仍然生效(1px 灰色 ring,不显眼)。
+ *        (用户规则:"有背景色区分不就可以了吗")。2026-11-23 起全站按钮/菜单/标签的
+ *        聚焦外圈统一由下面 2275 行的全局规则接管(按钮不画外圈,只叠 9% 当前色)。
  *   影响场景:① Radix Dialog/Modal 打开时 autofocus 到 Cancel 按钮;
  *        ② 鼠标点击 button 后保持 :focus 状态;③ 键盘 Tab 切换焦点。
  */
@@ -2022,22 +2012,22 @@ button:focus-visible {
   outline: none;
 }
 
-/* Radix trigger(DropdownMenu/Popover/Dialog/Select 等)关闭时焦点还原 box-shadow ring 清除
+/* Radix trigger(DropdownMenu/Popover/Dialog/Select 等)关闭时焦点还原 box-shadow 清除
  *   (2026-07-30 立,用户报告"添加工作区"按钮点击外部关闭 menu 后出现描边)
  *   根因:Radix 在 menu/dialog 关闭时调 trigger.focus() 还原焦点,程序性 focus 在 Chrome
- *        下会触发 :focus-visible,导致 trigger 自带的 focus-visible:ring-1 ring-ring
- *        (Tailwind ring = box-shadow)显示 1px 灰色 ring,用户视觉上感知为"描边"。
- *   修复:针对 data-state="closed" 的 button focus 状态清除 box-shadow。
+ *        下会触发 :focus-visible,trigger 自带的聚焦外圈于是被画出来,用户视觉上感知为"描边"。
+ *   修复:针对 data-state="closed" 的 button focus 状态清除焦点外圈(outline + box-shadow)。
  *        data-state="closed" 是 Radix trigger 常态(从未打开过 + 关闭后),此规则让 Radix
- *        trigger 在 focus 时不显示 ring,由 hover/active 背景色承担反馈
+ *        trigger 在 focus 时不显示外圈,由 hover/active 背景色承担反馈
  *        (用户规则:"有背景色区分不就可以了吗")。
- *   不影响非 Radix 的普通 button(如 shadcn Button):它们没有 data-state 属性,
- *        键盘 Tab focus 时仍保留 focus-visible:ring-1 ring-ring(WCAG 2.4.7 可访问性保留)。
+ *   不影响非 Radix 的普通 button:它们没有 data-state 属性,按钮类聚焦外圈本就由
+ *        2293 行起的全局规则统一关掉(键盘用户仍有 9% 当前色叠加作为可见反馈)。
  *   覆盖范围:WorkspaceSelector / model-selector / admin relay 页面 / publish 页面等
  *        所有用 Radix DropdownMenu/Popover/Dialog/Select 且 trigger 是 <button> 的场景。
  */
 button[data-state='closed']:focus,
 button[data-state='closed']:focus-visible {
+  outline: none;
   box-shadow: none;
 }
 

@@ -688,7 +688,7 @@ export function ContextUsageRing({
             // 无障碍遍历、后续改样式的人)检查,类名上看不出它是浮层 —— 而"忘了写定位"
             // 正是弹层跟着页面滚走那一类事故的成因。top/left 仍由 inline 给(坐标是动态的)。
             className={cn(
-              'fixed ui-popover rounded-md border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'fixed ui-popover rounded-md border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               NESTED_FLOATING_Z_CLASS,
               'w-72',
             )}

@@ -85,7 +85,7 @@ export default function SelfHealingPage() {
             onChange={(e) => setTask(e.target.value)}
             placeholder={t('taskPlaceholder')}
             rows={3}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         </div>
         <div>
@@ -97,7 +97,7 @@ export default function SelfHealingPage() {
             value={targetPath}
             onChange={(e) => setTargetPath(e.target.value)}
             placeholder={t('targetPlaceholder')}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
         </div>
         <div className="flex items-center justify-between">

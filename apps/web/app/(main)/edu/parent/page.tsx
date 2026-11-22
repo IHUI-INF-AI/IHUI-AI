@@ -1219,7 +1219,7 @@ function BindingsManagement() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setRelationship(e.target.value)
                 }
-                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               >
                 {RELATIONSHIP_OPTIONS.map((value) => (
                   <option key={value} value={value}>

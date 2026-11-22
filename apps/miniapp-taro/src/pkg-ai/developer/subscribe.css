@@ -188,7 +188,7 @@
   font-size: var(--text-label);
   color: var(--color-primary);
   background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
 

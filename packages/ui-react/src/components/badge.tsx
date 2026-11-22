@@ -20,7 +20,7 @@ import { cn } from '../lib/utils'
  * 平台专属项(不下沉 badge-spec,两端允许不同形,逐条登记):
  *  - `border` + 各档 `border-transparent`:web base 自带边框通道,RN 只有 outline 档显式给边框;
  *  - 各档 hover 态 `hover:bg-…/80` 与 `transition-colors`:依赖 CSS :hover 通道,RN 无此通道;
- *  - `focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`:web 键盘可达性专属通道,
+ *  - `focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus`:web 键盘可达性专属通道,
  *    RN 走 accessibilityRole / accessibilityLabel 另一条通道;
  *  - `inline-flex`:RN 的同义写法是 `flex-row`;
  *  - 类名字面量:必须留在本文件 —— Tailwind 只扫本仓 ui-react 源,spec 文件不在扫描面内,
@@ -51,7 +51,7 @@ const VARIANT_CLASS: Record<(typeof BADGE_VARIANT_TIERS)[number], string> = {
 const badgeVariants = cva(
   [
     'inline-flex items-center border font-semibold transition-colors',
-    'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+    'focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus',
     RADIUS_CLASS[BADGE_RADIUS_TIER],
     PADDING_X_CLASS[BADGE_PADDING_X_PX],
     PADDING_Y_CLASS[BADGE_PADDING_Y_PX],

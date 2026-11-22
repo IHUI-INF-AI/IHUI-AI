@@ -295,7 +295,7 @@ export function SamplingParamsPanel({
               data-testid="sampling-personality-preset"
               value={activePreset ?? 'custom'}
               onChange={(e) => applyPreset(e.target.value as PersonalityPresetId)}
-              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             >
               <option value="custom">{t('personalityCustom')}</option>
               {PERSONALITY_PRESETS.map((p) => (
@@ -314,7 +314,7 @@ export function SamplingParamsPanel({
               rows={4}
               className={cn(
                 'w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed',
-                'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               )}
             />
             <p className="text-[11px] leading-snug text-muted-foreground">

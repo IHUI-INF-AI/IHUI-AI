@@ -290,7 +290,7 @@ export function MessageUsageBadge({
 // --fcd-btn-size:28px → h-7 w-7 | --fcd-btn-radius:6px → rounded-md | --fcd-btn-icon-size:16px → h-4 w-4
 // _message-list.scss .message-actions: display:flex; gap:8px; opacity:1(始终显示)
 export const ACTION_BTN_CLASS =
-  'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 /** 毫秒 → 紧凑秒串(用于首 token / 总耗时):<1s 显示两位小数,>=1s 一位小数。 */
 function formatSeconds(ms: number): string {

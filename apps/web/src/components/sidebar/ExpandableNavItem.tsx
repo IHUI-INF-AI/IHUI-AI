@@ -134,7 +134,7 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
     // 不违反项目"禁止分割线"硬约束(规则禁止的是 <hr>、divide-*、单边 border 分隔,不禁止图标指示符)
     'group/exp relative',
     NAV_ITEM_BASE_CLASS,
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+    ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
     // 二态优先级:父项自身激活(子级路由命中)用反色；仅"展开"仍用浅绿主色区分展开态；
     // 其余为未选中 muted + hover 回升前景色。
     parentActive

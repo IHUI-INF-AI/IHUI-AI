@@ -19,6 +19,8 @@ monkeypatch routers.mcp.get_mcp_client_manager 返回该 manager,避免共享单
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -404,3 +406,103 @@ async def test_call_external_tool_success(ac, monkeypatch):
     assert res.status_code == 200
     assert res.json()["content"][0]["text"] == "ok"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+# =============================================================================
+# completion / subscribe / unsubscribe / updates(2026-11-23)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_complete_argument_unknown_server_400(ac):
+    res = await ac.post(
+        "/api/mcp/external/completion",
+        json={"server": "no_such", "ref": {"type": "ref/prompt", "name": "p"}, "argument": {"name": "x", "value": ""}},
+    )
+    assert res.status_code == 400
+    assert "未知" in res.json()["error"]
+
+
+@pytest.mark.asyncio
+async def test_complete_argument_success(ac, monkeypatch):
+    _fake_connect_set_connected(monkeypatch)
+
+    async def _fake_complete(self, ref, argument):
+        return {"values": ["alpha", "alpine"], "total": 2, "hasMore": False}
+
+    monkeypatch.setattr("app.services.mcp_client.MCPClient.complete_argument", _fake_complete)
+    await ac.post(
+        "/api/mcp/external/servers",
+        json={"name": "svr1", "transport": "stdio", "command": "echo"},
+    )
+    res = await ac.post(
+        "/api/mcp/external/completion",
+        json={"server": "svr1", "ref": {"type": "ref/prompt", "name": "p"}, "argument": {"name": "x", "value": "a"}},
+    )
+    assert res.status_code == 200
+    assert res.json()["values"] == ["alpha", "alpine"]
+
+
+@pytest.mark.asyncio
+async def test_subscribe_notification_and_updates(ac, manager, monkeypatch):
+    _fake_connect_set_connected(monkeypatch)
+
+    async def _fake_send(self, method, params=None):
+        return {"result": {}}
+
+    await ac.post(
+        "/api/mcp/external/servers",
+        json={"name": "svr1", "transport": "stdio", "command": "echo"},
+    )
+    client = manager.get_client("svr1")
+    monkeypatch.setattr(client, "_send_request", lambda method, params=None: _fake_send(client, method, params))
+
+    res = await ac.post(
+        "/api/mcp/external/resources/subscribe",
+        json={"server": "svr1", "uri": "file:///live.md"},
+    )
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+    client._handle_message(
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/resources/updated",
+                "params": {"uri": "file:///live.md"},
+            }
+        )
+    )
+
+    res = await ac.get("/api/mcp/external/resources/updates", params={"server": "svr1"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["updates"][0]["uri"] == "file:///live.md"
+    assert body["updates"][0]["subscribed"] is True
+
+
+@pytest.mark.asyncio
+async def test_unsubscribe_clears_updates(ac, manager, monkeypatch):
+    _fake_connect_set_connected(monkeypatch)
+
+    async def _fake_send(self, method, params=None):
+        return {"result": {}}
+
+    await ac.post(
+        "/api/mcp/external/servers",
+        json={"name": "svr1", "transport": "stdio", "command": "echo"},
+    )
+    client = manager.get_client("svr1")
+    monkeypatch.setattr(client, "_send_request", lambda method, params=None: _fake_send(client, method, params))
+    await ac.post(
+        "/api/mcp/external/resources/subscribe",
+        json={"server": "svr1", "uri": "file:///live.md"},
+    )
+    client._resource_updates["file:///live.md"] = 1.0
+
+    res = await ac.post(
+        "/api/mcp/external/resources/unsubscribe",
+        json={"server": "svr1", "uri": "file:///live.md"},
+    )
+    assert res.status_code == 200
+
+    res = await ac.get("/api/mcp/external/resources/updates", params={"server": "svr1"})
+    assert res.json()["updates"] == []

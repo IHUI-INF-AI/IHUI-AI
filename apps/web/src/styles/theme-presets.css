@@ -16,7 +16,7 @@
  */
 
 /* ============ 蓝色主题(显式 [data-theme="blue"] 切换生效) ============ */
-[data-theme="blue"] {
+[data-theme='blue'] {
   --color-primary: hsl(217 91% 60%);
   --color-primary-hover: hsl(217 91% 55%);
   --color-primary-foreground: hsl(0 0% 100%);
@@ -32,12 +32,10 @@
   --color-brand-800: hsl(224 76% 45%);
   --color-brand-900: hsl(226 71% 40%);
   --color-brand-950: hsl(229 84% 26%);
-
-  --color-ring: hsl(217 91% 60%);
 }
 
 /* ============ 紫色主题(显式 [data-theme="purple"] 切换生效) ============ */
-[data-theme="purple"] {
+[data-theme='purple'] {
   --color-primary: hsl(265 89% 60%);
   --color-primary-hover: hsl(265 89% 55%);
   --color-primary-foreground: hsl(0 0% 100%);
@@ -53,13 +51,11 @@
   --color-brand-800: hsl(264 70% 45%);
   --color-brand-900: hsl(265 65% 40%);
   --color-brand-950: hsl(267 70% 25%);
-
-  --color-ring: hsl(265 89% 60%);
 }
 
 /* ============ 暗色模式非默认主题覆盖 ============ */
 /* 暗色(白底)下:主色调亮,前景色用纯黑(与 tokens.css .dark primary-foreground 一致) */
-.dark[data-theme="blue"] {
+.dark[data-theme='blue'] {
   --color-primary: hsl(217 91% 65%);
   --color-primary-hover: hsl(217 91% 70%);
   --color-primary-foreground: hsl(0 0% 0%);
@@ -75,11 +71,9 @@
   --color-brand-800: hsl(212 96% 82%);
   --color-brand-900: hsl(213 97% 90%);
   --color-brand-950: hsl(214 100% 95%);
-
-  --color-ring: hsl(217 91% 65%);
 }
 
-.dark[data-theme="purple"] {
+.dark[data-theme='purple'] {
   --color-primary: hsl(265 89% 65%);
   --color-primary-hover: hsl(265 89% 70%);
   --color-primary-foreground: hsl(0 0% 0%);
@@ -95,7 +89,5 @@
   --color-brand-800: hsl(270 95% 82%);
   --color-brand-900: hsl(269 100% 90%);
   --color-brand-950: hsl(270 100% 95%);
-
-  --color-ring: hsl(265 89% 65%);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

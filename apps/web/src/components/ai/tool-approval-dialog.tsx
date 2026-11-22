@@ -1015,7 +1015,7 @@ export function ToolApprovalDialog() {
               maxLength={500}
               rows={2}
               data-testid="tool-approval-reason"
-              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
+              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground/60 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
           </div>
           {pendingCount > 0 && (

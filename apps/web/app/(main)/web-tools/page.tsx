@@ -169,7 +169,7 @@ export default function WebToolsPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('urlPlaceholder')}
-            className="h-9 flex-1 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 flex-1 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
           <Button size="default" disabled={running} onClick={() => void run()}>
             {running ? (
@@ -236,7 +236,7 @@ export default function WebToolsPage() {
               onChange={(e) => setFieldsText(e.target.value)}
               rows={4}
               placeholder={t('fieldsPlaceholder')}
-              className="w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
             <p className="text-[10px] text-muted-foreground">{t('fieldsHint')}</p>
           </div>

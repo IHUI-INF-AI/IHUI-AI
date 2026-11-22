@@ -151,7 +151,7 @@ export function NotificationCenter({
                       onDecisionItemClick?.(item)
                     }
                   }}
-                  className="flex cursor-pointer gap-2 rounded-md px-2 py-2 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex cursor-pointer gap-2 rounded-md px-2 py-2 outline-none transition-colors hover:bg-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body font-medium">
@@ -197,7 +197,7 @@ export function NotificationCenter({
                     }
                   }}
                   className={
-                    'flex gap-3 rounded-md px-2.5 py-2.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring ' +
+                    'flex gap-3 rounded-md px-2.5 py-2.5 outline-none transition-colors hover:bg-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus ' +
                     (onItemClick ? 'cursor-pointer' : '')
                   }
                 >

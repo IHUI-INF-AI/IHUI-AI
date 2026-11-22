@@ -173,7 +173,7 @@ export function AnnotationStylePanel({
                 onChange={(e) => setStyles((prev) => ({ ...prev, [field]: e.target.value }))}
                 disabled={typeof styles[field] !== 'string'}
                 data-testid={`style-${field}`}
-                className="h-6 rounded-sm border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40"
+                className="h-6 rounded-sm border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:opacity-40"
               />
             </label>
           )

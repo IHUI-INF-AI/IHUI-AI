@@ -55,7 +55,7 @@
   margin-top: var(--spacing-md);
   padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
 .special-banner-history-icon {
@@ -220,7 +220,7 @@
   margin-top: var(--spacing-sm);
   padding: 10rpx var(--spacing-md-loose);
   background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
 .special-card-btn Text {

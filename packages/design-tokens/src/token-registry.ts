@@ -97,7 +97,6 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
     defaultValue: 'rgba(0, 0, 0, 0.14)',
     description: 'legacy 输入框描边别名(与 stroke-field 同值,仅兼容未迁移调用点)',
   },
-  { name: '--color-ring', type: 'color', defaultValue: 'hsl(0 0% 70%)' },
   { name: '--color-success', type: 'color', defaultValue: 'hsl(142 71% 45%)' },
   { name: '--color-success-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
   { name: '--color-warning', type: 'color', defaultValue: 'hsl(38 92% 50%)' },

@@ -191,7 +191,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                   'min-h-[64px] cursor-pointer rounded-md border p-1 transition-colors',
                   isCurrentMonth ? 'bg-card' : 'bg-muted/20 text-muted-foreground',
                   isToday && 'border-brand-accent-deep',
-                  isSelected && 'ring-1 ring-ring',
+                  isSelected && 'ring-1 ring-stroke-focus',
                   !isSelected && !isToday && 'border-stroke-subtle hover:border-border',
                 )}
               >

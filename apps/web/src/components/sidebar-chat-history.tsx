@@ -1030,7 +1030,7 @@ export function SidebarChatHistory({
                 'absolute right-0.5 top-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm transition-all',
                 'text-muted-foreground opacity-0 group-hover:opacity-100 touch-reveal',
                 'hover:bg-accent hover:text-accent-foreground',
-                'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                 'data-[state=open]:opacity-100 data-[state=open]:bg-accent',
               )}
             >

@@ -116,7 +116,7 @@ export default function DeepResearchPage() {
           onChange={(e) => setQuery(e.target.value)}
           rows={3}
           placeholder={t('queryPlaceholder')}
-          className="w-full resize-y rounded-sm border bg-background p-3 text-body outline-none focus:ring-2 focus:ring-ring"
+          className="w-full resize-y rounded-sm border bg-background p-3 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-body text-muted-foreground">

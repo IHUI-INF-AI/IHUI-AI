@@ -37,7 +37,7 @@
   font-size: var(--text-title);
   color: var(--color-primary);
   background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-sm);
 }
 .cal-today-btn {
@@ -183,7 +183,7 @@
 .cal-action-upcoming {
   color: var(--color-primary);
   background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
 }
 .cal-action-living {
   color: var(--color-destructive-foreground);

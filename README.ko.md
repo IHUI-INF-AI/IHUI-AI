@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 📚 문서:收编 README 自动更新条目(含认证运行时修复与前向修正) (1bb960dd)
 - 🐞 수정:撤回 c6136d71 误夹带的 README 自动更新块(前向修正) (59b4dddd)
 - 🐞 수정:认证运行时收敛为 global 单例，根治分包致 refresh 整族吊销 (c6136d71)
 - 🔧 기타:锁住 Input 聚焦环的"状态作用域"写法 (315ba51b)

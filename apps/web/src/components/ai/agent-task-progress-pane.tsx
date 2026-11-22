@@ -480,7 +480,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
         className={cn(
           'flex cursor-pointer items-start gap-1.5 px-2 py-0.5 text-[11px] leading-relaxed transition-colors',
           step.status === 'in_progress' && 'bg-primary/10',
-          isHighlighted && 'bg-primary/5 ring-1 ring-ring/30',
+          isHighlighted && 'bg-primary/5 ring-1 ring-stroke-focus/30',
         )}
         aria-label={stepLabel}
         data-testid={`plan-step-${step.id}`}
@@ -1812,7 +1812,7 @@ export function AgentTaskProgressPane() {
           <button
             type="button"
             onClick={scrollToFirstFailure}
-            className="flex shrink-0 w-full items-center gap-1.5 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60"
+            className="flex shrink-0 w-full items-center gap-1.5 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             aria-live="polite"
             data-testid="pane-failure-banner"
           >
@@ -2053,11 +2053,7 @@ export function AgentTaskProgressPane() {
 
           {/* 2026-11-21 第 43 项:两条挂载点读数(会话累计 / 台账回落)抽成组件,
               显示优先级只在组件内一份;这里只决定要不要渲染它。 */}
-          <HookReadout
-            sessionStats={runtimeHookStats}
-            auditStats={hookAuditStats}
-            t={t}
-          />
+          <HookReadout sessionStats={runtimeHookStats} auditStats={hookAuditStats} t={t} />
 
           {/* 2026-11-20 第 26 项:hook-run 逐钩子结果(命名 SSE 事件,最近一帧)。
               与 hook-failed 分工:这里报"钩子正常工作并给出裁决/改写/超时"。 */}

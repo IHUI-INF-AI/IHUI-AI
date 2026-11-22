@@ -179,7 +179,6 @@ progress {
   --color-destructive-foreground: #fafafa;
   --color-border: rgba(0, 0, 0, 0.1);
   --color-input: rgba(0, 0, 0, 0.14);
-  --color-ring: #b3b3b3;
   --color-success: #21c45d;
   --color-success-foreground: #fafafa;
   --color-warning: #f59f0a;
@@ -622,7 +621,6 @@ iframe#webpack-dev-server-client-overlay {
   --color-destructive-foreground: #fafafa;
   --color-border: rgba(0, 0, 0, 0.1);
   --color-input: rgba(0, 0, 0, 0.14);
-  --color-ring: #b3b3b3;
   --color-success: #21c45d;
   --color-success-foreground: #fafafa;
   --color-warning: #f59f0a;
@@ -868,7 +866,6 @@ iframe#webpack-dev-server-client-overlay {
   --color-destructive-foreground: #fafafa;
   --color-border: rgba(255, 255, 255, 0.12);
   --color-input: rgba(255, 255, 255, 0.16);
-  --color-ring: #595959;
   --color-success: #2dd269;
   --color-success-foreground: #fafafa;
   --color-warning: #eea62b;

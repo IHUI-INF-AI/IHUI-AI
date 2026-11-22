@@ -339,7 +339,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 value={addressValue}
                 onChange={(e) => onAddressChange(e.target.value)}
                 placeholder={labels.addressPlaceholder}
-                className="h-5 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
+                className="h-5 border-0 bg-transparent px-0 text-xs shadow-none outline-none"
               />
               {isLoading && (
                 <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
@@ -648,7 +648,7 @@ const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(
         {...props}
         aria-label={props['aria-label'] ?? (typeof title === 'string' ? title : undefined)}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
+          'inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-40',
           size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
           className,
         )}

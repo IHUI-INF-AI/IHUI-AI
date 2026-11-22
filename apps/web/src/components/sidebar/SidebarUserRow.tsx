@@ -526,7 +526,7 @@ export function SidebarUserRow({
         // 图标 14px vs 20px、字号 body vs sm。这里按 NAV_ITEM_BASE_CLASS 口径逐项对齐
         // (圆角除外:按钮是 control 档=sm,守门 150 于 2026-11-11 根治时定档);
         // 同时去掉 justify-center,内容与导航项一样左对齐(与已登录态 userTrigger 同源)。
-        'flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-body font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
       )}
     >
       <LogIn className="h-5 w-5 shrink-0" />
@@ -544,7 +544,7 @@ export function SidebarUserRow({
         // 与导航项(chip=md)的 2px 差由角色表裁决。
         'font-[weight:inherit] group/row flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-body transition-colors hover:bg-sidebar-item-hover-bg',
         // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
-        'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+        'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
       )}
     >
       {/* 内层 28×28 命中区,内含 24×24 Avatar(xs),保留 2px 留白 */}

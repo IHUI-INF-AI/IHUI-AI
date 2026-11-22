@@ -22,7 +22,7 @@
  *  - TabsContent 上间距 `mt-2` = 8:仅 web(RN 无 TabsContent 等价物)。机制差异 ⇒ 不下沉。
  *  - 选中态背景:web `data-[state=active]:bg-selection`;RN `active && 'bg-background'`(flex-1 下
  *    用 bg-background 而非 bg-selection,避免整条 tab 反白)。色值/选择器差异 ⇒ 不下沉。
- *  - web 的 focus-visible:ring-2 / transition-all、RN 的 accessibilityRole / accessibilityState
+ *  - web 的 focus-visible:outline-2 / transition-all、RN 的 accessibilityRole / accessibilityState
  *    无障碍通道:平台机制差异 ⇒ 不下沉。
  *  - 类名形态:两端都写 Tailwind 风格类,但**字面量必须留在两端壳里** —— spec 文件不在
  *    Tailwind / nativewind 的扫描面内,把类名搬进 spec 会让规则根本不产出。

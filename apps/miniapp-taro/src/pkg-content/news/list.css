@@ -51,7 +51,7 @@
   margin: 0 var(--spacing-sm-loose) var(--spacing-md);
   padding: var(--spacing-md);
   background: var(--color-card);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-text-tertiary);
   border-radius: var(--radius-lg);
 }
 .pinned-tag {

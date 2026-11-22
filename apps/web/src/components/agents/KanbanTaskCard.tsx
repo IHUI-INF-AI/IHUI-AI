@@ -114,7 +114,7 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
     <button
       type="button"
       onClick={() => onSelect(task)}
-      className="w-full rounded-sm border border-border bg-card p-3 text-left shadow-elevation-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="w-full rounded-sm border border-border bg-card p-3 text-left shadow-elevation-sm transition-colors hover:bg-accent/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
     >
       <div className="flex items-start gap-2">
         <span

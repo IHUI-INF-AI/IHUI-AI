@@ -27,7 +27,7 @@ import { cn } from '../lib/utils'
 // 图标尺寸档(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32,单一来源 @ihui/design-tokens icon-button.ts)
 // icon-xs/icon-sm/icon 三档全部同值,仅保留名称兼容既有调用
 const buttonVariants = cva(
-  `inline-flex ${SHARED_BUTTON_BASE_CLASS} gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0`,
+  `inline-flex ${SHARED_BUTTON_BASE_CLASS} gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0`,
   {
     variants: {
       variant: {

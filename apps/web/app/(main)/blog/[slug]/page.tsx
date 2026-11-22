@@ -134,7 +134,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               <li key={p.slug}>
                 <Link
                   href={`/blog/${p.slug}`}
-                  className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 >
                   <Card className="h-full transition-colors hover:bg-accent/40 hover:border-stroke-strong">
                     <CardContent className="min-[640px]:p-3 space-y-2 p-3">

@@ -177,7 +177,7 @@ export function CustomNavDialog({
         onClick={() => (added ? onRemove(c.href) : onAdd(c.href))}
         className={cn(
           'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 text-body font-medium leading-none transition-colors',
-          'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           indented && 'pl-7',
           added ? 'text-foreground' : 'text-foreground/70',
         )}
@@ -223,7 +223,7 @@ export function CustomNavDialog({
             placeholder={t('customSearchPlaceholder')}
             // placeholder 不是无障碍名:读屏只念"编辑框",补 aria-label 让它念得出这是什么
             aria-label={t('customSearchPlaceholder')}
-            className="font-[weight:inherit] h-9 w-full rounded-sm border bg-background pl-8 pr-3 text-body transition-colors placeholder:text-muted-foreground/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus focus-visible:ring-1 focus-visible:ring-ring"
+            className="font-[weight:inherit] h-9 w-full rounded-sm border bg-background pl-8 pr-3 text-body transition-colors placeholder:text-muted-foreground/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
           />
         </div>
 

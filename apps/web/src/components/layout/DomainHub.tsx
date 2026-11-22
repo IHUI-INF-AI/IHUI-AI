@@ -87,7 +87,7 @@ export const HUB_TOKENS = {
   searchIcon:
     'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground',
   searchInput:
-    'h-9 w-full rounded-sm border border-border bg-background/80 pl-8 pr-3 text-body text-foreground shadow-elevation-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-primary/30 focus:border-primary/50 focus:ring-2 focus:ring-ring/25',
+    'h-9 w-full rounded-sm border border-border bg-background/80 pl-8 pr-3 text-body text-foreground shadow-elevation-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-primary/30 focus:border-primary/50 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus',
   body: 'mt-5 space-y-6',
   /** 单个分组 */
   section: 'space-y-2.5',
@@ -104,7 +104,7 @@ export const HUB_TOKENS = {
    * (globals.css 的 --lift-scale / --lift-offset + --shadow-elevation-lg)。
    * 显式挂类而不是只靠"main 内 bg-card 自动浮"那条选择器:本组件也可能被非 main 容器渲染。
    */
-  card: 'ui-lift group flex items-center gap-3 rounded-md border border-border bg-card p-3 shadow-elevation-sm hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+  card: 'ui-lift group flex items-center gap-3 rounded-md border border-border bg-card p-3 shadow-elevation-sm hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
   /** 卡片图标砖:几何走 ICON_BRICK,与父项表头同尺寸 */
   cardIcon: `${ICON_BRICK} bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary`,
   cardGlyph: ICON_GLYPH,
@@ -117,7 +117,7 @@ export const HUB_TOKENS = {
   parentPanel: 'rounded-xl border border-stroke-default bg-muted/30 p-2.5 sm:p-3',
   /** 父项表头:gap-3 与普通卡片一致,图标砖 36×36 同档 */
   parentLink:
-    'group/parent flex items-center gap-3 rounded-lg px-1 py-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'group/parent flex items-center gap-3 rounded-lg px-1 py-1 transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
   parentIcon: `${ICON_BRICK} bg-background text-muted-foreground transition-colors group-hover/parent:bg-primary/10 group-hover/parent:text-primary`,
   parentTitle: 'min-w-0 flex-1 truncate text-body font-medium text-foreground',
   parentCount: 'shrink-0 text-label tabular-nums text-muted-foreground',

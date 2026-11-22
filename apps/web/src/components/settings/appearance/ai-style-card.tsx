@@ -24,7 +24,7 @@ import { OptionGrid, SectionCard, ToggleField } from './controls'
 
 /** 三处 textarea 共用同一套外观,不重复写 class */
 const TEXTAREA_CLASS =
-  'w-full resize-y rounded-sm border bg-transparent px-3 py-2 text-body outline-hidden focus-visible:ring-2 focus-visible:ring-ring'
+  'w-full resize-y rounded-sm border bg-transparent px-3 py-2 text-body outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 export function AiStyleCard() {
   const t = useTranslations('appearanceSettings')

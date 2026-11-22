@@ -110,7 +110,7 @@ export function CourseAuditDialog({
               <Label htmlFor="audit-remark">{t('dialog.remark')}</Label>
               <textarea
                 id="audit-remark"
-                className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                 value={compareRemark}
                 onChange={(e) => onRemarkChange(e.target.value)}
                 placeholder={t('dialog.remarkPlaceholder')}

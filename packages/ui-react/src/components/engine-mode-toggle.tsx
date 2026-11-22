@@ -71,7 +71,7 @@ export function EngineModeToggle({
             onClick={() => onChange(m)}
             className={cn(
               'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               'disabled:pointer-events-none disabled:opacity-50',
               active
                 ? 'bg-selection text-selection-foreground'

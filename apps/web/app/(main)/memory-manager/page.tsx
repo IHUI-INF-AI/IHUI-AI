@@ -166,7 +166,7 @@ export default function MemoryManagerPage() {
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           >
             <option value="">{t('all')}</option>
             {MEMORY_TYPES.map((mt) => (
@@ -181,7 +181,7 @@ export default function MemoryManagerPage() {
           <select
             value={importanceMin}
             onChange={(e) => setImportanceMin(Number(e.target.value))}
-            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           >
             <option value={0}>{t('all')}</option>
             <option value={3}>≥3</option>
@@ -202,7 +202,7 @@ export default function MemoryManagerPage() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
-              className="rounded-sm border bg-background px-2 py-1 text-body outline-none focus:ring-2 focus:ring-ring"
+              className="rounded-sm border bg-background px-2 py-1 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             >
               {MEMORY_TYPES.map((mt) => (
                 <option key={mt} value={mt}>
@@ -216,7 +216,7 @@ export default function MemoryManagerPage() {
             onChange={(e) => setNewContent(e.target.value)}
             placeholder={t('contentPlaceholder')}
             rows={2}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
           <div className="mt-2 flex justify-end gap-2">
             <button

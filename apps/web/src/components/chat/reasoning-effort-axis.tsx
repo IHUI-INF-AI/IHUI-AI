@@ -89,7 +89,7 @@ const LABEL_KEY = {
 const HEAD_ACTION_CLASS =
   'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground ' +
   'transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none ' +
-  'focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40'
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-40'
 
 /** 滑块直径(px)。坐标层左右各让出半径 ⇒ 首末档手柄边缘与轨道两端齐平,真能拉到头。 */
 const KNOB_SIZE = 18
@@ -207,7 +207,7 @@ export function ReasoningEffortAxis({
         <div className="mt-2 px-3">
           <div
             className={cn(
-              'relative h-5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60',
+              'relative h-5 rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               railDisabled && 'opacity-60',
             )}
             role="radiogroup"
@@ -280,7 +280,7 @@ export function ReasoningEffortAxis({
                     onClick={() => onChange?.(active ? undefined : effort)}
                     className={cn(
                       'absolute top-0 h-5 w-5 -translate-x-1/2 rounded-full transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                       blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-white/10',
                     )}
                     style={{ left: `${percentOf(index)}%` }}

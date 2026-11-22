@@ -71,7 +71,7 @@ interface PromptVersion {
 }
 
 const textareaCls =
-  'flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50'
+  'flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-50'
 
 export default function PromptsPage() {
   const t = useTranslations('models')
@@ -537,7 +537,7 @@ export default function PromptsPage() {
                     {t('prompts.detail.version', { version: viewVersion })}
                   </span>
                   <select
-                    className="h-8 rounded-sm border border-input bg-background px-2 text-label focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="h-8 rounded-sm border border-input bg-background px-2 text-label focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                     value={viewVersion}
                     onChange={(e) => handleViewVersionChange(Number(e.target.value))}
                   >

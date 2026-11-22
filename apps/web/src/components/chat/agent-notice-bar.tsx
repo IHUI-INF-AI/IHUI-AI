@@ -66,7 +66,7 @@ export function AgentNoticeBar() {
           type="button"
           onClick={() => setSelectedAgentId(null)}
           data-testid="agent-notice-bar-reset"
-          className="w-fit rounded-sm text-[11px] font-normal text-primary/80 underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="w-fit rounded-sm text-[11px] font-normal text-primary/80 underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           {t('agentNoticeBar.reset')}
         </button>

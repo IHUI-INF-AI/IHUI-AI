@@ -96,7 +96,7 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
           placeholder={t('bioPlaceholder')}
           className={cn(
             'w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors',
-            'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         />
@@ -110,7 +110,7 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
           {...form.register('gender', { valueAsNumber: true })}
           className={cn(
             'h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           )}
         >
           {GENDER_OPTIONS.map((opt) => (

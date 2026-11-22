@@ -111,7 +111,6 @@
      2.0 的 field 档等于白加;且 8% 比卡片 default(10%)还虚,正是用户报的"输入框比卡片淡"。
      新代码仍应写 `border-stroke-field`,本档只作兼容兜底。 */
   --color-input: rgba(0, 0, 0, 0.14);
-  --color-ring: #b3b3b3;
 
   /* ===== 容器描边角色层 2.0(2026-11-15 第二轮) =====
    * 固定顺序:subtle < default < field < strong —— 输入控件必须比容器更实,
@@ -749,7 +748,6 @@ select:-webkit-autofill:focus {
      描边是引导用户视线聚焦的辅助线,亮一点反而让输入框"凸出"在卡片之上,
      避免用户找不到光标位置)。2026-11-15:改为 16% 白 alpha,随暗色表面自适应。 */
   --color-input: rgba(255, 255, 255, 0.16);
-  --color-ring: #595959;
   /* 容器描边角色层暗色覆盖:与亮色同一顺序 subtle < default < field < strong,
      白 alpha 比黑 alpha 更柔和,避免"粉笔描边" */
   --color-stroke-subtle: rgba(255, 255, 255, 0.08);

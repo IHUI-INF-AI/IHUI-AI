@@ -113,7 +113,7 @@ function daysAgo(n: number): string {
 }
 
 const inputCls =
-  'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 export default function VisitTrackingPage() {
   const [start, setStart] = React.useState(daysAgo(7))

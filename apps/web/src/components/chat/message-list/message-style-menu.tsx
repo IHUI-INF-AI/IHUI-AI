@@ -26,7 +26,7 @@ import {
 } from '@/stores/appearance-scope'
 
 const SELECT_CLASS =
-  'h-7 rounded-sm border bg-transparent px-1.5 text-[11px] text-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-ring'
+  'h-7 rounded-sm border bg-transparent px-1.5 text-[11px] text-foreground outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (

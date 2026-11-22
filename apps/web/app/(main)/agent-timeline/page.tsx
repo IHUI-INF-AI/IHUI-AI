@@ -173,7 +173,7 @@ export default function AgentTimelinePage() {
           onChange={(e) => setSessionId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void load(sessionId)}
           placeholder={t('sessionIdPlaceholder')}
-          className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
+          className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <button
           onClick={() => void load(sessionId)}

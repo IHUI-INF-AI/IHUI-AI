@@ -71,7 +71,7 @@ export function DownloadAssetCard({
         rel={isExternal ? 'noopener noreferrer' : undefined}
         onClick={() => trackDownload(platform, 'detail_page', asset.href)}
         className={cn(
-          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-cta px-4 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-cta px-4 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
         )}
       >
         <Download className="h-4 w-4" />

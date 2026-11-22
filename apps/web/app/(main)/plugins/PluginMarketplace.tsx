@@ -617,7 +617,7 @@ function ProjectPluginCard({
   return (
     <Link
       href={plugin.href}
-      className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
+      className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus focus-visible:rounded-lg"
     >
       <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40">
         <div className="flex items-start gap-3">
@@ -865,7 +865,7 @@ function MarketPluginCard({
       <Link
         href={plugin.url}
         onClick={onRecordClick}
-        className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
+        className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus focus-visible:rounded-lg"
       >
         {card}
       </Link>
@@ -890,7 +890,7 @@ function MarketPluginCard({
             onInvoke()
           }
         }}
-        className="group block w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
+        className="group block w-full cursor-pointer text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus focus-visible:rounded-lg"
         aria-label={`${invokeLabel} ${plugin.name}`}
       >
         {card}
@@ -904,7 +904,7 @@ function MarketPluginCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={onRecordClick}
-      className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
+      className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus focus-visible:rounded-lg"
     >
       {card}
     </a>

@@ -202,14 +202,14 @@ export function IntegrationsPanel() {
               value={cfg.repo ?? ''}
               onChange={(e) => updateChannel(ch, { repo: e.target.value })}
               placeholder={t('githubRepoPlaceholder')}
-              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <input
               data-testid="integrations-github-trigger-id"
               value={cfg.triggerId ?? ''}
               onChange={(e) => updateChannel(ch, { triggerId: e.target.value })}
               placeholder={t('githubTriggerPlaceholder')}
-              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <div className="grid grid-cols-2 gap-1">
               <button
@@ -242,7 +242,7 @@ export function IntegrationsPanel() {
               value={cfg.webhookUrl ?? ''}
               onChange={(e) => updateChannel(ch, { webhookUrl: e.target.value })}
               placeholder={t('slackUrlPlaceholder')}
-              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+              className="w-full rounded-sm border bg-transparent px-2 py-1 outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             />
             <button
               type="button"

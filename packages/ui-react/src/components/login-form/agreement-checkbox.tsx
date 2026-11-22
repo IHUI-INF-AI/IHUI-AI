@@ -85,7 +85,7 @@ export function AgreementCheckbox({
         }}
         className={cn(
           'mt-[1px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border outline-none transition-all duration-200',
-          'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           // 2026-08-13 修订:勾选态改为 border-transparent
           // 与共享 Checkbox 保持全局一致(避免 1px 描边感,完全靠 bg-primary 填充提供视觉边界)
           error

@@ -65,7 +65,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           className={cn(
             'inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1',
             'text-label text-muted-foreground shadow-elevation-sm transition-colors',
-            'hover:border-stroke-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'hover:border-stroke-strong hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           )}
         >
           <MessageSquareText className="h-3 w-3" aria-hidden />
@@ -82,7 +82,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           className={cn(
             'inline-flex items-center rounded-sm border border-border bg-card p-1 text-muted-foreground',
             'shadow-elevation-sm transition-colors hover:border-destructive/40 hover:text-destructive',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
           )}
         >
           <Eraser className="h-3 w-3" aria-hidden />
@@ -127,7 +127,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       className={cn(
                         'min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 text-label',
                         'text-foreground placeholder:text-muted-foreground',
-                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                       )}
                     />
                     <button
@@ -142,7 +142,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                         'rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground',
                         'shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground',
                         'disabled:cursor-not-allowed disabled:opacity-50',
-                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                       )}
                     >
                       {t('selectionAnnotations.addComment')}
@@ -155,7 +155,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       className={cn(
                         'inline-flex items-center rounded-sm border border-border bg-card p-1 text-muted-foreground',
                         'shadow-elevation-sm transition-colors hover:border-destructive/40 hover:text-destructive',
-                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
                       )}
                     >
                       <X className="h-3 w-3" aria-hidden />

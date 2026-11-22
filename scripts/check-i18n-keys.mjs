@@ -1591,25 +1591,18 @@ function findDuplicateKeys(text) {
   }
   const arr = () => {
     i += 1
-    let idx = 0
-    while (i < text.length) {
-      ws()
+    let depth = 1
+    while (i < text.length && depth > 0) {
       const c = text[i]
-      if (c === ']') {
-        i += 1
-        return
-      }
-      if (c === ',') {
-        i += 1
+      if (c === '[') depth += 1
+      else if (c === ']') depth -= 1
+      else if (c === '"') {
+        str()
         continue
-      }
-      // 数组元素各自独立路径:两个元素里同名同结构各出现一次**不是**同层重复键
-      // (2026-11-23 修:此前 arr 只跳括号不解析元素,要素里的 courseSchema.* 被误判成重复)
-      if (c === '{') obj(`[]#${idx++}`)
-      else if (c === '[') arr()
-      else if (c === '"') str()
-      else while (i < text.length && ',]} \t\r\n'.indexOf(text[i]) === -1) i += 1
+      } else if (c === '\n') line += 1
+      i += 1
     }
+    i += 1
   }
   const val = (path) => {
     ws()

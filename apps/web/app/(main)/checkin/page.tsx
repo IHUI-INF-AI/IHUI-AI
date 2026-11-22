@@ -2835,7 +2835,7 @@ export default function CheckinPage() {
                     onChange={(e) => setJwt(e.target.value)}
                     rows={4}
                     placeholder={t('jwtPlaceholder')}
-                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2846,7 +2846,7 @@ export default function CheckinPage() {
                     onChange={(e) => setDeviceMapText(e.target.value)}
                     rows={3}
                     placeholder={t('deviceMapPlaceholder')}
-                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2898,7 +2898,7 @@ export default function CheckinPage() {
                 onChange={(e) => setJwtText(e.target.value)}
                 rows={4}
                 placeholder={t('jwtPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
+                className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             {jwtFormError && (
@@ -2980,7 +2980,7 @@ export default function CheckinPage() {
                 value={deviceMapEditText}
                 onChange={(e) => setDeviceMapEditText(e.target.value)}
                 rows={10}
-                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-label outline-none focus:ring-2 focus:ring-ring"
+                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-label outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
               />
             </div>
             {deviceMapFormError && (

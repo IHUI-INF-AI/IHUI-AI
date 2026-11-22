@@ -257,9 +257,13 @@ describe('TagsView 视觉守门', () => {
     const closeBtn = outerDiv.querySelector('[aria-label="关闭"]')
     expect(closeBtn, '应有 X 关闭按钮').not.toBeNull()
     expect(closeBtn!.className, 'X 按钮键盘焦点应显示').toContain('focus-visible:opacity-100')
-    expect(closeBtn!.className, 'X 按钮应无默认 outline').toContain('focus-visible:outline-none')
-    expect(closeBtn!.className, 'X 按钮应有焦点环').toContain('focus-visible:ring-1')
-    expect(closeBtn!.className, 'X 按钮焦点环使用 ring token').toContain('focus-visible:ring-ring')
+    expect(closeBtn!.className, 'X 按钮应无默认 outline').not.toContain(
+      'focus-visible:outline-none',
+    )
+    expect(closeBtn!.className, 'X 按钮应有 2px 焦点环').toContain('focus-visible:outline-2')
+    expect(closeBtn!.className, 'X 按钮焦点环使用唯一墨环 token').toContain(
+      'focus-visible:outline-stroke-focus',
+    )
   })
 
   it('关闭按钮 X 在触屏上常驻(touch-reveal:G-815933)', () => {

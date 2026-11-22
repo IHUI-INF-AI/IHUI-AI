@@ -30,7 +30,7 @@
  *  - `border` / `border-transparent`:仅 web(web base 带 `border`,各档再给 `border-transparent`);
  *    RN 只有 `outline` 档显式 `border border-border`(nativewind 不继承 web 的边框默认色)。
  *  - 各档 hover 态 `hover:bg-…/80` 与 `transition-colors`:仅 web。依赖 CSS :hover 通道,RN 无此通道。
- *  - `focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`:仅 web。
+ *  - `focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus`:仅 web。
  *    focus-ring 是 web 键盘可达性通道;RN 走 `accessibilityRole` / `accessibilityLabel` 另一条通道。
  *  - `accessibilityRole="text"` + `accessibilityLabel`:仅 RN(RN 无障碍通道),web 用 div 承载语义。
  *  - `inline-flex`(web)vs `flex-row`(RN):同一"横排"语义的两端承载写法,不是取值分叉。

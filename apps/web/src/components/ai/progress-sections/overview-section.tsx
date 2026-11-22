@@ -186,7 +186,7 @@ export const OverviewSection = React.memo(function OverviewSection({
               }
             }}
             aria-label={copied ? t('copied') : t('overview.copySummary')}
-            className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+            className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             data-testid="overview-copy-summary"
             data-copied={copied ? 'true' : undefined}
           >

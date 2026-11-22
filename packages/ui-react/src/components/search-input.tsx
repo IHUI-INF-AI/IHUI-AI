@@ -13,7 +13,7 @@ import { cn } from '../lib/utils'
  * - 圆角输入井: rounded-md border border-border bg-muted/40 px-2.5
  * - 聚焦反馈: focus-within:border-primary focus-within:bg-muted/60
  * - 图标: Search(h-3.5 w-3.5 text-muted-foreground)
- * - 内部 input: border-0 bg-transparent px-0 shadow-none focus-visible:ring-0
+ * - 内部 input: border-0 bg-transparent px-0 shadow-none outline-none
  * - 可选清空按钮: h-5 w-5 rounded-sm hover:bg-accent
  */
 
@@ -108,7 +108,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             value={currentValue}
             onChange={handleChange}
             className={cn(
-              'min-w-0 flex-1 border-0 bg-transparent px-0 outline-none shadow-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50',
+              'min-w-0 flex-1 border-0 bg-transparent px-0 outline-none shadow-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
               s.input,
               className,
             )}

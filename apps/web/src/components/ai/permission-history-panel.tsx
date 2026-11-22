@@ -412,7 +412,7 @@ export function PermissionHistoryPanel({
         // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制规则,
         // 否则面板关闭后 useEffect 把焦点归还到 trigger,焦点环会常驻显示。
         data-state={open ? 'open' : 'closed'}
-        className="focus-visible:ring-2"
+        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         onClick={() => setOpen(!open)}
       >
         <Clock4 aria-hidden="true" />
@@ -433,7 +433,7 @@ export function PermissionHistoryPanel({
           role="dialog"
           aria-label={t('historyOpenExternal')}
           tabIndex={-1}
-          className="space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="space-y-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           {body}
         </div>

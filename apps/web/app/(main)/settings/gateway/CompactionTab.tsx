@@ -104,7 +104,7 @@ export function CompactionTab() {
               onChange={(e) => setText(e.target.value)}
               rows={12}
               placeholder={t('inputPlaceholder')}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           </div>
           <div className="flex flex-wrap items-end gap-2">

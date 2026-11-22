@@ -46,7 +46,7 @@ export function DatePicker({
           placeholder={placeholder}
           className={cn(
             'flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 pl-9 text-body',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            ' focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error && 'border-destructive',
           )}

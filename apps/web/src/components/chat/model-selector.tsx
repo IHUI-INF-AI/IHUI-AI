@@ -28,7 +28,12 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { formatCny } from '@/lib/display-currency'
-import { FALLBACK_MODELS, MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
+import {
+  FALLBACK_MODELS,
+  MODEL_CATEGORY_META,
+  normalizeCategory,
+  normalizeTier,
+} from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
 import {
@@ -1354,7 +1359,7 @@ export function ModelSelector({
           // 工具栏按钮同一视觉语言;hover 才出底色。
           className={cn(
             'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm px-2 text-body font-medium transition-colors',
-            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+            'hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
           <BrandIconDeferred

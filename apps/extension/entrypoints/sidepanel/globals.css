@@ -28,20 +28,48 @@
 /* 2026-10-31:max-w-* / max-h-none 被 --spacing-<name> 撞名改写(Tailwind v4 的 max-w-<name>
    在具名撞车时取 spacing 而非 container)。未分层规则钉回 Tailwind 默认 container 刻度,
    与 apps/web/app/globals.css 里同一段逐条一致(web 端同根因、同手法);生效机制 = 同优先级后写胜,本块位于 utilities 之后。 */
-.max-w-3xs { max-width: 16rem; }
-.max-w-2xs { max-width: 18rem; }
-.max-w-xs { max-width: 20rem; }
-.max-w-sm { max-width: 24rem; }
-.max-w-md { max-width: 28rem; }
-.max-w-lg { max-width: 32rem; }
-.max-w-xl { max-width: 36rem; }
-.max-w-2xl { max-width: 42rem; }
-.max-w-3xl { max-width: 48rem; }
-.max-w-4xl { max-width: 56rem; }
-.max-w-5xl { max-width: 64rem; }
-.max-w-6xl { max-width: 72rem; }
-.max-w-7xl { max-width: 80rem; }
-.max-h-none { max-height: none; }
+.max-w-3xs {
+  max-width: 16rem;
+}
+.max-w-2xs {
+  max-width: 18rem;
+}
+.max-w-xs {
+  max-width: 20rem;
+}
+.max-w-sm {
+  max-width: 24rem;
+}
+.max-w-md {
+  max-width: 28rem;
+}
+.max-w-lg {
+  max-width: 32rem;
+}
+.max-w-xl {
+  max-width: 36rem;
+}
+.max-w-2xl {
+  max-width: 42rem;
+}
+.max-w-3xl {
+  max-width: 48rem;
+}
+.max-w-4xl {
+  max-width: 56rem;
+}
+.max-w-5xl {
+  max-width: 64rem;
+}
+.max-w-6xl {
+  max-width: 72rem;
+}
+.max-w-7xl {
+  max-width: 80rem;
+}
+.max-h-none {
+  max-height: none;
+}
 
 /* ===== 基础 reset ===== */
 
@@ -53,19 +81,19 @@
  *   根因:Tailwind v4 preflight 不重置 <button> 默认 outline,原生 <button> 在 :focus /
  *        :focus-visible 启发式匹配时显示浏览器默认 outline(Chrome 2-3px 黑色描边)。
  *   修复:全局移除 button 默认 outline,焦点可见性由组件自身 hover 背景色变化承担。
- *        shadcn Button 自带的 focus-visible:ring-1 focus-visible:ring-ring 仍然生效。
+ *        2026-11-23 起全站聚焦环只剩 --color-stroke-focus 一个墨档(outline),不再画灰 ring。
  */
 button:focus,
 button:focus-visible {
   outline: none;
 }
 
-/* Radix trigger 关闭时焦点还原 box-shadow ring 清除(2026-07-30 立,与 web 端 globals.css 同步)
+/* Radix trigger 关闭时焦点还原 box-shadow 清除(2026-07-30 立,与 web 端 globals.css 同步)
  *   根因:Radix 在 menu/dialog 关闭时调 trigger.focus() 还原焦点,触发 :focus-visible,
- *        导致 trigger 自带的 focus-visible:ring-1 ring-ring(box-shadow)显示 1px 灰色 ring。
+ *        于是 trigger 的聚焦外圈被画出来,用户感知为"描边"。
  *   修复:针对 data-state="closed" 的 button focus 状态清除 box-shadow,
  *        由 hover/active 背景色承担反馈(用户规则:"有背景色区分不就可以了吗")。
- *   非 Radix 的普通 button 不受影响,键盘 focus ring 保留(WCAG 2.4.7)。
+ *   非 Radix 的普通 button 不受影响:按钮类聚焦外圈由全局规则统一关闭(2026-11-15 定档)。
  */
 button[data-state='closed']:focus,
 button[data-state='closed']:focus-visible {

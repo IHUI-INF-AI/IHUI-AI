@@ -360,7 +360,7 @@ function RulesEditor({
         <select
           value={newRuleType}
           onChange={(e) => setNewRuleType(e.target.value as PermissionRuleType)}
-          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <option value="path">{t('ruleType.path')}</option>
           <option value="command">{t('ruleType.command')}</option>
@@ -378,7 +378,7 @@ function RulesEditor({
         <select
           value={newDecision}
           onChange={(e) => setNewDecision(e.target.value as PermissionDecision)}
-          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
         >
           <option value="allow">{t('decision.allow')}</option>
           <option value="deny">{t('decision.deny')}</option>

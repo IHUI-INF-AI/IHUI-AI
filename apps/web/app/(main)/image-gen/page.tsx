@@ -73,7 +73,7 @@ export default function ImageGenPage() {
   }
 
   const inputClass =
-    'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+    'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus'
 
   // 子页入口(画廊/历史/模板/收藏):此前四个 route 只有 URL 可达,主页面无任何可见入口
   const sections = [
@@ -128,7 +128,7 @@ export default function ImageGenPage() {
                 id="ig-size"
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
               >
                 {SIZES.map((s) => (
                   <option key={s} value={s}>

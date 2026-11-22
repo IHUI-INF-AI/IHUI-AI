@@ -11,6 +11,9 @@ import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
+// MCP Apps 宿主:ui:// 或 text/html;profile=mcp-app 的资源走隔离 iframe + 宿主桥
+import { isMcpAppResource } from '@/lib/mcp-app-bridge'
+import { McpAppFrame } from '@/components/mcp/mcp-app-frame'
 // CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
 import { toMediaImageUrl } from '@/lib/media-proxy'
 
@@ -25,6 +28,8 @@ export interface McpResource {
   name: string
   mimeType?: string
   content?: string
+  /** 该资源所属的外部 MCP Server;有它才允许 App 里的 tools/call 出站。 */
+  server?: string
 }
 
 export interface McpResourceViewerProps {
@@ -33,9 +38,10 @@ export interface McpResourceViewerProps {
 
 export function McpResourceViewer({ resource }: McpResourceViewerProps) {
   const t = useTranslations('mcp')
-  const { uri, name, mimeType, content } = resource
+  const { uri, name, mimeType, content, server } = resource
   const type = (mimeType ?? '').toLowerCase()
 
+  const isApp = isMcpAppResource(mimeType, uri)
   const isImage = type.startsWith('image/')
   const isJson = type.includes('json') || uri.endsWith('.json')
   const isMarkdown = type.includes('markdown') || uri.endsWith('.md')
@@ -73,7 +79,9 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
         )}
       </div>
 
-      {isImage && content ? (
+      {isApp ? (
+        <McpAppFrame server={server} uri={uri} html={content} title={name} />
+      ) : isImage && content ? (
         <div className="flex justify-center rounded-lg border p-3">
           <Image
             src={toMediaImageUrl(content)}

@@ -17,7 +17,7 @@ import { NotFound } from './NotFound'
 
 /** ui-react Button 的 web 平台修饰(button.tsx L30/L36/L38),按行为规格,保证与站内按钮同形。 */
 const BUTTON_WEB_BASE =
-  'inline-flex gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+  'inline-flex gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus disabled:pointer-events-none disabled:opacity-50'
 const BUTTON_WEB_SIZE_DEFAULT = 'h-9 px-4 py-2'
 const OUTLINE_LINK_CLASS = [
   BUTTON_WEB_BASE,

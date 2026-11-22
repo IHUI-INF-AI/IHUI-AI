@@ -444,7 +444,7 @@ export function PasswordLoginForm({
             }}
             className={cn(
               'flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border outline-none transition-all duration-200',
-              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               rememberPassword
                 ? 'border-transparent bg-cta text-cta-foreground'
                 : 'border-stroke-field bg-background group-hover:border-foreground/60',

@@ -93,7 +93,7 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
                 'group flex items-start gap-2.5 rounded-sm bg-card/40 px-3 py-2.5 text-left',
                 SHARED_QUICK_ACTION_BORDER_CLASS,
                 'transition-colors hover:bg-accent/60',
-                'motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus',
               )}
             >
               <c.icon

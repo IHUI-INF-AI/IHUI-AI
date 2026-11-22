@@ -130,7 +130,7 @@ export function ContentEditorCard({
               onChange={(e) => onTextContentChange(e.target.value)}
               rows={8}
               placeholder={t('new.contentTextPlaceholder')}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             />
           ) : (
             <div className="space-y-2">

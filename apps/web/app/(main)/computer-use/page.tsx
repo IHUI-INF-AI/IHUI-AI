@@ -201,7 +201,7 @@ export default function ComputerUsePage() {
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && openPage()}
             placeholder={t('urlPlaceholder')}
-            className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
           <button
             onClick={openPage}
@@ -320,7 +320,7 @@ export default function ComputerUsePage() {
             onChange={(e) => setTypeText(e.target.value)}
             rows={3}
             placeholder={t('typePlaceholder')}
-            className="w-full resize-y rounded-sm border bg-background p-3 text-body outline-none focus:ring-2 focus:ring-ring"
+            className="w-full resize-y rounded-sm border bg-background p-3 text-body outline-none focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
           />
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-1.5 text-label text-muted-foreground">

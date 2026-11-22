@@ -339,7 +339,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               placeholder={t('placeholder')}
               disabled={status === 'running' || status === 'paused'}
               rows={2}
-              className="min-w-0 flex-1 resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              className="min-w-0 flex-1 resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus disabled:opacity-50"
             />
             {/* 硬停(掐断本地流)与暂停(服务端在安全点停住循环)是两件事,所以两个动作
                 各留各的入口:运行中额外给一枚紧凑停止钮,主钮则分岔成 暂停 / 继续 / 执行。 */}

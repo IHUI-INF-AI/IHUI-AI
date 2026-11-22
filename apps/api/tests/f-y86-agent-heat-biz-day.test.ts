@@ -118,9 +118,7 @@ function stageRows(): void {
 
 /** 详情端点只做两次 select:dailyRows + agentRows,顺序与列表不同。 */
 function stageDetailRows(): void {
-  H.selectQueue.push([
-    { dateStr: '2026-11-08', hitCount: 5 },
-  ])
+  H.selectQueue.push([{ dateStr: '2026-11-08', hitCount: 5 }])
   H.selectQueue.push([
     {
       agentId: AGENT_ID,

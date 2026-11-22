@@ -135,7 +135,7 @@ export function MemoryCards() {
             }
           }}
           placeholder={t('placeholder')}
-          className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+          className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
         />
         <button
           type="button"

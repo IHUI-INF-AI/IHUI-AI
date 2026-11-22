@@ -294,7 +294,7 @@ function ScheduleEditDialog({
                     className={cn(
                       'h-7 w-7 rounded-sm transition-all',
                       c.value,
-                      form.color === c.value && 'ring-2 ring-offset-2 ring-ring',
+                      form.color === c.value && 'ring-2 ring-offset-2 ring-stroke-focus',
                     )}
                     onClick={() => update('color', c.value)}
                   />
