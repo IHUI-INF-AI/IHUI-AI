@@ -10,8 +10,12 @@ import type { LearnCourse } from '@ihui/api-client'
 
 export type CoursePriceTab = 'all' | 'free' | 'paid'
 
-/** 后端行上本屏真正读到的字段(adaptLesson 追加 instructor;price 是 numeric(10,2)) */
-export interface LessonPriceRow extends LearnCourse {
+/**
+ * 后端行上本屏真正读到的字段(adaptLesson 追加 instructor;price 是 numeric(10,2))。
+ * 2026-11-22:`LearnCourse.price` 已定为 `string`(numeric 原样回传),而本屏要同时接受
+ * adaptLesson 折算出的 number ⇒ 先 Omit 掉再自定类型,否则 TS2430 报"不正确地继承"。
+ */
+export interface LessonPriceRow extends Omit<LearnCourse, 'price'> {
   instructor?: string
   price?: string | number
 }

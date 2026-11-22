@@ -29,10 +29,29 @@ import { render, cleanup, fireEvent } from '@testing-library/react'
  * next-intl 的 t 被换成 `ns.key` 直译,断言按"翻译键"判,不依赖任何文案措辞。
  */
 
-vi.mock('next-intl', () => ({
-  __esModule: true,
-  useTranslations: (ns: string) => (key: string) => `${ns}.${key}`,
-}))
+// ⚠️ 2026-11-22:这个 mock 以前把 `ns.key` 原样回显 ⇒ 词库里根本没有该键时测试一样绿,
+// 等于把"界面上显示裸键"当成契约来钉。现在先到**真词库**(zh-CN)解析,缺键当场抛;
+// 返回值仍是 `ns.key` 形态,断言继续按键名写。
+vi.mock('next-intl', async () => {
+  const zh = (await import('@ihui/i18n/messages/web/zh-CN.json')).default as Record<string, unknown>
+  const resolve = (p: string): unknown =>
+    p
+      .split('.')
+      .reduce<unknown>(
+        (o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined),
+        zh,
+      )
+  return {
+    __esModule: true,
+    useTranslations: (ns: string) => (key: string) => {
+      const full = `${ns}.${key}`
+      if (typeof resolve(full) !== 'string') {
+        throw new Error(`[i18n] 真词库缺少键 ${full} —— 渲染处会显示这个裸键,别再把裸键判绿`)
+      }
+      return full
+    },
+  }
+})
 
 vi.mock('@/components/feedback/Modal', () => ({
   __esModule: true,
@@ -71,10 +90,7 @@ const modelsParent: NavItem = {
 const groups: { label: string; items: NavItem[] }[] = [
   {
     label: 'aiGroupLabel',
-    items: [
-      modelsParent,
-      { href: '/agents', labelKey: 'agents', icon: DummyIcon },
-    ],
+    items: [modelsParent, { href: '/agents', labelKey: 'agents', icon: DummyIcon }],
   },
   {
     label: 'hotGroupLabel',
@@ -125,7 +141,9 @@ describe('CustomNavDialog', () => {
     renderDialog()
     // ① 分组头在(丢掉它就退回一条长列表)
     expect(document.querySelector('[data-testid="nav-custom-group-nav.aiGroupLabel"]')).toBeTruthy()
-    expect(document.querySelector('[data-testid="nav-custom-group-nav.hotGroupLabel"]')).toBeTruthy()
+    expect(
+      document.querySelector('[data-testid="nav-custom-group-nav.hotGroupLabel"]'),
+    ).toBeTruthy()
     // ② 子项缩进挂载在父项下
     expect(document.querySelectorAll('.pl-7').length).toBe(2)
     expect(rowByLabel('nav.modelsKeys')).toBeTruthy()
@@ -151,9 +169,7 @@ describe('CustomNavDialog', () => {
     renderDialog()
     // /models 出现在两个分组里,但行只能有一行(否则重复 key + 视觉上一模一样的两个按钮)
     // 只按标签 span 判等:用 includes('nav.models') 会把 nav.modelsKeys/logs 两个子项也数进来
-    const modelsRows = rows().filter(
-      (b) => b.querySelector('span')?.textContent === 'nav.models',
-    )
+    const modelsRows = rows().filter((b) => b.querySelector('span')?.textContent === 'nav.models')
     expect(modelsRows.length).toBe(1)
     // 平铺版在前、父项版在后时,children 必须被补挂上(子项不丢)
     expect(document.querySelectorAll('.pl-7').length).toBe(2)

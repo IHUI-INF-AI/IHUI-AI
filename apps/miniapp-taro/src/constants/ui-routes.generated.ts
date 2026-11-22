@@ -8,10 +8,10 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 3ca74ad0ed409f7b0af39f085277a38901828af7
-// inputsSha256: 6f4991fcb85a5594312586c79837138d5f7d7d1631746fe93181c4676e1aac29
+// sourceCommit: 44d1ebf1112f7844d0050760163b5611cde60b9f
+// inputsSha256: 8ca26e0b9005610a36b7b7519a11d69b1ed52bef9d7539da9f8c5613f81c668f
 // input: apps/miniapp-taro/src/api/distribution-normalize.ts 0ade93b40fc74fa0a6ee1aab60799a80d9317e4eca41f1cb6ccb878f95aadf6d
-// input: apps/miniapp-taro/src/api/index.ts 418fc86bc589e2b5135e8137f8ee20fa594359e43ee644e9e1a8fbf622f61859
+// input: apps/miniapp-taro/src/api/index.ts 824d2d7a53e3f4f3e3bb2685867034211956a7a2b833e9a011c7a2debea627b0
 // input: apps/miniapp-taro/src/api/order-normalize.ts ac45439228bec81c57cc4135fda449d1e667c154cce9e006b497a7107aa73e37
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/api/vip-mine.ts 219ef79cdcd635472bb5b6bf7c4ad5b7c985b7405fd0943ea1572018d8adf2fd
@@ -775,7 +775,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 640 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=210(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-22T15:46:02.563Z
+// generatedAt: 2026-11-22T15:30:26.218Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

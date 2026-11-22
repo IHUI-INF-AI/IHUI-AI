@@ -7427,7 +7427,13 @@
           "dismiss": "跳过",
           "submitted": "已收到，感谢反馈"
         }
-      },
+      ,
+        "heatmap": {
+          "title": "积分消耗热力图"
+        ,
+          "dayTitle": "{date} 消耗",
+          "legendLabel": "消耗强度",
+          "sessionsEmpty": "暂无会话记录"}},
       "hookSummary": {
         "ariaLabel": "钩子执行摘要",
         "state": {
@@ -8909,14 +8915,11 @@
           "emptyDraft": "草稿为空，请先输入内容再润色。"
         },
         "restartHint": "润色服务需重启后生效，草稿已保留。"
-      },
-      "hookFailures": {
-        "action": {
-          "retry": "重试",
-          "inspect": "查看详情"
-        }
       }
-    },
+    ,
+      "hookFailures": {
+        "evidenceMissing": "未记录最终结果"
+      }},
     "permissionConfirm": {
       "allow": "允许",
       "allowAllSession": "本次会话全部允许(后续不再弹窗)",
@@ -11976,7 +11979,17 @@
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
     "analysisOpen": "查看场景分析"
-  },
+  ,
+    "terminal": {
+      "waitingInput": "等待输入"
+    ,
+      "promptLabel": "终端输入",
+      "submit": "发送"},
+    "titleAutoUpdate": {
+      "title": "对话标题自动更新"
+    ,
+      "label": "自动生成标题",
+      "desc": "每轮对话后自动用模型生成更贴切的标题"}},
   "chatHistory": {
     "moveToGroup": "移动到分组",
     "moveSelectedToGroup": "移动所选到分组",
@@ -13945,30 +13958,7 @@
     "navTools": "工具",
     "navWorkflow": "工作流编排",
     "shellSubtitle": "平台开发与集成指南",
-    "shellTitle": "开发文档",
-    "manual": {
-      "getting-started": {
-        "title": "开始使用"
-      },
-      "ai-chat": {
-        "title": "AI 对话"
-      },
-      "agent": {
-        "title": "使用 Agent"
-      },
-      "knowledge-base": {
-        "title": "知识库"
-      },
-      "billing": {
-        "title": "积分与订阅"
-      },
-      "account": {
-        "title": "账户设置"
-      },
-      "faq": {
-        "title": "常见问题"
-      }
-    }
+    "shellTitle": "开发文档"
   },
   "drama": {
     "editor": {
@@ -19903,7 +19893,134 @@
     "customRemove": "移除",
     "customDragHint": "拖拽排序",
     "customNoResults": "没有找到匹配的功能"
-  },
+  ,
+    "hrGroup": "人事部",
+    "financeAi": "财务部",
+    "eduHubTitle": "教育",
+    "contentHubTitle": "内容",
+    "tradeHubTitle": "交易",
+    "accountPool": "账户池",
+    "pdfTools": "PDF 工具",
+    "sag2Lexical": "SAG2 词法检索",
+    "eduMyAttendance": "我的考勤",
+    "hrMyAttendance": "我的考勤",
+    "hrMyLeave": "我的请假",
+    "hrMyPayroll": "我的工资条",
+    "hrAdmin": "考勤管理",
+    "hrAdminData": "人事数据",
+    "live": "直播",
+    "earnings": "收益",
+    "wallet": "钱包",
+    "playground": "在线测试",
+    "developerRelaySubscriptions": "中继订阅",
+    "dashboard": "仪表盘",
+    "users": "用户",
+    "projects": "项目",
+    "refund": "退款",
+    "point": "积分",
+    "certificate": "证书",
+    "agentCategories": "智能体分类",
+    "agentExamine": "智能体审核",
+    "agentSettlement": "智能体结算",
+    "agentRules": "智能体规则",
+    "demandSquare": "需求广场",
+    "aiCost": "AI 成本",
+    "orgGovernance": "组织治理",
+    "monitoringDashboard": "监控面板",
+    "backendHealth": "后端健康",
+    "performanceDashboard": "性能面板",
+    "errorDashboard": "错误面板",
+    "databaseOptimization": "数据库优化",
+    "eventBusMonitor": "事件总线监控",
+    "grayRelease": "灰度发布",
+    "apiDebug": "API 调试",
+    "apiGroups": "API 分组",
+    "apiLogs": "API 日志",
+    "apiUsage": "API 用量",
+    "dict": "字典",
+    "notificationChannels": "通知渠道",
+    "notificationPreferences": "通知偏好",
+    "notificationLogs": "通知日志",
+    "recommendationConfig": "推荐配置",
+    "mobileAdapter": "移动端适配",
+    "oauthAuditDashboard": "OAuth 审计面板",
+    "feedbacks": "用户反馈",
+    "roles": "角色",
+    "permissions": "权限",
+    "workflows": "工作流",
+    "configs": "配置",
+    "integrations": "集成",
+    "deployDiagnosis": "部署诊断",
+    "logs": "日志",
+    "events": "事件",
+    "apiPlatformApps": "API 平台应用",
+    "apiPlatformPackages": "API 平台套餐",
+    "apiPlatformBilling": "API 平台计费",
+    "apiPlatformUsage": "API 平台用量",
+    "shopProducts": "商城商品",
+    "shopPayments": "商城支付",
+    "shopWithdrawals": "商城提现",
+    "shopFunds": "商城资金",
+    "oauthApps": "OAuth 应用",
+    "oauthAudit": "OAuth 审计",
+    "oauthTokens": "OAuth 令牌",
+    "monitorDashboard": "监控总览",
+    "monitorFunnel": "监控漏斗",
+    "monitorAlerts": "监控告警",
+    "memberUsers": "会员用户",
+    "memberRoles": "会员角色",
+    "memberPermissions": "会员权限",
+    "memberLogs": "会员日志",
+    "memberBlacklist": "会员黑名单",
+    "systemMonitor": "系统监控",
+    "systemTasks": "系统任务",
+    "realnameAudit": "实名审核",
+    "taskDeveloper": "任务开发者",
+    "agentRule": "智能体规则",
+    "agentTask": "智能体任务",
+    "advertise": "广告投放",
+    "carousel": "轮播图",
+    "aiGc": "AI 内容生成",
+    "crew": "团队",
+    "developerLink": "开发者链接",
+    "identityProportion": "身份占比",
+    "productIdentity": "产品身份",
+    "userAgentAudio": "用户智能体·音频",
+    "userAgentContext": "用户智能体·上下文",
+    "userAgentImage": "用户智能体·图像",
+    "zhsActivity": "智汇活动",
+    "zhsAgent": "智汇智能体",
+    "zhsUser": "智汇用户",
+    "authAccounts": "认证账户",
+    "authDept": "认证部门",
+    "authFindInfo": "认证信息查询",
+    "authRole": "认证角色",
+    "authUserVip": "认证 VIP 用户",
+    "authVeriCodes": "验证码",
+    "loginLogs": "登录日志",
+    "eduOrganization": "教育机构",
+    "eduPlatform": "教育平台",
+    "eduUserPlatform": "教育用户平台",
+    "eduZhsIdentity": "教育智汇身份",
+    "eduCourseAudit": "课程审核",
+    "eduCoursePay": "课程支付",
+    "eduCoursePlatformLog": "课程平台日志",
+    "systemLoginLogs": "系统登录日志",
+    "systemOperationLogs": "系统操作日志",
+    "systemTasksLog": "系统任务日志",
+    "rolesAuthUser": "角色认证用户",
+    "rolesSelectUser": "角色选择用户",
+    "ossFiles": "OSS 文件",
+    "notificationDispatch": "通知派发",
+    "aboutUs": "关于我们",
+    "messageOverview": "消息总览",
+    "visitTracking": "访问追踪",
+    "behaviorAnalytics": "行为分析",
+    "pluginsStats": "插件统计",
+    "examMarking": "阅卷",
+    "adminRelayModelMappings": "中继模型映射",
+    "saasTenants": "SaaS 租户",
+    "saasCertificates": "SaaS 证书"},
   "news": {
     "allCategories": "全部分类",
     "backToList": "返回资讯",
@@ -22502,7 +22619,19 @@
     "codeIndexEgressOptOutDesc": "代码切片不会外发用于向量化建索引",
     "autoMemoryOptOut": "关闭自动长期记忆",
     "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定"
-  },
+  ,
+    "expertRoute": {
+      "title": "专家路由"
+    ,
+      "desc": "选择请求走哪一类模型路由策略",
+      "default": "默认",
+      "envLockedNotice": "该设置已由环境变量锁定，在此处修改不会生效"},
+    "navTiers": {
+      "title": "侧边栏显示层级"
+    ,
+      "desc": "选择哪些进阶功能显示在侧边栏",
+      "simpleMode": "简洁模式",
+      "simpleModeDesc": "隐藏进阶功能入口，只保留常用菜单"}},
   "shareContentPage": {
     "aiGenerated": "智汇 AI 生成",
     "defaultModelName": "AI智能对话",
@@ -26520,13 +26649,7 @@
       "deleteFailed": "删除失败"
     },
     "cancel": "取消",
-    "save": "保存",
-    "terminalReason": {
-      "manualPause": "手动暂停",
-      "failedPermanent": "永久失败",
-      "failedRetriesExhausted": "重试次数已用尽",
-      "completed": "已完成"
-    }
+    "save": "保存"
   },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 个任务远端取消失败（已本地置为已取消）",
@@ -28552,4 +28675,58 @@
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
   }
-}
+,
+  "hrHub": {
+    "title": "人事部"
+  ,
+    "subtitle": "员工自助与人事管理",
+    "sectionSelf": "员工自助",
+    "sectionAdmin": "人事管理"},
+  "eduHub": {
+    "title": "教育"
+  ,
+    "subtitle": "课程、直播、考试与教学管理"},
+  "aiHub": {
+    "title": "AI 中心"
+  ,
+    "subtitle": "模型、智能体、知识与内容生成"},
+  "contentHub": {
+    "title": "内容"
+  ,
+    "subtitle": "广场、团队、消息与自媒体发布"},
+  "tradeHub": {
+    "title": "交易"
+  ,
+    "subtitle": "收益、订单、支付与会员积分"},
+  "personalHub": {
+    "title": "个人中心"
+  ,
+    "subtitle": "账户、收藏、学习与订阅"},
+  "developerHub": {
+    "title": "开发者"
+  ,
+    "subtitle": "API、密钥、用量与调试工具"},
+  "adminHub": {
+    "title": "管理"
+  ,
+    "subtitle": "站点配置、运营与审计"},
+  "domainHub": {
+    "functionCount": "共 {count} 个功能"
+  ,
+    "searchPlaceholder": "搜索功能",
+    "empty": "没有匹配的功能",
+    "subItems": "共 {count} 个子项"},
+  "pwaInstall": {
+    "title": "安装到桌面"
+  ,
+    "body": "把智汇AI 装到桌面，打开更快，支持离线使用",
+    "action": "立即安装",
+    "close": "关闭"},
+  "myPayroll": {
+    "title": "我的工资条"
+  ,
+    "subtitle": "查看每月的工资明细",
+    "empty": "暂无工资条"},
+  "connectivity": {
+    "hostLocalAvailable": "本地服务可用"
+  }}

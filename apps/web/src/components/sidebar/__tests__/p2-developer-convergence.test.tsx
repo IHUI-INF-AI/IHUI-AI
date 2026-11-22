@@ -32,10 +32,27 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-// ── Mock:next-intl 取词直接回显 key(本测试判 href 集合,不判文案) ──
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}))
+// ── Mock:next-intl 取词回显 key(本测试判 href 集合,不判文案) ──
+// ⚠️ 2026-11-22:回显之前不做任何校验,词库缺键也照样绿。现在先到真词库(zh-CN)解析,
+// 缺键即抛 —— 该测试渲染的域入口页若引用了不存在的键,当场炸而不是静默画裸键。
+vi.mock('next-intl', async () => {
+  const zh = (await import('@ihui/i18n/messages/web/zh-CN.json')).default as Record<string, unknown>
+  const resolve = (p: string): unknown =>
+    p
+      .split('.')
+      .reduce<unknown>(
+        (o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined),
+        zh,
+      )
+  return {
+    useTranslations: (ns: string) => (key: string) => {
+      if (typeof resolve(`${ns}.${key}`) !== 'string') {
+        throw new Error(`[i18n] 真词库缺少键 ${ns}.${key}`)
+      }
+      return key
+    },
+  }
+})
 
 // ── Mock:鉴权面用可切换的快照(不触真实登录态;use-nav-visibility 只按选择器读字段) ──
 interface FakeUser {

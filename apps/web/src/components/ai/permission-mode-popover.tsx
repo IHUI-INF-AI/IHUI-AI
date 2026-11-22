@@ -588,7 +588,7 @@ export function PermissionModePopover({
                         )
                       : cn(
                           'border border-border',
-                          isFocused && 'outline outline-2 outline-offset-2 outline-stroke-focus',
+                          isFocused && 'outline outline-2 outline-offset-0 outline-stroke-focus',
                           opt.risk === 'high'
                             ? 'hover:border-red-500/80 hover:bg-red-500/5'
                             : 'hover:border-foreground/20 hover:bg-muted/30',

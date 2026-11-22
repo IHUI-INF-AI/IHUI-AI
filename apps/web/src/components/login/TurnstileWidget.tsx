@@ -106,6 +106,10 @@ export function TurnstileWidget({
 
   // 不设 min-h:SDK 未加载/不可见模式时 div 高度 0 不占空间,
   // SDK 接管后由 Cloudflare widget 自适应高度(约 65px)
+  // 2026-11-23(用户反馈"验证框往左偏、没在底部居中"):size=normal 的 widget 是固定
+  // 300×65,SDK 把这块塞进 .cf-turnstile 这个**块级全宽**容器后天然靠左。要在容器自身上
+  // 写 display:flex 会动到 SDK 自己的挂载盒,故外面再包一层 flex 居中壳,容器盒保持
+  // 原样(它是 flex item ⇒ 宽度收缩到 widget 实际宽度,justify-center 才真居中)。
   const containerClass = ['cf-turnstile', className].filter(Boolean).join(' ')
 
   return (
@@ -125,13 +129,15 @@ export function TurnstileWidget({
           人机验证组件加载失败(多为网络无法访问验证服务)。请检查网络后刷新页面重试;若仍失败,可改用登录弹窗中的「在浏览器中登录」按钮(走系统浏览器,不依赖本窗口的验证环境)。
         </div>
       ) : (
-        <div
-          className={containerClass}
-          data-sitekey={siteKey}
-          data-callback={verifyName}
-          data-error-callback={errorName}
-          data-expired-callback={expireName}
-        />
+        <div className="flex w-full justify-center">
+          <div
+            className={containerClass}
+            data-sitekey={siteKey}
+            data-callback={verifyName}
+            data-error-callback={errorName}
+            data-expired-callback={expireName}
+          />
+        </div>
       )}
     </>
   )

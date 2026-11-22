@@ -103,6 +103,10 @@ export function CodeLoginForm({
   const [sending, setSending] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  /** 同步判活:submitting 是 state,同一次输入事件里读不到最新值,防重入靠 ref */
+  const submittingRef = React.useRef(false)
+  /** 本次"输满 6 位"是否已自动提交过(掉回 <6 位时放开,失败后可重试) */
+  const autoSubmittedRef = React.useRef(false)
 
   React.useEffect(() => {
     return () => {
@@ -156,6 +160,84 @@ export function CodeLoginForm({
     setAccount(isEmail ? v : v.replace(/\D/g, '').slice(0, 11))
   }
 
+  /**
+   * 真正发起校验登录的唯一出口(2026-11-23 从 onSubmit 抽出)。
+   * 手动点"登录"、Enter 兜底提交、验证码输满 6 位自动提交三条径路共用它,
+   * 提交态与错误态只在这里写一份,避免三处各写一遍后漂移。
+   */
+  const performLogin = React.useCallback(
+    async (accountValue: string, codeValue: string) => {
+      if (submittingRef.current) return
+      submittingRef.current = true
+      setSubmitting(true)
+      setError(null)
+      try {
+        // 手机号走 loginBySms,邮箱走 loginByEmailCode(保持原有 API 契约不变)
+        const result: ApiResult<LoginResult> = isEmail
+          ? await apiClient.loginByEmailCode(accountValue, codeValue)
+          : await apiClient.loginBySms(accountValue, codeValue)
+        if (!result.success || !result.data?.accessToken) {
+          setError(result.error || t('auth.loginFailed'))
+          return
+        }
+        // 2026-07-30:登录成功后保存账号历史(与 password/email/phone tab 共用同一份 localStorage)
+        if (enableCredentialPersistence) saveLoginHistory(accountValue)
+        await onSuccess?.(result.data)
+      } catch {
+        setError(t('auth.loginFailed'))
+      } finally {
+        submittingRef.current = false
+        setSubmitting(false)
+      }
+    },
+    [apiClient, isEmail, t, enableCredentialPersistence, onSuccess],
+  )
+
+  /**
+   * 验证码第 6 位落定即自动校验登录(2026-11-23 机主立:不该再让用户自己去点"登录")。
+   *
+   * 三道闸,顺序与手动提交完全一致(提示也走同一条,不另造文案):
+   *   · 未同意协议 ⇒ onRequireAgree()(与点"登录"同一路径:红字 / 协议弹窗),
+   *     **且不置已提交标记** —— 用户随后同意时由下方 effect 补交一次;
+   *   · 账号不合法 ⇒ 同一条红字(invalidEmail / invalidPhone),不静默吞掉;
+   *   · 已在提交 / 本次已自动提交过 ⇒ 直接返回(失败后改一位再补齐会重置标记,可重试)。
+   */
+  const autoSubmitIfComplete = React.useCallback(
+    (accountValue: string, codeValue: string) => {
+      if (codeValue.length !== 6 || autoSubmittedRef.current || submittingRef.current) return
+      if (!agreed) {
+        onRequireAgree?.()
+        return
+      }
+      if (!isValid(accountValue)) {
+        setError(t(invalidKey))
+        return
+      }
+      autoSubmittedRef.current = true
+      void performLogin(accountValue, codeValue)
+    },
+    [agreed, onRequireAgree, isValid, invalidKey, t, performLogin],
+  )
+
+  const handleCodeChange = (raw: string) => {
+    const next = raw.replace(/\D/g, '').slice(0, 6)
+    setCode(next)
+    if (next.length < 6) {
+      // 掉回不满 6 位(删除/改一位)⇒ 放开标记,重输满 6 位可再自动试一次
+      autoSubmittedRef.current = false
+      return
+    }
+    autoSubmitIfComplete(account, next)
+  }
+
+  // 协议在"输满 6 位"之后才同意(协议弹窗点同意 / 勾上复选框)⇒ 补交一次,关窗即完成登录
+  const prevAgreedRef = React.useRef(agreed)
+  React.useEffect(() => {
+    const prev = prevAgreedRef.current
+    prevAgreedRef.current = agreed
+    if (agreed && !prev) autoSubmitIfComplete(account, code)
+  }, [agreed, account, code, autoSubmitIfComplete])
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -171,24 +253,7 @@ export function CodeLoginForm({
       setError(t('auth.enterCode'))
       return
     }
-    setSubmitting(true)
-    try {
-      // 手机号走 loginBySms,邮箱走 loginByEmailCode(保持原有 API 契约不变)
-      const result: ApiResult<LoginResult> = isEmail
-        ? await apiClient.loginByEmailCode(account, code)
-        : await apiClient.loginBySms(account, code)
-      if (!result.success || !result.data?.accessToken) {
-        setError(result.error || t('auth.loginFailed'))
-        return
-      }
-      // 2026-07-30:登录成功后保存账号历史(与 password/email/phone tab 共用同一份 localStorage)
-      if (enableCredentialPersistence) saveLoginHistory(account)
-      await onSuccess?.(result.data)
-    } catch {
-      setError(t('auth.loginFailed'))
-    } finally {
-      setSubmitting(false)
-    }
+    await performLogin(account, code)
   }
 
   return (
@@ -258,7 +323,7 @@ export function CodeLoginForm({
             placeholder={t('auth.codePlaceholder')}
             className={cn('h-10 flex-1', inputClassName)}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => handleCodeChange(e.target.value)}
             disabled={submitting}
             data-testid={`login-${testIdPrefix}-code-input`}
           />

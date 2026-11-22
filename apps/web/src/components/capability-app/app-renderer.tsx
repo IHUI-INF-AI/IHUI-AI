@@ -361,7 +361,9 @@ function HeadingBlock({ block }: BlockProps) {
 function TextBlock({ block }: BlockProps) {
   if (block.kind !== 'text') return null
   return (
-    <p className="font-[weight:inherit] whitespace-pre-wrap text-body leading-relaxed text-foreground/90">{block.text}</p>
+    <p className="font-[weight:inherit] whitespace-pre-wrap text-body leading-relaxed text-foreground/90">
+      {block.text}
+    </p>
   )
 }
 
@@ -369,7 +371,12 @@ function CalloutBlock({ block }: BlockProps) {
   if (block.kind !== 'callout') return null
   const tone = block.tone ?? 'info'
   return (
-    <div className={cn('font-[weight:inherit] rounded-lg border px-3 py-2 text-body', TONE_CLASS[tone])}>
+    <div
+      className={cn(
+        'font-[weight:inherit] rounded-lg border px-3 py-2 text-body',
+        TONE_CLASS[tone],
+      )}
+    >
       {block.title ? <div className="mb-1 font-medium">{block.title}</div> : null}
       <div className="whitespace-pre-wrap leading-relaxed">{block.text}</div>
     </div>
@@ -407,7 +414,10 @@ function KeyValueBlock({ block, bindings }: BlockProps) {
   return (
     <dl className="grid gap-1.5">
       {items.map((item) => (
-        <div key={item.label} className="font-[weight:inherit] flex items-baseline justify-between gap-4 text-body">
+        <div
+          key={item.label}
+          className="font-[weight:inherit] flex items-baseline justify-between gap-4 text-body"
+        >
           <dt className="text-muted-foreground">{item.label}</dt>
           <dd className="font-medium tabular-nums">{item.value}</dd>
         </div>
@@ -472,7 +482,12 @@ function ListBlock({ block, bindings }: BlockProps) {
   if (items.length === 0) return null
   const Tag = block.ordered ? 'ol' : 'ul'
   return (
-    <Tag className={cn('font-[weight:inherit] space-y-1 pl-5 text-body', block.ordered ? 'list-decimal' : 'list-disc')}>
+    <Tag
+      className={cn(
+        'font-[weight:inherit] space-y-1 pl-5 text-body',
+        block.ordered ? 'list-decimal' : 'list-disc',
+      )}
+    >
       {items.map((item, index) => (
         <li key={`${index}-${item}`} className="leading-relaxed">
           {item}
@@ -551,7 +566,9 @@ function ImageBlock({ block }: BlockProps) {
         className="max-h-80 w-auto rounded-lg border border-border"
       />
       {block.caption ? (
-        <figcaption className="font-[weight:inherit] text-label text-muted-foreground">{block.caption}</figcaption>
+        <figcaption className="font-[weight:inherit] text-label text-muted-foreground">
+          {block.caption}
+        </figcaption>
       ) : null}
     </figure>
   )
@@ -608,7 +625,10 @@ function ChartBlock({ block, bindings }: BlockProps) {
       ) : (
         <div className="space-y-1.5">
           {items.map((item) => (
-            <div key={item.label} className="font-[weight:inherit] flex items-center gap-2 text-label">
+            <div
+              key={item.label}
+              className="font-[weight:inherit] flex items-center gap-2 text-label"
+            >
               <span className="w-24 shrink-0 truncate text-muted-foreground">{item.label}</span>
               <div className="h-2.5 flex-1 overflow-hidden rounded bg-muted">
                 <div
@@ -728,7 +748,7 @@ function FieldControl({
   onChange: (value: string) => void
 }) {
   const inputClass =
-    'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus'
+    'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus'
   if (field.kind === 'textarea') {
     return (
       <textarea
@@ -910,8 +930,14 @@ export function CapabilityAppRenderer({ app, className }: CapabilityAppRendererP
 
   return (
     <div className={cn('space-y-3', className)}>
-      {app.description ? <p className="font-[weight:inherit] text-body text-muted-foreground">{app.description}</p> : null}
-      {loading ? <div className="font-[weight:inherit] text-label text-muted-foreground">{t('dataLoading')}</div> : null}
+      {app.description ? (
+        <p className="font-[weight:inherit] text-body text-muted-foreground">{app.description}</p>
+      ) : null}
+      {loading ? (
+        <div className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('dataLoading')}
+        </div>
+      ) : null}
       {failures.length > 0 && !loading ? (
         <div
           className={cn(

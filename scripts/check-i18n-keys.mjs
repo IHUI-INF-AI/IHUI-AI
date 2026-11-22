@@ -1602,7 +1602,6 @@ function findDuplicateKeys(text) {
       } else if (c === '\n') line += 1
       i += 1
     }
-    i += 1
   }
   const val = (path) => {
     ws()

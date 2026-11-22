@@ -119,7 +119,13 @@ describe('admin 分组菜单项取名(2026-10-19 回归)', () => {
     const seen = new Map<string, string[]>()
     for (const item of renderedItems) {
       // 与渲染侧同规则:dynamicLabel 优先,否则取 zh-CN 翻译
-      const label = item.dynamicLabel ?? String(navOf('zh-CN')[item.labelKey] ?? item.labelKey)
+      const zhName = navOf('zh-CN')[item.labelKey]
+      // 2026-11-22:以前缺键回落成 labelKey 本身,于是"界面上显示 nav.xxx"这件事反倒被当成
+      // 一个合法显示名参与查重,替 bug 打了掩护。缺键必须当场炸。
+      if (typeof zhName !== 'string' || !zhName.trim()) {
+        throw new Error(`[i18n] nav.${item.labelKey} 在 zh-CN 缺失 —— 渲染处会显示这个裸键`)
+      }
+      const label = item.dynamicLabel ?? String(zhName)
       seen.set(label, [...(seen.get(label) ?? []), `${item.group} ${item.href}`])
     }
     const dup = [...seen.entries()]

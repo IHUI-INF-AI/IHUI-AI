@@ -7258,12 +7258,6 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
-      "hookFailures": {
-        "action": {
-          "retry": "Retry",
-          "inspect": "Inspect"
-        }
-      },
       "elementPack": {
         "backgroundTask": {
           "state": {
@@ -7300,7 +7294,13 @@
           "dismiss": "Skip",
           "submitted": "Received — thanks for your feedback"
         }
-      },
+      ,
+        "heatmap": {
+          "title": "Credit usage heatmap"
+        ,
+          "dayTitle": "Usage on {date}",
+          "legendLabel": "Usage level",
+          "sessionsEmpty": "No sessions yet"}},
       "hookSummary": {
         "ariaLabel": "Hook run summary",
         "state": {
@@ -8783,7 +8783,10 @@
         },
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
       }
-    },
+    ,
+      "hookFailures": {
+        "evidenceMissing": "Final result not recorded"
+      }},
     "permissionConfirm": {
       "allow": "Allow",
       "allowAllSession": "Allow all for this session (no more prompts)",
@@ -11818,7 +11821,17 @@
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
     "analysisOpen": "View Scenario Analysis"
-  },
+  ,
+    "terminal": {
+      "waitingInput": "Waiting for input"
+    ,
+      "promptLabel": "Terminal input",
+      "submit": "Send"},
+    "titleAutoUpdate": {
+      "title": "Auto-update conversation titles"
+    ,
+      "label": "Auto-generate titles",
+      "desc": "After each turn, the model rewrites the title to match the topic"}},
   "chatHistory": {
     "moveToGroup": "Move to group",
     "moveSelectedToGroup": "Move selected to group",
@@ -13646,29 +13659,6 @@
     "totalCount": "{count} total"
   },
   "docs": {
-    "manual": {
-      "getting-started": {
-        "title": "Getting Started"
-      },
-      "ai-chat": {
-        "title": "AI Chat"
-      },
-      "agent": {
-        "title": "Using Agents"
-      },
-      "knowledge-base": {
-        "title": "Knowledge Base"
-      },
-      "billing": {
-        "title": "Billing"
-      },
-      "account": {
-        "title": "Account Settings"
-      },
-      "faq": {
-        "title": "FAQ"
-      }
-    },
     "navAgent": "Agent Development",
     "navApi": "API Docs",
     "navDevelopers": "Developers",
@@ -19311,7 +19301,134 @@
     "githubApp": "GitHub App",
     "smsReceive": "SMS Verification",
     "sms": "SMS Templates"
-  },
+  ,
+    "hrGroup": "HR",
+    "financeAi": "Finance",
+    "eduHubTitle": "Education",
+    "contentHubTitle": "Content",
+    "tradeHubTitle": "Trading",
+    "accountPool": "Account Pool",
+    "pdfTools": "PDF Tools",
+    "sag2Lexical": "SAG2 Lexical Search",
+    "eduMyAttendance": "My Attendance",
+    "hrMyAttendance": "My Attendance",
+    "hrMyLeave": "My Leave",
+    "hrMyPayroll": "My Payslip",
+    "hrAdmin": "Attendance Admin",
+    "hrAdminData": "HR Data",
+    "live": "Live",
+    "earnings": "Earnings",
+    "wallet": "Wallet",
+    "playground": "Playground",
+    "developerRelaySubscriptions": "Relay subscriptions",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "projects": "Projects",
+    "refund": "Refunds",
+    "point": "Points",
+    "certificate": "Certificates",
+    "agentCategories": "Agent categories",
+    "agentExamine": "Agent review",
+    "agentSettlement": "Agent settlement",
+    "agentRules": "Agent rules",
+    "demandSquare": "Demand square",
+    "aiCost": "AI cost",
+    "orgGovernance": "Org governance",
+    "monitoringDashboard": "Monitoring dashboard",
+    "backendHealth": "Backend health",
+    "performanceDashboard": "Performance dashboard",
+    "errorDashboard": "Error dashboard",
+    "databaseOptimization": "Database optimization",
+    "eventBusMonitor": "Event bus monitor",
+    "grayRelease": "Gray release",
+    "apiDebug": "API debug",
+    "apiGroups": "API groups",
+    "apiLogs": "API logs",
+    "apiUsage": "API usage",
+    "dict": "Dictionaries",
+    "notificationChannels": "Notification channels",
+    "notificationPreferences": "Notification preferences",
+    "notificationLogs": "Notification logs",
+    "recommendationConfig": "Recommendation config",
+    "mobileAdapter": "Mobile adapter",
+    "oauthAuditDashboard": "OAuth audit dashboard",
+    "feedbacks": "Feedback",
+    "roles": "Roles",
+    "permissions": "Permissions",
+    "workflows": "Workflows",
+    "configs": "Configs",
+    "integrations": "Integrations",
+    "deployDiagnosis": "Deploy diagnosis",
+    "logs": "Logs",
+    "events": "Events",
+    "apiPlatformApps": "API platform apps",
+    "apiPlatformPackages": "API platform packages",
+    "apiPlatformBilling": "API platform billing",
+    "apiPlatformUsage": "API platform usage",
+    "shopProducts": "Shop products",
+    "shopPayments": "Shop payments",
+    "shopWithdrawals": "Shop withdrawals",
+    "shopFunds": "Shop funds",
+    "oauthApps": "OAuth apps",
+    "oauthAudit": "OAuth audit",
+    "oauthTokens": "OAuth tokens",
+    "monitorDashboard": "Monitor overview",
+    "monitorFunnel": "Monitor funnel",
+    "monitorAlerts": "Monitor alerts",
+    "memberUsers": "Member users",
+    "memberRoles": "Member roles",
+    "memberPermissions": "Member permissions",
+    "memberLogs": "Member logs",
+    "memberBlacklist": "Member blacklist",
+    "systemMonitor": "System monitor",
+    "systemTasks": "System tasks",
+    "realnameAudit": "Real-name review",
+    "taskDeveloper": "Task developers",
+    "agentRule": "Agent rule",
+    "agentTask": "Agent tasks",
+    "advertise": "Advertising",
+    "carousel": "Carousel",
+    "aiGc": "AI content generation",
+    "crew": "Crew",
+    "developerLink": "Developer links",
+    "identityProportion": "Identity share",
+    "productIdentity": "Product identity",
+    "userAgentAudio": "User agent · audio",
+    "userAgentContext": "User agent · context",
+    "userAgentImage": "User agent · image",
+    "zhsActivity": "ZHS activities",
+    "zhsAgent": "ZHS agents",
+    "zhsUser": "ZHS users",
+    "authAccounts": "Auth accounts",
+    "authDept": "Auth departments",
+    "authFindInfo": "Auth info lookup",
+    "authRole": "Auth roles",
+    "authUserVip": "Auth VIP users",
+    "authVeriCodes": "Verification codes",
+    "loginLogs": "Login logs",
+    "eduOrganization": "Education orgs",
+    "eduPlatform": "Education platform",
+    "eduUserPlatform": "Education user platform",
+    "eduZhsIdentity": "Education ZHS identity",
+    "eduCourseAudit": "Course review",
+    "eduCoursePay": "Course payments",
+    "eduCoursePlatformLog": "Course platform logs",
+    "systemLoginLogs": "System login logs",
+    "systemOperationLogs": "System operation logs",
+    "systemTasksLog": "System task logs",
+    "rolesAuthUser": "Role auth users",
+    "rolesSelectUser": "Role picker users",
+    "ossFiles": "OSS files",
+    "notificationDispatch": "Notification dispatch",
+    "aboutUs": "About us",
+    "messageOverview": "Message overview",
+    "visitTracking": "Visit tracking",
+    "behaviorAnalytics": "Behavior analytics",
+    "pluginsStats": "Plugin stats",
+    "examMarking": "Exam marking",
+    "adminRelayModelMappings": "Relay model mappings",
+    "saasTenants": "SaaS tenants",
+    "saasCertificates": "SaaS certificates"},
   "news": {
     "allCategories": "All Categories",
     "backToList": "Back to news",
@@ -21910,7 +22027,19 @@
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
     "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences"
-  },
+  ,
+    "expertRoute": {
+      "title": "Expert Routing"
+    ,
+      "desc": "Choose which model routing strategy handles your requests",
+      "default": "Default",
+      "envLockedNotice": "This setting is locked by an environment variable and cannot be changed here"},
+    "navTiers": {
+      "title": "Sidebar visibility tiers"
+    ,
+      "desc": "Choose which advanced features appear in the sidebar",
+      "simpleMode": "Simple mode",
+      "simpleModeDesc": "Hide advanced entries and keep only common menus"}},
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
     "defaultModelName": "AI Smart Chat",
@@ -25838,12 +25967,6 @@
     "pageSubtitle": "A user-editable rule set that is injected into the system prompt at agent runtime according to its match conditions"
   },
   "automations": {
-    "terminalReason": {
-      "manualPause": "Manually paused",
-      "failedPermanent": "Permanent failure",
-      "failedRetriesExhausted": "Retries exhausted",
-      "completed": "Completed"
-    },
     "delete": "Delete",
     "title": "Automations",
     "subtitle": "Run your agent tasks on schedule",
@@ -27942,6 +28065,60 @@
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
   }
-}
+,
+  "hrHub": {
+    "title": "HR"
+  ,
+    "subtitle": "Employee self-service and HR management",
+    "sectionSelf": "Self Service",
+    "sectionAdmin": "HR Management"},
+  "eduHub": {
+    "title": "Education"
+  ,
+    "subtitle": "Courses, live classes, exams and teaching management"},
+  "aiHub": {
+    "title": "AI"
+  ,
+    "subtitle": "Models, agents, knowledge and content generation"},
+  "contentHub": {
+    "title": "Content"
+  ,
+    "subtitle": "Plaza, teams, messages and self-media publishing"},
+  "tradeHub": {
+    "title": "Trading"
+  ,
+    "subtitle": "Earnings, orders, payments and membership points"},
+  "personalHub": {
+    "title": "Account"
+  ,
+    "subtitle": "Account, favorites, learning and subscriptions"},
+  "developerHub": {
+    "title": "Developer"
+  ,
+    "subtitle": "APIs, keys, usage and debugging tools"},
+  "adminHub": {
+    "title": "Admin"
+  ,
+    "subtitle": "Site configuration, operations and audit"},
+  "domainHub": {
+    "functionCount": "{count} features"
+  ,
+    "searchPlaceholder": "Search features",
+    "empty": "No matching features",
+    "subItems": "{count} sub-items"},
+  "pwaInstall": {
+    "title": "Install to Home Screen"
+  ,
+    "body": "Install IHUI AI for faster launch and offline access",
+    "action": "Install",
+    "close": "Close"},
+  "myPayroll": {
+    "title": "My Payslips"
+  ,
+    "subtitle": "View your monthly payslip details",
+    "empty": "No payslips yet"},
+  "connectivity": {
+    "hostLocalAvailable": "Local service available"
+  }}
 
 

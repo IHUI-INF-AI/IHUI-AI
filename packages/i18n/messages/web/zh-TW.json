@@ -7426,7 +7426,13 @@
           "dismiss": "略過",
           "submitted": "已收到，感謝回饋"
         }
-      },
+      ,
+        "heatmap": {
+          "title": "積分消耗熱力圖"
+        ,
+          "dayTitle": "{date} 消耗",
+          "legendLabel": "消耗強度",
+          "sessionsEmpty": "暫無會話記錄"}},
       "hookSummary": {
         "ariaLabel": "鉤子執行摘要",
         "state": {
@@ -8908,14 +8914,11 @@
           "emptyDraft": "草稿為空，請先輸入內容再潤色。"
         },
         "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
-      },
-      "hookFailures": {
-        "action": {
-          "retry": "重試",
-          "inspect": "查看詳情"
-        }
       }
-    },
+    ,
+      "hookFailures": {
+        "evidenceMissing": "未記錄最終結果"
+      }},
     "permissionConfirm": {
       "allow": "允許",
       "allowAllSession": "本次會話全部允許(後續不再彈窗)",
@@ -11955,7 +11958,17 @@
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
     "analysisOpen": "檢視場景分析"
-  },
+  ,
+    "terminal": {
+      "waitingInput": "等待輸入"
+    ,
+      "promptLabel": "終端輸入",
+      "submit": "送出"},
+    "titleAutoUpdate": {
+      "title": "對話標題自動更新"
+    ,
+      "label": "自動產生標題",
+      "desc": "每輪對話後自動用模型產生更貼切的標題"}},
   "chatHistory": {
     "moveToGroup": "移動到分組",
     "moveSelectedToGroup": "移動所選到分組",
@@ -13924,30 +13937,7 @@
     "navTools": "工具",
     "navWorkflow": "工作流編排",
     "shellSubtitle": "平臺開發與集成指南",
-    "shellTitle": "開發文檔",
-    "manual": {
-      "getting-started": {
-        "title": "開始使用"
-      },
-      "ai-chat": {
-        "title": "AI 對話"
-      },
-      "agent": {
-        "title": "使用 Agent"
-      },
-      "knowledge-base": {
-        "title": "知識庫"
-      },
-      "billing": {
-        "title": "積分與訂閱"
-      },
-      "account": {
-        "title": "帳戶設定"
-      },
-      "faq": {
-        "title": "常見問題"
-      }
-    }
+    "shellTitle": "開發文檔"
   },
   "drama": {
     "editor": {
@@ -19875,7 +19865,134 @@
     "customRemove": "移除",
     "customDragHint": "拖曳排序",
     "customNoResults": "沒有找到符合的功能"
-  },
+  ,
+    "hrGroup": "人事部",
+    "financeAi": "財務部",
+    "eduHubTitle": "教育",
+    "contentHubTitle": "內容",
+    "tradeHubTitle": "交易",
+    "accountPool": "帳號池",
+    "pdfTools": "PDF 工具",
+    "sag2Lexical": "SAG2 詞法檢索",
+    "eduMyAttendance": "我的考勤",
+    "hrMyAttendance": "我的考勤",
+    "hrMyLeave": "我的請假",
+    "hrMyPayroll": "我的薪資單",
+    "hrAdmin": "考勤管理",
+    "hrAdminData": "人事資料",
+    "live": "直播",
+    "earnings": "收益",
+    "wallet": "錢包",
+    "playground": "線上測試",
+    "developerRelaySubscriptions": "中繼訂閱",
+    "dashboard": "儀表盤",
+    "users": "使用者",
+    "projects": "專案",
+    "refund": "退款",
+    "point": "積分",
+    "certificate": "證書",
+    "agentCategories": "智慧體分類",
+    "agentExamine": "智慧體審核",
+    "agentSettlement": "智慧體結算",
+    "agentRules": "智慧體規則",
+    "demandSquare": "需求廣場",
+    "aiCost": "AI 成本",
+    "orgGovernance": "組織治理",
+    "monitoringDashboard": "監控面板",
+    "backendHealth": "後端健康",
+    "performanceDashboard": "效能面板",
+    "errorDashboard": "錯誤面板",
+    "databaseOptimization": "資料庫優化",
+    "eventBusMonitor": "事件匯流排監控",
+    "grayRelease": "灰度發布",
+    "apiDebug": "API 偵錯",
+    "apiGroups": "API 分組",
+    "apiLogs": "API 日誌",
+    "apiUsage": "API 用量",
+    "dict": "字典",
+    "notificationChannels": "通知渠道",
+    "notificationPreferences": "通知偏好",
+    "notificationLogs": "通知日誌",
+    "recommendationConfig": "推薦配置",
+    "mobileAdapter": "行動端適配",
+    "oauthAuditDashboard": "OAuth 稽核面板",
+    "feedbacks": "使用者回饋",
+    "roles": "角色",
+    "permissions": "權限",
+    "workflows": "工作流",
+    "configs": "配置",
+    "integrations": "整合",
+    "deployDiagnosis": "部署診斷",
+    "logs": "日誌",
+    "events": "事件",
+    "apiPlatformApps": "API 平台應用",
+    "apiPlatformPackages": "API 平台方案",
+    "apiPlatformBilling": "API 平台計費",
+    "apiPlatformUsage": "API 平台用量",
+    "shopProducts": "商城商品",
+    "shopPayments": "商城支付",
+    "shopWithdrawals": "商城提領",
+    "shopFunds": "商城資金",
+    "oauthApps": "OAuth 應用",
+    "oauthAudit": "OAuth 稽核",
+    "oauthTokens": "OAuth 權杖",
+    "monitorDashboard": "監控總覽",
+    "monitorFunnel": "監控漏斗",
+    "monitorAlerts": "監控告警",
+    "memberUsers": "會員使用者",
+    "memberRoles": "會員角色",
+    "memberPermissions": "會員權限",
+    "memberLogs": "會員日誌",
+    "memberBlacklist": "會員黑名單",
+    "systemMonitor": "系統監控",
+    "systemTasks": "系統任務",
+    "realnameAudit": "實名審核",
+    "taskDeveloper": "任務開發者",
+    "agentRule": "智慧體規則",
+    "agentTask": "智慧體任務",
+    "advertise": "廣告投放",
+    "carousel": "輪播圖",
+    "aiGc": "AI 內容生成",
+    "crew": "團隊",
+    "developerLink": "開發者連結",
+    "identityProportion": "身份占比",
+    "productIdentity": "產品身份",
+    "userAgentAudio": "使用者智慧體·音訊",
+    "userAgentContext": "使用者智慧體·上下文",
+    "userAgentImage": "使用者智慧體·圖像",
+    "zhsActivity": "智匯活動",
+    "zhsAgent": "智匯智慧體",
+    "zhsUser": "智匯使用者",
+    "authAccounts": "認證帳戶",
+    "authDept": "認證部門",
+    "authFindInfo": "認證資訊查詢",
+    "authRole": "認證角色",
+    "authUserVip": "認證 VIP 使用者",
+    "authVeriCodes": "驗證碼",
+    "loginLogs": "登入日誌",
+    "eduOrganization": "教育機構",
+    "eduPlatform": "教育平台",
+    "eduUserPlatform": "教育使用者平台",
+    "eduZhsIdentity": "教育智匯身份",
+    "eduCourseAudit": "課程審核",
+    "eduCoursePay": "課程支付",
+    "eduCoursePlatformLog": "課程平台日誌",
+    "systemLoginLogs": "系統登入日誌",
+    "systemOperationLogs": "系統操作日誌",
+    "systemTasksLog": "系統任務日誌",
+    "rolesAuthUser": "角色認證使用者",
+    "rolesSelectUser": "角色選擇使用者",
+    "ossFiles": "OSS 檔案",
+    "notificationDispatch": "通知派發",
+    "aboutUs": "關於我們",
+    "messageOverview": "訊息總覽",
+    "visitTracking": "造訪追蹤",
+    "behaviorAnalytics": "行為分析",
+    "pluginsStats": "外掛統計",
+    "examMarking": "閱卷",
+    "adminRelayModelMappings": "中繼模型對應",
+    "saasTenants": "SaaS 租戶",
+    "saasCertificates": "SaaS 證書"},
   "news": {
     "allCategories": "全部分類",
     "backToList": "返回資訊",
@@ -22474,7 +22591,19 @@
     "codeIndexEgressOptOutDesc": "程式碼片段不會外送用於向量化建索引",
     "autoMemoryOptOut": "關閉自動長期記憶",
     "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定"
-  },
+  ,
+    "expertRoute": {
+      "title": "專家路由"
+    ,
+      "desc": "選擇請求走哪一類模型路由策略",
+      "default": "預設",
+      "envLockedNotice": "此設定已由環境變數鎖定，在此處修改不會生效"},
+    "navTiers": {
+      "title": "側邊欄顯示層級"
+    ,
+      "desc": "選擇哪些進階功能顯示在側邊欄",
+      "simpleMode": "簡潔模式",
+      "simpleModeDesc": "隱藏進階功能入口，只保留常用選單"}},
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
     "defaultModelName": "AI智能對話",
@@ -26492,13 +26621,7 @@
       "deleteFailed": "刪除失敗"
     },
     "cancel": "取消",
-    "save": "儲存",
-    "terminalReason": {
-      "manualPause": "手動暫停",
-      "failedPermanent": "永久失敗",
-      "failedRetriesExhausted": "重試次數已用盡",
-      "completed": "已完成"
-    }
+    "save": "儲存"
   },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 個任務遠端取消失敗（已本地置為已取消）",
@@ -28522,4 +28645,58 @@
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件資料暫時取不到"
   }
-}
+,
+  "hrHub": {
+    "title": "人事部"
+  ,
+    "subtitle": "員工自助與人事管理",
+    "sectionSelf": "員工自助",
+    "sectionAdmin": "人事管理"},
+  "eduHub": {
+    "title": "教育"
+  ,
+    "subtitle": "課程、直播、考試與教學管理"},
+  "aiHub": {
+    "title": "AI 中心"
+  ,
+    "subtitle": "模型、智慧體、知識與內容生成"},
+  "contentHub": {
+    "title": "內容"
+  ,
+    "subtitle": "廣場、團隊、訊息與自媒體發布"},
+  "tradeHub": {
+    "title": "交易"
+  ,
+    "subtitle": "收益、訂單、支付與會員積分"},
+  "personalHub": {
+    "title": "個人中心"
+  ,
+    "subtitle": "帳戶、收藏、學習與訂閱"},
+  "developerHub": {
+    "title": "開發者"
+  ,
+    "subtitle": "API、金鑰、用量與除錯工具"},
+  "adminHub": {
+    "title": "管理"
+  ,
+    "subtitle": "站點設定、營運與稽核"},
+  "domainHub": {
+    "functionCount": "共 {count} 個功能"
+  ,
+    "searchPlaceholder": "搜尋功能",
+    "empty": "沒有符合的功能",
+    "subItems": "共 {count} 個子項"},
+  "pwaInstall": {
+    "title": "安裝到桌面"
+  ,
+    "body": "將智匯AI 安裝到桌面，開啟更快，支援離線使用",
+    "action": "立即安裝",
+    "close": "關閉"},
+  "myPayroll": {
+    "title": "我的薪資單"
+  ,
+    "subtitle": "查看每月的薪資明細",
+    "empty": "暫無薪資單"},
+  "connectivity": {
+    "hostLocalAvailable": "本機服務可用"
+  }}

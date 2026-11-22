@@ -215,7 +215,7 @@ export function ReplyAnnotationLayer({
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('placeholder')}
             rows={2}
-            className="w-56 resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus"
+            className="w-56 resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
             data-testid="annotation-input"
           />
           <div className="mt-1 flex items-center gap-1.5">
@@ -324,7 +324,7 @@ export function ReplyAnnotationLayer({
                         value={editDraft}
                         onChange={(e) => setEditDraft(e.target.value)}
                         rows={2}
-                        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus"
+                        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
                         data-testid={`annotation-edit-input-${ann.id}`}
                       />
                       <div className="flex items-center gap-1.5">

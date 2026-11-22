@@ -74,7 +74,7 @@ Test-Path <worktree 路径>                       # 期望 False
 
 ## 必须跳的情形 + 唯一合规出口
 
-**唯一合法跳钩 = `safe-commit --allow-skip-hooks="<原因>"`**（默认关闭；正文自动写入 `人工授权跳钩:<原因>`，审计上分得出"真过钩"与"人工授权跳钩"）。实现见 `scripts/safe-commit.mjs` 头部用法与"默认永不跳钩"段。
+**默认口径(2026-11-23 机主改定):归因非 mine 即自动跳钩**——`not-ours` / `env-blocked` / `unattributed` 时 safe-commit 自动以 `--no-verify` 落地，正文写 `自动跳钩:<归因>`、台账记 `skipAuthorization=auto:…`；`mine` 与 commit-msg 未判定仍判死。人工显式入口 `safe-commit --allow-skip-hooks="<原因>"` 保留（正文写 `人工授权跳钩:<原因>`）；要退回"红一律不落地"用 `--forbid-skip-hooks`。实现见 `scripts/safe-commit.mjs` 头部用法与"跳钩纪律"段。
 
 只有下列情形才允许人工授权跳钩：
 

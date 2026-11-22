@@ -504,11 +504,25 @@ EOF
   fi
   if [ "$_gate_rc" -ne 0 ]; then
     tail -40 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
-    printf '%s\n' "❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)" >&2
-    exit 1
+    # 2026-11-23 机主改定:默认允许跳钩 —— push 门批次失败不再无条件阻断推送。
+    # 判据不变(红照样逐条打印),变的是"红之后落不落地":与提交无关的存量红只拦人,
+    # 拦到最后就是人人 --no-verify(§12e 恒红门)。留痕写入 pre-push-skips.jsonl,读账能算出跳过几次。
+    # 要退回旧口径(红一律阻断):IHUI_PRE_PUSH_SKIP_DEFAULT=forbid。
+    if [ "${IHUI_PRE_PUSH_SKIP_DEFAULT:-allow}" = "forbid" ]; then
+      printf '%s\n' "❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log;本次显式 IHUI_PRE_PUSH_SKIP_DEFAULT=forbid)" >&2
+      exit 1
+    fi
+    mkdir -p .ihui-agent/state 2>/dev/null || true
+    _ps_head="$(git rev-parse HEAD 2>/dev/null)"
+    _ps_br="$(git symbolic-ref -q --short HEAD 2>/dev/null)"
+    _ps_ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)"
+    printf '{"ts":"%s","kind":"push-gate-default-skip","rc":%s,"head":"%s","branch":"%s"}\n' \
+      "${_ps_ts}" "${_gate_rc}" "${_ps_head}" "${_ps_br}" >> .ihui-agent/state/pre-push-skips.jsonl 2>/dev/null || true
+    printf '%s\n' "⚠️  push 门校验失败(exit ${_gate_rc})—— 默认允许跳钩(2026-11-23 机主改定),本次推送继续;留痕: .ihui-agent/state/pre-push-skips.jsonl" >&2
+  else
+    tail -3 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
+    printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
   fi
-  tail -3 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
-  printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 
 # ─── 旧底稿整份回退哨兵(push-range 面硬拦截,2026-11-11 立) ─────────────────
 # 立因:门 84 只判暂存面且 --no-verify 可绕过;worktree-preserving 收敛让共享索引常年

@@ -38,7 +38,7 @@
  *  - `w-full`(web:14):web 的块级宽度承载;RN 的 `TextInput` 宽度由父容器决定,无此通道。
  *  - `transition-colors` / `focus-visible:*` / `file:*` / `disabled:*`(web:14):仅 web,
  *    依赖 CSS 伪类 / 伪元素通道。
- *  - focus 外观:web 走 `focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus`
+ * - focus 外观:web 走 `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus`
  *    (CSS 通道,2px 墨环、不占布局);RN 走 **style prop**
  *    (RN:127 `style={[style, focused ? { borderColor: primaryColor } : null]}`)。
  *    ⚠️ 这一条**不是**"web 薄壳可以用内联 style"的例外:内联 style 的禁令只针对 **web 端**

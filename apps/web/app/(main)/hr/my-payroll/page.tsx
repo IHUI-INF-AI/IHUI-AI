@@ -104,7 +104,7 @@ export default function MyPayrollPage() {
         <label className="font-[weight:inherit] text-body">
           {th('colMonth')}
           <input
-            className="font-[weight:inherit] rounded-sm border border-input bg-background px-2 py-1 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+            className="font-[weight:inherit] rounded-sm border border-input bg-background px-2 py-1 text-body focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus"
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}

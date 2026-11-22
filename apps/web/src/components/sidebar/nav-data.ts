@@ -814,8 +814,10 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   // 财务部分组(2026-11-16 立):与人事部同形态,侧边栏留一枚「财务部」入口,
   // 直接指向 /finance-ai(财务域当前仅此单页,无需 hub 中转;后续增页时再
-  // 收敛为 /domains/finance 域入口)。labelKey 复用既有 nav.financeAi 键
-  // (五语言齐备),不新增键、不在端内硬编码中文(AGENTS §19)。
+  // 收敛为 /domains/finance 域入口)。
+  // labelKey = nav.financeAi。⚠️ 2026-11-22 核账:此处原写"复用既有 nav.financeAi 键(五语言齐备)",
+  // 而该键在五份词库里当时一枚都不存在 —— 侧栏把 nav.financeAi 原样画给了用户。
+  // 键已当日补齐;数据键一律由 check-i18n-data-keys.mjs 判活,新增 labelKey 必须先落词库。
   {
     label: 'financeGroup',
     items: [{ href: '/finance-ai', labelKey: 'financeAi', icon: Wallet }],
@@ -825,9 +827,10 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     // 原 14 条顶层(连同 /models 18、/memory 14、/knowledge-base 6、/ai-world 1 子项,
     // flatten 53 条)全部移入 AI_HUB_ITEMS,由域入口页以卡片网格承载;侧边栏不再平铺。
     // 页面一个不删、URL 一个不改(A 方案)—— 全部旧链接仍可直接访问。
-    // labelKey 复用分组同名的 nav.aiGroupLabel:本仓消息文件在 packages/i18n(本批写权
-    // 不在射程),不得新增键,也不得在端内硬编码中文(AGENTS §4/§19)—— 复用既有五语言键
-    // 是唯一同时满足两条的形态。档位不标在入口上:域内 /models 总览、/agents、
+    // labelKey = nav.aiGroupLabel。⚠️ 2026-11-22 核账:此处原写"复用既有五语言键",
+    // 实为假宣称(该键当时并不存在),已补齐并纳入 check-i18n-data-keys.mjs 判活。
+    // 「本批对 packages/i18n 无写权」不构成不落键的理由 —— 键不存在,界面上就是裸键。
+    // 档位不标在入口上:域内 /models 总览、/agents、
     // 知识库、媒体任务都是普通用户要用的功能,入口一旦被隐藏就把它们一起锁死。
     label: 'aiGroupLabel',
     items: [{ href: '/domains/ai', labelKey: 'aiGroupLabel', icon: Sparkles }],
@@ -870,8 +873,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     // 2026-10-23 P2 收敛第二批:本组由 5 项收敛为 1 个域入口(/domains/personal)。
     // 原 5 条顶层(我的学习 + 3 子项 / /user/profile + USER_CHILDREN 14 / 学员中心 /
     // 反馈 / 帮助,flatten 22 条)全部移入 PERSONAL_HUB_ITEMS,由域入口页承载。
-    // labelKey 复用既有的 nav.user(「个人中心」/Account):消息文件在 packages/i18n,
-    // 本批无写权 ⇒ 不新增键、不硬编码中文(见 aiGroupLabel 那一条的同款说明)。
+    // labelKey = nav.user(「个人中心」/Account):该键真实存在,2026-11-22 复核仍成立。
+    // (同组另外几枚 labelKey 当日被查出"假宣称复用既有键",说明这类断言只能由机器核,
+    //  注释自证不算 —— 见 check-i18n-data-keys.mjs。)
     label: 'personalGroup',
     items: [{ href: '/domains/personal', labelKey: 'user', icon: User }],
   },
