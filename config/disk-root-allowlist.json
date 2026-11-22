@@ -10,6 +10,10 @@
         ".pytest_tmp",
         ".pytest_tmp_runs",
         "__wb_empty2__",
+        "common_attachment",
+        "persistent_data",
+        "tmp",
+        "tools",
         "apache-maven-3.9.5",
         "minio",
         "nacos",
@@ -41,7 +45,7 @@
         "pagefile.sys",
         "swapfile.sys"
       ],
-      "note": "2026-11-22 现场逐条登记。IHUI-AI=项目主仓(本机 checkout 根,C 卷 NVMe);DevEnv=机器级备份/日志根(2026-11-22 二次核实:用户级 IHUI_DEVENV_ROOT=D:\\DevEnv 已接管现役落点,调度器实测写 D:\\DevEnv\\backups\\pg;C:\\DevEnv 仅剩 11-27/11-30 两枚旧 dump 与旧日志,属可删遗产,目录本身保留不判外流);IHUI-AI-archives=iOS 安装包中转归档(ihui-ai-latest.ipa,白名单保护至 2027-01-31,删了等于撤下载入口);.pytest_tmp 与 .pytest_tmp_runs=pytest basetemp/per-run 隔离树的**设计落点且落在仓外**(见 _pytestBasetempNote,跑一次 ai-service 全量 pytest 必然重建,故必须申报);__wb_empty2__=WorkBuddy/browser-use 工具运行期创建的空标记目录(删后会自动重建,属第三方运行时行为,非项目产物);apache-maven-3.9.5=MAVEN_HOME 与 PATH 均指向 \\bin,删掉等于废掉全部 Maven 构建;minio/nacos/redis/rocketmq=本地中间件安装目录(非服务、当前无进程,重建成本高于体积);微信web开发者工具/支付宝小程序开发工具=小程序 IDE,apps/miniapp-taro/启动支付宝小程序IDE.ps1 仍在引用;Qoder CN/Trae CN/MiniMax Code/ZCode/Loomy/workbuddy/Apps/Androws=第三方 Electron 应用安装目录(有注册表卸载项,删除须走卸载器,不得手删);NVIDIA=显卡驱动组件;Documents and Settings=Windows 兼容性 junction;Program Files/Program Files (x86)/ProgramData/Windows/Users/System Volume Information/$RECYCLE.BIN=系统目录;bootmgr/BOOTNXT/DumpStack.log.tmp/pagefile.sys/swapfile.sys=引导与系统文件,一律不碰。"
+      "note": "2026-11-22 现场逐条登记。IHUI-AI=项目主仓(本机 checkout 根,C 卷 NVMe);DevEnv=机器级备份/日志根(2026-11-22 二次核实:用户级 IHUI_DEVENV_ROOT=D:\\DevEnv 已接管现役落点,调度器实测写 D:\\DevEnv\\backups\\pg;C:\\DevEnv 仅剩 11-27/11-30 两枚旧 dump 与旧日志,属可删遗产,目录本身保留不判外流);IHUI-AI-archives=iOS 安装包中转归档(ihui-ai-latest.ipa,白名单保护至 2027-01-31,删了等于撤下载入口);.pytest_tmp 与 .pytest_tmp_runs=pytest basetemp/per-run 隔离树的**设计落点且落在仓外**(见 _pytestBasetempNote,跑一次 ai-service 全量 pytest 必然重建,故必须申报);__wb_empty2__=WorkBuddy/browser-use 工具运行期创建的空标记目录(删后会自动重建,属第三方运行时行为,非项目产物);common_attachment/persistent_data/tmp/tools=2026-11-22 13:30 立的**重定向 junction**(分别指向 D:\\DevEnv\\cache\\c-root-stray\\*、D:\\DevEnv\\Temp\\c-root-tmp、D:\\DevEnv\\tools\\c-root-tools),把第三方工具往 C 根写的散落点引到机械盘,自身不承载内容;删掉等于让这些工具重新在 C 根建实体目录,故声明保留(修改变须走 junction 而非手删);apache-maven-3.9.5=MAVEN_HOME 与 PATH 均指向 \\bin,删掉等于废掉全部 Maven 构建;minio/nacos/redis/rocketmq=本地中间件安装目录(非服务、当前无进程,重建成本高于体积);微信web开发者工具/支付宝小程序开发工具=小程序 IDE,apps/miniapp-taro/启动支付宝小程序IDE.ps1 仍在引用;Qoder CN/Trae CN/MiniMax Code/ZCode/Loomy/workbuddy/Apps/Androws=第三方 Electron 应用安装目录(有注册表卸载项,删除须走卸载器,不得手删);NVIDIA=显卡驱动组件;Documents and Settings=Windows 兼容性 junction;Program Files/Program Files (x86)/ProgramData/Windows/Users/System Volume Information/$RECYCLE.BIN=系统目录;bootmgr/BOOTNXT/DumpStack.log.tmp/pagefile.sys/swapfile.sys=引导与系统文件,一律不碰。"
     },
     "D:\\": {
       "allow": [
