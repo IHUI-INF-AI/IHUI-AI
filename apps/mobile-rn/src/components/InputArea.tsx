@@ -349,6 +349,9 @@ export function InputArea({
 
   // 文本自动撑高(上限 MAX_INPUT_HEIGHT,放大后无上限)
   const [contentHeight, setContentHeight] = useState(MIN_INPUT_HEIGHT)
+  // 输入框聚焦态(2026-11-23):大输入框的描边画在外层 fieldShell 上,内层 TextField 不再自画一圈
+  // (否则纯打字时文字小容器里会多出一层矩形描边,与外层重复)。
+  const [textFocused, setTextFocused] = useState(false)
   // Android 的 onContentSizeChange 在文本收缩时不再回调,清空后输入框会卡在多行
   // 高度上(计数徽章随之误显 0/500)。value 清空时主动复位到单行高度。
   useEffect(() => {
@@ -496,7 +499,11 @@ export function InputArea({
           <View
             style={[
               styles.fieldShell,
-              voiceRecording || voiceTranscribing ? styles.fieldShellRecording : null,
+              voiceRecording || voiceTranscribing
+                ? styles.fieldShellRecording
+                : textFocused
+                  ? styles.fieldShellFocused
+                  : null,
             ]}
           >
             {/* 麦克风:长按开始录音,松开结束(2026-10-16 起由调用方上传发语音消息) */}
@@ -559,11 +566,18 @@ export function InputArea({
                     colorScheme={currentRnTheme()}
                     ref={inputRef}
                     style={[inputBareStyle, { height: inputHeight }]}
+                    focusedStyle={styles.inputFocusTransparent}
                     value={value}
                     onChangeText={onChangeText}
                     autoFocus={autoFocus}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
+                    onFocus={() => {
+                      setTextFocused(true)
+                      onFocus?.()
+                    }}
+                    onBlur={() => {
+                      setTextFocused(false)
+                      onBlur?.()
+                    }}
                     onContentSizeChange={(e) =>
                       handleContentSizeChange(
                         e.nativeEvent.contentSize.width,
@@ -923,6 +937,14 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderColor: tokens.border.medium,
   },
+  // 大输入框聚焦:描边只在 fieldShell 上画一次(亮纯黑/暗纯白),内层 TextField 用
+  // inputFocusTransparent 让位 —— 文字小容器不再套第二层矩形。
+  fieldShellFocused: {
+    borderColor: tokens.stroke.focus,
+  },
+  inputFocusTransparent: {
+    borderColor: 'transparent',
+  },
   // 模型钮(单排内联:与加号/发送同一行,位于「+」左侧)。
   // 2026-10-15 重构:镜像 web ModelSelector 触发钮(h-8/rounded-sm/border-input/bg-card/
   // px-2/text-sm font-medium)—— 32 高与加号/发送同档,模型名即状态(不加选中底色),
@@ -1004,7 +1026,9 @@ const styles = StyleSheet.create({
     // ⇒ 两端都越出了 control 档且互不相同;卡片本体在别处,这一格不是 card/panel/hero。
     borderRadius: rnRadiusFor.control,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    // 静息不画描边(2026-11-23 用户定档:AI 输入框的文字容器只要填充底,不要常驻灰框);
+    // 1px 宽度保留给 TextField 聚焦墨档换色,零布局跳动。
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
     fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.primary,

@@ -433,7 +433,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'flex-end',
       borderRadius: rnRadius['2xl'],
       borderWidth: 1,
-      borderColor: tk.border.light,
+      // 静息无描边(2026-11-23):AI 输入框文字容器只留填充底,聚焦才现墨档环。
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],

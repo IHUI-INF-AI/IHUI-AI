@@ -1042,7 +1042,9 @@ const styles = StyleSheet.create({
     maxHeight: INPUT_MAX_HEIGHT,
     borderRadius: INPUT_BORDER_RADIUS,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    // 静息不画描边(2026-11-23 用户定档):AI 输入框文字容器只留填充底,聚焦由共享
+    // TextField 的墨档换色承担;1px 宽度保留,零布局跳动。
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
     paddingHorizontal: INPUT_PADDING_HORIZONTAL,
     paddingVertical: rnSpacing['sm-loose'],
