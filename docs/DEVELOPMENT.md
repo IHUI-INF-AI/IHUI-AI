@@ -86,6 +86,31 @@ Test-Path 'D:\caches\gradle\gradle.properties'
 
 2026-11-22 已把 `D:\gradle`(291.5MB)、`D:\xdg`(2.3GB,其中 cache 1.35GB 已清空)迁到 `D:\caches\gradle`、`D:\caches\xdg`;仓库、`D:\IHUI-Build`、`D:\DevEnv` 的脚本配置,以及 JetBrains / Android Studio / Cursor 全局配置,均无旧路径硬编码。
 
+### 1.3 安卓工具链落位(2026-11-22 立)
+
+同日把 `.android`(原是指向 `D:\android` 的 junction)归位为 C 盘实体目录,并补齐 SDK 与 AVD;`D:\android` 已删除。**仍持有旧环境变量副本的进程(含桌面客户端)会把旧路径重新造出来,须重启后才彻底消失。**
+
+| 项 | 落位 | 装了什么 |
+|---|---|---|
+| SDK | `%LOCALAPPDATA%\Android\Sdk` | 10.12GB;cmdline-tools latest 19.0、platform-tools(adb 37.0.3)、build-tools 36.0.0、platforms android-36、emulator 37.3.10、NDK 27.0.12077973 与 27.1.12297006 两版并存、system-images android-36 google_apis x86_64 |
+| `.android` | `%USERPROFILE%\.android` | 实体目录(3.53GB);AVD `ihui-rn` 位于其 `avd` 子目录 |
+| JDK 17 | `C:\Program Files\Java\jdk-17` | Microsoft OpenJDK 17.0.21.1;已登记进 `D:\caches\gradle\gradle.properties` 的 `org.gradle.java.installations.paths`,缺登记时 Gradle 会去 GitHub 拉 Temurin 并几十倍拉长构建(本机实测三十多分钟超时) |
+| `local.properties` | `apps/mobile-rn/android/local.properties` | expo prebuild 生成物、不入库;`sdk.dir` 指向上表 SDK |
+
+用户级变量:`ANDROID_HOME` / `ANDROID_USER_HOME` / `ANDROID_AVD_HOME` 三者全部指 C 盘;`ANDROID_SDK_ROOT` 与 `ANDROID_SDK_HOME` 已删除(有值时会与前者抢口径,导致工具各自解析到不同目录)。
+
+- AVD `ihui-rn`:`pixel_7` 机型 / x86_64 / 4 核 / 2GB RAM / 1080x2400 420dpi / Play Store 关闭。冷启动实测 `sys.boot_completed=1`(69.4s);加速走 AEHD 2.2(本机 WHPX/Hyper-V 关闭不影响)。
+- **跑 Gradle 必须用实体路径 `C:\IHUI-AI`**:经 `subst G:` 的盘符会报 `.gradle\9.3.1\fileChanges\last-build.bin` 找不到。
+- 仓库内取 adb 一律走单一源 `scripts/lib/android-toolchain.mjs` 的 `resolveAdb()`,不要在脚本里各自拼 `$env:ANDROID_HOME` 路径。
+
+校验(以下命令均实跑通):
+
+```powershell
+$env:ANDROID_HOME; Test-Path "$env:ANDROID_HOME\platform-tools\adb.exe"
+& "$env:ANDROID_HOME\emulator\emulator.exe" -list-avds      # 期望输出 ihui-rn
+Set-Location C:\IHUI-AI\apps\mobile-rn\android; .\gradlew.bat help | Select-String 'BUILD SUCCESSFUL'
+```
+
 ---
 
 ## 2. 环境变量
