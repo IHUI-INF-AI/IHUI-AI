@@ -94,18 +94,24 @@ const styles = StyleSheet.create({
   msgContent: {
     flexDirection: 'column',
   },
+  // 纯图标操作行(2026-11-23 用户定档:按钮不再带功能说明文字):
+  // gap 归零、由按钮自身的水平内衬撑出 8dp 视觉间距,命中区同步加大
   msgActions: {
     flexDirection: 'row',
-    gap: rpx(16),
+    gap: 0,
     marginTop: rpx(8),
-    paddingLeft: rpx(24),
+    paddingLeft: rpx(16),
   },
   msgActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rpx(8),
+    paddingVertical: rpx(12),
+    paddingHorizontal: rpx(8),
   },
-  msgActionText: {
+  // AI 生成内容显式标识:与操作行同档小字,距气泡 4px,不参与操作按钮热区
+  aiGeneratedLabel: {
+    marginTop: rpx(8),
+    paddingLeft: rpx(24),
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
   },
@@ -383,7 +389,6 @@ export function ChatMessageItem({
         ) : (
           <Pin size={16} color={tokens.text.secondary} />
         )}
-        <Text style={styles.msgActionText}>{item.pinnedAt ? t('chat.unpin') : t('chat.pin')}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.msgActionBtn}
@@ -397,9 +402,6 @@ export function ChatMessageItem({
         ) : (
           <Bookmark size={16} color={tokens.text.secondary} />
         )}
-        <Text style={styles.msgActionText}>
-          {item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
-        </Text>
       </TouchableOpacity>
     </>
   )
@@ -567,7 +569,7 @@ export function ChatMessageItem({
                       <View style={styles.codeBlockActions}>
                         <TouchableOpacity
                           style={styles.codeBlockBtn}
-                          hitSlop={6}
+                          hitSlop={10}
                           onPress={() => {
                             Clipboard.setString(seg.code)
                             showToast('success', t('chat.msg.copied'))
@@ -575,8 +577,7 @@ export function ChatMessageItem({
                           accessibilityRole="button"
                           accessibilityLabel={t('chat.msg.copyCode')}
                         >
-                          <Copy size={13} color={tokens.gray['200']} />
-                          <Text style={styles.codeBlockBtnText}>{t('chat.msg.copy')}</Text>
+                          <Copy size={14} color={tokens.gray['200']} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.codeBlockBtn}
@@ -661,6 +662,9 @@ export function ChatMessageItem({
             </Text>
           ) : null}
         </Tappable>
+        {/* AI 生成内容显式标识(《人工智能生成合成内容标识办法》要求,与共享屏 ChatRoomScreen 同口径;
+            对齐应用商店深度合成资质审核) */}
+        {!isUser && !isFailed ? <Text style={styles.aiGeneratedLabel}>内容由 AI 生成</Text> : null}
         {showActions ? (
           <View style={styles.msgActions}>
             <TouchableOpacity
@@ -674,7 +678,6 @@ export function ChatMessageItem({
               accessibilityLabel={t('chat.msg.copy')}
             >
               <Copy size={16} color={tokens.text.secondary} />
-              <Text style={styles.msgActionText}>{t('chat.msg.copy')}</Text>
             </TouchableOpacity>
             {flagButtons}
             {/* 失败轮不给"分享"(它不是内容);复制保留 —— 报错排查要用那段文字 */}
@@ -695,7 +698,6 @@ export function ChatMessageItem({
                 accessibilityLabel={t('chat.msg.share2')}
               >
                 <Share2 size={16} color={tokens.text.secondary} />
-                <Text style={styles.msgActionText}>{t('chat.msg.share2')}</Text>
               </TouchableOpacity>
             )}
             {isFailed ? null : (
