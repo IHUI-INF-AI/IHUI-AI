@@ -86,4 +86,34 @@ canonical 会变成 `context://workspace/C:/...` ——「看着像虚拟 URI、
   （`BP_*` / `ai_agent_ipc_*` / 内嵌 libgit2、aws-lc）；WorkBuddy `daemon-supervisor` 的
   pid 注册表与 env 通道未落。以上由并行取证席继续，产物落
   `docs/benchmark-evidence/2026-11/deep-native-2026-11-23/`。
+
+## 6. P0-8 索引完整性审计（TRAE CKG sqlite_vec → PostgreSQL/pgvector）
+
+**对照语义**：对照件在 sqlite_vec 侧统计 `missing_vector_entity_count` /
+`total_embedding_entities`，并用幂等标记（磁盘态 / 运行时态两层）避免重复嵌入。本轮只取
+**统计与判定**这一层；端侧本地嵌入与常驻守护不做（取证 README 已把这两项划出最小范围）。
+
+**落点**：`apps/api/src/services/codebase-index-service.ts`
+
+- `IndexStats` 增 `missingVectorChunks`（缺向量切片数）与 `vectorCoverage`（0..1，4 位；
+  0 切片时恒 0 而**不是 1** —— 空库不是「完整」）
+- `getStats` SQL 增 `COUNT(*) FILTER (WHERE "embedding" IS NULL)`：缺向量判据落库内聚合，
+  不把全表拉回 JS 筛；`COUNT(DISTINCT file_path)` 等旧列原样保留
+- 新增 `auditIntegrity(repoId?, ownerUuid?)`，给**结论**而不是读数，四态互斥：
+  `unjudged/owner_required`（无归属 ⇒ 一次查询都不发）· `empty/no_chunks`（0 切片，不记 ok）·
+  `degraded/missing_vectors` · `ok/complete`
+- 消费方 `GET /v1/codebase-search/stats` 本就是 `success(stats)` 直出，新字段向后兼容，
+  路由零改动
+
+**测试**：新增 `apps/api/src/services/__tests__/codebase-index-integrity-audit.test.ts`
+**14 例**；与既有 `codebase-index-tenant-isolation.test.ts` 合并 **2 文件全绿**；
+`pnpm turbo typecheck --filter=@ihui/api` **9/9 successful**（cache 8/9）。
+
+**反向变异三次（均已恢复）**：① 无归属分支短路 ⇒ unjudged 用例转红；② 空库分支短路 ⇒
+empty 用例转红；③ `missing` 列改成常量 `0` ⇒ SQL 层判据用例转红。
+
+**顺手钉住的测法假绿（重要）**：既有 `renderSql` 的 `toQuery` cfg 缺 `getColumnCasing`
+（drizzle 0.38 新签名），遇 Column 对象抛错后被 `catch` 吞成 `String(frag)`＝
+`"[object Object]"`，于是 `not.toContain(...)` 这类断言**长期假绿**。新测试补上该成员，
+SQL 断言才真正在断言 SQL；既有文件本轮不动（与他席在飞面重叠），已列入待办。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

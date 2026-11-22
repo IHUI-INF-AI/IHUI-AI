@@ -94,6 +94,36 @@ export interface IndexStats {
   totalChunks: number
   totalFiles: number
   vectorizedChunks: number
+  /**
+   * 缺向量切片数(2026-11-23 P0-8 补):`embedding IS NULL` 的切片**查得到但搜不到**,
+   * 此前统计只报 vectorized,读者无法判断"全库是否完整"。
+   *
+   * 语义对齐 Trae CKG 的 `missing_vector_entity_count`:只报数,不改检索行为。
+   */
+  missingVectorChunks: number
+  /**
+   * 向量覆盖率 = vectorizedChunks / totalChunks(0..1,保留 4 位)。
+   *
+   * 0 个切片时恒为 0 而**不是 1**:空库不是"完整",这一点由 auditIntegrity 的
+   * `empty` 态表达,这里不拿 1 冒充。
+   */
+  vectorCoverage: number
+}
+
+/** 索引完整性审计的结论四态(2026-11-23 P0-8):空库不得冒充完整。 */
+export type IndexIntegrityStatus = 'ok' | 'degraded' | 'empty' | 'unjudged'
+
+export type IndexIntegrityReason =
+  | 'complete'
+  | 'missing_vectors'
+  | 'no_chunks'
+  | 'owner_required'
+
+export interface IndexIntegrityAudit {
+  status: IndexIntegrityStatus
+  reason: IndexIntegrityReason
+  repoId: string | null
+  stats: IndexStats
 }
 
 /**
@@ -595,20 +625,71 @@ class CodebaseIndexService {
       SELECT
         COUNT(*) AS "total",
         COUNT(DISTINCT "file_path") AS "files",
-        COUNT("embedding") AS "vectorized"
+        COUNT("embedding") AS "vectorized",
+        COUNT(*) FILTER (WHERE "embedding" IS NULL) AS "missing"
       FROM "codebase_chunks"
       ${whereCondition}
     `)) as Array<{
       total: string | number
       files: string | number
       vectorized: string | number
+      missing: string | number
     }>
-    const row = rows[0] ?? { total: 0, files: 0, vectorized: 0 }
+    const row = rows[0] ?? { total: 0, files: 0, vectorized: 0, missing: 0 }
+    const totalChunks = Number(row.total) || 0
+    const vectorizedChunks = Number(row.vectorized) || 0
+    const missingVectorChunks = Number(row.missing) || 0
     return {
-      totalChunks: Number(row.total) || 0,
+      totalChunks,
       totalFiles: Number(row.files) || 0,
-      vectorizedChunks: Number(row.vectorized) || 0,
+      vectorizedChunks,
+      missingVectorChunks,
+      // 0 切片 ⇒ 0(不是 1):空库的"完整"由 auditIntegrity 的 empty 态回答
+      vectorCoverage:
+        totalChunks > 0 ? Number((vectorizedChunks / totalChunks).toFixed(4)) : 0,
     }
+  }
+
+  /**
+   * 索引完整性审计(2026-11-23 P0-8,TRAE CKG 语义的 pgvector 移植)。
+   *
+   * 与 getStats 的分工:getStats 只报数(读数面),本方法**给结论**(判定面)。
+   * 四态互斥,任一态都不得用另一个态的数字冒充:
+   * - `unjudged` + `owner_required`:无归属 ⇒ 不查库。查了也会被 fail-closed 谓词
+   *   折成 0 行,那种 0 是"没查成"而不是"库里空",冒充 empty 就是假绿(§0.3)。
+   * - `empty` + `no_chunks`:归属域内 0 切片 —— 没有可审计对象,不记 ok。
+   * - `degraded` + `missing_vectors`:存在 `embedding IS NULL` 的切片,它们能被
+   *   关键词腿召回但在语义腿永远缺失。
+   * - `ok` + `complete`:全部切片带向量。
+   *
+   * 只读、零副作用;幂等标记的磁盘态/运行时态双层语义本方法不落地(P0-8 最小范围)。
+   */
+  async auditIntegrity(
+    repoId?: string,
+    ownerUuid?: string | null,
+  ): Promise<IndexIntegrityAudit> {
+    const emptyStats: IndexStats = {
+      totalChunks: 0,
+      totalFiles: 0,
+      vectorizedChunks: 0,
+      missingVectorChunks: 0,
+      vectorCoverage: 0,
+    }
+    if (!ownerUuid) {
+      return {
+        status: 'unjudged',
+        reason: 'owner_required',
+        repoId: repoId ?? null,
+        stats: emptyStats,
+      }
+    }
+    const stats = await this.getStats(repoId, ownerUuid)
+    const base = { repoId: repoId ?? null, stats }
+    if (stats.totalChunks === 0) return { ...base, status: 'empty', reason: 'no_chunks' }
+    if (stats.missingVectorChunks > 0) {
+      return { ...base, status: 'degraded', reason: 'missing_vectors' }
+    }
+    return { ...base, status: 'ok', reason: 'complete' }
   }
 
   /**
