@@ -83,7 +83,7 @@
     "fastify-plugin": "^6.0.0",
     "hyparquet": "^1.29.2",
     "ioredis": "^6.0.0",
-    "jose": "^6.2.7",
+    "jose": "^6.2.18",
     "mammoth": "^1.12.0",
     "node-cron": "^4.6.0",
     "node-pty": "^1.1.0",

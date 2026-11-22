@@ -23,7 +23,7 @@
   "dependencies": {
     "@ihui/shared": "workspace:*",
     "@simplewebauthn/server": "^13.3.2",
-    "jose": "^6.2.7",
+    "jose": "^6.2.18",
     "ioredis": "^6.0.0"
   },
   "devDependencies": {

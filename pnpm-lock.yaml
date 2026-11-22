@@ -305,8 +305,8 @@ importers:
         specifier: 6.0.0
         version: 6.0.0(supports-color@8.1.1)
       jose:
-        specifier: ^6.2.7
-        version: 6.2.9
+        specifier: ^6.2.18
+        version: 6.2.18
       mammoth:
         specifier: ^1.12.0
         version: 1.12.1
@@ -1500,8 +1500,8 @@ importers:
         specifier: 6.0.0
         version: 6.0.0(supports-color@8.1.1)
       jose:
-        specifier: ^6.2.7
-        version: 6.2.9
+        specifier: ^6.2.18
+        version: 6.2.18
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:*
@@ -1788,7 +1788,7 @@ importers:
         version: 19.2.18
       react-native:
         specifier: ^0.86.0
-        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@react-native/metro-config@0.87.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
+        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -15786,8 +15786,8 @@ packages:
   join-component@1.1.0:
     resolution: {integrity: sha512-bF7vcQxbODoGK1imE2P9GS9aw4zD0Sd+Hni68IMZLj7zRnquH7dXUmMw9hDI5S/Jzt7q+IyTXN0rSg2GI0IKhQ==}
 
-  jose@6.2.9:
-    resolution: {integrity: sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA==}
+  jose@6.2.18:
+    resolution: {integrity: sha512-doV4thUwgkrycJH4yLeqwTGIIZphHl+pk7CPReuMIhYhncmgzdko85MaCG4YQFTxqMFr1/oEH32tZuKKovcDEg==}
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -39616,7 +39616,7 @@ snapshots:
 
   join-component@1.1.0: {}
 
-  jose@6.2.9: {}
+  jose@6.2.18: {}
 
   joycon@3.1.1: {}
 
