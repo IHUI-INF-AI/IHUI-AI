@@ -1545,7 +1545,15 @@ function Get-BuildStale {
     if ($LASTEXITCODE -ne 0) { $script:BuildStaleReason = 'marker-unreachable'; return $true }  # 标记提交不可达(强推/rebase)→ 重建
     $head = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
     if ($head -notmatch '^[0-9a-f]{7,40}$') { $script:BuildStaleReason = 'head-unreadable'; return $true }  # HEAD 不可得 → 保守重建
-    if ($built -ne $head) { $script:BuildStaleReason = 'head-advanced'; return $true }
+    if ($built -ne $head) {
+        # 2026-11-22:后端-only 快路径 —— web 源码面没动时,产物仍对应旧 builtSha,
+        # 快路径落了一份 web-skip.json;只有"HEAD 恰好是记录里那枚 ∧ 产物仍是那枚"才算新鲜。
+        $skip = Get-WebSkipRecord
+        if (-not ($skip -and $skip.head -eq $head -and $skip.builtSha -eq $built)) {
+            $script:BuildStaleReason = 'head-advanced'; return $true
+        }
+        $script:BuildStaleReason = 'web-unchanged'
+    }
     # DG-08:构建=HEAD 还不够 —— 必须有一份"健康门禁出过结论"的标记。被杀的轮次会在交换+写
     # 构建标记之后、门禁出结论之前退出,旧口径下一轮命中"无需部署"直接跳过 ⇒ 未证明健康的
     # 构建长期在线。这里把「built 但未 healthy」判成"需重建"(重建顺带把门禁完整重跑一遍)。
@@ -1576,7 +1584,9 @@ function Set-HealthMarker {
     # 未证明"与"门禁根本没跑到"(后者标记缺失 ⇒ 重建重跑),同时避免每轮白付整包重建。
     $dir = Get-WebActiveBuildDir
     if (-not (Test-Path $dir)) { return }
-    $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    # 快路径(web 未重建)时,健康结论要记在**产物对应**的那枚 sha 上,否则
+    # Get-HealthUnproven 会把"产物=旧sha、健康=新HEAD"判成未证明 → 下一轮白重建。
+    $sha = if ($script:HealthShaOverride -match '^[0-9a-f]{7,40}$') { $script:HealthShaOverride } else { (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim() }
     if ($sha -notmatch '^[0-9a-f]{7,40}$') { return }
     $text = "sha=$sha`nverdict=$Verdict`nat=$((Get-Date).ToString('o'))"
     Set-Content -Path "$dir\IHUI_HEALTH_SHA" -Value $text -NoNewline -ErrorAction SilentlyContinue
@@ -1588,6 +1598,76 @@ function Set-BuildMarker {
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
     if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
 }
+
+# ── 后端-only 快路径(2026-11-22 立:治"改一行 Python 也要 25 分钟")────────────────
+# 问题:此前任何新提交都整包重建 web(实测 build 阶段 18 分钟),而 apps/ai-service / apps/api
+# 跑的是**源码**(uvicorn / tsx,不经 next build)⇒ 纯后端提交的重建产出与线上逐字节等价,
+# 却照样吃掉一次全量构建。
+# 判据故意做成**严格白名单**(不在名单里的路径一律回到整包重建,fail-closed):
+#   只有改动面全部落在 apps/ai-service/ 、apps/api/ 、deploy/ 、scripts/ 、docs/ 、
+#   以及根级 Markdown 时,才允许跳过 web 重建;任何 packages/* 、apps/web/* 改动都必须重建。
+# 跳过时的记账:web 产物仍对应旧的 builtSha,另写一份 web-skip.json{builtSha,head},
+# Get-BuildStale 据此把"HEAD 前进了但 web 源码没变"判成新鲜(否则下一轮又白重建一次)。
+function Get-WebBundleSha {
+    $marker = Join-Path (Get-WebActiveBuildDir) 'IHUI_BUILD_SHA'
+    if (-not (Test-Path $marker)) { return '' }
+    $v = (Get-Content $marker -Raw -ErrorAction SilentlyContinue)
+    if (-not $v) { return '' }
+    $v = $v.Trim()
+    if ($v -match '^[0-9a-f]{7,40}$') { return $v }
+    return ''
+}
+function Get-WebSkipRecord {
+    $f = Join-Path $Root 'deploy\run\web-skip.json'
+    if (-not (Test-Path $f)) { return $null }
+    try {
+        $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+        if ($j.head -match '^[0-9a-f]{7,40}$' -and $j.builtSha -match '^[0-9a-f]{7,40}$') { return $j }
+    } catch { }
+    return $null
+}
+function Set-WebSkipRecord {
+    param([string]$BuiltSha, [string]$Head)
+    $f = Join-Path $Root 'deploy\run\web-skip.json'
+    $dir = Split-Path -Parent $f
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $obj = [ordered]@{ builtSha = $BuiltSha; head = $Head; at = (Get-Date).ToString('o'); by = 'backend-only-fast-path' }
+    ($obj | ConvertTo-Json -Compress) | Set-Content -LiteralPath $f -NoNewline -ErrorAction SilentlyContinue
+}
+function Clear-WebSkipRecord {
+    $f = Join-Path $Root 'deploy\run\web-skip.json'
+    Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+}
+function Test-BackendOnlyChange {
+    param([string]$From, [string]$To)
+    # 取不到任一端点 ⇒ 不判(返回 false,走整包重建)
+    if ($From -notmatch '^[0-9a-f]{7,40}$' -or $To -notmatch '^[0-9a-f]{7,40}$') { return $false }
+    $paths = @(& git -C $Root diff --name-only "$From..$To" 2>$null | Where-Object { "$_".Trim() })
+    if ($LASTEXITCODE -ne 0 -or $paths.Count -eq 0) { return $false }
+    $allow = @(
+        'apps/ai-service/',
+        'apps/api/',
+        'deploy/',
+        'scripts/',
+        'docs/',
+        'PROJECT_PLAN.md',
+        'AGENTS.md',
+        'README.md',
+        'README.en.md',
+        'README.ja.md',
+        'README.ko.md'
+    )
+    foreach ($p in $paths) {
+        $hit = $false
+        foreach ($a in $allow) {
+            if ($p -eq $a -or $p.StartsWith($a)) { $hit = $true; break }
+        }
+        if (-not $hit) { return $false }
+    }
+    $script:BackendOnlyPaths = $paths
+    return $true
+}
+
 
 # ── 构建失败冷却(2026-09-21 加):marker 改为成功标记后,失败轮不再写标记。若不冷却,
 #    持续失败会每轮(60s)重走 重建dist+next build(~10-20 分钟) → 每天数百轮无效构建,
@@ -4053,6 +4133,26 @@ if ($rgRc -ne 0) {
 }
 Ok "根护栏通过(闸面=HEAD=$((& git -C $Root rev-parse --short HEAD 2>$null | Out-String).Trim()))"
 
+# ── 后端-only 快路径判定(2026-11-22 立)──────────────────────────────────────────
+# 见函数区 Test-BackendOnlyChange 的长注释:白名单内改动不重建 web,只做服务重启 + 门禁。
+# 逃生舱:IHUI_DEPLOY_FORCE_WEB=1 强制走整包重建(怀疑 fast-path 判错时用)。
+$buildSha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+$prevBuilt = Get-WebBundleSha
+$SkipWebBuild = $false
+if ($env:IHUI_DEPLOY_FORCE_WEB -ne '1' -and $prevBuilt -and $buildSha -match '^[0-9a-f]{7,40}$') {
+    if (Test-BackendOnlyChange -From $prevBuilt -To $buildSha) {
+        $SkipWebBuild = $true
+        Log ("[FAST-PATH] 改动面全部落在后端/脚本白名单({0} 个文件)⇒ 跳过 web 重建,产物保持 {1}" -f $script:BackendOnlyPaths.Count, $prevBuilt)
+        @($script:BackendOnlyPaths | Select-Object -First 12) | ForEach-Object { Log ("  [FAST-PATH]   {0}" -f $_) }
+        $script:HealthShaOverride = $prevBuilt
+    }
+} elseif ($env:IHUI_DEPLOY_FORCE_WEB -eq '1') {
+    Log '[FAST-PATH] IHUI_DEPLOY_FORCE_WEB=1 ⇒ 强制整包重建(不走快路径)'
+}
+if ($SkipWebBuild) {
+    Log '[FAST-PATH] 跳过 备份/构建/切流 三段(web 源码面未变),继续执行迁移/重启/门禁'
+} else {
+
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
 Update-DeployLockHeartbeat   # merge/seed 之后、构建之前的阶段边界(见 :980 那条注释)
 if ($script:DeployWindowEnabled -and $script:DeployWindowRunId) {
@@ -4446,6 +4546,8 @@ try {
     Log "WARN  sshd 检查/拉起失败(不影响本次部署): $_"
 }
 
+}  # ← 关闭"整包重建"分支(fast-path 时不进 备份/构建/切流)
+
 # ── 成功标记写到"它成立的那一刻"(2026-09-27 从收尾移到此处)────────────────────
 # 此刻 .next 逐字节就是 HEAD 的构建(交换已完成),标记说的就是事实。
 # 旧位置在门禁 + api/ai-service 重启**之后**(实测中位 +73 秒,门禁挂死时 +45 分钟),所以一次
@@ -4461,7 +4563,14 @@ try {
 # 健康标记缺失 / 读不出 / sha 不等于当前构建 ⇒ 判"需重建"(重建顺带把健康门禁完整重跑一遍),
 # 下一轮不会再命中"无需部署"跳过判定。门禁一旦出过结论(含既有 pass-unproven / entry-broken
 # 的放行语义,它们各自有独立日志与告警)就写标记,避免每轮白付 7–13 分钟整包重建。
-Set-BuildMarker
+if ($SkipWebBuild) {
+    # web 未重建 ⇒ 产物 sha 不许改写成 HEAD,只落"HEAD 前进但 web 未变"的记账
+    Set-WebSkipRecord -BuiltSha $prevBuilt -Head $buildSha
+    Log ("[FAST-PATH] web 产物仍为 {0};已记 web-skip.json(head={1})" -f $prevBuilt, $buildSha)
+} else {
+    Set-BuildMarker
+    Clear-WebSkipRecord
+}
 
 # ── G-204 独立构建证明(拍板@2026-10-07 机主选 B,2026-10-13 落地)──────────────
 # marker 只证明"构建那一刻的工作树能建",不证明"该提交单独可建"——构建吃的是工作树,
@@ -4524,10 +4633,14 @@ if (-not (Test-HealthGate)) {
         if (Test-Path "$WebDir\.rollback\BUILD_ID") {
             $rbId = ((Get-Content "$WebDir\.rollback\BUILD_ID" -Raw -ErrorAction SilentlyContinue) | Out-String).Trim()
         }
-        Do-Rollback
+        if ($SkipWebBuild) {
+            # 快路径没有新 web 产物,回滚只会把旧包再换一次(且 .rollback 可能更旧)⇒ 不做回滚
+            Log '[FAST-PATH] web 未重建 ⇒ 本轮不做回滚(线上 web 未被替换),仅记冷却等修后端后重试'
+        } else {
+            Do-Rollback
+        }
         $ddRollback = Write-DeployDecision -Action 'rollback' -Sha $buildSha -PrevSha $rbSha -RollbackId $rbId -GateVerdict 'fail' -Dims $script:HealthGateFailDims -Reason '健康门禁未过,新构建整份退回上一可用包'
-        Log "=== 门禁未过已回滚,旧版本在线;已记冷却,30 分钟后自动重试构建 ==="
-        # 2026-09-29 补:这一支过去只 Log + exit 0,对到人通道**静音**。而它是用户影响面最大的
+        Log "=== 门禁未过已回滚,旧版本在线;已记冷却,30 分钟后自动重试构建 ==="        # 2026-09-29 补:这一支过去只 Log + exit 0,对到人通道**静音**。而它是用户影响面最大的
         # 一种失败 —— 新构建已经切进 .next 才发现健康不过,又整份退回旧版本(线上短暂跑过一版
         # 未证明健康的东西)。当天实测:门禁那一层同时探着 web/api/llm 与公网图片路径,它一红
         # 而邮件零封,和构建连败那一型是同一个洞(§5e「失败必须响」)。

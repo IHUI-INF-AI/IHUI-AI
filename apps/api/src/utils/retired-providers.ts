@@ -42,14 +42,12 @@ export const RETIRED_PROVIDER_PREFIXES = ['stepfun/'] as const
  *
  * 每一档都在解析时过退役守卫 —— 写死多档是允许的(那正是"上游全挂时还能发出去"的
  * 兜底),但**任何一档都不得是退役 provider**。取用理由:
- * agnes/agnes-2.5-flash 与 agnes/agnes-2.0-flash 是仓内已知可用(ai-service
- * `default_models.json` / `llm_gateway` 的免费档),pollinations/openai-fast 是
- * 无需 key 的免费档(ai-service 主链路 fallback 同样用它)。同 Python 侧
- * `_LAST_RESORT_CHAIN` 同族同序。
+ * agnes/agnes-3.0-flash 是当前代免费档(2026-11-22 实测 /chat/completions 200;
+ * 2.5/2.0 已进 ai-service LEGACY_MODEL_IDS,不再当兜底),pollinations/openai-fast
+ * 是无需 key 的免费档。同 Python 侧 `_LAST_RESORT_CHAIN` 同族同序。
  */
 export const LAST_RESORT_MODEL_CHAIN = [
-  'agnes/agnes-2.5-flash',
-  'agnes/agnes-2.0-flash',
+  'agnes/agnes-3.0-flash',
   'pollinations/openai-fast',
 ] as const
 

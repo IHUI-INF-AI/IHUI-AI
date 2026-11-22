@@ -294,8 +294,8 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         summary: 'Agnes AI 对话补全',
         description:
           '代理调用 Agnes /v1/chat/completions(OpenAI 协议),支持模型: ' +
-          'agnes-2.5-flash(默认,快)/ agnes-2.5-pro(旗舰)/ agnes-2.5-pro-alpha / ' +
-          'agnes-2.5-pro-beta / agnes-3.0-flash',
+          'agnes-3.0-flash(当前代,快)/ agnes-3.0-pro(旗舰,额度不足时 403)/ ' +
+          'agnes-2.5-flash / agnes-2.5-pro(历史代)',
         tags: ['AI', 'Agnes'],
         body: chatBody,
       }),
