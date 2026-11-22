@@ -723,7 +723,7 @@ function Repair-ToolchainMetadata([string]$Path, [scriptblock]$Keep) {
   Set-Content -LiteralPath $Path -Value ($raw | Where-Object { & $Keep $_ }) -Encoding ascii
   Write-Warning "已剔除工具链元数据里的水印行: $Path"
 }
-$sdkRoot = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif (Test-Path (Join-Path $RepoRoot '.android-toolchain/android-sdk')) { Join-Path $RepoRoot '.android-toolchain/android-sdk' } else { $null }
+$sdkRoot = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif (Test-Path (Join-Path $env:LOCALAPPDATA 'Android/Sdk/platform-tools')) { Join-Path $env:LOCALAPPDATA 'Android/Sdk' } elseif (Test-Path (Join-Path $RepoRoot '.android-toolchain/android-sdk')) { Join-Path $RepoRoot '.android-toolchain/android-sdk' } else { $null }
 if ($sdkRoot) {
   foreach ($sub in @('ndk', 'cmake')) {
     Get-ChildItem -Path (Join-Path $sdkRoot $sub) -Directory -ErrorAction SilentlyContinue | ForEach-Object {

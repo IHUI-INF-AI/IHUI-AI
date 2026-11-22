@@ -71,7 +71,8 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\deploy\win\ihui-root-common.ps1')
 # 主仓根与专用工作树是两个不同落点:构建/推送在工作树($RepoRoot)里跑,
-# 但 .android-toolchain(JDK/SDK)装在主仓根 —— 与 build-mobile-rn-release.ps1、lib/android-toolchain.mjs 同一口径。
+# JDK/SDK 一律按候选序取存在者(env → %LOCALAPPDATA%\Android\Sdk / Program Files\Java → 仓内 .android-toolchain 兼容位),
+# 一个候选都没有就当场 throw,绝不静默回落到已删除的目录。
 $ProjectRoot = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($Worktree)) {
   $Worktree = Join-Path $ProjectRoot '.worktrees\mobile-auto'
