@@ -179,6 +179,13 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 分支切换：D178 的 `git stash push --include-untracked` 与仓规「stash 全面禁止」（多会话共享工作树会吞掉别人现场）冲突，改为 `getGitStatus` 判脏 ⇒ 直接提示先提交或丢弃；探测失败/抛异常同样 fail-closed，不再降级直达。五个 web locale 的 `dirtySwitchDescription` 同步为「阻止切换、本系统不会自动 stash」。
 - 测试：`git-workspace.test.ts` 9 passed（新增「暂存后又改过 ⇒ staged=true 且 unstaged=true」真实仓库断言）；`workspace-fs-ops.test.ts` 9 passed；`source-control-branch-guard.test.tsx` 5 passed（脏阻断、探测失败阻断、抛异常阻断、干净直达、双组呈现与分组动作）；`ide-workspace-diff-stat.test.ts` 4 passed、`search-panel.test.tsx` 9 passed、watcher 2 passed。`@ihui/api` + `@ihui/api-client` + `@ihui/web` typecheck 13/13。
 
+## 追加批（同日）：图片上下文超预算时卸载旧图为路径占位
+
+- `d1d35b3a`。对齐 DSH `dsh-compaction-image-offload` 的「超预算就把旧图换成文本、选择持久生效」语义。
+- `apps/ai-service/app/services/tool_image_delivery.py`：新增 `IMAGE_INLINE_BUDGET=4` 与 `offload_images_over_budget()`。只处理 `role=user` 的内联 `image_url`，按消息顺序保留最新 4 张，更旧的原位替换为 `OFFLOADED_IMAGE_MARKER` 起首的文本占位；占位携带同一条消息里 `format_image_envelope` 的 `<path>`，模型可再调 `read_image` 重读。无路径时如实说明无法恢复，不编造。幂等、畸形输入跳过、预算为负按 0。
+- `apps/ai-service/app/services/agent_loop_v2.py`：接线在每轮 LLM 调用前的压缩之后。压缩只按 1200 token/张估算，不会真的把旧图移出请求；这一层才把视觉 payload 真正换掉。异常隔离为保留原图，不阻塞回合。
+- 测试：`test_read_image_tool.py` 15 passed（含 6 图保留 2、路径随占位、幂等、无路径诚实回执、assistant 图不参与预算，以及「第 6 图时代理循环在首次 LLM 调用前已完成卸载」的接线判据）。同批把该文件的 read_image 端到端用例改为 `enable_checkpoint=False`：它只判图片交付，原先每次要等 30 秒数据库连接超时，属测试隔离缺陷。`ruff check` 全过。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
