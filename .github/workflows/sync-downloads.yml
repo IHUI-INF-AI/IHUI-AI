@@ -11,7 +11,7 @@ on:
     - cron: '0 3 * * *'
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   NODE_VERSION: '22'

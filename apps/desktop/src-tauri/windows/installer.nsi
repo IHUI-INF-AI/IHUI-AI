@@ -2,7 +2,7 @@
 ; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
 ;
 ; IHUI 定制范围(补丁集 P0-P7,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
-;   P0 .onInit 默认安装目录:固定盘探测(优先 D:\software\${PRODUCTNAME},否则取首个固定盘上已存在的 \software 目录,再兜底 %LOCALAPPDATA%\Programs),不写死盘符。
+;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,其余 → D:\IHUI AI。
 ;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
 ;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
 ;      目的是让安装向导"选择安装位置"页的首屏默认值即为该路径。
@@ -545,42 +545,15 @@ Function .onInit
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====
     ; 上游按 INSTALLMODE 推导(currentUser → %LOCALAPPDATA%,perMachine → %PROGRAMFILES%);
-    ; 这里改为「软件归集目录」策略,盘符不写死:
-    ;   ① D: 是固定盘 → D:\software\${PRODUCTNAME}(与团队既有归集目录一致,不落盘根);
-    ;   ② 否则遍历 C:..Z:,取第一个固定盘上已存在的 \software 目录;
-    ;   ③ 都没有 → %LOCALAPPDATA%\Programs\${PRODUCTNAME}(上游 currentUser 语义,必可写、无需提权)。
-    ; 盘型判定用 kernel32::GetDriveTypeW(3 = DRIVE_FIXED),天然排除光驱 / U 盘 / 网络盘。
-    ; 目录存在性用 ${FileExists} "<dir>\*.*" 判定(NSIS v3.11 真机探针四例实测):非空目录、
-    ; 空目录均返回 true —— 用户新建的空归集目录能被正确选中;路径不存在返回 false;同一路径
-    ; 被同名普通文件占用时返回 false。与 GetFileAttributesW 按目录属性判定的结论完全一致,
-    ; 故不需要为此改判定代码。将来若改用 kernel32::GetFileAttributesW 取属性:无效返回值
-    ; 必须用 `!= -1` 排除(本机真机探针实测 `!= 0xFFFFFFFF` 会把不存在路径误判为有效),
-    ; 再 IntOp $R3 $R3 & 0x10 判 FILE_ATTRIBUTE_DIRECTORY,同时排除同名普通文件。
-    ; 赋值发生在 .onInit,目录页 EDIT 框运行期读 $INSTDIR(windows/ihui-ui.nsi 的 IHUIDirPage),
-    ; 所以向导首屏显示的是这条动态路径,不是烧死在位图里的静态文案。
-    StrCpy $INSTDIR ""
-    System::Call 'kernel32::GetDriveTypeW(w "D:\") i .R0'
-    ${If} $R0 == 3
-      StrCpy $INSTDIR `D:\software\${PRODUCTNAME}`
+    ; 这里改为固定 D: 盘根目录下的语言化目录。赋值发生在 .onInit,
+    ; 因此安装向导"选择安装位置"页首次显示时展示的就是该路径。
+    ; $LANGUAGE 由 NSIS 在启动时按系统语言选中(languages = SimpChinese + English),
+    ; 实测中文系统为 2052(SimpChinese)。2052 → D:\智汇AI,其余 → D:\IHUI AI。
+    ; 不用 kernel32::GetUserDefaultUILanguage(需 System 插件,存在静默失败风险)。
+    ${If} $LANGUAGE == 2052
+      StrCpy $INSTDIR "D:\智汇AI"
     ${Else}
-      StrCpy $1 67
-      ${Do}
-        ${If} $1 > 90
-          ${ExitDo}
-        ${EndIf}
-        IntFmt $R1 "%c" $1
-        System::Call 'kernel32::GetDriveTypeW(w "$R1:\") i .R2'
-        ${If} $R2 == 3
-          ${If} ${FileExists} "$R1:\software\*.*"
-            StrCpy $INSTDIR `$R1:\software\${PRODUCTNAME}`
-            ${ExitDo}
-          ${EndIf}
-        ${EndIf}
-        IntOp $1 $1 + 1
-      ${Loop}
-    ${EndIf}
-    ${If} "$INSTDIR" == ""
-      StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
+      StrCpy $INSTDIR "D:\IHUI AI"
     ${EndIf}
 
     Call RestorePreviousInstallLocation
@@ -1007,7 +980,7 @@ Function RestorePreviousInstallLocation
   ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有
   ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时
   ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回
-  ; 旧目录,应落默认目录(固定盘上的 \software 归集目录,兜底 %LOCALAPPDATA%\Programs)。
+  ; 旧目录,应落默认目录(D:\智汇AI / D:\IHUI AI)。
   ClearErrors
   ReadRegStr $4 SHCTX "${UNINSTKEY}" "UninstallString"
   ${If} ${Errors}

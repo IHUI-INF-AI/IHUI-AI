@@ -122,7 +122,6 @@ export const AUTH_PUBLIC_PREFIX_PATHS: readonly string[] = [
   '/api/exchange-rates/',
   '/api/model-leaderboard',
   '/api/learn/',
-  '/api/teacher/',
   '/api/exam/papers',
   // 匿名埋点:未登录访客也要上报浏览,否则漏斗整段缺失
   '/api/analytics/track',
@@ -178,9 +177,6 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/news',
   '/api/articles',
   '/api/announcements',
-  // 讲师目录(公开读):与 /api/learn/ 同属课程内容面,浏览器端不携带租户头;
-  // 关注写端点自带 requireAuth,免租户不免鉴权。
-  '/api/teacher/',
   // OpenAI 兼容机器面(API Key 自证身份):调用方只会带 Authorization/X-Api-Key,**不带**租户头,
   // 典型如 ai-service 的模型连通性探测与平台中转模型(workbuddy/*)调用。TENANT_STRICT_MODE 缺省
   // 即严格后,不在这里豁免就等于让这 33 个模型全线 401(2026-11-11 实测:带租户头 200、不带 401)。

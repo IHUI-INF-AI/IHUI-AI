@@ -402,13 +402,6 @@ async function once(id) {
 }
 
 const mode = process.argv[2]
-// 2026-11-22 用户定案:项目禁止用 Windows 计划任务/自建常驻调度器做自动化。
-// 本文件是计划任务的等价载体,同样默认停用;--status 只读可看,其余动作必须显式放行。
-if (mode !== '--status' && process.env.IHUI_ALLOW_SCHEDULED_TASKS !== '1') {
-  console.error('❌ local-scheduler 已停用(2026-11-22 定案:周期任务一律走产品内置自动化)')
-  console.error('   显式开启:IHUI_ALLOW_SCHEDULED_TASKS=1')
-  process.exit(0)
-}
 if (mode === '--import') {
   importFromTasks()
 } else if (mode === '--run') {

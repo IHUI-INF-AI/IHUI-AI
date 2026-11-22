@@ -15,16 +15,13 @@ name: loop-daily-triage
 #   绝不并桶进 0, 也绝不折进 ok; 推送被拒冒 ::error::, 不与「本轮无变更」混写。
 
 on:
-  # 2026-11-22 定案:取消定时触发。该腿每天自动 commit+push 报告,
-  # 是 CI 侧不受本地字节闸约束的历史增长通道;只保留人工触发,默认不落地。
+  schedule:
+    # 北京时间 08:00 = UTC 00:00, 周一至周五
+    - cron: '0 0 * * 1-5'
   workflow_dispatch:
     inputs:
       dry_run:
         description: '只扫描不 commit (debug 用)'
-        required: false
-        default: 'true'
-      apply:
-        description: '显式允许 commit+push 报告文件(默认 false)'
         required: false
         default: 'false'
 
@@ -317,8 +314,8 @@ jobs:
       # ============================================================
       # 提交 STATE.md / loop-run-log.md
       # ============================================================
-      - name: commit & push (仅 *.md,需显式 apply)
-        if: github.event.inputs.dry_run != 'true' && github.event.inputs.apply == 'true'
+      - name: commit & push (仅 *.md)
+        if: github.event.inputs.dry_run != 'true'
         run: |
           set +e
           git config user.name "github-actions[bot]"

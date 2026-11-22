@@ -15,8 +15,9 @@ name: Snapshot source to Gitee (国内只读快照)
 # 实现:.github/scripts/gitee-snapshot.py(生成无父提交 → force push → ls-remote 复核)。
 
 on:
-  # 2026-11-22 定案:取消每周自动 force-push。Gitee 快照本身不保留历史,但每次
-  # force push 都会让服务端产生一批待回收对象;只保留人工 dispatch,由人决定何时刷新。
+  schedule:
+    # 每周一 03:17 UTC(11:17 +08);错开整点避免与 release 链撞车
+    - cron: '17 3 * * 1'
   workflow_dispatch:
 
 permissions:

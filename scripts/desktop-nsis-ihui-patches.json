@@ -29,7 +29,7 @@
   },
   {
     "upstream": "SectionEnd\n\nFunction RestorePreviousInstallLocation\n  ReadRegStr $4 SHCTX \"${MANUPRODUCTKEY}\" \"\"\n  StrCmp $4 \"\" +2 0\n    StrCpy $INSTDIR $4",
-    "ihui": "SectionEnd\n\nFunction RestorePreviousInstallLocation\n  ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有\n  ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时\n  ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回\n  ; 旧目录,应落默认目录(固定盘上的 \\software 归集目录,兜底 %LOCALAPPDATA%\\Programs)。\n  ClearErrors\n  ReadRegStr $4 SHCTX \"${UNINSTKEY}\" \"UninstallString\"\n  ${If} ${Errors}\n    Return\n  ${EndIf}\n  ReadRegStr $4 SHCTX \"${MANUPRODUCTKEY}\" \"\"\n  StrCmp $4 \"\" +2 0\n    StrCpy $INSTDIR $4"
+    "ihui": "SectionEnd\n\nFunction RestorePreviousInstallLocation\n  ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有\n  ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时\n  ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回\n  ; 旧目录,应落默认目录(D:\\智汇AI / D:\\IHUI AI)。\n  ClearErrors\n  ReadRegStr $4 SHCTX \"${UNINSTKEY}\" \"UninstallString\"\n  ${If} ${Errors}\n    Return\n  ${EndIf}\n  ReadRegStr $4 SHCTX \"${MANUPRODUCTKEY}\" \"\"\n  StrCmp $4 \"\" +2 0\n    StrCpy $INSTDIR $4"
   },
   {
     "upstream": "    ${OrIf} $NoShortcutMode = 1\n      Return\n    ${EndIf}\n  ${EndIf}\n\n  CreateShortcut \"$DESKTOP\\${PRODUCTNAME}.lnk\" \"$INSTDIR\\${MAINBINARYNAME}.exe\"",

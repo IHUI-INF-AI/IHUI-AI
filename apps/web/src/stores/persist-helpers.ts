@@ -42,13 +42,6 @@ export function createPersistConfig<T>(
    * (partialize 只作用于写,不作用于读)。不传即默认浅合并,与改造前一致。
    */
   merge?: (persistedState: unknown, currentState: T) => T,
-  /**
-   * 跳过自动 rehydrate（2026-11-22 加）。
-   *
-   * auth store 的异步 hydrate 会晚于 `/auth/refresh` 落定，把刚写入的 token 覆盖成 null。
-   * 由 bootstrap 显式 `await persist.rehydrate()` 排在刷新之前，才能保证顺序。
-   */
-  skipHydration?: boolean,
 ) {
   return {
     name,
@@ -56,7 +49,6 @@ export function createPersistConfig<T>(
     ...(partialize ? { partialize } : {}),
     ...(onRehydrateStorage ? { onRehydrateStorage } : {}),
     ...(merge ? { merge } : {}),
-    ...(skipHydration ? { skipHydration: true } : {}),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

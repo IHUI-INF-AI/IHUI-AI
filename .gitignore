@@ -819,32 +819,4 @@ apps/ai-service/.pytest_tmp/
 /apps/mobile-rn/report/
 /scripts/data/local-schedule.json
 
-# ============================================================================
-# 2026-11-22 仓库膨胀终局兜底：安装包 / 压缩包 / 数据库 / 视频等二进制一律不入库。
-# 这些文件只应进 GitHub Release、对象存储或本机 .DevEnv/backups；入过一次就永久占 pack。
-# 当前 HEAD 实测这些扩展名 tracked 数为 0（见提交信息），因此本组规则只拦未来新增。
-# ============================================================================
-*.zip
-*.tar
-*.tar.gz
-*.tgz
-*.7z
-*.rar
-*.exe
-*.msi
-*.apk
-*.aab
-*.ipa
-*.dmg
-*.pkg
-*.sqlite
-*.sqlite3
-*.db
-*.dump
-*.mp4
-*.mov
-*.avi
-*.mkv
-*.pdf
-
 

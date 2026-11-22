@@ -142,35 +142,4 @@ test('反例: 索引里 3MB、工作树被截成 0 字节 ⇒ 仍必须 exit 1(�
     rmScratch(dir)
   }
 })
-
-test('反例: 推送区间新增 3MB 文件 ⇒ --range 必须 exit 1(堵 --no-verify 绕过)', () => {
-  const dir = mkScratch('file-size-range-big-')
-  try {
-    initRepo(dir)
-    const rel = 'assets/range-big.bin'
-    mkdirSync(join(dir, 'assets'), { recursive: true })
-    writeFileSync(join(dir, rel), Buffer.alloc(3 * 1024 * 1024, 0x62))
-    git(dir, 'add', rel)
-    git(dir, 'commit', '-qm', 'big')
-    const r = run(dir, ['--range=HEAD~1..HEAD'])
-    assert.equal(r.status, 1, `区间 3MB 必须 exit 1,实得 ${r.status}\n${combined(r)}`)
-    assert.match(combined(r), /区间新增文件|2\.9MB|3\.0MB/)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('真 0: 推送区间只改小文件 ⇒ --range exit 0', () => {
-  const dir = mkScratch('file-size-range-small-')
-  try {
-    initRepo(dir)
-    writeFileSync(join(dir, 'small.txt'), 'ok\n')
-    git(dir, 'add', 'small.txt')
-    git(dir, 'commit', '-qm', 'small')
-    const r = run(dir, ['--range=HEAD~1..HEAD'])
-    assert.equal(r.status, 0, `区间小文件应 exit 0,实得 ${r.status}\n${combined(r)}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

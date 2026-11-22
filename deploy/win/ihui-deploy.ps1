@@ -1988,7 +1988,7 @@ function Sync-CleanBuildSourceIncremental {
     if ($env:IHUI_DEPLOY_CLEAN_INCREMENTAL -in @('0', 'false', 'off')) { return $false }
     if (-not $From -or -not $To -or $From -eq $To) { return $false }
     if (-not (Test-Path -LiteralPath $Wt)) { return $false }
-    $diffLines = @(& git @gitFace -C $Root -c core.longpaths=true diff --no-renames --name-status $From $To 2>&1)
+    $diffLines = @(& git @gitFace -C $Root -c core.longpaths=true -c core.quotepath=false diff --no-renames --name-status $From $To 2>&1)
     if ($LASTEXITCODE -ne 0) { Log "[clean-out] 增量同步不可用:git diff exit=$LASTEXITCODE ⇒ 全量导出"; return $false }
     $del = @(); $get = @()
     foreach ($ln in $diffLines) {
@@ -3842,6 +3842,20 @@ function Invoke-DbMigrate {
             Invoke-PreMigrateConcurrentIndexes
         } else {
             Log "MIG   无待应用迁移 ⇒ 跳过迁移前快照(pg_dump 不在无变更轮次制造无用磁盘)"
+            # 2026-11-22 立(部署链根治):0 pending 时不再执行 db:migrate。
+            # 实测 drizzle-kit 在「无待应用迁移」时 exit 1 且零输出 ⇒ 部署链按硬失败记账
+            # (HARD-FAIL class=db-migrate),整轮在 3 分钟处死、永不切流;连续多轮踩中直接烧掉
+            # 24h 墙钟额度。0 pending 的迁移是纯 no-op,正确性由逐枚落地审计兜住(判据单源
+            # scripts/check-migrations-landed.mjs,本层只派发不复算)。
+            Log "MIG   无待应用迁移 ⇒ 跳过 db:migrate 执行(0 pending 时 drizzle-kit 恒 exit 1,曾被判硬失败)"
+            $landedSkip = Invoke-MigrationsLandedAudit
+            if ($landedSkip.Code -eq 0) {
+                Ok "db:migrate 跳过(0 pending)且逐枚落地审计通过(journal 每条在库内都有本人行)"
+                return
+            }
+            Write-HardFailSummary -Class 'db-migrate' -Attempts 0 -Detail "skip(0 pending) landed-audit exit=$($landedSkip.Code) $($landedSkip.Out)"
+            Fail "迁移先行闸拒绝上线(0 pending 但逐枚审计未通过 exit=$($landedSkip.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landedSkip.Out -Reason 'db-migrations-not-landed'
+            return
         }
         $mig = Invoke-MigrateWithBudget -BudgetSec $migBudgetSec
         # 取码即存(2026-09-26 主修点,现读复现):旧顺序是 & pnpm db:migrate → Get-PendingMigrationCount

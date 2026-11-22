@@ -18,8 +18,7 @@ $names = @(
   'PNPM_HOME', 'PNPM_CACHE_DIR',
   'GRADLE_USER_HOME', 'RUSTUP_HOME', 'CARGO_HOME', 'CARGO_TARGET_DIR',
   'UV_CACHE_DIR', 'PIP_CACHE_DIR', 'NUGET_PACKAGES',
-  'GOPATH', 'GOMODCACHE', 'GOCACHE', 'PLAYWRIGHT_BROWSERS_PATH',
-  'NODE_OPTIONS'
+  'GOPATH', 'GOMODCACHE', 'GOCACHE', 'PLAYWRIGHT_BROWSERS_PATH'
 )
 
 $hives = @(
@@ -49,16 +48,6 @@ foreach ($name in $names) {
 
   $current = [Environment]::GetEnvironmentVariable($name)
   if ($current -eq $target) { continue }
-
-  if ($name -eq 'NODE_OPTIONS') {
-    # NODE_OPTIONS 是开关串不是路径:只在现值空、且钩子文件真在盘上时补齐,不覆盖调用方追加的开关
-    $hook = [regex]::Match($target, 'file:///(.+?\.mjs)')
-    if ($current -or -not $hook.Success -or -not (Test-Path -LiteralPath ($hook.Groups[1].Value -replace '/', '\'))) { continue }
-    [Environment]::SetEnvironmentVariable($name, $target)
-    $changed += ('  {0}: (空) -> {1}' -f $name, $target)
-    continue
-  }
-
   $m2 = [regex]::Match([string]$current, '^(?:file:///)?([A-Za-z]):[\\/]')
   if (-not $m2.Success) { continue }
   if ($m2.Groups[1].Value.ToUpper() -eq $systemDrive) { continue }

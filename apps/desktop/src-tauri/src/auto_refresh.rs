@@ -1212,24 +1212,6 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     );
                 });
             } else {
-                // 本地联调(2026-11-22):只调前端时后端可能没起,但不能因此把窗口踢到
-                // offline 兜底页 —— 那样本地 web 的 HMR 根本看不到。显式 env 才生效,
-                // 生产壳不设该变量,离线兜底语义不变。
-                let keep_local = std::env::var("IHUI_DEV_KEEP_LOCAL_FRONTEND")
-                    .ok()
-                    .as_deref()
-                    == Some("1")
-                    && (base.frontend_url.contains("localhost")
-                        || base.frontend_url.contains("127.0.0.1"));
-                if keep_local {
-                    log::warn!(
-                        "[auto-refresh] 本地联调保持前端页(后端未就绪,不切离线兜底): {}",
-                        base.frontend_url
-                    );
-                    if reveal_on_probe {
-                        let _ = w.show();
-                    }
-                } else {
                 // 2026-09-26 补(A10C-1 已知窗口):整页导航前必须复位深链闸门 ——
                 // 重载期间渲染端不存在,未复位则此窗口期抵达的 ihui:// 链接会被直投给
                 // 没有监听者的 webview 而静默消失(冷启动丢码同型)。就绪由新页面注册
@@ -1255,7 +1237,6 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 }
                 notify(&app, "智汇AI", &outcome.notice_body());
                 log::warn!("[auto-refresh] 启动探活失败 → 离线兜底页");
-                }
             }
         }
 

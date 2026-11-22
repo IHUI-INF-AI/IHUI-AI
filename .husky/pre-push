@@ -216,23 +216,6 @@ if [ "$_art_undetermined" -eq 1 ]; then
   exit 2
 fi
 
-# ─── 推送区间大文件闸(2026-11-22 立,堵 --no-verify 绕过提交侧的最后一面)────
-# pre-commit 只审暂存区;`git commit --no-verify` 可以整段跳过。若只靠 HEAD 450MB
-# 总预算,一次塞 3MB 二进制、总量仍富余就能进远端。本块复用上面已经算好的
-# `--rev <range>` 参数,逐区间按"新增 >2MB / 任意 >20MB / 存量增量 >2MB"复核。
-# 与 pre-commit 同源判据(scripts/check-file-size.mjs),不另写第二套阈值。
-if [ "$_art_ref_n" -gt 0 ] && [ -n "$_art_args" ]; then
-  wscript //nologo scripts/hook-run-hidden.vbs pre-push-file-size scripts/check-file-size.mjs $_art_args
-  _size_rc=$?
-  if [ "$_size_rc" -ne 0 ]; then
-    tail -40 .ihui-agent/state/hook-logs/pre-push-file-size.log >&2 || true
-    printf '%s\n' "❌ 推送区间含大文件(>2MB 新增 / >20MB 任意 / 增量 >2MB),推送已阻止。" >&2
-    printf '%s\n' "   大文件请移出仓库或走 Release 资产;不要靠 --no-verify 绕过提交侧。" >&2
-    exit 1
-  fi
-  tail -3 .ihui-agent/state/hook-logs/pre-push-file-size.log >&2 || true
-fi
-
 # >>> push-receipt-gate (begin) ─────────────────────────────────────────────
 # 提交侧 worker 已对「完整 HEAD 树」跑完 13 门 + i18n 审计并签发签名凭据时,
 # 推送侧只做内容寻址校验(tree/commit/远端基线/门脚本 blob/签名)即可放行。

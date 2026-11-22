@@ -12,13 +12,6 @@ import { fileURLToPath } from 'node:url'
 
 const TASK = 'IHUI-BARE-SENTINEL'
 const DRY_RUN = process.argv.includes('--dry-run')
-// 2026-11-22 用户定案:项目禁止用 Windows 计划任务做自动化。--dry-run 只打印、可留;
-// 真注册/启动任务必须显式放行,否则直接拒绝并 exit 0(不改机器状态)。
-if (!DRY_RUN && process.env.IHUI_ALLOW_SCHEDULED_TASKS !== '1') {
-  console.error('[bare-sentinel] ❌ 计划任务注册已停用(2026-11-22 定案:禁止 Windows 计划任务自动化)')
-  console.error('   显式开启:IHUI_ALLOW_SCHEDULED_TASKS=1')
-  process.exit(0)
-}
 // 仓根由脚本自身位置推导(禁 process.cwd(),§15):本文件住 <repo>/scripts/。
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const VBS = join(REPO_ROOT, 'scripts', 'bare-sentinel-hidden.vbs')

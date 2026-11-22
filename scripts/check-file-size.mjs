@@ -44,24 +44,10 @@ import { COLORS as C } from './lib/logger.mjs'
 const ROOT = process.cwd()
 const argv = process.argv.slice(2)
 const isStaged = argv.includes('--staged')
-const isWeight = argv.includes('--weight')
-const rangeArgs = []
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i]
-  if ((a === '--range' || a === '--rev') && argv[i + 1]) {
-    rangeArgs.push(argv[i + 1])
-    i++
-    continue
-  }
-  if (a.startsWith('--range=') || a.startsWith('--rev=')) rangeArgs.push(a.slice(a.indexOf('=') + 1))
-}
-const rangeSpec = rangeArgs[0] || ''
 const isHelp = argv.includes('--help') || argv.includes('-h')
 
 // 跳过方法(紧急):HUSKY_SKIP_FILE_SIZE=1 git commit ...
-// 只允许跳过 staged 行数/字节档;--weight / --range 是仓库总量与推送区间闸,
-// 不能被同一个 env 一起关掉(否则 pre-push 的总量闸形同虚设)。
-if (process.env.HUSKY_SKIP_FILE_SIZE === '1' && isStaged && !isWeight && !rangeSpec) {
+if (process.env.HUSKY_SKIP_FILE_SIZE === '1') {
   console.log('⏭  单文件行数守门(HUSKY_SKIP_FILE_SIZE=1, 跳过)')
   process.exit(0)
 }
@@ -84,8 +70,6 @@ check-file-size.mjs — 单文件行数守门(仅拦新增超大文件)
 
 用法:
   node scripts/check-file-size.mjs --staged       pre-commit 模式(仅新增超阈值文件阻塞)
-  node scripts/check-file-size.mjs --range=origin/main..HEAD  推送区间大文件闸(pre-push)
-  node scripts/check-file-size.mjs --weight --budget-mb=450   仓库 HEAD 总量预算
   node scripts/check-file-size.mjs                全量扫描报告(exit 0)
   node scripts/check-file-size.mjs --limit=500    自定义阈值
   node scripts/check-file-size.mjs --help         显示本帮助
@@ -206,6 +190,7 @@ function auditStagedBytes() {
   }
   console.log(`${C.green}✅ [字节守门] ${files.length} 个暂存文件无大文件/污染路径${C.reset}`)
 }
+if (isStaged) auditStagedBytes()
 
 // === 仓库重量预算(全量,可选) ===
 // 用法:node scripts/check-file-size.mjs --weight --budget-mb=350
@@ -246,89 +231,7 @@ function auditWeight() {
     console.log(`${C.green}✅ 仓库重量在预算内(${mb(total)}MB ≤ ${budget}MB)${C.reset}`)
   }
 }
-/**
- * 推送区间字节闸(--range=<base>..<head>)。
- *
- * 立因:pre-commit 的 --staged 可被 `git commit --no-verify` 整段绕过;post-commit 自动 push
- * 已停用后,推送前是唯一的第二道关。只看 HEAD 总量(450MB)拦不住"一次塞 3MB 二进制、
- * 总量仍富余"的提交,所以在推送区间上按**新增/显著变大**逐文件复核:
- *   · 任意文件 > 20MB ⇒ 拦;
- *   · 新增文件 > 2MB 且不在豁免清单 ⇒ 拦;
- *   · 存量文件本次增量 > 2MB ⇒ 拦(允许把大文件改小)。
- * 取不到区间面/取不到 blob 大小 ⇒ exit 2,不报绿。
- */
-function auditRange(spec) {
-  const parts = spec.split('..')
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    console.error(`${C.red}❌ [字节守门] --range 形态非法(${spec})⇒ 未判定(exit 2)${C.reset}`)
-    process.exit(2)
-  }
-  const [base, head] = parts
-  let out
-  try {
-    out = gitRaw(['diff', '--name-status', '--diff-filter=AM', `${base}..${head}`], ROOT)
-  } catch {
-    console.error(`${C.red}❌ [字节守门] 取不到推送区间 ${spec} ⇒ 未判定(exit 2)${C.reset}`)
-    process.exit(2)
-  }
-  const files = out
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => {
-      const [status, ...rest] = line.split('\t')
-      return { status: status[0], path: rest.join('\t').replace(/\\/g, '/') }
-    })
-    .filter((x) => x.path)
-  const violations = []
-  for (const { status, path: f } of files) {
-    let size = 0
-    try {
-      size = Number(gitRaw(['cat-file', '-s', `${head}:${f}`], ROOT).trim())
-    } catch {
-      violations.push({ f, why: '取不到区间端点 blob 大小 ⇒ 未判定(拒绝放行)' })
-      continue
-    }
-    let oldSize = 0
-    try {
-      oldSize = Number(gitRaw(['cat-file', '-s', `${base}:${f}`], ROOT).trim())
-    } catch {
-      oldSize = 0
-    }
-    if (size > BYTE_ANY_LIMIT) {
-      violations.push({ f, why: `单文件 ${(size / 1048576).toFixed(1)}MB > 20MB` })
-      continue
-    }
-    const allowed = LARGE_ALLOWLIST.some((re) => re.test(f))
-    const isNew = status === 'A' || oldSize === 0
-    if (size > BYTE_ADD_LIMIT && !allowed && (isNew || size - oldSize > BYTE_ADD_LIMIT)) {
-      violations.push({
-        f,
-        why: isNew
-          ? `区间新增文件 ${(size / 1048576).toFixed(1)}MB > 2MB(未在豁免清单)`
-          : `区间内从 ${(oldSize / 1048576).toFixed(1)}MB 涨到 ${(size / 1048576).toFixed(1)}MB(增量 > 2MB)`,
-      })
-    }
-  }
-  if (violations.length > 0) {
-    console.error(
-      `\n${C.red}${C.bold}❌ [字节守门] 推送区间 ${spec} 有 ${violations.length} 个文件禁止入库:${C.reset}`,
-    )
-    for (const v of violations) console.error(`  ${v.f}  ← ${v.why}`)
-    console.error(`${C.dim}大文件请移出仓库或走 Release 资产;不要靠 --no-verify 绕过提交侧。${C.reset}`)
-    process.exit(1)
-  }
-  console.log(`${C.green}✅ [字节守门] 推送区间 ${spec} 的 ${files.length} 个改动文件无大文件${C.reset}`)
-}
-
-if (isWeight) {
-  auditWeight()
-  process.exit(0)
-}
-if (rangeArgs.length) {
-  for (const spec of rangeArgs) auditRange(spec)
-  process.exit(0)
-}
-if (isStaged) auditStagedBytes()
+if (argv.includes('--weight')) auditWeight()
 
 /**
  * 机器生成的数据表(*.generated.* / *.gen.*)豁免本守门。

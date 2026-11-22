@@ -500,7 +500,7 @@ function sceneDir(logo) {
 ${pageChrome(logo, 1, STEPS, undefined, false, atmoTop({ rise: 100, seed: 11 }) + footerLine())}
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '选择安装位置')}
-${body14(C_L, 262, '默认安装到 software 目录内,可自行更改。')}
+${body14(C_L, 262, '默认安装到 D:\\智汇AI,也可以更改为其他目录。')}
 <rect x="${C_L}" y="300" width="412" height="40" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
 ${body14(C_L, 380, '体积轻巧 · 数据云端存储 · 卸载不留残余', C.muted, 13)}
 ${body14(C_L, 404, '提示:直接编辑上方路径,或点击右侧「浏览…」选择目录。', C.muted, 13)}
