@@ -35,6 +35,16 @@
    此处只 import,不重复声明颜色,避免双源;新增色档改 tokens.css + token-registry.ts。 */
 @import '../../../packages/design-tokens/src/styles/tokens.css';
 @import '../../../packages/design-tokens/src/styles/base.css';
+/* 2026-11-22 修复:登录页 welcome 图在浅色下看不清、只剩一圈描边(都成线了)。
+   根因:next.config.ts 的 experimental.optimizePackageImports 把 '@ihui/ui-react'
+   的具名导入改写成深路径,barrel(packages/ui-react/src/index.ts)顶层
+   import './styles/auth-shell.css' / './styles/login-form.css' 的副作用因此不再执行
+   ⇒ .welcome-img-dark{display:none} 等规则整份丢失。浅色下 welcome.svg(黑)与
+   baiwelcome.svg(白)同时渲染,白图压在白卡片上只剩抗锯齿边线,英文自然"看不清"。
+   共享样式仍是唯一来源(auth-shell.css / login-form.css),此处只做显式相对路径
+   @import(与 tokens.css 同一手法;裸包名过不了 pnpm 软链,见文件头说明)。 */
+@import '../../../packages/ui-react/src/styles/auth-shell.css';
+@import '../../../packages/ui-react/src/styles/login-form.css';
 
 /* 2026-10-30 修复:内置 leading-none 被 --spacing-none 覆盖成 0px(生产事故)。
    根因:Tailwind v4 把 leading-* 行高工具类挂到 --spacing-* 命名空间,而设计令牌
@@ -679,7 +689,9 @@ html[data-table-zebra='true'] [data-testid='markdown-stream'] tbody tr:nth-child
  * 已统一的墨色环整体改灰,形成第二套聚焦外观。此处只扩大覆盖面,不改变外观。 */
 html[data-focus-ring='true'] :focus-visible {
   outline: 2px solid var(--color-stroke-focus);
-  outline-offset: 2px;
+  /* 2026-11-22 机主定档:取消 2px 外扩间隙,焦点环贴住控件边沿(与组件内
+   * `outline-offset-0` 同值,避免无障碍强化档又长出第二套带缝隙的聚焦外观) */
+  outline-offset: 0;
 }
 
 /* 全站灰度:作用在根元素,不影响组件自身的颜色变量计算 */
