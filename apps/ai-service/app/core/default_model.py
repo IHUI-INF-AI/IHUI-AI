@@ -71,8 +71,7 @@ if {f"{code}/" for code in RETIRED_PROVIDERS} != set(RETIRED_MODEL_PREFIXES):
 
 # 末位兜底链(2026-10-26 实测直连 200 的两家;与 COMBO_CHAINS.maximize-free 同族同序)
 _LAST_RESORT_CHAIN: tuple[str, ...] = (
-    "agnes/agnes-2.5-flash",
-    "agnes/agnes-2.0-flash",
+    "agnes/agnes-3.0-flash",
     "pollinations/openai-fast",
 )
 
