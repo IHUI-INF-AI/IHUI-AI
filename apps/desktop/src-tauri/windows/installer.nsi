@@ -2,7 +2,7 @@
 ; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
 ;
 ; IHUI 定制范围(补丁集 P0-P7,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
-;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,其余 → D:\IHUI AI。
+;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\software\智汇AI,其余 → D:\software\IHUI AI。
 ;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
 ;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
 ;      目的是让安装向导"选择安装位置"页的首屏默认值即为该路径。
@@ -545,15 +545,15 @@ Function .onInit
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====
     ; 上游按 INSTALLMODE 推导(currentUser → %LOCALAPPDATA%,perMachine → %PROGRAMFILES%);
-    ; 这里改为固定 D: 盘根目录下的语言化目录。赋值发生在 .onInit,
-    ; 因此安装向导"选择安装位置"页首次显示时展示的就是该路径。
+    ; 这里改为固定 D:\software 下的语言化目录(与用户既有软件归集目录一致,不落盘根)。
+    ; 赋值发生在 .onInit,因此安装向导"选择安装位置"页首次显示时展示的就是该路径。
     ; $LANGUAGE 由 NSIS 在启动时按系统语言选中(languages = SimpChinese + English),
-    ; 实测中文系统为 2052(SimpChinese)。2052 → D:\智汇AI,其余 → D:\IHUI AI。
+    ; 实测中文系统为 2052(SimpChinese)。2052 → D:\software\智汇AI,其余 → D:\software\IHUI AI。
     ; 不用 kernel32::GetUserDefaultUILanguage(需 System 插件,存在静默失败风险)。
     ${If} $LANGUAGE == 2052
-      StrCpy $INSTDIR "D:\智汇AI"
+      StrCpy $INSTDIR "D:\software\智汇AI"
     ${Else}
-      StrCpy $INSTDIR "D:\IHUI AI"
+      StrCpy $INSTDIR "D:\software\IHUI AI"
     ${EndIf}
 
     Call RestorePreviousInstallLocation
