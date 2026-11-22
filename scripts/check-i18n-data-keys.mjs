@@ -42,9 +42,12 @@ import { fileURLToPath } from 'node:url'
 import {
   extractKeyRefs,
   extractLiteralRefs,
+  extractConstMapRefs,
   classifyRef,
   getMessageByPath,
 } from './lib/i18n-data-keys.mjs'
+// 判面层单一源(守门 312 要求:注册门必须接 face-reader,面名不得各写一份)
+import { FACES, FACE_LABEL } from './lib/face-reader.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -64,6 +67,11 @@ for (const a of argv) {
   }
 }
 const isStaged = argv.includes('--staged')
+const FACE = isStaged ? 'staged' : 'worktree'
+if (!FACES.includes(FACE)) {
+  console.error(`❌ 判面不在 face-reader 的 FACES 内: ${FACE}`)
+  process.exit(2)
+}
 const isUpdate = argv.includes('--update-baseline')
 
 if (argv.includes('--self-test')) {
@@ -97,6 +105,32 @@ if (argv.includes('--self-test')) {
   // 未登记的数据模块不得被误收(否则每个 *Key 字段都会变成误报)
   const ok7 =
     extractKeyRefs("export const ITEMS = [{ href: '/x', labelKey: 'hrGroup' }]\n").refs.length === 0
+  // 第三档 orphan(2026-11-22 实测补):门显式开门时,未登记数据表也产出引用,缺键必须能判红 ——
+  // 这一档救的是"数据表住 A 文件、t() 消费在 B 文件"整族(appearance-presets 的 nameKey)。
+  const orphan = extractKeyRefs("export const P = [{ nameKey: 'presetBuiltinDefault' }]\n", {
+    orphanDataKeys: true,
+  })
+  const ok8 =
+    orphan.refs.length === 1 &&
+    orphan.refs[0].orphanData === true &&
+    classifyRef(orphan.refs[0], { appearanceSettings: {} }, []) === 'missing-global'
+  // 容器命中档:错误码表存的是子树键(apiDocs.errorCodes.c1000.{meaning,fix}),
+  // 容器存在即算有词,不得当成裸键误红。
+  const ok9 =
+    classifyRef(
+      { value: 'c1000', namespaces: ['apiDocs.errorCodes'], decidable: true },
+      { apiDocs: { errorCodes: { c1000: { meaning: 'x', fix: 'y' } } } },
+      [],
+    ) === 'ok'
+  // 第五形态:常量映射表 + t(OBJ[x]) 消费(accentDefault 那一族)
+  const srcMap =
+    "const t = useTranslations('appearanceSettings')\nconst ACCENT_LABEL_KEYS = { red: 'accentRed' }\n<span>{t(ACCENT_LABEL_KEYS.prop)}</span>\n"
+  const mapRefs = extractConstMapRefs(srcMap)
+  const ok10 =
+    mapRefs.length === 1 &&
+    mapRefs[0].value === 'accentRed' &&
+    classifyRef(mapRefs[0], { appearanceSettings: { accentRed: '红' } }, []) === 'ok' &&
+    classifyRef(mapRefs[0], { appearanceSettings: {} }, []) === 'missing-global'
   const cases = [
     ['字段提取', ok1],
     ['全局缺失档', ok2],
@@ -105,6 +139,9 @@ if (argv.includes('--self-test')) {
     ['未判定档', ok5],
     ['登记数据模块档', ok6],
     ['未登记不误收', ok7],
+    ['未登记数据表开门档', ok8],
+    ['容器命中档', ok9],
+    ['常量映射表档', ok10],
   ]
   for (const [name, ok] of cases) {
     console.log(`${ok ? '✓' : '✗'} ${name}`)
@@ -218,13 +255,16 @@ for (const f of files) {
   const src = fs.readFileSync(f, 'utf8')
   const extra = moduleNs[rel] ?? []
 
-  const { refs } = extractKeyRefs(src, { registeredNamespaces: extra })
+  const { refs } = extractKeyRefs(src, { registeredNamespaces: extra, orphanDataKeys: true })
   for (const r of refs) {
     const verdict = classifyRef(r, messages, extra)
     if (verdict === 'ok' || verdict === 'undecidable') continue
     findings.push({
-      sig: `${rel}|field|${r.field}|${r.value}`,
-      kind: verdict,
+      // 未登记数据表单列一档:它不是"命名空间写错",而是"这张表没进登记表,消费方在别的文件"
+      sig: r.orphanData
+        ? `${rel}|orphan|${r.field}|${r.value}`
+        : `${rel}|field|${r.field}|${r.value}`,
+      kind: r.orphanData ? 'unregistered-data-module' : verdict,
       file: rel,
       field: r.field,
       value: r.value,
@@ -241,6 +281,19 @@ for (const f of files) {
       file: rel,
       ns: l.ns,
       value: l.key,
+    })
+  }
+
+  // 第五形态:常量映射表(t(OBJ[x]) 消费)。值不在实参里、字段名也不是 *Key,前两族都抓不到。
+  for (const c of extractConstMapRefs(src)) {
+    const verdict = classifyRef(c, messages, extra)
+    if (verdict === 'ok' || verdict === 'undecidable') continue
+    findings.push({
+      sig: `${rel}|constmap|${c.obj}|${c.value}`,
+      kind: verdict,
+      file: rel,
+      ns: c.namespaces.map((n) => n ?? '?').join('|'),
+      value: c.value,
     })
   }
 }
@@ -275,7 +328,7 @@ const fresh = findings.filter((x) => !baseSigs.has(x.sig))
 const stale = [...baseSigs].filter((sig) => !findings.some((x) => x.sig === sig))
 
 console.log(
-  `[i18n-data-keys] 面=${isStaged ? 'staged' : 'worktree'} 文件=${files.length} 引用检出=${findings.length} 基线=${baseSigs.size}`,
+  `[i18n-data-keys] 面=${FACE_LABEL[FACE] ?? FACE} 文件=${files.length} 引用检出=${findings.length} 基线=${baseSigs.size}`,
 )
 console.log(`  基线外新增缺失: ${fresh.length}   基线内已不再命中(可摘): ${stale.length}`)
 

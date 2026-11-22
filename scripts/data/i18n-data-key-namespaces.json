@@ -1,7 +1,20 @@
 {
-  "_note": "数据模块 → i18n 命名空间登记表。数据表驱动的键(labelKey 一类)在本文件里没有 t() 调用,消费发生在别处;未被登记的模块门判不到(旧实现直接跳过)。新增数据驱动清单必须来此登记,否则 check-i18n-data-keys.mjs 对其视而不见。",
+  "_note": "数据模块 → i18n 命名空间登记表。数据表驱动的键(labelKey 一类)在本文件里没有 t() 调用,消费发生在别处;未被登记的模块由门的第三档 orphan 判据兜住(缺键即红),所以新增数据驱动清单必须来此登记。值自带完整路径(如 'chat.x.y')的模块,命名词典按全局路径判,登记值只用于纯键族。",
   "modules": {
     "apps/web/src/components/sidebar/nav-data.ts": ["nav"],
-    "apps/web/src/components/layout/admin-nav-groups.ts": ["nav"]
+    "apps/web/src/components/layout/admin-nav-groups.ts": ["nav"],
+    "apps/web/src/lib/appearance-presets.ts": ["appearanceSettings"],
+    "apps/web/src/components/ai/progress-sections/tool-category.ts": ["ai.toolCall"],
+    "apps/web/app/(main)/admin/comments/helpers.ts": ["admin.comments"],
+    "apps/web/app/(main)/admin/feedbacks/helpers.ts": ["admin.feedbacks"],
+    "apps/web/app/(main)/settings/helpers.ts": ["settings"],
+    "apps/web/src/components/chat/personality-presets.ts": ["chat"],
+    "apps/web/app/(main)/use-cases/UseCaseContent.tsx": ["useCase"],
+    "apps/web/src/components/ide/debug-panel/model.ts": ["debug"],
+    "apps/web/src/components/ide/agent-pane/model.ts": ["agentPane"],
+    "apps/web/src/components/api-docs/ErrorCodeTable.tsx": ["apiDocs.errorCodes"],
+    "apps/web/src/hooks/use-third-party-config.tsx": ["auth"],
+    "apps/web/src/components/ecosystem/expert-packs.ts": ["ecosystem"],
+    "apps/web/app/(main)/admin/orders/InvoicesTab.tsx": ["admin.orders"]
   }
 }

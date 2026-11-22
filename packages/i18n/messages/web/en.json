@@ -66,7 +66,9 @@
         "title": "Developer Extension Bundle",
         "desc": "A combined entry for the tooling workflow: MCP store registration and platform capabilities"
       }
-    }
+    },
+    "contentCreator": "Content creator",
+    "developerExtension": "Developer extension"
   },
   "aiWs": {
     "videoDone": "Video generation complete",
@@ -465,7 +467,13 @@
     "noLogsHint": "(No logs yet — click on the page to see coordinate info)",
     "runJs": "Run JavaScript",
     "runJsPlaceholder": "document.title — enter JS then click Run (e.g. document.querySelector(\"button\").click())",
-    "run": "Run"
+    "run": "Run",
+    "home": "Home",
+    "pickElement": "Pick Element",
+    "picking": "Picking",
+    "devtools": "DevTools",
+    "popout": "Pop Out",
+    "browserTab": "Browser Tab"
   },
   "a11y": {
     "previewLoadFailed": "Preview failed to load.",
@@ -555,7 +563,15 @@
     "hlsLiveLabel": "HLS live",
     "onDemandLabel": "On demand",
     "autoRotate": "Auto rotate",
-    "stopAutoRotate": "Stop rotating"
+    "stopAutoRotate": "Stop rotating",
+    "removeAttachment": "Remove attachment",
+    "more": "More",
+    "copy": "Copy",
+    "copyResponse": "Copy response",
+    "openCustomerService": "Open support",
+    "minimize": "Minimize",
+    "send": "Send",
+    "uploadAvatar": "Upload avatar"
   },
   "about": {
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
@@ -1385,7 +1401,17 @@
       "topicAll": "All Types",
       "topicTypeLabel": "Topic Type",
       "total": "Total {total}",
-      "viewDetail": "View Detail"
+      "viewDetail": "View Detail",
+      "topicArticle": "Article",
+      "topicAsk": "Question",
+      "topicAnswer": "Answer",
+      "topicResource": "Resource",
+      "topicCirclePost": "Circle post",
+      "topicLesson": "Lesson",
+      "topicLiveChannel": "Live channel",
+      "topicTopic": "Topic",
+      "topicComment": "Comment",
+      "statusAll": "All statuses"
     },
     "configs": {
       "allCategories": "All Categories",
@@ -3698,7 +3724,16 @@
       "total": "Total {total} items",
       "type": "Type",
       "updateSuccess": "Updated successfully",
-      "user": "User"
+      "user": "User",
+      "all": "All",
+      "bug": "Bug",
+      "feature": "Feature",
+      "improvement": "Improvement",
+      "other": "Other",
+      "pending": "Pending",
+      "reviewing": "Reviewing",
+      "resolved": "Resolved",
+      "closed": "Closed"
     },
     "help": {
       "colActions": "Actions",
@@ -4299,7 +4334,14 @@
       "tabInvoices": "Invoices",
       "tabOrders": "Orders",
       "tabRefunds": "Refunds",
-      "title": "Order Management"
+      "title": "Order Management",
+      "invoicing": "Invoicing",
+      "invoiced": "Invoiced",
+      "all": "All",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "canceled": "Canceled"
     },
     "oss": {
       "colActions": "Actions",
@@ -5920,7 +5962,139 @@
       "installerHint": "GitHub-side actor id (not a platform user)"
     },
     "smsReceive": "SMS Verification",
-    "sms": "SMS Templates"
+    "sms": "SMS Templates",
+    "wallboard": {
+      "activeAlerts": "Active Alerts (Alertmanager)",
+      "agoDays": "{n} days ago",
+      "agoHours": "{n} hours ago",
+      "agoMins": "{n} minutes ago",
+      "agoSecs": "{n} seconds ago",
+      "aiSessions": "Active AI Sessions",
+      "alertCount": "{count} Alerts",
+      "alertCountUnknown": "Alert count unknown",
+      "alertStateActive": "Active",
+      "alertStateSuppressed": "Suppressed",
+      "alertStateUnprocessed": "Unprocessed",
+      "alertmanagerDown": "Alertmanager data unavailable",
+      "alertsReceived": "Alert Bridge Received",
+      "apiAvgLatency": "API Avg Latency",
+      "apiCallsToday": "API Calls Today",
+      "apiErrRateLabel": "API Failure Rate (Biz DB)",
+      "axisPctMs": "%/ms",
+      "axisReqPerSec": "Requests/sec",
+      "bridgeMail": "Alert Bridge Inbound",
+      "bufferHit": "Buffer Hit Rate",
+      "cpuLegend": "CPU ({})",
+      "cpuMemTrendTitle": "90-Min CPU / Memory Trend",
+      "dbSize": "DB Size",
+      "dedupSuppressed": "Suppressed {count}",
+      "diskVolumes": "Disk Volumes",
+      "durationDays": "{d}d {h}h",
+      "durationHours": "{h}h {m}m",
+      "durationMins": "{m}m",
+      "errRateWindow": "Last 5 Min Window",
+      "eventsTitle": "System Event Stream",
+      "footerSources": "Sources · Prometheus {url} / Alertmanager / PostgreSQL / Redis · Live Production",
+      "footerUptime": "Uptime · {list}",
+      "gaugeCpu": "CPU",
+      "gaugeMem": "Memory",
+      "hostUptime": "Up {duration}",
+      "hourlyTitle": "24-Hour Call Distribution",
+      "kpiAiCalls": "AI Calls Today",
+      "kpiAiCallsSub": "Tokens {count}",
+      "kpiApiP95": "API P95 Latency",
+      "kpiApiP95Sub": "AI P95 {value}ms",
+      "kpiErrRate": "5xx Error Rate",
+      "kpiQps": "Real-time QPS",
+      "kpiQpsSub": "Active Connections {count}",
+      "kpiTurnover": "Today's Sales",
+      "kpiTurnoverSub": "Paid Orders {count}",
+      "kpiUsers": "Total Users",
+      "kpiUsersSub": "New Today {count}",
+      "legendErrRate": "5xx Error Rate (%)",
+      "legendP95": "P95 (ms)",
+      "legendQps": "QPS",
+      "llmBridge": "LLM Sessions · Alert Bridge",
+      "llmCallsToday": "LLM Calls Today",
+      "llmCost": "Billing Cost",
+      "llmErrRate": "LLM Failure Rate",
+      "llmP95": "LLM P95",
+      "loadFailed": "Failed to load monitoring data. Check network or try later",
+      "mailOk": "Email Channel OK",
+      "mailWarn": "Email Channel Warning",
+      "memLegend": "Memory (%)",
+      "memPhysical": "Physical Memory",
+      "memUsage": "Memory",
+      "netThroughput": "Network Throughput",
+      "no5xxWindow": "No 5xx in last {minutes} min",
+      "noActiveAlerts": "No active alerts",
+      "noCallsToday": "No calls today",
+      "noEvents": "No events",
+      "noHostTrendData": "Host trends unavailable",
+      "noModelCalls": "No model calls today",
+      "noRecentAlerts": "No recent alerts",
+      "noStatusData": "No traffic distribution data",
+      "noTrendData": "Trend data unavailable",
+      "ordersToday": "Orders Today",
+      "ordersYesterday": "Orders Yesterday",
+      "panelAlerts": "Alerts & Events",
+      "panelBusiness": "Business Insights",
+      "panelDatastore": "Data Layer",
+      "panelHost": "Host Resources",
+      "panelQuality": "Request Quality",
+      "panelServices": "Service Matrix",
+      "panelTraffic": "Traffic & Latency",
+      "pgConnections": "Connections {count}",
+      "pgLabel": "PostgreSQL",
+      "piePerSecSuffix": "/s",
+      "recentAlerts": "Recent Alerts (In-DB)",
+      "redisClients": "Clients",
+      "redisEvicted": "Evicted Keys",
+      "redisHit": "Hit Rate",
+      "redisKeys": "Keys",
+      "redisLabel": "Redis",
+      "redisOps": "Ops/sec",
+      "redisUptime": "Uptime",
+      "refreshedAt": "Refreshed {time} · 5s poll",
+      "resolvedAgo": "Resolved {ago}",
+      "retry": "Retry",
+      "rowsFetchedPerSec": "Rows Fetched/sec",
+      "rowsPerSec": "Rows/sec",
+      "scrapeTargets": "Scrape Targets ({up}/{total} up)",
+      "sevCritical": "Critical",
+      "sevInfo": "Info",
+      "sevWarning": "Warning",
+      "sourceUnreachable": "Data source unreachable",
+      "srcAlertmanager": "Alertmanager",
+      "srcDatabase": "Database",
+      "srcPrometheus": "Prometheus",
+      "staleData": "Data lag",
+      "statusOk": "All normal",
+      "statusUnknown": "Unknown status",
+      "statusWarn": "Alerts active",
+      "subtitle": "Production Ops Dashboard · Live",
+      "svcRunning": "{running}/{total} running",
+      "svcStateOther": "Other",
+      "svcStateRetired": "Retired",
+      "svcStateRunning": "Running",
+      "svcStateStopped": "Stopped",
+      "title": "IHUI AI · Production Monitoring Dashboard",
+      "topEndpoints": "Top 5 High-Frequency Endpoints Today",
+      "topModels": "Top 5 Model Calls Today",
+      "trendLoadFailed": "Failed to load trend data",
+      "trendWindow": "Last 90 min · 30s interval",
+      "txnPerSec": "Transactions/sec",
+      "unitConn": "connections",
+      "unitMail": "emails",
+      "unitMs": "ms",
+      "unitOrder": "orders",
+      "unitSession": "sessions",
+      "unitYuan": "yuan",
+      "usersActive": "Active Users",
+      "usersNewToday": "New Today",
+      "usersRegistered": "Registered",
+      "wsConnections": "WS Connections"
+    }
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -6563,7 +6737,9 @@
       "title": "Developer Center",
       "urlRequired": "URL is required",
       "webhooks": "Webhooks",
-      "whCreateSuccess": "Webhook created"
+      "whCreateSuccess": "Webhook created",
+      "permissionLabel": "Permissions",
+      "permissionHint": "Configure developer permissions and access control"
     },
     "dict": {
       "addItem": "Add item",
@@ -7232,7 +7408,8 @@
       "runningCount": "{count} Running",
       "title": "Background Agents",
       "total": "Total {count}",
-      "viewResult": "View Result"
+      "viewResult": "View Result",
+      "omittedChars": "Omitted {count} chars"
     },
     "checkpointHistory": {
       "rollbackConfirmContentUnreadable": "Some version content could not be read; this file is not previewed as a diff",
@@ -7293,14 +7470,14 @@
           "submit": "Submit",
           "dismiss": "Skip",
           "submitted": "Received — thanks for your feedback"
-        }
-      ,
+        },
         "heatmap": {
-          "title": "Credit usage heatmap"
-        ,
+          "title": "Credit usage heatmap",
           "dayTitle": "Usage on {date}",
           "legendLabel": "Usage level",
-          "sessionsEmpty": "No sessions yet"}},
+          "sessionsEmpty": "No sessions yet"
+        }
+      },
       "hookSummary": {
         "ariaLabel": "Hook run summary",
         "state": {
@@ -8782,11 +8959,11 @@
           "emptyDraft": "The draft is empty. Enter some text before polishing."
         },
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
-      }
-    ,
+      },
       "hookFailures": {
         "evidenceMissing": "Final result not recorded"
-      }},
+      }
+    },
     "permissionConfirm": {
       "allow": "Allow",
       "allowAllSession": "Allow all for this session (no more prompts)",
@@ -8902,7 +9079,25 @@
       "rollbackDeleted": "Will be deleted",
       "commandSummaryLabel": "Command to run",
       "deleteSummaryLabel": "Deletion targets",
-      "deleteRecursiveTag": "recursive"
+      "deleteRecursiveTag": "recursive",
+      "catFileRead": "Read file",
+      "catFileWrite": "Write file",
+      "catFileModify": "Modify file",
+      "catFileDelete": "Delete file",
+      "catFileSearch": "Search files",
+      "catCommand": "Run command",
+      "catPreview": "Preview",
+      "catWebSearch": "Web search",
+      "catMcp": "MCP tool",
+      "catSkill": "Skill",
+      "catTaskMgmt": "Task management",
+      "catThinking": "Thinking",
+      "catUserInteract": "User interaction",
+      "catImageGen": "Image generation",
+      "catVideoGen": "Video generation",
+      "catEnvInit": "Environment setup",
+      "catEnd": "Done",
+      "catOther": "Other"
     },
     "tokenUsage": {
       "promptTokens": "Prompt",
@@ -8956,34 +9151,10 @@
       "targetPlaceholder": "e.g. Top high school, 985 university"
     },
     "options": {
-      "classLevel": [
-        "Excellent (Top 10%)",
-        "Good (10-30%)",
-        "Average (30-70%)",
-        "Below Average (Bottom 30%)"
-      ],
-      "difficulty": [
-        "Chinese Reading Comprehension",
-        "English Listening & Speaking",
-        "Math Calculation",
-        "Physics Concepts",
-        "Chemistry Memorization",
-        "Liberal Arts Recitation"
-      ],
-      "obstacle": [
-        "Lack of focus",
-        "Poor time management",
-        "Improper study methods",
-        "Low learning motivation",
-        "Test anxiety",
-        "Family environment impact"
-      ],
-      "school": [
-        "Key Middle School",
-        "Regular Middle School",
-        "International School",
-        "Private School"
-      ]
+      "classLevel": "Excellent (Top 10%)",
+      "difficulty": "Chinese Reading",
+      "obstacle": "Poor Focus",
+      "school": "Key Middle School"
     },
     "result": {
       "failed": "AI analysis failed",
@@ -9008,7 +9179,9 @@
       "unarchive": "Unarchive",
       "pin": "Pin",
       "unpin": "Unpin",
-      "branchFromHere": "Branch from here"
+      "branchFromHere": "Branch from here",
+      "exportSubmenu": "Export",
+      "compressSubmenu": "Compress"
     },
     "checkpoint": {
       "title": "Checkpoint Rewind",
@@ -9028,7 +9201,11 @@
       "undoFailed": "Temporarily unavailable; the workspace is unchanged",
       "undoFailedChanged": "Temporarily unavailable; the workspace has changed",
       "undoFailedUnverifiable": "Temporarily unavailable; workspace state could not be verified. Please check and retry",
-      "undoPartialWarning": "Some files were not rolled back; task history preserved"
+      "undoPartialWarning": "Some files were not rolled back; task history preserved",
+      "restoring": "Restoring",
+      "confirmTitle": "Confirm restore",
+      "restoreSuccess": "Checkpoint restored",
+      "restoreFailed": "Restore failed"
     },
     "addWorkspace": "Add Workspace",
     "assistant": "Assistant",
@@ -9131,7 +9308,11 @@
       "exitWorkspaceFullscreen": "Exit workspace fullscreen",
       "createDraftPullRequest": "Create Draft PR",
       "createDraftPullRequestOk": "Draft PR created",
-      "createDraftPullRequestFailed": "Failed to create Draft PR"
+      "createDraftPullRequestFailed": "Failed to create Draft PR",
+      "overflowMenu": "More options",
+      "groupPanel": "Panel",
+      "groupTools": "Tools",
+      "groupSession": "Session"
     },
     "floatMode": "Float Mode",
     "handleHint": "Click or drag right to open AI workspace",
@@ -9181,7 +9362,9 @@
       "collapse": "Collapse",
       "newSession": "New Terminal",
       "resize": "Resize",
-      "title": "PowerShell Terminal"
+      "title": "PowerShell Terminal",
+      "backToIde": "Back to IDE",
+      "showAgentFace": "Show Agent"
     },
     "thisMonth": "This Month",
     "thisWeek": "This Week",
@@ -9237,7 +9420,32 @@
       "reasonServer": "The server had a problem. Try again shortly.",
       "reasonUnknown": "The action failed. Try again shortly.",
       "folderNone": "Unfiled"
-    }
+    },
+    "searchPlaceholder": "Search conversations",
+    "workbenchSessions": "Workbench Sessions",
+    "searchNoResult": "No results found",
+    "empty": "No data",
+    "unfavorite": "Unfavorite",
+    "favorite": "Favorite",
+    "delete": "Delete",
+    "agentTerminal": {
+      "noSession": "No session",
+      "failed": "Failed",
+      "refresh": "Refresh",
+      "empty": "No terminals",
+      "cursor": "Cursor",
+      "altScreen": "Alt Screen",
+      "noIntegration": "No integration",
+      "running": "Running",
+      "exited": "Exited",
+      "links": "Links"
+    },
+    "pictureInPicture": {
+      "title": "Picture-in-Picture",
+      "emptyState": "Nothing to display",
+      "openWindow": "Open Picture-in-Picture Window"
+    },
+    "resizeFloatHint": "Resize"
   },
   "aiCost": {
     "budgetAlerts": "Budget Alerts",
@@ -9562,18 +9770,7 @@
       "datePublished": "2026-07-26",
       "description": "IHUI AI News: aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv, etc.), auto-collected every 6 hours, with real-time category tags (models/products/industry/papers) and trend signals.",
       "headline": "AI News · Real-time Aggregation",
-      "keywords": [
-        "AI News",
-        "LLM",
-        "OpenAI",
-        "GPT",
-        "Claude",
-        "HackerNews",
-        "TechCrunch",
-        "Arxiv",
-        "Trend Signals",
-        "IHUI AI"
-      ]
+      "keywords": "AI News"
     },
     "compare": {
       "capabilityOverlay": "Capability Radar Overlay",
@@ -9723,7 +9920,10 @@
       "searchPlaceholder": "Search model/vendor…",
       "sortHint": "Click header to sort",
       "subtitle": "Ref: arena.ai · Elo + Bootstrap CI",
-      "title": "Model Leaderboard · Arena Score"
+      "title": "Model Leaderboard · Arena Score",
+      "subcatGeneral": "General",
+      "subcatCoding": "Coding",
+      "subcatReasoning": "Reasoning"
     },
     "live": {
       "empty": "No live channels at the moment, check back soon",
@@ -9752,7 +9952,14 @@
       "subtitle": "7/14 day hotness trend curve"
     },
     "title": "AI News",
-    "close": "Close"
+    "close": "Close",
+    "capabilityRadar": {
+      "coding": "Coding",
+      "math": "Math",
+      "reasoning": "Reasoning",
+      "creative": "Creative",
+      "chinese": "Chinese"
+    }
   },
   "aiSkillDetail": {
     "addToAgent": "Add to Agent",
@@ -10093,7 +10300,12 @@
     "clear": "Clear",
     "cleared": "Goal cleared",
     "resetProgress": "Reset",
-    "fullProgress": "Full"
+    "fullProgress": "Full",
+    "resumeServerOk": "Service resume requested",
+    "resumeAlreadyActive": "Service already active",
+    "resumeTerminal": "Terminal state cannot be resumed",
+    "resumeNoGoal": "No goal found",
+    "resumeFailed": "Resume failed: {message}"
   },
   "memoryCards": {
     "title": "Typed Memory",
@@ -10472,7 +10684,11 @@
     "agreementNoticeDisagree": "Disagree",
     "agreementNoticeEnterHint": "Click \"Agree and Continue\" to indicate you have read and agreed",
     "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
-    "agreementNoticeTitle": "Please Agree to Continue"
+    "agreementNoticeTitle": "Please Agree to Continue",
+    "linuxdoLogin": "Sign in with Linux.do",
+    "desktopSsoSuccess": "Login successful, synced to desktop",
+    "desktopSsoOpenFailed": "Failed to open browser, check network and retry",
+    "sessionLoggedOutHint": "Session ended, please log in again to continue"
   },
   "behavior": {
     "createdAt": "Recorded At",
@@ -10534,7 +10750,42 @@
     "loading": "Loading...",
     "save": "Save",
     "subtitle": "Fill in card information and select template style",
-    "templateLabel": "Template"
+    "templateLabel": "Template",
+    "templates": {
+      "minimal": "Minimal",
+      "business": "Business",
+      "creative": "Creative"
+    },
+    "fields": {
+      "name": {
+        "label": "Name",
+        "placeholder": "Enter name"
+      },
+      "company": {
+        "label": "Company",
+        "placeholder": "Enter company"
+      },
+      "phone": {
+        "label": "Phone",
+        "placeholder": "Enter phone"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "Enter email"
+      },
+      "wechat": {
+        "label": "WeChat",
+        "placeholder": "Enter WeChat"
+      },
+      "address": {
+        "label": "Address",
+        "placeholder": "Enter address"
+      },
+      "avatar": {
+        "label": "Avatar",
+        "placeholder": "Select avatar"
+      }
+    }
   },
   "businessCardPage": {
     "create": "Create",
@@ -10741,7 +10992,8 @@
         "saveFailed": "Could not save the recording",
         "recognitionFailed": "Speech recognition was interrupted",
         "emptyTranscript": "Nothing was recognized",
-        "sttPending": "Transcription is not available right now. Try again later, or save the audio only."
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only.",
+        "loadFailed": "Failed to load notes, please retry"
       },
       "action": {
         "start": "Start recording",
@@ -10750,7 +11002,9 @@
         "saveAudioOnly": "Save audio only",
         "insertToInput": "Insert into message",
         "dismiss": "Close"
-      }
+      },
+      "searchPlaceholder": "Search notes",
+      "groupAll": "All"
     },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
@@ -11051,7 +11305,14 @@
       "shareLinkCopied": "Content and link copied",
       "showContent": "Show content",
       "stopReadAloud": "Stop reading",
-      "toggleMetadata": "Toggle metadata"
+      "toggleMetadata": "Toggle metadata",
+      "editAiReply": "Edit this reply",
+      "saveAsNewVersion": "Save as new version",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "bookmark": "Bookmark",
+      "unbookmark": "Remove bookmark",
+      "flagFailed": "Failed to save flag"
     },
     "messageDeleted": "Message deleted",
     "modeAlreadyActive": "Already in {mode} mode",
@@ -11820,18 +12081,26 @@
     "reasoningEffortHigh": "Deep",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
-    "analysisOpen": "View Scenario Analysis"
-  ,
+    "analysisOpen": "View Scenario Analysis",
     "terminal": {
-      "waitingInput": "Waiting for input"
-    ,
+      "waitingInput": "Waiting for input",
       "promptLabel": "Terminal input",
-      "submit": "Send"},
+      "submit": "Send"
+    },
     "titleAutoUpdate": {
-      "title": "Auto-update conversation titles"
-    ,
+      "title": "Auto-update conversation titles",
       "label": "Auto-generate titles",
-      "desc": "After each turn, the model rewrites the title to match the topic"}},
+      "desc": "After each turn, the model rewrites the title to match the topic"
+    },
+    "reasoningEffortXhigh": "Extra high",
+    "reasoningEffortMax": "Max",
+    "reasoningEffortUltra": "Ultra",
+    "predictiveEditInsert": "Insert",
+    "predictiveEditReplace": "Replace",
+    "predictiveEditDelete": "Delete",
+    "interruptedNotice": "This answer was interrupted, content may be incomplete",
+    "interruptedNoticeUserCancelled": "You cancelled this answer, content may be incomplete"
+  },
   "chatHistory": {
     "moveToGroup": "Move to group",
     "moveSelectedToGroup": "Move selected to group",
@@ -11898,7 +12167,9 @@
       "byTime": "By time",
       "label": "Sort by",
       "pinnedFirst": "Pinned first"
-    }
+    },
+    "titleHistoryOriginal": "Original History",
+    "titleHistoryCurrent": "Current History"
   },
   "chatSettingsPage": {
     "back": "Back",
@@ -12070,7 +12341,11 @@
     "toKnowledgeAlready": "In knowledge base",
     "sourceWechat": "WeChat",
     "sourceWechatHint": "Chat transcript exported from WeChat \"Merge & Forward\" (.txt or .zip)",
-    "noValidContent": "No importable content found"
+    "noValidContent": "No importable content found",
+    "sourceChatgpt": "ChatGPT",
+    "sourceClaudeAi": "Claude AI",
+    "sourceChatgptHint": "Supports .json files",
+    "sourceClaudeAiHint": "Supports .json files"
   },
   "commandPalette": {
     "groups": {
@@ -12084,151 +12359,151 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": ["diff", "changes", "review"]
+        "keywords": "[\"diff\",\"changes\",\"review\"]"
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": ["status", "context", "usage"]
+        "keywords": "[\"status\",\"状态\",\"context\"]"
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": ["model", "switch"]
+        "keywords": "[\"model\",\"模型\",\"switch\"]"
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": ["mcp", "marketplace"]
+        "keywords": "[\"mcp\",\"插件\",\"marketplace\"]"
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": ["compact", "context"]
+        "keywords": "[\"compact\",\"压缩\",\"context\"]"
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"]
+        "keywords": "[\"guide\",\"interrupt\",\"steer\"]"
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"]
+        "keywords": "[\"queue\",\"排队\",\"queue\"]"
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": "[\"agent\",\"调度\",\"agent\"]",
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": "[\"browser\",\"网页\",\"browser\"]",
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": "[\"capability\",\"市场\",\"插件\",\"market\"]",
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": "[\"code\",\"变更\",\"改动\",\"diff\"]",
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": "[\"connect\",\"external service\",\"connector\"]",
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": "[\"document\",\"编辑\",\"doc\"]",
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": "[\"editor\",\"code\",\"code\"]",
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": "[\"MCP\",\"server\",\"tools\"]",
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": "[\"MCP\",\"广场\",\"market\",\"store\"]",
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": "[\"Q&A\",\"ask\",\"mode\"]",
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": "[\"build\",\"模式\",\"build\"]",
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": "[\"plan\",\"计划\",\"plan\"]",
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": "[\"review\",\"评审\",\"review\"]",
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": "[\"spec\",\"spec\",\"mode\"]",
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": "[\"Skill\",\"Capability\"]",
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": "[\"Terminal\",\"Command Line\"]",
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": "[\"AI\",\"World\",\"Apps\"]",
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": "[\"Chat\",\"Conversation\",\"AI\"]",
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": "[\"Drama\",\"Video\",\"AI\"]",
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": "[\"Profile\",\"Settings\"]",
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": "[\"Search\",\"Find\"]",
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": "[\"Settings\",\"Preferences\"]",
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": "[\"Skill\",\"Market\"]",
         "label": "Skill Market"
       }
     },
@@ -12484,7 +12759,42 @@
     "progress": "Learning Progress",
     "progressLessons": "{completed}/{total} lessons learned",
     "completed": "Completed",
-    "complete": "Complete"
+    "complete": "Complete",
+    "chapters": {
+      "empty": "No chapters yet",
+      "sectionCount": "{count} sections"
+    },
+    "interaction": {
+      "favorite": "Favorite",
+      "like": "Like"
+    },
+    "tabs": {
+      "anonymous": "Anonymous",
+      "certAcquired": "Course completed; certificate acquired",
+      "certNo": "Certificate No.: {no}",
+      "certPending": "Complete all courses and pass evaluation to earn certificate",
+      "certPreview": "Certificate Preview",
+      "certStudent": "Student Name",
+      "certTitle": "Certificate",
+      "certificate": "Certificate",
+      "comments": "Comments",
+      "homework": "Homework",
+      "instructor": "Instructor",
+      "intro": "Course Intro",
+      "noComments": "No comments yet",
+      "noHomework": "No homework yet",
+      "noIntro": "No introduction",
+      "noRating": "No ratings yet",
+      "objectives": "Learning Objectives",
+      "overview": "Overview",
+      "ratersCount": "{count} ratings",
+      "rating": "Ratings",
+      "scoreUnit": "pts"
+    },
+    "video": {
+      "cover": "Course Cover",
+      "selectChapter": "Select a chapter to start"
+    }
   },
   "courses": {
     "subtitle": "AI Lessons, Skills",
@@ -12591,7 +12901,8 @@
     "kindDelete": "Delete",
     "kindUpdate": "Update",
     "stepsTooltip": "Steps involved",
-    "generatedAt": "Generated {time}"
+    "generatedAt": "Generated {time}",
+    "presentedFiles": "Presented Files"
   },
   "design": {
     "aiGenerate": {
@@ -13021,15 +13332,15 @@
       "scopeModels": "Model List",
       "scopeEmbeddings": "Embeddings",
       "scopeImages": "Image Generation",
-    "recharge": "Top up",
-    "rechargeTitle": "Top up {name}",
-    "walletBalance": "Wallet balance",
-    "rechargeAmountLabel": "Amount (CNY)",
-    "rechargeAmountPlaceholder": "e.g. 10.00",
-    "rechargeHint": "Funds move from wallet to this API key balance.",
-    "rechargeOk": "Top-up successful",
-    "rechargeInvalid": "Enter a positive amount",
-    "rechargeConfirm": "Confirm",
+      "recharge": "Top up",
+      "rechargeTitle": "Top up {name}",
+      "walletBalance": "Wallet balance",
+      "rechargeAmountLabel": "Amount (CNY)",
+      "rechargeAmountPlaceholder": "e.g. 10.00",
+      "rechargeHint": "Funds move from wallet to this API key balance.",
+      "rechargeOk": "Top-up successful",
+      "rechargeInvalid": "Enter a positive amount",
+      "rechargeConfirm": "Confirm",
       "scopeAudio": "Audio",
       "scopeVideos": "Video Generation",
       "unlimitedQuota": "Unlimited",
@@ -13547,7 +13858,9 @@
     "editRole": "Edit role",
     "createRole": "Create role",
     "displayNameExample": "Drizzle migration expert",
-    "recommendedTasksExample": "Schema changes, data migration"
+    "recommendedTasksExample": "Schema changes, data migration",
+    "dagRemoveNode": "Remove Node",
+    "dagRemoveEdge": "Remove Edge"
   },
   "distribution": {
     "activeMembers": "Active members",
@@ -13769,7 +14082,26 @@
       "stateBlocking": "Blocking",
       "stateRequested": "Requested",
       "stateWaitingForMe": "Waiting for me",
-      "stateOverdue": "Overdue"
+      "stateOverdue": "Overdue",
+      "reasonDangerousCommand": "Dangerous command",
+      "reasonDestructiveOperation": "Destructive operation",
+      "reasonWritesFiles": "Writes files",
+      "reasonDeletesFiles": "Deletes files",
+      "reasonExecutesCommand": "Runs a command",
+      "reasonNetworkAccess": "Accesses the network",
+      "reasonDatabaseWrite": "Writes to the database",
+      "reasonHighRiskTool": "High-risk tool",
+      "reasonRequiresConfirmation": "Needs your confirmation",
+      "scopeFsRead": "Read files",
+      "scopeFsWrite": "Write files",
+      "scopeFsDelete": "Delete files",
+      "scopeExec": "Run commands",
+      "scopeNetwork": "Network access",
+      "scopeDb": "Database",
+      "scopeOther": "Other",
+      "riskLow": "Low risk",
+      "riskMedium": "Medium risk",
+      "riskHigh": "High risk"
     },
     "toolbar": {
       "addColumn": "Add Column",
@@ -14147,7 +14479,18 @@
       "toolFailures": "Tool Failures",
       "trigger": "Trigger",
       "triggerError": "Trigger failed",
-      "triggerSuccess": "Triggered successfully"
+      "triggerSuccess": "Triggered successfully",
+      "refreshFailed": "Refresh failed",
+      "refresh": "Refresh",
+      "refreshSuccess": "Refreshed",
+      "refreshReadFailed": "Failed to read refresh result",
+      "refreshTotal": "Before: {before}",
+      "refreshLoadState": "Load state",
+      "refreshAdded": "Added",
+      "refreshRemoved": "Removed",
+      "refreshChanged": "Changed",
+      "refreshUnchanged": "Unchanged",
+      "refreshNoChange": "No new changes"
     },
     "orch": {
       "dashboard": "Dashboard",
@@ -14466,6 +14809,8 @@
     "sections": "Sections"
   },
   "eduCoursesPage": {
+    "subtitle": "Manage all enrolled courses",
+    "title": "My Courses",
     "empty": "No courses",
     "loading": "Loading...",
     "progress": "Progress {n}%",
@@ -14474,8 +14819,6 @@
     "statusCompleted": "Completed",
     "statusInProgress": "In Progress",
     "statusNotStarted": "Not Started",
-    "subtitle": "Manage all enrolled courses",
-    "title": "My Courses",
     "total": "{n} total"
   },
   "eduDashboardPage": {
@@ -14571,7 +14914,8 @@
     "loading": "Loading...",
     "myPoints": "My Points",
     "subtitle": "Learning points reward system",
-    "title": "Education Points"
+    "title": "Education Points",
+    "totalChannels": "Channels"
   },
   "eduProgressPage": {
     "categoryProgress": "Progress by category",
@@ -14596,33 +14940,20 @@
     "subtitle": "This week's class schedule",
     "title": "Class Schedule",
     "today": "Today",
-    "weekdays": []
+    "weekdays": "[]"
   },
   "enterprise": {
     "architecture": {
-      "effectFlow": [],
-      "effectMetrics": [],
+      "effectFlow": "[]",
+      "effectMetrics": "[]",
       "effectTitle": "AI Transformation Effects",
-      "infoAdvanced": [],
+      "infoAdvanced": "[]",
       "infoAdvancedLabel": "Advanced Information World",
-      "infoBasic": [],
+      "infoBasic": "[]",
       "infoBasicLabel": "Basic Information World",
       "infoTitle": "Information World",
       "label": "Enterprise AI Transformation Architecture",
-      "physicalItems": [
-        {
-          "desc": "Helping enterprises map organizational structures and define digital employee positions",
-          "title": "Organizational Structure"
-        },
-        {
-          "desc": "Forward and reverse process analysis, optimizing business operation efficiency",
-          "title": "Process Mapping"
-        },
-        {
-          "desc": "Corporate culture, mission and vision, critical thinking, and humble attitude",
-          "title": "Human-Centric Value"
-        }
-      ],
+      "physicalItems": "[{\"desc\":\"Streamline organization structure and define digital roles\",\"title\":\"Organization Structure\"},{\"desc\":\"Analyze forward and reverse flows to optimize efficiency\",\"title\":\"Process Optimization\"},{\"desc\":\"Values: culture, vision, critical thinking, and humility\",\"title\":\"Human Values\"}]",
       "physicalTitle": "Physical World",
       "title": "From the physical world to the information world, building a human-machine collaborative super enterprise"
     },
@@ -14648,130 +14979,13 @@
     "compass": {
       "adoptionLabel": "{percent}% of enterprises adopted",
       "label": "Agent Scenario Compass",
-      "quadrants": [
-        {
-          "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
-          "tag": "Q1",
-          "title": "Efficient Assistant"
-        },
-        {
-          "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
-          "tag": "Q2",
-          "title": "Smart Advisor"
-        },
-        {
-          "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
-          "tag": "Q3",
-          "title": "Execution Expert"
-        },
-        {
-          "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
-          "tag": "Q4",
-          "title": "All-round Expert"
-        }
-      ],
+      "quadrants": "[{\"description\":\"Simple decision + simple execution, rapid deployment\",\"examples\":[\"Q&A\",\"Process Automation\"],\"tag\":\"Q1\",\"title\":\"Efficient Assistant\"},{\"description\":\"Complex decision + simple execution, deep analysis\",\"examples\":[\"Data Analysis\",\"Decision Support\"],\"tag\":\"Q2\",\"title\":\"Smart Advisor\"},{\"description\":\"Simple decision + complex execution, cross-system tasks\",\"examples\":[\"Scheduling\",\"Approvals\"],\"tag\":\"Q3\",\"title\":\"Execution Expert\"},{\"description\":\"Complex decision + complex execution, multi-agent collaboration\",\"examples\":[\"Marketing\",\"Multi-Agent\"],\"tag\":\"Q4\",\"title\":\"All-Rounder\"}]",
       "subtitle": "Helping enterprises identify and plan agent application scenarios, advancing AI transformation progressively from simple to complex",
       "title": "Scenario planning based on task complexity and autonomy"
     },
     "courses": {
       "label": "Curriculum",
-      "phases": [
-        {
-          "courses": [
-            {
-              "duration": "1 lesson",
-              "isNew": true,
-              "name": "Overview of AI Technology Development"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": true,
-              "name": "How to Use AI Productivity Tools"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": true,
-              "name": "Introduction to Mainstream AI Tools and Platforms"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": true,
-              "name": "Low/No-Code Agent Application Building"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": true,
-              "name": "Enterprise AI Transformation Structured Analysis Methods"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": true,
-              "name": "AI Era Literacy — Critical Thinking"
-            }
-          ],
-          "description": "Master mainstream AI tools and platforms, and understand the AI technology development context",
-          "tag": "PHASE 01",
-          "title": "AI New Tools Courses"
-        },
-        {
-          "courses": [
-            {
-              "duration": "1 lesson",
-              "isNew": false,
-              "name": "Structured Problem Solving and Facilitation"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": false,
-              "name": "Breaking Innovation Barriers"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": false,
-              "name": "Creative Learning Methods"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": false,
-              "name": "Organizational Change Psychology"
-            }
-          ],
-          "description": "Break through innovation barriers, master structured problem-solving and organizational change methods",
-          "tag": "PHASE 02",
-          "title": "Thinking Courses"
-        },
-        {
-          "courses": [
-            {
-              "duration": "1 lesson",
-              "isNew": false,
-              "name": "Corporate Culture Management"
-            },
-            {
-              "duration": "1 lesson",
-              "isNew": false,
-              "name": "Mission, Vision, and Values"
-            },
-            {
-              "duration": "Series",
-              "isNew": false,
-              "name": "Chinese Traditional Philosophy Series"
-            },
-            {
-              "duration": "Series",
-              "isNew": false,
-              "name": "Western Philosophy Series"
-            }
-          ],
-          "description": "From Eastern and Western philosophy to corporate culture management, build deep organizational consensus",
-          "tag": "PHASE 03",
-          "title": "Culture Courses"
-        }
-      ],
+      "phases": "[{\"courses\":[{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"AI Tech History\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"AI Productivity Tools\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"Top AI Platforms\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"No-Code Agents\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"Enterprise AI Analysis\"},{\"duration\":\"1 lesson\",\"isNew\":true,\"name\":\"Critical Thinking\"}],\"description\":\"Master top AI tools and platforms\",\"tag\":\"PHASE 01\",\"title\":\"AI Tools Course\"},{\"courses\":[{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Structured Problem Solving\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Overcoming Barriers\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Creative Learning\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Change Management\"}],\"description\":\"Solve problems and manage change\",\"tag\":\"PHASE 02\",\"title\":\"Thinking Course\"},{\"courses\":[{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Company Culture\"},{\"duration\":\"1 lesson\",\"isNew\":false,\"name\":\"Vision & Values\"},{\"duration\":\"Series\",\"isNew\":false,\"name\":\"Chinese Philosophy\"},{\"duration\":\"Series\",\"isNew\":false,\"name\":\"Western Philosophy\"}],\"description\":\"Build consensus through philosophy\",\"tag\":\"PHASE 03\",\"title\":\"Culture Course\"}]",
       "subtitle": "Helping enterprise decision-makers fully understand the opportunities and challenges of the AI era",
       "title": "Systematic AI Cognition and Practice Courses"
     },
@@ -14790,7 +15004,7 @@
       "title": "IHUI AI Enterprise Services"
     },
     "join": {
-      "benefits": [],
+      "benefits": "[]",
       "consultHint": "Scan to consult or contact us directly",
       "joinNow": "Join Now",
       "label": "Join IHUI AI Community",
@@ -14800,32 +15014,13 @@
     },
     "modules": {
       "coreServiceBadge": "Core Service",
-      "items": [
-        {
-          "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
-          "tag": "MODULE 01",
-          "title": "Local Community"
-        },
-        {
-          "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
-          "tag": "MODULE 02",
-          "title": "Online Community"
-        },
-        {
-          "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
-          "tag": "MODULE 03",
-          "title": "AI Professional Services"
-        }
-      ],
+      "items": "[{\"description\":\"Offline courses and communities for decision-makers\",\"features\":[\"Systematic Courses\",\"Exploration\",\"Support\"],\"tag\":\"MODULE 01\",\"title\":\"Local Community\"},{\"description\":\"Convenient online platform for information and support\",\"features\":[\"Exchange Platform\",\"Sharing\",\"Resources\"],\"tag\":\"MODULE 02\",\"title\":\"Online Community\"},{\"description\":\"Professional AI models and consulting services\",\"features\":[\"LLMs\",\"Agents\",\"Consulting\"],\"tag\":\"MODULE 03\",\"title\":\"AI Services\"}]",
       "label": "Three Service Modules"
     },
     "positioning": {
       "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
       "label": "Core Positioning",
-      "tags": [],
+      "tags": "[]",
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era"
     },
     "inquiry": "Enterprise Inquiry"
@@ -15300,7 +15495,9 @@
     "phaseApproved": "Approved",
     "phaseExecuting": "Executing",
     "phaseDone": "Done",
-    "viewPullRequest": "View Pull Request"
+    "viewPullRequest": "View Pull Request",
+    "revisionLabel": "Revision Label",
+    "revisionPlaceholder": "Enter revision feedback"
   },
   "floatingChat": {
     "openclaw": {
@@ -15782,7 +15979,8 @@
     "codeEditor": {
       "lspStatus": "LSP",
       "zoomIn": "Zoom in",
-      "zoomOut": "Zoom out"
+      "zoomOut": "Zoom out",
+      "attributionToggle": "Toggle attribution"
     },
     "debug": {
       "add": "Add",
@@ -15806,7 +16004,11 @@
       "watchDuplicate": "Expression already in watch list"
     },
     "diffFileList": {
-      "noMatch": "No matching files"
+      "noMatch": "No matching files",
+      "groupModified": "Modified",
+      "groupAdded": "Added",
+      "groupDeleted": "Deleted",
+      "groupRenamed": "Renamed"
     },
     "diffReview": {
       "copyGitApplyUnreadable": "Skipped {count} file(s) whose content could not be read",
@@ -15839,7 +16041,11 @@
       "commit": "Commit Changes",
       "fileCount": "{count} files",
       "split": "Split",
-      "unified": "Unified"
+      "unified": "Unified",
+      "filterAll": "All",
+      "filterModified": "Modified",
+      "filterAdded": "Added",
+      "filterDeleted": "Deleted"
     },
     "diffViewer": {
       "copyMergedFailed": "Copy failed",
@@ -15944,7 +16150,17 @@
       "noWorkspace": "No host workspace connected",
       "refresh": "Refresh",
       "title": "Host Git",
-      "undetermined": "Undetermined: {reason}"
+      "undetermined": "Undetermined: {reason}",
+      "indexScan": "Scan Git Index",
+      "diffTitle": "Diff for {path}",
+      "diffClose": "Close Diff",
+      "diffClean": "Working tree matches Git index",
+      "diffUndetermined": "Undetermined: {reason}",
+      "diffCommandFailed": "Command failed: {reason}",
+      "indexUndetermined": "Index undetermined: {reason}",
+      "indexDelta": "{total} entries, {delta} changed",
+      "indexFirst": "First index: {total} entries",
+      "indexSkipped": "Skipped: {symlink} symlinks, {nonUtf8} non-UTF-8"
     },
     "layout": {
       "agentView": "Agent View",
@@ -16021,7 +16237,9 @@
     },
     "statusBar": {
       "toggleTheme": "Toggle theme",
-      "unsynced": "Unsynced"
+      "unsynced": "Unsynced",
+      "synced": "Git Synced",
+      "conflict": "Git Conflict"
     },
     "terminalPanel": {
       "switchToDark": "Switch to dark terminal",
@@ -16135,7 +16353,9 @@
       "mcp": "MCP",
       "plus": "Add view",
       "settings": "Settings",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "unpin": "Unpin",
+      "pin": "Pin Window"
     },
     "viewSwitcher": {
       "groupSettings": "Settings",
@@ -16143,6 +16363,37 @@
       "groupView": "View",
       "noMatch": "No match",
       "searchPlaceholder": "Search views..."
+    },
+    "agentsMd": {
+      "generateConfirmTitle": "Confirm Generate",
+      "generateConfirmContent": "Generate an AGENTS.md draft based on the current workspace",
+      "errorEmptyWorkspace": "Workspace is empty",
+      "errorRequestFailed": "Request failed",
+      "errorNoDraft": "No draft available",
+      "generateFailed": "Generation failed",
+      "draftNotice": "Draft generated",
+      "writeConfirmTitle": "Confirm Write",
+      "writeConfirmContent": "This will overwrite the existing AGENTS.md file",
+      "writeFailed": "Write failed",
+      "written": "Written",
+      "title": "AGENTS.md",
+      "hint": "Define agent behavior and rules",
+      "generating": "Generating",
+      "generate": "Generate",
+      "draftTitle": "Draft",
+      "writing": "Writing",
+      "write": "Write",
+      "discard": "Discard"
+    },
+    "terminalSessionList": {
+      "closeTerminalAria": "Close Terminal",
+      "empty": "No terminal sessions",
+      "loading": "Loading",
+      "newTerminalAria": "New Terminal",
+      "statusActive": "Running",
+      "statusClosed": "Closed",
+      "statusExited": "Exited",
+      "title": "Terminal Sessions"
     }
   },
   "imageGenPage": {
@@ -16155,7 +16406,11 @@
     "sizeLabel": "Size",
     "subtitle": "Enter a prompt to generate an image",
     "success": "Generated successfully",
-    "title": "AI Image Generation"
+    "title": "AI Image Generation",
+    "gallery": "Gallery",
+    "history": "History",
+    "templates": "Templates",
+    "favorites": "Favorites"
   },
   "inlineEdit": {
     "closeAriaLabel": "Close editor",
@@ -17153,14 +17408,7 @@
       "viewMore": "View more"
     },
     "marquee": {
-      "items": [
-        "🎉 New AI Education module: courses, live classes, and exams in one",
-        "🚀 Model Market adds GPT-5, Claude 4.5, Gemini 2.5 Pro flagships",
-        "💎 VIP members: 30% off, unlimited access to 100+ agents",
-        "🌍 Multi-language upgrade: real-time translation in 5 languages",
-        "🎨 50+ themes in Theme Center, switch visual style with one click",
-        "📚 Knowledge RAG is live, documents turn into smart Q&A"
-      ],
+      "items": "[\"🎉 New AI Education Module Live: Course Study / Live Classes / Exams in One\",\"🚀 Flagship Models Added to Model Marketplace: GPT-5 / Claude 4.5 / Gemini 2.5 Pro\",\"💎 VIP Members Get 30% Off for a Limited Time, Unlimited Access to 100+ Agents\",\"🌍 Multi-Language Support Upgraded: 5 New Languages with Real-Time Translation\",\"🎨 Theme Center With 50+ Themes, One-Click Visual Style Switching\",\"📚 Knowledge Base RAG Launched: Instant Smart Q&A from Documents\"]",
       "label": "Announcement"
     },
     "miniappModal": {
@@ -17474,7 +17722,12 @@
     "dashboardSuccessRate": "Success rate",
     "dashboardAvgLatency": "Avg latency",
     "dashboardNoData": "No data",
-    "dashboardLatency": "{value}s"
+    "dashboardLatency": "{value}s",
+    "clearAuthSuccess": "Authorization for {name} cleared",
+    "clearAuthNoOauth": "{name} has no OAuth authorization",
+    "clearAuthFailed": "Failed to clear authorization for {name}",
+    "clearAuthHint": "Clear authentication credentials for this server",
+    "clearAuth": "Clear Authorization"
   },
   "member": {
     "feedback": {
@@ -17711,7 +17964,7 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": "[\"Mon\",\"Tue\",\"Wed\",\"Thu\",\"Fri\",\"Sat\",\"Sun\"]"
   },
   "models": {
     "relay": {
@@ -18109,24 +18362,7 @@
         "docs": "View Docs",
         "title": "OpenClaw - Making AI Deployment Easier"
       },
-      "steps": [
-        {
-          "desc": "Install the OpenClaw CLI tool with a single command",
-          "title": "Install CLI"
-        },
-        {
-          "desc": "Log in to OpenClaw using your API key",
-          "title": "Login Authentication"
-        },
-        {
-          "desc": "Select the models and regions to deploy",
-          "title": "Configure Models"
-        },
-        {
-          "desc": "Execute the deploy command and wait for the service to be ready",
-          "title": "One-Click Launch"
-        }
-      ],
+      "steps": "[{\"desc\":\"Install the OpenClaw CLI tool with a single command\",\"title\":\"Install CLI\"},{\"desc\":\"Log in to OpenClaw using your API token\",\"title\":\"Login & Auth\"},{\"desc\":\"Select the model and region to deploy\",\"title\":\"Configure Model\"},{\"desc\":\"Run the deployment command and wait for the service to be ready\",\"title\":\"One-Click Start\"}]",
       "stepsTitle": "Deployment Steps",
       "subtitle": "Open-source AI gateway, supports multi-model routing, load balancing, and caching",
       "title": "OpenClaw One-Click Deployment"
@@ -18440,31 +18676,13 @@
     "consumeTrend": "+{n}% vs last month",
     "packages": {
       "enterprise": {
-        "features": [
-          "200M tokens quota",
-          "Dedicated model channel",
-          "Unlimited API tokens",
-          "Dedicated account manager",
-          "Permanent call logs",
-          "SLA 99.95%"
-        ]
+        "features": "[\"200M token quota\",\"Dedicated model channel\",\"Unlimited API tokens\",\"Dedicated account manager\",\"Permanent call logs\",\"99.95% SLA\"]"
       },
       "pro": {
-        "features": [
-          "15M tokens quota",
-          "All models available",
-          "20 API tokens",
-          "Priority support",
-          "90-day call logs"
-        ]
+        "features": "[\"15M token quota\",\"Access to all models\",\"20 API tokens\",\"Priority tech support\",\"90-day call logs\"]"
       },
       "starter": {
-        "features": [
-          "1M tokens quota",
-          "Basic models available",
-          "5 API tokens",
-          "Community support"
-        ]
+        "features": "[\"1M token quota\",\"Access to basic models\",\"5 API tokens\",\"Community support\"]"
       }
     },
     "productSchema": {
@@ -18948,6 +19166,131 @@
     "loadMore": "Load more",
     "schedulerDisabled": "Auto check-in off",
     "schedulerEnabled": "Auto check-in on",
+    "creditRefreshAll": "Refresh Credits",
+    "creditRefreshing": "Querying…",
+    "creditQueryFail": "Query Failed",
+    "deviceMapProxyHint": "Anti-risk control: Assign a unique proxy per account to bind distinct outbound IPs. e.g. \"proxy\": \"http://user:pass@host:port\" (http/socks5). Leave blank for direct connection",
+    "addSmartTitle": "Smart Import (Recommended)",
+    "addSmartScanning": "Detecting local login state…",
+    "addSmartTraeFound": "Detected {count} Trae accounts",
+    "addSmartQoderFound": "Found {count} Qoder accounts",
+    "addSmartMinimaxFound": "MiniMax Code local session ({count})",
+    "captureMinimaxNoToken": "No token found, please log in to MiniMax Code and retry",
+    "addSmartImport": "Import selected",
+    "addSmartImporting": "Importing",
+    "addSmartNone": "No Trae / Qoder login detected, log in to the client and rescan",
+    "addSmartRescan": "Rescan",
+    "addSmartDesktopOnly": "Smart import is desktop-only, use manual entry below",
+    "addManualAdvanced": "Manual entry (Advanced)",
+    "skippedCooldown": "Skipped {count} cooling down accounts",
+    "checkinRateLimited": "Rate limited, batch aborted, please try later",
+    "checkinFailedCount": "Check-in failed for {count} accounts",
+    "captureTitle": "Capture from local",
+    "captureWebLogin": "Web login",
+    "captureMethodWeb": "Web login",
+    "captureMethodLocal": "Local capture",
+    "platformAll": "All platforms",
+    "platformTrae": "Trae",
+    "platformQoder": "Qoder",
+    "platformMinimax": "MiniMax",
+    "platformLabel": "Platform",
+    "captureQoderButton": "Capture Qoder",
+    "captureQoderTitle": "Capture from Local Qoder",
+    "captureQoderDescription": "Decrypt local Qoder session credentials with device fingerprint; run as the logged-in Windows user",
+    "captureQoderScan": "Scan Qoder Sessions",
+    "captureQoderEmpty": "No logged-in Qoder session found",
+    "platformWorkbuddy": "WorkBuddy",
+    "captureWbButton": "Capture WorkBuddy",
+    "captureWbTitle": "Capture from Local WorkBuddy",
+    "captureWbDescription": "Reads local WorkBuddy desktop login state. V5.8+ encrypts tokens, so paste the token to import",
+    "captureWbScan": "Scan WorkBuddy State",
+    "captureWbEmpty": "No logged-in WorkBuddy state found",
+    "captureWbEncrypted": "Paste Token Required",
+    "captureWbTokenPlaceholder": "Paste WorkBuddy token",
+    "captureWbTokenRequired": "Empty token: paste it manually to import encrypted accounts",
+    "captureWbWebTitle": "Web Login (Auto)",
+    "captureWbWebDescription": "Open WorkBuddy login in embedded browser; auto-imports credentials on success",
+    "captureWbWebOpen": "Open in System Browser",
+    "captureWbWebEmbed": "Embedded Login (Auto)",
+    "captureWbWebToolbar": "Web Login",
+    "captureWbWebWaiting": "Login page opened in embedded browser. Complete login (phone/QR). Account auto-imports on success.",
+    "captureWbWebImporting": "Importing account…",
+    "captureWbWebDone": "Web login import complete ({count} accounts)",
+    "captureWbWebPastePlaceholder": "Paste login Cookie (full header or k=v; k2=v2)",
+    "captureWbWebPasteImport": "Import",
+    "captureWbWebPasteRequired": "Please paste login Cookie before importing",
+    "captureWbWebPasteInvalid": "Invalid or expired Cookie. Recopy from browser",
+    "captureWbPasteName": "WorkBuddy Web Login",
+    "captureWbWebCancel": "Cancel",
+    "captureWbWebCancelled": "Web login cancelled. Retry via Web Login",
+    "captureWbWebSlowHint": "No login detected. Verify login in browser window or cancel to retry",
+    "captureWbWebOpenFailed": "Failed to open default browser. Check settings and retry",
+    "captureWbManualDivider": "Or capture desktop login manually",
+    "captureWbWebCheckinUncertain": "Web login may fail. Use token if 401 error occurs",
+    "captureWbWebAccountMissing": "Imported but missing uid/nickname. Use embedded browser if check-in fails",
+    "captureDirFound": "TRAE data directory found: {dir}",
+    "captureDirMissing": "TRAE data directory not found. Set via IHUI_TRAE_DIR",
+    "captureEmpty": "No valid JWT found in local data directory",
+    "captureOpaqueOnly": "Account found, but no JWT. Use Web Login or paste JWT manually",
+    "captureScan": "Scan Local Device",
+    "captureImport": "Import checked accounts ({count})",
+    "captureImported": "Imported {count} accounts from this device",
+    "maintTitle": "Local TRAE Maintenance",
+    "maintDescription": "Device ID reset and on-site snapshot apply locally only; TRAE login required after reset. Deep reset clears built-in Cookies, identity DB (state.vscdb telemetry/credentials), and log cache, equivalent to reinstall—fully exit TRAE before proceeding. When browser cleanup is checked, TRAE Cookies in Chrome/Edge are deleted (close browsers first; other sites unaffected)",
+    "maintUserIdLabel": "TRAE User ID (user_id)",
+    "maintUserIdRequired": "Enter TRAE user ID first",
+    "maintReset": "Reset device ID",
+    "maintIncludeGuid": "Also reset registry MachineGuid (admin required)",
+    "maintIncludeBrowser": "Also clear TRAE Cookies in Chrome/Edge (close browsers first)",
+    "maintDeepReset": "Deep reset (auto-close TRAE and clear all on-site data, equivalent to reinstall)",
+    "maintIncludeMac": "Also modify physical NIC MAC address (hardware fingerprint layer, admin required, brief network interruption)",
+    "wizardTitle": "TRAE login blocked? Resolve in one click",
+    "wizardIntro": "Automatically complete 14-layer device identity reset (incl. hardware fingerprint MAC modification, old values auto-backup, brief network interruption), then guide you to switch network exit. No expertise needed. ⚠️ Do NOT log in to TRAE within 24 hours after reset—each login attempt resets the risk control timer, making the reset pointless; log in normally at this time tomorrow",
+    "wizardCriticalFailNote": "⚠️ Required layers failed (see details above). Effect may be incomplete. Retry or run this program as admin",
+    "wizardSkipIp": "Cannot change network? Finish directly (enter 24h cooldown, log in tomorrow)",
+    "wizardIpFailMany": "⚠️ Multiple egress IP checks show no change or failure. If unable to change network, click \"Finish directly\" above to skip verification",
+    "wizardResidualReclean": "After exiting TRAE, force re-run one-click reset (ends TRAE process first, then cleans residual)",
+    "wizardStart": "One-click full reset (~1 min)",
+    "wizardResetDone": "✅ Reset done: {ok}/{total} layers succeeded",
+    "wizardIpBefore": "Pre-reset egress IP: {ip} ({location})",
+    "wizardGuide": "Change network by one method: 1. Unplug modem, wait 1 min, plug back in; 2. Enable phone hotspot, connect computer. Click below to verify",
+    "wizardVerify": "I changed the network, detect new IP",
+    "wizardIpUnchanged": "❌ Exit IP unchanged—modem may not have redialed. Wait 30s, unplug again (min 1 min)",
+    "wizardIpChanged": "✅ New exit IP: {ip}—old IP fully cleared",
+    "wizardCooldown": "Step 3 (auto): Device+network reset complete. ⚠️ Do not log into TRAE for 24h—each attempt resets the timer! Log in normally tomorrow",
+    "wizardOptionalNote": "Some optional steps may show incomplete (e.g. browser open skips cookie clear), no impact on main effect",
+    "wizardNoLoc": "(IP location not obtained this time, does not affect network verification)",
+    "wizardIpFetchFail": "⚠️ Failed to get exit IP (network issue), click below to retry",
+    "wizardRefetch": "Recorded baseline exit IP: {ip} (reset does not affect network, this IP is pre-reset)",
+    "wizardRefetchHint": "Baseline IP not obtained: click below to record current exit IP as baseline before changing network",
+    "wizardIpBeforeNoLoc": "Pre-reset exit IP: {ip}",
+    "wizardCooldownActive": "⏳ Less than 24h since last reset—about {hours} hours left in cooldown, do not log into TRAE",
+    "wizardRestart": "Restart wizard",
+    "wizardAuditTitle": "🔍 Reset completeness verification (residual fingerprint audit)",
+    "wizardAuditClean": "✅ No old identity residuals found: current TRAE environment has no pre-reset device/identity values",
+    "wizardAuditResidual": "⚠️ {n} old identity residuals found: pre-reset values still in listed files, fully exit TRAE and rerun reset",
+    "wizardAuditRerun": "Recheck residuals",
+    "wizardAuditScanning": "Scanning TRAE environment for residuals…",
+    "wizardAuditFail": "⚠️ Residual check failed (does not affect reset), click recheck later to retry",
+    "wizardAuditScope": "Scan scope: {files} files / {mb} MB / {sites} TRAE directories",
+    "wizardAuditRegistry": "Registry Entry",
+    "wizardAuditHardware": "Hardware Fingerprint",
+    "wizardAuditSuspect": "{n} other suspicious matches found (likely irrelevant duplicates for manual review)",
+    "wizardAuditNoHistory": "No pre-reset identity history found (empty blacklist). Run one-click reset first to enable detection",
+    "maintBackup": "Backup Snapshot",
+    "maintBackupDone": "Backed up {count} files ({missing} missing)",
+    "maintRestore": "Restore",
+    "maintRestoreDone": "Restored {count} files ({missing} missing in backup)",
+    "maintDelete": "Delete",
+    "maintClose": "Close",
+    "snapshotsTitle": "Existing Snapshots",
+    "snapshotsEmpty": "No snapshots yet",
+    "deviceMapUpdated": "Device fingerprint updated",
+    "editDeviceMap": "Edit Device Fingerprint",
+    "editDeviceMapTitle": "Edit Device Fingerprint",
+    "editDeviceMapDescription": "Edit device fingerprint for {platform} account (JSON object. Leave empty to auto-generate)",
+    "checkedInToday": "Checked in today",
+    "rename": "Rename",
     "schedulerNextRun": "Next {time}"
   },
   "nav": {
@@ -19300,8 +19643,7 @@
     "adminDeployDiagnosis": "Deployment Diagnosis",
     "githubApp": "GitHub App",
     "smsReceive": "SMS Verification",
-    "sms": "SMS Templates"
-  ,
+    "sms": "SMS Templates",
     "hrGroup": "HR",
     "financeAi": "Finance",
     "eduHubTitle": "Education",
@@ -19428,7 +19770,18 @@
     "examMarking": "Exam marking",
     "adminRelayModelMappings": "Relay model mappings",
     "saasTenants": "SaaS tenants",
-    "saasCertificates": "SaaS certificates"},
+    "saasCertificates": "SaaS certificates",
+    "monitorWallboard": "Monitoring Dashboard",
+    "downloadCodeSigningNotice": "Windows version signed by SignPath.io using a free code signing certificate from SignPath Foundation",
+    "customGroup": "Custom",
+    "customAddTitle": "Customize Frequent Features",
+    "customEmptyHint": "Add frequent features",
+    "customSearchPlaceholder": "Search features",
+    "customAdd": "Add",
+    "customRemove": "Remove",
+    "customDragHint": "Drag to reorder",
+    "customNoResults": "No matching features found"
+  },
   "news": {
     "allCategories": "All Categories",
     "backToList": "Back to news",
@@ -19476,13 +19829,7 @@
       }
     },
     "benefits": {
-      "items": [
-        "Weekly AI engineering practical cases",
-        "Early access to new features",
-        "Exclusive prompt templates",
-        "Industry trend analysis",
-        "Community event notifications"
-      ],
+      "items": "[\"Weekly AI Engineering Case Studies\",\"Early Access to New Features\",\"Exclusive Prompt Templates\",\"Industry Trend Analysis\",\"Community Event Notifications\"]",
       "title": "Subscriber Benefits"
     },
     "errors": {
@@ -19626,6 +19973,55 @@
       "more": "More",
       "tenK": "k",
       "title": "Hot News"
+    },
+    "integral": {
+      "all": "All",
+      "currentPoints": "Current Points",
+      "mall": "Points Mall",
+      "myRank": "My Rank",
+      "recentRecords": "Recent Records",
+      "title": "Points Center",
+      "weeklyGain": "This Week"
+    },
+    "messageSystem": {
+      "messageCenterAria": "Message Center",
+      "noNewMessages": "No new messages",
+      "title": "Message Center",
+      "unreadCount": "{count} unread",
+      "viewAll": "View All"
+    },
+    "rightModule": {
+      "defaultEntries": {
+        "help": {
+          "description": "User Guide",
+          "label": "Help Center"
+        },
+        "invite": {
+          "description": "Earn Points",
+          "label": "Invite Friends"
+        },
+        "mall": {
+          "description": "Redeem Rewards",
+          "label": "Points Mall"
+        },
+        "vip": {
+          "description": "Member Benefits",
+          "label": "Member Center"
+        }
+      },
+      "defaultTags": {
+        "agent": "Agent",
+        "backend": "Backend",
+        "frontend": "Frontend",
+        "llm": "LLM",
+        "opensource": "Open Source",
+        "rag": "RAG",
+        "tutorial": "Tutorials"
+      },
+      "hotTags": "Popular Tags",
+      "more": "See More",
+      "promotion": "Promote",
+      "quickEntries": "Quick Links"
     }
   },
   "operationLogs": {
@@ -19883,35 +20279,17 @@
       "enterprise": {
         "contactSales": "Contact Sales",
         "cta": "Contact Sales",
-        "features": [
-          "Unlimited credits",
-          "Self-hosted deployment",
-          "SSO/SAML 2.0",
-          "Audit logs",
-          "Dedicated technical support"
-        ],
+        "features": "[\"Unlimited Credits\",\"Private Deployment\",\"SSO/SAML 2.0\",\"Audit Logs\",\"Dedicated Technical Support\"]",
         "name": "Enterprise"
       },
       "free": {
         "cta": "Get Started",
-        "features": [
-          "1,000 credits per month",
-          "All AI models",
-          "All 6 clients",
-          "API access",
-          "Community support"
-        ],
+        "features": "[\"1000 Credits/Month\",\"All AI Models\",\"All 6 Clients\",\"API Access\",\"Community Support\"]",
         "name": "Free"
       },
       "pro": {
         "cta": "Upgrade to Pro",
-        "features": [
-          "10,000 credits per month",
-          "Priority queue",
-          "Advanced models (GPT-4o/Claude Opus)",
-          "Team collaboration (5 seats)",
-          "Email support"
-        ],
+        "features": "[\"10000 Credits/Month\",\"Priority Queue\",\"Advanced Models (GPT-4o/Claude Opus)\",\"Team Collaboration (5 Seats)\",\"Email Support\"]",
         "name": "Pro"
       },
       "unknown": {
@@ -20139,13 +20517,7 @@
     "earlyBird": {
       "cta": "Join Now",
       "desc": "Limited to first 18 seats, regular price after sold out",
-      "features": [
-        "All courses free for the year",
-        "Priority access to offline exploration events",
-        "Unlimited IHUI AI community interaction",
-        "1-on-1 mentor consultation (1 session, early-bird exclusive)",
-        "Early-bird resource pack (valued ¥3000)"
-      ],
+      "features": "[\"All-year free course access\",\"Priority offline exploration slots\",\"Unlimited Zhuihui AI Community interaction\",\"1 Early Bird 1-on-1 Mentorship Session\",\"Exclusive Early Bird Resource Pack (Value $430)\"]",
       "name": "Early Bird Member",
       "originalPrice": "¥18000",
       "period": "/person/year",
@@ -20154,13 +20526,7 @@
     "enterprise": {
       "cta": "Contact Sales",
       "desc": "Customized plan for enterprise decision-maker teams",
-      "features": [
-        "Dedicated account manager + custom deployment",
-        "Team training + internal knowledge base integration",
-        "High-concurrency API quota + SLA guarantee",
-        "Optional on-premise deployment",
-        "Quarterly review + strategy consulting"
-      ],
+      "features": "[\"Dedicated Account Manager + Custom Deployment\",\"Team Training + Internal Knowledge Base Integration\",\"High-Concurrency API Quotas + SLA\",\"Optional Private Deployment\",\"Quarterly Reviews + Strategic Consulting\"]",
       "name": "Enterprise Service",
       "period": "/mo",
       "price": "Contact Sales"
@@ -20193,54 +20559,13 @@
     "standard": {
       "cta": "Learn More",
       "desc": "Automatically switches to this plan after early bird sold out",
-      "features": [
-        "All courses free for the year",
-        "Priority access to offline exploration events",
-        "Unlimited IHUI AI community interaction"
-      ],
+      "features": "[\"All-year free course access\",\"Priority offline exploration slots\",\"Unlimited Zhuihui AI Community interaction\"]",
       "name": "Standard Member",
       "period": "/person/year",
       "price": "¥18000"
     },
     "testimonials": {
-      "items": [
-        {
-          "company": "TechStart",
-          "name": "Zhang Ming",
-          "role": "CTO",
-          "text": "IHUI AI helped us launch an enterprise AI assistant in 2 weeks, saving 3 months of dev time"
-        },
-        {
-          "company": "DataFlow",
-          "name": "Sarah Chen",
-          "role": "Lead Engineer",
-          "text": "The multi-tenant RLS design is professional, 340-table isolation is flawless"
-        },
-        {
-          "company": "Chuangzhi Tech",
-          "name": "Li Hua",
-          "role": "Founder",
-          "text": "176 LLMs unified adaptation, no more writing 10 sets of API calls"
-        },
-        {
-          "company": "CloudSys",
-          "name": "Marcus Weber",
-          "role": "DevOps",
-          "text": "From source deploy to production in 3 days, docs are very detailed"
-        },
-        {
-          "company": "Zhiyun Tech",
-          "name": "Wang Fang",
-          "role": "AI Architect",
-          "text": "LangGraph + MCP + A2A tri-stack, the most complete AI framework we have seen"
-        },
-        {
-          "company": "AIVentures",
-          "name": "Alex Kim",
-          "role": "CTO",
-          "text": "Apache 2.0 business-friendly, 5346 tests give peace of mind"
-        }
-      ],
+      "items": "[{\"company\":\"TechStart\",\"name\":\"Zhang Ming\",\"role\":\"CTO\",\"text\":\"IHUI AI helped us launch our enterprise AI assistant in 2 weeks, saving 3 months of development\"},{\"company\":\"DataFlow\",\"name\":\"Sarah Chen\",\"role\":\"Lead Engineer\",\"text\":\"The multi-tenant RLS design is professional; isolation across 340 tables is flawless\"},{\"company\":\"Chuangzhi Tech\",\"name\":\"Li Hua\",\"role\":\"Founder\",\"text\":\"Unified support for 176 LLMs means no more writing 10 separate API call sets\"},{\"company\":\"CloudSys\",\"name\":\"Marcus Weber\",\"role\":\"DevOps\",\"text\":\"Source to production in 3 days with very detailed documentation\"},{\"company\":\"Zhiyun Tech\",\"name\":\"Wang Fang\",\"role\":\"AI Architect\",\"text\":\"LangGraph + MCP + A2A is the most complete AI framework we've seen\"},{\"company\":\"AIVentures\",\"name\":\"Alex Kim\",\"role\":\"CTO\",\"text\":\"Apache 2.0 license is business-friendly; 5346 tests give us confidence\"}]",
       "subtitle": "Real feedback from users across industries and team sizes",
       "title": "What Developers Say"
     }
@@ -20880,7 +21205,25 @@
     "title": "Multi-Platform Publishing",
     "uploadFailed": "Upload failed",
     "uploadProgress": "Uploading",
-    "uploadSuccess": "Upload succeeded"
+    "uploadSuccess": "Upload succeeded",
+    "keepalive": {
+      "loading": "Loading",
+      "disabledTitle": "Feature Disabled",
+      "disabledHint": "Administrator has disabled this feature",
+      "title": "Keepalive Status",
+      "interval": "Checks every {hours} hours",
+      "triggering": "Triggering",
+      "triggerNow": "Trigger Now",
+      "allHealthy": "All {total} items healthy",
+      "needsAttention": "Needs Attention",
+      "accountFallback": "Account {id}",
+      "failures": "Failed {count} times",
+      "retry": "Retry",
+      "expiringSoon": "{count} Expiring Soon",
+      "expiresAt": "Expires at {time}",
+      "rate7d": "7-Day Success Rate",
+      "rateUnknown": "Unknown"
+    }
   },
   "publishMonitor": {
     "title": "Publish Monitor",
@@ -21009,7 +21352,11 @@
     "listLoading": "Loading...",
     "listReason": "Reason: {reason}",
     "listSubtitle": "View refund records and request refunds",
-    "listTitle": "Refund Management"
+    "listTitle": "Refund Management",
+    "listStatusPending": "Pending",
+    "listStatusApproved": "Approved",
+    "listStatusRejected": "Rejected",
+    "listStatusCompleted": "Completed"
   },
   "refundDetailPage": {
     "auditAction": {
@@ -21036,7 +21383,13 @@
     "refundType": {
       "original": "Refund to Original Payment Method"
     },
-    "title": "Refund Details"
+    "title": "Refund Details",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "completed": "Completed"
+    }
   },
   "resourceFormPage": {
     "cardTitle": "Resource Info",
@@ -21143,16 +21496,7 @@
     "noSuggestions": "No matching suggestions",
     "open": "Open",
     "popular": "Popular Searches",
-    "quickSuggestions": [
-      "Settings",
-      "Profile",
-      "Projects",
-      "Conversations",
-      "Members",
-      "Workspaces",
-      "Shortcuts",
-      "AI Models"
-    ],
+    "quickSuggestions": "[\"Settings\",\"Profile\",\"Projects\",\"Chat History\",\"Members\",\"Workspaces\",\"Shortcuts\",\"AI Models\"]",
     "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})",
     "searchHistory": "Search history",
     "searchPlaceholder": "Search…",
@@ -21320,52 +21664,28 @@
     "cards": {
       "consulting": {
         "desc": "Architecture consulting / tech selection / code review",
-        "features": [
-          "Video call / remote desktop",
-          "2 hours minimum",
-          "Troubleshooting",
-          "VAT invoice",
-          "24h response SLA"
-        ],
+        "features": "[\"Video/Remote Desktop\",\"Min. 2 Hours\",\"Troubleshooting\",\"VAT Invoices\",\"24h Response SLA\"]",
         "price": "¥999",
         "title": "Technical Consulting",
         "unit": "/hour"
       },
       "custom": {
         "desc": "Build enterprise-specific features on IHUI-AI",
-        "features": [
-          "Business integration / Agent dev",
-          "UI customization / API extension",
-          "80 hours (~2 weeks)",
-          "3-month warranty",
-          "Source code + deployment docs"
-        ],
+        "features": "[\"Business Integration/Agent Development\",\"UI Customization/API Extension\",\"80 Man-hours (~2 Weeks)\",\"3-Month Warranty\",\"Source Code + Deployment Docs\"]",
         "price": "¥19,999",
         "title": "Custom Development",
         "unit": "starting"
       },
       "deployment": {
         "desc": "Deploy source code to your server",
-        "features": [
-          "PostgreSQL + Redis setup",
-          "8-end build",
-          "2-hour online training",
-          "30-day email support",
-          "3-5 business days delivery"
-        ],
+        "features": "[\"PostgreSQL + Redis Config\",\"8-End Build\",\"2-Hour Online Training\",\"30-Day Email Support\",\"3-5 Business Day Delivery\"]",
         "price": "¥4,999",
         "title": "Private Deployment",
         "unit": "/project"
       },
       "training": {
         "desc": "1-day on-site / 2-day online intensive training",
-        "features": [
-          "Architecture + deployment practice",
-          "Secondary dev + Agent design",
-          "Taught by core maintainers",
-          "Up to 20 attendees",
-          "Video + slides + lab environment"
-        ],
+        "features": "Videos, PPT & hands-on environment",
         "price": "¥9,999",
         "title": "Enterprise Training Workshop",
         "unit": "/session"
@@ -21386,32 +21706,7 @@
       "title": "Enterprise Inquiry"
     },
     "faq": {
-      "items": [
-        {
-          "a": "We support WeChat Pay, Alipay, bank transfer, and Stripe (overseas). Custom development supports installments: 50% upfront + 30% mid-stage + 20% on acceptance.",
-          "q": "How to pay?"
-        },
-        {
-          "a": "Yes, we can issue VAT general invoices or special invoices. Please note your billing info in the inquiry form.",
-          "q": "Can I get an invoice?"
-        },
-        {
-          "a": "Consulting is billed hourly with no refunds for consumed hours. Deployment/training is fully refundable before kickoff; after kickoff, consumed hours are deducted.",
-          "q": "Refund policy?"
-        },
-        {
-          "a": "Private deployment 3-5 business days, training 1-2 weeks lead time, custom development estimated by hours (80 hours ~2 weeks).",
-          "q": "Delivery timeline?"
-        },
-        {
-          "a": "Private deployment includes 30-day email support, custom development includes 3-month warranty, consulting is hourly with no fixed after-sales.",
-          "q": "After-sales support?"
-        },
-        {
-          "a": "Custom development source code belongs to the client; copyright transfer available. IHUI-AI core code is Apache 2.0 open source.",
-          "q": "Source code ownership?"
-        }
-      ],
+      "items": "Customers own the source code for custom development, with IP transfer available upon request. IHUI-AI core code is open source under Apache 2.0.",
       "title": "FAQ"
     },
     "hero": {
@@ -22026,20 +22321,26 @@
     "codeIndexEgressOptOut": "Don't Build Code Semantic Index",
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
-    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences"
-  ,
+    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
     "expertRoute": {
-      "title": "Expert Routing"
-    ,
+      "title": "Expert Routing",
       "desc": "Choose which model routing strategy handles your requests",
       "default": "Default",
-      "envLockedNotice": "This setting is locked by an environment variable and cannot be changed here"},
+      "envLockedNotice": "This setting is locked by an environment variable and cannot be changed here"
+    },
     "navTiers": {
-      "title": "Sidebar visibility tiers"
-    ,
+      "title": "Sidebar visibility tiers",
       "desc": "Choose which advanced features appear in the sidebar",
       "simpleMode": "Simple mode",
-      "simpleModeDesc": "Hide advanced entries and keep only common menus"}},
+      "simpleModeDesc": "Hide advanced entries and keep only common menus"
+    },
+    "dataRightsTitle": "Data rights",
+    "usageTitle": "Usage",
+    "devices": {
+      "navTitle": "Devices",
+      "navDesc": "Review signed-in devices and manage their sessions"
+    }
+  },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
     "defaultModelName": "AI Smart Chat",
@@ -22271,7 +22572,9 @@
     "redirect": {
       "notAllowed": "Redirect target is not allowed",
       "notAllowedDesc": "For security reasons, only whitelisted redirect targets are allowed.",
-      "title": "Unified Login Redirect"
+      "title": "Unified Login Redirect",
+      "unavailable": "Service Unavailable",
+      "unavailableDesc": "Network connection error, please try again later"
     },
     "redirecting": "Redirecting to authorization…",
     "redirectingDesc": "Opening {platform} authorization page",
@@ -22292,7 +22595,13 @@
       "backToLogin": "Back to sign in",
       "sso_code": "SSO Code"
     },
-    "platform": "Platform"
+    "platform": "Platform",
+    "redirectBlockedByGuard": "Redirect blocked by security policy",
+    "miniappHandoffFailed": "Mini-app handoff failed",
+    "miniappHandoffTitle": "Mini-app Handoff",
+    "miniappHandoffHint": "Continue in mini-app",
+    "desktopHandoffHint": "Login complete on desktop. You can close this page.",
+    "desktopHandoffTitle": "Authorization successful"
   },
   "statistics": {
     "actions": "Actions",
@@ -22581,6 +22890,15 @@
       "failed": "Failed",
       "pending": "Pending",
       "running": "Running"
+    },
+    "approval": {
+      "approved": "Approved",
+      "denied": "Denied",
+      "hint": "Please review the pending approvals below",
+      "origin": "Source",
+      "target": "Target",
+      "approve": "Approve",
+      "deny": "Deny"
     }
   },
   "tasksLog": {
@@ -22882,16 +23200,7 @@
   "useCasesAiEdu": {
     "about": "About",
     "courseSchema": {
-      "about": [
-        "AI Education",
-        "Course Authoring",
-        "Smart Q&A",
-        "Auto-grading",
-        "Learning Recommendation",
-        "MCP Tool Protocol",
-        "Knowledge Base RAG",
-        "Multi-model Routing"
-      ],
+      "about": "Multi-Model Orchestration",
       "courseWorkload": "PT16H",
       "description": "Hands-on course for building AI Education Agents targeting K12, vocational training, and corporate L&D, covering structured course authoring, smart Q&A, auto-grading, learning dashboards, and personalized recommendations. Go live in 30 minutes.",
       "endDate": "2026-12-31",
@@ -22900,13 +23209,7 @@
       "name": "IHUI AI Education Agent Bootcamp",
       "provider": "IHUI AI",
       "startDate": "2026-08-01",
-      "teaches": [
-        "Structured course authoring",
-        "Smart Q&A workflow design",
-        "Auto-grading implementation",
-        "Learning dashboard construction",
-        "Personalized learning path recommendation"
-      ]
+      "teaches": "Personalized learning path recommendations"
     },
     "courseWorkload": "Workload",
     "description": "Description",
@@ -23029,7 +23332,20 @@
       "viewTimeline": "Timeline View",
       "unreadCount": "{count} unread",
       "loading": "Loading...",
-      "noData": "No messages"
+      "noData": "No messages",
+      "important": "To be aware of",
+      "viewActive": "View Feed",
+      "archived": "Archived",
+      "hide": "Hide",
+      "hiding": "Hiding…",
+      "hideFailed": "Failed to hide this item. Please try again.",
+      "restore": "Restore",
+      "restoring": "Restoring…",
+      "restoreFailed": "Failed to restore this item. Please try again.",
+      "markAllReadFailed": "Failed to mark items as read. Please try again.",
+      "emptyDescription": "Updates from comments, mentions, and subscriptions will appear here.",
+      "emptyArchivedDescription": "Your hidden items stay here. Restore them anytime.",
+      "unavailable": "Failed to load"
     },
     "profile": {
       "accountInfo": "Account Info",
@@ -24373,7 +24689,10 @@
     "breakpoints": "Breakpoints",
     "toggle": "Toggle",
     "callStack": "Call stack",
-    "debugConsole": "Debug console"
+    "debugConsole": "Debug console",
+    "stateStopped": "Stopped",
+    "stateRunning": "Running",
+    "statePaused": "Paused"
   },
   "diffFileList": {
     "noMatch": "No matching files"
@@ -25013,7 +25332,8 @@
     "recording": "Recording",
     "voiceHint": "Voice input",
     "placeholder": "Type a message...",
-    "send": "Send"
+    "send": "Send",
+    "stop": "Stop"
   },
   "checkIn": {
     "retry": "Retry",
@@ -25269,7 +25589,8 @@
     "result": "Result",
     "stop": "Stop",
     "clear": "Clear",
-    "taskId": "Task ID"
+    "taskId": "Task ID",
+    "modelDefault": "Default model"
   },
   "codeEditor": {
     "zoomOut": "Zoom out",
@@ -26412,7 +26733,9 @@
     "toastLoadFailed": "Failed to load snapshots",
     "toastPlanFailed": "Dry-run failed",
     "toastRunOk": "Rollback executed",
-    "toastRunFail": "Rollback failed"
+    "toastRunFail": "Rollback failed",
+    "availabilityAvailable": "A checkpoint was just created on another device: {id}",
+    "availabilityUnavailable": "Checkpoint service unavailable. Try again later"
   },
   "traceReplay": {
     "title": "Trace replay",
@@ -27630,7 +27953,59 @@
     "days": "Days",
     "reason": "Reason",
     "daysWithUnit": "{count} days",
-    "approveAction": "Review"
+    "approveAction": "Review",
+    "notLoggedIn": "Not logged in",
+    "studentPageTitle": "Student Check-in",
+    "studentPageSubtitle": "View attendance records and check-in rules",
+    "prevMonth": "Previous Month",
+    "nextMonth": "Next Month",
+    "thisMonth": "This Month",
+    "selfCheckIn": "Self Check-in",
+    "selfCheckInSuccess": "Check-in successful",
+    "selfCheckOutSuccess": "Check-out successful",
+    "ruleLateAfter": "Late after",
+    "ruleEarlyBefore": "Early before",
+    "ruleAbsentAfter": "Absent after",
+    "ruleSaved": "Rule saved",
+    "rulePanelTitle": "Attendance Rules",
+    "ruleClassHint": "Select a class to configure attendance rules",
+    "ruleNotConfigured": "Rule not configured",
+    "ruleEnabledLabel": "Enable Rules",
+    "ruleSave": "Save",
+    "ruleTimeHint": "Set thresholds in 24-hour format",
+    "ruleQrSecretState": "QR Secret",
+    "ruleQrSecretOn": "Configured",
+    "ruleQrSecretOff": "Not configured",
+    "ruleQrSecretGuide": "Please configure the QR secret",
+    "batchCheckIn": "Batch Check-in",
+    "classLabel": "Class",
+    "checkInAt": "Check-in Time",
+    "backfillNeedsTime": "Backfill requires a time",
+    "batchFailed": "Batch operation failed",
+    "batchResultCreated": "Created",
+    "batchResultSkipped": "Skipped",
+    "batchResultMissed": "Missed",
+    "batchConfirm": "Confirm Batch",
+    "qrPanelTitle": "QR Panel",
+    "qrLoading": "Loading QR code",
+    "qrExpiresIn": "Expires in {seconds}s",
+    "qrExpired": "QR code expired",
+    "qrSecretNote": "Displays QR code for current secret only",
+    "qrRotated": "Secret {fingerprint} rotated",
+    "qrRefresh": "Refresh",
+    "qrRotateSecret": "Rotate Secret",
+    "qrLoadFailed": "Failed to load QR code",
+    "qrNeedSetup": "Please configure the QR secret first",
+    "selectClass": "Select Class",
+    "exportCsv": "Export CSV",
+    "exportFailed": "Export failed",
+    "statusOther": "Other",
+    "scopeAllClasses": "All Classes",
+    "trendChartTitle": "Attendance Trends",
+    "trendChartScope": "Scope: {scope}",
+    "trendChartHint": "Last 30 days",
+    "trendCountAxisLabel": "Count",
+    "trendChartAria": "Attendance trend chart for {scope}"
   },
   "eduCertificates": {
     "certificateNo": "No.: {no}",
@@ -27807,7 +28182,8 @@
     "billingRead": "Read billing quota",
     "oauthManage": "Manage OAuth apps",
     "mcpConnect": "Connect MCP servers",
-    "opsExecute": "Run operations tasks"
+    "opsExecute": "Run operations tasks",
+    "voiceStt": "Speech to text"
   },
   "apiKeysPage": {
     "title": "My API Keys",
@@ -28064,61 +28440,1347 @@
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
-  }
-,
+  },
   "hrHub": {
-    "title": "HR"
-  ,
+    "title": "HR",
     "subtitle": "Employee self-service and HR management",
     "sectionSelf": "Self Service",
-    "sectionAdmin": "HR Management"},
+    "sectionAdmin": "HR Management"
+  },
   "eduHub": {
-    "title": "Education"
-  ,
-    "subtitle": "Courses, live classes, exams and teaching management"},
+    "title": "Education",
+    "subtitle": "Courses, live classes, exams and teaching management"
+  },
   "aiHub": {
-    "title": "AI"
-  ,
-    "subtitle": "Models, agents, knowledge and content generation"},
+    "title": "AI",
+    "subtitle": "Models, agents, knowledge and content generation"
+  },
   "contentHub": {
-    "title": "Content"
-  ,
-    "subtitle": "Plaza, teams, messages and self-media publishing"},
+    "title": "Content",
+    "subtitle": "Plaza, teams, messages and self-media publishing"
+  },
   "tradeHub": {
-    "title": "Trading"
-  ,
-    "subtitle": "Earnings, orders, payments and membership points"},
+    "title": "Trading",
+    "subtitle": "Earnings, orders, payments and membership points"
+  },
   "personalHub": {
-    "title": "Account"
-  ,
-    "subtitle": "Account, favorites, learning and subscriptions"},
+    "title": "Account",
+    "subtitle": "Account, favorites, learning and subscriptions"
+  },
   "developerHub": {
-    "title": "Developer"
-  ,
-    "subtitle": "APIs, keys, usage and debugging tools"},
+    "title": "Developer",
+    "subtitle": "APIs, keys, usage and debugging tools"
+  },
   "adminHub": {
-    "title": "Admin"
-  ,
-    "subtitle": "Site configuration, operations and audit"},
+    "title": "Admin",
+    "subtitle": "Site configuration, operations and audit"
+  },
   "domainHub": {
-    "functionCount": "{count} features"
-  ,
+    "functionCount": "{count} features",
     "searchPlaceholder": "Search features",
     "empty": "No matching features",
-    "subItems": "{count} sub-items"},
+    "subItems": "{count} sub-items"
+  },
   "pwaInstall": {
-    "title": "Install to Home Screen"
-  ,
+    "title": "Install to Home Screen",
     "body": "Install IHUI AI for faster launch and offline access",
     "action": "Install",
-    "close": "Close"},
+    "close": "Close"
+  },
   "myPayroll": {
-    "title": "My Payslips"
-  ,
+    "title": "My Payslips",
     "subtitle": "View your monthly payslip details",
-    "empty": "No payslips yet"},
+    "empty": "No payslips yet"
+  },
   "connectivity": {
-    "hostLocalAvailable": "Local service available"
-  }}
-
-
+    "hostLocalAvailable": "Local service available",
+    "deviceOffline": "Device offline",
+    "slow": "Slow network",
+    "unconfirmed": "Unconfirmed"
+  },
+  "artifacts": {
+    "countSummary": "{loaded} of {total} loaded",
+    "loadMore": "Load More",
+    "refresh": "Refresh",
+    "navEntry": "Artifacts",
+    "justNow": "Just now",
+    "secondsAgo": "{n}s ago",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago",
+    "loadFailed": "Failed to load",
+    "previewFailed": "Preview failed",
+    "loading": "Loading",
+    "loginRequired": "Login required",
+    "title": "Artifacts",
+    "desc": "View and manage generated artifacts",
+    "empty": "No artifacts",
+    "colName": "Name",
+    "colKind": "Type",
+    "colVersion": "Version",
+    "colCreated": "Created",
+    "colSession": "Session",
+    "colActions": "Actions",
+    "viewSession": "View session",
+    "download": "Download",
+    "preview": "Preview"
+  },
+  "accountPool": {
+    "checkin": "Check-in",
+    "disable": "Disable",
+    "enable": "Enable",
+    "confirmDelete": "Confirm Delete",
+    "delete": "Delete",
+    "addSuccess": "Added",
+    "actionFailed": "Action failed",
+    "checkinSuccess": "Check-in successful",
+    "add": "Add",
+    "title": "Account Pool",
+    "subtitle": "Manage multi-account access",
+    "loginRequired": "Sign in required",
+    "provider": "Provider",
+    "name": "Name",
+    "namePlaceholder": "e.g. My Trae",
+    "token": "Token",
+    "refreshToken": "Refresh Token",
+    "optional": "Optional",
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading",
+    "empty": "No accounts yet",
+    "emptyHint": "Add an account to get started",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "syncPending": "Syncing",
+    "uid": "UID"
+  },
+  "apps": {
+    "invalidJson": "Invalid JSON",
+    "invalidTitle": "Invalid title",
+    "savedToast": "Saved",
+    "saveFailed": "Save failed",
+    "blocks": "Blocks",
+    "creating": "Creating",
+    "createAndOpen": "Create & Open",
+    "preview": "Preview",
+    "dataLoading": "Loading data",
+    "dataError": "Data error",
+    "dataPartial": "Partial data error",
+    "retry": "Retry",
+    "railTitle": "Apps",
+    "railManage": "Manage",
+    "railClose": "Close",
+    "promptCopied": "Prompt copied",
+    "copyFail": "Copy failed",
+    "deletedToast": "Deleted {title}",
+    "deleteFailed": "Delete failed",
+    "subtitle": "Subtitle",
+    "copyPrompt": "Copy prompt",
+    "collapse": "Collapse",
+    "newApp": "New App",
+    "appId": "App ID",
+    "titleLabel": "Title",
+    "slotLabel": "Slot",
+    "specLabel": "Specification",
+    "saving": "Saving",
+    "save": "Save",
+    "reset": "Reset",
+    "loginHint": "Please sign in",
+    "loading": "Loading",
+    "emptyHint": "No apps",
+    "open": "Open",
+    "delete": "Delete",
+    "sourceAi": "AI Generated",
+    "sourceManual": "Manual",
+    "slotPage": "Page"
+  },
+  "collab": {
+    "invitationAcceptDone": "Invitation accepted",
+    "invitationAcceptFailed": "Failed to accept invitation",
+    "invitationTitle": "Invitation",
+    "invitationConversation": "Conversation",
+    "invitationInvitedBy": "Invited by",
+    "invitationAccepting": "Accepting",
+    "invitationAccept": "Accept",
+    "tierUpdated": "Tier updated",
+    "tierUpdateFailed": "Failed to update tier",
+    "revokeDone": "Revoked",
+    "revokeFailed": "Failed to revoke",
+    "lockTaken": "Lock taken",
+    "lockAcquired": "Lock acquired",
+    "lockFailed": "Failed to acquire lock",
+    "lockReleased": "Lock released",
+    "manageTitle": "Manage",
+    "lockTitle": "Mic lock",
+    "lockHeldBy": "Held by: {user}",
+    "you": "You",
+    "lockRelease": "Release",
+    "lockTakeover": "Take over",
+    "lockFree": "Unlocked",
+    "lockAcquire": "Acquire lock",
+    "collaboratorsTitle": "Collaborators",
+    "collaboratorsEmpty": "No collaborators",
+    "tierLabel": "Permission tier",
+    "revoke": "Revoke",
+    "revokeConfirm": "Are you sure you want to revoke this collaborator?"
+  },
+  "appearanceSettings": {
+    "messageStyleTitle": "Message Style",
+    "resetMessageStyle": "Reset Message Style",
+    "messageStyleHint": "Adjust chat typography",
+    "messageStyleFontSize": "Font Size",
+    "messageStyleFont": "Font",
+    "inheritOption": "Inherit",
+    "fontFamilySystem": "System",
+    "fontFamilySans": "Sans-serif",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monospace",
+    "legibilityFont": "Legibility",
+    "messageStyleLineHeight": "Line Height",
+    "lineHeightCompact": "Compact",
+    "lineHeightNormal": "Normal",
+    "lineHeightRelaxed": "Relaxed",
+    "messageStyleLetterSpacing": "Letter Spacing",
+    "letterSpacingTight": "Tight",
+    "letterSpacingNormal": "Normal",
+    "letterSpacingWide": "Wide",
+    "messageStyleAlign": "Alignment",
+    "alignLeft": "Left",
+    "alignJustify": "Justified",
+    "messageStyleCodeSize": "Code Font Size",
+    "aiStyleTitle": "AI Style",
+    "aiStyleDesc": "Select the overall style of AI responses",
+    "tone": "Tone",
+    "toneDefault": "Default",
+    "toneProfessional": "Professional",
+    "toneFriendly": "Friendly",
+    "toneHumorous": "Humorous",
+    "toneConcise": "Concise",
+    "toneAcademic": "Academic",
+    "aiLanguage": "AI Language",
+    "langAuto": "Auto",
+    "langZhCN": "Simplified Chinese",
+    "langEn": "English",
+    "langZhTW": "Traditional Chinese",
+    "langJa": "Japanese",
+    "langKo": "Korean",
+    "aiLength": "Response Length",
+    "lengthShort": "Short",
+    "lengthMedium": "Medium",
+    "lengthLong": "Long",
+    "explainDepth": "Explain Depth",
+    "depthBeginner": "Beginner",
+    "depthStandard": "Standard",
+    "depthExpert": "Expert",
+    "aiFormat": "AI Format",
+    "formatAuto": "Auto",
+    "formatList": "List",
+    "formatTable": "Table",
+    "formatParagraph": "Paragraph",
+    "formatMinimal": "Minimal",
+    "emojiPolicy": "Emoji",
+    "emojiAuto": "Auto",
+    "emojiNone": "None",
+    "emojiMinimal": "Minimal",
+    "customStyle": "Custom Style",
+    "customStylePlaceholder": "Describe your preferred style",
+    "customStyleHint": "e.g. professional, concise, no emojis",
+    "followQuestionLanguage": "Match Question Language",
+    "followQuestionLanguageHint": "Reply in the same language; defaults to English",
+    "chineseSpacing": "Chinese Spacing",
+    "chineseSpacingHint": "Insert spaces between CJK and Latin text",
+    "fullWidthPunctuation": "Full-width Punctuation",
+    "fullWidthPunctuationHint": "Replace half-width with full-width marks",
+    "glossary": "Glossary",
+    "glossaryPlaceholder": "Enter terms and definitions",
+    "glossaryHint": "Separate with new lines, each line should contain a term and its definition",
+    "bannedWords": "Banned Words",
+    "bannedWordsPlaceholder": "Enter banned words",
+    "bannedWordsHint": "Separate with commas, e.g.: ad, fraud",
+    "directivePreview": "Directive Preview",
+    "copyDirectiveSuccess": "Directive copied",
+    "copyDirectiveFailed": "Copy failed",
+    "copyDirective": "Copy Directive",
+    "directiveEmpty": "No directives",
+    "palettePrimary": "Primary",
+    "paletteBackground": "Background",
+    "paletteForeground": "Foreground",
+    "paletteCard": "Card",
+    "paletteMuted": "Muted",
+    "paletteBorder": "Border",
+    "autoContrastDone": "Auto contrast adjusted",
+    "customThemeTitle": "Custom Theme",
+    "customThemeDesc": "Customize color palette and UI style",
+    "customThemeEnable": "Enable Custom Theme",
+    "customThemeHint": "Use these custom colors instead of the default theme",
+    "customThemeLight": "Light Theme",
+    "customThemeDark": "Dark Theme",
+    "themePreviewPrimary": "Primary Color",
+    "themePreviewOutline": "Outline Color",
+    "themePreviewText": "Text Color",
+    "contrastPrimary": "Primary Contrast",
+    "contrastBackground": "Background Contrast",
+    "contrastCard": "Card Contrast",
+    "autoContrastHint": "Text color adjusts automatically when contrast is below {threshold}",
+    "autoContrast": "Auto Contrast",
+    "customThemeReset": "Reset Theme",
+    "layoutTitle": "Layout",
+    "layoutDesc": "Adjust interface width and content density",
+    "contentWidth": "Content Width",
+    "widthNarrow": "Narrow",
+    "widthStandard": "Standard",
+    "widthWide": "Wide",
+    "widthXWide": "Extra Wide",
+    "widthFull": "Full Width",
+    "messageDensity": "Message Density",
+    "densityCompact": "Compact",
+    "densityCozy": "Cozy",
+    "densitySpacious": "Spacious",
+    "userBubbleWidth": "User Bubble Width",
+    "valuePercent": "{value}%",
+    "chatInputScale": "Chat Input Scale",
+    "chatInputScaleHint": "Adjust the size of the chat input box",
+    "longMessageCollapse": "Collapse Long Messages",
+    "longMessageCollapseHint": "Automatically collapse messages exceeding a certain number of lines",
+    "collapseLines": "Collapse Lines",
+    "collapseLinesHint": "Messages exceeding this number of lines will be collapsed",
+    "accessibilityTitle": "Accessibility",
+    "reduceMotion": "Reduce Motion",
+    "reduceMotionHint": "Reduce animations and transitions in the interface",
+    "highContrast": "High Contrast",
+    "highContrastHint": "Enhance contrast between text and background",
+    "linkUnderline": "Link Underline",
+    "focusRing": "Focus Ring",
+    "focusRingHint": "Show focus indicators during keyboard navigation",
+    "grayscale": "Grayscale Mode",
+    "grayscaleHint": "Display all content in grayscale",
+    "colorVision": "Color Vision",
+    "colorVisionHint": "Simulate different types of color vision deficiency",
+    "colorVisionNone": "Normal",
+    "colorVisionProtanopia": "Protanopia",
+    "colorVisionDeuteranopia": "Deuteranopia",
+    "colorVisionTritanopia": "Tritanopia",
+    "colorVisionAchromatopsia": "Achromatopsia",
+    "legibilityFontHint": "Improves font clarity and contrast for better readability",
+    "mobileFontBoost": "Mobile Font Boost",
+    "mobileFontBoostHint": "Automatically increases font size in mobile interfaces",
+    "shortcutsTitle": "Keyboard Shortcuts",
+    "shortcutUiZoom": "Zoom UI",
+    "shortcutChatZoom": "Zoom Chat",
+    "shortcutResetAll": "Reset All Settings",
+    "exportSuccess": "Configuration exported successfully",
+    "importFailed": "Configuration import failed",
+    "importSuccess": "Configuration imported successfully",
+    "dataTitle": "Data Management",
+    "exportConfig": "Export Configuration",
+    "importConfig": "Import Configuration",
+    "resetConfirm": "Are you sure you want to reset all appearance settings? This action cannot be undone",
+    "resetDone": "Settings reset",
+    "resetConfig": "Reset",
+    "presetApplied": "Applied preset {name}",
+    "presetSaveFailed": "Failed to save preset",
+    "presetSaved": "Preset saved: {name}",
+    "presetsTitle": "Appearance Presets",
+    "presetsDesc": "Manage and switch appearance themes",
+    "presetsBuiltinTitle": "Built-in Presets",
+    "presetApply": "Apply",
+    "presetsCustomTitle": "Custom Presets",
+    "presetsLimitHint": "Up to {count} custom presets",
+    "presetsEmpty": "No custom presets yet",
+    "presetDelete": "Delete Preset",
+    "presetDeleteConfirm": "Delete preset \"\"{name}\"\"?",
+    "presetDeleted": "Preset deleted",
+    "presetNamePlaceholder": "Preset name",
+    "presetSaveCurrent": "Save as Preset",
+    "presetsRestoreConfirm": "Restore all presets to default?",
+    "presetsRestored": "Presets restored",
+    "presetsRestoreDefault": "Restore Default",
+    "readingTitle": "Reading Experience",
+    "readingDesc": "Adjust fonts and line height for better readability",
+    "verbosity": "Verbosity",
+    "verbosityCustom": "Custom",
+    "verbosityConcise": "Concise",
+    "verbosityConciseDesc": "Show core info only, reduce noise",
+    "verbosityStandard": "Standard",
+    "verbosityStandardDesc": "Balanced detail and brevity",
+    "verbosityDetailed": "Detailed",
+    "verbosityDetailedDesc": "Full information and context",
+    "timestampFormat": "Timestamp Format",
+    "timestamp24h": "24-hour",
+    "timestamp12h": "12-hour",
+    "timestampRelative": "Relative",
+    "textAlign": "Text Alignment",
+    "readingAids": "Reading Aids",
+    "bionicReading": "Bionic Reading",
+    "bionicReadingHint": "Highlights word onsets",
+    "readingRuler": "Reading Ruler",
+    "readingRulerHint": "Highlight bar that follows the cursor",
+    "paragraphGap": "Paragraph Spacing",
+    "paragraphGapHint": "Increases whitespace between paragraphs",
+    "firstLineIndent": "First-line Indent",
+    "firstLineIndentHint": "Indents the first line of paragraphs",
+    "tableZebra": "Table Stripes",
+    "tableZebraHint": "Alternating row background colors",
+    "showTimestamps": "Show Timestamps",
+    "showUsage": "Show Usage",
+    "showActions": "Show Actions",
+    "showReasoning": "Show Reasoning",
+    "showToolCalls": "Show Tool Calls",
+    "syncSyncing": "Syncing",
+    "syncSynced": "Synced",
+    "syncError": "Sync Error",
+    "syncIdle": "Idle",
+    "syncLast": "Last synced: {time}",
+    "syncNever": "Never synced",
+    "scopeTitle": "Scope",
+    "scopeDesc": "Select where this applies",
+    "workspaceCurrent": "Current Workspace",
+    "workspaceNone": "No Workspace",
+    "workspaceOverride": "Override Workspace Settings",
+    "workspaceOverrideHint": "Apply separate appearance settings for this workspace",
+    "workspaceSaved": "Workspace settings saved",
+    "workspaceSaveCurrent": "Save Current Settings",
+    "workspaceCleared": "Workspace Override Cleared",
+    "workspaceClear": "Clear Override",
+    "messageStylesLabel": "Message Style Overrides",
+    "messageStylesHint": "Customize fonts and spacing per message type",
+    "messageStylesCleared": "Message Styles Reset to Default",
+    "messageStylesClear": "Clear customizations",
+    "cloudSyncEnable": "Cloud Sync",
+    "cloudSyncHint": "Sync appearance settings to cloud",
+    "syncLoginRequired": "Please log in",
+    "syncNow": "Sync Now",
+    "cloudClearConfirm": "Clear cloud appearance snapshot?",
+    "cloudCleared": "Cloud data cleared",
+    "cloudClearFailed": "Clear failed",
+    "cloudClear": "Clear Cloud Data",
+    "themeTitle": "Theme",
+    "themeDesc": "Select interface color scheme",
+    "accentColor": "Accent Color",
+    "radiusScale": "Corner Radius",
+    "radiusSharp": "Sharp",
+    "radiusStandard": "Standard",
+    "radiusRounded": "Rounded",
+    "typographyTitle": "Typography",
+    "typographyDesc": "Adjust text density",
+    "sizePreset": "Size Preset",
+    "sizeCustom": "Custom",
+    "sizeCompact": "Compact",
+    "sizeComfortable": "Comfortable",
+    "sizeLarge": "Large",
+    "uiScale": "UI Scale",
+    "uiScaleHint": "Adjust UI element size",
+    "chatFontScale": "Chat Font Size",
+    "chatFontScaleHint": "Adjust chat text size",
+    "fontFamily": "Font Family",
+    "bodyWeight": "Body Weight",
+    "weightRegular": "Regular",
+    "weightMedium": "Medium",
+    "weightBold": "Bold",
+    "lineHeight": "Line Height",
+    "letterSpacing": "Letter Spacing",
+    "codeFontSize": "Code Font Size",
+    "valuePx": "{value}px",
+    "codeWrap": "Code Wrap",
+    "codeWrapHint": "Automatically wrap code",
+    "tabularNums": "Tabular Numbers",
+    "tabularNumsHint": "Numbers with equal width for alignment",
+    "previewTitle": "Preview",
+    "previewText": "This is a preview text.",
+    "title": "Appearance Settings",
+    "subtitle": "Adjust display appearance",
+    "presetBuiltinDefault": "Default",
+    "presetBuiltinDefaultDesc": "Restores the factory appearance — a good fit for most situations",
+    "presetBuiltinReading": "Reading",
+    "presetBuiltinReadingDesc": "Serif type, wide line height and a narrow column for long-form reading",
+    "presetBuiltinCompact": "Compact",
+    "presetBuiltinCompactDesc": "Tighter spacing and less padding so more messages fit on one screen",
+    "presetBuiltinFocus": "Focus",
+    "presetBuiltinFocusDesc": "Hides timestamps, usage and tool details, leaving just the conversation",
+    "presetBuiltinAccessible": "Accessible",
+    "presetBuiltinAccessibleDesc": "High contrast, larger type and focus rings for low vision and motion sensitivity",
+    "accentDefault": "Default",
+    "accentBlue": "Blue",
+    "accentViolet": "Violet",
+    "accentEmerald": "Emerald",
+    "accentAmber": "Amber",
+    "accentRose": "Rose"
+  },
+  "checkinAssistant": {
+    "taskPanelTitle": "Task Panel",
+    "taskPanelNoAccount": "No Account Linked",
+    "taskPanelDescDoubao": "Doubao Task Settings",
+    "taskPanelDesc": "General Task Description",
+    "taskPanelAutoLoading": "Loading",
+    "taskPanelAutoUnknown": "Unknown Status",
+    "taskPanelAutoTitle": "Auto Task",
+    "taskPanelDoubaoOff": "Doubao Tasks Off",
+    "taskPanelDoubaoNotStarted": "Doubao Tasks Not Started",
+    "taskPanelDoubaoDry": "Doubao Dry Run",
+    "taskPanelDoubaoOn": "Doubao Tasks On (every {hours} h)",
+    "taskPanelDoubaoLastNever": "Never Run",
+    "taskPanelDoubaoLast": "Last Run: {time}",
+    "taskPanelAutoNext": "Next: {time}",
+    "taskPanelAutoPaths": "Some Paths Missing",
+    "taskPanelAutoLastNever": "Never Run",
+    "taskPanelAutoLast": "Last Run: {time}",
+    "taskPanelAutoLastStats": "Processed {families}",
+    "taskPanelPick": "Select Account",
+    "taskPanelDoubaoTag": "Doubao",
+    "taskPanelList": "Task List",
+    "taskPanelDryRun": "Dry Run",
+    "taskPanelRunning": "Running",
+    "taskPanelRun": "Run",
+    "taskPanelEmpty": "No tasks",
+    "taskPanelResult": "Results",
+    "captureWbWebCancelled": "Web login cancelled",
+    "captureEmpty": "No accounts found",
+    "captureOpaqueOnly": "Only opaque tokens found",
+    "captureImported": "Imported {count} accounts",
+    "captureQoderEmpty": "No Qoder accounts found",
+    "captureMinimaxNoToken": "No valid MiniMax token",
+    "captureWbEmpty": "No WorkBuddy accounts found",
+    "captureWbTokenRequired": "Token required",
+    "captureWbWebImporting": "Importing web accounts…",
+    "captureWbWebDone": "Processed {count} accounts",
+    "captureWbWebCheckinUncertain": "Check-in status unknown",
+    "captureWbWebWaiting": "Waiting for web login…",
+    "captureWbWebOpenFailed": "Failed to open web login",
+    "captureWbWebPasteRequired": "Please paste Cookie",
+    "captureWbWebPasteInvalid": "Invalid Cookie",
+    "captureWbPasteName": "Pasted Account",
+    "captureWbWebAccountMissing": "Account not added",
+    "captureWbWebSlowHint": "Response is slow, please wait",
+    "wizardAuditClean": "Audit passed, no issues",
+    "wizardAuditResidual": "Found {n} residuals",
+    "wizardAuditFail": "Audit failed",
+    "wizardResetDone": "Reset done ({ok}/{total})",
+    "wizardNoLoc": "No location found",
+    "wizardIpFetchFail": "IP fetch failed",
+    "wizardRefetch": "Refetching {ip}",
+    "wizardIpUnchanged": "IP unchanged",
+    "maintUserIdRequired": "User ID required",
+    "maintBackupDone": "Backup done ({count} copied, {missing} missing)",
+    "maintRestoreDone": "Restore done ({count})",
+    "deviceMapInvalid": "Invalid device map format",
+    "skippedToday": "Skipped {count} accounts checked in today",
+    "skippedExpired": "Skipped {count} expired accounts",
+    "skippedCooldown": "In cooldown, skipped {count}",
+    "checkinFailedCount": "{count} accounts failed",
+    "checkinRateLimited": "Rate limited",
+    "groupUpdated": "Group updated",
+    "jwtUpdated": "JWT updated",
+    "deviceMapUpdated": "Device map updated",
+    "none": "None",
+    "jwtExpired": "JWT expired",
+    "jwtExpiresSoon": "Token expires in {days} days",
+    "cooldownUntil": "Cooldown until {time}",
+    "filterAll": "All",
+    "resultOk": "Success",
+    "resultFail": "Failed",
+    "resultUnknown": "Unknown",
+    "title": "Check-in Assistant",
+    "schedulerEnabled": "Scheduler Enabled",
+    "schedulerDisabled": "Scheduler Disabled",
+    "refresh": "Refresh",
+    "checkinAllProgress": "Checking in {done}/{total}...",
+    "checkinAll": "Check In All",
+    "checkinSelected": "Check In Selected ({count})",
+    "addAccount": "Add Account",
+    "creditRefreshAll": "Refresh All Credits",
+    "captureWbWebCancel": "Cancel Capture",
+    "captureWebLogin": "Web Login Capture",
+    "captureMethodWeb": "Web Method",
+    "captureMethodLocal": "Local Method",
+    "maintTitle": "System Maintenance",
+    "loading": "Loading",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "emptyAccounts": "No accounts",
+    "platformAll": "All platforms",
+    "platformTrae": "Trae",
+    "platformWorkbuddy": "WorkBuddy",
+    "platformQoder": "Qoder",
+    "platformMinimax": "MiniMax",
+    "filterGroupAll": "All groups",
+    "groupUngrouped": "Ungrouped",
+    "selectAllVisible": "Select all visible",
+    "colName": "Name",
+    "colEnabled": "Enabled",
+    "colLastCheckin": "Last check-in",
+    "colCredits": "Credits",
+    "colActions": "Actions",
+    "selectAccount": "Select {name}",
+    "rename": "Rename",
+    "checkedInToday": "Checked in today",
+    "creditRefreshing": "Refreshing credits",
+    "creditQueryFail": "Credit query failed",
+    "checking": "Checking in",
+    "manualCheckin": "Manual check-in",
+    "editJwt": "Edit JWT",
+    "editGroup": "Edit Group",
+    "editDeviceMap": "Edit Device Map",
+    "delete": "Delete",
+    "recordsTab": "Records",
+    "creditsTab": "Credits",
+    "boardTab": "Leaderboard",
+    "emptyRecords": "No records",
+    "colTime": "Time",
+    "colResult": "Result",
+    "colAction": "Action",
+    "colMessage": "Message",
+    "colCreditsDelta": "Credits Delta",
+    "colErrorClass": "Error Type",
+    "loadMore": "Load More",
+    "totalCreditsDelta": "Total change {delta}",
+    "emptyCredits": "No credit records",
+    "colCurrentCredits": "Current Credits",
+    "boardEmpty": "No leaderboard data",
+    "boardRankingTitle": "Leaderboard",
+    "boardTrendTitle": "Trend",
+    "boardTodayGain": "Gained {delta} today",
+    "refreshCredits": "Refresh Credits",
+    "boardLineTotal": "Total",
+    "boardLineGained": "Gained",
+    "boardLineConsumed": "Consumed",
+    "addAccountTitle": "Add Account",
+    "addAccountDescription": "Enter the details below to create a new account",
+    "addSmartTitle": "Smart Add",
+    "addSmartRescan": "Rescan",
+    "addSmartScanning": "Scanning…",
+    "addSmartNone": "No local devices detected",
+    "deviceMapProxyHint": "If network is restricted, configure a proxy",
+    "addSmartTraeFound": "Found {count} Trae accounts",
+    "addSmartQoderFound": "Found {count} Qoder accounts",
+    "addSmartMinimaxFound": "Found {count} Minimax accounts",
+    "addSmartImporting": "Importing…",
+    "addSmartImport": "Import Found Accounts",
+    "addSmartDesktopOnly": "This feature is only available on desktop",
+    "addManualAdvanced": "Advanced Options",
+    "platformLabel": "Platform",
+    "name": "Name",
+    "namePlaceholder": "Enter account name",
+    "jwt": "JWT",
+    "jwtPlaceholder": "Paste JWT token",
+    "deviceMap": "Device Map",
+    "deviceMapPlaceholder": "Paste device map JSON",
+    "groupLabel": "Group Name",
+    "groupPlaceholder": "Enter group name",
+    "cancel": "Cancel",
+    "submitting": "Submitting",
+    "submit": "Submit",
+    "editJwtTitle": "Edit JWT",
+    "editJwtDescription": "Update JWT configuration for this entry",
+    "editGroupTitle": "Edit Group",
+    "editGroupDescription": "Update properties for this group",
+    "colGroup": "Group",
+    "editDeviceMapTitle": "Edit Device Map",
+    "editDeviceMapDescription": "Update device map for {platform}",
+    "deleteTitle": "Confirm Deletion",
+    "deleteDescription": "Are you sure you want to delete {name}? This action cannot be undone",
+    "confirmDelete": "Delete",
+    "captureTitle": "Screen Capture",
+    "captureDirFound": "Directory found: {dir}",
+    "captureDirMissing": "Directory not found",
+    "captureScan": "Scan",
+    "captureImport": "Import Screenshot",
+    "captureQoderTitle": "Qoder Import",
+    "captureQoderDescription": "Sync Qoder account via QR code or link",
+    "captureQoderScan": "Scan QR Code",
+    "captureWbTitle": "Web Login",
+    "captureWbDescription": "Select a login method to connect your account",
+    "captureWbWebTitle": "Web Page Login",
+    "captureWbWebDescription": "Complete login in browser to authorize access",
+    "captureWbWebOpen": "Open Web Page",
+    "captureWbWebEmbed": "Embed Preview",
+    "captureWbWebPastePlaceholder": "Paste Cookie or Token",
+    "captureWbWebPasteImport": "Import",
+    "captureWbManualDivider": "Or enter credentials manually",
+    "captureWbEncrypted": "Encrypted",
+    "captureWbTokenPlaceholder": "Enter access token",
+    "captureWbScan": "Scan QR Code",
+    "maintDescription": "System is under maintenance, please try again later",
+    "wizardTitle": "Login Wizard",
+    "wizardCooldownActive": "Cooldown active, {hours} hours remaining",
+    "wizardIntro": "Follow the steps below to complete account connection",
+    "wizardStart": "Start",
+    "wizardIpBefore": "Current Egress IP",
+    "wizardIpBeforeNoLoc": "IP before change: {ip}",
+    "wizardRefetchHint": "Refetch latest status",
+    "wizardGuide": "Guide",
+    "wizardIpFailMany": "Too many IP fetch failures",
+    "wizardVerify": "Verify",
+    "wizardSkipIp": "Skip IP check",
+    "wizardAuditRerun": "Rerun audit",
+    "wizardIpChanged": "IP changed to: {ip}",
+    "wizardCooldown": "In cooldown",
+    "wizardRestart": "Restart",
+    "wizardAuditTitle": "Audit Results",
+    "wizardAuditScanning": "Scanning…",
+    "wizardAuditScope": "Scanned {files} files",
+    "wizardAuditNoHistory": "No audit history",
+    "wizardResidualReclean": "Reclean residuals",
+    "wizardAuditSuspect": "{n} suspect hits",
+    "wizardAuditRegistry": "Registry details",
+    "wizardAuditHardware": "Hardware details",
+    "wizardCriticalFailNote": "Critical check failed",
+    "wizardOptionalNote": "This step is optional",
+    "maintUserIdLabel": "User ID",
+    "maintReset": "Reset",
+    "maintIncludeGuid": "Include GUID",
+    "maintIncludeBrowser": "Include Browser Data",
+    "maintDeepReset": "Deep Reset",
+    "maintIncludeMac": "Include MAC Address",
+    "maintBackup": "Backup",
+    "snapshotsTitle": "Snapshots",
+    "snapshotsEmpty": "No snapshots",
+    "maintRestore": "Restore",
+    "maintDelete": "Delete",
+    "maintClose": "Close"
+  },
+  "appUpdate": {
+    "gateQuitFailed": "Failed to quit",
+    "title": "App Update",
+    "body": "Your version is outdated. Please update to the latest version to continue",
+    "action": "Update Now",
+    "close": "Close",
+    "gateBody": "Minimum supported version is {version}. Your current version is {version}, latest is {latest}. Please upgrade to continue",
+    "gateForceBody": "A new version {latest} is available. Please update to the latest version immediately",
+    "gateTitle": "Update Required",
+    "gateReleaseNotes": "Release Notes",
+    "gateQuitConfirm": "You will need to reopen the app after quitting",
+    "gateQuit": "Quit App",
+    "installing": "Updating...",
+    "gateUpdateNow": "Update Now"
+  },
+  "hrAttendance": {
+    "linkAcceptOk": "Accepted",
+    "linkRejectOk": "Rejected",
+    "actionFailed": "Action failed",
+    "loading": "Loading",
+    "noEmployeeHint": "No employee info",
+    "linkPendingTitle": "Link Pending",
+    "linkPendingDesc": "Please confirm employee profile link",
+    "colDepartment": "Department",
+    "linkAccept": "Accept",
+    "linkReject": "Reject",
+    "tabDepartments": "Departments",
+    "tabEmployees": "Employees",
+    "tabRule": "Rules",
+    "tabRecords": "Records",
+    "tabStats": "Stats",
+    "tabLeave": "Leave",
+    "tabMonthly": "Monthly",
+    "tabSalaryConfig": "Salary Config",
+    "tabPayroll": "Payroll",
+    "tabSync": "Sync",
+    "title": "HR Attendance",
+    "createSuccess": "Created successfully",
+    "colName": "Name",
+    "add": "Add",
+    "noData": "No Data",
+    "colId": "ID",
+    "colEmployeeNo": "Employee No.",
+    "colPosition": "Position",
+    "updateSuccess": "Updated Successfully",
+    "ruleLateAfter": "Late Threshold (After)",
+    "ruleEarlyBefore": "Early Leave Threshold (Before)",
+    "ruleAbsentAfter": "Absence Rule (After)",
+    "ruleWorkdays": "Workdays",
+    "ruleEnabled": "Enable Rule",
+    "save": "Save",
+    "colDate": "Date",
+    "colCheckIn": "Check-in Time",
+    "colCheckOut": "Check-out Time",
+    "colStatus": "Status",
+    "colStart": "Start Time",
+    "colEnd": "End Time",
+    "colReason": "Reason",
+    "colActions": "Actions",
+    "approve": "Approve",
+    "reject": "Reject",
+    "checkInOk": "Check-in successful",
+    "checkOutOk": "Check-out successful",
+    "mySubtitle": "View your attendance",
+    "todayLabel": "Today",
+    "checkInAction": "Check In",
+    "checkOutAction": "Check Out",
+    "myRecordsTitle": "My Attendance",
+    "leaveTypeLabel": "Leave Type",
+    "leaveReasonPh": "Enter reason",
+    "leaveSubmitted": "Leave request submitted",
+    "myLeaveSubtitle": "Manage your leave requests",
+    "leaveTypePh": "e.g., Annual Leave",
+    "totalDaysLabel": "Total Days",
+    "submitLeave": "Submit",
+    "myLeavesTitle": "My Leaves",
+    "colMonth": "Month",
+    "none": "None",
+    "colNetPay": "Net Pay",
+    "colGrossPay": "Gross Pay",
+    "colInsurance": "Insurance",
+    "colFund": "Housing Fund",
+    "colIncomeTax": "Income Tax",
+    "hideDetail": "Hide Details",
+    "showDetail": "View Details",
+    "breakdownTitle": "Pay Breakdown",
+    "statusPresent": "Present",
+    "statusLate": "Late",
+    "statusEarly": "Left early",
+    "statusAbsent": "Absent",
+    "statusLeave": "On leave",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected"
+  },
+  "financeAi": {
+    "automationTitle": "Automation",
+    "automationDesc": "Configure automated tax filing and bookkeeping",
+    "submitModeLabel": "Submission Mode",
+    "submitModeManual": "Manual Confirmation",
+    "submitModeConfirmed": "User Confirmed",
+    "provinceLabel": "Province",
+    "portalLabel": "Portal URL",
+    "portalPh": "Enter tax portal URL",
+    "starting": "Starting...",
+    "automationCta": "Start Automation",
+    "browserPrereq": "Browser must be launched and logged in",
+    "launchFailed": "Launch failed",
+    "txInvalid": "Invalid transaction",
+    "promptWithPayload": "Process the following data: {payload}",
+    "promptAskUpload": "Upload the file and wait for results",
+    "promptBookkeeping": "Generate bookkeeping entries for {period}",
+    "phaseBookkeeping": "Bookkeeping Phase",
+    "wagesInvalid": "Invalid wage data",
+    "fieldPeriod": "Period: {period}",
+    "taxpayerGeneral": "General Taxpayer",
+    "taxpayerSmall": "Small-Scale Taxpayer",
+    "fieldSales": "Sales: {value}",
+    "fieldOutputTax": "Output Tax: {value}",
+    "fieldInputTax": "Input Tax: {value}",
+    "fieldProfit": "Profit: {value}",
+    "fieldAnnualBonus": "Annual Bonus: {value}",
+    "fieldWages": "Wages {payload}",
+    "promptTaxFiling": "Please file the tax based on the facts below:",
+    "phaseTaxFiling": "Tax Filing Phase",
+    "promptTaxDraftNote": "Please generate a draft note:",
+    "reimbursementInvalid": "Invalid reimbursement data",
+    "fieldRevenue": "Revenue: {value}",
+    "fieldWageTotal": "Total Wages: {value}",
+    "promptReimbursement": "Please process the reimbursement {payload}",
+    "socialInvalid": "Invalid social security data",
+    "fieldSocialAvgWage": "Social Security Avg. Wage: {value}",
+    "promptSocial": "Please calculate social security for {period}",
+    "deductionInvalid": "Invalid deduction data",
+    "promptDeduction": "Please process the deduction for {period}",
+    "automationNoTargets": "No automation targets found",
+    "portalInvalid": "Invalid portal data",
+    "automationPrompt": "Please execute tax automation for {period}",
+    "title": "Finance Assistant",
+    "intro": "Smart tax & finance automation platform",
+    "bookkeepingTitle": "Bookkeeping",
+    "bookkeepingDesc": "Smart bookkeeping assistant",
+    "periodLabel": "Period",
+    "txLabel": "Transaction Details",
+    "txPh": "Paste transactions...",
+    "txHint": "One transaction per line. Format: date description amount",
+    "bookkeepingCta": "Start Bookkeeping",
+    "pluginHint": "Auto-detects vouchers and categorizes entries",
+    "taxTitle": "Tax Calculation",
+    "taxDesc": "Calculate taxes in one click",
+    "taxpayerLabel": "Taxpayer Type",
+    "taxpayerGeneralValue": "General Taxpayer",
+    "taxpayerSmallValue": "Small-scale Taxpayer",
+    "fieldSalesLabel": "Sales Amount",
+    "fieldProfitLabel": "Total Profit",
+    "annualBonusLabel": "Annual Bonus",
+    "annualBonusPh": "Enter amount",
+    "fieldOutputTaxLabel": "Output Tax",
+    "fieldInputTaxLabel": "Input Tax",
+    "wagesLabel": "Wages Details",
+    "wagesPh": "Paste wage records...",
+    "taxCta": "Start Calculation",
+    "draftNote": "Draft note",
+    "reimbursementTitle": "Reimbursement",
+    "reimbursementDesc": "Enter amounts to generate a reimbursement slip",
+    "revenueLabel": "Revenue",
+    "wageTotalLabel": "Total wages",
+    "reimbursementJsonLabel": "Reimbursement JSON",
+    "reimbursementJsonPh": "Paste JSON",
+    "reimbursementHint": "Export from system or fill in manually",
+    "reimbursementCta": "Generate reimbursement slip",
+    "socialTitle": "Social Insurance",
+    "socialDesc": "Enter average wages to estimate monthly social insurance contributions",
+    "socialAvgWageLabel": "Average monthly wage",
+    "socialEmployeesLabel": "Employee list",
+    "socialEmployeesPh": "One per line. Format: Name, Dept, Level",
+    "socialCta": "Calculate social insurance",
+    "deductionTitle": "Deductions",
+    "deductionDesc": "Enter the list to calculate individual deductions",
+    "deductionEmployeesLabel": "Employee list",
+    "deductionEmployeesPh": "One per line. Format: Name, Wage, Fund ratio",
+    "deductionCta": "Calculate deductions",
+    "automationTrust": "For reference only; please verify with actual records",
+    "progressTitle": "Task progress",
+    "progressDesc": "View financial analysis progress",
+    "progressEmpty": "No analysis tasks yet",
+    "openChat": "Open Chat",
+    "streaming": "Streaming",
+    "idle": "Idle"
+  },
+  "hrData": {
+    "tabImport": "Import",
+    "tabSettle": "Settle",
+    "tabPayroll": "Payroll",
+    "tabTodo": "To-Do",
+    "title": "HR Data",
+    "periodMonth": "Period Month",
+    "uploadDone": "Uploaded {total} rows",
+    "confirmDone": "Confirmation successful",
+    "importKind": "Import Type",
+    "upload": "Upload",
+    "importHint": "CSV files supported",
+    "loading": "Loading",
+    "noData": "No data",
+    "colKind": "Type",
+    "colFile": "File Name",
+    "colStatus": "Status",
+    "colTotal": "Total Rows",
+    "colConflict": "Conflicts",
+    "colNotFound": "Not Found",
+    "colActions": "Actions",
+    "viewDetail": "View Details"
+  },
+  "adminOrgGovernance": {
+    "version": "Version",
+    "status": "Status",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "updatedAt": "Updated At",
+    "allowlistHint": "Comma-separated allowlist",
+    "allowlistMode": "List Mode",
+    "modeAllow": "Allow",
+    "modeBlock": "Block",
+    "flagsHint": "One flag per line, format: name=value",
+    "flagsInvalid": "Invalid flag format",
+    "spendBudgetHint": "Monthly spending budget cap",
+    "retentionHint": "Data retention days",
+    "saving": "Saving",
+    "save": "Save",
+    "saveSuccess": "Saved successfully",
+    "loginRequired": "Login required",
+    "forbidden": "Access denied",
+    "forbiddenHint": "Contact admin for access",
+    "title": "Organization Policies",
+    "subtitle": "Manage organization governance rules",
+    "loadFailed": "Failed to load",
+    "overview": "Overview",
+    "orgId": "Org ID",
+    "loading": "Loading",
+    "periodFrom": "From",
+    "periodTo": "To",
+    "query": "Query",
+    "members": "Members",
+    "emptyMembers": "No members",
+    "memberUser": "User",
+    "cost": "Cost",
+    "tokens": "Tokens",
+    "calls": "Calls",
+    "models": "Models",
+    "emptyModels": "No models",
+    "modelName": "Model",
+    "agentBillings": "Agent Billings",
+    "balance": "Balance",
+    "byDay": "By Day",
+    "date": "Date",
+    "policies": "Policies",
+    "policyTrail": "Policy Trail",
+    "trailNote": "Shows update time and status of policy rows",
+    "emptyTrail": "No trail records",
+    "policyKey": "Policy Key"
+  },
+  "playBeta": {
+    "errors": {
+      "invalidEmail": "Invalid email format",
+      "generic": "An error occurred"
+    },
+    "hero": {
+      "badge": "Beta Version",
+      "title": "Get Early Access to Beta",
+      "subtitle": "Join the test and help improve the product"
+    },
+    "success": {
+      "title": "Successfully Joined",
+      "desc": "Welcome to the Beta test!"
+    },
+    "join": {
+      "title": "How to Join",
+      "desc": "Enter your email to get Beta test access",
+      "button": "Go to Page",
+      "hint": "For invited users only"
+    },
+    "why": {
+      "title": "Why Participate"
+    },
+    "form": {
+      "email": "Email Address",
+      "emailPlaceholder": "Enter your email",
+      "privacyRequired": "Agree to Privacy Policy",
+      "privacyPrefix": "I have read and agree to the",
+      "privacyLink": "Privacy Policy",
+      "submitting": "Submitting...",
+      "submit": "Join Test"
+    },
+    "faq": {
+      "title": "Frequently Asked Questions"
+    }
+  },
+  "superAgent": {
+    "verdictAct": "Act",
+    "verdictIgnore": "Ignore",
+    "verdictUnclear": "Unclear",
+    "stagePersonDelivery": "Delivery",
+    "stagePersonAnswer": "Answer",
+    "stagePersonReview": "Review",
+    "stagePersonBlocked": "Blocked",
+    "stagePersonFailed": "Failed",
+    "stageWorkingQueued": "Queued",
+    "stageWorking": "Working",
+    "stageIdle": "Idle",
+    "stageEnded": "Ended",
+    "reportProgress": "In Progress",
+    "reportWaiting": "Waiting",
+    "reportReady": "Ready",
+    "reportBlocked": "Blocked",
+    "reportFailed": "Failed",
+    "reportDropped": "Dropped",
+    "assignmentPending": "Pending",
+    "assignmentRunning": "Running",
+    "assignmentEnded": "Ended",
+    "noProgress": "No Progress",
+    "unknownTime": "Unknown Time",
+    "actionAuthFailed": "Authentication failed",
+    "actionFailed": "Action failed: {message}",
+    "title": "Super Agent Panel",
+    "subtitle": "Real-time monitoring and task management",
+    "refreshing": "Refreshing",
+    "refresh": "Refresh",
+    "pollHint": "Auto-refresh every {seconds} seconds",
+    "staleWarning": "Data may be stale: {message}",
+    "loading": "Loading",
+    "authTitle": "Login required",
+    "authHint": "Please authenticate to view this panel",
+    "errorTitle": "Something went wrong",
+    "errorHint": "Please try again later",
+    "retry": "Retry",
+    "summaryQuietDrops": "Quiet drops: {count}",
+    "summaryRecorded": "Recorded: {count}",
+    "empty": "No data",
+    "emptyHint": "Details will appear here when new tasks are available",
+    "colStatus": "Status",
+    "colSource": "Source",
+    "colCreatedAt": "Created At",
+    "colOwner": "Owner",
+    "colProgress": "Progress",
+    "detailTitle": "Ticket Details",
+    "closeDetail": "Close",
+    "detailTrigger": "Triggers",
+    "detailNone": "None",
+    "detailWorker": "Worker",
+    "detailSession": "Session ID",
+    "detailDirectory": "Directory",
+    "detailAssignment": "Assignment",
+    "detailLoading": "Loading",
+    "detailError": "Failed to load",
+    "detailRetry": "Retry",
+    "detailGoal": "Goal",
+    "detailConstraints": "Constraints",
+    "detailDeliverables": "Deliverables",
+    "detailReport": "Report",
+    "detailReportEmpty": "No report yet",
+    "detailFailure": "Failure Reason",
+    "detailEnded": "Ended by",
+    "detailEndedByPerson": "Manually",
+    "detailEndedByExecutor": "By Executor",
+    "detailLease": "Lease Details",
+    "detailLeaseLost": "{count} leases lost",
+    "detailLeaseRemaining": "{seconds} seconds remaining",
+    "stopping": "Stopping",
+    "stop": "Stop",
+    "recordedTitle": "Recorded Items",
+    "recordedReason": "Record Reason",
+    "recordedVerdict": "Verdict",
+    "accepting": "Accepting",
+    "acceptRule": "Accept Rule"
+  },
+  "useCase": {
+    "customerSupport": {
+      "title": "Customer support",
+      "subtitle": "Answer customer questions faster with AI"
+    },
+    "knowledgeBase": {
+      "title": "Knowledge base",
+      "subtitle": "Turn scattered documents into searchable, citable answers"
+    },
+    "codeAssistant": {
+      "title": "Code assistant",
+      "subtitle": "Understand the codebase to help the team locate and change code faster"
+    },
+    "contentGeneration": {
+      "title": "Content generation",
+      "subtitle": "From outline to draft — structured content at scale"
+    }
+  },
+  "myQuests": {
+    "title": "My Quests Board",
+    "total": "{count} tasks total",
+    "currentWorkspace": "Current Workspace",
+    "empty": "No registered tasks yet (auto-registers when set)",
+    "assessmentPlaceholder": "Log a self-assessment...",
+    "addAssessment": "Log",
+    "latestAssessment": "Latest assessment",
+    "noAssessment": "No assessment records"
+  },
+  "workbuddyReset": {
+    "title": "WorkBuddy One-Click Reset",
+    "subtitle": "Maintenance Cleanup · Logout Reset · Factory Reset (Isolation Zone Move, Reversible). Targets local state of the WorkBuddy desktop client on this machine.",
+    "nonDesktop": "This tool is for the ZhuiHui AI desktop client only (requires local IPC capability).",
+    "probeTitle": "Local State Scan",
+    "probeScanning": "Scanning ~/.workbuddy (may take 1-2 minutes for large volumes)…",
+    "probeRoot": "Target Directory",
+    "probeRefresh": "Rescan",
+    "probeTotal": "Total Size",
+    "probeReclaimable": "Safely Reclaimable (No User Data Loss)",
+    "wbRunning": "WorkBuddy Running",
+    "wbNotRunning": "WorkBuddy Not Running",
+    "tierMaintenance": "Regenerable Cache",
+    "tierWebviewLogout": "Session State",
+    "tierDeviceIdentity": "Device Identity",
+    "tierUserAsset": "User Asset",
+    "tierNever": "Locked",
+    "maintTitle": "1. Maintenance Clean",
+    "maintDesc": "Cleans regenerable cache and logs only. Login, memory, skills, and workspaces are preserved.",
+    "maintCta": "Start Maintenance",
+    "logoutTitle": "2. Logout Reset",
+    "logoutDesc": "Removes webview session data. App returns to login screen on next launch. Device state resets.",
+    "logoutDeviceIdOpt": "Also clear device ID (App will re-register on next launch)",
+    "logoutCta": "Start Logout Reset",
+    "factoryTitle": "3. Factory Reset",
+    "factoryDesc": "Moves all local data to an isolated folder (instant, reversible). App rebuilds as if freshly installed.",
+    "factoryCta": "Start Factory Reset",
+    "factoryConfirm": "Warning: Moves all local WorkBuddy state to isolation. Reversible but requires full reconfiguration. Continue?",
+    "factoryConfirmYes": "Confirm Factory Reset",
+    "factoryConfirmNo": "Cancel",
+    "killNote": "WorkBuddy will close before execution. Current AI session ends. Save your work first.",
+    "boundaryNote": "Local cleanup only. For server-side unbinding or account issues, contact official support. No spoofing.",
+    "errPrefix": "Operation failed",
+    "resultTitle": "Result",
+    "resultOk": "Success",
+    "resultFail": "Failed",
+    "restartHint": "If logged out or factory reset: reopen WorkBuddy to start fresh. See factory_reset layer details for quarantine path; move items back to original directories to fully restore.",
+    "quarantineTitle": "Quarantine Manager",
+    "quarantineDesc": "Data moved during logout or factory reset is stored here. Restore with one click or delete to free up space",
+    "quarantineRefresh": "Refresh",
+    "quarantineEmpty": "No quarantine items",
+    "qEntriesLabel": "Entries",
+    "qRestore": "Restore All",
+    "qDelete": "Delete",
+    "qDeleteConfirm": "Data cannot be recovered after deletion. Confirm?",
+    "qRestored": "Restored. Probes and quarantine list refreshed",
+    "qDeleted": "Quarantine deleted",
+    "historyTitle": "Operation History",
+    "historyEmpty": "No operation records",
+    "progressLabel": "Execution Progress",
+    "planPreview": "Preview Plan",
+    "planTitle": "Plan Preview (Progress reported per item during execution)",
+    "planActDeleteDir": "Delete Directory",
+    "planActDeleteFile": "Delete File",
+    "planActQuarantine": "Move to Quarantine",
+    "planTruncated": "Top 8 by size, see execution details for the rest",
+    "planEmpty": "No pending items",
+    "entriesShowAll": "Show all",
+    "entriesShowLess": "Collapse"
+  },
+  "qoderReset": {
+    "title": "Qoder One-Click Reset",
+    "subtitle": "Maintenance · Logout · Factory Reset (reversible isolation). Targets local desktop state",
+    "nonDesktop": "Desktop app only (requires local IPC)",
+    "probeTitle": "Local State Scan",
+    "probeScanning": "Scanning ~/.workbuddy (may take 1-2 min)…",
+    "probeRoot": "Target Directory",
+    "probeRefresh": "Rescan",
+    "probeTotal": "Total Size",
+    "probeReclaimable": "Safe to Reclaim",
+    "wbRunning": "Qoder Running",
+    "wbNotRunning": "Qoder Not Running",
+    "tierMaintenance": "Regeneratable Cache",
+    "tierWebviewLogout": "Session",
+    "tierDeviceIdentity": "Device Identity",
+    "tierUserAsset": "User Assets",
+    "tierNever": "Locked",
+    "maintTitle": "1. Maintenance Cleanup",
+    "maintDesc": "Cleans regenerable caches and logs (logs/traces/tmp/webview caches/Crashpad, etc). Keeps login state, memory, skills, connectors, and workspace intact",
+    "maintCta": "Start Maintenance",
+    "logoutTitle": "2. Log Out & Reset",
+    "logoutDesc": "Deletes webview session profiles, resetting to login page on next launch; zeros out login and device status",
+    "logoutDeviceIdOpt": "Also clear device identity (installation_id/umid-cache.json); app will re-register on next launch",
+    "logoutCta": "Start Log Out Reset",
+    "factoryTitle": "3. Factory Reset",
+    "factoryDesc": "Moves all local entries in ~/.workbuddy to an isolated directory on the same volume (instant, zero-loss, reversible); app rebuilds like a fresh install",
+    "factoryCta": "Start Factory Reset",
+    "factoryConfirm": "⚠️ This moves all local Qoder state (login, sessions, workspace index) to an isolated area. Restoring returns them, but requires reconfiguring the app. Continue?",
+    "factoryConfirmYes": "Confirm Factory Reset",
+    "factoryConfirmNo": "Cancel",
+    "killNote": "Running Qoder (including this host) will be closed before execution. This AI session will end, so save your conversation first",
+    "boundaryNote": "Boundary: This tool only cleans local state. For server-side device unbinding or account restrictions, use official Qoder channels (RepairApp/Support). No fingerprint spoofing",
+    "errPrefix": "Operation failed",
+    "resultTitle": "Execution Result",
+    "resultOk": "Success",
+    "resultFail": "Failed",
+    "restartHint": "If log out or factory reset was executed: relaunch Qoder to start fresh. The factory reset isolation path is in factory_reset layer details; move entries back to fully restore",
+    "quarantineTitle": "Quarantine Management",
+    "quarantineDesc": "Data moved on sign-out or factory reset is here. Restore with one click or delete to free space.",
+    "quarantineRefresh": "Refresh",
+    "quarantineEmpty": "No quarantine items",
+    "qEntriesLabel": "Entries",
+    "qRestore": "One-click restore",
+    "qDelete": "Delete",
+    "qDeleteConfirm": "Data cannot be recovered after deletion. Confirm?",
+    "qRestored": "Restored. Probes and quarantine list refreshed.",
+    "qDeleted": "Quarantine deleted.",
+    "historyTitle": "Operation History",
+    "historyEmpty": "No operation records",
+    "progressLabel": "Execution Progress",
+    "planPreview": "Preview Plan",
+    "planTitle": "Plan Preview (progress reported per item during execution)",
+    "planActDeleteDir": "Delete Directory",
+    "planActDeleteFile": "Delete File",
+    "planActQuarantine": "Move to Quarantine",
+    "planTruncated": "Showing top 8 largest items. See execution details for the rest.",
+    "planEmpty": "No pending items (did not exist or already cleared)",
+    "entriesShowAll": "Show all entries",
+    "entriesShowLess": "Collapse",
+    "wizardTitle": "Qoder login blocked? One-click fix",
+    "wizardIntro": "Automatically reset 14 layers of device identity (incl. hardware fingerprint MAC rewrite, old values auto-backed up, brief network drop). Then guide you to switch network exits. No technical knowledge required. ⚠️ Do NOT log in to Qoder within 24 hours of reset completion—each attempt resets the risk timer, making the reset futile. Log in normally tomorrow at this time.",
+    "wizardCriticalFailNote": "⚠️ Required layers not completed (see details above). Results may be incomplete. Retry or run this program as administrator.",
+    "wizardSkipIp": "Can't switch network? Finish directly (start 24h cooldown, log in tomorrow)",
+    "wizardIpFailMany": "⚠️ Multiple checks show egress IP unchanged or retrieval failed. If you truly can't switch network, click \"Finish directly\" above to skip verification",
+    "wizardResidualReclean": "After exiting Qoder, force rerun one-click reset (ends Qoder process first, then clears residuals)",
+    "wizardStart": "One-click full reset (approx. 1 minute)",
+    "wizardResetDone": "✅ Reset complete: {ok}/{total} layers succeeded",
+    "wizardIpBefore": "Egress IP before reset: {ip} ({location})",
+    "wizardGuide": "Choose one to switch networks: ① Unplug modem power for 1 minute, then plug back in; ② Enable phone hotspot and connect computer. After switching, click the button below to verify",
+    "wizardVerify": "Network switched, check new IP",
+    "wizardIpUnchanged": "❌ Egress IP unchanged—modem may not have reconnected. Wait 30 seconds and unplug power again (at least 1 minute outage)",
+    "wizardIpChanged": "✅ New egress IP: {ip}—old IP fully detached!",
+    "wizardCooldown": "Step 3 (auto-complete): Device+network dual refresh ready. ⚠️ Don't log in to Qoder within 24 hours—each attempt resets risk timer! Log in normally tomorrow",
+    "wizardOptionalNote": "Some marked incomplete are optional layers (e.g., browser open skipped Cookie clearing), no impact on main results",
+    "wizardNoLoc": "(IP location not retrieved this time, doesn't affect network switch verification)",
+    "wizardIpFetchFail": "⚠️ Egress IP retrieval failed (network fluctuation), click button below to retry later",
+    "wizardRefetch": "Baseline egress IP recorded: {ip} (reset doesn't affect network, this IP is pre-reset egress)",
+    "wizardRefetchHint": "Base IP not set. Fetch current outbound IP as baseline before switching networks",
+    "wizardIpBeforeNoLoc": "Outbound IP before reset: {ip}",
+    "wizardCooldownActive": "⏳ Less than 24h since last reset. {hours}h remaining. Do not log in to Qoder",
+    "wizardRestart": "Restart Wizard",
+    "wizardAuditTitle": "🔍 Verify Reset Completeness (Residual Fingerprint Audit)",
+    "wizardAuditClean": "✅ No residual identity found. Current environment is clean of pre-reset device/identity values",
+    "wizardAuditResidual": "⚠️ {n} residual identity items found. Pre-reset values remain in listed files. Quit Qoder and re-run reset",
+    "wizardAuditRerun": "Rescan Residuals",
+    "wizardAuditScanning": "Scanning Qoder environment for residuals…",
+    "wizardAuditFail": "⚠️ Residual scan failed. Does not affect reset. Try Rescan later",
+    "wizardSubtitle": "3-step device identity reset: One-click Reset → Network Switch → 24h Cooldown",
+    "wizardAuditEntries": "View Full Scan Details",
+    "wizardAuditScope": "Scope: {cn} & {roaming}. Total: {files} files"
+  },
+  "accounts": {
+    "add": "Add Account",
+    "batchImport": "Bulk Import",
+    "batchVerify": "Bulk Verify",
+    "cancelScan": "Cancel Scan",
+    "credentials": "Credentials",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this account",
+    "edit": "Edit",
+    "externalBrowserHint": "Try external browser if scan fails",
+    "nickname": "Nickname",
+    "noAccounts": "No accounts",
+    "openExternalBrowser": "Open in External Browser",
+    "orDivider": "or",
+    "platform": "Platform",
+    "scan": "Scan to Login",
+    "scanLogin": "Scan to Login",
+    "scanLoginDescription": "Scan QR code with your phone to login",
+    "scanLoginFailed": "Login failed",
+    "scanLoginHint": "QR code refreshes every minute",
+    "scanLoginSucceeded": "Login successful",
+    "scanLoginSuccess": "Scan successful",
+    "scanLoginTimeout": "Scan timed out, please retry",
+    "scanLoginTitle": "Log in with Scan",
+    "scanWithPhoneHint": "Scan the QR code with your phone",
+    "selectPlatform": "Select platform",
+    "startScanLogin": "Start scanning",
+    "subtitle": "Manage accounts across social platforms",
+    "title": "Account Management",
+    "verify": "Verify"
+  },
+  "eduCertificatesPage": {
+    "backToList": "Back to Certificates",
+    "certificateNo": "Certificate No: {no}",
+    "completed": "Completed",
+    "download": "Download Certificate",
+    "downloadFailed": "Download failed ({status})",
+    "issuanceText": "Awarded upon completion of study and assessment",
+    "issuedAt": "Issued: {date}",
+    "loading": "Loading...",
+    "notFound": "Certificate not found",
+    "print": "Print",
+    "status": {
+      "revoked": "Revoked",
+      "valid": "Valid"
+    }
+  },
+  "defaultEntries": {
+    "mall": {
+      "label": "Mall",
+      "description": "Shop deals"
+    },
+    "vip": {
+      "label": "VIP",
+      "description": "Join VIP for exclusive perks"
+    },
+    "invite": {
+      "label": "Invite",
+      "description": "Invite friends to earn rewards"
+    },
+    "help": {
+      "label": "Help",
+      "description": "FAQs and guides"
+    }
+  },
+  "defaultTags": {
+    "llm": "LLM",
+    "tutorial": "Tutorial",
+    "rag": "Knowledge Base",
+    "agent": "Agent",
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "opensource": "Open Source"
+  },
+  "terminalSessionList": {
+    "statusActive": "Running",
+    "statusExited": "Exited",
+    "statusClosed": "Closed",
+    "title": "Terminal Sessions",
+    "newTerminalAria": "New terminal",
+    "loading": "Loading",
+    "empty": "No sessions",
+    "closeTerminalAria": "Close terminal"
+  },
+  "eduCourses": {
+    "backToCourses": "Back to courses",
+    "chaptersTitle": "Chapters",
+    "detail": "Details",
+    "notFound": "Course not found",
+    "studentsCount": "{count} learning"
+  }
+}

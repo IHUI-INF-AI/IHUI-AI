@@ -100,6 +100,8 @@ export function extractKeyRefs(src, opts = {}) {
   const registered = Array.isArray(opts.registeredNamespaces)
     ? opts.registeredNamespaces.filter((n) => typeof n === 'string' && n)
     : []
+  // 第三档开关:未登记的数据表也产出引用(缺就红),由 check-i18n-data-keys.mjs 显式开启
+  const orphanDataKeys = Boolean(opts.orphanDataKeys)
   const translators = new Map()
   for (const m of src.matchAll(TRANSLATOR_DECL_RE)) {
     const name = m[1]
@@ -129,7 +131,17 @@ export function extractKeyRefs(src, opts = {}) {
       // 已登记的模块:字段值本身就当键判,命名空间取登记值。
       if (registered.length) {
         for (const value of values) {
-          refs.push({ field, value, vars: [], namespaces: registered, decidable: true })
+          // 值可能自带完整路径('chat.x.y'),也可能只是相对子键 —— 两种都放进候选:
+          // classifyRef 会先试 `登记ns.value`,再试 `value` 本身,谁命中算谁。
+          refs.push({ field, value, vars: [], namespaces: registered, decidable: true, globalPath: value.includes('.') })
+        }
+      } else if (orphanDataKeys) {
+        // 第三类漏网(2026-11-22 实测):数据表住 A 文件、t() 消费在 B 文件,且 A 未登记。
+        // 旧实现直接 continue,于是 appearance-presets 的 nameKey/descKey 整族在射程外,
+        // /settings/appearance 上照样画出 appearanceSettings.presetBuiltinDefault。
+        // 这里不再静默丢弃:产出"未登记数据键"引用,由门按词库命中判(缺就红,要求登记或补键)。
+        for (const value of values) {
+          refs.push({ field, value, vars: [], namespaces: [], decidable: false, orphanData: true })
         }
       }
       continue
@@ -153,6 +165,9 @@ export function extractKeyRefs(src, opts = {}) {
  * @returns {'ok'|'missing-ns'|'missing-global'|'undecidable'}
  */
 export function classifyRef(ref, messages, extraNamespaces = []) {
+  // 未登记数据表档:没有命名空间可归,只能问"这个键在全库任何地方存在吗"
+  // (存在则该档由别的 ns 供词,不存在就是真裸键 —— 与 missing-global 同一结局)
+  if (ref.orphanData) return existsAnywhere(messages, ref.value) ? 'ok' : 'missing-global'
   const candidates = []
   for (const ns of ref.namespaces)
     if (typeof ns === 'string' && ns) candidates.push(`${ns}.${ref.value}`)
@@ -160,7 +175,12 @@ export function classifyRef(ref, messages, extraNamespaces = []) {
   candidates.push(ref.value)
 
   for (const c of candidates) {
-    if (typeof getMessageByPath(messages, c) === 'string') return 'ok'
+    const v = getMessageByPath(messages, c)
+    if (typeof v === 'string') return 'ok'
+    // 容器命中(2026-11-22 实测):错误码表这类数据表存的 key 指向一棵子树
+    // (`apiDocs.errorCodes.c1000.{meaning,fix}`),消费侧用模板串拼子键。容器存在即说明
+    // 这一族有词,子键由模板串消费、不可静态判 —— 不再把它当"裸键"误红。
+    if (v && typeof v === 'object' && !Array.isArray(v)) return 'ok'
   }
   if (!existsAnywhere(messages, ref.value)) return 'missing-global'
   // 键名在全库某处存在,但当前候选命名空间里没有
@@ -186,6 +206,38 @@ export function extractLiteralRefs(src) {
     for (const m of src.matchAll(re)) {
       if (m[1].includes('${')) continue
       out.push({ ns, key: m[1] })
+    }
+  }
+  return out
+}
+
+/**
+ * 第五形态(2026-11-22 实测补):常量映射表 `const ACCENT_LABEL_KEYS = { default: 'accentDefault', … }`
+ * —— 字段名是"枚举值"、对象名带 KEY/LABEL 后缀,消费侧写 `t(OBJ[x])`。
+ * `KEY_FIELD_RE` 抓不到(它只认 `xxxKey: 'v'`),`extractLiteralRefs` 也抓不到(值不在实参里),
+ * 于是 /settings/appearance 的 accentDefault 整族在射程外、页面上照样是裸键。
+ *
+ * 三条同时成立才收(防把技术映射误收成文案):
+ *   ① 对象名含 KEYS/LABELS/TEXT/I18N/TITLES/DESCS
+ *   ② 同文件真有 `OBJ[` 消费
+ *   ③ 同文件能静态取到 translator 命名空间
+ */
+export const CONST_KEY_MAP_RE =
+  /const\s+([A-Za-z0-9_$]*(?:KEYS?|LABELS?|TEXT|I18N|TITLES?|DESCS?)[A-Za-z0-9_$]*)\s*=\s*\{([\s\S]*?)\}\s*(?:as const)?/g
+
+export function extractConstMapRefs(src) {
+  const { translators } = extractKeyRefs(src)
+  const namespaces = [...translators.values()].filter((n) => typeof n === 'string' && n)
+  if (!namespaces.length) return []
+  const out = []
+  for (const m of src.matchAll(CONST_KEY_MAP_RE)) {
+    const obj = m[1]
+    const body = m[2]
+    if (!new RegExp(`(?:^|[^A-Za-z0-9_$])${obj}\\s*[\\[.]`).test(src)) continue
+    for (const v of body.matchAll(/[A-Za-z0-9_$]+\s*:\s*'([^']+)'/g)) {
+      const value = v[1]
+      if (!value || value.includes('${') || !/^[A-Za-z][A-Za-z0-9_.]*$/.test(value)) continue
+      out.push({ obj, value, namespaces, decidable: true })
     }
   }
   return out

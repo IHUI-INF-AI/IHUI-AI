@@ -66,7 +66,9 @@
         "title": "開發者擴展包",
         "desc": "工具擴展工作流的組合入口:MCP 商店註冊與平臺能å啟用"
       }
-    }
+    },
+    "contentCreator": "內容創作者",
+    "developerExtension": "開發者擴充"
   },
   "aiWs": {
     "videoDone": "視頻生成完成",
@@ -465,7 +467,13 @@
     "noLogsHint": "(暫無記錄 — 在頁面上點擊操作後會顯示座標資訊)",
     "runJs": "執行 JavaScript",
     "runJsPlaceholder": "document.title  —  輸入 JS 後點執行(如: document.querySelector(\"button\").click())",
-    "run": "執行"
+    "run": "執行",
+    "home": "主頁",
+    "pickElement": "選擇元素",
+    "picking": "點選中",
+    "devtools": "開發者工具",
+    "popout": "彈出視窗",
+    "browserTab": "瀏覽器分頁"
   },
   "a11y": {
     "previewLoadFailed": "預覽載入失敗。",
@@ -555,7 +563,15 @@
     "hlsLiveLabel": "HLS 直播",
     "onDemandLabel": "點播",
     "autoRotate": "自動旋轉",
-    "stopAutoRotate": "停止旋轉"
+    "stopAutoRotate": "停止旋轉",
+    "removeAttachment": "移除附件",
+    "more": "更多",
+    "copy": "複製",
+    "copyResponse": "複製回覆",
+    "openCustomerService": "開啟客服",
+    "minimize": "最小化",
+    "send": "送出",
+    "uploadAvatar": "上傳頭像"
   },
   "about": {
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
@@ -1517,7 +1533,17 @@
       "topicAll": "全部類型",
       "topicTypeLabel": "話題類型",
       "total": "共 {total} 條",
-      "viewDetail": "查看詳情"
+      "viewDetail": "查看詳情",
+      "topicArticle": "文章",
+      "topicAsk": "提問",
+      "topicAnswer": "回答",
+      "topicResource": "資源",
+      "topicCirclePost": "圈子動態",
+      "topicLesson": "課程",
+      "topicLiveChannel": "直播頻道",
+      "topicTopic": "話題",
+      "topicComment": "評論",
+      "statusAll": "全部狀態"
     },
     "configs": {
       "allCategories": "全部分類",
@@ -3830,7 +3856,16 @@
       "total": "共 {total} 條",
       "type": "類型",
       "updateSuccess": "更新成功",
-      "user": "用戶"
+      "user": "用戶",
+      "all": "全部",
+      "bug": "缺陷",
+      "feature": "新功能",
+      "improvement": "改進",
+      "other": "其他",
+      "pending": "待處理",
+      "reviewing": "處理中",
+      "resolved": "已解決",
+      "closed": "已關閉"
     },
     "help": {
       "colActions": "操作",
@@ -4431,7 +4466,14 @@
       "tabInvoices": "發票申請",
       "tabOrders": "訂單",
       "tabRefunds": "退款",
-      "title": "訂單管理"
+      "title": "訂單管理",
+      "invoicing": "開票中",
+      "invoiced": "已開票",
+      "all": "全部",
+      "pending": "待處理",
+      "approved": "已通過",
+      "rejected": "已駁回",
+      "canceled": "已取消"
     },
     "oss": {
       "colActions": "操作",
@@ -6695,7 +6737,9 @@
       "title": "開發者中心",
       "urlRequired": "URL 不能為空",
       "webhooks": "Webhook",
-      "whCreateSuccess": "Webhook 創建成功"
+      "whCreateSuccess": "Webhook 創建成功",
+      "permissionLabel": "權限設定",
+      "permissionHint": "配置開發者權限與存取控制"
     },
     "dict": {
       "addItem": "添加數據項",
@@ -7364,7 +7408,8 @@
       "runningCount": "{count} 運行中",
       "title": "後臺 Agent",
       "total": "共 {count} 個",
-      "viewResult": "查看結果"
+      "viewResult": "查看結果",
+      "omittedChars": "省略 {count} 字"
     },
     "checkpointHistory": {
       "empty": "暫無檢查點",
@@ -7425,14 +7470,14 @@
           "submit": "送出",
           "dismiss": "略過",
           "submitted": "已收到，感謝回饋"
-        }
-      ,
+        },
         "heatmap": {
-          "title": "積分消耗熱力圖"
-        ,
+          "title": "積分消耗熱力圖",
           "dayTitle": "{date} 消耗",
           "legendLabel": "消耗強度",
-          "sessionsEmpty": "暫無會話記錄"}},
+          "sessionsEmpty": "暫無會話記錄"
+        }
+      },
       "hookSummary": {
         "ariaLabel": "鉤子執行摘要",
         "state": {
@@ -8914,11 +8959,11 @@
           "emptyDraft": "草稿為空，請先輸入內容再潤色。"
         },
         "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
-      }
-    ,
+      },
       "hookFailures": {
         "evidenceMissing": "未記錄最終結果"
-      }},
+      }
+    },
     "permissionConfirm": {
       "allow": "允許",
       "allowAllSession": "本次會話全部允許(後續不再彈窗)",
@@ -9034,7 +9079,25 @@
       "rollbackDeleted": "將刪除",
       "commandSummaryLabel": "將執行的命令",
       "deleteSummaryLabel": "將刪除的目標",
-      "deleteRecursiveTag": "遞迴刪除"
+      "deleteRecursiveTag": "遞迴刪除",
+      "catFileRead": "讀取檔案",
+      "catFileWrite": "寫入檔案",
+      "catFileModify": "修改檔案",
+      "catFileDelete": "刪除檔案",
+      "catFileSearch": "搜尋檔案",
+      "catCommand": "執行指令",
+      "catPreview": "預覽",
+      "catWebSearch": "網頁搜尋",
+      "catMcp": "MCP 工具",
+      "catSkill": "技能",
+      "catTaskMgmt": "任務管理",
+      "catThinking": "思考",
+      "catUserInteract": "使用者互動",
+      "catImageGen": "圖片生成",
+      "catVideoGen": "影片生成",
+      "catEnvInit": "環境初始化",
+      "catEnd": "完成",
+      "catOther": "其他"
     },
     "tokenUsage": {
       "promptTokens": "提示詞",
@@ -9088,34 +9151,10 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
-      "difficulty": [
-        "語文閱讀理解",
-        "英語聽力口語",
-        "數學計算",
-        "物理概念",
-        "化學記憶",
-        "文科背誦"
-      ],
-      "obstacle": [
-        "注意力不集中",
-        "時間管理差",
-        "學習方法不當",
-        "缺乏學習動力",
-        "考試焦慮",
-        "家庭環境影響"
-      ],
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ]
+      "classLevel": "[\"優秀(班上前 10%)\",\"良好(10-30%)\",\"中等(30-70%)\",\"一般(後 30%)\"]",
+      "difficulty": "文史背誦",
+      "obstacle": "家庭環境影響",
+      "school": "私立學校"
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -9140,7 +9179,9 @@
       "unarchive": "取消歸檔",
       "pin": "置頂",
       "unpin": "取消置頂",
-      "branchFromHere": "從此處分支"
+      "branchFromHere": "從此處分支",
+      "exportSubmenu": "匯出",
+      "compressSubmenu": "壓縮"
     },
     "checkpoint": {
       "title": "檢查點回退",
@@ -9160,7 +9201,11 @@
       "undoFailed": "暫時不可用，工作區未發生變化",
       "undoFailedChanged": "暫時不可用，工作區已發生變化",
       "undoFailedUnverifiable": "暫時不可用，無法確認工作區狀態，請檢查後重試",
-      "undoPartialWarning": "部分檔案未能回退，任務記錄保留"
+      "undoPartialWarning": "部分檔案未能回退，任務記錄保留",
+      "restoring": "正在還原",
+      "confirmTitle": "確認還原",
+      "restoreSuccess": "檢查點還原成功",
+      "restoreFailed": "還原失敗"
     },
     "addWorkspace": "添加工作區",
     "assistant": "助手",
@@ -9263,7 +9308,11 @@
       "exitWorkspaceFullscreen": "退出工作面全螢幕",
       "createDraftPullRequest": "建立 Draft PR",
       "createDraftPullRequestOk": "Draft PR 已建立",
-      "createDraftPullRequestFailed": "建立 Draft PR 失敗"
+      "createDraftPullRequestFailed": "建立 Draft PR 失敗",
+      "overflowMenu": "更多選項",
+      "groupPanel": "面板",
+      "groupTools": "工具",
+      "groupSession": "會話"
     },
     "floatMode": "浮窗模式",
     "handleHint": "點擊或向右拉出AI工作區",
@@ -9313,7 +9362,9 @@
       "collapse": "收起",
       "newSession": "新增終端",
       "resize": "調整高度",
-      "title": "PowerShell 終端"
+      "title": "PowerShell 終端",
+      "backToIde": "返回 IDE",
+      "showAgentFace": "顯示智能體"
     },
     "thisMonth": "本月",
     "thisWeek": "本週",
@@ -9369,7 +9420,32 @@
       "reasonServer": "伺服器出現問題，請稍後重試",
       "reasonUnknown": "操作失敗，請稍後重試",
       "folderNone": "未分類"
-    }
+    },
+    "searchPlaceholder": "搜尋對話",
+    "workbenchSessions": "工作台會話",
+    "searchNoResult": "未找到結果",
+    "empty": "暫無資料",
+    "unfavorite": "取消收藏",
+    "favorite": "收藏",
+    "delete": "刪除",
+    "agentTerminal": {
+      "noSession": "無會話",
+      "failed": "失敗",
+      "refresh": "重新整理",
+      "empty": "暫無終端",
+      "cursor": "游標",
+      "altScreen": "替代畫面",
+      "noIntegration": "無整合",
+      "running": "執行中",
+      "exited": "已結束",
+      "links": "連結"
+    },
+    "pictureInPicture": {
+      "title": "畫中畫",
+      "emptyState": "暫無內容",
+      "openWindow": "開啟畫中畫視窗"
+    },
+    "resizeFloatHint": "調整大小"
   },
   "aiCost": {
     "budgetAlerts": "預算告警",
@@ -9694,18 +9770,7 @@
       "datePublished": "2026-07-26",
       "description": "智匯 AI 資訊頻道:聚合 41 個權威信源(微博/知乎/36 氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號實時更新。",
       "headline": "AI 資訊 · 全網實時聚合流",
-      "keywords": [
-        "AI 資訊",
-        "大模型",
-        "OpenAI",
-        "GPT",
-        "Claude",
-        "HackerNews",
-        "TechCrunch",
-        "Arxiv",
-        "趨勢信號",
-        "智匯 AI"
-      ]
+      "keywords": "智匯 AI"
     },
     "compare": {
       "capabilityOverlay": "能力雷達疊加",
@@ -9855,7 +9920,10 @@
       "searchPlaceholder": "搜索模型/廠商…",
       "sortHint": "點擊表頭排序",
       "subtitle": "參考 arena.ai · Elo + Bootstrap CI",
-      "title": "大模型排行榜 · Arena 評分"
+      "title": "大模型排行榜 · Arena 評分",
+      "subcatGeneral": "通用",
+      "subcatCoding": "程式",
+      "subcatReasoning": "推理"
     },
     "live": {
       "empty": "暫無直播,稍後回來",
@@ -9884,7 +9952,14 @@
       "subtitle": "7/14 天熱度趨勢曲線"
     },
     "title": "AI 資訊",
-    "close": "關閉"
+    "close": "關閉",
+    "capabilityRadar": {
+      "coding": "程式設計",
+      "math": "數學",
+      "reasoning": "推理",
+      "creative": "創意",
+      "chinese": "中文"
+    }
   },
   "aiSkillDetail": {
     "addToAgent": "添加到Agent",
@@ -10225,7 +10300,12 @@
     "clear": "清除",
     "cleared": "目標已清除",
     "resetProgress": "歸零",
-    "fullProgress": "置滿"
+    "fullProgress": "置滿",
+    "resumeServerOk": "已請求恢復服務",
+    "resumeAlreadyActive": "服務已處於啟用狀態",
+    "resumeTerminal": "終端狀態無法恢復",
+    "resumeNoGoal": "找不到目標",
+    "resumeFailed": "恢復失敗: {message}"
   },
   "memoryCards": {
     "title": "Typed Memory 記憶庫",
@@ -10607,7 +10687,8 @@
     "agreementNoticeDisagree": "不同意",
     "agreementNoticeEnterHint": "點擊\"同意並繼續\"表示您已閱讀並同意以上協議",
     "agreementNoticeSafe": "我們重視您的隱私安全",
-    "agreementNoticeTitle": "用戶協議"
+    "agreementNoticeTitle": "用戶協議",
+    "linuxdoLogin": "Linux.do 登入"
   },
   "behavior": {
     "createdAt": "記錄時間",
@@ -10669,7 +10750,42 @@
     "loading": "加載中...",
     "save": "保存",
     "subtitle": "填寫名片信息並選擇模板樣式",
-    "templateLabel": "模板"
+    "templateLabel": "模板",
+    "templates": {
+      "minimal": "極簡",
+      "business": "商務",
+      "creative": "創意"
+    },
+    "fields": {
+      "name": {
+        "label": "姓名",
+        "placeholder": "請輸入姓名"
+      },
+      "company": {
+        "label": "公司",
+        "placeholder": "請輸入公司"
+      },
+      "phone": {
+        "label": "電話",
+        "placeholder": "請輸入電話"
+      },
+      "email": {
+        "label": "郵件",
+        "placeholder": "請輸入郵件"
+      },
+      "wechat": {
+        "label": "微信",
+        "placeholder": "請輸入微信號"
+      },
+      "address": {
+        "label": "地址",
+        "placeholder": "請輸入地址"
+      },
+      "avatar": {
+        "label": "頭像",
+        "placeholder": "請選擇頭像"
+      }
+    }
   },
   "businessCardPage": {
     "create": "新建",
@@ -10873,7 +10989,8 @@
         "saveFailed": "錄音儲存失敗",
         "recognitionFailed": "語音辨識中斷",
         "emptyTranscript": "未辨識到內容",
-        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊"
+        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊",
+        "loadFailed": "筆記清單載入失敗，請重試"
       },
       "action": {
         "start": "開始錄音",
@@ -10882,7 +10999,9 @@
         "saveAudioOnly": "僅儲存音訊",
         "insertToInput": "插入對話",
         "dismiss": "關閉"
-      }
+      },
+      "searchPlaceholder": "搜尋筆記內容",
+      "groupAll": "全部"
     },
     "connectorAuth": {
       "title": "連接到 {connectorName}",
@@ -11188,7 +11307,14 @@
       "shareLinkCopied": "已複製內容與連結",
       "showContent": "顯示內容",
       "stopReadAloud": "停止朗讀",
-      "toggleMetadata": "切換元數據"
+      "toggleMetadata": "切換元數據",
+      "editAiReply": "編輯此回覆",
+      "saveAsNewVersion": "另存為新版本",
+      "pin": "置頂",
+      "unpin": "取消釘選",
+      "bookmark": "收藏",
+      "unbookmark": "取消收藏",
+      "flagFailed": "標記保存失敗"
     },
     "messageDeleted": "已刪除消息",
     "modeAlreadyActive": "當前已是{mode}模式",
@@ -11957,18 +12083,24 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
     "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
-    "analysisOpen": "檢視場景分析"
-  ,
+    "analysisOpen": "檢視場景分析",
     "terminal": {
-      "waitingInput": "等待輸入"
-    ,
+      "waitingInput": "等待輸入",
       "promptLabel": "終端輸入",
-      "submit": "送出"},
+      "submit": "送出"
+    },
     "titleAutoUpdate": {
-      "title": "對話標題自動更新"
-    ,
+      "title": "對話標題自動更新",
       "label": "自動產生標題",
-      "desc": "每輪對話後自動用模型產生更貼切的標題"}},
+      "desc": "每輪對話後自動用模型產生更貼切的標題"
+    },
+    "reasoningEffortXhigh": "極高",
+    "reasoningEffortMax": "最高",
+    "reasoningEffortUltra": "極限",
+    "predictiveEditInsert": "插入",
+    "predictiveEditReplace": "取代",
+    "predictiveEditDelete": "刪除"
+  },
   "chatHistory": {
     "moveToGroup": "移動到分組",
     "moveSelectedToGroup": "移動所選到分組",
@@ -12035,7 +12167,9 @@
       "byTime": "按時間",
       "label": "排序方式",
       "pinnedFirst": "置頂優先"
-    }
+    },
+    "titleHistoryOriginal": "原始歷史",
+    "titleHistoryCurrent": "目前歷史"
   },
   "chatSettingsPage": {
     "back": "返回",
@@ -12207,7 +12341,11 @@
     "toKnowledgeAlready": "已在知識庫中",
     "sourceWechat": "微信",
     "sourceWechatHint": "微信「合併轉發」匯出的 聊天記錄.txt 或其 zip 壓縮包",
-    "noValidContent": "無可匯入的有效內容"
+    "noValidContent": "無可匯入的有效內容",
+    "sourceChatgpt": "ChatGPT",
+    "sourceClaudeAi": "Claude AI",
+    "sourceChatgptHint": "支援 .json 檔案",
+    "sourceClaudeAiHint": "支援 .json 檔案"
   },
   "commandPalette": {
     "groups": {
@@ -12221,277 +12359,151 @@
       "slashDiff": {
         "label": "會話變更總覽",
         "description": "檢視本次會話 AI 變更的檔案",
-        "keywords": [
-          "diff",
-          "變更",
-          "審查"
-        ]
+        "keywords": "[\"diff\",\"變更\",\"審查\"]"
       },
       "slashStatus": {
         "label": "會話狀態",
         "description": "檢視模型、上下文佔用、權限模式與用量",
-        "keywords": [
-          "status",
-          "狀態",
-          "上下文"
-        ]
+        "keywords": "[\"status\",\"狀態\",\"上下文\"]"
       },
       "slashModel": {
         "label": "切換模型",
         "description": "開啟模型選擇器",
-        "keywords": [
-          "model",
-          "模型",
-          "切換"
-        ]
+        "keywords": "[\"model\",\"模型\",\"切換\"]"
       },
       "slashMcp": {
         "label": "MCP 市場",
         "description": "開啟 MCP 伺服器市場",
-        "keywords": [
-          "mcp",
-          "插件",
-          "市場"
-        ]
+        "keywords": "[\"mcp\",\"外掛\",\"市集\"]"
       },
       "slashCompact": {
         "label": "壓縮上下文",
         "description": "壓縮目前會話歷史,釋放上下文視窗",
-        "keywords": [
-          "compact",
-          "壓縮",
-          "上下文"
-        ]
+        "keywords": "[\"compact\",\"壓縮\",\"上下文\"]"
       },
       "steerPrompt": {
         "label": "引導提示",
         "description": "向正在執行的回覆中途插入引導，無需等待當前輪完成",
-        "keywords": [
-          "引導",
-          "插話",
-          "steer"
-        ]
+        "keywords": "[\"引導\",\"插嘴\",\"steer\"]"
       },
       "queuePrompt": {
         "label": "將提示加入佇列",
         "description": "把目前輸入加入 W27 預備訊息佇列，串流結束後自動依序傳送",
-        "keywords": [
-          "佇列",
-          "排隊",
-          "queue"
-        ]
+        "keywords": "[\"佇列\",\"排隊\",\"queue\"]"
       },
       "agent": {
         "description": "管理並調度 AI 智能體",
-        "keywords": [
-          "智能體",
-          "調度",
-          "agent"
-        ],
+        "keywords": "[\"代理\",\"調度\",\"agent\"]",
         "label": "AI 智能體"
       },
       "browser": {
         "description": "在工作區內瀏覽網頁",
-        "keywords": [
-          "瀏覽器",
-          "網頁",
-          "browser"
-        ],
+        "keywords": "[\"瀏覽器\",\"網頁\",\"browser\"]",
         "label": "內建瀏覽器"
       },
       "capabilityMarket": {
         "description": "發現並安裝能力包",
-        "keywords": [
-          "能力",
-          "市場",
-          "market",
-          "插件"
-        ],
+        "keywords": "[\"能力\",\"市集\",\"外掛\",\"market\"]",
         "label": "能力市場"
       },
       "codeChanges": {
         "description": "查看工作區程式碼變更",
-        "keywords": [
-          "程式碼",
-          "變更",
-          "diff",
-          "修改"
-        ],
+        "keywords": "[\"程式碼\",\"變更\",\"修改\",\"diff\"]",
         "label": "程式碼變更"
       },
       "connectors": {
         "description": "管理外部服務連接",
-        "keywords": [
-          "連接",
-          "外部服務",
-          "connector"
-        ],
+        "keywords": "[\"連接\",\"外部服務\",\"connector\"]",
         "label": "連接器"
       },
       "document": {
         "description": "編輯工作區文件",
-        "keywords": [
-          "文件",
-          "編輯",
-          "doc"
-        ],
+        "keywords": "[\"文件\",\"編輯\",\"doc\"]",
         "label": "文件"
       },
       "editor": {
         "description": "開啟程式碼編輯器",
-        "keywords": [
-          "編輯器",
-          "程式碼",
-          "code"
-        ],
+        "keywords": "[\"編輯器\",\"程式碼\",\"code\"]",
         "label": "編輯器"
       },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
-        "keywords": [
-          "MCP",
-          "伺服器",
-          "工具"
-        ],
+        "keywords": "[\"MCP\",\"伺服器\",\"工具\"]",
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "瀏覽與安裝 MCP 服務",
-        "keywords": [
-          "MCP",
-          "廣場",
-          "store",
-          "安裝"
-        ],
+        "keywords": "[\"MCP\",\"廣場\",\"市集\",\"store\"]",
         "label": "MCP 廣場"
       },
       "modeAsk": {
         "description": "切換到純問答模式,停用工具",
-        "keywords": [
-          "問答",
-          "ask",
-          "模式"
-        ],
+        "keywords": "[\"問答\",\"ask\",\"模式\"]",
         "label": "問答模式"
       },
       "modeBuild": {
         "description": "讓 AI 直接建構與修改",
-        "keywords": [
-          "建構",
-          "模式",
-          "build"
-        ],
+        "keywords": "[\"構建\",\"模式\",\"build\"]",
         "label": "建構模式"
       },
       "modePlan": {
         "description": "先制定計劃再執行",
-        "keywords": [
-          "規劃",
-          "計劃",
-          "plan"
-        ],
+        "keywords": "[\"規劃\",\"計畫\",\"plan\"]",
         "label": "規劃模式"
       },
       "modeReview": {
         "description": "審查與評審現有程式碼",
-        "keywords": [
-          "審查",
-          "評審",
-          "review"
-        ],
+        "keywords": "[\"審查\",\"評審\",\"review\"]",
         "label": "審查模式"
       },
       "modeSpec": {
         "description": "從規格生成實現",
-        "keywords": [
-          "規格",
-          "spec",
-          "模式"
-        ],
+        "keywords": "[\"規格\",\"spec\",\"模式\"]",
         "label": "規格模式"
       },
       "skill": {
         "description": "管理與呼叫 AI 技能",
-        "keywords": [
-          "技能",
-          "skill",
-          "能力"
-        ],
+        "keywords": "[\"技能\",\"skill\",\"能力\"]",
         "label": "技能"
       },
       "terminal": {
         "description": "開啟整合終端機",
-        "keywords": [
-          "終端機",
-          "命令列",
-          "terminal"
-        ],
+        "keywords": "[\"終端機\",\"命令列\",\"terminal\"]",
         "label": "終端機"
       },
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ],
+        "keywords": "[\"AI\",\"世界\",\"應用\"]",
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI",
-          "chat"
-        ],
+        "keywords": "[\"對話\",\"聊天\",\"AI\",\"chat\"]",
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "視頻",
-          "AI",
-          "drama"
-        ],
+        "keywords": "[\"短劇\",\"影片\",\"AI\",\"drama\"]",
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": [
-          "個人",
-          "資料",
-          "設置"
-        ],
+        "keywords": "[\"個人\",\"資料\",\"設定\"]",
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ],
+        "keywords": "[\"搜尋\",\"查找\",\"search\"]",
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": [
-          "設置",
-          "偏好",
-          "配置"
-        ],
+        "keywords": "[\"設定\",\"偏好\",\"配置\"]",
         "label": "系統設置"
       },
       "skillsMarket": {
         "description": "瀏覽並安裝自進化 Skill",
-        "keywords": [
-          "skill",
-          "技能",
-          "市場",
-          "market"
-        ],
+        "keywords": "[\"skill\",\"技能\",\"市場\",\"market\"]",
         "label": "Skill 市場"
       }
     },
@@ -12747,7 +12759,42 @@
     "progress": "學習進度",
     "progressLessons": "已學 {completed}/{total} 堂",
     "completed": "已完成",
-    "complete": "完成學習"
+    "complete": "完成學習",
+    "chapters": {
+      "empty": "尚無章節",
+      "sectionCount": "{count} 節"
+    },
+    "interaction": {
+      "favorite": "收藏",
+      "like": "喜歡"
+    },
+    "tabs": {
+      "anonymous": "匿名",
+      "certAcquired": "課程已完成，已取得證書",
+      "certNo": "證書編號：{no}",
+      "certPending": "完成所有課程並通過評測即可獲得證書",
+      "certPreview": "證照預覽",
+      "certStudent": "學生姓名",
+      "certTitle": "證照",
+      "certificate": "證照",
+      "comments": "留言",
+      "homework": "作業",
+      "instructor": "講師",
+      "intro": "課程簡介",
+      "noComments": "尚無留言",
+      "noHomework": "尚無作業",
+      "noIntro": "尚無介紹",
+      "noRating": "尚無評分",
+      "objectives": "學習目標",
+      "overview": "總覽",
+      "ratersCount": "{count} 則評分",
+      "rating": "評分",
+      "scoreUnit": "分"
+    },
+    "video": {
+      "cover": "課程封面",
+      "selectChapter": "請選擇章節開始"
+    }
   },
   "courses": {
     "subtitle": "探索豐富的AI課程，提升您的技能",
@@ -12854,7 +12901,8 @@
     "kindDelete": "刪除",
     "kindUpdate": "修改",
     "stepsTooltip": "涉及步驟",
-    "generatedAt": "產生於 {time}"
+    "generatedAt": "產生於 {time}",
+    "presentedFiles": "已提交檔案"
   },
   "design": {
     "aiGenerate": {
@@ -13810,7 +13858,9 @@
     "editRole": "編輯角色",
     "createRole": "創建角色",
     "displayNameExample": "Drizzle 遷移專家",
-    "recommendedTasksExample": "schema 變更, 數據遷移"
+    "recommendedTasksExample": "schema 變更, 數據遷移",
+    "dagRemoveNode": "移除節點",
+    "dagRemoveEdge": "移除連線"
   },
   "distribution": {
     "activeMembers": "活躍成員",
@@ -14032,7 +14082,26 @@
       "stateBlocking": "阻塞中",
       "stateRequested": "等待處理",
       "stateWaitingForMe": "等我判斷",
-      "stateOverdue": "已過期"
+      "stateOverdue": "已過期",
+      "reasonDangerousCommand": "危險指令",
+      "reasonDestructiveOperation": "破壞性操作",
+      "reasonWritesFiles": "會寫入檔案",
+      "reasonDeletesFiles": "會刪除檔案",
+      "reasonExecutesCommand": "會執行指令",
+      "reasonNetworkAccess": "會存取網路",
+      "reasonDatabaseWrite": "會寫入資料庫",
+      "reasonHighRiskTool": "高風險工具",
+      "reasonRequiresConfirmation": "需要你確認",
+      "scopeFsRead": "讀取檔案",
+      "scopeFsWrite": "寫入檔案",
+      "scopeFsDelete": "刪除檔案",
+      "scopeExec": "執行指令",
+      "scopeNetwork": "網路存取",
+      "scopeDb": "資料庫",
+      "scopeOther": "其他",
+      "riskLow": "低風險",
+      "riskMedium": "中風險",
+      "riskHigh": "高風險"
     },
     "toolbar": {
       "addColumn": "添加列",
@@ -14410,7 +14479,18 @@
       "toolFailures": "工具失敗",
       "trigger": "手動觸發",
       "triggerError": "觸發失敗",
-      "triggerSuccess": "觸發成功"
+      "triggerSuccess": "觸發成功",
+      "refreshFailed": "重新整理失敗",
+      "refresh": "重新整理",
+      "refreshSuccess": "重新整理成功",
+      "refreshReadFailed": "讀取重新整理結果失敗",
+      "refreshTotal": "重新整理前：{before}",
+      "refreshLoadState": "載入狀態",
+      "refreshAdded": "新增",
+      "refreshRemoved": "移除",
+      "refreshChanged": "修改",
+      "refreshUnchanged": "未變",
+      "refreshNoChange": "無新變更"
     },
     "orch": {
       "dashboard": "儀表盤",
@@ -14730,7 +14810,16 @@
   },
   "eduCoursesPage": {
     "subtitle": "管理已報名的全部課程",
-    "title": "我的課程"
+    "title": "我的課程",
+    "empty": "尚無課程",
+    "loading": "載入中...",
+    "progress": "進度 {n}%",
+    "searchAriaLabel": "搜尋課程",
+    "searchPlaceholder": "搜尋課程...",
+    "statusCompleted": "已完成",
+    "statusInProgress": "進行中",
+    "statusNotStarted": "未開始",
+    "total": "共 {n} 門"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -14825,7 +14914,8 @@
     "loading": "加載中...",
     "myPoints": "我的積分",
     "subtitle": "學習積分獎勵系統",
-    "title": "教育積分"
+    "title": "教育積分",
+    "totalChannels": "頻道"
   },
   "eduProgressPage": {
     "categoryProgress": "分類進度",
@@ -14850,33 +14940,20 @@
     "subtitle": "本週課程安排一覽",
     "title": "課程表",
     "today": "今天",
-    "weekdays": []
+    "weekdays": "[]"
   },
   "enterprise": {
     "architecture": {
-      "effectFlow": [],
-      "effectMetrics": [],
+      "effectFlow": "[]",
+      "effectMetrics": "[]",
       "effectTitle": "AI化效果",
-      "infoAdvanced": [],
+      "infoAdvanced": "[]",
       "infoAdvancedLabel": "高級信息世界",
-      "infoBasic": [],
+      "infoBasic": "[]",
       "infoBasicLabel": "初級信息世界",
       "infoTitle": "信息世界",
       "label": "企業AI化服務架構",
-      "physicalItems": [
-        {
-          "desc": "幫助企業梳理組織結構,定義數字員工崗位",
-          "title": "組織架構"
-        },
-        {
-          "desc": "正向與逆向流程分析,優化業務運轉效率",
-          "title": "流程梳理"
-        },
-        {
-          "desc": "企業文化、使命願景、批判性思維與謙卑態度",
-          "title": "人本價值"
-        }
-      ],
+      "physicalItems": "[{\"desc\":\"協助企業梳理組織結構，定義數位員工崗位\",\"title\":\"組織架構\"},{\"desc\":\"正向與逆向流程分析，優化業務運作效率\",\"title\":\"流程梳理\"},{\"desc\":\"企業文化、使命願景、批判性思維與謙卑態度\",\"title\":\"人本價值\"}]",
       "physicalTitle": "物理世界",
       "title": "從物理世界到信息世界,構建人機協同的超級企業"
     },
@@ -14902,142 +14979,13 @@
     "compass": {
       "adoptionLabel": "{percent}% 企業已採用",
       "label": "智能體場景羅盤",
-      "quadrants": [
-        {
-          "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ],
-          "tag": "Q1",
-          "title": "高效助手"
-        },
-        {
-          "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "數據分析",
-            "決策支持"
-          ],
-          "tag": "Q2",
-          "title": "智慧顧問"
-        },
-        {
-          "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ],
-          "tag": "Q3",
-          "title": "執行專家"
-        },
-        {
-          "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": [
-            "營銷自動化",
-            "多智能體協同"
-          ],
-          "tag": "Q4",
-          "title": "全能專家"
-        }
-      ],
+      "quadrants": "[]",
       "subtitle": "幫助企業識別和規劃智能體應用場景,從簡單到復雜逐步推進AI化",
       "title": "基於任務復雜度與自主決策度的場景規劃"
     },
     "courses": {
       "label": "課程體系",
-      "phases": [
-        {
-          "courses": [
-            {
-              "duration": "1課時",
-              "isNew": true,
-              "name": "AI技術發展歷程概述"
-            },
-            {
-              "duration": "1課時",
-              "isNew": true,
-              "name": "AI生產力工具的使用方法"
-            },
-            {
-              "duration": "1課時",
-              "isNew": true,
-              "name": "主流AI工具與平臺介紹"
-            },
-            {
-              "duration": "1課時",
-              "isNew": true,
-              "name": "低/無代碼智能體應用搭建"
-            },
-            {
-              "duration": "1課時",
-              "isNew": true,
-              "name": "企業AI化結構化分析方法"
-            },
-            {
-              "duration": "1課時",
-              "isNew": true,
-              "name": "AI時代素養——批判性思維"
-            }
-          ],
-          "description": "掌握主流AI工具與平臺,理解AI技術發展脈絡",
-          "tag": "PHASE 01",
-          "title": "AI新工具課程"
-        },
-        {
-          "courses": [
-            {
-              "duration": "1課時",
-              "isNew": false,
-              "name": "結構化問題解決與引導"
-            },
-            {
-              "duration": "1課時",
-              "isNew": false,
-              "name": "創新障礙突破"
-            },
-            {
-              "duration": "1課時",
-              "isNew": false,
-              "name": "創意學習方法"
-            },
-            {
-              "duration": "1課時",
-              "isNew": false,
-              "name": "組織變革心理"
-            }
-          ],
-          "description": "突破創新障礙,掌握結構化問題解決與組織變革方法",
-          "tag": "PHASE 02",
-          "title": "思維類課程"
-        },
-        {
-          "courses": [
-            {
-              "duration": "1課時",
-              "isNew": false,
-              "name": "企業文化管理"
-            },
-            {
-              "duration": "1課時",
-              "isNew": false,
-              "name": "使命、願景與價值觀"
-            },
-            {
-              "duration": "系列",
-              "isNew": false,
-              "name": "中國傳統哲學系列"
-            },
-            {
-              "duration": "系列",
-              "isNew": false,
-              "name": "西方哲學系列"
-            }
-          ],
-          "description": "從東西方哲學到企業文化管理,構建深層組織共識",
-          "tag": "PHASE 03",
-          "title": "文化類課程"
-        }
-      ],
+      "phases": "[]",
       "subtitle": "幫助企業決策者全面理解AI時代的機遇與挑戰",
       "title": "系統化AI認知與實踐課程"
     },
@@ -15056,7 +15004,7 @@
       "title": "智匯 AI企業服務"
     },
     "join": {
-      "benefits": [],
+      "benefits": "[]",
       "consultHint": "掃碼諮詢或直接聯系我們",
       "joinNow": "立即加入",
       "label": "加入智匯 AI社",
@@ -15066,44 +15014,13 @@
     },
     "modules": {
       "coreServiceBadge": "核心服務",
-      "items": [
-        {
-          "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ],
-          "tag": "MODULE 01",
-          "title": "在地社群"
-        },
-        {
-          "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ],
-          "tag": "MODULE 02",
-          "title": "線上社群"
-        },
-        {
-          "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": [
-            "專業大模型",
-            "智能體服務",
-            "諮詢服務"
-          ],
-          "tag": "MODULE 03",
-          "title": "AI專業服務"
-        }
-      ],
+      "items": "[]",
       "label": "三大服務模塊"
     },
     "positioning": {
       "description": "智匯 AI社致力於幫助企業決策者深度理解AI與企業的關系,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
       "label": "核心定位",
-      "tags": [],
+      "tags": "[]",
       "title": "AI時代企業理性效率服務與互助社群"
     },
     "inquiry": "企業諮詢"
@@ -15578,7 +15495,9 @@
     "phaseApproved": "已批准",
     "phaseExecuting": "執行中",
     "phaseDone": "已完成",
-    "viewPullRequest": "查看拉取請求"
+    "viewPullRequest": "查看拉取請求",
+    "revisionLabel": "版本標註",
+    "revisionPlaceholder": "請輸入版本反饋"
   },
   "floatingChat": {
     "openclaw": {
@@ -16060,7 +15979,8 @@
     "codeEditor": {
       "lspStatus": "LSP",
       "zoomIn": "放大字號",
-      "zoomOut": "縮小字號"
+      "zoomOut": "縮小字號",
+      "attributionToggle": "切換歸屬資訊"
     },
     "debug": {
       "add": "添加",
@@ -16084,7 +16004,11 @@
       "watchDuplicate": "該表達式已在監視列表中"
     },
     "diffFileList": {
-      "noMatch": "無匹配文件"
+      "noMatch": "無匹配文件",
+      "groupModified": "已修改",
+      "groupAdded": "已新增",
+      "groupDeleted": "已刪除",
+      "groupRenamed": "已重新命名"
     },
     "diffReview": {
       "copyGitApply": "復制 git apply",
@@ -16117,7 +16041,11 @@
       "commit": "提交變更",
       "fileCount": "{count} 個文件",
       "split": "對比",
-      "unified": "合並"
+      "unified": "合並",
+      "filterAll": "全部",
+      "filterModified": "已修改",
+      "filterAdded": "已新增",
+      "filterDeleted": "已刪除"
     },
     "diffViewer": {
       "copyMergedFailed": "複製失敗",
@@ -16222,7 +16150,17 @@
       "noWorkspace": "未連接主機工作區",
       "refresh": "重新整理",
       "title": "主機 Git",
-      "undetermined": "無法判定:{reason}"
+      "undetermined": "無法判定:{reason}",
+      "indexScan": "掃描 Git 索引",
+      "diffTitle": "{path} 的差異",
+      "diffClose": "關閉差異",
+      "diffClean": "工作區與 Git 索引一致",
+      "diffUndetermined": "原因不明: {reason}",
+      "diffCommandFailed": "命令失敗: {reason}",
+      "indexUndetermined": "索引原因不明: {reason}",
+      "indexDelta": "共 {total} 項，修改 {delta}",
+      "indexFirst": "首次索引：共 {total} 項",
+      "indexSkipped": "已跳過：{symlink} 個符號連結，{nonUtf8} 個非 UTF-8"
     },
     "layout": {
       "agentView": "智能體視圖",
@@ -16299,7 +16237,9 @@
     },
     "statusBar": {
       "toggleTheme": "切換主題",
-      "unsynced": "未同步"
+      "unsynced": "未同步",
+      "synced": "Git 已同步",
+      "conflict": "Git 衝突"
     },
     "terminalPanel": {
       "switchToDark": "切換為暗色終端",
@@ -16413,7 +16353,9 @@
       "mcp": "MCP",
       "plus": "添加視圖",
       "settings": "設置",
-      "terminal": "終端"
+      "terminal": "終端",
+      "unpin": "取消置頂",
+      "pin": "置頂視窗"
     },
     "viewSwitcher": {
       "groupSettings": "設置",
@@ -16421,6 +16363,37 @@
       "groupView": "視圖",
       "noMatch": "無匹配項",
       "searchPlaceholder": "搜索視圖..."
+    },
+    "agentsMd": {
+      "generateConfirmTitle": "確認產生",
+      "generateConfirmContent": "將基於目前工作區產生 AGENTS.md 草稿",
+      "errorEmptyWorkspace": "工作區為空",
+      "errorRequestFailed": "請求失敗",
+      "errorNoDraft": "無可用草稿",
+      "generateFailed": "產生失敗",
+      "draftNotice": "草稿已產生",
+      "writeConfirmTitle": "確認寫入",
+      "writeConfirmContent": "將覆蓋現有的 AGENTS.md 文件",
+      "writeFailed": "寫入失敗",
+      "written": "已寫入",
+      "title": "AGENTS.md",
+      "hint": "定義智能體行為與規則",
+      "generating": "產生中",
+      "generate": "產生",
+      "draftTitle": "草稿",
+      "writing": "寫入中",
+      "write": "寫入",
+      "discard": "捨棄"
+    },
+    "terminalSessionList": {
+      "closeTerminalAria": "關閉終端機",
+      "empty": "沒有終端機工作階段",
+      "loading": "載入中",
+      "newTerminalAria": "新終端機",
+      "statusActive": "執行中",
+      "statusClosed": "已關閉",
+      "statusExited": "已結束",
+      "title": "終端機工作階段"
     }
   },
   "imageGenPage": {
@@ -16433,7 +16406,11 @@
     "sizeLabel": "尺寸",
     "subtitle": "輸入提示詞生成圖片",
     "success": "生成成功",
-    "title": "AI 圖片生成"
+    "title": "AI 圖片生成",
+    "gallery": "作品集",
+    "history": "歷史記錄",
+    "templates": "範本",
+    "favorites": "收藏"
   },
   "inlineEdit": {
     "closeAriaLabel": "關閉編輯",
@@ -17431,14 +17408,7 @@
       "viewMore": "查看更多"
     },
     "marquee": {
-      "items": [
-        "🎉 全新 AI 教育模塊上線,支持課程學習 / 直播 / 考試一體化",
-        "🚀 模型市場新增 GPT-5 / Claude 4.5 / Gemini 2.5 Pro 等旗艦模型",
-        "💎 VIP 會員限時 7 折,享 100+ 智能體無限使用",
-        "🌍 多語言支持升級:新增 5 種語言實時翻譯",
-        "🎨 主題中心 50+ 套主題,一鍵切換視覺風格",
-        "📚 知識庫 RAG 上線,文檔秒變智能問答"
-      ],
+      "items": "[]",
       "label": "公告"
     },
     "miniappModal": {
@@ -17752,7 +17722,12 @@
     "dashboardSuccessRate": "成功率",
     "dashboardAvgLatency": "平均延遲",
     "dashboardNoData": "暫無資料",
-    "dashboardLatency": "{value}s"
+    "dashboardLatency": "{value}s",
+    "clearAuthSuccess": "{name} 的授權已清除",
+    "clearAuthNoOauth": "{name} 未使用 OAuth 授權",
+    "clearAuthFailed": "{name} 的授權清除失敗",
+    "clearAuthHint": "清除當前伺服器的授權憑證",
+    "clearAuth": "清除授權"
   },
   "member": {
     "feedback": {
@@ -17989,15 +17964,7 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": [
-      "週一",
-      "週二",
-      "週三",
-      "週四",
-      "週五",
-      "週六",
-      "週日"
-    ]
+    "weekdays": "[]"
   },
   "models": {
     "relay": {
@@ -18395,24 +18362,7 @@
         "docs": "查看文檔",
         "title": "OpenClaw - 讓 AI 部署更簡單"
       },
-      "steps": [
-        {
-          "desc": "通過一行命令安裝 OpenClaw CLI 工具",
-          "title": "安裝 CLI"
-        },
-        {
-          "desc": "使用您的 API 令牌登錄 OpenClaw",
-          "title": "登錄認證"
-        },
-        {
-          "desc": "選擇需要部署的模型和區域",
-          "title": "配置模型"
-        },
-        {
-          "desc": "執行部署命令,等待服務就緒",
-          "title": "一鍵啟動"
-        }
-      ],
+      "steps": "[]",
       "stepsTitle": "部署步驟",
       "subtitle": "開源 AI 網關,支持多模型路由、負載均衡和緩存加速",
       "title": "OpenClaw 一鍵部署"
@@ -18726,31 +18676,13 @@
     "consumeTrend": "+{n}% vs 上月",
     "packages": {
       "enterprise": {
-        "features": [
-          "200M tokens 額度",
-          "專屬模型通道",
-          "無限 API 令牌",
-          "專屬客戶經理",
-          "調用日誌永久",
-          "SLA 99.95%"
-        ]
+        "features": "[]"
       },
       "pro": {
-        "features": [
-          "15M tokens 額度",
-          "全部模型可用",
-          "20 個 API 令牌",
-          "優先技術支持",
-          "調用日誌 90 天"
-        ]
+        "features": "[]"
       },
       "starter": {
-        "features": [
-          "1M tokens 額度",
-          "基礎模型可用",
-          "5 個 API 令牌",
-          "社區支持"
-        ]
+        "features": "[]"
       }
     },
     "productSchema": {
@@ -19503,7 +19435,14 @@
     "editDeviceMapTitle": "編輯設備指紋",
     "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。",
     "checkedInToday": "今日已簽到",
-    "rename": "重新命名"
+    "rename": "重新命名",
+    "captureWebLogin": "網頁登入",
+    "captureMethodWeb": "網頁登入",
+    "captureMethodLocal": "本機攔截",
+    "captureWbWebEmbed": "內嵌瀏覽器登入（自動）",
+    "captureWbWebPasteInvalid": "Cookie 無效或已過期，請重新複製瀏覽器裡的登入 Cookie",
+    "captureWbWebAccountMissing": "已匯入，但未能取得帳號資訊（uid/暱稱）；若簽到失敗請改用內嵌瀏覽器自動登入",
+    "schedulerNextRun": "下次 {time}"
   },
   "nav": {
     "checkin": "簽到助手",
@@ -19864,8 +19803,7 @@
     "customAdd": "新增",
     "customRemove": "移除",
     "customDragHint": "拖曳排序",
-    "customNoResults": "沒有找到符合的功能"
-  ,
+    "customNoResults": "沒有找到符合的功能",
     "hrGroup": "人事部",
     "financeAi": "財務部",
     "eduHubTitle": "教育",
@@ -19992,7 +19930,9 @@
     "examMarking": "閱卷",
     "adminRelayModelMappings": "中繼模型對應",
     "saasTenants": "SaaS 租戶",
-    "saasCertificates": "SaaS 證書"},
+    "saasCertificates": "SaaS 證書",
+    "downloadCodeSigningNotice": "Windows 版本由 SignPath.io 使用 SignPath Foundation 提供的免費程式碼簽名憑證進行簽名"
+  },
   "news": {
     "allCategories": "全部分類",
     "backToList": "返回資訊",
@@ -20040,13 +19980,7 @@
       }
     },
     "benefits": {
-      "items": [
-        "每週 AI 工程實戰案例",
-        "新功能提前體驗",
-        "獨家 prompt 模板",
-        "行業趨勢分析",
-        "社區活動通知"
-      ],
+      "items": "[]",
       "title": "訂閱福利"
     },
     "errors": {
@@ -20190,6 +20124,55 @@
       "more": "更多",
       "tenK": "萬",
       "title": "熱門資訊"
+    },
+    "integral": {
+      "all": "全部",
+      "currentPoints": "目前點數",
+      "mall": "點數商城",
+      "myRank": "我的排名",
+      "recentRecords": "最近紀錄",
+      "title": "點數中心",
+      "weeklyGain": "本週獲得"
+    },
+    "messageSystem": {
+      "messageCenterAria": "訊息中心",
+      "noNewMessages": "沒有新訊息",
+      "title": "訊息中心",
+      "unreadCount": "{count} 則未讀",
+      "viewAll": "查看全部"
+    },
+    "rightModule": {
+      "defaultEntries": {
+        "help": {
+          "description": "使用指南",
+          "label": "說明中心"
+        },
+        "invite": {
+          "description": "賺取點數",
+          "label": "邀請好友"
+        },
+        "mall": {
+          "description": "兌換獎勵",
+          "label": "點數商城"
+        },
+        "vip": {
+          "description": "會員權益",
+          "label": "會員中心"
+        }
+      },
+      "defaultTags": {
+        "agent": "代理",
+        "backend": "後端",
+        "frontend": "前端",
+        "llm": "大語言模型",
+        "opensource": "開源",
+        "rag": "檢索增強生成",
+        "tutorial": "教學"
+      },
+      "hotTags": "熱門標籤",
+      "more": "查看更多",
+      "promotion": "推廣",
+      "quickEntries": "快捷入口"
     }
   },
   "operationLogs": {
@@ -20447,35 +20430,17 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "審計日誌",
-          "專屬技術支持"
-        ],
+        "features": "[]",
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個客戶端",
-          "API 訪問",
-          "社區支持"
-        ],
+        "features": "[\"每月 1000 積分\",\"所有 AI 模型\",\"所有 6 個客戶端\",\"API 存取\",\"社群支援\"]",
         "name": "免費版"
       },
       "pro": {
         "cta": "升級到 Pro",
-        "features": [
-          "每月 10000 積分",
-          "優先級隊列",
-          "高級模型(GPT-4o/Claude Opus)",
-          "團隊協作(5 席位)",
-          "郵件支持"
-        ],
+        "features": "[\"每月 10000 積分\",\"優先佇列\",\"進階模型(GPT-4o/Claude Opus)\",\"團隊協作(5 席位)\",\"電子郵件支援\"]",
         "name": "專業版"
       },
       "unknown": {
@@ -20703,13 +20668,7 @@
     "earlyBird": {
       "cta": "立即加入",
       "desc": "限前 18 席,售完即恢復原價",
-      "features": [
-        "全年所有課程免費參加",
-        "線下探索活動優先參與名額",
-        "智匯 AI 會員社群無限次互動",
-        "早鳥專屬導師 1v1 諮詢 1 次",
-        "早鳥專屬資料包(價值 ¥3000)"
-      ],
+      "features": "[\"全年所有課程免費參加\",\"線下探索活動優先參與名額\",\"智匯 AI 會員社群無限次互動\",\"早鳥專屬導師 1v1 諮詢 1 次\",\"早鳥專屬資料包(價值 ¥3000)\"]",
       "name": "早鳥會員",
       "originalPrice": "¥18000",
       "period": "/人/年",
@@ -20718,13 +20677,7 @@
     "enterprise": {
       "cta": "聯系商務",
       "desc": "面向企業決策者團隊的定製方案",
-      "features": [
-        "專屬客戶經理 + 定製化部署",
-        "團隊培訓 + 內部知識庫接入",
-        "API 高並發配額 + SLA 保障",
-        "私有化部署可選",
-        "季度復盤 + 戰略諮詢"
-      ],
+      "features": "[\"專屬客戶經理 + 客製化部署\",\"團隊培訓 + 內部知識庫接入\",\"API 高併發配額 + SLA 保障\",\"私有化部署可選\",\"季度復盤 + 戰略諮詢\"]",
       "name": "企業服務",
       "period": "/月",
       "price": "商務洽談"
@@ -20757,54 +20710,13 @@
     "standard": {
       "cta": "瞭解詳情",
       "desc": "早鳥售罄後自動切換至此方案",
-      "features": [
-        "全年所有課程免費參加",
-        "線下探索活動優先參與名額",
-        "智匯 AI 會員社群無限次互動"
-      ],
+      "features": "[\"全年所有課程免費參加\",\"線下探索活動優先參與名額\",\"智匯 AI 會員社群無限次互動\"]",
       "name": "標準會員",
       "period": "/人/年",
       "price": "¥18000"
     },
     "testimonials": {
-      "items": [
-        {
-          "company": "TechStart",
-          "name": "張明",
-          "role": "CTO",
-          "text": "IHUI AI 讓我們在 2 周內上線了企業 AI 助手,節省了 3 個月開發時間"
-        },
-        {
-          "company": "DataFlow",
-          "name": "Sarah Chen",
-          "role": "Lead Engineer",
-          "text": "多租戶 RLS 設計非常專業,340 張表的隔離做得無可挑剔"
-        },
-        {
-          "company": "創智科技",
-          "name": "李華",
-          "role": "創始人",
-          "text": "176 個 LLM 統一適配,再也不用寫 10 套 API 調用代碼了"
-        },
-        {
-          "company": "CloudSys",
-          "name": "Marcus Weber",
-          "role": "DevOps",
-          "text": "從源碼部署到生產只用了 3 天,文檔非常詳細"
-        },
-        {
-          "company": "智雲科技",
-          "name": "王芳",
-          "role": "AI 架構師",
-          "text": "LangGraph + MCP + A2A 三棧協議,是我們見過最完整的 AI 框架"
-        },
-        {
-          "company": "AIVentures",
-          "name": "Alex Kim",
-          "role": "CTO",
-          "text": "Apache 2.0 商用友好,5346 個測試讓人放心"
-        }
-      ],
+      "items": "[{\"company\":\"TechStart\",\"name\":\"張明\",\"role\":\"CTO\",\"text\":\"IHUI AI 讓我們在 2 周內上線了企業 AI 助手,節省了 3 個月開發時間\"},{\"company\":\"DataFlow\",\"name\":\"Sarah Chen\",\"role\":\"Lead Engineer\",\"text\":\"多租戶 RLS 設計非常專業,340 張表的隔離做得無可挑剔\"},{\"company\":\"創智科技\",\"name\":\"李華\",\"role\":\"創辦人\",\"text\":\"176 個 LLM 統一適配,再也不用寫 10 套 API 呼叫程式碼了\"},{\"company\":\"CloudSys\",\"name\":\"Marcus Weber\",\"role\":\"DevOps\",\"text\":\"從原始碼部署到生產只用了 3 天,文件非常詳細\"},{\"company\":\"智雲科技\",\"name\":\"王芳\",\"role\":\"AI 架構師\",\"text\":\"LangGraph + MCP + A2A 三棧協定,是我們見過最完整的 AI 框架\"},{\"company\":\"AIVentures\",\"name\":\"Alex Kim\",\"role\":\"CTO\",\"text\":\"Apache 2.0 商用友善,5346 個測試讓人放心\"}]",
       "subtitle": "真實用戶反饋,來自不同行業與團隊規模",
       "title": "開發者怎麼說"
     }
@@ -21444,7 +21356,25 @@
     "title": "多平臺一鍵發布",
     "uploadFailed": "上傳失敗",
     "uploadProgress": "上傳中",
-    "uploadSuccess": "上傳成功"
+    "uploadSuccess": "上傳成功",
+    "keepalive": {
+      "loading": "載入中",
+      "disabledTitle": "功能已停用",
+      "disabledHint": "管理員已停用此功能",
+      "title": "存留狀態",
+      "interval": "每 {hours} 小時檢查",
+      "triggering": "檢測中",
+      "triggerNow": "立即檢測",
+      "allHealthy": "全部 {total} 項正常",
+      "needsAttention": "需要關注",
+      "accountFallback": "帳戶 {id}",
+      "failures": "連續失敗 {count} 次",
+      "retry": "重試",
+      "expiringSoon": "{count} 項即將到期",
+      "expiresAt": "到期於 {time}",
+      "rate7d": "過去 7 天成功率",
+      "rateUnknown": "未知"
+    }
   },
   "publishMonitor": {
     "title": "發布監測",
@@ -21573,7 +21503,11 @@
     "listLoading": "加載中...",
     "listReason": "原因: {reason}",
     "listSubtitle": "查看退款記錄並申請退款",
-    "listTitle": "退款管理"
+    "listTitle": "退款管理",
+    "listStatusPending": "處理中",
+    "listStatusApproved": "已核准",
+    "listStatusRejected": "已拒絕",
+    "listStatusCompleted": "已完成"
   },
   "refundDetailPage": {
     "auditAction": {
@@ -21600,7 +21534,13 @@
     "refundType": {
       "original": "原路退回"
     },
-    "title": "退款詳情"
+    "title": "退款詳情",
+    "status": {
+      "pending": "處理中",
+      "approved": "已核准",
+      "rejected": "已拒絕",
+      "completed": "已完成"
+    }
   },
   "resourceFormPage": {
     "cardTitle": "資源信息",
@@ -21707,16 +21647,7 @@
     "noSuggestions": "暫無匹配建議",
     "open": "打開",
     "popular": "熱門搜索",
-    "quickSuggestions": [
-      "設置",
-      "個人資料",
-      "項目",
-      "對話歷史",
-      "成員",
-      "工作區",
-      "快捷鍵",
-      "AI 模型"
-    ],
+    "quickSuggestions": "[\"設定\",\"個人檔案\",\"專案\",\"對話歷史\",\"成員\",\"工作區\",\"快捷鍵\",\"AI 模型\"]",
     "resultsCount": "共 {total} 條結果(用戶 {users}、項目 {projects}、文件 {files})",
     "searchHistory": "搜索歷史",
     "searchPlaceholder": "搜索…",
@@ -21884,52 +21815,28 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": [
-          "視頻會議 / 遠程桌面",
-          "2 小時起",
-          "故障排查",
-          "增值稅發票",
-          "響應 SLA 24h"
-        ],
+        "features": "[\"視訊會議 / 遠端桌面\",\"2 小時起\",\"故障排查\",\"增值稅發票\",\"回應 SLA 24h\"]",
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
       },
       "custom": {
         "desc": "基於 IHUI-AI 定製企業專屬功能",
-        "features": [
-          "業務集成 / Agent 開發",
-          "UI 定製 / API 擴展",
-          "80 工時(約 2 周)",
-          "3 個月保修",
-          "源碼 + 部署文檔"
-        ],
+        "features": "[\"業務整合 / Agent 開發\",\"UI 客製 / API 擴展\",\"80 工時(約 2 週)\",\"3 個月保固\",\"原始碼 + 部署文件\"]",
         "price": "¥19,999",
         "title": "定製開發",
         "unit": "起"
       },
       "deployment": {
         "desc": "源碼部署到您的服務器",
-        "features": [
-          "PostgreSQL + Redis 配置",
-          "8 端構建",
-          "2 小時線上培訓",
-          "30 天郵件支持",
-          "3-5 工作日交付"
-        ],
+        "features": "[\"PostgreSQL + Redis 設定\",\"8 端建置\",\"2 小時線上培訓\",\"30 天電子郵件支援\",\"3-5 工作日交付\"]",
         "price": "¥4,999",
         "title": "私有化部署",
         "unit": "/次"
       },
       "training": {
         "desc": "1 天線下 / 2 天線上深度培訓",
-        "features": [
-          "架構原理 + 部署實操",
-          "二次開發 + Agent 設計",
-          "核心維護者授課",
-          "20 人上限",
-          "視頻 + PPT + 實操環境"
-        ],
+        "features": "[\"架構原理 + 部署實操\",\"二次開發 + Agent 設計\",\"核心維護者授課\",\"20 人上限\",\"影片 + PPT + 實操環境\"]",
         "price": "¥9,999",
         "title": "企業培訓工作坊",
         "unit": "/場"
@@ -21950,32 +21857,7 @@
       "title": "企業詢價"
     },
     "faq": {
-      "items": [
-        {
-          "a": "支持微信支付、支付寶、對公轉賬、Stripe(海外)。定製開發分期付款:50% 啟動 + 30% 中期 + 20% 驗收。",
-          "q": "如何付款？"
-        },
-        {
-          "a": "可以開具增值稅普通發票 / 專用發票。請在詢價表單中備注開票信息。",
-          "q": "可以開發票嗎？"
-        },
-        {
-          "a": "諮詢類服務按小時計費,已消費不退款。部署/培訓服務未啟動可全額退款,啟動後按已消費工時扣除。",
-          "q": "退款政策？"
-        },
-        {
-          "a": "私有化部署 3-5 工作日,培訓 1-2 周預約,定製開發按工時估算(80 工時約 2 周)。",
-          "q": "交付週期？"
-        },
-        {
-          "a": "私有化部署含 30 天郵件支持,定製開發含 3 個月保修,諮詢類按小時計費無固定售後。",
-          "q": "售後支持？"
-        },
-        {
-          "a": "定製開發源碼歸客戶所有,可申請版權轉讓。IHUI-AI 核心代碼 Apache 2.0 開源。",
-          "q": "源碼歸屬？"
-        }
-      ],
+      "items": "[{\"a\":\"支援微信付款、支付寶、對公轉帳、Stripe(海外)。客製開發分期付款:50% 啟動 + 30% 中期 + 20% 驗收。\",\"q\":\"如何付款？\"},{\"a\":\"可以開具增值稅普通發票 / 專用發票。請在詢價表單中備註開票資訊。\",\"q\":\"可以開發票嗎？\"},{\"a\":\"諮詢類服務按小時計費,已消費不退款。部署/培訓服務未啟動可全額退款,啟動後按已消費工時扣除。\",\"q\":\"退款政策？\"},{\"a\":\"私有化部署 3-5 工作日,培訓 1-2 週預約,客製開發按工時估算(80 工時約 2 週)。\",\"q\":\"交付週期？\"},{\"a\":\"私有化部署含 30 天電子郵件支援,客製開發含 3 個月保固,諮詢類按小時計費無固定售後。\",\"q\":\"售後支援？\"},{\"a\":\"客製開發原始碼歸客戶所有,可申請版權轉讓。IHUI-AI 核心程式碼 Apache 2.0 開源。\",\"q\":\"原始碼歸屬？\"}]",
       "title": "常見問題"
     },
     "hero": {
@@ -22590,20 +22472,26 @@
     "codeIndexEgressOptOut": "不建程式碼語義索引",
     "codeIndexEgressOptOutDesc": "程式碼片段不會外送用於向量化建索引",
     "autoMemoryOptOut": "關閉自動長期記憶",
-    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定"
-  ,
+    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定",
     "expertRoute": {
-      "title": "專家路由"
-    ,
+      "title": "專家路由",
       "desc": "選擇請求走哪一類模型路由策略",
       "default": "預設",
-      "envLockedNotice": "此設定已由環境變數鎖定，在此處修改不會生效"},
+      "envLockedNotice": "此設定已由環境變數鎖定，在此處修改不會生效"
+    },
     "navTiers": {
-      "title": "側邊欄顯示層級"
-    ,
+      "title": "側邊欄顯示層級",
       "desc": "選擇哪些進階功能顯示在側邊欄",
       "simpleMode": "簡潔模式",
-      "simpleModeDesc": "隱藏進階功能入口，只保留常用選單"}},
+      "simpleModeDesc": "隱藏進階功能入口，只保留常用選單"
+    },
+    "dataRightsTitle": "資料權利",
+    "usageTitle": "用量統計",
+    "devices": {
+      "navTitle": "裝置管理",
+      "navDesc": "查看已登入的裝置並管理工作階段"
+    }
+  },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
     "defaultModelName": "AI智能對話",
@@ -22837,7 +22725,9 @@
     "redirect": {
       "notAllowed": "跳轉地址不被允許",
       "notAllowedDesc": "出於安全考慮，僅允許白名單內的跳轉目標。",
-      "title": "統一登錄跳轉"
+      "title": "統一登錄跳轉",
+      "unavailable": "服務不可用",
+      "unavailableDesc": "網路連線異常，請稍後再試"
     },
     "redirecting": "正在跳轉授權…",
     "redirectingDesc": "即將打開 {platform} 授權頁",
@@ -22858,7 +22748,11 @@
       "backToLogin": "返回登入",
       "sso_code": "SSO 授權碼"
     },
-    "platform": "平臺"
+    "platform": "平臺",
+    "redirectBlockedByGuard": "重定向被安全機制阻止",
+    "miniappHandoffFailed": "小程式切換失敗",
+    "miniappHandoffTitle": "小程式切換",
+    "miniappHandoffHint": "在小程式中繼續"
   },
   "statistics": {
     "actions": "操作",
@@ -23147,6 +23041,15 @@
       "failed": "失敗",
       "pending": "待執行",
       "running": "執行中"
+    },
+    "approval": {
+      "approved": "已核准",
+      "denied": "已拒絕",
+      "hint": "請處理以下待核准任務",
+      "origin": "來源",
+      "target": "目標",
+      "approve": "核准",
+      "deny": "拒絕"
     }
   },
   "tasksLog": {
@@ -23448,16 +23351,7 @@
   "useCasesAiEdu": {
     "about": "關於課程",
     "courseSchema": {
-      "about": [
-        "AI 教育",
-        "課程編排",
-        "智能答疑",
-        "作業批改",
-        "學習推薦",
-        "MCP 工具協議",
-        "知識庫 RAG",
-        "多模型調度"
-      ],
+      "about": "[\"AI 教育\",\"課程編排\",\"智慧答疑\",\"作業批改\",\"學習推薦\",\"MCP 工具協定\",\"知識庫 RAG\",\"多模型調度\"]",
       "courseWorkload": "PT16H",
       "description": "面向 K12/職業培訓/企業內訓的 AI 教育 Agent 搭建實戰課,涵蓋課程結構化編排、智能答疑、作業批改、學習數據看板、個性化推薦,30 分鐘即可上線。",
       "endDate": "2026-12-31",
@@ -23466,13 +23360,7 @@
       "name": "IHUI AI 教育 Agent 實戰課",
       "provider": "智匯 AI",
       "startDate": "2026-08-01",
-      "teaches": [
-        "課程結構化編排",
-        "智能答疑工作流設計",
-        "作業自動批改實現",
-        "學習數據看板搭建",
-        "個性化學習路徑推薦"
-      ]
+      "teaches": "[\"課程結構化編排\",\"智慧答疑工作流設計\",\"作業自動批改實現\",\"學習數據儀表板建置\",\"個人化學習路徑推薦\"]"
     },
     "courseWorkload": "學習時長",
     "description": "課程描述",
@@ -24952,7 +24840,10 @@
     "breakpoints": "中斷點",
     "toggle": "切換",
     "callStack": "呼叫堆疊",
-    "debugConsole": "偵錯主控臺"
+    "debugConsole": "偵錯主控臺",
+    "stateStopped": "已停止",
+    "stateRunning": "執行中",
+    "statePaused": "已暫停"
   },
   "diffFileList": {
     "noMatch": "無符合的檔案"
@@ -25592,7 +25483,8 @@
     "recording": "錄音中",
     "voiceHint": "語音輸入",
     "placeholder": "輸入訊息...",
-    "send": "發送"
+    "send": "發送",
+    "stop": "停止"
   },
   "checkIn": {
     "retry": "重試",
@@ -25848,7 +25740,8 @@
     "result": "結果",
     "stop": "停止",
     "clear": "清除",
-    "taskId": "任務ID"
+    "taskId": "任務ID",
+    "modelDefault": "預設模型"
   },
   "codeEditor": {
     "zoomOut": "縮小",
@@ -26991,7 +26884,9 @@
     "toastLoadFailed": "快照列表載入失敗",
     "toastPlanFailed": "預演失敗",
     "toastRunOk": "整棧回滾已執行",
-    "toastRunFail": "整棧回滾失敗"
+    "toastRunFail": "整棧回滾失敗",
+    "availabilityAvailable": "另一台裝置剛建立了檢查點:{id}",
+    "availabilityUnavailable": "檢查點服務暫不可用,請稍後再試"
   },
   "traceReplay": {
     "title": "執行軌跡回放",
@@ -28209,7 +28104,59 @@
     "days": "天數",
     "reason": "原因",
     "daysWithUnit": "{count}天",
-    "approveAction": "審批"
+    "approveAction": "審批",
+    "notLoggedIn": "尚未登入",
+    "studentPageTitle": "學生簽到",
+    "studentPageSubtitle": "檢視考勤記錄與簽到規則",
+    "prevMonth": "上個月",
+    "nextMonth": "下個月",
+    "thisMonth": "本月",
+    "selfCheckIn": "本人簽到",
+    "selfCheckInSuccess": "簽到成功",
+    "selfCheckOutSuccess": "簽退成功",
+    "ruleLateAfter": "遲到判定時間",
+    "ruleEarlyBefore": "早退判定時間",
+    "ruleAbsentAfter": "缺勤判定時間",
+    "ruleSaved": "規則已儲存",
+    "rulePanelTitle": "考勤規則",
+    "ruleClassHint": "請選擇班級以設定考勤規則",
+    "ruleNotConfigured": "尚未設定規則",
+    "ruleEnabledLabel": "啟用規則",
+    "ruleSave": "儲存",
+    "ruleTimeHint": "以 24 小時制設定判定時間",
+    "ruleQrSecretState": "二維碼密鑰",
+    "ruleQrSecretOn": "已設定",
+    "ruleQrSecretOff": "未設定",
+    "ruleQrSecretGuide": "請設定 QR 密鑰",
+    "batchCheckIn": "批次簽到",
+    "classLabel": "班級",
+    "checkInAt": "簽到時間",
+    "backfillNeedsTime": "補簽需選定時間",
+    "batchFailed": "批次操作失敗",
+    "batchResultCreated": "已建立",
+    "batchResultSkipped": "已跳過",
+    "batchResultMissed": "未簽到",
+    "batchConfirm": "確認批次",
+    "qrPanelTitle": "QR 面板",
+    "qrLoading": "載入 QR 碼中",
+    "qrExpiresIn": "{seconds}秒後過期",
+    "qrExpired": "QR 碼已過期",
+    "qrSecretNote": "僅顯示目前密鑰的 QR 碼",
+    "qrRotated": "密鑰 {fingerprint} 已輪換",
+    "qrRefresh": "重新整理",
+    "qrRotateSecret": "輪換密鑰",
+    "qrLoadFailed": "載入 QR 碼失敗",
+    "qrNeedSetup": "請先設定 QR 密鑰",
+    "selectClass": "選取班級",
+    "exportCsv": "匯出 CSV",
+    "exportFailed": "匯出失敗",
+    "statusOther": "其他",
+    "scopeAllClasses": "所有班級",
+    "trendChartTitle": "出勤趨勢",
+    "trendChartScope": "範圍：{scope}",
+    "trendChartHint": "最近 30 天",
+    "trendCountAxisLabel": "人數",
+    "trendChartAria": "{scope} 出勤趨勢圖表"
   },
   "eduCertificates": {
     "certificateNo": "編號：{no}",
@@ -28644,59 +28591,1196 @@
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件資料暫時取不到"
-  }
-,
+  },
   "hrHub": {
-    "title": "人事部"
-  ,
+    "title": "人事部",
     "subtitle": "員工自助與人事管理",
     "sectionSelf": "員工自助",
-    "sectionAdmin": "人事管理"},
+    "sectionAdmin": "人事管理"
+  },
   "eduHub": {
-    "title": "教育"
-  ,
-    "subtitle": "課程、直播、考試與教學管理"},
+    "title": "教育",
+    "subtitle": "課程、直播、考試與教學管理"
+  },
   "aiHub": {
-    "title": "AI 中心"
-  ,
-    "subtitle": "模型、智慧體、知識與內容生成"},
+    "title": "AI 中心",
+    "subtitle": "模型、智慧體、知識與內容生成"
+  },
   "contentHub": {
-    "title": "內容"
-  ,
-    "subtitle": "廣場、團隊、訊息與自媒體發布"},
+    "title": "內容",
+    "subtitle": "廣場、團隊、訊息與自媒體發布"
+  },
   "tradeHub": {
-    "title": "交易"
-  ,
-    "subtitle": "收益、訂單、支付與會員積分"},
+    "title": "交易",
+    "subtitle": "收益、訂單、支付與會員積分"
+  },
   "personalHub": {
-    "title": "個人中心"
-  ,
-    "subtitle": "帳戶、收藏、學習與訂閱"},
+    "title": "個人中心",
+    "subtitle": "帳戶、收藏、學習與訂閱"
+  },
   "developerHub": {
-    "title": "開發者"
-  ,
-    "subtitle": "API、金鑰、用量與除錯工具"},
+    "title": "開發者",
+    "subtitle": "API、金鑰、用量與除錯工具"
+  },
   "adminHub": {
-    "title": "管理"
-  ,
-    "subtitle": "站點設定、營運與稽核"},
+    "title": "管理",
+    "subtitle": "站點設定、營運與稽核"
+  },
   "domainHub": {
-    "functionCount": "共 {count} 個功能"
-  ,
+    "functionCount": "共 {count} 個功能",
     "searchPlaceholder": "搜尋功能",
     "empty": "沒有符合的功能",
-    "subItems": "共 {count} 個子項"},
+    "subItems": "共 {count} 個子項"
+  },
   "pwaInstall": {
-    "title": "安裝到桌面"
-  ,
+    "title": "安裝到桌面",
     "body": "將智匯AI 安裝到桌面，開啟更快，支援離線使用",
     "action": "立即安裝",
-    "close": "關閉"},
+    "close": "關閉"
+  },
   "myPayroll": {
-    "title": "我的薪資單"
-  ,
+    "title": "我的薪資單",
     "subtitle": "查看每月的薪資明細",
-    "empty": "暫無薪資單"},
+    "empty": "暫無薪資單"
+  },
   "connectivity": {
-    "hostLocalAvailable": "本機服務可用"
-  }}
+    "hostLocalAvailable": "本機服務可用",
+    "deviceOffline": "裝置離線",
+    "slow": "網路較慢",
+    "unconfirmed": "未確認"
+  },
+  "artifacts": {
+    "countSummary": "已載入 {loaded}/{total}",
+    "loadMore": "載入更多",
+    "refresh": "重新整理",
+    "navEntry": "產物",
+    "justNow": "剛剛",
+    "secondsAgo": "{n} 秒前",
+    "minutesAgo": "{n} 分鐘前",
+    "hoursAgo": "{n} 小時前",
+    "daysAgo": "{n} 天前",
+    "loadFailed": "載入失敗",
+    "previewFailed": "預覽失敗",
+    "loading": "載入中",
+    "loginRequired": "需要登入",
+    "title": "產物中心",
+    "desc": "瀏覽並管理已產出的產物",
+    "empty": "暫無產物",
+    "colName": "名稱",
+    "colKind": "類型",
+    "colVersion": "版本",
+    "colCreated": "建立時間",
+    "colSession": "工作階段",
+    "colActions": "操作",
+    "viewSession": "查看工作階段",
+    "download": "下載",
+    "preview": "預覽"
+  },
+  "accountPool": {
+    "checkin": "簽到",
+    "disable": "停用",
+    "enable": "啟用",
+    "confirmDelete": "確認刪除",
+    "delete": "刪除",
+    "addSuccess": "新增成功",
+    "actionFailed": "操作失敗",
+    "checkinSuccess": "簽到成功",
+    "add": "新增",
+    "title": "帳號池",
+    "subtitle": "管理多帳號接入",
+    "loginRequired": "請先登入",
+    "provider": "供應商",
+    "name": "名稱",
+    "namePlaceholder": "例如：我的 Trae",
+    "token": "Token",
+    "refreshToken": "刷新 Token",
+    "optional": "選填",
+    "cancel": "取消",
+    "save": "儲存",
+    "loading": "載入中",
+    "empty": "暫無帳號",
+    "emptyHint": "新增一個帳號開始使用",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "syncPending": "同步中",
+    "uid": "UID"
+  },
+  "apps": {
+    "invalidJson": "無效 JSON",
+    "invalidTitle": "標題無效",
+    "savedToast": "已儲存",
+    "saveFailed": "儲存失敗",
+    "blocks": "模組",
+    "creating": "建立中",
+    "createAndOpen": "建立並開啟",
+    "preview": "預覽",
+    "dataLoading": "載入資料",
+    "dataError": "資料載入失敗",
+    "dataPartial": "部分資料載入失敗",
+    "retry": "重試",
+    "railTitle": "應用程式",
+    "railManage": "管理",
+    "railClose": "關閉",
+    "promptCopied": "提示詞已複製",
+    "copyFail": "複製失敗",
+    "deletedToast": "已刪除 {title}",
+    "deleteFailed": "刪除失敗",
+    "subtitle": "副標題",
+    "copyPrompt": "複製提示詞",
+    "collapse": "收合",
+    "newApp": "新增應用",
+    "appId": "應用 ID",
+    "titleLabel": "標題",
+    "slotLabel": "插槽",
+    "specLabel": "規格說明",
+    "saving": "儲存中",
+    "save": "儲存",
+    "reset": "重設",
+    "loginHint": "請先登入",
+    "loading": "載入中",
+    "emptyHint": "尚無應用",
+    "open": "開啟",
+    "delete": "刪除",
+    "sourceAi": "AI 生成",
+    "sourceManual": "手動建立",
+    "slotPage": "頁面"
+  },
+  "collab": {
+    "invitationAcceptDone": "已接受邀請",
+    "invitationAcceptFailed": "接受邀請失敗",
+    "invitationTitle": "邀請",
+    "invitationConversation": "對話",
+    "invitationInvitedBy": "邀請人",
+    "invitationAccepting": "接受中",
+    "invitationAccept": "接受",
+    "tierUpdated": "層級已更新",
+    "tierUpdateFailed": "層級更新失敗",
+    "revokeDone": "已撤銷",
+    "revokeFailed": "撤銷失敗",
+    "lockTaken": "已接管鎖",
+    "lockAcquired": "已獲取鎖",
+    "lockFailed": "獲取鎖失敗",
+    "lockReleased": "已釋放鎖",
+    "manageTitle": "管理",
+    "lockTitle": "麥克風鎖",
+    "lockHeldBy": "持有者: {user}",
+    "you": "我",
+    "lockRelease": "釋放",
+    "lockTakeover": "接管",
+    "lockFree": "無鎖定",
+    "lockAcquire": "取得鎖",
+    "collaboratorsTitle": "協作者",
+    "collaboratorsEmpty": "尚無協作者",
+    "tierLabel": "權限等級",
+    "revoke": "撤銷",
+    "revokeConfirm": "確定要撤銷此協作者嗎？"
+  },
+  "appearanceSettings": {
+    "messageStyleTitle": "訊息樣式",
+    "resetMessageStyle": "重設訊息樣式",
+    "messageStyleHint": "調整聊天內容的字型與排版",
+    "messageStyleFontSize": "字級",
+    "messageStyleFont": "字型",
+    "inheritOption": "跟隨系統",
+    "fontFamilySystem": "系統預設",
+    "fontFamilySans": "非襯線",
+    "fontFamilySerif": "襯線",
+    "fontFamilyMono": "等寬",
+    "legibilityFont": "可讀性優先",
+    "messageStyleLineHeight": "行高",
+    "lineHeightCompact": "緊湊",
+    "lineHeightNormal": "標準",
+    "lineHeightRelaxed": "寬鬆",
+    "messageStyleLetterSpacing": "字距",
+    "letterSpacingTight": "緊湊",
+    "letterSpacingNormal": "標準",
+    "letterSpacingWide": "寬鬆",
+    "messageStyleAlign": "對齊方式",
+    "alignLeft": "左對齊",
+    "alignJustify": "兩端對齊",
+    "messageStyleCodeSize": "程式字級",
+    "aiStyleTitle": "AI 風格",
+    "aiStyleDesc": "選擇 AI 回應的整體風格",
+    "tone": "語氣",
+    "toneDefault": "預設",
+    "toneProfessional": "專業",
+    "toneFriendly": "友好",
+    "toneHumorous": "幽默",
+    "toneConcise": "簡潔",
+    "toneAcademic": "學術",
+    "aiLanguage": "AI 語言",
+    "langAuto": "自動",
+    "langZhCN": "簡體中文",
+    "langEn": "英語",
+    "langZhTW": "繁體中文",
+    "langJa": "日語",
+    "langKo": "韓語",
+    "aiLength": "回覆長度",
+    "lengthShort": "短",
+    "lengthMedium": "中",
+    "lengthLong": "長",
+    "explainDepth": "講解深度",
+    "depthBeginner": "初階",
+    "depthStandard": "標準",
+    "depthExpert": "進階",
+    "aiFormat": "AI 格式",
+    "formatAuto": "自動",
+    "formatList": "清單",
+    "formatTable": "表格",
+    "formatParagraph": "段落",
+    "formatMinimal": "精簡",
+    "emojiPolicy": "表情符號",
+    "emojiAuto": "自動",
+    "emojiNone": "無",
+    "emojiMinimal": "極少",
+    "customStyle": "自訂樣式",
+    "customStylePlaceholder": "描述你偏好的風格",
+    "customStyleHint": "例如:專業、簡潔、不使用表情符號",
+    "followQuestionLanguage": "跟隨提問語言",
+    "followQuestionLanguageHint": "用提問語言回覆,無則預設英語",
+    "chineseSpacing": "中文間距",
+    "chineseSpacingHint": "在漢字與西文間自動加空白",
+    "fullWidthPunctuation": "全形標點",
+    "fullWidthPunctuationHint": "將半形標點替換為全形",
+    "glossary": "詞彙表",
+    "glossaryPlaceholder": "輸入詞彙與定義",
+    "glossaryHint": "以換行分隔，每行包含詞彙及其定義",
+    "bannedWords": "禁用詞",
+    "bannedWordsPlaceholder": "輸入禁用詞",
+    "bannedWordsHint": "以逗號分隔，例如：廣告, 詐騙",
+    "directivePreview": "指令預覽",
+    "copyDirectiveSuccess": "指令已複製",
+    "copyDirectiveFailed": "複製失敗",
+    "copyDirective": "複製指令",
+    "directiveEmpty": "暫無指令",
+    "palettePrimary": "主色",
+    "paletteBackground": "背景色",
+    "paletteForeground": "前景色",
+    "paletteCard": "卡片色",
+    "paletteMuted": "弱化色",
+    "paletteBorder": "邊框色",
+    "autoContrastDone": "自動對比度已調整",
+    "customThemeTitle": "自訂主題",
+    "customThemeDesc": "自訂顏色搭配與介面風格",
+    "customThemeEnable": "啟用自訂主題",
+    "customThemeHint": "使用以下自訂顏色替代預設主題",
+    "customThemeLight": "淺色主題",
+    "customThemeDark": "深色主題",
+    "themePreviewPrimary": "主要顏色",
+    "themePreviewOutline": "邊框顏色",
+    "themePreviewText": "文字顏色",
+    "contrastPrimary": "主要對比度",
+    "contrastBackground": "背景對比度",
+    "contrastCard": "卡片對比度",
+    "autoContrastHint": "對比度低於 {threshold} 時將自動調整文字顏色",
+    "autoContrast": "自動對比度",
+    "customThemeReset": "重設主題",
+    "layoutTitle": "佈局",
+    "layoutDesc": "調整介面寬度與內容密度",
+    "contentWidth": "內容寬度",
+    "widthNarrow": "窄",
+    "widthStandard": "標準",
+    "widthWide": "寬",
+    "widthXWide": "超寬",
+    "widthFull": "全寬",
+    "messageDensity": "訊息密度",
+    "densityCompact": "緊湊",
+    "densityCozy": "適中",
+    "densitySpacious": "寬鬆",
+    "userBubbleWidth": "使用者氣泡寬度",
+    "valuePercent": "{value}%",
+    "chatInputScale": "聊天輸入縮放",
+    "chatInputScaleHint": "調整聊天輸入框的大小",
+    "longMessageCollapse": "折疊長訊息",
+    "longMessageCollapseHint": "自動折疊超過指定行數的訊息",
+    "collapseLines": "折疊行數",
+    "collapseLinesHint": "超過此行數的訊息將被折疊",
+    "accessibilityTitle": "無障礙",
+    "reduceMotion": "減少動態效果",
+    "reduceMotionHint": "減少界面中的動畫和過渡效果",
+    "highContrast": "高對比度",
+    "highContrastHint": "增強文本與背景之間的對比度",
+    "linkUnderline": "連結底線",
+    "focusRing": "焦點環",
+    "focusRingHint": "在鍵盤導航時顯示焦點指示器",
+    "grayscale": "灰度模式",
+    "grayscaleHint": "以灰度顯示所有內容",
+    "colorVision": "色覺模擬",
+    "colorVisionHint": "模擬不同的色覺缺陷類型",
+    "colorVisionNone": "正常",
+    "colorVisionProtanopia": "第一色覺異常 (紅色弱)",
+    "colorVisionDeuteranopia": "第二色覺異常 (綠色弱)",
+    "colorVisionTritanopia": "第三色覺異常 (藍色弱)",
+    "colorVisionAchromatopsia": "全色盲",
+    "legibilityFontHint": "增強字體對比度與清晰度以提升易讀性",
+    "mobileFontBoost": "移動端字體增強",
+    "mobileFontBoostHint": "自動增加行動裝置介面的字體大小",
+    "shortcutsTitle": "捷徑鍵",
+    "shortcutUiZoom": "縮放介面",
+    "shortcutChatZoom": "縮放聊天紀錄",
+    "shortcutResetAll": "重設所有設定",
+    "exportSuccess": "設定匯出成功",
+    "importFailed": "設定匯入失敗",
+    "importSuccess": "設定匯入成功",
+    "dataTitle": "數據管理",
+    "exportConfig": "匯出設定",
+    "importConfig": "匯入設定",
+    "resetConfirm": "確定要重設所有外觀設定嗎？此操作無法復原",
+    "resetDone": "設定已重設",
+    "resetConfig": "重設",
+    "presetApplied": "已套用預設 {name}",
+    "presetSaveFailed": "儲存預設失敗",
+    "presetSaved": "預設已儲存：{name}",
+    "presetsTitle": "外觀預設",
+    "presetsDesc": "管理並切換外觀主題",
+    "presetsBuiltinTitle": "內建預設",
+    "presetApply": "套用",
+    "presetsCustomTitle": "自訂預設",
+    "presetsLimitHint": "最多 {count} 個自訂預設",
+    "presetsEmpty": "尚無自訂預設",
+    "presetDelete": "刪除預設",
+    "presetDeleteConfirm": "確定要刪除預設「{name}」嗎？",
+    "presetDeleted": "預設已刪除",
+    "presetNamePlaceholder": "預設名稱",
+    "presetSaveCurrent": "儲存為預設",
+    "presetsRestoreConfirm": "確定要還原所有預設到預設狀態嗎？",
+    "presetsRestored": "預設已還原",
+    "presetsRestoreDefault": "還原預設",
+    "readingTitle": "閱讀體驗",
+    "readingDesc": "調整字型與行距以提升閱讀舒適度",
+    "verbosity": "詳細程度",
+    "verbosityCustom": "自訂",
+    "verbosityConcise": "簡潔",
+    "verbosityConciseDesc": "僅顯示核心資訊，減少干擾",
+    "verbosityStandard": "標準",
+    "verbosityStandardDesc": "平衡的細節與簡潔性",
+    "verbosityDetailed": "詳細",
+    "verbosityDetailedDesc": "完整的資訊與上下文",
+    "timestampFormat": "時間戳格式",
+    "timestamp24h": "24小時制",
+    "timestamp12h": "12小時制",
+    "timestampRelative": "相對時間",
+    "textAlign": "文字對齊",
+    "readingAids": "閱讀輔助",
+    "bionicReading": "仿生閱讀",
+    "bionicReadingHint": "突出詞首字母",
+    "readingRuler": "閱讀標尺",
+    "readingRulerHint": "跟隨光標的高亮條",
+    "paragraphGap": "段落間距",
+    "paragraphGapHint": "在段落之間增加留白",
+    "firstLineIndent": "首行縮排",
+    "firstLineIndentHint": "段落首行縮排",
+    "tableZebra": "表格條紋",
+    "tableZebraHint": "交替行背景色",
+    "showTimestamps": "顯示時間戳",
+    "showUsage": "顯示用量",
+    "showActions": "顯示操作",
+    "showReasoning": "顯示推理",
+    "showToolCalls": "顯示工具調用",
+    "syncSyncing": "正在同步",
+    "syncSynced": "已同步",
+    "syncError": "同步出錯",
+    "syncIdle": "未同步",
+    "syncLast": "上次同步: {time}",
+    "syncNever": "從未同步",
+    "scopeTitle": "適用範圍",
+    "scopeDesc": "選擇應用此設定的範圍",
+    "workspaceCurrent": "目前工作區",
+    "workspaceNone": "無工作區",
+    "workspaceOverride": "覆蓋此工作區設定",
+    "workspaceOverrideHint": "為該工作區套用獨立的外觀設定",
+    "workspaceSaved": "工作區設定已儲存",
+    "workspaceSaveCurrent": "儲存目前設定",
+    "workspaceCleared": "工作區覆蓋已清除",
+    "workspaceClear": "清除覆蓋",
+    "messageStylesLabel": "訊息樣式覆蓋",
+    "messageStylesHint": "依訊息類型自訂字體與間距",
+    "messageStylesCleared": "訊息樣式已還原為預設",
+    "messageStylesClear": "清除自訂",
+    "cloudSyncEnable": "雲端同步",
+    "cloudSyncHint": "同步外觀設定至雲端",
+    "syncLoginRequired": "請先登入",
+    "syncNow": "立即同步",
+    "cloudClearConfirm": "確定清除雲端外觀快照？",
+    "cloudCleared": "雲端數據已清除",
+    "cloudClearFailed": "清除失敗",
+    "cloudClear": "清除雲端數據",
+    "themeTitle": "主題",
+    "themeDesc": "選擇介面配色方案",
+    "accentColor": "強調色",
+    "radiusScale": "圓角大小",
+    "radiusSharp": "直角",
+    "radiusStandard": "標準",
+    "radiusRounded": "圓角",
+    "typographyTitle": "字體",
+    "typographyDesc": "調整文本顯示密度",
+    "sizePreset": "大小預設",
+    "sizeCustom": "自訂",
+    "sizeCompact": "緊湊",
+    "sizeComfortable": "舒適",
+    "sizeLarge": "大",
+    "uiScale": "介面縮放",
+    "uiScaleHint": "調整介面元素大小",
+    "chatFontScale": "聊天字型大小",
+    "chatFontScaleHint": "調整聊天文字大小",
+    "fontFamily": "字型",
+    "bodyWeight": "本文粗細",
+    "weightRegular": "標準",
+    "weightMedium": "中等",
+    "weightBold": "粗體",
+    "lineHeight": "行高",
+    "letterSpacing": "字距",
+    "codeFontSize": "程式字型大小",
+    "valuePx": "{value}px",
+    "codeWrap": "程式換行",
+    "codeWrapHint": "自動換行顯示程式碼",
+    "tabularNums": "等寬數字",
+    "tabularNumsHint": "數字寬度一致，便於對齊",
+    "previewTitle": "預覽",
+    "previewText": "這是預覽文字。",
+    "title": "外觀設定",
+    "subtitle": "調整顯示效果",
+    "presetBuiltinDefault": "預設",
+    "presetBuiltinDefaultDesc": "完整還原出廠外觀，適合大多數情境",
+    "presetBuiltinReading": "閱讀",
+    "presetBuiltinReadingDesc": "襯線字體、寬行距與窄欄寬，長文閱讀更輕鬆",
+    "presetBuiltinCompact": "緊湊",
+    "presetBuiltinCompactDesc": "收緊行距與留白，一屏顯示更多訊息",
+    "presetBuiltinFocus": "專注",
+    "presetBuiltinFocusDesc": "隱藏時間戳、用量與工具細節，只留對話本身",
+    "presetBuiltinAccessible": "無障礙",
+    "presetBuiltinAccessibleDesc": "高對比、大字号與焦點環，兼顧低視力與暈動敏感",
+    "accentDefault": "預設",
+    "accentBlue": "藍色",
+    "accentViolet": "紫色",
+    "accentEmerald": "翠綠",
+    "accentAmber": "琥珀",
+    "accentRose": "玫瑰紅"
+  },
+  "checkinAssistant": {
+    "taskPanelTitle": "任務面板",
+    "taskPanelNoAccount": "未綁定帳號",
+    "taskPanelDescDoubao": "豆包任務設定",
+    "taskPanelDesc": "通用任務說明",
+    "taskPanelAutoLoading": "載入中",
+    "taskPanelAutoUnknown": "狀態未知",
+    "taskPanelAutoTitle": "自動任務",
+    "taskPanelDoubaoOff": "豆包任務已關閉",
+    "taskPanelDoubaoNotStarted": "豆包任務未啟動",
+    "taskPanelDoubaoDry": "豆包試運行模式",
+    "taskPanelDoubaoOn": "豆包任務開啟 (每 {hours} 小時)",
+    "taskPanelDoubaoLastNever": "從未運行",
+    "taskPanelDoubaoLast": "上次運行: {time}",
+    "taskPanelAutoNext": "下次: {time}",
+    "taskPanelAutoPaths": "部分路徑缺失",
+    "taskPanelAutoLastNever": "從未運行",
+    "taskPanelAutoLast": "上次運行: {time}",
+    "taskPanelAutoLastStats": "處理 {families} 項",
+    "taskPanelPick": "選擇帳號",
+    "taskPanelDoubaoTag": "豆包",
+    "taskPanelList": "任務列表",
+    "taskPanelDryRun": "試運行",
+    "taskPanelRunning": "執行中",
+    "taskPanelRun": "執行",
+    "taskPanelEmpty": "暫無任務",
+    "taskPanelResult": "結果",
+    "captureWbWebCancelled": "Web 登入已取消",
+    "captureEmpty": "未找到任何帳號",
+    "captureOpaqueOnly": "僅發現不透明權杖",
+    "captureImported": "已匯入 {count} 個帳號",
+    "captureQoderEmpty": "未找到 Qoder 帳號",
+    "captureMinimaxNoToken": "MiniMax 缺少有效權杖",
+    "captureWbEmpty": "未找到 WorkBuddy 帳號",
+    "captureWbTokenRequired": "缺少權杖",
+    "captureWbWebImporting": "正在匯入 Web 帳號…",
+    "captureWbWebDone": "已處理 {count} 個帳號",
+    "captureWbWebCheckinUncertain": "簽到狀態未知",
+    "captureWbWebWaiting": "等待 Web 登入…",
+    "captureWbWebOpenFailed": "無法開啟 Web 登入",
+    "captureWbWebPasteRequired": "請貼上 Cookie",
+    "captureWbWebPasteInvalid": "Cookie 無效",
+    "captureWbPasteName": "貼上的帳號",
+    "captureWbWebAccountMissing": "帳號未新增",
+    "captureWbWebSlowHint": "回應緩慢，請稍候",
+    "wizardAuditClean": "稽核完成，無異常",
+    "wizardAuditResidual": "發現 {n} 處殘留",
+    "wizardAuditFail": "稽核失敗",
+    "wizardResetDone": "重置完成（{ok}/{total}）",
+    "wizardNoLoc": "未取得位置資訊",
+    "wizardIpFetchFail": "IP取得失敗",
+    "wizardRefetch": "正在重新取得 {ip}",
+    "wizardIpUnchanged": "IP 未發生變化",
+    "maintUserIdRequired": "請輸入使用者 ID",
+    "maintBackupDone": "備份完成（{count} 成功，{missing} 缺失）",
+    "maintRestoreDone": "還原完成（{count}）",
+    "deviceMapInvalid": "裝置映射格式無效",
+    "skippedToday": "今日已簽到 {count} 個帳號",
+    "skippedExpired": "跳過 {count} 個過期帳號",
+    "skippedCooldown": "冷卻中，跳過 {count} 個",
+    "checkinFailedCount": "{count} 個帳號失敗",
+    "checkinRateLimited": "觸發速率限制",
+    "groupUpdated": "分組已更新",
+    "jwtUpdated": "JWT 已更新",
+    "deviceMapUpdated": "裝置映射已更新",
+    "none": "無",
+    "jwtExpired": "JWT 已過期",
+    "jwtExpiresSoon": "登入憑證 {days} 天後到期",
+    "cooldownUntil": "冷卻至 {time}",
+    "filterAll": "全部",
+    "resultOk": "成功",
+    "resultFail": "失敗",
+    "resultUnknown": "未知",
+    "title": "簽到助手",
+    "schedulerEnabled": "排程器已啟用",
+    "schedulerDisabled": "排程器已停用",
+    "refresh": "重新整理",
+    "checkinAllProgress": "簽到中 {done}/{total}...",
+    "checkinAll": "全部簽到",
+    "checkinSelected": "簽到已選 {count}",
+    "addAccount": "新增帳號",
+    "creditRefreshAll": "重新整理全部積分",
+    "captureWbWebCancel": "取消擷取",
+    "captureWebLogin": "網頁登入擷取",
+    "captureMethodWeb": "網頁方式",
+    "captureMethodLocal": "本機方式",
+    "maintTitle": "系統維護",
+    "loading": "載入中",
+    "loadFailed": "載入失敗",
+    "retry": "重試",
+    "emptyAccounts": "暫無帳號",
+    "platformAll": "全部平台",
+    "platformTrae": "Trae",
+    "platformWorkbuddy": "WorkBuddy",
+    "platformQoder": "Qoder",
+    "platformMinimax": "MiniMax",
+    "filterGroupAll": "全部分組",
+    "groupUngrouped": "未分組",
+    "selectAllVisible": "全選可見項",
+    "colName": "名稱",
+    "colEnabled": "啟用",
+    "colLastCheckin": "上次簽到",
+    "colCredits": "積分",
+    "colActions": "操作",
+    "selectAccount": "選擇 {name}",
+    "rename": "重新命名",
+    "checkedInToday": "今日已簽到",
+    "creditRefreshing": "正在更新積分",
+    "creditQueryFail": "積分查詢失敗",
+    "checking": "簽到中",
+    "manualCheckin": "手動簽到",
+    "editJwt": "編輯 JWT",
+    "editGroup": "編輯分組",
+    "editDeviceMap": "編輯裝置對應",
+    "delete": "刪除",
+    "recordsTab": "記錄",
+    "creditsTab": "額度",
+    "boardTab": "排行榜",
+    "emptyRecords": "暫無記錄",
+    "colTime": "時間",
+    "colResult": "結果",
+    "colAction": "操作",
+    "colMessage": "訊息",
+    "colCreditsDelta": "額度變化",
+    "colErrorClass": "錯誤類型",
+    "loadMore": "載入更多",
+    "totalCreditsDelta": "總變化 {delta}",
+    "emptyCredits": "暫無額度記錄",
+    "colCurrentCredits": "目前額度",
+    "boardEmpty": "排行榜暫無數據",
+    "boardRankingTitle": "排行榜",
+    "boardTrendTitle": "趨勢",
+    "boardTodayGain": "今日增加 {delta}",
+    "refreshCredits": "重新整理积分",
+    "boardLineTotal": "總計",
+    "boardLineGained": "已獲",
+    "boardLineConsumed": "已耗",
+    "addAccountTitle": "新增帳號",
+    "addAccountDescription": "填入以下資訊以建立新帳號",
+    "addSmartTitle": "智慧新增",
+    "addSmartRescan": "重新掃描",
+    "addSmartScanning": "掃描中…",
+    "addSmartNone": "未偵測到本機設備",
+    "deviceMapProxyHint": "若網路受限，請設定代理位址",
+    "addSmartTraeFound": "已找到 {count} 個 Trae 帳號",
+    "addSmartQoderFound": "已找到 {count} 個 Qoder 帳號",
+    "addSmartMinimaxFound": "已找到 {count} 個 Minimax 帳號",
+    "addSmartImporting": "正在匯入…",
+    "addSmartImport": "匯入已找到帳號",
+    "addSmartDesktopOnly": "此功能僅限桌面端使用",
+    "addManualAdvanced": "進階選項",
+    "platformLabel": "平台",
+    "name": "名稱",
+    "namePlaceholder": "輸入帳號名稱",
+    "jwt": "JWT",
+    "jwtPlaceholder": "貼上 JWT 令牌",
+    "deviceMap": "裝置對映",
+    "deviceMapPlaceholder": "貼上裝置對映 JSON",
+    "groupLabel": "分組名稱",
+    "groupPlaceholder": "請輸入分組名稱",
+    "cancel": "取消",
+    "submitting": "提交中",
+    "submit": "提交",
+    "editJwtTitle": "編輯 JWT",
+    "editJwtDescription": "更新該項目的 JWT 配置",
+    "editGroupTitle": "編輯分組",
+    "editGroupDescription": "更新該分組的屬性",
+    "colGroup": "所屬分組",
+    "editDeviceMapTitle": "編輯裝置對映",
+    "editDeviceMapDescription": "更新 {platform} 的裝置對映",
+    "deleteTitle": "確認刪除",
+    "deleteDescription": "確定要刪除 {name} 嗎？此操作無法撤銷",
+    "confirmDelete": "刪除",
+    "captureTitle": "螢幕截圖",
+    "captureDirFound": "已找到目錄：{dir}",
+    "captureDirMissing": "未找到目錄",
+    "captureScan": "掃描",
+    "captureImport": "匯入截圖",
+    "captureQoderTitle": "Qoder 匯入",
+    "captureQoderDescription": "透過 QR 碼或連結同步 Qoder 帳號",
+    "captureQoderScan": "掃描 QR 碼",
+    "captureWbTitle": "Web 登入",
+    "captureWbDescription": "選擇登入方式以連接帳號",
+    "captureWbWebTitle": "網頁登入",
+    "captureWbWebDescription": "在瀏覽器中完成登入以授權存取",
+    "captureWbWebOpen": "開啟網頁",
+    "captureWbWebEmbed": "內嵌預覽",
+    "captureWbWebPastePlaceholder": "貼上 Cookie 或 Token",
+    "captureWbWebPasteImport": "匯入",
+    "captureWbManualDivider": "或手動輸入憑證",
+    "captureWbEncrypted": "已加密",
+    "captureWbTokenPlaceholder": "輸入存取權杖",
+    "captureWbScan": "掃描 QR 碼",
+    "maintDescription": "系統正在維護，請稍後再試",
+    "wizardTitle": "登入向導",
+    "wizardCooldownActive": "冷卻中，剩餘 {hours} 小時",
+    "wizardIntro": "請依照以下步驟完成帳號連接",
+    "wizardStart": "開始",
+    "wizardIpBefore": "目前出口 IP",
+    "wizardIpBeforeNoLoc": "變更前 IP：{ip}",
+    "wizardRefetchHint": "可重新取得最新狀態",
+    "wizardGuide": "操作指引",
+    "wizardIpFailMany": "IP 獲取失敗次數過多",
+    "wizardVerify": "驗證",
+    "wizardSkipIp": "略過 IP 檢查",
+    "wizardAuditRerun": "重新審計",
+    "wizardIpChanged": "IP 已變更為：{ip}",
+    "wizardCooldown": "冷卻中",
+    "wizardRestart": "重啟",
+    "wizardAuditTitle": "審計結果",
+    "wizardAuditScanning": "正在掃描…",
+    "wizardAuditScope": "已掃描 {files} 個檔案",
+    "wizardAuditNoHistory": "無審計歷史",
+    "wizardResidualReclean": "重新清理殘留",
+    "wizardAuditSuspect": "{n} 項可疑命中",
+    "wizardAuditRegistry": "登錄機詳情",
+    "wizardAuditHardware": "硬體詳情",
+    "wizardCriticalFailNote": "關鍵檢查未通過",
+    "wizardOptionalNote": "此步驟為選填",
+    "maintUserIdLabel": "使用者 ID",
+    "maintReset": "重設",
+    "maintIncludeGuid": "包含 GUID",
+    "maintIncludeBrowser": "包含瀏覽器資料",
+    "maintDeepReset": "深度重置",
+    "maintIncludeMac": "包含 MAC 地址",
+    "maintBackup": "備份",
+    "snapshotsTitle": "快照",
+    "snapshotsEmpty": "暫無快照",
+    "maintRestore": "還原",
+    "maintDelete": "刪除",
+    "maintClose": "關閉"
+  },
+  "appUpdate": {
+    "gateQuitFailed": "結束失敗",
+    "title": "應用程式更新",
+    "body": "目前版本需要更新，請升級至最新版本以繼續使用",
+    "action": "立即更新",
+    "close": "關閉",
+    "gateBody": "最低支援版本為 {version}，目前版本 {version}，最新支援版本 {latest}，請升級後使用",
+    "gateForceBody": "新版本已發布 {latest}，請立即更新至最新版本",
+    "gateTitle": "需要更新",
+    "gateReleaseNotes": "更新說明",
+    "gateQuitConfirm": "結束後需重新開啟應用程式",
+    "gateQuit": "結束應用程式",
+    "installing": "正在更新...",
+    "gateUpdateNow": "立即更新"
+  },
+  "hrAttendance": {
+    "linkAcceptOk": "已同意",
+    "linkRejectOk": "已拒絕",
+    "actionFailed": "操作失敗",
+    "loading": "載入中",
+    "noEmployeeHint": "暫無員工資訊",
+    "linkPendingTitle": "關聯待處理",
+    "linkPendingDesc": "請確認員工檔案關聯",
+    "colDepartment": "部門",
+    "linkAccept": "同意",
+    "linkReject": "拒絕",
+    "tabDepartments": "部門",
+    "tabEmployees": "員工",
+    "tabRule": "規則",
+    "tabRecords": "記錄",
+    "tabStats": "統計",
+    "tabLeave": "請假",
+    "tabMonthly": "月度",
+    "tabSalaryConfig": "薪資設定",
+    "tabPayroll": "發薪",
+    "tabSync": "同步",
+    "title": "人事考勤",
+    "createSuccess": "建立成功",
+    "colName": "姓名",
+    "add": "新增",
+    "noData": "暂无资料",
+    "colId": "ID",
+    "colEmployeeNo": "員工工號",
+    "colPosition": "職級",
+    "updateSuccess": "更新成功",
+    "ruleLateAfter": "遲到標準(晚於)",
+    "ruleEarlyBefore": "早退標準(早於)",
+    "ruleAbsentAfter": "曠工標準(未打卡)",
+    "ruleWorkdays": "工作日",
+    "ruleEnabled": "啟用規則",
+    "save": "儲存",
+    "colDate": "日期",
+    "colCheckIn": "上班時間",
+    "colCheckOut": "下班時間",
+    "colStatus": "狀態",
+    "colStart": "開始時間",
+    "colEnd": "結束時間",
+    "colReason": "事由",
+    "colActions": "操作",
+    "approve": "核准",
+    "reject": "拒絕",
+    "checkInOk": "打卡成功",
+    "checkOutOk": "打卡成功",
+    "mySubtitle": "檢視您的考勤紀錄",
+    "todayLabel": "今日",
+    "checkInAction": "上班打卡",
+    "checkOutAction": "下線打卡",
+    "myRecordsTitle": "我的考勤",
+    "leaveTypeLabel": "請假類型",
+    "leaveReasonPh": "請輸入原因",
+    "leaveSubmitted": "請假申請已提交",
+    "myLeaveSubtitle": "管理您的請假申請",
+    "leaveTypePh": "如：年假",
+    "totalDaysLabel": "總天數",
+    "submitLeave": "提交申請",
+    "myLeavesTitle": "我的請假",
+    "colMonth": "月份",
+    "none": "無",
+    "colNetPay": "實發薪資",
+    "colGrossPay": "應發薪資",
+    "colInsurance": "社保",
+    "colFund": "公積金",
+    "colIncomeTax": "所得稅",
+    "hideDetail": "隱藏詳情",
+    "showDetail": "查看詳情",
+    "breakdownTitle": "薪資明細",
+    "statusPresent": "出勤",
+    "statusLate": "遲到",
+    "statusEarly": "早退",
+    "statusAbsent": "缺勤",
+    "statusLeave": "請假",
+    "statusPending": "待審核",
+    "statusApproved": "已通過",
+    "statusRejected": "已駁回"
+  },
+  "financeAi": {
+    "automationTitle": "自動化處理",
+    "automationDesc": "設定自動報稅與記帳規則",
+    "submitModeLabel": "提交模式",
+    "submitModeManual": "人工確認",
+    "submitModeConfirmed": "用戶已確認",
+    "provinceLabel": "省份",
+    "portalLabel": "門戶地址",
+    "portalPh": "輸入稅務門戶網址",
+    "starting": "正在啟動",
+    "automationCta": "開始自動化",
+    "browserPrereq": "需先啟動瀏覽器並登入稅務系統",
+    "launchFailed": "啟動失敗",
+    "txInvalid": "交易資訊無效",
+    "promptWithPayload": "請處理以下資料: {payload}",
+    "promptAskUpload": "請上傳檔案並等待結果",
+    "promptBookkeeping": "產生 {period} 的記帳憑證",
+    "phaseBookkeeping": "記帳階段",
+    "wagesInvalid": "工資資料無效",
+    "fieldPeriod": "所屬期: {period}",
+    "taxpayerGeneral": "一般納稅人",
+    "taxpayerSmall": "小規模納稅人",
+    "fieldSales": "銷售額: {value}",
+    "fieldOutputTax": "銷項稅: {value}",
+    "fieldInputTax": "進項稅: {value}",
+    "fieldProfit": "利潤: {value}",
+    "fieldAnnualBonus": "年終獎金: {value}",
+    "fieldWages": "薪資 {payload}",
+    "promptTaxFiling": "請依以下事實申報稅務:",
+    "phaseTaxFiling": "稅務申報階段",
+    "promptTaxDraftNote": "請生成草稿備註:",
+    "reimbursementInvalid": "報銷資料無效",
+    "fieldRevenue": "營收: {value}",
+    "fieldWageTotal": "薪資總額: {value}",
+    "promptReimbursement": "請處理報銷 {payload}",
+    "socialInvalid": "社保資料無效",
+    "fieldSocialAvgWage": "社保平均薪資: {value}",
+    "promptSocial": "請計算社保 {period}",
+    "deductionInvalid": "扣除資料無效",
+    "promptDeduction": "請處理扣除 {period}",
+    "automationNoTargets": "未找到自動化目標",
+    "portalInvalid": "門戶資料無效",
+    "automationPrompt": "請執行稅務 {period} 自動化",
+    "title": "財務助手",
+    "intro": "智慧稅務與財務自動化平台",
+    "bookkeepingTitle": "記帳",
+    "bookkeepingDesc": "智慧記帳助手",
+    "periodLabel": "所屬期間",
+    "txLabel": "交易明細",
+    "txPh": "貼上交易記錄…",
+    "txHint": "每行一條交易，格式: 日期 摘要 金額",
+    "bookkeepingCta": "開始記帳",
+    "pluginHint": "支援自動識別憑證與分類",
+    "taxTitle": "稅務計算",
+    "taxDesc": "一鍵計算應納稅額",
+    "taxpayerLabel": "納稅人類型",
+    "taxpayerGeneralValue": "一般納稅人",
+    "taxpayerSmallValue": "小规模納稅人",
+    "fieldSalesLabel": "銷售額",
+    "fieldProfitLabel": "利潤總額",
+    "annualBonusLabel": "年度獎金",
+    "annualBonusPh": "輸入金額",
+    "fieldOutputTaxLabel": "銷項稅額",
+    "fieldInputTaxLabel": "進項稅額",
+    "wagesLabel": "工資明細",
+    "wagesPh": "貼上工資記錄…",
+    "taxCta": "開始計算",
+    "draftNote": "草稿提示",
+    "reimbursementTitle": "報銷",
+    "reimbursementDesc": "填寫金額，生成報銷單據",
+    "revenueLabel": "營業收入",
+    "wageTotalLabel": "工資總額",
+    "reimbursementJsonLabel": "報銷 JSON",
+    "reimbursementJsonPh": "貼上 JSON",
+    "reimbursementHint": "支援從系統匯出或手動填寫",
+    "reimbursementCta": "生成報銷單",
+    "socialTitle": "社保",
+    "socialDesc": "填寫平均薪資，估算每月社保繳納額",
+    "socialAvgWageLabel": "平均月薪",
+    "socialEmployeesLabel": "員工名單",
+    "socialEmployeesPh": "每人一行，格式: 姓名, 部門, 職級",
+    "socialCta": "計算社保",
+    "deductionTitle": "扣款",
+    "deductionDesc": "填寫名單，計算個人代扣項目",
+    "deductionEmployeesLabel": "員工名單",
+    "deductionEmployeesPh": "每人一行，格式: 姓名, 工資, 公積金比例",
+    "deductionCta": "計算扣款",
+    "automationTrust": "結果僅供參考，請以實際為準",
+    "progressTitle": "任務進度",
+    "progressDesc": "檢視財務分析進度",
+    "progressEmpty": "目前無分析任務",
+    "openChat": "開啟對話",
+    "streaming": "生成中",
+    "idle": "閒置"
+  },
+  "hrData": {
+    "tabImport": "導入",
+    "tabSettle": "結算",
+    "tabPayroll": "薪資",
+    "tabTodo": "待辦",
+    "title": "人事資料",
+    "periodMonth": "所属月份",
+    "uploadDone": "已上傳{total}筆",
+    "confirmDone": "確認成功",
+    "importKind": "導入類型",
+    "upload": "上傳",
+    "importHint": "支援 CSV 格式檔案",
+    "loading": "載入中",
+    "noData": "暫無資料",
+    "colKind": "類型",
+    "colFile": "檔案名稱",
+    "colStatus": "狀態",
+    "colTotal": "總筆數",
+    "colConflict": "衝突數",
+    "colNotFound": "未匹配數",
+    "colActions": "操作",
+    "viewDetail": "查看詳細"
+  },
+  "adminOrgGovernance": {
+    "version": "版本",
+    "status": "狀態",
+    "enabled": "啟用",
+    "disabled": "停用",
+    "updatedAt": "更新時間",
+    "allowlistHint": "逗號分隔的允許名單",
+    "allowlistMode": "名單模式",
+    "modeAllow": "允許",
+    "modeBlock": "阻止",
+    "flagsHint": "每行一個標記，格式：name=value",
+    "flagsInvalid": "無效的標記格式",
+    "spendBudgetHint": "每月花費預算上限",
+    "retentionHint": "數據保留天數",
+    "saving": "正在儲存",
+    "save": "儲存",
+    "saveSuccess": "儲存成功",
+    "loginRequired": "需要登入",
+    "forbidden": "無存取權限",
+    "forbiddenHint": "請聯繫管理員以取得權限",
+    "title": "組織策略",
+    "subtitle": "管理組織治理規則",
+    "loadFailed": "載入失敗",
+    "overview": "概覽",
+    "orgId": "組織 ID",
+    "loading": "載入中",
+    "periodFrom": "開始日期",
+    "periodTo": "結束日期",
+    "query": "查詢",
+    "members": "成員用量",
+    "emptyMembers": "暫無成員用量",
+    "memberUser": "成員",
+    "cost": "費用",
+    "tokens": "Tokens",
+    "calls": "調用次數",
+    "models": "模型用量",
+    "emptyModels": "暫無模型用量",
+    "modelName": "模型名稱",
+    "agentBillings": "代理帳單",
+    "balance": "餘額",
+    "byDay": "每日明細",
+    "date": "日期",
+    "policies": "策略",
+    "policyTrail": "策略留痕",
+    "trailNote": "此處展示策略行的更新時間與狀態",
+    "emptyTrail": "暫無追蹤記錄",
+    "policyKey": "策略金鑰"
+  },
+  "playBeta": {
+    "errors": {
+      "invalidEmail": "郵件格式無效",
+      "generic": "發生錯誤"
+    },
+    "hero": {
+      "badge": "Beta 版",
+      "title": "搶先體驗 Beta",
+      "subtitle": "加入測試，助力產品完善"
+    },
+    "success": {
+      "title": "成功加入",
+      "desc": "歡迎加入 Beta 測試！"
+    },
+    "join": {
+      "title": "如何加入",
+      "desc": "填寫郵件以獲取 Beta 測試資格",
+      "button": "前往頁面",
+      "hint": "限受邀用戶"
+    },
+    "why": {
+      "title": "為什麼參與"
+    },
+    "form": {
+      "email": "郵件地址",
+      "emailPlaceholder": "請輸入您的郵件",
+      "privacyRequired": "同意隱私政策",
+      "privacyPrefix": "我已閱讀並同意",
+      "privacyLink": "隱私政策",
+      "submitting": "提交中…",
+      "submit": "加入測試"
+    },
+    "faq": {
+      "title": "常見問題"
+    }
+  },
+  "superAgent": {
+    "verdictAct": "需處理",
+    "verdictIgnore": "忽略",
+    "verdictUnclear": "不明確",
+    "stagePersonDelivery": "交付",
+    "stagePersonAnswer": "回覆",
+    "stagePersonReview": "審核",
+    "stagePersonBlocked": "受阻",
+    "stagePersonFailed": "失敗",
+    "stageWorkingQueued": "佇列中",
+    "stageWorking": "處理中",
+    "stageIdle": "閒置",
+    "stageEnded": "已結束",
+    "reportProgress": "進行中",
+    "reportWaiting": "等待中",
+    "reportReady": "就緒",
+    "reportBlocked": "受阻",
+    "reportFailed": "失敗",
+    "reportDropped": "已丟棄",
+    "assignmentPending": "待分配",
+    "assignmentRunning": "執行中",
+    "assignmentEnded": "已結束",
+    "noProgress": "暫無進展",
+    "unknownTime": "未知時間",
+    "actionAuthFailed": "驗證失敗",
+    "actionFailed": "操作失敗: {message}",
+    "title": "Super Agent 面板",
+    "subtitle": "即時監控與任務管理",
+    "refreshing": "重新整理中",
+    "refresh": "重新整理",
+    "pollHint": "每 {seconds} 秒自動更新",
+    "staleWarning": "資料可能已過期: {message}",
+    "loading": "載入中",
+    "authTitle": "需要登入",
+    "authHint": "請先完成驗證以檢視此面板",
+    "errorTitle": "發生錯誤",
+    "errorHint": "請稍後再試",
+    "retry": "重試",
+    "summaryQuietDrops": "靜默丟失: {count}",
+    "summaryRecorded": "已記錄: {count}",
+    "empty": "暫無資料",
+    "emptyHint": "當有新任務時，這裡會顯示詳細資訊",
+    "colStatus": "狀態",
+    "colSource": "來源",
+    "colCreatedAt": "建立時間",
+    "colOwner": "負責人",
+    "colProgress": "進度",
+    "detailTitle": "工單詳情",
+    "closeDetail": "關閉",
+    "detailTrigger": "觸發條件",
+    "detailNone": "無",
+    "detailWorker": "執行者",
+    "detailSession": "會話 ID",
+    "detailDirectory": "目錄",
+    "detailAssignment": "任務分配",
+    "detailLoading": "載入中",
+    "detailError": "載入失敗",
+    "detailRetry": "重試",
+    "detailGoal": "目標",
+    "detailConstraints": "約束條件",
+    "detailDeliverables": "交付物",
+    "detailReport": "報告",
+    "detailReportEmpty": "暫無報告",
+    "detailFailure": "失敗原因",
+    "detailEnded": "結束於",
+    "detailEndedByPerson": "人工終止",
+    "detailEndedByExecutor": "執行者終止",
+    "detailLease": "租約詳情",
+    "detailLeaseLost": "已遺失 {count} 個租約",
+    "detailLeaseRemaining": "剩餘 {seconds} 秒",
+    "stopping": "停止中",
+    "stop": "停止",
+    "recordedTitle": "已記錄事項",
+    "recordedReason": "記錄原因",
+    "recordedVerdict": "判定",
+    "accepting": "接受中",
+    "acceptRule": "接受規則"
+  },
+  "useCase": {
+    "customerSupport": {
+      "title": "客戶支援",
+      "subtitle": "用 AI 快速回覆客戶問題，縮短回應時間"
+    },
+    "knowledgeBase": {
+      "title": "知識庫",
+      "subtitle": "把散落的文件變成可檢索、可引用的答案"
+    },
+    "codeAssistant": {
+      "title": "程式碼助手",
+      "subtitle": "讀懂程式碼庫，幫團隊更快定位與修改"
+    },
+    "contentGeneration": {
+      "title": "內容生成",
+      "subtitle": "從大綱到成稿，批次產出結構化內容"
+    }
+  },
+  "myQuests": {
+    "title": "My Quests 看板",
+    "total": "共 {count} 個任務",
+    "currentWorkspace": "目前工作空間",
+    "empty": "暫無已登記任務(目標一經設定即自動登記)",
+    "assessmentPlaceholder": "記錄自評…",
+    "addAssessment": "記錄",
+    "latestAssessment": "最近評估",
+    "noAssessment": "暫無評估記錄"
+  },
+  "accounts": {
+    "add": "新增帳戶",
+    "batchImport": "批次匯入",
+    "batchVerify": "批次驗證",
+    "cancelScan": "取消掃描",
+    "credentials": "憑證",
+    "delete": "刪除",
+    "deleteConfirm": "刪除此帳戶",
+    "edit": "編輯",
+    "externalBrowserHint": "若掃描失敗請改用外部瀏覽器",
+    "nickname": "暱稱",
+    "noAccounts": "沒有帳戶",
+    "openExternalBrowser": "以外部瀏覽器開啟",
+    "orDivider": "或",
+    "platform": "平台",
+    "scan": "掃描登入",
+    "scanLogin": "掃描登入",
+    "scanLoginDescription": "用手機掃描 QR 碼登入",
+    "scanLoginFailed": "登入失敗",
+    "scanLoginHint": "QR 碼每分鐘自動刷新",
+    "scanLoginSucceeded": "登入成功",
+    "scanLoginSuccess": "掃描成功",
+    "scanLoginTimeout": "掃描逾時,請重試",
+    "scanLoginTitle": "掃描登入",
+    "scanWithPhoneHint": "使用手機掃描 QR 碼",
+    "selectPlatform": "選擇平台",
+    "startScanLogin": "開始掃描",
+    "subtitle": "管理社群平台帳號",
+    "title": "帳號管理",
+    "verify": "驗證"
+  },
+  "eduCertificatesPage": {
+    "backToList": "返回證書列表",
+    "certificateNo": "證書編號: {no}",
+    "completed": "已完成",
+    "download": "下載證書",
+    "downloadFailed": "下載失敗 ({status})",
+    "issuanceText": "完成學習與評估後頒發",
+    "issuedAt": "發行日期: {date}",
+    "loading": "載入中...",
+    "notFound": "找不到證書",
+    "print": "列印",
+    "status": {
+      "revoked": "已作廢",
+      "valid": "有效"
+    }
+  },
+  "defaultEntries": {
+    "mall": {
+      "label": "商場",
+      "description": "購物優惠"
+    },
+    "vip": {
+      "label": "VIP",
+      "description": "加入VIP尊享專屬福利"
+    },
+    "invite": {
+      "label": "邀請",
+      "description": "邀約好友賺取獎勵"
+    },
+    "help": {
+      "label": "協助",
+      "description": "常見問題與指南"
+    }
+  },
+  "defaultTags": {
+    "llm": "LLM",
+    "tutorial": "教學",
+    "rag": "知識庫",
+    "agent": "代理",
+    "frontend": "前端",
+    "backend": "後端",
+    "opensource": "開源"
+  },
+  "terminalSessionList": {
+    "statusActive": "執行中",
+    "statusExited": "已結束",
+    "statusClosed": "已關閉",
+    "title": "終端機工作階段",
+    "newTerminalAria": "新終端機",
+    "loading": "載入中",
+    "empty": "沒有會話",
+    "closeTerminalAria": "關閉終端機"
+  },
+  "eduCourses": {
+    "backToCourses": "返回課程",
+    "chaptersTitle": "章節",
+    "detail": "詳細資訊",
+    "notFound": "找不到課程",
+    "studentsCount": "{count} 人學習中"
+  }
+}
