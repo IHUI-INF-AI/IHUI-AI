@@ -2974,7 +2974,13 @@ if (hookFailed && commitResult.status !== 0) {
     const r = spawnSync('git', commitArgv(true), {
       encoding: 'utf8',
       cwd: repoRoot,
-      env: process.env,
+      // 2026-11-23:跳钩落地段必须与首发带钩段(约 1839 行)同构透传私有索引 GIT_INDEX_FILE。
+      // 漏传会让 --no-verify 普通提交读共享整份索引,把他人 staged 一并打包
+      // (2026-11-23 实测 13 枚污染:README×4 与他人在飞件被整份索引扫入本枚)。
+      env: {
+        ...process.env,
+        ...(commitIndexFile ? { GIT_INDEX_FILE: commitIndexFile } : {}),
+      },
       windowsHide: true,
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
