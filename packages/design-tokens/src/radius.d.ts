@@ -6,7 +6,15 @@
 export type RadiusStep = 'xs' | 'sm' | 'DEFAULT' | 'md' | 'lg' | 'xl' | '2xl'
 
 /** 元素角色名(与 radius.js 的 RADIUS_ROLES 键一致)——"这个元素该用哪档"的唯一记录 */
-export type RadiusRole = 'tiny' | 'control' | 'chip' | 'card' | 'panel' | 'hero'
+export type RadiusRole =
+  | 'tiny'
+  | 'control'
+  | 'chip'
+  | 'card'
+  | 'panel'
+  | 'popover'
+  | 'bubble'
+  | 'hero'
 
 /** 档位 → px 数值 */
 export declare const RADIUS_STEPS: Record<RadiusStep, number>
