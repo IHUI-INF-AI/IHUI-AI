@@ -721,7 +721,6 @@
         "src/pkg-user/llm-settings/index.tsx",
         "src/pkg-user/member-dashboard/index.tsx",
         "src/pkg-user/member-settings/index.tsx",
-        "src/pkg-user/message/index.config.ts",
         "src/pkg-user/message/index.tsx",
         "src/pkg-user/my-agents/index.tsx",
         "src/pkg-user/pdf-tools-hub/index.tsx",
