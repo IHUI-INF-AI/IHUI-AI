@@ -19,12 +19,12 @@
 #   4. heuristic       -> BLOCKED (garbage signatures, delete)
 #   5. otherwise       -> BLOCKED (unknown, delete + log [UNKNOWN])
 #
-# Config: g:\IHUI-AI\scripts\g-root-blacklist.json (v2.0 schema, UTF-8)
-# Log:    g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log (UTF-8, 1MB rotation)
+# Config: <repo-root>\scripts\g-root-blacklist.json (v2.0 schema, UTF-8)
+# Log:    <repo-root>\.ihui-agent\tmp\g-root-guardian.log (UTF-8, 1MB rotation)
 #
 # Usage:
 #   Foreground (debug):
-#     pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian.ps1
+#     pwsh -ExecutionPolicy Bypass -File <repo-root>\scripts\g-root-guardian.ps1
 #   Background (scheduled task, -WindowStyle Hidden):
 #     install via scripts/install-g-root-guardian.ps1
 #
@@ -38,9 +38,20 @@
 $ErrorActionPreference = 'Continue'
 
 # ---- Configuration (script-scoped) ----
-$script:ConfigPath = 'g:\IHUI-AI\scripts\g-root-blacklist.json'
-$script:LogPath    = 'g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log'
+# Resolve repo root from own location (repo can move to any drive).
+. (Join-Path $PSScriptRoot '..\deploy\win\ihui-root-common.ps1')
+$script:RepoRoot   = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+$script:ConfigPath = Join-Path $PSScriptRoot 'g-root-blacklist.json'
+$script:LogPath    = Join-Path $script:RepoRoot '.ihui-agent\tmp\g-root-guardian.log'
 $script:WatchPath  = 'G:\'
+# This guardian watches the retired dedicated G: drive (merged into C:). Never
+# retarget it to C:\ - an allowlist-first delete watcher on the system drive is
+# catastrophic. Fail closed if the target drive is gone instead of letting
+# FileSystemWatcher throw on EnableRaisingEvents.
+if (-not (Test-Path -LiteralPath $script:WatchPath)) {
+    Write-Host "Guardian target '$($script:WatchPath)' is gone; retired, exiting."
+    return
+}
 
 # ---- Load config v2.0 (allowlist + blacklist + heuristic + systemProtected) ----
 function Load-Config {
@@ -233,7 +244,7 @@ $action = {
         # 5. Unknown remains BLOCK:unknown (allowlist-first mode)
 
         # Inline log writer (avoid helper-function scope issues)
-        $logPath = 'g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log'
+        $logPath = $script:LogPath
         $logDir = Split-Path $logPath -Parent
         if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
         if (Test-Path $logPath) {
@@ -273,7 +284,7 @@ $action = {
     } catch {
         # Never crash the event pipeline; log the error and continue
         $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-        $logPath = 'g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log'
+        $logPath = $script:LogPath
         try { Add-Content -Path $logPath -Value "$ts [ERROR] $($_.Exception.Message)" -Encoding UTF8 } catch { }
     }
 }

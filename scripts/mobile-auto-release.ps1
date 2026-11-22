@@ -27,7 +27,7 @@
     每轮用 `git apply --3way` 三路叠加到最新主干 —— 主干对同一文件的其它改动会被保留,不会整文件覆盖。
 
   边界(写进脚本而不是留给下一个人重新发现):
-    · 只在**专用工作树** `G:\IHUI-AI\.worktrees\mobile-auto` 跑。它每轮会 reset --hard 到 origin/main,
+    · 只在**专用工作树** `<项目根>\.worktrees\mobile-auto` 跑。它每轮会 reset --hard 到 origin/main,
       所以这里不能放人工未提交的改动 —— 这条路径有且仅有 origin/main + 覆盖层这一个真相源。
       (2026-11-17:原落点 D: 盘已劣化到 100ms/文件,装依赖要 5 小时以上 ⇒ 迁到与主仓同卷的 G: 盘,
        跨卷后 pnpm 无法硬链接只能逐个复制,这也是 2026-11-17 前该链每轮都装不完的直接原因。)
@@ -49,7 +49,7 @@
 .PARAMETER IntervalMinutes
   计划任务的重复间隔(分钟),默认 60。
 .PARAMETER Worktree
-  专用构建工作树路径,默认为 `G:\IHUI-AI\.worktrees\mobile-auto`。
+  专用构建工作树路径,默认为 `<项目根>\.worktrees\mobile-auto`。
 .PARAMETER OverlayRef
   覆盖层引用,默认 `mobile-auto-overlay` 分支。
 
@@ -64,11 +64,18 @@ param(
   [switch]$DryRun,
   [switch]$Force,
   [int]$IntervalMinutes = 60,
-  [string]$Worktree = 'G:\IHUI-AI\.worktrees\mobile-auto',
+  [string]$Worktree = '',  # resolved from repo root below
   [string]$OverlayRef = 'mobile-auto-overlay'
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '..\deploy\win\ihui-root-common.ps1')
+# 主仓根与专用工作树是两个不同落点:构建/推送在工作树($RepoRoot)里跑,
+# 但 .android-toolchain(JDK/SDK)装在主仓根 —— 与 build-mobile-rn-release.ps1、lib/android-toolchain.mjs 同一口径。
+$ProjectRoot = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($Worktree)) {
+  $Worktree = Join-Path $ProjectRoot '.worktrees\mobile-auto'
+}
 $RepoRoot = $Worktree
 $TaskName = 'IHUI-Mobile-AutoRelease'
 
@@ -587,8 +594,8 @@ try {
   # 机主要求「其他变更都走内置 OTA」后,OTA 轮次也要构建 JS bundle;若此时 EXPO_PUBLIC_* 未设,
   # config.ts 会回退 http://localhost:8802 ⇒ 发出去的 OTA 让全量用户断网(P0)。
   # 所以这组值必须在 OTA 分支之前就位,而不是原来那样只属于 gradle 路径。
-  if (-not $env:JAVA_HOME) { $env:JAVA_HOME = 'D:\IHUI-AI\.android-toolchain\extract21\jdk-21.0.2' }
-  if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = 'D:\IHUI-AI\.android-toolchain\android-sdk' }
+  if (-not $env:JAVA_HOME) { $env:JAVA_HOME = Join-Path $ProjectRoot '.android-toolchain\extract21\jdk-21.0.2' }
+  if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = Join-Path $ProjectRoot '.android-toolchain\android-sdk' }
   $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
   # 生产臂(REST 走 www 快臂、WS 钉 api 臂):与 0.0.12 手工发布的同一组值,禁止在这里换臂。
   $apiBase = 'https://www.aizhs.top'

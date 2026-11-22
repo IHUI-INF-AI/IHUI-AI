@@ -11,9 +11,12 @@ import os
 import sys
 
 import httpx
+from pathlib import Path
 
-PROD_ENV = r"D:\DevEnv\ihui-prod\apps\ai-service\.env"
-DEV_ENV = r"D:\IHUI-AI\apps\ai-service\.env"
+# 项目根从本脚本位置推导(scripts/ 的上一级),换机/换盘无需改这里。
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PROD_ENV = str(Path(r"D:\DevEnv\ihui-prod\apps\ai-service\.env"))  # 生产机独立部署,非本项目,不随项目根
+DEV_ENV = str(REPO_ROOT / "apps" / "ai-service" / ".env")
 
 
 def load_env(path):

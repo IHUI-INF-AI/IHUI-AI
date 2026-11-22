@@ -23,8 +23,11 @@
 import { createRequire } from 'node:module'
 import { createDecipheriv } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { normalizeModelId } from './lib/model-names.mjs'
+
+const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))  // scripts/ 的上一级 = 项目根,换盘自动跟随
 
 // §22d:postgres 仅在 apps/api / packages/database 声明,从 scripts/ 锚定解析不到 ⇒ 改锚 database 包清单,import 面与根目录直跑面均可解析,直跑行为不变
 const require = createRequire(new URL('../packages/database/package.json', import.meta.url))
@@ -43,7 +46,7 @@ function loadEncryptionKey() {
   if (process.env.CREDENTIALS_ENCRYPTION_KEY) {
     return process.env.CREDENTIALS_ENCRYPTION_KEY.slice(0, 32)
   }
-  for (const envPath of ['G:/IHUI-AI/.env', '.env']) {
+  for (const envPath of [join(REPO_ROOT, '.env'), '.env']) {
     try {
       const envContent = readFileSync(envPath, 'utf8')
       const m = envContent.match(/^CREDENTIALS_ENCRYPTION_KEY=(.+)$/m)

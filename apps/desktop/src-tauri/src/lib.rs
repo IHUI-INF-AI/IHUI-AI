@@ -1183,7 +1183,7 @@ fn spawn_relay_switch(app: &tauri::AppHandle) {
 /// 顺序(与 CLI 的 `ihui relay --repo` 同一套优先级,便于两边互证):
 /// 1. 环境变量 `IHUI_AI_REPO`(操作员显式指定)
 /// 2. 从当前 exe 逐级上溯 —— 覆盖开发/构建布局(target/debug → src-tauri → desktop → repo)
-/// 3. 机器上的常见位置(`%USERPROFILE%\IHUI-AI`、本机 `G:\IHUI-AI`)
+/// 3. 机器上的常见位置(`%USERPROFILE%\IHUI-AI`、exe 所在盘根下的 `IHUI-AI`)
 ///
 /// 每一档都**必须**验到 `scripts/client-oneclick-switch.cmd` 真的在,不靠"目录名像"猜 ——
 /// 猜错的代价是把用户丢进一个空控制台,比不响应更难查。
@@ -1222,7 +1222,19 @@ fn resolve_relay_repo() -> Option<std::path::PathBuf> {
     if let Ok(home) = std::env::var("USERPROFILE") {
         candidates.push(std::path::PathBuf::from(home).join("IHUI-AI"));
     }
-    candidates.push(std::path::PathBuf::from(r"G:\IHUI-AI"));
+    // 兜底:exe 所在驱动器的根目录下 IHUI-AI(如 <盘符>:\IHUI-AI)。
+    // 不写死盘符 —— 项目搬到哪个盘的盘根都能命中;上面两层已覆盖深层布局。
+    if let Ok(exe) = std::env::current_exe() {
+        // ancestors() 的最后一项才是真正的盘根(C:\ 或 UNC \\server\share)。
+        // 不能用 components().next() 的盘符前缀("C:")—— Path::new("C:").join("IHUI-AI")
+        // 在 Windows 上是 drive-relative 的 "C:IHUI-AI",相对于 C 盘当前目录,永远不命中盘根。
+        if let Some(drive_root) = exe.ancestors().last() {
+            let candidate = drive_root.join("IHUI-AI");
+            if !candidates.contains(&candidate) {
+                candidates.push(candidate);
+            }
+        }
+    }
     candidates.into_iter().find(|p| is_repo(p))
 }
 

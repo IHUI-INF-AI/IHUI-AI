@@ -41,7 +41,7 @@ function runScript(args, opts = {}) {
 function initFixtureRepo(dir) {
   mkdirSync(dir, { recursive: true })
   const git = (args, cwd = dir) =>
-    spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 15000 })
+    spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] })
   // git 需要一个 identity 才能提交;用 -c 内联,不污染用户配置
   const base = ['-c', 'user.email=test@ihui.local', '-c', 'user.name=ihui-test']
   assert.equal(git([...base, 'init', '-q']).status, 0, 'git init 失败')
@@ -85,7 +85,7 @@ test('T2 stale: 临时射程下 worktree 静默+账龄均超阈(注入 now) ⇒ 
 
     // 真在 fixture repo 里 git worktree add 出一个临时射程下的 worktree
     const git = (args, cwd = repo) =>
-      spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 15000 })
+      spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] })
     const base = ['-c', 'user.email=test@ihui.local', '-c', 'user.name=ihui-test']
     assert.equal(git([...base, 'worktree', 'add', '-q', '--detach', wtDir, 'HEAD']).status, 0,
       'git worktree add 失败')
@@ -160,7 +160,7 @@ test('T3b orphan CLI:真造孤儿壳 ⇒ CLI 报 orphan exit 1', () => {
     const wtDir = join(scratch, 'orphan-wt')
     mkdirSync(wtDir, { recursive: true })
     const git = (args, cwd = repo) =>
-      spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 15000 })
+      spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] })
     const base = ['-c', 'user.email=test@ihui.local', '-c', 'user.name=ihui-test']
     assert.equal(git([...base, 'worktree', 'add', '-q', '--detach', wtDir, 'HEAD']).status, 0)
     // 硬删目录但不 git worktree prune ⇒ git worktree list 仍有条目 = 孤儿壳

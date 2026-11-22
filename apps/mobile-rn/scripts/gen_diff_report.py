@@ -9,7 +9,8 @@ import os
 import re
 from collections import defaultdict
 
-NEW_APP = r"G:\IHUI-AI\apps\mobile-rn"
+from pathlib import Path
+NEW_APP = str(Path(__file__).resolve().parents[1])  # mobile-rn/scripts/ 的上一级 = mobile-rn
 
 r = json.load(open(os.path.join(NEW_APP, "report", "uniapp_diff_audit.json"), encoding="utf-8"))
 

@@ -8,8 +8,9 @@ import json
 import os
 import re
 
-OLD_ROOT = r"D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src"
-NEW_ROOT = r"G:\IHUI-AI\apps\mobile-rn\src"
+from pathlib import Path
+OLD_ROOT = r"D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src"  # 历史对照存档,非本项目,不随项目根
+NEW_ROOT = str(Path(__file__).resolve().parents[1] / "src")  # mobile-rn/scripts/ 的上一级 = mobile-rn
 
 # 原注册页面 → 新 screen 映射(来自 gen_diff_report 的 PAGE_TO_SCREEN)
 PAGE_TO_SCREEN = {

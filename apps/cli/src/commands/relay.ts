@@ -63,7 +63,7 @@ export interface RepoResolution {
  *   1. 显式 --repo
  *   2. 环境变量 IHUI_AI_REPO(换机/服务化场景的稳定锚点)
  *   3. 从 cwd 逐级向上(最多 8 层)
- *   4. 常见默认位置(G:\IHUI-AI、~/IHUI-AI)
+ *   4. 常见默认位置(cwd 所在盘根下的 IHUI-AI、~/IHUI-AI)—— 不写死盘符,换机/换盘都能命中
  * 命中第一个 isRepoRoot 即返回;全未命中返回 root:null(由调用方落未判定,不猜)。
  */
 export function resolveRepoRoot(explicit?: string): RepoResolution {
@@ -85,7 +85,8 @@ export function resolveRepoRoot(explicit?: string): RepoResolution {
     cursor = parent;
   }
 
-  push('G:\\IHUI-AI');
+  // 盘根候选:从 cwd 所在盘符推导 <盘符>:\IHUI-AI,不写死具体盘符(换机/换盘都能命中)。
+  push(path.join(path.parse(process.cwd()).root, 'IHUI-AI'));
   push(path.join(os.homedir(), 'IHUI-AI'));
 
   const root = tried.find((dir) => isRepoRoot(dir)) ?? null;

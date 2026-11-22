@@ -166,17 +166,24 @@ Log ("清理前 C 盘可用: {0} GB" -f [math]::Round($before/1GB,2))
 
 # ===== 1. Chrome 缓存(保留用户数据)=====
 Log "[1/6] 清理 Chrome 缓存"
-# 下面这批路径把用户名写死成"荣耀",而计划任务实际注册运行的用户是 $env:USERNAME,
-# 本机该目录不存在 ⇒ 本段常年空转。**故意不改成指向真实用户配置**:那等于让一个每天
-# 3:00 无人值守、DeletePermanently 不进回收站的任务突然开始删一个正在使用的浏览器缓存,
-# 风险远大于收益。这里只做显式告警 + 如实报"清理 0 项",要不要改判据由人决定。
+# Chrome 缓存清理按设计未启用：无人值守任务里 DeletePermanently 不进回收站，
+# 突然开始删一个正在使用的浏览器缓存风险远大于收益。这里只做告警 + 如实报"清理 0 项"。
+# 历史：这批路径曾把用户名写死成"荣耀"，本机不存在 ⇒ 整段常年空转。
+# 保持"空转、不删真实浏览器缓存"的既有判据不变，但去掉机器特定用户名和盘符：
+# 用当前用户父目录 + 显式禁用哨兵名拼路径，永远不存在，行为零漂移。
+# 真要启用清理，须人工把 $chromeCleanupEnabled 打开并确认影响面。
+$chromeCleanupEnabled = $false
+$chromeUserRoot = if ($chromeCleanupEnabled) { $env:USERPROFILE } else {
+  Join-Path (Split-Path -Parent $env:USERPROFILE) '__IHUI_CHROME_CLEANUP_DISABLED__'
+}
+$chromeData = Join-Path $chromeUserRoot 'AppData\Local\Google\Chrome\User Data'
 $chromeCaches = @(
-  "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\OptGuideOnDeviceModel",
-  "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\component_crx_cache",
-  "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\GraphiteDawnCache",
-  "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\Default\Cache",
-  "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\Default\Code Cache",
-  "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\Default\GPUCache"
+  (Join-Path $chromeData 'OptGuideOnDeviceModel'),
+  (Join-Path $chromeData 'component_crx_cache'),
+  (Join-Path $chromeData 'GraphiteDawnCache'),
+  (Join-Path $chromeData 'Default\Cache'),
+  (Join-Path $chromeData 'Default\Code Cache'),
+  (Join-Path $chromeData 'Default\GPUCache')
 )
 [double]$chromeFreed = 0
 [int]$chromeTargets = 0
@@ -193,7 +200,7 @@ foreach ($t in $chromeCaches) {
   $freed += $sz
 }
 if ($chromeMissing.Count -gt 0) {
-  Log ("  [WARN] Chrome 缓存段空转:{0}/{1} 项目标路径不存在 —— 脚本硬编码用户名与计划任务注册用户不一致(当前用户 = {2})" -f `
+  Log ("  [WARN] Chrome 缓存段空转:{0}/{1} 项目标路径不存在 —— Chrome 清理按设计未启用(哨兵路径)，当前用户 = {2}" -f `
     $chromeMissing.Count, $chromeCaches.Count, $env:USERNAME) "WARN"
   foreach ($m in $chromeMissing) { Log ("         不存在: {0}" -f $m) }
 }

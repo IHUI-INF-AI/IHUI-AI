@@ -5,7 +5,7 @@
 import importlib.util, json, tempfile
 from pathlib import Path
 
-here = Path(r"G:\IHUI-AI\scripts")
+here = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("p2", here / "phase2-local-engine-smoke.py")
 p2 = importlib.util.module_from_spec(spec); spec.loader.exec_module(p2)
 

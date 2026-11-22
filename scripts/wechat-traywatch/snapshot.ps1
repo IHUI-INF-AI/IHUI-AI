@@ -39,7 +39,26 @@ if ($svc) { $lines += ("  Status=" + $svc.Status + " StartType=" + $svc.StartTyp
 
 $lines += ""
 $lines += "--- 目标窗口 Qt51514WxTrayIconMessageWindowClass 可见性 ---"
-$py = 'C:\Users\Administrator\.workbuddy-ai\binaries\python\versions\3.13.12\python.exe'
+# 解释器路径不写死：显式覆盖 > PATH > 用户目录便携 python（版本目录名随升级变化）。
+$pyCmd = Get-Command python.exe -ErrorAction SilentlyContinue
+$py = $env:IHUI_PYTHON_BIN
+if (-not $py -and $pyCmd) { $py = $pyCmd.Source }
+if (-not $py) {
+  # 便携运行时的 python 布局随版本变化,枚举多个可能的根,不钉死单一路径。
+  $pyRoots = @(
+    (Join-Path $env:USERPROFILE '.workbuddy-ai\binaries\python\versions'),
+    (Join-Path $env:USERPROFILE '.workbuddy\binaries\python\versions')
+  )
+  foreach ($pyVersions in $pyRoots) {
+    if (-not (Test-Path -LiteralPath $pyVersions)) { continue }
+    $py = Get-ChildItem -LiteralPath $pyVersions -Directory -ErrorAction SilentlyContinue |
+      ForEach-Object { Join-Path $_.FullName 'python.exe' } |
+      Where-Object { Test-Path -LiteralPath $_ } |
+      Select-Object -Last 1
+    if ($py) { break }
+  }
+}
+if (-not $py) { $lines += "  (本机找不到 python.exe,跳过窗口枚举)" }
 $inline = @'
 import ctypes, ctypes.wintypes as wt
 u=ctypes.windll.user32

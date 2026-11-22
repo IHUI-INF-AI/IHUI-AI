@@ -6,18 +6,18 @@
 // 全程无人工。若 profile 里会话有效,打开立即回调。
 import fs from 'node:fs'
 import http from 'node:http'
-import path from 'node:path'
+import path, { dirname, join } from 'node:path'
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 
-const API_DIR = 'G:/IHUI-AI/apps/api'
-const ROOT = 'G:/IHUI-AI'
-const requireApi = createRequire(API_DIR + '/package.json')
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))  // scripts/ 的上一级 = 项目根,换盘自动跟随
+const API_DIR = join(ROOT, 'apps', 'api')
+const requireApi = createRequire(join(API_DIR, 'package.json'))
 const { config: dotenvConfig } = await import(pathToFileURL(requireApi.resolve('dotenv')).href)
 dotenvConfig({ path: API_DIR + '/.env' })
 
-const { chromium } = createRequire('G:/IHUI-AI/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/package.json')('playwright-core')
+const { chromium } = createRequire(join(ROOT, 'node_modules', '.pnpm', 'playwright@1.62.1', 'node_modules', 'playwright', 'package.json'))('playwright-core')
 
 const UID = '2257723987855312'
 const PORT = 47836
@@ -25,7 +25,7 @@ const CLIENT_ID = 'ono9krqynydwx5'
 const IDE_VERSION = '1.107.1'
 const CHROME_PROFILE = 'C:/Users/Administrator/AppData/Local/Google/Chrome/User Data'
 // 复制一份 profile 落地(不污染用户原 profile)
-const PROFILE_COPY = 'G:/IHUI-AI/.ihui-agent/tmp/cpc2'
+const PROFILE_COPY = join(ROOT, '.ihui-agent', 'tmp', 'cpc2')
 
 const verifier = crypto.randomBytes(48).toString('base64url')
 const challenge = crypto.createHash('sha256').update(verifier).digest('base64url')

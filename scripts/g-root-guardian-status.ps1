@@ -10,7 +10,7 @@
 # entries, and BLOCKED/ALLOWED/ERROR counts.
 #
 # Usage:
-#   pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1
+#   pwsh -ExecutionPolicy Bypass -File <项目根>\scripts\g-root-guardian-status.ps1
 #
 # Read-only: does not modify any state.
 # ============================================================================

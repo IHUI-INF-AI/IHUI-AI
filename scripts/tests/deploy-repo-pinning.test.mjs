@@ -20,7 +20,10 @@
  * FETCH_HEAD 读的是主仓那份、behind 的 HEAD 也是主仓的 HEAD ⇒ 三个决策全部对着**另一个仓**做。
  *
  * 判据(本文件即唯一真相源,不复制实现):
- *   L1 本文件里**每一条** `& git …` 调用都必须带 `-C $Root` ⇒ 读到的永远是生产签出那一本仓;
+ *   L1 本文件里**每一条** `& git …` 调用都必须显式钉仓 —— `-C $Root`(生产签出)或
+ *      `-C $local`(2026-11-21 第 106 项离线取源的源仓),绝不允许 CWD 相对的裸调用;
+ *      读 $local 的语义(只取 refs/remotes/origin/main 已推送基线)由
+ *      deploy/tests/fetch-source-pinning.test.mjs 单独守,本文件只守"是否钉仓"这一型。
  *   L2 每一条 `Invoke-GitWithTimeout -GitArgs …` 的参数里都必须带 `'-C', $Root`
  *      (fetch 是取源入口;读错仓 = 把另一个仓的 FETCH_HEAD 当本轮 tip);
  *   L3 三条变异对照各改一处 ⇒ 必须翻红(证明锁有牙,而不是"今天恰好满足");
@@ -60,8 +63,11 @@ export function assertRepoPinned(src) {
     //    判据面先把**双引号字符串**剥掉(补救文案里写给人看的 `git tag … && git push …`
     //    是字符串不是调用;`&&` 的第二个 & 也会被裸 `/& git/` 误认成调用 ⇒ 加否定后顾)。
     const bare = line.replace(/"[^"]*"/g, '""')
-    if (/(?<!&)& git\b/.test(bare) && !/-C\s+\$Root\b/.test(bare)) {
-      fails.push(`行 ${i + 1}:git 调用未钉仓库(-C $Root 缺失):${line.trim()}`)
+    // -C $Root(生产签出)与 -C $local(离线取源源仓)都是显式钉仓,不再是 CWD 相对裸调用。
+    // $local 只出现在 2026-11-21 第 106 项离线取源段(读源仓 refs/remotes/origin/main 已推送基线),
+    // 其语义由 deploy/tests/fetch-source-pinning.test.mjs 单独守;本锁只守"是否显式钉仓"这一型。
+    if (/(?<!&)& git\b/.test(bare) && !/-C\s+\$(Root|local)\b/.test(bare)) {
+      fails.push(`行 ${i + 1}:git 调用未钉仓库(-C $Root / -C $local 都缺失):${line.trim()}`)
     }
     // ② 带墙钟的 fetch 调用:参数里必须带 '-C', $Root(这一条读原行 —— 单引号串是判据本身的一部分)
     if (/Invoke-GitWithTimeout\s+-GitArgs/.test(line) && !/'-C',\s*\$Root/.test(line)) {
@@ -104,5 +110,15 @@ test('L4 反向锁:注释里描述旧形态不得被算成违规', () => {
     SRC +
     '\n# 历史写法曾为 & git rev-parse FETCH_HEAD 与 & git merge --ff-only $remoteTip(未钉仓库)\n'
   assertRepoPinned(withExtraDoc)
+})
+
+test('L5 反向锁:放宽到 $local 后,CWD 裸调用与无关变量钉仓仍必须翻红', () => {
+  // 放宽判据是为了承认离线取源段合法的 `-C $local`,不是承认"任何 -C <变量> 都行"。
+  const bare = SRC.replace('& git -C $Root rev-parse FETCH_HEAD', '& git rev-parse FETCH_HEAD')
+  assert.notEqual(bare, SRC, '夹具没生效(定位不到 $Root 调用)')
+  assert.throws(() => assertRepoPinned(bare), /未钉仓库/, '裸调用脱锁 ⇒ 放宽过头')
+  const wrongVar = SRC.replace('& git -C $Root rev-parse FETCH_HEAD', '& git -C $Elsewhere rev-parse FETCH_HEAD')
+  assert.notEqual(wrongVar, SRC, '夹具没生效')
+  assert.throws(() => assertRepoPinned(wrongVar), /未钉仓库/, '钉到无关变量仍通过 ⇒ 放宽过头')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

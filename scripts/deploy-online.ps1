@@ -9,7 +9,7 @@
 # 用法(在生产主机 PowerShell 执行,管理员):
 #   powershell -ExecutionPolicy Bypass -File deploy-online.ps1
 #   可选参数:
-#     -Root <生产仓库根目录>  默认自动探测 D:\IHUI-AI / 当前目录的上层
+#     -Root <生产仓库根目录>  默认从本脚本所在目录向上探测项目根
 #     -WebPort <线上web端口>  默认 8801
 #     -NoPull               跳过 git pull(调试/已拉过)
 #
@@ -54,8 +54,19 @@ if (Test-Path "$Root\.deploy.lock") {
 }
 
 # ----------------------------- Node 22(规避 SWC 崩溃) -----------------------------
-$Node22 = @("C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2\node.exe",
-            "$Root\.workbuddy\binaries\node\versions\22.22.2\node.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+# Node 22 路径不写死：显式覆盖 > 用户目录便携 node（版本目录随升级变化）> 仓内便携 node。
+$Node22Candidates = @()
+if ($env:IHUI_NODE_BIN) { $Node22Candidates += $env:IHUI_NODE_BIN }
+foreach ($nodeRoot in @((Join-Path $env:USERPROFILE '.workbuddy\binaries\node\versions'),
+                        (Join-Path $Root '.workbuddy\binaries\node\versions'))) {
+    if (Test-Path -LiteralPath $nodeRoot) {
+        $Node22Candidates += Get-ChildItem -LiteralPath $nodeRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like '22.*' } |
+            Sort-Object Name -Descending |
+            ForEach-Object { Join-Path $_.FullName 'node.exe' }
+    }
+}
+$Node22 = $Node22Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($Node22) {
     Write-Host "使用 Node 22: $Node22"
     $env:PATH = "$(Split-Path $Node22);$env:PATH"

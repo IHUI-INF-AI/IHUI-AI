@@ -17,7 +17,8 @@ for dirpath, dirs, files in os.walk(old):
             rel = os.path.relpath(full, old).replace("\\", "/")
             pages_a[rel] = full
 
-r = json.load(open(r"G:\IHUI-AI\apps\mobile-rn\report\uniapp_diff_audit.json", encoding="utf-8"))
+from pathlib import Path
+r = json.load(open(Path(__file__).resolve().parents[1] / "report" / "uniapp_diff_audit.json", encoding="utf-8"))
 new_screens = set(r["new_screen_component_usage"].keys())
 
 # 过滤掉明显是组件/子组件的(路径含 components/ 或文件名是子组件)

@@ -29,7 +29,7 @@
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <AllowHardTerminate>true</AllowHardTerminate>
     <StartWhenAvailable>false</StartWhenAvailable>
-    <RunOnlyIfNetworkAvailable>false</RunOnlyNetworkAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
     <IdleSettings>
       <StopOnIdleEnd>false</StopOnIdleEnd>
       <RestartOnIdle>false</RestartOnIdle>
@@ -46,8 +46,10 @@
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>C:\Users\Administrator\.workbuddy-ai\binaries\python\versions\3.13.12\pythonw.exe</Command>
-      <Arguments>"D:\IHUI-AI\scripts\wechat-traywatch\traywatch.py"</Arguments>
+      <!-- 本 XML 仅作参考骨架，实际注册由 traywatch.manage.ps1 运行时探测 pythonw
+           并用 $PSScriptRoot 拼出 traywatch.py 绝对路径；此处禁止写死机器/项目路径。 -->
+      <Command>pythonw.exe</Command>
+      <Arguments>"scripts\wechat-traywatch\traywatch.py"</Arguments>
     </Exec>
   </Actions>
 </Task>

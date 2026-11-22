@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.model_pricing import estimate_cost_usd  # noqa: E402
 
-ENV_PATH = Path("G:/IHUI-AI/apps/ai-service/.env")
+ENV_PATH = Path(__file__).resolve().parents[1] / ".env"  # apps/ai-service/scripts/ 的上一级 = ai-service,项目整体移动也能跟随
 OR_BASE = "https://openrouter.ai/api/v1"
 REALNET_MODEL = "openai/gpt-4o-mini"
 TOLERANCE = 0.15

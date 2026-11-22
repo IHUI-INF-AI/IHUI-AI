@@ -9,9 +9,12 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
-PROD_ENV = r"D:\DevEnv\ihui-prod\apps\ai-service\.env"
-DEV_ENV = r"D:\IHUI-AI\apps\ai-service\.env"
+# 项目根从本脚本位置推导(scripts/ 的上一级),换机/换盘无需改这里。
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PROD_ENV = str(Path(r"D:\DevEnv\ihui-prod\apps\ai-service\.env"))  # 生产机独立部署,非本项目,不随项目根
+DEV_ENV = str(REPO_ROOT / "apps" / "ai-service" / ".env")
 
 
 def load_env(path, target):
@@ -44,7 +47,7 @@ from app.core.config import settings  # noqa: E402
 
 
 def load_default_models():
-    p = r"D:\IHUI-AI\apps\ai-service\app\data\default_models.json"
+    p = REPO_ROOT / "apps" / "ai-service" / "app" / "data" / "default_models.json"
     with open(p, encoding="utf-8") as f:
         return json.load(f)
 

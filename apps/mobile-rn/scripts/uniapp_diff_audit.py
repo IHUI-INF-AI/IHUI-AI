@@ -16,10 +16,12 @@ import re
 import json
 import sys
 from collections import defaultdict
+from pathlib import Path
 
-OLD_ROOT = r"D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src"
-NEW_ROOT = r"G:\IHUI-AI\apps\mobile-rn\src"
-NEW_APP = r"G:\IHUI-AI\apps\mobile-rn"
+OLD_ROOT = r"D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src"  # 历史对照存档,非本项目,不随项目根
+# 新项目从本脚本位置推导(mobile-rn/scripts/ 的上一级是 mobile-rn),换机/换盘无需改这里。
+NEW_APP = str(Path(__file__).resolve().parents[1])
+NEW_ROOT = str(Path(NEW_APP) / "src")
 
 PAGES_JSON = os.path.join(OLD_ROOT, "pages.json")
 

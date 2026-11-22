@@ -5,18 +5,18 @@
 // Trae 短信/授权登录补跑:浏览器会话已存在 ⇒ 直接拿 AuthCode 换票并回写池(全程 tsx 运行)
 import fs from 'node:fs'
 import http from 'node:http'
-import path from 'node:path'
+import path, { dirname, join } from 'node:path'
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 
-const API_DIR = 'G:/IHUI-AI/apps/api'
-const ROOT = 'G:/IHUI-AI'
-const requireApi = createRequire(API_DIR + '/package.json')
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))  // scripts/ 的上一级 = 项目根,换盘自动跟随
+const API_DIR = join(ROOT, 'apps', 'api')
+const requireApi = createRequire(join(API_DIR, 'package.json'))
 const { config: dotenvConfig } = await import(pathToFileURL(requireApi.resolve('dotenv')).href)
 dotenvConfig({ path: API_DIR + '/.env' })
 
-const { chromium } = createRequire('G:/IHUI-AI/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/package.json')('playwright-core')
+const { chromium } = createRequire(join(ROOT, 'node_modules', '.pnpm', 'playwright@1.62.1', 'node_modules', 'playwright', 'package.json'))('playwright-core')
 
 const MOBILE = '19944895160'
 const UID = '2257723987855312'

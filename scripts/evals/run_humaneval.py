@@ -41,7 +41,7 @@ except ImportError as exc:  # noqa: BLE001
 EVAL_DIR = Path(__file__).resolve().parent
 DEFAULT_DATA = EVAL_DIR / "humaneval.jsonl"
 DEFAULT_CACHE = EVAL_DIR / ".cache"
-DEFAULT_ENV = Path("G:/IHUI-AI/apps/ai-service/.env")
+DEFAULT_ENV = Path(__file__).resolve().parents[2] / "apps" / "ai-service" / ".env"  # 项目根从本脚本推导
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
 DEFAULT_TIMEOUT = 10.0

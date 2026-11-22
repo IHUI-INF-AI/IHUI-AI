@@ -11,7 +11,7 @@
 # 'g-root-guardian'; other PowerShell processes are left alone.
 #
 # Usage:
-#   pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1
+#   pwsh -ExecutionPolicy Bypass -File <项目根>\scripts\uninstall-g-root-guardian.ps1
 #
 # Idempotent: re-running is safe (skips if task not registered).
 # ============================================================================

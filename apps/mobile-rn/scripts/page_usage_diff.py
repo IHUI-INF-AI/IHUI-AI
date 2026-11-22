@@ -6,8 +6,9 @@
 """页面-组件使用差异分析(读 uniapp_diff_audit.json)"""
 import json
 import re
+from pathlib import Path
 
-r = json.load(open(r"G:\IHUI-AI\apps\mobile-rn\report\uniapp_diff_audit.json", encoding="utf-8"))
+r = json.load(open(Path(__file__).resolve().parents[1] / "report" / "uniapp_diff_audit.json", encoding="utf-8"))
 old_usage = r["old_page_component_usage"]
 new_usage = r["new_screen_component_usage"]
 

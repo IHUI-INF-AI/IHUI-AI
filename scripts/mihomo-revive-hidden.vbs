@@ -12,11 +12,14 @@
 
 Option Explicit
 
-Dim shell, cmd
+Dim shell, cmd, exePath, configDir
 
 Set shell = CreateObject("WScript.Shell")
 
-cmd = """C:\Program Files\Clash Verge\verge-mihomo.exe"" -d ""C:\Users\Administrator\AppData\Roaming\io.github.clash-verge-rev.clash-verge-rev"""
+' Resolve install/config locations from environment, never hardcode a drive or username.
+exePath = shell.ExpandEnvironmentStrings("%ProgramFiles%\Clash Verge\verge-mihomo.exe")
+configDir = shell.ExpandEnvironmentStrings("%APPDATA%\io.github.clash-verge-rev.clash-verge-rev")
+cmd = """" & exePath & """ -d """ & configDir & """"
 
 ' intWindowStyle = 0 (SW_HIDE), bWaitOnReturn = False
 Call shell.Run(cmd, 0, False)

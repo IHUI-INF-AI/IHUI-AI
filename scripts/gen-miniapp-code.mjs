@@ -30,12 +30,14 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))  // scripts/ 的上一级 = 项目根,换盘自动跟随
+
 export const MIN_QR_BYTES = 2048
 export const TOKEN_URL = 'https://api.weixin.qq.com/cgi-bin/token'
 export const QRCODE_URL = 'https://api.weixin.qq.com/wxa/getwxacodeunlimit'
 export const DEFAULT_PAGE = 'pages/index/index'
 /** 凭据回退读取面(顺序固定:仓根 → api 端),只为"取不到就未判定"多一次机会,不猜值 */
-export const DEFAULT_ENV_FILES = ['D:/IHUI-AI/.env', 'D:/IHUI-AI/apps/api/.env']
+export const DEFAULT_ENV_FILES = [join(REPO_ROOT, '.env'), join(REPO_ROOT, 'apps', 'api', '.env')]
 export const DEFAULT_SCENE = 'dl'
 
 /** 只报形状与长度,永不回显值 */

@@ -50,7 +50,9 @@ $RepoRoot = (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 # ============================================================
 # 路径常量
 # ============================================================
-$Sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { 'C:\Users\Administrator\AppData\Local\Android\Sdk' }
+$Sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME }
+       elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT }
+       else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
 $Adb = Join-Path $Sdk 'platform-tools\adb.exe'
 $EmulatorBin = Join-Path $Sdk 'emulator\emulator.exe'
 $MobileRn = Join-Path $RepoRoot 'apps\mobile-rn'

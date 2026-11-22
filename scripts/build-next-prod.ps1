@@ -29,11 +29,21 @@ $ErrorActionPreference = "Stop"
 # Node 22 路径解析(2026-09-18 修复):WorkBuddy 管理版目录名可能带构建后缀
 # (22.22.2-3),旧脚本写死 22.22.2 导致生产 FATAL"Node 22.22.2 未找到"。
 # 按候选顺序取第一个存在的 node.exe。
-$Node22Candidates = @(
-    "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-3\node.exe",
-    "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2\node.exe",
-    "D:\DevEnv\runtimes\node22\node.exe"
-)
+# Node 22 候选不写死用户名/盘符：显式覆盖 > 用户目录便携 node（版本目录名随升级变化）> 生产机约定档。
+$Node22Candidates = @()
+if ($env:IHUI_NODE_BIN) { $Node22Candidates += $env:IHUI_NODE_BIN }
+$wbNodeRoot = Join-Path $env:USERPROFILE '.workbuddy\binaries\node\versions'
+if (Test-Path -LiteralPath $wbNodeRoot) {
+    $Node22Candidates += Get-ChildItem -LiteralPath $wbNodeRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like '22.*' } |
+        Sort-Object Name -Descending |
+        ForEach-Object { Join-Path $_.FullName 'node.exe' }
+}
+# 生产机约定档也按 SystemDrive 派生,不写死盘符(DevEnv 根随机器可能在 C: 或 D:)。
+foreach ($devDrive in @($env:SystemDrive, 'C:', 'D:')) {
+    if (-not $devDrive) { continue }
+    $Node22Candidates += (Join-Path $devDrive 'DevEnv\runtimes\node22\node.exe')
+}
 $Node22 = $Node22Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Node22) {
     Write-Host "[FATAL] Node 22 未找到(候选: $($Node22Candidates -join '; '))" -ForegroundColor Red

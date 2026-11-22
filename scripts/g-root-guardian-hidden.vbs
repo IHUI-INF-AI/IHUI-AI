@@ -1,41 +1,25 @@
 ' ============================================================================
-' G:\ root guardian hidden launcher (VBScript wrapper)
+' Legacy drive-root guardian hidden launcher (watches the retired dedicated G: drive; no longer scheduled)
 ' ============================================================================
 ' Purpose:
-'   Launch g-root-guardian.ps1 with ZERO window popup. Replaces the unreliable
-'   "-WindowStyle Hidden" approach which still flashes a console window when
-'   launched by Windows Task Scheduler.
-'
-' Mechanism:
-'   wscript.exe is a GUI subsystem binary (no console window at all).
-'   WScript.Shell.Run with intWindowStyle=0 (SW_HIDE) launches PowerShell
-'   without ever showing its console window.
-'
-' Usage (manual):
-'   wscript.exe "g:\IHUI-AI\scripts\g-root-guardian-hidden.vbs"
-'
-' Usage (scheduled task):
-'   Action: wscript.exe  Argument: "<path-to-this-vbs>"
+'   Launch g-root-guardian.ps1 with ZERO window popup.
+'   Dynamic: target derived from own location; repo can move to any drive.
+'   ASCII-ONLY (wscript decodes .vbs via ANSI codepage).
 ' ============================================================================
-
 Option Explicit
-
-Dim objShell, strScript, intResult
-
+Dim objShell, fso, scriptsDir, strScript, intResult
+Set fso = CreateObject("Scripting.FileSystemObject")
+scriptsDir = fso.GetParentFolderName(WScript.ScriptFullName)
+strScript = fso.BuildPath(scriptsDir, "g-root-guardian.ps1")
+If Not fso.FileExists(strScript) Then
+    Set fso = Nothing
+    WScript.Quit 1
+End If
 Set objShell = CreateObject("WScript.Shell")
-
-strScript = "g:\IHUI-AI\scripts\g-root-guardian.ps1"
-
-' intWindowStyle=0 (SW_HIDE), bWaitOnReturn=False (async, do not block wscript)
-' PowerShell flags:
-'   -ExecutionPolicy Bypass : allow script to run
-'   -NoProfile              : skip loading user profile (faster, no side effects)
-'   -NoLogo                 : suppress startup banner
-'   -File                   : run the script file
 intResult = objShell.Run( _
     "pwsh.exe -ExecutionPolicy Bypass -NoProfile -NoLogo -File """ & strScript & """", _
     0, _
     False _
 )
-
 Set objShell = Nothing
+Set fso = Nothing

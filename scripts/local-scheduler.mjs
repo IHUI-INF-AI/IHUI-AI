@@ -51,9 +51,27 @@ function log(line) {
   if (process.stdout.isTTY) console.log(text)
 }
 
+// Expand {ROOT} (and {SCRIPTS}) placeholders to absolute paths derived from this
+// file's own location, so the whole schedule moves with the repo to any drive.
+// System binaries (node.exe/wscript/pwsh) and user-home paths stay absolute.
+function expandPath(v) {
+  if (typeof v !== 'string') return v
+  return v.replace(/\{ROOT\}/g, ROOT).replace(/\{SCRIPTS\}/g, join(ROOT, 'scripts'))
+}
+
+function expandJob(job) {
+  return {
+    ...job,
+    command: expandPath(job.command),
+    cwd: expandPath(job.cwd),
+    args: Array.isArray(job.args) ? job.args.map(expandPath) : job.args,
+  }
+}
+
 function readSchedule() {
   if (!existsSync(SCHEDULE_PATH)) throw new Error(`调度表不存在: ${SCHEDULE_PATH}(先跑 --import)`)
-  return JSON.parse(readFileSync(SCHEDULE_PATH, 'utf8'))
+  const sched = JSON.parse(readFileSync(SCHEDULE_PATH, 'utf8'))
+  return { ...sched, jobs: (sched.jobs || []).map(expandJob) }
 }
 
 function pidAlive(pid) {
