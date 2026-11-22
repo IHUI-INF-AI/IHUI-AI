@@ -39,11 +39,47 @@ function git(args: string[]): string {
   })
 }
 
+/** 需要喂 stdin / 需要按字节切内容时用这个(utf8 解码会把 size(字节) 与字符数搞错) */
+function gitBuf(args: string[], input: Buffer): Buffer {
+  return execFileSync('git', args, {
+    maxBuffer: 256 * 1024 * 1024,
+    windowsHide: true,
+    cwd: ROOT,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    input,
+  })
+}
+
+/**
+ * 一次 `git cat-file --batch` 取完所有候选正文(2026-11-22 提速):
+ * 此前对 77 个候选各 spawn 一次 `git show`,Windows 上每次 ≈300ms 且高负载下被并发争用拖长
+ * (2026-10-19 实测 79.1s,被 60s 档掐掉;2026-11-22 冷跑实测整文件 618s)。批量版把 N 次进程变 1 次,
+ * 取值面一字未改(仍是 HEAD blob)。缺对象时 --batch 回一行 `<rev> missing` ⇒ 跳过(等价旧 catch)。
+ */
+function readHeadBlobs(rels: string[]): Map<string, string> {
+  const out = gitBuf(
+    ['cat-file', '--batch'],
+    Buffer.from(rels.map((rel) => `HEAD:${rel}\n`).join(''), 'utf8'),
+  )
+  const texts = new Map<string, string>()
+  let at = 0
+  for (const rel of rels) {
+    const lineEnd = out.indexOf(0x0a, at)
+    if (lineEnd < 0) break
+    const header = out.subarray(at, lineEnd).toString('utf8')
+    at = lineEnd + 1
+    const hit = /^[0-9a-f]{40} blob (\d+)$/.exec(header)
+    if (!hit) continue
+    const size = Number(hit[1])
+    texts.set(rel, out.subarray(at, at + size).toString('utf8'))
+    at += size + 1
+  }
+  return texts
+}
+
 describe('默认值形参的存在性判据恒真', () => {
-  // 超时预算 240s(默认 10s):本用例先 git grep 预筛再逐文件 git show 全仓 blob(今日 77 个
-  // 候选),高负载的 vitest 全量跑下进程孵化被并发争用拖慢 —— 2026-10-10 实测 16.2s 被 10s
-  // 掐掉,预算提到 60s;2026-10-19 实测 79.1s 又被 60s 掐掉(单跑 4/4 绿),提到 240s。
-  // 它是环境性 flaky 不是反模式命中,预算给足让"真命中"与"超时假红"不再同形。
+  // 超时预算 240s(默认 10s)保留:判据不变,只是取值方式从"逐文件 git show"改成
+  // "一次 cat-file --batch"(2026-11-22 实测单跑由 79s 级降到秒级),预算不再需要天天调大。
   it('真仓 HEAD 面:0 命中(命中即说明有人把默认值当"传没传")', () => {
     // 先用 git grep 预筛(判据字面量的严格超集),再逐文件跑判据 —— 全量读三千个 blob 会让
     // 本测试在每次 vitest 跑里成为最长的尾巴,而预筛漏一形的代价由下面两条用例兜住。
@@ -60,14 +96,12 @@ describe('默认值形参的存在性判据恒真', () => {
     expect(candidates.length, '预筛到 0 个候选 = 尺子看不见这一族,不是"仓库干净"').toBeGreaterThan(
       0,
     )
+    const texts = readHeadBlobs(candidates)
     const hits = []
     for (const p of candidates) {
-      let src
-      try {
-        src = git(['show', `HEAD:${p}`])
-      } catch {
-        continue // 刚被删除的路径:不在被审面内容里,跳过而不是判失败
-      }
+      const src = texts.get(p)
+      // 刚被删除的路径:不在被审面内容里,跳过而不是判失败
+      if (src === undefined) continue
       for (const h of findDefaultParamTautologies(src)) hits.push(`${p}:${h.line} ${h.snippet}`)
     }
     expect(hits, `恒真存在性判据 ${hits.length} 处:\n${hits.join('\n')}`).toEqual([])

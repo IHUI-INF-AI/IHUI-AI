@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 
 import { TextField } from '../src/components/TextField'
@@ -289,6 +289,41 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
   // 别人在飞的未跟踪文件会被算进本仓债务,只能往白名单里补一条指向"只存在于某一台机"的路径;
   // 而 CI 的干净检出里没有那个文件 ⇒ 白名单自证那条(existsSync)当场判红。一台机绿、另一台机红,
   // 而红的既不是仓库内容也不是改动者的错。口径同守门 77/83/98:全量判 HEAD blob。
+  /**
+   * 一次 `git cat-file --batch` 取完全部候选正文(2026-11-22 提速):
+   * 此前对每个候选派一次 `git show`,Windows 上每次 spawn ≈ 300ms,几十个候选累计 30–100s;
+   * 冷跑并发(全仓 27 包同时跑)时这条用例实测撞穿 90s 上限判红(真实耗时 104245ms)。
+   * 批量版把 N 次进程变 1 次,判据与取值面一字未改(仍是 HEAD blob)。
+   * 缺对象时 --batch 回一行 `<rev> missing`,认不出来即计入 unreadable(未判定,不当通过)。
+   */
+  function readHeadBlobs(rels: string[]): { texts: Map<string, string>; unreadable: string[] } {
+    const out = git(
+      ['cat-file', '--batch'],
+      Buffer.from(rels.map((rel) => `HEAD:${rel}\n`).join(''), 'utf8'),
+    )
+    const texts = new Map<string, string>()
+    const unreadable: string[] = []
+    let at = 0
+    for (const rel of rels) {
+      const lineEnd = out.indexOf(0x0a, at)
+      if (lineEnd < 0) {
+        unreadable.push(rel)
+        break
+      }
+      const header = out.subarray(at, lineEnd).toString('utf8')
+      at = lineEnd + 1
+      const hit = /^[0-9a-f]{40} blob (\d+)$/.exec(header)
+      if (!hit) {
+        unreadable.push(rel)
+        continue
+      }
+      const size = Number(hit[1])
+      texts.set(rel, out.subarray(at, at + size).toString('utf8'))
+      at += size + 1
+    }
+    return { texts, unreadable }
+  }
+
   function census() {
     const paths = git(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_ROOTS])
       .toString('utf8')
@@ -307,12 +342,12 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
     const unreadable: string[] = []
     const wouldFlag: string[] = []
     const offenders: string[] = []
+    const { texts, unreadable: missing } = readHeadBlobs([...candidates])
+    unreadable.push(...missing)
     for (const rel of paths) {
       if (!candidates.has(rel)) continue
-      let text
-      try {
-        text = git(['show', `HEAD:${rel}`]).toString('utf8')
-      } catch {
+      const text = texts.get(rel)
+      if (text === undefined) {
         unreadable.push(rel)
         continue
       }
@@ -332,10 +367,18 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
   // 同一份用例空闲时 1.4s、四个代理同跑时 6.6s 被砍)。判据不变,只把这一族的预算放宽到 90s。
   const CENSUS_TIMEOUT = 90_000
 
+  // 三个用例读的是**同一份普查结果**:此前每条各扫一遍,冷跑下耗时翻三倍(实测整个文件 244s)。
+  // 这里 beforeAll 扫一次,三个用例共享;单次扫描已用 cat-file --batch 降到秒级,90s 档不再被打穿。
+  let censusMemo: ReturnType<typeof census> | null = null
+  const censusOnce = () => (censusMemo ??= census())
+  beforeAll(() => {
+    censusOnce()
+  }, CENSUS_TIMEOUT)
+
   it(
     '凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理',
     () => {
-      const { paths, candidates, offenders, unreadable } = census()
+      const { paths, candidates, offenders, unreadable } = censusOnce()
       // 枚举到 0 个 .tsx 就是尺子根本没跑到,不得被读成"都没违规"
       expect(paths.length, 'HEAD 面上没枚举到任何 .tsx ⇒ 普查未生效').toBeGreaterThan(0)
       // 预筛集为空同样等于"没跑到":那会让 offender 恒空,把尺子失效伪装成通过
@@ -352,7 +395,7 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
   it(
     '白名单条目必须落在普查面上(防陈旧条目空转)',
     () => {
-      const face = new Set(census().paths)
+      const face = new Set(censusOnce().paths)
       const stranded = Object.keys(ALLOWED).filter((rel) => !face.has(rel))
       expect(stranded, '这些条目指向的路径不在 HEAD 普查面里 ⇒ 空转').toEqual([])
     },
@@ -364,7 +407,7 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
   it(
     '白名单条目必须仍命中普查判据(豁免验过才免、且会到期)',
     () => {
-      const { wouldFlag } = census()
+      const { wouldFlag } = censusOnce()
       const rotten = Object.keys(ALLOWED).filter((rel) => !wouldFlag.includes(rel))
       expect(rotten, '这些文件已不再命中"裸 TextInput 无聚焦处理",条目该摘').toEqual([])
     },

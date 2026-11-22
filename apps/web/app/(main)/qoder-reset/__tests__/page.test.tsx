@@ -295,9 +295,13 @@ describe('Qoder 一键重置页', () => {
     fireEvent.click(await screen.findByText('maintCta'))
     await waitFor(() => expect(push).toBeTruthy())
     act(() => push!({ layer: 1, done: 1, total: 2, item: 'logs/20261010/main.log' }))
-    expect(screen.getByText('progressLabel')).toBeTruthy()
-    expect(screen.getByText('logs/20261010/main.log')).toBeTruthy()
-    expect(screen.getByText('1/2')).toBeTruthy()
+    // 逐条目回传是异步 setState:并发跑(全仓 27 包同时跑,机器满载)时 act 之后的**一次性同步断言**
+    // 会撞上批处理延迟 —— 单跑绿 / 全仓红 同形(2026-11-22 实测)。改成可重试断言,钉的是同一件事。
+    await waitFor(() => {
+      expect(screen.getByText('progressLabel')).toBeTruthy()
+      expect(screen.getByText('logs/20261010/main.log')).toBeTruthy()
+      expect(screen.getByText('1/2')).toBeTruthy()
+    })
     // 完成后进度卡撤下
     await waitFor(() => expect(screen.queryByText('progressLabel')).toBeNull())
   })
