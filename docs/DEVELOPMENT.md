@@ -49,6 +49,41 @@ node scripts/check-worktree-link-integrity.mjs --strict     # 必须 exit 0 才�
 约定 exit 0,不算通过也不算失败。CI 侧同一条门挂在
 [`.github/workflows/reading-trust-defense.yml`](../.github/workflows/reading-trust-defense.yml)。
 
+### 1.2 工具链家目录归位约定(Gradle / XDG,2026-11-22 立)
+
+Windows 开发机上 `GRADLE_USER_HOME` 与三个 XDG 变量统一收在 `D:\caches` 下,盘符根目录不再散放 `gradle`、`xdg`:
+
+| 变量(用户级) | 值 | 装什么 | 能否删 |
+|---|---|---|---|
+| `GRADLE_USER_HOME` | `D:\caches\gradle` | Gradle wrapper 发行包(8.14.3 / 9.3.1)、`init.d\mirrors.gradle`(阿里云镜像)、`gradle.properties` | **不能删** |
+| `XDG_CACHE_HOME` | `D:\caches\xdg\cache` | node/corepack、gh、pnpm、huggingface 缓存 | 可随时清空 |
+| `XDG_CONFIG_HOME` | `D:\caches\xdg\config` | gh / git / ghidra / cloudbase / cursor / opencode 的登录态与配置 | **不能删** |
+| `XDG_DATA_HOME` | `D:\caches\xdg\data` | opencode 等工具数据 | 不能删 |
+
+`D:\caches\xdg\local`(`bin` / `share` / `state`)同属这套 XDG 布局。
+
+- `D:\caches\gradle\gradle.properties` 存 `apps/mobile-rn` 的 release 签名配置(keystore 路径 / 别名 / 口令),**在仓库外、天然不入库**,由 `app/build.gradle` 的 `release signingConfigs` 直接读取。丢了它,release 包会静默回退 debug 签名,既无法覆盖安装升级,也发不到正式渠道。
+- 4 个变量都在**用户级**(`HKCU:\Environment`),不写进任何 `.env`;机器级为空。
+
+换机 / 重装 / 再次迁移时按序执行:
+
+```powershell
+# 1) 同盘搬目录(秒级完成,不需要复制)
+Move-Item -LiteralPath 'D:\gradle' 'D:\caches\gradle'
+# 2) 写用户级变量(键名不变,只改值)
+[Environment]::SetEnvironmentVariable('GRADLE_USER_HOME','D:\caches\gradle','User')
+[Environment]::SetEnvironmentVariable('XDG_CACHE_HOME','D:\caches\xdg\cache','User')
+[Environment]::SetEnvironmentVariable('XDG_CONFIG_HOME','D:\caches\xdg\config','User')
+[Environment]::SetEnvironmentVariable('XDG_DATA_HOME','D:\caches\xdg\data','User')
+# 3) 校验(需重启终端后执行)
+[Environment]::GetEnvironmentVariable('GRADLE_USER_HOME','User')
+Test-Path 'D:\caches\gradle\gradle.properties'
+```
+
+**关键顺序约束:改完变量必须重启所有已打开的终端、IDE 与桌面客户端,再跑构建。** 运行中的进程各自缓存启动时的环境变量副本,注册表改了它们看不见,下一次 node / Gradle 写入会按旧值在 `D:\gradle`、`D:\xdg` 原地重建(2026-11-22 实测:改完 6 分钟内旧 `D:\xdg` 就被 corepack 重建出 94.7MB)。"旧目录又出现了"是这个原因,不是变量没写对。
+
+2026-11-22 已把 `D:\gradle`(291.5MB)、`D:\xdg`(2.3GB,其中 cache 1.35GB 已清空)迁到 `D:\caches\gradle`、`D:\caches\xdg`;仓库、`D:\IHUI-Build`、`D:\DevEnv` 的脚本配置,以及 JetBrains / Android Studio / Cursor 全局配置,均无旧路径硬编码。
+
 ---
 
 ## 2. 环境变量
