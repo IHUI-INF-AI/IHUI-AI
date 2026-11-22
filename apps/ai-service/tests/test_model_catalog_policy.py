@@ -11,6 +11,7 @@ import pytest
 from app.services.model_catalog_policy import (
     LEGACY_MODEL_IDS,
     filter_frontier,
+    is_hidden_from_selector,
     is_legacy_model,
     restore_modality_entries,
 )
@@ -136,4 +137,21 @@ def test_restore_modality_entries_leaves_middleware_hidden():
         {"id": "x/rerank-1", "category": "rerank"},
     ]
     assert restore_modality_entries(originals, []) == []
+
+
+def test_selector_hides_speech_and_ocr_without_channel(monkeypatch):
+    """2026-11-23 机主定档:不能调通的模型一律不展示。
+
+    真实调用探测:26 条 tts/asr/ocr 全部失败,产品侧也没有语音/OCR 执行端点;
+    选中只会回"没有可用通道"说明卡。对话/视觉/可执行媒体仍展示。
+    """
+    monkeypatch.delenv("MODEL_CATALOG_HIDE_LEGACY", raising=False)
+    for category in ("tts", "asr", "ocr"):
+        assert is_hidden_from_selector(
+            {"id": f"x/{category}-model", "category": category}
+        ) is True
+    for category in ("chat", "vision", "image", "video"):
+        assert is_hidden_from_selector(
+            {"id": f"x/{category}-model", "category": category}
+        ) is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

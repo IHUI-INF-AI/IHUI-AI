@@ -101,12 +101,18 @@ export function isArchivedModel(category: ModelUsageCategory, tier: ModelTier): 
 }
 
 /**
- * 选择器不展示的用途(2026-11-20 机主追加:图片/视频/语音等分类要能选)。
+ * 选择器不展示的用途(2026-11-23 机主定档:不能调通的模型一律不展示)。
  *
- * 只有"选了也产不出可读结果"的流水线中间件才挡在选择器外:
- * embedding(向量,产出的是 float 数组)、rerank(重排得分)、guard(内容审核判定)、
- * other(未归类兜底)。它们不是"另一种模态",是流水线中间件。
- * 图像(image)/视频(video)/语音(tts/asr)/视觉(vision)/OCR(ocr)等一律**展示**。
+ * 挡在选择器外的只有两类:
+ * 1. 流水线中间件:embedding(向量,产出 float 数组)、rerank(重排得分)、
+ *    guard(内容审核判定)、other(未归类兜底)。
+ * 2. 当前没有产品执行通道的模态:tts / asr / ocr。目录里虽然有它们的条目,
+ *    但聊天发送侧没有对应的语音合成 / 语音识别 / 文字识别端点,选中只会回
+ *    "当前没有可用通道"的说明卡,等于展示了一个用不了的模型。2026-11-23
+ *    真实调用探测:26 条 tts/asr/ocr 全部失败(无 key、欠费、超时、provider 未接通)。
+ *
+ * 图像(image)/视频(video)/视觉(vision)继续展示,其中图像/视频还要再过
+ * `isExecutableMediaModel` 的生成通道判据。
  *
  * 与后端 `model_catalog.py` 的 `MIDDLEWARE_CATEGORIES` 同口径(单一真相源在两侧各自语言内,
  * 改动必须同笔对齐,否则会一边显示一边判 legacy)。
@@ -116,14 +122,17 @@ export const SELECTOR_EXCLUDED_CATEGORIES: readonly ModelUsageCategory[] = [
   'rerank',
   'guard',
   'other',
+  'tts',
+  'asr',
+  'ocr',
 ]
 
 /**
  * 聊天模型选择器是否展示该模型(2026-11-20 机主定档:取消「历史模型」折叠区)。
  *
  * 判据 = "非 legacy ∧ 用途不在 `SELECTOR_EXCLUDED_CATEGORIES` ∧ 模态档有可用生成通道":
- * legacy(过时版本)直接不出现;图像/视频/语音等专用模型**照常展示**(机主 2026-11-20 追加要求),
- * 只有检索/审核类中间件被挡掉。
+ * legacy(过时版本)直接不出现;图像/视频/视觉等专用模型照常展示,
+ * 语音/OCR 因没有产品执行通道被挡掉(2026-11-23 机主定档:不能调通的不要放出来)。
  *
  * 第三判据(2026-11-21 追加):图像/视频里**没有接通生成通道**的模型不展示 —— 展示即承诺
  * "选了就出图/出片",而当前唯一能真跑的是 agnes 两条通道(`agnes-image-*` / `agnes-video-*`)。

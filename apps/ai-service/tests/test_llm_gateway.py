@@ -22,6 +22,19 @@ import pytest
 from app.core.llm_gateway import LLMGateway, llm_gateway
 
 
+def test_zero_cost_model_detection_covers_keyless_providers():
+    """pollinations 等无需 key 的零成本 provider 必须被识别。
+
+    否则 complete()/astream() 的前置 key 校验会把"正常无 key"当成"未配置"，
+    目录里展示的模型真实调用必然 422(2026-11-23 生产实测)。
+    """
+    from app.core.llm_gateway import _is_zero_cost_model
+
+    assert _is_zero_cost_model("pollinations/openai-fast") is True
+    assert _is_zero_cost_model("openrouter/baidu/ernie-5.5-flash-preview:free") is False
+    assert _is_zero_cost_model("unknown/vendor-model") is False
+
+
 @pytest.fixture(autouse=True)
 def _isolate_auto_model_routing(monkeypatch):
     """隔离跨厂商 auto 路由(2026-08-12 立)。

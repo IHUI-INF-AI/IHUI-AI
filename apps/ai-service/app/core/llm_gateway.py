@@ -704,6 +704,26 @@ def _metrics_provider(model: str) -> str:
     return _explicit_provider_code_of(model) or "unknown"
 
 
+def _is_zero_cost_model(model: str) -> bool:
+    """该模型是否属于"零成本、无需 API key"的 provider。
+
+    用于 complete/astream 的 key 前置校验:这类 provider 的 `_resolve` 正常返回
+    `api_key=None`(如 pollinations),旧逻辑会无条件抛 MODEL_NOT_CONFIGURED,
+    导致目录里明明在展示、真实调用却必然 422。这里只回答"是不是 zero_cost",
+    不做任何网络探测;是否真能调通仍由上游返回决定。
+    """
+    try:
+        # 延迟导入:free_provider_registry 与本模块无循环依赖,但保持模块加载轻量。
+        from ..services.free_provider_registry import free_provider_registry
+
+        provider = free_provider_registry.get_by_code(
+            _explicit_provider_code_of(model) or ""
+        )
+        return bool(provider and provider.zero_cost)
+    except Exception:
+        return False
+
+
 def _estimate_cost_usd(model: str, usage: dict[str, Any] | None) -> float | None:
     """litellm 价表算不出成本时的第二档来源(项目自己的价目单一来源)。
 
@@ -2759,9 +2779,15 @@ class LLMGateway:
             import litellm
 
             if not api_key:
-                raise ValueError(
-                    f"模型 {used_model} 对应的 provider API key 未配置,请在 .env 或 ai_model_config 表中设置"
-                )
+                # 零成本 provider(pollinations/llm7/aihorde 等)本来就不需要 key,
+                # `_resolve` 返回 None 是正常形态;不能按"未配置"直接 422。
+                # 传占位符而不是空值:非流式 LiteLLM 需要显式 api_key 才肯发 OpenAI 兼容请求。
+                if _is_zero_cost_model(used_model):
+                    api_key = "no-key-required"
+                else:
+                    raise ValueError(
+                        f"模型 {used_model} 对应的 provider API key 未配置,请在 .env 或 ai_model_config 表中设置"
+                    )
             call_kwargs: dict[str, Any] = {"model": real_model, "messages": trimmed_messages}
             call_kwargs["api_key"] = api_key
             if api_base:
@@ -3992,9 +4018,13 @@ class LLMGateway:
             import litellm
 
             if not api_key:
-                raise ValueError(
-                    f"模型 {used_model} 对应的 provider API key 未配置,请在 .env 或 ai_model_config 表中设置"
-                )
+                # 同 complete():零成本 provider 无 key 是正常形态,不能按未配置抛错。
+                if _is_zero_cost_model(used_model):
+                    api_key = "no-key-required"
+                else:
+                    raise ValueError(
+                        f"模型 {used_model} 对应的 provider API key 未配置,请在 .env 或 ai_model_config 表中设置"
+                    )
             call_kwargs: dict[str, Any] = {
                 "model": real_model,
                 "messages": trimmed_messages,

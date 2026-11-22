@@ -5,12 +5,13 @@
 /**
  * 选择器模态判据行为锁(2026-11-21 立)。
  *
- * 锁三条边界:
+ * 锁四条边界:
  *   ① 图像/视频里没有接通生成通道的(裸名不以 agnes-image-/agnes-video- 开头)不得展示
  *      —— 防"列表里能选、选了却出不了图/片";
  *   ② 有通道的必须展示;
- *   ③ 语音/OCR 不受这条新判据影响 —— 机主要求语音档可见,它们的"未接通"由发送侧
- *      (use-chat/media-model-send.ts 的 unavailableReason)给明确说明卡。
+ *   ③ 语音/OCR 不得展示 —— 2026-11-23 真实调用探测:26 条 tts/asr/ocr 全部失败,
+ *      产品侧也没有语音合成/识别/OCR 端点,选中只会回"没有可用通道"说明卡;
+ *   ④ 视觉(vision)仍展示,它走聊天链路,可真实调用。
  * 另锁向后兼容:不传 modelId 的老调用方行为不变(不下架任何模态档)。
  */
 
@@ -51,8 +52,12 @@ describe('isSelectableChatModel 第三判据', () => {
     ).toBe(false)
   })
 
-  it('语音档不受通道判据影响,仍展示', () => {
-    expect(isSelectableChatModel('tts', 'standard', '@cf/myshell-ai/melotts')).toBe(true)
+  it('语音/OCR 档没有产品执行通道,不展示', () => {
+    expect(isSelectableChatModel('tts', 'standard', '@cf/myshell-ai/melotts')).toBe(false)
+    expect(isSelectableChatModel('asr', 'standard', '@cf/openai/whisper-large-v3-turbo')).toBe(
+      false,
+    )
+    expect(isSelectableChatModel('ocr', 'standard', 'qwen/qwen-vl-ocr')).toBe(false)
   })
 
   it('原有判据不变:legacy 与中间件一概不展示', () => {
@@ -61,9 +66,9 @@ describe('isSelectableChatModel 第三判据', () => {
       expect(isSelectableChatModel(category, 'standard', 'x/y')).toBe(false)
     }
     expect(isSelectableChatModel('chat', 'latest', 'openai/gpt-5.5')).toBe(true)
-    expect(
-      isSelectableChatModel('vision', 'standard', 'opencode/nemotron-3.5-super-vl-free'),
-    ).toBe(true)
+    expect(isSelectableChatModel('vision', 'standard', 'opencode/nemotron-3.5-super-vl-free')).toBe(
+      true,
+    )
   })
 
   it('不传 modelId 时不下架任何模态档(向后兼容)', () => {
