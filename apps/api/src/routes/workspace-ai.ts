@@ -39,6 +39,8 @@ import {
   SubagentLinkError,
 } from '../services/workspace-ai-service.js'
 import { buildChangeRequestSnapshot } from '../services/change-request-service.js'
+import { GitWorkspaceError, gitWorkspace } from '../services/git-workspace.js'
+import { FsWatcherError, fsWatcherRegistry } from '../services/fs-watcher.js'
 import {
   assertSafeWorktreeBranch,
   buildWorktreeCmd,
@@ -397,6 +399,198 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  server.post('/fs/locate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        query: z.string().min(1).max(200),
+        workspacePath: z.string(),
+        path: z.string().optional(),
+        maxFiles: z.number().int().min(1).max(1000).optional(),
+      })
+      .parse(request.body)
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path ?? '.', query: body.query },
+      })) !== null
+    )
+      return
+    try {
+      return reply.send(success(fsBridge.locate(body)))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/locate-batch', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        queries: z.array(z.string().min(1).max(200)).min(1).max(20),
+        workspacePath: z.string(),
+        path: z.string().optional(),
+        maxFilesPerQuery: z.number().int().min(1).max(1000).optional(),
+      })
+      .parse(request.body)
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path ?? '.', queries: body.queries },
+      })) !== null
+    )
+      return
+    try {
+      return reply.send(success(fsBridge.locateBatch(body)))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  const watcherCreateSchema = z.object({
+    workspacePath: z.string(),
+    path: z.string(),
+    recursive: z.boolean().optional(),
+    debounceMs: z.number().int().min(0).max(500).optional(),
+  })
+
+  const createWatcher = async (request: FastifyRequest, reply: FastifyReply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = watcherCreateSchema.parse(request.body)
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path },
+      })) !== null
+    )
+      return
+    try {
+      return reply.send(success(fsWatcherRegistry.create({ ...body, owner: request.userId })))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  }
+
+  // `/fs/watch` 与 `/fs/watcher/create` 共用同一个注册表与同一套上限;
+  // 两条路径是 WorkBuddy 的兼容别名,不另造第二套监听实现。
+  server.post('/fs/watch', createWatcher)
+  server.post('/fs/watcher/create', createWatcher)
+
+  server.post('/fs/watcher/events', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        watcherId: z.string().min(1),
+        cursor: z.number().int().min(0).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+        waitMs: z.number().int().min(0).max(2000).optional(),
+      })
+      .parse(request.body)
+    try {
+      return reply.send(success(await fsWatcherRegistry.events({ ...body, owner: request.userId })))
+    } catch (e) {
+      const status = e instanceof FsWatcherError && e.code === 'WATCHER_NOT_FOUND' ? 404 : 400
+      return reply.status(status).send(error(status, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/watcher/remove', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ watcherId: z.string().min(1) }).parse(request.body)
+    try {
+      return reply.send(success(fsWatcherRegistry.remove(request.userId, body.watcherId)))
+    } catch (e) {
+      const status = e instanceof FsWatcherError && e.code === 'WATCHER_NOT_FOUND' ? 404 : 400
+      return reply.status(status).send(error(status, (e as Error).message))
+    }
+  })
+
+  server.get('/fs/watchers', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ watchers: fsWatcherRegistry.list(request.userId) }))
+  })
+
+  server.post('/fs/mkdir', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        path: z.string().min(1),
+        workspacePath: z.string().min(1),
+        recursive: z.boolean().default(true),
+      })
+      .parse(request.body ?? {})
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.mkdir',
+        args: { path: body.path, recursive: body.recursive },
+      })) !== null
+    )
+      return
+    try {
+      return reply.send(success(fsBridge.mkdir(body)))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/move', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        from: z.string().min(1),
+        to: z.string().min(1),
+        workspacePath: z.string().min(1),
+        overwrite: z.boolean().default(false),
+      })
+      .parse(request.body ?? {})
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.move',
+        args: { from: body.from, to: body.to, overwrite: body.overwrite },
+      })) !== null
+    )
+      return
+    try {
+      return reply.send(success(fsBridge.move(body)))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/stat', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({ path: z.string().min(1), workspacePath: z.string().min(1) })
+      .parse(request.body ?? {})
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path },
+      })) !== null
+    )
+      return
+    try {
+      return reply.send(success(fsBridge.stat(body)))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
   server.post('/fs/run', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -709,6 +903,247 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const msg = e instanceof Error ? e.message : 'git status 失败'
       server.log.warn({ workspacePath: body.workspacePath, err: msg }, 'git/status 失败')
       return reply.send(success(EMPTY_SNAPSHOT))
+    }
+  })
+
+  // ===========================================================================
+  // Git 写通道(2026-11-23 立):对齐 WorkBuddy `/api/v1/git/*` 的 stage/unstage/
+  // commit/discard/branches/branch/switch/log/push/pull。只读的 status/review-diff
+  // 仍走上面两条既有端点;写面单独走 `gitWorkspace`,它用 execFile(argv) 直传,
+  // 禁仓库钩子、禁 GPG、禁交互凭据(判据见 services/git-workspace.ts 头注)。
+  // 每条写端点都必须先过 workspace_permissions;push/pull 再加 admin 闸。
+  // ===========================================================================
+  const gitPathsBody = z.object({
+    workspacePath: z.string().min(1),
+    paths: z.array(z.string()).max(500).default([]),
+  })
+  const gitRemoteSchema = z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9._-]+$/)
+    .optional()
+  const gitBranchSchema = z.string().min(1).max(120)
+
+  const sendGitResult = (
+    reply: FastifyReply,
+    result: { stdout: string; stderr: string; exitCode: number },
+  ) =>
+    reply.send(
+      success({
+        stdout: result.stdout.trim(),
+        stderr: result.stderr.trim(),
+        exitCode: result.exitCode,
+      }),
+    )
+
+  const sendGitError = (reply: FastifyReply, e: unknown) => {
+    const message = e instanceof Error ? e.message : 'git 操作失败'
+    const status = e instanceof GitWorkspaceError && e.exitCode === 400 ? 400 : 409
+    return reply.status(status).send(error(status, message))
+  }
+
+  server.post('/git/stage', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = gitPathsBody.parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_stage'))) return
+    try {
+      return sendGitResult(reply, await gitWorkspace.stage(body.workspacePath, body.paths))
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/unstage', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = gitPathsBody.parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_unstage'))) return
+    try {
+      return sendGitResult(reply, await gitWorkspace.unstage(body.workspacePath, body.paths))
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/discard', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = gitPathsBody.parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_discard'))) return
+    try {
+      return sendGitResult(reply, await gitWorkspace.discard(body.workspacePath, body.paths))
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/diff', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = gitPathsBody
+      .extend({
+        staged: z.boolean().default(false),
+        contextLines: z.number().int().min(0).max(10).default(3),
+      })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_diff'))) return
+    try {
+      return reply.send(
+        success(
+          await gitWorkspace.diff(body.workspacePath, {
+            staged: body.staged,
+            paths: body.paths,
+            contextLines: body.contextLines,
+          }),
+        ),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/check-ignore', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = gitPathsBody.parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_check_ignore'))) return
+    try {
+      return reply.send(
+        success({
+          ignored: await gitWorkspace.checkIgnore(body.workspacePath, body.paths),
+        }),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/commit', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = gitPathsBody
+      .extend({ message: z.string().min(1).max(5000) })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_commit'))) return
+    try {
+      return sendGitResult(
+        reply,
+        await gitWorkspace.commit(body.workspacePath, body.message, body.paths),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/branches', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_branches'))) return
+    try {
+      return reply.send(success({ branches: await gitWorkspace.branches(body.workspacePath) }))
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/branch/create', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        workspacePath: z.string().min(1),
+        name: gitBranchSchema,
+        checkout: z.boolean().default(true),
+      })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_branch_create'))) return
+    try {
+      return sendGitResult(
+        reply,
+        await gitWorkspace.createBranch(body.workspacePath, body.name, body.checkout),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/branch/switch', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({ workspacePath: z.string().min(1), name: gitBranchSchema })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_branch_switch'))) return
+    try {
+      return sendGitResult(reply, await gitWorkspace.switchBranch(body.workspacePath, body.name))
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/log', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        workspacePath: z.string().min(1),
+        limit: z.number().int().min(1).max(200).default(30),
+      })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_log'))) return
+    try {
+      return reply.send(
+        success({ commits: await gitWorkspace.log(body.workspacePath, body.limit) }),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/push', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    if (!request.userId) return
+    const body = z
+      .object({
+        workspacePath: z.string().min(1),
+        remote: gitRemoteSchema,
+        branch: gitBranchSchema.optional(),
+      })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_push'))) return
+    try {
+      return sendGitResult(
+        reply,
+        await gitWorkspace.push(body.workspacePath, body.remote, body.branch),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
+  server.post('/git/pull', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    if (!request.userId) return
+    const body = z
+      .object({
+        workspacePath: z.string().min(1),
+        remote: gitRemoteSchema,
+        branch: gitBranchSchema.optional(),
+      })
+      .parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_pull'))) return
+    try {
+      return sendGitResult(
+        reply,
+        await gitWorkspace.pull(body.workspacePath, body.remote, body.branch),
+      )
+    } catch (e) {
+      return sendGitError(reply, e)
     }
   })
 

@@ -6,7 +6,15 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
-import { runCommand } from '@ihui/api-client'
+import {
+  commitGit,
+  pullWorkspaceGit,
+  pushWorkspaceGit,
+  runCommand,
+  stageGitPaths,
+  switchWorkspaceGitBranch,
+  unstageGitPaths,
+} from '@ihui/api-client'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 // 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
@@ -33,11 +41,6 @@ import {
 /** unknown 错误归一化为字符串 */
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
-}
-
-/** 转义 commit message 中的双引号与反斜杠,防止 shell 注入 */
-function escapeCommitMessage(msg: string): string {
-  return msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 export function SourceControlPanel() {
@@ -119,15 +122,10 @@ export function SourceControlPanel() {
   const toggleStage = async (file: (typeof diffFiles)[number]) => {
     if (!workspacePath) return
     const isStaged = stagedIds.has(file.id)
-    const command = isStaged
-      ? `git restore --staged "${file.filename}"`
-      : `git add "${file.filename}"`
     try {
-      const result = await runCommand({
-        command,
-        workspacePath,
-        mode: 'workspace-write',
-      })
+      const result = isStaged
+        ? await unstageGitPaths({ workspacePath, paths: [file.filename] })
+        : await stageGitPaths({ workspacePath, paths: [file.filename] })
       if (result.success) {
         setStagedIds((prev) => {
           const next = new Set(prev)
@@ -153,11 +151,7 @@ export function SourceControlPanel() {
     if (!workspacePath) return
     setCommitting(true)
     try {
-      const result = await runCommand({
-        command: `git commit -m "${escapeCommitMessage(message)}"`,
-        workspacePath,
-        mode: 'workspace-write',
-      })
+      const result = await commitGit({ workspacePath, message })
       if (result.success) {
         toast.success(t('sourceControl.commitSuccess'))
         setCommitMessage('')
@@ -176,11 +170,7 @@ export function SourceControlPanel() {
     if (!workspacePath) return
     setPushing(true)
     try {
-      const result = await runCommand({
-        command: 'git push',
-        workspacePath,
-        mode: 'workspace-write',
-      })
+      const result = await pushWorkspaceGit({ workspacePath })
       if (result.success) {
         toast.success(t('sourceControl.pushSuccess'))
         await Promise.all([fetchGitLog(), fetchGitBranches()])
@@ -198,11 +188,7 @@ export function SourceControlPanel() {
     if (!workspacePath) return
     setPulling(true)
     try {
-      const result = await runCommand({
-        command: 'git pull',
-        workspacePath,
-        mode: 'workspace-write',
-      })
+      const result = await pullWorkspaceGit({ workspacePath })
       if (result.success) {
         toast.success(t('sourceControl.pullSuccess'))
         await Promise.all([fetchGitLog(), fetchDiffFiles(), syncStagedFiles()])
@@ -220,11 +206,7 @@ export function SourceControlPanel() {
     if (!workspacePath) return
     setSwitchingBranch(true)
     try {
-      const result = await runCommand({
-        command: `git checkout ${target}`,
-        workspacePath,
-        mode: 'workspace-write',
-      })
+      const result = await switchWorkspaceGitBranch({ workspacePath, name: target })
       if (result.success) {
         setBranch(target)
         toast.success(t('sourceControl.branchSwitched', { branch: target }))

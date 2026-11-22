@@ -3430,7 +3430,8 @@ class PermissionManager {
     if (tool === 'fs.read' || tool === 'fs.grep' || tool === 'fs.glob' || tool === 'fs.browse') {
       return 'read'
     }
-    if (tool === 'fs.write' || tool === 'fs.edit') return 'write'
+    if (tool === 'fs.write' || tool === 'fs.edit' || tool === 'fs.mkdir' || tool === 'fs.move')
+      return 'write'
     if (tool === 'fs.delete') return 'delete'
     if (tool === 'fs.run') return 'execute'
     return 'unknown'
@@ -4277,6 +4278,67 @@ class FSBridge {
     return { path: params.path, deleted: existedBefore }
   }
 
+  /** 建目录(2026-11-23,对齐 WorkBuddy `/api/v1/fs/mkdir`);默认递归建父级。 */
+  mkdir(params: { path: string; workspacePath: string; recursive?: boolean }): {
+    path: string
+    created: boolean
+  } {
+    const full = this.resolvePath(params.path, params.workspacePath)
+    const existedBefore = existsSync(full)
+    mkdirSync(full, { recursive: params.recursive ?? true })
+    return { path: params.path, created: !existedBefore }
+  }
+
+  /** 移动/重命名(2026-11-23,对齐 WorkBuddy `/api/v1/fs/move`)。两端都必须落登记根内。 */
+  move(params: { from: string; to: string; workspacePath: string; overwrite?: boolean }): {
+    from: string
+    to: string
+    moved: boolean
+  } {
+    const root = this.assertWorkspaceRegistered(params.workspacePath)
+    const fromFull = this.resolvePath(params.from, params.workspacePath)
+    const toFull = this.resolvePath(params.to, params.workspacePath)
+    if (fromFull === root || toFull === root) throw new Error('不允许移动工作区根目录')
+    if (!existsSync(fromFull)) throw new Error(`源路径不存在: ${params.from}`)
+    if (existsSync(toFull) && !params.overwrite) throw new Error(`目标已存在: ${params.to}`)
+    checkpointManager.snapshot(params.workspacePath, {
+      tool: 'move',
+      description: `移动: ${params.from} → ${params.to}`,
+      files: [params.from, params.to],
+    })
+    if (existsSync(toFull)) rmSync(toFull, { recursive: true, force: true })
+    mkdirSync(dirname(toFull), { recursive: true })
+    renameSync(fromFull, toFull)
+    return { from: params.from, to: params.to, moved: true }
+  }
+
+  /** 单路径元信息(2026-11-23,对齐 WorkBuddy `/api/v1/fs/stat`)。 */
+  stat(params: { path: string; workspacePath: string }): {
+    path: string
+    isDir: boolean
+    isSymlink: boolean
+    size: number
+    modified: number
+    created: number
+  } {
+    const root = this.assertWorkspaceRegistered(params.workspacePath)
+    const rawFull = realpathOrResolve(
+      isAbsolute(params.path) ? resolve(params.path) : resolve(root, params.path),
+    )
+    const full = this.resolvePath(params.path, params.workspacePath)
+    if (!existsSync(full)) throw new Error(`路径不存在: ${params.path}`)
+    const isSymlink = lstatSync(rawFull).isSymbolicLink()
+    const target = statSync(full)
+    return {
+      path: params.path,
+      isDir: target.isDirectory(),
+      isSymlink,
+      size: target.isDirectory() ? 0 : target.size,
+      modified: target.mtime.getTime() / 1000,
+      created: target.birthtime.getTime() / 1000,
+    }
+  }
+
   /** regex 条件的 pattern 与被测行长度上限(主线程同步执行,防 ReDoS 放大;与 rules/webhooks-trigger 同口径) */
   static readonly MAX_GREP_PATTERN_LENGTH = 200
   static readonly MAX_GREP_LINE_LENGTH = 10 * 1024
@@ -4363,6 +4425,54 @@ class FSBridge {
     }
     this.walkGlob(root, root, regex, files, budget)
     return { files, total: files.length, truncated: budget.truncated }
+  }
+
+  /**
+   * 按文件名/相对路径片段定位文件(2026-11-23,对齐 WorkBuddy `/api/v1/fs/locate`)。
+   * 与 `glob` 的分工:glob 要调用方会写通配符;locate 收人类输入的片段,大小写不敏感。
+   */
+  locate(params: { query: string; workspacePath: string; path?: string; maxFiles?: number }): {
+    paths: string[]
+    total: number
+    truncated: boolean
+  } {
+    const query = params.query.trim()
+    if (!query) throw new Error('query 不能为空')
+    if (query.length > 200) throw new Error('query 超过 200 字符上限')
+    const root = this.resolvePath(params.path ?? '.', params.workspacePath)
+    const needle = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(needle, 'i')
+    const files: string[] = []
+    const budget = {
+      maxFiles: Math.max(1, Math.min(1000, Math.trunc(params.maxFiles ?? 200))),
+      exhausted: false,
+      truncated: false,
+    }
+    this.walkGlob(root, root, regex, files, budget)
+    return { paths: files, total: files.length, truncated: budget.truncated }
+  }
+
+  /** 批量定位(2026-11-23,对齐 WorkBuddy `/api/v1/fs/locate-batch`);单次最多 20 个 query。 */
+  locateBatch(params: {
+    queries: string[]
+    workspacePath: string
+    path?: string
+    maxFilesPerQuery?: number
+  }): { results: Array<{ query: string; paths: string[]; truncated: boolean }> } {
+    if (!Array.isArray(params.queries) || params.queries.length === 0)
+      throw new Error('queries 不能为空')
+    if (params.queries.length > 20) throw new Error('queries 最多 20 条')
+    return {
+      results: params.queries.map((query) => {
+        const hit = this.locate({
+          query,
+          workspacePath: params.workspacePath,
+          path: params.path,
+          maxFiles: params.maxFilesPerQuery,
+        })
+        return { query, paths: hit.paths, truncated: hit.truncated }
+      }),
+    }
   }
 
   async run(params: {

@@ -45,6 +45,7 @@ const PRESERVE_ACTION = msg('ide.sourceControl.preserveChangesAction')
 
 const h = vi.hoisted(() => ({
   runSpy: vi.fn(),
+  switchSpy: vi.fn(),
   fetchGitLog: vi.fn(async () => {}),
   fetchGitBranches: vi.fn(async () => {}),
   fetchDiffFiles: vi.fn(async () => {}),
@@ -61,6 +62,24 @@ vi.mock('next-intl', () => ({
 
 vi.mock('@ihui/api-client', () => ({
   runCommand: h.runSpy,
+  switchWorkspaceGitBranch: h.switchSpy,
+  stageGitPaths: vi.fn(async () => ({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })),
+  unstageGitPaths: vi.fn(async () => ({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })),
+  commitGit: vi.fn(async () => ({ success: true, data: { stdout: '', stderr: '', exitCode: 0 } })),
+  pushWorkspaceGit: vi.fn(async () => ({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })),
+  pullWorkspaceGit: vi.fn(async () => ({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })),
 }))
 
 vi.mock('@/components/common', () => ({
@@ -116,6 +135,11 @@ beforeEach(() => {
     }
     return { success: true, data: { stdout: '' } }
   })
+  h.switchSpy.mockReset()
+  h.switchSpy.mockResolvedValue({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })
   h.toastSuccess.mockReset()
   h.toastError.mockReset()
 })
@@ -136,6 +160,7 @@ describe('SourceControlPanel 分支切换未提交改动保护 (D178)', () => {
     const commands = ranCommands()
     expect(commands.some((c) => c.startsWith('git checkout'))).toBe(false)
     expect(commands.some((c) => c.startsWith('git stash push'))).toBe(false)
+    expect(h.switchSpy).not.toHaveBeenCalled()
   })
 
   it('确认保护 → 先 stash push 后 checkout feature-x,弹层关闭', async () => {
@@ -146,20 +171,23 @@ describe('SourceControlPanel 分支切换未提交改动保护 (D178)', () => {
     fireEvent.click(screen.getByTestId('confirm-button'))
 
     await waitFor(() =>
-      expect(
-        ranCommands().some((c) =>
-          c.startsWith('git stash push --include-untracked'),
-        ),
-      ).toBe(true),
+      expect(ranCommands().some((c) => c.startsWith('git stash push --include-untracked'))).toBe(
+        true,
+      ),
     )
-    await waitFor(() => expect(ranCommands()).toContain('git checkout feature-x'))
+    await waitFor(() =>
+      expect(h.switchSpy).toHaveBeenCalledWith({
+        workspacePath: 'G:/demo-repo',
+        name: 'feature-x',
+      }),
+    )
 
-    // 顺序对账:stash 必须发生在 checkout 之前(先保改动再切分支)
-    const commands = ranCommands()
-    const stashIdx = commands.findIndex((c) => c.startsWith('git stash push'))
-    const checkoutIdx = commands.indexOf('git checkout feature-x')
+    // 顺序对账:stash 必须发生在 switch 之前(先保改动再切分支)
+    const stashIdx = ranCommands().findIndex((c) => c.startsWith('git stash push'))
     expect(stashIdx).toBeGreaterThanOrEqual(0)
-    expect(checkoutIdx).toBeGreaterThan(stashIdx)
+    expect(h.switchSpy.mock.invocationCallOrder[0]).toBeGreaterThan(
+      h.runSpy.mock.invocationCallOrder[stashIdx]!,
+    )
 
     await waitFor(() => expect(screen.queryByText(DIRTY_TITLE)).toBeNull())
     expect(h.toastSuccess).toHaveBeenCalled()
@@ -169,7 +197,12 @@ describe('SourceControlPanel 分支切换未提交改动保护 (D178)', () => {
     h.statusOut = ''
     await openBranchMenuAndPick('feature-x')
 
-    await waitFor(() => expect(ranCommands()).toContain('git checkout feature-x'))
+    await waitFor(() =>
+      expect(h.switchSpy).toHaveBeenCalledWith({
+        workspacePath: 'G:/demo-repo',
+        name: 'feature-x',
+      }),
+    )
     expect(ranCommands().some((c) => c.startsWith('git stash push'))).toBe(false)
     expect(screen.queryByText(DIRTY_TITLE)).toBeNull()
   })
@@ -185,6 +218,7 @@ describe('SourceControlPanel 分支切换未提交改动保护 (D178)', () => {
     const commands = ranCommands()
     expect(commands.some((c) => c.startsWith('git stash push'))).toBe(false)
     expect(commands.some((c) => c.startsWith('git checkout'))).toBe(false)
+    expect(h.switchSpy).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

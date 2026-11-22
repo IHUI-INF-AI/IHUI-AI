@@ -324,6 +324,138 @@ export async function globFiles(params: {
   })
 }
 
+// =============================================================================
+// 文件桥写面与监听(2026-11-23):对齐 WorkBuddy `/api/v1/fs/*`。
+// 路径仍由服务端 FSBridge.resolvePath 收口;监听是有界注册表,读事件后必须 remove。
+// =============================================================================
+
+export interface WorkspaceFsStat {
+  path: string
+  isDir: boolean
+  isSymlink: boolean
+  size: number
+  modified: number
+  created: number
+}
+
+export interface WorkspaceFsWatchEvent {
+  seq: number
+  type: 'change' | 'rename' | 'error'
+  path: string
+  at: number
+}
+
+export async function createWorkspaceDirectory(params: {
+  workspacePath: string
+  path: string
+  recursive?: boolean
+}): Promise<ApiResult<{ path: string; created: boolean }>> {
+  return fetchApi<{ path: string; created: boolean }>('/api/workspace/fs/mkdir', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+export async function moveWorkspacePath(params: {
+  workspacePath: string
+  from: string
+  to: string
+  overwrite?: boolean
+}): Promise<ApiResult<{ from: string; to: string; moved: boolean }>> {
+  return fetchApi<{ from: string; to: string; moved: boolean }>('/api/workspace/fs/move', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+export async function getWorkspacePathStat(params: {
+  workspacePath: string
+  path: string
+}): Promise<ApiResult<WorkspaceFsStat>> {
+  return fetchApi<WorkspaceFsStat>('/api/workspace/fs/stat', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+export async function locateWorkspaceFiles(params: {
+  workspacePath: string
+  query: string
+  path?: string
+  maxFiles?: number
+}): Promise<ApiResult<{ paths: string[]; total: number; truncated: boolean }>> {
+  return fetchApi<{ paths: string[]; total: number; truncated: boolean }>(
+    '/api/workspace/fs/locate',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+export async function locateWorkspaceFilesBatch(params: {
+  workspacePath: string
+  queries: string[]
+  path?: string
+  maxFilesPerQuery?: number
+}): Promise<ApiResult<{ results: Array<{ query: string; paths: string[]; truncated: boolean }> }>> {
+  return fetchApi<{ results: Array<{ query: string; paths: string[]; truncated: boolean }> }>(
+    '/api/workspace/fs/locate-batch',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+export async function createWorkspaceWatcher(params: {
+  workspacePath: string
+  path: string
+  recursive?: boolean
+  debounceMs?: number
+}): Promise<ApiResult<{ watcherId: string; root: string; recursive: boolean }>> {
+  return fetchApi<{ watcherId: string; root: string; recursive: boolean }>(
+    '/api/workspace/fs/watcher/create',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+export async function getWorkspaceWatcherEvents(params: {
+  watcherId: string
+  cursor?: number
+  limit?: number
+  waitMs?: number
+}): Promise<ApiResult<{ events: WorkspaceFsWatchEvent[]; nextCursor: number; dropped: number }>> {
+  return fetchApi<{ events: WorkspaceFsWatchEvent[]; nextCursor: number; dropped: number }>(
+    '/api/workspace/fs/watcher/events',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+export async function removeWorkspaceWatcher(params: {
+  watcherId: string
+}): Promise<ApiResult<{ removed: boolean }>> {
+  return fetchApi<{ removed: boolean }>('/api/workspace/fs/watcher/remove', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 列出当前用户存活的监听器(仅 id/root/createdAt,不含事件正文)。 */
+export async function listWorkspaceWatchers(): Promise<
+  ApiResult<{ watchers: Array<{ watcherId: string; root: string; createdAt: number }> }>
+> {
+  return fetchApi<{ watchers: Array<{ watcherId: string; root: string; createdAt: number }> }>(
+    '/api/workspace/fs/watchers',
+  )
+}
+
 /** 执行命令(走 sandboxExecutor 白名单) */
 export async function runCommand(params: {
   command: string
@@ -349,6 +481,170 @@ export async function getGitStatus(params: {
   workspacePath: string
 }): Promise<ApiResult<GitStatusSnapshot>> {
   return fetchApi<GitStatusSnapshot>('/api/workspace/git/status', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+// =============================================================================
+// Git 写通道(2026-11-23):对齐 WorkBuddy `/api/v1/git/*`。
+// 端内不再手拼 `git add/commit/push` 命令串;路径与分支名由服务端判据收窄,
+// 提交由 `execFile(argv)` 执行且禁仓库钩子(见 apps/api/src/services/git-workspace.ts)。
+// =============================================================================
+
+export interface GitCommandOutput {
+  stdout: string
+  stderr: string
+  exitCode: number
+}
+
+export interface WorkspaceGitBranch {
+  name: string
+  current: boolean
+  upstream: string
+  head: string
+}
+
+export interface WorkspaceGitCommit {
+  hash: string
+  shortHash: string
+  author: string
+  date: string
+  subject: string
+}
+
+/** 暂存若干路径;paths 为空 = `git add -A`。 */
+export async function stageGitPaths(params: {
+  workspacePath: string
+  paths?: string[]
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/stage', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 取消暂存;paths 为空 = 全部取消。 */
+export async function unstageGitPaths(params: {
+  workspacePath: string
+  paths?: string[]
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/unstage', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 丢弃工作区改动(只作用于已跟踪文件);paths 为空 = 全部。 */
+export async function discardGitPaths(params: {
+  workspacePath: string
+  paths?: string[]
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/discard', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 提交;paths 为空 = 提交暂存区全部内容。 */
+export async function commitGit(params: {
+  workspacePath: string
+  message: string
+  paths?: string[]
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/commit', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 列出本地分支及当前分支/上游/短 sha。 */
+export async function getWorkspaceGitBranches(params: {
+  workspacePath: string
+}): Promise<ApiResult<{ branches: WorkspaceGitBranch[] }>> {
+  return fetchApi<{ branches: WorkspaceGitBranch[] }>('/api/workspace/git/branches', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 新建分支;checkout=true 时同时切过去。 */
+export async function createWorkspaceGitBranch(params: {
+  workspacePath: string
+  name: string
+  checkout?: boolean
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/branch/create', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 切换分支。 */
+export async function switchWorkspaceGitBranch(params: {
+  workspacePath: string
+  name: string
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/branch/switch', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 提交历史;limit 默认 30,服务端夹到 1..200。 */
+export async function getWorkspaceGitLog(params: {
+  workspacePath: string
+  limit?: number
+}): Promise<ApiResult<{ commits: WorkspaceGitCommit[] }>> {
+  return fetchApi<{ commits: WorkspaceGitCommit[] }>('/api/workspace/git/log', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 推送(仅 admin;服务端禁交互凭据、禁仓库钩子)。 */
+export async function pushWorkspaceGit(params: {
+  workspacePath: string
+  remote?: string
+  branch?: string
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/push', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 拉取(仅 admin,`--ff-only`;分叉时失败而不是生成 merge commit)。 */
+export async function pullWorkspaceGit(params: {
+  workspacePath: string
+  remote?: string
+  branch?: string
+}): Promise<ApiResult<GitCommandOutput>> {
+  return fetchApi<GitCommandOutput>('/api/workspace/git/pull', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 统一 diff;staged=true 看暂存区,paths 为空看全仓。 */
+export async function getWorkspaceGitDiff(params: {
+  workspacePath: string
+  staged?: boolean
+  paths?: string[]
+  contextLines?: number
+}): Promise<ApiResult<{ diff: string; staged: boolean }>> {
+  return fetchApi<{ diff: string; staged: boolean }>('/api/workspace/git/diff', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 查哪些路径被 .gitignore 忽略(无命中返回空数组,不当作失败)。 */
+export async function checkWorkspaceGitIgnore(params: {
+  workspacePath: string
+  paths: string[]
+}): Promise<ApiResult<{ ignored: string[] }>> {
+  return fetchApi<{ ignored: string[] }>('/api/workspace/git/check-ignore', {
     method: 'POST',
     body: JSON.stringify(params),
   })
