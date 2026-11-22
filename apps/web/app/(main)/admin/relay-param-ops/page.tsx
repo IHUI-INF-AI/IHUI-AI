@@ -437,7 +437,7 @@ export default function AdminRelayParamOpsPage() {
               </label>
             </div>
             <div className="space-y-1">
-              <Label className="text-label">{t('opsLabel')}</Label>
+              <Label className="text-label">{t.raw('opsLabel')}</Label>
               <textarea
                 value={form.opsText}
                 onChange={(e) => setForm((f) => ({ ...f, opsText: e.target.value }))}

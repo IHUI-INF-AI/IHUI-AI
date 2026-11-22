@@ -6,6 +6,7 @@ import { getRequestConfig } from 'next-intl/server'
 import type { AbstractIntlMessages } from 'next-intl'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
+import { makeMessageFallback, reportI18nError } from './fallback'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/{shared,web}/
 // 2026-07-31 触发 Turbopack 重新编译 JSON 模块(修复 publish.cancel/close 缓存)
 // 阶段 2:用 mergeMessages 合并 shared + web(端 key 覆盖 shared,功能无变化)
@@ -40,12 +41,17 @@ export default getRequestConfig(async () => {
   // 原 cookies() locale 读取见 commit ce1f12795
   void LOCALES
   const locale = 'zh-CN'
+  // 服务端同样要兜底(2026-11-23):只给客户端挂 getMessageFallback 时,SSR 首帧仍会把
+  // `nav.hrGroup` / `appearanceSettings.autoContrastHint` 这类键路径写进 HTML。
+  const active = (messages[locale] ?? webZhCN) as unknown as AbstractIntlMessages
   return {
     locale,
     // 显式 timeZone 避免 next-intl dev 模式 ENVIRONMENT_FALLBACK 错误(SSR/CSR 时区不一致)
     timeZone: 'Asia/Shanghai',
     // next-intl AbstractIntlMessages 类型不接受数组(string[]),但运行时支持;用 as never 绕过类型限制
-    messages: (messages[locale] ?? webZhCN) as never,
+    messages: active as never,
+    onError: reportI18nError,
+    getMessageFallback: makeMessageFallback(active),
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

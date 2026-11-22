@@ -265,7 +265,6 @@ export function HostGitSection() {
                 added: index.delta.added.length,
                 removed: index.delta.removed.length,
                 changed: index.delta.changed.length,
-                unchanged: index.delta.unchanged,
               })
             : t('hostGit.indexFirst', { total: index.total })}
           {(index.symlink_dirs_skipped > 0 || index.non_utf8_skipped > 0) && (

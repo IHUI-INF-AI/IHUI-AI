@@ -122,50 +122,57 @@ const chapters = [
   {
     num: '01',
     href: '/docs/manual/getting-started',
-    key: 'getting-started',
-    desc: '注册账号、登录、界面导览、首次对话,3 分钟上手。',
+    titleKey: 'manual.getting-started.title',
+    descKey: 'manual.getting-started.desc',
+    
     icon: Rocket,
   },
   {
     num: '02',
     href: '/docs/manual/ai-chat',
-    key: 'ai-chat',
-    desc: '如何与 AI 对话、上传文件、切换模型、查看历史、分享对话。',
+    titleKey: 'manual.ai-chat.title',
+    descKey: 'manual.ai-chat.desc',
+    
     icon: MessageCircle,
   },
   {
     num: '03',
     href: '/docs/manual/agent',
-    key: 'agent',
-    desc: '从市场选用 Agent、收藏、定制提示词、发布到自己的工作台。',
+    titleKey: 'manual.agent.title',
+    descKey: 'manual.agent.desc',
+    
     icon: Bot,
   },
   {
     num: '04',
     href: '/docs/manual/knowledge-base',
-    key: 'knowledge-base',
-    desc: '上传文档、检索测试、把知识库挂载到 Agent,让 AI 懂你的业务。',
+    titleKey: 'manual.knowledge-base.title',
+    descKey: 'manual.knowledge-base.desc',
+    
     icon: BookOpen,
   },
   {
     num: '05',
     href: '/docs/manual/billing',
-    key: 'billing',
-    desc: '积分消耗规则、套餐对比、充值、发票、共享积分池。',
+    titleKey: 'manual.billing.title',
+    descKey: 'manual.billing.desc',
+    
     icon: Coins,
   },
   {
     num: '06',
     href: '/docs/manual/account',
-    key: 'account',
-    desc: '个人资料、安全设置、API Key、通知偏好、注销账号。',
+    titleKey: 'manual.account.title',
+    descKey: 'manual.account.desc',
+    
     icon: Settings,
   },
   {
     num: '07',
     href: '/docs/manual/faq',
-    key: 'faq',
-    desc: '登录失败、积分异常、模型不可用、数据导出等高频问答。',
+    titleKey: 'manual.faq.title',
+    descKey: 'manual.faq.desc',
+    
     icon: HelpCircle,
   },
 ]
@@ -186,7 +193,7 @@ export default async function ManualIndexPage() {
           {t('manual.overview.title')}
         </div>
         <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
-          智汇 AI 使用说明手册
+          {t('manual.overview.heading')}
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('meta.manual.description')} {t('manual.overview.description')}
@@ -211,9 +218,9 @@ export default async function ManualIndexPage() {
                   </span>
                 </div>
                 <h2 className="text-base font-semibold min-[768px]:text-lg">
-                  {t(`manual.${ch.key}.title`)}
+                  {t(ch.titleKey)}
                 </h2>
-                <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground min-[768px]:text-body">{ch.desc}</p>
+                <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground min-[768px]:text-body">{t(ch.descKey)}</p>
               </div>
               <ChevronRight
                 className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1"
@@ -245,3 +252,4 @@ export default async function ManualIndexPage() {
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+

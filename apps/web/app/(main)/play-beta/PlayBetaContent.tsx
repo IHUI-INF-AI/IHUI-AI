@@ -18,9 +18,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const STEPS = ['success.step1', 'success.step2', 'success.step3'] as const
 const FAQ = [
-  { q: 'faq.q1', a: 'faq.a1' },
-  { q: 'faq.q2', a: 'faq.a2' },
-  { q: 'faq.q3', a: 'faq.a3' },
+  { qKey: 'faq.q1', aKey: 'faq.a1' },
+  { qKey: 'faq.q2', aKey: 'faq.a2' },
+  { qKey: 'faq.q3', aKey: 'faq.a3' },
 ] as const
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -204,9 +204,9 @@ export function PlayBetaContent(): React.JSX.Element {
           <h2 className="mb-3 text-body font-semibold text-foreground">{t('faq.title')}</h2>
           <div className="space-y-3">
             {FAQ.map((item) => (
-              <div key={item.q}>
-                <h3 className="text-body font-medium text-foreground">{t(item.q)}</h3>
-                <p className="mt-1 text-body text-muted-foreground">{t(item.a)}</p>
+              <div key={item.qKey}>
+                <h3 className="text-body font-medium text-foreground">{t(item.qKey)}</h3>
+                <p className="mt-1 text-body text-muted-foreground">{t(item.aKey)}</p>
               </div>
             ))}
           </div>

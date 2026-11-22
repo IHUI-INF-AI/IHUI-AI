@@ -138,13 +138,7 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
               <SelectContent>
                 {roster.map((r) => (
                   <SelectItem key={r.enrollmentId} value={r.enrollmentId}>
-                    {t('rosterLine', {
-                      name: r.studentName,
-                      cls: r.className,
-                      totalFee: r.totalFee,
-                      paidAmount: r.paidAmount,
-                      dueAmount: r.dueAmount,
-                    })}
+                    {t('rosterLine', { name: r.studentName, id: r.studentId })}
                   </SelectItem>
                 ))}
               </SelectContent>

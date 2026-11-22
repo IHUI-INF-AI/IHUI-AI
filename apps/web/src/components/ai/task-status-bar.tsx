@@ -239,7 +239,10 @@ export function TaskStatusBar() {
         </button>
 
         {open && view.stepTotal > 0 ? (
-          <ul className="px-3 pb-2" aria-label={t('steps')}>
+          <ul
+            className="px-3 pb-2"
+            aria-label={t('steps', { current: view.stepCurrent, total: view.stepTotal })}
+          >
             {view.steps.map((step) => (
               <StepRow key={step.id} step={step} translate={t} />
             ))}

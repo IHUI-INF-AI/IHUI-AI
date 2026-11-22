@@ -216,7 +216,7 @@ export default function EduCertificateIssuedPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-body text-muted-foreground">{t('totalItems', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

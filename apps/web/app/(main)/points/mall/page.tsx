@@ -65,7 +65,7 @@ export default function PointsMallPage() {
         <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <span className="text-body text-muted-foreground">{t('balance')}</span>
           <span className="text-base font-medium">
-            {balance === undefined ? '—' : `${balance} ${t('pointsUnit')}`}
+            {balance === undefined ? '—' : t('pointsUnit', { n: balance })}
           </span>
         </div>
       )}
@@ -111,7 +111,7 @@ export default function PointsMallPage() {
                 <h3 className="mb-1 truncate text-body font-medium">{item.name}</h3>
                 <div className="mt-auto flex items-center justify-between gap-2 pt-2">
                   <span className="text-body font-medium">
-                    {item.points} {t('pointsUnit')}
+                    {t('pointsUnit', { n: item.points })}
                   </span>
                   <Button
                     size="sm"

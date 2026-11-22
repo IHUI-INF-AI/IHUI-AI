@@ -534,13 +534,13 @@ export default function AutomationPage() {
                     {task.id === 'wechat_daily' && (
                       <div className="space-y-1">
                         <Label htmlFor={`title-${task.id}`} className="text-label">
-                          {t('titleTemplateLabel')}
+                          {t.raw('titleTemplateLabel')}
                         </Label>
                         <Input
                           id={`title-${task.id}`}
                           value={editTitleTpl}
                           onChange={(e) => setEditTitleTpl(e.target.value)}
-                          placeholder={t('titleTemplatePlaceholder')}
+                          placeholder={t.raw('titleTemplatePlaceholder')}
                           className="text-label"
                         />
                       </div>

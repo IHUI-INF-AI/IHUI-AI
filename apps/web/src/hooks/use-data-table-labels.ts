@@ -22,17 +22,20 @@ export function useDataTableLabels(): DataTableLabels {
       perPage: t('perPage'),
       perPageCountAriaLabel: t('perPageCountAriaLabel'),
       rowsUnit: t('rowsUnit'),
-      sortAriaLabel: t('sortAriaLabel'),
+      // 这几条是**模板**而非成品文案:@ihui/ui-react 用 fillTemplate 自行替换 {direction}/{column}/
+      // {total}/{page}/{pageCount}。必须 t.raw 取原文 —— 走 t() 时占位符没实参会触发
+      // next-intl INSUFFICIENT_PARAMS,回落成完整键路径直接画到 aria-label 上(2026-11-23 实测)。
+      sortAriaLabel: String(t.raw('sortAriaLabel')),
       sortDirections: {
         asc: t('sortAsc'),
         desc: t('sortDesc'),
         none: t('sortNone'),
       },
       columnFilterPlaceholder: t('columnFilterPlaceholder'),
-      columnFilterAriaLabel: t('columnFilterAriaLabel'),
-      paginationSummary: t('paginationSummary'),
+      columnFilterAriaLabel: String(t.raw('columnFilterAriaLabel')),
+      paginationSummary: String(t.raw('paginationSummary')),
       prevPageAriaLabel: t('prevPageAriaLabel'),
-      pageAriaLabel: t('pageAriaLabel'),
+      pageAriaLabel: String(t.raw('pageAriaLabel')),
       nextPageAriaLabel: t('nextPageAriaLabel'),
     }),
     [t],

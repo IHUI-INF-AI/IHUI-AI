@@ -542,9 +542,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
             <span>
               {t('reloadSkillsChanged')}: {reloadResult.changed.length}
             </span>
-            <span>
-              {t('reloadSkillsUnchanged')}: {reloadResult.unchanged}
-            </span>
+            <span>{t('reloadSkillsUnchanged', { count: reloadResult.unchanged })}</span>
           </div>
           {reloadResult.added.length === 0 &&
             reloadResult.removed.length === 0 &&

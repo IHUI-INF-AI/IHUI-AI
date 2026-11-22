@@ -513,7 +513,9 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
     try {
       const r = await setSkillListing(entry.name, next)
       if (!r.success) throw new Error(r.error ?? 'failed')
-      toast.success(next ? t('relistSuccess') : t('unlistSuccess'))
+      toast.success(
+        next ? t('relistSuccess', { name: entry.name }) : t('unlistSuccess', { name: entry.name }),
+      )
       void qc.invalidateQueries({ queryKey: ['skills-market'] })
     } catch {
       toast.error(t('actionFailed'))

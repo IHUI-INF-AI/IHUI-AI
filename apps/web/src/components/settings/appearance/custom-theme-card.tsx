@@ -174,7 +174,9 @@ export function CustomThemeCard() {
       })}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-        <p className="text-[11px] leading-snug text-muted-foreground">{t('autoContrastHint')}</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {t('autoContrastHint', { threshold: 4.5 })}
+        </p>
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"

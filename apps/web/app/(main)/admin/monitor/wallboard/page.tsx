@@ -2053,7 +2053,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <span>
                     {t('firingRowsSplit', {
                       total: fmtInt(alerts?.firingTotal),
-                      names: fmtInt((alerts?.firingNames ?? []).length),
+                      shown: fmtInt((alerts?.firingNames ?? []).length),
                     })}
                   </span>
                 ) : null}

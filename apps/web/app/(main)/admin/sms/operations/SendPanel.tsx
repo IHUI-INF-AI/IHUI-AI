@@ -333,9 +333,8 @@ export function SendPanel({ status }: { status: SmsStatus }) {
   function scopeSummary(r: SmsBroadcastResponse): string {
     return t('send.scopeSummary', {
       scopeTotal: r.scopeTotal ?? '-',
-      days: r.excludeRecentDays ?? 0,
       excluded: r.excludedRecent ?? 0,
-      eligible: r.eligible ?? '-',
+      remaining: r.eligible ?? '-',
     })
   }
 
