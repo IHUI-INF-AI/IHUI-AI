@@ -1861,6 +1861,12 @@ const IGNORE_DIRS = new Set([
 ])
 const IGNORE_EXTS = new Set(['.pyc', '.pyo', '.class', '.o', '.so', '.dll', '.exe', '.bin'])
 const MAX_FILE_SIZE = 1024 * 1024
+/**
+ * locate/glob 的"精确省略数"扫描上限(2026-11-23,对齐 DSH ItemRetainer 的 exact omitted)。
+ * 命中上限后仍继续扫到 5 万个条目再收手:此范围内 omitted 精确,超出则 exact=false,
+ * 只报"至少漏了 N 个",绝不把近似值伪装成精确总数。
+ */
+const MAX_GLOB_SCAN_ENTRIES = 50_000
 
 export interface FileIndex {
   path: string
@@ -4437,17 +4443,33 @@ class FSBridge {
     pattern: string
     /** 最多收集多少个文件（防超大仓一次回几万条，2026-11-20） */
     maxFiles?: number
-  }): { files: string[]; total: number; truncated: boolean } {
+  }): {
+    files: string[]
+    total: number
+    omitted: number
+    totalMatches: number
+    exact: boolean
+    truncated: boolean
+  } {
     const root = this.resolvePath(params.path, params.workspacePath)
     const regex = this.globToRegex(params.pattern)
     const files: string[] = []
     const budget = {
       maxFiles: params.maxFiles ?? Number.POSITIVE_INFINITY,
-      exhausted: false,
       truncated: false,
+      omitted: 0,
+      scanned: 0,
+      exact: true,
     }
     this.walkGlob(root, root, regex, files, budget)
-    return { files, total: files.length, truncated: budget.truncated }
+    return {
+      files,
+      total: files.length,
+      omitted: budget.omitted,
+      totalMatches: files.length + budget.omitted,
+      exact: budget.exact,
+      truncated: budget.truncated,
+    }
   }
 
   /**
@@ -4457,6 +4479,9 @@ class FSBridge {
   locate(params: { query: string; workspacePath: string; path?: string; maxFiles?: number }): {
     paths: string[]
     total: number
+    omitted: number
+    totalMatches: number
+    exact: boolean
     truncated: boolean
   } {
     const query = params.query.trim()
@@ -4468,11 +4493,20 @@ class FSBridge {
     const files: string[] = []
     const budget = {
       maxFiles: Math.max(1, Math.min(1000, Math.trunc(params.maxFiles ?? 200))),
-      exhausted: false,
       truncated: false,
+      omitted: 0,
+      scanned: 0,
+      exact: true,
     }
     this.walkGlob(root, root, regex, files, budget)
-    return { paths: files, total: files.length, truncated: budget.truncated }
+    return {
+      paths: files,
+      total: files.length,
+      omitted: budget.omitted,
+      totalMatches: files.length + budget.omitted,
+      exact: budget.exact,
+      truncated: budget.truncated,
+    }
   }
 
   /** 批量定位(2026-11-23,对齐 WorkBuddy `/api/v1/fs/locate-batch`);单次最多 20 个 query。 */
@@ -4481,7 +4515,16 @@ class FSBridge {
     workspacePath: string
     path?: string
     maxFilesPerQuery?: number
-  }): { results: Array<{ query: string; paths: string[]; truncated: boolean }> } {
+  }): {
+    results: Array<{
+      query: string
+      paths: string[]
+      omitted: number
+      totalMatches: number
+      exact: boolean
+      truncated: boolean
+    }>
+  } {
     if (!Array.isArray(params.queries) || params.queries.length === 0)
       throw new Error('queries 不能为空')
     if (params.queries.length > 20) throw new Error('queries 最多 20 条')
@@ -4493,7 +4536,14 @@ class FSBridge {
           path: params.path,
           maxFiles: params.maxFilesPerQuery,
         })
-        return { query, paths: hit.paths, truncated: hit.truncated }
+        return {
+          query,
+          paths: hit.paths,
+          omitted: hit.omitted,
+          totalMatches: hit.totalMatches,
+          exact: hit.exact,
+          truncated: hit.truncated,
+        }
       }),
     }
   }
@@ -4699,9 +4749,15 @@ class FSBridge {
     dir: string,
     regex: RegExp,
     files: string[],
-    budget: { maxFiles: number; exhausted: boolean; truncated: boolean },
+    budget: {
+      maxFiles: number
+      truncated: boolean
+      omitted: number
+      scanned: number
+      exact: boolean
+    },
   ): void {
-    if (budget.exhausted) return
+    if (!budget.exact) return
     let entries: string[]
     try {
       entries = readdirSync(dir)
@@ -4709,7 +4765,11 @@ class FSBridge {
       return
     }
     for (const name of entries) {
-      if (budget.exhausted) return
+      if (!budget.exact) return
+      if (budget.scanned++ >= MAX_GLOB_SCAN_ENTRIES) {
+        budget.exact = false
+        return
+      }
       if (IGNORE_DIRS.has(name)) continue
       const full = join(dir, name)
       let st
@@ -4722,12 +4782,13 @@ class FSBridge {
       if (st.isDirectory()) {
         this.walkGlob(root, full, regex, files, budget)
       } else if (st.isFile() && regex.test(relPath)) {
-        if (files.length >= budget.maxFiles) {
-          budget.exhausted = true
+        if (files.length < budget.maxFiles) {
+          files.push(relPath)
+        } else {
+          // 2026-11-23:达到上限后不再 return,继续扫到扫描上限,把"漏了多少"数出来。
           budget.truncated = true
-          return
+          budget.omitted++
         }
-        files.push(relPath)
       }
     }
   }

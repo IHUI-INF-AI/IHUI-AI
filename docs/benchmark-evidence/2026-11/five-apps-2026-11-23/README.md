@@ -152,6 +152,12 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 同批：对齐 DSH `dsh-output-retention` 的代理对安全截断。`output-budget.ts` 新增 `truncateWithoutSplittingSurrogatePair`，头/尾/中段计数统一为 `headChars + tailChars + omittedChars = originalChars`；切口落在 emoji 代理对内部时丢弃半个码元，不再把截断渲染成 `�`。`output-budget.test.ts` 4 passed（含 emoji 边界）。
 - 同批：对齐 DSH `dsh-spill` / `dsh-spill-local` / `dsh-spill-policy` 的工具大输出 spill。`apps/api/src/services/output-spill.ts` 把被头尾预算截掉的全文落到工作区 `.ihui-agent/tool-spill/<owner>/`，返回工作区相对 `locator`、精确 `bytes`、`retrievalHint`；`run_command` 工具与 `POST /fs/run` 共用 `TOOL_OUTPUT_MAX_CHARS=32000`，超限回 `truncated + spills`，保存失败只回 `spillError` 不让命令失败。7 天/500 文件清理，客户端文件名只当提示（清成单安全路径段）。`output-spill.test.ts` 6 passed；`@ihui/api` typecheck 9/9 success。
 
+## 追加批（同日）：locate/glob 精确省略数
+
+- 对齐 DSH `dsh-output-retention` 的 "exact omitted count"：达到 `maxFiles` 上限后不再立即停扫，而是把匹配但未返回的文件继续数出来，回 `omitted` / `totalMatches` / `exact`。`exact=false` 表示只扫到 `MAX_GLOB_SCAN_ENTRIES=50000` 的扫描上限，`omitted` 只是下界；不再把"至少漏了多少"伪装成精确总数。
+- 落点：`FSBridge.glob`、`FSBridge.locate`、`FSBridge.locateBatch` 统一带四个字段；`packages/api-client` 的 `locateWorkspaceFiles` / `locateWorkspaceFilesBatch` 同步类型 `WorkspaceLocateResult`。
+- 测试：`workspace-fs-ops.test.ts` 7 passed，新增"5 个命中只回 2 个 ⇒ omitted=3 / totalMatches=5 / exact=true"；`@ihui/api` + `@ihui/api-client` typecheck 10/10 success。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

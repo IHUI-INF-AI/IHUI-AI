@@ -378,19 +378,26 @@ export async function getWorkspacePathStat(params: {
   })
 }
 
+export interface WorkspaceLocateResult {
+  paths: string[]
+  total: number
+  /** 达到 maxFiles 后仍继续扫描数出的省略数;exact=false 时表示只到扫描上限,该值为下界。 */
+  omitted: number
+  totalMatches: number
+  exact: boolean
+  truncated: boolean
+}
+
 export async function locateWorkspaceFiles(params: {
   workspacePath: string
   query: string
   path?: string
   maxFiles?: number
-}): Promise<ApiResult<{ paths: string[]; total: number; truncated: boolean }>> {
-  return fetchApi<{ paths: string[]; total: number; truncated: boolean }>(
-    '/api/workspace/fs/locate',
-    {
-      method: 'POST',
-      body: JSON.stringify(params),
-    },
-  )
+}): Promise<ApiResult<WorkspaceLocateResult>> {
+  return fetchApi<WorkspaceLocateResult>('/api/workspace/fs/locate', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }
 
 export async function locateWorkspaceFilesBatch(params: {
@@ -398,8 +405,12 @@ export async function locateWorkspaceFilesBatch(params: {
   queries: string[]
   path?: string
   maxFilesPerQuery?: number
-}): Promise<ApiResult<{ results: Array<{ query: string; paths: string[]; truncated: boolean }> }>> {
-  return fetchApi<{ results: Array<{ query: string; paths: string[]; truncated: boolean }> }>(
+}): Promise<
+  ApiResult<{
+    results: Array<WorkspaceLocateResult & { query: string }>
+  }>
+> {
+  return fetchApi<{ results: Array<WorkspaceLocateResult & { query: string }> }>(
     '/api/workspace/fs/locate-batch',
     {
       method: 'POST',

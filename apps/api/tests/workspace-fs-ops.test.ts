@@ -82,6 +82,22 @@ describe('FSBridge mkdir/move/stat', () => {
     expect(() => fsBridge.locate({ query: '   ', workspacePath: root })).toThrow('query 不能为空')
   })
 
+  it('locate 达到上限后仍数出精确省略数', () => {
+    for (let i = 0; i < 5; i++) {
+      fsBridge.write({
+        path: `nested/dir/zzz-match-${i}.txt`,
+        workspacePath: root,
+        content: String(i),
+      })
+    }
+    const hit = fsBridge.locate({ query: 'zzz-match', workspacePath: root, maxFiles: 2 })
+    expect(hit.paths).toHaveLength(2)
+    expect(hit.truncated).toBe(true)
+    expect(hit.omitted).toBe(3)
+    expect(hit.totalMatches).toBe(5)
+    expect(hit.exact).toBe(true)
+  })
+
   it('write/edit 走原子替换,成功后不留 .tmp 中间件', () => {
     fsBridge.write({ path: 'nested/dir/atomic.txt', workspacePath: root, content: 'first' })
     expect(readFileSync(join(root, 'nested', 'dir', 'atomic.txt'), 'utf-8')).toBe('first')
