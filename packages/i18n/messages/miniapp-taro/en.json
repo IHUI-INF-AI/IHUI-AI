@@ -141,7 +141,9 @@
     "loginFailed": "Login failed, please try again",
     "wechatOneClick": "One-click WeChat Login",
     "webAuthLogin": "Sign in via web authorization",
-    "agreement": "By continuing, you agree to the User Agreement and Privacy Policy"
+    "agreement": "By continuing, you agree to the User Agreement and Privacy Policy",
+    "wechatUnavailable": "WeChat login is only available inside WeChat. Please sign in with an SMS code instead.",
+    "ssoUnavailable": "Web authorization sign-in is not available yet. Please use SMS code or password sign-in for now."
   },
   "forgot": {
     "step1": "Step 1: Verify phone",

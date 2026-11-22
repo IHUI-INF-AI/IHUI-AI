@@ -141,7 +141,9 @@
     "loginFailed": "登录失败,请重试",
     "wechatOneClick": "微信一键登录",
     "webAuthLogin": "网页授权登录",
-    "agreement": "登录即代表同意《用户协议》和《隐私政策》"
+    "agreement": "登录即代表同意《用户协议》和《隐私政策》",
+    "wechatUnavailable": "微信登录仅在微信内可用,请改用手机号验证码登录",
+    "ssoUnavailable": "网页授权登录暂未开放,请先用手机号验证码或密码登录"
   },
   "forgot": {
     "step1": "第一步:验证手机号",

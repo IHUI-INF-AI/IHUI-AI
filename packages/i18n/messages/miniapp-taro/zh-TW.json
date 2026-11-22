@@ -141,7 +141,9 @@
     "loginFailed": "登入失敗,請重試",
     "wechatOneClick": "微信一鍵登入",
     "webAuthLogin": "網頁授權登入",
-    "agreement": "登入即代表同意《使用者條款》和《隱私權政策》"
+    "agreement": "登入即代表同意《使用者條款》和《隱私權政策》",
+    "wechatUnavailable": "微信登入僅在微信內可用,請改用手機號驗證碼登入",
+    "ssoUnavailable": "網頁授權登入暫未開放,請先改用手機號驗證碼或密碼登入"
   },
   "forgot": {
     "step1": "第一步:驗證手機號",

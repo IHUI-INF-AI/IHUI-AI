@@ -141,7 +141,9 @@
     "loginFailed": "ログインに失敗しました。もう一度お試しください",
     "wechatOneClick": "WeChatワンタップログイン",
     "webAuthLogin": "Web認証ログイン",
-    "agreement": "ログインすると、ユーザー規約とプライバシーポリシーに同意したものとみなされます"
+    "agreement": "ログインすると、ユーザー規約とプライバシーポリシーに同意したものとみなされます",
+    "wechatUnavailable": "WeChat ログインは WeChat アプリ内でのみ利用できます。SMS コードでログインしてください。",
+    "ssoUnavailable": "Web 認証ログインはまだ利用できません。今しばらく SMS コードまたはパスワードでログインしてください。"
   },
   "forgot": {
     "step1": "ステップ1: 電話番号認証",

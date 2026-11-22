@@ -81,7 +81,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Undetermined, assertRepoRoot, catBatchOids, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, assertRepoRoot, catBatchOids, gitErrText, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -140,7 +140,17 @@ export function parentsOf(rev, cwd = ROOT) {
 /** 多父的共同基底(两两 merge-base 的公共祖先;git 自己给的 --all 结果就是"独立祖先"集) */
 export function basesOf(parents, cwd = ROOT) {
   if (parents.length < 2) return []
-  return git(['merge-base', '--all', ...parents], cwd).split('\n').map((s) => s.trim()).filter(Boolean)
+  try {
+    return git(['merge-base', '--all', ...parents], cwd).split('\n').map((s) => s.trim()).filter(Boolean)
+  } catch (e) {
+    // git 以 exit 1 + 两流皆空表达"这些提交彼此没有共同祖先"(独立历史链拼合,2026-11-22 实测:
+    // `d7e364155a2` 那一族把生产检出链与另一条链并进派生历史后,位移两端的 merge-base 就落这一型)。
+    // 这不是取数失败:调用方本来就有"基底为空 ⇒ 未判定"的分支(`auditRefMove` 的 bases.length===0
+    // 与 `auditOne` 合并维的 atRefUndetermined),但旧写法在**走到那个分支之前**就抛,把整门崩成
+    // exit 2(§0.3 要求未判定逐楔落账,不能整门丢掉判定面)。只把这一型折成空基底,其余仍抛。
+    if (e?.status === 1 && String(e?.message ?? '').includes('(git 无输出)')) return []
+    throw e
+  }
 }
 
 /** 审计一枚提交:返回被吞掉的新增路径清单。
@@ -159,22 +169,29 @@ export function auditOne(rev, cwd = ROOT, atRef = 'HEAD') {
   const bases = basesOf(ps, cwd)
   const mine = treePaths(rev, cwd)
   let alive = null
-  let atRefUndetermined = ''
+  let atRefUndetermined = bases.length === 0
+    ? `${rev.slice(0, 11)} 多父无共同基底 ⇒ A1 维不判(前件"对侧独有新增"无基底可依)`
+    : ''
   try {
     alive = treePaths(atRef, cwd)
   } catch (e) {
-    atRefUndetermined = `${atRef} 树取不到(${String(e.message).slice(0, 80)})⇒ 后手补回维不判,退回按合并结果判丢失`
+    const why = `${atRef} 树取不到(${String(e.message).slice(0, 80)})⇒ 后手补回维不判,退回按合并结果判丢失`
+    atRefUndetermined = atRefUndetermined ? `${atRefUndetermined} · ${why}` : why
   }
   const lost = []
   const repaired = []
-  for (const p of ps) {
-    const baseSets = bases.map((b) => treePaths(b, cwd))
-    for (const path of treePaths(p, cwd)) {
-      // 只问"这一侧独有的新增":任何共同基底里都没有 ⇒ 对侧无从"删除"它
-      if (baseSets.some((s) => s.has(path))) continue
-      if (!mine.has(path)) {
-        if (alive && alive.has(path)) repaired.push({ path, addedBy: p, restoredAt: atRef })
-        else lost.push({ path, addedBy: p })
+  // 无共同基底时 A1 整体不判:基底集为空会让 `baseSets.some(...)` 恒假,"对侧独有新增"的前件
+  // 退化成"这一侧的全部路径",两侧所有新增都会被算成被吞 —— 那不是判据,那是误伤。
+  if (bases.length) {
+    for (const p of ps) {
+      const baseSets = bases.map((b) => treePaths(b, cwd))
+      for (const path of treePaths(p, cwd)) {
+        // 只问"这一侧独有的新增":任何共同基底里都没有 ⇒ 对侧无从"删除"它
+        if (baseSets.some((s) => s.has(path))) continue
+        if (!mine.has(path)) {
+          if (alive && alive.has(path)) repaired.push({ path, addedBy: p, restoredAt: atRef })
+          else lost.push({ path, addedBy: p })
+        }
       }
     }
   }

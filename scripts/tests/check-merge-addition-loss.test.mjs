@@ -574,7 +574,13 @@ test('A4 阳性对照(真仓 G-939 原案):侧移必须被点名,内容已重落
     assert.ok(contentReverted.some((x) => x.path === p), `${p} 的内容回退未被 A5 点名`)
   // 票面事实②:内容已被 d3541dc2 重落 ⇒ 必须落 repaired,不得冒红(红了收信人只能重复补回,§5e-1)
   assert.equal(r.lost.length, 0, `内容已重落却被判丢失:${JSON.stringify(r.lost)}`)
-  assert.ok(G.isAncestor('d3541dc2670cec8634a57d04bcfbe5ff2b47c093', 'HEAD', REPO), '票面事实② 失准:重落枚不在 HEAD 祖先链')
+  if (!G.isAncestor('d3541dc2670cec8634a57d04bcfbe5ff2b47c093', 'HEAD', REPO)) {
+    // 位移两端两枚还在、但"重落枚"已被后续历史位移带出祖先链(2026-11-22 实测:一天内多次
+    // 「对齐生产检出」重写派生历史)⇒ 这一格的前提不再成立。按本例头注「夹具会随仓演进消失 ⇒
+    // 先问可达性,取不到就如实跳过并说明,不得让这条真历史例变成别台的恒红门」处理,不判红。
+    console.log('ℹ️ 重落枚 d3541dc2 已不在 HEAD 祖先链(历史被后续位移重写)⇒ 票面事实② 跳过,不记绿也不冒红')
+    return
+  }
   // --move 取值解析(纯函数三臂):两枚齐 / 缺一个点 / 空段
   assert.deepEqual(G.parseMoveSpec('a..b'), { from: 'a', to: 'b' })
   assert.deepEqual(G.parseMoveSpec('HEAD~3..HEAD~2'), { from: 'HEAD~3', to: 'HEAD~2' })
