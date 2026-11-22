@@ -206,6 +206,11 @@ export const CRITICAL_IGNORE_SAMPLES = [
   '.cursor/mcp.json',
   '.cloudflared/creds.json',
   'infra/main.tfplan',
+  // 2026-11-22: 本机真实敏感落点(证书私钥/运行态密钥/SQLite),防规则被删后仍能判红
+  'cert/alipay_app_private_key.pem',
+  'cert/apiclient_cert.p12',
+  'data/checkin_fernet_key',
+  'data/sessions.db',
 ]
 
 /** 纯判据:样例里哪些没被忽略。 */

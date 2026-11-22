@@ -8,12 +8,12 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: scripts/scan-api-routes.mjs
-// sourceCommit: 1b5772276cfe7d76504f337feef79d7cfa2e876b
-// inputsSha256: 06efecb605e035ce106fadc213c1f01721dd5f2a2ab65667fee95ba82564dfc8
+// sourceCommit: 3ca74ad0ed409f7b0af39f085277a38901828af7
+// inputsSha256: 8bddd4916578befe5cdae1d4d2a3abe8c8f37e7643e5b5c0aee6c541769c79dd
 // input: apps/api/src/plugins/terminal-cleanup.ts c561f522419123bcf264e279c6aa5f9e5bf66b1d07fbe983bb0e6e6298f7f61a
 // input: apps/api/src/plugins/terminal-ws.ts d1693b1743170adb38494d59c2c026053eec50be1e67e011ae40d9ea286a06d9
 // input: apps/api/src/routes/ab-testing.ts 18d5edae3f025b98897bc36989f48373956aaffcdb010ebfe97060b8d537a2ec
-// input: apps/api/src/routes/account-pool.ts 64f51ff7a34245cddea2bc30a3c23653707c1ed7befc5302fb8919fb03e44294
+// input: apps/api/src/routes/account-pool.ts 0c219b7c2fc261beda223bfdc2973f86b86caa8a052343ec89962dfd6a546b0e
 // input: apps/api/src/routes/admin-agreements.ts 4720ebf136250ea6a0ec03c98ab84e9a08a8d3648cb40efb7080a764a7135203
 // input: apps/api/src/routes/admin-api-platform.ts 92ee852595ba16b93c3d314a0740a0c45a44f93cf4cfdd3354c31bfec6f6ff61
 // input: apps/api/src/routes/admin-asks.ts fafeebe648e4723a2383e586c6626913affa00450ff507db1652baaa979b643b
@@ -106,7 +106,7 @@
 // input: apps/api/src/routes/admin/relay-api-keys.ts a1839177e0a2ed19a594a434d112c56cd9590fd693280df009c754737ba06e92
 // input: apps/api/src/routes/admin/relay-auth-sessions.ts 4424bdcea06db66eaa20f0e08b7973238a310e6daa860d2612a695865bb484ad
 // input: apps/api/src/routes/admin/relay-capacity.ts 2d455ec04800c9a0b7c67196bdcb7edd561fc745e8be93d3fd7cbe4089e040f4
-// input: apps/api/src/routes/admin/relay-channels.ts e9a553ced33b26a25486863d18d3ad8c4b52de7fa8b5c8cd326cefc141c6bd68
+// input: apps/api/src/routes/admin/relay-channels.ts f5d48bda9edfd24956fa2fe716364c31be5691d5220d62490b174c3920abb5a9
 // input: apps/api/src/routes/admin/relay-commission.ts 480d6c5b88b3cc71f06e7af040b4c430491a442f5757bf94feba823842d4422d
 // input: apps/api/src/routes/admin/relay-data-management.ts 3545cf75fd28926581a07bedca6e304d7d77b6858a37364d2956e2b2472e1b65
 // input: apps/api/src/routes/admin/relay-discovery.ts afc705128943f1f4e2210d4040fad41feb01ea9b917ff3b28b58988225fdc700
@@ -164,7 +164,7 @@
 // input: apps/api/src/routes/ai-education.ts 81933f8380640964029745e01c82aeb31b6da4e64c1045576f40af18d1ad7047
 // input: apps/api/src/routes/ai-extended.ts b542b43d99ddf9cd008d1408359623231f2e6c4fdff8f6c03b38fc01fbbdac33
 // input: apps/api/src/routes/ai-feed.ts c72b9cfe38d273e1f8c7b54e72b89178cab26e49ec653b7e414070042fe01c18
-// input: apps/api/src/routes/ai-frontend-routes.ts 4dd6164e9219d608ce10eb18174c92282aa6d37a0c1fc083665193bf0ab5b00a
+// input: apps/api/src/routes/ai-frontend-routes.ts 58e06bcb8abdc68a0a2adfb73a8e2d0b43de749a8ea44d0eeb6e1ab59120e146
 // input: apps/api/src/routes/ai-generation.ts fabeac4922500cd968c3417d5fddbd256ccd1da48bbc42efe25292b1578c4377
 // input: apps/api/src/routes/ai-grading.ts 2fac23d1b3d8f6b08aab5c435016656151f5da08cbedea7ca74c08889e9127d7
 // input: apps/api/src/routes/ai-image-edit.ts d51397e6640f207a2e11b16ad032fd0ea9b5acc73b29736151838c7ecc77bc4f
@@ -183,8 +183,8 @@
 // input: apps/api/src/routes/ai-vendors/proxy-extended-media4.ts 96fe3ea14e3ffc52104ddb5f431f14ef28f0945100d4172f4e8d951705ba05e1
 // input: apps/api/src/routes/ai-vendors/proxy-extended-media5.ts a1646c3e44eeab66ef740804316db49005cb55f1ac84567376351d8e8fe3503f
 // input: apps/api/src/routes/ai-vendors/proxy-extended.ts e20840523cab25bddc33d2ecb9cf847cf9de6e648689c05172385eb30f75f7c9
-// input: apps/api/src/routes/ai-vendors/proxy-llm.ts c789d4cb76e6023951004d2d380367a7923d7286ad2a7e45f201946ae8b99fbc
-// input: apps/api/src/routes/ai-vendors/proxy-media.ts 23adb46cce179b209198aa6de96aa040ad7968fe5732c16a6a56055db2036239
+// input: apps/api/src/routes/ai-vendors/proxy-llm.ts 9ba7740f18a10cbec3e220cc796162b0424aa3f19d94e4d20f88114d636e1bfa
+// input: apps/api/src/routes/ai-vendors/proxy-media.ts f32112bd20af26b9cadb7dfdaecd396620976af9c2864e13cb1498a7b5695638
 // input: apps/api/src/routes/ai-vendors/proxy-openai-compat.ts 96ceaaa7d2525e5a9719c270a9940b555a375a5e1580dbb9202f115bd435d0ad
 // input: apps/api/src/routes/ai-vendors/proxy-tools.ts 1bf687b662fadd2b94a8f1edee4340f85e8d8d0308d19f39b6b24cf1f0366cf3
 // input: apps/api/src/routes/ai-video-compose.ts 54cbcb71593a9a5e5dc1c88a434b9ea97378ba42a5320e69d04d4004faab8195
@@ -255,7 +255,7 @@
 // input: apps/api/src/routes/credits-usage.ts c4bf23736f783af572694a5f73d18a4258d7af757ae9c77a53c92717a9e56c2e
 // input: apps/api/src/routes/crew.ts 734c864a9a05c100bcb9c89c82f119974218b432d383ee5285a23d2a7b22b11f
 // input: apps/api/src/routes/customer-service.ts 704e6c2bb6e78dca4f6d05f6a5676bb978208d618bf1873797db95a977389838
-// input: apps/api/src/routes/debug.ts 22a0ed886e290cfb4e7e20fe66bbfe9ab3c2ac50aa19675125b04e9cf98af70e
+// input: apps/api/src/routes/debug.ts 12ee5b6cdfa73739b558667503cad3669ea014754ac01adf4e7cea41daffd113
 // input: apps/api/src/routes/deploy-diagnosis.ts 1918701a39caf8f6d1632906e4680159b46cc2807450b59c7dd1b72e1d38f99a
 // input: apps/api/src/routes/design.ts 6a3abdaaafcce79e8afc56cdd93c2f16ecb1d7d3225c0a237e5f0019ee22476f
 // input: apps/api/src/routes/desktop-prefs.ts 7e227ddec40006fc025b91376bcf2358e4db91f0ed485f40c3c8b867ae958ee7
@@ -301,15 +301,16 @@
 // input: apps/api/src/routes/health.ts e71fff58c66c73e911bea391d9eb341a0b1ebb5f2953b661a13ce5406468eb85
 // input: apps/api/src/routes/hooks.ts d58072ba5dfc8d43069769ff12a6a46465e022985f2faa1e91cc6954c5d97181
 // input: apps/api/src/routes/hr-approval.ts 4ceb9b6d2193a95464ae2445a23d311ac0219df142e15c011b90a52597302e16
-// input: apps/api/src/routes/hr-attendance.ts 2eb74f47713dc19453f718e01b1648a00dd0d52010f4615ac339a592f7046c6e
+// input: apps/api/src/routes/hr-attendance.ts 5c3bb467386a58e9577b9cf54d8d8bd5414ccab7e82b17357cf1c8fe3b21a264
 // input: apps/api/src/routes/hr-daily.ts 2776ccf3ce5b19d1c64bd5f771294e3a24ec2612279dd6eec13cf8577eb9d6a8
 // input: apps/api/src/routes/hr-import.ts f03913dd714442cf10470fe31dab0377ab72261cdb4b3533b2e68e27c7ebf773
 // input: apps/api/src/routes/hr-jobs.ts 8c4524e448d17b16d2fc4c8ac6c80ba987f97aa97e672240157fde35a9a935cb
-// input: apps/api/src/routes/hr-payroll.ts c08f236d38797d0336ac06be87744f7f117bcc1b4b32db63540f714c185b9168
+// input: apps/api/src/routes/hr-payroll.ts 501ea7b32a31ff7de8984409cefcde68d2add3a687ea2a3aa2bd63ca688c32c5
+// input: apps/api/src/routes/hr-salary-config.ts 5688b4b0d6252951346d35b6b6bce2088fedf1a02a481c871c97bca2967674c5
 // input: apps/api/src/routes/hr-settle.ts b2add3f5615c47630ce37819bc437eca1aa24f1058313de5a4e4b46610e827b2
 // input: apps/api/src/routes/i18n-dashboard.ts 3880bb04a25b18411cedc4e49b456c862b2facbb4dce84d2d3a4f01cea2e4a1e
 // input: apps/api/src/routes/im-gateway.ts e8ffa1060b1bdb4dae44d290bd74c825f5d25080da4d1c3d0ff535155374ab42
-// input: apps/api/src/routes/index.ts 9dbbe332b43d96098ed0fd7caabfcb09b20fa37583c8bff169718aa36803e377
+// input: apps/api/src/routes/index.ts 1956fbfce7c84422ca1dcac66fe4ba494753595c3db80343a91da2d93ae60221
 // input: apps/api/src/routes/interactions.ts 7a71d6505cc7269d149ac5fd00fb1ca23d0ec3bfe251036195c43f40d9098383
 // input: apps/api/src/routes/internal-relay-account-pool-credential.ts 7aed0f31db02509320a624568c80e91c4b30b1a84f9677fb19717957ee2f91d7
 // input: apps/api/src/routes/internal-relay-user-pool.ts c499672cebd7af6028ddd1db3f54536bbc12c8de162f2c095e3d9b2636420a7f
@@ -373,9 +374,8 @@
 // input: apps/api/src/routes/other/business-card-routes.ts f5ca6f0e5570d01cc12f5015f1556bdd7d9639147c7fd929003fd1e874d56cf2
 // input: apps/api/src/routes/other/developer-routes.ts 1dc47037e0d3de890a9d37646afb3de72a5ea9b533da77cd5cbee6be8578cddf
 // input: apps/api/src/routes/other/drama-routes.ts 12f983dc5a18e82e47f2ba10c6c4efe6a22cba362269538724c07a3c24ccecec
-// input: apps/api/src/routes/other/history-routes.ts 3c8a668604c3bda16e9f2792a27ceb6880ae65740dea522c3fdb883006dbccf7
-// input: apps/api/src/routes/other/image-gen-routes.ts d0c21b9cba556707dfec21224ef837292d2c21a719444687ba7ed3f75ad9b917
-// input: apps/api/src/routes/other/index.ts 6a9bfa59dbd656d850c1ea5c22b5ef78a2f1f288f592cfe9d0789a8b6527b8af
+// input: apps/api/src/routes/other/image-gen-routes.ts 58c649a383bf562ca03fe6b4d4095ab79b55e45182c3c3f48c5f68ad58390978
+// input: apps/api/src/routes/other/index.ts 364efe7679880dd907fbf3272c71402def54ccdab7c3f9b6cbacc7cdff95a4d1
 // input: apps/api/src/routes/other/knowledge-base-routes.ts 2bc3ef176b6be2c82da1b8c3cf2de6e85f1fe9dfaacd16cbf289316028eecdad
 // input: apps/api/src/routes/other/llm-stream-routes.ts 6c06486b6a56f331dfeda7a856eb93726d9b8b533d416db6589277991c9be1b7
 // input: apps/api/src/routes/other/member-routes.ts 1368b4f2f7f8b4916ce24833b6ba8584b5780c3d4f69a204e773054fa5bf657a
@@ -412,7 +412,7 @@
 // input: apps/api/src/routes/product-identity.ts df0bd59674cd557443766df0e26d4d78e3a41bcaf7832f11aa6e6be0afaed679
 // input: apps/api/src/routes/promotions.ts a83fd35d5d07a225f46bdef480cc5db4096bef98216a063b8263eacacbdbd58d
 // input: apps/api/src/routes/public-socket.ts 0c8ccd3669f4a47568e141f6c832e76ea0bf5cc3f62b1ba4b76db3401da88135
-// input: apps/api/src/routes/public-status.ts 9c44e73c085b228a8b4e6a2acf6baa144e081173c26805ce946a658a6e7c2674
+// input: apps/api/src/routes/public-status.ts fa069cf40bbd8a025ab70aa13acdb67704273c1583af1453211cba22fb0c170f
 // input: apps/api/src/routes/publish-analytics.ts 5cfcbc7b7adfa3f81a37a14d129cd235e04221f5527b3aaa5d5784e522bcf68c
 // input: apps/api/src/routes/publish-routes.ts 1d918fedd531470a08e346cf2fbb5c11253f8039afcf04f909c65e2a89c01144
 // input: apps/api/src/routes/push.ts bbe1cd02feda86a719b31f649a9e8337f94a3f7c098720c3282d7a0e5004bbf3
@@ -423,7 +423,7 @@
 // input: apps/api/src/routes/registry-sync.ts fdd0f83463c86e52bdfd2b80866ac57bb84e91051490028b13ba2ef61c1fb8db
 // input: apps/api/src/routes/relay-conversations.ts fe36632cb8f08d1b86ae2534752f378cc1568058bb02a8c4e5c5d34dd46178af
 // input: apps/api/src/routes/relay-enterprise.ts 3fe671d7572926f4ee55d2557b416352241d4cb67fc793e508e5c642fef42f61
-// input: apps/api/src/routes/relay-monitor-public.ts e1b28860035b5d25d7394b20017f5081665862749ae1ccc1ec24424df61193fc
+// input: apps/api/src/routes/relay-monitor-public.ts e6adb6ea1f7040d7dce4d5c1421f37e0903949ca87e9592e2d29ca214cd0defc
 // input: apps/api/src/routes/relay-public.ts e8c37d7464830f04ee0151439029560d5d64ffe3ef2fe45493e86b4e16373e9f
 // input: apps/api/src/routes/remote-device.ts 4f7d5f2e47444c593038ff3466eec5c97128899138d1beafe9cc4aaff1a8c607
 // input: apps/api/src/routes/remote-extended.ts ae2c0bf465f116d7762d503be18fea454363bc5734951a32028feeabae6e8670
@@ -463,7 +463,7 @@
 // input: apps/api/src/routes/tasks.ts a436cbc9873265abb486929b25c1e57dcd7d14b2d058842f879a2eebfb663a93
 // input: apps/api/src/routes/tbox-points.ts 2b02b36018499aa7f3bd6145d6148249b58d2073bc4165b281c31a0ba34fb96f
 // input: apps/api/src/routes/tbox.ts 76f6429274b7475c839d930c2459a91288f62e53ef8034d987d4b3b09953d0a9
-// input: apps/api/src/routes/teacher.ts 69d689b916e6afa9ebc39431b1fccf4346de689a34d85fade40baafcdf5431a4
+// input: apps/api/src/routes/teacher.ts 3a76d62fb2e9e1f3376f103d5c261dc306f2110123ebee8c865f8c3cd3265128
 // input: apps/api/src/routes/team-memory.ts 0e45149616d719f8122c0806ab6526545058ec3921e53288d1a423ed9440caef
 // input: apps/api/src/routes/teams.ts bbb322dd3cf2e53a6e761cdedc69437274664e0873e6e644448c9dd8b59022f3
 // input: apps/api/src/routes/telemetry.ts 9344d8a70a453ab29991e2927e7549424314e70b348020be199d61ab36a61792
@@ -519,7 +519,7 @@
 // input: apps/api/src/routes/v1-mcp-gateway.ts 07234b361862bd761d43a917828d7a983193416bda41a365b53040bb9b1faea1
 // input: apps/api/src/routes/v1-messages.ts d58dab76dc37d0ab978f1efd3310c31342239520ce8974d9cea916fc0d42be28
 // input: apps/api/src/routes/v1-midjourney.ts de3544809ff0b3303e8a3057dc3ba8210e806f1fd7f51be251d8caa5beb7e398
-// input: apps/api/src/routes/v1-multimodal.ts b2bf80528be37f9d495b1947ba8c82ca07b72d868e9280cf5322dc124cb97aee
+// input: apps/api/src/routes/v1-multimodal.ts 0fbd560048f2c2a9c4318d9e9ffc5dfff35cd372e3a039ba7bcc4489ec6f0ad8
 // input: apps/api/src/routes/v1-protocol-completeness.ts ab481fcaf7b6923e47840f766dc56e3b73caf9bfb5a95fefcaf5e079fb87d78a
 // input: apps/api/src/routes/v1-public.ts d4aea3833c754f27cc1c286903081ded2218a4b957d2726efe783959f7959ea8
 // input: apps/api/src/routes/v1-realtime.ts 244f7b8b1dd833dc45edb73e3df15fc99b0fd42ff33c7b8e1a02507a570d5738
@@ -545,8 +545,8 @@
 // input: apps/api/src/routes/zhs-organization.ts e59e6576a310c14c2a917b15e81a418b2d1510edd45c8339b1907b6ad8dd6738
 // input: packages/design-tokens/src/index.ts 74cd658ce6f667a5877e9da21fd52fa299d6de9d937788b6fb7f52d05c99754e
 // files: 534
-// endpoints: 5633
-// generatedAt: 2026-11-20T13:59:32.137Z
+// endpoints: 5636
+// generatedAt: 2026-11-22T15:46:01.397Z
 // IHUI-GEN-PIN-END
 export const API_ENDPOINTS_RAW = `GET	/.well-known/apple-app-site-association	.well-known	apps/api/src/routes/apple-app-site-association.ts	exact
 GET	/.well-known/oauth-authorization-server	.well-known	apps/api/src/routes/oauth-authorization-server.ts	exact
@@ -599,9 +599,6 @@ POST	/admin/relay/dsml/parse	admin	apps/api/src/routes/admin/relay-dsml-parse.ts
 GET	/admin/relay/models/unavailable	admin	apps/api/src/routes/admin/relay-model-availability.ts	inferred
 POST	/admin/relay/pat-onboarding	admin	apps/api/src/routes/admin/relay-signing-admin.ts	inferred
 GET	/admin/relay/signature-protocols	admin	apps/api/src/routes/admin/relay-signing-admin.ts	inferred
-GET	/admin/relay/switch-targets	admin	apps/api/src/routes/admin/relay-switch-admin.ts	inferred
-POST	/admin/relay/switch-targets/:id/capture	admin	apps/api/src/routes/admin/relay-switch-admin.ts	inferred
-POST	/admin/relay/switch-targets/:id/switch	admin	apps/api/src/routes/admin/relay-switch-admin.ts	inferred
 GET	/admin/relay/upstream-capability-matrix	admin	apps/api/src/routes/admin/relay-signing-admin.ts	inferred
 POST	/admin/relay/welfare/plan	admin	apps/api/src/routes/admin/relay-welfare-claim.ts	inferred
 GET	/admin/relay/welfare/status	admin	apps/api/src/routes/admin/relay-welfare-claim.ts	inferred
@@ -2800,6 +2797,7 @@ POST	/api/ai/mcp/servers	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 DELETE	/api/ai/mcp/servers/:id	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 POST	/api/ai/mcp/servers/:id/:id	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 GET	/api/ai/mcp/servers/:id/tools	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
+GET	/api/ai/mcp/tools	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 POST	/api/ai/mcp/tools/call	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 GET	/api/ai/mcp/usage	ai	apps/api/src/routes/ai-frontend-routes.ts	exact
 POST	/api/ai/minimax/music	ai	apps/api/src/routes/ai-vendors/proxy-extended-media.ts	exact
@@ -3245,9 +3243,9 @@ DELETE	/api/behavior/watch/all	behavior	apps/api/src/routes/behavior.ts	exact
 GET	/api/behavior/watch/count	behavior	apps/api/src/routes/behavior.ts	exact
 GET	/api/behavior/watch/list	behavior	apps/api/src/routes/behavior.ts	exact
 GET	/api/billings	billings	apps/api/src/routes/agents.ts	exact
-DELETE	/api/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	exact
-GET	/api/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	exact
-POST	/api/browse-history/visit	browse-history	apps/api/src/routes/other/history-routes.ts	exact
+DELETE	/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	inferred
+GET	/browse-history	browse-history	apps/api/src/routes/other/history-routes.ts	inferred
+POST	/browse-history/visit	browse-history	apps/api/src/routes/other/history-routes.ts	inferred
 POST	/api/browser/probe	browser	apps/api/src/routes/browser.ts	exact
 POST	/api/browser/screenshot	browser	apps/api/src/routes/browser.ts	exact
 DELETE	/api/business-card/:id	business-card	apps/api/src/routes/other/business-card-routes.ts	exact
@@ -4161,9 +4159,6 @@ GET	/api/education-platform/sync/log	education-platform	apps/api/src/routes/educ
 GET	/api/embed-proxy/raw	embed-proxy	apps/api/src/routes/embed-proxy.ts	exact
 POST	/api/embed-proxy/raw	embed-proxy	apps/api/src/routes/embed-proxy.ts	exact
 POST	/v1/embeddings	embeddings	apps/api/src/routes/v1-ai-core.ts	exact
-GET	/employees	employees	apps/api/src/routes/hr-salary-config.ts	inferred
-POST	/employees	employees	apps/api/src/routes/hr-salary-config.ts	inferred
-DELETE	/employees/:id	employees	apps/api/src/routes/hr-salary-config.ts	inferred
 POST	/api/engine/rpc	engine	apps/api/src/routes/engine-control-frames.ts	exact
 POST	/api/engine/voice/sessions	engine	apps/api/src/routes/engine-voice.ts	exact
 DELETE	/api/engine/voice/sessions/:sid	engine	apps/api/src/routes/engine-voice.ts	exact
@@ -4435,6 +4430,9 @@ POST	/api/hr-attendance/leave	hr-attendance	apps/api/src/routes/hr-attendance.ts
 PUT	/api/hr-attendance/leave/:id/approve	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 GET	/api/hr-attendance/me	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 POST	/api/hr-attendance/me/link-requests/:id/:action	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/my-leaves	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/my-monthly	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
+GET	/api/hr-attendance/my-records	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 POST	/api/hr-attendance/sync/run	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 GET	/api/hr-attendance/sync/status	hr-attendance	apps/api/src/routes/hr-attendance.ts	exact
 GET	/api/hr-daily/daily	hr-daily	apps/api/src/routes/hr-daily.ts	exact
@@ -4459,6 +4457,14 @@ GET	/api/hr-payroll/mine/periods	hr-payroll	apps/api/src/routes/hr-payroll.ts	ex
 GET	/api/hr-payroll/periods	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
 POST	/api/hr-payroll/revert	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
 POST	/api/hr-payroll/status	hr-payroll	apps/api/src/routes/hr-payroll.ts	exact
+GET	/api/hr-salary-config/employees	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+POST	/api/hr-salary-config/employees	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+DELETE	/api/hr-salary-config/employees/:id	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+GET	/api/hr-salary-config/insurance	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+POST	/api/hr-salary-config/insurance	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+GET	/api/hr-salary-config/insurance/ready	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+POST	/api/hr-salary-config/tax-profile	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
+GET	/api/hr-salary-config/tax-profile/:employeeId	hr-salary-config	apps/api/src/routes/hr-salary-config.ts	exact
 POST	/api/hr-settle/daily	hr-settle	apps/api/src/routes/hr-settle.ts	exact
 GET	/api/hr-settle/monthly	hr-settle	apps/api/src/routes/hr-settle.ts	exact
 POST	/api/hr-settle/monthly	hr-settle	apps/api/src/routes/hr-settle.ts	exact
@@ -4482,8 +4488,6 @@ POST	/v1/images/inpaint	images	apps/api/src/routes/v1-multimodal.ts	exact
 POST	/v1/images/style-transfer	images	apps/api/src/routes/v1-multimodal.ts	exact
 POST	/v1/images/variations	images	apps/api/src/routes/v1-protocol-completeness.ts	exact
 POST	/v1/images/virtual-try-on	images	apps/api/src/routes/v1-multimodal.ts	exact
-GET	/insurance	insurance	apps/api/src/routes/hr-salary-config.ts	inferred
-POST	/insurance	insurance	apps/api/src/routes/hr-salary-config.ts	inferred
 GET	/api/integrations	integrations	apps/api/src/routes/system.ts	exact
 POST	/api/integrations	integrations	apps/api/src/routes/system.ts	exact
 DELETE	/api/integrations/:id	integrations	apps/api/src/routes/system.ts	exact
@@ -5814,8 +5818,6 @@ DELETE	/api/tasks/devices/:deviceId	tasks	apps/api/src/routes/tasks.ts	exact
 POST	/api/tasks/dispatch	tasks	apps/api/src/routes/tasks.ts	exact
 POST	/api/tasks/register-device	tasks	apps/api/src/routes/tasks.ts	exact
 POST	/api/tasks/result	tasks	apps/api/src/routes/tasks.ts	exact
-POST	/tax-profile	tax-profile	apps/api/src/routes/hr-salary-config.ts	inferred
-GET	/tax-profile/:employeeId	tax-profile	apps/api/src/routes/hr-salary-config.ts	inferred
 POST	/api/tbox	tbox	apps/api/src/routes/tbox.ts	exact
 DELETE	/api/tbox/:id	tbox	apps/api/src/routes/tbox.ts	exact
 PUT	/api/tbox/:id	tbox	apps/api/src/routes/tbox.ts	exact
@@ -5835,6 +5837,7 @@ GET	/api/tbox-points/points	tbox-points	apps/api/src/routes/tbox-points.ts	exact
 GET	/api/teacher/:id	teacher	apps/api/src/routes/teacher.ts	exact
 GET	/api/teacher/:id/courses	teacher	apps/api/src/routes/teacher.ts	exact
 POST	/api/teacher/:id/follow	teacher	apps/api/src/routes/teacher.ts	exact
+GET	/api/teacher/:id/reviews	teacher	apps/api/src/routes/teacher.ts	exact
 GET	/api/teacher/list	teacher	apps/api/src/routes/teacher.ts	exact
 GET	/api/team-memory	team-memory	apps/api/src/routes/team-memory.ts	exact
 POST	/api/team-memory	team-memory	apps/api/src/routes/team-memory.ts	exact
@@ -6182,5 +6185,5 @@ GET	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	
 POST	/api/wrong-questions	wrong-questions	apps/api/src/routes/wrong-questions.ts	exact
 GET	/ws/live-chat	ws	apps/api/src/routes/ws/live-chat.ts	exact
 `
-export const API_ENDPOINTS_GENERATED_AT = '2026-11-20T13:59:32.137Z'
-export const API_ENDPOINT_LINE_COUNT = 5633
+export const API_ENDPOINTS_GENERATED_AT = '2026-11-22T15:46:01.397Z'
+export const API_ENDPOINT_LINE_COUNT = 5636
