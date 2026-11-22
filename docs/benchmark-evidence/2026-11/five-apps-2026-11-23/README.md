@@ -144,6 +144,11 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 
 `1b4ab56b` 是本轮第三批的提交；随后 `be772cd6`（另一会话的会话标题修复）把 `apps/web/src/lib/mcp-app-bridge.ts`、`mcp-app-frame.tsx`、`mcp-app-bridge.test.ts`、`proc_sandbox.py` 的改动整体回退（`git show be772cd6 -- ...` 可复核）。工作树里原改动仍在，本批按原样复装并重新提交，避免"提交过但 HEAD 没有"的假完成。
 
+## 追加批（同日）：FS 原子写 + 工作区变更客户端面
+
+- `55aae297`：`FSBridge.write`/`edit` 改为「同目录临时文件 + rename」原子替换（`atomicWriteText`），磁盘满/Windows EBUSY/进程被杀不再留下半截文件；`workspace-fs-ops.test.ts` 6 passed（含"成功后不留 .tmp"）。
+- `cc216ee8`：新增 `apps/web/src/hooks/use-workspace-watcher.ts`，对齐 WorkBuddy `/api/v1/fs/watcher/*` 的客户端面：面板可见才创建、卸载即 `remove`、`cursor` 长轮询续读、过滤 `.git/` 与依赖目录避免「刷新→事件→刷新」自激；`source-control-panel.tsx` 可见时订阅，外部保存或 AI 改文件后自动刷新差异与暂存态。`use-workspace-watcher.test.tsx` 2 passed + 分支保护 4 passed，`@ihui/web` typecheck 7/7 success。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
