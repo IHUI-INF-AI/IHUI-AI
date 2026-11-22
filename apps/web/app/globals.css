@@ -689,7 +689,9 @@ html[data-table-zebra='true'] [data-testid='markdown-stream'] tbody tr:nth-child
  * 已统一的墨色环整体改灰,形成第二套聚焦外观。此处只扩大覆盖面,不改变外观。 */
 html[data-focus-ring='true'] :focus-visible {
   outline: 2px solid var(--color-stroke-focus);
-  outline-offset: 2px;
+  /* 2026-11-22 机主定档:取消 2px 外扩间隙,焦点环贴住控件边沿(与组件内
+   * `outline-offset-0` 同值,避免无障碍强化档又长出第二套带缝隙的聚焦外观) */
+  outline-offset: 0;
 }
 
 /* 全站灰度:作用在根元素,不影响组件自身的颜色变量计算 */

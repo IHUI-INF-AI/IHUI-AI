@@ -2227,9 +2227,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-22**
-- 🔧 기타:按终尖现读刷新漂移门基线(mpTierLiteral/tierRnForkN 两维按输入等同证明归因为存量) (90293c2e)
-- 🔧 기타:清理 web 两条零引用依赖(@ihui/auth、@tauri-apps/plugin-store)并固化管理口径 (666c32e4)
-- 🔧 기타:补全 Gitignore 凭据与重型产物族 + 关键规则活体自检 (#247) (c11051f8)
 - 🔧 기타:硬闸计划任务/自动推送/推送区间大文件 (12782592)
 - 🐞 수정:安装器默认目录改为固定盘探测,不再写死盘符(无 D 盘机器静默安装不再落空卷失败) (1e1aefa8)
 - 🐞 수정:env-pin.ps1 补齐 NODE_OPTIONS(仅在现值空且钩子文件在盘时补),使重启后自查不再报 changed (f0e458e7)
