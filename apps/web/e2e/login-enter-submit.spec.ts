@@ -1,0 +1,295 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { test as base, expect, type Page } from '@playwright/test'
+import { ensureLoginDialogOpen } from './open-login-dialog'
+import { ADMIN_USER } from './fixtures'
+
+/**
+ * 登录弹窗 Enter 触发 form submit 守门测试 (2026-07-30 立)
+ *
+ * 业务场景:用户填完表单 + 勾选协议后,按 Enter 应触发 form submit → 调用登录 API。
+ * 覆盖 3 种登录 tab × 3 个 Enter 触发点:
+ *   - 密码 tab:账号框 Enter / 密码框 Enter / 协议 label Enter
+ *   - 手机验证码 tab:手机框 Enter / 验证码框 Enter
+ *   - 邮箱验证码 tab:邮箱框 Enter / 验证码框 Enter
+ *
+ * 守门依据(任何一条失败视为 Enter 触发回归):
+ *   1. 任意 input 上按 Enter 应触发 form submit 事件
+ *   2. 协议 label 上按 Enter 应通过 onKeyDown form.requestSubmit() 触发 form submit
+ *   3. form submit 事件 submitter 应为 BUTTON/login-submit(input Enter 路径)或 null(label Enter 路径)
+ *
+ * 不依赖后端 API:用 document.addEventListener('submit') 拦截事件,避免真实调用登录接口。
+ *
+ * 关联组件:
+ *  - packages/ui-react/src/components/login-form/agreement-checkbox.tsx (label-as-checkbox 修复)
+ *  - packages/ui-react/src/components/login-form/password-login-form.tsx
+ *  - packages/ui-react/src/components/login-form/phone-code-login-form.tsx
+ *  - packages/ui-react/src/components/login-form/email-code-login-form.tsx
+ *
+ * 历史背景:
+ *  - 2026-07-30 修复:<label> 包裹 sr-only <input> 模式导致 Enter 触发 input native toggle 而非 form submit。
+ *    改为 <label role="checkbox"> 自身充当 checkbox(无 labeled control),onKeyDown 触发 form.requestSubmit()。
+ *  - 此 spec 防止未来重构回 sr-only input 模式时 Enter 触发链路断裂。
+ */
+
+const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
+
+const test = base.extend<{ freshPage: Page; freshPageDomestic: Page }>({
+  freshPage: async ({ browser }, providePage) => {
+    // 不带 storageState 的全新 context,确保未登录态
+    const context = await browser.newContext()
+    // 隐藏 Next.js dev overlay,避免拦截点击
+    await context.addInitScript(() => {
+      // @ts-expect-error - 全局变量
+      window.__NEXT_DEV_INDICATOR_DISMISSED = true
+    })
+    const page = await context.newPage()
+    await providePage(page)
+    await context.close()
+  },
+  // 2026-11-03:手机验证码 tab 只在**国内 geo** 的登录布局里存在(region-priority 2026-10-26:
+  // 海外登录面移除短信 tab,phone 表单在海外是产品上不可达的入口)。本 spec 自建 context
+  // (browser.newContext 不继承 playwright.config 的 extraHTTPHeaders),CI runner 又被
+  // 判成海外 ⇒ login-tab-phone 恒缺失,用例空转 60s。此夹具显式声明国内,让 phone 表单
+  // 以真实可用的产品形态出现;协议自动弹窗由 openLoginDialog 统一按「不同意」收起。
+  freshPageDomestic: async ({ browser }, providePage) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { 'CF-IPCountry': 'CN' },
+    })
+    await context.addInitScript(() => {
+      // @ts-expect-error - 全局变量
+      window.__NEXT_DEV_INDICATOR_DISMISSED = true
+    })
+    const page = await context.newPage()
+    await providePage(page)
+    await context.close()
+  },
+})
+
+/**
+ * 在页面上注入 form submit 监听器,捕获 form submit 事件(不依赖后端 API)。
+ */
+async function installSubmitListener(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    // @ts-expect-error - 全局变量
+    window.__capturedSubmits = []
+    const listener = (e: SubmitEvent) => {
+      // @ts-expect-error - 全局变量
+      window.__capturedSubmits.push({
+        type: e.type,
+        targetTagName: (e.target as HTMLElement | null)?.tagName,
+        targetId: (e.target as HTMLElement | null)?.id,
+        submitterTagName: e.submitter?.tagName ?? null,
+        submitterTestId: e.submitter?.getAttribute('data-testid') ?? null,
+      })
+    }
+    document.addEventListener('submit', listener, { capture: true })
+  })
+}
+
+async function getCapturedSubmitsCount(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    // @ts-expect-error - 全局变量
+    return (window.__capturedSubmits ?? []).length
+  })
+}
+
+/**
+ * 打开登录弹窗并切到指定 tab。
+ */
+async function openLoginDialog(
+  page: Page,
+  tabTestId: string,
+  firstInputTestId: string,
+): Promise<void> {
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
+
+  // 2026-09-14 根因加固:647 例全量负载下 hydration 可拖到 15s+,盲点重试 10 次仍
+  // 全落在静态 DOM(triage worker60 实证)。等 localStorage['ihui-language'].state
+  // .initialized === true(I18nProvider effect 已跑 = React 事件已接)再点,确定性问题前置。
+  await page
+    .waitForFunction(
+      () => {
+        try {
+          const raw = localStorage.getItem('ihui-language')
+          if (!raw) return false
+          return (
+            (JSON.parse(raw as string) as { state?: { initialized?: boolean } }).state
+              ?.initialized === true
+          )
+        } catch {
+          return false
+        }
+      },
+      undefined,
+      { timeout: 20000 },
+    )
+    .catch(() => {}) // 超时不阻断(下方点击重试循环仍兜底)
+
+  // 开弹窗一律走唯一出口 ./open-login-dialog.ts —— 未登录态的侧栏「登录」自 2026-09 起
+  // 是 DropdownMenu 触发器(点它只开菜单),原先"点一下文字=登录 + 有界重试"考的就是
+  // 一个已经不存在的一步式入口;新出口按「用户行 → 菜单项」两步走,reauth 深链兜底。
+  const dialog = page.getByTestId('login-dialog')
+  await ensureLoginDialogOpen(page)
+  await expect(dialog).toBeVisible({ timeout: 5000 })
+
+  // 2026-11-11:扫码面板已改为内联「同意并继续」,不再自动弹协议窗;
+  // 保留下面这段 guard 仅为兼容其它宿主/旧构建仍会弹窗的情况,不影响当前语义。
+  const autoAgreementDisagree = page.getByTestId('agreement-notice-disagree')
+  if (await autoAgreementDisagree.isVisible().catch(() => false)) {
+    // 2026-11-04 CI flaky 根因(login-enter-submit:144):isVisible 是瞬时快照,
+    // 国内 geo 的协议窗会在快照之后被自动收起/重挂,回到 click 时元素已不存在
+    // (报错原文 waiting for getByTestId('agreement-notice-disagree'))。
+    // 收口:click 用有界等待(3s,短于默认),元素已消失即视为目的达成;
+    // 随后仍以 toBeHidden 断言兜底 —— 若点击真失败且窗口还在,这里会红,不吞真错。
+    await autoAgreementDisagree.click({ timeout: 3000 }).catch(() => {})
+    await expect(autoAgreementDisagree).toBeHidden({ timeout: 3000 })
+  }
+
+  await page.getByTestId(tabTestId).click()
+  // 2026-08-26 修复:enableCredentialPersistence 后账号框为 AccountHistoryInput
+  // (id=login-form-{account,phone,email},无 testid)→ 支持 #CSS 选择器或 testid 两种形式
+  const inputLocator = firstInputTestId.startsWith('#')
+    ? page.locator(firstInputTestId)
+    : page.getByTestId(firstInputTestId)
+  await expect(inputLocator).toBeVisible({ timeout: 3000 })
+}
+
+test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
+  test.describe('密码登录 tab', () => {
+    test('账号框 Enter → form submit', async ({ freshPage: page }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-password', '#login-form-account')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-account').fill('admin')
+      await page.locator('#login-form-account').press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(count, '账号框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
+    })
+
+    test('密码框 Enter → form submit', async ({ freshPage: page }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-password', '#login-form-account')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-account').fill('admin')
+      await page.getByTestId('login-password-input').fill(ADMIN_USER.password)
+      await page.getByTestId('login-password-input').press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(count, '密码框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
+    })
+
+    test('协议 label Enter → form submit(走 onKeyDown form.requestSubmit)', async ({
+      freshPage: page,
+    }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-password', '#login-form-account')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-account').fill('admin')
+      await page.getByTestId('login-password-input').fill(ADMIN_USER.password)
+
+      // 鼠标点击 label 左侧 16x16 方框区域(模拟真实用户点击 checkbox 方框)
+      // 不能用 locator.click():默认点击 label 中心,中心是"用户协议"链接,会被 closest('a') 拦截
+      const checkbox = page.getByTestId('agreement-checkbox')
+      const box = await checkbox.boundingBox()
+      expect(box, 'checkbox boundingBox 应存在').toBeTruthy()
+      await page.mouse.click(box!.x + 8, box!.y + 8)
+      // 2026-10-20 状态断言改锚:33000fbfdb(2026-09-22 非法交互嵌套根治)把
+      // role=checkbox / aria-checked / tabIndex 下放到内层方框(agreement-checkbox.tsx:60-65,
+      // data-testid="agreement-checkbox-box"),外层 <label> 只留点击代理、不带任何 aria 状态,
+      // 按旧写法读 label 恒得 ""。admin-post-login-landing.spec.ts:41 早已用同一枚 -box 约定。
+      // 点击坐标不动:仍打 label 左上角 16x16 方框区域(这才是被守护的用户路径)。
+      await expect(page.getByTestId('agreement-checkbox-box')).toHaveAttribute(
+        'aria-checked',
+        'true',
+        { timeout: 2000 },
+      )
+
+      // 焦点在方框 span(tabIndex=0,agreement-checkbox.tsx:64)上,按 Enter → onKeyDown form.requestSubmit()
+      await page.keyboard.press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(
+        count,
+        'label Enter 应通过 onKeyDown form.requestSubmit() 触发 form submit',
+      ).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  test.describe('手机验证码登录 tab', () => {
+    // 手机验证码 tab 仅国内 geo 提供(海外登录面已移除短信入口);统一走 domestic 夹具。
+    test('手机框 Enter → form submit', async ({ freshPageDomestic: page }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-phone', '#login-form-phone')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-phone').fill('13800138000')
+      await page.locator('#login-form-phone').press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(count, '手机框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
+    })
+
+    test('验证码框 Enter → form submit', async ({ freshPageDomestic: page }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-phone', '#login-form-phone')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-phone').fill('13800138000')
+      await page.getByTestId('login-phone-code-input').fill('123456')
+      await page.getByTestId('login-phone-code-input').press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(count, '验证码框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  test.describe('邮箱验证码登录 tab', () => {
+    test('邮箱框 Enter → form submit', async ({ freshPage: page }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-email', '#login-form-email')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-email').fill('test@example.com')
+      await page.locator('#login-form-email').press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(count, '邮箱框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
+    })
+
+    test('验证码框 Enter → form submit', async ({ freshPage: page }) => {
+      test.setTimeout(60000)
+      await openLoginDialog(page, 'login-tab-email', '#login-form-email')
+      await installSubmitListener(page)
+
+      await page.locator('#login-form-email').fill('test@example.com')
+      await page.getByTestId('login-email-code-input').fill('123456')
+      await page.getByTestId('login-email-code-input').press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await page.waitForTimeout(500)
+
+      const count = await getCapturedSubmitsCount(page)
+      expect(count, '验证码框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
+    })
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

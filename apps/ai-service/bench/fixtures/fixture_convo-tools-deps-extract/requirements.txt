@@ -1,0 +1,5 @@
+# core
+fastapi==0.110
+sqlalchemy>=2.0
+# dev
+pytest

@@ -1,0 +1,379 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import {
+  pgTable,
+  bigserial,
+  serial,
+  varchar,
+  integer,
+  text,
+  boolean,
+  timestamp,
+  bigint,
+  jsonb,
+  numeric,
+  uuid,
+  index,
+  unique,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+
+/**
+ * AI 模型配置表（ai_model_config）。
+ * - 用户/管理员自定义模型供应商凭证（API Key 加密存储于 api_key_enc）。
+ * - is_builtin: 内置供应商（只读，不可删除）。
+ * - api_format: openai_chat / anthropic_messages / openai_responses。
+ *
+ * Phase 1 (2026-07-22) 扩展字段:provider_group / group_label / default_model_id /
+ *   sort_order_in_group / health_status / last_health_check_at /
+ *   usage_30d_tokens / usage_30d_cost_cents
+ * 旧字段 100% 保留,旧代码读取仍可用(向后兼容)
+ */
+export const aiModelConfig = pgTable(
+  'ai_model_config',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    isBuiltin: boolean('is_builtin').default(false).notNull(),
+    baseUrl: varchar('base_url', { length: 500 }).notNull(),
+    apiFormat: varchar('api_format', { length: 32 }).default('openai_chat').notNull(),
+    apiKeyEnc: text('api_key_enc'),
+    modelIdForTest: varchar('model_id_for_test', { length: 100 }),
+    enabled: boolean('enabled').default(true).notNull(),
+    description: text('description'),
+    sortOrder: integer('sort_order').default(0).notNull(),
+    ownerUuid: varchar('owner_uuid', { length: 64 }),
+    lastTestStatus: varchar('last_test_status', { length: 16 }),
+    lastTestResponseMs: integer('last_test_response_ms'),
+    lastTestedAt: varchar('last_tested_at', { length: 32 }),
+    lastTestError: text('last_test_error'),
+    extraConfig: text('extra_config'),
+    /** 自定义 SVG 图标文本(0108 migration);为空时前端按 providerCode 回退到内置厂商图标 */
+    iconSvg: text('icon_svg'),
+    /**
+     * CLI 配置导入溯源字段(2026-07-20 立,可空,向后兼容)
+     * - importSource: 'cc-switch' | 'codex++' | 'claude-cli' | 'codex-cli' | 'gemini-cli' | 'hermes' | null
+     * - importSourceId: 源工具中的 provider id(cc-switch) / relayProfile id(codex++)
+     * - importSourceAppType: 仅 cc-switch,值为 CliAppType 8 值之一
+     * 去重 partial unique index:
+     *   CREATE UNIQUE INDEX ix_ai_model_config_import_unique
+     *     ON ai_model_config (owner_uuid, import_source, import_source_id)
+     *     WHERE import_source IS NOT NULL;
+     */
+    importSource: varchar('import_source', { length: 32 }),
+    importSourceId: varchar('import_source_id', { length: 128 }),
+    importSourceAppType: varchar('import_source_app_type', { length: 32 }),
+    // --- Phase 1 扩展字段(2026-07-22) ---
+    /** 分组代码(用户自定义,'default' = 默认分组) */
+    providerGroup: varchar('provider_group', { length: 64 }),
+    /** 分组显示名(冗余存储,避免前端 JOIN groups 表) */
+    groupLabel: varchar('group_label', { length: 64 }),
+    /** 当前 provider 下的默认 model id */
+    defaultModelId: varchar('default_model_id', { length: 128 }),
+    /** 组内排序 */
+    sortOrderInGroup: integer('sort_order_in_group').default(0),
+    /** 健康状态:unknown / healthy / degraded / down */
+    healthStatus: varchar('health_status', { length: 16 }).default('unknown'),
+    /** 最近一次健康检查时间 */
+    lastHealthCheckAt: varchar('last_health_check_at', { length: 32 }),
+    /** 30 天累计 token 用量 */
+    usage30dTokens: bigint('usage_30d_tokens', { mode: 'number' }).default(0),
+    /** 30 天累计费用(分) */
+    usage30dCostCents: numeric('usage_30d_cost_cents', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).default(0),
+    /**
+     * BYOK 平台服务费抽成率(2026-07-30 立,numeric(5,4),默认 0.1000=10%)。
+     * 用户用自己的 API Key 调用大厂模型时,平台只收抽成(上游原价 × 抽成率),不碰大厂成本。
+     * 仅 owner_uuid IS NULL 的全局配置行生效(admin 配置的平台默认抽成率)。
+     */
+    byokCommissionRate: numeric('byok_commission_rate', { precision: 5, scale: 4 }).default(
+      '0.1000',
+    ),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerIdx: index('ix_ai_model_config_owner').on(t.ownerUuid),
+    enabledIdx: index('ix_ai_model_config_enabled').on(t.enabled),
+    providerIdx: index('ix_ai_model_config_provider').on(t.providerCode),
+    providerGroupIdx: index('ix_ai_model_config_provider_group').on(t.providerGroup),
+    healthIdx: index('ix_ai_model_config_health').on(t.healthStatus),
+    /**
+     * 全局配置(owner_uuid IS NULL)防重:同一 provider + 同一 base_url 只允许一行。
+     * 2026-10-18 立 —— 线上 token6688 曾长出 id=1 与 id=46 两条**业务字段逐字节相同**的
+     * 全局配置,生产者是 model_sync._ensure_provider_config:它原先只按 `enabled = true`
+     * 查行,一旦该行被临时禁用或并发下不可见,查询落空就再插一行。id=46 之后再没被
+     * 同步更新过,成了停在 2026-09-22 的僵尸行,并让 8 个本已被下架的模型
+     * (glm-5 / glm-5.1 / grok-4.6 / qwen3-max / sora-2 / tts-1 / tts-1-hd /
+     * doubao-seedance-1-5-pro)靠僵尸行继续错误上架。
+     * 除"删僵尸行 + 改生产者"外,这一层是防再生的硬闸(重复插入会被直接拒绝)。
+     *
+     * 为什么用 (provider_code, COALESCE(base_url,'')) 而不是单独 provider_code:
+     * 同一 provider_code 下允许存在多个**不同端点**的中转配置(既有设计,如 swiftapi 存在
+     * 空 base_url 行与 /v1 后缀行两条语义不同的配置行)。
+     * 只按 provider_code 做唯一会误伤这类配置,故把 base_url 纳入键。
+     * COALESCE 是必须的:base_url 可空,而 UNIQUE 对 NULL 不去重。
+     */
+    globalProviderBaseUniq: uniqueIndex('uq_ai_model_config_global_provider_base')
+      .on(t.providerCode, sql`COALESCE(${t.baseUrl}, '')`)
+      .where(sql`${t.ownerUuid} IS NULL`),
+  }),
+)
+
+/**
+ * AI 模型配置 - 子表(1:N) ai_model_config_models(Phase 1,2026-07-22)
+ */
+export const aiModelConfigModels = pgTable(
+  'ai_model_config_models',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    configId: bigint('config_id', { mode: 'number' }).notNull(),
+    modelId: varchar('model_id', { length: 128 }).notNull(),
+    displayName: varchar('display_name', { length: 256 }),
+    contextLength: integer('context_length').default(32000),
+    // 2026-09-13: integer → numeric(18,6)。分/千 token 进价实为小数(如 glm-5.3 到手 0.04 分/千),
+    // integer 会把 seed 回填与 discovery 落库的小数价全部归零,导致公开价目恒 0。
+    inputPricePer1k: numeric('input_price_per_1k', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).default(0),
+    outputPricePer1k: numeric('output_price_per_1k', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).default(0),
+    // 2026-11-14:采购成本价(分/千 token)。利润看板专用,不参与对客计价。
+    // 定价管线写入时 = 解析出的原始成本,售价 = 成本 × PROFIT_FACTOR;
+    // null = 未知(历史行/人工未填),利润计算按"成本未知"处理,不冒充 0。
+    costInputPricePer1k: numeric('cost_input_price_per_1k', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }),
+    costOutputPricePer1k: numeric('cost_output_price_per_1k', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }),
+    enabled: boolean('enabled').default(true),
+    defaultParams: jsonb('default_params').default({}),
+    isDefault: boolean('is_default').default(false),
+    sortOrder: integer('sort_order').default(0),
+    lastTestStatus: varchar('last_test_status', { length: 16 }),
+    lastTestResponseMs: integer('last_test_response_ms'),
+    lastTestedAt: varchar('last_tested_at', { length: 32 }),
+    lastTestError: text('last_test_error'),
+    // --- P0-5 中转站字段(2026-07-29 立) ---
+    /** 是否在中转站公开上架(/v1/models 返回此模型) */
+    isRelayPublic: boolean('is_relay_public').default(false).notNull(),
+    /** 中转站定价倍率(1.0 = 按上游原价,1.2 = 加价 20%),numeric(10,4) */
+    relayPriceMultiplier: varchar('relay_price_multiplier', { length: 20 }).default('1.0000'),
+    /** 中转站展示排序(越小越靠前) */
+    relaySortOrder: integer('relay_sort_order').default(0).notNull(),
+    /** 中转站展示名(为空时用 displayName/modelId) */
+    relayDisplayName: varchar('relay_display_name', { length: 256 }),
+    // --- ModelSyncService v3 元数据字段(2026-07-31 立) ---
+    tags: text('tags').array().default([]),
+    description: text('description'),
+    vendor: varchar('vendor', { length: 64 }),
+    maxOutputTokens: integer('max_output_tokens'),
+    supportsToolCall: boolean('supports_tool_call').default(false),
+    // --- 工具调用能力实证(2026-11-08 立) ---
+    // 与 supports_tool_call(上游元数据"声称")分离:这两个列只由真实探针/线上判据写入,
+    // ModelSyncService 只允许新增/删除行,禁止覆盖(断言见 model_sync.py)。
+    /** null=未实证;true=实测拿到原生 tool_calls;false=实测只吐伪工具痕迹 */
+    toolCallEmpirical: boolean('tool_call_empirical'),
+    toolCallVerifiedAt: timestamp('tool_call_verified_at', { withTimezone: true }),
+    supportsVision: boolean('supports_vision').default(false),
+    supportsStreaming: boolean('supports_streaming').default(true),
+    rateLimitRpm: integer('rate_limit_rpm'),
+    rateLimitTpd: integer('rate_limit_tpd'),
+    releaseDate: varchar('release_date', { length: 32 }),
+    deprecationDate: varchar('deprecation_date', { length: 32 }),
+    upstreamETag: varchar('upstream_etag', { length: 255 }),
+    upstreamLastModified: varchar('upstream_last_modified', { length: 64 }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    // --- 积分消耗倍数(2026-07-31 立,用户规则:平台内置模型积分消耗倍数) ---
+    /** 积分消耗倍数(1.00=基准,0=免费,10=高级,30=旗舰)。扣分=token/1000×倍数。见 POINTS_MULTIPLIER_TIERS */
+    pointsMultiplier: numeric('points_multiplier', { precision: 5, scale: 2 })
+      .default('1.00')
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    configIdIdx: index('ai_model_config_models_config_id_idx').on(t.configId),
+    enabledIdx: index('ai_model_config_models_enabled_idx').on(t.enabled),
+    configModelUniq: unique('ai_model_config_models_config_id_model_id_unique').on(
+      t.configId,
+      t.modelId,
+    ),
+    relayPublicIdx: index('ai_model_config_models_relay_public_idx').on(t.isRelayPublic),
+  }),
+)
+
+/**
+ * 积分消耗倍数档位常量(2026-07-31 立,用户规则:平台内置模型积分消耗倍数)
+ *
+ * 计费公式:扣分 = (输入token + 输出token) / 1000 × points_multiplier × 1 积分基准
+ * - 免费模型(zero_cost/local):0x(不扣分)
+ * - 经济模型(mini/flash):1x(1千token=1积分)
+ * - 标准模型(standard):3x(1千token=3积分)
+ * - 高级模型(pro/max):10x(1千token=10积分)
+ * - 旗舰模型(opus/thinking):30x(1千token=30积分)
+ *
+ * 字段:ai_model_config_models.points_multiplier numeric(5,2) default 1.00
+ * 兜底:积分不足时降级到 zero_cost 模型(类似 Cursor slow request)
+ */
+export const POINTS_MULTIPLIER_TIERS = {
+  FREE: 0, // 免费模型(本地/zero_cost)
+  ECONOMY: 1, // 经济模型(mini/flash)
+  STANDARD: 3, // 标准模型
+  PREMIUM: 10, // 高级模型(pro/max)
+  FLAGSHIP: 30, // 旗舰模型(opus/thinking)
+} as const
+
+export type PointsMultiplierTier =
+  (typeof POINTS_MULTIPLIER_TIERS)[keyof typeof POINTS_MULTIPLIER_TIERS]
+
+/**
+ * AI 模型配置 - 用户自定义分组表(Phase 1,2026-07-22)
+ */
+export const aiModelConfigGroups = pgTable(
+  'ai_model_config_groups',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    userUuid: varchar('user_uuid', { length: 64 }).notNull(),
+    groupCode: varchar('group_code', { length: 64 }).notNull(),
+    groupLabel: varchar('group_label', { length: 64 }),
+    sortOrder: integer('sort_order').default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index('ai_model_config_groups_user_uuid_idx').on(t.userUuid),
+    userGroupUniq: unique('ai_model_config_groups_user_uuid_group_code_unique').on(
+      t.userUuid,
+      t.groupCode,
+    ),
+  }),
+)
+
+/**
+ * 用户 API Key 信息表（user_sk_info）。
+ * - status/type: 业务自定义状态/类型整型。
+ * - max: 配额上限（bigint）。
+ */
+
+/**
+ * 视频生成任务队列表（video_generation_tasks）。
+ * - status: accepted/processing/succeeded/failed。
+ * - result: 生成结果（URL/JSON 文本）。
+ */
+export const videoGenerationTasks = pgTable(
+  'video_generation_tasks',
+  {
+    id: serial('id').primaryKey(),
+    taskId: varchar('task_id', { length: 36 }).notNull(),
+    userUuid: varchar('user_uuid', { length: 255 }).notNull(),
+    chatId: varchar('chat_id', { length: 255 }),
+    status: varchar('status', { length: 50 }).default('accepted').notNull(),
+    message: varchar('message', { length: 512 }),
+    result: text('result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index('ix_video_generation_tasks_status').on(t.status),
+    taskIdUniq: unique('video_generation_tasks_task_id_unique').on(t.taskId),
+    userUuidIdx: index('video_generation_tasks_user_uuid_idx').on(t.userUuid),
+  }),
+)
+
+export type AiModelConfig = typeof aiModelConfig.$inferSelect
+export type NewAiModelConfig = typeof aiModelConfig.$inferInsert
+export type AiModelConfigModel = typeof aiModelConfigModels.$inferSelect
+export type NewAiModelConfigModel = typeof aiModelConfigModels.$inferInsert
+
+/**
+ * 工具调用能力实证审计(2026-11-08 立)
+ *
+ * 每次探针/线上判据落一行,回答"这个模型什么时候、按哪版判据、因为什么痕迹
+ * 被判定不支持工具调用"。判据升级只递增 criterion_version,历史行不改写。
+ */
+export const aiModelToolCallVerifications = pgTable(
+  'ai_model_tool_call_verifications',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    modelId: varchar('model_id', { length: 128 }).notNull(),
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    /** supported | failed | no_tool_calls */
+    verdict: varchar('verdict', { length: 24 }).notNull(),
+    criterionVersion: varchar('criterion_version', { length: 64 }).notNull(),
+    /** 命中的痕迹类型;supported/no_tool_calls 为 null */
+    traceKind: varchar('trace_kind', { length: 64 }),
+    /** probe(主动探针)/ runtime(线上请求判据) */
+    source: varchar('source', { length: 16 }).notNull(),
+    observedAt: timestamp('observed_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    modelObservedIdx: index('ai_model_tool_call_verifications_model_observed_idx').on(
+      t.modelId,
+      t.observedAt,
+    ),
+  }),
+)
+
+/**
+ * 模型调价审计(2026-11-13 立,迁移 20261113190000_model_price_audit)
+ *
+ * 为什么单独立表:定价从"一次性脚本快照"变成"持续过程"以后,任何价格变动
+ * (自动补价 / 人工调价 / 审批上架 / 上游同步)都必须留痕,否则出问题回溯不到
+ * "谁、何时、按什么依据改的价"。审计表铁律:只追加,不更新,不删除。
+ *
+ * 2026-11-20 补定义(从零重放门实测):这张表由手写迁移建出、schema 里一直没有,
+ * 于是 `check-migration-from-zero` 的"迁移后库 ↔ schema"双向 diff 判红
+ * (`多表(库里有、schema 没有)[1]: ai_model_price_audit`)。补在这里让它有单一真相源。
+ */
+export const aiModelPriceAudit = pgTable(
+  'ai_model_price_audit',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    modelId: varchar('model_id', { length: 255 }).notNull(),
+    /** 命中的模型配置行;上游同步/兜底场景可能为空 */
+    configId: integer('config_id'),
+    oldInputPer1k: numeric('old_input_per_1k', { precision: 18, scale: 6 }),
+    oldOutputPer1k: numeric('old_output_per_1k', { precision: 18, scale: 6 }),
+    newInputPer1k: numeric('new_input_per_1k', { precision: 18, scale: 6 }).notNull(),
+    newOutputPer1k: numeric('new_output_per_1k', { precision: 18, scale: 6 }).notNull(),
+    /** 变动来源:auto-sweep(定时巡检) / manual(人工调价) / approve(审批上架) / public-sync */
+    changeSource: varchar('change_source', { length: 64 }).notNull(),
+    /** 定价档位:exact / alias / family / provider-fallback / global-fallback / manual */
+    changeTier: varchar('change_tier', { length: 32 }),
+    /** 兜底时参照的模型(审计复核用) */
+    refModel: varchar('ref_model', { length: 255 }),
+    operatorId: uuid('operator_id'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    modelCreatedIdx: index('idx_amp_audit_model').on(t.modelId, t.createdAt),
+    createdIdx: index('idx_amp_audit_created').on(t.createdAt),
+  }),
+)
+
+export type AiModelPriceAudit = typeof aiModelPriceAudit.$inferSelect
+export type NewAiModelPriceAudit = typeof aiModelPriceAudit.$inferInsert
+export type AiModelToolCallVerification = typeof aiModelToolCallVerifications.$inferSelect
+export type AiModelConfigGroup = typeof aiModelConfigGroups.$inferSelect
+export type NewAiModelConfigGroup = typeof aiModelConfigGroups.$inferInsert
+export type VideoGenerationTask = typeof videoGenerationTasks.$inferSelect
+export type NewVideoGenerationTask = typeof videoGenerationTasks.$inferInsert
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

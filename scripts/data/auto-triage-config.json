@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "dailyRegistrationQuota": 3,
+  "sources": ["mail-failure", "index-unmerged", "api-logs", "grafana-alerts"],
+  "clustering": {
+    "windowHours": 24,
+    "minOccurrences": 2
+  },
+  "apiLogs": {
+    "jsonl": "",
+    "rowLimit": 500,
+    "minStatus": 500
+  },
+  "grafanaAlerts": {
+    "url": ""
+  }
+}

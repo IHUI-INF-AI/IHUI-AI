@@ -1,0 +1,110 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { defineConfig } from 'vitest/config'
+import path from 'path'
+
+export default defineConfig({
+  // Taro 运行时在 dom-external 里按构建期开关裁剪能力;测试侧此前没定义这些常量,
+  // 一旦用例的模块图引入 @tarojs/runtime(如 utils/time → 组件层)就整份 suite 收集失败
+  // (ReferenceError: ENABLE_INNER_HTML is not defined)。这里与 Taro 构建默认值对齐。
+  define: {
+    ENABLE_INNER_HTML: true,
+    ENABLE_ADJACENT_HTML: true,
+    ENABLE_SIZE_APIS: true,
+    ENABLE_CLONE_NODE: true,
+    ENABLE_CONTAINS: true,
+    ENABLE_TEMPLATE_CONTENT: true,
+  },
+  resolve: {
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, 'src') },
+      // RN 壳目录(与 config/index.ts 的构建别名同源,2026-11-01 补):壳承载页以
+      // `@rn-shells/<Name>` 直引 apps/mobile-rn/src/screens/*。构建侧早就配了这条,
+      // 测试侧漏配 ⇒ vitest 解析不到,CI 实测 FAIL tests/dev-space-page-render.test.tsx
+      // "Cannot find package '@rn-shells/DeveloperScreen'"。两处必须同源,否则"能构建、
+      // 不能测"这种半边绿会一直存在。
+      {
+        find: '@rn-shells',
+        replacement: path.resolve(__dirname, '../../apps/mobile-rn/src/screens'),
+      },
+      // 共享屏真源(packages/app)与构建别名同源:壳承载页按
+      // `@ihui/rn-app/features/<dir>/<Screen>` 具体子路径直引。测试侧同配,
+      // 否则 vitest 解析不到,页面级用例只能靠 mock 字符串硬编码。
+      {
+        find: '@ihui/rn-app',
+        replacement: path.resolve(__dirname, '../../packages/app/src'),
+      },
+      // 强制 react / react-dom 单实例(dual React 问题):
+      // @ihui/shared 源码从 packages/shared 上下文解析 react → react@19.0.0,
+      // 而 react-dom@18.3.1 从 apps/miniapp-taro 上下文解析 react → react@18.3.1。
+      // 两个 react 实例导致 useState 内部 dispatcher 为 null(Cannot read properties of null)。
+      // 此 alias 拦截整个模块图的 react/react-dom import,统一解析到 miniapp-taro 的 react@18.3.1。
+      // RegExp ^react$ 精确匹配包名 'react',不匹配 'react-dom' / 'react/jsx-runtime'。
+      { find: /^react$/, replacement: path.resolve(__dirname, 'node_modules/react') },
+      { find: /^react-dom$/, replacement: path.resolve(__dirname, 'node_modules/react-dom') },
+      // 2026-11-19 补:上面 ^react$ 只挡裸包名,JSX 自动运行时走子路径。共享屏
+      // packages/app 在测试里由 esbuild 从该包上下文解析 `react/jsx-runtime` →
+      // react@19 的 jsx-runtime,造出 $$typeof 为 react19 的元素,而渲染器是
+      // react-dom@18 ⇒ "Objects are not valid as a React child"。补两条子路径别名,
+      // 让元素也由同一个 react@18 生成(单实例口径的补全,不是新口径)。
+      {
+        find: /^react\/jsx-runtime$/,
+        replacement: path.resolve(__dirname, 'node_modules/react/jsx-runtime.js'),
+      },
+      {
+        find: /^react\/jsx-dev-runtime$/,
+        replacement: path.resolve(__dirname, 'node_modules/react/jsx-dev-runtime.js'),
+      },
+      // A2(2026-11-05):薄壳页会 import @ihui/rn-app 共享屏(RN 原语)。主树 pnpm
+      // 链接面缺 react-native/index.js,node 测试里把裸包指到 DOM 桩(只切平台依赖)。
+      {
+        find: /^react-native$/,
+        replacement: path.resolve(__dirname, 'tests/stubs/react-native.ts'),
+      },
+      // 2026-11-10:共享屏的图标(主线 dc4c471aa2 起)统一 `import ... from 'lucide-react-native'`。
+      // 构建侧早已别名成端内实现;测试侧没配 ⇒ node 直接加载 lucide 的 ESM 入口会经
+      // react-native-svg 命中 Flow 源,报 `SyntaxError: Unexpected token 'typeof'`(整份 suite 收集失败)。
+      // 测试侧指到零依赖桩:端内图标实现由 react@18 运行时造元素,而共享屏用例用
+      // react-dom@19 渲染,跨版本元素会被拒收(Objects are not valid as a React child)。
+      {
+        find: /^lucide-react-native$/,
+        replacement: path.resolve(__dirname, 'tests/stubs/lucide-react-native.ts'),
+      },
+      // D28 补齐层(2026-10-03):「用场景分析」的判据与场景目录已从 web 下沉到
+      // @ihui/shared/import-analysis{,/scenarios}。指真实源码而非 mock:判据与目录
+      // 都是纯数据/纯函数(无 DOM/Taro 依赖),给它写 mock 测的就是 mock。
+      // 两条按最长匹配在前(scenarios 在前),与 shared 其余子路径同一规矩。
+      {
+        find: '@ihui/shared/import-analysis/scenarios',
+        replacement: path.resolve(
+          __dirname,
+          '../../packages/shared/src/import-analysis/scenarios.ts',
+        ),
+      },
+      {
+        find: '@ihui/shared/import-analysis',
+        replacement: path.resolve(
+          __dirname,
+          '../../packages/shared/src/import-analysis/provenance.ts',
+        ),
+      },
+    ],
+  },
+  test: {
+    // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
+    // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
+    // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
+    testTimeout: 15_000,
+    environment: 'node',
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
+    passWithNoTests: true,
+    // 2026-10-03(G-1018201)'**/.ihui-agent/**':挡掉 .ihui-agent/tmp/ 里他人留下的 HEAD 整仓副本
+    // ——vitest 4.1.10 收集面显式 `dot: true`,点目录被主动穿透,副本里同形的用例会被收进当次
+    // 运行(apps/web 实测 484 → 687 份)。`.gitignore` 只管 git,拦不住文件系统 glob。
+    // `**/` 前缀不可省:实测 `.ihui-agent/**` 会放过 `src/x/.ihui-agent/**` 这类嵌套落点。
+    exclude: ['**/.ihui-agent/**'],
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

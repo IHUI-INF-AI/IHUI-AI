@@ -1,0 +1,8 @@
+{
+  "note": "字体子集汉字数防回退基线;唯一写入口 = node scripts/check-typography-face-coverage.mjs --update-baseline(取工作树面)",
+  "generatedFrom": "scripts/data/font-subset-manifest.json",
+  "minCjk": {
+    "gb2312-l1": 4275,
+    "gb2312-l12": 7155
+  }
+}

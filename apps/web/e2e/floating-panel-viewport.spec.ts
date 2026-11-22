@@ -1,0 +1,121 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { test, expect, type Page } from './fixtures'
+
+/**
+ * 浮动弹窗视口定位防回归(2026-09-04 立)。
+ *
+ * 病根(实测 2026-09-04,用户报告"斜杠按钮呼出的弹窗超出屏幕,把正常屏幕往上挤"):
+ * - 手写 createPortal 面板(slash-command-palette / context-usage-ring /
+ *   permission-history-panel / add-menu-popover)容器漏写 position:fixed
+ *   → computed static → top/left 全部失效 → 面板以文档流追加到 body 末尾,
+ *   把 body.scrollHeight 撑高(实测 720 → 1111)。
+ *
+ * 修复:
+ * - 四组件接入 lib/portal-panel-position.ts(fixed + 翻转 + 视口 clamp + maxHeight);
+ * - globals.css 兜底:body 直属 role=dialog/menu/listbox 强制 position:fixed。
+ *
+ * 本 spec 锁死三条契约(以 /chat 页高频弹窗为样本):
+ *  1. 弹窗 computed position === 'fixed';
+ *  2. 弹窗矩形完全落在视口内(四边 ≥ 0 且 ≤ 视口);
+ *  3. 弹窗打开前后 document.body.scrollHeight 不变(布局不被撑开)。
+ */
+
+async function bodyScrollHeight(page: Page): Promise<number> {
+  return page.evaluate(() => document.body.scrollHeight)
+}
+
+/**
+ * 展开「+」菜单(2026-11-04 信息架构重构)。
+ * 上下文用量环从可见右簇移入 + 菜单 →「更多工具」抽屉,必须先展开菜单才能拿到触发器。
+ * 菜单是自写 popover(position: fixed,不参与文档流),因此不会改变 body.scrollHeight。
+ */
+async function openAddMenu(page: Page): Promise<void> {
+  await page.getByTestId('add-menu-trigger').click()
+  await expect(page.getByTestId('composer-quick-controls')).toBeVisible({ timeout: 5000 })
+}
+
+/** 校验当前所有 body 直属 dialog/menu 浮层:fixed + 视口内 */
+async function assertPanelsInViewport(page: Page): Promise<void> {
+  const violations = await page.evaluate(() => {
+    const VH = window.innerHeight
+    const VW = window.innerWidth
+    const bad: string[] = []
+    for (const el of Array.from(document.body.children)) {
+      if (!(el instanceof HTMLElement)) continue
+      const role = el.getAttribute('role')
+      if (role !== 'dialog' && role !== 'menu') continue
+      const cs = getComputedStyle(el)
+      const r = el.getBoundingClientRect()
+      // 藏到屏幕外的待定位面板(top:-9999)跳过
+      if (r.top < -9000) continue
+      if (cs.position !== 'fixed') bad.push(`${role} position=${cs.position}`)
+      if (r.top < -1 || r.bottom > VH + 1 || r.left < -1 || r.right > VW + 1) {
+        bad.push(
+          `${role} rect out of viewport: top=${Math.round(r.top)} bottom=${Math.round(r.bottom)} left=${Math.round(r.left)} right=${Math.round(r.right)} vh=${VH}`,
+        )
+      }
+    }
+    return bad
+  })
+  expect(violations, `浮层溢出视口: ${violations.join('; ')}`).toEqual([])
+}
+
+test.describe('浮动弹窗视口定位(斜杠/用量环弹窗)', () => {
+  test('斜杠命令面板:fixed + 视口内 + 不撑开 body', async ({ authenticatedPage: page }) => {
+    await page.goto('/chat')
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.getByRole('button', { name: /.*/ }).first()).toBeVisible()
+
+    const before = await bodyScrollHeight(page)
+
+    // 斜杠按钮已移除(2026-09-18 用户规则:去按钮改快捷键 Ctrl+Shift+/),
+    // e2e 用等价通道:textarea 输入 / 作为首字符唤起面板(message-input handleChange)
+    const chatInput = page.locator('textarea').first()
+    await expect(chatInput).toBeVisible({ timeout: 20_000 })
+    await chatInput.click()
+    await chatInput.pressSequentially('/')
+    // WAIT-POLICY:TIMING-0003 SSE/流式/轮询事件到达间隔窗口,事件本身不可观察
+    await page.waitForTimeout(500)
+
+    // 契约 3:body 不被撑开
+    const after = await bodyScrollHeight(page)
+    expect(after, '弹窗打开后 body.scrollHeight 不得变化(布局被撑开即病根复发)').toBe(before)
+
+    // 契约 1+2:fixed + 视口内
+    await assertPanelsInViewport(page)
+
+    await page.keyboard.press('Escape')
+  })
+
+  test('上下文用量环弹窗:fixed + 视口内 + 不撑开 body', async ({ authenticatedPage: page }) => {
+    await page.goto('/chat')
+    await page.waitForLoadState('domcontentloaded')
+    const before = await bodyScrollHeight(page)
+
+    // 2026-11-04 结构变化:上下文用量环从可见右簇移入 + 菜单 →「更多工具」抽屉。
+    // 到达路径:+ → 更多工具(composer-tools-entry) → 工具面板/抽屉(composer-tools-panel /
+    // composer-tools-drawer),环的 data-testid 与弹窗定位断言保持原样。
+    await openAddMenu(page)
+    await page.getByTestId('composer-tools-entry').click()
+    await expect(page.getByTestId('composer-tools-panel')).toBeVisible({ timeout: 5000 })
+
+    // 原用例(before 仍在页面加载后采样:新增的 + 菜单与工具抽屉同样不得撑开 body)
+    const trigger = page.getByTestId('context-usage-trigger')
+    await expect(trigger).toBeVisible({ timeout: 20_000 })
+    await trigger.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+    await page.waitForTimeout(500)
+
+    // 点环时 + 菜单保持打开(环在菜单内部,菜单是 fixed 浮层,同样不得撑高 body)
+    const after = await bodyScrollHeight(page)
+    expect(after, '弹窗打开后 body.scrollHeight 不得变化(布局被撑开即病根复发)').toBe(before)
+
+    await assertPanelsInViewport(page)
+
+    await page.keyboard.press('Escape')
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,63 @@
+#EVIDENCE-CMD: node G:/IHUI-AI/packages/api-client/node_modules/vitest/vitest.mjs run tests/outbound-capability-negotiation.test.ts
+#EVIDENCE-START: 2026-10-06T09:52:56.920Z
+#EVIDENCE-CWD=G:/IHUI-AI/packages/api-client
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mG:/IHUI-AI/packages/api-client[39m
+
+ [31m❯[39m tests/outbound-capability-negotiation.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 16[2mms[22m[39m
+     [32m✓[39m ① 未宣告的可选键不得出网:强制注入 ⇒ 被拦下并点名[32m 4[2mms[22m[39m
+     [32m✓[39m ② 对端已宣告该键 ⇒ 该键必须真的出去(反向锁:不发一切也能过①)[32m 0[2mms[22m[39m
+[31m     [31m×[31m ③ 一次握手失败 ⇒ 缓存条目被删,第二次调用真的重做握手[39m[32m 6[2mms[22m[39m
+[31m     [31m×[31m ③b 并发同_peer_只握一次,失败同样清缓存(不留下在飞的坏状态)[39m[32m 3[2mms[22m[39m
+     [32m✓[39m ④ 判不出 ⇒ 点名 undetermined,绝不写成已宣告、也绝不与未宣告混记[32m 1[2mms[22m[39m
+     [32m✓[39m 表是单一事实源:同一 wire 的键只从表里读,调用方不得自带名单[32m 1[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/outbound-capability-negotiation.test.ts[2m > [22m出站能力协商 G-816033[2m > [22m③ 一次握手失败 ⇒ 缓存条目被删,第二次调用真的重做握手
+[31m[1mCapabilityHandshakeError[22m: 能力握手失败(peer=host-c)[39m
+[36m [2m❯[22m OutboundCapabilityNegotiator.runHandshake src/outbound-capabilities.ts:[2m227:13[22m[39m
+    [90m225|[39m       [90m// 永不重做握手(上游事故"失败被缓存在那儿"的同一形态),测试③当场翻红。[39m
+    [90m226|[39m       [35mthis[39m[33m.[39mlastOutcome[33m.[39m[35mset[39m(peerId[33m,[39m [32m'failed'[39m)
+    [90m227|[39m       throw new CapabilityHandshakeError(peerId, `能力握手失败(peer=${peerId…
+    [90m   |[39m             [31m^[39m
+    [90m228|[39m     }
+    [90m229|[39m   }
+[90m [2m❯[22m OutboundCapabilityNegotiator.filterOutbound src/outbound-capabilities.ts:[2m176:18[22m[39m
+
+[31m[1mCaused by: Error[22m: 宿主拒绝握手(模拟连接被断)[39m
+[36m [2m❯[22m OutboundCapabilityNegotiator.handshake tests/outbound-capability-negotiation.test.ts:[2m36:37[22m[39m
+[90m [2m❯[22m OutboundCapabilityNegotiator.runHandshake src/outbound-capabilities.ts:[2m210:34[22m[39m
+[90m [2m❯[22m OutboundCapabilityNegotiator.ensurePeer src/outbound-capabilities.ts:[2m202:26[22m[39m
+[90m [2m❯[22m OutboundCapabilityNegotiator.filterOutbound src/outbound-capabilities.ts:[2m176:29[22m[39m
+[90m [2m❯[22m tests/outbound-capability-negotiation.test.ts:[2m80:29[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/outbound-capability-negotiation.test.ts[2m > [22m出站能力协商 G-816033[2m > [22m③b 并发同_peer_只握一次,失败同样清缓存(不留下在飞的坏状态)
+[31m[1mCapabilityHandshakeError[22m: 能力握手失败(peer=host-c2)[39m
+[36m [2m❯[22m OutboundCapabilityNegotiator.runHandshake src/outbound-capabilities.ts:[2m227:13[22m[39m
+    [90m225|[39m       [90m// 永不重做握手(上游事故"失败被缓存在那儿"的同一形态),测试③当场翻红。[39m
+    [90m226|[39m       [35mthis[39m[33m.[39mlastOutcome[33m.[39m[35mset[39m(peerId[33m,[39m [32m'failed'[39m)
+    [90m227|[39m       throw new CapabilityHandshakeError(peerId, `能力握手失败(peer=${peerId…
+    [90m   |[39m             [31m^[39m
+    [90m228|[39m     }
+    [90m229|[39m   }
+
+[31m[1mCaused by: Error[22m: 宿主拒绝握手(模拟连接被断)[39m
+[36m [2m❯[22m OutboundCapabilityNegotiator.handshake tests/outbound-capability-negotiation.test.ts:[2m36:37[22m[39m
+[90m [2m❯[22m OutboundCapabilityNegotiator.runHandshake src/outbound-capabilities.ts:[2m210:34[22m[39m
+[90m [2m❯[22m OutboundCapabilityNegotiator.ensurePeer src/outbound-capabilities.ts:[2m202:26[22m[39m
+[90m [2m❯[22m OutboundCapabilityNegotiator.filterOutbound src/outbound-capabilities.ts:[2m176:29[22m[39m
+[90m [2m❯[22m tests/outbound-capability-negotiation.test.ts:[2m98:30[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 17:52:57
+[2m   Duration [22m 432ms[2m (transform 98ms, setup 0ms, import 124ms, tests 16ms, environment 0ms)[22m
+
+#EVIDENCE-RC=1
+#EVIDENCE-END: 2026-10-06T09:52:57.968Z

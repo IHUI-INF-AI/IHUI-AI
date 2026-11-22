@@ -1,0 +1,832 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * packages/types/src/app.ts 的业务域拆分产物之一 —— 本文件承载「content」域。
+ *
+ * 拆分原因:原 app.ts 单文件行数已超架构契约表对受管模块的单文件上限(config/architecture-policy.yaml
+ * 的 contract-file-lines / C1),按业务域拆多入口是既定出路(EX-C2-1 的理由原文即此)。
+ * 公开导出面由 ./app.ts 这个 barrel 用 export * 原样递出,与拆分前逐名等值 —— 消费端不得因此改动。
+ * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
+ */
+
+import type { ReactNode } from 'react'
+import type { ListPaginationProps, TFunction } from './app-shared.js'
+import type { CategoryItem } from './app-learning.js'
+import type { AsyncKvPort, MediaPort, OnNavigate, OnToast } from './app-host-ports.js'
+
+/** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
+export interface NoteListItem {
+  id: string
+  title: string
+  summary: string
+  author: string
+  likes: number
+  createdAt: string
+}
+
+/** NoteList 屏 props */
+export interface NoteListScreenProps {
+  t: TFunction
+  items: NoteListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击笔记卡片回调,平台注入导航跳转 */
+  onPressItem: (item: NoteListItem) => void
+  /** 新建笔记回调(可选,平台注入导航跳转) */
+  onCreate?: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 文章列表项(平台注入,字段对齐 mobile-rn ArticleListScreen Article)
+ *  资讯域复用同一屏时额外注入 summary/category/source/pinned;通用文章域不传即可(缺了不渲染)。
+ */
+export interface ArticleListItem {
+  id: string
+  title: string
+  author: string
+  views: number
+  publishedAt: string
+  /** 封面图 URL(可空) */
+  cover?: string
+  /** 摘要(资讯域;为空不渲染) */
+  summary?: string
+  /** 分类名(资讯域;为空不渲染) */
+  category?: string
+  /** 来源名(资讯域;为空不渲染) */
+  source?: string
+  /** 是否置顶(资讯域;置顶卡优先取此条) */
+  pinned?: boolean
+}
+
+/** ArticleList 屏 props
+ *  搜索/分类/置顶/已读均为显式可选段:不传则屏保持通用文章列表形态,不引入平台 API。
+ */
+export interface ArticleListScreenProps extends ListPaginationProps {
+  t: TFunction
+  items: ArticleListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击文章卡片回调,平台注入导航跳转 */
+  onPressItem: (item: ArticleListItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+  /** 搜索关键字(受控);传 onKeywordChange 时才渲染搜索栏 */
+  keyword?: string
+  /** 搜索框占位文案 */
+  searchPlaceholder?: string
+  onKeywordChange?: (text: string) => void
+  onSearch?: () => void
+  /** 分类 chips;空数组/缺省不渲染分类栏 */
+  categories?: CategoryItem[]
+  selectedCategory?: string
+  onSelectCategory?: (id: string) => void
+  /** 置顶条目(wrapper 计算);null/缺省不渲染置顶卡 */
+  pinnedItem?: ArticleListItem | null
+  /** 已读 id 集合(用于已读态弱化 + 未读点) */
+  readIds?: ReadonlyArray<string>
+  /** 隐藏自带 header(宿主已有导航栏时用) */
+  hideHeader?: boolean
+  /** 列表滚动容器 ref 透出(返回顶部用) */
+  onListRef?: (ref: unknown) => void
+  /** 是否显示返回顶部按钮(需同时传 onBackToTop) */
+  showBackTop?: boolean
+  onBackToTop?: () => void
+  /** 滚动内容区底部预留(px,默认 12) */
+  contentBottomPadding?: number
+  /** 无更多数据(页脚显示"没有更多了") */
+  noMore?: boolean
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
+}
+
+/** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
+export interface AnnouncementItem {
+  id: string
+  title: string
+  content: string
+  /** 发布时间(ISO 或格式化字符串) */
+  publishTime: string
+  /** 是否置顶 */
+  pinned: boolean
+}
+
+/** Announcement 屏 props */
+export interface AnnouncementScreenProps {
+  t: TFunction
+  items: AnnouncementItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击公告卡片回调,平台注入导航跳转 */
+  onPressItem: (item: AnnouncementItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+// ============ 详情屏(批次 7,2026-07-29) ============
+
+/** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note)
+ *  tags/views/likes 可选:GET /api/notes/:id(other/notes-routes.ts)只回
+ *  id/title/content/isPublic/author/createdAt/updatedAt,这三列不在该端点投影里,
+ *  端上按「缺了就不渲染」消费,不造 0/[] 冒充真值。 */
+export interface NoteDetailItem {
+  id: string
+  title: string
+  content: string
+  createdAt: string
+  tags?: string[]
+  views?: number
+  likes?: number
+  author: string
+}
+
+/** NoteDetail 屏 props */
+export interface NoteDetailScreenProps {
+  t: TFunction
+  item: NoteDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 文章详情(平台注入,字段对齐 mobile-rn ArticleDetailScreen Article) */
+export interface ArticleDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  cover?: string
+  views: number
+  likes: number
+  publishedAt: string
+}
+
+/** ArticleDetail 屏 props */
+export interface ArticleDetailScreenProps {
+  t: TFunction
+  item: ArticleDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 动态详情(平台注入,字段对齐 mobile-rn PostDetailScreen Post) */
+export interface PostDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  circleName?: string
+  likes: number
+  comments: number
+  createdAt: string
+  status?: string | null
+  taskStatus?: string | null
+  lowestPrice?: number | string | null
+  peakPrice?: number | string | null
+  contact?: string | null
+  cycle?: string | null
+  cycleUnit?: string | null
+  closingTime?: string | null
+  imgs?: string | string[] | null
+  types?: string[] | null
+  categories?: string[] | null
+  /**
+   * 收藏数 / 分享数(2026-11-14 增补,可选)。
+   * 为什么要有:小程序 circle/detail 的动作栏是 **4 项**(赞/评/藏/享),
+   * 而这里原先只有 likes/comments ⇒ 该端两项无处安放,只能整段手抄。
+   * 缺省按 0 渲染(不造数据)。
+   */
+  favorites?: number
+  shares?: number
+  /** 当前用户是否已点赞 / 已收藏(驱动动作栏选中态);缺省 false */
+  liked?: boolean
+  favorited?: boolean
+}
+
+/** PostDetail 屏 props */
+export interface PostDetailScreenProps {
+  t: TFunction
+  item: PostDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+/** 公告详情(平台注入,字段对齐 mobile-rn AnnouncementDetailScreen Detail) */
+export interface AnnouncementDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  publishTime: string
+}
+
+/** AnnouncementDetail 屏 props */
+export interface AnnouncementDetailScreenProps {
+  t: TFunction
+  item: AnnouncementDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 搜索结果项(平台注入,字段对齐 mobile-rn SearchScreen) */
+export interface SearchScreenItem {
+  id: string
+  title: string
+  summary: string
+  type: 'course' | 'article' | 'post' | 'note' | 'agent'
+  cover?: string
+}
+
+/** SearchScreen props */
+export interface SearchScreenProps {
+  t: TFunction
+  keyword: string
+  results: SearchScreenItem[]
+  loading: boolean
+  error: string
+  searched: boolean
+  onKeywordChange: (text: string) => void
+  onSearch: () => void
+  onPressItem: (item: SearchScreenItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 问答回答 */
+export interface AskAnswerItem {
+  id: string
+  author: string
+  content: string
+  isAccepted: boolean
+  createdAt: string
+}
+
+/** 问答详情(平台注入,字段对齐 mobile-rn AskDetailScreen Ask) */
+export interface AskDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  answers: AskAnswerItem[]
+  views: number
+  createdAt: string
+}
+
+/** AskDetailScreen props */
+export interface AskDetailScreenProps {
+  t: TFunction
+  item: AskDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 问答列表项(平台注入,字段对齐 mobile-rn AskListScreen Ask) */
+export interface AskListItem {
+  id: string
+  title: string
+  author: string
+  answerCount: number
+  views: number
+  createdAt: string
+}
+
+/** AskListScreen props */
+export interface AskListScreenProps {
+  t: TFunction
+  items: AskListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
+  onLoadMore?: () => void
+  onPressItem: (id: string) => void
+  onCreate: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 11(2026-07-29):表单型(问答创建/笔记创建/证书申请/账号设置) */
+
+/** AskCreateScreen props(表单屏,状态由 wrapper 管理) */
+export interface AskCreateScreenProps {
+  t: TFunction
+  title: string
+  content: string
+  tags: string
+  saving: boolean
+  error: string
+  onTitleChange: (text: string) => void
+  onContentChange: (text: string) => void
+  onTagsChange: (text: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+  /** 选图端口:配图共享段唯一选图出口;两端宿主必须真传(Taro / expo-image-picker) */
+  media: MediaPort
+  /** 草稿存储端口:异步形,RN AsyncStorage 只能异步读写;两端宿主必须真传 */
+  draft: AsyncKvPort
+}
+
+/** NoteCreateScreen props(表单屏,状态由 wrapper 管理) */
+export interface NoteCreateScreenProps {
+  t: TFunction
+  title: string
+  content: string
+  tags: string
+  isPublic: boolean
+  saving: boolean
+  error: string
+  onTitleChange: (text: string) => void
+  onContentChange: (text: string) => void
+  onTagsChange: (text: string) => void
+  onTogglePublic: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 活动状态 */
+export type ActivityStatus = 'upcoming' | 'ongoing' | 'ended'
+
+/** 活动项(平台注入,字段对齐 mobile-rn ActivityScreen Activity) */
+export interface ActivityItem {
+  id: string
+  /**
+   * 后端详情路由是 `GET /activities/:slug`(promotions.ts 里按 slug 查),
+   * 而列表导航此前只传 id ⇒ 详情页拿 uuid 当 slug 查,永远 404「活动不存在或已下线」。
+   * 所以列表映射必须把 slug 一并带出来。
+   */
+  slug: string
+  title: string
+  description: string
+  startTime: string
+  endTime: string
+  status: ActivityStatus
+  /** 后端 activityFields 已带 participants 计数;历史数据缺列时前端不渲染 0 这种假数。 */
+  participants?: number
+  /** 当前用户是否已报名(GET /activities/:id 回填 joined;列表恒 false)。 */
+  joined?: boolean
+}
+
+/** ActivityScreen props */
+export interface ActivityScreenProps {
+  t: TFunction
+  items: ActivityItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  /** 可选:点卡片进详情(未传则无跳转,不破坏既有调用方) */
+  onItemPress?: (item: ActivityItem) => void
+  /**
+   * 报名 / 取消报名。后端 `POST|DELETE /activities/:id/join` 早已就绪,
+   * 但列表页那颗「立即参与」此前是无 onPress 的 TouchableOpacity:既点不动,
+   * 又会抢走 responder 吞掉外层卡片的点击(见 PLATFORM-LIMITS 同型问题)。
+   * 未传时按钮降级为纯展示,不再占着可点区域。
+   */
+  onJoin?: (item: ActivityItem) => void
+  /** 正在提交报名的活动 id(防重复点 + 给出等待态)。 */
+  joiningId?: string
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 16(2026-07-29):简单详情/表单/展示类(活动详情/Agent评价详情/银行卡/名片/课程报名/通知设置/发帖/二维码/实名认证/安全设置) */
+
+/** 活动详情数据 */
+export interface ActivityDetailItem {
+  id: string
+  title: string
+  content: string
+  startAt: string
+  endAt: string
+  /**
+   * 活动地点。可选:activities 表的列只有 title/slug/description/banner/start_at/end_at/
+   * status/rules —— **没有 location**。早期契约把 location 定成必填,宿主只能塞空串,
+   * 于是详情页恒显示一行「活动地点:」加空白。没有就不渲染该行,比显示空标签诚实。
+   */
+  location?: string
+  /** 后端 GET /activities/:slug 已回填 joined(未登录恒 false)⇒ 决定按钮是「立即参与」还是「取消报名」。 */
+  joined?: boolean
+}
+
+/** ActivityDetailScreen props */
+export interface ActivityDetailScreenProps {
+  t: TFunction
+  item: ActivityDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  /** 报名:后端 POST /activities/:id/join。未传则不渲染动作区。 */
+  onJoin?: () => void
+  /** 取消报名:后端 DELETE /activities/:id/join。 */
+  onLeave?: () => void
+  /** 报名/退订请求进行中(禁用按钮 + 换等待文案)。 */
+  joining?: boolean
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 电子名片数据 */
+export interface BusinessCardItem {
+  id: string
+  name: string
+  position: string
+  company: string
+  phone: string
+  wechat: string
+  email: string
+  location: string
+  bio: string
+}
+
+/** BusinessCardScreen props */
+export interface BusinessCardScreenProps {
+  t: TFunction
+  card: BusinessCardItem | null
+  loading: boolean
+  error: string
+  saved: boolean
+  onShare: () => void
+  onSave: () => void
+  onEdit: () => void
+  onBack: () => void
+  /** 定制名片入口(对齐原项目 business-card/index.vue 的"社区名片定制入口";暂无对应落地页时 toast 提示) */
+  onCustomize: () => void
+  /** 分享到微信(走 RN Share.share,对齐原 project business-card-sharing 组件 @wx 事件) */
+  onShareWechat: () => void
+  /** 分享到朋友圈(走 RN Share.share,对齐原 project business-card-sharing 组件 @pyq 事件) */
+  onShareMoments: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** PostCreateScreen props(表单类,字段直接注入) */
+export interface PostCreateScreenProps {
+  t: TFunction
+  title: string
+  content: string
+  tags: string
+  saving: boolean
+  error: string
+  onTitleChange: (title: string) => void
+  onContentChange: (content: string) => void
+  onTagsChange: (tags: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 二维码信息 */
+export interface QrCodeItem {
+  content: string
+  url: string
+  inviteCode: string
+}
+
+/** QrCodeScreen props */
+export interface QrCodeScreenProps {
+  t: TFunction
+  info: QrCodeItem | null
+  loading: boolean
+  error: string
+  onShare: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 24(2026-07-29):Circle 系(圈子)4 屏 — 成员/详情/创建/聊天 */
+
+/** 圈子成员项 */
+export interface CircleMemberItem {
+  id: string
+  name: string
+  avatar?: string
+  role: 'owner' | 'admin' | 'member'
+  joinedAt: string
+}
+
+/** CircleMemberScreen props */
+export interface CircleMemberScreenProps {
+  t: TFunction
+  items: CircleMemberItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 圈子详情数据 */
+export interface CircleDetailItem {
+  id: string
+  name: string
+  description: string
+  memberCount: number
+  postCount: number
+  isJoined: boolean
+  createdAt: string
+}
+
+/** CircleDetailScreen props */
+export interface CircleDetailScreenProps {
+  t: TFunction
+  item: CircleDetailItem | null
+  loading: boolean
+  error: string
+  onJoin: () => void
+  onLeave: () => void
+  onPressPost: () => void
+  onPressMembers: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** CircleCreateScreen props */
+export interface CircleCreateScreenProps {
+  t: TFunction
+  name: string
+  description: string
+  saving: boolean
+  error: string
+  onNameChange: (v: string) => void
+  onDescriptionChange: (v: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 圈子聊天消息 */
+export interface CircleChatMessage {
+  id: string
+  role: 'user' | 'other'
+  author: string
+  content: string
+  createdAt: string
+}
+
+/** CircleChatScreen props */
+export interface CircleChatScreenProps {
+  t: TFunction
+  title: string
+  messages: CircleChatMessage[]
+  loading: boolean
+  error: string
+  input: string
+  sending: boolean
+  onInputChange: (v: string) => void
+  onSend: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 笔记项(NoteScreen) */
+export interface NoteItem {
+  id: string
+  title: string
+  content: string
+  updatedAt: string
+}
+
+/** NoteScreen props(含编辑 Modal) */
+export interface NoteScreenProps {
+  t: TFunction
+  userLabel: string
+  notes: NoteItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  toast: string
+  modalVisible: boolean
+  editing: NoteItem | null
+  title: string
+  content: string
+  saving: boolean
+  onRefresh: () => void
+  onBack: () => void
+  onOpenCreate: () => void
+  onOpenEdit: (note: NoteItem) => void
+  onTitleChange: (v: string) => void
+  onContentChange: (v: string) => void
+  onSave: () => void
+  onDelete: (note: NoteItem) => void
+  onCloseModal: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程学习进度条契约(平台无关。旧 @ihui/api-client CourseProgress 已随
+ *  /api/course 那套死端点一起删除;现由各端 wrapper 从小节制的 LessonProgress
+ *  投影出这几根,投影实现在 mobile-rn VideoPlayerScreen 的 sharedProgress) */
+export interface VideoPlayerProgress {
+  courseId: string
+  totalLessons: number
+  completedLessons: number
+  progress: number
+  lastLearnedAt: string | null
+}
+
+/** VideoPlayerScreen props(平台无关,wrapper 注入数据+播放器 slot+回调) */
+export interface VideoPlayerScreenProps {
+  t: TFunction
+  title?: string
+  videoUrl?: string
+  progress: VideoPlayerProgress | null
+  completed: boolean
+  completing: boolean
+  loading: boolean
+  error: string
+  onComplete: () => void
+  onBack: () => void
+  playerContent?: ReactNode
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+}
+
+export interface PlazaCoverScreenProps {
+  t: TFunction
+  onBack: () => void
+  onEnter: () => void
+  onPublish: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+// ============ 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(10 屏迁移自 mobile-rn) ============
+
+/** 广场任务项(共享层简化类型,保留 UI 渲染所需字段) */
+export interface PlazaItem {
+  id: string
+  title: string
+  description?: string
+  creator?: string
+  createdAt?: string
+  status?: string
+  [key: string]: unknown
+}
+
+/** 广场状态切换 chip */
+export interface StatusChip {
+  label: string
+  value: string
+}
+
+/** AI 需求广场 Screen Props */
+/** 端侧分类筛选项的最小面(端内 CategoryItem 的可选扩展字段不属于契约) */
+export interface PlazaFilterItem {
+  id: string
+  label: string
+}
+
+/** 身份选项(两端同一组 id+label) */
+export interface PlazaIdentityOption {
+  id: string
+  label: string
+}
+
+export interface PlazaScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: PlazaItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  status: string
+  search: string
+  showSearch: boolean
+  onRefresh: () => void
+  onEndReached: () => void
+  onStatusChange: (status: string) => void
+  onSearchChange: (search: string) => void
+  onSubmitSearch: () => void
+  onPressItem: (item: PlazaItem) => void
+  onPublish: () => void
+  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
+  onChatPress?: (item: PlazaItem) => void
+  /**
+   * 赛道分类弹层(2026-11-05 自小程序页内联抽屉上收;RN 同步消费同一实例)。
+   * 端侧只传「可选」id+label;图标/图片是端内可选扩展,故契约不锚死端内 CategoryItem。
+   */
+  trackFilter?: {
+    visible: boolean
+    items: readonly PlazaFilterItem[]
+    selectedId: string
+    onSelect: (id: string) => void
+    onVisibleChange: (next: boolean) => void
+    panelTitle?: string
+  }
+  /** 身份切换弹层(两端同屏消费;用户区/底部入口由调用方按需给) */
+  identitySheet?: {
+    visible: boolean
+    title?: string
+    items: readonly PlazaIdentityOption[]
+    selectedId?: string
+    user?: { avatar?: string; name: string; subtext?: string }
+    footer?: { title: string; text: string; onPress: () => void }
+    onSelect: (id: string) => void
+    onClose: () => void
+  }
+  /** 卡片详情居中弹层(两端消费:RN 由整卡点击打开,弹层内「查看详情」再跳详情页) */
+  detail?: {
+    item: PlazaItem | null
+    onClose: () => void
+    onOpenDetail: (item: PlazaItem) => void
+  }
+  onBack?: () => void
+  /**
+   * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
+}
+
+/** 需求广场 Screen Props */
+export interface SetNeedScreenProps {
+  t: TFunction
+  form: {
+    title: string
+    description: string
+    lowestPrice: string
+    peakPrice: string
+    contact: string
+    cycle: string
+    cycleUnit: string
+    types: string
+    categories: string
+    closingTime: string
+    imgs: string[]
+  }
+  submitting: boolean
+  onFieldChange: (field: string, value: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 文章卡片(共享层简化类型,保留 UI 渲染所需字段) */
+export interface ArticleItem {
+  id: string
+  title: string
+  summary?: string
+  authorName?: string
+  createdAt?: string
+  viewCount?: number
+  category?: string
+  sourceName?: string
+  [key: string]: unknown
+}
+
+/** SquareScreen props(平台无关,wrapper 注入数据+回调) */
+export interface SquareScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: ArticleItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  categories: CategoryItem[]
+  selectedCategory: string
+  onSelectCategory: (id: string) => void
+  onRefresh: () => void
+  onEndReached: () => void
+  onItemClick: (id: string) => void
+  showBackTop: boolean
+  onBackToTop: () => void
+  /** 暴露内部 FlatList ref(wrapper 用于返回顶部 scrollToOffset,对齐 ChatScreen onListRef 模式) */
+  onListRef?: (ref: unknown) => void
+  onBack?: () => void
+  /**
+   * 滚动内容区底部预留(px,默认 12)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

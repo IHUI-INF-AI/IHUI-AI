@@ -1,0 +1,553 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 支付扩展路由（M-56）。
+ * 迁移旧架构的 3 个支付端点：提现回调、支付宝同步返回、连续订阅。
+ *
+ * 端点清单：
+ * 1. POST /payments/withdrawal/notify  — 微信转账到账通知（提现回调）
+ * 2. GET  /payments/sync-return       — 支付宝支付成功后浏览器同步跳转
+ * 3. POST /payments/subscription/renew — 连续订阅自动续费
+ * 4. GET  /payments/subscription/status — 查询当前 VIP 订阅状态
+ */
+
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import { env } from 'node:process'
+import { z } from 'zod'
+import { eq, and, desc, gte, sql } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { success, error } from '../utils/response.js'
+import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
+import { authenticate } from '../plugins/auth.js'
+import {
+  orders,
+  withdrawalFlows,
+  plans,
+  userVips,
+  vipLevels,
+  wechatPayContracts,
+  userMargins,
+} from '@ihui/database'
+import { placeOrder } from '../services/order-service.js'
+import {
+  verifyCallbackSignature,
+  consumeNotifyNonce,
+  isWechatPayConfigured,
+  jsapiPrepay,
+  buildJsapiSign,
+  deductRecurring,
+  generateOutTradeNo,
+} from '../services/wechat-pay.js'
+import { isAlipayConfigured, buildSignedUrl } from '../services/alipay.js'
+import { config } from '../config/index.js'
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const subscriptionRenewSchema = z.object({
+  planId: z.uuid({ error: '无效的方案 ID' }),
+  paymentMethod: z.enum(['wechat', 'alipay'], {
+    message: '支付方式仅支持 wechat 或 alipay',
+  }),
+})
+
+// =============================================================================
+// 路由
+// =============================================================================
+
+export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // F-16:微信 V3 验签必须对「原始报文字节」验签。本插件此前没有 rawBody 解析器,
+  // 只能退化成 JSON.stringify(body) —— 空白/转义/数字格式差异都会让真实回调验签失败,
+  // 等于把生产回调全部挡在 401。解析器只作用于本插件作用域(与 payment-gateway 同口径)。
+  // 必须先移除从主作用域继承的同名解析器(Fastify 5 重复注册抛 FST_ERR_CTP_ALREADY_PRESENT,
+  // 与 server.ts / routes/live.ts 的「先 remove 再 add」口径一致)。
+  server.removeContentTypeParser('application/json')
+  server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    const buf = body as Buffer
+    const raw = buf.toString('utf8')
+    ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
+    if (!raw) {
+      done(null, undefined)
+      return
+    }
+    try {
+      done(null, JSON.parse(raw))
+    } catch (err) {
+      done(err as Error)
+    }
+  })
+
+  // ==========================================================================
+  // 1. POST /payments/withdrawal/notify - 提现回调（微信转账到账通知）
+  //
+  // 微信转账 V3 回调，通知资金到账结果。
+  // 回调 Headers: wechatpay-serial / wechatpay-signature / wechatpay-timestamp / wechatpay-nonce
+  // 回调 Body: { out_bill_no, transfer_scene_id, state, transfer_bill_no, fail_reason? }
+  // state: ACCEPTED | TRANSFERING | WAIT_USER_CONFIRM | SUCCESS | FAIL
+  // ==========================================================================
+  server.post(
+    '/payments/withdrawal/notify',
+    {
+      schema: buildSchema({
+        summary: '微信提现回调',
+        description: '微信转账到账通知(提现回调,无需登录,验签后处理)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.callback,
+      }),
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      try {
+        // 提取微信支付回调 Headers
+        const timestamp = request.headers['wechatpay-timestamp'] as string
+        const nonce = request.headers['wechatpay-nonce'] as string
+        const signature = request.headers['wechatpay-signature'] as string
+
+        const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
+        // 无 body 的 POST(无 content-type 且 content-length 为 0)在 Fastify 里**根本不解析**
+        // (handle-request.js:「Request has no body to parse」直接放行)⇒ request.body 是 undefined。
+        // 原写法 `request.body as Record<string, unknown>` 把它当对象用,第一行属性访问就抛
+        // TypeError ⇒ 落进下面的 catch ⇒ 回 500「副作用处理失败,待重试」——
+        // 而这次请求**根本没有副作用可处理**(连 out_bill_no 都没有),500 还会让微信按重试曲线
+        // 反复重投一个永远不可能成功的请求(缺 body 是恒定的,不是瞬时故障)。
+        // 口径:缺 out_bill_no / 缺 state = 幂等空转 ⇒ 回 SUCCESS 不重投(见下面那个 guard)。
+        const body = (request.body ?? {}) as Record<string, unknown>
+        const outBillNo = body.out_bill_no as string
+        const state = body.state as string
+
+        if (!outBillNo || !state) {
+          return reply.send({ code: 'SUCCESS', message: 'OK' })
+        }
+
+        // F-16:验签原文只能是解析器挂上来的原始报文字节。缺失即拒绝(fail-closed),
+        // 禁止回落 JSON.stringify(body) —— 重序列化在空白/转义/数字格式上与原文不同,
+        // 等于让攻击者通过重排字段绕过验签,同时把真实回调挡在 401。
+        if (rawBody === undefined) {
+          request.log.warn({ outBillNo }, 'withdrawal callback missing raw body, reject')
+          return reply.code(400).send({ code: 'FAIL', message: '缺少原始报文' })
+        }
+
+        // 签名验证：verifyCallbackSignature 在无平台证书时 DEV 环境自动跳过，生产环境必须配置证书
+        if (timestamp && nonce && signature) {
+          const valid = verifyCallbackSignature(timestamp, nonce, rawBody, signature)
+          if (!valid) {
+            request.log.warn({ outBillNo }, 'withdrawal callback signature verification failed')
+            return reply.code(401).send({ code: 'FAIL', message: '签名验证失败' })
+          }
+        } else if (env.NODE_ENV === 'production') {
+          request.log.warn('withdrawal callback missing required headers in production')
+          return reply.code(400).send({ code: 'FAIL', message: '缺少必要回调头' })
+        }
+
+        // F-17:报文级去重标记(consumeNotifyNonce)必须在业务事务**成功之后**才落库。
+        // 原顺序是「先消费 nonce,失败仍 ACK SUCCESS」:事务一旦失败,微信收到 SUCCESS 不再重投,
+        // 流水永久停在 pending/processing、frozen 永不释放;而重投又会被 nonce 判成重复直接 SUCCESS。
+        // 幂等由事务内 SELECT FOR UPDATE + 仅处理 status 0/1 保证,不依赖 nonce 先落。
+        await db.transaction(async (tx) => {
+          // 根据 out_bill_no 查询提现流水（out_bill_no 对应 partnerTradeNo）
+          const [flow] = await tx
+            .select()
+            .from(withdrawalFlows)
+            .where(eq(withdrawalFlows.partnerTradeNo, outBillNo))
+            .for('update') // 行锁防并发重复处理
+            .limit(1)
+
+          if (!flow) {
+            request.log.warn({ outBillNo }, 'withdrawal flow not found for callback')
+            return
+          }
+
+          // 只处理 pending(0) 或 processing(1) 状态的流水，避免重复处理
+          if (flow.status !== 0 && flow.status !== 1) {
+            return
+          }
+
+          if (state === 'SUCCESS') {
+            // 转账成功:更新状态为 completed(2)
+            await tx
+              .update(withdrawalFlows)
+              .set({
+                status: 2,
+                paymentNo: (body.transfer_bill_no as string) ?? null,
+                processedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(withdrawalFlows.id, flow.id))
+            // P0 资金守恒(2026-08-02 修正):applyWithdrawal 申请时已 token -= amount + frozen += amount,
+            // 成功回调只需释放冻结(frozen -= amount),禁止再扣 token(否则双重扣减)。
+            // flow.userId 可空(用户删除时置 NULL),此时无法更新余额,跳过(流水状态已更新,人工对账)。
+            if (flow.userId) {
+              await tx
+                .update(userMargins)
+                .set({
+                  frozenQuantity: sql`frozen_quantity - ${flow.amount}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userMargins.userId, flow.userId))
+            }
+          } else if (state === 'FAIL') {
+            // 转账失败:更新状态为 failed(3),记录失败原因
+            const failReason = (body.fail_reason as string) ?? '转账失败'
+            await tx
+              .update(withdrawalFlows)
+              .set({
+                status: 3,
+                rejectReason: failReason,
+                processedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(withdrawalFlows.id, flow.id))
+            // P0 资金守恒(2026-08-02 修正):applyWithdrawal 申请时已 token -= amount + frozen += amount,
+            // 失败回调必须退还 token(token += amount)+ 释放冻结(frozen -= amount),否则用户余额被锁死。
+            if (flow.userId) {
+              await tx
+                .update(userMargins)
+                .set({
+                  tokenQuantity: sql`token_quantity + ${flow.amount}`,
+                  frozenQuantity: sql`frozen_quantity - ${flow.amount}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userMargins.userId, flow.userId))
+            }
+          }
+          // ACCEPTED / TRANSFERING / WAIT_USER_CONFIRM 等中间状态不更新，等待最终状态回调
+        })
+
+        // 业务已落库,再落报文去重标记:即便这里 replayed,也说明业务此前已成功,直接 SUCCESS。
+        if (timestamp && nonce) {
+          const withdrawalNonceVerdict = await consumeNotifyNonce('withdrawal', timestamp, nonce)
+          if (withdrawalNonceVerdict === 'replayed') {
+            return reply.send({ code: 'SUCCESS', message: '重复通知' })
+          }
+          if (withdrawalNonceVerdict === 'unavailable') {
+            return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+          }
+        }
+
+        return reply.send({ code: 'SUCCESS', message: 'OK' })
+      } catch (e) {
+        request.log.error({ err: e }, 'withdrawal notify processing failed')
+        // F-17:处理失败必须让微信重投(非 SUCCESS)。回复 SUCCESS 等于替微信关掉了重试,
+        // 资金流水会永久停在中间态;事务回滚后重投可安全重放。
+        return reply.code(500).send({ code: 'FAIL', message: '处理失败,请稍后重试' })
+      }
+    },
+  )
+
+  // ==========================================================================
+  // 2. GET /payments/sync-return - 支付宝同步返回页
+  //
+  // 支付宝支付完成后浏览器跳转回此端点。
+  // Query: out_trade_no, trade_no, trade_status, total_amount
+  // 验证通过后 302 重定向到前端成功/失败页。
+  // ==========================================================================
+  server.get(
+    '/payments/sync-return',
+    {
+      schema: buildSchema({
+        summary: '支付宝同步返回',
+        description: '支付宝支付成功后浏览器同步跳转(无需登录,验证后重定向到前端成功/失败页)',
+        tags: ['Payment'],
+        auth: false,
+        response: swaggerSchemas.public,
+      }),
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const query = request.query as Record<string, string>
+      const outTradeNo = query.out_trade_no ?? ''
+      const tradeStatus = query.trade_status ?? ''
+
+      const failUrl = `${config.CORS_ORIGIN}/payment/fail`
+
+      if (!outTradeNo) {
+        return reply.redirect(failUrl)
+      }
+
+      try {
+        // 验证交易状态
+        if (tradeStatus !== 'TRADE_SUCCESS') {
+          return reply.redirect(failUrl)
+        }
+
+        // 查询订单确认存在
+        const [order] = await db
+          .select()
+          .from(orders)
+          .where(eq(orders.orderNo, outTradeNo))
+          .limit(1)
+
+        if (!order) {
+          return reply.redirect(failUrl)
+        }
+
+        // 如果订单已支付，直接跳转成功页
+        if (order.status === 'paid') {
+          const successUrl = `${config.CORS_ORIGIN}/payment/success?orderNo=${outTradeNo}`
+          return reply.redirect(successUrl)
+        }
+
+        // P0 安全修复(2026-08-02):同步返回端点不验签,禁止在此调用 completeOrder 标记订单已支付。
+        // 攻击者构造 /payments/sync-return?out_trade_no=<pending订单号>&trade_no=fake&trade_status=TRADE_SUCCESS
+        // 即可免费完成任意待支付订单。订单状态变更只由验签后的异步回调(/payments/notify)触发。
+        // 待支付订单重定向到 pending 页面,前端轮询订单状态等待异步回调完成。
+        if (order.status === 'pending') {
+          const pendingUrl = `${config.CORS_ORIGIN}/payment/result?orderNo=${outTradeNo}&status=pending`
+          return reply.redirect(pendingUrl)
+        }
+
+        // 其他状态（cancelled / refunded）跳转失败页
+        return reply.redirect(failUrl)
+      } catch (e) {
+        request.log.error({ err: e, outTradeNo }, 'alipay sync return processing failed')
+        return reply.redirect(failUrl)
+      }
+    },
+  )
+
+  // ==========================================================================
+  // 3. POST /payments/subscription/renew - 连续订阅自动续费
+  //
+  // Body: { planId, paymentMethod }
+  // 鉴权后创建新订单并调用对应支付渠道预下单，返回预支付信息。
+  // ==========================================================================
+  server.post(
+    '/payments/subscription/renew',
+    {
+      schema: buildSchema({
+        summary: '连续订阅续费',
+        description: '鉴权后创建新订单并调用对应支付渠道预下单,返回预支付信息(需有效 VIP 订阅)',
+        tags: ['Payment'],
+        body: subscriptionRenewSchema,
+      }),
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const userId = request.userId!
+
+      const parsed = subscriptionRenewSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { planId, paymentMethod } = parsed.data
+
+      // 查询订阅方案
+      const [plan] = await db
+        .select()
+        .from(plans)
+        .where(and(eq(plans.id, planId), eq(plans.isActive, true)))
+        .limit(1)
+
+      if (!plan) {
+        return reply.status(404).send(error(404, '订阅方案不存在或已下架'))
+      }
+
+      // 确认当前有有效 VIP 订阅（仅 VIP 用户可续费）
+      const [vip] = await db
+        .select()
+        .from(userVips)
+        .where(
+          and(
+            eq(userVips.userId, userId),
+            eq(userVips.status, 1),
+            gte(userVips.endTime, new Date()),
+          ),
+        )
+        .limit(1)
+
+      if (!vip) {
+        return reply.status(400).send(error(400, '当前无有效 VIP 订阅，无法续费'))
+      }
+
+      // 检查是否有 active 周期扣款签约:有则走委托扣款分支,无则走手动支付流程
+      const [activeContract] = await db
+        .select()
+        .from(wechatPayContracts)
+        .where(
+          and(
+            eq(wechatPayContracts.userId, userId),
+            eq(wechatPayContracts.status, 'active'),
+            eq(wechatPayContracts.planId, planId),
+          ),
+        )
+        .limit(1)
+
+      if (activeContract) {
+        const deductOutTradeNo = generateOutTradeNo('RC')
+        await deductRecurring({
+          appid: env.WX_MINI_APPID ?? env.WX_APP_APPID ?? '',
+          contractId: activeContract.contractId,
+          outTradeNo: deductOutTradeNo,
+          amount: plan.price,
+          description: `连续订阅自动续费 - ${plan.name}`,
+          transactionNotifyUrl: env.WX_PAY_RECURRING_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? '',
+        })
+        return reply.send(
+          success({
+            recurring: true,
+            outTradeNo: deductOutTradeNo,
+            status: 'pending',
+          }),
+        )
+      }
+
+      // 创建新订单（status=pending）
+      const order = await placeOrder({
+        userId,
+        amount: plan.price,
+        orderType: 1, // membership
+        payType: paymentMethod,
+        description: `连续订阅续费 - ${plan.name}`,
+      })
+
+      // 设置订单关联的方案 ID
+      await db
+        .update(orders)
+        .set({ planId: plan.id, updatedAt: new Date() })
+        .where(eq(orders.id, order.id))
+
+      // 根据支付方式调用预支付
+      let payInfo: Record<string, unknown>
+
+      if (paymentMethod === 'wechat') {
+        if (!isWechatPayConfigured()) {
+          payInfo = { mock: true }
+        } else {
+          const prepayId = await jsapiPrepay({
+            outTradeNo: order.orderNo,
+            amount: plan.price,
+            description: `连续订阅续费 - ${plan.name}`,
+            openId: '',
+            notifyUrl: env.WX_PAY_NOTIFY_URL ?? '',
+          })
+          const sign = buildJsapiSign(prepayId)
+          payInfo = { prepayId, ...sign }
+        }
+      } else {
+        // alipay
+        if (!isAlipayConfigured()) {
+          payInfo = { mock: true }
+        } else {
+          const amountYuan = (plan.price / 100).toFixed(2)
+          const bizContent = {
+            out_trade_no: order.orderNo,
+            total_amount: amountYuan,
+            subject: `连续订阅续费 - ${plan.name}`,
+            product_code: 'FAST_INSTANT_TRADE_PAY',
+          }
+          const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+          payInfo = { payUrl }
+        }
+      }
+
+      return reply.send(
+        success({
+          orderId: order.id,
+          orderNo: order.orderNo,
+          payInfo,
+        }),
+      )
+    },
+  )
+
+  // ==========================================================================
+  // 4. GET /payments/subscription/status - 查询订阅状态
+  //
+  // 鉴权后查询当前用户的 VIP 订阅状态。
+  // 返回: { isVip, vipLevel, endTime, autoRenew, planName }
+  // ==========================================================================
+  server.get(
+    '/payments/subscription/status',
+    {
+      schema: buildSchema({
+        summary: '查询订阅状态',
+        description:
+          '鉴权后查询当前用户的 VIP 订阅状态(返回 isVip/vipLevel/endTime/autoRenew/planName)',
+        tags: ['Payment'],
+      }),
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const userId = request.userId!
+
+      // 查询当前有效的 VIP 订阅（关联 VIP 等级表获取等级名称）
+      const [vipRow] = await db
+        .select({
+          userVip: userVips,
+          levelName: vipLevels.levelName,
+        })
+        .from(userVips)
+        .leftJoin(vipLevels, eq(userVips.vipLevelId, vipLevels.id))
+        .where(
+          and(
+            eq(userVips.userId, userId),
+            eq(userVips.status, 1),
+            gte(userVips.endTime, new Date()),
+          ),
+        )
+        .orderBy(desc(userVips.createdAt))
+        .limit(1)
+
+      if (!vipRow) {
+        return reply.send(
+          success({
+            isVip: false,
+            vipLevel: 0,
+            endTime: null,
+            autoRenew: false,
+            planName: null,
+            contract: null,
+          }),
+        )
+      }
+
+      // 若 autoRenew=true,关联查询当前用户的 active 签约(供前端展示下次扣款时间)
+      let contract: {
+        id: number
+        contractId: string
+        status: string
+        nextChargeTime: Date | null
+        lastChargeTime: Date | null
+        lastChargeStatus: string | null
+        signedAt: Date | null
+      } | null = null
+      if (vipRow.userVip.autoRenew === 1) {
+        const [c] = await db
+          .select({
+            id: wechatPayContracts.id,
+            contractId: wechatPayContracts.contractId,
+            status: wechatPayContracts.status,
+            nextChargeTime: wechatPayContracts.nextChargeTime,
+            lastChargeTime: wechatPayContracts.lastChargeTime,
+            lastChargeStatus: wechatPayContracts.lastChargeStatus,
+            signedAt: wechatPayContracts.signedAt,
+          })
+          .from(wechatPayContracts)
+          .where(
+            and(eq(wechatPayContracts.userId, userId), eq(wechatPayContracts.status, 'active')),
+          )
+          .orderBy(desc(wechatPayContracts.signedAt))
+          .limit(1)
+        contract = c ?? null
+      }
+
+      return reply.send(
+        success({
+          isVip: true,
+          vipLevel: vipRow.userVip.levelValue,
+          endTime: vipRow.userVip.endTime,
+          autoRenew: vipRow.userVip.autoRenew === 1,
+          planName: vipRow.levelName,
+          contract,
+        }),
+      )
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

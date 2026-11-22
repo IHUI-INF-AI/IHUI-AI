@@ -1,0 +1,6 @@
+[
+  { "src": "cover.png", "alt": "首页封面,深蓝渐变" },
+  { "src": "logo.svg", "alt": "品牌标识,单色" },
+  { "src": "banner.webp", "alt": "活动横幅,红底" },
+  { "src": "icon.png", "alt": "装饰图标,圆角" }
+]

@@ -1,0 +1,164 @@
+G-79（ai-service 全量实跑档 38 枚红）复检取证 —— 2026-10-29 只读分诊
+
+复检方式     : 只读。不跑全量（按派单要求，全量约 3 分钟级但会与并发会话抢机器），
+               只跑票面点名的 20 个测试文件 + 对 38 枚 node id 做收集面逐条核对。
+取证基线     : HEAD = 2d2bceb2c2af9e9247d7c0e8f4fd5b2d967c949c（2026-10-29 22:02 +0800）
+原始证据     : docs/benchmark-evidence/2026-10/g1058646-clean-head-pytest.txt
+               （被检出提交 7ab68099f6e3ffbd935edc4575546134d5b2e601，已确认是 HEAD 祖先）
+执行入口     : pnpm check:pytest -- tests/<file>（= scripts/run-ai-service-tests.mjs，只认 .venv）
+
+一、结论（现读）
+
+38 枚票面红：0 枚仍红。
+- 38 枚 node id 在 HEAD 上 100% 仍可收集（515 条收集去重清单逐条命中，missing=0）。
+  说明不是"用例被删/改名"造成的假绿。
+- 覆盖它们的 20 个测试文件实跑 515 条：514 passed / 1 failed；唯一失败那条不是票面 38 枚之一，
+  是本机 scratch 现场残留导致的枚举分叉（见第四节）。
+
+二、实跑读数（逐批，末行现读）
+
+1) 3 passed   tests/test_network_approval_target_alignment_d159.py
+2) 66 passed  tests/test_llm_tool_persistence.py + test_mcp_server_coverage.py + test_parallel_tool_abort_54.py
+3) 237 passed tests/test_mcp_server.py + test_agents_role_parity.py + test_engine_role_parity.py
+              + test_mcp_store.py + test_model_tools_wiring_58.py
+4) 138 passed, 1 failed  tests/test_os_sandbox.py + test_deep_engines_routers.py
+              + test_file_search_ripgrep_v75.py + test_mypy_strict_head_fixes_20261008.py
+              + test_credential_history_all_write_sites.py
+   （失败 = test_file_search_ripgrep_v75.py::test_real_repo_enumeration_is_faster_than_serial_walk，
+     非票面用例；原因见第四节）
+4b) 2 passed  tests/test_file_search_ripgrep_v75.py 的票面两枚单独复跑
+5) 70 passed  tests/test_g649_entitlement_fail_closed.py + test_agents_parity.py
+              + test_egress_facts_parity.py + test_background_task_type_wiring_51.py
+              + test_external_browser_profile.py + test_compaction_eval_determinism.py
+
+收集面核对命令与末行：
+  .venv/Scripts/python.exe -m pytest --collect-only -q -p no:cacheprovider <20 files>
+  => 515 tests collected in 16.36s
+  38 枚票面 node id 与该清单比对 => collected=515 missing=0
+
+三、38 枚逐条现状与实现提交归属
+
+（状态列 全绿 = 该文件同批实跑 0 失败；归属 = 自证据基线 7ab68099 以来把该枚修掉/收口的提交）
+
+01 tests/test_mcp_server.py::test_tool_write_file_success
+   全绿 | 0230d16e19 test(ai-service): G-1106294 簇A 12 枚真红收口（2026-10-09）
+02 tests/test_os_sandbox.py::TestWindowsJobObject::test_env_whitelist_applied_to_child
+   全绿 | 29bbafa8c3 fix(ci): Pytest 步存量修复（2026-10-11）
+03 tests/test_deep_engines_routers.py::test_sandbox_run_success
+   全绿 | 29bbafa8c3
+04 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_path_outside_workspace_returns_path_not_allowed
+   全绿 | 0230d16e19
+05 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_file_not_found_returns_not_found
+   全绿 | 0230d16e19
+06 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_ambiguous_match_returns_error_with_count
+   全绿 | 0230d16e19
+07 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_not_found_returns_not_found_with_zero_count
+   全绿 | 0230d16e19
+08 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_happy_path_replaces_and_creates_backup
+   全绿 | 0230d16e19
+09 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_replace_all_replaces_all_occurrences
+   全绿 | 0230d16e19
+10 tests/test_llm_tool_persistence.py::TestFireCallbackPersistArrays::test_empty_or_invalid_history_omits_fields
+   全绿 | 无单一实现提交（测试文件与 app/routers/llm.py 的 _fire_callback /
+        _build_persisted_tool_calls 自证据基线起逐字未改；同期 tests/conftest.py 累计 +77 行
+        测试隔离夹具。票面原把它列在"未逐条读因"的 E 簇，现读绿 -> 归现场/隔离类，见第五节）
+11 tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_binary_file_with_nul_byte_rejected
+   全绿 | 0230d16e19
+12 tests/test_mcp_store.py::test_install_success_persists
+   全绿 | 0230d16e19
+13 tests/test_engine_role_parity.py::test_registry_admin_tool_forwards_role_to_call_tool
+   全绿 | 972ddb6e8c test(ai-service): 代落 8 枚 HEAD 面用例自证（2026-10-09）
+14 tests/test_external_browser_profile.py::test_detect_login_from_profile_hit
+   全绿 | 29bbafa8c3
+15 tests/test_engine_role_parity.py::test_search_tool_forwards_zero_without_special_casing
+   全绿 | 972ddb6e8c
+16 tests/test_mypy_strict_head_fixes_20261008.py::test_ensure_tables_conn_runs_all_four_statements_on_given_conn
+   全绿 | 7506918c67 test(ai-service): G-79 测试面修复（2026-10-18，建表面期望清单补九段 DDL）
+17 tests/test_agents_role_parity.py::test_build_loop_v2_tools_passes_role_into_call_tool
+   全绿 | 972ddb6e8c
+18 tests/test_agents_role_parity.py::test_every_agent_loop_construction_threads_role
+   全绿 | 972ddb6e8c
+19 tests/test_file_search_ripgrep_v75.py::test_lazy_index_guardrail_sees_same_denominator
+   全绿 | b4e70ea36e test(ai-service): ripgrep_v75 枚举分叉修复（2026-10-18，15/15 全绿）
+20 tests/test_file_search_ripgrep_v75.py::test_index_result_carries_traversal_provenance
+   全绿 | b4e70ea36e
+21 tests/test_g649_entitlement_fail_closed.py::test_clean_assembly_is_byte_identical_to_head_implementation
+   全绿 | 972ddb6e8c（对照基线改按出处 sha）+ 29bbafa8c3（+44 行同步）
+22 tests/test_credential_history_all_write_sites.py::test_daemon_site_old_credential_enters_history_and_foreign_keys_survive
+   全绿 | 972ddb6e8c
+23 tests/test_agents_parity.py::test_resume_endpoint_resumes_from_checkpoint
+   全绿 | 972ddb6e8c
+24 tests/test_model_tools_wiring_58.py::test_builders_dict_has_all_builtin_names
+   全绿 | 972ddb6e8c
+25 tests/test_egress_facts_parity.py::test_dual_side_parity_full_fields
+   全绿 | 29bbafa8c3
+26 tests/test_egress_facts_parity.py::test_no_credential_material_in_facts
+   全绿 | 29bbafa8c3
+27 tests/test_mcp_server.py::test_tool_analyze_code_empty
+   全绿 | 0230d16e19
+28 tests/test_background_task_type_wiring_51.py::test_long_running_command_is_declared_non_resumable_and_still_converges
+   全绿 | 70c6cb118e feat(server): 服务端收口（2026-10-12，同批新增/同步该测试）
+29 tests/test_mcp_server.py::test_tool_generate_test_template
+   全绿 | 0230d16e19
+30 tests/test_mcp_server.py::test_tool_generate_test_custom_framework
+   全绿 | 0230d16e19
+31 tests/test_parallel_tool_abort_54.py::test_cancelled_tool_returns_structured_abort
+   全绿 | 972ddb6e8c + 7506918c67（夹具补 _axis_resolution 默认，修并行中断 2 枚）
+32 tests/test_parallel_tool_abort_54.py::test_inner_cancelled_yields_structured_abort_direct
+   全绿 | 972ddb6e8c + 7506918c67
+33 tests/test_parallel_tool_abort_54.py::test_parallel_batch_interrupt_emits_plan_step_aborted
+   全绿 | 972ddb6e8c + 7506918c67
+34 tests/test_parallel_tool_abort_54.py::test_non_interrupt_path_unchanged
+   全绿 | 972ddb6e8c + 7506918c67
+35 tests/test_network_approval_target_alignment_d159.py::test_落库目标等于帧上可见目标
+   全绿 | 70c6cb118e（新增 select_grantable_target：帧侧/写侧同出一处，"全部判死则不落"）
+36 tests/test_network_approval_target_alignment_d159.py::test_全部目标都被判死时一条规则都不落
+   全绿 | 70c6cb118e（同上）
+37 tests/test_compaction_eval_determinism.py::test_2_tracked_report_needs_no_further_formatting
+   全绿 | 29bbafa8c3
+38 tests/test_compaction_eval_determinism.py::test_3_check_arm_has_teeth
+   全绿 | 29bbafa8c3
+
+分簇合计：簇A 12 枚（0230d16e19）、簇B 4 枚（972ddb6e8c）、簇C 4 枚（972ddb6e8c + 7506918c67）、
+簇D 2 枚（29bbafa8c3）、其余 15 枚按上表逐文件归属；1 枚（llm_tool_persistence）无单一实现提交。
+12 + 4 + 4 + 2 + 15 + 1 = 38。
+另有 7506918c67 的提交信息自述"31 枚清单现读全绿"（2026-10-18），与本轮现读一致。
+
+四、现场残留（非票面 38 枚，不影响本票结论）
+
+现读红 1 条：
+  tests/test_file_search_ripgrep_v75.py::test_real_repo_enumeration_is_faster_than_serial_walk
+  AssertionError: 两通道在非在飞/非链接/非junction路径上分叉:
+    .DevEnv/Temp/ihui-scratch/wt-heal-mirror-h2T8Qt/scripts/heal-worktree-tracked.mjs
+  .DevEnv/ 是 .gitignore 登记的仓内 scratch 落点（git check-ignore 命中 .gitignore:603），
+  该目录内残留着别的会话的临时 worktree。判据只豁免 .ihui-agent/ 前缀、链接与 junction，
+  未覆盖 .DevEnv/，于是把 scratch 里的文件当成"枚举分叉"。
+  归属：本机现场清理（scratch 残留），或该用例的分叉判据应把 .DevEnv/ 纳入在飞/scratch 豁免面。
+  与本票 38 枚无关，不在本席落点内。
+
+五、未判定项（不冒绿）
+
+- llm_tool_persistence 那 1 枚的原始红因：票面原记为"其余各枚未逐条读因"（E 簇），当次
+  pytest 输出未落 traceback，无法回溯。现读绿为事实（单文件 + 与另两文件同批两次均绿），
+  但"被哪一笔改动修好"无法点名 —— 代码面证据是 _fire_callback 与 _build_persisted_tool_calls
+  自 7ab68099 起逐字未改，同目录 conftest 累计 +77 行隔离夹具（CORS/rate-limit/签到/checkin 池桥/
+  pgvector/run journal）。按"判不了就写未判定"记，不写成"某提交修复"。
+
+六、复现
+
+  cd apps/ai-service
+  .venv/Scripts/python.exe -m pytest --collect-only -q -p no:cacheprovider \
+    tests/test_mcp_server.py tests/test_mcp_server_coverage.py tests/test_mcp_store.py \
+    tests/test_os_sandbox.py tests/test_deep_engines_routers.py tests/test_llm_tool_persistence.py \
+    tests/test_model_tools_wiring_58.py tests/test_network_approval_target_alignment_d159.py \
+    tests/test_agents_role_parity.py tests/test_engine_role_parity.py \
+    tests/test_file_search_ripgrep_v75.py tests/test_mypy_strict_head_fixes_20261008.py \
+    tests/test_credential_history_all_write_sites.py tests/test_g649_entitlement_fail_closed.py \
+    tests/test_parallel_tool_abort_54.py tests/test_agents_parity.py tests/test_egress_facts_parity.py \
+    tests/test_background_task_type_wiring_51.py tests/test_external_browser_profile.py \
+    tests/test_compaction_eval_determinism.py
+  # 末行现读：515 tests collected
+
+  单文件实跑（示例）：pnpm check:pytest -- tests/test_mcp_server_coverage.py
+
+注：本文件是 2026-10-29 的一次性复检产物，不是判据输入；所有数字为当次现读。

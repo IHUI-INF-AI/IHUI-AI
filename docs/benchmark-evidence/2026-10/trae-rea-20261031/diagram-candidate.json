@@ -1,0 +1,927 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "三方 Agent 运行时能力分层对照(Qoder CN / Trae CN / IHUI-AI)",
+    "subtitle": "逆向取证结论:载体分层 + 本仓缺口按 T3 三态标注(数字全部为 2026-10-30/31 现读值)",
+    "output": ".archify/architecture-qoder-trae-gap-20261031-014634/qoder-trae-agent-gap-map.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "19653cc0785f248fe13d963287b6452661eb3e19"
+    },
+    "views": [
+      {
+        "id": "v-carrier",
+        "label": "对照程序真实载体",
+        "focus": ["q-shell", "q-ext", "q-sdk", "t-shell", "t-ext", "t-agent", "t-ckg", "t-sbx"],
+        "note": "壳 → 扩展 → 原生/混淆运行时 → 独立原生服务;端口与包体字节数见各节点 tag。"
+      },
+      {
+        "id": "v-ihui-layer",
+        "label": "本仓对应落点",
+        "focus": ["i-shell", "i-cli", "i-api", "i-kernel", "i-tools", "i-router", "i-store"],
+        "note": "web/desktop 与 cli 承担壳层和工具注册,api 是网关,ai-service 是内核与持久化落点。"
+      },
+      {
+        "id": "v-gaps",
+        "label": "缺口三态(B 与 C)",
+        "focus": ["i-plugin", "i-elicit", "i-workflow", "i-compact", "i-sub", "i-update"],
+        "note": "B = 实现了但没装车(8 条);C = 结构性缺失(7 条,其中 5 条属壳层分发)。"
+      },
+      {
+        "id": "v-landed",
+        "label": "本轮已落地两笔",
+        "focus": ["i-compact", "i-overflow", "i-modelcap", "i-model"],
+        "note": "8aa6e04350 溢出应急压缩;19653cc078 压缩上限按模型解析(与执行器侧共用同一出口)。"
+      },
+      {
+        "id": "v-context",
+        "label": "上下文工程三层对照",
+        "focus": ["q-compact", "t-compact", "i-compact", "i-overflow", "i-modelcap", "i-model"],
+        "note": "Trae 四档 + 压缩后 digest 自证;Qoder 三档 + 百分比单档闸;本仓在产但新流水线未放量。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "q-shell",
+      "type": "frontend",
+      "label": "Qoder 壳层",
+      "sublabel": "Electron 43.1.1 · 0.5.1 生效",
+      "tag": "多版本共存",
+      "pos": [20, 90],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-ext",
+      "type": "frontend",
+      "label": "内置扩展层",
+      "sublabel": "pluginView +47%",
+      "tag": "asar 条目 +15",
+      "pos": [20, 210],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-sdk",
+      "type": "backend",
+      "label": "Agent SDK 内核",
+      "sublabel": "worker 1.1.79-hotfix.7",
+      "tag": "qoderclicn 同源",
+      "pos": [20, 330],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-perm",
+      "type": "security",
+      "label": "工具审批与权限",
+      "sublabel": "只读判定 + 分类器",
+      "pos": [20, 450],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-sbx",
+      "type": "security",
+      "label": "无 OS 级沙箱",
+      "sublabel": "靠只读判定兜底",
+      "pos": [20, 570],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-compact",
+      "type": "backend",
+      "label": "三档压缩流水线",
+      "sublabel": "partial/micro 计数",
+      "tag": "阈值单档可覆盖",
+      "pos": [20, 690],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-model",
+      "type": "external",
+      "label": "dynamic-text 文案",
+      "sublabel": "51 键模型名/文案",
+      "pos": [20, 810],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-cbi",
+      "type": "backend",
+      "label": "代码调查员工具",
+      "sublabel": "唯一检索腿",
+      "tag": "无独立索引服务",
+      "pos": [20, 930],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-sub",
+      "type": "backend",
+      "label": "子代理与 Task 族",
+      "sublabel": "Enter/ExitWorktree",
+      "tag": "无合并哈希面",
+      "pos": [20, 1050],
+      "size": [155, 58]
+    },
+    {
+      "id": "q-store",
+      "type": "database",
+      "label": "会话与文件史",
+      "sublabel": "file-history @vN",
+      "pos": [20, 1170],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-shell",
+      "type": "frontend",
+      "label": "Trae 壳层",
+      "sublabel": "fork 1.107.1 · 扩展 109",
+      "tag": "逐文件校验面",
+      "pos": [200, 90],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-ext",
+      "type": "frontend",
+      "label": "内置扩展 14 条",
+      "sublabel": "builtin-mcp 22 工具",
+      "pos": [200, 210],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-agent",
+      "type": "backend",
+      "label": "原生 Rust 三件套",
+      "sublabel": "ai_agent 282MB",
+      "tag": "socket :40005",
+      "pos": [200, 330],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-perm",
+      "type": "security",
+      "label": "16 值权限决策",
+      "sublabel": "红/黑名单 · 命令级",
+      "pos": [200, 450],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-sbx",
+      "type": "security",
+      "label": "ntdll API 拦截",
+      "sublabel": "5/8 枚 ApiListener",
+      "tag": "OS 强制叠加",
+      "pos": [200, 570],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-compact",
+      "type": "backend",
+      "label": "四档压缩流水线",
+      "sublabel": "micro+异步+累积+校验",
+      "tag": "阈值远端下发",
+      "pos": [200, 690],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-model",
+      "type": "external",
+      "label": "模型供给字段面",
+      "sublabel": "BYOK 连通自检",
+      "tag": "27 字段现读",
+      "pos": [200, 810],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-ckg",
+      "type": "database",
+      "label": "CKG 独立服务",
+      "sublabel": "Go+CGO :50000 gRPC",
+      "tag": "91 消息含 21 Cfs",
+      "pos": [200, 930],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-sub",
+      "type": "backend",
+      "label": "43 类子代理",
+      "sublabel": "4 种隔离 + worktree",
+      "pos": [200, 1050],
+      "size": [155, 58]
+    },
+    {
+      "id": "t-store",
+      "type": "database",
+      "label": "SQLite 会话库",
+      "sublabel": "524,075,008 B",
+      "tag": "89 枚迁移",
+      "pos": [200, 1170],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-shell",
+      "type": "frontend",
+      "label": "web + desktop 壳",
+      "sublabel": "Next 16 · Tauri 0.1.76",
+      "tag": "A 已具备",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/web/package.json",
+          "line": 2,
+          "end_line": 3,
+          "label": "web 端形态"
+        },
+        {
+          "path": "apps/desktop/src-tauri/tauri.conf.json",
+          "line": 4,
+          "label": "桌面壳版本"
+        }
+      ],
+      "pos": [450, 90],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-cli",
+      "type": "external",
+      "label": "cli 端 agent",
+      "sublabel": "17 内置 + 8 LSP",
+      "tag": "A 已具备",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/cli/src/tools/builtins.ts",
+          "line": 1237,
+          "label": "BUILTIN_TOOLS"
+        },
+        {
+          "path": "apps/cli/src/tools/lsp.ts",
+          "line": 1060,
+          "label": "LSP_TOOLS"
+        }
+      ],
+      "pos": [630, 90],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-update",
+      "type": "cloud",
+      "label": "分发与完整性",
+      "sublabel": "pin 只到 commit SHA",
+      "tag": "C 缺失 G-26",
+      "icon": "failure",
+      "sources": [
+        {
+          "path": "apps/desktop/src-tauri/src/auto_refresh.rs",
+          "line": 331,
+          "label": "自更新单端点"
+        },
+        {
+          "path": "apps/cli/src/updater.ts",
+          "line": 47,
+          "label": "minimumVersion 闸"
+        },
+        {
+          "path": "apps/cli/src/plugins/url-shape.ts",
+          "line": 93,
+          "label": "pin 语义"
+        }
+      ],
+      "pos": [810, 90],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-plugin",
+      "type": "backend",
+      "label": "插件与市场未启",
+      "sublabel": "installer.ts 有实现",
+      "tag": "B 未装车 G-22",
+      "icon": "waiting",
+      "sources": [
+        {
+          "path": "apps/cli/src/commands/agent.ts",
+          "line": 459,
+          "end_line": 463,
+          "label": "plugins.enabled 总闸"
+        }
+      ],
+      "pos": [630, 210],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-api",
+      "type": "backend",
+      "label": "api 网关",
+      "sublabel": "Fastify 5 · /api/ai",
+      "sources": [
+        {
+          "path": "apps/api/src/routes/index.ts",
+          "line": 113,
+          "label": "路由导入"
+        },
+        {
+          "path": "apps/api/src/routes/index.ts",
+          "line": 787,
+          "label": "前缀注册"
+        }
+      ],
+      "pos": [450, 330],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-kernel",
+      "type": "backend",
+      "label": "ai-service 内核",
+      "sublabel": "AgentLoopV2.run()",
+      "tag": "A 已具备",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/services/agent_loop_v2.py",
+          "line": 2048,
+          "label": "类定义"
+        },
+        {
+          "path": "apps/ai-service/app/services/agent_loop_v2.py",
+          "line": 3328,
+          "label": "run()"
+        }
+      ],
+      "pos": [630, 330],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-router",
+      "type": "messagebus",
+      "label": "超工具进程内聚合",
+      "sublabel": "降级即逐字节等价",
+      "tag": "A 超越 G-19",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/services/mcp_tool_aggregator.py",
+          "line": 5,
+          "label": "聚合器自述"
+        },
+        {
+          "path": "apps/ai-service/app/core/capability_matrix.py",
+          "line": 717,
+          "label": "supertool 台账"
+        }
+      ],
+      "pos": [810, 330],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-tools",
+      "type": "backend",
+      "label": "MCP 工具 95 枚",
+      "sublabel": "_TOOLS 区间现读",
+      "tag": "A 已具备",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/services/mcp_server.py",
+          "line": 9260,
+          "label": "_TOOLS 起点"
+        }
+      ],
+      "pos": [450, 450],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-elicit",
+      "type": "backend",
+      "label": "Elicitation 零调用",
+      "sublabel": "accessor 仅定义行",
+      "tag": "B 未装车 G-09",
+      "icon": "waiting",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/core/elicitation_pause.py",
+          "line": 51,
+          "label": "ElicitationService"
+        },
+        {
+          "path": "apps/ai-service/app/services/mcp_server.py",
+          "line": 210,
+          "label": "唯一命中=def 行"
+        }
+      ],
+      "pos": [630, 450],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-workflow",
+      "type": "backend",
+      "label": "run_workflow 缺",
+      "sublabel": "近邻 dag_scheduler",
+      "tag": "C 缺失 G-01",
+      "icon": "failure",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/services/dag_scheduler.py",
+          "line": 5,
+          "end_line": 15,
+          "label": "节点级能力"
+        },
+        {
+          "path": "apps/ai-service/app/services/dag_scheduler.py",
+          "line": 641,
+          "label": "checkpoint 键"
+        }
+      ],
+      "pos": [810, 450],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-sbx",
+      "type": "security",
+      "label": "Job Object 沙箱",
+      "sublabel": "纯 ctypes · UI 限制",
+      "tag": "A 待加深",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/core/proc_sandbox.py",
+          "line": 1,
+          "end_line": 20,
+          "label": "头注自述形态"
+        }
+      ],
+      "pos": [450, 570],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-compact",
+      "type": "backend",
+      "label": "压缩在产未放量",
+      "sublabel": "MODE 未设 = legacy",
+      "tag": "B 未装车 G-10",
+      "icon": "waiting",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/core/context_compaction.py",
+          "line": 552,
+          "label": "compress_messages_if_needed"
+        },
+        {
+          "path": "apps/ai-service/app/core/capability_matrix.py",
+          "line": 59,
+          "label": "AGENT_COMPACTION_ENABLED"
+        }
+      ],
+      "pos": [450, 690],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-overflow",
+      "type": "backend",
+      "label": "溢出应急压缩",
+      "sublabel": "认不出 ⇒ 同现状",
+      "tag": "本轮 8aa6e0",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/core/context_overflow.py",
+          "line": 114,
+          "label": "is_context_overflow_error"
+        },
+        {
+          "path": "apps/ai-service/app/services/agent_loop_v2.py",
+          "line": 4082,
+          "end_line": 4084,
+          "label": "重试腿消费点"
+        }
+      ],
+      "pos": [630, 690],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-model",
+      "type": "external",
+      "label": "模型命名单一源",
+      "sublabel": "DB 行免发版改文案",
+      "tag": "A 已具备 G-23",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/core/model_naming.py",
+          "line": 20,
+          "label": "OFFICIAL_MODEL_NAMES"
+        }
+      ],
+      "pos": [450, 810],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-modelcap",
+      "type": "backend",
+      "label": "上限按模型解析",
+      "sublabel": "聊天侧对齐执行器",
+      "tag": "本轮 19653cc",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/routers/llm.py",
+          "line": 3375,
+          "end_line": 3392,
+          "label": "_effective_context_limit"
+        },
+        {
+          "path": "apps/ai-service/app/core/model_context_window.py",
+          "line": 90,
+          "label": "resolve_with_env_priority"
+        }
+      ],
+      "pos": [630, 810],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-index",
+      "type": "database",
+      "label": "Merkle 增量索引",
+      "sublabel": "embedding 在远端",
+      "tag": "A 待加深",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/ai-service/app/services/codebase_indexer.py",
+          "line": 10,
+          "end_line": 14,
+          "label": "增量同步自述"
+        }
+      ],
+      "pos": [450, 930],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-sub",
+      "type": "backend",
+      "label": "子代理与 worktree",
+      "sublabel": "isolation + 并行族",
+      "tag": "B 未装车 G-07",
+      "icon": "waiting",
+      "sources": [
+        {
+          "path": "apps/cli/src/tools/subagent.ts",
+          "line": 297,
+          "label": "isolation 参数"
+        },
+        {
+          "path": "apps/ai-service/app/core/capability_matrix.py",
+          "line": 172,
+          "label": "relay 默认关"
+        }
+      ],
+      "pos": [450, 1050],
+      "size": [155, 58]
+    },
+    {
+      "id": "i-store",
+      "type": "database",
+      "label": "hunk 检查点双轨",
+      "sublabel": "文件态 / loop 态分轨",
+      "tag": "A 已具备 G-13",
+      "icon": "success",
+      "sources": [
+        {
+          "path": "apps/cli/src/checkpoints/hunks.ts",
+          "line": 91,
+          "label": "会话粒度落点"
+        },
+        {
+          "path": "apps/ai-service/app/services/agent_checkpoint.py",
+          "line": 5,
+          "end_line": 18,
+          "label": "两轨分工头注"
+        }
+      ],
+      "pos": [450, 1170],
+      "size": [155, 58]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "对照 A · Qoder 0.5.1",
+      "wraps": [
+        "q-shell",
+        "q-ext",
+        "q-sdk",
+        "q-perm",
+        "q-sbx",
+        "q-compact",
+        "q-model",
+        "q-cbi",
+        "q-sub",
+        "q-store"
+      ],
+      "pad": 8
+    },
+    {
+      "kind": "region",
+      "label": "对照 B · Trae 3.4.12",
+      "wraps": [
+        "t-shell",
+        "t-ext",
+        "t-agent",
+        "t-perm",
+        "t-sbx",
+        "t-compact",
+        "t-model",
+        "t-ckg",
+        "t-sub",
+        "t-store"
+      ],
+      "pad": 8
+    },
+    {
+      "kind": "region",
+      "label": "本仓 IHUI-AI @ 19653cc0",
+      "wraps": [
+        "i-shell",
+        "i-cli",
+        "i-update",
+        "i-plugin",
+        "i-api",
+        "i-kernel",
+        "i-router",
+        "i-tools",
+        "i-elicit",
+        "i-workflow",
+        "i-sbx",
+        "i-compact",
+        "i-overflow",
+        "i-model",
+        "i-modelcap",
+        "i-index",
+        "i-sub",
+        "i-store"
+      ],
+      "pad": 8
+    }
+  ],
+  "connections": [
+    {
+      "id": "q-1",
+      "from": "q-shell",
+      "to": "q-ext",
+      "label": "内置扩展"
+    },
+    {
+      "id": "q-2",
+      "from": "q-ext",
+      "to": "q-sdk"
+    },
+    {
+      "id": "q-3",
+      "from": "q-sdk",
+      "to": "q-perm",
+      "label": "工具审批"
+    },
+    {
+      "id": "q-4",
+      "from": "q-perm",
+      "to": "q-sbx",
+      "label": "只读判定"
+    },
+    {
+      "id": "q-5",
+      "from": "q-sbx",
+      "to": "q-compact"
+    },
+    {
+      "id": "q-6",
+      "from": "q-model",
+      "to": "q-compact",
+      "label": "专用模型"
+    },
+    {
+      "id": "q-7",
+      "from": "q-compact",
+      "to": "q-cbi"
+    },
+    {
+      "id": "q-8",
+      "from": "q-cbi",
+      "to": "q-sub"
+    },
+    {
+      "id": "q-9",
+      "from": "q-sub",
+      "to": "q-store",
+      "label": "会话写回"
+    },
+    {
+      "id": "t-1",
+      "from": "t-shell",
+      "to": "t-ext"
+    },
+    {
+      "id": "t-2",
+      "from": "t-ext",
+      "to": "t-agent",
+      "label": "RPC :40005"
+    },
+    {
+      "id": "t-3",
+      "from": "t-agent",
+      "to": "t-perm",
+      "label": "16 值决策"
+    },
+    {
+      "id": "t-4",
+      "from": "t-perm",
+      "to": "t-sbx",
+      "label": "命中即拦"
+    },
+    {
+      "id": "t-5",
+      "from": "t-sbx",
+      "to": "t-compact"
+    },
+    {
+      "id": "t-6",
+      "from": "t-model",
+      "to": "t-compact",
+      "label": "专用模板"
+    },
+    {
+      "id": "t-7",
+      "from": "t-compact",
+      "to": "t-ckg"
+    },
+    {
+      "id": "t-8",
+      "from": "t-ckg",
+      "to": "t-sub"
+    },
+    {
+      "id": "t-9",
+      "from": "t-sub",
+      "to": "t-store",
+      "label": "89 迁移表"
+    },
+    {
+      "id": "i-shell-cli",
+      "from": "i-shell",
+      "to": "i-cli"
+    },
+    {
+      "id": "i-shell-api",
+      "from": "i-shell",
+      "to": "i-api",
+      "label": "HTTP /api/ai"
+    },
+    {
+      "id": "i-cli-plugin",
+      "from": "i-cli",
+      "to": "i-plugin"
+    },
+    {
+      "id": "i-plugin-kernel",
+      "from": "i-plugin",
+      "to": "i-kernel"
+    },
+    {
+      "id": "i-api-kernel",
+      "from": "i-api",
+      "to": "i-kernel"
+    },
+    {
+      "id": "i-kernel-router",
+      "from": "i-kernel",
+      "to": "i-router"
+    },
+    {
+      "id": "i-kernel-tools",
+      "from": "i-kernel",
+      "to": "i-tools",
+      "label": "dispatch"
+    },
+    {
+      "id": "i-tools-elicit",
+      "from": "i-tools",
+      "to": "i-elicit"
+    },
+    {
+      "id": "i-kernel-workflow",
+      "from": "i-kernel",
+      "to": "i-workflow"
+    },
+    {
+      "id": "i-tools-sbx",
+      "from": "i-tools",
+      "to": "i-sbx",
+      "label": "exec 判定"
+    },
+    {
+      "id": "i-sbx-compact",
+      "from": "i-sbx",
+      "to": "i-compact"
+    },
+    {
+      "id": "i-compact-overflow",
+      "from": "i-compact",
+      "to": "i-overflow"
+    },
+    {
+      "id": "i-model-compact",
+      "from": "i-model",
+      "to": "i-compact"
+    },
+    {
+      "id": "i-model-modelcap",
+      "from": "i-model",
+      "to": "i-modelcap"
+    },
+    {
+      "id": "i-modelcap-compact",
+      "from": "i-modelcap",
+      "to": "i-compact"
+    },
+    {
+      "id": "i-model-index",
+      "from": "i-model",
+      "to": "i-index"
+    },
+    {
+      "id": "i-index-sub",
+      "from": "i-index",
+      "to": "i-sub"
+    },
+    {
+      "id": "i-sub-store",
+      "from": "i-sub",
+      "to": "i-store",
+      "label": "检查点"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么读这张图",
+      "items": [
+        "三条竖列 = 三个程序;同一横排 = 同一能力层。",
+        "列内纵向箭头 = 载体分层次序,不是调用顺序。",
+        "列间不画箭头:对照程序与本仓无运行时连接。",
+        "本仓节点 tag + 角标 = T3 三态;对照程序只报事实。",
+        "对照侧事实来自 S0/T1/T2/T3 取证报告(gitignored,未挂 sources);本仓节点挂 HEAD 面仓内文件证据。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "三态图例(判据 = T3 27 行)",
+      "items": [
+        "success 角标 +「A 已具备」= 实现 + 生产消费方(12 条)。",
+        "waiting 角标 +「B 未装车」= 代码在,被 env/flag 挡在装车前(8 条:G-07 G-08 G-09 G-10 G-14 G-17 G-22 G-24)。",
+        "failure 角标 +「C 缺失」= 现读 grep 零命中(7 条:G-01 G-11 G-18 G-20 G-21 G-25 G-26)。",
+        "「待加深」= T2 §9-4 口径:底座已在,只缺对方那层深度(G3 沙箱计量 / G7 本地 embedding / G4 归属可追责)。",
+        "未判定 = 0 条;T3 附注① 的 LSP 注册次序只降级 G-27 的一条子判据。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "本轮已落地的两条补齐",
+      "items": [
+        "8aa6e04350 输入上下文溢出应急压缩:判据 core/context_overflow.py 是纯函数,消费点在 agent_loop_v2 的 LLM 重试腿。",
+        "失效方向 = 认不出来 ⇒ 与现状逐字节相同(宁可少救一次,不乱压历史)。",
+        "19653cc078 聊天端压缩上限改为按模型解析:与执行器侧共用 model_context_window.resolve_with_env_priority,不产生第二套口径。",
+        "两笔都挂在「压缩」与「模型供给」两层;同层 G-10(三档命名 + 阈值阶梯五判据)仍是 B 未装车。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "进程边界与协议(报告现读)",
+      "items": [
+        "Trae:IDE 与 ai-agent 是两枚进程,meta.json 声明 socket :40005;ckg 声明 :50000;壳侧统一 {service,method,data,timeout} 信封,对外 12 个方法。",
+        "Trae 内核是原生 PE:ai_agent 282,523,024 B / harness 248,416,656 B / toolhost 95,302,544 B / agent-tool-host 96,695,184 B(T1 §0.1)。",
+        "Qoder:0.5.1 已激活(root app.asar 196,831,317 B 与 pending 同字节);worker runtime 1.1.75-hotfix.1 → 1.1.79-hotfix.7;productName qoderclicn = CLI 同源;SDK 包内与 unpacked 双面存在。",
+        "Qoder 0.4.11→0.5.1 增量集中在主进程 + 插件视图沙箱(pluginViewDiagramRuntime +1,621,363 B,+47%),包外最大增量在 extensions/qoder.office(+35,615,824 B)。",
+        "IHUI-AI:web/desktop + cli → apps/api 网关 → apps/ai-service 内核/工具/持久;MCP 工具面走进程内聚合(默认 on),不另起带明文凭据的路由进程(T3 判为超越点)。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "缺口住在哪一层(结论)",
+      "items": [
+        "内核/产品层真缺口只 2 条:G-01 run_workflow(近邻 dag_scheduler)、G-11 Advisor/ChatPatch/CodebaseInvestigator(近邻 output_schema)。",
+        "C 的 7 条里 5 条属壳层/分发运维,其中 G-20、G-26 如实判「形态不适用,不建议照抄」。",
+        "B 的 8 条集中在「代码写好、缺一行接线」:G-09 accessor 全仓唯一命中是自身 def 行;G-17 inject_session_env 同型;G-14 lesson-draft 无调度点;G-22 默认态未声明。",
+        "Trae 独有而本仓无同型物(T2 §8):G2 知识挂载虚拟文件系统(21 枚 Cfs)、G4 归属写 refs/notes/ai(16 字段 checkpoint)、G6 卡住归因 10 值 + failed_retryable/failed_terminal。"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "未取到 / 不采信(如实登记)",
+      "items": [
+        "[未知] Trae 压缩阈值数值:由 DynamicConfig/ABTest 远端下发,本机串池无默认值。",
+        "[未知] Trae 每枚工具完整入参 schema:schemars 运行期生成,要全需 Ghidra 反编译 282 MB 产物,本时间盒不可行。",
+        "[未知] ckg_server_windows_x64.exe 本机缺失,该腿由谁承载未证;Qoder pending 包体与 archiveSha256 不等不构成「完整性异常」。",
+        "[未采信] modules/ai-agent/checkpoint.sh(305 B 自指指令):在 ai_agent.dll/harness.dll 中出现 0 次,只登记异常件,未执行。",
+        "[不含凭据] 全图无任何密钥/令牌值;browser-bridge 内联 XOR 掩码只记偏移 985,847 与单处命中,原文不复现。"
+      ]
+    }
+  ]
+}

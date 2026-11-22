@@ -1,0 +1,88 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { defineConfig } from 'wxt'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  modules: ['@wxt-dev/module-react'],
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
+  // 2026-07-26 P0 修复:Node 17+ + Windows 把 localhost 解析为 ::1,Chrome 扩展页面
+  // 用 127.0.0.1 解析 localhost 时连接被拒绝 → 显式绑 IPv4 127.0.0.1。
+  // 注意:WXT dev 必须用顶层的 dev.server.host,vite.server.host 会被覆盖。
+  // 2026-08-03 wxt 0.21 升级:dev.server.hostname 已移除(原 v0.20 deprecated),改用 host。
+  dev: {
+    server: {
+      host: '127.0.0.1',
+      port: 8808,
+    },
+  },
+  manifest: {
+    name: 'IHUI AI',
+    description: 'IHUI AI 浏览器助手',
+    // 版本不在此声明:WXT 在 manifest.version 缺省时回落本目录 package.json,
+    // 而下载文件名与下载页版本也取 package.json —— 写死字面量等于两套号各走各的源头。
+    minimum_chrome_version: '114',
+    permissions: [
+      'storage',
+      'activeTab',
+      'sidePanel',
+      'contextMenus',
+      'tabs',
+      // 2026-11-07 DBG-71 收口: 'scripting' 权限全仓零 chrome.scripting 调用(grep 验证),
+      // 属多余高危权限面(放大商店审核与授权弹窗),按 ledger 建议移除。
+      'alarms',
+      // 2026-08-01 SSO 接入:chrome.identity.launchWebAuthFlow 打开 web SSO 登录页
+      'identity',
+    ],
+    host_permissions: [
+      'http://localhost:8802/*',
+      // 2026-08-06 补 8803:VoiceInput STT fallback 直连 ai-service(localhost:8803)
+      'http://localhost:8803/*',
+      'https://*.aizhs.top/*',
+    ],
+    // 2026-11-11 DBG-66 收口: 第三方登录 token 回传通道 —— web 端 OAuth 回调页经
+    // chrome.runtime.sendMessage(extensionId, ...) 把 token 对送回扩展。白名单与
+    // host_permissions 同域(生产 aizhs.top + 本地开发),background 侧再过
+    // lib/external-auth 的 sender.url 判据(纵深防御)。
+    externally_connectable: {
+      matches: [
+        'https://aizhs.top/*',
+        'https://*.aizhs.top/*',
+        'http://localhost:8802/*',
+        'http://localhost:8803/*',
+      ],
+    },
+    icons: {
+      16: 'icon/16.png',
+      32: 'icon/32.png',
+      48: 'icon/48.png',
+      128: 'icon/128.png',
+    },
+    side_panel: {
+      default_path: '/sidepanel.html',
+    },
+    action: {
+      default_popup: 'popup.html',
+      default_icon: {
+        16: 'icon/16.png',
+        32: 'icon/32.png',
+        48: 'icon/48.png',
+        128: 'icon/128.png',
+      },
+    },
+    web_accessible_resources: [
+      {
+        resources: ['*.css', '*.svg'],
+        // 2026-07-22 P0 Round 5 鲁棒性加固:收窄 matches 防 fingerprinting
+        // 原 ['<all_urls>'] 允许任何网站引用扩展资源,可被钓鱼站点探测用户是否安装扩展
+        // 收窄到 aizhs.top 域 + 本地开发环境(与 host_permissions 一致)
+        matches: ['http://localhost:8802/*', 'https://*.aizhs.top/*'],
+      },
+    ],
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

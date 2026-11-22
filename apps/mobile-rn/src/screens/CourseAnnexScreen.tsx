@@ -1,0 +1,79 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useEffect, useState } from 'react'
+import { Linking } from 'react-native'
+import { useTheme } from '../context/ThemeContext'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { fetchApi } from '@ihui/api-client'
+import { CourseAnnexScreen as SharedCourseAnnexScreen, type CourseAnnexItem } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type Nav = NativeStackNavigationProp<RootStackParamList>
+
+/** GET /api/resources 行(只声明本屏消费到的列) */
+interface ResourceRow {
+  id: string
+  title: string
+  fileSize: number
+  fileUrl: string | null
+}
+
+export function CourseAnnexScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const navigation = useNavigation<Nav>()
+  const [items, setItems] = useState<CourseAnnexItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      // 旧 '/course-annex' 从未在服务端注册(全仓零路由,入口点了恒报错)——「课程附件」
+      // 的真身就是资源库文件:换源 GET /api/resources(与课程资源屏同源),键名投影
+      // title→name、fileSize→size、fileUrl→url,附件屏契约 {id,name,size,url} 不动。
+      const res = await fetchApi<{ list: ResourceRow[] }>('/api/resources')
+      if (!res.success) throw new Error()
+      setItems(
+        (res.data?.list ?? []).map((row) => ({
+          id: row.id,
+          name: row.title,
+          size: row.fileSize,
+          url: row.fileUrl ?? '',
+        })),
+      )
+    } catch {
+      setError(t('courseAnnex.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return (
+    <SharedCourseAnnexScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onOpen={(url) => void Linking.openURL(url)}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

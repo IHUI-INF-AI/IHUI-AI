@@ -1,0 +1,5 @@
+{
+  "updatedAt": "2026-09-23",
+  "note": "守门 81(check-brand-email-channel)存量红基线,只减不增:实发条数 > 本表额度才判红;修一处删一行,禁止为过门而调高。2026-09-23 已清零:最后一条存量 `scripts/check-credential-health.mjs` 的 sendEmail(以 host+path 分行形态直连 api.resend.com/emails、body 只有 text 无 html,即本门立项时确认的【第三条绕过品牌层的纯文本通道】)已迁到统一派发器 apps/api/scripts/notify-deploy-failure.ts(版式由 apps/api/src/services/email-templates.ts 单点决定,SMTP 优先、Resend 带 html 兜底,品牌模板失败再走同一条传输层的 --plain 降级),故原冻的两条 #R2:1 / #R3:1 一并删除。此前 deploy/win/ihui-deploy.ps1 的自拼传输代码(Send-MailMessage 无 -BodyAsHtml + Resend 纯文本 payload)在开工实测与建基线之间已被并行会话清除并改调同一派发器。今后此表若非空,即有新通道绕版式 —— 按判据说明改接品牌层,不得回写本表。",
+  "counts": {}
+}

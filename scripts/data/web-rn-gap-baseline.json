@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "note": "web↔RN 缺口棘轮基线:prefixHits 只降不升;重新生成=node scripts/check-web-rn-gap-ratchet.mjs --baseline",
+  "face": "head",
+  "readings": {
+    "unmapped": 0,
+    "judgedGap": 0,
+    "aligned": 287,
+    "prefixHits": 423,
+    "prefixExpired": 0
+  }
+}

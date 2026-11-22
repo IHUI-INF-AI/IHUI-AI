@@ -1,0 +1,1675 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+/**
+ * IHUI AI Coding Agent CLI 入口
+ * 用法:
+ *   ihui                          # 交互式 REPL
+ *   ihui "修复 bug"               # 直接执行任务
+ *   ihui --model gpt-4o "..."     # 指定模型
+ *   ihui agent "重构 auth 模块"   # Agent 模式
+ *   ihui init                     # 创建 AGENTS.md 模板
+ *   ihui mcp list                 # 列出 MCP 服务器
+ *   ihui sessions                 # 列出历史会话
+ */
+
+import 'dotenv/config';
+import { Command, type OptionValues } from 'commander';
+import chalk from 'chalk';
+import { readFileSync, statSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
+import { setBaseUrl, setClientSignatureProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
+import type { GoalHardCriterion } from '@ihui/api-client';
+import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
+import { registerCliTokenProvider } from './lib/auth-refresh.js';
+import {
+  digestGateRejectionFor,
+  grantDigestTrackedLeaseFromFlag,
+  grantLeaseFromFlag,
+  isDigestTrackedLease,
+  releaseLeaseAfterRun,
+} from './utils/permission-lease-flag.js';
+import { formatClientSignature } from '@ihui/shared';
+import { isRecord } from './util/json.js';
+import { readCliPackage } from './util/pkg-version.js';
+import { writeRunManifest } from './runs/manifest.js';
+import { padCell } from './util/text-width.js';
+import {
+  installOutboundCredentialHeaders,
+  resolveOutboundCredential,
+} from './config/credentials.js';
+import { startREPL } from './commands/repl.js';
+import { runAgent, stopReasonToExitCode, setupAgentTools } from './commands/agent.js';
+// F-017/F-018:output-format 严格判据与 jsonMode 单一判据都住 headless-format(机器输出面),
+// 本文件只是调用方,不再自持第二份 `opts.json === true`。
+import { isOutputFormat, OUTPUT_FORMATS, resolveJsonMode, type OutputFormat } from './headless-format.js';
+// G-814406:无头(--json / 非 TTY)退出前的有界排水 —— 结论五档可分辨,预算必有界。
+// 后台任务事实只读 HEAD 既有出口(listTasks/settleAllInFlight),本端不新增注册表语义。
+import { drainHeadlessBeforeExit } from './headless-drain.js';
+// F-068:无头侧「有没有审批面」与「审批面缺席 ⇒ 只认显式例外」的兜底只住 headless-permission,
+// 本入口只读它的结论,不再自己判要不要放宽(死代码在此接上唯一生产消费点)。
+import { approvalSurfacePresent, createHeadlessPermissionBroker } from './headless-permission.js';
+import { listTasks, settleAllInFlight } from './tools/background-registry.js';
+import { loadSkills, findSkill } from './skills/index.js';
+import {
+  aggregateShadowLedger,
+  formatShadowReport,
+  readShadowLedger,
+  resolveShadowLedgerPath,
+} from './skills/allowed-tools-shadow.js';
+import { runShadowSelfTest } from './skills/allowed-tools-shadow.selftest.js';
+import {
+  loadSession,
+  getMostRecentSession,
+  listSessions,
+  createSession,
+  type ChatMessage,
+} from './commands/session.js';
+// G-816014 装配:resume 对账压缩时间线(收敛器在 @ihui/context-compaction,账本介质见该模块头注)。
+import { recoverCompactionTimelinesForSession } from './compaction-timeline-resume.js';
+import { writeAgentsMd, agentsMdExists } from './commands/template.js';
+import {
+  loadMcpConfig,
+  addMcpServer,
+  removeMcpServer,
+  getMcpConfigPath,
+  listMcpConfigSources,
+  type McpServer,
+} from './commands/mcp-config.js';
+import { registerCapabilitiesCommand } from './commands/capabilities.js';
+import { registerLoginCommand } from './commands/login.js';
+import { registerMemoryCommand } from './commands/memory.js';
+import { registerRelayCommand } from './commands/relay.js';
+import { registerWorkflowsCommand } from './commands/workflows.js';
+import { registerSpecCommand } from './commands/spec.js';
+import { registerPlanCommand } from './commands/plan.js';
+import { registerTrashCommand } from './commands/trash.js';
+import { registerAgentsCommand } from './commands/agents.js';
+import { registerAiSkillsCommand } from './commands/ai-skills.js';
+import { attachChatSubcommands } from './commands/chat-subcommands.js';
+import { registerContextCommand } from './commands/context.js';
+import { registerDeveloperCommand, registerPlaygroundCommand } from './commands/developer.js';
+import { registerKnowledgeCommand, registerRagCommand } from './commands/knowledge.js';
+import { registerWikiCommand } from './commands/wiki.js';
+import { registerMcpMarketCommand } from './commands/mcp-market.js';
+import { registerModelsCommand } from './commands/models.js';
+import { registerSecurityCommand } from './commands/security.js';
+import { registerCheckpointCommand } from './commands/checkpoint.js';
+import { registerAiAttributionCommand } from './commands/ai-attribution.js';
+import { registerReportCommand } from './commands/report.js';
+import { startCloudRun, completeCloudRun } from './cloud-run.js';
+import { registerHooksCommand } from './commands/hooks.js';
+import { registerHooksAutoCommand } from './commands/hooks-auto.js';
+import { registerImportCommand } from './commands/import.js';
+import { registerServeCommand } from './commands/serve.js';
+import { registerTuiCommand, tryFullScreenFromEnv } from './commands/tui.js';
+import { registerConnectCommand } from './commands/connect.js';
+import { startAcpServer } from './acp/server.js';
+import type { IhuiAcpAgent } from './acp/server.js';
+import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
+import { CheckpointManager } from './checkpoints/index.js';
+import {
+  resolveEffectiveConfig,
+  saveSettingsTemplate,
+  getSettingsPath,
+  loadSettings,
+} from './commands/settings.js';
+import { queryAuditLog } from './audit.js';
+import { t, setLocale } from './i18n/index.js';
+import type { Locale } from './i18n/index.js';
+import { parseToolList, type PermissionRules } from './tools/permissions.js';
+import { getTool } from './tools/index.js';
+import { replayArgumentDeviations } from './tools/argument-validation-replay.js';
+import { notifyUpdates } from './updater.js';
+import { installCrashHandler } from './crash-handler.js';
+import { registerSkillPackageCommands } from './commands/skill-package.js';
+import { registerSkillsListCommand } from './commands/skills-catalog-view.js';
+import { goalIterate } from './commands/goal.js';
+import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
+// G-B49 C2(REA 对齐 WorkBuddy startup-profile.cjs / cbc-prewarm,取证见 W1-workbuddy-main.md 缺口⑪):
+// 启动画像(纯判据) + 预热命中读数(可断言) —— 接线仅在下文 direct-run 块,opt-in,零改动命令注册。
+import { createStartupTracker, renderStartupLine } from './startup/profile.js';
+import {
+  buildProcessFingerprint,
+  defaultIsPidAlive,
+  readPrewarmStatus,
+  renderPrewarmLine,
+} from './startup/prewarm.js';
+
+// P1-16 在所有模块加载后立即安装 crash handler(全局兜底未捕获异常)
+installCrashHandler();
+
+/** 从 CLI opts 解析 --tools / --disallowed-tools 为 PermissionRules */
+function resolvePermissions(opts: OptionValues): PermissionRules | undefined {
+  const allow = parseToolList(typeof opts.tools === 'string' ? opts.tools : undefined);
+  const deny = parseToolList(typeof opts.disallowedTools === 'string' ? opts.disallowedTools : undefined);
+  if (!allow && !deny) return undefined;
+  return { allow, deny };
+}
+
+/**
+ * IHUI_TUI=1 时的全屏分支(默认档仍是行模式 —— 见 commands/tui.ts 头注的理由)。
+ *
+ * 关键约束:本次请求里若带了**全屏宿主还接不住的安全相关入参**(--tools /
+ * --disallowed-tools / --plan / --auto-approve-plan),就必须把这些点名给
+ * `tryFullScreenFromEnv`,由它交回行模式并打印原因。宁可少了个全屏,
+ * 也不能因为"换了个渲染层"就把用户点名的工具限制丢掉 —— 那是 fail-open。
+ */
+async function maybeRunFullScreen(
+  opts: OptionValues,
+  cfg: ReturnType<typeof resolveEffectiveConfig>,
+  sessionId: string | undefined,
+): Promise<boolean> {
+  const declined: string[] = [];
+  if (resolvePermissions(opts)) declined.push('--tools/--disallowed-tools');
+  if (cfg.planFirst) declined.push('--plan');
+  if (cfg.autoApprovePlan) declined.push('--auto-approve-plan');
+  return tryFullScreenFromEnv({
+    apiUrl: cfg.apiUrl,
+    apiKey: cfg.apiKey,
+    model: cfg.model,
+    workspacePath: typeof opts.workspace === 'string' ? opts.workspace : process.cwd(),
+    maxIterations: cfg.maxIterations,
+    permissionMode: cfg.permissionMode,
+    enableMcp: cfg.enableMcp,
+    allowDangerous: cfg.allowDangerous,
+    sessionId,
+    declined,
+  });
+}
+
+const pkg = readCliPackage(import.meta.url) ?? { version: '0.0.0' };
+
+// 帮助文本在模块顶层就被 commander 固化,故必须在构建 program 之前定好语言:
+// 裸扫 argv 的 --locale > IHUI_LOCALE > settings.json(preAction 仍按解析后的 opts 复算一次)。
+{
+  const argvLocale = (() => {
+    const argv = process.argv.slice(2);
+    const inlined = argv.find((a) => a.startsWith("--locale="));
+    if (inlined) return inlined.slice("--locale=".length);
+    const at = argv.indexOf("--locale");
+    return at >= 0 ? argv[at + 1] : undefined;
+  })();
+  const earlyLocale = argvLocale || process.env.IHUI_LOCALE || loadSettings().locale || '';
+  if (earlyLocale) setLocale(earlyLocale as Locale);
+}
+const program = new Command();
+
+program
+  .name('ihui')
+  .description(t('cliEntry.tagline'))
+  .version(pkg.version)
+  .option('-m, --model <model_id>', t('cliEntry.modelIdDesc'), 'default')
+  .option('-w, --workspace <path>', t('cliEntry.workspacePathDesc'), process.cwd())
+  .option('--max-iterations <n>', t('cliEntry.maxIterationsDesc'), '25')
+  .option('--max-turns <n>', t('cliEntry.maxTurnsDesc'))
+  .option('--api-url <url>', t('cliEntry.apiUrlDesc'), process.env.IHUI_API_URL || '')
+  .option('--api-key <key>', t('cliEntry.apiKeyDesc'), process.env.IHUI_API_KEY || '')
+  .option('--resume <session-id>', t('cliEntry.resumeDesc'))
+  .option('--continue', t('cliEntry.continueDesc'))
+  .option('--json', t('cliEntry.jsonDesc'))
+  .option('--output-format <format>', t('cliEntry.outputFormatDesc'))
+  .option('--mcp', t('cliEntry.mcpFlagDesc'))
+  .option('--allow-dangerous', t('cliEntry.allowDangerousDesc'))
+  .option('--permission-lease <tools>', t('cliEntry.permissionLeaseDesc'))
+  .option('--permission-lease-ttl <minutes>', t('cliEntry.permissionLeaseTtlDesc'))
+  .option('--permission-lease-turns <n>', t('cliEntry.permissionLeaseTurnsDesc'))
+  .option('--permission-lease-digest', t('cliEntry.permissionLeaseDigestDesc'))
+  .option('--plan', t('cliEntry.planDesc'))
+  .option('--welcome-mode <mode>', '欢迎模式: code|work|design(缺省 code)')
+  .option('--interaction-mode <mode>', '交互模式: ask|craft|plan|expert|quick(缺省 craft)')
+  .option('--auto-approve-plan', t('cliEntry.autoApprovePlanDesc'))
+  .option('--temperature <num>', t('cliEntry.temperatureDesc'))
+  .option('--max-tokens <num>', t('cliEntry.maxTokensDesc'))
+  .option('--locale <locale>', t('cliEntry.localeDesc'), process.env.IHUI_LOCALE || '')
+  .option('-f, --prompt-file <path>', t('cliEntry.promptFileDesc'))
+  .option('--tools <list>', t('cliEntry.toolsAllowDesc'))
+  .option('--disallowed-tools <list>', t('cliEntry.toolsDenyDesc'))
+  .option('--permission-mode <mode>', t('cliEntry.permissionModeDesc'))
+  .option('--goal <text>', t('cliEntry.goalDesc'))
+  .option('--goal-criteria <file>', t('cliEntry.goalCriteriaDesc'))
+  .option('--no-update-check', t('cliEntry.noUpdateCheckDesc'))
+  .option('--no-setup', t('cliEntry.noSetupDesc'));
+
+interface ResolvedSession {
+  sessionId?: string;
+  history?: ChatMessage[];
+}
+
+/**
+ * WP-8③ —— `--goal-criteria <file>` 的解析出口。
+ *
+ * 判序刻意是"读不到 / 不是数组 / 条目缺 id 或 statement ⇒ 直接停",**绝不**
+ * "解析失败就当没声明指标" —— 那会把一次带验收条件的运行静默降级成无验收,
+ * 而 §8 要防的正是"看起来过了"。
+ */
+function resolveGoalCriteria(raw: unknown): GoalHardCriterion[] | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  if (typeof raw !== 'string') {
+    console.error(t('cliEntry.goalCriteriaBadArg'));
+    process.exit(2);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(raw, 'utf8').replace(/^﻿/, ''));
+  } catch (err) {
+    console.error(
+      t('cliEntry.goalCriteriaUnreadable', {
+        file: raw,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    process.exit(2);
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    console.error(t('cliEntry.goalCriteriaNotAnArray', { file: raw }));
+    process.exit(2);
+  }
+  const bad = parsed.findIndex(
+    (c) => !isRecord(c) || typeof c.id !== 'string' || typeof c.statement !== 'string',
+  );
+  if (bad >= 0) {
+    console.error(t('cliEntry.goalCriteriaBadEntry', { index: String(bad + 1) }));
+    process.exit(2);
+  }
+  return parsed as GoalHardCriterion[];
+}
+
+// 导出仅为测试装配(与 readPromptFile 同例):装配测试必须穿过真实的 resume 漏斗,不许复制其实现。
+export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
+  if (opts.continue) {
+    const session = getMostRecentSession();
+    if (session) {
+      // G-816014 装配点:本函数是 CLI 侧 resume 的必经漏斗 —— `--continue` / `--resume`
+      // 的全部消费方(headless runAgentAndExit、默认命令 REPL、chat 命令,均在本文件
+      // 调 resolveSession 拿 sessionId)离开这里没有任何"恢复会话"的公共入口,见下:
+      //   - runAgentAndExit:`const resumed = resolveSession(opts)`(headless 单发)
+      //   - 默认命令 action / chat action:`const session = resolveSession(opts)`(REPL)
+      // 进程被杀留下的 started/retrying/boundary 悬挂压缩时间线必须在此一次性收敛,
+      // 否则恢复出来的账面会把"压缩死在中途"读成"压缩判过了"。收敛失败(账本损坏/
+      // 落盘失败)向上抛:宁可不 resume,不得拿坏账装成功 —— 本仓"失败必须响"。
+      recoverCompactionTimelinesForSession(session.id);
+      // F-011:人读提示过 jsonMode 闸 —— `--json` 下 stdout 是机器契约
+      humanNote(
+        chalk.dim(
+          t('cli.sessionResumed', { id: session.id, count: session.history.length }),
+        ),
+      );
+      return { sessionId: session.id, history: session.history };
+    }
+    humanNote(chalk.yellow(t('cli.noSessions')));
+    return {};
+  }
+  if (opts.resume) {
+    const session = loadSession(opts.resume as string);
+    if (session) {
+      // G-816014 装配点:同上 —— --resume 分支与 --continue 分支是同一个必经漏斗的两面。
+      recoverCompactionTimelinesForSession(session.id);
+      humanNote(
+        chalk.dim(
+          t('cli.sessionResumedWithId', { id: session.id, count: session.history.length }),
+        ),
+      );
+      return { sessionId: session.id, history: session.history };
+    }
+    // F-010:错误走 stderr(修前 console.info 写 stdout,管道下 process.exit 不等 flush ⇒ 丢失)
+    errorExit(chalk.red(t('common.notFound', { target: opts.resume as string })));
+  }
+  return {};
+}
+
+/**
+ * F-011:人读提示只能走这一个出口。
+ *
+ * `--json`(以及 stdout 非 TTY 的管道场景)下 stdout 是**机器契约**,
+ * 任何一行人读文案都会让下游 `JSON.parse` 整段失败 —— 修前 `resolveSession` 的
+ * "已恢复会话 X"/"没有会话"两句直接 `console.info`,把 `ihui --json --continue`
+ * 的输出污染成非 JSON。
+ *
+ * 判据只此一份:jsonMode 为真 ⇒ 全部丢弃(不降级成 stderr,`--json` 消费者不看 stderr)。
+ */
+function humanNote(message: string): void {
+  if (resolveJsonMode(program.opts())) return
+  console.info(message)
+}
+
+/**
+ * F-010:CLI 的**错误**文案必须走 stderr,并且只设退出码、不强杀进程。
+ *
+ * `console.info` 写 stdout —— 管道/重定向时 `process.exit(1)` 不等异步 flush,
+ * 错误串会丢(上游只看到退出码),同时污染 stdout 的机器契约。
+ *
+ * 为什么保留 `process.exit(1)` 的"立即收尾"语义而不改成纯 `exitCode`:这些分支都是
+ * 参数错误,后面没有需要等待的 IO;真正要治的是**输出通道**与**flush 时序**。改法:
+ * 先写 stderr(stderr 在 Node 里对 TTY/管道均为同步写),再 `process.exit`。
+ * 需要"自然退出"的调用方(有异步写盘/网络)不要用本函数,见 `setFailureExitCode`。
+ */
+function errorExit(message: string): never {
+  console.error(message)
+  process.exit(1)
+}
+
+/**
+ * F-017:数值参数(undo/redo 步数、audit --limit)只接受正整数。
+ *
+ * 修前是 `Number(x) || 1` / `parseInt` 后静默回落 —— `undo 0` 反而撤 1 步、
+ * `--limit abc` 悄悄变成默认值:用户意图被替换,却没有任何出口说他给错了。
+ * 只有**未给参数**才用 fallback;给了但解析不出正整数 ⇒ 显式报错 + 非零退出。
+ */
+function resolvePositiveInt(raw: unknown, fallback: number, flag: string): number {
+  if (raw === undefined || raw === null || raw === '') return fallback
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1) {
+    errorExit(chalk.red(`Invalid ${flag} value: ${String(raw)} (expected a positive integer)`))
+  }
+  return value
+}
+
+/**
+ * F-017:`--output-format` 只接受 OUTPUT_FORMATS 里的枚举。
+ * 未给 ⇒ undefined(仍由 jsonMode 决定);给了非法值 ⇒ 显式报错,不再静默回落 text。
+ */
+function resolveOutputFormat(raw: unknown): OutputFormat | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined
+  if (!isOutputFormat(raw)) {
+    errorExit(
+      chalk.red(`Invalid --output-format value: ${String(raw)} (expected ${OUTPUT_FORMATS.join('|')})`),
+    )
+  }
+  return raw
+}
+
+const SHARE_FORMATS = ['markdown', 'html', 'json'] as const
+
+/** F-017:`share -f/--format` 的枚举判据(修前是 `as` 强转,`-f txt` 会静默产出 HTML)。 */
+function isShareFormat(v: string): v is (typeof SHARE_FORMATS)[number] {
+  return (SHARE_FORMATS as readonly string[]).includes(v)
+}
+
+export function readPromptFile(
+  filePath: string,
+): { ok: true; content: string } | { ok: false; error: string } {
+  try {
+    const stat = statSync(filePath);
+    if (stat.isDirectory()) {
+      return { ok: false, error: t('cli.errorPathIsDir', { path: filePath }) };
+    }
+    const raw = readFileSync(filePath, 'utf-8');
+    const content = raw.trim();
+    if (content.length === 0) {
+      return { ok: false, error: t('cli.errorFileEmpty', { path: filePath }) };
+    }
+    return { ok: true, content };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { ok: false, error: t('cli.errorFileNotFound', { path: filePath }) };
+    }
+    return { ok: false, error: t('cli.errorReadFile', { message: (err as Error).message }) };
+  }
+}
+
+function resolvePrompt(
+  positional: string | undefined,
+  opts: OptionValues,
+): string | undefined {
+  if (!opts.promptFile) {
+    return positional;
+  }
+  const result = readPromptFile(opts.promptFile as string);
+  if (!result.ok) {
+    console.error(chalk.red(t('cli.errorPromptFile', { error: result.error })));
+    process.exit(1);
+  }
+  if (positional) {
+    console.warn(
+      chalk.yellow(t('cliEntry.promptFileConflict')),
+    );
+  }
+  return result.content;
+}
+
+/**
+ * F-068:无头侧唯一被拍过板的例外 —— 操作员显式给过的会话级危险放宽
+ * (`--allow-dangerous` / settings.allowDangerous)。用 flag 字面量当"具名例外",
+ * 是为了不在本文件里再抄一份危险工具清单:经纪判的是"这次要不要人来批",
+ * 名单只回答"谁已经拍过板"。
+ */
+const HEADLESS_SESSION_RELAXATION = '--allow-dangerous';
+
+async function runAgentAndExit(
+  prompt: string,
+  opts: OptionValues,
+  jsonMode: boolean,
+): Promise<void> {
+  // F-017:先校验枚举再产生任何副作用(建会话 / 起云会话),非法值不进入运行期。
+  const outputFormat = resolveOutputFormat(opts.outputFormat);
+  const cfg = resolveEffectiveConfig({
+    cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+    cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+    cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+    cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+    cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+    // 权限租约:只有操作员显式点名才放宽 —— 三个值全缺省即整条链路逐字不变。
+    cliPermissionLease: typeof opts.permissionLease === 'string' ? opts.permissionLease : undefined,
+    cliPermissionLeaseTtl:
+      typeof opts.permissionLeaseTtl === 'string' ? opts.permissionLeaseTtl : undefined,
+    cliPermissionLeaseTurns:
+      typeof opts.permissionLeaseTurns === 'string' ? opts.permissionLeaseTurns : undefined,
+    cliPlan: opts.plan === true ? true : undefined,
+    cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
+    cliMcp: opts.mcp === true ? true : undefined,
+    cliTemperature: typeof opts.temperature === 'string' ? opts.temperature : undefined,
+    cliMaxTokens: typeof opts.maxTokens === 'string' ? opts.maxTokens : undefined,
+    cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
+  });
+  // F-068:无头单发**没有审批面** —— runAgent 装配的确认通道是 buildAgentDangerGate,
+  // 它只认会话级放宽、结构上没有询问面(没有人可能被问到)。所以"审批面缺席 ⇒ deny,
+  // 只认显式例外"这条兜底只在 headless-permission 一处判定,本入口不再自己判:
+  // 名单命中 ⇒ 放行;其余结论(含 deny)一律按"无人可批"处理。
+  const headlessPermission = createHeadlessPermissionBroker({
+    isInteractive: !jsonMode && Boolean(process.stdin.isTTY && process.stdout.isTTY),
+    hasApprovalSurface: approvalSurfacePresent({
+      ttyInteractive: !jsonMode && Boolean(process.stdin.isTTY && process.stdout.isTTY),
+      // 单发路径没有确认回调(runAgent 侧只有 flag 开关) ⇒ 确认通道结构性缺席
+      confirmHandlerPresent: false,
+    }),
+    autoAllowTools: cfg.allowDangerous ? [HEADLESS_SESSION_RELAXATION] : [],
+  });
+  const allowDangerous =
+    headlessPermission.evaluate({ name: HEADLESS_SESSION_RELAXATION }).action === 'allow';
+  const abort = new AbortController();
+  let session: ReturnType<typeof createSession> | null = null;
+  const onSigint = (): void => {
+    if (!abort.signal.aborted) {
+      abort.abort();
+      if (session && !jsonMode) {
+        console.info(chalk.yellow(t('cliEntry.interruptSaving')));
+      }
+      return;
+    }
+    // 第二次 Ctrl-C:注册 SIGINT listener 后默认终止行为已被抑制,保存流程若卡住
+    // 用户将完全无出口。给一条真实可用的强退(128 + SIGINT 标准码 130)。
+    process.exit(130);
+  };
+  process.on('SIGINT', onSigint);
+  try {
+    session = createSession(opts.workspace, cfg.model);
+    // 如果 --resume/--continue,加载历史到 session.history
+    const resumed = resolveSession(opts);
+    if (resumed.sessionId && resumed.history) {
+      session.id = resumed.sessionId;
+      session.history = resumed.history;
+    }
+    const checkpoints = new CheckpointManager({
+      sessionId: session.id,
+      workspacePath: opts.workspace,
+    });
+    // 权限租约(--permission-lease):操作员显式点名工具清单才授予,作用域 = 本次会话这一目标。
+    // 未给 flag ⇒ outcome.kind==='none',`grantPermissionLease()` 一次都不被调用,
+    // `activePermissionLease()` 恒 null ⇒ 所有消费点走的仍是改造前那一份判定实现(逐字不变)。
+    // 判不下来 ⇒ 失败关闭 exit 1:悄悄回落成"没给 flag 继续跑"会把操作员要的放宽模式
+    // 换成另一套语义,而账面一切正常(本仓"失败必须响"同一条禁令)。
+    const leaseDigestOn = opts.permissionLeaseDigest === true;
+    const digestRejection = digestGateRejectionFor(leaseDigestOn, cfg.permissionLease);
+    if (digestRejection) {
+      console.error(chalk.red(`✗ ${t('cliEntry.permissionLeaseInvalid', { reason: digestRejection })}`));
+      process.exitCode = 1;
+      return;
+    }
+    // 两个出口各管一档,分叉点只有 `leaseDigestOn` 这一个布尔:
+    // 关档那一支调的就是改前那一份 `grantLeaseFromFlag`,一行参数都没多 ⇒ 行为逐字等价。
+    const leaseOutcome = leaseDigestOn
+      ? grantDigestTrackedLeaseFromFlag({
+          toolsRaw: cfg.permissionLease,
+          ttlRaw: cfg.permissionLeaseTtl,
+          turnsRaw: cfg.permissionLeaseTurns,
+          target: session.id,
+          // 身份只有一个来源:CLI 的 workspacePath(与消费侧 recordApprovedInvocation 同一份映射)。
+          // 拿不到 ⇒ 该出口判 invalid 并 exit 1,绝不静默用 cwd/pid 冒充身份。
+          workspacePath: typeof opts.workspace === 'string' ? opts.workspace : undefined,
+        })
+      : grantLeaseFromFlag({
+          toolsRaw: cfg.permissionLease,
+          ttlRaw: cfg.permissionLeaseTtl,
+          turnsRaw: cfg.permissionLeaseTurns,
+          target: session.id,
+        });
+    if (leaseOutcome.kind === 'invalid') {
+      console.error(chalk.red(`✗ ${t('cliEntry.permissionLeaseInvalid', { reason: leaseOutcome.reason })}`));
+      process.exitCode = 1;
+      return;
+    }
+    if (leaseOutcome.kind === 'granted' && !jsonMode) {
+      console.info(
+        chalk.yellow(
+          t('cliEntry.permissionLeaseGranted', {
+            tools: leaseOutcome.lease.capabilities.join(', '),
+            ttl: leaseOutcome.ttlMinutes,
+            turns: leaseOutcome.turns,
+            expiresAt: leaseOutcome.lease.expiresAt,
+          }),
+        ),
+      );
+      // 档位开着时把"这是收紧"说清楚:生效值沿用上面那行的 ttl/轮次/到期,这里补语义与关闭出口。
+      if (isDigestTrackedLease(leaseOutcome.lease)) {
+        console.info(chalk.yellow(t('cliEntry.permissionLeaseDigestGranted')));
+      }
+    }
+    // H4 云会话写入:CLI agent 运行记录写 ai-service(/api/cloud-runs,session_alias 绑定本会话),
+    // 全程静默降级绝不影响主流程;start 与 runAgent 并发,网络等待不叠加到任务耗时。
+    const cloudStartPromise = cfg.apiKey
+      ? startCloudRun({
+          task: prompt,
+          sessionAlias: session.id,
+          apiKey: cfg.apiKey,
+        })
+      : Promise.resolve(null);
+    let cloudStatus: 'done' | 'error' = 'done';
+    let cloudOutput = '';
+    try {
+      const result = await runAgent({
+        prompt,
+        modelId: cfg.model,
+        workspacePath: opts.workspace,
+        apiUrl: cfg.apiUrl,
+        apiKey: cfg.apiKey,
+        maxIterations: cfg.maxIterations,
+        jsonMode,
+        // 本函数(`runAgentAndExit`)就是无头单次执行本身:--prompt-file / `ihui "任务"` /
+        // `ihui agent 任务` 三条单发入口都汇到这里,而交互式 REPL / ACP 各自直调 runToolLoop、
+        // 不经此处。所以这一个字段是"无头单次执行"在 runAgent 侧的**唯一事实来源** ——
+        // 它开着,零工具调用 + 空正文才会被收口成 no_progress(退出码 3)。
+        headlessOneShot: true,
+        outputFormat,
+        checkpoints,
+        enableMcp: cfg.enableMcp,
+        // F-068:放行结论取自 headless-permission 经纪(无审批面 ⇒ 只认显式例外),不在此处自判。
+        allowDangerous,
+        session,
+        signal: abort.signal,
+        planFirst: cfg.planFirst,
+        // 模式参数只作用于提示面与工具面,不改变权限链;非法值由 agent 侧 fail-closed 抛错。
+        welcomeMode: typeof opts.welcomeMode === 'string' ? opts.welcomeMode : undefined,
+        interactionMode: typeof opts.interactionMode === 'string' ? opts.interactionMode : undefined,
+        // P0-C:plan 审批门 — --auto-approve-plan / settings.autoApprovePlan 显式开启才放行(默认 fail-fast)
+        autoApprovePlan: cfg.autoApprovePlan,
+        sampler: cfg.sampler,
+        permissions: resolvePermissions(opts),
+        permissionMode: cfg.permissionMode,
+        // WP-8③:goal 模式 —— 指标由 --goal-criteria 声明,文本由 --goal 给出;
+        // 不声明即完全走旧路径(逐零差异),声明了就必须过独立校验才允许退 0。
+        goalCriteria: resolveGoalCriteria(opts.goalCriteria),
+        goal: typeof opts.goal === 'string' ? opts.goal : prompt,
+      });
+      process.exitCode = stopReasonToExitCode(result.stopReason);
+      cloudOutput = result.assistantText;
+      if (result.stopReason === 'error') {
+        cloudStatus = 'error';
+      }
+    } catch (err) {
+      cloudStatus = 'error';
+      cloudOutput = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      // 租约收尾:无论成功/失败/异常都显式撤销并落 `permission_lease_revoked` 审计行。
+      // 刻意放在 finally —— 放宽若在一次崩溃后被遗留在进程里,下一次调用会继续吃到它,
+      // 而那正是本模块立论要排除的"永久放宽"形态(撤销不抛,可安全重放)。
+      if (leaseOutcome.kind === 'granted') {
+        releaseLeaseAfterRun(`agent run finished (target=${leaseOutcome.lease.scope})`);
+      }
+      // 云会话收尾:start 成功登记过才补写终态(失败/未登录静默跳过)
+      const cloudRunId = await cloudStartPromise;
+      if (cloudRunId) {
+        await completeCloudRun({
+          runId: cloudRunId,
+          status: cloudStatus,
+          output: cloudOutput,
+          error: cloudStatus === 'error' ? cloudOutput : undefined,
+          apiKey: cfg.apiKey,
+        });
+      }
+      // G-814406:无头退出前有界排水 —— runAgent 返回不等于在飞后台任务收工。
+      // 窄触发(没有在飞工作 ⇒ idle,零轮)+ 宽谓词每轮重评(覆盖"在飞派生在飞")+
+      // 有限预算(缺省 60s,见 headless-drain.ts 的钳制);abort ⇒ interrupted,
+      // 预算耗尽 ⇒ timed-out,两档都逐名报名并**抬升退出码**(仅在原码为 0/未设时),
+      // 把"活没干完却退 0"从静默变成可判定。交互 REPL 不走这一条(反向 guard:
+      // isHeadless=false ⇒ interactive-skipped,一个谓词都不问)。
+      // 通知回合/钩子尾巴一维的接线缺口如实登记于交付报告(未闭环清单②)。
+      try {
+        const drainReport = await drainHeadlessBeforeExit({
+          isHeadless: jsonMode,
+          hasInFlightWork: () => listTasks().some((task) => task.status === 'running'),
+          settleWindow: (windowMs) => settleAllInFlight(windowMs),
+          listInFlightTaskIds: () =>
+            listTasks().filter((task) => task.status === 'running').map((task) => task.id),
+          signal: abort.signal,
+        });
+        if (
+          drainReport.conclusion === 'timed-out' ||
+          drainReport.conclusion === 'interrupted'
+        ) {
+          // 播报只走 stderr(结构化 JSON 一行 + 人读一行);ASCII 英文串 ——
+          // 理由同 utils/tool-denial.ts(守门 70 新中文基线)。
+          const payload = JSON.stringify({
+            type: 'background_drain',
+            conclusion: drainReport.conclusion,
+            unsettledTaskIds: [...drainReport.unsettledTaskIds],
+            rounds: drainReport.rounds,
+            settled: drainReport.settledTotal,
+            waitedMs: drainReport.waitedMs,
+          });
+          // F-068:封笔之后 stdout 不得再出现任何一行 —— complete 已是结果行,严格 NDJSON
+          // 消费方按"结果行即终"判定,追加一行事件会整体解析错位。结构化结论改走 stderr:
+          // 需要机器消费的一侧仍拿到同一份 JSON,stdout 的机器契约不被破坏。
+          if (jsonMode) {
+            process.stderr.write(`${payload}\n`);
+          }
+          console.error(
+            `[background-drain] ${drainReport.conclusion}: ${drainReport.unsettledTaskIds.length} ` +
+              `task(s) still in flight at exit (${drainReport.unsettledTaskIds.join(', ') || 'ids unenumerable'}).`,
+          );
+          if (!process.exitCode) {
+            process.exitCode = 1;
+          }
+        }
+      } catch (drainErr) {
+        // 排水自身异常不许静默 —— 它意味着"没等到结论就退了",比 timed-out 更响。
+        console.error(
+          `[background-drain] failed to obtain a drain conclusion: ${
+            drainErr instanceof Error ? drainErr.message : String(drainErr)
+          }. Unsettled background work must be assumed at exit.`,
+        );
+        if (!process.exitCode) {
+          process.exitCode = 1;
+        }
+      }
+    }
+  } finally {
+    process.off('SIGINT', onSigint);
+  }
+}
+
+program.hook('preAction', async () => {
+  const opts = program.opts();
+  // 首次运行引导:无 ~/.ihui/settings.json 时自动跑交互式问答生成配置
+  // (对齐 claude / codex CLI 首次启动体验,--no-setup 可跳过)
+  if (opts.setup !== false && needsFirstRunSetup()) {
+    await runFirstRunSetup();
+  }
+  const settingsLocale = loadSettings().locale;
+  const effectiveLocale =
+    (typeof opts.locale === 'string' && opts.locale) ||
+    process.env.IHUI_LOCALE ||
+    settingsLocale ||
+    '';
+  if (effectiveLocale) {
+    setLocale(effectiveLocale as Locale);
+    if (!process.env.IHUI_LOCALE) process.env.IHUI_LOCALE = effectiveLocale;
+  }
+  const cfg = resolveEffectiveConfig({
+    cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+    cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+  });
+  setBaseUrl(cfg.apiUrl);
+  setDeviceFingerprintProvider(cliDeviceFingerprintCollector);
+  // 首方 UA:Node 的 fetch(undici)默认根本不发 User-Agent,直接命中后端
+  // isMissingOrShortUserAgent ⇒ CLI 每个请求都被判为自动化客户端
+  // (429 要求一个无法完成的 CAPTCHA + 每请求拉低出口 IP 信誉)。
+  setUserAgent(CLI_USER_AGENT);
+  // 2026-11-17 立:客户端签名。CLI 的 UA 明文可改,服务端登录面不再只认 UA。
+  // 密钥走环境变量(IHUI_CLIENT_SIGN_SECRET,与 apps/api/.env 同值);未设 ⇒ 不注册 ⇒ 不发头。
+  const clientSignSecret = process.env.IHUI_CLIENT_SIGN_SECRET;
+  if (clientSignSecret) {
+    setClientSignatureProvider(() => formatClientSignature(clientSignSecret, 'ihui-cli'));
+  }
+  // O12 机器凭据:出站必须同时携带 Authorization: Bearer ihui_xxx 与 X-Api-Secret: sk_xxx
+  // (api-client 只负责前者)。人凭据(JWT)在此 passthrough,行为完全不变 ⇒ 零回归。
+  installOutboundCredentialHeaders(
+    resolveOutboundCredential({
+      cliApiKey: cfg.apiKey,
+      cliApiSecret: cfg.apiSecret,
+      cliCredentialKind: cfg.credentialKind,
+    }),
+    cfg.apiUrl,
+  );
+  // 明文凭据暴露告警(现状行为逐字保留):显式 --api-key 与环境变量不同值时提示
+  if (cfg.apiKey && opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
+    console.warn(chalk.yellow(t('cliEntry.apiKeyExposedWarn')));
+  }
+  // 凭据续期单点:provider 必须同时带 getToken(现读令牌管理器)与 refreshAccessToken,
+  // 否则包内 401 拦截器第一行就 return null ⇒ 长会话跑过 15 分钟后全体 401 且无法自愈。
+  registerCliTokenProvider({ baseUrl: cfg.apiUrl, startupToken: cfg.apiKey });
+  // P1-15 异步触发更新检查(--no-update-check 或 IHUI_NO_UPDATE_CHECK=1 时跳过;offline 模式跳过)
+  if (
+    cfg.offline !== true &&
+    opts.updateCheck !== false &&
+    process.env.IHUI_NO_UPDATE_CHECK !== '1'
+  ) {
+    notifyUpdates();
+  }
+});
+
+// 默认命令: 交互式 REPL 或直接执行任务
+program
+  .argument('[prompt]', t('cliEntry.chatArgumentDesc'))
+  .action(async (prompt: string | undefined) => {
+    const opts = program.opts();
+    const effectivePrompt = resolvePrompt(prompt, opts);
+    if (effectivePrompt) {
+      const jsonMode = resolveJsonMode(opts);
+      await runAgentAndExit(effectivePrompt, opts, jsonMode);
+    } else {
+      // F-012:无 prompt + 无人工输入档(stdin 不是 TTY,或 --json/非 TTY stdout 已由
+      // resolveJsonMode 判为机器档)时,进 REPL 只会把 banner/ANSI 写进管道并永久等 stdin
+      // —— CI 挂死。该路径判"用法缺失":stderr 打用法、退 2(与"无输入可继续"同档,见
+      // index.ts:1052 的 insufficient 出口);TTY 交互与显式 prompt 完全不受影响。
+      if (resolveJsonMode(opts) || !process.stdin.isTTY) {
+        process.stderr.write(
+          'No prompt provided and stdin is not an interactive terminal: nothing to run.\n',
+        );
+        process.stderr.write(`${program.helpInformation()}\n`);
+        process.exit(2);
+      }
+      const cfg = resolveEffectiveConfig({
+        cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+        cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+        cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+        cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+        cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+        cliPlan: opts.plan === true ? true : undefined,
+        cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
+        cliMcp: opts.mcp === true ? true : undefined,
+        cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
+      });
+      const session = resolveSession(opts);
+      // 默认档 = 行模式;只有 IHUI_TUI=1 才接管(接不住时打印原因并继续走 startREPL)。
+      if (await maybeRunFullScreen(opts, cfg, session.sessionId)) return;
+      await startREPL({
+        modelId: cfg.model,
+        workspacePath: opts.workspace,
+        apiUrl: cfg.apiUrl,
+        apiKey: cfg.apiKey,
+        maxIterations: cfg.maxIterations,
+        sessionId: session.sessionId,
+        history: session.history,
+        enableMcp: cfg.enableMcp,
+        allowDangerous: cfg.allowDangerous,
+        planFirst: cfg.planFirst,
+        autoApprovePlan: cfg.autoApprovePlan,
+        permissions: resolvePermissions(opts),
+        permissionMode: cfg.permissionMode,
+      });
+    }
+  });
+
+// chat 子命令
+const chatCmd = program
+  .command('chat')
+  .description(t('cliEntry.chatModeDesc'))
+  .action(async () => {
+    const opts = program.opts();
+    const cfg = resolveEffectiveConfig({
+      cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+      cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+      cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+      cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+      cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
+      cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+      cliPlan: opts.plan === true ? true : undefined,
+      cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
+      cliMcp: opts.mcp === true ? true : undefined,
+      cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
+    });
+    const session = resolveSession(opts);
+    // 默认档 = 行模式;只有 IHUI_TUI=1 才接管(接不住时打印原因并继续走 startREPL)。
+    if (await maybeRunFullScreen(opts, cfg, session.sessionId)) return;
+    await startREPL({
+      modelId: cfg.model,
+      workspacePath: opts.workspace,
+      apiUrl: cfg.apiUrl,
+      apiKey: cfg.apiKey,
+      maxIterations: cfg.maxIterations,
+      sessionId: session.sessionId,
+      history: session.history,
+      enableMcp: cfg.enableMcp,
+      allowDangerous: cfg.allowDangerous,
+      planFirst: cfg.planFirst,
+      autoApprovePlan: cfg.autoApprovePlan,
+      permissionMode: cfg.permissionMode,
+    });
+  });
+
+// chat 子命令挂载:history/favorites/templates/settings — 对齐 Web 端 /chat 4 页功能
+attachChatSubcommands(chatCmd);
+
+// agent 子命令
+program
+  .command('agent [task]')
+  .description(t('cliEntry.agentModeDesc'))
+  .action(async (task: string | undefined) => {
+    const opts = program.opts();
+    const effectiveTask = resolvePrompt(task, opts);
+    if (!effectiveTask) {
+      console.error(chalk.red(t('cli.agentUsage')));
+      process.exit(1);
+    }
+    const jsonMode = resolveJsonMode(opts);
+    await runAgentAndExit(effectiveTask, opts, jsonMode);
+  });
+
+// init 子命令
+program
+  .command('init')
+  .description(t('cliEntry.initDesc'))
+  .option('-f, --force', t('cliEntry.forceDesc'))
+  .action(async (options: { force?: boolean }) => {
+    const workspace = process.cwd();
+    if (agentsMdExists(workspace) && !options.force) {
+      console.info(chalk.yellow(t('cli.agentsMdExists')));
+      process.exit(1);
+    }
+    await writeAgentsMd(workspace);
+    console.info(chalk.green(t('cli.agentsMdCreated', { path: join(workspace, 'AGENTS.md') })));
+  });
+
+// sessions 子命令
+program
+  .command('sessions')
+  .description(t('cliEntry.sessionsDesc'))
+  .action(() => {
+    const sessions = listSessions();
+    if (sessions.length === 0) {
+      console.info(chalk.dim(t('cli.noSessions')));
+      return;
+    }
+    console.info(chalk.cyan(t('cliEntry.sessionsHeader')));
+    for (const s of sessions) {
+      const time = new Date(s.updatedAt).toLocaleString();
+      console.info(`  ${chalk.bold(s.id)}  ${chalk.dim(time)}`);
+      console.info(t('cliEntry.sessionsRow', { workspacePath: s.workspacePath, modelId: s.modelId, length: s.history.length }));
+    }
+    console.info('');
+  });
+
+// mcp 子命令组
+const mcpCmd = program.command('mcp').description(t('cliEntry.mcpCmdDesc'));
+
+mcpCmd
+  .command('list')
+  .description(t('cliEntry.mcpListDesc'))
+  .action(() => {
+    const config = loadMcpConfig();
+    if (config.servers.length > 0) {
+      console.info(chalk.cyan(t('cliEntry.mcpLocalHeader')));
+      // 显示实际参与合并的源(高→低),而不是只报家目录那一个——
+      // 多源扫描下"配置文件: ~/.ihui/mcp.json"会误导子目录里的用户。
+      const sources = listMcpConfigSources();
+      if (sources.length > 0) {
+        for (const p of sources) {
+          console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: p })));
+        }
+      } else {
+        console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
+      }
+      for (const s of config.servers) {
+        const transport = s.transport ?? 'stdio';
+        if (transport === 'stdio') {
+          const argStr = s.args && s.args.length > 0 ? ' ' + s.args.join(' ') : '';
+          console.info(`  ${chalk.bold(s.name)} [${transport}]: ${s.command ?? ''}${argStr}`);
+        } else {
+          console.info(`  ${chalk.bold(s.name)} [${transport}]: ${s.url ?? ''}`);
+        }
+      }
+    } else {
+      console.info(chalk.dim(t('cliEntry.mcpLocalEmpty')));
+      console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
+    }
+  });
+
+/**
+ * 构建 `mcp add` 子命令。
+ * 导出只为让测试能真实走一遍 commander 解析(F-014),生产入口在下方直接挂到 mcp 上。
+ */
+export function buildMcpAddCommand(parent: Command): Command {
+  return parent
+    .command('add [name] [command] [extraArgs...]')
+    .description(t('cliEntry.mcpAddDesc'))
+    // F-014:commander 的变参在遇到 `-` 开头的 token 时会提前收尾(如 `--args -y`),
+    // 剩余参数会落到位置参数上。`--args=-y` 与 `--` 分隔两种写法都经 extraArgs 合并,
+    // 帮助文本里点名,避免用户以为传不了 flag。
+    .option('-a, --args <args...>', `${t('cliEntry.mcpAddArgsDesc')} (e.g. --args=-y, or -- -y)`)
+    .option('-t, --transport <transport>', t('cliEntry.mcpAddTransportDesc'), 'stdio')
+    .option('-u, --url <url>', t('cliEntry.mcpAddUrlDesc'))
+    .option('--token <token>', t('cliEntry.mcpAddTokenDesc'))
+    .action(
+      (
+        name: string | undefined,
+        command: string | undefined,
+        extraArgs: string[] | undefined,
+        options: { args?: string[]; transport?: 'stdio' | 'http' | 'sse'; url?: string; token?: string },
+      ) => {
+        if (!name) {
+          // F-010:同上,错误文案一律 stderr
+          errorExit(chalk.red(t('cliEntry.mcpAddUsage')));
+        }
+        const auth =
+          options.token ? { type: 'bearer' as const, token: options.token } : undefined;
+        // F-014:合并 `--args` 与位置参数(顺序不变),`--` 分隔的参数也从这里进来。
+        const mergedArgs = [...(options.args ?? []), ...(extraArgs ?? [])];
+        let server: McpServer;
+        try {
+          server = addMcpServer(name, command, mergedArgs.length > 0 ? mergedArgs : undefined, {
+            transport: options.transport,
+            url: options.url,
+            auth,
+          });
+        } catch (error) {
+          // F-014:缺 command/url 的配置在落盘前就被拒;文案走 stderr 并退非零(F-010 口径)。
+          errorExit(chalk.red(error instanceof Error ? error.message : String(error)));
+        }
+        console.info(chalk.green(t('cliEntry.mcpAdded', { name: server.name })));
+        // McpServer.transport 类型为 MCPTransport | undefined,而 t() 的 params 值是
+        // Record<string, string | number>(不接受 undefined)。addMcpServer 恒写入
+        // `options?.transport ?? 'stdio'`,返回值运行期永不为 undefined,故此处 `?? 'stdio'`
+        // 仅是与 addMcpServer 同一默认值对齐的类型收窄,不改变任何实际输出。
+        console.info(t('cliEntry.mcpTransportLine', { transport: server.transport ?? 'stdio' }));
+        if (server.transport === 'stdio') {
+          console.info(t('cliEntry.mcpCommandLine', { command: server.command ?? '' }));
+        } else {
+          console.info(`  URL: ${server.url ?? ''}`);
+        }
+        console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
+      },
+    );
+}
+
+buildMcpAddCommand(mcpCmd);
+
+mcpCmd
+  .command('remove <name>')
+  .description(t('cliEntry.mcpRemoveDesc'))
+  .action((name: string) => {
+    if (removeMcpServer(name)) {
+      console.info(chalk.green(t('cliEntry.mcpRemoved', { name: name })));
+    } else {
+errorExit(chalk.red(t('cliEntry.mcpNotFound', { name: name })));
+    }
+  });
+
+// capabilities 子命令组
+registerCapabilitiesCommand(program);
+
+// login 子命令 — 用户名/邮箱/手机号 + 密码登录,获取 JWT 写入 settings.json
+registerLoginCommand(program);
+
+// memory 子命令组 — 对齐 Web 端 /memory(list/add/delete/clear)
+registerMemoryCommand(program);
+
+// relay 子命令组 — 号池切号与本机快捷方式(本机运维;转 scripts/switch-client-account.mjs)
+registerRelayCommand(program);
+
+// workflows 子命令组 — 对齐 Web 端 /workflows(list/show/run/instances/instance/cancel)
+registerWorkflowsCommand(program);
+
+// spec 子命令组 — 对齐 Web 端 /spec(generate/templates/history/load/diff/variables)
+registerSpecCommand(program);
+
+// plan 子命令组 — 对齐 Web 端 /plan(init/list/show/delete 本地文档管理)
+registerPlanCommand(program);
+
+// trash 子命令组 — 本机回收站(list / restore),误删件的人用出口
+registerTrashCommand(program);
+
+// agents 子命令组 — 对齐 Web 端 /agents(list/my/show/create/stats 5 页)
+registerAgentsCommand(program);
+
+// ai-skills 子命令组 — 对齐 Web 端 /ai-skills(list/show/invoke/install/remove)
+registerAiSkillsCommand(program);
+
+// context 子命令组 — 对齐 Web 端 /context(list/add/remove/clear 上下文文件管理)
+registerContextCommand(program);
+
+// developer 子命令组 — 对齐 Web 端 /developer(IDE/keys/logs/team)
+registerDeveloperCommand(program);
+
+// playground 子命令组 — 对齐 Web 端 /playground(AI 玩具箱)
+registerPlaygroundCommand(program);
+
+// knowledge 子命令组 — 对齐 Web 端 /knowledge-base(list/show/create/delete)
+registerKnowledgeCommand(program);
+
+// rag 子命令组 — 对齐 Web 端 /knowledge-rag(search/index)
+registerRagCommand(program);
+
+// G5 编译式知识引擎 — wiki 子命令组(compile/status,对接 ai-service /api/knowledge/*)
+registerWikiCommand(program);
+
+// mcp-market 子命令组 — 对齐 Web 端 /mcp-projects(list/search/show/install/remove)
+registerMcpMarketCommand(program);
+
+// models 子命令组 — 对齐 Web 端 /models(list/keys/usage/billing/groups 10+ 页)
+registerModelsCommand(program);
+
+// security 子命令组 — 对齐 Web 端 /security-audit(audit/scan/report)
+registerSecurityCommand(program);
+
+// checkpoint 子命令组
+registerCheckpointCommand(program);
+
+// ai-attribution 子命令组 — AI 代码归属账读数(判据在服务端 core/ai_code_attribution.py,此处只读)
+registerAiAttributionCommand(program);
+
+// report 子命令组 — 自包含单文件诊断报告(KPI + 阶段瀑布 + findings;判据在 @ihui/shared/reports)
+registerReportCommand(program);
+
+// hooks 子命令组
+registerHooksCommand(program);
+
+// hooks-auto 子命令组 — Wave 3 W3-4 自动发现 5 目录 hooks(遵循统一工程规范)
+registerHooksAutoCommand(program);
+
+// import 子命令组 — CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
+registerImportCommand(program);
+
+// subagent-parallel 子命令 — 并行 fork N 个子 agent(真子进程并行,支持 4 拓扑)
+registerSubagentParallelCommand(program);
+
+// registry 子命令 — 资源上游同步中心(MCP/Skill/Plugin 四源拉取 + 双路径触发 + 全量自动更新)
+import { registryCommand } from './commands/registry-index.js';
+program.addCommand(registryCommand());
+
+// skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
+// 目标迭代闭环(2026-11-12):反复跑 runToolLoop 直到达成或轮次用尽。
+// 达成判据由用户以正则给出 —— "什么算做完"是业务语义,内置猜测只会按错误标准收敛。
+// 本地工作流编排(2026-11-12):从 JSON 声明跑一组命令,按 needs 拓扑排序、同层并行。
+// 与上面的 `workflows` 子命令不同 —— 那个是**服务端工作流**的客户端(打 API),
+// 本命令跑的是**本地声明的一组命令**(构建脚本的替代品),语义不重叠。
+program
+  .command('flow <declaration>')
+  .description('按 JSON 声明跑本地工作流(依赖拓扑 + 同层并行 + 失败隔离)')
+  .option('--verbose', '打印每步输出')
+  .action(async (declaration: string, opts: { verbose?: boolean }) => {
+    const { runDeclaredWorkflow, WorkflowDeclarationError } = await import('./commands/workflow-run.js');
+    try {
+      const res = await runDeclaredWorkflow({
+        declarationPath: declaration,
+        ...(opts.verbose === true ? { verbose: true } : {}),
+      });
+      console.info(res.succeeded ? chalk.green(`✅ ${res.summary}`) : chalk.red(`❌ ${res.summary}`));
+      if (!res.succeeded) {
+        console.error(chalk.dim(`  失败步骤:${res.failed.join(', ')}`));
+        process.exitCode = 1;
+      }
+    } catch (e) {
+      if (e instanceof WorkflowDeclarationError) {
+        errorExit(chalk.red(e.message));
+      }
+      throw e;
+    }
+  });
+
+const goalCmd = program.command('goal').description('目标迭代:反复执行直到满足判据或轮次用尽');
+
+goalCmd
+  .command('iterate <task>')
+  .description('反复执行任务,直到助手输出匹配 --done-when 或达到 --max-iterations')
+  .requiredOption('--done-when <regex>', '达成判据:助手输出匹配此正则即视为达成')
+  .option('--max-iterations <n>', '最多迭代轮次(默认 5)', '5')
+  .option('--model <id>', '模型 ID', 'gpt-4o')
+  .action(async (task: string, opts: { doneWhen: string; maxIterations: string; model: string }) => {
+    const maxIterations = Number.parseInt(opts.maxIterations, 10);
+    if (!Number.isInteger(maxIterations) || maxIterations < 1) {
+      errorExit(chalk.red(`--max-iterations 必须是 >= 1 的整数(收到 ${opts.maxIterations})`));
+    }
+
+    // 装配真实执行腿:setupAgentTools + runToolLoop(与 REPL 同源)
+    const { setupAgentTools, runToolLoop } = await import('./commands/agent.js');
+    const { ctx } = await setupAgentTools({ workspacePath: process.cwd(), silent: true });
+
+    const res = await goalIterate(
+      { task, doneWhen: opts.doneWhen, maxIterations, modelId: opts.model },
+      {
+        runIteration: async ({ messages: msgs }) => {
+          const r = await runToolLoop({
+            modelId: opts.model,
+            messages: msgs as never,
+            ctx,
+            maxIterations: 20,
+          });
+          return { stopReason: r.stopReason, assistantText: r.assistantText };
+        },
+      },
+    ).catch((e: unknown) => {
+      // 判据非法是**用户输入错误**,不是崩溃 —— 不能让它冒泡到全局 crash handler
+      // (那会打印 "Crash log: ... 请在 GitHub issue 附上",把参数写错说成程序 bug)。
+      errorExit(chalk.red(e instanceof Error ? e.message : String(e)));
+    });
+
+    if (res.outcomeKind === 'achieved') process.exitCode = 0;
+    else if (res.outcomeKind === 'exhausted' || res.outcomeKind === 'timed-out') process.exitCode = 2;
+    else process.exitCode = 130;
+  });
+
+const skillsCmd = program.command('skills').description(t('cliEntry.skillsCmdDesc'));
+
+// `list` 与 REPL `/skills` 同一展示/缓存出口(goal-b49 X3):格式化与缓存只有一份,
+// 住在 commands/skills-catalog-view.ts;这里只挂子命令,不手搓条目行、不另读一次盘。
+registerSkillsListCommand(skillsCmd);
+
+skillsCmd
+  .command('show <name>')
+  .description(t('cliEntry.skillShowDesc'))
+  .action((name: string) => {
+    const skills = loadSkills({ cwd: process.cwd() });
+    const skill = findSkill(skills, name);
+    if (!skill) {
+errorExit(chalk.red(t('cliEntry.skillNotFound', { name: name })));
+    }
+    console.info(chalk.cyan(`# ${skill.name}`));
+    console.info(chalk.dim(t('cliEntry.skillSourceDetail', { source: skill.source })));
+    console.info(chalk.dim(t('cliEntry.skillDescriptionLine', { description: skill.description })));
+    console.info(skill.body);
+  });
+
+// G-427 第①步的读侧 —— allowed-tools 影子账本(机主 2026-10-10 拍板「先记账一周再开真门控」)。
+// 记的是"若白名单真生效,哪些调用会被挡",**执行链上没有任何一处读它**。
+// 选项帮助与输出面一律 ASCII:守门 70 的硬编码中文棘轮同样约束本文件,而这条命令的读者是
+// "拿实据逐技能裁决"的人,不是终端界面(命令描述走 t(),与其余 24 条同形,不开第二套惯例)。
+skillsCmd
+  .command('shadow-report')
+  .description(t('cliEntry.skillShadowReportDesc'))
+  .option('--ledger <jsonl>', 'ledger file (default: the user state dir)')
+  .option('--json', 'machine-readable aggregate')
+  .option('--self-test', 'run the built-in assertion table; non-zero on any failure')
+  .action((options: { ledger?: string; json?: boolean; selfTest?: boolean }) => {
+    if (options.selfTest === true) {
+      process.exitCode = runShadowSelfTest();
+      return;
+    }
+    const file = resolveShadowLedgerPath(options.ledger);
+    const read = readShadowLedger(file);
+    const agg = aggregateShadowLedger(read, file);
+    if (options.json === true) {
+      process.stdout.write(`${JSON.stringify(agg, null, 2)}\n`);
+    } else {
+      console.info(formatShadowReport(agg));
+    }
+    // G-175 机械裁决档:取不到台账**或证据不足**都 = 无法判定,不是"没有冲突"。
+    // insufficient ⇒ 退出码 2(与姊妹出口同一条约定),样本为 0 的报告不得冒充绿灯;
+    // 样本 ≥1 ⇒ 0,报告里带冲突率与逐对建议,裁决(开不开真门控)仍是单独一票的事。
+    if (agg.insufficient) process.exitCode = 2;
+  });
+
+// 技能包安装安全链 + 专家包生成器: install / verify / uninstall / pack
+registerSkillPackageCommands(skillsCmd);
+
+// settings 子命令组
+const settingsCmd = program.command('settings').description(t('cliEntry.settingsCmdDesc'));
+
+settingsCmd
+  .command('init')
+  .description(t('cliEntry.settingsInitDesc'))
+  .option('-f, --force', t('cliEntry.forceDesc'))
+  .action((options: { force?: boolean }) => {
+    const created = saveSettingsTemplate(options.force === true);
+    if (created) {
+      console.info(chalk.green(t('cliEntry.settingsTemplateCreated', { settingsPath: getSettingsPath() })));
+      console.info(chalk.dim(t('cliEntry.settingsEditHint')));
+    } else {
+      console.info(chalk.yellow(t('cliEntry.settingsAlreadyExists', { settingsPath: getSettingsPath() })));
+      console.info(chalk.dim(t('cliEntry.settingsForceHint')));
+    }
+  });
+
+settingsCmd
+  .command('path')
+  .description(t('cliEntry.settingsPathDesc'))
+  .action(() => {
+    console.info(getSettingsPath());
+  });
+
+// acp 子命令 — 启动 ACP (Agent Client Protocol) server,供编辑器嵌入
+program
+  .command('acp')
+  .description(t('cliEntry.acpDesc'))
+  .action(async () => {
+    const opts = program.opts();
+    const cfg = resolveEffectiveConfig({
+      cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
+      cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
+      cliModel: typeof opts.model === 'string' ? opts.model : undefined,
+      cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
+      cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
+      cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+      cliPlan: opts.plan === true ? true : undefined,
+      cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
+      cliMcp: opts.mcp === true ? true : undefined,
+      cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
+    });
+    let acpAgent: IhuiAcpAgent | null = null;
+    const connection = startAcpServer({
+      apiUrl: cfg.apiUrl,
+      apiKey: cfg.apiKey,
+      modelId: cfg.model,
+      maxIterations: cfg.maxIterations,
+      enableMcp: cfg.enableMcp,
+      allowDangerous: cfg.allowDangerous,
+      planFirst: cfg.planFirst,
+      autoApprovePlan: cfg.autoApprovePlan,
+      // F-066:捕获 agent 实例,进程级信号收口要先中止全部在飞 prompt
+      onAgentReady: (agent) => {
+        acpAgent = agent;
+      },
+    });
+    // F-066:SIGINT/SIGTERM 先 abortAllPrompts 再 close —— 只 close 的话在飞 prompt 继续
+    // 生成/落盘,fetch 与定时器钉住进程不退,第二次 Ctrl-C 也无效;覆盖默认终止后必须
+    // 自己给退出码(130/143),编排器才能区分正常停止与中断。
+    const acpShutdown = (exitCode: number): void => {
+      acpAgent?.abortAllPrompts();
+      connection.close();
+      process.exitCode = exitCode;
+    };
+    process.on('SIGINT', () => acpShutdown(130));
+    process.on('SIGTERM', () => acpShutdown(143));
+    await connection.closed;
+  });
+
+// serve 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对齐 OpenCode client/server 架构)
+// 平台独占:仅 cli
+registerServeCommand(program);
+// 全屏终端界面:新增子命令,不改任何既有入口的默认行为(默认档仍是行模式)。
+registerTuiCommand(program);
+
+// connect 子命令 — 作为 TUI client 连接远程 Agent server(对齐 OpenCode 远程驱动)
+// 平台独占:仅 cli
+registerConnectCommand(program);
+
+// ============================================================================
+// Wave 2 命令 — 智能深度反超(遵循统一工程规范)
+// ============================================================================
+
+// undo 子命令 — 多步回滚文件改动(对齐 OpenCode undo,支持多步)
+program
+  .command('undo [steps]')
+  .description(t('cliEntry.undoDesc'))
+  .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
+  .option('--dry-run', t('cliEntry.undoDryRunDesc'))
+  .action(async (stepsArg: string | undefined, opts: { session?: string; dryRun?: boolean }) => {
+    // F-017:步数先严格校验(缺省 1,非法值 non-zero 退出),再加载回滚实现。
+    const steps = resolvePositiveInt(stepsArg, 1, 'steps');
+    const { UndoRedoManager } = await import('./commands/undo-redo.js');
+    const { renderUndoReport } = await import('./commands/undo-claim-copy.js');
+    const sessionId =
+      opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
+    const mgr = new UndoRedoManager(process.cwd());
+    // D163 收口刀:`--dry-run` 只出计划 —— 不弹栈、不写文件、不 persist。
+    // 破坏性动作之前先让人看见"将恢复多少文件、影响多少轮"(票面 undoConfirm 态)。
+    if (opts.dryRun) {
+      const plan = await mgr.previewUndo(sessionId, steps);
+      if (plan.turnCount === 0) {
+        console.info(chalk.yellow(t('cliEntry.undoNothing')));
+        return;
+      }
+      console.info(chalk.dim(t('cliEntry.undoPreparing')));
+      console.info(
+        chalk.yellow(
+          t('cliEntry.undoConfirm', { fileCount: plan.fileCount, turnCount: plan.turnCount }),
+        ),
+      );
+      for (const f of plan.files) {
+        console.info(chalk.dim(`  · ${f}`));
+      }
+      return;
+    }
+    const result = await mgr.undo(sessionId, steps);
+    // D163:那句"工作区未发生变化"由 verdict 驱动,不由"回滚应该会成功"这个
+    // 假设驱动 —— 半途失败的撤回已经把工作区改了一部分,照旧说就是安慰话。
+    // D22046:整段输出(结论 + 成功清单 + 失败清单)交给渲染层组装,这里只上色打印。
+    const report = renderUndoReport(
+      {
+        verdict: result.verdict,
+        partial: result.partial,
+        undoneSteps: result.undoneSteps,
+        attemptedSteps: result.attemptedSteps,
+        // D22046 通道②:检查点可用性参与选句,不由"试没试过"反推。
+        checkpointStatus: result.checkpoint.status,
+        remaining: result.remaining,
+        changes: result.changes,
+        failedFiles: result.failedFiles,
+        failedReasons: result.failedReasons,
+        // 失败清单要给两个数:文件数(影响面)与轮次(要重试几次)。
+        failedSteps: result.failedSteps,
+      },
+      t,
+    );
+    // D22046:无头/脚本调用走结构化事件 —— 检查点可用性与判定结论必须以字段
+    // 形式到达上层,而不是只能从终端句子里猜。F-018:判据与全局 `--json` 同源。
+    if (resolveJsonMode(program.opts(), opts)) {
+      process.stdout.write(
+        `${JSON.stringify(
+          {
+            type: 'undo_result',
+            sessionId,
+            requestedSteps: steps,
+            undoneSteps: result.undoneSteps,
+            attemptedSteps: result.attemptedSteps,
+            failedSteps: result.failedSteps,
+            remaining: result.remaining,
+            verdict: result.verdict,
+            workspaceUnchanged: result.workspaceUnchanged,
+            partial: result.partial,
+            checkpoint: result.checkpoint,
+            changedFiles: result.changedFiles,
+            failedFiles: result.failedFiles,
+            failedReasons: result.failedReasons,
+            claimKey: report.claimKey,
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      return;
+    }
+    console.info(
+      report.claimIsSuccess ? chalk.green(report.claim) : chalk.yellow(report.claim),
+    );
+    for (const line of report.succeededLines) {
+      console.info(chalk.dim(line));
+    }
+    // 失败文件逐条点名(至多 10 条 + "另有 N 条"),否则"部分失败"只剩一句空话。
+    for (const line of report.failureLines) {
+      console.info(chalk.yellow(line));
+    }
+  });
+
+// redo 子命令 — 重做被 undo 的改动
+program
+  .command('redo [steps]')
+  .description(t('cliEntry.redoDesc'))
+  .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
+  .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
+    // F-017:步数先严格校验(缺省 1,非法值 non-zero 退出),再加载重做实现。
+    const steps = resolvePositiveInt(stepsArg, 1, 'steps');
+    const { UndoRedoManager } = await import('./commands/undo-redo.js');
+    const sessionId =
+      opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
+    const mgr = new UndoRedoManager(process.cwd());
+    const result = await mgr.redo(sessionId, steps);
+    if (result.redoneSteps === 0) {
+      console.info(chalk.yellow(t('cliEntry.redoNothing')));
+      return;
+    }
+    console.info(
+      chalk.green(t('cliEntry.redoDone', { redoneSteps: result.redoneSteps, remaining: result.remaining })),
+    );
+    for (const c of result.changes) {
+      console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
+    }
+  });
+
+// share 子命令 — 生成可分享的会话快照(遵循统一工程规范)
+program
+  .command('share [session-id]')
+  .description(t('cliEntry.shareDesc'))
+  .option('-f, --format <fmt>', t('cliEntry.shareFormatDesc'), 'markdown')
+  .option('--no-tools', t('cliEntry.shareNoToolsDesc'))
+  .option('--include-files', t('cliEntry.shareIncludeFilesDesc'))
+  .option('-t, --title <title>', t('cliEntry.shareTitleDesc'))
+  .action(async (sessionIdArg: string | undefined, opts: {
+    format: string;
+    tools: boolean;
+    includeFiles?: boolean;
+    title?: string;
+  }) => {
+    // F-017:`-f` 在全局是 `--prompt-file` 的短旗标,commander 会在进入子命令前把它吃掉,
+    // 于是 `share -f txt` 的 txt 落到 promptFile(share 从不读),format 仍是默认 markdown
+    // —— 用户给错的枚举被静默替换。这里必须响:share 的格式只认 `--format`。
+    const shadowedFormat = program.opts().promptFile;
+    if (shadowedFormat !== undefined) {
+      errorExit(
+        chalk.red(
+          `share takes its format from --format <${SHARE_FORMATS.join('|')}>; -f is the global --prompt-file (got: ${String(shadowedFormat)})`,
+        ),
+      );
+    }
+    // F-017:`-f/--format` 的枚举先判死,非法值不进入分享流程(修前 `as` 强转照样产出 HTML)。
+    if (!isShareFormat(opts.format)) {
+      errorExit(
+        chalk.red(`Invalid --format value: ${opts.format} (expected ${SHARE_FORMATS.join('|')})`),
+      );
+    }
+    const { ShareManager } = await import('./commands/share.js');
+    const sessionId = sessionIdArg ?? getMostRecentSession()?.id;
+    if (!sessionId) {
+errorExit(chalk.red(t('cliEntry.shareNoSession')));
+    }
+    const mgr = new ShareManager(process.cwd());
+    const result = await mgr.share(sessionId, {
+      format: opts.format,
+      includeToolCalls: opts.tools,
+      includeFiles: opts.includeFiles === true,
+      title: opts.title,
+    });
+    console.info(chalk.green(t('cliEntry.shareDone')));
+    console.info(chalk.dim(t('cliEntry.shareShortUrl', { url: result.url })));
+    console.info(chalk.dim(t('cliEntry.shareHash', { hash: result.hash })));
+    console.info(chalk.dim(t('cliEntry.shareSize', { sizeBytes: result.sizeBytes })));
+    if (result.qrCode) {
+      console.info(chalk.dim(t('cliEntry.qrGenerated')));
+    } else {
+      console.info(chalk.dim(t('cliEntry.qrFallback')));
+    }
+  });
+
+// mode 子命令 — 切换 Plan/Build/Review 交互模式(对齐 OpenCode Plan/Build,增强 Review 模式)
+program
+  .command('mode [mode]')
+  .description(t('cliEntry.modeDesc'))
+  .action(async (modeArg: string | undefined) => {
+    const { ModeManager } = await import('./tui/index.js');
+    const mgr = new ModeManager();
+    if (!modeArg) {
+      console.info(chalk.cyan(t('cliEntry.modeCurrent', { mode: mgr.renderIndicator() })));
+      console.info(chalk.dim(t('cliEntry.modeAvailable')));
+      console.info(chalk.dim(t('cliEntry.modeUsage')));
+      return;
+    }
+    const validModes = ['plan', 'build', 'review'] as const;
+    if (!validModes.includes(modeArg as (typeof validModes)[number])) {
+errorExit(chalk.red(t('cliEntry.modeUnknown', { modeArg: modeArg })));
+    }
+    mgr.setMode(modeArg as (typeof validModes)[number]);
+    console.info(mgr.getModeBanner());
+  });
+
+// audit 子命令组 — 查询/过滤审计日志(~/.ihui/audit.jsonl)
+const auditCmd = program.command('audit').description(t('cliEntry.auditCmdDesc'));
+
+auditCmd
+  .command('query')
+  .description(t('cliEntry.auditQueryDesc'))
+  .option('-t, --tool <name>', t('cliEntry.auditToolFilterDesc'))
+  .option('-s, --since <time>', t('cliEntry.auditSinceDesc'))
+  .option('--success', t('cliEntry.auditSuccessOnlyDesc'))
+  .option('--failure', t('cliEntry.auditFailureOnlyDesc'))
+  .option('-l, --limit <n>', t('cliEntry.auditLimitDesc'), '50')
+  .option('--json', t('cliEntry.auditJsonDesc'))
+  .action((options: {
+    tool?: string;
+    since?: string;
+    success?: boolean;
+    failure?: boolean;
+    limit?: string;
+    json?: boolean;
+  }) => {
+    const success = options.success === true
+      ? true
+      : options.failure === true
+        ? false
+        : undefined;
+    // F-017:--limit 非法(非正整数)必须报错,不再 parseInt 后静默回落 50。
+    const limit = resolvePositiveInt(options.limit, 50, '--limit');
+    const result = queryAuditLog({
+      tool: options.tool,
+      since: options.since,
+      success,
+      limit,
+    });
+
+    // F-018:全局 `--json` 与子命令 `--json` 行为一致。
+    if (resolveJsonMode(program.opts(), options)) {
+      console.info(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (result.entries.length === 0) {
+      console.info(chalk.dim(t('cliEntry.auditNoMatch', { total: result.total })));
+      return;
+    }
+
+    console.info(chalk.cyan(t('cliEntry.auditListHeader', { count: result.entries.length, filtered: result.filtered, total: result.total })));
+    for (const e of result.entries) {
+      const icon = e.success === false ? '✗' : e.success === true ? '✓' : '?';
+      const iconColor = e.success === false ? chalk.red(icon) : e.success === true ? chalk.green(icon) : chalk.dim(icon);
+      const ts = new Date(e.timestamp).toLocaleString('zh-CN', { hour12: false });
+      const duration = e.durationMs !== undefined ? chalk.dim(` ${e.durationMs}ms`) : '';
+      console.info(`  ${iconColor} ${ts} ${chalk.bold(e.tool)}${duration}`);
+      if (e.error) {
+        console.info(chalk.dim(`    error: ${e.error.slice(0, 120)}`));
+      }
+    }
+    console.info('');
+  });
+
+auditCmd
+  .command('stats')
+  .description(t('cliEntry.auditStatsDesc'))
+  .option('-s, --since <time>', t('cliEntry.auditSinceDesc'))
+  .action((options: { since?: string }) => {
+    const result = queryAuditLog({ since: options.since, limit: 100_000 });
+
+    if (result.total === 0) {
+      console.info(chalk.dim(t('cliEntry.auditEmpty')));
+      return;
+    }
+
+    const stats = new Map<string, { total: number; success: number; failure: number }>();
+    for (const e of result.entries) {
+      const s = stats.get(e.tool) ?? { total: 0, success: 0, failure: 0 };
+      s.total++;
+      if (e.success === true) s.success++;
+      else if (e.success === false) s.failure++;
+      stats.set(e.tool, s);
+    }
+
+    console.info(chalk.cyan(t('cliEntry.auditStatsHeader', { total: result.total, filtered: result.filtered })));
+    console.info(
+      `  ${padCell(t('cliEntry.auditColTool'), 25)} ${padCell(t('cliEntry.auditColTotal'), 8, 'right')} ${padCell(t('cliEntry.auditColSuccess'), 8, 'right')} ${padCell(t('cliEntry.auditColFailure'), 8, 'right')} ${padCell(t('cliEntry.auditColRate'), 8, 'right')}`,
+    );
+    for (const [tool, s] of [...stats.entries()].sort((a, b) => b[1].total - a[1].total)) {
+      const rate = s.total > 0 ? ((s.success / s.total) * 100).toFixed(1) + '%' : 'N/A';
+      console.info(
+        `  ${padCell(tool, 25)} ${padCell(String(s.total), 8, 'right')} ${padCell(String(s.success), 8, 'right')} ${padCell(String(s.failure), 8, 'right')} ${padCell(rate, 8, 'right')}`,
+      );
+    }
+    console.info('');
+  });
+
+// A36 第①步取证出口:把历史工具调用离线重放过入参校验器,打出偏差台账(绝不落入参值)
+auditCmd
+  .command('tool-args')
+  .description(t('cliEntry.auditToolArgsDesc'))
+  .option('-s, --since <time>', t('cliEntry.auditSinceDesc'))
+  .option('--json', t('cliEntry.auditJsonDesc'))
+  .option('--limit <n>', t('cliEntry.auditToolArgsLimitDesc'), '100000')
+  .action(async (options: { since?: string; json?: boolean; limit?: string }) => {
+    // F-017:--limit 非法(非正整数)必须报错,不再 parseInt 后静默回落 100000。
+    const limit = resolvePositiveInt(options.limit, 100_000, '--limit');
+    const queried = queryAuditLog({ since: options.since, limit });
+    // 注册表与真实会话**同一入口**:setupAgentTools 先 clearTools 再按家族注册。
+    // 自己拼一份"看着像"的子集,量到的偏差就是夹具不是事实 —— 漏掉的家族(如 write_file/edit_file
+    // 来自 createFileEditTools 工厂)会整片算成 unknownTool,而它们是历史调用的大头。
+    // 刻意不开 enableMcp / subagentParent:MCP 远端工具没有本地 parameters 可校验,
+    // 它们会落进 unknownTool 并如实报数(覆盖率读数在下面)。
+    await setupAgentTools({ workspacePath: process.cwd(), silent: true });
+    const { totals, rows, toolsCovered } = replayArgumentDeviations(queried.entries, getTool);
+
+    // F-018:全局 `--json` 与子命令 `--json` 行为一致。
+    if (resolveJsonMode(program.opts(), options)) {
+      console.info(JSON.stringify({ totals, rows, toolsCovered }, null, 2));
+      return;
+    }
+    if (totals.matched === 0) {
+      console.info(chalk.dim(t('cliEntry.auditEmpty')));
+      return;
+    }
+    console.info(
+      chalk.cyan(
+        t('cliEntry.auditToolArgsHeader', {
+          records: totals.records,
+          matched: totals.matched,
+          unknown: totals.unknownTool,
+          invalid: totals.invalid,
+          rows: totals.rows,
+        }),
+      ),
+    );
+    if (rows.length === 0) {
+      console.info(chalk.green(t('cliEntry.auditToolArgsNone', { matched: totals.matched })));
+      return;
+    }
+    for (const r of rows) {
+      console.info(
+        `  ${String(r.count).padStart(5)}×  ${r.tool}.${r.field}  ${r.reason}  expected=${r.expected}  got=${r.actualKind}`,
+      );
+    }
+    console.info('');
+    console.info(chalk.dim(t('cliEntry.auditToolArgsFooter', { coerced: totals.coercionOnly, threw: totals.validatorThrew })));
+  });
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  // G-18:每次 CLI 进程启动落一份 run manifest(argv/ppid/env/cwd/项目身份),写失败静默。
+  writeRunManifest();
+  // G-B49 C2 启动画像登记 + 预热命中读数(opt-in 零副作用,对齐对方"未开启不产生任何 I/O"):
+  // IHUI_STARTUP_PROFILE≠1 ⇒ 只内存打点、零 I/O;开启 ⇒ stderr 两行 ASCII 读数(守门 70 惯例,
+  // 与 background-drain 播报同一形态)。三态诚实:缺里程碑落 unjudged 点名,绝不以 0ms 冒充量到。
+  const startupTracker = createStartupTracker(() => performance.now());
+  startupTracker.mark('entry');
+  const startupProfileOn = process.env.IHUI_STARTUP_PROFILE === '1';
+  const prewarmReading = startupProfileOn
+    ? readPrewarmStatus({
+        currentFingerprint: buildProcessFingerprint({
+          platform: process.platform,
+          arch: process.arch,
+          nodeVersion: process.version,
+          cliVersion: pkg.version,
+        }),
+        nowMs: Date.now(),
+        isPidAlive: defaultIsPidAlive,
+      })
+    : null;
+  process.on('exit', () => {
+    startupTracker.mark('exit');
+    if (!startupProfileOn) return;
+    console.error(renderStartupLine(startupTracker.reading()));
+    if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
+  });
+  // F-002:commander 的 `parse()` 是同步 API,它把 `_parseCommand` 返回的 Promise
+  // 直接丢弃 —— async action 内抛错就只剩 unhandledRejection,旧代码又只在
+  // uncaughtException 分支落 exitCode,CI/脚本于是把失败读成成功。改 `parseAsync`
+  // 并把拒绝显式钉成非零退出码;错误仍重抛给 crash-handler 统一落盘/打印。
+  void (async () => {
+    try {
+      await program.parseAsync();
+      startupTracker.mark('commandParsed');
+    } catch (err) {
+      if (!process.exitCode) process.exitCode = 1;
+      throw err;
+    }
+  })();
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-browser-settings"
+description = "Enables the set_browser_settings command without any pre-configured scope."
+commands.allow = ["set_browser_settings"]
+
+[[permission]]
+identifier = "deny-set-browser-settings"
+description = "Denies the set_browser_settings command without any pre-configured scope."
+commands.deny = ["set_browser_settings"]

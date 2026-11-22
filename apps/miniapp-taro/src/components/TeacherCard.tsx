@@ -1,0 +1,90 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt, t } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+
+export interface TeacherCardProps {
+  name?: string
+  avatar?: string
+  title?: string
+  bio?: string
+  courseCount?: number
+  studentCount?: number
+  rating?: number
+  isFollowing?: boolean
+  onFollow?: () => void
+  onClick?: () => void
+}
+
+export default function TeacherCard({
+  name = t('course.teacher'),
+  avatar,
+  title,
+  bio,
+  courseCount = 0,
+  studentCount = 0,
+  rating = 0,
+  isFollowing = false,
+  onFollow,
+  onClick,
+}: TeacherCardProps) {
+  const tt = useTt()
+  return (
+    <View className="bg-card mx-md my-md rounded-lg p-lg" onClick={onClick} hoverClass="opacity-85">
+      <View className="flex items-center">
+        {avatar ? (
+          <Image className="w-12 h-12 mr-md rounded-xl bg-muted" src={avatar} mode="aspectFill" />
+        ) : (
+          <View className="flex items-center justify-center w-12 h-12 mr-md rounded-xl bg-primary/10">
+            <Text className="text-base text-primary">{name.charAt(0)}</Text>
+          </View>
+        )}
+        <View className="flex-1">
+          <View className="flex items-center">
+            <Text className="text-body font-medium text-foreground">{name}</Text>
+            {title && (
+              <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded-md bg-primary/10 text-primary">
+                {title}
+              </Text>
+            )}
+          </View>
+          <View className="flex items-center mt-xs">
+            <Text className="text-label text-muted-foreground mr-md">
+              {tt('learnDevelop.coursesUnit', '门课')}
+              {courseCount}
+            </Text>
+            <Text className="text-label text-muted-foreground mr-md">
+              {tt('teacher.detail.students', '学员')}
+              {studentCount}
+            </Text>
+            <LineIcon name="star" size="14px" color="var(--color-warning)" className="mr-xs" />
+            <Text className="text-label text-warning">{rating.toFixed(1)}</Text>
+          </View>
+        </View>
+        <View
+          className={`px-md py-[12rpx] rounded-md ${isFollowing ? 'bg-muted' : 'bg-primary'}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onFollow?.()
+          }}
+          hoverClass="opacity-85"
+        >
+          <Text
+            className={`text-label ${isFollowing ? 'text-muted-foreground' : 'text-primary-foreground'}`}
+          >
+            {isFollowing
+              ? tt('course.followed', '已关注')
+              : tt('developer.subscribe.subscribeBtn', '+ 关注')}
+          </Text>
+        </View>
+      </View>
+      {bio && (
+        <Text className="block text-label text-muted-foreground mt-md leading-relaxed">{bio}</Text>
+      )}
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

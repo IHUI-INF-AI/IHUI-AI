@@ -1,0 +1,1352 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * packages/types/src/app.ts 的业务域拆分产物之一 —— 本文件承载「learning」域。
+ *
+ * 拆分原因:原 app.ts 单文件行数已超架构契约表对受管模块的单文件上限(config/architecture-policy.yaml
+ * 的 contract-file-lines / C1),按业务域拆多入口是既定出路(EX-C2-1 的理由原文即此)。
+ * 公开导出面由 ./app.ts 这个 barrel 用 export * 原样递出,与拆分前逐名等值 —— 消费端不得因此改动。
+ * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
+ */
+import type { ReactNode } from 'react'
+
+import type { AppIcon, TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
+
+/** 学习计划状态 */
+export type PlanStatus = 'active' | 'paused' | 'completed' | 'overdue' | string
+
+/** 学习计划列表项(平台注入,字段对齐 mobile-rn StudyPlanScreen StudyPlan) */
+export interface StudyPlanItem {
+  id: string
+  title: string
+  courseName: string
+  /** 总课时数 */
+  totalLessons: number
+  /** 已完成课时数 */
+  completedLessons: number
+  /** 学习进度(0-100,百分比) */
+  progress: number
+  status: PlanStatus
+  /** 截止日期(ISO 或格式化字符串) */
+  deadline: string
+}
+
+/** StudyPlan 屏 props */
+export interface StudyPlanScreenProps {
+  t: TFunction
+  items: StudyPlanItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击计划卡片回调,平台注入导航跳转 */
+  onPressItem: (item: StudyPlanItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+  /**
+   * 自定义卡片渲染(可选,2026-11-14 增补)。
+   * 为什么要有:小程序 study/plan 的卡片比共享卡片多「目标分钟 / 自定义页脚」两段,
+   * 而这两段是端内本地概念(课程名 vs 目标),共享契约不该为了少数端把它改名。
+   * 给了就用调用方节点,不给走默认卡片(零回归)。
+   */
+  renderItem?: (item: StudyPlanItem) => ReactNode
+  /**
+   * 固定底栏(可选,2026-11-14 增补)。承载「新增计划」等页面级主操作。
+   * 为什么要有:共享屏原先滚动区直接收尾,没有底栏槽位 ⇒ 带主操作按钮的端只能整页手抄。
+   */
+  renderFooter?: () => ReactNode
+}
+
+/** 课程目录项(平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
+export interface CourseCatalogItem {
+  id: string
+  title: string
+  type: string
+  /** 时长(分钟) */
+  duration: number
+  /** 子章节(可选,用于树形目录) */
+  children?: CourseCatalogItem[]
+  /** 小节行直接进播放时携带的视频地址(章节行本身没有;空值不打字段)。
+   *  目录屏与章节屏取的是同一份目录投影,章节屏靠这一根拍平可播放行 —— 与
+   *  CourseChapterItem.videoUrl 同一格,只是挂在目录树的子行上。 */
+  videoUrl?: string
+}
+
+/** CourseCatalog 屏 props */
+export interface CourseCatalogScreenProps {
+  t: TFunction
+  items: CourseCatalogItem[]
+  loading: boolean
+  error: string
+  /** 点击章节回调,平台注入导航跳转(如 navigate('CourseChapter', { id })) */
+  onPressItem: (item: CourseCatalogItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程问答列表项(平台注入,字段对齐 mobile-rn CourseQAListScreen Item) */
+export interface CourseQAListItem {
+  id: string
+  question: string
+  asker: string
+  answerCount: number
+  createdAt: string
+}
+
+/** CourseQAList 屏 props */
+export interface CourseQAListScreenProps {
+  t: TFunction
+  items: CourseQAListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击问答卡片回调,平台注入导航跳转 */
+  onPressItem: (item: CourseQAListItem) => void
+  /** 提问回调(可选,平台注入导航跳转) */
+  onAsk?: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程章节项(平台注入,字段对齐 mobile-rn CourseChapterScreen Chapter) */
+/** 章节下的小节(课程播放的最小单元;videoUrl 为空表示未上传视频) */
+export interface CourseChapterSection {
+  id: string
+  title: string
+  duration: number
+  videoUrl?: string
+}
+
+export interface CourseChapterItem {
+  id: string
+  title: string
+  duration: number
+  lessonCount: number
+  /** 小节列表(API /courses/:id/chapters 的 children;旧数据可能缺省) */
+  children?: CourseChapterSection[]
+  /** 直接作为「可播放项」展示时携带的视频地址(章节行本身为空) */
+  videoUrl?: string
+}
+
+/** CourseChapterScreen props */
+export interface CourseChapterScreenProps {
+  t: TFunction
+  items: CourseChapterItem[]
+  loading: boolean
+  error: string
+  onPressItem: (item: CourseChapterItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习进度课程项 */
+export interface StudyProgressCourse {
+  id: string
+  title: string
+  progress: number
+}
+
+/** 学习进度数据(平台注入,字段对齐 mobile-rn StudyProgressScreen Progress)
+ * weekMinutes 可选:/study/* 域无周学时来源(周时长只在 edu 域 lessonRecordLogs 聚合里),
+ * 渲染处给 ?? 0 兜底。
+ */
+export interface StudyProgressData {
+  totalCourses: number
+  completedCourses: number
+  totalMinutes: number
+  weekMinutes?: number
+  streakDays: number
+  courses: StudyProgressCourse[]
+}
+
+/** StudyProgressScreen props */
+export interface StudyProgressScreenProps {
+  t: TFunction
+  progress: StudyProgressData | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 考试状态 */
+export type ExamStatus = 'notStarted' | 'inProgress' | 'ended' | string
+
+/** 考试项(平台注入,字段对齐 mobile-rn ExamScreen Exam) */
+export interface ExamItem {
+  id: string
+  title: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  duration: number
+  totalScore: number
+  passScore: number
+  questionCount: number
+  attemptCount: number
+  maxAttempts: number
+}
+
+/** ExamScreen props */
+export interface ExamScreenProps {
+  t: TFunction
+  items: ExamItem[]
+  /** 计算考试状态(平台注入) */
+  getStatus: (exam: ExamItem) => ExamStatus
+  loading: boolean
+  refreshing: boolean
+  error: string
+  toast: string
+  onRefresh: () => void
+  onStart: (exam: ExamItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习记录统计(对齐 mobile-rn StudyRecordScreen StudyStats) */
+export interface StudyRecordStats {
+  totalDuration: number
+  totalCourses: number
+  completedCourses: number
+  totalLessons: number
+  completedLessons: number
+  continuousDays: number
+}
+export type StudyRecordStatus = 'in_progress' | 'paused' | 'completed'
+export interface StudyRecordItem {
+  id: string
+  courseTitle: string | null
+  lessonTitle: string | null
+  status: StudyRecordStatus
+  duration?: number
+  progress?: number
+  lastStudyAt: string
+}
+export interface StudyRecordScreenProps {
+  t: TFunction
+  records: StudyRecordItem[]
+  stats: StudyRecordStats | null
+  userNickname: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+  /**
+   * 自定义卡片渲染(可选,2026-11-14 增补)。
+   * 为什么要有:小程序 study/record 的卡片带「今日已学分钟 / 进度条」两格本端独有字段,
+   * 共享默认卡片没有这两格 ⇒ 该端只能整页手抄。
+   */
+  renderItem?: (item: StudyRecordItem) => ReactNode
+  /**
+   * 统计卡与列表之间的自定义区(可选,2026-11-14 增补)。承载状态筛选 tab 等页面级控件。
+   * 为什么要有:小程序该页在统计卡下方有「全部/进行中/已完成/已暂停」筛选条,
+   * 共享屏 ListHeaderComponent 只放统计卡,没有第二槽位 ⇒ 筛选条无处挂。
+   */
+  renderListHeader?: () => ReactNode
+  /** 触底加载更多(可选,2026-11-14 增补)。给了就接 FlatList.onEndReached */
+  onEndReached?: () => void
+  /** 列表尾部自定义区(可选;承载「没有更多了」等) */
+  renderListFooter?: () => ReactNode
+}
+
+/** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
+
+/** 考试历史列表项(平台注入,字段对齐 mobile-rn ExamHistoryScreen ExamHistory) */
+export interface ExamHistoryItem {
+  id: string
+  examTitle: string
+  score: number
+  /** exam_records 表无该列;仅当壳用 /exam/papers/by-ids 二次取到卷时才有 ⇒ 可选 */
+  totalScore?: number
+  passed: boolean
+  /** 提交时间(ISO 或格式化字符串) */
+  submittedAt: string
+}
+
+/** ExamHistoryScreen props */
+export interface ExamHistoryScreenProps {
+  t: TFunction
+  items: ExamHistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击历史记录回调,平台注入导航跳转(如 navigate('ExamResult', { id })) */
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 考试错题项(平台注入,字段对齐 mobile-rn ExamResultScreen wrongQuestions) */
+export interface ExamResultWrongQuestion {
+  /** 题目序号(0-based) */
+  index: number
+  question: string
+  yourAnswer: string
+  correctAnswer: string
+}
+
+/** 单题作答回顾 —— web 端「全量解析」与 mobile-rn `getResult.details` 的统一口径 */
+export interface ExamResultReviewItem {
+  id: string
+  title: string
+  yourAnswer?: string | string[] | null
+  correctAnswer?: string | string[] | null
+  isCorrect: boolean
+  score: number
+  analysis?: string | null
+}
+
+/** 考试结果详情(平台注入,字段对齐 mobile-rn ExamResultScreen ExamResult) */
+export interface ExamResultItem {
+  id: string
+  examTitle?: string
+  /** 已提交记录对应的试卷 id(再考一次需要) */
+  examId?: string
+  score: number
+  totalScore: number
+  passed: boolean
+  correctCount: number
+  totalCount: number
+  wrongCount?: number
+  unansweredCount?: number
+  /** 答题时长(分钟) */
+  duration: number
+  submittedAt?: string
+  /** 同卷已提交记录中的名次 / 参与排名人数 */
+  rank?: number
+  rankTotal?: number
+  /** 全量作答回顾(题干/答案/解析);缺省时回落到 wrongQuestions */
+  details?: ExamResultReviewItem[]
+  wrongQuestions?: ExamResultWrongQuestion[]
+}
+
+/** ExamResultScreen props */
+export interface ExamResultScreenProps {
+  t: TFunction
+  item: ExamResultItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 底部三操作:平台能力一律注入,屏内零平台 API */
+  onRetryExam?: () => void
+  onViewList?: () => void
+  onShare?: () => void
+}
+
+/**
+ * 成绩四格统计项(共享段 ExamResultStats)。
+ * 两端各自把字段映射成同一行:label/value 由宿主翻译后注入,tone 只表达配色语义。
+ */
+export interface ExamResultStatItem {
+  key: string
+  label: string
+  value: string
+  tone?: 'correct' | 'wrong' | 'neutral' | 'muted'
+}
+
+/** ExamResultStats props */
+export interface ExamResultStatsProps {
+  items: ExamResultStatItem[]
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 题目回顾条目(小程序 GET /exam/:id/review 与 web getMyRecords details 的同一形状) */
+export interface ExamReviewItem {
+  id: string
+  title: string
+  isCorrect: boolean
+  score: number
+  myAnswer?: string
+  correctAnswer?: string
+  analysis?: string
+}
+
+/** ReviewList props:文案全部宿主注入(两端 i18n 键族不同,不在此强行合并) */
+export interface ExamReviewListProps {
+  items: ExamReviewItem[]
+  title: string
+  labels: {
+    correct: string
+    wrong: string
+    yourAnswer: string
+    correctAnswer: string
+    analysis: string
+    score: (n: number) => string
+    questionIndex: (n: number) => string
+  }
+  /** 错题计数行标题;缺省 = 不渲染该行(web 详情列表无此段) */
+  wrongTitle?: string
+  emptyText: string
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程报名列表项 */
+export interface CourseEnrollItem {
+  id: string
+  title: string
+  instructor: string
+  level: string
+  lessonCount: number
+  studentCount: number
+  price: number
+  isFree: boolean
+  isEnrolled: boolean
+}
+
+/** CourseEnrollScreen props */
+export interface CourseEnrollScreenProps {
+  t: TFunction
+  items: CourseEnrollItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  keyword: string
+  enrollingId: string | null
+  toast: string
+  userNickname: string
+  onKeywordChange: (keyword: string) => void
+  onSearch: () => void
+  onRefresh: () => void
+  onEnroll: (item: CourseEnrollItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程列表项 */
+export interface CourseScreenItem {
+  id: string
+  title: string
+  description?: string
+  instructor: string
+  studentCount: number
+  price: number
+  isFree: boolean
+  level: 'beginner' | 'intermediate' | 'advanced'
+  cover?: string
+}
+
+/** CourseScreen props */
+export interface CourseScreenProps {
+  t: TFunction
+  items: CourseScreenItem[]
+  keyword: string
+  loading: boolean
+  error: string
+  page: number
+  totalPages: number
+  onKeywordChange: (v: string) => void
+  onPageChange: (page: number) => void
+  onPressItem: (id: string) => void
+  colorScheme?: 'light' | 'dark'
+  /**
+   * 提交搜索(可选,2026-11-14 增补)。给了就渲染独立搜索按钮,回车也触发它。
+   * 为什么要有:小程序 pkg-learn/course/list 是"输入 + 点搜索"再取数,
+   * 而共享屏原先只有受控输入(边打边变) ⇒ 缺此槽位就只能整页手抄。
+   */
+  onSearch?: () => void
+  /**
+   * 触底加载更多(可选,2026-11-14 增补)。给了就接 FlatList.onEndReached。
+   * 为什么要有:小程序该页是无限滚动追加,共享屏原先只有翻页器;
+   * 两种分页模型都要能承载,否则追加式页面无法收敛。
+   */
+  onEndReached?: () => void
+}
+
+/** 课程详情数据 */
+export interface CourseDetailItem {
+  id: string
+  title: string
+  description: string
+  categoryName: string
+  level: string
+  instructor: string
+  studentCount: number
+  rating: number
+  price: number
+  isFree: boolean
+  isEnrolled: boolean
+  /** 分享卡封面。RN 侧源字段是 `CourseDetail.cover`,端内叫 `coverUrl` —— 屏拿不到就没有封面图 */
+  coverUrl?: string
+}
+
+/** 课程章节 */
+export interface CourseDetailLesson {
+  lessonId: string
+  title: string
+  isCompleted: boolean
+  /**
+   * 锁住 / 当前学习位置(2026-11-14 增补,可选)。
+   * 为什么要有:`@ihui/shared/social/course-lessons` 的 `CourseLessonRow` 带这两态
+   * (小程序端一直在用),共享屏原先只有 `isCompleted` ⇒ 渲染不出"锁住"与"高亮当前节"。
+   * 缺省 false,RN 现有调用点零回归。
+   */
+  locked?: boolean
+  current?: boolean
+  /** 时长文案(后端给才有) */
+  duration?: string
+}
+
+/** CourseDetailScreen props */
+export interface CourseDetailScreenProps {
+  t: TFunction
+  item: CourseDetailItem | null
+  lessons: CourseDetailLesson[]
+  loading: boolean
+  error: string
+  enrolling: boolean
+  onEnroll: () => void
+  onPlayLesson: (lessonId: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+/**
+ * 课程难度取值域。与 `packages/database/src/schema/learn.ts` 的 `LESSON_DIFFICULTIES`
+ * 同形(服务端写入校验用的就是那份常量),`lessons.difficulty` 列于
+ * 迁移 20260928050000_lessons_difficulty 落地后可空 —— 未标注的行在本类型上是 null。
+ */
+export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced'
+
+/** 课程列表价格轴的**服务端**档位(公开端点 price= 只认这两个值;'全部' 由"不下传该参数"表达)。 */
+export type LessonPriceAxis = 'free' | 'paid'
+
+/** 价格筛选轴档位('all' = 不下传该参数)。 */
+export type CoursePriceFilter = 'all' | LessonPriceAxis
+
+/** 难度筛选轴档位。 */
+export type CourseDifficultyFilter = 'all' | LessonDifficulty
+
+/** 分类轴选项:直接来自 GET /api/learn/categories 的真实行(中文 name + UUID id)。 */
+export interface CourseFilterCategoryOption {
+  id: string
+  name: string
+}
+
+/**
+ * 课程筛选项。
+ * 2026-09-28 前这里"刻意没有 level",理由写在原注释里:lessons 表不存在难度列。
+ * 列已加、查询轴已开(迁移 20260928050000 + findPublishedLessons),所以那句话的前提
+ * 不再成立,现按实际字段补上;但**nullable 保真** —— 服务端回 null 就渲染 null,
+ * 不得用任何默认档位把"未标注"洗成"入门"。
+ */
+export interface CourseFilterItem {
+  id: string
+  title: string
+  instructor: string
+  price: number
+  difficulty: LessonDifficulty | null
+  categoryName: string | null
+}
+
+/** CourseFilterScreen props */
+export interface CourseFilterScreenProps {
+  t: TFunction
+  items: CourseFilterItem[]
+  loading: boolean
+  refreshing: boolean
+  /** 取下一页中(列表底部提示用);与 loading 分开 —— 首屏与翻页的观感不是一回事 */
+  loadingMore: boolean
+  error: string
+  priceTab: CoursePriceFilter
+  onPriceTabChange: (p: CoursePriceFilter) => void
+  difficultyTab: CourseDifficultyFilter
+  onDifficultyTabChange: (d: CourseDifficultyFilter) => void
+  /** 分类轴选项;空数组 = 服务端当前没有可用分类(渲染如实提示,不造选项) */
+  categories: CourseFilterCategoryOption[]
+  /** 'all'(未选)或 learn_categories.id(UUID) */
+  categoryId: string
+  onCategoryChange: (id: string) => void
+  /** 列表触底 —— 分页由服务端取下一页,不得再对已取回的一页做二次过滤 */
+  onLoadMore: () => void
+  onApply: () => void
+  onReset: () => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程评论项 */
+export interface CourseCommentItem {
+  id: string
+  user: string
+  content: string
+  rating: number
+  createdAt: string
+}
+
+/** CourseCommentScreen props */
+export interface CourseCommentScreenProps {
+  t: TFunction
+  items: CourseCommentItem[]
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程附件项(CourseAnnexScreen) */
+export interface CourseAnnexItem {
+  id: string
+  name: string
+  size: number
+  url: string
+}
+
+/** CourseAnnexScreen props */
+export interface CourseAnnexScreenProps {
+  t: TFunction
+  items: CourseAnnexItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  /** 打开附件(下载外链)回调;不传或 item.url 为空 ⇒ 「下载」仍是纯展示文案,既有调用方零影响 */
+  onOpen?: (url: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** CourseQAAskScreen props */
+export interface CourseQAAskScreenProps {
+  t: TFunction
+  question: string
+  submitting: boolean
+  error: string
+  success: boolean
+  onQuestionChange: (v: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程资源项(CourseResourceScreen) */
+export interface CourseResourceItem {
+  id: string
+  name: string
+  size: number
+  type: string
+}
+
+/** CourseResourceScreen props */
+export interface CourseResourceScreenProps {
+  t: TFunction
+  items: CourseResourceItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * 讲师详情信息(LecturerDetailScreen)
+ *
+ * 2026-09-14 重塑:迁移 mobile-rn TeacherDetailScreen(P0 补页 7585d0493,
+ * 对齐 miniapp pages/teacher/detail)到共享层,替换原批次 17 的简版死代码契约。
+ * 字段映射自 @ihui/api-client Teacher(name→nickname,fans/rating 随 /teacher/:id 返回)。
+ */
+export interface LecturerDetailInfo {
+  id: string
+  /** 姓名 */
+  nickname: string
+  avatar: string | null
+  /** 头衔(如「高级讲师」) */
+  title?: string
+  /** 简介(超过 60 字共享层提供展开/收起,阈值对齐 miniapp) */
+  intro?: string
+  /** 粉丝数 */
+  fans?: number
+  /** 评分 */
+  rating?: number
+  /** 课程数(金牌讲师判定输入之一:courseCount>=10) */
+  courseCount: number
+  /** 学员数(金牌讲师判定输入之二:studentCount>=1000) */
+  studentCount: number
+  /** 是否已关注(wrapper 乐观更新驱动) */
+  isFollowing: boolean
+  /** 金牌徽章(wrapper 按课程数/学员数阈值计算后传入) */
+  isGold?: boolean
+}
+
+/** 讲师主讲课程(price 单位:分,0/undefined = 免费;对齐 miniapp TeacherCourse) */
+export interface LecturerDetailCourse {
+  id: string
+  title: string
+  coverUrl?: string | null
+  price?: number
+  students?: number
+}
+
+/** 学员评价(对齐 miniapp review 渲染字段) */
+export interface LecturerDetailReview {
+  id?: string
+  nickname?: string
+  avatar?: string
+  rating?: number
+  content?: string
+  time?: string
+}
+
+/**
+ * LecturerDetailScreen props(props 注入式:API/导航/Alert 留 wrapper)
+ *
+ * 共享层负责:头部(头像/姓名/金牌徽章/关注)→ 统计行 → 简介展开收起
+ * → 主讲课程卡 → 学员评价(星级) → 底部联系条;关注态由 info.isFollowing 驱动。
+ */
+export interface LecturerDetailScreenProps {
+  t: TFunction
+  info: LecturerDetailInfo | null
+  courses: LecturerDetailCourse[]
+  reviews: LecturerDetailReview[]
+  loading: boolean
+  error: string
+  onToggleFollow: () => void
+  onContact: () => void
+  onOpenCourse: (courseId: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /**
+   * 「查看全部课程」交互出口(2026-10-28 补,小程序 pkg-learn/teacher/detail 迁壳的缺口)。
+   * 参数为讲师名(小程序侧用作课程列表 keyword;宿主如何消费由其 wrapper 决定)。
+   * **可选且不默认渲染**:不传 ⇒ RN 现状零变化;文案走共享键 teacher.detail.viewCourses。
+   */
+  onViewCourses?: (lecturerName: string) => void
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+}
+
+/** 任务中心任务项(TaskCenterScreen) */
+export interface TaskCenterItem {
+  id: string
+  title: string
+  description: string
+  type: 'daily' | 'weekly' | 'newbie'
+  reward: number
+  progress: number
+  target: number
+  completed: boolean
+  claimed: boolean
+  actionUrl: string | null
+}
+
+/** 任务中心 tab */
+export type TaskCenterTab = 'daily' | 'weekly' | 'newbie'
+
+/** TaskCenterScreen props */
+export interface TaskCenterScreenProps {
+  t: TFunction
+  tasks: TaskCenterItem[]
+  activeTab: TaskCenterTab
+  loading: boolean
+  refreshing: boolean
+  error: string
+  claimingId: string | null
+  onTabChange: (tab: TaskCenterTab) => void
+  onRefresh: () => void
+  onRetry: () => void
+  onClaim: (task: TaskCenterItem) => void
+  onAction: (task: TaskCenterItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * 考试题目(平台注入,字段对齐 mobile-rn ExamQuestionScreen Question)。
+ * 2026-10-31 扩展:题型补 fill(填空)/ subjective(主观)/ judgment(判断,答案布尔),
+ * 与后端题目表 type 的 single_choice/multi_choice/judge/fill/essay 五档对齐(端侧负责映射)。
+ * 选择题的 options 仍是纯文本数组;fill/subjective 无选项,端侧传空数组。
+ */
+export interface ExamQuestionItem {
+  id: string
+  type: 'single' | 'multi' | 'fill' | 'subjective' | 'judgment'
+  content: string
+  options: string[]
+  /** 题目分值(接口给就展示,缺省不渲染) */
+  score?: number
+}
+
+/** 考试试卷(平台注入,字段对齐 mobile-rn ExamQuestionScreen Exam) */
+export interface ExamQuestionPaper {
+  id: string
+  title: string
+  questions: ExamQuestionItem[]
+  duration: number
+}
+
+/** ExamQuestionScreen props(注入式:wrapper 保留 API 调用 + 状态管理) */
+export interface ExamQuestionScreenProps {
+  t: TFunction
+  exam: ExamQuestionPaper | null
+  loading: boolean
+  error: string
+  current: number
+  /**
+   * 答案模型(键 = questionId):选项题存 0-based 选项下标数组(string[] 为历史别名),
+   * 填空/主观题存文本,判断题存布尔。旧形态 Record<string, number[]> 是其子集,向后兼容。
+   */
+  answers: Record<string, string | string[] | number[] | boolean>
+  onToggleOption: (questionId: string, optionIndex: number, multi: boolean) => void
+  /** 填空/主观题文本与判断题布尔值的作答出口(fill/subjective/judgment 三类题型调用) */
+  onAnswer?: (questionId: string, value: string | boolean) => void
+  /** 剩余秒数(端侧按试卷时长推导;缺省 ⇒ 不渲染倒计时) */
+  leftSec?: number
+  /** 提交中(为 true 时提交钮禁用) */
+  submitting?: boolean
+  onPrev: () => void
+  onNext: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+}
+
+/**
+ * 开发者套餐三型(2026-10-23 起**无消费方**):原 `packages/app` 那份 DeveloperScreen 是
+ * 「套餐开通订阅页」,该语义已由 `features/dev-enter-cover/DevEnterCoverScreen.tsx` 承接,
+ * 本屏恢复为「开发者空间页」⇒ 下面 DeveloperScreenProps 不再引用这三型。
+ * 名字留着是因为 `packages/app/src/index.ts` 的对外 re-export 面仍点名它们(该文件由发起人
+ * 统一维护,不在本屏改动范围内);摘除须与那份 re-export 同批走。
+ */
+/** 开发者套餐类型 */
+export type DeveloperPlanType = 'month' | 'year'
+
+/** 开发者套餐条目 */
+export interface DeveloperPlan {
+  type: DeveloperPlanType
+  label: string
+  price: number
+  unit: string
+  perks: string[]
+}
+
+/** 开发者特性条目 */
+export interface DeveloperFeature {
+  title: string
+  desc: string
+}
+
+/** 开发者申请信息(数据源 developer_applications;无申请记录时整块不渲染) */
+export interface DeveloperSpaceApplication {
+  name: string
+  description: string
+  /** 审核状态码:1 = 已通过,2 = 已拒绝,其余 = 待审核 */
+  status: number
+}
+
+/**
+ * 开发者空间页的信息卡数据(平台注入,由 GET /api/developer/dev-info 单次聚合派生)。
+ * 只给**原料**不给成品文案:取词与占位由共享屏按 i18n 键做,日期格式化由端侧做
+ * (Intl.DateTimeFormat 需要本端 locale)。
+ */
+export interface DeveloperSpaceInfo {
+  application: DeveloperSpaceApplication | null
+  /** 账号(邮箱 → 手机 → 昵称 → 用户名 逐级兜底后的结果);空串 ⇒ 该行显示占位 */
+  account: string
+  apiKeyCount: number
+  /** 可复制的公开密钥标识(明文 secret 后端只在创建时返回一次);null ⇒ 不出复制钮 */
+  copyableApiKey: string | null
+  /** developer_applications.website;空串 ⇒ 显示占位 */
+  website: string
+  /** 到期时间(端侧已格式化的日期文案);null ⇒ 显示占位 */
+  expiry: string | null
+}
+
+/** 四个功能入口的分派键(与 @ihui/shared/constants/developer-space 同集合) */
+export type DeveloperSpaceEntryId = 'myAgents' | 'agentIncome' | 'n8nModel' | 'businessCard'
+
+/**
+ * DeveloperScreen props(平台无关,wrapper 注入数据+回调)
+ *
+ * 2026-10-23 换形:本屏的真实语义是「开发者空间页」(头部用户卡 + 开发者信息 + 四入口 +
+ * 问题解答卡),不是套餐订阅页;三处现状里最完整的一份住在 mobile-rn,共享层这次收为真相源。
+ */
+export interface DeveloperScreenProps {
+  t: TFunction
+  /** 用户头像 URL;空串 ⇒ 共享屏回落 DEVELOPER_DEFAULT_LOGO_URL */
+  avatarUrl: string
+  /** 昵称/用户名,未登录时由端侧传入已取词的「未登录」 */
+  displayName: string
+  /** 有有效订阅 ⇒ 头部 CTA 取「续费」,否则取「成为开发者」 */
+  subscribed: boolean
+  /** null ⇒ 未加载完或无有效订阅 ⇒ 不渲染开发者信息卡 */
+  info: DeveloperSpaceInfo | null
+  /** 头部状态行文案(已开通/未开通/开通中,端侧取词);缺省不渲染 */
+  statusText?: string
+  /** 可见入口集合;缺省 = DEVELOPER_SPACE_ENTRIES 全量。端侧数据源各自不同(RN 4 / 小程序 3) */
+  entryIds?: readonly DeveloperSpaceEntryId[]
+  /** FAQ 之后的主操作(进入广场/继续接单);缺省不渲染 */
+  footerAction?: { label: string; onPress: () => void } | null
+  /** 信息卡是否渲染 API 密钥行;默认 true,小程序无密钥概念传 false */
+  showApiKeyRow?: boolean
+  onBecomeDeveloper: () => void
+  onRenew: () => void
+  onCopyApiKey: (apiKey: string) => void
+  onEntryPress: (id: DeveloperSpaceEntryId) => void
+  onProblemPress: (url: string) => void
+  onContactService: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+export interface IcpRecordScreenProps {
+  t: TFunction
+  onBack: () => void
+  /** 复制备案号(平台剪贴板由壳注入;缺省则不渲染复制提示) */
+  onCopy?: (text: string) => void
+  /** 前往工信部备案查询(平台 webview 由壳注入) */
+  onQuery?: () => void
+  /** 备案范围(可选;缺省不渲染该行,不占位) */
+  scope?: string
+  /** 备案查询/公示链接(可选;缺省不渲染该行) */
+  recordUrl?: string
+  /** 打开备案链接(可选;与 recordUrl 同时存在时该行可点;缺省按纯文本渲染) */
+  onOpenRecordUrl?: (url: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+export interface LearnDevelopEntry {
+  icon: AppIcon | string
+  title: string
+  desc: string
+  onPress: () => void
+  /**
+   * 元信息行(可选,2026-11-14 增补)。如「12 门课 · 进度 60%」。
+   * 为什么要有:小程序该页的路径卡在 desc 之下还有一行课程数/进度元信息,
+   * 共享卡原先只有 title + desc 两行 ⇒ 该端只能整页手抄。
+   */
+  meta?: string
+  /** 进度百分比(0-100,可选);给了才渲染进度条 */
+  progress?: number
+}
+
+/** 推荐课程横卡(2026-11-14 增补;承载「封面 + 标题 + 讲师 + 价格」这一型) */
+export interface LearnDevelopCourseCard {
+  id: string
+  title: string
+  /** 封面地址;缺省渲染占位图标 */
+  coverUrl?: string
+  teacher?: string
+  /** 价格(元);0 显示「免费」 */
+  price?: number | null
+}
+
+/** 课程区四态 */
+export type LearnDevelopCourseSection = 'loading' | 'error' | 'empty' | 'ready'
+
+export interface LearnDevelopScreenProps {
+  t: TFunction
+  onBack: () => void
+  onContact?: () => void
+  /** 学习功能导航卡片;由端侧 wrapper 注入真实跳转 */
+  entries?: LearnDevelopEntry[]
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /**
+   * 隐藏内置 header(可选,2026-11-14 增补)。
+   * 为什么要有:小程序该页依赖原生导航栏,页内不渲染返回键与大标题;
+   * 共享屏强制渲染 header ⇒ 不隐藏会双标题/双返回。
+   */
+  hideHeader?: boolean
+  /** 导航卡区小标题(可选);缺省不渲染 */
+  entriesTitle?: string
+  /** 推荐课程区小标题(可选);缺省不渲染课程区 */
+  coursesTitle?: string
+  /** 推荐课程(可选);与 coursesSection 配合渲染 */
+  courses?: LearnDevelopCourseCard[]
+  /** 课程区状态;缺省 'ready'。'error' 时渲染重试按钮(需给 onRetry) */
+  coursesSection?: LearnDevelopCourseSection
+  /** 课程区重试回调 */
+  onRetry?: () => void
+  /** 课程区空态文案;缺省用词包 */
+  coursesEmptyLabel?: string
+  /** 点击课程 */
+  onCoursePress?: (id: string) => void
+}
+
+export interface SubPackageEntry {
+  icon: AppIcon | string
+  title: string
+  desc: string
+  onPress: () => void
+}
+
+export interface SubPackageIndexScreenProps {
+  t: TFunction
+  onBack: () => void
+  entries: SubPackageEntry[]
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * 分类头共享段的字段(web 分类详情页原有 inline 实现抽出的单源)。
+ * 全部字段“给了才渲染”:端内没有的事实不伪造(如 RN 只有路由 title)。
+ */
+export interface CategoryHeaderProps {
+  name: string
+  icon?: string | null
+  description?: string | null
+  /** 状态徽标文案(端内 i18n 注入);未传则不渲染状态徽标 */
+  statusLabel?: string
+  /** 状态是否启用(决定徽标配色);与 statusLabel 配套 */
+  statusEnabled?: boolean
+  /** 付费徽标文案;isPaid 为真时渲染 */
+  paidLabel?: string
+  isPaid?: boolean
+  /** 已格式化的创建时间文案;未传不渲染 */
+  createdAtLabel?: string
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 分类详情 Screen Props */
+export interface CategoryDetailScreenProps {
+  t: TFunction
+  items: {
+    id: string
+    name: string
+    description?: string
+    cover?: string
+    /** 条目头像(web 已有同元素;RN 由 Agent.avatar 映射) */
+    avatar?: string | null
+    /** 条目使用次数(web 无此字段;RN 由 Agent.usageCount 映射) */
+    useCount?: number
+  }[]
+  activeTab: string
+  /** 页头标题(默认“分类详情”;小程序传 categoryId/全部分类) */
+  title?: string
+  /** 分类头共享段(web 与 RN 同源);不传则只渲染标题 */
+  header?: CategoryHeaderProps
+  /** 三档文案(默认中文;端内有 i18n 时注入,避免回退) */
+  tabLabels?: readonly [string, string, string]
+  loading: boolean
+  hasMore: boolean
+  error: string
+  onTabChange: (tab: string) => void
+  onLoadMore: () => void
+  onAgentPress: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
+}
+
+/** 课程星球 Screen Props */
+export interface CoursePlanetScreenProps {
+  t: TFunction
+  data: {
+    hot: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+    beginner: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+    selected: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
+  }
+  loading: boolean
+  refreshing: boolean
+  error: string
+  selectedType: 'all' | 'free' | 'paid'
+  onTypeChange: (type: 'all' | 'free' | 'paid') => void
+  onCoursePress: (id: string) => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 开发者入驻 Screen Props */
+export interface DevEnterCoverScreenProps {
+  t: TFunction
+  planType: 'month' | 'year'
+  loading: boolean
+  onSelectPlan: (plan: 'month' | 'year') => void
+  onNavigate: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 知识星球 Screen Props */
+export interface KnowledgePlanetScreenProps {
+  t: TFunction
+  items: { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
+  /** 星球资讯头卡(GET /knowledge-planet/info);缺省即不渲染该轴 */
+  planet?: { name: string; memberCount: number; description: string } | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onItemClick: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习分类 */
+export interface LearnCategory {
+  id: string
+  name: string
+  icon: AppIcon | string
+}
+
+/** 学习中心 Screen Props */
+export interface LearnScreenProps {
+  t: TFunction
+  progress: { totalCourses: number; completedCourses: number; learningHours: number } | null
+  paths: { id: string; title: string; coverImage?: string }[]
+  recommended: {
+    id: string
+    title: string
+    description?: string
+    coverImage?: string
+    difficulty?: string
+    duration?: number
+  }[]
+  loading: boolean
+  error: string
+  onOpenCourse: (id: string) => void
+  onOpenBrowse: () => void
+  onOpenCategory: (cat: LearnCategory) => void
+  categories: LearnCategory[]
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 更多课程 Screen Props */
+export interface MoreCourseScreenProps {
+  t: TFunction
+  items: {
+    id: string | number
+    title: string
+    cover?: string
+    instructor?: string
+    lessonCount?: number
+    price: number
+    isFree: boolean
+    studentCount?: number
+  }[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  total: number
+  onRefresh: () => void
+  onEndReached: () => void
+  onPressItem: (item: { id: string | number; title: string }) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+// ============ 批次 37(2026-08-15):课程发布 + 广场文章列表(props 类型单一来源 @ihui/types) ============
+
+/** 课程分类(共享层简化类型,对齐 CourseCategory) */
+export interface StudyCategory {
+  id: string
+  name: string
+}
+
+/** 课程阶段选项 */
+export interface StageOption {
+  id: number
+  name: string
+}
+
+/** StudyPublishScreen props(平台无关,wrapper 注入数据+回调) */
+export interface StudyPublishScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  mode: 'group' | 'video'
+  onModeChange: (mode: 'group' | 'video') => void
+  onBack?: () => void
+  // Group form
+  groupTitle: string
+  groupContent: string
+  groupCategory: string
+  groupStage: number
+  groupCoverUri: string
+  groupCategories: readonly StudyCategory[]
+  groupLoadingCategories: boolean
+  onGroupTitleChange: (v: string) => void
+  onGroupContentChange: (v: string) => void
+  onGroupCategoryChange: (v: string) => void
+  onGroupStageChange: (v: number) => void
+  onGroupCoverPick: () => void
+  onGroupCoverClear: () => void
+  onGroupSubmit: () => void
+  // Video form
+  videoTitle: string
+  videoContent: string
+  videoAgent: string
+  videoRemark: string
+  videoCoverUri: string
+  videoUri: string
+  onVideoTitleChange: (v: string) => void
+  onVideoContentChange: (v: string) => void
+  onVideoAgentChange: (v: string) => void
+  onVideoRemarkChange: (v: string) => void
+  onVideoCoverPick: () => void
+  onVideoCoverClear: () => void
+  onVideoPick: () => void
+  onVideoClear: () => void
+  onVideoSubmit: () => void
+  // Common
+  submitting: boolean
+}
+
+/** 分类项 */
+export interface CategoryItem {
+  id: string
+  label: string
+}
+
+// ============ 批次 38(2026-08-15):StudyIndex 学习视频(1 屏迁移自 mobile-rn) ============
+
+/** 赛道分类 */
+export interface StudyTrackCategory {
+  id: string
+  name: string
+}
+
+/** 学习视频项 */
+export interface StudyVideoItem {
+  id: string | number
+  courseId?: string | number
+  title: string
+  name?: string
+  cover?: string
+  teacherName?: string
+  avatar?: string
+  createdAt?: string
+}
+
+/** 模型预览项(简化,对齐 ModelListItem 子集) */
+export interface StudyModelPreview {
+  id: string
+  name: string
+  description: string
+  icon?: string
+  isFree?: boolean
+}
+
+/** StudyIndexScreen props(wrapper 注入数据+回调) */
+export interface StudyIndexScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: StudyVideoItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  page: number
+  total: number
+  search: string
+  searchInput: string
+  showSearch: boolean
+  pageType: 'index' | 'model' | 'study'
+  activeCategory: string
+  models: StudyModelPreview[]
+  previewModels: StudyModelPreview[]
+  previewItems: StudyVideoItem[]
+  initialLoading: boolean
+  trackCategories: readonly StudyTrackCategory[]
+  onRefresh: () => void
+  onEndReached: () => void
+  onSubmitSearch: () => void
+  onSearchInputChange: (v: string) => void
+  onCategoryChange: (id: string) => void
+  onPageTypeChange: (t: 'index' | 'model' | 'study') => void
+  onVideoClick: (item: StudyVideoItem) => void
+  onBack: () => void
+  onViewMoreModels: () => void
+  onViewMoreCourses: () => void
+  retryText: string
+  emptyText: string
+  noMoreText: string
+  loadingText: string
+  loadingMoreText: string
+}
+
+// ============ 批次 23(补,2026-08-15):课程系深屏(CourseTab 课程学习 tab,props 类型单一来源 @ihui/types) ============
+
+/** 课程分类(对齐 Uniapp learn.vue) */
+export interface CourseCategory {
+  id: string
+  name: string
+  icon: string
+}
+
+/** 学习路径卡片数据 */
+export interface CoursePath {
+  id: string
+  title: string
+  coverImage?: string
+}
+
+/** 热门课程卡片数据 */
+export interface PopularCourseItem {
+  id: string
+  title: string
+  instructor: string
+  lessons: number
+  price: number
+  isFree: boolean
+  isVip: boolean
+  studentCount: number
+}
+
+/** 课程列表项数据 */
+export interface CourseListItem {
+  id: string
+  title: string
+  cover?: string
+  description?: string
+  level?: string
+  instructor: string
+  studentCount: number
+  isFree: boolean
+  price: number
+}
+
+/** 学习进度概览 */
+export interface ProgressOverview {
+  totalCourses: number
+  completedCourses: number
+  learningHours: number
+}
+
+export interface CourseTabScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  progress: ProgressOverview | null
+  paths: CoursePath[]
+  popularItems: PopularCourseItem[]
+  courses: CourseListItem[]
+  loading: boolean
+  error: string
+  keyword: string
+  page: number
+  totalPages: number
+  onKeywordChange: (v: string) => void
+  onPageChange: (page: number) => void
+  onPressCourse: (id: string) => void
+  onPressCategory: (cat: CourseCategory) => void
+  onPressPath: (id: string) => void
+  onPressMoreCourses: () => void
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

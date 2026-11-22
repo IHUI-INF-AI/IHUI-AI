@@ -1,0 +1,185 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import type { BookmarkItem, BookmarkScreenProps, BookmarkTargetType } from '../../types'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/**
+ * 收藏列表共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:只负责渲染列表 UI + 下拉刷新 + 删除按钮交互。
+ * 平台特定(导航/API 调用)由 wrapper 通过 props 注入。
+ */
+export function BookmarkScreen({
+  t,
+  items,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onPressItem,
+  onRemove,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
+  onBack,
+  colorScheme = 'light',
+}: BookmarkScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  /** 触底/底部按钮两处入口共用同一道闸:到底或正在加载中都不再发请求。 */
+  const canLoadMore = hasMore && !loadingMore && !!onLoadMore
+
+  const typeLabel = (targetType: BookmarkTargetType) => {
+    switch (targetType) {
+      case 'course':
+        return t('bookmark.type.course')
+      case 'article':
+        return t('bookmark.type.article')
+      case 'post':
+        return t('bookmark.type.post')
+      case 'note':
+        return t('bookmark.type.note')
+      default:
+        return t('bookmark.type.other')
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('bookmark.title')}</Text>
+      </View>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {loading && items.length === 0 ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      ) : (
+        <FlatList<BookmarkItem>
+          data={items}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listBody}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          onEndReached={() => {
+            if (canLoadMore) onLoadMore!()
+          }}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={<EmptyState title={t('bookmark.empty')} colorScheme={colorScheme} />}
+          ListFooterComponent={
+            loadingMore ? (
+              <Text style={styles.loadMoreText}>{t('bookmark.loadingMore')}</Text>
+            ) : hasMore ? (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={() => {
+                  if (canLoadMore) onLoadMore!()
+                }}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text style={styles.loadMoreText}>{t('bookmark.loadMore')}</Text>
+              </TouchableOpacity>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.cardBody}
+                onPress={() => onPressItem(item)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <View style={styles.titleRow}>
+                  <Text style={styles.cardType}>{typeLabel(item.targetType)}</Text>
+                  <Text style={styles.cardTime}>{item.createdAt}</Text>
+                </View>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.removeBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => onRemove(item)}
+              >
+                <Text style={styles.removeText}>{t('bookmark.remove')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      )}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.deepText,
+    },
+    listBody: { padding: rnSpacing['sm-loose'] },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      marginBottom: rnSpacing.sm,
+    },
+    cardBody: { flex: 1 },
+    titleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: rnSpacing.sm,
+    },
+    cardType: {
+      fontSize: rnType.caption.size,
+      fontWeight: '600',
+      color: tk.success.deepText,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.muted,
+      overflow: 'hidden',
+    },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    removeBtn: {
+      marginLeft: rnSpacing.sm,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.danger.light,
+    },
+    removeText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    loadMoreBtn: {
+      alignItems: 'center',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    loadMoreText: { fontSize: rnType.body.size, color: tk.text.secondary, textAlign: 'center' },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

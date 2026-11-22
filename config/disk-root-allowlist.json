@@ -1,0 +1,88 @@
+{
+  "_comment": "盘根卫生白名单(2026-09-30 立,配 scripts/check-disk-root-hygiene.mjs)。声明式封闭集合:新增合法条目必须显式改本文件并随 commit 提交(= 显式审批),禁止以'看起来无害'为由口头豁免。未列入的条目会被巡检点名;点名本身是 warn(warn 尺子不判红),但它是'项目产物不外流'纪律的常驻提醒。",
+  "_transitionalNote": "2026-11-22 整份按现役机器重写(逐条实测,C:\\ 与 D:\\ 两盘快照对账):① G:\\ 条段整体退役 —— 本机已无 G 盘,旧布局(主仓/DevEnv/backups/pnpm store 全在 G 根)随盘符迁移落到 C 根,故以 'C:\\' 条段承接;② C 盘本轮现场清运结果:d、backups(旧链 dump 1.97GB)、Installers、__wb_empty__/__wb_empty2__(运行期空标记,会重建)、__gcopy_log__、vr-artifacts、IHUI-AI-wt-align、Qoderwork、rn、Tencent、WSL、腾讯应用宝文件管理、根目录 22 个 11-03 测试输出(8.5MB)已删或移走;pnpm store 由 C:\\DevEnv\\pnpm-store-g 迁入 C:\\Users\\Administrator\\AppData\\Local\\pnpm\\store(同卷硬链接,2607MB/198636 文件实测一致);③ C:\\DevEnv 只剩两样**活跃**物:backups\\pg(调度器每日 03:00 写,7 天本地保留)与 logs(pg-backup-scheduler.log),不再是待拆薄壳 —— 上一轮'整体并入仓内 .DevEnv'的判断据此作废,数据库 dump 不进仓树;④ D:\\ 条段补齐 2026-11-22 现场新增条目(激活软件以及驱动/历史项目存档/IHUI-Build/caches/xdg/pnpm-home 等),旧条目中已不存在的(电脑软件/系统配套软件/ihui-pg/ihui-redis-6.2/edid-backup 等)一并移除;⑤ __DEL_backups_20261121 / __DEL_backups_20261122_c 等暂存归档位于 D:\\DevEnv 之下,不在盘根,故不在此表登记。",
+  "roots": {
+    "C:\\": {
+      "allow": [
+        "IHUI-AI",
+        "DevEnv",
+        "IHUI-AI-archives",
+        ".pytest_tmp",
+        ".pytest_tmp_runs",
+        "__wb_empty2__",
+        "common_attachment",
+        "persistent_data",
+        "tmp",
+        "tools",
+        "apache-maven-3.9.5",
+        "minio",
+        "nacos",
+        "redis",
+        "rocketmq",
+        "微信web开发者工具",
+        "支付宝小程序开发工具",
+        "腾讯应用宝文件管理",
+        "Qoder CN",
+        "Trae CN",
+        "MiniMax Code",
+        "ZCode",
+        "Loomy",
+        "workbuddy",
+        "Apps",
+        "Androws",
+        "NVIDIA",
+        "Documents and Settings",
+        "Program Files",
+        "Program Files (x86)",
+        "ProgramData",
+        "Windows",
+        "Users",
+        "System Volume Information",
+        "$RECYCLE.BIN",
+        "bootmgr",
+        "BOOTNXT",
+        "DumpStack.log.tmp",
+        "pagefile.sys",
+        "swapfile.sys"
+      ],
+      "note": "2026-11-22 现场逐条登记。IHUI-AI=项目主仓(本机 checkout 根,C 卷 NVMe);DevEnv=机器级备份/日志根(2026-11-22 二次核实:用户级 IHUI_DEVENV_ROOT=D:\\DevEnv 已接管现役落点,调度器实测写 D:\\DevEnv\\backups\\pg;C:\\DevEnv 仅剩 11-27/11-30 两枚旧 dump 与旧日志,属可删遗产,目录本身保留不判外流);IHUI-AI-archives=iOS 安装包中转归档(ihui-ai-latest.ipa,白名单保护至 2027-01-31,删了等于撤下载入口);.pytest_tmp 与 .pytest_tmp_runs=pytest basetemp/per-run 隔离树的**设计落点且落在仓外**(见 _pytestBasetempNote,跑一次 ai-service 全量 pytest 必然重建,故必须申报);__wb_empty2__=WorkBuddy/browser-use 工具运行期创建的空标记目录(删后会自动重建,属第三方运行时行为,非项目产物);common_attachment/persistent_data/tmp/tools=2026-11-22 13:30 立的**重定向 junction**(分别指向 D:\\DevEnv\\cache\\c-root-stray\\*、D:\\DevEnv\\Temp\\c-root-tmp、D:\\DevEnv\\tools\\c-root-tools),把第三方工具往 C 根写的散落点引到机械盘,自身不承载内容;删掉等于让这些工具重新在 C 根建实体目录,故声明保留(修改变须走 junction 而非手删);apache-maven-3.9.5=MAVEN_HOME 与 PATH 均指向 \\bin,删掉等于废掉全部 Maven 构建;minio/nacos/redis/rocketmq=本地中间件安装目录(非服务、当前无进程,重建成本高于体积);微信web开发者工具/支付宝小程序开发工具=小程序 IDE,apps/miniapp-taro/启动支付宝小程序IDE.ps1 仍在引用;Qoder CN/Trae CN/MiniMax Code/ZCode/Loomy/workbuddy/Apps/Androws=第三方 Electron 应用安装目录(有注册表卸载项,删除须走卸载器,不得手删);NVIDIA=显卡驱动组件;Documents and Settings=Windows 兼容性 junction;Program Files/Program Files (x86)/ProgramData/Windows/Users/System Volume Information/$RECYCLE.BIN=系统目录;bootmgr/BOOTNXT/DumpStack.log.tmp/pagefile.sys/swapfile.sys=引导与系统文件,一律不碰。"
+    },
+    "D:\\": {
+      "allow": [
+        "__empty_mirror__",
+        "$RECYCLE.BIN",
+        "System Volume Information",
+        "激活软件以及驱动",
+        "历史项目存档",
+        "智汇AI",
+        "android",
+        "BaiduSyncdisk",
+        "caches",
+        "DevEnv",
+        "devhome",
+        "gradle",
+        "IHUI-AI",
+        "IHUI-Build",
+        "me",
+        "pnpm-home",
+        "software",
+        "xdg",
+        "桌面"
+      ],
+      "note": "2026-11-22 现场逐条登记(D 为 2TB 机械盘/盘0,与 C 的 NVMe 分属不同物理盘)。DevEnv=D 侧开发环境根(含 tools\\dotnet-sdk、cache、logs、Temp、secrets、secrets-browser;凭据目录只准留在这里,禁止复制进任何仓树);BaiduSyncdisk=凭据权威根兼云备份落点(IHUI-PG-BACKUP 42 份保留,备份调度器的云侧目标);IHUI-AI=D 侧旧检出(与本机 C 主仓并存,删除前须先验明身份);IHUI-Build=构建产物区(1.5GB,target);历史项目存档=旧项目整份归档(90GB,code/edu client/edu server/ihui-ai-admin-frontend/ljd-交接文件),用户数据,禁删;software=机主软件目录(60GB:alipaykeytool/Androws/BaiduNetdisk 等);智汇AI=桌面端安装版本体(ihui-desktop.exe 及多份按日期备份,b58fbe4e159 起的默认安装位,删除=卸载在用应用);激活软件以及驱动=机主的激活与驱动工具集合(427MB,MAS 脚本/VPN/geek 等,用户数据);android=ANDROID_AVD_HOME 与 ANDROID_USER_HOME 指向的 SDK/AVD 侧(avd/cache/adbkey);gradle=GRADLE_USER_HOME(291MB);caches=2.6GB 工具缓存(微信开发者工具/cargo/go/ihui-node-hooks/git-portable-backup,可再生但不属外流);pnpm-home=PNPM_HOME 候选位(1.4GB,bin/global/package-manager-store/store);xdg=XDG 规范目录映射(2.1GB,cache/config/data/local);devhome=工具以 D: 为 HOME 建的目录(57MB,ai);me=个人资料目录(data/document/picture);桌面=用户桌面;__empty_mirror__=空目录镜像占位(0 文件,某次清扫工具的中间区);$RECYCLE.BIN/System Volume Information=系统。上述条目中 android/gradle/caches/xdg/pnpm-home/devhome/me 的用途按 2026-11-22 快照与其关联环境变量(ANDROID_AVD_HOME/ANDROID_USER_HOME/GRADLE_USER_HOME)登记,未逐文件核实内部归属,按'第四档:止噪放行 + 促复审'处理,下次巡检复审时若发现项目产物外流须整改。"
+    }
+  },
+  "_pytestBasetempNote": "2026-10-03 立;2026-11-22 随盘符重挂到 C 卷复核。.pytest_tmp(apps/ai-service/pyproject.toml addopts 的 --basetemp=../../../.pytest_tmp,相对 apps/ai-service 向上三级 ⇒ C:\\.pytest_tmp)与 .pytest_tmp_runs(conftest.py pytest_configure 的 per-run 隔离树)进白名单,理由不是'看起来无害',而是这两条是 pytest 基础设施的**设计落点且落在仓外**:① 落仓内会让'仓库外'场景用例(find_project_root 向上找 .git / git baseline / 文档根越界)撞上真实 .git 全翻车(RUN5 实证,已写进 apps/ai-service/pyproject.toml 与 tests/conftest.py 注释);② 落系统 TEMP 会让全量 20 worker 的每用例 tmp SQLite 在机械盘上 fsync 饱和,实测 25 个跨文件用例各被拖到 ~84s(py-spy 抓栈);③ 两者都由 pytest 自己在每场运行 rm_rf + 重建(conftest 只回收 mtime>24h 的 run-*),不是人工堆放,也就不存在'产物外流'。不申报的后果是结构性的:每次跑 pytest 必然重建 ⇒ 盘根卫生永远判红 ⇒ 每 4 小时到人一次,而实测它催生不出任何整改动作。真正的外流(临时 worktree 落点、探针残留)仍由 H1/H2 两维照常点名。",
+  "worktreePolicy": {
+    "sanctionedPrefixes": [
+      "C:\\IHUI-AI\\.worktrees\\",
+      "C:/IHUI-AI/.worktrees/",
+      "D:\\IHUI-AI\\.worktrees\\",
+      "D:/IHUI-AI/.worktrees/",
+      "D:\\DevEnv\\ihui-deploy-build"
+    ],
+    "exemptPaths": ["C:\\IHUI-AI", "C:/IHUI-AI", "D:\\IHUI-AI", "D:/IHUI-AI"],
+    "note": "2026-09-30 起 worktree 落点收进项目内 .worktrees/(AGENTS §12d);登记面里落在前缀之外的 worktree 一律点名待回收(主工作树豁免,本机主工作树为 C:\\IHUI-AI)。2026-11-22 盘符迁移后按实测重挂:C 与 D 两侧的 .worktrees 均在实践中(两处实测存在),故双侧前缀并列;G: 前缀整体移除(G 盘已不在)。",
+    "_deployCleanBuildNote": "D:\\DevEnv\\ihui-deploy-build(部署环净面构建工作树根)2026-11-22 实测**不存在**,但仍是部署脚本写死的默认落点(deploy/win/ihui-deploy.ps1 的 $CleanBuildRootDefault),部署一次即重建 ⇒ 保留在前缀里,不按'残骸'回收。理由沿用 2026-10-15 原注:这不是待回收残骸,而是部署脚本自己写死的落点;让部署环改回项目内 .worktrees\\ 就是把它当初根治的问题再制造一遍。"
+  }
+}

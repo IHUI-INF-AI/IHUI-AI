@@ -1,0 +1,247 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import { useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
+import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
+import { useTaskReceiver } from '@/hooks/use-task-receiver'
+import { BackButton } from '@/components/common'
+import type { TaskDispatch, TaskResult, TaskStatus } from '@ihui/shared/tasks/dispatch'
+
+const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
+  pending: 'status.pending',
+  running: 'status.running',
+  completed: 'status.completed',
+  failed: 'status.failed',
+  cancelled: 'status.cancelled',
+}
+
+const STATUS_STYLE: Record<TaskStatus, { className: string; dot?: boolean }> = {
+  pending: { className: 'text-muted-foreground' },
+  running: { className: 'text-primary', dot: true },
+  completed: { className: 'text-primary' },
+  failed: { className: 'text-destructive' },
+  cancelled: { className: 'text-muted-foreground' },
+}
+
+/**
+ * 审批票状态 → i18n key(2026-10-26 立)。
+ *
+ * 票状态由服务端 `delegation-approval` 判据裁定,本页只做呈现 ——
+ * 包括"过期"也是服务端判的(本页不自己算 TTL,避免端上出现第二个时钟真相源)。
+ */
+const APPROVAL_STATE_KEYS: Record<string, string> = {
+  awaiting: 'approval.title',
+  approved: 'approval.approved',
+  denied: 'approval.denied',
+  expired: 'approval.expired',
+  stopped: 'approval.stopped',
+}
+
+export default function TaskReceiverPageClient() {
+  const t = useTranslations('taskReceiver')
+  const tNav = useTranslations('nav')
+  const locale = useLocale()
+  const token = useAuthStore((s) => s.token)
+  const { tasks, isConnected, deviceId, downloadAttachment, pendingApprovals, answerApproval } =
+    useTaskReceiver(token)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [msg, setMsg] = useState('')
+
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const onExecute = async (task: TaskDispatch) => {
+    setBusyId(task.id)
+    setMsg('')
+    try {
+      const output = `[web] executed: ${task.command}`
+      const res = await fetchApi<TaskResult>('/api/tasks/result', {
+        method: 'POST',
+        body: JSON.stringify({ taskId: task.id, status: 'completed', output }),
+      })
+      setMsg(
+        res.success
+          ? t('executed', { id: task.id.slice(0, 8) })
+          : t('callbackFailed', { error: res.error }),
+      )
+    } catch (err) {
+      setMsg(`${t('errorPrefix')}: ${(err as Error).message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const onCopyDeviceId = async () => {
+    try {
+      await navigator.clipboard?.writeText(deviceId)
+      setMsg(t('deviceIdCopied', { id: deviceId }))
+    } catch {
+      setMsg(t('deviceIdShow', { id: deviceId }))
+    }
+  }
+
+  const onDownload = (taskId: string) => {
+    const r = downloadAttachment(taskId)
+    setMsg(r.message)
+  }
+
+  /**
+   * 回答审批票(2026-10-26 立)。**先答者胜由服务端裁定**,本页只提交并如实回显结果:
+   * 未生效(duplicate/stale/gap/rejected/过期)时显示服务端给的原因,不假装成功。
+   */
+  const onAnswer = async (taskId: string, decision: boolean) => {
+    setBusyId(taskId)
+    setMsg('')
+    const r = await answerApproval(taskId, decision)
+    setMsg(r.ok ? (decision ? t('approval.approved') : t('approval.denied')) : r.message)
+    setBusyId(null)
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-4xl px-4 py-4">
+      <BackButton />
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-heading font-semibold">
+          {tNav('agents')} · {t('title')}
+        </h2>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCopyDeviceId}
+            className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-label text-muted-foreground transition-colors hover:bg-muted"
+          >
+            {t('deviceLabel')} {deviceId.slice(0, 8)}…
+          </button>
+          <span className={`text-label ${isConnected ? 'text-primary' : 'text-muted-foreground'}`}>
+            {isConnected ? t('wsConnected') : t('wsDisconnected')}
+          </span>
+        </div>
+      </header>
+
+      {msg && <p className="mb-2 text-label text-muted-foreground">{msg}</p>}
+
+      {/* 待我拍板的委派(审批跟人:只有提问方与执行方两台设备看得到这一区) */}
+      {pendingApprovals.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2">
+          <p className="text-label text-muted-foreground">{t('approval.hint')}</p>
+          {pendingApprovals.map((task) => (
+            <div
+              key={task.id}
+              className="flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-card p-3"
+            >
+              <code className="break-all text-[13px]">{task.command}</code>
+              <div className="flex flex-wrap gap-x-3 text-label text-muted-foreground">
+                <span>
+                  {t('approval.origin')}: {task.fromDevice}
+                </span>
+                <span>
+                  {t('approval.target')}: {task.toDevice}
+                </span>
+                <span>{timeFmt.format(new Date(task.createdAt))}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void onAnswer(task.id, true)}
+                  disabled={busyId === task.id}
+                  className="rounded-sm bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                >
+                  {busyId === task.id ? t('loading') : t('approval.approve')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onAnswer(task.id, false)}
+                  disabled={busyId === task.id}
+                  className="rounded-sm border border-border px-3 py-1 text-label transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  {t('approval.deny')}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tasks.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card px-12 py-8 text-center text-muted-foreground">
+          {t('emptyWaiting')}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {tasks.map((task) => {
+            const st = STATUS_STYLE[task.status] ?? { className: 'text-muted-foreground' }
+            const canRun = task.status === 'pending' || task.status === 'failed'
+            return (
+              <div
+                key={task.id}
+                className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <code className="break-all text-[13px]">{task.command}</code>
+                  <span className={`flex shrink-0 items-center gap-1 text-label ${st.className}`}>
+                    {st.dot && (
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+                    )}
+                    {t(TASK_STATUS_KEYS[task.status]!)}
+                  </span>
+                  {task.approval && (
+                    <span className="shrink-0 text-label text-muted-foreground">
+                      {t(APPROVAL_STATE_KEYS[task.approval.state] ?? task.approval.state)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-3 text-label text-muted-foreground">
+                  <span>
+                    {t('source')}: {task.fromDevice}
+                  </span>
+                  <span>
+                    {t('target')}: {task.toDevice}
+                  </span>
+                  <span>{timeFmt.format(new Date(task.createdAt))}</span>
+                </div>
+                {task.result?.output && (
+                  <div className="rounded-md bg-muted p-1.5 text-label text-muted-foreground">
+                    {task.result.output}
+                  </div>
+                )}
+                {(canRun || task.filePayload) && (
+                  <div className="flex gap-2">
+                    {canRun && (
+                      <button
+                        type="button"
+                        onClick={() => onExecute(task)}
+                        disabled={busyId === task.id}
+                        className="rounded-sm bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                      >
+                        {busyId === task.id ? t('loading') : t('execute')}
+                      </button>
+                    )}
+                    {task.filePayload && (
+                      <button
+                        type="button"
+                        onClick={() => onDownload(task.id)}
+                        className="rounded-sm border border-border px-3 py-1 text-label transition-colors hover:bg-muted"
+                      >
+                        {task.filePayload.filename}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

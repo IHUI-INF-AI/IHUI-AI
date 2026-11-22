@@ -1,0 +1,533 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""D09 意图自动路由专家包 —— 发送前轻量意图分类(规则优先,零 LLM)。
+
+票面三格对应关系:
+① 发送前轻量意图分类:``classify_intent`` + ``plan_route``(纯函数,无 IO、无 await)。
+② 命中专家包时并入工具白名单/系统提示 + 流首交代帧:``merge_tools`` / ``system_hint`` /
+   ``frame_payload`` 三个出口,接线在 ``routers/llm.py``(复用 ``injection_applied`` 帧,
+   kind=``expert_pack``,不新造帧)。
+③ 用户可关:``resolve_mode`` —— 请求字段 ``expert_auto_route`` 三档,部署方可置
+   env ``IHUI_EXPERT_AUTO_ROUTE=off`` 硬关。**默认 hint = 只交代分类结果,不改工具、
+   不改提示词**(票面"默认温和提示不强切");``auto`` 才真并入。
+
+本切片刻意不做的部分(不得读成已交付):
+- **模型兜底未实现**:规则未命中时多半本就"不该路由",再调一次上游只会把首字延迟和
+  误路由一起放大;要做须另立票并先量出规则召回缺口。
+- 不新增数据实体:专家包是**运行时常量表**。apps/web 生态页的 ``EXPERT_PACKS`` 是纯导航
+  聚合(content-creator/developer-extension,不含工具面),两者**暂不同源**;与 D01 数据面
+  统一属后续串行工作,本切片刻意不触碰 D01 的 persona 文件,避免同文件冲突。
+
+边界:本切片不读写 D01(persona)数据面;``merge_tools`` 是**并集**、不替换调用方给的
+``agent_tools``,且接线在 chat_mode 过滤之前 —— plan/review 档照旧只留只读工具。
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass
+from typing import Any
+
+from .agent_events import SSE_INJECTION_APPLIED
+
+logger = logging.getLogger(__name__)
+
+#: 合法的路由档位(封闭集)。非法值回落默认档并留日志,不静默按 auto 处理。
+MODES: tuple[str, ...] = ("off", "hint", "auto")
+DEFAULT_MODE = "hint"
+ENV_KEY = "IHUI_EXPERT_AUTO_ROUTE"
+
+
+@dataclass(frozen=True)
+class ExpertPack:
+    """一个专家包:触发词面 + 工具白名单 + 系统提示。
+
+    工具名必须是 ``mcp_server`` 已注册的名字(接线处按名字查 schema,查不到即跳过),
+    所以这里写错一个名字只会"少给工具",不会造出空 schema。
+    """
+
+    slug: str
+    title: str
+    terms: tuple[str, ...]
+    tools: tuple[str, ...]
+    hint: str
+
+
+#: 运行时常量表。匹配用**小写字面量包含**,不是正则 —— 反向锁要求"命中词可原样报出",
+#: 正则会把"为什么命中"藏进表达式里。英文词条一律小写(判定前 text 已 lower)。
+EXPERT_PACKS: tuple[ExpertPack, ...] = (
+    ExpertPack(
+        slug="code-review",
+        title="代码审查",
+        terms=(
+            "代码审查",
+            "审查代码",
+            "帮我审",
+            "审查这个",
+            "review 代码",
+            "review一下",
+            "review 一下",
+            "code review",
+        ),
+        tools=("read_file", "list_files", "search_codebase", "analyze_code", "review_pr"),
+        hint=(
+            "## Expert pack active: code-review\n"
+            "The user's request is a code review. Read the code before commenting; cite every "
+            "finding as path:line with the concrete risk and a one-line fix. Separate blocking "
+            "issues from suggestions. Prefer read-only tools and do not rewrite files unless "
+            "the user explicitly asks for a fix."
+        ),
+    ),
+    ExpertPack(
+        slug="debug-fix",
+        title="调试修复",
+        terms=(
+            "报错",
+            "异常",
+            "堆栈",
+            "traceback",
+            "崩溃",
+            "调试",
+            "bug",
+            "跑不起来",
+            "不生效",
+        ),
+        tools=("read_file", "search_codebase", "run_command", "file_edit", "write_file",
+               "generate_test"),
+        hint=(
+            "## Expert pack active: debug-fix\n"
+            "The user is debugging a failure. Establish the failing fact first (error text / "
+            "stack / reproduction), then locate the root cause before proposing a fix. Do not "
+            "claim a fix without a way to verify it (test or command output)."
+        ),
+    ),
+    ExpertPack(
+        slug="docs-report",
+        title="文档与报表",
+        terms=(
+            "写文档",
+            "技术文档",
+            "生成报告",
+            "做一份报告",
+            "调研报告",
+            "导出报告",
+            "整理成文档",
+            "周报",
+            "月报",
+            "readme",
+        ),
+        tools=("read_file", "search_codebase", "parse_document", "document_tables",
+               "generate_chart", "generate_report"),
+        hint=(
+            "## Expert pack active: docs-report\n"
+            "The user wants a document or report. Gather facts from the sources first, then "
+            "produce a structured document (summary, sections, evidence). Do not invent numbers "
+            "or citations that are not present in the gathered material."
+        ),
+    ),
+    ExpertPack(
+        # 人事部·月度算薪(2026-11-21 立):触发即并入 hr_payroll_calc + 交割凭证工具。
+        # 与财务代账包无重叠词(工资/薪资族 vs 记账/凭证族),命中判定不会互抢。
+        slug="hr-payroll",
+        title="薪资核算",
+        terms=(
+            "算工资",
+            "算一下工资",
+            "计算工资",
+            "核算工资",
+            "工资核算",
+            "薪资核算",
+            "薪资计算",
+            "月度薪资",
+            "算薪",
+            "发工资",
+            "做工资",
+            "工资表",
+            "薪资周期",
+            "工资审批",
+            "payroll",
+        ),
+        tools=(
+            "hr_payroll_calc",
+            "hr_insurance_readiness",
+            "hr_my_payroll",
+            "hr_my_payroll_periods",
+            "hr_my_attendance",
+            "ai_payroll_handoff",
+            "parse_document",
+            "generate_report",
+            "create_artifact",
+            "api_endpoints_search",
+            "api_endpoint_call",
+        ),
+        hint=(
+            "## Expert pack active: hr-payroll\n"
+            "The user wants monthly payroll. Confirm periodMonth (YYYY-MM) first, then call "
+            "hr_insurance_readiness for the payroll year + region to confirm the social-insurance "
+            "rate config is complete (missing/incomplete config makes hr_payroll_calc refuse with "
+            "400 — never work around that by guessing rates), then call "
+            "hr_payroll_calc. Preconditions are hard: that month's attendance must already be "
+            "month-closed (hr_attendance_monthly) and each employee needs a salary config — "
+            "employees skipped for missing config are counted by skippedNoConfig, never guessed. "
+            "The period moves to 'calculated'; approval and payout are human finance actions — "
+            "never change approval status on your own. For the bookkeeping handoff voucher "
+            "(计提/发放 entries) call ai_payroll_handoff, which requires the period to be "
+            "approved. All amounts are Decimal strings: display them verbatim, never recompute. "
+            "For company-wide attendance checks use api_endpoints_search / api_endpoint_call "
+            "(hr:attendance:view), not the self-service hr_my_attendance."
+        ),
+    ),
+    ExpertPack(
+        # 人事部·员工自助(2026-11-21 立):员工问"我的工资/考勤/请假"时并入四枚本人作用域工具。
+        # 与 hr-payroll 包刻意不共享触发词:管理侧说"算工资",员工侧说"我的工资"。
+        slug="hr-self-service",
+        title="人事自助",
+        terms=(
+            "我的工资",
+            "我的工资条",
+            "我的工资单",
+            "查我的工资",
+            "我这个月工资",
+            "我的考勤",
+            "我的考勤记录",
+            "查我的考勤",
+            "我的请假",
+            "我的请假单",
+            "查我的请假",
+            "工资条",
+        ),
+        tools=(
+            "hr_my_payroll",
+            "hr_my_payroll_periods",
+            "hr_my_attendance",
+            "hr_my_leaves",
+        ),
+        hint=(
+            "## Expert pack active: hr-self-service\n"
+            "The employee is asking about their OWN payroll / attendance / leave. Use only the "
+            "hr_my_* tools: they are bound to the logged-in user and accept no 'other employee' "
+            "parameter — never claim you can look up someone else's salary. If a tool returns "
+            "employee=null or an empty list, say the account is not yet linked to an employee "
+            "record and point to the HR self-service page (人事部 → 员工自助) to submit a link "
+            "request. NOT_FOUND means that month has not been calculated yet: state it as-is, "
+            "never fabricate amounts; payroll amounts are strings — show them verbatim."
+        ),
+    ),
+    ExpertPack(
+        # 财务部·AI 一键代账(RP-46,2026-11-12 立):触发即自动并入 ai_bookkeeping,
+        # 按 phase 逐段调用 ⇒ 工具卡与 plan 步骤看板在对话里实时显示代账过程与进度。
+        slug="finance-bookkeeping",
+        title="财务代账",
+        terms=(
+            "一键代账",
+            "代账",
+            "一键记账",
+            "做账",
+            "记账凭证",
+            "生成凭证",
+            "试算平衡",
+            "科目余额表",
+            "结账",
+            "登账",
+            "账簿",
+            # 取数腿平台词(RP-47)
+            "发票底账",
+            "底账",
+            "勾选认证",
+            "银行回单",
+            "银行流水",
+            "回单导出",
+            "bookkeeping",
+        ),
+        tools=(
+            "ai_bookkeeping",
+            "parse_document",
+            "document_tables",
+            "extract_document_assets",
+            "create_artifact",
+            "generate_report",
+            # 内置浏览器执行面(RP-47):automation 计划里 browser_* 是网页平台的腿;
+            # 原生社保/医保客户端腿 computer_* 属高危档(审批+人值守),计划注明由人操作。
+            "browser_screenshot",
+            "browser_navigate",
+            "browser_click_element",
+            "browser_type_text",
+            "browser_extract_dom",
+            "browser_wait_for_element",
+            "browser_scroll",
+        ),
+        hint=(
+            "## Expert pack active: finance-bookkeeping\n"
+            "The user wants AI bookkeeping (一键代账). First gather the period and the source "
+            "transactions. If the books should be sourced from official platforms, call "
+            "ai_bookkeeping phase=automation (targets like etax_invoice_ledger / bank_statement / "
+            "social_insurance / medical_insurance; provide portal/province if not known — ask the "
+            "user, never guess URLs), then execute the returned plan step by step with the browser "
+            "tools in THIS conversation: every step is a live tool card; locate before acting "
+            "(screenshot/extract_dom first, never invent selectors); stop the target and report "
+            "as-is on TARGET_NOT_CONNECTED or repeated SELECTOR_NOT_FOUND. Data exports go "
+            "through parse_document / document_tables and become ai_bookkeeping transactions — "
+            "no number may appear in the books without a source on a platform receipt or the "
+            "draft. Then run ai_bookkeeping phase by phase: classify -> voucher -> trial_balance "
+            "-> close -> report (or phase=all). Update the plan board with each returned progress. "
+            "Never fabricate amounts; on VOUCHER_UNBALANCED or TRIAL_UNBALANCED stop and report "
+            "the diff instead of forcing it to balance. Filing-side automation is only entered "
+            "when the user explicitly asks about filing."
+        ),
+    ),
+    ExpertPack(
+        # 财务部·AI 一键报税(RP-46,2026-11-12 立):同上一条回显纪律,草案红线必须转述。
+        slug="tax-filing",
+        title="纳税申报",
+        terms=(
+            "一键报税",
+            "报税",
+            "纳税申报",
+            "申报纳税",
+            "增值税申报",
+            "所得税申报",
+            "个税申报",
+            "申报表",
+            "计税",
+            "税费计算",
+            "缴税",
+            "欠税",
+            "税",  # 财税域特异词:与"月报"这类文档短词同分时让税词族(报税+税)胜出
+            # 国标平台腿词(RP-47):电子税务局/社保医保网报与客户端申报
+            "电子税务局",
+            "税务局",
+            "社保",
+            "医保",
+            "公积金",
+            "增减员",
+            "tax filing",
+            "filing taxes",
+        ),
+        tools=(
+            "ai_tax_filing",
+            "ai_bookkeeping",
+            "parse_document",
+            "document_tables",
+            "create_artifact",
+            "generate_chart",
+            "browser_screenshot",
+            "browser_navigate",
+            "browser_click_element",
+            "browser_type_text",
+            "browser_extract_dom",
+            "browser_wait_for_element",
+            "browser_scroll",
+        ),
+        hint=(
+            "## Expert pack active: tax-filing\n"
+            "The user wants AI tax filing (一键报税) or platform operations on 电子税务局/社保/医保. "
+            "Gather taxpayer facts first (ask for missing items; never guess amounts or URLs). "
+            "Run ai_tax_filing phase by phase: compute -> validate -> draft, then, for filing on "
+            "the national platforms, call ai_tax_filing phase=automation: it returns a deterministic "
+            "per-target step plan (etax_vat_declaration / etax_cit_quarterly / etax_iit_declaration / "
+            "social_insurance / medical_insurance / etax_invoice_ledger) whose steps must be executed "
+            "with the browser tools in THIS conversation (built-in browser execution surface; "
+            "native social/medical clients go through computer_* desktop surface: high-risk, human "
+            "in the loop). Locate before acting (screenshot/extract_dom first; never invent "
+            "selectors). The plan's draft values (values_to_fill) are the basis — report any diff "
+            "found by the platform check honestly, do not silently adjust numbers. SUBMIT GATE is "
+            "law: with submit_mode=manual_gate (default) STOP at the final submit step and let the "
+            "human click; with user_confirmed first restate target/period/payable amounts and "
+            "require the user's explicit yes before executing submit — there is NO silent auto "
+            "submission in this system. Surface every validate finding; on TARGET_NOT_CONNECTED "
+            "guide the user to connect the browser and resume from the blocked step."
+        ),
+    ),
+    ExpertPack(
+        # 财务部五腿·一键报销(2026-11-13 立):触发即自动并入 ai_reimbursement。
+        slug="finance-reimbursement",
+        title="一键报销",
+        terms=(
+            "一键报销",
+            "报销",
+            "报账",
+            "费用报销",
+            "差旅报销",
+            "招待费报销",
+            "报销单",
+            "进项转出",
+            "借款冲销",
+            "费用分摊",
+            "reimbursement",
+        ),
+        tools=(
+            "ai_reimbursement",
+            "ai_bookkeeping",
+            "parse_document",
+            "document_tables",
+            "extract_document_assets",
+            "create_artifact",
+            "generate_report",
+        ),
+        hint=(
+            "## Expert pack active: finance-reimbursement\n"
+            "The user wants AI expense reimbursement (一键报销). Gather the expense list first "
+            "(employee, category, amount, date, invoice type — ask for missing items; never "
+            "invent amounts). Extract receipts/invoices via parse_document / document_tables "
+            "when the user uploads files, then call ai_reimbursement with the reimbursements "
+            "JSON (amounts as strings to avoid precision drift). The tool returns four-dimension "
+            "review (input-VAT deduction / IIT treatment / compliance caps like 招待费 0.5% · "
+            "教育 8% · 福利 14% / journal-entry draft) plus an HTML+JSON draft under tmp/artifacts. "
+            "Surface every compliance finding honestly; the draft is NOT a booking — route the "
+            "approved entries into ai_bookkeeping transactions and remind the user that a "
+            "finance supervisor must review before posting. Never fabricate caps or rates; "
+            "policy defaults in the tool are overridable per request."
+        ),
+    ),
+    ExpertPack(
+        # 财务部五腿·社保医保(2026-11-13 立):触发即自动并入 social_insurance_calc
+        # (+ special_deduction_calc 同族);公积金/基数口径以参保地核定为准。
+        slug="social-insurance",
+        title="社保医保",
+        terms=(
+            "社保基数",
+            "五险一金",
+            "社保精算",
+            "公积金基数",
+            "医保统筹",
+            "医保个人账户",
+            "缴费基数",
+            "社保缴费",
+            "社保滞纳金",
+            "基数调整",
+            "补充医疗",
+            "工伤保险",
+            "social insurance",
+        ),
+        tools=(
+            "social_insurance_calc",
+            "special_deduction_calc",
+            "ai_tax_filing",
+            "ai_bookkeeping",
+            "create_artifact",
+            "generate_chart",
+        ),
+        hint=(
+            "## Expert pack active: social-insurance\n"
+            "The user wants social/medical insurance payroll computation (社保医保精算). Gather "
+            "period + employee list (name, gross, base if overridden) first; ask for the "
+            "参保地 (city/province) — base floors/caps and rate splits differ by region, never "
+            "guess regional policy. Call social_insurance_calc: it returns per-employee 五险一金 "
+            "breakdown, employer monthly total, employee withholding total (feed directly into "
+            "ai_bookkeeping salary entries and ai_tax_filing wages social field), medical "
+            "account-vs-pool split, and per-person floor/cap flags. Optional extensions: "
+            "multi-city groups, annual base adjustment, late fee, supplementary medical, "
+            "cross-year interest. For IIT special deductions use special_deduction_calc and "
+            "hand its total to the wages special_deduction field. All results are drafts — "
+            "以参保地人社/医保核定为准; no external filing, no network."
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True)
+class ExpertRoute:
+    """一次路由判定的结果(可观测对象;也被帧载荷直接消费)。"""
+
+    mode: str
+    pack: ExpertPack | None = None
+    matched: tuple[str, ...] = ()
+
+    @property
+    def hit(self) -> bool:
+        return self.pack is not None
+
+
+def resolve_mode(requested: str | None) -> str:
+    """三档解析唯一出口:env 硬关 > 请求字段 > env 档位 > 默认 hint。
+
+    env ``off`` 是部署方硬开关,优先级高于请求字段(与 ``IHUI_AUTO_CONTEXT_DISABLE``
+    的"部署级硬关"同语义)。请求字段写错值时**留日志并回落**,不静默当成 auto。
+    """
+    env_mode = os.environ.get(ENV_KEY, "").strip().lower()
+    if env_mode == "off":
+        return "off"
+    if requested is not None and str(requested).strip():
+        wanted = str(requested).strip().lower()
+        if wanted in MODES:
+            return wanted
+        logger.warning("[expert-route] expert_auto_route=%r 非法,回落默认档", requested)
+    if env_mode in MODES:
+        return env_mode
+    return DEFAULT_MODE
+
+
+def classify_intent(text: str) -> tuple[ExpertPack | None, tuple[str, ...]]:
+    """规则分类:返回 (命中的包, 原样命中的词面)。
+
+    多包同时命中时按**命中词条数**取最高;同分按注册表顺序取先者(确定性,不掷骰子)。
+    空文本/纯空白直接不命中(不把"没说话"路由成某个专家)。
+    """
+    lowered = (text or "").lower()
+    if not lowered.strip():
+        return None, ()
+    best_pack: ExpertPack | None = None
+    best_hits: tuple[str, ...] = ()
+    for pack in EXPERT_PACKS:
+        hits = tuple(term for term in pack.terms if term in lowered)
+        if len(hits) > len(best_hits):
+            best_pack, best_hits = pack, hits
+    return best_pack, best_hits
+
+
+def plan_route(text: str, requested_mode: str | None = None) -> ExpertRoute:
+    """发送前唯一入口:解析档位 → (off 则完全不分类) → 规则分类。"""
+    mode = resolve_mode(requested_mode)
+    if mode == "off":
+        return ExpertRoute(mode=mode)
+    pack, matched = classify_intent(text)
+    return ExpertRoute(mode=mode, pack=pack, matched=matched)
+
+
+def merge_tools(route: ExpertRoute, agent_tools: list[str] | None) -> list[str] | None:
+    """auto 档命中包时把包内工具**并集**进本次清单;其余情况原样返回。
+
+    - 并集而非替换:调用方显式给的清单是用户的意图,不能被路由改写成另一张表。
+    - 保持原顺序、去重:包内工具排在调用方清单之后。
+    - ``agent_tools is None`` 且 auto 命中 ⇒ 由包开出一份清单(这是"按需加载"的本义);
+      hint/off 档永不走到这里。
+    """
+    if route.mode != "auto" or route.pack is None:
+        return agent_tools
+    merged = list(agent_tools or [])
+    merged.extend(tool for tool in route.pack.tools if tool not in merged)
+    return merged
+
+
+def system_hint(route: ExpertRoute) -> str | None:
+    """auto 档命中包时的系统提示;**hint 档不改提示词**(温和提示只交代给用户)。"""
+    if route.mode != "auto" or route.pack is None:
+        return None
+    return route.pack.hint
+
+
+def frame_payload(route: ExpertRoute) -> dict[str, Any] | None:
+    """``injection_applied`` 帧载荷(复用既有帧,不新帧);未命中/off 档返回 None。
+
+    kind 是前端取词表键的**唯一**依据(``packages/shared/src/constants/injection-kinds.ts``
+    已登记 ``expert_pack``);``collapsed`` 只作未知 kind 的兜底文本。``fullText`` 交代
+    "为什么命中"与当前档位是否真改了工具/提示词 —— 用户能展开核对,而不是只看到一句结论。
+    """
+    if route.mode == "off" or route.pack is None:
+        return None
+    if route.mode == "auto":
+        effect = "已并入该专家包的工具白名单(与本次请求的工具清单取并集),并追加系统提示。"
+    else:
+        effect = "当前为温和提示:未改动工具清单与系统提示。"
+    hits = "、".join(route.matched)
+    return {
+        "type": SSE_INJECTION_APPLIED,
+        "kind": "expert_pack",
+        "collapsed": f"已按意图匹配专家包:{route.pack.title}",
+        "fullText": (
+            f"命中词:{hits} ⇒ 专家包「{route.pack.title}」({route.pack.slug})。{effect}"
+        ),
+    }

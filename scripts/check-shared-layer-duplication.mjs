@@ -1,0 +1,556 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 共享层重复检测守门脚本 (AGENTS.md S3 "shared-layer-first" 配套)
+// 检测 apps/*/src 下是否有文件重新实现了 packages/shared 已提供的 hook/util
+// 原理: 扫描 apps/*/src 下的 export 语句, 与 packages/shared/src 的 export 做交集
+// 维度(G-880 判据③,2026-10-23):hook 维(use[A-Z] 同名)= 旧阻断档;
+//   util 维(非 hook function/const 同名)= 新加固档,按 HEAD 存量棘轮接 —— 全量面只报数,
+//   --staged 只拦本次提交新增行(立项现读存量非 0,绝不因存量恒红,§0.5/§12e)。
+//   白名单每条带 reviewBy 到期字段:过期不再豁免、照计违规(形态仿 fixture-tmpdir-exemptions.json)。
+// 用法: node scripts/check-shared-layer-duplication.mjs            全量档(判 HEAD blob)
+//       node scripts/check-shared-layer-duplication.mjs --staged   提交档(判索引 blob)
+//       node scripts/check-shared-layer-duplication.mjs --worktree 人工逃生舱(判磁盘)
+//       node scripts/check-shared-layer-duplication.mjs --help     显示帮助
+// 退出码: 0=通过, 1=发现重复, 2=无法判定(被审面取不到 / 枚举到 0,不冒红也不记绿)
+//
+// 判定面(AGENTS §0.4):全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工逃生舱;
+// 清单(git ls-tree / ls-files)与正文(同面 blob)取自**同一个**被审面,取不到绝不回落另一面。
+// 旧版按磁盘 walk + `readFileSync`:共享工作树常年滞后 HEAD,判的可能是别人没提交的半编辑态。
+//
+// §22d:模块顶层零副作用、零 exit —— CLI 直跑(底部 isDirectRun)与被镜像测试 import(`__test__`)两用。
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { Undetermined, assertRepoRoot, listFaceFiles, selectFace } from './lib/face-reader.mjs'
+import { addedLineNumbers, readSources } from './lib/face-scan.mjs'
+import {
+  PURITY_ROOTS,
+  firstSignalLine,
+  judgePlatformPurity,
+  platformPurityCounts,
+  readPurityLedger,
+  writePurityLedger,
+} from './lib/shared-layer-purity.mjs'
+
+/** ROOT 由脚本自身位置推导(AGENTS §15:不得用 process.cwd() 定根) */
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+const HELP_TEXT = `
+check-shared-layer-duplication.mjs — 共享层重复检测(端内不得重写 shared 已提供的 hook/util)
+
+用法:
+  node scripts/check-shared-layer-duplication.mjs            全量档:判 HEAD blob
+  node scripts/check-shared-layer-duplication.mjs --staged   提交档:判索引 blob
+  node scripts/check-shared-layer-duplication.mjs --worktree 人工逃生舱:判磁盘(不作提交门禁)
+  node scripts/check-shared-layer-duplication.mjs --platform-purity S3 共享层平台纯度(独立判定维)
+  node scripts/check-shared-layer-duplication.mjs --platform-purity --json
+  node scripts/check-shared-layer-duplication.mjs --emit-purity-ledger 重固化 S3 台账(存量计数)
+  node scripts/check-shared-layer-duplication.mjs --help     显示本帮助
+
+判定:
+  apps/<端>/src 下的 export 与 packages/shared|types/src 的 export 同名 ⇒ 违规
+  hook 维(use[A-Z] 同名):阻断档,与旧口径一致。
+  util 维(非 hook 的 function/const 同名,G-880 加固):存量棘轮档 —— 全量面只报数,
+    --staged 只拦本次提交新增行;shared 侧只认 function/const(类型同名是撞车不是重实现)。
+  S3 平台纯度(packages/app/src/features|components):裸 rpx / 内联 var(--) / hoverClass /
+    className 四信号按文件棘轮;平台专属资产须在 scripts/data/shared-layer-platform-purity.jsonl
+    登记 consumption 证据(带 owner/expires/why),未登记或上调即红。
+  例外:re-export wrapper(命中 from '@ihui/shared' 且 < 50 行)、export 行自带 from、
+        WHITELIST 登记的深度集成/平台 adapter(每条带 reviewBy,到期不再豁免、照计违规)
+`
+
+/** 共享层取源顺序 = 采集顺序(同名 export 以先出现者为准,与旧 walk 的注册序一致) */
+const SHARED_ROOTS = ['packages/shared/src', 'packages/types/src']
+
+/** ===== 收集 shared 的 export 名称(5 条式样,与旧实现逐字一致) ===== */
+const SHARED_EXPORT_PATTERNS = [
+  /export\s+function\s+([A-Za-z_$][\w$]*)/g,
+  /export\s+const\s+([A-Za-z_$][\w$]*)\s*[:=]/g,
+  /export\s+\{[^}]*\b([A-Za-z_$][\w$]*)\b[^}]*\}/g,
+  /export\s+type\s+([A-Za-z_$][\w$]*)/g,
+  /export\s+interface\s+([A-Za-z_$][\w$]*)/g,
+]
+
+/** 只收 .ts/.tsx 且排除测试文件(文件名判,与旧 walk 同口径) */
+function isSharedCandidate(rel) {
+  const base = rel.slice(rel.lastIndexOf('/') + 1)
+  return /\.(ts|tsx)$/.test(base) && !base.includes('.test.') && !base.includes('.spec.')
+}
+
+/**
+ * @param {{rel:string,text:string}[]} sources 按采集序(shared/src 在前,types/src 在后)
+ * @returns {Map<string,string>} exportName → 相对仓库根的路径(**先出现者为准**,同名不覆盖)
+ */
+function collectExports(sources) {
+  const map = new Map()
+  for (const { rel, text } of sources) {
+    for (const pattern of SHARED_EXPORT_PATTERNS) {
+      pattern.lastIndex = 0
+      let match
+      while ((match = pattern.exec(text)) !== null) {
+        const name = match[1]
+        if (name && !map.has(name)) map.set(name, rel)
+      }
+    }
+  }
+  return map
+}
+
+/**
+ * 加固维度(G-880 判据③)的 shared 比对集:只认 function/const 导出。
+ * 类型/接口/export{} 转发名不进 util 比对 —— 实测假阳:`export interface KanbanColumn`
+ * (types 包)与端内同名 React 组件是命名撞车,不是"端内重实现 shared util"。
+ */
+function collectUtilExports(sources) {
+  const map = new Map()
+  for (const { rel, text } of sources) {
+    for (const pattern of SHARED_EXPORT_PATTERNS.slice(0, 2)) {
+      pattern.lastIndex = 0
+      let match
+      while ((match = pattern.exec(text)) !== null) {
+        const name = match[1]
+        if (name && !map.has(name)) map.set(name, rel)
+      }
+    }
+  }
+  return map
+}
+
+// ===== 白名单:端内允许的独立实现(有合理理由不和 shared 共享) =====
+// 格式: {app, name, reason, reviewBy} — 这些 export 虽与 shared 同名,但是合理的深度集成/平台 adapter。
+// 形态仿 scripts/fixture-tmpdir-exemptions.json(G-880 判据③,2026-10-23 立):
+//   每条必须带非空 reason(可复核的事实)与 reviewBy(ISO 日期);
+//   **到期(reviewBy < 当刻本地日)⇒ 不再豁免且照计违规** —— 须按当刻现读重新评估:
+//   改 import shared,或带新理由续期;形态坏(缺 reason / reviewBy 非法)同样不豁免(fail-closed)。
+const WHITELIST = [
+  {
+    app: 'web',
+    name: 'useAgentRuntime',
+    reason: 'web 深度集成版(集成 applyDiff/工具调用),shared 是依赖注入抽象',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useAuth',
+    reason: 'web 深度集成版(集成 next/navigation/react-query),shared 是纯逻辑层',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useChat',
+    reason: 'web 1678 行深度集成版(集成 store/router/applyDiff),shared 是依赖注入抽象',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useClipboard',
+    reason: '工厂模式: createUseClipboard + 浏览器 adapter,不是独立实现',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useNotificationStore',
+    reason: 'web 特有 notification store(集成浏览器 Notification API)',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'mobile-rn',
+    name: 'useAuth',
+    reason: 'RN AuthContext wrapper(集成 AsyncStorage),shared 是纯逻辑层',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'mobile-rn',
+    name: 'useNotificationStore',
+    reason:
+      'RN 薄封装:re-export @ihui/shared/notifications/notification-store;另在 addFromWs 上只过滤 agent-control 指令帧(agent.action),其余字段原样透传。属 AGENTS.md §3 允许的"re-export wrapper + 平台 adapter",非端内独立实现;本守门的 re-export 判定只看 export 那一行有没有 from,故函数型 wrapper 必须显式登记。',
+    reviewBy: '2027-03-31',
+  },
+]
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * 白名单命中判定(纯函数,now 可注入 ⇒ 镜像测试能构造"到期前/到期后/形态坏"三态)。
+ * 未登记 / 已过期 / 形态坏(reason 空或 reviewBy 非 ISO)⇒ 一律不豁免(fail-closed)。
+ */
+function isWhitelisted(whitelist, appName, exportName, now = new Date()) {
+  const entry = whitelist.find((e) => e && e.app === appName && e.name === exportName)
+  if (!entry) return false
+  if (!entry.reason || !ISO_DATE_RE.test(String(entry.reviewBy))) return false
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+  return String(entry.reviewBy) >= today
+}
+
+// ===== re-export wrapper 检测标识 =====
+const RE_EXPORT_INDICATORS = [
+  "from '@ihui/shared",
+  'from "@ihui/shared',
+  'export * from',
+  'createUse', // 工厂模式
+  'createAuth',
+  'createTheme',
+  'createAsyncStorage',
+  'createSyncTransport',
+]
+
+// ===== 端内 export 句式(与旧实现逐字一致) =====
+const APP_EXPORT_PATTERNS = [
+  /export\s+function\s+(use[A-Z]\w*)/g,
+  /export\s+const\s+(use[A-Z]\w*)\s*[:=]/g,
+]
+
+/**
+ * 加固维度(G-880 判据③,2026-10-23 立):旧判据只认 `use[A-Z]` 且名逐字相等,
+ * 非 hook 的同名重实现(formatDate / formatDuration / redactUrl …)整族看不见。
+ * 现收全量 function/const 导出,与 collectUtilExports(shared 侧 function/const)比对;
+ * `use[A-Z]` 名归 hook 维(旧阻断档),其余归 util 维(**存量棘轮**:实测 HEAD 存量非 0,
+ * 全量档只报数,--staged 只拦本次提交新增行,绝不因存量恒红)。
+ */
+const HOOK_NAME_RE = /^use[A-Z]/
+/**
+ * 保留标记名:AGENTS §22c/§22d **强制**每个判据源脚本/纯 lib 都 `export const __test__`,
+ * 镜像测试靠它 import 源判据(禁复制)。它因此是全仓同名的机械标记,不承载功能语义 ——
+ * 按"导出名同名"比对时若不摘掉它,任何新增端内 lib 只要守规约导出 `__test__` 就必被这条
+ * util 维命中(实测 2026-11-04:小程序/RN 考勤两枚新 lib 因此判红,而"修法"是叫测试复制判据)。
+ * 只豁免这一枚具名标记,其余同名照计(镜像测试 S11 带正向对照,豁免不外溢)。
+ */
+const RESERVED_MIRROR_MARKERS = new Set(['__test__'])
+const APP_UTIL_EXPORT_PATTERNS = [
+  /export\s+function\s+([A-Za-z_$][\w$]*)/g,
+  /export\s+const\s+([A-Za-z_$][\w$]*)\s*[:=]/g,
+]
+
+const APPS = ['web', 'mobile-rn', 'miniapp-taro', 'extension', 'cli']
+/** 端内扫描剪枝(与旧 walk 同名同序) */
+const APP_EXCLUDED_DIRS = ['node_modules', '.next', 'dist', '__tests__', 'tests']
+
+/** 路径 → 端名(只认 `apps/<APPS>/src/` 前缀;不在射程内返回 null) */
+function appOf(rel) {
+  const m = /^apps\/([^/]+)\/src\//.exec(rel)
+  return m && APPS.includes(m[1]) ? m[1] : null
+}
+
+/** 端内候选:apps/<端>/src 下的 .ts/.tsx,排除测试文件与构建/夹具目录(同旧 walk 口径) */
+function isAppCandidate(rel) {
+  const parts = rel.split('/')
+  const base = parts[parts.length - 1] ?? ''
+  if (!/\.(ts|tsx)$/.test(base)) return false
+  if (base.includes('.test.') || base.includes('.spec.')) return false
+  return !parts.some((p) => APP_EXCLUDED_DIRS.includes(p))
+}
+
+/**
+ * 单文件判定(判据本体):
+ *   ① re-export wrapper(命中 indicator 且 < 50 行)⇒ 放过;
+ *   ② export 名不在 shared 比对集里 ⇒ 放过(hook 维对全量 sharedExports,util 维只对 function/const);
+ *   ②' 保留标记名(RESERVED_MIRROR_MARKERS,现只有 §22c 强制的 `__test__`)⇒ 放过,不参与同名比对;
+ *   ③ 白名单登记**且未过期** ⇒ 放过(到期/形态坏不再豁免,照计违规);
+ *   ④ export 那一行自带 `from ` ⇒ 是 re-export,放过;
+ *   ⑤ 其余 ⇒ 违规,带 dimension('hook' 旧阻断档 / 'util' 加固棘轮档)。
+ * @returns {{appName:string,file:string,exportName:string,sharedLocation:string,line:number,dimension:'hook'|'util'}[]}
+ */
+function judgeAppSource(
+  rel,
+  content,
+  sharedExports,
+  sharedUtilExports,
+  whitelist = WHITELIST,
+  now = new Date(),
+) {
+  const appName = appOf(rel)
+  if (!appName) return []
+  const violations = []
+  // 跳过 re-export wrapper(内容主要是 from '@ihui/shared')
+  const isReExport = RE_EXPORT_INDICATORS.some((indicator) => content.includes(indicator))
+  // 进一步检查:如果文件 < 50 行且包含 re-export indicator,肯定是 wrapper
+  const lineCount = content.split('\n').length
+  if (isReExport && lineCount < 50) return violations
+
+  const dims = [
+    { dimension: 'hook', patterns: APP_EXPORT_PATTERNS, set: sharedExports },
+    { dimension: 'util', patterns: APP_UTIL_EXPORT_PATTERNS, set: sharedUtilExports },
+  ]
+  for (const { dimension, patterns, set } of dims) {
+    for (const pattern of patterns) {
+      pattern.lastIndex = 0
+      let match
+      while ((match = pattern.exec(content)) !== null) {
+        const exportName = match[1]
+        // 保留标记名不参与"同名重实现"比对(§22c 强制导出,全仓同名是构造性事实,不是重复实现)
+        if (RESERVED_MIRROR_MARKERS.has(exportName)) continue
+        // 维度分流:use[A-Z] 名归 hook 维,util 维不重复计同一命中
+        if (dimension === 'util' && HOOK_NAME_RE.test(exportName)) continue
+        if (!set.has(exportName)) continue
+        // 白名单跳过(已登记且未到期;到期/形态坏 ⇒ 不豁免,照计违规)
+        if (isWhitelisted(whitelist, appName, exportName, now)) continue
+        // 确认不是 re-export(检查 export 语句附近是否有 from)
+        const lineStart = content.lastIndexOf('\n', match.index) + 1
+        const lineEnd = content.indexOf('\n', match.index)
+        const exportLine = content.slice(lineStart, lineEnd > 0 ? lineEnd : undefined)
+        if (exportLine.includes('from ')) continue
+        violations.push({
+          appName,
+          file: rel,
+          exportName,
+          sharedLocation: set.get(exportName),
+          line: content.slice(0, match.index).split('\n').length,
+          dimension,
+        })
+      }
+    }
+  }
+  return violations
+}
+
+/**
+ * 取样 + 判定。清单与正文取自**同一个**被审面(AGENTS §0.4);任一侧枚举到 0 ⇒ `Undetermined`
+ * (调用方折成 exit 2),不把"没扫到"读成"没重复"。
+ */
+function analyze({ root = ROOT, face = 'head' } = {}) {
+  const sharedFiles = listFaceFiles(root, face, { paths: SHARED_ROOTS }).filter(isSharedCandidate)
+  if (sharedFiles.length === 0) {
+    throw new Undetermined(
+      `被审面 ${face} 在 ${SHARED_ROOTS.join(' / ')} 下枚举到 0 个 .ts/.tsx 文件 ⇒ 无法判定(不冒红也不记绿)`,
+    )
+  }
+  const sharedSrc = readSources(root, face, sharedFiles)
+  const sharedSources = sharedFiles.map((rel) => ({ rel, text: sharedSrc.texts.get(rel) ?? '' }))
+  const sharedExports = collectExports(sharedSources)
+  const sharedUtilExports = collectUtilExports(sharedSources)
+
+  const appFiles = listFaceFiles(root, face, { paths: APPS.map((a) => `apps/${a}/src`) })
+    .filter((rel) => appOf(rel) !== null)
+    .filter(isAppCandidate)
+  if (appFiles.length === 0) {
+    throw new Undetermined(
+      `被审面 ${face} 在 ${APPS.length} 个 apps/*/src 下枚举到 0 个 .ts/.tsx 文件 ⇒ 无法判定(不冒红也不记绿)`,
+    )
+  }
+  const appSrc = readSources(root, face, appFiles)
+  // util 加固维度的棘轮基线(§0.5/§12e):staged 档拿"本次提交新增行"做差,
+  // 命中行不在新增集 ⇒ 属存量,只报数;全量档(HEAD/worktree)无新增集 ⇒ util 全记存量。
+  const added = face === 'staged' ? addedLineNumbers(root) : null
+  const violations = [] // 阻断集:hook 维(旧口径,判整面)+ staged 档"本次新增行"上的 util 命中
+  const utilStock = [] // 棘轮存量集:只报数不阻断
+  for (const rel of appFiles) {
+    if (!appSrc.texts.has(rel)) continue // 只有 worktree 档会缺(并发删除),不得判空串
+    for (const v of judgeAppSource(rel, appSrc.texts.get(rel), sharedExports, sharedUtilExports)) {
+      const isNewLine = !!added && !!added.get(rel) && added.get(rel).has(v.line)
+      if (v.dimension === 'util' && !isNewLine) utilStock.push(v)
+      else violations.push(v)
+    }
+  }
+  return {
+    face,
+    sharedFiles: sharedFiles.length,
+    appFiles: appFiles.length,
+    violations,
+    utilStock,
+  }
+}
+
+/** ===== S3 共享层平台纯度(2026-11-06 追加;独立判定维,不与门 291 文案/299 复制页/218 配色混用)=====
+ * 共享层(web/RN/小程序三方都 import 的 features/components)不得出现平台专属写法:
+ * 裸 `rpx` 字面量、内联 `var(--)`、`hoverClass`、以及 `className` 直接落盘。
+ * 设计稿裁定:平台专属资产(仅一端消费)可保留,但必须在台账登记 consumption 证据,
+ * 不硬改成"看起来纯"再回头在消费端打补丁。存量按文件计数棘轮:只降不升。
+ *
+ * 判据与台账读写全部下沉 `lib/shared-layer-purity.mjs`:本门既有形状锁要求门内零 `readFileSync`
+ * (取材只走 face-reader/face-scan 同一被审面),且纯判定可被单测直接调用。此处只留编排。
+ */
+
+function emitPurityLedger(face) {
+  let files
+  try {
+    files = listFaceFiles(ROOT, face, { paths: PURITY_ROOTS })
+      .map((p) => String(p).replace(/\\/g, '/'))
+      .filter((r) => /\.(tsx|ts)$/.test(r) && !/\.test\.[tj]sx?$/.test(r))
+  } catch (e) {
+    console.error(`❌ 未判定:取不到被审面(${e?.message ?? e})`)
+    return 2
+  }
+  let texts
+  try {
+    texts = readSources(ROOT, face, files).texts
+  } catch (e) {
+    console.error(`❌ 未判定:取不到正文(${e?.message ?? e})`)
+    return 2
+  }
+  const prev = readPurityLedger(ROOT)
+  const rows = []
+  for (const f of files) {
+    const counts = platformPurityCounts(texts.get(f) ?? '')
+    if (!Object.values(counts).some((n) => n > 0)) continue
+    const old = prev.ok ? prev.ledger[f] : null
+    const line = firstSignalLine(texts.get(f) ?? '')
+    if (old?.kind === 'platform-asset') {
+      // 平台专属资产的 consumption 证据是人写的,重固化只更新计数,不改证据
+      rows.push({ ...old, counts })
+      continue
+    }
+    rows.push({
+      file: f,
+      kind: 'legacy-ratchet',
+      owner: 'cross-end-style',
+      expires: '2027-06-30',
+      evidence: [`${f}:${line}`],
+      why: '存量登记(共享层平台杂质):待按平台专属资产处置或纯化;新增/上调由门 S3 拦截',
+      counts,
+    })
+  }
+  writePurityLedger(ROOT, rows)
+  console.log(`已固化共享层平台纯度台账:${rows.length} 个文件(含四信号计数)`)
+  return 0
+}
+
+async function platformPurityMain({ argv, face }) {
+  let files
+  try {
+    files = listFaceFiles(ROOT, face, { paths: PURITY_ROOTS })
+      .map((p) => String(p).replace(/\\/g, '/'))
+      .filter((r) => /\.(tsx|ts)$/.test(r) && !/\.test\.[tj]sx?$/.test(r))
+  } catch (e) {
+    console.error(`❌ 未判定:取不到共享层文件清单(${e?.message ?? e})`)
+    return 2
+  }
+  if (files.length === 0) {
+    console.error('❌ 未判定:共享层枚举到 0 个文件(不记绿)')
+    return 2
+  }
+  let texts
+  try {
+    texts = readSources(ROOT, face, files).texts
+  } catch (e) {
+    console.error(`❌ 未判定:取不到共享层正文(${e?.message ?? e})`)
+    return 2
+  }
+  const countsByFile = {}
+  for (const f of files) {
+    const c = platformPurityCounts(texts.get(f) ?? '')
+    if (Object.values(c).some((n) => n > 0)) countsByFile[f] = c
+  }
+  const read = readPurityLedger(ROOT)
+  if (!read.ok) {
+    console.error(`❌ 未判定:${read.why}`)
+    return 2
+  }
+  const judged = judgePlatformPurity({ countsByFile, ledger: read.ledger })
+  const out = { face, scanned: files.length, hitFiles: Object.keys(countsByFile).length, ...judged }
+  if (argv.includes('--json')) {
+    console.log(JSON.stringify(out, null, 2))
+  } else {
+    console.log(
+      `S3 共享层平台纯度:扫描 ${files.length} 文件,命中 ${Object.keys(countsByFile).length} 文件,台账 ${Object.keys(read.ledger).length} 条`,
+    )
+    for (const v of judged.violations) {
+      const tail =
+        v.type === 'increase' ? `${v.signal} ${v.base} → ${v.now}` : v.type === 'expired' ? `台账到期 ${v.expires ?? '(缺)'}` : '未在台账登记'
+      console.error(`  ❌ ${v.file} — ${tail}`)
+    }
+    for (const r of judged.rot) console.log(`  · 可回收台账 ${r.file}(当前已无信号,不阻断)`)
+  }
+  return judged.state === 'violated' ? 1 : 0
+}
+
+/** CLI 主流程。**返回退出码**而不是 process.exit —— 测试 import 不得打死宿主(§22d)。 */
+export async function main(argv = process.argv.slice(2)) {
+  if (argv.includes('--help')) {
+    console.log(HELP_TEXT)
+    return 0
+  }
+  const picked = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+  if (picked.error) {
+    console.error(`❌ ${picked.error}`)
+    return 2
+  }
+  const { face } = picked
+  try {
+    assertRepoRoot(ROOT, '共享层重复检测')
+  } catch (e) {
+    console.error(`❌ 无法判定:${e?.message ?? e}`)
+    return 2
+  }
+  if (argv.includes('--emit-purity-ledger')) return emitPurityLedger(face)
+  if (argv.includes('--platform-purity')) return platformPurityMain({ argv, face })
+  let result
+  try {
+    result = analyze({ root: ROOT, face })
+  } catch (e) {
+    console.error(`❌ 无法判定:${e?.message ?? e}`)
+    return 2
+  }
+
+  const { violations, utilStock } = result
+  if (utilStock.length > 0) {
+    console.log(
+      `🔎 加固维度(非 hook 同名 util)存量 ${utilStock.length} 处 — 棘轮档:全量面只报数不阻断,--staged 只拦本次提交新增行`,
+    )
+    for (const v of utilStock.slice(0, 10)) {
+      console.log(
+        `  ${v.appName}/${v.file}:${v.line} — export ${v.exportName}() 与 shared/${v.sharedLocation} 同名`,
+      )
+    }
+    if (utilStock.length > 10)
+      console.log(`  …另 ${utilStock.length - 10} 处从略(全量清单见 --worktree 人工档)`)
+    console.log('')
+  }
+  if (violations.length === 0) {
+    console.log('✅ 共享层重复检测通过:未发现端内独立实现 shared 已提供的 hook/util')
+    return 0
+  }
+  console.error(`❌ 发现 ${violations.length} 处端内重复实现 shared hook/util:`)
+  for (const v of violations) {
+    console.error(
+      `  ${v.appName}/${v.file}:${v.line} — export ${v.exportName}() 与 shared/${v.sharedLocation} 重复`,
+    )
+  }
+  console.error(
+    '\n修复:删除端内实现,改为 import { ' + violations[0].exportName + ' } from "@ihui/shared"',
+  )
+  return 1
+}
+
+// §22d:模块加载不得触发主流程(镜像测试 import 判据就是这个姿势)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+      process.exit(2)
+    })
+}
+
+export const __test__ = {
+  appOf,
+  isAppCandidate,
+  isSharedCandidate,
+  collectExports,
+  collectUtilExports,
+  isWhitelisted,
+  judgeAppSource,
+  analyze,
+  main,
+  SHARED_ROOTS,
+  SHARED_EXPORT_PATTERNS,
+  RE_EXPORT_INDICATORS,
+  APP_EXPORT_PATTERNS,
+  APP_UTIL_EXPORT_PATTERNS,
+  HOOK_NAME_RE,
+  RESERVED_MIRROR_MARKERS,
+  ISO_DATE_RE,
+  APPS,
+  APP_EXCLUDED_DIRS,
+  WHITELIST,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,207 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// Provenance-normalized. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * D136(2026-10-01 立):主对话流 `tool-approval` 帧的**端内认领层**。
+ *
+ * 为什么这一层住在端内(§3 共享层优先的例外声明,三条现读事实):
+ *  ① `@ihui/shared/utils/sse-parse` 没有认领该帧 —— 现读
+ *     `grep -c "tool-approval" packages/shared/src/utils/sse-parse.ts` = 0,
+ *     帧的载荷既不带 content 也不带 delta/text 而带 approval_id,不认领就一路走到
+ *     解析函数末尾 `return null` ⇒ **帧能到设备却被静默丢掉**(D113 tool-delta 同型);
+ *     该文件在共享包内,本票只交小程序那一半,不得替跨端裁决改共享解析面。
+ *  ② 共享的那份审批解析器 `@ihui/shared/sse/agent-events#parseToolApprovalEvent` 要的是
+ *     **agent 任务流信封**(`{type, payload:{approval_id…}}`),而 chat-stream 帧是**平铺**
+ *     snake_case JSON(见 api-client `client.ts` 的 tryParseToolApproval:直接读
+ *     `json.approval_id`)⇒ 用它解析本帧必得 null。
+ *  ③ api-client 的同一条解析腿住在 `streamChat` 闭包里,**不导出**(该包在本票只读),
+ *     而本端传输层是自己的 `src/lib/sse.ts`,不走 `streamChat`。
+ * ⇒ 所以字段映射在本端落一份,但**只落"读哪些线字段"这一层**,D159 的环境/网络事实投影
+ *     仍走 `@ihui/api-client` 导出的那一份 `projectToolApprovalEnvFacts`(不抄第二份)。
+ *     映射口径由常驻测试 `tests/tool-approval-frame-claim.test.ts` 对着 api-client 源码钉住
+ *     (键清单漂开即红),不是"写了就算"。
+ */
+import { projectToolApprovalDecisionInfo, projectToolApprovalEnvFacts } from '@ihui/api-client'
+import type { ToolApprovalEvent } from '@ihui/api-client'
+// 差距①:准入回执判据的唯一出口在共享层,本文件只调用、不复算(§0.6 单一真相源)。
+import {
+  readSendAdmissionReceipt,
+  type SendAdmissionReceipt,
+} from '@ihui/shared/chat/send-admission'
+
+/** 帧名(SSE data 里的 type 值);与 @ihui/shared/sse/contract.ts 的 SSE_EVENTS.TOOL_APPROVAL 同字。 */
+export const TOOL_APPROVAL_FRAME_TYPE = 'tool-approval'
+
+/**
+ * 廉价预筛:整行原文不含该标记就绝不 JSON.parse。
+ * 逐帧 parse 会让每个 chunk 的**每一行**多跑一次解析(正文 delta 是热路径),
+ * 而这一族帧的判定只需要"像不像审批帧";真正的判据在 parse 之后。
+ */
+export function maybeToolApprovalLine(line: string): boolean {
+  return typeof line === 'string' && line.includes(`"${TOOL_APPROVAL_FRAME_TYPE}"`)
+}
+
+/** 去掉 SSE `data:` 前缀(与 @ihui/shared 的 dataPayloadOfLine 同规矩);非 data 行返回 null。 */
+export function dataPayloadOfLine(line: string): string | null {
+  if (!line || line.startsWith(':')) return null
+  if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) return null
+  if (line.startsWith('data:')) return line.slice(5).replace(/^\s/, '')
+  return line
+}
+
+// ===== BUG-67:AI 主动提问(question 帧)的端内认领层 =====
+// 共享 @ihui/shared/utils/sse-parse 的 SSEEvent 联合类型不含 'question',parseSSEChunk
+// 也不认领该帧(web/RN 走 tryParseQuestion 整行旁路);本端复用同一条 onRawLine 旁路
+// 自行认领,再经 api/index.ts 的 onQuestion 回调分发到提问卡组件。
+const QUESTION_FRAME_TYPE = 'question'
+
+/** 与 @ihui/api-client streamChat.onQuestion / 后端 Question.to_dict() 逐字同形。 */
+export interface QuestionCardPayload {
+  questionId: string
+  prompt: string
+  options: Array<{ id: string; label: string }>
+  allowCustom: boolean
+  allowMultiple: boolean
+}
+
+/** 一行 SSE 文本 → 提问卡载荷;非本族帧/字段不合法 ⇒ null(丢弃,不猜,不回落正文)。 */
+export function parseQuestionLine(line: string): QuestionCardPayload | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload || !payload.includes(`"${QUESTION_FRAME_TYPE}"`)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== QUESTION_FRAME_TYPE) return null
+  const q = json.question
+  if (!q || typeof q !== 'object' || Array.isArray(q)) return null
+  const obj = q as Record<string, unknown>
+  if (typeof obj.questionId !== 'string' || obj.questionId === '') return null
+  if (typeof obj.prompt !== 'string' || obj.prompt === '') return null
+  const rawOptions = Array.isArray(obj.options) ? obj.options : []
+  const options: Array<{ id: string; label: string }> = []
+  for (const item of rawOptions) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const o = item as Record<string, unknown>
+    if (typeof o.id === 'string' && typeof o.label === 'string') {
+      options.push({ id: o.id, label: o.label })
+    }
+  }
+  return {
+    questionId: obj.questionId,
+    prompt: obj.prompt,
+    options,
+    allowCustom: obj.allowCustom !== false,
+    allowMultiple: obj.allowMultiple === true,
+  }
+}
+
+/**
+ * 一行 SSE 文本 → 审批请求视图;不是这一族帧(或 approval_id 缺失/空)⇒ null(丢弃,不猜)。
+ *
+ * 与 api-client 的解析腿逐字段同口径:
+ * - `approval_id` 必须是非空 string,否则整帧不要(没有 id 就回传不了决策,留着只会挡路);
+ * - `danger_level` 只认 high/medium/low,**缺省 high**(保守展示,后端仅在收录工具上发帧);
+ * - `session_id` 空串视为缺席(回传端点寻址用,写空串会把"不知道是哪条流"伪装成知道);
+ * - D159 的执行环境/网络目标事实经 `projectToolApprovalEnvFacts` 投影,端内不再判一遍。
+ */
+export function parseToolApprovalLine(line: string): ToolApprovalEvent | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload || !maybeToolApprovalLine(payload)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== TOOL_APPROVAL_FRAME_TYPE) return null
+  const approvalId = json.approval_id
+  if (typeof approvalId !== 'string' || approvalId === '') return null
+  const sessionId = json.session_id
+  return {
+    type: TOOL_APPROVAL_FRAME_TYPE,
+    approvalId,
+    toolName: typeof json.tool_name === 'string' ? json.tool_name : '',
+    toolCallId: typeof json.tool_call_id === 'string' ? json.tool_call_id : '',
+    argsPreview: typeof json.args_preview === 'string' ? json.args_preview : '',
+    dangerLevel:
+      json.danger_level === 'medium' ? 'medium' : json.danger_level === 'low' ? 'low' : 'high',
+    ...(typeof sessionId === 'string' && sessionId !== '' ? { sessionId } : {}),
+    ...projectToolApprovalEnvFacts(json),
+    // 批次 2(2026-11-06):结构化审批决策信息与 api-client 共用同一投影(不抄第二份）。
+    // 小程序按"字段对齐 + 渲染降级"接:字段全量解析入视图,卡片只渲染摘要/目录/路径/命令。
+    ...projectToolApprovalDecisionInfo(json),
+    // D-07(2026-10-26):失效留痕帧透传 expired 标记(与 api-client 同口径),
+    // 消费方据此分流成提示而不是审批卡。
+    ...(json.expired === true
+      ? {
+          expired: true as const,
+          ...(typeof json.expired_reason === 'string'
+            ? { expiredReason: json.expired_reason }
+            : {}),
+        }
+      : {}),
+  }
+}
+
+// ===== 差距①(2026-11-13 立):发送准入回执(admission)帧的端内认领层 =====
+// 共享 @ihui/shared/utils/sse-parse 的 SSEEvent 联合类型不含 'admission',parseSSEChunk
+// 也不认领该帧(web 走 api-client 的 hasSendAdmission 解析开关);本端复用同一条 onRawLine
+// 旁路自行认领 —— 与 tool-approval / question 同一条先例,不是新造通道。
+//
+// **判据不在本文件**:四档值域、inputId 必填、形状校验全部走共享层
+// `readSendAdmissionReceipt`(唯一出口)。本函数只做"这一行是不是 admission 帧"的
+// 入口筛选,拿到 json 后原样交给共享判据 —— 端内不复制第二份判据(§0.6)。
+const ADMISSION_FRAME_TYPE = 'admission'
+
+/**
+ * 一行 SSE 文本 → 准入回执;不是这一族帧(或形状不认)⇒ null(丢弃,不猜)。
+ *
+ * 为什么先自己判一次 `type` 再交给共享判据:共享判据只看载荷形状(inputId + disposition),
+ * 不看帧名;若把任意 data 行都塞给它,别的帧只要碰巧带这两个键就会被误认成回执。
+ */
+// ===== G-87(2026-11-13 立):hook 执行失败帧的端内认领层 =====
+// 共享 sse-parse 的 SSEEvent 联合类型不含 `hook-failed`,parseSSEChunk 也不认领
+// (web 走 api-client 的 hasHookFailure 解析开关);本端复用同一条 onRawLine 旁路自行认领 ——
+// 与 tool-approval / admission / question 同一条先例,不是新造通道。
+//
+// 判据不在本文件:六态收窄、视图映射、脱敏全部在共享层
+// `@ihui/shared/chat/hook-failures`(唯一实现)。本函数只做"这一行是不是该帧"的入口筛选。
+const HOOK_FAILED_FRAME_TYPE = 'hook-failed'
+
+/** 一行 SSE 文本 → hook 失败载荷;不是这一族 ⇒ null(丢弃,不猜)。 */
+export function parseHookFailureLine(line: string): Record<string, unknown> | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload) return null
+  // 零成本直返:绝大多数行不是这一族
+  if (!payload.includes(HOOK_FAILED_FRAME_TYPE)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== HOOK_FAILED_FRAME_TYPE) return null
+  return json
+}
+
+export function parseAdmissionLine(line: string): SendAdmissionReceipt | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload) return null
+  // 零成本直返:绝大多数行不是这一族
+  if (!payload.includes(ADMISSION_FRAME_TYPE)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== ADMISSION_FRAME_TYPE) return null
+  return readSendAdmissionReceipt(json)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

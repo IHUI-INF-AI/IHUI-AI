@@ -1,0 +1,852 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { fetchApi } from '../client.js'
+import type {
+  ApiResult,
+  ModelCapabilities,
+  ModelUsageCategory,
+  ModelTier,
+  ReasoningEffort,
+} from '@ihui/types'
+
+/** 模型能力位(Phase C+D:后端 /llm/models 返回的 caps 字段,可选,旧端点无此字段时缺失) */
+export interface LlmModelCaps {
+  supports_stream_usage?: boolean
+  supports_tools?: boolean
+  supports_vision?: boolean
+  supports_response_format?: boolean
+  supports_temperature?: boolean
+  default_timeout?: number
+  max_context?: number
+  protocol?: string
+  /** 第十七批:provider 级 HTTP 失败重试次数(排队型 provider 更高,低延迟型更低) */
+  request_max_retries?: number
+  /** 第十七批:流式响应空闲超时秒数(长排队/长思考链 provider 放宽) */
+  stream_idle_timeout_s?: number
+  // 注意:服务端的 extra_headers / env_headers 属出站请求头配置(可能承载凭据),
+  // 由 cap_to_dict 显式剔除,永不出现在客户端可见的 schema 中。
+}
+
+export interface LlmModel {
+  id: string
+  name: string
+  provider: string
+  context_length: number
+  input_price: number
+  /** 模型能力位(可选,后端 /llm/models 升级后返回) */
+  caps?: LlmModelCaps
+  /**
+   * 用途分类(2026-08-29 立,ai-service model_catalog 产出)。
+   * 可选:老后端 / 缓存数据可能没有,消费方必须能容忍缺失。
+   */
+  category?: ModelUsageCategory
+  /**
+   * 代次档位(2026-08-29 立):latest=最新最强(默认展示)/ standard+legacy=历史模型(折叠)。
+   * 可选:缺失时消费方按"最新"处理,避免模型被误藏。
+   */
+  model_tier?: ModelTier
+  /** 系列名(如 `deepseek-v` / `claude-opus`),代次比较用,调试与分组时可参考 */
+  family?: string
+  /**
+   * 语义能力四布尔(2026-09-19 D23 立,ai-service model_catalog.derive_capabilities 产出,
+   * annotate_models 第三趟写入、显式预设可覆盖)。可选:老后端 / 缓存数据可能没有,
+   * 消费方必须能容忍缺失(缺字段时按"未知"处理,不做能力过滤/徽章)。
+   */
+  capabilities?: ModelCapabilities
+  /**
+   * 该模型上游声明的推理档位子集(2026-11-21 立,D136;ai-service 产出)。
+   * 缺失 = 未声明(按通用档位呈现);空数组 = 上游明确不支持;非空 = 可切档位。
+   * 语义与 `@ihui/types` 的 `ModelCatalogFields.reasoning_efforts` 同源。
+   */
+  reasoning_efforts?: ReasoningEffort[]
+}
+
+export interface FetchModelsResult {
+  models: LlmModel[]
+  default: string
+  stub_mode: boolean
+}
+
+/** 获取可用模型列表 — GET /llm/models (代理到 AI-service) */
+export async function fetchModels(): Promise<FetchModelsResult> {
+  const res = await fetchApi<FetchModelsResult>('/llm/models', { method: 'GET' })
+  if (!res.success) {
+    throw new Error(res.error || '获取模型列表失败')
+  }
+  return res.data
+}
+
+// ============= AI 网关 Dashboard API =============
+
+export type ProviderStatus = 'ok' | 'invalid_key' | 'unreachable'
+export type ProviderCategory = 'domestic' | 'international' | 'local' | 'credits'
+
+export interface GatewayProvider {
+  // 新 schema(健康状态,后端 /llm/providers/health 返回)
+  provider: string
+  status: ProviderStatus
+  latency_ms: number
+  model_count: number
+  last_check?: string
+  // 旧 schema(配置状态,后端补返回,可选)
+  display_name?: string
+  category?: ProviderCategory
+  free_quota?: string
+  default_base_url?: string
+  default_models?: string[]
+  is_in_cooldown?: boolean
+  consecutive_failures?: number
+}
+
+export interface ProvidersHealthResult {
+  providers: GatewayProvider[]
+  summary: {
+    total: number
+    ok: number
+    invalid_key: number
+    unreachable: number
+    configured?: number
+    local?: number
+    not_configured?: number
+  }
+}
+
+export type ComboStrategy = 'priority' | 'cheapest' | 'fusion'
+
+export interface ComboChain {
+  name: string
+  strategy: ComboStrategy
+  chain: string[]
+  judge: string | null
+  description: string
+}
+
+export interface ComboListResult {
+  combos: ComboChain[]
+}
+
+export interface ComboCreateInput {
+  name: string
+  strategy: ComboStrategy
+  chain: string[]
+  judge?: string | null
+  description?: string
+}
+
+export interface ComboCreateResult {
+  ok: boolean
+  combo: ComboChain
+}
+
+export interface ComboDeleteResult {
+  ok: boolean
+  name: string
+}
+
+export type CompactionStrategy = 'rtk' | 'caveman' | 'rtk_caveman'
+
+export interface CompactionDemoInput {
+  messages: Array<{ role: string; content: string }>
+  strategy?: CompactionStrategy
+  keep_recent?: number
+}
+
+export interface CompactionDemoResult {
+  original_tokens: number
+  compressed_tokens: number
+  compression_ratio: number
+  strategy: CompactionStrategy
+  rtk_map_size: number
+  compressed_messages: Array<{ role: string; content: string }>
+  decompressed_messages: Array<{ role: string; content: string }>
+}
+
+/** 获取 Provider 健康状态 — GET /llm/providers/health */
+export async function fetchProvidersHealth(): Promise<ProvidersHealthResult> {
+  const res = await fetchApi<ProvidersHealthResult>('/llm/providers/health', { method: 'GET' })
+  if (!res.success) {
+    throw new Error(res.error || '获取 Provider 健康状态失败')
+  }
+  return res.data
+}
+
+/** 获取 Combo 链列表 — GET /llm/combos */
+export async function fetchCombos(): Promise<ComboListResult> {
+  const res = await fetchApi<ComboListResult>('/llm/combos', { method: 'GET' })
+  if (!res.success) {
+    throw new Error(res.error || '获取 Combo 链列表失败')
+  }
+  return res.data
+}
+
+/** 新建 Combo 链 — POST /llm/combos */
+export async function createCombo(input: ComboCreateInput): Promise<ComboCreateResult> {
+  const res = await fetchApi<ComboCreateResult>('/llm/combos', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) {
+    throw new Error(res.error || '创建 Combo 链失败')
+  }
+  return res.data
+}
+
+/** 删除 Combo 链 — DELETE /llm/combos/{name} */
+export async function deleteCombo(name: string): Promise<ComboDeleteResult> {
+  const res = await fetchApi<ComboDeleteResult>(`/llm/combos/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '删除 Combo 链失败')
+  }
+  return res.data
+}
+
+/** Token 压缩演示 — POST /llm/compaction/demo */
+export async function demoCompaction(input: CompactionDemoInput): Promise<CompactionDemoResult> {
+  const res = await fetchApi<CompactionDemoResult>('/llm/compaction/demo', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) {
+    throw new Error(res.error || 'Token 压缩演示失败')
+  }
+  return res.data
+}
+
+// ============= Phase C+D:Provider 健康状态(模型选择器三态徽章)==============
+
+/** Provider 健康状态(轻量版,新 schema,Phase C+D 模型选择器消费)
+ *  与旧版 GatewayProvider(网关 Dashboard 用)字段不同,本类型聚焦三态徽章所需最小信息 */
+export interface ProviderHealth {
+  provider: string
+  status: 'ok' | 'invalid_key' | 'unreachable'
+  latency_ms: number
+  model_count: number
+  last_check?: string
+}
+
+/** 获取 Provider 健康状态(轻量版)— GET /llm/providers/health
+ *  返回 ProviderHealth[](provider/status/latency_ms/model_count/last_check)
+ *  与旧版 fetchProvidersHealth(返回 ProvidersHealthResult,网关 Dashboard 用)并存,互不影响。
+ *  后端 /llm/providers/health 升级后返回 {code:0, data:{providers:[...]}},fetchApi 解析信封取 data.providers */
+export async function fetchProvidersHealthLite(): Promise<ProviderHealth[]> {
+  const res = await fetchApi<{ providers: ProviderHealth[] }>('/llm/providers/health', {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取 Provider 健康状态失败')
+  }
+  return res.data?.providers ?? []
+}
+
+// ============= Provider 余额与健康状态(2026-07-31 立,Admin 端 Provider 健康面板)==============
+// 用户规则:账户没钱 / key 失效 / 接不通的 provider 不应进模型列表;管理端需可视化 + 跳转充值按钮
+
+/** Provider 健康状态(与 ai-service ModelAvailabilityService.ProviderHealthStatus 对齐) */
+export type ProviderAvailabilityStatus =
+  'healthy' | 'degraded' | 'down' | 'not_configured' | 'local' | 'zero_cost' | 'pending'
+
+/** Provider 错误类型(细化 DOWN 原因,决定是否显示"去充值"按钮) */
+export type ProviderErrorType =
+  | 'none'
+  | 'payment_required' // 402 余额不足/账户没钱(需充值)
+  | 'forbidden' // 403 无权限/key 失效
+  | 'rate_limited' // 429 限流(仍可用,只是慢)
+  | 'timeout' // 请求超时
+  | 'network_error' // 网络错误(连不上)
+  | 'invalid_key' // 401 key 无效
+  | 'unknown'
+
+/** 单个 Provider 的可用性信息(后端 /llm/providers/availability 返回) */
+export interface ProviderAvailabilityItem {
+  provider_code: string
+  status: ProviderAvailabilityStatus
+  latency_ms: number
+  last_check: number
+  error: string
+  error_type: ProviderErrorType
+  /** 账户余额(若 provider 支持余额查询);null 表示未查询 */
+  balance: number | null
+  /** 余额货币单位(如 "USD" / "CNY") */
+  balance_currency: string | null
+  /** 充值/billing 页面 URL(管理端"去充值"按钮跳转用) */
+  recharge_url: string
+}
+
+/** /llm/providers/availability 响应(信封内 data 字段结构) */
+export interface ProviderAvailabilityResult {
+  providers: ProviderAvailabilityItem[]
+  summary: {
+    total: number
+    healthy: number
+    degraded: number
+    down: number
+    local: number
+    zero_cost: number
+  }
+}
+
+/** 获取 Provider 余额与健康状态 — GET /llm/providers/availability
+ *  用于 Admin 端"Provider 余额健康"页面:展示每个 provider 的状态/余额/错误,并提供"去充值"按钮。
+ *  账户没钱的 provider(error_type=payment_required 或 balance<=0)在 /llm/models 已被过滤,不显示给终端用户。 */
+export async function fetchProvidersAvailability(): Promise<ProviderAvailabilityResult> {
+  const res = await fetchApi<ProviderAvailabilityResult>('/llm/providers/availability', {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取 Provider 可用性失败')
+  }
+  return res.data
+}
+
+// ============= 模型自动同步(ModelSyncService)=============
+
+/** 单个 provider 的同步结果 */
+export interface ModelSyncResult {
+  provider_code: string
+  success: boolean
+  total_models: number
+  new_models: number
+  removed_models: number
+  error: string
+  latency_ms: number
+  /** F4.1:本次同步新增的模型 id 列表(后端 F2.2 dry_run 返回,或从 history 端点获取) */
+  new_model_ids?: string[]
+  /** F4.1:本次同步下架的模型 id 列表 */
+  removed_model_ids?: string[]
+  /** F3.4:模型分类标签 */
+  tags?: string[]
+}
+
+/** F4.4:单条同步历史记录(GET /llm/models/sync/history 返回) */
+export interface ModelSyncHistoryRecord {
+  id: number
+  provider_code: string
+  sync_started_at: string
+  sync_finished_at: string
+  success: boolean
+  total_models: number
+  new_models: number
+  removed_models: number
+  error: string
+  latency_ms: number
+  sync_type: 'full' | 'single' | 'dry_run'
+}
+
+/** 模型同步状态 */
+export interface ModelSyncStatus {
+  last_sync_at: string
+  last_sync_duration_ms: number
+  total_providers: number
+  total_new_models: number
+  total_removed_models: number
+  is_syncing: boolean
+  results: ModelSyncResult[]
+}
+
+/** 触发模型自动同步 — POST /llm/models/sync
+ *  返回同步状态(含每个 provider 的结果)。
+ *  - options.provider:仅同步指定 provider(单 provider 同步,F4.2)
+ *  - options.dry_run:true 时只预览不实际落库,返回的 results 含 new_model_ids/removed_model_ids(F4.3) */
+export async function triggerModelSync(options?: {
+  provider?: string
+  dry_run?: boolean
+}): Promise<ModelSyncStatus> {
+  const params = new URLSearchParams()
+  if (options?.provider) params.set('provider', options.provider)
+  if (options?.dry_run) params.set('dry_run', 'true')
+  const query = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetchApi<ModelSyncStatus>(`/llm/models/sync${query}`, { method: 'POST' })
+  if (!res.success) {
+    throw new Error(res.error || '触发模型同步失败')
+  }
+  return res.data
+}
+
+/** 查询模型同步状态 — GET /llm/models/sync/status */
+export async function fetchModelSyncStatus(): Promise<ModelSyncStatus> {
+  const res = await fetchApi<ModelSyncStatus>('/llm/models/sync/status', { method: 'GET' })
+  if (!res.success) {
+    throw new Error(res.error || '获取模型同步状态失败')
+  }
+  return res.data
+}
+
+/** F4.4:查询同步历史 — GET /llm/models/sync/history?limit=N
+ *  返回最近 N 次同步记录(按 sync_started_at DESC)。 */
+export async function fetchModelSyncHistory(limit: number = 10): Promise<ModelSyncHistoryRecord[]> {
+  const res = await fetchApi<ModelSyncHistoryRecord[]>(`/llm/models/sync/history?limit=${limit}`, {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取同步历史失败')
+  }
+  return res.data ?? []
+}
+
+/** F4.13:模型同步健康度(GET /llm/models/sync/health 返回)
+ *  - failure_counters:每个 provider 的连续失败计数(provider_code -> count)
+ *  - permanently_disabled:已达阈值被永久禁用的 provider_code 列表
+ *  - failure_threshold:后端配置的失败计数阈值(达到即永久禁用) */
+export interface ModelSyncHealth {
+  failure_counters: Record<string, number>
+  permanently_disabled: string[]
+  failure_threshold: number
+}
+
+/** F4.13:查询模型同步健康度 — GET /llm/models/sync/health
+ *  用于前端"同步健康度面板":展示连续失败计数 + 永久禁用列表。
+ *  若后端尚未实现该端点(404),调用方应 try/catch 静默降级,不显示面板。 */
+export async function fetchModelSyncHealth(): Promise<ModelSyncHealth> {
+  const res = await fetchApi<ModelSyncHealth>('/llm/models/sync/health', {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取模型同步健康度失败')
+  }
+  return res.data
+}
+
+// ============= v4:模型同步运维端点(2026-07-31 立,ModelSyncService 可视化运维)=============
+// 4 个端点:重启用 / 更新配置 / 聚合统计 / 清理旧日志,实现"模型同步完全可视化运维"
+
+/** v4:重置 provider 同步结果 — POST /llm/models/sync/reset?provider=xxx 响应 data */
+export interface ResetProviderResult {
+  provider_code: string
+  reset: boolean
+  previous_failures: number
+  was_disabled: boolean
+}
+
+/** v4:更新同步配置请求体 — PUT /llm/models/sync/config
+ *  两个字段都可选,至少一个;后端校验 interval_s ∈ (0, 86400] */
+export interface SyncConfigUpdate {
+  interval_s?: number
+  concurrency?: number
+}
+
+/** v4:更新同步配置响应 data — PUT /llm/models/sync/config */
+export interface SyncConfigResult {
+  interval_s: number
+  concurrency: number
+  applied: boolean
+}
+
+/** v4:单 provider 聚合统计(GET /llm/models/sync/stats 响应 data.by_provider[i]) */
+export interface SyncStatsByProvider {
+  provider_code: string
+  total: number
+  success: number
+  failure: number
+  success_rate: number
+  avg_latency_ms: number
+  last_sync_at: string
+}
+
+/** v4:聚合统计响应 data — GET /llm/models/sync/stats?days=N */
+export interface SyncStatsResult {
+  days: number
+  total_syncs: number
+  success_count: number
+  failure_count: number
+  success_rate: number
+  avg_latency_ms: number
+  max_latency_ms: number
+  min_latency_ms: number
+  total_new_models: number
+  total_removed_models: number
+  by_provider: SyncStatsByProvider[]
+}
+
+/** v4:清理旧同步日志响应 data — DELETE /llm/models/sync/history?before_days=N */
+export interface CleanupResult {
+  deleted_count: number
+  before_days: number
+}
+
+/** v4:重置 provider 失败计数 + 重新启用 — POST /llm/models/sync/reset?provider=xxx
+ *  把 provider 从永久禁用列表移除,失败计数清零,允许下次同步。 */
+export async function resetProviderSync(provider: string): Promise<ResetProviderResult> {
+  const res = await fetchApi<ResetProviderResult>(
+    `/llm/models/sync/reset?provider=${encodeURIComponent(provider)}`,
+    { method: 'POST' },
+  )
+  if (!res.success) {
+    throw new Error(res.error || '重置 provider 失败')
+  }
+  return res.data
+}
+
+/** v4:更新同步配置(运行时生效,无需重启) — PUT /llm/models/sync/config
+ *  - interval_s:同步间隔(秒),后端校验 0 < n <= 86400
+ *  - concurrency:并发数,后端校验 1 <= n <= 20
+ *  参数无效时后端返回 400 + `{code:1, message:"interval_s must be > 0 and <= 86400"}`,fetchApi 转 ApiResult(success=false)。 */
+export async function updateSyncConfig(input: SyncConfigUpdate): Promise<SyncConfigResult> {
+  const res = await fetchApi<SyncConfigResult>('/llm/models/sync/config', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.success) {
+    throw new Error(res.error || '更新同步配置失败')
+  }
+  return res.data
+}
+
+/** v4:查询聚合统计 — GET /llm/models/sync/stats?days=N
+ *  返回最近 N 天的同步聚合统计(总次数/成功率/延迟分布/新增下架数/by_provider 明细)。 */
+export async function fetchSyncStats(days: number = 7): Promise<SyncStatsResult> {
+  const res = await fetchApi<SyncStatsResult>(`/llm/models/sync/stats?days=${days}`, {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取同步统计失败')
+  }
+  return res.data
+}
+
+/** v4:清理旧同步日志 — DELETE /llm/models/sync/history?before_days=N
+ *  删除 N 天前的同步历史记录,返回删除条数。不可撤销。 */
+export async function cleanupSyncHistory(beforeDays: number = 30): Promise<CleanupResult> {
+  const res = await fetchApi<CleanupResult>(`/llm/models/sync/history?before_days=${beforeDays}`, {
+    method: 'DELETE',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '清理同步日志失败')
+  }
+  return res.data
+}
+
+// ===== 用户 BYOK 供应商(/api/v2/user/llm-providers,apps/api `routes/user-llm-configs-v2.ts`)=====
+// 2026-11-05 立,门 300 台账 A 类:web `settings/llm/helpers-v2.ts` 与 RN `LlmSettingsScreen` 直拼收口。
+// 默认类型按现网 JSON 形状(provider 字段多为可选),web 端自带更严格的 ProviderListData,
+// 调用点用泛型保留各自契约(不在此重复命名 Web 专属类型)。
+
+export interface UserLlmProvider {
+  id: number
+  name: string
+  providerCode?: string
+  isBuiltin?: boolean
+  baseUrl?: string
+  apiFormat?: string
+  modelIdForTest?: string | null
+  enabled: boolean
+  description?: string | null
+  sortOrder?: number
+  providerGroup?: string
+  groupLabel?: string
+  defaultModelId?: string | null
+  sortOrderInGroup?: number
+  healthStatus?: string | null
+  lastHealthCheckAt?: string | null
+  usage30dTokens?: number
+  usage30dCostCents?: number
+  hasApiKey?: boolean
+  lastTestStatus?: string | null
+  lastTestedAt?: string | null
+  createdAt?: string
+  models?: unknown[]
+}
+
+export interface UserLlmProviderGroup {
+  group: string
+  groupLabel: string
+  providers: UserLlmProvider[]
+}
+
+export interface UserLlmProviderList {
+  groups: UserLlmProviderGroup[]
+  total: number
+}
+
+export interface CreateUserLlmProviderInput {
+  providerCode: string
+  name: string
+  apiKey: string
+  apiFormat: 'openai_chat' | 'anthropic_messages' | 'openai_responses'
+  baseUrlOverride?: string
+  providerGroup?: string
+  groupLabel?: string
+  description?: string
+  sortOrder?: number
+  defaultModelId?: string
+}
+
+export interface CreateUserLlmProviderResult {
+  id: number
+  created: boolean
+  name: string
+}
+
+/** 当前用户 BYOK 供应商分组列表 — GET /api/v2/user/llm-providers */
+export async function listUserLlmProviders<T = UserLlmProviderList>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/v2/user/llm-providers')
+}
+
+/** 新增 BYOK 供应商 — POST /api/v2/user/llm-providers */
+export async function createUserLlmProvider(
+  input: CreateUserLlmProviderInput,
+): Promise<ApiResult<CreateUserLlmProviderResult>> {
+  return fetchApi<CreateUserLlmProviderResult>('/api/v2/user/llm-providers', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 平台模板 — GET /api/v2/user/llm-providers/templates */
+export async function fetchUserLlmTemplates<T = { templates: unknown[] }>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/v2/user/llm-providers/templates')
+}
+
+/** 供应商详情 — GET /api/v2/user/llm-providers/:id */
+export async function getUserLlmProvider<T = UserLlmProvider>(id: number): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}`)
+}
+
+/** 更新供应商 — PUT /api/v2/user/llm-providers/:id */
+export async function updateUserLlmProvider<T = { id: number; updated: boolean }>(
+  id: number,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 删除供应商 — DELETE /api/v2/user/llm-providers/:id */
+export async function deleteUserLlmProvider<T = { id: number; deleted: boolean }>(
+  id: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}`, { method: 'DELETE' })
+}
+
+/** 启停供应商 — POST /api/v2/user/llm-providers/:id/toggle */
+export async function toggleUserLlmProvider<T = { id: number; enabled: boolean }>(
+  id: number,
+  enabled: boolean,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+/** 测试供应商连通性 — POST /api/v2/user/llm-providers/:id/test */
+export async function testUserLlmProvider<T = unknown>(id: number): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}/test`, { method: 'POST' })
+}
+
+/** 拉取上游模型 — POST /api/v2/user/llm-providers/:id/fetch-models */
+export async function fetchUserLlmUpstreamModels<T = unknown>(id: number): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}/fetch-models`, { method: 'POST' })
+}
+
+/** 供应商模型列表 — GET /api/v2/user/llm-providers/:id/models */
+export async function listUserLlmModels<T = { list: unknown[]; total: number }>(
+  providerId: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models`)
+}
+
+/** 新增供应商模型 — POST /api/v2/user/llm-providers/:id/models */
+export async function createUserLlmModel<T = { id: number; created: boolean; modelId: string }>(
+  providerId: number,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 更新供应商模型 — PUT /api/v2/user/llm-providers/:id/models/:modelId */
+export async function updateUserLlmModel<T = { id: number; updated: boolean }>(
+  providerId: number,
+  modelId: number,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models/${modelId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 删除供应商模型 — DELETE /api/v2/user/llm-providers/:id/models/:modelId */
+export async function deleteUserLlmModel<T = { id: number; deleted: boolean }>(
+  providerId: number,
+  modelId: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models/${modelId}`, {
+    method: 'DELETE',
+  })
+}
+
+/** 测试供应商模型 — POST /api/v2/user/llm-providers/:id/models/:modelId/test */
+export async function testUserLlmModel<T = unknown>(
+  providerId: number,
+  modelId: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models/${modelId}/test`, {
+    method: 'POST',
+  })
+}
+
+/** 分组列表 — GET /api/v2/user/llm-groups */
+export async function listUserLlmGroups<T = { groups?: unknown[]; list?: unknown[] }>(): Promise<
+  ApiResult<T>
+> {
+  return fetchApi<T>('/api/v2/user/llm-groups')
+}
+
+/** 新增分组 — POST /api/v2/user/llm-groups */
+export async function createUserLlmGroup<T = { id: number; created: boolean; label: string }>(
+  label: string,
+  sortOrder = 0,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/v2/user/llm-groups', {
+    method: 'POST',
+    body: JSON.stringify({ label, sortOrder }),
+  })
+}
+
+/** 更新分组 — PUT /api/v2/user/llm-groups/:id */
+export async function updateUserLlmGroup<T = { id: number; updated: boolean }>(
+  id: number,
+  label: string,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-groups/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ label }),
+  })
+}
+
+/** 模型目录 — GET /api/llm/models */
+export async function listLlmModels<T = { models: LlmModel[] }>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/models')
+}
+
+/** 校验 BYOK 密钥 — POST /api/llm/verify-key */
+export async function verifyLlmKey<T = { valid: boolean; error?: string }>(
+  body: object,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/verify-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** FIM 指标汇总 — GET /api/llm/fim/metrics/summary */
+export async function getFimMetricsSummary<T = { models: unknown[] }>(
+  params?: Record<string, string | number | boolean | undefined | null>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/metrics/summary', { params })
+}
+
+/** FIM 指标上报 — POST /api/llm/fim/metrics */
+export async function postFimMetrics<T = unknown>(
+  body: object,
+  options: { headers?: Record<string, string>; signal?: AbortSignal } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/metrics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  })
+}
+
+/** FIM 编辑意图 — POST /api/llm/fim/edit-intent */
+export async function postFimEditIntent<T = unknown>(
+  body: object,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/edit-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+    timeoutMs: options.timeoutMs,
+  })
+}
+
+/** 删除分组 — DELETE /api/v2/user/llm-groups/:id */
+export async function deleteUserLlmGroup<T = { id: number; deleted: boolean }>(
+  id: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-groups/${id}`, { method: 'DELETE' })
+}
+
+// ===== 个人号池 → 对话模型(2026-11-10 立)=====
+/**
+ * 个人号池可用模型(「我的号池」分组)。
+ *
+ * id 直接就是 /v1/chat/completions 能吃的 model 值 —— 平台登记行逐字节命中反查,
+ * 或 `<平台>/<上游模型名>` 走转发器的前缀兜底;客户端**不要**改写 id。
+ */
+export interface PoolChatModel {
+  id: string
+  name: string
+  /** 平台 code:trae / workbuddy / codearts / qoder / … */
+  provider: string
+  /** 该平台下当前可调度的账号数 */
+  accountCount: number
+  /** preset = 平台登记模型(有展示名/定价);upstream = 上游清单现拉 */
+  source: 'preset' | 'upstream'
+  /**
+   * 实时验证结论(2026-11-18 立,用户定档「所有模型必须实时验证」)。
+   * true = 本轮现拉该平台上游模型清单成功、且该模型在册;无证据的行后端不再返回
+   * (取不到清单的平台整块 fail-closed,选项卡不再出现「未验证」这一档)。
+   */
+  verified?: boolean
+  /** 该结论的核对时刻(epoch ms),前端可据此展示"刚刚核对" */
+  verifiedAt?: number
+  /**
+   * 积分消耗倍数(小数口径,如 0.15 = 0.15x;0 = 免费档)。
+   * 仅预设行下发;上游补缺行无登记价,缺省 ⇒ 前端按免费档展示。
+   */
+  pointsMultiplier?: number
+  /** 真实单价(元/百万 token,输入侧)。与 outputPricePerMillion 同时存在时展示 */
+  inputPricePerMillion?: number
+  /** 真实单价(元/百万 token,输出侧) */
+  outputPricePerMillion?: number
+  /**
+   * 用途分类与代次档位(2026-11-20 立,由 ai-service 模型目录判据下发):
+   * 与平台模型(/llm/models 的 category/model_tier)同口径,前端据此把旧代号池模型
+   * 收进「历史模型」折叠区。判不了时缺省,按 latest+chat 兜底(宁可多显示不误藏)。
+   */
+  category?: string
+  /** latest / standard / legacy */
+  modelTier?: string
+  /**
+   * 该模型实测可用的推理强度档位(2026-11-21 立)。
+   * 上游不公布枚举,只能实弹逐档核对后记下来;空数组 = 明确都不支持;
+   * 缺省 = 还没测过(前端回落通用档,不猜)。
+   */
+  reasoning_efforts?: string[]
+}
+
+/**
+ * 拉取当前账号个人号池的可用模型 — GET /api/account-pool/models。
+ *
+ * 静默降级:未登录 / 无号池 / 接口失败一律返回空数组(选择器照常展示平台模型)。
+ * refresh=true 跳过服务端 10 分钟上游清单缓存。
+ */
+export async function fetchPoolChatModels(
+  opts: { refresh?: boolean } = {},
+): Promise<PoolChatModel[]> {
+  try {
+    const res = await fetchApi<{ list: PoolChatModel[]; total: number }>(
+      `/api/account-pool/models${opts.refresh ? '?refresh=true' : ''}`,
+      { method: 'GET' },
+    )
+    return res.success ? (res.data?.list ?? []) : []
+  } catch {
+    return []
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,705 @@
+"""Qoder(阿里 AI IDE)每日领取 Credits 引擎 — 独立平台引擎(2026-10-10 立)。
+
+与 checkin_engine(TRAE)平级的第二平台引擎,API 契约平移自社区公开逆向成果
+(MIT 授权,原始版权与来源声明在此保留):
+- sunp-1/qoder-checkin(qoder_claim.py,MIT,Copyright (c) 2026 qoder-claim contributors)
+- wallechfox/qoder-checkin(qoder_core.py / 01_extract.py,MIT,Copyright (c) 2026 wallechfox)
+
+Qoder 与 TRAE 的三点本质差异(均为社区实测,本引擎按实测语义平移):
+1. 鉴权是 Bearer token(非 TRAE 的 Cloud-IDE-JWT 前缀);token 存客户端本地
+   auth.v1.dat(提取在桌面端 checkin_capture.rs,见其 Qoder 段)。
+2. 领取是 Campaign 体系:先 GET /sash/api/v1/me/campaigns 列出活动,
+   可领判据 = actionType == "CLAIM_BENEFIT" 且 claimStatus == "CLAIMABLE"
+   (顶层 claimable 字段不可靠,不用);再 POST /claim 逐个领取(幂等,
+   replayed=true 表示已领过)。每天 10:00(UTC+8)刷新,每天是新的 campaignId。
+3. 风控面是 Cosy-* 请求头族(缺 Cosy-ClientType 时服务端静默返回 campaigns:[]),
+   设备标识由桌面端提取,随 device_map 落库复用 —— 不像 TRAE 那样可以纯派生。
+
+token 到期自刷新:POST /api/v1/deviceToken/refresh(带 refreshToken),
+新 token / 新 refreshToken / expiresAt 写回 device_map 由调用方持久化
+(调度器 checkin_one 的 save_device_map 通路复用)。
+
+结构化 dict 契约与 checkin_engine.checkin_account 完全一致
+(ok/status/action/user_id/code/message/http_status/credits/credits_delta/
+classified_error/warning),供同一套 records/冷却/积分流水消费。
+"""
+
+from __future__ import annotations
+
+import base64
+import datetime
+import json
+import platform as _platform
+import time
+from typing import Any, Final
+
+import httpx
+
+# 时区唯一出口(本文件不自建第二份时区常量):日界判据必须与调度器/积分快照
+# 用的是同一个东八区,否则「今天」在两条路径上会悄悄漂开。
+from app.core.cn_time import CN_TZ as _CN_TZ
+from app.core.logging import get_logger
+from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import (
+    CHALLENGE_COOLDOWN_SECONDS,
+    OutboundPaused,
+    checkin_outbound_gate,
+)
+
+logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# 常量(平移自参考实现,端点双备份:CN 优先、国际版兜底,逐个回退)
+# ---------------------------------------------------------------------------
+
+QODER_BASES: Final = ("https://openapi.qoder.com.cn", "https://openapi.qoder.sh")
+PATH_CAMPAIGNS: Final = "/sash/api/v1/me/campaigns"
+PATH_CLAIM: Final = "/sash/api/v1/me/campaigns/{cid}/claim"
+PATH_REFRESH: Final = "/api/v1/deviceToken/refresh"
+PATH_QUOTA: Final = "/api/v2/quota/usage"
+
+_USER_AGENT: Final = "Qoder/claim"
+
+# Cosy-* 请求头族(风控面):device_map["cosy"] 的键 → 请求头名。
+# clientType=10 是桌面端固定值(缺失时服务端 campaigns 静默为空)。
+COSY_HEADER_KEYS: Final = (
+    ("client_type", "Cosy-ClientType"),
+    ("machine_os", "Cosy-MachineOS"),
+    ("machine_hostname", "Cosy-MachineHostname"),
+    ("machine_id", "Cosy-MachineId"),
+    ("machine_token", "Cosy-MachineToken"),
+    ("machine_code", "Cosy-MachineCode"),
+    ("machine_type", "Cosy-MachineType"),
+    ("version", "Cosy-Version"),
+)
+CLIENT_TYPE_DEFAULT: Final = "10"
+
+REFRESH_MARGIN_HOURS: Final = 72  # token 剩余有效期低于该值时尝试自刷新
+EXPIRY_WARN_HOURS: Final = 24  # token 剩余有效期低于该值时发出告警(与 TRAE 引擎一致)
+
+# ---------------------------------------------------------------------------
+# JWT 解析(Qoder token 是标准 JWT,uid 在 sub/uid/user_id/userId/id)
+# ---------------------------------------------------------------------------
+
+
+def qoder_extract_uid(jwt: str) -> str | None:
+    """从 Qoder JWT payload 里取 uid,不校验签名。"""
+    parts = (jwt or "").strip().split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    for key in ("sub", "uid", "user_id", "userId", "id"):
+        val = payload.get(key)
+        if isinstance(val, (str, int)) and str(val):
+            return str(val)
+    return None
+
+
+def qoder_device_map_uid(device_map: dict[str, Any]) -> str | None:
+    """从 device_map 取账号 uid(桌面端捕获时落库的 uid/user_id/userId)。
+
+    **真机实证 2026-10-12**:现役 Qoder 客户端 auth.v1.dat 的 token 是 27 字符
+    opaque 单段串(非 JWT)⇒ qoder_extract_uid 对其恒 None,而 uid 真源是客户端
+    会话的 user.id(桌面端 checkin_capture.rs 的 qoder_session_uid 提取后,
+    经前端 qoderDeviceMap 落进 device_map)。uid 标识账号(记录/冷却/积分流水
+    都按它归集),桌面端 capture 已修(2026-10-12),这里做服务侧读取面。
+    """
+    for key in ("uid", "user_id", "userId"):
+        val = device_map.get(key)
+        if isinstance(val, (str, int)) and str(val).strip():
+            return str(val).strip()
+    return None
+
+
+def qoder_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
+    """从 Qoder JWT payload 取 exp,返回 (exp_datetime, remaining_hours) 或 (None, None)。"""
+    parts = (jwt or "").strip().split(".")
+    if len(parts) < 2:
+        return None, None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        exp = payload.get("exp")
+        if not isinstance(exp, (int, float)):
+            return None, None
+        exp_dt = datetime.datetime.fromtimestamp(exp)
+        remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+        return exp_dt, remaining
+    except Exception:
+        return None, None
+
+
+# ---------------------------------------------------------------------------
+# 会话 expiresAt 解析(真机实证 2026-10-11:Qoder device token 非 JWT 不带 exp;
+# auth.v1.dat 会话 JSON 含 expiresAt/refreshTokenExpiresAt,ISO 8601 如
+# "2026-10-31T04:56:16Z",随 device_map 落库后以此补齐过期预检)
+# ---------------------------------------------------------------------------
+
+# 落库键候选:桌面端 CapturedQoderSession serde snake_case 投影 / auth.v1.dat 原文键
+_SESSION_EXPIRY_KEYS: Final = ("expires_at", "expiresAt")
+_REFRESH_EXPIRY_KEYS: Final = ("refresh_token_expires_at", "refreshTokenExpiresAt")
+
+
+def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
+    """单个过期值 → naive 本地 datetime(与 qoder_jwt_exp 的 fromtimestamp 语义一致)。
+
+    接受两种落库形态:ISO 8601 字符串(auth.v1.dat 原文,Z 后缀)与 epoch 秒数
+    (token 刷新链路写回的 expires_at)。epoch<=0 视为缺失(桌面端 as_i64 对
+    ISO 字符串解析失败会 unwrap_or(0) 落 0)。坏格式返回 None,绝不抛栈。
+    """
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        try:
+            exp_dt = datetime.datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if exp_dt.tzinfo is not None:
+            exp_dt = exp_dt.astimezone().replace(tzinfo=None)
+        return exp_dt
+    if isinstance(raw, (int, float)):
+        if raw <= 0:
+            return None
+        try:
+            return datetime.datetime.fromtimestamp(raw)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def qoder_session_expiry(
+    device_map: dict[str, Any]
+) -> tuple[datetime.datetime | None, float | None]:
+    """从 device_map 读会话过期时间,返回 (exp_datetime, remaining_hours) 或 (None, None)。
+
+    优先会话 expiresAt(token 本体到期,更紧迫);缺失/坏格式时回落
+    refreshTokenExpiresAt(刷新凭据到期,仍可据此判「能否自救刷新」)。
+    Qoder 的 device token 非 JWT,qoder_jwt_exp 对其恒 (None, None),
+    本函数是过期预检对 Qoder 生效的通道 —— 当前桌面端未把 ISO expiresAt
+    写入 device_map(checkin_capture.rs as_i64 恒落 0),接入后即生效。
+    """
+    for keys in (_SESSION_EXPIRY_KEYS, _REFRESH_EXPIRY_KEYS):
+        for key in keys:
+            exp_dt = _parse_expiry_value(device_map.get(key))
+            if exp_dt is not None:
+                remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+                return exp_dt, remaining
+    return None, None
+
+
+# ---------------------------------------------------------------------------
+# Cosy-* 设备头(风控面):device_map["cosy"] → 请求头
+# ---------------------------------------------------------------------------
+
+
+def default_machine_os() -> str:
+    """本机架构 → Cosy-MachineOS 形态(平移参考实现 arch()+'_windows')。"""
+    machine = _platform.machine().lower()
+    arch = {"amd64": "x86_64", "x86_64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}.get(
+        machine, "x86_64"
+    )
+    if _platform.system() == "Darwin":
+        return f"{arch}_macos"
+    if _platform.system() == "Linux":
+        return f"{arch}_linux"
+    return f"{arch}_windows"
+
+
+def _ascii_header_value(raw: Any) -> str:
+    """把任意设备标识清洗成合法 HTTP 头值(纯 ASCII)。
+
+    **根因(2026-10-23 真机证据)**:id=5 的 cosy.machine_hostname 为中文"服务器",
+    直接塞进 Cosy-MachineHostname 后,httpx 在 HTTP/1.1 下按 RFC 7230 强制
+    `encode("ascii")` → 抛 `UnicodeEncodeError: 'ascii' codec ...`,被 _api_call
+    的兜底 except 误吞成"网络异常",致该账号每日签到 100% 失败(对照 id=18 主机名
+    "LICHUNCHUAN" 纯 ASCII ⇒ 签到正常)。
+    HTTP 头本就必须 ASCII,故此处丢非 ASCII 字符(中文主机名对服务端风控无意义),
+    清洗后为空则不出该头,绝不把非法值发出去。
+    """
+    if not isinstance(raw, (str, int)):
+        return ""
+    try:
+        return str(raw).encode("ascii", "ignore").decode("ascii").strip()
+    except Exception:
+        return ""
+
+
+def build_cosy_headers(device_map: dict[str, Any]) -> dict[str, str]:
+    """device_map["cosy"] → Cosy-* 请求头;缺 clientType 时补桌面端固定值 10。
+
+    纯函数(不读环境):服务端场景设备标识全部来自落库的 device_map
+    (桌面端提取后随账号录入),与 TRAE 的「确定性派生」不同 —— Qoder 的
+    machineToken 等来自客户端 runtime-info.exe,派生不可行。
+
+    所有头值经 _ascii_header_value 清洗:非 ASCII(如中文主机名)一律剔除,
+    清洗后为空的头不发送 —— 杜绝 httpx 的 UnicodeEncodeError(见该函数注释)。
+    """
+    cosy = device_map.get("cosy")
+    if not isinstance(cosy, dict):
+        cosy = {}
+    headers: dict[str, str] = {}
+    for map_key, header in COSY_HEADER_KEYS:
+        safe = _ascii_header_value(cosy.get(map_key))
+        if safe:
+            headers[header] = safe
+    headers.setdefault("Cosy-ClientType", CLIENT_TYPE_DEFAULT)
+    if "Cosy-MachineOS" not in headers:
+        headers["Cosy-MachineOS"] = default_machine_os()
+    return headers
+
+
+# ---------------------------------------------------------------------------
+# HTTP 层(端点双备份回退:网络错/404 换下一个,其余视为该端点结论)
+# ---------------------------------------------------------------------------
+
+
+async def _api_call(
+    path: str,
+    method: str = "GET",
+    token: str = "",
+    body: dict[str, Any] | None = None,
+    device_map: dict[str, Any] | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[int, Any]:
+    """逐端点尝试,返回 (http_status:int, parsed_json:Any)。
+
+    网络异常(含超时)→ (0, None);非 JSON 响应 → (status, None)。
+    404/网络错视为「端点不对」换下一个;其余(含 401)视为结论直接返回。
+    """
+    headers: dict[str, str] = {
+        "accept": "application/json",
+        "user-agent": _USER_AGENT,
+        **build_cosy_headers(device_map or {}),
+    }
+    if token:
+        headers["authorization"] = f"Bearer {token}"
+    http = client if client is not None else get_http_client()
+    last: tuple[int, Any] = (0, None)
+    for base in QODER_BASES:
+        url = base.rstrip("/") + path
+        # 出站节流闸门:暂停期(429 后)抛 OutboundPaused 必须向上穿透本函数的
+        # 逐端点兜底(否则被吞成 -1 网络错,整批中止语义丢失)
+        await checkin_outbound_gate.before_request("qoder")
+        try:
+            if method == "POST":
+                resp = await http.post(url, json=body or {}, headers=headers, timeout=timeout)
+            else:
+                resp = await http.get(url, headers=headers, timeout=timeout)
+        except httpx.TimeoutException:
+            last = (0, None)
+            continue
+        except OutboundPaused:
+            raise
+        except Exception as e:
+            last = (-1, f"{type(e).__name__}: {e}")
+            continue
+        checkin_outbound_gate.note_status(resp.status_code, "qoder")
+        if resp.status_code in (0, 404):
+            last = (resp.status_code, None)
+            continue
+        try:
+            return resp.status_code, json.loads(resp.text)
+        except Exception:
+            return resp.status_code, None
+    return last
+
+
+# ---------------------------------------------------------------------------
+# token 自刷新(POST /api/v1/deviceToken/refresh)
+# ---------------------------------------------------------------------------
+
+
+async def qoder_refresh_token(
+    refresh_token: str,
+    device_map: dict[str, Any],
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any] | None:
+    """用 refreshToken 换新 token;成功返回 {"access_token","refresh_token","expires_at"},失败 None。"""
+    if not refresh_token:
+        return None
+    status, data = await _api_call(
+        PATH_REFRESH, "POST", body={"refresh_token": refresh_token},
+        device_map=device_map, timeout=timeout, client=client,
+    )
+    if status != 200 or not isinstance(data, dict):
+        return None
+    tok = data.get("token") or data.get("accessToken") or data.get("access_token")
+    if not isinstance(tok, str) or not tok:
+        return None
+    new_refresh = data.get("refreshToken") or data.get("refresh_token") or refresh_token
+    exp = qoder_jwt_exp(tok)[0]
+    return {
+        "access_token": tok,
+        "refresh_token": str(new_refresh),
+        "expires_at": exp.timestamp() if exp is not None else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 错误分类(冷却契约与 TRAE 引擎一致:-1=永久,0=不冷却,>0=冷却秒数)
+# ---------------------------------------------------------------------------
+
+
+def qoder_classify_error(
+    http_status: int | None, message: str | None
+) -> tuple[str, int]:
+    """Qoder 版错误分类。业务语义(活动未下发/已领完)由调用方直接给 message,
+    不落冷却(http_status 传 None)。"""
+    if http_status is None:
+        return "Unknown", 0
+    if http_status == 401:
+        return "SessionDead", -1
+    if http_status == 429:
+        return "SoftRate", 60
+    if http_status == 403:
+        # 第五件套(2026-10-16):403 = WAF/拦截墙,即时熔断(原 4xx 三连击太软)
+        return "Challenge", CHALLENGE_COOLDOWN_SECONDS
+    if 500 <= http_status < 600:
+        return "Server", 600
+    if 400 <= http_status < 500:
+        return "Client", 600
+    return "Unknown", 0
+
+
+# ---------------------------------------------------------------------------
+# 编排:单账号领取流程(契约与 checkin_engine.checkin_account 一致)
+# ---------------------------------------------------------------------------
+
+
+def _cn_date(ts: float) -> datetime.date:
+    """epoch 秒 → Asia/Shanghai 自然日(日界判据的唯一换算点)。"""
+    return datetime.datetime.fromtimestamp(ts, tz=_CN_TZ).date()
+
+
+def _claimable_campaigns(campaigns: list[Any], now: float) -> tuple[list[dict[str, Any]], bool]:
+    """从 campaigns 列表提取 (可领列表, 今日是否已领)。
+
+    可领 = actionType=="CLAIM_BENEFIT" 且 claimStatus=="CLAIMABLE"(判据不变);
+    今日已领 = claimStatus=="CLAIMED" **且** startAt<=now<endAt(落在本窗口内)
+    **且 startAt 所属 Asia/Shanghai 自然日 == now 所属自然日**。
+
+    第三条是本函数唯一的坑。Qoder 的领取窗口固定为「当天 10:00 → 次日 09:59」
+    (实测 campaigns 返回 startAt=1793498400 = 2026-11-01 10:00:00 +08、
+    endAt=1793584740 = 2026-11-02 09:59:00),即**一个窗口横跨两个自然日**。
+    于是只看「CLAIMED 且落在窗口内」时,任何在 00:00–09:59 之间跑的检查看到的
+    窗口内 CLAIMED 必然是**昨天 10:00 开的那一轮**,会被误判成「今天已领」。
+
+    实证(已落库,账号 13):2026-10-31 06:03 的 06:00 只读探针记
+    `skip_already / 今日已领取`,同日 10:06 的主签到却 `claim_ok / 领取成功 +100
+    Credits` —— 同一天既「已领」又「领到」,即前一条是误报。2026-11-01 06:00 同理:
+    那一刻 11-01 那一轮(startAt=1793498400)还没开窗,探针看到的是 10-31 10:00
+    开的那一轮(startAt=1793412000,窗口跨到 11-01 09:59)。误报的代价是探针把真实
+    状态写成已签,用户当天漏签不会被提醒。
+
+    为什么必须按**窗口起点**所属自然日判,而不是按 endAt 或「now 是否在 10:00 前」:
+    - campaignId 每天 10:00 换新,窗口起点就是这一轮的出生日,天然是「哪一天的量」
+      的唯一标识;endAt 次日 09:59 反而落在下一个自然日,拿它判会把昨天的量记到今天;
+    - 「now 早于 10:00 就一律不算已领」是拿本地时钟猜窗口形态,一旦上游把开窗时刻
+      改成 06:00 之类就全错;而比较两个 epoch 的东八区日期不依赖窗口的具体钟点。
+
+    反例保护(主签到 qoder_checkin_account):10:00 之后跑时 startAt 就是今天 10:00,
+    两侧自然日相同 ⇒ 仍判已领,行为与改前一致(不会变成重复领取)。
+
+    纯函数:不读 env、不打日志、不碰时钟(now 由调用方传入),两条路径共用同一判据。
+    """
+    claimable: list[dict[str, Any]] = []
+    already = False
+    today = _cn_date(now)
+    for c in campaigns:
+        if not isinstance(c, dict) or c.get("actionType") != "CLAIM_BENEFIT":
+            continue
+        if c.get("claimStatus") == "CLAIMABLE":
+            claimable.append(c)
+        elif c.get("claimStatus") == "CLAIMED":
+            start = c.get("startAt")
+            end = c.get("endAt")
+            if isinstance(start, (int, float)) and isinstance(end, (int, float)):
+                if start <= now < end and _cn_date(start) == today:
+                    already = True
+    return claimable, already
+
+
+async def qoder_probe_status(
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """只读探针:GET campaigns(不 POST claim)按 claimStatus 判今日是否已领。
+
+    返回 (ok, checked_in|None, credits|None, message)。已领判据与签到主路
+    同一函数 _claimable_campaigns —— **CLAIMED 且落在当前领取窗口内,且窗口起点
+    与 now 同属 Asia/Shanghai 自然日**(只「落在窗口内」是不够的:窗口 10:00 →
+    次日 09:59 跨自然日,06:00 探到的窗口内 CLAIMED 必是昨天那一轮,详见
+    _claimable_campaigns 注释里的 2026-10-31 / 2026-11-01 误报实证)。
+    **不发起任何领取请求,零副作用** —— 供 06:00 状态探针同步状态。
+
+    注:Qoder 领取窗口 10:00(UTC+8)才开放,06:00 探时今天那一轮尚未开窗 ⇒
+    claimable 空且今天无 CLAIMED,如实报「未签」(不误报已签,避免用户漏签)。
+    """
+    if not jwt:
+        return False, None, None, "未配置 token"
+    status, data = await _api_call(
+        PATH_CAMPAIGNS, "GET", token=jwt, device_map=device_map, timeout=timeout, client=client
+    )
+    if status in (0, -1):
+        return False, None, None, "网络异常"
+    if status != 200 or not isinstance(data, dict):
+        return False, None, None, f"活动查询失败 HTTP {status}"
+    campaigns = data.get("campaigns")
+    if not isinstance(campaigns, list):
+        campaigns = []
+    claimable, already_claimed = _claimable_campaigns(campaigns, time.time())
+    if already_claimed and not claimable:
+        return True, True, None, "今日已领取"
+    return True, False, None, ""
+
+
+async def qoder_checkin_account(
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """对单个 Qoder 账号执行领取流程,返回与 checkin_account 同契约的结构化 dict。
+
+    流程:过期预检告警 → (即将过期且有 refreshToken 时自刷新) → GET campaigns →
+    逐个 POST claim → 汇总 credits。新 token 写回 device_map(调用方持久化)。
+
+    「今日已领」的判据与只读探针同一函数 _claimable_campaigns:CLAIMED 且落在当前
+    窗口内,**且窗口起点与 now 同属 Asia/Shanghai 自然日**。本路径通常在 10:05 跑,
+    此时窗口起点就是今天 10:00 ⇒ 判据与旧口径等价(不会把昨天 10:00 那轮当今天已领
+    而跳过领取);若在 00:00–09:59 的补偿跑里看到昨天窗口的 CLAIMED,则视为未领,
+    照常进入 claim 流程(由服务端幂等兜底)。
+    """
+    result: dict[str, Any] = {
+        "name": name,
+        "ok": False,
+        "status": "fail",
+        "action": "claim",
+        "user_id": None,
+        "code": None,
+        "message": "",
+        "http_status": None,
+        "credits": None,
+        "credits_delta": None,
+        "classified_error": None,
+        "warning": None,
+    }
+    # 当前有效票(下方预检刷新 / 401 刷新会替换) — 供调度器回写 relay 唯一真源
+    result["access_token"] = jwt
+
+    if not jwt:
+        result["message"] = "未配置 token"
+        return result
+
+    # uid:device_map 落库值优先(桌面端从 user.id 提取),token JWT 兜底
+    # (2026-10-12 真机实证:现役 token 是 opaque 非 JWT,只认 token 必失败)。
+    user_id = qoder_device_map_uid(device_map) or qoder_extract_uid(jwt)
+    result["user_id"] = user_id
+    if not user_id:
+        result["message"] = "无法解析账号 uid(device_map.uid 缺失且 token 非 JWT),请重新抓取"
+        return result
+
+    # 过期预检 + 自刷新(写回 device_map 由调用方 save_device_map 落库)
+    exp_dt, remaining = qoder_jwt_exp(jwt)
+    if remaining is not None:
+        if remaining < 0:
+            result["warning"] = f"token 已过期({exp_dt:%Y-%m-%d %H:%M}),请重新提取"
+        elif remaining < EXPIRY_WARN_HOURS:
+            result["warning"] = f"token 将于 {remaining:.1f}h 后过期({exp_dt:%Y-%m-%d %H:%M})"
+        if result["warning"]:
+            refreshed = await qoder_refresh_token(
+                str(device_map.get("refresh_token") or ""), device_map, timeout, client
+            )
+            if refreshed is not None:
+                jwt = refreshed["access_token"]
+                device_map["refresh_token"] = refreshed["refresh_token"]
+                device_map["expires_at"] = refreshed["expires_at"]
+                result["access_token"] = jwt
+                result["warning"] = None
+                logger.info("Qoder token 已自刷新", name=name, user_id=user_id)
+            else:
+                logger.warning("Qoder token 告警且刷新失败", name=name, warning=result["warning"])
+
+    async def _campaigns() -> tuple[int, Any]:
+        return await _api_call(
+            PATH_CAMPAIGNS, "GET", token=jwt, device_map=device_map, timeout=timeout, client=client
+        )
+
+    status, data = await _campaigns()
+    if status == 401:
+        # 401 → 强制刷新一次后重试;再 401 = SessionDead
+        refreshed = await qoder_refresh_token(
+            str(device_map.get("refresh_token") or ""), device_map, timeout, client
+        )
+        if refreshed is not None:
+            jwt = refreshed["access_token"]
+            device_map["refresh_token"] = refreshed["refresh_token"]
+            device_map["expires_at"] = refreshed["expires_at"]
+            result["access_token"] = jwt
+            status, data = await _campaigns()
+    if status in (0, -1):
+        result["message"] = "网络异常" if status == 0 else (f"网络异常: {data}" if data else "网络异常")
+        result["http_status"] = None
+        return result
+    if status != 200 or not isinstance(data, dict):
+        if status < 400:
+            # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+            error_type, cooldown_secs = "Challenge", CHALLENGE_COOLDOWN_SECONDS
+            checkin_outbound_gate.note_challenge("qoder")
+        else:
+            error_type, cooldown_secs = qoder_classify_error(status, None)
+        result["message"] = f"活动查询失败 HTTP {status}"
+        if error_type not in ("Unknown",):
+            result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
+        return result
+
+    campaigns = data.get("campaigns")
+    if not isinstance(campaigns, list):
+        campaigns = []
+    now = time.time()
+    claimable, already_claimed = _claimable_campaigns(campaigns, now)
+
+    if already_claimed and not claimable:
+        result.update(ok=True, status="already", action="skip_already", code=0, message="今日已领取")
+        return result
+
+    granted = 0
+    claimed_ok = False
+    last_status: int | None = None
+    for camp in claimable:
+        cid = str(camp.get("campaignId") or "")
+        if not cid:
+            continue
+        c_status, c_data = await _api_call(
+            PATH_CLAIM.replace("{cid}", cid), "POST", token=jwt,
+            body={}, device_map=device_map, timeout=timeout, client=client,
+        )
+        last_status = c_status
+        data_field = c_data.get("data") if isinstance(c_data, dict) else None
+        payload = data_field if isinstance(data_field, dict) else (c_data if isinstance(c_data, dict) else {})
+        if c_status == 200 and payload.get("status") == "CLAIMED":
+            claimed_ok = True
+            raw_benefit = payload.get("benefit")
+            benefit = raw_benefit if isinstance(raw_benefit, dict) else {}
+            amount = benefit.get("amount")
+            if amount is None:
+                camp_benefit = camp.get("benefit")
+                camp_benefit = camp_benefit if isinstance(camp_benefit, dict) else {}
+                amount = camp_benefit.get("amount")
+            if isinstance(amount, (int, float)):
+                granted += int(amount)
+        elif c_status in (0, -1):
+            result["message"] = "网络异常"
+            result["http_status"] = None
+            return result
+
+    if claimed_ok:
+        result.update(
+            ok=True,
+            status="success",
+            action="claim_ok",
+            code=0,
+            message=f"领取成功 +{granted} Credits",
+            http_status=200,
+            credits=granted,
+            credits_delta=granted,
+        )
+        logger.info("Qoder 领取成功", name=name, user_id=user_id, credits=granted)
+        return result
+
+    if claimable:
+        # 有可领活动但领取失败 → 按状态分类(401 已在上方处理过,此处多为 4xx/5xx)
+        if last_status is not None and last_status < 400:
+            # 第五件套(2026-10-16):2xx 非 JSON 领取响应 = 挑战页插页,即时熔断
+            error_type, cooldown_secs = "Challenge", CHALLENGE_COOLDOWN_SECONDS
+            checkin_outbound_gate.note_challenge("qoder")
+        else:
+            error_type, cooldown_secs = qoder_classify_error(last_status, None)
+        result["message"] = f"领取失败 HTTP {last_status}"
+        result["http_status"] = last_status
+        if error_type not in ("Unknown",):
+            result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
+        return result
+
+    # 无可领且本窗口无已领记录 → 活动未下发/已结束(业务语义,不落冷却)
+    result["message"] = "活动未下发或已结束(等下一轮)"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 余额查询(POST 消费方:query_credits 路由 + 每日快照 job)
+# ---------------------------------------------------------------------------
+
+
+async def qoder_query_credits(
+    jwt: str,
+    device_map: dict[str, Any],
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """查询账号 Add-on Credits 余额(GET /api/v2/quota/usage → addOnQuota.remaining)。
+
+    响应结构存在未知细节,防御性解析(与 checkin_credits.query_remaining_credits
+    同一契约):任何失败返回 {"remaining": None, "packs": [], "error": "..."},
+    绝不向调用方抛栈。401 → refresh 换新后重试一次(与 checkin 主链路同款;
+    新 token/refresh_token/expires_at 写回 device_map,由调用方落库)。
+    """
+    token = (jwt or "").strip()
+    if not token:
+        return {"remaining": None, "packs": [], "error": "token 为空"}
+    status, data = await _api_call(
+        PATH_QUOTA, "GET", token=token, device_map=device_map, timeout=timeout, client=client
+    )
+    if status == 401:
+        refreshed = await qoder_refresh_token(
+            str(device_map.get("refresh_token") or ""), device_map, timeout, client
+        )
+        if refreshed is not None:
+            token = str(refreshed["access_token"])
+            device_map["refresh_token"] = refreshed["refresh_token"]
+            device_map["expires_at"] = refreshed["expires_at"]
+            status, data = await _api_call(
+                PATH_QUOTA, "GET", token=token, device_map=device_map, timeout=timeout,
+                client=client,
+            )
+    if status in (0, -1):
+        return {"remaining": None, "packs": [], "error": "网络异常"}
+    if status == 403:
+        # 第五件套:403 = 挑战墙/WAF 拦截(与 qoder_classify_error 同语义)
+        checkin_outbound_gate.note_challenge("qoder")
+        return {"remaining": None, "packs": [], "error": "余额接口 HTTP 403: 挑战墙/WAF 拦截,已熔断"}
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页
+        checkin_outbound_gate.note_challenge("qoder")
+        return {"remaining": None, "packs": [], "error": "余额接口返回非 JSON 响应(挑战页,已熔断)"}
+    if status != 200:
+        return {"remaining": None, "packs": [], "error": f"余额接口 HTTP {status}"}
+    data_field = data.get("data") if isinstance(data.get("data"), dict) else None
+    inner = data_field if isinstance(data_field, dict) else data
+    addon_raw = inner.get("addOnQuota")
+    addon = addon_raw if isinstance(addon_raw, dict) else {}
+    if not addon:
+        addon_alt = inner.get("add_on_quota")
+        addon = addon_alt if isinstance(addon_alt, dict) else {}
+    remaining = addon.get("remaining")
+    if isinstance(remaining, bool) or not isinstance(remaining, (int, float)):
+        return {"remaining": None, "packs": [], "error": "addOnQuota.remaining 解析结果异常"}
+    return {"remaining": int(remaining), "packs": [], "error": None}
+# ⁠[IHUI-AI-PROVENANCE-TAIL]

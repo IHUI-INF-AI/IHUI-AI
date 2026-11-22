@@ -1,0 +1,1125 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 存储服务（文件上传/下载/签名 URL）。
+ * 迁移自旧架构 storage_service.py（FileStorageService，本地文件系统）。
+ *
+ * 设计：
+ * - 本地存储为默认实现（零依赖）
+ * - OSS 驱动配置通过 oss-queries 读取，预留扩展点
+ * - 上传文件以 file_id 为名存储，支持元数据(sidecar .meta)与缩略图
+ */
+
+import { createHash, createHmac, createPublicKey, createVerify, randomUUID } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  readdirSync,
+  statSync,
+} from 'node:fs'
+import { readFile as readFilePromised } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { env } from 'node:process'
+import IORedis, { type Redis } from 'ioredis'
+// ihui_oss_download_bytes_total:storage-service 不持有 fastify 实例,走模块级桥接
+import { recordOssDownloadBytes } from '../plugins/business-metrics.js'
+import { safeFetch } from '../utils/ssrf-guard.js'
+import { config } from '../config/index.js'
+import { logger } from '../utils/logger.js'
+
+const BASE_DIR = env.STORAGE_DIR ?? 'storage'
+const UPLOADS_DIR = join(BASE_DIR, 'uploads')
+const THUMBNAILS_DIR = join(BASE_DIR, 'thumbnails')
+const CACHE_DIR = join(BASE_DIR, 'cache')
+
+/** 确保目录存在（幂等）。 */
+function ensureDirs(): void {
+  for (const dir of [UPLOADS_DIR, THUMBNAILS_DIR, CACHE_DIR]) {
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  }
+}
+
+export interface SavedFile {
+  id: string
+  size: number
+  hash: string
+  path: string
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface FileInfo {
+  id: string
+  size: number
+  createdAt: string
+  modifiedAt: string
+  metadata?: Record<string, unknown>
+}
+
+export interface StorageStats {
+  totalFiles: number
+  totalSize: number
+  uploadsDir: string
+  thumbnailsDir: string
+  cacheDir: string
+}
+
+function filePath(fileId: string): string {
+  return join(UPLOADS_DIR, fileId)
+}
+
+function thumbnailPath(fileId: string): string {
+  return join(THUMBNAILS_DIR, `${fileId}.jpg`)
+}
+
+function metaPath(fileId: string): string {
+  return `${filePath(fileId)}.meta`
+}
+
+/** 生成新 file_id。 */
+export function generateFileId(): string {
+  return randomUUID()
+}
+
+/** 保存文件内容（含可选元数据 sidecar）。 */
+export function saveFile(
+  content: Buffer,
+  fileId: string = generateFileId(),
+  metadata?: Record<string, unknown>,
+): SavedFile {
+  ensureDirs()
+  const path = filePath(fileId)
+  writeFileSync(path, content)
+  const hash = createHash('sha256').update(content).digest('hex')
+
+  if (metadata) {
+    writeFileSync(metaPath(fileId), JSON.stringify(metadata))
+  }
+
+  return {
+    id: fileId,
+    size: content.length,
+    hash,
+    path,
+    createdAt: new Date().toISOString(),
+    metadata,
+  }
+}
+
+/** 读取文件内容。不存在返回 null。 */
+export function readFile(fileId: string): Buffer | null {
+  const path = filePath(fileId)
+  if (!existsSync(path)) return null
+  const content = readFileSync(path)
+  // ihui_oss_download_bytes_total:文件读取成功后计 downloaded bytes(字节)
+  recordOssDownloadBytes(content.length)
+  return content
+}
+
+/**
+ * 异步读取文件内容(不存在返回 null)。
+ * F-414:大文件读取(如工作簿 open)不得用 `readFileSync` 卡住事件循环。
+ */
+export async function readFileAsync(fileId: string): Promise<Buffer | null> {
+  try {
+    const content = await readFilePromised(filePath(fileId))
+    // ihui_oss_download_bytes_total:与同步读同口径,读成功即计下载字节
+    recordOssDownloadBytes(content.length)
+    return content
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return null
+    throw e
+  }
+}
+
+/** 删除文件（含元数据与缩略图）。返回是否删除了主文件。 */
+export function deleteFile(fileId: string): boolean {
+  const path = filePath(fileId)
+  let deleted = false
+  if (existsSync(path)) {
+    unlinkSync(path)
+    deleted = true
+  }
+  const meta = metaPath(fileId)
+  if (existsSync(meta)) unlinkSync(meta)
+  const thumb = thumbnailPath(fileId)
+  if (existsSync(thumb)) unlinkSync(thumb)
+  return deleted
+}
+
+/** 获取文件信息（大小、时间、元数据）。不存在返回 null。 */
+export function getFileInfo(fileId: string): FileInfo | null {
+  const path = filePath(fileId)
+  if (!existsSync(path)) return null
+  const stat = statSync(path)
+  const info: FileInfo = {
+    id: fileId,
+    size: stat.size,
+    createdAt: stat.birthtime.toISOString(),
+    modifiedAt: stat.mtime.toISOString(),
+  }
+  const meta = metaPath(fileId)
+  if (existsSync(meta)) {
+    try {
+      info.metadata = JSON.parse(readFileSync(meta, 'utf-8'))
+    } catch {
+      /* 元数据损坏时忽略 */
+    }
+  }
+  return info
+}
+
+/** 列出上传目录下的文件（分页）。 */
+export function listFiles(
+  limit = 100,
+  offset = 0,
+): Array<{
+  id: string
+  size: number
+  modifiedAt: string
+}> {
+  ensureDirs()
+  const entries = readdirSync(UPLOADS_DIR)
+    .filter((name) => !name.endsWith('.meta'))
+    .map((name) => {
+      const stat = statSync(join(UPLOADS_DIR, name))
+      return { id: name, size: stat.size, modifiedAt: stat.mtime.toISOString() }
+    })
+    .slice(offset, offset + limit)
+  return entries
+}
+
+/** 保存缩略图，返回存储路径。 */
+export function saveThumbnail(fileId: string, thumbnail: Buffer): string {
+  ensureDirs()
+  const path = thumbnailPath(fileId)
+  writeFileSync(path, thumbnail)
+  return path
+}
+
+/** 读取缩略图。不存在返回 null。 */
+export function getThumbnail(fileId: string): Buffer | null {
+  const path = thumbnailPath(fileId)
+  if (!existsSync(path)) return null
+  return readFileSync(path)
+}
+
+/** 存储统计：文件数、总大小。 */
+export function getStorageStats(): StorageStats {
+  ensureDirs()
+  let totalSize = 0
+  let totalFiles = 0
+  for (const name of readdirSync(UPLOADS_DIR)) {
+    if (name.endsWith('.meta')) continue
+    const stat = statSync(join(UPLOADS_DIR, name))
+    totalSize += stat.size
+    totalFiles++
+  }
+  return {
+    totalFiles,
+    totalSize,
+    uploadsDir: resolve(UPLOADS_DIR),
+    thumbnailsDir: resolve(THUMBNAILS_DIR),
+    cacheDir: resolve(CACHE_DIR),
+  }
+}
+
+/**
+ * 获取签名 URL 所用密钥(复用 JWT_SECRET,无独立配置)。
+ *
+ * 2026-08-02 安全审计加固:
+ * - 移除硬编码 'storage-secret' fallback(可预测 → 签名可伪造)
+ * - JWT_SECRET 缺失时 fail-closed 抛错,禁止用弱默认值继续签发
+ */
+function getSigningSecret(): string {
+  const secret = env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET 未配置,无法签发/校验签名 URL(fail-closed)')
+  }
+  return secret
+}
+
+/**
+ * 生成签名下载 URL。
+ * 本地存储模式下生成带 HMAC-SHA256 签名的临时 URL（由路由层解析校验）。
+ * OSS 模式下应调用对应驱动的 presigned URL 接口（预留）。
+ *
+ * 2026-08-02 安全审计加固:
+ * - 用 HMAC-SHA256 替代 SHA256(payload+secret)(防长度扩展攻击)
+ * - 密钥从环境变量读取,移除硬编码 fallback
+ *
+ * @param key 文件 ID 或对象 key
+ * @param expiresIn 有效期（秒），默认 3600
+ */
+export function getSignedUrl(key: string, expiresIn = 3600): string {
+  const secret = getSigningSecret()
+  const expires = Math.floor(Date.now() / 1000) + expiresIn
+  const payload = `${key}:${expires}`
+  const signature = createHmac('sha256', secret).update(payload).digest('hex').slice(0, 32)
+  const params = new URLSearchParams({ key, expires: String(expires), sig: signature })
+  return `/api/files/signed?${params.toString()}`
+}
+
+/**
+ * 校验签名 URL（路由层调用）。
+ *
+ * 2026-08-02 安全审计加固:
+ * - 用 timingSafeEqual 替代 ===(防 timing attack 逐字节猜测签名)
+ * - 用 HMAC-SHA256 重算期望签名(与 getSignedUrl 对齐)
+ */
+export function verifySignedUrl(key: string, expires: number, sig: string): boolean {
+  if (expires * 1000 < Date.now()) return false
+  const secret = getSigningSecret()
+  const payload = `${key}:${expires}`
+  const expected = createHmac('sha256', secret).update(payload).digest('hex').slice(0, 32)
+  // 经全仓唯一比较出口 secretsEqual(定长散列 + timingSafeEqual):长度不等不抛、无长度泄漏
+  return secretsEqual(expected, sig)
+}
+
+// =============================================================================
+// 缓存（文件级，带 TTL sidecar）
+// =============================================================================
+
+export function getCache(key: string): Buffer | null {
+  const path = join(CACHE_DIR, key)
+  if (!existsSync(path)) return null
+  const ttlPath = `${path}.ttl`
+  if (existsSync(ttlPath)) {
+    const expiresAt = parseFloat(readFileSync(ttlPath, 'utf-8'))
+    if (Date.now() / 1000 > expiresAt) return null
+  }
+  return readFileSync(path)
+}
+
+export function setCache(key: string, value: Buffer, ttlSeconds = 3600): void {
+  ensureDirs()
+  const path = join(CACHE_DIR, key)
+  writeFileSync(path, value)
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds
+  writeFileSync(`${path}.ttl`, String(expiresAt))
+}
+
+/** 清理过期缓存，返回清理数量。 */
+export function cleanupCache(): number {
+  ensureDirs()
+  let cleaned = 0
+  const now = Date.now() / 1000
+  for (const name of readdirSync(CACHE_DIR)) {
+    if (!name.endsWith('.ttl')) continue
+    const ttlPath = join(CACHE_DIR, name)
+    const expiresAt = parseFloat(readFileSync(ttlPath, 'utf-8'))
+    if (now > expiresAt) {
+      const dataPath = join(CACHE_DIR, name.replace(/\.ttl$/, ''))
+      if (existsSync(dataPath)) unlinkSync(dataPath)
+      unlinkSync(ttlPath)
+      cleaned++
+    }
+  }
+  return cleaned
+}
+
+// =============================================================================
+// OSS 直传能力(STS 签发 + 直传回调验签 + 分片上传协议)
+// 迁移自 D3 OssServiceApplication,适配 TS + Fastify,零新增依赖
+// - STS:使用 @alicloud/openapi-client(已安装)调 AssumeRole
+// - 回调验签:Node crypto RSA-SHA1
+// - 分片上传:Node fetch + OSS v1 HMAC-SHA1 签名直调 REST API
+// =============================================================================
+
+export interface OssConfig {
+  accessKeyId: string
+  accessKeySecret: string
+  roleArn: string
+  bucket: string
+  region: string
+  endpoint: string
+  callbackUrl?: string
+}
+
+/** 读取 OSS 配置(环境变量)。缺失返回 null。 */
+export function getOssConfig(): OssConfig | null {
+  const accessKeyId = env.OSS_ACCESS_KEY_ID
+  const accessKeySecret = env.OSS_ACCESS_KEY_SECRET
+  const roleArn = env.OSS_ROLE_ARN
+  const bucket = env.OSS_BUCKET
+  const region = env.OSS_REGION ?? 'oss-cn-hangzhou'
+  if (!accessKeyId || !accessKeySecret || !roleArn || !bucket) return null
+  return {
+    accessKeyId,
+    accessKeySecret,
+    roleArn,
+    bucket,
+    region,
+    endpoint: env.OSS_ENDPOINT ?? `${region}.aliyuncs.com`,
+    callbackUrl: env.OSS_CALLBACK_URL,
+  }
+}
+
+export interface StsCredentialsResult {
+  AccessKeyId: string
+  AccessKeySecret: string
+  SecurityToken: string
+  Expiration: string
+  bucket: string
+  region: string
+  endpoint: string
+}
+
+/**
+ * 签发 STS 临时凭证(默认 15 分钟,仅 oss:PutObject 权限)。
+ * 使用 @alicloud/openapi-client(已安装依赖)调用 STS AssumeRole。
+ */
+export async function issueStsCredentials(
+  sessionName: string,
+  durationSeconds = 900,
+): Promise<StsCredentialsResult> {
+  const config = getOssConfig()
+  if (!config) {
+    throw new Error('OSS 配置缺失(OSS_ACCESS_KEY_ID/OSS_ACCESS_KEY_SECRET/OSS_ROLE_ARN/OSS_BUCKET)')
+  }
+
+  // 动态 import @alicloud/openapi-client(类型声明见 src/types/optional-deps.d.ts)
+  // 使用 as unknown as 强转绕过 optional-deps.d.ts 仅声明 Config 的限制
+  const OpenApi = (await import('@alicloud/openapi-client')) as unknown as {
+    default: new (config: unknown) => {
+      callApi(
+        params: unknown,
+        request: unknown,
+        runtime: unknown,
+      ): Promise<{ body: Record<string, unknown> }>
+    }
+    Config: new (input: Record<string, unknown>) => unknown
+    Params: new (input: Record<string, unknown>) => unknown
+    OpenApiRequest: new (input: Record<string, unknown>) => unknown
+  }
+
+  // 最小权限策略:仅允许 oss:PutObject 到当前 bucket
+  const policy = {
+    Version: '1',
+    Statement: [
+      {
+        Effect: 'Allow',
+        Action: ['oss:PutObject'],
+        Resource: [`acs:oss:*:*:${config.bucket}/*`],
+      },
+    ],
+  }
+
+  const client = new OpenApi.default(
+    new OpenApi.Config({
+      accessKeyId: config.accessKeyId,
+      accessKeySecret: config.accessKeySecret,
+      endpoint: 'sts.aliyuncs.com',
+      protocol: 'HTTPS',
+    }),
+  )
+
+  const params = new OpenApi.Params({
+    action: 'AssumeRole',
+    version: '2015-04-01',
+    protocol: 'HTTPS',
+    pathname: '/',
+    method: 'POST',
+    authType: 'AK',
+    bodyType: 'json',
+    reqBodyType: 'formData',
+    style: 'RPC',
+  })
+
+  const request = new OpenApi.OpenApiRequest({
+    query: {
+      RoleArn: config.roleArn,
+      RoleSessionName: sessionName.slice(0, 32) || 'ihui-upload',
+      DurationSeconds: String(durationSeconds),
+      Policy: JSON.stringify(policy),
+    },
+  })
+
+  // runtime 传空对象,SDK 内部用 Util.defaultNumber/String 兜底默认值
+  const response = await client.callApi(params, request, {})
+  const creds = response.body?.Credentials as
+    | {
+        AccessKeyId: string
+        AccessKeySecret: string
+        SecurityToken: string
+        Expiration: string
+      }
+    | undefined
+
+  if (!creds) {
+    // AssumeRole 的成功体就是临时凭据(AccessKeyId / AccessKeySecret / SecurityToken),
+    // 走 SDK 时 URL 不可见,失败分支整体透传等于把凭据端点的响应体送进错误消息(且非 2xx 不打码)。
+    // 只回传阿里云 RPC 的 Code / RequestId:足够定位,且都不是凭据。
+    const err = response.body as { Code?: unknown; RequestId?: unknown } | undefined
+    const code = typeof err?.Code === 'string' ? err.Code : 'no_code'
+    const reqId = typeof err?.RequestId === 'string' ? ` req=${err.RequestId}` : ''
+    throw new Error(`STS AssumeRole 失败: ${code}${reqId}`)
+  }
+
+  return {
+    ...creds,
+    bucket: config.bucket,
+    region: config.region,
+    endpoint: config.endpoint,
+  }
+}
+
+// =============================================================================
+// 直传回调验签(RSA-SHA1)
+// 阿里云 OSS 回调签名算法:RSA-SHA1,公钥 URL 在 x-oss-pub-key-url header(base64)
+// =============================================================================
+
+const pubKeyCache = new Map<
+  string,
+  { key: ReturnType<typeof createPublicKey>; fetchedAt: number }
+>()
+const PUB_KEY_TTL_MS = 60 * 60 * 1000 // 1 小时
+/** 公钥响应体上限:正常 PEM 不足 1KB,8KB 已覆盖证书链;绝不把上游响应整包信任。 */
+const PUB_KEY_MAX_BYTES = 8 * 1024
+/** 公钥拉取超时:拦截指向慢端点的悬挂请求(内网盲 SSRF 的常见形态之一)。 */
+const PUB_KEY_FETCH_TIMEOUT_MS = 5000
+/** 缓存容量上限:FIFO 淘汰,防止"合法域名 + 随机路径"把内存撑大。 */
+const PUB_KEY_CACHE_MAX_ENTRIES = 32
+
+/** 阿里云公钥分发域(标签边界匹配,不是子串匹配)。 */
+const OSS_PUB_KEY_HOST_SUFFIXES = ['.alicdn.com', '.aliyuncs.com'] as const
+
+/**
+ * 公钥 URL 白名单(2026-11-08 修 F-69):
+ * 旧写法用 `startsWith` + `/\.alicdn\.com\//` 子串正则 —— 攻击者把 `.alicdn.com/`
+ * 放进 path/query(`https://evil.com/.alicdn.com/key.pem`)即可通过。现在先 `new URL()`
+ * 解析,强制 https,再按**主机名标签边界**放行 alicdn.com / aliyuncs.com 的合法主机。
+ */
+function isAllowedOssPublicKeyUrl(rawUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  return OSS_PUB_KEY_HOST_SUFFIXES.some((suffix) => {
+    const bare = suffix.slice(1)
+    return host === bare || host.endsWith(suffix)
+  })
+}
+
+/** 有界读取响应体:超过 maxBytes 立即取消,不把攻击者可控的大响应读进内存。 */
+async function readLimitedResponseText(resp: Response, maxBytes: number): Promise<string | null> {
+  const declared = resp.headers.get('content-length')
+  if (declared !== null) {
+    const n = Number(declared)
+    if (!Number.isFinite(n) || n < 0 || n > maxBytes) return null
+  }
+  if (resp.body) {
+    const reader = resp.body.getReader()
+    const chunks: Uint8Array[] = []
+    let total = 0
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+        total += value.byteLength
+        if (total > maxBytes) {
+          try {
+            await reader.cancel()
+          } catch {
+            // 取消失败不影响拒绝结论
+          }
+          return null
+        }
+        chunks.push(value)
+      }
+    } catch {
+      return null
+    } finally {
+      try {
+        reader.releaseLock()
+      } catch {
+        // 已 cancel 的流可能已释放锁
+      }
+    }
+    return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString('utf-8')
+  }
+  const text = await resp.text()
+  return Buffer.byteLength(text, 'utf-8') > maxBytes ? null : text
+}
+
+/** 写入公钥缓存并按容量 FIFO 淘汰。 */
+function cachePubKey(
+  url: string,
+  entry: { key: ReturnType<typeof createPublicKey>; fetchedAt: number },
+): void {
+  pubKeyCache.set(url, entry)
+  while (pubKeyCache.size > PUB_KEY_CACHE_MAX_ENTRIES) {
+    const oldest = pubKeyCache.keys().next().value
+    if (oldest === undefined) break
+    pubKeyCache.delete(oldest)
+  }
+}
+
+/** 验证 OSS 直传回调签名(RSA-SHA1)。验证通过返回 true。 */
+export async function verifyOssCallback(params: {
+  method: string
+  path: string
+  query: string
+  body: string
+  authorization: string
+  pubKeyUrlB64: string
+}): Promise<boolean> {
+  const { method, path, query, body, authorization, pubKeyUrlB64 } = params
+
+  // 1. 解码公钥 URL(base64)
+  let pubKeyUrl: string
+  try {
+    pubKeyUrl = Buffer.from(pubKeyUrlB64, 'base64').toString('utf-8')
+  } catch {
+    return false
+  }
+
+  // 2. 严格白名单校验(防 SSRF):协议必须 https,主机名按标签边界匹配。
+  //    公钥地址完全由请求头控制,不能在解析前信任其任何部分。
+  if (!isAllowedOssPublicKeyUrl(pubKeyUrl)) return false
+
+  // 3. 获取公钥(带 1 小时缓存;走仓库统一的 safeFetch,含 DNS/内网/重定向守卫)
+  let cached = pubKeyCache.get(pubKeyUrl)
+  if (!cached || Date.now() - cached.fetchedAt > PUB_KEY_TTL_MS) {
+    try {
+      const resp = await safeFetch(pubKeyUrl, {
+        signal: AbortSignal.timeout(PUB_KEY_FETCH_TIMEOUT_MS),
+      })
+      if (!resp.ok) return false
+      const pem = await readLimitedResponseText(resp, PUB_KEY_MAX_BYTES)
+      if (pem === null) return false
+      cached = {
+        key: createPublicKey(pem),
+        fetchedAt: Date.now(),
+      }
+      cachePubKey(pubKeyUrl, cached)
+    } catch {
+      return false
+    }
+  }
+
+  // 4. 构造签名串:method + "\n" + pathAndQuery + "\n" + body
+  //    OSS 回调签名标准:path(含 query) + "\n" + body
+  const pathAndQuery = query ? `${path}?${query}` : path
+  const signedString = `${method}\n${pathAndQuery}\n${body}`
+
+  // 5. 解码签名(base64)
+  let signature: Buffer
+  try {
+    signature = Buffer.from(authorization, 'base64')
+  } catch {
+    return false
+  }
+
+  // 6. RSA-SHA1 验签
+  const verifier = createVerify('RSA-SHA1')
+  verifier.update(signedString)
+  return verifier.verify(cached.key, signature)
+}
+
+// =============================================================================
+// OSS v1 签名 + REST API 调用(用于分片上传)
+// OSS v1 签名:HMAC-SHA1,与 STS 的 RPC 签名不同
+// =============================================================================
+
+interface OssCallOptions {
+  queryParams?: Record<string, string>
+  headers?: Record<string, string>
+  body?: Buffer
+  contentType?: string
+}
+
+interface OssCallResult {
+  status: number
+  headers: Record<string, string>
+  body: string
+}
+
+/** OSS v1 HMAC-SHA1 签名并发起 HTTP 请求。 */
+async function callOss(
+  method: string,
+  key: string,
+  options: OssCallOptions = {},
+): Promise<OssCallResult> {
+  const config = getOssConfig()
+  if (!config) throw new Error('OSS 配置缺失')
+
+  const queryParams = options.queryParams ?? {}
+  const resource = `/${config.bucket}/${key}`
+
+  // 构造 URL
+  const url = `https://${config.bucket}.${config.endpoint}/${key}`
+  const queryString = new URLSearchParams(queryParams).toString()
+  const fullUrl = queryString ? `${url}?${queryString}` : url
+
+  // CanonicalizedResource(含子资源)
+  const SUB_RESOURCES = new Set([
+    'acl',
+    'uploads',
+    'location',
+    'cors',
+    'logging',
+    'website',
+    'referer',
+    'lifecycle',
+    'delete',
+    'uploadId',
+    'partNumber',
+    'security-token',
+  ])
+  const subResEntries = Object.entries(queryParams)
+    .filter(([k]) => SUB_RESOURCES.has(k) || k.startsWith('x-oss-'))
+    .sort(([a], [b]) => a.localeCompare(b))
+  const canonicalizedResource =
+    subResEntries.length > 0
+      ? `${resource}?${subResEntries.map(([k, v]) => `${k}=${v}`).join('&')}`
+      : resource
+
+  // 构造 headers
+  const date = new Date().toUTCString()
+  const headers: Record<string, string> = {
+    Date: date,
+    ...options.headers,
+  }
+
+  // Content-MD5
+  let contentMd5 = ''
+  if (options.body) {
+    contentMd5 = createHash('md5').update(options.body).digest('base64')
+    headers['Content-MD5'] = contentMd5
+  }
+  if (options.contentType) {
+    headers['Content-Type'] = options.contentType
+  }
+
+  // CanonicalizedOSSHeaders(x-oss-* 排序)
+  const ossHeaderLines = Object.entries(headers)
+    .filter(([k]) => k.toLowerCase().startsWith('x-oss-'))
+    .map(([k, v]) => `${k.toLowerCase()}:${v}`)
+    .sort()
+  const canonicalizedOSSHeaders = ossHeaderLines.length > 0 ? ossHeaderLines.join('\n') + '\n' : ''
+
+  // StringToSign
+  const stringToSign = `${method.toUpperCase()}\n${contentMd5}\n${options.contentType ?? ''}\n${date}\n${canonicalizedOSSHeaders}${canonicalizedResource}`
+
+  // 签名
+  const signature = createHmac('sha1', config.accessKeySecret).update(stringToSign).digest('base64')
+  headers['Authorization'] = `OSS ${config.accessKeyId}:${signature}`
+
+  // 发起请求
+  // F-545:OSS 慢响应/挂起会把分片四端点整体拖住,加 15s 硬超时。
+  const resp = await fetch(fullUrl, {
+    method,
+    headers,
+    body: options.body,
+    signal: AbortSignal.timeout(15_000),
+  })
+
+  const respHeaders: Record<string, string> = {}
+  resp.headers.forEach((v, k) => {
+    respHeaders[k] = v
+  })
+  const respBody = await resp.text()
+
+  if (resp.status >= 400) {
+    // F-545:OSS 错误体可能很大,截断后再进错误消息,避免内存/日志放大。
+    throw new Error(`OSS ${method} ${key} 失败: ${resp.status} ${respBody.slice(0, 2048)}`)
+  }
+
+  return { status: resp.status, headers: respHeaders, body: respBody }
+}
+
+// =============================================================================
+// 分片上传会话管理(Redis 为主存 + 本实例进程内索引)
+// UploadId(UUID v4) 为客户端可见的会话 ID,内部映射到 OSS 的 UploadId
+//
+// F-382 修复要点:
+// - 会话 key = 实例标识 + userId + sessionId,读取必须按 (userId, sessionId) 精确取,
+//   天然隔离跨用户命中;
+// - 写 Redis 时带 TTL;本实例索引只保存本进程创建的会话,清理不会误删别的实例;
+// - 过期清理先调 OSS AbortMultipartUpload 再删会话,失败只 warn 不阻塞;
+// - Redis 不可用时回退进程内 Map,并通过 isMultipartSessionStoreDegraded() 显式标注降级。
+// =============================================================================
+
+interface MultipartSession {
+  sessionId: string // UUID v4,返回给客户端作为 uploadId
+  ossUploadId: string // OSS 的 UploadId
+  key: string // 对象 key
+  bucket: string
+  userId: string // 所有者(用于鉴权)
+  createdAt: number
+}
+
+/** 会话逻辑有效期(与原实现一致:1 小时)。 */
+export const MULTIPART_SESSION_TTL_MS = 60 * 60 * 1000
+/**
+ * Redis 物理 TTL 比逻辑有效期多留 15 分钟清理窗口:
+ * 若两者相等,键会先于清理任务消失,OSS 侧分片就永远拿不到 AbortMultipartUpload
+ * (正是 F-382 的病灶)。逻辑过期仍以 createdAt + MULTIPART_SESSION_TTL_MS 判定。
+ */
+const MULTIPART_SESSION_REDIS_TTL_MS = MULTIPART_SESSION_TTL_MS + 15 * 60 * 1000
+
+/** 实例标识:清理只覆盖本实例创建的会话,多实例之间互不干扰。 */
+const INSTANCE_ID = `${env.HOSTNAME ?? 'local'}-${process.pid}-${randomUUID().slice(0, 8)}`
+const SESSION_KEY_PREFIX = `oss:multipart:${INSTANCE_ID}:`
+
+/**
+ * 本实例会话索引(进程内)。
+ * - Redis 在线时:仅作为本实例清理扫描表 + 写入失败时的兜底副本;
+ * - Redis 不可用时:即权威存储(降级),仍按 userId 分键,不会读到他人会话。
+ */
+const sessionIndex = new Map<string, MultipartSession>()
+
+let redisClient: Redis | null = null
+let degraded = false
+
+/** 是否已降级到进程内存储。降级必须可被调用方观测,不得静默。 */
+export function isMultipartSessionStoreDegraded(): boolean {
+  return degraded
+}
+
+function markDegraded(reason: string, error?: unknown): void {
+  if (!degraded) {
+    logger.warn('[storage-service] 分片会话存储降级为进程内 Map(多实例不共享)', {
+      reason,
+      error: String((error as Error)?.message ?? error ?? ''),
+    })
+  }
+  degraded = true
+}
+
+function getRedis(): Redis | null {
+  if (redisClient) return redisClient
+  try {
+    redisClient = new IORedis(config.REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      // Redis 不可达时必须立即报错,否则命令排队挂死,内存兜底永远走不到。
+      enableOfflineQueue: false,
+      commandTimeout: 2000,
+    })
+    redisClient.on('error', (err) => {
+      markDegraded('redis error', err)
+    })
+  } catch (e) {
+    markDegraded('redis 初始化失败', e)
+    redisClient = null
+  }
+  return redisClient
+}
+
+/** 会话存储键:实例标识 + userId + sessionId,跨用户不可能命中。 */
+function sessionStorageKey(userId: string, sessionId: string): string {
+  return `${SESSION_KEY_PREFIX}${encodeURIComponent(userId)}:${sessionId}`
+}
+
+function parseSession(raw: string): MultipartSession | null {
+  try {
+    const s = JSON.parse(raw) as MultipartSession
+    if (
+      !s ||
+      typeof s.sessionId !== 'string' ||
+      typeof s.ossUploadId !== 'string' ||
+      typeof s.key !== 'string' ||
+      typeof s.bucket !== 'string' ||
+      typeof s.userId !== 'string' ||
+      typeof s.createdAt !== 'number'
+    ) {
+      return null
+    }
+    return s
+  } catch {
+    return null
+  }
+}
+
+function isSessionExpired(session: MultipartSession, now = Date.now()): boolean {
+  return now - session.createdAt > MULTIPART_SESSION_TTL_MS
+}
+
+async function saveMultipartSession(session: MultipartSession): Promise<void> {
+  const storageKey = sessionStorageKey(session.userId, session.sessionId)
+  sessionIndex.set(storageKey, session)
+  const redis = getRedis()
+  if (!redis) {
+    markDegraded('redis 客户端不可用')
+    return
+  }
+  try {
+    await redis.set(storageKey, JSON.stringify(session), 'PX', MULTIPART_SESSION_REDIS_TTL_MS)
+  } catch (e) {
+    markDegraded('写入 redis 失败,本会话仅进程内可见', e)
+  }
+}
+
+async function deleteMultipartSession(session: MultipartSession): Promise<void> {
+  const storageKey = sessionStorageKey(session.userId, session.sessionId)
+  sessionIndex.delete(storageKey)
+  const redis = getRedis()
+  if (!redis) return
+  try {
+    await redis.del(storageKey)
+  } catch (e) {
+    markDegraded('删除 redis 会话失败', e)
+  }
+}
+
+/** 按 (userId, sessionId) 精确读取;不存在、属主不符或已过期均返回 null。 */
+async function getMultipartSession(
+  userId: string,
+  sessionId: string,
+): Promise<MultipartSession | null> {
+  const storageKey = sessionStorageKey(userId, sessionId)
+  const redis = getRedis()
+  if (redis) {
+    try {
+      const raw = await redis.get(storageKey)
+      if (raw) {
+        const session = parseSession(raw)
+        if (!session || session.userId !== userId || session.sessionId !== sessionId) return null
+        if (isSessionExpired(session)) {
+          // 过期会话不能只删记录,先回收 OSS 侧分片(失败仅告警)。
+          void abortOssMultipartSession(session)
+          await deleteMultipartSession(session)
+          return null
+        }
+        return session
+      }
+      // Redis 在线且查无:以 Redis 为准,清掉本进程可能残留的陈旧副本。
+      // 降级状态下该 null 不可信(写入失败时 Redis 里本来就没有),继续走内存兜底。
+      if (!degraded) {
+        sessionIndex.delete(storageKey)
+        return null
+      }
+    } catch (e) {
+      markDegraded('读取 redis 失败,回退进程内', e)
+    }
+  }
+  const mem = sessionIndex.get(storageKey)
+  if (!mem) return null
+  if (mem.userId !== userId || mem.sessionId !== sessionId) return null
+  if (isSessionExpired(mem)) {
+    sessionIndex.delete(storageKey)
+    return null
+  }
+  return mem
+}
+
+/** 调 OSS AbortMultipartUpload;失败只记 warn,不阻塞本地会话清理。 */
+async function abortOssMultipartSession(session: MultipartSession): Promise<void> {
+  if (!getOssConfig()) return
+  try {
+    await callOss('DELETE', session.key, {
+      queryParams: { uploadId: session.ossUploadId },
+    })
+  } catch (e) {
+    logger.warn('[storage-service] 过期分片会话 AbortMultipartUpload 失败', {
+      sessionId: session.sessionId,
+      error: String((e as Error)?.message ?? e),
+    })
+  }
+}
+
+/**
+ * 清理本实例的过期会话:先 Abort OSS 分片,再删除会话。
+ * 只有 sessionIndex 中的条目会被扫描 —— 不会碰到其它实例/其它用户的在途会话。
+ * 返回清理条数。
+ */
+export async function cleanupExpiredMultipartSessions(): Promise<number> {
+  const now = Date.now()
+  let cleaned = 0
+  for (const session of Array.from(sessionIndex.values())) {
+    if (!isSessionExpired(session, now)) continue
+    await abortOssMultipartSession(session)
+    await deleteMultipartSession(session)
+    cleaned++
+  }
+  return cleaned
+}
+
+/** 仅供测试:清空进程内会话索引与降级标记。 */
+export function _resetMultipartSessionStateForTests(): void {
+  sessionIndex.clear()
+  degraded = false
+}
+
+/**
+ * 周期清理(只扫本实例索引)。没有既有调度器可挂,故在首次初始化时注册,
+ * unref 保证不阻止进程退出;无论如何 initiate 处还有一次惰性清理兜底。
+ */
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000
+let cleanupTimer: ReturnType<typeof setInterval> | null = null
+
+function ensureCleanupTimer(): void {
+  if (cleanupTimer) return
+  cleanupTimer = setInterval(() => {
+    void cleanupExpiredMultipartSessions()
+  }, CLEANUP_INTERVAL_MS)
+  if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref()
+}
+
+// =============================================================================
+// 分片上传操作
+// =============================================================================
+
+export interface MultipartInitResult {
+  uploadId: string // 我们的 sessionId(UUID v4)
+  key: string
+  ossUploadId: string
+  bucket: string
+}
+
+/** 初始化分片上传:调 OSS InitiateMultipartUpload,返回 sessionId。 */
+export async function initiateMultipartUpload(
+  userId: string,
+  opts: { filename: string; contentType?: string },
+): Promise<MultipartInitResult> {
+  // 惰性清理(本实例清单):不阻塞本次初始化,过期会话在后台 Abort + 删除。
+  void cleanupExpiredMultipartSessions()
+  ensureCleanupTimer()
+
+  const config = getOssConfig()
+  if (!config) throw new Error('OSS 配置缺失')
+
+  // 生成对象 key:uploads/<userId>/<date>/<uuid>/<filename>
+  const dateStr = new Date().toISOString().slice(0, 10)
+  const uuid = randomUUID()
+  const safeFilename = opts.filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const key = `uploads/${userId}/${dateStr}/${uuid}/${safeFilename}`
+
+  const headers: Record<string, string> = {}
+  if (opts.contentType) {
+    headers['Content-Type'] = opts.contentType
+  }
+
+  const result = await callOss('POST', key, {
+    queryParams: { uploads: '' },
+    headers,
+    contentType: opts.contentType,
+  })
+
+  // 解析 XML 响应获取 UploadId
+  const uploadIdMatch = result.body.match(/<UploadId>([^<]+)<\/UploadId>/)
+  const ossUploadId = uploadIdMatch?.[1]
+  if (!ossUploadId) {
+    throw new Error(`OSS InitiateMultipartUpload 响应无 UploadId: ${result.body}`)
+  }
+
+  // 生成 sessionId(UUID v4)并存储映射(Redis 主存,带 TTL)
+  const sessionId = randomUUID()
+  await saveMultipartSession({
+    sessionId,
+    ossUploadId,
+    key,
+    bucket: config.bucket,
+    userId,
+    createdAt: Date.now(),
+  })
+
+  return { uploadId: sessionId, key, ossUploadId, bucket: config.bucket }
+}
+
+export interface MultipartUploadResult {
+  etag: string
+  partNumber: number
+}
+
+/** 上传分片:调 OSS UploadPart,返回 ETag。 */
+export async function uploadMultipartPart(
+  sessionId: string,
+  partNumber: number,
+  data: Buffer,
+  userId: string,
+): Promise<MultipartUploadResult> {
+  const session = await getMultipartSession(userId, sessionId)
+  if (!session) throw new Error('分片上传会话不存在或已过期')
+
+  if (partNumber < 1 || partNumber > 10000) {
+    throw new Error('partNumber 必须在 1-10000 之间')
+  }
+
+  const result = await callOss('PUT', session.key, {
+    queryParams: {
+      partNumber: String(partNumber),
+      uploadId: session.ossUploadId,
+    },
+    body: data,
+    contentType: 'application/octet-stream',
+  })
+
+  const etag = result.headers['etag'] ?? result.headers['ETag']
+  if (!etag) {
+    throw new Error(`OSS UploadPart 响应无 ETag: ${result.status}`)
+  }
+
+  return { etag: etag.replace(/"/g, ''), partNumber }
+}
+
+export interface MultipartCompleteResult {
+  url: string
+  key: string
+  bucket: string
+  location: string
+}
+
+/** 完成分片上传:调 OSS CompleteMultipartUpload,返回最终 URL。 */
+export async function completeMultipartUpload(
+  sessionId: string,
+  parts: Array<{ partNumber: number; etag: string }>,
+  userId: string,
+): Promise<MultipartCompleteResult> {
+  const session = await getMultipartSession(userId, sessionId)
+  if (!session) throw new Error('分片上传会话不存在或已过期')
+
+  // 构造 CompleteMultipartUpload XML body
+  const sortedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber)
+  const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>\n<CompleteMultipartUpload>${sortedParts
+    .map((p) => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>"${p.etag}"</ETag></Part>`)
+    .join('')}</CompleteMultipartUpload>`
+
+  const result = await callOss('POST', session.key, {
+    queryParams: { uploadId: session.ossUploadId },
+    body: Buffer.from(xmlBody),
+    contentType: 'application/xml',
+  })
+
+  // 解析 XML 获取 Location
+  const locationMatch = result.body.match(/<Location>([^<]+)<\/Location>/)
+  const location = locationMatch?.[1] ?? ''
+
+  const config = getOssConfig()
+  const url = `https://${session.bucket}.${config?.endpoint ?? ''}/${session.key}`
+
+  // 清理会话(Redis + 本实例索引)
+  await deleteMultipartSession(session)
+
+  return {
+    url,
+    key: session.key,
+    bucket: session.bucket,
+    location,
+  }
+}
+
+/** 取消分片上传:调 OSS AbortMultipartUpload,清理会话。 */
+export async function abortMultipartUpload(sessionId: string, userId: string): Promise<void> {
+  const session = await getMultipartSession(userId, sessionId)
+  if (!session) throw new Error('分片上传会话不存在或已过期')
+
+  await callOss('DELETE', session.key, {
+    queryParams: { uploadId: session.ossUploadId },
+  })
+
+  await deleteMultipartSession(session)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

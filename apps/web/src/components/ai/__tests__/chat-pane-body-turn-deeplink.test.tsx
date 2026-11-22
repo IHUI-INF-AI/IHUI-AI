@@ -1,0 +1,275 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 差距⑤遗留边界2(2026-10-30 立):窗格化 ?turn= 深链的组件面单测。
+ * 覆盖 ChatPaneBody 的 around 分支:目标归属本窗格 ⇒ 绕常规通道走 around 取窗、
+ * 锚点跳转投递**本窗格**的 ProgressJumpStore 实例(不碰根单例);
+ * 边界1 同窗格换 turn ⇒ 版本号订阅驱动 effect 重跑、按新 turn 重锚;
+ * 目标不属本窗格 ⇒ 常规路径逐字节不变(零回归红线)。
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import * as React from 'react'
+import { render, waitFor, act, cleanup } from '@testing-library/react'
+
+const { getConversationMock, getMessagesMock, getConversationHistoryMock } = vi.hoisted(() => ({
+  getConversationMock: vi.fn(),
+  getMessagesMock: vi.fn(),
+  getConversationHistoryMock: vi.fn(),
+}))
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn() }),
+}))
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}))
+vi.mock('@ihui/api-client', async (importOriginal) => ({
+  ...(await importOriginal()),
+  getConversation: getConversationMock,
+  getMessages: getMessagesMock,
+  getConversationHistory: getConversationHistoryMock,
+}))
+vi.mock('@/components/common', () => ({
+  toast: { info: vi.fn(), error: vi.fn(), success: vi.fn(), warning: vi.fn() },
+}))
+vi.mock('@/hooks/use-apply-diff', () => ({
+  useApplyDiff: () => ({
+    applyDiff: vi.fn(),
+    rejectDiff: vi.fn(),
+    applyAllDiffs: vi.fn(),
+    rejectAllDiffs: vi.fn(),
+    applyDiffSelection: vi.fn(),
+  }),
+}))
+vi.mock('@/components/chat/message-list/MessageList', () => ({
+  MessageList: (props: { messages: unknown[] }) => (
+    <div data-testid="message-list" data-count={props.messages.length} />
+  ),
+}))
+vi.mock('@/components/chat/message-input', () => ({
+  MessageInput: () => <div data-testid="message-input" />,
+}))
+vi.mock('@/components/chat/question-dialog', () => ({
+  QuestionDialog: () => null,
+}))
+
+import { ChatPaneBody } from '@/components/ai/chat-pane-body'
+import { ChatPaneProvider } from '@/stores/chat-pane-context'
+import { getChatStoreForPane, resetChatPaneStores } from '@/stores/chat-panes'
+import {
+  getProgressJumpStoreForPane,
+  resetProgressJumpPaneStores,
+  useProgressJumpStore,
+} from '@/stores/progress-jump-store'
+import { clearTurnDeepLink, setTurnDeepLink } from '@/lib/turn-deeplink'
+
+const iso = new Date('2026-10-30T00:00:00Z').toISOString()
+
+/** around 通道 mock:按请求的 turn 现造窗口(锚点行 id = `m-<turn>`),并记录调用参数 */
+function mockAroundWindow() {
+  getConversationHistoryMock.mockImplementation(
+    (_id: string, opts: { aroundTurnId: string; aroundWindow: number }) =>
+      Promise.resolve({
+        success: true,
+        data: {
+          turns: [
+            {
+              turnOrdinal: Number(opts.aroundTurnId),
+              messages: [
+                { id: `m-${opts.aroundTurnId}`, role: 'user', content: '锚点轮', createdAt: iso },
+              ],
+            },
+          ],
+        },
+      }),
+  )
+}
+
+describe('ChatPaneBody 窗格化 ?turn= 深链', () => {
+  beforeEach(() => {
+    resetChatPaneStores()
+    resetProgressJumpPaneStores()
+    clearTurnDeepLink()
+    useProgressJumpStore.setState({ pendingJumpToMessage: null })
+    getConversationMock.mockReset()
+    getMessagesMock.mockReset()
+    getConversationHistoryMock.mockReset()
+    getConversationMock.mockResolvedValue({
+      success: true,
+      data: { conversation: { title: '会话', metadata: null } },
+    })
+    getMessagesMock.mockResolvedValue({
+      success: true,
+      data: { messages: [], nextCursor: null, hasMore: false },
+    })
+    mockAroundWindow()
+  })
+
+  afterEach(() => {
+    // 先卸掉本测的窗格,再清深链。清链会广播;组件还挂着就会改走最新页,
+    // 那一记 getMessages 会漏进下一条用例。
+    cleanup()
+    clearTurnDeepLink()
+  })
+
+  it('目标归属本窗格 ⇒ around 取窗水合本窗格 store,锚点跳转投递本窗格实例、不碰根单例', async () => {
+    setTurnDeepLink('conv-deeplink-a', 7, 'pane-a')
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-deeplink-a" />
+      </ChatPaneProvider>,
+    )
+
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().messages).toHaveLength(1))
+    expect(getConversationHistoryMock).toHaveBeenCalledWith('conv-deeplink-a', {
+      aroundTurnId: '7',
+      aroundWindow: 5,
+    })
+    // 绕常规通道:最新页 getMessages 不进 around 支
+    expect(getMessagesMock).not.toHaveBeenCalled()
+    expect(paneStore.getState().messagesTurnWindowed).toBe(true)
+    expect(paneStore.getState().messages[0]?.id).toBe('m-7')
+    // 投递面:跳转落在 pane-a 自己的 ProgressJumpStore,根单例分毫不动
+    expect(getProgressJumpStoreForPane('pane-a').getState().pendingJumpToMessage).toEqual(
+      expect.objectContaining({ messageId: 'm-7' }),
+    )
+    expect(useProgressJumpStore.getState().pendingJumpToMessage).toBeNull()
+    expect(
+      getConversationHistoryMock.mock.calls.some(
+        ([, opts]) => (opts as { direction?: string } | undefined)?.direction === 'newest',
+      ),
+    ).toBe(false)
+  })
+
+  it('around 失败 ⇒ 空态错误,不拉最新页,也不并入最新轮', async () => {
+    getConversationHistoryMock.mockImplementation(
+      async (_id: string, opts: { aroundTurnId?: string; direction?: string }) => {
+        if (opts.direction === 'newest') {
+          return {
+            success: true,
+            data: {
+              turns: [
+                {
+                  turnOrdinal: 1,
+                  messages: [{ id: 'latest', role: 'user', content: '最新', createdAt: iso }],
+                },
+              ],
+              hasMore: false,
+              nextCursor: null,
+            },
+          }
+        }
+        return { success: false, error: 'turn 不存在', status: 404 }
+      },
+    )
+    setTurnDeepLink('conv-miss', 99, 'pane-a')
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-miss" />
+      </ChatPaneProvider>,
+    )
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().error).toBe('turn-anchor-unresolved'))
+    expect(paneStore.getState().messages).toEqual([])
+    expect(paneStore.getState().messagesTurnWindowed).toBe(false)
+    expect(getMessagesMock).not.toHaveBeenCalled()
+    expect(
+      getConversationHistoryMock.mock.calls.some(
+        ([, opts]) => (opts as { direction?: string } | undefined)?.direction === 'newest',
+      ),
+    ).toBe(false)
+  })
+
+  it('around 成功但窗口没有请求的那一轮 ⇒ 空态,不留下旁边的轮次', async () => {
+    getConversationHistoryMock.mockResolvedValue({
+      success: true,
+      data: {
+        turns: [
+          {
+            turnOrdinal: 3,
+            messages: [{ id: 'm-3', role: 'user', content: '旁', createdAt: iso }],
+          },
+        ],
+      },
+    })
+    setTurnDeepLink('conv-gap', 8, 'pane-a')
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-gap" />
+      </ChatPaneProvider>,
+    )
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().error).toBe('turn-anchor-unresolved'))
+    expect(paneStore.getState().messages).toEqual([])
+    expect(getMessagesMock).not.toHaveBeenCalled()
+  })
+
+  it('边界1 同窗格换 turn ⇒ 版本号订阅驱动重锚(无需卸载重挂)', async () => {
+    setTurnDeepLink('conv-deeplink-b', 5, 'pane-a')
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-deeplink-b" />
+      </ChatPaneProvider>,
+    )
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().messages[0]?.id).toBe('m-5'))
+
+    // 已在该会话时 URL 的 ?turn= 变化:广播 ⇒ effect 重跑 ⇒ 按新 turn 重取窗 + 重锚
+    act(() => {
+      setTurnDeepLink('conv-deeplink-b', 9, 'pane-a')
+    })
+    await waitFor(() => expect(paneStore.getState().messages[0]?.id).toBe('m-9'))
+    // D35 投影挂载(2026-10-31)后,本组件还会对同一端点发一次 direction:'newest' 的
+    // 投影首屏请求 —— 本用例判的是 **around 通道**被重锚了几次,不是历史端点总调用数。
+    const aroundCalls = getConversationHistoryMock.mock.calls.filter(
+      ([, opts]) => (opts as { aroundTurnId?: string } | undefined)?.aroundTurnId !== undefined,
+    )
+    expect(aroundCalls).toHaveLength(2)
+    expect(getConversationHistoryMock).toHaveBeenLastCalledWith('conv-deeplink-b', {
+      aroundTurnId: '9',
+      aroundWindow: 5,
+    })
+    expect(getProgressJumpStoreForPane('pane-a').getState().pendingJumpToMessage?.messageId).toBe(
+      'm-9',
+    )
+  })
+
+  it('目标不属本窗格(根窗格目标)⇒ 本窗格走常规路径,零 around 调用', async () => {
+    setTurnDeepLink('conv-deeplink-c', 7, null)
+    getMessagesMock.mockResolvedValue({
+      success: true,
+      data: {
+        messages: [{ id: 'n-1', role: 'user', content: '常规页', createdAt: iso }],
+        nextCursor: null,
+        hasMore: false,
+      },
+    })
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-deeplink-c" />
+      </ChatPaneProvider>,
+    )
+
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().messages).toHaveLength(1))
+    expect(getMessagesMock).toHaveBeenCalledWith('conv-deeplink-c', {
+      direction: 'initial',
+      pageSize: 50,
+    })
+    // D35 投影的常规 newest 首屏不是 around 通道;本用例判的是"别窗格的深链不进取窗支"。
+    expect(
+      getConversationHistoryMock.mock.calls.some(
+        ([, opts]) => (opts as { aroundTurnId?: string } | undefined)?.aroundTurnId !== undefined,
+      ),
+    ).toBe(false)
+    expect(paneStore.getState().messagesTurnWindowed).toBe(false)
+    expect(getProgressJumpStoreForPane('pane-a').getState().pendingJumpToMessage).toBeNull()
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

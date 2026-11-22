@@ -1,0 +1,2408 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Workspace AI 路由 — 重建旧架构 AI Workspace 的 15 个核心子模块端点。
+ *
+ * 迁移自 Python FastAPI (commit 3ee96cf0: server/app/api/v1/workspace/routes.py)。
+ * 路由前缀：/api/workspace（在 server.ts 注册）。
+ */
+
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { checkpointAvailabilityEvent } from '@ihui/types'
+// 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
+import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permission-mode'
+import { authenticate } from '../plugins/auth.js'
+import { recordAuditLog } from '../services/audit-log-service.js'
+import { success, error } from '../utils/response.js'
+import {
+  swarmManager,
+  subagentManager,
+  agentLoop,
+  sandboxExecutor,
+  computerUse,
+  codebaseIndexer,
+  incrementalIndexer,
+  vectorIndexer,
+  checkpointManager,
+  backgroundAgentManager,
+  permissionManager,
+  personaRegistry,
+  routineManager,
+  githubClient,
+  fsBridge,
+  SubagentWorkspaceAccessError,
+  SubagentLinkError,
+} from '../services/workspace-ai-service.js'
+import { buildChangeRequestSnapshot } from '../services/change-request-service.js'
+import {
+  assertSafeWorktreeBranch,
+  buildWorktreeCmd,
+  parseWorktreePorcelain,
+  worktreeSlug,
+} from '../services/worktree-ledger.js'
+import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
+import {
+  createAtomicCheckpoint,
+  listAtomicCheckpoints,
+  planAtomicRollback,
+  executeAtomicRollback,
+  isSafeCheckpointId,
+} from '../services/atomic-rollback.js'
+import { requireAdmin, resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
+import {
+  getRegisteredWorkspaceRoots,
+  isInsideRoot,
+  realpathOrResolve,
+  WORKSPACE_ROOTS_ENV,
+} from '../utils/workspace-roots.js'
+
+// F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
+const checkpointIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(isSafeCheckpointId, 'checkpointId 只允许字母、数字、下划线、连字符')
+
+export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
+  // 鉴权：复用 workspace.ts 的模式
+  const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+  }
+
+  // 初始化权限推送函数（复用 ws-notifications 的 pushNotification 装饰器）
+  const pushFn =
+    typeof server.pushNotification === 'function'
+      ? (userId: string, payload: unknown) => server.pushNotification(userId, payload)
+      : null
+  if (pushFn) permissionManager.setPushFn(pushFn)
+
+  // 工作区路径权限校验 helper(自愈工作区端点复用);null → 放行
+  const isAllowedWorkspace = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    workspacePath: string,
+    tool: string,
+  ): Promise<boolean> => {
+    const denied = await assertWorkspacePermission(request, reply, {
+      workspacePath,
+      tool,
+      args: { workspacePath },
+    })
+    return denied === null
+  }
+
+  // workspace_permissions 系统运行时拦截 helper
+  // 返回 null → 放行;返回 Error → 拒绝(已写 403 响应)
+  const assertWorkspacePermission = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    ctx: { workspacePath: string; tool: string; args: Record<string, unknown> },
+  ): Promise<Error | null> => {
+    if (!request.userId) return new Error('未登录')
+    const decision = await permissionManager.checkWorkspace({
+      userId: request.userId,
+      workspacePath: ctx.workspacePath,
+      tool: ctx.tool,
+      args: ctx.args,
+    })
+    if (decision.allowed) return null
+    // configured=false(未配置权限)→ 401 引导用户先调 /fs/open 完成 setup;其他 → 403
+    const statusCode = decision.configured ? 403 : 401
+    reply.status(statusCode).send(error(statusCode, decision.reason))
+    return new Error(decision.reason)
+  }
+
+  const idParam = z.object({ id: z.string() })
+  const swarmIdParam = z.object({ swarmId: z.string() })
+  const taskIdParam = z.object({ taskId: z.string() })
+  const agentIdParam = z.object({ agentId: z.string() })
+  const requestIdParam = z.object({ requestId: z.string() })
+  const prNumberParam = z.object({ number: z.coerce.number() })
+  const workspacePathBody = z.object({ workspacePath: z.string() })
+  const workspacePathQuery = z.object({ workspacePath: z.string() })
+
+  // ===========================================================================
+  // 1. FS Bridge — 文件系统桥接 (browse/read/write/edit/grep/glob/run)
+  // ===========================================================================
+
+  server.post('/fs/browse', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // 2026-07-28 加固:z.parse 抛 ZodError 时 errorHandler 可能误判为 500,
+    // 把整个 handler 用 try/catch 包裹,任何错误统一返回 400 + 中文消息
+    try {
+      const body = z.object({ path: z.string().optional() }).parse(request.body ?? {})
+      const rawPath = body.path?.trim()
+      // F-278:browse 此前只校验「落在登记根内」,不查 workspace_permissions,
+      // 被拒 fs.read 的工作区仍可枚举。现复用 checkWorkspace(只读枚举不阻塞人工审计)。
+      // 2026-11-16 补:未登记根时 fail-closed;且只允许「根内」或「根的祖先」路径 ——
+      // 此前 path 不在任何根内会直接放行 browse,任意登录用户可枚举整台服务器目录。
+      const roots = getRegisteredWorkspaceRoots()
+      if (roots.length === 0) {
+        return reply
+          .status(403)
+          .send(error(403, `未启用:服务端未登记任何工作区根(${WORKSPACE_ROOTS_ENV} 为空)`))
+      }
+      if (rawPath) {
+        const target = realpathOrResolve(rawPath)
+        const root = roots.find((r) => isInsideRoot(target, r))
+        const isAncestorOfRoot = roots.some((r) => isInsideRoot(r, target))
+        if (!root && !isAncestorOfRoot) {
+          return reply
+            .status(403)
+            .send(error(403, `路径未在服务端登记:仅允许 ${WORKSPACE_ROOTS_ENV} 白名单内的路径`))
+        }
+        if (root) {
+          const decision = await permissionManager.checkWorkspace({
+            userId: request.userId,
+            workspacePath: root,
+            tool: 'fs.browse',
+            args: { path: rawPath },
+            enumerateOnly: true,
+          })
+          // 未配置权限时放行:首开工作区必须先浏览目录才能完成 setup;
+          // 已配置但被明确拒绝 → 403,堵住枚举通道(响应结构不变)。
+          if (decision.configured && !decision.allowed) {
+            return reply.status(403).send(error(403, decision.reason))
+          }
+        }
+      }
+      const entries = fsBridge.browse(body.path)
+      return reply.send(success({ entries }))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '请求处理失败'
+      return reply.status(400).send(error(400, msg))
+    }
+  })
+
+  server.post('/fs/open', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ path: z.string(), name: z.string().optional() }).parse(request.body)
+    if (!body.path) return reply.status(400).send(error(400, 'path 不能为空'))
+    try {
+      // 2026-10-27 加固:登记入口必须过服务端白名单 —— 否则攻击者可先把 `C:\` 注册成
+      // 「工作区」,再让后续 read/write 的「文件须落在工作区内」这条判据自我成立。
+      // 判据只住 fsBridge.assertWorkspaceRegistered 一处(§0.6)。
+      const workspaceRoot = fsBridge.assertWorkspaceRegistered(body.path)
+      const name = body.name ?? body.path.split(/[\\/]/).pop() ?? 'workspace'
+      const techStack = fsBridge.detectTechStack(workspaceRoot)
+      fsBridge.addRecent(request.userId, { path: workspaceRoot, name, techStack })
+      // 同步查询当前用户的权限配置,前端据此决定是否弹窗。
+      // 2026-11-16:必须用归一后的 workspaceRoot —— 用原始 body.path 时,
+      // 带尾斜杠/符号链接的同一目录会被当成新工作区,已配置的权限查不到 ⇒ 反复弹 setup。
+      const { getPermission, touchLastAccessed } =
+        await import('../db/workspace-permission-queries.js')
+      const perm = await getPermission(request.userId, workspaceRoot)
+      if (perm) await touchLastAccessed(request.userId, workspaceRoot)
+      return reply.send(
+        success({
+          path: workspaceRoot,
+          name,
+          techStack,
+          permission: perm,
+          needsPermissionSetup: perm === null,
+        }),
+      )
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/fs/recent', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const workspaces = await fsBridge.loadRecent(request.userId)
+    return reply.send(success({ workspaces }))
+  })
+
+  server.post('/fs/read', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        path: z.string(),
+        workspacePath: z.string(),
+        startLine: z.number().optional(),
+        endLine: z.number().optional(),
+      })
+      .parse(request.body)
+    if (!body.path || !body.workspacePath)
+      return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.read',
+        args: { path: body.path, startLine: body.startLine, endLine: body.endLine },
+      })) !== null
+    )
+      return
+    try {
+      const result = fsBridge.read(body)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/write', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        path: z.string(),
+        workspacePath: z.string(),
+        content: z.string(),
+        createDirs: z.boolean().optional(),
+      })
+      .parse(request.body)
+    if (!body.path || !body.workspacePath)
+      return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.write',
+        args: { path: body.path, createDirs: body.createDirs },
+      })) !== null
+    )
+      return
+    try {
+      const result = fsBridge.write(body)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/edit', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        path: z.string(),
+        workspacePath: z.string(),
+        oldText: z.string(),
+        newText: z.string(),
+      })
+      .parse(request.body)
+    if (!body.path || !body.workspacePath)
+      return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.edit',
+        args: { path: body.path },
+      })) !== null
+    )
+      return
+    try {
+      const result = fsBridge.edit(body)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/delete', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({ path: z.string(), workspacePath: z.string(), recursive: z.boolean().optional() })
+      .parse(request.body)
+    if (!body.path || !body.workspacePath)
+      return reply.status(400).send(error(400, 'path 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.delete',
+        args: { path: body.path, recursive: body.recursive },
+      })) !== null
+    )
+      return
+    try {
+      const result = fsBridge.delete(body)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/grep', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        path: z.string(),
+        workspacePath: z.string(),
+        // ReDoS 入库闸(2026-10-31 安全强化第 11 批):与 rules/webhooks-trigger 同口径,
+        // pattern 会在主线程对每个文件逐行同步回溯
+        pattern: z.string().max(200),
+        glob: z.string().optional(),
+        outputMode: z.string().optional(),
+      })
+      .parse(request.body)
+    if (!body.path || !body.workspacePath || !body.pattern)
+      return reply.status(400).send(error(400, 'path/workspacePath/pattern 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.grep',
+        args: { path: body.path, pattern: body.pattern, glob: body.glob },
+      })) !== null
+    )
+      return
+    try {
+      const result = fsBridge.grep({
+        ...body,
+        outputMode: body.outputMode as 'content' | 'files_with_matches' | 'count' | undefined,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/glob', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({ path: z.string(), workspacePath: z.string(), pattern: z.string() })
+      .parse(request.body)
+    if (!body.path || !body.workspacePath || !body.pattern)
+      return reply.status(400).send(error(400, 'path/workspacePath/pattern 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.glob',
+        args: { path: body.path, pattern: body.pattern },
+      })) !== null
+    )
+      return
+    try {
+      const result = fsBridge.glob(body)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/fs/run', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        command: z.string(),
+        workspacePath: z.string(),
+        cwd: z.string().optional(),
+        timeoutMs: z.number().optional(),
+      })
+      .parse(request.body)
+    if (!body.command || !body.workspacePath)
+      return reply.status(400).send(error(400, 'command 和 workspacePath 不能为空'))
+    if (
+      (await assertWorkspacePermission(request, reply, {
+        workspacePath: body.workspacePath,
+        tool: 'fs.run',
+        args: { command: body.command, cwd: body.cwd, timeoutMs: body.timeoutMs },
+      })) !== null
+    )
+      return
+    try {
+      const result = await fsBridge.run({
+        ...body,
+        isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ===========================================================================
+  // 1.1 Git Status + GitHub 集成 — 环境信息弹窗专用(2026-08-17 立,遵循统一工程规范)
+  // ===========================================================================
+
+  type GitStatusSnapshot = {
+    isRepo: boolean
+    branch: string | null
+    hasRemote: boolean
+    ahead: number
+    behind: number
+    counts: {
+      added: number
+      modified: number
+      deleted: number
+      untracked: number
+      conflicted: number
+      renamed: number
+    }
+    lineStats: {
+      additions: number
+      deletions: number
+    }
+    pullRequest: {
+      state: 'open' | 'merged' | 'closed' | 'draft' | null
+      number: number | null
+      title: string | null
+      url: string | null
+    } | null
+    pullRequestFetchFailed: boolean
+    platform: 'github' | 'gitee' | 'gitlab' | 'other'
+    lastCommit: {
+      hash: string
+      message: string
+      author: string
+      date: string
+    } | null
+    localPath: string | null
+    remotes: Array<{ name: string; url: string; type: 'fetch' | 'push' | null }>
+    fetchedAt: string
+  }
+
+  const EMPTY_SNAPSHOT: GitStatusSnapshot = {
+    isRepo: false,
+    branch: null,
+    hasRemote: false,
+    ahead: 0,
+    behind: 0,
+    counts: {
+      added: 0,
+      modified: 0,
+      deleted: 0,
+      untracked: 0,
+      conflicted: 0,
+      renamed: 0,
+    },
+    lineStats: { additions: 0, deletions: 0 },
+    pullRequest: null,
+    pullRequestFetchFailed: false,
+    platform: 'other',
+    lastCommit: null,
+    localPath: null,
+    remotes: [],
+    fetchedAt: new Date().toISOString(),
+  }
+
+  function buildGitCmd(args: string[]): string {
+    const allowed = new Set([
+      'rev-parse',
+      'status',
+      'branch',
+      'remote',
+      'rev-list',
+      'log',
+      'diff',
+      'show',
+      'merge-base',
+      'ls-files',
+      'symbolic-ref',
+    ])
+    const firstSub = args.find((a) => !a.startsWith('-'))
+    if (!firstSub || !allowed.has(firstSub)) {
+      throw new Error(`git 子命令未授权: ${args.join(' ')}`)
+    }
+    for (const a of args) {
+      if (a.includes('..') || a.includes('~') || a.startsWith('/')) {
+        throw new Error(`git 参数包含不安全片段: ${a}`)
+      }
+    }
+    return `git ${args.map((a) => (a.includes(' ') ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`
+  }
+
+  /** 从 remote URL 推断代码托管平台(供前端展示对应品牌图标) */
+  function detectGitPlatform(remotes: GitStatusSnapshot['remotes']): GitStatusSnapshot['platform'] {
+    const joined = remotes.map((r) => r.url.toLowerCase()).join(' ')
+    if (joined.includes('github.com')) return 'github'
+    if (joined.includes('gitee.com')) return 'gitee'
+    if (joined.includes('gitlab')) return 'gitlab'
+    return 'other'
+  }
+
+  server.post('/git/status', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    // F-30:git/github 端点与 fs 系列同口径走 workspace_permissions 闸,
+    // 否则未配置权限的用户可绕过 setup 引导直接读任意登记工作区的仓库状态。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_status'))) return
+    const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
+      const result = await fsBridge.run({
+        command: buildGitCmd(args),
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs,
+      })
+      return result.stdout ?? ''
+    }
+    try {
+      const isRepo = (await runGit(['rev-parse', '--is-inside-work-tree'])).trim() === 'true'
+      if (!isRepo) return reply.send(success(EMPTY_SNAPSHOT))
+      const branchRaw = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'])
+      const branch = branchRaw.trim() === 'HEAD' ? null : branchRaw.trim() || null
+      const hasRemote = (await runGit(['remote'])).trim().length > 0
+      const statusRaw = await runGit(['status', '--porcelain=v1', '--branch'])
+      const lines = statusRaw.split('\n')
+      const header = lines[0] ?? ''
+      let ahead = 0
+      let behind = 0
+      const aheadMatch = /\[ahead (\d+)/.exec(header)
+      const behindMatch = /\[behind (\d+)/.exec(header)
+      if (aheadMatch) ahead = Math.max(0, Number.parseInt(aheadMatch[1]!, 10) || 0)
+      if (behindMatch) behind = Math.max(0, Number.parseInt(behindMatch[1]!, 10) || 0)
+      const counts = {
+        added: 0,
+        modified: 0,
+        deleted: 0,
+        untracked: 0,
+        conflicted: 0,
+        renamed: 0,
+      }
+      for (const line of lines.slice(1)) {
+        if (!line || line.length < 2) continue
+        const x = line[0]
+        const y = line[1]
+        const rest = line.slice(2)
+        if (x === 'R' || y === 'R') {
+          counts.renamed++
+          continue
+        }
+        if (x === '?' && y === '?') {
+          counts.untracked++
+          continue
+        }
+        if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+          counts.conflicted++
+          continue
+        }
+        if (x === 'A' || y === 'A') {
+          counts.added++
+          continue
+        }
+        if (x === 'D' || y === 'D') {
+          counts.deleted++
+          continue
+        }
+        if (x !== ' ' || y !== ' ') {
+          counts.modified++
+        }
+        void rest
+      }
+      // 行级增删统计(遵循统一工程规范):已暂存 + 未暂存 diff 的 numstat 聚合,
+      // 二进制文件(列值为 '-')不计入。失败静默降级为 0,不影响主流程。
+      const lineStats = { additions: 0, deletions: 0 }
+      try {
+        const numstatRaw = await runGit(['diff', '--numstat'])
+        const numstatCachedRaw = await runGit(['diff', '--cached', '--numstat'])
+        for (const raw of [numstatRaw, numstatCachedRaw]) {
+          for (const line of raw.split('\n')) {
+            const m = /^(\d+|-)\t(\d+|-)\t/.exec(line.trim())
+            if (!m) continue
+            if (m[1] !== '-') lineStats.additions += Number.parseInt(m[1]!, 10) || 0
+            if (m[2] !== '-') lineStats.deletions += Number.parseInt(m[2]!, 10) || 0
+          }
+        }
+      } catch {
+        // 保持 0,前端按无行级数据降级
+      }
+      let lastCommit: GitStatusSnapshot['lastCommit'] = null
+      try {
+        const logRaw = await runGit(['log', '-1', '--format=%h%n%s%n%an%n%cI'])
+        const [hash = '', message = '', author = '', date = ''] = logRaw.trim().split('\n')
+        if (hash) lastCommit = { hash, message, author, date }
+      } catch {
+        lastCommit = null
+      }
+      let localPath: GitStatusSnapshot['localPath'] = null
+      try {
+        localPath = (await runGit(['rev-parse', '--show-toplevel'])).trim() || null
+      } catch {
+        localPath = null
+      }
+      let remotes: GitStatusSnapshot['remotes'] = []
+      try {
+        const remoteVRaw = await runGit(['remote', '-v'])
+        const seen = new Set<string>()
+        for (const line of remoteVRaw.split('\n')) {
+          const m = /^(\S+)\s+(\S+)\s+\((\w+)\)\s*$/.exec(line.trim())
+          if (!m) continue
+          const key = `${m[1]}|${m[2]}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          remotes.push({ name: m[1]!, url: m[2]!, type: m[3] === 'push' ? 'push' : 'fetch' })
+        }
+      } catch {
+        remotes = []
+      }
+      let pullRequest: GitStatusSnapshot['pullRequest'] = null
+      let pullRequestFetchFailed = false
+      if (hasRemote && branch && (await githubClient.hasTokenForUser(request.userId))) {
+        try {
+          const remote = await githubClient.detectRemote(body.workspacePath)
+          if (remote) {
+            const prsRaw = await githubClient.listPRs({
+              userId: request.userId,
+              owner: remote.owner,
+              repo: remote.repo,
+              state: 'open',
+            })
+            const prs = Array.isArray(prsRaw) ? (prsRaw as Array<Record<string, unknown>>) : []
+            const matched = prs.find((pr) => {
+              const head = pr.head as Record<string, unknown> | undefined
+              return head?.ref === branch
+            })
+            if (matched) {
+              const head = matched.head as Record<string, unknown> | undefined
+              pullRequest = {
+                state:
+                  matched.state === 'open'
+                    ? 'open'
+                    : matched.state === 'closed'
+                      ? 'closed'
+                      : matched.merged
+                        ? 'merged'
+                        : matched.draft
+                          ? 'draft'
+                          : null,
+                number: typeof matched.number === 'number' ? matched.number : null,
+                title: typeof matched.title === 'string' ? matched.title : null,
+                url: typeof matched.html_url === 'string' ? matched.html_url : null,
+              }
+              void head
+            }
+          }
+        } catch {
+          pullRequest = null
+          // 区分「查询失败」与「查到但没有 PR」:失败置位,前端据此显示不同文案
+          pullRequestFetchFailed = true
+        }
+      }
+      return reply.send(
+        success({
+          isRepo: true,
+          branch,
+          hasRemote,
+          ahead,
+          behind,
+          counts,
+          lineStats,
+          pullRequest,
+          pullRequestFetchFailed,
+          platform: detectGitPlatform(remotes),
+          lastCommit,
+          localPath,
+          remotes,
+          fetchedAt: new Date().toISOString(),
+        }),
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'git status 失败'
+      server.log.warn({ workspacePath: body.workspacePath, err: msg }, 'git/status 失败')
+      return reply.send(success(EMPTY_SNAPSHOT))
+    }
+  })
+
+  // ===========================================================================
+  // D115(2026-10-23,G-229):/review 审查对象采集 —— 只读 diff 出口
+  //
+  // 前端不许自己跑 git(§3 共享层优先 / 多端一致):审查对象由本端点解析成**统一 diff
+  // 文本**,web 只把结果当上下文发给 ai-service 的 review 模式。
+  // 三个 target:
+  //   uncommitted = 工作区 + 暂存相对 HEAD(`git diff HEAD`,不含未跟踪文件);
+  //   branch      = 当前分支相对基线(缺省 origin/main → main → master,
+  //                 以 merge-base 为对侧,等价 `git diff base...HEAD`);
+  //   commit      = 指定 commit 的补丁(`git show --format= --patch`)。
+  // 返回 {code,message,data};参数不合法 400,不是仓库/取不到 400(带 git stderr 首行)。
+  // ===========================================================================
+  const reviewDiffBody = z.object({
+    workspacePath: z.string().min(1),
+    target: z.enum(['uncommitted', 'branch', 'commit']),
+    base: z.string().min(1).max(200).optional(),
+    commit: z
+      .string()
+      .regex(/^[0-9a-fA-F]{7,40}$/)
+      .optional(),
+    maxChars: z.number().int().min(2000).max(200_000).default(60_000),
+  })
+
+  server.post('/git/review-diff', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = reviewDiffBody.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '审查对象参数不合法(需要 target 与 workspacePath)'))
+    }
+    const body = parsed.data
+    if (body.target === 'commit' && !body.commit) {
+      return reply.status(400).send(error(400, 'target=commit 时必须提供 commit(7-40 位 sha)'))
+    }
+    // F-30:review-diff 会把工作区 diff 原文回传,必须先过 workspace_permissions 闸。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_review_diff'))) return
+    const runGit = async (args: string[], timeoutMs = 15_000) =>
+      fsBridge.run({
+        command: buildGitCmd(args),
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs,
+      })
+    try {
+      const inside = await runGit(['rev-parse', '--is-inside-work-tree'], 8_000)
+      if (inside.exitCode !== 0 || inside.stdout.trim() !== 'true') {
+        return reply.status(400).send(error(400, '当前工作区不是 git 仓库'))
+      }
+      let range = ''
+      let diffRes: Awaited<ReturnType<typeof runGit>>
+      if (body.target === 'commit') {
+        range = `commit:${body.commit!.slice(0, 12)}`
+        diffRes = await runGit(['show', '--format=', '--patch', body.commit!])
+      } else if (body.target === 'branch') {
+        let base = body.base?.trim()
+        if (!base) {
+          for (const candidate of ['origin/main', 'main', 'master']) {
+            const probe = await runGit(
+              ['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`],
+              8_000,
+            )
+            if (probe.exitCode === 0 && probe.stdout.trim()) {
+              base = candidate
+              break
+            }
+          }
+        }
+        if (!base) {
+          return reply.status(400).send(error(400, '找不到基线分支(可显式传 base)'))
+        }
+        // buildGitCmd 拒收含 `..` 的参数(安全白名单),故用 merge-base 显式落地三点语义
+        const mergeBase = await runGit(['merge-base', base, 'HEAD'])
+        const origin = mergeBase.exitCode === 0 ? mergeBase.stdout.trim() : ''
+        if (!origin) {
+          return reply.status(400).send(error(400, `无法求 ${base} 与 HEAD 的共同祖先`))
+        }
+        range = `branch:${base}`
+        diffRes = await runGit(['diff', origin])
+      } else {
+        range = 'uncommitted'
+        diffRes = await runGit(['diff', 'HEAD'])
+      }
+      if (diffRes.exitCode !== 0) {
+        const firstErr = (diffRes.stderr || '').split('\n').find((l) => l.trim()) ?? 'git 执行失败'
+        return reply.status(400).send(error(400, firstErr.trim().slice(0, 300)))
+      }
+      const raw = diffRes.stdout ?? ''
+      let additions = 0
+      let deletions = 0
+      let fileCount = 0
+      const files: string[] = []
+      for (const line of raw.split('\n')) {
+        if (line.startsWith('diff --git ')) {
+          fileCount++
+          const m = /^diff --git a\/(.+?) b\//.exec(line)
+          if (m && files.length < 200) files.push(m[1]!)
+        } else if (line.startsWith('+') && !line.startsWith('+++')) {
+          additions++
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          deletions++
+        }
+      }
+      const truncated = raw.length > body.maxChars
+      return reply.send(
+        success({
+          target: body.target,
+          range,
+          diff: truncated ? raw.slice(0, body.maxChars) : raw,
+          truncated,
+          totalChars: raw.length,
+          fileCount,
+          files,
+          lineStats: { additions, deletions },
+        }),
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'review-diff 失败'
+      server.log.warn(
+        { workspacePath: body.workspacePath, target: body.target, err: msg },
+        'git/review-diff 失败',
+      )
+      return reply.status(400).send(error(400, msg.slice(0, 300)))
+    }
+  })
+
+  server.post('/github/status', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      // F-30:github/status 同样读工作区 git 元数据,补上权限闸。
+      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'github_status'))) return
+      const remote = await githubClient.detectRemote(body.workspacePath)
+      const branchRaw = await fsBridge.run({
+        command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs: 8000,
+      })
+      const currentBranch =
+        branchRaw.stdout.trim() && branchRaw.stdout.trim() !== 'HEAD'
+          ? branchRaw.stdout.trim()
+          : null
+      let defaultBranch: string | null = null
+      try {
+        const defRaw = await fsBridge.run({
+          command: buildGitCmd(['symbolic-ref', 'refs/remotes/origin/HEAD']),
+          workspacePath: body.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
+        })
+        const m = /^refs\/remotes\/origin\/(.+)$/.exec((defRaw.stdout ?? '').trim())
+        if (m) defaultBranch = m[1] ?? null
+      } catch {
+        defaultBranch = null
+      }
+      if (!defaultBranch) {
+        try {
+          const showRaw = await fsBridge.run({
+            command: buildGitCmd(['remote', 'show', 'origin']),
+            workspacePath: body.workspacePath,
+            mode: 'read-only',
+            timeoutMs: 8000,
+          })
+          const hm = /HEAD branch:\s*(\S+)/.exec(showRaw.stdout ?? '')
+          if (hm) defaultBranch = hm[1] ?? null
+        } catch {
+          defaultBranch = null
+        }
+      }
+      return reply.send(
+        success({
+          isGithubRepo: !!remote,
+          owner: remote?.owner ?? null,
+          repo: remote?.repo ?? null,
+          ghConfigured: await githubClient.hasTokenForUser(request.userId),
+          currentBranch,
+          defaultBranch,
+        }),
+      )
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // F-Forge(2026-11-13):工作树台账(list / create)。
+  // 安全边界:分支名严格白名单校验;工作树路径**服务端派生**且固定在
+  // `<workspace>/.ihui-worktrees/<slug>`(不跨登记根、不接受客户端路径);
+  // 只放行 `git worktree` 一个子命令,读用 read-only,建用 workspace-write。
+  server.post('/git/worktrees', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const parsed = z
+        .discriminatedUnion('action', [
+          z.object({ action: z.literal('list'), workspacePath: z.string().min(1) }),
+          z.object({
+            action: z.literal('create'),
+            workspacePath: z.string().min(1),
+            branch: z.string().min(1).max(120),
+            base: z.string().min(1).max(120),
+          }),
+        ])
+        .parse(request.body ?? {})
+      if (!(await isAllowedWorkspace(request, reply, parsed.workspacePath, 'git_worktree_write')))
+        return
+
+      const listBranches = async () => {
+        const raw = await fsBridge.run({
+          command: buildGitCmd(['branch', '--format=%(refname:short)']),
+          workspacePath: parsed.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
+        })
+        return raw.stdout
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
+
+      if (parsed.action === 'list') {
+        const [rawWorktrees, branches] = await Promise.all([
+          fsBridge.run({
+            command: buildWorktreeCmd(['worktree', 'list', '--porcelain']),
+            workspacePath: parsed.workspacePath,
+            mode: 'read-only',
+            timeoutMs: 8000,
+          }),
+          listBranches(),
+        ])
+        return reply.send(
+          success({ worktrees: parseWorktreePorcelain(rawWorktrees.stdout), branches }),
+        )
+      }
+
+      assertSafeWorktreeBranch(parsed.branch)
+      assertSafeWorktreeBranch(parsed.base)
+      if (parsed.branch === parsed.base) throw new Error('分支名不能与基线分支相同')
+      const branches = await listBranches()
+      if (!branches.includes(parsed.base)) throw new Error('基线分支在本地不存在')
+      if (branches.includes(parsed.branch)) {
+        return reply.status(409).send(error(409, 'branch-exists'))
+      }
+      const relativePath = `.ihui-worktrees/${worktreeSlug(parsed.branch)}`
+      const created = await fsBridge.run({
+        command: buildWorktreeCmd([
+          'worktree',
+          'add',
+          relativePath,
+          '-b',
+          parsed.branch,
+          parsed.base,
+        ]),
+        workspacePath: parsed.workspacePath,
+        mode: 'workspace-write',
+        timeoutMs: 30_000,
+      })
+      if (created.exitCode !== 0) {
+        return reply
+          .status(400)
+          .send(error(400, (created.stderr || '工作树创建失败').slice(0, 300)))
+      }
+      // 本地排除(只改 .git/info/exclude,不动受版本控制的 .gitignore)
+      try {
+        const excludePath = join(parsed.workspacePath, '.git', 'info', 'exclude')
+        const current = existsSync(excludePath) ? readFileSync(excludePath, 'utf8') : ''
+        if (!current.split('\n').some((l) => l.trim() === '.ihui-worktrees/')) {
+          appendFileSync(
+            excludePath,
+            `${current.endsWith('\n') || current === '' ? '' : '\n'}.ihui-worktrees/\n`,
+          )
+        }
+      } catch {
+        // 排除失败不影响工作树本身可用
+      }
+      return reply.send(
+        success({
+          path: join(parsed.workspacePath, '.ihui-worktrees', worktreeSlug(parsed.branch)),
+          branch: parsed.branch,
+        }),
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '工作树操作失败'
+      return reply.status(400).send(error(400, msg.slice(0, 300)))
+    }
+  })
+
+  // F-Forge(2026-11-13):变更请求台账 —— 一次拉全仓库进行中的变更请求(非只有当前分支)。
+  // 与 /git/status 的分工:那个回答"当前分支有没有 PR",这里回答"这个仓库有哪些进行中的变更请求"。
+  server.post('/change-requests', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+    try {
+      const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'change_requests'))) return
+      const runGit = async (args: string[]): Promise<string> => {
+        const result = await fsBridge.run({
+          command: buildGitCmd(args),
+          workspacePath: body.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
+        })
+        return result.stdout ?? ''
+      }
+      const readBranches = async () => {
+        let currentBranch: string | null = null
+        try {
+          const raw = (await runGit(['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+          currentBranch = raw && raw !== 'HEAD' ? raw : null
+        } catch {
+          currentBranch = null
+        }
+        let defaultBranch: string | null = null
+        try {
+          const m = /^refs\/remotes\/origin\/(.+)$/.exec(
+            (await runGit(['symbolic-ref', 'refs/remotes/origin/HEAD'])).trim(),
+          )
+          if (m) defaultBranch = m[1] ?? null
+        } catch {
+          defaultBranch = null
+        }
+        if (!defaultBranch) {
+          try {
+            const hm = /HEAD branch:\s*(\S+)/.exec(await runGit(['remote', 'show', 'origin']))
+            if (hm) defaultBranch = hm[1] ?? null
+          } catch {
+            defaultBranch = null
+          }
+        }
+        return { currentBranch, defaultBranch }
+      }
+      const hasCredentials = await githubClient.hasTokenForUser(userId)
+      const snapshot = await buildChangeRequestSnapshot({
+        readRemoteUrl: async () => {
+          const raw = await runGit(['remote', '-v'])
+          for (const line of raw.split('\n')) {
+            const m = /^(\S+)\s+(\S+)\s+\((?:fetch|push)\)\s*$/.exec(line.trim())
+            if (m) return m[2] ?? null
+          }
+          return null
+        },
+        detectRepo: () => githubClient.detectRemote(body.workspacePath),
+        readBranches,
+        hasCredentials: () => hasCredentials,
+        listPullRequests: async (repo) =>
+          githubClient.listPRs({
+            userId,
+            owner: repo.owner,
+            repo: repo.repo,
+            state: 'open',
+          }),
+        listCheckRuns: async (params) => githubClient.listCheckRuns({ userId, ...params }),
+      })
+      return reply.send(success(snapshot))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '变更请求加载失败'
+      server.log.warn({ err: msg }, 'change-requests 失败')
+      return reply.status(400).send(error(400, msg.slice(0, 300)))
+    }
+  })
+
+  server.post('/github/token', async (request, reply) => {
+    // F-442:令牌是凭据,写动作仅限管理员(复用 requireAdmin,不另造守卫)。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    if (!request.userId) return
+    try {
+      const body = z
+        .object({ workspacePath: z.string().min(1), token: z.string().min(1) })
+        .parse(request.body ?? {})
+      const check = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${body.token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!check.ok) {
+        return reply.status(400).send(error(400, `GitHub Token 无效(HTTP ${check.status})`))
+      }
+      // F-442:按 userId 加密落库,不再覆盖全站单文件 `~/.ihui/github_token`。
+      await githubClient.saveTokenForUser(request.userId, body.token)
+      // 留痕:只记操作事实与工作区,绝不落令牌原文。
+      await recordAuditLog({
+        userId: request.userId,
+        action: 'workspace.github_token.set',
+        resourceType: 'github_token',
+        resourceId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent']?.slice(0, 512),
+        result: 'success',
+        metadata: { workspacePath: body.workspacePath, source: 'manual' },
+      })
+      return reply.send(success({ ok: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.delete('/github/token', async (request, reply) => {
+    // F-442:删除同为凭据变更,仅限管理员。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    if (!request.userId) return
+    try {
+      // F-442:只删自己的令牌;无论是否存在都返回成功,不泄露他人是否配置过。
+      await githubClient.clearTokenForUser(request.userId)
+      await recordAuditLog({
+        userId: request.userId,
+        action: 'workspace.github_token.clear',
+        resourceType: 'github_token',
+        resourceId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent']?.slice(0, 512),
+        result: 'success',
+        metadata: { source: 'manual' },
+      })
+      return reply.send(success({ ok: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/device-code', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    void body // body 仅用于校验(与前端契约一致),device-code 本身只需 clientId
+    const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? ''
+    if (!clientId) {
+      return reply.status(400).send(error(400, '未配置 GitHub OAuth App(GITHUB_OAUTH_CLIENT_ID)'))
+    }
+    try {
+      const res = await fetch('https://github.com/login/device/code', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ client_id: clientId, scope: 'repo read:org' }),
+        signal: AbortSignal.timeout(10000),
+      })
+      const json = (await res.json()) as Record<string, unknown>
+      if (!json.device_code || !json.user_code) {
+        // device_code 按 RFC 8628 §1.5 属 bearer 凭据,而非 2xx 响应不经 response-sanitizer 打码,
+        // 故只回传错误码,不透传整个响应体(与下方 device-token 分支同口径)。
+        const errCode = typeof json.error === 'string' ? json.error : `http_${res.status}`
+        return reply.status(400).send(error(400, `GitHub 设备码获取失败: ${errCode}`))
+      }
+      return reply.send(
+        success({
+          deviceCode: String(json.device_code),
+          userCode: String(json.user_code),
+          verificationUri: String(json.verification_uri ?? 'https://github.com/login/device'),
+          expiresIn: typeof json.expires_in === 'number' ? json.expires_in : 900,
+          interval: typeof json.interval === 'number' ? json.interval : 5,
+        }),
+      )
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/device-token', async (request, reply) => {
+    // F-442:设备码换取到的令牌同样是凭据写动作,仅限管理员。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    if (!request.userId) return
+    const body = z.object({ deviceCode: z.string().min(1) }).parse(request.body ?? {})
+    const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? ''
+    const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? ''
+    if (!clientId || !clientSecret) {
+      return reply.status(400).send(error(400, '未配置 GitHub OAuth App'))
+    }
+    try {
+      const res = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          device_code: body.deviceCode,
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+      const json = (await res.json()) as Record<string, unknown>
+      if (json.access_token) {
+        // F-442:设备码换来的令牌同样只写给当前用户。
+        await githubClient.saveTokenForUser(request.userId, String(json.access_token))
+        await recordAuditLog({
+          userId: request.userId,
+          action: 'workspace.github_token.set',
+          resourceType: 'github_token',
+          resourceId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent']?.slice(0, 512),
+          result: 'success',
+          metadata: { source: 'device_oauth' },
+        })
+        return reply.send(success({ status: 'ok' }))
+      }
+      const err = String(json.error ?? '')
+      if (err === 'authorization_pending') return reply.send(success({ status: 'pending' }))
+      if (err === 'slow_down') return reply.send(success({ status: 'slow_down' }))
+      return reply.send(success({ status: 'expired', message: err || 'access_denied' }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ===========================================================================
+  // 2. Swarm — 群体智能多 Agent 编排
+  // ===========================================================================
+
+  const createSwarmSchema = z.object({
+    task: z.string().min(1),
+    workspacePath: z.string().min(1),
+    modelId: z.string().optional(),
+    agents: z
+      .array(
+        z.object({
+          role: z.enum(['coordinator', 'worker', 'reviewer']),
+          name: z.string().min(1),
+          description: z.string().optional(),
+          systemPrompt: z.string().optional(),
+          tools: z.array(z.string()).max(100).optional(),
+          model: z.string().optional(),
+          dependencies: z.array(z.string()).max(100).optional(),
+        }),
+      )
+      .min(1),
+  })
+
+  server.post('/swarms', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = createSwarmSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const plan = swarmManager.create({ ownerId: request.userId, ...parsed.data })
+    return reply.status(201).send(success(plan))
+  })
+
+  server.get('/swarms', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ swarms: swarmManager.list(request.userId) }))
+  })
+
+  server.get('/swarms/:swarmId', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { swarmId } = swarmIdParam.parse(request.params)
+    // F-402:非属主按 404 处理(与「不存在」同形,防跨用户枚举)。
+    const plan = swarmManager.get(swarmId, request.userId)
+    if (!plan) return reply.status(404).send(error(404, 'Swarm 不存在'))
+    return reply.send(success(plan))
+  })
+
+  server.post('/swarms/:swarmId/execute', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { swarmId } = swarmIdParam.parse(request.params)
+    try {
+      const plan = await swarmManager.execute(swarmId, request.userId)
+      return reply.send(success(plan))
+    } catch (e) {
+      return reply.status(404).send(error(404, (e as Error).message))
+    }
+  })
+
+  server.delete('/swarms/:swarmId', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { swarmId } = swarmIdParam.parse(request.params)
+    const canceled = swarmManager.cancel(swarmId, request.userId)
+    if (!canceled) return reply.status(404).send(error(404, 'Swarm 不存在'))
+    return reply.send(success({ canceled: true }))
+  })
+
+  // ===========================================================================
+  // 3. Subagents — 子代理委派
+  // ===========================================================================
+
+  server.get('/subagents', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const query = z.object({ workspacePath: z.string().optional() }).parse(request.query)
+    // 2026-11-02 收紧:此前只过服务端登记根(或整个跳过),且 list 返回全服已发现集。
+    // 现 discover/list 都走调用者 userId:无该工作区 permission 行一律 404(防枚举不引 403);
+    // 符号链接悬空/越界是脚手架内容错误,给 400 明确文案,不用 404 掩盖。
+    try {
+      const subagents = await subagentManager.list(query.workspacePath, request.userId)
+      return reply.send(success({ subagents }))
+    } catch (e) {
+      if (e instanceof SubagentLinkError) return reply.status(400).send(error(400, e.message))
+      if (e instanceof SubagentWorkspaceAccessError) {
+        return reply.status(404).send(error(404, e.message))
+      }
+      throw e
+    }
+  })
+
+  server.post('/subagents/delegate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        name: z.string(),
+        prompt: z.string(),
+        workspacePath: z.string(),
+        model: z.string().optional(),
+      })
+      .parse(request.body)
+    if (!body.name || !body.prompt)
+      return reply.status(400).send(error(400, 'name 和 prompt 不能为空'))
+    // 2026-11-02 收紧:委派与发现同走调用者授权闸(此前 delegate 不看 userId,
+    // 只要知道 name 就能拿任意 workspacePath 触发他人工作区里的子代理配置)。
+    // 越权同理 404(与 GET 同形,防枚举);符号链接失效仍是 400 明确文案。
+    try {
+      const result = await subagentManager.delegate({ ...body, userId: request.userId })
+      return reply.send(success(result))
+    } catch (e) {
+      if (e instanceof SubagentLinkError) return reply.status(400).send(error(400, e.message))
+      if (e instanceof SubagentWorkspaceAccessError) {
+        return reply.status(404).send(error(404, e.message))
+      }
+      throw e
+    }
+  })
+
+  // ===========================================================================
+  // 4. AgentLoop — Agent Runtime (工具调用循环 + 状态管理)
+  // ===========================================================================
+
+  const agentRunSchema = z.object({
+    goal: z.string().min(1),
+    sessionId: z.string().optional(),
+    model: z.string().optional(),
+    maxIterations: z.number().int().min(1).max(100).optional(),
+    tools: z.array(z.string()).max(100).optional(),
+    workspacePath: z.string().optional(),
+  })
+
+  server.post(
+    '/agent/run',
+    {
+      // F-306 契约面:执行链路未接入前只声明 501,不再挂 200 ——
+      // 旧契约只写 `200 Default Response`,等于对调用方谎报存在成功路径。
+      schema: {
+        response: {
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+            description: '请求体校验失败',
+          },
+          501: {
+            type: 'object',
+            additionalProperties: true,
+            description: '该端点暂未接入执行层',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = agentRunSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // F-306:此前 agentLoop.run 的 ai-service 调用缺 `/api` 前缀恒 404,却落伪成功分支,
+      // 任何登录用户都能拿到 200 + completed + 「Agent 第 N 轮思考」,实际零执行。
+      // 工具执行/计费/配额尚未接入该链路前显式 501,不再保留「200 但什么也没做」的路径。
+      // 恢复时须同时接回 agentLoop.run 并按调用用户身份接计费/配额。
+      return reply
+        .status(501)
+        .send(error(501, 'Workspace Agent 执行链路未接入 ai-service 计费/配额,已停用伪成功返回'))
+    },
+  )
+
+  server.get('/agent/tasks', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ tasks: agentLoop.listRunning(request.userId) }))
+  })
+
+  server.get('/agent/tasks/:taskId', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { taskId } = taskIdParam.parse(request.params)
+    const task = agentLoop.status(taskId, request.userId)
+    if (!task) return reply.status(404).send(error(404, '任务不存在'))
+    return reply.send(success(task))
+  })
+
+  server.post('/agent/tasks/:taskId/cancel', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { taskId } = taskIdParam.parse(request.params)
+    const canceled = agentLoop.cancel(taskId, request.userId)
+    if (!canceled) return reply.status(400).send(error(400, '任务不存在或不可取消'))
+    return reply.send(success({ canceled: true }))
+  })
+
+  // POST /agent/tasks/:taskId/inject — 中途插话(P3 #44 阶段3,2026-09-17 立):
+  // 向运行中 agent 注入用户消息,下一轮迭代消费拼进 prompt(内存队列,终态拒绝)
+  server.post('/agent/tasks/:taskId/inject', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { taskId } = taskIdParam.parse(request.params)
+    const parsed = z
+      .object({ content: z.string().min(1, '插话内容不能为空').max(2000) })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const accepted = agentLoop.injectMessage(taskId, request.userId, parsed.data.content)
+    if (!accepted) return reply.status(400).send(error(400, '任务不存在或已结束,无法插话'))
+    return reply.send(success({ taskId, accepted: true }))
+  })
+
+  server.get('/agent/tools', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ tools: agentLoop.listTools() }))
+  })
+
+  // ===========================================================================
+  // 5. Sandbox — 沙箱执行环境
+  // ===========================================================================
+
+  server.post('/sandbox/execute', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({
+        command: z.string(),
+        workspacePath: z.string(),
+        cwd: z.string().optional(),
+        timeoutMs: z.number().optional(),
+        mode: z.string().optional(),
+      })
+      .parse(request.body)
+    if (!body.command || !body.workspacePath)
+      return reply.status(400).send(error(400, 'command 和 workspacePath 不能为空'))
+    try {
+      // 2026-10-31 安全强化第 10 批:两道闸补齐 ——
+      // ① danger-full-access 仅管理员:此前任意登录用户自报该档即可放行 curl/wget
+      //   并拿到全量进程环境(等价于整台服务器的凭据外传通道);
+      // ② 工作区权限闸:与 /fs/run 同型 —— workspace_permissions 未配置 ⇒ 401 引导
+      //   先走 /fs/open setup,已配置但不覆盖该路径 ⇒ 403。
+      // 注意:sandboxMode 是**沙箱轴**(packages/types/src/permission-axis.ts 的
+      // SANDBOX_MODES 成员),不是权限档(单轴注册表 permission-mode.ts),
+      // 故变量名不得叫 `mode`(那是本文件权限档比较面的登记名,守门 68 R3)。
+      const sandboxMode = body.mode ? sandboxExecutor.resolveMode(body.mode) : undefined
+      if (
+        sandboxMode === 'danger-full-access' &&
+        resolveAdminRoleId(request, { includeInternalChannel: false }) < ADMIN_ROLE_ID
+      ) {
+        return reply.status(403).send(error(403, 'danger-full-access 沙箱模式仅管理员可用'))
+      }
+      if (
+        (await assertWorkspacePermission(request, reply, {
+          workspacePath: body.workspacePath,
+          tool: 'sandbox.execute',
+          args: { command: body.command, cwd: body.cwd, mode: body.mode },
+        })) !== null
+      )
+        return
+      const result = await sandboxExecutor.execute({
+        command: body.command,
+        workspacePath: body.workspacePath,
+        cwd: body.cwd,
+        timeoutMs: body.timeoutMs,
+        mode: sandboxMode,
+        isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ===========================================================================
+  // 6. ComputerUse — 计算机操作
+  // ===========================================================================
+
+  server.get('/computer-use/status', async (request, reply) => {
+    // F-400(P1):宿主机级动作仅管理员可用。整族此前只过 requireAuth,任意登录用户
+    // 都能驱动宿主机键鼠/截屏;此处复用 requireAdmin(仅认人用 JWT,含 TOTP 闸)。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    return reply.send(success({ enabled: computerUse.isEnabled() }))
+  })
+
+  server.post('/computer-use/screenshot', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    try {
+      const result = await computerUse.takeScreenshot()
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/computer-use/mouse/click', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const body = z
+      .object({ x: z.number(), y: z.number(), button: z.string().optional() })
+      .parse(request.body)
+    if (typeof body.x !== 'number' || typeof body.y !== 'number')
+      return reply.status(400).send(error(400, 'x 和 y 必须为数字'))
+    try {
+      await computerUse.mouseClick({
+        x: body.x,
+        y: body.y,
+        button: body.button as 'left' | 'right' | 'double' | undefined,
+      })
+      return reply.send(success({ clicked: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/computer-use/keyboard/type', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const body = z.object({ text: z.string() }).parse(request.body)
+    if (!body.text) return reply.status(400).send(error(400, 'text 不能为空'))
+    try {
+      await computerUse.keyboardType({ text: body.text })
+      return reply.send(success({ typed: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/computer-use/keyboard/key', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const body = z.object({ key: z.string() }).parse(request.body)
+    if (!body.key) return reply.status(400).send(error(400, 'key 不能为空'))
+    try {
+      await computerUse.keyboardKey({ key: body.key })
+      return reply.send(success({ pressed: true }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/computer-use/screen-size', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    try {
+      const size = await computerUse.getScreenSize()
+      return reply.send(success(size))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ===========================================================================
+  // 7. CodebaseIndex — 代码库索引
+  // ===========================================================================
+
+  // F-401: codebase/vector/checkpoints 全族此前只有 requireAuth,非工作区成员凭
+  // workspacePath 即可读写他人代码索引/向量/检查点。统一挂工作区权限守卫(同文件
+  // fs.* 组已接),返回 true 表示已写 401/403 响应、调用方须立即 return。
+  const guardWorkspace = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    workspacePath: string,
+    tool: string,
+  ): Promise<boolean> =>
+    (await assertWorkspacePermission(request, reply, {
+      workspacePath,
+      tool,
+      args: { workspacePath },
+    })) !== null
+
+  server.post('/codebase/index', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = workspacePathBody.parse(request.body)
+    if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'codebase.index')) return
+    try {
+      const index = codebaseIndexer.index(body.workspacePath)
+      return reply.send(success(index))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/codebase/search', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const query = z
+      .object({ workspacePath: z.string(), q: z.string(), topK: z.coerce.number().optional() })
+      .parse(request.query)
+    if (!query.workspacePath || !query.q)
+      return reply.status(400).send(error(400, 'workspacePath 和 q 不能为空'))
+    if (await guardWorkspace(request, reply, query.workspacePath, 'codebase.search')) return
+    const results = codebaseIndexer.search(query.workspacePath, query.q, query.topK ?? 20)
+    return reply.send(success({ results }))
+  })
+
+  server.post('/codebase/incremental', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = workspacePathBody.parse(request.body)
+    if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'codebase.incremental')) return
+    try {
+      const result = incrementalIndexer.incrementalUpdate(body.workspacePath)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/codebase/status', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const query = workspacePathQuery.parse(request.query)
+    if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, query.workspacePath, 'codebase.status')) return
+    return reply.send(success(incrementalIndexer.status(query.workspacePath)))
+  })
+
+  // ===========================================================================
+  // 8. VectorIndex — 向量索引管理
+  // ===========================================================================
+
+  server.post('/vector/index', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = workspacePathBody.parse(request.body)
+    if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'vector.index')) return
+    try {
+      const result = await vectorIndexer.indexWorkspace(body.workspacePath)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/vector/search', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z
+      .object({ workspacePath: z.string(), query: z.string(), topK: z.number().optional() })
+      .parse(request.body)
+    if (!body.workspacePath || !body.query)
+      return reply.status(400).send(error(400, 'workspacePath 和 query 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'vector.search')) return
+    try {
+      const results = await vectorIndexer.search(body)
+      return reply.send(success({ results }))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ===========================================================================
+  // 9. Checkpoint — 检查点状态恢复
+  // ===========================================================================
+
+  server.get('/checkpoints', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const query = workspacePathQuery.parse(request.query)
+    if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, query.workspacePath, 'checkpoints.list')) return
+    return reply.send(success({ checkpoints: checkpointManager.list(query.workspacePath) }))
+  })
+
+  server.post('/checkpoints/:id/rollback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const body = workspacePathBody.parse(request.body)
+    if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'checkpoints.rollback')) return
+    const cp = checkpointManager.rollback(body.workspacePath, id)
+    if (!cp) return reply.status(404).send(error(404, '检查点不存在'))
+    return reply.send(success(cp))
+  })
+
+  server.post('/checkpoints/undo', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = workspacePathBody.parse(request.body)
+    if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'checkpoints.undo')) return
+    const cp = checkpointManager.undoLast(body.workspacePath)
+    if (!cp) return reply.status(404).send(error(404, '无检查点可撤销'))
+    return reply.send(success(cp))
+  })
+
+  // ===========================================================================
+  // 10. BackgroundAgents — 后台长时运行 Agent
+  // ===========================================================================
+
+  // F-07:归属只认登录身份 —— 不再接受 body `userUuid`(此前可由客户端把 agent 记到他人名下)
+  const startBgAgentSchema = z.object({
+    prompt: z.string().min(1),
+    workspacePath: z.string().min(1),
+    modelId: z.string().optional(),
+    maxIterations: z.number().int().min(1).max(100).optional(),
+    systemPrompt: z.string().optional(),
+  })
+
+  server.post('/background-agents', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = startBgAgentSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    // F-07(2026-11-08):归属只取认证身份。此前 `userUuid` 可来自 body,
+    // 创建者能把 Agent 记到他人名下(反向也成立:他人随后按 id 冒充属主)。
+    const agentId = backgroundAgentManager.start({
+      ...parsed.data,
+      userUuid: request.userId,
+    })
+    return reply.status(201).send(success({ agentId }))
+  })
+
+  server.get('/background-agents', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ agents: backgroundAgentManager.list(request.userId) }))
+  })
+
+  server.get('/background-agents/:agentId', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { agentId } = agentIdParam.parse(request.params)
+    const agent = backgroundAgentManager.get(agentId, request.userId)
+    if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
+    return reply.send(success(agent))
+  })
+
+  server.post('/background-agents/:agentId/cancel', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { agentId } = agentIdParam.parse(request.params)
+    // F-07:先按归属取;不存在与不是自己的同一个 404(不泄漏 agentId 是否存在),
+    // 且取消只在归属匹配后才可能执行 —— 404 绝不返回 canceled:true。
+    const agent = backgroundAgentManager.get(agentId, request.userId)
+    if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
+    const canceled = backgroundAgentManager.cancel(agentId, request.userId)
+    if (!canceled) return reply.status(400).send(error(400, 'Agent 不存在或不可取消'))
+    return reply.send(success({ canceled: true }))
+  })
+
+  // ===========================================================================
+  // 11. Permissions — Agent 权限确认
+  // ===========================================================================
+
+  const permissionCheckSchema = z.object({
+    workspacePath: z.string().min(1),
+    // G-161/G-163:此前是第 7 套词表的 z.enum(4 档 camel,不含 manual),且服务端
+    // check() 对 plan 是 fail-open。现取值交唯一真源归一(camel/kebab/历史别名都认),
+    // 认不出直接 400 —— 授权入参不允许"看不懂的拼写照样收下"。
+    mode: z.string().min(1),
+    tool: z.string().min(1),
+    args: z.record(z.string(), z.unknown()).default({}),
+  })
+
+  server.post('/permissions/check', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = permissionCheckSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const mode = normalizePermissionMode(parsed.data.mode)
+    if (!mode) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `非法权限档: ${parsed.data.mode}(取值必须为 ${PERMISSION_MODES.join(' / ')} 或其别名)`,
+          ),
+        )
+    }
+    const result = await permissionManager.check({
+      userId: request.userId,
+      ...parsed.data,
+      mode,
+    })
+    return reply.send(success(result))
+  })
+
+  server.post('/permissions/:requestId/resolve', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { requestId } = requestIdParam.parse(request.params)
+    const body = z.object({ approved: z.boolean() }).parse(request.body)
+    // F-304: resolve 必须校验属主 —— 此前只认 requestId,任意登录用户可代他人批准
+    // 工具执行。PermissionRequest 带 userId,以登录身份比对,不采信 requestId 自报;
+    // 不存在与非属主统一 403,不泄露 requestId 是否存在。
+    const pending = permissionManager.getRequest(requestId)
+    if (!pending || pending.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权处理该审批请求'))
+    const resolved = permissionManager.resolve(requestId, body.approved)
+    if (!resolved) return reply.status(400).send(error(400, '请求不存在或已处理'))
+    return reply.send(success({ resolved: true }))
+  })
+
+  server.get('/permissions/requests', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ requests: permissionManager.listPending(request.userId) }))
+  })
+
+  // ===========================================================================
+  // 12. PersonaRegistry — 人格注册
+  // ===========================================================================
+
+  server.get('/personas', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const query = z.object({ category: z.string().optional() }).parse(request.query)
+    return reply.send(success({ personas: personaRegistry.list(query.category) }))
+  })
+
+  server.get('/personas/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const persona = personaRegistry.get(id)
+    if (!persona) return reply.status(404).send(error(404, 'Persona 不存在'))
+    return reply.send(success(persona))
+  })
+
+  const createPersonaSchema = z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    category: z.string().min(1),
+    description: z.string().min(1),
+    systemPrompt: z.string().min(1),
+    tools: z.array(z.string()).max(100).optional(),
+    examples: z.array(z.string()).max(100).optional(),
+    tags: z.array(z.string()).max(100).optional(),
+  })
+
+  // F-364(P1):Persona 是全局共享资产(内置名单 + 单文件落盘),无 ownerId —— 任意登录
+  // 用户此前可直接改写 systemPrompt/tools/modelId/enabled 影响全体用户。止血做法:整组
+  // 写端点(增/改/删)收为管理员;属主列迁移后再按属主/管理员混合闸收窄。
+  server.post('/personas', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = createPersonaSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const persona = personaRegistry.create(parsed.data)
+      return reply.status(201).send(success(persona))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.patch('/personas/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const { id } = idParam.parse(request.params)
+    const existing = personaRegistry.get(id)
+    if (!existing) return reply.status(404).send(error(404, 'Persona 不存在'))
+    // 内置人格的 id/builtin/createdAt 已由 service 保护;此处把其余字段(systemPrompt/
+    // tools/enabled 等)也钉死 —— 内置身份对所有人共享,管理员也不改它。
+    if (existing.builtin) return reply.status(403).send(error(403, '内置 Persona 不允许修改'))
+    const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const updated = personaRegistry.update(id, body.data)
+      if (!updated) return reply.status(404).send(error(404, 'Persona 不存在'))
+      return reply.send(success(updated))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  server.delete('/personas/:id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const { id } = idParam.parse(request.params)
+    const deleted = personaRegistry.delete(id)
+    if (!deleted) return reply.status(404).send(error(404, 'Persona 不存在或为内置'))
+    return reply.send(success({ deleted }))
+  })
+
+  // ===========================================================================
+  // 13. Routines — 例行程序
+  // ===========================================================================
+
+  const createRoutineSchema = z.object({
+    name: z.string().min(1),
+    prompt: z.string().min(1),
+    cronExpression: z.string().min(1),
+    workspacePath: z.string().min(1),
+    modelId: z.string().optional(),
+  })
+
+  // F-301:PATCH 只允许改这些可编辑字段。此前用 z.record 任意键直通 service 的
+  // {...r, ...updates},可改 id/createdAt/userUuid/nextRun/lastResult 等(把 nextRun
+  // 设成过去即可每 tick 触发)。strict 让未知字段直接 400。
+  const updateRoutineSchema = z
+    .object({
+      name: z.string().min(1).optional(),
+      prompt: z.string().min(1).optional(),
+      cronExpression: z.string().min(1).optional(),
+      workspacePath: z.string().min(1).optional(),
+      modelId: z.string().optional(),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+
+  server.get('/routines', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    return reply.send(success({ routines: routineManager.list(request.userId) }))
+  })
+
+  server.post('/routines', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = createRoutineSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const routine = routineManager.create(parsed.data, request.userId)
+    return reply.status(201).send(success(routine))
+  })
+
+  server.get('/routines/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const routine = routineManager.get(id, request.userId)
+    if (!routine) return reply.status(404).send(error(404, '例行程序不存在'))
+    return reply.send(success(routine))
+  })
+
+  server.patch('/routines/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const body = updateRoutineSchema.safeParse(request.body ?? {})
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const updated = routineManager.update(id, request.userId, body.data)
+      if (!updated) return reply.status(404).send(error(404, '例行程序不存在'))
+      return reply.send(success(updated))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  server.delete('/routines/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const deleted = routineManager.delete(id, request.userId)
+    if (!deleted) return reply.status(404).send(error(404, '例行程序不存在'))
+    return reply.send(success({ deleted }))
+  })
+
+  server.post('/routines/:id/trigger', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { id } = idParam.parse(request.params)
+    const agentId = routineManager.trigger(id, request.userId)
+    if (!agentId) return reply.status(404).send(error(404, '例行程序不存在或未启用'))
+    return reply.send(success({ agentId }))
+  })
+
+  // ===========================================================================
+  // 14. GitHubIntegration — GitHub 集成
+  // ===========================================================================
+
+  server.post('/github/detect', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = workspacePathBody.parse(request.body)
+    if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    const repo = await githubClient.detectRemote(body.workspacePath)
+    return reply.send(success({ repo }))
+  })
+
+  const createPRSchema = z.object({
+    owner: z.string().min(1),
+    repo: z.string().min(1),
+    title: z.string().min(1),
+    head: z.string().min(1),
+    base: z.string().min(1),
+    body: z.string().optional(),
+    /** D183(2026-09-29):true = 创建 Draft PR(环境信息 popover 一键创建入口) */
+    draft: z.boolean().optional(),
+  })
+
+  server.post('/github/prs', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const parsed = createPRSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const pr = await githubClient.createPR({ userId: request.userId, ...parsed.data })
+      return reply.status(201).send(success(pr))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/github/prs', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const query = z
+      .object({ owner: z.string(), repo: z.string(), state: z.string().optional() })
+      .parse(request.query)
+    if (!query.owner || !query.repo)
+      return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
+    try {
+      const prs = await githubClient.listPRs({ userId: request.userId, ...query })
+      return reply.send(success(prs))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/github/prs/:number', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const { number } = prNumberParam.parse(request.params)
+    const query = z.object({ owner: z.string(), repo: z.string() }).parse(request.query)
+    if (!query.owner || !query.repo)
+      return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
+    try {
+      const pr = await githubClient.getPR({
+        userId: request.userId,
+        owner: query.owner,
+        repo: query.repo,
+        number,
+      })
+      return reply.send(success(pr))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/prs/:number/comments', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const { number } = prNumberParam.parse(request.params)
+    const body = z
+      .object({ owner: z.string(), repo: z.string(), body: z.string() })
+      .parse(request.body)
+    if (!body.owner || !body.repo || !body.body)
+      return reply.status(400).send(error(400, 'owner/repo/body 不能为空'))
+    try {
+      const result = await githubClient.addPRComment({
+        userId: request.userId,
+        owner: body.owner,
+        repo: body.repo,
+        number,
+        body: body.body,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.post('/github/prs/:number/reviewers', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const { number } = prNumberParam.parse(request.params)
+    const body = z
+      .object({ owner: z.string(), repo: z.string(), reviewers: z.array(z.string()).max(100) })
+      .parse(request.body)
+    if (!body.owner || !body.repo || !body.reviewers)
+      return reply.status(400).send(error(400, 'owner/repo/reviewers 不能为空'))
+    try {
+      const result = await githubClient.requestReview({
+        userId: request.userId,
+        owner: body.owner,
+        repo: body.repo,
+        number,
+        reviewers: body.reviewers,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.put('/github/prs/:number/merge', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const { number } = prNumberParam.parse(request.params)
+    const body = z
+      .object({
+        owner: z.string(),
+        repo: z.string(),
+        commitTitle: z.string().optional(),
+        mergeMethod: z.string().optional(),
+      })
+      .parse(request.body)
+    if (!body.owner || !body.repo)
+      return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
+    try {
+      const result = await githubClient.mergePR({
+        userId: request.userId,
+        owner: body.owner,
+        repo: body.repo,
+        number,
+        commitTitle: body.commitTitle,
+        mergeMethod: body.mergeMethod as 'merge' | 'squash' | 'rebase' | undefined,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  server.get('/github/issues', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
+    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
+      return reply
+        .status(403)
+        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
+    const query = z
+      .object({ owner: z.string(), repo: z.string(), state: z.string().optional() })
+      .parse(request.query)
+    if (!query.owner || !query.repo)
+      return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
+    try {
+      const issues = await githubClient.listIssues({ userId: request.userId, ...query })
+      return reply.send(success(issues))
+    } catch (e) {
+      return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ─── 自愈工作区(P3 #45,2026-09-17 立)──────────────────────────────
+
+  // POST /self-heal/detect — 四类探针健康检测(只读)
+  server.post('/self-heal/detect', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        port: z.number().int().min(1).max(65535).optional(),
+        minFreeMB: z
+          .number()
+          .int()
+          .min(1)
+          .max(1024 * 1024)
+          .optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'self-heal.detect')))
+      return
+    try {
+      const result = await detectWorkspaceIssues(parsed.data)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // POST /self-heal/repair — 自愈修复(默认 dryRun=true 只出计划;真实执行逐 step 审计)
+  server.post('/self-heal/repair', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        kind: z.enum(['dependency', 'index', 'port', 'disk']),
+        dryRun: z.boolean().default(true),
+        port: z.number().int().min(1).max(65535).optional(),
+        forceKillPid: z.number().int().min(1).optional(),
+        minFreeMB: z
+          .number()
+          .int()
+          .min(1)
+          .max(1024 * 1024)
+          .optional(),
+        detail: z.string().max(2000).optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'self-heal.repair')))
+      return
+    try {
+      const result = await repairWorkspaceIssue(parsed.data)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // ─── 全栈原子回滚(P3 #42,2026-09-17 立;dry-run 先行,execute 需 confirm)──
+
+  // D163 残余(2026-10-18):检查点可用性下行(与 D154 同一载体,不另建通道)。
+  // 投递是**下行**,写链成败才是响应状态 —— 广播失败只出声,绝不把一次成功的写链改成 500;
+  // 构造失败同理(值全来自服务端,理论上不可达,同样不许污染写链结果)。
+  const emitCheckpointAvailability = (
+    request: FastifyRequest,
+    input: Parameters<typeof checkpointAvailabilityEvent>[0],
+  ): void => {
+    if (!request.userId) return
+    try {
+      const evt = checkpointAvailabilityEvent(input)
+      server.broadcastToUser(request.userId, evt.event, evt.data)
+    } catch (err) {
+      request.log.warn(
+        { err, userId: request.userId },
+        'checkpoint:availability 广播发射失败(端上退回手动刷新)',
+      )
+    }
+  }
+
+  // POST /atomic-checkpoint — 创建原子快照
+  // F-554:单次快照最多复制 3000 个文件,必须限流,避免反复调用把工作区磁盘写满。
+  server.post(
+    '/atomic-checkpoint',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = z
+        .object({
+          workspacePath: z.string().min(1),
+          description: z.string().max(500).default('手动快照'),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      if (
+        !(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.checkpoint'))
+      )
+        return
+      try {
+        const result = await createAtomicCheckpoint(parsed.data.workspacePath, {
+          description: parsed.data.description,
+          tool: 'http',
+        })
+        // 写链成功 ⇒ 别的设备上的同一工作区也应立刻知道"有一个可用检查点"
+        emitCheckpointAvailability(request, {
+          workspacePath: parsed.data.workspacePath,
+          state: 'available',
+          checkpointId: result.meta.id,
+        })
+        return reply.send(
+          success({
+            id: result.meta.id,
+            files: result.meta.files.length,
+            skipped: result.meta.skipped.length,
+          }),
+        )
+      } catch (e) {
+        // 写链失败同样要上报"不可用" —— 否则另一端继续按"可用"行事(D163 的三态纪律)
+        emitCheckpointAvailability(request, {
+          workspacePath: parsed.data.workspacePath,
+          state: 'unavailable',
+          reason: (e as Error).message,
+        })
+        return reply.status(500).send(error(500, (e as Error).message))
+      }
+    },
+  )
+
+  // GET /atomic-checkpoints — 快照列表(仅元信息)
+  server.get('/atomic-checkpoints', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z.object({ workspacePath: z.string().min(1) }).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.list')))
+      return
+    try {
+      return reply.send(
+        success({ checkpoints: await listAtomicCheckpoints(parsed.data.workspacePath) }),
+      )
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // POST /atomic-rollback/plan — 预演(零写入)
+  server.post('/atomic-rollback/plan', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({ workspacePath: z.string().min(1), checkpointId: checkpointIdSchema })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.plan')))
+      return
+    try {
+      const plan = await planAtomicRollback(parsed.data.workspacePath, parsed.data.checkpointId)
+      if (!plan) return reply.status(404).send(error(404, '快照不存在'))
+      return reply.send(success(plan))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // POST /atomic-rollback/execute — 执行(confirm=true 才落刀,逐 step 审计)
+  server.post('/atomic-rollback/execute', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        checkpointId: checkpointIdSchema,
+        confirm: z.boolean().default(false),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.execute')))
+      return
+    try {
+      const result = await executeAtomicRollback(
+        parsed.data.workspacePath,
+        parsed.data.checkpointId,
+        { confirm: parsed.data.confirm },
+      )
+      if (!result) return reply.status(404).send(error(404, '快照不存在'))
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-pick-root"
+description = "Enables the workspace_pick_root command without any pre-configured scope."
+commands.allow = ["workspace_pick_root"]
+
+[[permission]]
+identifier = "deny-workspace-pick-root"
+description = "Denies the workspace_pick_root command without any pre-configured scope."
+commands.deny = ["workspace_pick_root"]

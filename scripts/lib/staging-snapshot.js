@@ -1,0 +1,543 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * staging-snapshot.js — pre-commit staging area 快照与还原工具
+ *
+ * 背景(2026-07-26 立):
+ *   多 agent 并行开发时曾出现非本任务文件被 commit 的事故。根因可能是:
+ *   ① IDE 自动 stage 文件(如 VSCode "Smart Commit" 或 Source Control 面板误操作);
+ *   ② 未察觉的 `git add` 操作(如 `git add .` / `git add -A`);
+ *   ③ lint-staged 或 guardian-runner 在 hook 执行期间副作用 stage 新文件(已确认不会,但作为防御);
+ *   ④ 其他 git 工具(GUI 客户端)自动 stage。
+ *
+ * 机制:
+ *   - pre-commit 入口调用 takeStagingSnapshot() 记录初始 staged 文件清单;
+ *   - hook 执行期间正常跑 lint-staged / guardian-runner / typecheck 等检查;
+ *   - hook 退出前(无论成功失败)调用 restoreStaging() 对比当前 staged 与快照,
+ *     自动 unstage 快照之外的新增文件,确保 commit 仅包含用户显式 staged 的文件。
+ *
+ * 注意:
+ *   - 本机制只防护"hook 执行期间新增的 staged 文件",不防护"hook 执行前已 staged 的非本任务文件"
+ *     (后者由 check-commit-scope-consistency.mjs 通过 commit scope 与文件领域匹配来检测);
+ *   - lint-staged 对已 staged 文件的修改(eslint --fix / prettier --write)不受影响,
+ *     因为文件 PATH 仍在快照中,只是内容更新;
+ *   - 还原使用 `git restore --staged <file>`(git 2.23+),非破坏性,working tree 保留。
+ *
+ * GIT_INDEX_FILE 隔离通道防护(2026-09-03 立,真实事故):
+ *   并行会话共用同一份 .git/index,commit 时会互相污染暂存区。AGENTS.md §12i 的私有索引
+ *   提交通道(`node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>`)即此机制:
+ *   它把 `GIT_INDEX_FILE` 指到 `<gitdir>/ihui-isolated-index/<pid>-<ms>-<rand>.idx`
+ *   (read-tree HEAD → add 声明集 → commit)。
+ *   但 git/husky 在运行 pre-commit hook 时可能改写 GIT_INDEX_FILE(指向 git 自身的
+ *   临时索引),导致 takeStagingSnapshot() 与 restoreStaging() 读到的不是同一个索引:
+ *   快照里只有本任务的 N 个文件,还原时却读到"本任务 N 个 + 共享索引 M 个",于是把
+ *   共享索引里**其他会话的 M 个文件**当成"hook 期间新增"误 unstage。
+ *   防护:快照记录当时的 GIT_INDEX_FILE,还原时若检测到索引路径变化则**跳过还原**
+ *   (保守策略 — 宁可漏还原,也绝不误伤其他会话的暂存区)。
+ *
+ * 文件扩展名说明:使用 .js 而非 .cjs,因为 .gitignore 第 129 行 `*.cjs` 规则忽略所有 .cjs 文件。
+ * 根 package.json 无 "type": "module",所以 .js 文件按 CommonJS 处理,可使用 require/module.exports。
+ *
+ * 豁免: HUSKY_SKIP_STAGING_RESTORE=1 跳过还原(紧急情况用)
+ *
+ * 用法:
+ *   const { takeStagingSnapshot, restoreStaging } = require('./scripts/lib/staging-snapshot.js')
+ *   const snapshot = takeStagingSnapshot()
+ *   // ... hook 逻辑 ...
+ *   setupRestoreOnExit(snapshot)  // 或 process.on('exit', () => restoreStaging(snapshot))
+ *
+ * 信号处理(2026-07-26 立):
+ *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
+ *   setupRestoreOnExit() 封装 exit + SIGINT + SIGTERM 三种退出路径的还原逻辑。
+ */
+// 取材层(Node 的 require(esm) 可直接载入 .mjs;450f4531184 已趟通,被 425ae8286fc 回灌后 2026-11-12 重迁):
+// 绝对 git + quotepath + stdio 接管 + 有界 timeout/缓冲(守门 193 同款),不依赖 PATH。
+const { gitRaw } = require('./face-reader.mjs')
+const { appendFileSync, mkdirSync } = require('node:fs')
+const { resolve, dirname } = require('node:path')
+
+/**
+ * 获取当前 staged 文件快照(Added/Copied/Modified/Renamed,不含 Deleted)
+ * @param {object} [options]
+ * @param {string} [options.cwd] 工作目录,默认 process.cwd()
+ * @returns {Set<string>|null} staged 文件路径集合(POSIX 路径),非 git 环境返回 null
+ */
+function takeStagingSnapshot(options = {}) {
+  const cwd = options.cwd || process.cwd()
+  try {
+    // core.quotepath=false 由层内统一给(gitRaw 自带),这里只给 verb 与面;
+    // 失败仍由外层 catch 折 null(非 git 环境不抛到调用方),语义与原 execSync 一致。
+    const output = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      cwd,
+      {},
+    )
+    const snapshot = new Set(
+      output
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => f.replace(/\\/g, '/')),
+    )
+    // 记录快照时的 GIT_INDEX_FILE,供 restoreStaging 校验索引一致性(2026-09-03 立)。
+    // 用 defineProperty 声明为不可枚举属性,避免影响 Set 的迭代/序列化语义。
+    Object.defineProperty(snapshot, 'indexFile', {
+      value: process.env.GIT_INDEX_FILE || '',
+      enumerable: false,
+      writable: false,
+    })
+    return snapshot
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 写入 staging 还原监控日志(JSON Lines 格式,追加一行)
+ *
+ * 触发条件(全部满足才写):
+ *   ① 非静默模式(!options.silent);
+ *   ② process.env.HUSKY_STAGING_RESTORE_LOG === '1';
+ *   ③ 本次还原有实际操作(result.restored.length > 0 或 result.skipped=true)。
+ *
+ * 日志路径:<cwd>/.ihui-agent/tmp/staging-restore.log(cwd = options.cwd || process.cwd())
+ * IO 错误被 try-catch 吞掉,不阻塞主流程。
+ *
+ * @param {{restored: string[], skipped: boolean}} result restoreStaging 的返回值
+ * @param {string|null} skipReason 跳过原因("null-snapshot"/"options.skip"/"non-git-env"/null)
+ * @param {object} options 透传选项(用 options.silent / options.cwd)
+ * @returns {void}
+ */
+function writeRestoreLog(result, skipReason, options) {
+  if (options.silent) return
+  if (process.env.HUSKY_STAGING_RESTORE_LOG !== '1') return
+  if (result.restored.length === 0 && !result.skipped) return
+  try {
+    const cwd = (options.cwd || process.cwd()).replace(/\\/g, '/')
+    const logPath = resolve(cwd, '.ihui-agent/tmp/staging-restore.log')
+    mkdirSync(dirname(logPath), { recursive: true })
+    const entry = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      cwd,
+      restored: result.restored,
+      restoredCount: result.restored.length,
+      skipped: result.skipped,
+      skipReason,
+      undetermined: !!result.undetermined,
+      ...(result.emptyIndex ? { emptyIndex: result.emptyIndex } : {}),
+    })
+    appendFileSync(logPath, entry + '\n', 'utf8')
+  } catch {
+    // 吞掉 IO 错误,不阻塞主流程
+  }
+}
+
+/**
+ * 采集当前索引的“身份 + 规模”基线(2026-11-08 立,修“hook 日志说还原成功,同一时刻 git ls-files 返回 0”)
+ *
+ * 为什么不能只看 GIT_INDEX_FILE 路径字符串:
+ *   真实事故里索引文件在 hook 执行期间被删除/清空,之后又在**同一路径**重建为空索引。
+ *   路径字符串一字未变,restoreStaging 的旧护栏于是照常放行,并把“剩余 N 个 staged 文件”
+ *   当作成功结论打出来 —— 但此刻 `git ls-files` 是 0 条,全仓显示 staged-deleted。
+ *   本函数记录 git dir、索引条目数、HEAD 树条目数,让“索引被换库/清空”这种跨进程破坏
+ *   可以被入口自检与批后复核直接判出并 fail-closed,而不是伪装成“0 个源码文件”的门禁假红。
+ *
+ * 注意:不比对文件 mtime/size。lint-staged / git add 会原子重写同一份索引,内容变化是
+ * 正常现象;要抓的是“换库 / 清空 / 条目减少”,不是“内容更新”。
+ *
+ * @param {object} [options]
+ * @param {string} [options.cwd] 工作目录,默认 process.cwd()
+ * @returns {{ok:boolean,cwd:string,indexFile:string,gitDir:string,entries:number,headEntries:number,error?:string}}
+ */
+function captureIndexIntegrity(options = {}) {
+  const cwd = options.cwd || process.cwd()
+  const indexFile = process.env.GIT_INDEX_FILE || ''
+  // 走层(守门 193):原自拼 execFileSync 的 maxBuffer 1<<28 逐字保留 —— 2026-11-12 实测索引
+  // ls-files 输出 ~3.3MB,execFileSync 默认 1MB 必 ENOBUFS 拦死全部提交(7877f31cee0 的教训不许丢)。
+  const run = (args, at = cwd) => gitRaw(args, at, { maxBuffer: 1 << 28 })
+  const countZ = (out) => out.split('\u0000').filter(Boolean).length
+  try {
+    // 从仓库根统计,避免调用方在子目录时 ls-files 只返回该前缀下的条目而误判“索引为空”
+    const repoRoot = run(['rev-parse', '--show-toplevel']).trim().replace(/\\/g, '/') || cwd
+    const gitDir = run(['rev-parse', '--absolute-git-dir']).trim().replace(/\\/g, '/')
+    const entries = countZ(run(['ls-files', '--cached', '-z'], repoRoot))
+    let headEntries = 0
+    try {
+      headEntries = countZ(run(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], repoRoot))
+    } catch {
+      // 无 HEAD(初始提交):不存在“空索引 vs 有 HEAD”的判据,保持 0
+      headEntries = 0
+    }
+    return {
+      ok: true,
+      cwd: repoRoot.replace(/\\/g, '/'),
+      indexFile,
+      gitDir,
+      entries,
+      headEntries,
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      cwd: cwd.replace(/\\/g, '/'),
+      indexFile,
+      gitDir: '',
+      entries: -1,
+      headEntries: -1,
+      error: String(e?.message ?? e),
+    }
+  }
+}
+
+/**
+ * 对比入口 / 当前索引身份基线,返回可解释的破坏类型(2026-11-08 立)。
+ *
+ * code 取值:
+ *   - index-unreadable   当前索引读不出来(不能把 0 条当成“枚举为空”)
+ *   - index-file-changed  GIT_INDEX_FILE 路径被换
+ *   - git-dir-changed     同一路径却换了 git 库(跨工作树/跨仓写坏)
+ *   - index-emptied       索引从 N 条变 0 条而 HEAD 有内容 ⇒ 全仓 staged-deleted 的来源
+ *   - index-shrunk        索引条目减少 ⇒ hook 正常路径不会删索引条目,必为并跑写者
+ */
+function compareIndexIntegrity(before, after) {
+  if (!before || !after)
+    return { ok: false, code: 'missing-baseline', detail: '缺少入口或当前索引身份基线' }
+  if (!after.ok)
+    return {
+      ok: false,
+      code: 'index-unreadable',
+      detail: `读取当前索引失败:${after.error || '未知错误'}`,
+    }
+  if (before.indexFile !== after.indexFile)
+    return {
+      ok: false,
+      code: 'index-file-changed',
+      detail: `GIT_INDEX_FILE "${before.indexFile || '(默认 .git/index)'}" → "${after.indexFile || '(默认 .git/index)'}"`,
+    }
+  if (before.gitDir !== after.gitDir)
+    return {
+      ok: false,
+      code: 'git-dir-changed',
+      detail: `git dir "${before.gitDir || '(未知)'}" → "${after.gitDir || '(未知)'}"`,
+    }
+  if (before.entries > 0 && after.entries === 0 && after.headEntries > 0)
+    return {
+      ok: false,
+      code: 'index-emptied',
+      detail: `索引 ${after.indexFile || '(默认 .git/index)'} 从 ${before.entries} 条变成 0 条,而 HEAD 有 ${after.headEntries} 条`,
+    }
+  if (before.entries > 0 && after.entries < before.entries)
+    return {
+      ok: false,
+      code: 'index-shrunk',
+      detail: `索引条目从 ${before.entries} 条降到 ${after.entries} 条(hook 正常路径只增/改索引条目,不会删除)`,
+    }
+  return { ok: true }
+}
+
+/**
+ * 还原 staging area 至初始快照(unstage 快照之外的新增文件)
+ * @param {Set<string>|null} initialSnapshot takeStagingSnapshot() 返回的初始快照
+ * @param {object} [options]
+ * @param {string} [options.cwd] 工作目录,默认 process.cwd()
+ * @param {boolean} [options.skip] 跳过还原(如 HUSKY_SKIP_STAGING_RESTORE=1)
+ * @param {boolean} [options.silent] 静默模式(不输出日志,测试用)
+ * @returns {{restored: string[], skipped: boolean, undetermined?: boolean}}
+ *   还原的文件列表 + 是否跳过;索引被并跑进程清空时额外带 `undetermined` 与 `emptyIndex`
+ */
+function restoreStaging(initialSnapshot, options = {}) {
+  const result = { restored: [], skipped: false }
+  if (!initialSnapshot) {
+    result.skipped = true
+    writeRestoreLog(result, 'null-snapshot', options)
+    return result
+  }
+  if (options.skip) {
+    result.skipped = true
+    writeRestoreLog(result, 'options.skip', options)
+    return result
+  }
+  const cwd = options.cwd || process.cwd()
+  const silent = options.silent || false
+  // GIT_INDEX_FILE 隔离通道防护(2026-09-03 立):
+  // 快照记录时的 GIT_INDEX_FILE 与还原时的若不一致,说明 git/husky 在 hook 执行期间
+  // 改写了索引(例如 git 为 hook 准备的临时索引,或调用方使用的隔离索引被覆盖)。
+  // 此时"新增 staged 文件"的判定不可靠 —— 可能把共享索引里其他会话 staged 的文件
+  // 误判成 hook 副作用并 unstage,造成跨会话污染。保守策略:跳过还原,宁可漏还原,
+  // 也绝不误伤其他会话的暂存区。
+  const snapshotIndex = initialSnapshot.indexFile || ''
+  const currentIndex = process.env.GIT_INDEX_FILE || ''
+  if (snapshotIndex !== currentIndex) {
+    result.skipped = true
+    if (!silent) {
+      console.warn(`\n⚠️  staging area 还原跳过:检测到 GIT_INDEX_FILE 在 hook 执行期间发生变化`)
+      console.warn(
+        `     "${snapshotIndex || '(默认 .git/index)'}" → "${currentIndex || '(默认 .git/index)'}"`,
+      )
+      console.warn('     该场景多见于并行会话的隔离索引提交通道;为避免误 unstage 其他会话')
+      console.warn('     的暂存文件,本次不做还原。请自行确认 staged 清单无误。')
+    }
+    writeRestoreLog(result, 'index-file-changed', options)
+    return result
+  }
+  // 索引身份/规模复核(2026-11-08 立):
+  // 路径字符串没变 ≠ 还是同一份索引 —— 索引被删除后在原路径重建为空索引时,旧护栏会照常
+  // 放行并打出“剩余 N 个 staged 文件”的假成功。这里在动手还原之前先验规模,发现空索引
+  // 就判为“未判定”,绝不再把一句“已还原”当成结论。
+  const identity = captureIndexIntegrity({ cwd })
+  if (!identity.ok) {
+    result.skipped = true
+    result.undetermined = true
+    if (!silent) {
+      console.warn(`\n❓ staging area 还原未判定:读取索引失败:${identity.error || '未知错误'}`)
+      console.warn('     索引读不出来时无法区分“没有新增 staged”与“索引被清空”,本次不做还原。')
+    }
+    writeRestoreLog(result, 'index-unreadable', options)
+    return result
+  }
+  if (identity.entries === 0 && identity.headEntries > 0) {
+    result.skipped = true
+    result.undetermined = true
+    result.emptyIndex = {
+      entries: identity.entries,
+      headEntries: identity.headEntries,
+      indexFile: identity.indexFile,
+    }
+    if (!silent) {
+      console.warn(
+        `\n❓ staging area 还原未判定:索引 ${identity.indexFile || '(默认 .git/index)'} 为 0 条,而 HEAD 有 ${identity.headEntries} 条`,
+      )
+      console.warn('     这是索引在 hook 期间被并跑进程删除/清空,不是“还原成功剩余 N 条”。')
+      console.warn('     恢复索引(先确认工作树无他人未提交改动): git read-tree HEAD && git add -A')
+    }
+    writeRestoreLog(result, 'index-empty-vs-head', options)
+    return result
+  }
+  try {
+    // core.quotepath=false 由层内统一给(gitRaw 自带),与 takeStagingSnapshot 同一条出口。
+    const currentOutput = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      cwd,
+      {},
+    )
+    const currentStaged = new Set(
+      currentOutput
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => f.replace(/\\/g, '/')),
+    )
+    // 找出快照之外的新增文件(可能是 lint-staged/IDE 副作用 stage 的)
+    const addedFiles = [...currentStaged].filter((f) => !initialSnapshot.has(f))
+    if (addedFiles.length === 0) {
+      writeRestoreLog(result, null, options)
+      return result
+    }
+    if (!silent) {
+      console.warn(
+        `\n⚠️  staging area 还原:检测到 ${addedFiles.length} 个非预期 staged 文件(可能由 lint-staged 副作用或 IDE 自动 stage 引入),自动 unstage:`,
+      )
+      for (const f of addedFiles) {
+        console.warn(`     - ${f}`)
+      }
+    }
+    // 使用 git restore --staged unstage(git 2.23+,非破坏性,working tree 保留)
+    // 用引号包裹路径以处理空格
+    // ⚠️ 不得把路径拼进一条 shell 命令:execSync 走 cmd.exe,路径多时命令行超限 →
+    // ENAMETOOLONG,而外层 catch 会把整段还原记成 skipped 只 warn 一句。也就是说
+    // **最需要这道防线的时刻(暂存里混进很多非预期文件)恰好是它失效的时刻**。
+    // 2026-09-24 实测:safe-commit 一次提交涉及 8 个非预期 staged 文件即已触发,
+    // 日志原文 `staging area 还原检查跳过: spawnSync C:\Windows\system32\cmd.exe ENAMETOOLONG`,
+    // 而这正是 aa15bec23 暂存污染事故的配套最后一道闸。
+    // 改 execFileSync(argv) ⇒ 无 shell、无引号膨胀;再按 50 个一批切分,避开 OS 命令行上限。
+    const UNSTAGE_BATCH = 50
+    for (let i = 0; i < addedFiles.length; i += UNSTAGE_BATCH) {
+      // 走层(守门 193):仍是 argv 直拼无 shell、仍按 50 个一批切分避开 OS 命令行上限;
+      // 层内 stdio 接管('ignore','pipe','pipe')替代原 stderr inherit —— 失败带 stderr 进
+      // 外层 catch 的同一句 warn,不再往 hook 终端直写,语义只增不丢。
+      gitRaw(
+        ['restore', '--staged', '--', ...addedFiles.slice(i, i + UNSTAGE_BATCH)],
+        cwd,
+        {},
+      )
+    }
+    if (!silent) {
+      console.log(
+        `✅ 已还原 staging area 至 pre-commit 入口快照(剩余 ${initialSnapshot.size} 个 staged 文件)\n`,
+      )
+    }
+    result.restored = addedFiles
+    writeRestoreLog(result, null, options)
+    return result
+  } catch (e) {
+    if (!silent) {
+      console.warn(`⚠️  staging area 还原检查跳过: ${e.message}`)
+    }
+    result.skipped = true
+    writeRestoreLog(result, 'non-git-env', options)
+    return result
+  }
+}
+
+/**
+ * 注册 staging area 还原到进程退出钩子(包括正常退出 + SIGINT + SIGTERM)
+ *
+ * 背景(2026-07-26 立):
+ *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
+ *   否则用户在 pre-commit hook 期间按 Ctrl+C 会导致 staging area 不还原,
+ *   非本任务文件残留 staged,下次 commit 可能被混入。
+ *
+ * 退出码约定:
+ *   - 正常退出: 不改退出码(由调用方控制)
+ *   - SIGINT: 130 (128 + 2,POSIX 约定)
+ *   - SIGTERM: 143 (128 + 15,POSIX 约定)
+ *
+ * @param {Set<string>|null} initialSnapshot takeStagingSnapshot() 返回的初始快照
+ * @param {object} [options] 透传给 restoreStaging 的选项(skip/silent/cwd)
+ * @returns {void}
+ */
+function setupRestoreOnExit(initialSnapshot, options = {}) {
+  const restore = () => {
+    try {
+      restoreStaging(initialSnapshot, options)
+    } catch (e) {
+      // 还原失败不阻塞进程退出(避免 hook 卡死)
+      if (!options.silent) {
+        console.warn(`⚠️  staging area 还原失败(信号退出路径): ${e.message}`)
+      }
+    }
+  }
+
+  // 正常退出路径(process.exit() / 事件循环空了 / 未捕获异常后)
+  process.on('exit', restore)
+
+  // SIGINT(Ctrl+C):用户中断 hook,需要还原 staging area 后退出码 130
+  process.on('SIGINT', () => {
+    restore()
+    process.exit(130)
+  })
+
+  // SIGTERM(kill 默认信号):被其他进程 kill,需要还原 staging area 后退出码 143
+  process.on('SIGTERM', () => {
+    restore()
+    process.exit(143)
+  })
+}
+
+/**
+ * 审计 staging area 文件清单(2026-08-06 立,防同目录文件级污染)
+ *
+ * 背景(2026-08-06 立,真实事故):
+ *   commit aa15bec23 "fix(web): message-list 消息操作按钮..." 意外包含了
+ *   message-input.tsx(其他 agent 改的 rounded-t-xl)。根因:message-input.tsx 在
+ *   pre-commit hook 执行**前**已被 IDE/其他 agent staged,takeStagingSnapshot 把它
+ *   当成本任务文件,restoreStaging 不会 unstage。所有领域级守门(check-commit-scope /
+ *   check-staged-pollution)都放过(同目录 apps/web/src/components/chat/,scope=web 匹配)。
+ *
+ * 机制:
+ *   - 在 pre-commit 入口(takeStagingSnapshot 之后、lint-staged 之前)调用本函数
+ *   - 打印 staged 文件清单(按目录分组),让 agent 察觉异常
+ *   - 同目录多文件时警告(提示可能是污染,建议用 safe-commit.mjs 重新提交)
+ *   - 文件数 > 5 时严重警告
+ *   - warn-only(不阻塞 commit,避免误伤合法多文件 commit)
+ *
+ * 注意:
+ *   - 本函数是"提示层",无法真正阻止污染。真正阻止污染的是 safe-commit.mjs
+ *     (git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验 staged == 预期)
+ *   - agent 应遵循 AGENTS.md §12/§16 强制用 safe-commit.mjs;多会话共用工作树时优先 §12i
+ *     的私有索引提交通道(`node scripts/isolated-git.mjs commit`),不直接 git add + commit
+ *
+ * 豁免: HUSKY_SKIP_STAGING_AUDIT=1 跳过审计(紧急情况用)
+ *
+ * @param {object} [options]
+ * @param {string} [options.cwd] 工作目录,默认 process.cwd()
+ * @param {boolean} [options.silent] 静默模式(不输出日志,测试用)
+ * @returns {void}
+ */
+function auditStagingFiles(options = {}) {
+  if (process.env.HUSKY_SKIP_STAGING_AUDIT === '1') {
+    if (!options.silent) {
+      console.log('⏭  staged 文件清单审计(HUSKY_SKIP_STAGING_AUDIT=1, 跳过)')
+    }
+    return
+  }
+  const cwd = options.cwd || process.cwd()
+  const silent = options.silent || false
+
+  let stagedFiles = []
+  try {
+    // core.quotepath=false 由层内统一给(gitRaw 自带);失败 catch 回"非 git 环境跳过"不变。
+    const output = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      cwd,
+      {},
+    )
+    stagedFiles = output
+      .split('\n')
+      .filter(Boolean)
+      .map((f) => f.replace(/\\/g, '/'))
+  } catch {
+    return // 非 git 环境,跳过
+  }
+
+  if (stagedFiles.length === 0) return
+
+  // 按目录分组(取文件所在目录,如 apps/web/src/components/chat/)
+  const groups = new Map()
+  for (const f of stagedFiles) {
+    const lastSlash = f.lastIndexOf('/')
+    const dir = lastSlash > 0 ? f.slice(0, lastSlash) : '(root)'
+    if (!groups.has(dir)) groups.set(dir, [])
+    groups.get(dir).push(f)
+  }
+
+  if (!silent) {
+    console.log(
+      `\n📋 staged 文件清单审计(2026-08-06 立,防同目录文件级污染,共 ${stagedFiles.length} 个文件):`,
+    )
+    for (const [dir, files] of groups) {
+      console.log(`   📁 ${dir}/`)
+      for (const f of files) {
+        const name = f.slice(f.lastIndexOf('/') + 1)
+        console.log(`      - ${name}`)
+      }
+    }
+
+    // 警告:同目录多文件(最常见污染模式,如 message-list + message-input 同目录)
+    // 用 console.log 而非 console.warn(warn 输出到 stderr,pre-commit hook 中不显眼)
+    let hasMultiFileDir = false
+    for (const [dir, files] of groups) {
+      if (files.length > 1) {
+        hasMultiFileDir = true
+        console.log(
+          `   ⚠️  目录 ${dir}/ 有 ${files.length} 个文件 — 请确认是否都是本任务文件(同目录多文件是最常见污染模式)`,
+        )
+      }
+    }
+    if (hasMultiFileDir) {
+      console.log('      如果混入了其他 agent 改动,请用 node scripts/safe-commit.mjs 重新提交:')
+      console.log('      node scripts/safe-commit.mjs -m "fix(web): ..." -- apps/web/foo.tsx')
+      console.log('      (safe-commit 会 git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验)')
+    }
+
+    // 严重警告:文件数 > 5(多 agent 并行时容易混入)
+    if (stagedFiles.length > 5) {
+      console.log(
+        `   ⚠️  staged 文件数 ${stagedFiles.length} > 5 — 多 agent 并行时容易混入其他 agent 改动`,
+      )
+      console.log('      强烈建议用 node scripts/safe-commit.mjs -m "..." -- <files> 重新提交')
+    }
+
+    console.log('')
+  }
+}
+
+module.exports = {
+  takeStagingSnapshot,
+  restoreStaging,
+  setupRestoreOnExit,
+  auditStagingFiles,
+  captureIndexIntegrity,
+  compareIndexIntegrity,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

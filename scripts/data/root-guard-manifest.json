@@ -1,0 +1,70 @@
+{
+  "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
+  "version": 1,
+  "sealedAt": "2026-11-21T15:58:01.763Z",
+  "sealedBy": "root-guard --seal",
+  "reason": "第 108 项把 305p 摘出并行池(guardian-executor.mjs 规则面无判据改动,仅池成员),按 HEAD 面重封",
+  "targets": [
+    {
+      "id": "guardian-runner",
+      "path": "scripts/guardian-runner.mjs",
+      "mode": "file",
+      "sha256": "0e966c2ceb9f17748929dead209761ad39eb123f6ff30f722ba254533f88058b"
+    },
+    {
+      "id": "judgement-libs",
+      "path": "scripts/lib/judgement-libs.json",
+      "mode": "file",
+      "sha256": "3c0c9911433d755ed746336a32c264b7bb62a86b3e20dc53d8b3be3f5668d0f2"
+    },
+    {
+      "id": "agents-ironlaw",
+      "path": "AGENTS.md",
+      "mode": "section",
+      "start": "## 0. 全局铁律",
+      "sha256": "920256384306dbea2b12370f6c62a2cdce231e1df039ef2ecf169f79be2643c8"
+    },
+    {
+      "id": "git-guardian",
+      "path": "scripts/git-guardian.mjs",
+      "mode": "file",
+      "sha256": "f0dad8972fbd00626ee42524a895b3d9a4bf543c7739db7f0e5e92b17f1cb6bf"
+    },
+    {
+      "id": "gate-scope",
+      "path": "scripts/lib/gate-scope.mjs",
+      "mode": "file",
+      "sha256": "3829ff981a479c29bf33c03bdd6d9403a6b294239f575b40fc1606544d23caab"
+    },
+    {
+      "id": "guardian-executor",
+      "path": "scripts/lib/guardian-executor.mjs",
+      "mode": "file",
+      "sha256": "6a8131332ee3b0324cdc3c397eb3db6040ec08bd53e4238b6f78ad12915be3a1"
+    },
+    {
+      "id": "gate-failure-kind",
+      "path": "scripts/lib/gate-failure-kind.mjs",
+      "mode": "file",
+      "sha256": "c7057c8ad8f0031a094518ab46c075ffbadc69458144b38c302b90d9874817fd"
+    },
+    {
+      "id": "land-gate-rerun",
+      "path": "scripts/lib/land-gate-rerun.mjs",
+      "mode": "file",
+      "sha256": "f85b4230187cc71b9b29821129d9d8a8147ced319eeaff9de01b00367898a533"
+    },
+    {
+      "id": "guardian-pushgate-cache",
+      "path": "scripts/lib/guardian-pushgate-cache.mjs",
+      "mode": "file",
+      "sha256": "599d65090cf04ad7bd943c9089535b76b732f97f63a238a411d358d86441042a"
+    },
+    {
+      "id": "push-attempt-triage",
+      "path": "scripts/lib/push-attempt-triage.mjs",
+      "mode": "file",
+      "sha256": "117aeb5d61689805c630b396c00437913cfeda08e1ebb6b2c600a39989c71784"
+    }
+  ]
+}

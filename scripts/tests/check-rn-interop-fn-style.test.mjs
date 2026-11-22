@@ -1,0 +1,437 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 守门 131(check-rn-interop-fn-style.mjs)的 §22c 镜像测试。
+// 为什么每例都存在:本门的判据输入是**从 node_modules 现读的一张注册表**,而它管的是
+// "整份内联 style 静默消失"这种没有任何编译期症状的缺陷 —— 门被摘线、注册表被换成手写清单、
+// 或预筛面被收窄,表现都同样是"一路报绿"。所以这里既有行为对照,也有源码形状锁。
+import assert from 'node:assert/strict'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { copyFileSync, readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { test } from 'node:test'
+
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
+
+import { __test__ as gate } from '../check-rn-interop-fn-style.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const REPO = resolve(HERE, '..', '..')
+const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
+const SRC = join(REPO, 'scripts', 'check-rn-interop-fn-style.mjs')
+const EXPIRY = join(REPO, 'scripts', 'check-exemption-expiry.mjs')
+const GIT_BIN = resolveGitBin() || 'git'
+
+/** 主索引的真实路径 —— 必须先复制一份再动,绝不往共享索引里塞探针(§12 多会话并行) */
+function resolveGitIndex() {
+  const gitdir = execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, 'rev-parse', '--absolute-git-dir'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
+  return join(gitdir, 'index')
+}
+
+function runNode(args) {
+  return execFileSync(process.execPath, args, {
+    cwd: REPO,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    windowsHide: true,
+    timeout: 600000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+test('T1 装车证明:runner 里必须有 id 131,且 blocking + skipEnv + stagedTriggers 齐备', () => {
+  const src = readFileSync(RUNNER, 'utf8')
+  const at = src.indexOf("id: '131'")
+  assert.ok(at >= 0, '守门 131 不在 runner 里 —— 门存在但没人调度 = 没有(§22c 反复记过)')
+  const block = src.slice(at, at + 2600)
+  assert.ok(block.includes("script: 'check-rn-interop-fn-style.mjs'"), 'id 131 指向的不是本门')
+  assert.match(block, /mode:\s*'blocking'/, '本门必须是 blocking(存量已有棘轮兜住,不会恒红)')
+  assert.ok(block.includes('HUSKY_SKIP_RN_INTEROP_FN_STYLE'), '缺应急出口 = 出事时只能改判据')
+  assert.ok(
+    block.includes("stagedTriggers: ['apps/mobile-rn/', 'packages/app/']"),
+    '触发面必须覆盖两个 RN 源',
+  )
+})
+
+test('T2 反向对照:runner 里没有本门时,T1 那种"已装车"结论不得成立', () => {
+  // 与 114/117/127 的门同一条方向性规矩:未注册时**不得被判定为已装车**。
+  // 做法是把注册块整段删掉再跑同一条查找 —— 若判据写成"文件里提到过脚本名就算",这里会假绿。
+  const src = readFileSync(RUNNER, 'utf8')
+  const stripped = src.replace(/id: '131'[\s\S]*?\n  \},\n/, '')
+  assert.notEqual(stripped, src, '夹具没能剥掉注册块(正则失效,本例就失去意义)')
+  assert.ok(!/id: '131'/.test(stripped))
+  assert.ok(
+    !stripped
+      .slice(stripped.indexOf("id: '130'"), stripped.indexOf("id: '132'"))
+      .includes('check-rn-interop-fn-style'),
+  )
+})
+
+test('T3 豁免族必须登记进守门 108 的存活期表(否则豁免只有出生没有死亡)', () => {
+  const src = readFileSync(EXPIRY, 'utf8')
+  assert.ok(
+    /'interop-style-exempt':\s*30/.test(src),
+    'interop-style-exempt 未进 FAMILY_LIFETIME_DAYS',
+  )
+  assert.ok(
+    gate.EXEMPT.test('x // interop-style-exempt: 原因'),
+    '豁免标记形态与门 108 登记的不是同一条',
+  )
+})
+
+test('T4 形状锁:取材必须经 face-reader,不得回磁盘直读内容(门 118 那一型)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.ok(src.includes("from './lib/face-reader.mjs'"), '没引取材层')
+  assert.ok(/catBatch\(/.test(src), '内容必须经 catBatch 按面读(引了层却自己 git show = 半接线)')
+  assert.ok(!/readFileSync\(\s*join\(\s*ROOT/.test(src), '不得用 ROOT 拼磁盘路径读被审内容')
+})
+
+test('T5 活面不变量:枚举面存活、非空扫、棘轮绿(存量已清偿到 0,有牙证明由 T10 的注入夹具承担)', () => {
+  const r = gate.analyze('head')
+  assert.equal(
+    r.exit,
+    0,
+    `全量面应绿(锚点=该文件 HEAD 自身存量);实得 ${JSON.stringify(r.red).slice(0, 200)}`,
+  )
+  // 2026-10-07 现读:真仓 RN interop 存量已被清偿到 total=0(0 违规 / 568 扫描文件),
+  // 旧断言 total>50 / filesWithHits>20 是"存量存在期"的阳性对照,存量清零后结构上恒假 ——
+  // "探测器有牙"那一维不删,由 T10 的索引注入夹具(A 臂真代码必红)继续钉住;
+  // 本条保留的是**活面不变量**:枚举面还活着、面没被读空、棘轮没被喂成假绿。
+  assert.ok(
+    Number.isFinite(r.total) && Number.isFinite(r.filesWithHits),
+    '读数必须是有限数(结构漂了就是未判定,不得静默)',
+  )
+  assert.ok(r.scannedFiles > 300, `扫描文件数 ${r.scannedFiles} 异常偏低(枚举面失效)`)
+  // 空扫判据必须是"**能**判死"而不是"一直判死":真仓 head 面若 emptyScan=true,
+  // 这扇门就成了与任何提交都无关的恒红门(§12e 那条),所以这里反向钉它一次。
+  assert.equal(
+    r.emptyScan,
+    false,
+    '真仓 head 面被判定为空扫 ⇒ 枚举面或仓库根错位,本门会恒判无法判定',
+  )
+  // F2(2026-10-31 补)同样走"主流程真的委托了它"这一格:analyze 的返回必须带 F2 读数,
+  // 存量数字**不写死**(清偿到 0 后本例仍须绿),"有牙"由 T11/T12 钉。
+  assert.ok(Array.isArray(r.redF2) && r.redF2.length === 0, 'head 面 F2 棘轮自锚,不该有新增红')
+  assert.ok(Number.isFinite(r.totalF2) && r.totalF2 >= 0, 'F2 读数必须是有限数')
+  assert.equal(r.helperListSize, gate.FN_STYLE_HELPERS.length, 'helperListSize 必须等于名单现读长度')
+})
+
+test('T6 注册表必须现读,且内置兜底清单是它的子集(清单腐烂即红)', () => {
+  const derived = gate.deriveInteropRegistry(gate.readInteropSource(REPO))
+  assert.ok(derived, '现读注册表为空/读不到 —— 本门正在用内置清单冒充,必须装依赖后再判')
+  assert.ok(derived.has('Pressable'), '现读结果里没有 Pressable,正则或包路径漂了')
+  assert.ok(
+    gate.FALLBACK_REGISTRY.every((n) => derived.has(n)),
+    `内置清单有现读注册表不存在的名字:${gate.FALLBACK_REGISTRY.filter((n) => !derived.has(n)).join(' , ')}`,
+  )
+  // Modal 刻意**不在**注册表里 —— 这条断言防的是有人"顺手把 Modal 加进兜底表"造成误判
+  assert.ok(!derived.has('Modal'), '现读注册表里出现了 Modal:包已改版,兜底表与判据都要跟着重导')
+})
+
+test('T7 双向对照:注册组件命中、自定义组件放过,无原因豁免不生效', () => {
+  const REG = new Set(['Pressable'])
+  const hit = `  <Pressable\n    style={({ pressed }) => [a, pressed && b]}\n  />`
+  assert.equal(gate.findFnStyleHits(hit, REG).hits.length, 1)
+  const own = hit.replace('<Pressable', '<MyCard')
+  assert.equal(gate.findFnStyleHits(own, REG).hits.length, 0, '自定义组件收函数形态是它自己的契约')
+  const bare = `  <Pressable\n    // interop-style-exempt:\n    style={({ pressed }) => [a, pressed && b]}\n  />`
+  assert.equal(gate.findFnStyleHits(bare, REG).hits.length, 1, '裸标记(不带原因)不得放行')
+  const arr = '  <Pressable style={[a, b]} />'
+  assert.equal(gate.findFnStyleHits(arr, REG).hits.length, 0, '数组形态放过')
+})
+
+test('T8 回溯不到开标签必须计"未判定"并报告,绝不静默丢命中', () => {
+  const orphan = '  style={({ pressed }) => [a, pressed && b]}'
+  const r = gate.findFnStyleHits(orphan, new Set(['Pressable']))
+  assert.equal(r.hits.length, 0)
+  assert.equal(r.undetermined.length, 1, '看不见归属却一声不吭 = 把"没判"写成"判过了"')
+})
+
+test('T9 --self-test 端到端 exit 0', () => {
+  const out = runNode([join(REPO, 'scripts', 'check-rn-interop-fn-style.mjs'), '--self-test'])
+  assert.match(out, /--self-test: 全部通过/)
+})
+
+/**
+ * T11 —— F2(helper 调用型函数形态)的行为正反对照(§22c:判据全走 gate 出口,本文件零复制)。
+ * 立因:F1 只认箭头字面量,`style={pressFeedback(...)}` 整族逃逸,该形态曾铺到 249 处而门一路报绿。
+ */
+test('T11 F2 正反成对:名单内调用命中 / 数组·对象引用·Tappable·带原因豁免放过', () => {
+  const REG = new Set(['Pressable', 'View', 'Text'])
+  const H = gate.FN_STYLE_HELPERS
+  assert.ok(Array.isArray(H) && H.includes('pressFeedback'), '名单必须是数据且首枚族含 pressFeedback')
+  const callee = H[0]
+  const hit = `  <Pressable\n    style={${callee}(styles.card)}\n  />`
+  assert.equal(gate.findHelperFnStyleHits(hit, REG, H).hits.length, 1, '注册组件 + 名单调用必须命中')
+  const dotted = `  <Pressable\n    style={ui.${callee}(styles.card)}\n  />`
+  assert.equal(gate.findHelperFnStyleHits(dotted, REG, H).hits.length, 1, '点链调用取末段比对名单')
+  const arr = '  <Pressable style={[styles.a, styles.b]} />'
+  assert.equal(gate.findHelperFnStyleHits(arr, REG, H).hits.length, 0, '数组形态放过')
+  const obj = '  <Pressable style={styles.a} />'
+  assert.equal(gate.findHelperFnStyleHits(obj, REG, H).hits.length, 0, 'StyleSheet.create 结果放过')
+  const tappable = '  <Tappable style={styles.a} />'
+  assert.equal(gate.findHelperFnStyleHits(tappable, REG, H).hits.length, 0, 'Tappable 的对象 style 不得被 F2 命中')
+  const own = `  <MyCard style={${callee}(styles.card)} />`
+  assert.equal(gate.findHelperFnStyleHits(own, REG, H).hits.length, 0, '非注册组件是其自身契约(同 F1 口径)')
+  const exempted = `  <Pressable style={${callee}(styles.card)} /> // interop-style-exempt: 探针带原因`
+  assert.equal(gate.findHelperFnStyleHits(exempted, REG, H).hits.length, 0, '带原因豁免放行')
+  const bare = `  <Pressable style={${callee}(styles.card)} // interop-style-exempt:\n  />`
+  assert.equal(gate.findHelperFnStyleHits(bare, REG, H).hits.length, 1, '裸标记不带原因不得放行')
+  const unknown = '  <Pressable style={someOtherHelper(x)} />'
+  assert.equal(gate.findHelperFnStyleHits(unknown, REG, H).hits.length, 0, '名单外调用不判(入名单须先证明返回函数形态)')
+  const noList = gate.findHelperFnStyleHits(hit, REG, [])
+  assert.equal(noList.hits.length, 0)
+  assert.equal(noList.undetermined.length, 1, '名单为空 ⇒ 未判定点名,不得静默当作"没有这类 helper"')
+})
+
+/** T12 —— F2 的委托形状锁:主流程必须真调 findHelperFnStyleHits,且 exit 消费 redF2。 */
+test('T12 F2 委托形状锁:analyze 调用判据函数、退出码含 redF2、豁免走原文面', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(
+    src,
+    /findHelperFnStyleHits\(text, registry, FN_STYLE_HELPERS\)/,
+    'analyze 必须把 F2 判据接进逐文件主循环(定义了不接线 = 没有,§0.8)',
+  )
+  assert.match(
+    src,
+    /red\.length \|\| redF2\.length/,
+    '退出码必须消费 redF2(只存字段不参与判定 = F2 无牙)',
+  )
+  assert.match(
+    src,
+    /unreadable\.length \|\| emptyScan \|\| !helpersUsable/,
+    '名单为空/非法必须顶出 exit 2 未判定,不得记绿也不得冒红(§0.3)',
+  )
+  assert.match(
+    src,
+    /findHelperFnStyleHits\([\s\S]*?EXEMPT\.test\(line\)[\s\S]*?latestJsxTagBefore\(code, i\)/,
+    'F2 的豁免必须拿原文判、归属必须走遮罩面(与 F1 同源;接反即豁免通道死/注释误判回潮)',
+  )
+})
+
+/**
+ * T13 —— F2 的端到端装车证明(与 T10 同一套临时索引纪律,绝不碰共享工作树/主索引):
+ * 注入名单内调用 ⇒ staged 面必红;同一形态只写进注释 ⇒ 必绿。行为对照覆盖"定义了没接线"。
+ */
+test('T13 F2 端到端:staged 注入名单调用必红 / 注释提及必绿', () => {
+  const F = 'packages/app/src/components/MoreLink.tsx' // 该文件 HEAD 面 F1/F2 存量为 0 ⇒ 注入即"新增"
+  const src = readFileSync(join(REPO, F), 'utf8')
+  const at = src.indexOf('<Pressable')
+  assert.ok(at >= 0, '夹具必须真有 <Pressable,否则本例是空跑')
+  const insertAt = at + '<Pressable'.length
+  const callee = gate.FN_STYLE_HELPERS[0]
+
+  const dir = mkScratch('g131-t13')
+  try {
+    const tmpIndex = join(dir, 'probe-index')
+    copyFileSync(resolveGitIndex(), tmpIndex)
+    const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
+    const gitEnv = (args, opts = {}) =>
+      execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, ...args], {
+        // §12g 样板:带 input 的派生 git 必须 ['pipe','pipe','pipe'] —— 写 'ignore' 会让
+        // hash-object --stdin 直接读到 EOF 落一枚空 blob(update-index 不报错,staged 面恒空,
+        // A 臂假绿成"门没牙";2026-10-31 本例首跑就是这么红给看的)
+        stdio: ['pipe', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        env,
+        ...(opts.input === undefined ? {} : { input: opts.input }),
+      }).trim()
+    const putInIndex = (body) => {
+      const blob = gitEnv(['hash-object', '-w', '--stdin'], { input: body })
+      gitEnv(['update-index', '--add', '--cacheinfo', `100644,${blob},${F}`])
+    }
+    const runStaged = () => {
+      const r = spawnSync(process.execPath, [SRC, '--staged'], {
+        cwd: REPO,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { code: r.status, out: (r.stdout || '') + (r.stderr || '') }
+    }
+
+    // A 臂:名单内 helper 调用 ⇒ F2 必红(F1 当年对这一型全盲,红只能来自 F2)
+    putInIndex(
+      src.slice(0, insertAt) + `\n      style={${callee}(styles.hit)}` + src.slice(insertAt),
+    )
+    const a = runStaged()
+    assert.equal(a.code, 1, `A 臂:helper 调用形态必须 exit=1,实得 ${a.code}\n${a.out.slice(0, 260)}`)
+    assert.match(a.out, /F2 新增/, '红必须点名 F2 档(挂在 F1 名下 = 判据归因漂了)')
+
+    // B 臂:同一形态只出现在注释里 ⇒ 必绿(遮罩关掉的是误报,不是判据)
+    putInIndex(
+      src.slice(0, insertAt) + `\n      /* 探针:曾写 style={${callee}(styles.row)},整份样式被吃掉 */` + src.slice(insertAt),
+    )
+    const b = runStaged()
+    assert.equal(b.code, 0, `B 臂:注释形态不得判红,实得 ${b.code}\n${b.out.slice(0, 260)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+/**
+ * T10 —— 注释遮罩的双向装车证明(端到端,走临时索引,绝不碰共享工作树/主索引)。
+ *
+ * 为什么必须有它:2026-09-26 本门第一次自跑,是被**自己写的说明文字**判成违规 ——
+ * 给 CategoryInlineBar 补一句"早先这里写 style=函数形态"之后,--worktree 读数从预期
+ * 115 变成 116。修法是"判据面先剥注释与字符串",而这类修法天生带一个失败模式:
+ * **把判据整个关掉也照样绿**。所以两侧必须同时钉住:真代码违规必红、同一形态写进
+ * 注释必绿。只留后者,就是拿一条测试替"门瞎了"背书(§22c 复读机教训)。
+ *
+ * 取材用 --staged + 临时索引副本:共享工作树此刻可能正被别的会话写,按磁盘判会把
+ * 别人的半编辑态读成"本门漏判/误判";而复制一份索引出来,既不污染别人正在用的那份,
+ * 又能让门看见我放进去的 blob(§12d 旁路同型)。
+ */
+test('T10 遮罩双向对照:真代码违规必红 / 同一形态写进注释必绿 / 两面不得互串', () => {
+  const F = 'packages/app/src/components/MoreLink.tsx' // 该文件 HEAD 存量为 0 ⇒ 注入即"新增"
+  const src = readFileSync(join(REPO, F), 'utf8')
+  const at = src.indexOf('<Pressable')
+  assert.ok(at >= 0, '夹具必须真有 <Pressable,否则本例是空跑(拿空夹具证有牙=没证)')
+  const insertAt = at + '<Pressable'.length
+
+  const dir = mkScratch('g131-t10')
+  try {
+    const tmpIndex = join(dir, 'probe-index')
+    copyFileSync(resolveGitIndex(), tmpIndex)
+    const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
+    const gitEnv = (args, opts = {}) =>
+      execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, ...args], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        env,
+        ...(opts.input === undefined ? {} : { input: opts.input }),
+      }).trim()
+    const putInIndex = (body) => {
+      const blob = gitEnv(['hash-object', '-w', '--stdin'], { input: body })
+      gitEnv(['update-index', '--add', '--cacheinfo', `100644,${blob},${F}`])
+    }
+    const runStaged = () => {
+      const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'check-rn-interop-fn-style.mjs'), '--staged'], {
+        cwd: REPO,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000,
+        env,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { code: r.status, out: (r.stdout || '') + (r.stderr || '') }
+    }
+
+    // A 臂:真代码函数形态 ⇒ 必红(门仍然看得见这一型)
+    putInIndex(
+      src.slice(0, insertAt) +
+        '\n      style={({ pressed }) => [styles.hit, pressed && null]}' +
+        src.slice(insertAt),
+    )
+    const a = runStaged()
+    assert.equal(a.code, 1, `A 臂:真代码违规必须 exit=1,实得 ${a.code}\n${a.out.slice(0, 260)}`)
+    assert.match(a.out, /F1 新增/)
+
+    // B 臂:同一形态只出现在注释里 ⇒ 必绿(遮罩关掉的是误报)
+    putInIndex(
+      src.slice(0, insertAt) +
+        '\n      /* 探针:函数形态写作 style={({ pressed }) => [a, pressed && b]} */' +
+        src.slice(insertAt),
+    )
+    const b = runStaged()
+    assert.equal(b.code, 0, `B 臂:注释形态不得判红,实得 ${b.code}\n${b.out.slice(0, 260)}`)
+
+    // C 臂反向锁:遮罩函数一旦被"顺手"接错面(判据与豁免都读遮罩面),豁免通道就死了 ——
+    // 这条是源码形状锁,行为对照覆盖不到它(两侧行为在 B 臂上长得一样)。
+    const gate = readFileSync(join(REPO, 'scripts', 'check-rn-interop-fn-style.mjs'), 'utf8')
+    // 四条锚点各自独立(不用一条含 `\n` 的正则 —— 正则字面量里的 \n 是换行**字符**,
+    // 而要匹配的是源码里的"反斜杠 + n"两个字符,写错就是恒不匹配)
+    assert.match(gate, /const raw = text\.split\(/, '必须留一份原文面')
+    assert.match(gate, /const code = maskCommentsAndStrings\(text\)\.split\(/, '必须另有一份遮罩面')
+    assert.match(gate, /RE\.test\(code\[i\]/, '命中判据必须走遮罩面(走原文=注释里的形态又会被判红)')
+    assert.match(
+      gate,
+      /EXEMPT\.test\(line\)/,
+      '豁免必须拿原文判(EXEMPT 标记就写在注释里,遮罩之后就永远匹配不到 ⇒ 豁免通道被自己抹掉)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T13 —— F3(命名函数形态 style)正反成对。
+ * 这一档存在的现场理由:BottomActionBar 的 `const style = ({pressed}) => […]` + `style={style}`
+ * 让聊天主按钮的整份内联样式从来没生效过,而 F1 的内联正则(要求 `style={` 后面就是箭头)
+ * 对它全盲 —— 没有 F3,下一次同样写法照样静默上线。
+ */
+test('T13 F3 正反成对:起名函数当 style 命中 / 对象·StyleSheet·Tappable·重绑·带原因豁免放过', () => {
+  const REG = new Set(['Pressable', 'View', 'Text'])
+  const named = [
+    'const style = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => [',
+    '  baseStyle,',
+    '  pressed ? pressedStyle : null,',
+    ']',
+    '<Pressable',
+    '  onPress={handlePress}',
+    '  style={style}',
+    '/>',
+  ].join('\n')
+  const r = gate.findNamedFnStyleHits(named, REG)
+  assert.equal(r.hits.length, 1, '注册组件 + 本文件绑到箭头的标识符必须命中')
+  assert.equal(r.hits[0].ident, 'style')
+  assert.equal(
+    gate.findFnStyleHits(named, REG).hits.length,
+    0,
+    '阳性对照的另一半:F1 对这一型必须读 0 —— 读得到就不是漏判面而是重复计',
+  )
+  const decl = 'function styleFor(p) { return [a, b] }\n<Pressable style={styleFor} />'
+  assert.equal(gate.findNamedFnStyleHits(decl, REG).hits.length, 1, 'function 声明形态同样命中')
+  const obj = 'const style = StyleSheet.create({ card: { padding: 4 } })\n<View style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(obj, REG).hits.length, 0, 'StyleSheet 结果放过')
+  const member = 'const style = styles.card\n<Pressable style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(member, REG).hits.length, 0, '对象成员引用放过')
+  const tappable = 'const style = (p) => [a]\n<Tappable style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(tappable, REG).hits.length, 0, 'Tappable 不在注册表内,不收这一判')
+  const own = 'const style = (p) => [a]\n<MyCard style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(own, REG).hits.length, 0, '非注册组件是其自身契约')
+  const rebound = 'let style = (p) => [a]\nstyle = styles.card\n<Pressable style={style} />'
+  assert.equal(gate.findNamedFnStyleHits(rebound, REG).hits.length, 0, '同名重绑成非函数 ⇒ 不确定就不报')
+  const exempted = 'const style = (p) => [a]\n<Pressable style={style} /> // interop-style-exempt: 探针带原因'
+  assert.equal(gate.findNamedFnStyleHits(exempted, REG).hits.length, 0, '带原因豁免放行')
+  const noTag = 'const style = (p) => [a]\n  style={style}'
+  const u = gate.findNamedFnStyleHits(noTag, REG)
+  assert.equal(u.hits.length, 0)
+  assert.equal(u.undetermined.length, 1, '回溯不到开标签 ⇒ 未判定点名,不得静默丢命中')
+})
+
+/** T14 —— F3 的委托形状锁:定义了不接线就是没有(§0.8),退出码必须消费 redF3。 */
+test('T14 F3 委托形状锁:analyze 调用判据函数、退出码含 redF3、报告行现读存量', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(
+    src,
+    /findNamedFnStyleHits\(text, registry\)/,
+    'analyze 必须把 F3 判据接进逐文件主循环(定义了不接线 = 没有,§0.8)',
+  )
+  assert.match(src, /redF3\.length/, '退出码必须消费 redF3(只存字段不参与判定 = F3 无牙)')
+  assert.match(
+    src,
+    /f3HeadCounts\.set\(f, findNamedFnStyleHits\(t, registry\)\.hits\.length\)/,
+    'F3 的棘轮锚点必须与 F1/F2 同口径取该文件 HEAD 自身存量,否则升档就成了恒红门(§0.2)',
+  )
+  const r = gate.analyze('head')
+  assert.ok(Number.isFinite(r.totalF3), 'head 面必须真读到 F3 计数(读数取不到就是没判)')
+  assert.equal(r.redF3.length, 0, 'head 面棘轮自锚必无红')
+})
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

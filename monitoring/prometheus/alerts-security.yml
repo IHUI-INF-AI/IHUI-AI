@@ -1,0 +1,59 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# 入口探测/伪装爬虫告警组(2026-10-23 立)。
+#
+# 为什么单开一个文件:同 alerts-ai.yml 的理由 —— 每条都必须回答"红了之后人能做什么"
+# (AGENTS §5e-1 可整改性准入),撤一条/加一条只动这一个文件。
+#
+# 立因(现读取证,不是推测):2026-10-23 对 api_logs 近 6 天逐条分类,拿到两类此前
+# 没人看得见的东西 ——
+#   ① 成批伪装:腾讯云海外段 43.146/43.174/43.175 二十余个 IP,用 Googlebot / bingbot /
+#      ChatGPT-Agent / Claude-User / GrokBot / MoonshotBot / Baiduspider /
+#      Meta-ExternalAgent / DuckAssistBot 九族 UA,打
+#      `/api/w/starter/jobs_u/get_log_file/../../../../proc/self/environ`、
+#      `/api/.env`、`/api/..;/.env`、`/api/console/api_server`;
+#   ② 此前**零到人出口**:anti-automation 的 SCANNER_PATTERNS 命中只 `logger.warn`,
+#      threat/anomaly 两个探测器也只写日志与 Redis 信誉,既不成指标也不成告警
+#      (monitoring/prometheus/*.yml 里 scan/brute/threat/anomaly 一条都没有)。
+# 发射点 = apps/api/src/plugins/business-metrics.ts 的 ihui_traffic_scan_hits_total。
+#
+# 阈值量法(§"安静检测器的阈值必须量出来",不拍):对 api_logs 按与 classifyScanProbe
+# 同优先级次序的 CASE 分桶,6 天现读得到
+#   kind                总命中  活跃15分钟档  单档峰值  单档p99
+#   dotenv-probe            53          53        24      18.8
+#   proc-self-read          21          21         7       6.6
+#   path-traversal          24          24         4       3.5
+#   admin-console-probe     22          22         3       2.8
+# 背景档 = 每个 kind 的总命中数≈活跃档数 ⇒ 典型一档 1 条。阈值取 **8** 落在
+# "典型档(1~3)"与"已观测到的扫描群突发(24)"之间,再叠 `for: 10m`(30s 刷新 ⇒ 需连续
+# 两档都超)⇒ 单发背景探针不响,成批试探才响。上面那批 43.x 突发按此阈值会响,
+# 而它正是这次要抓的东西。
+#
+# 去重身份(§5e-1 / 守门 224):按 (kind, instance) 分组 ⇒ 身份里只有稳定语义标签,
+# 不含计数、时间戳、来源 IP、异常原文(那些一律进 annotation,不进身份)。
+
+groups:
+  - name: security-probe-alerts
+    rules:
+      - alert: ScanProbeBurst
+        expr: |
+          sum by (kind, instance) (increase(ihui_traffic_scan_hits_total{job="business-metrics"}[15m])) > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: '入口探测形态突发(恶意路径形态命中超过 6 天现读的峰值线)'
+          description: '近 15 分钟这一类探测形态命中 >8 且持续 10 分钟。下一步:在 api 库跑 `SELECT ip, user_agent, count(*), max(created_at) FROM api_logs WHERE created_at > now() - interval ''1 hour'' AND (path ILIKE ''%.env%'' OR path ILIKE ''%../%'' OR path ILIKE ''%proc/self/%'') GROUP BY 1,2 ORDER BY 3 DESC` 看来源与自述 UA;若同一批 IP 持续多轮 ⇒ 在 Cloudflared/EdgeOne 侧按 IP 段封(应用层 403 只是第二道);若是一次性互联网背景噪声 ⇒ 无需动作,该身份会在下一轮 resolved 时自动清偿,不要手工压。注意族标签 client_family 记的是**自述**,伪装成 Googlebot 就会落 search-crawler,别把它当成"来源可信"。'
+
+      - alert: ScanProbeFamilySpoofSignal
+        expr: |
+          sum by (kind, instance) (increase(ihui_traffic_scan_hits_total{client_family=~"search-crawler|ai-crawler",job="business-metrics"}[30m])) > 6
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '自称搜索引擎/AI 爬虫的客户端在打探测路径'
+          description: '自述为 Googlebot/Bingbot/GPTBot/Claude-User 这类抓取族的客户端,近 30 分钟探测形态命中 >6 且持续 15 分钟。真爬虫不碰 .env 与 path-traversal,这一型基本就是伪装。下一步:核对这些请求的来源 IP 是否落在对应厂商的公开网段(不在即为伪装);确认后可在入口侧对这些 UA+来源组合直接 403,并把 robots 抓取白名单与网关封禁对齐。阈值线取法同上(6 天现读:该族探测命中单档峰值 7,背景 1)。'
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

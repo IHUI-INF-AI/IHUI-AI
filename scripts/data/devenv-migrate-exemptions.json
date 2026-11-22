@@ -1,0 +1,89 @@
+{
+  "note": "只登记「为什么它永远读不出」,不登记「允许它占用」。identity 禁裸 pid(pid 会漂)。reviewBy ≤ 90 天,到期未复核由 probe 自动回红。生产栈(76 个活进程点名旧根)不得在此登记。",
+  "entries": [
+    {
+      "kind": "process",
+      "identity": "name=System Idle Process|session=0",
+      "why": "Windows 空闲伪进程,内核对象,CommandLine/ExecutablePath 在 Win32_Process 上恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=System|session=0",
+      "why": "Windows 内核进程(pid 4),CommandLine/ExecutablePath 恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=Registry|session=0",
+      "why": "注册表子系统伪装进程,内核对象,CommandLine/ExecutablePath 恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=smss.exe|session=0",
+      "why": "会话管理器(受保护系统进程),CommandLine/ExecutablePath 查询被拒绝恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=csrss.exe|session=0",
+      "why": "客户端/服务器运行时子系统(会话 0,受保护进程),CommandLine/ExecutablePath 恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=csrss.exe|session=1",
+      "why": "客户端/服务器运行时子系统(会话 1,受保护进程),CommandLine/ExecutablePath 恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=wininit.exe|session=0",
+      "why": "Windows 初始化进程(受保护),CommandLine/ExecutablePath 查询被拒绝恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=services.exe|session=0",
+      "why": "服务控制管理器(受保护),CommandLine/ExecutablePath 查询被拒绝恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "process",
+      "identity": "name=lsass.exe|session=0",
+      "why": "本地安全权威(承载 KeyIso/SamSs/VaultSvc,受保护),CommandLine/ExecutablePath 恒为 null ⇒ 纯用户态永久读不出",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "lock",
+      "identity": "lock=tools/uv-tools/.lock",
+      "why": "uv 工具链的 0 字节占位锁:内容为空 ⇒ 永远解析不出 pid,且文件名不在依赖清单集合内 ⇒ 结构上永久判不出「是否占用」",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "lock",
+      "identity": "lock=runtimes/python/.lock",
+      "why": "Python 运行时目录的 0 字节占位锁:内容为空 ⇒ 永远解析不出 pid,不是依赖清单 ⇒ 结构上永久判不出「是否占用」",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    },
+    {
+      "kind": "lock",
+      "identity": "lock=cache/uv/.lock",
+      "why": "uv 缓存根的空占位锁:内容为空 ⇒ 永远解析不出 pid,不是依赖清单 ⇒ 结构上永久判不出「是否占用」",
+      "reviewBy": "2027-01-31",
+      "maxRows": 1
+    }
+  ]
+}

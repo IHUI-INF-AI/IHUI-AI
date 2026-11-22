@@ -1,0 +1,284 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import type Hls from 'hls.js'
+import { useTranslations } from 'next-intl'
+import { Play, Pause, Volume2, VolumeX, Maximize, Loader2, AlertCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { releaseMediaElement } from './media-release'
+// CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源必须走同源代理 /api/media/stream
+// CSP img-src 已收窄为 'self' data: blob: + 白名单域名 ⇒ poster(图片加载)同理走 /api/media/image
+import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
+
+interface LivePlayerProps {
+  src: string
+  poster?: string
+  autoPlay?: boolean
+  muted?: boolean
+  className?: string
+  /**
+   * G-856:这一项是否在场。false(宿主把视图藏起来但没卸载)⇒ 立即收口:停播 + 摘流 +
+   * destroy hls;回到 true ⇒ 重新拉流。默认 true,与改造前逐字一致。
+   */
+  active?: boolean
+  onTimeUpdate?: (currentTime: number, duration: number) => void
+}
+
+function isHlsStream(url: string): boolean {
+  return /\.m3u8(\?|$)/i.test(url) || url.toLowerCase().includes('m3u8')
+}
+
+function isFlvStream(url: string): boolean {
+  return /\.flv(\?|$)/i.test(url)
+}
+
+export function LivePlayer({
+  src,
+  poster,
+  autoPlay = false,
+  muted = false,
+  className,
+  active = true,
+  onTimeUpdate,
+}: LivePlayerProps) {
+  const t = useTranslations('a11y')
+  const videoRef = React.useRef<HTMLVideoElement>(null)
+  const hlsRef = React.useRef<Hls | null>(null)
+  const [playing, setPlaying] = React.useState(autoPlay)
+  const [mutedState, setMutedState] = React.useState(muted)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const retryCount = React.useRef(0)
+  const retryTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  // G-856 ②:失败是**终态**,但不是死路 —— 手动重试换 attempt,连同旧失败态一起作废
+  const [attempt, setAttempt] = React.useState(0)
+
+  const cleanup = React.useCallback((node?: HTMLVideoElement | null) => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current)
+      retryTimer.current = null
+    }
+    // 参数优先:卸载路径上 React 已经把 ref 摘成 null,只有 effect 体内捕获的那个节点还拿得到。
+    // 少了这一步,`hls.destroy()` 只交回了缓冲与 worker,**元素本身仍在往下解码**。
+    const video = node ?? videoRef.current
+    if (video) {
+      video.onloadedmetadata = null
+      video.onerror = null
+      releaseMediaElement(video)
+    }
+  }, [])
+
+  const attachHls = React.useCallback(
+    async (url: string) => {
+      const video = videoRef.current
+      if (!video) return
+
+      cleanup()
+      setLoading(true)
+      setError(null)
+
+      if (isFlvStream(url)) {
+        setError(t('flvUnsupported'))
+        setLoading(false)
+        return
+      }
+
+      if (isHlsStream(url)) {
+        // 动态导入 hls.js(~200KB),仅 HLS 路由按需加载,避免打进主 bundle。
+        // 发版后旧 chunk 404 / 网络抖动时这条 import 会 reject。原先既不 catch 也不落状态
+        // ⇒ loading 永不复位、error 仍为 null,而渲染处 `{!loading && !error}` 把播放/
+        // 静音/全屏与重试出口全部藏掉 ⇒ 用户只剩一块永久转圈的黑屏,连"重试"都点不到。
+        const hlsMod = await import('hls.js').catch(() => null)
+        if (!hlsMod) {
+          setError(t('liveStreamError', { details: 'hls_chunk_load_failed' }))
+          setLoading(false)
+          return
+        }
+        const { default: HlsImpl } = hlsMod
+        // 二次校验:异步加载期间组件可能已卸载或 url 已变
+        if (videoRef.current !== video) return
+
+        if (HlsImpl.isSupported()) {
+          const hls = new HlsImpl({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+          })
+          hlsRef.current = hls
+          hls.loadSource(url)
+          hls.attachMedia(video)
+          hls.on(HlsImpl.Events.MANIFEST_PARSED, () => {
+            setLoading(false)
+            if (autoPlay) video.play().catch(() => {})
+          })
+          hls.on(HlsImpl.Events.ERROR, (_event, data) => {
+            if (data.fatal) {
+              if (data.type === HlsImpl.ErrorTypes.NETWORK_ERROR && retryCount.current < 5) {
+                retryCount.current += 1
+                retryTimer.current = setTimeout(
+                  () => {
+                    // 换 attempt 走 effect 重挂载(destroy 旧实例 + 清空旧失败态),对齐上方注释的意图
+                    setAttempt((a) => a + 1)
+                  },
+                  Math.min(1000 * Math.pow(2, retryCount.current), 8000),
+                )
+              } else if (data.type === HlsImpl.ErrorTypes.MEDIA_ERROR) {
+                hls.recoverMediaError()
+              } else {
+                setError(t('liveStreamError', { details: data.details }))
+                setLoading(false)
+              }
+            }
+          })
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // 原生 HLS 回退(Safari 等):直接给 video.src。
+          // CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源同样走同源代理。
+          video.src = toMediaStreamUrl(url)
+          video.onloadedmetadata = () => {
+            setLoading(false)
+            if (autoPlay) video.play().catch(() => {})
+          }
+        } else {
+          setError(t('hlsNotSupported'))
+          setLoading(false)
+        }
+      } else {
+        // 渐进分支(非 HLS/FLV):直接给 video.src。
+        // CSP media-src 为 'self' blob:(无 https: 通配)⇒ 外部 http(s) 源同样走同源代理。
+        video.src = toMediaStreamUrl(url)
+        video.onloadedmetadata = () => {
+          setLoading(false)
+          if (autoPlay) video.play().catch(() => {})
+        }
+        video.onerror = () => {
+          setError(t('videoLoadFailed'))
+          setLoading(false)
+        }
+      }
+    },
+    [autoPlay, cleanup, t],
+  )
+
+  React.useEffect(() => {
+    // 必须在 effect 体内捕获节点:cleanup 真正跑起来时(卸载)`videoRef.current` 已被 React
+    // 置空,当时读 ref 的写法会静默 no-op —— 暂停"有先例"却从没在切离路径上真调用过。
+    const node = videoRef.current
+    if (!active) {
+      cleanup(node)
+      return () => undefined
+    }
+    attachHls(src)
+    return () => cleanup(node)
+  }, [src, active, attempt, attachHls, cleanup])
+
+  const togglePlay = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.paused) {
+      v.play()
+      setPlaying(true)
+    } else {
+      v.pause()
+      setPlaying(false)
+    }
+  }
+
+  const toggleMute = () => {
+    const v = videoRef.current
+    if (!v) return
+    v.muted = !v.muted
+    setMutedState(v.muted)
+  }
+
+  const fullscreen = () => {
+    const container = videoRef.current?.parentElement
+    if (container) container.requestFullscreen()
+  }
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current
+    if (!v || !onTimeUpdate) return
+    onTimeUpdate(v.currentTime, v.duration || 0)
+  }
+
+  return (
+    <div className={cn('group relative overflow-hidden rounded-lg bg-black', className)}>
+      <video
+        ref={videoRef}
+        poster={poster ? toMediaImageUrl(poster) : poster}
+        autoPlay={autoPlay}
+        muted={muted}
+        playsInline
+        onClick={togglePlay}
+        onTimeUpdate={onTimeUpdate ? handleTimeUpdate : undefined}
+        className="h-full w-full"
+      >
+        <track kind="captions" />
+      </video>
+
+      {loading && (
+        <div className="absolute top-2 bottom-2 left-2 right-2 flex items-center justify-center bg-black/40">
+          <Loader2 className="h-8 w-8 animate-spin text-white" />
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute top-2 bottom-2 left-2 right-2 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
+          <AlertCircle className="h-8 w-8 text-red-400" />
+          <p className="text-body">{error}</p>
+          {/* 2026-10-12 恢复:2cb99226b4 死键清理误删了 G-856 ③ 的重试出口(键 a11y.previewRetryAction
+              五语言俱在,见 git show 2cb99226b4 的 LivePlayer diff)——失败终态重新摆出手动重试,
+              点击换 attempt 走 effect 重挂载,与上方注释意图一致。 */}
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            aria-label={t('previewRetryAction')}
+            className="rounded-sm p-1 text-label underline hover:bg-white/20"
+          >
+            {t('previewRetryAction')}
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="flex items-center gap-2 text-white">
+            <button
+              onClick={togglePlay}
+              aria-label={playing ? t('pause') : t('play')}
+              className="rounded-sm p-1 hover:bg-white/20"
+            >
+              {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+            </button>
+            <button
+              onClick={toggleMute}
+              aria-label={mutedState ? t('unmute') : t('mute')}
+              className="rounded-sm p-1 hover:bg-white/20"
+            >
+              {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </button>
+            <span className="ml-1 text-label">
+              {isHlsStream(src) ? t('hlsLiveLabel') : t('onDemandLabel')}
+            </span>
+            <button
+              onClick={fullscreen}
+              aria-label={t('fullscreen')}
+              className="ml-auto rounded-sm p-1 hover:bg-white/20"
+            >
+              <Maximize className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
