@@ -135,6 +135,7 @@ from app.core.turn_metadata import (
 )
 
 from .engine_tool_bridge import capability_equivalent, execution_mode
+from .output_ring import OutputRing
 from .session_store import (
     ItemBase,
     SessionStore,
@@ -7252,17 +7253,11 @@ class AgentEngine:
 
         def _append_output(session: dict[str, Any], chunk: str) -> None:
             # ANSI 清洗(第十一批,遵循统一工程规范):剥离颜色/控制序列,
-            # 防止 cmd/PowerShell 输出污染模型上下文
-            chunk = _strip_ansi(chunk)
-            buf = session["buffer"] + chunk
-            if len(buf) > _EXEC_BUFFER_HEAD + _EXEC_BUFFER_TAIL:
-                dropped = len(buf) - _EXEC_BUFFER_HEAD - _EXEC_BUFFER_TAIL
-                buf = (
-                    buf[:_EXEC_BUFFER_HEAD]
-                    + f"\n...[中间截断 {dropped} 字符]...\n"
-                    + buf[-_EXEC_BUFFER_TAIL:]
-                )
-            session["buffer"] = buf
+            # 防止 cmd/PowerShell 输出污染模型上下文。
+            # 2026-11-23 P0-5:落进有界输出环(绝对偏移 + head 保留 + 丢弃计数)。
+            # 旧实现"字符串截断 + 按旧长度切增量"在截断后会静默吞掉一段输出,
+            # 见 output_ring 模块头注。
+            session["ring"].append(_strip_ansi(chunk))
 
         async def _reader(session: dict[str, Any]) -> None:
             proc = session["proc"]
@@ -7299,24 +7294,40 @@ class AgentEngine:
             常驻 shell 会话无法从进程退出判断命令完成(遵循统一工程规范
             session 语义),以输出静默作为 settle 启发式;status 恒 running,
             由模型按输出内容自行判断命令是否结束。
+
+            2026-11-23 P0-5:增量按**绝对偏移**从有界环读(`before` 是
+            `OutputRing.total_written` 的取值)。窗口外读不再静默变空:
+            回执带 `outputLossy` / `outputDroppedChars` / `nextOffset`,
+            调用方可以拿 `nextOffset` 继续续读。
             """
+            ring: OutputRing = session["ring"]
             deadline = time.time() + timeout_s
             quiet_since: float | None = None
             while time.time() < deadline:
                 await asyncio.sleep(0.05)
-                grown = len(session["buffer"]) > before
+                grown = ring.total_written > before
                 if not grown and quiet_since is not None and time.time() - quiet_since >= 0.3:
                     break
                 quiet_since = None if grown else (quiet_since or time.time())
-            new_output = session["buffer"][before:]
+            read = ring.read(before)
             proc = session["proc"]
-            return {
+            payload: dict[str, Any] = {
                 "sessionId": session["id"],
                 "status": "running" if proc.returncode is None else "completed",
                 "exitCode": proc.returncode,
-                "output": new_output or "(无新增输出)",
+                "output": read.text or "(无新增输出)",
                 "cwd": session["cwd"],
+                # 绝对偏移:下一次续读从这里起步,不因截断而错位
+                "nextOffset": read.next_offset,
+                "outputLossy": read.lossy,
+                "outputDroppedChars": read.dropped_chars,
             }
+            if read.lossy:
+                payload["outputLossyNote"] = (
+                    f"自上次读取起有 {read.dropped_chars} 字符被输出环丢弃;"
+                    "本次回传的是窗口内剩余文本,开头已缺"
+                )
+            return payload
 
         async def _exec(args: dict[str, Any]) -> Any:
             command = args.get("command")
@@ -7377,7 +7388,7 @@ class AgentEngine:
                     payload = _encode_shell_input(command)
                     if payload is None:
                         return {"error": _shell_input_encoding_error(_SHELL_STREAM_CODEC)}
-                    before = len(existing["buffer"])
+                    before = existing["ring"].total_written
                     proc_stdin.write(payload)
                     with contextlib.suppress(Exception):
                         await proc_stdin.drain()
@@ -7459,7 +7470,10 @@ class AgentEngine:
                 "id": new_id,
                 "proc": proc,
                 "sandbox": sandbox,
-                "buffer": "",
+                "ring": OutputRing(
+                    max_chars=_EXEC_BUFFER_HEAD + _EXEC_BUFFER_TAIL,
+                    head_chars=_EXEC_BUFFER_HEAD,
+                ),
                 "cwd": resolved_cwd,
                 "created_at": time.time(),
                 "last_active": time.time(),
@@ -7468,7 +7482,7 @@ class AgentEngine:
             new_session["reader"] = asyncio.create_task(_reader(new_session))
             thread.last_shell_cwd = resolved_cwd
             thread.touch()
-            before = len(new_session["buffer"])
+            before = new_session["ring"].total_written
             if proc.stdin is not None:
                 # 先 source 快照重建用户环境(批 55),再注入真实命令;
                 # 两者都按控制台代码页编码(见 _shell_stream_codec 的实测说明)

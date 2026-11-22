@@ -143,4 +143,40 @@ prettier `--check` 两文件通过。反向变异 2 次（移 `.ssh` 族 / `.gnu
 
 **超越轴**：对照件是进程内快照规则；本仓是纯函数 + 注入式读取器（可测），新增族全部
 enforce（不存在 advisory 出声档），越界绝对路径不折叠、由尾段 glob 兜住。
+
+## 8. P0-5 终态前输出完成闸门（DSH 双游标 → 常驻 shell 有界环）
+
+**对照语义**：`dsh-jobs` 的模型推进游标与观察者绝对偏移**双读**、窗口外读标 `lossy`
+不报错、结算 first-wins 只投递一轮；`agent-tool-host.exe` 明串「terminal commit requires
+terminal status with complete output」。
+
+**IHUI 的真实缺口（现读，这是缺陷而不是"为对齐而加"）**：`unified_exec` 的输出此前是一个
+纯字符串 buffer，超限时保留「头部 4000 + 中间截断标记 + 尾部 16000」，而增量读取用
+`buffer[before:]` 按**旧长度**切。截断一旦发生，字符串从 `total` 缩到 `head+tail+标记`：
+`before` 比新长度大 ⇒ 空串 ⇒ 这段输出被**静默吞掉**，回执只写「(无新增输出)」，没有任何
+lossy 标记。这就是对照件「terminal commit requires complete output」要挡的那一型。
+
+**落点**：
+
+- 新增 `apps/ai-service/app/services/output_ring.py`：`OutputRing`（绝对偏移 `total_written`
+  只增不减、head 段永不被丢、尾部按容量滚动、`read()` 纯函数双游标、窗口外标
+  `lossy`/`dropped_chars`、中段插丢弃标记；`settle()` 四态封闭集
+  `ok/truncated/pipe_unavailable/timeout` + first-wins）
+- `agent_engine.py` 的 unified_exec 改为会话持 `ring`（legacy `buffer` 退场、删除字符串截断
+  分支），`_append_output` 只 `ring.append(_strip_ansi(chunk))`，`_wait_settled` 按
+  `ring.total_written` 绝对偏移读；回执新增 `nextOffset` / `outputLossy` /
+  `outputDroppedChars`，lossy 时附 `outputLossyNote`
+- 既有 `_EXEC_BUFFER_HEAD(4000)` / `_EXEC_BUFFER_TAIL(16000)` 常量原值保留，改作
+  「head 保留量 + 环容量」，产品显示语义不缩水
+
+**测试**：`tests/test_output_ring.py` **21 例**（head 不丢、洞标记、界外读回落、limit 游标、
+Unicode 按字符计、四态与 first-wins）；`tests/test_unified_exec_output_ring_wiring.py`
+**4 例**（会话只持 ring、回执三字段、大输出标 lossy 而不静默变空、截断后续读不错位）；
+与既有 harness 第四/八/十一批合并 **5 文件 57 例全绿**；ruff 四文件
+`All checks passed`；mypy `--strict` 新模块 0 error（仓库存量 764 不在本轮）。
+反向变异 2 次（洞检测短路 / `nextOffset` 回退到 `before`）均如期转红并恢复。
+
+**超越轴**：对照件把「窗口外读 lossy」当读取侧便利；本仓把它变成**回执里的显式字段**
+（模型不必猜），且 head 段永不丢、中段带丢弃标记 —— 模型能同时看到命令开头与结尾，
+不会出现"静默空回执"。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
