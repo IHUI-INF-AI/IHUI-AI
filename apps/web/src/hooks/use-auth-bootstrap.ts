@@ -13,12 +13,14 @@ import { getDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { isDesktopAuthVaultEnabled } from '@/lib/api-base-url'
 import { fetchApi, getLastRefreshFailure } from '@/lib/api'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
+import type { UserProfile } from '@ihui/api-client'
 import {
   canSilentlyReLogin,
   classifyRefreshFailureStatus,
   shouldExpireSession,
 } from '@ihui/shared/auth/auto-login-policy'
 import { hasSessionEstablished, isSessionLoggedOut } from '@/lib/session-marker'
+import { beginAuthBootstrap, endAuthBootstrap } from '@/lib/auth-bootstrap-state'
 
 export interface UseAuthBootstrapReturn {
   ready: boolean
@@ -226,6 +228,18 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
     const setError = (v: string | null) =>
       publishOutcome({ ...sharedOutcome, error: v }, myGeneration)
     async function bootstrap() {
+      // 先等持久化快照落定，再做 /auth/refresh：否则异步 hydrate 会在刷新成功之后
+      // 把刚写入的 token/auth 覆盖成盘上的旧快照（桌面端 dev 实测）。
+      const persistApi = (
+        useAuthStore as unknown as { persist?: { rehydrate?: () => Promise<void> } }
+      ).persist
+      if (persistApi?.rehydrate) {
+        try {
+          await persistApi.rehydrate()
+        } catch {
+          // 快照读不到就按空态继续；刷新链路仍可从 httpOnly cookie 建立会话
+        }
+      }
       // 用户主动登出后,冷启动**不得**再用 httpOnly refresh cookie 静默登回。
       // 判据住在 @ihui/shared/auth/auto-login-policy(登出标记优先),这里只注入 web 的落盘实现;
       // 标记由 stores/auth.ts 的 logout() 写入,由下一次真正的登录写入凭据清除。
@@ -342,7 +356,10 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
             username: u.username,
             status: u.status,
           })
-          await fetchProfile()
+          // 用户资料直接取 /auth/me 的结果；fetchProfile 在部分分包里可能尚未挂上
+          // （user store 的异步 rehydrate 会丢运行期注入的方法），不能让引导链依赖它。
+          useUserStore.setState({ profile: u as unknown as UserProfile, loading: false })
+          if (typeof fetchProfile === 'function') await fetchProfile()
         } else {
           // token 失效:尝试 refreshToken 自动续期(自动登录闭环)
           const refreshed = await tryRefresh()
@@ -418,10 +435,12 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
     // 用 token 对象标记"这一轮",避免 finally 里引用尚未赋值的 run
     const runMarker = {}
     inFlightBootstrap = runMarker as unknown as Promise<void>
+    beginAuthBootstrap()
     void (async () => {
       try {
         await bootstrap()
       } finally {
+        endAuthBootstrap()
         if (inFlightBootstrap === (runMarker as unknown as Promise<void>)) {
           inFlightBootstrap = null
         }

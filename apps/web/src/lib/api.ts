@@ -16,7 +16,8 @@ import {
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
-import { getAuthCookie } from '@/lib/cookie-utils'
+import { getAuthCookie, getSessionHintCookie } from '@/lib/cookie-utils'
+import { isAuthBootstrapInFlight } from '@/lib/auth-bootstrap-state'
 import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { withRefreshLock } from '@/lib/refresh-lock'
 import {
@@ -214,6 +215,27 @@ function requestLoginDialogForUnauthorized(method: string): void {
 // 与 bootstrap 的分型语义冲突);RN(RootNavigator expireAuth)与小程序(auth.ts expireAuth)
 // 同口径。清完再走弹窗,消除"web 只弹窗不清、RN 静默登出、小程序判死不清凭据"的分裂。
 setUnauthorizedHandler((ctx) => {
+  // 引导链未落定：本批 401 多来自“token 尚未写入时就发出的后台请求”，
+  // 不能当作会话失效去清凭据；由 bootstrap 的 /auth/refresh 结果统一裁决。
+  if (isAuthBootstrapInFlight()) {
+    requestLoginDialogForUnauthorized(ctx.method)
+    return
+  }
+  // 内存里已有 access token 时的 401，多半是“请求发出时还没 token”的并发早期请求，
+  // 或单接口权限问题；据此清整个会话会把刚建立的登录态误杀。
+  if (useAuthStore.getState().token) {
+    requestLoginDialogForUnauthorized(ctx.method)
+    return
+  }
+  // 2026-11-22 桌面端 dev 实测：冷启动时十几个后台 hook 先于 bootstrap 发出请求，
+  // 此时内存 token 还是 null，401 若直接 expireSession() 会把刚刚 /auth/refresh
+  // 建立的会话连同 user 一起清掉 —— 表现为接口全 200、界面永远“请先登录”。
+  // 浏览器仍有会话提示 cookie ⇒ 引导链尚未落定，本次 401 不代表会话失效：
+  // 交给 bootstrap 的刷新结果裁决，这里只按原有语义决定要不要弹登录框。
+  if (!useAuthStore.getState().token && getSessionHintCookie()) {
+    requestLoginDialogForUnauthorized(ctx.method)
+    return
+  }
   useAuthStore.getState().expireSession()
   requestLoginDialogForUnauthorized(ctx.method)
 })

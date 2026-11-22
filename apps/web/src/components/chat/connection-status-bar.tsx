@@ -86,6 +86,11 @@ function getSnapshot(): ConnectionSignal {
   return signal
 }
 
+/** 订阅当前连接信号（输入区 chrome 与连接条共用同一份 store）。 */
+export function useStreamConnectionSignal(): ConnectionSignal {
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
 /** 异常态判据的唯一一份实现:组件与用例都读它,不得各写一遍。 */
 export function isAbnormalConnectionState(state: ConnectionState): boolean {
   return state === 'reconnecting' || state === 'disconnected'
@@ -129,7 +134,7 @@ export function ConnectionStatusBar({
   const shown = deriveConnectionState(
     isStreaming,
     current.attempt,
-    current.state === 'disconnected' || current.error != null,
+    current.state === 'disconnected' || (current.error !== null && current.error !== undefined),
     threadId,
   )
   if (!isAbnormalConnectionState(shown)) return null
