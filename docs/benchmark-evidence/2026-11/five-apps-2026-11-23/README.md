@@ -171,6 +171,14 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 修真实前端 bug：`packages/api-client` 的 `grepFiles` 原先声明成 `{ results: unknown }`，而服务端返回的是直接结果 ⇒ 源码搜索面板读 `data.results` 恒 undefined，搜索结果永远空白。现改为 `WorkspaceGrepResult` 并让面板读 `data.matches`；测试 mock 也从错误的 `{results}` 改成服务端真实形状。
 - 测试：`workspace-fs-ops.test.ts` 9 passed（新增"3 条命中只回 2 条 ⇒ omitted=1 / totalMatches=3 / exact=true"与上下文行断言）；`search-panel.test.tsx` 9 passed；三包 typecheck 13/13 success。
 
+## 追加批（同日）：源码管理暂存态交回服务端双面判定，不再用 stash 保存现场
+
+- `2a0b0070`。对齐 WorkBuddy / VS Code 资源组语义：暂存与否必须由服务端同轮给出，客户端不再跑 `git diff --cached` 猜集合。
+- `apps/api/src/services/git-workspace.ts`：`GitDiffStatFile` 增加 `staged` 与 `unstaged`；`diffStat` 从两路并发扩为四路（`HEAD→工作区` 状态、`HEAD→工作区` 统计、`索引→HEAD` 状态、`工作区→索引` 状态）。同一文件「暂存后又改过」时两面都为真，前端同时进「已暂存」与「更改」两组；旧实现只跑 `--cached` 会把这半丢掉。
+- `apps/web/src/components/ide/source-control-panel.tsx`：删除 `runCommand`、`stagedIds`、`syncStagedFiles`、`pendingCheckout`、`stashPending`、`confirmPreserveCheckout` 与 `ConfirmDialog` 整段；stage/unstage 动作按「所在分组」判定，不在「更改」组里误撤已暂存改动；刷新/提交/推送/拉取/切分支后统一只 `fetchDiffFiles()`。
+- 分支切换：D178 的 `git stash push --include-untracked` 与仓规「stash 全面禁止」（多会话共享工作树会吞掉别人现场）冲突，改为 `getGitStatus` 判脏 ⇒ 直接提示先提交或丢弃；探测失败/抛异常同样 fail-closed，不再降级直达。五个 web locale 的 `dirtySwitchDescription` 同步为「阻止切换、本系统不会自动 stash」。
+- 测试：`git-workspace.test.ts` 9 passed（新增「暂存后又改过 ⇒ staged=true 且 unstaged=true」真实仓库断言）；`workspace-fs-ops.test.ts` 9 passed；`source-control-branch-guard.test.tsx` 5 passed（脏阻断、探测失败阻断、抛异常阻断、干净直达、双组呈现与分组动作）；`ide-workspace-diff-stat.test.ts` 4 passed、`search-panel.test.tsx` 9 passed、watcher 2 passed。`@ihui/api` + `@ihui/api-client` + `@ihui/web` typecheck 13/13。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
