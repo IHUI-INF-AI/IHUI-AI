@@ -799,3 +799,15 @@ apps/ai-service/.pytest_tmp/
 
 # 根级 scratch/ 工作区(他席 QA 审计产物,未跟踪;门44 判定走 git check-ignore => 忽略后不阻塞 commit)
 /scratch/
+
+# ============================================================================
+# 2026-11-22 仓库卫生清理：一次性会话产物 / 本机运行时状态 / 上传残片
+# 这些内容不属于源码或交付物，禁止再次入库。
+# ============================================================================
+/.craft-shots/
+/.craft-work/
+/craft-rebuild/
+/.doc-autoupdate/
+/apps/web/public/sys-backs/
+/apps/mobile-rn/report/
+/scripts/data/local-schedule.json
