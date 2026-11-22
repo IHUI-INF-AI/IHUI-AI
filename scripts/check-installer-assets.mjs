@@ -192,6 +192,87 @@ if (isDirectRun) {
 }
 
 // =====================================================================
+// 附加守门三:默认安装目录不得回退成「无条件写死盘符」(2026-11-22)
+// 事故形态:P0 长期是 `StrCpy $INSTDIR "D:\智汇AI"`。盘符是机器事实,进了安装包就
+//   变成「没有 D 盘的机器上,静默安装把 $INSTDIR 指到不存在的卷,CreateDirectory
+//   直接失败」。修法是固定盘探测(GetDriveTypeW → 已有 \software 归集目录 →
+//   %LOCALAPPDATA%\Programs 兜底),但这条修法必须被门禁守住,否则下一次手改无声回潮。
+// 判据取「结构存在性」而非解析分支位置(后者逐字符脆,一处缩进就假红):
+//   ① P0 起止标记必须成对存在;缺任一 ⇒ 未判定(exit 2,既不冒绿也不冒红);
+//   ② 段内出现含字面盘符的 StrCpy $INSTDIR 时,段内必须同时有盘型探测与
+//      %LOCALAPPDATA%\Programs 兜底赋值 —— 缺一即红(等价于无条件写死);
+//   ③ 段内必须有 Call RestorePreviousInstallLocation —— 升级沿用旧位置的语义不得被摘。
+// 取材面与门内既有两条判据同面(工作树 readFileSync),不另造第二个面。
+// =====================================================================
+
+const INSTALL_DIR_BEGIN = '==== IHUI 定制:默认安装目录'
+const INSTALL_DIR_END = '==== IHUI 定制结束 ===='
+
+/**
+ * 纯判据:返回 { state: 'ok' } | { state: 'fail', fails } | { state: 'undetermined', detail }。
+ * undetermined 的调用方必须 exit 2(AGENTS §0.3:取不到输入就显式未判定)。
+ */
+export function checkInstallDirPolicy(text) {
+  const beginIdx = text.indexOf(INSTALL_DIR_BEGIN)
+  const endIdx = text.indexOf(INSTALL_DIR_END)
+  if (beginIdx < 0 || endIdx < 0 || endIdx <= beginIdx) {
+    return {
+      state: 'undetermined',
+      detail: `找不到成对的 P0 定制段标记(${INSTALL_DIR_BEGIN} / ${INSTALL_DIR_END})`,
+    }
+  }
+  const block = text.slice(beginIdx, endIdx + INSTALL_DIR_END.length)
+  const fails = []
+  // 字面盘符赋值:双引号/单引号/反引号三种字符串形态都算(\x60 = 反引号)
+  const literalDrive = /StrCpy\s+\$INSTDIR\s+[\x60"']?[A-Za-z]:\\/.test(block)
+  const hasDriveProbe = /GetDriveTypeW/.test(block)
+  const hasLocalFallback = /\$LOCALAPPDATA\\Programs\\/.test(block)
+  if (literalDrive && !(hasDriveProbe && hasLocalFallback)) {
+    const missing = []
+    if (!hasDriveProbe) missing.push('盘型探测(GetDriveTypeW)')
+    if (!hasLocalFallback) missing.push('%LOCALAPPDATA%\\Programs 兜底赋值')
+    fails.push(
+      `出现含字面盘符的 StrCpy $INSTDIR,但缺少 ${missing.join(' / ')} —— ` +
+        '等价于无条件写死盘符:没有该盘的机器上静默安装会把 $INSTDIR 指到不存在的卷,CreateDirectory 直接失败',
+    )
+  }
+  if (!/Call\s+RestorePreviousInstallLocation/.test(block)) {
+    fails.push(
+      'P0 段缺少 Call RestorePreviousInstallLocation —— 升级不再沿用既有安装位置(重装会产生第二份安装)',
+    )
+  }
+  return fails.length > 0 ? { state: 'fail', fails } : { state: 'ok' }
+}
+
+if (isDirectRun) {
+  // IHUI_INSTALLER_NSI_PATH 仅供自测注入违规副本(与上面 IHUI_NSI_PATH 同族)
+  const nsiPath =
+    process.env.IHUI_INSTALLER_NSI_PATH ||
+    join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi')
+  if (!existsSync(nsiPath)) {
+    // 取不到输入 = 未判定,绝不静默绿
+    console.error(`[check-installer-assets] 找不到 ${nsiPath} —— 默认安装目录策略未判定`)
+    process.exit(2)
+  }
+  const res = checkInstallDirPolicy(readFileSync(nsiPath, 'utf8'))
+  if (res.state === 'undetermined') {
+    console.error(
+      `\n[check-installer-assets] UNDETERMINED —— 默认安装目录策略无法判定:${res.detail}`,
+    )
+    process.exit(2)
+  }
+  if (res.state === 'fail') {
+    console.error(`\n[check-installer-assets] FAIL —— 默认安装目录策略回退 ${res.fails.length} 项:`)
+    for (const f of res.fails) console.error(`  ✗ ${f}`)
+    console.error(
+      '  修法:改 scripts/desktop-nsis-template.mjs 的 P0_IHUI 常量后重跑 --write,禁止手改 installer.nsi',
+    )
+    process.exit(1)
+  }
+  console.log('[check-installer-assets] PASS —— 默认安装目录为固定盘探测(无 D 盘机器有兜底)')
+}
+
+// =====================================================================
 // 附加守门二:七条**跨文件几何/集合不变量**(2026-09-23 起逐条追加)
 // 这些约束过去只写在注释里,没有任何闸门 —— 正是本项目反复批判的"造好没装车"。
 // 全部做成纯函数 + env 可覆盖路径,便于注入违规自证其有效性(--self-test)。
