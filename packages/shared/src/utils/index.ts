@@ -87,6 +87,8 @@ export type { SmoothDeltaBatcherOptions, SmoothDeltaBatcher } from './smooth-del
 // 只剥行内符号、不做块级解析 —— 边界与理由见源文件头注。
 export * from './strip-inline-markdown'
 export * from './status-colors'
+// 厂商 code → 展示名(用户可读)跨端唯一出口:内部 `_relay` 后缀永不外露
+export * from './provider-display-name'
 export * from './storage-migration'
 // 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
 export * from './token-estimate'

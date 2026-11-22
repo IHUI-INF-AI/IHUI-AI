@@ -105,7 +105,7 @@ import {
 } from '@ihui/rn-app'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { AiModelData, AppIcon, ChatModelType } from '@ihui/types'
-import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToText, providerDisplayName, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import AiModelCard from '../components/AiModelCard'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
@@ -1573,7 +1573,8 @@ export function HomeScreen() {
         if (list.length > 0) {
           const grouped = new Map<string, ModelListItem[]>()
           for (const m of list) {
-            const key = m.provider || t('home.availableModels')
+            // 分组标题是给用户看的:走共享展示名出口,内部 `workbuddy_relay` 永不外露
+            const key = providerDisplayName(m.provider) || t('home.availableModels')
             const models = grouped.get(key) ?? []
             models.push({
               id: m.id,

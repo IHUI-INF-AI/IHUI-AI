@@ -35,7 +35,7 @@ import {
   type AiModel,
   type ConversationDetail,
 } from '@ihui/api-client'
-import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
+import { apiFailureToText, providerDisplayName, toFriendlyOr } from '@ihui/shared/utils'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import Carousel from '../components/Carousel'
@@ -143,7 +143,8 @@ function toModelListItem(m: AiModel): ModelListItem {
 function buildModelGroups(models: AiModel[], otherVendorLabel: string): ModelListGroup[] {
   const map = new Map<string, ModelListItem[]>()
   for (const m of models) {
-    const provider = m.provider || otherVendorLabel
+    // 分组标题走共享展示名出口:内部 `_relay` 后缀永不外露
+    const provider = providerDisplayName(m.provider) || otherVendorLabel
     const list = map.get(provider) ?? []
     list.push(toModelListItem(m))
     map.set(provider, list)

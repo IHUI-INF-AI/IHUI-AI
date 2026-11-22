@@ -27,6 +27,7 @@ import {
 // 本端此前**没有判据** —— 徽章恒真渲染"免费",对付费模型也在说免费,那是假陈述;
 // RN 侧则有两条互不相等的判据各住一个屏幕,现全部收进这一份实现。
 import { modelIsFree } from '@ihui/shared/ui/model-badge-facts'
+import { providerDisplayName } from '@ihui/shared/utils/provider-display-name'
 import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
@@ -715,7 +716,7 @@ export default function ModelList({
                   />
                 )}
               </View>
-              <Text className="text-label text-muted-foreground truncate">{model.provider}</Text>
+              <Text className="text-label text-muted-foreground truncate">{providerDisplayName(model.provider)}</Text>
             </View>
             <Text className="ml-sm text-label text-muted-foreground shrink-0">
               {categoryLabel(categoryOf(model))}
@@ -786,7 +787,7 @@ export default function ModelList({
                         )}
                       </View>
                       <Text className="text-label text-muted-foreground truncate">
-                        {model.provider}
+                        {providerDisplayName(model.provider)}
                       </Text>
                     </View>
                     <Text className="ml-sm text-label text-muted-foreground shrink-0">
