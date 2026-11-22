@@ -51,6 +51,7 @@ import {
   ALL_ROOTS,
   LOCALES,
   extractCalls,
+  extractTemplateCalls,
   judgeCalls,
   placeholdersOf,
   mergeMessages,
@@ -110,6 +111,10 @@ if (argv.includes('--self-test')) {
 
   const srcSpread = "const t = useTranslations('a')\nt('k', { ...base })\n"
   ok('调用提取-展开=不可判定', extractCalls(srcSpread)[0].kind === 'spread')
+
+  const tplSrc = "const t = useTranslations('a')\nt(`k.${x}.title`)\n"
+  const tpl = extractTemplateCalls(tplSrc)
+  ok('模板拼接提取(棘轮档)', tpl.length === 1 && tpl[0].template === 'k.${x}.title')
 
   const srcRaw = "const t = useTranslations('a')\nt.raw('k')\n"
   ok('raw 不参与判据', judgeCalls(extractCalls(srcRaw), { a: { k: '{x} 模板' } }).length === 0)
@@ -211,6 +216,19 @@ for (const f of files) {
   }
   const calls = extractCalls(src)
   callCount += calls.length
+  // D 档:模板拼接键 `t(\`ns.${x}.k\`)` —— 候选域只有运行时才知道,静态判不到可达性,
+  // 只能棘轮拦"新增这一型"(存量登记在基线;新增一律改数据表字面量键,落进 data-keys 门射程)。
+  for (const tpl of extractTemplateCalls(src)) {
+    findings.push({
+      sig: `${rel}|tpl|${tpl.ns}|${tpl.template}`,
+      kind: 'template',
+      file: rel,
+      key: `t(\`${tpl.template}\`)`,
+      line: tpl.line,
+      missing: '',
+      locales: '',
+    })
+  }
   const perLocale = {}
   for (const loc of LOCALES) {
     for (const x of judgeCalls(calls, messagesByLocale[loc])) {
@@ -318,6 +336,8 @@ if (fresh.length) {
   console.log('\n== 基线外新增(渲染处就是裸键,必须修) ==')
   for (const x of fresh.slice(0, 60)) {
     if (x.kind === 'locale-set') console.log(`  [五语言不一致] ${x.file}  ${x.sets}`)
+    else if (x.kind === 'template')
+      console.log(`  [模板拼接键(新增)] ${x.file}:${x.line}  ${x.key}  ⇒ 改数据表字面量键`)
     else
       console.log(`  ${x.file}:${x.line}  [${x.kind}] ${x.key}  缺 ${x.missing}  语言 ${x.locales}`)
   }

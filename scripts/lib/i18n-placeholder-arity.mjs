@@ -197,6 +197,28 @@ export function scanSource(src, messages) {
   return judgeCalls(extractCalls(src), messages)
 }
 
+/**
+ * 模板拼接键(`t(\`ns.${x}.k\`)`):候选域只有运行时才知道,静态**无法**判可达性。
+ * 门对这一型不做"判对错",只做**棘轮**:数量/形态登记在基线,新增一处即红 ——
+ * 新增一律改数据表字面量键(`{ titleKey: 'ns.k' }` + `t(item.titleKey)`),落进 data-keys 门射程。
+ */
+export function extractTemplateCalls(src) {
+  const stems = translationStems(src)
+  if (!stems.length) return []
+  const names = stems.map((s) => s.name.replace(/[$]/g, '\\$&')).join('|')
+  const re = new RegExp(
+    `\\b(${names})(?:\\.(?:raw|rich|markup|has))?\\(\\s*\`([^\`]*\\$\\{[^\`]*)\``,
+    'g',
+  )
+  const out = []
+  for (const m of src.matchAll(re)) {
+    const stem = stems.find((s) => s.name === m[1])
+    if (!stem) continue
+    out.push({ ns: stem.namespace, template: m[2], line: src.slice(0, m.index).split('\n').length })
+  }
+  return out
+}
+
 export function scanAll(roots = ALL_ROOTS, messages) {
   const files = walkSources(roots)
   const findings = []
