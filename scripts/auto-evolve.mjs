@@ -3358,8 +3358,10 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       // 补一份取证清单 —— 判提交仍然走 lib 的三道闸(parse → sanitize → selectDirtyPaths),
       // 补的是取数面而不是放宽判据:路径不脏照样 stale,票键不符照样 invalid。
       const declaredManifest = readArtifactManifest(key)
-      const derivedManifest = declaredManifest == null ? manifestTextFromPaths(key, res.wrotePaths) : null
-      const manifestSource = declaredManifest != null ? 'session' : derivedManifest != null ? 'transcript' : 'none'
+      const declaredMissing = declaredManifest === null || declaredManifest === undefined
+      const derivedManifest = declaredMissing ? manifestTextFromPaths(key, res.wrotePaths) : null
+      const derivedPresent = derivedManifest !== null && derivedManifest !== undefined
+      const manifestSource = !declaredMissing ? 'session' : derivedPresent ? 'transcript' : 'none'
       const landed = landTicketArtifacts({
         ticketKey: key,
         ticketText: ticket.text,
@@ -4503,7 +4505,17 @@ async function main(args) {
   }
   if (args.includes('--self-test')) return selfTest()
   if (args.includes('--status')) return printStatus()
-  if (args.includes('--install-task')) return installTask({ apply: args.includes('--apply') })
+  if (args.includes('--install-task')) {
+    // 2026-11-22 用户定案:项目禁止用 Windows 计划任务做自动化。默认拒绝,只打印理由;
+    // 显式 IHUI_ALLOW_SCHEDULED_TASKS=1 才保留旧注册能力。
+    if (process.env.IHUI_ALLOW_SCHEDULED_TASKS !== '1') {
+      console.error('❌ --install-task 已停用(2026-11-22 定案:禁止 Windows 计划任务自动化)')
+      console.error('   显式开启:IHUI_ALLOW_SCHEDULED_TASKS=1')
+      process.exitCode = 0
+      return
+    }
+    return installTask({ apply: args.includes('--apply') })
+  }
   if (args.includes('--probe')) {
     let gates
     try {

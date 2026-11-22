@@ -431,6 +431,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
+        with:
+          fetch-depth: 0
 
       - name: Assert every upstream gate succeeded
         id: assert-all-gates
@@ -459,15 +461,35 @@ jobs:
         id: repo-weight
         run: node scripts/check-file-size.mjs --weight --budget-mb=450
 
+      # 2026-11-22:总量口径之外再按"本次推送区间"逐文件复核。
+      # 本地 pre-push 可被 `git push --no-verify` 跳过;GitHub 侧必须能独立判出
+      # "区间新增 >2MB / 任意 >20MB / 存量增量 >2MB",否则一次塞 3MB 仍能在 450MB 内混进来。
+      - name: Repo changed-file bytes
+        id: repo-range
+        run: |
+          BASE="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE="$(git rev-parse --verify origin/main~1 2>/dev/null || true)"
+          fi
+          if [ -z "$BASE" ]; then
+            echo "::error::取不到本次推送基线提交,无法判定区间大文件"
+            exit 2
+          fi
+          node scripts/check-file-size.mjs --range="$BASE..HEAD"
+
       - name: Failure triage (public annotations)
         id: failure-triage
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout assert-all-gates repo-weight
+          TRIAGE_IDS: checkout assert-all-gates repo-weight repo-range
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_ASSERT_ALL_GATES: ${{ steps.assert-all-gates.outcome }}
           O_REPO_WEIGHT: ${{ steps.repo-weight.outcome }}
+          O_REPO_RANGE: ${{ steps.repo-range.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
   python-ai-service:

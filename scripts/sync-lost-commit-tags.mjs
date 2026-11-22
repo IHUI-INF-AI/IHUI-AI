@@ -148,6 +148,14 @@ const isHelp = args.has('--help') || args.has('-h')
 const isFetch = args.has('--fetch')
 // --push 是 --auto-push 的显式别名(文档里既写 `tag:sync:push` 又写 `--auto-push`,两种叫法都得能用)
 const isAutoPush = args.has('--auto-push') || args.has('--push')
+// 2026-11-22 用户定案:不保留历史 tag,也不再自动把 lost-commit/* 推到远端。
+// post-commit 已默认不调;这里再加一道硬闸 —— 直接敲 CLI 也不能绕过。
+// 显式放行:HUSKY_ENABLE_TAG_SYNC=1(与 post-commit 同一开关)或 IHUI_ALLOW_LOST_TAG_PUSH=1。
+if (isAutoPush && process.env.HUSKY_ENABLE_TAG_SYNC !== '1' && process.env.IHUI_ALLOW_LOST_TAG_PUSH !== '1') {
+  console.error('❌ --auto-push/--push 已停用(2026-11-22 定案:不保留历史 tag,不再自动回补)')
+  console.error('   显式开启:HUSKY_ENABLE_TAG_SYNC=1 或 IHUI_ALLOW_LOST_TAG_PUSH=1')
+  process.exit(0)
+}
 // --prune-redundant(2026-11-12 立):清理「指向的提交早已在远端分支里」的 lost-commit/* 备份 tag。
 // 备份 tag 一旦所指向的提交后来被别人合入/落到 origin,它就只剩"占名"价值(可达性判据仍绿),
 // 而悬空保活腿每天还在新增 ⇒ 不复位就单调增长(本仓实测 8,754 枚,其中 8,087 枚属此型)。

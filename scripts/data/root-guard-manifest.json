@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-21T15:58:01.763Z",
+  "sealedAt": "2026-11-22T11:39:53.549Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第 108 项把 305p 摘出并行池(guardian-executor.mjs 规则面无判据改动,仅池成员),按 HEAD 面重封",
+  "reason": "git-guardian 计划任务硬闸：统一由 IHUI_ALLOW_SCHEDULED_TASKS 放行",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "f0dad8972fbd00626ee42524a895b3d9a4bf543c7739db7f0e5e92b17f1cb6bf"
+      "sha256": "73fdd6e9a9201354c3daa2fdc4c22e262dc3d4439b015b8a071b548b0713a101"
     },
     {
       "id": "gate-scope",
