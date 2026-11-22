@@ -28,6 +28,11 @@ export interface Teacher {
   fans?: number
   /** 评分(GET /teacher/:id 返回) */
   rating?: number
+  /**
+   * 当前用户是否已关注(GET /teacher/:id 返回)。
+   * 2026-11-22 补:apps/mobile-rn TeacherDetailScreen:91 读该键,而接口漏登记 ⇒ TS2339。
+   */
+  isFollowed?: boolean
 }
 
 export type TeacherList = Teacher[]

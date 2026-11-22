@@ -87,6 +87,9 @@ export type { SmoothDeltaBatcherOptions, SmoothDeltaBatcher } from './smooth-del
 // 只剥行内符号、不做块级解析 —— 边界与理由见源文件头注。
 export * from './strip-inline-markdown'
 export * from './status-colors'
+// VIP 权益行 → 条目投影(2026-11-22 立):摊平口径 + 译名键表跨端只许一份,
+// miniapp 曾经的 TRANSLATED_BENEFITS 与 RN 端内自拼都收敛到这里。
+export * from './vip-benefit-projection'
 // 厂商 code → 展示名(用户可读)跨端唯一出口:内部 `_relay` 后缀永不外露
 export * from './provider-display-name'
 export * from './storage-migration'

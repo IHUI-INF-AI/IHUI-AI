@@ -63,6 +63,19 @@ export const RADIUS_ROLES = {
   panel: 'xl',
   /** 特大容器:主卡片 */
   hero: '2xl',
+  /**
+   * 聊天气泡:等值 web 客服气泡 `rounded-2xl`(MessageBubble.tsx:79)。
+   * 2026-11-22 补登:packages/app 与 apps/mobile-rn 已按此角色取值(rnRadiusFor.bubble),
+   * 但单源表漏登记 ⇒ 4 个包 typecheck 报 TS2339「Property 'bubble' does not exist」。
+   * 此处按调用方既有口径补齐,不改任何一处渲染取值。
+   */
+  bubble: '2xl',
+  /**
+   * 浮层(下拉/悬浮卡):等值 web `rounded-md`(6px)。
+   * 2026-11-22 补登:SearchOverlay.tsx:13 注释已写明「= web rounded-md 档,唯一源 radius.js 角色表」,
+   * 缺登记导致 rnRadiusFor.popover 两处 TS2339。
+   */
+  popover: 'md',
 }
 
 /** 角色 → px 数值(RN StyleSheet / 内联 style 直接按角色取档) */
