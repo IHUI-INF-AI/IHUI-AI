@@ -508,6 +508,28 @@ fi
 
 # 收②:文档数字对账门已退役(2026-11-21,脚本已不在 HEAD 面)⇒ 该收口段一并摘除
 
+# 收④:仓库重量预算(2026-11-22 立,1.5GB 二次膨胀根治的最后一道总闸)
+# 判两层:① HEAD 跟踪内容总字节(默认 400MB,当前约 372MB);② .git pack 体积
+# (默认 350MB,当前约 130MB)。单文件字节闸只能拦"一次放进来一个 2MB 文件",
+# 拦不住"一百次各放 1.9MB";本闸按总量棘轮,越线即阻止推送并点名下一步。
+# 应急:HUSKY_SKIP_REPO_WEIGHT=1(只允许在确认是判据误报时用)。
+if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
+  node scripts/check-file-size.mjs --weight --budget-mb="${REPO_SIZE_BUDGET_MB:-400}" || exit 1
+  _pack_kb=$(git count-objects -v 2>/dev/null | awk '/^size-pack:/ {print $2}')
+  if [ -n "$_pack_kb" ]; then
+    _pack_mb=$(( _pack_kb / 1024 ))
+    _pack_budget="${REPO_PACK_BUDGET_MB:-350}"
+    if [ "$_pack_mb" -gt "$_pack_budget" ]; then
+      printf '%s\n' "❌ 仓库 pack ${_pack_mb}MB 超过预算 ${_pack_budget}MB:历史里又有大对象进来了。" >&2
+      printf '%s\n' "   先 git count-objects -vH 定位,再按 .gitignore 移出生成物/归档;需要重写历史时单独开票,不要带着推。" >&2
+      exit 1
+    fi
+    printf '%s\n' "✅ 仓库 pack ${_pack_mb}MB ≤ 预算 ${_pack_budget}MB" >&2
+  else
+    printf '%s\n' "⚠️  取不到 pack 体积(count-objects 失败)⇒ 本项未判定,不阻断" >&2
+  fi
+fi
+
 # 收③:i18n 死 key 审计(非阻塞 —— 原语义 || true,这里 wait 掉但忽略状态)
 wait "$_i18n_job" 2>/dev/null || true
 tail -3 .ihui-agent/state/hook-logs/pre-push-i18n.log >&2 || true

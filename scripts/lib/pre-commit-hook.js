@@ -362,6 +362,28 @@ try {
   process.exit(1)
 }
 
+// 0d. 单文件字节 / 污染路径(2026-11-22 立,仓库二次膨胀根治)──────────────
+// 立因:`scripts/check-file-size.mjs --staged` 早已实现(新增 >2MB 拦、任意暂存 >20MB 拦、
+// 生成物目录/密钥/日志路径拦),但 guardian-runner 的 11e 只传 `--staged` 的**触发面**、
+// 没把 `--staged` 参数传给脚本 ⇒ 实际只跑行数报告,字节闸从未装车。2026-11-22 仓库从
+// 1.5GB 瘦到 113MB 后,这是最后一道会再次被大文件/生成物撑大的缺口。
+// 失败即阻塞;应急仅限判据误报:HUSKY_SKIP_FILE_SIZE=1(与脚本内提示同名)。
+if (!process.env.HUSKY_SKIP_FILE_SIZE) {
+  try {
+    execSync('node scripts/check-file-size.mjs --staged', {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+      windowsHide: true,
+    })
+  } catch {
+    console.error(
+      '❌ Pre-commit 字节守门失败:暂存区含 >2MB 新增文件、>20MB 文件、生成物/密钥/日志路径。' +
+        '把大文件移出仓库(Release 资产/外部存储),生成物写进 .gitignore,或 git restore --staged <路径> 后重试。',
+    )
+    process.exit(1)
+  }
+}
+
 function run(label, cmd) {
   console.log(label)
   try {
