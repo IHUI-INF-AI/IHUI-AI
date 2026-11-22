@@ -4289,7 +4289,12 @@ async def list_models(request: Request) -> dict[str, Any]:
             # attempts failed")只属于"真被判死"的行。健康/可用的行仍带着旧错误串,
             # 前端 tooltip/无障碍名会把可用模型读成故障;这里按状态收敛,出口只留一句。
             _down = state.status == "down"
-            m["health_error"] = (state.error or "")[:200] if _down else ""
+            # 上游 404 原文(如 "HTTP 404: {error... user_id...}")是给运维看的,
+            # 不该出现在用户 tooltip 里;model_missing 归成一句人话,其余保留原文。
+            _raw_error = (state.error or "")[:200]
+            if state.reason == "model_missing":
+                _raw_error = "上游已下架该模型"
+            m["health_error"] = _raw_error if _down else ""
             # 2026-11-18 立:原因分档(quota/auth/rate_limit/model_missing),
             # 让选择器把"额度已尽"与"尚未探测"分开显示,不再混成一个"未验证"。
             m["health_reason"] = state.reason if _down else ""
