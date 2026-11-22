@@ -28,7 +28,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { formatCny } from '@/lib/display-currency'
-import { MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
+import { FALLBACK_MODELS, MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
 import {
@@ -52,7 +52,6 @@ import { rememberPoolModelIds } from '@/hooks/use-chat/pool-model-routing'
 import type { BrandIconProps } from '@/components/ai/brand-icon'
 import { inferVendor } from '@/components/ai/vendor-infer'
 import {
-  FALLBACK_MODELS,
   VENDOR_LABEL,
   resolveVendorDisplayName,
   vendorGroupKey,
