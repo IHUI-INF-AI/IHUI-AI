@@ -19,6 +19,7 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 import { formatCny } from '@/lib/display-currency'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 
 /** 与 relay-public.ts 的 ChannelAcc 输出一致 */
 interface PublicChannel {
@@ -52,6 +53,7 @@ function multiplierRange(min: number, max: number): string {
 
 export default function AvailableChannelsClient() {
   const t = useTranslations('availableChannels')
+  const tChat = useTranslations('chat')
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['relay', 'channels', 'public'],
@@ -97,7 +99,9 @@ export default function AvailableChannelsClient() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body font-medium">{c.channelName}</p>
-                    <p className="truncate text-label text-muted-foreground">{c.providerCode}</p>
+                    <p className="truncate text-label text-muted-foreground">
+                      {resolveVendorDisplayName(c.providerCode, tChat)}
+                    </p>
                   </div>
                   <span className="rounded-md bg-muted px-2 py-0.5 text-label tabular-nums">
                     {t('models')} {c.modelCount}

@@ -31,44 +31,10 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiRelayKeyPool, aiModelConfig, aiModelConfigModels, llmCallLogs } from '@ihui/database'
 import { success } from '../utils/response.js'
+import { resolveProviderDisplayName } from '../lib/provider-display-name.js'
 
 /** 公开渠道状态枚举(与前端 channelStatus 文案一一对应)。 */
 type ChannelStatus = 'operational' | 'degraded' | 'down' | 'maintenance'
-
-/** provider code → 用户友好显示名(公开状态页用)。 */
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  openai: 'OpenAI',
-  azure: 'Azure OpenAI',
-  anthropic: 'Anthropic',
-  claude: 'Claude',
-  google: 'Google',
-  gemini: 'Google Gemini',
-  stepfun: '阶跃星辰 StepFun',
-  deepseek: 'DeepSeek',
-  qwen: '阿里通义千问',
-  dashscope: '阿里通义千问',
-  moonshot: '月之暗面 Moonshot',
-  kimi: '月之暗面 Kimi',
-  zhipu: '智谱 AI',
-  glm: '智谱 GLM',
-  minimax: 'MiniMax',
-  baichuan: '百川智能',
-  doubao: '字节豆包',
-  hunyuan: '腾讯混元',
-  yi: '零一万物',
-  mistral: 'Mistral AI',
-  meta: 'Meta Llama',
-  llama: 'Meta Llama',
-  xai: 'xAI Grok',
-  grok: 'xAI Grok',
-  ollama: 'Ollama(本地)',
-  openrouter: 'OpenRouter',
-  siliconflow: 'SiliconFlow',
-  together: 'Together AI',
-  fireworks: 'Fireworks AI',
-  voyage: 'Voyage AI',
-  cohere: 'Cohere',
-}
 
 /** 最近延迟统计窗口(分钟)。 */
 const LATENCY_WINDOW_MINUTES = 60
@@ -122,14 +88,6 @@ function aggregateStatus(keys: ChannelRow[]): ChannelStatus {
   if (hasDown && !hasHealthy) return 'down'
   // 其余(有健康但伴随降级/熔断,或仅 degraded):部分可用 → 降级
   return 'degraded'
-}
-
-/** 取某 provider 的公开显示名。 */
-function resolveDisplayName(providerCode: string, configName: string | null): string {
-  if (PROVIDER_DISPLAY_NAMES[providerCode]) return PROVIDER_DISPLAY_NAMES[providerCode]
-  if (configName && configName.trim() !== '') return configName.trim()
-  // 原始 code 美化:openai → Openai
-  return providerCode.charAt(0).toUpperCase() + providerCode.slice(1)
 }
 
 interface PublicChannel {
@@ -241,7 +199,10 @@ async function buildStatusPayload(): Promise<{
     }
     channels.push({
       providerCode,
-      displayName: resolveDisplayName(providerCode, configNameMap.get(providerCode) ?? null),
+      displayName: resolveProviderDisplayName(
+        providerCode,
+        configNameMap.get(providerCode) ?? null,
+      ),
       status,
       latencyMs: latencyMap.get(providerCode) ?? null,
       modelCount: modelCountMap.get(providerCode) ?? 0,

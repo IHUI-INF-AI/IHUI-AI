@@ -20,6 +20,7 @@ import {
   updateAccountPool,
 } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 
 interface PoolRow {
   id: string
@@ -39,6 +40,7 @@ const EMPTY_FORM = { providerCode: 'trae', name: '', token: '', refreshToken: ''
 
 export default function AccountPoolPage() {
   const t = useTranslations('accountPool')
+  const tChat = useTranslations('chat')
   const { allow } = useAuthGate()
   const qc = useQueryClient()
   const [adding, setAdding] = React.useState(false)
@@ -202,7 +204,7 @@ export default function AccountPoolPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-label text-muted-foreground">
-                        {row.providerCode}
+                        {resolveVendorDisplayName(row.providerCode, tChat)}
                       </span>
                       <span className="truncate text-body font-medium">{row.name}</span>
                       <span

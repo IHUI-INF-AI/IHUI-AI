@@ -19,7 +19,7 @@
 export { FALLBACK_MODELS, type FallbackModel } from '@ihui/shared'
 
 /** 厂商代码 → i18n key(覆盖 /llm/models 动态拉取的所有 vendor + ModelsNav PROVIDER_GROUPS 全部 80+ 厂商)
- * 渲染处用 t() 转换 key 为本地化显示名;未知厂商回退到原始 provider code 字符串 */
+ * 渲染处统一走 resolveVendorDisplayName();未知厂商回退到美化后的 code(内部 `_relay` 后缀一律剥掉) */
 export const VENDOR_LABEL: Record<string, string> = {
   // === 项目主力(plan 套餐已接入)===
   ihui_relay: 'vendor.ihuiRelay',
@@ -178,23 +178,55 @@ export const VENDOR_LABEL: Record<string, string> = {
  *
  * 2026-11-18 立:`key` 命中映射表时为 i18n key 或原样显示的显示名;`_relay` 结尾的
  * 内部接入别名(平台经中转桥接入,如 workbuddy_relay)回退到平台自身的展示名。
- * 调用方只在 `key` 非空时走 t(),未命中的 code 仍原样回退(保持"未知厂商照实显示",
- * 不吞信息)。
+ * 2026-11-22 起未命中的 code 也回退到美化后的名字(剥后缀 + 分词大写),绝不原样外露。
  */
+/** 内部接入后缀(平台经中转桥接入时由后端加在 provider code 上,如 workbuddy_relay)。
+ *  2026-11-22 用户定档:「所有平台的名都不希望有这个后缀」——展示名一律剥掉,不区分平台。 */
+const INTERNAL_VENDOR_SUFFIX_RE = /[_-]relay$/i
+
+/** 剥掉内部接入后缀:`workbuddy_relay` → `workbuddy`(大小写 / 横线 / 下划线都认)。 */
+export function stripInternalVendorSuffix(vendor: string): string {
+  return vendor.replace(INTERNAL_VENDOR_SUFFIX_RE, '')
+}
+
+/** 原始 code 美化:unknown_provider → `Unknown Provider`;永不保留 `_relay` 后缀。 */
+export function prettifyVendorCode(vendor: string): string {
+  return stripInternalVendorSuffix(vendor)
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
 export function resolveVendorLabel(vendor: string | undefined): {
   /** 命中的 i18n key / 显示名;未命中为 null */
   key: string | null
-  /** 未命中时的回退原文(= vendor 自身) */
+  /** 回退显示名(已剥内部后缀并美化,永不含 `_relay`) */
   fallback: string
 } {
   if (!vendor) return { key: null, fallback: '' }
-  const direct = VENDOR_LABEL[vendor]
-  if (direct) return { key: direct, fallback: vendor }
-  if (vendor.endsWith('_relay')) {
-    const base = vendor.slice(0, -'_relay'.length)
-    if (VENDOR_LABEL[base]) return { key: VENDOR_LABEL[base], fallback: vendor }
+  const direct = VENDOR_LABEL[vendor] ?? VENDOR_LABEL[vendor.toLowerCase()]
+  if (direct) return { key: direct, fallback: prettifyVendorCode(vendor) }
+  const base = stripInternalVendorSuffix(vendor)
+  if (base !== vendor) {
+    const mapped = VENDOR_LABEL[base] ?? VENDOR_LABEL[base.toLowerCase()]
+    return { key: mapped ?? null, fallback: prettifyVendorCode(base) }
   }
-  return { key: null, fallback: vendor }
+  return { key: null, fallback: prettifyVendorCode(vendor) }
+}
+
+/**
+ * 平台展示名唯一出口:有 i18n key 走 t(),无 key 用美化后的兜底名。
+ * 所有"平台名 / 厂商名"展示都应走它,不要直接拼 provider code。
+ */
+export function resolveVendorDisplayName(
+  vendor: string | undefined,
+  t?: (key: string) => string,
+): string {
+  const { key, fallback } = resolveVendorLabel(vendor)
+  if (!key) return fallback
+  if (key.startsWith('vendor.')) return t ? t(key) : fallback
+  return key
 }
 
 /** 分组归并键:同一品牌的多套接入 code 落到同一组标题(否则会出现两个同名分组) */

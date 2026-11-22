@@ -18,6 +18,7 @@ import { DATA_TZ, tzParts } from './data-time'
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
@@ -756,6 +757,7 @@ export default function OpsWallboardPage() {
  */
 export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode }) {
   const t = useTranslations('admin.wallboard')
+  const tChat = useTranslations('chat')
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
   // 值班态强制暗色(手动 class,见下方 duty 逻辑);图表配色沿用同一个 isDark。
@@ -2770,9 +2772,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   <Dot tone="ok" />
                   {t('onlineNow', { count: fmtInt(traffic.online5m) })}
-                  {isNum(traffic.pv5m)
-                    ? ` · ${t('pv5mNow', { count: fmtInt(traffic.pv5m) })}`
-                    : ''}
+                  {isNum(traffic.pv5m) ? ` · ${t('pv5mNow', { count: fmtInt(traffic.pv5m) })}` : ''}
                 </span>
               ) : null
             }
@@ -3439,7 +3439,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(relayPool?.keyByProvider ?? []).map((p) => (
                   <MeterRow
                     key={`k:${p.provider}`}
-                    label={p.provider}
+                    label={resolveVendorDisplayName(p.provider, tChat)}
                     value={`${fmtInt(p.schedulable)} / ${fmtInt(p.total)}`}
                     note={
                       p.abnormal > 0 ? `${t('poolKeyAbnormal')} ${fmtInt(p.abnormal)}` : undefined
@@ -3461,7 +3461,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(relayPool?.accountByProvider ?? []).map((p) => (
                   <MeterRow
                     key={`a:${p.provider}`}
-                    label={p.provider}
+                    label={resolveVendorDisplayName(p.provider, tChat)}
                     value={`${fmtInt(p.schedulable)} / ${fmtInt(p.total)}`}
                   />
                 ))}

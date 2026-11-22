@@ -157,6 +157,14 @@ describe('status incidents — 时间列归一化(mapIncidentRows)', () => {
     const lying = rowWithTimestamps({ date: 20260913 as unknown as string })
     expect(() => mapIncidentRows([lying])).toThrow(TypeError)
   })
+
+  it('⑦ 事件描述用对外展示名,内部接入后缀(_relay)永不外露', () => {
+    const [incident] = mapIncidentRows([rowWithTimestamps({ providerCode: 'workbuddy_relay' })])
+    // providerCode 是技术标识,保持原值供前端归并;用户可读的描述必须已剥后缀
+    expect(incident?.providerCode).toBe('workbuddy_relay')
+    expect(incident?.description).toContain('WorkBuddy')
+    expect(incident?.description).not.toMatch(/relay/i)
+  })
 })
 
 describe('GET /api/public/status/incidents', () => {

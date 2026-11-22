@@ -5,10 +5,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Cpu } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { getPublicStatusModels } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 
 /**
  * 状态页「模型可用性」区块（客户端组件）
@@ -129,6 +131,7 @@ export function ModelsSection({
   const [allModels, setAllModels] = useState<StatusModelItem[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
+  const tChat = useTranslations('chat')
 
   const list = allModels ?? models
   const hidden = Math.max(0, total - list.length)
@@ -176,7 +179,7 @@ export function ModelsSection({
                   <div className="min-w-0 flex-1">
                     <span className="text-body font-medium">{m.displayName ?? m.modelId}</span>
                     <span className="font-[weight:inherit] ml-2 text-label text-muted-foreground">
-                      {m.providerCode}/{m.modelId}
+                      {resolveVendorDisplayName(m.providerCode, tChat)}/{m.modelId}
                     </span>
                   </div>
                   <div className="font-[weight:inherit] flex flex-wrap items-center gap-3 text-label text-muted-foreground">

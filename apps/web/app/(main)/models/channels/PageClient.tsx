@@ -43,6 +43,7 @@ import { Tooltip } from '@/components/feedback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { AuthGatePrompt } from '@/components/common'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   fetchKeyPool,
@@ -77,6 +78,7 @@ function timeFmt(value: string | null): string {
 
 export default function PageClient() {
   const t = useTranslations('models')
+  const tChat = useTranslations('chat')
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
   const qc = useQueryClient()
@@ -268,8 +270,8 @@ export default function PageClient() {
                     const h = HEALTH_BADGE[item.healthStatus]
                     return (
                       <tr key={item.id} className="text-label hover:bg-muted/30">
-                        <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                          {item.providerCode}
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {resolveVendorDisplayName(item.providerCode, tChat)}
                         </td>
                         <td className="px-4 py-2.5 font-medium">{item.name}</td>
                         <td className="px-4 py-2.5 font-mono text-muted-foreground">

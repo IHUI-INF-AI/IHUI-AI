@@ -33,6 +33,7 @@ import { dbRead } from '../db/index.js'
 import { aiModelConfig, aiModelConfigModels, llmCallLogs } from '@ihui/database'
 import { error, success } from '../utils/response.js'
 import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
+import { resolveProviderDisplayName } from '../lib/provider-display-name.js'
 
 // ===== 共享类型 =====
 type ServiceStatus = 'operational' | 'degraded' | 'outage'
@@ -243,7 +244,7 @@ export function mapIncidentRows(rows: readonly IncidentRow[]): Incident[] {
       startedAt: isoTimestampOrThrow(r.startedAt, 'startedAt'),
       resolvedAt: isoTimestampOrNull(r.resolvedAt, 'resolvedAt'),
       severity: classifySeverity(r.errorCount),
-      description: `${r.errorCount} errors reported for ${providerCode} on ${date}`,
+      description: `${r.errorCount} errors reported for ${resolveProviderDisplayName(providerCode)} on ${date}`,
     }
   })
 }

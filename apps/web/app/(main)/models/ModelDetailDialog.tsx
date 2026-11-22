@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import {
   ArrowRight,
   Building2,
@@ -33,7 +34,6 @@ import { formatCny, formatUsd } from '@/lib/display-currency'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
-import { PROVIDER_LABEL } from './helpers'
 import type { Model } from './types'
 
 interface Props {
@@ -65,6 +65,7 @@ export function ModelDetailDialog({
   onConfigure,
 }: Props) {
   const t = useTranslations('models')
+  const tChat = useTranslations('chat')
   const router = useRouter()
   const openPanel = useAiPanelStore((s) => s.openPanel)
   const setModel = useChatStore((s) => s.setModel)
@@ -94,7 +95,7 @@ export function ModelDetailDialog({
   const outputPrice =
     model.outputPrice ?? (typeof model.inputPrice === 'number' ? model.inputPrice * 3 : undefined)
   const isOutputEstimated = outputPrice !== undefined && model.outputPrice === undefined
-  const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
+  const vendorLabel = resolveVendorDisplayName(model.provider, tChat)
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   // P0-5g 中转站定价:与模型卡片 RelayPriceCompare 同源(CNY 分/千 token ×10 = 元/百万),
@@ -224,42 +225,42 @@ export function ModelDetailDialog({
           {/* P0-5g 中转站定价区(模型已上架中转即显示,倍率=1 也展示;价格与卡片同源) */}
           {model.relayPublic &&
             (typeof relayInputPrice === 'number' || typeof relayOutputPrice === 'number') && (
-            <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/20">
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[var(--text-vcenter-offset)]">
-                <Cable className="h-3 w-3" />
-                <span>{t('market.relayPricingTitle')}</span>
-                <span className="ml-auto rounded bg-sky-200/60 px-1.5 py-0.5 text-[10px] text-sky-800 dark:bg-sky-900 dark:text-sky-300">
-                  ×{relayMultiplier.toFixed(2)}
-                </span>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-                <div>
-                  <div className="text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
-                    <span>{t('market.relayInputPrice')}</span>
+              <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/20">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                  <Cable className="h-3 w-3" />
+                  <span>{t('market.relayPricingTitle')}</span>
+                  <span className="ml-auto rounded bg-sky-200/60 px-1.5 py-0.5 text-[10px] text-sky-800 dark:bg-sky-900 dark:text-sky-300">
+                    ×{relayMultiplier.toFixed(2)}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <div className="text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                      <span>{t('market.relayInputPrice')}</span>
+                    </div>
+                    <div className="mt-0.5 font-semibold text-foreground">
+                      {typeof relayInputPrice !== 'number'
+                        ? '—'
+                        : relayInputPrice === 0
+                          ? t('free')
+                          : `${formatCny(relayInputPrice)}${t('perMillion')}`}
+                    </div>
                   </div>
-                  <div className="mt-0.5 font-semibold text-foreground">
-                    {typeof relayInputPrice !== 'number'
-                      ? '—'
-                      : relayInputPrice === 0
-                        ? t('free')
-                        : `${formatCny(relayInputPrice)}${t('perMillion')}`}
+                  <div>
+                    <div className="text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                      <span>{t('market.relayOutputPrice')}</span>
+                    </div>
+                    <div className="mt-0.5 font-semibold text-foreground">
+                      {typeof relayOutputPrice !== 'number'
+                        ? '—'
+                        : relayOutputPrice === 0
+                          ? t('free')
+                          : `${formatCny(relayOutputPrice)}${t('perMillion')}`}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
-                    <span>{t('market.relayOutputPrice')}</span>
-                  </div>
-                  <div className="mt-0.5 font-semibold text-foreground">
-                    {typeof relayOutputPrice !== 'number'
-                      ? '—'
-                      : relayOutputPrice === 0
-                        ? t('free')
-                        : `${formatCny(relayOutputPrice)}${t('perMillion')}`}
-                  </div>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {model.features.length > 0 && (
             <div className="space-y-2">

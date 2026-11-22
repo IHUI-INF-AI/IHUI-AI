@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Bot, Sparkles, Building2, Gift, Activity, RefreshCw, Loader2 } from 'lucide-react'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
@@ -209,6 +210,7 @@ function ProviderStatusDialog({
   onRefresh: () => void
   isRefreshing: boolean
 }) {
+  const tChat = useTranslations('chat')
   const timeFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat('zh-CN', {
@@ -251,9 +253,11 @@ function ProviderStatusDialog({
                   status={p.status}
                   latency_ms={p.latency_ms}
                   model_count={p.model_count}
-                  provider_name={p.display_name || p.provider}
+                  provider_name={p.display_name || resolveVendorDisplayName(p.provider, tChat)}
                 />
-                <span className="text-[10px] text-muted-foreground">{p.provider}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {resolveVendorDisplayName(p.provider, tChat)}
+                </span>
               </div>
             ))}
             {data.providers.length === 0 && (

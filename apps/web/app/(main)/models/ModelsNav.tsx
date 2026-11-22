@@ -10,7 +10,8 @@ import { Layers } from 'lucide-react'
 
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { cn } from '@/lib/utils'
-import { PROVIDER_GROUPS, PROVIDER_LABEL, PROVIDER_GROUP_LABEL } from './helpers'
+import { PROVIDER_GROUPS, PROVIDER_GROUP_LABEL } from './helpers'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import type { Provider, ProviderGroup } from './types'
 
 interface Props {
@@ -67,7 +68,7 @@ export function ModelsNav({ active }: Props) {
               <ProviderPill
                 key={p}
                 href={`/models?provider=${p}`}
-                label={PROVIDER_LABEL[p] ? tChat(PROVIDER_LABEL[p]) : p}
+                label={resolveVendorDisplayName(p, tChat)}
                 icon={<BrandIcon vendor={p} size={14} />}
                 active={active === p}
               />

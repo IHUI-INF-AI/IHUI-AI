@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
@@ -22,6 +23,7 @@ import { fetchProvidersAvailability } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 
 /** 状态 → 显示配置 */
 type StatusConfig = {
@@ -57,6 +59,7 @@ const ERROR_TYPE_LABEL: Record<string, string> = {
 }
 
 export default function ProvidersHealthPage() {
+  const tChat = useTranslations('chat')
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['admin', 'providers-availability'],
     queryFn: () => fetchProvidersAvailability(),
@@ -137,7 +140,9 @@ export default function ProvidersHealthPage() {
                     p.error_type === 'payment_required' || (p.balance !== null && p.balance <= 0)
                   return (
                     <tr key={p.provider_code} className="transition-colors hover:bg-muted/30">
-                      <td className="px-4 py-2.5 font-medium">{p.provider_code}</td>
+                      <td className="px-4 py-2.5 font-medium">
+                        {resolveVendorDisplayName(p.provider_code, tChat)}
+                      </td>
                       <td className="px-4 py-2.5">
                         <span className={cn('inline-flex items-center gap-1', cfg.color)}>
                           <cfg.icon className="h-3.5 w-3.5" />

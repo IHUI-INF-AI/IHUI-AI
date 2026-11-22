@@ -8,6 +8,7 @@ import { Activity, AlertTriangle, Clock, Server, ShieldAlert, type LucideIcon } 
 import { Card, CardContent } from '@ihui/ui-react'
 import { getTranslations } from 'next-intl/server'
 import { cn } from '@/lib/utils'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 // 2026-10-21 公网提速：模型列表改客户端组件（见该文件头注释），服务端只下发紧凑数组，
 // 76 张卡片的 JSX 与 lucide iconNode 不再逐条序列化进 RSC payload（原 1.97 MB → ~150 KB）。
 import { ModelsSection } from '@/components/status/models-section'
@@ -325,6 +326,7 @@ function overallStatus(
 
 export default async function StatusPage() {
   const copy = await getTranslations('statusPage')
+  const tChat = await getTranslations('chat')
   const result = await getStatus()
 
   if (!result.ok) {
@@ -421,7 +423,9 @@ export default async function StatusPage() {
               <div key={i.id} className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityBadge severity={i.severity} />
-                  <span className="text-body font-medium">{i.providerCode}</span>
+                  <span className="text-body font-medium">
+                    {resolveVendorDisplayName(i.providerCode, tChat)}
+                  </span>
                   <span className="text-label text-muted-foreground">{i.modelId ?? '—'}</span>
                 </div>
                 <p className="text-label text-muted-foreground">{i.description}</p>

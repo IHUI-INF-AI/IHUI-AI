@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import {
   ArrowRight,
   Calendar,
@@ -599,10 +600,11 @@ function ModelCardGrid({
   onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
+  const tChat = useTranslations('chat')
   const router = useRouter()
   const outputPrice =
     model.outputPrice ?? (typeof model.inputPrice === 'number' ? model.inputPrice * 3 : undefined)
-  const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
+  const vendorLabel = resolveVendorDisplayName(model.provider, tChat)
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   const handleViewRanking = () => {

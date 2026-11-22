@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Copy, Loader2, Package, Pencil, Power } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
@@ -31,6 +31,7 @@ import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 // 剪贴板唯一出口(web 端实例,内部走 @ihui/shared 工厂)—— 不在页面里另写 navigator.clipboard
 import { useClipboard } from '@/hooks/use-clipboard'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -68,6 +69,7 @@ interface EditForm {
 
 export default function AdminRelayModelsPage() {
   const locale = useLocale()
+  const tChat = useTranslations('chat')
   const qc = useQueryClient()
   const { copy } = useClipboard()
   const [page, setPage] = React.useState(1)
@@ -278,7 +280,9 @@ export default function AdminRelayModelsPage() {
                         </Tooltip>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-label">{m.providerCode}</td>
+                    <td className="px-3 py-2 text-label">
+                      {resolveVendorDisplayName(m.providerCode, tChat)}
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {m.contextLength ? (m.contextLength / 1000).toFixed(0) + 'K' : '-'}
                     </td>
@@ -364,7 +368,7 @@ export default function AdminRelayModelsPage() {
             </DialogHeader>
             {editTarget && (
               <div className="rounded-md bg-muted/50 px-3 py-2 text-label text-muted-foreground">
-                {editTarget.modelId} · {editTarget.providerCode}
+                {editTarget.modelId} · {resolveVendorDisplayName(editTarget.providerCode, tChat)}
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">

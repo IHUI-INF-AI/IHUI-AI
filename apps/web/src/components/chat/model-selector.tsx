@@ -54,7 +54,7 @@ import { inferVendor } from '@/components/ai/vendor-infer'
 import {
   FALLBACK_MODELS,
   VENDOR_LABEL,
-  resolveVendorLabel,
+  resolveVendorDisplayName,
   vendorGroupKey,
 } from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
@@ -1444,10 +1444,9 @@ export function ModelSelector({
             </DropdownMenu.Item>
           </DropdownMenu.Group>
           {groupedByVendor.map(({ label, vendor, items }) => {
-            // 2026-11-18:label 是归并后的展示键(命中映射表才是 i18n key/显示名,
-            // 未命中的未知厂商仍原样回退),不再把 `workbuddy_relay` 这类内部 code 摆给用户
-            const labelKey = resolveVendorLabel(vendor).key
-            const groupName = labelKey?.startsWith('vendor.') ? t(labelKey) : (labelKey ?? label)
+            // 2026-11-18:组标题只走统一展示名解析(命中映射走 i18n,未知厂商回退到
+            // 美化后的名字),`workbuddy_relay` 这类内部 code 永不出现在用户眼前
+            const groupName = resolveVendorDisplayName(vendor, t)
             // 2026-11-21 立:每个反代平台可单独收起。收起时仍显示「当前选中的模型在这个组里」,
             // 免得用户以为当前模型消失了(trigger 上虽有名字,但这里给一眼可见的落点)。
             const collapsed = collapsedVendors.has(label)

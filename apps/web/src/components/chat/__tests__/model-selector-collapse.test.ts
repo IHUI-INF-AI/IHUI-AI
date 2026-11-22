@@ -22,6 +22,13 @@ import {
   serializeCollapsedVendors,
   toggleCollapsedVendor,
 } from '../model-selector-collapse'
+import {
+  prettifyVendorCode,
+  resolveVendorDisplayName,
+  resolveVendorLabel,
+  stripInternalVendorSuffix,
+  vendorGroupKey,
+} from '../fallback-models'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SELECTOR_SRC = fs.readFileSync(path.resolve(HERE, '..', 'model-selector.tsx'), 'utf8')
@@ -68,6 +75,34 @@ describe('反代平台折叠态·纯逻辑', () => {
     expect(MODEL_SELECTOR_COLLAPSED_VENDORS_STORAGE_KEY).toBe(
       'ihui-model-selector-collapsed-vendors',
     )
+  })
+})
+
+describe('平台展示名·内部接入后缀永不外露', () => {
+  const t = (key: string) => (key === 'vendor.ihuiRelay' ? '智汇AI' : key)
+
+  it('workbuddy_relay 与 workbuddy 落在同一展示名', () => {
+    expect(resolveVendorDisplayName('workbuddy_relay', t)).toBe('WorkBuddy')
+    expect(resolveVendorDisplayName('workbuddy', t)).toBe('WorkBuddy')
+    expect(vendorGroupKey('workbuddy_relay')).toBe('WorkBuddy')
+  })
+
+  it('大小写 / 连字符形态也剥掉(真实 code 是下划线小写)', () => {
+    expect(stripInternalVendorSuffix('WORKBUDDY_RELAY')).toBe('WORKBUDDY')
+    expect(stripInternalVendorSuffix('foo-relay')).toBe('foo')
+    expect(resolveVendorDisplayName('FOO_RELAY', t)).toBe('Foo')
+  })
+
+  it('未知平台的兜底名也不带 relay,不做原样回退', () => {
+    const name = resolveVendorDisplayName('unknown_platform_relay', t)
+    expect(name.toLowerCase()).not.toContain('relay')
+    expect(prettifyVendorCode('some_new_platform_relay')).toBe('Some New Platform')
+  })
+
+  it('ihui_relay 有 i18n 名时走翻译;没有时兜底也不带 relay', () => {
+    expect(resolveVendorDisplayName('ihui_relay', t)).toBe('智汇AI')
+    expect(resolveVendorDisplayName('ihui_relay').toLowerCase()).not.toContain('relay')
+    expect(resolveVendorLabel('ihui_relay').key).toBe('vendor.ihuiRelay')
   })
 })
 
