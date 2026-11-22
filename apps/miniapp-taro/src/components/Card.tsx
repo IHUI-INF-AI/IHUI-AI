@@ -24,7 +24,7 @@ import {
  * 卡片根本身不持内边距 —— 与 web 壳同构,RN 壳也已收敛到同一形态。
  * 承载类与换算:
  * - rounded-lg → 圆角 card 档(见 radius.js RADIUS_ROLES.card)
- * - border-border + bg-card → 描边 / 表面色(token,暗色自动翻转)
+ * - bg-card → 表面色(token,暗色自动翻转);卡片静息不画描边(2026-11-23 用户定档)
  * - p-3 / px-3 / pt-3 / pb-3 → spec 的 12px 档(小程序侧 1px→2rpx,12px 即 24rpx,与 RN 的 12dp 等宽)
  * - mb-1.5 / mt-2 → spec 的 6px / 8px 间隙档
  *
@@ -45,7 +45,7 @@ export type CardDescriptionProps = ComponentProps<typeof Text>
 export function Card({ className, ...props }: CardProps) {
   return (
     <View
-      className={cn('border border-border bg-card', RADIUS_CLASS[CARD_RADIUS_TIER], className)}
+      className={cn('bg-card', RADIUS_CLASS[CARD_RADIUS_TIER], className)}
       {...props}
     />
   )

@@ -653,7 +653,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing.md,
       gap: rnSpacing['sm-loose'],
     },

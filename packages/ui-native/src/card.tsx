@@ -15,9 +15,11 @@ import {
 
 /**
  * 平台专属项(不下沉 card-spec,两端允许不同形,逐条登记):
- *  - `border-border`:nativewind 不继承 web tokens 的边框默认色,须显式给边框色类;
  *  - 类名字面量:必须留在本文件 —— nativewind 只扫本包源,spec 文件不在扫描面内,拼串产不出规则。
  *  ⇒ 取值档一律取自 card-spec,本文件只做"档 → 本端承载类"的映射。
+ *
+ * 2026-11-23 用户定档:卡片容器静息不画描边,只保留 `bg-card` 表面填充
+ * (原 `border border-border` 已移除;页面底 surface.bg 与卡片 surface.card 的色差负责分层)。
  */
 const RADIUS_CLASS: Record<typeof CARD_RADIUS_TIER, string> = { lg: 'rounded-lg' }
 const PADDING_CLASS: Record<number, string> = { 12: 'p-3' }
@@ -34,7 +36,7 @@ export type CardDescriptionProps = ComponentProps<typeof Text>
 export function Card({ className, ...props }: CardProps) {
   return (
     <View
-      className={cn('border border-border bg-card', RADIUS_CLASS[CARD_RADIUS_TIER], className)}
+      className={cn('bg-card', RADIUS_CLASS[CARD_RADIUS_TIER], className)}
       {...props}
     />
   )

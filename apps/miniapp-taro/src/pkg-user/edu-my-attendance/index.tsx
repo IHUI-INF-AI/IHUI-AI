@@ -204,7 +204,7 @@ export default function Page() {
         ) : (
           <View className="space-y-md">
             {rows.map((r) => (
-              <View key={r.id} className="rounded-lg border border-border bg-card p-lg space-y-sm">
+              <View key={r.id} className="rounded-lg bg-card p-lg space-y-sm">
                 <View className="flex items-center justify-between gap-sm">
                   <Text className="text-label text-muted-foreground shrink-0">
                     {t('eduChildAttendance.date')}

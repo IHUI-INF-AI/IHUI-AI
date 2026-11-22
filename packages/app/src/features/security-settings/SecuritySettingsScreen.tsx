@@ -184,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     desc: { ...rnType.body, color: tk.text.secondary },
     readOnlyHint: { marginTop: rnSpacing.sm, color: tk.text.medium },

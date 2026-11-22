@@ -416,7 +416,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
-      borderColor: tk.border.light, // border-gray-200
+      borderColor: 'transparent', // border-gray-200
       padding: rnSpacing.md, // p-3
       backgroundColor: tk.surface.card,
     },

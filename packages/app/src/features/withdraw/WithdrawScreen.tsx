@@ -199,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     label: { ...rnType.body, color: tk.text.secondary, marginTop: rnSpacing.sm },

@@ -102,7 +102,7 @@ export default function InformationItem({
           />
         </View>
       ) : null}
-      {/* 卡片(对齐 RN SquareScreen card:圆角 12 → 24rpx / padding 12 → 24rpx / 描边 border-light 1 → 2rpx;
+      {/* 卡片(对齐 RN SquareScreen card:圆角 12 → 24rpx / padding 12 → 24rpx;2026-11-23 卡片静息无描边;
           RN 卡底 surface.light 在暗色下白底不可读,按语义修正为 --color-card) */}
       <View
         style={{
@@ -110,7 +110,6 @@ export default function InformationItem({
           padding: rpx(24),
           marginBottom: rpx(24),
           borderRadius: rnRadius.xl,
-          border: '2rpx solid var(--color-border)',
           background: 'var(--color-card)',
         }}
         onClick={() => onClick?.(item)}

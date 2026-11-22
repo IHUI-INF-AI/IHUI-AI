@@ -182,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     },

@@ -151,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     cardLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     cardValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },

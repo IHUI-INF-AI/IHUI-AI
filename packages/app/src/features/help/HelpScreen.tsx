@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     question: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     fieldLabel: {

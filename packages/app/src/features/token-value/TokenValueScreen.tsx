@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1.5,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.bg,
       alignItems: 'center',
     },
@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius['2xl'],
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     recordIcon: {

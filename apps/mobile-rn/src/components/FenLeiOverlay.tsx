@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: rnRadius.xl,
     borderBottomRightRadius: rnRadius.xl,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     paddingHorizontal: rnSpacing.md,
     // paddingTop 由组件内联注入 `insets.top + PANEL_PADDING_TOP`(见 Modal 处注释),此处不留常量档
     paddingBottom: rnSpacing['md-loose'],

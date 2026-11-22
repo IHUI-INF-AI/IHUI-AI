@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     // 投影:更新提示浮层卡 → 档位 lg
     ...ELEVATION_STEPS.lg,
   },

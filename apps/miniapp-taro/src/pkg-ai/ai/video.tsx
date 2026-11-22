@@ -251,7 +251,7 @@ export default function VideoPage() {
           ))}
         </View>
 
-        <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
+        <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg p-[24rpx]">
           <Text className="block text-label text-muted-foreground mb-[16rpx]">
             {t(currentVendor.descKey)}
           </Text>
@@ -297,7 +297,7 @@ export default function VideoPage() {
         </View>
 
         {status !== 'idle' && status !== 'failed' ? (
-          <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
+          <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg p-[24rpx]">
             <Text className="block text-body font-medium text-foreground mb-[16rpx]">
               {statusText}
             </Text>
@@ -334,7 +334,7 @@ export default function VideoPage() {
           </View>
         ) : null}
 
-        <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
+        <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg p-[24rpx]">
           <Text className="block text-body font-medium text-foreground mb-[16rpx]">
             {t('ai.video.history')}
           </Text>

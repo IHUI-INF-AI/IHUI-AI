@@ -42,7 +42,7 @@ export function createToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing.md,
     },
     iconChip: {
@@ -63,7 +63,7 @@ export function createToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },

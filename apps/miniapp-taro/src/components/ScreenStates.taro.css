@@ -94,12 +94,11 @@
   color: var(--color-primary-foreground);
 }
 
-/* 按压卡片 */
+/* 按压卡片(2026-11-23 用户定档:卡片静息无描边,只留填充底) */
 .ihui-press-card {
   box-sizing: border-box;
   padding: var(--spacing-md-loose);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
   background-color: var(--color-card);
   transition:
     transform 120ms ease,

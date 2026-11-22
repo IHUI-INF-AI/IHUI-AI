@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     sectionTitle: {
       fontSize: rnType.title.size,

@@ -260,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing.md,
     },
     statValue: {
@@ -296,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
     eventCard: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
     },
@@ -338,7 +338,7 @@ function createStyles(tk: AppThemeTokens) {
     mentionCard: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
     },

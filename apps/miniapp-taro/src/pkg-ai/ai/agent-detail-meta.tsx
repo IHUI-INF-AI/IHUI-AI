@@ -30,7 +30,7 @@ export default function AgentDetailMeta({ creator, uses, isFree, price }: AgentD
   const tt = useTt()
 
   return (
-    <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
+    <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg p-[28rpx]">
       <Text className="block text-caption text-muted-foreground">
         {tt('agentDetail.creator', '创建者')}
       </Text>

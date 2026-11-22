@@ -261,7 +261,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       gap: rnSpacing.md,
     },
     avatar: {
@@ -327,7 +327,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       overflow: 'hidden',
     },
     menuItem: {

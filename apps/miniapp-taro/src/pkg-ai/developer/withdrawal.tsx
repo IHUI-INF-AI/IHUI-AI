@@ -162,7 +162,7 @@ export default function DeveloperWithdrawal() {
             list.map((item) => (
               <View
                 key={item.id}
-                className="flex items-center justify-between bg-card border-[length:2rpx] border-border rounded-lg p-[24rpx] mb-[20rpx]"
+                className="flex items-center justify-between bg-card rounded-lg p-[24rpx] mb-[20rpx]"
               >
                 <View className="flex-1">
                   <Text className="block text-title text-foreground font-semibold mb-[8rpx]">

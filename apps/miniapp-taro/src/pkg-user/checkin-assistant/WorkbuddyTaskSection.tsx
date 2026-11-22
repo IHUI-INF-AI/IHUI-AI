@@ -263,7 +263,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
 
   return (
     <View
-      className="mt-[24rpx] rounded-lg border border-border bg-card"
+      className="mt-[24rpx] rounded-lg bg-card"
       data-testid="wb-task-section"
     >
       <View

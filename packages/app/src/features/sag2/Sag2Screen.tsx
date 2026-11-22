@@ -473,7 +473,7 @@ function createStyles(tk: AppThemeTokens) {
     resultList: { gap: rnSpacing.sm } as ViewStyle,
     resultCard: {
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       borderRadius: rnRadius.lg,
       padding: rnSpacing.sm,
       gap: rnSpacing.xs,

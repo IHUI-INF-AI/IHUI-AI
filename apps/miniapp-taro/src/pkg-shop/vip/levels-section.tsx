@@ -46,7 +46,7 @@ export default function LevelsSection({
             return (
               <View
                 key={level.id}
-                className="bg-card border-[length:2rpx] border-border rounded-lg p-[24rpx]"
+                className="bg-card rounded-lg p-[24rpx]"
               >
                 <View className="flex items-center justify-between gap-[16rpx]">
                   <Text className="text-title font-semibold text-foreground">

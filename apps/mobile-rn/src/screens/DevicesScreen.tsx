@@ -453,7 +453,7 @@ function makeStyles() {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tokens.border.light,
+      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
@@ -537,7 +537,7 @@ function makeStyles() {
       borderRadius: rnRadius.xl,
       backgroundColor: tokens.surface.card,
       borderWidth: 1,
-      borderColor: tokens.border.light,
+      borderColor: 'transparent',
       gap: rnSpacing.xs,
     },
     panelTitle: {

@@ -95,7 +95,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     qrBox: {
       width: 200,
@@ -103,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       alignItems: 'center',
       justifyContent: 'center',
     },

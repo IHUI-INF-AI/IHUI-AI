@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing.sm,
       marginBottom: rnSpacing['2xl'],
     },

@@ -135,7 +135,7 @@ export default function OrderRefund() {
     return (
       <ThemeRoot>
         <View className="min-h-screen bg-background p-[20rpx]">
-          <View className="flex flex-col items-center gap-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card px-[24rpx] py-[80rpx]">
+          <View className="flex flex-col items-center gap-[24rpx] rounded-lg bg-card px-[24rpx] py-[80rpx]">
             <Text className="text-body text-muted-foreground">
               {orderNo
                 ? tt('order.loadFailed', '订单信息加载失败')
@@ -164,7 +164,7 @@ export default function OrderRefund() {
           卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡,金额 36rpx/600 success,
           输入框 2rpx 描边 / 圆角 24rpx / bg surface.muted,提交按钮 h100rpx 圆角 24rpx */}
       <View className="min-h-screen bg-background p-[20rpx] pb-[160rpx]">
-        <View className="rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="rounded-lg bg-card p-[24rpx]">
           <RefundHeader />
           <RefundOrderCard
             loading={loading}
@@ -174,7 +174,7 @@ export default function OrderRefund() {
           />
         </View>
 
-        <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="mt-[24rpx] rounded-lg bg-card p-[24rpx]">
           <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.refundAmount', '退款金额')}
           </Text>
@@ -188,7 +188,7 @@ export default function OrderRefund() {
           </View>
         </View>
 
-        <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="mt-[24rpx] rounded-lg bg-card p-[24rpx]">
           <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.reason', '退款原因')}
           </Text>
@@ -215,7 +215,7 @@ export default function OrderRefund() {
           ) : null}
         </View>
 
-        <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="mt-[24rpx] rounded-lg bg-card p-[24rpx]">
           <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.descLabel', '退款说明')}
           </Text>
@@ -228,7 +228,7 @@ export default function OrderRefund() {
           />
         </View>
 
-        <View className="mt-[24rpx] rounded-lg border-[length:2rpx] border-border bg-card p-[24rpx]">
+        <View className="mt-[24rpx] rounded-lg bg-card p-[24rpx]">
           <Text className="block text-body font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.contactLabel', '联系方式')}
           </Text>

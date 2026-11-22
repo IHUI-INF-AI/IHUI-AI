@@ -49,7 +49,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing.md,
       gap: rnSpacing.sm,
     },

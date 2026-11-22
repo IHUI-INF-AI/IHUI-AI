@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     section: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       gap: rnSpacing.xs,

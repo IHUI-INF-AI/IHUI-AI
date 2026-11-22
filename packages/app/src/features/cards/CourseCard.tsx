@@ -166,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       overflow: 'hidden',
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     pressed: { opacity: 0.85 },
     cover: { width: '100%', height: 128, backgroundColor: tk.surface.card },

@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     padding: rnSpacing.md,
     // 投影:列表卡片 → 档位 sm(原 1/.05/3 + elevation 2,视觉即 sm)
     ...ELEVATION_STEPS.sm,

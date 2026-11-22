@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     paddingHorizontal: CARD_PADDING_H,
     paddingTop: CARD_PADDING_TOP,
     paddingBottom: CARD_PADDING_BOTTOM,

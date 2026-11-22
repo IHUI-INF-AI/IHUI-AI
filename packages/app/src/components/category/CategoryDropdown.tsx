@@ -352,7 +352,7 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     },

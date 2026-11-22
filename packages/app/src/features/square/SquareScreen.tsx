@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     } as ViewStyle,
     cardPressed: {
       backgroundColor: tk.surface.muted,

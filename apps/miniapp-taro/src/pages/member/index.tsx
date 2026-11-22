@@ -301,7 +301,7 @@ export default function MemberIndexPage() {
 
         {/* 加载失败:共享屏走 ErrorState + vip.retry,这里用同一语义的行内错误条(可重试) */}
         {error ? (
-          <View className="mx-[20rpx] mb-[24rpx] p-[24rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
+          <View className="mx-[20rpx] mb-[24rpx] p-[24rpx] bg-card rounded-lg flex items-center justify-between">
             <Text className="flex-1 text-body-sm leading-[normal] text-destructive">{error}</Text>
             <View
               className="flex-shrink-0 ml-[16rpx] text-body-sm leading-[normal] font-semibold text-[var(--color-primary)]"

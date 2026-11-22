@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },

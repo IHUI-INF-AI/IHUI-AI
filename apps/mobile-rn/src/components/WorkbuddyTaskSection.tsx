@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     padding: rnSpacing['md-loose'],
     gap: rnSpacing.sm,
   },

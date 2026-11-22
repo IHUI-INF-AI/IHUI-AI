@@ -22,7 +22,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
     },

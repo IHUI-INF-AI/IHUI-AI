@@ -40,7 +40,7 @@ export default function FinanceAiHub() {
       <ScrollView className="h-screen bg-background" scrollY>
         <View className="px-[28rpx] pt-[28rpx] pb-[64rpx] flex flex-col gap-[24rpx]">
           {PAIR_KEYS.map(([titleKey, bodyKey]) => (
-            <View key={titleKey} className="bg-card rounded-lg border border-border p-[28rpx]">
+            <View key={titleKey} className="bg-card rounded-lg p-[28rpx]">
               <Text className="block text-subtitle font-semibold text-foreground leading-[44rpx] mb-[24rpx]">
                 {t(titleKey)}
               </Text>
@@ -50,7 +50,7 @@ export default function FinanceAiHub() {
             </View>
           ))}
           {SINGLE_KEYS.map((bodyKey) => (
-            <View key={bodyKey} className="bg-card rounded-lg border border-border p-[28rpx]">
+            <View key={bodyKey} className="bg-card rounded-lg p-[28rpx]">
               <Text className="block text-body text-muted-foreground leading-[44rpx] text-justify">
                 {t(bodyKey)}
               </Text>

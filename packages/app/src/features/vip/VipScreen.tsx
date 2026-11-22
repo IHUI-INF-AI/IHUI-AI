@@ -321,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     featuresTitle: {
@@ -488,7 +488,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     methodCardActive: { borderColor: baseTokens.vip.gold, backgroundColor: tk.surface.muted },
     methodBadge: {

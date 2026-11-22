@@ -233,7 +233,7 @@ function makeStyles() {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tokens.border.light,
+      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
     },
     cover: {

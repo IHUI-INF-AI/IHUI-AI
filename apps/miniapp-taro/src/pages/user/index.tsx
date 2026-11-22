@@ -1111,7 +1111,7 @@ export default function UserIndex() {
             {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
             {showBenefits ? (
               <View className="membership-benefits-content">
-                <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
+                <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card rounded-lg">
                   {membershipBenefits.map((b) => (
                     <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
                       {renderIcon(b.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
@@ -1164,7 +1164,7 @@ export default function UserIndex() {
                   textContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-lg p-[28rpx] border border-border user-content-text"
+                      className="bg-card rounded-lg p-[28rpx] user-content-text"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
@@ -1197,7 +1197,7 @@ export default function UserIndex() {
                   imageContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-lg p-[28rpx] border border-border user-content-image"
+                      className="bg-card rounded-lg p-[28rpx] user-content-image"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
@@ -1242,7 +1242,7 @@ export default function UserIndex() {
                   videoContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-lg overflow-hidden border border-border user-content-video"
+                      className="bg-card rounded-lg overflow-hidden user-content-video"
                     >
                       <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">
@@ -1301,7 +1301,7 @@ export default function UserIndex() {
                   audioContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-lg p-[28rpx] border border-border user-content-audio"
+                      className="bg-card rounded-lg p-[28rpx] user-content-audio"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-title font-semibold text-foreground">

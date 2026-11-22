@@ -146,7 +146,7 @@ export default function ContactPage() {
         </View>
 
         {contactItems.length > 0 ? (
-          <View className="bg-card rounded-lg border border-border overflow-hidden mb-[24rpx]">
+          <View className="bg-card rounded-lg overflow-hidden mb-[24rpx]">
             {contactItems.map((item, idx) => (
               <View
                 key={item.key}
@@ -184,7 +184,7 @@ export default function ContactPage() {
         ) : null}
 
         {info.address ? (
-          <View className="bg-card rounded-lg border border-border overflow-hidden mb-[24rpx]">
+          <View className="bg-card rounded-lg overflow-hidden mb-[24rpx]">
             <View
               className="flex items-center p-[28rpx]"
               onClick={() => openLocation(info.address)}
@@ -210,7 +210,7 @@ export default function ContactPage() {
           </View>
         ) : null}
 
-        <View className="bg-card rounded-lg border border-border overflow-hidden mb-[24rpx]">
+        <View className="bg-card rounded-lg overflow-hidden mb-[24rpx]">
           <View className="flex justify-between items-center py-[28rpx] px-[28rpx]">
             <Text className="text-body text-[var(--color-text-medium)]">
               {tt('about.contact.workTimeLabel', '工作时间')}
