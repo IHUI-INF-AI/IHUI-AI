@@ -128,7 +128,7 @@
     "eslint": "catalog:",
     "eslint-config-next": "16.3.4",
     "eslint-plugin-jsx-a11y": "^6.10.2",
-    "happy-dom": "^20.11.1",
+    "happy-dom": "^21.0.4",
     "jsdom": "^30.0.1",
     "postcss": "^8.4.49",
     "rimraf": "catalog:",
