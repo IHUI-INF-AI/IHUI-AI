@@ -45,7 +45,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw, catBatchOids, catBatch } from './lib/face-reader.mjs'
 // 部分回退判据**不在这份文件里重写**(§0.6):删占比那一把尺唯一的家住在收编器,
 // 两臂(工作树面 / 提交面)量的是同一种损坏,分叉成两份判据迟早会一面拦一面放。
-import { isPartialRevert, minusCount } from './auto-commit-quiet.mjs'
+import { isPartialRevert, minusCount } from './lib/revert-metrics.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const STATE_DIR = join(ROOT, '.ihui-agent', 'state')

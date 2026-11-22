@@ -220,7 +220,7 @@ test('M11 第二臂反控:正文取不到 ⇒ 不判(§0.3);小改与"删了也�
 })
 
 test('M12 单源锁:第二臂不许在这份文件里重写阈值(§0.6,两臂量的是同一种损坏)', () => {
-  assert.match(SRC, /from '\.\/auto-commit-quiet\.mjs'/, '部分回退判据必须 import 收编器那把尺')
+  assert.match(SRC, /from '\.\/lib\/revert-metrics\.mjs'/, '部分回退判据必须 import 共用度量那把尺')
   assert.match(SRC, /isPartialRevert\(/)
   // 阈值数字只许住在收编器:这里出现第二份 = 两面迟早一面拦一面放
   assert.doesNotMatch(SRC, /\* 8 <= |\*\s*4\s*<=\s*removed|removed >= 15/, '调用点复写阈值数字')

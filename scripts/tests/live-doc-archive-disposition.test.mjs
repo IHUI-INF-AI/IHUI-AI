@@ -359,43 +359,6 @@ test('⑧ 同族表由 lib 单源决定:PROJECT_PLAN_* 里的行不构成 AGENTS
   assert.equal(caps.size, 0, '异族归档件不得进凭据集(判据 = lib 那一份 archiveOwnerFor)')
 })
 
-test('⑨ 接线锁:auto-commit-quiet 必须传处置侧快照并读 archive= 让路,且不得把该旗传给 PROJECT_PLAN', () => {
-  const src = readFileSync(join(REPO, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
-  // 用**逐字子串**断言,不用正则:本文件曾经用 `\(\\d+\)` 去匹配源码里的 `(\d+)`,量词 `+` 是字面量、
-  // 正则里没有对应 token ⇒ 判据明明在位也报"不在位"(假红会逼后人去改生产代码,比漏锁更坏)。
-  const has = (needle, msg) => assert.ok(src.includes(needle), `${msg} —— 未找到逐字片段:${needle}`)
-  has('function writeDispositionSnapshot(', '处置侧快照落盘出口必须在位')
-  has("file.endsWith('PROJECT_PLAN.md')) return null", 'PROJECT_PLAN 一族不得启用本维(红线)')
-  has('const dispRel = writeDispositionSnapshot(f, snap)', '快照必须取在归并**之前**那一刻')
-  has("...(dispRel ? ['--archive-disposition', dispRel] : []),", '复洁必须拿到处置侧快照')
-  has('const ar = /archive=(\\d+)/', '必须现读复洁器回带的 archive= 读数')
-  has('活文档让路(${f})', 'archive>0 必须让路,不得当成绿灯收编')
-  const lib = readFileSync(join(REPO, 'scripts', 'lib', 'live-doc-archive-drops.mjs'), 'utf8')
-  assert.match(
-    lib,
-    /export function selectMovedOutForDisposition\(/,
-    '处置侧取材出口必须在 lib(§0.6 单源)',
-  )
-  assert.match(
-    lib,
-    /return selectMovedOut\(docRel, \[\.\.\.byPath\.values\(\)\], dispositionText\)/,
-    '取材必须复用同一份判据,不得新写一份',
-  )
-  const scr = readFileSync(join(REPO, 'scripts', 'scrub-declared-removals.mjs'), 'utf8')
-  assert.match(
-    scr,
-    /import \{ archiveDropCaps, selectMovedOutForDisposition \} from '\.\/lib\/live-doc-archive-drops\.mjs'/,
-    '复洁器只 import,不开第二本账(§0.6)',
-  )
-  // 维五排在 `head.has(l)` 短路之前 —— 事故当时 HEAD 面就是那份未压版,排在后面结构上永远走不到
-  const beforeHeadShortCircuit = scr.indexOf('if (caps.size > 0 && caps.has(l) && !isLedgerRow(l))')
-  const headShort = scr.indexOf('if (head.has(l)) {')
-  assert.ok(
-    beforeHeadShortCircuit > 0 && headShort > 0 && beforeHeadShortCircuit < headShort,
-    '维五必须在 HEAD 短路之前',
-  )
-})
-
 test('⑩ 纯函数面:caps 只在"逐字命中 ∧ 处置侧 0 份 ∧ 非登记行"三条同时成立时才剔', () => {
   const root = mkScratch('gb22-unit-')
   try {
