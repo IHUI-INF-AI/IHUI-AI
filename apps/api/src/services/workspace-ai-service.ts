@@ -4411,11 +4411,23 @@ class FSBridge {
     maxFiles?: number
     /** 真大小写敏感（默认不敏感，与既有行为一致） */
     caseSensitive?: boolean
+    /** 命中行前后各带几行上下文（0-5；2026-11-23 对齐代码搜索） */
+    contextLines?: number
   }): {
-    matches?: Array<{ file: string; line: number; content: string }>
+    matches?: Array<{
+      file: string
+      line: number
+      content: string
+      before?: Array<{ line: number; content: string }>
+      after?: Array<{ line: number; content: string }>
+    }>
     files?: string[]
     counts?: Record<string, number>
     total: number
+    /** 与 total 同口径的精确省略数;exact=false 时只是下界。 */
+    omitted: number
+    totalMatches: number
+    exact: boolean
     truncated: boolean
   } {
     // ReDoS 运行闸(2026-10-31 安全强化第 11 批):主线程同步正则,超长 pattern 直接拒绝
@@ -4434,21 +4446,45 @@ class FSBridge {
       : new RegExp(params.pattern, 'i')
     const globRe = params.glob ? this.globToRegex(params.glob) : null
     const mode = params.outputMode ?? 'content'
-    const matches: Array<{ file: string; line: number; content: string }> = []
+    const contextLines = Math.min(5, Math.max(0, Math.trunc(Number(params.contextLines ?? 0)) || 0))
+    const matches: Array<{
+      file: string
+      line: number
+      content: string
+      before?: Array<{ line: number; content: string }>
+      after?: Array<{ line: number; content: string }>
+    }> = []
     const fileMatches: string[] = []
     const counts: Record<string, number> = {}
     const budget = {
       maxMatches: params.maxMatches ?? Number.POSITIVE_INFINITY,
       perFileMatches: params.perFileMatches ?? Number.POSITIVE_INFINITY,
       maxFiles: params.maxFiles ?? Number.POSITIVE_INFINITY,
-      exhausted: false,
+      omitted: 0,
+      omittedFiles: 0,
+      scanned: 0,
+      exact: true,
       truncated: false,
     }
-    this.walkGrep(root, root, regex, globRe, matches, fileMatches, counts, budget)
+    this.walkGrep(
+      root,
+      root,
+      regex,
+      globRe,
+      matches,
+      fileMatches,
+      counts,
+      budget,
+      mode,
+      contextLines,
+    )
     if (mode === 'files_with_matches') {
       return {
         files: fileMatches,
         total: fileMatches.length,
+        omitted: budget.omittedFiles,
+        totalMatches: fileMatches.length + budget.omittedFiles,
+        exact: budget.exact,
         truncated: budget.truncated,
       }
     }
@@ -4456,10 +4492,20 @@ class FSBridge {
       return {
         counts,
         total: Object.keys(counts).length,
+        omitted: budget.omittedFiles,
+        totalMatches: Object.keys(counts).length + budget.omittedFiles,
+        exact: budget.exact,
         truncated: budget.truncated,
       }
     }
-    return { matches, total: matches.length, truncated: budget.truncated }
+    return {
+      matches,
+      total: matches.length,
+      omitted: budget.omitted,
+      totalMatches: matches.length + budget.omitted,
+      exact: budget.exact,
+      truncated: budget.truncated,
+    }
   }
 
   glob(params: {
@@ -4703,18 +4749,29 @@ class FSBridge {
     dir: string,
     regex: RegExp,
     globRe: RegExp | null,
-    matches: Array<{ file: string; line: number; content: string }>,
+    matches: Array<{
+      file: string
+      line: number
+      content: string
+      before?: Array<{ line: number; content: string }>
+      after?: Array<{ line: number; content: string }>
+    }>,
     fileMatches: string[],
     counts: Record<string, number>,
     budget: {
       maxMatches: number
       perFileMatches: number
       maxFiles: number
-      exhausted: boolean
+      omitted: number
+      omittedFiles: number
+      scanned: number
+      exact: boolean
       truncated: boolean
     },
+    mode: 'content' | 'files_with_matches' | 'count',
+    contextLines: number,
   ): void {
-    if (budget.exhausted) return
+    if (!budget.exact) return
     let entries: string[]
     try {
       entries = readdirSync(dir)
@@ -4722,7 +4779,11 @@ class FSBridge {
       return
     }
     for (const name of entries) {
-      if (budget.exhausted) return
+      if (!budget.exact) return
+      if (budget.scanned++ >= MAX_GLOB_SCAN_ENTRIES) {
+        budget.exact = false
+        return
+      }
       if (IGNORE_DIRS.has(name)) continue
       const full = join(dir, name)
       let st
@@ -4732,7 +4793,18 @@ class FSBridge {
         continue
       }
       if (st.isDirectory()) {
-        this.walkGrep(root, full, regex, globRe, matches, fileMatches, counts, budget)
+        this.walkGrep(
+          root,
+          full,
+          regex,
+          globRe,
+          matches,
+          fileMatches,
+          counts,
+          budget,
+          mode,
+          contextLines,
+        )
       } else if (st.isFile()) {
         if (globRe && !globRe.test(name)) continue
         if (st.size > MAX_FILE_SIZE) continue
@@ -4748,24 +4820,44 @@ class FSBridge {
         let count = 0
         const lines = content.split('\n')
         for (let idx = 0; idx < lines.length; idx++) {
-          if (budget.exhausted) break
-          if (count >= budget.perFileMatches) {
-            budget.truncated = true
-            break
-          }
           const line = lines[idx] ?? ''
           if (line.length > FSBridge.MAX_GREP_LINE_LENGTH) continue
           if (!regex.test(line)) continue
           count++
-          if (matches.length >= budget.maxMatches) {
-            budget.exhausted = true
-            budget.truncated = true
-            break
+          // 达到上限后继续扫完:把"漏了多少条"数出来,不把 collected 当 total。
+          if (mode === 'content') {
+            if (matches.length >= budget.maxMatches || count > budget.perFileMatches) {
+              budget.omitted++
+              budget.truncated = true
+              continue
+            }
+            const before: Array<{ line: number; content: string }> = []
+            const after: Array<{ line: number; content: string }> = []
+            if (contextLines > 0) {
+              for (let j = Math.max(0, idx - contextLines); j < idx; j++) {
+                before.push({
+                  line: j + 1,
+                  content: (lines[j] ?? '').slice(0, FSBridge.MAX_GREP_LINE_LENGTH),
+                })
+              }
+              for (let j = idx + 1; j <= Math.min(lines.length - 1, idx + contextLines); j++) {
+                after.push({
+                  line: j + 1,
+                  content: (lines[j] ?? '').slice(0, FSBridge.MAX_GREP_LINE_LENGTH),
+                })
+              }
+            }
+            matches.push({
+              file: relPath,
+              line: idx + 1,
+              content: line,
+              ...(contextLines > 0 ? { before, after } : {}),
+            })
           }
-          matches.push({ file: relPath, line: idx + 1, content: line })
         }
         if (count > 0) {
           if (fileMatches.length >= budget.maxFiles) {
+            budget.omittedFiles++
             budget.truncated = true
           } else {
             fileMatches.push(relPath)
@@ -4938,13 +5030,17 @@ agentLoop.registerTool({
   name: 'grep',
   description:
     '在目录里按正则搜内容（默认不区分大小写）：content 回命中行，files_with_matches 回文件清单，count 回每文件条数。' +
-    '跳过 node_modules 等忽略目录与二进制/超大文件；默认最多 100 条命中、单文件最多 20 条，' +
-    '回包带 {ok,total,truncated} 与续查指引',
+    '可传 contextLines=0-5 带上下文；跳过 node_modules 等忽略目录与二进制/超大文件；' +
+    '默认最多 100 条命中、单文件最多 20 条，回包带 {ok,total,omitted,totalMatches,exact,truncated} 与续查指引',
   execute: async (args) => {
     const limit = readLimitArg(args['limit'], GREP_DEFAULT_LIMIT, GREP_HARD_LIMIT)
     const mode = String(args['outputMode'] ?? 'content')
     const outputMode: 'content' | 'files_with_matches' | 'count' =
       mode === 'files_with_matches' || mode === 'count' ? mode : 'content'
+    const rawContext = Number(args['contextLines'] ?? Number.NaN)
+    const contextLines = Number.isFinite(rawContext)
+      ? Math.min(5, Math.max(0, Math.trunc(rawContext)))
+      : 0
     const result = fsBridge.grep({
       path: String(args['path'] ?? '.'),
       workspacePath: String(args['workspacePath'] ?? process.cwd()),
@@ -4953,10 +5049,14 @@ agentLoop.registerTool({
       outputMode,
       maxMatches: GREP_SCAN_MATCHES,
       perFileMatches: GREP_PER_FILE_MATCHES,
+      maxFiles: GREP_SCAN_MATCHES,
       caseSensitive: args['caseSensitive'] === true,
+      contextLines,
     })
+    const exact = result.exact
     const narrowHint =
-      `共 ${result.total} ${outputMode === 'content' ? '条命中' : '个文件'}，仅返回前 ${limit} 个；` +
+      `共 ${result.totalMatches} ${outputMode === 'content' ? '条命中' : '个文件'}，仅返回前 ${limit} 个；` +
+      (exact ? '' : '扫描条目已达上限，总数只是下界；') +
       '收窄 path 或加 glob 过滤、提高 limit（上限 ' +
       `${GREP_HARD_LIMIT}），或先用 outputMode=files_with_matches 定位文件。`
     if (outputMode === 'files_with_matches') {
@@ -4966,6 +5066,9 @@ agentLoop.registerTool({
         ok: true,
         mode: outputMode,
         total: files.length,
+        omitted: result.omitted,
+        totalMatches: result.totalMatches,
+        exact,
         truncated,
         files: files.slice(0, limit),
         ...(truncated ? { hint: narrowHint } : {}),
@@ -4979,6 +5082,9 @@ agentLoop.registerTool({
         ok: true,
         mode: outputMode,
         total: entries.length,
+        omitted: result.omitted,
+        totalMatches: result.totalMatches,
+        exact,
         truncated,
         counts: Object.fromEntries(entries.slice(0, limit)),
         ...(truncated ? { hint: narrowHint } : {}),
@@ -4990,6 +5096,9 @@ agentLoop.registerTool({
       ok: true,
       mode: outputMode,
       total: matches.length,
+      omitted: result.omitted,
+      totalMatches: result.totalMatches,
+      exact,
       truncated,
       matches: matches.slice(0, limit),
       ...(truncated ? { hint: narrowHint } : {}),

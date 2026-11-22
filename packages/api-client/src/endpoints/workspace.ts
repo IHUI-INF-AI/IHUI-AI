@@ -298,6 +298,25 @@ export async function deleteFile(params: {
   })
 }
 
+export interface WorkspaceGrepMatch {
+  file: string
+  line: number
+  content: string
+  before?: Array<{ line: number; content: string }>
+  after?: Array<{ line: number; content: string }>
+}
+
+export interface WorkspaceGrepResult {
+  matches?: WorkspaceGrepMatch[]
+  files?: string[]
+  counts?: Record<string, number>
+  total: number
+  omitted: number
+  totalMatches: number
+  exact: boolean
+  truncated: boolean
+}
+
 /** 文件内容搜索(grep,3 种 outputMode) */
 export async function grepFiles(params: {
   workspacePath: string
@@ -305,8 +324,13 @@ export async function grepFiles(params: {
   path?: string
   glob?: string
   outputMode?: 'content' | 'files_with_matches' | 'count'
-}): Promise<ApiResult<{ results: unknown }>> {
-  return fetchApi<{ results: unknown }>('/api/workspace/fs/grep', {
+  maxMatches?: number
+  perFileMatches?: number
+  maxFiles?: number
+  caseSensitive?: boolean
+  contextLines?: number
+}): Promise<ApiResult<WorkspaceGrepResult>> {
+  return fetchApi<WorkspaceGrepResult>('/api/workspace/fs/grep', {
     method: 'POST',
     body: JSON.stringify(params),
   })

@@ -164,6 +164,13 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 落点：`SandboxExecutor.execute` / `FSBridge.run` 返回结构化超时；`/fs/run` 与 `run_command` 自动带出；`packages/api-client` 新增 `WorkspaceCommandRunResult`（`exitCode` 诚实为 `number | null`）。
 - 测试：`workspace-fs-ops.test.ts` 8 passed（含 deadline 映射与"正常完成不标超时"对照）；`@ihui/api` 9/9 + `@ihui/api-client` + `@ihui/web` 8/8 typecheck 全绿。
 
+## 追加批（同日）：grep 精确省略数 + 上下文行，并修好源码搜索面板的空结果
+
+- 从 DSH 精确省略数继续下推：`FSBridge.grep` 三种模式（content / files_with_matches / count）都带 `omitted` / `totalMatches` / `exact`；达到 `maxMatches` / `perFileMatches` / `maxFiles` 后不中断扫描，继续数出未返回的条数，扫描条目到 50000 时 `exact=false` 只报下界。
+- 新增 `contextLines=0-5`：命中行回 `before` / `after` 行号与内容，单行仍受 10KB 上限；`/fs/grep` 补齐 `maxMatches/perFileMatches/maxFiles/caseSensitive/contextLines` 入参，`grep` 工具同步回新字段。
+- 修真实前端 bug：`packages/api-client` 的 `grepFiles` 原先声明成 `{ results: unknown }`，而服务端返回的是直接结果 ⇒ 源码搜索面板读 `data.results` 恒 undefined，搜索结果永远空白。现改为 `WorkspaceGrepResult` 并让面板读 `data.matches`；测试 mock 也从错误的 `{results}` 改成服务端真实形状。
+- 测试：`workspace-fs-ops.test.ts` 9 passed（新增"3 条命中只回 2 条 ⇒ omitted=1 / totalMatches=3 / exact=true"与上下文行断言）；`search-panel.test.tsx` 9 passed；三包 typecheck 13/13 success。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

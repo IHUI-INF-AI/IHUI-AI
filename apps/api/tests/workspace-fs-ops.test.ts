@@ -102,6 +102,34 @@ describe('FSBridge mkdir/move/stat', () => {
     expect(hit.exact).toBe(true)
   })
 
+  it('grep 达到上限后数出精确省略数并按需带上下文', () => {
+    fsBridge.write({
+      path: 'grep/ctx.txt',
+      workspacePath: root,
+      content: 'alpha\nbravo\nhit-one\ndelta\necho',
+    })
+    fsBridge.write({
+      path: 'grep/two.txt',
+      workspacePath: root,
+      content: 'hit-two\nhit-three',
+    })
+    const result = fsBridge.grep({
+      path: 'grep',
+      workspacePath: root,
+      pattern: 'hit',
+      maxMatches: 2,
+      perFileMatches: 2,
+      contextLines: 1,
+    })
+    expect(result.matches).toHaveLength(2)
+    expect(result.omitted).toBe(1)
+    expect(result.totalMatches).toBe(3)
+    expect(result.exact).toBe(true)
+    expect(result.truncated).toBe(true)
+    expect(result.matches?.[0]?.before).toEqual([{ line: 2, content: 'bravo' }])
+    expect(result.matches?.[0]?.after).toEqual([{ line: 4, content: 'delta' }])
+  })
+
   it('截止先到回结构化 TOOL_TIMEOUT,不把未判定伪装成失败退出码', () => {
     const verdict = settleSandboxJob({
       timeoutMs: 1000,

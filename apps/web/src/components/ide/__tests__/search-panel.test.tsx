@@ -81,7 +81,10 @@ describe('SearchPanel', () => {
   })
 
   it('输入并回车触发 grepFiles', async () => {
-    grepMock.grepFiles.mockResolvedValue({ success: true, data: { results: [] } })
+    grepMock.grepFiles.mockResolvedValue({
+      success: true,
+      data: { total: 0, omitted: 0, totalMatches: 0, exact: true, truncated: false, matches: [] },
+    })
     const { getByPlaceholderText } = render(<SearchPanel />)
     const input = getByPlaceholderText('searchPanel.searchPlaceholder')
     fireEvent.change(input, { target: { value: 'foo' } })
@@ -100,7 +103,12 @@ describe('SearchPanel', () => {
     grepMock.grepFiles.mockResolvedValue({
       success: true,
       data: {
-        results: [
+        total: 2,
+        omitted: 0,
+        totalMatches: 2,
+        exact: true,
+        truncated: false,
+        matches: [
           { file: '/ws/src/app.ts', line: 10, content: 'const foo = 1' },
           { file: '/ws/src/app.ts', line: 20, content: 'foo()' },
         ],
@@ -119,7 +127,10 @@ describe('SearchPanel', () => {
   })
 
   it('搜索无结果时显示 noResults', async () => {
-    grepMock.grepFiles.mockResolvedValue({ success: true, data: { results: [] } })
+    grepMock.grepFiles.mockResolvedValue({
+      success: true,
+      data: { total: 0, omitted: 0, totalMatches: 0, exact: true, truncated: false, matches: [] },
+    })
     const { getByPlaceholderText, getByText } = render(<SearchPanel />)
     const input = getByPlaceholderText('searchPanel.searchPlaceholder')
     fireEvent.change(input, { target: { value: 'foo' } })
@@ -130,7 +141,14 @@ describe('SearchPanel', () => {
   it('清空搜索框后不再显示结果', async () => {
     grepMock.grepFiles.mockResolvedValue({
       success: true,
-      data: { results: [{ file: '/ws/app.ts', line: 1, content: 'foo' }] },
+      data: {
+        total: 1,
+        omitted: 0,
+        totalMatches: 1,
+        exact: true,
+        truncated: false,
+        matches: [{ file: '/ws/app.ts', line: 1, content: 'foo' }],
+      },
     })
     const { getByPlaceholderText, queryByText } = render(<SearchPanel />)
     const input = getByPlaceholderText('searchPanel.searchPlaceholder') as HTMLInputElement

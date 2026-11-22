@@ -68,7 +68,7 @@ function groupByFile(results: SearchResult[]): Map<string, SearchResult[]> {
   return map
 }
 
-/** 解析 grepFiles 返回的 results(unknown 类型,做类型断言) */
+/** 解析 grepFiles 的 matches(类型收窄后仍按 unknown 防御) */
 function parseGrepResults(raw: unknown): SearchResult[] {
   if (!Array.isArray(raw)) return []
   const out: SearchResult[] = []
@@ -161,7 +161,7 @@ export function SearchPanel() {
         glob: fileType !== 'all' ? `*.${fileType}` : undefined,
       })
       if (result.success) {
-        setResults(parseGrepResults(result.data.results))
+        setResults(parseGrepResults(result.data.matches))
       } else {
         setResults([])
       }

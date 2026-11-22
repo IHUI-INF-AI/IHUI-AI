@@ -353,6 +353,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         pattern: z.string().max(200),
         glob: z.string().optional(),
         outputMode: z.string().optional(),
+        maxMatches: z.number().int().min(1).max(5000).optional(),
+        perFileMatches: z.number().int().min(1).max(1000).optional(),
+        maxFiles: z.number().int().min(1).max(5000).optional(),
+        caseSensitive: z.boolean().optional(),
+        contextLines: z.number().int().min(0).max(5).optional(),
       })
       .parse(request.body)
     if (!body.path || !body.workspacePath || !body.pattern)
