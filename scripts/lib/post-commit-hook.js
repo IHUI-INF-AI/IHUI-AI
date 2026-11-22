@@ -203,13 +203,13 @@ try {
 // 台账新语义 = 活队列:`- [x]` 翻勾后即可删行,守门 71 判据已同步改为"已勾行不进保护集"
 // (markerOf 顶部),删除不再被判丢、也不被回捞。`pnpm archive` 手动入口一并摘除。
 
-// ─── 3. 自动 push guard(AGENTS.md §20, 2026-07-20 立) ──────
+// ─── 3. 自动 push guard(AGENTS.md §20, 2026-07-20 立;2026-11-22 改为 opt-in)─────
 // 背景: 历史上多次出现 agent "commit 后忘记 push" 协作事故。
-// 任何 `git commit` 成功后, 自动检测本地 ahead, 立即推送, 并验证 local == remote HEAD。
-// 跳过: HUSKY_SKIP_PUSH=1(紧急本地暂存场景, 不推荐)
-if (process.env.HUSKY_SKIP_PUSH === '1') {
-  console.log('⚠️  HUSKY_SKIP_PUSH=1 — 已跳过自动 push(commit 仅落地本地, 需手动 git push)')
-} else {
+// 2026-11-22 用户定案:仓库不再保留历史,所有推送必须由收尾人显式执行 ——
+// 自动 push 会在提交后立刻把未复核内容(以及 tag-sync 生成的 lost-commit tag)
+// 送上远端,是"瘦身后又长回去"的通道之一。故默认**不再自动 push**;
+// 仅显式 HUSKY_AUTO_PUSH=1 时保留旧行为,供特殊场景人工开启。
+if (process.env.HUSKY_AUTO_PUSH === '1') {
   const ok = runLogged('post-commit-push-guard', 'node scripts/git-push-guard.mjs')
   if (!ok) {
     console.error('❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)')
@@ -217,6 +217,10 @@ if (process.env.HUSKY_SKIP_PUSH === '1') {
     console.error('   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log')
     process.exit(1)
   }
+} else {
+  console.log(
+    'ℹ️  post-commit 自动 push 已停用(2026-11-22 定案):提交只落本地,推送由收尾人显式执行;紧急开启:HUSKY_AUTO_PUSH=1',
+  )
 }
 
 // ─── 4. 项目外污染巡查 + 自动清理(2026-07-24 立, AGENTS.md §15 运行时禁令) ──
@@ -228,22 +232,12 @@ if (process.env.HUSKY_SKIP_HYGIENE !== '1') {
   runLogged('post-commit-pollution', 'node scripts/check-parent-pollution.mjs --auto-clean --quiet')
 }
 
-// ─── 5. Lost commit tag 自动同步(2026-07-26 立, AGENTS.md §22 + docs/lost-commit-archive.md) ─
-// 背景: 2026-07-26 真实事故: 本地 lost-commit/* tag 被 git gc 清理, 远端虽有但 fetch 失败。
-//       关键教训: tag 必须主动 push + 主动 fetch, 否则 git gc 14 天后丢失。
-// 机制: commit 后把"远端缺失"的 tag 增量推送到 origin(2026-10-14 起覆盖**全部命名空间**;分块 --atomic)。
-// 跳过: HUSKY_SKIP_TAG_SYNC=1(紧急场景)
-// 非阻塞: push 失败不阻断 commit(已落地)和 push(已由第 3 段 git-push-guard 处理)
-//
-// 2026-09-17 根治(用户反馈"推送早就完成了,终端却一直挂着等"):
-//   旧行为 = 每次 commit 后**全量**同步 `git push --atomic`(约 5000 个 tag),
-//   耗时 10~15 分钟,把 post-commit 阻塞成"假死";外层 shell 任务因此迟迟不退出。
-//   新行为 = ①脚本内部只推远端缺失项(通常 0~3 个,秒级)+ 限流标记;
-//            ②此处再加 60s 硬上限 —— 无论远端多慢/网络多差,该段最多占用 60s
-//              即结束,绝不阻塞提交与后续流程。
-//   2026-09-23 附注:硬上限现在直接杀该 node 进程本身(execSync timeout),
-//   不再像旧版那样只杀 wscript 而把 cmd/node 子进程留在后台跑完。
-if (process.env.HUSKY_SKIP_TAG_SYNC !== '1') {
+// ─── 5. Lost commit tag 自动同步(2026-07-26 立;2026-11-22 永久停用)─────────────
+// 2026-11-22 用户定案:本仓不再保留历史。`sync-lost-commit-tags --auto-push` 会
+// 自动创建并推送 lost-commit/* tag,把已移出的旧提交钉回对象库 —— 这正是仓库从
+// 129MB 长回 892MB 的通道之一。默认**不再执行**;仅显式 HUSKY_ENABLE_TAG_SYNC=1
+// 时保留旧行为(且 reference-transaction 仍会拒绝创建该命名空间)。
+if (process.env.HUSKY_ENABLE_TAG_SYNC === '1') {
   const ok = runLogged(
     'post-commit-tag-sync',
     'node scripts/sync-lost-commit-tags.mjs --auto-push',
@@ -254,6 +248,8 @@ if (process.env.HUSKY_SKIP_TAG_SYNC !== '1') {
       '⚠️  tag 同步超时/失败(非阻塞, commit 已落地并 push 到 branch; 需补推时: node scripts/sync-lost-commit-tags.mjs --auto-push --force)',
     )
   }
+} else {
+  console.log('ℹ️  lost-commit tag 自动同步已永久停用(2026-11-22 定案):本仓不保留历史')
 }
 
 // ─── 7. 快档延后守门补跑(2026-10-21 立,配合 pre-commit 的 35s 硬预算)────────────

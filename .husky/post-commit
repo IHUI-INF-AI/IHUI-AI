@@ -31,5 +31,5 @@ if [ "$HUSKY_POST_COMMIT_SYNC" = "1" ]; then
   }
 else
   wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" >/dev/null 2>&1 &
-  printf '%s\n' "⏱  post-commit 已转入后台(push-guard / tag-sync / plan-heal);日志 .ihui-agent/state/hook-logs/post-commit*.log"
+  printf '%s\n' "⏱  post-commit 已转入后台(push-guard=手动 / tag-sync=停用 / plan-heal);日志 .ihui-agent/state/hook-logs/post-commit*.log"
 fi

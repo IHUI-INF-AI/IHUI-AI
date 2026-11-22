@@ -90,6 +90,9 @@ const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 // 判据只拦"新增"与"异常膨胀",不惩罚存量(存量由本轮清理一次性清偿)。
 const BYTE_ADD_LIMIT = 2 * 1024 * 1024 // 新增文件 > 2MB 拦截
 const BYTE_ANY_LIMIT = 20 * 1024 * 1024 // 任意暂存文件 > 20MB 拦截(存量变大也不许)
+// 单次提交总量:防"30 个 1.9MB 文件"绕过单文件 2MB 阈值。总量闸与 pre-push 的
+// HEAD 450MB 预算互补:后者按仓库总量,前者在提交落库前就拦住单批膨胀。
+const STAGED_TOTAL_LIMIT = 50 * 1024 * 1024
 const LARGE_ALLOWLIST = [
   /^packages\/database\/drizzle\/meta\//, // 生成快照,单文件 ~1.9MB
   /^apps\/desktop\/src-tauri\/icons\//, // 应用图标
@@ -128,17 +131,22 @@ function auditStagedBytes() {
     process.exit(2)
   }
   const violations = []
+  let totalStaged = 0
   for (const { status, path: f, oldPath } of files) {
     if (FORBIDDEN_STAGED.some((re) => re.test(f))) {
       violations.push({ f, why: '禁止入库的生成物/缓存/密钥路径' })
       continue
     }
+    // 必须量**索引里的 blob**,不能量工作树文件:git commit 只认索引,先 `git add`
+    // 一个 100MB 文件再把工作树截成 1KB,量工作树就会放行这枚 100MB 提交。
     let size = 0
     try {
-      size = statSync(join(ROOT, f)).size
+      size = Number(gitRaw(['cat-file', '-s', `:${f}`], ROOT).trim())
     } catch {
-      continue // 暂存后工作树被删,按索引取不到大小;不据此放行别项
+      violations.push({ f, why: '取不到索引 blob 大小 ⇒ 未判定(拒绝放行)' })
+      continue
     }
+    totalStaged += size
     if (size > BYTE_ANY_LIMIT) {
       violations.push({ f, why: `单文件 ${(size / 1048576).toFixed(1)}MB > 20MB` })
       continue
@@ -162,6 +170,12 @@ function auditStagedBytes() {
         why: `单文件从 ${(oldSize / 1048576).toFixed(1)}MB 涨到 ${(size / 1048576).toFixed(1)}MB(增量 > 2MB)`,
       })
     }
+  }
+  if (totalStaged > STAGED_TOTAL_LIMIT) {
+    violations.push({
+      f: '(本次暂存总量)',
+      why: `累计 ${(totalStaged / 1048576).toFixed(1)}MB > 50MB`,
+    })
   }
   if (violations.length > 0) {
     console.error(
