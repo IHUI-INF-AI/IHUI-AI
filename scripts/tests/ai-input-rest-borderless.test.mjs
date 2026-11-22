@@ -50,4 +50,21 @@ test('小程序 AI 输入壳静息不画描边(聚焦由 useFieldFocus 墨色覆
   const block = cssBlock(css, '.search-box-bor')
   assert.match(block, /border:\s*1px solid transparent/)
 })
+
+test('web AI 输入卡:静息透明,聚焦取墨档单源 --color-stroke-focus(不随强调色变紫)', () => {
+  const css = read('apps/web/app/globals.css')
+  const shell = cssBlock(css, '.ai-input-shell {')
+  assert.match(shell, /border-color:\s*transparent/)
+
+  const idleFocus = cssBlock(css, '.ai-input-shell--idle:focus-within')
+  assert.match(idleFocus, /border-color:\s*var\(--color-stroke-focus\)/)
+  assert.match(idleFocus, /box-shadow:\s*none/)
+  // --color-primary 会被 data-accent 覆盖成紫/绿/蓝;聚焦环必须跨主题恒定黑白。
+  assert.doesNotMatch(idleFocus, /--color-primary/)
+  assert.doesNotMatch(idleFocus, /chart-5|8b5cf6|violet/)
+
+  const highRiskFocus = cssBlock(css, '.ai-input-shell--high-risk:focus-within')
+  assert.match(highRiskFocus, /border-color:\s*var\(--color-stroke-focus\)/)
+  assert.doesNotMatch(highRiskFocus, /--color-primary/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

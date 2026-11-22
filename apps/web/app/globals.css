@@ -1452,6 +1452,9 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  *
  * 聚焦态取墨档 = AGENTS §4「描边不得取墨档」的**唯一例外位**(2026-09-30 用户定档):
  * 「当前正在输入哪个框」要一眼可见,而守门 83 的 R8 按"选择器带 :focus* 伪类"认这一位合法。
+ * 墨档的唯一源是 `--color-stroke-focus`(亮纯黑 / 暗纯白),**不是** `--color-primary` ——
+ * 后者会被 `html[data-accent='violet']` 等强调色档整体覆盖(紫/绿/蓝),聚焦环会跟着变紫,
+ * 正是 2026-11-23 用户实报的「紫色发光」。聚焦环必须跨主题恒定黑白,与登录框/RN/小程序同源。
  * 分支互斥仍由 JSX 决定(dragging > high-risk > idle),所以各态取用不同修饰类,不做状态叠加假设。
  *
  * 高风险态不得用暖色描边表达(2026-10-20 用户定档,取代此前的 amber-500 50%/70%):
@@ -1466,14 +1469,14 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
   border-color: transparent;
 }
 .ai-input-shell--idle:focus-within {
-  border-color: var(--color-primary);
+  border-color: var(--color-stroke-focus);
   box-shadow: none;
 }
 .ai-input-shell--high-risk {
   border-color: var(--color-border-medium);
 }
 .ai-input-shell--high-risk:focus-within {
-  border-color: var(--color-primary);
+  border-color: var(--color-stroke-focus);
 }
 .ai-input-shell--dragging {
   border-color: var(--color-brand-accent-deep);

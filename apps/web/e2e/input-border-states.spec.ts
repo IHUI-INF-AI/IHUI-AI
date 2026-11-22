@@ -23,7 +23,9 @@ import type { Page } from '@playwright/test'
  *
  * 三条不可漂的口径(2026-11-23 用户定档:静息无描边,聚焦只留一圈墨档):
  *  1. 静止态必须透明 —— 输入卡只要填充底,不要常驻灰框;`--color-input` 不再参与这一层。
- *  2. 聚焦态必须等于 `--color-primary`(墨档)= AGENTS §4「描边不得取墨档」的唯一例外位。
+ *  2. 聚焦态必须等于 `--color-stroke-focus`(墨档唯一源)= AGENTS §4「描边不得取墨档」的唯一例外位。
+ *     **不得取 `--color-primary`**:该变量会被 `html[data-accent='violet']` 等强调色档整体覆盖,
+ *     聚焦环会跟着变成紫/绿/蓝(2026-11-23 用户实报「紫色发光」的根因)。
  *  3. 带 transition 的属性必须用 `expect.poll` 读,不许"点完立刻读一次" —— 实测 150ms
  *     过渡会让瞬时读值拿到起点,把一个正常的实现判成回归(本仓已在此处白排查过一轮)。
  */
@@ -88,16 +90,16 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     expect(actual, '静止态仍有描边(应为透明,AI 输入卡只要填充底)').toBe(TRANSPARENT_BORDER)
   })
 
-  test('聚焦态描边取墨档 --color-primary(AGENTS §4 唯一例外位)', async ({
+  test('聚焦态描边取墨档 --color-stroke-focus(AGENTS §4 唯一例外位)', async ({
     authenticatedPage: page,
   }) => {
-    const ink = await resolveVar(page, '--color-primary')
+    const ink = await resolveVar(page, '--color-stroke-focus')
     await focusShell(page)
     // transition-[border-color] 150ms:立刻读一次会拿到过渡起点,必须 poll
     await expect
       .poll(() => borderOf(page, SHELL), {
         timeout: 3000,
-        message: '聚焦态描边未到 --color-primary',
+        message: '聚焦态描边未到 --color-stroke-focus',
       })
       .toBe(ink)
   })
@@ -113,13 +115,37 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     expect(highRisk, '高危态必须与静止态视觉区分(琥珀档),不得同色').not.toBe(idle)
     expect(dragging, '拖拽态不得与静止态同色').not.toBe(idle)
     expect(highRisk, '高危态不得与聚焦墨档同色(高危分支的 focus-within 另有其色)').not.toBe(
-      await resolveVar(page, '--color-primary'),
+      await resolveVar(page, '--color-stroke-focus'),
     )
+  })
+
+  test('强调色主题下聚焦环仍恒定黑白,不被 data-accent 染色', async ({
+    authenticatedPage: page,
+  }) => {
+    // violet 档把 --color-primary 覆盖成紫色;聚焦环必须仍取 --color-stroke-focus 纯黑。
+    await page.evaluate(() => {
+      document.documentElement.dataset.accent = 'violet'
+    })
+    const primary = await resolveVar(page, '--color-primary')
+    expect(primary, '前提失效: violet 档未覆盖 --color-primary').not.toBe('rgb(0, 0, 0)')
+
+    await focusShell(page)
+    await expect
+      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: 'violet 档聚焦环被染色' })
+      .toBe('rgb(0, 0, 0)')
+    expect(
+      await page.evaluate((sel) => getComputedStyle(document.querySelector(sel)!).boxShadow, SHELL),
+    ).toBe('none')
+
+    await page.evaluate(() => document.documentElement.classList.add('dark'))
+    await expect
+      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: 'violet 暗色档聚焦环应是纯白' })
+      .toBe('rgb(255, 255, 255)')
   })
 
   test('暗色档案:静止透明,聚焦取纯白墨档', async ({ authenticatedPage: page }) => {
     await page.evaluate(() => document.documentElement.classList.add('dark'))
-    const ink = await resolveVar(page, '--color-primary')
+    const ink = await resolveVar(page, '--color-stroke-focus')
 
     await expect
       .poll(() => probeClass(page, 'ai-input-shell--idle'), { timeout: 3000 })
@@ -130,7 +156,7 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
       .poll(() => borderOf(page, SHELL), { timeout: 3000, message: '暗色聚焦态描边未到纯白墨档' })
       .toBe(ink)
     // 墨档在暗色下必须随主题反转(否则暗底黑边 = 隐形)
-    expect(ink, '暗色档案下 --color-primary 必须是亮值').toBe('rgb(255, 255, 255)')
+    expect(ink, '暗色档案下 --color-stroke-focus 必须是亮值').toBe('rgb(255, 255, 255)')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
