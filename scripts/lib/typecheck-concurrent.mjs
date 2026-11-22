@@ -45,8 +45,22 @@ export const RESERVED_CPUS = 1
  * 结论:并发效率在 8 附近到顶(下限是 `@ihui/api` 单包冷跑),再往上只增加争用。
  * 这个上限**不削弱任何判据**(每包仍原脚本原样、输出逐字节保留、任包 rc≠0 整体非零),
  * 只改"同时开几个"。env `IHUI_TYPECHECK_CONCURRENCY` 仍可覆盖(排障/新机器复核用)。
+ *
+ * 2026-11-22 二次收窄(同日同机 i7-12700K 12核/20线程/31.8GB,同一批 14~15 包,单条流水线连测):
+ *
+ *   | 并发 | T1 墙钟 |
+ *   |----|----|
+ *   | 8 | 192.2s |
+ *   | 6 | 174.5s |
+ *   | **4** | **149.6s** |
+ *   | 3 | 160.4s |
+ *   | 2 | 217.9s |
+ *
+ * 曲线是**单峰**而不是单调 —— 说明瓶颈不是核数而是**内存带宽 + 单包串行下限**:
+ * 并发越高,`@ihui/api`(单包内两条 tsc 串行)被别人的缓存抖动拖得越慢,它的耗时直接就是墙钟
+ * (4 并发那轮 api=149.6s=墙钟)。故上限取 4 = 扫描最低点,两侧都回退。
  */
-export const MEASURED_MAX_TASKS = 8
+export const MEASURED_MAX_TASKS = 4
 
 /**
  * 算并发上限。env `IHUI_TYPECHECK_CONCURRENCY` 可显式覆盖(仅供夹具/排障;
@@ -74,7 +88,7 @@ export function resolveConcurrency({
   const limit = Math.max(1, Math.min(byCpu, byMem, measuredMax))
   return {
     limit,
-    basis: `逻辑核 ${cpuCount} → 上限 ${byCpu};内存 ${(totalMemBytes / 1024 ** 3).toFixed(1)}GB(每任务 ${(perTaskMemBytes / 1024 ** 3).toFixed(1)}GB、预留 ${(reservedMemBytes / 1024 ** 3).toFixed(1)}GB)→ 上限 ${byMem};实测最优上限 ${measuredMax}(2026-11-22 扫描 6/8/10/12/19);取小 = ${limit}`,
+    basis: `逻辑核 ${cpuCount} → 上限 ${byCpu};内存 ${(totalMemBytes / 1024 ** 3).toFixed(1)}GB(每任务 ${(perTaskMemBytes / 1024 ** 3).toFixed(1)}GB、预留 ${(reservedMemBytes / 1024 ** 3).toFixed(1)}GB)→ 上限 ${byMem};实测最优上限 ${measuredMax}(2026-11-22 扫描 2/3/4/6/8/19);取小 = ${limit}`,
   }
 }
 

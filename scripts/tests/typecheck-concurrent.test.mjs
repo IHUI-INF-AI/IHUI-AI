@@ -112,19 +112,19 @@ test('C2 一个包失败不得中断其它包;每包 rc 与 error TS 原文完�
 })
 
 test('C3 并发上限由核数/内存推导,不写死;env 只做显式覆盖', () => {
-  // 2026-11-22 立:实测最优上限 8 —— 20 核 / 64GB 按核/内存会推成 19,而 19 并发冷跑实测
-  // 墙钟 329s/441s,8 并发 192s ⇒ 上限还要在机器面之上再取一次"实测上限"。
+  // 2026-11-22 立:实测最优上限先 8(该日扫描 6/8/10/12/19),同日二次收窄到 4(扫描 2/3/4/6/8,
+  // 4 并发墙钟 149.6s 为最低点,8 并发 192.2s)—— 曲线单峰,瓶颈是内存带宽 + 单包串行下限。
   const a = resolveConcurrency({ cpuCount: 20, totalMemBytes: 30 * 1024 ** 3, env: {} })
-  assert.equal(a.limit, 8, '20 核 / 30GB:核内 19、内存 13,再多也压到实测上限 8')
+  assert.equal(a.limit, 4, '20 核 / 30GB:核内 19、内存 13,再多也压到实测上限 4')
   assert.match(a.basis, /逻辑核 20/)
   assert.match(a.basis, /内存/)
-  assert.match(a.basis, /实测最优上限 8/)
+  assert.match(a.basis, /实测最优上限 4/)
   const b = resolveConcurrency({ cpuCount: 4, totalMemBytes: 8 * 1024 ** 3, env: {} })
   assert.equal(b.limit, 2, '4 核 / 8GB 应得 2(内存维)')
   const c = resolveConcurrency({ cpuCount: 2, totalMemBytes: 64 * 1024 ** 3, env: {} })
   assert.equal(c.limit, 1, '2 核留 1 核 ⇒ 1')
   const c2 = resolveConcurrency({ cpuCount: 20, totalMemBytes: 64 * 1024 ** 3, env: {} })
-  assert.equal(c2.limit, 8, '20 核 / 64GB 不得回到 19(那是实测更慢的配置)')
+  assert.equal(c2.limit, 4, '20 核 / 64GB 不得回到 19(那是实测更慢的配置)')
   const c3 = resolveConcurrency({ cpuCount: 20, totalMemBytes: 64 * 1024 ** 3, measuredMax: 3, env: {} })
   assert.equal(c3.limit, 3, '实测上限必须可注入(新机器复核时按现测值改判)')
   const d = resolveConcurrency({ cpuCount: 20, totalMemBytes: 64 * 1024 ** 3, env: { IHUI_TYPECHECK_CONCURRENCY: '5' } })
