@@ -195,6 +195,8 @@ const ALLOWED_FILES = new Set([
   'docker-compose.yml',
   'railway.json',
   'render.yaml',
+  // 2026-11-22: Smithery / MCP 目录收录配置,合法根级部署配置
+  'smithery.yaml',
   'app.json',
   // 守门脚本产物
   '__gate_result.txt',
