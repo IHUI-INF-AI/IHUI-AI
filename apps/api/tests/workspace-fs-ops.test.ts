@@ -7,7 +7,7 @@
  * 判据与 FSBridge 同源:路径必须落 IHUI_WORKSPACE_ROOTS 登记根内。
  */
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -80,6 +80,22 @@ describe('FSBridge mkdir/move/stat', () => {
     expect(batch.results[0]?.paths).toEqual(['nested/dir/report-final.md'])
     expect(batch.results[1]?.paths).toEqual(['nested/dir/notes.md'])
     expect(() => fsBridge.locate({ query: '   ', workspacePath: root })).toThrow('query 不能为空')
+  })
+
+  it('write/edit 走原子替换,成功后不留 .tmp 中间件', () => {
+    fsBridge.write({ path: 'nested/dir/atomic.txt', workspacePath: root, content: 'first' })
+    expect(readFileSync(join(root, 'nested', 'dir', 'atomic.txt'), 'utf-8')).toBe('first')
+    fsBridge.edit({
+      path: 'nested/dir/atomic.txt',
+      workspacePath: root,
+      oldText: 'first',
+      newText: 'second',
+    })
+    expect(readFileSync(join(root, 'nested', 'dir', 'atomic.txt'), 'utf-8')).toBe('second')
+    const leftovers = readdirSync(join(root, 'nested', 'dir')).filter((name) =>
+      name.endsWith('.tmp'),
+    )
+    expect(leftovers).toEqual([])
   })
 
   it('拒绝把路径移出登记根', () => {

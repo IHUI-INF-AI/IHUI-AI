@@ -171,6 +171,29 @@ function writeJson(file: string, data: unknown): void {
   }
 }
 
+/**
+ * 文本文件原子写(2026-11-23,对齐 DSH `dsh-atomic-write`)。
+ *
+ * 直接 writeFileSync 在磁盘满/Windows EBUSY/进程被杀时会留下半截文件;
+ * 临时文件与目标同目录(同一分区)再 rename,要么旧内容、要么完整新内容,
+ * 不存在"写了一半"的中间态。临时名带 pid + 单调序号,并发写同一目标也不会互撞。
+ */
+let atomicTextSeq = 0
+function atomicWriteText(file: string, content: string): void {
+  const tmp = `${file}.${process.pid}.${++atomicTextSeq}.tmp`
+  try {
+    writeFileSync(tmp, content, 'utf-8')
+    renameSync(tmp, file)
+  } catch (error) {
+    try {
+      rmSync(tmp, { force: true })
+    } catch {
+      // 清理失败不得掩盖原始写入错误
+    }
+    throw error
+  }
+}
+
 // =============================================================================
 // 1. Swarm — 群体智能多 Agent 编排
 // =============================================================================
@@ -4236,7 +4259,7 @@ class FSBridge {
         files: [params.path],
       })
     }
-    writeFileSync(full, params.content, 'utf-8')
+    atomicWriteText(full, params.content)
     return { path: params.path, size: params.content.length }
   }
 
@@ -4256,7 +4279,7 @@ class FSBridge {
     const count = content.split(params.oldText).length - 1
     if (count === 0) throw new Error('未找到匹配的文本')
     if (count > 1) throw new Error('匹配不唯一，请提供更多上下文')
-    writeFileSync(full, content.replace(params.oldText, params.newText), 'utf-8')
+    atomicWriteText(full, content.replace(params.oldText, params.newText))
     return { path: params.path, occurrences: count }
   }
 

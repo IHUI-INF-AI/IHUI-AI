@@ -128,14 +128,14 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - `apps/api/src/services/git-workspace.ts`（新）：`stage/unstage/discard/commit/branches/createBranch/switchBranch/log/checkIgnore/diff/push/pull`。`execFile('git', argv)` 直传不经 shell；`core.hooksPath=.git/ihui-no-hooks` 禁仓库钩子；`commit.gpgsign=false`；最小 env + `GIT_TERMINAL_PROMPT=0`；pathspec 拒绝绝对路径/盘符/`..`/NUL；分支名只允许 `[A-Za-z0-9._/-]` 且拒绝 `..`/`@{`/`.lock`。`git check-ignore` 无命中退 1 是正常语义，`runRaw` 允许非零码，不按失败抛错。
 - `apps/api/src/routes/workspace-ai.ts`：新增 12 条 Git 写端点（含 `diff`、`check-ignore`）与 3 条 FS 端点（`mkdir/move/stat`）、2 条定位端点（`locate/locate-batch`）、4 条监听端点（`watch`/`watcher/create|events|remove` + `GET watchers`）。push/pull 先 `requireAdmin` 再权限闸。
 - `apps/api/src/services/fs-watcher.ts`（新）：进程内 `fs.watch` 注册表。事件按单调 `seq` 记账，队列上限 500、溢出记 `dropped`；每用户 10 个、全局 30 个、30 分钟无访问自动回收；`events` 支持 cursor 续读与最多 2s 长轮询；owner 隔离与登记根判据复用 FSBridge `resolvePath`。
-- `apps/api/src/services/workspace-ai-service.ts`：FSBridge 新增 `mkdir/move/stat/locate/locateBatch`；`deriveOperation` 把 `fs.mkdir`/`fs.move` 归入写面。
+- `apps/api/src/services/workspace-ai-service.ts`：FSBridge 新增 `mkdir/move/stat/locate/locateBatch`；`deriveOperation` 把 `fs.mkdir`/`fs.move` 归入写面；`write`/`edit` 改走「同目录临时文件 + rename」原子替换（对齐 DSH `dsh-atomic-write`），磁盘满/EBUSY/进程被杀不会留下半截文件，成功后不留 `.tmp`。
 - `packages/api-client/src/endpoints/workspace.ts`：新增 Git `stage/unstage/discard/commit/branches/create/switch/log/push/pull/diff/check-ignore` 与 FS `mkdir/move/stat/locate/locate-batch/watcher` 客户端函数。
 - `apps/web/src/components/ide/source-control-panel.tsx`：stage/unstage/commit/push/pull/切分支从手拼 `git ...` 命令串改走结构化端点，删除 `escapeCommitMessage`；`git status`/`stash`/`diff --cached` 仍走命令通道（状态探测与保存现场）。
 
 验证（末行现读）：
 
 - `apps/api/tests/git-workspace.test.ts` **8 passed**（真实临时仓库 stage→commit→log→branches、diff staged/unstaged、check-ignore 命中与空命中、钩子不执行、pathspec/分支名拒绝、路由顺序）。
-- `apps/api/tests/workspace-fs-ops.test.ts` **5 passed**（递归 mkdir/stat、write→stat→move、目标存在拒绝/overwrite、locate/locate-batch、越界拒绝）。
+- `apps/api/tests/workspace-fs-ops.test.ts` **6 passed**（递归 mkdir/stat、write→stat→move、目标存在拒绝/overwrite、locate/locate-batch、原子写不留 tmp、越界拒绝）。
 - `apps/api/tests/fs-watcher.test.ts` **4 passed**（真实文件变更→cursor 续读、owner 隔离、越界拒绝、队列上限）。
 - `apps/web/src/components/ide/__tests__/source-control-branch-guard.test.tsx` **4 passed**（stash 仍先于 switch）。
 - `pnpm turbo typecheck --filter=@ihui/api` **9/9 success**；`--filter=@ihui/web` **7/7 success**；`--filter=@ihui/api-client` **2/2 success**。
