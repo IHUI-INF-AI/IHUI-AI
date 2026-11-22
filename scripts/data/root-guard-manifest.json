@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-22T11:57:24.094Z",
+  "sealedAt": "2026-11-22T19:35:16.586Z",
   "sealedBy": "root-guard --seal",
-  "reason": "守护自动落地改为默认只读",
+  "reason": "复核 be772cd6 对 guardian-runner 的格式化改动(引号/空行),无行为变更,重封",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "0e966c2ceb9f17748929dead209761ad39eb123f6ff30f722ba254533f88058b"
+      "sha256": "faf381188516d77b00642eb2af46969746478ec76d37c98772b54f707d71a847"
     },
     {
       "id": "judgement-libs",
