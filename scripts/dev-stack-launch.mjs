@@ -38,6 +38,7 @@
 //   强制模式:DEV_STACK_LAUNCH_MODE=wscript|cmd(其它取值一律视为未指定)。
 //
 // 用法: node dev-stack-launch.mjs <name> <logDir> <cwd> <exe> [args...]
+import './env-pin.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

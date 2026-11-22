@@ -60,6 +60,7 @@
  * 未知参数 ⇒ exit 2 并打印用法(静默忽略会让"以为自己在整清"的人拿到一份没整清的启动)。
  */
 
+import './env-pin.mjs'
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, openSync, rmSync } from 'node:fs'
 import net from 'node:net'
