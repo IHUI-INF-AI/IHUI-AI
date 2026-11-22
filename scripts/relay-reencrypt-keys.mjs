@@ -24,7 +24,8 @@
 //   - 密钥可从「文件」读取(CREDENTIALS_ENCRYPTION_KEY_FILE / OLD_*_FILE),避免明文落屏。
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { resolveKeyDirDetailed } from './lib/key-dir.mjs'
 
 const ALGORITHM = 'aes-256-gcm'
 const KEY_LENGTH = 32
@@ -70,8 +71,8 @@ function decryptJSON(payload, key) {
 }
 
 function tryDecrypt(stored, key) {
-  if (key == null) return { ok: false, malformed: false, reason: 'OLD key 未提供' }
-  if (stored == null) return { ok: false, malformed: true, reason: '列值为空' }
+  if (key === null || key === undefined) return { ok: false, malformed: false, reason: 'OLD key 未提供' }
+  if (stored === null || stored === undefined) return { ok: false, malformed: true, reason: '列值为空' }
   let payload
   try { payload = JSON.parse(stored) } catch { return { ok: false, malformed: true, reason: '不是合法 JSON 字符串' } }
   if (typeof payload !== 'object' || payload === null ||
@@ -108,7 +109,7 @@ async function loadPostgres() {
   return pg
 }
 
-function loadKeyFromFile(filePath, label) {
+function loadKeyFromFile(filePath) {
   if (!filePath) return null
   let content
   try { content = readFileSync(filePath, 'utf8') } catch (e) { console.error(`❌ 读取密钥文件失败 ${filePath}: ${e.message}`); process.exit(2) }
@@ -138,7 +139,21 @@ function parseArgs(argv) {
     ? (() => { const eq = argv.find((a) => a.startsWith('--pool=')); if (eq) return eq.split('=')[1]; const i = argv.indexOf('--pool'); return argv[i + 1] || 'key' })()
     : 'key'
   if (pool !== 'key' && pool !== 'account') { console.error(`❌ 未知 --pool 值: ${pool}`); process.exit(2) }
-  return { pool, apply: args.has('--apply'), enableOnSuccess: args.has('--enable-on-success') }
+  const val = (name) => {
+    const eq = argv.find((a) => a.startsWith(`--${name}=`))
+    if (eq) return eq.slice(name.length + 3)
+    const i = argv.indexOf(`--${name}`)
+    return i >= 0 ? (argv[i + 1] || '') : ''
+  }
+  return {
+    pool,
+    apply: args.has('--apply'),
+    enableOnSuccess: args.has('--enable-on-success'),
+    // 2026-11-22:旧钥解不开时的正规回填通道 —— 从权威密钥目录按 manifest 取明文重加密
+    recover: args.has('--recover'),
+    keyDir: val('key-dir'),
+    manifest: val('manifest') || 'scripts/data/relay-key-recovery.json',
+  }
 }
 
 const COLUMNS_BY_POOL = { key: ['api_key_enc'], account: ['token_enc', 'refresh_token_enc', 'cookies_enc', 'secrets_enc'] }
@@ -146,12 +161,54 @@ const COLUMNS_BY_POOL = { key: ['api_key_enc'], account: ['token_enc', 'refresh_
 function pad(s, n) { s = String(s); return s.length >= n ? s : s + ' '.repeat(n - s.length) }
 function fp(k) { return k ? k.slice(0, 8) + '…(len ' + k.length + ')' : '(none)' }
 
+// ───────────────────────────────────────────────────────────────────────────
+// 旧钥回填通道(2026-11-22 立):manifest 是「平台 → 权威密钥文件 + 验活 URL」的声明表,
+// 复用 §5d 的密钥目录解析(禁止再抄一份 F→D→E→G→C 候选表)。文件与 URL 都是声明,
+// 判据只有一条:现场 GET {probe}/models 回 200 才允许写库。
+// ───────────────────────────────────────────────────────────────────────────
+function loadManifest(filePath) {
+  const text = readFileSync(filePath, 'utf8')
+  const parsed = JSON.parse(text)
+  const entries = {}
+  for (const e of parsed.entries || []) {
+    if (!e?.provider) throw new Error(`manifest 条目缺 provider: ${JSON.stringify(e).slice(0, 80)}`)
+    entries[e.provider] = e
+  }
+  return entries
+}
+
+function readKeyByEntry(entry, keyDir) {
+  const path = `${keyDir}/${entry.file}`
+  const lines = readFileSync(path, 'utf8').split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#'))
+  if (entry.pick && entry.pick.startsWith('label:')) {
+    const label = entry.pick.slice('label:'.length)
+    const line = lines.find((l) => l.startsWith(label))
+    if (!line) throw new Error(`${entry.file} 缺 ${label} 行`)
+    return line.slice(line.indexOf('：') + 1).trim()
+  }
+  const keys = lines.filter((l) => !/^https?:\/\//i.test(l) && l.length >= 16 && !l.includes(' '))
+  if (!keys.length) throw new Error(`${entry.file} 里没有可用 key 行`)
+  return entry.pick === 'last' ? keys[keys.length - 1] : keys[0]
+}
+
+async function probeKey(url, key) {
+  try {
+    const r = await fetch(url, {
+      headers: { Authorization: `Bearer ${key}`, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(20000),
+    })
+    return String(r.status)
+  } catch (e) {
+    return `ERR ${e?.cause?.code || e?.message || e}`
+  }
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
   const DATABASE_URL = requireEnv('DATABASE_URL')
 
-  const currentKeyEnv = process.env.CREDENTIALS_ENCRYPTION_KEY || loadKeyFromFile(process.env.CREDENTIALS_ENCRYPTION_KEY_FILE, 'current')
-  const oldKeyEnv = process.env.OLD_CREDENTIALS_ENCRYPTION_KEY || loadKeyFromFile(process.env.OLD_CREDENTIALS_ENCRYPTION_KEY_FILE, 'old')
+  const currentKeyEnv = process.env.CREDENTIALS_ENCRYPTION_KEY || loadKeyFromFile(process.env.CREDENTIALS_ENCRYPTION_KEY_FILE)
+  const oldKeyEnv = process.env.OLD_CREDENTIALS_ENCRYPTION_KEY || loadKeyFromFile(process.env.OLD_CREDENTIALS_ENCRYPTION_KEY_FILE)
 
   if (!currentKeyEnv) { console.error('❌ 必须提供 CREDENTIALS_ENCRYPTION_KEY 或其 _FILE。'); process.exit(2) }
   let currentKey
@@ -161,6 +218,22 @@ async function main() {
   else console.warn('⚠️  未提供 OLD 密钥:任何「非当前密钥加密」的行将被标记为 needs_plaintext_key。')
 
   if (opts.enableOnSuccess && !opts.apply) console.warn('⚠️  --enable-on-success 仅在 --apply 时生效(dry-run 忽略)。')
+
+  // --recover:旧钥解不开的行从权威密钥目录回填(manifest 声明,验活通过才写)
+  let manifest = {}
+  let keyDir = ''
+  if (opts.recover) {
+    try { manifest = loadManifest(opts.manifest) } catch (e) { console.error(`❌ 读取 manifest 失败:${e.message}`); process.exit(2) }
+    const detail = resolveKeyDirDetailed('模型')
+    keyDir = opts.keyDir || detail.path
+    if (!keyDir) {
+      console.error(`❌ 密钥目录不存在(已探:${detail.triedCandidates.join(' | ')})。`)
+      console.error('   处置:确认网盘已挂载并放好 密钥/模型/*.txt,或用 --key-dir=<绝对路径> 指定。')
+      process.exit(2)
+    }
+    console.log(`recover dir : ${keyDir}`)
+    console.log(`manifest    : ${opts.manifest}(${Object.keys(manifest).length} 条)`)
+  }
 
   const postgres = await loadPostgres()
   const table = opts.pool === 'key' ? 'ai_relay_key_pool' : 'ai_relay_account_pool'
@@ -187,15 +260,37 @@ async function main() {
       scanned++
       const id = row.id, provider = row.provider_code ?? ''
       const colStatus = {}
-      let anyReencrypt = false, anyAlreadyCurrent = false, anyNeeds = false, anyMalformed = false
+      let anyAlreadyCurrent = false
       for (const col of encCols) {
         const stored = row[col]
-        if (stored == null) { colStatus[col] = { kind: 'empty' }; continue }
+        if (stored === null || stored === undefined) { colStatus[col] = { kind: 'empty' }; continue }
         if (tryDecrypt(stored, currentKey).ok) { colStatus[col] = { kind: 'already-current' }; anyAlreadyCurrent = true; continue }
         const old = tryDecrypt(stored, oldKey)
-        if (old.ok) { colStatus[col] = { kind: 'reencrypt', plaintext: old.plaintext }; anyReencrypt = true }
-        else if (old.malformed) { colStatus[col] = { kind: 'malformed', reason: old.reason }; anyMalformed = true }
-        else { colStatus[col] = { kind: 'needs_plaintext', reason: old.reason }; anyNeeds = true }
+        if (old.ok) { colStatus[col] = { kind: 'reencrypt', plaintext: old.plaintext } }
+        else if (old.malformed) { colStatus[col] = { kind: 'malformed', reason: old.reason } }
+        else { colStatus[col] = { kind: 'needs_plaintext', reason: old.reason } }
+      }
+      // 旧钥解不开的行:若给 --recover,按 manifest 从权威密钥目录取明文,现场验活通过才改判为可重加密
+      let rowEnable = opts.enableOnSuccess
+      let recoveredNote = ''
+      if (opts.recover) {
+        for (const col of encCols) {
+          const s = colStatus[col]
+          if (!s || s.kind !== 'needs_plaintext') continue
+          const entry = manifest[provider]
+          if (!entry) { s.reason += ' | manifest 未登记该平台'; continue }
+          try {
+            const key = readKeyByEntry(entry, keyDir)
+            const probe = entry.probe || ''
+            const status = probe ? await probeKey(probe, key) : 'skip'
+            if (probe && String(status) !== '200') { s.reason += ` | 回填验活 ${status}`; continue }
+            colStatus[col] = { kind: 'reencrypt', plaintext: key, recoveredFrom: entry.file }
+            rowEnable = rowEnable || entry.enable === true
+            recoveredNote = `recovered: ${entry.file}`
+          } catch (e) {
+            s.reason += ` | 回填失败: ${e.message}`
+          }
+        }
       }
       let decryptOldOk = 'no', wouldUpdate = 'no', reason = ''
       const reencryptCols = [], badCols = []
@@ -208,13 +303,13 @@ async function main() {
         else if (s.kind === 'needs_plaintext') badCols.push(`${col}=needs_plaintext(${s.reason})`)
       }
       if (wouldUpdate === 'yes') {
-        reason = `reencrypt: ${reencryptCols.join(', ')}`
+        reason = `${recoveredNote ? recoveredNote + '; ' : ''}reencrypt: ${reencryptCols.join(', ')}`
         if (badCols.length) reason += `; 其余: ${badCols.join('; ')}`
         if (opts.apply) {
           const sets = {}
           for (const col of reencryptCols) { sets[col] = JSON.stringify(encryptJSON(colStatus[col].plaintext, currentKey)); colsReencrypted++ }
-          pendingWrites.push({ id, sets, enable: opts.enableOnSuccess })
-        } else { for (const col of reencryptCols) colsReencrypted++ }
+          pendingWrites.push({ id, sets, enable: rowEnable, provider, oldEnc: row.api_key_enc })
+        } else { colsReencrypted += reencryptCols.length }
       } else if (anyAlreadyCurrent && badCols.length === 0) { reason = 'already-current (skip)'; rowsAlreadyCurrent++ }
       else { reason = badCols.join('; ') || 'nothing to do'; for (const col of encCols) { const s = colStatus[col]; if (s?.kind === 'needs_plaintext') colsNeedsPlaintext++; if (s?.kind === 'malformed') colsMalformed++ } }
       console.log(pad(String(id), 38) + ' | ' + pad(String(provider), 16) + ' | ' + pad(decryptOldOk, 7) + ' | ' + pad(wouldUpdate, 3) + ' | ' + reason)
@@ -222,15 +317,28 @@ async function main() {
     console.log('-'.repeat(104))
 
     if (opts.apply && pendingWrites.length > 0) {
+      // 写库前整表快照(只存加密列),出问题可按 id 逐条还原
+      const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+      const backupPath = `.ihui-agent/state/relay-key-recovery-${stamp}.json`
+      try {
+        mkdirSync('.ihui-agent/state', { recursive: true })
+        writeFileSync(backupPath, JSON.stringify(rows, null, 2), 'utf8')
+        console.log(`\n→ 备份 ${backupPath}(${rows.length} 行)`)
+      } catch (e) { console.error(`❌ 备份失败,拒绝写库: ${e.message}`); process.exit(2) }
       console.log(`\n→ 写入 ${pendingWrites.length} 行 ...`)
       for (const w of pendingWrites) {
         const setCols = Object.keys(w.sets)
         const setStr = setCols.map((c, i) => `${c} = $${i + 1}`).join(', ')
         let q = `UPDATE ${table} SET ${setStr}`
         const params = setCols.map((c) => w.sets[c])
-        if (w.enable) q += `, is_enabled = true`
-        q += `, updated_at = now() WHERE id = $${params.length + 1}`
-        await sql.unsafe(q, [...params, w.id])
+        if (w.enable) q += `, is_enabled = true, health_status = 'unknown', last_error_message = '', temp_unschedulable = false`
+        q += `, updated_at = now() WHERE id = $${params.length + 1} AND api_key_enc = $${params.length + 2}`
+        const res = await sql.unsafe(q, [...params, w.id, w.oldEnc])
+        // postgres.js unsafe 不返回行数;CAS 命中与否用一次回读判定
+        const chk = await sql`select api_key_enc from ${sql(table)} where id = ${w.id}`
+        if (chk.length && chk[0].api_key_enc === w.sets[Object.keys(w.sets)[0]]) console.log(`   ok ${w.provider} ${w.id}`)
+        else console.log(`   WARN ${w.provider} ${w.id}: CAS 未命中(别人改过这一行)`)
+        void res
       }
       console.log(`✅ 已写入 ${pendingWrites.length} 行。`)
     } else if (opts.apply) console.log('\n→ 没有需要写入的行。')
