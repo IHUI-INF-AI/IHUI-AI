@@ -6094,7 +6094,14 @@
       "installerHint": "GitHub 側操作者 id，非平臺使用者"
     },
     "smsReceive": "簡訊接碼",
-    "sms": "簡訊範本"
+    "sms": "簡訊範本",
+    "smsOperations": {
+      "send": {
+        "dryRunPassed": "{channel} <badge>試運行</badge> 驗證通過（未實際發送）",
+        "confirmLabel": "請輸入 <code>{word}</code> 確認發送",
+        "broadcastSummary": "共 {total} 則：<ok>{sent} 則已發送</ok>，<bad>{failed} 則失敗</bad>，{suppressed} 則已抑制"
+      }
+    }
   },
   "connectors": {
     "title": "中文連接器",
@@ -8961,7 +8968,12 @@
         "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
       },
       "hookFailures": {
-        "evidenceMissing": "未記錄最終結果"
+        "evidenceMissing": "未記錄最終結果",
+        "action": {
+          "none": "忽略",
+          "retry": "重試",
+          "inspect": "檢視詳情"
+        }
       }
     },
     "permissionConfirm": {
@@ -13987,7 +13999,54 @@
     "navTools": "工具",
     "navWorkflow": "工作流編排",
     "shellSubtitle": "平臺開發與集成指南",
-    "shellTitle": "開發文檔"
+    "shellTitle": "開發文檔",
+    "meta": {
+      "agent": {
+        "title": "Agent 文件",
+        "description": "Agent 功能、接入方式與設定說明"
+      },
+      "manual": {
+        "title": "使用手冊",
+        "description": "從入門到進階的完整使用手冊"
+      },
+      "mcp": {
+        "title": "MCP 整合",
+        "description": "MCP 服務接入與工具設定說明"
+      },
+      "overview": {
+        "title": "文件中心",
+        "description": "專案文件與使用指南總覽"
+      },
+      "quickstart": {
+        "title": "快速開始",
+        "description": "幾分鐘完成首次設定與運行"
+      },
+      "rag": {
+        "title": "RAG 檢索",
+        "description": "知識庫檢索增強的實現與用法"
+      },
+      "self-host": {
+        "title": "私有部署",
+        "description": "自託管環境建置與維運重點"
+      },
+      "workflow": {
+        "title": "工作流",
+        "description": "工作流編排與自動化設定"
+      }
+    },
+    "common": {
+      "chapterBadge": "第 {num} 章",
+      "firstChapter": "已是第一章",
+      "lastChapter": "已是最後一章",
+      "backToDocs": "返回文件",
+      "startReading": "開始閱讀"
+    },
+    "manual": {
+      "overview": {
+        "title": "手冊總覽",
+        "description": "依主題組織的手冊章節總覽"
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -26514,7 +26573,13 @@
       "deleteFailed": "刪除失敗"
     },
     "cancel": "取消",
-    "save": "儲存"
+    "save": "儲存",
+    "terminalReason": {
+      "manualPause": "已手動暫停",
+      "failedPermanent": "永久失敗",
+      "failedRetriesExhausted": "重試次數已耗盡",
+      "completed": "已完成"
+    }
   },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 個任務遠端取消失敗（已本地置為已取消）",
@@ -29571,7 +29636,12 @@
       "hint": "限受邀用戶"
     },
     "why": {
-      "title": "為什麼參與"
+      "title": "為什麼參與",
+      "items": [
+        "完全在本機執行，資料不離開本機",
+        "多模型自由切換，無鎖定",
+        "開源可自架，按需擴充"
+      ]
     },
     "form": {
       "email": "郵件地址",

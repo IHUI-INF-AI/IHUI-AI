@@ -6094,7 +6094,14 @@
       "installerHint": "GitHub 侧操作者 id，非平台用户"
     },
     "smsReceive": "短信接码",
-    "sms": "短信模板"
+    "sms": "短信模板",
+    "smsOperations": {
+      "send": {
+        "dryRunPassed": "{channel} <badge>试运行</badge> 校验通过（未实际发送）",
+        "confirmLabel": "请输入 <code>{word}</code> 确认发送",
+        "broadcastSummary": "共 {total} 条：<ok>{sent} 条已发送</ok>，<bad>{failed} 条失败</bad>，{suppressed} 条已抑制"
+      }
+    }
   },
   "connectors": {
     "title": "中文连接器",
@@ -8961,7 +8968,12 @@
         "restartHint": "润色服务需重启后生效，草稿已保留。"
       },
       "hookFailures": {
-        "evidenceMissing": "未记录最终结果"
+        "evidenceMissing": "未记录最终结果",
+        "action": {
+          "none": "忽略",
+          "retry": "重试",
+          "inspect": "查看详情"
+        }
       }
     },
     "permissionConfirm": {
@@ -14158,7 +14170,54 @@
     "navTools": "工具",
     "navWorkflow": "工作流编排",
     "shellSubtitle": "平台开发与集成指南",
-    "shellTitle": "开发文档"
+    "shellTitle": "开发文档",
+    "meta": {
+      "agent": {
+        "title": "Agent 文档",
+        "description": "Agent 能力、接入方式与配置说明"
+      },
+      "manual": {
+        "title": "使用手册",
+        "description": "从入门到进阶的完整使用手册"
+      },
+      "mcp": {
+        "title": "MCP 集成",
+        "description": "MCP 服务接入与工具配置说明"
+      },
+      "overview": {
+        "title": "文档中心",
+        "description": "项目文档与使用指南总览"
+      },
+      "quickstart": {
+        "title": "快速开始",
+        "description": "几分钟完成首次配置与运行"
+      },
+      "rag": {
+        "title": "RAG 检索",
+        "description": "知识库检索增强的实现与用法"
+      },
+      "self-host": {
+        "title": "私有部署",
+        "description": "自托管环境搭建与运维要点"
+      },
+      "workflow": {
+        "title": "工作流",
+        "description": "工作流编排与自动化配置"
+      }
+    },
+    "common": {
+      "chapterBadge": "第 {num} 章",
+      "firstChapter": "已是第一章",
+      "lastChapter": "已是最后一章",
+      "backToDocs": "返回文档",
+      "startReading": "开始阅读"
+    },
+    "manual": {
+      "overview": {
+        "title": "手册总览",
+        "description": "按主题组织的手册章节总览"
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -27058,7 +27117,13 @@
       "deleteFailed": "删除失败"
     },
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "terminalReason": {
+      "manualPause": "已手动暂停",
+      "failedPermanent": "永久失败",
+      "failedRetriesExhausted": "重试次数已耗尽",
+      "completed": "已完成"
+    }
   },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 个任务远端取消失败（已本地置为已取消）",
@@ -30115,7 +30180,12 @@
       "hint": "仅限受邀用户"
     },
     "why": {
-      "title": "为什么参与"
+      "title": "为什么参与",
+      "items": [
+        "完全本地运行，数据不离开本机",
+        "多模型自由切换，无锁定",
+        "开源可自托管，按需扩展"
+      ]
     },
     "form": {
       "email": "邮箱地址",

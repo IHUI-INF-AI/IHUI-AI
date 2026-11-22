@@ -6094,6 +6094,13 @@
       "usersNewToday": "New Today",
       "usersRegistered": "Registered",
       "wsConnections": "WS Connections"
+    },
+    "smsOperations": {
+      "send": {
+        "dryRunPassed": "{channel} <badge>dry run</badge> passed (not sent)",
+        "confirmLabel": "Enter <code>{word}</code> to confirm",
+        "broadcastSummary": "{total} total: <ok>{sent} sent</ok>, <bad>{failed} failed</bad>, {suppressed} suppressed"
+      }
     }
   },
   "connectors": {
@@ -8961,7 +8968,12 @@
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
       },
       "hookFailures": {
-        "evidenceMissing": "Final result not recorded"
+        "evidenceMissing": "Final result not recorded",
+        "action": {
+          "none": "Ignore",
+          "retry": "Retry",
+          "inspect": "View Details"
+        }
       }
     },
     "permissionConfirm": {
@@ -13987,7 +13999,54 @@
     "navTools": "Tools",
     "navWorkflow": "Workflow Orchestration",
     "shellSubtitle": "Platform development and integration guides",
-    "shellTitle": "Developer Docs"
+    "shellTitle": "Developer Docs",
+    "meta": {
+      "agent": {
+        "title": "Agent Docs",
+        "description": "Agent capabilities, integration, and configuration"
+      },
+      "manual": {
+        "title": "User Manual",
+        "description": "Complete guide from basics to advanced"
+      },
+      "mcp": {
+        "title": "MCP Integration",
+        "description": "MCP service setup and tool configuration"
+      },
+      "overview": {
+        "title": "Documentation Center",
+        "description": "Project docs and usage guides"
+      },
+      "quickstart": {
+        "title": "Quick Start",
+        "description": "Complete initial setup in minutes"
+      },
+      "rag": {
+        "title": "RAG Retrieval",
+        "description": "Implementation and usage of RAG"
+      },
+      "self-host": {
+        "title": "Self-Hosting",
+        "description": "Self-hosted setup and operations"
+      },
+      "workflow": {
+        "title": "Workflows",
+        "description": "Workflow orchestration and automation"
+      }
+    },
+    "common": {
+      "chapterBadge": "Chapter {num}",
+      "firstChapter": "First chapter",
+      "lastChapter": "Last chapter",
+      "backToDocs": "Back to docs",
+      "startReading": "Start reading"
+    },
+    "manual": {
+      "overview": {
+        "title": "Manual Overview",
+        "description": "Overview of manual chapters by topic"
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -26363,7 +26422,13 @@
       "deleteFailed": "Delete failed"
     },
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanently failed",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    }
   },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} task(s) failed to cancel remotely (marked cancelled locally)",
@@ -29420,7 +29485,12 @@
       "hint": "For invited users only"
     },
     "why": {
-      "title": "Why Participate"
+      "title": "Why Participate",
+      "items": [
+        "Runs fully local — your data never leaves this machine",
+        "Switch models freely, no lock-in",
+        "Open source and self-hostable, scale as you need"
+      ]
     },
     "form": {
       "email": "Email Address",
