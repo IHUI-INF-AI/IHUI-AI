@@ -38,6 +38,14 @@ const KIND_LABEL_KEY: Record<string, string> = {
   outgoing: 'kindOutgoing',
 }
 
+/** 批次状态 → i18n 字面量键(禁模板拼接 `t(\`batch_${status}\`)`,静态门抓不到可达性) */
+const BATCH_STATUS_KEY: Record<string, string> = {
+  parsing: 'batchParsing',
+  pending_review: 'batchPendingReview',
+  verified: 'batchVerified',
+  rejected: 'batchRejected',
+}
+
 /** 批次状态徽章 */
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
   const cls =
@@ -231,7 +239,7 @@ function ImportTab({
                 <td className="px-2 py-1">{b.fileName}</td>
                 <td className="px-2 py-1">
                   <Badge tone={b.status === 'verified' ? 'ok' : 'warn'}>
-                    {t(`batch_${b.status}` as 'batch_parsing')}
+                    {t((BATCH_STATUS_KEY[b.status] ?? 'batchUnknown') as 'batchParsing')}
                   </Badge>
                 </td>
                 <td className="px-2 py-1">{b.totalRows}</td>

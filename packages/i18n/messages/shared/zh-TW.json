@@ -1359,7 +1359,15 @@
       "modelColTokens": "Token 數",
       "modelColCalls": "調用次數",
       "modelColCost": "費用"
-    },
+    ,
+      "mode_token": "依 Token 計費",
+      "mode_per_call": "依呼叫次數計費",
+      "mode_per_image": "依圖片張數計費",
+      "mode_per_video": "依影片條數計費",
+      "unit_token": "每百萬 tokens",
+      "unit_per_call": "每次",
+      "unit_per_image": "每張",
+      "unit_per_video": "每條"},
     "gateway": {
       "providers": {
         "filter": {

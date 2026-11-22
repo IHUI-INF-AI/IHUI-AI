@@ -72,6 +72,16 @@ const TASK_STATUS_CLASS: Record<TaskStatus, string> = {
   expired: 'bg-muted text-muted-foreground',
 }
 
+/** 任务状态 → i18n 字面量键(禁模板拼接 `t(\`devices.taskStatus_${status}\`)`) */
+const TASK_STATUS_KEY: Record<TaskStatus, string> = {
+  queued: 'devices.taskStatus_queued',
+  claimed: 'devices.taskStatus_claimed',
+  running: 'devices.taskStatus_running',
+  completed: 'devices.taskStatus_completed',
+  failed: 'devices.taskStatus_failed',
+  expired: 'devices.taskStatus_expired',
+}
+
 /** lastSeenAt → 相对时间文案(与 foldable-section 同阈值,词键收在本页 devices 命名空间) */
 function formatLastSeen(
   iso: string,
@@ -604,7 +614,7 @@ export default function DevicesPage() {
                           variant="outline"
                           className={cn('border-transparent', TASK_STATUS_CLASS[task.status])}
                         >
-                          {t(`devices.taskStatus_${task.status}`)}
+                          {t(TASK_STATUS_KEY[task.status])}
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-label text-muted-foreground">

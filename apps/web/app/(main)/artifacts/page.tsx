@@ -78,6 +78,15 @@ const KIND_CLASS: Record<DeliverableKind, string> = {
   video_ref: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
 }
 
+/** kind → i18n 字面量键(禁模板拼接 `t(\`kind_${kind}\`)`) */
+const KIND_LABEL_KEY: Record<DeliverableKind, string> = {
+  html_report: 'kindHtmlReport',
+  slides: 'kindSlides',
+  sheet: 'kindSheet',
+  doc: 'kindDoc',
+  video_ref: 'kindVideoRef',
+}
+
 /** created_at → 相对时间文案(阈值与 settings/devices 页 formatLastSeen 一致) */
 function formatCreated(
   iso: string,
@@ -224,7 +233,7 @@ export default function ArtifactsPage() {
                             variant="outline"
                             className={cn('border-transparent', KIND_CLASS[item.kind])}
                           >
-                            {t(`kind_${item.kind}`)}
+                            {t(KIND_LABEL_KEY[item.kind] as 'kindHtmlReport')}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-label tabular-nums">v{item.version}</TableCell>

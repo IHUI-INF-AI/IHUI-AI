@@ -32,6 +32,13 @@ import { cn } from '@/lib/utils'
 const EXPERT_ROUTE_MODES: ExpertAutoRouteMode[] = ['hint', 'auto', 'off']
 const DEFAULT_MODE: ExpertAutoRouteMode = 'hint'
 
+/** 档位 → 说明文案字面量键(禁模板拼接 `t(\`${mode}Desc\`)`) */
+const MODE_DESC_KEY: Record<ExpertAutoRouteMode, string> = {
+  hint: 'hintDesc',
+  auto: 'autoDesc',
+  off: 'offDesc',
+}
+
 /** ai-service 统一信封 {code,message,data};本卡片只消费 data.envLocked */
 interface ExpertRouteEnvelope {
   data?: { envLocked?: boolean }
@@ -100,7 +107,7 @@ export function ExpertRouteCard() {
                   )}
                 </span>
                 <span className="text-center text-[11px] leading-snug text-muted-foreground">
-                  {t(`${m}Desc`)}
+                  {t(MODE_DESC_KEY[m])}
                 </span>
               </button>
             )

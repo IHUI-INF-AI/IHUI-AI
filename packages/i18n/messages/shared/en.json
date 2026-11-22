@@ -1359,7 +1359,15 @@
       "modelColTokens": "Tokens",
       "modelColCalls": "Calls",
       "modelColCost": "Cost"
-    },
+    ,
+      "mode_token": "Per token",
+      "mode_per_call": "Per call",
+      "mode_per_image": "Per image",
+      "mode_per_video": "Per video",
+      "unit_token": "per 1M tokens",
+      "unit_per_call": "per call",
+      "unit_per_image": "per image",
+      "unit_per_video": "per video"},
     "gateway": {
       "providers": {
         "filter": {

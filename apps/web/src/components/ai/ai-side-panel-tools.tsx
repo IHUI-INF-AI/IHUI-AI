@@ -150,6 +150,37 @@ const TAB_KEYS: ToolTabKey[] = [
   'inspector',
 ]
 
+/** Tab → i18n 字面量键(禁模板拼接 `t(\`tabs.${key}\`)`;新增 Tab 必须同笔在此登记 + 五语言补键) */
+const TAB_LABEL_KEY: Record<ToolTabKey, string> = {
+  goal: 'tabs.goal',
+  memory: 'tabs.memory',
+  plan: 'tabs.plan',
+  tasks: 'tabs.tasks',
+  progress: 'tabs.progress',
+  agents: 'tabs.agents',
+  background: 'tabs.background',
+  swarm: 'tabs.swarm',
+  orchestration: 'tabs.orchestration',
+  routines: 'tabs.routines',
+  trace: 'tabs.trace',
+  checkpoints: 'tabs.checkpoints',
+  tokens: 'tabs.tokens',
+  spec: 'tabs.spec',
+  runtime: 'tabs.runtime',
+  bestof: 'tabs.bestof',
+  memorygraph: 'tabs.memorygraph',
+  atomicrollback: 'tabs.atomicrollback',
+  worlds: 'tabs.worlds',
+  agenttasks: 'tabs.agenttasks',
+  unified: 'tabs.unified',
+  kanban: 'tabs.kanban',
+  hooks: 'tabs.hooks',
+  wiki: 'tabs.wiki',
+  integrations: 'tabs.integrations',
+  workspace: 'tabs.workspace',
+  inspector: 'tabs.inspector',
+}
+
 /** routines 本地持久化键(无后端 API,localStorage 兜底) */
 const ROUTINES_STORAGE_KEY = 'ihui:ai-tools-routines'
 
@@ -825,7 +856,7 @@ export function AiSidePanelTools() {
                         : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
                     )}
                   >
-                    {t(`tabs.${key}`)}
+                    {t(TAB_LABEL_KEY[key])}
                   </button>
                 ))}
               </div>

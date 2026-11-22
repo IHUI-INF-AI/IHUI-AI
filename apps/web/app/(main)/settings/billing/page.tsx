@@ -53,6 +53,7 @@ import {
   getDailyCreditsUsage,
   listPricingRules,
   type Order,
+  type PricingRuleMode,
   type PricingRuleUserView,
 } from '@ihui/api-client'
 import { CreditsHeatmapCard } from '@/components/billing/credits-heatmap-card'
@@ -61,6 +62,22 @@ import { OrdersTab } from './OrdersTab'
 import { InvoicesTab } from './InvoicesTab'
 import { PAGE_SIZE } from './helpers'
 import type { InvoiceApplication } from './types'
+
+/** 计费模式 → i18n 字面量键(禁模板拼接 `t(\`billing.mode_${mode}\`)`;四档与 ai_pricing.billing_mode 对齐) */
+const BILLING_MODE_KEY: Record<PricingRuleMode, string> = {
+  token: 'billing.mode_token',
+  per_call: 'billing.mode_per_call',
+  per_image: 'billing.mode_per_image',
+  per_video: 'billing.mode_per_video',
+}
+
+/** 计费模式 → 价格单位说明键(与上表同源同序) */
+const BILLING_UNIT_KEY: Record<PricingRuleMode, string> = {
+  token: 'billing.unit_token',
+  per_call: 'billing.unit_per_call',
+  per_image: 'billing.unit_per_image',
+  per_video: 'billing.unit_per_video',
+}
 
 /** GET /api/v1/ai/usage/stats(ai-service)响应里用量区用到的行形状(其余字段不取) */
 interface AiUsageRow {
@@ -254,7 +271,7 @@ export default function BillingPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-body font-medium">{rule.displayName}</span>
                     <Badge variant="outline" data-testid={`pricing-rule-mode-${rule.id}`}>
-                      {t(`billing.mode_${rule.mode}`)}
+                      {t(BILLING_MODE_KEY[rule.mode])}
                     </Badge>
                     <span className="text-label text-muted-foreground">
                       {t('billing.versionLabel')} v{rule.version}
@@ -264,7 +281,7 @@ export default function BillingPage() {
                     {t('billing.basePriceLabel')}:{' '}
                     <span className="font-medium">
                       {rule.currency} {priceFmt.format(rule.basePrice)}{' '}
-                      {t(`billing.unit_${rule.mode}`)}
+                      {t(BILLING_UNIT_KEY[rule.mode])}
                     </span>
                   </p>
 
