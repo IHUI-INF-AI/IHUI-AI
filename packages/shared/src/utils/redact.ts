@@ -337,6 +337,55 @@ export function redactUserHomePathLiterals(text: string): string {
 }
 
 /**
+ * 显示面凭据遮挡(D222,2026-11-23 立;对齐 DSH `dsh-client-ui-secret-mask`)。
+ *
+ * 与 `redactSecrets` 的分工:
+ *   - `redactSecrets` 是**不可逆替换**,用于出库/交接单/崩溃上报,原文不能回来;
+ *   - 本函数只服务**已发送消息的屏幕显示**,原文仍在 store / 剪贴板里,
+ *     复制与模型输入不受影响。
+ *
+ * 只认 `SECRET_RULES` 这一份规则集(单一真相源),不另写第二套凭据正则:
+ * 命中的整段保留前 8 个字符,其余逐字符换成 `∗`(U+2217)。刻意用 `∗` 而不是 `*`:
+ * 星号是 Markdown 强调语法,一串 `*` 在正文里可能被解析成 `<em>`,把遮挡变成排版事故。
+ * PEM 私钥块保留 BEGIN/END 两行,只遮中间内容 —— 让用户仍能看出这是哪类私钥。
+ */
+export const DISPLAY_SECRET_MASK_CHAR = '∗' as const
+
+const DISPLAY_MASK_KEEP_CHARS = 8
+
+function maskMatchedSecret(match: string): string {
+  if (match.startsWith('-----BEGIN') && match.includes('PRIVATE KEY-----')) {
+    const lines = match.split('\n')
+    if (lines.length <= 2) return DISPLAY_SECRET_MASK_CHAR.repeat(Array.from(match).length)
+    return [
+      lines[0],
+      ...lines.slice(1, -1).map((line) => maskSecretChars(line)),
+      lines[lines.length - 1],
+    ].join('\n')
+  }
+  return maskSecretChars(match)
+}
+
+function maskSecretChars(value: string): string {
+  if (!value) return value
+  const chars = Array.from(value)
+  if (chars.length <= DISPLAY_MASK_KEEP_CHARS) {
+    return DISPLAY_SECRET_MASK_CHAR.repeat(chars.length)
+  }
+  return chars.slice(0, DISPLAY_MASK_KEEP_CHARS).join('') +
+    DISPLAY_SECRET_MASK_CHAR.repeat(chars.length - DISPLAY_MASK_KEEP_CHARS)
+}
+
+export function maskSecretsForDisplay(text: string): string {
+  if (!text) return text
+  let out = text
+  for (const rule of SECRET_RULES) {
+    out = out.replace(rule.pattern, (match: string) => maskMatchedSecret(match))
+  }
+  return out
+}
+
+/**
  * 凭据脱敏主入口:**既有规则并集 + 本票新增三类 + 用户路径**。
  * (不含 strip_ansi —— 需要清转义请用 `sanitizeEvidenceText`。)
  */

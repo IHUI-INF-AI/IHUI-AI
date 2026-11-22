@@ -12186,7 +12186,7 @@
     "predictiveEditInsert": "插入",
     "predictiveEditReplace": "替换",
     "predictiveEditDelete": "删除"
-  },
+  ,"secretMaskShow":"显示凭据","secretMaskHide":"隐藏凭据"},
   "chatHistory": {
     "moveToGroup": "移动到分组",
     "moveSelectedToGroup": "移动所选到分组",

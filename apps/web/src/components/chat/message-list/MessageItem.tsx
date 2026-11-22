@@ -1533,7 +1533,14 @@ const MessageItem = React.memo(function MessageItem({
           // **正文与助手侧走同一套 MarkdownStream**(危险项天然关闭 —— 无 rehype-raw),
           // 被拒不安全/判不出的行由共享层摘出、组件按字面渲染,绝不静默消失。
           <div style={messageVars} data-message-style={messageOverride ? 'custom' : undefined}>
-            <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
+            <UserMessageBody
+              content={m.content}
+              testId={`user-message-body-${m.id}`}
+              secretMaskLabels={{
+                show: t('secretMaskShow'),
+                hide: t('secretMaskHide'),
+              }}
+            />
           </div>
         ) : (
           <div

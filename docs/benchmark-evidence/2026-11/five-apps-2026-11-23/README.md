@@ -186,6 +186,14 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - `apps/ai-service/app/services/agent_loop_v2.py`：接线在每轮 LLM 调用前的压缩之后。压缩只按 1200 token/张估算，不会真的把旧图移出请求；这一层才把视觉 payload 真正换掉。异常隔离为保留原图，不阻塞回合。
 - 测试：`test_read_image_tool.py` 15 passed（含 6 图保留 2、路径随占位、幂等、无路径诚实回执、assistant 图不参与预算，以及「第 6 图时代理循环在首次 LLM 调用前已完成卸载」的接线判据）。同批把该文件的 read_image 端到端用例改为 `enable_checkpoint=False`：它只判图片交付，原先每次要等 30 秒数据库连接超时，属测试隔离缺陷。`ruff check` 全过。
 
+## 追加批（同日）：已发送用户文本的显示面凭据遮挡
+
+- 对齐 DSH `dsh-client-ui-secret-mask`：用户把 API key / token / 密码粘进消息后，屏幕默认遮挡；消息原文、复制与模型输入保持不变。
+- `packages/shared/src/utils/redact.ts` 新增 `maskSecretsForDisplay()` 与 `DISPLAY_SECRET_MASK_CHAR='∗'`。**不另写第二套凭据正则**：直接遍历既有 `SECRET_RULES`（output_cleaning.py 与 cli/redact.ts 的并集），命中整段保留前 8 字符，其余逐字符换成 `∗`。用 `∗` 而不用 `*` 是为了不让遮挡串被 Markdown 当成强调语法。PEM 私钥块保留 BEGIN/END 两行，只遮中间内容。函数幂等，无凭据文本逐字不变。
+- `apps/web/src/components/chat/message-list/user-message-body.tsx`：正文、围栏代码块、引用行与被拒行统一先过遮挡；有凭据时渲染 `user-message-secret-toggle`（Eye/EyeOff），展开后原文可见、再点收回。`secretMaskLabels` 由宿主注入，组件自身不读 intl，既有纯渲染用例无需 Provider。
+- `MessageItem.tsx` 接入 `chat.secretMaskShow` / `chat.secretMaskHide`，五种 web 语言同步。
+- `packages/shared/src/utils/__tests__/redact.test.ts` 新增 3 例（sk- 前缀保留、Bearer/password/URL/PEM、幂等与反误伤）；`apps/web/src/components/chat/__tests__/user-message-secret-mask.test.tsx` 3 例（正文遮挡与展开收回、围栏代码块、无凭据不出现按钮）。验证：shared `redact.test.ts` 20 passed；web 本批 + D129 17 passed；`pnpm turbo typecheck --filter=@ihui/web --filter=@ihui/shared` 8/8 successful；`pnpm check:i18n-keys` 5 语言 parity OK。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

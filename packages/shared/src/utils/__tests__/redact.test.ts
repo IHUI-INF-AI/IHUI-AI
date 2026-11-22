@@ -17,6 +17,7 @@ import {
   REDACT_QUERY_MARKER,
   REDACT_SECRET_MARKER,
   SECRET_RULES,
+  maskSecretsForDisplay,
   redactEmails,
   redactIps,
   redactSecrets,
@@ -221,6 +222,45 @@ describe('D94 脱敏 / 反误伤与规则来源', () => {
   it('幂等:脱敏后的文本再脱敏一次不引入新标记堆叠', () => {
     const once = sanitizeEvidenceText('sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789')
     expect(sanitizeEvidenceText(once)).toBe(once)
+  })
+})
+
+describe('显示面凭据遮挡(D222)', () => {
+  it('sk- 密钥保留前 8 字符,其余逐字符遮挡且不写 redact 标记', () => {
+    const key = 'sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
+    const out = maskSecretsForDisplay(`key: ${key}`)
+    expect(out).toContain('sk-proj-')
+    expect(out).not.toContain('AbCdEfGh')
+    expect(out).not.toContain(REDACT_SECRET_MARKER)
+    expect(out).toContain('∗')
+    // 长度保持不变:遮挡只换显示,不乱挪字符位
+    expect(out.length).toBe(`key: ${key}`.length)
+  })
+
+  it('Bearer / password / URL 口令 / PEM 私钥都遮,正常中文不动', () => {
+    const bearer = maskSecretsForDisplay('Authorization: Bearer abcdefghijklmnopqrstuvwxyz')
+    expect(bearer).not.toContain('abcdefghijklmnopqrstuvwxyz')
+    expect(bearer).toContain('Bearer ')
+
+    const pwd = maskSecretsForDisplay('password=supersecret123')
+    expect(pwd).not.toContain('supersecret123')
+
+    const url = maskSecretsForDisplay('postgres://user:p4ssw0rd@db.local/app')
+    expect(url).not.toContain('p4ssw0rd')
+
+    const pem = maskSecretsForDisplay(PEM)
+    expect(pem).toContain('-----BEGIN RSA PRIVATE KEY-----')
+    expect(pem).toContain('-----END RSA PRIVATE KEY-----')
+    expect(pem).not.toContain('MIIEowIBAAKCAQEA')
+
+    for (const text of ['任务已完成,耗时 3.2 秒', '共 12 个文件,跳过 3 个', 'ERROR: connection refused']) {
+      expect(maskSecretsForDisplay(text)).toBe(text)
+    }
+  })
+
+  it('幂等:遮挡结果再跑一次不变(∗ 不在任何凭据规则里)', () => {
+    const once = maskSecretsForDisplay('sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789')
+    expect(maskSecretsForDisplay(once)).toBe(once)
   })
 })
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

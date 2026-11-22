@@ -23,10 +23,12 @@
 // 不做"看不见的可点击"。
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { splitUserMessageParts } from '@ihui/shared/chat'
+import { maskSecretsForDisplay } from '@ihui/shared/utils/redact'
 
 // 点开图片的唯一出口(与助手侧共用一份"外链开新窗 / 其余进面板"的判断)
 import { openImageSource } from '@/lib/open-image-source'
@@ -37,11 +39,37 @@ export interface UserMessageBodyProps {
   content: string
   /** 供宿主与用例定位气泡内容区;命名沿用本目录 `message-*-${id}` 形态。 */
   testId?: string
+  /**
+   * 显示面凭据遮挡的展开/收起按钮文案(由宿主注入 i18n)。
+   * 不传 = 只遮挡、不提供展开 —— 组件自身不读 intl,既有纯渲染用例无需 Provider。
+   */
+  secretMaskLabels?: { show: string; hide: string }
 }
 
-export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
+export function UserMessageBody({ content, testId, secretMaskLabels }: UserMessageBodyProps) {
   const parts = useMemo(() => splitUserMessageParts(content), [content])
-  const hasBody = parts.text.trim().length > 0
+  const [secretsRevealed, setSecretsRevealed] = useState(false)
+  const maskedText = useMemo(() => maskSecretsForDisplay(parts.text), [parts.text])
+  const maskedCodeBlocks = useMemo(
+    () => parts.codeBlocks.map((code) => maskSecretsForDisplay(code)),
+    [parts.codeBlocks],
+  )
+  const maskedQuoteLines = useMemo(
+    () => parts.quote?.lines.map((line) => maskSecretsForDisplay(line)) ?? [],
+    [parts.quote],
+  )
+  const maskedRejectedLines = useMemo(
+    () => parts.rejectedLines.map((line) => maskSecretsForDisplay(line)),
+    [parts.rejectedLines],
+  )
+  const hasSecrets =
+    maskedText !== parts.text ||
+    maskedCodeBlocks.some((code, index) => code !== parts.codeBlocks[index]) ||
+    maskedQuoteLines.some((line, index) => line !== parts.quote?.lines[index]) ||
+    maskedRejectedLines.some((line, index) => line !== parts.rejectedLines[index])
+  const reveal = secretsRevealed && hasSecrets
+  const visibleText = reveal ? parts.text : maskedText
+  const hasBody = visibleText.trim().length > 0
   const nothingVisible =
     !hasBody &&
     parts.quote === undefined &&
@@ -56,7 +84,20 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
       {hasBody ? (
         // 2026-10-01 拍板:与助手侧同一渲染件(危险项天然关闭 —— 无 rehype-raw,裸 HTML 不执行)。
         // 完成态渲染,无流式;代码折叠沿用助手侧默认阈值,长粘贴不撑爆气泡。
-        <MarkdownStream content={parts.text} />
+        <MarkdownStream content={visibleText} />
+      ) : null}
+
+      {hasSecrets && secretMaskLabels ? (
+        <button
+          type="button"
+          data-testid="user-message-secret-toggle"
+          aria-pressed={secretsRevealed}
+          onClick={() => setSecretsRevealed((value) => !value)}
+          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-label leading-none text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
+        >
+          {secretsRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          <span>{secretsRevealed ? secretMaskLabels.hide : secretMaskLabels.show}</span>
+        </button>
       ) : null}
 
       {parts.quote ? (
@@ -69,7 +110,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
         >
           <div className="mb-0.5 text-label font-medium">{parts.quote.label}</div>
           {parts.quote.lines.map((l, i) => (
-            <div key={`q-${i}`}>{l.length > 0 ? l : ' '}</div>
+            <div key={`q-${i}`}>{l.length > 0 ? (reveal ? l : (maskedQuoteLines[i] ?? l)) : ' '}</div>
           ))}
         </blockquote>
       ) : null}
@@ -113,7 +154,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           data-testid="user-message-code"
           className="overflow-x-auto rounded-lg bg-muted p-3 text-[13px] leading-relaxed"
         >
-          <code>{code}</code>
+          <code>{reveal ? code : (maskedCodeBlocks[i] ?? code)}</code>
         </pre>
       ))}
 
@@ -135,7 +176,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           data-testid="user-message-rejected"
           className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-muted-foreground"
         >
-          {line}
+          {reveal ? line : (maskedRejectedLines[i] ?? line)}
         </p>
       ))}
 
