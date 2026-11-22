@@ -452,14 +452,22 @@ jobs:
           console.log('all upstream gates succeeded');
           "
 
+      # 2026-11-22:仓库重量预算进 required check。本地 pre-push 只保护本机;
+      # GitHub 网页/PR/API 可绕过本地钩子,这里按 HEAD 树总量兜底(当前约 373MB)。
+      # 判据单源仍是 scripts/check-file-size.mjs --weight;超过 450MB 即红。
+      - name: Repo weight budget
+        id: repo-weight
+        run: node scripts/check-file-size.mjs --weight --budget-mb=450
+
       - name: Failure triage (public annotations)
         id: failure-triage
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout assert-all-gates
+          TRIAGE_IDS: checkout assert-all-gates repo-weight
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_ASSERT_ALL_GATES: ${{ steps.assert-all-gates.outcome }}
+          O_REPO_WEIGHT: ${{ steps.repo-weight.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
   python-ai-service:
