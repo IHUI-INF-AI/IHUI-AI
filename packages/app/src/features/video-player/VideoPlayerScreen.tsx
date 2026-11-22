@@ -424,7 +424,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     infoTitleRow: { flexDirection: 'row', alignItems: 'flex-start' },
     infoTitle: {
@@ -482,7 +482,7 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
       backgroundColor: tk.surface.card,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     tabRow: {
       flexDirection: 'row',

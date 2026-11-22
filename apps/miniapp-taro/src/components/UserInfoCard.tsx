@@ -164,7 +164,7 @@ export default function UserInfoCard({
     showGrowthBar && growthMax && growthMax > 0 ? Math.min((growthValue / growthMax) * 100, 100) : 0
 
   return (
-    <View className={cn('rounded-lg bg-card border border-border', className)} style={PAD_STYLE}>
+    <View className={cn('rounded-lg bg-card', className)} style={PAD_STYLE}>
       {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)=====
           上下内边距 = spec LOGIN_PADDING_Y(14),经 LOGIN_BTN_STYLE 内联喂常量
           (此前写 `py-3` = 12 与 RN 分叉,后改等值类名 `py-3.5`,现收进常量)。

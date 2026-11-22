@@ -360,7 +360,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       padding: rnSpacing['md-loose'],
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     introPara: {
       fontSize: rnType.body.size,
@@ -378,7 +378,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       padding: rnSpacing['md-loose'],
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     sectionTitle: {
       fontSize: rnType.subtitle.size,

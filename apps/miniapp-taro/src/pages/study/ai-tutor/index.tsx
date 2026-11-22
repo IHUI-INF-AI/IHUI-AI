@@ -107,7 +107,7 @@ export default function AiTutor() {
             <View
               key={m}
               className={`px-[24rpx] py-[12rpx] rounded-lg ${
-                mode === m ? 'bg-primary' : 'bg-card border border-solid border-border'
+                mode === m ?'bg-primary' :'bg-card'
               }`}
               hoverClass="opacity-60"
               onClick={() => setMode(m)}
@@ -124,7 +124,7 @@ export default function AiTutor() {
         </View>
 
         {current.length > 0 && (
-          <View className="mx-[20rpx] rounded-lg bg-card p-[28rpx] border border-solid border-border">
+          <View className="mx-[20rpx] rounded-lg bg-card p-[28rpx]">
             <Text className="text-strong text-foreground">{current}</Text>
           </View>
         )}
@@ -133,7 +133,7 @@ export default function AiTutor() {
           {history.map((item) => (
             <View
               key={item.id}
-              className="bg-card rounded-lg p-[28rpx] mb-[20rpx] border border-solid border-border"
+              className="bg-card rounded-lg p-[28rpx] mb-[20rpx]"
             >
               <Text className="text-title font-bold text-foreground text-ellipsis-2">
                 {item.question}
@@ -156,7 +156,7 @@ export default function AiTutor() {
 
         <View className="flex flex-row items-center gap-[16rpx] px-[20rpx] pb-[48rpx]">
           <View
-            className="flex-1 rounded-lg bg-card border border-solid border-border px-[20rpx] py-[12rpx]"
+            className="flex-1 rounded-lg bg-card px-[20rpx] py-[12rpx]"
             style={ff.focusStyle}
           >
             <Input

@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
     },

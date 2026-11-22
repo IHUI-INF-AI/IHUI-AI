@@ -272,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       gap: rnSpacing.xs,
     },
@@ -349,7 +349,7 @@ function createStyles(tk: AppThemeTokens) {
     inviteeCard: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       padding: rnSpacing.md,
       gap: rnSpacing.sm,

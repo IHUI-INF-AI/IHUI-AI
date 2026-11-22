@@ -2122,7 +2122,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     padding: rpx(28),
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
   },
   copyLinkBtn: {
     alignSelf: 'center',

@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     borderRadius: rnRadius.lg,
     // 2026-10-15 样式修复:padding 走 rpx(12dp=24rpx);marginBottom 删除——
     // 卡片外留白由调用方 wrap 统一控制(HomeScreen aiModelWrap 已有 paddingVertical)

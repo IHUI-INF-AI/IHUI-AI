@@ -12,8 +12,8 @@
  *  ③ 两端壳接线 —— **每个**导出常量都要被两端壳 import **且在正文中被消费**;
  *     只 import 不用 = 「造好没装车」,而这正是本票唯一真正要防的事(视觉照旧分叉,
  *     账上却写着已收口);
- *  ④ 平台专属项保留 —— web 的 ui-lift 与 min-[640px]: 断点、RN 的 border-border
- *     是"承载机制差异,允许不同形",下沉时误删即属越界收口;
+ *  ④ 平台专属项保留 —— web 的 ui-lift 与 min-[640px]: 断点、
+ *     移动端卡片壳"静息无描边"(2026-11-23 用户定档)是承载机制差异,下沉时误改即属越界收口;
  *  ⑤ 导出面不回退 —— CardDescription 两端都在位(RN 侧是本票补的),防调用点断供。
  * 每条判据都是**源码级**(readFileSync + 剥注释):两端壳不在本包的被检程序里,
  * import 它们会把 RN / react-dom 的编译约束带进 shared 的 tsc —— 那正是本票要拆掉的东西。
@@ -183,7 +183,8 @@ function platformOnlyProblems(src: string, side: string): string[] {
     if (!/min-\[640px\]:/.test(code)) out.push('web 壳丢了平台专属 min-[640px]: 断点修饰')
   }
   if (side === 'RN') {
-    if (!/border-border/.test(code)) out.push('RN 壳丢了平台专属 border-border(边框色类)')
+    // 2026-11-23 用户定档:移动端卡片静息不画描边 ⇒ RN 壳出现任何描边类即判红
+    if (/\bborder(?:-\w+)*\b/.test(code)) out.push('RN 卡片壳出现描边类(移动端卡片静息无描边)')
     if (/min-\[640px\]:/.test(code)) out.push('RN 壳混入了 web 专属断点修饰(不该下沉却下沉了)')
   }
   return out
@@ -288,8 +289,14 @@ describe('④ 平台专属项:允许不同形,但不许下沉时误删', () => {
     expect(platformOnlyProblems(WEB_SRC, 'web')).toEqual([])
   })
 
-  it('现态:RN 保留 border-border,且不混入 web 断点', () => {
+  it('现态:RN 壳卡片静息无描边,且不混入 web 断点', () => {
     expect(platformOnlyProblems(RN_SRC, 'RN')).toEqual([])
+  })
+
+  it('本锁有牙:给 RN 壳加回 border-border ⇒ 平台专属判据必须红', () => {
+    const dirty = RN_SRC.replace("cn('bg-card'", "cn('border border-border bg-card'")
+    expect(dirty).not.toBe(RN_SRC)
+    expect(platformOnlyProblems(dirty, 'RN').length).toBeGreaterThan(0)
   })
 
   it('本锁有牙:web 壳删掉 ui-lift ⇒ 平台专属判据必须红', () => {

@@ -61,7 +61,7 @@ export default function EduParentPage() {
         </View>
 
         <View
-          className="rounded-lg border border-border bg-card p-lg flex items-center justify-between gap-sm"
+          className="rounded-lg bg-card p-lg flex items-center justify-between gap-sm"
           hoverClass="opacity-80"
           onClick={() => {
             void Taro.navigateTo({ url: '/pkg-user/edu-my-attendance/index' })
@@ -88,7 +88,7 @@ export default function EduParentPage() {
             {children.map((c) => (
               <View
                 key={c.bindingId}
-                className="rounded-lg border border-border bg-card p-lg flex items-center justify-between gap-sm"
+                className="rounded-lg bg-card p-lg flex items-center justify-between gap-sm"
               >
                 <View className="flex-1 min-w-0 space-y-xs">
                   <Text className="text-title font-semibold text-foreground truncate">

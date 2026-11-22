@@ -166,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       gap: rnSpacing['sm-loose'],
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     pressed: { opacity: 0.85 },
     headRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },

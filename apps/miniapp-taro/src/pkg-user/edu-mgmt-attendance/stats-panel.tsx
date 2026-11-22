@@ -14,7 +14,7 @@
 // 零依赖、可被纯函数测试钉住(算术全在 stats.ts,视图层一个数字都不重算)。
 //
 // 视觉档纪律(照本端在册用词,不新开档):
-//  - 卡片:`rounded-lg border border-border bg-card`(结构性边框,描边取中性档,不取墨档)
+//  - 卡片:`rounded-lg bg-card`(2026-11-23 用户定档:移动端卡片静息无描边,靠底色分层)
 //  - 色块/条填充:`TONE_BG_CLASS`(contract 的 tone 表第二列,四档)
 //  - 条高 `h-2`(与 ProgressBar 的 md 档同名同值)、色块 `w-2 h-2`、圆角 `rounded-xs`(2px 角色档)
 //  - 一格一读数:读数一律 `whitespace-nowrap tabular-nums`,放不下只能减列(AGENTS「读数不得断行」)
@@ -33,7 +33,7 @@ import {
 } from './stats'
 
 /** 卡片外壳:与同页 ChildRecordsView 的行卡同一档(rounded-lg + 中性描边 + bg-card)。 */
-const CARD = 'rounded-lg border border-border bg-card p-4 space-y-2'
+const CARD ='rounded-lg bg-card p-4 space-y-2'
 /** 读数文字:单行、等宽数字(断行即违规,见 AGENTS「读数不得断行」)。 */
 const READOUT = 'text-xs text-foreground whitespace-nowrap tabular-nums'
 const READOUT_DIM = 'text-xs text-muted-foreground whitespace-nowrap tabular-nums'

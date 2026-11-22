@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
   },
   fileBox: {
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.bg,
   },
   uploadTitle: { fontSize: rnType.body.size, fontWeight: '500', color: tokens.text.primary },

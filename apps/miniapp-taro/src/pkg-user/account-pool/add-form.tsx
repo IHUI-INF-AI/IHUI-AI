@@ -36,7 +36,7 @@ const pillCls = 'rounded-md px-[20rpx] py-[10rpx] text-label leading-[normal]'
 export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormProps) {
   const canSave = draft.name.trim() !== '' && draft.token.trim() !== '' && !busy
   return (
-    <View className="mt-[24rpx] rounded-lg border border-border bg-card p-[28rpx]">
+    <View className="mt-[24rpx] rounded-lg bg-card p-[28rpx]">
       <Text className={firstLabelCls}>{t('accountPool.provider')}</Text>
       <View className="mt-[12rpx] flex flex-wrap gap-[12rpx]">
         {PROVIDERS.map((p) => (

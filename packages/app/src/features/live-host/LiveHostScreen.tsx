@@ -239,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     lastSection: { marginBottom: rnSpacing['3xl'] },
     sectionLabel: {

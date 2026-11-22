@@ -130,7 +130,7 @@ export default function StudyPlan() {
           const p = list.find((x) => x.id === item.id)
           if (!p) return null
           return (
-            <View className="bg-card rounded-lg border border-border p-[28rpx]">
+            <View className="bg-card rounded-lg p-[28rpx]">
               <View className="flex justify-between items-center">
                 <Text className="flex-1 text-subtitle text-foreground font-bold overflow-hidden">
                   {p.title}
@@ -177,7 +177,7 @@ export default function StudyPlan() {
           onClick={() => setShowAdd(false)}
         >
           <View
-            className="mx-2xl w-full max-w-[600rpx] bg-card ui-card rounded-lg border border-border p-[28rpx]"
+            className="mx-2xl w-full max-w-[600rpx] bg-card ui-card rounded-lg p-[28rpx]"
             hoverClass="opacity-60"
             onClick={(e) => e.stopPropagation()}
           >

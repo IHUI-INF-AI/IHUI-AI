@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderStyle: 'dashed',
-      borderColor: tk.border.medium,
+      borderColor: 'transparent',
     },
     emptyText: {
       fontSize: rnType.label.size,
@@ -288,7 +288,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     },

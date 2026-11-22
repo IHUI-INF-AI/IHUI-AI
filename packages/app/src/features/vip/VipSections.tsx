@@ -163,7 +163,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     benefitIcon: { marginTop: rnSpacing['2xs'] },
     benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
@@ -179,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     plansTitle: {

@@ -49,7 +49,7 @@
 /* 名片卡(RN card:卡底 / 圆角16 / 描边 border-light / padding14) */
 .card-preview {
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
+
   border-radius: var(--radius-2xl);
   padding: var(--spacing-md-loose);
 }

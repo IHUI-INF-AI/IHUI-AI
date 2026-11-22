@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center' },
     avatar: {

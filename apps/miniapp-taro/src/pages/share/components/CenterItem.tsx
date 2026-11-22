@@ -71,7 +71,6 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
               width: 'calc(50% - 8rpx)',
               borderRadius: rnRadius.xl,
               overflow: 'hidden',
-              border: '2rpx solid var(--color-border)',
               background: 'var(--color-card)',
             }}
             onClick={() => onItemClick?.(item)}

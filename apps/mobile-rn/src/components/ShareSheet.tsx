@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: rnRadius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: 0,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     paddingHorizontal: rnSpacing.xl,
     paddingTop: rnSpacing.lg,
     paddingBottom: rnSpacing['3xl'],

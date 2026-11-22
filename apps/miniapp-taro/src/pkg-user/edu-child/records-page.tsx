@@ -103,7 +103,7 @@ export function ChildRecordsView(options: {
             // 先求动作节点:函数给了但该行返回空 ⇒ 连动作容器都不产生(默认零节点承诺)
             const actions = options.rowActions ? options.rowActions(r) : null
             return (
-              <View key={r.id} className="rounded-lg border border-border bg-card p-lg space-y-sm">
+              <View key={r.id} className="rounded-lg bg-card p-lg space-y-sm">
                 {options.columns.map((c) => {
                   const v = r.cells[c.key]
                   if (!v) return null

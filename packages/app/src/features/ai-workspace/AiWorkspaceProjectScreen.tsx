@@ -393,7 +393,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     projectName: {
@@ -429,7 +429,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     sectionHead: {

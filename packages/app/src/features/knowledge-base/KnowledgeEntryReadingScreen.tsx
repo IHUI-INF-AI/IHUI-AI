@@ -298,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     metaRow: {
@@ -340,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     content: {
@@ -359,7 +359,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     tocTitle: {

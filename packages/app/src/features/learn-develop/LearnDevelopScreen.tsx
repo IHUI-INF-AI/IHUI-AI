@@ -211,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing['md-loose'],
       gap: rnSpacing['xs-loose'],
       alignItems: 'center',
@@ -281,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     courseCover: {

@@ -149,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
       flexBasis: '31%',
       flexGrow: 1,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       borderRadius: rnRadius.lg,
       padding: rnSpacing.sm,
       gap: rnSpacing['2xs'],

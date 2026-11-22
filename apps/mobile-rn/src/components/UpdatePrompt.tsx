@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
     // 描边取中档而不是浅档:卡片与页面同属 surface 族,浅档在真机上几乎看不见边界
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     // 抬升档:让卡片从页面里"浮"出来(web shadow-lg 的 RN 对位)→ 档位 lg
     ...ELEVATION_STEPS.lg,
   },
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     // 投影:重启遮罩上的提示卡 → 档位 lg
     ...ELEVATION_STEPS.lg,
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     // 投影:强制阻塞卡片 → 档位 lg
     ...ELEVATION_STEPS.lg,
   },

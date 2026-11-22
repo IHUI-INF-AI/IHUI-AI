@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     // 此前写 lg(8) 是"卡片档套在控件上"
     borderRadius: rnRadiusFor.control,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.bg,
     alignItems: 'center',
     justifyContent: 'center',

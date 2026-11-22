@@ -346,7 +346,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     rowIcon: {

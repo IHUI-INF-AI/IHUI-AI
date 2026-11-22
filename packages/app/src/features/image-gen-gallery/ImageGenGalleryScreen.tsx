@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     },

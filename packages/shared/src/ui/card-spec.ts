@@ -19,7 +19,8 @@
  * 承载机制差异(规则6:机制,非取值分叉,逐条登记 —— 允许不同形,**不下沉**):
  *  - `ui-lift`(hover 抬升影):仅 web。依赖 CSS :hover 通道,RN 无此通道。
  *  - `min-[640px]:` 断点修饰:仅 web。响应式栅格是 web 端概念,RN 不按断点排版。
- *  - `border-border`:仅 RN。nativewind 不继承 web tokens 的边框默认色,须显式给边框色类。
+ *  - 卡片静息描边:仅 web 保留 `border-stroke-default`;RN/小程序侧卡片静息无描边
+ *    (2026-11-23 用户定档:移动端所有白底容器不再常驻描边,靠 surface.bg 与 surface.card 的色差分层)。
  *  - 内边距承载位置:web 由 CardHeader/CardContent/CardFooter 各块承载(pb-0 / pt-0 互相 hedging),
  *    RN 原由 Card 根一次性承载(`p-4`)。本票把两端统一成**块承载**(与 web 同构):
  *    否则 CARD_CONTENT_PADDING_PX 在 RN 端没有落点,而"两端壳都消费每个常量"是本票的硬要求。

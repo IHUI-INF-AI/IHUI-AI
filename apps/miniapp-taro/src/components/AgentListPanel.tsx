@@ -113,7 +113,7 @@ export default function AgentListPanel({
                  border border.light / bg surface.light(card) */
               <View
                 key={agent.id}
-                className="flex items-center py-[28rpx] px-[28rpx] mb-[24rpx] rounded-lg bg-[var(--color-card)] border border-[var(--color-border)]"
+                className="flex items-center py-[28rpx] px-[28rpx] mb-[24rpx] rounded-lg bg-[var(--color-card)]"
                 onClick={() => handleAgentClick(agent)}
                 hoverClass="opacity-60"
               >

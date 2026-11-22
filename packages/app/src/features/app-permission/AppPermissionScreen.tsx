@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       padding: rnSpacing['md-loose'],
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.md },
     rowMain: { flex: 1 },

@@ -341,7 +341,7 @@ function makeStyles() {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tokens.border.light,
+      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
       gap: rnSpacing['xs-loose'],
     },

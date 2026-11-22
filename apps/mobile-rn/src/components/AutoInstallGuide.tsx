@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     // 投影:引导浮层卡 → 档位 lg(原手写 4/.16/12 + elevation 8,收口到 ELEVATION_STEPS)
     ...ELEVATION_STEPS.lg,
   },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.medium,
+    borderColor: 'transparent',
     ...ELEVATION_STEPS.lg,
   },
   modalTitle: {

@@ -520,7 +520,7 @@ const shellStyles = {
     height: 200,
     borderRadius: rnRadius.xl,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',

@@ -128,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
     },
     statusLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
     statusValue: {

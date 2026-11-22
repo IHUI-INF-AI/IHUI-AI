@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     /* 圆形头像取「边长的一半」作半径 —— 档位表最大档只有 16,取档位会把 80px 头像压成圆角方块 */
@@ -283,7 +283,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     },

@@ -22,7 +22,7 @@ export default function DevPasswordCard({
   onCopy,
 }: DevPasswordCardProps) {
   return (
-    <View className="mx-[40rpx] mt-[40rpx] bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx]">
+    <View className="mx-[40rpx] mt-[40rpx] bg-card rounded-lg p-[28rpx]">
       <Text className="block text-title font-semibold text-foreground mb-[24rpx]">{title}</Text>
       <View className="flex items-center">
         <Text className="w-[152rpx] shrink-0 text-body text-muted-foreground">{label}</Text>

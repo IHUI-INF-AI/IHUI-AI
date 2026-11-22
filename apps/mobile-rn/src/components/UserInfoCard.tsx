@@ -442,7 +442,7 @@ const newStyles = StyleSheet.create({
     // 小程序端同一张卡的根容器本就是 `rounded-lg`(8) ⇒ 此前是 RN 单端把卡片拧到 12。
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.card,
   },
   header: {

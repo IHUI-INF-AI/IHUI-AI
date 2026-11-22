@@ -224,7 +224,7 @@ function createAiWorldCollectionStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       padding: rnSpacing.md,
       marginBottom: rnSpacing.sm,

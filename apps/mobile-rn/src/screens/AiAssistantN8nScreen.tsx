@@ -2422,7 +2422,7 @@ const bubbleStyles = StyleSheet.create({
   card: {
     borderRadius: rnRadius.lg,
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   },

@@ -264,7 +264,7 @@ export default function Bill() {
               return (
                 <View
                   key={item.id}
-                  className="mb-[20rpx] rounded-lg border border-[var(--color-border)] bg-card p-[24rpx]"
+                  className="mb-[20rpx] rounded-lg bg-card p-[24rpx]"
                 >
                   <View className="flex items-center justify-between gap-[16rpx]">
                     <Text className="flex-1 truncate text-title font-semibold text-foreground">
@@ -349,7 +349,7 @@ export default function Bill() {
             <Text className="text-body font-semibold text-foreground">
               {tt('bill.paymentHistory', '缴费记录')}
             </Text>
-            <View className="mt-[16rpx] rounded-lg border border-[var(--color-border)] bg-card px-[24rpx]">
+            <View className="mt-[16rpx] rounded-lg bg-card px-[24rpx]">
               {data.payments.map((p) => (
                 <View key={p.id} className="flex items-center justify-between py-[20rpx]">
                   <View className="flex-1">

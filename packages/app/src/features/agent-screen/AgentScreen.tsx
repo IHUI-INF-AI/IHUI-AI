@@ -286,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     avatar: { width: 48, height: 48, borderRadius: rnRadius.xl, backgroundColor: tk.surface.muted },

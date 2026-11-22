@@ -655,7 +655,7 @@ function createCoverStyles(tk: AppThemeTokens) {
       height: 120,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       borderStyle: 'dashed',
       alignItems: 'center',
       justifyContent: 'center',

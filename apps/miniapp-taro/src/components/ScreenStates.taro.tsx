@@ -96,7 +96,6 @@ export function ScreenSkeleton({
             gap: toRpx(SP.md),
             padding: variant === 'card' ? toRpx(SP.lg) : toRpx(SP.md + 2),
             borderRadius: toRpx(RD.lg),
-            border: '1px solid var(--color-border)',
             backgroundColor: 'var(--color-card)',
           }}
         >

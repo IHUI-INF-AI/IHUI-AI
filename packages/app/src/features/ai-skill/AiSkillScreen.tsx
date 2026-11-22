@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md, // mb-3
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1, // border
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       padding: rnSpacing.lg, // p-4
       backgroundColor: tk.surface.card,
     },

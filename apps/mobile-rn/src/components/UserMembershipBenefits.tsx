@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     padding: rnSpacing.md,
     gap: rnSpacing['sm-loose'],
     borderWidth: 1,
-    borderColor: tokens.border.light,
+    borderColor: 'transparent',
   } as ViewStyle,
   promoTitle: {
     fontSize: rnType.title.size,

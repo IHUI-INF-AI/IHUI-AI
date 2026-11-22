@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
     },
     paragraph: {

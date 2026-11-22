@@ -266,7 +266,7 @@ function makeStyles() {
       margin: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tokens.border.light,
+      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
       // ScrollView 默认会抢走剩余空间;这里保持「按内容高度」占位,只在键盘挤压时收缩内部滚动
       flexGrow: 0,
@@ -306,7 +306,7 @@ function makeStyles() {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tokens.border.light,
+      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
       gap: rnSpacing['xs-loose'],
     },

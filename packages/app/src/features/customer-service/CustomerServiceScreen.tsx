@@ -109,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: tk.border.light,
+      borderColor: 'transparent',
       backgroundColor: tk.surface.light,
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },

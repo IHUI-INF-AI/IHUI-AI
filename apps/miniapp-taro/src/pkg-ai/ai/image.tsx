@@ -266,7 +266,7 @@ export default function ImagePage() {
         </Button>
       </View>
 
-      <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
+      <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg p-[24rpx]">
         <Text className="block text-body font-medium text-foreground mb-[16rpx]">
           {t('ai.image.history')}
         </Text>

@@ -36,7 +36,7 @@ export function PoolRowCard({
 }: PoolRowCardProps) {
   const confirming = confirmId === row.id
   return (
-    <View className="rounded-lg border border-border bg-card p-[24rpx]">
+    <View className="rounded-lg bg-card p-[24rpx]">
       <View className="flex flex-wrap items-center gap-[12rpx]">
         <Text className="rounded-sm bg-muted px-[12rpx] py-[4rpx] text-caption text-muted-foreground">
           {row.providerCode}
