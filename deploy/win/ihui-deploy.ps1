@@ -1719,6 +1719,41 @@ function Remove-DirLongPath {
     try { [System.IO.Directory]::Delete($Path, $false) } catch {}
 }
 
+function Remove-DirExceptNodeModules {
+    <#
+      源码层清理的深水区(2026-11-22 立):上一层的 Remove-CleanBuildSourceLayer 只跳过**顶层**
+      node_modules,而 pnpm workspace 的依赖全挂在 `apps/*` / `packages/*` 下 —— apps 整目录一删,
+      apps\web\node_modules 跟着消失,`next.cmd` 不在位 ⇒ 依赖判据每轮命中 `pnpm install`,
+      实测 10:18 那轮 71s、02:14 那轮 7m14s、03:27 4m33s、04:50 3m15s、05:33 2m30s ——
+      每轮白装一遍 4000+ 包,是部署墙钟里最大的一块(占 24h 配额 481/480 分钟的直接来源之一)。
+      本器递归深入,遇到名为 node_modules 的子目录就**跳过**(pnpm 的 .pnpm 里全是 junction,
+      无脑递归会抛「参数错误」而一棵没删,见 Remove-DirLongPath 头注);
+      含 node_modules 的目录在末尾 Delete 时非空 ⇒ 自然留下外壳,下一次 checkout-index 覆写即可。
+      失效方向:只多留依赖、不多删源码 —— 版本标记仍按目标 SHA 落盘,"上一轮有、这一轮没有"
+      的源码文件照样被删干净,构建输入不失真。
+    #>
+    param([string]$Path)
+    if (-not $Path) { return }
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if (-not $item) { return }
+    if (-not $item.PSIsContainer) {
+        try { [System.IO.File]::Delete($Path) } catch {}
+        return
+    }
+    foreach ($it in @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue)) {
+        if ($it.Name -eq 'node_modules') { continue }
+        $isLink = ($it.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+        if ($isLink) {
+            try { [System.IO.Directory]::Delete($it.FullName, $false) } catch { try { [System.IO.File]::Delete($it.FullName) } catch {} }
+        } elseif ($it.PSIsContainer) {
+            Remove-DirExceptNodeModules $it.FullName
+        } else {
+            try { [System.IO.File]::Delete($it.FullName) } catch {}
+        }
+    }
+    try { [System.IO.Directory]::Delete($Path, $false) } catch {}
+}
+
 function Get-CleanBuildSourceSha {
     <#
       读净面的源码版本标记(替代原来的 `git -C $CleanBuildWt rev-parse HEAD`)。
@@ -1736,13 +1771,16 @@ function Remove-CleanBuildSourceLayer {
       删净面里的**源码层**,保留 node_modules(3.3G 跨轮依赖缓存)与版本标记文件。
       为什么不能整目录删:依赖指纹(pnpm-lock.yaml / pnpm-workspace.yaml / .npmrc)没变时
       install 整段跳过,node_modules 是每轮省下数分钟的关键 —— 删它等于每轮白装一次。
+      2026-11-22 补:顶层 node_modules 只是根链接,**workspace 各包的 node_modules 在 apps/* /
+      packages/* 下**,原来随父目录一起删 ⇒ 依赖判据(webBin 在位)每轮命中 install。改走
+      Remove-DirExceptNodeModules 递归跳过 node_modules(实测每轮省 2.5-7 分钟)。
     #>
     param([string]$Path)
     if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return }
     foreach ($it in @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue)) {
         if ($it.Name -eq 'node_modules') { continue }
         if ($it.Name -eq $CleanBuildShaFile) { continue }
-        Remove-DirLongPath -Path $it.FullName
+        Remove-DirExceptNodeModules -Path $it.FullName
     }
 }
 
@@ -1996,14 +2034,31 @@ function Get-CleanBuildWebDir {
                 # ⇒ 防 pnpm 的「store 已变更 ⇒ 需要 purge?」确认在非交互管道里把整轮部署挂死
                 # (2026-10-22 06:04 实测卡 43 分钟、pnpm CPU 恒 0、日志零输出)。
                 $env:CI = '1'
-                $instLines = @($null | & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
+                $pnpmCmd = Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd'
+                $emitInst = {
+                    param($lines)
+                    if ($lines.Count -le 12) {
+                        $lines | ForEach-Object { Log "[clean-install] $_" }
+                    } else {
+                        $lines[0..2] | ForEach-Object { Log "[clean-install] $_" }
+                        Log ("[clean-install] …(省略 {0} 行)…" -f ($lines.Count - 11))
+                        $lines[($lines.Count - 8)..($lines.Count - 1)] | ForEach-Object { Log "[clean-install] $_" }
+                    }
+                }
+                $instLines = @($null | & $pnpmCmd install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
                 $irc = $LASTEXITCODE
-                if ($instLines.Count -le 12) {
-                    $instLines | ForEach-Object { Log "[clean-install] $_" }
-                } else {
-                    $instLines[0..2] | ForEach-Object { Log "[clean-install] $_" }
-                    Log ("[clean-install] …(省略 {0} 行)…" -f ($instLines.Count - 11))
-                    $instLines[($instLines.Count - 8)..($instLines.Count - 1)] | ForEach-Object { Log "[clean-install] $_" }
+                & $emitInst $instLines
+                if ($irc -ne 0) {
+                    # 网络抖动档(2026-11-22 立,当次实测 10:19 registry `fetch failed` ⇒ 整轮净面不可用、
+                    # 退回共享工作树构建 = 隔离暂时失效):再试一次 `--prefer-offline`,净面 store 通常已含
+                    # 4000+ 包(reused 4037 / downloaded 0 那类读数),reuse 档足以补齐缺口。
+                    # 仍是 fail-closed:两次都不过 ⇒ 才 throw,不把"没装成"当就绪。
+                    Log '[CLEAN-BUILD] install 失败 ⇒ 再试一次 --prefer-offline(网络抖动档,不跳过隔离)'
+                    $instLines = @($null | & $pnpmCmd install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
+                    $irc2 = $LASTEXITCODE
+                    & $emitInst $instLines
+                    if ($irc2 -eq 0) { $irc = 0; Log '[CLEAN-BUILD] --prefer-offline 重试成功 ⇒ 净面继续用隔离面' }
+                    else { $irc = $irc2 }
                 }
             } finally { Pop-Location }
             Update-DeployLockHeartbeat
