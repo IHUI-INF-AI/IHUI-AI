@@ -109,7 +109,6 @@ const nextConfig: NextConfig = {
     '@ihui/ui-react',
     '@ihui/design-tokens',
     '@ihui/types',
-    '@ihui/auth',
     '@ihui/shared',
     '@ihui/api-client',
     '@ihui/i18n',
