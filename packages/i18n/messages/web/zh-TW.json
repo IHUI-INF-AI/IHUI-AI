@@ -8908,6 +8908,12 @@
           "emptyDraft": "草稿為空，請先輸入內容再潤色。"
         },
         "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
+      },
+      "hookFailures": {
+        "action": {
+          "retry": "重試",
+          "inspect": "查看詳情"
+        }
       }
     },
     "permissionConfirm": {
@@ -13918,7 +13924,30 @@
     "navTools": "工具",
     "navWorkflow": "工作流編排",
     "shellSubtitle": "平臺開發與集成指南",
-    "shellTitle": "開發文檔"
+    "shellTitle": "開發文檔",
+    "manual": {
+      "getting-started": {
+        "title": "開始使用"
+      },
+      "ai-chat": {
+        "title": "AI 對話"
+      },
+      "agent": {
+        "title": "使用 Agent"
+      },
+      "knowledge-base": {
+        "title": "知識庫"
+      },
+      "billing": {
+        "title": "積分與訂閱"
+      },
+      "account": {
+        "title": "帳戶設定"
+      },
+      "faq": {
+        "title": "常見問題"
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -26463,7 +26492,13 @@
       "deleteFailed": "刪除失敗"
     },
     "cancel": "取消",
-    "save": "儲存"
+    "save": "儲存",
+    "terminalReason": {
+      "manualPause": "手動暫停",
+      "failedPermanent": "永久失敗",
+      "failedRetriesExhausted": "重試次數已用盡",
+      "completed": "已完成"
+    }
   },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 個任務遠端取消失敗（已本地置為已取消）",

@@ -7258,6 +7258,12 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "hookFailures": {
+        "action": {
+          "retry": "Retry",
+          "inspect": "Inspect"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {
@@ -13640,6 +13646,29 @@
     "totalCount": "{count} total"
   },
   "docs": {
+    "manual": {
+      "getting-started": {
+        "title": "Getting Started"
+      },
+      "ai-chat": {
+        "title": "AI Chat"
+      },
+      "agent": {
+        "title": "Using Agents"
+      },
+      "knowledge-base": {
+        "title": "Knowledge Base"
+      },
+      "billing": {
+        "title": "Billing"
+      },
+      "account": {
+        "title": "Account Settings"
+      },
+      "faq": {
+        "title": "FAQ"
+      }
+    },
     "navAgent": "Agent Development",
     "navApi": "API Docs",
     "navDevelopers": "Developers",
@@ -25809,6 +25838,12 @@
     "pageSubtitle": "A user-editable rule set that is injected into the system prompt at agent runtime according to its match conditions"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanent failure",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    },
     "delete": "Delete",
     "title": "Automations",
     "subtitle": "Run your agent tasks on schedule",
