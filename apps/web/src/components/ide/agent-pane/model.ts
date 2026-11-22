@@ -9,7 +9,7 @@ import type {
 } from '@ihui/api-client'
 import type { PlanStepStatus, TerminalTask } from '@/hooks/use-agent-progress'
 import type { InlineDiffInfo } from '@/components/ai/types'
-import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
+import { FALLBACK_MODELS } from '@ihui/shared'
 
 // 2026-09-09 0-6 组件拆分:MODEL_OPTIONS 由 agent-pane.tsx 收敛进 model(纯数据,无 JSX)
 export const MODEL_OPTIONS: ReadonlyArray<{ value: string; labelKey?: string; label?: string }> = [

@@ -39,6 +39,7 @@
       "dependsOn": ["^build"],
       "inputs": [
         "src/**",
+        "app/**",
         "test/**",
         "tests/**",
         "vitest.config.*",

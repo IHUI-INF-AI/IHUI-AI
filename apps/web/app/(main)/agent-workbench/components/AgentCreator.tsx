@@ -25,10 +25,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@ihui/ui-react'
-import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 import { fetchApi } from '@/lib/api'
 import { listLlmModels } from '@ihui/api-client'
 import {
+  FALLBACK_MODELS,
   isArchivedModel,
   normalizeCategory,
   normalizeTier,

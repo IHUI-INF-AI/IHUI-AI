@@ -104,6 +104,45 @@ function headOf(relPosix: string): string {
   }
 }
 
+/** 要喂 stdin / 按字节切内容时用这个(utf8 解码会把 size(字节) 与字符数搞错) */
+function gitBuf(args: string[], input: Buffer): Buffer {
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd: repoRoot,
+    windowsHide: true,
+    timeout: 120_000,
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    input,
+  })
+}
+
+/**
+ * 一次 `cat-file --batch` 取完整个传动面(2026-11-22 提速):
+ * 此前对 src 下每个 .ts 派一次 `git show`(单跑实测 35s,并行下更慢,靠抬到 180s 预算顶账)。
+ * 批量版把 N 次进程变 1 次;missing = 该路径不在 HEAD(新文件) => 存量 0,与原 headOf 的 '' 分支同义;
+ * 进程级失败仍抛(execFileSync),绝不静默当 0。
+ */
+function readHeadBlobs(rels: string[]): Map<string, string> {
+  const out = gitBuf(
+    ['cat-file', '--batch'],
+    Buffer.from(rels.map((rel) => `HEAD:${rel}\n`).join(''), 'utf8'),
+  )
+  const texts = new Map<string, string>()
+  let at = 0
+  for (const rel of rels) {
+    const lineEnd = out.indexOf(0x0a, at)
+    if (lineEnd < 0) break
+    const header = out.subarray(at, lineEnd).toString('utf8')
+    at = lineEnd + 1
+    const hit = /^[0-9a-f]{40} blob (\d+)$/.exec(header)
+    if (!hit) continue
+    const size = Number(hit[1])
+    texts.set(rel, out.subarray(at, at + size).toString('utf8'))
+    at += size + 1
+  }
+  return texts
+}
+
 function walkTs(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const abs = path.join(dir, e.name)
@@ -135,10 +174,12 @@ describe('W1 棘轮:任何 src 文件的就地旁路数不得多于该文件自�
   it('逐文件 worktree ≤ HEAD(锚点是 HEAD blob,不是磁盘清单;不拦存量、只拦加回来)', () => {
     const offenders: string[] = []
     const remaining: string[] = []
-    for (const f of allFiles) {
-      if (f.relCli === GATE_REL) continue
+    const probe = allFiles.filter((f) => f.relCli !== GATE_REL)
+    // 取材面一次取齐(判据仍是 HEAD blob;只把 N 次 spawn 合成 1 次)
+    const heads = readHeadBlobs(probe.map((f) => f.rel))
+    for (const f of probe) {
       const work = countInlineDecisions(readFileSync(f.abs, 'utf-8'))
-      const head = countInlineDecisions(headOf(f.rel))
+      const head = countInlineDecisions(heads.get(f.rel) ?? '')
       if (work > 0) remaining.push(`${f.relCli}=${work}`)
       if (work > head) {
         offenders.push(`${f.relCli}: HEAD=${head} 工作树=${work}(危险放行策略只能经 createDangerGate 唯一出口,不得在调用方就地决定)`)
