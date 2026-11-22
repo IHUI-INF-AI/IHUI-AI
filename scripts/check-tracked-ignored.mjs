@@ -198,6 +198,14 @@ export const CRITICAL_IGNORE_SAMPLES = [
   'target/debug/app.bin',
   'tmp/upload.part',
   'release/bundle.gz',
+  'secrets/client.ovpn',
+  'captures/session.har',
+  'docs/report.docx',
+  'db/legacy.accdb',
+  'browser/storageState.json',
+  '.cursor/mcp.json',
+  '.cloudflared/creds.json',
+  'infra/main.tfplan',
 ]
 
 /** 纯判据:样例里哪些没被忽略。 */
