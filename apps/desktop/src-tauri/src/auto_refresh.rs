@@ -697,6 +697,11 @@ async fn launch_verified_installer(
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建更新目录失败: {e}"))?;
     let installer = dir.join(format!("ihui-{ver}-setup.exe"));
     std::fs::write(&installer, &bytes).map_err(|e| format!("写入安装器失败: {e}"))?;
+    // 落一枚"待生效版本"回执:安装器是脱离作业的独立进程,它成功与否主进程看不到
+    // (spawn 成功后本进程立刻 exit(0))。真结果核对放在下次启动(见
+    // `reconcile_pending_update`),否则"安装器静默失败"与"从没进入过安装"在日志上
+    // 仍然无法区分 —— 这一型坑本轮已经返工过两次。
+    write_pending_update(app, &ver, &installer);
     // `/S` 静默 + `/R` 装完重启应用 + `/UPDATE` 覆盖升级(与人工实测可用的参数一致)。
     let mut cmd = std::process::Command::new(&installer);
     cmd.args(["/S", "/R", "/UPDATE"]);
@@ -715,6 +720,110 @@ async fn launch_verified_installer(
         installer.display()
     );
     std::process::exit(0);
+}
+
+/// 自更新"待生效版本"账本文件名(位于 `app_local_data_dir()` 下)。
+const PENDING_UPDATE_FILE: &str = "pending-update.json";
+
+/// 写回执(best-effort):写不进去只损失可解释性,绝不能因此阻断安装。
+fn write_pending_update(app: &tauri::AppHandle, target: &str, installer: &std::path::Path) {
+    let Some(dir) = app.path().app_local_data_dir().ok() else {
+        log::warn!("[auto-refresh] 取不到数据目录 → 跳过更新回执");
+        return;
+    };
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        log::warn!("[auto-refresh] 建数据目录失败 → 跳过更新回执: {e}");
+        return;
+    }
+    let launched_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let payload = serde_json::json!({
+        "target": target,
+        "installer": installer.display().to_string(),
+        "launched_at": launched_at,
+    });
+    match serde_json::to_string_pretty(&payload) {
+        Ok(text) => {
+            if let Err(e) = std::fs::write(dir.join(PENDING_UPDATE_FILE), text) {
+                log::warn!("[auto-refresh] 写入更新回执失败(不影响安装): {e}");
+            }
+        }
+        Err(e) => log::warn!("[auto-refresh] 序列化更新回执失败(不影响安装): {e}"),
+    }
+}
+
+/// 启动时核对上次自更新是否真生效(2026-11-21)。
+///
+/// 安装器以 detached + breakaway 方式拉起后,主进程立刻 `exit(0)`,安装器成功与否
+/// 没有任何回执。若它静默失败(磁盘满/权限/安全软件拦截),现场就是"日志只有
+/// 『安装器已启动』一行、版本没变",与"从来没进入过安装"在日志上完全不可区分。
+/// 现在:成功 → INFO 一行;失败 → WARN 点名目标版本、当前版本与常见原因。
+pub(crate) fn reconcile_pending_update(app: &tauri::AppHandle) {
+    let Some(dir) = app.path().app_local_data_dir().ok() else {
+        return;
+    };
+    let path = dir.join(PENDING_UPDATE_FILE);
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return; // 没有账本 = 上次没走到安装,正常态
+    };
+    let target = serde_json::from_str::<serde_json::Value>(&raw)
+        .ok()
+        .and_then(|v| {
+            v.get("target")
+                .and_then(|t| t.as_str())
+                .map(str::to_owned)
+        })
+        .unwrap_or_default();
+    let current = app.package_info().version.to_string();
+    if target.is_empty() {
+        log::warn!("[auto-refresh] 更新回执无法解析 → 丢弃:{raw}");
+    } else if current == target {
+        log::info!("[auto-refresh] 自更新回执核对一致:已升到 {target}");
+    } else {
+        log::warn!(
+            "[auto-refresh] 自更新未生效:上次尝试升到 {target},当前仍是 {current} —— \
+             安装器已启动但没完成安装(常见:磁盘空间不足/权限/安全软件拦截安装器)"
+        );
+    }
+    if let Err(e) = std::fs::remove_file(&path) {
+        log::warn!("[auto-refresh] 清理更新回执失败: {e}");
+    }
+}
+
+/// 延迟清理历史版本残留的更新目录(每个约 10MB)。
+///
+/// `launch_verified_installer` 拉起安装器后立刻 `exit(0)`,落盘目录不会走析构,
+/// 于是每升一版就在 `%TEMP%` 留一份安装器。启动后延迟 10 秒清:此刻若有安装器
+/// 正在收尾,那一份删不掉是正常态,只计数不报错。
+pub(crate) fn spawn_stale_update_dir_cleanup() {
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_secs(10));
+        let root = std::env::temp_dir();
+        let Ok(entries) = std::fs::read_dir(&root) else {
+            return;
+        };
+        let mut removed = 0usize;
+        let mut busy = 0usize;
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !name.starts_with("ihui-update-") {
+                continue;
+            }
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            match std::fs::remove_dir_all(&path) {
+                Ok(()) => removed += 1,
+                Err(_) => busy += 1,
+            }
+        }
+        if removed > 0 || busy > 0 {
+            log::info!("[auto-refresh] 更新目录清理:删除 {removed} 个,仍被占用跳过 {busy} 个");
+        }
+    });
 }
 
 /// 累计读取是否已超过指纹抓取上限(纯函数,便于单测;饱和加法防溢出)。
