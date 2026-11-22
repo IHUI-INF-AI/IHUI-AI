@@ -4,5 +4,5 @@
 Option Explicit
 Dim sh, rc
 Set sh = CreateObject("WScript.Shell")
-rc = sh.Run("""C:\Program Files\nodejs\node.exe"" ""G:\IHUI-AI\scripts\ensure-silent-tasks.mjs""", 0, True)
+rc = sh.Run("""C:\Program Files\nodejs\node.exe"" ""C:\IHUI-AI\scripts\ensure-silent-tasks.mjs""", 0, True)
 WScript.Quit rc
