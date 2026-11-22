@@ -148,6 +148,7 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 
 - `55aae297`：`FSBridge.write`/`edit` 改为「同目录临时文件 + rename」原子替换（`atomicWriteText`），磁盘满/Windows EBUSY/进程被杀不再留下半截文件；`workspace-fs-ops.test.ts` 6 passed（含"成功后不留 .tmp"）。
 - `cc216ee8`：新增 `apps/web/src/hooks/use-workspace-watcher.ts`，对齐 WorkBuddy `/api/v1/fs/watcher/*` 的客户端面：面板可见才创建、卸载即 `remove`、`cursor` 长轮询续读、过滤 `.git/` 与依赖目录避免「刷新→事件→刷新」自激；`source-control-panel.tsx` 可见时订阅，外部保存或 AI 改文件后自动刷新差异与暂存态。`use-workspace-watcher.test.tsx` 2 passed + 分支保护 4 passed，`@ihui/web` typecheck 7/7 success。
+- 同批：对齐 DSH `dsh-spill` / `dsh-spill-local` / `dsh-spill-policy` 的工具大输出 spill。`apps/api/src/services/output-spill.ts` 把被头尾预算截掉的全文落到工作区 `.ihui-agent/tool-spill/<owner>/`，返回工作区相对 `locator`、精确 `bytes`、`retrievalHint`；`run_command` 工具与 `POST /fs/run` 共用 `TOOL_OUTPUT_MAX_CHARS=32000`，超限回 `truncated + spills`，保存失败只回 `spillError` 不让命令失败。7 天/500 文件清理，客户端文件名只当提示（清成单安全路径段）。`output-spill.test.ts` 6 passed；`@ihui/api` typecheck 9/9 success。
 
 ## 核实后的残余（不再列为待办）
 

@@ -41,6 +41,7 @@ import {
 import { buildChangeRequestSnapshot } from '../services/change-request-service.js'
 import { GitWorkspaceError, gitWorkspace } from '../services/git-workspace.js'
 import { FsWatcherError, fsWatcherRegistry } from '../services/fs-watcher.js'
+import { budgetWithSpill, TOOL_OUTPUT_MAX_CHARS } from '../services/output-spill.js'
 import {
   assertSafeWorktreeBranch,
   buildWorktreeCmd,
@@ -617,7 +618,41 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         ...body,
         isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
       })
-      return reply.send(success(result))
+      // 2026-11-23:路由面同样受 32k 预算约束;超限时全文落 .ihui-agent/tool-spill,
+      // 只回头尾预览 + locator(此前该路由把几十 MB 原样回吐)。
+      const out = budgetWithSpill(result.stdout, TOOL_OUTPUT_MAX_CHARS, {
+        workspacePath: body.workspacePath,
+        owner: request.userId,
+        source: { toolName: 'fs/run', label: 'stdout' },
+        suggestedName: 'stdout.txt',
+      })
+      const err = budgetWithSpill(result.stderr, TOOL_OUTPUT_MAX_CHARS, {
+        workspacePath: body.workspacePath,
+        owner: request.userId,
+        source: { toolName: 'fs/run', label: 'stderr' },
+        suggestedName: 'stderr.txt',
+      })
+      const spills = {
+        ...(out.spill ? { stdout: out.spill } : {}),
+        ...(err.spill ? { stderr: err.spill } : {}),
+      }
+      return reply.send(
+        success({
+          ...result,
+          stdout: out.text,
+          stderr: err.text,
+          ...(out.truncated || err.truncated
+            ? {
+                truncated: true,
+                originalChars: { stdout: out.originalChars, stderr: err.originalChars },
+              }
+            : {}),
+          ...(Object.keys(spills).length > 0 ? { spills } : {}),
+          ...(out.spillError || err.spillError
+            ? { spillError: out.spillError ?? err.spillError }
+            : {}),
+        }),
+      )
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
     }

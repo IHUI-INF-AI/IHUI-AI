@@ -58,7 +58,7 @@ import {
 } from '../utils/workspace-roots.js'
 // 远程沙箱后端(2026-11-20):显式 opt-in,缺配置即关(见模块头注)
 import { executeRemoteSandbox, resolveRemoteSandbox } from './remote-sandbox.js'
-import { truncateBothEnds } from './output-budget.js'
+import { budgetWithSpill, TOOL_OUTPUT_MAX_CHARS } from './output-spill.js'
 import { promisify } from 'node:util'
 import { hasNestedQuantifier } from './rules-service.js'
 // 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
@@ -5116,31 +5116,45 @@ agentLoop.registerTool({
 
 /**
  * `run_command` 输出预算（2026-11-20）：命令输出可能是几十 MB（日志、全量测试），
- * 原样回给模型会先把网络与上下文打爆。取头 60% / 尾 40%（尾段常是 PASS/FAIL 与错误摘要），
- * 超限时回包自述 truncated/originalChars —— 与 read_file/list_dir/grep 同一套语言。
+ * 原样回给模型会先把网络与上下文打爆。取头 60% / 尾 40%（尾段常是 PASS/FAIL 与错误摘要）。
+ * 2026-11-23：超限时把**全文**落到工作区 `.ihui-agent/tool-spill/` 并回 `spills`
+ * （locator/bytes/retrievalHint），模型需要中段细节时再读该文件，不再永久丢失。
  */
-const RUN_OUTPUT_MAX_CHARS = 32_000
+const RUN_OUTPUT_MAX_CHARS = TOOL_OUTPUT_MAX_CHARS
 
 agentLoop.registerTool({
   name: 'run_command',
   description:
     '执行命令（沙箱隔离，默认 workspace-write；可传 cwd/timeoutMs/mode=read-only 或 workspace-write；' +
-    '输出超过 32000 字符时保留头尾并标 truncated）',
+    '输出超过 32000 字符时保留头尾并标 truncated，同时把全文落盘到 .ihui-agent/tool-spill 并回 spills）',
   execute: async (args) => {
     const rawMode = String(args['mode'] ?? 'workspace-write')
     // 工具层不放行 danger-full-access：该档意味着放行网络与任意写，只允许路由/管理员通道
     const mode = rawMode === 'read-only' ? 'read-only' : 'workspace-write'
     const rawTimeout = Number(args['timeoutMs'] ?? Number.NaN)
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
     const result = await fsBridge.run({
       command: String(args['command'] ?? ''),
-      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      workspacePath,
       cwd: typeof args['cwd'] === 'string' && args['cwd'] ? String(args['cwd']) : undefined,
       timeoutMs: Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : undefined,
       mode,
     })
-    const out = truncateBothEnds(result.stdout, RUN_OUTPUT_MAX_CHARS)
-    const err = truncateBothEnds(result.stderr, RUN_OUTPUT_MAX_CHARS)
+    const out = budgetWithSpill(result.stdout, RUN_OUTPUT_MAX_CHARS, {
+      workspacePath,
+      source: { toolName: 'run_command', label: 'stdout' },
+      suggestedName: 'stdout.txt',
+    })
+    const err = budgetWithSpill(result.stderr, RUN_OUTPUT_MAX_CHARS, {
+      workspacePath,
+      source: { toolName: 'run_command', label: 'stderr' },
+      suggestedName: 'stderr.txt',
+    })
     const truncated = out.truncated || err.truncated
+    const spills = {
+      ...(out.spill ? { stdout: out.spill } : {}),
+      ...(err.spill ? { stderr: err.spill } : {}),
+    }
     return JSON.stringify({
       ...result,
       stdout: out.text,
@@ -5151,6 +5165,8 @@ agentLoop.registerTool({
             originalChars: { stdout: out.originalChars, stderr: err.originalChars },
           }
         : {}),
+      ...(Object.keys(spills).length > 0 ? { spills } : {}),
+      ...(out.spillError || err.spillError ? { spillError: out.spillError ?? err.spillError } : {}),
     })
   },
 })
