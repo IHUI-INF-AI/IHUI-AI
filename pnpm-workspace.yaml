@@ -152,7 +152,7 @@ publicHoistPattern:
 # 引用方式:package.json 中 "typescript": "catalog:" 即引用此处的版本。
 # 与 pnpm.overrides 协同:overrides 优先级 > catalog,二者可并存。
 catalog:
-  typescript: ^5.7.2 # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
+  typescript: ^7.0.2 # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
   rimraf: ^6.1.3 # L1:6.0.1 → 6.1.3 minor
   vitest: ^4.0.0 # L3:3.x→4.x major(miniapp-taro 除外,其 @tarojs/vite-runner peerDep 锁定 vite^4,而 vitest 4.x 需要 vite 5+ 的 ./module-runner 导出,故 miniapp-taro 单独降级到 vitest ^3.2.7)
   zod: ^4.6.6 # L4:3.x→4.x major(已迁移:z.string().ip()→z.union([z.ipv4(),z.ipv6()])、errorMap→error、.flatten()→z.treeifyError、.passthrough()→z.looseObject()、z.record(z.x)→z.record(z.string(),z.x)、z.string().email()→z.email())
