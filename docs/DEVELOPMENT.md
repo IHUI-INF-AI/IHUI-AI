@@ -51,7 +51,7 @@ node scripts/check-worktree-link-integrity.mjs --strict     # 必须 exit 0 才�
 
 ### 1.2 工具链家目录归位约定(Gradle / XDG,2026-11-22 立)
 
-Windows 开发机上 `GRADLE_USER_HOME` 与三个 XDG 变量统一收在 `D:\caches` 下,盘符根目录不再散放 `gradle`、`xdg`:
+Windows 开发机上 `GRADLE_USER_HOME` 与三个 XDG 变量统一收在 `D:\caches` 下;盘符根目录不再保留实体副本,旧名 `gradle`、`xdg` 只留 junction 改道指向新位置(§26 家目录工具态改道),物理只存一份:
 
 | 变量(用户级) | 值 | 装什么 | 能否删 |
 |---|---|---|---|
@@ -81,6 +81,8 @@ Test-Path 'D:\caches\gradle\gradle.properties'
 ```
 
 **关键顺序约束:改完变量必须重启所有已打开的终端、IDE 与桌面客户端,再跑构建。** 运行中的进程各自缓存启动时的环境变量副本,注册表改了它们看不见,下一次 node / Gradle 写入会按旧值在 `D:\gradle`、`D:\xdg` 原地重建(2026-11-22 实测:改完 6 分钟内旧 `D:\xdg` 就被 corepack 重建出 94.7MB)。"旧目录又出现了"是这个原因,不是变量没写对。
+
+同一天已按 §26 给两个旧名补了 junction 兼容入口(`D:\gradle` → `D:\caches\gradle`、`D:\xdg` → `D:\caches\xdg`):未重启进程按旧路径写入会直接落到新家,不会再生成第二份实体。junction 只是兼容壳,重启全部进程后可保留(便于硬编码读取方继续解析),也可在确认没有旧环境进程后删除;它不计入体积、递归操作前须按 §26 判 `ReparsePoint`。
 
 2026-11-22 已把 `D:\gradle`(291.5MB)、`D:\xdg`(2.3GB,其中 cache 1.35GB 已清空)迁到 `D:\caches\gradle`、`D:\caches\xdg`;仓库、`D:\IHUI-Build`、`D:\DevEnv` 的脚本配置,以及 JetBrains / Android Studio / Cursor 全局配置,均无旧路径硬编码。
 
