@@ -6965,6 +6965,12 @@ export function sweepStaleClosedRows(opts = {}) {
     logger('ℹ️ 完成即删清扫:器物不在位(scripts/strip-stale-closed-rows.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '清扫器不在位' }
   }
+  // 2026-11-22 定案:该器走 object-space-land 提交并推送,会绕过 pre-commit 的字节闸;
+  // 守护默认只报数不落地。需要自动清扫时显式 IHUI_ALLOW_AUTO_LAND=1。
+  if (typeof runner !== 'function' && process.env.IHUI_ALLOW_AUTO_LAND !== '1') {
+    logger('ℹ️ 完成即删清扫:自动落地已停用(默认只读);显式开启 IHUI_ALLOW_AUTO_LAND=1')
+    return { ran: false, why: '自动落地已停用' }
+  }
   let last = NaN
   try {
     last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
@@ -7237,6 +7243,12 @@ export function sweepStaleClaimMarks(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 超龄认领代摘:器物不在位(scripts/strip-stale-claim-marks.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '代摘器不在位' }
+  }
+  // 2026-11-22 定案:该器同样走 object-space-land 提交并推送,绕过 pre-commit 字节闸;
+  // 守护默认只报数不落地。需要自动代摘时显式 IHUI_ALLOW_AUTO_LAND=1。
+  if (typeof runner !== 'function' && process.env.IHUI_ALLOW_AUTO_LAND !== '1') {
+    logger('ℹ️ 超龄认领代摘:自动落地已停用(默认只读);显式开启 IHUI_ALLOW_AUTO_LAND=1')
+    return { ran: false, why: '自动落地已停用' }
   }
   let last = NaN
   try {
