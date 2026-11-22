@@ -23,9 +23,16 @@
 # =============================================================================
 
 $ErrorActionPreference = 'Continue'
-$source = 'F:\BaiduSyncdisk\IHUI-PG-BACKUP'
-$target = 'G:\backups\pg-second-copy'
-$logDir = 'G:\backups\logs'
+# 2026-11-22 路径修正(原 G:\ 与 F:\ 字面量在本机均已不存在):源=百度网盘日更目录(D 机械盘),
+# 第二副本落 <仓库根所在盘>:\DevEnv\backups —— 按 IHUI_DEVENV_ROOT 覆盖优先、否则由仓库根
+# 盘符派生,与 deploy\win\ihui-pg-backup-scheduler.ps1 的 G-298 同一口径,盘符字面量不再回来。
+# 注意:当前本机备份链已由 ihui-pg-backup-scheduler.ps1 承担(本地 <DevEnvRoot>\backups\pg 7 天
+# + 云侧 D:\BaiduSyncdisk\IHUI-PG-BACKUP 42 天),本脚本未注册任何计划任务,仅作手工补副本工具。
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $RepoRoot) + '\DevEnv' }
+$source = 'D:\BaiduSyncdisk\IHUI-PG-BACKUP'
+$target = Join-Path $DevEnvRoot 'backups\pg-second-copy'
+$logDir = Join-Path $DevEnvRoot 'logs'
 
 function Write-Log([string]$msg, [string]$log) {
     $line = '[{0}] {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $msg

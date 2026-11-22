@@ -50,7 +50,11 @@ nodeLinker: isolated
 # **部署链整轮卡死**(实测 06:04-06:47 零输出、pnpm 进程 CPU 恒 0)。
 # 现改为真身 D:/DevEnv/tools/pnpm/store:主仓 node_modules 与 store 匹配 ⇒ 不 purge、
 # 净面 install 直接命中已有 8.5G 内容(实测 57.5s 完成),交互/服务身份共用同一份。
-storeDir: 'D:/DevEnv/tools/pnpm/store'
+# 2026-11-22 再次更正:上一轮清运后 D:/DevEnv/tools/pnpm/store 实测已空(0 文件),
+# 而主仓现落 C 卷 ⇒ 指向 D 机械盘既是空目录、又跨卷(D 是 HDD/盘0,C 是 NVMe/盘1),
+# 跨卷硬链接失效退化为逐文件复制。改为 C 卷默认位(与仓库同盘、非盘根):
+# 2.6G 内容寻址仓已同卷搬入(198636 文件、2607MB 实测一致)。
+storeDir: 'C:/Users/Administrator/AppData/Local/pnpm/store'
 
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
