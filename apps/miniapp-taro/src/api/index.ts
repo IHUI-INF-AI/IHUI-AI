@@ -24,6 +24,9 @@ import type { MemoryUpdatesEvent, HookFailureEvent } from '@ihui/api-client'
 // @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
 // 仅本端保留读超时常量传参。
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
+// VIP 权益摊平的唯一实现(2026-11-22 立:译名键表此前本文件自持一份 Set,
+// 与 RN 端内自拼两份口径 ⇒ 收敛到共享层,端内不再维护键表)
+import { toVipBenefitItems, type VipLevelRow } from '@ihui/shared/utils/vip-benefit-projection'
 // W5:chatStream 传输层经 src/lib/sse.ts 薄壳接入共享 runner(传输介质:
 // weapp enableChunked / H5 fetch,由 utils/taro-stream-transport.ts 注入 api-client)
 import { streamSSE } from '@/lib/sse'
@@ -1040,26 +1043,15 @@ export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
  * `{id,title,desc}`:title 走 `vip.benefitList.*` 五语译名(与 web/RN 同一张表、逐字同源),
  * 没登记译名的键原样透出(不在 api 层拼中文,§19);desc 取档位名,库里无第二行说明文字。
  */
-const TRANSLATED_BENEFITS = new Set([
-  'unlimitedChat',
-  'exclusiveModel',
-  'prioritySupport',
-  'referral',
-])
 export const getVipPrivilege = () =>
   get<{
-    list: Array<{ id: string; levelName: string; benefits?: unknown }>
+    list: VipLevelRow[]
   }>('/api/vip/benefits').then((r) => ({
-    list: (r.list ?? []).flatMap((lv) =>
-      (Array.isArray(lv.benefits)
-        ? lv.benefits.filter((b): b is string => typeof b === 'string')
-        : []
-      ).map((k) => ({
-        id: `${lv.id}:${k}`,
-        title: TRANSLATED_BENEFITS.has(k) ? t(`vip.benefitList.${k}`) : k,
-        desc: lv.levelName,
-      })),
-    ),
+    list: toVipBenefitItems(r.list ?? [], t).map((item) => ({
+      id: item.id,
+      title: item.name,
+      desc: item.level ?? '',
+    })),
   }))
 // VipPayInfo / VipOrderResult 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
 export const upgradeVip = (vipLevelId: string) =>

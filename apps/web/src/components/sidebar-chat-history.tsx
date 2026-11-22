@@ -1462,7 +1462,6 @@ export function SidebarChatHistory({
             onToggleAll={(checked) => selection.selectAll(checked, visibleIds)}
             onInvert={() => selection.invert(visibleIds)}
             onBatch={runBatch}
-            onMoveToGroup={() => openMoveToGroup([...selection.orderedSelectedIds])}
             onCancel={selection.clear}
           />
         )}
