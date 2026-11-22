@@ -66,6 +66,12 @@ class RefreshResult:
     success: bool
     message: str
     duration_ms: int = 0
+    # 续期是否真正落库(2026-11-22 永久保活):探活成功但 cookie 轮换回写失败时,
+    # success 仍为真(本次会话活着),但库里是旧 cookie,下轮可能失效 —— 必须让上层
+    # 看见这个"续期未落地"状态,否则回写失败被 warning 吞掉,永久保活断在这里。
+    writeback_failed: bool = False
+    # 本轮是否发生了 cookie 轮换并回写落库(供 keepalive 状态面判断"真的续期了")
+    refreshed: bool = False
 
 
 @dataclass
@@ -196,12 +202,13 @@ class CookieRefreshDaemon:
             )
 
         # 加载该账号的 cookies 注入浏览器
+        raw_extra: object = None
         try:
             from app.services.publish.credentials_crypto import decrypt
             conn = await get_db_conn()
             try:
                 row = await conn.fetchrow(
-                    "SELECT credentials_enc FROM publish_accounts WHERE id=$1",
+                    "SELECT credentials_enc, extra FROM publish_accounts WHERE id=$1",
                     account_id,
                 )
             finally:
@@ -211,6 +218,10 @@ class CookieRefreshDaemon:
                     account_id=account_id, platform=platform, success=False,
                     message="账号不存在",
                 )
+            try:
+                raw_extra = row["extra"]
+            except (KeyError, TypeError, IndexError, AttributeError):
+                raw_extra = None  # 老测试/老库没有 extra 列 ⇒ 无历史可用,不影响主流程
             credentials = decrypt(row["credentials_enc"])
         except Exception as e:
             # 文案带"需重新扫码录入":这句话会原样进告警。原先只说"加载凭证失败:
@@ -245,32 +256,23 @@ class CookieRefreshDaemon:
         # 2026-09-27:这一步恰好就是"刷新"动作本身,过去它**无条件覆盖**旧密文不留余料;
         # 现在一律走唯一出口 credential_history.apply_credentials_update —— 覆盖前把库里
         # 那份旧密文压进有界历史,历史准备失败只喊 error 并退回原写入,不阻断保活。
+        writeback_failed = False
+        refreshed = False
         if alive and updated_cookies:
             changed = {k: v for k, v in updated_cookies.items() if credentials.get(k) != v}
             if changed:
-                try:
-                    from app.services.publish.credential_history import (
-                        apply_credentials_update,
-                    )
-                    from app.services.publish.credentials_crypto import decrypt, encrypt
-                    conn = await get_db_conn()
-                    try:
-                        merged = {**credentials, **changed}
-                        enc = encrypt(merged)
-                        await apply_credentials_update(
-                            conn, account_id, enc,
-                            source_note="Cookie 保活轮换回写",
-                        )
-                    finally:
-                        await conn.close()
-                    logger.info(
-                        "[cookie_daemon] account=%s cookie 已回写更新字段=%s",
+                # 永久保活(2026-11-22):回写是"续期落地"的临门一脚,失败不能只 warning
+                # 吞掉。用 writeback_verdict 驱动带界重试;预算耗尽仍失败 ⇒ 标记
+                # writeback_failed,让上层看见"本次会话活着但库里还是旧 cookie"。
+                from app.services.publish.credentials_crypto import encrypt
+                merged = {**credentials, **changed}
+                enc = encrypt(merged)
+                writeback_failed = not await self._writeback_with_retry(account_id, enc)
+                refreshed = not writeback_failed
+                if writeback_failed:
+                    logger.error(
+                        "[cookie_daemon] account=%s cookie 回写重试耗尽,续期未落地: %s",
                         account_id, sorted(changed),
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "[cookie_daemon] account=%s cookie 回写失败(不影响保活结论): %s",
-                        account_id, e,
                     )
 
         if alive:
@@ -279,11 +281,157 @@ class CookieRefreshDaemon:
             return RefreshResult(
                 account_id=account_id, platform=platform, success=True,
                 message=msg, duration_ms=duration,
+                writeback_failed=writeback_failed, refreshed=refreshed,
             )
+        # 永久保活(2026-11-22):软失败(未检测到目标 cookie)先自愈,不立即判死。
+        # 历史凭据是现成的自愈素材 —— credential_history 每次覆盖都压了旧密文,
+        # 但此前只写不读。逐份回滚探活,救回即提升为当前凭据;全军覆没才返回失败
+        # (此时才允许上层判 expired 喊人工重扫)。硬失败(解不开)不走回滚 —— 重试无用。
+        fail_msg = "Cookie 保活后未检测到目标 cookie,可能已过期"
+        from app.services.publish.perpetual import is_soft_expire, soft_failure_needs_retry
+
+        if is_soft_expire(fail_msg) and soft_failure_needs_retry(fail_msg, attempts=0):
+            recovered = await self._try_history_recovery(
+                account_id, platform, login_url, raw_extra
+            )
+            if recovered is not None:
+                msg = f"Cookie 保活自愈成功,从历史凭据回滚({recovered})"
+                await self._stamp_verified(account_id, msg)
+                return RefreshResult(
+                    account_id=account_id, platform=platform, success=True,
+                    message=msg, duration_ms=duration, refreshed=True,
+                )
         return RefreshResult(
             account_id=account_id, platform=platform, success=False,
-            message="Cookie 保活后未检测到目标 cookie,可能已过期", duration_ms=duration,
+            message=fail_msg, duration_ms=duration,
         )
+
+    async def _try_history_recovery(
+        self, account_id: int, platform: str, login_url: str, raw_extra: object
+    ) -> str | None:
+        """从 credential_history 逐份回滚探活,成功则提升为当前凭据。
+
+        返回命中的历史标签(如 ``history[0]``),全军覆没返回 None。只读历史、不猜
+        凭据格式:每份旧密文 decrypt 后用同一个 ``_visit_and_check`` 探活,与当前凭据
+        完全同口径。任何异常都当"这份不可用"继续下一份 —— 自愈是附加保险,绝不
+        反过来把保活主流程拖崩。
+        """
+        from app.services.publish.credential_history import CREDENTIALS_HISTORY_KEY
+        from app.services.publish.credentials_crypto import decrypt, encrypt
+        from app.services.publish.perpetual import (
+            RecoveryCandidate,
+            plan_recovery,
+        )
+
+        history: list[dict[str, object]] = []
+        try:
+            if isinstance(raw_extra, str) and raw_extra.strip():
+                import json
+                parsed = json.loads(raw_extra)
+                if isinstance(parsed, dict):
+                    maybe = parsed.get(CREDENTIALS_HISTORY_KEY)
+                    if isinstance(maybe, list):
+                        history = [e for e in maybe if isinstance(e, dict)]
+            elif isinstance(raw_extra, dict):
+                maybe = raw_extra.get(CREDENTIALS_HISTORY_KEY)
+                if isinstance(maybe, list):
+                    history = [e for e in maybe if isinstance(e, dict)]
+        except Exception:  # noqa: BLE001 —— 历史结构坏了就当没有历史
+            return None
+        if not history:
+            return None
+
+        candidates: list[RecoveryCandidate] = []
+        decrypted: dict[str, dict[str, object]] = {}
+        for i, entry in enumerate(history):
+            enc = entry.get("enc")
+            if not isinstance(enc, str) or not enc:
+                continue
+            label = f"history[{i}]"
+            try:
+                creds = decrypt(enc)
+            except Exception:  # noqa: BLE001 —— 某份解不开跳过,不影响其它
+                continue
+            if not isinstance(creds, dict) or not creds:
+                continue
+            decrypted[label] = creds
+            candidates.append(RecoveryCandidate(label=label, enc=enc, alive=False))
+
+        if not candidates:
+            return None
+
+        # 逐份用同一探活口径验活(线程池跑,规避 Windows SelectorEventLoop)
+        alive_map: dict[str, bool] = {}
+        updated_map: dict[str, dict[str, str]] = {}
+        for label, creds in decrypted.items():
+            try:
+                alive, updated = await asyncio.to_thread(
+                    self._visit_and_check, platform, login_url, creds
+                )
+            except Exception:  # noqa: BLE001 —— 该份探活异常当不可用
+                continue
+            alive_map[label] = alive
+            if updated:
+                updated_map[label] = updated
+
+        judged = [
+            RecoveryCandidate(
+                label=c.label, enc=c.enc, alive=alive_map.get(c.label, False)
+            )
+            for c in candidates
+        ]
+        plan = plan_recovery(judged)
+        if plan.chosen is None or plan.chosen.label not in decrypted:
+            return None
+
+        chosen_label = plan.chosen.label
+        chosen_creds = dict(decrypted[chosen_label])
+        chosen_creds.update(updated_map.get(chosen_label, {}))
+        # 救回的凭据提升为当前(走唯一写出口,旧密文继续压栈,可再次回滚)
+        enc = encrypt(chosen_creds)
+        ok = await self._writeback_with_retry(account_id, enc)
+        return chosen_label if ok else None
+
+    async def _writeback_with_retry(self, account_id: int, enc: str) -> bool:
+        """把新密文回写库,失败带界重试(永久保活关键路径)。
+
+        每次重试都重新取 DB 连接 —— 连接本身可能是失败根因,复用坏连接重试只是
+        把同一个错写 N 遍。重试次数由 writeback_verdict 单一判据决定(默认 3 次)。
+        返回 True=已落地;False=预算耗尽仍未落地(调用方据此标 writeback_failed)。
+        """
+        from app.services.publish.perpetual import (
+            WritebackAction,
+            writeback_verdict,
+        )
+
+        failures = 0
+        while True:
+            verdict = writeback_verdict(changed=True, failures=failures)
+            if verdict.action == WritebackAction.GIVE_UP:
+                return False
+            try:
+                from app.services.publish.credential_history import (
+                    apply_credentials_update,
+                )
+                conn = await get_db_conn()
+                try:
+                    await apply_credentials_update(
+                        conn, account_id, enc,
+                        source_note="Cookie 保活轮换回写",
+                    )
+                finally:
+                    await conn.close()
+                logger.info(
+                    "[cookie_daemon] account=%s cookie 已回写(第 %s 次尝试)",
+                    account_id, failures + 1,
+                )
+                return True
+            except Exception as e:  # noqa: BLE001 —— DB/历史准备异常都要进重试判据
+                failures += 1
+                logger.warning(
+                    "[cookie_daemon] account=%s cookie 回写第 %s 次失败: %s",
+                    account_id, failures, type(e).__name__,
+                )
 
     async def _stamp_verified(self, account_id: int, message: str) -> None:
         """保活成功即"凭证确认有效",戳新 last_verified_at(2026-09-29)。
