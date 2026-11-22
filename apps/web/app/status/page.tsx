@@ -419,8 +419,13 @@ export default async function StatusPage() {
           <p className="py-4 text-center text-body text-muted-foreground">最近 30 天无事件记录</p>
         ) : (
           <div className="space-y-3">
-            {incidents.map((i) => (
-              <div key={i.id} className="space-y-1">
+            {incidents.map((i, index) => (
+              // key 不得回填后端 id:公开状态接口的 id 含内部接入后缀(如 workbuddy_relay),
+              // 会被 React 原样序列化进 RSC 载荷。展示名 + 起始时刻已足够稳定且零内部 code。
+              <div
+                key={`${resolveVendorDisplayName(i.providerCode, tChat)}-${i.startedAt}-${index}`}
+                className="space-y-1"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityBadge severity={i.severity} />
                   <span className="text-body font-medium">
