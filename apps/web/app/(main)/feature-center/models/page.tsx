@@ -10,6 +10,7 @@ import { Loader2, Search, Cpu, Zap } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import { Card, CardContent, Input } from '@ihui/ui-react'
 import { formatNumber } from '@/lib/date-utils'
 
@@ -41,6 +42,7 @@ const PROVIDERS = ['全部', 'openai', 'anthropic', 'google', 'groq', 'openroute
 
 export default function ModelsPage() {
   const t = useTranslations('featureCenter.models')
+  const tChat = useTranslations('chat')
   const { data, isLoading } = useQuery({
     queryKey: ['feature-center-models'],
     queryFn: fetchModels,
@@ -111,7 +113,7 @@ export default function ModelsPage() {
             <FeatureCard
               title={item.name}
               description={item.description}
-              badge={item.provider}
+              badge={resolveVendorDisplayName(item.provider, tChat)}
               footer={
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-label text-muted-foreground">

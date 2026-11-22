@@ -19,6 +19,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { fetchAiWorldRankings, fetchLeaderboards } from './helpers'
+import { resolveVendorDisplayName } from '@/components/chat/fallback-models'
 import type { LeaderboardId, AiWorldRanking } from './types'
 
 const LEADERBOARDS: LeaderboardId[] = [
@@ -89,6 +90,7 @@ const btnIdle = 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
 
 export function RankingTable() {
   const t = useTranslations('common.aiWorld.rankings')
+  const tChat = useTranslations('chat')
   const tCat = useTranslations('common.aiWorld.rankings.categories')
   const tLb = useTranslations('common.aiWorld.rankings.leaderboards')
   const locale = useLocale()
@@ -231,7 +233,7 @@ export function RankingTable() {
                         {item.modelName}
                       </TableCell>
                       <TableCell className="hidden text-muted-foreground min-[768px]:table-cell">
-                        {item.provider ?? '-'}
+                        {resolveVendorDisplayName(item.provider ?? undefined, tChat) || '-'}
                       </TableCell>
                       <TableCell className="font-medium tabular-nums">
                         {item.score ?? '-'}

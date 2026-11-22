@@ -65,7 +65,6 @@ import { QuickKeyDialog } from './QuickKeyDialog'
 import {
   getFavoriteModelIds,
   toggleFavoriteModel,
-  PROVIDER_LABEL,
   SORT_KEY,
   QUICK_FILTER_KEY,
 } from './helpers'
@@ -116,6 +115,7 @@ const PAGE_SIZE_STEP = 12
  */
 export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
   const t = useTranslations('models')
+  const tChat = useTranslations('chat')
   const router = useRouter()
   const openPanel = useAiPanelStore((s) => s.openPanel)
   const setModel = useChatStore((s) => s.setModel)
@@ -212,7 +212,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
         m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
         m.provider.toLowerCase().includes(q) ||
-        (PROVIDER_LABEL[m.provider] ?? '其他').toLowerCase().includes(q) ||
+        resolveVendorDisplayName(m.provider, tChat).toLowerCase().includes(q) ||
         m.features.some((f) => f.toLowerCase().includes(q))
       const matchFilter = matchesQuickFilter(m, quickFilter)
       // 只看最新最强:剔除历史过时版本 + 非对话专用模型
@@ -220,7 +220,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
         !latestOnly || !isArchivedModel(normalizeCategory(m.category), normalizeTier(m.modelTier))
       return matchQuery && matchFilter && matchTier
     })
-  }, [list, query, quickFilter, matchesQuickFilter, latestOnly])
+  }, [list, query, quickFilter, matchesQuickFilter, latestOnly, tChat])
   const sorted = React.useMemo(() => {
     const arr = [...filtered]
     switch (sortKey) {
@@ -859,8 +859,9 @@ function ModelCardList({
   onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
+  const tChat = useTranslations('chat')
   const router = useRouter()
-  const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
+  const vendorLabel = resolveVendorDisplayName(model.provider, tChat)
 
   const handleViewRanking = () => {
     router.push(`/ai-news?model=${encodeURIComponent(model.id)}`)
