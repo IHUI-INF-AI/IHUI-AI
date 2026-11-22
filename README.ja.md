@@ -2226,23 +2226,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 ## 最近の更新 (自動維持)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-11-23**
-- 🐞 修正:撤回 f7066a13 误夹带的 5 个他人暂存件(前向修正) (22568c33)
-- 🚀 機能/改善:默认允许跳钩(2026-11-23 机主改定)—— 非 mine 存量红自动跳并留痕;--forbid-skip-hooks 与 IHUI_PRE_PUSH_SKIP_DEFAULT=forbid 可回退 (f7066a13)
-- 🐞 修正:Turnstile 人机验证框居中(外层 flex 居中壳;修用户反馈往左偏) (267b1dde)
-- 🔧 その他:聚焦环去 2px 外扩间隙 + 颜色写法单一化(不透明 #rrggbb / 透明 rgba),三端派生同源并立不变量测试 (c20d99da)
-
 **2026-11-22**
-- 🐞 修正:清主干 typecheck 存量红 —— 半径角色补档 / Teacher.isFollowed / 课程筛选轴走服务端 / VIP 权益投影收敛单源 (#252) (c3fa863e)
-- 🚀 機能/改善:接线数据键门 2h-datakeys 并登记 AGENTS 19 节数据驱动键族红线 (650746ad)
-- 🔧 その他:追认 c8929519 判据面声明文件改动 (09a13154)
-- 🐞 修正:侧栏裸键根治批次一(数据键判据单一源+新增补键器物+基线) (00aff360)
-- 🐞 修正:恢复 ui-react 共享样式导入, 登录页 welcome 图浅色下只剩描边 (bd2b8f3d)
-- 🐞 修正:清主干 typecheck 存量红 —— 半径角色补档 / Teacher.isFollowed / 课程筛选轴走服务端 / VIP 权益投影收敛单源 (c8929519)
-- 🔧 その他:清理 web 两条零引用依赖并固化依赖审计口径 (#250) (44d1ebf1)
-- 🔧 その他:按终尖现读刷新漂移门基线(mpTierLiteral/tierRnForkN 两维按输入等同证明归因为存量) (90293c2e)
-- 🔧 その他:清理 web 两条零引用依赖(@ihui/auth、@tauri-apps/plugin-store)并固化管理口径 (666c32e4)
-- 🔧 その他:补全 Gitignore 凭据与重型产物族 + 关键规则活体自检 (#247) (c11051f8)
 - 🔧 その他:硬闸计划任务/自动推送/推送区间大文件 (12782592)
 - 🐞 修正:安装器默认目录改为固定盘探测,不再写死盘符(无 D 盘机器静默安装不再落空卷失败) (1e1aefa8)
 - 🐞 修正:env-pin.ps1 补齐 NODE_OPTIONS(仅在现值空且钩子文件在盘时补),使重启后自查不再报 changed (f0e458e7)
