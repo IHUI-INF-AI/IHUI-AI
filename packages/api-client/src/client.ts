@@ -130,12 +130,46 @@ export type FetchApiOptions = RequestInit & {
   timeoutMs?: number
 }
 
-let tokenProvider: TokenProvider = { getToken: () => null }
-// 401 自动续期的并发去重:多个请求同时 401 时只刷新一次,共享同一 promise
-let refreshInFlight: Promise<string | null> | null = null
-/** 最近一次成功刷新的结果与时刻,供 REFRESH_SUCCESS_REUSE_MS 窗口内短路 */
-let lastRefreshSuccessToken: string | null = null
-let lastRefreshSuccessAt = 0
+/**
+ * 401/续期运行时状态,挂在 globalThis 上(2026-11-23 修「桌面端登录态丢失」最后一环)。
+ *
+ * 病灶:Tauri/Next 的 Turbopack 会把本包分别打进多个 chunk,每个 chunk 各求值一次
+ * `client.ts`。`setTokenProvider` 注册的是 A 份,业务请求走的是 B 份 ⇒ 请求不带
+ * Authorization;每个 401 又各触发一次 `/auth/refresh`,按 REFRESH_SUCCESS_REUSE_MS
+ * 的 10s 节拍把 refresh token 每 10 秒轮转一次,最终被服务端判 reuse 吊销整族。
+ * 收敛到同一个 global 实例后,所有 chunk 看到同一份凭据、同一个刷新单飞与同一个冷却窗口。
+ */
+interface AuthRuntimeState {
+  tokenProvider: TokenProvider
+  refreshInFlight: Promise<string | null> | null
+  lastRefreshSuccessToken: string | null
+  lastRefreshSuccessAt: number
+  refreshFailCooldown: Promise<string | null> | null
+  refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null
+  lastRefreshWasTransient: boolean
+  unauthorizedHandler: UnauthorizedHandler | null
+}
+
+function createAuthRuntimeState(): AuthRuntimeState {
+  return {
+    tokenProvider: { getToken: () => null },
+    refreshInFlight: null,
+    lastRefreshSuccessToken: null,
+    lastRefreshSuccessAt: 0,
+    refreshFailCooldown: null,
+    refreshFailCooldownTimer: null,
+    lastRefreshWasTransient: false,
+    unauthorizedHandler: null,
+  }
+}
+
+const authRuntimeGlobal = globalThis as typeof globalThis & {
+  __IHUI_API_AUTH_RUNTIME_V1__?: AuthRuntimeState
+}
+const authRuntime: AuthRuntimeState =
+  typeof window !== 'undefined'
+    ? (authRuntimeGlobal.__IHUI_API_AUTH_RUNTIME_V1__ ??= createAuthRuntimeState())
+    : createAuthRuntimeState()
 // 2026-09-04 根治刷新风暴:刷新失败后的冷却窗口(毫秒)。
 // refresh token 已失效时,每次 401 都会触发一次 refresh(后端单次轮转 + RFC 6749 §10.4
 // family 吊销),并发业务请求各 401 → 各触发一次 → 形成 6+ 次串行 /auth/refresh 风暴,
@@ -153,9 +187,6 @@ const REFRESH_RATE_LIMIT_COOLDOWN_MS = 65_000
  * 不会让真正过期的 token 被误复用。
  */
 const REFRESH_SUCCESS_REUSE_MS = 10_000
-// 冷却期内共享的失败结果 promise(避免多个等待方各拿一份 null 后立即重试)
-let refreshFailCooldown: Promise<string | null> | null = null
-let refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null = null
 // 请求超时的默认档：**全仓只住这一枚常量**(2026-08-06 各腿各自硬写 30_000,四处同值漂移过一次)。
 // 缺省口径住在 client 层而不是 transport 层 —— transport.ts 第 83 行注自述"不设默认值"。
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
@@ -187,7 +218,7 @@ let streamBaseUrl: string = ''
 let circuitBreaker: CircuitBreaker | null = null
 
 export function setTokenProvider(provider: TokenProvider): void {
-  tokenProvider = provider
+  authRuntime.tokenProvider = provider
 }
 
 /**
@@ -332,8 +363,6 @@ export interface UnauthorizedContext {
 /** 端内注册的 401 处理器。返回值被忽略;抛错由 {@link notifyUnauthorized} 兜住。 */
 export type UnauthorizedHandler = (ctx: UnauthorizedContext) => void
 
-let unauthorizedHandler: UnauthorizedHandler | null = null
-
 /**
  * 注入 401 处理器(传 null 取消注入)。
  *
@@ -343,15 +372,15 @@ let unauthorizedHandler: UnauthorizedHandler | null = null
  * "点了没反应"。把决策点上收到本包,端内注册一次即可,迁移才可能做到不改行为。
  *
  * 形状沿用本包既有的可注册单例约定(setTokenProvider / setDeviceFingerprintProvider /
- * setCircuitBreaker):一个模块级变量 + setXxx + getXxx,不另造事件总线。
+ * setCircuitBreaker):一个 global 运行时字段 + setXxx + getXxx,不另造事件总线。
  */
 export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
-  unauthorizedHandler = handler
+  authRuntime.unauthorizedHandler = handler
 }
 
 /** 读取当前注入的 401 处理器(测试与诊断用) */
 export function getUnauthorizedHandler(): UnauthorizedHandler | null {
-  return unauthorizedHandler
+  return authRuntime.unauthorizedHandler
 }
 
 /**
@@ -368,7 +397,7 @@ export function getUnauthorizedHandler(): UnauthorizedHandler | null {
  *    `console.info('[SSE-DEBUG] …')`,故这里用 `console.error('[api-client] …')`)。
  */
 function notifyUnauthorized(url: string, method: string | undefined): void {
-  const handler = unauthorizedHandler
+  const handler = authRuntime.unauthorizedHandler
   if (!handler) return
   try {
     handler({ url, method: (method ?? 'GET').toUpperCase() })
@@ -385,12 +414,12 @@ function notifyUnauthorized(url: string, method: string | undefined): void {
  * (「重试仍 401」的出口不复核:那一格的新 token 刚过 CAS 复核,本就是当时的凭据。)
  */
 function isTokenStillCurrent(requestToken: string | null): boolean {
-  return tokenProvider.getToken() === requestToken
+  return authRuntime.tokenProvider.getToken() === requestToken
 }
 
 /** 读取当前 token(供需要原生 fetch 的场景使用,如 SSE 流式) */
 export function getToken(): string | null {
-  return tokenProvider.getToken()
+  return authRuntime.tokenProvider.getToken()
 }
 
 /**
@@ -433,14 +462,12 @@ export class RefreshRateLimitedError extends Error {
 
 /**
  * 最近一次刷新失败是否为瞬时性质。
- * 与 refreshInFlight/refreshFailCooldown 同步串行:消费点在 await 该轮刷新后同步读取,
- * 冷却窗口内不会有新一轮刷新改写本标志(5s 冷却 > 读取点的微任务间隙)。
+ * 与 authRuntime.refreshInFlight / authRuntime.refreshFailCooldown 同步串行:消费点在
+ * await 该轮刷新后同步读取,冷却窗口内不会有新一轮刷新改写本标志。
  */
-let lastRefreshWasTransient = false
-
 /** 读取最近一次刷新失败的瞬时标志(fetchApi 的 401 出口与测试用) */
 export function wasLastRefreshTransient(): boolean {
-  return lastRefreshWasTransient
+  return authRuntime.lastRefreshWasTransient
 }
 
 /**
@@ -457,16 +484,20 @@ export function wasLastRefreshTransient(): boolean {
  * /auth/refresh。此前失败后 refreshInFlight 立即清空,并发 401 的业务请求会串行
  * 各触发一次 refresh,形成 6+ 次重复请求风暴(见内存日志 3004/3017/3089/3214/3227/3242ms)。
  *
+ * 2026-11-23:全部状态读 authRuntime(globalThis 单例)。Turbopack 把一个包拆进多个
+ * chunk 时,各 chunk 的模块级单例互不相认;若业务请求的 chunk 没拿到 tokenProvider,
+ * 就会 401 → refresh 200 → 下一个请求再 401,按 10s 复用窗口空转并轮转 refresh token。
+ *
  * 2026-09-29 CAS 复核(台账票 G-814411):刷新响应写回(交回调用方去覆盖凭据)前,
  * 复核「发起刷新时的 active provider 仍是当前 provider,且旧 accessToken 仍是当前值」,
  * 任一漂移即丢弃响应(返回 null,不算失败、不进冷却)—— 防止刷新请求在飞期间凭据被
  * 另一路径更新(换 provider / 再登录 / 另一轮续期)后,过期的刷新结果覆盖新凭据。
  */
 export async function refreshAccessTokenOnce(): Promise<string | null> {
-  if (!tokenProvider.refreshAccessToken) return null
+  if (!authRuntime.tokenProvider.refreshAccessToken) return null
   // 失败冷却期内:直接返回共享的失败 promise,不重复发起 refresh
-  if (refreshFailCooldown) return refreshFailCooldown
-  if (refreshInFlight) return refreshInFlight
+  if (authRuntime.refreshFailCooldown) return authRuntime.refreshFailCooldown
+  if (authRuntime.refreshInFlight) return authRuntime.refreshInFlight
   // 刚成功刷新过 ⇒ 直接返回那枚新 token(2026-11-12 修刷新风暴)。
   //
   // 病灶:refreshInFlight 只合并"同一时刻"的调用,挡不住"前一个刚落地、后一个立刻发起"。
@@ -477,25 +508,25 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
   // 语义:refresh token 单次轮转,刚换到的新 access token 有效期 15 分钟,没有任何理由
   // 在 10 秒内再换一次。窗口内直接复用,既省请求也避开限流。
   if (
-    lastRefreshSuccessToken &&
-    Date.now() - lastRefreshSuccessAt < REFRESH_SUCCESS_REUSE_MS &&
-    tokenProvider.getToken() === lastRefreshSuccessToken
+    authRuntime.lastRefreshSuccessToken &&
+    Date.now() - authRuntime.lastRefreshSuccessAt < REFRESH_SUCCESS_REUSE_MS &&
+    authRuntime.tokenProvider.getToken() === authRuntime.lastRefreshSuccessToken
   ) {
-    return lastRefreshSuccessToken
+    return authRuntime.lastRefreshSuccessToken
   }
   // 2026-09-29 CAS 复核基线(台账票 G-814411):发起那一刻的 active provider
   // (tokenProvider 对象身份,即本包唯一的"当前生效凭据上下文",等价于上游的
   // generation + activeProvider)与旧 accessToken。刷新实现一并就地捕获 ——
   // 这次 in-flight 归属于发起它的那份凭据,而不是微任务轮到时恰好挂在
   // tokenProvider 上的那一份。
-  const providerAtStart = tokenProvider
+  const providerAtStart = authRuntime.tokenProvider
   const oldTokenAtStart = providerAtStart.getToken()
   const refreshImpl = providerAtStart.refreshAccessToken!
-  refreshInFlight = Promise.resolve()
+  authRuntime.refreshInFlight = Promise.resolve()
     .then(() => refreshImpl())
     .then((t) => {
       // 走到这里(含 CAS 丢弃)说明端内实现没有抛瞬时错误:成功或明确拒绝
-      lastRefreshWasTransient = false
+      authRuntime.lastRefreshWasTransient = false
       const newToken = t ?? null
       // 2026-09-29 CAS 复核(台账票 G-814411):响应返回后、写回前,三者比对 ——
       // active provider 未切换,且旧 accessToken 仍是当前值(或已被本刷新自己
@@ -503,14 +534,14 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
       // 放行不算覆盖)。漂移 ⇒ 凭据在刷新飞期间已被换人,本响应是过期账目,
       // 丢弃:不覆盖新凭据,调用方拿 null 走既有失败路径;本分支不算刷新失败,
       // 不进冷却窗口(否则会拦住新凭据自己的正常续期)。
-      if (tokenProvider !== providerAtStart) return null
-      const currentToken = tokenProvider.getToken()
+      if (authRuntime.tokenProvider !== providerAtStart) return null
+      const currentToken = authRuntime.tokenProvider.getToken()
       if (currentToken !== oldTokenAtStart && currentToken !== newToken) return null
       // 刷新成功:清空冷却态(如有),返回新 token
       clearRefreshFailCooldown()
       if (newToken) {
-        lastRefreshSuccessToken = newToken
-        lastRefreshSuccessAt = Date.now()
+        authRuntime.lastRefreshSuccessToken = newToken
+        authRuntime.lastRefreshSuccessAt = Date.now()
       }
       return newToken
     })
@@ -523,45 +554,45 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
       // 2026-10-09 分型:端内实现抛 TransientRefreshError = 网络/5xx 性质的失败,
       // 不构成"会话不可恢复" —— fetchApi 的 401 出口据此外置标志跳过 notifyUnauthorized,
       // 防止端内出口把瞬时失败当会话终结(写持久登出标记 → 30 天 refresh 凭据被永久废掉)。
-      lastRefreshWasTransient = err instanceof TransientRefreshError
+      authRuntime.lastRefreshWasTransient = err instanceof TransientRefreshError
       return null
     })
     .finally(() => {
-      refreshInFlight = null
+      authRuntime.refreshInFlight = null
     })
-  return refreshInFlight
+  return authRuntime.refreshInFlight
 }
 
 /** 启动失败冷却窗口:窗口内 refreshAccessTokenOnce 直接返回共享失败 promise */
 function startRefreshFailCooldown(ttlMs: number = REFRESH_FAIL_COOLDOWN_MS): void {
-  if (refreshFailCooldown) return
-  refreshFailCooldown = Promise.resolve(null)
-  refreshFailCooldownTimer = setTimeout(() => {
-    refreshFailCooldown = null
-    refreshFailCooldownTimer = null
+  if (authRuntime.refreshFailCooldown) return
+  authRuntime.refreshFailCooldown = Promise.resolve(null)
+  authRuntime.refreshFailCooldownTimer = setTimeout(() => {
+    authRuntime.refreshFailCooldown = null
+    authRuntime.refreshFailCooldownTimer = null
   }, ttlMs)
 }
 
 /** 清空失败冷却态(刷新成功时调用,避免成功后仍被冷却窗口短暂拦截) */
 function clearRefreshFailCooldown(): void {
-  if (refreshFailCooldownTimer) {
-    clearTimeout(refreshFailCooldownTimer)
-    refreshFailCooldownTimer = null
+  if (authRuntime.refreshFailCooldownTimer) {
+    clearTimeout(authRuntime.refreshFailCooldownTimer)
+    authRuntime.refreshFailCooldownTimer = null
   }
-  refreshFailCooldown = null
+  authRuntime.refreshFailCooldown = null
 }
 
 /**
  * 重置刷新相关模块级状态(仅供测试用)。
- * 暴露此函数是因为 refreshInFlight / refreshFailCooldown 是模块级单例,
+ * 暴露此函数是因为 refreshInFlight / refreshFailCooldown 住在 global 单例里,
  * 测试间需要隔离,避免失败冷却态跨用例泄漏导致后续用例的 refresh mock 不被调用。
  */
 export function __resetRefreshStateForTest(): void {
-  refreshInFlight = null
+  authRuntime.refreshInFlight = null
   clearRefreshFailCooldown()
-  lastRefreshWasTransient = false
-  lastRefreshSuccessToken = null
-  lastRefreshSuccessAt = 0
+  authRuntime.lastRefreshWasTransient = false
+  authRuntime.lastRefreshSuccessToken = null
+  authRuntime.lastRefreshSuccessAt = 0
 }
 
 /**
@@ -1210,7 +1241,7 @@ export async function fetchApi<T>(
   url: string,
   options: FetchApiOptions = {},
 ): Promise<ApiResult<T>> {
-  const token = tokenProvider.getToken()
+  const token = authRuntime.tokenProvider.getToken()
   const { params: rawParams, ...restOptions } = options
   // b76-08a:转发前摘除连接级能力位(connectionId/clientMode/deliveryProfile/
   // subscriberScope/workflowRunDeltas)—— 这些是连接事实,客户端自报一律不得出网;
@@ -1465,7 +1496,7 @@ async function fetchTextOnce(
   options: RequestInit,
   tokenOverride?: string,
 ): Promise<string> {
-  const token = tokenOverride ?? tokenProvider.getToken()
+  const token = tokenOverride ?? authRuntime.tokenProvider.getToken()
   const normalizedUrl = normalizeUrl(url)
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
@@ -1537,7 +1568,7 @@ async function fetchAiServiceJsonOnce<T>(
   options: FetchApiOptions,
   tokenOverride?: string,
 ): Promise<ApiResult<T>> {
-  const token = tokenOverride ?? tokenProvider.getToken()
+  const token = tokenOverride ?? authRuntime.tokenProvider.getToken()
   const { params: rawParams, ...restOptions } = options
   // b76-08a:同 fetchApi —— 转发前摘除连接级能力位,客户端自报不出网(唯一出口见 @ihui/types)。
   const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
@@ -1655,7 +1686,7 @@ async function fetchRawOnce(
   options: RequestInit,
   tokenOverride?: string,
 ): Promise<Blob> {
-  const token = tokenOverride ?? tokenProvider.getToken()
+  const token = tokenOverride ?? authRuntime.tokenProvider.getToken()
   const normalizedUrl = normalizeUrl(url)
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
@@ -2425,7 +2456,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     ackFrameBarrier(read.watermark.subscriptionId)
     return false
   }
-  const token = tokenProvider.getToken()
+  const token = authRuntime.tokenProvider.getToken()
   // 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
   // streamChat 用 streamBaseUrl(直连 API 服务器),绕过 Next.js dev proxy 的超时/缓冲。
   // 普通请求仍用 baseUrl(走同源代理,cookie SSR 正常)。

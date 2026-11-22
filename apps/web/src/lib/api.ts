@@ -65,14 +65,23 @@ const AUTH_REFRESH_TIMEOUT_MS = 10_000
  * - `transient`(网络错误/超时/5xx,api 重启窗口最常见):凭据没死,只是问不出答案 →
  *   绝不能落标记,否则 api 重启一次就把 30 天 refresh cookie 永久废掉,用户被迫重登。
  *
- * 成功刷新置回 `null`。进程内单例即够:写它(刷新实现)与读它(bootstrap 冷启动)
- * 同属一次冷启动的同一 JS 上下文;跨标签页各自有各自的刷新链。
+ * 成功刷新置回 `null`。读写必须跨 chunk 共享:写它(刷新实现)与读它(bootstrap 冷启动)
+ * 在 Turbopack 分包下可能落在两份 `api.ts` 里 —— 若各持一份,刷新被 401 拒绝后 bootstrap
+ * 读到 null 会当成瞬时失败保留 `isAuthenticated=true` 的幽灵态,下一次 401 再触发刷新,
+ * 正是「登录态还在但页面永远未登录」的混合态来源。与 `stores/auth` 的 store 单例同法,
+ * 浏览器 realm 内挂在 globalThis 上(SSR 每进程各建一份,行为不变)。
  */
-let lastRefreshFailure: RefreshFailureKind | null = null
+const refreshFailureGlobal = globalThis as typeof globalThis & {
+  __IHUI_WEB_LAST_REFRESH_FAILURE__?: { kind: RefreshFailureKind | null }
+}
+const refreshFailureState: { kind: RefreshFailureKind | null } =
+  typeof window !== 'undefined'
+    ? (refreshFailureGlobal.__IHUI_WEB_LAST_REFRESH_FAILURE__ ??= { kind: null })
+    : { kind: null }
 
 /** 读取最近一次静默刷新失败的性质;成功过/从未失败返回 null。 */
 export function getLastRefreshFailure(): RefreshFailureKind | null {
-  return lastRefreshFailure
+  return refreshFailureState.kind
 }
 
 setTokenProvider({
@@ -110,14 +119,14 @@ setTokenProvider({
       })
       if (res.success && res.data?.accessToken) {
         // 更新内存 token;新 refreshToken 由 setToken 写回 vault(桌面)或仅内存(浏览器 cookie 轮转)
-        lastRefreshFailure = null
+        refreshFailureState.kind = null
         useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
         return res.data.accessToken
       }
       // 刷新失败:先按唯一判据出口落账(bootstrap 的 getLastRefreshFailure 依赖"先记录"这个顺序)。
       // 2026-10-26:带上 errorCode —— 陈旧副本(REFRESH_TOKEN_STALE)虽回 401,但服务端未否定凭据,
       // 必须按瞬时失败处理,否则一次多窗口竞态就清 vault / 结束会话。
-      lastRefreshFailure = classifyRefreshFailureStatus(
+      refreshFailureState.kind = classifyRefreshFailureStatus(
         res.status,
         res.success ? undefined : res.errorCode,
       )
@@ -126,8 +135,8 @@ setTokenProvider({
       // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被
       // 服务端否定,清了下次冷启动就真的无 token 可刷 —— 正是"自动登录总被清掉"的一条腿。
       // 429 单独成类:限流窗口 1 分钟,必须退避而不能按 5s 冷却反复敲门(实测自锁)。
-      if (lastRefreshFailure === 'rate-limited') throw new RefreshRateLimitedError()
-      if (lastRefreshFailure === 'transient') throw new TransientRefreshError()
+      if (refreshFailureState.kind === 'rate-limited') throw new RefreshRateLimitedError()
+      if (refreshFailureState.kind === 'transient') throw new TransientRefreshError()
       // rejected(401/403) = 本次拿到的 refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转。
       // 只清**本窗口实际用过的那一份**(CAS):桌面端多窗口共用 auth.json,另一窗口/页签可能
       // 已轮转并把新 token 写回同一份 vault —— 盲清会抹掉别人刚写的新凭据,表现为"自动登录
