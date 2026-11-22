@@ -82,6 +82,13 @@ function stripComments(s) {
   return s.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
 }
 
+/** 剥注释但保留行结构:注释字符换空格、换行原样留 —— 行号仍以原文为准 */
+function blankComments(s) {
+  return s
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length))
+}
+
 /** 从调用处截取第一层参数对象;不是对象字面量返回 null */
 function argObjectAt(src, from) {
   let i = from
@@ -139,7 +146,9 @@ export function providedKeys(objText) {
  *   spread    对象里有 ...展开,静态不可判定
  * method='raw' 的调用不参与判据(raw 不插值,花括号是留给下游 fillTemplate 的模板)
  */
-export function extractCalls(src) {
+export function extractCalls(srcIn) {
+  // 注释里的示例调用不是调用(否则说明文本会被当成违规)
+  const src = blankComments(srcIn)
   const stems = translationStems(src)
   if (!stems.length) return []
   const names = stems.map((s) => s.name.replace(/[$]/g, '\\$&')).join('|')
@@ -202,7 +211,9 @@ export function scanSource(src, messages) {
  * 门对这一型不做"判对错",只做**棘轮**:数量/形态登记在基线,新增一处即红 ——
  * 新增一律改数据表字面量键(`{ titleKey: 'ns.k' }` + `t(item.titleKey)`),落进 data-keys 门射程。
  */
-export function extractTemplateCalls(src) {
+export function extractTemplateCalls(srcIn) {
+  // 注释里写"消除 `t(`status.${var}`)` 动态拼接"的说明文本不是调用,否则门会抓自己人
+  const src = blankComments(srcIn)
   const stems = translationStems(src)
   if (!stems.length) return []
   const names = stems.map((s) => s.name.replace(/[$]/g, '\\$&')).join('|')
