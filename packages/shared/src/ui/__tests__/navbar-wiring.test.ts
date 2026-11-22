@@ -993,6 +993,64 @@ describe('NavBar 跨端档位一致性(O02 票④)', () => {
     ).toBeGreaterThan(0)
   })
 
+  it('⑬ 标题层真居中:两端中槽四边铺满,左右槽绝对定位(不再由 flex 剩余空间决定)', () => {
+    const squash = (s: string): string => s.replace(/\s+/g, '')
+    const blockOf = (src: string, anchor: string): string => {
+      const at = src.indexOf(anchor)
+      if (at < 0) throw new Error(`读不到 ${anchor} ⇒ 居中锁取材前提失效`)
+      const open = src.indexOf('{', at)
+      let depth = 0
+      for (let i = open; i < src.length; i += 1) {
+        if (src[i] === '{') depth += 1
+        else if (src[i] === '}') {
+          depth -= 1
+          if (depth === 0) return squash(src.slice(at, i + 1))
+        }
+      }
+      throw new Error(`${anchor} 的块没有闭合 ⇒ 居中锁取材前提失效`)
+    }
+
+    // RN:center 不再吃 flex:1,四边 0 铺满;左右槽各自绝对贴边
+    const rnCenter = blockOf(LEG_CODE['mobile-rn'], 'center: {')
+    expect(rnCenter).toContain("position:'absolute'")
+    expect(rnCenter).toContain('left:0,right:0')
+    expect(rnCenter).not.toContain('flex:1')
+    const rnLeft = blockOf(LEG_CODE['mobile-rn'], 'leftSection: {')
+    expect(rnLeft).toContain("position:'absolute'")
+    expect(rnLeft).toContain('left:NAVBAR_SIDE_PADDING_PX')
+    const rnRight = blockOf(LEG_CODE['mobile-rn'], 'rightSection: {')
+    expect(rnRight).toContain("position:'absolute'")
+    expect(rnRight).toContain('right:NAVBAR_SIDE_PADDING_PX')
+
+    // 小程序 ai-home:同一几何口径,中槽绝对铺满、左右槽绝对贴边
+    const miniCenter = blockOf(LEG_CODE['miniapp-taro'], 'centerStyle={{')
+    expect(miniCenter).toContain("position:'absolute'")
+    expect(miniCenter).toContain('left:0,right:0')
+    expect(miniCenter).not.toContain('flex-1')
+    const miniLeft = blockOf(LEG_CODE['miniapp-taro'], 'leftStyle={{')
+    expect(miniLeft).toContain("position:'absolute'")
+    expect(miniLeft).toContain('left:toUnit(NAVBAR_SIDE_PADDING_PX)')
+    const miniRight = blockOf(LEG_CODE['miniapp-taro'], 'rightStyle={{')
+    expect(miniRight).toContain("position:'absolute'")
+    expect(miniRight).toContain('right:toUnit(NAVBAR_SIDE_PADDING_PX)')
+
+    // 命中层:整行覆盖的标题层不得吃掉侧钮点击(RN 用 box-none,weapp 用 none + 子项 auto)
+    expect(rnCenter).toContain("pointerEvents:'box-none'")
+    expect(miniCenter).toContain("pointerEvents:'none'")
+    expect(
+      (LEG_CODE['miniapp-taro'].match(/pointerEvents:\s*'auto'/g) ?? []).length,
+      '小程序中槽里的可点切换项必须显式 auto,否则会被整行覆盖层的 none 吃掉',
+    ).toBeGreaterThanOrEqual(2)
+
+    // 反向自证:把 RN 的绝对居中退回 flex:1 ⇒ 判据必须红
+    const mutated = LEG_CODE['mobile-rn'].replace(
+      /center:\s*{\s*position:\s*'absolute',/,
+      'center: {\n    flex: 1,',
+    )
+    expect(mutated, '变异没落到 center 上 ⇒ 本用例的反向自证是空转').not.toBe(LEG_CODE['mobile-rn'])
+    expect(blockOf(mutated, 'center: {')).not.toContain("position:'absolute'")
+  })
+
   it('⑫ 上屏腿拓扑:骨架只经共享 core、恰好两条腿、packages/app 的 DOM 副本不是腿', () => {
     const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8')
     const ctx = {
