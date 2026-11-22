@@ -158,6 +158,12 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 落点：`FSBridge.glob`、`FSBridge.locate`、`FSBridge.locateBatch` 统一带四个字段；`packages/api-client` 的 `locateWorkspaceFiles` / `locateWorkspaceFilesBatch` 同步类型 `WorkspaceLocateResult`。
 - 测试：`workspace-fs-ops.test.ts` 7 passed，新增"5 个命中只回 2 个 ⇒ omitted=3 / totalMatches=5 / exact=true"；`@ihui/api` + `@ihui/api-client` typecheck 10/10 success。
 
+## 追加批（同日）：命令截止先到回结构化 TOOL_TIMEOUT
+
+- 对齐 DSH `dsh-tool-call-timeout-policy`：截止先到不再只留 `exitCode=null` 让调用方猜。`sandboxTimeoutOutcome` 把 `deadline-exceeded` 映射成 `timedOut: true` + `timeoutMs` + `error{name:'ToolTimeoutError', code:'TOOL_TIMEOUT', message:'tool call timed out after <ms>ms'}`；按时完成与非零退出保持原样，未判定不伪装成失败退出码。
+- 落点：`SandboxExecutor.execute` / `FSBridge.run` 返回结构化超时；`/fs/run` 与 `run_command` 自动带出；`packages/api-client` 新增 `WorkspaceCommandRunResult`（`exitCode` 诚实为 `number | null`）。
+- 测试：`workspace-fs-ops.test.ts` 8 passed（含 deadline 映射与"正常完成不标超时"对照）；`@ihui/api` 9/9 + `@ihui/api-client` + `@ihui/web` 8/8 typecheck 全绿。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

@@ -1056,6 +1056,26 @@ export function settleSandboxJob(input: {
   })
 }
 
+export function sandboxTimeoutOutcome(
+  verdict: BoundedJobVerdict,
+  timeoutMs: number,
+): {
+  timedOut?: true
+  timeoutMs?: number
+  error?: { name: 'ToolTimeoutError'; code: 'TOOL_TIMEOUT'; message: string }
+} {
+  if (verdict.reason !== 'deadline-exceeded') return {}
+  return {
+    timedOut: true,
+    timeoutMs,
+    error: {
+      name: 'ToolTimeoutError',
+      code: 'TOOL_TIMEOUT',
+      message: `tool call timed out after ${timeoutMs}ms`,
+    },
+  }
+}
+
 const NETWORK_COMMANDS = [
   'curl',
   'wget',
@@ -1401,6 +1421,10 @@ class SandboxExecutor {
     mode: SandboxMode
     backend?: 'remote'
     truncated?: boolean
+    /** 2026-11-23:截止先到时显式回结构化超时,不再只留 exitCode=null 让调用方猜。 */
+    timedOut?: boolean
+    timeoutMs?: number
+    error?: { name: 'ToolTimeoutError'; code: 'TOOL_TIMEOUT'; message: string }
   }> {
     const mode = params.mode ?? 'workspace-write'
     // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
@@ -1600,6 +1624,7 @@ class SandboxExecutor {
         stderr: String(stderrText ?? '').slice(0, MAX_STDERR),
         exitCode: verdict.exitCode,
         mode,
+        ...sandboxTimeoutOutcome(verdict, timeout),
       }
     }
   }
@@ -4556,7 +4581,14 @@ class FSBridge {
     mode?: SandboxMode
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  }): Promise<{
+    stdout: string
+    stderr: string
+    exitCode: number | null
+    timedOut?: boolean
+    timeoutMs?: number
+    error?: { name: 'ToolTimeoutError'; code: 'TOOL_TIMEOUT'; message: string }
+  }> {
     return sandboxExecutor.execute({
       command: params.command,
       workspacePath: params.workspacePath,
@@ -5187,6 +5219,7 @@ agentLoop.registerTool({
   name: 'run_command',
   description:
     '执行命令（沙箱隔离，默认 workspace-write；可传 cwd/timeoutMs/mode=read-only 或 workspace-write；' +
+    '截止先到时回 timedOut + TOOL_TIMEOUT 错误；' +
     '输出超过 32000 字符时保留头尾并标 truncated，同时把全文落盘到 .ihui-agent/tool-spill 并回 spills）',
   execute: async (args) => {
     const rawMode = String(args['mode'] ?? 'workspace-write')

@@ -11,7 +11,11 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { fsBridge } from '../src/services/workspace-ai-service.js'
+import {
+  fsBridge,
+  sandboxTimeoutOutcome,
+  settleSandboxJob,
+} from '../src/services/workspace-ai-service.js'
 import { WORKSPACE_ROOTS_ENV } from '../src/utils/workspace-roots.js'
 
 let root: string
@@ -96,6 +100,36 @@ describe('FSBridge mkdir/move/stat', () => {
     expect(hit.omitted).toBe(3)
     expect(hit.totalMatches).toBe(5)
     expect(hit.exact).toBe(true)
+  })
+
+  it('截止先到回结构化 TOOL_TIMEOUT,不把未判定伪装成失败退出码', () => {
+    const verdict = settleSandboxJob({
+      timeoutMs: 1000,
+      killed: true,
+      code: null,
+      stdout: '',
+      stderr: '',
+    })
+    expect(verdict.disposition).toBe('unjudged')
+    expect(verdict.exitCode).toBeNull()
+    expect(sandboxTimeoutOutcome(verdict, 1000)).toEqual({
+      timedOut: true,
+      timeoutMs: 1000,
+      error: {
+        name: 'ToolTimeoutError',
+        code: 'TOOL_TIMEOUT',
+        message: 'tool call timed out after 1000ms',
+      },
+    })
+    // 按时完成/正常失败不得被标成超时
+    const ok = settleSandboxJob({
+      timeoutMs: 1000,
+      killed: false,
+      code: 0,
+      stdout: 'ok',
+      stderr: '',
+    })
+    expect(sandboxTimeoutOutcome(ok, 1000)).toEqual({})
   })
 
   it('write/edit 走原子替换,成功后不留 .tmp 中间件', () => {

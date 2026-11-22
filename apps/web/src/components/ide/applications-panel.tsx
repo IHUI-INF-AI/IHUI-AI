@@ -24,7 +24,8 @@ interface AppConfig {
 interface RunHistoryItem {
   name: string
   time: string
-  exitCode?: number
+  /** null = 截止先到/未判定(TOOL_TIMEOUT),不是 0 也不是失败退出码 */
+  exitCode?: number | null
 }
 
 const TYPE_META: Record<ConfigType, { icon: typeof Terminal; color: string }> = {

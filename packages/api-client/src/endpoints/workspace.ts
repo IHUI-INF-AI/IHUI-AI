@@ -468,20 +468,28 @@ export async function listWorkspaceWatchers(): Promise<
 }
 
 /** 执行命令(走 sandboxExecutor 白名单) */
+export interface WorkspaceCommandRunResult {
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  mode: string
+  /** 截止先到:工具层据此回 TOOL_TIMEOUT,不把未判定当失败退出码。 */
+  timedOut?: boolean
+  timeoutMs?: number
+  error?: { name: 'ToolTimeoutError'; code: 'TOOL_TIMEOUT'; message: string }
+}
+
 export async function runCommand(params: {
   command: string
   workspacePath: string
   cwd?: string
   timeoutMs?: number
   mode?: 'read-only' | 'workspace-write' | 'danger-full-access'
-}): Promise<ApiResult<{ stdout: string; stderr: string; exitCode: number; mode: string }>> {
-  return fetchApi<{ stdout: string; stderr: string; exitCode: number; mode: string }>(
-    '/api/workspace/fs/run',
-    {
-      method: 'POST',
-      body: JSON.stringify(params),
-    },
-  )
+}): Promise<ApiResult<WorkspaceCommandRunResult>> {
+  return fetchApi<WorkspaceCommandRunResult>('/api/workspace/fs/run', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }
 
 /**
