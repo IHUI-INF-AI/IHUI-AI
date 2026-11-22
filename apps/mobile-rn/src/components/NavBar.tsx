@@ -7,7 +7,7 @@
  *
  * 对齐历史 Uniapp navigation-bars 组件(4 变体:index/indexa/indexb/indexc):
  * - 左侧:back 按钮(可选)+ leftActions(菜单/drawer/分类等,多按钮)
- * - 中间:title + 可选 subtitle(flex 居中)
+ * - 中间:title + 可选 subtitle(独立绝对居中层,不被左右槽挤压)
  * - 右侧:rightActions(搜索/设置/分类等,多按钮)+ rightAction(兼容旧 ReactNode)
  * - sticky 支持(对齐 Uniapp viscosity,position:sticky + top:0 + zIndex)
  * - 不自绘背景、不画底边线:顶栏与页面同色,由所在屏的 shell 底色透出
@@ -215,9 +215,10 @@ export function NavBar({
     </View>
   ) : null
 
-  /* 中间:title + subtitle(flex 居中)。
+  /* 中间:title + subtitle(独立绝对居中层)。
      2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
-     方案 B+C:center 加下限确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。
+     2026-11-23 真居中:标题层不再参与左右槽的 flex 分配 —— 早先 flex:1 时标题中点在
+     「左槽之后、右槽之前」的剩余空间里,偏移量 =(左槽宽 − 右槽宽)/2(首页实测左偏 42dp)。
      下限与截断上限都不再写在本文件:唯一源是 navbar-spec 的
      NAVBAR_CENTER_MIN_WIDTH_PX / NAVBAR_TITLE_MAX_WIDTH_PX,小程序端取的是同一对档。 */
   return (
@@ -413,21 +414,32 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   row: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    // 档位唯一源 navbar-spec(对齐 Uniapp navigation-bars 的 padding: 0 20rpx,20rpx = 10dp)
-    paddingHorizontal: NAVBAR_SIDE_PADDING_PX,
   },
   leftSection: {
+    position: 'absolute',
+    left: NAVBAR_SIDE_PADDING_PX,
+    top: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
   },
   center: {
-    flex: 1,
+    // 标题层独立居中:不参与左右槽的流式分配,两端槽宽不等也保持屏幕几何中心。
+    // 早先是 flex:1 夹在两侧之间,偏移量 = (左槽宽 - 右槽宽)/2 —— 首页实测左偏 42dp。
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     // 标题区下限唯一源 navbar-spec(2026-09-23 P1 定格 80);小程序端标题容器取同一档的 rpx 投影
     minWidth: NAVBAR_CENTER_MIN_WIDTH_PX,
+    // 覆盖整行但自身不接收点击:侧钮仍可穿透点到
+    pointerEvents: 'box-none',
   },
   title: {
     // 字号唯一源 navbar-spec(2026-09-23 P1 定格 16,防"智汇AI"截断;与小程序端同档)
@@ -443,6 +455,10 @@ const styles = StyleSheet.create({
     marginTop: NAVBAR_SUBTITLE_MARGIN_TOP_PX,
   },
   rightSection: {
+    position: 'absolute',
+    right: NAVBAR_SIDE_PADDING_PX,
+    top: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',

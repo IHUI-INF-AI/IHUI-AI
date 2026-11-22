@@ -261,10 +261,15 @@ export default function NavBar({
         rowClassName="relative flex items-center"
         rowStyle={{
           height: px(rowHeight),
-          paddingLeft: toUnit(NAVBAR_SIDE_PADDING_PX),
-          paddingRight: toUnit(NAVBAR_SIDE_PADDING_PX),
         }}
         leftClassName="flex items-center gap-[12rpx]"
+        leftStyle={{
+          // 侧槽绝对定位,不再参与中槽的流式分配 —— 与 RN 端同一几何口径
+          position: 'absolute',
+          left: toUnit(NAVBAR_SIDE_PADDING_PX),
+          top: 0,
+          bottom: 0,
+        }}
         left={
           <>
             {/* 返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
@@ -294,17 +299,31 @@ export default function NavBar({
         }
         centerClassName={
           onActiveNav
-            ? 'flex flex-1 items-center justify-center gap-[40rpx]'
+            ? 'flex items-center justify-center gap-[40rpx]'
             : subtitle
-              ? 'flex flex-1 flex-col items-center justify-center'
-              : 'flex flex-1 items-center justify-center'
+              ? 'flex flex-col items-center justify-center'
+              : 'flex items-center justify-center'
         }
-        centerStyle={CENTER_STYLE}
+        centerStyle={{
+          ...CENTER_STYLE,
+          // 标题层独立居中:覆盖整行,左右槽多宽都不影响屏幕几何中心
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          // weapp 没有 RN 的 box-none:整行覆盖层必须自身不命中,否则会盖住左侧菜单/返回钮
+          pointerEvents: 'none',
+        }}
         center={
           onActiveNav ? (
             <>
               {/* 中间:标题切换(每日资讯/排行榜) */}
-              <View onClick={() => onActiveNav(0)} hoverClass="opacity-60">
+              <View
+                style={{ pointerEvents: 'auto' }}
+                onClick={() => onActiveNav(0)}
+                hoverClass="opacity-60"
+              >
                 <Text
                   style={{
                     color:
@@ -318,7 +337,11 @@ export default function NavBar({
                   {tt('NavBar.text1', '每日资讯')}
                 </Text>
               </View>
-              <View onClick={() => onActiveNav(1)} hoverClass="opacity-60">
+              <View
+                style={{ pointerEvents: 'auto' }}
+                onClick={() => onActiveNav(1)}
+                hoverClass="opacity-60"
+              >
                 <Text
                   style={{
                     color:
@@ -340,7 +363,14 @@ export default function NavBar({
         titleStyle={{ color: textColor, ...TITLE_STYLE }}
         subtitle={subtitle}
         subtitleStyle={{ color: textColor, ...SUBTITLE_STYLE }}
-        rightClassName="ml-auto flex flex-shrink-0 items-center gap-[12rpx]"
+        rightClassName="flex flex-shrink-0 items-center gap-[12rpx]"
+        rightStyle={{
+          // 与左槽同一条几何口径:绝对贴右,不挤占标题层
+          position: 'absolute',
+          right: toUnit(NAVBAR_SIDE_PADDING_PX),
+          top: 0,
+          bottom: 0,
+        }}
         right={
           <>
             {/* 右侧:反馈按钮 / 分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars) */}
@@ -468,7 +498,11 @@ export default function NavBar({
       rowClassName="relative flex w-full items-center justify-center"
       rowStyle={{ height: px(rowHeight) }}
       leftClassName="absolute left-2 flex items-center"
-      leftStyle={rowBoxStyle}
+      leftStyle={{
+        ...rowBoxStyle,
+        // 中槽标题层铺满整行,侧钮必须压在它之上才点得到
+        zIndex: 2,
+      }}
       left={
         <>
           {showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
@@ -488,7 +522,11 @@ export default function NavBar({
       subtitle={subtitle}
       subtitleStyle={{ color: textColor, ...SUBTITLE_STYLE }}
       rightClassName="absolute right-3 flex items-center"
-      rightStyle={rowBoxStyle}
+      rightStyle={{
+        ...rowBoxStyle,
+        // 与左槽同一命中口径:侧钮压在中槽之上
+        zIndex: 2,
+      }}
       right={
         <>
           {rightActions?.map((action, index) => (
