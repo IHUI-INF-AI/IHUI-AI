@@ -633,8 +633,8 @@ importers:
         specifier: 4.2.1
         version: 4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@tarojs/plugin-framework-react':
-        specifier: 4.2.1
-        version: 4.2.1(cc55ee135b9aa279da55a9c7481e4cdc)
+        specifier: 4.3.3
+        version: 4.3.3(cc55ee135b9aa279da55a9c7481e4cdc)
       '@tarojs/plugin-html':
         specifier: 4.2.1
         version: 4.2.1(@tarojs/helper@4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1))(@tarojs/runtime@4.2.1)(@tarojs/shared@4.2.1)
@@ -1788,7 +1788,7 @@ importers:
         version: 19.2.18
       react-native:
         specifier: ^0.86.0
-        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@react-native/metro-config@0.87.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
+        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -9511,16 +9511,16 @@ packages:
     resolution: {integrity: sha512-X4aq/VS9Xr5UYkiZv5T0vSx1OycuzjYgbJDFs4YPWwJDaY1LOzn8Nlzb/rQchkBlxDPHmqUQQvejL0o6+REgbw==}
     engines: {node: '>= 10'}
 
-  '@tarojs/plugin-framework-react@4.2.1':
-    resolution: {integrity: sha512-+ZOpFIkdb75eWbFkRbFz81R9qHp/sUgfr4UPZCntaxvUXyAZrCjcYd6IsGLjg/563WG/BjRS0tdkEnmp8bOnPQ==}
+  '@tarojs/plugin-framework-react@4.3.3':
+    resolution: {integrity: sha512-uqQoC+38e/GEdOTEiJSPJMw2vS/DaCQPZbuYhWEHWvzu4lwSVPD1Pj5761iVKhM/B5qprXZGnA+UiduWr9071A==}
     engines: {node: '>= 18'}
     peerDependencies:
       '@pmmmwh/react-refresh-webpack-plugin': '*'
       '@preact/preset-vite': ^2
       '@prefresh/webpack': ^4
-      '@tarojs/helper': 4.2.1
-      '@tarojs/runtime': 4.2.1
-      '@tarojs/shared': 4.2.1
+      '@tarojs/helper': 4.3.3
+      '@tarojs/runtime': 4.3.3
+      '@tarojs/shared': 4.3.3
       '@vitejs/plugin-react': ^4.4.1
       preact: ^10
       react: ^18
@@ -10954,6 +10954,11 @@ packages:
 
   acorn@8.18.0:
     resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  acorn@8.19.0:
+    resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -31662,12 +31667,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@tarojs/plugin-framework-react@4.2.1(cc55ee135b9aa279da55a9c7481e4cdc)':
+  '@tarojs/plugin-framework-react@4.3.3(cc55ee135b9aa279da55a9c7481e4cdc)':
     dependencies:
       '@tarojs/helper': 4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@tarojs/runtime': 4.2.1
       '@tarojs/shared': 4.2.1
-      acorn: 8.18.0
+      acorn: 8.19.0
       acorn-walk: 8.3.5
       lodash: 4.18.1
       tslib: 2.9.1
@@ -33408,11 +33413,13 @@ snapshots:
 
   acorn-walk@8.3.5:
     dependencies:
-      acorn: 8.18.0
+      acorn: 8.19.0
 
   acorn@6.4.2: {}
 
   acorn@8.18.0: {}
+
+  acorn@8.19.0: {}
 
   address@1.2.2: {}
 
