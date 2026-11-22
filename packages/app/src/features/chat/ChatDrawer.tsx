@@ -23,6 +23,8 @@ import {
   View,
 } from 'react-native'
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+// 2026-11-23:会话标题显示兜底 —— 与 web 侧栏/生成侧同一份净化规则。
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import type { TFunction } from '@ihui/types'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -174,8 +176,9 @@ export function ChatDrawer({
                       {conversation.favorited ? (
                         <Text style={styles.favoriteMark}>{'★'}</Text>
                       ) : null}
+                      {/* 2026-11-23:历史脏标题兜底(净化规则住共享层,三端同一份)。 */}
                       <Text style={styles.conversationTitle} numberOfLines={1}>
-                        {conversation.title}
+                        {plainTitleText(conversation.title) ?? DEFAULT_CONVERSATION_TITLE}
                       </Text>
                     </View>
                     <View style={styles.metaRow}>

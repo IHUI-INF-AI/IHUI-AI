@@ -207,7 +207,13 @@ const createConversationSchema = z.object({
 })
 
 const updateConversationSchema = z.object({
-  title: z.string().max(255).optional(),
+  // 2026-11-23:标题拒绝纯空白 —— 原来只卡长度,`title: ""` 能落库,侧栏立刻出现一条
+  // 没有名字的会话,且 auto-title 只覆盖「新对话」,这条空名会永久留在列表里。
+  title: z
+    .string()
+    .max(255)
+    .refine((v) => v.trim().length > 0, { message: '标题不能为空' })
+    .optional(),
   model: z.string().max(64).optional(),
   systemPrompt: z.string().optional(),
   metadata: z.unknown().optional(),
@@ -1015,9 +1021,12 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       // 生成失败:静默成功(前端保持原标题,不重试不报错)
       return reply.send(success({ ok: true, updated: false }))
     }
-    const updated = await updateConversationTitle(id, userId, title)
+    // CAS:只在标题仍是本次读到的那一份时才写回。LLM 有 3 秒窗口,期间用户手动改名会
+    // 命中 0 行 —— 自动标题绝不吞掉用户命名(2026-11-23 修)。
+    const updated = await updateConversationTitle(id, userId, title, currentTitle)
     if (!updated) {
-      return reply.status(404).send(error(404, '对话不存在'))
+      // 未命中不是错误:对话被并发删除,或用户已手动改名 —— 两者都保持现状。
+      return reply.send(success({ ok: true, updated: false }))
     }
     // 来源打标:后续多轮重估只覆盖自动标题,用户改名后不再被自动改
     // 创建时标题留档(2026-11-16 立):首个"有意义的标题"记入 metadata.originalTitle,

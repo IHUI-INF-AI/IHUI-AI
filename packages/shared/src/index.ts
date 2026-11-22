@@ -17,6 +17,8 @@ export * from './context'
 export * from './spec'
 export * from './plan'
 export * from './chat'
+// 2026-11-23:会话标题纯文本净化(剥 Markdown 强调/行首编号/`(think)` 残片)与默认标题常量
+// 已随 `./utils` 的 barrel 覆盖 —— web 侧栏、D176 交接标题、api 生成与入库四处同一份规则。
 // G3 Beyond-Coding 泛化:统一 Artifact 交付物体系(纯类型+校验+渲染,跨端单一真相源)
 export * from './artifact'
 export * from './constants'

@@ -5,6 +5,13 @@
 import { stripInlineMarkdown } from './strip-inline-markdown'
 
 /**
+ * 会话默认标题 —— 与 `chat_conversations.title` 的 DB 默认值同值(`新对话`)。
+ * 2026-11-23 上移到共享层:api 的「是否仍为默认标题(可自动覆盖)」判定与三端侧栏/面板的
+ * 兜底显示都取这一份,避免出现「新对话」/「新会话」两套字面值各说各话。
+ */
+export const DEFAULT_CONVERSATION_TITLE = '新对话'
+
+/**
  * 会话标题的「纯文本安全化」—— 全项目唯一一份(2026-11-23 立)。
  *
  * 存在理由(实测,不是假想):
@@ -71,6 +78,18 @@ const COT_SHORT: readonly RegExp[] = [
 const COT_MAX_CHARS = 18
 
 /**
+ * 按**码位**截断标题。
+ * 为什么不是 `slice(0, n)`:字符串长度是 UTF-16 码元数,emoji(代理对)占两位 ——
+ * 在它中间切一刀会留下半个码元,标题栏渲染成一个"口"方块。标题全链路(生成侧 +
+ * 显示侧 + 存量脚本)都必须走这一份,否则三处各切各的。
+ */
+export function clipTitleChars(text: string, maxChars: number): string {
+  if (maxChars <= 0 || !text) return text
+  const chars = Array.from(text)
+  return chars.length <= maxChars ? text : chars.slice(0, maxChars).join('')
+}
+
+/**
  * 把任意来源的标题文本压成「可显示的纯文本」。
  *
  * @param raw 原始标题(模型输出 / 首条消息 / 历史脏值)
@@ -119,7 +138,7 @@ export function plainTitleText(raw: string, maxChars = 0): string | null {
   if (!text) return null
   if (COT_PREFIXES.some((re) => re.test(text))) return null
   if (text.length <= COT_MAX_CHARS && COT_SHORT.some((re) => re.test(text))) return null
-  if (maxChars > 0 && text.length > maxChars) text = text.slice(0, maxChars)
+  if (maxChars > 0) text = clipTitleChars(text, maxChars)
   return text
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

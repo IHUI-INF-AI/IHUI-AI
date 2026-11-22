@@ -43,6 +43,9 @@ import {
   Input,
 } from '@ihui/ui-react'
 import { createConversation, generateRecapHandoff } from '@ihui/api-client'
+// 2026-11-23:交接摘要直接当会话标题 —— 摘要是 Markdown,不过一遍净化就会把 `**`/`#`
+// 带进侧栏标题(与 auto-title 同一份规则,端内不另写)。
+import { plainTitleText } from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
 import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS, MENU_ITEM_LABEL_CLASS } from '@/lib/menu-item'
 
@@ -138,7 +141,7 @@ export function TaskRecapDialog({
     setCreating(true)
     setCreateFailed(false)
     try {
-      const res = await createConversation({ title: summary.slice(0, 120) })
+      const res = await createConversation({ title: plainTitleText(summary, 120) ?? undefined })
       if (!res.success) throw new Error(res.error)
       setConversationId(res.data.conversation.id)
       // D176 残余②(2026-09-30 收口):交接正文作为新会话首条用户消息自动发出。

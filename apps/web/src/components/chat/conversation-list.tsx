@@ -28,6 +28,8 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+// 2026-11-23:会话标题显示兜底(历史脏数据不进侧栏,净化规则与生成侧同一份)。
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import { downloadText, slugifyForFilename, buildTimestamp } from '@/lib/download'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
@@ -511,7 +513,11 @@ export function ConversationList({
                 }}
                 className="min-w-0 flex-1 text-left"
               >
-                <p className="truncate text-body font-medium">{item.title}</p>
+                {/* 2026-11-23:历史脏数据兜底 —— 侧栏是纯文本渲染,`**` / 行首编号 /
+                    `(think)` 在这里会原样露给用户。净化规则住共享层,这里只消费。 */}
+                <p className="truncate text-body font-medium">
+                  {plainTitleText(item.title) ?? DEFAULT_CONVERSATION_TITLE}
+                </p>
                 <p className="flex min-w-0 items-center gap-2 text-label text-muted-foreground">
                   <span className="min-w-0 truncate">{item.model}</span>
                   <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">

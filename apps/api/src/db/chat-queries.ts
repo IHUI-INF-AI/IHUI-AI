@@ -23,6 +23,8 @@ import { randomBytes } from 'node:crypto'
 // D35:游标存续性的类型与 web / 小程序 / RN 共用同一份定义(投影契约住在共享层)。
 // 用 `import type` 是刻意的 —— 该值在 api 侧只出现在返回值形状里,不需要运行时依赖。
 import type { HistoryCursorState } from '@ihui/shared/chat'
+// 2026-11-23:标题入库前净化 —— 与 auto-title 生成侧同一份纯文本规则(单一真相源)。
+import { plainTitleText } from '@ihui/shared'
 import { db, dbRead } from './index.js'
 import {
   chatConversations,
@@ -54,11 +56,15 @@ export interface CreateConversationInput {
 export async function createConversation(
   input: CreateConversationInput,
 ): Promise<ChatConversation> {
+  // 2026-11-23:标题在**入库前**过一遍纯文本净化 —— 创建方不止一个(新建会话 / D176
+  // 交接摘要 / 导入),原来谁传什么就存什么,`**摘要**` 会原样进侧栏。净化后为空
+  // (纯标记、纯空白)则落 undefined ⇒ 走表默认「新对话」,不留空名会话。
+  const cleanTitle = input.title ? plainTitleText(input.title, 255) : null
   const rows = await db
     .insert(chatConversations)
     .values({
       userId: input.userId,
-      title: input.title,
+      title: cleanTitle ?? undefined,
       model: input.model,
       systemPrompt: input.systemPrompt,
       metadata: input.metadata as Record<string, unknown> | null,
@@ -84,7 +90,11 @@ export async function findConversationsByUser(
   total: number
 }> {
   const conds = [eq(chatConversations.userId, userId)]
-  if (opts.search) conds.push(ilike(chatConversations.title, `%${opts.search}%`))
+  if (opts.search) {
+    // 2026-11-23:转义 LIKE 通配符 —— 原来用户搜一个「%」会把全部会话都命中。
+    const escaped = opts.search.replace(/[\\%_]/g, (m) => `\\${m}`)
+    conds.push(ilike(chatConversations.title, `%${escaped}%`))
+  }
   if (!opts.includeArchived) conds.push(isNull(chatConversations.archivedAt))
   const where = and(...conds)
 
@@ -188,7 +198,7 @@ export async function updateConversation(
   const rows = await db
     .update(chatConversations)
     .set({
-      ...(data.title !== undefined && { title: data.title }),
+      ...(data.title !== undefined && { title: data.title.trim() }),
       ...(data.model !== undefined && { model: data.model }),
       ...(data.systemPrompt !== undefined && { systemPrompt: data.systemPrompt }),
       ...(data.metadata !== undefined && {
@@ -211,26 +221,30 @@ export async function updateConversation(
 /**
  * 仅更新对话标题(2026-09-15 立,四竞品对齐 V2 #15 会话标题自动生成):
  * 带 ownership 校验(非本人对话返回 undefined),供 /conversations/:id/auto-title 使用。
- * 与 updateConversation 的区别:updateConversation 无属主校验(内部端点用),
- * 本函数先校验 userId 再 update,防越权改标题。
+ * 与 updateConversation 的区别:updateConversation 无属主校验(内部端点用)。
+ *
+ * 2026-11-23 改为**单条原子 CAS**(标题多轮重估之后发现的覆盖漏洞):
+ * 原实现先 select 属主、再无条件 set title —— 生成标题有 3 秒 LLM 窗口,这期间用户
+ * 手动改写标题时,无条件 set 会把用户命名吞掉。现在 `title = expectedTitle` 进 where:
+ * 期间标题变过 ⇒ 命中 0 行 ⇒ 返回 undefined ⇒ 调用方放弃覆盖。属主校验也并进同一条
+ * 语句(少一次读,且没有先读后写的中间态)。
  */
 export async function updateConversationTitle(
   id: string,
   userId: string,
   title: string,
+  expectedTitle: string,
 ): Promise<ChatConversation | undefined> {
-  const owned = await db
-    .select({ userId: chatConversations.userId })
-    .from(chatConversations)
-    .where(eq(chatConversations.id, id))
-    .limit(1)
-  const row = owned[0]
-  if (!row || row.userId !== userId) return undefined
-
   const rows = await db
     .update(chatConversations)
     .set({ title, updatedAt: new Date() })
-    .where(eq(chatConversations.id, id))
+    .where(
+      and(
+        eq(chatConversations.id, id),
+        eq(chatConversations.userId, userId),
+        eq(chatConversations.title, expectedTitle),
+      ),
+    )
     .returning()
   return rows[0]
 }
@@ -322,24 +336,20 @@ export async function patchConversationMetadata(
   userId: string,
   metadataMerge: Record<string, unknown>,
 ): Promise<ChatConversation | undefined> {
-  // 先校验对话属于该用户(ownership check)
-  const existing = await db
-    .select({ metadata: chatConversations.metadata, userId: chatConversations.userId })
-    .from(chatConversations)
-    .where(eq(chatConversations.id, id))
-    .limit(1)
-  const row = existing[0]
-  if (!row || row.userId !== userId) return undefined
-
-  const existingMeta = (row.metadata as Record<string, unknown> | null) ?? {}
-  const mergedMetadata = { ...existingMeta, ...metadataMerge }
-
-  const updated = await db
+  // 2026-11-23 改为**单条原子 jsonb 合并**(原实现是"先读整份 metadata 再整体写回"):
+  // 读-改-写在并发下会整体回滚对方刚写的键 —— 例:标题打标 titleSource 的 3 秒窗口里,
+  // 用户正好回答了 AI 提问(清 pendingQuestion),后写者会把清掉的挂起态又写回来。
+  // `||` 只在库里合并传入的键,没有中间态;null 值保留成 "key": null,
+  // 读取端(pendingQuestion / issueBinding)一律按"无"判,与既有 merge 语义一致。
+  const rows = await db
     .update(chatConversations)
-    .set({ metadata: mergedMetadata, updatedAt: new Date() })
-    .where(eq(chatConversations.id, id))
+    .set({
+      metadata: sql`coalesce(${chatConversations.metadata}, '{}'::jsonb) || ${JSON.stringify(metadataMerge)}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(chatConversations.id, id), eq(chatConversations.userId, userId)))
     .returning()
-  return updated[0]
+  return rows[0]
 }
 
 /**

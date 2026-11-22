@@ -60,6 +60,17 @@ describe('sanitizeGeneratedTitle(四竞品对齐 V2 #15 会话标题自动生成
     expect(sanitizeGeneratedTitle('""')).toBeNull() // 仅引号包裹空串
   })
 
+  it('引号必须成对才剥(半边引号不得被削掉)', () => {
+    // 2026-11-23:原实现只看"首尾都在引号集合里",`"abc」` 会被误剥成 `abc`
+    expect(sanitizeGeneratedTitle('"项目」')).toBe('"项目」')
+    expect(sanitizeGeneratedTitle('“项目」')).toBe('“项目」')
+  })
+
+  it('超长标题截断不切半个 emoji', () => {
+    // TITLE_MAX_CHARS 按码位截,20 个 🚀 恰好占满上限且不留半个代理对
+    expect(sanitizeGeneratedTitle('🚀'.repeat(30))).toBe('🚀'.repeat(TITLE_MAX_CHARS))
+  })
+
   it('DEFAULT_CONVERSATION_TITLE 与 DB schema 默认值一致(仅默认标题才被覆盖)', () => {
     expect(DEFAULT_CONVERSATION_TITLE).toBe('新对话')
   })

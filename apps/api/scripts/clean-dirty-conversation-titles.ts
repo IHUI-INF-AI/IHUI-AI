@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import postgres from 'postgres'
-import { plainTitleText } from '@ihui/shared'
+import { clipTitleChars, plainTitleText } from '@ihui/shared'
 
 /**
  * 历史脏标题一次性修复(2026-11-23 立)。
@@ -83,9 +83,7 @@ for (const row of rows) {
   // 干净但超过 24 字的历史标题一律不动 —— 那是正常内容,截断是内容损失不是修复。
   const plain = plainTitleText(row.title, 0)
   const fallback = plain
-    ? plain.length > TITLE_MAX_CHARS
-      ? plain.slice(0, TITLE_MAX_CHARS).trim()
-      : plain
+    ? clipTitleChars(plain, TITLE_MAX_CHARS).trim()
     : ((row.first_user ? plainTitleText(row.first_user, TITLE_MAX_CHARS) : null) ?? DEFAULT_TITLE)
   if (plain === row.title) continue
   dirtyCount++

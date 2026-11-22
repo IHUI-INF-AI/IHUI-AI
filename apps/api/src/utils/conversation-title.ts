@@ -14,7 +14,11 @@
  */
 
 import type { FastifyRequest } from 'fastify'
-import { plainTitleText } from '@ihui/shared'
+import {
+  clipTitleChars,
+  plainTitleText,
+  DEFAULT_CONVERSATION_TITLE as SHARED_DEFAULT_CONVERSATION_TITLE,
+} from '@ihui/shared'
 import { aiServiceFetch } from './ai-service-fetch.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { resolveDefaultChatModel } from './retired-providers.js'
@@ -25,8 +29,8 @@ const TITLE_MAX_TOKENS = 60
 const TITLE_TIMEOUT_MS = 3_000
 /** 标题最大字符数(硬截断防御,防 LLM 输出超长) */
 export const TITLE_MAX_CHARS = 24
-/** chat_conversations.title 的 schema 默认值(packages/database/src/schema/chat.ts) */
-export const DEFAULT_CONVERSATION_TITLE = '新对话'
+/** chat_conversations.title 的 schema 默认值 —— 常量已上移共享层,这里再导出保持既有调用方 */
+export const DEFAULT_CONVERSATION_TITLE = SHARED_DEFAULT_CONVERSATION_TITLE
 /**
  * 兜底模型(与 utils/semantic-summary.ts / services/crew-llm-adapter.ts 同源):
  * 经 utils/retired-providers.ts 的唯一解析入口取 —— 调用方显式模型 → .env LITELLM_MODEL
@@ -36,21 +40,18 @@ export const DEFAULT_CONVERSATION_TITLE = '新对话'
 const FALLBACK_MODEL = resolveDefaultChatModel()
 
 /**
- * 包裹引号集合(码点转义,规避源文件直书 CJK 引号的编码风险):
- * " ' “ ” « » 『 』 「 」
+ * 成对包裹引号的配对表(2026-11-23 改):
+ * 原实现只判"首尾字符都落在引号集合里",于是 `"abc」`(左直引号 + 右直角引号)也会被剥一截。
+ * 真标题的引号是成对出现的,配对表同时挡住误剥与漏剥。
  */
-const WRAP_QUOTES = [
-  '"',
-  "'",
-  '\u201c',
-  '\u201d',
-  '\u00ab',
-  '\u00bb',
-  '\u300e',
-  '\u300f',
-  '\u300c',
-  '\u300d',
-]
+const QUOTE_PAIRS: Record<string, string> = {
+  '"': '"',
+  "'": "'",
+  '\u201c': '\u201d',
+  '\u00ab': '\u00bb',
+  '\u300e': '\u300f',
+  '\u300c': '\u300d',
+}
 
 /**
  * 清洗 LLM 输出的标题:先去共享层做纯文本净化(剥 `**`/行首编号/`(think)`/`<think>` 块,
@@ -61,15 +62,14 @@ const WRAP_QUOTES = [
 export function sanitizeGeneratedTitle(raw: string): string | null {
   let title = plainTitleText(raw)
   if (!title) return null
-  // 去成对包裹引号:首尾字符均为引号集合成员时剥离(中英直角弯引号 + ASCII 直引号)
-  if (title.length >= 2 && WRAP_QUOTES.includes(title[0]!) && WRAP_QUOTES.includes(title.at(-1)!)) {
+  // 去成对包裹引号:只认真配对(左引号 ↔ 对应右引号),不是"两边都在引号集合里"
+  if (title.length >= 2 && QUOTE_PAIRS[title[0]!] === title.at(-1)) {
     title = title.slice(1, -1).trim()
   }
-  // 去常见前缀(如「标题:」)
-  title = title.replace(/^(标题|Title)\s*[:：]\s*/i, '')
+  // 去常见前缀(如「标题:」);剥完前缀常留一个前导空格,这里一并 trim
+  title = title.replace(/^(标题|Title)\s*[:：]\s*/i, '').trim()
   if (!title) return null
-  if (title.length > TITLE_MAX_CHARS) title = title.slice(0, TITLE_MAX_CHARS)
-  return title
+  return clipTitleChars(title, TITLE_MAX_CHARS)
 }
 
 /** 标题生成策略:首轮按首条消息 / 多轮按最近对话重估 */

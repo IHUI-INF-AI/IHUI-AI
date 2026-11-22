@@ -31,6 +31,8 @@ import {
 } from 'lucide-react'
 
 import type { Conversation } from '@/components/chat/conversation-list'
+// 2026-11-23:会话 rail 也是纯文本渲染,历史脏标题在这里同样会露出来。
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import { filterConversationsByKeyword, groupByDate } from '@/components/sidebar-chat-history'
 import {
   Button,
@@ -155,7 +157,9 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
                       )}
                     >
                       <MessageSquare className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {plainTitleText(item.title) ?? DEFAULT_CONVERSATION_TITLE}
+                      </span>
                       {item.pinned ? (
                         <Pin className="h-3 w-3 shrink-0 text-primary" aria-hidden />
                       ) : null}

@@ -254,7 +254,10 @@ async function autoTitleAfterFirstTurn(
   model: string,
 ): Promise<void> {
   try {
-    const res = await autoTitleConversation(conversationId, firstUserText, { model })
+    // 2026-11-23:后端 schema 限 text ≤ 4000,首条消息常远超 —— 不截断会 400,标题永远生成不出来。
+    const res = await autoTitleConversation(conversationId, firstUserText.slice(0, 4_000), {
+      model,
+    })
     if (res.success && res.data?.updated && res.data.title) {
       await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
       await queryClient.invalidateQueries({ queryKey: ['chat', 'favorites'] })

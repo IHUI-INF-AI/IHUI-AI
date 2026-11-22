@@ -60,6 +60,7 @@ import {
   type BatchConversationAction,
 } from '@ihui/api-client'
 import {
+  DEFAULT_CONVERSATION_TITLE,
   filterByFolder,
   getOrgMeta,
   listFolderNames,
@@ -880,7 +881,8 @@ export function SidebarChatHistory({
     // 把模型开口的 `1. **分析用户的请求:**`、`<think>` 残留存进了 title / originalTitle ——
     // 侧栏按纯文本渲染,`**` 与编号会原样露在用户眼前。这里再过一遍同一份净化规则,
     // 保证老会话也不再出现星号与思考标记(净化实现只留 @ihui/shared 一份)。
-    const displayTitle = plainTitleText(item.title) ?? item.title
+    // 净化后为空(整条都是思考残渣)⇒ 回落默认标题,绝不把原脏串再显示出来。
+    const displayTitle = plainTitleText(item.title) ?? DEFAULT_CONVERSATION_TITLE
     const displayCreatedTitle = plainTitleText(createdTitle) ?? displayTitle
     // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
     const unreadRaw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0

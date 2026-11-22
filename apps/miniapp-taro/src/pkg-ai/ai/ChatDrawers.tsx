@@ -8,6 +8,8 @@ import Taro from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
 import type { ChatMessage } from '@/api'
+// 2026-11-23:历史脏标题兜底 —— 与 web 侧栏、RN 抽屉同一份净化规则(住共享层)。
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import { onToast } from '@/host/on-toast'
 
 /**
@@ -155,7 +157,9 @@ export function HistoryDrawer({
               onClick={() => onSelect(h)}
               hoverClass="opacity-60"
             >
-              <Text className="history-item-title">{h.title}</Text>
+              <Text className="history-item-title">
+                {plainTitleText(h.title) ?? DEFAULT_CONVERSATION_TITLE}
+              </Text>
               <Text className="history-item-preview">{h.preview}</Text>
               <Text className="history-item-time">{formatHistoryTime(h.timestamp)}</Text>
             </View>

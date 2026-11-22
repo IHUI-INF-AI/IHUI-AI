@@ -18,6 +18,9 @@ import dynamic from 'next/dynamic'
 import type { BrandIconProps } from '@/components/ai/brand-icon'
 // inferVendor 是纯函数,必须与 BrandIcon 分家:同模块导入会把整个图标集拖回面板 chunk
 import { inferVendor } from '@/components/ai/vendor-infer'
+// 2026-11-23:面板 header 直接显示会话标题 —— 历史脏值(`**`/`(think)`)在这里会露给用户,
+// 显示前过共享层的纯文本净化(与生成侧/侧栏同一份规则)。
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import {
   Maximize2,
   Minimize2,
@@ -1357,8 +1360,12 @@ export function AISidePanel() {
   //   2. workspace 项目页 → 显示项目文件夹名(选择项目文件时显示项目文件夹名)
   //   3. 已加载任务 → 显示任务名称(只是单纯对话时显示对话任务命名)
   //   4. 兜底 → 显示"空工作区"(没有选择项目时显示空工作区)
+  // 会话标题一律先过共享层净化(历史脏值 `**`/`(think)` 不进 header)。
+  const cleanConversationTitle = conversationTitle
+    ? (plainTitleText(conversationTitle) ?? DEFAULT_CONVERSATION_TITLE)
+    : null
   const displayTitle =
-    activeWorkspace?.name ?? workspaceName ?? conversationTitle ?? tc('emptyWorkspace')
+    activeWorkspace?.name ?? workspaceName ?? cleanConversationTitle ?? tc('emptyWorkspace')
 
   // 新建任务统一入口(2026-08-29 迁移整合):
   // 面板 header"新建任务"按钮已移除,三个入口(侧边栏按钮/Ctrl+Shift+N/Tauri 桌面端快捷键)

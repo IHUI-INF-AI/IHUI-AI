@@ -99,6 +99,16 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🐞 修复:会话标题脏显示根治 —— 生成/入库/显示三层净化 + 标题写入原子化 (247cfd5f)
+- 📚 文档:追加 FS 原子写与工作区订阅证据 (b68256f7)
+- 🚀 新功能/改进:源码管理面板订阅工作区变更自动刷新 (cc216ee8)
+- 🐞 修复:根治裸键第四成因 —— 占位符缺参(18 处) + 运行期兜底 (1e80a198)
+- 🚀 新功能/改进:FS 文本写入改为同目录临时文件原子替换 (55aae297)
+- 🚀 新功能/改进:auto 模式整合号池候选(api 决策腿+用户隔离+复杂度选型) (7b031a3a)
+- 🚀 新功能/改进:补齐 WorkBuddy 深度取证后的 Git 写面、FS 监听与 MCP 复装 (1c5dca99)
+- 🚀 新功能/改进:补齐 docs.manual 与 playBeta.faq 缺键 + common.textUnavailable 运行期兜底文案(五语言) (ab7ec251)
+- 🐞 修复:会话标题净化 —— 杜绝侧栏标题出现 ** 星号与思考链残渣 (be772cd6)
+- 🐞 修复:封死私有号池模型进公共目录 + 号池模型按真实扣分倍率展示 (43300219)
 - 🐞 修复:封死私有号池模型进公共目录 + 号池模型按真实扣分倍率展示 (fa1fbd4c)
 - 🚀 新功能/改进:判据族装车到真实入口(gate_suite 前置 + context:// 命名空间) (9e350367)
 - 🐞 修复:RN AI 输入壳静息去描边对齐小程序 (6364252b)
