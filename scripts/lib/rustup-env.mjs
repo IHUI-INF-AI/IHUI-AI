@@ -52,14 +52,21 @@ export function findCargoFromPath(env, platform, existsSync) {
 }
 
 /** cargo.exe 的所在档案 ⇒ 候选 { CARGO_HOME, RUSTUP_HOME }(<home>/.cargo/bin/cargo[.exe] 的父两级)。 */
-export function deriveHomesFromCargo(cargoPath) {
+export function deriveHomesFromCargo(cargoPath, existsSync) {
   if (!cargoPath) return null
   const binDir = cargoPath.slice(0, cargoPath.lastIndexOf('/'))
   const cargoHome = binDir.slice(0, binDir.lastIndexOf('/'))
   if (!cargoHome || cargoHome === binDir) return null
   const homeRoot = cargoHome.slice(0, cargoHome.lastIndexOf('/'))
-  const rustupHome = `${homeRoot}/.rustup`
-  return { cargoHome, rustupHome }
+  // 两种外置布局都认:标准 `<root>/.rustup`,以及本机这种 `<root>/rustup` 与 `<root>/cargo` 并列。
+  // 只写死第一种时,工具链位于 `<root>/rustup` 的机器会被判成 undecided(实测:迁移后
+  // 旧 shell 里的 D 值反推不到 C 的家,构建会以 no default toolchain 死掉)。
+  const candidates = [`${homeRoot}/.rustup`, `${homeRoot}/rustup`]
+  const usable =
+    typeof existsSync === 'function'
+      ? candidates.find((p) => rustupHomeUsable(p, existsSync))
+      : null
+  return { cargoHome, rustupHome: usable ?? candidates[0], candidates }
 }
 
 /**
@@ -74,15 +81,19 @@ export function planRustupPin({ env, platform, existsSync }) {
 
   const cargoPath = findCargoFromPath(env, platform, existsSync)
   if (!cargoPath) {
-    notes.push(`rustup 家不可用(${cur ?? '取不到 HOME'}),PATH 里也找不到 cargo —— 不改动 env,构建若挂请读 rustup 自己的报错`)
+    notes.push(
+      `rustup 家不可用(${cur ?? '取不到 HOME'}),PATH 里也找不到 cargo —— 不改动 env,构建若挂请读 rustup 自己的报错`,
+    )
     return { action: 'undecided', env, notes }
   }
-  const derived = deriveHomesFromCargo(cargoPath.replace(/\\/g, '/'))
+  const derived = deriveHomesFromCargo(cargoPath.replace(/\\/g, '/'), existsSync)
   if (!derived || !rustupHomeUsable(derived.rustupHome, existsSync)) {
     notes.push(`cargo 命中 ${cargoPath},但其档案位下没有可用 .rustup —— 不改动 env(绝不猜目录)`)
     return { action: 'undecided', env, notes }
   }
-  notes.push(`rustup 家 ${cur ?? '(无)'} 缺 settings.toml;改钉 RUSTUP_HOME=${derived.rustupHome} CARGO_HOME=${derived.cargoHome}(取自 PATH 上的 ${cargoPath})`)
+  notes.push(
+    `rustup 家 ${cur ?? '(无)'} 缺 settings.toml;改钉 RUSTUP_HOME=${derived.rustupHome} CARGO_HOME=${derived.cargoHome}(取自 PATH 上的 ${cargoPath})`,
+  )
   return {
     action: 'pinned',
     env: { ...env, RUSTUP_HOME: derived.rustupHome, CARGO_HOME: derived.cargoHome },
@@ -96,10 +107,17 @@ export function planRustupPin({ env, platform, existsSync }) {
  * @param {{ env: Record<string,string|undefined>, platform: string, existsSync: (p:string)=>boolean, tag?: string, log?: (m:string)=>void }} opts
  * @returns {Record<string,string|undefined>}
  */
-export function applyRustupPinToEnv({ env, platform, existsSync, tag = 'rustup', log = (m) => console.log(m) }) {
+export function applyRustupPinToEnv({
+  env,
+  platform,
+  existsSync,
+  tag = 'rustup',
+  log = (m) => console.log(m),
+}) {
   const r = planRustupPin({ env, platform, existsSync })
   for (const n of r.notes) log(`[${tag}] rustup 归属:${r.action} —— ${n}`)
-  if (r.action === 'pinned') log(`[${tag}] 已钉 RUSTUP_HOME=${r.env.RUSTUP_HOME} CARGO_HOME=${r.env.CARGO_HOME}`)
+  if (r.action === 'pinned')
+    log(`[${tag}] 已钉 RUSTUP_HOME=${r.env.RUSTUP_HOME} CARGO_HOME=${r.env.CARGO_HOME}`)
   return r.env
 }
 
