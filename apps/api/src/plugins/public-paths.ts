@@ -237,6 +237,92 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
    * 回归锁:public-paths.test.ts「个人号池面免租户、且免租户不免鉴权」。
    */
   '/api/account-pool',
+  /**
+   * Subagent 派单 / Swarm 拓扑面(2026-11-23 立,与 `/api/account-pool` 同型)。
+   *
+   * 事实:浏览器端**从不携带** `X-Tenant-Id`(全仓 web + api-client 零引用),租户闸只认
+   * header/子域名 ⇒ TENANT_STRICT_MODE 缺省严格下,`GET /api/subagents/active|topology`
+   * 即使带**有效 admin Bearer** 也恒 401。实测(本机 8802,2026-11-23):
+   * `Authorization: Bearer <有效 accessToken>` + `/api/auth/me` 200,但
+   * `/api/subagents/active` 返回 `{"code":401,"message":"多租户严格模式已启用…"}`。
+   *
+   * 后果不是"一个面板没数据":这两个端点由 `use-subagent-dispatch` 每 5s 轮询,401 会触发
+   * api-client 的 401 续期腿,按 `REFRESH_SUCCESS_REUSE_MS=10s` 节拍不断轮转 refresh token;
+   * 旧 refresh token 迟到重放超过 30s 即被判 reuse ⇒ `revokeRefreshTokenFamily(familyId)`
+   * ⇒ 桌面端登录态整族消失。本条是"登录态莫名丢失"的直接根因,不是旁支。
+   *
+   * 为什么整段前缀豁免:该前缀下路由(active/all/topology/stats/queue/collaboration/roles/
+   * evolution/auto-plan…)全部由 `subagent-dispatch.ts` 的 `requireAuth` 或 extended 插件
+   * 的登录闸强制鉴权;数据维度是 **userId**(`isDispatchVisibleTo` / `isAdminViewer`),不按
+   * tenant 过滤,豁免租户不损任何隔离。免租户 ≠ 免鉴权:该前缀**不在**
+   * `AUTH_PUBLIC_PREFIX_PATHS`,兜底鉴权闸语义不变(与 `/api/account-pool`、`/api/settings`
+   * 同构:免租户、需登录)。
+   *
+   * 段边界:裸前缀经 `matchesPrefix` 只覆盖自身与 `/api/subagents/…` 子段,
+   * `/api/subagentsXYZ` 不放行。回归锁:public-paths.test.ts「Subagent 面免租户、不免鉴权」。
+   */
+  '/api/subagents',
+  /**
+   * Agent 端能力上报面(2026-11-23 立,与 `/api/subagents` 同批实测暴露)。
+   *
+   * `POST /api/agent-control/capability` 是桌面端/扩展每 60s 上报端能力的固定腿,
+   * 浏览器端同样不带 `X-Tenant-Id`。实测(本机 8802,带有效 admin Bearer)：
+   * `POST /api/agent-control/capability` → `TENANT_REQUIRED` 401,而同 token 的
+   * `/api/auth/me` 200。该 401 同样会触发 refresh token 轮转,是 subagents 之外
+   * 第二条把 family 推向 reuse 吊销的固定腿。
+   *
+   * 数据维度:`agent-control.ts` 的 `/capability` 用 `checkAuth` 拿 `request.userId`,
+   * `/execute` 只认内部密钥或 JWT 主体;`_endpoints` 是进程内 Map,不带 tenant 列。
+   * 免租户不损隔离;该前缀不在 `AUTH_PUBLIC_PREFIX_PATHS`,鉴权仍由路由自身强制。
+   * 段边界:裸前缀只覆盖 `/api/agent-control` 与子段,不放行 `/api/agent-controlXYZ`。
+   */
+  '/api/agent-control',
+  /**
+   * 第一方 Web 用户面(2026-11-23 系统性补齐)。
+   *
+   * 事实:浏览器端从不发 `X-Tenant-Id`,而 `TENANT_STRICT_MODE` 缺省即严格;`tenant.ts`
+   * 实际只认 header/子域名(报文里的"或 Authorization"并未实现)。于是所有**按 userId
+   * 隔离、但漏登记租户豁免**的第一方端点都会在登录后仍 401。本轮用真实 admin Bearer
+   * 逐条实测出下列全族(括号内为 24h 内 401 计数),它们的数据维度均为 userId,
+   * 对应 route 文件对 `request.tenantId` 的引用数 = 0(现读):
+   *   /api/notifications(1043)、/api/chat/conversations(801)、
+   *   /api/user/llm-configs(1004)、/api/workspace/permission/requests(119)、
+   *   /api/analytics/track(265)、/api/visit-tracking/(86)、
+   *   /api/model-leaderboard(40)、/api/ai-feed/(4+4)、/api/live/(4)、
+   *   /api/oauth-keys/(22)、/api/agents(22)、/api/users/me(6)、
+   *   /api/admin/news(277)、/api/v1/codebase/(42)。
+   * 这些 401 里有非 GET 请求,会直接触发 web 的"登录弹窗";同时每个 401 都会走
+   * api-client 续期腿,是 refresh token 轮转/整族吊销的第二大来源。
+   *
+   * 安全边界(逐条现读,不是"大概没问题"):
+   * - 免租户 ≠ 免鉴权:以上前缀**均不在** `AUTH_PUBLIC_PREFIX_PATHS`(除 `/api/agents`
+   *   是公开读、写端点自带 requireAuth;/api/analytics/track 与 /api/visit-tracking/
+   *   本就是匿名埋点),兜底鉴权闸语义不变;
+   * - 路由文件对 tenantId 零引用(`notifications.ts`/`chat.ts`/`user.ts`/`workspace.ts`/
+   *   `analytics.ts`/`visit-tracking.ts`/`ai-feed.ts`/`live.ts`/`oauth-keys.ts`/
+   *   `agents.ts`/`news.ts`/`workspace-ai.ts` 均 0 命中),不存在"豁免后跨租户串数据"路径;
+   * - 真正按 tenant 隔离的 `admin-saas-quota.ts`、`v1-assistants.ts`、`admin/relay-*.ts`
+   *   **不在**本组,仍走严格模式。
+   * 段边界:`/api/chat`、`/api/workspace` 等裸前缀只覆盖自身与子段,不放行 `…XYZ`。
+   * 回归锁:public-paths.test.ts「第一方 Web 用户面免租户、且不免鉴权」。
+   */
+  '/api/notifications',
+  '/api/chat',
+  '/api/user',
+  '/api/users',
+  '/api/workspace',
+  '/api/oauth-keys',
+  '/api/agents',
+  '/api/model-leaderboard',
+  '/api/ai-feed/',
+  '/api/live/',
+  // 匿名埋点:未登录访客也要上报,和 AUTH_PUBLIC 同前缀登记(2026-11-23)
+  '/api/analytics/track',
+  '/api/visit-tracking/',
+  // 后台新闻状态卡是第一方 admin 只读面;news.ts 对 tenantId 零引用
+  '/api/admin/news',
+  // 代码库语义搜索机器面:调用方带 API Key、不带租户头;v1-assistants 等真租户面不在本前缀
+  '/api/v1/codebase/',
   '/api/csrf-token',
   '/api/configs',
   '/api/settings',

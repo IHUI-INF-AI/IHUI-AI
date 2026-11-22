@@ -69,16 +69,22 @@ function useRefetchOnVisible(refetch: () => void, visible: boolean, active: bool
 export function useActiveDispatches() {
   const visible = usePageVisibility()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // 2026-11-23 根治冷启动 401 风暴:persist 只保存 isAuthenticated,冷启动时它是 true
+  // 而内存 token 还是 null;只判 isAuthenticated 会让 5s 轮询在 bootstrap 刷新落定前
+  // 抢先开跑,每次都 401 → 每个 401 又触发一次 /auth/refresh(10s 复用窗口)⇒ 刷新风暴。
+  // 判据补上 token:有真凭据才允许发用户维度请求。
+  const token = useAuthStore((s) => s.token)
+  const canPoll = isAuthenticated && !!token
   const query = useQuery({
     queryKey: activeDispatchesKey,
     queryFn: fetchActiveDispatches,
-    // 未登录不轮询:这两个接口是用户维度的,游客拿到的是 401;而 fetchApi 把失败降级成空数组
+    // 未登录/无 token 不轮询:这两个接口是用户维度的,游客拿到的是 401;而 fetchApi 把失败降级成空数组
     // ⇒ React Query 认为"成功",于是 5s 一轮无限打到今天(实测单个首页标签页 230+ 次请求)。
-    enabled: isAuthenticated,
+    enabled: canPoll,
     refetchInterval: visible ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS,
     refetchOnWindowFocus: true,
   })
-  useRefetchOnVisible(query.refetch, visible, isAuthenticated)
+  useRefetchOnVisible(query.refetch, visible, canPoll)
   return query
 }
 
@@ -86,14 +92,17 @@ export function useActiveDispatches() {
 export function useSwarmTopology() {
   const visible = usePageVisibility()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // 同上:persist 的 isAuthenticated 会在冷启动 token 落定前抢先放行 5s 轮询。
+  const token = useAuthStore((s) => s.token)
+  const canPoll = isAuthenticated && !!token
   const query = useQuery({
     queryKey: swarmTopologyKey,
     queryFn: fetchSwarmTopology,
-    enabled: isAuthenticated,
+    enabled: canPoll,
     refetchInterval: visible ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS,
     refetchOnWindowFocus: true,
   })
-  useRefetchOnVisible(query.refetch, visible, isAuthenticated)
+  useRefetchOnVisible(query.refetch, visible, canPoll)
   return query
 }
 

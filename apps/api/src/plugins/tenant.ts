@@ -156,6 +156,10 @@ const tenantPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         return reply.status(401).send({
           code: 401,
           message: `多租户严格模式已启用,请求必须携带租户标识(X-Tenant-Id 或 Authorization);path=${parsePath(request.url)}`,
+          // 机器可读分型(2026-11-23):401 不等于"access token 失效"。客户端 401 续期腿
+          // 必须据此跳过 refresh,否则一个漏登记租户豁免的端点会把 refresh token 每 10s
+          // 轮转一次,最终触发整族 reuse 吊销(桌面端"登录态莫名消失"的真实根因)。
+          errorCode: 'TENANT_REQUIRED',
         })
       }
       return

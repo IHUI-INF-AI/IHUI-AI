@@ -608,6 +608,26 @@ function isAuthEndpoint(url: string): boolean {
 }
 
 /**
+ * 401 是否值得触发 access token 续期(2026-11-23 立)。
+ *
+ * 401 有两种语义,不能一律当成"token 过期":
+ * - **凭据类**:token 真失效 ⇒ 该续期;
+ * - **策略类**:请求缺少别的准入条件(如租户头缺失的 `TENANT_REQUIRED`)⇒ 续期
+ *   换不出任何新结果,却会按 `REFRESH_SUCCESS_REUSE_MS` 节拍不断轮转 refresh token,
+ *   旧 token 迟到重放超过 30s 即被判 reuse ⇒ 整族吊销 ⇒ 用户"登录态莫名消失"。
+ *   2026-11-23 桌面端实测根因:漏登记租户豁免的 `/api/subagents/active|topology`
+ *   每 5s 401,把 refresh token 每 10s 轮转一次,直到 family 被整族 revoke。
+ *
+ * 分型优先看服务端机器码;没有机器码的老响应按文案兜底(只认明确的租户闸文案,
+ * 不把普通 401 文案猜成策略类)。
+ */
+export function isRefreshableUnauthorized(result: ApiResult<unknown>): boolean {
+  if (result.success) return false
+  if (result.errorCode === 'TENANT_REQUIRED') return false
+  return !result.error.includes('多租户严格模式已启用')
+}
+
+/**
  * 登录 / 换验证码端点的 401 独立分型判据(台账票 G-1121553)。
  *
  * 服务端在「验证码错误或已过期」时同样回 HTTP 401(实测 `POST /api/auth/login/sms`:
@@ -1334,6 +1354,9 @@ export async function fetchApi<T>(
           const result = await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
           if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
+            // 2026-11-23:策略类 401(如 TENANT_REQUIRED)不续期 —— 换 token 换不出结果,
+            // 只会把 refresh token 推进下一次轮转,最终触发整族 reuse 吊销。
+            if (!isRefreshableUnauthorized(result)) return result as ApiResult<T>
             if (authRetried) {
               // 续期拿到了新 token、重试**仍然 401** ⇒ 新凭据也被服务端拒 = 会话真死了。
               // 这一格此前是静默的:`!authRetried` 把整个 401 块跳过,连通知都不发 ——
@@ -1402,6 +1425,8 @@ export async function fetchApi<T>(
       })
       // 401 自动续期(2026-08-06):access token 过期 → 静默刷新 → 重试一次
       if ('status' in result && result.status === 401 && !isAuthEndpoint(normalizedUrl)) {
+        // 与无熔断分支同一条分型:策略类 401 不耗 refresh token(2026-11-23)
+        if (!isRefreshableUnauthorized(result)) return result as ApiResult<T>
         const newToken = await refreshAccessTokenOnce()
         if (newToken) {
           // 同一条判据:外链目标即使续期成功也不挂凭据

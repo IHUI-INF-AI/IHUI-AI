@@ -15,10 +15,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // 登录态开关:模块级可变,供 useAuthStore 的桩读取
 let authed = false
+// 2026-11-23:persist 的 isAuthenticated 可以在 token 为空时仍为 true(冷启动幽灵态),
+// 守卫必须同时要求 token,否则 5s 轮询会在 bootstrap 刷新前抢先 401。
+let token: string | null = null
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
-    selector({ isAuthenticated: authed }),
+  useAuthStore: (selector: (s: { isAuthenticated: boolean; token: string | null }) => unknown) =>
+    selector({ isAuthenticated: authed, token }),
 }))
 
 vi.mock('@/hooks/use-page-visibility', () => ({
@@ -69,6 +72,7 @@ async function settle(): Promise<void> {
 describe('use-subagent-dispatch 登录态守卫', () => {
   beforeEach(() => {
     authed = false
+    token = null
     fetchApi.mockClear()
   })
   afterEach(() => cleanup())
@@ -80,8 +84,17 @@ describe('use-subagent-dispatch 登录态守卫', () => {
       expect(fetchApi).not.toHaveBeenCalled()
     })
 
-    it(`已登录(${which})才会去拉数据 —— 反向对照,证明上一条不是恒真`, async () => {
+    it(`幽灵登录态(${which}):isAuthenticated=true 但 token=null 时也不发请求`, async () => {
       authed = true
+      token = null
+      mount(which)
+      await settle()
+      expect(fetchApi).not.toHaveBeenCalled()
+    })
+
+    it(`已登录且有 token(${which})才会去拉数据 —— 反向对照,证明前两条不是恒真`, async () => {
+      authed = true
+      token = 'access-token'
       mount(which)
       await settle()
       expect(fetchApi).toHaveBeenCalledTimes(1)

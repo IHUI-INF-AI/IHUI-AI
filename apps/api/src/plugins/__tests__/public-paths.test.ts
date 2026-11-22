@@ -216,6 +216,115 @@ describe('BUG-4 公开面单一真相源', () => {
     })
 
     /**
+     * 2026-11-23:Subagent 面必须免租户(与个人号池/WS 全族同型)。
+     *
+     * 事故形状(本机 8802 实测,带有效 admin Bearer):
+     * `GET /api/subagents/active` → `{"code":401,"message":"多租户严格模式已启用…"}`,
+     * 同 token 的 `/api/auth/me` 200。该端点每 5s 轮询,401 触发 refresh token 每 10s
+     * 轮转,最终整族 revoke ⇒ 桌面端登录态消失。
+     * 数据维度是 userId(`isDispatchVisibleTo` / `isAdminViewer`),免租户不损隔离。
+     */
+    describe('Subagent / Agent-Control 面免租户(2026-11-23)', () => {
+      const SUBAGENT_ROUTES = [
+        '/api/subagents/active',
+        '/api/subagents/topology',
+        '/api/subagents/stats',
+        '/api/subagents/queue',
+        '/api/subagents/all',
+        '/api/subagents/roles',
+        '/api/subagents/abc-123/collaboration',
+        '/api/agent-control/capability',
+        '/api/agent-control/execute',
+      ]
+
+      it('当前全部 Subagent 路由都免租户(逐条,不用前缀蒙过去)', () => {
+        for (const route of SUBAGENT_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('免租户不免鉴权:Subagent 面绝不能被列为鉴权公开面', () => {
+        for (const route of SUBAGENT_ROUTES) {
+          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
+        }
+        expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/api/subagents')
+      })
+
+      it('段边界:不放行 /api/subagentsXYZ 这类同级兄弟路径', () => {
+        expect(isTenantBypassPath('/api/subagentsXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/subagentsXYZ/active')).toBe(false)
+      })
+    })
+
+    /**
+     * 2026-11-23:第一方 Web 用户面系统性补齐(真实 admin Bearer 逐条实测)。
+     *
+     * 这些端点按 userId 隔离、route 文件对 tenantId 零引用,但漏登记租户豁免 ⇒
+     * 登录后仍 401 ⇒ 非 GET 触发登录弹窗 + 每个 401 触发 refresh token 轮转。
+     * 分组断言:需登录组不得进鉴权公开面;公开读组(agents/埋点)可同时在公开面。
+     */
+    describe('第一方 Web 用户面免租户(2026-11-23)', () => {
+      const USER_AUTH_ROUTES = [
+        '/api/notifications',
+        '/api/notifications/unread-count',
+        '/api/chat/conversations',
+        '/api/chat/conversations/groups',
+        '/api/user/llm-configs',
+        '/api/users/me',
+        '/api/workspace/permission/requests',
+        '/api/oauth-keys/list',
+        '/api/admin/news/status',
+        '/api/v1/codebase/search',
+      ]
+      const PUBLIC_READ_ROUTES = [
+        '/api/agents',
+        '/api/agents/list',
+        '/api/analytics/track',
+        '/api/visit-tracking/visit-log',
+        // 这三条已列于 AUTH_PUBLIC_PREFIX_PATHS(公开读),此处只补租户维
+        '/api/model-leaderboard',
+        '/api/ai-feed/items',
+        '/api/live/channels',
+      ]
+
+      it('需登录的第一方路由全部免租户', () => {
+        for (const route of USER_AUTH_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('公开读/匿名埋点同样免租户(否则严格模式把公开面也判 401)', () => {
+        for (const route of PUBLIC_READ_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('免租户不免鉴权:需登录组不得进鉴权公开面', () => {
+        for (const route of USER_AUTH_ROUTES) {
+          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
+        }
+        for (const prefix of [
+          '/api/notifications',
+          '/api/chat',
+          '/api/user',
+          '/api/users',
+          '/api/workspace',
+          '/api/oauth-keys',
+          '/api/admin/news',
+          '/api/v1/codebase/',
+        ]) {
+          expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain(prefix)
+        }
+      })
+
+      it('段边界:不放行 /api/chatXYZ、/api/usersXYZ 这类同级兄弟路径', () => {
+        expect(isTenantBypassPath('/api/chatXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/usersXYZ')).toBe(false)
+        expect(isTenantBypassPath('/api/workspaceXYZ')).toBe(false)
+      })
+    })
+
+    /**
      * 2026-11-12:WS 全族必须免租户。
      *
      * 事故形状(本机 8802 实测):`/ws/relay/chat?token=…`、`/ws/notifications?token=…` 在
