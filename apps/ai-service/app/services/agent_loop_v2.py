@@ -273,7 +273,9 @@ from .agent_security_prefs import (
 from .guarded_tool_pipeline import (
     ERROR_INJECTION_BLOCKED,
     ERROR_SCAN_BLOCKED,
+    GATE_KEY_ABSENT,
     GuardedToolPipeline,
+    extract_gate_request,
 )
 
 # V3 #80(2026-09-27 立):用户点 approve 前的独立 guardian 复核 —— 复核走另起一次
@@ -7272,6 +7274,25 @@ class AgentLoopV2:
             HARD_SCAN_FLAGS
         )
         pipeline = GuardedToolPipeline(**pipeline_kwargs)
+        # 逆向判据生产接线(round8/9 那族判据的**真调用点**,§0.9 造好必须装车):
+        # 只有工具入参显式带 `__gate_suite__` 才启用。控制键在此剥离,绝不进真实
+        # 工具入参;未带 ⇒ gate_request=None ⇒ pipeline 的 gate stage 不介入,
+        # 既有安全前置行为逐字不变(缺省零变化,不重演 round8 无条件闸的 9 例回归)。
+        gate_args, gate_spec = extract_gate_request(tc.args)
+        gate_request: Any = None
+        gate_policy: Any = None
+        if gate_spec is not GATE_KEY_ABSENT:
+            tc.args = gate_args
+            if isinstance(gate_spec, dict) and "request" in gate_spec:
+                req = gate_spec.get("request")
+                # 显式给了容器却把 request 置空 ⇒ 不退回「未启用」,落空请求由聚合层
+                # 判 unjudged 阻断(fail-closed,§0.10 多要一次定向说明而非多放一次)。
+                gate_request = req if isinstance(req, (dict, list)) else {}
+                gate_policy = gate_spec.get("policy")
+            elif isinstance(gate_spec, (dict, list)):
+                gate_request = gate_spec
+            else:
+                gate_request = {}
         try:
             pr = await pipeline.run(
                 tc.name,
@@ -7285,6 +7306,8 @@ class AgentLoopV2:
                 scan_policy="flag",
                 block_on_scan=True,
                 scan_flags=scan_flags,
+                gate_request=gate_request,
+                gate_policy=gate_policy,
             )
         except Exception as e:  # fail-closed:管线自身异常按拦截处理
             msg = f"安全前置守卫异常,已拦截: {e}"
@@ -7317,7 +7340,7 @@ class AgentLoopV2:
         return ToolResult(
             tool_call_id=tc.id,
             name=tc.name,
-            result={"blocked": True, "reason": msg, "scan": pr.scan},
+            result={"blocked": True, "reason": msg, "scan": pr.scan, "gate": pr.gate},
             error=msg,
             duration_ms=0,
             error_type=err_type,

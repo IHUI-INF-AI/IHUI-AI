@@ -1018,6 +1018,68 @@ def _reset_file_base_store() -> None:
     _FILE_BASE_CONTENT.clear()
 
 
+# ---------------------------------------------------------------------------
+# `context://` 统一命名空间(2026-11-23 接线)
+#
+# 对照行为(round8 取证):Trae 的 ContextFS 给每个上下文来源一个统一虚拟 URI,
+# 但解析与鉴权分两步、允许「已解析未鉴权」的半态。本仓不复制其实现,只用已复现的
+# 判据 `app.core.context_fs.resolve_context_uri` 把两件事一次收口,并把半态显式拒绝。
+#
+# 接线层只做一件事:把**已判 allowed** 的虚拟 URI 降成工作区**相对路径**,继续交给
+# 原有白名单 + symlink + 敏感文件三层判据 —— 虚拟命名空间只换名字,不换任何一条
+# 真实安全判据(否则等于给模型开了一条绕过 read_file 黑名单的新入口)。
+_CONTEXT_URI_PREFIX: Final[str] = "context://"
+# 虚拟根段名:必须与宿主路径无关。判据会把 ``roots[ns]`` **原样拼进 canonical_path**
+# (context_fs.py 第 10 步),所以这里传宿主目录就会把盘符/绝对路径写进"虚拟 URI";
+# 接线层因此在下面加了一道防御断言,见 _deref_context_uri_alias。
+_CONTEXT_VIRTUAL_ROOT: Final[str] = "root"
+# 工具 schema 的可发现性提示(四处引用同一份,不在每个 schema 里各写一句 §0.6)。
+_CONTEXT_URI_HINT: Final[str] = (
+    "也可用 context://workspace/<相对路径>(与裸相对路径等价,仍过白名单/逃逸/敏感判据)"
+)
+
+
+def _deref_context_uri_alias(path: str, roots: list[str]) -> tuple[bool, str]:
+    """把 ``context://workspace/<rel>`` 降成工作区相对路径(非 context URI 原样返回)。
+
+    Returns:
+        (True, 相对路径) —— 已判 allowed(workspace 是当前唯一有根的命名空间);
+        (False, 错误文案) —— denied / unjudged,文案点名 reason 机器码与 detail。
+    """
+    if path[: len(_CONTEXT_URI_PREFIX)].casefold() != _CONTEXT_URI_PREFIX:
+        # 不沾 context 的路径走原路,行为逐字节不变;但非规范大小写(context:/ Context:/)
+        # 仍进判据,由 resolve_context_uri 给 case_variant / wrong_scheme 的机器码。
+        if not path.casefold().startswith("context:"):
+            return True, path
+    from app.core.context_fs import DEFAULT_NAMESPACES, Verdict, resolve_context_uri
+
+    # 只在 workspace 开着根;session/artifact/skill 三档注册但无根 ⇒ unjudged/
+    # missing_namespace_root —— 这正是「取不到输入不默认放行」,不是缺陷。
+    ns_roots: dict[str, str] = {"workspace": _CONTEXT_VIRTUAL_ROOT} if roots else {}
+    verdict = resolve_context_uri(
+        path, ns_roots, {"allowed_namespaces": list(DEFAULT_NAMESPACES)}
+    )
+    if verdict.get("verdict") != Verdict.ALLOWED.value:
+        refusal = "被拒绝" if verdict.get("verdict") == Verdict.DENIED.value else "未判定"
+        return False, (
+            f"context URI {refusal}({verdict.get('reason')}): {verdict.get('detail')}"
+        )
+    canonical = verdict.get("canonical_path") or ""
+    prefix = f"{_CONTEXT_URI_PREFIX}workspace/{_CONTEXT_VIRTUAL_ROOT}/"
+    # 防御断言:虚拟 URI 的每一段都不得带宿主成分(盘符冒号 / 反斜杠)。判据本身不校验
+    # root 段的形状,把宿主路径塞进 roots 就会产出"看着像虚拟 URI、其实是宿主路径"的
+    # canonical —— 那正是判据注释里禁止的用法,所以在唯一消费者这里钉死。
+    body = canonical[len(_CONTEXT_URI_PREFIX):]
+    if any(("\\" in seg) or (":" in seg) for seg in body.split("/")):
+        return False, f"context URI 的虚拟路径含宿主成分(盘符/反斜杠),拒绝: {canonical}"
+    if not canonical.startswith(prefix):
+        return False, f"context URI 只支持 workspace 命名空间: {path}"
+    rel = canonical[len(prefix):]
+    if not rel:
+        return False, f"context URI 缺文件路径: {path}"
+    return True, rel
+
+
 def _validate_path_in_workspace(
     path: str, extra_roots: tuple[str, ...] | None = None
 ) -> tuple[bool, str]:
@@ -1047,6 +1109,13 @@ def _validate_path_in_workspace(
         roots = _get_workspace_roots() + list(
             _active_extra_roots() if extra_roots is None else extra_roots
         )
+        # context:// 虚拟命名空间:先过已复现判据(形状/逃逸/半态),通过后降成相对路径
+        # 走下面全部真实判据(白名单 + symlink + 敏感黑名单)。失败即在此收口。
+        ctx_ok, ctx_path = _deref_context_uri_alias(path, roots)
+        if not ctx_ok:
+            return False, ctx_path
+        path = ctx_path
+        p = Path(path)
         # 跨平台:POSIX 上没有盘符概念,`Z:/no/such/x` 会被当成相对路径拼到 cwd 下,
         # 于是"根外路径"被误判成"根内不存在的文件"(PATH_NOT_ALLOWED 退化成
         # FILE_NOT_FOUND —— Linux CI 的媒体上传用例即此,Windows 上则因 is_absolute()
@@ -14789,7 +14858,7 @@ _TOOLS: list[MCPTool] = [
         input_schema={
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "文件绝对或相对路径"},
+                "path": {"type": "string", "description": f"文件绝对或相对路径;{_CONTEXT_URI_HINT}"},
                 "offset": {
                     "type": "integer",
                     "description": "起始行号(从 1 开始);只在大文件分页时传",
@@ -14859,7 +14928,7 @@ _TOOLS: list[MCPTool] = [
         description="列出目录内容(返回子项名称/类型/大小;路径必须在工作区白名单内)",
         input_schema={
             "type": "object",
-            "properties": {"path": {"type": "string", "description": "目录绝对或相对路径,默认当前目录"}},
+            "properties": {"path": {"type": "string", "description": f"目录绝对或相对路径,默认当前目录;{_CONTEXT_URI_HINT}"}},
             "required": ["path"],
         },
     ),
@@ -14889,7 +14958,7 @@ _TOOLS: list[MCPTool] = [
         input_schema={
             "type": "object",
             "properties": {
-                "path": {"type": "string"},
+                "path": {"type": "string", "description": f"本地文件绝对或相对路径;{_CONTEXT_URI_HINT}"},
                 "content": {"type": "string"},
                 "force": {
                     "type": "boolean",
@@ -14906,7 +14975,7 @@ _TOOLS: list[MCPTool] = [
             "type": "object",
             "required": ["file_path", "old_string", "new_string"],
             "properties": {
-                "file_path": {"type": "string", "description": "文件绝对路径,必须在工作区白名单内"},
+                "file_path": {"type": "string", "description": f"文件绝对路径,必须在工作区白名单内;{_CONTEXT_URI_HINT}"},
                 "old_string": {"type": "string", "minLength": 1, "description": "要替换的字符串(不能为空)"},
                 "new_string": {"type": "string", "description": "替换后的字符串(可为空=删除)"},
                 "replace_all": {"type": "boolean", "default": False, "description": "true 替换所有匹配;false 必须唯一匹配,多个报 AMBIGUOUS_MATCH"},

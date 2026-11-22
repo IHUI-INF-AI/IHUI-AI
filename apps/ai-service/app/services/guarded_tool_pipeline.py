@@ -77,10 +77,14 @@ ERROR_TOOL_ERROR = "tool_error"
 ERROR_RECORD_FAILED = "record_failed"
 ERROR_COST_FAILED = "cost_failed"
 ERROR_RELEASE_FAILED = "release_failed"
+# 逆向判据聚合(round8/9 那族判据的**生产接线**):阻断码刻意独立,不与 scan/injection 并桶,
+# 便于调用方分辨「是静态准入判据拦的,还是注入扫描拦的」。
+ERROR_GATE_BLOCKED = "gate_suite_blocked"
 
 # Stage names (used in errors[].stage and stage_timings_ms)
 STAGE_PROMPT = "prompt_guard"
 STAGE_INPUT = "input_scan"
+STAGE_GATE = "gate_suite"
 STAGE_BUDGET = "budget"
 STAGE_FN = "fn"
 STAGE_RECORD = "record"
@@ -89,6 +93,41 @@ STAGE_RELEASE = "release"
 
 _DEFAULT_SCAN: dict[str, Any] = {"risk": None, "action": "skip", "hits": []}
 _DEFAULT_BUDGET = {"allowed": True, "used": {}, "limits": {}, "reason": "guard_disabled"}
+
+# 判据聚合唯一入口的惰性单例:import 只发生一次,且**只在 gate_request 真的到场时**
+# 才解析 —— 未启用判据的运行连 import 都不付(缺省零开销,§0.9 装车不拖慢主链路)。
+_GATE_SUITE_FN: Callable[..., dict[str, Any]] | None = None
+
+
+def _resolve_gate_suite() -> Callable[..., dict[str, Any]]:
+    global _GATE_SUITE_FN
+    if _GATE_SUITE_FN is None:
+        from .reverse_engineered_gates import evaluate_gate_suite as _fn
+
+        _GATE_SUITE_FN = _fn
+    return _GATE_SUITE_FN
+
+
+# 工具入参里的判据控制键(唯一契约名,别处不得自造第二个)。
+GATE_KEY = "__gate_suite__"
+# 控制键**不存在**的哨兵:与「键存在但值为 None」区分开 —— 后者必须 fail-closed 判
+# unjudged,绝不能退化成「没启用」而静默放行(§0.10)。
+GATE_KEY_ABSENT = object()
+
+
+def extract_gate_request(args: Any) -> tuple[Any, Any]:
+    """从工具入参里剥离判据控制键 ``__gate_suite__``(纯函数,可单测)。
+
+    返回 ``(clean_args, gate_spec)``:
+      * args 非映射 / 无该键 ⇒ ``(原样, GATE_KEY_ABSENT)``:调用方据此**不启用**
+        判据(缺省零行为,既有工具调用逐字不变);
+      * 有该键 ⇒ clean_args 去掉该键(控制键绝不进真实工具入参),gate_spec 为原值
+        (可能是任意类型 —— 形状由调用方按 fail-closed 归一,本函数不猜、不修)。
+    """
+    if not isinstance(args, dict) or GATE_KEY not in args:
+        return args, GATE_KEY_ABSENT
+    clean = {k: v for k, v in args.items() if k != GATE_KEY}
+    return clean, args[GATE_KEY]
 
 
 def _ms(t0: float) -> float:
@@ -120,6 +159,9 @@ class PipelineResult:
     errors: list[PipelineError] = field(default_factory=list)
     budget: dict[str, Any] = field(default_factory=dict)
     scan: dict[str, Any] = field(default_factory=dict)
+    # 判据聚合的逐项可审计结果(verdict/allowed/reason/checks);opt-in 未启用的运行
+    # 恒为 {} —— 与 scan 同形,缺省态不伪造「判过」。
+    gate: dict[str, Any] = field(default_factory=dict)
     recorded_step_id: int | None = None
     stage_timings_ms: dict[str, float] = field(default_factory=dict)
 
@@ -133,6 +175,7 @@ class PipelineResult:
             "errors": [e.to_dict() for e in self.errors],
             "budget": self.budget,
             "scan": self.scan,
+            "gate": self.gate,
             "recorded_step_id": self.recorded_step_id,
             "stage_timings_ms": self.stage_timings_ms,
         }
@@ -158,6 +201,10 @@ class _PreGate:
     scan: dict[str, Any] = field(default_factory=dict)
     timings: dict[str, float] = field(default_factory=dict)
     budget_acquired: bool = False
+    # 必须排在既有字段之后:早期 stage 的调用点用的是**位置参数**
+    # (_PreGate(False, errors, budget, scan, timings, False));把 gate 插在 timings
+    # 之前会让 timings 落进 gate、False 落进 timings(mypy 抓到的真实错位)。
+    gate: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------- Unified composition guard ----------------
@@ -194,6 +241,7 @@ class GuardedToolPipeline:
         scan_enabled: bool = False,
         guard_enabled: bool = False,
         record_enabled: bool = False,
+        gate_suite: Callable[..., dict[str, Any]] | None = None,
     ) -> None:
         # Injectable dependencies (fall back to each service's default singleton/function)
         self.prompt_guard: Callable[..., dict[str, Any]] = (
@@ -218,6 +266,8 @@ class GuardedToolPipeline:
         self.scan_enabled = bool(scan_enabled)
         self.guard_enabled = bool(guard_enabled)
         self.record_enabled = bool(record_enabled)
+        # 判据聚合入口:显式注入优先,None 则首次用到时惰性解析(见 _resolve_gate_suite)。
+        self.gate_suite = gate_suite
 
     # ---------------- Pre-guards: prompt -> input scan -> budget ----------------
 
@@ -237,11 +287,14 @@ class GuardedToolPipeline:
         scan_flags: list[str] | None,
         session_id: str | None = None,
         injection_recorder: Any = None,
+        gate_request: Any = None,
+        gate_policy: Any = None,
     ) -> _PreGate:
         errors: list[PipelineError] = []
         timings: dict[str, float] = {}
         scan: dict[str, Any] = dict(_DEFAULT_SCAN)
         budget: dict[str, Any] = dict(_DEFAULT_BUDGET)
+        gate_result: dict[str, Any] = {}
 
         # ---- stage 1: prompt injection probe (scan_enabled) ----
         if self.scan_enabled and self.prompt_guard is not None:
@@ -325,6 +378,37 @@ class GuardedToolPipeline:
                 return _PreGate(False, errors, budget, scan, timings, False)
             timings[STAGE_INPUT] = _ms(t0)
 
+        # ---- stage 2.5: reverse-engineered gate suite (显式到场才介入) ----
+        # round8/9 落的那族静态准入判据此前零生产 importer(造好没装车)。这里是它的
+        # **真实生产接线点**:调用方在工具入参里显式给 `__gate_suite__`(由
+        # extract_gate_request 剥离,控制键绝不进真实工具)才启用;未给 ⇒
+        # gate_request is None ⇒ 本 stage 连判据函数都不调用(缺省零行为、零开销)。
+        if gate_request is not None:
+            t0 = time.perf_counter()
+            try:
+                gate_fn = self.gate_suite or _resolve_gate_suite()
+                suite = gate_fn(gate_request, gate_policy)
+                gate_result = (
+                    dict(suite) if isinstance(suite, dict) else {"verdict": "unjudged"}
+                )
+                if gate_result.get("verdict") != "allowed":
+                    errors.append(
+                        PipelineError(
+                            STAGE_GATE,
+                            ERROR_GATE_BLOCKED,
+                            str(gate_result.get("reason") or "gate suite blocked"),
+                        )
+                    )
+                    timings[STAGE_GATE] = _ms(t0)
+                    return _PreGate(False, errors, budget, scan, timings, False, gate_result)
+            except Exception as e:  # fail-closed:判据自身异常按阻断,绝不静默放行
+                errors.append(
+                    PipelineError(STAGE_GATE, ERROR_GATE_BLOCKED, f"gate suite error, blocked: {e}")
+                )
+                timings[STAGE_GATE] = _ms(t0)
+                return _PreGate(False, errors, budget, scan, timings, False, gate_result)
+            timings[STAGE_GATE] = _ms(t0)
+
         # ---- stage 3: budget gate (guard_enabled) ----
         budget_acquired = False
         if self.guard_enabled and budget_gov is not None:
@@ -344,7 +428,7 @@ class GuardedToolPipeline:
                         )
                     )
                     timings[STAGE_BUDGET] = _ms(t0)
-                    return _PreGate(False, errors, budget, scan, timings, False)
+                    return _PreGate(False, errors, budget, scan, timings, False, gate_result)
                 budget_acquired = True
             except Exception as e:  # degrade-open: budget failure does not block a legit tool
                 errors.append(
@@ -356,7 +440,7 @@ class GuardedToolPipeline:
                 )
             timings[STAGE_BUDGET] = _ms(t0)
 
-        return _PreGate(True, errors, budget, scan, timings, budget_acquired)
+        return _PreGate(True, errors, budget, scan, timings, budget_acquired, gate_result)
 
     # ---------------- Post stages: record -> cost -> release ----------------
 
@@ -452,6 +536,7 @@ class GuardedToolPipeline:
             errors=errors,
             budget=pre.budget,
             scan=pre.scan,
+            gate=pre.gate,
             recorded_step_id=recorded_step_id,
             stage_timings_ms=timings,
         )
@@ -480,6 +565,8 @@ class GuardedToolPipeline:
         scan_flags: list[str] | None = None,
         http_summary: str = "",
         session_id: str | None = None,
+        gate_request: Any = None,
+        gate_policy: Any = None,
     ) -> PipelineResult:
         """Async full flow. fn may be async or sync (awaited when awaitable)."""
         args, rec, bgov, pre = self._setup(
@@ -487,7 +574,7 @@ class GuardedToolPipeline:
             cost_estimate=cost_estimate, scan_source=scan_source, scan_policy=scan_policy,
             block_on_scan=block_on_scan, prompt_source=prompt_source,
             prompt_policy=prompt_policy, scan_flags=scan_flags,
-            session_id=session_id,
+            session_id=session_id, gate_request=gate_request, gate_policy=gate_policy,
         )
         if not pre.ok:
             return self._from_pre(pre)
@@ -532,6 +619,8 @@ class GuardedToolPipeline:
         scan_flags: list[str] | None = None,
         http_summary: str = "",
         session_id: str | None = None,
+        gate_request: Any = None,
+        gate_policy: Any = None,
     ) -> PipelineResult:
         """Sync full flow (sync-only fn), for non-async callers."""
         args, rec, bgov, pre = self._setup(
@@ -539,7 +628,7 @@ class GuardedToolPipeline:
             cost_estimate=cost_estimate, scan_source=scan_source, scan_policy=scan_policy,
             block_on_scan=block_on_scan, prompt_source=prompt_source,
             prompt_policy=prompt_policy, scan_flags=scan_flags,
-            session_id=session_id,
+            session_id=session_id, gate_request=gate_request, gate_policy=gate_policy,
         )
         if not pre.ok:
             return self._from_pre(pre)
@@ -633,6 +722,7 @@ class GuardedToolPipeline:
             errors=pre.errors,
             budget=pre.budget,
             scan=pre.scan,
+            gate=pre.gate,
             recorded_step_id=None,
             stage_timings_ms=pre.timings,
         )
@@ -670,8 +760,10 @@ __all__ = [
     "ERROR_RECORD_FAILED",
     "ERROR_COST_FAILED",
     "ERROR_RELEASE_FAILED",
+    "ERROR_GATE_BLOCKED",
     "STAGE_PROMPT",
     "STAGE_INPUT",
+    "STAGE_GATE",
     "STAGE_BUDGET",
     "STAGE_FN",
     "STAGE_RECORD",
@@ -682,5 +774,8 @@ __all__ = [
     "GuardedToolError",
     "GuardedToolPipeline",
     "GuardedRun",
+    "extract_gate_request",
+    "GATE_KEY",
+    "GATE_KEY_ABSENT",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
