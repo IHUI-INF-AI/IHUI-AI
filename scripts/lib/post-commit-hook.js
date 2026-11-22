@@ -60,23 +60,12 @@ for (const k of [
   delete process.env[k]
 }
 
-// ─── 零弹窗自愈锚点(2026-11-13)────────────────────────────────────────────
-// 事故:IHUI-SilentGuard 被外部会话置为 Disabled 后无法自启,弹窗修复链路整条失守,
-// 用户侧表现为"反反复复、需要一直盯着"。
-// 原则:关键自愈层不得只挂在会自己消失的计划任务上(AGENTS 同条)⇒ 把"任务健康校准"
-// 挂到每次提交:任务缺失→按规范重建 / 被禁用→启用 / 动作被改回直跑控制台→改写回隐藏包装。
-// 语义:detached + windowsHide 后台派发,不占提交等待、不产生可见窗口;任何失败不阻断提交。
-try {
-  const restoreGuard = spawn(
-    process.execPath,
-    [join(__dirname, '..', '..', 'scripts', 'ensure-silent-tasks.mjs'), '--restore-guard'],
-    { cwd: join(__dirname, '..', '..'), detached: true, stdio: 'ignore', windowsHide: true },
-  )
-  restoreGuard.on('error', () => {})
-  restoreGuard.unref()
-} catch {
-  /* 自愈派发失败不影响提交 */
-}
+// ─── 零弹窗自愈锚点(2026-11-13 立;2026-11-22 永久摘除)──────────────────────────
+// 2026-11-22 用户定案:项目禁止用 Windows 计划任务做自动化,且 SilentGuard 会周期性
+// 回补被移出的旧提交 / 重新拉起 guardian,是仓库二次膨胀的直接通道。
+// 这一段此前在**每次提交**后调用 `ensure-silent-tasks.mjs --restore-guard`,
+// 把已删除的 IHUI-SilentGuard 任务再建回来 —— 已整体删除,不再有任何自动重建入口。
+// 需要护窗/护任务时由产品内置自动化能力在 admin 账号下做,不再走计划任务。
 
 // ⚠ 本机铁律(2026-10-12 实证):Node 派生的 cmd.exe 子进程**必须**显式 stdio,
 //   默认三 pipe 在本机 100% spawnSync EBUSY(-4082)—— A11 那枚 commit 的 post-commit
@@ -363,10 +352,16 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
   })
   // 结论必须留痕:上一版把输出丢进 /dev/null 并 `|| true`,而提交命令里 rev-parse/hash-object
   // 未 .trim() 使自愈**自上线起一次都没成功过**却毫无声响(2026-09-23 才在临时仓库 A/B 抓到)。
-  runLogged('post-commit-plan-heal', 'node scripts/check-plan-line-loss.mjs --heal --commit', {
-    timeout: 90000,
-    env: { IHUI_PLAN_HEAL_COMMIT: '1' },
-  })
+  // 2026-11-22 定案:回捞会自建 commit 并 spawn git-push-guard 自动推送,是"提交后又长一枚"
+  // 的通道;默认只记结清留痕,不再自动回捞提交。需人工回捞时显式 HUSKY_ENABLE_PLAN_HEAL=1。
+  if (process.env.HUSKY_ENABLE_PLAN_HEAL === '1') {
+    runLogged('post-commit-plan-heal', 'node scripts/check-plan-line-loss.mjs --heal --commit', {
+      timeout: 90000,
+      env: { IHUI_PLAN_HEAL_COMMIT: '1' },
+    })
+  } else {
+    console.log('ℹ️  计划登记行自动回捞/提交已停用(2026-11-22 定案);结清留痕仍照记')
+  }
   const healLog = join(ROOT, '.ihui-agent', 'state', 'plan-heal.log')
   if (existsSync(healLog)) {
     try {

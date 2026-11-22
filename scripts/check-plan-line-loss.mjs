@@ -4622,13 +4622,16 @@ function heal(commit, picks = new Map()) {
           : ''),
     )
     try {
-      const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'git-push-guard.mjs')], {
-        cwd: ROOT,
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-      })
-      child.unref()
+      // 2026-11-22 定案:默认不再自动推送;前向恢复提交只落本地,由收尾人显式 push。
+      if (process.env.HUSKY_AUTO_PUSH === '1') {
+        const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'git-push-guard.mjs')], {
+          cwd: ROOT,
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        })
+        child.unref()
+      }
     } catch {
       /* 推送交后台守卫,失败不影响本次恢复 */
     }

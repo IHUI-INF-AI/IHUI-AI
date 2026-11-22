@@ -385,6 +385,13 @@ const GUARD_VBS = join(ROOT, 'scripts', 'ensure-silent-tasks-hidden.vbs')
  */
 function restoreGuardTask() {
   if (process.platform !== 'win32') return
+  // 2026-11-22 用户定案:项目禁止用 Windows 计划任务做自动化。
+  // 本函数会 Register-ScheduledTask 重建 IHUI-SilentGuard,是仓库二次膨胀/历史回补的
+  // 入口之一;默认直接拒绝,只有显式 IHUI_ALLOW_SCHEDULED_TASKS=1 才保留旧行为。
+  if (process.env.IHUI_ALLOW_SCHEDULED_TASKS !== '1') {
+    log('guard 自愈已停用(2026-11-22 定案:禁止计划任务自动化);显式开启:IHUI_ALLOW_SCHEDULED_TASKS=1')
+    return
+  }
   const script = [
     "$ErrorActionPreference='Stop'",
     `$name='${GUARD_TASK}'`,
