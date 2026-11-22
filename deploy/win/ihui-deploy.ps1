@@ -1869,6 +1869,218 @@ function Remove-CleanBuildSourceLayer {
     }
 }
 
+# ── 第四刀:部署固定成本增量(2026-11-22,实测依据)──────────────────────────
+# 15:47 那轮的段耗时:净面"清源码层 + 重导出 23k 文件" 130s;同一批 10 个 @ihui 包 dist
+# 在净面与主仓**各重建一遍** 191s + 190s。三笔合计 ≈8.5 分钟,占整轮 13.5 分钟六成。
+# 对策只有两条,判据都必须"内容等价"而不是"看起来没变":
+#   ① 净面源码层改**增量同步**(git diff 变更集 ⇒ 只删/只检出变更,逐枚校验文件哈希 ==
+#      目标 blob;任一枚不一致或变更集 >2000 枚就整段退回全量导出)。
+#   ② dist 带**内容指纹** stamp(包树哈希 + @ihui 依赖闭包树哈希 + lockfile + node 版本),
+#      两侧指纹相同才复用/复制,不跑构建;写回同样落 stamp,下一轮据此再判。
+# 逃生舱:IHUI_DEPLOY_DIST_CACHE=0|false|off 关 dist 缓存;
+#        IHUI_DEPLOY_CLEAN_INCREMENTAL=0|false|off 关增量同步(两档都退回原全量行为)。
+$script:DistPkgToPath = @{
+    '@ihui/types'              = 'packages/types'
+    '@ihui/i18n'               = 'packages/i18n'
+    '@ihui/dom-actions'        = 'packages/dom-actions'
+    '@ihui/context-compaction' = 'packages/context-compaction'
+    '@ihui/api-client'         = 'packages/api-client'
+    '@ihui/design-tokens'      = 'packages/design-tokens'
+    '@ihui/shared'             = 'packages/shared'
+    '@ihui/auth'               = 'packages/auth'
+    '@ihui/ui-react'           = 'packages/ui-react'
+    '@ihui/attendance-core'    = 'packages/attendance-core'
+    '@ihui/tsconfig'           = 'packages/tsconfig'
+}
+$script:DistBuildOrder = @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react','@ihui/attendance-core')
+$script:DistStampName = '.ihui-dist-stamp'
+
+function Get-DistStampOf {
+    param([string]$DistDir)
+    if (-not $DistDir) { return '' }
+    $f = Join-Path $DistDir $script:DistStampName
+    if (-not (Test-Path -LiteralPath $f)) { return '' }
+    try { return ((Get-Content -LiteralPath $f -Raw) -replace "`r", '').Trim() } catch { return '' }
+}
+
+function Set-DistStampOf {
+    param([string]$DistDir, [string]$Stamp)
+    if (-not $DistDir -or -not $Stamp -or -not (Test-Path -LiteralPath $DistDir)) { return }
+    try { Set-Content -LiteralPath (Join-Path $DistDir $script:DistStampName) -Value $Stamp -NoNewline -ErrorAction Stop }
+    catch { Log "[DIST-CACHE] WARN stamp 未落盘($DistDir):$_" }
+}
+
+function Copy-DistDirTree {
+    param([string]$From, [string]$To)
+    if (-not (Test-Path -LiteralPath $From)) { return $false }
+    try {
+        $parentDir = Split-Path -Parent $To
+        if ($parentDir -and -not (Test-Path -LiteralPath $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
+        $null = & robocopy.exe $From $To /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /MT:8
+        # robocopy 0-7 都是成功档(1=有复制),>=8 才是真失败
+        return ($LASTEXITCODE -lt 8)
+    } catch { return $false }
+}
+
+function Get-DistStampTable {
+    <#  输入一个 SHA,输出 @{包名 → 内容指纹}。判据全部取自 git 对象库(零工作区 IO):
+        包目录树哈希 + 该包 @ihui 依赖闭包(含 dev/peer)的树哈希 + lockfile blob + node 版本。
+        任一取值失败 ⇒ 该包不生成指纹(调用方按"无指纹"回落原地重建,不猜)。  #>
+    param([string]$Sha)
+    if (-not $Sha) { return @{} }
+    if ($env:IHUI_DEPLOY_DIST_CACHE -in @('0', 'false', 'off')) { return @{} }
+    if ($script:DistStampCacheSha -eq $Sha -and $script:DistStampCacheTable) { return $script:DistStampCacheTable }
+    if (-not $script:DistNodeVer) {
+        try { $script:DistNodeVer = (& node -v 2>$null | Out-String).Trim() } catch { $script:DistNodeVer = 'unknown' }
+    }
+    $rels = @($script:DistPkgToPath.Values | Sort-Object)
+    $revArgs = @()
+    foreach ($r in $rels) { $revArgs += ("{0}:{1}" -f $Sha, $r) }
+    $revArgs += ("{0}:pnpm-lock.yaml" -f $Sha)
+    $out = @(& git @gitFace -C $Root rev-parse @revArgs 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $out.Count -lt $revArgs.Count) {
+        Log "[DIST-CACHE] 指纹取值失败(git rev-parse exit=$LASTEXITCODE)⇒ 本轮不启用 dist 缓存"
+        return @{}
+    }
+    $trees = @{}
+    for ($i = 0; $i -lt $rels.Count; $i++) { $trees[$rels[$i]] = "$($out[$i])".Trim() }
+    $lockTree = "$($out[$rels.Count])".Trim()
+    $deps = @{}
+    foreach ($r in $rels) {
+        $raw = (& git @gitFace -C $Root show ("{0}:{1}/package.json" -f $Sha, $r) 2>$null | Out-String)
+        if (-not $raw.Trim()) { continue }
+        try { $pj = $raw | ConvertFrom-Json } catch { continue }
+        $names = @()
+        foreach ($k in @('dependencies', 'devDependencies', 'peerDependencies')) {
+            $grp = $pj.$k
+            if ($grp) { $names += @($grp.PSObject.Properties.Name) }
+        }
+        $mapped = @($names | ForEach-Object { $script:DistPkgToPath[$_] } | Where-Object { $_ -and $_ -ne $r } | Sort-Object -Unique)
+        $deps[$r] = $mapped
+    }
+    $table = @{}
+    foreach ($pkg in $script:DistBuildOrder) {
+        $rel = $script:DistPkgToPath[$pkg]
+        if (-not $rel -or -not $trees[$rel]) { continue }
+        $seen = @{ }; $queue = @($rel)
+        while ($queue.Count -gt 0) {
+            $p = $queue[0]
+            $queue = @($queue | Select-Object -Skip 1)
+            if ($seen.ContainsKey($p)) { continue }
+            $seen[$p] = $true
+            if ($deps[$p]) { $queue += @($deps[$p]) }
+        }
+        $parts = @("pkg=$pkg", "lock=$lockTree", "node=$($script:DistNodeVer)")
+        foreach ($p in ($seen.Keys | Sort-Object)) { $parts += ("tree:{0}={1}" -f $p, $trees[$p]) }
+        $hash = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes(($parts -join '|')))
+        $hex = (($hash | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 24)
+        $table[$pkg] = "v1:$hex"
+    }
+    $script:DistStampCacheSha = $Sha
+    $script:DistStampCacheTable = $table
+    return $table
+}
+
+function Sync-CleanBuildSourceIncremental {
+    <#  把净面源码层从 $From 增量推到 $To。返回 $true = 已完成且逐枚校验通过;$false = 不可用,
+        调用方必须退回全量导出(禁止"没改成"当"改好了")。  #>
+    param([string]$Wt, [string]$From, [string]$To)
+    if ($env:IHUI_DEPLOY_CLEAN_INCREMENTAL -in @('0', 'false', 'off')) { return $false }
+    if (-not $From -or -not $To -or $From -eq $To) { return $false }
+    if (-not (Test-Path -LiteralPath $Wt)) { return $false }
+    $diffLines = @(& git @gitFace -C $Root -c core.longpaths=true diff --no-renames --name-status $From $To 2>&1)
+    if ($LASTEXITCODE -ne 0) { Log "[clean-out] 增量同步不可用:git diff exit=$LASTEXITCODE ⇒ 全量导出"; return $false }
+    $del = @(); $get = @()
+    foreach ($ln in $diffLines) {
+        $t = "$ln"
+        if (-not $t.Trim()) { continue }
+        if ($t -match '^([AMDT])\t(.+)$') {
+            if ($Matches[1] -eq 'D') { $del += $Matches[2] } else { $get += $Matches[2] }
+        } else {
+            Log "[clean-out] 增量同步不可用:diff 行无法解析($t)⇒ 全量导出"
+            return $false
+        }
+    }
+    if (($del.Count + $get.Count) -gt 2000) {
+        Log ("[clean-out] 增量同步跳过:变更 {0} 枚超过 2000 枚上限 ⇒ 全量导出" -f ($del.Count + $get.Count))
+        return $false
+    }
+    if (($del.Count + $get.Count) -eq 0) {
+        try { Set-Content -LiteralPath (Join-Path $Wt $CleanBuildShaFile) -Value $To -NoNewline -ErrorAction Stop } catch { Log "[clean-out] WARN 版本标记未落盘:$_" }
+        Log ("[clean-out] 增量同步完成:源码层零变更,只推进版本标记 @ {0}" -f $To.Substring(0, 10))
+        return $true
+    }
+    foreach ($rel in $del) {
+        $p = Join-Path $Wt $rel
+        if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
+    }
+    if ($get.Count -gt 0) {
+        $idx = Join-Path $CleanBuildRootDefault ('.src-index-' + $To.Substring(0, 12))
+        Remove-Item -LiteralPath $idx -Force -ErrorAction SilentlyContinue
+        $prefix = $Wt.TrimEnd('\') + '\'
+        $oldIdx = $env:GIT_INDEX_FILE
+        $ok = $false
+        try {
+            $env:GIT_INDEX_FILE = $idx
+            git @gitFace -C $Root -c core.longpaths=true read-tree $To 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                Log "[clean-out] 增量同步不可用:read-tree exit=$LASTEXITCODE ⇒ 全量导出"
+            } else {
+                # 逐块传路径(每块 100 枚)而不是 `--stdin`:Windows 侧 stdin 行尾恒为 CRLF,
+                # git 把 `\r` 也当路径字符 ⇒ "PROJECT_PLAN.md\r is not in the cache"(实测复现),
+                # 而 `-z` 又没法从 PowerShell 管道表达。argv 分块是这里唯一可靠形态。
+                $bad = 0
+                for ($i = 0; $i -lt $get.Count; $i += 100) {
+                    $slice = @($get[$i..([Math]::Min($i + 99, $get.Count - 1))])
+                    $cco = @(& git @gitFace -C $Root -c core.longpaths=true checkout-index -f --prefix $prefix -- @slice 2>&1)
+                    if ($LASTEXITCODE -ne 0) {
+                        $bad++
+                        Log "[clean-out] 增量同步 node 检出失败:exit=$LASTEXITCODE : $($cco -join ' / ')"
+                        break
+                    }
+                }
+                if ($bad -eq 0) { $ok = $true }
+            }
+        } finally {
+            if ($oldIdx) { $env:GIT_INDEX_FILE = $oldIdx } else { Remove-Item Env:GIT_INDEX_FILE -ErrorAction SilentlyContinue }
+            Remove-Item -LiteralPath $idx -Force -ErrorAction SilentlyContinue
+        }
+        if (-not $ok) { return $false }
+        # 期望哈希一次取齐(ls-tree 分块;取不到就在下面按"缺期望"退回全量)
+        $expect = @{}
+        for ($i = 0; $i -lt $get.Count; $i += 120) {
+            $slice = @($get[$i..([Math]::Min($i + 119, $get.Count - 1))])
+            $lst = @(& git @gitFace -C $Root -c core.longpaths=true ls-tree -r $To -- @slice 2>&1)
+            foreach ($row in $lst) {
+                if ("$row" -match '^[0-7]+\s+\w+\s+([0-9a-f]{40})\t(.+)$') { $expect[$Matches[2]] = $Matches[1] }
+            }
+        }
+        # 逐枚内容校验:工作区 eol=lf(.gitattributes)⇒ 文件哈希与目标 blob 可直接比。
+        # 同样走 argv 分块(stdin 那条腿在 Windows 侧不可用,见上面 checkout 段注释)。
+        $abs = @($get | ForEach-Object { Join-Path $Wt $_ })
+        $got = @()
+        $hbad = 0
+        for ($i = 0; $i -lt $abs.Count; $i += 50) {
+            $slice = @($abs[$i..([Math]::Min($i + 49, $abs.Count - 1))])
+            $h = @(& git @gitFace -C $Root hash-object -- @slice 2>&1)
+            if ($LASTEXITCODE -ne 0) { $hbad++; Log "[clean-out] 增量同步校验失败:hash-object exit=$LASTEXITCODE : $($h -join ' / ')"; break }
+            $got += @($h | ForEach-Object { "$_".Trim() })
+        }
+        if ($hbad -ne 0 -or $got.Count -ne $get.Count) {
+            Log "[clean-out] 增量同步校验不可用:产出 $($got.Count)/$($get.Count) ⇒ 全量导出"
+            return $false
+        }
+        for ($i = 0; $i -lt $get.Count; $i++) {
+            $exp = $expect[$get[$i]]
+            if (-not $exp) { Log "[clean-out] 增量同步校验缺期望哈希:$($get[$i]) ⇒ 全量导出"; return $false }
+            if ("$($got[$i])".Trim() -ne $exp) { Log "[clean-out] 增量同步内容不一致:$($get[$i]) ⇒ 全量导出"; return $false }
+        }
+    }
+    try { Set-Content -LiteralPath (Join-Path $Wt $CleanBuildShaFile) -Value $To -NoNewline -ErrorAction Stop } catch { Log "[clean-out] WARN 版本标记未落盘:$_" }
+    Log ("[clean-out] 增量同步完成:删 {0} 枚 / 检出并逐枚校验 {1} 枚,源码层 @ {2}" -f $del.Count, $get.Count, $To.Substring(0, 10))
+    return $true
+}
+
 function Export-CleanBuildSource {
     <#
       清源码层 → `read-tree $Sha`(临时索引)+ `checkout-index --prefix` 检出 → 落版本标记。
@@ -1883,6 +2095,16 @@ function Export-CleanBuildSource {
       git 侧全程只读:不碰主 index、不碰工作区、不联网、不产生任何登记。
     #>
     param([string]$Wt, [string]$Sha)
+    # 增量优先(2026-11-22 第四刀):净面在位且带着上一枚 SHA 标记时,只推变更集;
+    # 任何一步判不出等价就整段退回原来的"清 + 全量检出",不把半个源码层交给构建。
+    $prevSha = ''
+    if (Test-Path -LiteralPath $Wt) { $prevSha = Get-CleanBuildSourceSha -Wt $Wt }
+    if ($prevSha -and $prevSha -ne $Sha) {
+        $incDone = $false
+        try { $incDone = Sync-CleanBuildSourceIncremental -Wt $Wt -From $prevSha -To $Sha }
+        catch { Log "[clean-out] WARN 增量同步异常 ⇒ 退回全量导出:$_"; $incDone = $false }
+        if ($incDone) { return }
+    }
     Remove-CleanBuildSourceLayer -Path $Wt
     New-Item -ItemType Directory -Path $Wt -Force | Out-Null
     $idx = Join-Path $CleanBuildRootDefault ('.src-index-' + $Sha.Substring(0, 12))
@@ -2036,9 +2258,24 @@ function Invoke-CleanBuildWorktreeSweep {
       这些全是"git 知道净面存在"才需要的动作,现在 git 侧零登记,一条都不剩。
       逃生舱:IHUI_DEPLOY_CLEAN_WT_KEEP=1 ⇒ 保留净面(省下一轮 pnpm install,代价是每轮
       结束都留一份检出)。仅调试/排障用,默认不设 = 回收。
+      2026-11-22 第四刀改默认:净面**跨轮保留**(下一轮换 SHA 走增量同步 + 复用 dist 缓存,
+      实测把"清源码层重导 130s + 双份 dist 重建 380s"压到秒级)。保留条件 = 净面所在盘
+      剩余 ≥15GB;余量不足或显式 IHUI_DEPLOY_CLEAN_WT_PRUNE=1 才走下面的回收路径。
     #>
     if (-not $CleanBuildWt) { return }
     try {
+        if ($env:IHUI_DEPLOY_CLEAN_WT_PRUNE -ne '1') {
+            $freeGb = -1
+            try {
+                $psd = (Get-Item -LiteralPath $CleanBuildRootDefault -ErrorAction Stop).PSDrive
+                if ($psd) { $freeGb = [math]::Floor($psd.Free / 1GB) }
+            } catch { $freeGb = -1 }
+            if ($freeGb -lt 0 -or $freeGb -ge 15) {
+                Log "[CLEAN-BUILD] 收尾:保留净面(跨轮增量与 dist 缓存用;所在盘剩余 $(if ($freeGb -lt 0) { '未判定' } else { "${freeGb}GB" }))⇒ 回收请设 IHUI_DEPLOY_CLEAN_WT_PRUNE=1"
+                return
+            }
+            Log "[CLEAN-BUILD] 收尾:净面所在盘剩余 ${freeGb}GB <15GB ⇒ 回收净面"
+        }
         if ($env:IHUI_DEPLOY_CLEAN_WT_KEEP -eq '1') {
             Log "[CLEAN-BUILD] 收尾:IHUI_DEPLOY_CLEAN_WT_KEEP=1 ⇒ 保留净面(调试档,不回收):$CleanBuildWt"
             return
@@ -2374,10 +2611,31 @@ function Build-Web {
     #    design-tokens/types,ui-react→design-tokens,api-client→types,实测 2026-09-21:
     #    shared 排在 api-client 前会对其旧 dist 报 TS2305 CitationsEvent),单包失败即
     #    中止并定位到包;未来新增 dist 型 workspace 依赖时须同步调整清单与顺序。
-    foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react','@ihui/attendance-core')) {
+    # 2026-11-22 第四刀:同一批 10 个包 dist 原来在净面与主仓**各建一遍**(实测 191s + 190s)。
+    # 这里先按内容指纹取缓存:指纹相同 ⇒ 直接把主仓 dist 镜像进净面,零构建;指纹不同/取不到
+    # 才原地重建。指纹见 Get-DistStampTable(包树 + @ihui 依赖闭包 + lockfile + node 版本)。
+    $wtRoot = if ($SrcWebDir) { Split-Path -Parent (Split-Path -Parent $SrcWebDir) } else { $CleanBuildWt }
+    $wtSha = ''
+    if ($wtRoot) { $wtSha = Get-CleanBuildSourceSha -Wt $wtRoot }
+    $stampTable = @{}
+    if ($wtSha) { $stampTable = Get-DistStampTable -Sha $wtSha }
+    foreach ($pkg in $script:DistBuildOrder) {
+        $rel = $script:DistPkgToPath[$pkg]
+        $stamp = $stampTable[$pkg]
+        $mainDist = Join-Path $Root (Join-Path $rel 'dist')
+        $cleanDist = Join-Path $wtRoot (Join-Path $rel 'dist')
+        if ($stamp -and (Test-Path -LiteralPath $mainDist) -and ((Get-DistStampOf -DistDir $mainDist) -eq $stamp)) {
+            if (Copy-DistDirTree -From $mainDist -To $cleanDist) {
+                Set-DistStampOf -DistDir $cleanDist -Stamp $stamp
+                Log "[DIST-CACHE] 复用主仓 dist:$pkg(源码面/依赖闭包/lock/node 全未变,stamp=$stamp)"
+                continue
+            }
+            Log "[DIST-CACHE] WARN 主仓 dist 镜像失败:$pkg ⇒ 原地重建"
+        }
         Log "重建 $pkg dist ..."
         & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') --filter $pkg run build
         if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
+        if ($stamp) { Set-DistStampOf -DistDir $cleanDist -Stamp $stamp }
     }
     # ── 主仓 dist 同步(2026-10-13 加,生产 checkout 解耦后补的结构性缺口):api 以 tsx
     #    直跑**主仓**源码并 import 主仓 packages/*/dist,而上面的净面重建只喂 web build
@@ -2418,10 +2676,26 @@ function Build-Web {
                 catch { Log "WARN 主仓依赖指纹未落盘(下一轮会再装一次):$_" }
             }
         }
-        foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react','@ihui/attendance-core')) {
+        # 2026-11-22 第四刀:主仓这一遍改成"能用净面产物就不重建"。判据同上面那份指纹;
+        # 取不到指纹(对象库缺失/逃生舱关闭)⇒ 回落原来的逐包重建,不允许静默漂移。
+        foreach ($pkg in $script:DistBuildOrder) {
+            $rel = $script:DistPkgToPath[$pkg]
+            $stamp = $stampTable[$pkg]
+            $mainDist = Join-Path $Root (Join-Path $rel 'dist')
+            $cleanDist = Join-Path $wtRoot (Join-Path $rel 'dist')
+            if ($stamp -and (Test-Path -LiteralPath $mainDist) -and ((Get-DistStampOf -DistDir $mainDist) -eq $stamp)) {
+                Log "[DIST-CACHE] 主仓 dist 已是同一版本:$pkg(零重建)"
+                continue
+            }
+            if ($stamp -and (Test-Path -LiteralPath $cleanDist) -and ((Get-DistStampOf -DistDir $cleanDist) -eq $stamp) -and (Copy-DistDirTree -From $cleanDist -To $mainDist)) {
+                Set-DistStampOf -DistDir $mainDist -Stamp $stamp
+                Log "[DIST-CACHE] 主仓 dist 由净面产物镜像:$pkg(零重建)"
+                continue
+            }
             Log "主仓重建 $pkg dist ..."
             & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') --filter $pkg run build
             if ($LASTEXITCODE -ne 0) { Log "WARN  主仓 $pkg dist 重建失败(exit $LASTEXITCODE),api 可能滞留旧 dist,需人工核查" }
+            elseif ($stamp -and (Test-Path -LiteralPath $mainDist)) { Set-DistStampOf -DistDir $mainDist -Stamp $stamp }
         }
     } finally {
         Pop-Location
@@ -4523,6 +4797,8 @@ if ($webReady) {
 }
 Start-Sleep -Seconds 2
 
+}  # ← 关闭"整包重建"分支(fast-path 时不进 备份/构建/切流)
+
 # ── SSH 入口存续(2026-10-21 立;同日更正归因)─────────────────────────────────
 # 现象:带有效服务令牌打 `ssh.aizhs.top` 的 Access 回 502(不带 token 是 302=边缘登录跳转,与后端无关),
 # `cloudflared access ssh` 报 `websocket: bad handshake`。
@@ -4551,7 +4827,6 @@ try {
     Log "WARN  sshd 检查/拉起失败(不影响本次部署): $_"
 }
 
-}  # ← 关闭"整包重建"分支(fast-path 时不进 备份/构建/切流)
 
 # ── 成功标记写到"它成立的那一刻"(2026-09-27 从收尾移到此处)────────────────────
 # 此刻 .next 逐字节就是 HEAD 的构建(交换已完成),标记说的就是事实。
