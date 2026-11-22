@@ -16,7 +16,8 @@
       "file": "Deepseek api key.txt",
       "pick": "first",
       "probe": "https://api.deepseek.com/v1/models",
-      "enable": true
+      "enable": true,
+      "note": "2026-11-22 复测:key 有效(/models 200),但账户余额 -0.87 CNY ⇒ /chat/completions 402;deepseek-v4-pro / deepseek-v4-flash 已在 DB 目录里,由 availability 的 PAYMENT_REQUIRED 规则隐藏,充值后自动出现,无需改代码"
     },
     {
       "provider": "gemini",
@@ -60,7 +61,8 @@
       "file": "step apikey.txt",
       "pick": "first",
       "probe": "https://api.stepfun.com/step_plan/v1/models",
-      "enable": true
+      "enable": false,
+      "note": "2026-11-22 复测: /models 200 但 /chat/completions 恒 400 `no active step plan subscription` ⇒ 按 app/core/default_model.py 的 RETIRED_PROVIDERS 保持停用;只修密文,不启用、不进模型列表"
     },
     {
       "provider": "swiftapi",
