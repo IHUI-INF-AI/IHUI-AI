@@ -275,18 +275,34 @@ function materialDocs({ root, face }) {
     .filter((p) => p && MATERIAL_RE.test(p))
 }
 
-function grepTokens({ root, face, docs, pattern }) {
-  const sel = face === 'staged' ? ['--cached'] : []
-  const args = ['grep', ...sel, '--no-color', '-o', '-n', '-E', pattern]
-  if (face !== 'staged') args.push('HEAD')
-  args.push('--', ...docs)
-  let out
-  try {
-    out = gitRaw(args, root, { timeout: 120000, maxBuffer: 64 << 20 })
-  } catch (e) {
-    if (e?.status === 1) return [] // "无命中"是 grep 的正常非零结论,不是取材失败
-    throw e
+/**
+ * 命令行长度预算(2026-11-22 现读):本机把 639 份活文档一次性拼进 `git grep -- <paths>` 时
+ * spawnSync 报 **ENAMETOOLONG**(Windows 单条命令行上限),门 184 于是在全量档恒落"未判定"。
+ * 判据一字不改,只改**取材方式**:按字符预算分批,多批结果取并集(与本仓 §6「逐文件派 git
+ * 必须批量」同一条纪律 —— 修取值方式,不许动判据)。
+ */
+const GREP_ARGV_PATH_BUDGET = 3000
+
+/** 按字符预算切 docs(单条路径超预算也照发一枚,不丢文档)。 */
+export function chunkDocsForArgv(docs, budget = GREP_ARGV_PATH_BUDGET) {
+  const chunks = []
+  let cur = []
+  let curChars = 0
+  for (const d of docs) {
+    const add = String(d).length + 1
+    if (cur.length && curChars + add > budget) {
+      chunks.push(cur)
+      cur = []
+      curChars = 0
+    }
+    cur.push(d)
+    curChars += add
   }
+  if (cur.length) chunks.push(cur)
+  return chunks
+}
+
+function parseGrepRows(out) {
   const rows = []
   for (const line of String(out).split(/\r?\n/)) {
     if (!line) continue
@@ -305,6 +321,25 @@ function grepTokens({ root, face, docs, pattern }) {
       line: Number(ln),
       rest: line.slice(line.indexOf(`:${ln}:`) + `:${ln}:`.length),
     })
+  }
+  return rows
+}
+
+function grepTokens({ root, face, docs, pattern }) {
+  const sel = face === 'staged' ? ['--cached'] : []
+  const base = ['grep', ...sel, '--no-color', '-o', '-n', '-E', pattern]
+  if (face !== 'staged') base.push('HEAD')
+  const rows = []
+  for (const chunk of chunkDocsForArgv(docs)) {
+    const args = [...base, '--', ...chunk]
+    let out
+    try {
+      out = gitRaw(args, root, { timeout: 120000, maxBuffer: 64 << 20 })
+    } catch (e) {
+      if (e?.status === 1) continue // "无命中"是 grep 的正常非零结论,不是取材失败
+      throw e
+    }
+    rows.push(...parseGrepRows(out))
   }
   return rows
 }
