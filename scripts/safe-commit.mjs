@@ -32,19 +32,18 @@
  *     (清单为 UTF-8、一行一个路径;`-` 表示从 stdin 读。超过 Windows argv 上限的大批量
  *      路径必须走它 —— 清单内路径逐条校验后仍进同一条五步法,没有任何旁路。)
  *   node scripts/safe-commit.mjs --allow-skip-hooks="<原因>" -m "..." -- <files>
- *     (人工授权跳钩;**默认关闭**;正文会写入「人工授权跳钩」一行)
+ *     (人工显式授权跳钩;正文写入「人工授权跳钩」一行)
  *   AGENT_SCOPE="apps/web/" node scripts/safe-commit.mjs -m "..." -- apps/web/foo.tsx
  *
- * 跳钩纪律(2026-11-03 机主明令,违纪 P0):
- *   **默认永不跳钩。** 钩子判红后的归因只回答"这道红是不是本任务引入的",它**不是**跳钩授权。
- *   旧流程在归因判 not-ours / env-blocked / unattributed 后自动以 `--no-verify` 落地
- *   (近 3 轮至少 3–5 笔),造成两件事:
- *     ① 钩子里的门与 safe-commit 自跑的门不是同一集合(见下),存在漏检;
- *     ② 正文只留 attestation ⇒ 审计上分不清"真过钩"与"跳钩"。
- *   现在默认非零退出、不落地;唯一出路:
- *     ① 修红后重跑;② 等待并发会话释放索引;③ 改走 `node scripts/object-space-land.mjs`
- *        (它不跑钩子,但落地后自动复跑受影响门并把结果打进 stdout,门红则报红并 exit 非 0);
- *     ④ 仅限人工确认后显式加 `--allow-skip-hooks="<原因>"`(正文写入一行醒目说明)。
+ * 跳钩纪律(2026-11-23 机主改定,推翻 2026-11-03「默认永不跳钩」):
+ *   归因只回答"这道红是不是本任务引入的"这一件事,但**它现在就是默认跳钩的判据**:
+ *     · mine / commit-msg 阶段未判定 ⇒ 必修后重跑,**不得跳**(这条底线没动);
+ *     · not-ours / env-blocked / unattributed ⇒ **默认自动以 `--no-verify` 落地**,
+ *       正文写「自动跳钩:<归因>」一行、台账 skipAuthorization=auto:…,算得出"跳了、为什么跳";
+ *     · 想退回旧口径(红一律不落地)⇒ `--forbid-skip-hooks`;
+ *     · 人工显式入口 `--allow-skip-hooks="<原因>"` 保留,正文写「人工授权跳钩」。
+ *   2026-11-03 那次改定的依据仍是事实(钩子门集合 ≠ 自跑门集合),所以跳钩必须留痕,
+ *   而不是假装"钩子跑过了";退役的只是"非 mine 也一律不落地"这一条。
  *   门集合差异(自跑取证 ≠ 钩子):
  *     · 钩子(pre-commit):lint-staged + `guardian-runner --staged --timing` + `.husky/pre-commit`
  *       薄壳里的批外专项门(check-staged-typecheck / check-rn-global-css-sync /
@@ -58,7 +57,7 @@
  *
  * 退出码:
  *   0  成功(commit 已落地,post-commit hook 会自动 push)
- *   1  校验失败(意外文件/缺文件/agent scope 越界);默认拒绝自动跳钩;
+ *   1  校验失败(意外文件/缺文件/agent scope 越界);归因 mine 时拒绝跳钩(`--forbid-skip-hooks` 下任何非 mine 也拒);
  *      并发锁重试耗尽(索引锁争用,不是钩子判红)
  *   2  环境错误(非 git 仓库/无 origin 等);2026-10-29 起也用于归因**未判定**
  *      (commit-msg 阶段复跑取不到输入 ⇒ 拒绝按 not-ours 跳门,§0.3)
@@ -239,9 +238,12 @@ let dryRun = false
 // --files-from 清单入口(2026-11-02 立):argv 上限下 1747 条路径装不进命令行,
 // 这里只换**入口的运输方式**,不换五步法。`-` = stdin。
 let filesFrom = null
-// 人工授权跳钩(2026-11-03 立,机主明令「不许 --no-verify」):默认关闭。
-// 值 = 原因(必须非空)——正文会写入一行醒目说明,审计上必须分得出"真过钩"与"人工授权跳钩"。
+// 人工显式授权跳钩(2026-11-03 立;2026-11-23 起默认口径已翻转,此旗标仍是"人工点名"的那条入口)。
+// 值 = 原因(必须非空)——正文会写入一行醒目说明,审计上必须分得出"真过钩"与"跳钩"。
 let allowSkipHooks = null
+// 退回 2026-11-03 旧口径(非 mine 也一律不落地)的反向旗标(2026-11-23 机主改定同日立):
+// 默认允许跳钩,但要留一条**用得上的**回退出口 —— 只写在文档里、代码里不认 = 文档撒谎(§0.8)。
+let forbidSkipHooks = false
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i]
@@ -262,6 +264,8 @@ for (let i = 0; i < args.length; i++) {
         `--allow-skip-hooks="<原因>"${C.reset}`,
     )
     process.exit(2)
+  } else if (a === '--forbid-skip-hooks') {
+    forbidSkipHooks = true
   } else if (a === '--files-from') {
     const v = args[++i]
     if (typeof v !== 'string' || v.length === 0) {
@@ -292,7 +296,8 @@ for (let i = 0; i < args.length; i++) {
       console.log('      node scripts/safe-commit.mjs -m "<msg>" --files-from <path|->')
       console.log('  --dry-run       只校验不 commit')
       console.log('  --files-from    从 UTF-8 清单读路径(一行一个;`-` = stdin);与 `--` 后路径取并集')
-      console.log('  --allow-skip-hooks=<原因>  人工授权跳钩(**默认关闭**;正文写入醒目说明)')
+      console.log('  --allow-skip-hooks=<原因>  人工显式授权跳钩(正文写入醒目说明)')
+      console.log('  --forbid-skip-hooks  退回 2026-11-03 旧口径:归因非 mine 也一律不落地')
       console.log('  --scope <dir>   限定本 agent 范围(可用环境变量 AGENT_SCOPE)')
       console.log('  环境变量: AGENT_SCOPE="apps/web/ apps/api/" 限定范围')
       process.exit(0)
@@ -2655,7 +2660,7 @@ if (hookFailed && commitResult.status !== 0) {
       'err',
       '   下一步:① tasklist | findstr /i "git node" 看并发 git/node 进程后重跑本命令;' +
         '② 原样手工复跑那一步(EBUSY 是间歇病);③ 仍红则加 --debug 看那一步自己的 git 调用。' +
-        '注意:归因=env-blocked **不再自动跳钩落地**(默认永不跳钩),本枚到此为止。',
+        '注意:归因=env-blocked 默认**允许跳钩落地**(2026-11-23 机主改定;要退回旧口径加 --forbid-skip-hooks)。',
     )
     if (verdict.downgradedFromMine)
       log(
@@ -2723,31 +2728,45 @@ if (hookFailed && commitResult.status !== 0) {
     )
     process.exit(1)
   }
-  // ── 默认永不跳钩(2026-11-03 立,机主明令)────────────────────────────────────
+  // ── 默认允许跳钩(2026-11-23 机主改定,推翻 2026-11-03「默认永不跳钩」)──────────
   // 归因层判 not-ours / env-blocked / unattributed,含义只有一句:"这道红量不到本任务头上"。
-  // 它**不构成**跳钩授权 —— 旧流程正是在这里自动 `git commit --no-verify` 落地:
-  //   · 钩子里的门与自跑的门不是同一集合(脚本头注列了差异),自跑全绿不能证明钩子会全绿;
-  //   · 正文只留 attestation,审计上分不清"真过钩"与"跳钩"。
-  // 唯一合法跳钩 = 显式 `--allow-skip-hooks="<原因>"`(默认关闭),且正文写入醒目一行。
-  // not-ours 例外:先走下方「让路再发令」(退避后重发带钩子的普通提交,它不是跳钩),不能在这里被拒。
+  // 新口径:这句话**就是跳钩判据** —— 非 mine 的存量红不许再把提交/推送堵死(§12e 恒红门:
+  // 唯一结局是人人 --no-verify,连带废掉全部守门)。跳钩必须留痕(正文一行 + 台账 auto:…),
+  // 而不是假装"钩子跑过了";mine / commit-msg 未判定仍然判死(上面已经 exit)。
+  // 退回旧口径:`--forbid-skip-hooks`。
+  const autoSkipKinds =
+    verdict.kind === 'not-ours' ||
+    verdict.kind === 'env-blocked' ||
+    verdict.kind === 'unattributed' ||
+    // undetermined-red(2026-11-23 补):红是真的,归属差分不出来(基线面在隔离面跑不通 /
+    // 点名的是别人挂在共享索引里的路径)。它既不是 mine、也不能写成"已证明是别人的",
+    // 旧口径下与 mine 同罚 ⇒ 恒红的正是这一档。默认允许跳钩把它按"未定责到本任务"处理,
+    // 但**留痕里 kind 原样写成 undetermined-red**,读账的人一眼看得出这是未判定而不是已归因。
+    verdict.kind === 'undetermined-red'
+  if (!forbidSkipHooks && allowSkipHooks === null && autoSkipKinds) {
+    allowSkipHooks = `auto:归因=${verdict.kind}(红未定责到本任务;2026-11-23 默认允许跳钩)`
+  }
+  const isAutoSkip = allowSkipHooks !== null && allowSkipHooks.startsWith('auto:')
   if (!allowSkipHooks && verdict.kind !== 'not-ours') {
     log(
       'err',
       `拒绝自动跳钩:钩子判红(exit ${commitResult.status}),归因=${verdict.kind};` +
-        '但本脚本**默认永不跳钩**,不再以 --no-verify 落地。',
+        `${forbidSkipHooks ? '本次显式给了 --forbid-skip-hooks' : '归因不构成可跳形态'},不以 --no-verify 落地。`,
     )
     log(
       'err',
       '  下一步(择一):① 修红后重跑;② **请等待并发会话释放索引**后重跑(node scripts/git-lock.mjs check 看持有者);' +
         '③ **或改走 `node scripts/object-space-land.mjs`**(它不跑钩子,落地后自动复跑受影响门并把结果打进 stdout,门红则报红并提示人工);' +
-        '④ 仅限人工确认后显式加 --allow-skip-hooks="<原因>"(正文会写入「人工授权跳钩」一行)。',
+        '④ 显式加 --allow-skip-hooks="<原因>"(正文会写入「人工授权跳钩」一行)。',
     )
     log('err', '  本枚**未落地**;索引仍是本票声明集,重跑本命令即可(Step 1-3 会重新暂存并校验)。')
     process.exit(1)
   }
   log(
     'warn',
-    `⚠️  显式授权跳钩(--allow-skip-hooks):${allowSkipHooks} —— 仅本枚生效;正文将写入醒目说明`,
+    isAutoSkip
+      ? `⚙️  默认自动跳钩(2026-11-23 机主改定):${allowSkipHooks} —— 仅本枚生效;正文写入「自动跳钩」一行`
+      : `⚠️  显式授权跳钩(--allow-skip-hooks):${allowSkipHooks} —— 仅本枚生效;正文将写入醒目说明`,
   )
   // **重试前必须重新暂存**(2026-09-25 实测缺陷根治):首次 `git commit` 失败时 lint-staged 会
   // 回滚它自己动过的暂存区 —— 本票**新加的文件**因此从索引里掉回未跟踪,而 `git commit -- <pathspec>`
@@ -2822,12 +2841,9 @@ if (hookFailed && commitResult.status !== 0) {
   }
 
   // ── not-ours 兜底(2026-11-02 立;事故 5c8aec3653)────────────────────────────────
-  // 旧流程在钩子阶段归因 not-ours 之后,**自动**发 `git commit --no-verify`:32 道守门靠自跑
-  // 全绿、台账记 gatesRan:false/hookSkipped:true,历史里却看不出钩子没跑 —— 一枚假绿。
-  // 新策略:not-ours 只许"让路再发令"—— 退避后重发**带钩子**的普通提交(锁争用通常几秒内
-  // 就轮到);重试耗尽仍拿不到钩子 ⇒ 非零退出并点名是哪把锁/谁持锁。默认绝不追加 --no-verify。
-  // 唯一人工逃生口是外层显式 `--allow-skip-hooks="<原因>"`(默认 null 完全不生效),
-  // 以及 not-ours 下既有 env 逃生口(默认不生效,保留形状锁);落地记录必须带 gatesRan:false/hookSkipped:true+原因。
+  // 2026-11-23 改定后,not-ours 默认在上面就转成自动跳钩,本支**只在 `--forbid-skip-hooks`
+  // 时才会走到**(旧口径:非 mine 一律不落地)。这里保留的仍是"让路再发令"—— 退避后重发
+  // **带钩子**的普通提交(锁争用通常几秒就轮到);重试耗尽仍拿不到钩子 ⇒ 非零退出并点名持锁方。
   const envSkipHatch =
     verdict.kind === 'not-ours' && process.env.IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS === '1'
   if (verdict.kind === 'not-ours' && !allowSkipHooks && !envSkipHatch) {
@@ -2932,15 +2948,15 @@ if (hookFailed && commitResult.status !== 0) {
       process.exit(1)
     }
   } else {
-    // 显式授权跳钩(2026-11-03 main 侧):唯一入口 = --allow-skip-hooks="<原因>"(默认 null);
-    // not-ours 已在上面的「让路再发令」分支先跑过,走到这里说明人工显式授权(含 not-ours 的 env 逃生口)。
+    // 跳钩授权(2026-11-03 立;2026-11-23 改定默认口径):两个来路 —— 默认自动(auto:…)、
+    // 人工显式(--allow-skip-hooks)与 env 逃生口;正文一律写清是哪一种。
     const skipAuthorization = allowSkipHooks ?? 'env:IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS=1'
     hookSkipReason =
-      `显式授权跳钩 ${JSON.stringify(skipAuthorization)}(归因=${verdict.kind}:${verdict.reason})` +
+      `${isAutoSkip ? '默认自动跳钩' : '显式授权跳钩'} ${JSON.stringify(skipAuthorization)}(归因=${verdict.kind}:${verdict.reason})` +
       `;gatesRan:false,hookSkipped:true,本次提交链未跑钩子`
     log(
       'warn',
-      `⚠️  显式授权跳钩(${JSON.stringify(skipAuthorization)}) —— 仅本枚生效;正文将写入醒目说明`,
+      `${isAutoSkip ? '⚙️  默认自动跳钩' : '⚠️  显式授权跳钩'}(${JSON.stringify(skipAuthorization)}) —— 仅本枚生效;正文将写入醒目说明`,
     )
     const restageResult = restageDeclaredForRetry('跳门重试前')
     if (!restageResult.ok) {
@@ -2949,11 +2965,12 @@ if (hookFailed && commitResult.status !== 0) {
     }
     // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
     rejectIfForeignEnteredIndex('--no-verify 重试')
-    // 正文必须自带一行醒目说明(机主明令):不写进正文 = 审计上分不清"真过钩"与"人工授权跳钩"。
+    // 正文必须自带一行醒目说明(机主口径不变):不写进正文 = 审计上分不清"真过钩"与"跳钩"。
     // 追加在**发令前**,与下面那次 `git commit` 读到的 finalMessage 是同一次绑定。
     finalMessage =
-      `${finalMessage}\n\n人工授权跳钩:${JSON.stringify(skipAuthorization)}` +
-      `(归因=${verdict.kind};守门未在本次提交链上重跑;默认永不跳钩,本枚为人工显式授权)`
+      `${finalMessage}\n\n${isAutoSkip ? '自动跳钩' : '人工授权跳钩'}:${JSON.stringify(skipAuthorization)}` +
+      `(归因=${verdict.kind};守门未在本次提交链上重跑;` +
+      `${isAutoSkip ? '2026-11-23 默认允许跳钩:非 mine 的存量红不再挡提交' : '默认允许跳钩,本枚为人工显式授权'})`
     const r = spawnSync('git', commitArgv(true), {
       encoding: 'utf8',
       cwd: repoRoot,

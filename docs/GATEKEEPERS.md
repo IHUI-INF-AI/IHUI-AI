@@ -581,7 +581,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | post-commit | `HUSKY_SKIP_PUSH=1 git commit` | 跳过自动 push,commit 仅落地本地 |
 | pre-push | `HUSKY_SKIP_TYPECHECK=1 git push` | 跳过全量 typecheck |
 
-> `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。**2026-11-03 起该前提不再构成授权**:默认永不跳钩,见 §6.1。
+> `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。**2026-11-23 口径改为默认允许跳钩**:归因非 mine 时 safe-commit 自动跳并留痕(`auto:…`),`--forbid-skip-hooks` 退回旧口径;pre-push 门批次失败默认继续推送并留痕 `.ihui-agent/state/pre-push-skips.jsonl`,阻断用 `IHUI_PRE_PUSH_SKIP_DEFAULT=forbid`。见 §6.1。
 
 ### 6.3 跨端门应急跳过变量(2026-11-03 五门 / 2026-11-05 补三门 / 2026-11-06 补 86 号)
 

@@ -3,12 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 2026-11-03 机主明令:「不许 --no-verify」。本文件钉住 safe-commit 的**默认永不跳钩**。
- *
- * 旧行为(已废止):钩子判红 → 归因层判 not-ours / env-blocked / unattributed → 自跑
- * `guardian-runner --staged` → 仍红就 `git commit --no-verify` 落地。它把"钩子里的门"与
- * "自跑的门"混为一谈(lint-staged 与批外专项门根本不在自跑集合里),且正文里只剩 attestation,
- * 审计上分不清"真过钩"与"跳钩"。
+ * 2026-11-23 机主改定:默认**允许**跳钩(推翻 2026-11-03「不许 --no-verify」的默认口径)。
+ * 本文件原为「默认永不跳钩」的形状锁,现改钉**新口径的两侧**:
+ *   NS3  钩子判红且归因非 mine ⇒ 默认自动 `--no-verify` 落地,正文写「自动跳钩」;
+ *   NS3b 同一夹具加 `--forbid-skip-hooks` ⇒ 必须退回旧口径(拒绝、不落地)。
+ * 底线没动:归因 mine / commit-msg 未判定一律不跳;跳钩必须留痕。
  *
  * 四条用例对应用户要求(NS4m 是给 NS4 配的变异对照,不另立需求):
  *   NS1 锁冲突耗尽 ⇒ exit≠0、不落地、不跳钩(旧形态很难覆盖:旧代码在锁分支已拒绝,但
@@ -267,31 +266,35 @@ test('NS2 锁在重试窗口内释放 ⇒ 指数退避重试成功并正常提�
   assert.match(git(dir, 'show', '--name-only', '--format='), /b\.txt/)
 })
 
-test('NS3 钩子判红且归因非 mine ⇒ 默认拒绝;显式 --allow-skip-hooks 才跳且正文有标记', (t) => {
+test('NS3 钩子判红且归因非 mine ⇒ 默认自动跳钩落地且正文留痕;--forbid-skip-hooks 退回旧口径拒绝', (t) => {
   const dir = makeRepo(t)
   const hook = join(dir, '.git', 'hooks', 'pre-commit')
   writeFileSync(hook, '#!/bin/sh\nexit 1\n')
   chmodSync(hook, 0o755)
   writeFileSync(join(dir, 'c.txt'), 'c\n')
 
-  const refused = runSafe(dir, { files: ['c.txt'], message: 'docs: ns3' })
-  const out1 = outputOf(refused)
-  assert.notEqual(refused.status, 0, out1)
-  assert.match(out1, /默认永不跳钩/)
-  assert.match(out1, /请等待并发会话释放索引/)
-  assert.equal(countCommits(dir), 1, '默认拒绝时不得落地')
-
-  const allowed = runSafe(dir, {
-    files: ['c.txt'],
-    extraArgs: ['--allow-skip-hooks=fixture: 验证显式授权'],
-    message: 'docs: ns3',
-  })
-  const out2 = outputOf(allowed)
-  assert.equal(allowed.status, 0, out2)
+  // ① 默认口径(2026-11-23):非 mine 的红不再挡提交,落地且正文写「自动跳钩」。
+  const auto = runSafe(dir, { files: ['c.txt'], message: 'docs: ns3' })
+  const out1 = outputOf(auto)
+  assert.equal(auto.status, 0, `默认口径下必须落地(非 mine 不挡提交):${out1}`)
+  assert.match(out1, /默认自动跳钩/, out1)
   const body = git(dir, 'log', '-1', '--format=%B')
-  assert.match(body, /人工授权跳钩/)
-  assert.match(body, /验证显式授权/)
+  assert.match(body, /自动跳钩/, body)
+  assert.match(body, /归因=/, body)
   assert.equal(git(dir, 'log', '-1', '--format=%s'), 'docs: ns3')
+  assert.equal(countCommits(dir), 2, '默认口径应产生第二枚提交')
+
+  // ② 反向牙:同一夹具 + --forbid-skip-hooks ⇒ 必须退回旧口径(拒绝、不落地)。
+  writeFileSync(join(dir, 'e.txt'), 'e\n')
+  const refused = runSafe(dir, {
+    files: ['e.txt'],
+    message: 'docs: ns3-forbid',
+    extraArgs: ['--forbid-skip-hooks'],
+  })
+  const out2 = outputOf(refused)
+  assert.notEqual(refused.status, 0, out2)
+  assert.match(out2, /拒绝自动跳钩/, out2)
+  assert.equal(countCommits(dir), 2, '退回旧口径时不得落地')
 })
 
 test('NS4 正常过钩路径:整段 stdout 与 HEAD 版逐字等值 + Step 1 恒路径作用域 + 对照钉历史前像', (t) => {
