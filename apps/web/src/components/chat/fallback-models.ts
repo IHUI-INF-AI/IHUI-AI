@@ -3,10 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 兜底模型列表 — 共享层 re-export(AGENTS.md §3 共享层优先)
+ * 平台展示名解析 — 纯函数模块(零依赖,可被 RSC 直接 import)
  *
  * 2026-08-04 Phase E 收敛:FALLBACK_MODELS + FallbackModel 已提取到 @ihui/shared,
- *   4 端(web/extension/mobile-rn/cli)统一 import,消除重复定义。
+ *   需要 FALLBACK_MODELS 的客户端组件直接从 @ihui/shared 取;本文件禁止 import 根桶(会把带 useEffect 的客户端模块带进 RSC)。
  *   本文件仅保留 VENDOR_LABEL(web 端 model-selector.tsx 本地使用,
  *   覆盖 /llm/models 动态拉取的所有 vendor + ModelsNav PROVIDER_GROUPS 全部 80+ 厂商),
  *   使分组下拉菜单中的厂商名均能通过 t() 本地化,避免回退到原始 provider 字符串。
@@ -16,7 +16,6 @@
  *   - 其他需要展示模型列表的 SSR 组件的最终降级
  */
 
-export { FALLBACK_MODELS, type FallbackModel } from '@ihui/shared'
 
 /** 厂商代码 → i18n key(覆盖 /llm/models 动态拉取的所有 vendor + ModelsNav PROVIDER_GROUPS 全部 80+ 厂商)
  * 渲染处统一走 resolveVendorDisplayName();未知厂商回退到美化后的 code(内部 `_relay` 后缀一律剥掉) */

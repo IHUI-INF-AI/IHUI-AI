@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Settings } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
-import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
+import { FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
