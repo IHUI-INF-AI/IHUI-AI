@@ -54,6 +54,21 @@ const updateBodySchema = z.object({
   relayDisplayName: z.string().max(256).nullable().optional(),
 })
 
+/**
+ * 上架前置校验(2026-11-23):只有全局配置(owner_uuid IS NULL)下的模型行
+ * 才允许 is_relay_public=true。owner 名下的 BYOK/号池行即使被历史数据标成
+ * public,也必须在所有公开目录/路由被过滤掉;这里从写入侧堵住复发。
+ */
+async function isGlobalConfigModelRow(modelRowId: number): Promise<boolean> {
+  const [row] = await dbRead
+    .select({ ownerUuid: aiModelConfig.ownerUuid })
+    .from(aiModelConfigModels)
+    .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+    .where(eq(aiModelConfigModels.id, modelRowId))
+    .limit(1)
+  return row?.ownerUuid === null
+}
+
 /** BYOK 抽成率更新(0~1,3 位小数;0.10=10%) */
 const commissionUpdateSchema = z.object({
   byokCommissionRate: z
@@ -198,6 +213,11 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     const { modelRowId, relayPriceMultiplier, relaySortOrder, relayDisplayName } = parsed.data
 
     try {
+      if (!(await isGlobalConfigModelRow(modelRowId))) {
+        return reply
+          .status(400)
+          .send(error(400, '只有全局配置(owner_uuid 为空)下的模型才能上架到公开运营池'))
+      }
       const [updated] = await db
         .update(aiModelConfigModels)
         .set({
@@ -227,6 +247,12 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
 
     const setData: Record<string, unknown> = { updatedAt: new Date() }
     const d = parsed.data
+    const rowId = Number(p.data.id)
+    if (d.isRelayPublic === true && !(await isGlobalConfigModelRow(rowId))) {
+      return reply
+        .status(400)
+        .send(error(400, '只有全局配置(owner_uuid 为空)下的模型才能上架到公开运营池'))
+    }
     if (d.isRelayPublic !== undefined) setData.isRelayPublic = d.isRelayPublic
     if (d.relayPriceMultiplier !== undefined) setData.relayPriceMultiplier = d.relayPriceMultiplier
     if (d.relaySortOrder !== undefined) setData.relaySortOrder = d.relaySortOrder
@@ -275,6 +301,12 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiModelConfigModels.id, Number(p.data.id)))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '模型行不存在'))
+      // 2026-11-23:从上架切到下架永远允许;反向(下架→上架)必须是全局配置
+      if (!existing.isRelayPublic && !(await isGlobalConfigModelRow(Number(p.data.id)))) {
+        return reply
+          .status(400)
+          .send(error(400, '只有全局配置(owner_uuid 为空)下的模型才能上架到公开运营池'))
+      }
 
       const [updated] = await db
         .update(aiModelConfigModels)

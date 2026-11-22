@@ -4027,7 +4027,13 @@ async def build_model_catalog() -> list[dict[str, Any]]:
     时自举目录(否则要等页面首次访问才登记目录,重启后死模型会短暂重现)。
     """
     default_models = _load_default_models()
-    # 从数据库加载额外模型(ai_model_config_models 表,is_relay_public=true)
+    # 从数据库加载额外模型(ai_model_config_models 表,is_relay_public=true)。
+    # 2026-11-23 根治私有号池泄漏:公共目录只认「全局配置 + 显式公开」两条同时成立。
+    #   ① c.owner_uuid IS NULL:owner 名下的配置是个人 BYOK/号池,不论 is_relay_public
+    #      被历史数据写成什么,都不进公共目录(否则个人模型会以平台模型身份露给新用户);
+    #   ② 去掉 `OR 'workbuddy' = ANY(m.tags)` 后门:WorkBuddy 等私有号池行过去靠 tag
+    #      绕过 is_relay_public=false 进入 /llm/models,新用户因此看见并试图调用。
+    #      要公开 WorkBuddy,正确动作是把全局配置行显式置 is_relay_public=true,不是留 SQL 特例。
     try:
         from ..core.db_pool import get_shared_pool
         pool = await get_shared_pool()
@@ -4040,7 +4046,8 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                    FROM ai_model_config_models m
                    JOIN ai_model_config c ON m.config_id = c.id
                    WHERE m.enabled = true AND c.enabled = true
-                     AND (m.is_relay_public = true OR 'workbuddy' = ANY(m.tags))
+                     AND c.owner_uuid IS NULL
+                     AND m.is_relay_public = true
                    ORDER BY c.sort_order NULLS LAST, m.relay_sort_order"""
             )
             try:

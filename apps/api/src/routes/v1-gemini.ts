@@ -20,9 +20,9 @@
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { Writable } from 'node:stream'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { aiModelConfigModels } from '@ihui/database'
+import { aiModelConfig, aiModelConfigModels } from '@ihui/database'
 import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { getV1ChatCore } from './v1-public.js'
@@ -225,8 +225,15 @@ const v1GeminiRoutes: FastifyPluginAsync = async (server) => {
           relayDisplayName: aiModelConfigModels.relayDisplayName,
         })
         .from(aiModelConfigModels)
+        .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
         .where(
-          and(eq(aiModelConfigModels.enabled, true), eq(aiModelConfigModels.isRelayPublic, true)),
+          and(
+            eq(aiModelConfigModels.enabled, true),
+            eq(aiModelConfigModels.isRelayPublic, true),
+            eq(aiModelConfig.enabled, true),
+            // 2026-11-23:公开 ListModels 只列全局配置,owner 名下配置不外露
+            isNull(aiModelConfig.ownerUuid),
+          ),
         )
       // 跨上游去重(2026-09-13):同一 modelId 多 provider 上架只展示一条
       const seenModelIds = new Set<string>()

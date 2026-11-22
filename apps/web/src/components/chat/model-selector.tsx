@@ -271,6 +271,30 @@ function lookupKnownMeta(modelId: string): Partial<ModelOption> {
   return {}
 }
 
+/**
+ * 号池模型 → 展示倍率(2026-11-23 根治「号池模型全显示免费」)。
+ *
+ * 输入优先级:后端下发的 tier(与真实扣分 `inferPointsMultiplier` 同源)
+ * → 已知模型元数据(按 provider 限定名查,避免裸名 `auto` 命中 `openrouter/auto`)
+ * → 前端按 provider 限定 id 推断。**任何路径都不再回落 0**,只有真正
+ * zero_cost 的模型(ollama/llama/pollinations/...)才允许显示免费。
+ */
+export function resolvePoolPointsMeta(
+  m: Pick<PoolChatModel, 'id' | 'provider' | 'pointsMultiplier'>,
+): Pick<ModelOption, 'pointsMultiplier' | 'locked'> {
+  const qualifiedId = m.id.includes('/') ? m.id : `${m.provider}/${m.id}`
+  const known = lookupKnownMeta(qualifiedId)
+  const tier =
+    typeof m.pointsMultiplier === 'number' ? m.pointsMultiplier : inferPointsMultiplier(qualifiedId)
+  return {
+    pointsMultiplier:
+      typeof known.pointsMultiplier === 'number'
+        ? known.pointsMultiplier
+        : tierToDisplayMultiplier(tier).value,
+    locked: known.locked,
+  }
+}
+
 /** 积分消耗倍数前端兜底推断(API 未返回 pointsMultiplier 时按 modelId 关键词推断)
  *  5 档:tier 0=免费 / 1=经济 / 3=标准 / 10=高级 / 30=旗舰 */
 function inferPointsMultiplier(modelId: string): number {
@@ -812,23 +836,28 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
  * 一屏旧代名,而且真点了会被后端拒绝。演示档位常量保留给演示场景用,不进生产列表。 */
 function createSeedOptions(): ModelOption[] {
   const seed = [...FALLBACK_MODELS]
-  return seed.map((m): ModelOption => ({
-    value: m.value,
-    label: m.label,
-    vendor: m.vendor,
-    descriptionKey: m.descriptionKey,
-    // FallbackModel 上 5 字段已显式提供(2026-08-06),透传
-    pointsMultiplier: m.pointsMultiplier ?? inferPointsMultiplier(m.value),
-    memberDiscountEligible: m.memberDiscountEligible,
-    isOfficial: m.isOfficial,
-    subsidy: m.subsidy,
-    locked: m.locked,
-    // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
-    category: 'chat',
-    tier: 'latest',
-    // 2026-11-11 立:硬编码种子从未做过连通性探测,一律按未验证展示
-    verified: false,
-  }))
+  return seed.map((m): ModelOption => {
+    // FallbackModel.pointsMultiplier 是 5 档 tier(2026-11-23),展示侧统一映射成小数;
+    // 付费兜底档不再写 0,否则接口不可用时会一屏「免费」。
+    const tier = m.pointsMultiplier ?? inferPointsMultiplier(m.value)
+    const display = tierToDisplayMultiplier(tier)
+    return {
+      value: m.value,
+      label: m.label,
+      vendor: m.vendor,
+      descriptionKey: m.descriptionKey,
+      pointsMultiplier: display.value,
+      memberDiscountEligible: m.memberDiscountEligible,
+      isOfficial: m.isOfficial,
+      subsidy: m.subsidy,
+      locked: m.locked ?? display.locked,
+      // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
+      category: 'chat',
+      tier: 'latest',
+      // 2026-11-11 立:硬编码种子从未做过连通性探测,一律按未验证展示
+      verified: false,
+    }
+  })
 }
 /**
  * 用"已判死清单"把一批选项标死(2026-11-18 立)。
@@ -918,8 +947,8 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
  * 平台模型 + 个人号池模型合并(2026-11-10 立)。
  *
  * 平台登记行优先(带展示名/定价/代次,可参与折叠与筛选);号池独有的模型
- * (未登记,id 形如 `<平台>/<上游模型名>`)才追加到末尾。pointsMultiplier=0:
- * 走的是用户自己的平台账号,不产生平台积分消耗,显示为免费档。
+ * (未登记,id 形如 `<平台>/<上游模型名>`)才追加到末尾。2026-11-23 起
+ * 号池倍率与平台模型/真实扣分同源,不再默认免费。
  */
 function withPoolModels(
   base: ModelOption[],
@@ -955,9 +984,11 @@ function withPoolModels(
       // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
-      // 2026-11-13 改:倍率以平台登记行为准(公共池调用会真实扣积分,不能再硬编码免费档);
-      // 未登记指的上游补缺模型才回落 0(无定价,不是"免费")
-      pointsMultiplier: m.pointsMultiplier ?? 0,
+      // 2026-11-23 改:号池模型与平台模型同源计价 —— 后端已按
+      // `inferPointsMultiplier(id)` 下发 tier;旧服务端缺省时前端按 provider 限定 id
+      // 推断。**不再用 `?? 0` 兜底**:0 只属于真正 zero_cost 的模型,否则会把付费模型
+      // 渲染成"免费",与真实扣分(`chargePointsForCall`)自相矛盾。
+      ...resolvePoolPointsMeta(m),
       // 真实单价随行下发:倍率只作官方对齐档位,横比模型以这两个数为准
       ...(m.inputPricePerMillion !== undefined && m.outputPricePerMillion !== undefined
         ? {

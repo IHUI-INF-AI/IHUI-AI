@@ -208,6 +208,28 @@ describe('listUserPoolModels 连通过滤', () => {
     expect(typeof items[0].verifiedAt).toBe('number')
   })
 
+  it('预置与上游条目都下发积分档位:付费模型不再默认免费', async () => {
+    // 2026-11-23 根治「号池模型全显示免费」:pointsMultiplier 与真实扣分
+    // inferPointsMultiplier 同源,按 5 档 tier 下发,前端再映射成展示小数。
+    presetRows = [
+      { providerCode: 'trae', modelId: 'glm-5.3', displayName: 'GLM-5.3' },
+      { providerCode: 'trae', modelId: 'ollama/llama3', displayName: 'Llama 3' },
+    ]
+    detailedResult = {
+      ok: true,
+      models: [{ id: 'glm-5.3' }, { id: 'ollama/llama3' }, { id: 'hunyuan-2.0-thinking' }],
+    }
+    const items = await listUserPoolModels('u-points')
+    const byId = new Map(items.map((m) => [m.id, m]))
+
+    // 默认经济档(1),不是 0;前端映射后为 0.05x
+    expect(byId.get('glm-5.3')?.pointsMultiplier).toBe(1)
+    // 旗舰思考档(30);前端映射后为 0.77x
+    expect(byId.get('trae/hunyuan-2.0-thinking')?.pointsMultiplier).toBe(30)
+    // 真正 zero_cost 的本地模型才允许 0
+    expect(byId.get('ollama/llama3')?.pointsMultiplier).toBe(0)
+  })
+
   it('缓存命中沿用上一轮 ok 与清单:不再打上游', async () => {
     presetRows = [
       { providerCode: 'trae', modelId: 'Doubao-A', displayName: '豆包A' },

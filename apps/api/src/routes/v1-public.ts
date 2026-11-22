@@ -387,6 +387,9 @@ async function fetchModels(
           eq(aiModelConfigModels.isRelayPublic, true),
           eq(aiModelConfigModels.enabled, true),
           eq(aiModelConfig.enabled, true),
+          // 2026-11-23 根治私有配置泄漏:公开目录只认全局配置(owner_uuid IS NULL)。
+          // owner 名下的 BYOK/号池行即使历史数据 is_relay_public=true 也不得对外。
+          isNull(aiModelConfig.ownerUuid),
         ),
       )
       .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
@@ -529,6 +532,8 @@ async function fetchModels(
               and(
                 eq(aiModelConfigModels.isRelayPublic, true),
                 or(eq(aiModelConfigModels.enabled, false), eq(aiModelConfig.enabled, false)),
+                // 2026-11-23:不可见清单同样不得暴露 owner 名下配置的模型名
+                isNull(aiModelConfig.ownerUuid),
               ),
             )
             .limit(200)
@@ -1045,9 +1050,7 @@ async function streamChatCompletion(
         const retryableEnvelope = stats.envelopeError?.retryable === true
         if (retryableEnvelope && !channelWroteToClient && envelopeAttempt < 2) {
           envelopeAttempt += 1
-          await new Promise((resolve) =>
-            setTimeout(resolve, envelopeAttempt === 1 ? 1_000 : 2_000),
-          )
+          await new Promise((resolve) => setTimeout(resolve, envelopeAttempt === 1 ? 1_000 : 2_000))
           fwd = await forwardToChannel(fwdRequest)
           continue
         }

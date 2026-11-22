@@ -32,6 +32,7 @@ import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { classifyPoolModels, poolModelClassKey } from './model-catalog-classify-client.js'
+import { inferPointsMultiplier } from './points-multiplier.js'
 import {
   credentialShapeIssue,
   detectPhoneMask,
@@ -2369,6 +2370,16 @@ export interface UserPoolModelItem {
   /** 该结论的核对时刻(epoch ms) */
   verifiedAt: number
   /**
+   * 积分消耗倍数(5 档 tier:0 免费 / 1 经济 / 3 标准 / 10 高级 / 30 旗舰)。
+   *
+   * 2026-11-23 根治「号池模型全显示免费」:本字段与平台目录
+   * `/llm/models` 的 `points_multiplier`、真实扣分 `chargePointsForCall`
+   * 共用同一个 `inferPointsMultiplier(modelId)`。预置行与上游补缺行都按模型 id
+   * 推断后下发 —— 号池不是「免费特区」,除真正 zero_cost 的模型外一律有档位。
+   * 前端用 `tierToDisplayMultiplier` 映射成 0.05x/0.12x/0.77x 等展示小数。
+   */
+  pointsMultiplier?: number
+  /**
    * 用途分类与代次档位(2026-11-20 立,ai-service /internal/model-catalog/classify 下发):
    * 选择器据此把旧代号池模型收进「历史模型」折叠区,与平台目录(/llm/models)同口径。
    * 判不了(结果缺失)时留空,前端按 latest+chat 兜底 —— 宁可多显示也不误藏。
@@ -2515,6 +2526,8 @@ export function poolModelHiddenReason(
  * 预置 = 该平台在 ai_model_config 的启用模型行(有展示名、有定价,请求天然命中反查);
  * 上游 = 适配器 listModels 现拉(补上尚未登记的模型,靠 `<平台>/<名>` 前缀反查)。
  * 同 id 预置优先(展示名/定价更可信),上游只补缺。
+ * 2026-11-23:每条都按模型 id 推断 pointsMultiplier(与真实扣分同源),
+ * 不再让号池模型在展示侧默认为免费。
  *
  * 只读 + 不抛:任何一段失败都退化为"少几条模型",绝不让选择器打不开。
  */
@@ -2632,6 +2645,7 @@ export async function listUserPoolModels(
         source: 'preset',
         verified: true,
         verifiedAt: verifiedAtMs,
+        pointsMultiplier: inferPointsMultiplier(preset.id),
       })
     }
     for (const upstreamId of info.ids) {
@@ -2659,6 +2673,7 @@ export async function listUserPoolModels(
         source: 'upstream',
         verified: true,
         verifiedAt: verifiedAtMs,
+        pointsMultiplier: inferPointsMultiplier(id),
       })
     }
     // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效);ok 随清单一起缓存,

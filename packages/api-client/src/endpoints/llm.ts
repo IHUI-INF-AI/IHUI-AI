@@ -806,8 +806,11 @@ export interface PoolChatModel {
   /** 该结论的核对时刻(epoch ms),前端可据此展示"刚刚核对" */
   verifiedAt?: number
   /**
-   * 积分消耗倍数(小数口径,如 0.15 = 0.15x;0 = 免费档)。
-   * 仅预设行下发;上游补缺行无登记价,缺省 ⇒ 前端按免费档展示。
+   * 积分消耗倍数(5 档 tier:0 免费 / 1 经济 / 3 标准 / 10 高级 / 30 旗舰)。
+   *
+   * 2026-11-23 改语义:与平台目录 `/llm/models` 的 `points_multiplier` 同源
+   * (后端按 `inferPointsMultiplier(modelId)` 下发),前端用 tier 映射成展示小数。
+   * 预置行与上游补缺行都会带值;旧服务端缺省时前端按模型 id 推断,不再默认免费。
    */
   pointsMultiplier?: number
   /** 真实单价(元/百万 token,输入侧)。与 outputPricePerMillion 同时存在时展示 */

@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url'
 import type { FastifyPluginAsync } from 'fastify'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
-import { and, desc, eq, gte, isNotNull, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, gte, isNotNull, isNull, sql, type SQL } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiModelConfig, aiModelConfigModels, llmCallLogs } from '@ihui/database'
 import { error, success } from '../utils/response.js'
@@ -323,6 +323,8 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
                   eq(aiModelConfigModels.isRelayPublic, true),
                   eq(aiModelConfigModels.enabled, true),
                   eq(aiModelConfig.enabled, true),
+                  // 2026-11-23:公开状态页只统计全局配置,避免个人号池模型混入公开清单
+                  isNull(aiModelConfig.ownerUuid),
                 ),
               )
             // 查最近 5 分钟统计(按 model 聚合)

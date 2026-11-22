@@ -30,11 +30,10 @@ export interface FallbackModel {
   /** 描述 i18n 键(可选) */
   descriptionKey?: string
   /**
-   * 积分消耗倍数(2026-08-06 立,对齐 workbuddy 风格)
-   * - 小数显示(如 0.77x / 0.05x)
-   * - 0 = 免费模型(zero_cost provider / 本地)
-   * - 未设置时由 model_id 关键词自动推断(0/1/3/10/30 五档)
-   * - 显示时通过 tierToDisplayMultiplier 映射为小数
+   * 积分消耗倍数(5 档 tier:0 免费 / 1 经济 / 3 标准 / 10 高级 / 30 旗舰)。
+   * 2026-11-23 改语义:此前这里直接写展示小数(0.77x),与后端 `points_multiplier`
+   * 的 tier 口径混用,付费兜底档被写成 0 后一律渲染成「免费」。现在统一存 tier,
+   * 展示侧由 model-selector 的 tierToDisplayMultiplier 映射;缺省按 model_id 推断。
    */
   pointsMultiplier?: number
   /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
@@ -59,29 +58,25 @@ export const FALLBACK_MODELS: FallbackModel[] = [
     value: 'ihui/Auto-Model',
     label: '智汇AI Auto',
     vendor: 'ihui_relay',
-    // 自动路由模式,无固定积分倍数
-    pointsMultiplier: 0,
+    // 自动路由:真实扣分按 `ihui/auto-model` 档位(3),不再写 0 冒充免费
     isOfficial: true,
   },
   {
     value: 'ihui/glm-5.3',
     label: 'GLM-5.3 (智汇AI)',
     vendor: 'ihui_relay',
-    pointsMultiplier: 0,
     isOfficial: true,
   },
   {
     value: 'ihui/deepseek-v4-flash-0731',
     label: 'DeepSeek V4 Flash (智汇AI)',
     vendor: 'ihui_relay',
-    pointsMultiplier: 0,
     isOfficial: true,
   },
   {
     value: 'ihui/gpt-5.6',
     label: 'GPT-5.6 (智汇AI)',
     vendor: 'ihui_relay',
-    pointsMultiplier: 0,
     isOfficial: true,
   },
   // === Cloudflare Workers AI(免费 zero_cost,无需 key)===

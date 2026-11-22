@@ -24,7 +24,7 @@
  * 缓存价 + 高峰时段提示 + "获取 API Key"快捷入口。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { eq, and, sql, desc } from 'drizzle-orm'
+import { eq, and, sql, desc, isNull } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiModelConfigModels, aiModelConfig, aiPricing, plans } from '@ihui/database'
 import { normalizeModelId } from '@ihui/shared'
@@ -138,6 +138,8 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
             eq(aiModelConfigModels.isRelayPublic, true),
             eq(aiModelConfigModels.enabled, true),
             eq(aiModelConfig.enabled, true),
+            // 2026-11-23:公开模型市场只列全局配置,owner 名下配置不外露
+            isNull(aiModelConfig.ownerUuid),
           ),
         )
         .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
@@ -306,6 +308,8 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
             eq(aiModelConfigModels.isRelayPublic, true),
             eq(aiModelConfigModels.enabled, true),
             eq(aiModelConfig.enabled, true),
+            // 2026-11-23:渠道聚合同样只统计全局配置
+            isNull(aiModelConfig.ownerUuid),
           ),
         )
         .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)

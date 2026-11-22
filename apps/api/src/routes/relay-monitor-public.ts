@@ -27,7 +27,7 @@
  *      不查 api_key_enc、base_url、key_prefix、balance、remark 等敏感字段。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiRelayKeyPool, aiModelConfig, aiModelConfigModels, llmCallLogs } from '@ihui/database'
 import { success } from '../utils/response.js'
@@ -163,6 +163,8 @@ async function buildStatusPayload(): Promise<{
         eq(aiModelConfigModels.isRelayPublic, true),
         eq(aiModelConfigModels.enabled, true),
         eq(aiModelConfig.enabled, true),
+        // 2026-11-23:公开监控计数只算全局配置,避免个人号池模型被计入 "公开上架"
+        isNull(aiModelConfig.ownerUuid),
       ),
     )
     .groupBy(aiModelConfig.providerCode)

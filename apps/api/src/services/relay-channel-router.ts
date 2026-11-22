@@ -24,7 +24,7 @@
  *
  * 注意:本服务只负责选 key + 熔断状态,不调用上游(调用链路由由 vendor-caller-service 等负责)
  */
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, isNull } from 'drizzle-orm'
 import IORedis, { type Redis } from 'ioredis'
 import { dbRead } from '../db/index.js'
 import { config } from '../config/index.js'
@@ -734,7 +734,15 @@ export async function selectChannelCandidates(
       baseUrl: aiModelConfig.baseUrl,
     })
     .from(aiModelConfig)
-    .where(and(inArray(aiModelConfig.id, configIds), eq(aiModelConfig.enabled, true)))
+    .where(
+      and(
+        inArray(aiModelConfig.id, configIds),
+        eq(aiModelConfig.enabled, true),
+        // 2026-11-23:公开调用只能落在全局配置(owner_uuid IS NULL);
+        // owner 名下的 BYOK/号池配置即使被历史数据标成 public 也不得接公网流量。
+        isNull(aiModelConfig.ownerUuid),
+      ),
+    )
   if (configs.length === 0) return []
 
   /** providerCode → 首个启用 config(同一 provider 多 config 时取第一条;key 级覆盖可改 baseUrl) */
