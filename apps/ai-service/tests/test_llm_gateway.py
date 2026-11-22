@@ -35,6 +35,18 @@ def test_zero_cost_model_detection_covers_keyless_providers():
     assert _is_zero_cost_model("unknown/vendor-model") is False
 
 
+def test_pollinations_uses_registry_default_base_when_env_config_missing(monkeypatch):
+    """免费厂商未写进 LLM_PROVIDERS 时,api_base 必须回落到登记默认地址。
+
+    2026-11-23 生产实测:api_base=None ⇒ LiteLLM 打 api.openai.com ⇒ 5xx/超时 109s。
+    """
+    from app.core.llm_gateway import LLMGateway
+
+    _, base, litellm_model = LLMGateway._resolve_provider("pollinations/openai-fast")
+    assert base == "https://text.pollinations.ai/openai"
+    assert litellm_model == "openai/openai-fast"
+
+
 @pytest.fixture(autouse=True)
 def _isolate_auto_model_routing(monkeypatch):
     """隔离跨厂商 auto 路由(2026-08-12 立)。

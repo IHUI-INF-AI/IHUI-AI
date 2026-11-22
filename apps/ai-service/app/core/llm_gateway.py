@@ -712,16 +712,25 @@ def _is_zero_cost_model(model: str) -> bool:
     导致目录里明明在展示、真实调用却必然 422。这里只回答"是不是 zero_cost",
     不做任何网络探测;是否真能调通仍由上游返回决定。
     """
+    provider = _free_provider_entry(_explicit_provider_code_of(model) or "")
+    return bool(provider and provider.zero_cost)
+
+
+def _free_provider_entry(provider_code: str) -> Any | None:
+    """按 provider_code 取免费 provider 登记项;取不到返回 None。
+
+    同一份 `free_provider_registry` 既回答 zero_cost,也提供无 key 厂商的默认
+    api_base(如 pollinations 的 `https://text.pollinations.ai/openai`)。
+    `settings.get_provider_config` 对未写进 LLM_PROVIDERS 的免费厂商只返回空配置,
+    旧代码因此把 api_base 丢成 None、请求打到 api.openai.com 上,表现为 5xx/超时。
+    """
     try:
         # 延迟导入:free_provider_registry 与本模块无循环依赖,但保持模块加载轻量。
         from ..services.free_provider_registry import free_provider_registry
 
-        provider = free_provider_registry.get_by_code(
-            _explicit_provider_code_of(model) or ""
-        )
-        return bool(provider and provider.zero_cost)
+        return free_provider_registry.get_by_code(provider_code)
     except Exception:
-        return False
+        return None
 
 
 def _estimate_cost_usd(model: str, usage: dict[str, Any] | None) -> float | None:
@@ -2369,7 +2378,11 @@ class LLMGateway:
         if m.startswith("pollinations/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("pollinations")
-            return None, cfg.api_base, f"openai/{real_model}"
+            # LLM_PROVIDERS 未登记该免费厂商时 api_base 为空,必须回落到
+            # free_provider_registry 的默认地址,否则 LiteLLM 会打 api.openai.com。
+            entry = _free_provider_entry("pollinations")
+            base = cfg.api_base or (entry.default_base_url if entry else None)
+            return None, base, f"openai/{real_model}"
         if m.startswith("llm7/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("llm7")
