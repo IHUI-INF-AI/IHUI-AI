@@ -14,6 +14,14 @@ from unittest.mock import AsyncMock, MagicMock
 # 确保 app 包可导入
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# 2026-11-01:Settings 是构造期快照(config.Settings() 在 import 时一次性读环境变量),
+# 以下两个默认值必须早于 `from app.core.config import settings` 落下;否则单例先按
+# production / 空 CORS_ORIGIN 落快照,模块级 `from app.main import app` 的用例在收集期
+# 就被 validate_cors_origin / validate_secrets 拦死(CI 无 .env 补值)。
+# 环境变量优先级高于 pydantic 的 .env,开发者显式配置不会被覆盖。
+os.environ.setdefault("CORS_ORIGIN", "http://localhost:8801")
+os.environ.setdefault("NODE_ENV", "development")
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -207,20 +215,10 @@ def pytest_collection_modifyitems(session, config, items):
 #      省掉每次构造 Store 的一次独占锁 pragma。
 os.environ.setdefault("IHUI_SQLITE_SYNCHRONOUS", "OFF")
 
-# CORS 源在 create_app() 建中间件时读取,必须早于 app.main 的惰性导入设置。
-# CI 没有 .env;不给默认值会让 test_cors_short_circuit 的 401/预检断言
-# 变成"源不在 allow_origins"的失败(测试隐性依赖本机 .env)。
-# 环境变量优先级高于 pydantic 的 .env,故开发者显式配置不会被覆盖。
-os.environ.setdefault("CORS_ORIGIN", "http://localhost:8801")
+# NODE_ENV / CORS_ORIGIN 默认值已上提到本文件顶部(settings 导入之前),见该处注释。
 
-# 2026-11-04:同一条时序约束也适用于 NODE_ENV —— 2026-11-01 起 Settings.node_env 缺省
-# 改成 "production",而 app.main 在**模块导入期**就执行 create_app() → settings.validate_secrets(),
-# 生产档缺 JWT_SECRET 会当场 ValueError。测试文件(如 tests/test_health.py)在模块级
-# `from app.main import app`,即早于 autouse fixture `_isolate_jwt_auth` 的 monkeypatch;
-# CI 又没有 .env 补密钥 ⇒ 收集期整片 ERROR。这里在 conftest 加载期(早于任何测试模块导入)
-# 把进程标成 development,与 _isolate_jwt_auth 的既有语义一致(该 fixture 仍逐用例再钉一次);
+# 2026-11-04:生产档缺 JWT_SECRET 会当场 ValueError;测试进程刻意不配密钥,
 # 生产档必须拒绝空密钥的行为由 tests/test_auth_failclosed_defaults.py 用 fresh Settings() 独立覆盖。
-os.environ.setdefault("NODE_ENV", "development")
 
 # 2026-09-20 性能立:app.main 导入税 ~6.2s(LangChain/LiteLLM/Playwright 全链)。
 # 不再模块级 import,改为首次使用时惰性加载:
