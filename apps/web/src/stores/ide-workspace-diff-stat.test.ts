@@ -13,10 +13,38 @@ import { mapGitDiffStatToDiffFiles } from './ide-workspace'
 describe('mapGitDiffStatToDiffFiles', () => {
   it('状态与统计原样落到 DiffFile', () => {
     const files = mapGitDiffStatToDiffFiles([
-      { path: 'src/a.ts', status: 'modified', additions: 3, deletions: 1 },
-      { path: 'docs/readme.md', status: 'added', additions: 10, deletions: 0 },
-      { path: 'old.txt', status: 'deleted', additions: 0, deletions: 8 },
-      { path: 'renamed.ts', status: 'renamed', additions: 2, deletions: 2 },
+      {
+        path: 'src/a.ts',
+        status: 'modified',
+        additions: 3,
+        deletions: 1,
+        staged: true,
+        unstaged: false,
+      },
+      {
+        path: 'docs/readme.md',
+        status: 'added',
+        additions: 10,
+        deletions: 0,
+        staged: true,
+        unstaged: false,
+      },
+      {
+        path: 'old.txt',
+        status: 'deleted',
+        additions: 0,
+        deletions: 8,
+        staged: false,
+        unstaged: true,
+      },
+      {
+        path: 'renamed.ts',
+        status: 'renamed',
+        additions: 2,
+        deletions: 2,
+        staged: false,
+        unstaged: true,
+      },
     ])
     expect(files.map((f) => [f.filename, f.status, f.additions, f.deletions])).toEqual([
       ['src/a.ts', 'modified', 3, 1],
@@ -28,12 +56,41 @@ describe('mapGitDiffStatToDiffFiles', () => {
 
   it('id 带 diff- 前缀,语言按扩展名映射,未知扩展名回落 text', () => {
     const [ts, unknown] = mapGitDiffStatToDiffFiles([
-      { path: 'src/a.ts', status: 'modified', additions: 1, deletions: 0 },
-      { path: 'LICENSE', status: 'modified', additions: 0, deletions: 1 },
+      {
+        path: 'src/a.ts',
+        status: 'modified',
+        additions: 1,
+        deletions: 0,
+        staged: false,
+        unstaged: true,
+      },
+      {
+        path: 'LICENSE',
+        status: 'modified',
+        additions: 0,
+        deletions: 1,
+        staged: false,
+        unstaged: true,
+      },
     ])
     expect(ts?.id).toBe('diff-src/a.ts')
     expect(ts?.language).toBe('typescript')
     expect(unknown?.language).toBe('text')
+  })
+
+  it('同一文件 staged/unstaged 两面均为真时原样保留', () => {
+    const [file] = mapGitDiffStatToDiffFiles([
+      {
+        path: 'src/both.ts',
+        status: 'modified',
+        additions: 4,
+        deletions: 2,
+        staged: true,
+        unstaged: true,
+      },
+    ])
+    expect(file?.staged).toBe(true)
+    expect(file?.unstaged).toBe(true)
   })
 
   it('空清单返回空数组', () => {

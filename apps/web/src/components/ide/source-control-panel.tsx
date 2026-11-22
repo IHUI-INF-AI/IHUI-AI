@@ -8,9 +8,9 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import {
   commitGit,
+  getGitStatus,
   pullWorkspaceGit,
   pushWorkspaceGit,
-  runCommand,
   stageGitPaths,
   switchWorkspaceGitBranch,
   unstageGitPaths,
@@ -20,8 +20,6 @@ import { useWorkspaceWatcher } from '@/hooks/use-workspace-watcher'
 import { cn } from '@/lib/utils'
 // 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
 import { PortalPanel } from '@/components/feedback/portal-panel'
-// D178:分支切换未提交改动保护(确认弹层走通用 ConfirmDialog)
-import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { getFileIcon, getFileColor } from './file-icons'
 import {
   GitBranch,
@@ -59,54 +57,23 @@ export function SourceControlPanel() {
   } = useIDEWorkspace()
   const [branch, setBranch] = React.useState(gitCurrentBranch)
   const [branchOpen, setBranchOpen] = React.useState(false)
-  const [stagedIds, setStagedIds] = React.useState<Set<string>>(new Set())
   const [refreshing, setRefreshing] = React.useState(false)
   const [commitMessage, setCommitMessage] = React.useState('')
   const [committing, setCommitting] = React.useState(false)
   const [pushing, setPushing] = React.useState(false)
   const [pulling, setPulling] = React.useState(false)
   const [switchingBranch, setSwitchingBranch] = React.useState(false)
-  // D178:脏工作区保护 —— 检出前探测未提交改动,弹「保存改动并检出」确认
-  const [pendingCheckout, setPendingCheckout] = React.useState<string | null>(null)
-  const [stashPending, setStashPending] = React.useState(false)
   const branchRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     setBranch(gitCurrentBranch)
   }, [gitCurrentBranch])
 
-  /** 同步已暂存文件列表(git diff --cached),用真实 git 状态驱动 stagedIds */
-  const syncStagedFiles = React.useCallback(async () => {
-    if (!workspacePath) return
-    try {
-      const result = await runCommand({
-        command: 'git diff --name-only --cached',
-        workspacePath,
-      })
-      if (result.success) {
-        const staged = new Set(
-          result.data.stdout
-            .trim()
-            .split('\n')
-            .filter(Boolean)
-            .map((f) => `diff-${f}`),
-        )
-        setStagedIds(staged)
-      }
-    } catch {
-      // 静默忽略,不影响主流程
-    }
-  }, [workspacePath])
-
-  React.useEffect(() => {
-    void syncStagedFiles()
-  }, [syncStagedFiles])
-
   // 面板可见时订阅工作区变更:文件被外部保存/AI 改动后自动刷新差异与暂存态,
   // 不要求用户手点刷新。`.git` 事件已在 hook 内过滤,不会形成"刷新→事件→刷新"自激。
   const handleWorkspaceChange = React.useCallback(() => {
-    void Promise.all([fetchDiffFiles(), syncStagedFiles()])
-  }, [fetchDiffFiles, syncStagedFiles])
+    void fetchDiffFiles()
+  }, [fetchDiffFiles])
   useWorkspaceWatcher({
     workspacePath,
     enabled: activeView === 'source-control',
@@ -125,26 +92,23 @@ export function SourceControlPanel() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      await Promise.all([fetchGitLog(), fetchGitBranches(), fetchDiffFiles(), syncStagedFiles()])
+      await Promise.all([fetchGitLog(), fetchGitBranches(), fetchDiffFiles()])
     } finally {
       setRefreshing(false)
     }
   }
 
-  const toggleStage = async (file: (typeof diffFiles)[number]) => {
+  const toggleStage = async (file: (typeof diffFiles)[number], inStagedGroup: boolean) => {
     if (!workspacePath) return
-    const isStaged = stagedIds.has(file.id)
+    // 动作按「所在分组」判定,不看 file.staged:暂存后又改过的文件同现两组,
+    // 在「更改」组里点 + 必须是补暂存剩余改动,而不是把已暂存那半撤掉。
+    const isStaged = inStagedGroup
     try {
       const result = isStaged
         ? await unstageGitPaths({ workspacePath, paths: [file.filename] })
         : await stageGitPaths({ workspacePath, paths: [file.filename] })
       if (result.success) {
-        setStagedIds((prev) => {
-          const next = new Set(prev)
-          if (isStaged) next.delete(file.id)
-          else next.add(file.id)
-          return next
-        })
+        // 暂存态不靠本地集合猜:staged 由服务端 diff-stat 同轮给出,刷新即真相
         await fetchDiffFiles()
       } else {
         toast.error(result.error)
@@ -167,7 +131,7 @@ export function SourceControlPanel() {
       if (result.success) {
         toast.success(t('sourceControl.commitSuccess'))
         setCommitMessage('')
-        await Promise.all([fetchDiffFiles(), fetchGitLog(), syncStagedFiles()])
+        await Promise.all([fetchDiffFiles(), fetchGitLog()])
       } else {
         toast.error(result.error)
       }
@@ -203,7 +167,7 @@ export function SourceControlPanel() {
       const result = await pullWorkspaceGit({ workspacePath })
       if (result.success) {
         toast.success(t('sourceControl.pullSuccess'))
-        await Promise.all([fetchGitLog(), fetchDiffFiles(), syncStagedFiles()])
+        await Promise.all([fetchGitLog(), fetchDiffFiles()])
       } else {
         toast.error(result.error)
       }
@@ -222,7 +186,7 @@ export function SourceControlPanel() {
       if (result.success) {
         setBranch(target)
         toast.success(t('sourceControl.branchSwitched', { branch: target }))
-        await Promise.all([fetchGitBranches(), fetchGitLog(), fetchDiffFiles(), syncStagedFiles()])
+        await Promise.all([fetchGitBranches(), fetchGitLog(), fetchDiffFiles()])
       } else {
         toast.error(result.error)
       }
@@ -233,54 +197,41 @@ export function SourceControlPanel() {
     }
   }
 
-  // D178:分支切换未提交改动保护(对齐竞品 environment.preserveChangesAction"保存改动并检出")。
-  // 检出前先探 `git status --porcelain`:非空 → 拦下弹确认;确认后 `git stash push` 把
-  // 未提交改动(含未跟踪)存入 stash 再检出,改动不丢失;探测失败按原直达路径降级。
+  // 2026-11-23:D178 的「保存改动并检出」曾用 git stash 兜底,与仓规「stash 全面禁止」
+  // (多会话共享工作树会吞掉别人现场)冲突。现改为:切换前用结构化 git status 探测;
+  // 有未提交改动(含未跟踪/冲突)⇒ 阻止并提示先提交或丢弃;探测失败也 fail-closed。
   const handleBranchCheckout = async (target: string) => {
     setBranchOpen(false)
     if (!workspacePath || target === branch) return
     try {
-      const status = await runCommand({ command: 'git status --porcelain', workspacePath })
-      if (status.success && status.data.stdout.trim().length > 0) {
-        setPendingCheckout(target)
+      const status = await getGitStatus({ workspacePath })
+      if (!status.success) {
+        toast.error(t('sourceControl.dirtySwitchDescription'))
+        return
+      }
+      const dirty = Object.values(status.data.counts).some((n) => n > 0)
+      if (dirty) {
+        toast.error(t('sourceControl.dirtySwitchDescription'))
         return
       }
     } catch {
-      // 探测失败不阻塞切换:git checkout 自身对冲突改动有安全拒绝
+      toast.error(t('sourceControl.dirtySwitchDescription'))
+      return
     }
     await doCheckout(target)
   }
 
-  const confirmPreserveCheckout = async () => {
-    if (!pendingCheckout || !workspacePath) return
-    setStashPending(true)
-    try {
-      const stash = await runCommand({
-        command: 'git stash push --include-untracked -m "ihui: save changes before branch switch"',
-        workspacePath,
-        mode: 'workspace-write',
-      })
-      if (!stash.success) {
-        toast.error(stash.error)
-        return
-      }
-      await doCheckout(pendingCheckout)
-    } catch (e) {
-      toast.error(errMsg(e))
-    } finally {
-      setStashPending(false)
-      setPendingCheckout(null)
-    }
-  }
-
-  const stagedFiles = diffFiles.filter((f) => stagedIds.has(f.id))
-  const unstagedFiles = diffFiles.filter((f) => !stagedIds.has(f.id))
+  // 同一文件可同时出现在两组(暂存后又改过):staged/unstaged 两面都由服务端同轮给出。
+  const stagedFiles = diffFiles.filter((f) => f.staged === true)
+  const unstagedFiles = diffFiles.filter(
+    (f) => f.unstaged === true || (f.unstaged === undefined && f.staged !== true),
+  )
 
   const renderFile = (file: (typeof diffFiles)[number], staged: boolean) => {
     const Icon = getFileIcon(file.filename)
     return (
       <div
-        key={file.id}
+        key={`${staged ? 'staged' : 'unstaged'}-${file.id}`}
         className="group flex items-center gap-1.5 rounded-xl px-2 py-1 text-label hover:bg-muted/30"
       >
         <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.filename))} />
@@ -289,7 +240,7 @@ export function SourceControlPanel() {
           <span className="text-green-600 dark:text-green-400">+{file.additions}</span>
           <span className="text-red-600 dark:text-red-400">-{file.deletions}</span>
           <button
-            onClick={() => toggleStage(file)}
+            onClick={() => toggleStage(file, staged)}
             className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
             aria-label={staged ? t('sourceControl.unstage') : t('sourceControl.stage')}
           >
@@ -469,18 +420,6 @@ export function SourceControlPanel() {
           ))}
         </div>
       </div>
-
-      {/* D178:脏工作区切换确认 —— 唯一动作是保护性的「保存改动并检出」(stash 后检出) */}
-      <ConfirmDialog
-        open={pendingCheckout !== null}
-        title={t('sourceControl.dirtySwitchTitle')}
-        content={t('sourceControl.dirtySwitchDescription')}
-        confirmText={t('sourceControl.preserveChangesAction')}
-        cancelText={t('sourceControl.cancel')}
-        loading={stashPending}
-        onConfirm={() => void confirmPreserveCheckout()}
-        onCancel={() => setPendingCheckout(null)}
-      />
     </div>
   )
 }

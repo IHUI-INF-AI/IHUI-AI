@@ -66,6 +66,10 @@ export interface DiffFile {
   additions: number
   deletions: number
   language?: string
+  /** 有已暂存改动(与服务端 git diff --cached 同轮判定);缺省 = 未暂存 */
+  staged?: boolean
+  /** 工作区仍有未暂存改动(与服务端裸 git diff 同轮判定);与 staged 可同时为真 */
+  unstaged?: boolean
 }
 
 /** diff 视图模式 */

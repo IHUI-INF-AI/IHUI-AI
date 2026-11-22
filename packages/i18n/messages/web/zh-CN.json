@@ -16682,7 +16682,7 @@
       "commitPlaceholder": "提交信息",
       "commitSuccess": "提交成功",
       "committing": "提交中...",
-      "dirtySwitchDescription": "切换分支会改写当前工作区。选择「保存改动并检出」,未提交的改动会先存入 Git stash,不会丢失。",
+      "dirtySwitchDescription": "切换分支会改写当前工作区。当前有未提交改动,已阻止切换;请先提交或丢弃这些改动(本系统不会自动 stash)。",
       "dirtySwitchTitle": "有未提交的改动",
       "more": "更多",
       "noChanges": "无变更",

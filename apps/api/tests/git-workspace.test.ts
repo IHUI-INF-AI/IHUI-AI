@@ -91,12 +91,16 @@ describe('GitWorkspace 写通道', () => {
       gitAt(['config', 'user.email', 'ihui-test@local'])
       writeFileSync(join(dir, 'a.txt'), 'one\n', 'utf-8')
       writeFileSync(join(dir, 'gone.txt'), 'bye\n', 'utf-8')
+      writeFileSync(join(dir, 'both.txt'), 'base\n', 'utf-8')
       gitAt(['add', '.'])
       gitAt(['commit', '-m', 'init'])
 
       writeFileSync(join(dir, 'a.txt'), 'one\ntwo\n', 'utf-8')
       writeFileSync(join(dir, 'new.txt'), 'new\n', 'utf-8')
       gitAt(['add', 'new.txt'])
+      writeFileSync(join(dir, 'both.txt'), 'staged-line\n', 'utf-8')
+      gitAt(['add', 'both.txt'])
+      writeFileSync(join(dir, 'both.txt'), 'worktree-line\n', 'utf-8')
       rmSync(join(dir, 'gone.txt'))
 
       const files = await gitWorkspace.diffStat(dir)
@@ -107,13 +111,31 @@ describe('GitWorkspace 写通道', () => {
             status: 'modified',
             additions: 1,
             deletions: 0,
+            staged: false,
+            unstaged: true,
           }),
-          expect.objectContaining({ path: 'new.txt', status: 'added', additions: 1, deletions: 0 }),
+          expect.objectContaining({
+            path: 'new.txt',
+            status: 'added',
+            additions: 1,
+            deletions: 0,
+            staged: true,
+            unstaged: false,
+          }),
           expect.objectContaining({
             path: 'gone.txt',
             status: 'deleted',
             additions: 0,
             deletions: 1,
+            staged: false,
+            unstaged: true,
+          }),
+          // 暂存后又改过:两面都为真,前端要同时出现在「已暂存」与「更改」两组。
+          expect.objectContaining({
+            path: 'both.txt',
+            status: 'modified',
+            staged: true,
+            unstaged: true,
           }),
         ]),
       )

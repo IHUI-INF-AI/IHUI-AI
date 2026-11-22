@@ -16338,7 +16338,7 @@
       "commitPlaceholder": "提交信息",
       "commitSuccess": "提交成功",
       "committing": "提交中...",
-      "dirtySwitchDescription": "切換分支會改寫目前工作區。選擇「儲存變更並檢出」,未提交的變更會先存入 Git stash,不會遺失。",
+      "dirtySwitchDescription": "切換分支會改寫目前工作區。目前有未提交變更,已阻止切換;請先提交或丟棄這些變更(本系統不會自動 stash)。",
       "dirtySwitchTitle": "有未提交的變更",
       "more": "更多",
       "noChanges": "無變更",

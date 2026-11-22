@@ -3,15 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * D178:分支切换未提交改动保护的挂载级 DOM 对账。
+ * 分支切换未提交改动保护的挂载级 DOM 对账(2026-11-23 改写)。
  *
- * 为什么整组件挂载:这条保护的病根是「点了分支名 → 改动直接被 checkout 冲掉」,
- * 只有从真实点击流(打开浮层 → 点目标分支 → 弹层/直达)出发才能证明拦截真的长在
- * 用户路径上。断言一律用裸 DOM 匹配器(本仓 apps/web 未装 @testing-library/jest-dom)。
- *
- * mock 面全部是与本票无关的旁支:宿主 git 通道(浏览器恒 null)、浮层定位实现、
- * ide-workspace store、传输层 runCommand。没有 mock 掉的正是本票要证明的:
- * SourceControlPanel 本体 + ConfirmDialog/Modal 的真实弹层行为。
+ * 旧实现用 `git stash push`「保存改动并检出」,与仓规「stash 全面禁止」冲突 ——
+ * 多会话共享同一工作树时,stash 会把别人的现场一起吞掉。新语义:
+ *   ① 先用结构化 `getGitStatus` 探测(不再跑裸 `git status --porcelain`);
+ *   ② 有未提交改动(含未跟踪/冲突)⇒ 直接阻止并提示先提交或丢弃;
+ *   ③ 探测失败 ⇒ fail-closed,同样不切;
+ *   ④ 干净工作区 ⇒ 直达 checkout。
+ * 断言一律用裸 DOM 匹配器(本仓 apps/web 未装 @testing-library/jest-dom)。
  */
 
 import { readFileSync } from 'node:fs'
@@ -21,8 +21,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
-// 语言包真值:不在测试里另抄一份文案表(§22c)。__tests__ → ide → components → src
-// → web → apps → 仓库根,共上溯 6 层(比 components/__tests__ 多一层)。
+// 语言包真值:不在测试里另抄一份文案表(§22c)。
 const packPath = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../../../../',
@@ -40,19 +39,19 @@ function msg(path: string, vars?: Record<string, number | string>): string {
   return vars ? cur.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : cur
 }
 
-const DIRTY_TITLE = msg('ide.sourceControl.dirtySwitchTitle')
-const PRESERVE_ACTION = msg('ide.sourceControl.preserveChangesAction')
+const BLOCKED = msg('ide.sourceControl.dirtySwitchDescription')
 
 const h = vi.hoisted(() => ({
-  runSpy: vi.fn(),
+  statusSpy: vi.fn(),
   switchSpy: vi.fn(),
+  stageSpy: vi.fn(),
+  unstageSpy: vi.fn(),
+  diffFiles: [] as Array<Record<string, unknown>>,
   fetchGitLog: vi.fn(async () => {}),
   fetchGitBranches: vi.fn(async () => {}),
   fetchDiffFiles: vi.fn(async () => {}),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
-  /** 可变探测结果:'' = 干净工作区,非空 = 有未提交改动(喂给 git status --porcelain) */
-  statusOut: '',
 }))
 
 vi.mock('next-intl', () => ({
@@ -61,7 +60,7 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@ihui/api-client', () => ({
-  runCommand: h.runSpy,
+  getGitStatus: h.statusSpy,
   switchWorkspaceGitBranch: h.switchSpy,
   createWorkspaceWatcher: vi.fn(async () => ({
     success: false,
@@ -69,14 +68,8 @@ vi.mock('@ihui/api-client', () => ({
   })),
   getWorkspaceWatcherEvents: vi.fn(),
   removeWorkspaceWatcher: vi.fn(async () => ({ success: true, data: { removed: true } })),
-  stageGitPaths: vi.fn(async () => ({
-    success: true,
-    data: { stdout: '', stderr: '', exitCode: 0 },
-  })),
-  unstageGitPaths: vi.fn(async () => ({
-    success: true,
-    data: { stdout: '', stderr: '', exitCode: 0 },
-  })),
+  stageGitPaths: h.stageSpy,
+  unstageGitPaths: h.unstageSpy,
   commitGit: vi.fn(async () => ({ success: true, data: { stdout: '', stderr: '', exitCode: 0 } })),
   pushWorkspaceGit: vi.fn(async () => ({
     success: true,
@@ -95,7 +88,7 @@ vi.mock('@/components/common', () => ({
 vi.mock('@/stores/ide-workspace', () => ({
   useIDEWorkspace: () => ({
     activeView: 'source-control',
-    diffFiles: [],
+    diffFiles: h.diffFiles,
     gitCommits: [],
     gitBranches: ['main', 'feature-x'],
     gitCurrentBranch: 'main',
@@ -117,30 +110,37 @@ vi.mock('@/components/feedback/portal-panel', () => ({
 
 import { SourceControlPanel } from '../source-control-panel'
 
-/** runSpy 全部调用里的命令串(挂载期还有 staged 探测,断言按命令前缀过滤) */
-function ranCommands(): string[] {
-  return h.runSpy.mock.calls.map((call) => (call[0] as { command: string }).command)
-}
-
-/** 挂载 → 打开分支浮层 → 点击目标分支;返回后浮层必已出现 */
+/** 挂载 → 打开分支浮层 → 点击目标分支 */
 async function openBranchMenuAndPick(target: string) {
   render(<SourceControlPanel />)
-  // 挂载期 staged 探测(git diff --name-only --cached)先落地,避免 act 竞态
-  await waitFor(() => expect(h.runSpy).toHaveBeenCalled())
   fireEvent.click(screen.getByText('main'))
   expect(await screen.findByTestId('branch-portal')).toBeTruthy()
   fireEvent.click(screen.getByText(target))
 }
 
+function cleanStatus() {
+  return {
+    isRepo: true,
+    branch: 'main',
+    hasRemote: true,
+    ahead: 0,
+    behind: 0,
+    counts: {
+      added: 0,
+      modified: 0,
+      deleted: 0,
+      untracked: 0,
+      conflicted: 0,
+      renamed: 0,
+    },
+    lastCommit: { hash: '', message: '', author: '', date: '' },
+    pullRequest: null,
+  }
+}
+
 beforeEach(() => {
-  h.statusOut = ''
-  h.runSpy.mockReset()
-  h.runSpy.mockImplementation(async (args: { command: string }) => {
-    if (args.command.startsWith('git status --porcelain')) {
-      return { success: true, data: { stdout: h.statusOut } }
-    }
-    return { success: true, data: { stdout: '' } }
-  })
+  h.statusSpy.mockReset()
+  h.statusSpy.mockResolvedValue({ success: true, data: cleanStatus() })
   h.switchSpy.mockReset()
   h.switchSpy.mockResolvedValue({
     success: true,
@@ -148,59 +148,54 @@ beforeEach(() => {
   })
   h.toastSuccess.mockReset()
   h.toastError.mockReset()
+  h.diffFiles.length = 0
+  h.stageSpy.mockReset()
+  h.stageSpy.mockResolvedValue({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })
+  h.unstageSpy.mockReset()
+  h.unstageSpy.mockResolvedValue({
+    success: true,
+    data: { stdout: '', stderr: '', exitCode: 0 },
+  })
 })
 
 afterEach(() => {
   cleanup()
 })
 
-describe('SourceControlPanel 分支切换未提交改动保护 (D178)', () => {
-  it('脏工作区检出 → 弹「保存改动并检出」确认,不直接 checkout', async () => {
-    h.statusOut = ' M src/a.ts\n?? notes.md\n'
+describe('SourceControlPanel 分支切换未提交改动保护', () => {
+  it('脏工作区 → 阻止切换并提示先提交/丢弃,不再出现 stash 动作', async () => {
+    const dirty = cleanStatus()
+    dirty.counts.modified = 1
+    dirty.counts.untracked = 1
+    h.statusSpy.mockResolvedValue({ success: true, data: dirty })
+
     await openBranchMenuAndPick('feature-x')
 
-    expect(await screen.findByText(DIRTY_TITLE)).toBeTruthy()
-    expect(screen.getByText(PRESERVE_ACTION)).toBeTruthy()
-    expect(screen.getByText(msg('ide.sourceControl.dirtySwitchDescription'))).toBeTruthy()
+    await waitFor(() => expect(h.toastError).toHaveBeenCalledWith(BLOCKED))
+    expect(h.switchSpy).not.toHaveBeenCalled()
+    expect(screen.queryByText(msg('ide.sourceControl.dirtySwitchTitle'))).toBeNull()
+  })
 
-    const commands = ranCommands()
-    expect(commands.some((c) => c.startsWith('git checkout'))).toBe(false)
-    expect(commands.some((c) => c.startsWith('git stash push'))).toBe(false)
+  it('探测失败 → fail-closed,不切分支', async () => {
+    h.statusSpy.mockResolvedValue({ success: false, error: 'boom' })
+    await openBranchMenuAndPick('feature-x')
+
+    await waitFor(() => expect(h.toastError).toHaveBeenCalledWith(BLOCKED))
     expect(h.switchSpy).not.toHaveBeenCalled()
   })
 
-  it('确认保护 → 先 stash push 后 checkout feature-x,弹层关闭', async () => {
-    h.statusOut = ' M src/a.ts\n'
+  it('探测抛异常 → fail-closed,不切分支', async () => {
+    h.statusSpy.mockRejectedValue(new Error('network'))
     await openBranchMenuAndPick('feature-x')
-    await screen.findByText(DIRTY_TITLE)
 
-    fireEvent.click(screen.getByTestId('confirm-button'))
-
-    await waitFor(() =>
-      expect(ranCommands().some((c) => c.startsWith('git stash push --include-untracked'))).toBe(
-        true,
-      ),
-    )
-    await waitFor(() =>
-      expect(h.switchSpy).toHaveBeenCalledWith({
-        workspacePath: 'G:/demo-repo',
-        name: 'feature-x',
-      }),
-    )
-
-    // 顺序对账:stash 必须发生在 switch 之前(先保改动再切分支)
-    const stashIdx = ranCommands().findIndex((c) => c.startsWith('git stash push'))
-    expect(stashIdx).toBeGreaterThanOrEqual(0)
-    expect(h.switchSpy.mock.invocationCallOrder[0]).toBeGreaterThan(
-      h.runSpy.mock.invocationCallOrder[stashIdx]!,
-    )
-
-    await waitFor(() => expect(screen.queryByText(DIRTY_TITLE)).toBeNull())
-    expect(h.toastSuccess).toHaveBeenCalled()
+    await waitFor(() => expect(h.toastError).toHaveBeenCalledWith(BLOCKED))
+    expect(h.switchSpy).not.toHaveBeenCalled()
   })
 
-  it('干净工作区 → 直达 checkout,不弹确认、不 stash', async () => {
-    h.statusOut = ''
+  it('干净工作区 → 直达 checkout', async () => {
     await openBranchMenuAndPick('feature-x')
 
     await waitFor(() =>
@@ -209,22 +204,42 @@ describe('SourceControlPanel 分支切换未提交改动保护 (D178)', () => {
         name: 'feature-x',
       }),
     )
-    expect(ranCommands().some((c) => c.startsWith('git stash push'))).toBe(false)
-    expect(screen.queryByText(DIRTY_TITLE)).toBeNull()
+    expect(h.statusSpy).toHaveBeenCalledWith({ workspacePath: 'G:/demo-repo' })
+    expect(h.toastError).not.toHaveBeenCalled()
   })
 
-  it('取消确认 → 不 stash 不 checkout,弹层关闭', async () => {
-    h.statusOut = ' M src/a.ts\n'
-    await openBranchMenuAndPick('feature-x')
-    await screen.findByText(DIRTY_TITLE)
+  it('暂存后又改过 → 同现两组,按钮动作按所在分组', async () => {
+    h.diffFiles.push({
+      id: 'diff-both.ts',
+      filename: 'both.ts',
+      status: 'modified',
+      oldContent: '',
+      newContent: '',
+      additions: 2,
+      deletions: 1,
+      language: 'typescript',
+      staged: true,
+      unstaged: true,
+    })
+    render(<SourceControlPanel />)
 
-    fireEvent.click(screen.getByTestId('confirm-cancel-button'))
+    await waitFor(() => expect(screen.getAllByText('both.ts')).toHaveLength(2))
 
-    await waitFor(() => expect(screen.queryByText(DIRTY_TITLE)).toBeNull())
-    const commands = ranCommands()
-    expect(commands.some((c) => c.startsWith('git stash push'))).toBe(false)
-    expect(commands.some((c) => c.startsWith('git checkout'))).toBe(false)
-    expect(h.switchSpy).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByLabelText(msg('ide.sourceControl.unstage')))
+    await waitFor(() =>
+      expect(h.unstageSpy).toHaveBeenCalledWith({
+        workspacePath: 'G:/demo-repo',
+        paths: ['both.ts'],
+      }),
+    )
+
+    fireEvent.click(screen.getByLabelText(msg('ide.sourceControl.stage')))
+    await waitFor(() =>
+      expect(h.stageSpy).toHaveBeenCalledWith({
+        workspacePath: 'G:/demo-repo',
+        paths: ['both.ts'],
+      }),
+    )
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​​​​‌‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

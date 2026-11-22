@@ -562,6 +562,10 @@ export interface WorkspaceGitDiffStatFile {
   status: 'added' | 'modified' | 'deleted' | 'renamed'
   additions: number
   deletions: number
+  /** 该路径存在已暂存改动(服务端按 git diff --cached 同轮判定) */
+  staged: boolean
+  /** 该路径在工作区仍有未暂存改动(服务端按裸 git diff 同轮判定) */
+  unstaged: boolean
 }
 
 /** 暂存若干路径;paths 为空 = `git add -A`。 */

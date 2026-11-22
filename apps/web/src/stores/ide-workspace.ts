@@ -86,6 +86,8 @@ export function mapGitDiffStatToDiffFiles(files: WorkspaceGitDiffStatFile[]): Di
       additions: file.additions,
       deletions: file.deletions,
       language: EXT_LANG[ext] ?? 'text',
+      staged: file.staged,
+      unstaged: file.unstaged,
     }
   })
 }

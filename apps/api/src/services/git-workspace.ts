@@ -74,6 +74,10 @@ export interface GitDiffStatFile {
   status: 'added' | 'modified' | 'deleted' | 'renamed'
   additions: number
   deletions: number
+  /** 该路径是否有已暂存改动(2026-11-23):面板按它分「已暂存」,不再另跑 git diff --cached。 */
+  staged: boolean
+  /** 该路径在工作区是否仍有未暂存改动(对齐 VS Code 资源组:同一文件可同时出现在两组)。 */
+  unstaged: boolean
 }
 
 export class GitWorkspaceError extends Error {
@@ -249,14 +253,41 @@ export class GitWorkspace {
    * `/api/v1/git/diff` 的“列表 + 统计”消费面）。
    *
    * 立因：源码管理面板此前是 `git diff --name-status HEAD` 之后**每个文件再跑一次**
-   * `git diff --numstat`（N+1 次子进程）。这里一次请求内只跑两条 git，统计与状态
+   * `git diff --numstat`（N+1 次子进程）。这里一次请求内只跑四条 git，统计与状态
    * 在同一回包里对齐；`--no-renames` 让重命名以 D+A 呈现，统计准确优先于标签。
+   *
+   * 两面判定（2026-11-23 补）：`git diff --cached <base>` 给「索引 vs base」= 已暂存，
+   * 裸 `git diff` 给「工作区 vs 索引」= 仍未暂存。只跑前者会把「暂存后又改过」的文件
+   * 错并入已暂存组，丢掉未暂存那半；两面并行才能还原 VS Code 的双组呈现。
    */
   async diffStat(workspacePath: string, base = 'HEAD'): Promise<GitDiffStatFile[]> {
-    const [statusResult, numstatResult] = await Promise.all([
+    const [statusResult, numstatResult, cachedResult, unstagedResult] = await Promise.all([
       this.run(workspacePath, ['diff', '--name-status', '--no-renames', '--no-ext-diff', base]),
       this.run(workspacePath, ['diff', '--numstat', '--no-renames', '--no-ext-diff', base]),
+      this.run(workspacePath, [
+        'diff',
+        '--cached',
+        '--name-status',
+        '--no-renames',
+        '--no-ext-diff',
+        base,
+      ]),
+      this.run(workspacePath, ['diff', '--name-status', '--no-renames', '--no-ext-diff']),
     ])
+    const stagedPaths = new Set<string>()
+    for (const line of cachedResult.stdout.split('\n')) {
+      if (!line.trim()) continue
+      const [, ...pathParts] = line.split('\t')
+      const path = pathParts.join('\t')
+      if (path) stagedPaths.add(path)
+    }
+    const unstagedPaths = new Set<string>()
+    for (const line of unstagedResult.stdout.split('\n')) {
+      if (!line.trim()) continue
+      const [, ...pathParts] = line.split('\t')
+      const path = pathParts.join('\t')
+      if (path) unstagedPaths.add(path)
+    }
     const stats = new Map<string, { additions: number; deletions: number }>()
     for (const line of numstatResult.stdout.split('\n')) {
       if (!line.trim()) continue
@@ -278,7 +309,13 @@ export class GitWorkspace {
       const status: GitDiffStatFile['status'] =
         kind === 'A' ? 'added' : kind === 'D' ? 'deleted' : kind === 'R' ? 'renamed' : 'modified'
       const stat = stats.get(path) ?? { additions: 0, deletions: 0 }
-      files.push({ path, status, ...stat })
+      files.push({
+        path,
+        status,
+        ...stat,
+        staged: stagedPaths.has(path),
+        unstaged: unstagedPaths.has(path),
+      })
     }
     return files
   }

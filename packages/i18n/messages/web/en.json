@@ -16338,7 +16338,7 @@
       "commitPlaceholder": "Commit message",
       "commitSuccess": "Committed successfully",
       "committing": "Committing...",
-      "dirtySwitchDescription": "Switching branches rewrites the current workspace. Choose \"Save changes and checkout\" to stash uncommitted changes in Git first, so nothing is lost.",
+      "dirtySwitchDescription": "Switching branches rewrites the current workspace. Uncommitted changes block the switch; commit or discard them first (this system never stashes automatically).",
       "dirtySwitchTitle": "Uncommitted changes",
       "more": "More",
       "noChanges": "No changes",
