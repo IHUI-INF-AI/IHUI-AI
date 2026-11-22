@@ -16,6 +16,7 @@ import {
   unstageGitPaths,
 } from '@ihui/api-client'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { useWorkspaceWatcher } from '@/hooks/use-workspace-watcher'
 import { cn } from '@/lib/utils'
 // 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
 import { PortalPanel } from '@/components/feedback/portal-panel'
@@ -100,6 +101,17 @@ export function SourceControlPanel() {
   React.useEffect(() => {
     void syncStagedFiles()
   }, [syncStagedFiles])
+
+  // 面板可见时订阅工作区变更:文件被外部保存/AI 改动后自动刷新差异与暂存态,
+  // 不要求用户手点刷新。`.git` 事件已在 hook 内过滤,不会形成"刷新→事件→刷新"自激。
+  const handleWorkspaceChange = React.useCallback(() => {
+    void Promise.all([fetchDiffFiles(), syncStagedFiles()])
+  }, [fetchDiffFiles, syncStagedFiles])
+  useWorkspaceWatcher({
+    workspacePath,
+    enabled: activeView === 'source-control',
+    onChange: handleWorkspaceChange,
+  })
 
   if (activeView !== 'source-control') return null
 

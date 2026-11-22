@@ -63,6 +63,12 @@ vi.mock('next-intl', () => ({
 vi.mock('@ihui/api-client', () => ({
   runCommand: h.runSpy,
   switchWorkspaceGitBranch: h.switchSpy,
+  createWorkspaceWatcher: vi.fn(async () => ({
+    success: false,
+    error: 'watcher disabled in test',
+  })),
+  getWorkspaceWatcherEvents: vi.fn(),
+  removeWorkspaceWatcher: vi.fn(async () => ({ success: true, data: { removed: true } })),
   stageGitPaths: vi.fn(async () => ({
     success: true,
     data: { stdout: '', stderr: '', exitCode: 0 },
