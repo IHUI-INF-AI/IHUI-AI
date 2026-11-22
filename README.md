@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🔧 工程/其他:重封 guardian-runner 格式化改动(无行为变更) (4365e14a)
+- 🔧 工程/其他:批量条「移动到分组」断言对齐产品现状(消既有红) (98253cab)
+- 🐞 修复:吸收生产侧前向修复(0 pending 跳过 db:migrate + 连接信号/品牌前景同源) (ed9ba086)
 - 🐞 修复:会话标题脏显示根治 —— 生成/入库/显示三层净化 + 标题写入原子化 (918938d5)
 - 🐞 修复:会话标题脏显示根治 —— 生成/入库/显示三层净化 + 标题写入原子化 (247cfd5f)
 - 📚 文档:追加 FS 原子写与工作区订阅证据 (b68256f7)

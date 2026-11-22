@@ -25,6 +25,8 @@ import {
   type RelayConversation,
   type RelayMessage,
 } from '@ihui/database'
+// 2026-11-23:标题净化/截断与主链路同一份(共享层),中转会话标题也会显示给开发者。
+import { clipTitleChars, plainTitleText } from '@ihui/shared'
 
 // =============================================================================
 // 类型定义
@@ -72,9 +74,13 @@ export interface PaginatedResult<T> {
 // 辅助函数
 // =============================================================================
 
-/** 从首条消息提取 title(前 50 字符,trim) */
+/**
+ * 从首条消息提取 title(前 50 个码位,trim)。
+ * 2026-11-23:先过共享层纯文本净化再截断 —— 原实现 `slice(0, 50)` 把用户消息原样当标题,
+ * `**加粗**`/代码围栏/思考块会直接出现在开发者控制台的会话列表;且 UTF-16 截断会切碎 emoji。
+ */
 function extractTitle(message: string): string {
-  return message.slice(0, 50).trim() || '新会话'
+  return plainTitleText(message, 50) ?? '新会话'
 }
 
 // =============================================================================
@@ -417,9 +423,14 @@ export async function updateConversationTitle(
     throw new Error('会话不存在或无权访问')
   }
 
-  await db
+  // 2026-11-23:写侧校验也进 where —— 原来的 select 校验与 update 之间有 TOCTOU 窗口
+  // (记录在这两步之间被改归属/删除时,`eq(id)` 的 update 仍会写别人/已删的行);
+  // 截断改按**码位**(varchar(200) 按字符计,`slice` 按 UTF-16 码元会把 emoji 切成半个)。
+  const rows = await db
     .update(relayConversations)
-    .set({ title: title.slice(0, 200), updatedAt: new Date() })
-    .where(eq(relayConversations.id, conv.id))
+    .set({ title: clipTitleChars(title, 200), updatedAt: new Date() })
+    .where(and(eq(relayConversations.id, conv.id), eq(relayConversations.userId, userId)))
+    .returning({ id: relayConversations.id })
+  if (!rows[0]) throw new Error('会话不存在或无权访问')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

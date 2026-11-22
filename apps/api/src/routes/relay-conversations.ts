@@ -42,7 +42,8 @@ const conversationIdParamSchema = z.object({
 })
 
 const updateTitleBodySchema = z.object({
-  title: z.string().min(1, '标题不能为空').max(200),
+  // 2026-11-23:先 trim 再判非空 —— `title: "   "` 曾能落库,开发者控制台出现一条空白名会话。
+  title: z.string().trim().min(1, '标题不能为空').max(200, '标题不能超过 200 字'),
 })
 
 const relayConversationsRoutes: FastifyPluginAsync = async (server) => {
