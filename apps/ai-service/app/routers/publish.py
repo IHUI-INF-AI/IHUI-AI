@@ -1540,13 +1540,26 @@ async def _account_id_for_task(conn: asyncpg.Connection, task_id: str, platform:
     return None
 
 
-async def _load_account_credentials(account_id: int, platform: str) -> dict[str, Any] | None:
-    """从 publish_accounts 解密账号凭证。"""
+async def _load_account_credentials(
+    account_id: int, platform: str, user_id: str
+) -> dict[str, Any] | None:
+    """从 publish_accounts 解密账号凭证(带归属校验,防越权加载)。
+
+    纵深防御:调用链上游的 ``_resolve_published`` 已校验 task 归属,且 account_id
+    从该 task 的 targets 解析;但 targets 是 JSON 可含脏/过时 account_id(失败重试、
+    手工改库),一旦解析出他人账号,缺 user_id 兜底就会解出他人凭据。这里把归属
+    校验下沉到取密文这一跳,与 scheduler._load_credentials 同口径 —— 缺参 fail-closed,
+    ``WHERE id=$1 AND platform=$2 AND user_id=$3``,任何一环失守都解不出他人凭证。
+    """
+    # fail-closed:缺归属主体直接拒绝,连库都不碰。
+    if not user_id:
+        return None
     conn = await _get_conn()
     try:
         row = await conn.fetchrow(
-            "SELECT credentials_enc FROM publish_accounts WHERE id=$1 AND platform=$2",
-            account_id, platform,
+            "SELECT credentials_enc FROM publish_accounts "
+            "WHERE id=$1 AND platform=$2 AND user_id=$3",
+            account_id, platform, user_id,
         )
         if not row or not row["credentials_enc"]:
             return None
@@ -1664,7 +1677,7 @@ async def monitor_verify(body: MonitorVerifyRequest, request: Request) -> dict[s
         account_id = await _account_id_for_task(conn, body.task_id, platform)
         if account_id is None:
             raise HTTPException(status_code=400, detail="无法解析目标账号")
-        credentials = await _load_account_credentials(account_id, platform)
+        credentials = await _load_account_credentials(account_id, platform, user_id)
         if credentials is None:
             raise HTTPException(status_code=400, detail="无法加载账号凭证")
     finally:
@@ -1691,7 +1704,7 @@ async def monitor_refresh_metrics(body: MonitorRefreshMetricsRequest, request: R
         account_id = await _account_id_for_task(conn, body.task_id, platform)
         if account_id is None:
             raise HTTPException(status_code=400, detail="无法解析目标账号")
-        credentials = await _load_account_credentials(account_id, platform)
+        credentials = await _load_account_credentials(account_id, platform, user_id)
         if credentials is None:
             raise HTTPException(status_code=400, detail="无法加载账号凭证")
     finally:
