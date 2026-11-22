@@ -227,22 +227,15 @@ export interface AutoResolveChatResult {
  * (pool-model-routing 登记集),只是候选不是权限 —— 越权候选由服务端平台集
  * 过滤剔除。失败/判不了服务端一律回 platform,前端无需特判(失效方向恒为现状)。
  */
-export function autoResolveChat(
-  input: {
-    promptTail: string
-    promptChars: number
-    hasTools: boolean
-    poolCandidates: string[]
-  },
-  opts: { timeoutMs?: number } = {},
-) {
+export function autoResolveChat(input: {
+  promptTail: string
+  promptChars: number
+  hasTools: boolean
+  poolCandidates: string[]
+}) {
   return fetchApi<AutoResolveChatResult>('/api/chat/auto-resolve', {
     method: 'POST',
     body: JSON.stringify(input),
-    // 2026-11-23(加固):决策腿在发送热路径上,必须有短预算 —— 判不了就回平台腿,
-    // 绝不让「问决策」把发送拖住。默认 3000ms,略大于服务端 2s 决策预算(让服务端
-    // 先到点、客户端只兜网络层),调用方仍可显式收紧。
-    timeoutMs: opts.timeoutMs ?? 3_000,
   })
 }
 

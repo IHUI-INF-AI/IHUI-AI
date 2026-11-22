@@ -31,9 +31,8 @@
  *      没有最新档 ⇒ 平台腿(复杂任务宁可平台 premium,不用号池普通档凑合)。
  *    - 普通任务:本人号池第一个(自家号 0 平台积分成本)⇒ 运营池公开第一个。
  *      代次判定失败时普通任务仍可挑(号池成本优势成立,代次只是排序锦上添花)。
- * 4. 输出:{channel:'pool', model} 或 {channel:'platform'}。所有异常/判不了/超预算
- *    (DECISION_BUDGET_MS,2s 硬上限)都归 platform —— 失效方向恒为现状,绝不因解析
- *    失败或决策慢而挡发送。
+ * 4. 输出:{channel:'pool', model} 或 {channel:'platform'}。所有异常/判不了都归
+ *    platform —— 失效方向恒为现状,绝不因解析失败挡发送。
  */
 
 import { and, eq } from 'drizzle-orm'
@@ -122,60 +121,8 @@ export function classifyCandidate(
   return null
 }
 
-/**
- * 决策硬预算(2026-11-23 加固)。
- *
- * 这条腿挂在发送热路径上(前端在 addMessage 之前 await 它),所以"问决策"本身
- * 绝不能把发送拖住。2000ms 远高于正常耗时(两次本地查库 + 一次内网票,合计十几~
- * 几十 ms),只拦病态慢链路;到点一律回平台腿(现状),与头注"判不了不替用户做主"
- * 同一失效方向。客户端另有 3000ms 兜底(api-client autoResolveChat),服务端预算
- * 必须先到点 —— 否则客户端先放弃时,服务端还在白跑并留下一条无用日志。
- */
-const DECISION_BUDGET_MS = 2_000
-
-/** 给决策整体套硬预算:到点即回 fallback(平台腿),不等待未完成的 IO。 */
-function withDecisionBudget(
-  work: Promise<AutoResolveResult>,
-  fallback: AutoResolveResult,
-  budgetMs: number,
-): Promise<AutoResolveResult> {
-  if (!Number.isFinite(budgetMs) || budgetMs <= 0) return work
-  return new Promise<AutoResolveResult>((resolve) => {
-    const timer = setTimeout(() => {
-      logger.warn(`[chat-auto-resolve] 决策超出 ${budgetMs}ms 预算,回平台腿`)
-      resolve({ ...fallback })
-    }, budgetMs)
-    // 不让未决计时器吊住进程(短生命周期进程/用例退出时尤其明显)
-    const handle = timer as unknown as { unref?: () => void }
-    handle.unref?.()
-    work.then(
-      (value) => {
-        clearTimeout(timer)
-        resolve(value)
-      },
-      () => {
-        // decideAutoChatRoute 自身吞掉全部异常;这里仍兜一道,保证永不 reject。
-        clearTimeout(timer)
-        resolve({ ...fallback })
-      },
-    )
-  })
-}
-
-/** 决策主入口。永不抛错:任何失败/超预算都归 platform(现状),调用方无需 try/catch。 */
-export async function resolveAutoChatRoute(
-  input: AutoResolveInput,
-  opts: { budgetMs?: number } = {},
-): Promise<AutoResolveResult> {
-  return withDecisionBudget(
-    decideAutoChatRoute(input),
-    { channel: 'platform', model: null, source: null, complexity: null },
-    opts.budgetMs ?? DECISION_BUDGET_MS,
-  )
-}
-
-/** 决策本体(IO + 判据)。自身永不抛错;预算由外层 {@link withDecisionBudget} 负责。 */
-async function decideAutoChatRoute(input: AutoResolveInput): Promise<AutoResolveResult> {
+/** 决策主入口。永不抛错:任何失败都归 platform(现状),调用方无需 try/catch。 */
+export async function resolveAutoChatRoute(input: AutoResolveInput): Promise<AutoResolveResult> {
   const platformResult: AutoResolveResult = {
     channel: 'platform',
     model: null,
@@ -277,12 +224,8 @@ async function classifyTiers(
   if (!classified) return new Map()
   const tiers = new Map<string, string>()
   for (const c of legal) {
-    const cls = classified.get(keyOf(c.id))
-    if (!cls) continue
-    // hidden 与选择器口径同源(命中过时清单 / 用途不在 chat·vision):候选在拉目录时
-    // 可能还在,发送时已落档 —— 复杂任务不得据此挑一个已被判隐藏的模型。
-    if (cls.hidden) continue
-    if (cls.modelTier) tiers.set(c.id, cls.modelTier)
+    const tier = classified.get(keyOf(c.id))
+    if (tier) tiers.set(c.id, tier.modelTier)
   }
   return tiers
 }
@@ -303,9 +246,7 @@ async function assessComplexityViaInternal(input: AutoResolveInput): Promise<Com
         prompt_chars: Math.max(0, Math.floor(input.promptChars || 0)),
         has_tools: input.hasTools === true,
       }),
-      // 票上限必须小于决策预算(DECISION_BUDGET_MS):到点由外层预算回平台腿,
-      // 这里若留 5s,慢链路会先被外层放弃,留下一条必然白跑的请求。
-      timeoutMs: 2_000,
+      timeoutMs: 5_000,
     })
     if (!res.ok) {
       logger.warn(`[chat-auto-resolve] 复杂度判定失败 HTTP ${res.status}(回平台腿)`)

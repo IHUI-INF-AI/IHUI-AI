@@ -26,8 +26,7 @@ const require = createRequire(import.meta.url)
 const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm')
 
 async function makeCcSwitchDb(): Promise<Buffer> {
-  // 与 parser 同档:true = sql.js 默认的旧 Math 函数(见 cc-switch-sqlite.ts 同处注释)
-  const SQL = await initSqlJs({ locateFile: () => wasmPath, useOldExtensionFunctions: true })
+  const SQL = await initSqlJs({ locateFile: () => wasmPath })
   const db = new SQL.Database()
   try {
     db.run('PRAGMA user_version = 16')

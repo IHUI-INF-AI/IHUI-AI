@@ -25,6 +25,7 @@ import { db } from '../db/index.js'
 import { chatConversations, chatMessages, patrolRuns, patrolTasks } from '@ihui/database'
 import { parseNextRun, consumeAgentStream } from './agent-automation-scheduler.js'
 import type { AgentStreamParams } from './agent-automation-scheduler.js'
+import { plainTitleText } from '@ihui/shared'
 import { turnOrdinalForRole } from './turn-ordinal.js'
 import { logger } from '../utils/logger.js'
 
@@ -375,7 +376,7 @@ async function ensureAlertConversation(task: typeof patrolTasks.$inferSelect): P
     .insert(chatConversations)
     .values({
       userId: task.userId,
-      title: `${ALERT_TITLE_PREFIX}: ${task.name}`.slice(0, 255),
+      title: plainTitleText(`${ALERT_TITLE_PREFIX}: ${task.name ?? ''}`, 255) ?? ALERT_TITLE_PREFIX,
       metadata: { source: 'patrol', patrolTaskId: task.id, patrolType: task.patrolType },
     })
     .returning({ id: chatConversations.id })

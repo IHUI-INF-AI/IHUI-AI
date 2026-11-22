@@ -48,9 +48,7 @@ async function getSqlJs(): Promise<SqlJsStatic> {
   if (!sqlPromise) {
     // sql.js wasm 路径:从 node_modules 解析
     const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm')
-    // useOldExtensionFunctions 显式写 true:与 sql.js 默认档一致(旧的非标准 Math 函数),
-    // 2026-11-23 补 — @types/sql.js 1.16 把它从可选改成必填,不写就编译不过。
-    sqlPromise = initSqlJs({ locateFile: () => wasmPath, useOldExtensionFunctions: true })
+    sqlPromise = initSqlJs({ locateFile: () => wasmPath })
   }
   return sqlPromise
 }

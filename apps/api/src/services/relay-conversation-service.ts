@@ -25,8 +25,9 @@ import {
   type RelayConversation,
   type RelayMessage,
 } from '@ihui/database'
-// 2026-11-23:标题净化/截断与主链路同一份(共享层),中转会话标题也会显示给开发者。
-import { clipTitleChars, plainTitleText } from '@ihui/shared'
+// 2026-11-23:标题净化与主链路同一份(共享层),中转会话标题也会显示给开发者。
+import { plainTitleText } from '@ihui/shared'
+import { AppError } from '../errors/AppError.js'
 
 // =============================================================================
 // 类型定义
@@ -423,12 +424,16 @@ export async function updateConversationTitle(
     throw new Error('会话不存在或无权访问')
   }
 
-  // 2026-11-23:写侧校验也进 where —— 原来的 select 校验与 update 之间有 TOCTOU 窗口
-  // (记录在这两步之间被改归属/删除时,`eq(id)` 的 update 仍会写别人/已删的行);
-  // 截断改按**码位**(varchar(200) 按字符计,`slice` 按 UTF-16 码元会把 emoji 切成半个)。
+  // 2026-11-23:写侧先过共享层纯文本净化(码位截断在 plainTitleText 内部完成,不再叠 clip)。
+  // 净化后无可读文字(纯标记/零宽/思考块)按 400 拒绝,不写库。
+  const cleanTitle = plainTitleText(title, 200)
+  if (!cleanTitle) throw new AppError('标题不能为空', 400, 'INVALID_TITLE')
+
+  // 写侧校验也进 where —— 原来的 select 校验与 update 之间有 TOCTOU 窗口
+  // (记录在这两步之间被改归属/删除时,`eq(id)` 的 update 仍会写别人/已删的行)。
   const rows = await db
     .update(relayConversations)
-    .set({ title: clipTitleChars(title, 200), updatedAt: new Date() })
+    .set({ title: cleanTitle, updatedAt: new Date() })
     .where(and(eq(relayConversations.id, conv.id), eq(relayConversations.userId, userId)))
     .returning({ id: relayConversations.id })
   if (!rows[0]) throw new Error('会话不存在或无权访问')

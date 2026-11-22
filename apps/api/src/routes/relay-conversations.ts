@@ -16,6 +16,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { AppError } from '../errors/AppError.js'
 import { requireAuth } from '../plugins/require-permission.js'
 import {
   listConversations,
@@ -129,6 +130,10 @@ const relayConversationsRoutes: FastifyPluginAsync = async (server) => {
       await updateConversationTitle(p.data.id, userId, b.data.title)
       return reply.send(success({ id: p.data.id, title: b.data.title }))
     } catch (e) {
+      // 服务层 AppError(如净化后无可读文字 → 400)原样透出状态码,不被下面的关键词映射压成 500。
+      if (e instanceof AppError) {
+        return reply.status(e.statusCode).send(error(e.statusCode, e.message, e.errorCode))
+      }
       const msg = e instanceof Error ? e.message : '更新标题失败'
       const status = msg.includes('无权') || msg.includes('不存在') ? 404 : 500
       request.log.error(e)

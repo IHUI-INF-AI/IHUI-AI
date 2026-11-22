@@ -145,6 +145,7 @@ const fake = vi.hoisted(() => {
 
   const makeUpdate = (table: unknown) => ({
     set(values: Row) {
+      const matched: Row[] = []
       return {
         where(condition: any) {
           for (const row of rowsFor(table)) {
@@ -166,8 +167,10 @@ const fake = vi.hoisted(() => {
                 row[key] = value
               }
             }
+            matched.push(row)
           }
-          return Promise.resolve([])
+          // 支持 .returning()(改名链路回读主键);不调 returning 的调用方 await 本对象即可。
+          return { returning: () => Promise.resolve(matched) }
         },
       }
     },
@@ -286,5 +289,69 @@ describe('F-538 relay 会话历史写入口', () => {
   it('③ 未登录访问会话 API 返回 401', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/developer/conversations' })
     expect(res.statusCode).toBe(401)
+  })
+
+  it('④ PATCH 改名:Markdown 标记/换行/零宽入库前被净化,读回内存行核对', async () => {
+    await recordRelayConversationTurn(turn)
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/developer/conversations',
+      headers: AUTH,
+    })
+    const convId = list.json().data.items[0].conversationId
+
+    // 每个用例:落库标题里不得残留对应标记(读回内存行,不只看状态码)。
+    const cases: Array<{ raw: string; bad: RegExp; expected: string }> = [
+      { raw: '**登录修复**', bad: /\*/, expected: '登录修复' },
+      { raw: '# 登录修复', bad: /#/, expected: '登录修复' },
+      { raw: '1. 第一步', bad: /^\d|\./, expected: '第一步' },
+      // 路由 schema 先把换行折叠成空格,净化层再单行化;落库不得残留换行符。
+      { raw: '登录修复\n第二行', bad: /\n/, expected: '登录修复 第二行' },
+      { raw: '登录\u200b修复', bad: /\u200b/, expected: '登录修复' },
+    ]
+    for (const { raw, bad, expected } of cases) {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/developer/conversations/${convId}`,
+        headers: AUTH,
+        payload: { title: raw },
+      })
+      expect(res.statusCode).toBe(200)
+      const row = fake.state.conversations.find((c) => c.conversationId === convId)
+      expect(row).toBeDefined()
+      expect(row!.title).not.toMatch(bad)
+      expect(row!.title).toBe(expected)
+    }
+
+    // 成对引号属正文合法符号,共享层规则保留包裹引号;可读文字必须在标题里。
+    const quoted = await app.inject({
+      method: 'PATCH',
+      url: `/api/developer/conversations/${convId}`,
+      headers: AUTH,
+      payload: { title: '「标题」' },
+    })
+    expect(quoted.statusCode).toBe(200)
+    expect(fake.state.conversations.find((c) => c.conversationId === convId)!.title).toContain(
+      '标题',
+    )
+  })
+
+  it('⑤ 纯标记/零宽/空白标题被 4xx 拒绝且不落库', async () => {
+    await recordRelayConversationTurn(turn)
+    const convId = fake.state.conversations[0].conversationId
+    const before = fake.state.conversations[0].title
+
+    for (const raw of ['**', '1.', '\u200b\u200c', '   ']) {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/developer/conversations/${convId}`,
+        headers: AUTH,
+        payload: { title: raw },
+      })
+      expect(res.statusCode).toBeGreaterThanOrEqual(400)
+      expect(res.statusCode).toBeLessThan(500)
+      // 不落库:标题保持原值
+      expect(fake.state.conversations.find((c) => c.conversationId === convId)!.title).toBe(before)
+    }
   })
 })

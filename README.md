@@ -99,6 +99,19 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🐞 修复:web AI 输入聚焦环改取墨档单源,杜绝强调色下紫色描边 (a0b6c612)
+- 🐞 修复:7 处模板拼接键改字面量映射表 + 补 49 键五语言(杜绝裸键复发) (5f33c2f3)
+- 🚀 新功能/改进:命令截止先到回结构化 TOOL_TIMEOUT(对齐 DSH) (2916da50)
+- 🐞 修复:auto 号池决策腿加硬预算 —— 判不了立即回平台腿,绝不拖住发送 (beb130d4)
+- 🐞 修复:web AI 输入卡静息去描边，聚焦墨档对齐 RN/小程序 (2c05e689)
+- 🚀 新功能/改进:locate/glob 精确省略数(对齐 DSH exact omitted) (c9c38285)
+- 🚀 新功能/改进:home 凭据目录 deny 族(SSH/GnuPG/AWS/kube/docker/netrc/pypirc) (18044ae2)
+- 🐞 修复:门2i加模板拼接键棘轮 + AGENTS §19 占位符族规则 (08c47543)
+- ⚡ 性能:源码管理 git 子进程 N+1 收口为 diff-stat (e3b72f64)
+- 🚀 新功能/改进:代码索引完整性审计(缺向量统计 + 四态判定) (fde9dc53)
+- 🐞 修复:第 7 处标题显示兜底 + relay 标题单行化 + 测试去掉写死盘符 (d126fc9a)
+- 🐞 修复:输出头尾预算不再切断 emoji 代理对 (8d29831b)
+- 🚀 新功能/改进:工具大输出 spill —— 截断不再丢中段 (ad366a3a)
 - 🐞 修复:中转会话标题同一份净化 + 写侧归属进 where + 按码位截断 (fe69a492)
 - 🔧 工程/其他:重封 guardian-runner 格式化改动(无行为变更) (4365e14a)
 - 🔧 工程/其他:批量条「移动到分组」断言对齐产品现状(消既有红) (98253cab)

@@ -195,10 +195,12 @@ export async function updateConversation(
   id: string,
   data: UpdateConversationInput,
 ): Promise<ChatConversation> {
+  // 标题先过共享层纯文本净化;净化后无可读文字(null)则保留原标题,不写库。
+  const cleanTitle = data.title !== undefined ? plainTitleText(data.title, 255) : null
   const rows = await db
     .update(chatConversations)
     .set({
-      ...(data.title !== undefined && { title: data.title.trim() }),
+      ...(cleanTitle !== null && { title: cleanTitle }),
       ...(data.model !== undefined && { model: data.model }),
       ...(data.systemPrompt !== undefined && { systemPrompt: data.systemPrompt }),
       ...(data.metadata !== undefined && {
@@ -1903,11 +1905,14 @@ export async function branchConversationFrom(
     }
 
     const sourceMeta = (source.metadata as Record<string, unknown> | null) ?? {}
+    // 显式传入的分支标题先净化;净化后无可读文字回落源会话标题,不传则继承既有标题。
+    const branchedTitle =
+      input.title !== undefined ? (plainTitleText(input.title, 255) ?? source.title) : source.title
     const created = await tx
       .insert(chatConversations)
       .values({
         userId: input.userId,
-        title: input.title ?? source.title,
+        title: branchedTitle,
         model: input.model ?? source.model,
         systemPrompt: input.systemPrompt !== undefined ? input.systemPrompt : source.systemPrompt,
         metadata: {

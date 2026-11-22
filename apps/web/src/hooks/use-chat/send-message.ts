@@ -750,22 +750,14 @@ export function createSendMessage(
     // 重新生成轮不接:该路径发送的是历史上下文,llmText 不参与本轮请求,复杂度评估
     // 口径不成立;续答链(send-answer)同理维持平台腿 —— 与手动号池模型的续答同状态。
     let autoPoolModel: string | null = null
-    // 2026-11-23(加固):候选为空(未登录号池 / 选择器尚未登记)直接跳过 —— 服务端即使
-    // 被问也只会回 platform,白搭一次网络往返与 3s 兜底窗口。非 auto 轮同样不取候选。
-    const autoPoolCandidates =
-      roundModel === 'auto' && !isRegenerate ? listPoolModelIds() : []
-    if (autoPoolCandidates.length > 0) {
+    if (roundModel === 'auto' && !isRegenerate) {
       try {
-        const res = await autoResolveChat(
-          {
-            promptTail: llmText.slice(-20_000),
-            promptChars: llmText.length,
-            hasTools: mergeAgentTools(chatStore, 'build').length > 0,
-            poolCandidates: autoPoolCandidates,
-          },
-          // 3000ms 兜底:与服务端 2s 决策预算对齐,客户端只兜网络层(见 api-client 注释)
-          { timeoutMs: 3_000 },
-        )
+        const res = await autoResolveChat({
+          promptTail: llmText.slice(-20_000),
+          promptChars: llmText.length,
+          hasTools: mergeAgentTools(chatStore, 'build').length > 0,
+          poolCandidates: listPoolModelIds(),
+        })
         if (res.success && res.data.channel === 'pool' && res.data.model) {
           autoPoolModel = res.data.model
         }
