@@ -175,6 +175,43 @@ function loadAdded(root) {
  */
 export const PROTECTED_TRACKED_PATHS = ['scripts/data/app-store-credentials.json']
 
+/**
+ * 关键忽略样例(2026-11-22 立)。`.gitignore` 是防泄露/防膨胀的第一道,但规则可以被
+ * 后续编辑静默删掉;这里用一组**当前 tracked=0**的代表路径做活体自检:
+ * 每个样例都必须被 `git check-ignore --no-index` 命中,缺一条就判红。
+ * 只对真仓生效(root===ROOT),scratch 镜像用例不受主仓规则漂移影响(§22c)。
+ */
+export const CRITICAL_IGNORE_SAMPLES = [
+  'apps/web/.env.qa',
+  'apps/api/.npmrc.ci',
+  'config/credentials.json',
+  'certs/server.pfx',
+  'secrets/id_rsa',
+  'ops/kubeconfig-prod',
+  'infra/terraform.tfstate',
+  'crash/app.dmp',
+  '.cache/cover.psd',
+  'models/encoder.onnx',
+  'artifacts/app.jar',
+  'data/frame.parquet',
+  'media/clip.webm',
+  'target/debug/app.bin',
+  'tmp/upload.part',
+  'release/bundle.gz',
+]
+
+/** 纯判据:样例里哪些没被忽略。 */
+export function classifyMissingCritical(samples, ignoredSet) {
+  return samples.filter((p) => !ignoredSet.has(p))
+}
+
+/** 真仓活体自检;取不到忽略面就抛(调用方落 exit 2,不冒充绿)。 */
+function auditCriticalPatterns(root) {
+  if (root !== ROOT) return []
+  const ignored = new Set(ignoredAmong(CRITICAL_IGNORE_SAMPLES, { root }))
+  return classifyMissingCritical(CRITICAL_IGNORE_SAMPLES, ignored)
+}
+
 /** 纯判据:给定 tracked 路径集合,返回仍被跟踪的保护项(保序)。 */
 export function classifyProtectedTracked(trackedPaths, protectedPaths = PROTECTED_TRACKED_PATHS) {
   const set = new Set(trackedPaths)
@@ -210,9 +247,11 @@ export function evaluate(argv = [], { root = ROOT, ledger = null } = {}) {
   let bad = []
   let exempt = []
   let protectedHits = []
+  let criticalMissing = []
   try {
     stock = loadStock(root)
     protectedHits = loadProtectedTracked(root)
+    criticalMissing = auditCriticalPatterns(root)
     if (staged) {
       added = loadAdded(root)
       bad = ignoredAmong(added, { root })
@@ -258,6 +297,26 @@ export function evaluate(argv = [], { root = ROOT, ledger = null } = {}) {
         ...protectedHits.map((p) => `  ✗ ${p} —— 仍在索引里`),
         '  修法:git rm --cached <path> 后把路径写进 .gitignore;仓库内只保留脱敏模板',
         '  (scripts/data/app-store-credentials.example.json)。不要用 git add -f 绕过。',
+      ],
+    }
+  }
+
+  // ---- 关键忽略样例:规则被删/被反转 ⇒ 两档都判红(2026-11-22 立)----
+  if (criticalMissing.length > 0) {
+    return {
+      code: 1,
+      face,
+      added,
+      bad,
+      exempt,
+      stock,
+      criticalMissing,
+      stdout: [],
+      stderr: [
+        `[tracked-ignored] 面=${face} 关键忽略样例缺失 ${criticalMissing.length} 条 —— .gitignore 防线不完整`,
+        ...criticalMissing.map((p) => `  ✗ ${p} —— 该类路径当前未被忽略`),
+        '  修法:恢复 .gitignore 对应规则;这些族是凭据/缓存/构建件/崩溃转储/重型二进制,',
+        '  不得为了放行某一枚文件而整族删除。若确属新合法资产,先改判据并补测试,再放行。',
       ],
     }
   }
@@ -446,5 +505,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { classifyAdded, ignoredAmong, classifyWithLedger, classifyProtectedTracked, PROTECTED_TRACKED_PATHS, evaluate }
+export const __test__ = { classifyAdded, ignoredAmong, classifyWithLedger, classifyProtectedTracked, classifyMissingCritical, PROTECTED_TRACKED_PATHS, CRITICAL_IGNORE_SAMPLES, evaluate }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
