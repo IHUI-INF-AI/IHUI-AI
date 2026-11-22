@@ -164,11 +164,17 @@ export const MEDIA_GENERATION_ID_PREFIXES: readonly string[] = ['agnes-image-', 
 
 /** 有 agnes 前缀但真实调用必然失败的档(2026-11-23 立)。
  *
- * `agnes-video-2.5` 是付费档,生产上游余额仅 $0.0016、单次要求 $0.125,
- * 真实创建任务稳定 403 `insufficient_user_quota`;能跑的是免费档
- * `agnes-video-2.5-flash`。只按前缀放行会把这条"选了必失败"的模型展示出来,
- * 故单列禁用名单。新增/恢复某档前必须先真实调用一次,验过再从这里移除。 */
-export const MEDIA_GENERATION_DISABLED_IDS: readonly string[] = ['agnes-video-2.5']
+ * - `agnes-video-2.5`:付费档,生产上游余额仅 $0.0016、单次要求 $0.125,
+ *   真实创建任务稳定 403 `insufficient_user_quota`。
+ * - `agnes-video-2.5-flash`:免费档,但 2026-11-23 多轮真实创建全部 503
+ *   `video_queue_full`,没有一次成功拿到 taskId。
+ *
+ * 能跑的视频通道当前为零,故两条都隐藏;恢复某档前必须先真实创建一次任务成功,
+ * 验过再从这里移除。图像 `agnes-image-2.5-flash` 与对话档不受影响。 */
+export const MEDIA_GENERATION_DISABLED_IDS: readonly string[] = [
+  'agnes-video-2.5',
+  'agnes-video-2.5-flash',
+]
 
 /**
  * 取模型 id 的裸名(去掉 provider 前缀,保留大小写)。

@@ -20,16 +20,17 @@ import { describe, expect, it } from 'vitest'
 import { isExecutableMediaModel, isSelectableChatModel } from '@ihui/shared'
 
 describe('isExecutableMediaModel', () => {
-  it('只认 agnes 两条生成通道前缀(含裸名形态)', () => {
+  it('只认 agnes 图像生成通道前缀(含裸名形态)', () => {
     expect(isExecutableMediaModel('agnes/agnes-image-2.5-flash', 'image')).toBe(true)
     expect(isExecutableMediaModel('agnes/agnes-image-2.1-flash', 'image')).toBe(true)
-    expect(isExecutableMediaModel('agnes/agnes-video-2.5-flash', 'video')).toBe(true)
     expect(isExecutableMediaModel('agnes-image-2.5-flash', 'image')).toBe(true)
   })
 
-  it('付费 agnes 视频档余额不足,不算有通道', () => {
+  it('视频通道当前都不可执行(付费余额不足 / 免费队列满)', () => {
     expect(isExecutableMediaModel('agnes/agnes-video-2.5', 'video')).toBe(false)
+    expect(isExecutableMediaModel('agnes/agnes-video-2.5-flash', 'video')).toBe(false)
     expect(isSelectableChatModel('video', 'standard', 'agnes/agnes-video-2.5')).toBe(false)
+    expect(isSelectableChatModel('video', 'standard', 'agnes/agnes-video-2.5-flash')).toBe(false)
   })
 
   it('非生成器 / 需参考图的图像视频档不算有通道', () => {
@@ -51,7 +52,7 @@ describe('isExecutableMediaModel', () => {
 describe('isSelectableChatModel 第三判据', () => {
   it('可执行的模态档展示,不可执行的不展示', () => {
     expect(isSelectableChatModel('image', 'standard', 'agnes/agnes-image-2.5-flash')).toBe(true)
-    expect(isSelectableChatModel('video', 'standard', 'agnes/agnes-video-2.5-flash')).toBe(true)
+    expect(isSelectableChatModel('video', 'standard', 'agnes/agnes-video-2.5-flash')).toBe(false)
     expect(
       isSelectableChatModel('image', 'standard', '@cf/runwayml/stable-diffusion-v1-5-inpainting'),
     ).toBe(false)
