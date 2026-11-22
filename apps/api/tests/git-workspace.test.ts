@@ -80,6 +80,50 @@ describe('GitWorkspace 写通道', () => {
     expect(existsSync(join(root, 'b.txt'))).toBe(true)
   })
 
+  it('diffStat 一次回包给状态与增删统计', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-git-diffstat-'))
+    const gitAt = (args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf-8' })
+    const previous = process.env[WORKSPACE_ROOTS_ENV]
+    try {
+      process.env[WORKSPACE_ROOTS_ENV] = dir
+      gitAt(['init', '-b', 'main'])
+      gitAt(['config', 'user.name', 'IHUI Test'])
+      gitAt(['config', 'user.email', 'ihui-test@local'])
+      writeFileSync(join(dir, 'a.txt'), 'one\n', 'utf-8')
+      writeFileSync(join(dir, 'gone.txt'), 'bye\n', 'utf-8')
+      gitAt(['add', '.'])
+      gitAt(['commit', '-m', 'init'])
+
+      writeFileSync(join(dir, 'a.txt'), 'one\ntwo\n', 'utf-8')
+      writeFileSync(join(dir, 'new.txt'), 'new\n', 'utf-8')
+      gitAt(['add', 'new.txt'])
+      rmSync(join(dir, 'gone.txt'))
+
+      const files = await gitWorkspace.diffStat(dir)
+      expect(files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: 'a.txt',
+            status: 'modified',
+            additions: 1,
+            deletions: 0,
+          }),
+          expect.objectContaining({ path: 'new.txt', status: 'added', additions: 1, deletions: 0 }),
+          expect.objectContaining({
+            path: 'gone.txt',
+            status: 'deleted',
+            additions: 0,
+            deletions: 1,
+          }),
+        ]),
+      )
+    } finally {
+      if (previous === undefined) delete process.env[WORKSPACE_ROOTS_ENV]
+      else process.env[WORKSPACE_ROOTS_ENV] = previous
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('仓库自带 pre-commit 钩子不执行', async () => {
     mkdirSync(join(root, '.git', 'hooks'), { recursive: true })
     writeFileSync(

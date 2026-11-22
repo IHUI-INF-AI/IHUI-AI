@@ -68,6 +68,14 @@ export interface GitCommit {
   subject: string
 }
 
+/** `git diff HEAD` 的单文件行;status 与 DiffFileStatus 同词。 */
+export interface GitDiffStatFile {
+  path: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+  additions: number
+  deletions: number
+}
+
 export class GitWorkspaceError extends Error {
   constructor(
     message: string,
@@ -234,6 +242,45 @@ export class GitWorkspace {
     if (safePaths.length > 0) args.push('--', ...safePaths)
     const result = await this.run(workspacePath, args, 30_000)
     return { diff: result.stdout, staged: Boolean(opts.staged) }
+  }
+
+  /**
+   * 工作区相对 HEAD 的变更清单 + 逐文件增删行数（2026-11-23，对齐 WorkBuddy
+   * `/api/v1/git/diff` 的“列表 + 统计”消费面）。
+   *
+   * 立因：源码管理面板此前是 `git diff --name-status HEAD` 之后**每个文件再跑一次**
+   * `git diff --numstat`（N+1 次子进程）。这里一次请求内只跑两条 git，统计与状态
+   * 在同一回包里对齐；`--no-renames` 让重命名以 D+A 呈现，统计准确优先于标签。
+   */
+  async diffStat(workspacePath: string, base = 'HEAD'): Promise<GitDiffStatFile[]> {
+    const [statusResult, numstatResult] = await Promise.all([
+      this.run(workspacePath, ['diff', '--name-status', '--no-renames', '--no-ext-diff', base]),
+      this.run(workspacePath, ['diff', '--numstat', '--no-renames', '--no-ext-diff', base]),
+    ])
+    const stats = new Map<string, { additions: number; deletions: number }>()
+    for (const line of numstatResult.stdout.split('\n')) {
+      if (!line.trim()) continue
+      const [addRaw = '', delRaw = '', ...pathParts] = line.split('\t')
+      const path = pathParts.join('\t')
+      if (!path) continue
+      stats.set(path, {
+        additions: addRaw === '-' ? 0 : Number.parseInt(addRaw, 10) || 0,
+        deletions: delRaw === '-' ? 0 : Number.parseInt(delRaw, 10) || 0,
+      })
+    }
+    const files: GitDiffStatFile[] = []
+    for (const line of statusResult.stdout.split('\n')) {
+      if (!line.trim()) continue
+      const [code = '', ...pathParts] = line.split('\t')
+      const path = pathParts.join('\t')
+      if (!path) continue
+      const kind = code.charAt(0)
+      const status: GitDiffStatFile['status'] =
+        kind === 'A' ? 'added' : kind === 'D' ? 'deleted' : kind === 'R' ? 'renamed' : 'modified'
+      const stat = stats.get(path) ?? { additions: 0, deletions: 0 }
+      files.push({ path, status, ...stat })
+    }
+    return files
   }
 
   /**

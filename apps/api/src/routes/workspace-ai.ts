@@ -1039,6 +1039,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  server.post('/git/diff-stat', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_diff'))) return
+    try {
+      return reply.send(success({ files: await gitWorkspace.diffStat(body.workspacePath) }))
+    } catch (e) {
+      return sendGitError(reply, e)
+    }
+  })
+
   server.post('/git/check-ignore', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return

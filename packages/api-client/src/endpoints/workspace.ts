@@ -513,6 +513,14 @@ export interface WorkspaceGitCommit {
   subject: string
 }
 
+/** 工作区相对 HEAD 的单文件变更与增删统计。 */
+export interface WorkspaceGitDiffStatFile {
+  path: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+  additions: number
+  deletions: number
+}
+
 /** 暂存若干路径;paths 为空 = `git add -A`。 */
 export async function stageGitPaths(params: {
   workspacePath: string
@@ -553,6 +561,16 @@ export async function commitGit(params: {
   paths?: string[]
 }): Promise<ApiResult<GitCommandOutput>> {
   return fetchApi<GitCommandOutput>('/api/workspace/git/commit', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 工作区相对 HEAD 的变更清单 + 逐文件增删统计(一次请求,替代 N+1 次 git 子进程)。 */
+export async function getWorkspaceGitDiffStat(params: {
+  workspacePath: string
+}): Promise<ApiResult<{ files: WorkspaceGitDiffStatFile[] }>> {
+  return fetchApi<{ files: WorkspaceGitDiffStatFile[] }>('/api/workspace/git/diff-stat', {
     method: 'POST',
     body: JSON.stringify(params),
   })

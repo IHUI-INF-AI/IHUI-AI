@@ -4,7 +4,15 @@
 
 import { create } from 'zustand'
 import { logger } from '@/lib/logger'
-import { browseDirectory, readFile, runCommand, type BrowseEntry } from '@ihui/api-client'
+import {
+  browseDirectory,
+  getWorkspaceGitBranches,
+  getWorkspaceGitDiffStat,
+  getWorkspaceGitLog,
+  readFile,
+  type BrowseEntry,
+  type WorkspaceGitDiffStatFile,
+} from '@ihui/api-client'
 import type {
   ViewPanelType,
   IDETabType,
@@ -63,6 +71,23 @@ function findNode(nodes: FileNode[], id: string): FileNode | null {
     }
   }
   return null
+}
+
+/** 结构化 diff-stat → DiffFile;状态与统计同源,不再逐文件跑 git。 */
+export function mapGitDiffStatToDiffFiles(files: WorkspaceGitDiffStatFile[]): DiffFile[] {
+  return files.map((file) => {
+    const ext = file.path.split('.').pop()?.toLowerCase() ?? ''
+    return {
+      id: `diff-${file.path}`,
+      filename: file.path,
+      status: file.status,
+      oldContent: '',
+      newContent: '',
+      additions: file.additions,
+      deletions: file.deletions,
+      language: EXT_LANG[ext] ?? 'text',
+    }
+  })
 }
 
 /** localStorage 键 */
@@ -339,51 +364,14 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
     const { workspacePath } = get()
     if (!workspacePath) return
     try {
-      // 获取 git diff --name-status 变更文件列表
-      const result = await runCommand({
-        command: 'git diff --name-status HEAD',
-        workspacePath,
-      })
-      if (!result.success || !result.data.stdout.trim()) {
+      // 2026-11-23:一次结构化 diff-stat 取回「状态 + 增删行数」;
+      // 旧实现是 `git diff --name-status HEAD` 后每个文件再跑一次 numstat(N+1 子进程)。
+      const result = await getWorkspaceGitDiffStat({ workspacePath })
+      if (!result.success) {
         set({ diffFiles: [] })
         return
       }
-      // 解析变更列表
-      const lines = result.data.stdout.trim().split('\n').filter(Boolean)
-      const diffFiles: DiffFile[] = []
-      for (const line of lines) {
-        const [status, filename] = line.split('\t')
-        if (!filename) continue
-        const ext = filename.split('.').pop()?.toLowerCase() ?? ''
-        const statusMap: Record<string, DiffFile['status']> = {
-          A: 'added',
-          M: 'modified',
-          D: 'deleted',
-          R: 'renamed',
-        }
-        // 获取 diff 统计
-        const statResult = await runCommand({
-          command: `git diff --numstat HEAD -- "${filename}"`,
-          workspacePath,
-        })
-        let additions = 0
-        let deletions = 0
-        if (statResult.success && statResult.data.stdout.trim()) {
-          const parts = statResult.data.stdout.trim().split('\t')
-          additions = parseInt(parts[0] ?? '0', 10) || 0
-          deletions = parseInt(parts[1] ?? '0', 10) || 0
-        }
-        diffFiles.push({
-          id: `diff-${filename}`,
-          filename,
-          status: statusMap[status?.[0] ?? 'M'] ?? 'modified',
-          oldContent: '',
-          newContent: '',
-          additions,
-          deletions,
-          language: EXT_LANG[ext] ?? 'text',
-        })
-      }
+      const diffFiles = mapGitDiffStatToDiffFiles(result.data.files)
       set({ diffFiles, activeDiffFileId: diffFiles[0]?.id ?? null })
     } catch (e) {
       logger.error('fetchDiffFiles error:', e)
@@ -395,28 +383,19 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
     const { workspacePath } = get()
     if (!workspacePath) return
     try {
-      const result = await runCommand({
-        command: 'git log -20 --pretty=format:%H%x00%an%x00%ar%x00%s',
-        workspacePath,
-      })
-      if (!result.success || !result.data.stdout.trim()) {
+      const result = await getWorkspaceGitLog({ workspacePath, limit: 20 })
+      if (!result.success) {
         set({ gitCommits: [] })
         return
       }
-      const commits = result.data.stdout
-        .trim()
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => {
-          const [id, author, time, ...msgParts] = line.split('\x00')
-          return {
-            id: id ?? '',
-            message: msgParts.join('\x00'),
-            author: author ?? '',
-            time: time ?? '',
-          }
-        })
-      set({ gitCommits: commits })
+      set({
+        gitCommits: result.data.commits.map((c) => ({
+          id: c.hash,
+          message: c.subject,
+          author: c.author,
+          time: c.date,
+        })),
+      })
     } catch (e) {
       logger.error('fetchGitLog error:', e)
       set({ gitCommits: [] })
@@ -427,18 +406,10 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
     const { workspacePath } = get()
     if (!workspacePath) return
     try {
-      const result = await runCommand({
-        command: 'git branch --list',
-        workspacePath,
-      })
+      const result = await getWorkspaceGitBranches({ workspacePath })
       if (!result.success) return
-      const lines = result.data.stdout.trim().split('\n').filter(Boolean)
-      const branches = lines.map((l) => l.replace(/^\*?\s+/, '').trim()).filter(Boolean)
-      const current =
-        lines
-          .find((l) => l.startsWith('*'))
-          ?.replace(/^\*\s+/, '')
-          .trim() ?? 'main'
+      const branches = result.data.branches.map((b) => b.name)
+      const current = result.data.branches.find((b) => b.current)?.name ?? 'main'
       set({ gitBranches: branches, gitCurrentBranch: current })
     } catch (e) {
       logger.error('fetchGitBranches error:', e)
