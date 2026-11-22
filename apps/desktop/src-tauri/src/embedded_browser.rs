@@ -1,0 +1,2075 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+//! 项目内嵌浏览器(2026-10-16 升级为 Trae 形态)。
+//!
+//! ## 形态演进
+//!
+//! - 2026-10-12:内嵌 WebView2 小弹窗(只读工具条)。
+//! - 2026-10-15:用户拍板改外部真 Chrome + CDP。
+//! - 2026-10-16(前版):内嵌回归,单窗 + 自绘只读工具条。
+//! - **2026-10-16(本版,用户拍板「要跟 Trae 一致」)**:升级为
+//!   **单窗多 webview 的 Chrome 式浏览器** —— 真·多标签、可编辑地址栏、
+//!   前进/后退/刷新/停止/主页、DevTools、元素点选(自有 + 第三方站点)。
+//!
+//! ## 架构(为什么这么做)
+//!
+//! 1. **单窗多 webview**:窗口 `embedded-browser` 由 [`tauri::window::WindowBuilder`]
+//!    建成(不带 webview),再用 `Window::add_child` 挂 N 个内容 webview
+//!    (`browser-tab-<id>`),每个 webview = 一个标签页。切换标签 = `hide()`/`show()`,
+//!    **页面状态不丢**(遵循统一工程规范)。`add_child` 挂在 tauri 的 `unstable`
+//!    feature 下,用户 2026-10-16 拍板启用(见 Cargo.toml 注释)。
+//!
+//! 2. **工具条为什么注入,而不是另开一个工具条 webview**:Tauri 2 里"窗口内第二个
+//!    常驻 webview 做工具条"要额外维护布局/层叠/焦点三套状态,而工具条注入到内容页
+//!    只需一份 CSSOM 样式,且天然随窗口缩放。**代价**:注入脚本必须用
+//!    `element.style.setProperty`(CSSOM)而非 `<style>` 元素 —— 第三方站点 CSP 的
+//!    `style-src` 会拦 `<style>`/`style=` 属性,但不拦 CSSOM。
+//!
+//! 3. **工具条怎么和 Rust 通信**:内容 webview 加载的是第三方站点,没有 IPC
+//!    (CSP 不放行 `ipc.localhost`,且 capability 也不给它们放行 origin)。故工具条的
+//!    所有动作都走 **哨兵导航**:`location.href = 'https://browser.ihui.invalid/<动作>?<参数>'`,
+//!    由每个 webview 的 [`tauri::webview::WebviewBuilder::on_navigation`] 拦截
+//!    (返回 `false` 取消真实导航)并转交 Rust 处理。这条通道**与站点 CSP 无关**,
+//!    是跨站点唯一可靠的"页面 → 宿主"回路。
+//!
+//! 4. **元素点选回传**同上:点选脚本采集到元素信息后,同样走哨兵导航
+//!    (`/picked?d=<percent(json)>&t=<per-webview token>`),Rust 校验令牌属于本
+//!    webview 且是当前活跃标签后才 `emit_to("main", ...)` 给宿主应用(F-107:
+//!    否则任意被加载页面直接 `location.href` 到 `/picked?d=<伪造 JSON>` 即可伪造)。
+//!
+//! ## 安全边界
+//!
+//! - 内容 webview 加载第三方站点,**不授予任何 IPC**;capability `browser-chrome`
+//!   只对本地 origin 生效(无 `remote` 字段)⇒ 第三方页即便猜到命令名也调不动。
+//! - `is_browsable_url` 只放行 http/https,杜绝 `file:`/`tauri:`/`javascript:` 注入。
+//! - 哨兵导航只认 `browser.ihui.invalid` 这一个 host,其它一律放行给真实导航。
+//!
+//! ## 建窗时序铁律(沿用)
+//!
+//! Windows 上 WebView2 建窗在**同步命令 / 事件处理器**里会死锁(官方 known issue)。
+//! 故:①open 命令必须 `async`;②哨兵处理器在 `on_navigation`(主线程)里**只做派发**,
+//! 真正的建窗/关窗在 `async_runtime::spawn` 出来的工作线程上跑 —— 因为
+//! `Window::add_child` 内部是 `run_on_main_thread` + 阻塞等待,主线程直接调必自锁。
+//!
+//! ## 降级兜底(2026-10-16 补)
+//!
+//! `unstable` 多 webview 是 Tauri 官方标注的实验特性,极端环境可能建不出来。
+//! 故 `open_or_navigate` 有两条降级路:**①裸窗 `WindowBuilder::build` 失败**;
+//! **②裸窗建起来但 `add_child` 失败** —— 都退到 `spawn_degraded_window`:
+//! 用 `WebviewWindowBuilder` 建「窗口自带 webview」的单窗(label 仍是
+//! `embedded-browser`,于是窗口 label == webview label),**多标签不可用,但
+//! 浏览/工具条/点选/DevTools 全部照常**。会话里 `degraded = true` 标记,工具条
+//! 据此隐藏标签栏(`multiTab:false`),`Switch`/`CloseTab` 哨兵在降级下退化为
+//! 空操作 / 关窗,`active_webview` 改取窗口自身的 webview。
+//!
+//! ## WebView2 运行时
+//!
+//! `tauri.conf.json` 设 `bundle.windows.webviewInstallMode = offlineInstaller`
+//! (内嵌完整 WebView2 运行时,离线可装;安装包 +~127MB)。想瘦身可改
+//! `embedBootstrapper`(+1.8MB,装时联网下运行时)或 `downloadBootstrapper`(默认,最小)。
+
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hasher};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use tauri::webview::Color;
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Url, WebviewBuilder, WebviewUrl,
+};
+
+use crate::checkin_web_login::{WebLoginProbe, WB_WEB_LOGIN_URL, checkin_workbuddy_web_login_probe};
+use crate::IpcError;
+
+/// 浏览器窗口 label(全仓唯一)。
+pub const BROWSER_WINDOW_LABEL: &str = "embedded-browser";
+
+/// 主页(点「主页」按钮去这里)。
+pub const HOME_URL: &str = "https://aizhs.top/";
+
+/// 内容 webview label 前缀;完整 label = `browser-tab-<id>`。
+pub(crate) const TAB_LABEL_PREFIX: &str = "browser-tab-";
+
+/// 内置浏览器的独立 profile 目录名(位于 `app_local_data_dir()` 下)。
+///
+/// **必须与主窗分开**:wry 给**每一个** webview 都新建一次
+/// `CreateCoreWebView2EnvironmentWithOptions`,而 WebView2 对「同一 user-data-folder
+/// + options 不一致」直接返回 `HRESULT(0x8007139F)` `ERROR_INVALID_STATE`。主窗由
+/// `tauri.conf.json` 创建(不传 `additional_browser_args`),浏览器标签传了
+/// [`WEBVIEW2_BROWSER_ARGS`] —— 同一 folder 下必然拒建。更糟的是
+/// `tauri-runtime-wry` 在 `Message::CreateWebview` 里 **只 `log::error!` 不回传**,
+/// 于是 `Window::add_child` 返回 `Ok`,上层误判成功:窗口亮着、标签栏在,里面全空。
+/// 实测 2026-11-15 build21:7 个标签 7 次 `0x8007139F`,而旧「独立窗」路径因为调了
+/// `.data_directory(..)` 从未踩到 —— 差别就在这里。
+const BROWSER_PROFILE_DIR: &str = "builtin-browser-profile";
+
+/// 内置浏览器专属 profile 目录(窗内所有标签共用一套,登录态按域名隔离)。
+fn browser_data_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let dir = app.path().app_local_data_dir().ok()?.join(BROWSER_PROFILE_DIR);
+    match std::fs::create_dir_all(&dir) {
+        Ok(()) => Some(dir),
+        Err(e) => {
+            log::warn!(
+                "[embedded-browser] 创建浏览器 profile 目录失败,回退默认目录(可能与主窗冲突): {} {}",
+                dir.display(),
+                e
+            );
+            None
+        }
+    }
+}
+
+/// 已收到过 `on_page_load` 的标签 id(诊断用)。
+///
+/// 因为 `add_child` 的失败被 runtime 吞掉,唯一可靠的「webview 真建出来了」判据就是
+/// page load 事件真的来了。建标签后起一个定时器核对:没来的打 ERROR,一眼区分
+/// 「没建成」与「建成了没加载」。
+static PAGE_LOADED_TABS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+
+fn mark_page_loaded(tab_id: u64) {
+    let mut guard = PAGE_LOADED_TABS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if !guard.contains(&tab_id) {
+        guard.push(tab_id);
+    }
+}
+
+fn page_load_seen(tab_id: u64) -> bool {
+    let guard = PAGE_LOADED_TABS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    guard.contains(&tab_id)
+}
+
+/// 建标签后 6 秒核对:该标签是否真的加载过页面。
+fn spawn_page_load_watchdog(app: AppHandle, id: u64, url: String) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(6));
+        if page_load_seen(id) {
+            return;
+        }
+        let still_registered = app.get_webview(&tab_label(id)).is_some();
+        log::error!(
+            "[embedded-browser] 标签 {} 建后 6s 未收到任何 page load(webview 可能没真正建出来): {} | webview_registered={} | 若是 0x8007139F,检查 user-data-folder/options 一致性",
+            id,
+            url,
+            still_registered
+        );
+    });
+}
+
+/// 哨兵导航 host(RFC 2606 保留 `.invalid`,永不解析;仅作页面→宿主的信号)。
+const SENTINEL_HOST: &str = "browser.ihui.invalid";
+
+/// F-100 / F-107:哨兵令牌查询参数名。per-webview 随机串,只随注入脚本与
+/// `on_navigation` 闭包流转,不落日志/不写会话状态。
+const SENTINEL_TOKEN_PARAM: &str = "t";
+
+/// F-100:注入脚本里 per-webview 令牌的占位符(建窗时替换成随机串)。
+const SENTINEL_TOKEN_PLACEHOLDER: &str = "__IHUI_SENTINEL_TOKEN__";
+
+/// F-100:签到页登录回跳的兜底地址。发起页不在域名白名单内时一律用它,
+/// 绝不用发起页自身 URL。
+const WB_CHECKIN_RETURN_FALLBACK: &str = "https://aizhs.top/checkin";
+
+/// 工具条总高(标签栏 34 + 工具栏 38);注入脚本内 `${BAR_H}` 语义同值。
+/// 保留为设计常量:工具条高度由注入脚本的 TAB_H+TOOL_H 决定,此处仅作文档锚点。
+#[allow(dead_code)]
+const BAR_HEIGHT: u32 = 72;
+
+/// 单窗最多标签数(防御性上限,避免无限建 webview)。
+/// F-123:改读 browser_settings 的进程内真值(默认 12),越界已在那边归一。
+fn max_tabs() -> usize {
+    crate::browser_settings::current().max_tabs as usize
+}
+
+/// `wb-checkin-login` 看护轮询的防重入闸(2026-10-17):进行中再触发直接忽略,
+/// 用户在签到页狂点按钮不叠加看护任务。所有退出路径(ok/超时/关窗)都复位。
+static WB_LOGIN_POLLING: AtomicBool = AtomicBool::new(false);
+
+/// Chrome UA。WebView2 默认 UA 带 `Edg/` 标识,登录类站点可能据 UA 走不同分支
+/// (也会把"内嵌"这件事暴露给站点);显式伪装成 Chrome,与内核事实自洽。
+pub const CHROME_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/// WebView2(Chromium 内核)启动参数 —— 压内存。
+///
+/// 2026-10-16 立(用户反馈「子进程太多、内存太大」)。实测我们 App 单开 = 7 进程 /
+/// ~776 MB,是 Chromium 多进程模型的正常基线;本串把可调的几项压下去:
+///
+/// - `--renderer-process-limit=2`:渲染进程上限(默认按 CPU 核数,可能起十几个)
+/// - `--js-flags=--max-old-space-size=256 --scavenger_max_new_space_capacity_mb=8`:
+///   压 V8 老生代/新生代堆(第二项取自微软官方 flags 文档示例值)
+/// - `--disk-cache-size=52428800`:磁盘缓存上限 50 MB
+/// - `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`:
+///   **必须原样保留** —— 这是 wry 的默认值,而只要显式传 `additionalBrowserArgs`
+///   就会**整体覆盖**默认(官方文档原话),漏掉等于把默认行为改坏。
+///
+/// ⚠️ **反面清单(实测/官方明说会变差,禁止加)**:
+/// - `--disable-background-timer-throttling` —— 会增加后台 CPU 与内存
+/// - `--disable-gpu` —— 丢掉 GPU 合成,渲染变差且省不了多少
+/// - `--enable-features=msWebView2MemoryUsageTargetLevel:low` —— **这个开关不存在**,
+///   官方机制是 API `SetMemoryUsageTargetLevel`,见 [`set_memory_low`]。
+///
+/// ⚠️ **必须全 App 一致**:WebView2 同一 user-data-folder 下,各 webview 的 options
+/// 一旦不一致就 `0x8007139F` 拒建(2026-10-13 白屏事故根因)。所以主窗(配置)、
+/// admin(lib.rs)、内嵌浏览器(本文件两处)**同用这一份常量**,一处漏传就开窗炸。
+pub const WEBVIEW2_BROWSER_ARGS: &str = "--renderer-process-limit=2 \
+--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+--js-flags=--max-old-space-size=256 --scavenger_max_new_space_capacity_mb=8 \
+--disk-cache-size=52428800";
+
+// ==================== 工具条注入脚本(纯 CSSOM,零 IPC) ====================
+
+/// 工具条注入脚本。定义 `window.__ihuiNav(action, params)`(哨兵导航出口)与
+/// `window.__ihuiBarRender(state)`(Rust 通过 `eval` 推状态)。
+///
+/// **只允许 CSSOM**(`style.setProperty`),不得出现 `<style>`/`style="..."`,
+/// 否则被第三方站点 CSP `style-src` 拦掉(见模块头 §2)。
+const BAR_JS: &str = r#"(function () {
+  if (window.__ihuiBarInstalled) return;
+  window.__ihuiBarInstalled = true;
+  var TAB_H = 34, TOOL_H = 38, TOTAL = TAB_H + TOOL_H;
+  var SENTINEL = 'https://browser.ihui.invalid/';
+  var SENTINEL_TOKEN = '__IHUI_SENTINEL_TOKEN__';
+
+  function el(tag, props, text) {
+    var e = document.createElement(tag);
+    if (props) for (var k in props) e.style.setProperty(k, props[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  window.__ihuiNav = function (action, params) {
+    var query = params || '';
+    // F-100:登录动作必须带本 webview 的随机令牌,宿主据此拒绝伪造哨兵导航。
+    if (action === 'wb-checkin-login') {
+      query = query ? (query + '&t=' + SENTINEL_TOKEN) : ('t=' + SENTINEL_TOKEN);
+    }
+    location.href = SENTINEL + action + (query ? ('?' + query) : '');
+  };
+  function btn(label, title, action, params) {
+    var b = el('button', {
+      width: '28px', height: '28px', 'line-height': '26px', flex: '0 0 auto',
+      background: 'transparent', color: '#cfcfcf', padding: '0',
+      border: '1px solid #333333', 'border-radius': '6px',
+      cursor: 'pointer', 'font-size': '14px'
+    }, label);
+    b.type = 'button';
+    b.title = title;
+    b.addEventListener('mouseenter', function () { b.style.setProperty('background', '#2f2f2f'); });
+    b.addEventListener('mouseleave', function () { b.style.setProperty('background', 'transparent'); });
+    b.addEventListener('click', function (e) { e.preventDefault(); window.__ihuiNav(action, params); });
+    return b;
+  }
+
+  var bar = el('div', {
+    position: 'fixed', top: '0', left: '0', right: '0', height: TOTAL + 'px',
+    'z-index': '2147483647', background: '#1c1c1c', color: '#e8e8e8',
+    'font-family': '-apple-system, "Segoe UI", "Microsoft YaHei", sans-serif',
+    'font-size': '13px', 'user-select': 'none', '-webkit-user-select': 'none',
+    'box-sizing': 'border-box', 'border-bottom': '1px solid #2f2f2f',
+    display: 'flex', 'flex-direction': 'column'
+  });
+  bar.id = '__ihui_browser_bar';
+  bar.setAttribute('data-tauri-drag-region', '');
+
+  var tabStrip = el('div', {
+    display: 'flex', 'align-items': 'center', gap: '4px', height: TAB_H + 'px',
+    padding: '0 8px', 'box-sizing': 'border-box', overflow: 'hidden',
+    'border-bottom': '1px solid #262626'
+  });
+  var toolbar = el('div', {
+    display: 'flex', 'align-items': 'center', gap: '6px', height: TOOL_H + 'px',
+    padding: '0 8px', 'box-sizing': 'border-box'
+  });
+
+  var urlInput = el('input', {
+    flex: '1 1 auto', height: '26px', 'line-height': '26px', background: '#111111',
+    color: '#e0e0e0', 'border-radius': '6px', padding: '0 10px', 'font-size': '12px',
+    border: '1px solid #333333', outline: 'none', 'box-sizing': 'border-box'
+  });
+  urlInput.type = 'text';
+  urlInput.spellcheck = false;
+  urlInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); window.__ihuiNav('navigate', 'u=' + encodeURIComponent(urlInput.value)); urlInput.blur(); }
+  });
+
+  toolbar.appendChild(btn('\u2190', '后退', 'back'));
+  toolbar.appendChild(btn('\u2192', '前进', 'forward'));
+  toolbar.appendChild(btn('\u21bb', '刷新', 'reload'));
+  toolbar.appendChild(btn('\u2715', '停止', 'stop'));
+  toolbar.appendChild(btn('\u2302', '主页', 'home'));
+  toolbar.appendChild(urlInput);
+  toolbar.appendChild(btn('\u2699', '开发者工具', 'devtools'));
+  var pickBtn = btn('\u25ce', '元素点选', 'pick', 'on=1');
+  toolbar.appendChild(pickBtn);
+  toolbar.appendChild(btn('\u2715', '关闭窗口', 'close-window'));
+
+  var newTabBtn = btn('+', '新建标签页', 'new-tab', 'u=' + encodeURIComponent('about:blank'));
+  bar.appendChild(tabStrip);
+  bar.appendChild(toolbar);
+
+  function mount() {
+    if (document.body && !document.getElementById('__ihui_browser_bar')) {
+      document.body.appendChild(bar);
+      document.documentElement.style.setProperty('padding-top', TOTAL + 'px');
+      document.documentElement.style.setProperty('box-sizing', 'border-box');
+    }
+  }
+  if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
+
+  // SPA 导航同步地址栏
+  try {
+    var _push = history.pushState;
+    history.pushState = function () { _push.apply(history, arguments); syncUrl(); };
+    var _replace = history.replaceState;
+    history.replaceState = function () { _replace.apply(history, arguments); syncUrl(); };
+    window.addEventListener('popstate', syncUrl);
+    window.addEventListener('hashchange', syncUrl);
+  } catch (e) {}
+  function syncUrl() { if (document.activeElement !== urlInput) urlInput.value = location.href; }
+
+  var lastState = { tabs: [], picking: false };
+  window.__ihuiBarRender = function (s) {
+    lastState = s || lastState;
+    // 标签栏(降级单 webview 模式整条隐藏 —— 没有多标签可言)
+    var multi = (s.multiTab !== false);
+    tabStrip.style.setProperty('display', multi ? 'flex' : 'none');
+    while (tabStrip.firstChild) tabStrip.removeChild(tabStrip.firstChild);
+    if (multi) {
+      (s.tabs || []).forEach(function (t) {
+        var tab = el('div', {
+          display: 'flex', 'align-items': 'center', gap: '6px', flex: '0 0 auto',
+          'max-width': '200px', height: '24px', padding: '0 8px', 'border-radius': '6px',
+          background: t.active ? '#2f2f2f' : 'transparent', color: t.active ? '#ffffff' : '#b0b0b0',
+          cursor: 'pointer', 'font-size': '12px', 'box-sizing': 'border-box'
+        });
+        var titleText = (t.active && document.title) ? document.title : (t.title || t.url || '新标签页');
+        var title = el('span', { overflow: 'hidden', 'white-space': 'nowrap', 'text-overflow': 'ellipsis', 'max-width': '160px' }, titleText);
+        var x = el('span', { 'flex': '0 0 auto', color: '#888888', cursor: 'pointer', 'font-size': '13px' }, '\u2715');
+        x.addEventListener('click', function (e) { e.stopPropagation(); window.__ihuiNav('close-tab', 'i=' + t.id); });
+        tab.appendChild(title);
+        tab.appendChild(x);
+        tab.addEventListener('click', function () { window.__ihuiNav('switch', 'i=' + t.id); });
+        tabStrip.appendChild(tab);
+      });
+      tabStrip.appendChild(newTabBtn);
+    }
+    // 地址栏
+    if (document.activeElement !== urlInput) urlInput.value = s.url || location.href;
+    // 点选态
+    pickBtn.style.setProperty('background', s.picking ? '#3b3b7a' : 'transparent');
+    pickBtn.title = s.picking ? '退出点选' : '元素点选';
+  };
+  window.__ihuiBarRender(lastState);
+})();"#;
+
+// ==================== 元素点选脚本 ====================
+
+/// 元素点选安装/卸载脚本。`window.__ihuiPick(on)` 开关;点选命中后走哨兵
+/// `/picked?d=<encodeURIComponent(json)>&t=<token>` 回传(见模块头 §4)。同样只用 CSSOM。
+///
+/// F-107:令牌声明在外层 IIFE 闭包内(非 `window` 属性),页面脚本读不到;
+/// 且只接受 `e.isTrusted` 的真实用户点击,页面合成的 click 事件一律忽略。
+const PICK_JS: &str = r#"(function () {
+  var SENTINEL = 'https://browser.ihui.invalid/';
+  var TOKEN = '__IHUI_SENTINEL_TOKEN__';
+  window.__ihuiPick = function (on) {
+    if (!on) { if (window.__ihuiPickOff) { window.__ihuiPickOff(); } return; }
+    if (window.__ihuiPickActive) return;
+    window.__ihuiPickActive = true;
+    var hl = document.createElement('div');
+    var hlProps = {
+      position: 'fixed', 'pointer-events': 'none', 'z-index': '2147483646',
+      border: '2px solid #6366f1', background: 'rgba(99,102,241,0.12)',
+      'border-radius': '2px', display: 'none', 'box-sizing': 'border-box'
+    };
+    for (var k in hlProps) hl.style.setProperty(k, hlProps[k]);
+    document.documentElement.appendChild(hl);
+    var prevCursor = document.documentElement.style.cursor;
+    document.documentElement.style.setProperty('cursor', 'crosshair');
+    function collect(t) {
+      function sel(node) {
+        if (!node || node.nodeType !== 1) return '';
+        if (node.id) return '#' + node.id;
+        var path = [];
+        while (node && node.nodeType === 1 && path.length < 6) {
+          var tag = node.tagName.toLowerCase(), idx = 1, sib = node;
+          while ((sib = sib.previousElementSibling)) { if (sib.tagName === node.tagName) idx++; }
+          path.unshift(tag + ':nth-of-type(' + idx + ')');
+          node = node.parentElement;
+        }
+        return path.join(' > ');
+      }
+      var r = t.getBoundingClientRect();
+      return {
+        selector: sel(t), tag: t.tagName.toLowerCase(), id: t.id || '',
+        cls: (t.className && typeof t.className === 'string') ? t.className : '',
+        text: (t.textContent || '').trim().slice(0, 200),
+        rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) },
+        url: location.href, title: document.title
+      };
+    }
+    function onMove(e) {
+      var t = e.target;
+      if (!t || t === hl) return;
+      var r = t.getBoundingClientRect();
+      hl.style.setProperty('display', 'block');
+      hl.style.setProperty('left', r.left + 'px');
+      hl.style.setProperty('top', r.top + 'px');
+      hl.style.setProperty('width', r.width + 'px');
+      hl.style.setProperty('height', r.height + 'px');
+    }
+    function onClick(e) {
+      // F-107:只认用户真实点击;页面脚本 dispatchEvent 出来的合成事件不算点选。
+      if (!e.isTrusted) return;
+      e.preventDefault(); e.stopPropagation();
+      var info = collect(e.target);
+      location.href = SENTINEL + 'picked?d=' + encodeURIComponent(JSON.stringify(info)) + '&t=' + TOKEN;
+      off();
+    }
+    function off() {
+      document.removeEventListener('mouseover', onMove, true);
+      document.removeEventListener('click', onClick, true);
+      if (hl.parentNode) hl.parentNode.removeChild(hl);
+      document.documentElement.style.setProperty('cursor', prevCursor || '');
+      window.__ihuiPickActive = false;
+    }
+    window.__ihuiPickOff = off;
+    document.addEventListener('mouseover', onMove, true);
+    document.addEventListener('click', onClick, true);
+  };
+})();"#;
+
+// ==================== 哨兵动作解析(纯函数,单测覆盖) ====================
+
+/// 工具条通过哨兵导航发来的动作。
+#[derive(Debug, Clone, PartialEq)]
+pub enum SentinelAction {
+    NewTab(Option<String>),
+    CloseTab(u64),
+    Switch(u64),
+    Navigate(String),
+    Back,
+    Forward,
+    Reload,
+    Stop,
+    Home,
+    Devtools,
+    Pick(bool),
+    Picked(String),
+    CloseWindow,
+    /// 签到页(内嵌 tab 里的 aizhs.top/checkin)请求「浏览器登录 WorkBuddy」:
+    /// 内容页无 IPC,只能借哨兵导航把意图带出来(2026-10-17 立)。
+    WbCheckinLogin,
+}
+
+/// 生成一个 per-webview 的随机哨兵令牌(F-100)。
+///
+/// 不引入新依赖:用 `RandomState`(std 内部由 OS 熵播种的 SipHash 密钥)+ 进程内
+/// 自增序号 + 系统时间混合出 128 bit,足以让第三方页无法猜到别的 webview 的令牌。
+fn new_sentinel_token() -> String {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut a = RandomState::new().build_hasher();
+    a.write_u64(seq);
+    a.write_u128(now);
+    let mut b = RandomState::new().build_hasher();
+    b.write_u64(seq ^ 0x9e37_79b9_7f4a_7c15);
+    b.write_u32(std::process::id());
+    b.write_u128(now.rotate_left(17));
+    format!("{:016x}{:016x}", a.finish(), b.finish())
+}
+
+/// 把 per-webview 令牌写进工具条注入脚本(替换占位符)。
+fn bar_js_with_token(token: &str) -> String {
+    BAR_JS.replace(SENTINEL_TOKEN_PLACEHOLDER, token)
+}
+
+/// 把 per-webview 令牌写进点选注入脚本(替换占位符)。F-107。
+fn pick_js_with_token(token: &str) -> String {
+    PICK_JS.replace(SENTINEL_TOKEN_PLACEHOLDER, token)
+}
+
+/// F-100 / F-107:哨兵是否允许派发。
+/// - `wb-checkin-login` 必须带上**本 webview** 的令牌,否则伪造导航(任意第三方页
+///   直接 `location.href=...`)在 `on_navigation` 即被拒。
+/// - `picked` 同理必须带令牌:否则任意被加载页面发 `/picked?d=<伪造 JSON>` 就能
+///   把伪造文本注入主窗输入框(F-107)。
+/// 其余哨兵是工具条自用动作,伪造至多触发一次导航,拿不到任何凭据。
+fn sentinel_dispatch_allowed(url: &Url, action: &SentinelAction, token: &str) -> bool {
+    match action {
+        SentinelAction::WbCheckinLogin | SentinelAction::Picked(_) => {
+            sentinel_token_matches(url, token)
+        }
+        _ => true,
+    }
+}
+
+/// F-107:请求是否携带**本 webview** 的令牌(空令牌一律视为不匹配)。
+fn sentinel_token_matches(url: &Url, token: &str) -> bool {
+    !token.is_empty()
+        && url
+            .query_pairs()
+            .any(|(k, v)| k == SENTINEL_TOKEN_PARAM && v.as_ref() == token)
+}
+
+/// 只有真正的线上签到页(https://aizhs.top/checkin*)才允许驱动 WorkBuddy 浏览器登录。
+/// F-100:哨兵导航只校验 host,任意第三方页都能 `location.href='https://browser.ihui.invalid/wb-checkin-login'`
+/// 触发登录并指定回跳地址 —— 登录看护把 WorkBuddy 真实 Cookie 拼进 `#wb_import=` 导航回
+/// 发起页,于是凭据被送到攻击者页面。这里把"发起页 origin"纳入裁决:
+/// 非签到页一律忽略;回跳址也只取可信发起页(否则退回固定线上地址)。
+fn is_trusted_checkin_origin(url: &Url) -> bool {
+    if url.scheme() != "https" || url.host_str() != Some("aizhs.top") {
+        return false;
+    }
+    // 只认 /checkin 与 /checkin/<子路径>;先前后缀匹配会把 /checkin-evil 也放进来。
+    let path = url.path();
+    path == "/checkin" || path.starts_with("/checkin/")
+}
+
+/// F-100:回跳域名白名单 —— 只放行 https 且 host 为 `aizhs.top` 或其子域。
+fn is_trusted_return_host(url: &Url) -> bool {
+    if url.scheme() != "https" {
+        return false;
+    }
+    match url.host_str() {
+        Some(h) => h == "aizhs.top" || h.ends_with(".aizhs.top"),
+        None => false,
+    }
+}
+
+/// F-100:由发起页推导回跳基址(去 fragment)。发起页不在域名白名单内 ⇒ 常量兜底,
+/// 绝不把登录结果(Cookie)导航回第三方站点。
+fn sanitize_return_base(url: Option<&Url>) -> String {
+    let Some(u) = url.filter(|u| is_trusted_return_host(u)) else {
+        return WB_CHECKIN_RETURN_FALLBACK.to_string();
+    };
+    let mut u = u.clone();
+    u.set_fragment(None);
+    let base = u.to_string();
+    if base.is_empty() {
+        WB_CHECKIN_RETURN_FALLBACK.to_string()
+    } else {
+        base
+    }
+}
+
+/// 把哨兵 URL 解析成动作;非哨兵(host 不符)返回 `None`。
+pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
+    if url.host_str() != Some(SENTINEL_HOST) {
+        return None;
+    }
+    let action = url.path().trim_start_matches('/');
+    let q = |key: &str| -> Option<String> {
+        url.query_pairs()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.into_owned())
+    };
+    let num = |key: &str| -> u64 { q(key).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) };
+    Some(match action {
+        "new-tab" => {
+            let u = q("u").filter(|s| !s.is_empty() && s != "about:blank");
+            SentinelAction::NewTab(u)
+        }
+        "close-tab" => SentinelAction::CloseTab(num("i")),
+        "switch" => SentinelAction::Switch(num("i")),
+        "navigate" => SentinelAction::Navigate(q("u").unwrap_or_default()),
+        "back" => SentinelAction::Back,
+        "forward" => SentinelAction::Forward,
+        "reload" => SentinelAction::Reload,
+        "stop" => SentinelAction::Stop,
+        "home" => SentinelAction::Home,
+        "devtools" => SentinelAction::Devtools,
+        "pick" => SentinelAction::Pick(q("on").as_deref() == Some("1")),
+        "picked" => SentinelAction::Picked(q("d").unwrap_or_default()),
+        "close-window" => SentinelAction::CloseWindow,
+        "wb-checkin-login" => SentinelAction::WbCheckinLogin,
+        _ => return None,
+    })
+}
+
+/// 地址是否允许在内嵌浏览器里打开(纯函数,单测覆盖)。
+///
+/// 只放行 http/https:前端不可借本命令把 `file:`/`tauri:` 之类的内部协议带进窗口,
+/// 也不接受空白或畸形串。
+pub fn is_browsable_url(url: &str) -> bool {
+    let t = url.trim();
+    t.starts_with("http://") || t.starts_with("https://")
+}
+
+// ==================== 会话状态 ====================
+
+/// 一个标签页的元数据。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TabInfo {
+    pub id: u64,
+    pub url: String,
+    pub title: String,
+}
+
+#[derive(Default, Clone)]
+struct Session {
+    next_id: u64,
+    tabs: Vec<TabInfo>,
+    active: Option<u64>,
+    /// true = `Window::add_child`(unstable 多 webview)建窗失败,已降级为
+    /// **单 webview 窗**(窗口 label 即 webview label,无多标签)。见 `open_or_navigate`。
+    degraded: bool,
+}
+
+/// 浏览器会话状态(窗口在不在、标签列表、当前标签)。
+#[derive(Default)]
+pub struct BrowserManager {
+    inner: Mutex<Session>,
+}
+
+impl BrowserManager {
+    fn with<R>(&self, f: impl FnOnce(&mut Session) -> R) -> R {
+        let mut g = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        f(&mut g)
+    }
+
+    /// 复位会话(窗口被系统关闭时清账,见 lib.rs `WindowEvent::Destroyed`)。
+    pub fn reset(&self) {
+        self.with(|s| *s = Session::default());
+    }
+}
+
+impl Session {
+    /// 预留一个标签位(F-124)。
+    ///
+    /// **判上限 + 取号 + 入列必须在同一个临界区内完成**:此前调用方先
+    /// `with(|s| s.tabs.len())` 判限,再分别 `with(|s| s.next_id += 1)` 与
+    /// `with(|s| s.tabs.push(..))` —— 三次独立加锁。而每个工具条哨兵动作都跑在
+    /// 各自的 `spawn` 任务里,两个并发 `new-tab` 能同时读到 11 后各加一,`max_tabs()`
+    /// 形同虚设(超出上限的 webview 照样被建出来)。
+    ///
+    /// 返回 `None` = 已达 [`max_tabs`],此时**没有**任何条目被插入、`next_id` 也不推进。
+    fn reserve_tab(&mut self, url: String, title: String) -> Option<u64> {
+        if self.tabs.len() >= max_tabs() {
+            return None;
+        }
+        self.next_id += 1;
+        let id = self.next_id;
+        self.tabs.push(TabInfo { id, url, title });
+        Some(id)
+    }
+
+    /// 撤销预留:webview 没建起来时不能把条目留在账上,否则幽灵标签永久占一个额度。
+    fn release_tab(&mut self, id: u64) {
+        self.tabs.retain(|t| t.id != id);
+        if self.active == Some(id) {
+            self.active = self.tabs.last().map(|t| t.id);
+        }
+    }
+
+    /// 把已预留的标签设为活动页,返回原活动标签(供调用方隐藏旧 webview)。
+    fn activate_tab(&mut self, id: u64) -> Option<u64> {
+        let prev = self.active;
+        self.active = Some(id);
+        prev
+    }
+}
+
+/// 前端契约(与旧 `embedded_browser_state` 向后兼容:`open` / `url` 保留)。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserStateDto {
+    pub open: bool,
+    pub url: Option<String>,
+    pub tabs: Vec<TabInfo>,
+    pub active: Option<u64>,
+    /// true = 走了单 webview 降级路径(多标签不可用)。
+    pub degraded: bool,
+}
+
+fn tab_label(id: u64) -> String {
+    format!("{TAB_LABEL_PREFIX}{id}")
+}
+
+/// 标签 id → 内容 webview label(供商店账号等其他模块定位某个标签的 Cookie 罐)。
+pub(crate) fn tab_webview_label(id: u64) -> String {
+    tab_label(id)
+}
+
+/// 取当前活动标签页的 webview(供签到探针读 cookie / url 用)。
+/// 降级模式(单 webview 窗)下,窗口 label 本身就是 webview label,直接取它。
+pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
+    let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+    if degraded {
+        return app.get_webview(BROWSER_WINDOW_LABEL);
+    }
+    let id = id?;
+    app.get_webview(&tab_label(id))
+}
+
+/// 把某个 webview 的内存目标档位切到 Low / Normal(Windows / WebView2)。
+///
+/// 官方机制(不是命令行开关):`CoreWebView2.MemoryUsageTargetLevel`,
+/// 需要 Runtime ≥ 114.0.1823.32;更旧的运行时调用是 no-op(不报错)。
+/// wry 有 `WebViewExtWindows::set_memory_usage_level` 但 Tauri 没转出来,
+/// 而 `PlatformWebview::controller()` 直接给 `ICoreWebView2Controller`,
+/// 所以这里自己调 COM。用法:**窗口失焦 ⇒ Low,回到前台 ⇒ Normal**。
+pub fn set_memory_low(webview: &tauri::webview::Webview, low: bool) {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
+            COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        };
+        use windows_core::Interface;
+        let _ = webview.with_webview(move |pw| {
+            // COM 链:controller → CoreWebView2 → cast 到版本化接口 _19
+            // (SetMemoryUsageTargetLevel 只在 ICoreWebView2_19 上;Runtime < 114 时
+            //  cast 失败 ⇒ 直接跳过,不强求)。
+            let controller = pw.controller();
+            let core = match unsafe { controller.CoreWebView2() } {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let v19: ICoreWebView2_19 = match core.cast() {
+                Ok(v) => v,
+                Err(_) => return,
+            };
+            let level = if low {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+            } else {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+            };
+            unsafe {
+                let _ = v19.SetMemoryUsageTargetLevel(level);
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (webview, low);
+    }
+}
+
+/// 把某个 webview 真正挂起 / 恢复(Windows / WebView2)。
+///
+/// 与 [`set_memory_low`] 互补:`set_memory_low` 只是把内存**目标档位**调低(告诉
+/// 运行时"优先省内存",webview 仍活着);本函数用 WebView2 官方挂起 API
+/// `CoreWebView2.TrySuspend` / `Resume` 把 webview **真正冻结** —— 释放渲染进程
+/// 占用、暂停 JS/定时器,保留页面状态,回前台 `Resume` 无重载闪烁。
+///
+/// 失焦 ⇒ suspend=true,回到前台 ⇒ false。用法同 `set_memory_low`:**窗口失焦 ⇒ 挂起,
+/// 回前台 ⇒ 恢复**。
+///
+/// 安全要点(2026-10-16 立):本 binding(webview2-com 0.38)里没有 `TrySuspendAsync`,
+/// 而是 handler 形态的 `TrySuspend(handler)` —— 立即返回,结果经 completion handler
+/// 回投到 WebView2 UI 线程。绝不能用 `wait_for_async_operation`(内部 wait_with_pump
+/// 会在 `with_webview` 闭包内重入 UI 线程消息循环 → 死锁);只用
+/// `TrySuspendCompletedHandler::create(closure)`(fire-and-forget,闭包只记日志)。
+/// `Resume()` 无 handler,直接调即可。Runtime < ~88 时 `cast::<ICoreWebView2_3>()`
+/// 失败 ⇒ 直接跳过(no-op),与 `set_memory_low` 一致。TrySuspend 是 best-effort:页面
+/// 正在导航/播放媒体等会返回 did_suspend=false,属正常,不强制。
+pub fn set_suspend(webview: &tauri::webview::Webview, suspend: bool) {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
+        use webview2_com::TrySuspendCompletedHandler;
+        use windows_core::Interface;
+        let _ = webview.with_webview(move |pw| {
+            // 与 set_memory_low 完全一致的 COM 链:controller → CoreWebView2 →
+            // cast 到版本化接口 _3(TrySuspend/Resume 只在 ICoreWebView2_3 上;
+            // Runtime < ~88 时 cast 失败 ⇒ 直接跳过)。
+            let controller = pw.controller();
+            let core = match unsafe { controller.CoreWebView2() } {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let v3: ICoreWebView2_3 = match core.cast() {
+                Ok(v) => v,
+                Err(_) => return,
+            };
+            if suspend {
+                let handler = TrySuspendCompletedHandler::create(Box::new(|hr, did_suspend: bool| {
+                    if let Err(e) = hr {
+                        log::debug!("[embedded-browser] TrySuspend 报错: {e}");
+                    } else if !did_suspend {
+                        log::debug!("[embedded-browser] TrySuspend 未实际挂起(页面导航/媒体等,best-effort)");
+                    }
+                    Ok(())
+                }));
+                // TrySuspend 要的是 &handler(借引用);直接传 handler 不满足 Param bound。
+                unsafe {
+                    let _ = v3.TrySuspend(&handler);
+                }
+            } else {
+                unsafe {
+                    let _ = v3.Resume();
+                }
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (webview, suspend);
+    }
+}
+
+/// 对整个内嵌浏览器(当前活动标签页)设置内存档位。
+#[allow(dead_code)]
+pub fn set_active_memory_low(app: &AppHandle, low: bool) {
+    if let Some(wv) = active_webview(app) {
+        set_memory_low(&wv, low);
+    }
+}
+
+/// 生成推给页面工具条的状态 JSON。
+fn bar_state_json(s: &Session) -> serde_json::Value {
+    let tabs: Vec<serde_json::Value> = s
+        .tabs
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "id": t.id,
+                "title": t.title,
+                "url": t.url,
+                "active": Some(t.id) == s.active,
+            })
+        })
+        .collect();
+    let url = s
+        .active
+        .and_then(|id| s.tabs.iter().find(|t| t.id == id))
+        .map(|t| t.url.clone())
+        .unwrap_or_default();
+    serde_json::json!({ "tabs": tabs, "url": url, "picking": false, "multiTab": !s.degraded })
+}
+
+/// 把状态渲染进某个 webview 的工具条。
+fn push_bar_state(app: &AppHandle, webview_label: &str, s: &Session) {
+    if let Some(wv) = app.get_webview(webview_label) {
+        let js = format!(
+            "if(window.__ihuiBarRender){{window.__ihuiBarRender({});}}",
+            bar_state_json(s)
+        );
+        let _ = wv.eval(js);
+    }
+}
+
+/// 把状态推给当前活动标签页(不持锁调用,避免在锁内做 eval)。
+fn refresh_active_bar(app: &AppHandle) {
+    let snapshot = app.state::<BrowserManager>().with(|s| s.clone());
+    if snapshot.degraded {
+        // 降级:窗口 label == webview label
+        push_bar_state(app, BROWSER_WINDOW_LABEL, &snapshot);
+        return;
+    }
+    if let Some(id) = snapshot.active {
+        push_bar_state(app, &tab_label(id), &snapshot);
+    }
+}
+
+/// 构建一个内容 webview builder(多标签与降级两条路共用)。
+///
+/// - `label` = 该 webview 的 label(多标签下是 `browser-tab-<id>`;降级下是窗口 label)
+/// - `tab_id` = 用于 `on_page_load` 时定位会话里的标签行
+fn build_tab_builder(
+    app: &AppHandle,
+    label: String,
+    tab_id: u64,
+    url: Url,
+) -> WebviewBuilder<tauri::Wry> {
+    let app_for_nav = app.clone();
+    let app_for_load = app.clone();
+    // F-100:令牌在建窗时生成,只进入注入脚本与本 webview 的导航拦截闭包。
+    let sentinel_token = new_sentinel_token();
+    let mut builder = WebviewBuilder::new(label, WebviewUrl::External(url))
+        .user_agent(CHROME_UA)
+        .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
+        .devtools(true);
+    // 独立 profile:见 [`BROWSER_PROFILE_DIR`] 注释 —— 与主窗共用默认 folder 时,
+    // options 不一致会被 WebView2 以 `0x8007139F` 拒建,而错误又被 runtime 吞掉。
+    if let Some(dir) = browser_data_dir(app) {
+        builder = builder.data_directory(dir);
+    }
+    builder
+        .background_color(Color(0x24, 0x24, 0x24, 0xff))
+        .initialization_script(bar_js_with_token(&sentinel_token))
+        .initialization_script(pick_js_with_token(&sentinel_token))
+        .on_navigation(move |url| {
+            if let Some(action) = parse_sentinel(url) {
+                if !sentinel_dispatch_allowed(url, &action, &sentinel_token) {
+                    log::warn!("[embedded-browser] 拒绝伪造/缺少令牌的哨兵导航");
+                    return false;
+                }
+                // F-107:点选上报只接受当前活跃标签(令牌已确保来自本 webview)。
+                if matches!(action, SentinelAction::Picked(_)) {
+                    let active = app_for_nav.state::<BrowserManager>().with(|s| s.active);
+                    if active != Some(tab_id) {
+                        log::warn!("[embedded-browser] 拒绝非活跃标签的点选上报");
+                        return false;
+                    }
+                }
+                let a = app_for_nav.clone();
+                tauri::async_runtime::spawn(async move {
+                    handle_sentinel(a, action).await;
+                });
+                false // 取消真实导航
+            } else {
+                true
+            }
+        })
+        .on_page_load(move |wv, payload| {
+            // 导航完成/开始时同步标签 URL 并刷新工具条(标题由注入脚本对活动标签
+            // 直接用 document.title 呈现,见 BAR_JS),否则标签栏/地址栏停在建窗初值。
+            let app = app_for_load.clone();
+            let url = payload.url().to_string();
+            mark_page_loaded(tab_id);
+            // 加载可观测性:商店后台这类外部站点,「窗口开着但页面没出来」只能靠这行定位
+            log::info!(
+                "[embedded-browser] 标签 {} 页面事件 {:?}: {}",
+                tab_id,
+                payload.event(),
+                url
+            );
+            tauri::async_runtime::spawn(async move {
+                app.state::<BrowserManager>().with(|s| {
+                    if let Some(tab) = s.tabs.iter_mut().find(|t| t.id == tab_id) {
+                        tab.url = url.clone();
+                        if tab.title.is_empty() {
+                            tab.title = url.clone();
+                        }
+                    }
+                });
+                // 商店后台标签:此时 CoreWebView2 才真正就绪 —— 种子注入必须放在这一刻
+                // (child webview 刚 add_child 时 set_cookie 返回 Ok 但被静默丢弃,
+                // 实测 127 枚种子一枚都没落库);加载完成后顺带回写种子。
+                crate::store_browser::on_browser_page_loaded(&app, tab_id, &wv);
+                refresh_active_bar(&app);
+            });
+        })
+}
+
+/// 一个标签页的内容 webview,建好并按父窗口尺寸铺满。
+fn spawn_tab_webview(
+    window: &tauri::Window,
+    builder: WebviewBuilder<tauri::Wry>,
+    size: PhysicalSize<u32>,
+) -> Result<(), IpcError> {
+    window
+        .add_child(
+            builder,
+            PhysicalPosition::new(0i32, 0i32),
+            PhysicalSize::new(size.width, size.height),
+        )
+        .map(|_| ())
+        .map_err(|e| IpcError::internal(format!("创建标签页失败: {e}")))
+}
+
+/// 降级:用 `WebviewWindowBuilder` 建「窗口自带 webview」的单窗(不依赖 unstable
+/// `add_child`)。只在裸窗 `WindowBuilder::build` 于该环境不可用时走这条路 ——
+/// 代价是多标签不可用,但浏览/工具条/点选/DevTools 照常。
+fn spawn_degraded_window(
+    app: &AppHandle,
+    title: Option<String>,
+    parsed: Url,
+) -> Result<(), IpcError> {
+    let id = app.state::<BrowserManager>().with(|s| {
+        s.next_id += 1;
+        s.next_id
+    });
+    let app_for_nav = app.clone();
+    // F-100:降级窗同样注入 per-webview 令牌(单 webview 也是独立一条链路)。
+    let sentinel_token = new_sentinel_token();
+    let mut degraded_builder = tauri::WebviewWindowBuilder::new(
+        app,
+        BROWSER_WINDOW_LABEL,
+        WebviewUrl::External(parsed.clone()),
+    )
+    .title(title.unwrap_or_else(|| "智汇AI 浏览器".to_string()))
+    .inner_size(1280.0, 860.0)
+    .min_inner_size(900.0, 640.0)
+    .resizable(true)
+    .center()
+    .decorations(true)
+    .background_color(Color(0x24, 0x24, 0x24, 0xff))
+    .user_agent(CHROME_UA)
+    .additional_browser_args(WEBVIEW2_BROWSER_ARGS);
+    if let Some(dir) = browser_data_dir(app) {
+        degraded_builder = degraded_builder.data_directory(dir);
+    }
+    degraded_builder
+    .initialization_script(bar_js_with_token(&sentinel_token))
+    .initialization_script(pick_js_with_token(&sentinel_token))
+    .on_navigation(move |url| {
+        if let Some(action) = parse_sentinel(url) {
+            if !sentinel_dispatch_allowed(url, &action, &sentinel_token) {
+                log::warn!("[embedded-browser] 拒绝伪造/缺少令牌的哨兵导航");
+                return false;
+            }
+            // F-107:点选上报只接受当前活跃标签(令牌已确保来自本 webview)。
+            if matches!(action, SentinelAction::Picked(_)) {
+                let active = app_for_nav.state::<BrowserManager>().with(|s| s.active);
+                if active != Some(id) {
+                    log::warn!("[embedded-browser] 拒绝非活跃标签的点选上报");
+                    return false;
+                }
+            }
+            let a = app_for_nav.clone();
+            tauri::async_runtime::spawn(async move {
+                handle_sentinel(a, action).await;
+            });
+            false
+        } else {
+            true
+        }
+    })
+    .build()
+    .map_err(|e| IpcError::internal(format!("内嵌浏览器窗口创建失败: {e}")))?;
+    app.state::<BrowserManager>().with(|s| {
+        s.tabs.push(TabInfo {
+            id,
+            url: parsed.to_string(),
+            title: parsed.to_string(),
+        });
+        s.active = Some(id);
+        s.degraded = true;
+    });
+    Ok(())
+}
+
+// ==================== 建窗 / 建标签 ====================
+
+/// 为一个 URL 建内容 webview 并挂到窗口上。返回 webview label。
+///
+/// 注意:必须在**非主线程**调用(`add_child` 内部 `run_on_main_thread` 阻塞等待,
+/// 主线程直接调会自锁,见模块头「建窗时序铁律」)。
+fn add_tab_webview(
+    window: &tauri::Window,
+    app: &AppHandle,
+    id: u64,
+    url: &Url,
+) -> Result<(), IpcError> {
+    let size = window
+        .inner_size()
+        .map_err(|e| IpcError::internal(format!("取窗口尺寸失败: {e}")))?;
+    // 尺寸必须可观测:add_child 用显式尺寸建子 webview,若窗口尚未完成布局拿到 0×0,
+    // 页面会「加载成功但看不见」—— 这是最容易被误判成"渲染不出来"的成因。
+    log::info!(
+        "[embedded-browser] 建标签 {} 尺寸 {}x{}",
+        id,
+        size.width,
+        size.height
+    );
+    // 内容 webview 随窗口缩放(auto_resize);降级路不需要(webview 即窗口)。
+    let builder = build_tab_builder(app, tab_label(id), id, url.clone()).auto_resize();
+    spawn_tab_webview(window, builder, size)?;
+    // `add_child` 建出来的子 webview **不会**自动加载 Builder 里给的 URL —— 实测
+    // `on_page_load` 一次都不触发、页面全灰(窗口开着但什么都没有)。这里显式导航一次;
+    // 它同时也是种子注入的触发点(注入要等 CoreWebView2 就绪,即首次 page load)。
+    if let Some(wv) = app.get_webview(&tab_label(id)) {
+        if let Err(e) = wv.navigate(url.clone()) {
+            log::warn!("[embedded-browser] 标签 {} 首次导航失败: {}", id, e);
+        }
+    }
+    // 建窗那一刻 `inner_size()` 是**请求值**,系统随后可能按屏幕/DPI 收窄窗口,
+    // 子 webview 就比窗口大出一圈(实测 1600x1055 vs 窗口 1294x882),内容被裁且
+    // `auto_resize` 未收到 Resized 事件时不会自愈。延迟一拍按实际尺寸再校正。
+    {
+        let app_late = app.clone();
+        let win_late = window.clone();
+        let label_late = tab_label(id);
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(700));
+            if let (Ok(sz), Some(wv)) = (win_late.inner_size(), app_late.get_webview(&label_late)) {
+                let _ = wv.set_size(sz);
+            }
+        });
+    }
+    // `add_child` 的失败会被 runtime 吞掉(见 [`BROWSER_PROFILE_DIR`] 注释),只能靠
+    // page load 是否真来判定「webview 建出来了」。
+    spawn_page_load_watchdog(app.clone(), id, url.to_string());
+    Ok(())
+}
+
+/// 打开(或复用)浏览器窗口。已存在则让当前标签导航到 `url`。
+pub async fn open_or_navigate(
+    app: AppHandle,
+    url: String,
+    title: Option<String>,
+) -> Result<(), IpcError> {
+    if !is_browsable_url(&url) {
+        return Err(IpcError::permission(
+            "内嵌浏览器只支持 http/https 地址".to_string(),
+        ));
+    }
+    let parsed: Url = url
+        .trim()
+        .parse()
+        .map_err(|e| IpcError::internal(format!("地址解析失败: {e}")))?;
+
+    // 复用:窗口在 ⇒ 当前标签导航(降级窗也走 active_webview)
+    if let Some(window) = app.get_window(BROWSER_WINDOW_LABEL) {
+        if let Some(wv) = active_webview(&app) {
+            let _ = wv.navigate(parsed.clone());
+        }
+        let active = app.state::<BrowserManager>().with(|s| s.active);
+        app.state::<BrowserManager>().with(|s| {
+            if let Some(t) = active.and_then(|id| s.tabs.iter_mut().find(|t| t.id == id)) {
+                t.url = parsed.to_string();
+            }
+        });
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    // 新建:裸窗 + 第一个内容 webview(unstable 多 webview)。两条降级路:
+    // ①裸窗建不起来;②裸窗建起来但 add_child 失败 —— 都退到「窗口自带 webview」的单窗。
+    let bare = tauri::window::WindowBuilder::new(&app, BROWSER_WINDOW_LABEL)
+        .title(title.clone().unwrap_or_else(|| "智汇AI 浏览器".to_string()))
+        .inner_size(1280.0, 860.0)
+        .min_inner_size(900.0, 640.0)
+        .resizable(true)
+        .center()
+        // 原生装饰条保留:工具条是注入进第三方页面的,`data-tauri-drag-region`
+        // 需要 IPC(Tauri 注入层)才能拖动,而第三方站点 CSP 不放行 IPC ⇒ 自绘
+        // 标题栏拖不动窗口。保留系统标题栏换取可靠的移动/最小化/关闭。
+        .decorations(true)
+        .background_color(Color(0x24, 0x24, 0x24, 0xff))
+        .build();
+    let window = match bare {
+        Ok(w) => w,
+        Err(e) => {
+            log::warn!("[embedded-browser] 裸窗创建失败,降级单 webview: {e}");
+            return spawn_degraded_window(&app, title, parsed);
+        }
+    };
+
+    let id = app.state::<BrowserManager>().with(|s| {
+        s.next_id += 1;
+        s.next_id
+    });
+    // 先亮窗再建标签:`WindowBuilder` 刚 build 完时 `inner_size()` 拿到的是**请求值**
+    // (实测 1920x1290),系统随后才按屏幕可用区收窄(实际 1294x822),而 `add_child`
+    // 用的正是这个尺寸 —— 子 webview 会大出窗口一圈、内容被裁。亮窗后等一拍让
+    // tao 完成首次布局与尺寸收敛,再取实际值建子 webview。
+    let _ = window.show();
+    std::thread::sleep(Duration::from_millis(150));
+    if let Err(e) = add_tab_webview(&window, &app, id, &parsed) {
+        log::warn!("[embedded-browser] add_child 失败,降级单 webview: {e}");
+        let _ = window.close();
+        return spawn_degraded_window(&app, title, parsed);
+    }
+    app.state::<BrowserManager>().with(|s| {
+        s.tabs.push(TabInfo {
+            id,
+            url: parsed.to_string(),
+            title: parsed.to_string(),
+        });
+        s.active = Some(id);
+        s.degraded = false;
+    });
+    // 关窗钩子:商店账号页进来之后,关窗要先把会话级 Cookie 转持久并回写种子。
+    // 必须在 webview 销毁**之前**跑(Rust 侧同步执行),否则 CookieManager 已经没了。
+    {
+        let app_ev = app.clone();
+        window.on_window_event(move |event| {
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                crate::store_browser::flush_store_tabs_on_close(&app_ev);
+            }
+        });
+    }
+    Ok(())
+}
+
+/// 把地址作为**新标签**打开(商店账号等其他模块复用这条建标签路径)。
+///
+/// 返回 `(标签 id, 该标签内容 webview 的 label)`:
+/// - 窗口不在时先建窗,首个标签由 [`open_or_navigate`] 建立;
+/// - 降级模式(单 webview 窗)没有多标签,退化为「当前页导航」,label 即窗口 label。
+///
+/// **必须在工作线程(async task)上调用** —— `add_child` 会阻塞等待主线程执行,
+/// 主线程直接调会自锁(见模块头「建窗时序铁律」)。
+pub(crate) async fn open_tab_for_url(
+    app: AppHandle,
+    url: String,
+    title: Option<String>,
+) -> Option<(u64, String)> {
+    if !is_browsable_url(&url) {
+        return None;
+    }
+    let parsed: Url = url.trim().parse().ok()?;
+    if app.get_window(BROWSER_WINDOW_LABEL).is_none() {
+        // 窗口标题固定用浏览器自身名字;调用方给的 title 只当**标签标题** ——
+        // 否则第一枚标签会把窗口标题改成平台名(如「华为AGC」),看着像开了个独立窗口。
+        if open_or_navigate(app.clone(), url, None).await.is_err() {
+            return None;
+        }
+        let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+        let id = id?;
+        let label = if degraded {
+            BROWSER_WINDOW_LABEL.to_string()
+        } else {
+            tab_label(id)
+        };
+        if let Some(t) = title {
+            app.state::<BrowserManager>().with(|s| {
+                if let Some(tab) = s.tabs.iter_mut().find(|x| x.id == id) {
+                    tab.title = t;
+                }
+            });
+            refresh_active_bar(&app);
+        }
+        return Some((id, label));
+    }
+
+    let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+    if degraded {
+        if let Some(wv) = active_webview(&app) {
+            let _ = wv.navigate(parsed);
+        }
+        let id = app.state::<BrowserManager>().with(|s| s.active)?;
+        return Some((id, BROWSER_WINDOW_LABEL.to_string()));
+    }
+
+    let window = app.get_window(BROWSER_WINDOW_LABEL)?;
+    let id = app
+        .state::<BrowserManager>()
+        .with(|s| s.reserve_tab(parsed.to_string(), title.unwrap_or_else(|| parsed.to_string())))?;
+    if add_tab_webview(&window, &app, id, &parsed).is_err() {
+        app.state::<BrowserManager>().with(|s| s.release_tab(id));
+        return None;
+    }
+    // 隐藏当前标签、激活新建的这一个(与工具条 "+" 完全同一条路径)
+    let prev = app.state::<BrowserManager>().with(|s| s.activate_tab(id));
+    if let Some(prev_id) = prev {
+        if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
+            let _ = wv.hide();
+        }
+    }
+    refresh_active_bar(&app);
+    let _ = window.show();
+    let _ = window.set_focus();
+    Some((id, tab_label(id)))
+}
+
+/// 把某个已存在的标签切到前台(批量开完标签后回到第一个)。
+pub(crate) async fn activate_tab(app: AppHandle, id: u64) {
+    handle_sentinel(app, SentinelAction::Switch(id)).await;
+}
+
+// ==================== 哨兵动作处理 ====================
+
+/// 处理工具条动作。跑在工作线程上(可安全调用 `add_child`/`hide`/`show`)。
+async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
+    let Some(window) = app.get_window(BROWSER_WINDOW_LABEL) else {
+        return;
+    };
+    let active_wv = || -> Option<tauri::webview::Webview> {
+        let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+        if degraded {
+            // 降级:窗口 label == webview label
+            return app.get_webview(BROWSER_WINDOW_LABEL);
+        }
+        let id = id?;
+        app.get_webview(&tab_label(id))
+    };
+
+    match action {
+        SentinelAction::Navigate(u) => {
+            if is_browsable_url(&u) {
+                if let Some(wv) = active_wv() {
+                    if let Ok(parsed) = u.parse::<Url>() {
+                        let _ = wv.navigate(parsed.clone());
+                        let active = app.state::<BrowserManager>().with(|s| s.active);
+                        app.state::<BrowserManager>().with(|s| {
+                            if let Some(t) = active.and_then(|id| s.tabs.iter_mut().find(|t| t.id == id)) {
+                                t.url = parsed.to_string();
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        SentinelAction::Back => {
+            if let Some(wv) = active_wv() {
+                let _ = wv.eval("history.back();");
+            }
+        }
+        SentinelAction::Forward => {
+            if let Some(wv) = active_wv() {
+                let _ = wv.eval("history.forward();");
+            }
+        }
+        SentinelAction::Reload => {
+            if let Some(wv) = active_wv() {
+                let _ = wv.reload();
+            }
+        }
+        SentinelAction::Stop => {
+            if let Some(wv) = active_wv() {
+                let _ = wv.eval("window.stop();");
+            }
+        }
+        SentinelAction::Home => {
+            if let Some(wv) = active_wv() {
+                if let Ok(parsed) = HOME_URL.parse::<Url>() {
+                    let _ = wv.navigate(parsed);
+                }
+            }
+        }
+        SentinelAction::Devtools => {
+            if let Some(wv) = active_wv() {
+                wv.open_devtools();
+            }
+        }
+        SentinelAction::Pick(on) => {
+            if let Some(wv) = active_wv() {
+                let js = format!("if(window.__ihuiPick){{window.__ihuiPick({});}}", on);
+                let _ = wv.eval(js);
+            }
+        }
+        SentinelAction::Picked(payload) => {
+            // 点选结果:转发给宿主应用(main 窗口,有 IPC)
+            let decoded = percent_decode(&payload);
+            let _ = app.emit_to("main", "embedded-browser://element-picked", decoded);
+        }
+        SentinelAction::WbCheckinLogin => {
+            // 签到页(内容页无 IPC)请求「浏览器登录 WorkBuddy」(2026-10-17 立):
+            // 建登录页标签 + 起看护轮询,结果经 #wb_import= 导航回签到页
+            // (见 run_wb_checkin_login_watch)。防重入:进行中再触发直接忽略。
+            // F-100:发起页必须是可信签到页;否则整条动作直接丢弃(不建窗、不轮询)。
+            let trusted_origin = active_wv()
+                .and_then(|wv| wv.url().ok())
+                .filter(is_trusted_checkin_origin);
+            if trusted_origin.is_none() {
+                log::warn!(
+                    "[embedded-browser] 拒绝非签到页发起的 wb-checkin-login(防 Cookie 外泄)"
+                );
+                return;
+            }
+            if WB_LOGIN_POLLING.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            let Ok(login_url) = WB_WEB_LOGIN_URL.parse::<Url>() else {
+                WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                return;
+            };
+            // 回跳地址 = 可信签到页当前 URL 去 fragment;F-100 再经域名白名单
+            // (https + aizhs.top 及其子域)裁决,不在白名单一律退常量 —— 不用
+            // 发起页原始串兜底,否则一个被劫持/伪造的页面能把 Cookie 带回任意站点。
+            let return_base = sanitize_return_base(trusted_origin.as_ref());
+            // 降级窗(单 webview)没有"新标签"可开:当前页直接导航去登录页 ——
+            // 签到页会被顶掉,但登录完成后看护会把这一页导航回带 #wb_import=
+            // 的签到页自然恢复。标签满时同走此退化路。
+            let login_tab: Option<u64> = if app.state::<BrowserManager>().with(|s| s.degraded) {
+                if let Some(wv) = active_wv() {
+                    let _ = wv.navigate(login_url.clone());
+                }
+                None
+            } else {
+                // F-124:判限 + 取号 + 入列在同一次加锁里完成(见 `Session::reserve_tab`),
+                // 并发 `new-tab` / `wb-checkin-login` 不会各自读到 11 而超限。
+                match app
+                    .state::<BrowserManager>()
+                    .with(|s| s.reserve_tab(login_url.to_string(), login_url.to_string()))
+                {
+                    // 标签满:退化为当前页导航(与降级路同一语义)。
+                    None => {
+                        if let Some(wv) = active_wv() {
+                            let _ = wv.navigate(login_url.clone());
+                        }
+                        None
+                    }
+                    Some(id) => {
+                        if let Err(e) = add_tab_webview(&window, &app, id, &login_url) {
+                            log::warn!("[embedded-browser] wb-checkin-login 建登录标签失败: {e}");
+                            app.state::<BrowserManager>().with(|s| s.release_tab(id));
+                            WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                            return;
+                        }
+                        let prev = app.state::<BrowserManager>().with(|s| s.activate_tab(id));
+                        if let Some(prev_id) = prev {
+                            if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
+                                let _ = wv.hide();
+                            }
+                        }
+                        refresh_active_bar(&app);
+                        Some(id)
+                    }
+                }
+            };
+            run_wb_checkin_login_watch(app, login_tab, return_base).await;
+        }
+        SentinelAction::NewTab(u) => {
+            // 降级模式(单 webview 窗)无多标签可言:把"新建标签"退化为"当前页导航"。
+            let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+            if degraded {
+                let target = match u {
+                    Some(u) if is_browsable_url(&u) => u,
+                    _ => HOME_URL.to_string(),
+                };
+                if let Some(wv) = active_wv() {
+                    if let Ok(parsed) = target.parse::<Url>() {
+                        let _ = wv.navigate(parsed);
+                    }
+                }
+                return;
+            }
+            let target = match u {
+                Some(u) if is_browsable_url(&u) => u,
+                _ => HOME_URL.to_string(),
+            };
+            let Ok(parsed) = target.parse::<Url>() else {
+                return;
+            };
+            // F-124:判限 + 取号 + 入列一次做完,不再"先读 len 再加一"。
+            let Some(id) = app
+                .state::<BrowserManager>()
+                .with(|s| s.reserve_tab(parsed.to_string(), parsed.to_string()))
+            else {
+                return;
+            };
+            if add_tab_webview(&window, &app, id, &parsed).is_err() {
+                app.state::<BrowserManager>().with(|s| s.release_tab(id));
+                return;
+            }
+            // 隐藏当前,激活新标签
+            let prev = app.state::<BrowserManager>().with(|s| s.activate_tab(id));
+            if let Some(prev_id) = prev {
+                if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
+                    let _ = wv.hide();
+                }
+            }
+            refresh_active_bar(&app);
+        }
+        SentinelAction::CloseTab(i) => {
+            // 商店后台标签:销毁 webview 之前先续期 + 回写种子(否则那一次登录票来不及转持久)
+            crate::store_browser::flush_store_tab_before_close(&app, i);
+            // 降级模式:没有真标签可关,当"关窗"处理。
+            let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+            if degraded {
+                let _ = window.close();
+                app.state::<BrowserManager>().with(|s| {
+                    *s = Session::default();
+                });
+                return;
+            }
+            let (remaining, new_active) = app.state::<BrowserManager>().with(|s| {
+                s.tabs.retain(|t| t.id != i);
+                if s.active == Some(i) {
+                    s.active = s.tabs.last().map(|t| t.id);
+                }
+                (s.tabs.len(), s.active)
+            });
+            if let Some(wv) = app.get_webview(&tab_label(i)) {
+                let _ = wv.close();
+            }
+            if remaining == 0 {
+                let _ = window.close();
+                app.state::<BrowserManager>().with(|s| {
+                    *s = Session::default();
+                });
+                return;
+            }
+            if let Some(id) = new_active {
+                if let Some(wv) = app.get_webview(&tab_label(id)) {
+                    let _ = wv.show();
+                    let _ = wv.set_focus();
+                }
+                refresh_active_bar(&app);
+            }
+        }
+        SentinelAction::Switch(i) => {
+            // 降级模式:只有一个 webview,切换无意义(工具条也已不显示标签栏)。
+            let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+            if degraded {
+                return;
+            }
+            let prev = app.state::<BrowserManager>().with(|s| {
+                if !s.tabs.iter().any(|t| t.id == i) {
+                    return None;
+                }
+                let prev = s.active;
+                s.active = Some(i);
+                Some(prev)
+            });
+            let Some(prev) = prev else { return };
+            if let Some(pid) = prev {
+                if pid != i {
+                    if let Some(wv) = app.get_webview(&tab_label(pid)) {
+                        let _ = wv.hide();
+                    }
+                }
+            }
+            if let Some(wv) = app.get_webview(&tab_label(i)) {
+                let _ = wv.show();
+                let _ = wv.set_focus();
+            }
+            refresh_active_bar(&app);
+        }
+        SentinelAction::CloseWindow => {
+            let _ = window.close();
+            app.state::<BrowserManager>().with(|s| {
+                *s = Session::default();
+            });
+        }
+    }
+}
+
+/// `wb-checkin-login` 哨兵的登录看护(2026-10-17)。
+///
+/// 为什么轮询在 Rust 而不是前端:签到页跑在内嵌浏览器内容 webview 里,
+/// **没有 IPC**(见模块头「安全边界」)—— 既调不了 probe 命令,也收不到事件。
+/// 「浏览器登录 WorkBuddy」这条流程只能在 Rust 侧闭环:轮询共享 cookie jar 的
+/// 登录态;ok 后把**登录标签**导航回签到页,URL fragment 充当结果通道
+/// (`#wb_import=<percent-encoded JSON>`;fragment 不发往服务端,纯页面内消费),
+/// 页面解析后入库并清 hash。超时静默放弃:不打断可能正在登录的用户,签到页
+/// 自己的时钟(6.5 分钟)负责复位按钮态。
+///
+/// `return_base` = 发起页地址(登录前活动 webview 的当前 URL 去 fragment)。
+/// **为什么不能硬编码 `https://aizhs.top/checkin`**(2026-10-18 修):内嵌浏览器
+/// 里打开的不一定是线上签到页 —— 桌面端本地打包页(`tauri://localhost/...`)、
+/// 测试环境地址都在同一窗口里跑;硬编码会把本地会话的登录结果导航去线上,
+/// 用户看到的是「登录成功却跳到了另一个站点」= 没跳回我们程序。回跳地址
+/// 一律跟随发起页,拿不到才退常量兜底。
+async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>, return_base: String) {
+    /// 轮询节奏(与主窗口流程的 2.5s 前端轮询同拍)。
+    const INTERVAL: Duration = Duration::from_millis(2500);
+    /// 总超时:登录超过 6 分钟按放弃处理(登录页留在原地,用户可继续用浏览器)。
+    const TIMEOUT: Duration = Duration::from_secs(360);
+    let started = Instant::now();
+    loop {
+        tokio::time::sleep(INTERVAL).await;
+        if started.elapsed() >= TIMEOUT {
+            WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+            return;
+        }
+        let probe = match checkin_workbuddy_web_login_probe(app.clone()).await {
+            Ok(p) => p,
+            Err(_) => continue, // IPC 层错误视为瞬态,下一轮再试
+        };
+        match probe {
+            WebLoginProbe::Ok {
+                cookie,
+                accounts,
+                cookie_checkin_ok,
+            } => {
+                WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                // 负载与主窗口流程消费的 probe 契约同形,签到页两条路共用一个入库函数
+                let payload = serde_json::json!({
+                    "cookie": cookie,
+                    "accounts": accounts,
+                    "cookie_checkin_ok": cookie_checkin_ok,
+                });
+                let Ok(parsed) = Url::parse(&format!(
+                    "{}#wb_import={}",
+                    return_base,
+                    percent_encode(&payload.to_string())
+                )) else {
+                    return;
+                };
+                // 登录标签没了(用户关了它):退回活动标签;降级窗登录页就占着
+                // 窗体 webview,`get_webview(BROWSER_WINDOW_LABEL)` 直接命中。
+                let wv = match login_tab {
+                    Some(id) => app
+                        .get_webview(&tab_label(id))
+                        .or_else(|| active_webview(&app)),
+                    None => app
+                        .get_webview(BROWSER_WINDOW_LABEL)
+                        .or_else(|| active_webview(&app)),
+                };
+                if let Some(wv) = wv {
+                    let _ = wv.navigate(parsed);
+                }
+                return;
+            }
+            // 窗口被整个关掉:签到页同样没了,本轮流程结束
+            WebLoginProbe::NoWindow => {
+                WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                return;
+            }
+            // 未登录/暂态错误:继续等
+            _ => {}
+        }
+    }
+}
+
+/// 最小 percent-decode(`%XX` + `+`),用于解点选负载。
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'%' if i + 2 < bytes.len() => {
+                let h = (bytes[i + 1] as char).to_digit(16);
+                let l = (bytes[i + 2] as char).to_digit(16);
+                if let (Some(h), Some(l)) = (h, l) {
+                    out.push((h * 16 + l) as u8);
+                    i += 3;
+                } else {
+                    out.push(bytes[i]);
+                    i += 1;
+                }
+            }
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// 最小 percent-encode(非 unreserved 字节全编码),用于 `#wb_import=` 负载
+/// (2026-10-17)。为什么从紧编码:负载是 JSON(cookie 串含 `;`/空格,昵称可含
+/// CJK/引号),fragment 里 `#` 会提前截断、`%` 会被误当转义,全量编码最不易
+/// 踩坑;接收端(签到页)用 `decodeURIComponent` 一把解回。
+fn percent_encode(s: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut out = String::with_capacity(s.len() * 3);
+    for &b in s.as_bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push('%');
+            out.push(HEX[(b >> 4) as usize] as char);
+            out.push(HEX[(b & 0x0F) as usize] as char);
+        }
+    }
+    out
+}
+
+// ==================== Tauri 命令 ====================
+
+/// 打开(或复用)内嵌浏览器窗口。
+#[tauri::command]
+pub async fn embedded_browser_open(
+    app: AppHandle,
+    url: String,
+    title: Option<String>,
+) -> Result<(), IpcError> {
+    open_or_navigate(app, url, title).await
+}
+
+/// 关闭(并销毁)内嵌浏览器窗口及其全部标签页。
+#[tauri::command]
+pub async fn embedded_browser_close(app: AppHandle) -> Result<(), IpcError> {
+    if let Some(window) = app.get_window(BROWSER_WINDOW_LABEL) {
+        window
+            .close()
+            .map_err(|e| IpcError::internal(format!("关闭内嵌浏览器窗口失败: {e}")))?;
+    }
+    app.state::<BrowserManager>().with(|s| {
+        *s = Session::default();
+    });
+    Ok(())
+}
+
+/// 查询内嵌浏览器窗口状态(窗口在不在、当前地址、标签列表)。
+#[tauri::command]
+pub fn embedded_browser_state(app: AppHandle) -> BrowserStateDto {
+    if app.get_window(BROWSER_WINDOW_LABEL).is_none() {
+        return BrowserStateDto {
+            open: false,
+            url: None,
+            tabs: vec![],
+            active: None,
+            degraded: false,
+        };
+    }
+    app.state::<BrowserManager>().with(|s| {
+        let url = s
+            .active
+            .and_then(|id| s.tabs.iter().find(|t| t.id == id))
+            .map(|t| t.url.clone());
+        BrowserStateDto {
+            open: true,
+            url,
+            tabs: s.tabs.clone(),
+            active: s.active,
+            degraded: s.degraded,
+        }
+    })
+}
+
+/// 新建标签页(可指定 URL;不合法则去主页)。
+#[tauri::command]
+pub async fn embedded_browser_new_tab(app: AppHandle, url: Option<String>) -> Result<(), IpcError> {
+    if app.get_window(BROWSER_WINDOW_LABEL).is_none() {
+        return open_or_navigate(app, url.unwrap_or_else(|| HOME_URL.to_string()), None).await;
+    }
+    let action = SentinelAction::NewTab(url.filter(|u| is_browsable_url(u)));
+    handle_sentinel(app, action).await;
+    Ok(())
+}
+
+/// 打开当前标签页的开发者工具。
+#[tauri::command]
+pub async fn embedded_browser_devtools(app: AppHandle) -> Result<(), IpcError> {
+    handle_sentinel(app, SentinelAction::Devtools).await;
+    Ok(())
+}
+
+// ==================== 单测(纯判据区) ====================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn u(s: &str) -> Url {
+        Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn browsable_url_allowlist() {
+        assert!(is_browsable_url("https://www.workbuddy.cn/login/"));
+        assert!(is_browsable_url("http://example.com"));
+        assert!(is_browsable_url("  https://a.b  "));
+    }
+
+    #[test]
+    fn browsable_url_denies_internal_schemes() {
+        for bad in [
+            "file:///C:/secret.txt",
+            "tauri://localhost",
+            "javascript:alert(1)",
+            "data:text/html,<h1>x</h1>",
+            "",
+            "   ",
+            "ftp://a.b",
+            "www.workbuddy.cn",
+        ] {
+            assert!(!is_browsable_url(bad), "不该放行: {bad}");
+        }
+    }
+
+    #[test]
+    fn sentinel_parses_actions() {
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/back")),
+            Some(SentinelAction::Back)
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/forward")),
+            Some(SentinelAction::Forward)
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/switch?i=7")),
+            Some(SentinelAction::Switch(7))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/close-tab?i=3")),
+            Some(SentinelAction::CloseTab(3))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/pick?on=1")),
+            Some(SentinelAction::Pick(true))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/pick?on=0")),
+            Some(SentinelAction::Pick(false))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/navigate?u=https%3A%2F%2Fa.b%2F")),
+            Some(SentinelAction::Navigate("https://a.b/".to_string()))
+        );
+        // new-tab 无 url / about:blank ⇒ None
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/new-tab")),
+            Some(SentinelAction::NewTab(None))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/new-tab?u=about%3Ablank")),
+            Some(SentinelAction::NewTab(None))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/new-tab?u=https%3A%2F%2Fx.y")),
+            Some(SentinelAction::NewTab(Some("https://x.y".to_string())))
+        );
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/close-window")),
+            Some(SentinelAction::CloseWindow)
+        );
+        // 2026-10-17:签到页借哨兵发起「浏览器登录 WorkBuddy」
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/wb-checkin-login")),
+            Some(SentinelAction::WbCheckinLogin)
+        );
+    }
+
+    #[test]
+    fn sentinel_ignores_other_hosts_and_unknown() {
+        assert_eq!(parse_sentinel(&u("https://aizhs.top/back")), None);
+        assert_eq!(parse_sentinel(&u("https://browser.ihui.invalid/nope")), None);
+        assert_eq!(parse_sentinel(&u("https://example.com/")), None);
+    }
+
+    #[test]
+    fn wb_checkin_login_only_from_trusted_checkin_origin() {
+        // 正证:线上签到页(含子路径)允许发起
+        assert!(is_trusted_checkin_origin(&u("https://aizhs.top/checkin")));
+        assert!(is_trusted_checkin_origin(&u("https://aizhs.top/checkin/step2")));
+        // 反证:任意第三方页/伪造 host/http/相邻路径都不得成为回跳目标(F-100)
+        assert!(!is_trusted_checkin_origin(&u("https://evil.example/checkin")));
+        assert!(!is_trusted_checkin_origin(&u("https://aizhs.top.evil.example/checkin")));
+        assert!(!is_trusted_checkin_origin(&u("http://aizhs.top/checkin")));
+        assert!(!is_trusted_checkin_origin(&u("https://aizhs.top/checkin-evil")));
+        assert!(!is_trusted_checkin_origin(&u("https://aizhs.top/")));
+    }
+
+    #[test]
+    fn sentinel_token_rejects_forged_wb_checkin_login() {
+        // F-100:没有令牌 / 令牌不符的 wb-checkin-login 一律不派发。
+        let token = "0123456789abcdef0123456789abcdef";
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/wb-checkin-login"),
+            &SentinelAction::WbCheckinLogin,
+            token
+        ));
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/wb-checkin-login?t=deadbeef"),
+            &SentinelAction::WbCheckinLogin,
+            token
+        ));
+        // 正证:带上本 webview 令牌的合法哨兵
+        assert!(sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/wb-checkin-login?t=0123456789abcdef0123456789abcdef"),
+            &SentinelAction::WbCheckinLogin,
+            token
+        ));
+        // 其它哨兵不需要令牌(伪造至多触发导航,拿不到凭据)
+        assert!(sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/back"),
+            &SentinelAction::Back,
+            token
+        ));
+    }
+
+    #[test]
+    fn f107_picked_requires_webview_token() {
+        // F-107:只有携带「本 webview」令牌的点选上报才允许派发。
+        let token = "0123456789abcdef0123456789abcdef";
+        let picked = || SentinelAction::Picked("{}".to_string());
+        // 正证:有效令牌
+        assert!(sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D&t=0123456789abcdef0123456789abcdef"),
+            &picked(),
+            token
+        ));
+        // 反证:缺失令牌(任意页面直接 location.href 伪造)
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D"),
+            &picked(),
+            token
+        ));
+        // 反证:错误令牌
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D&t=deadbeef"),
+            &picked(),
+            token
+        ));
+        // 反证:空令牌
+        assert!(!sentinel_dispatch_allowed(
+            &u("https://browser.ihui.invalid/picked?d=%7B%7D&t="),
+            &picked(),
+            ""
+        ));
+    }
+
+    #[test]
+    fn f107_pick_js_embeds_token_and_requires_trusted_click() {
+        let token = "0123456789abcdef0123456789abcdef";
+        let js = pick_js_with_token(&token);
+        assert!(js.contains(token));
+        assert!(!js.contains(SENTINEL_TOKEN_PLACEHOLDER));
+        // 合成事件不算点选(否则页面脚本可自行触发"上报")
+        assert!(js.contains("isTrusted"));
+    }
+
+    #[test]
+    fn return_base_falls_back_for_untrusted_hosts() {
+        // F-100:非白名单(第三方/http/相似后缀)一律常量兜底
+        assert_eq!(sanitize_return_base(None), WB_CHECKIN_RETURN_FALLBACK);
+        for bad in [
+            "https://evil.example/checkin",
+            "http://aizhs.top/checkin",
+            "https://aizhs.top.evil.example/checkin",
+            "https://evil-aizhs.top/checkin",
+        ] {
+            assert_eq!(
+                sanitize_return_base(Some(&u(bad))),
+                WB_CHECKIN_RETURN_FALLBACK,
+                "不该放行: {bad}"
+            );
+        }
+        // 正证:线上签到页(含子域)通过,并去掉 fragment
+        assert_eq!(
+            sanitize_return_base(Some(&u("https://aizhs.top/checkin#wb_import=x"))),
+            "https://aizhs.top/checkin"
+        );
+        assert_eq!(
+            sanitize_return_base(Some(&u("https://www.aizhs.top/checkin?b=1"))),
+            "https://www.aizhs.top/checkin?b=1"
+        );
+    }
+
+    #[test]
+    fn sentinel_token_is_random_and_injected_into_bar_js() {
+        let a = new_sentinel_token();
+        let b = new_sentinel_token();
+        assert_eq!(a.len(), 32);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, b);
+        let js = bar_js_with_token(&a);
+        assert!(js.contains(&a));
+        assert!(!js.contains(SENTINEL_TOKEN_PLACEHOLDER));
+    }
+
+    #[test]
+    fn percent_decode_handles_utf8() {
+        // "元素" 的 UTF-8 percent 编码
+        assert_eq!(percent_decode("%E5%85%83%E7%B4%A0"), "元素");
+        assert_eq!(percent_decode("a+b"), "a b");
+        assert_eq!(percent_decode("plain"), "plain");
+        assert_eq!(percent_decode("%ZZ"), "%ZZ");
+    }
+
+    #[test]
+    fn percent_encode_roundtrip_with_decode() {
+        // #wb_import= 负载往返:JSON 里的关键字符(`#` 截断 / `%` 转义歧义 /
+        // `+` 被解码成空格的歧义 / CJK)全部编码,且能被 percent_decode 解回。
+        // 编码器把 `+` 也编码 ⇒ 解码端"裸 + → 空格"的规则不会误伤负载。
+        let raw = r#"{"cookie":"a=b; c+d","accounts":[{"uid":"u1","nickname":"李总#1%"}]}"#;
+        let enc = percent_encode(raw);
+        assert!(!enc.contains('#'));
+        assert!(!enc.contains('+'));
+        assert_eq!(percent_decode(&enc), raw);
+    }
+
+    #[test]
+    fn bar_js_is_cssom_only_and_zero_ipc() {
+        // 零 IPC:不得出现任何 Tauri invoke 面(第三方站点 CSP 不放行 ipc.localhost)
+        for forbidden in ["__TAURI", "invoke(", "ipc.localhost", "__TAURI_INTERNALS__"] {
+            assert!(!BAR_JS.contains(forbidden), "注入脚本不该依赖 IPC: {forbidden}");
+            assert!(!PICK_JS.contains(forbidden), "点选脚本不该依赖 IPC: {forbidden}");
+        }
+        // 只用 CSSOM:不得出现 <style> 元素或 style="..." 属性写法
+        assert!(!BAR_JS.contains("createElement('style')"));
+        assert!(!BAR_JS.contains("style=\""));
+        assert!(BAR_JS.contains("setProperty"));
+        // 关键控件与动作在册(动作全部经 __ihuiNav 哨兵导航发出;真正的
+        // history.back/forward、window.stop 在 Rust 侧对活动 webview eval,不在本脚本)
+        for needle in [
+            "__ihui_browser_bar",
+            "__ihuiBarRender",
+            "__ihuiNav",
+            "data-tauri-drag-region",
+            "'back'",
+            "'forward'",
+            "'reload'",
+            "'stop'",
+            "'home'",
+            "'navigate'",
+            "'close-tab'",
+            "'switch'",
+            "'new-tab'",
+            "'devtools'",
+            "'pick'",
+            "'close-window'",
+        ] {
+            assert!(BAR_JS.contains(needle), "工具条脚本缺: {needle}");
+        }
+        assert!(PICK_JS.contains("__ihuiPick"));
+        assert!(PICK_JS.contains("picked"));
+        assert!(PICK_JS.contains("crosshair"));
+    }
+
+    #[test]
+    fn bar_state_json_reflects_degraded_flag() {
+        // 正常多标签:multiTab = true
+        let s = Session::default();
+        assert_eq!(bar_state_json(&s)["multiTab"], serde_json::json!(true));
+        // 降级单 webview:multiTab = false(工具条据此隐藏标签栏)
+        let mut d = Session::default();
+        d.degraded = true;
+        assert_eq!(bar_state_json(&d)["multiTab"], serde_json::json!(false));
+        // 工具条脚本里确实有这条分支
+        assert!(BAR_JS.contains("multiTab"));
+        assert!(BAR_JS.contains("'display', multi ? 'flex' : 'none'"));
+    }
+
+    #[test]
+    fn chrome_ua_has_no_edge_marker() {
+        assert!(CHROME_UA.contains("Chrome/"));
+        assert!(!CHROME_UA.contains("Edg/"));
+        assert!(CHROME_UA.contains("AppleWebKit/537.36"));
+    }
+
+    #[test]
+    fn f124_reserve_tab_is_single_critical_section() {
+        // F-124:判限、取号、入列在同一方法(同一把锁)里完成。
+        let max_tabs = max_tabs();
+        let mut s = Session::default();
+        for i in 1..=max_tabs {
+            assert_eq!(
+                s.reserve_tab(format!("https://a.b/{i}"), format!("t{i}")),
+                Some(i as u64),
+                "第 {i} 个标签应入列"
+            );
+        }
+        // 第 max_tabs+1 次:被拒绝,且不推进编号、不插入任何条目。
+        assert_eq!(s.reserve_tab("https://a.b/13".into(), "t13".into()), None);
+        assert_eq!(s.tabs.len(), max_tabs);
+        assert_eq!(s.next_id, max_tabs as u64);
+        // 撤掉一个额度后可再入列(拿到的是新号,不是复用被拒的那次)。
+        s.release_tab(3);
+        assert_eq!(s.tabs.len(), max_tabs - 1);
+        assert_eq!(
+            s.reserve_tab("https://a.b/retry".into(), "retry".into()),
+            Some(max_tabs as u64 + 1)
+        );
+        assert_eq!(
+            crate::browser_settings::BrowserSettings::default().max_tabs,
+            12,
+            "默认上限变更需同步复核本钉与产品口径"
+        );
+    }
+
+    #[test]
+    fn f124_concurrent_reserve_never_exceeds_max_tabs() {
+        // 缺陷本体:`tabs.len()` 与后续 `push` 分两次加锁,每个哨兵跑在独立 spawn 任务里,
+        // 并发 `new-tab` 能同时读到 11 后各加一。这里用真实 BrowserManager(Mutex) 多线程
+        // 撞同一个额度,断言恰好只有 max_tabs 次预留成功。
+        let max_tabs = max_tabs();
+        let mgr = std::sync::Arc::new(BrowserManager::default());
+        let mut handles = Vec::new();
+        for i in 0..max_tabs * 4 {
+            let m = std::sync::Arc::clone(&mgr);
+            handles.push(std::thread::spawn(move || {
+                m.with(|s| s.reserve_tab(format!("https://a.b/{i}"), String::new()))
+            }));
+        }
+        let admitted: Vec<u64> = handles
+            .into_iter()
+            .filter_map(|h| h.join().expect("预留线程不应 panic"))
+            .collect();
+        assert_eq!(admitted.len(), max_tabs, "并发预留必须严格守住 max_tabs");
+        let mut ids = admitted;
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), max_tabs, "并发预留不得发出重复标签号");
+        assert_eq!(mgr.with(|s| s.tabs.len()), max_tabs);
+    }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

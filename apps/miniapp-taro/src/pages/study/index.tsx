@@ -1,0 +1,200 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 非同源说明: 本页是「学习中心枢纽页」(统计卡「今日/累计/连续/已学」+ 5 入口 + 继续学习 + FAB),
+// 取数走 GET /api/study/info + /api/study/records(学习域),取词用 study.*。
+// 共享层 StudyProgressScreen 是「教育域学习进度」(统计卡「课程/累计/本周/连续」+ 课程进度条,
+// 取词用 studyProgress.* / eduProgressPage.*),两端统计口径与 UI 段落不同 ⇒ 不是同一产品对象,
+// 不参与镜像对账。原误配 StudyProgressScreen 的标记与登记表三元组已一并摘除(2026-11-13,
+// 仿 ai-career 摘除先例:登记假声明比缺一条覆盖更坏)。
+// StudyProgressScreen 的合法薄壳载体是 pkg-mirror3/study-progress/index(壳承载,见登记表)。
+
+import { aizhsUrl } from '@/constants/icon-urls'
+import { useI18n } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useCallback } from 'react'
+import { getStudyInfo, getStudyRecords, type StudyRecord } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+const rankoneIcon = aizhsUrl('remote-images/rankone.png')
+const kechengIcon = aizhsUrl('remote-images/kecheng.png')
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到产物而非打包进 common.js
+// 2026-09-26 主包余量治理:本页属子包 `pages/study`,而该图的另一个引用方 `pkg-ai/ai/chat.tsx`
+// 同在子包 —— 主包 2 MB 是当下唯一的稀缺资源(实测余量 2,457 B),所以按"每个引用方各留一份"
+// 下沉进各自子包,主包腾出 36,542 B;子包总额 20 MB、本包实测 <80 KB,余量充足。
+// 图片字节与迁移前逐字节相同(md5 97fef424f841ab997b161bc4ead93cbe),**零像素改动**。
+const recordBackIcon = '/pages/study/assets/record_back.png'
+const studyIconAddIcon = aizhsUrl('remote-images/study_icon_add.png')
+const wenjianIcon = aizhsUrl('remote-images/wenjian.png')
+import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
+
+function isImagePath(s: string): boolean {
+  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
+}
+
+interface StudyInfo {
+  todayMinutes: number
+  totalMinutes: number
+  continuousDays: number
+  courses: number
+}
+
+const RECENT_LIMIT = 5
+
+export default function StudyIndex() {
+  const { t } = useI18n()
+  const gate = useAuthReadyGate()
+  const [info, setInfo] = useState<StudyInfo>({
+    todayMinutes: 0,
+    totalMinutes: 0,
+    continuousDays: 0,
+    courses: 0,
+  })
+  const [recent, setRecent] = useState<StudyRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    try {
+      const [infoRes, recordRes] = await Promise.all([
+        getStudyInfo(),
+        getStudyRecords({ page: 1, pageSize: RECENT_LIMIT }),
+      ])
+      setInfo(infoRes)
+      setRecent(recordRes?.list || [])
+    } catch {
+      // 统一提示
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const navigate = useCallback((url: string) => {
+    Taro.navigateTo({ url })
+  }, [])
+
+  // G-933 冷启动抢跑门控:load 两发 GET /api/study/info(`miniapp-compat-routes.ts:758`
+  // inline checkAuth)与 GET /api/study/records(`routes/user/index.ts:36` 组级
+  // userAuthPreHandler → 非公开白名单一律 authenticate)⇒ 全需鉴权,整块挡到门后。
+  useDidShow(() => {
+    gate.waitUntilReady(load)
+  })
+
+  const goVideo = useCallback((r: StudyRecord) => {
+    Taro.navigateTo({
+      url: `/pages/study/video-detail/index?id=${r.id}&courseId=${r.courseId}`,
+    })
+  }, [])
+
+  const entries = [
+    { icon: recordBackIcon, labelKey: 'study.record', url: '/pages/study/record' },
+    { icon: studyIconAddIcon, labelKey: 'studyPlan.title', url: '/pages/study/plan' },
+    { icon: rankoneIcon, labelKey: 'ranking.title', url: '/pages/study/rank' },
+    { icon: wenjianIcon, labelKey: 'exam.title', url: '/pages/exam/list' },
+    { icon: kechengIcon, labelKey: 'profile.myCourses', url: '/pages/study/my-study/index' },
+  ]
+
+  return (
+    <ThemeRoot>
+      {/* 样式数值移植自 RN 屏 StudyProgressScreen(容器底 surface.bg,paddingH 10dp→20rpx / paddingT 48dp→96rpx / paddingB 32dp→64rpx);措辞不用「对齐/镜像」—— 本页非 StudyProgressScreen 镜像对(见文件头非同源说明),避免触发镜像对账闸 */}
+      <View className="min-h-screen bg-background px-[20rpx] pt-[96rpx] pb-[64rpx]">
+        {/* 统计卡网格对齐 RN statGrid/statCard:gap 8dp→16rpx,卡片 p 14dp→28rpx / 圆角 12dp→24rpx / 边框 border.light / 数值 22dp→44rpx/700 success */}
+        <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+            <Text className="text-headline text-success">{info.todayMinutes}</Text>
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
+              {t('study.todayMinutes')}
+            </Text>
+          </View>
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+            <Text className="text-headline text-success">{info.totalMinutes}</Text>
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
+              {t('study.totalMinutes')}
+            </Text>
+          </View>
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+            <Text className="text-headline text-success">{info.continuousDays}</Text>
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
+              {t('study.continuousDays')}
+            </Text>
+          </View>
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-lg border border-border bg-card">
+            <Text className="text-headline text-success">{info.courses}</Text>
+            <Text className="block mt-[16rpx] text-caption text-muted-foreground">
+              {t('study.courses')}
+            </Text>
+          </View>
+        </View>
+
+        {/* 学习记录入口(RN 无对应区,保留业务;卡片视觉统一为 RN card 语言:圆角 24rpx + 边框) */}
+        <View className="mb-[24rpx] bg-card rounded-lg border border-border p-[16rpx] flex flex-col gap-[8rpx]">
+          {entries.map((e) => (
+            <View
+              key={e.url}
+              className="flex items-center p-[24rpx]"
+              hoverClass="opacity-60"
+              onClick={() => navigate(e.url)}
+            >
+              {isImagePath(e.icon) ? (
+                <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" />
+              ) : (
+                <Text>{e.icon}</Text>
+              )}
+              <Text className="flex-1 ml-[24rpx] text-body text-foreground">{t(e.labelKey)}</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+            </View>
+          ))}
+        </View>
+
+        {/* 继续学习对齐 RN sectionTitle(18dp→36rpx/700)+ 课程进度卡(card: p 28rpx / 圆角 24rpx / 边框;标题 16dp→32rpx/600;进度条 h 6dp→12rpx,fill success;meta 11dp→22rpx text.tertiary) */}
+        <Text className="block text-subtitle font-bold text-foreground mb-[16rpx]">
+          {t('study.continueLearning')}
+        </Text>
+        {loading ? (
+          <View className="text-center py-[48rpx]">
+            <Text className="text-body text-muted-foreground">{t('common.loading')}</Text>
+          </View>
+        ) : recent.length > 0 ? (
+          <View className="flex flex-col gap-[16rpx]">
+            {recent.map((r) => (
+              <View
+                key={r.id}
+                className="p-[28rpx] rounded-lg border border-border bg-card"
+                hoverClass="opacity-60"
+                onClick={() => goVideo(r)}
+              >
+                <Text className="block text-title font-semibold text-foreground">
+                  {r.courseTitle}
+                </Text>
+                <View className="h-[12rpx] bg-card ui-tiny rounded-xs overflow-hidden mt-[16rpx]">
+                  <View
+                    className="h-[12rpx] bg-success rounded-xl"
+                    style={{ width: `${r.progress}%` }}
+                  />
+                </View>
+                <Text className="block mt-[16rpx] text-caption text-[var(--color-text-tertiary)]">
+                  {`${t('study.recordPage.progress').replace(/\s*\{\{n\}\}\s*%?/, '')} ${r.progress}%`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View className="text-center py-[48rpx]">
+            <Text className="text-body text-muted-foreground">{t('study.emptyCourse')}</Text>
+          </View>
+        )}
+
+        {/* FAB 对齐 RN FloatingActionButton:48×48dp→96rpx / 圆角 12dp→24rpx / bg brand / 图标 24dp→48rpx */}
+        <View
+          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-cta text-cta-foreground rounded-xl flex items-center justify-center text-display shadow-elevation-md"
+          hoverClass="opacity-60"
+          onClick={() => navigate('/pages/study/publish/index')}
+        >
+          <Text>+</Text>
+        </View>
+      </View>
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

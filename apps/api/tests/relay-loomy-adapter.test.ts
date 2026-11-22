@@ -1,0 +1,538 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+/**
+ * Loomy 上游适配器 + 本机会话提取器 行为单测(2026-10-27 立)。
+ *
+ * 覆盖点:
+ * - 提取器两态:目录缺失 ⇒ LOOMY_NO_SESSION;目录在盘 ⇒ 形状(leveldb 锚点扫描 +
+ *   raw 直通 + meta 零泄漏);os_crypt v10 解密纯函数回路;v20 非 v10 形如实未判定
+ * - 适配器:buildChatRequest 推断构造(Bearer 票)、translateStreamChunk 透传、
+ *   isAuthFailure(401/403/登录墙/文案)、checkHealth 三态、getQuota 401⇒authFailed
+ *   与 200⇒未判定(不猜字段)、classifyUpstreamFailure 状态粗分
+ *
+ * fetch 全部打桩,不发真实网络请求;提取器全部用临时目录,不碰真实 %APPDATA%。
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createRequire } from 'node:module'
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
+import {
+  loomyAdapter,
+  LoomyUpstreamError,
+} from '../src/services/upstream-adapters/loomy-adapter.js'
+
+// 提取器是仓级 scripts/lib 下的 .mjs(ESM);TS 测试经 createRequire 加载(避免模块解析面)
+const require = createRequire(import.meta.url)
+const loomyExtract = require('../../../scripts/lib/loomy-auth-extract.mjs') as {
+  extractLoomyAccounts: (opts?: { roamingDir?: string; shellBin?: string }) => Promise<{
+    providerCode: string
+    accounts: Array<{
+      source: string
+      key: string
+      value: string
+      host?: string
+      companions?: Record<string, string>
+    }>
+    meta: Record<string, unknown>
+  }>
+  __test__: {
+    decryptOsCryptString: (blob: Buffer, aesKey: Buffer) => string
+    finalizeValue: (raw: string) => string | null
+    scanLocalStorageEntries: (dir: string) => { entries: unknown[]; skips: string[] }
+    summarizeEntry: (e: unknown) => Record<string, unknown>
+    pickImportableEntries: (entries: unknown[]) => { valid: unknown[]; skipped: number }
+    probeDeviceCredentialVault: (dir: string) => unknown[]
+  }
+}
+
+const mockFetch = vi.fn()
+global.fetch = mockFetch as unknown as typeof fetch
+
+function makeCtx(): AdapterAccountContext {
+  return {
+    row: { id: 'row-1', providerCode: 'loomy', uid: 'u1', name: 'n' },
+    credentials: {
+      token: 'loomy-session-token-test',
+      refreshToken: null,
+      cookies: [],
+      secrets: {},
+    },
+  } as unknown as AdapterAccountContext
+}
+
+describe('loomy listModels(本机 opencode 运行时 /config 实证 id)', () => {
+  it('返回 provider.imodel.models 实读的裸模型名(图像产出档不入清单)', async () => {
+    const ids = await loomyAdapter.listModels!(makeCtx())
+    expect(ids).toEqual([
+      'qwen3.8-flash',
+      'spark-x2.6',
+      'GLM-5.3-Flash',
+      'DeepSeek-V4.1-Flash',
+      'deepseek-v4-flash-0731',
+      'mimo-v2.5',
+      'auto',
+    ])
+  })
+})
+
+describe('loomy 提取器:目录缺失 ⇒ NO_SESSION(§0.3 未判定)', () => {
+  it('roamingDir 不存在 → throw code=LOOMY_NO_SESSION,消息点名目录', async () => {
+    const err = await loomyExtract
+      .extractLoomyAccounts({ roamingDir: 'Z:/no/such/ihui-loomy-e2e' })
+      .catch((e: NodeJS.ErrnoException) => e)
+    expect((err as { code?: string }).code).toBe('LOOMY_NO_SESSION')
+    expect(String((err as { message?: unknown }).message)).toMatch(/未找到 Loomy 数据目录/)
+  })
+})
+
+describe('loomy 提取器:目录在盘 ⇒ 形状(临时目录伪造 leveldb;捆绑单账号 2026-10-28)', () => {
+  it('主键不命中 ⇒ LOOMY_NO_SESSION(候选键命中也不出号,不冒绿)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-test-'))
+    const ldbDir = path.join(dir, 'Local Storage', 'leveldb')
+    fs.mkdirSync(ldbDir, { recursive: true })
+    const anchor = Buffer.from('_file://\x00\x01', 'latin1')
+    const rec1 = Buffer.concat([
+      anchor,
+      Buffer.from('login-phone'),
+      Buffer.from('13800000000'),
+      Buffer.from([0x01]),
+    ])
+    const rec2 = Buffer.concat([
+      anchor,
+      Buffer.from('loomy-session'),
+      Buffer.from('{"token":"tok-loomy-test-123"}'),
+      Buffer.from([0x02]),
+    ])
+    // 干扰项:session_token 作为更长键存在时,短键 session 不得误吞(守卫用例同时占位)
+    const rec3 = Buffer.concat([
+      anchor,
+      Buffer.from('session_token'),
+      Buffer.from('tok-longer-key-999'),
+      Buffer.from([0x03]),
+    ])
+    fs.writeFileSync(path.join(ldbDir, '000003.log'), Buffer.concat([rec1, rec2, rec3]))
+
+    const err = await loomyExtract
+      .extractLoomyAccounts({ roamingDir: dir })
+      .catch((e: NodeJS.ErrnoException) => e)
+    expect((err as { code?: string }).code).toBe('LOOMY_NO_SESSION')
+    expect(String((err as { message?: unknown }).message)).toMatch(/主键 loomy-auth-session 未出现/)
+
+    // 键前缀守卫仍在:短键 session 没把 session_token 吞掉(取证面直读)
+    const scan = loomyExtract.__test__.scanLocalStorageEntries(dir)
+    const scannedKeys = (scan.entries as Array<{ key: string }>).map((e) => e.key).sort()
+    expect(scannedKeys).toEqual(['login-phone', 'loomy-session', 'session_token'])
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('源码实证键 loomy-auth-session 命中 → 捆绑单账号 {value raw 直通, companions}', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-src-evid-'))
+    const ldbDir = path.join(dir, 'Local Storage', 'leveldb')
+    fs.mkdirSync(ldbDir, { recursive: true })
+    const anchor = Buffer.from('_file://\x00\x01', 'latin1')
+    // 与 G:\Loomy\resources\app.asar @51319631 setItem(jo, JSON.stringify(u)) 同形
+    const sessionJson = JSON.stringify({
+      phone: '13800000000',
+      maskedPhone: '138****0000',
+      session: 'sess-ticket-e2e-42',
+      userid: 'uid-77',
+      loggedInAt: '2026-10-27T00:00:00.000Z',
+    })
+    const rec = Buffer.concat([
+      anchor,
+      Buffer.from('loomy-auth-session'),
+      Buffer.from(sessionJson),
+      Buffer.from([0x01]),
+    ])
+    const recPhone = Buffer.concat([
+      anchor,
+      Buffer.from('loomy-last-login-phone'),
+      Buffer.from('"13800000000"'),
+      Buffer.from([0x02]),
+    ])
+    fs.writeFileSync(path.join(ldbDir, '000003.log'), Buffer.concat([rec, recPhone]))
+
+    const out = await loomyExtract.extractLoomyAccounts({ roamingDir: dir })
+    expect(out.accounts).toHaveLength(1)
+    const bundled = out.accounts[0] as unknown as {
+      source: string
+      key: string
+      value: string
+      companions: Record<string, string>
+    }
+    expect(bundled.source).toBe('local-storage')
+    expect(bundled.key).toBe('loomy-auth-session')
+    expect(bundled.value).toBe(sessionJson) // raw 直通,零映射
+    expect(bundled.companions['loomy-last-login-phone']).toBe('"13800000000"')
+    // 源码实证键排在候选清单首位
+    const keysProbed = out.meta['keysProbed'] as string[]
+    expect(keysProbed[0]).toBe('loomy-auth-session')
+    // meta 零泄漏
+    expect(JSON.stringify(out.meta)).not.toContain('sess-ticket-e2e-42')
+    // 本机未登录 ⇒ vault 不存在,notes 不含 vault 命中
+    expect(JSON.stringify(out.meta['notes'])).not.toContain('DeviceCredentialVault 落点在盘')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('DeviceCredentialVault 落点探测:直连与 environments 两形都点名进 notes', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-loomy-vault-'))
+    const direct = path.join(dir, 'shared-session-sync', 'device-credential.json')
+    fs.mkdirSync(path.dirname(direct), { recursive: true })
+    fs.writeFileSync(direct, '{"version":3,"encrypted":"v10fake"}')
+    const scoped = path.join(
+      dir,
+      'shared-session-sync',
+      'environments',
+      'scopeA',
+      'device-credential.json',
+    )
+    fs.mkdirSync(path.dirname(scoped), { recursive: true })
+    fs.writeFileSync(scoped, '{"version":3,"encrypted":"v10fake"}')
+    expect(loomyExtract.__test__.probeDeviceCredentialVault(dir)).toHaveLength(2)
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('os_crypt v10 解密回路:加密 → 解密一致;v20 形 → throw 未判定', () => {
+    const key = crypto.randomBytes(32)
+    const nonce = crypto.randomBytes(12)
+    const plain = 'plain-cookie-value-42'
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce)
+    const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
+    const tag = cipher.getAuthTag()
+    const blob = Buffer.concat([Buffer.from('v10', 'ascii'), nonce, ct, tag])
+    expect(loomyExtract.__test__.decryptOsCryptString(blob, key)).toBe(plain)
+
+    const bad = Buffer.concat([Buffer.from('v20', 'ascii'), nonce, ct, tag])
+    expect(() => loomyExtract.__test__.decryptOsCryptString(bad, key)).toThrow(/非 v10\/v11|未判定/)
+  })
+})
+
+describe('loomy buildChatRequest(2026-11-10 实弹端点)', () => {
+  it('端点/Bearer 头/OpenAI 同构 body 透传', () => {
+    const http = loomyAdapter.buildChatRequest(makeCtx(), {
+      model: 'glm-5.3',
+      messages: [{ role: 'user', content: 'hi' }],
+      temperature: 0.7,
+      maxTokens: 100,
+      stream: true,
+    })
+    expect(http.url).toBe('https://loomyad.xunfei.cn/api/v1/chat/completions')
+    expect(http.method).toBe('POST')
+    const body = JSON.parse(http.rawBody ?? '') as Record<string, unknown>
+    expect(body).toMatchObject({
+      model: 'glm-5.3',
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 100,
+    })
+    expect(http.headers['authorization']).toBe('Bearer loomy-session-token-test')
+    expect(http.headers['accept']).toBe('text/event-stream')
+  })
+
+  it('池内票=整份会话 JSON ⇒ Bearer 只取 session 字段(实弹:整 JSON 当票 100002)', () => {
+    const ctx = makeCtx()
+    ctx.credentials.token = JSON.stringify({
+      phone: '13800000000',
+      maskedPhone: '138****0000',
+      session: '796dd2062333482f980efd740527b63b',
+      userid: '261023222726664932',
+      loggedInAt: '2026-10-30T09:21:31.000Z',
+    })
+    const http = loomyAdapter.buildChatRequest(ctx, {
+      model: 'm',
+      messages: [],
+      stream: false,
+    })
+    expect(http.headers['authorization']).toBe('Bearer 796dd2062333482f980efd740527b63b')
+  })
+
+  it('缺 token ⇒ 抛错(该账号不可转发)', () => {
+    const ctx = makeCtx()
+    ctx.credentials.token = ''
+    expect(() =>
+      loomyAdapter.buildChatRequest(ctx, { model: 'm', messages: [], stream: true }),
+    ).toThrow(LoomyUpstreamError)
+  })
+})
+
+describe('loomy translateStreamChunk / translateNonStream(透传,零映射)', () => {
+  const ctx = makeCtx()
+  const state: StreamState = {}
+
+  it('JSON 帧原样透传;[DONE]/心跳/空帧 → null', () => {
+    const frame = {
+      id: 'chatcmpl-1',
+      object: 'chat.completion.chunk',
+      choices: [{ index: 0, delta: { content: '你好' }, finish_reason: null }],
+    }
+    const out = loomyAdapter.translateStreamChunk(ctx, JSON.stringify(frame), state)
+    expect(out?.openaiChunk).toEqual(frame)
+    expect(loomyAdapter.translateStreamChunk(ctx, 'data: [DONE]', state)).toBeNull()
+    expect(loomyAdapter.translateStreamChunk(ctx, ': keep-alive', state)).toBeNull()
+    expect(loomyAdapter.translateStreamChunk(ctx, '', state)).toBeNull()
+  })
+
+  it('非流式:JSON 对象透传;非对象 ⇒ 抛错', () => {
+    const body = { id: 'x', choices: [{ message: { content: 'hi' } }] }
+    expect(loomyAdapter.translateNonStream(ctx, body)).toEqual(body)
+    expect(() => loomyAdapter.translateNonStream(ctx, 'not-object')).toThrow(/非 JSON 对象/)
+  })
+
+  it('网关业务错误信封(HTTP 200 + code/desc,实弹 100002):无 choices ⇒ 抛错', () => {
+    const env = { code: '100002', desc: '登录已失效，请重新登录', trace_id: 't1' }
+    let caught: unknown
+    try {
+      loomyAdapter.translateNonStream(ctx, env)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(LoomyUpstreamError)
+    expect((caught as LoomyUpstreamError).statusCode).toBe(401) // 登录态类码 ⇒ 触发自愈
+    // 非登录态业务码 ⇒ 502(不冒充鉴权失效)
+    let caught2: unknown
+    try {
+      loomyAdapter.translateNonStream(ctx, { code: '200005', desc: '积分不足' })
+    } catch (e) {
+      caught2 = e
+    }
+    expect((caught2 as LoomyUpstreamError).statusCode).toBe(502)
+    // 反证:带 choices 的正常回包即使含 code 也透传
+    const ok = { id: 'x', code: '0', choices: [{ message: { content: 'hi' } }] }
+    expect(loomyAdapter.translateNonStream(ctx, ok)).toEqual(ok)
+  })
+})
+
+describe('loomy isAuthFailure / isAuthError', () => {
+  it('401/403 → true;400/500 → false', () => {
+    expect(loomyAdapter.isAuthFailure(401, '')).toBe(true)
+    expect(loomyAdapter.isAuthFailure(403, '')).toBe(true)
+    expect(loomyAdapter.isAuthFailure(400, 'bad request')).toBe(false)
+    expect(loomyAdapter.isAuthFailure(500, 'gateway error')).toBe(false)
+  })
+
+  it('HTTP 200 但凭证文案 / HTML 登录墙 → true', () => {
+    expect(loomyAdapter.isAuthFailure(200, '{"error":"token expired"}')).toBe(true)
+    expect(loomyAdapter.isAuthFailure(200, '请先登录')).toBe(true)
+    expect(loomyAdapter.isAuthFailure(200, '<html><head>登录</head></html>')).toBe(true)
+  })
+
+  // 2026-10-28 实测事故:quota 端点是推断的,真实站对未知路径回 404 + 整站 HTML,
+  // 而该 HTML 导航里带「登录」⇒ 旧判据把好号判成 authFailed,入池当场 health=down。
+  it('404/405 的 SPA 兜底页不得读成鉴权失败(端点不存在 = 未判定)', () => {
+    const spa =
+      '<!DOCTYPE html><html lang="zh-CN"><head><title>Loomy</title></head><body><nav>登录</nav></body></html>'
+    expect(loomyAdapter.isAuthFailure(404, spa)).toBe(false)
+    expect(loomyAdapter.isAuthFailure(405, spa)).toBe(false)
+    // 反证:同样的正文在 200 下仍是登录墙(放宽的只是错误码那一档,不是把判据整体削掉)
+    expect(loomyAdapter.isAuthFailure(200, spa)).toBe(true)
+  })
+
+  it('isAuthError:结构化 401/403 → true,其余 → false', () => {
+    expect(loomyAdapter.isAuthError!(new LoomyUpstreamError(401, 'x'))).toBe(true)
+    expect(loomyAdapter.isAuthError!(new LoomyUpstreamError(403, 'x'))).toBe(true)
+    expect(loomyAdapter.isAuthError!(new LoomyUpstreamError(500, 'x'))).toBe(false)
+    expect(loomyAdapter.isAuthError!(new Error('socket hang up'))).toBe(false)
+  })
+})
+
+describe('loomy checkHealth(三态,打桩 fetch;余额端点 2026-11-10 实证)', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  it('401 → ok:false + authFailed:true(明确拒收)', async () => {
+    mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => 'unauthorized' })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.authFailed).toBe(true)
+    expect(h.indeterminate).toBe(false)
+  })
+
+  it('HTTP 200 + 业务登录态码 100002 → authFailed:true(信封型拒收)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '100002', desc: '缺少 token', data: {} }),
+    })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.authFailed).toBe(true)
+    expect(h.indeterminate).toBe(false)
+    expect(h.error).toMatch(/100002/)
+  })
+
+  it('HTTP 200 + data.balance → ok:true(真数据,余额 0 也算有效读数)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({ code: '000000', desc: '成功', data: { balance: 0, total: 6624 } }),
+    })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(true)
+  })
+
+  it('HTTP 200 + 业务码 100001(当前未切换到团队) → indeterminate,绝不判死', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '100001', desc: '当前未切换到团队', data: {} }),
+    })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.authFailed).toBeUndefined()
+    expect(h.indeterminate).toBe(true)
+    expect(h.error).toMatch(/100001/)
+  })
+
+  it('5xx → ok:false + indeterminate(不误杀好号)', async () => {
+    mockFetch.mockResolvedValue({ status: 503, ok: false, text: async () => 'boom' })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+    expect(h.authFailed).toBeUndefined()
+  })
+
+  it('200 但缺 data.currentBalance → indeterminate(不猜字段)', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+    expect(h.error).toMatch(/未判定/)
+  })
+
+  it('本地缺票 → indeterminate 且不置 authFailed(空壳号不得被巡检判死)', async () => {
+    const ctx = makeCtx()
+    ;(ctx.credentials as { token: string }).token = ''
+    const h = await loomyAdapter.checkHealth(ctx)
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+    expect(h.authFailed).toBeUndefined()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('网络异常 → indeterminate', async () => {
+    mockFetch.mockRejectedValue(new Error('socket hang up'))
+    const h = await loomyAdapter.checkHealth(makeCtx())
+    expect(h.ok).toBe(false)
+    expect(h.indeterminate).toBe(true)
+  })
+})
+
+describe('loomy getQuota(积分余额;端点 2026-11-10 实证,读 data.currentBalance)', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  it('401 → ok:false + authFailed(承载层据此触发自愈摘除)', async () => {
+    mockFetch.mockResolvedValue({ status: 401, ok: false, text: async () => 'unauthorized' })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBe(true)
+    expect(q.error).toMatch(/HTTP 401/)
+    expect(q.quota).toBeUndefined()
+  })
+
+  it('HTTP 200 + data.balance → ok:true + remaining(真余额)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () =>
+        JSON.stringify({ code: '000000', desc: '成功', data: { balance: 8888, total: 10 } }),
+    })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(true)
+    expect(q.quota).toEqual({ remaining: 8888, unit: '积分' })
+  })
+
+  it('HTTP 200 + 业务码 100001(未切换到团队) → ok:false 且不置 authFailed', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '100001', desc: '当前未切换到团队', data: {} }),
+    })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBeUndefined()
+    expect(q.error).toMatch(/100001/)
+  })
+
+  it('HTTP 200 + 登录态码 100002 → authFailed(不读成 0)', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ code: '100002', desc: '缺少 token', data: {} }),
+    })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBe(true)
+    expect(q.quota).toBeUndefined()
+  })
+
+  it('200 但形状不符 → ok:false 未判定,绝不读成 0', async () => {
+    mockFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ points: 88, unit: '积分' }),
+    })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.quota).toBeUndefined()
+    expect(q.error).toMatch(/未判定/)
+  })
+
+  it('200 非 JSON → ok:false 未判定', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => 'not-json' })
+    const q = await loomyAdapter.getQuota!(makeCtx())
+    expect(q.ok).toBe(false)
+    expect(q.error).toMatch(/非 JSON/)
+  })
+
+  it('本地缺票 → ok:false 但 authFailed 不置位(不触发判死)', async () => {
+    const ctx = makeCtx()
+    ;(ctx.credentials as { token: string }).token = ''
+    const q = await loomyAdapter.getQuota!(ctx)
+    expect(q.ok).toBe(false)
+    expect(q.authFailed).toBeUndefined()
+    expect(q.error).toMatch(/缺少 Loomy 会话票/)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('请求面:GET 实证端点 + 裸 token 头(不是 Bearer)', async () => {
+    mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
+    await loomyAdapter.getQuota!(makeCtx())
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://loomyad.xunfei.cn/api/v1/points/records')
+    expect(init.method).toBe('GET')
+    const headers = init.headers as Record<string, string>
+    expect(headers['token']).toBe('loomy-session-token-test')
+    expect(headers['authorization']).toBeUndefined()
+  })
+})
+
+describe('loomy classifyUpstreamFailure / refreshToken', () => {
+  const classify = loomyAdapter.classifyUpstreamFailure!
+
+  it('401/403→auth、429→rate、404→not_found、5xx→server、400→request', () => {
+    expect(classify(401, '').kind).toBe('auth')
+    expect(classify(403, '').kind).toBe('auth')
+    expect(classify(429, 'too many').kind).toBe('rate')
+    expect(classify(404, 'no such thing').kind).toBe('not_found')
+    expect(classify(502, 'bad gateway').kind).toBe('server')
+    expect(classify(400, 'bad request').kind).toBe('request')
+  })
+
+  it('积分耗尽文案 → credit(积分制平台)', () => {
+    expect(classify(200, '{"msg":"积分已用尽"}').kind).toBe('credit')
+    expect(classify(402, 'payment required').kind).toBe('credit')
+  })
+
+  it('refreshToken 恒 null(无实证刷新端点 ⇒ 无法刷新)', async () => {
+    expect(await loomyAdapter.refreshToken!(makeCtx())).toBeNull()
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

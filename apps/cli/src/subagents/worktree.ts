@@ -1,0 +1,623 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Git worktree 管理 — 为 subagent 创建隔离工作区,对齐 AGENTS.md 第 12 节
+ * "多 Subagent 并行开发强制规则"的分支隔离要求(每个 Subagent 在 subagent/<id> 分支工作)。
+ *
+ * 做减法:
+ *   - 仅封装 git worktree add / list / remove / prune,不维护本地缓存
+ *   - 路径默认 .worktrees/<id>(相对 sourcePath),由调用方保证 .gitignore 已忽略
+ *   - 遵守 AGENTS.md 第 8 节删除安全规则:removeWorktree 前必须确认 subagent 已结束
+ *   - git 操作用 child_process spawnSync,不引入新依赖
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import {
+  createWorktree as createWorktreeCoW,
+  isWorktreeMarkerComplete,
+  worktreeMarkerPath,
+  worktreeMarkerSource,
+  WorktreeLandUnprovableError,
+} from '../worktree.js';
+import { readSubagentState } from './state-store.js';
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged, judgeWorktreeContainment } from '../sandbox/file-access-policy.js';
+import { measuredPruneCount } from '../tools/worktree-state.js';
+
+export interface WorktreeInfo {
+  path: string;
+  branch: string;
+  parentId: string;
+  subagentId: string;
+  createdAt: string;
+}
+
+const WORKTREE_DIR_ENV = 'IHUI_WORKTREE_DIR';
+
+/**
+ * IHUI_WORKTREE_DIR 落点护栏(2026-10-15 立,AGENTS.md §15b:项目产物不外流)。
+ *
+ * 判据与 `apps/ai-service/app/services/worktree.py` 的 `_assert_worktree_dir_landing`
+ * **逐字同源**(单一真相源:两处实现 + 注释互引、判据一字不差;2026-10-15 查证
+ * packages/shared/src/utils 无现成 path 校验工具可复用,故按各自语言实现):
+ *   ① 项目树内 `.worktrees/` 之下(含 `.worktrees` 本身);
+ *   ② 任意盘的 `DevEnv` 根之下(部署环净面根同族,如 `D:\DevEnv\...`;
+ *      Windows 盘符不区分大小写,故比较一律小写化)。
+ * 其余值(盘根、TEMP、家目录、仓内其他目录、相对路径、含 `..` 的逃逸形)
+ * 一律抛错 —— env 指错时的历史形态是在仓外长出一个无人申报的检出,正是
+ * `scripts/check-disk-root-hygiene.mjs` H2 维点名的那一类。
+ * 默认行为不变:不设 env 时仍落仓内 `.worktrees/`。
+ *
+ * @param envValue IHUI_WORKTREE_DIR 的当时值(调用方保证非空)
+ * @param sourcePath 源仓库路径
+ */
+export function assertWorktreeDirLanding(envValue: string, sourcePath: string): void {
+  const isWin = process.platform === 'win32';
+  const key = (p: string): string => {
+    // 先解析成绝对归一形:吃掉 .. 逃逸(如 <src>/.worktrees/../../evil)与相对值,
+    // 再统一分隔符;Windows 上盘符大小写不敏感 ⇒ 小写化后比较。
+    const abs = path.resolve(p).replace(/\\/g, '/');
+    return isWin ? abs.toLowerCase() : abs;
+  };
+  const v = key(envValue);
+  const src = key(sourcePath);
+  const inRepoWorktrees = v === `${src}/.worktrees` || v.startsWith(`${src}/.worktrees/`);
+  const inDevEnv = /^[a-z]:\/devenv(\/|$)/.test(v);
+  if (!inRepoWorktrees && !inDevEnv) {
+    throw new Error(
+      `IHUI_WORKTREE_DIR 必须落在项目 .worktrees/ 或 DevEnv 内(§15b 项目产物不外流):收到 ${envValue}(源仓库 ${sourcePath})`,
+    );
+  }
+}
+
+export function getDefaultWorktreeRoot(sourcePath: string): string {
+  const env = process.env[WORKTREE_DIR_ENV];
+  if (env) {
+    assertWorktreeDirLanding(env, sourcePath);
+    return env;
+  }
+  return path.join(sourcePath, '.worktrees');
+}
+
+export function worktreeBranchName(subagentId: string): string {
+  return `subagent/${subagentId}`;
+}
+
+interface GitResult {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+function runGit(args: string[], cwd: string): GitResult {
+  const r = spawnSync('git', args, {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd,
+    encoding: 'utf-8',
+    windowsHide: true,
+  });
+  return {
+    ok: r.status === 0,
+    stdout: typeof r.stdout === 'string' ? r.stdout.trim() : '',
+    stderr: typeof r.stderr === 'string' ? r.stderr.trim() : '',
+  };
+}
+
+function readGitignoreOrEmpty(gitignorePath: string): string {
+  try {
+    return fs.readFileSync(gitignorePath, 'utf-8');
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return '';
+    throw new Error(`gitignore 读不到,不能把它覆盖成只剩隔离目录 (${code ?? 'unknown'})`);
+  }
+}
+
+function ensureGitignoreEntry(sourcePath: string, entry: string): void {
+  const gitignorePath = path.join(sourcePath, '.gitignore');
+  const content = readGitignoreOrEmpty(gitignorePath);
+  if (content.split(/\r?\n/).includes(entry)) return;
+  const newline = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
+  fs.writeFileSync(gitignorePath, content + newline + entry + '\n', 'utf-8');
+}
+
+export function createWorktree(
+  parentId: string,
+  subagentId: string,
+  sourcePath: string,
+  stat?: (target: string) => unknown,
+): WorktreeInfo {
+  const root = getDefaultWorktreeRoot(sourcePath);
+  if (!fs.existsSync(root)) {
+    fs.mkdirSync(root, { recursive: true });
+  }
+  ensureGitignoreEntry(sourcePath, '.worktrees/');
+
+  const wtPath = path.join(root, subagentId);
+  const branch = worktreeBranchName(subagentId);
+
+  const look = stat ?? fs.statSync;
+  let occupied = false;
+  try {
+    look(wtPath);
+    occupied = true;
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`工作树路径读不到,不能把它说成不存在再新建 (${code})`);
+    }
+  }
+  if (occupied) {
+    throw new Error(`worktree 路径已存在: ${wtPath}`);
+  }
+
+  const head = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], sourcePath);
+  const startPoint = head.ok ? head.stdout : 'HEAD';
+
+  const addResult = runGit(
+    ['worktree', 'add', '-b', branch, wtPath, startPoint],
+    sourcePath,
+  );
+  if (!addResult.ok) {
+    throw new Error(`git worktree add 失败: ${addResult.stderr || addResult.stdout}`);
+  }
+
+  return {
+    path: wtPath,
+    branch,
+    parentId,
+    subagentId,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function readSubagentWorktrees(sourcePath: string): { listed: boolean; entries: WorktreeInfo[] } {
+  const r = runGit(['worktree', 'list', '--porcelain'], sourcePath);
+  if (!r.ok) return { listed: false, entries: [] };
+  const out: WorktreeInfo[] = [];
+  let curPath = '';
+  let curBranch = '';
+  for (const line of r.stdout.split(/\r?\n/)) {
+    if (line.startsWith('worktree ')) {
+      curPath = line.slice('worktree '.length).trim();
+    } else if (line.startsWith('branch ')) {
+      curBranch = line.slice('branch '.length).trim();
+    } else if (line === '' && curPath && curBranch.startsWith('subagent/')) {
+      const subagentId = curBranch.slice('subagent/'.length);
+      out.push({
+        path: curPath,
+        branch: curBranch,
+        parentId: '',
+        subagentId,
+        createdAt: '',
+      });
+      curPath = '';
+      curBranch = '';
+    }
+  }
+  if (curPath && curBranch.startsWith('subagent/')) {
+    const subagentId = curBranch.slice('subagent/'.length);
+    out.push({
+      path: curPath,
+      branch: curBranch,
+      parentId: '',
+      subagentId,
+      createdAt: '',
+    });
+  }
+  return { listed: true, entries: out };
+}
+
+export function listWorktrees(sourcePath: string): WorktreeInfo[] {
+  return readSubagentWorktrees(sourcePath).entries;
+}
+
+export interface RemoveWorktreeOptions {
+  sourcePath: string;
+  force?: boolean;
+  stat?: (target: string) => unknown;
+}
+
+/** 文件访问裁决的出声腿(报名通道不可用不改判据结论,与 `tools/worktree.ts` 同形)。 */
+function emitFileAccessVoice(line: string): void {
+  try {
+    process.stderr.write(`${line}\n`);
+  } catch {
+    // 报名通道不可用不改判据结论
+  }
+}
+
+/**
+ * 隔离区根(容器性断言的锚点)。`IHUI_WORKTREE_DIR` 若被配成非法落点会抛 ⇒ 回落到
+ * `<sourcePath>/.worktrees`(与默认形态一致),让容器性判定恒拿得到一个可用锚点而非整轮炸在闸口。
+ */
+function containmentRoot(sourcePath: string): string {
+  try {
+    return getDefaultWorktreeRoot(sourcePath);
+  } catch {
+    return path.join(sourcePath, '.worktrees');
+  }
+}
+
+/**
+ * 回收子代理隔离工作区。
+ *
+ * 容器性断言(goal-b49 W5,判据单源 `sandbox/file-access-policy.ts` 的 `judgeWorktreeContainment`,
+ * 与 ACL **分职**):函数体第一句先判"目标解析后是否仍在隔离区根之下",排在 ACL 与一切 fs 动作之前。
+ * 命拒 = 越界 ⇒ 先出声再抛:三个调用点(`subagent.ts` 收尾、`worker-pool.ts` 三处)都是
+ * `catch { /* ignore *\/ }`,只抛不出声等于把一次判拒写成静默(§0.10);而合法回收因
+ * "隔离区叶子直子"那一臂不会被误杀(worker-pool 把 `parentId` 当 sourcePath 传歪 ⇒ 严格比根会误杀,
+ * 几何臂兜住 ⇒ 正向对照"合法隔离区照常回收"成立)。
+ *
+ * R-1(goal-b49 S7,与 S5 的 W-1 同族,判据单源 `sandbox/file-access-policy.ts`):
+ * 容器性之后即问 delete 轴 —— `wtPath` 的两条来路(`removeIsolatedWorktree` 非 manager 臂、
+ * worker-pool 收尾)都是 `path.join(<worktree 根>, subagentId)`,而 `subagentId` 可以是
+ * `dispatch_subagent` 的模型入参 `resumeFrom`,`..` 段能把删除目标折出隔离区之外 ⇒
+ * 命拒时 `stat` / `git worktree remove` / `spawnSync('rm','-rf')` / prune 一条都不发生。
+ * 拒时必须**先出声再抛**:同上,只抛不出声等于把一次判拒写成静默(§0.9/§0.10 的反面)。
+ *
+ * @returns 是否实际移除了目录(路径本就不存在时返回 false)
+ * @throws 容器性判越界 或 文件访问裁决判拒时抛带 `[worktree-containment` / `[file-acl` 的理由
+ */
+export function removeWorktree(
+  wtPath: string,
+  opts: RemoveWorktreeOptions,
+): boolean {
+  const containment = judgeWorktreeContainment(containmentRoot(opts.sourcePath), wtPath);
+  if (!containment.contained) {
+    const refusal = `[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`;
+    emitFileAccessVoice(refusal);
+    throw new Error(refusal);
+  }
+  const aclDelete = evaluateFileAccess('delete', toAclPath(opts.sourcePath, wtPath), opts.sourcePath);
+  announceGuardUnjudged(opts.sourcePath, aclDelete.guard, 'subagent_removeWorktree');
+  if (aclDelete.blocked) {
+    const refusal = aclDelete.note ?? `按文件访问裁决禁止删除 ${wtPath}`;
+    emitFileAccessVoice(refusal);
+    throw new Error(refusal);
+  }
+  if (aclDelete.note) emitFileAccessVoice(aclDelete.note);
+  const stat = opts.stat ?? fs.statSync;
+  let present = true;
+  try {
+    stat(wtPath);
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`工作树读不到,不能把它说成已经不在,也不回收注册 (${code})`);
+    }
+    present = false;
+  }
+  if (!present) {
+    // 目录已经不在(上一轮 fallback 删过 / 外部删掉):注册表条目可能还指着它 ⇒ 同样要 prune,
+    // 否则"回收一个目录已不在的检出"这条路会永久留一条 prunable 条目(prune 只摘目录确实
+    // 不存在的条目,对在场检出零副作用)。S3 接线(2026-11-01):改走 pruneWorktrees ——
+    // 同一个 git worktree prune,但带前后计数(有界可观察),且让本模块导出的 pruneWorktrees
+    // 真挂进删除出口(此前零调用,守门 121 C5 点名)。
+    pruneWorktrees(opts.sourcePath);
+    return false;
+  }
+  const args = ['worktree', 'remove', wtPath];
+  if (opts.force) args.push('--force');
+  const r = runGit(args, opts.sourcePath);
+  if (!r.ok) {
+    const rm = spawnSync('rm', ['-rf', wtPath], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    if (rm.error || rm.status !== 0) {
+      throw new Error(`worktree 删除失败: ${r.stderr || r.stdout}`);
+    }
+  }
+  // prune 归进唯一的删除出口(2026-10-30 立):`git worktree remove` 失败时(目录被占用/
+  // 含未跟踪件)注册表条目仍指向活目录 ⇒ 只有目录真删掉之后 prune 才摘得掉。此前本模块
+  // 导出的 `pruneWorktrees` 全仓零调用 ⇒ 每次 fallback 都永久留一条 prunable 条目,而编辑器
+  // SCM 把 `git worktree list` 每条都当独立仓 ⇒ 变更数合计爆表。放在这里,调用方漏调也无害。
+  // S3 接线(2026-11-01):prune 从裸跑改为经 pruneWorktrees 计数跑,摘除数 >0 时留一行 stderr。
+  const pruned = pruneWorktrees(opts.sourcePath);
+  if (pruned > 0) {
+    process.stderr.write(`[worktree-remove] ${opts.sourcePath}: pruned ${pruned} stale worktree 注册条目\n`);
+  }
+  return true;
+}
+
+export function pruneWorktrees(sourcePath: string): number {
+  const before = readSubagentWorktrees(sourcePath);
+  const r = runGit(['worktree', 'prune'], sourcePath);
+  const after = r.ok ? readSubagentWorktrees(sourcePath) : { listed: false, entries: [] };
+  if (!before.listed || (r.ok && !after.listed)) {
+    process.stderr.write('warning: worktree 列表读不到,不能把清理条数说成 0\n');
+    return 0;
+  }
+  if (!r.ok) return 0;
+  return measuredPruneCount(before.listed, before.entries.length, after.listed, after.entries.length, r.ok) ?? 0;
+}
+
+/**
+ * 回收落盘 marker(G-706: createSession 提交后立刻解除清理武装)。
+ * marker 是"自有且待对账"的判据本体 —— 会话一旦提交,就把它撤下,
+ * 此后任何后置小失败/启动对账都不再把这个目录当作可删的自有半成品。
+ *
+ * R-2(goal-b49 S7 定性:**不接** delete 轴,理由钉在 `tests/acl-followup-b49.test.ts` C2c)
+ * ① 撤 marker 是**解除删除武装**的那一步,不是删除用户内容的一腿:把它条件化,命拒时留下的
+ *    正是"目录仍被当作可删的自有半成品"这个更坏状态(失效方向必须朝"更安全",不能朝"少做一次");
+ * ② 目标不是模型选的 —— marker 路径 = `worktreeMarkerPath(wtPath)` 固定尾段,由调用方
+ *    (`subagent.ts` 的 effectiveWorkspace、对账 recovered 臂)传入,入参逃不出"某一枚 worktree 目录里的那一个文件";
+ * ③ 本函数契约是 `boolean` + 整体 try/catch 全吞:在此抛"判拒"会被调用方当"回收失败不阻塞"吃掉,
+ *    等于把拒绝写成静默(§0.10 反面),与 S5 对 W-2 的判定同型。
+ *
+ * @returns 是否实际删除了 marker(不存在返回 false,不抛错)
+ */
+export function reclaimWorktreeMarker(wtPath: string): boolean {
+  try {
+    const marker = worktreeMarkerPath(wtPath);
+    if (!fs.existsSync(marker)) return false;
+    fs.rmSync(marker, { force: true });
+    return true;
+  } catch {
+    // 回收失败不抛:marker 仍在 ⇒ 启动对账按"session 在 ⇒ 重建记录"臂处置,不会误删
+    return false;
+  }
+}
+
+type WorktreeReconcileAction = 'recovered' | 'removed-own' | 'kept-unprovable';
+
+export interface WorktreeReconcileEntry {
+  subagentId: string;
+  path: string;
+  action: WorktreeReconcileAction;
+  detail?: string;
+}
+
+function normalizeLandingPath(p: string): string {
+  const abs = path.resolve(p).replace(/[\\/]+$/, '');
+  return process.platform === 'win32' ? abs.toLowerCase() : abs;
+}
+
+/**
+ * G-706 启动对账三态 —— 扫描 worktree 根,处置上一轮崩溃的残留:
+ *   · marker 齐备 + session 行在 ⇒ 重建记录(目录归属既有会话,保留;回收 marker)
+ *   · marker 齐备 + session 行确实没有 ⇒ 只删自有子目录(marker 指向本仓 = own 证明)
+ *   · marker 不齐 / 指向他源 / session 行判不出 ⇒ 证明不了 ⇒ 保留,
+ *     禁止把暂时性错误(读不出、枚举失败)升级成删除。
+ *
+ * @param sourcePath 源仓库路径(own 判定的锚点)
+ * @param opts.excludeSubagentIds 本次创建流程正持有的目录,对账不得触碰(交由互斥/复用臂)
+ */
+export function reconcileWorktreeArtifacts(
+  sourcePath: string,
+  opts?: { excludeSubagentIds?: Set<string>; stat?: (path: string) => fs.Stats },
+): WorktreeReconcileEntry[] {
+  const actions: WorktreeReconcileEntry[] = [];
+  let root: string;
+  try {
+    root = getDefaultWorktreeRoot(sourcePath);
+  } catch {
+    return actions;
+  }
+  let names: string[];
+  try {
+    if (!fs.existsSync(root)) return actions;
+    names = fs.readdirSync(root);
+  } catch {
+    // 枚举判不出 ⇒ 证明不了 ⇒ 整根不动(暂时性错误不升级成删除)
+    return actions;
+  }
+  const sourceNorm = normalizeLandingPath(sourcePath);
+  for (const name of names) {
+    if (opts?.excludeSubagentIds?.has(name)) continue;
+    const dir = path.join(root, name);
+    try {
+      if (!fs.statSync(dir).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    const markerSrc = worktreeMarkerSource(dir);
+    if (markerSrc === undefined) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: 'marker 不齐备(落盘半成品或非 CoW 目录),保留不删',
+      });
+      continue;
+    }
+    if (normalizeLandingPath(markerSrc) !== sourceNorm) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: 'marker 指向他源,非本仓自有子目录,保留不删',
+      });
+      continue;
+    }
+    const read = readSubagentState(name, opts?.stat);
+    if (!read.stateKnown) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: `session 行判不出(${read.reason}),暂时性错误不升级成删除`,
+      });
+      continue;
+    }
+    if (read.state) {
+      // session 在 ⇒ 重建记录:目录归属既有会话行,保留;marker 使命已尽 ⇒ 回收
+      reclaimWorktreeMarker(dir);
+      actions.push({ subagentId: name, path: dir, action: 'recovered' });
+      continue;
+    }
+    // session 确实不在 ⇒ 只删自有子目录(marker 已证明 own)
+    //
+    // R-3(goal-b49 S7 定性:**不接** delete 轴,反证钉在 `tests/acl-followup-b49.test.ts` C2d)
+    // ① 目标不是入参:目录名来自 `fs.readdirSync(root)` 的枚举,`..` 与绝对路径都出现在文件名里
+    //    不可能 ⇒ `path.join(root, name)` 折不出 root 之外,与 W-1/R-1 的"模型可控名字"根本不同型;
+    // ② 这一腿的全部权力来自三重证明(marker 齐备 ∧ marker 指向本源 ∧ session 行**确实判出**为不存在),
+    //    任一问句答"判不出"都是 `kept-unprovable` 而不是删 —— 这正是本轴要的"拒绝发生在 fs 之前";
+    // ③ 它是守护自身的启动对账腿(崩溃残留清扫),在此加闸的失败方向是"残留永久留在隔离区",
+    //    而不是"少删一次危险目录";闸的位置已经在下游(R-1 的 `removeWorktree`)。
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+      actions.push({ subagentId: name, path: dir, action: 'removed-own' });
+    } catch (e) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: `删除失败保留:${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  }
+  if (actions.length > 0) {
+    process.stderr.write(
+      `[worktree-reconcile] ${sourcePath}: ${actions
+        .map((a) => `${a.subagentId}=${a.action}`)
+        .join(', ')}\n`,
+    );
+  }
+  return actions;
+}
+
+/** G-706: 启动对账每进程按源仓库只跑一次(与 G-687 首次落库懒收敛同型接线)。 */
+const reconciledRoots = new Set<string>();
+
+function reconcileWorktreeArtifactsOnce(sourcePath: string, excludeSubagentId: string): void {
+  const key = normalizeLandingPath(sourcePath);
+  if (reconciledRoots.has(key)) return;
+  reconciledRoots.add(key);
+  try {
+    reconcileWorktreeArtifacts(sourcePath, { excludeSubagentIds: new Set([excludeSubagentId]) });
+  } catch {
+    // 对账自身失败绝不阻断创建流程(它只做"证明得了"的处置)
+  }
+}
+
+/**
+ * 创建 worktree(快路径优先,失败 fallback 到原 git worktree add)。
+ *
+ * 策略(P1-8 Fast Worktree CoW 集成):
+ *   - useFastPath=false(默认):直接调原 createWorktree(git worktree add -b),零回归
+ *   - useFastPath=true:先尝试 CoW 复制 + git checkout -b 建分支,失败则清理半成品目录后
+ *     fallback 到原 createWorktree,保证最终一致
+ *
+ * G-706 失败半径纪律(快路径):
+ *   - mkdir EEXIST 当原子互斥、marker 齐备即 reused:true 不重下载(在 createWorktreeCoW 内);
+ *   - 抢锁失败且 marker 不齐 ⇒ 抛 WorktreeLandUnprovableError ⇒ 保留不删,退回原 git worktree add
+ *     抛统一的"路径已存在"错误(旧形态不变);
+ *   - 清理武装只在"会话提交前"对"自有目录"生效(own 由 marker 齐备或本进程刚 mkdir 证明);
+ *   - 入口先跑启动对账(每进程一次,排除本次正持有的 id)。
+ *
+ * CoW 路径与原路径语义对齐:都生成 subagent/<id> 分支、相同的 destination 路径、
+ * 相同的 .gitignore 注入。区别仅在于 .git 是独立拷贝(非 linked worktree),
+ * 因此不会被 git worktree list 列出,但 removeWorktree 会 fallback 到 rm -rf 清理。
+ *
+ * @param parentId 父会话 ID
+ * @param subagentId subagent ID
+ * @param sourcePath 源仓库路径
+ * @param useFastPath 是否启用 CoW 快路径(feature flag,默认 false)
+ * @returns WorktreeInfo + usedFastPath 标记 + cowKind(仅快路径成功时有值) + reused(G-706)
+ */
+export async function createWorktreeWithFallback(
+  parentId: string,
+  subagentId: string,
+  sourcePath: string,
+  useFastPath: boolean = false,
+): Promise<WorktreeInfo & { usedFastPath: boolean; cowKind?: string; reused: boolean }> {
+  if (useFastPath) {
+    const root = getDefaultWorktreeRoot(sourcePath);
+    if (!fs.existsSync(root)) {
+      fs.mkdirSync(root, { recursive: true });
+    }
+    ensureGitignoreEntry(sourcePath, '.worktrees/');
+    const destination = path.join(root, subagentId);
+    const branch = worktreeBranchName(subagentId);
+
+    // G-706 启动对账(每进程一次):处置上一轮崩溃的残留,本次持有的 id 除外
+    reconcileWorktreeArtifactsOnce(sourcePath, subagentId);
+
+    try {
+      // CoW 复制源工作树(含 .git),preserveWorkingTree=false 会 reset --hard;
+      // G-706: 目录已存在时由 mkdir EEXIST 原子互斥裁决 —— marker 齐备 ⇒ reused:true 不重下载
+      const result = await createWorktreeCoW({
+        source: sourcePath,
+        destination,
+        withinRoot: root,
+        preserveWorkingTree: false,
+      });
+
+      // CoW 复制后 HEAD 与源一致,需创建 subagent/<id> 分支(等价 git worktree add -b)
+      const checkout = runGit(['checkout', '-b', branch], destination);
+      if (!checkout.ok) {
+        throw new Error(
+          `git checkout -b ${branch} 失败: ${checkout.stderr || checkout.stdout}`,
+        );
+      }
+
+      return {
+        path: result.destination,
+        branch,
+        parentId,
+        subagentId,
+        createdAt: new Date().toISOString(),
+        usedFastPath: true,
+        cowKind: result.cowKind,
+        reused: result.reused,
+      };
+    } catch (err) {
+      if (err instanceof WorktreeLandUnprovableError) {
+        // G-706: 证明不了 ⇒ 保留,绝不 rm -rf 他人/未知目录;
+        // 退回原 git worktree add,由它抛统一的"路径已存在"错误(与旧行为同形)
+      } else {
+        // 会话提交前清理武装仍上膛,但只许删"自有"目录:
+        // 半成品落盘已由 createWorktreeCoW 自清(own 由刚 mkdir 证明),
+        // 这里兜底处理"落盘已完成(marker 齐备)但后置小失败"的自有目录
+        //
+        // 容器性断言(goal-b49 W5/W9,判据单源 `judgeWorktreeContainment`,与 ACL **分职**):
+        // `destination = path.join(root, subagentId)` 且 `subagentId` 可由模型入参 `resumeFrom` 决定,
+        // `..` 段能把清理目标折出 `root`(隔离区根)之外 ⇒ 先判"解析后仍在 root 之下",排在 ACL 与
+        // `existsSync`/`isWorktreeMarkerComplete`/`rmSync` 之前。命拒时**不抛而是"一个字节不删"**:
+        // 本臂在 catch 内,抛错会被外层吃掉洗成静默(§0.10);不删后由下面的 `createWorktree` 因路径
+        // 已存在抛统一错误 ⇒ 失效方向恒为"多要一次定向说明"。合法自有目录因几何臂不误杀。
+        //
+        // R-4(goal-b49 S7,与 W-1/R-1 同族 ⇒ **接**):容器性之后即问 delete 轴 —— 同样排在
+        // `existsSync` / `isWorktreeMarkerComplete` / `rmSync` 之前;命拒时**不抛**而是"一个字节不删"。
+        const containment = judgeWorktreeContainment(root, destination);
+        if (!containment.contained) {
+          emitFileAccessVoice(`[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`);
+        } else {
+          const aclDelete = evaluateFileAccess('delete', toAclPath(sourcePath, destination), sourcePath);
+          announceGuardUnjudged(sourcePath, aclDelete.guard, 'subagent_create_with_fallback');
+          if (aclDelete.blocked) {
+            emitFileAccessVoice(aclDelete.note ?? `按文件访问裁决禁止删除 ${destination}`);
+          } else {
+            if (aclDelete.note) emitFileAccessVoice(aclDelete.note);
+            try {
+              if (fs.existsSync(destination) && isWorktreeMarkerComplete(destination)) {
+                fs.rmSync(destination, { recursive: true, force: true });
+              }
+            } catch {
+              // 清理失败忽略,原 git worktree add 会因路径存在抛错
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 原有逻辑:git worktree add -b <branch> <path> <startPoint>
+  const wt = createWorktree(parentId, subagentId, sourcePath);
+  return { ...wt, usedFastPath: false, reused: false };
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

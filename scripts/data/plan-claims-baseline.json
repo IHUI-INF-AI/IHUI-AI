@@ -1,0 +1,5 @@
+{
+  "$comment": "check-plan-claims-vs-head.mjs 的差值基线(§0.5):这里列的是\"建门当日已存在\"的票面路径/迁移声称与 HEAD 实物不符项 —— 存量只报数不判红,新增的那条才红。清一条就从这里删一条(删干净才谈升 blocking,§12e)。",
+  "generatedFrom": "git show HEAD:PROJECT_PLAN.md",
+  "missing": []
+}

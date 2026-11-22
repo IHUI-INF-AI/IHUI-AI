@@ -1,0 +1,75 @@
+{
+  "generatedBy": "scripts/subset-fonts.py",
+  "tiers": {
+    "subset": {
+      "codepoints": 4214,
+      "cjk": 2633
+    },
+    "gb2312-l1": {
+      "codepoints": 5856,
+      "cjk": 4275
+    },
+    "gb2312-l12": {
+      "codepoints": 8736,
+      "cjk": 7155
+    }
+  },
+  "faces": [
+    {
+      "weight": "Thin",
+      "css_weight": 100,
+      "tier": "subset",
+      "chars": 4214,
+      "bytes": 381964,
+      "kb": 373,
+      "dst": "HarmonyOS_SansSC_Thin.subset.woff2",
+      "tag": "thin-subset"
+    },
+    {
+      "weight": "Light",
+      "css_weight": 300,
+      "tier": "subset",
+      "chars": 4214,
+      "bytes": 383536,
+      "kb": 375,
+      "dst": "HarmonyOS_SansSC_Light.subset.woff2",
+      "tag": "light-subset"
+    },
+    {
+      "weight": "Regular",
+      "css_weight": 400,
+      "tier": "gb2312-l12",
+      "chars": 8736,
+      "bytes": 1011644,
+      "kb": 988,
+      "dst": "HarmonyOS_SansSC_Regular.gb2312-l12.woff2",
+      "tag": "regular-gb2312-l12"
+    },
+    {
+      "weight": "Medium",
+      "css_weight": 500,
+      "tier": "gb2312-l1",
+      "chars": 5856,
+      "bytes": 610456,
+      "kb": 596,
+      "dst": "HarmonyOS_SansSC_Medium.gb2312-l1.woff2",
+      "tag": "medium-gb2312-l1"
+    },
+    {
+      "weight": "Bold",
+      "css_weight": 700,
+      "tier": "gb2312-l1",
+      "chars": 5856,
+      "bytes": 613636,
+      "kb": 599,
+      "dst": "HarmonyOS_SansSC_Bold.gb2312-l1.woff2",
+      "tag": "bold-gb2312-l1"
+    }
+  ],
+  "sentinel": {
+    "ok": true,
+    "missing": "",
+    "words": 6,
+    "nameChars": 96
+  }
+}

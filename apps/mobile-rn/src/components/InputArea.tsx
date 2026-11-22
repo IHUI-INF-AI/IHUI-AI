@@ -1,0 +1,1069 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * InputArea 多行输入区(mobile-rn)— 聊天 / 反馈 / 评论场景通用输入区
+ *
+ * 平台特有:本端的命中外扩(hitSlop)、框内字符放大钮与波形条,
+ * 都依赖 RN API,小程序端没有这些元素,故其档位天然只在本端取用(AGENTS §3)。
+ *
+ * 设计要点:
+ * - 容器:浅色 surface.card 底 + 顶部 1px border,flex row,底部对齐
+ * - 多行 TextInput:自动撑高(上限 120),1px 边框 + 圆角 sm(4)
+ * - 发送按钮:40×40(放大态 44×44),品牌色底,圆角 sm(4) —— 角色档 control;
+ * - 字数统计:输入框内右下角浮层,超过 90% 警告色
+ *
+ * 2026-07-30:对齐历史项目 InputArea(微信小程序 miniapp-taro 版本),
+ * 适配 mobile-rn StyleSheet 写法,样式 token 全部走 theme/active-tokens。
+ *
+ * 2026-08-16:复刻原 uniapp InputArea.vue 完整功能(1:1):
+ * 1. 图片/视频/文档缩略图列表(imgs_list)+ 右上角删除按钮(close_input.png)
+ * 2. 语音输入切换(search-box1):🎤/⌨️,语音激活时 30 线动画条(voice-bar-animation)
+ * 3. 文本输入自动撑高 + 放大/缩小切换(handleFangda/handleFangdas,⤢/⤡)
+ * 4. 添加文件按钮(search-box2,加号,functionHandle → onImageAdd)
+ * 5. 发送按钮(search-box3)
+ *
+ * 复刻约束:
+ * - 保留原 props 契约(value/onChangeText/placeholder/maxLength/onSubmit/disabled/
+ *   loading/onStop/stopLabel),新增功能走「可选 props」,调用方不传时降级为原行为。
+ * - 配色走 主题 token 入口,主色 brand.DEFAULT(黑)/成功 success.DEFAULT(绿)/
+ *   警告 warning.DEFAULT(橙)/错误 danger.DEFAULT(红),禁用 purple/indigo。
+ * - 图标用 emoji/文字替代原图片(原图在 D:\历史项目存档\...\src\static\images\,
+ *   均已存在于 apps/mobile-rn/assets/images/common/,此处为免去颜色/背景不确定风险统一用 emoji)。
+ * - 图片/文件真实上传、语音识别(STT)等需原生模块/后端 API 的功能,
+ *   用回调 props 预留(onImageAdd 等),组件内注释标注「待接后端/原生模块」。
+ *   未引入 expo-image-picker 等新原生依赖。
+ */
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Image,
+  Keyboard as RNKeyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import type { TextInput } from 'react-native'
+import { useI18n, t as tStatic } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
+import { formatShortDuration } from '@ihui/shared/utils'
+import { PlusButton } from './AddPanel'
+import {
+  ChevronDown,
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Mic,
+  Play,
+  Send,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react-native'
+
+import { rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import { TextField } from '@ihui/rn-app'
+// 放大钮内缩 / 命中外扩 / 计数浮层距底 / 语音钮间距 —— 唯一源在
+// @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
+// 两侧必须同枚改指本文件)。机制通道(hitSlop 仅 RN 有)各端保留,数值不再端内自定。
+import {
+  INPUT_AREA_COUNTER_BOTTOM_PX,
+  INPUT_AREA_INPUT_PADDING_TOP_PX,
+  INPUT_AREA_DOC_NAME_FONT_PX,
+  INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
+  // 票④:本文件剩余的可见几何档(裁决依据与"单端档"理由逐条写在 spec 的常数注释里)
+  INPUT_AREA_DOC_NAME_STRIP_PX,
+  INPUT_AREA_INPUT_FONT_PX,
+  INPUT_AREA_CONTAINER_PADDING_X_PX,
+  INPUT_AREA_CONTAINER_PADDING_V_PX,
+  INPUT_AREA_INPUT_PADDING_X_PX,
+  INPUT_AREA_STACK_GAP_PX,
+  INPUT_AREA_CONTROL_RIGHT_PX,
+  INPUT_AREA_SECONDARY_FONT_PX,
+  INPUT_AREA_GLYPH_LG_PX,
+  // 语音/键盘切换钮的图标墨迹 20:与小程序端 `<LineIcon name="mic"/"keyboard">` 同一枚档
+  // (spec 注的三处同源之一就是本文件这三站,收编前这里写裸 20)
+  INPUT_AREA_GLYPH_MD_PX,
+  INPUT_AREA_THUMB_GLYPH_PX,
+  INPUT_AREA_CONTROL_GLYPH_PX,
+  INPUT_AREA_INPUT_MIN_HEIGHT_PX,
+  INPUT_AREA_SHELL_PADDING_V_PX,
+  INPUT_AREA_SHELL_BORDER_PX,
+  INPUT_AREA_INPUT_MAX_HEIGHT_PX,
+  INPUT_AREA_VOICE_BARS_HEIGHT_PX,
+  INPUT_AREA_VOICE_BAR_BASE_PX,
+  INPUT_AREA_CLOSE_HIT_SLOP_PX,
+  INPUT_AREA_IN_SHELL_BTN_PX,
+  INPUT_AREA_THUMB_PX,
+  INPUT_AREA_LEGACY_SHADOW_OFFSET_PX,
+  INPUT_AREA_LEGACY_GLYPH_LINE_PX,
+} from '@ihui/shared/ui/input-area-spec'
+import { Tappable } from '@ihui/ui-native'
+
+/** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
+export interface InputImageItem {
+  id?: string | number
+  /** 图片/视频封面地址(remote uri);文档类型可留空(用 📄 图标) */
+  url?: string
+  /** 类型:image 图片 / video 视频 / document 文档 */
+  type?: 'image' | 'video' | 'document'
+  /** 文档文件名(文档类型展示,底部滚动) */
+  filename?: string
+  /** 视频地址(预留,待接 expo-video) */
+  videoUrl?: string
+}
+
+export interface InputAreaProps {
+  /** 受控输入值 */
+  value: string
+  /** 输入变化回调(父组件维护 value 状态) */
+  onChangeText: (text: string) => void
+  /** 占位提示 */
+  placeholder?: string
+  /** 字符上限,默认 500 */
+  maxLength?: number
+  /** 点击发送按钮(且文本非空)时回调,已 trim */
+  onSubmit: (text: string) => void
+  /** 禁用输入(同时禁用发送按钮,变 muted 色) */
+  disabled?: boolean
+  /** 自动聚焦输入框(对齐小程序端同名字段;RN 直通 TextField → TextInput autoFocus) */
+  autoFocus?: boolean
+  /** 聚焦回调(对齐小程序端同名字段;RN 直通 TextField → TextInput onFocus) */
+  onFocus?: () => void
+  /** 失焦回调(对齐小程序端同名字段;RN 直通 TextField → TextInput onBlur) */
+  onBlur?: () => void
+  /**
+   * 键盘高度变化(px,0=收起)。对齐小程序端 Textarea.onKeyboardHeightChange:
+   * RN 的 TextInput 不发该事件,由 Keyboard.keyboardDidShow/Hide 换算成同一契约;未传则不订阅。
+   */
+  onKeyboardHeightChange?: (height: number) => void
+  /** 发送中:按钮显示 ActivityIndicator 替代 ➤ 图标 */
+  loading?: boolean
+  /** 停止回调:提供后,loading 时发送按钮切换为停止按钮(danger 色)。用于流式对话中断 */
+  onStop?: () => void
+  /** 停止按钮文字,缺省"停止" */
+  stopLabel?: string
+  /** 发送按钮可访问文案(i18n 注入);未提供时回退 "send" */
+  sendLabel?: string
+
+  // ── 新增(可选,不传则降级为原行为)──────────────────────────────
+  /** 图片/视频/文档列表 */
+  images?: InputImageItem[]
+  /** 删除某张缩略图回调(参数为索引)。已 trim 后由父组件维护 images 状态 */
+  onImageRemove?: (index: number) => void
+  /** 添加文件/图片回调。待接后端/原生模块(expo-image-picker / 文件选择) */
+  onImageAdd?: () => void
+
+  // ── 内嵌语音(可选,HomeScreen 大输入框:麦克风+文本+发送同框)─────────────────
+  /** 显示框内麦克风按钮(长按录音,松开转写)。传入后输入区渲染为「一个大输入框」:
+   *  [🎤 长按] [TextInput/录音波形] [发送] 同处一个圆角边框内,发送按钮移入框内 */
+  showVoiceMic?: boolean
+  /** 样式变体:default(独立语音钮 + 文本框)/ ai-home(大输入框,对齐小程序端同名 prop) */
+  variant?: 'default' | 'ai-home'
+  /** 录音中(showVoiceMic=true 时生效):输入区显示波形 + 时长「松开结束」 */
+  voiceRecording?: boolean
+  /** 转写中(showVoiceMic=true 时生效):输入区显示「转写中…」 */
+  voiceTranscribing?: boolean
+  /** 录音时长(秒,showVoiceMic=true 时生效) */
+  voiceDuration?: number
+  /** 长按麦克风开始录音(showVoiceMic=true 时生效) */
+  onVoiceStart?: () => void
+  /** 松开麦克风结束录音并转写(showVoiceMic=true 时生效) */
+  onVoiceEnd?: () => void
+  /** 「+」按钮回调(对齐 Uniapp functionHandle → 底部滑出菜单;提供后在大输入框发送按钮左侧渲染;
+   *  激活时旋转 45° + 品牌色高亮,对齐 BottomActionBar plusBtn 同款交互) */
+  onPlusToggle?: () => void
+  /** 「+」按钮激活态(底部菜单展开时高亮 + 旋转 45°) */
+  plusActive?: boolean
+  /** D43 语音笔记入口节点(2026-10-23 RN 腿接线):调用方传入 <VoiceNote/> 触发钮,
+   *  渲染在大输入框「+」与发送钮之间;不传不渲染(其余调用方零影响,契约同「可选 props 降级」) */
+  voiceNoteNode?: ReactNode
+
+  // ── 框内模型选择(2026-10-15 用户定:对齐 web 输入卡 ModelSelector 形态 ──
+  /** 模型选择触发钮(「+」左侧):显示当前模型名(未选时兜底「自动」),点击回调;
+   *  模型列表面板由调用方渲染(HomeScreen 走既有模型选择 Modal,单选+选中高亮) */
+  onOpenModelSelect?: () => void
+  /** 已选模型名(按钮上显示;未选时按钮显示「自动」兜底,对齐 web AUTO_OPTION) */
+  selectedModelName?: string | null
+  /** 清除已选模型(按钮内「×」,selectedModelName 存在时显示) */
+  onClearModel?: () => void
+  /** 打开模型参数配置(按钮旁滑杆钮) */
+  onOpenModelConfig?: () => void
+  /**
+   * 透明底模式(2026-10-16 HomeScreen 底部停靠区用):仅让**容器层**让位
+   * (去 surface.card 底色与顶描边)。2026-10-20 用户反转定稿:AI 输入框
+   * 外壳(fieldShell)**恒实底**(surface.card + 描边);停靠区容器本身也不设背景,
+   * 透出的是它身后的页面内容;此前「外壳也去实底只留描边」废止。
+   * 默认 false = 原实心卡底行为(其余调用方不受影响)。
+   */
+  transparentBackground?: boolean
+}
+
+const DEFAULT_MAX_LENGTH = 500
+const WARNING_RATIO = 0.9
+// 输入框自动撑高的上下限:唯一源在 @ihui/shared/ui/input-area-spec(小程序 ai-home 的
+// 对应档是 250,变体分叉的理由写在 INPUT_AREA_INPUT_MAX_HEIGHT_PX 注释里)。
+const MIN_INPUT_HEIGHT = INPUT_AREA_INPUT_MIN_HEIGHT_PX
+const MAX_INPUT_HEIGHT = INPUT_AREA_INPUT_MAX_HEIGHT_PX
+const VOICE_BAR_COUNT = 30
+
+/** 语音激活时的 30 线动画条(对应原 voice-bar-animation,纯前端 UI) */
+function VoiceWave() {
+  const bars = useRef<Animated.Value[]>(
+    Array.from({ length: VOICE_BAR_COUNT }, () => new Animated.Value(0)),
+  ).current
+
+  useEffect(() => {
+    const loops = bars.map((v, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 280,
+            delay: i * 45,
+            useNativeDriver: true,
+          }),
+          Animated.timing(v, { toValue: 0, duration: 280, useNativeDriver: true }),
+        ]),
+      ),
+    )
+    loops.forEach((l) => l.start())
+    return () => loops.forEach((l) => l.stop())
+  }, [bars])
+
+  return (
+    <View style={styles.voiceBars}>
+      {bars.map((v, i) => {
+        const scaleY = v.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] })
+        const baseHeight = INPUT_AREA_VOICE_BAR_BASE_PX + (i % 6) * 4
+        return (
+          <Animated.View
+            key={i}
+            style={[styles.voiceBar, { height: baseHeight, transform: [{ scaleY }] }]}
+          />
+        )
+      })}
+    </View>
+  )
+}
+
+/** 文档文件名滚动(对应原 scroll-container 跑马灯) */
+function FilenameMarquee({ text }: { text: string }) {
+  const translateX = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(translateX, {
+        toValue: -140,
+        duration: 5000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [translateX])
+
+  return (
+    <View style={styles.docMarquee}>
+      <Animated.View style={[styles.docMarqueeInner, { transform: [{ translateX }] }]}>
+        <Text numberOfLines={1} style={styles.docName}>
+          {text}
+        </Text>
+        <Text numberOfLines={1} style={styles.docName}>
+          {'　　　'}
+        </Text>
+        <Text numberOfLines={1} style={styles.docName}>
+          {text}
+        </Text>
+      </Animated.View>
+    </View>
+  )
+}
+
+export function InputArea({
+  value,
+  onChangeText,
+  placeholder,
+  maxLength = DEFAULT_MAX_LENGTH,
+  onSubmit,
+  disabled = false,
+  autoFocus = false,
+  onFocus,
+  onBlur,
+  onKeyboardHeightChange,
+  loading = false,
+  onStop,
+  stopLabel,
+  sendLabel,
+  images,
+  onImageRemove,
+  onImageAdd,
+  showVoiceMic = false,
+  variant = 'default',
+  voiceRecording = false,
+  voiceTranscribing = false,
+  voiceDuration = 0,
+  onVoiceStart,
+  onVoiceEnd,
+  onPlusToggle,
+  plusActive = false,
+  voiceNoteNode,
+  onOpenModelSelect,
+  selectedModelName = null,
+  onClearModel,
+  onOpenModelConfig,
+  transparentBackground = false,
+}: InputAreaProps) {
+  const { t } = useI18n()
+  useUiTextField({
+    label: placeholder ?? '',
+    value,
+    setValue: onChangeText,
+    multiline: true,
+    maxLength,
+  })
+  // 键盘高度透出(对齐小程序端 Textarea.onKeyboardHeightChange):RN TextInput 无此事件,
+  // 由 Keyboard 的 didShow/didHide 换算成同一「px,0=收起」契约;未传回调时不订阅(零开销)。
+  useEffect(() => {
+    if (!onKeyboardHeightChange) return
+    const showSub = RNKeyboard.addListener('keyboardDidShow', (e) =>
+      onKeyboardHeightChange(e.endCoordinates.height),
+    )
+    const hideSub = RNKeyboard.addListener('keyboardDidHide', () => onKeyboardHeightChange(0))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [onKeyboardHeightChange])
+  const isSendBlocked = disabled || loading
+  const canSend = value.trim().length > 0 && !isSendBlocked
+  const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
+
+  // 文本自动撑高(上限 MAX_INPUT_HEIGHT,放大后无上限)
+  const [contentHeight, setContentHeight] = useState(MIN_INPUT_HEIGHT)
+  // Android 的 onContentSizeChange 在文本收缩时不再回调,清空后输入框会卡在多行
+  // 高度上(计数徽章随之误显 0/500)。value 清空时主动复位到单行高度。
+  useEffect(() => {
+    if (value.length === 0) setContentHeight(MIN_INPUT_HEIGHT)
+  }, [value])
+  const inputHeight = Math.min(Math.max(MIN_INPUT_HEIGHT, contentHeight), MAX_INPUT_HEIGHT)
+  // 单/多行态同一阈值(与字数统计共用):内容高比单行最小高多出 10(≈一行余量)才算多行。
+  // 取 MIN+10 而非 MIN:单行删到剩一行时 scrollHeight≈50(多行底距 24 撑的),按 MIN 判会
+  // 卡在多行态 —— 文字比中轴偏上 6px 且底部空 24 不显示计数(2026-10-16 修)
+  const isMultiLineState = inputHeight > MIN_INPUT_HEIGHT + 10
+  // 单行态在 inputBare 之上只覆盖纵向:此前整表替换单写 paddingBottom,把 paddingTop(归 0
+  // ⇒ 文字贴顶)、横向留白、字号、墨色一并丢掉,占位与同排控件(麦克风/模型钮/加号/发送)
+  // 中轴实测差 14px(2026-10-16 修);多行态换回 inputBare 的 24 底距,留给右下角字数统计,
+  // 否则计数压住末行文字
+  const inputBareStyle = isMultiLineState
+    ? styles.inputBare
+    : [styles.inputBare, styles.inputBareSingle]
+
+  // showVoiceMic 大输入框:短按聚焦输入,长按 450ms 开始录音(2026-09-22 用户定稿:
+  // 长按输入框直接语音,微信同款交互)。Pressable 恒挂载持有触摸序列,
+  // 录音态内部切换波形/TextInput 不丢松开事件;TextInput 包 pointerEvents="none"
+  // 纯展示,短按由 Pressable 手动 focus(软键盘按键注入不依赖触摸 TextInput 本体)。
+  const inputRef = useRef<TextInput | null>(null)
+
+  const hasImages = (images?.length ?? 0) > 0
+  const hasModelSelect = onOpenModelSelect !== undefined
+  const showAddBtn = onImageAdd !== undefined
+
+  const handleSubmit = useCallback((): void => {
+    if (!canSend) return
+    const trimmed = value.trim()
+    if (!trimmed) return
+    onSubmit(trimmed)
+  }, [canSend, onSubmit, value])
+
+  const handleContentSizeChange = useCallback((_w: number, h: number): void => {
+    setContentHeight(h)
+  }, [])
+
+  const renderThumb = (item: InputImageItem, index: number) => {
+    const isDoc = item.type === 'document'
+    const isVideo = item.type === 'video'
+    return (
+      <View key={item.id ?? index} style={styles.thumbWrap}>
+        {isDoc ? (
+          <View style={[styles.thumb, styles.thumbDoc]}>
+            {/* 与同行 Film/ImageIcon 占位图标同墨迹档(收编前是 26,同一行两种缩略图不齐) */}
+            <FileText size={INPUT_AREA_THUMB_GLYPH_PX} color={tokens.text.secondary} />
+            {item.filename ? <FilenameMarquee text={item.filename} /> : null}
+          </View>
+        ) : (
+          <View style={[styles.thumb, styles.thumbMedia]}>
+            {item.url ? (
+              <Image source={{ uri: item.url }} style={styles.thumbImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.thumbPlaceholder}>
+                {isVideo ? (
+                  <Film size={24} color={tokens.text.secondary} />
+                ) : (
+                  <ImageIcon size={24} color={tokens.text.secondary} />
+                )}
+              </View>
+            )}
+            {/* 视频封面角标:播放图标(真实播放待接 expo-video) */}
+            {isVideo ? (
+              <View style={styles.videoBadge}>
+                <Play size={20} color={rnCssLight.white95} />
+              </View>
+            ) : null}
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.thumbClose}
+          onPress={() => onImageRemove?.(index)}
+          hitSlop={{
+            top: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+            bottom: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+            left: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+            right: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('iaa.removeAttach')}
+        >
+          <X size={INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX} color={tokens.text.secondary} />
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  // 框内发送钮(showVoiceMic 单行/两行两种布局同一渲染,提取一次避免重复 JSX)
+  const sendInShellNode =
+    loading && onStop ? (
+      <TouchableOpacity
+        style={[styles.sendInShell, styles.stopButton]}
+        onPress={onStop}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={stopLabel ?? 'stop'}
+      >
+        <Text style={styles.sendIcon}>{stopLabel ?? t('iaa.stop')}</Text>
+      </TouchableOpacity>
+    ) : (
+      <TouchableOpacity
+        style={[styles.sendInShell, isSendBlocked ? styles.sendButtonDisabled : null]}
+        onPress={handleSubmit}
+        activeOpacity={0.7}
+        disabled={!canSend}
+        accessibilityRole="button"
+        accessibilityLabel={sendLabel ?? 'send'}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+        ) : (
+          <Send size={16} color={tokens.brand.ctaForeground} />
+        )}
+      </TouchableOpacity>
+    )
+
+  return (
+    <View
+      style={[
+        styles.container,
+        transparentBackground && {
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+        },
+      ]}
+    >
+      <View style={styles.main}>
+        {/* 图片/视频/文档缩略图列表(imgs_list) */}
+        {hasImages ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.thumbsList}
+            style={styles.thumbsListScroll}
+          >
+            {(images ?? []).map(renderThumb)}
+          </ScrollView>
+        ) : null}
+
+        {/* 输入行:variant='ai-home'(或 showVoiceMic)时为一个「大输入框」(麦克风+文本/语音+发送同框);
+            否则原布局(独立语音按钮 + 文本框 + 框外发送按钮) */}
+        {variant === 'ai-home' || showVoiceMic ? (
+          <View
+            style={[
+              styles.fieldShell,
+              voiceRecording || voiceTranscribing ? styles.fieldShellRecording : null,
+            ]}
+          >
+            {/* 麦克风:长按开始录音,松开结束(2026-10-16 起由调用方上传发语音消息) */}
+            <Pressable
+              style={styles.micInShell}
+              onLongPress={onVoiceStart}
+              onPressOut={onVoiceEnd}
+              delayLongPress={300}
+              disabled={disabled || voiceTranscribing}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('iaa.holdAsk')}
+            >
+              {voiceTranscribing ? (
+                <ActivityIndicator size="small" color={tokens.text.secondary} />
+              ) : (
+                <Mic
+                  size={INPUT_AREA_GLYPH_MD_PX}
+                  // 2026-10-16 黑白定档:录音中麦克风随主题取墨档(原红色 danger)
+                  color={voiceRecording ? tokens.text.primary : tokens.text.secondary}
+                />
+              )}
+            </Pressable>
+
+            {/* 中部(恒挂载 Pressable 持有触摸):短按聚焦输入,长按开始录音,
+                录音态显示波形+时长「松开结束」;松开由调用方上传并发语音气泡消息 */}
+            <Pressable
+              style={styles.voiceTouchArea}
+              delayLongPress={450}
+              onLongPress={() => {
+                RNKeyboard.dismiss()
+                onVoiceStart?.()
+              }}
+              onPressOut={() => {
+                if (voiceRecording || voiceTranscribing) onVoiceEnd?.()
+              }}
+              onPress={() => inputRef.current?.focus()}
+              accessibilityLabel={placeholder ?? t('home.inputPlaceholder')}
+            >
+              {voiceRecording || voiceTranscribing ? (
+                <View style={styles.voiceAreaInShell}>
+                  {voiceTranscribing ? (
+                    <View style={styles.transcribingRow}>
+                      {/* 2026-10-16 黑白定档:转写 spinner 取中性灰,不用红色 */}
+                      <ActivityIndicator size="small" color={tokens.text.secondary} />
+                      <Text style={styles.voiceAreaText}>{tStatic('uiText.transcribing')}</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <VoiceWave />
+                      <Text style={styles.voiceAreaDuration}>
+                        {formatShortDuration(voiceDuration)} {tStatic('uiText.releaseToFinish')}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              ) : (
+                <View pointerEvents="none" style={styles.inputColumn}>
+                  <TextField
+                    colorScheme={currentRnTheme()}
+                    ref={inputRef}
+                    style={[inputBareStyle, { height: inputHeight }]}
+                    value={value}
+                    onChangeText={onChangeText}
+                    autoFocus={autoFocus}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                    onContentSizeChange={(e) =>
+                      handleContentSizeChange(
+                        e.nativeEvent.contentSize.width,
+                        e.nativeEvent.contentSize.height,
+                      )
+                    }
+                    placeholder={placeholder}
+                    placeholderTextColor={tokens.text.secondary}
+                    maxLength={maxLength}
+                    multiline
+                    textAlignVertical="top"
+                    editable={!disabled}
+                  />
+                  {/* 字数统计:与样式同判据(仅输入框被多行内容拉开时显示,单行不显示) */}
+                  {isMultiLineState ? (
+                    <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
+                      {value.length}/{maxLength}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+            </Pressable>
+
+            {/* 模型钮 + 配置 + 「+」+ 发送:单排收齐(2026-10-15 用户定:一行,不换行排)。
+                模型钮镜像 web ModelSelector 触发钮形态(model-selector.tsx 内 h-8 rounded-sm
+                border border-input bg-card px-2 text-sm font-medium):32px 高与加号/发送同档,
+                圆角取 control 档(与 web rounded-sm 同值);截断上限 96=web max-w-6rem;
+                点击回调 onOpenModelSelect,模型列表面板由调用方渲染(既有模型选择 Modal)。
+                ⚠️ 「× 清除」必须与模型钮**同级并列**,不得嵌进模型钮内 —— 嵌套会让点 × 时
+                触摸信号冒泡到父级 TouchableOpacity,既清除了模型又弹出选择面板(2026-10-18)。 */}
+            {hasModelSelect ? (
+              <View style={styles.modelRow}>
+                <TouchableOpacity
+                  style={styles.catChip}
+                  onPress={onOpenModelSelect}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.selectModel')}
+                  accessibilityState={{ selected: !!selectedModelName }}
+                >
+                  <Text
+                    style={[styles.catChipText, selectedModelName ? null : styles.catChipTextAuto]}
+                    numberOfLines={1}
+                  >
+                    {selectedModelName ?? t('chat.modelAuto')}
+                  </Text>
+                  <ChevronDown size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
+                </TouchableOpacity>
+                {selectedModelName && onClearModel ? (
+                  <Tappable
+                    onPress={onClearModel}
+                    hitSlop={4}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chat.clearModel')}
+                  >
+                    <X size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
+                  </Tappable>
+                ) : null}
+              </View>
+            ) : null}
+            {hasModelSelect && selectedModelName && onOpenModelConfig ? (
+              <Tappable
+                onPress={onOpenModelConfig}
+                hitSlop={4}
+                style={styles.configBtnInShell}
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.modelConfig')}
+              >
+                <SlidersHorizontal
+                  size={INPUT_AREA_CONTROL_GLYPH_PX}
+                  color={tokens.text.secondary}
+                />
+              </Tappable>
+            ) : null}
+            {/* 「+」按钮(对齐 Uniapp functionHandle → 底部滑出菜单;视觉统一走共享 PlusButton,
+                激活旋转 45° + 品牌高亮,面板由调用方渲染共享 AddPanel)。
+                2026-10-15 修错位:单排控件间距全靠各自 marginLeft(模型钮/配置钮/发送均 4),
+                而 PlusButton 是共享组件无左距 —— 实测模型钮右缘紧贴「+」左缘 gap=0;
+                不改共享组件 API,本地包一层补同档左距 */}
+            {onPlusToggle !== undefined ? (
+              <View style={styles.plusInShellGap}>
+                <PlusButton active={plusActive} onPress={onPlusToggle} />
+              </View>
+            ) : null}
+            {/* D43 语音笔记入口(2026-10-23 RN 腿):复用 plusInShellGap 同档左距,
+                不在端内新造几何档;面板与状态机全部住在 VoiceNote 组件内 */}
+            {voiceNoteNode ? <View style={styles.plusInShellGap}>{voiceNoteNode}</View> : null}
+            {/* 发送按钮(框内右侧) */}
+            {sendInShellNode}
+          </View>
+        ) : (
+          <View style={styles.inputRow}>
+            <View style={styles.inputColumn}>
+              <TextField
+                colorScheme={currentRnTheme()}
+                style={[styles.input, { height: inputHeight }]}
+                value={value}
+                onChangeText={onChangeText}
+                autoFocus={autoFocus}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                onContentSizeChange={(e) =>
+                  handleContentSizeChange(
+                    e.nativeEvent.contentSize.width,
+                    e.nativeEvent.contentSize.height,
+                  )
+                }
+                placeholder={placeholder}
+                placeholderTextColor={tokens.text.secondary}
+                maxLength={maxLength}
+                multiline
+                textAlignVertical="top"
+                editable={!disabled}
+              />
+
+              {/* 字数统计(输入框内右下角浮层) */}
+              <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
+                {value.length}/{maxLength}
+              </Text>
+            </View>
+
+            {/* 添加文件按钮(search-box2,functionHandle;视觉统一走共享 PlusButton,
+              点击回调 onImageAdd 由调用方注入——弹统一 AddPanel 或直接选图) */}
+            {showAddBtn ? <PlusButton onPress={onImageAdd} label={t('iaa.addFile')} /> : null}
+          </View>
+        )}
+      </View>
+
+      {/* 发送按钮(search-box3,框外;showVoiceMic 时已移入大输入框内,不重复渲染) */}
+      {!showVoiceMic ? (
+        loading && onStop ? (
+          <TouchableOpacity
+            style={[styles.sendButton, styles.stopButton]}
+            onPress={onStop}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={stopLabel ?? 'stop'}
+          >
+            <Text style={styles.sendIcon}>{stopLabel ?? t('iaa.stop')}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.sendButton, isSendBlocked ? styles.sendButtonDisabled : null]}
+            onPress={handleSubmit}
+            activeOpacity={0.7}
+            disabled={!canSend}
+            accessibilityRole="button"
+            accessibilityLabel={sendLabel ?? 'send'}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+            ) : (
+              <Send size={18} color={tokens.brand.ctaForeground} />
+            )}
+          </TouchableOpacity>
+        )
+      ) : null}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    // 横向 10 = compact 定档(RN 原 12 vs 小程序 .input-area 左右 20rpx=10);纵向 8 是单端档,
+    // 小程序那一处底部留白走 CSS calc(20rpx + safe-area),不具名 —— 依据见 spec 两条注释
+    paddingHorizontal: INPUT_AREA_CONTAINER_PADDING_X_PX,
+    paddingVertical: INPUT_AREA_CONTAINER_PADDING_V_PX,
+    backgroundColor: tokens.surface.card,
+  },
+  main: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  // 缩略图列表
+  thumbsListScroll: {
+    flexGrow: 0,
+  },
+  thumbsList: {
+    flexDirection: 'row',
+    gap: INPUT_AREA_STACK_GAP_PX,
+    paddingBottom: INPUT_AREA_STACK_GAP_PX,
+    paddingTop: rnSpacing['2xs'],
+    marginBottom: INPUT_AREA_STACK_GAP_PX,
+  },
+  thumbWrap: {
+    position: 'relative',
+    width: INPUT_AREA_THUMB_PX,
+    height: INPUT_AREA_THUMB_PX,
+  },
+  thumb: {
+    width: INPUT_AREA_THUMB_PX,
+    height: INPUT_AREA_THUMB_PX,
+    // 角色档 card(附件缩略图 = 媒体小卡片,不是正圆)→ lg(8)
+    borderRadius: rnRadiusFor.card,
+    overflow: 'hidden',
+  },
+  thumbDoc: {
+    backgroundColor: tokens.surface.muted,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbMedia: {
+    backgroundColor: tokens.surface.muted,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbPlaceholderIcon: {
+    fontSize: rnType.display.size,
+  },
+  docIcon: {
+    // 遗留样式条目(未被渲染引用):与折叠 FAB 加号同墨迹档,数值入表以免端内抄裸数字
+    fontSize: INPUT_AREA_GLYPH_LG_PX,
+    marginBottom: rnSpacing['2xs'],
+  },
+  docMarquee: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: INPUT_AREA_DOC_NAME_STRIP_PX,
+    overflow: 'hidden',
+    backgroundColor: tokens.surface.muted,
+    justifyContent: 'center',
+  },
+  docMarqueeInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  docName: {
+    fontSize: INPUT_AREA_DOC_NAME_FONT_PX,
+    color: tokens.text.primary,
+  },
+  thumbClose: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 18,
+    height: 18,
+    borderRadius: 18 / 2,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+  },
+  thumbCloseIcon: {
+    fontSize: INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
+    color: tokens.text.secondary,
+    // 遗留样式条目(当前无渲染点):行盒入表只为端内不再抄裸数字,清理遗留样式另计一票
+    lineHeight: INPUT_AREA_LEGACY_GLYPH_LINE_PX,
+  },
+  videoBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 角标必须自带底:缩略图内容不可预知,原先无底时白色播放图标落在浅色封面上等于消失。
+    backgroundColor: rnCssLight.black40,
+  },
+  videoBadgeIcon: {
+    fontSize: rnType.heading.size,
+    color: rnCssLight.white95,
+    textShadowColor: rnCssLight.black50,
+    // 绘制细节(文字阴影偏移),小程序端同类角标是实底色块、无阴影通道 —— 单端档,非取值分叉
+    textShadowOffset: { width: 0, height: INPUT_AREA_LEGACY_SHADOW_OFFSET_PX },
+    textShadowRadius: 2,
+  },
+  // 输入行
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  // ── showVoiceMic 大输入框(麦克风+文本/语音+发送同框)──
+  fieldShell: {
+    flexDirection: 'row',
+    // 中轴对齐:单排内各元素高度不一(输入 48+ / 其余控件 32),
+    // 居中后全部元素共享一条垂直中轴,多行撑高时控件随中轴同步下移
+    alignItems: 'center',
+    // 2026-10-15 用户定档:原 control(4) 实拍「圆角生硬」→ 收 panel(xl=12),
+    // 与 web 输入壳 rounded-xl(message-input.tsx 'ai-input-shell')同档
+    borderRadius: rnRadiusFor.panel,
+    borderWidth: INPUT_AREA_SHELL_BORDER_PX,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    // 8/6 = web 壳内 px-2(8)档;原 4/2 实拍「太拥挤」,控件统一 32 高后同步放宽。
+    // 纵向 6 与描边 1 已入 spec:TabBar 胶囊按外壳静态高取档,写死字面量会让那张卡悬空
+    paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
+    paddingVertical: INPUT_AREA_SHELL_PADDING_V_PX,
+  },
+  micInShell: {
+    // 36 = rnGeometry.tapBox 同档,且小程序端 `w-9` 也是 36:两端共享这一档,收进表反而会把
+    // 它变成"仅小程序档"(台账 23→24 那一型)—— 刻意保留字面量,依据见 spec 头注"刻意不入表"清单
+    width: 36,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputBare: {
+    paddingHorizontal: rnSpacing.xs,
+    paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    // 24 = 多行态给右下角字数统计预留的底带(单行态由 inputBareSingle 覆盖为对称值)
+    paddingBottom: rnSpacing['2xl'],
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
+    color: tokens.text.primary,
+  },
+  // 单行态:上下对称(与顶距同档 10),行盒钉满内容盒(48 − 上下边框 2 − 上下留白 20 = 26)
+  // ⇒ 文字中心恰落 48 框中轴(fieldShell 中轴),与同排 32 高控件共轴。行盒不钉则取字体
+  // 度量的 normal(≈16),顶对齐后文字中轴仍偏上;边框 1×2 即 TextField 常态描边恒占位档
+  inputBareSingle: {
+    paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    paddingBottom: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    lineHeight: INPUT_AREA_INPUT_MIN_HEIGHT_PX - INPUT_AREA_INPUT_PADDING_TOP_PX * 2 - 2,
+  },
+  voiceAreaInShell: {
+    flex: 1,
+    minHeight: INPUT_AREA_INPUT_MIN_HEIGHT_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rnSpacing['2xs'],
+    paddingVertical: rnSpacing.xs,
+  },
+  transcribingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: INPUT_AREA_STACK_GAP_PX,
+  },
+  voiceAreaText: {
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
+    color: tokens.text.secondary,
+  },
+  voiceAreaDuration: {
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
+    // 2026-10-16 黑白定档:时长文字随主题取墨档,不用红色
+    color: tokens.text.primary,
+    fontWeight: '500',
+  },
+  // 录音/转写态外壳:中性灰底 + 中性描边(亮 #EBEBEB / 暗 #262626,主题自适应)。
+  // 2026-10-16 用户定档「简约黑白大气」:原 danger.light 红晕全部移除。
+  fieldShellRecording: {
+    alignItems: 'center',
+    backgroundColor: tokens.surface.muted,
+    borderColor: tokens.border.medium,
+  },
+  // 模型钮(单排内联:与加号/发送同一行,位于「+」左侧)。
+  // 2026-10-15 重构:镜像 web ModelSelector 触发钮(h-8/rounded-sm/border-input/bg-card/
+  // px-2/text-sm font-medium)—— 32 高与加号/发送同档,模型名即状态(不加选中底色),
+  // 截断上限 96=web max-w-6rem
+  // 模型钮与「× 清除」的同行容器(两者并列,× 不嵌进钮内 —— 防止点 × 冒泡出选择面板)
+  modelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.xs,
+    flexShrink: 1,
+  },
+  catChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.xs,
+    // 单端档·RN:左距 4 与 sendInShell marginLeft 同档
+    marginLeft: rnSpacing.xs,
+    // 截断上限 96 = web max-w-6rem。**刻意留在端内不入 spec**:它是单侧档(小程序 ai-home
+    // 无模型钮),入表会新增一条 SL 单侧判红(2026-10-28 实测 36→37),依据见 spec 头注边界注
+    maxWidth: 96,
+    flexShrink: 1,
+    paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
+    borderRadius: rnRadiusFor.control,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+  },
+  catChipText: {
+    // web 触发钮 text-sm(14) 同源档,取输入字号表;font-medium → 500
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  // 「自动」态取次要档:已选模型与否必须看得出区别(web 侧不区分、由本端补的可见状态档)
+  catChipTextAuto: {
+    color: tokens.text.secondary,
+  },
+  // 配置入口:幽灵图标钮(32×32 透明,与 web 参数入口一致),原品牌色描边盒实拍「配色不搭」
+  configBtnInShell: {
+    marginLeft: rnSpacing.xs,
+    width: INPUT_AREA_IN_SHELL_BTN_PX,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 框内「+」左距(与模型钮/配置钮/发送的 marginLeft 4 同档;共享 PlusButton 本体不留距,
+  // 由本层在单排内补齐,不动共享组件)
+  plusInShellGap: {
+    marginLeft: rnSpacing.xs,
+  },
+  voiceTouchArea: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  sendInShell: {
+    width: INPUT_AREA_IN_SHELL_BTN_PX,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+    borderRadius: rnRadiusFor.control, // 角色档 control(按钮)→ sm;原写「R1 吸附至 lg(8)」只是把裸 10 就近落档,未问过角色
+    marginLeft: rnSpacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 主 CTA 实底走 brand.cta(明暗同值 #4A7A96,AGENTS §4);
+    // 旧写法取 gray[900]=#171717 是端内自造的第三个色源 —— 它把"深色纯白刺眼"换成了
+    // "浅色一大片黑"(用户实拍的那一处),两态各错一半,且不与 web/小程序同源。
+    backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
+  },
+
+  inputColumn: {
+    flex: 1,
+    position: 'relative',
+  },
+  input: {
+    minHeight: MIN_INPUT_HEIGHT,
+    paddingHorizontal: INPUT_AREA_INPUT_PADDING_X_PX,
+    paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    paddingBottom: rnSpacing['2xl'],
+    // 角色档 control(输入框)→ sm(4)。此前写 xl(12),而小程序端同位输入框写 rounded-2xl(16)
+    // ⇒ 两端都越出了 control 档且互不相同;卡片本体在别处,这一格不是 card/panel/hero。
+    borderRadius: rnRadiusFor.control,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
+    color: tokens.text.primary,
+  },
+  voiceBars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: INPUT_AREA_VOICE_BARS_HEIGHT_PX,
+    justifyContent: 'center',
+  },
+  voiceBar: {
+    width: 3,
+    // 角色档 tiny(波形指示条 = 极小元素)→ xs(2);§4 明令装饰条不得方档化成直角,
+    // 而 3px 宽的条取任何大于 2 的档就会变成胶囊(本项目不允许胶囊)。
+    borderRadius: rnRadiusFor.tiny,
+    // 2026-10-16 用户定档「简约黑白大气」:波形条随主题取墨档(亮近黑/暗近白),
+    // 不再用红色 danger 档。
+    backgroundColor: tokens.text.primary,
+  },
+  counter: {
+    position: 'absolute',
+    right: INPUT_AREA_CONTROL_RIGHT_PX,
+    bottom: INPUT_AREA_COUNTER_BOTTOM_PX,
+    // 收编前是 11 —— 不在 design-tokens 字号档上,按裁决规则 4 就近吸附到 12
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
+    color: tokens.text.medium,
+    marginTop: rnSpacing.xs,
+    textAlign: 'right',
+  },
+  counterWarning: {
+    color: tokens.warning.amberText,
+  },
+  // 发送按钮
+  sendButton: {
+    width: 44,
+    height: 44,
+    // 角色档 control(按钮)→ sm(4)。44dp 边长的半数是 22,所以本档不是正圆;
+    // 小程序端同位发送钮本就是 rounded-lg/rounded-sm 一族,从未取过 12。
+    borderRadius: rnRadiusFor.control,
+    // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
+    backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
+    marginLeft: INPUT_AREA_STACK_GAP_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopButton: {
+    backgroundColor: tokens.danger.DEFAULT,
+  },
+  sendButtonDisabled: {
+    backgroundColor: tokens.surface.muted,
+  },
+  sendIcon: {
+    fontSize: rnType.subtitle.size,
+    // stopButton 红底配白色文字;原 brand.foreground 深色=#000000(黑)红底黑字不可读
+    color: tokens.surface.light,
+    fontWeight: '600',
+  },
+})
+
+export default InputArea
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

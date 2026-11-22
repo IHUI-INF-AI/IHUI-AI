@@ -1,0 +1,516 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useChatStore, type ToolCall } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
+import { useWorkPanelStore } from '@/stores/work-panel'
+import { emitAgentHook } from '@/stores/agent-hooks'
+import type {
+  OpenAiToolCallDelta,
+  ReviewFindingEvent,
+  ToolDeltaEvent,
+  ToolSummaryEvent,
+  UsageEvent,
+} from '@ihui/api-client'
+import { PROVIDER_QUOTA_EXHAUSTED } from '@ihui/api-client'
+import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
+// 2026-10-28 观感档续:agent 内泵换 smooth(见 createAgentDeltaBatcher 头注)
+import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
+
+/**
+ * 厂商账号额度耗尽的人话覆盖(2026-09-22 批次 60 前端配套)。
+ *
+ * 为什么只认 errorCode:ai-service 的 status_map 未登记 PROVIDER_QUOTA_EXHAUSTED,
+ * HTTP 仍回落默认 502 —— 按状态码分类会被误判成"AI 服务暂时不可用,请稍后重试",
+ * 而该档下所有候选通道都已因欠费失败,重试必然再撞,文案会误导用户。
+ *
+ * 共享层 `formatSSEError` 已给出中文兜底 + `retryable: false`(供 extension/mobile-rn/cli/
+ * miniapp-taro 等非 i18n 端直接使用);web 有 5 语言,故在端内按 errorCode 本地化覆盖,
+ * 不复制第二套错误表。
+ */
+export function localizeQuotaExhausted(
+  errorCode: string | undefined,
+  t: (key: string) => string,
+): { title: string; message: string } | null {
+  if (errorCode !== PROVIDER_QUOTA_EXHAUSTED) return null
+  return { title: t('quotaExhaustedTitle'), message: t('quotaExhaustedNotice') }
+}
+
+/** 回收"正在压缩上下文"预告态:仅清 compacting,done 态交给状态栏组件自行 3s 隐藏。
+ *  2026-09-21 立:预告态在请求发起前点亮,原先只靠 onResponse 清除 —— 而响应头之前失败
+ *  (HTTP 4xx/5xx 在 api-client 内 throw)、超时 abort、主动 stop、切换会话四条路径都不会
+ *  走到 onResponse,残留状态挂在全局 AISidePanel 的状态栏上,用户走到哪个页面都看得到。 */
+export function clearCompactionPreview(chatStore: ChatStore = useChatStore): void {
+  const store = chatStore.getState()
+  if (store.compactionStatus?.phase === 'compacting') store.setCompactionStatus(null)
+}
+
+/** 工具耗时的结算形状(source 标记值从哪来,供对账与测试断言) */
+export interface ResolvedToolDuration {
+  durationMs: number
+  source: 'server' | 'client'
+}
+
+/**
+ * 工具耗时来源的唯一判点(D49②/G-61②,2026-09-24 立)。
+ *
+ * 修复前:只在 tool-call-start 记本地时钟、result 到达时相减 ⇒ 断线/刷新/回放
+ * (只回放 result 帧)拿不到耗时。修复后两条分支:
+ * ① 后端下发且合法(有限数且 ≥0,**0 是合法值** —— 去重跳过的工具耗时≈0)⇒ 用后端值;
+ * ② 否则回退本地时钟(startedAt 在手才可回退);两者都没有 ⇒ null(不给卡片假耗时)。
+ */
+export function resolveToolDurationMs(input: {
+  serverDurationMs?: number
+  startedAt?: number
+  now: number
+}): ResolvedToolDuration | null {
+  const server = input.serverDurationMs
+  if (typeof server === 'number' && Number.isFinite(server) && server >= 0) {
+    return { durationMs: server, source: 'server' }
+  }
+  if (input.startedAt !== undefined) {
+    return { durationMs: Math.max(0, input.now - input.startedAt), source: 'client' }
+  }
+  return null
+}
+
+export function createToolCallHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  // 2026-09-01 立,工具调用过程流式可视化:SSE tool-result 事件不携带耗时字段,
+  // 需在 tool-call-start 时记录本地起点,result 到达时计算 durationMs 补写,
+  // 驱动 ToolCallCard 显示真实耗时(toolCallId 后端全局唯一,跨消息不冲突)。
+  // D49②/G-61②(2026-09-24):后端 durationMs 优先,缺省才回退本地时钟 —— 判点
+  // 收敛在 resolveToolDurationMs 单一函数(两条分支各有用例钉住)。
+  const startTimes = new Map<string, number>()
+
+  return (event: {
+    type: 'tool-call-start' | 'tool-result'
+    toolCallId: string
+    toolName: string
+    args?: Record<string, unknown>
+    result?: unknown
+    isError?: boolean
+    iteration?: number
+    repeated?: boolean
+    // 2026-07-31 立,AI 对话可视化:工具来源标识(从 SSE 透传到 ToolCallCard 徽章)
+    serverSource?: 'builtin' | 'plugin' | 'mcp'
+    serverId?: string
+    serverName?: string
+    // 2026-09-09 媒体产物顶层扁平化透传:tool-result 事件携带时写入 tc,
+    // 驱动 ToolCallCard 渲染媒体产物 / 长任务"进行中"状态
+    image_url?: string
+    audio_url?: string
+    video_url?: string
+    task_id?: string
+    // g12(2026-11-15):read_image 缩略图 data URL(tool-result 顶层,仅供卡片预览)
+    image_preview?: string
+    // L5-8 工具瞬时失败自动重试次数(后端 tool-call-start/result 透传;未下发则 undefined)
+    retryCount?: number
+    // D49②:后端实测耗时(去重跳过≈0 是合法值;断线/回放场景下它是唯一来源)
+    durationMs?: number
+  }) => {
+    if (event.type === 'tool-call-start') {
+      // W28 Hooks 事件:tool.before(工具开始调用)
+      emitAgentHook('tool.before', { toolName: event.toolName })
+      startTimes.set(event.toolCallId, Date.now())
+      chatStore.getState().addToolCall(assistantMessageId, {
+        id: event.toolCallId,
+        toolName: event.toolName,
+        args: event.args ?? {},
+        status: 'running',
+        iteration: event.iteration,
+        serverSource: event.serverSource,
+        serverId: event.serverId,
+        serverName: event.serverName,
+      })
+      // browser_navigate 类工具:args 含 url 时立即打开 WorkPanel(无需等 result)
+      if (BROWSER_TOOL_NAMES.has(event.toolName) && event.args) {
+        const url = extractToolUrl(event.args)
+        if (url) {
+          useWorkPanelStore.getState().openPanel({ url, source: 'ai-tool' })
+        }
+      }
+    } else {
+      // tool-result
+      // W28 Hooks 事件:tool.after(工具返回结果,summary 标注成败)
+      emitAgentHook('tool.after', {
+        toolName: event.toolName,
+        summary: event.isError ? 'failed' : 'success',
+      })
+      const updates: Partial<ToolCall> = {
+        status: event.isError ? 'error' : 'success',
+        result: event.result,
+        serverSource: event.serverSource,
+        serverId: event.serverId,
+        serverName: event.serverName,
+      }
+      // 计算耗时(D49②/G-61②):后端值优先,非法值(负数/NaN)按未下发回退本地时钟;
+      // 起点即释 —— 本帧结算后即删,同 id 的后续帧不得再回退到旧起点写第二次耗时。
+      const resolved = resolveToolDurationMs({
+        serverDurationMs: event.durationMs,
+        startedAt: startTimes.get(event.toolCallId),
+        now: Date.now(),
+      })
+      if (resolved !== null) {
+        updates.durationMs = resolved.durationMs
+      }
+      startTimes.delete(event.toolCallId)
+      if (event.args) updates.args = event.args
+      if (event.iteration !== undefined) updates.iteration = event.iteration
+      // 后端 repeated: true 标记(同 tool_name + 同 args 已执行过,跳过实际调用)
+      if (event.repeated === true) updates.repeated = true
+      // 2026-09-09 媒体产物顶层扁平化:写入 tc,驱动媒体渲染与长任务"进行中"状态
+      if (event.image_url !== undefined) updates.image_url = event.image_url
+      if (event.audio_url !== undefined) updates.audio_url = event.audio_url
+      if (event.video_url !== undefined) updates.video_url = event.video_url
+      if (event.task_id !== undefined) updates.task_id = event.task_id
+      // g12:read_image 缩略图透传(仅卡片预览;不进 result、不持久)
+      if (event.image_preview !== undefined) updates.image_preview = event.image_preview
+      // L5-8 重试次数透传(后端下发时写入,ToolCallCard 渲染"重试N次"徽章)
+      if (event.retryCount !== undefined) updates.retryCount = event.retryCount
+      // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)
+      updates.partialDiff = undefined
+      updates.partialSeq = undefined
+      // 2026-11-05:Vercel tool-result 到达即收口入参预览(与 partialDiff 同一纪律),
+      // 最终 args 以 tool-result 的 `event.args` 为准,不残留流式态。
+      updates.partialArgs = undefined
+      updates.argsStreaming = undefined
+      chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
+
+      // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
+      if (!BROWSER_TOOL_NAMES.has(event.toolName)) return
+      const url = extractToolUrl(event.args, event.result)
+      if (url) {
+        useWorkPanelStore.getState().openPanel({ url, source: 'ai-tool' })
+      }
+    }
+  }
+}
+
+/**
+ * D113 onToolDelta 工厂(2026-09-27 立,G-227):文件写类工具流中 diff 预览。
+ * 载荷 partialText 为**增量**正文,按 toolCallId 以 seq 收敛**追加**(evt.seq<=已存 partialSeq
+ * 即丢弃,重传/乱序幂等;缺口照追加);仅 running 态渲染,tool-result 处理器负责清除。 */
+export function createToolDeltaHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  // F-723:partialDiff 追加语义走合帧缓冲 —— 读状态在 pending 缓冲里维护,
+  // 避免只把写改异步后、读仍读未 flush 的旧 store 值而丢增量。
+  const coalescer = createToolCallCoalescer(chatStore, assistantMessageId)
+  // partialSeq 也在本地追踪(不等 flush,防同 tick 多帧判重失败)
+  const lastSeqByToolCallId = new Map<string, number>()
+
+  return (event: ToolDeltaEvent) => {
+    if (!event.toolCallId) return
+    const store = chatStore.getState()
+    const message = store.messages.find((m) => m.id === assistantMessageId)
+    const tc = message?.toolCalls?.find((t) => t.id === event.toolCallId)
+    // A1(2026-11-13):tool-delta 早于 tool-call-start 到达(resume/回放乱序)时,
+    // 旧实现 `if (!tc) return` 会静默丢弃该帧,D113 文件写工具的实时 diff 预览整段丢。
+    // 与 openai 路径(createOpenAiToolCallHandler L236 对"卡不存在"自建卡)对齐:
+    // 自建一张 running 占位卡接住 delta(ToolDeltaEvent 不带工具名/入参,只能占位,
+    // 后续 tool-call-start 到达时补全 toolName/args),delta 内容本身已保住不丢。
+    if (!tc) {
+      store.addToolCall(assistantMessageId, {
+        id: event.toolCallId,
+        toolName: '',
+        args: {},
+        status: 'running',
+        // Y-82(sse 反向锁 G-816035):占位卡首帧也走**追加形态**(`'' + partialText`)。
+        // 此刻 partialDiff 尚不存在,首帧值等价于 `event.partialText`,但守卫把
+        // `partialDiff: <x>.partialText` 的字面形态判为覆盖直写(增量语义下不安全、
+        // 易被复制成真覆盖)。写成追加形态既保住首帧不丢,又与下方 updateToolCall 的
+        // 追加纪律同形,不破反向锁。
+        partialDiff: '' + event.partialText,
+        partialSeq: event.seq,
+      })
+      lastSeqByToolCallId.set(event.toolCallId, event.seq)
+      return
+    }
+    if (event.seq <= (lastSeqByToolCallId.get(event.toolCallId) ?? tc.partialSeq ?? 0)) return
+    lastSeqByToolCallId.set(event.toolCallId, event.seq)
+    coalescer.add(event.toolCallId, {
+      // Y-82(sse 反向锁 G-816035):patch 只带本帧新增片段,flush 时才真正续接到已存
+      // partialDiff(L334)。写成 `'' + event.partialText` 显式追加形态,避免被反向锁的
+      // 字面判据(`partialDiff: <x>.partialText` = 覆盖直写)误抓为覆盖语义。
+      partialDiff: '' + event.partialText,
+      partialSeq: event.seq,
+    })
+  }
+}
+
+/**
+ * 工具调用帧合帧器(F-723,2026-11-15 立):把逐帧 store 写合并到每动画帧一次。
+ *
+ * 背景:createOpenAiToolCallHandler / createToolDeltaHandler 此前每个 SSE 分片都直接
+ * `updateToolCall`,而 store 的 updateToolCall 用 `s.messages.slice()` 替换整个 messages
+ * 数组引用 ⇒ 订阅 messages 的组件(ai-side-panel / agent-task-progress-pane 等十余个)
+ * 每个分片都重渲整列表。工具入参以小分片到达时帧率远高于正文主链路
+ * (主链路已由 smooth-delta-batcher 40ms/rAF 节流),这是流式期间的渲染热点。
+ *
+ * 设计(为什么不节流丢弃、而要合帧累积):
+ * - partialDiff 是**追加**语义(增量拼接),partialArgs 是**覆盖**语义(每片带累积后的对象);
+ *   两者都不能丢帧 —— tool-call-card 在 running 态实时渲染它们。所以正确做法是累积
+ *   pending 缓冲、每帧批量 flush 一次,而非像正文那样按字符预算节流。
+ * - 读路径也必须走缓冲:createToolDeltaHandler 原来「读 store 的 tc.partialDiff 再拼接」,
+ *   若只把写改异步、读仍读 store,第二帧会读到尚未 flush 的旧值 ⇒ 丢增量。故 pending
+ *   缓冲同时充当读状态,写入与拼接都在缓冲上进行。
+ * - 同步单发语义兼容:单元测试是「调用 handler → 立即断言 store」的同步形态,故
+ *   `flush()` 保持可同步调用;调度用 microtask(Promise.resolve().then),首帧同步 flush、
+ *   同 tick 后续密集分片归并到微任务边界一次性写,测试 `await Promise.resolve()` 即可触发。
+ */
+interface ToolCallPendingState {
+  /** 累积的执行期 diff 正文(追加语义);undefined = 本帧无 diff 增量 */
+  partialDiff?: string
+  /** 已见最大 partialSeq(乱序/重传幂等判据) */
+  partialSeq?: number
+  /** 累积后的入参对象(覆盖语义,只保留最新一片);undefined = 不改 */
+  partialArgs?: Record<string, unknown>
+  argsStreaming?: boolean
+}
+
+function createToolCallCoalescer(
+  chatStore: ChatStore,
+  assistantMessageId: string,
+): {
+  add: (toolCallId: string, patch: ToolCallPendingState) => void
+  flush: (toolCallId: string) => boolean
+  flushAll: () => void
+  cancel: () => void
+} {
+  const pending = new Map<string, ToolCallPendingState>()
+  let microtaskScheduled = false
+
+  /**
+   * 同一 tick 内的后续分片合并;首个分片**同步** flush(渐进渲染 + 同步断言兼容):
+   * microtask 边界足够把「同一事件循环里的一串密集分片」压成一次 store 写,
+   * 又不引入 rAF 那样「调用完读不到值」的异步语义。
+   */
+  const scheduleMicrotaskFlush = (): void => {
+    if (microtaskScheduled) return
+    microtaskScheduled = true
+    void Promise.resolve().then(() => {
+      microtaskScheduled = false
+      flushAll()
+    })
+  }
+
+  const flush = (toolCallId: string): boolean => {
+    const p = pending.get(toolCallId)
+    if (!p) return false
+    pending.delete(toolCallId)
+    const updates: Partial<ToolCall> = {}
+    if (p.partialDiff !== undefined) updates.partialDiff = p.partialDiff
+    if (p.partialSeq !== undefined) updates.partialSeq = p.partialSeq
+    if (p.partialArgs !== undefined) updates.partialArgs = p.partialArgs
+    if (p.argsStreaming !== undefined) updates.argsStreaming = p.argsStreaming
+    if (Object.keys(updates).length === 0) return false
+    chatStore.getState().updateToolCall(assistantMessageId, toolCallId, updates)
+    return true
+  }
+
+  const flushAll = (): void => {
+    for (const id of Array.from(pending.keys())) flush(id)
+  }
+
+  return {
+    add: (toolCallId, patch) => {
+      let p = pending.get(toolCallId)
+      // 首次为该卡建缓冲(本 tick 首个分片)⇒ 从 store 播种 baseline,防追加语义丢前缀:
+      // 若 store 已有 partialDiff(如早前 tick flush 的内容),追加必须基于它续接,不能从空串起。
+      if (!p) {
+        const store = chatStore.getState()
+        const message = store.messages.find((m) => m.id === assistantMessageId)
+        const tc = message?.toolCalls?.find((t) => t.id === toolCallId)
+        p = {}
+        if (tc?.partialDiff !== undefined) p.partialDiff = tc.partialDiff
+        if (tc?.partialSeq !== undefined) p.partialSeq = tc.partialSeq
+        if (tc?.partialArgs !== undefined) p.partialArgs = tc.partialArgs
+        if (tc?.argsStreaming !== undefined) p.argsStreaming = tc.argsStreaming
+      }
+      // partialDiff 追加语义:缓冲里已有则续接,否则从 patch 起
+      if (patch.partialDiff !== undefined) {
+        p.partialDiff = (p.partialDiff ?? '') + patch.partialDiff
+      }
+      if (patch.partialSeq !== undefined) p.partialSeq = patch.partialSeq
+      if (patch.partialArgs !== undefined) p.partialArgs = patch.partialArgs
+      if (patch.argsStreaming !== undefined) p.argsStreaming = patch.argsStreaming
+      pending.set(toolCallId, p)
+      // 统一归并到 microtask 边界(2026-11-15 修正):此前"首个分片同步 flush"是错的 ——
+      // 它让每一帧都因 `had=false` 立即 flush 并清空 pending,下一帧又成了"首个分片",
+      // 于是 10 帧触发 10 次 updateToolCall,**合帧完全失效**(测试 coalesce-write-count 抓到)。
+      // 正确做法:一律归并到当前同步调用栈结束后的 microtask,同 tick 内任意多帧只写一次。
+      scheduleMicrotaskFlush()
+    },
+    flush,
+    flushAll,
+    cancel: () => {
+      pending.clear()
+    },
+  }
+}
+
+/**
+ * 2026-11-05 立:工具入参逐分片渐进渲染(订阅 api-client 的 onOpenAiToolCall)。
+ *
+ * 上游每片 `function.arguments` 到达即产一条 `OpenAiToolCallDelta`,按 call `index`
+ * 关联同一工具调用。首片建 running 卡;partial 态**只**写 partialArgs,绝不覆盖正式
+ * args / status / result;complete 态写正式 args 并清预览;Vercel tool-result 到达
+ * 也会清预览(createToolCallHandler 同律)。
+ *
+ * 与 openAiCompat 独立:那条开关只管 OpenAI 原生 SSE 行,本 handler 吃的是
+ * ai-service 的 tool-call-args-delta 自定义帧;旧服务端不发该帧 ⇒ 零行为变化。
+ *
+ * F-723(2026-11-15):partial 分片经 createToolCallCoalescer 合帧(每动画帧一次
+ * updateToolCall),不再逐帧重渲整列表;complete 收口前先 flush 该卡缓冲,保证最终
+ * args 覆盖不被缓冲里的旧 partial 掩盖。
+ */
+export function createOpenAiToolCallHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  // index → toolCallId:OpenAI 只在首片带 id,后续片靠 index 归位;后端 id 为空时
+  // 用稳定合成 id,保证同一 index 的多片始终落在同一张卡上。
+  const idByIndex = new Map<number, string>()
+  const coalescer = createToolCallCoalescer(chatStore, assistantMessageId)
+  return (delta: OpenAiToolCallDelta) => {
+    const toolCallId = delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
+    idByIndex.set(delta.index, toolCallId)
+    const store = chatStore.getState()
+    const message = store.messages.find((m) => m.id === assistantMessageId)
+    const existing = message?.toolCalls?.find((t) => t.id === toolCallId)
+
+    if (!existing) {
+      store.addToolCall(assistantMessageId, {
+        id: toolCallId,
+        toolName: delta.name ?? '',
+        args: delta.argsComplete && delta.args ? delta.args : {},
+        status: 'running',
+        partialArgs: delta.argsComplete ? undefined : delta.args,
+        argsStreaming: !delta.argsComplete,
+      })
+      return
+    }
+    if (delta.argsComplete) {
+      // 收口前先冲掉该卡缓冲,再写正式 args 并清预览(顺序保证正式值不被 pending 掩盖)
+      coalescer.flush(toolCallId)
+      store.updateToolCall(assistantMessageId, toolCallId, {
+        args: delta.args ?? existing.args ?? {},
+        partialArgs: undefined,
+        argsStreaming: undefined,
+      })
+      coalescer.cancel()
+      return
+    }
+    // 无法修复的片 args 为 undefined:保留上一次的部分对象,绝不把预览清成空白。
+    // 经合帧缓冲累积(覆盖语义,只留最新 partialArgs),每帧 flush 一次。
+    coalescer.add(toolCallId, {
+      argsStreaming: true,
+      ...(delta.args !== undefined ? { partialArgs: delta.args } : {}),
+    })
+  }
+}
+
+/**
+ * onToolSummary 工厂(2026-07-31 立,AI 对话可视化深度接入):
+ * 绑定 assistantMessageId,把 SSE tool-summary 事件聚合结果写入 message.toolCallSummary,
+ * 让 ToolCallSummary 组件在 AI 回复末尾展示"搜索文件 N 个/网页 N 个/改了 N 个文件/N 行代码"。
+ */
+export function createToolSummaryHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  return (summary: ToolSummaryEvent) => {
+    chatStore.getState().setMessageToolSummary(assistantMessageId, summary)
+  }
+}
+
+/** D1 消息级计量(2026-09-19 立):onUsage 回调载荷 = api-client 的 UsageEvent(扁平契约)。
+ * 与 packages/api-client/src/client.ts 的 tryParseUsage 对齐:
+ *   { promptTokens, completionTokens, totalTokens, reasoningTokens?, messageId?,
+ *     timing?:{ firstTokenMs,durationMs }|null, model?, costUsd? }
+ * 旧 OpenAI 协议 usage chunk 路径 messageId/timing/model/costUsd 为 null(徽章相应分段不渲染)。 */
+export type MessageUsagePayload = UsageEvent
+
+/**
+ * D1 消息级计量(2026-09-19 立):onUsage 消费工厂。
+ * 绑定 assistantMessageId,把 usage 帧写入 store.usageByMessageId(驱动消息底部徽章行)。
+ * - messageId 为空(旧 OpenAI 协议 usage chunk 不带 messageId)→ 回退到当前流式消息 id
+ * - timing / costUsd 缺失(null)→ 存 0 / null,徽章对应分段条件性不渲染
+ * 旧 meta.usage 写入(updateMessageMeta)由 send-message.ts 保留,本工厂只负责新索引。 */
+export function createUsageHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  return (payload: MessageUsagePayload) => {
+    const messageId = payload.messageId || assistantMessageId
+    chatStore.getState().setMessageUsage(messageId, {
+      totalTokens: Number(payload.totalTokens) || 0,
+      promptTokens: Number(payload.promptTokens) || 0,
+      completionTokens: Number(payload.completionTokens) || 0,
+      reasoningTokens: payload.reasoningTokens !== null ? Number(payload.reasoningTokens) : null,
+      // G-403(2026-10-07):缓存读/写两维透传落盘 —— `?? null` 把"缺席(旧帧代际差)"
+      // 与"显式 null(上游没采到)"都归 null = 未知;数字(含 0=真没命中)原样保留。
+      // 绝不在此造 0(把"没量到"渲染成 0 是 G-394 禁令);渲染位由
+      // context-usage-ring 经共享引擎把 null 折成"不可得"。
+      cacheReadTokens: payload.cacheReadTokens ?? null,
+      cacheWriteTokens: payload.cacheWriteTokens ?? null,
+      firstTokenMs: Number(payload.timing?.firstTokenMs) || 0,
+      durationMs: Number(payload.timing?.durationMs) || 0,
+      model: payload.model ?? '',
+      costUsd: payload.costUsd !== null ? Number(payload.costUsd) : null,
+    })
+  }
+}
+
+/**
+ * D115(G-229,2026-10-24 立):onReviewFinding 消费工厂。
+ * 绑定 assistantMessageId,把 review-finding 帧逐条写入 store.reviewFindingsByMessageId,
+ * 由 MessageItem 按 message.id 订阅渲染 ReviewFindingsCard(按 P1/P2/Nit 分组)。
+ * 未注册该回调时 api-client 也不解析此帧 —— 接线与解析同一条开关。
+ */
+export function createReviewFindingHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  return (event: ReviewFindingEvent) => {
+    chatStore.getState().appendReviewFinding(assistantMessageId, {
+      type: 'review-finding',
+      ...event,
+    })
+  }
+}
+
+/**
+ * #9 多 agent stream 节流(2026-07-25 立):
+ * 单一 manager 管理多个 agentId 各自的 batcher,flushAll/cancelAll 统一清理。
+ * 2026-10-28 流式观感档续:内泵升 smooth —— 子代理/工具流的正文输出与主链/思考/续接同谱
+ * 逐帧平滑(此前帧级整坨,展开的执行流里文字成块蹦);manager 对外接口(batch/flushAll/
+ * cancelAll)逐字不变,调用面零改动。#16 当年"agent 保持原样"的保留判据由本轮观感需求覆盖。
+ */
+export function createAgentDeltaBatcher(chatStore: ChatStore = useChatStore) {
+  const map = new Map<string, ReturnType<typeof createSmoothDeltaBatcher>>()
+  const batch = (agentId: string, delta: string) => {
+    let b = map.get(agentId)
+    if (!b) {
+      b = createSmoothDeltaBatcher((d) => chatStore.getState().appendToAgentStream(agentId, d))
+      map.set(agentId, b)
+    }
+    b.batch(delta)
+  }
+  const flushAll = () => {
+    for (const b of map.values()) b.flush()
+  }
+  const cancelAll = () => {
+    for (const b of map.values()) b.cancel()
+    map.clear()
+  }
+  return { batch, flushAll, cancelAll }
+}
+
+export { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils'
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

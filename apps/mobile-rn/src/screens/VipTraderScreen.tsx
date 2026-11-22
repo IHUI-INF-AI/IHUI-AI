@@ -1,0 +1,197 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getTraderDetail, getOverview, getInviteInfo } from '@ihui/api-client'
+import type { CommissionOverview, InviteInfo } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
+import { VipTraderScreen as SharedVipTraderScreen, type VipTraderStat } from '@ihui/rn-app'
+import { appAlert } from '../components/BottomPops'
+import { useWechatPayment } from '../hooks/useWechatPayment'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useRefreshOnFocus } from '../hooks'
+import { useHostPorts } from '../host/use-host-ports'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** VIP 操盘手价格(分),对齐 SharedVipTraderScreen TRADER_PRICE ¥9980 */
+const TRADER_PRICE_CENTS = 998000
+const TRADER_PRODUCT_NAME_KEY = 'vipTrader.productName'
+
+function formatYuan(n: number): string {
+  return `¥${n.toLocaleString()}`
+}
+
+function buildStats(
+  o: CommissionOverview,
+  invite: InviteInfo | undefined,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): VipTraderStat[] {
+  const base: VipTraderStat[] = [
+    {
+      label: t('vipTrader.teamCount'),
+      value: String(o.invitedCount),
+      trend: t('vipTrader.activeTrend', { n: o.activeCount }),
+    },
+    {
+      label: t('vipTrader.totalCommission'),
+      value: formatYuan(o.totalCommission),
+      trend: t('vipTrader.rankTrend', { n: o.rank }),
+    },
+    {
+      label: t('vipTrader.monthIncome'),
+      value: formatYuan(o.availableCommission),
+      trend: t('vipTrader.withdrawnTrend', { v: formatYuan(o.withdrawnCommission) }),
+    },
+    {
+      label: t('vipTrader.pendingIncome'),
+      value: formatYuan(o.pendingCommission),
+      trend: t('vipTrader.frozenTrend', { v: formatYuan(o.frozenCommission) }),
+    },
+  ]
+  // 邀请码 / 佣金比例 / 分销等级(对齐 Uniapp trader 页邀请信息展示)
+  if (invite) {
+    base.push(
+      {
+        label: t('vipTrader.myInviteCode'),
+        value: invite.inviteCode || '—',
+        trend: t('vipTrader.invitedTrend', { n: invite.inviteCount }),
+      },
+      {
+        label: t('vipTrader.distLevel'),
+        value: invite.level || '—',
+        trend: t('vipTrader.rateTrend', { n: invite.commissionRate }),
+      },
+    )
+  }
+  return base
+}
+
+export default function VipTraderScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
+  const [opened, setOpened] = useState(false)
+  const [stats, setStats] = useState<VipTraderStat[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const [traderRes, overviewRes, inviteRes] = await Promise.allSettled([
+        getTraderDetail('me'),
+        getOverview(),
+        getInviteInfo(),
+      ])
+      // 团队统计数据从 distribution overview 提取,邀请信息丰富统计项
+      let inviteInfo: InviteInfo | undefined
+      if (inviteRes.status === 'fulfilled' && inviteRes.value.success) {
+        inviteInfo = inviteRes.value.data
+      }
+      if (overviewRes.status === 'fulfilled' && overviewRes.value.success) {
+        setStats(buildStats(overviewRes.value.data, inviteInfo, t))
+      } else {
+        setStats(
+          inviteInfo
+            ? buildStats(
+                {
+                  totalCommission: 0,
+                  availableCommission: 0,
+                  frozenCommission: 0,
+                  withdrawnCommission: 0,
+                  pendingCommission: 0,
+                  invitedCount: inviteInfo.inviteCount,
+                  activeCount: 0,
+                  rank: 0,
+                  orderCount: null,
+                },
+                inviteInfo,
+                t,
+              )
+            : [],
+        )
+        if (overviewRes.status === 'fulfilled' && !overviewRes.value.success) {
+          setError(apiFailureToText(overviewRes.value, t('vipTrader.loadFailed')))
+        }
+      }
+      // trader 详情(followers/level)已获取,统计已由 overview+invite 覆盖
+      void traderRes
+    } catch {
+      setError(t('vipTrader.loadFailed'))
+      setStats([])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    void load()
+  }, [load])
+
+  // 微信 APP 支付(orderType=1 VIP 订单),对齐 VipScreen pay 流程
+  const { pay } = useWechatPayment({
+    orderType: 1,
+    onSuccess: async () => {
+      setOpened(true)
+      await load()
+    },
+  })
+
+  // 立即开通 → 确认步(对齐端内 openPopup 的 Taro.showModal:同标题/同正文/取消+确认两选项)
+  const onOpen = useCallback(() => {
+    appAlert(
+      t('vipTrader.openTitle'),
+      `${t('vipTrader.confirmPay')} ¥${(TRADER_PRICE_CENTS / 100).toLocaleString()} ${t('vipTrader.openTrader')}?`,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => void pay(TRADER_PRICE_CENTS, t(TRADER_PRODUCT_NAME_KEY)),
+        },
+      ],
+    )
+  }, [pay, t])
+
+  const { onToast } = useHostPorts()
+
+  return (
+    <SharedVipTraderScreen
+      t={t}
+      stats={stats}
+      opened={opened}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={onRefresh}
+      onOpen={onOpen}
+      onBack={() => navigation.goBack()}
+      onRetry={() => {
+        void load()
+      }}
+      colorScheme={resolvedTheme}
+      onToast={onToast}
+      // 三个入口(团队/统计/提现):此前共享屏只有视觉、没有手势,三颗都是死按钮。
+      // 目标路由在 RootStackParamList 里都有,直接接导航即可;小程序端走薄壳复用本壳,自动继承。
+      onPressTeam={() => navigation.navigate('Team')}
+      onPressStats={() => navigation.navigate('Income')}
+      onPressWithdraw={() => navigation.navigate('Withdraw')}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

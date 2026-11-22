@@ -1,0 +1,1552 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# ── 代码签名链路(2026-11-03 收口)────────────────────────────────────────────
+# 完整方案对比、证书申请入口、每个 secret 的用途与验证位置,见
+#   docs/DESKTOP_CODE_SIGNING.md
+# 链路顺序(顺序本身就是判据,不得调整):
+#   ① 打包出未签名安装包 → ② Windows 送 SignPath Authenticode 签名 /
+#   macOS 用 Developer ID Application 签名并由 notarytool 公证 + staple →
+#   ③ 对**签名后的字节**重算 SHA256/字节数 → ④ 用签名后的字节重算 Tauri updater `.sig`
+#   → ⑤ signature-gate 在独立 runner 上重新下载产物并验签(不通过即红)
+#   → ⑥ 只有 ⑤ 通过才生成 latest.json(见 publish-updater-json 的 needs)
+#   → ⑦ 发布链成功后由 notify-release 推送更新通知(与运维告警是两条独立链)。
+# 凭据缺失时:build 的第一步 "Preflight desktop signing credentials" 在**编译前**逐条点名
+#   缺项并让 job 失败(2026-11-04 加,见 scripts/desktop-signing-preflight.mjs),不再出现
+#   "先编译 30-45 分钟、最后才由 signature-gate 判红"的形态;签名步的 `if:` 只是防未配置
+#   时把空串注进 Tauri,不再是静默降级路径。
+#   这是刻意设计 —— 未签名产物不得被读成成功发布;不要用任何 CI 开关把它改绿。
+#   本地未签名打包豁免是另一条路径(DESKTOP_ALLOW_UNSIGNED=1,仅本机自测,见 apps/desktop/README.md)。
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. desktop-v0.1.0)'
+        required: true
+      allow_unsigned:
+        description: '未签名发版(跳过 Authenticode/公证门,保留 Tauri .sig;等同 0.1.77 形态)'
+        type: boolean
+        required: false
+        default: false
+
+# 并发锁(2026-10-17 加,实测立因):同一个 tag 的发布**绝不允许并行跑两遍**。
+#   实测事故:desktop-v0.1.75 期间先后触发了两轮,两个 job 同时执行
+#   "查 Gitee 缺哪些资产 → 上传",彼此看不到对方**正在上传**的中间态
+#   ⇒ 同一文件被传了两份(Gitee 允许同名附件共存):实测 deb 出现
+#   id 3413135(7,749,880B) 与 3413217(7,749,884B)、dmg 出现
+#   id 3413214(13,187,848B) 与 3413251(13,187,859B) —— 字节数只差几十,
+#   正是两次上传的分块差异。后果是每轮都白传 20MB、job 拖到一两个小时。
+#   ⇒ 按 tag 串行化:后到的不取消前面的(发布不能被打断),排队等它跑完;
+#     同一 tag 的重复触发只会多排一次队、不会并发上传。
+#   注意:这治的是"重复触发",治不了"单轮本来就慢"(那是传输量的账,已由
+#   按需下载 + Windows 优先上传两处改动去治)。
+concurrency:
+  group: release-desktop-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  # SignPath 签名请求要回读本次 run 的 workflow artifact(upload-artifact 产物);
+  # 显式声明 permissions 块后未列出的 scope 一律为 none,缺这条签名步读不到 artifact。
+  actions: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # 2026-09-17 终极薄壳化:frontendDist 改为 src-tauri/shell(几 KB 占位页),
+  # 桌面端不再内嵌/构建 909 页前端(线上 aizhs.top 才是真前端,更新零发版)。
+  # → 发版链 = 纯 Rust 编译+打包,web 构建步骤整体移除。
+  build:
+    name: Build Desktop (${{ matrix.label }})
+    # 2026-09-17:幽灵 run 防护——并行会话频繁 push main 会为 tags-only workflow
+    # 创建 0-job 空 run 并标 failure(GitHub 行为);此守卫使其变为 skipped。
+    if: startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      # 与 release-cli 同一把开关:四项凭据齐备才置 true(step-level if 不支持 secrets
+      # 上下文,故先在 job env 折算)。未配置时下面那组签名步整体跳过,发布链与今日逐字同形。
+      SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
+      # macOS 另有一套凭据(Developer ID + 公证)。签名与公证必须一起齐备:只装证书不公证
+      # 的产物在 Gatekeeper 下仍会被拦,等于"看起来签了、装上仍报损坏"——比不签更难排查。
+      # 公证两条官方通道二选一:Apple ID(app-specific password)或 App Store Connect API Key。
+      # 通道 B 的第三件是 `.p8` **内容**(APPLE_API_KEY_P8),不是路径:workflow 负责落盘并
+      # 把 APPLE_API_KEY_PATH 指到落盘位置(2026-11-05 补,此前只搬路径变量、文件从未存在)。
+      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
+      # 未签名发版开关(2026-11-16 立;2026-11-17 改 push-tag 默认未签名,机主拍板
+      # "发未签名包,跟 0.1.77 一样"):
+      # 【旧口径】只认 workflow_dispatch 的 allow_unsigned 勾选 ⇒ push tag 时恒为 false,
+      #   于是每次发版都被严格 preflight 判红(desktop-v0.1.78 run#104 实证:Windows/macOS
+      #   双双卡在 Preflight desktop signing credentials),未签名包根本发不出去。
+      # 【现口径】在 job 级 env 里**不引用 matrix**(matrix 上下文按 GitHub 语义不在 job 级
+      #   env 求值范围内),改为把两枚凭据就绪标志算在 job env、由各 step 按 runner.os 组合;
+      #   本 job 的平台与 runner.os 一一对应(windows-x64↔Windows / macos-universal↔macOS /
+      #   linux-x64↔Linux),step 级用 runner.os 判平台是安全的。
+      # 语义:① workflow_dispatch 勾选 allow_unsigned 即 true;
+      #       ② push tag 且**本平台签名凭据未配置** ⇒ 自动 true(免去每次手动勾选)。
+      # 关键:凭据一旦配齐,②自动失效 ⇒ 回到严格门禁,**不会**把已配置签名的仓库降级成未签名。
+      # 下面两枚是"是否已配置"的单一真相源,下面各 step 的 ALLOW_UNSIGNED 一律引用它们。
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            runner: windows-latest
+          # 2026-09-17 极致提速:macOS 由"arm64 + Intel 两个 job"合并为 **Universal 二进制**
+          # (arm64 runner 交叉编译 x86_64-apple-darwin,tauri --target universal-apple-darwin),
+          # 产物同时支持 Apple Silicon 与 Intel——直接砍掉最慢的 macos-15-intel job(实测 ~45min)。
+          - label: macos-universal
+            runner: macos-latest
+          - label: linux-x64
+            runner: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # 签名链自检:在**打包之前**就确认本 workflow 自己没把顺序改坏
+      # (上传未签名 → 提交签名 → 替换并验签 → 重算 .sig → 门禁 → latest.json)。
+      # 纯静态 + 无依赖,任何一台 runner 都跑;失败即红,不允许"带着坏链路开跑 40 分钟"。
+      - name: Audit desktop signing chain
+        shell: bash
+        run: node scripts/desktop-signing-chain.mjs
+
+      # 凭据前置自检(2026-11-04 加):原来凭据缺失时签名步被 `if:` 整体跳过
+      # (step 级 if 读不到 secrets,只能在 job env 里折算 SIGNPATH_CONFIGURED),
+      # 于是要先把 Windows/macOS 各编译 30-45 分钟,最后才由 signature-gate 判红,
+      # 且日志里看不出"到底缺哪一枚"。本步在建链审计之后、编译之前一次性点名缺项
+      # 并立即失败;只判"在不在",**绝不打印任何值**(含长度/前缀)。
+      - name: Preflight desktop signing credentials
+        id: signing-preflight
+        shell: bash
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          DESKTOP_TAURI_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          DESKTOP_TAURI_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+          # 未签名发版口径(详见 job 顶部注释)。step 级 env 里 runner.os 可用,
+          # 因此按平台分别引用 job 级已算好的 SIGNPATH_CONFIGURED / APPLE_SIGNING_CONFIGURED。
+          ALLOW_UNSIGNED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true) || runner.os == 'Linux' || (runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true') || (runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true') }}
+        run: |
+          if [ "$ALLOW_UNSIGNED" = 'true' ]; then
+            node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}" --allow-unsigned
+          else
+            node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"
+          fi
+
+      # 2026-11-17 固定 Rust 1.99 —— 根治 Linux 构建失败。
+      # 根因:Rust 1.100(2026-11-12 发布)把 never type fallback 从 () 改为 !,
+      # 且不再限于 edition 2024,而是覆盖所有 edition(含本项目 2021)。第三方 crate
+      # screenshots 0.8.10 的 Linux wayland_screenshot.rs 依赖旧 fallback,在新编译器下
+      # 报 E0277 `the trait bound !: ReadAll is not satisfied` ⇒ Linux tauri build 失败;
+      # macOS/Windows 不走该路径故全绿,0.1.76 时期 stable<1.100 故能过。
+      # 修法:固定到 1.100 前一版 1.99(远高于项目 MSRV 1.77,足以编 tauri 2.11),
+      # 让"能编译的组合"不再随 stable 漂移。将来升级到 1.100+ 须先升级/打补丁 screenshots。
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # 1.99
+        with:
+          toolchain: '1.99'
+
+      # macOS Universal:补装 x86_64 目标(arm64 已就位)
+      - name: Add macOS x86_64 target (universal build)
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      # 2026-10-19 订正 —— 本步现为空操作,原注释的性能结论已失效:
+      # .cargo/config.toml 已于 2026-10-09 回退到 `linker = "link.exe"`
+      # (lld 写 PDB/exe 系统层失败),链接器不再从 PATH 取 rust-lld,
+      # 因此这里补入 GITHUB_PATH 的那个目录**当前没有任何步骤会消费**;
+      # "实测增量构建 110s → 5.4s"是 lld 在架时期的读数,与现状不符。
+      # 保留本步本体不删(保守原则,§0.8):它是发版流水线的一环,本机无法验证
+      # 删除是否安全;且 lld 一旦修复、config.toml 改回,这里就是现成的兜底。
+      # 判据:本步生效的充要条件 = apps/desktop/src-tauri/.cargo/config.toml 的
+      # [target.x86_64-pc-windows-msvc].linker 指向 lld;读到 link.exe 即为空操作。
+      - name: Expose rust-lld (Windows linker speedup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $lldDir = Join-Path (rustc --print sysroot) 'lib/rustlib/x86_64-pc-windows-msvc/bin'
+          if (Test-Path $lldDir) { Add-Content -Path $env:GITHUB_PATH -Value $lldDir; Write-Host "rust-lld dir: $lldDir" }
+
+      # 2026-09-16 构建提速:Rust target 缓存——release 全量编译 20-40 分钟是大头,
+      # 增量后仅重编变更 crate(实测可压缩到 5-10 分钟);key 按 Cargo.lock 哈希失效。
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-all-crates: true
+          # 2026-09-17:失败也保存缓存——失败 run 的编译成果不浪费,重跑时增量续编
+          cache-on-failure: true
+
+      # 2026-09-17 编译缓存跨 run 共享:命中后依赖 crate 全跳过,只编业务代码
+      # (macOS/Linux 单 job 预期 8-10 分钟;首 run 为填充缓存,第二次起生效)
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
+
+      - name: Enable sccache
+        run: echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # 2026-11-17 补(desktop-v0.1.78 run#105~#108 连续四轮 Linux 零产物):
+          # 原清单只有 libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          # patchelf libxdo-dev,缺 tauri v2 官方要求的
+          # build-essential / libssl-dev / libayatana-appindicator3-dev。
+          # 其中 libappindicator3-dev 是 Ubuntu 22.04 起被 ayatana 取代的**旧包名**,
+          # 新 runner 镜像上解析不到 ⇒ 托盘相关链接失败。这正是
+          # 「同一份 workflow 以前能过、现在不能」的原因。
+          # 该失败原先被 tauri-action 的 continue-on-error 吞成 "Build & Release: success",
+          # 前三轮只在 Verify bundle 看到"零产物"、拿不到真实报错;
+          # run#108 改 --bundles deb 后终于把 Build & Release 判红(exit 1)才定位到打包腿。
+          # 回读判据:逐个 dpkg -l 确认包在(不靠 apt 退出码自证),
+          # 再逐个 command -v 确认 rpmbuild/dpkg-deb 二进制可用(包在 ≠ 二进制在)。
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            patchelf \
+            file \
+            libxdo-dev \
+            rpm
+          # libfuse2 在 Ubuntu 24.04 起改名为 libfuse2t64(64 位 time_t 迁移),
+          # run#109 实证:直接装 `libfuse2` 在 ubuntu-latest 上解析不到 ⇒ 整步判红。
+          # 它只被 AppImage 的 linuxdeploy 需要,故按"任一名字装成一个即可"处理:
+          # 两个都装不上不判红(退化为不产 AppImage,由 Verify 的逐目标断言说清楚),
+          # 装上了则 AppImage 腿可用。
+          if dpkg -l libfuse2 2>/dev/null | grep -q '^ii'; then
+            echo "OK  libfuse2(已存在)"
+          elif apt-get install -y libfuse2t64 2>/dev/null; then
+            echo "OK  libfuse2t64(Ubuntu 24.04+ 改名)"
+          elif apt-get install -y libfuse2 2>/dev/null; then
+            echo "OK  libfuse2(旧命名镜像)"
+          else
+            echo "::warning::libfuse2/libfuse2t64 均不可得,AppImage 腿可能不可用(不判红,由 Verify 逐目标断言)"
+          fi
+          for p in libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+                   libssl-dev build-essential patchelf file libxdo-dev rpm; do
+            if dpkg -l "$p" 2>/dev/null | grep -q '^ii'; then
+              echo "OK  $p"
+            else
+              echo "::error::依赖未装成:$p"; exit 1
+            fi
+          done
+          for b in rpmbuild dpkg-deb; do
+            if command -v "$b" >/dev/null 2>&1; then
+              echo "OK  $b -> $(command -v $b)"
+            else
+              echo "::error::打包工具不可用:$b"; exit 1
+            fi
+          done
+
+      # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
+      # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
+      # 2026-09-27 改钉版本:原先写 `@tauri-apps/cli@^2` ⇒ 每次 CI 都取最新 2.x,而 tauri-cli
+      # 内置的 NSIS 模板(生成 `utils.nsh` 里 `CheckIfAppIsRunning` 宏的那份)随版本变;模板与
+      # runner 上的 NSIS 插件不匹配时 makensis 直接 abort → Windows 包产出 0 个,连带
+      # `Publish Updater JSON` / `Sync release to Gitee` / `Sync Downloads` 三步全 skipped。
+      # 实测形态:本机同源码同 .nsi 打包成功(2.11.4),CI 失败 —— 仓库没变,是 CLI 漂了。
+      # 所以这里必须取**锁文件里的精确版本**,不得回到范围写法。
+      - name: Install Tauri CLI
+        # 必须显式 bash:Windows runner 的默认 shell 是 PowerShell,而下面是 POSIX 语法。
+        # 实测教训(2026-09-27 本步自造):不写 shell 时 linux/macos 过、windows 报
+        # `ParserError: Missing '(' after 'if' in if statement` ⇒ 钉版从未在 Windows 上生效,
+        # 反而把 job 提前 41 秒弄红(连构建都没进),掩盖了真正要查的 makensis 问题。
+        shell: bash
+        run: |
+          V=$(sed -ne "/'@tauri-apps\/cli'/,/version:/ s/.*version: *//p" pnpm-lock.yaml | head -1)
+          if [ -z "$V" ]; then
+            V=$(node -pe "const p=require('./apps/desktop/package.json');(p.devDependencies||{})['@tauri-apps/cli']")
+            echo "WARN: 锁文件里没取到 @tauri-apps/cli 精确版本,回退声明范围 $V(仍可能漂移)"
+          fi
+          if [ -z "$V" ]; then echo "ERROR: 既没从锁文件也没从 package.json 取到 @tauri-apps/cli 版本"; exit 1; fi
+          echo "钉住 tauri-cli = $V(与仓库锁文件一致)"
+          npm i -g "@tauri-apps/cli@$V"
+          GOT=$(tauri --version 2>&1 | tail -1)
+          echo "实际安装: $GOT"
+          case "$GOT" in
+            *"$V"*) ;;
+            *) echo "ERROR: 安装出的 tauri-cli ($GOT) 与期望版本 $V 不符,拒绝继续(否则又是一次静默漂移)"; exit 1;;
+          esac
+
+      # 2026-11-17 补:beforeBuildCommand 的依赖必须显式装(desktop-v0.1.78 run#104 实证 Linux job
+      # 走到了 Build & Release 却在 `tauri build` 内部失败;Windows 同样会栽在这里)。
+      #
+      # 立因:tauri.conf.json 的 beforeBuildCommand = `node ../../scripts/desktop-installer-assets.mjs`,
+      # 该脚本产出 Windows NSIS 品牌位图 + ihui-assets-path.nsh,而 ihui-ui.nsi 第 47 行
+      # `!ifndef IHUI_ASSETROOT → !error` 是硬依赖 ⇒ Windows 打包**必须**先跑通它。
+      # 但本 job 是"纯 Rust 化"后的形态(见上方 Install Tauri CLI 注释):全程不装 node 依赖,
+      # 而脚本开头 `require('sharp')` 取自根 workspace 的 devDependencies(sharp@0.35.3)
+      # ⇒ 没有 node_modules 时 require 直接抛 MODULE_NOT_FOUND,资产生成失败,NSIS 打不出来。
+      #
+      # 只给 Windows 装:macOS/Linux 走不到 NSIS(脚本内的平台守卫已让它们 exit 0),
+      # 装全量 workspace 依赖纯属浪费 3-6 分钟,且会牵动 lockfile 版本漂移风险。
+      #
+      # 踩过的三条死路(run#105 实测,别再走):
+      #   ① 仓库根裸跑 `npm install`:根 package.json 含 `@ihui/eslint-config: workspace:^`,
+      #      npm 不认 workspace: 协议 ⇒ EUNSUPPORTEDPROTOCOL,1 秒内 exit 1。
+      #   ② `npm install --prefix <repo-root>`:同样报错 —— npm 的 arborist 会先解析
+      #      **整个项目依赖树**,`--prefix`/`--no-save` 都拦不住它。
+      #   ③ 装到隔离目录 + NODE_PATH:无效。desktop-installer-assets.mjs 用
+      #      `createRequire(apps/desktop/package.json)` 解析 sharp,createRequire 的查找链
+      #      是「从 anchor 逐级向上找 node_modules」,**不读 NODE_PATH**。
+      #
+      # 正解:用本仓**已在用**的 pnpm 体系(见下方 sync-downloads job 的同款三步:
+      # pnpm/action-setup + setup-node(cache: pnpm) + pnpm install --frozen-lockfile)。
+      # pnpm 天然认 workspace: 协议,`--filter ihui-ai` 把根包(sharp 的声明处)装齐,
+      # sharp 落在仓库根 node_modules —— 正是 createRequire 从 apps/desktop 向上会命中的位置。
+      # 版本不写死:装的是 lockfile 里那份(与 devDependencies 一致,frozen 保证不漂)。
+      - name: Setup Node.js (Windows NSIS assets)
+        if: runner.os == 'Windows'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm (Windows NSIS assets)
+        if: runner.os == 'Windows'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Install beforeBuildCommand deps (Windows NSIS assets)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "为 beforeBuildCommand 装根包依赖(sharp) —— pnpm 认 workspace: 协议,且产物落在仓库根 node_modules"
+          pnpm install --frozen-lockfile --filter ihui-ai
+          # 用脚本自己的解析方式验证(createRequire from apps/desktop):
+          # 这才是 beforeBuildCommand 真实走的那条解析链,别用 require('sharp') 糊过去。
+          node -e "const {createRequire}=require('module'); const r=createRequire(process.cwd()+'/apps/desktop/package.json'); const s=r('sharp'); console.log('sharp ok | libvips=', s.versions.vips)"
+
+      # macOS 签名凭据必须先落到 GITHUB_ENV,再由下一步的 tauri build 消费。
+      # 为什么不直接把 secrets 写进 Build & Release 的 env: GitHub Actions 的 env 无法按
+      # 单个键做条件赋值,未配置的 secret 会被注入成**空字符串**,而 Tauri 看到
+      # APPLE_CERTIFICATE="" 会当成"要导入一张空证书"直接失败 —— 凭据没配反而弄红构建。
+      # 这一步只在 APPLE_SIGNING_CONFIGURED=true 时执行,未配置时 tauri build 完全看不到
+      # 这些键,行为与历史版本逐字同形(产出未签名 .app,由 signature-gate 判红)。
+      - name: Export Apple signing credentials (macOS)
+        id: mac-export-signing-env
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          IN_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          IN_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IN_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IN_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          IN_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          {
+            printf 'APPLE_CERTIFICATE=%s\n' "$IN_CERTIFICATE"
+            printf 'APPLE_CERTIFICATE_PASSWORD=%s\n' "$IN_CERTIFICATE_PASSWORD"
+            printf 'APPLE_SIGNING_IDENTITY=%s\n' "$IN_SIGNING_IDENTITY"
+            if [ -n "${IN_APPLE_ID}" ]; then
+              printf 'APPLE_ID=%s\n' "$IN_APPLE_ID"
+              printf 'APPLE_PASSWORD=%s\n' "$IN_APPLE_PASSWORD"
+              printf 'APPLE_TEAM_ID=%s\n' "$IN_APPLE_TEAM_ID"
+            else
+              printf 'APPLE_API_KEY=%s\n' "$IN_API_KEY"
+              printf 'APPLE_API_ISSUER=%s\n' "$IN_API_ISSUER"
+            fi
+          } >> "$GITHUB_ENV"
+          echo "Apple 签名凭据已导出(证书 + $( [ -n "${IN_APPLE_ID}" ] && echo 'Apple ID 公证' || echo 'App Store Connect API Key 公证' ))"
+
+      # 公证通道 B 的 `.p8` 落盘(2026-11-05 补,缺口 2):此前本文件只把 APPLE_API_KEY_PATH
+      # 写进 GITHUB_ENV,而 `.p8` 从未落盘 ⇒ 三枚 secret 配齐后 notarytool 仍报"读不到密钥文件",
+      # 通道 B 实际是半截。本步把 APPLE_API_KEY_P8 的内容真正写到路径上并收紧权限。
+      # 内容格式约定:**单行 base64**(推荐,与 APPLE_CERTIFICATE 同口径)或**原始 PEM**
+      # (含 `-----BEGIN PRIVATE KEY-----` 字面);两种都收 —— 先认 PEM,否则按 base64 解码,
+      # 解码结果必须仍能认出 PEM 头,否则硬失败(绝不让一个坏密钥文件走到公证阶段)。
+      - name: Materialize App Store Connect API key (macOS, channel B)
+        id: mac-write-api-key
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          IN_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+        run: |
+          set -euo pipefail
+          # 通道判定与 Export 步逐字同源:APPLE_ID 非空 ⇒ 走 A,不需要 .p8
+          if [ -n "${IN_APPLE_ID}" ]; then
+            echo '公证通道 A 生效(.p8 无需落盘)'
+            exit 0
+          fi
+          if [ -z "${IN_P8}" ]; then
+            echo '::error::公证通道 B 已启用但 APPLE_API_KEY_P8 为空(签名 preflight 本应拦住)'
+            exit 1
+          fi
+          # 路径仍认 APPLE_API_KEY_PATH(可选覆盖),不填则用 runner 的临时目录
+          TARGET="${IN_API_KEY_PATH:-$RUNNER_TEMP/ihui-asc-api-key.p8}"
+          mkdir -p "$(dirname "$TARGET")"
+          if printf '%s' "$IN_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            # 原始 PEM:允许 secret 里把换行写成字面 `\n`
+            printf '%b' "$IN_P8" > "$TARGET"
+          else
+            # 单行 base64;openSSL 在 macOS runner 上恒可用,避开 BSD base64 的 -d/-D 差异
+            printf '%s' "$IN_P8" | tr -d '[:space:]' | openssl base64 -d -A > "$TARGET"
+          fi
+          chmod 600 "$TARGET"
+          if ! grep -q 'BEGIN PRIVATE KEY' "$TARGET"; then
+            echo '::error::APPLE_API_KEY_P8 处理后不是 PEM 私钥(确认是单行 base64 或原始 PEM)'
+            rm -f "$TARGET"
+            exit 1
+          fi
+          printf 'APPLE_API_KEY_PATH=%s\n' "$TARGET" >> "$GITHUB_ENV"
+          echo "已落盘 .p8 到 $TARGET(权限 600;内容不打印)"
+
+      - name: Build & Release
+        id: tauri
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+        # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
+        # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
+        # (产物实际已构建+签名成功,CI 日志实证)。
+        # 2026-11-17 定案(机主拍板·根治):**去掉 continue-on-error**。原容错的代价被量到了两次:
+        #   ① 0.1.35 Windows NSIS 打包真失败(makensis 语言文件缺失)被吞成 job success ⇒ 无 Windows 资产;
+        #   ② 0.1.78 run#105/#106 Linux 缺 rpm/libfuse2 ⇒ 打包真失败被吞 ⇒ "构建很快成功但零产物"。
+        # 假失败的正确出路是后面那两条 **if: always()** 的腿,不是让打包步骤本身不报错:
+        #   - `Verify bundle produced` 按 matrix 逐平台断言应有目标齐备(本步真失败就在这里翻红);
+        #   - `Fallback upload bundle files to Release` 按磁盘真实文件名(含中文)直传,补 tauri-action 收集漏项。
+        # 即:打包失败=红,产物收集漏项=由兜底腿补传,两者不再混为一谈。新增 target 时必须同步改 Verify 的期望表。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        with:
+          # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
+          # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
+          tauriScript: tauri
+          # macOS:Universal 二进制(同时覆盖 arm64 + Intel;配合 rustup target add)
+          # Linux(2026-11-17):显式列三目标,与 tauri.conf 的 Linux 目标一致,
+          # 也与 Verify 期望表一致(那边按 deb/rpm/appimage 逐项断言)。
+          #   走过的弯路:run#105~107 三轮 Linux 都「Build & Release 报 success 却零产物」,
+          #   根因是 continue-on-error 吞掉了真实失败;run#108 用 `--bundles deb` 单打
+          #   才让 Build & Release 首次判红(exit 1),确认是**打包阶段**而非"没跑"。
+          #   随后定位到依赖缺口(旧包名 libappindicator3-dev 在新镜像解析不到、缺
+          #   libayatana-appindicator3-dev / libssl-dev / build-essential / rpm / libfuse2),
+          #   已在 Install Linux deps 补齐并加 dpkg -l + command -v 双回读。
+          #   故恢复三目标,由依赖补齐保证出包。
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || (runner.os == 'Linux' && '--bundles deb,rpm,appimage') || '' }}
+          # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
+          # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
+          projectPath: apps/desktop
+          # 2026-11-17 根治"同名资产撞名判红"(desktop-v0.1.78 run#112 实证):
+          # tauri-action 上传 Release 资产时的同名删除逻辑只规范化候选名、不匹配 Release
+          # 上已有的中文名资产(productName=智汇AI),导致 POST 409 already_exists 后
+          # fail-fast 把整个 Build & Release 判红 —— 即使产物已构建成功、兜底腿随后
+          # 用 gh release upload --clobber 把资产补齐,step 仍是红的,还连带让
+          # publish-updater-json / sync-downloads 因 needs:build 被 skip(latest.json 缺失)。
+          # 正解:本步**只构建、不碰 Release**。tauri-action 源码在 !releaseId && !tagName 时
+          # 走 "skipping all uploads" 分支,故刻意不传 tagName/releaseId 一组参数。
+          # 三项职责已有幂等接管,零遗漏:
+          #   ① 资产上传 → 下方 `Fallback upload …`(gh release upload --clobber,含中文真名);
+          #   ② Release 创建 → 兜底腿 gh release view || create;
+          #   ③ latest.json → 独立 publish-updater-json job(generate-latest-json.mjs 先删后传)。
+          # .sig 由 tauri build 本地生成(env 私钥仍在),与本步是否上传无关。
+          # updater endpoint 单端点 https://aizhs.top/desktop-feed.json(2026-10-05 机主拍板)。
+
+      # 2026-11-17 加(Linux 诊断专用):run#105~#110 连续六轮 Linux 都是
+      # 「Build & Release exit 1、连 bundle 目录都没创建」,而 macOS 编译同一份
+      # Rust 代码全绿 ⇒ 失败在 Linux 特有的编译/链接环节。但 tauri-action 是
+      # composite action,其 step 日志需要登录才能看(API 401),本地也无 GTK 环境
+      # 可复现 ⇒ 六轮都只能看到 "Command \"tauri [build...]\" failed with exit code 1"。
+      # 本步在失败时**直接重跑一次** tauri build 并把末 80 行写进 annotation
+      # (::error:: + GITHUB_STEP_SUMMARY),让真实报错第一次可见。
+      # 重跑的代价可接受:只在 Linux 且上一步已失败时执行,成功路径零开销。
+      - name: Diagnose Linux build failure (surface real error)
+        if: failure() && runner.os == 'Linux'
+        shell: bash
+        run: |
+          set +e
+          echo "::warning::Build & Release 已失败,重跑 tauri build 以捕获真实错误(仅 Linux 诊断用)"
+
+          # 收集环境事实,这些本身就是常见失败原因
+          echo "=== 环境 ===" | tee /tmp/diag.txt
+          { echo "kernel: $(uname -a)"
+            echo "glibc: $(ldd --version | head -1)"
+            echo "pkg-config webkit: $(pkg-config --modversion webkit2gtk-4.1 2>&1)"
+            echo "pkg-config javascriptcore: $(pkg-config --modversion javascriptcoregtk-4.1 2>&1)"
+            echo "pkg-config gtk: $(pkg-config --modversion gtk+-3.0 2>&1)"
+            echo "pkg-config libsoup: $(pkg-config --modversion libsoup-3.0 2>&1)"
+            echo "rpmbuild: $(command -v rpmbuild || echo MISSING)"
+            echo "=== end env ==="
+          } >> /tmp/diag.txt 2>&1
+
+          # 直接调用 tauri CLI(与 tauri-action 内部同一条命令),捕获 stderr
+          cd apps/desktop/src-tauri
+          echo "=== tauri build (bundles=deb) ===" >> /tmp/diag.txt
+          timeout 1800 tauri build --bundles deb >> /tmp/diag.txt 2>&1
+          RC=$?
+          echo "tauri build rc=$RC" >> /tmp/diag.txt
+
+          # 只回传尾部(错误通常在最后)
+          TAIL=$(tail -80 /tmp/diag.txt)
+          echo "::error::Linux tauri build 真实输出(rc=$RC,末 80 行):"
+          # 逐行 fifo 输出,避免单行超长被截断
+          printf '%s\n' "$TAIL" | while IFS= read -r line; do
+            [ -n "$line" ] && echo "::error::$line"
+          done
+          {
+            echo '### Linux build 诊断(自动)'
+            echo '```'
+            printf '%s\n' "$TAIL"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      # 2026-09-18:此前 Build & Release 是 continue-on-error(为绕过非 ASCII productName 的
+      # tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败(makensis 语言文件缺失)
+      # 被静默吞掉** —— job 报 success、release 缺 exe/sig,直接造成 0.1.35 无 Windows 资产。
+      # 2026-11-17 定案(机主拍板·根治):容错已从打包步骤移除,本步升格为**提交面的唯一产物契约**,
+      # 由「总数 > 0」改为「按 matrix 逐平台断言应有目标齐备」。理由是旧判据有洞:
+      # Linux 上 .deb 成了就 COUNT>0 通过,而 rpm/AppImage 缺失会静默漏过(0.1.78 run#105/#106 正是这一型)。
+      # 期望表来源 = tauri.conf.json bundle.targets(现读 [nsis, app, dmg, deb, rpm, appimage])。
+      # ⚠️ 新增/删除 target 时必须同步改这张表;漏改的失效方向是"多要一次说明"(红),不是"多放一次"(绿)。
+      - name: Verify bundle produced (fail loudly)
+        if: always()
+        shell: bash
+        run: |
+          BUNDLE=apps/desktop/src-tauri/target/release/bundle
+          if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
+            BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          fi
+          echo "校验根: $BUNDLE"
+          echo "Build & Release outcome: ${{ steps.tauri.outcome }}"
+          if [ ! -d "$BUNDLE" ]; then
+            echo "::error::打包产物目录不存在: $BUNDLE(tauri build 未产出任何东西;outcome=${{ steps.tauri.outcome }})"
+            exit 1
+          fi
+          # 逐平台应有目标:每行「名称|find -name 模式」。模式用通配前缀,以兼容含中文
+          # productName 的实际包名。macOS 的 .app.tar.gz 是自动更新载荷(universal 目标),
+          # dmg 是分发件;Windows 的 .sig 由上传腿成对校验,这里不重复。
+          # 逐项校验用函数而非 `echo | while`:后者是子 shell,里面的计数在外面读不到。
+          have() { find "$BUNDLE" -type f -name "$2" 2>/dev/null | head -1 | grep -q . ; }
+          MISSING=''
+          check() {
+            if have "$1" "$2"; then
+              echo "  ✓ $1 ($2)"
+            else
+              echo "  ✗ $1 ($2) 缺失"
+              MISSING="$MISSING $1"
+            fi
+          }
+          case "${{ matrix.label }}" in
+            linux-x64)
+              check deb '*.deb'
+              check rpm '*.rpm'
+              check appimage '*.AppImage'
+              ;;
+            macos-universal)
+              check dmg '*.dmg'
+              check updater-tarball '*.app.tar.gz'
+              ;;
+            windows-x64)
+              # 只断言 nsis(.exe)。tauri.conf.json 的 bundle.targets 现读为
+              # [nsis, app, dmg, deb, rpm, appimage] —— **没有 msi**,
+              # Windows 这条链从来只产 NSIS 安装包。
+              # 2026-11-17 修:原表要求 msi,run#110 因此判红
+              # (annotation: platform=windows-x64 缺少应有产物: msi),
+              # 而同一轮 tauri build 的 outcome=success、exe 已在 Release 里
+              # ⇒ 是判据写错、不是产物缺失。(该错会在每轮都误报,属恒红型。)
+              # 若将来真要 msi,须先在 tauri.conf.json 的 targets 里声明,
+              # 再来这里加 check —— 顺序不能反,否则又造一条恒红门。
+              check nsis '*.exe'
+              ;;
+            *)
+              echo "::error::matrix.label='${{ matrix.label }}' 未登记应有产物表;请同步 Verify 的期望表(拒绝静默通过)"
+              exit 1
+              ;;
+          esac
+          if [ -n "$MISSING" ]; then
+            echo "::error::platform=${{ matrix.label }} 缺少应有产物:$MISSING。拒绝静默成功(outcome=${{ steps.tauri.outcome }})。"
+            exit 1
+          fi
+          TOTAL=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
+          echo "platform=${{ matrix.label }} 应有目标齐备;产物总数 $TOTAL"
+
+      # ---------- SignPath Authenticode 签名(仅 Windows;凭据齐备才启用) ----------
+      # 时序:必须在 tauri 打包之后、"Fallback upload … --clobber" 把资产推上 Release 之前。
+      # 桌面端特有的一条硬约束:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**
+      # (scripts/generate-latest-json.mjs 从 Release 资产里把 exe 与同名 .sig 配对),
+      # 而 Authenticode 签名会改文件字节 ⇒ 换完安装包必须就地重算 `.sig`,
+      # 重算失败即硬失败。让 `.sig` 停在旧字节上 = 把所有已装客户端的自动更新弄坏,
+      # 那比不签名严重得多,所以这里不给任何"跳过"余地。
+      - name: Upload unsigned installer for signing (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        id: upload-unsigned-desktop
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: unsigned-desktop-${{ matrix.label }}
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Submit SignPath signing request (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        id: signpath-desktop
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned-desktop.outputs.artifact-id }}
+          wait-for-completion: true
+          # SignPath Foundation 人工审批可能排队,600s 默认值不够
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed-desktop
+
+      # Windows 签名后的**唯一**落地动作:替换安装包 → 断言 Authenticode 与证书链 →
+      # 对签名后的字节重算 SHA256/字节数 → 重算 updater `.sig` → 用配置里的公钥验签。
+      # 每一步失败都 throw(硬失败);不存在"签了但没验"的中间态。
+      - name: Install signed installer, verify Authenticode, refresh updater signature (Windows)
+        id: win-authenticode
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+          # 期望的签名者主体子串。SignPath Foundation 的证书主体是 "SignPath Foundation";
+          # 若将来换成自有 EV 证书,改这个 secret 即可,无需改 workflow。
+          EXPECTED_SIGNER_SUBJECT: ${{ secrets.DESKTOP_WIN_SIGNER_SUBJECT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundle = 'apps/desktop/src-tauri/target/release/bundle/nsis'
+          # 回传物形态取决于 SignPath 的 artifact configuration:根为 PE 时是裸 exe,
+          # 根为 zip 时是压缩包 ⇒ 两种都收,先找 exe,找不到就解压再找。
+          $signed = Get-ChildItem -Path signed-desktop -Filter *.exe -Recurse -File |
+            Select-Object -First 1
+          if (-not $signed) {
+            Get-ChildItem -Path signed-desktop -Filter *.zip -Recurse -File | ForEach-Object {
+              Expand-Archive -Path $_.FullName -DestinationPath signed-desktop -Force
+            }
+            $signed = Get-ChildItem -Path signed-desktop -Filter *.exe -Recurse -File |
+              Select-Object -First 1
+          }
+          if (-not $signed) { throw '签名回传物里没找到安装包(检查 SignPath artifact configuration)' }
+          $target = Get-ChildItem -Path $bundle -Filter *.exe -File | Select-Object -First 1
+          if (-not $target) { throw "bundle 目录里没有可替换的安装包:$bundle" }
+
+          # 替换前记账:签名必须改字节,前后哈希相同就说明回传物根本没换上去。
+          $hashBefore = (Get-FileHash -Path $target.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytesBefore = (Get-Item -Path $target.FullName).Length
+          Copy-Item $signed.FullName $target.FullName -Force
+          $hashAfter = (Get-FileHash -Path $target.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytesAfter = (Get-Item -Path $target.FullName).Length
+          Write-Host "签名前: SHA256=$hashBefore / $bytesBefore 字节"
+          Write-Host "签名后: SHA256=$hashAfter / $bytesAfter 字节"
+          if ($hashBefore -eq $hashAfter) {
+            throw '签名前后字节完全相同 —— SignPath 回传物没有真正替换安装包(签的不是这份产物)'
+          }
+          if ($bytesAfter -le 0) { throw "签名后安装包字节数异常:$bytesAfter" }
+
+          # ① signtool verify /pa(PE 的 Authenticode 策略)+ /v 详细输出
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)
+          if (-not $signtool) {
+            $sdks = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending
+            if ($sdks) { $signtool = @{ Source = $sdks[0].FullName } }
+          }
+          if (-not $signtool) { throw '找不到 signtool.exe(windows-latest 应预装 Windows SDK);拒绝用"没工具"当通过' }
+          & $signtool.Source verify /pa /v $target.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool verify /pa 失败(exit $LASTEXITCODE)" }
+
+          # ② 证书链 + 签名者名称 + RFC3161 时间戳
+          $sig = Get-AuthenticodeSignature -FilePath $target.FullName
+          if ($sig.Status -ne 'Valid') {
+            throw "Authenticode 校验失败: $($sig.Status) / $($sig.StatusMessage)"
+          }
+          $subject = $sig.SignerCertificate.Subject
+          $expected = if ([string]::IsNullOrWhiteSpace($env:EXPECTED_SIGNER_SUBJECT)) { 'SignPath Foundation' } else { $env:EXPECTED_SIGNER_SUBJECT }
+          Write-Host "签名者: $subject"
+          if ($subject -notmatch [regex]::Escape($expected)) {
+            throw "签名者主体与期望不符:实际 '$subject',期望包含 '$expected'(如需调整请改 secret DESKTOP_WIN_SIGNER_SUBJECT)"
+          }
+          $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()
+          $chain.ChainPolicy.RevocationMode = 'Online'
+          if (-not $chain.Build($sig.SignerCertificate)) {
+            $why = ($chain.ChainStatus | ForEach-Object { "$($_.Status):$($_.StatusInformation.Trim())" }) -join '; '
+            throw "证书链校验失败: $why"
+          }
+          if (-not $sig.TimeStamperCertificate) {
+            throw '缺少 RFC3161 时间戳证书 —— 证书过期后已发放的安装包会失去可信时间,拒绝发布'
+          }
+
+          # ③ 对**签名后的字节**重算 updater `.sig`(tauri-action 生成的那份已随覆盖失效)
+          tauri signer sign $target.FullName -k $env:TAURI_SIGNING_PRIVATE_KEY -p $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+          if ($LASTEXITCODE -ne 0) {
+            throw 'tauri signer sign 失败 —— 旧 .sig 与新字节不一致会让全部已装客户端自动更新失败,拒绝发布'
+          }
+          if (-not (Test-Path "$($target.FullName).sig")) {
+            throw "重算后没找到 $($target.Name).sig —— 宁可不发,也不发一个更新链断裂的 Release"
+          }
+          # ④ 用 tauri.conf.json 里钉住的公钥验证新 `.sig` 确实覆盖新字节
+          node scripts/desktop-updater-sig-verify.mjs --artifact $target.FullName --signature "$($target.FullName).sig" --config apps/desktop/src-tauri/tauri.conf.json
+          if ($LASTEXITCODE -ne 0) {
+            throw '.sig 与签名后安装包字节不匹配 —— 更新器会拒绝该包,拒绝发布'
+          }
+
+          # ⑤ 落签名清单,供 signature-gate 在独立 runner 上复核
+          $manifest = [ordered]@{
+            platform              = 'windows-x64'
+            artifact              = $target.Name
+            bytes                 = $bytesAfter
+            sha256                = $hashAfter
+            unsignedSha256        = $hashBefore
+            authenticodeStatus    = $sig.Status.ToString()
+            signerSubject         = $subject
+            signerThumbprint      = $sig.SignerCertificate.Thumbprint
+            timestamped           = [bool]$sig.TimeStamperCertificate
+            sigFile               = "$($target.Name).sig"
+            sigVerified           = $true
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $bundle 'signature-manifest.json') -Encoding utf8
+          "### Windows 代码签名`n- 安装包: $($target.Name)`n- 字节数: $bytesAfter(签名前 $bytesBefore)`n- SHA256: \`$hashAfter\`n- Authenticode: $($sig.Status) / 已 chain 校验 / 已带时间戳`n- 更新器 .sig: 已按签名后字节重算并用配置公钥验签通过" >> $env:GITHUB_STEP_SUMMARY
+
+      # 供 signature-gate 独立复核:签名后的 exe + 同名 .sig + 签名清单。
+      # 不传未签名 exe —— gate 必须验的是"用户最终下载到的那份字节"。
+      - name: Upload signed installer + signature manifest (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-desktop-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe.sig
+            apps/desktop/src-tauri/target/release/bundle/nsis/signature-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+      # ---------- macOS:Developer ID 签名 + notarytool 公证 + staple ----------
+      # tauri build 在 APPLE_* 齐备时会用 Developer ID Application 证书对 .app 签名,
+      # 并调用 notarytool 公证 + staple。本步是**独立复核 + 兜底补做**:
+      #   ① 断言 codesign 身份/hardened runtime/时间戳;
+      #   ② 若 .app 上没有已 staple 的公证票据 → 现场 zip → notarytool submit → staple
+      #      → **用 staple 后的 app 重建 .app.tar.gz 并重算 .sig**(否则更新器拿到的字节对不上);
+      #   ③ 对 .dmg 显式 notarytool submit 并记录 Accepted 状态 → staple → validate;
+      #   ④ spctl 用 Gatekeeper 自己的判据再判一次。
+      # 任何一步失败即红;凭据缺失时本步跳过,由 signature-gate 打「未公证」并判红。
+      - name: Notarize, staple and verify macOS bundles
+        id: mac-notarize
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IN_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          IN_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          EXPECTED_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          APP=$(find "$BUNDLE/macos" -maxdepth 1 -name '*.app' -type d | head -1)
+          DMG=$(find "$BUNDLE/dmg" -maxdepth 1 -name '*.dmg' -type f | head -1)
+          if [ -z "$APP" ]; then echo '::error::未找到 macOS .app 产物'; exit 1; fi
+          if [ -z "$DMG" ]; then echo '::error::未找到 macOS .dmg 产物'; exit 1; fi
+          echo "签名对象: $APP"
+          echo "公证对象: $DMG"
+
+          # 公证通道 A/B 二选一;数组直拼(不用 process substitution,避免末项因缺分隔符被吞)
+          if [ -n "${IN_APPLE_ID}" ]; then
+            NOTARY_ARGS=(--apple-id "$IN_APPLE_ID" --password "$IN_APPLE_PASSWORD" --team-id "$IN_APPLE_TEAM_ID")
+          else
+            # 通道 B 的密钥文件由 Materialize 步写入并导出到 GITHUB_ENV;这里只**断言它在**
+            if [ -z "${APPLE_API_KEY_PATH:-}" ]; then
+              echo '::error::公证通道 B 缺少 APPLE_API_KEY_PATH(.p8 落盘步未产出)'
+              exit 1
+            fi
+            if [ ! -f "${APPLE_API_KEY_PATH}" ]; then
+              echo "::error::公证通道 B 的 .p8 不存在: ${APPLE_API_KEY_PATH}(落盘步未生效)"
+              exit 1
+            fi
+            NOTARY_ARGS=(--key "${APPLE_API_KEY_PATH}" --key-id "$IN_API_KEY" --issuer "$IN_API_ISSUER")
+          fi
+          notary_status() { node -e 'const fs=require("fs");const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write((j.status||"Unknown")+" "+(j.id||""))' "$1"; }
+
+          # ① codesign:身份必须是 Developer ID Application,且带 hardened runtime 与时间戳
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee "$RUNNER_TEMP/codesign.txt"
+          grep -q 'Authority=Developer ID Application' "$RUNNER_TEMP/codesign.txt" || { echo '::error::未使用 Developer ID Application 证书签名'; exit 1; }
+          if [ -n "${EXPECTED_SIGNING_IDENTITY}" ]; then
+            grep -Fq "Authority=$EXPECTED_SIGNING_IDENTITY" "$RUNNER_TEMP/codesign.txt" || { echo "::error::证书身份与 APPLE_SIGNING_IDENTITY 不符(期望 $EXPECTED_SIGNING_IDENTITY)"; exit 1; }
+          fi
+          grep -q 'flags=0x10000(runtime)' "$RUNNER_TEMP/codesign.txt" || { echo '::error::缺少 hardened runtime(notarization 前置条件)'; exit 1; }
+          grep -q 'Timestamp=' "$RUNNER_TEMP/codesign.txt" || { echo '::error::签名没有安全时间戳'; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # ② .app 公证票据缺失时才补做(正常 Tauri 已在打包阶段做完)
+          if ! xcrun stapler validate "$APP" >/dev/null 2>&1; then
+            echo 'app 上没有被 staple 的公证票据,补做:zip → submit → staple → 重建 updater 产物'
+            ZIP="$RUNNER_TEMP/app-notarize.zip"
+            /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
+            xcrun notarytool submit "$ZIP" "${NOTARY_ARGS[@]}" --wait --output-format json > "$RUNNER_TEMP/app-notary.json"
+            read -r APP_STATUS APP_ID <<< "$(notary_status "$RUNNER_TEMP/app-notary.json")"
+            if [ "$APP_STATUS" != 'Accepted' ]; then
+              echo "::error::app 公证未通过: $APP_STATUS(id=$APP_ID)"
+              cat "$RUNNER_TEMP/app-notary.json"
+              exit 1
+            fi
+            xcrun stapler staple "$APP"
+            xcrun stapler validate "$APP"
+            # staple 改了 .app 字节 ⇒ 更新器用的 .app.tar.gz 必须由**staple 后**的 app 重建并重签
+            TARGZ=$(find "$BUNDLE/macos" -maxdepth 1 -name '*.app.tar.gz' -type f | head -1)
+            if [ -z "$TARGZ" ]; then echo '::error::未找到 .app.tar.gz,无法重建更新器产物'; exit 1; fi
+            rm -f "$TARGZ" "${TARGZ}.sig"
+            tar -czf "$TARGZ" -C "$(dirname "$APP")" "$(basename "$APP")"
+            tauri signer sign "$TARGZ" -k "$TAURI_SIGNING_PRIVATE_KEY" -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+            node scripts/desktop-updater-sig-verify.mjs --artifact "$TARGZ" --signature "${TARGZ}.sig" --config apps/desktop/src-tauri/tauri.conf.json
+            APP_NOTARY_STATUS="$APP_STATUS"
+            APP_NOTARY_ID="$APP_ID"
+          else
+            echo 'app 已有可验证的公证票据(Tauri 打包阶段已完成公证 + staple)'
+            APP_NOTARY_STATUS='stapled'
+            APP_NOTARY_ID='pre-stapled-by-tauri'
+          fi
+
+          # ③ DMG 显式公证:notarytool 的 Accepted 状态写进清单,gate 会再读一次
+          xcrun notarytool submit "$DMG" "${NOTARY_ARGS[@]}" --wait --output-format json > "$RUNNER_TEMP/dmg-notary.json"
+          read -r DMG_STATUS DMG_ID <<< "$(notary_status "$RUNNER_TEMP/dmg-notary.json")"
+          if [ "$DMG_STATUS" != 'Accepted' ]; then
+            echo "::error::DMG 公证未通过: $DMG_STATUS(id=$DMG_ID)"
+            cat "$RUNNER_TEMP/dmg-notary.json"
+            exit 1
+          fi
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+
+          # ④ Gatekeeper 的两个判据:直接跑 app / 打开 DMG 的主签名
+          spctl --assess --type execute --verbose=4 "$APP"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+
+          # ⑤ 清单:签名身份、team、公证 id/状态、字节与 SHA256
+          TARGZ=$(find "$BUNDLE/macos" -maxdepth 1 -name '*.app.tar.gz' -type f | head -1)
+          TEAM_ID=$(printf '%s\n' "$(codesign -dv --verbose=4 "$APP" 2>&1)" | sed -n 's/^TeamIdentifier=//p' | head -1)
+          AUTHORITY=$(printf '%s\n' "$(codesign -dv --verbose=4 "$APP" 2>&1)" | sed -n 's/^Authority=//p' | head -1)
+          DMG_SHA=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          DMG_BYTES=$(stat -f%z "$DMG")
+          TARGZ_SHA=$(shasum -a 256 "$TARGZ" | awk '{print $1}')
+          export MANIFEST_PATH="$BUNDLE/macos/signature-manifest.json" \
+                 M_DMG="$(basename "$DMG")" M_DMG_SHA="$DMG_SHA" M_DMG_BYTES="$DMG_BYTES" \
+                 M_TARGZ="$(basename "$TARGZ")" M_TARGZ_SHA="$TARGZ_SHA" \
+                 M_AUTHORITY="$AUTHORITY" M_TEAM="$TEAM_ID" \
+                 M_APP_NOTARY_STATUS="$APP_NOTARY_STATUS" M_APP_NOTARY_ID="$APP_NOTARY_ID" \
+                 M_DMG_NOTARY_STATUS="$DMG_STATUS" M_DMG_NOTARY_ID="$DMG_ID"
+          node -e '
+            const fs = require("fs")
+            const e = process.env
+            fs.writeFileSync(e.MANIFEST_PATH, JSON.stringify({
+              platform: "macos-universal",
+              artifact: e.M_DMG,
+              bytes: Number(e.M_DMG_BYTES),
+              sha256: e.M_DMG_SHA,
+              signingAuthority: e.M_AUTHORITY,
+              teamIdentifier: e.M_TEAM,
+              hardenedRuntime: true,
+              appNotarization: { status: e.M_APP_NOTARY_STATUS, id: e.M_APP_NOTARY_ID },
+              dmgNotarization: { status: e.M_DMG_NOTARY_STATUS, id: e.M_DMG_NOTARY_ID },
+              stapled: true,
+              updaterArtifact: e.M_TARGZ,
+              updaterSha256: e.M_TARGZ_SHA,
+              updaterSigVerified: true
+            }, null, 2) + "\n")
+          '
+          echo "### macOS 代码签名与公证" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 签名身份: $AUTHORITY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- TeamIdentifier: $TEAM_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- app 公证: $APP_NOTARY_STATUS (id=$APP_NOTARY_ID)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dmg 公证: $DMG_STATUS (id=$DMG_ID) / 已 staple + spctl 通过" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DMG SHA256: $DMG_SHA($DMG_BYTES 字节)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 更新器 .app.tar.gz 已用配置公钥验签通过" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed macOS bundles + signature manifest
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-desktop-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/signature-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+      # .p8 必须在构建结束(含失败路径)后删除:runner 上的密钥文件不应存活到 job 收尾。
+      # always() 是必须的 —— 构建/公证失败时普通步骤会被跳过,密钥就留在了 runner 上。
+      - name: Remove App Store Connect API key (macOS)
+        id: mac-remove-api-key
+        if: always() && runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          removed=0
+          for p in "${APPLE_API_KEY_PATH:-}" "$RUNNER_TEMP/ihui-asc-api-key.p8"; do
+            if [ -n "$p" ] && [ -f "$p" ]; then
+              rm -f "$p"
+              removed=$((removed + 1))
+            fi
+          done
+          if [ -f "${APPLE_API_KEY_PATH:-/nonexistent}" ] || [ -f "$RUNNER_TEMP/ihui-asc-api-key.p8" ]; then
+            echo '::error::.p8 未能删除:密钥文件残留在 runner 上'
+            exit 1
+          fi
+          echo "已清理 .p8($removed 处)"
+
+      # 同上一条纪律:凭据不齐时三步跳过 ⇒ Release 里躺的是未签名安装包,而 job 是绿的。
+      # 不签不是错,但必须让"绿"不被读成"已签名"。
+      # 2026-11-03 起,真正的红色结论由下方 signature-gate 给出 —— 本步只负责**显式喊出来**,
+      # 不允许出现"没有任何地方说未签名"的静默态。
+      - name: Report unsigned fallback (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true'
+        shell: pwsh
+        run: |
+          '::warning::SignPath 未启用(SIGNPATH_CONFIGURED=false):桌面安装包本次未签名,Windows 用户下载仍会撞 SmartScreen。'
+          "### 签名状态`n- ⚠️ 未签名:四项 SignPath secret 未齐,签名步已整体跳过`n- signature-gate 会因此判红,latest.json 不会更新(已装客户端不会收到未签名包)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Report unsigned / un-notarized fallback (macOS)
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true'
+        shell: bash
+        run: |
+          echo '::warning::Apple 签名凭据未齐(APPLE_SIGNING_CONFIGURED=false):本次 macOS 产物未签名、未公证,用户首次打开会被 Gatekeeper 拦。'
+          {
+            echo '### macOS 签名状态'
+            echo '- ⚠️ 未签名 / 未公证:APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY 与公证凭据未齐,签名与公证步已整体跳过'
+            echo '- signature-gate 会因此判红,latest.json 不会更新(已装客户端不会收到未签名/未公证包)'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fallback upload bundle files to Release
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNPATH_CONFIGURED: ${{ env.SIGNPATH_CONFIGURED }}
+          APPLE_SIGNING_CONFIGURED: ${{ env.APPLE_SIGNING_CONFIGURED }}
+          WIN_SIGN_OUTCOME: ${{ steps.win-authenticode.outcome }}
+          MAC_SIGN_OUTCOME: ${{ steps.mac-notarize.outcome }}
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          # 签名失败时**拒绝上传**:此时磁盘上的 exe 已被签名回传物覆盖,但 .sig 可能没来得及重算
+          # ⇒ 传上去就是"新包配旧签名",所有已装客户端都会更新失败。宁可不传,也不留一对不一致的资产。
+          # (签名步自己已经 throw ⇒ 本 job 本来就是红的;这里只是不让错误产物外溢到 Release。)
+          if [ "$RUNNER_OS" = 'Windows' ] && [ "$SIGNPATH_CONFIGURED" = 'true' ] && [ "$WIN_SIGN_OUTCOME" != 'success' ]; then
+            echo "::error::Windows 签名/验签步骤失败(已配置 SignPath):拒绝上传可能不成对的 exe 与 .sig"
+            exit 1
+          fi
+          if [ "$RUNNER_OS" = 'macOS' ] && [ "$APPLE_SIGNING_CONFIGURED" = 'true' ] && [ "$MAC_SIGN_OUTCOME" != 'success' ]; then
+            echo "::error::macOS 签名/公证步骤失败(已配置 Apple 凭据):拒绝上传可能不成对的产物"
+            exit 1
+          fi
+          # 2026-11-17:Release 创建提到 FILES 判空之前 —— tauri-action 已不再创建 Release
+          # (本步是唯一创建者),下游 publish-updater-json 要往它传 latest.json,必须先存在。
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "IHUI AI Desktop $TAG" \
+              --notes "桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。"
+          # 2026-09-17:macOS Universal 产物在 target/universal-apple-darwin/release/bundle
+          BUNDLE=apps/desktop/src-tauri/target/release/bundle
+          if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
+            BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          fi
+          # tauri-action existsSync 过滤丢产物的兜底:按磁盘真实文件名(含中文)直接上传
+          FILES=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.AppImage.tar.gz' -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \
+            -o -name '*.app.tar.gz' -o -name '*.sig' \) 2>/dev/null)
+          if [ -z "$FILES" ]; then
+            echo "No bundle files found, skip fallback upload"
+            exit 0
+          fi
+          # ⚠️ 逐文件上传**不许吞失败**:签名步替换了 exe 字节并重算同名 .sig,这两枚必须
+          # **成对**落到 Release 上。旧写法 `|| echo "WARN: upload failed"` 会让"exe 传成功、
+          # .sig 传失败"照绿收工 ⇒ 自动更新拿新包配旧签名,验签必挂而 CI 全绿(静默断更)。
+          # 注意判据写法:`echo "$FILES" | while` 是**子 shell**,里面的变量赋值在本步后续读不到,
+          # `$GITHUB_ENV` 也不会中途生效 ⇒ 失败必须落到文件里,循环后再数一次。
+          : > "$RUNNER_TEMP/desktop-upload-failures.txt"
+          echo "$FILES" | while IFS= read -r f; do
+            echo "Uploading: $f"
+            if ! gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$f"; then
+              printf '%s\n' "$f" >> "$RUNNER_TEMP/desktop-upload-failures.txt"
+            fi
+          done
+          NFAIL=$(wc -l < "$RUNNER_TEMP/desktop-upload-failures.txt" | tr -d ' ')
+          if [ "$NFAIL" != "0" ]; then
+            echo "::error::${NFAIL} 枚资产上传失败(exe 与其 .sig 可能不成对),拒绝以全绿结束: $(tr '\n' ' ' < "$RUNNER_TEMP/desktop-upload-failures.txt")"
+            exit 1
+          fi
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: desktop-bundle-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Summary
+        run: |
+          echo "### Desktop 构建完成" >> $GITHUB_STEP_SUMMARY
+          echo "平台: ${{ matrix.label }}" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "产物: .exe(Windows)、.dmg(macOS)、.deb/.AppImage(Linux)+ updater 签名包" >> $GITHUB_STEP_SUMMARY
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步只注入参数。
+      # 守门 215 的 W2:作业里**每个**带 id 的步骤都要进 TRIAGE_IDS 并有对应 O_ 键 ——
+      # 本作业原有 `tauri` 一枚,macOS 凭据导出 + Windows 验签 + macOS 公证共三枚同批装,
+      # 否则"红了却报不出是哪一条"这一型正是被自己造出来的。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
+          TRIAGE_IDS: signing-preflight tauri upload-unsigned-desktop signpath-desktop mac-export-signing-env mac-write-api-key win-authenticode mac-notarize mac-remove-api-key failure-triage
+          O_SIGNING_PREFLIGHT: ${{ steps.signing-preflight.outcome }}
+          O_TAURI: ${{ steps.tauri.outcome }}
+          O_UPLOAD_UNSIGNED_DESKTOP: ${{ steps.upload-unsigned-desktop.outcome }}
+          O_SIGNPATH_DESKTOP: ${{ steps.signpath-desktop.outcome }}
+          O_MAC_EXPORT_SIGNING_ENV: ${{ steps.mac-export-signing-env.outcome }}
+          O_MAC_WRITE_API_KEY: ${{ steps.mac-write-api-key.outcome }}
+          O_WIN_AUTHENTICODE: ${{ steps.win-authenticode.outcome }}
+          O_MAC_NOTARIZE: ${{ steps.mac-notarize.outcome }}
+          O_MAC_REMOVE_API_KEY: ${{ steps.mac-remove-api-key.outcome }}
+          O_FAILURE_TRIAGE: ${{ steps.failure-triage.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # 独立复核门禁:在**另一台 runner** 上重新下载产物,用各操作系统自己的判据再审一次。
+  # build 内的自检证明"我签了这份";这里证明"用户下载到的那份字节确实签了"。
+  # 凭据未配置时 build 不会上传 signed-desktop-* ⇒ 本 job 找不到清单 ⇒ 打印「未签名/未公证」
+  # 并以退出码 1 判红。这是刻意设计,不得用任何开关把它改绿:
+  # 未签名产物必须在流水线层面表现为失败,而不是"构建成功但没签"。
+  signature-gate:
+    name: Signature Gate (${{ matrix.label }})
+    needs: build
+    if: always() && (startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch')
+    env:
+      # 未签名发版开关(与 build job 同口径,见该处完整注释)。置 true 时下方两步验证跳过,
+      # 由 assert-signed 打 warning + 摘要标注,不再判红阻塞 latest.json。
+      # 2026-11-17 起与 build 一致:push tag 且本平台凭据未配置 ⇒ 自动 true(凭据配齐即自动回到严格门禁)。
+      # 判据必须与 build 逐字同源(§0.6 单一真相源):两处若各写一套,凭据配齐那天就会只放开一半。
+      # 注意:job 级 env 里**不引用 matrix**(matrix 不在 job 级 env 求值范围),
+      # 平台维度一律下放到 step 级用 runner.os 判 —— 本 job 只含 Windows/macOS 两档。
+      SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
+      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            runner: windows-latest
+          - label: macos-universal
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download signed artifact
+        id: fetch-signed
+        # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论。
+        # 但「预期内的缺」与「传输/服务侧真失败」必须分得开,否则下一步会把后者也报成
+        # 「未签名」——归因错到另一件事上,人照那个方向查永远查不到。
+        # 故本步只容错、不吞证据:`outcome` 由下一步读取并分区判定(2026-11-17 补)。
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: signed-desktop-${{ matrix.label }}
+          path: signed-desktop
+
+      - name: Assert signed artifact present
+        id: assert-signed
+        shell: bash
+        # 这一份就是唯一判据(step 级 env 里 runner.os 可用;job 级 env 不能引用 matrix)。
+        # 旧写法把判据抄了两遍(本步 env + job env),改一处就漂一处 —— 现已收敛到此处一处。
+        env:
+          ALLOW_UNSIGNED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true) || (runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true') || (runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true') }}
+          FETCH_OUTCOME: ${{ steps.fetch-signed.outcome }}
+        run: |
+          # 先分区,再归因(2026-11-17 补)。旧写法只看清单在不在,于是把两类完全不同的
+          # 失败混成同一个结论「未签名」:
+          #   ① 凭据未配 ⇒ build 根本没上传 signed-desktop-* ⇒ 下载失败 = 预期内;
+          #   ② 凭据已配但下载传输/服务侧真失败 ⇒ 也是下载失败 = 真故障,却同样被报成「未签名」。
+          # 顺着 ② 给的提示去查签名凭据,永远查不到 —— 这是误诊,不是"报错不够大声"。
+          if [ ! -f signed-desktop/signature-manifest.json ]; then
+            if [ "$FETCH_OUTCOME" != 'success' ] && [ "$ALLOW_UNSIGNED" != 'true' ]; then
+              # 凭据已配齐 ⇒ 产物理应存在 ⇒ 下载失败就是真故障,不再归因到签名凭据。
+              echo "::error::无法取得已签名产物(${{ matrix.label }}):下载步骤 outcome=$FETCH_OUTCOME,而本平台签名凭据已配置 ⇒ 产物本应存在。这是传输/服务侧故障或 build 侧上传缺失,与签名凭据无关;请查 Download signed artifact 步骤日志与 build 的 Upload 步骤。"
+              ls -la signed-desktop 2>/dev/null || true
+              exit 1
+            fi
+            if [ "$ALLOW_UNSIGNED" = 'true' ]; then
+              # 未签名发布:没有签名清单是预期内形态(签名步整体跳过)。
+              # 改判 warning,不再 exit 1 —— 否则会阻塞 publish-updater-json(latest.json 不更新)。
+              # 注意:未签名产物**不会**被读成"已签名",摘要里会显式标注。
+              if [ "$RUNNER_OS" = 'macOS' ]; then
+                echo "::warning::未签名发版(macos-universal):无签名清单 —— 本轮按未签名/未公证发布,等同 0.1.77 形态。"
+              else
+                echo "::warning::未签名发版(windows-x64):无签名清单 —— 本轮按未签名发布,等同 0.1.77 形态。"
+              fi
+              echo '### ⚠️ 未签名发版(allow_unsigned)' >> "$GITHUB_STEP_SUMMARY"
+              echo '- 本轮产物无 Authenticode/公证签名(机主显式选择,等同 0.1.77)' >> "$GITHUB_STEP_SUMMARY"
+              echo '- Windows 首次运行撞 SmartScreen、macOS 受 Gatekeeper 约束' >> "$GITHUB_STEP_SUMMARY"
+              echo '- 更新器 .sig 正常生成,已装客户端可继续自动更新' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [ "$RUNNER_OS" = 'macOS' ]; then
+              echo "::error::未公证(macos-universal):找不到签名清单 —— APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY 或公证凭据未配置,或 build 的签名/公证步骤失败。本门禁拒绝把未签名、未公证产物当成成功发布。"
+            else
+              echo "::error::未签名(windows-x64):找不到签名清单 —— SIGNPATH_* 凭据未配置,或 build 的签名/验签步骤失败。本门禁拒绝把未签名产物当成成功发布。"
+            fi
+            ls -la signed-desktop 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Verify Windows Authenticode + updater signature (independent runner)
+        id: gate-windows
+        # 未签名发版时跳过验签(无 Authenticode 可验)。判据与 assert-signed 同源,
+        # 直接内联(step 级 if 无法读本步 env 的求值结果,只能重述同一表达式)。
+        if: runner.os == 'Windows' && !(github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true || env.SIGNPATH_CONFIGURED != 'true')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manifest = Get-Content -Path signed-desktop/signature-manifest.json -Raw | ConvertFrom-Json
+          $exe = Get-ChildItem -Path signed-desktop -Filter *.exe -File | Select-Object -First 1
+          $sigFile = Get-ChildItem -Path signed-desktop -Filter *.sig -File | Select-Object -First 1
+          if (-not $exe) { throw '签名产物里没有 .exe' }
+          if (-not $sigFile) { throw '签名产物里没有 .sig' }
+
+          # ① 下载到的字节必须与清单逐字节一致(防止"清单是新的、包是旧的")
+          $hash = (Get-FileHash -Path $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytes = (Get-Item -Path $exe.FullName).Length
+          Write-Host "下载物: SHA256=$hash / $bytes 字节"
+          if ($hash -ne $manifest.sha256) {
+            throw "SHA256 与签名清单不一致:实际 $hash,清单 $($manifest.sha256)"
+          }
+          if ($bytes -ne [int64]$manifest.bytes) {
+            throw "字节数与签名清单不一致:实际 $bytes,清单 $($manifest.bytes)"
+          }
+
+          # ② signtool verify /pa /v:PE 的 Authenticode 判据,失败即非零退出
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)
+          if (-not $signtool) {
+            $sdks = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending
+            if ($sdks) { $signtool = @{ Source = $sdks[0].FullName } }
+          }
+          if (-not $signtool) { throw '找不到 signtool.exe;拒绝用"没工具"当通过' }
+          & $signtool.Source verify /pa /v $exe.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool verify /pa 失败(exit $LASTEXITCODE)" }
+
+          # ③ 状态 + 签名者 + 证书链 + 时间戳
+          $sig = Get-AuthenticodeSignature -FilePath $exe.FullName
+          if ($sig.Status -ne 'Valid') {
+            echo "::error::未签名或签名无效(${{ matrix.label }}):Authenticode=$($sig.Status) / $($sig.StatusMessage)"
+            exit 1
+          }
+          $subject = $sig.SignerCertificate.Subject
+          if ($subject -notmatch [regex]::Escape($manifest.signerSubject)) {
+            throw "签名者与清单不符:实际 '$subject',清单 '$($manifest.signerSubject)'"
+          }
+          $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()
+          $chain.ChainPolicy.RevocationMode = 'Online'
+          if (-not $chain.Build($sig.SignerCertificate)) {
+            $why = ($chain.ChainStatus | ForEach-Object { "$($_.Status):$($_.StatusInformation.Trim())" }) -join '; '
+            throw "证书链校验失败: $why"
+          }
+          if (-not $sig.TimeStamperCertificate) { throw '缺少 RFC3161 时间戳' }
+
+          # ④ 更新器签名必须覆盖这份字节(否则已装客户端更新必挂)
+          node scripts/desktop-updater-sig-verify.mjs --artifact $exe.FullName --signature $sigFile.FullName --config apps/desktop/src-tauri/tauri.conf.json
+          if ($LASTEXITCODE -ne 0) { throw '更新器 .sig 与安装包字节不匹配' }
+          "### Windows 签名门禁通过`n- SHA256: \`$hash\`n- 签名者: $subject`n- Authenticode: Valid / 证书链通过 / 时间戳存在`n- 更新器 .sig: 与安装包字节匹配" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Verify macOS codesign + notarization + Gatekeeper (independent runner)
+        id: gate-macos
+        # 同 gate-windows:未签名发版时跳过验签,判据内联复述(与 assert-signed 同源)。
+        if: runner.os == 'macOS' && !(github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true || env.APPLE_SIGNING_CONFIGURED != 'true')
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG=$(find signed-desktop -maxdepth 1 -name '*.dmg' -type f | head -1)
+          TARGZ=$(find signed-desktop -maxdepth 1 -name '*.app.tar.gz' -type f | head -1)
+          TARGZ_SIG=$(find signed-desktop -maxdepth 1 -name '*.app.tar.gz.sig' -type f | head -1)
+          if [ -z "$DMG" ] || [ -z "$TARGZ" ]; then
+            echo "::error::未公证(${{ matrix.label }}):签名清单存在但缺少 dmg 或 app.tar.gz,无法证明公证/可更新"
+            exit 1
+          fi
+
+          # ① 下载物与清单逐字节一致
+          ACTUAL=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          WANT=$(node -p 'JSON.parse(require("fs").readFileSync("signed-desktop/signature-manifest.json","utf8")).sha256')
+          if [ "$ACTUAL" != "$WANT" ]; then
+            echo "::error::DMG 字节与签名清单不一致:实际 $ACTUAL,清单 $WANT"
+            exit 1
+          fi
+
+          # ② 挂载 DMG,验里面的 .app(用户实际拖进 Applications 的那份)
+          MNT="$RUNNER_TEMP/ihui-dmg"
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MNT" >/dev/null
+          trap 'hdiutil detach "$MNT" >/dev/null 2>&1 || true' EXIT
+          APP=$(find "$MNT" -maxdepth 1 -name '*.app' -type d | head -1)
+          if [ -z "$APP" ]; then echo '::error::DMG 内没有 .app'; exit 1; fi
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee "$RUNNER_TEMP/gate-codesign.txt"
+          if ! grep -q 'Authority=Developer ID Application' "$RUNNER_TEMP/gate-codesign.txt"; then
+            echo '::error::未签名:app 不是 Developer ID Application 签名'
+            exit 1
+          fi
+          if ! grep -q 'flags=0x10000(runtime)' "$RUNNER_TEMP/gate-codesign.txt"; then
+            echo '::error::未签名有效:缺少 hardened runtime'
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # ③ 公证状态 + staple 票据 + Gatekeeper 判据
+          node -e '
+            const m = JSON.parse(require("fs").readFileSync("signed-desktop/signature-manifest.json", "utf8"))
+            const s = m.dmgNotarization && m.dmgNotarization.status
+            if (s !== "Accepted") { console.error("::error::未公证:notarytool 状态=" + (s || "missing")); process.exit(1) }
+            if (m.stapled !== true) { console.error("::error::未公证:清单标记未 staple"); process.exit(1) }
+          '
+          xcrun stapler validate "$DMG"
+          spctl --assess --type execute --verbose=4 "$APP"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+
+          # ④ 更新器签名必须覆盖这份 .app.tar.gz
+          if [ -z "$TARGZ_SIG" ]; then echo '::error::缺少 .app.tar.gz.sig,更新链断裂'; exit 1; fi
+          node scripts/desktop-updater-sig-verify.mjs --artifact "$TARGZ" --signature "$TARGZ_SIG" --config apps/desktop/src-tauri/tauri.conf.json
+          echo "### macOS 签名门禁通过" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "- DMG SHA256: $ACTUAL"
+            grep -E 'Authority=|TeamIdentifier=|Timestamp=' "$RUNNER_TEMP/gate-codesign.txt" | sed 's/^/- /' || true
+            echo "- 公证: Accepted / 已 staple / spctl 通过"
+            echo "- 更新器 .app.tar.gz.sig: 与归档字节匹配"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Failure triage (public annotations)
+        id: gate-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
+          TRIAGE_IDS: fetch-signed assert-signed gate-windows gate-macos gate-triage
+          O_FETCH_SIGNED: ${{ steps.fetch-signed.outcome }}
+          O_ASSERT_SIGNED: ${{ steps.assert-signed.outcome }}
+          O_GATE_WINDOWS: ${{ steps.gate-windows.outcome }}
+          O_GATE_MACOS: ${{ steps.gate-macos.outcome }}
+          O_GATE_TRIAGE: ${{ steps.gate-triage.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # 聚合多平台 .sig 文件,生成包含全部平台的统一 latest.json
+  # 解决:tauri-action 矩阵构建时每个 job 只生成当前平台的 latest.json,后上传覆盖先上传
+  publish-updater-json:
+    name: Publish Updater JSON
+    # signature-gate 通过才允许更新更新器清单:这条依赖就是"先验签、再发 latest.json"的顺序判据。
+    # 少了它,未签名/未公证的包会照样被写进 latest.json,已装客户端自动升级后验签失败/被拦。
+    needs: [build, signature-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Generate & upload latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/generate-latest-json.mjs
+
+      - name: Summary
+        run: |
+          echo "### Updater JSON 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "latest.json 已聚合所有平台签名,上传到 Release assets" >> $GITHUB_STEP_SUMMARY
+
+  # 同步构建产物到 apps/web/public/downloads/,实现"构建 → 自动同步下载包 → 自动更新 manifest"全链路
+  sync-downloads:
+    name: Sync Downloads to public/downloads/
+    needs: [build, publish-updater-json]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (main branch for commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Configure npm registry
+        run: pnpm config set registry https://registry.npmmirror.com
+
+      - name: Install pnpm deps
+        # 2026-11-01 供应链强化:此处原为 `--no-frozen-lockfile` —— 这条链产出**签名并对外发布**
+        # 的桌面安装包,允许解析漂移意味着"lockfile 与 package.json 不一致时不报错,
+        # 而是把上游最新版装进来、签上名、发给用户"(投毒只需劫持一次上游发版,无需 PR)。
+        # 换回 frozen 的依据(现读,不是推测):
+        #  · `ci.yml:67/355` 一直在用 `pnpm install --frozen-lockfile`,且 CI 为绿 ⇒ 该写法
+        #    在本仓现有镜像源(.npmrc registry=npmmirror)下本就可行;
+        #  · `pnpm-lock.yaml` 里 **没有** 任何 per-package `resolution.tarball` 主机名
+        #    (grep `resolution:\{tarball:"https://` = 0 命中)⇒ 换注册表不会让锁失效;
+        #  · ci.yml:63 的既有注释写的就是同一句判据:"禁止改成裸 pnpm install 或加
+        #    --no-frozen-lockfile —— 那等于把这道门删掉"。
+        # 失败方向由此变成"锁不一致时流水线响亮地红",而不是静默装出另一个东西。
+        run: pnpm install --frozen-lockfile
+
+      # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建。api-client 产物化后
+      # (0fca0f3034,入口 main/exports → dist),CI 全新 checkout 下不先构建
+      # 依赖包,wxt/vite 解析 @ihui/api-client 报 "Failed to resolve entry"
+      # (desktop-v0.1.43 run 35561898979 实测),sync-downloads 整链失败。
+      - name: Build extension
+        run: pnpm --filter @ihui/extension... build
+
+      - name: Download all bundle artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: .
+          pattern: desktop-bundle-*
+          merge-multiple: true
+
+      - name: Sync downloads to public/downloads/
+        run: node scripts/sync-downloads.mjs
+
+      # 动态解析桌面端下载产物:从 GitHub Releases API 读取最新 desktop-v* release
+      # 资产(URL/大小/版本/发布日期),刷新 desktop-feed.generated.ts 入库快照。
+      # 前端下载页构建期读快照,发版后零手动更新(脚本幂等:无变化不产生 diff)。
+      - name: Resolve desktop download feed
+        env:
+          # release 可能仍处 draft(Publish 刚完成),无 token 的 API 看不到 → 必须带 token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/resolve-desktop-download.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain apps/web/public/downloads/ apps/web/src/config/desktop-feed.generated.ts)" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      # 2026-10-17:不再 push 回 main —— 那一步是**必然失败**的,重试多少次都一样:
+      #   main 要求 status check「CI / lint-typecheck-test (push)」,而 GITHUB_TOKEN 推送
+      #   产生的 commit 不触发 workflow run ⇒ check 永远缺席 ⇒ GH006 拒收(实测,
+      #   sync-downloads.yml 自 10-11 起连日 failure)。旧注释里的"并发推进导致被拒"只是
+      #   表面现象,重试循环从来没救成功过 —— 它唯一的作用是让失败看起来像偶发。
+      #   版本号这条线已改为运行期直读发布源(desktop-feed-live.ts),不再需要入库;
+      #   这里只把解析结果当 artifact 留档。
+      - name: Upload resolved feed snapshot (not pushed)
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: desktop-feed-snapshot-${{ inputs.tag || github.ref_name }}
+          path: apps/web/src/config/desktop-feed.generated.ts
+
+      - name: Summary
+        run: |
+          echo "### Downloads 同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
+          echo "下载页/更新器版本号:站点运行期直读发布源,发版即生效(无需快照入库)" >> $GITHUB_STEP_SUMMARY
+
+  # ── 2026-11-03 复活:Gitee 为**国内主通道**(仓库浏览 + 发布包下载),GitHub 为境外/兜底 ──
+  # 当日早些时候的"下线"判定已撤回,原因与处置:
+  #   ① 原判定的前提是 Gitee 空仓(无 main/tag/release)⇒ target_commitish=main 建不出 tag
+  #      (每次发版 400「创建标签失败」)。该前提已由「仓库初始化 + 推 main 快照」消除;
+  #      2026-11-04 补根因:即使已有 main,Gitee v5 也**没有建 tag 的 API**
+  #      (POST /git/tags=405、GET /git/refs*=404,当日匿名实测)⇒ POST /releases
+  #      内部那条建 tag 腿仍然必 400(desktop-v0.1.77 实锤「创建标签失败」)。
+  #      sync-gitee.py 已改为「先 git push refs/tags/<tag>(指向 Gitee 快照 main 提交),
+  #      再 POST /releases」;顺序不可颠倒,tag 已存在由复查按幂等继续。
+  #      ⚠️ 不要改成推 GitHub 的真实发版 tag:那会把整条历史带上 Gitee(1024MB 配额)。
+  #   ② 新语义:本 job 默认执行、Gitee Release 首发;资产逐件上传并按字节+SHA256 与 GitHub 对账;
+  #      下载面只在「Gitee 资产存在且字节与 GitHub 原件一致」时改写直链,否则回落 GitHub + 告警。
+  #   ③ 显式关闭开关:仓库 Settings → Variables 设 `GITEE_SYNC_ENABLED=false` 即跳过本 job
+  #      (未设置时默认开启,避免"以为在同步其实没跑")。
+  # 初始化/恢复前置(本任务已执行):
+  #   a) Gitee 仓已有 main(逐字等于 origin/main 树的快照提交),不再是空仓;
+  #   b) GITEE_TOKEN / GITEE_OWNER secrets 在位(见 .github/SECRETS.md);
+  #   c) 已手动 dispatch backfill-gitee-assets.yml 验证 Release/上传链路;
+  #   d) 之后随每次 desktop-v* 发版自动同步。
+  # 以下 2026-09-17 / 2026-10-17 的历史说明原样保留,便于恢复时理解原设计。
+  #
+  # 2026-09-17 立 / 2026-10-17 校正:国内发行(Gitee)自动化——安装包+更新签名
+  # 尽力镜像到 Gitee release。**Gitee 侧不是更新器端点**:客户端只认
+  # aizhs.top 单端点(见 sync-gitee.py 末尾第 5 节),此处为国内主下载通道。
+  #
+  # 2026-10-17 修掉"Windows 包永远传不上"的结构性缺口(用户报「Gitee 怎么能从来不工作」):
+  #   实测链条 —— 0.1.74 的 Gitee release 里 mac/linux 资产齐全,但 **只有
+  #   `AI_0.1.74_x64-setup.exe.sig`,没有 `.exe` 本体**。原因是 2026-10-16 把
+  #   webviewInstallMode 改成 offlineInstaller,把完整 WebView2 运行时(本机实测缓存
+  #   `MicrosoftEdgeWebView2RuntimeInstallerX64.exe` = 214,131,448 字节 ≈205MB)
+  #   整个打进安装包 ⇒ exe 从 ~8MB 涨到 225,269,867 字节 ⇒ **结构性超过 Gitee
+  #   单文件 100MB 硬上限**(超限直接 400),而 Windows 是国内主力平台。
+  #   ⇒ 已把档位改为 embedBootstrapper(只内嵌 ≈1,867,984 字节的引导器,缺运行时才联网装,
+  #     且 Win11/绝大多数 Win10 本就预装 WebView2)⇒ 安装包回到 10MB 量级,Gitee 可传。
+  #   ⚠️ 不许把档位改回 offlineInstaller 了事 —— 那等于用"国内用户下载不了"换"离线可装";
+  #     真要恢复完全离线,必须先另解决分发通道。守门 scripts/check-version-drift.mjs 的
+  #     H 判据会在 offlineInstaller 回归时判红(需显式豁免并写明分发方案)。
+  sync-gitee:
+    name: Sync release to Gitee (国内主通道)
+    needs: [build, publish-updater-json]
+    # 默认开启;显式关闭:仓库 Settings → Variables → GITEE_SYNC_ENABLED=false
+    if: ${{ vars.GITEE_SYNC_ENABLED != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Sync bundles + updater feed to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 2026-09-18(实测):workflow_dispatch 手动重跑时 github.ref_name 是分支名
+          # (main),sync-gitee.py 会去请求 /releases/tags/main → 必然 404 整步失败。
+          # 必须与 build job 的 tagName 一致:inputs.tag 优先。
+          TAG: ${{ inputs.tag || github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 .github/scripts/sync-gitee.py
+
+      - name: Summary
+        run: |
+          echo "### Gitee 国内发行同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "安装包+签名已尽力镜像 Gitee release(超 Gitee 单文件 100MB 上限的资产,如 Windows exe,自动跳过)" >> $GITHUB_STEP_SUMMARY
+          echo "注:Gitee 侧仅为附件存档,**不是**更新器端点;客户端只认 https://aizhs.top/desktop-feed.json" >> $GITHUB_STEP_SUMMARY
+
+  # ── 发版更新通知(2026-11-17 加):发布链成功后自动推送给用户/管理员 ──
+  # 定位:这是「发版成功的产品通知」,不是故障告警 —— 与 notify-deploy-failure.ts
+  #   那条运维告警唯一出口边界不同,故用独立脚本,避免把产品更新混进故障告警台账。
+  # 通道:管理员邮件(SMTP_*)/站内公告/用户邮件群发(RELEASE_NOTIFY_*)/IM webhook,
+  #   凭据缺哪个就 warn 跳过哪个,整体 exit 0 —— 通知失败绝不把一个成功发版判红。
+  # depends:只锚 publish-updater-json(latest.json 上传成功=更新链真正闭环);
+  #   Gitee 同步是附件存档、非更新器端点,失败不影响「用户能收到更新」,故不 needs。
+  notify-release:
+    name: 发版更新通知(邮件/站内公告/群发/IM)
+    needs: [build, publish-updater-json]
+    # 取消不通知;其余情况都尝试(脚本内部按通道降级,不阻塞)
+    if: ${{ !cancelled() && (startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Dispatch release notifications
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # 管理员邮件(与 blue-green-deploy.yml 同源的既有 secrets)
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          # 站内公告 + 用户更新邮件群发(生产 API;缺省 API 地址)
+          RELEASE_NOTIFY_API_URL: ${{ vars.RELEASE_NOTIFY_API_URL || 'https://api.aizhs.top' }}
+          RELEASE_NOTIFY_TOKEN: ${{ secrets.RELEASE_NOTIFY_TOKEN }}
+          # IM webhook(钉钉/飞书/企微;企微兼容旧名 WECHAT_WEBHOOK_URL)
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL || secrets.WECHAT_WEBHOOK_URL }}
+          # Server酱 Turbo 通用 push(不受 IM 登录应用权限/IP 白名单限制)
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VERSION="${TAG#desktop-v}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "发版通知: tag=$TAG version=$VERSION run=$RUN_URL" >> $GITHUB_STEP_SUMMARY
+          node .github/scripts/notify-desktop-release.mjs \
+            --tag "$TAG" --version "$VERSION" --run-url "$RUN_URL" \
+            --channels "admin-email,inapp,broadcast,im,serverchan"
+
+  # ── 方案 c(2026-11-04):Gitee 源码只读快照,发版即刷新 ──
+  # 与 .github/workflows/snapshot-to-cn.yml(周更)共用 .github/scripts/gitee-snapshot.py:
+  # 只生成「当前 origin/main 的树 + 一个无父提交」并 force 到 Gitee refs/heads/main;
+  # 不携带历史/LFS、不碰 GitHub 历史、不碰任何 tag(1024MB 配额)。
+  snapshot-gitee:
+    name: Refresh Gitee source snapshot (国内只读快照)
+    needs: [sync-gitee]
+    # sync-gitee 失败也要刷新快照(源码通道与附件通道解耦);取消则不再跑
+    if: ${{ !cancelled() && vars.GITEE_SYNC_ENABLED != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Snapshot + verify
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GITEE_REPO: IHUI-AI
+        run: python3 .github/scripts/gitee-snapshot.py
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

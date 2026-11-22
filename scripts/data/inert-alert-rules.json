@@ -1,0 +1,6 @@
+{
+  "$schemaNote": "P6(scripts/check-ops-patrol.mjs 的'规则引用的指标序列在不在'判据)唯一的裁决账。它**不是豁免通道**:登记只把'永不触发'从判红改成 deferred(只报数不判红),到期未复裁即回到红队。四件套 anchor+reason+owner+reviewBy 缺任一字段 ⇒ 判红'台账条目字段不齐';reviewBy 不是 YYYY-MM-DD ⇒ 判红'等于没有死亡机制';到期(按当天 23:59:59 UTC 之后)⇒ 判红'已到期未复裁';anchor 在 monitoring/prometheus/alerts.yml 里已找不到同名 alert/record ⇒ 判红'清单腐烂'。anchor 是**规则名(内容锚),不含行号** —— 行号在任何一次 append 后都会挪位(AGENTS §1 判据 3)。指标名一律现读 `GET http://127.0.0.1:8815/api/v1/label/__name__/values`,不得在本表另存一份指标名快照(两处算同一件事必漂移)。",
+  "$evidenceNote": "下面每条 reason 里的取证命令都在 git-bash 下可直接执行。'0(rc=1)'的含义:grep -c 计数为 0 时退出码是 1,这是命令在跑、答案为零,不是没跑。任何一条命令读不出对应结论 ⇒ 该条裁决作废,应判红而不是免检。",
+  "$withdrawnNote": "2026-10-26:本账原有两条登记(LlmTokenCostSurge / LlmProviderErrorBurst),按各自 reason 里写明的失效条件撤掉——现读 Prometheus 已知指标名集合(GET http://127.0.0.1:8815/api/v1/label/__name__/values)里 ihui_llm_tokens_total 与 ihui_llm_provider_errors_total **两个都在了**,对应规则已属 live(P6 的四态:live=至少一个引用指标在采),登记在裁一个其实已在监的维度 = 账变成第二份现状(P6 台账侧那格只报数并要求'裁完请把条目撤掉')。撤条目不是删判据:两条规则都还在监控/prometheus/alerts.yml 里在位、仍在被 P6 逐条对账。",
+  "rules": []
+}

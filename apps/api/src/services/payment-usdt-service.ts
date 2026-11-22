@@ -1,0 +1,1619 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * USDT 加密货币支付网关核心 service(2026-08-01 立)。
+ *
+ * 职责:
+ * 1. getUsdtPaymentConfig / setUsdtPaymentConfig: 配置读写(存 system_configs 表,category='usdt_payment')
+ * 2. createUsdtPayment: 创建充值订单(TRC20/ERC20),生成/复用充值地址,30 分钟过期
+ * 3. checkUsdtPaymentStatus: 查询区块链 API(TronGrid for TRC20, Etherscan for ERC20)确认到账
+ * 4. confirmUsdtPayment: 确认到账 + 更新 wallet 余额 + 记录流水(事务 + 幂等)
+ * 5. pollPendingUsdtPayments: 批量轮询 pending 订单(供 BullMQ Worker 调用,)
+ * 6. listUserUsdtPayments / getUsdtPaymentDetail: 用户查询自己的订单
+ * 7. listAllUsdtPayments: admin 查所有订单(支持筛选)
+ *
+ * 充值地址:从 env USDT_TRC20_ADDRESS / USDT_ERC20_ADDRESS 读取(不入库)。
+ * 汇率:存 system_configs(key='usdt_payment.rate'),默认 1.0(1 USDT = 1 USD = 100 cents)。
+ * 区块链 API key:从 env TRONGRID_API_KEY / ETHERSCAN_API_KEY 读取。
+ *
+ * 充值地址格式校验(见 assertUsdtAddressFormat):
+ * - TRC20 卡 `^T[1-9A-HJ-NP-Za-km-z]{33}$`(T + 33 位 Base58,总长 34,字母表排除 0/O/I/l);
+ *   ERC20 卡 `^0x[0-9a-fA-F]{40}$`(0x + 40 位 hex,总长 42)。两条形态规则完全不同,
+ *   各自分流,不把一条正则套到另一条上;未知网络显式放行。
+ * - 形态非法报 400 而非 500:「未配置」是缺配置(补环境变量即可,500);
+ *   「配错了」是人的错,报 500 会让一次可修的配置笔误在监控上表现成服务故障。
+ * - 调用点两处:createUsdtPayment(落库前按 network 拦新订单)与链上取证
+ *   verifyTrc20OnChain / verifyErc20OnChain(兜住校验上线前已落库的存量脏行,
+ *   该处 address 来自订单行而非 env,各自固定本网络的正则)。
+ * - 错误信息不回显地址原文:坏值常带复制噪声,回显会让它流进日志/告警并长期留存。
+ *
+ * 金额转换:
+ *   amountCents(用户充值金额,分) → USDT amount = amountCents / 100 / rate
+ *   amountPaid(实收 USDT) → tokens credited = round(amountPaid × rate × 100)
+ */
+import { eq, and, not, sql, desc, inArray, type SQL } from 'drizzle-orm'
+import { randomInt } from 'node:crypto'
+import { db, dbRead } from '../db/index.js'
+import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/database'
+import type { UsdtPayment } from '@ihui/database'
+import { generateOrderNumber } from '../utils/crypto-random.js'
+import { config } from '../config/index.js'
+
+// =============================================================================
+// 常量
+// =============================================================================
+
+/** USDT 配置在 system_configs 表中的 category */
+const USDT_CONFIG_CATEGORY = 'usdt_payment'
+
+/** USDT 配置 key 前缀 */
+const USDT_CONFIG_KEY_PREFIX = 'usdt_payment.'
+
+/** 默认汇率(1 USDT = 1 USD) */
+const DEFAULT_RATE = 1.0
+
+/** 订单过期时间(分钟) */
+const ORDER_EXPIRY_MINUTES = 30
+
+/** USDT 小数位数(TRC20 和 ERC20 均为 6 位) */
+const USDT_DECIMALS = 6
+
+/** TRC20 USDT 合约地址(波场链上 USDT 代币合约) */
+const TRC20_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
+
+/** ERC20 USDT 合约地址(以太坊主网 USDT 代币合约) */
+const ERC20_USDT_CONTRACT = '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+
+/** 支持的网络列表 */
+const SUPPORTED_NETWORKS = ['TRC20', 'ERC20'] as const
+
+/** tokenFlows.opType: 0=充值 */
+const FLOW_OP_RECHARGE = 0
+
+/** 金额精确匹配容差(USDT 6-8 位小数,浮点比较误差容限) */
+const AMOUNT_EPS = 1e-4
+
+/**
+ * SDB-27:全站共用一个收款地址时,只能靠「金额唯一」把付款归属到具体订单。
+ * 每笔 pending 订单在应收金额上叠加一个 0.00025 USDT 的整数倍尾差(1..39 档,
+ * 最大 +0.00975 USDT,约 0.1%)。相邻两档相差 0.00025 > AMOUNT_EPS(0.0001),
+ * 因此「精确金额匹配」不可能同时命中两笔不同订单。
+ * 同一 (network, amount) 只允许一个 pending 订单由数据库部分唯一索引兜底,
+ * 冲突时换下一档重试(见 createUsdtPayment)。
+ */
+const AMOUNT_TAIL_SLOT = 0.00025
+const AMOUNT_TAIL_SLOTS = 39
+
+/** 链上交易扫描分页上限(SDB-28):覆盖「下单至今」的全部转入,不许只看第一页 */
+const DETECT_PAGE_SIZE = 100
+const DETECT_MAX_PAGES = 8
+
+/**
+ * SDB-28:ERC20 链上复核(按 txHash 定位一笔历史交易)的翻页参数。
+ * 复核方向必须与「查最新交易」一致(sort=desc),否则地址累计超一页后
+ * 新交易永远落在后面的页里、订单永不入账;同时必须有上界,
+ * 避免极热地址无限翻页拖垮复核请求。
+ */
+const VERIFY_ERC20_PAGE_SIZE = 100
+const VERIFY_ERC20_MAX_PAGES = 10
+
+/**
+ * F-508:链上 RPC 单次请求超时(毫秒)。
+ * 原先裸 fetch 无 deadline,一次上游抖动就能让分钟级 poll 挂数小时,
+ * 独占 concurrency=1 的 worker。12s 覆盖正常响应,异常时快速失败进入下一轮。
+ */
+const RPC_TIMEOUT_MS = 12_000
+
+/**
+ * F-509:单笔订单链上查询临时故障的最大重试次数(不含首次尝试)。
+ * 有限次重试换取「一次抖动不算失败」,但不能无限重试拖住分钟级队列。
+ */
+const POLL_MAX_RETRIES = 2
+
+/** F-509:两次尝试之间的等待(毫秒),测试通过 PollOptions.sleep 注入,跳过真实等待 */
+const POLL_RETRY_DELAY_MS = 200
+
+/**
+ * F-508:链上 RPC 的唯一出口。signal 在此统一注入,调用方无法漏加;
+ * 超时抛 TimeoutError,按既有错误路径处理(轮询记失败、订单保持 pending 等下轮重试)。
+ */
+async function rpcFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(RPC_TIMEOUT_MS) })
+}
+
+// =============================================================================
+// 充值地址格式校验
+// =============================================================================
+
+/**
+ * 波场(TRC20)地址形态:大写 T 开头 + 33 个 Base58 字符,总长 34。
+ * 字母表取 Base58(排除易混淆的 0 / O / I / l),因此正则里显式写出
+ * `[1-9A-HJ-NP-Za-km-z]`(数字去 0;大写去 I、O;小写去 l)。
+ * 说明:此处只做形态校验(前缀 + 长度 + 字母表),不做 Base58Check 校验和
+ * (sha256 双重哈希)计算 —— 形态校验已能拦住「复制截断/ 混入 0OIl / 粘上
+ * 前后空白 / 填了 ERC20 地址」这几类真实错配,校验和需引入 crypto 依赖且
+ * 对「配的是别人地址」这种错配无帮助(那是配置问题,不是格式问题)。
+ */
+const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/
+
+/**
+ * EVM(ERC20)地址形态:`0x` 前缀 + 40 位十六进制(大小写混排),总长 42。
+ * 同样只做形态校验(前缀 + 长度 + hex 字母表),不做 EIP-55 大小写校验和 ——
+ * 收款 env 配置是粘贴的完整地址,形态合法即可拦住「截断/混入非 hex/贴错 TRC20」;
+ * 校验和对「配错别人地址」无帮助(那是配置问题,不是格式问题)。
+ */
+const ERC20_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/
+
+/**
+ * 判断字符串是否为形态合法的波场(TRC20)地址。
+ *
+ * 本函数只服务 TRC20 路径:ERC20 地址是 `0x` + 40 位十六进制,形态规则与
+ * Base58 完全不同(长度 42、含 0/x、大小写 hex 混排),由 isErc20Address 单独判定,
+ * 调用方按 network 显式分流,不把一条正则套到另一条上。
+ *
+ * 为什么不回显地址原文:
+ * 地址是收款敏感配置,坏值常带复制噪声(空白/换行/半截串)。把原文拼进
+ * 错误信息会让它流进日志与告警系统并被长期留存,反而扩大泄漏面。
+ * 因此调用方只报告「格式非法」这一事实 + 期望形态,不带值。
+ */
+export function isTronAddress(value: string): boolean {
+  return TRON_ADDRESS_REGEX.test(value)
+}
+
+/** 判断字符串是否为形态合法的 EVM(ERC20)地址(0x + 40 位 hex)。 */
+export function isErc20Address(value: string): boolean {
+  return ERC20_ADDRESS_REGEX.test(value)
+}
+
+/**
+ * 断言充值地址形态合法,不合法则抛 400。
+ *
+ * 为什么是 400 而不是「未配置」的 500:
+ * - 未配置(env 为空)= 服务端缺配置,补一个环境变量即可,归类为服务不可用(500)。
+ * - 格式非法 = 值填了但填错了(截断/混入 0OIl/贴错链的地址),是**人的配置错误**,
+ *   归类为「请求无法被正确处理」的 4xx。若报 500,整条充值链路在监控上会表现成
+ *   「服务故障」,把一次可修的配置笔误升级成需要排查的线上事故。
+ *
+ * @param network 网络标识(大小写不敏感);TRC20 与 ERC20 各按自己的正则校验,其余网络直接放行
+ * @param address 待校验的充值地址
+ */
+export function assertUsdtAddressFormat(network: string, address: string): void {
+  const net = (network || '').toUpperCase()
+  if (net === 'TRC20') {
+    if (isTronAddress(address)) return
+    throw Object.assign(
+      new Error(
+        'TRC20 充值地址格式非法(应为 T 开头的 34 位波场 Base58 地址:大写 T + 33 位 Base58 字符,' +
+          '字母表不含 0/O/I/l);请核对环境变量 USDT_TRC20_ADDRESS 的取值,为避免脏数据入账已拒绝',
+      ),
+      { statusCode: 400 },
+    )
+  }
+  if (net === 'ERC20') {
+    if (isErc20Address(address)) return
+    throw Object.assign(
+      new Error(
+        'ERC20 充值地址格式非法(应为 0x 开头 + 40 位十六进制字符,共 42 位);' +
+          '请核对环境变量 USDT_ERC20_ADDRESS 的取值,为避免脏数据入账已拒绝',
+      ),
+      { statusCode: 400 },
+    )
+  }
+  // 未知网络(非 TRC20/ERC20)不在本函数职责内,显式放行而非漏判
+  return
+}
+
+// =============================================================================
+// 类型定义
+// =============================================================================
+
+export type UsdtNetwork = (typeof SUPPORTED_NETWORKS)[number]
+
+export interface UsdtPaymentConfig {
+  /** USDT 兑 USD 汇率(1.0 = 1:1) */
+  rate: number
+  /** 支持的网络列表 */
+  supportedNetworks: string[]
+  /** TRC20 固定充值地址(从 env 读取) */
+  trc20Address: string | null
+  /** ERC20 固定充值地址(从 env 读取) */
+  erc20Address: string | null
+}
+
+export interface CreateUsdtPaymentResult {
+  orderId: string
+  address: string
+  network: string
+  amount: number
+  expiresAt: Date
+  rate: number
+}
+
+/**
+ * F-509:链上查询故障(区别于「业务待确认」)。
+ * 业务 pending = 链上确实没查到有效交易;error = 本轮根本没查成(上游 5xx/超时/响应异常)。
+ */
+export interface UsdtChainQueryErrorInfo {
+  code: 'USDT_CHAIN_QUERY_FAILED'
+  /** 订单网络(TRC20/ERC20) */
+  network: string
+  /** 原始错误摘要(不含地址等敏感配置) */
+  reason: string
+  /** 是否链上 RPC 超时(F-508 的 quick-fail 语义) */
+  timeout: boolean
+  /** 是否值得重试:4xx(密钥/参数错误)不重试,超时/网络/5xx/响应异常重试 */
+  retryable: boolean
+}
+
+export interface UsdtPaymentStatusResult {
+  orderId: string
+  status: string
+  detected: boolean
+  txHash: string | null
+  amountPaid: number | null
+  /** F-509:仅当本轮链上查询失败时存在;业务 pending 一律不带此字段 */
+  error?: UsdtChainQueryErrorInfo
+}
+
+export interface ConfirmResult {
+  orderId: string
+  status: string
+  tokensCredited: number
+  /** P0 资金安全修复(2026-09-06):链上取证未通过而未入账时的原因(status=pending 时返回) */
+  pendingReason?: string
+}
+
+/** F-509:单笔订单失败的结构化摘要,供 worker 日志/告警直接消费 */
+export interface PollFailureDetail {
+  orderId: string
+  network: string | null
+  attempts: number
+  reason: string
+  timeout: boolean
+}
+
+export interface PollResult {
+  checked: number
+  confirmed: number
+  failed: number
+  /** F-509:本轮失败订单摘要(空数组表示全部成功) */
+  errors: PollFailureDetail[]
+}
+
+/** F-509:poll 的重试/等待策略(测试可注入 sleep,避免真实等待) */
+export interface PollOptions {
+  /** 单笔订单临时故障的最大重试次数(不含首次),默认 POLL_MAX_RETRIES */
+  maxRetries?: number
+  /** 两次尝试之间的等待毫秒,默认 POLL_RETRY_DELAY_MS */
+  retryDelayMs?: number
+  /** 可注入的 sleep 实现 */
+  sleep?: (ms: number) => Promise<void>
+}
+
+/** F-509:轮询存在失败订单时抛出,附带统计/摘要,让 BullMQ 把 job 记为 failed */
+export class UsdtPollFailureError extends Error {
+  readonly result: PollResult
+
+  constructor(message: string, result: PollResult) {
+    super(message)
+    this.name = 'UsdtPollFailureError'
+    this.result = result
+  }
+}
+
+export interface ListResult {
+  records: UsdtPayment[]
+  total: number
+}
+
+export interface ListAllFilter {
+  userId?: string
+  status?: string
+  network?: string
+  page?: number
+  pageSize?: number
+}
+
+// =============================================================================
+// 区块链 API 响应类型
+// =============================================================================
+
+interface TronGridTrc20Tx {
+  transaction_id: string
+  value: string
+  to: string
+  from: string
+  block_timestamp: number
+  /** 所在区块号(确认数计算用;新版本 TronGrid 返回) */
+  block_number?: number
+}
+
+interface TronGridResponse {
+  data: TronGridTrc20Tx[]
+  success: boolean
+  /** 分页游标:有值表示还有下一页 */
+  meta?: { fingerprint?: string }
+}
+
+interface EtherscanTokenTx {
+  hash: string
+  value: string
+  to: string
+  from: string
+  timeStamp: string
+  tokenDecimal: string
+  blockNumber?: string
+}
+
+interface EtherscanResponse {
+  status: string
+  message: string
+  result: EtherscanTokenTx[]
+}
+
+interface BlockchainDetection {
+  txHash: string
+  amountPaid: number
+  /** 区块链转换所在区块号(确认数计算用);无法获取时为 null */
+  blockNumber: number | null
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):链上取证校验结果。
+ * 只有 verified=true 且 confirmations 达到阈值时才允许确认入账。
+ */
+export interface OnChainVerification {
+  verified: boolean
+  reason: string
+  network: string
+  txHash: string
+  /** 链上实收金额(USDT) */
+  amountOnChain: number | null
+  /** 链上收款地址 */
+  to: string | null
+  /** 确认数;未知为 null */
+  confirmations: number | null
+}
+
+// =============================================================================
+// 1. 配置读写
+// =============================================================================
+
+/**
+ * 读取 USDT 支付配置(从 system_configs 表 + 环境变量)。
+ * - rate / supportedNetworks:从 system_configs 读取(未配置用默认值)
+ * - trc20Address / erc20Address:从 env 读取(安全考虑,不入库)
+ */
+export async function getUsdtPaymentConfig(): Promise<UsdtPaymentConfig> {
+  const rows = await dbRead
+    .select({ key: systemConfigs.key, value: systemConfigs.value })
+    .from(systemConfigs)
+    .where(eq(systemConfigs.category, USDT_CONFIG_CATEGORY))
+
+  const map = new Map(rows.map((r) => [r.key, r.value]))
+
+  const rate = parseNumber(map.get(`${USDT_CONFIG_KEY_PREFIX}rate`), DEFAULT_RATE)
+  const networksRaw =
+    map.get(`${USDT_CONFIG_KEY_PREFIX}supported_networks`) ?? SUPPORTED_NETWORKS.join(',')
+  const supportedNetworks = networksRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  return {
+    rate,
+    supportedNetworks,
+    trc20Address: process.env.USDT_TRC20_ADDRESS ?? null,
+    erc20Address: process.env.USDT_ERC20_ADDRESS ?? null,
+  }
+}
+
+/**
+ * 更新 USDT 支付配置(upsert system_configs 表,admin 用)。
+ * 仅传非 undefined 的字段,未传字段保持原值。
+ */
+export async function setUsdtPaymentConfig(
+  patch: Partial<Pick<UsdtPaymentConfig, 'rate' | 'supportedNetworks'>>,
+  updatedBy?: string,
+): Promise<UsdtPaymentConfig> {
+  const entries: Array<{ key: string; value: string }> = []
+  if (patch.rate !== undefined) {
+    entries.push({ key: 'rate', value: String(patch.rate) })
+  }
+  if (patch.supportedNetworks !== undefined) {
+    entries.push({ key: 'supported_networks', value: patch.supportedNetworks.join(',') })
+  }
+
+  for (const e of entries) {
+    const fullKey = `${USDT_CONFIG_KEY_PREFIX}${e.key}`
+    await db
+      .insert(systemConfigs)
+      .values({
+        key: fullKey,
+        value: e.value,
+        type: e.key === 'rate' ? 'number' : 'string',
+        category: USDT_CONFIG_CATEGORY,
+        description: `USDT 支付配置(${e.key})`,
+        isPublic: false,
+        updatedBy: updatedBy ?? null,
+      })
+      .onConflictDoUpdate({
+        target: systemConfigs.key,
+        set: { value: e.value, updatedBy: updatedBy ?? null, updatedAt: new Date() },
+      })
+  }
+
+  return getUsdtPaymentConfig()
+}
+
+// =============================================================================
+// 2. createUsdtPayment — 创建充值订单
+// =============================================================================
+
+/**
+ * 创建 USDT 充值订单。
+ *
+ * 逻辑:
+ * 1. 校验 network 支持(TRC20 / ERC20)
+ * 2. 从 env 读取对应链的充值地址
+ * 3. 读取汇率,计算应收 USDT 数量 = amountCents / 100 / rate
+ * 4. 生成订单号(USDT 前缀),设置 30 分钟过期
+ * 5. 写入 usdt_payments 表,status='pending'
+ *
+ * 边界:
+ * - network 不支持 → 抛错
+ * - env 充值地址未配置 → 抛错
+ * - amountCents <= 0 → 抛错
+ */
+export async function createUsdtPayment(
+  userId: string,
+  amountCents: number,
+  network: string,
+): Promise<CreateUsdtPaymentResult> {
+  if (amountCents <= 0) {
+    throw Object.assign(new Error('充值金额必须大于 0'), { statusCode: 400 })
+  }
+
+  const upperNetwork = network.toUpperCase()
+  if (!SUPPORTED_NETWORKS.includes(upperNetwork as UsdtNetwork)) {
+    throw Object.assign(
+      new Error(`不支持的网络: ${network},仅支持 ${SUPPORTED_NETWORKS.join('/')}`),
+      {
+        statusCode: 400,
+      },
+    )
+  }
+
+  const config = await getUsdtPaymentConfig()
+  const address = upperNetwork === 'TRC20' ? config.trc20Address : config.erc20Address
+  if (!address) {
+    throw Object.assign(
+      new Error(`${upperNetwork} 充值地址未配置(请设置环境变量 USDT_${upperNetwork}_ADDRESS)`),
+      {
+        statusCode: 500,
+      },
+    )
+  }
+  // 落库前拦形态非法的地址:该值会被写进 usdt_payments.address,并成为后续
+  // verifyTrc20OnChain「收款地址一致性」比对的基准 ⇒ 错一个字符就是脏数据落库
+  // + 该网络全部取证失败(比对永不相等)。校验放在「未配置」分支之后,保证
+  // 「没配」与「配错」是两条可区分的路径(500 / 400)。
+  assertUsdtAddressFormat(upperNetwork, address)
+
+  const usdtAmount = amountCents / 100 / config.rate
+  const orderId = generateOrderNumber('USDT')
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + ORDER_EXPIRY_MINUTES * 60 * 1000)
+
+  // SDB-27:叠加尾差让「同一收款地址下的 pending 订单金额两两可区分」。
+  // 并发唯一性由 usdt_payments_pending_amount_uniq(network, amount) WHERE pending
+  // 保证:两笔并发创建撞到同一档时,后者 insert 抛 23505,换下一档重试。
+  // 档位打乱后逐个试,避免所有人从同一档起步互相顶掉。
+  const baseAmount = roundTo6(usdtAmount)
+  const slots = shuffledSlots()
+  let settled: number | null = null
+  for (const slot of slots) {
+    const candidate = roundTo6(baseAmount + slot * AMOUNT_TAIL_SLOT)
+    try {
+      await db.insert(usdtPayments).values({
+        orderId,
+        userId,
+        address,
+        network: upperNetwork,
+        amount: candidate.toFixed(8),
+        amountPaid: '0',
+        status: 'pending',
+        expiresAt,
+        createdAt: now,
+      })
+      settled = candidate
+      break
+    } catch (err) {
+      // 只对「pending 金额槽位被占」重试;其它错误(含 order_id 冲突)直接上抛
+      if (isPendingAmountConflict(err)) continue
+      throw err
+    }
+  }
+  if (settled === null) {
+    // 39 档全被占满 ⇒ 当前网络同额 pending 订单过多,明确拒绝而不是接受模糊金额
+    throw Object.assign(
+      new Error(`当前 ${upperNetwork} 同额充值订单过多(槽位已满),请稍后重试或改用其它金额`),
+      { statusCode: 503 },
+    )
+  }
+
+  return {
+    orderId,
+    address,
+    network: upperNetwork,
+    amount: settled,
+    expiresAt,
+    rate: config.rate,
+  }
+}
+
+/** 保留 6 位小数(USDT 的最小单位是 1e-6,尾差也落在这一量级) */
+function roundTo6(n: number): number {
+  return Math.round(n * 1e6) / 1e6
+}
+
+/** 1..AMOUNT_TAIL_SLOTS 的随机排列(密码学随机,避免固定顺序互相顶档) */
+function shuffledSlots(): number[] {
+  const slots = Array.from({ length: AMOUNT_TAIL_SLOTS }, (_, i) => i + 1)
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[slots[i], slots[j]] = [slots[j]!, slots[i]!]
+  }
+  return slots
+}
+
+/** PostgreSQL 唯一约束冲突(code 23505),且命中 pending 金额槽位索引时返回 true */
+function isPendingAmountConflict(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const code = (err as { code?: string }).code
+  const constraint = (err as { constraint?: string }).constraint ?? ''
+  return code === '23505' && constraint === 'usdt_payments_pending_amount_uniq'
+}
+
+// =============================================================================
+// 3. checkUsdtPaymentStatus — 查询区块链确认到账
+// =============================================================================
+
+/**
+ * 查询订单的支付状态(含区块链到账检测)。
+ *
+ * 逻辑:
+ * 1. 读取订单,若非 pending 直接返回当前状态
+ * 2. 调用区块链 API 查询充值地址的近期转入交易(SDB-44:必须先于过期判定)
+ * 3. 匹配到有效交易 → 返回 detected=true + txHash + amountPaid(即便订单已越过 expiresAt)
+ * 4. 链上确实没有有效交易才把订单标记 expired;(链上检测失败则保持 pending)
+ *
+ * 区块链 API:
+ * - TRC20:TronGrid /v1/accounts/{address}/transactions/trc20
+ * - ERC20:Etherscan /api?module=account&action=tokentx
+ */
+export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPaymentStatusResult> {
+  const [order] = await dbRead
+    .select()
+    .from(usdtPayments)
+    .where(eq(usdtPayments.orderId, orderId))
+    .limit(1)
+
+  if (!order) {
+    throw Object.assign(new Error('订单不存在'), { statusCode: 404 })
+  }
+
+  // 非 pending 状态直接返回
+  if (order.status !== 'pending') {
+    return {
+      orderId,
+      status: order.status,
+      detected: order.status === 'confirmed',
+      txHash: order.txHash,
+      amountPaid: order.amountPaid !== '0' ? Number(order.amountPaid) : null,
+    }
+  }
+
+  // SDB-44:过期判定必须排在链上检测之后。越过 expiresAt 只说明「时间窗关了」,
+  // 不代表没收到钱;旧实现先落 expired 就再也不查链,已付款订单只能人工处理。
+  const expired = order.expiresAt < new Date()
+
+  // 调用区块链 API 检测到账
+  const expectedAmount = Number(order.amount)
+  const sinceTimestamp = order.createdAt.getTime()
+  let detection: BlockchainDetection | null = null
+
+  try {
+    if (order.network === 'TRC20') {
+      detection = await checkTrc20Payment(order.address, expectedAmount, sinceTimestamp)
+    } else if (order.network === 'ERC20') {
+      detection = await checkErc20Payment(order.address, expectedAmount, sinceTimestamp)
+    }
+  } catch (err) {
+    // F-509:链上查询故障 ≠ 业务待确认。旧实现把「上游不可用」降级成一条普通 pending,
+    // 于是 poll 的 failed 恒 0、BullMQ 每分钟记成功——监控上永远是健康,用户充值却不到账。
+    // 现在返回带 error 的明确失败结果:订单仍保持 pending(SDB-44:查不到 ≠ 没付款,
+    // 不能落 expired),但「保持 pending」与「统计成功」彻底解耦,由 poll 重试/计 failed。
+    const reason = errReason(err)
+    console.error(
+      `[usdt-payment] 区块链 API 查询失败,订单保持 pending 等待重试(orderId=${orderId}):`,
+      reason,
+    )
+    return {
+      orderId,
+      status: 'pending',
+      detected: false,
+      txHash: null,
+      amountPaid: null,
+      error: {
+        code: 'USDT_CHAIN_QUERY_FAILED',
+        network: order.network,
+        reason,
+        timeout: isRpcTimeoutError(err),
+        retryable: isRetryableChainQueryError(err),
+      },
+    }
+  }
+
+  if (detection && isExactAmount(detection.amountPaid, expectedAmount)) {
+    // 命中即按已支付返回(即使已过期),由调用方走链上取证后入账
+    return {
+      orderId,
+      status: 'pending',
+      detected: true,
+      txHash: detection.txHash,
+      amountPaid: detection.amountPaid,
+    }
+  }
+
+  // 链上确实没有有效交易,才允许把过期订单落 expired
+  if (expired) {
+    await db
+      .update(usdtPayments)
+      .set({ status: 'expired' })
+      .where(and(eq(usdtPayments.orderId, orderId), eq(usdtPayments.status, 'pending')))
+    return { orderId, status: 'expired', detected: false, txHash: null, amountPaid: null }
+  }
+
+  return { orderId, status: 'pending', detected: false, txHash: null, amountPaid: null }
+}
+
+/**
+ * 查询 TronGrid TRC20 转入交易,匹配应收金额。
+ *
+ * SDB-27/28 修复:
+ * - 金额必须**精确相等**(容差 AMOUNT_EPS),不再接受「收得比应收多」——
+ *   原 `amount >= expected` 会让同一收款地址上任何一笔更大额的转入命中任一订单;
+ * - 已被其它订单绑定的 txHash 一律跳过;
+ * - 以 `min_timestamp` + fingerprint 分页覆盖「下单至今」全部转入,不再只看第一页,
+ *   页面预算耗尽仍没扫完则抛错告警(不允许静默漏单)。
+ */
+async function checkTrc20Payment(
+  address: string,
+  expectedAmount: number,
+  sinceTimestamp: number,
+): Promise<BlockchainDetection | null> {
+  const apiKey = process.env.TRONGRID_API_KEY
+  const headers: Record<string, string> = {}
+  if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
+
+  const candidates: BlockchainDetection[] = []
+  let fingerprint: string | undefined
+
+  for (let page = 0; page < DETECT_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      limit: String(DETECT_PAGE_SIZE),
+      order_by: 'block_timestamp,desc',
+      min_timestamp: String(sinceTimestamp),
+      contract_address: TRC20_USDT_CONTRACT,
+      only_to: 'true',
+    })
+    if (fingerprint) params.set('fingerprint', fingerprint)
+    const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`
+
+    const response = await rpcFetch(url, { headers })
+    if (!response.ok) {
+      throw new Error(`TronGrid API 返回 ${response.status}`)
+    }
+
+    const data = (await response.json()) as TronGridResponse
+    if (!data.success || !Array.isArray(data.data)) break
+
+    for (const tx of data.data) {
+      if (tx.to !== address) continue
+      if (tx.block_timestamp < sinceTimestamp) continue
+      const amount = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
+      if (!isExactAmount(amount, expectedAmount)) continue
+      // 2026-09-06 P0:带上 blockNumber(确认数计算),null 表示接口未提供
+      candidates.push({
+        txHash: tx.transaction_id,
+        amountPaid: amount,
+        blockNumber: tx.block_number ?? null,
+      })
+    }
+
+    fingerprint = data.meta?.fingerprint
+    if (!fingerprint || data.data.length < DETECT_PAGE_SIZE) {
+      fingerprint = undefined
+      break
+    }
+  }
+
+  if (fingerprint) {
+    // 还没扫到「下单时间」之前就被页数预算截断:继续轮询也永远看不到老交易,
+    // 必须让上层看到这条异常(轮询会记 error 日志),而不是静默返回未到账。
+    throw new Error(
+      `TronGrid 转入超过 ${DETECT_MAX_PAGES} 页仍未覆盖订单创建时间,存在漏单风险,需人工核对`,
+    )
+  }
+
+  return pickUnclaimedCandidate(candidates)
+}
+
+/**
+ * 查询 Etherscan ERC20 转入交易,匹配应收金额。
+ *
+ * SDB-27/28 修复同 TRC20:精确金额 + 跳过已绑定 txHash + 向后翻页直到覆盖下单时间。
+ */
+async function checkErc20Payment(
+  address: string,
+  expectedAmount: number,
+  sinceTimestamp: number,
+): Promise<BlockchainDetection | null> {
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  const candidates: BlockchainDetection[] = []
+  let covered = false
+
+  for (let page = 1; page <= DETECT_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      module: 'account',
+      action: 'tokentx',
+      address,
+      contractaddress: ERC20_USDT_CONTRACT,
+      page: String(page),
+      offset: String(DETECT_PAGE_SIZE),
+      sort: 'desc',
+    })
+    if (apiKey) params.set('apikey', apiKey)
+    const url = `https://api.etherscan.io/api?${params}`
+
+    const response = await rpcFetch(url)
+    if (!response.ok) {
+      throw new Error(`Etherscan API 返回 ${response.status}`)
+    }
+
+    const data = (await response.json()) as EtherscanResponse
+    // Etherscan 无结果时 status=0 + "No transactions found",按「已扫到底」处理
+    if (data.status !== '1' || !Array.isArray(data.result)) {
+      if (data.status === '0' && /No transactions found/i.test(data.message ?? '')) {
+        covered = true
+      }
+      break
+    }
+
+    let oldestTimestamp = Number.POSITIVE_INFINITY
+    for (const tx of data.result) {
+      const tsMs = Number(tx.timeStamp) * 1000
+      oldestTimestamp = Math.min(oldestTimestamp, tsMs)
+      if (tsMs < sinceTimestamp) continue
+      if (tx.to.toLowerCase() !== address.toLowerCase()) continue
+      const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
+      const amount = Number(tx.value) / Math.pow(10, decimals)
+      if (!isExactAmount(amount, expectedAmount)) continue
+      candidates.push({
+        txHash: tx.hash,
+        amountPaid: amount,
+        blockNumber: tx.blockNumber ? Number(tx.blockNumber) : null,
+      })
+    }
+
+    // 本页已翻到下单元之前 / 条数不足一页 ⇒ 已完整覆盖下单至今
+    if (data.result.length < DETECT_PAGE_SIZE || oldestTimestamp < sinceTimestamp) {
+      covered = true
+      break
+    }
+  }
+
+  if (!covered) {
+    throw new Error(
+      `Etherscan 转入超过 ${DETECT_MAX_PAGES} 页仍未覆盖订单创建时间,存在漏单风险,需人工核对`,
+    )
+  }
+
+  return pickUnclaimedCandidate(candidates)
+}
+
+/** 链上金额与订单金额是否精确相等(浮点误差容限内) */
+function isExactAmount(actual: number, expected: number): boolean {
+  return Math.abs(actual - expected) <= AMOUNT_EPS
+}
+
+/**
+ * 从候选中挑一笔**未被任何订单绑定**的交易。
+ * 同一收款地址下,已绑定 txHash 说明那笔钱已经记过账;再拿它入账就是重复入账。
+ */
+async function pickUnclaimedCandidate(
+  candidates: BlockchainDetection[],
+): Promise<BlockchainDetection | null> {
+  if (candidates.length === 0) return null
+  const hashes = candidates.map((c) => c.txHash)
+  const bound = await dbRead
+    .select({ txHash: usdtPayments.txHash })
+    .from(usdtPayments)
+    .where(inArray(usdtPayments.txHash, hashes))
+  const claimed = new Set(
+    bound.map((r) => (r.txHash ?? '').toLowerCase()).filter((h) => h.length > 0),
+  )
+  return candidates.find((c) => !claimed.has(c.txHash.toLowerCase())) ?? null
+}
+
+// =============================================================================
+// 3.5 P0 资金安全修复(2026-09-06):链上取证校验
+// =============================================================================
+
+/**
+ * 获取 TRC20 链当前最新区块高度(确认数计算用)。
+ */
+async function fetchTrc20LatestBlock(): Promise<number> {
+  const url = 'https://api.trongrid.io/wallet/getnowblock'
+  const response = await rpcFetch(url)
+  if (!response.ok) throw new Error(`TronGrid getnowblock 返回 ${response.status}`)
+  const data = (await response.json()) as {
+    block_header?: { raw_data?: { number?: number } }
+  }
+  return data.block_header?.raw_data?.number ?? 0
+}
+
+/**
+ * 获取 ERC20(Etherscan)链当前最新区块高度(确认数计算用)。
+ */
+async function fetchErc20LatestBlock(): Promise<number> {
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  let url = 'https://api.etherscan.io/api?module=proxy&action=eth_blockNumber'
+  if (apiKey) url += `&apikey=${apiKey}`
+  const response = await rpcFetch(url)
+  if (!response.ok) throw new Error(`Etherscan eth_blockNumber 返回 ${response.status}`)
+  const data = (await response.json()) as { result?: string }
+  if (!data.result) throw new Error('Etherscan eth_blockNumber 响应异常')
+  return parseInt(data.result, 16)
+}
+
+function errReason(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+/** F-508:链上 RPC 超时/中止错误(AbortSignal.timeout 抛出的 DOMException) */
+function isRpcTimeoutError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const name = (err as { name?: string }).name
+  return name === 'TimeoutError' || name === 'AbortError'
+}
+
+/**
+ * F-509:链上查询错误是否值得有限重试。
+ * 4xx(API key 失效/参数错误/地址被拒)重试也不会变好,立即判失败;
+ * 超时、网络错误、5xx、响应结构异常属于上游临时故障,按 POLL_MAX_RETRIES 重试。
+ */
+function isRetryableChainQueryError(err: unknown): boolean {
+  if (isRpcTimeoutError(err)) return true
+  return !/返回\s*4\d\d/.test(errReason(err))
+}
+
+/** F-509:默认 sleep(PollOptions.sleep 可注入替代,测试不必真实等待) */
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):TRC20 链上取证校验。
+ * 服务端重新拉取该笔 USDT 转账,校验收款地址、实收金额(精确匹配)、确认数。
+ */
+async function verifyTrc20OnChain(
+  txHash: string,
+  expectedAmount: number,
+  address: string,
+): Promise<OnChainVerification> {
+  const minConf = config.USDT_CONFIRM_TRC20_MIN
+  const fail = (
+    reason: string,
+    amountOnChain: number | null,
+    to: string | null,
+    confirmations: number | null,
+  ) => ({ verified: false, reason, network: 'TRC20', txHash, amountOnChain, to, confirmations })
+
+  // 与 createUsdtPayment 共用同一份实现。存在的理由不是「同一批配置」,
+  // 而是**存量脏数据**:本函数拿到的 address 来自 usdt_payments.address(订单行),
+  // 不是直接读 env。在补校验之前落库的订单行可能已含形态非法的地址,这类行
+  // 靠创建侧校验永远补不到(不会重新创建)。而 address 在本函数里同时充当
+  // ① TronGrid 查询路径 ②「收款地址一致性」比对基准(tx.to !== address)——
+  // 基准本身畸形时,比对结果不可信。故在此复用同一断言 fail-closed:
+  // 抛错被 verifyUsdtOnChain 的 try 捕获 → verified=false,订单保持 pending,
+  // 永不入账,也不会把畸形地址继续拼进链上查询。
+  assertUsdtAddressFormat('TRC20', address)
+
+  const apiKey = process.env.TRONGRID_API_KEY
+  const params = new URLSearchParams({
+    limit: '50',
+    order_by: 'block_timestamp,desc',
+    contract_address: TRC20_USDT_CONTRACT,
+    only_to: 'true',
+  })
+  const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`
+  const headers: Record<string, string> = {}
+  if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
+
+  const response = await rpcFetch(url, { headers })
+  if (!response.ok) throw new Error(`TronGrid 返回 ${response.status}`)
+  const data = (await response.json()) as TronGridResponse
+  if (!data.success || !data.data) throw new Error('TronGrid 响应异常')
+
+  // 在共享固定地址的转入记录中定位该笔交易(排除其它用户的交易)
+  const tx = data.data.find((t) => t.transaction_id === txHash)
+  if (!tx) return fail('未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)', null, null, null)
+  if (tx.to !== address) return fail('收款地址与平台地址不一致', null, tx.to, null)
+
+  const amountOnChain = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
+  if (Math.abs(amountOnChain - expectedAmount) > AMOUNT_EPS) {
+    return fail(
+      '链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账',
+      amountOnChain,
+      tx.to,
+      null,
+    )
+  }
+
+  let confirmations: number | null = null
+  if (typeof tx.block_number === 'number') {
+    const latest = await fetchTrc20LatestBlock()
+    confirmations = latest >= tx.block_number ? latest - tx.block_number + 1 : null
+  }
+  if (minConf > 0 && (confirmations === null || confirmations < minConf)) {
+    if (confirmations === null) {
+      return fail('无法获取交易确认数,请等待轮询确认', amountOnChain, tx.to, null)
+    }
+    return fail(
+      `确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`,
+      amountOnChain,
+      tx.to,
+      confirmations,
+    )
+  }
+
+  return {
+    verified: true,
+    reason: '链上取证校验通过',
+    network: 'TRC20',
+    txHash,
+    amountOnChain,
+    to: tx.to,
+    confirmations,
+  }
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):ERC20 链上取证校验。
+ * 服务端重新拉取该笔 USDT 转账,校验收款地址、实收金额(精确匹配)、确认数。
+ */
+async function verifyErc20OnChain(
+  txHash: string,
+  expectedAmount: number,
+  address: string,
+): Promise<OnChainVerification> {
+  const minConf = config.USDT_CONFIRM_ERC20_MIN
+  const fail = (
+    reason: string,
+    amountOnChain: number | null,
+    to: string | null,
+    confirmations: number | null,
+  ) => ({ verified: false, reason, network: 'ERC20', txHash, amountOnChain, to, confirmations })
+
+  // 与 createUsdtPayment 共用同一份实现(与 verifyTrc20OnChain 同配方、同理由):
+  // 本函数的 address 来自 usdt_payments.address(订单行),不是直接读 env,
+  // 创建侧校验覆盖不到校验上线前已落库的存量脏行(那些行不会被重新创建)。
+  // 而 address 在这里同时充当 ① Etherscan 查询参数 ②「收款地址一致性」比对基准
+  // (tx.to !== address,大小写归一)——基准本身畸形时,比对结果不可信。
+  // 故在此复用同一断言 fail-closed:抛错被 verifyUsdtOnChain 的 try 捕获 →
+  // verified=false,订单保持 pending,永不入账,也不会把畸形地址继续拼进链上查询。
+  assertUsdtAddressFormat('ERC20', address)
+
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  const notFoundReason = '未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)'
+  let tx: EtherscanTokenTx | null = null
+
+  // SDB-28:复核按最新优先(sort=desc)并从第 1 页向后翻。旧实现固定升序第 1 页,
+  // 地址累计转入超过一页后,新交易永远不在结果集里 ⇒ 订单永久 pending。
+  // 上界 VERIFY_ERC20_MAX_PAGES 保证极热地址不会无限请求;翻到上界仍未命中
+  // 就是「未找到」(如实返回,不抛错)。
+  for (let page = 1; page <= VERIFY_ERC20_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      module: 'account',
+      action: 'tokentx',
+      address,
+      contractaddress: ERC20_USDT_CONTRACT,
+      page: String(page),
+      offset: String(VERIFY_ERC20_PAGE_SIZE),
+      sort: 'desc',
+    })
+    if (apiKey) params.set('apikey', apiKey)
+    const url = `https://api.etherscan.io/api?${params}`
+
+    const response = await rpcFetch(url)
+    if (!response.ok) throw new Error(`Etherscan 返回 ${response.status}`)
+    const data = (await response.json()) as EtherscanResponse
+
+    // 只有 Etherscan 明确回「No transactions found」才算确实没有该笔记录;
+    // 其余 status!=1(限流/接口异常/参数错误)一律抛错,由 verifyUsdtOnChain
+    // 归类为「链上取证失败」,不能与「没找到交易」混淆。
+    if (data.status !== '1' || !Array.isArray(data.result)) {
+      if (data.status === '0' && /No transactions found/i.test(data.message ?? '')) break
+      throw new Error(`Etherscan 响应异常: ${data.message || 'unknown'}`)
+    }
+
+    tx = data.result.find((t) => t.hash.toLowerCase() === txHash.toLowerCase()) ?? null
+    if (tx) break
+    // 不足一页 ⇒ 已经翻到最早一笔,继续翻只会拿到空页
+    if (data.result.length < VERIFY_ERC20_PAGE_SIZE) break
+  }
+
+  if (!tx) return fail(notFoundReason, null, null, null)
+  if (tx.to.toLowerCase() !== address.toLowerCase())
+    return fail('收款地址与平台地址不一致', null, tx.to, null)
+
+  const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
+  const amountOnChain = Number(tx.value) / Math.pow(10, decimals)
+  if (Math.abs(amountOnChain - expectedAmount) > AMOUNT_EPS) {
+    return fail(
+      '链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账',
+      amountOnChain,
+      tx.to,
+      null,
+    )
+  }
+
+  let confirmations: number | null = null
+  if (tx.blockNumber) {
+    const bn = Number(tx.blockNumber)
+    const latest = await fetchErc20LatestBlock()
+    confirmations = latest >= bn ? latest - bn + 1 : null
+  }
+  if (minConf > 0 && (confirmations === null || confirmations < minConf)) {
+    if (confirmations === null) {
+      return fail('无法获取交易确认数,请等待轮询确认', amountOnChain, tx.to, null)
+    }
+    return fail(
+      `确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`,
+      amountOnChain,
+      tx.to,
+      confirmations,
+    )
+  }
+
+  return {
+    verified: true,
+    reason: '链上取证校验通过',
+    network: 'ERC20',
+    txHash,
+    amountOnChain,
+    to: tx.to,
+    confirmations,
+  }
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):服务端链上取证校验。
+ * 重新拉取该笔 USDT 转账的实收金额/收款地址/确认数,满足全部条件才 verified=true:
+ *   (a) 收款地址 == 平台固定地址
+ *   (b) 实收金额与订单金额精确匹配(不允许超付/少付)
+ *   (c) 确认数 >= 配置阈值(TRC20>=USDT_CONFIRM_TRC20_MIN, ERC20>=USDT_CONFIRM_ERC20_MIN)
+ * 未通过 → 返回 pending,由轮询 worker 用同一逻辑在确认数足够后再入账(避免死循环)。
+ */
+export async function verifyUsdtOnChain(
+  network: string,
+  txHash: string,
+  expectedAmount: number,
+  address: string,
+): Promise<OnChainVerification> {
+  const net = (network || '').toUpperCase()
+  try {
+    if (net === 'TRC20') return await verifyTrc20OnChain(txHash, expectedAmount, address)
+    if (net === 'ERC20') return await verifyErc20OnChain(txHash, expectedAmount, address)
+    return {
+      verified: false,
+      reason: `不支持的网络 ${network}`,
+      network: net,
+      txHash,
+      amountOnChain: null,
+      to: null,
+      confirmations: null,
+    }
+  } catch (err) {
+    console.warn(`[usdt-payment] 链上取证失败(${net},txHash=${txHash}):`, errReason(err))
+    return {
+      verified: false,
+      reason: `链上取证失败: ${errReason(err)}`,
+      network: net,
+      txHash,
+      amountOnChain: null,
+      to: null,
+      confirmations: null,
+    }
+  }
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):带链上取证的确认入账。
+ * 先按订单读盘,再调 verifyUsdtOnChain 做服务端取证校验;
+ * 校验通过 → 以服务端取证金额(而非调用方回传金额)调用 confirmUsdtPayment 入账;
+ * 校验未通过 → 返回 status=pending + pendingReason,等待轮询 worker 复查(不信任客户端回传金额)。
+ */
+export async function confirmUsdtPaymentWithOnChainCheck(
+  orderId: string,
+  txHash: string,
+): Promise<ConfirmResult> {
+  const [order] = await dbRead
+    .select()
+    .from(usdtPayments)
+    .where(eq(usdtPayments.orderId, orderId))
+    .limit(1)
+  if (!order) throw Object.assign(new Error('订单不存在'), { statusCode: 404 })
+
+  // SDB-44:expired 保留补救通道(过期后才到账/才被扫到的订单仍可入账),
+  // 但只放行 expired 这一档;confirmed 仍幂等返回,refunded/cancelled 等终态
+  // 继续走 confirmUsdtPayment 抛 400,不放宽状态门。
+  const isExpired = order.status === 'expired'
+  if (order.status !== 'pending' && !isExpired) {
+    const fallbackAmount =
+      order.amountPaid && order.amountPaid !== '0' ? Number(order.amountPaid) : Number(order.amount)
+    return confirmUsdtPayment(orderId, txHash, fallbackAmount)
+  }
+
+  const verification = await verifyUsdtOnChain(
+    order.network,
+    txHash,
+    Number(order.amount),
+    order.address,
+  )
+  if (!verification.verified || verification.amountOnChain === null) {
+    console.info(
+      `[usdt-payment] 订单 ${orderId} 链上取证未通过,保持${isExpired ? ' expired' : ' pending'}: ${verification.reason}`,
+    )
+    return {
+      orderId,
+      status: isExpired ? 'expired' : 'pending',
+      tokensCredited: 0,
+      pendingReason: verification.reason,
+    }
+  }
+
+  if (isExpired) {
+    // SDB-44:过期补救。先原子地把 expired 回拨为 pending(仅当仍为 expired),
+    // 再复用 confirmUsdtPayment 的统一入账逻辑;不直接放宽 confirmUsdtPayment 的
+    // pending 门,避免其它入口借该函数复活终态订单。
+    const restored = await db
+      .update(usdtPayments)
+      .set({ status: 'pending' })
+      .where(and(eq(usdtPayments.orderId, orderId), eq(usdtPayments.status, 'expired')))
+      .returning({ orderId: usdtPayments.orderId })
+    if (restored.length === 0) {
+      // 并发下已被其它流程推进(如 confirmed):交给 confirmUsdtPayment 幂等/拦截
+      console.info(`[usdt-payment] 订单 ${orderId} 状态已变更,跳过过期补救回拨`)
+    }
+  }
+
+  // 以服务端取证金额入账(客户端 amountPaid 仅作提示,不作为入账依据)
+  return confirmUsdtPayment(orderId, txHash, verification.amountOnChain)
+}
+
+// =============================================================================
+// 4. confirmUsdtPayment — 确认到账 + 更新 wallet 余额 + 记录流水
+// =============================================================================
+
+/**
+ * 确认 USDT 支付到账(事务 + 幂等)。
+ *
+ * 逻辑:
+ * 1. 原子翻转 status: pending → confirmed(WHERE status='pending',防并发)
+ * 2. 计算 tokens = round(amountPaid × rate × 100)
+ * 3. 事务内:更新 usdt_payments + 更新 user_margins.tokenQuantity + 插入 token_flows
+ * 4. token_flows 的 (relatedOrderNo, opType) 唯一索引兜底防重复入账
+ *
+ * 幂等:
+ * - status 已非 pending → 返回当前状态,不重复入账
+ * - token_flows 唯一索引 → 即使并发也只入一条
+ */
+export async function confirmUsdtPayment(
+  orderId: string,
+  txHash: string,
+  amountPaid: number,
+): Promise<ConfirmResult> {
+  const [order] = await dbRead
+    .select()
+    .from(usdtPayments)
+    .where(eq(usdtPayments.orderId, orderId))
+    .limit(1)
+
+  if (!order) {
+    throw Object.assign(new Error('订单不存在'), { statusCode: 404 })
+  }
+
+  if (order.status === 'confirmed') {
+    // 2026-08-02 修复:已确认订单幂等返回,记录日志便于排查重复回调
+    console.info(`[usdt-payment] 订单 ${orderId} 已确认,跳过重复回调(txHash=${txHash})`)
+    return { orderId, status: 'confirmed', tokensCredited: 0 }
+  }
+
+  if (order.status !== 'pending') {
+    throw Object.assign(new Error(`订单状态为 ${order.status},无法确认`), { statusCode: 400 })
+  }
+
+  // P0 资金安全修复(2026-09-06):入账前强校验实收金额与订单金额精确匹配。
+  // 调用方必须传服务端链上取证金额;凡使用客户端回传金额的入口一律拦截(防止超付/少付入账)。
+  const expectedAmount = Number(order.amount)
+  if (!Number.isFinite(expectedAmount) || Math.abs(amountPaid - expectedAmount) > AMOUNT_EPS) {
+    console.warn(
+      `[usdt-payment] 订单 ${orderId} 实收金额 ${amountPaid} 与订单金额 ${expectedAmount} 不一致,拒绝入账`,
+    )
+    throw Object.assign(new Error('链上实收金额与订单金额不一致,拒绝入账'), { statusCode: 400 })
+  }
+
+  const config = await getUsdtPaymentConfig()
+  const tokensCredited = Math.round(amountPaid * config.rate * 100)
+  const now = new Date()
+
+  const result = await db.transaction(async (tx) => {
+    // P0-6 防同一 txHash 绑定多个订单:事务内查重(同 txHash 已存在 confirmed 订单 → 拒绝)
+    // 数据库层另有部分唯一索引 usdt_payments_tx_hash_confirmed_uniq 兜底(migration 0153)
+    const dupTx = await tx
+      .select({ orderId: usdtPayments.orderId })
+      .from(usdtPayments)
+      .where(and(eq(usdtPayments.txHash, txHash), not(eq(usdtPayments.orderId, orderId))))
+      .limit(1)
+    if (dupTx[0]) {
+      console.warn(
+        `[usdt-payment] txHash ${txHash} 已被订单 ${dupTx[0].orderId} 绑定,拒绝重复入账(orderId=${orderId})`,
+      )
+      throw Object.assign(new Error('该链上交易已用于其它订单,拒绝重复入账'), { statusCode: 400 })
+    }
+
+    // 1. 原子翻转 status(只有 pending 才翻转,防并发)
+    const [updated] = await tx
+      .update(usdtPayments)
+      .set({
+        status: 'confirmed',
+        txHash,
+        amountPaid: amountPaid.toFixed(8),
+        confirmedAt: now,
+      })
+      .where(and(eq(usdtPayments.orderId, orderId), eq(usdtPayments.status, 'pending')))
+      .returning({ id: usdtPayments.id, userId: usdtPayments.userId })
+
+    if (!updated) {
+      // 2026-08-02 修复:原子更新返回 0 行表示已被并发确认,幂等跳过(防重复入账)
+      console.info(
+        `[usdt-payment] 订单 ${orderId} 原子更新未命中(已并发确认),跳过(txHash=${txHash})`,
+      )
+      return { confirmed: false, userId: null as string | null, tokensCredited: 0 }
+    }
+
+    // 2. 更新 wallet 余额(user_margins.token_quantity += tokens)
+    //    DB-03 P1 / F-10:原实现「事务内 SELECT 读快照 → 应用层相加 → UPDATE 写回」。
+    //    PostgreSQL 默认 READ COMMITTED 下两个并发入账事务会读到同一份旧余额,
+    //    后写者覆盖先写者 ⇒ 丢一笔充值。改为单条 INSERT ... ON CONFLICT DO UPDATE:
+    //    冲突时 PostgreSQL 对该行加锁并**基于最新行版本**重新计算 `token_quantity + n`,
+    //    并发入账因此串行化,后到者在前者结果上累加,不丢账。
+    //    balanceAfter 一律取 RETURNING 的落库值,不再用应用层算出的数。
+    const [credited] = await tx
+      .insert(userMargins)
+      .values({
+        userId: updated.userId,
+        tokenQuantity: tokensCredited,
+        frozenQuantity: 0,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: userMargins.userId,
+        set: {
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${tokensCredited}`,
+          updatedAt: now,
+        },
+      })
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+    if (!credited) {
+      // 落库没回读到余额 ⇒ 流水上的 balanceAfter 不可信,整笔回滚(fail-closed)
+      throw new Error(`USDT 入账后未能回读用户 ${updated.userId} 的余额,拒绝写半截流水`)
+    }
+    const newBalance = Number(credited.tokenQuantity)
+
+    // 3. 记录流水(token_flows,opType=0 充值,幂等键 relatedOrderNo + opType)
+    await tx.insert(tokenFlows).values({
+      userId: updated.userId,
+      opType: FLOW_OP_RECHARGE,
+      quantity: tokensCredited,
+      balanceAfter: newBalance,
+      remark: `USDT 充值(${order.network}) ${amountPaid} USDT`,
+      relatedOrderNo: orderId,
+      createdAt: now,
+    })
+
+    return { confirmed: true, userId: updated.userId, tokensCredited }
+  })
+
+  if (!result.confirmed) {
+    return { orderId, status: 'confirmed', tokensCredited: 0 }
+  }
+
+  return { orderId, status: 'confirmed', tokensCredited: result.tokensCredited }
+}
+
+// =============================================================================
+// 5. pollPendingUsdtPayments — 批量轮询 pending 订单
+// =============================================================================
+
+/**
+ * 批量轮询 pending 订单,检测到账并自动确认(供 BullMQ Worker 调用)。
+ *
+ * 逻辑:
+ * 1. 查询 status='pending' 的订单(批量,默认 50 条;SDB-44 起不再按 expires_at 过滤,
+ *    否则在到期前最后一刻付款的订单会被整轮跳过)
+ * 2. 对每条调 checkUsdtPaymentStatus(先查链,确实无交易才落 expired)
+ * 3. 链上查询故障按 PollOptions 有限重试,耗尽才计入 failed(F-509)
+ * 4. 若 detected=true,调 confirmUsdtPaymentWithOnChainCheck 入账
+ * 5. 本轮存在 failed ⇒ 抛 UsdtPollFailureError(附统计+摘要),让 BullMQ 记 failed;
+ *    不再把上游故障当成 completed 静默成功
+ *
+ * 接入 BullMQ Worker 定时调用(cron 每 1 分钟)。
+ */
+export async function pollPendingUsdtPayments(
+  batchSize = 50,
+  options: PollOptions = {},
+): Promise<PollResult> {
+  const maxRetries = Math.max(0, Math.floor(options.maxRetries ?? POLL_MAX_RETRIES))
+  const retryDelayMs = Math.max(0, Math.floor(options.retryDelayMs ?? POLL_RETRY_DELAY_MS))
+  const sleep = options.sleep ?? defaultSleep
+
+  // SDB-44:去掉 expires_at > now 过滤。原过滤会让「本轮刚跨过 expiresAt」的订单
+  // 永远等不到一次链上检测(而 checkUsdtPaymentStatus 已经做到先查链再判过期)。
+  // 过期订单若查链无交易会在 next check 中落 expired,因此不会无限重扫。
+  // 2026-08-29 立:不能用 raw sql 模板传 Date —— 本环境(Node 24 + postgres-js 3.4.9)
+  // 原生 Date 参数序列化会抛 ERR_INVALID_ARG_TYPE(Buffer.from 收到 Date),
+  // 必须用 drizzle 类型化操作符(此处已无 Date 参数)。
+  const validPending = await dbRead
+    .select({ orderId: usdtPayments.orderId })
+    .from(usdtPayments)
+    .where(eq(usdtPayments.status, 'pending'))
+    .limit(batchSize)
+
+  let checked = 0
+  let confirmed = 0
+  let failed = 0
+  let rpcTimeouts = 0
+  const errors: PollFailureDetail[] = []
+
+  for (const { orderId } of validPending) {
+    checked++
+    const outcome = await queryOrderWithRetry(orderId, maxRetries, retryDelayMs, sleep)
+
+    if (!outcome.status) {
+      // F-509:业务 pending 已在 checkUsdtPaymentStatus 内按「无 error」返回;
+      // 走到这里说明本轮确实没查成(重试耗尽或非链上错误),计入 failed。
+      failed++
+      if (outcome.failure?.timeout) rpcTimeouts++
+      errors.push(outcome.failure)
+      console.error('[usdt-payment] 订单轮询失败(重试已耗尽)', outcome.failure)
+      continue
+    }
+
+    try {
+      // P0 资金安全修复(2026-09-06):轮询确认必须走服务端链上取证,
+      // 校验确认数/金额/地址通过后才入账;客户端 amountPaid 不作为入账依据。
+      if (outcome.status.detected && outcome.status.txHash) {
+        const r = await confirmUsdtPaymentWithOnChainCheck(orderId, outcome.status.txHash)
+        if (r.status === 'confirmed') confirmed++
+      }
+    } catch (err) {
+      const failure: PollFailureDetail = {
+        orderId,
+        network: outcome.status.error?.network ?? null,
+        attempts: outcome.attempts,
+        reason: errReason(err),
+        timeout: isRpcTimeoutError(err),
+      }
+      if (failure.timeout) rpcTimeouts++
+      failed++
+      errors.push(failure)
+      console.error('[usdt-payment] 订单确认入账失败', failure)
+    }
+  }
+
+  const result: PollResult = { checked, confirmed, failed, errors }
+  if (failed > 0) {
+    // F-509:有失败就必须让 job 失败(而不是返回统计被当作 completed)。
+    // 统计与摘要挂在错误对象上,worker 结构化记录后继续上抛给 BullMQ。
+    const failurePart =
+      rpcTimeouts > 0 ? `${rpcTimeouts} 笔链上 RPC 超时` : `${failed} 笔链上查询/入账故障`
+    throw new UsdtPollFailureError(
+      `USDT 轮询本轮 ${failed} 笔订单失败(${failurePart}),等待下一轮重试`,
+      result,
+    )
+  }
+
+  return result
+}
+
+type PollQueryOutcome =
+  | { status: UsdtPaymentStatusResult; failure: null; attempts: number }
+  | { status: null; failure: PollFailureDetail; attempts: number }
+
+/**
+ * F-509:单笔订单的查询+有限重试。
+ * - 有 error 且 retryable ⇒ 等待后重试(最多 maxRetries 次);
+ * - 非 retryable(4xx 等配置性错误)⇒ 立即失败;
+ * - checkUsdtPaymentStatus 直接抛错(订单不存在/DB 异常)⇒ 停止重试,如实失败。
+ */
+async function queryOrderWithRetry(
+  orderId: string,
+  maxRetries: number,
+  retryDelayMs: number,
+  sleep: (ms: number) => Promise<void>,
+): Promise<PollQueryOutcome> {
+  let attempts = 0
+  let chainFailure: PollFailureDetail | null = null
+  let thrown: unknown = null
+
+  while (attempts <= maxRetries) {
+    attempts++
+    try {
+      const status = await checkUsdtPaymentStatus(orderId)
+      if (!status.error) return { status, failure: null, attempts }
+
+      const detail: PollFailureDetail = {
+        orderId,
+        network: status.error.network,
+        attempts,
+        reason: status.error.reason,
+        timeout: status.error.timeout,
+      }
+      if (!status.error.retryable) return { status: null, failure: detail, attempts }
+      chainFailure ??= detail
+      if (attempts > maxRetries) break
+
+      console.warn(
+        `[usdt-payment] 轮询订单 ${orderId} 链上查询失败,准备重试(第 ${attempts}/${maxRetries + 1} 次):`,
+        {
+          orderId,
+          network: status.error.network,
+          attempt: attempts,
+          maxAttempts: maxRetries + 1,
+          reason: status.error.reason,
+          timeout: status.error.timeout,
+        },
+      )
+      await sleep(retryDelayMs)
+    } catch (err) {
+      // 非链上查询故障(读单失败/订单不存在等):重试无意义,直接结束
+      thrown = err
+      break
+    }
+  }
+
+  if (chainFailure) {
+    const appendReason = thrown ? `; 重试后:${errReason(thrown)}` : ''
+    return {
+      status: null,
+      failure: { ...chainFailure, attempts, reason: chainFailure.reason + appendReason },
+      attempts,
+    }
+  }
+
+  return {
+    status: null,
+    failure: {
+      orderId,
+      network: null,
+      attempts,
+      reason: errReason(thrown),
+      timeout: isRpcTimeoutError(thrown),
+    },
+    attempts,
+  }
+}
+
+// =============================================================================
+// 6. listUserUsdtPayments / getUsdtPaymentDetail — 用户查询
+// =============================================================================
+
+/**
+ * 查询用户的 USDT 充值订单(分页,强制 userId 过滤)。
+ */
+export async function listUserUsdtPayments(
+  userId: string,
+  page: number,
+  pageSize: number,
+): Promise<ListResult> {
+  const p = Math.max(1, page)
+  const ps = Math.min(100, Math.max(1, pageSize))
+  const where = eq(usdtPayments.userId, userId)
+
+  const [records, totalRows] = await Promise.all([
+    dbRead
+      .select()
+      .from(usdtPayments)
+      .where(where)
+      .orderBy(desc(usdtPayments.createdAt))
+      .limit(ps)
+      .offset((p - 1) * ps),
+    dbRead
+      .select({ c: sql<number>`count(*)::int` })
+      .from(usdtPayments)
+      .where(where),
+  ])
+
+  return { records, total: totalRows[0]?.c ?? 0 }
+}
+
+/**
+ * 查询订单详情(可选 userId 过滤,用户端调用时传 userId 防越权)。
+ */
+export async function getUsdtPaymentDetail(
+  orderId: string,
+  userId?: string,
+): Promise<UsdtPayment | null> {
+  const conds: SQL[] = [eq(usdtPayments.orderId, orderId)]
+  if (userId) conds.push(eq(usdtPayments.userId, userId))
+
+  const [record] = await dbRead
+    .select()
+    .from(usdtPayments)
+    .where(and(...conds))
+    .limit(1)
+
+  return record ?? null
+}
+
+// =============================================================================
+// 7. listAllUsdtPayments — admin 查所有订单
+// =============================================================================
+
+/**
+ * admin 查询所有 USDT 充值订单(支持筛选 + 分页)。
+ */
+export async function listAllUsdtPayments(filter: ListAllFilter): Promise<ListResult> {
+  const page = Math.max(1, filter.page ?? 1)
+  const pageSize = Math.min(100, Math.max(1, filter.pageSize ?? 20))
+
+  const conds: SQL[] = []
+  if (filter.userId) conds.push(eq(usdtPayments.userId, filter.userId))
+  if (filter.status) conds.push(eq(usdtPayments.status, filter.status))
+  if (filter.network) conds.push(eq(usdtPayments.network, filter.network.toUpperCase()))
+  const where = conds.length > 0 ? and(...conds) : undefined
+
+  const [records, totalRows] = await Promise.all([
+    dbRead
+      .select()
+      .from(usdtPayments)
+      .where(where)
+      .orderBy(desc(usdtPayments.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    dbRead
+      .select({ c: sql<number>`count(*)::int` })
+      .from(usdtPayments)
+      .where(where),
+  ])
+
+  return { records, total: totalRows[0]?.c ?? 0 }
+}
+
+// =============================================================================
+// 工具函数
+// =============================================================================
+
+/** 安全解析数字字符串,失败或 NaN 返回默认值 */
+function parseNumber(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw === null || raw === '') return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : fallback
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

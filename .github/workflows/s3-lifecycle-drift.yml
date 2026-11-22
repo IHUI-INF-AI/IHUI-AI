@@ -1,0 +1,96 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: S3 Lifecycle Drift
+
+# S3 生命周期漂移检测工作流 — 关联 M-25 存储分层配置
+# 定期比对实际 S3 桶生命周期策略与 s3-lifecycle.yml 声明配置，发现漂移即告警
+on:
+  schedule:
+    - cron: '0 3 * * 1' # 每周一 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      bucket:
+        description: '待检测的 S3 桶名（留空则使用默认桶）'
+        required: false
+        default: ''
+
+# Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Fetch current lifecycle configuration
+        id: current
+        run: |
+          BUCKET="${{ inputs.bucket || secrets.S3_BUCKET }}"
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          aws s3api get-bucket-lifecycle-configuration --bucket "$BUCKET" > /tmp/current-lifecycle.json || echo '{"Rules":[]}' > /tmp/current-lifecycle.json
+
+      - name: Compare against declared configuration
+        id: compare
+        run: |
+          # 声明配置位于 deploy/s3-lifecycle.yml，先转为 JSON 后比对
+          python3 - <<'PY'
+          import json, sys, os, subprocess
+          decl_path = 'deploy/s3-lifecycle.yml'
+          # BUG-56③:解析失败绝不能当"无声明 ⇒ 无漂移"。缺文件/解析非 0/空输出一律判红(fail-closed),
+          # 不再用 .stdout 静默吞掉 returncode/stderr。
+          if not os.path.isfile(decl_path):
+              print('::error::声明文件缺失: ' + decl_path)
+              sys.exit(2)
+          proc = subprocess.run(
+            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', decl_path],
+            capture_output=True, text=True
+          )
+          if proc.returncode != 0 or not proc.stdout.strip():
+              print('::error::声明文件解析失败(returncode=%s): %s' % (proc.returncode, proc.stderr.strip()))
+              sys.exit(2)
+          try:
+              declared_doc = json.loads(proc.stdout)
+          except ValueError as e:
+              print('::error::声明文件解析结果不是合法 JSON: %s' % e)
+              sys.exit(2)
+          declared_rules = declared_doc.get('Rules', []) if isinstance(declared_doc, dict) else []
+          if not declared_rules:
+              print('::error::声明文件未解析出任何 Rules —— 判据失明,不得判无漂移')
+              sys.exit(2)
+          try:
+              with open('/tmp/current-lifecycle.json') as f:
+                  current = json.load(f)
+          except ValueError as e:
+              print('::error::线上生命周期配置不是合法 JSON: %s' % e)
+              sys.exit(2)
+          current_rules = current.get('Rules', [])
+          drift = len(declared_rules) != len(current_rules)
+          # ::set-output 已废弃:不写 $GITHUB_OUTPUT 则 output 恒空,Report drift 永不触发 ⇒ 恒绿。
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write('drift=%s\n' % ('true' if drift else 'false'))
+          print(f'声明规则数: {len(declared_rules)}, 实际规则数: {len(current_rules)}')
+          PY
+
+      - name: Report drift
+        if: steps.compare.outputs.drift == 'true'
+        run: |
+          echo "::warning::检测到 S3 生命周期配置漂移（桶 ${{ steps.current.outputs.bucket }}）"
+          echo "声明规则与实际规则数量不一致，请人工核对 deploy/s3-lifecycle.yml 与线上配置"
+          exit 1
+
+      - name: No drift
+        if: steps.compare.outputs.drift != 'true'
+        run: echo "✅ S3 生命周期配置无漂移"
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

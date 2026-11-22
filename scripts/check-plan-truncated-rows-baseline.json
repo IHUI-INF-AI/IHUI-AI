@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "gate": "check-plan-truncated-rows",
+  "anchor": "两型残行的违规身份键(type+身份;有主键按复合主键,无主键退化为整行文本)。只拦新增,存量只报数。",
+  "reason": "票面「台账里有两类正文被吃掉的残行,先造只读尺子再谈修器物」的存量锚点。2026-10-25 首次写入时 HEAD 面两型现读均为 0 枚;此后任何身份不在本档的命中都算新增并判红。",
+  "face": "head",
+  "doc": "PROJECT_PLAN.md",
+  "writtenAt": "2026-10-25T08:43:43.881Z",
+  "types": {
+    "empty-body": {
+      "count": 0,
+      "keys": []
+    },
+    "trailing-punct": {
+      "count": 0,
+      "keys": []
+    }
+  }
+}

@@ -1,0 +1,132 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { HelpScreen as SharedHelpScreen, type HelpListItem } from '@ihui/rn-app'
+import { fetchApi } from '@ihui/api-client'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useRefreshOnFocus } from '../hooks'
+import { useHostPorts } from '../host/use-host-ports'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+export function HelpScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
+  const [items, setItems] = useState<HelpListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  // 意见反馈(对齐端内帮助页同一枚表单):本地暂存 + 提交到 POST /feedbacks
+  const [feedbackName, setFeedbackName] = useState('')
+  const [feedbackContact, setFeedbackContact] = useState('')
+  const [feedbackContent, setFeedbackContent] = useState('')
+  const [feedbackStatus, setFeedbackStatus] = useState<
+    'idle' | 'submitting' | 'success' | 'failed'
+  >('idle')
+  const [feedbackError, setFeedbackError] = useState('')
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      // 后端 GET /help/articles 回 success({ list })(content.ts)，本屏把整个信封当数组
+      // ⇒ 帮助中心永远空列表。
+      const res = await fetchApi<{ list: HelpListItem[] }>('/help/articles')
+      if (!res.success) {
+        // 透出后端 message,而非一律「加载失败」。
+        setError(res.error || t('help.loadFailed'))
+        return
+      }
+      setItems(res.data?.list ?? [])
+    } catch {
+      setError(t('help.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新;首次挂载由上面的 useEffect 负责)
+  useRefreshOnFocus(load)
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    void load()
+  }
+
+  const onToggle = (id: string) => {
+    setExpandedId(expandedId === id ? null : id)
+  }
+
+  const handleSubmitFeedback = useCallback(async () => {
+    if (!feedbackName.trim() || !feedbackContact.trim() || !feedbackContent.trim()) {
+      setFeedbackStatus('failed')
+      setFeedbackError(t('feedback.contentRequired'))
+      return
+    }
+    setFeedbackStatus('submitting')
+    setFeedbackError('')
+    try {
+      const res = await fetchApi('/feedbacks', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'other',
+          content: feedbackContent.trim(),
+          contact: feedbackContact.trim(),
+        }),
+      })
+      if (res.success) {
+        setFeedbackStatus('success')
+        setFeedbackContent('')
+        return
+      }
+      setFeedbackStatus('failed')
+      setFeedbackError(res.error || t('feedback.failed'))
+    } catch {
+      setFeedbackStatus('failed')
+      setFeedbackError(t('feedback.failed'))
+    }
+  }, [feedbackName, feedbackContact, feedbackContent, t])
+
+  const { onToast } = useHostPorts()
+
+  return (
+    <SharedHelpScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      expandedId={expandedId}
+      onRefresh={onRefresh}
+      onToggle={onToggle}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+      searchValue={query}
+      onSearchChange={setQuery}
+      feedbackName={feedbackName}
+      feedbackContact={feedbackContact}
+      feedbackContent={feedbackContent}
+      feedbackStatus={feedbackStatus}
+      feedbackError={feedbackError}
+      onFeedbackNameChange={setFeedbackName}
+      onFeedbackContactChange={setFeedbackContact}
+      onFeedbackContentChange={setFeedbackContent}
+      onSubmitFeedback={handleSubmitFeedback}
+      onToast={onToast}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

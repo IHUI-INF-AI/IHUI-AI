@@ -1,0 +1,466 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 框架无关的 WebSocket 客户端(跨端共享)。
+ *
+ * 封装通用能力:token 注入、心跳、断线指数退避重连、消息类型守卫。
+ * 不依赖任何框架(React/Vue/RN/Tauri 均可用),各端自行写薄包装层。
+ *
+ * 后端端点:GET /ws/notifications?token=<ws_ticket>
+ * 换票流程:POST /ws/ticket(Authorization: Bearer <access_token>)→ 5 分钟 WS ticket
+ * 消息格式:{ type: 'notification', data: {...} }
+ * 心跳:客户端发 'ping' 字符串,服务端回 'pong' 字符串
+ */
+import type { WSNotification } from '@ihui/types'
+// 2026-10-26:换票失败(access 过期)时先续期一次。依赖方向 ws-client → client 单向
+// (client 不 import 本文件),不构成模块环;各端接入本客户端即自动获得,不新增注入点。
+import { refreshAccessTokenOnce } from './client.js'
+
+/**
+ * WebSocket 子集接口(跨端适配)。
+ *
+ * 标准浏览器 `WebSocket` 与 Taro `Taro.connectSocket` 等非标准实现,
+ * 只需满足此接口即可被 `WebSocketClient` 使用。
+ *
+ * 注意:`OPEN/CONNECTING/CLOSING/CLOSED` 在标准 `WebSocket` 上是构造器静态属性,
+ * 实例上不一定存在,故设为可选;readyState 比较请使用模块级常量 `WS_OPEN` / `WS_CONNECTING`。
+ */
+export interface WebSocketLike {
+  readonly readyState: number
+  readonly OPEN?: number
+  readonly CONNECTING?: number
+  readonly CLOSING?: number
+  readonly CLOSED?: number
+  onopen: (() => void) | null
+  onmessage: ((event: { data: unknown }) => void) | null
+  onclose: (() => void) | null
+  onerror: ((err: unknown) => void) | null
+  send(data: string): void
+  close(): void
+}
+
+/** WebSocket readyState 数字常量(与标准 WebSocket 一致,避免直接引用全局 WebSocket) */
+const WS_CONNECTING = 0
+const WS_OPEN = 1
+
+/**
+ * G-816007:关掉过期代际的 socket(幂等 —— 对已关闭的 socket 调 close 无害)。
+ * 过期代际必须真的把 socket 关掉,"忽略回调"不算处理完。
+ */
+function disposeStaleSocket(ws: WebSocketLike): void {
+  try {
+    ws.close()
+  } catch {
+    // ignore
+  }
+}
+
+export interface WebSocketClientOptions<TMessage> {
+  /** 构建 WS URL(接收当前 token) */
+  urlBuilder: (token: string) => string
+  /** 获取当前 access_token(返回 null 时不连接) */
+  tokenProvider: () => string | null
+  /**
+   * 连接前用 access token 换取短期 WS ticket(根治 access token 经 URL 暴露)。
+   *
+   * 返回的 ticket 5 分钟 TTL 且 type='ws' 隔离,经 URL 泄漏也无法访问 REST API;
+   * 返回 null/undefined/抛错时降级为直连 access token(兼容旧服务端)。
+   * 不提供则直接用 access token 连接(旧行为)。
+   */
+  ticketProvider?: (accessToken: string) => Promise<string | null | undefined>
+  /** 消息类型守卫(过滤非法消息) */
+  messageGuard: (data: unknown) => data is TMessage
+  /** 心跳间隔(ms),默认 30000 */
+  heartbeatInterval?: number
+  /** 最大重连延迟(ms),默认 30000 */
+  maxReconnectDelay?: number
+  /** 心跳消息工厂,默认 () => 'ping' */
+  heartbeatMessage?: () => string
+  /**
+   * WebSocket 工厂(依赖注入点)。
+   *
+   * 用于非标准 WebSocket 环境(如 Taro 小程序 weapp 无全局 `WebSocket`),
+   * 各端可注入适配器(如包装 `Taro.connectSocket`)。不传时走默认 `new WebSocket()`。
+   */
+  webSocketFactory?: (url: string) => WebSocketLike
+}
+
+export interface WebSocketClientHandlers<TMessage> {
+  onMessage?: (msg: TMessage) => void
+  onOpen?: () => void
+  onClose?: () => void
+  onError?: (error: string) => void
+}
+
+/**
+ * 跨端 WebSocket 客户端。
+ *
+ * 使用:
+ * ```ts
+ * const client = new WebSocketClient<WSNotification>({
+ *   urlBuilder: (token) => `wss://api.example.com/ws/notifications?token=${token}`,
+ *   tokenProvider: () => getToken(),
+ *   messageGuard: isWSNotification,
+ * }, {
+ *   onMessage: (msg) => console.log('收到通知', msg),
+ * })
+ * client.connect()
+ * ```
+ */
+export class WebSocketClient<TMessage = WSNotification> {
+  private ws: WebSocketLike | null = null
+  private reconnectAttempt = 0
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private closedByUser = false
+  private _isConnected = false
+  // 2026-08-06 修复:连接代际计数。updateToken/disconnect 主动断开旧连接时,
+  // 旧 ws 的 onclose 回调是异步触发的,若不区分代际,旧连接的 onclose 会
+  // 在 closedByUser=false 时调度一次多余的 scheduleReconnect,与 updateToken
+  // 立即发起的新连接竞争,造成双连接/重连风暴。
+  private generation = 0
+  // 换取 WS ticket 的进行中标志:防止 connect 并发触发多次 ticket 请求。
+  // G-816007:按代际去重 —— updateToken 在旧建连的 ticket await 窗口内递增代际后,
+  // 它触发的 connect() 不得被旧代际的在飞标志吞掉(否则旧建连过期退出后,新代际
+  // 连接永远无人发起,修复孤儿连接反而变成整体断线)。
+  private _connectingGeneration: number | null = null
+
+  constructor(
+    private readonly options: WebSocketClientOptions<TMessage>,
+    private readonly handlers: WebSocketClientHandlers<TMessage> = {},
+  ) {}
+
+  get isConnected(): boolean {
+    return this._isConnected
+  }
+
+  /** 连接 WebSocket(若已连接则忽略)。ticketProvider 存在时先异步换 ticket 再建连 */
+  connect(): void {
+    // G-816007:同代际去重;换代后(ticket await 窗口内的 updateToken)允许并发建连
+    if (this._connectingGeneration === this.generation) return
+    const myGeneration = this.generation
+    this._connectingGeneration = myGeneration
+    void this.connectInternal().finally(() => {
+      // 只有仍占着本代际在飞标志时才清 —— 换代后的新建连不受旧建连 finally 影响
+      if (this._connectingGeneration === myGeneration) {
+        this._connectingGeneration = null
+      }
+    })
+  }
+
+  private async connectInternal(): Promise<void> {
+    // G-816007:入口捕获建连代际(原先在 this.ws = ws 之后才捕获,换代后旧建连
+    // 会错拿新代际号,回调守卫全部失效)。ticket await 窗口内可能发生 updateToken。
+    const myGeneration = this.generation
+    const token = this.options.tokenProvider()
+    if (!token || this.closedByUser) return
+    // 提供了 webSocketFactory 时跳过全局 WebSocket 检查(factory 可能不依赖全局 WebSocket)
+    if (!this.options.webSocketFactory && typeof WebSocket === 'undefined') return
+    if (this.ws && (this.ws.readyState === WS_OPEN || this.ws.readyState === WS_CONNECTING)) {
+      return
+    }
+
+    // 先用 access token 换取短期 WS ticket(access token 不再进 URL);
+    // 失败/未配置时降级为直连 access token(兼容旧服务端)
+    let connectToken = token
+    if (this.options.ticketProvider) {
+      let ticket: string | null = null
+      try {
+        ticket = (await this.options.ticketProvider(token)) || null
+      } catch {
+        ticket = null
+      }
+      // 2026-10-26 收口:「access 过期(15 分钟)⇒ 续期一次再换票」有**两层**,各管一段:
+      // ① fetchWsTicket **内部**:换票端点返 401 ⇒ 续期一次重换(单源,直调
+      //    fetchWsTicket 的调用方 —— web 的 use-ai-ws-business —— 也自动获得,
+      //    它此前拿不到续期 ⇒ 拿旧 access 降级直连 ⇒ 服务端 4003 拒 ⇒ 重连循环);
+      // ② 本层(调用侧):换票**整体失败**(含自定义 ticketProvider 返回 null、
+      //    非 401 的网络/5xx 失败)⇒ 静默续期一次 ⇒ 用新 token 再换一次。
+      //    ① 已续期成功时端内 store 已持有新 access,② 这次续期是幂等复核
+      //    (refreshAccessTokenOnce 有单飞 + 失败冷却,不会打多次刷新端点),
+      //    换票用新 token 重试一次即达目的。
+      if (!ticket) {
+        const fresh = await refreshAccessTokenOnce()
+        if (fresh) {
+          try {
+            ticket = (await this.options.ticketProvider(fresh)) || null
+          } catch {
+            ticket = null
+          }
+          // 续期成功但重换仍失败 ⇒ 用**新** access 降级直连(拿过期 access 降级
+          // = 白续期)。fresh 即本次刷新的返回值(端内 refreshAccessToken 实现
+          // 也会自行持久化),它是权威的新凭据。
+          connectToken = ticket || fresh
+        } else {
+          connectToken = token
+        }
+      } else {
+        connectToken = ticket
+      }
+      // 换取期间被 disconnect 或换代(G-816007:原只判 closedByUser,漏了代际比对
+      // ⇒ 换代发生在 await 窗口内时,这次建连照旧接管 this.ws,旧 socket 被顶出
+      // 后再无 close 路径,成为服务端可见的孤儿连接),放弃本次建连
+      if (this.closedByUser || myGeneration !== this.generation) return
+    }
+
+    let ws: WebSocketLike
+    try {
+      ws = this.options.webSocketFactory
+        ? this.options.webSocketFactory(this.options.urlBuilder(connectToken))
+        : (new WebSocket(this.options.urlBuilder(connectToken)) as unknown as WebSocketLike)
+    } catch (e) {
+      this.handlers.onError?.(e instanceof Error ? e.message : 'WebSocket 连接失败')
+      return
+    }
+    // G-816007:接管 this.ws 之前的最后一道重验 —— await 窗口内换代时,刚建的
+    // socket 必须**真的 close**(不是"忽略回调"就算完),然后放弃接管;否则它一旦
+    // 被新连接顶出 this.ws 就没有任何路径会 close 它。
+    if (this.closedByUser || myGeneration !== this.generation) {
+      try {
+        ws.close()
+      } catch {
+        // ignore
+      }
+      return
+    }
+    this.ws = ws
+
+    // G-816007:过期代际的 socket 有事件进来就立刻关掉(幂等)—— "忽略回调"不等于
+    // 处理完,socket 还开着就是孤儿连接。onclose 例外:socket 已关,无需再 close。
+    ws.onopen = () => {
+      if (myGeneration !== this.generation) {
+        disposeStaleSocket(ws)
+        return
+      }
+      this.reconnectAttempt = 0
+      this._isConnected = true
+      this.handlers.onOpen?.()
+      this.startHeartbeat(ws)
+    }
+
+    // WebSocket onmessage 在 DOM(MessageEvent)和 RN(WebSocketMessageEvent)类型不同,
+    // 用 WebSocketLike 的 { data: unknown } 统一签名兼容跨端(web/RN/desktop/extension)
+    ws.onmessage = (event: { data: unknown }) => {
+      if (myGeneration !== this.generation) {
+        disposeStaleSocket(ws)
+        return
+      }
+      const raw = event?.data
+      if (raw === 'pong' || raw === '"pong"') return
+      if (typeof raw !== 'string') return
+      try {
+        const parsed = JSON.parse(raw) as unknown
+        if (!this.options.messageGuard(parsed)) return
+        this.handlers.onMessage?.(parsed)
+      } catch {
+        // 非 JSON 消息忽略
+      }
+    }
+
+    ws.onclose = () => {
+      if (myGeneration !== this.generation) return
+      this._isConnected = false
+      this.handlers.onClose?.()
+      this.clearTimers()
+      if (!this.closedByUser) {
+        this.scheduleReconnect()
+      }
+    }
+
+    ws.onerror = () => {
+      if (myGeneration !== this.generation) {
+        disposeStaleSocket(ws)
+        return
+      }
+      this.handlers.onError?.('WebSocket 连接错误')
+    }
+  }
+
+  /** 主动断开(不触发重连) */
+  disconnect(): void {
+    this.closedByUser = true
+    this.clearTimers()
+    if (this.ws) {
+      try {
+        this.ws.close()
+      } catch {
+        // ignore
+      }
+      this.ws = null
+    }
+    this._isConnected = false
+  }
+
+  /** 发送消息(仅当连接打开时) */
+  send(data: string): boolean {
+    if (this.ws && this.ws.readyState === WS_OPEN) {
+      try {
+        this.ws.send(data)
+        return true
+      } catch {
+        return false
+      }
+    }
+    return false
+  }
+
+  /** token 刷新后重置连接(断开当前连接,用新 token 重连) */
+  updateToken(): void {
+    // 2026-08-06 修复:先递增代际,使旧 ws 的异步 onclose 不再调度重连,
+    // 再 close + connect,消除重连竞态(旧 onclose 与新连接竞争)。
+    this.generation += 1
+    if (this.ws) {
+      try {
+        this.ws.close()
+      } catch {
+        // ignore
+      }
+      this.ws = null
+    }
+    this.closedByUser = false
+    this.reconnectAttempt = 0
+    this.connect()
+  }
+
+  private startHeartbeat(ws: WebSocketLike): void {
+    const interval = this.options.heartbeatInterval ?? 30000
+    const heartbeatMessage = this.options.heartbeatMessage ?? (() => 'ping')
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
+    this.heartbeatTimer = setInterval(() => {
+      if (ws.readyState === WS_OPEN) {
+        try {
+          ws.send(heartbeatMessage())
+        } catch {
+          // 心跳失败等 onclose 重连
+        }
+      }
+    }, interval)
+  }
+
+  private scheduleReconnect(): void {
+    const token = this.options.tokenProvider()
+    if (!token) return
+    const maxDelay = this.options.maxReconnectDelay ?? 30000
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempt, maxDelay)
+    this.reconnectAttempt += 1
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = setTimeout(() => this.connect(), delay)
+  }
+
+  private clearTimers(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+  }
+}
+
+// ===================== 通知专用工厂 =====================
+
+/** 类型守卫:判断数据是否为合法的 WSNotification 消息 */
+export function isWSNotification(data: unknown): data is WSNotification {
+  if (typeof data !== 'object' || data === null) return false
+  const d = data as WSNotification
+  return d.type === 'notification' && !!d.data
+}
+
+/**
+ * 构建 WebSocket 通知客户端的 URL(与 web 端 buildWsUrl 一致)。
+ * 根据当前页面协议自动选择 ws: / wss:。
+ */
+export function buildNotificationWsUrl(baseUrl: string, token: string): string {
+  // baseUrl 形如 https://api.example.com 或 http://localhost:8801
+  const url = new URL(baseUrl)
+  const proto = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${url.host}/ws/notifications?token=${encodeURIComponent(token)}`
+}
+
+/**
+ * 用 access token 换取短期 WS ticket(POST /ws/ticket)。
+ *
+ * access token 走 Authorization header(不进 URL/访问日志),换回的 WS token
+ * 5 分钟过期且 type='ws' 隔离,即使经 URL 泄漏也无法访问 REST API。
+ *
+ * 返回 null 表示换票失败(网络/HTTP/JSON 解析/无全局 fetch),调用方应降级
+ * 为直连 access token(服务端 wsAuth 兼容双 token)。
+ *
+ * **401 ⇒ 续期一次再换**(2026-10-26 收口):access token 只有 15 分钟,过期时
+ * 换票端点恒 401。此前这个语义只住在 WebSocketClient.connectInternal 的调用侧
+ * (换票为空 ⇒ 续期 ⇒ 再换),于是**直调本函数的调用方**(web 的 use-ai-ws-business)
+ * 拿不到续期 —— 换票恒 401 ⇒ 拿旧 access 降级直连 ⇒ 服务端 4003 拒 ⇒ 重连循环。
+ * 现下沉到本函数:所有调用方(含直调方)自动获得同一语义。
+ * 非 401 的失败(网络/5xx/无全局 fetch)仍原样返回 null 走降级直连 ——
+ * 降级不是错误,不得因此中断建连。
+ *
+ * 跨端:依赖全局 fetch(web/RN/extension 均有);小程序环境无全局 fetch 时
+ * 返回 null 降级,各端也可通过 overrides.ticketProvider 注入自定义实现。
+ */
+export async function fetchWsTicket(baseUrl: string, accessToken: string): Promise<string | null> {
+  if (typeof fetch === 'undefined') return null
+  const url = `${baseUrl.replace(/\/$/, '')}/ws/ticket`
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.status === 401) {
+      // access 过期 ⇒ 续期一次,用新 access 重换一次;续期失败或重换仍失败 ⇒ null(降级)
+      const fresh = await refreshAccessTokenOnce()
+      if (!fresh) return null
+      const retry = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${fresh}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!retry.ok) return null
+      const retryBody = (await retry.json()) as { data?: { wsToken?: unknown } }
+      const retryToken = retryBody?.data?.wsToken
+      return typeof retryToken === 'string' && retryToken.length > 0 ? retryToken : null
+    }
+    if (!res.ok) return null
+    const body = (await res.json()) as { data?: { wsToken?: unknown } }
+    const wsToken = body?.data?.wsToken
+    return typeof wsToken === 'string' && wsToken.length > 0 ? wsToken : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 创建通知专用 WebSocket 客户端(预配置消息守卫 + 通知端点)。
+ *
+ * 各端只需提供 baseUrl + tokenProvider + handlers 即可:
+ * ```ts
+ * const client = createNotificationClient({
+ *   baseUrl: 'https://api.example.com',
+ *   tokenProvider: () => getToken(),
+ * }, { onMessage: (msg) => ... })
+ * ```
+ */
+export function createNotificationClient(
+  config: { baseUrl: string; tokenProvider: () => string | null },
+  handlers: WebSocketClientHandlers<WSNotification> = {},
+  overrides: Partial<WebSocketClientOptions<WSNotification>> = {},
+): WebSocketClient<WSNotification> {
+  return new WebSocketClient<WSNotification>(
+    {
+      urlBuilder: (token) => buildNotificationWsUrl(config.baseUrl, token),
+      tokenProvider: config.tokenProvider,
+      messageGuard: isWSNotification,
+      // 默认启用短期 ticket:access token 不再直接经 URL 暴露;
+      // 换票失败自动降级直连(服务端 wsAuth 兼容双 token),可通过
+      // overrides.ticketProvider 覆盖(小程序注入自定义实现或显式禁用)
+      ticketProvider: (accessToken) => fetchWsTicket(config.baseUrl, accessToken),
+      ...overrides,
+    },
+    handlers,
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

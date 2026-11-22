@@ -1,0 +1,841 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useChatStore, type ChatMessage, type ChatRole } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
+import { useAuthStore } from '@/stores/auth'
+import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { getSamplingParams } from '@/stores/sampling-params'
+import { getAppearanceConfig } from '@/stores/appearance-settings'
+import { buildAiStyleDirective } from '@/lib/ai-style-directive'
+import { getTimelineStoreForChatStore } from '@/stores/timeline-store'
+import { toast } from '@/components/common'
+// D131:主对话流连接状态位的信号出口(侧问题流与主流同一状态位,不得各立一套)
+import {
+  clearStreamConnection,
+  markStreamDisconnected,
+  markStreamReconnecting,
+} from '@/components/chat/connection-status-bar'
+import {
+  streamChat,
+  formatSSEError,
+  postToolResult,
+  getMessages,
+  type ToolDelegateEvent,
+  type WorkspacePermissionMode,
+  // G-425:done 帧携带上游 finish/stop reason(截断提示数据源)
+  type FinishReasonEvent,
+  // 遵循统一工程规范):准入两格(inputId / 回执回调)已由
+  // api-client StreamChatOptions 正式导出(B 路到场,dist 已重建),桥接类型已收编删除。
+  type StreamChatOptions,
+} from '@ihui/api-client'
+import { logger } from '@/lib/logger'
+// G-248/G-916415 R1 web 腿:帧级 traceId 的错误上报消费点(与 send-message.ts 对称)
+import { buildStreamErrorReport, reportStreamError } from './stream-error-report'
+import { getModelContextCapacity } from '@/lib/model-context-capacity'
+import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
+import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
+import {
+  filePathOfArgs,
+  getFileAttribution,
+  saveFileAttribution,
+} from '@/lib/line-attribution-store'
+import type { AttributionRange } from '@ihui/shared/attribution'
+import {
+  mapSpawnToTimelineEvent,
+  mapProgressToTimelineUpdate,
+  mapEndToTimelineUpdate,
+} from '@/lib/subagent-timeline-mapper'
+import { loadBrowserWorkspaceContext } from './workspace'
+import {
+  eduToolsFor,
+  fileToolsFor,
+  financeToolsFor,
+  hrToolsFor,
+  mergeAgentTools,
+  videoToolsFor,
+} from './tool-config'
+// Runtime 插话能力声明落库口(与 send-message.ts 同一入口)
+import { noteRuntimeCapabilities } from './runtime-capabilities'
+import {
+  clearCompactionPreview,
+  createToolCallHandler,
+  createOpenAiToolCallHandler,
+  createToolSummaryHandler,
+  createReviewFindingHandler,
+  createUsageHandler,
+  createAgentDeltaBatcher,
+  localizeQuotaExhausted,
+  isMaxTokensTruncatedFinishReason,
+} from './stream-handlers'
+// 2026-10-28 流式观感档续:send-answer 正文/思考两泵与 sendMessage 同谱换 smooth
+// (逐帧推进,落后越多追越快;batch/flush/cancel 契约逐参数一致,drop-in)。
+import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
+import type { PlanStep, TerminalTask } from '@ihui/types/ai'
+import type { ChatActionContext } from './types'
+// 遵循统一工程规范):命名错误码 → 分类处置(动作 / 可重试)。
+// 纯判据与文案键都在共享层与 lib/stream-error-view,本文件只做拼装与落地。
+import {
+  emitPlannedStreamErrorToast,
+  planStreamErrorToast,
+  presentStreamError,
+  type StreamErrorPresentation,
+} from '@/lib/stream-error-view'
+// 遵循统一工程规范):发送准入回执配对。
+// 每条续答一个稳定 inputId;回执缺席时凭正文增量或流尾定性。响应头不算收下。
+// 收场时零证据落 `unconfirmed` —— 绝不把"不知道送没送到"渲染成"已收下"。
+import { createInputId, createSendAdmissionTracker } from '@ihui/shared/chat'
+// 2026-11-08 立:内联提问卡的阻塞式答复上行(404/失败回退旧链路)
+import {
+  buildLegacyAnswerText,
+  postQuestionResponse,
+  type QuestionAnswerPayload,
+  type QuestionResponseStatus,
+} from './question-response'
+import { applyQuestionResolvedEvent, parseQuestionResolvedPayload } from './question-resolved'
+import { persistQuestionSafe } from './persistence'
+
+export function createSendAnswer(
+  ctx: ChatActionContext,
+  chatStore: ChatStore = useChatStore,
+): (answer: string, opts?: { fromRetry?: boolean }) => Promise<void> {
+  const {
+    t,
+    setFallbackNotice,
+    abortRef,
+    lastSentAnswerRef,
+    streamGenerationRef,
+    streamConversationRef,
+    streamErrorLabels,
+  } = ctx
+  // 票60 普查批(2026-10-21):timeline 按 chatStore 反查 paneId 取窗格实例
+  // (根单例 chatStore ⇒ null ⇒ 回落根单例)。
+  const timelineStore = getTimelineStoreForChatStore(chatStore)
+  const sendAnswer = async (answer: string, opts?: { fromRetry?: boolean }) => {
+    const trimmed = answer.trim()
+    if (!trimmed) return
+    const store = chatStore.getState()
+    const pending = store.pendingQuestion
+    if ((!pending && !opts?.fromRetry) || store.isStreaming) return
+    // fromRetry 时 pending 已被清除,questionId 从 lastSentAnswerRef 恢复
+    const questionId = pending?.questionId ?? lastSentAnswerRef.current?.questionId
+    if (!questionId) return
+
+    // #10 入口存储 lastSentAnswerRef(2026-07-25 立):catch 块 retry 按钮用
+    lastSentAnswerRef.current = { answer: trimmed, questionId }
+
+    // 立即关闭弹窗,避免重复提交
+    store.clearPendingQuestion()
+
+    const model = store.currentModel
+
+    // 历史消息(不含 answer,后端 /chat/answer 自动 append answer 到末尾)
+    const history = store.messages
+      .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
+      .map((m) => ({ role: m.role, content: m.content }))
+
+    // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
+    store.addMessage({ role: 'user', content: trimmed, model })
+    // 记录续流时的工作区权限模式(2026-07-25 深化,深度遵循统一工程规范)
+    // 2026-08-31:未绑定工作区时读暂存模式
+    const permState = useAiPanelStore.getState()
+    const currentMode: WorkspacePermissionMode | undefined =
+      permState.activeWorkspace?.mode ?? permState.pendingPermissionMode ?? undefined
+    const assistantId = store.addMessage({
+      role: 'assistant',
+      content: '',
+      model,
+      permissionMode: currentMode,
+    })
+
+    store.setStreaming(true)
+    // D131:与主流同一口径 —— 续答开始即把连接位归零,断开态只在这里清
+    clearStreamConnection()
+    store.setError(null)
+    store.resetSubAgentActivities()
+    // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
+    setFallbackNotice(null)
+    // D130(2026-09-30 立,与 send-message.ts 每轮发起前那一格同姿势):清**上一轮**的钉档回落通知。
+    // 不清的表现:上一轮被后端钉档、这一轮换了模型或压根没选档,轴上还挂着"推理强度已调整为 …",
+    // 读起来像本轮发生了什么 —— 本仓记过多次的"上一轮瞬时态挂到下一轮的卡上"同一型
+    // (terminalInteractions / steer 提示条 / fallback 通知都按这条清过)。
+    // 清的是**同一个 store 键**,不在续答支里另起第二份通知态(那样两端各有一条轴读得懂的账)。
+    chatStore.getState().setReasoningEffortNotice(null)
+    // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):记录当前流式 assistant 消息 ID
+    store.setStreamingAssistantId(assistantId)
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    // 2026-08-21 修复(C2/C3):流代际与绑定会话(与 sendMessage 对称)
+    const streamGeneration = ++streamGenerationRef.current
+    const convAtStart = store.conversationId
+    streamConversationRef.current = convAtStart
+
+    // #13 首 token 超时区分 reasoning(2026-07-25 立,与 sendMessage 对称)
+    // 2026-07-27 修复:15s → 30s(与 sendMessage 同步,防冷启动误 abort)
+    let firstContentTokenReceived = false
+    let firstReasoningTokenReceived = false
+    let abortedByTimeout15s = false
+    let abortedByTimeout60s = false
+    const timeout15sId = setTimeout(() => {
+      if (!firstContentTokenReceived && !firstReasoningTokenReceived) {
+        abortedByTimeout15s = true
+        controller.abort()
+      }
+    }, 30000)
+    const timeout60sId = setTimeout(() => {
+      if (!firstContentTokenReceived && firstReasoningTokenReceived) {
+        abortedByTimeout60s = true
+        controller.abort()
+      }
+    }, 60000)
+
+    // #9 流式 token 节流(2026-07-25 立,与 sendMessage 对称)
+    // 2026-10-28:与 sendMessage 同谱升 smooth(此前 answer 链两泵仍是帧级整坨)。
+    const contentBatcher = createSmoothDeltaBatcher((d) =>
+      chatStore.getState().appendToMessage(assistantId, d),
+    )
+    const reasoningBatcher = createSmoothDeltaBatcher((d) =>
+      chatStore.getState().appendReasoningToMessage(assistantId, d),
+    )
+    const agentBatcher = createAgentDeltaBatcher()
+
+    const userId = useAuthStore.getState().user?.id ?? ''
+    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+    // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(与 sendMessage 对称)
+    const workspaceContext = await loadBrowserWorkspaceContext()
+
+    // 2026-08-06 立:与 sendMessage 对称,删除 'auto' → stepfun/step-router-v1 降级,
+    // 让 'auto' 透传到 ai-service 跨厂商路由(详见 line 1246-1249 注释)。
+    const effectiveModel = model
+    // 2026-08-07 修复:与 sendMessage 对称,无工作区时给用户一次性 toast(避免 fs 工具静默失败)
+    let noWorkspaceNoticeShown = false
+    const notifyNoWorkspace = (reason: string): void => {
+      if (noWorkspaceNoticeShown) return
+      noWorkspaceNoticeShown = true
+      toast.warning('未选择工作区,文件类工具无法执行', {
+        description: `${reason}。请在 AI 面板选择一个工作区后再发起对话,或选择不需要文件操作的提问。`,
+        duration: 6000,
+      })
+    }
+    // P1-6 断点续传(2026-09-13 立):与 sendMessage 对称——续答流开始先标记该助手消息
+    // 「未完成」;中途刷新页面时 finally 不执行,标记保持 false,页面重挂载后据此续接。
+    chatStore.getState().setMessageStreamCompleted(assistantId, false)
+    // Qoder 第 9 项:本轮的准入跟踪器。inputId 在这里生成(发送前),随后随请求上行;
+    // 服务端若回执则按同一 inputId 配对(见 onResponse/onDelta 的 noteEvidence 与最终 settle)。
+    const admission = createSendAdmissionTracker({
+      inputId: createInputId(),
+      messageId: assistantId,
+    })
+    /** 把准入态落到消息 meta(唯一写点;值等价时 store 侧等价即不写,见其注释)。 */
+    const flushAdmission = (): void => {
+      chatStore.getState().updateMessageMeta(assistantId, admission.metaPatch())
+    }
+    flushAdmission()
+    /**
+     * 与主发送链同一出口(`presentStreamError`)。命名码走目录,未收录只用兜底句。
+     */
+    const announceStreamError = (input: {
+      errorCode?: string
+      fallbackTitle: string
+      fallbackMessage: string
+      rawNote?: string
+      severity?: string
+    }): StreamErrorPresentation => {
+      const presented = presentStreamError({
+        errorCode: input.errorCode,
+        fallbackTitle: input.fallbackTitle,
+        fallbackMessage: input.fallbackMessage,
+        rawNote: input.rawNote,
+        labels: streamErrorLabels,
+      })
+      emitPlannedStreamErrorToast(
+        planStreamErrorToast(presented, input.severity),
+        t('retry'),
+        toast,
+        {
+          retry: () => {
+            const last = lastSentAnswerRef.current
+            if (last) sendAnswer(last.answer, { fromRetry: true })
+          },
+          relogin: () => useLoginDialogStore.getState().open('login'),
+        },
+      )
+      return presented
+    }
+    try {
+      const answerContextLimit = getModelContextCapacity(effectiveModel)
+      // 2026-09-21 修复(与 sendMessage 对称):仅当上下文占用已达后端 88% 压缩阈值,
+      // 才显示"正在压缩上下文"预告;原实现无条件点亮且无兜底回收,会全站常驻。
+      if (isContextAtCompactionThreshold(store.messages, answerContextLimit)) {
+        chatStore.getState().setCompactionStatus({ phase: 'compacting' })
+      }
+      logger.debug(
+        '[Compaction] sendAnswer contextLimit=',
+        answerContextLimit,
+        'model=',
+        effectiveModel,
+        'history=',
+        history.length,
+      )
+
+      // P1-7(2026-09-13 立):续答同样应用会话级高级参数(与 sendMessage 对称)
+      const samplingParams = getSamplingParams(store.conversationId)
+      // 2026-11-15(外观设置):追问应答与首答同一份风格指令,避免多轮语气不一致。
+      const mergedSystemPrompt = [
+        samplingParams.systemPrompt,
+        buildAiStyleDirective(getAppearanceConfig()),
+      ]
+        .map((s) => s?.trim())
+        .filter((s): s is string => !!s)
+        .join('\n\n')
+
+      const streamOpts: StreamChatOptions & {
+        onQuestionResolved?: (frame: unknown) => void
+      } = {
+        model: effectiveModel,
+        messages: history,
+        path: '/ai/chat/answer',
+        // P1-7:采样参数透传(undefined = 模型默认)
+        temperature: samplingParams.temperature,
+        topP: samplingParams.topP,
+        topK: samplingParams.topK,
+        maxTokens: samplingParams.maxTokens,
+        // D130(2026-09-30 立,F1 补刀 2026-09-29):推理强度档位 —— 与首答(send-message.ts 的
+        // streamChat 实参)**同一个表达式、同一份发送时快照**,不另起一条实时读取,也不在端内
+        // 抄第二份档位字面量(§"两处算同一件事必须共用一份实现";第二份表由本目录 D130④ 判红)。
+        // 不接这一格的后果不在编译期:续答那一轮静默回落到后端默认档,而界面仍显示用户选的档 ——
+        // 同一条回复里"停止 / 重新生成 / 续答"三个动作会换档,两边都读不出错。
+        // undefined = api-client 侧判空不写 body ⇒ 没碰过这条轴的用户零行为变化。
+        reasoningEffort: samplingParams.reasoningEffort,
+        // D09(2026-10-24 立):专家包自动路由档位(与 sendMessage 对称;null = 未表态不发)
+        expertAutoRoute: chatStore.getState().expertAutoRoute ?? undefined,
+        // D01(2026-10-25 立):对话内选中的专家 —— 续答与首答**同一份发送时快照**。
+        // 不接这一格的话,首答带专家、用户回答完 AI 提问后那一轮静默回落默认助手,
+        // 界面胶囊仍显示已选(同 D130 那型"两边都读不出错")。
+        personaId: chatStore.getState().selectedAgentId ?? undefined,
+        // P1 #26(2026-09-16 立):知识库默认注入开关(与 sendMessage 对称;
+        // undefined = 后端默认开,false = 显式关闭)
+        knowledgeContext: samplingParams.knowledgeContext,
+        extraBody: {
+          // 2026-08-21 修复(C4):fromRetry 时 pending 为 null,用入口恢复的 questionId
+          questionId,
+          answer: trimmed,
+          // 2026-11-16 用户定档:模式固定 build(全工具开放),不再由用户选择。
+          mode: 'build',
+          // P1-7:自定义 system prompt(未设置时不传,保持上游默认)
+          ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
+        },
+        signal: controller.signal,
+        metadata: {
+          conversationId: store.conversationId ?? undefined,
+          userId,
+          messageId: assistantId,
+        },
+        // Qoder 第 9 项(2026-10-30,与 send-message.ts 同谱):本轮稳定输入标识随请求上行,
+        // 服务端准入回执按同一 inputId 配对(不配对的回执由 tracker 内部丢弃)。
+        inputId: admission.inputId,
+        onSendAdmissionReceipt: (receipt) => {
+          if (admission.accept(receipt).changed) flushAdmission()
+        },
+        // 2026-08-15 立:显式声明流式,后端 detectStreamUsage 依赖 stream===true 才启用 usage chunk。
+        stream: true,
+        workspacePath,
+        workspaceContext,
+        contextLimit: answerContextLimit,
+        onCompaction: async (info) => {
+          // 2026-08-21 修复(C2):压缩结果只允许写回发起流的会话(与 sendMessage 对称)
+          if (chatStore.getState().conversationId !== convAtStart) return
+          // 显示底部压缩状态栏(2026-08-16 立)
+          chatStore.getState().setCompactionStatus({
+            phase: 'done',
+            tokensBefore: info.tokensBefore,
+            tokensAfter: info.tokensAfter,
+            removedCount: info.removedCount,
+            // A10B-8:透传截断量(undefined 原样带上 —— 它区分"未告知"与"告知为 0")
+            truncatedCount: info.truncatedCount,
+            trigger: info.trigger,
+          })
+
+          // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
+          const compressedMessages = info.compressedMessages as
+            Array<{ role: ChatRole; content: string }> | undefined
+          if (compressedMessages && compressedMessages.length > 0) {
+            const localMessages = chatStore.getState().messages
+            const lastLocal = localMessages[localMessages.length - 1]
+            const hasLocalAssistant =
+              lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
+            const converted: ChatMessage[] = compressedMessages.map((m) => ({
+              id: crypto.randomUUID(),
+              role: m.role,
+              content: m.content,
+              createdAt: Date.now(),
+              model: '',
+            }))
+            const finalMessages = hasLocalAssistant ? [...converted, lastLocal] : converted
+            chatStore.getState().setMessages(finalMessages)
+            return
+          }
+
+          // 兜底:旧版本后端未携带 compressedMessages 时,仍从后端重新加载
+          const currentConversationId = chatStore.getState().conversationId
+          if (!currentConversationId) return
+
+          try {
+            const result = await getMessages(currentConversationId, {
+              direction: 'initial',
+              pageSize: 100,
+            })
+            if (!result.success || !result.data) return
+            const remoteMessages = result.data.messages
+
+            // 保留前端本地当前 assistant 消息(流式输出中,后端可能尚未持久化)
+            const localMessages = chatStore.getState().messages
+            const lastLocal = localMessages[localMessages.length - 1]
+            const hasLocalAssistant =
+              lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
+            const remoteIds = new Set(remoteMessages.map((m) => m.id))
+            const keepLocalAssistant = hasLocalAssistant && !remoteIds.has(assistantId)
+
+            const converted: ChatMessage[] = remoteMessages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              createdAt: new Date(m.createdAt).getTime(),
+              model: '',
+              reasoning: m.reasoning,
+            }))
+
+            const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
+
+            chatStore.getState().setMessages(finalMessages)
+          } catch (e) {
+            console.error('压缩后同步消息失败:', e)
+          }
+        },
+        // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
+        onFallback: (event) => setFallbackNotice(event),
+        // D130(2026-09-30 立,续答通知补刀):后端把用户选的档位钉回时的回落通知 → 写进 store,
+        // 输入区第三轴(reasoning-effort-input-axis)读它。这一格与首答(send-message.ts 的
+        // onReasoningEffortNotice)**同一份形态**:同一个 store action、把回调入参 info 原样落,
+        // 不另起第二个 store 键、不在端内抄档位文案(文案由轴组件从词包取,两端共读一份)。
+        // 不接的后果不在编译期:续答那一轮请求体带档了、后端仍可能钉档,而界面上什么都没说 ——
+        // 用户看到的是"我选的 high,回复像默认档",而账面全绿(守门 64/70/81/115 那一族)。
+        // api-client 只在真有回落时才回调(fallback=false 不回调),所以这里不二次判等,直接落。
+        onReasoningEffortNotice: (info) => {
+          chatStore.getState().setReasoningEffortNotice(info)
+        },
+        // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):tool loop 边界注入确认
+        // 写入消息级引导徽章数据,messageId 缺省回退本条 assistant 消息 ID。
+        onSteer: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId || !evt.text) return
+          chatStore.getState().appendSteerNotice(targetId, {
+            text: evt.text,
+            timestamp: evt.timestamp,
+          })
+        },
+        // P1 重连提示(2026-08-02 立,与 sendMessage 对称):streamChat 自动重连时 toast 通知用户
+        onReconnect: (attempt: number, delay: number) => {
+          // D131:侧问题流的重连同样落到常驻状态位(与主流同一信号源)
+          markStreamReconnecting(attempt)
+          const reconnectingMsg =
+            t('reconnecting') === 'reconnecting' ? 'Reconnecting...' : t('reconnecting')
+          const attemptMsg =
+            t('reconnectAttempt', { n: String(attempt), ms: String(delay) }) === 'reconnectAttempt'
+              ? `Attempt ${attempt}, retrying in ${delay}ms`
+              : t('reconnectAttempt', { n: String(attempt), ms: String(delay) })
+          toast.info(reconnectingMsg, { description: attemptMsg })
+        },
+        // 2026-07-27 修复:与 sendMessage 同步,response 到达即清除 timeout15s
+        // 2026-08-16 立:与 sendMessage 对称,收到响应后立即清除压缩中状态(无论是否触发压缩)
+        onResponse: () => {
+          clearTimeout(timeout15sId)
+          clearCompactionPreview()
+          // 响应头不记准入,与主发送链同一条:连接建立不等于服务端收下这一轮。
+        },
+        // 2026-11-08 立:续答流里模型再次提问(阻塞式工具可在同一轮多次调用)——
+        // 与首答(send-message.ts 的 onQuestion)同形落地,内联卡在续答面上同样可见。
+        onQuestion: (q) => {
+          if (q.sessionId) chatStore.getState().noteStreamSessionId(q.sessionId)
+          const ext = q as typeof q & { expiresAt?: string | number; header?: string }
+          chatStore.getState().setPendingQuestion({
+            questionId: q.questionId,
+            prompt: q.prompt,
+            options: q.options,
+            allowCustom: q.allowCustom,
+            allowMultiple: q.allowMultiple,
+            ...(ext.header ? { header: ext.header } : {}),
+            ...(ext.expiresAt !== undefined ? { expiresAt: ext.expiresAt } : {}),
+            assistantMessageId: assistantId,
+          })
+          const convId = chatStore.getState().conversationId
+          if (convId) {
+            void persistQuestionSafe(convId, {
+              questionId: q.questionId,
+              prompt: q.prompt,
+              options: q.options,
+              allowCustom: q.allowCustom,
+              allowMultiple: q.allowMultiple,
+            })
+          }
+        },
+        // 2026-11-08 立:`question-resolved` 结算帧(与 send-message 对称;api-client 补解析后生效)
+        onQuestionResolved: (frame) => {
+          const resolved = parseQuestionResolvedPayload(frame)
+          if (resolved) applyQuestionResolvedEvent(chatStore, resolved)
+        },
+        onUsage: (usage) => {
+          // 流尾帧:与 sendMessage 同一姿势落 Runtime 插话能力声明(读不到不写)。
+          noteRuntimeCapabilities(usage)
+          // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
+          // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
+          chatStore.getState().updateMessageMeta(assistantId, { usage })
+          // D1 消息级计量(2026-09-19 立):写入 store.usageByMessageId,驱动消息底部徽章行。
+          createUsageHandler(assistantId)(usage)
+        },
+        onDelta: (delta) => {
+          if (!firstContentTokenReceived) {
+            firstContentTokenReceived = true
+            clearTimeout(timeout15sId)
+            clearTimeout(timeout60sId)
+          }
+          // Qoder 第 9 项:首帧正文 = 上游模型已在产出 ⇒ 准入已成立(隐式证据)。
+          if (admission.noteEvidence('delta').changed) flushAdmission()
+          contentBatcher.batch(delta)
+        },
+        onAgentDelta: (agentId, delta) => {
+          if (!firstContentTokenReceived) {
+            firstContentTokenReceived = true
+            clearTimeout(timeout15sId)
+            clearTimeout(timeout60sId)
+          }
+          agentBatcher.batch(agentId, delta)
+        },
+        onReasoning: (delta) => {
+          if (!firstReasoningTokenReceived) {
+            firstReasoningTokenReceived = true
+            // 2026-07-27 修复:与 sendMessage 同步,收到 reasoning 即清除 timeout15s
+            clearTimeout(timeout15sId)
+          }
+          reasoningBatcher.batch(delta)
+        },
+        onToolCall: createToolCallHandler(assistantId),
+        // 2026-11-05 立:续流同样订阅工具入参逐分片态(与 sendMessage 对称)。
+        // 该链路本就没有 onToolDelta 腿,不要顺带改动既有 Vercel 回调表。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
+        // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
+        // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
+        // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
+        onSubagentSpawn: (evt) => {
+          chatStore.getState().addSubagentSpawn(evt)
+          timelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+        },
+        onSubagentProgress: (evt) => {
+          chatStore.getState().updateSubagentProgress(evt)
+          const update = mapProgressToTimelineUpdate(evt)
+          if (update) timelineStore.getState().updateEvent(update.id, update.updates)
+        },
+        onSubagentEnd: (evt) => {
+          chatStore.getState().markSubagentEnd(evt)
+          const update = mapEndToTimelineUpdate(evt)
+          if (update) timelineStore.getState().updateEvent(update.id, update.updates)
+        },
+        // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
+        onToolSummary: createToolSummaryHandler(assistantId),
+        // D115(2026-10-24,与 sendMessage 对称):review 结论帧逐条落 store,
+        // MessageItem 按 message.id 订阅渲染 ReviewFindingsCard。
+        onReviewFinding: createReviewFindingHandler(assistantId),
+        // 2026-08-01 Phase 4a:与 sendMessage 对称,消息级 plan/terminal 事件落地
+        onPlanUpdate: (evt) => {
+          if (!evt.messageId) return
+          const steps: PlanStep[] = evt.plan.map((item, i) => ({
+            id: `plan-${i}-${item.step.slice(0, 16)}`,
+            step: item.step,
+            status: item.status,
+            explanation: evt.explanation,
+            startedAt: item.startedAt,
+            endedAt: item.endedAt,
+            durationMs: item.durationMs,
+            tokenUsage: item.tokenUsage,
+            messageId: evt.messageId,
+          }))
+          chatStore.getState().setMessagePlanSteps(evt.messageId, steps)
+        },
+        onTerminalStart: (evt) => {
+          if (!evt.messageId) return
+          const task: TerminalTask = {
+            id: evt.terminalId,
+            command: evt.command,
+            status: 'running',
+            startedAt: evt.startedAt ?? new Date().toISOString(),
+            messageId: evt.messageId,
+          }
+          chatStore.getState().appendMessageTerminalTask(evt.messageId, task)
+        },
+        onTerminalEnd: (evt) => {
+          if (!evt.messageId) return
+          chatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
+            status: evt.status,
+            output: evt.output,
+            exitCode: evt.exitCode,
+            endedAt: evt.endedAt,
+            durationMs: evt.durationMs,
+          })
+        },
+        // 阶段 2:浏览器端工具执行代理(2026-08-02 立,与 sendMessage 对称)
+        // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
+        // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+        // 2026-08-07:与 sendMessage 对称,无工作区 toast 提示
+        onToolDelegate: async (event: ToolDelegateEvent) => {
+          const ws = useAiPanelStore.getState().activeWorkspace
+          if (!ws?.name) {
+            notifyNoWorkspace('当前没有活跃工作区')
+            await postToolResult(event.session_id, event.tool_call_id, null, 'No active workspace')
+            return
+          }
+          const handle = getBrowserWorkspaceHandle(ws.name)
+          if (!handle) {
+            notifyNoWorkspace('工作区未授权目录访问权限')
+            await postToolResult(
+              event.session_id,
+              event.tool_call_id,
+              null,
+              'No browser workspace handle',
+            )
+            return
+          }
+          // 行级归因旁路:与 sendMessage 同口径,由执行器按真实前后 diff 标记 AI 行
+          const attribution = {
+            origin: {
+              at: new Date().toISOString(),
+              sessionId: event.session_id,
+              toolCallId: event.tool_call_id,
+            },
+            records: getFileAttribution(ws.name, filePathOfArgs(event.args)),
+            onRecord: (ranges: AttributionRange[]) =>
+              saveFileAttribution(ws.name, filePathOfArgs(event.args), ranges),
+          }
+          const execResult = await executeWorkspaceTool(
+            event.tool_name,
+            event.args,
+            handle,
+            attribution,
+          )
+          await postToolResult(
+            event.session_id,
+            event.tool_call_id,
+            execResult.result,
+            execResult.error,
+          )
+        },
+        // 2026-08-29 修复:与 sendMessage 对称,仅当用户显式启用插件工具时才携带 agentTools。
+        // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)
+        // 2026-09-19:消息含教育管理意图(催费/欠费/学费/缴费/退费/账单)时条件携带对应 edu_* 工具
+        // 2026-09-21:文件/代码意图条件携带文件工具族(与 sendMessage 对称),否则模型无法读改文件
+        ...(() => {
+          const agentTools = [
+            ...new Set([
+              ...mergeAgentTools(chatStore, 'build'),
+              ...eduToolsFor(answer),
+              ...fileToolsFor(answer),
+              ...videoToolsFor(answer),
+              ...financeToolsFor(answer),
+              ...hrToolsFor(answer),
+            ]),
+          ]
+          return agentTools.length > 0 ? { agentTools } : {}
+        })(),
+        // G-425(2026-10-07 立,默认档"只提示"):续答流同判截断 —— done 帧 finishReason
+        // 判"输出被 max_tokens 截断"用 stream-handlers 的唯一助手(与 sendMessage 同一口径、
+        // 同一五语言键 truncation.maxLengthNotice);其余 reason 不提示,不自动续写。
+        onFinishReason: (evt: FinishReasonEvent) => {
+          if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+            toast.warning(t('truncation.maxLengthNotice'))
+          }
+        },
+        onError: (errMsg, info) => {
+          // D131(2026-09-29 立):与主流同形 —— 续答以错误收场时落"已断开"并占位
+          markStreamDisconnected(errMsg)
+          // G-248/G-916415 R1 web 腿(2026-10-17 立):与 sendMessage 对称 ——
+          // 帧级 traceId 随流错误进上报体(缺席 = 无键纪律见 stream-error-report.ts)
+          reportStreamError(buildStreamErrorReport({ message: errMsg, info }))
+          // #9 错误前先 flush 累积 token,避免最后一批内容丢失
+          contentBatcher.flush()
+          reasoningBatcher.flush()
+          agentBatcher.flushAll()
+          const formatted = formatSSEError(errMsg, info)
+          const ec = info?.errorCode
+          const quotaNotice = localizeQuotaExhausted(ec, t)
+          const rawNote =
+            formatted.severity === 'auth'
+              ? formatted.message
+              : ec
+                ? `[${ec}] ${formatted.rawMessage}`
+                : formatted.rawMessage
+          const presented = announceStreamError({
+            errorCode: ec,
+            fallbackTitle: quotaNotice?.title ?? formatted.title,
+            fallbackMessage: quotaNotice?.message ?? formatted.message,
+            rawNote,
+            severity: formatted.severity,
+          })
+          chatStore.getState().setMessageError(assistantId, presented.message, formatted.errorCode)
+          chatStore.getState().setError(presented.message)
+          if (formatted.severity === 'auth' || presented.action === 'relogin') {
+            useLoginDialogStore.getState().open('login')
+          }
+        },
+      }
+      await streamChat(streamOpts)
+    } catch (err) {
+      // #9 catch 前先 flush 累积 token
+      contentBatcher.flush()
+      reasoningBatcher.flush()
+      agentBatcher.flushAll()
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // 用户主动 stop 静默。超时两档走与主链同一个呈现出口(兜底句是既有 i18n 超时文案)。
+        if (abortedByTimeout15s || abortedByTimeout60s) {
+          const formatted = formatSSEError(
+            err,
+            t(abortedByTimeout15s ? 'errorTimeout15s' : 'errorTimeout60s'),
+          )
+          const presented = announceStreamError({
+            errorCode: formatted.errorCode,
+            fallbackTitle: formatted.title,
+            fallbackMessage: formatted.message,
+            rawNote: formatted.message,
+            severity: formatted.severity,
+          })
+          chatStore.getState().setMessageError(assistantId, presented.message, formatted.errorCode)
+          chatStore.getState().setError(presented.message)
+        }
+      } else {
+        const formatted = formatSSEError(err)
+        const ec = formatted.errorCode
+        const quotaNotice = localizeQuotaExhausted(ec, t)
+        const presented = announceStreamError({
+          errorCode: ec,
+          fallbackTitle: quotaNotice?.title ?? formatted.title,
+          fallbackMessage: quotaNotice?.message ?? formatted.message,
+          rawNote: ec ? `[${ec}] ${formatted.rawMessage}` : formatted.rawMessage,
+          severity: formatted.severity,
+        })
+        chatStore.getState().setMessageError(assistantId, presented.message, formatted.errorCode)
+        chatStore.getState().setError(presented.message)
+        if (formatted.severity === 'auth' || presented.action === 'relogin') {
+          useLoginDialogStore.getState().open('login')
+        }
+      }
+    } finally {
+      clearTimeout(timeout15sId)
+      clearTimeout(timeout60sId)
+      // Qoder 第 9 项:本轮收场结算。有正文 ⇒ admitted;以失败/主动停止收场且**零证据**
+      // ⇒ unconfirmed(不是 admitted,也不是"没送到")。放在 finally 最前:它只读跟踪器
+      // 状态,与下面的 flush/cancel 无先后依赖,但必须在任何提前 return 之前落地。
+      const settled = admission.settle(
+        firstContentTokenReceived || firstReasoningTokenReceived
+          ? 'answered'
+          : // 用户主动 stop 走 abort,与"超时 abort"同为 abort 但语义不同:前者是
+            // `signal.aborted` 且两个 timeout 旗都没置;后者必有旗。两者都零证据时
+            // 都落 unconfirmed(该档文案对两者都成立:不知道送没送到)。
+            controller.signal.aborted
+            ? 'aborted'
+            : 'failed',
+      )
+      if (settled.changed) flushAdmission()
+      // 2026-07-27 修复"AI 响应不显示"(与 sendMessage 对称):先 flush 再 cancel
+      contentBatcher.flush()
+      reasoningBatcher.flush()
+      agentBatcher.flushAll()
+      // assistant 消息持久化由后端 ai-callback worker 权威负责(同 sendMessage finally 注释)。
+      // 2026-08-21 修复:删除此处前端持久化(曾每轮必现 400 误报 toast)。
+      contentBatcher.cancel()
+      reasoningBatcher.cancel()
+      agentBatcher.cancelAll()
+      // 2026-08-21 修复(C3):代际守卫(与 sendMessage 对称),旧流不清理新流全局状态
+      if (streamGenerationRef.current === streamGeneration) {
+        abortRef.current = null
+        // 2026-09-21 修复(与 sendMessage 对称):兜底回收"压缩中"预告态,防灰条全站常驻
+        clearCompactionPreview()
+        // G-703(2026-09-29 立,与 sendMessage 对称):终态走 store 的单一出口,一次回收
+        // isStreaming / streamingAssistantId / aiStreamSessionId 三键 —— 原先这里只清了前两个
+        // (各一行),上行寻址凭据没人管,于是上一轮的 sessionId 会活到下一轮。
+        chatStore.getState().clearRunScopedState()
+        chatStore.getState().markAllAgentStreamsDone()
+        // #23 续答路径对称(2026-11-05 补):流收尾时把仍处 running 的工具卡(含
+        // tool-call-args-delta 半构建入参的卡)置为 cancelled,避免续答断流时卡死在 running 预览。
+        chatStore.getState().revokePendingToolCalls(assistantId)
+      }
+      // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
+      // 与 sendMessage 同理,必须放在代际守卫之外:被切会话 abort 的旧流同样已终止。
+      chatStore.getState().setMessageStreamCompleted(assistantId, true)
+    }
+    return
+  }
+  return sendAnswer
+}
+
+/**
+ * 阻塞式答复编排(2026-11-08 立)。
+ *
+ * 优先打 `POST /llm/complete/stream/:sessionId/question-response`:
+ * - accepted / duplicate / 终态 → 只让内联卡进入只读终态,**不新增用户消息、不发起新一轮**
+ *   (模型侧还挂在那条流上等这一答,再开一轮就是同一条提问被答两遍)
+ * - HTTP 404(旧 marker 式提问,服务端没有阻塞等待)→ 走原有「新增用户答复消息 + 新一轮」
+ *   链路(sendAnswer),行为与旧弹窗完全一致
+ * - 网络/5xx → 保留旧链路回退**一次**,并 toast 一条可重试提示
+ *
+ * 拿不到 `aiStreamSessionId`(提问帧太早,流里还没出现工具/委派帧)时同样按旧链路处理:
+ * 阻塞端点的路径里没有会话 ID 可用,只能退回旧链路。
+ */
+export function createSubmitQuestionResponse(
+  ctx: ChatActionContext,
+  chatStore: ChatStore = useChatStore,
+): (response: QuestionAnswerPayload) => Promise<QuestionResponseStatus | void> {
+  const sendLegacyAnswer = createSendAnswer(ctx, chatStore)
+  const { t } = ctx
+  return async (response) => {
+    const store = chatStore.getState()
+    const pending = store.pendingQuestion
+    // 只认当前这一问:卡片已被结算/换成新提问时,迟到的提交直接丢弃
+    if (!pending || pending.questionId !== response.questionId) return
+
+    const legacy = async (): Promise<void> => {
+      // 撤回在旧链路里等价于「跳过提问」:不产用户消息,只收回挂起态
+      if (response.action === 'withdraw') {
+        chatStore.getState().clearPendingQuestion()
+        return
+      }
+      await sendLegacyAnswer(buildLegacyAnswerText(pending, response))
+    }
+
+    const sessionId = store.aiStreamSessionId
+    if (!sessionId) {
+      await legacy()
+      return
+    }
+
+    const outcome = await postQuestionResponse(sessionId, response)
+    if (outcome.kind === 'blocking') return outcome.status
+    if (outcome.kind === 'legacy') {
+      await legacy()
+      return
+    }
+
+    // 网络/5xx:先给重试提示,再保留一次旧链路回退(旧链路自身有"流式中不重入"守卫,
+    // 阻塞流仍挂着时不会并发开第二轮;此时只能等用户主动停止后再重试)
+    toast.error(t('question.responseFailed'), { description: outcome.message })
+    await legacy()
+    // 旧链路也没接管(阻塞流仍挂着,被 sendAnswer 的流式守卫拦下)→ 卡片保住输入态,
+    // 抛回给内联卡显示"可重试"提示;若旧链路已开新一轮,卡片已随流移除,无需再抛。
+    const stillPending = chatStore.getState().pendingQuestion
+    if (stillPending && stillPending.questionId === response.questionId) {
+      throw new Error(outcome.message)
+    }
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

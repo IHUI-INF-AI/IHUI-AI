@@ -1,0 +1,2528 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 镜像 packages/app/src/features/chat/ChatScreen.tsx
+
+import { aizhsUrl } from '@/constants/icon-urls'
+import { useI18n, useTt } from '@/i18n'
+const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
+const fileIcon = aizhsUrl('remote-images/file.png')
+import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+// BUG-67 提问卡:浮层节点已下沉到 ./chat-shell-extras 的 overlaySlot(共享屏既有槽位),
+// 页内不再挂 Taro View/Text 节点;本页 return 只保留 ThemeRoot + SharedChatScreen。
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import {
+  chatStream,
+  // G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(判据唯一实现住 api/index)
+  isMaxTokensTruncatedFinishReason,
+  postToolApprovalResponse,
+  type ChatMessage,
+  fetchModels,
+  getAigcList,
+  getAgentDetail,
+  getAgentList,
+  // 批次 3(2026-11-06):进入会话回放最近一次预算停止 / 七类账本 / 压缩边界。
+  // 三条查询均为静默失败(页面不回退 toast,账本缺席时用量位继续走现有估算)。
+  fetchConversationLatestBudgetStop,
+  fetchConversationContextLedgers,
+  fetchConversationCompactionBoundaries,
+} from '@/api'
+import {
+  formatSSEError,
+  getModelContextCapacity,
+  getWorkspacePermissionDefault,
+  // D20 服务端会话回放:消息体唯一出口(端内不得裸 Taro.request,守门 73)
+  getMessages,
+  // 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏的写链同样只走 api-client ——
+  // 端内不重写第二份 fetch,归属与错误码分流都在服务端那一条判据里。
+  setMessageFlags,
+  // 票59 小程序腿(2026-11-01):regenerate 的 sibling 契约写链 —— 与 web
+  // use-chat/send-message.ts 的 regenerateMessage 同一端点同一载荷键(POST
+  // /api/chat/conversations/:id/regenerate,响应 rootId/nextSiblingIndex)。
+  regenerateConversation,
+  // D77(2026-10-17):业务表单应答上行 —— 唯一装配/传输出口(buildFormResponseEvent +
+  // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
+  buildFormResponseEvent,
+  postFormResponse,
+} from '@ihui/api-client'
+import { formatTokenCount } from '@ihui/shared/utils'
+// D4(2026-11-12 修"逐 token setData 风暴"):打字机合帧泵与 web/RN 同源(三端单一真相源)
+import { createSmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
+// 差距①第 ① 腿:准入回执配对的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
+import { createInputId } from '@ihui/shared/chat/send-admission'
+import {
+  HOOK_FAILURES_NAMESPACE,
+  hookFailureView,
+  readHookFailureEvent,
+} from '@ihui/shared/chat/hook-failures'
+// 2026-11-13:提问答复链路 —— 传输走 api-client 统一封装(小程序无原生 fetch,必须经 transport),
+// 判据走共享层三档归宿(与 web / extension / cli 同一份,端内不复制)。
+import { postQuestionAnswerResponse } from '@ihui/api-client'
+import {
+  buildLegacyAnswerText,
+  interpretQuestionResponse,
+} from '@ihui/shared/chat/question-response'
+// D4(2026-11-12):跟底判据与 RN 同源(shared/chat/stream-follow)—— 回退即交还滚动权。
+// 旧实现每 token 强制拽底:流式期间用户根本滑不动,与 web 端"上滑即交还"完全相反。
+import {
+  initialStreamFollowState,
+  readScrollEventTop,
+  reduceStreamFollowOnReachBottom,
+  reduceStreamFollowOnScroll,
+  resetStreamFollowForNewRound,
+  shouldStickToBottom,
+  type StreamFollowState,
+} from '@ihui/shared/chat'
+import type { CompactBoundary } from '@ihui/shared'
+import {
+  applyBudgetStopEvent,
+  type BudgetStopView,
+  type ContextLedgerEntry,
+} from '@/lib/chat-budget-ledger-frames'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { useRemoteChatSyncMessages } from '@/hooks/use-remote-chat-sync-messages'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+// 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
+// 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
+// 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
+import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
+import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
+import { useSideQueue } from './side-queue-host'
+// 255fa96933 摘除端内手写轻对话页时的能力安置腿(§7:删除不得静默丢弃):
+// 正文媒资抽取 / 分享问答快照还原,判据都在同目录子模块,主文件只接线。
+import { applyAnswerMedia, extractAnswerMedia, hasAnyMedia } from './answer-media-extract'
+import {
+  buildShareSnapshotMessages,
+  buildShareSnapshotPath,
+  shareSnapshotForMessage,
+  shareSnapshotFromParams,
+} from './qa-share-snapshot'
+// D77(2026-10-17 落地小程序腿):form_request 帧的投影纯函数单源在共享层
+// (@ihui/shared/chat/form-request-frame,由 apps/web 迁入共用,端内不抄第二份)。
+import { projectFormRequestFrame } from '@ihui/shared/chat/form-request-frame'
+import type { BusinessFormFrameEntry } from '@ihui/shared/chat/form-request-frame'
+import type { BusinessFormActionPayload } from '@ihui/shared/chat/business-forms'
+import type { Agent } from '@ihui/api-client'
+import { type ModelItem, type AgentItem, type MaterialTab, type InputFileItem } from '@/components'
+import { useUserStore } from '@/stores/user'
+import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
+import { logger } from '@/utils/logger'
+// 块 2:消息列表宿主与气泡单源在共享层(packages/app/src/features/chat/ChatMessageList.tsx)。
+// 最终壳:共享屏在共享层,端内节点注入到 ./chat-shell-extras。
+import { ChatScreen as SharedChatScreen } from '@ihui/rn-app/features/chat/ChatScreen'
+import type { ChatScreenMessage } from '@ihui/rn-app'
+import { buildChatShellProps } from './chat-shell-extras'
+import TaskStatusBar from './task-status-bar'
+import { resolvePermissionTierText } from './permission-tier-text'
+// 台账票 68:流式中切换模型 → 先终止当前这一轮,再让本轮/下一轮自动带入新模型。
+// 终止动作只允许一份实现(「停止」按钮与换档 effect 共用 ./model-switch 的出口),判据表照 web。
+import {
+  resolveRoundModel,
+  shouldTerminateForModelSwitch,
+  terminateActiveStream,
+} from './model-switch'
+// D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 卡片(三档/批准/拒绝/人工放行)
+// 与纯逻辑层(队列/记录/决议载荷)都在端内同目录,三档口径逐档对齐 web。
+import { type ApprovalDecisionPayload } from './tool-approval-card'
+import {
+  appendApprovalRecord,
+  dequeueApprovalRequest,
+  enqueueApprovalRequest,
+  type ApprovalRecord,
+  type ApprovalRequestView,
+} from './tool-approval-text'
+import {
+  applyToolCallStart,
+  applyToolDelta,
+  applySubagentEnd,
+  applySubagentProgress,
+  appendCitations,
+  appendSteerNotice,
+  appendTerminalDelta,
+  // D151:命令在等键盘输入的两个纯归并器(标记 / 清除),与 appendTerminalDelta 同一纪律
+  clearTerminalWaiting,
+  markTerminalWaiting,
+  backfillSteerNoticesFromMetadata,
+  toSteerNotice,
+  upsertSubagentSpawn,
+  type AICardsData,
+} from './cards/types'
+import { toolActivityText } from './cards/tool-line'
+// D152(2026-09-29 立):goal_updated 的取词/措辞层(端内唯一入口;六档词汇取自 @ihui/types)。
+import { describeGoalNotice, type GoalNotice } from './cards/goal-line'
+import { type ChatHistoryEntry } from './ChatDrawers'
+// D77(2026-10-17 落地小程序腿):业务表单卡(可填表单 + 批准/拒绝 + 拒绝理由),
+// 判定层/状态机/字段表全走 @ihui/shared/chat/business-forms(端内零自判);视觉子件与
+// 「按 messageId 锚定行」的声明式装配在 ./chat-list-extras(最终壳里由 ./chat-shell-extras 消费)。
+import { buildBusinessFormTails } from './chat-list-extras'
+import {
+  replayServerConversation,
+  fetchEarlierPage,
+  prependEarlierMessages,
+} from './server-chat-replay'
+import './chat.css'
+import ThemeRoot from '@/components/ThemeRoot'
+
+import { AI_CHAT_HISTORY_KEY, AI_FAVORITE_MESSAGES_KEY } from '@/constants/storage'
+import { onToast, subscribeOnToast } from '@/host/on-toast'
+// 2026-11:对话内「提示留痕」。记录模型/去重/上限/编解码全在 shared(与 RN/web 同一份契约),
+// 本页只做「订阅 → 落 state → 落盘 → 交壳渲染」四件事,不自己发明去重或存储格式。
+import {
+  appendNotice,
+  clearNoticeLog,
+  loadNoticeLog,
+  mergeNotices,
+  noticeLogStorageKey,
+  saveNoticeLog,
+  type ChatNotice,
+  type NoticeKind,
+} from '@ihui/shared/chat/notice-log'
+import { noticeLogStorage, createNoticeIdFactory } from '@/lib/notice-log-storage'
+
+const HISTORY_STORAGE_KEY = AI_CHAT_HISTORY_KEY
+const FAVORITE_STORAGE_KEY = AI_FAVORITE_MESSAGES_KEY
+const MAX_HISTORY_COUNT = 50
+
+interface MaterialItem {
+  id: string
+  title: string
+  coverUrl?: string
+  content?: string
+  createdAt?: string
+}
+/**
+ * 本地视图模型(非 api-client Agent 直投):
+ * - id 由 @/api 的 getAgentDetail/getAgentList 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id)
+ * - systemPrompt 取后端 agentPrompt(@/api 映射为 prompt);契约 Agent 从未含此字段
+ */
+type AgentInfo = Pick<Agent, 'name' | 'description'> & {
+  id: string
+  systemPrompt: string
+  avatar?: string
+  /** 智能体开场白(对齐原 ai_assistant.vue prologue,引导说明内容) */
+  prologue?: string
+}
+
+const MATERIAL_PAGE_SIZE = 20
+
+export default function ChatPage() {
+  const router = useRouter()
+  // G-933 冷启动抢跑门:服务端会话回放(getMessages → GET /api/chat/conversations/:id/messages,
+  // chat.ts 处理器 requireAuth + 属主过滤)需鉴权;本机快照命中/展示逻辑与 agent 详情(公开接口)
+  // 不挡,只把回放那一句延后到鉴权判定落定。
+  const { waitUntilReady } = useAuthReadyGate()
+  const { t, tList } = useI18n()
+  const tt = useTt()
+  const suggestions = tList('ai.suggestions')
+  const user = useUserStore((s) => s.user)
+  const routeAgentId = router.params.agentId || ''
+  // 支持从历史页(/pkg-ai/ai/history?sessionId=)与首页抽屉(/pkg-ai/ai/chat?id=)跳转恢复会话
+  const routeSessionId = router.params.sessionId || router.params.id || ''
+  /**
+   * D28 补齐层(2026-10-03):导入页「用场景分析」跳进来时带 prompt。
+   *
+   * 语义 = 进入并**恢复该会话**后,把这段文字作为下一条用户消息自动发出。
+   * 走既有 sendMessage(→ api/index 的 chatStream),不新造 LLM 调用链;
+   * 历史里的导入记录即本轮上下文(另起会话会让"基于这份记录分析"失去依据)。
+   */
+  const routeAutoSendPrompt = router.params.prompt || ''
+  const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [thinking, setThinking] = useState(false)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [sessionId, setSessionId] = useState('')
+  // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
+  // activeVersionByRoot 同语义;失效指针由投影层回落最新版本(判族唯一源在共享层)。
+  // 纯本地读投影态:切换不写库、不发请求(与 web 同一口径)。
+  const [activeVersionByRoot, setActiveVersionByRoot] = useState<Record<string, string>>({})
+  // D20 留尾2:超长会话向前翻页。cursor 走 ref(不驱动渲染);hasMore/loading 走 state(驱动顶部入口)
+  const [earlierHasMore, setEarlierHasMore] = useState(false)
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
+  const earlierCursorRef = useRef<string | null>(null)
+  // D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):服务端那份目标主副本经
+  // 下行帧 `goal_updated` 到达 ⇒ 本端**看得见状态**(胶囊 + 活动行读同一份数据)。
+  // 刻意不做输入口、不做操作按钮:本端没有 /goal 的发起面,给一个"看得见却改不了"的控件是
+  // 假 affordance(与 D151 本端不接代答输入框同一条理由)。cleared 单帧 ⇒ 胶囊整体消失。
+  // 声明排在 resetEarlierPaging **之前**:下面那个收口要在会话切换时清掉它,顺序倒了就是
+  // "用了还没声明的绑定"。
+  const [goalNotice, setGoalNotice] = useState<GoalNotice | null>(null)
+  // ── D136(2026-10-01 立,承 V4 #94/D84):高危工具审批状态 ──
+  // 队列:待决策请求(同 approvalId 去重,上限在 enqueueApprovalRequest);当前展示 [0]。
+  // 记录:本轮已处理的审批,**住在页级 state** —— 卡片随队列清空而消失,记录必须留在卡外
+  //(关掉卡什么痕迹都不剩 = 用户不知道发生过一次决策,RN 那一版同一条教训)。
+  const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
+  const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
+  const [approvalSending, setApprovalSending] = useState(false)
+  // D38 侧边队列宿主(小程序端):队列是会话态;W27 出队只有一个出口(下方流结束 effect)
+  const sideQueue = useSideQueue()
+  const sideQueueRef = useRef(sideQueue)
+  // ── D77(2026-10-17 落地小程序腿):对话流业务表单(form_request → 可填卡 → form_response)──
+  // 形状 = 共享投影的 BusinessFormFrameEntry + 宿主级 status/error(web store 同构,
+  // 本端用页级 useState 承载 —— 表单是会话内状态,不进消息体也不另起全局 store)。
+  // 会话级收口:resetEarlierPaging(会话切换/清空)一并清掉,旧会话的待填卡不得挂到新会话。
+  // 用 Omit 而非交叉:FrameEntry.status 恒 'pending',直接 & 会把联合收窄回 'pending'。
+  type BusinessFormView = Omit<BusinessFormFrameEntry, 'status'> & {
+    status: 'pending' | 'sent' | 'failed'
+    error?: string
+  }
+  const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
+  // BUG-67:AI 主动提问卡(question 帧)。载荷由 api/index.ts 的 onRawLine 旁路认领后
+  // 经 onQuestion 回调落到这里;同 questionId 幂等覆盖(断线重连回放不重复挂卡)。
+  const [pendingQuestion, setPendingQuestion] = useState<{
+    questionId: string
+    prompt: string
+    options: Array<{ id: string; label: string }>
+    allowCustom: boolean
+    allowMultiple: boolean
+  } | null>(null)
+  // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
+  const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
+  // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
+  // 三态口径与 web 端 store 一致:数字(含 0)= 上游真回报;null = 没采到(未知),
+  // 归因条据此显示"不可得"而非 0(G-394 同令)。发送新流时重置 null —— 上一轮
+  // 的缓存读数挂到本轮消息上就是把别人的账记到这一页。
+  const [latestCacheTokens, setLatestCacheTokens] = useState<{
+    cacheReadTokens: number | null
+    cacheWriteTokens: number | null
+  }>({ cacheReadTokens: null, cacheWriteTokens: null })
+
+  // ── 批次 3(2026-11-06):预算停止终态 / 七类上下文账本 / 压缩边界 ──
+  // budgetStop 只在 level='stopped' 时写入;后续 warning 帧不碰它(终态不可被降级覆盖)。
+  // contextLedger 与 compactionBoundary 允许流内更新,进入会话时再由查询接口补历史态。
+  const [budgetStop, setBudgetStop] = useState<BudgetStopView | null>(null)
+  const [contextLedger, setContextLedger] = useState<ContextLedgerEntry | null>(null)
+  const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
+  const conversationId =
+    sessionId || (routeSessionId && !routeSessionId.startsWith('hist_') ? routeSessionId : '')
+
+  // G-20261114:WS 聊天同步帧此前只进 store、页面零消费 ⇒ 跨端同步答案永远不显。
+  // 本端流式中必须暂停投影,否则 snapshot 会吞掉本端 SSE 已写出的前缀。
+  useRemoteChatSyncMessages({ conversationId, setMessages, paused: thinking })
+
+  // ── 提示留痕(2026-11)──
+  // 独立 state:不混入 messages ⇒ 不会被当成对话内容发给模型,也不落后端库,只是客户端 trace。
+  const [notices, setNotices] = useState<ChatNotice[]>([])
+  /**
+   * 记录 id 工厂:惰性创建(首次记录时才取时刻+随机段)。前缀**必须**会话内唯一 ——
+   * 留痕跨重启持久化,纯自增 id 会与盘上旧记录撞号,合并时覆盖旧记录。
+   */
+  const noticeIdFactoryRef = useRef<(() => string) | null>(null)
+  const recordNotice = useCallback((kind: NoticeKind, text: string): void => {
+    if (!noticeIdFactoryRef.current) noticeIdFactoryRef.current = createNoticeIdFactory()
+    const id = noticeIdFactoryRef.current()
+    const ts = Date.now()
+    setNotices((prev) => appendNotice(prev, { id, kind, text, ts }))
+  }, [])
+
+  /**
+   * 存储作用域键:按会话分区,未绑定会话落 draft 键(见 shared 模块头注 —— 新会话在发出
+   * 第一条消息前没有 conversationId,若按空 id 分键就永远写不进盘,恰好是最需要持久化的场景)。
+   */
+  const noticeScopeKey = noticeLogStorageKey(conversationId)
+  /** 最新作用域键:异步读回返回时用来判定「这期间会话已被切走」,过期结果直接丢弃 */
+  const noticeScopeKeyRef = useRef(noticeScopeKey)
+  useEffect(() => {
+    noticeScopeKeyRef.current = noticeScopeKey
+  }, [noticeScopeKey])
+  /**
+   * 已就绪(已读回或已主动清空)的键。**写盘必须等它就位**:否则首帧 `notices=[]`
+   * 会先一步把盘上旧记录清成空 —— 用户关掉再打开就什么也看不到,功能等于没做。
+   */
+  const noticeReadyKeyRef = useRef<string | null>(null)
+
+  /**
+   * 读回某会话的留痕并上屏。主动调用(不由 effect 驱动),避免与「切会话/清空」竞态。
+   * 合并而非覆盖:`mergeNotices(loaded, prev)` 保留读回期间已产生的新记录(读盘是异步的)。
+   * 失败不静默:dev 明确告警,prod 降级为纯内存 —— 留痕是辅助能力,不能拖垮聊天页。
+   */
+  const hydrateNotices = useCallback((cid: string | null): void => {
+    const key = noticeLogStorageKey(cid)
+    void loadNoticeLog(noticeLogStorage, cid)
+      .then((loaded) => {
+        if (noticeScopeKeyRef.current !== key) return
+        noticeReadyKeyRef.current = key
+        if (loaded.length === 0) return
+        setNotices((prev) => mergeNotices(loaded, prev))
+      })
+      .catch((err: unknown) => {
+        if (noticeScopeKeyRef.current !== key) return
+        noticeReadyKeyRef.current = key
+        if (__DEV__) console.warn('[notice-log] 读回失败,本次留痕仅存活于内存:', err)
+      })
+  }, [])
+
+  /** 切会话:先清屏并放弃旧键的写盘资格,再按新会话键从盘上读回 */
+  const switchNoticeScope = useCallback(
+    (cid: string | null): void => {
+      setNotices([])
+      noticeReadyKeyRef.current = null
+      // 同步改 ref:读回是异步的,若等 effect 把 ref 追上新的 conversationId,
+      // 中间这几帧的写盘判断会用到旧键(把新会话的空列表写进旧会话的键)。
+      noticeScopeKeyRef.current = noticeLogStorageKey(cid)
+      hydrateNotices(cid)
+    },
+    [hydrateNotices],
+  )
+
+  /** 主动清空留痕:占住新键 + 抹掉新旧两个会话的盘上记录(「清空对话」是破坏性语义) */
+  const resetNotices = useCallback(
+    (nextConversationId: string | null): void => {
+      setNotices([])
+      noticeReadyKeyRef.current = noticeLogStorageKey(nextConversationId)
+      const keys: Array<string | null> = [conversationId, nextConversationId]
+      for (const cid of keys) {
+        void clearNoticeLog(noticeLogStorage, cid).catch((err: unknown) => {
+          if (__DEV__) console.warn('[notice-log] 清除失败(不影响本次使用):', err)
+        })
+      }
+    },
+    [conversationId],
+  )
+
+  /**
+   * 订阅端口层 toast:聊天页是唯一需要留痕的页面,故订阅放在本页而不是 on-toast 内部。
+   * 必须返回 cleanup —— 页面来回切会重复挂载,不退订会一条 toast 记 N 条。
+   */
+  useEffect(() => subscribeOnToast((message, kind) => recordNotice(kind, message)), [recordNotice])
+
+  // 挂载时读回一次;后续切会话由 runServerReplay / 本机快照恢复 / 清空对话显式读回或清空
+  const noticeBootRef = useRef(false)
+  useEffect(() => {
+    if (noticeBootRef.current) return
+    noticeBootRef.current = true
+    hydrateNotices(conversationId)
+  }, [conversationId, hydrateNotices])
+
+  /**
+   * 小程序特有的一步:新会话发出首条消息后,服务端 meta 会把 sessionId 写进 state
+   * ⇒ `conversationId` 由 '' 变成真实 id,作用域键随之从 draft 键跳到会话键。
+   *
+   * RN 端没有这一步(那边新会话整场 conversationId 恒为 null,作用域一直是 draft),所以照抄
+   * RN 流程在这里会漏:readyKey 停在 draft 键、scopeKey 已是会话键 ⇒ 写盘判断永不通过,
+   * 首条消息之后产生的留痕全都不落盘,用户重开就丢 —— 恰是本功能要解决的场景。
+   *
+   * 处理方式仍守「合并不覆盖」:读回会话键(通常是空)后与内存里的记录合并,再把 readyKey
+   * 提升到会话键,写盘随即恢复。不在这里 setNotices([]) —— 那是"切会话"语义,会把刚记的抹掉。
+   */
+  useEffect(() => {
+    const draftKey = noticeLogStorageKey(null)
+    if (noticeScopeKey === draftKey) return
+    if (noticeReadyKeyRef.current !== draftKey) return
+    hydrateNotices(conversationId)
+  }, [noticeScopeKey, conversationId, hydrateNotices])
+
+  // 记录变化即写盘(空列表 = 显式清空);未就绪时绝不写,否则首帧空列表会覆盖盘上旧记录
+  useEffect(() => {
+    if (noticeReadyKeyRef.current !== noticeScopeKey) return
+    void saveNoticeLog(noticeLogStorage, conversationId, notices).catch((err: unknown) => {
+      if (__DEV__) console.warn('[notice-log] 写盘失败,本次留痕仅在内存:', err)
+    })
+  }, [notices, noticeScopeKey, conversationId])
+
+  /**
+   * D136:审批决议回传(卡片 onDecision 的唯一出口)。
+   * 载荷已由卡层按三档构造好(批准必带 scope,拒绝不带),这里只补齐寻址信息并送出:
+   *  - 人工放行出口的载荷只带 approvalId(卡层没有 sessionId),从队列/记录补 sessionId;
+   *  - 成功:写记录(approved/rejected)+ 出队;
+   *  - 失败:写 send-failed 记录,**条目留在队列**可重试(不静默当"已处理",§30 出口仍在)。
+   */
+  const handleApprovalDecision = useCallback(
+    async (payload: ApprovalDecisionPayload) => {
+      const approvalId = payload.approvalId
+      if (!approvalId || approvalSending) return
+      const queued = approvalQueue.find((r) => r.approvalId === approvalId)
+      const record = approvalRecords.find((r) => r.approvalId === approvalId)
+      const sessionId = payload.sessionId || queued?.sessionId || record?.sessionId || ''
+      const toolName = queued?.toolName ?? record?.toolName ?? ''
+      const recordBase = {
+        approvalId,
+        ...(sessionId ? { sessionId } : {}),
+        toolName,
+        overrideCount: record ? record.overrideCount + 1 : 0,
+      }
+      setApprovalSending(true)
+      try {
+        await postToolApprovalResponse({ ...payload, sessionId })
+        setApprovalRecords((prev) =>
+          appendApprovalRecord(prev, {
+            ...recordBase,
+            decision: payload.decision,
+            ...(payload.decision === 'approve' && payload.scope ? { scope: payload.scope } : {}),
+            outcome: payload.decision === 'approve' ? 'approved' : 'rejected',
+          }),
+        )
+        setApprovalQueue((prev) => dequeueApprovalRequest(prev, approvalId))
+      } catch {
+        setApprovalRecords((prev) =>
+          appendApprovalRecord(prev, {
+            ...recordBase,
+            decision: payload.decision,
+            outcome: 'send-failed',
+          }),
+        )
+      } finally {
+        setApprovalSending(false)
+      }
+    },
+    [approvalSending, approvalQueue, approvalRecords],
+  )
+  /**
+   * D77:业务表单应答上行(卡片 onAction 的唯一出口,对齐 web business-form-section)。
+   * 装配走 api-client 的 buildFormResponseEvent(snake 上行口径唯一源),传输走
+   * postFormResponse(失败必抛)。无 sessionId = 无回传通道 ⇒ 如实置 failed,
+   * 绝不"本地当成已批准"(那是把用户应答丢掉)。
+   */
+  const handleBusinessFormAction = useCallback(
+    async (entry: BusinessFormView, payload: BusinessFormActionPayload & { reason?: string }) => {
+      if (formSendingRequestId) return
+      if (!entry.sessionId) {
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId
+              ? { ...f, status: 'failed' as const, error: 'form-response-no-session-channel' }
+              : f,
+          ),
+        )
+        return
+      }
+      const event = buildFormResponseEvent({
+        requestId: entry.requestId,
+        kind: entry.kind,
+        action: payload.action,
+        ...(payload.values ? { values: { ...payload.values } } : {}),
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        messageId: entry.messageId,
+      })
+      setFormSendingRequestId(entry.requestId)
+      try {
+        await postFormResponse(entry.sessionId, event)
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId ? { ...f, status: 'sent' as const } : f,
+          ),
+        )
+      } catch (e) {
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId
+              ? { ...f, status: 'failed' as const, error: (e as Error).message }
+              : f,
+          ),
+        )
+      } finally {
+        setFormSendingRequestId(null)
+      }
+    },
+    [formSendingRequestId],
+  )
+  /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
+  const resetEarlierPaging = useCallback(() => {
+    setEarlierHasMore(false)
+    setLoadingEarlier(false)
+    // D152:目标态是**会话级**的 —— 会话切换/清空时必须一起收掉,否则上一会话的「进行中」
+    // 会挂在下一会话头上,而那正是本票要消灭的分叉形态(声明见 goalNotice 上方注释)。
+    setGoalNotice(null)
+    // D77:表单待填/终态同样是会话级 —— 旧会话的卡不得挂到新会话头上。
+    setBusinessForms([])
+    // BUG-67:提问卡同样是会话级 —— 旧会话未答的提问不得挂到新会话头上。
+    setPendingQuestion(null)
+    setFormSendingRequestId(null)
+    earlierCursorRef.current = null
+  }, [])
+  const [currentModel, setCurrentModel] = useState('')
+  const [currentModelName, setCurrentModelName] = useState('')
+  const [modelDrawerVisible, setModelDrawerVisible] = useState(false)
+  const [models, setModels] = useState<ModelItem[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [materialDrawerVisible, setMaterialDrawerVisible] = useState(false)
+  const [materials, setMaterials] = useState<MaterialItem[]>([])
+  const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [materialPage, setMaterialPage] = useState(1)
+  const [materialHasMore, setMaterialHasMore] = useState(true)
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null)
+  const [materialTab, setMaterialTab] = useState<MaterialTab>(1)
+  const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
+  const [agent, setAgent] = useState<AgentInfo | null>(null)
+  // 智能体引导说明(对齐原 ai_assistant.vue tishi_show + tishi_content)
+  const [tishiShow, setTishiShow] = useState(false)
+  const [skillsPopupVisible, setSkillsPopupVisible] = useState(false)
+  const [agents, setAgents] = useState<AgentItem[]>([])
+  const [agentsLoading, setAgentsLoading] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+  // G-248 R2:本轮帧级 traceId(undefined = 本轮没见过,这一态不得折成空串)
+  const roundTraceIdRef = useRef<string | undefined>(undefined)
+  // 票 68:档位「最新值」的两个出口。`currentModelRef` 给 sendMessage 在把 payload 交出去之前
+  // 复核一次(web 同一条竞态收口:入口取到的是快照,而 chatStream 触达网关前还有 await);
+  // `previousModelRef` 给换档 effect 判「这一次是真的换了档,还是首帧/持久化回填」。
+  const currentModelRef = useRef(currentModel)
+  const previousModelRef = useRef(currentModel)
+  // 待分享消息(对齐原 ai_assistant.vue 分享对话,长按消息后存入,useShareAppMessage 动态读取)
+  const shareMsgRef = useRef<ChatMessage | null>(null)
+  // 复用问题到输入框(对齐原 ai_assistant.vue copyToInput)
+  const [inputValue, setInputValue] = useState('')
+  // 附件列表(受控模式由父组件管理,对齐原项目 imgs_list)
+  const [imgsList, setImgsList] = useState<InputFileItem[]>([])
+
+  // 收藏消息(对齐原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
+  const [favoritedMsgs, setFavoritedMsgs] = useState<Set<string>>(new Set())
+  // 历史对话(对齐原 ai_assistant.vue 历史抽屉)
+  const [chatHistories, setChatHistories] = useState<ChatHistoryEntry[]>([])
+  const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
+  // 智能体提示说明弹窗(对齐原 ai_index.vue,首次进入自动弹 + "?" 手动触发)
+  const [agentTipVisible, setAgentTipVisible] = useState(false)
+  // 思考过程独立浮层(对齐原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
+  const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
+  const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        /* 取数失败:保持 null,该行隐藏 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
+  const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
+  /**
+   * 活动列表的镜像 ref(2026-11-13 立)。
+   * 用途:upsert 需要**同步**判断"这一行是否还在列表里"(20 条上限会裁掉旧行)。
+   * 在 setState 回调里读结果不行 —— 那是 React 的渲染期回调,可能异步、可能重复执行,
+   * 拿它做控制流等于赌调度时机。所以另存一份同步镜像,与 set 同批更新。
+   */
+  const streamActivitiesRef = useRef<{ id: string; text: string }[]>([])
+  const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
+  const activitySeqRef = useRef(0)
+  /**
+   * queuedTurnId → 活动 id 的配对表(2026-11-13 立)。
+   * 晋升帧只带 queuedTurnId,不带活动 id;不记这张表就无从知道该撤回哪一条。
+   * 用 ref 而非 state:它只在回调里读写,进 state 会引发无意义重渲染。
+   */
+  const queuedActivityRef = useRef<Record<string, string>>({})
+  /**
+   * pending 态活动 id 表(2026-11-13 立)。
+   *
+   * 存的是**写未来时**的提示:reconnect("X 秒后重连")、retryScheduled("X 秒后继续")。
+   * 它们的共同点是一旦条件满足就失效,但文案不会自己改 —— 首个正文 delta 到达时统一撤回
+   * (见 onDelta)。与 queuedActivityRef 分开存:queued 有精确配对凭据(queuedTurnId),
+   * 这两条没有,只能按"连接已恢复"这个信号整批撤。
+   */
+  const pendingActivityRef = useRef<string[]>([])
+  /**
+   * 业务键 → activityId 表(2026-11-13 立)。
+   * 工具行的 start/result 是同一调用的两阶段,靠 `tool:<toolCallId>` 认出彼此。
+   * 与 queuedActivityRef 分开存:那张表是准入回执专用的配对,键空间不同。
+   */
+  const activityKeyRef = useRef<Record<string, string>>({})
+  /**
+   * 活动列表的**唯一写入出口**(2026-11-13 收敛)。
+   *
+   * 三件事一起做:同步更新镜像 ref(供 upsert 判存在)、上限 20 条、返回 id。
+   * 所有写入都必须过这里 —— 分散在各处 setState 会让 ref 与 state 漂开,
+   * 而 upsert 的存在判断正是靠 ref。
+   */
+  const commitActivities = useCallback(
+    (mutate: (prev: { id: string; text: string }[]) => { id: string; text: string }[]) => {
+      const next = mutate(streamActivitiesRef.current).slice(-20)
+      streamActivitiesRef.current = next
+      setStreamActivities(next)
+    },
+    [],
+  )
+  const pushStreamActivity = useCallback(
+    (text: string) => {
+      activitySeqRef.current += 1
+      const id = `act_${activitySeqRef.current}`
+      // 仅保留最近 20 条,避免长会话列表无限增长
+      commitActivities((prev) => [...prev, { id, text }])
+      return id
+    },
+    [commitActivities],
+  )
+  /**
+   * 按业务键原位更新活动行(2026-11-13 立,工具行 running→完成用)。
+   *
+   * 立此出口的因由:工具调用的 start 与 result 是**同一次调用**的两个阶段。旧实现两次都
+   * `pushStreamActivity`,于是活动列表里留下**两行**("调用 X 中" + "调用 X 完成"),读起来
+   * 像调用了两次。本端 card 层(`toolCalls`)早已按 toolCallId 原位 upsert,只有这套活动列表
+   * 是追加式的 —— 那是端内多造的第二套表示,web 端根本没有这套(见 web `use-chat` 无
+   * streamActivities),所以无跨端口径可对,按 card 层同一语义收敛即可。
+   *
+   * @param key 业务键(`tool:<toolCallId>`);同键第二次调用即替换文本,不新增行
+   * @returns 该行的 activityId
+   */
+  const upsertStreamActivity = useCallback(
+    (key: string, text: string) => {
+      const existing = activityKeyRef.current[key]
+      // 20 条上限会裁掉旧行:被裁掉就当作不存在、重新追加。
+      // 不判这一格的话,upsert 会更新一个不在列表里的 id ⇒ 这次工具结果**静默不显示**。
+      if (existing && streamActivitiesRef.current.some((a) => a.id === existing)) {
+        commitActivities((prev) => prev.map((a) => (a.id === existing ? { ...a, text } : a)))
+        return existing
+      }
+      if (existing) delete activityKeyRef.current[key]
+      activitySeqRef.current += 1
+      const id = `act_${activitySeqRef.current}`
+      activityKeyRef.current[key] = id
+      commitActivities((prev) => [...prev, { id, text }])
+      return id
+    },
+    [commitActivities],
+  )
+  /**
+   * 撤回一条活动(2026-11-13 立,准入回执晋升用)。
+   *
+   * 为什么必须有这个出口:`queued` 是**中间态**——后端在排队回合被晋升时会再发一帧
+   * `admission{disposition:'accepted', queuedTurnId}`(llm.py 现读)。若只把"已排队"推进列表
+   * 却收不回来,那条提示会**永久停留**,用户看着"已排队"而回答早就在跑了。
+   * 这比一开始不显示更糟:它把用户引向错误的等待预期。
+   */
+  const dropStreamActivity = useCallback(
+    (id: string) => {
+      commitActivities((prev) => prev.filter((a) => a.id !== id))
+    },
+    [commitActivities],
+  )
+
+  /**
+   * #12 小程序 AI 增强:把 SSE 工具事件(计划 / 工具 / 终端)累积写入最后一条 assistant 消息的
+   * aiCards 字段,使其随消息气泡渲染并随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks。
+   */
+  const upsertCard = useCallback((mutate: (cards: AICardsData) => AICardsData) => {
+    setMessages((prev) => {
+      const idx = prev.length - 1
+      if (idx < 0) return prev
+      const m = prev[idx]
+      if (!m || m.role !== 'assistant') return prev
+      const cur: AICardsData = m.aiCards ?? {
+        planSteps: [],
+        toolCalls: [],
+        terminalTasks: [],
+        injections: [],
+        citations: [],
+      }
+      const next = mutate(cur)
+      const copy = prev.slice()
+      copy[idx] = { ...m, aiCards: next }
+      return copy
+    })
+  }, [])
+
+  const activeAgentId = currentAgentId || routeAgentId
+
+  // 任务进度状态条数据源:最后一条 assistant 消息的 aiCards(plan_updated / 工具事件由 upsertCard 累积写入)
+  const lastAssistantCards = useMemo<AICardsData | undefined>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.aiCards
+    }
+    return undefined
+  }, [messages])
+
+  // D4(2026-11-12)跟底账目:与 RN 共用 @ihui/shared/chat/stream-follow 的判据。
+  // 宿主差异只有"滚动事件形状"(Taro 是 detail.scrollTop),由 readScrollEventTop 一处收口。
+  const [follow, setFollow] = useState<StreamFollowState>(initialStreamFollowState)
+  const handleListScroll = useCallback((event: unknown) => {
+    const top = readScrollEventTop(event)
+    if (top === null) return
+    setFollow((prev) => reduceStreamFollowOnScroll(prev, top))
+  }, [])
+  const handleReachBottom = useCallback(() => {
+    setFollow((prev) => reduceStreamFollowOnReachBottom(prev))
+  }, [])
+
+  /**
+   * 滚到底的**唯一**出路:递增受控 scrollTop,由原生把超界值 clamp 到底。
+   *
+   * 旧实现是 `setTimeout(50ms)` + 在 99998/99999 之间乒乓:逐 token 调用时定时器成堆,
+   * 且那个假值比任何真实内容高度都小 —— 一旦内容高于 99999px 就停在半路。
+   * 现在用**单调递增的 1e6 步长**:每次都是新值(同值不触发滚动),每次都超界(必到底)。
+   * 注意 rn-compat 的 FlatList 已补 prop→state 同步,否则这里算出的值一次也到不了 ScrollView。
+   */
+  const scrollToBottom = useCallback(() => {
+    setFollow((prev) => reduceStreamFollowOnReachBottom(prev))
+    setScrollTop((v) => v + 1_000_000)
+  }, [])
+
+  /** 内容增长时的贴底:只有"跟随中 ∧ 流式中"才滚(用户上翻后一律不动)。 */
+  const stickIfFollowing = useCallback(
+    (streaming: boolean) => {
+      if (!shouldStickToBottom(follow, streaming)) return
+      setScrollTop((v) => v + 1_000_000)
+    },
+    [follow],
+  )
+
+  // XUI-新C:原先「思考进度 %」由随机数每秒递增伪造,是假指标冒充真实进度;
+  // 服务端未提供思考进度 ⇒ 不再显示百分比,只保留「生成中」文案。
+
+  // 首次进入页面自动弹出智能体提示说明(对齐原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
+  useEffect(() => {
+    try {
+      const shown = Taro.getStorageSync(AI_AGENT_TIP_SHOWN_KEY)
+      if (!shown) setAgentTipVisible(true)
+    } catch {
+      // 存储读取失败忽略
+    }
+  }, [])
+
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true)
+    try {
+      const res = await fetchModels()
+      setModels(res?.models || [])
+    } catch {
+      onToast(t('ai.modelLoadFailed'), { kind: 'error' })
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [t])
+
+  const loadMaterials = useCallback(
+    async (page = 1, append = false) => {
+      setMaterialsLoading(true)
+      try {
+        const res = (await getAigcList({ page, pageSize: MATERIAL_PAGE_SIZE })) as {
+          list?: MaterialItem[]
+          total?: number
+        }
+        const list = res?.list || []
+        const total = res?.total ?? 0
+        setMaterials((prev) => (append ? [...prev, ...list] : list))
+        setMaterialPage(page)
+        setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
+      } catch {
+        onToast(t('ai.materialLoadFailed'), { kind: 'error' })
+      } finally {
+        setMaterialsLoading(false)
+      }
+    },
+    [t],
+  )
+
+  const handleLoadMore = useCallback(async () => {
+    if (materialsLoading || !materialHasMore) return
+    await loadMaterials(materialPage + 1, true)
+  }, [materialsLoading, materialHasMore, materialPage, loadMaterials])
+
+  const loadAgents = useCallback(async () => {
+    setAgentsLoading(true)
+    try {
+      const res = await getAgentList()
+      setAgents(
+        (res.list || []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          description: a.desc,
+          avatar: a.avatar,
+          useCount: a.uses,
+        })),
+      )
+    } catch {
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
+    } finally {
+      setAgentsLoading(false)
+    }
+  }, [t])
+
+  const loadAgent = useCallback(async () => {
+    if (!activeAgentId) return
+    try {
+      const a = await getAgentDetail(activeAgentId)
+      setAgent({
+        id: a.id,
+        name: a.name,
+        description: a.desc,
+        avatar: a.avatar,
+        systemPrompt: a.prompt,
+        prologue: a.prologue,
+      })
+    } catch {
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
+    }
+  }, [activeAgentId, t])
+
+  const captureScreenHandlerRef = useRef<(() => void) | null>(null)
+
+  /**
+   * D20 服务端会话回放(小程序端剩下的三格之一)。
+   *
+   * 历史页 86ef4ab06e3 起,`?sessionId=` 带的是 chat_conversations 主键;本机快照的 id
+   * 形如 hist_<ts>,结构上匹配不到 ⇒ 点进去是新会话。这里在本机快照没命中时改走服务端。
+   *
+   * 判序与提示:
+   * - 只按 routeSessionId 跑一次(replayedSessionRef)—— 页面每次 didShow 都重放会把
+   *   用户正在输入的这一屏抹掉;
+   * - 失败**不动消息区**(取不到就显示"没有消息"等于把故障洗成空数据),
+   *   改为弹窗点名原因 + 给「重试」出口 —— 与历史页兜底条同一条 fail-closed 规矩。
+   */
+  const replayedSessionRef = useRef('')
+  /**
+   * D28 补齐层(2026-10-03):两个 ref 把"回放 → 自动发出"这条边接起来。
+   *
+   * `autoSendDoneRef` 保证同一段分析指令只发一次(本页每次 didShow 都会走回放那段);
+   * `sendMessageRef` 解决声明顺序 —— sendMessage 定义在下方,runServerReplay 在上方,
+   * 直接引用会撞 TDZ。用 ref 间接调用,与本文件既有的 captureScreenHandlerRef 同款。
+   */
+  const autoSendDoneRef = useRef(false)
+  const sendMessageRef = useRef<
+    (overrideText?: string, baseHistory?: readonly ChatMessage[]) => Promise<void>
+  >(async () => {})
+  const runServerReplay = useCallback(() => {
+    if (!routeSessionId || replayedSessionRef.current === routeSessionId) return
+    replayedSessionRef.current = routeSessionId
+    // 新会话回放前先清掉上一会话的翻页游标(防串会话前插)
+    resetEarlierPaging()
+    void replayServerConversation({
+      fetchMessages: () => getMessages(routeSessionId, { direction: 'initial', pageSize: 100 }),
+    })
+      .then((outcome) => {
+        if (outcome.ok) {
+          setMessages(outcome.messages)
+          // 切到该服务端会话:留痕按会话分区,旧会话的记录不带到新会话(读回本会话盘上记录)
+          switchNoticeScope(routeSessionId)
+          // D20 留尾2:首页响应自带头部分页游标 —— hasMore=true 才亮「加载更早消息」入口
+          setEarlierHasMore(outcome.hasMore)
+          earlierCursorRef.current = outcome.nextCursor
+          setImgsList([])
+          setInputValue('')
+          setSelectedMaterial(null)
+          scrollToBottom()
+          // D28 补齐层(2026-10-03):导入页「用场景分析」带来的分析指令,在**回放落定后**发出。
+          // 门必须落在回放成功分支内(而不是 didShow 末尾):sendMessage 用的是闭包里的
+          // messages,历史未回填就发 ⇒ 本轮上下文里没有导入记录,提示词里那句
+          // "以上是本次导入的会话记录全文"会指向不存在的上文,分析退化成凭空生成。
+          // setTimeout(0) 让 setMessages 先落一轮渲染,sendMessage 闭包才拿到回放后的 messages。
+          // autoSendDoneRef 保证只发一次(页面每次 didShow 都会走到这段)。
+          if (routeAutoSendPrompt && !autoSendDoneRef.current) {
+            autoSendDoneRef.current = true
+            setTimeout(() => {
+              void sendMessageRef.current(routeAutoSendPrompt)
+            }, 0)
+          }
+          return
+        }
+        // 半个租约都比没有更危险 —— 允许下一次 didShow 重新尝试前先清掉"已试"标记
+        replayedSessionRef.current = ''
+        Taro.showModal({
+          title: t('common.hint'),
+          content: t('ai.chat.replayFailed'),
+          confirmText: t('common.retry'),
+          cancelText: t('common.cancel'),
+          success: (res) => {
+            if (res.confirm) runServerReplay()
+          },
+        })
+      })
+      .catch(() => {
+        /* replay failed: keep current messages */
+      })
+  }, [
+    routeSessionId,
+    routeAutoSendPrompt,
+    scrollToBottom,
+    t,
+    resetEarlierPaging,
+    switchNoticeScope,
+  ])
+
+  /**
+   * D20 留尾2:加载更早一页(向前翻)。
+   *
+   * - 只在服务端回放态可用:cursor 由首页响应原样带回,`hist_` 本机快照没有分页;
+   * - 成功 → 前插(按 id 去重)+ 推进游标;失败 → **不清已回放内容**,toast 后入口仍在,可点重试;
+   * - 刻意**不调用 scrollToBottom**:前插发生在视口上方,强制滚底会把用户的阅读位置拽走。
+   *   (像素级锚点保持需要量内容高度,Taro ScrollView 无可靠测量口,本票如实不做。)
+   */
+  const handleLoadEarlier = useCallback(async () => {
+    if (loadingEarlier || !earlierHasMore) return
+    const cursor = earlierCursorRef.current
+    if (!cursor || !routeSessionId || routeSessionId.startsWith('hist_')) return
+    setLoadingEarlier(true)
+    const outcome = await fetchEarlierPage({
+      fetchMessages: () =>
+        getMessages(routeSessionId, { cursor, direction: 'older', pageSize: 100 }),
+    })
+    setLoadingEarlier(false)
+    if (!outcome.ok) {
+      onToast(t('ai.chat.earlierLoadFailed'), { kind: 'error' })
+      return
+    }
+    setMessages((prev) => prependEarlierMessages(prev, outcome.messages))
+    earlierCursorRef.current = outcome.nextCursor
+    setEarlierHasMore(outcome.hasMore)
+  }, [loadingEarlier, earlierHasMore, routeSessionId, t])
+
+  useDidHide(() => {
+    try {
+      if (captureScreenHandlerRef.current) {
+        Taro.offUserCaptureScreen(captureScreenHandlerRef.current)
+        captureScreenHandlerRef.current = null
+      }
+    } catch {
+      // ignore
+    }
+  })
+
+  useDidShow(() => {
+    if (routeAgentId) loadAgent()
+    Taro.showShareMenu({ withShareTicket: true })
+    // [能力安置@255fa96933] 分享问答快照还原(承接被摘端内页的 ?souce=share 链):
+    // 命中即把一问一答直接铺成消息,不请求后端;必须先于本机历史恢复/服务端回放返回,
+    // 否则回放成功分支会把快照覆盖掉。
+    const shareSnapshot = shareSnapshotFromParams(
+      router.params as Record<string, string | undefined>,
+    )
+    if (shareSnapshot) {
+      setMessages(buildShareSnapshotMessages(shareSnapshot))
+      scrollToBottom()
+      return
+    }
+    // P3 #46 阶段3-b 截屏理解引导(2026-09-17 立):微信平台不在截屏事件里
+    // 提供截图文件,标准做法是监听动作后引导用户从相册选择发送(聊天页已
+    // 支持图片选择走视觉模型链路);离开页面时解除监听防重复提示。
+    try {
+      captureScreenHandlerRef.current = () => {
+        Taro.showToast({ title: t('ai.screenshotHint'), icon: 'none', duration: 3000 })
+      }
+      Taro.onUserCaptureScreen(captureScreenHandlerRef.current)
+    } catch {
+      // 部分平台不支持截屏监听,静默跳过
+    }
+    // 加载历史对话(对齐原 ai_assistant.vue 加载历史)
+    let restoredFromLocal = false
+    try {
+      const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)
+      if (Array.isArray(savedHistory)) {
+        setChatHistories(savedHistory)
+        // 带 sessionId/id 参数进入时恢复对应会话(参照 history.tsx:146 / index.tsx:207 传参格式)
+        if (routeSessionId) {
+          const target = (savedHistory as ChatHistoryEntry[]).find(
+            (h) => h.id === routeSessionId && Array.isArray(h.messages) && h.messages.length > 0,
+          )
+          if (target) {
+            restoredFromLocal = true
+            // D106 收尾:历史恢复时从 metadata.steerApplied 重建 aiCards.steerNotices
+            // (live 已写的不覆盖;无 metadata 不写空数组,不渲染空态)
+            setMessages(backfillSteerNoticesFromMetadata(target.messages))
+            setSessionId('')
+            // 本机快照没有服务端 id ⇒ 回到「未绑定会话」,留痕随之切到 draft 键并读回
+            switchNoticeScope(null)
+            // 本机快照没有服务端分页,旧会话游标必须清掉
+            resetEarlierPaging()
+            setImgsList([])
+            setInputValue('')
+            setSelectedMaterial(null)
+            scrollToBottom()
+          }
+        }
+      }
+    } catch {
+      // 存储读取失败忽略
+    }
+    // D20:本机快照没命中 ⇒ 走服务端回放。`hist_` 前缀是本文件写入快照时自造的 id 命名空间
+    // (见 clearChat 的 `hist_${Date.now()}`),它不是 chat_conversations 主键 —— 拿它去问
+    // 服务端必 404,那种失败不该弹给用户看。
+    if (routeSessionId && !restoredFromLocal && !routeSessionId.startsWith('hist_')) {
+      waitUntilReady(() => {
+        runServerReplay()
+      })
+    }
+    // 批次 3:进入会话回放三条查询(预算停止最新一条 / 最近账本 / 最近压缩边界)。
+    // 无服务端会话(本机快照 / 空会话)不查;查询内部静默失败 ⇒ 不弹 toast、不阻塞输入。
+    // 流式进行中(含从后台回前台触发的 show)不清状态也不查库,避免把本轮 live 账本/边界清掉。
+    if (!thinking) {
+      // 先清空再落库:换会话时不能把上一会话的停止提示或边界挂到新页。
+      setBudgetStop(null)
+      setContextLedger(null)
+      setCompactionBoundary(null)
+      if (conversationId) {
+        void Promise.all([
+          fetchConversationLatestBudgetStop(conversationId),
+          fetchConversationContextLedgers(conversationId, 5),
+          fetchConversationCompactionBoundaries(conversationId, 5),
+        ])
+          .then(([stop, ledgers, boundaries]) => {
+            if (stop) setBudgetStop(stop)
+            const latestLedger = ledgers[0]
+            if (latestLedger) setContextLedger(latestLedger)
+            const latestBoundary = boundaries[0]
+            if (latestBoundary) setCompactionBoundary(latestBoundary)
+          })
+          .catch(() => {
+            /* context fetch failed: keep defaults */
+          })
+      }
+    }
+    // 加载收藏消息(对齐原 ai_assistant.vue 收藏列表)
+    try {
+      const savedFav = Taro.getStorageSync(FAVORITE_STORAGE_KEY)
+      if (Array.isArray(savedFav)) setFavoritedMsgs(new Set(savedFav))
+    } catch {
+      // 存储读取失败忽略
+    }
+  })
+
+  useShareAppMessage(() => {
+    // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对齐原 ai_assistant.vue 分享)
+    const shareMsg = shareMsgRef.current
+    // [能力安置@255fa96933] 分享 path 带上问答快照(?souce=share&question=&content=),
+    // 被分享方进入即还原一问一答不请求后端 —— 与被摘端内页的产出形态同键。
+    const snapshot = shareSnapshotForMessage(messages, shareMsg)
+    return {
+      title: shareMsg
+        ? (shareMsg.content || '').slice(0, 50) || t('ai.share.title')
+        : t('ai.share.title'),
+      path: snapshot ? buildShareSnapshotPath(snapshot) : '/pkg-ai/ai/chat',
+    }
+  })
+
+  /**
+   * 语义匹配:识别用户是否在请求「图片 / 语音 / 视频」类任务,命中后引导跳转对应 AIGC 页面。
+   * 注意:下方三个正则中的中文属于「用户输入语义匹配」逻辑,并非 UI 展示文案,
+   * 因此刻意不做 i18n;若替换为翻译文本会导致中文提问匹配失效。
+   */
+  const checkSpecialModel = useCallback(
+    (text: string): boolean => {
+      if (/画|生成图|画图|绘图|画一个|画张|画幅/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pkg-ai/ai/image?prompt=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      if (/语音|朗读|说一段|读一段|播报/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      if (/生成视频|做个视频|视频生成/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pkg-ai/ai/video?prompt=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      return false
+    },
+    [t],
+  )
+
+  const sendMessage = useCallback(
+    async (
+      overrideText?: string,
+      baseHistory?: readonly ChatMessage[],
+      /** 票59 小程序腿:sibling 入族坐标(由 handleRegenerate 从 /regenerate 响应取)。
+       *  存在时**不追加新用户消息、不截断旧回复** —— 旧回复留在列表被读投影压成
+       *  "上一版",新回复带坐标按族尾插入(与 web mergeVersionMessage 同形)。 */
+      siblingVersion?: { rootId: string; siblingIndex: number },
+    ) => {
+      const text = (overrideText ?? '').trim()
+      if (!text && !siblingVersion) return
+      // W27:流式中发送 ⇒ 入队而不是丢弃(出队由下方流结束 effect 统一负责)
+      if (thinking) {
+        if (!siblingVersion && text) {
+          sideQueueRef.current.enqueue(text)
+          setInputValue('')
+        }
+        return
+      }
+      if (checkSpecialModel(text)) return
+      const userMsg: ChatMessage | null = siblingVersion
+        ? null
+        : { role: 'user', content: text, timestamp: Date.now() }
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        ...(siblingVersion
+          ? {
+              // 本地占位 id:本轮结束后下一次历史水合会用服务端行(带真 id 同坐标)替换
+              id: `ver_${Date.now()}`,
+              parentMessageId: siblingVersion.rootId,
+              siblingIndex: siblingVersion.siblingIndex,
+            }
+          : {}),
+      }
+      // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
+      // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
+      // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
+      const history: ChatMessage[] = [
+        ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
+        ...(userMsg ? [userMsg] : []),
+      ]
+      if (siblingVersion) {
+        // 族根指针回落默认:重新生成后激活版本 = 新插入的这一条
+        setActiveVersionByRoot((prev) => {
+          if (!(siblingVersion.rootId in prev)) return prev
+          const next = { ...prev }
+          delete next[siblingVersion.rootId]
+          return next
+        })
+        setMessages((prev) => [...prev, assistantMsg])
+      } else {
+        setMessages(
+          baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg!, assistantMsg],
+        )
+      }
+      setThinking(true)
+      // W5:新一轮对话开始,清空上一轮的执行过程列表
+      setStreamActivities([])
+      streamActivitiesRef.current = []
+      // 同批清空 pending 表(2026-11-13):列表已清空,ref 里留着的旧 id 永远不会再被命中,
+      // 却会在下一轮的首个 delta 触发一次无意义的 filter —— 更要紧的是它会让人误读
+      // "还有 pending 提示挂着"。清列表就必须同批清配对表(与 queuedActivityRef 同理)。
+      pendingActivityRef.current = []
+      queuedActivityRef.current = {}
+      activityKeyRef.current = {}
+      // G-403:新一轮开始,重置上一轮的缓存读数(旧账不得挂到新消息上)
+      setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
+      // 批次 3:新一轮开始清掉上一轮的停止提示与压缩边界回看(本轮若再压缩/再停止会重新落)。
+      // contextLedger 不在这里清:新 usage 帧到达前的旧账本是最近一轮的真实读数,不应闪空。
+      setBudgetStop(null)
+      setCompactionBoundary(null)
+      roundTraceIdRef.current = undefined
+      // D4:新一轮开流 ⇒ 上一轮"用户上翻"的账目作废(否则本次第一段内容长在视口下方,
+      // 而理由是用户在上一轮上翻过),再贴一次底。
+      setFollow(resetStreamFollowForNewRound())
+      scrollToBottom()
+      const controller = new AbortController()
+      abortRef.current = controller
+      // D4(2026-11-12 修"逐 token 全列表 setData + 逐帧拽底抖动"):SSE 帧只入 batcher buffer,
+      // 每 40ms 节拍才提交一次 state(与 web smooth 同泵;代理对不劈的切批在源内,BUG-52 纪律)。
+      // 提交回调里才跟滚 —— 提交节拍=滚节拍,不再每 token 堆 setTimeout。
+      const appendLastTurnContent = (d: string): void => {
+        const media = extractAnswerMedia(d)
+        setMessages((prev) =>
+          prev.map((m, i) => {
+            if (i !== prev.length - 1) return m
+            const appended = { ...m, content: m.content + d }
+            return hasAnyMedia(media) ? applyAnswerMedia(appended, media) : appended
+          }),
+        )
+        // 提交节拍才跟滚(不再每 token 堆 setTimeout);用户上翻后不滚 —— 判据在共享层。
+        stickIfFollowing(true)
+      }
+      const contentBatcher = createSmoothDeltaBatcher(appendLastTurnContent)
+      const reasoningBatcher = createSmoothDeltaBatcher((d) => {
+        setMessages((prev) =>
+          prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, reasoning: (m.reasoning || '') + d } : m,
+          ),
+        )
+        // D4:思考区流式同样跟滚(此前 reasoning 帧整条不滚,思考长了正文与视口脱节)
+        stickIfFollowing(true)
+      })
+      // 票 68:把 payload 交出去之前复核一次档位 —— chatStream 内部在触达网关前仍有 await,
+      // 这期间用户换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空则退回入口档。
+      const roundModel = resolveRoundModel(currentModel, currentModelRef.current)
+      // 差距①第 ① 腿(2026-11-13):本轮发送的稳定输入 ID。由共享 `createInputId()` 生成
+      // (端内不造第二源),服务端凭它回显准入回执并判定 duplicate。
+      // 一次 `sendMessage` 调用只生成一次 ⇒ 重连重发沿用同值(不重造,否则服务端会把它当成新的一条)。
+      const roundInputId = createInputId()
+      try {
+        await chatStream(
+          history,
+          sessionId,
+          {
+            model: roundModel || undefined,
+            agentId: activeAgentId || undefined,
+            materialContent: selectedMaterial?.content || undefined,
+            // 票59 小程序腿:sibling 新回复的族坐标经请求体 metadata 透传(键与 web 同形)
+            parentMessageId: siblingVersion?.rootId,
+            siblingIndex: siblingVersion?.siblingIndex,
+            // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
+            contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
+            // 差距①:带上准入回执配对的两把上行键(inputId + metadata.conversationId,
+            // 后者由 api 层按 sessionId 补),服务端才会在首个内容帧之前回显 admission。
+            inputId: roundInputId,
+          },
+          (delta) => {
+            // [能力安置@255fa96933] 正文媒资抽取(承接被摘端内页逐 delta extractImageUrls 口径,
+            // 扩展到图/视频/音频):媒资判据在**喂入点逐帧**做,合并发生在提交回调(appendLastTurnContent)。
+            // D4(2026-11-12):帧只入泵,不再逐 token 全列表 map+setData;滚动由提交节拍带(见上)。
+            //
+            // 2026-11-13(中间态收回):首个正文 delta 到达 = 连接已通、重试/重连已成功。
+            // 此刻把"X 秒后继续"/"X 秒后重连"这类 **pending 态**提示撤回 —— 它们写的是未来时,
+            // 留在列表里会一直说"X 秒后",而那个 X 秒早就过去了(与 queued 提示同型的缺陷)。
+            // 只撤 pending 态,不碰已完成的事实行(工具结果 / 处置结果 / 压缩边界)。
+            if (pendingActivityRef.current.length > 0) {
+              const stale = pendingActivityRef.current
+              pendingActivityRef.current = []
+              setStreamActivities((prev) => prev.filter((a) => !stale.includes(a.id)))
+            }
+            contentBatcher.batch(delta)
+          },
+          (reasoningDelta) => {
+            // D4(2026-11-12):思考流并入同泵(帧入 buffer,提交节拍统一 setData)
+            reasoningBatcher.batch(reasoningDelta)
+          },
+          (meta) => {
+            if (meta.sessionId) setSessionId(meta.sessionId)
+          },
+          controller.signal,
+          (info) => {
+            // 后端自动压缩完成,toast 提示用户(对齐 CLI /compact 命令的可见性)
+            // W5:i18n 化,文案与参数映射见 ai.stream.compact
+            onToast(
+              t('ai.stream.compact', {
+                before: formatTokenCount(info.tokensBefore),
+                after: formatTokenCount(info.tokensAfter),
+              }),
+              { kind: 'info', duration: 2500 },
+            )
+          },
+          // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
+          // 对齐原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
+          (doneInfo) => {
+            // D4(2026-11-12):定稿前必须冲刺 flush —— 末批 token 还在 buffer 未提交时,
+            // 紧随其后读 messages 的定稿/usage 写入会与末段内容抢同一轮,漏字即由此来(与 web #9 同纪律)。
+            contentBatcher.flush()
+            reasoningBatcher.flush()
+            if (typeof doneInfo.totalTokens === 'number') {
+              setMessages((prev) =>
+                prev.map((m, i) =>
+                  i === prev.length - 1 && m.role === 'assistant'
+                    ? { ...m, tokenCount: doneInfo.totalTokens! }
+                    : m,
+                ),
+              )
+            }
+          },
+          // W5:新增流式事件回调(第 10 个参数),为 tool-call / subagent / 计划 / 终端 /
+          // fallback / usage / 断线重连等事件提供最小可用渲染(统一压入执行过程列表)
+          {
+            onToolCallStart: (evt) => {
+              const startedAt = Date.now()
+              // D83:MCP server 名回落口径留在调用方(serverId 只在这一支存在)
+              const serverName = evt.serverName ?? evt.serverId
+              // 重复 start 帧保留已有流中预览;纯函数与选择理由见 types.ts 的 applyToolCallStart
+              upsertCard((c) => ({
+                ...c,
+                toolCalls: applyToolCallStart(
+                  c.toolCalls,
+                  {
+                    toolCallId: evt.toolCallId,
+                    toolName: evt.toolName,
+                    serverSource: evt.serverSource,
+                    serverName,
+                    args: evt.args,
+                  },
+                  startedAt,
+                ),
+              }))
+              // 2026-11-13:按 toolCallId **原位更新**,不新增行。
+              // start/result 是同一次调用的两阶段,两次都 push 会在列表里留下"调用中"与
+              // "已完成"两行,读起来像调用了两次(与 card 层 applyToolCallStart 的原位语义一致)。
+              upsertStreamActivity(
+                `tool:${evt.toolCallId}`,
+                toolActivityText(
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status: 'running',
+                    serverSource: evt.serverSource,
+                    serverName: evt.serverName ?? evt.serverId,
+                    args: evt.args,
+                  },
+                  t,
+                ),
+              )
+            },
+            onToolResult: (evt) => {
+              // result / isError 只存在于 tool-result 变体,先收窄再取(另一变体不给结果)
+              const resultEvent = evt.type === 'tool-result' ? evt : null
+              const isError = resultEvent?.isError === true
+              const status = isError ? 'error' : 'done'
+              upsertCard((c) => ({
+                ...c,
+                toolCalls: c.toolCalls.map((x) =>
+                  x.id === evt.toolCallId
+                    ? {
+                        ...x,
+                        status,
+                        // result 是结果度量(行数 / 命中数)与写类工具 ± 行数的唯一数据源
+                        args: evt.args ?? x.args,
+                        result: resultEvent?.result ?? x.result,
+                        isError,
+                        // D113:tool-result 到达即清流中预览 —— 最终 diff 以 result 为准,
+                        // 留着预览会让"已完成的工具"同时显示预览与结果两份内容(对齐 web)
+                        partialDiff: undefined,
+                        partialSeq: undefined,
+                        durationMs:
+                          typeof x.startedAt === 'number' ? Date.now() - x.startedAt : x.durationMs,
+                      }
+                    : x,
+                ),
+              }))
+              // 2026-11-13:同一 toolCallId 原位更新成最终状态(不新增第二行)。
+              // 若 result 先于 start 到达(乱序),upsert 会追加一行 —— 那是正确降级,
+              // 总比丢掉结果好(共享层 toolCallId 是配对唯一凭据)。
+              upsertStreamActivity(
+                `tool:${evt.toolCallId}`,
+                toolActivityText(
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status,
+                    serverSource: evt.serverSource,
+                    serverName: evt.serverName ?? evt.serverId,
+                    args: evt.args,
+                    result: resultEvent?.result,
+                  },
+                  t,
+                  { withMetric: true },
+                ),
+              )
+            },
+            // D113:工具流中 diff 预览 —— 共享 parser 认领帧后端内此前无分支 = 静默丢帧。
+            // partialText 是增量正文,按 toolCallId 以 seq 收敛追加(evt.seq<=已存 partialSeq 即丢弃);
+            // start 帧未到时不凭空造条目,空 toolCallId 整帧丢弃(见 applyToolDelta)。
+            onToolDelta: (evt) =>
+              upsertCard((c) => ({ ...c, toolCalls: applyToolDelta(c.toolCalls, evt) })),
+            // D64④(2026-10-14):subagent 三帧聚合进 aiCards.subagentTasks 八态卡 ——
+            // 状态词汇/语义判据(tone/titleKey/hint/busy)全部走共享 element-pack
+            // backgroundTaskView,端内零自写状态表(此前三帧只有活动行文本,状态不可视)。
+            // 归并纯函数见 cards/types.ts;upsert/progress/end 各自幂等(同 id 重放不回退终态)。
+            onSubagentSpawn: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                subagentTasks: upsertSubagentSpawn(c.subagentTasks ?? [], evt),
+              })),
+            onSubagentProgress: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                subagentTasks: applySubagentProgress(c.subagentTasks ?? [], evt),
+              })),
+            onSubagentEnd: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                subagentTasks: applySubagentEnd(c.subagentTasks ?? [], evt),
+              })),
+            onToolSummary: (evt) =>
+              // 2026-11-13:一轮只有一条汇总,按固定键原位更新(重复 summary 帧不得堆行)
+              upsertStreamActivity(
+                'tool-summary',
+                t('ai.stream.toolSummary', { calls: evt.totalCalls }),
+              ),
+            onToolDelegate: (evt) =>
+              pushStreamActivity(
+                toolActivityText(
+                  { id: '', name: evt.tool_name, status: 'running', args: evt.args },
+                  t,
+                ),
+              ),
+            onPlanUpdate: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                // plan 为权威快照,整体替换(对齐 web 端 message.planSteps 写入方式)
+                planSteps: (evt.plan ?? []).map((p, i) => ({
+                  id: String(i),
+                  step: p.step,
+                  status: p.status,
+                  explanation: evt.explanation,
+                  durationMs: p.durationMs,
+                  error: false,
+                })),
+              }))
+              pushStreamActivity(t('ai.stream.planUpdate'))
+            },
+            onTerminalStart: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: [
+                  ...c.terminalTasks.filter((x) => x.id !== evt.terminalId),
+                  { id: evt.terminalId, command: evt.command, status: 'running' },
+                ],
+              }))
+              pushStreamActivity(t('ai.stream.terminal', { status: evt.command }))
+            },
+            // D19(本票):terminal_delta 实时增量 —— 共享 parser(D19-A1)早已产出该帧,
+            // 端内 dispatch 此前无分支 = 静默丢帧,这是本票补的接线。累加到 running 任务的
+            // output(上限与 web 同值 20000 字符,超限保尾部);start 帧缺失时按帧内 command
+            // 自建任务(载荷自带 terminalId+command,帧自洽)。
+            onTerminalDelta: (evt) => {
+              if (!evt.terminalId || !evt.text) return
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: appendTerminalDelta(c.terminalTasks, evt),
+              }))
+            },
+            // D151(2026-09-29 立):命令在等键盘输入。此前**该帧在共享解析器上无人认领**,
+            // 被泛化 sessionId 兜底折成 meta ⇒ 本端结构上看不见"它在等人"(认领见
+            // packages/shared/src/utils/sse-parse.ts 的 terminal_interaction 分支)。
+            // 本端**不接输入口**:手机键盘送不进 ai-service 那条进程,给一个按了没反应的
+            // 输入框是假 affordance;只标状态,文案见 ai-cards.tsx 的 chat.terminal.* 两行。
+            onTerminalInteraction: (evt) => {
+              if (!evt.terminalId) return
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: markTerminalWaiting(c.terminalTasks, evt.terminalId),
+              }))
+            },
+            onTerminalEnd: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                // D151:终态归并后再过一道 clearTerminalWaiting —— 命令都结束了还挂着
+                // "在等你输入"就是假态,而把它写进上面那个对象字面量里会有第二种真相;
+                // 清除只有一处出口。
+                terminalTasks: clearTerminalWaiting(
+                  c.terminalTasks.map((x) =>
+                    x.id === evt.terminalId
+                      ? {
+                          ...x,
+                          status: evt.status,
+                          // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
+                          // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
+                          output: evt.output ?? x.output,
+                          // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                          truncated: evt.truncated ?? x.truncated,
+                          totalChars: evt.totalChars ?? x.totalChars,
+                          exitCode: evt.exitCode,
+                          durationMs: evt.durationMs,
+                        }
+                      : x,
+                  ),
+                  evt.terminalId,
+                ),
+              }))
+              pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
+            },
+            // D34/D39 第 45 轮:交代帧进 aiCards(随历史持久化)。injections 在旧历史里不存在,
+            // 类型上必填但运行时可能为 undefined,故保留 ?? [] 兜底。
+            // #11 引用溯源(第 49 轮):parser 与回调表都给了通道,端内不注册 = 静默丢帧
+            onCitations: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                citations: appendCitations(
+                  c.citations,
+                  evt.citations.map((x) => ({ source: x.source, label: x.label })),
+                ),
+              })),
+            onInjectionApplied: (evt) =>
+              upsertCard((c) => {
+                const items = c.injections ?? []
+                if (items.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+                  return { ...c, injections: items }
+                }
+                return {
+                  ...c,
+                  injections: [
+                    ...items,
+                    {
+                      kind: evt.kind,
+                      collapsed: evt.collapsed,
+                      fullText: evt.fullText,
+                      count: evt.count,
+                    },
+                  ],
+                }
+              }),
+            // D106 Steer(中途引导):交代帧进 aiCards.steerNotices(随历史持久化)。
+            // 空文本在 toSteerNotice 拦截(不渲染空提示);上限 8 条对齐后端 _STEER_QUEUE_LIMIT。
+            onSteer: (evt) => {
+              const notice = toSteerNotice(evt)
+              if (!notice) return
+              upsertCard((c) => ({
+                ...c,
+                steerNotices: appendSteerNotice(c.steerNotices, notice),
+              }))
+            },
+            // D152(2026-09-29 立):会话目标的服务端主副本变了 ⇒ 一行活动 + 一行胶囊。
+            // 取词/判档全在 cards/goal-line.ts(六档词汇取自 @ihui/types,认不出的档 ⇒ 不上屏);
+            // 本端**不给输入口、不给操作按钮** —— 手机上没有 /goal 的发起面,给了就是假 affordance。
+            onGoalUpdate: (evt) => {
+              const notice = describeGoalNotice(evt, t)
+              setGoalNotice(notice)
+              if (!notice) return
+              pushStreamActivity(
+                notice.objective ? `${notice.objective} · ${notice.label}` : notice.label,
+              )
+            },
+            // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批请求帧。载荷已在 api/index.ts
+            // 的认领层(parseToolApprovalLine)按 api-client 口径解析好,这里只入队去重;
+            // 卡片渲染/三档/决议回传见 ToolApprovalCard(tool-approval-card.tsx)。
+            onToolApproval: (evt) => {
+              // D-07(2026-10-26):失效留痕帧不弹审批卡 —— 该 approvalId 已无活等待者,
+              // 只给用户一条可读提示(与 web/RN 同一条共享键)。
+              if (evt.expired) {
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: tt(
+                    'chat.approvalExpiredNotice',
+                    '工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起',
+                    { toolName: evt.toolName },
+                  ),
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
+                })
+                return
+              }
+              const view: ApprovalRequestView = {
+                approvalId: evt.approvalId,
+                toolName: evt.toolName,
+                toolCallId: evt.toolCallId,
+                argsPreview: evt.argsPreview,
+                dangerLevel: evt.dangerLevel,
+                ...(evt.sessionId ? { sessionId: evt.sessionId } : {}),
+              }
+              setApprovalQueue((prev) => enqueueApprovalRequest(prev, view))
+            },
+            // D77(2026-10-17 落地小程序腿):form_request 帧 → 投影 → 消息流内可填卡。
+            // 投影判据单源在共享层(projectFormRequestFrame);本端 buildBody 不发 metadata
+            // ⇒ ai-service 不带 messageId ⇒ fallbackMessageId = 本轮流消息锚点(与 web
+            // assistantId 同构)。同 requestId 幂等覆盖(断线重连回放不重复渲染两张卡)。
+            onFormRequest: (frame) => {
+              const entry = projectFormRequestFrame(frame, String(assistantMsg.timestamp))
+              if (!entry) return
+              setBusinessForms((prev) => {
+                const existing = prev.find((f) => f.requestId === entry.requestId)
+                if (existing) {
+                  // 幂等覆盖:保留宿主已写入的 status/error(上行在途/已终态不被回放帧打回 pending)
+                  return prev.map((f) =>
+                    f.requestId === entry.requestId
+                      ? { ...entry, status: f.status, ...(f.error ? { error: f.error } : {}) }
+                      : f,
+                  )
+                }
+                return [...prev, entry]
+              })
+            },
+            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → ./chat-shell-extras 的
+            // overlaySlot 提问卡。选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
+            onQuestion: (q) => {
+              setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
+            },
+            // 提问结算(2026-11-13 立):服务端在 answered/timeout/withdrawn/interrupted 四态都会发
+            // 这一帧。此前本端没有这个出口 ⇒ 非用户主动关闭的三态(超时/撤回/打断)永远清不掉卡片,
+            // 界面停在"待回答"且点了没反应(问题早已失效)。按 questionId 精确清理:
+            // 不能无条件 setPendingQuestion(null) —— 那会把"另一条更新的提问"误清掉。
+            onQuestionResolved: (resolved) => {
+              setPendingQuestion((prev) =>
+                prev && prev.questionId === resolved.questionId ? null : prev,
+              )
+            },
+            onRetryScheduled: (evt) => {
+              // pending 态:同上,"X 秒后继续"在继续之后必须撤回
+              const id = pushStreamActivity(
+                t('ai.stream.gatewayRetry', {
+                  attempt: evt.attempt,
+                  max: evt.maxRetries,
+                  seconds: Math.max(1, Math.round(evt.retryInMs / 1000)),
+                }),
+              )
+              pendingActivityRef.current.push(id)
+            },
+            onFallback: (evt) =>
+              pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
+            onUsage: (info) => {
+              if (typeof info.totalTokens === 'number') {
+                pushStreamActivity(t('ai.stream.usage', { n: info.totalTokens }))
+              }
+              // G-403(2026-10-07):缓存两维接住 —— `?? null` 把"缺席(旧帧)"与"显式
+              // null(没采到)"都归 null = 未知;数字(含 0=真没命中)原样保留,不造 0。
+              setLatestCacheTokens({
+                cacheReadTokens: info.cacheReadTokens ?? null,
+                cacheWriteTokens: info.cacheWriteTokens ?? null,
+              })
+            },
+            // 批次 3(2026-11-06):usage 帧携带的七类上下文账本(由 api/index 的原始行旁路
+            // 认领后回调)。共享解析面只折旧 usage 字段,这里不重解帧、只落 state。
+            onContextLedger: (ledger) => setContextLedger({ ledger, turnIndex: null }),
+            // 批次 3:compaction 帧的压缩边界(保留段 + 折叠区间)。无 boundary 不触发回调;
+            // 展开交互见 CompactionBoundaryStrip,本端不在此拼 UI 文案。
+            onCompactionBoundary: (boundary) => setCompactionBoundary(boundary),
+            // 批次 3:预算档位帧。`stopped` 是终态 —— 只有它能写 budgetStop;
+            // warning/critical 一律不碰该 state(后到的 warning 不得覆盖停止提示)。
+            onBudget: (evt) => {
+              setBudgetStop((prev) => applyBudgetStopEvent(prev, evt))
+            },
+            // 2026-11-13:记忆更新交代。此前本端 0 命中 —— 服务端明明回了"本轮记住了哪些"
+            // 却整帧丢弃,用户不知道助手在积累记忆。空数组 = 本轮无新记忆 ⇒ 不打扰。
+            // 2026-11-13:hook 执行失败交代。判据走共享层(端内不复制六态收窄),
+            // 只渲染 failed / timedOut 两档 —— 那是服务端唯一下发的两档。
+            onHookFailure: (evt) => {
+              const rec = readHookFailureEvent(evt)
+              if (!rec) return
+              const view = hookFailureView(rec.state, rec.context)
+              const name = rec.context.hookName ?? rec.context.hookEvent ?? '?'
+              pushStreamActivity(
+                `${t('chat.hookFailureTitle', { name })} · ${t(`${HOOK_FAILURES_NAMESPACE}.${view.titleKey}`)}`,
+              )
+            },
+            onMemoryUpdates: (evt) => {
+              if (evt.items.length === 0) return
+              pushStreamActivity(t('ai.stream.memoryRemembered', { n: evt.items.length }))
+            },
+            onReconnect: (attempt, delayMs) => {
+              // pending 态:写的是"X 秒后重连"这个未来时,连上之后必须撤回(见 onDelta)
+              const id = pushStreamActivity(
+                t('ai.stream.reconnect', { attempt, seconds: Math.round(delayMs / 1000) }),
+              )
+              pendingActivityRef.current.push(id)
+            },
+            // 差距①第 ③④ 腿(2026-11-13):发送准入回执上屏。
+            //
+            // 为什么必须**接进既有 pushStreamActivity** 而不是只吞进 state:台账明确记着
+            // 「回执落进没人读的内存键」是本分组要防的复发形态 —— 接一条没有可见出口的
+            // 回调,账面变绿而用户看不到任何区别。执行过程列表本就承载流级事件
+            // (onReconnect 同款),回执是它的天然同类。
+            //
+            // 只对**有信息量**的档位出提示:accepted 与"我发出去了"同义反复(用户已经看到
+            // 自己的消息上屏),再报一次是噪音;queued/rejected 才是服务端**新增**的信息。
+            // duplicate 更特殊:它说明这次是重复提交,必须让用户知道(否则会以为发了两条)。
+            //
+            // ⚠️ accepted 虽不出提示,但**必须收回 queued 那条**(2026-11-13 修):
+            // 后端在排队回合被晋升时会再发一帧 `admission{disposition:'accepted', queuedTurnId}`
+            // (llm.py 现读)。旧实现在 accepted 处直接 return ⇒ "已排队"永久留在执行过程列表里,
+            // 用户看着"已排队"而回答早在跑 —— 比不显示更糟,它制造错误的等待预期。
+            // 配对凭据:`queuedTurnId` 两帧同值(共享层 send-admission.ts 定义该字段为
+            // "queued 档专用:排队项标识,供队列面板后续插队/撤回")。
+            onSendAdmissionReceipt: (receipt) => {
+              if (receipt.disposition === 'accepted') {
+                // 晋升:把同 queuedTurnId 的那条排队提示收回(无则不动,不误伤别的活动)
+                const qid = receipt.queuedTurnId
+                if (qid && queuedActivityRef.current[qid]) {
+                  dropStreamActivity(queuedActivityRef.current[qid])
+                  delete queuedActivityRef.current[qid]
+                }
+                return
+              }
+              const label = t(`streamErrors.admission.${receipt.disposition}`)
+              // 词表未命中(后端新增处置码)原样回显处置码,不吞数据(与 attendanceStatusLabel 同纪律)
+              const text =
+                label === `streamErrors.admission.${receipt.disposition}`
+                  ? receipt.disposition
+                  : label
+              const activityId = pushStreamActivity(text)
+              // 记住 queued 那条的 activity id,供晋升时撤回
+              if (receipt.disposition === 'queued' && receipt.queuedTurnId) {
+                queuedActivityRef.current[receipt.queuedTurnId] = activityId
+              }
+            },
+            // G-248 R2:帧级 traceId 进客户端日志(非视觉消费,不上屏)。
+            // 值由共享 sse-parse 认领、api/index 的 dispatch 透传,端内不再解帧、不再判合法性。
+            onTraceId: (traceId) => {
+              if (roundTraceIdRef.current !== undefined) return
+              roundTraceIdRef.current = traceId
+              logger.info('pkg-ai/ai/chat', 'stream traceId', traceId)
+            },
+            // G-425(2026-10-07 立,web 腿先行):done 帧携带上游 finish/stop reason
+            // (api/index onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
+            // api/index 的唯一助手(口径见其注释),提示用与 onCompaction/onPartialDone
+            // 同款 Taro.showToast;其余 reason 不提示,不自动续写。
+            onFinishReason: (evt) => {
+              if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: t('chat.truncation.maxLengthNotice'),
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
+                })
+              }
+            },
+          },
+          // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
+          // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
+          () => {
+            // D4:异常收尾帧前冲刺 flush,已产出的内容不留在 buffer(错误前 flush,与 web #9 同纪律)
+            contentBatcher.flush()
+            reasoningBatcher.flush()
+            onToast(t('chat.partialDoneTitle'), { kind: 'info', duration: 2500 })
+          },
+        )
+      } catch (e) {
+        // D4(2026-11-12):catch 前先 flush 累积 token —— 含 AbortError(停止生成时已产出的
+        // 半句要留在屏上,不能连同 buffer 一起蒸发;applyStreamError 只标态不裁正文)。
+        contentBatcher.flush()
+        reasoningBatcher.flush()
+        if ((e as Error)?.name !== 'AbortError') {
+          const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
+          // G-248 R2:失败轮把本轮帧级 trace 一起进日志(与 api-client 错误上报体同纪律:
+          // 没见过 ⇒ 不写这个键,绝不写空串/unknown 顶掉"无键"这一态)
+          const roundTraceId = roundTraceIdRef.current
+          logger.error(
+            'pkg-ai/ai/chat',
+            'stream failed',
+            roundTraceId === undefined
+              ? { code: formatted.code, message: formatted.message }
+              : { code: formatted.code, message: formatted.message, traceId: roundTraceId },
+          )
+          // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
+          setMessages((prev) => applyStreamError(prev, formatted.message))
+          onToast(formatted.title, { kind: 'info', duration: 2500 })
+        }
+      } finally {
+        abortRef.current = null
+        setThinking(false)
+        scrollToBottom()
+      }
+    },
+    [
+      thinking,
+      sessionId,
+      messages,
+      scrollToBottom,
+      stickIfFollowing,
+      currentModel,
+      activeAgentId,
+      selectedMaterial,
+      t,
+      tt,
+      checkSpecialModel,
+      pushStreamActivity,
+      upsertStreamActivity,
+      dropStreamActivity,
+      upsertCard,
+    ],
+  )
+
+  // D28 补齐层(2026-10-03):把 sendMessage 挂到 ref,供上方 runServerReplay 的
+  // 「回放落定后自动发出分析指令」调用(声明顺序在那条边之上,直接引用会撞 TDZ)。
+  useEffect(() => {
+    sendMessageRef.current = sendMessage
+    sideQueueRef.current = sideQueue
+  })
+
+  /**
+   * D38:流结束 ⇒ 出队队首补答(队列不会自己发消息)。
+   * effectiveMode 只在这里判一次:Runtime 不支持插话时 steer 偏好降级为 queue,
+   * 出队语义不变(W27:恒取队首,选择逻辑不在队列模块里)。
+   */
+  const prevThinkingRef = useRef(false)
+  useEffect(() => {
+    const wasThinking = prevThinkingRef.current
+    prevThinkingRef.current = thinking
+    if (!wasThinking || thinking) return
+    const host = sideQueueRef.current
+    const resolution = effectiveMode(host.mode, false)
+    if (resolution.mode !== 'queue') return
+    const head = host.takeHead()
+    if (head) void sendMessageRef.current(head.text)
+  }, [thinking])
+
+  // 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
+  // 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
+  // 注意:此处刻意不把 abortRef 置 null,控制器由该流自己的 finally 回收(见 sendMessage)。
+  const terminateStream = useCallback(
+    (notice?: string): boolean =>
+      terminateActiveStream({
+        abortRef,
+        ...(notice
+          ? {
+              notice,
+              showNotice: (message: string) => onToast(message, { kind: 'info', duration: 2500 }),
+            }
+          : {}),
+      }),
+    [],
+  )
+
+  const stopGeneration = useCallback(() => {
+    terminateStream()
+  }, [terminateStream])
+
+  /**
+   * 提交 AI 提问的答复(2026-11-13 修)。
+   *
+   * ⚠️ 这次修的是一个**看着能用其实错链路**的实现:旧代码在选项点击里只做
+   * `setInputValue(o.label)` —— 把文本填回输入框让用户手动再发。后果三条:
+   *  ① 没调 `/question-response` 续流,而是**开了一轮普通对话**(服务端那条挂着的流仍在等);
+   *  ② `questionId` 被丢掉,服务端无从配对;
+   *  ③ 原 assistant 的 `pendingQuestion` 状态永不清除。
+   * 也就是说界面能点、点了有反应,但那反应与"回答这个提问"无关。
+   *
+   * 现改为走共享层判据的三档归宿(blocking / legacy / failed)——
+   * 与 web / extension / cli 同一份判据、同一个传输封装。
+   */
+  const submitQuestionAnswer = useCallback(
+    async (action: 'answer' | 'withdraw', selected: string[], custom: string) => {
+      const q = pendingQuestion
+      if (!q) return
+      if (action === 'answer' && selected.length === 0 && custom.trim() === '') return
+      const sid = sessionId
+      if (!sid) {
+        onToast(t('chat.questionNoSession'), { kind: 'error' })
+        return
+      }
+      const r = await postQuestionAnswerResponse(sid, {
+        questionId: q.questionId,
+        action,
+        selectedOptionIds: selected,
+        ...(custom.trim() ? { customText: custom.trim() } : {}),
+      })
+      if (r.networkError !== undefined) {
+        onToast(t('chat.questionFailed'), { kind: 'error' })
+        return
+      }
+      const outcome = interpretQuestionResponse(r.httpStatus, r.data)
+      if (outcome.kind === 'blocking') {
+        // 服务端认下 ⇒ 关卡片,流自己续跑(不能再发一轮)
+        setPendingQuestion(null)
+      } else if (outcome.kind === 'legacy') {
+        // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
+        // 签名吃 { options } 整个问题形状(共享层判据,端内不复制调用形)——
+        // 此前误传 q.options 数组 ⇒ TS2345,2026-11-16 与 RN 同批对齐。
+        const text = buildLegacyAnswerText(q, {
+          questionId: q.questionId,
+          action,
+          selectedOptionIds: selected,
+          customText: custom,
+        })
+        setPendingQuestion(null)
+        if (text) void sendMessage(text)
+      } else {
+        onToast(t('chat.questionFailed'), { kind: 'error' })
+      }
+    },
+    [pendingQuestion, sessionId, t, sendMessage],
+  )
+
+  // 票 68(语义照 web `use-chat.ts` 的换档 effect):流式中切换模型 → 终止当前这一轮,
+  // 并让本轮/下一轮自动带入新模型(用户不必重发、也不必重开对话)。
+  // 首帧与持久化回填时 previous/current 相同 ⇒ 判据不成立 ⇒ 什么都不做(不该凭空打断)。
+  useEffect(() => {
+    const previousModel = previousModelRef.current
+    currentModelRef.current = currentModel
+    previousModelRef.current = currentModel
+    if (
+      !shouldTerminateForModelSwitch({
+        previousModel,
+        currentModel,
+        hasLiveStream: Boolean(abortRef.current),
+      })
+    ) {
+      return
+    }
+    // 与 web 腿同一条:终止要给用户看得见的理由(键 chat.modelSwitchStopped 2026-10-18 随本票补进五语言包);
+    // 无在途流 = 纯换档,静默生效,不打扰。
+    terminateStream(t('chat.modelSwitchStopped', { model: currentModel }))
+  }, [currentModel, terminateStream, t])
+
+  const handleSuggestion = useCallback(
+    (text: string) => {
+      sendMessage(text)
+    },
+    [sendMessage],
+  )
+
+  const clearChat = useCallback(() => {
+    Taro.showModal({
+      title: t('common.hint'),
+      content: t('ai.clearConfirm'),
+      success: (res) => {
+        if (res.confirm) {
+          // 清空前把当前对话存入历史(对齐原 ai_assistant.vue 存历史)
+          // 失败轮不是内容:排除后再存,否则错误文案会被当回答持久化并出现在历史预览里
+          const contentMsgs = messages.filter((m) => !isErrorTurn(m))
+          if (contentMsgs.length > 0) {
+            const firstUserMsg = contentMsgs.find((m) => m.role === 'user')
+            const lastMsg = contentMsgs[contentMsgs.length - 1]
+            const title = (firstUserMsg?.content || '').slice(0, 20) || t('ai.history.title')
+            const preview = (lastMsg?.content || '').slice(0, 30)
+            const entry: ChatHistoryEntry = {
+              id: `hist_${Date.now()}`,
+              title,
+              preview,
+              timestamp: Date.now(),
+              messages: [...contentMsgs],
+            }
+            setChatHistories((prev) => {
+              const next = [entry, ...prev].slice(0, MAX_HISTORY_COUNT)
+              try {
+                Taro.setStorageSync(HISTORY_STORAGE_KEY, next)
+              } catch {
+                // 存储写入失败忽略
+              }
+              return next
+            })
+          }
+          setMessages([])
+          setSessionId('')
+          // 清空对话是破坏性语义:内存留痕归零,盘上本会话与 draft 的记录一并抹掉
+          resetNotices(null)
+          resetEarlierPaging()
+        }
+      },
+    })
+  }, [t, messages, resetEarlierPaging, resetNotices])
+
+  const selectModel = useCallback((m: ModelItem) => {
+    setCurrentModel(m.id)
+    setCurrentModelName(m.name)
+    setModelDrawerVisible(false)
+  }, [])
+
+  const selectMaterial = useCallback((m: MaterialItem) => {
+    setSelectedMaterial(m)
+    setMaterialDrawerVisible(false)
+  }, [])
+
+  const selectSkill = useCallback(
+    (a: AgentItem) => {
+      if (messages.length > 0 && a.id !== activeAgentId) {
+        Taro.showModal({
+          title: t('common.hint'),
+          content: t('ai.switchAgent.confirm'),
+          success: (res) => {
+            if (!res.confirm) return
+            setMessages([])
+            setSessionId('')
+            resetEarlierPaging()
+            setCurrentAgentId(a.id)
+            setSkillsPopupVisible(false)
+            setAgent({
+              id: a.id,
+              name: a.name,
+              description: a.description || '',
+              avatar: a.avatar,
+              systemPrompt: '',
+            })
+            loadAgent()
+          },
+        })
+        return
+      }
+      setCurrentAgentId(a.id)
+      setSkillsPopupVisible(false)
+      setAgent({
+        id: a.id,
+        name: a.name,
+        description: a.description || '',
+        avatar: a.avatar,
+        systemPrompt: '',
+      })
+      loadAgent()
+    },
+    [loadAgent, messages.length, activeAgentId, t, resetEarlierPaging],
+  )
+
+  const openSkillsPopup = useCallback(() => {
+    setSkillsPopupVisible(true)
+    if (!agents.length) loadAgents()
+  }, [agents.length, loadAgents])
+
+  const handleUpload = useCallback(
+    (files: string[]) => {
+      const newItems: InputFileItem[] = files.map((filePath) => {
+        // 根据扩展名判断文件类型
+        const ext = filePath.split('.').pop()?.toLowerCase() || ''
+        if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+          return { imgUrl: filePath, fileType: 'video', video_url: filePath }
+        }
+        if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) {
+          const filename = filePath.split('/').pop() || filePath
+          return { imgUrl: filePath, fileType: 'document', filename }
+        }
+        return { imgUrl: filePath, fileType: 'image' }
+      })
+      setImgsList((prev) => [...prev, ...newItems])
+      onToast(t('ai.fileSelected', { count: files.length }), { kind: 'info' })
+    },
+    [t],
+  )
+
+  /** 选图/选文件(2026-11-04 门285 收口:从 InputArea 内部上移到调用方,与 RN 端 onImageAdd 同契约) */
+  const handleImageAdd = useCallback(async () => {
+    try {
+      const imgRes = await Taro.chooseImage({
+        count: 9,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+      })
+      const files = Array.isArray(imgRes.tempFilePaths) ? imgRes.tempFilePaths : []
+      if (files.length) handleUpload(files)
+    } catch {
+      try {
+        const fileRes = await Taro.chooseMessageFile({ count: 9, type: 'file' })
+        const files = (fileRes.tempFiles || []).map((f: { path: string }) => f.path)
+        if (files.length) handleUpload(files)
+      } catch {
+        /* 用户取消 */
+      }
+    }
+  }, [handleUpload])
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setImgsList((prev) => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const handleVoicePress = useCallback(() => {
+    Taro.vibrateShort({ type: 'light' })
+  }, [])
+
+  const handleVoiceRelease = useCallback(
+    (filePath: string) => {
+      if (!filePath) return
+      // 简化版:直接用本地路径发送(生产环境应上传服务器获取 URL)
+      // sendMessage 当前签名只接受 text 参数,附带 filePath 信息发送
+      sendMessage(`[voice]${filePath}`)
+    },
+    [sendMessage],
+  )
+
+  const handleMaterialUpload = useCallback(
+    (tab: MaterialTab) => {
+      onToast(t('ai.uploadMaterialTab', { tab }), { kind: 'info' })
+    },
+    [t],
+  )
+
+  /** 复用问题到输入框(对齐原 ai_assistant.vue copyToInput) */
+  const handleReuse = useCallback((question: string) => {
+    if (!question) return
+    setInputValue(question)
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
+  const handleRecharge = useCallback(() => {
+    Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
+  }, [])
+
+  /** TTS 朗读(对齐原 ai_assistant.vue 朗读,简化实现:跳转 voice 页传 text 参数) */
+  const handleSpeak = useCallback((content: string) => {
+    if (!content) return
+    Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(content) })
+  }, [])
+
+  /** 票59 小程序腿(2026-11-01):regenerate 改接服务端 sibling 契约 ——
+   *  POST /api/chat/conversations/:id/regenerate(后端**不再物理删除**,旧回复保留为
+   *  版本族根)→ 拿 rootId/nextSiblingIndex → 新回复带坐标按族尾流式生成,旧回复被
+   *  读投影压成"上一版",切换器 ← n/N → 可回看。与 web regenerateMessage 同链同载荷键。
+   *  降级路径(如实标注,不是暗桩):会话主键或目标回复的服务端 id 尚未落地
+   *  (纯本地新聊、流式行未回写 id)⇒ 无从入族,回退旧的本地截断+普通重发。 */
+  const handleRegenerate = useCallback(
+    async (target?: ChatMessage) => {
+      if (thinking) return
+      const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+      const text = resendTargetText(messages)
+      if (lastUserIdx < 0 || !text) return
+      const root =
+        target && target.role === 'assistant' && target.id
+          ? target
+          : [...messages].reverse().find((m) => m.role === 'assistant' && m.id)
+      if (!sessionId || !root?.id) {
+        const base = messages.slice(0, lastUserIdx)
+        setMessages(base)
+        void sendMessage(text, base)
+        return
+      }
+      try {
+        const res = await regenerateConversation(sessionId, root.id)
+        if (!res.success || !res.data) throw new Error(res.error || 'regenerate rejected')
+        const { rootId, nextSiblingIndex } = res.data
+        // 族根本地补坐标 siblingIndex=0(服务端已同步行;投影/rootInSet 防御同 web
+        // mergeVersionMessage 口径 —— 不带坐标的族根会被当成非族行,切换器就配不齐)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === rootId && m.siblingIndex === undefined
+              ? { ...m, siblingIndex: 0, parentMessageId: null }
+              : m,
+          ),
+        )
+        // 上行历史截到**族根之前**(与 web send-message.ts 的 historySource 同口径):
+        // 被重生成那一版的旧正文与其后的轮次都不得混进新回复的上下文。
+        // 族根不在本地列表(分页切割/局部回放)⇒ 回落截到最后一次用户提问(含) ——
+        // 宁可多带一轮上下文,不可无声丢半段历史(同读投影"族根缺席则整族保留"的失效方向)。
+        const rootCut = messages.findIndex((m) => m.id === rootId)
+        void sendMessage(
+          undefined,
+          rootCut === -1 ? messages.slice(0, lastUserIdx + 1) : messages.slice(0, rootCut),
+          {
+            rootId,
+            siblingIndex: nextSiblingIndex,
+          },
+        )
+      } catch (e) {
+        logger.warn(
+          'pkg-ai/ai/chat',
+          'regenerate.sibling-failed',
+          String((e as Error)?.message ?? e),
+        )
+        onToast(t('ai.messageVersion.regenerateFailed'), { kind: 'error' })
+      }
+    },
+    [messages, sendMessage, sessionId, thinking, t],
+  )
+
+  /** 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏。形态以 RN 那份为准 ——
+   *  一次点击只动它点的那一把(两个维度都给,等于顺手取消另一个没打算动的标记),
+   *  成功态取服务端回写的时刻而不是本地翻转;写链走 @ihui/api-client 的 setMessageFlags。 */
+  const toggleMessageFlag = useCallback(
+    async (msg: ChatMessage, kind: 'pinned' | 'bookmarked'): Promise<void> => {
+      // 端内流式行在拿到落库 id 之前无处可写,调用侧已按有无 id 决定给不给这两项
+      if (!msg.id) return
+      const res = await setMessageFlags({
+        messageId: msg.id,
+        ...(kind === 'pinned' ? { pinned: !msg.pinnedAt } : { bookmarked: !msg.bookmarkedAt }),
+      })
+      if (!res.success) {
+        onToast(t('ai.messageAction.flagFailed'), { kind: 'error' })
+        return
+      }
+      const written = res.data?.message
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id
+            ? {
+                ...m,
+                pinnedAt: written?.pinnedAt ?? null,
+                bookmarkedAt: written?.bookmarkedAt ?? null,
+              }
+            : m,
+        ),
+      )
+    },
+    [t],
+  )
+
+  const handleLongPress = useCallback(
+    (msg: ChatMessage, idx: number) => {
+      // 失败轮不给"分享"(它不是内容),复制保留 —— 报错排查要用那段文字
+      const failed = isErrorTurn(msg)
+      const actions: { label: string; run: () => void }[] = []
+      actions.push({
+        label: t('ai.messageAction.copy'),
+        run: () => Taro.setClipboardData({ data: msg.content }),
+      })
+      if (msg.role === 'user') {
+        actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
+      }
+      // 票64 格②:钉选/收藏对 user 与 assistant 同渲染(web `MessageItem` 与 RN 都是这个口径,
+      // 标记语义与"谁能被点赞"不是一回事);但没有服务端 id 就无处可写 ⇒ 不给死入口。
+      if (msg.id) {
+        actions.push(
+          {
+            label: t(msg.pinnedAt ? 'ai.messageAction.unpin' : 'ai.messageAction.pin'),
+            run: () => void toggleMessageFlag(msg, 'pinned'),
+          },
+          {
+            label: t(
+              msg.bookmarkedAt ? 'ai.messageAction.unbookmark' : 'ai.messageAction.bookmark',
+            ),
+            run: () => void toggleMessageFlag(msg, 'bookmarked'),
+          },
+        )
+      }
+      actions.push({
+        label: t('ai.messageAction.delete'),
+        run: () => setMessages((prev) => prev.filter((_, i) => i !== idx)),
+      })
+      if (!failed) {
+        actions.push({
+          label: t('ai.chatMessageItem.share'),
+          run: () => {
+            // 分享对话(对齐原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
+            shareMsgRef.current = msg
+            Taro.showShareMenu({ withShareTicket: true })
+            onToast(t('ai.chatMessageItem.share'), { kind: 'info' })
+          },
+        })
+      }
+      if (failed) {
+        actions.unshift({ label: t('ai.chatMessageItem.retry'), run: handleRegenerate })
+      }
+      Taro.showActionSheet({
+        itemList: actions.map((a) => a.label),
+        success: (res) => actions[res.tapIndex]?.run(),
+      })
+    },
+    [t, handleReuse, handleRegenerate, toggleMessageFlag],
+  )
+
+  const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
+    if (msg.role !== 'user') return
+    setInputValue(msg.content)
+    setMessages((prev) => prev.slice(0, idx))
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
+  /** 恢复选中的历史对话(对齐原 ai_assistant.vue 恢复历史)
+   *  恢复时清空当前输入态(附件/输入框/选中素材),开始新对话上下文 */
+  const handleSelectHistory = useCallback(
+    (h: ChatHistoryEntry) => {
+      // D106 收尾:同上,历史恢复链路统一走 metadata.steerApplied 读回
+      setMessages(backfillSteerNoticesFromMetadata(h.messages || []))
+      setSessionId('')
+      // 恢复本机快照 = 切会话:上一会话的提示留痕不带到新页(读回 draft 键上的记录)
+      switchNoticeScope(null)
+      // 本机快照没有服务端分页,旧会话游标必须清掉
+      resetEarlierPaging()
+      setImgsList([])
+      setInputValue('')
+      setSelectedMaterial(null)
+      setHistoryDrawerVisible(false)
+      scrollToBottom()
+    },
+    [scrollToBottom, resetEarlierPaging, switchNoticeScope],
+  )
+
+  /** 清空所有历史对话(对齐原 ai_assistant.vue clearHistory) */
+  const handleClearHistory = useCallback(() => {
+    setChatHistories([])
+    try {
+      Taro.removeStorageSync(HISTORY_STORAGE_KEY)
+    } catch {
+      // 存储删除失败忽略
+    }
+  }, [])
+
+  /** 切换收藏状态(对齐原 ai_assistant.vue toggleFavorite,持久化到本地) */
+  const toggleFavorite = useCallback(
+    (msg: ChatMessage) => {
+      if (!msg.timestamp) return
+      const id = String(msg.timestamp)
+      setFavoritedMsgs((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+          onToast(t('ai.chatMessageItem.favorited'), { kind: 'info' })
+        }
+        try {
+          Taro.setStorageSync(FAVORITE_STORAGE_KEY, Array.from(next))
+        } catch {
+          // 存储写入失败忽略
+        }
+        return next
+      })
+    },
+    [t],
+  )
+
+  const openModelDrawer = useCallback(() => {
+    setModelDrawerVisible(true)
+    if (!models.length) loadModels()
+  }, [models.length, loadModels])
+
+  const openMaterialDrawer = useCallback(() => {
+    setMaterialDrawerVisible(true)
+    if (!materials.length) loadMaterials()
+  }, [materials.length, loadMaterials])
+
+  /** 关闭智能体提示说明弹窗(对齐原 ai_index.vue,关闭后设置 localStorage 标记 ai_agent_tip_shown=1) */
+  const closeAgentTip = useCallback(() => {
+    setAgentTipVisible(false)
+    try {
+      Taro.setStorageSync('ai_agent_tip_shown', '1')
+    } catch {
+      // 存储写入失败忽略
+    }
+  }, [])
+
+  // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
+  const tierText = resolvePermissionTierText(workspaceTier, tt)
+
+  // 票59 小程序腿:切换激活版本 —— 只改读投影的指针,不写库、不发请求(与 web
+  // stores/chat.ts 的 setActiveMessageVersion 同语义);同值不回写(省一次整树重渲染)。
+  const handleSwitchMessageVersion = useCallback((rootId: string, messageId: string): void => {
+    setActiveVersionByRoot((prev) =>
+      prev[rootId] === messageId ? prev : { ...prev, [rootId]: messageId },
+    )
+  }, [])
+
+  // 票59 小程序腿:族内只渲染激活版本。回调仍按**原始下标**切片(handleEdit 截断、
+  // handleLongPress 分享定位都吃 messages 的下标),所以这里同时带出可见行和它的原始下标。
+  //
+  // 为什么族投影吃 `familyRows` 而不是 `messages`:端内 ChatMessage.id 可选(流式行拿到
+  // 落库 id 前为空),而共享判族基类要求 id 必填 —— 参与族判定的行必然来自服务端历史水合
+  // 或本屏 regenerate 占位(两条路都写了 id),按 id 收窄是**等价**的,无 id 的行一律原样保留。
+  const versionList = useMemo(() => {
+    const familyRows = messages.filter((m): m is ChatMessage & { id: string } => !!m.id)
+    const visibleIds = new Set(
+      projectActiveMessages(familyRows, activeVersionByRoot).map((m) => m.id),
+    )
+    return {
+      familyRows,
+      items: messages
+        .map((msg, idx) => ({ msg, idx }))
+        .filter(({ msg }) => !msg.id || visibleIds.has(msg.id)),
+    }
+  }, [messages, activeVersionByRoot])
+
+  // 块 2:共享列表以 `item.id` 为 key(RN 语义单源);端内流式行落库前无 id,
+  // 用 `local-<原始下标>` 兜底保证唯一。渲染仍取原 `msg` 对象,序号仍是原始下标。
+  const messageRows = useMemo<ChatScreenMessage[]>(
+    () =>
+      versionList.items.map(
+        ({ msg, idx }, i) =>
+          ({
+            ...msg,
+            id: msg.id ?? `local-${idx}`,
+            role: msg.role,
+            content: msg.content ?? '',
+            __i: i,
+          }) as unknown as ChatScreenMessage,
+      ),
+    [versionList],
+  )
+
+  // 块 2 声明式挂槽:业务表单按 messageId 锚到行 id;页面只交数据,不交渲染函数。
+  const businessFormTails = useMemo(
+    () =>
+      buildBusinessFormTails({
+        rows: versionList.items.map(({ msg, idx }) => ({
+          rowId: msg.id ?? `local-${idx}`,
+          anchorId: String(msg.id ?? msg.timestamp),
+        })),
+        knownAnchorIds: messages.map((m) => String(m.id ?? m.timestamp)),
+        forms: businessForms,
+        sendingRequestId: formSendingRequestId,
+        failedLabel: tt('ai.businessForms.status.failed', '提交失败,请重试'),
+        onAction: (form, payload) =>
+          void handleBusinessFormAction(form as BusinessFormView, payload),
+      }),
+    [versionList, messages, businessForms, formSendingRequestId, handleBusinessFormAction, tt],
+  )
+
+  // 最终壳:页内 JSX 只剩「ThemeRoot + 共享 ChatScreen 入口」两枚;
+  // 视觉节点在 ./chat-shell-extras 装配进共享屏槽位(status/queue/input/overlay...)。
+  // 页内保留 SSE/数据/判定逻辑,壳层不判端。
+  const shellCtx = {
+    activeAgentId,
+    agent,
+    agentDrawerVisible,
+    agentTipVisible,
+    agents,
+    agentsLoading,
+    approvalQueue,
+    approvalRecords,
+    approvalSending,
+    businessFormTails,
+    chatHistories,
+    clearChat,
+    closeAgentTip,
+    currentModel,
+    currentModelName,
+    earlierHasMore,
+    favoritedMsgs,
+    floderInputIcon,
+    goalNotice,
+    handleApprovalDecision,
+    handleClearHistory,
+    handleEdit,
+    handleImageAdd,
+    handleLoadEarlier,
+    handleLoadMore,
+    handleLongPress,
+    handleMaterialUpload,
+    handleRecharge,
+    handleRegenerate,
+    handleRemoveImage,
+    handleReuse,
+    handleSelectHistory,
+    handleSpeak,
+    handleSuggestion,
+    handleSwitchMessageVersion,
+    handleVoicePress,
+    fileIcon,
+    handleVoiceRelease,
+    historyDrawerVisible,
+    imgsList,
+    inputValue,
+    // 任务进度状态条:挂载位由端内壳 statusSlot 原样渲染(位置/条件与共享屏一致,零重复实例)
+    taskStatusBarNode: <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />,
+    latestCacheTokens,
+    // 批次 3:端内壳的上下文账本 / 压缩边界 / 预算停止终态(三个节点只消费这里传入的 state)
+    contextLedger,
+    compactionBoundary,
+    budgetStop,
+    loadingEarlier,
+    materialDrawerVisible,
+    materialHasMore,
+    materialTab,
+    materials,
+    materialsLoading,
+    messageRows,
+    messages,
+    modelDrawerVisible,
+    models,
+    modelsLoading,
+    // 提示留痕:交端内壳拼到消息列表尾部插槽(orphanTailNode)上,位置由共享屏定
+    notices,
+    openMaterialDrawer,
+    openModelDrawer,
+    openSkillsPopup,
+    pendingQuestion,
+    /** 2026-11-13:提交提问答复(取代旧的"填入输入框"错误链路) */
+    onSubmitQuestionAnswer: (selected: string[], custom: string) =>
+      void submitQuestionAnswer('answer', selected, custom),
+    /** 撤回/关闭这道提问(服务端会据此标 withdrawn 并让流收场) */
+    onWithdrawQuestion: () => void submitQuestionAnswer('withdraw', [], ''),
+    reasoningPopupContent,
+    reasoningPopupVisible,
+    scrollToBottom,
+    scrollTop,
+    handleListScroll,
+    handleReachBottom,
+    selectMaterial,
+    selectModel,
+    selectSkill,
+    selectedMaterial,
+    sendMessage,
+    setAgentDrawerVisible,
+    setAgentTipVisible,
+    setHistoryDrawerVisible,
+    setInputValue,
+    setMaterialDrawerVisible,
+    setMaterialTab,
+    setModelDrawerVisible,
+    setPendingQuestion,
+    setReasoningPopupContent,
+    setReasoningPopupVisible,
+    setSelectedMaterial,
+    setSkillsPopupVisible,
+    setStreamActivityExpanded,
+    setTishiShow,
+    sideQueue,
+    skillsPopupVisible,
+    stopGeneration,
+    streamActivities,
+    streamActivityExpanded,
+    suggestions,
+    t,
+    terminateStream,
+    thinking,
+    tierText,
+    tishiShow,
+    toggleFavorite,
+    tt,
+    user,
+    versionList,
+    workspaceTier,
+  }
+  return (
+    <ThemeRoot className="page">
+      <SharedChatScreen {...buildChatShellProps(shellCtx)} />
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

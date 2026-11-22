@@ -1,0 +1,969 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * check-app-version-latest.mjs — App 内更新卡的「latest 行」只读对账(2026-10-29 立,Y-14)
+ *
+ * 为什么要有这一条:线上 `GET /api/app-version/latest?platform=android` 返回
+ * `{"code":0,"data":{}}` —— 空对象不是超时,是服务端把 `undefined` 序列化时丢了字段。
+ * 更新卡拿不到下载地址这件事在监控上是"200 正常",在用户侧是"没有可点的按钮",
+ * 所以**必须有一条只读断言把它钉住**,否则修好了也会在下一次发布会悄悄退回原状。
+ *
+ * 判据三条(逐条来自票面,不增不减;`--platform` 决定查哪一端):
+ *   ① 存在 status=latest 的该行(端点能读到该行,且 platform/status/buildNumber 自洽)
+ *   ② 该行 downloadUrl 指向**自有站点腿**(host ∈ {www.aizhs.top, aizhs.top} ∧ path 前缀
+ *      /remote-images/download/) —— dl.aizhs.top(COS/CF 腿)与第三方网盘都不算,
+ *      因为票面要求"与网页按钮同一个源"
+ *   ③ 该地址真的能取到包(302 落到版本副本,Range 探测 200/206,Content-Type 是**该端档案**
+ *      里写明的那一种 —— android=apk、ios=octet-stream;表外的端一律不探针,只报未判定)
+ *
+ * 附加一致性项(不是票面新增判据,而是③的必要条件):包端点回的
+ * `x-release-version` / `x-release-version-code` 必须与行里的 version/buildNumber 相同。
+ * 否则会出现"行写了新版本、包还是旧的"这种账绿实红 —— publish-mobile-apk.mjs 里
+ * 同一份教训写成了"线上版本标记会骗"。缺该头 ⇒ undetermined(点名原因),不判红。
+ *
+ * 退出码:0 全绿 / 1 有红 / 2 未判定(取不到输入,或有项 undetermined 而无红)。
+ * 纪律:取不到输入一律 undetermined 并点名原因,**绝不为过门放宽判据**。
+ *
+ * 接线(2026-10-30,Y-14):本尺子**不进提交链** —— 判的是公网端点与线上表里的数据,
+ * 提交者结构上改不了那一格,挂上即恒堵门(§12e)。唯一调度器 = `scripts/git-guardian.mjs`
+ * 的 `auditAppVersionLatest`(6h 节流;红发信并给 `register-app-version-latest.mjs` 那一步,
+ * undetermined 只写日志不喊人,§0.3)。手工入口就是下面这两条命令。
+ *
+ * 用法:
+ *   node scripts/check-app-version-latest.mjs
+ *   node scripts/check-app-version-latest.mjs --base-url https://www.aizhs.top --platform android
+ *   node scripts/check-app-version-latest.mjs --platform ios   # iOS 站点腿(2026-11-03 上架,同一条尺子)
+ *   node scripts/check-app-version-latest.mjs --admin-token "$JWT"   # 额外区分"无行" vs "有行但 status≠latest"
+ *   node scripts/check-app-version-latest.mjs --json
+ *   node scripts/check-app-version-latest.mjs --self-test   # 构造面正反对照,不触网
+ */
+import { pathToFileURL } from 'node:url'
+
+import {
+  DEFAULT_MOBILE_DOWNLOAD_URL,
+  SITE_LEG_PUBLIC_BASE,
+  SITE_LEG_URL_PREFIX,
+} from './lib/mobile-download-leg.mjs'
+
+/** 站点腿基址与固定地址取自 `scripts/data/mobile-download-leg.json` 单源。 */
+export const DEFAULT_BASE_URL = SITE_LEG_PUBLIC_BASE
+
+const siteLegUrl = (key) => `${SITE_LEG_PUBLIC_BASE}${SITE_LEG_URL_PREFIX}/${key}`
+/** iOS 固定文件名不在 Android 下载腿单源内;基址与路径前缀仍走单源,只有文件名是 iOS 自有。 */
+const IOS_LATEST_KEY = 'ihui-ai-latest.ipa'
+/**
+ * 每端的"票面固定地址 + 该当返回什么类型"档案。
+ * 为什么必须有这张表而不是把 android 的常量到处判 `platform ===`:iOS 也上了自有站点腿
+ * (2026-11-03),注册表里现在有它的 latest 行 —— 行写了新版本而腿上还是旧包这一型故障,
+ * 对 iOS 同样成立,只测 android 等于给新腿留了个无人看的格子。
+ * 不在表里的端 ⇒ 未判定(它有行也不代表有站点腿可探)。
+ */
+export const PLATFORM_PROFILES = {
+  android: {
+    label: 'apk',
+    pinned: DEFAULT_MOBILE_DOWNLOAD_URL,
+    contentType: 'vnd.android.package-archive',
+    typeLabel: 'apk',
+  },
+  ios: {
+    label: 'ipa',
+    pinned: siteLegUrl(IOS_LATEST_KEY),
+    contentType: 'octet-stream',
+    typeLabel: 'ipa',
+  },
+}
+export function profileOf(platform) {
+  return PLATFORM_PROFILES[platform] ?? null
+}
+/**
+ * 结果项前缀:有档案的端用档案标签(android→apk / ios→ipa),没有档案的端直接用端名。
+ * 单一算式 ⇒ 判据函数(走 profile)与 runCheck 的"没探针"分支(走本函数)不会各写一份漂开。
+ */
+function probePrefix(platform) {
+  return profileOf(platform)?.label ?? String(platform)
+}
+const probeId = (platform) => `${probePrefix(platform)}-downloadable`
+const versionId = (platform) => `${probePrefix(platform)}-matches-row`
+export const EXPECTED_PLATFORM = 'android'
+/** 自有站点腿(与 publish-mobile-apk.mjs 的 SITE_LEG.PublicBase 同源) */
+const OWN_LEG_HOSTNAME = new URL(SITE_LEG_PUBLIC_BASE).hostname
+export const OWN_LEG_HOSTS = [...new Set([OWN_LEG_HOSTNAME, OWN_LEG_HOSTNAME.replace(/^www\./, '')])]
+export const OWN_LEG_PATH_PREFIX = `${SITE_LEG_URL_PREFIX}/`
+/** 票面指定的固定下载地址(与网页按钮同一个源;iOS 见 PLATFORM_PROFILES) */
+export const PINNED_DOWNLOAD_URL = PLATFORM_PROFILES.android.pinned
+
+// =============================================================================
+// 纯判据(不碰网络、不碰磁盘 ⇒ 镜像测试可逐条钉)
+// =============================================================================
+
+/** 结果项:pass / fail / undetermined 三元,不允许第四态。 */
+export function item(id, state, detail) {
+  return { id, state, detail }
+}
+
+/**
+ * 解析 /latest 的响应体。
+ * 关键区分(这就是票面要我钉死的那条):
+ *   - `data.latest` 缺失 且 data 是对象 ⇒ **有输入、判据不命中** = fail(表里没有 latest 行)
+ *   - 响应读不到 / 不是 JSON / code≠0 ⇒ undetermined(说不出表里有没有行)
+ * 绝不允许把后者当成前者,也不允许反过来。
+ */
+export function judgeLatestPayload(payload, { platform = EXPECTED_PLATFORM } = {}) {
+  if (payload === null || typeof payload !== 'object') {
+    return { latest: null, items: [item('endpoint', 'undetermined', '/latest 响应不是 JSON 对象')] }
+  }
+  if (payload.code !== 0) {
+    return {
+      latest: null,
+      items: [
+        item(
+          'endpoint',
+          'undetermined',
+          `/latest 返回 code=${payload.code} message=${payload.message ?? ''}`,
+        ),
+      ],
+    }
+  }
+  const data = payload.data
+  if (data === null || typeof data !== 'object') {
+    return { latest: null, items: [item('endpoint', 'undetermined', '/latest 响应缺 data 对象')] }
+  }
+  const latest = data.latest
+  if (latest === undefined || latest === null) {
+    return {
+      latest: null,
+      items: [
+        item('endpoint', 'pass', '/latest 可读且 code=0'),
+        item(
+          'latest-row',
+          'fail',
+          `data.latest 缺失 ⇒ app_versions 表内没有 status=latest 的 ${platform} 行(端点判据是 status='latest' + platform,不是版本排序兜底)`,
+        ),
+      ],
+    }
+  }
+  return {
+    latest,
+    items: [
+      item('endpoint', 'pass', '/latest 可读且 code=0'),
+      item(
+        'latest-row',
+        'pass',
+        `拿到 latest 行 version=${latest.version} build=${latest.buildNumber}`,
+      ),
+    ],
+  }
+}
+
+/** downloadUrl 是否指向自有站点腿。返回 {ok, reason}。 */
+export function judgeOwnLegUrl(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return { ok: false, reason: 'downloadUrl 为空 ⇒ 更新卡拿到的 downloadUrl 是 null' }
+  }
+  let u
+  try {
+    u = new URL(raw)
+  } catch {
+    return { ok: false, reason: `downloadUrl 不是绝对 URL: ${raw}` }
+  }
+  if (u.protocol !== 'https:') return { ok: false, reason: `downloadUrl 不是 https: ${raw}` }
+  if (!OWN_LEG_HOSTS.includes(u.hostname)) {
+    return {
+      ok: false,
+      reason: `downloadUrl host=${u.hostname} 不在自有站点腿 ${OWN_LEG_HOSTS.join('/')} 内: ${raw}`,
+    }
+  }
+  if (!u.pathname.startsWith(OWN_LEG_PATH_PREFIX)) {
+    return { ok: false, reason: `downloadUrl path 不以 ${OWN_LEG_PATH_PREFIX} 开头: ${raw}` }
+  }
+  return { ok: true, reason: `自有站点腿: ${raw}` }
+}
+
+/** 行自洽性:platform / status / version / buildNumber。 */
+export function judgeRow(row, { platform = EXPECTED_PLATFORM } = {}) {
+  const items = []
+  if (row.platform !== platform) {
+    items.push(
+      item(
+        'row-shape',
+        'fail',
+        `latest 行 platform=${JSON.stringify(row.platform)},期望 ${platform}`,
+      ),
+    )
+  }
+  if (row.status !== 'latest') {
+    items.push(
+      item('row-shape', 'fail', `latest 行 status=${JSON.stringify(row.status)},期望 latest`),
+    )
+  }
+  if (typeof row.version !== 'string' || row.version.trim() === '') {
+    items.push(item('row-shape', 'fail', 'latest 行 version 为空'))
+  }
+  if (!Number.isInteger(row.buildNumber) || row.buildNumber <= 0) {
+    items.push(
+      item(
+        'row-shape',
+        'fail',
+        `latest 行 buildNumber=${JSON.stringify(row.buildNumber)} 不是正整数`,
+      ),
+    )
+  }
+  if (items.length === 0) {
+    items.push(
+      item(
+        'row-shape',
+        'pass',
+        `platform=${row.platform} status=latest version=${row.version} buildNumber=${row.buildNumber}`,
+      ),
+    )
+  }
+  return items
+}
+
+/**
+ * 探针结果判定(纯函数):把 probeDownload 的观测折成一项。
+ * present ⇒ pass;absent ⇒ fail;undetermined ⇒ undetermined(点名原因)。
+ * `profile` 决定这一端该当回什么 Content-Type(以及结果项前缀):默认 android/apk,
+ * 调用方不传时输出与 iOS 上架前逐字节相同。
+ */
+export function judgeDownloadProbe(probe, profile = PLATFORM_PROFILES.android) {
+  const id = `${profile.label}-downloadable`
+  if (!probe || typeof probe !== 'object') {
+    return item(id, 'undetermined', '未执行下载探针')
+  }
+  if (probe.state === 'undetermined') {
+    return item(id, 'undetermined', probe.detail || '下载探针未判定')
+  }
+  if (probe.state !== 'present') {
+    return item(id, 'fail', probe.detail || `下载地址取不到 ${profile.typeLabel}`)
+  }
+  const detail = `HTTP ${probe.status} ${probe.contentType} 大小 ${probe.totalSize ?? '?'} 跳数 ${probe.hops} → ${probe.finalUrl}`
+  if (!String(probe.contentType || '').includes(profile.contentType)) {
+    return item(
+      id,
+      'fail',
+      `Content-Type 不是 ${profile.typeLabel}(多半落到占位页): ${detail}`,
+    )
+  }
+  return item(id, 'pass', detail)
+}
+
+/** 包端点响应头里的版本标记 vs 行里登记的版本。缺头 ⇒ undetermined。 */
+export function judgeVersionConsistency(row, probe, profile = PLATFORM_PROFILES.android) {
+  const id = `${profile.label}-matches-row`
+  if (!probe || probe.state !== 'present') {
+    return item(id, 'undetermined', `下载探针未取到 ${profile.typeLabel},无法比对版本标记`)
+  }
+  const rv = probe.releaseVersion
+  const rc = probe.releaseVersionCode
+  if (!rv && !rc) {
+    return item(
+      id,
+      'undetermined',
+      `${profile.typeLabel} 响应缺 x-release-version / x-release-version-code 头 ⇒ 无法证明包与行同版`,
+    )
+  }
+  const bad = []
+  if (rv && String(rv) !== String(row.version))
+    bad.push(`x-release-version=${rv} ≠ 行 version=${row.version}`)
+  if (rc && String(rc) !== String(row.buildNumber))
+    bad.push(`x-release-version-code=${rc} ≠ 行 buildNumber=${row.buildNumber}`)
+  if (bad.length > 0) return item(id, 'fail', bad.join(';'))
+  return item(id, 'pass', `${profile.typeLabel} 标记与行一致(${rv ?? '?'} / ${rc ?? '?'})`)
+}
+
+/** 三项汇总成退出码。任一 red ⇒ 1;无红但有 undetermined ⇒ 2;否则 0。 */
+export function summarize(items) {
+  const red = items.filter((i) => i.state === 'fail')
+  const undetermined = items.filter((i) => i.state === 'undetermined')
+  const state = red.length > 0 ? 'fail' : undetermined.length > 0 ? 'undetermined' : 'pass'
+  return {
+    state,
+    red,
+    undetermined,
+    exitCode: state === 'fail' ? 1 : state === 'undetermined' ? 2 : 0,
+  }
+}
+
+// =============================================================================
+// 网络探针(仅 IO,不含判据)
+// =============================================================================
+
+/**
+ * 一轮对账的墙上时钟预算(默认 90s)。重试让最坏耗时翻倍 ⇒ 必须有总闸:
+ * 派发侧(git-guardian)给的 execFileSync 上限是 120s,超了会**连结论一起被杀**,
+ * 那一轮就只剩"未判定"而没有红/绿 —— 预算闸把"跑不完"变成点名"预算用尽"的未判定。
+ */
+export const DEFAULT_BUDGET_MS = 90_000
+/** 剩余预算不足这个数就别再开新请求(开了一定超时,徒增一轮未判定)。 */
+const MIN_REMAINING_MS = 2000
+
+/** 取本轮还能用的毫秒数;无预算闸(测试/手工)时按 timeoutMs 原样放行。 */
+function budgetLeft(deadlineAt, timeoutMs) {
+  if (!deadlineAt) return timeoutMs
+  return Math.max(0, Math.min(timeoutMs, deadlineAt - Date.now()))
+}
+
+/**
+ * 读一个 JSON 端点。**传输层失败**(连接异常/超时)重试一次;"不是 JSON"不重试 ——
+ * 那是回答(占位页正是这一型)。现读同一 URL 三连测 3.5s / 2.7s / 挂死,20s 预算下挂死那档
+ * 会把整端读成未判定;一条天天量不出结论的尺子等于没有尺子(§0.9),但重试**绝不**把红洗成绿
+ * —— 两次都不通照旧 undetermined,并把每次的失败原因逐条写进 detail。
+ */
+export async function readJson(
+  url,
+  { fetchImpl = fetch, timeoutMs = 20000, token, retries = 1, deadlineAt = null } = {},
+) {
+  const tries = []
+  for (let i = 0; i <= retries; i++) {
+    const left = budgetLeft(deadlineAt, timeoutMs)
+    if (left < MIN_REMAINING_MS) {
+      return {
+        httpStatus: 0,
+        body: null,
+        error: `本轮预算用尽(剩余 ${left}ms < ${MIN_REMAINING_MS}ms)${tries.length > 0 ? `;先前尝试:${tries.join(' ⊕ ')}` : ''}`,
+        attempts: i,
+      }
+    }
+    try {
+      const res = await fetchImpl(url, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(left),
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      })
+      const text = await res.text()
+      let body
+      try {
+        body = JSON.parse(text)
+      } catch {
+        return {
+          httpStatus: res.status,
+          body: null,
+          error: `响应不是 JSON(HTTP ${res.status}): ${text.slice(0, 120)}`,
+          attempts: i + 1,
+        }
+      }
+      return { httpStatus: res.status, body, error: null, attempts: i + 1 }
+    } catch (e) {
+      tries.push(`${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`)
+      if (i < retries) continue
+      return {
+        httpStatus: 0,
+        body: null,
+        error: `请求失败(共 ${tries.length} 次尝试:${tries.join(' ⊕ ')})`,
+        attempts: tries.length,
+      }
+    }
+  }
+  return { httpStatus: 0, body: null, error: '请求失败(未进入任何一次尝试)', attempts: 0 }
+}
+
+/**
+ * 下载探针(带一次重试):只有**传输层**失败才重来,'absent'(404/重定向超限)是回答,不重试。
+ * 与 readJson 同一档纪律 —— 现读 apk 指针三连测 9.0s / 0.6s / 4.6s,20s 预算下第一档就贴边,
+ * 偶发挂死会把一条能判的腿读成未判定。两次都不通 ⇒ 照旧 undetermined,并写明共试了几次。
+ */
+export async function probeDownload(
+  url,
+  { fetchImpl = fetch, timeoutMs = 20000, maxHops = 3, retries = 1, deadlineAt = null } = {},
+) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const left = budgetLeft(deadlineAt, timeoutMs)
+    if (left < MIN_REMAINING_MS) {
+      return {
+        state: 'undetermined',
+        detail: `本轮预算用尽(剩余 ${left}ms < ${MIN_REMAINING_MS}ms)`,
+        attempts: attempt,
+      }
+    }
+    const r = await probeDownloadOnce(url, {
+      fetchImpl,
+      timeoutMs: left,
+      maxHops,
+      deadlineAt,
+    })
+    if (r.state !== 'undetermined') return { ...r, attempts: attempt + 1 }
+    if (attempt >= retries)
+      return { ...r, detail: `${r.detail}(共 ${attempt + 1} 次尝试)`, attempts: attempt + 1 }
+  }
+  return { state: 'undetermined', detail: '未进入任何一次探针', attempts: 0 }
+}
+
+/**
+ * 单次跟跳:手动跳(不用 redirect:'follow',因为 x-release-* 只挂在 302 那一跳,
+ * follow 会把中间头丢掉),最后用 Range: bytes=0-0 拿到 206 + 总大小,不拖 42MB。
+ * 任何网络异常都折成 undetermined 并带原因,绝不抛给调用方。
+ */
+async function probeDownloadOnce(
+  url,
+  { fetchImpl = fetch, timeoutMs = 20000, maxHops = 3, deadlineAt = null } = {},
+) {
+  const release = { version: null, code: null }
+  let current = url
+  try {
+    for (let hop = 1; hop <= maxHops + 1; hop++) {
+      // 每一跳都带 Range:302 那跳的正文是空的,带 Range 不影响重定向;而万一首跳直接
+      // 回文件(CDN 不做指针中转),Range 保证不会把 42MB 拖回来。线上实测 302 仍带 x-release-*。
+      const hopLeft = budgetLeft(deadlineAt, timeoutMs)
+      if (hopLeft < MIN_REMAINING_MS) {
+        return {
+          state: 'undetermined',
+          detail: `本轮预算用尽(第 ${hop} 跳前剩余 ${hopLeft}ms,停在 ${current})`,
+        }
+      }
+      const res = await fetchImpl(current, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(hopLeft),
+        headers: { range: 'bytes=0-0' },
+      })
+      const headers = res.headers
+      if (!release.version && headers.get('x-release-version'))
+        release.version = headers.get('x-release-version')
+      if (!release.code && headers.get('x-release-version-code'))
+        release.code = headers.get('x-release-version-code')
+
+      const loc = headers.get('location')
+      if (res.status >= 300 && res.status < 400) {
+        await res.body?.cancel().catch(() => {})
+        if (!loc) return { state: 'absent', detail: `HTTP ${res.status} 但缺 Location` }
+        const next = new URL(loc, current).toString()
+        if (!next.startsWith('https://'))
+          return { state: 'absent', detail: `重定向目标不是 https: ${next}` }
+        current = next
+        continue
+      }
+
+      const ct = headers.get('content-type') || ''
+      const cr = headers.get('content-range') || ''
+      const totalFromRange = cr.includes('/') ? Number(cr.split('/')[1]) : null
+      const total = totalFromRange ?? Number(headers.get('content-length') || 0) ?? null
+      await res.body?.cancel().catch(() => {})
+
+      if (res.status !== 200 && res.status !== 206) {
+        return {
+          state: 'absent',
+          detail: `HTTP ${res.status} (${current})`,
+          finalUrl: current,
+          status: res.status,
+          contentType: ct,
+        }
+      }
+      return {
+        state: 'present',
+        finalUrl: current,
+        status: res.status,
+        contentType: ct,
+        totalSize: total || null,
+        hops: hop,
+        releaseVersion: release.version,
+        releaseVersionCode: release.code,
+      }
+    }
+    return { state: 'absent', detail: `重定向超过 ${maxHops} 跳(停在 ${current})` }
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    return { state: 'undetermined', detail: `下载探针异常(${msg})` }
+  }
+}
+
+/** 公开端点:不带 platform 查一次,用来区分"只有该平台缺"还是"全平台都没有 latest"。 */
+export async function probeCrossPlatformLatest({
+  baseUrl = DEFAULT_BASE_URL,
+  fetchImpl = fetch,
+  timeoutMs = 20000,
+  deadlineAt = null,
+} = {}) {
+  try {
+    const { body, error } = await readJson(`${baseUrl}/api/app-version/latest`, {
+      fetchImpl,
+      timeoutMs,
+      deadlineAt,
+    })
+    if (error) return { state: 'undetermined', detail: error }
+    if (body?.code !== 0)
+      return { state: 'undetermined', detail: `/latest(无 platform) code=${body?.code}` }
+    const latest = body?.data?.latest
+    return {
+      state: 'present',
+      hasAnyLatest: latest !== undefined && latest !== null,
+      detail: latest
+        ? `全平台 latest: ${latest.platform} ${latest.version} (build ${latest.buildNumber})`
+        : '全平台均无 status=latest 行',
+    }
+  } catch (e) {
+    return {
+      state: 'undetermined',
+      detail: `跨平台探针异常(${e instanceof Error ? e.message : e})`,
+    }
+  }
+}
+
+/** 需令牌的诊断项:列出该平台全部行,区分"无行"vs"有行但 status≠latest"。 */
+export async function probeAdminList({
+  baseUrl = DEFAULT_BASE_URL,
+  platform = EXPECTED_PLATFORM,
+  token,
+  fetchImpl = fetch,
+  timeoutMs = 20000,
+  deadlineAt = null,
+} = {}) {
+  if (!token) {
+    return {
+      state: 'undetermined',
+      detail:
+        '未提供 --admin-token ⇒ 无法区分「表里没有该平台行」与「有行但 status≠latest」(admin 面只认人用 JWT)',
+    }
+  }
+  try {
+    const url = `${baseUrl}/api/app-version?platform=${encodeURIComponent(platform)}&pageSize=100`
+    const { body, error, httpStatus } = await readJson(url, {
+      fetchImpl,
+      timeoutMs,
+      token,
+      deadlineAt,
+    })
+    if (error) return { state: 'undetermined', detail: error }
+    if (httpStatus === 401 || httpStatus === 403)
+      return { state: 'undetermined', detail: `admin 令牌被拒(HTTP ${httpStatus}) ⇒ 换新 JWT 再跑` }
+    if (body?.code !== 0)
+      return {
+        state: 'undetermined',
+        detail: `admin 列表 code=${body?.code} message=${body?.message ?? ''}`,
+      }
+    const list = body?.data?.list
+    if (!Array.isArray(list))
+      return { state: 'undetermined', detail: 'admin 列表响应缺 data.list 数组' }
+    const dist = {}
+    for (const r of list) dist[r.status] = (dist[r.status] ?? 0) + 1
+    const versions = list.map((r) => `${r.version}/${r.buildNumber}:${r.status}`)
+    return {
+      state: 'present',
+      rowCount: list.length,
+      statusDist: dist,
+      detail:
+        list.length === 0
+          ? `表内 ${platform} 行数 0 ⇒ 是「无行」,登记要 INSERT`
+          : `${platform} 行数 ${list.length},status 分布 ${JSON.stringify(dist)},行=${versions.join(', ')}`,
+    }
+  } catch (e) {
+    return {
+      state: 'undetermined',
+      detail: `admin 列表探针异常(${e instanceof Error ? e.message : e})`,
+    }
+  }
+}
+
+// =============================================================================
+// 自检(--self-test:不触网的构造面正反对照)
+// =============================================================================
+
+/**
+ * 每一例都是「同一输入改一个维度 ⇒ 结论必须翻面」的成对夹具。
+ * 只断言判据函数,不发请求、不读盘 ⇒ 任何一台机器、任何网络状态下都能跑。
+ * 返回 { failed, cases } 而不是直接 throw:调用方(CLI / 镜像测试)各取所需。
+ */
+export function selfTest({ quiet = false } = {}) {
+  const log = (s) => {
+    if (!quiet) console.log(s)
+  }
+  const cases = []
+  const add = (name, run, want) => cases.push({ name, run, want })
+  const stateOf = (items) => items.map((i) => i.state).join(',')
+
+  // ---- ① 空 data vs 读不到:这条区分就是票面的全部要害 ----
+  add(
+    '线上空 data ⇒ 端点 pass + latest-row fail',
+    () => stateOf(judgeLatestPayload({ code: 0, message: 'success', data: {} }).items),
+    'pass,fail',
+  )
+  add(
+    '响应不是 JSON 对象 ⇒ 全 undetermined(不得冒充无行)',
+    () => stateOf(judgeLatestPayload(null).items),
+    'undetermined',
+  )
+  add(
+    'code=500 ⇒ undetermined 且不含 fail',
+    () => {
+      const s = summarize(judgeLatestPayload({ code: 500, message: 'boom' }).items)
+      return `${s.state}/${s.red.length}`
+    },
+    'undetermined/0',
+  )
+  add(
+    'code=0 但缺 data ⇒ undetermined',
+    () => stateOf(judgeLatestPayload({ code: 0 }).items),
+    'undetermined',
+  )
+  add(
+    '有 latest 行 ⇒ 端点 pass + latest-row pass',
+    () =>
+      stateOf(
+        judgeLatestPayload({
+          code: 0,
+          data: { latest: { version: '0.0.9', buildNumber: 26102816 } },
+        }).items,
+      ),
+    'pass,pass',
+  )
+
+  // ---- ② 行形状:三向腐烂各翻一次 ----
+  const row = { version: '0.0.9', platform: 'android', buildNumber: 26102816, status: 'latest' }
+  add('合法行 ⇒ pass', () => stateOf(judgeRow(row)), 'pass')
+  add('platform 换成 ios ⇒ fail', () => stateOf(judgeRow({ ...row, platform: 'ios' })), 'fail')
+  add('status 换成 history ⇒ fail', () => stateOf(judgeRow({ ...row, status: 'history' })), 'fail')
+  add(
+    'buildNumber 换字符串 ⇒ fail',
+    () => stateOf(judgeRow({ ...row, buildNumber: '26102816' })),
+    'fail',
+  )
+
+  // ---- ③ 自有腿:同一 URL 只改一维即翻面 ----
+  add('票面固定地址 ⇒ 自有腿 ok', () => String(judgeOwnLegUrl(PINNED_DOWNLOAD_URL).ok), 'true')
+  add(
+    'host 换成 dl.aizhs.top ⇒ 不 ok',
+    () =>
+      String(judgeOwnLegUrl('https://dl.aizhs.top/remote-images/download/ihui-ai-latest.apk').ok),
+    'false',
+  )
+  add(
+    '协议换成 http ⇒ 不 ok',
+    () => String(judgeOwnLegUrl(PINNED_DOWNLOAD_URL.replace('https:', 'http:')).ok),
+    'false',
+  )
+  add(
+    'path 换成 /other/ ⇒ 不 ok',
+    () => String(judgeOwnLegUrl('https://www.aizhs.top/other/ihui-ai-latest.apk').ok),
+    'false',
+  )
+  add('空串 ⇒ 不 ok', () => String(judgeOwnLegUrl('').ok), 'false')
+
+  // ---- ④ 下载探针三元 + Content-Type ----
+  const present = {
+    state: 'present',
+    status: 206,
+    contentType: 'application/vnd.android.package-archive',
+    hops: 2,
+    finalUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.9-26102816.apk',
+  }
+  add('206 + apk ⇒ pass', () => judgeDownloadProbe(present).state, 'pass')
+  add(
+    '206 + text/html ⇒ fail(占位页)',
+    () => judgeDownloadProbe({ ...present, contentType: 'text/html' }).state,
+    'fail',
+  )
+  add(
+    'absent ⇒ fail',
+    () => judgeDownloadProbe({ state: 'absent', detail: 'HTTP 404' }).state,
+    'fail',
+  )
+  add(
+    'undetermined ⇒ undetermined',
+    () => judgeDownloadProbe({ state: 'undetermined', detail: 'ETIMEDOUT' }).state,
+    'undetermined',
+  )
+  add('null ⇒ undetermined', () => judgeDownloadProbe(null).state, 'undetermined')
+
+  // ---- ⑤ 版本标记一致性 ----
+  const probe = { state: 'present', releaseVersion: '0.0.9', releaseVersionCode: '26102816' }
+  add('标记一致 ⇒ pass', () => judgeVersionConsistency(row, probe).state, 'pass')
+  add(
+    'version-code 差 1 ⇒ fail',
+    () => judgeVersionConsistency(row, { ...probe, releaseVersionCode: '26102815' }).state,
+    'fail',
+  )
+  add(
+    '缺 x-release-* ⇒ undetermined(不算包同版)',
+    () => judgeVersionConsistency(row, { state: 'present' }).state,
+    'undetermined',
+  )
+
+  // ---- ⑥ 每端档案:iOS 上了自有站点腿 ⇒ 同一把尺子必须也盯得住它 ----
+  // 成对夹具的要点是「只换档案、输入一字不动 ⇒ 结论翻面」,否则档案只是装饰。
+  const ipaPresent = {
+    state: 'present',
+    status: 206,
+    contentType: 'application/octet-stream',
+    hops: 2,
+    finalUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.5-26110222.ipa',
+  }
+  add(
+    'ios 档案 + octet-stream ⇒ pass',
+    () => judgeDownloadProbe(ipaPresent, PLATFORM_PROFILES.ios).state,
+    'pass',
+  )
+  add(
+    '同一响应换成 android 档案 ⇒ fail(档案不可互换)',
+    () => judgeDownloadProbe(ipaPresent, PLATFORM_PROFILES.android).state,
+    'fail',
+  )
+  add(
+    'apk 响应换成 ios 档案 ⇒ fail(退回 apk 就是这一型)',
+    () => judgeDownloadProbe(present, PLATFORM_PROFILES.ios).state,
+    'fail',
+  )
+  add(
+    '项前缀按端走:默认 apk- / 传 ios ⇒ ipa-',
+    () =>
+      `${judgeDownloadProbe(present).id}|${judgeDownloadProbe(ipaPresent, PLATFORM_PROFILES.ios).id}`,
+    'apk-downloadable|ipa-downloadable',
+  )
+  add(
+    '版本标记项前缀同样按端走',
+    () =>
+      `${judgeVersionConsistency(row, probe).id}|` +
+      judgeVersionConsistency(row, probe, PLATFORM_PROFILES.ios).id,
+    'apk-matches-row|ipa-matches-row',
+  )
+  add(
+    'ios 固定地址属自有腿',
+    () => String(judgeOwnLegUrl(PLATFORM_PROFILES.ios.pinned).ok),
+    'true',
+  )
+  add(
+    '档案表外的端 ⇒ profileOf 给 null(不得借默认档案蒙探针)',
+    () => String(profileOf('cli')),
+    'null',
+  )
+  add(
+    '摘掉 ios 档案 ⇒ 该端读不到 profile(反向锁:新腿靠这张表)',
+    () => String(profileOf('web')),
+    'null',
+  )
+
+  // ---- ⑦ 退出码优先级:红压过未判定 ----
+  add('全 pass ⇒ 0', () => String(summarize([item('a', 'pass', '')]).exitCode), '0')
+  add(
+    'pass + undetermined ⇒ 2',
+    () => String(summarize([item('a', 'pass', ''), item('b', 'undetermined', '')]).exitCode),
+    '2',
+  )
+  add(
+    'undetermined + fail ⇒ 1(红优先)',
+    () => String(summarize([item('b', 'undetermined', ''), item('c', 'fail', '')]).exitCode),
+    '1',
+  )
+
+  // ---- ⑧ 参数面:默认值 + 未知旗标必须硬错(不得静默落默认) ----
+  add(
+    'parseArgs 默认调制品',
+    () => `${parseArgs([]).baseUrl}|${parseArgs([]).platform}`,
+    'https://www.aizhs.top|android',
+  )
+  add(
+    'parseArgs 覆盖',
+    () => `${parseArgs(['--platform', 'ios']).platform}|${parseArgs(['--json']).json}`,
+    'ios|true',
+  )
+  add(
+    '未知旗标 ⇒ 抛错',
+    () => {
+      try {
+        parseArgs(['--nope'])
+        return 'no-throw'
+      } catch {
+        return 'threw'
+      }
+    },
+    'threw',
+  )
+
+  let failed = 0
+  for (const c of cases) {
+    let got
+    try {
+      got = c.run()
+    } catch (e) {
+      got = `threw:${String((e && e.message) || e).slice(0, 80)}`
+    }
+    const ok = got === c.want
+    if (!ok) failed += 1
+    log(`${ok ? 'PASS' : 'FAIL'}  ${c.name} —— want=${c.want} got=${got}`)
+  }
+  log(`\nself-test: pass ${cases.length - failed} / fail ${failed} (共 ${cases.length} 例)`)
+  return { failed, cases }
+}
+
+// =============================================================================
+// CLI
+// =============================================================================
+
+export function parseArgs(argv) {
+  const out = {
+    baseUrl: DEFAULT_BASE_URL,
+    platform: EXPECTED_PLATFORM,
+    adminToken: '',
+    json: false,
+    selfTest: false,
+    help: false,
+  }
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--base-url') out.baseUrl = (argv[++i] ?? '').replace(/\/+$/, '')
+    else if (a === '--platform') out.platform = argv[++i] ?? EXPECTED_PLATFORM
+    else if (a === '--admin-token') out.adminToken = argv[++i] ?? ''
+    else if (a === '--json') out.json = true
+    else if (a === '--self-test') out.selfTest = true
+    else if (a === '--help' || a === '-h') out.help = true
+    else throw new Error(`未知参数: ${a}`)
+  }
+  if (!out.baseUrl) throw new Error('--base-url 不能为空')
+  return out
+}
+
+export async function runCheck({
+  baseUrl = DEFAULT_BASE_URL,
+  platform = EXPECTED_PLATFORM,
+  adminToken = '',
+  fetchImpl = fetch,
+  timeoutMs = 20000,
+  budgetMs = DEFAULT_BUDGET_MS,
+} = {}) {
+  const deadlineAt = Date.now() + budgetMs
+  const items = []
+  // readJson 自己把传输层失败折成 {error}(并已在预算内重试)⇒ 这里不再包一层 catch:
+  // 再包一层会把"预算用尽"和"两次都不通"两种成因洗成同一句话,而点名成因正是这把尺的用处。
+  const { body: payload, error: endpointError } = await readJson(
+    `${baseUrl}/api/app-version/latest?platform=${encodeURIComponent(platform)}`,
+    { fetchImpl, timeoutMs, deadlineAt },
+  )
+  if (endpointError) items.push(item('endpoint', 'undetermined', `取 /latest 失败: ${endpointError}`))
+
+  const parsed = payload ? judgeLatestPayload(payload, { platform }) : { latest: null, items: [] }
+  items.push(...parsed.items)
+  const row = parsed.latest
+
+  const cross = await probeCrossPlatformLatest({ baseUrl, fetchImpl, timeoutMs, deadlineAt })
+  items.push(
+    item(
+      'cross-platform-latest',
+      cross.state === 'present' ? (cross.hasAnyLatest ? 'pass' : 'fail') : 'undetermined',
+      cross.detail,
+    ),
+  )
+
+  const profile = profileOf(platform)
+  if (row) {
+    items.push(...judgeRow(row, { platform }))
+    const leg = judgeOwnLegUrl(row.downloadUrl)
+    items.push(item('download-url-own-leg', leg.ok ? 'pass' : 'fail', leg.reason))
+    if (leg.ok && profile) {
+      const probe = await probeDownload(row.downloadUrl, { fetchImpl, timeoutMs, deadlineAt })
+      items.push(judgeDownloadProbe(probe, profile))
+      items.push(judgeVersionConsistency(row, probe, profile))
+    } else {
+      items.push(
+        item(
+          probeId(platform),
+          'undetermined',
+          profile
+            ? 'downloadUrl 不是自有腿 ⇒ 不对第三方地址发探针(也不把 404 算成绿)'
+            : `${platform} 端没有站点腿档案(不在 PLATFORM_PROFILES)⇒ 不知道该当回什么类型,不探针`,
+        ),
+      )
+      items.push(
+        item(
+          versionId(platform),
+          'undetermined',
+          profile ? '无自有腿地址 ⇒ 无包可比版本' : `${platform} 端没有站点腿档案 ⇒ 无可比对的包`,
+        ),
+      )
+    }
+  } else {
+    items.push(item('row-shape', 'undetermined', '没有 latest 行可校验形状'))
+    items.push(item('download-url-own-leg', 'undetermined', '没有 latest 行可校验 downloadUrl'))
+    items.push(item(probeId(platform), 'undetermined', '没有 latest 行可探针下载'))
+    items.push(item(versionId(platform), 'undetermined', '没有 latest 行可比对版本'))
+  }
+
+  // table-state 是**诊断**而非票面判据:无令牌时不参与红/绿(否则脚本永远不能绿),
+  // 但它决定"该 INSERT 还是该 UPDATE",所以必须打在输出里。
+  const admin = await probeAdminList({
+    baseUrl,
+    platform,
+    token: adminToken,
+    fetchImpl,
+    timeoutMs,
+    deadlineAt,
+  })
+  const diagnostics = [
+    item('table-state', admin.state === 'present' ? 'pass' : 'undetermined', admin.detail),
+  ]
+
+  return {
+    items,
+    diagnostics,
+    ...summarize(items),
+    platform,
+    baseUrl,
+    elapsedMs: Date.now() - (deadlineAt - budgetMs),
+    budgetMs,
+  }
+}
+
+function printHuman(result) {
+  const icon = { pass: '✓', fail: '✗', undetermined: '?' }
+  console.log(`对账目标: ${result.baseUrl} platform=${result.platform}`)
+  for (const i of result.items)
+    console.log(`  ${icon[i.state] ?? '?'} [${i.state}] ${i.id}: ${i.detail}`)
+  for (const d of result.diagnostics ?? []) {
+    console.log(`  · [诊断·不计入结论] ${d.id}: ${d.detail}`)
+  }
+  const { red, undetermined } = result
+  console.log(
+    `\n结论: ${result.state.toUpperCase()}  (红 ${red.length} / 未判定 ${undetermined.length} / 共 ${result.items.length})`,
+  )
+  console.log(
+    `本轮耗时 ${result.elapsedMs}ms / 预算 ${result.budgetMs}ms(每腿单次 20s,传输层失败重试一次)`,
+  )
+  if (red.length > 0) {
+    console.log('红的项(不放宽判据,修数据而不是修尺):')
+    for (const r of red) console.log(`  - ${r.id}: ${r.detail}`)
+    console.log(
+      `修法: node scripts/register-app-version-latest.mjs --help  (把线上真正在跑的那个包登记为 ${result.platform} latest)`,
+    )
+  }
+}
+
+async function main() {
+  let args
+  try {
+    args = parseArgs(process.argv.slice(2))
+  } catch (e) {
+    console.error(`未判定: ${e.message}`)
+    return 2
+  }
+  if (args.help) {
+    console.log(
+      '用法: node scripts/check-app-version-latest.mjs [--base-url <url>] [--platform android|ios] [--admin-token <JWT>] [--json] [--self-test]',
+    )
+    console.log('退出码: 0 全绿 / 1 有红(现状即红时如实打印) / 2 未判定')
+    console.log('--self-test: 只跑构造面正反对照,不触网(任何机器可复跑)')
+    return 0
+  }
+  if (args.selfTest) {
+    const { failed } = selfTest()
+    return failed === 0 ? 0 : 1
+  }
+  const result = await runCheck({
+    baseUrl: args.baseUrl,
+    platform: args.platform,
+    adminToken: args.adminToken,
+  })
+  if (args.json) console.log(JSON.stringify(result, null, 2))
+  else printHuman(result)
+  return result.exitCode
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      console.error(`未判定: ${e?.message ?? e}`)
+      process.exit(2)
+    })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

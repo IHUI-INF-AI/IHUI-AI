@@ -1,0 +1,79 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15) until 2027-05-31
+
+import { useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { TopupSuccessScreen as SharedTopupSuccessScreen } from '@ihui/rn-app'
+import { IntroducePopup } from '../components/IntroducePopup'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type TopupSuccessParams = {
+  TopupSuccess: { amount: number; orderId: string }
+}
+type Route = RouteProp<TopupSuccessParams, 'TopupSuccess'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** 常见问题弹窗文案(对齐 Uniapp topup-success 页面的到账/订单答疑) */
+const TOPUP_FAQ_ITEMS: readonly string[] = [
+  'topup.tip1',
+  'topup.tip2',
+  'topup.tip3',
+  'topup.tip4',
+  'topup.tip5',
+]
+
+export default function TopupSuccessScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t, locale } = useI18n()
+  const route = useRoute<Route>()
+  const navigation = useNavigation<NavigationProp>()
+  const { amount, orderId } = route.params
+  // 2026-11-07 DBG-36 收口: 原 toLocaleString('zh-CN') 硬编码中文,改随应用当前语言。
+  const time = new Date().toLocaleString(locale)
+  const [faqVisible, setFaqVisible] = useState(false)
+
+  const goOrder = () => navigation.navigate('Order')
+  const goHome = () => navigation.navigate('Main', { screen: 'HomeMain' })
+
+  // 信息行改由调用方注入(缺省三行仍是充值金额/订单编号/充值时间,文案与改前逐字相同)
+  const rows = [
+    { label: '充值金额', value: `¥${amount.toFixed(2)}` },
+    { label: '订单编号', value: orderId },
+    { label: '充值时间', value: time ?? '' },
+  ]
+
+  return (
+    <>
+      <SharedTopupSuccessScreen
+        t={t}
+        amount={amount}
+        orderId={orderId}
+        time={time}
+        rows={rows}
+        onViewOrder={goOrder}
+        onGoHome={goHome}
+        faqItems={TOPUP_FAQ_ITEMS.map((k) => t(k))}
+        onFaqVisibleChange={setFaqVisible}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+      />
+      <IntroducePopup
+        visible={faqVisible}
+        onClose={() => setFaqVisible(false)}
+        variant="index"
+        title={t('topup.faqTitle')}
+        content={t('topup.faqContent')}
+        benefits={[...TOPUP_FAQ_ITEMS].map((k) => t(k))}
+        moreBenefits=""
+        confirmText={t('topup.faqOk')}
+        onConfirm={() => setFaqVisible(false)}
+      />
+    </>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

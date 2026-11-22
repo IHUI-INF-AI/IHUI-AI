@@ -1,0 +1,27 @@
+{
+  "_comment": "scripts/check-redirect-target-origin-pinned.mjs(门 278)的具名豁免台账。判序:台账取不到/形状坏 ⇒ 未判定;until 到期 ⇒ 红;bareCalls 与被审面实际裸调用数不配平 ⇒ 清单腐烂红。理由必须回答『为什么这一页的外站回跳是产品契约/由服务端权威判定,而不是漏配白名单』。",
+  "reviewBy": "2027-03-31",
+  "entries": [
+    {
+      "file": "apps/web/app/sso/mobile-auth/PageClient.tsx",
+      "bareCalls": 1,
+      "reason": "本页 redirect 的语义就是『App 的 WebView 换完会话后接下来要打开的那个页面』,合法落点是宿主 App 自带的外部 H5;套第一方白名单会直接砍断 App→Web 回跳契约。协议闸(拒 javascript:/data: 一族)仍在,不安全目标回落站内首页",
+      "ticket": "G-278-mobile-auth",
+      "until": "2027-03-31"
+    },
+    {
+      "file": "apps/web/app/sso/login/PageClient.tsx",
+      "bareCalls": 1,
+      "reason": "该 target 是 POST /api/auth/sso/code 的 redirectUri,权威落点集在服务端 zod refine(auth-sso.ts 的 isSafeRedirectUri = 站内相对 ∪ localhost ∪ env SSO_ALLOWED_ORIGINS ∪ chromiumapp ∪ 深链 scheme)。客户端再收一层『仅第一方』会砍断 CLI 的 localhost 回调与扩展的 chromiumapp 回跳;服务端拒签时 r.success=false ⇒ 本页不导航,外站值拿不到 sso_code",
+      "ticket": "G-278-sso-login-issuance",
+      "until": "2027-03-31"
+    },
+    {
+      "file": "apps/web/app/sso/register/PageClient.tsx",
+      "bareCalls": 1,
+      "reason": "与 /sso/login 的签发腿同形:target 交给服务端 /api/auth/sso/code 的 zod refine 判落点集,客户端收窄会砍断 CLI/扩展回跳,而服务端拒签时 ensureSsoRedirectAllowed 之后本页直接返回失败态、不导航",
+      "ticket": "G-278-sso-register-issuance",
+      "until": "2027-03-31"
+    }
+  ]
+}

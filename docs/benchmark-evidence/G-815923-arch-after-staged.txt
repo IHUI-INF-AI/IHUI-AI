@@ -1,0 +1,13 @@
+#EVIDENCE-CMD: node scripts/check-architecture-policy.mjs --staged
+#EVIDENCE-LABEL: arch policy staged face post-move
+#EVIDENCE-START: 2026-10-07T07:59:45.679Z
+[arch-policy] 内容取材口径:索引 blob(暂存源文件 8 个;表自洽性按全索引面判)
+[arch-policy] 模块 24 个 | managed:true packages/types, packages/design-tokens, packages/eslint-config, packages/api-client, packages/auth, packages/database, packages/i18n, packages/context-compaction, packages/sdk, packages/dom-actions, packages/browser-platform, packages/shared, packages/app, packages/ui-react, packages/ui-native, apps/web, apps/api, apps/cli, apps/extension, apps/miniapp-taro, apps/mobile-rn, apps/desktop, apps/mobile-cap, repo-tooling | 扫描 7 文件 | 跨模块边 0 条 | 非本表射程的说明符 0 处(第三方/别名,不判但如实计数)
+[arch-policy] 违规合计 0 处:
+[arch-policy] 齐备性对账:E1 公开入口 80 条已核 → 解析不到 0 条 | E2 契约工件:声明失踪 0 处、未齐备模块 0 块(未齐备这一档默认只报数 —— HEAD 实测存量十几块,即时判红就是恒红门;要按它问责跑 --strict)
+[arch-policy] 例外寿命对账(X1/X2):表级例外 0 条 | 带合法 until 0 条 | 无到期日 0 条(其中锚点面已是存量 0 条 → 默认只报数、--strict 才判红;非存量 = 本次新增 → X1 判红)| 已过期 0 条(X2 即时判红,不套棘轮)
+[arch-policy] lint 抑制对账(DC):纳管块内 1 处 / 1 文件(判红口径:该文件当前数 > 其锚点面自身存量,只拦新增;本次上升 0 文件)| 含未收口块全量 1 处 / 1 文件(未收口块不在 DC 射程,但必须报名 —— 不得把"纳管块 0 处"读成"全仓 0 处")| 锚点面:HEAD(按当前面预筛补读 1 个文件,取到的 1 个;其余按存量 0 起算)
+[arch-policy] 判红 0 处(C1/T1 全仓即时 + 已收口模块的契约违规 + X2 例外已过期;E1/E2 的红只按 managed:true 问责;DC 只在"该文件当前数 > 其锚点面存量"时红)| 报数 0 处(managed:false 存量,不判红)
+✅ 架构契约门通过(面:索引 blob(暂存源文件 8 个;表自洽性按全索引面判))—— managed:false 的存量违规以报数形式留痕,不判红
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-07T07:59:47.633Z

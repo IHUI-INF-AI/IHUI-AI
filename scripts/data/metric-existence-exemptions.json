@@ -1,0 +1,25 @@
+{
+  "_comment": "规则引用指标在 Prometheus 里合法零样本时的具名例外。只收『事件型计数器』:计数器只在事件发生时创建标签序列,且刻意不开 0 基线(标签是开放集),所以『没事件＝没序列』是事实,不是采集停摆。每条必须带 job + emitter + until + reason;check-metric-existence.mjs 运行时硬验:①emitter 文件里确有该指标名(改名/删除 ⇒ 豁免失效) ②up{job}==1(目标掉线不是合法空闲)。到期 / 空挂(规则已不再引用)的条目本身判红,续期须重新验过。",
+  "entries": [
+    {
+      "metric": "business_ai_record_failures_total",
+      "ruleFile": "monitoring/prometheus/alerts-ai.yml",
+      "ruleName": "AiCostLedgerWriteFailures",
+      "job": "business-metrics",
+      "emitter": "apps/api/src/plugins/business-metrics.ts",
+      "evidence": "2026-11-03 02:00 CST 实拉 127.0.0.1:8802/business-metrics:# HELP/# TYPE business_ai_record_failures_total 在场、样本行 0 条;同段无标签计数 business_ai_series_dropped_total 0,证明该段代码在跑。up{job=\"business-metrics\"}=1(lastScrape 01:52:37,lastError 空)。30d /api/v1/series 查不到该名字任何序列 ⇒ 是『从未发生过落库失败』,不是发射点缺失。发射点:business-metrics.ts:2263-2270(输出)/522-528(recordAiCostWriteFailure);桥接:ai-cost.ts:523-527 的 insert catch。",
+      "reason": "事件型计数器:只有 ai_cost_records 插入抛异常才会 inc(map 驱动,vendor/model 是开放集,刻意不开 0 基线)。零失败＝零序列,有失败才出现序列。",
+      "until": "2027-04-01"
+    },
+    {
+      "metric": "ihui_llm_stream_interrupt_total",
+      "ruleFile": "monitoring/prometheus/alerts-ai.yml",
+      "ruleName": "AiStreamInterruptHigh",
+      "job": "ai-service",
+      "emitter": "apps/ai-service/app/middleware/llm_metrics.py",
+      "evidence": "2026-11-03 02:00 CST:up{job=\"ai-service\"}=1、lastScrape 01:52:29、lastError 空、scrape_samples_scraped=363;同 target 的 ihui_llm_calls_total 近 30m increase=1.008(采集在跑、流量在走)。该 family 在 90d 内只有 1 条序列、1 个样本:{provider=agnes,model=agnes/agnes-2.5-flash,reason=client_disconnect} @ 2026-10-18 16:22:00 CST 值 1;此后无任何 _total 增长(90d range 查询无其它样本)⇒ 是『近 15 天无中断事件』,不是采集停/掉线。发射点:llm_metrics.py:83-87(Counter 声明)/209-212(interrupt_reason 收口);llm_gateway.py:3606-3610(timeout_guard)/3665-3669(client_disconnect)。",
+      "reason": "事件型计数器:只有流式中断(客户端断开/上游断流/timeout_guard)才创建序列;provider/model 是开放集,无法开 0 基线。阈值是 >10% 且分母≥10 次调用,单次中断本就不该触发,故『无序列』不是漏报。",
+      "until": "2027-04-01"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "note": "旧密钥(ciphertext 用其它 CREDENTIALS_ENCRYPTION_KEY 加密)解不开时的回填声明表。file 相对 密钥/模型/ 目录;probe 为空表示本机 node TLS 不通于该域,需人工用 PowerShell 实测(见 note 字段)。只有 probe 回 200 才写库;enable=false 表示只修密文、不启用(供应商已弃用)。",
+  "updatedAt": "2026-11-22",
+  "entries": [
+    {
+      "provider": "agnes",
+      "file": "agnes apikey.txt",
+      "pick": "last",
+      "probe": "https://api.agnes-ai.cn/v1/models",
+      "enable": true,
+      "note": "文件第 1 行 key 已 401(2026-11-22 实测),必须取最后一行"
+    },
+    {
+      "provider": "deepseek",
+      "file": "Deepseek api key.txt",
+      "pick": "first",
+      "probe": "https://api.deepseek.com/v1/models",
+      "enable": true,
+      "note": "2026-11-22 复测:key 有效(/models 200),但账户余额 -0.87 CNY ⇒ /chat/completions 402;deepseek-v4-pro / deepseek-v4-flash 已在 DB 目录里,由 availability 的 PAYMENT_REQUIRED 规则隐藏,充值后自动出现,无需改代码"
+    },
+    {
+      "provider": "gemini",
+      "file": "Google AI studio.txt",
+      "pick": "first",
+      "probe": "",
+      "enable": true,
+      "note": "本机 node fetch 对该域 TLS 失败;2026-11-22 02:33 已用 PowerShell Invoke-WebRequest 实测 200"
+    },
+    {
+      "provider": "groq",
+      "file": "groq.txt",
+      "pick": "first",
+      "probe": "https://api.groq.com/openai/v1/models",
+      "enable": true,
+      "note": "curl 无 UA 时 403;PowerShell 实测 200"
+    },
+    {
+      "provider": "mimo",
+      "file": "MIMO apikey.txt",
+      "pick": "first",
+      "probe": "https://api.xiaomimimo.com/v1/models",
+      "enable": true
+    },
+    {
+      "provider": "qwen",
+      "file": "阿里云百炼key.txt",
+      "pick": "first",
+      "probe": "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+      "enable": true
+    },
+    {
+      "provider": "siliconflow",
+      "file": "硅基流动.txt",
+      "pick": "first",
+      "probe": "https://api.siliconflow.cn/v1/models",
+      "enable": true
+    },
+    {
+      "provider": "stepfun",
+      "file": "step apikey.txt",
+      "pick": "first",
+      "probe": "https://api.stepfun.com/step_plan/v1/models",
+      "enable": false,
+      "note": "2026-11-22 复测: /models 200 但 /chat/completions 恒 400 `no active step plan subscription` ⇒ 按 app/core/default_model.py 的 RETIRED_PROVIDERS 保持停用;只修密文,不启用、不进模型列表"
+    },
+    {
+      "provider": "swiftapi",
+      "file": "1 new api.txt",
+      "pick": "first",
+      "probe": "https://us-new.x5m5x.com/v1/models",
+      "enable": false,
+      "note": "SwiftAPI 供应商已弃用(registry 注释);只修密文,不把死模型拉回列表"
+    },
+    {
+      "provider": "openai",
+      "file": "api.txt",
+      "pick": "label:OpenAI",
+      "probe": "https://api.openai.com/v1/models",
+      "enable": false,
+      "note": "2026-11-22 实测该 key 对 api.openai.com 返 401;保持停用,待换新 key"
+    }
+  ]
+}

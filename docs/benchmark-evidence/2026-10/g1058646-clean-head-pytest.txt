@@ -1,0 +1,84 @@
+G-1058646 的「实跑档」证据 —— ai-service 全量 pytest 在**干净 HEAD 检出**上的完整执行结果
+
+被检出的提交 : 7ab68099f6e3ffbd935edc4575546134d5b2e601 (= 本次 AGENTS §6 点名 check:pytest 之后、G-585 让渡注记之前的 HEAD)
+检出方式     : git worktree add --detach .worktrees/wt-g1058646 <该 sha>(干净树,无未跟踪文件遮蔽)
+执行目录     : G:/IHUI-AI/.worktrees/wt-g1058646/apps/ai-service
+命令         : G:/IHUI-AI/apps/ai-service/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider(经 scripts/run-evidence.mjs 封缄,不经 shell)
+开始时刻     : 2026-10-08T17:33:09.748Z
+结论         : #EVIDENCE-RC=1
+
+为什么要跑在干净检出上:本机共享工作树里 `app/services/sandbox/` 是个**未跟踪目录**,
+它会遮蔽 HEAD 里真实存在的 `app/services/sandbox.py`,导致 `tests/test_sandbox.py` 在收集期
+ ImportError 并中断整轮 —— 那是本机现场,不是仓库破口(git ls-tree 可证 HEAD 里模块在位)。
+
+汇总行(原文):
+  38 failed, 16815 passed, 8 skipped, 2 xfailed, 103 warnings in 195.21s (0:03:15)
+
+失败用例(38 枚,逐枚 node id):
+  tests/test_mcp_server.py::test_tool_write_file_success
+  tests/test_os_sandbox.py::TestWindowsJobObject::test_env_whitelist_applied_to_child
+  tests/test_deep_engines_routers.py::test_sandbox_run_success
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_path_outside_workspace_returns_path_not_allowed
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_file_not_found_returns_not_found
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_ambiguous_match_returns_error_with_count
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_not_found_returns_not_found_with_zero_count
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_happy_path_replaces_and_creates_backup
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_replace_all_replaces_all_occurrences
+  tests/test_llm_tool_persistence.py::TestFireCallbackPersistArrays::test_empty_or_invalid_history_omits_fields
+  tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit::test_binary_file_with_nul_byte_rejected
+  tests/test_mcp_store.py::test_install_success_persists
+  tests/test_engine_role_parity.py::test_registry_admin_tool_forwards_role_to_call_tool
+  tests/test_external_browser_profile.py::test_detect_login_from_profile_hit
+  tests/test_engine_role_parity.py::test_search_tool_forwards_zero_without_special_casing
+  tests/test_mypy_strict_head_fixes_20261008.py::test_ensure_tables_conn_runs_all_four_statements_on_given_conn
+  tests/test_agents_role_parity.py::test_build_loop_v2_tools_passes_role_into_call_tool
+  tests/test_agents_role_parity.py::test_every_agent_loop_construction_threads_role
+  tests/test_file_search_ripgrep_v75.py::test_lazy_index_guardrail_sees_same_denominator
+  tests/test_file_search_ripgrep_v75.py::test_index_result_carries_traversal_provenance
+  tests/test_g649_entitlement_fail_closed.py::test_clean_assembly_is_byte_identical_to_head_implementation
+  tests/test_credential_history_all_write_sites.py::test_daemon_site_old_credential_enters_history_and_foreign_keys_survive
+  tests/test_agents_parity.py::test_resume_endpoint_resumes_from_checkpoint
+  tests/test_model_tools_wiring_58.py::test_builders_dict_has_all_builtin_names
+  tests/test_egress_facts_parity.py::test_dual_side_parity_full_fields
+  tests/test_egress_facts_parity.py::test_no_credential_material_in_facts
+  tests/test_mcp_server.py::test_tool_analyze_code_empty
+  tests/test_background_task_type_wiring_51.py::test_long_running_command_is_declared_non_resumable_and_still_converges
+  tests/test_mcp_server.py::test_tool_generate_test_template
+  tests/test_mcp_server.py::test_tool_generate_test_custom_framework
+  tests/test_parallel_tool_abort_54.py::test_cancelled_tool_returns_structured_abort
+  tests/test_parallel_tool_abort_54.py::test_inner_cancelled_yields_structured_abort_direct
+  tests/test_parallel_tool_abort_54.py::test_parallel_batch_interrupt_emits_plan_step_aborted
+  tests/test_parallel_tool_abort_54.py::test_non_interrupt_path_unchanged
+  tests/test_network_approval_target_alignment_d159.py::test_落库目标等于帧上可见目标
+  tests/test_network_approval_target_alignment_d159.py::test_全部目标都被判死时一条规则都不落
+  tests/test_compaction_eval_determinism.py::test_2_tracked_report_needs_no_further_formatting
+  tests/test_compaction_eval_determinism.py::test_3_check_arm_has_teeth
+
+按簇的根因(在干净检出上逐簇复跑 --tb=line 量到,非推测):
+  A. tests/test_mcp_server_coverage.py::TestMcpServerCoverageFileEdit(7)+ tests/test_mcp_server.py::test_tool_write_file_success
+     TypeError: 用例里 monkeypatch 的 1 参 lambda 撞上 mcp_server.py:648 的 2 参调用(_validate_path_in_workspace 已扩出 extra_roots)
+     ⇒ 桩与生产签名脱节;`app/services/mcp_server.py` 此刻是 ` M`(他席在飞)
+  B. tests/test_engine_role_parity.py(2)+ tests/test_agents_role_parity.py(2)
+     TypeError: spy() got an unexpected keyword argument 'session_id' ⇒ 生产侧新增下传参数而测试替身签名未跟上
+     另一枚: AssertionError「只找到 1 个构造点,尺子大概失效了」⇒ 用例自带的覆盖面自证在报「判据可能失明」,属真信号不得调阈值
+  C. tests/test_parallel_tool_abort_54.py(4)
+     AttributeError: 'AgentLoopV2' object has no attribute '_mode_policy' / '_executed_tool_calls' ⇒ 测试引用了产品面不存在(或已改名)的私有属性
+  D. tests/test_egress_facts_parity.py(2)
+     Failed: TS 侧判据加载失败(exit=1)⇒ 跨语言夹具在本机派生 node 失败;共享树复跑后这 2 枚转绿 ⇒ 归'被在飞改动修好'那一档
+  E. 其余各枚未逐条读因,归下一轮
+
+两面复跑归因(同一批用例、同一次 pytest.main 调用、同参数,只差在跑在哪个面上):
+  干净 HEAD 检出  : 38 failed / 0 passed
+  本机共享工作树  : 31 failed / 7 passed
+  ⇒ 7 枚已被他席未提交的在飞改动修好(不得由本席重复动),31 枚是 HEAD 自身的内容红,与在飞改动无关。
+  那 7 枚: test_compaction_eval_determinism(2)、test_egress_facts_parity(2)、test_deep_engines_routers::test_sandbox_run_success、
+           test_external_browser_profile::test_detect_login_from_profile_hit、test_os_sandbox::test_env_whitelist_applied_to_child
+  仍红 31 枚的逐行清单另存: docs/benchmark-evidence/2026-10/g1058646-still-red-31.txt
+
+复现命令(任意机器,需先有 apps/ai-service/.venv):
+  git worktree add --detach .worktrees/wt-evidence <HEAD sha>
+  cd .worktrees/wt-evidence/apps/ai-service
+  <repo>/apps/ai-service/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
+或在本仓共享树上按口径跑收集档: pnpm check:pytest -- --collect-only
+
+注:本文件是一次性取证产物,不是判据输入;里面所有数字都是当次现读,后续必须重跑取当轮值。

@@ -1,0 +1,31 @@
+{
+  "$comment": "工具活动行双时态覆盖率基线(守门 scripts/check-tool-activity-coverage.mjs)。floor = 已配 *Activity 且五语言齐的功能名数,只许上调不许下调:逐批补措辞时同步改这里,并在提交说明里写数量变化。",
+  "floor": 24,
+  "coveredAtBaseline": [
+    "toolReadFile",
+    "toolEditFile",
+    "toolWriteFile",
+    "toolSearchCodebase",
+    "toolWebSearch",
+    "toolParseDocument",
+    "toolListFiles",
+    "toolFileSearch",
+    "toolCreateFile",
+    "toolDeleteFile",
+    "toolAnalyzeCode",
+    "toolKnowledgeLookup",
+    "toolFetchUrl",
+    "toolGenerateChart",
+    "toolBrowserNavigate",
+    "toolBrowserClickElement",
+    "toolBrowserTypeText",
+    "toolBrowserScreenshot",
+    "toolBrowserExtractDom",
+    "toolBrowserScroll",
+    "toolBrowserWaitForElement",
+    "toolBrowserHover",
+    "toolBrowserCloseTab",
+    "toolBrowserSwitchTab"
+  ],
+  "updatedAt": "2026-09-22"
+}

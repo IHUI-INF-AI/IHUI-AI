@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "severityFloor": ["critical", "high"],
+  "maxCacheAgeDays": 30,
+  "notes": [
+    "守门 260(scripts/check-prod-dep-advisories.mjs)的政策真源。判据:生产可达(非 devOnly)的",
+    "critical/high 必须全部被未过期的 waiver 覆盖;构建链(devOnly)存量只报数不拦(§12e)。",
+    "waiver 三要素缺一即红:module / reason / expiresAt —— 豁免必须「验过才免」且会到期(§0.7)。",
+    "新增 waiver 前必须先证明「漏洞 API 不可达」并写进 reason + evidence,不接受「先免了再说」。",
+    "",
+    "为什么会有 waiver 而不是直接升级:npm/pnpm audit 的 dev 标记只看 package.json 位置,不看运行时",
+    "调用图。RN/Expo 生态把 Metro、@expo/cli 这类构建器放在 dependencies 里 ⇒ 它们在依赖树上是",
+    "「生产可达」,但服务器进程根本 require 不到。判据只能给客观事实(树里有什么),「可不可达」",
+    "必须人给证据 —— 这就是 waiver 存在的理由,也是它必须带到期日的原因(生态会变,证据会腐烂)。"
+  ],
+  "waivers": [
+    {
+      "module": "image-size",
+      "module": "image-size",
+      "severity": "high",
+      "reason": "唯一路径是 apps__mobile-rn > react-native > @react-native/community-cli-plugin > metro > image-size,即 RN 打包器在构建期解析图片尺寸。实测 apps/api、apps/ai-service、apps/web 的 node_modules/image-size 均不存在 ⇒ 三个服务器进程都 require 不到该包,不可达。修复版 >=2.0.3,升级需等 metro 带上。",
+      "expiresAt": "2027-01-31",
+      "evidence": "for app in apps/api apps/ai-service apps/web; do test -e $app/node_modules/image-size; done ⇒ 三者皆不存在(2026-10-29 实测)。"
+    },
+    {
+      "module": "zod",
+      "severity": "high",
+      "reason": "漏洞版本 3.25.76 仅经 apps__web > @react-three/drei > @react-three/fiber > expo > @expo/cli > zod(Expo 构建 CLI,只在构建/开发期跑,不进 Next 生产运行时)。而服务器直接依赖的 zod 实测为 4.6.7,已高于修复版 4.6.6 ⇒ 漏洞版本在运行时不可达。不用 override 强升是因为 @expo/cli 依赖 zod 3 的 API,强升会让构建链挂。",
+      "expiresAt": "2027-01-31",
+      "evidence": "apps/web/node_modules/zod/package.json version=4.6.7;pnpm why zod(在 apps/web)显示漏洞版本 3.25.76 只挂在 @expo/cli 下(2026-10-29 实测)。"
+    }
+  ]
+}

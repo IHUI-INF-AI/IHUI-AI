@@ -1,0 +1,15 @@
+{
+  "dailyQuota": 5,
+  "sources": [
+    {
+      "name": "guardian-runner",
+      "defaultTriage": "fix-now",
+      "note": "守门 runner 全量跑产出的红项(当场可修优先,修不了的带 triage=dispatchable 覆盖)"
+    },
+    {
+      "name": "incident-cluster",
+      "defaultTriage": "dispatchable",
+      "note": "事故聚类器(scripts/triage-incidents.mjs / lib/incident-cluster)的簇产出,默认走 live-doc-edit 登记"
+    }
+  ]
+}

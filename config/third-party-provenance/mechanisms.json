@@ -1,0 +1,48 @@
+{
+  "$schemaNote": [
+    "机制来源台账(规格 §6 里叫 NOTICE-UPSTREAM-MECHANISMS.md)。记的是**哪个机制的思想来自哪个上游**,**不记代码**:",
+    "每条 = 本仓落点路径 + 吸收的机制一句话 + 上游项目与其许可 + 规格文件与日期 + clean-room 声明。",
+    "为什么落在 config/third-party-provenance/ 而不是根目录:守门「根目录整洁」(scripts/check-root-dir-clean.mjs,",
+    "guardian 现值以 runner 为准)的 ALLOWED_FILES 是封闭白名单,只列了 README*/LICENSE/SECURITY/CONTRIBUTING/",
+    "CODE_OF_CONDUCT/AGENTS/PROJECT_PLAN,新增根目录 NOTICE-UPSTREAM-MECHANISMS.md 会当场判红;",
+    "而规格 §6 的另外两个落点 config/third-party-provenance/*.json 是白名单内的 config 目录 —— 故同目录安置(以实测为准)。",
+    "P5 判据(2026-09-25 改):landsOn 与 specFile **都**按被审判的面判 —— 锚点必须受版本控制。",
+    "旧写法把 specFile 交给工作树存在性判,并写明'允许是 gitignore 的临时规格',这与'blocking 判存在'结构互斥:",
+    "gitignored 路径不进任何检出,而本仓 post-commit 的 --auto-clean 自己就会清掉它 ⇒ 作者机常绿、别处恒红,",
+    "实测该形状就是 G-173(每次提交都被逼 --no-verify,连带全部守门作废)。判据失效的方向只能是'多要一次耐久登记'。"
+  ],
+  "schemaVersion": 1,
+  "updatedOn": "2026-09-25",
+  "upstream": {
+    "project": "IHUI-AI 内部工程规范",
+    "license": "本仓自有规范，不引用任何外部项目的许可或内容。",
+    "policy": "本台账只记录本仓自研机制的落地位置与验收口径。"
+  },
+  "entries": [
+    {
+      "id": "A6-provenance-ledger",
+      "mechanism": "把进过仓的外部内容按『嵌入 / 复制 / 覆盖』分三本账登记,许可原文按内容哈希自证(读盘不联网),并配一道机器判据:每个 roots 必须真实存在、盘上任何 vendored 目录或带第三方版权头的文件必须有对应条目、revision 不可考必须显式 null 加说明。",
+      "upstreamProject": "IHUI-AI",
+      "upstreamArea": "本仓工程规范中的第三方来源登记面",
+      "specFile": "AGENTS.md",
+      "specSection": "守门脚本速查 › 「第三方来源台账对账」(guardian id 107)—— 本机制在本仓的现行规格表述",
+      "specNote": "本条目按本仓现行工程规范维护；机制描述与验收口径均以受版本控制的 AGENTS.md 为准。",
+      "absorbedOn": "2026-09-25",
+      "landsOn": [
+        "scripts/provenance-ledger.mjs",
+        "scripts/tests/provenance-ledger.test.mjs",
+        "config/third-party-provenance/embedded.json",
+        "config/third-party-provenance/copied.json",
+        "config/third-party-provenance/overrides.json",
+        "config/third-party-provenance/mechanisms.json"
+      ],
+      "cleanRoom": "本条落点的全部代码由本仓独立撰写,判据口径、字段命名、退出码语义均沿用本仓既有守门(70/77/83/98/101/103)的约定。",
+      "deviationsFromSpec": [
+        "规格要求 NOTICE-UPSTREAM-MECHANISMS.md 放根目录 → 实测与守门「根目录整洁」白名单冲突,改落 config/third-party-provenance/mechanisms.json。",
+        "规格建议许可原文『按内容哈希命名存在仓库里』(独立文件) → 实测与 §5c 水印门禁的取材面存在真实冲突面(watermark.mjs 的 EXT_MAP 收录 .toml/.rs 等,而 vendor/** 目前只因 SKIP_DIRS 里那一条 'vendor' 才幸免),故改为在台账内以 inRepo 指针 + sha256 或内联 text 两形态承载,不新增受水印管辖的原文文件。",
+        "规格称 tray-icon 是『唯一的 vendored 目录』 → 实测盘上另有两个未登记的第三方件(apps/web/public/pdfjs/pdf.worker.min.mjs 的 Mozilla 版权头、apps/mobile-cap/android/gradlew{,.bat} 的 Gradle 版权头),已一并登记进 copied.json。"
+      ],
+      "obligations": "本条只登记已落地部分;规格 §1–§5、§7 各候选点是否已被别的会话落地,须由后续接手的会话按当次实测另立条目,不得在此预先声明。"
+    }
+  ]
+}

@@ -1,0 +1,514 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Extension refresh token 流程单元测试
+ *
+ * 锁定:
+ * 1. setTokenPair 持久化 access + refresh + expiresIn
+ * 2. getRefreshToken / getExpiresIn 读取
+ * 3. clearAllTokens 同时清三键
+ * 4. readExp 解析 JWT exp
+ * 5. scheduleRefreshAlarm 正常时创建 alarm
+ * 6. doRefresh 成功路径 + 失败路径
+ * 7. startAutoRefresh / stopAutoRefresh 注册/移除监听
+ */
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+// 2026-10-14:import() 类型注解被 consistent-type-imports 禁(CI lint:strict 红),改顶层 type 命名空间导入
+import type * as ApiClientModule from '@ihui/api-client'
+
+// === 全局 chrome mock ===
+const chromeStorage: Record<string, unknown> = {}
+const chromeAlarmsCreate = vi.fn()
+const chromeAlarmsClear = vi.fn(async () => true)
+const chromeAlarmsOnAlarmAdd = vi.fn()
+const chromeAlarmsOnAlarmRemove = vi.fn()
+// 2026-10-26:具名出来供"不清任何凭据"反例断言用(clearAllTokens 的三键删除全部经过这里)
+const chromeStorageLocalRemove = vi.fn(async (keys: string | string[]) => {
+  const keyArr = Array.isArray(keys) ? keys : [keys]
+  for (const k of keyArr) delete chromeStorage[k]
+})
+
+;(globalThis as unknown as { chrome: unknown }).chrome = {
+  storage: {
+    local: {
+      get: vi.fn(async (keys: string | string[]) => {
+        const keyArr = Array.isArray(keys) ? keys : [keys]
+        const result: Record<string, unknown> = {}
+        for (const k of keyArr) if (k in chromeStorage) result[k] = chromeStorage[k]
+        return result
+      }),
+      set: vi.fn(async (obj: Record<string, unknown>) => {
+        Object.assign(chromeStorage, obj)
+      }),
+      remove: chromeStorageLocalRemove,
+      onChanged: {
+        addListener: vi.fn(),
+      },
+    },
+    // initApi() 的跨标签页同步走 chrome.storage.onChanged(browser-platform chrome-impl.ts)
+    // —— 2026-10-26:doRefresh 现在会先 await 就绪判据(initApi),缺这层 mock 会让回填整轮失败。
+    onChanged: {
+      addListener: vi.fn(),
+    },
+  },
+  alarms: {
+    create: chromeAlarmsCreate,
+    clear: chromeAlarmsClear,
+    onAlarm: {
+      addListener: chromeAlarmsOnAlarmAdd,
+      removeListener: chromeAlarmsOnAlarmRemove,
+    },
+  },
+  runtime: {
+    onInstalled: { addListener: vi.fn() },
+  },
+}
+
+// === Mock @ihui/api-client 的 refreshAccessToken ===
+// 2026-10-09 分型:补真实 TransientRefreshError —— token-utils doRefresh 的瞬时分支会 new 它,
+// 断言侧的 instanceof 也必须是同一个类对象(替身类会让断言空转)。
+// 2026-10-26:补 setDeviceFingerprintProvider / setUnauthorizedHandler —— doRefresh 现在会先
+// await 就绪判据(initApi),这两枚是 initApi 尾部要调的注册口;缺 mock 会把"回填失败"伪装成用例环境坏。
+const mockRefreshAccessToken = vi.fn()
+vi.mock('@ihui/api-client', async () => {
+  const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
+  return {
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    setDeviceFingerprintProvider: vi.fn(),
+    setUnauthorizedHandler: vi.fn(),
+    refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
+    TransientRefreshError: actual.TransientRefreshError,
+  }
+})
+
+// === Mock defineBackground(WXT API) ===
+;(globalThis as unknown as { defineBackground: unknown }).defineBackground = (fn: () => void) => fn
+
+// === 工具:构造 JWT ===
+function makeJwt(exp: number): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url')
+  const signature = 'mock-signature'
+  return `${header}.${payload}.${signature}`
+}
+
+// 每个测试前重置模块状态(清空 inFlightRefresh / alarmListener 模块级变量)
+async function loadFreshModules() {
+  vi.resetModules()
+  // 重新 mock @ihui/api-client(resetModules 后需要重新注册;TransientRefreshError 同样给真实类)
+  vi.doMock('@ihui/api-client', async () => {
+    const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
+    return {
+      setBaseUrl: vi.fn(),
+      setTokenProvider: vi.fn(),
+      setDeviceFingerprintProvider: vi.fn(),
+      setUnauthorizedHandler: vi.fn(),
+      refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
+      TransientRefreshError: actual.TransientRefreshError,
+    }
+  })
+  const token = await import('../lib/token')
+  const tokenUtils = await import('../lib/token-utils')
+  return { token, tokenUtils }
+}
+
+import { setTokenPair, getRefreshToken, getExpiresIn, clearAllTokens, getToken } from '../lib/token'
+import { readExp, scheduleRefreshAlarm } from '../lib/token-utils'
+
+describe('Extension refresh token 流程', () => {
+  beforeAll(() => {
+    if (typeof globalThis.atob !== 'function') {
+      globalThis.atob = (str: string) => Buffer.from(str, 'base64').toString('binary')
+    }
+  })
+
+  beforeEach(() => {
+    for (const k of Object.keys(chromeStorage)) delete chromeStorage[k]
+    chromeAlarmsCreate.mockClear()
+    chromeAlarmsClear.mockClear()
+    chromeAlarmsOnAlarmAdd.mockClear()
+    chromeAlarmsOnAlarmRemove.mockClear()
+    chromeStorageLocalRemove.mockClear()
+    mockRefreshAccessToken.mockReset()
+  })
+
+  describe('token.ts — TokenPair 管理', () => {
+    it('setTokenPair 同时持久化 access + refresh + expiresIn 到 storage', async () => {
+      await setTokenPair({
+        accessToken: 'access-123',
+        refreshToken: 'refresh-456',
+        expiresIn: 3600,
+      })
+      expect(chromeStorage['ihui_token']).toBe('access-123')
+      expect(chromeStorage['ihui_refresh_token']).toBe('refresh-456')
+      expect(chromeStorage['ihui_token_expires_in']).toBe(3600)
+      expect(getToken()).toBe('access-123')
+      expect(getRefreshToken()).toBe('refresh-456')
+      expect(getExpiresIn()).toBe(3600)
+    })
+
+    it('setTokenPair 不传 expiresIn 时不覆盖既有 expiresIn', async () => {
+      await setTokenPair({
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresIn: 3600,
+      })
+      await setTokenPair({
+        accessToken: 'access-2',
+        refreshToken: 'refresh-2',
+      })
+      expect(getToken()).toBe('access-2')
+      expect(getRefreshToken()).toBe('refresh-2')
+      expect(getExpiresIn()).toBe(3600)
+    })
+
+    it('clearAllTokens 同时清三键', async () => {
+      await setTokenPair({
+        accessToken: 'access-123',
+        refreshToken: 'refresh-456',
+        expiresIn: 3600,
+      })
+      await clearAllTokens()
+      expect(chromeStorage['ihui_token']).toBeUndefined()
+      expect(chromeStorage['ihui_refresh_token']).toBeUndefined()
+      expect(chromeStorage['ihui_token_expires_in']).toBeUndefined()
+      expect(getToken()).toBeNull()
+      expect(getRefreshToken()).toBeNull()
+      expect(getExpiresIn()).toBeNull()
+    })
+  })
+
+  describe('token-utils.ts — JWT 解析', () => {
+    it('readExp 正确解析 JWT exp', () => {
+      const exp = Math.floor(Date.now() / 1000) + 3600
+      const token = makeJwt(exp)
+      expect(readExp(token)).toBe(exp)
+    })
+
+    it('readExp 返回 null 处理非法 token', () => {
+      expect(readExp('not-a-jwt')).toBeNull()
+      expect(readExp('a.b')).toBeNull()
+      expect(readExp('a.b.c.d')).toBeNull()
+    })
+
+    it('readExp 返回 null 处理无 exp 的 payload', () => {
+      const header = Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url')
+      const payload = Buffer.from(JSON.stringify({ sub: 'user' })).toString('base64url')
+      const token = `${header}.${payload}.sig`
+      expect(readExp(token)).toBeNull()
+    })
+  })
+
+  describe('token-utils.ts — scheduleRefreshAlarm', () => {
+    it('正常时创建 alarm(delayInMinutes >= 1)', () => {
+      const futureExp = Math.floor(Date.now() / 1000) + 3600 // 1 小时后
+      const token = makeJwt(futureExp)
+      scheduleRefreshAlarm(token)
+      expect(chromeAlarmsCreate).toHaveBeenCalledTimes(1)
+      const call = chromeAlarmsCreate.mock.calls[0]!
+      expect(call[0]).toBe('ihui-refresh-token')
+      const opts = call[1] as { delayInMinutes: number }
+      expect(opts.delayInMinutes).toBeGreaterThanOrEqual(1)
+      expect(opts.delayInMinutes).toBeLessThanOrEqual(60)
+    })
+
+    it('无 exp 时不创建 alarm', () => {
+      scheduleRefreshAlarm('invalid-token')
+      expect(chromeAlarmsCreate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('token-utils.ts — doRefresh', () => {
+    it('成功路径:setTokenPair 更新 + 返回 true', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: true,
+        data: {
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+          user: { id: 'u1' },
+        },
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(true)
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1)
+      expect(mockRefreshAccessToken).toHaveBeenCalledWith('refresh-old')
+      expect(token.getToken()).toBe('new-access')
+      expect(token.getRefreshToken()).toBe('new-refresh')
+    })
+
+    it('失败路径:refreshAccessToken 返回 401(rejected)时清 token + 返回 false', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      // 2026-10-09 分型:显式给 401 —— 无 status 会被 classifyRefreshFailureStatus 判瞬时,
+      // 走抛 TransientRefreshError 分支(那是下面分型用例的职责)。
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 401,
+        error: 'invalid refresh token',
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(false)
+      expect(token.getToken()).toBeNull()
+      expect(token.getRefreshToken()).toBeNull()
+    })
+
+    it('瞬时失败(500)→ 抛 TransientRefreshError,且 token 不清', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 500,
+        error: 'Server Error',
+      })
+
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+    })
+
+    it('瞬时失败(无 status,网络错误/超时) → 同样抛 TransientRefreshError,token 不清', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({ success: false, error: 'network down' })
+
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+    })
+
+    // ─── 2026-10-26 成对锁:只有服务端明确否定凭据才许销毁 ───
+    // 立因:扩展端"账号总是要重新登录"的三条真销毁通道——①异常/无 status 被兜底 catch 清光;
+    // ②内存镜像未回填被当成"没登录"清光;③alarm/interval 续期不过就绪判据撞上①②。
+    // 摘掉 token-utils 里对应判据,以下每条必须翻红(先跑旧实现确认过红)。
+
+    it('正例:rejected(403)→ 清 token + 返回 false', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 403,
+        error: 'forbidden',
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(false)
+      expect(token.getToken()).toBeNull()
+      expect(token.getRefreshToken()).toBeNull()
+    })
+
+    it('正例:rejected(401 且 errorCode 非 STALE)→ 清 token(判据第二参数 errorCode 必须被透传)', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 401,
+        errorCode: 'REFRESH_TOKEN_REVOKED',
+        error: 'refresh token reuse detected',
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(false)
+      expect(token.getToken()).toBeNull()
+    })
+
+    it('反例:401 但 errorCode=REFRESH_TOKEN_STALE(陈旧副本,服务端未否定凭据)→ 抛瞬时分型,一条不清', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      const { REFRESH_TOKEN_STALE_ERROR_CODE } = await import('@ihui/shared/auth/auto-login-policy')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 401,
+        errorCode: REFRESH_TOKEN_STALE_ERROR_CODE,
+        error: 'stale sibling copy',
+      })
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+    })
+
+    it('反例:refreshAccessToken 抛异常(网络层异常≠服务端否定)→ 按瞬时分型外抛,一条凭据都不清', async () => {
+      // 旧实现这里"清 token + 返回 false"——一次网络抖动洗光登录态,是本票要根治的销毁通道之一。
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockRejectedValueOnce(new Error('network error'))
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+      expect(chromeStorageLocalRemove).not.toHaveBeenCalled()
+    })
+
+    it('反例:内存镜像未回填(chrome.storage 有凭据)→ 先 await 就绪回填再续期,不得清光', async () => {
+      // SW 冷启动第一拍:initApi 还没跑,同步读镜像必为 null——旧实现当成"没登录"直接
+      // clearAllTokens()(三把 key 全删),这就是"扩展端账号总要重新登录"的主通道。
+      const { token, tokenUtils } = await loadFreshModules()
+      // 只写存储、不碰内存镜像(绕开 setTokenPair 的"两面同写",复刻回填未完成的时序)
+      chromeStorage['ihui_token'] = 'access-stored'
+      chromeStorage['ihui_refresh_token'] = 'refresh-stored'
+      expect(token.getRefreshToken()).toBeNull() // 前置自证:此刻镜像确实没回填
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: true,
+        data: {
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+          user: { id: 'u1' },
+        },
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(true)
+      expect(mockRefreshAccessToken).toHaveBeenCalledWith('refresh-stored')
+      expect(chromeStorage['ihui_refresh_token']).toBe('new-refresh')
+    })
+
+    it('反例:回填落定后确实无 refreshToken → 返回 false 等下一次 tick;不清、不发续期', async () => {
+      const { tokenUtils } = await loadFreshModules()
+      // 不 setTokenPair,chromeStorage 也归零:两面都真的没有凭据
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(false)
+      expect(mockRefreshAccessToken).not.toHaveBeenCalled()
+      expect(chromeStorageLocalRemove).not.toHaveBeenCalled()
+    })
+
+    it('并发去重:同时调用两次,refreshAccessToken 只被调用一次', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      let resolveRefresh: ((val: unknown) => void) | null = null
+      mockRefreshAccessToken.mockReturnValueOnce(
+        new Promise<unknown>((resolve) => {
+          resolveRefresh = resolve
+        }),
+      )
+      // 并发两次调用
+      const p1 = tokenUtils.doRefresh()
+      const p2 = tokenUtils.doRefresh()
+      // refreshAccessToken 只被调用一次(去重)
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1)
+      // resolve
+      resolveRefresh!({
+        success: true,
+        data: {
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+          user: { id: 'u1' },
+        },
+      })
+      const results = await Promise.all([p1, p2])
+      expect(results[0]).toBe(true)
+      expect(results[1]).toBe(true)
+      expect(token.getToken()).toBe('new-access')
+    })
+  })
+
+  describe('token-utils.ts — scheduleRefreshAlarm / stopAutoRefresh (scheduleOnce 模式)', () => {
+    // scheduleOnce 模式:startAutoRefresh 是 no-op,listener 由 scheduleRefreshAlarm 内部
+    // 随 handler 绑定注册(通过 platform.scheduler.scheduleOnce → chrome.alarms.onAlarm.addListener)。
+    it('scheduleRefreshAlarm 注册 onAlarm 监听', async () => {
+      const { tokenUtils } = await loadFreshModules()
+      // 未来 1 小时过期的 token → delayMs > 0 → 走 scheduleOnce 路径
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
+      expect(chromeAlarmsOnAlarmAdd).toHaveBeenCalledTimes(1)
+      expect(chromeAlarmsCreate).toHaveBeenCalledWith(
+        'ihui-refresh-token',
+        expect.objectContaining({ delayInMinutes: expect.any(Number) }),
+      )
+      tokenUtils.stopAutoRefresh()
+    })
+
+    it('stopAutoRefresh 清除 alarm + 移除监听', async () => {
+      const { tokenUtils } = await loadFreshModules()
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
+      tokenUtils.stopAutoRefresh()
+      expect(chromeAlarmsClear).toHaveBeenCalledWith('ihui-refresh-token')
+      expect(chromeAlarmsOnAlarmRemove).toHaveBeenCalledTimes(1)
+    })
+
+    it('onAlarm 监听器匹配 REFRESH_ALARM_NAME 时调用 doRefresh', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: true,
+        data: {
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+          user: { id: 'u1' },
+        },
+      })
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
+      const listener = chromeAlarmsOnAlarmAdd.mock.calls[0]![0] as (a: { name: string }) => void
+      listener({ name: 'ihui-refresh-token' })
+      // 等待 doRefresh 异步完成
+      await new Promise((r) => setTimeout(r, 100))
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1)
+      tokenUtils.stopAutoRefresh()
+    })
+
+    it('onAlarm 监听器不匹配的 alarm name 不调用 doRefresh', async () => {
+      const { tokenUtils } = await loadFreshModules()
+      const futureJwt = makeJwt(Math.floor(Date.now() / 1000) + 3600)
+      tokenUtils.scheduleRefreshAlarm(futureJwt)
+      const listener = chromeAlarmsOnAlarmAdd.mock.calls[0]![0] as (a: { name: string }) => void
+      listener({ name: 'other-alarm' })
+      await new Promise((r) => setTimeout(r, 50))
+      expect(mockRefreshAccessToken).not.toHaveBeenCalled()
+      tokenUtils.stopAutoRefresh()
+    })
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

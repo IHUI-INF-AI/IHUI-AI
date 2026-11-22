@@ -1,0 +1,798 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * §22c 镜像测试 —— 判据本体在 `scripts/lib/push-attempt-triage.mjs`,本文件**只 import 它**,
+ * 不在这里重写任何正则或判序(两处算同一件事必漂移;AGENTS §22c:镜像测试只复读实现就是复读机)。
+ *
+ * 本票(2026-09-28)钉的三件事:
+ *   ① 判序:远端 ref 竞态(`cannot lock ref` / `stale info`)必须先于 `Required status check`
+ *      / `protected branch` 命中 —— 管理员旁路成功时 GitHub 照打那两行**信息**,而这一趟的
+ *      死因是别的会话同秒推了(实测 05:23Z 与 06:2xZ 两次都被旧判序报成"分支保护")。
+ *   ② 两档不合并:策略拒收(GH006)与竞态(cannot lock ref)的出路**相反**;真分叉
+ *      (non-fast-forward)那一档的语义与出路一字未动。
+ *   ③ 读数诚实:`git-push-converge.mjs` 的每一条依赖 push-state 的结论都必须报名
+ *      "这条记录关于哪枚提交 / 距今多久 / 算不算当下量的",记录与当前 HEAD 无关时
+ *      写成"历史残留/未现推",不得冒充本次故障。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
+// 唯一入口:源脚本的 __test__ 导出(§22c 第 2 步)。禁止在这里复制判据。
+import { __test__ as T } from '../lib/push-attempt-triage.mjs'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const LIB_SRC = readFileSync(join(here, '..', 'lib', 'push-attempt-triage.mjs'), 'utf8')
+const CONVERGE_SRC = readFileSync(join(here, '..', 'git-push-converge.mjs'), 'utf8')
+const CONVERGE_PATH = join(here, '..', 'git-push-converge.mjs')
+const SELF_SRC = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+
+const SHA_A = 'a'.repeat(40)
+const SHA_B = 'b'.repeat(40)
+const HOUR = 3600_000
+
+// ── 三条**成对反证**的夹具(逐字取自 2026-09-28 的真回显形态;自造文本只会让锁跟着判据一起漂) ──
+/** (a) 旁路通知 + `cannot lock ref` ⇒ 竞态。带不带 Required status check 那行都判竞态。 */
+const RACE = [
+  'remote: Bypassed rule violations for refs/heads/main:        ',
+  'remote: ',
+  'remote: - Required status check "CI / lint-typecheck-test (push)" is expected.        ',
+  'To https://github.com/IHUI-INF-AI/IHUI-AI.git',
+  " ! [remote rejected]       main -> main (cannot lock ref 'refs/heads/main': is at 6b8cd0f6aa11 but expected c12612dc9f02)",
+  "error: failed to push some refs to 'https://github.com/IHUI-INF-AI/IHUI-AI.git'",
+].join('\n')
+/** (a′) 同一型但没有状态检查那行(纯旁路通知 + 锁失败)。 */
+const RACE_NO_CHECK = [
+  'remote: Bypassed rule violations for refs/heads/main:        ',
+  " ! [remote rejected]       main -> main (cannot lock ref 'refs/heads/main': is at 6b8cd0f6aa11 but expected c12612dc9f02)",
+].join('\n')
+/** (a″) `stale info` —— 竞态的另一形态(--force-with-lease / 过期 tracking ref)。 */
+const RACE_STALE_INFO =
+  'To https://github.com/x/y.git\n ! [rejected]        main -> main (stale info)\nerror: failed to push some refs'
+/** (b) 纯策略拒收 ⇒ 策略档。 */
+const POLICY = [
+  'remote: error: GH006: Protected branch update failed for refs/heads/main.        ',
+  'remote: ',
+  'remote: - Required status check "CI / lint-typecheck-test (pull_request)" is expected.        ',
+  ' ! [remote rejected]       main -> main (protected branch hook declined)',
+].join('\n')
+/** (c) 真分叉 ⇒ 既有 non-fast-forward 档(语义与出路一字未动)。 */
+const DIVERGE = [
+  'To https://github.com/x/y.git',
+  ' ! [rejected]        main -> main (non-fast-forward)',
+  "error: failed to push some refs to 'https://github.com/x/y.git'",
+  'hint: Updates were rejected because the tip of your current branch is behind',
+].join('\n')
+
+// ══════════════════════════════════════════════════════════════════════
+// 出口齐备性:测试 import 的是源脚本的那一份实现,不是副本
+// ══════════════════════════════════════════════════════════════════════
+
+test('T1 §22c 出口在位:__test__ 必须真的导出被使用的判据(摘线不得被读成已装车)', () => {
+  for (const name of [
+    'triagePushAttempt',
+    'describeVerdict',
+    'pushStateProvenance',
+    'noVerifyEligibility',
+  ]) {
+    assert.equal(typeof T[name], 'function', `__test__.${name} 不是函数 ⇒ 出口漂了`)
+  }
+  for (const name of [
+    'REMOTE_REF_RACE_RE',
+    'RULE_BYPASS_NOTICE_RE',
+    'PROTECTED_BRANCH_RE',
+    'NON_FAST_FORWARD_RE',
+    'SECRET_SCAN_RE',
+    'UP_TO_DATE_RE',
+    'CREDENTIALS_UNAVAILABLE_RE',
+    'HOOK_TRACE_RE',
+    'SCOPE_DEGRADE_EVIDENCE_RE',
+  ]) {
+    assert.ok(T[name] instanceof RegExp, `__test__.${name} 必须是 RegExp`)
+  }
+  assert.ok(Array.isArray(T.PUSH_TRIAGE_KINDS), 'PUSH_TRIAGE_KINDS 必须是数组')
+  // 源面锁:__test__ 对象必须真的 export 出来(否则哪天被删,本文件会退化成 import 具名符号
+  // 或干脆自己抄一份 —— 那正是 §22c 要防的两份真相)
+  assert.match(LIB_SRC, /export const __test__ = \{/, 'lib 里 __test__ 导出块不见了')
+  assert.match(LIB_SRC, /\n  pushStateProvenance,/, '__test__ 里没有 pushStateProvenance')
+  assert.match(LIB_SRC, /\n  REMOTE_REF_RACE_RE,/, '__test__ 里没有 REMOTE_REF_RACE_RE')
+  assert.match(
+    LIB_SRC,
+    /\n  SCOPE_DEGRADE_EVIDENCE_RE,/,
+    '__test__ 里没有 SCOPE_DEGRADE_EVIDENCE_RE ⇒ 2026-11-02 P4 的证据判据被摘线,镜像测试会退化成只测行为',
+  )
+  // 反向锁:本测试文件不得自带一份分诊正则(判据只有一份)
+  assert.doesNotMatch(
+    SELF_SRC,
+    /const\s+\w*RE\s*=\s*\/(?:.*cannot lock ref|.*GH006)/i,
+    '测试里复制了判据正则 ⇒ 两份真相,判据漂移时本文件会跟着一起绿',
+  )
+})
+
+test('T2 名单:remote-ref-race 已进封闭集,且每个成员都有命中它的输入(死表即红)', () => {
+  assert.ok(
+    T.PUSH_TRIAGE_KINDS.includes('remote-ref-race'),
+    '新档没进 PUSH_TRIAGE_KINDS ⇒ 下游按封闭集校验的读取方会把它当未知 kind',
+  )
+  const fixtures = {
+    'pushed-ok': { status: 0, stdout: '   1111111..2222222  main -> main' },
+    'up-to-date': { status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: true },
+    'remote-ref-race': { status: 1, stderr: RACE },
+    'protected-branch': { status: 1, stderr: POLICY },
+    'non-fast-forward': { status: 1, stderr: DIVERGE },
+    'secret-scan-blocked': {
+      status: 1,
+      stderr: ' ! [remote rejected] main (push declined due to repository rule violations)',
+    },
+    'credentials-unavailable': {
+      status: 128,
+      stderr:
+        "error: failed to execute prompt script (exit code 1)\nfatal: could not read Username for 'https://github.com': No such file or directory",
+    },
+    'hook-failed': { status: 1, stderr: '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项' },
+    other: {
+      status: 1,
+      stderr: 'fatal: unable to access https://example.com: Could not resolve host',
+    },
+  }
+  for (const kind of T.PUSH_TRIAGE_KINDS) {
+    const fx = fixtures[kind]
+    assert.ok(fx, `名单成员 ${kind} 没有正向夹具(名单可以是张死表而门一路报绿)`)
+    assert.equal(T.triagePushAttempt(fx).kind, kind, `${kind} 的夹具必须真命中该档`)
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// 任务要求的成对反证:(a) 竞态 (b) 策略 (c) 分叉 —— 任一退化即红
+// ══════════════════════════════════════════════════════════════════════
+
+test('T3 成对反证(a):Bypassed rule violations + cannot lock ref ⇒ **竞态**,不是分支保护', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: RACE })
+  assert.equal(v.kind, 'remote-ref-race', `实得 ${v.kind}(旧判序在这里会报 protected-branch)`)
+  // 同一型但没带状态检查那行,也必须是竞态(判据靠 CAS 原话,不靠"有没有那行")
+  assert.equal(T.triagePushAttempt({ status: 1, stderr: RACE_NO_CHECK }).kind, 'remote-ref-race')
+  // stale info 是竞态的另一形态(此前挂在 non-fast-forward 里)
+  assert.equal(T.triagePushAttempt({ status: 1, stderr: RACE_STALE_INFO }).kind, 'remote-ref-race')
+  // 旁路通知本身**不是**拒绝证据:它命中 RULE_BYPASS_NOTICE_RE,不命中策略档
+  assert.ok(T.RULE_BYPASS_NOTICE_RE.test('remote: Bypassed rule violations for refs/heads/main:'))
+  assert.doesNotMatch(POLICY, /Bypassed rule violations/i, '夹具串台:策略夹具不该含旁路通知')
+})
+
+test('T4 成对反证(b):GH006 protected branch hook declined ⇒ **策略**,不得被竞态吃掉', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: POLICY })
+  assert.equal(v.kind, 'protected-branch')
+  assert.ok(!T.REMOTE_REF_RACE_RE.test(POLICY), '策略回显里不该出现竞态特征,否则两档并成一档')
+  assert.notEqual(
+    v.nextCommand,
+    T.CONVERGE_COMMAND,
+    '策略拒收的出路不是收敛器(收敛器修不了仓库设置)',
+  )
+  assert.equal(v.allowNoVerifyRetry, false)
+  assert.equal(v.terminalStatus, 'failed')
+})
+
+test('T5 成对反证(c):! [rejected] … (non-fast-forward) ⇒ **仍**判分叉,出路仍指向收敛器', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: DIVERGE })
+  assert.equal(v.kind, 'non-fast-forward')
+  assert.equal(v.nextCommand, T.CONVERGE_COMMAND, '既有 non-fast-forward 档的出路一个字不得改')
+  assert.equal(v.terminalStatus, 'diverged')
+  assert.equal(v.allowNoVerifyRetry, false)
+})
+
+test('T6 两档不得合并:三档的 kind / 出路 / 终态两两不同,且判序=竞态 > 策略 > 分叉', () => {
+  const race = T.triagePushAttempt({ status: 1, stderr: RACE })
+  const policy = T.triagePushAttempt({ status: 1, stderr: POLICY })
+  const diverge = T.triagePushAttempt({ status: 1, stderr: DIVERGE })
+  const kinds = new Set([race.kind, policy.kind, diverge.kind])
+  assert.equal(kinds.size, 3, `三档被合并了:${[...kinds].join(',')}`)
+  const cmds = new Set([race.nextCommand, policy.nextCommand, diverge.nextCommand])
+  assert.equal(cmds.size, 3, `三档出路被合并了:${[...cmds].join(' | ')}`)
+  // 判序:三型同现 ⇒ 竞态先命中(git 自己的 CAS 原话最具体)
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: `${DIVERGE}\n${POLICY}\n${RACE}` }).kind,
+    'remote-ref-race',
+  )
+  // 判序:策略 + 分叉(无竞态特征)⇒ 仍是策略(既有那一条锁不得被本票放松)
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: `${DIVERGE}\n${POLICY}` }).kind,
+    'protected-branch',
+  )
+  // 竞态档绝不产生跳门计划,也绝不冒充 diverged 终态
+  assert.equal(race.allowHookRetry, false)
+  assert.equal(race.allowNoVerifyRetry, false)
+  assert.equal(race.terminalStatus, 'failed', '通道没坏 ⇒ 落 failed 让下一次 guard 重试')
+  assert.notEqual(race.nextCommand, T.CONVERGE_COMMAND)
+  assert.equal(race.nextCommand, T.RACE_RECHECK_COMMAND)
+})
+
+test('T7 竞态出路必须**两条分支都给**:祖先成立⇒重推 / 不成立⇒收敛器(否则又是指向死路)', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: RACE })
+  assert.match(v.nextCommand, /git ls-remote origin refs\/heads\/main/)
+  assert.match(v.nextCommand, /merge-base --is-ancestor/)
+  assert.match(v.why, /本地祖先[\s\S]*重推即可/, 'why 必须写出"远端 tip 是本地祖先 ⇒ 直接重推即可"')
+  assert.match(
+    v.why,
+    /祖先不成立[\s\S]*git-sync-converge\.mjs/,
+    'why 必须给出祖先不成立时的唯一出口',
+  )
+  assert.match(v.why, /不是分支保护|这\*\*不是\*\*分支保护/, 'why 必须点名"别按策略档去改仓库设置"')
+  assert.match(T.describeVerdict(v), /出路: /, 'describeVerdict 必须把出路带到人面前')
+})
+
+test('T8 形状锁:stale info 已移出 non-fast-forward,而策略档没被顺手放宽(修红≠削判据)', () => {
+  assert.doesNotMatch(
+    T.NON_FAST_FORWARD_RE.source,
+    /stale info/,
+    'stale info 仍挂在分叉档 ⇒ 竞态会被报成"去收敛"(与本次修复方向相反)',
+  )
+  assert.match(T.REMOTE_REF_RACE_RE.source, /cannot lock ref/)
+  assert.match(T.REMOTE_REF_RACE_RE.source, /stale info/)
+  // 反向:策略档的三条特征一条都没被删(删掉任何一条都是"为了让本次不误判而放宽")
+  for (const feature of ['GH006', 'protected branch hook declined', 'Required status check']) {
+    assert.ok(
+      T.PROTECTED_BRANCH_RE.test(feature),
+      `策略档不再命中 ${feature} ⇒ 判据被削,误判只会换个方向继续存在`,
+    )
+  }
+  // 分叉档的四个原特征仍在(既有语义"一字未动"是可核验的,不是口头承诺)
+  for (const feature of [
+    '(non-fast-forward)',
+    'fetch first',
+    'Updates were rejected',
+    '[rejected]',
+  ]) {
+    assert.ok(T.NON_FAST_FORWARD_RE.test(feature), `分叉档丢了特征 ${feature}`)
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// ③ 读数诚实:pushStateProvenance 判据 + converge 装车
+// ══════════════════════════════════════════════════════════════════════
+
+test('T9 provenance:五态分明,历史残留不得冒充当下结论(未判定也不得记成通过)', () => {
+  const now = 1_800_000_000_000
+  const current = T.pushStateProvenance({
+    pushState: { status: 'failed', headSha: SHA_A, ts: now - 30_000 },
+    localHead: SHA_A,
+    now,
+  })
+  assert.equal(current.state, 'current')
+  assert.equal(current.isCurrent, true)
+  assert.match(current.text, /当下量的/)
+
+  const foreign = T.pushStateProvenance({
+    pushState: { status: 'failed', headSha: SHA_B, ts: now - 4 * HOUR },
+    localHead: SHA_A,
+    now,
+  })
+  assert.equal(foreign.state, 'stale-record')
+  assert.equal(foreign.isCurrent, false, '记录关于别的提交 ⇒ 必须落非当下')
+  assert.equal(foreign.sameHead, false)
+  assert.match(foreign.text, /另一枚提交/)
+  assert.match(foreign.text, /历史残留\/未现推/)
+  assert.equal(foreign.label, '历史残留/未现推')
+  assert.doesNotMatch(foreign.text, /当下量的/, 'stale 的文案里不得混进"当下"字样')
+
+  const aged = T.pushStateProvenance({
+    pushState: { status: 'done', headSha: SHA_A, ts: now - 6 * 60_000 },
+    localHead: SHA_A,
+    now,
+  })
+  assert.equal(aged.state, 'stale-record', '同一枚但超出窗口 ⇒ 也不算当下量的')
+
+  const absent = T.pushStateProvenance({ pushState: null, localHead: SHA_A, now })
+  assert.equal(absent.state, 'absent')
+  assert.equal(absent.isCurrent, false)
+
+  const malformed = T.pushStateProvenance({
+    pushState: { status: 'failed', headSha: SHA_A, ts: undefined },
+    localHead: SHA_A,
+    now,
+  })
+  assert.equal(malformed.state, 'malformed', 'ts 取不到 ⇒ 未判定,不得猜成 current 或 stale')
+  assert.match(malformed.text, /未判定/)
+
+  // 年龄量级:小时档必须有(只给 s/min 会把隔夜残留读成刚发生)
+  assert.equal(foreign.ageText, '4h')
+  assert.equal(
+    T.pushStateProvenance({
+      pushState: { status: 'failed', headSha: SHA_B, ts: now - 90_000 },
+      localHead: SHA_A,
+      now,
+    }).ageText,
+    '2min',
+  )
+  // 缩写比较也要认(git 输出常是 7/11 位短 sha)
+  assert.equal(
+    T.pushStateProvenance({
+      pushState: { status: 'failed', headSha: SHA_A, ts: now - 1000 },
+      localHead: SHA_A.slice(0, 11),
+      now,
+    }).state,
+    'current',
+  )
+  // localHead 取不到 ⇒ 不得凭空判 current(宁判 stale-record 并报名)
+  assert.equal(
+    T.pushStateProvenance({
+      pushState: { status: 'failed', headSha: SHA_A, ts: now - 1000 },
+      localHead: '',
+      now,
+    }).state,
+    'stale-record',
+  )
+})
+
+test('T10 装车锁:converge 必须真的用 lib 的那一份出处判据,且每条依赖 push-state 的结论都报名', () => {
+  // 判据在、没人调用 = 没有(守门 64/70/81/115 同族)
+  assert.match(
+    CONVERGE_SRC,
+    /from '\.\/lib\/push-attempt-triage\.mjs'/,
+    'converge 未引用分诊/出处模块 ⇒ 判据失明',
+  )
+  assert.match(
+    CONVERGE_SRC,
+    /import \{ pushStateProvenance \}/,
+    'converge 未 import pushStateProvenance',
+  )
+  assert.ok(
+    CONVERGE_SRC.includes('pushStateProvenance({'),
+    'converge 里没有 pushStateProvenance( 调用 ⇒ 新读数出处判据没装车',
+  )
+  // PUSH_FAILED 两处(origin 委托失败 / 镜像直推失败)都必须挂"依据出处"行
+  const failedSites = [...CONVERGE_SRC.matchAll(/status: 'PUSH_FAILED'/g)]
+  assert.equal(failedSites.length, 2, `PUSH_FAILED 结论点应为 2 处(实得 ${failedSites.length})`)
+  for (const m of failedSites) {
+    const window = CONVERGE_SRC.slice(m.index, m.index + 1800)
+    assert.match(
+      window,
+      /noteEvidence\(/,
+      '一处 PUSH_FAILED 没有挂依据出处 ⇒ 读数仍分不清当下/历史',
+    )
+    assert.match(
+      window,
+      /本次现推输出末行|未取到输出\(未判定\)/,
+      'PUSH_FAILED 必须报本次现推的输出',
+    )
+  }
+  // SKIP / DIVERGED / PUSHING 也各有出处行(这三条同样会被读成"当下故障")
+  for (const marker of ["status: 'BEHIND'", "status: 'DIVERGED'", "status: 'PUSHING'"]) {
+    const i = CONVERGE_SRC.indexOf(marker)
+    assert.ok(i > -1, `converge 少了 ${marker} 这一支(判据被改写?)`)
+    assert.match(CONVERGE_SRC.slice(i, i + 900), /noteEvidence\(/, `${marker} 未挂依据出处`)
+  }
+  // 定性只在 lib 判一次:converge 不得再自己比 headSha / 自己算年龄
+  assert.doesNotMatch(
+    CONVERGE_SRC,
+    /Date\.now\(\)\s*-\s*pushState\.ts|pushState\.headSha\s*===\s*localHead/,
+    'converge 里出现第二份"是否同一枚提交/是否过期"的算法 ⇒ 两处必漂移',
+  )
+  // 措辞单源:converge 不得自带"历史残留"文案(那是 lib 的 text/label 产出的)
+  const codeFace = CONVERGE_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  assert.doesNotMatch(codeFace, /历史残留/, 'converge 自己写了定性文案 ⇒ 与 lib 的措辞成两份真相')
+  // 强制同步档不得被本次改写弄丢(丢了 guard 会秒回 exit 0 ⇒ 把"什么都没推"报成 PUSHED)
+  assert.match(CONVERGE_SRC, /GUARD_ASYNC: '0'/, 'GUARD_ASYNC=0 被摘掉 ⇒ PUSHED 这一行会造假')
+  assert.match(CONVERGE_SRC, /汇总出处:/, '末行必须再报一次读数出处(多仓时逐行注脚会被截掉)')
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// 端到端:真跑 converge —— 历史读数**必须**被喊成"历史残留/未现推"
+// 阳性对照用临时仓(file:// origin),不触碰本仓 git 状态与真远端。
+// ══════════════════════════════════════════════════════════════════════
+
+function shGit(args, cwd) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    timeout: 120_000,
+  })
+}
+
+function setIdentity(dir) {
+  for (const [k, v] of [
+    ['user.email', 't@e.co'],
+    ['user.name', 't'],
+    ['commit.gpgsign', 'false'],
+  ])
+    shGit(['config', '--local', k, v], dir)
+}
+
+// ── 2026-09-28 补:验证段的"等值"在并发下会把成功的推送报成失败 ──
+// 真实现场:guard 打出 `8dbacd2322..61f6fdc9d0  main -> main`(推成功了),随后 `git rev-parse HEAD`
+// 读到别的会话刚落的 commit ⇒ 等值读 false ⇒ 账面"push 报告成功但验证失败" + push-state=failed。
+test('T12 并发推送:等值假而祖先测真 ⇒ 终态 done,且依据必须报名是祖先测', () => {
+  const v = T.triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: false,
+    pushedShaContainedInRemote: true,
+  })
+  assert.equal(v.kind, 'up-to-date')
+  assert.equal(v.terminalStatus, 'done', '我推的那枚已被远端包含 ⇒ 不得落 failed')
+  assert.match(v.why, /祖先测/, '措辞必须说清是哪把尺子给的合格证(等值并不成立)')
+})
+
+test('T13 反向(两向):等值假 + 祖先测假 / 两把都未判定 ⇒ 仍 failed,不得凭 up-to-date 回显发合格证', () => {
+  const bothFalse = T.triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: false,
+    pushedShaContainedInRemote: false,
+  })
+  assert.equal(bothFalse.terminalStatus, 'failed', '两把尺子都不成立 ⇒ 未判定不等于成功')
+  const bothNull = T.triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: null,
+    pushedShaContainedInRemote: null,
+  })
+  assert.equal(bothNull.terminalStatus, 'failed', '两把尺子都没拿到 ⇒ 同样不得记成推送成功')
+})
+
+test('T14 向后兼容:只给等值(旧调用方形态)时结论一字不动', () => {
+  assert.equal(
+    T.triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: true })
+      .terminalStatus,
+    'done',
+  )
+  assert.equal(
+    T.triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: false })
+      .terminalStatus,
+    'failed',
+  )
+})
+
+test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下报 SKIP,并把读数喊成历史残留/未现推', () => {
+  // 夹具全部落在 scratch 根**之内**(mkScratch 的 mkdtempSync 保证前缀匹配,不嵌套):
+  // 真仓的守护链(git-guardian / git-push-guard)按「cwd 里最近的 .git / .ihui-agent」找本仓,
+  // 落在 scratch 根里的仓对它们而言都是「仓外」的独立仓库,不会把本仓的 push-state
+  // 写进夹具 ⇒ 注入的 push-state 保持确定性(2026-10-16 实测:夹具若落在 scratch 根
+  // 外,守护链在 peer 的 commit/push 后会把夹具 push-state 刷新成本地 HEAD + 当下 ts,
+  // 把构造的「4h 前、关于别枚提交」现场顶掉 ⇒ SKIP 支不可达)。
+  const origin = mkScratch('ihui-conv-origin-')
+  const work = mkScratch('ihui-conv-work-')
+  try {
+    shGit(['init', '--bare', '-b', 'main', origin])
+    const originUrl = origin.replace(/\\/g, '/')
+    shGit(['init', '-b', 'main', work])
+    setIdentity(work)
+    writeFileSync(join(work, 'README.md'), '# init\n')
+    shGit(['add', 'README.md'], work)
+    shGit(['commit', '-m', 'init'], work)
+    shGit(['remote', 'add', 'origin', originUrl], work)
+    shGit(['push', '-u', 'origin', 'main'], work)
+
+    // 「另一个会话」推进远端 ⇒ 本侧落后(本地 HEAD 是远端 tip 的祖先,本地没领先)
+    // ⇒ converge 走 SKIP 支(只读,不产生任何写)。
+    // clone 必须落在 scratch 根内:guard 守护链按「cwd 里最近的 .git」认本仓,
+    // 落在 process.cwd()(本仓树内)的 peer 仓会被它当成「本仓的 worktree」收编。
+    const peerDir = join(scratchRoot(), 'ihui-conv-peer-clone')
+    mkdirSync(join(peerDir), { recursive: true })
+    try {
+      shGit(['clone', originUrl, peerDir], peerDir)
+      setIdentity(peerDir)
+      writeFileSync(join(peerDir, 'PEER.md'), 'peer\n')
+      shGit(['add', 'PEER.md'], peerDir)
+      shGit(['commit', '-m', 'peer commit'], peerDir)
+      shGit(['push', 'origin', 'main'], peerDir)
+      const foreignSha = shGit(['rev-parse', 'HEAD'], peerDir).trim()
+      assert.notEqual(foreignSha, shGit(['rev-parse', 'HEAD'], work).trim(), '夹具没造成落后')
+
+      // 取回他方提交对象(只读,不动工作树提交序):converge 的祖先判定要先 cat-file
+      // 得到远端 tip 对象才肯下「本地落后」结论,而本地仓此刻只 init+push 过自己那一条历史。
+      shGit(['fetch', 'origin'], work)
+
+      // 一条**关于别的提交、四小时前**的 push-state(正是本票登记的那种失真现场)
+      mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+      writeFileSync(
+        join(work, '.ihui-agent', 'state', 'push-state.json'),
+        JSON.stringify({
+          status: 'failed',
+          headSha: foreignSha,
+          ts: Date.now() - 4 * HOUR,
+          pid: 999999,
+          reason: '上一枚提交的旧失败',
+        }),
+      )
+
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 注入缝(--root=):让 converge 判**夹具树**的 push-state 与 HEAD(经脚本 --root 旗标),
+      // 不得被真仓 .ihui-agent/state/push-state.json 那条与测试无关的实时读数顶掉(构造场景必须被确定性判定)。
+      const r = spawnSync(
+        process.execPath,
+        [CONVERGE_PATH, '--remotes=origin', `--root=${work}`],
+        {
+          cwd: work,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          timeout: 180_000,
+          maxBuffer: 64 * 1024 * 1024,
+        },
+      )
+      const out = `${r.stdout || ''}\n${r.stderr || ''}`
+      assert.match(out, /⏭️\s+SKIP/, `应走 SKIP 支:${out}`)
+      assert.match(out, /依据出处:/, '结论行下面必须有依据出处行')
+      assert.match(out, /历史残留\/未现推/, '四小时前、且关于别的提交 ⇒ 必须喊历史残留')
+      // 读数**本身**不得被定性成当下量的(lib 的 current 文案是"… = **当下量的**");
+      // 同一行的 ls-remote 旁证写"当下量的"是另一件事(那是真·现读),不该被这条锁误伤。
+      assert.doesNotMatch(
+        out,
+        /push-state 读数:[^\n]*=\s*\*\*当下量的\*\*/,
+        '那条记录与当前 HEAD 无关,却被打成了当下依据 ⇒ 失真复活',
+      )
+      assert.match(out, /距今 4h/, '年龄必须带小时档')
+      assert.match(out, /汇总出处:/, '末行必须再报一次出处')
+      assert.equal(r.status, 0, `本地落后不判失败,应 exit 0。实得 ${r.status}\n${out}`)
+    } finally {
+      try {
+        rmScratch(peerDir)
+      } catch {
+        /* 清理失败不影响结论,已在用例内断言完毕 */
+      }
+    }
+  } finally {
+    for (const d of [work, origin]) {
+      try {
+        rmScratch(d)
+      } catch {
+        /* 清理失败不影响结论,已在用例内断言完毕 */
+      }
+    }
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// 2026-11-02 P4:`--no-verify` 只活在「范围外降级」显式证据后面(§12 默认永不跳钩)
+//   旧形态:hook-failed / other / credentials-unavailable 三档的 allowNoVerifyRetry
+//   一律 true ⇒ 钩子回显里只要带一句钩子痕迹,in-scope 类型错误也能被跳门推上去。
+//   现判据:只有 SCOPE_DEGRADE_EVIDENCE_RE 命中(那两串只由 check-typecheck 在**自己
+//   判定全部报错都在推送范围外并 exit 0** 时打印)才允许兜底。
+//   夹具逐字取自 `scripts/check-typecheck.mjs` 的降级文案,不自造(自造只会让锁跟着漂)。
+// ══════════════════════════════════════════════════════════════════════
+
+/** 钩子痕迹在、报错**在本次改动范围内** ⇒ 没有任何跳门资格。 */
+const HOOK_FAIL_INSCOPE = [
+  '❌ 全量 typecheck 失败,推送已阻止(exit 1)',
+  'ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):',
+  '   - scripts/lib/push-attempt-triage.mjs',
+  '❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)',
+].join('\n')
+/**
+ * guardian-runner 的 blocking 失败清单尾部(格式逐字取自 printSummary / failedGates)。
+ * DG-03 起,`--no-verify` 资格还要求从这段清单归因出**失败门集合**。
+ */
+const T1_FAILED_LINES = [
+  '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
+  '   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)',
+  '     单独复现:node scripts/check-typecheck.mjs',
+].join('\n')
+/** 同一型,但门自己判过"全部报错都在范围外"并打了降级块 ⇒ 显式证据在场(失败门仅为 T1)。 */
+const HOOK_FAIL_OUT_OF_SCOPE = [
+  'ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告',
+  'ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责',
+  '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+  T1_FAILED_LINES,
+].join('\n')
+/**
+ * DG-03 的核心现场:同一份降级签名 + **别门真红**(47p 水印 / IG 不可变护栏)。
+ * 旧判据只看签名 ⇒ 后台自动 `--no-verify` 把 47p/IG 一并跳过。
+ */
+const DEGRADE_WITH_GATE_RED = [
+  '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+  '🚫 2 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
+  '   · [47p] 💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)',
+  '     单独复现:node scripts/check-watermark-coverage.mjs --push-scope',
+  '   · [IG] 🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判)',
+  '     单独复现:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+].join('\n')
+/** 快通道形态的降级行(N 个报错文件均不在…)也是证据。 */
+const FAST_LANE_DEGRADE =
+  'ℹ️ apps/api 定向 typecheck 的 3 个报错文件均不在本次改动范围(staged-scope(暂存区),属并行会话噪音),降级为警告'
+/** 无证据的自述句 —— 旧形态正是拿它当跳门根据,P4 后它不再是通行证。 */
+const SELF_ASSERTION = '✅ 本任务代码已自验通过,报错均来自并行会话'
+
+test('P4-① hook-failed 缺「范围外降级」证据 ⇒ 拒绝 --no-verify,但带 hook 重试不许被堵死', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: HOOK_FAIL_INSCOPE })
+  assert.equal(v.kind, 'hook-failed', '钩子痕迹仍须认成 hook-failed(收紧的是跳门资格,不是分类)')
+  assert.equal(v.allowHookRetry, true, '§5b ⑤ 的"带 hook 重试"链不得被本次修复削掉')
+  assert.equal(v.allowNoVerifyRetry, false, 'in-scope 类型错误 ⇒ 无资格 --no-verify')
+  assert.match(v.why, /没有[\s\S]*显式证据/, 'why 必须写明"缺哪条证据",便于复核分诊对不对')
+})
+
+test('P4-② 显式降级证据在场 ⇒ 仍放行 --no-verify(收紧不是把所有失败一律拦死)', () => {
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: HOOK_FAIL_OUT_OF_SCOPE }).allowNoVerifyRetry,
+    true,
+  )
+  // 两条形态各自单独够用:机器签名行 / 人类可读降级行(DG-03 起还须配 T1 失败清单)
+  assert.equal(
+    T.triagePushAttempt({
+      status: 1,
+      stderr: `${T1_FAILED_LINES}\n[IHUI-SCOPE-DEGRADE] 降级为警告`,
+    }).allowNoVerifyRetry,
+    true,
+    '只带 [IHUI-SCOPE-DEGRADE] 签名行也算证据(它打印在降级块末尾,tail -40 截不掉)',
+  )
+  assert.equal(
+    T.triagePushAttempt({
+      status: 1,
+      stderr: `${T1_FAILED_LINES}\n${FAST_LANE_DEGRADE}`,
+    }).allowNoVerifyRetry,
+    true,
+    '快通道那句「N 个报错文件均不在本次改动范围…降级为警告」同样是证据',
+  )
+})
+
+test('P4-③ 有牙:把证据行摘掉 ⇒ 放行必须消失(证据门不是恒真开关)', () => {
+  const pairs = [
+    [HOOK_FAIL_OUT_OF_SCOPE, HOOK_FAIL_INSCOPE],
+    [
+      `${T1_FAILED_LINES}\n${FAST_LANE_DEGRADE}`,
+      `${T1_FAILED_LINES}\napps/api 定向 typecheck 的 3 个报错文件在本次改动范围内,维持失败`,
+    ],
+    [
+      `[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)\n${T1_FAILED_LINES}`,
+      T1_FAILED_LINES,
+    ],
+  ]
+  for (const [withEvidence, withoutEvidence] of pairs) {
+    assert.equal(
+      T.triagePushAttempt({ status: 1, stderr: withEvidence }).allowNoVerifyRetry,
+      true,
+      '正向例被写坏 ⇒ 本条锁等于没测',
+    )
+    assert.equal(
+      T.triagePushAttempt({ status: 1, stderr: withoutEvidence }).allowNoVerifyRetry,
+      false,
+      '摘掉证据行后仍放行 ⇒ 证据门形同虚设(blanket 回潮)',
+    )
+  }
+  // 正则层同批反证:判据本身也只认那两串
+  assert.ok(T.SCOPE_DEGRADE_EVIDENCE_RE.test(FAST_LANE_DEGRADE))
+  assert.ok(!T.SCOPE_DEGRADE_EVIDENCE_RE.test(SELF_ASSERTION), '无证据的自述句不得命中证据正则')
+  assert.ok(
+    !T.SCOPE_DEGRADE_EVIDENCE_RE.test(
+      'ℹ️ 全部报错文件均不在本次改动范围(staged-scope(暂存区)),仍维持失败(exit 1)',
+    ),
+    '只说"范围外"而没有"降级为警告"不构成证据 —— 缺半句就得拦',
+  )
+})
+
+test('P4-④ other 与 credentials 同受证据门约束;认不出的失败仍落 other(配对反证不松)', () => {
+  const net = T.triagePushAttempt({
+    status: 128,
+    stderr: 'fatal: unable to access https://github.com/: Failed to connect to 127.0.0.1 port 7897',
+  })
+  assert.equal(net.kind, 'other', '网络断不得被新档吃掉(既有配对反证)')
+  assert.equal(net.allowNoVerifyRetry, false, '认不出原因的失败没有跳门资格(旧形态这里 true)')
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: `${T1_FAILED_LINES}\n${FAST_LANE_DEGRADE}` })
+      .allowNoVerifyRetry,
+    true,
+    'other 档拿到显式证据且失败门仅为 T1 同样放行',
+  )
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: `${FAST_LANE_DEGRADE}\nfatal: 未知失败` })
+      .allowNoVerifyRetry,
+    false,
+    'DG-03:证据在但取不到失败门清单 ⇒ 不可归因 ⇒ other 档也不得跳门',
+  )
+  const cred = T.triagePushAttempt({
+    status: 128,
+    stderr:
+      "error: failed to execute prompt script (exit code 1)\nfatal: could not read Username for 'https://github.com': No such file or directory",
+  })
+  assert.equal(cred.kind, 'credentials-unavailable')
+  assert.equal(cred.allowHookRetry, true, '带 hook 重试那一半保持原样,push-gate 链不动')
+  assert.equal(cred.allowNoVerifyRetry, false, '--no-verify 修不了凭据链,不得再借 other 的旧旗')
+  assert.match(cred.nextCommand, /check-credential-health/, '出路仍必须点名凭据巡检入口')
+  assert.match(cred.why, /--no-verify 对凭据链无作用/)
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// 2026-11-08 DG-03:降级签名必须绑定到**产出它的那道门**(T1 check-typecheck)
+//   旧形态:签名一出现就 `allowNoVerifyRetry=true` ⇒ 同一批里 47p/IG 真红也被
+//   后台 `--no-verify` 一并跳过(全链最危险的假绿,且发生时不打扰人)。
+//   现判据:证据 ∧ 失败门集合仅为 T1 ⇒ 才放行;不可归因 / 含别门 ⇒ 一律 deny。
+// ══════════════════════════════════════════════════════════════════════
+
+test('DG-03-① 签名 + 47p/IG 真红 ⇒ 拒绝 --no-verify(证据不得外溢到别门)', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: DEGRADE_WITH_GATE_RED })
+  assert.equal(v.kind, 'hook-failed', '分类不变:仍是钩子失败')
+  assert.equal(
+    v.allowNoVerifyRetry,
+    false,
+    '同一份降级签名 + 水印/不可变护栏真红 ⇒ 跳门会把这两道结构性门一起跳过(本票的全部理由)',
+  )
+  assert.equal(v.allowHookRetry, true, '带 hook 重试那一半保持原样')
+  assert.match(v.why, /证据只覆盖类型检查/, 'why 必须说清"证据的语义边界",便于复核')
+  // 归因本体(单源导出):失败门集合与 why 都要点名
+  const elig = T.noVerifyEligibility(DEGRADE_WITH_GATE_RED, true)
+  assert.equal(elig.allowed, false)
+  assert.deepEqual(elig.failedGateIds, ['47p', 'IG'])
+  assert.match(elig.why, /非 T1\(check-typecheck\.mjs\)/)
+})
+
+test('DG-03-② 失败门清单不可解析 ⇒ 拒绝(不可归因 ≠ 放行);仅 T1 ⇒ 放行(收紧不是堵死)', () => {
+  // 有签名、有「N 道 blocking 门失败」抬头,但没有 `· [id] … / 单独复现:` 清单
+  const unattributed = T.triagePushAttempt({
+    status: 1,
+    stderr: [
+      '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+      '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项',
+    ].join('\n'),
+  })
+  assert.equal(unattributed.allowNoVerifyRetry, false, '取不到失败门清单 ⇒ 无归因 ⇒ 不得跳门')
+  assert.match(unattributed.why, /不可归因/)
+  // 反向:证据在且失败门集合仅为 T1 ⇒ §12 原语义仍然成立
+  const onlyT1 = T.triagePushAttempt({
+    status: 1,
+    stderr: [
+      '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+      T1_FAILED_LINES,
+    ].join('\n'),
+  })
+  assert.equal(onlyT1.kind, 'hook-failed')
+  assert.equal(onlyT1.allowNoVerifyRetry, true, '仅 T1 失败 + 证据 ⇒ 兜底链不得被本次收紧堵死')
+  // 无签名 ⇒ 即便清单只有 T1 也 deny(P4 证据门不动)
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: T1_FAILED_LINES }).allowNoVerifyRetry,
+    false,
+  )
+})
+
+test('DG-03-③ 装车锁:两个失败分支都经 noVerifyEligibility,旧 blanket 写法不得回潮', () => {
+  assert.equal(typeof T.noVerifyEligibility, 'function', '__test__.noVerifyEligibility 出口漂了')
+  assert.equal(T.TYPE_CHECK_GATE_ID, 'T1')
+  assert.equal(T.TYPE_CHECK_GATE_SCRIPT, 'check-typecheck.mjs')
+  assert.match(
+    LIB_SRC,
+    /allowNoVerifyRetry:\s*eligibility\.allowed/,
+    'hook-failed / other 分支未接 noVerifyEligibility 输出',
+  )
+  assert.equal(
+    (LIB_SRC.match(/= noVerifyEligibility\(text, scopeDegradeEvidence\)/g) || []).length,
+    2,
+    '两个失败分支必须各调一次资格判据(少一处 = 有一条分支还在用旧判据)',
+  )
+  assert.doesNotMatch(
+    LIB_SRC,
+    /allowNoVerifyRetry:\s*scopeDegradeEvidence/,
+    '旧写法(只看签名即放行)回潮 ⇒ DG-03 未修复',
+  )
+  // 归因解析单源:lib 直接 import parseGateSummary,不得自带第二份失败清单格式判据
+  assert.match(
+    LIB_SRC,
+    /import \{ parseGateSummary \} from '\.\/commit-gate-attribution\.mjs'/,
+    'lib 未复用归因模块的 parseGateSummary ⇒ 失败门清单会被第二份正则解析',
+  )
+  assert.doesNotMatch(
+    LIB_SRC,
+    /const\s+\w*GATE_SUMMARY_RE\s*=/,
+    'lib 自建汇总格式正则 ⇒ 与 commit-gate-attribution 成两份真相',
+  )
+})
+
+test('P4-⑤ 形状锁:lib 内任何分支都不许再把 allowNoVerifyRetry 写死 true(默认永不跳钩)', () => {
+  // verdict() 默认必须是 false;跳门资格只能来自 scopeDegradeEvidence 或显式 false。
+  assert.match(LIB_SRC, /\n    allowNoVerifyRetry: false,\n/, 'verdict() 默认被改回 true ⇒ 红')
+  assert.doesNotMatch(
+    LIB_SRC,
+    /allowNoVerifyRetry:\s*true/,
+    '出现写死的 allowNoVerifyRetry: true ⇒ blanket 放行回潮(§12 默认永不跳钩)',
+  )
+  const empty = T.triagePushAttempt({ status: 1, stdout: '', stderr: '' })
+  assert.equal(empty.kind, 'other', '空输出不得被猜成任何一种可跳门的档')
+  assert.equal(empty.allowNoVerifyRetry, false)
+  assert.equal(empty.allowHookRetry, true)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

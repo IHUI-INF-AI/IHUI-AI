@@ -1,0 +1,327 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { probeUndoCheckpoint } from '../src/commands/undo-checkpoint-state.js';
+import { UndoRedoManager } from '../src/commands/undo-redo.js';
+import { renderUndoClaim } from '../src/commands/undo-claim-copy.js';
+import { t as realT } from '../src/i18n/index.js';
+
+/**
+ * D22046 通道②验收:撤销**之前**就要知道检查点能不能用,且这件事必须是
+ * 结构化字段(结果/事件),不是终端上的一句日志。
+ *
+ * 钉四件事:
+ *   ① 索引缺失 / 读不出来 / JSON 坏 / 条目缺字段 ⇒ 各自有独立的 reasonCode;
+ *   ② 不可用时 `/undo` 一个文件都不碰,`attemptedSteps===0` 且 checkpoint 字段可读;
+ *   ③ 检查点可用、只是写入失败 ⇒ checkpoint.status 仍是 'available' —— 与 ② 可分辨;
+ *   ④ 文案由 ②/③ 的事实选择:不可用说 undoUnavailable,可用但全失败说 undoFailed。
+ *
+ * 隔离:全程只碰 os.tmpdir() 下自建目录。
+ */
+
+let ws: string;
+const SESSION = 'd22046-checkpoint-probe';
+
+beforeEach(() => {
+  ws = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-undo-d22046-cp-'));
+});
+
+afterEach(() => {
+  // Windows 上 0o444 是真只读;POSIX 上被冻结的目录(0o555)不恢复则 rmSync 会 EACCES。
+  // 自底向上逐层恢复:子目录内的文件先放回 0o666,再把目录放回 0o755。
+  const restore = (dir: string): void => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        restore(p);
+        fs.chmodSync(p, 0o755);
+      } else {
+        fs.chmodSync(p, 0o666);
+      }
+    }
+  };
+  restore(ws);
+  fs.chmodSync(ws, 0o755);
+  fs.rmSync(ws, { recursive: true, force: true });
+});
+
+function indexFileOf(sessionId: string): string {
+  return path.join(ws, '.ihui-agent', 'undo-history', `${sessionId}.json`);
+}
+
+function writeIndex(sessionId: string, raw: string): void {
+  const file = indexFileOf(sessionId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, raw, 'utf-8');
+}
+
+function write(rel: string, content: string): void {
+  const p = path.join(ws, rel);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, content, 'utf-8');
+}
+
+/**
+ * 制造「写入失败」。
+ * 生产侧回放已升级为原子写(同目录 tmp + rename),POSIX 上 rename 覆盖只读文件只受
+ * **目录**写权限约束 —— 单冻目标文件(0o444)在 Linux 上挡不住它,回退会误报成功。
+ * 因此同时冻结父目录,让 tmp 的 O_EXCL 创建如实落在 EACCES;Windows 上 chmod 目录
+ * 不生效,但 0o444 文件 + rename EPERM 那条仍在,两侧都落到「写入失败」。
+ * 断言一字未动,只换夹具制造失败的方式(保持「可用但执行失败」这条契约的射程)。
+ */
+function freeze(rel: string): void {
+  const p = path.join(ws, rel);
+  fs.chmodSync(p, 0o444);
+  fs.chmodSync(path.dirname(p), 0o555);
+}
+
+function claimOf(res: Awaited<ReturnType<UndoRedoManager['undo']>>): string {
+  return renderUndoClaim(
+    {
+      verdict: res.verdict,
+      partial: res.partial,
+      undoneSteps: res.undoneSteps,
+      attemptedSteps: res.attemptedSteps,
+      checkpointStatus: res.checkpoint.status,
+    },
+    realT,
+  );
+}
+
+describe('D22046 probeUndoCheckpoint(纯函数,依赖可注入)', () => {
+  const valid = (over: Record<string, unknown> = {}) => ({
+    toolName: 'edit_file',
+    filePath: 'a.txt',
+    beforeContent: 'old',
+    afterContent: 'new',
+    timestamp: 1,
+    ...over,
+  });
+
+  it('索引不存在 ⇒ missing + ENOENT', () => {
+    const p = probeUndoCheckpoint('X:/no/such/file.json', { exists: () => false });
+    expect(p.status).toBe('missing');
+    expect(p.reasonCode).toBe('ENOENT');
+    expect(p.entryCount).toBeNull();
+  });
+
+  it('存在但读不出来 ⇒ unreadable + 具体错误码(不许当成"没条目")', () => {
+    const err = Object.assign(new Error('permission denied'), { code: 'EACCES' });
+    const p = probeUndoCheckpoint('X:/locked.json', {
+      exists: () => true,
+      readFile: () => {
+        throw err;
+      },
+    });
+    expect(p.status).toBe('unreadable');
+    expect(p.reasonCode).toBe('EACCES');
+    expect(p.entryCount).toBeNull();
+  });
+
+  it('JSON 解析失败 ⇒ corrupt + JSON_PARSE', () => {
+    const p = probeUndoCheckpoint('X:/bad.json', {
+      exists: () => true,
+      readFile: () => '{"undoStack":[',
+    });
+    expect(p.status).toBe('corrupt');
+    expect(p.reasonCode).toBe('JSON_PARSE');
+  });
+
+  it('顶层形状不对 ⇒ corrupt + SCHEMA', () => {
+    const p = probeUndoCheckpoint('X:/shape.json', {
+      exists: () => true,
+      readFile: () => JSON.stringify({ undoStack: {}, redoStack: [] }),
+    });
+    expect(p.status).toBe('corrupt');
+    expect(p.reasonCode).toBe('SCHEMA');
+  });
+
+  it('条目缺字段 ⇒ corrupt + 点名坏条目(索引不完整不许复原)', () => {
+    const p = probeUndoCheckpoint('X:/entry.json', {
+      exists: () => true,
+      readFile: () =>
+        JSON.stringify({
+          undoStack: [valid(), { toolName: 'edit_file', filePath: 'b.txt' }],
+          redoStack: [],
+        }),
+    });
+    expect(p.status).toBe('corrupt');
+    expect(p.invalidEntries).toEqual(['undoStack[1]']);
+  });
+
+  it('结构完整 ⇒ available 且数出可回滚条目', () => {
+    const p = probeUndoCheckpoint('X:/ok.json', {
+      exists: () => true,
+      readFile: () => JSON.stringify({ undoStack: [valid(), valid()], redoStack: [] }),
+    });
+    expect(p.status).toBe('available');
+    expect(p.entryCount).toBe(2);
+    expect(p.invalidEntries).toEqual([]);
+  });
+});
+
+describe('D22046 /undo 撤销前的检查点探测(集成)', () => {
+  it('① 索引损坏 ⇒ 不动任何文件,结果里 checkpoint 字段可读', async () => {
+    write('a.txt', 'a2');
+    writeIndex(SESSION, '{"undoStack": [');
+
+    const res = await new UndoRedoManager(ws).undo(SESSION, 1);
+
+    expect(res.checkpoint.status).toBe('corrupt');
+    expect(res.checkpoint.reasonCode).toBe('JSON_PARSE');
+    expect(res.attemptedSteps).toBe(0);
+    expect(res.failedSteps).toBe(0);
+    // 一个字节都没碰
+    expect(fs.readFileSync(path.join(ws, 'a.txt'), 'utf-8')).toBe('a2');
+    expect(claimOf(res)).toContain('文件检查点不可用');
+  });
+
+  it('撤销历史读不到时不覆盖成新记录', async () => {
+    const blocked = indexFileOf(SESSION);
+    fs.mkdirSync(blocked, { recursive: true });
+    const mgr = new UndoRedoManager(ws);
+    expect(() =>
+      mgr.recordChange(SESSION, {
+        toolName: 'edit_file',
+        filePath: 'a.txt',
+        beforeContent: 'a1',
+        afterContent: 'a2',
+        timestamp: 1,
+      }),
+    ).toThrow(/不能把它覆盖成新记录/);
+    const res = await mgr.undo(SESSION, 1);
+    expect(res.checkpoint.status).toBe('unreadable');
+    expect(res.attemptedSteps).toBe(0);
+    expect(fs.statSync(blocked).isDirectory()).toBe(true);
+  });
+
+  it('损坏的撤销历史不会被记成只剩这一次改动', () => {
+    const file = indexFileOf(SESSION);
+    const body = '{"undoStack": [';
+    writeIndex(SESSION, body);
+    const mgr = new UndoRedoManager(ws);
+    expect(() =>
+      mgr.recordChange(SESSION, {
+        toolName: 'edit_file',
+        filePath: 'a.txt',
+        beforeContent: 'a1',
+        afterContent: 'a2',
+        timestamp: 1,
+      }),
+    ).toThrow(/不能把它覆盖成新记录 \(corrupt\)/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe(body);
+  });
+
+  it('撤销目标读不到时不覆盖也不删除', async () => {
+    const file = path.join(ws, 'keep.txt');
+    fs.writeFileSync(file, 'keep\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const realStat = fs.statSync;
+    const mgr = new UndoRedoManager(ws, {
+      stat: (target: string) => {
+        if (path.resolve(target) === path.resolve(file)) throw denied;
+        return realStat(target);
+      },
+    });
+    mgr.recordChange(SESSION, {
+      toolName: 'edit_file',
+      filePath: 'keep.txt',
+      beforeContent: 'replaced\n',
+      afterContent: 'keep\n',
+      timestamp: 1,
+    });
+    const overwritten = await mgr.undo(SESSION, 1);
+    expect(overwritten.undoneSteps).toBe(0);
+    expect(overwritten.failedReasons[0]).toContain('读不到');
+    expect(fs.readFileSync(file, 'utf-8')).toBe('keep\n');
+
+    mgr.recordChange(SESSION, {
+      toolName: 'delete_file',
+      filePath: 'keep.txt',
+      beforeContent: null,
+      afterContent: 'keep\n',
+      timestamp: 2,
+    });
+    const deleted = await mgr.undo(SESSION, 1);
+    expect(deleted.undoneSteps).toBe(0);
+    expect(deleted.failedReasons[0]).toContain('读不到');
+    expect(fs.readFileSync(file, 'utf-8')).toBe('keep\n');
+  });
+
+  it('② 索引不存在 ⇒ missing,文案是 undoUnavailable 那一句', async () => {
+    const res = await new UndoRedoManager(ws).undo(SESSION, 1);
+
+    expect(res.checkpoint.status).toBe('missing');
+    expect(res.checkpoint.indexFile).toBe(indexFileOf(SESSION));
+    expect(res.checkpoint.reasonCode).toBe('ENOENT');
+    expect(res.partial).toBe(false);
+    expect(claimOf(res)).toContain('文件检查点不可用');
+    expect(claimOf(res)).toContain('工作区未发生变化');
+  });
+
+  it('③ 检查点可用、写入失败 ⇒ 仍是 available(与"不可用"分得开)', async () => {
+    const mgr = new UndoRedoManager(ws);
+    // 放进子目录:冻结的是它父目录,ws 根保持可写,`persist` 写 undo-history 不受牵连。
+    write('blocked/a.txt', 'a2');
+    write('blocked/b.txt', 'b2');
+    freeze('blocked/a.txt');
+    freeze('blocked/b.txt');
+    mgr.recordChange(SESSION, {
+      toolName: 'edit_file',
+      filePath: 'blocked/a.txt',
+      beforeContent: 'a1',
+      afterContent: 'a2',
+      timestamp: 1,
+    });
+    mgr.recordChange(SESSION, {
+      toolName: 'edit_file',
+      filePath: 'blocked/b.txt',
+      beforeContent: 'b1',
+      afterContent: 'b2',
+      timestamp: 2,
+    });
+
+    const res = await mgr.undo(SESSION, 2);
+
+    expect(res.checkpoint.status).toBe('available');
+    expect(res.checkpoint.entryCount).toBe(2);
+    expect(res.attemptedSteps).toBe(2);
+    expect(res.undoneSteps).toBe(0);
+    expect(res.failedSteps).toBe(2);
+    // 可用但执行失败:说的是另一句(undoFailed),不是"检查点不可用"
+    expect(claimOf(res)).toContain('暂时不可用');
+    expect(claimOf(res)).toContain('工作区未发生变化');
+
+    const missing = await new UndoRedoManager(ws).undo('another-session', 1);
+    expect(missing.checkpoint.status).toBe('missing');
+    expect(claimOf(missing)).not.toBe(claimOf(res));
+  });
+
+  it('④ 成功回退 ⇒ checkpoint 仍是 available,entryCount 是动手前的条目数', async () => {
+    const mgr = new UndoRedoManager(ws);
+    write('a.txt', 'a2');
+    mgr.recordChange(SESSION, {
+      toolName: 'edit_file',
+      filePath: 'a.txt',
+      beforeContent: 'a1',
+      afterContent: 'a2',
+      timestamp: 1,
+    });
+
+    const res = await mgr.undo(SESSION, 1);
+
+    expect(res.checkpoint.status).toBe('available');
+    expect(res.checkpoint.entryCount).toBe(1);
+    expect(res.undoneSteps).toBe(1);
+    expect(res.failedSteps).toBe(0);
+    expect(res.checkpoint.reasonCode).toBeNull();
+  });
+});
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

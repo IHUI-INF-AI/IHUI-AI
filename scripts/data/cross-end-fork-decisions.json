@@ -1,0 +1,845 @@
+{
+  "version": 1,
+  "note": "非色档分叉的元素级归类(2026-11-02 Phase 4)。只读台账:不改任何取值、不新增类型档。rn-only-* 是 RN 单侧渲染,必须在 cross-end-allowed-diffs.json 有 styleTier 条目(到期回红);web-align 是两端同一元素,差值进「待 web 同步对齐」清单,不登记成允许差异;undetermined 必须由人定语义,本器对非零 undetermined 判红。",
+  "face": "head",
+  "summary": {
+    "elements": 182,
+    "fontSize": 39,
+    "classes": {
+      "rn-only-hairline": 33,
+      "web-align": 101,
+      "rn-only-shape": 9,
+      "comment-noise": 1,
+      "rn-only-display": 38
+    },
+    "forkRows": 16,
+    "forkOccurrences": 48,
+    "missingTierRows": 26,
+    "missingTierOccurrences": 133
+  },
+  "fontSizeElements": [
+    {
+      "file": "apps/mobile-rn/src/components/UserInfoCard.tsx",
+      "styleKey": "(none)",
+      "size": 32,
+      "count": 1,
+      "class": "comment-noise",
+      "decision": "not-an-element"
+    },
+    {
+      "file": "apps/mobile-rn/src/components/UserInfoCard.tsx",
+      "styleKey": "avatarFallbackText",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/components/common/Empty.tsx",
+      "styleKey": "emoji",
+      "size": 48,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/HomeScreen.tsx",
+      "styleKey": "materialSheetClose",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/HomeScreen.tsx",
+      "styleKey": "detailDialogClose",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/HomeScreen.tsx",
+      "styleKey": "modelModalClose",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/LoginScreen.tsx",
+      "styleKey": "carrierWebClose",
+      "size": 26,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/PlazaScreen.tsx",
+      "styleKey": "identityAvatarFallbackText",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
+      "styleKey": "sharePopupCloseText",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
+      "styleKey": "editProfileAvatarFallbackText",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
+      "styleKey": "unsubscribeIcon",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "apps/mobile-rn/src/screens/ShareScreen.tsx",
+      "styleKey": "pickerIcon",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/components/ScreenStates.tsx",
+      "styleKey": "stateGlyph",
+      "size": 26,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/course-planet/CoursePlanetScreen.tsx",
+      "styleKey": "courseCoverEmoji",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+      "styleKey": "pathCoverEmoji",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+      "styleKey": "categoryIcon",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+      "styleKey": "popularCoverEmoji",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
+      "styleKey": "courseImageEmoji",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/home/HomeScreen.tsx",
+      "styleKey": "menuIcon",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/learn-develop/LearnDevelopScreen.tsx",
+      "styleKey": "entryIcon",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/learn/LearnScreen.tsx",
+      "styleKey": "categoryIcon",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
+      "styleKey": "avatarFallbackText",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/lecturer/LecturerProfileScreen.tsx",
+      "styleKey": "avatarFallbackText",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx",
+      "styleKey": "playerIcon",
+      "size": 36,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/login/LoginScreen.tsx",
+      "styleKey": "qrPlaceholderIconText",
+      "size": 56,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
+      "styleKey": "heroEmoji",
+      "size": 64,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
+      "styleKey": "featureIcon",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/plaza/PlazaScreen.tsx",
+      "styleKey": "emptyIcon",
+      "size": 48,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/plaza/PlazaScreen.tsx",
+      "styleKey": "fabIcon",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/points-mall/PointsMallScreen.tsx",
+      "styleKey": "coverEmoji",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx",
+      "styleKey": "avatarEmoji",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/profile/ProfileScreen.tsx",
+      "styleKey": "avatarText",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/qr-code/QrCodeScreen.tsx",
+      "styleKey": "qrPlaceholder",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/ranking/RankingScreen.tsx",
+      "styleKey": "avatarInitial",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/study-publish/StudyPublishScreen.tsx",
+      "styleKey": "icon",
+      "size": 28,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx",
+      "styleKey": "entryIcon",
+      "size": 32,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/team-detail/TeamDetailScreen.tsx",
+      "styleKey": "avatarText",
+      "size": 22,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/topup-fail/TopupFailScreen.tsx",
+      "styleKey": "icon",
+      "size": 64,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    },
+    {
+      "file": "packages/app/src/features/topup-success/TopupSuccessScreen.tsx",
+      "styleKey": "icon",
+      "size": 64,
+      "count": 1,
+      "class": "rn-only-display",
+      "decision": "allowance"
+    }
+  ],
+  "forkRows": [
+    {
+      "kind": "spacing",
+      "prop": "marginVertical",
+      "value": 2.5,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-hairline": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingLeft",
+      "value": 9.6,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-hairline": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginRight",
+      "value": 7.8,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-hairline": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 32,
+      "occurrences": 12,
+      "classes": {
+        "comment-noise": 1,
+        "rn-only-display": 12
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 48,
+      "occurrences": 2,
+      "classes": {
+        "rn-only-display": 2
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 22,
+      "occurrences": 8,
+      "classes": {
+        "rn-only-display": 8
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 28,
+      "occurrences": 9,
+      "classes": {
+        "rn-only-display": 9
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 36,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-display": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 56,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-display": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 64,
+      "occurrences": 3,
+      "classes": {
+        "rn-only-display": 3
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "radius",
+      "prop": "borderRadius",
+      "value": 10,
+      "occurrences": 3,
+      "classes": {
+        "rn-only-shape": 3
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "radius",
+      "prop": "borderRadius",
+      "value": 18,
+      "occurrences": 2,
+      "classes": {
+        "rn-only-shape": 2
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "radius",
+      "prop": "borderRadius",
+      "value": 24,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-shape": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "radius",
+      "prop": "borderRadius",
+      "value": 7.5,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-shape": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "radius",
+      "prop": "borderRadius",
+      "value": 9,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-shape": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "radius",
+      "prop": "borderRadius",
+      "value": 20,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-shape": 1
+      },
+      "decision": "allowance"
+    }
+  ],
+  "missingTierDecisions": [
+    {
+      "kind": "spacing",
+      "prop": "marginTop",
+      "value": 1,
+      "occurrences": 3,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: marginTop=1px×3(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginTop",
+      "value": 3,
+      "occurrences": 2,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: marginTop=3px×2(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginTop",
+      "value": 28,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。",
+      "evidence": "档位尺 --json: marginTop=28px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingHorizontal",
+      "value": 5,
+      "occurrences": 8,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: paddingHorizontal=5px×8(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingHorizontal",
+      "value": 3,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: paddingHorizontal=3px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingHorizontal",
+      "value": 7,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: paddingHorizontal=7px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 5,
+      "occurrences": 6,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: paddingVertical=5px×6(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 1,
+      "occurrences": 25,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: paddingVertical=1px×25(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 9,
+      "occurrences": 6,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "9px 落在档 8/10 之间(Δ=1px):RN 8 处 / web 2 处(pl-[9px]),同上 —— 规模不到准入线,补表只会造出无派生消费方的散档。",
+      "evidence": "档位尺 --json: paddingVertical=9px×6(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 3,
+      "occurrences": 20,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: paddingVertical=3px×20(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 7,
+      "occurrences": 8,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: paddingVertical=7px×8(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 28,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。",
+      "evidence": "档位尺 --json: paddingVertical=28px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginLeft",
+      "value": 5,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: marginLeft=5px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginLeft",
+      "value": 1,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: marginLeft=1px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "gap",
+      "value": 3,
+      "occurrences": 11,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: gap=3px×11(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "gap",
+      "value": 7,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: gap=7px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "gap",
+      "value": 5,
+      "occurrences": 25,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: gap=5px×25(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "gap",
+      "value": 1,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: gap=1px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingBottom",
+      "value": 80,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "屏级留白(paddingBottom 1 处),远离现有档表上界 64,不具备跨端复用规模。",
+      "evidence": "档位尺 --json: paddingBottom=80px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingBottom",
+      "value": 96,
+      "occurrences": 2,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "屏级留底(paddingBottom 2 处),同上;补表会新增无派生消费方的档。",
+      "evidence": "档位尺 --json: paddingBottom=96px×2(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginBottom",
+      "value": 3,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: marginBottom=3px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginBottom",
+      "value": 9,
+      "occurrences": 2,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "9px 落在档 8/10 之间(Δ=1px):RN 8 处 / web 2 处(pl-[9px]),同上 —— 规模不到准入线,补表只会造出无派生消费方的散档。",
+      "evidence": "档位尺 --json: marginBottom=9px×2(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginRight",
+      "value": 7,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: marginRight=7px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginHorizontal",
+      "value": 5,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: marginHorizontal=5px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingTop",
+      "value": 5,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: paddingTop=5px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 26,
+      "occurrences": 2,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "字号 26 无对应 TYPE_STEPS 档;本阶段硬约束\"不新增类型档\",最近档 24/30 的 Δ=2px > 1px ⇒ 落档会改观感。",
+      "evidence": "档位尺 --json: fontSize=26px×2(missingTier:对端同值在用但不在档表)"
+    }
+  ],
+  "allowanceCoverage": {
+    "missing": [],
+    "short": [],
+    "expired": [],
+    "ok": true
+  },
+  "undetermined": []
+}
+

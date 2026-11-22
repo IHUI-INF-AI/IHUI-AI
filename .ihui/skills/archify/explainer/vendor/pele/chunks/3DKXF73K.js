@@ -1,0 +1,218 @@
+import { c as g } from './XTDUIGUI.js'
+const b = new WeakMap()
+function S(n) {
+  const e = n.map((r, o) => o),
+    s = []
+  for (let r = 0; r < 128; r++) {
+    const o = String.fromCharCode(r)
+    s.push(
+      e.filter((f) => {
+        const { pattern: l, first: d } = n[f]
+        return typeof l === 'string' ? l[0] === o : d === void 0 || d.includes(o)
+      }),
+    )
+  }
+  const i = { starting: s, every: e, longer: n.map((r) => r.longer?.map((o) => n.indexOf(o))) }
+  return (b.set(n, i), i)
+}
+function D(n, e, s) {
+  let i = [],
+    r = [],
+    o = [],
+    f = new Uint8Array(e.length),
+    { starting: l, every: d, longer: C } = b.get(e) ?? S(e),
+    I = [],
+    T = n.length,
+    m = (p, a) => {
+      if (f[p]) return -1
+      const t = e[p]
+      if (t.match !== void 0) return t.match(n, a)
+      if (t.scanner !== void 0) return (I[p] ??= t.scanner())(n, a)
+      const c = t.pattern
+      return typeof c === 'string'
+        ? n.startsWith(c, a)
+          ? a + c.length
+          : -1
+        : ((c.lastIndex = a),
+          c.test(n)
+            ? c.lastIndex
+            : (t.opener !== void 0 && ((t.opener.lastIndex = a), t.opener.test(n) && (f[p] = 1)),
+              -1))
+    },
+    u = 0
+  n: for (; u < T;) {
+    const p = n.charCodeAt(u)
+    for (const a of p < 128 ? l[p] : d) {
+      let t = m(a, u)
+      if (t <= u) continue
+      let c = a,
+        y = C[a]
+      if (y !== void 0)
+        for (const k of y) {
+          const E = m(k, u)
+          if (E > t) {
+            ;((c = k), (t = E))
+            break
+          }
+        }
+      ;(e[c].hidden || (i.push(c), r.push(u), o.push(t)), (u = t))
+      continue n
+    }
+    throw g(s, n, u, '', !0)
+  }
+  return (i.push(-1), r.push(T), o.push(T), { kinds: i, starts: r, ends: o, src: n })
+}
+const M = {
+    name: 'ACC_DESCR',
+    pattern: /[\t ]*accDescr(?:[\t ]*:([^\n\r]*?(?=%%)|[^\n\r]*)|\s*{([^}]*)})/y,
+    first: '	 a',
+  },
+  $ = {
+    name: 'ACC_TITLE',
+    pattern: /[\t ]*accTitle[\t ]*:(?:[^\n\r]*?(?=%%)|[^\n\r]*)/y,
+    first: '	 a',
+  },
+  v = {
+    name: 'TITLE',
+    pattern: /[\t ]*title(?:[\t ][^\n\r]*?(?=%%)|[\t ][^\n\r]*|)/y,
+    first: '	 t',
+  },
+  w = { name: 'STRING', pattern: /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'/y, first: `"'` },
+  V = {
+    name: 'NEWLINE',
+    pattern: /\r?\n/y,
+    first: `\r
+`,
+  },
+  W = { name: 'WHITESPACE', pattern: /[\t ]+/y, hidden: !0, first: '	 ' },
+  G = {
+    name: 'YAML',
+    pattern: /---[\t ]*\r?\n(?:[\S\s]*?\r?\n)?---(?:\r?\n|(?!\S))/y,
+    hidden: !0,
+    opener: /---[\t ]*\r?\n/y,
+    first: '-',
+  },
+  O = {
+    name: 'DIRECTIVE',
+    pattern: /[\t ]*%%{[\S\s]*?}%%(?:\r?\n|(?!\S))/y,
+    hidden: !0,
+    opener: /[\t ]*%%{/y,
+    first: '	 %',
+  },
+  P = { name: 'SINGLE_LINE_COMMENT', pattern: /[\t ]*%%[^\n\r]*/y, first: '	 %', hidden: !0 }
+function H(n) {
+  return {
+    name: n,
+    pattern: new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:(?=%%)|(?!\\S))', 'y'),
+    first: n[0],
+  }
+}
+const L = /accDescr(?:[\t ]*:([^\n\r]*)|\s*{([^}]*)})/,
+  _ = /accTitle[\t ]*:([^\n\r]*)/,
+  A = /title([\t ][^\n\r]*|)/
+function h(n) {
+  return n.trim().replace(/[\t ]{2,}/gm, ' ')
+}
+function Y(n) {
+  return h(A.exec(n)[1])
+}
+function z(n) {
+  return h(_.exec(n)[1])
+}
+function U(n) {
+  const e = L.exec(n)
+  return e[1] !== void 0
+    ? h(e[1])
+    : e[2]
+        .replace(/^\s*/gm, '')
+        .replace(/\s+$/gm, '')
+        .replace(/[\t ]{2,}/gm, ' ')
+        .replace(
+          /[\n\r]{2,}/gm,
+          `
+`,
+        )
+}
+const N = new Map([
+  ['b', '\b'],
+  ['f', '\f'],
+  [
+    'n',
+    `
+`,
+  ],
+  ['r', '\r'],
+  ['t', '	'],
+  ['v', '\v'],
+  ['0', '\0'],
+])
+function j(n) {
+  if (!n.includes('\\')) return n.slice(1, -1)
+  let e = ''
+  for (let s = 1; s < n.length - 1; s++) {
+    const i = n[s]
+    if (i === '\\') {
+      const r = n[++s]
+      e += N.get(r) ?? r
+    } else e += i
+  }
+  return e
+}
+const x = class {
+  constructor(e, s, i) {
+    this.tokens = e
+    this.types = s
+    this.diagram = i
+    this.kinds = e.kinds
+  }
+  tokens
+  types
+  diagram
+  i = 0
+  kinds
+  get kind() {
+    return this.kinds[this.i]
+  }
+  text(e = this.i) {
+    return this.tokens.src.slice(this.tokens.starts[e], this.tokens.ends[e])
+  }
+  take() {
+    return this.text(this.i++)
+  }
+  accept(e) {
+    return this.kinds[this.i] !== e ? !1 : (this.i++, !0)
+  }
+  expect(e) {
+    return (
+      this.kinds[this.i] !== e && this.fail(`token of type '${this.types[e].name}'`),
+      this.take()
+    )
+  }
+  fail(e) {
+    const s = this.kind === -1 ? 'end of input' : `\`${this.text()}\``
+    throw g(
+      this.diagram,
+      this.tokens.src,
+      this.tokens.starts[this.i],
+      `Expecting ${e} but found ${s}.`,
+    )
+  }
+}
+export {
+  D as a,
+  M as b,
+  $ as c,
+  v as d,
+  w as e,
+  V as f,
+  W as g,
+  G as h,
+  O as i,
+  P as j,
+  H as k,
+  Y as l,
+  z as m,
+  U as n,
+  j as o,
+  x as p,
+}

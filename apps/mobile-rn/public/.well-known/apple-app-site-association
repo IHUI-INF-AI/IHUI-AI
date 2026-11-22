@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TKF3V7GG6T.ai.ihui.mobile"],
+        "components": [
+          {
+            "/": "/wechat/*"
+          },
+          {
+            "/": "/*"
+          }
+        ]
+      }
+    ]
+  }
+}

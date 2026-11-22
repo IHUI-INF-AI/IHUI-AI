@@ -1,0 +1,252 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 底部操作栏的结构与几何单一源(小程序端与 RN 端共用),模式同 `back-chevron-spec.ts`:
+ * 本表只收"两端在同一含义处各自定了档"的数字(字面量,或 Tailwind 档位类名折出的档)——
+ * 端内只做"单位换算 + 平台原语挂载"。
+ * 消费方式只能是子路径 `@ihui/shared/ui/bottom-action-bar-spec`(禁挂根桶)。
+ *
+ * 已裁决(O81 票④,依据 AGENTS.md §4 跨端 UI 单一源 + 本票裁决规则):
+ *  - chip 文字字号、模型提示条文字字号、正文(输入框/文字按钮)字号 —— 见各常量的取值依据;
+ *  - 功能切换 chip 行间距 8 —— 收编前两端本就同值。
+ *  - RN 侧语音/辅助按钮的命中方块 36 **不落本表**,改取
+ *    `design-tokens/src/geometry.js` 的 `tapBox` 档 —— 那张几何表比本文件更早是单一源,
+ *    在这里再存一个 36 等于造出第二处真相;小程序端本文件里没有这两枚方块。
+ *
+ * 刻意不入表的东西(逐条给理由,不是待偿清单外的遗漏):
+ *  - 圆角:两端落点是 `rnRadius.*` / CSS `--radius-*`,同引 `design-tokens/src/radius.js` 一张表,
+ *    在这里再存第三个数字就是第二份真相(规则 5,守门 77 问责);
+ *  - 按压弱化(RN `opacity: 0.6/0.8` vs 小程序 `hoverClass="opacity-60"`):非几何档,
+ *    且"按压态"在两端的载体不同(StyleSheet 变体 vs 类名),取齐属观感定夺项;
+ *  - 文字档的 `letterSpacing 0.2`:键名含 spacing 而被守门 128 计入,但它不是尺寸 ——
+ *    为让读数好看把它塞进"几何单一源"属于硬凑,登记在交付报告;
+ *  - 条内行衬(0 10 5)与图标卡组(相机/相册/本地文件/微信文件 + 语音)的盒 80×75 /
+ *    标文字号 10 / 图文距 6:RN 侧同一功能的实现是**共享 AddPanel 面板**(另一枚组件、
+ *    另一种媒介与布局角色),不构成同一元素,配对要等 AddPanel 那一票(规则 6)。
+ *    O02 票④(2026-10-25)把它们从端内搬进本表并交给 `bottom-action-bar-core` 渲染:
+ *    结构与取值从此只有一份,端内壳不再持有这些数字(读数与证据见该票交付报告)。
+ *  - 图片预览行(48 盒 / 16 角标 / 2 inset)、模型条高与配置按钮(28)、发送胶囊宽 56、
+ *    命中块 44:小程序端本文件里没有这些元素(预览行在 InputArea、发送是 32 的图标方块而非
+ *    56×44 的文字胶囊),无对照可裁决 —— 保留并写明未决,不得给单端补数字凑平。
+ *    (把小程序那两个方块补到 44 也不成立:44 不再计差异,但 RN 独有的 chip 高 32 会立刻变成
+ *    "仅 RN 档",守门 128 读数不降而观感已变。)
+ */
+
+/**
+ * ── O02 票④(第 ④ 格)收口证据:本族差异档逐条归属(2026-10-28)────────────────
+ * 现读 `node scripts/check-cross-end-ui-parity.mjs`(HEAD 面):
+ *   findings[BottomActionBar] = diffCount 13(几何仅小程序 1 + 几何仅 RN 12)/
+ *   radiusCount 3(仅小程序 8 / 仅 RN 2·16)/ elementRadiusCount 0
+ *   (RE 维零判据:两侧无一同名元素,门已逐条报名)。
+ * 13 + 3 逐条归类后**没有一条属于"两端同值却各写一份"**(那一型才是本票要拆的形态);
+ * 真同值档已在前几票收进本表并由两端同读,故本轮**真收敛 0 处**,counts 维持 13 / 3 / 0。
+ *
+ * ⚠️ 本节 A/B/C 是 O02 票④的**差异档归因口径**,与上文常量的【A 两端同档】/【B 单端档】
+ * 标记不是同一套字母含义:A = 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的
+ * 节点);B = 同一元素两端各取一档(取任一端会破另一端版,属产品裁决面);C = 同槽位两端
+ * 各由自身机制决定(不是同一个量的两条写法)。**这三类都不收敛。**
+ *
+ * A 一端根本没有该元素(几何 10 枚 + 半径 2 枚;其中 44 同时含 B 面):
+ *   2     imageRemoveBtn.top/right       RN 图片预览行的删除角标;小程序预览行在 InputArea
+ *   3     recordingWave.gap / 波形条宽    RN 录音覆盖层;小程序本组件无录音态
+ *   10    recordingOverlay.gap / input.paddingVertical / 死样式 modelArrow.fontSize
+ *                                       RN 独有行与机制;小程序同行由行衬 0/10/5 表达
+ *   18    旧模式 emoji 字号 / 录音波形高  小程序按钮一律矢量 LineIcon,无 emoji 文字行
+ *   20    旧模式 configEmoji/secondaryEmoji 行高;小程序模型条没有配置钮/辅助行
+ *   24    AddPanel 项图标墨迹            小程序同功能是内联图标卡;配对要到 AddPanel 那一票
+ *   28    MODEL_BAR_HEIGHT + configBtn  小程序模型条无固定高、无配置旋钮
+ *   36    VOICE_BTN_SIZE / SECONDARY_BTN_SIZE(rnGeometry.tapBox)
+ *                                       小程序本文件里没有这两枚命中方块(几何表已是单一源)
+ *   44    ACTION_BUTTON_HEIGHT / ICON_BUTTON_SIZE
+ *                                       旧模式 actions 按钮组仅 RN 有(OrderDetailScreen 真传 actions)
+ *   48    IMAGE_PREVIEW_SIZE             RN 图片预览盒;小程序预览行在 InputArea
+ *   半径 8  小程序图标卡 rnRadius.lg      RN 同一功能走共享 AddPanel(另一枚组件、另一种媒介)
+ *   半径 2  RN 录音波形条 rnRadiusFor.tiny 小程序本组件无录音层
+ *
+ * B 同一元素、两端各取一档(产品裁决面,不收敛;取任一端都会改另一端观感):
+ *   44(输入行最小高)  RN INPUT_MIN_HEIGHT=44 ↔ 小程序 default 变体 py-2 + leading-5(≈36)
+ *   半径 16           RN 输入框/发送钮 rnRadius['2xl']=16 ↔ 小程序同元素 rounded-sm(4)
+ *   注:44 在台账里只计 1 档(值),它同时承载 A(旧模式按钮)与 B(输入行高)两个成因,
+ *   故在事实表里记为 A/B 混合;半径 16 就是 RD 维的"仅 RN 16",与小程序 rounded-sm 同元素。
+ *
+ * C 同槽位、两端各由自身机制决定:
+ *   6(小程序)  chip 纵向内衬 12rpx(=6) ↔ RN 固定高 TOGGLE_CHIP_HEIGHT=32
+ *              (内衬通道 vs 定高通道,两端 chip 落屏高都约 32)
+ *   100(RN)    输入框多行生长上限 INPUT_MAX_HEIGHT;小程序输入框不设上限(自适应)
+ *   200(RN)    模型名单行截断 maxWidth;小程序整行 flex 换行,无截断节点
+ *
+ * 还有一类**不算"各写一份"**:小程序端 `px-3` / `mr-2` / `ml-2` 这类 Tailwind 类名档
+ * (12 / 8 / 8 与 RN 的容器 `paddingHorizontal: 12`、`inputRow.gap: 8` 同值)。class 侧尺寸
+ * 按 geometry 头注走 Tailwind 档位(`h-48` 那条同理),把它们搬进本表等于在类名侧写 px 字面量;
+ * 且两端值集合里 12 / 8 本就不计差异 —— 收编只会新增一档三处引用,不产生"改一端另一端跟随"。
+ *
+ * ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,C 组量纲/机制不同,B 组是产品裁决面。
+ * 逐条归属由 `bottom-action-bar-wiring.test.ts` 的 ⑥–⑧ 机器钉住:spec 档按"两端直引 /
+ * 经 core 投影 / 仅小程序经 core"三分且逐档归属,16 条差异档事实表与台账
+ * counts / radiusCounts 同批对账;谁给单端补引用、或台账与归属表漂开,用例当场红。
+ * ⑧ 另把"两端直引档"的取数算式各自折成逻辑 px 现算相等:档名还在但单位/倍数折错
+ * (小程序裸用档名按 rpx 解释、RN 别名写成 `× 2`)时门 128 与 ⑥ 都不红,只有这一维能发现。
+ */
+
+/**
+ * 功能切换 chip 行的横向间距(逻辑 px)。
+ * 取值依据:收编前两端本就同值(小程序 inline `gap: rpx(16)` = 8px / RN
+ * `TOGGLE_CHIP_GAP = 8`),等于 Tailwind spacing-2 档;此处只是把同一个数字从两份变一份。
+ */
+import { GEOMETRY_PX } from '@ihui/design-tokens'
+
+export const BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX = 8
+
+/**
+ * 功能切换 chip 的文字字号(逻辑 px)。
+ * 取值依据:规则 4「字号必须落在 design-tokens 既有档 12/14/18/24,不得新增字号档」——
+ * 收编前小程序 `fontSize: rpx(28)` = 14(已在档)、RN `TOGGLE_CHIP_FONT_SIZE = 13`(不在档)。
+ * 13 的两个就近吸附点是 12 与 14,取 **14 = 另一端已经合法的现值**:只把非法的一端吸上来,
+ * 两端观感都不改写(规则 1 的精神:同值处收进一处只为不再分叉)。
+ */
+export const BOTTOM_ACTION_BAR_CHIP_FONT_PX = 14
+
+/**
+ * 已选模型提示条的文字字号(逻辑 px)。
+ * 取值依据:规则 4 + 规则 2 —— 收编前小程序 `fontSize: rpx(20)` = 10、RN `MODEL_BAR_FONT_SIZE = 13`,
+ * **两端都不在档**;10 的吸附点只有 12(到 14 差 4),13 可落 12 或 14 —— 取两端的公共吸附档 12,
+ * 并按紧凑规则在公共档里取较小者。
+ */
+export const BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX = 12
+
+/**
+ * 正文(输入框文字 / 旧模式文字按钮标签)字号(逻辑 px)。
+ * 取值依据:规则 4 —— RN 侧这两处原值都是 15(不在档),就近吸附到 14(15 到 14 差 1,
+ * 到 12 / 18 各差 3);而 14 正是另一端现值 —— 小程序默认变体的输入框走 Tailwind `text-sm` = 14,
+ * 即本档已在该端合法在位,两端同档后不再另造数字。
+ */
+export const BOTTOM_ACTION_BAR_TEXT_FONT_PX = 14
+
+/**
+ * 【B 单端档·小程序】图标按钮卡(相机/相册/本地文件/微信文件 + 语音)的墨迹 35
+ * (= 收编前的 70rpx 内联盒)。
+ * 为什么不成对:RN 侧同一功能走共享 `AddPanel` 滑出面板(另一种媒介与布局角色),
+ * 其项图标墨迹是 24 —— 与本头注"图标卡组"那条登记的口径一致:配对要到 AddPanel 那一票一并裁。
+ * 本票(O81 票⑤)只把**载体**从 CDN 位图换成与 RN 同名的 lucide 字形,数值原样入表,
+ * 以免端内再抄一枚裸数字(这一档此前只有语音钮以 `size={70}` 的裸 rpx 出现过)。
+ */
+export const BOTTOM_ACTION_BAR_ICON_GLYPH_PX = 35
+
+/**
+ * 【A 两端同档】已选模型条的前导图章 / 尾随 ChevronDown 墨迹 14。
+ * 定档依据(2026-09-26 票⑥,按 AGENTS「web → 触控可读 → 机制差异」第一档):
+ * web `model-selector.tsx:836` 的 `CheckCircle2` 与 `:839` 的 `ChevronDown` 都是 `h-3.5 w-3.5` = 14。
+ * 收编前两端的现值各抄各的 —— 小程序 `name="check"` 12(原 `rpx(24)`)、RN
+ * `BottomActionBar.tsx:500` 的 `<ChevronDown size={10}>` —— 两个数字都不在 web 档上,
+ * 而 14 与本文件的正文字号档同值,不新增档。
+ * 备注:这一枚此前被本文件登记成"小程序单端档、RN 无对照";实读推翻 ——
+ * RN 有同槽(模型条尾随箭头),只是取了另一档,属取值分叉而非机制差异。
+ */
+export const BOTTOM_ACTION_BAR_MODEL_BADGE_PX = 14
+
+/**
+ * 【A 两端同档】附件「+」与发送钮的方块 32。
+ * 定档依据:web `message-input.tsx:1148` 发送钮 `inline-flex h-8 w-8` = 32,
+ * `add-menu-popover.tsx:226` 的「+」触发钮 `h-8` = 32;`@ihui/ui-react` 的 Button
+ * `icon` 档同为 32(AGENTS §4 档位表)。小程序默认变体本已 `w-8 h-8` = 32,
+ * RN 侧的 56×44 与 44 是**两端里的异类**,故取 32 而非取较大者:
+ * "触控取较大档"这一条在两个触屏端之间无从裁决,而 web 基准 + 端内多数派同时指向 32;
+ * RN 的可点区靠 `hitSlop`(该文件已在用)扩到 40,不改可见盒。
+ */
+export const BOTTOM_ACTION_BAR_CONTROL_BOX_PX = GEOMETRY_PX.controlBox
+
+/**
+ * 【A 两端同档】上述方块里的矢量字形墨迹 14。
+ * 依据:web `add-menu-popover.tsx:237` 的 `Plus` 是 `h-3.5 w-3.5` = 14。
+ * (历史备注:本档原覆盖 web 发送槽 `Send h-3.5`;2026-09-30 web 发送簇改版为
+ * ArrowUp/Square/Zap `h-4 w-4` = 16 后,发送槽单列为 {@link BOTTOM_ACTION_BAR_SEND_GLYPH_PX},
+ * 本档现仅覆盖「+」附件槽。)
+ * 载体同时收口:此前小程序默认变体用字符 `+` / `↑` 当图标、RN 用文字「发送」,
+ * 两者都违反 AGENTS §4「UI 图标一律用矢量图标库,禁止字符/emoji 充当图标」,
+ * 且 RN 的 `'发送'` 是硬编码中文(非 i18n)。两端统一走各自矢量通道
+ * (小程序 `LineIcon name="plus"`,RN `lucide-react-native` 的 `Plus`)。
+ */
+export const BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph
+
+/**
+ * 【A 两端同档】发送/停止槽的矢量字形墨迹 16(2026-10-15 再裁决)。
+ * 依据:web `message-input.tsx` 发送簇 ArrowUp / Square(停止)/ Zap(Steer)均为
+ * `h-4 w-4` = 16(2026-09-30 发送钮改版后的现值);本票把发送槽对齐 web 现值,
+ * 数值落 geometry 既有 `glyphSm`(行内小箭头档 16),不新增档。
+ * 载体同步:发送图标三端同形 ArrowUp —— 小程序 `LineIcon name="arrow-up"`
+ * (该端此前同槽先是字符 `↑`、后改 lucide `send` 纸飞机,均为旧裁决形态),
+ * RN `lucide-react-native` 的 `ArrowUp`。
+ */
+export const BOTTOM_ACTION_BAR_SEND_GLYPH_PX = GEOMETRY_PX.glyphSm
+
+/**
+ * 【B 单端档·小程序】条内行(chip 行 / 图标卡行 / 模型提示行)的行衬 10 与下衬 5。
+ * 收编前是端内 inline 简写串 `padding: '0 20rpx 10rpx'`,三行各抄一遍;三行的值本就相同,
+ * 所以这不是"给单端补数字",而是把同一元素的同一档从三份变一份。
+ * RN 侧对应的行间距由容器 `gap: 8`(columnMode)与 `paddingTop: 4` 表达 —— 机制不同(逐属性
+ * vs CSS 简写串),故不强行配对,写进 baseline 的 waivers 供守门 108 到期复核。
+ */
+export const BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX = 10
+export const BOTTOM_ACTION_BAR_INLINE_ROW_PAD_BOTTOM_PX = 5
+
+/**
+ * 【B 单端档·小程序】图标卡行的卡盒 80×75、标文字号 10、图文距 6。
+ * 为什么仍是单端档:RN 侧同一功能走共享 `AddPanel` 滑出面板(另一枚组件、另一种媒介与
+ * 布局角色),本族没有第二个渲染点可配对(规则 6,与 {@link BOTTOM_ACTION_BAR_ICON_GLYPH_PX}
+ * 同口径)。搬进本表只为让端内壳不再持有卡盒数字 —— 同一个"一份源"原则,
+ * 不是把单端档粉饰成两端同档。
+ */
+export const BOTTOM_ACTION_BAR_ICON_CARD_WIDTH_PX = 80
+export const BOTTOM_ACTION_BAR_ICON_CARD_HEIGHT_PX = 75
+export const BOTTOM_ACTION_BAR_ICON_CARD_LABEL_PX = 10
+export const BOTTOM_ACTION_BAR_ICON_CARD_GLYPH_GAP_PX = 6
+
+/** 逻辑 px → 端内盒子单位(RN 恒等 dp / 小程序 rpx 串)。与 back-chevron-spec 同形,不跨文件复用一个类型。 */
+export type BottomActionBarUnit<U extends string | number> = (px: number) => U
+
+/**
+ * 盒几何的**形状**:只列本族用到的键(RN 收数值、小程序收 CSS 长度串,同一枚类型两端各实例化一次)。
+ * 刻意不收 display/flexDirection/alignItems —— 那些是"这行是横排还是竖排"的结构语义,
+ * 由端内 className / StyleSheet 表达(两端的 flex 通道不同形)。
+ */
+export interface BottomActionBarBox<U extends string | number> {
+  width?: U
+  height?: U
+  paddingTop?: U
+  paddingRight?: U
+  paddingBottom?: U
+  paddingLeft?: U
+  gap?: U
+}
+
+/**
+ * 条内行(chip / 图标卡 / 模型提示三行)的盒几何 —— 唯一源。
+ * 行间距复用 {@link BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX}:三行收编前的 inline 值都是 `rpx(16)` = 8,
+ * 与 chip 行同档,故不新造第二个 8。
+ */
+export function bottomActionBarInlineRowBoxStyle<U extends string | number>(
+  toUnit: BottomActionBarUnit<U>,
+): BottomActionBarBox<U> {
+  return {
+    paddingTop: toUnit(0),
+    paddingRight: toUnit(BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX),
+    paddingBottom: toUnit(BOTTOM_ACTION_BAR_INLINE_ROW_PAD_BOTTOM_PX),
+    paddingLeft: toUnit(BOTTOM_ACTION_BAR_INLINE_ROW_PAD_X_PX),
+    gap: toUnit(BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX),
+  }
+}
+
+/** 图标卡行的卡盒 + 图文距(竖排 flex 的 `gap`,取代收编前字形上的 `marginBottom: rpx(12)`)。 */
+export function bottomActionBarIconCardBoxStyle<U extends string | number>(
+  toUnit: BottomActionBarUnit<U>,
+): BottomActionBarBox<U> {
+  return {
+    width: toUnit(BOTTOM_ACTION_BAR_ICON_CARD_WIDTH_PX),
+    height: toUnit(BOTTOM_ACTION_BAR_ICON_CARD_HEIGHT_PX),
+    gap: toUnit(BOTTOM_ACTION_BAR_ICON_CARD_GLYPH_GAP_PX),
+  }
+}
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠import { GEOMETRY_PX } from '@ihui/design-tokens'

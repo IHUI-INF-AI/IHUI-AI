@@ -1,0 +1,103 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Empty 通用空状态 (mobile-rn 端)
+ *
+ * 对齐历史项目 common/Empty.vue:
+ * - 居中图标(emoji 或图片 URL)+ 文字 + 可选操作按钮。
+ * - 默认图标 📭 + 文案"暂无数据"。
+ * - 传入 actionText + onAction 时渲染操作按钮(对齐历史 action-btn)。
+ * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
+ * - 类型零 any,精确标注。
+ */
+import { tokens } from '../../theme/active-tokens'
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { PackageOpen, type LucideIcon } from 'lucide-react-native'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { useI18n } from '../../i18n'
+
+export interface EmptyProps {
+  text?: string
+  /** emoji 字符、图片 URL(http/https 开头)或 lucide 图标组件 */
+  icon?: string | LucideIcon
+  actionText?: string
+  onAction?: () => void
+}
+
+const DEFAULT_ICON = PackageOpen
+
+function isUrl(value: string): boolean {
+  return value.startsWith('http://') || value.startsWith('https://')
+}
+
+export default function Empty({
+  text: textProp,
+  icon = DEFAULT_ICON,
+  actionText,
+  onAction,
+}: EmptyProps): React.JSX.Element {
+  const { t } = useI18n()
+  const text = textProp ?? t('common.empty')
+  const showAction = Boolean(actionText && onAction)
+  const IconNode = typeof icon === 'string' ? null : icon
+  return (
+    <View style={styles.root}>
+      {typeof icon === 'string' ? (
+        isUrl(icon) ? (
+          <Image source={{ uri: icon }} style={styles.image} resizeMode="contain" />
+        ) : (
+          <Text style={styles.emoji}>{icon}</Text>
+        )
+      ) : IconNode ? (
+        <IconNode size={48} color={tokens.text.secondary} />
+      ) : null}
+      <Text style={styles.text}>{text}</Text>
+      {showAction ? (
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.7}
+          onPress={onAction}
+          accessibilityRole="button"
+        >
+          <Text style={styles.actionText}>{actionText}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  root: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: rnSpacing['5xl'],
+    paddingHorizontal: rnSpacing['2xl'],
+    gap: rnSpacing.md,
+  },
+  emoji: {
+    fontSize: 48,
+  },
+  image: {
+    width: 100,
+    height: 100,
+  },
+  text: {
+    fontSize: rnType.body.size,
+    color: tokens.text.secondary,
+  },
+  actionBtn: {
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.sm,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+  },
+  actionText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

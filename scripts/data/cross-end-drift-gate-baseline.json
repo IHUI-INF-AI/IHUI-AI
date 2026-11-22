@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "owner": "cross-end-parity",
+  "expires": "2027-06-30",
+  "generatedAt": "2026-11-21T12:05:45.346Z",
+  "face": "HEAD",
+  "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。 | 2026-11-08 定向刷新(仅 judgedGapWeb 0→1):/sag2 是 web 自有检索工作台,RN/小程序零承载 ⇒ 按门机制如实登记 gap(scripts/data/web-rn-screen-map.jsonl 新增行,提交 14e533b6f1);其余维度保持 2026-11-06 原值不动。 | 2026-11-11 全维刷新(尖 8ddc8d2256,合入对侧 4 批 b55a57ecef..2a4dccdfc7 + 远端 plan/web/docs 4 枚经 28e404c186):tierRnMissingN 134→142 为唯一恶化维,+8 处逐条 file:line 见 evidence 与同枚提交说明(源=对侧共享屏下沉 10f86bc743 五处 + patrol 屏 cd9a85fea2 三处,均为已入库功能提交,非本刷新增);fidelityHosted 238→239、fidelityPackAbsent 1→0、fidelityRetractionRot 3→0、mpTierLiteral 598→597、duplicateWebKeys 1→0 五维为好转,按终尖现读重置。 | 2026-11-12 定向刷新(仅 staleCountAssertions 0→1):web-rn-screen-parity 台账 admin/** 豁免 reason 自述计数 337 页与现读 338 页脱节(web-parity 子尺 staleCountAssertions=1),系对侧功能提交新增 1 页未同步更新豁免自述计数所致,非本刷新引入;按门机制如实对账。 | 2026-11-13 全维刷新(尖 1cfac3e8a7aa):本次推送区间 8 枚含流式修复批、门 47p 水印清偿与门 41 具名追认。五个变维逐项已取证非本区间引入 —— mirrored/registryEntries 257(+1) 来自 origin/main 上的 pkg-user/finance-ai-hub 镜像页(ffd5ca9949e);tierRnForkN 60(+1) 与 tierPending 10(+1) 来自他人 RN 屏样式改动,本区间三个 RN 文件新增样式数值为 0;mpTierLiteral 600(+3) 经 push 区间 20 个小程序源文件逐文件 origin/main→HEAD 比对 (delta=0) 证明非本区间引入。按 refreshProcedure 重置为终尖现读值。 | 2026-11-15 全维刷新(终尖 origin/main 130ba2ea83a + 本批 2 枚:恢复被 69ce958a9b2 误删的 25 个文件、校准门 299/302 台账):本次唯一定量证据是**同一把尺在 origin/main 的 detached 干净检出上复现出完全相同的现读值** —— mirrored 258 / unmapped 4 / fidelityMissing 9 / tierRnMissingN 143 / tierWebOffN 230 / fidelityRetractionRot 4,命令 `git worktree add --detach <tmp> origin/main && node scripts/check-cross-end-parity-drift.mjs --gate --push --json`,证明这些维的恶化全部产生于 2026-11-13 基线之后、别席已推入主干的提交,不是本批引入;fidelityRetractionRot 由基线 0 时的 4 行、经本批摘除 4 行腐烂撤除声明后归 0,属好转而非恶化。其余 10 维的变化同源于该批提交,本批只增删 25 个被误删文件与 1 行小程序形态台账,不触 web 路由/RN 样式/镜像键。 | 2026-11-16 全维刷新(终尖 origin/main 3655b57e41):push 门 302p 判 regressed(unmapped 基线4→现读7)阻断本席 docs(plan) 登记提交推送。决定性证据 = 同一把尺在 origin/main 的 detached 干净检出(git worktree add --detach ../_parity-verify origin/main && node scripts/check-cross-end-parity-drift.mjs --gate --push --json)复现出完全相同的现读值 unmapped=7 / fidelityHosted=248 ⇒ 证明这两维变化全部产生于 2026-11-15 基线之后、别席已推入主干的提交,非本席 docs(plan) 引入(本席提交 3f30a607c1 仅改 PROJECT_PLAN.md,不触 web 路由/RN 屏/镜像键)。unmapped +3 逐条 file:line 取证:finance-ai/page.tsx(+361 全新增,apps/web/app/(main)/finance-ai/page.tsx:1)、hr/my-attendance/page.tsx(+251 全新增,apps/web/app/(main)/hr/my-attendance/page.tsx:1)、hr/my-leave/page.tsx(+267 全新增,apps/web/app/(main)/hr/my-leave/page.tsx:1),三文件均由别席前端批次(尖 35e69d4064 一线,自基线尖 130ba2ea83a 起 git log origin/main --diff-filter=A 复现)新增 web 路由、RN 侧无人判承载 ⇒ unmapped 累积。fidelityHosted 247→248 属门脚本注释所列涨不报的好转维(多承载 1 屏),非恶化。本刷新按 refreshProcedure.guard 在同枚提交说明逐维给 file:line 证据,非借刷新抹平——真实治理出路(3 条新路由逐屏登记 aligned/gap/excluded)另立任务交跨端对齐线 owner。 | 2026-11-18 定向刷新(仅 tierWebOffN 230→231):push 门 302p 判 regressed(tierWebOffN 基线230→现读231)阻断本批推送。同一把尺在 origin/main(71200da7)detached 干净检出复现 tierWebOffN=230 / gate.state=ok(命令 git worktree add --detach <tmp> origin/main && node scripts/check-cross-end-parity-drift.mjs --gate --push --json),证明 +1 产生于 origin/main 之后本批待推区间。逐处取证:apps/web/src/components/chat/model-selector.tsx:393 新增不可用原因徽章内联 text-[10px](提交 029c702acd4),系复制同文件既有徽章模板(384/400/406 行同为 text-[10px])。该值属档表缺位值,decide-style-tier-forks.mjs --check 现读:缺位值 8 种全部在期 decision 覆盖(达线0/待决策0)、分叉 20 行全在额度或有效 decision 内 ⇒ 该增量在判定体系内合法登记、非未登记回归,门仅按终尖数值拦差。按 refreshProcedure 重置为终尖现读 231,非借刷新抹平非法回归;根治(档表补 10px 档或统一 token)仍属跨端对齐线 owner 的长期票。 | 2026-11-21 定向刷新(仅 tierPending 10→21):push 门 302p 判 regressed(tierPending 基线10→现读21)阻断本席第91项推送。取证方式按\"输入等同\"论证(不新建 worktree,§12d):pending 是 RN 源 + decision 账本的纯函数,而 `git diff --stat origin/main..HEAD -- apps/mobile-rn packages/app packages/shared scripts/data/style-tier-fork-decisions.jsonl scripts/data/cross-end-fork-decisions.json` 现读**全空** ⇒ origin/main 面上该维同样是 21,即 +11 产生于基线 2026-11-13 记录之后、别席已入库的 RN 提交,非本席引入。11 处逐条 = RN 端 7px 族(spacing 档表只有 6/8):apps/mobile-rn/src/screens/ArticleEditScreen.tsx:261、apps/mobile-rn/src/screens/LearnReviewScreen.tsx:434、apps/mobile-rn/src/components/UserCard.tsx:103(gap)、apps/mobile-rn/src/components/UserCard.tsx:125(marginRight)、packages/app/src/features/home/HomeScreen.tsx:417、packages/app/src/features/legal-doc/LegalDocsHubScreen.tsx:205、packages/app/src/features/model-plaza/ModelPlazaScreen.tsx:420(paddingHorizontal)、packages/app/src/features/workflows/WorkflowListScreen.tsx:357(均 paddingVertical,同一值多档重复计入 ⇒ decision 账本按 11 处计)。根治(7px 落回 6/8 或补档)仍属跨端对齐线 owner 的长期票,本刷新不代它裁决、只把\"已有存量\"记进基线。",
+  "evidence": [
+    "scripts/check-cross-end-parity-drift.mjs:1696-1716(--gate 现读取值口)",
+    "scripts/check-web-rn-style-tiers.mjs:505-540(档位 kinds/处数与 forkAllowance 出口)",
+    "docs/engineering/rn-miniapp-parity-matrix.md:1(镜像矩阵真源)",
+    "scripts/data/miniapp-key-retractions.jsonl:1(键级撤除台账)",
+    "apps/web/app/(main)/sag2/page.tsx:1-12(路由页 metadata.title=SAG2 词法多跳检索)",
+    "apps/web/app/(main)/sag2/PageClient.tsx:22-37(import @/api/sag2-lexical 六个方法)、:98/:110/:118/:148/:156/:175(调用点)",
+    "零承载取证(2026-11-08 现读):'sag2|Sag2|SAG2' 在 packages/app/src、apps/mobile-rn、apps/miniapp-taro/src 命中 0;packages/shared/src/constants/web-portal.ts 与 apps/miniapp-taro/src/constants/web-portal.ts 均无 sag2",
+    "tierRnMissingN +8 逐处取证(2026-11-11 现读,git blame @8ddc8d2256):packages/app/src/features/api-keys/ApiKeysScreen.tsx:491(paddingHorizontal:5)/:492(paddingVertical:1)/:554(paddingVertical:1)/:573(paddingHorizontal:5)/:574(paddingVertical:1) 五处 ← 10f86bc743(ApiKeys 屏下沉共享屏);packages/app/src/features/patrol/PatrolScreen.tsx:898(paddingVertical:1)/:912(gap:3)/:921(gap:3) 三处 ← cd9a85fea2(patrol 屏组件)",
+    "好转五维取证(2026-11-11 现读):fidelityHosted 239/fidelityPackAbsent 0 ← 对侧收编提交 702e0df09c 等落共享屏承载;fidelityRetractionRot 3→0、duplicateWebKeys 1→0 ← 对侧台账修复批次入库;mpTierLiteral 597 ← 对侧小程序档位改写"
+  ],
+  "refreshProcedure": {
+    "trigger": "等其余各线全部落 main 后,在最终尖(origin/main 现读)上一次性刷新;严禁在旧尖或本特性分支上刷新",
+    "precondition": "git fetch origin main && git rev-parse origin/main;在 origin/main 的 detached 干净检出上执行(工作树 clean,不用任何人的分支树)",
+    "commands": [
+      "node scripts/check-cross-end-parity-drift.mjs --gate --push --json > .ihui-agent/tmp/drift-gate-final.json",
+      "node -e 'const fs=require(\"fs\");const j=JSON.parse(fs.readFileSync(\".ihui-agent/tmp/drift-gate-final.json\",\"utf8\"));const b=JSON.parse(fs.readFileSync(\"scripts/data/cross-end-drift-gate-baseline.json\",\"utf8\"));for(const k of Object.keys(b.dims)){if(!(k in j.gate.values))throw new Error(\"缺维:\"+k);b.dims[k]=j.gate.values[k]}b.generatedAt=new Date().toISOString();b.face=\"HEAD\";fs.writeFileSync(\"scripts/data/cross-end-drift-gate-baseline.json\",JSON.stringify(b,null,2)+\"\\n\")'"
+    ],
+    "resignFields": [
+      "generatedAt(改为最终尖刷新时刻)",
+      "face(固定 HEAD,证明量的是终尖入库面)",
+      "owner(确认仍为 cross-end-parity;换线须显式改并通知)",
+      "expires(重新设定到期日,不得沿用已过期值)",
+      "evidence(逐条按最终尖行号重指 file:line)",
+      "why(补一句刷新依据:最终尖 sha + 各线落地批次)"
+    ],
+    "guard": "刷新只允许把每个 dim 重置为最终尖现读值;若某维相对旧基线是恶化,必须在同枚提交说明里逐维给出 file:line 证据,否则保持旧值让 302p 拦住,不许借刷新抹平。"
+  },
+  "dims": {
+    "mirrored": 258,
+    "registryEntries": 258,
+    "coverageRed": 0,
+    "mapRot": 0,
+    "aligned": 294,
+    "alignedUnique": 294,
+    "unmapped": 7,
+    "fidelityHosted": 248,
+    "fidelityMissing": 9,
+    "fidelityBroken": 0,
+    "fidelityOther": 0,
+    "fidelityPackAbsent": 0,
+    "fidelityRetractionInvalid": 0,
+    "fidelityRetractionRot": 0,
+    "tierRnMissingN": 143,
+    "tierRnMissingKinds": 25,
+    "tierRnForkN": 44,
+    "tierRnForkKinds": 20,
+    "tierWebOffN": 231,
+    "tierWebOffKinds": 28,
+    "tierPending": 21,
+    "tierAllowanceExpired": 0,
+    "mpTierDefaulted": 375,
+    "mpTierLiteral": 374,
+    "prefixContradicted": 0,
+    "staleCountAssertions": 1,
+    "missingExpiry": 0,
+    "duplicateWebKeys": 0,
+    "pendingWebPair": 0,
+    "judgedGapWeb": 1,
+    "conversionRefused": 0
+  },
+  "advisoryDims": [
+    "doc-stale"
+  ],
+  "note": "doc-stale(派生文档数字滞后)单列滞后档:不算倒退、不阻断,重跑生成命令即可。"
+}

@@ -1,0 +1,761 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * `scripts/lib/gate-failure-kind.mjs` 的镜像测试(§22c:测试直接 import 源函数,不复制判据)。
+ *
+ * 为什么值得单独一票:2026-09-29 我在干净检出里跑整批守门,读到"17 道 blocking 门失败",
+ * 逐道在有依赖的主仓复跑却全部 rc=0 —— 单跑一道看到的是一行
+ * `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' …`。
+ * runner 把"跑不起来"和"判红"记成同一件事,我就差点把一次 import 失败登记成"10 道语言包缺陷"。
+ *
+ * 五条硬约束各有正反例(缺一即判据无牙):
+ *  - 崩溃 ⇒ crash,**但仍算失败**(不得把没跑成的门洗成通过);
+ *  - 门自己打印的 `❌ 发现 N 处违规` ⇒ 必须还是 red(不得借"分流"给判据开后门);
+ *  - 中断族(75 / 128+N / 只有 signal)⇒ interrupt,与 G-611 的传播语义同形;
+ *  - 被兜底弄死(error.code = ETIMEDOUT / ENOBUFS)⇒ crash(未判定),**且这两型绝不被传播成
+ *    exit 75**(后果与判红同档:仍计 failed、批量仍非零退出)。2026-10-24 立:执行器当时只把
+ *    status/signal/stderr 交给这把尺子,兜底 Error 两个都是 null ⇒ 落 `判据判红(exit null)`,
+ *    门 30c check-stale-copy.mjs 被 300010ms 看门狗 SIGKILL、零输出即此型实测。
+ *    最危险的失效方向是"把真红洗成未判定"(逃逸口),故 F2/F3 与 F1 同票成对。
+ *  - 门自己按 §0.3 交付的 exit 2 + 自称「未判定」⇒ 独成 undetermined 档(2026-10-27 立),
+ *    **两个条件缺一不可**:只凭退出码放行会把刻意用 exit 2 顶红的尺子洗绿;F9 四条反向牙钉死。
+ * 三条硬约束各有正反例(缺一即判据无牙):
+ *  - 中断族(75 / 128+N / 只有 signal)⇒ interrupt,与 G-611 的传播语义同形。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+
+// 夹具唯一落点(AGENTS §26):不写 os.tmpdir()。
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+
+import { __test__ as gateFail } from '../lib/gate-failure-kind.mjs'
+import { shouldPropagateAsInterrupt } from '../lib/signal-exit.mjs'
+import ts from 'typescript'
+
+// ─── 结构锁 helpers:用 TypeScript AST 判语法结构,不判文本窗口 ─────────────────
+// 2026-11-09 二轮收口(根因):先前的「等长 mask + 括号配对」自制词法层仍有确凿洞 ——
+//   ① 注释 decoy 能架空 raw 断言(C7 假绿);② 正则字面量里的裸 `{}` 打断括号配对(C7/F8 假红);
+//   ③ else-if 链令 `cClose+1` 后的第一个 `{` 取错窗口(F5 假绿);④ 同名 if 块只取第一个(F8 假红);
+//   ⑤ head 整串 indexOf 被行内注释打断(F8 假红)。逐条补洞等于把半个 JS 词法器写进夹具,
+// 故改用仓库既有的 typescript devDependency(scripts/tests 已有 5 枚夹具用 ts.createSourceFile)。
+// AST 天然排除注释 / 字符串 / 模板 / 正则字面量,IfStatement.elseStatement 覆盖任意 else-if 链,
+// 且按 node 起止位置排序,不再有魔法距离与措辞锚。
+// 纪律不变:每条锁仍配同形正例 + 真实源码判绿 + 成对反向牙 + 合法改动仍绿。
+
+const astCache = new Map()
+function parseJs (srcText) {
+  let sf = astCache.get(srcText)
+  if (!sf) {
+    sf = ts.createSourceFile('executor.js', srcText, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+    astCache.set(srcText, sf)
+  }
+  return sf
+}
+const nodeText = (sf, srcText, n) => srcText.slice(n.getStart(sf), n.getEnd())
+function walk (node, visit) {
+  visit(node)
+  ts.forEachChild(node, (c) => walk(c, visit))
+}
+function collectIf (root) {
+  const out = []
+  walk(root, (n) => { if (ts.isIfStatement(n)) out.push(n) })
+  return out
+}
+function collectCalls (sf, srcText, root, callee) {
+  const out = []
+  walk(root, (n) => {
+    if (ts.isCallExpression(n) && nodeText(sf, srcText, n.expression) === callee) out.push(n)
+  })
+  return out
+}
+const hasCall = (sf, srcText, root, callee) => collectCalls(sf, srcText, root, callee).length > 0
+// 字面量集合:只收真字符串/模板串节点,注释与代码标识符天然不在其中
+function literalsIn (sf, srcText, root) {
+  const out = []
+  walk(root, (n) => {
+    if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateExpression(n))
+      out.push(nodeText(sf, srcText, n))
+  })
+  return out
+}
+const exit1In = (sf, srcText, root) =>
+  collectCalls(sf, srcText, root, 'process.exit')
+    .some((c) => c.arguments.length === 1 && nodeText(sf, srcText, c.arguments[0]) === '1')
+const conditionIs = (sf, srcText, n, re) => re.test(nodeText(sf, srcText, n.expression))
+
+// C6:失败计数必须是 blocking 支的直接子语句、唯一、且排在 crash/red 分流之前;
+//     crash 子支里不得出现 failedGates.push(方向锁)。三层都由 AST 语句与节点判定。
+function blockingCountVerdict (srcText) {
+  const sf = parseJs(srcText)
+  const txt = (n) => nodeText(sf, srcText, n)
+  const blk = collectIf(sf).find((n) =>
+    conditionIs(sf, srcText, n, /check\.mode\s*===\s*'blocking'/) &&
+    ts.isBlock(n.thenStatement) &&
+    hasCall(sf, srcText, n.thenStatement, 'crashedGates.push') &&
+    hasCall(sf, srcText, n.thenStatement, 'failedGates.push'))
+  if (!blk) return { ok: false, why: '找不到含崩溃/判红分流的 blocking 计数支(锚错支或分流被拆)' }
+  const stmts = blk.thenStatement.statements
+  const crashIf = collectIf(blk.thenStatement)
+    .find((n) => conditionIs(sf, srcText, n, /kind\.kind\s*===\s*'crash'/))
+  if (!crashIf) return { ok: false, why: '找不到 crash 子支(分流结构被拆)' }
+  if (hasCall(sf, srcText, crashIf.thenStatement, 'failedGates.push'))
+    return { ok: false, why: 'crash 子支里塞了 failedGates.push ⇒ 崩溃被算成判红' }
+  const isFailedPP = (s) =>
+    ts.isExpressionStatement(s) && ts.isPostfixUnaryExpression(s.expression) &&
+    s.expression.operator === ts.SyntaxKind.PlusPlusToken && txt(s.expression.operand) === 'failed'
+  const hits = stmts.filter(isFailedPP)
+  if (hits.length !== 1)
+    return { ok: false, why: `可执行 failed++ 命中 ${hits.length} 处(应为 1 且必须是直接子语句;注释/子支里的不算)` }
+  const at = stmts.findIndex(isFailedPP)
+  const splitAt = stmts.findIndex((s) =>
+    hasCall(sf, srcText, s, 'crashedGates.push') || hasCall(sf, srcText, s, 'failedGates.push'))
+  if (splitAt < 0 || !(at < splitAt)) return { ok: false, why: 'failed++ 不在 crash/red 分流之前 ⇒ 后果不减被破坏' }
+  return { ok: true, why: `depth=0, failed++@${at} < 分流@${splitAt}` }
+}
+
+// 成对反向牙用:在真实源码上做内存替换,构造「被破坏的源码」
+function mutateSrc (src, anchor, replacement) {
+  const i = src.indexOf(anchor)
+  assert.ok(i >= 0, `变异锚点没命中(executor 结构变了?):${anchor.slice(0, 46)}`)
+  return src.slice(0, i) + replacement + src.slice(i + anchor.length)
+}
+
+// C7:真回吐调用必须是可执行 CallExpression;spawn options 里必须有 stdio pipe 三元组。
+//     注释 decoy / 字符串里的同名字样不是 AST 节点,正则里的裸 `{}` 也不影响节点边界。
+function c7Verdict (srcText) {
+  const sf = parseJs(srcText)
+  const echoed = collectCalls(sf, srcText, sf, 'process.stderr.write')
+    .some((c) => c.arguments.some((a) => nodeText(sf, srcText, a) === 'gateStderr'))
+  if (!echoed) return { ok: false, why: '真回吐调用被删(注释/字符串里的同名字样不算)' }
+  const piped = collectCalls(sf, srcText, sf, 'spawn').some((c) => {
+    const opt = c.arguments[2]
+    if (!opt || !ts.isObjectLiteralExpression(opt)) return false
+    return opt.properties.some((p) =>
+      ts.isPropertyAssignment(p) && nodeText(sf, srcText, p.name) === 'stdio' &&
+      ts.isArrayLiteralExpression(p.initializer) && p.initializer.elements.length === 3 &&
+      ['ignore', 'pipe', 'pipe'].every((v, i) => {
+        const e = p.initializer.elements[i]
+        return ts.isStringLiteral(e) && e.text === v
+      }))
+  })
+  if (!piped) return { ok: false, why: 'spawn options 里没有可执行的 stdio pipe 三元组(注释/字符串不算)' }
+  return { ok: true, why: '回吐(可执行) + options 体内 stdio pipe' }
+}
+
+// F5:kindPre 的 decideGateOutcome 参数对象必须传 code;措辞走单源;
+//     crash 分流的 then + alternate(含任意 else-if 链)里不得写死装依赖出路。
+function f5Verdict (srcText) {
+  const sf = parseJs(srcText)
+  let kp = null
+  walk(sf, (n) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === 'kindPre' &&
+        n.initializer && ts.isCallExpression(n.initializer) &&
+        nodeText(sf, srcText, n.initializer.expression) === 'decideGateOutcome') kp = n.initializer
+  })
+  if (!kp) return { ok: false, why: '找不到 kindPre 判定点(结构变了?)' }
+  const arg0 = kp.arguments[0]
+  const hasCode = arg0 && ts.isObjectLiteralExpression(arg0) && arg0.properties.some((p) =>
+    ts.isPropertyAssignment(p) && nodeText(sf, srcText, p.name) === 'code' &&
+    /e\?\.code\s*\?\?\s*null/.test(nodeText(sf, srcText, p.initializer)))
+  if (!hasCode) return { ok: false, why: '调用对象里没传 code ⇒ 兜底弄死仍被读成判红' }
+  // 判「调用形态」不判「名字出现过」:executor 里 crashNextStep 有两处(kind.reason / g.reason),
+  // 删掉逐条文案那处后另一处仍在 ⇒ 只查名字会假绿。
+  const stepCalls = collectCalls(sf, srcText, sf, 'crashNextStep')
+    .filter((c) => c.arguments.length === 1 && nodeText(sf, srcText, c.arguments[0]) === 'kind.reason')
+  if (!stepCalls.length)
+    return { ok: false, why: 'crash 逐条文案没走措辞单源 crashNextStep(kind.reason)' }
+  const advisoryCalls = collectCalls(sf, srcText, sf, 'crashAdvisory')
+    .filter((c) => c.arguments.length >= 2 && nodeText(sf, srcText, c.arguments[0]) === 'crashedGates.length')
+  if (!advisoryCalls.length)
+    return { ok: false, why: '汇总没分型报数' }
+  const crashIf = collectIf(sf).find((n) => conditionIs(sf, srcText, n, /kind\.kind\s*===\s*'crash'/))
+  if (!crashIf) return { ok: false, why: '找不到 crash 分流(锚点须用 raw)' }
+  // TS 5.9 把 IfStatement.alternate 改名为 elseStatement(typescript.d.ts:5314);
+  // 只认旧名会令 else 支恒为 undefined ⇒ 硬编码塞进判红支照样判绿(恒真假绿)。
+  const branches = [crashIf.thenStatement, crashIf.elseStatement ?? crashIf.alternate].filter(Boolean)
+  if (branches.some((b) => literalsIn(sf, srcText, b).some((s) => /先跑全量 pnpm install/.test(s))))
+    return { ok: false, why: 'crash 分流(if+else 链)里写死了装依赖出路(对超时/超限型跑不通)' }
+  return { ok: true, why: 'code 已传 + 措辞单源 + crash 分流(if+else 链)无硬编码出路' }
+}
+
+// F8:attest 之后必须有带 process.exit(1) 的判红支;其后再有带 exit(1) 且点名「未判定」
+//     的独立 crash 兜底支,且都排在写缓存之前。按 AST 节点位置筛选,不取「第一个同名块」。
+function f8Verdict (srcText) {
+  const sf = parseJs(srcText)
+  const cache = collectCalls(sf, srcText, sf, 'writePushGateCache')
+  if (!cache.length) return { ok: false, why: '找不到写缓存点' }
+  const cacheAt = cache[0].getStart(sf)
+  const attests = collectCalls(sf, srcText, sf, 'attestGateBatchRun')
+    .filter((c) => c.arguments.length === 1 && nodeText(sf, srcText, c.arguments[0]) === 'true')
+  const attestAt = attests.length ? attests[attests.length - 1].getEnd() : 0
+  const failedIfs = collectIf(sf).filter((n) =>
+    conditionIs(sf, srcText, n, /failedGates\.length\s*>\s*0/) &&
+    n.getStart(sf) > attestAt && n.getEnd() < cacheAt && exit1In(sf, srcText, n.thenStatement))
+  if (!failedIfs.length)
+    return { ok: false, why: 'attest 之后/写缓存之前没有带 process.exit(1) 的判红支 ⇒ 真红也放行' }
+  const failedBlk = failedIfs[failedIfs.length - 1]
+  const crashIfs = collectIf(sf).filter((n) =>
+    conditionIs(sf, srcText, n, /crashedGates\.length\s*>\s*0/) &&
+    n.getStart(sf) > failedBlk.getEnd() && n.getEnd() < cacheAt &&
+    exit1In(sf, srcText, n.thenStatement) &&
+    literalsIn(sf, srcText, n.thenStatement).some((s) => s.includes('未判定')))
+  if (!crashIfs.length)
+    return { ok: false, why: '判红支之后/写缓存之前没有独立 crash 兜底(exit(1)+未判定)⇒ 没判被读成通过' }
+  return { ok: true, why: '判红支 exit(1) + 判红之后/缓存之前的 crash 兜底 exit(1)+未判定' }
+}
+
+const REAL_CRASH_STDERR =
+  "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' imported from G:\\IHUI-AI-wt-crash\\scripts\\scan-i18n-zh-residue.mjs\n" +
+  '    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\n' +
+  '    at moduleResolve (node:internal/modules/esm/resolve:768:8)\n' +
+  '\n' +
+  'Node.js v24.19.0\n'
+
+const GATE_VERDICT_STDERR =
+  '❌ 发现 3 处 ko.json 中文残留:\n  - aiChat.toast.orgSaved: "已保存"\n用法: node scripts/scan-i18n-zh-residue.mjs <locale>\n'
+
+test('C1 真仓崩溃文本 ⇒ crash,且 reason 点名指纹(不是"通过")', () => {
+  const d = gateFail.decideGateOutcome({ status: 1, signal: null, stderr: REAL_CRASH_STDERR })
+  assert.equal(d.kind, 'crash')
+  assert.match(d.reason, /ERR_MODULE_NOT_FOUND/)
+})
+
+test('C2 门自己打印的判红 ⇒ 必须仍是 red(借分流开后门就是关掉一把尺子)', () => {
+  const d = gateFail.decideGateOutcome({ status: 1, signal: null, stderr: GATE_VERDICT_STDERR })
+  assert.equal(d.kind, 'red')
+  assert.doesNotMatch(GATE_VERDICT_STDERR, gateFail.CRASH_MARKERS[0])
+})
+
+test('C3 中断三形态归 interrupt,与退出码语义一致(G-611)', () => {
+  assert.equal(gateFail.decideGateOutcome({ status: 75, stderr: '' }).kind, 'interrupt')
+  assert.equal(gateFail.decideGateOutcome({ status: 143, stderr: '' }).kind, 'interrupt')
+  assert.equal(gateFail.decideGateOutcome({ status: null, signal: 'SIGTERM', stderr: '' }).kind, 'interrupt')
+  // 反例:信号死时即使 stderr 里有崩溃指纹也仍归 interrupt(不得让崩溃抢走中断的传播语义)
+  assert.equal(
+    gateFail.decideGateOutcome({ status: null, signal: 'SIGKILL', stderr: REAL_CRASH_STDERR }).kind,
+    'interrupt',
+  )
+})
+
+test('C4 通过态与"红但无 stderr"两种边界都不误判成崩溃', () => {
+  assert.equal(gateFail.decideGateOutcome({ status: 0, stderr: REAL_CRASH_STDERR }).kind, 'pass')
+  assert.equal(gateFail.decideGateOutcome({ status: 1, stderr: '' }).kind, 'red')
+  assert.equal(gateFail.decideGateOutcome({ status: 1 }).kind, 'red')
+  assert.equal(gateFail.decideGateOutcome(undefined).kind, 'red')
+})
+
+test('C5 处置动作必须真给出来(光说"未判定"不写怎么清偿 = 下一条又会误读)', () => {
+  const line = gateFail.crashAdvisory(3)
+  assert.match(line, /3 道/)
+  assert.match(line, /pnpm install/)
+  assert.match(line, /--filter/, '必须写明**不带 --filter**(§12e 的剪枝坑)')
+})
+
+test('C6 装车:runner 必须真调这把尺子,并把崩溃单独成档(判函数体,不判相邻文本窗口)', () => {
+  const here = resolve(fileURLToPath(import.meta.url), '../../..')
+  // 2026-10-16 执行段外置:applyGateResult(调尺子的地方)逐字搬到 scripts/lib/guardian-executor.mjs,
+  // 本锁跟着落点走;链路改为 runner → executor → 本 lib(同目录 import),运行时仍是同一份实现。
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
+  const runner = readFileSync(resolve(here, 'scripts/guardian-runner.mjs'), 'utf-8')
+  assert.match(runner, /from '\.\/lib\/guardian-executor\.mjs'/, 'runner 没接执行器外置层(链断 = 双份实现)')
+  assert.match(src, /from '\.\/gate-failure-kind\.mjs'/, '执行器没引这把尺子')
+  assert.match(src, /decideGateOutcome\(\{/, '引了却没调用 = 提交链上一路绿灯')
+  assert.match(src, /crashedGates\.push\(/, '崩溃没被单独成档')
+  assert.match(src, /crashAdvisory\(/, '汇总里没给处置动作')
+  // 后果不变量 + 方向锁:不再用相邻文本窗口正则(2026-11-08 前置的 recordAndClassify 子支已证伪它),
+  // 改判 blocking 计数支的**函数体结构层级**。原 99-102 行的 doesNotMatch 恒真(to 就是首个
+  // failedGates.push 的位置,切片不含它),一并换成下面这条有牙的结构锁。
+  const v = blockingCountVerdict(src)
+  assert.equal(
+    v.ok,
+    true,
+    `失败计数的结构锁破了:${v.why} —— failed++ 必须是 blocking 支的直接子语句、在 crash/red 两个分流子支之前;` +
+      `被挪进任一子支 ⇒ 未判定/崩溃可能漏计失败`,
+  )
+
+  // ── 成对正反例/反向牙:证明这条断言既非恒真也非恒假 ──
+  // 骨架须是可完整解析的 JS:旧版尾部留着孤立的 `} catch (e) {}`,AST 解析器会报语法错。
+  const shape = (inner) => `
+    function sample (e, check) {
+      try {
+        const kindPre = decideGateOutcome({ status: e?.status ?? null, code: e?.code ?? null })
+        if (check.mode === 'blocking') {
+${inner}
+        }
+      } catch (e) {}
+    }`
+  const split = `        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({ id: check.id, reason: kind.reason })
+        } else {
+          failedGates.push({ id: check.id })
+        }`
+
+  // 正例:与现结构同形(前置 red 子支 + 顶层 failed++ + 两支分流)必须判绿
+  assert.equal(
+    blockingCountVerdict(shape(`        if (kindPre.kind === 'red') { recordAndClassify({ kind: 'red' }) }
+        failed++
+${split}`)).ok,
+    true,
+    '同形正例被判红 ⇒ 结构锁过于苛刻(会逼后人删断言)',
+  )
+
+  // 反例:任何一条被判绿都说明断言恒真,必须修
+  const bads = [
+    ['failed++ 挪进 kind===red 子支', `        if (kindPre.kind === 'red') {
+          recordAndClassify({ kind: 'red' })
+          failed++
+        }
+${split}`],
+    ['failed++ 挪进 crash 支', `        const kind = kindPre
+        if (kind.kind === 'crash') {
+          failed++
+          crashedGates.push({ id: check.id })
+        } else {
+          failedGates.push({ id: check.id })
+        }`],
+    ['failed++ 挪进 else 判红支', `        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({ id: check.id })
+        } else {
+          failed++
+          failedGates.push({ id: check.id })
+        }`],
+    ['真 failed++ 被删、只剩注释字样(注释剥离必须有牙)', `        // 注释里的 failed++ 不许算数
+        if (kindPre.kind === 'red') { recordAndClassify({ kind: 'red' }) }
+${split}`],
+    ['failed++ 挪到分流之后(后果不减被破坏)', `${split}
+        failed++`],
+    ['crash 支里塞 failedGates.push(方向锁有牙)', `        failed++
+        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({ id: check.id })
+          failedGates.push({ id: check.id })
+        } else {
+          failedGates.push({ id: check.id })
+        }`],
+  ]
+  for (const [name, inner] of bads) {
+    assert.equal(
+      blockingCountVerdict(shape(inner)).ok,
+      false,
+      `反向牙失效:「${name}」竟被判绿 ⇒ 断言恒真,锁不住真实回归`,
+    )
+  }
+})
+
+test('C7 stderr 必须仍被吐回上游(结构判:排除注释 decoy + options 括号配对)', () => {
+  const here = resolve(fileURLToPath(import.meta.url), '../../..')
+  // 2026-10-16 执行段外置:这段捕获/回吐在 applyGateResult 里,随执行段搬到 executor lib。
+  // 2026-11-09 收口:原 assert.match(src, /write\(gateStderr\)/) 跑在 raw 上,而 :1343 注释里
+  // 就有同名字样 ⇒ 删掉真回吐仍绿(恒真假绿);下半段 indexOf('})') 会被 options 内的 `})` 错切。
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
+  // 同形正例(脱离真实文件的最小骨架):证明锁不过苛
+  const good = [
+    '      if (gateStderr.length > 0) process.stderr.write(gateStderr)',
+    '    const child = spawn(process.execPath, plan.argv, {',
+    "      stdio: ['ignore', 'pipe', 'pipe'],",
+    '      cwd: process.cwd(),',
+    '      env: plan.env,',
+    '    })',
+  ].join('\n')
+  assert.equal(c7Verdict(good).ok, true, '同形正例被判红 ⇒ 结构锁过苛(会逼后人删断言)')
+  // 成对正例:真实 executor 必须判绿
+  const v = c7Verdict(src)
+  assert.equal(v.ok, true, `真实 executor 被判红:${v.why}`)
+  // 反向牙:构造被破坏的源码,断言必须判红
+  const bads = [
+    ['删真回吐(:1343 注释同名字样仍在)',
+      mutateSrc(src, '      if (gateStderr.length > 0) process.stderr.write(gateStderr)', '      // 真回吐被删')],
+    // 锚点带前置换行:`stdio: ['ignore','pipe','pipe']` 在 executor 有 4 处(308/332/623/1072),
+    // 前三处是 10 空格缩进,裸 6 空格锚点会成为它们的子串 ⇒ 必须钉住并行档那一条。
+    ['并行档 stdio 改回 inherit',
+      mutateSrc(src, "\n      stdio: ['ignore', 'pipe', 'pipe'],", "\n      stdio: ['ignore', 'inherit', 'pipe'],")],
+    ['把 stdio 行挪出 spawn options 对象',
+      mutateSrc(src,
+        "      stdio: ['ignore', 'pipe', 'pipe'],\n      env: plan.env,",
+        "      env: plan.env,\n    })\n    const stdio = ['ignore', 'pipe', 'pipe']\n    void {")],
+  ]
+  for (const [name, bad] of bads)
+    assert.equal(c7Verdict(bad).ok, false, `反向牙失效:「${name}」竟被判绿 ⇒ 断言恒真`)
+  // 合法改动仍绿:options 内出现含 `})` 的表达式(旧 indexOf 窗口会错切假红,括号配对不受影响)
+  // 锚点同样带上文(裸 `env: plan.env,` 在 executor 有 2 处),只改并行档 options 那一条。
+  const benign = mutateSrc(src,
+    "      stdio: ['ignore', 'pipe', 'pipe'],\n      env: plan.env,",
+    "      stdio: ['ignore', 'pipe', 'pipe'],\n      env: Object.assign({}, plan.env),")
+  assert.equal(c7Verdict(benign).ok, true, 'options 内出现 `})` 属合法改动,不得假红')
+})
+
+test('C8 端到端:真派生一个 import 失败的子进程,走与 runner 同一套捕获 ⇒ crash', () => {
+  // 不是构造字符串:字符串可以是抄来的,真子进程不能骗人。
+  // stdio 形态与 runner 逐字一致,否则这条证明不了 runner 的行为。
+  const dir = mkScratch('gfk-e2e-')
+  try {
+    const crashy = resolve(dir, 'crashy.mjs')
+    writeFileSync(crashy, "import 'no-such-package-xyz-8f2b1c'\n", 'utf-8')
+    const r = spawnSync(process.execPath, [crashy], {
+      windowsHide: true,
+      stdio: ['ignore', 'inherit', 'pipe'],
+      maxBuffer: 20 * 1024 * 1024,
+      encoding: 'utf-8',
+    })
+    assert.notEqual(r.status, 0, '子进程应非零退出')
+    const d = gateFail.decideGateOutcome({
+      status: r.status ?? null,
+      signal: r.signal ?? null,
+      stderr: r.stderr ?? '',
+    })
+    assert.equal(d.kind, 'crash', `真崩溃被读成了 ${d.kind};stderr=${String(r.stderr).slice(0, 160)}`)
+    assert.match(d.reason, /ERR_MODULE_NOT_FOUND/)
+
+    // 同一套捕获下,exit 1 但**不崩溃**的子进程必须仍判 red(不得把判红也分流掉)
+    const red = resolve(dir, 'red.mjs')
+    writeFileSync(red, "console.error('❌ 发现 2 处违规'); process.exit(1)\n", 'utf-8')
+    const r2 = spawnSync(process.execPath, [red], {
+      windowsHide: true,
+      stdio: ['ignore', 'inherit', 'pipe'],
+      encoding: 'utf-8',
+    })
+    assert.equal(
+      gateFail.decideGateOutcome({
+        status: r2.status ?? null,
+        signal: r2.signal ?? null,
+        stderr: r2.stderr ?? '',
+      }).kind,
+      'red',
+      '判据自己打印的红被分流成别的档 = 借修 bug 关掉一把尺子',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── F 族(2026-10-24):被兜底弄死的 ⇒ 未判定,不是判红 ─────────────────────────
+// 立因实测:门 30c check-stale-copy.mjs 被并行档 300010ms 看门狗 SIGKILL、零输出,
+// 而 applyGateResult 只把 status/signal/stderr 交给这把尺子(没传 error.code)⇒
+// status=null、signal=null ⇒ 一路落到最后一行 `判据判红(exit null)`,进了 failedGates(判红名单),
+// 汇总既无 crashedGates 也无未判定段。违反 §0.3「"没判"绝不写成"判过"」。
+// 这一族最容易走偏的方向是**反过来的**:把真红洗成"未判定"当逃逸口 ⇒ F2 与 F1 成对。
+const TIMEOUT_REASON = gateFail.FALLBACK_KILL_CODES.ETIMEDOUT
+const CAP_REASON = gateFail.FALLBACK_KILL_CODES.ENOBUFS
+
+test('F1 反向牙①:兜底超时(signal/status 皆无、只有 code)⇒ crash,不得是 red', () => {
+  for (const code of ['ETIMEDOUT', 'ENOBUFS']) {
+    const d = gateFail.decideGateOutcome({ status: null, signal: null, code, stderr: '' })
+    assert.notEqual(d.kind, 'red', `${code} 被读成判红 = 把"没判"写成"这道门发现了缺陷"(§0.3)`)
+    assert.notEqual(d.kind, 'pass', `${code} 更不可能算通过`)
+    assert.equal(d.kind, 'crash', `${code} 必须归已有的 crash(未判定)档,不新造第四种结局`)
+  }
+  // 两型 reason 必须可区分、且点名机制(不能都写"跑不起来"了事)
+  const t = gateFail.decideGateOutcome({ status: null, signal: null, code: 'ETIMEDOUT', stderr: '' })
+  const c = gateFail.decideGateOutcome({ status: null, signal: null, code: 'ENOBUFS', stderr: '' })
+  assert.match(t.reason, /超时看门狗/)
+  assert.match(c.reason, /20MB 上限/)
+  assert.notEqual(t.reason, c.reason)
+})
+
+test('F2 反向牙②:真判红必须仍是 red —— 不许被这次改动洗成未判定(最危险的失效方向)', () => {
+  // ① 无 code 的正常判红(并行/串行两条路都长这样)
+  assert.equal(gateFail.decideGateOutcome({ status: 1, signal: null, code: null, stderr: '' }).kind, 'red')
+  // ② 门自己打印了违规清单 ⇒ 仍 red(与 C2 同向,这里补上"带 code 键但取不到"的形态)
+  assert.equal(
+    gateFail.decideGateOutcome({ status: 1, signal: null, stderr: GATE_VERDICT_STDERR }).kind,
+    'red',
+  )
+  // ③ 只认具名兜底码:其它 error.code(如 EACCES/EPERM)不得被顺路归进"未判定"当逃逸口
+  for (const code of ['EACCES', 'EPERM', 'ERR_MODULE_NOT_FOUND', '', 'ETIMEDOUTX']) {
+    assert.equal(
+      gateFail.decideGateOutcome({ status: 1, signal: null, code, stderr: '' }).kind,
+      'red',
+      `未知 code=${JSON.stringify(code)} 被归成未判定 = 给任意失败开了逃口`,
+    )
+  }
+  // ④ 判据 exit 2(取不到输入那一族由门自己打印)照旧 red,不被兜底抢走
+  assert.equal(gateFail.decideGateOutcome({ status: 2, code: 'EAGAIN', stderr: '' }).kind, 'red')
+})
+
+test('F3 兜底码排在"退出码 0 ⇒ pass"之前:输出被截断/进程被杀时不得算通过', () => {
+  // 并行档 ENOBUFS 的真实形态:job.status 是真实退出码(可能是 0),error 只多一个 code
+  assert.equal(gateFail.decideGateOutcome({ status: 0, signal: null, code: 'ENOBUFS' }).kind, 'crash')
+  assert.equal(gateFail.decideGateOutcome({ status: 0, signal: null, code: 'ETIMEDOUT' }).kind, 'crash')
+  // 对照:没有兜底介入时 exit 0 仍算通过(摘掉 code 即翻回 pass ⇒ 这条断言有牙)
+  assert.equal(gateFail.decideGateOutcome({ status: 0, signal: null }).kind, 'pass')
+  // 兜底码也排在崩溃指纹之前:reason 说"超时"而不是"跑不起来:SyntaxError"(两类成因不混)
+  assert.match(
+    gateFail.decideGateOutcome({ status: null, code: 'ETIMEDOUT', stderr: REAL_CRASH_STDERR }).reason,
+    /超时看门狗/,
+  )
+})
+
+test('F4 端到端:真派生一个"超时被杀"和一个"输出超限"的子进程 ⇒ 都是 crash', () => {
+  // 不是构造字符串:字符串可以抄,真子进程不能骗人(与 C8 同理)。
+  // Node 自己在这两条路上给出的 error.code 正是执行器合成的那两个同名码 ⇒ 同一把尺子读同一条支。
+  const slow = spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 5000)'], {
+    timeout: 300,
+    windowsHide: true,
+    stdio: ['ignore', 'ignore', 'pipe'],
+    encoding: 'utf-8',
+  })
+  assert.equal(slow.error?.code, 'ETIMEDOUT', `夹具没造出超时码:${String(slow.error)}`)
+  const dt = gateFail.decideGateOutcome({
+    status: slow.status ?? null,
+    signal: slow.signal ?? null,
+    code: slow.error?.code ?? null,
+    stderr: slow.stderr ?? '',
+  })
+  assert.equal(dt.kind, 'crash', `真超时被读成 ${dt.kind}(${dt.reason})`)
+
+  const noisy = spawnSync(process.execPath, ['-e', 'console.log("x".repeat(2_000_000))'], {
+    maxBuffer: 1024,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf-8',
+  })
+  assert.equal(noisy.error?.code, 'ENOBUFS', `夹具没造出超限码:${String(noisy.error)}`)
+  const dc = gateFail.decideGateOutcome({
+    status: noisy.status ?? null,
+    signal: noisy.signal ?? null,
+    code: noisy.error?.code ?? null,
+    stderr: noisy.stderr ?? '',
+  })
+  assert.equal(dc.kind, 'crash', `真输出超限被读成 ${dc.kind}(${dc.reason})`)
+})
+
+test('F5 后果不变量:兜底码不被传播成 exit 75,且执行器真的把 code 传进这把尺子', () => {
+  // "未判定"不得演变成"跳过/重试放行":shouldPropagateAsInterrupt 对这两个 code 必须为 false
+  // (它只看 status/signal —— 2026-10-24 现测:false/false)。若哪天有人扩它,这条先响。
+  for (const code of ['ETIMEDOUT', 'ENOBUFS']) {
+    const e = new Error('守门脚本超时未退出')
+    e.code = code
+    assert.equal(
+      shouldPropagateAsInterrupt(e),
+      false,
+      `${code} 被扩进中断传播 ⇒ 兜底会变成 75 重试,那就改了后果而不只是改了归因`,
+    )
+  }
+  const here = resolve(fileURLToPath(import.meta.url), '../../..')
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
+  // 2026-11-09 收口:原 indexOf('})') 窗口会被参数对象内的 `})` 错切(假红);
+  // 原 doesNotMatch 的右边界是文本 `} else {`,else 判红支整支在窗外 ⇒ 硬编码塞进判红支也漏判(假绿)。
+  // 同形正例(最小骨架):证明锁不过苛
+  const good = [
+    '      const kindPre = decideGateOutcome({',
+    '        status: e?.status ?? null,',
+    '        code: e?.code ?? null,',
+    '        stderr: gateStderr,',
+    '      })',
+    '      console.error(crashNextStep(kind.reason))',
+    '      console.error(crashAdvisory(crashedGates.length, crashedGates.map((g) => g.reason)))',
+    "      if (kind.kind === 'crash') {",
+    '        crashedGates.push({ id: check.id })',
+    '      } else {',
+    '        failedGates.push({ id: check.id })',
+    '      }',
+  ].join('\n')
+  assert.equal(f5Verdict(good).ok, true, '同形正例被判红 ⇒ 结构锁过苛(会逼后人删断言)')
+  // 成对正例:真实 executor 必须判绿
+  const v = f5Verdict(src)
+  assert.equal(v.ok, true, `真实 executor 被判红:${v.why}`)
+  // 反向牙:构造被破坏的源码,断言必须判红
+  const bads = [
+    ['删 code 键(兜底弄死仍被读成判红,本条主罪状)',
+      mutateSrc(src, '        code: e?.code ?? null,\n', '')],
+    ['crash 逐条文案写死装依赖(删 crashNextStep 单源)',
+      mutateSrc(src, '${crashNextStep(kind.reason)}', "'先取 build 锁再跑全量 pnpm install'")],
+    ['crash 支里写死"先跑全量 pnpm install"',
+      mutateSrc(src, '          crashedGates.push({',
+        "          console.error('先跑全量 pnpm install')\n          crashedGates.push({")],
+    ['硬编码塞进 else 判红支(旧 doesNotMatch 窗口只到 `} else {`,必漏)',
+      mutateSrc(src, '          failedGates.push({ id: check.id, label: check.label, script: check.script })',
+        "          console.error('先跑全量 pnpm install')\n          failedGates.push({ id: check.id, label: check.label, script: check.script })")],
+    ['crash 支注释里塞 `} else {` 字样 + else 支写死出路(旧窗口边界被截断 ⇒ 假绿)',
+      mutateSrc(mutateSrc(src,
+        '          crashedGates.push({',
+        '          // } else { 只是注释字样\n          crashedGates.push({'),
+        '          failedGates.push({ id: check.id, label: check.label, script: check.script })',
+        "          console.error('先跑全量 pnpm install')\n          failedGates.push({ id: check.id, label: check.label, script: check.script })")],
+  ]
+  for (const [name, bad] of bads)
+    assert.equal(f5Verdict(bad).ok, false, `反向牙失效:「${name}」竟被判绿 ⇒ 断言恒真`)
+})
+
+test('F6 措辞单源:crashNextStep 三型各异,反查只认清单原文', () => {
+  const timeoutStep = gateFail.crashNextStep(TIMEOUT_REASON)
+  const capStep = gateFail.crashNextStep(CAP_REASON)
+  const depStep = gateFail.crashNextStep('跑不起来:ERR_MODULE_NOT_FOUND')
+  assert.match(timeoutStep, /GUARDIAN_GATE_TIMEOUT_MS/)
+  assert.match(timeoutStep, /不要/, '必须显式禁止"调大旋钮消红"(§12e)')
+  assert.match(capStep, /20MB/)
+  assert.match(depStep, /pnpm install/)
+  // 〔2026-10-29 立〕依赖型这一支必须连**串行化**一起给:本仓多会话共写一棵树,过去只写"跑全量 install",
+  // 每个看见缺依赖的会话各开一枚 ⇒ 并发互踩把 node_modules 掏成空目录(实测各端全丢、根层 48 包空)。
+  // 给出的出路本身成了故障源 ⇒ 现在必须点名取锁与禁并发,且"不许提装依赖"那一侧的反例照旧成立。
+  assert.match(depStep, /deploy-lock|build 锁/, '依赖型必须点名先取 build 锁(并发 install 会互踩)')
+  assert.match(depStep, /并发/, '依赖型必须显式禁止并发安装')
+  assert.equal(gateFail.fallbackCodeOfReason(TIMEOUT_REASON), 'ETIMEDOUT')
+  assert.equal(gateFail.fallbackCodeOfReason(CAP_REASON), 'ENOBUFS')
+  assert.equal(gateFail.fallbackCodeOfReason('随便一句人话'), null, '反查不得靠"看着像"')
+  assert.equal(gateFail.fallbackCodeOfReason(undefined), null)
+})
+
+test('F7 汇总分型报数:兜底型不会被劝去装依赖,依赖型仍给出唯一出路', () => {
+  const mixed = gateFail.crashAdvisory(2, [TIMEOUT_REASON, '跑不起来:SyntaxError: x'])
+  assert.match(mixed, /2 道/)
+  assert.match(mixed, /被兜底弄死型 1 道/)
+  assert.match(mixed, /缺依赖型 1 道/)
+  assert.match(mixed, /--filter/, '依赖型必须写明**不带 --filter**(§12e 的剪枝坑)')
+  assert.match(mixed, /build 锁|deploy-lock/, '依赖型必须点名先取锁(并发安装会互踩)')
+  assert.match(mixed, /禁止并发安装/, '并发禁令必须出现在汇总里,不能只写在逐条档')
+  const onlyFallback = gateFail.crashAdvisory(1, [CAP_REASON])
+  assert.match(onlyFallback, /1 道/)
+  assert.doesNotMatch(onlyFallback, /pnpm install/, '对超限截断喊装依赖 = 跑不通的出路(§0.8)')
+  // 不传 reasons(旧调用形态)必须退化成"全按依赖型说",不能报出 0 道依赖型却不给任何出路
+  const legacy = gateFail.crashAdvisory(3)
+  assert.match(legacy, /缺依赖型 3 道/)
+  assert.match(legacy, /pnpm install/)
+})
+
+test('F8 末行后果锁:crash 一支必须自己把批量顶成非零(结构判:块体内 exit,不用次序链/<160/措辞锚)', () => {
+  // 立因(不是假想,是量出来的):`IHUI_GATE_FAST=1 GUARDIAN_GATE_TIMEOUT_MS=1 node scripts/guardian-runner.mjs --staged`
+  // ⇒ 汇总打印"111 道门跑不起来(未判定)",而**批量 exit 0** —— 末尾只有判红支会 exit(1),
+  // crash 支只 failed++。于是"改归因"当场演变成"改后果"(还顺带让 push-gate 那侧按 failed 判通过)。
+  // 2026-11-09 收口:原用 7 个 indexOf 次序链 + `failedExit - stopHint < 160` 魔法距离 +
+  // `GUARDIAN_STOP_ON_FIRST=1)` 措辞锚,实测「合法插 200 字注释」与「改一句提示措辞」都会假红,
+  // 且 `indexOf('process.exit(1)')` 可能被别处的 exit 顶替 ⇒ 改判块体结构(与 C6/C7/F5 同范式)。
+  const here = resolve(fileURLToPath(import.meta.url), '../../..')
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
+  // 同形正例(最小汇总段骨架):证明锁不过苛
+  const good = [
+    '  attestGateBatchRun(true)',
+    '  if (crashedGates.length > 0) { console.error("清单") }',
+    '  if (failedGates.length > 0) {',
+    "    console.error('GUARDIAN_STOP_ON_FIRST=1')",
+    '    process.exit(1)',
+    '  }',
+    '  if (crashedGates.length > 0) {',
+    "    console.error('未判定 ≠ 通过')",
+    '    process.exit(1)',
+    '  }',
+    '  writePushGateCache({ failed })',
+  ].join('\n')
+  assert.equal(f8Verdict(good).ok, true, '同形正例被判红 ⇒ 结构锁过苛(会逼后人删断言)')
+  // 成对正例:真实 executor 必须判绿
+  const v = f8Verdict(src)
+  assert.equal(v.ok, true, `真实 executor 被判红:${v.why}`)
+  // 反向牙:构造被破坏的源码,断言必须判红
+  const bads = [
+    ['删判红支 exit(1) ⇒ 真红也放行',
+      mutateSrc(src,
+        '    process.exit(1)\n  }\n  // 未判定 ≠ 通过',
+        '    // exit removed\n  }\n  // 未判定 ≠ 通过')],
+    ['删 crash 兜底 exit(1) ⇒ 只剩打印照样 exit 0',
+      mutateSrc(src,
+        '    process.exit(1)\n  }\n  // ── 未判定',
+        '    // exit removed\n  }\n  // ── 未判定')],
+    ['兜底支 exit(1) 改成 exit(0)',
+      mutateSrc(src,
+        '    process.exit(1)\n  }\n  // ── 未判定',
+        '    process.exit(0)\n  }\n  // ── 未判定')],
+  ]
+  for (const [name, bad] of bads)
+    assert.equal(f8Verdict(bad).ok, false, `反向牙失效:「${name}」竟被判绿 ⇒ 断言恒真`)
+  // 合法改动仍绿:证明去掉了旧 <160 魔法距离与 GUARDIAN_STOP_ON_FIRST=1) 措辞锚的假红
+  const benigns = [
+    ['改 GUARDIAN_STOP_ON_FIRST 提示措辞',
+      mutateSrc(src, '(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)', '(紧急只跑首个即停:改了措辞)')],
+    ['判红支内插入 200 字注释(旧 failedExit - stopHint < 160 会假红)',
+      mutateSrc(src,
+        '    process.exit(1)\n  }\n  // 未判定 ≠ 通过',
+        '    // ' + 'x'.repeat(200) + '\n    process.exit(1)\n  }\n  // 未判定 ≠ 通过')],
+  ]
+  for (const [name, ok] of benigns)
+    assert.equal(f8Verdict(ok).ok, true, `合法改动被判红 ⇒ 结构锁过苛(会逼后人删断言):「${name}」`)
+})
+
+test('F9 §0.3 未判定独成一档:exit 2 + 门自称未判定 ⇒ undetermined,且四条反向牙不许被削', () => {
+  // 正例:门按 §0.3 交付(取不到输入)⇒ 独成第五档,不并进 red/failedGates
+  const und = gateFail.decideGateOutcome({
+    status: gateFail.UNDETERMINED_EXIT_CODE,
+    signal: null,
+    stderr: '[check-x] ⚠️ 未判定:HEAD 面取不到(git show 失败)',
+  })
+  assert.equal(
+    und.kind,
+    'undetermined',
+    '门自称未判定却被并进判红 ⇒ 与本次提交无关的红会逼人 --no-verify、连带废掉全部守门(§12e/§12f)',
+  )
+  assert.match(und.reason, /未判定/)
+  // 反向牙①:只给 exit 2 而门没自称未判定 ⇒ 仍判红(本仓有刻意用 exit 2 顶红的尺子)
+  assert.equal(
+    gateFail.decideGateOutcome({ status: 2, signal: null, stderr: GATE_VERDICT_STDERR }).kind,
+    'red',
+    '仅凭退出码 2 放行 = 逃逸口:刻意用 exit 2 顶红的判据会被洗成未判定',
+  )
+  // 反向牙②:自称未判定却是 exit 1 ⇒ 仍是 red(那是门体口径错,不许记成未判定)
+  assert.equal(gateFail.decideGateOutcome({ status: 1, signal: null, stderr: '未判定' }).kind, 'red')
+  // 反向牙③:有信号且无码 ⇒ interrupt 优先(信号不是门自己交付的结论)
+  assert.equal(
+    gateFail.decideGateOutcome({ status: null, signal: 'SIGKILL', stderr: '未判定' }).kind,
+    'interrupt',
+  )
+  // 反向牙③b:exit 2 与 signal 同给属于异常组合 ⇒ detectUndetermined 显式拒绝信号 ⇒ 落 red
+  assert.equal(
+    gateFail.decideGateOutcome({ status: 2, signal: 'SIGKILL', stderr: '未判定' }).kind,
+    'red',
+  )
+  // 反向牙④:崩溃指纹排在未判定之前 ⇒ 同时出现按"跑不起来"处理(更严那档)
+  assert.equal(
+    gateFail.decideGateOutcome({
+      status: 2,
+      signal: null,
+      stderr: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'x'\n未判定",
+    }).kind,
+    'crash',
+  )
+  // 纯函数面:detectUndetermined 返回命中那句话(点名用),判不了时返回 null 而不是布尔
+  assert.match(
+    gateFail.detectUndetermined({ status: 2, signal: null, stderr: '无法判定:面为空' }),
+    /无法判定/,
+  )
+  assert.equal(gateFail.detectUndetermined({ status: 0, signal: null, stderr: '未判定' }), null)
+})
+// F10 仓内 import↔export 断链单独分型(2026-11-05 门 299 实测):SyntaxError "does not provide an
+// export named" 此前落 crash 的默认支 ⇒ 出路被写成「先取 build 锁再跑全量 pnpm install」,而断链
+// 与依赖无关(实测按该出路跑完 install 崩溃照旧)。归类仍是 crash(后果一项不减,§12e 不借修文案
+// 削判据),只是出路改为点名真实首行 + 两侧版本对账。反向牙:非断链的 SyntaxError 与缺依赖型措辞不动。
+const EXPORT_BREAK_STDERR =
+  'file:///G:/IHUI-AI/scripts/check-miniapp-shell-form.mjs:50\n' +
+  '  retirementShortfall,\n' +
+  "SyntaxError: The requested module './lib/miniapp-shell-form.mjs' does not provide an export named 'retirementShortfall'\n" +
+  '    at ModuleJob._instantiate (node:internal/modules/esm/module_job:146:21)\n'
+
+test('F10 断链型:仍归 crash(后果不减),出路点名导出名与两侧对账,不得喊 pnpm install', () => {
+  const d = gateFail.decideGateOutcome({ status: 1, signal: null, stderr: EXPORT_BREAK_STDERR })
+  assert.equal(d.kind, 'crash', '断链不得被洗成 pass/red —— crash 档后果照旧(批量非零退出)')
+  assert.match(
+    d.reason,
+    /does not provide an export named 'retirementShortfall'/,
+    'reason 必须带缺失的导出名(只留 SyntaxError 定位不到哪根链断了)',
+  )
+  const step = gateFail.crashNextStep(d.reason)
+  assert.doesNotMatch(step, /先取 build 锁|再跑全量 pnpm install/, '断链出路不得是装依赖动作(§0.8 跑不通的出路,本次实测误归因本体)')
+  assert.match(step, /git show HEAD/, '出路必须给出两侧版本对账动作')
+  const mixed = gateFail.crashAdvisory(1, [d.reason])
+  assert.match(mixed, /断链型 1 道/)
+  assert.doesNotMatch(mixed, /缺依赖型 1 道/, '断链被计进缺依赖型 = 误归因回归')
+  // 反向牙①:非断链的普通 SyntaxError 仍走缺依赖默认档(只拆这一型,不动其它档)
+  assert.match(gateFail.crashAdvisory(1, ['跑不起来:SyntaxError: x']), /缺依赖型 1 道/)
+  assert.match(gateFail.crashNextStep('跑不起来:ERR_MODULE_NOT_FOUND'), /pnpm install/, '真缺依赖的出路不得被这次拆分削掉')
+  // 反向牙②:断链指纹排在 /SyntaxError: / 之前 —— 两条同时命中时取更具体的那条
+  const iBreak = gateFail.CRASH_MARKERS.findIndex((re) => re === gateFail.EXPORT_BREAK_RE)
+  const iSyntax = gateFail.CRASH_MARKERS.findIndex((re) => re.source === 'SyntaxError: ')
+  assert.ok(iBreak >= 0 && iBreak < iSyntax, '断链指纹必须优先于泛化 SyntaxError 指纹')
+})
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,123 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 嵌入代理的 SSRF 回归锁:原实现 `redirect:'follow'` + 事后检查 upstream.url,
+ * 检查时内网请求已经发出(盲 SSRF)。修复后逐跳 manual 跟随,落点请求前先判禁。
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import Fastify, { type FastifyInstance } from 'fastify'
+
+import { embedProxyRoutes } from '../src/routes/embed-proxy.js'
+
+// 2026-10-31 安全强化第 15 批(M3):embed-proxy 建连接 guarded dispatcher 后改走
+// undici fetch(全局 fetch 不认 init.dispatcher),拦截点从全局 fetch 换成 undici
+// fetch —— 测试语义不变:断言"哪些 URL 真的发出了请求"。
+const undiciSpy = vi.hoisted(() => ({ fetch: vi.fn() }))
+
+vi.mock('undici', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual, fetch: undiciSpy.fetch }
+})
+
+const redirectTo = (location: string, status = 302): Response =>
+  ({
+    ok: false,
+    status,
+    url: '',
+    headers: new Headers({ location }),
+    body: null,
+    text: async () => '',
+  }) as unknown as Response
+
+let app: FastifyInstance
+
+beforeEach(async () => {
+  app = Fastify()
+  await app.register(embedProxyRoutes)
+  await app.ready()
+})
+
+afterEach(async () => {
+  await app.close()
+  undiciSpy.fetch.mockReset()
+})
+
+describe('/raw 重定向落点', () => {
+  it('302 落点指向私网 ⇒ 落点绝不发出请求(首跳只发一次)', async () => {
+    const fetchMock = undiciSpy.fetch
+    fetchMock.mockImplementationOnce(async () => redirectTo('http://192.168.0.5/secret'))
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/raw?url=${encodeURIComponent('http://8.8.8.8/')}`,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://8.8.8.8/')
+    expect(fetchMock.mock.calls.map((c) => String(c[0]))).not.toContain('http://192.168.0.5/secret')
+    expect(res.body).toContain('内网')
+  })
+
+  it('首跳就是私网 ⇒ 403,且一次请求都没发(对照)', async () => {
+    const fetchMock = undiciSpy.fetch
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/raw?url=${encodeURIComponent('http://10.1.2.3/')}`,
+    })
+
+    expect(res.statusCode).toBe(403)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * 同源沙箱回归锁(2026-10-31 安全强化第 10 批):/raw 把第三方 HTML 以本 API 源
+ * 输出,直接导航场景(无 iframe sandbox 属性兜底)曾是反射型同源 XSS —— 第三方
+ * 脚本可带登录态取 CSRF token 以受害者身份发状态变更。响应必须带 CSP sandbox
+ * (与前端 iframe 档同语义:opaque origin,无 allow-same-origin)。
+ */
+describe('/raw 同源沙箱 CSP', () => {
+  it('HTML 响应必须带 CSP sandbox 且不含 allow-same-origin', async () => {
+    const html = '<html><body><h1>upstream</h1></body></html>'
+    undiciSpy.fetch.mockImplementationOnce(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          url: 'http://8.8.8.8/',
+          headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+          body: null,
+          text: async () => html,
+          arrayBuffer: async () => new TextEncoder().encode(html).buffer,
+        }) as unknown as Response,
+    )
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/raw?url=${encodeURIComponent('http://8.8.8.8/')}`,
+    })
+
+    expect(res.statusCode).toBe(200)
+    const csp = res.headers['content-security-policy']
+    expect(String(csp)).toContain('sandbox')
+    expect(String(csp)).not.toContain('allow-same-origin')
+  })
+
+  it('早退路径(内网 403 错误页)同样带 CSP', async () => {
+    undiciSpy.fetch.mockImplementation(async () => {
+      throw new Error('should not fetch')
+    })
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/raw?url=${encodeURIComponent('http://10.1.2.3/')}`,
+    })
+
+    expect(res.statusCode).toBe(403)
+    expect(String(res.headers['content-security-policy'])).toContain('sandbox')
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

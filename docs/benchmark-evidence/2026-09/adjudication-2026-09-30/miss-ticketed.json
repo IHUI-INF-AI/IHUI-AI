@@ -1,0 +1,962 @@
+[
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.selectionActions.addToQuickNotes",
+  "text": "添加到速记板",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.selectionActions.addedToQuickNotes",
+  "text": "已添加到速记板",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.open",
+  "text": "打开速记板",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.close",
+  "text": "关闭速记板",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.closeSearch",
+  "text": "退出搜索",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.addImage",
+  "text": "添加图片",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.dropImages",
+  "text": "拖放图片到这里",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageLoadFailed",
+  "text": "图片无法加载",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imagePreviewClose",
+  "text": "关闭图片预览",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imagePreviewInstructions",
+  "text": "图片查看区域。滚动缩放，放大后拖动图片，双击切换实际大小与适合窗口。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imagePreviewZoomOut",
+  "text": "缩小图片",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imagePreviewZoomIn",
+  "text": "放大图片",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imagePreviewFit",
+  "text": "适合窗口",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imagePreviewZoomLevel",
+  "text": "当前缩放比例 {{zoom}}%",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotationConfirmFailed",
+  "text": "无法应用图片批注",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.toolbar",
+  "text": "图片批注工具",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.properties",
+  "text": "工具属性",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.shapeMenu",
+  "text": "选择形状",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.drawingMenu",
+  "text": "选择绘制工具",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.rectangle",
+  "text": "矩形",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.ellipse",
+  "text": "椭圆",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.line",
+  "text": "直线",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.pen",
+  "text": "画笔",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.mosaic",
+  "text": "马赛克",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.deleteSelection",
+  "text": "删除所选批注",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.width",
+  "text": "粗细",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.widthThin",
+  "text": "细",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.widthThick",
+  "text": "粗",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.arrow",
+  "text": "箭头",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.arrowNone",
+  "text": "无线头",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.arrowEnd",
+  "text": "末端箭头",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.arrowBoth",
+  "text": "双向箭头",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.textSmall",
+  "text": "小",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.textLarge",
+  "text": "大",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.textStyle",
+  "text": "文字样式",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.textPlain",
+  "text": "纯文字",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.textFilled",
+  "text": "背景填充",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.textPlaceholder",
+  "text": "输入批注文字",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.canvasInstructions",
+  "text": "图片批注区域。拖动绘制；选择批注后可移动、缩放、修改属性或删除。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.confirm",
+  "text": "应用批注",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageAnnotation.cancel",
+  "text": "放弃批注",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.addImageFailed",
+  "text": "图片没有添加到速记板",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.pasteImagesFailed",
+  "text": "无法粘贴这条速记的图片",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageErrors.count",
+  "text": "每条速记最多添加 5 张图片。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageErrors.format",
+  "text": "仅支持 PNG、JPEG、WebP 和 GIF 图片。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageErrors.emptyFile",
+  "text": "图片内容为空，无法添加。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageErrors.itemSize",
+  "text": "单张图片不能超过 10 MB。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.imageErrors.invalidPayload",
+  "text": "复制的速记板图片数据无效，请改用普通文本粘贴。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.errors.invalidData",
+  "text": "这条速记无法处理。重新打开速记板后重试。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.errors.tryAgain",
+  "text": "检查磁盘与系统权限后重试。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.loading",
+  "text": "正在读取速记板记录…",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.emptyTitle",
+  "text": "还没有速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.sourceChat",
+  "text": "来自“{{title}}”",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.sourceUnknownChat",
+  "text": "来自任务",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.copy",
+  "text": "复制速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.copyFailed",
+  "text": "复制速记失败",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.moreActions",
+  "text": "打开速记操作菜单",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.organize",
+  "text": "整理速记板",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.filterLabel",
+  "text": "显示范围",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.clearFilter",
+  "text": "清除“{{filter}}”筛选",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.groupByLabel",
+  "text": "分组方式",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.groupBySource",
+  "text": "任务来源",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.onboardingUnderline",
+  "text": "还没准备发送的",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.archiveRecord",
+  "text": "归档速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.restoreRecord",
+  "text": "恢复速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.unknownTime",
+  "text": "时间未知",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.delete",
+  "text": "删除速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.deleteConfirmTitle",
+  "text": "删除这条速记？",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.deleteConfirmDescription",
+  "text": "正文和图片附件将永久删除，此操作无法撤销。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.deleteCancel",
+  "text": "保留记录",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.deleteConfirm",
+  "text": "删除记录",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.loadFailed",
+  "text": "速记板暂时无法读取。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.viewStateSaveFailed",
+  "text": "这次视图选择尚未记住。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.createNote",
+  "text": "添加速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.editorCreateTitle",
+  "text": "新建速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.editorEditTitle",
+  "text": "编辑速记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.editorSaving",
+  "text": "正在保存…",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.textTooLong",
+  "text": "速记正文不能超过 3000 个字符。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.discardTitle",
+  "text": "保存这次修改？",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.discardDescription",
+  "text": "你可以保存后关闭、放弃修改，或继续编辑。",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.discardChanges",
+  "text": "放弃修改",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.continueEditing",
+  "text": "继续编辑",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.clearFormatting",
+  "text": "清除所有样式",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.serif",
+  "text": "衬线字体",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.sansSerif",
+  "text": "无衬线字体",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.highlight",
+  "text": "标记",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.decorationColor",
+  "text": "装饰颜色",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.backToFormatting",
+  "text": "返回格式操作",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.quickNotes.colors.yellow",
+  "text": "黄色",
+  "ticket": "D164"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.*",
+  "key": "chatSession.highlights.recap.expand",
+  "text": "展开任务回顾",
+  "ticket": "D164-邻域(待裁)"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.pinError",
+  "text": "无法更改分组置顶状态",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.moveSessionAction",
+  "text": "移动到分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.moveSelectedAction",
+  "text": "移动所选任务到分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.archiveSessionsAction",
+  "text": "归档分组内任务",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.clearAction",
+  "text": "解散分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.moveError",
+  "text": "无法移动任务到分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.archiveSessionsError",
+  "text": "无法归档分组内任务",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.clearError",
+  "text": "无法解散分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.archiveSessionsDescription",
+  "text": "分组内的任务将进入归档，分组会保留供之后继续使用。",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.archiveSessionsConfirm",
+  "text": "归档任务",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.clearConfirm",
+  "text": "解散分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.namePlaceholder",
+  "text": "例如：本周重点",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.colorPicker.hue",
+  "text": "色相",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.colorPicker.saturation",
+  "text": "饱和度",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.colorPicker.brightness",
+  "text": "亮度",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.colorPicker.hex",
+  "text": "HEX 色值",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.colorPicker.invalid",
+  "text": "请输入 # 开头的六位 HEX 色值",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.color.red",
+  "text": "红色",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.color.yellow",
+  "text": "黄色",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shapeLabel",
+  "text": "标记形状",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shape.circle",
+  "text": "圆形",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shape.diamond",
+  "text": "菱形",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shape.square",
+  "text": "方形",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shape.triangle",
+  "text": "三角形",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shape.hexagon",
+  "text": "六边形",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.shape.star",
+  "text": "星形",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.saveError",
+  "text": "无法保存分组",
+  "ticket": "D165"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "sidebarGroup.*",
+  "key": "sidebarGroup.saving",
+  "text": "正在保存…",
+  "ticket": "D165"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "(未判定)",
+  "key": "AUTH_NETWORK",
+  "text": "无法连接登录服务",
+  "ticket": "D158/D159/D161"
+ },
+ {
+  "tag": "附录_E",
+  "sec": "附录 E",
+  "fam": "(未判定)",
+  "key": "QODER_EXECUTION_NETWORK_UNAVAILABLE",
+  "text": "无法连接执行服务",
+  "ticket": "D158/D159/D161"
+ }
+]

@@ -1,0 +1,258 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 本包自有逻辑的不变量测试面。**刻意只打在其他判据看不见的那一格**:
+// 档位表四处对账(源 ↔ preset ↔ tokens.css ↔ 各端副本)由守门 77/93 负责,本文件不重复;
+// 这里锁的是**同一张表内部的派生算术**(px → rem → rpx → CSS 变量名)与两个纯函数
+// (`cn()`、`extractCssVars()`)—— 派生写错时按路径读 src 的守门仍然全绿,
+// 因为它们比的是"值相不相等",而派生恒等式没有任何一道门在算。
+//
+// 特别地:`scripts/check-cross-end-tokens.mjs`(守门 93)直接 import `extractCssVars` /
+// `validateTokenConsistency` 作它自己的取值内核 —— 一门依赖的纯函数若在本包内零测试,
+// 那个依赖就是"没有尺子的尺子"。下面这两条是 93 的地基。
+
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+import { cn } from '../src/cn.js'
+import {
+  ELEVATION_CSS,
+  ELEVATION_CSS_VAR,
+  ELEVATION_STEPS,
+  ELEVATION_STEP_NAMES,
+} from '../src/elevation.js'
+import { GEOMETRY_PX, rnGeometry, TARO_RPX_PER_PX, taroGeometry } from '../src/geometry.js'
+import {
+  pxToStep,
+  RADIUS_CSS_PX,
+  RADIUS_CSS_VAR,
+  RADIUS_REM,
+  RADIUS_SCALE_PX,
+  rpxToStep,
+  RADIUS_STEPS,
+  rnRadius,
+} from '../src/radius.js'
+import {
+  extractCssVars,
+  listMissingTokens,
+  validateTokenConsistency,
+} from '../src/token-registry.js'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const TOKENS_CSS = readFileSync(join(HERE, '..', 'src', 'styles', 'tokens.css'), 'utf8')
+
+describe('圆角档位表:档位取值 + 表内派生算术', () => {
+  // 档位取值是设计决定,改动必须是有意的(同时改这一行),不能是"顺手调一个数字"。
+  it('档位取值 = xs2/sm4/md6/lg8/xl12/2xl16,默认档 8', () => {
+    expect(RADIUS_STEPS).toEqual({
+      xs: 2,
+      sm: 4,
+      DEFAULT: 8,
+      md: 6,
+      lg: 8,
+      xl: 12,
+      '2xl': 16,
+    })
+  })
+
+  it('派生表的键集与档位表逐一相同(漏一档 = 那一档在某一端没有出口)', () => {
+    const steps = Object.keys(RADIUS_STEPS).sort()
+    expect(Object.keys(RADIUS_REM).sort()).toEqual(steps)
+    expect(Object.keys(RADIUS_CSS_PX).sort()).toEqual(steps)
+    expect(Object.keys(RADIUS_CSS_VAR).sort()).toEqual(steps)
+  })
+
+  it('RADIUS_REM 逐档 === px/16(1rem = 16px 这条换算只能有一处算)', () => {
+    for (const [step, px] of Object.entries(RADIUS_STEPS)) {
+      expect(RADIUS_REM[step]).toBe(`${px / 16}rem`)
+    }
+  })
+
+  it('RADIUS_CSS_PX 逐档 === "<px>px",RADIUS_CSS_VAR 的 DEFAULT 独占裸 --radius', () => {
+    for (const [step, px] of Object.entries(RADIUS_STEPS)) {
+      expect(RADIUS_CSS_PX[step]).toBe(`${px}px`)
+    }
+    expect(RADIUS_CSS_VAR.DEFAULT).toBe('--radius')
+    expect(RADIUS_CSS_VAR.lg).toBe('--radius-lg')
+    // 裸 --radius 只有默认档能占:否则 CSS 端与 RN 端对"rounded 不带后缀"取到不同值。
+    expect(Object.values(RADIUS_CSS_VAR).filter((v) => v === '--radius')).toEqual(['--radius'])
+  })
+
+  it('rnRadius 就是 RADIUS_STEPS 本身(同一引用,不是抄来的第二份)', () => {
+    expect(rnRadius).toBe(RADIUS_STEPS)
+  })
+
+  it('RADIUS_SCALE_PX 是去重升序取值集合', () => {
+    expect(RADIUS_SCALE_PX).toEqual([2, 4, 6, 8, 12, 16])
+  })
+
+  it('rpxToStep / pxToStep 命中时给档名,不命中给 null(不做就近吸附)', () => {
+    expect(rpxToStep(24)).toBe('xl') // 24rpx = 12px
+    expect(rpxToStep(16)).toBe('DEFAULT') // 16rpx = 8px,对象序里 DEFAULT 先于 lg
+    expect(rpxToStep(3)).toBeNull() // 1.5px 不是任何档
+    expect(pxToStep(12)).toBe('xl')
+    expect(pxToStep('8')).toBe('DEFAULT') // 字符串入参同样归一
+    expect(pxToStep(5)).toBeNull()
+    expect(pxToStep(undefined)).toBeNull()
+  })
+})
+
+describe('几何档投影:dp 与 rpx 必须由同一张表派生', () => {
+  it('取值冻结:全十五档(tapBox 36 / fabBox 56 / glyphMd 20 / controlBox 32 / controlGlyph 14 / glyphSm 16 / textCaption 11 / textLabel 12 / textBody 14 / textStrong 15 / drawerWidth 160(2026-11-07 与 web SIDEBAR_WIDTH 同值)/ sidebarMaxWidth 180 / sidebarCollapsedWidth 60 / previewShellWidth 430 / runtimePanelScrollMaxHeight 320)', () => {
+    // 2026-09-27:controlBox/controlGlyph 是几何收敛(a464b7d9c)按"先在本表落一档(带取值依据)"
+    // 规程新增的档;2026-09-29 再随 O81 票(ca3f2cff31 补 glyphSm、8f24ec85f7 补 textCaption/
+    // textLabel/textBody/textStrong/drawerWidth)钉全**十档**;2026-10-15 补 previewShellWidth
+    // (web 预览壳宽从端内 SHELL_MAX_W 字面量入档)—— 冻结面按"表里有几档就钉几档"走,
+    // 新增一档而不改本行 = 那一档的取值没人看守(键集派生一致性由下面两枚用例覆盖,不在此重复;
+    // 但**取值**只有这里钉,漏钉一档就是给下一次静默改值留口子)。
+    // 2026-11-04 补 fabBox 56(784b706df1 学习首页 FAB 方盒入档,本行未跟随 ⇒ CI test 红)。
+    // 2026-11-07 补 sidebarMaxWidth 180 / sidebarCollapsedWidth 60,并把 drawerWidth 由 250
+    // 改钉 160(侧栏宽度族三端同源收口:drawerWidth 管展开默认宽、sidebarMaxWidth 管桌面拖拽上限、
+    // sidebarCollapsedWidth 管折叠态;表里有几档就钉几档,漏钉即给下一次静默改值留口子)。
+    // 2026-11-07 19:57 机主最终定档:drawerWidth 锁定 160,三端统一(web 160px / RN 160dp /
+    // 小程序 320rpx);当日 19:13 的 120 中间档已废止,**此后不再改动本值**。
+    expect(GEOMETRY_PX).toEqual({
+      tapBox: 36,
+      fabBox: 56,
+      glyphMd: 20,
+      controlBox: 32,
+      controlGlyph: 14,
+      glyphSm: 16,
+      textCaption: 11,
+      textLabel: 12,
+      textBody: 14,
+      textStrong: 15,
+      drawerWidth: 160,
+      sidebarMaxWidth: 180,
+      sidebarCollapsedWidth: 60,
+      previewShellWidth: 430,
+      // 2026-11-10 补 runtimePanelScrollMaxHeight 320(RN 运行面板滚动上限入档,本行未跟随 ⇒
+      // mobile-release-gate 的 design-tokens 用例红):表里有几档就钉几档。
+      runtimePanelScrollMaxHeight: 320,
+    })
+  })
+
+  it('taroGeometry 逐档 === px × TARO_RPX_PER_PX,键集与源表相同', () => {
+    expect(TARO_RPX_PER_PX).toBe(2)
+    expect(Object.keys(taroGeometry).sort()).toEqual(Object.keys(GEOMETRY_PX).sort())
+    for (const [step, px] of Object.entries(GEOMETRY_PX)) {
+      expect(taroGeometry[step]).toBe(px * TARO_RPX_PER_PX)
+    }
+  })
+
+  it('rnGeometry 就是 GEOMETRY_PX 本身(2 倍换算只允许发生在 taro 那一侧)', () => {
+    expect(rnGeometry).toBe(GEOMETRY_PX)
+    expect(rnGeometry.tapBox).not.toBe(taroGeometry.tapBox)
+  })
+})
+
+describe('cn():类名合并入口', () => {
+  it('冲突工具类后者胜出(twMerge 语义,不是简单拼接)', () => {
+    expect(cn('p-2', 'p-4')).toBe('p-4')
+    expect(cn('text-sm', 'text-lg')).toBe('text-lg')
+  })
+
+  it('falsy 入参被丢掉,条件对象按真值取键(clsx 语义)', () => {
+    expect(cn('a', false, undefined, null, '', 'b')).toBe('a b')
+    expect(cn('base', { on: true, off: false })).toBe('base on')
+  })
+
+  it('数组与嵌套数组摊平', () => {
+    expect(cn(['x', ['y', 'z']])).toBe('x y z')
+  })
+
+  it('非冲突类名保持两者(不得把不同属性合并掉)', () => {
+    expect(cn('flex', 'items-center')).toBe('flex items-center')
+  })
+
+  it('具名 z-index token 与任意值互斥(2026-11-15:曾因未注册 z 组而静默双写)', () => {
+    // 立因:globals.css 的 .z-popover/.z-modal 是具名工具类,tailwind-merge 默认只认
+    // 数字与任意值。未注册时 `cn('… z-popover', 'z-[2300]')` 两个都保留,最终由 CSS
+    // 源码顺序裁定(z-popover 胜) —— 给嵌套 Tooltip/Dialog 追加层级的写法会无声失效
+    // (真机实测 computed z-index 仍是 2001)。本条锁住 `z` 组的注册,防止回退。
+    expect(cn('pointer-events-none z-popover', 'z-[2300]')).toBe('pointer-events-none z-[2300]')
+    expect(cn('fixed inset-0 z-modal', 'z-[2250]')).toBe('fixed inset-0 z-[2250]')
+    expect(cn('z-modal', 'z-sticky')).toBe('z-sticky')
+    expect(cn('z-popover', 'z-30')).toBe('z-30')
+  })
+})
+
+describe('阴影档位表:封闭档位集合(2026-11-12 立)', () => {
+  // 立因:两张表原先都注解成 `Record<string, …>`。`noUncheckedIndexedAccess` 下,
+  // 宽 string 键会让 `ELEVATION_STEPS.md` 的类型退化成 `RnElevation | undefined` ——
+  // 每个消费方都得多写一次非空断言。实测代价:packages/ui-native/src/tooltip.tsx:41
+  // 报 TS2322,而档位本身是**封闭集合**,压根不该允许任意键。
+  const SRC = readFileSync(join(HERE, '..', 'src', 'elevation.ts'), 'utf8')
+
+  it('两张表都不得回退成宽 string 键注解', () => {
+    expect(SRC).not.toMatch(/ELEVATION_STEPS:\s*Record<string,\s*RnElevation>/)
+    expect(SRC).not.toMatch(/ELEVATION_CSS:\s*Record<string,\s*string>/)
+    expect(SRC).toMatch(/ELEVATION_STEPS:\s*Record<ElevationStepName,\s*RnElevation>/)
+    expect(SRC).toMatch(/ELEVATION_CSS:\s*Record<ElevationStepName,\s*string>/)
+  })
+
+  it('档位名联合与实际表键集逐一相同(少一档 = 该档在类型层不存在)', () => {
+    expect(Object.keys(ELEVATION_STEPS).sort()).toEqual([...ELEVATION_STEP_NAMES].sort())
+    expect(Object.keys(ELEVATION_CSS).sort()).toEqual([...ELEVATION_STEP_NAMES].sort())
+  })
+
+  it('ElevationStep 与 ElevationStepName 是同一份清单,不再从 keyof 派生第二份', () => {
+    // 两份清单必然漂移:加档时只改一处,另一处静默少一档
+    expect(SRC).toMatch(/export type ElevationStep = ElevationStepName/)
+    expect(SRC).not.toMatch(/export type ElevationStep = keyof typeof ELEVATION_STEPS/)
+  })
+
+  it('每档四元组完整:RN 五字段齐备,不只给 CSS 值', () => {
+    for (const [step, v] of Object.entries(ELEVATION_STEPS)) {
+      for (const key of [
+        'shadowColor',
+        'shadowOffset',
+        'shadowOpacity',
+        'shadowRadius',
+        'elevation',
+      ]) {
+        expect(v, `${step}.${key}`).toHaveProperty(key)
+      }
+      expect(typeof v.elevation, `${step}.elevation`).toBe('number')
+    }
+  })
+
+  it('CSS 变量名逐档指向 tokens.css 的 --shadow-elevation-*', () => {
+    for (const step of ELEVATION_STEP_NAMES) {
+      if (step === 'none') continue
+      expect(ELEVATION_CSS_VAR[step]).toBe(`var(--shadow-elevation-${step})`)
+    }
+  })
+})
+
+describe('token-registry:守门 93 的取值内核', () => {
+  it('extractCssVars 剥块注释 —— 注释里的伪变量不得被当成声明', () => {
+    const css = ['/* --color-fake: #000; */', ':root {', '  --color-real: #111 ;', '}'].join('\n')
+    const vars = extractCssVars(css)
+    expect(vars.has('--color-fake')).toBe(false)
+    expect(vars.get('--color-real')).toBe('#111') // 值两侧空白被 trim
+  })
+
+  it('validateTokenConsistency 三态:一致 / 副本缺档 / 副本值漂', () => {
+    const src = ':root { --color-a: 1; --color-b: 2; }'
+    expect(validateTokenConsistency(src, ':root { --color-a: 1; --color-b: 2; }').consistent).toBe(
+      true,
+    )
+
+    const missing = validateTokenConsistency(src, ':root { --color-z: 9; }')
+    expect(missing.consistent).toBe(false)
+    expect(missing.missingInCss).toEqual(['--color-z'])
+
+    const drift = validateTokenConsistency(src, ':root { --color-a: 999; }')
+    expect(drift.consistent).toBe(false)
+    expect(drift.valueMismatches).toEqual([{ name: '--color-a', cssValue: '1', rnValue: '999' }])
+  })
+
+  it('登记表点名的每个 token 在真相源 tokens.css 里都有声明(登记先于落盘 = 悬空引用)', () => {
+    expect(listMissingTokens(TOKENS_CSS)).toEqual([])
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

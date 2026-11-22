@@ -1,0 +1,142 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import 'dotenv/config'
+import http from 'node:http'
+import type { Worker } from 'bullmq'
+import { buildServer } from './server.js'
+import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
+import { startWorkers } from './workers/index.js'
+import { startSchedulerWorker } from './workers/scheduler-worker.js'
+import { initOtel } from './plugins/otel.js'
+import {
+  ensurePaymentMockGateway,
+  isPaymentMockEnabled,
+  type PaymentMockGatewayHandle,
+} from './services/payment-mock-gateway.js'
+import { declareProcessRole } from './utils/process-role.js'
+
+/** F-524:worker 关停时等待 server.close() 的上限,超时告警后强制退出。 */
+const SERVER_CLOSE_TIMEOUT_MS = 10_000
+
+/**
+ * Worker 独立进程入口。
+ *
+ * 使用场景:
+ * - docker-compose worker service 独立部署
+ * - 多实例部署时,API 进程仅生产(ENABLE_WORKER=false),Worker 进程独立消费
+ * - 避免单进程内 HTTP 请求与异步任务互相阻塞
+ *
+ * 与 src/index.ts 的区别:
+ * - 不监听业务 HTTP 端口(8801)
+ * - 不触发生产环境微信支付配置检查(纯消费者无需支付配置)
+ * - 仅启动 BullMQ Worker + Scheduler Worker
+ * - 暴露最小 /health 端点(端口 8804)供 docker healthcheck / k8s liveness probe 探活
+ *
+ * 启动命令:node dist/worker-entry.js
+ */
+async function startWorkerProcess(): Promise<void> {
+  initOtel()
+
+  // F-302:本进程不是例行程序调度器的属主。buildServer() 会载入 API 的 route/service,
+  // 不先声明角色的话,任何模块级调度器都会在 worker 各起一份(同一 cron 双执行)。
+  declareProcessRole('worker')
+
+  const server = await buildServer()
+  // F-368:worker 不属主亲和性清理定时器(buildServer 只经 import 载入路由);
+  // 显式停一次,把"万一有模块级自启"也清掉 —— worker 侧不该持有这份 ref。
+  stopRelayChannelRouterSweep()
+
+  const workers: Worker[] = startWorkers(server)
+  const schedulerWorker: Worker = startSchedulerWorker(server)
+
+  // 票 G-998162:本地真 HTTP mock 支付网关(联调验证档)。仅 IHUI_PAY_MOCK=1 时启动,
+  // 不设环境变量时零影响。provider baseURL 注入走 WX_API_BASE(??= origin,显式配置优先);
+  // 生产代码路径与联调完全一致,联调时删掉 IHUI_PAY_MOCK 开关即可。
+  // F-524:句柄必须保存下来,shutdown 才有关闭路径(否则监听端口/连接钉住进程)。
+  let gatewayHandle: PaymentMockGatewayHandle | null = null
+  if (isPaymentMockEnabled()) {
+    gatewayHandle = await ensurePaymentMockGateway()
+    const gateway = gatewayHandle
+    if (gateway) {
+      server.log.info(
+        { origin: gateway.origin, external: gateway.external },
+        'IHUI_PAY_MOCK payment mock gateway ready',
+      )
+    }
+  }
+
+  // 最小 HTTP /health 端点(端口 8804)供 docker healthcheck 探活
+  // 不引入 fastify,用 node:http 极简实现,避免增加 worker 进程负担
+  const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 8804)
+  let workersRunning = true
+  const healthServer = http.createServer((req, res) => {
+    if (req.url === '/health' && req.method === 'GET') {
+      const allRunning =
+        workersRunning && workers.every((w) => !w.closing) && !schedulerWorker.closing
+      res.writeHead(allRunning ? 200 : 503, { 'Content-Type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          status: allRunning ? 'ok' : 'shutting-down',
+          workers: workers.length + 1,
+        }),
+      )
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'not found' }))
+    }
+  })
+  // 2026-10-28 安全加固:worker 健康检查仅本机自测用途,收回到回环地址,
+  // 与 API 主监听同源(127.0.0.1),避免 8804 在 0.0.0.0 上裸奔。
+  healthServer.listen(healthPort, '127.0.0.1', () => {
+    server.log.info({ port: healthPort }, 'Worker health endpoint listening')
+  })
+
+  server.log.info(
+    {
+      workers: workers.length + 1,
+      mode: 'worker-only',
+      healthPort,
+    },
+    '🚀 Worker process started',
+  )
+
+  const shutdown = async (signal: string) => {
+    workersRunning = false
+    server.log.info({ signal }, 'Worker process shutting down...')
+    await Promise.allSettled([
+      ...workers.map((w) => w.close()),
+      schedulerWorker.close(),
+      // F-524:mock 网关此前未保存句柄,worker 关停时没有关闭路径
+      gatewayHandle?.close(),
+    ])
+    healthServer.close()
+    // F-524:server.close() 无超时会让关停无限挂起(进程中仍有 ref 句柄时尤其明显);
+    // 超时只告警,继续 process.exit(0),保持 SIGTERM/SIGINT 行为不变。
+    // 超时定时器本身 unref,且 process.exit(0) 紧随其后,无需 clearTimeout
+    const closeTimeout = new Promise<'timeout'>((resolve) => {
+      const closeTimer = setTimeout(() => resolve('timeout'), SERVER_CLOSE_TIMEOUT_MS)
+      closeTimer.unref()
+    })
+    const closeResult = await Promise.race([
+      server.close().then(() => 'closed' as const),
+      closeTimeout,
+    ])
+    if (closeResult === 'timeout') {
+      server.log.warn(
+        { timeoutMs: SERVER_CLOSE_TIMEOUT_MS },
+        'Worker server.close() timed out, forcing exit',
+      )
+    }
+    process.exit(0)
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
+}
+
+startWorkerProcess().catch((err) => {
+  console.error('Worker process failed to start:', err)
+  process.exit(1)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

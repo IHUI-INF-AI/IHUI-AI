@@ -1,0 +1,25 @@
+{
+  "_note": "D17 生态入口收敛 i18n 载荷。locale 五语文件正被他人编辑,编码代理未直接写入。合并步骤:① 把 zh-CN.merge.json 的两个块按字母序并进 packages/i18n/messages/web/zh-CN.json(顶层新增 ecosystem 命名空间;nav 对象内加 ecosystemHub);② node scripts/i18n-apply.mjs --input .ihui-agent/tmp/plan-audit/i18n-d17/i18n-translations.json 应用到 zh-TW/en/ja/ko;③ node scripts/check-i18n-keys.mjs 验 parity;④ node scripts/scan-i18n-zh-residue.mjs zh-TW 与 ko 验残留。",
+  "zh-CN.merge.json": {
+    "nav.ecosystemHub": "生态市场",
+    "ecosystem.title": "生态",
+    "ecosystem.description": "原先并列的多个能力市场入口收敛为一页:技能、MCP、能力、连接器市场与专家包组合,都在这里直达。",
+    "ecosystem.marketsSection": "能力市场",
+    "ecosystem.bundlesSection": "专家包",
+    "ecosystem.bundlesHint": "按专家工作流组合多个市场的能力,点击标签直达对应页面",
+    "ecosystem.cards.aiSkills.title": "AI 技能",
+    "ecosystem.cards.aiSkills.desc": "为智能体挂载 AI 技能,扩展对话与任务能力",
+    "ecosystem.cards.mcpStore.title": "MCP 商店",
+    "ecosystem.cards.mcpStore.desc": "浏览内置 MCP Server 目录,一键注册接入",
+    "ecosystem.cards.capabilityMarket.title": "能力市场",
+    "ecosystem.cards.capabilityMarket.desc": "启用平台自研 MCP 能力(工具/资源/提示词)",
+    "ecosystem.cards.skillsMarket.title": "Skill 市场",
+    "ecosystem.cards.skillsMarket.desc": "自进化技能市场:安装、评分与订阅",
+    "ecosystem.cards.connectors.title": "中文连接器",
+    "ecosystem.cards.connectors.desc": "接入语雀、飞书、企微、钉钉等中文文档源",
+    "ecosystem.bundles.contentCreator.title": "内容创作专家包",
+    "ecosystem.bundles.contentCreator.desc": "写作与发布工作流的组合入口:AI 技能、Skill 市场与中文连接器",
+    "ecosystem.bundles.developerExtension.title": "开发者扩展包",
+    "ecosystem.bundles.developerExtension.desc": "工具扩展工作流的组合入口:MCP 商店注册与平台能力启用"
+  }
+}

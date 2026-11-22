@@ -1,0 +1,23 @@
+{
+  "servers": [
+    {
+      "name": "rea",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["scripts/rea-mcp-entry.mjs"],
+      "framing": "content-length",
+      "requestTimeoutMs": 300000,
+      "env": {
+        "GHIDRA_INSTALL_DIR": "D:\\DevEnv\\ghidra_12.1.4",
+        "JAVA_HOME": "D:\\DevEnv\\jdk-21.0.13+9"
+      }
+    },
+    {
+      "name": "craft-anything",
+      "transport": "stdio",
+      "command": "D:\\DevEnv\\craft-anything\\0.6.1\\craft-anything-cli.exe",
+      "args": ["mcp", "--all-tools", "--allow-run"],
+      "requestTimeoutMs": 600000
+    }
+  ]
+}

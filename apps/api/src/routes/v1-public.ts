@@ -1,0 +1,3056 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * /v1/* 对外公开 API 路由(2026-07-22 立)。
+ *
+ * 所有端点统一 requireApiKeyAuth + requireApiKeyPermission + requireApiKeyQuota 三重 preHandler。
+ * 响应格式 OpenAI 兼容(不套 { code, message, data } 壳)。
+ * 鉴权由 plugins/api-key-auth.ts 提供,契约类型由 @ihui/types 提供。
+ *
+ * 端点清单:
+ * 1. GET    /v1/agents           — 列出可用 Agent(权限: agents:read)
+ * 2. GET    /v1/agents/:id       — Agent 详情(权限: agents:read)
+ * 3. POST   /v1/agents/:id/call  — 调用 Agent(权限: agents:call)
+ * 4. POST   /v1/chat/completions — Chat 补全(权限: chat:write,OpenAI 兼容)
+ * 5. GET    /v1/models           — 模型列表(权限: models:read)
+ * 6. GET    /v1/files            — 文件列表(权限: files:read)
+ * 7. POST   /v1/files            — 上传文件(权限: files:write)
+ */
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { randomUUID } from 'node:crypto'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { eq, and, isNull, desc, sql, or } from 'drizzle-orm'
+import { z } from 'zod'
+import {
+  fetchProviderHealth,
+  isProviderHardUnavailable,
+  resolveProviderAvailability,
+  type ProviderHealthSnapshot,
+} from '../lib/llm-provider-health.js'
+import { db, dbRead } from '../db/index.js'
+import {
+  agents,
+  files,
+  projects,
+  chatConversations,
+  aiModelConfigModels,
+  aiModelConfig,
+} from '@ihui/database'
+import { normalizeModelId, toOfficialModelName } from '@ihui/shared'
+import type {
+  V1AgentInfo,
+  V1AgentsListResponse,
+  V1AgentCallResponse,
+  V1ChatCompletionResponse,
+  V1ModelsResponse,
+} from '@ihui/types'
+import {
+  requireApiKeyAuth,
+  requireApiKeyQuota,
+  checkAllowedModels,
+} from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
+import { error, success } from '../utils/response.js'
+import {
+  deriveModelSpec,
+  modelSpecToWire,
+  normalizeReasoningEffort,
+  parseModelSpecEnv,
+} from '../services/relay-model-spec.js'
+import { listPublicPeakWindows, resolvePeakMultiplier } from '../services/peak-pricing-service.js'
+import {
+  pickPeakWindowsForModel,
+  resolveNextPeakSwitch,
+} from '../services/relay-model-peak-declaration.js'
+// P0-5 中转站计费(2026-07-29 立)
+import {
+  checkQuota,
+  recordCall,
+  isByokCall,
+  modelToProviderCode,
+  preDeductQuota,
+  resolveBillingModel,
+  BillingUnavailableError,
+  type PreDeduction,
+} from '../services/relay-billing-service.js'
+// 用户级并发限制(H,2026-09-16 立;G-727 收口泄漏面:占用与登记同笔完成)
+import { acquireUserConcurrencyForResponse } from '../services/user-concurrency-service.js'
+// 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
+import {
+  forwardToChannel,
+  pipeChannelStream,
+  type ForwardResult,
+} from '../services/relay-upstream-forwarder.js'
+import {
+  mapForwardFailureToHttp,
+  type ForwardFailureHttp,
+} from '../services/relay-forward-failure.js'
+// F-178:渠道配额用量回写 —— checkQuota 读 ai_relay_channel_daily_usage,
+// 但 recordUsage 此前在转发层零调用,聚合恒 0 ⇒ 日/月配额永不生效。
+import { recordUsage } from '../services/channel-quota-service.js'
+import { recordChannelResult, type SelectedChannelKey } from '../services/relay-channel-router.js'
+// /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+// 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
+import { startStopwatch, type ElapsedSample, type Stopwatch } from '../utils/elapsed-ms.js'
+import { persistableLatency } from '../utils/latency-persistence.js'
+// P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
+import { resolveModelMapping } from '../services/model-mapping-service.js'
+// P0 第二批次(2026-07-31 立):响应缓存(Redis)省钱大法,对非流式 chat completions 启用
+import {
+  getRelayResponseCache,
+  computeCacheKey,
+  shouldSkipCache,
+  type CacheableMessage,
+} from '../services/relay-response-cache.js'
+// 上游错误透传(2026-09-16 立,五轮补强):按 admin 规则翻译上游错误后返回下游
+import { resolveErrorPassthrough } from '../services/relay-error-rules-service.js'
+// 插件系统(2026-09-17,补强 59):request_block 入口拦截(计费/审计前,命中 403)
+import { evaluateRequestBlockPlugins } from '../services/relay-plugins-service.js'
+// 提示词审计(2026-09-17 立,补强 54)
+import { auditPrompt } from '../services/relay-prompt-audit-service.js'
+// OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
+import {
+  applyProtocolExtensions,
+  buildStreamUsageChunk,
+  type ChatCompletionRequest,
+} from './v1-protocol-extensions.js'
+// P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
+import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
+import { explainModelAvailability } from '../services/model-availability-explain.js'
+// 文件上传安全校验(CWE-434 防护:magic number + 扩展名白名单 + 大小限制)
+import {
+  validateUploadFile,
+  MAX_MULTIPART_UPLOAD_SIZE,
+  extractExt,
+} from '../utils/file-type-validator.js'
+import { deriveModelCapabilities } from './v1-shared.js'
+import { isUuidString } from '../utils/uuid.js'
+import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
+// F-538:relay 完成链路写会话历史(此前写入口全仓无调用 ⇒ 会话 API 恒空)
+import { recordRelayConversationTurnSafe } from '../services/relay-conversation-service.js'
+
+/** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
+interface ApiKeyContext {
+  id: string
+  userId: string
+  key: string
+  permissions: string[]
+  rateLimit: number
+  allowedModels: string[] | null
+  /** Key 级出口绑定(2026-11-17):null = 跟随全局 */
+  egressRegion?: 'cn' | 'global' | null
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const chatCompletionSchema = z.object({
+  model: z.string().min(1),
+  messages: z
+    .array(
+      z.object({
+        // 2026-10-22 放宽:支持 function-calling 回环(tool 角色 + assistant.tool_calls)
+        role: z.enum(['system', 'user', 'assistant', 'tool', 'developer', 'function']),
+        // 多模态 parts 数组 / assistant 纯工具调用时缺省 content
+        content: z.union([z.string(), z.array(z.unknown()), z.null()]).optional(),
+        name: z.string().optional(),
+        tool_call_id: z.string().optional(),
+        tool_calls: z.array(z.unknown()).optional(),
+      }),
+    )
+    .min(1),
+  stream: z.boolean().optional().default(false),
+  temperature: z.number().optional(),
+  maxTokens: z.number().int().positive().optional(),
+  // [OI] 标准字段名 max_tokens(与 maxTokens 等价;漏收会让预扣按默认 1024 高估)
+  max_tokens: z.number().int().positive().optional(),
+  // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
+  stream_options: z.object({ include_usage: z.boolean().optional() }).optional(),
+  response_format: z.unknown().optional(),
+  seed: z.number().optional(),
+  // OpenAI function-calling 透传(2026-10-22):渠道直连与账号池上游均按 OpenAI 形状处理
+  tools: z.array(z.unknown()).optional(),
+  tool_choice: z.unknown().optional(),
+  // 输出控制(2026-10-22 协议补全):stop 支持 string | string[];reasoning_effort 支持字符串或数字等级
+  stop: z.union([z.string(), z.array(z.string())]).optional(),
+  reasoning_effort: z.union([z.string(), z.number()]).optional(),
+  // 采样面与工具开关(2026-10-23 协议补全;账号池上游实测均接受)
+  top_p: z.number().min(0).max(1).optional(),
+  presence_penalty: z.number().min(-2).max(2).optional(),
+  frequency_penalty: z.number().min(-2).max(2).optional(),
+  parallel_tool_calls: z.boolean().optional(),
+  user: z.string().max(256).optional(),
+  service_tier: z.string().max(32).optional(),
+  // OpenAI 新版输出预算别名
+  max_completion_tokens: z.number().int().positive().optional(),
+  // 账号池上游静默忽略的语义参数:收下并交回 ai-service 链路,不在账号池假装支持
+  n: z.number().int().positive().optional(),
+  logprobs: z.boolean().optional(),
+  top_logprobs: z.number().int().min(0).max(20).optional(),
+  // 国内模型常用扩展(上游实测均接受)
+  top_k: z.number().int().positive().optional(),
+  repetition_penalty: z.number().positive().optional(),
+  logit_bias: z.record(z.string(), z.number()).optional(),
+})
+
+/** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
+function messageContentText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((p) => {
+        if (typeof p === 'string') return p
+        const rec = p as { text?: unknown } | null
+        return typeof rec?.text === 'string' ? rec.text : ''
+      })
+      .join('')
+  }
+  return ''
+}
+
+const agentCallSchema = z.object({
+  input: z.string().min(1),
+  sessionId: z.string().optional(),
+})
+
+/** legacy /v1/completions 请求 schema(prompt 支持字符串或数组;max_tokens 为主、maxTokens 兼容) */
+const completionRequestSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.union([z.string(), z.array(z.string())]),
+  suffix: z.string().optional(),
+  stream: z.boolean().optional(),
+  temperature: z.number().optional(),
+  max_tokens: z.number().int().positive().optional(),
+  maxTokens: z.number().int().positive().optional(),
+  stop: z.union([z.string(), z.array(z.string())]).optional(),
+  reasoning_effort: z.union([z.string(), z.number()]).optional(),
+})
+
+/** chat.completion → legacy text_completion 响应形态适配(/v1/completions 用) */
+function toTextCompletion(result: V1ChatCompletionResponse): Record<string, unknown> {
+  return {
+    id: result.id,
+    object: 'text_completion',
+    created: result.created,
+    model: result.model,
+    choices: result.choices.map((c) => ({
+      text: c.message?.content ?? '',
+      index: c.index,
+      finish_reason: c.finish_reason,
+    })),
+    usage: result.usage,
+  }
+}
+
+// =============================================================================
+// Fastify OpenAPI schemas(共享)
+// =============================================================================
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
+
+// =============================================================================
+// 静态降级数据 + 模型缓存
+// =============================================================================
+
+/** ai-service 不可用时的最终兜底模型清单(只在 live + cache 均失败时使用)。
+ *  2026-09-21 刷新为当期官方主流模型(每厂 1-2 个),替代 gpt-4o/claude-3.5 时代旧清单。 */
+const FALLBACK_MODELS: V1ModelsResponse = {
+  object: 'list',
+  data: [
+    { id: 'gpt-5.1', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'gpt-5', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'claude-sonnet-4.5', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+    { id: 'claude-opus-4.1', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+    { id: 'gemini-2.5-pro', object: 'model', created: 1700000000, owned_by: 'google' },
+    { id: 'gemini-2.5-flash', object: 'model', created: 1700000000, owned_by: 'google' },
+    { id: 'qwen3-max', object: 'model', created: 1700000000, owned_by: 'alibaba' },
+    { id: 'qwen-max', object: 'model', created: 1700000000, owned_by: 'alibaba' },
+    { id: 'deepseek-chat', object: 'model', created: 1700000000, owned_by: 'deepseek' },
+    { id: 'deepseek-reasoner', object: 'model', created: 1700000000, owned_by: 'deepseek' },
+    { id: 'glm-4.7', object: 'model', created: 1700000000, owned_by: 'zhipu' },
+    { id: 'kimi-k2-thinking', object: 'model', created: 1700000000, owned_by: 'moonshot' },
+    { id: 'doubao-seed-1-6', object: 'model', created: 1700000000, owned_by: 'doubao' },
+    { id: 'grok-4.1', object: 'model', created: 1700000000, owned_by: 'xai' },
+    { id: 'minimax-m2', object: 'model', created: 1700000000, owned_by: 'minimax' },
+    { id: 'ernie-5.0', object: 'model', created: 1700000000, owned_by: 'baidu' },
+    { id: 'hunyuan-turbos-latest', object: 'model', created: 1700000000, owned_by: 'tencent' },
+    { id: 'mistral-large-latest', object: 'model', created: 1700000000, owned_by: 'mistral' },
+    { id: 'llama-4-maverick', object: 'model', created: 1700000000, owned_by: 'meta' },
+  ],
+}
+
+/**
+ * 模型列表缓存(5 分钟 TTL,避免每次请求都打 ai-service)。
+ * source 标识:'live' 实时拉取 / 'cache' 命中缓存 / 'fallback' 静态兜底。
+ */
+const MODELS_CACHE_TTL_MS = 5 * 60 * 1000
+interface ModelsCacheEntry {
+  data: V1ModelsResponse
+  fetchedAt: number
+}
+const modelsCache = new Map<string, ModelsCacheEntry>()
+
+/**
+ * 模型规格覆盖表(2026-11-17 立):`IHUI_RELAY_MODEL_SPEC_JSON` 声明的上下文/输出上限/
+ * 能力/思考档位。进程启动读一次;非法条目逐条点名后丢弃(一条写错的规格会让客户端
+ * 按错误上下文切分请求,比没有覆盖更危险)。
+ */
+const MODEL_SPEC_OVERRIDES = (() => {
+  const parsed = parseModelSpecEnv(process.env.IHUI_RELAY_MODEL_SPEC_JSON)
+  if (parsed.rejected.length > 0) {
+    console.warn('[v1/models] 模型规格覆盖条目被丢弃(形状非法)', parsed.rejected)
+  }
+  return parsed.overrides
+})()
+
+/**
+ * 拉取模型列表(P0-5 中转站:优先 DB 驱动 → live → cache → fallback)。
+ * 返回响应体 + 来源标识,由调用方写入 X-Model-Source 响应头。
+ *
+ * 来源优先级:
+ * 1. 'db' — 从 ai_model_config_models WHERE is_relay_public=true 查询中转站已上架模型(admin 控制)
+ * 2. 'live' — 从 ai-service /api/llm/models 实时拉取
+ * 3. 'cache' — 命中 5min 缓存
+ * 4. 'fallback' — 静态兜底清单
+ */
+/**
+ * P0-5 修复(2026-07-30):DB model_id → LiteLLM 带前缀 model id 映射。
+ *
+ * ai-service /api/llm/complete 的 _resolve_provider 根据 model 前缀路由 provider:
+ *   stepfun/* → STEPFUN_API_KEY + STEPFUN_API_BASE
+ *   agnes/*   → AGNES_API_KEY + AGNES_API_BASE
+ *   其他      → 默认 OPENAI_API_KEY
+ *
+ * DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名(如 step-3.7-flash),
+ * 需要根据 ai_model_config.provider_code + base_url 推断 LiteLLM 前缀并拼接。
+ *
+ * 映射规则:
+ *   provider_code='stepfun'                → stepfun/{model_id}
+ *   base_url 含 'agnes-ai.com' 或 'agnes-ai.cn'   → agnes/{model_id}
+ *   base_url 含 'openai.com' 或其他        → {model_id}(不加前缀,走默认 OpenAI 路径)
+ *
+ * 反向去前缀在 relay-billing-service.ts 的 stripLiteLLMPrefix 中实现(calculateCost 用)。
+ */
+function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string): string {
+  if (providerCode === 'stepfun') return `stepfun/${modelId}`
+  // 2026-10-10:同时匹配国内域名 api.agnes-ai.cn(该厂商两域按账号成对:api.agnes-ai.cn 只认新 key,
+  // apihub.agnes-ai.{cn,com} 只认旧 key —— 2026-10-30 四组合直连实测,两域并存而非一死一活)
+  if (baseUrl && (baseUrl.includes('agnes-ai.com') || baseUrl.includes('agnes-ai.cn')))
+    return `agnes/${modelId}`
+  // P0-5m(2026-07-30):OpenRouter 模型加 openrouter/ 前缀,
+  // ai-service _resolve_provider 识别 openrouter/ 前缀后走 LiteLLM 原生 OpenRouter 路由。
+  // OpenRouter 上游模型 ID 已含厂商前缀(如 deepseek/deepseek-v4-pro),
+  // 加 openrouter/ 后变成 openrouter/deepseek/deepseek-v4-pro(LiteLLM 原生格式)。
+  if (providerCode === 'openrouter') return `openrouter/${modelId}`
+  // 其他 provider(openai/groq/gemini 等)若已带前缀则原样返回,否则不加前缀
+  return modelId
+}
+
+async function fetchModels(
+  userId?: string,
+  includeUnavailable = false,
+): Promise<{
+  body: V1ModelsResponse
+  source: 'db' | 'live' | 'cache' | 'fallback'
+}> {
+  const now = Date.now()
+  // F-445:缓存按调用者分键(匿名归 '__public__'),避免 A 的私有 BYOK 模型
+  // 经单键全局缓存泄漏给 B,或 BYOK 用户看不到自己的模型。
+  // 2026-11-17:附带不可用清单是**另一种形状的响应**,必须单独占一个缓存键,
+  // 否则带 ?include_unavailable=1 的请求会命中默认清单的缓存。
+  const cacheKey = `${userId ?? '__public__'}${includeUnavailable ? ':unavail' : ''}`
+
+  // 1. 优先 DB 驱动:查中转站已上架模型(admin 控制可见性)
+  try {
+    const dbModels = await dbRead
+      .select({
+        id: aiModelConfigModels.modelId,
+        relayDisplayName: aiModelConfigModels.relayDisplayName,
+        displayName: aiModelConfigModels.displayName,
+        sortOrder: aiModelConfigModels.relaySortOrder,
+        providerCode: aiModelConfig.providerCode,
+        configName: aiModelConfig.name,
+        baseUrl: aiModelConfig.baseUrl,
+      })
+      .from(aiModelConfigModels)
+      .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+      .where(
+        and(
+          eq(aiModelConfigModels.isRelayPublic, true),
+          eq(aiModelConfigModels.enabled, true),
+          eq(aiModelConfig.enabled, true),
+        ),
+      )
+      .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
+
+    // BYOK 平台模式(2026-07-30):鉴权用户额外查其私有 BYOK 配置下的 models,
+    // 合并到返回结果,owned_by 标记为 'byok'(用户用自己的 key 调用,平台只收抽成)
+    let byokModels: Array<{
+      id: string
+      providerCode: string
+      configName: string
+      baseUrl: string
+    }> = []
+    if (userId) {
+      try {
+        byokModels = await dbRead
+          .select({
+            id: aiModelConfigModels.modelId,
+            providerCode: aiModelConfig.providerCode,
+            configName: aiModelConfig.name,
+            baseUrl: aiModelConfig.baseUrl,
+          })
+          .from(aiModelConfigModels)
+          .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+          .where(
+            and(
+              eq(aiModelConfig.ownerUuid, userId),
+              eq(aiModelConfig.enabled, true),
+              eq(aiModelConfigModels.enabled, true),
+            ),
+          )
+          .orderBy(aiModelConfigModels.modelId)
+      } catch {
+        // BYOK 查询失败,忽略(不影响主列表)
+      }
+    }
+
+    if (dbModels.length > 0 || byokModels.length > 0) {
+      // P0 修复:DB 路径只上架 provider 实际可用的平台模型;
+      // 硬不可用(down/not_configured/受限态 402·401·403·429)剔除。
+      // 仅在存在上架平台模型时拉取一次 ai-service 可用性;
+      // 缓存命中 / live / 仅 BYOK 路径不打额外上游。
+      let health: ProviderHealthSnapshot = { providers: new Map(), known: false }
+      if (dbModels.length > 0) {
+        try {
+          health = await fetchProviderHealth()
+        } catch {
+          // fetchProviderHealth 内部已把非 2xx / 网络 / 超时 / 解析失败收成 known:false;
+          // 这里只兜"它将来真的抛出"这一格 —— 落到 known:false,结论仍是"本轮未取到",
+          // 不得再写"视为全部可用"(G-726:那是把"没问到"读成"没问题")。
+        }
+      }
+      // 峰谷价宣告(2026-11-17):真相源是 peak-pricing-service 的规则表(自带 60s 缓存)。
+      // 读不到 ⇒ 空集、目录照常出(绝不因价档读不到而 500);只宣告时段乘子,不宣告绝对价格。
+      let peakWindows: Awaited<ReturnType<typeof listPublicPeakWindows>> = []
+      try {
+        peakWindows = await listPublicPeakWindows()
+      } catch {
+        peakWindows = []
+      }
+      const relayList = await Promise.all(
+        dbModels
+          // 剔除只在本轮真取到数据时生效;known:false 时保留全部(与改动前逐字同形,刻意不改严)
+          .filter(
+            (m) => !(health.known && isProviderHardUnavailable(m.providerCode, health.providers)),
+          )
+          .map(async (m) => {
+            const availability = resolveProviderAvailability(m.providerCode, health)
+            const peak = pickPeakWindowsForModel(peakWindows, m.id)
+            // 此刻生效倍率只在有可宣告窗口时才算:无规则模型不查规则表(不增开销)。
+            const peakNow = peak ? await resolvePeakMultiplier(m.id, new Date(now)) : null
+            return {
+              // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
+              // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
+              // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
+              // 其他(如 openai/原生)→ 不加前缀。
+              id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+              object: 'model' as const,
+              created: Math.floor(now / 1000),
+              owned_by: m.providerCode || m.configName || 'ihui',
+              // G-726:'unknown'(本轮未取到)⇒ 省略 available 字段,既不显示健康也不显示不可用;
+              // 另两态照旧给布尔(与改动前同形)。
+              ...(availability === 'unknown' ? {} : { available: availability === 'available' }),
+              // 2026-11-17:能力与规格宣告(纯判据;无一手出处的字段整键省略,不编数字)。
+              ...modelSpecToWire(deriveModelSpec(m.id, MODEL_SPEC_OVERRIDES)),
+              // 峰谷价:只在该模型有规则时出场(null ⇒ 整键省略)。
+              ...(peak ? { peak_pricing: peak } : {}),
+              // 此刻生效倍率(2026-11-17):取自计费侧同一函数(按 priority 降序取首个命中),
+              // 客户端不必在重叠规则里自己挑;peakNow 为 null(无规则)时不出场。
+              ...(peakNow
+                ? {
+                    peak_multiplier_now: peakNow.multiplier,
+                    ...(peakNow.ruleName ? { peak_rule_now: peakNow.ruleName } : {}),
+                  }
+                : {}),
+              // 下一次价档切换(2026-11-17):错峰调度用;无未来切换则整键省略。
+              ...(peak
+                ? ((next) => (next ? { peak_next_change_at: next } : {}))(
+                    resolveNextPeakSwitch(peakWindows, m.id, new Date(now)),
+                  )
+                : {}),
+            }
+          }),
+      )
+      // 官方名归一兜底(2026-09-13 立):同一模型(大小写不敏感)目录只允许出现一条,
+      // relaySortOrder 升序在前者优先,防 DB 存量大小写重复导致目录双条目。
+      const seenModelIds = new Set<string>()
+      const dedupedRelayList = relayList.filter((m) => {
+        const key = normalizeModelId(m.id)
+        if (seenModelIds.has(key)) return false
+        seenModelIds.add(key)
+        return true
+      })
+      const byokList = byokModels.map((m) => ({
+        id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+        object: 'model' as const,
+        created: Math.floor(now / 1000),
+        owned_by: 'byok',
+        available: true,
+      }))
+      // 2026-11-17:对标对照站「未开通条目不过滤,附原因原文」——
+      // 只在显式请求 ?include_unavailable=1 时追加,默认清单形状一个字不变(老客户端零感知)。
+      // 原因只给**归一后的一句中文**(不把 lastTestError 原文发到公开端点)。
+      const unavailableList: V1ModelsResponse['data'] = []
+      if (includeUnavailable) {
+        try {
+          const rows = await dbRead
+            .select({
+              id: aiModelConfigModels.modelId,
+              providerCode: aiModelConfig.providerCode,
+              configName: aiModelConfig.name,
+              baseUrl: aiModelConfig.baseUrl,
+              enabled: aiModelConfigModels.enabled,
+              isRelayPublic: aiModelConfigModels.isRelayPublic,
+              lastTestStatus: aiModelConfigModels.lastTestStatus,
+              configEnabled: aiModelConfig.enabled,
+            })
+            .from(aiModelConfigModels)
+            .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+            .where(
+              and(
+                eq(aiModelConfigModels.isRelayPublic, true),
+                or(eq(aiModelConfigModels.enabled, false), eq(aiModelConfig.enabled, false)),
+              ),
+            )
+            .limit(200)
+          for (const row of rows) {
+            const explain = explainModelAvailability({
+              enabled: row.enabled,
+              configEnabled: row.configEnabled,
+              isRelayPublic: row.isRelayPublic,
+              lastTestStatus: row.lastTestStatus,
+            })
+            if (explain.visible) continue
+            unavailableList.push({
+              id: toLiteLLMModelId(row.id, row.providerCode, row.baseUrl),
+              object: 'model' as const,
+              created: Math.floor(now / 1000),
+              owned_by: row.providerCode || row.configName || 'ihui',
+              available: false,
+              // visible=true 已在上面 continue 掉 ⇒ 这里只剩三种不可见分类,窄化给类型用
+              x_disabled_category: explain.category as 'disabled' | 'test_failed' | 'not_public',
+              x_disabled_reason: explain.reason,
+            })
+          }
+        } catch {
+          // 附加清单读不到不影响主目录 —— 绝不因附加面失败把整个 /v1/models 变成 500
+        }
+      }
+      const mapped: V1ModelsResponse = {
+        object: 'list',
+        data: [...dedupedRelayList, ...byokList, ...unavailableList],
+      }
+      modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
+      return { body: mapped, source: 'db' }
+    }
+  } catch {
+    // DB 查询失败,降级 live
+  }
+
+  // 2. 缓存未过期 → 直接命中
+  // F-445:按调用者分键命中,不串用他人缓存
+  const cacheHit = modelsCache.get(cacheKey)
+  if (cacheHit && now - cacheHit.fetchedAt < MODELS_CACHE_TTL_MS) {
+    return { body: cacheHit.data, source: 'cache' }
+  }
+  try {
+    const resp = await aiServiceSystemFetch('/api/llm/models', { method: 'GET' })
+    if (resp.ok) {
+      const data = (await resp.json()) as unknown
+      let models: unknown[] = []
+      if (Array.isArray(data)) models = data
+      else if (data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>
+        if (Array.isArray(obj.data)) models = obj.data
+        else if (Array.isArray(obj.models)) models = obj.models
+      }
+      if (models.length > 0) {
+        const mapped: V1ModelsResponse = {
+          object: 'list',
+          data: models.map((m) => {
+            const mo = (m ?? {}) as Record<string, unknown>
+            const id =
+              (typeof mo.id === 'string' && mo.id) ||
+              (typeof mo.model === 'string' && mo.model) ||
+              (typeof mo.code === 'string' && mo.code) ||
+              (typeof mo.name === 'string' && mo.name) ||
+              'unknown'
+            const ownedBy =
+              (typeof mo.owned_by === 'string' && mo.owned_by) ||
+              (typeof mo.provider === 'string' && mo.provider) ||
+              (typeof mo.manufacturer === 'string' && mo.manufacturer) ||
+              'ihui'
+            const created = typeof mo.created === 'number' ? mo.created : Math.floor(now / 1000)
+            return { id, object: 'model' as const, created, owned_by: ownedBy, available: true }
+          }),
+        }
+        modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
+        return { body: mapped, source: 'live' }
+      }
+    }
+  } catch {
+    // live 失败,降级 cache(若已过期则进一步降级 fallback)
+  }
+  // live 失败,但缓存还在(即便已过期)→ 用旧缓存
+  // F-445:陈旧缓存兜底同样按调用者分键
+  const stale = modelsCache.get(cacheKey)
+  if (stale) {
+    return { body: stale.data, source: 'cache' }
+  }
+  return {
+    body: {
+      ...FALLBACK_MODELS,
+      data: FALLBACK_MODELS.data.map((m) => ({ ...m, available: true })),
+    },
+    source: 'fallback',
+  }
+}
+
+// =============================================================================
+// 辅助函数
+// =============================================================================
+
+type AgentRow = typeof agents.$inferSelect
+
+/** 从 agents 表行映射为 V1AgentInfo。capabilities 由 botId + agentModel 综合推导。 */
+function toAgentInfo(row: AgentRow): V1AgentInfo {
+  const capabilities = new Set<string>(['chat'])
+  if (row.botId) capabilities.add('coze')
+  if (row.agentModel) {
+    capabilities.add('model:' + row.agentModel)
+    // 沿用模型名推导 vision/tools/reasoning 标签(与 GET /v1/models/:id 一致)
+    for (const c of deriveModelCapabilities(row.agentModel)) capabilities.add(c)
+  }
+  return {
+    id: row.agentId,
+    name: row.name,
+    description: row.description ?? '',
+    capabilities: Array.from(capabilities),
+  }
+}
+
+/**
+ * 从 ai-service 流式响应行中提取文本。
+ * 处理 Vercel AI SDK `0:"text"` 格式和 `data: {...}` SSE 格式。
+ */
+function extractStreamText(line: string): string | null {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.startsWith(':')) return null
+
+  // Vercel AI SDK: 0:"text" (type:payload)
+  const vercelMatch = /^(\d+):(.+)$/.exec(trimmed)
+  if (vercelMatch) {
+    const type = vercelMatch[1]
+    const payload = vercelMatch[2]
+    if (type === '0' && payload) {
+      try {
+        const text = JSON.parse(payload)
+        if (typeof text === 'string') return text
+      } catch {
+        /* not JSON */
+      }
+    }
+    return null
+  }
+
+  // SSE data: format
+  if (trimmed.startsWith('data:')) {
+    const data = trimmed.slice(5).trim()
+    if (!data || data === '[DONE]') return null
+    try {
+      const json = JSON.parse(data)
+      if (typeof json === 'string') return json
+      if (typeof json.content === 'string') return json.content
+      if (typeof json.token === 'string') return json.token
+      if (json.delta?.content) return json.delta.content
+      if (json.choices?.[0]?.delta?.content) return json.choices[0].delta.content
+    } catch {
+      /* not JSON */
+    }
+  }
+
+  return null
+}
+
+/**
+ * 从 usage 对象解析 prompt cache 字段(OpenAI/Anthropic 风格兼容)。
+ * - OpenAI:usage.prompt_tokens_details.cached_tokens → cacheReadTokens
+ * - Anthropic:usage.cache_read_input_tokens → cacheReadTokens / cache_creation_input_tokens → cacheCreationTokens
+ * 兼容两者混用(取较大值)。
+ */
+function parseCacheTokens(usage: unknown): {
+  cacheReadTokens: number
+  cacheCreationTokens: number
+} {
+  if (!usage || typeof usage !== 'object') return { cacheReadTokens: 0, cacheCreationTokens: 0 }
+  const u = usage as Record<string, unknown>
+  const details = u.prompt_tokens_details as Record<string, unknown> | undefined
+  const openaiCached =
+    typeof details?.cached_tokens === 'number' ? Math.max(0, Math.floor(details.cached_tokens)) : 0
+  const anthropicRead =
+    typeof u.cache_read_input_tokens === 'number'
+      ? Math.max(0, Math.floor(u.cache_read_input_tokens))
+      : 0
+  const anthropicCreation =
+    typeof u.cache_creation_input_tokens === 'number'
+      ? Math.max(0, Math.floor(u.cache_creation_input_tokens))
+      : 0
+  return {
+    cacheReadTokens: Math.max(openaiCached, anthropicRead),
+    cacheCreationTokens: anthropicCreation,
+  }
+}
+
+/**
+ * 从 ai-service 流式响应行中提取 usage 对象(用于流式聚合 prompt cache 字段)。
+ * 仅解析 `data: {...}` SSE 格式中含 usage 字段的 chunk(通常为最后一个 chunk)。
+ */
+function extractStreamUsage(line: string): Record<string, unknown> | null {
+  const trimmed = line.trim()
+  if (!trimmed || !trimmed.startsWith('data:')) return null
+  const data = trimmed.slice(5).trim()
+  if (!data || data === '[DONE]') return null
+  try {
+    const json = JSON.parse(data)
+    if (json && typeof json === 'object' && 'usage' in json) {
+      return json.usage as Record<string, unknown>
+    }
+  } catch {
+    /* not JSON */
+  }
+  return null
+}
+
+/**
+ * workbuddy/* 号池失败时的对外文案:必须分清"没配上游"与"上游/账号失败"。
+ *
+ * 2026-11-12 立:`fwd === null` 的真实含义是**没有渠道也没有号池行**(这个模型
+ * 压根没接通),跟"有渠道但候选全失败"是两件事。旧文案一律说"账号池不可用",
+ * 让运维以为去充值/换号就能好,实际是配置缺失 —— 这正是机主问的"是不是我们没开发好"。
+ */
+function workbuddyNoUpstreamMessage(reason: string): string {
+  const text = (reason || '').trim()
+  if (!text || text === 'no channel configured' || text === 'no channel candidate succeeded') {
+    return 'WorkBuddy 未配置上游渠道(该模型没有可用账号/渠道,属接入缺失,不是账号欠费)'
+  }
+  return `WorkBuddy 上游不可用: ${text}`
+}
+
+// =============================================================================
+// 流式 Chat 补全辅助函数
+// =============================================================================
+
+async function streamChatCompletion(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  opts: {
+    model: string
+    messages: Array<{ role: string; content?: unknown; [key: string]: unknown }>
+    temperature?: number
+    maxTokens?: number
+    /** OpenAI function-calling 透传(2026-10-22) */
+    tools?: unknown[]
+    toolChoice?: unknown
+    /** P0-5 中转站计费:API Key id + 用户 id + prompt 文本 + 调用起始计时表 */
+    apiKeyId?: string
+    userId?: string
+    promptText?: string
+    /** 格②(2026-09-26):由 handler 起表后传入的单调钟(替代原墙钟 epoch startTime) */
+    sw: Stopwatch
+    /** 计费模式:'relay'=中转站(默认) | 'byok'=BYOK(平台只收抽成) */
+    mode?: 'relay' | 'byok'
+    /** P0 模型映射元信息(审计用,记录原始模型 + 映射后模型 + 作用域) */
+    modelMappingMeta?: Record<string, unknown>
+    /** P0 中转站造血能力批次(2026-08-01):审计字段透传 */
+    providerCode?: string
+    clientIp?: string
+    /** OpenAI 协议扩展:stream_options.include_usage=true 时追加 usage chunk */
+    streamUsageEnabled?: boolean
+    /** OpenAI 协议扩展:response_format 透传(json_schema 已注入 system 提示,原样透传) */
+    responseFormat?: unknown
+    /** OpenAI 协议扩展:seed 透传(符合范围 0-999999) */
+    seed?: number
+    /** OpenAI 输出控制:stop 序列(账号池 Trae 走本地截断) */
+    stop?: string | string[]
+    /** OpenAI 输出控制:reasoning_effort(账号池 Trae 映射 custom_model.reasoning_effort_level) */
+    reasoningEffort?: string | number
+    /** 采样面与工具开关(2026-10-23 协议补全) */
+    topP?: number
+    presencePenalty?: number
+    frequencyPenalty?: number
+    parallelToolCalls?: boolean
+    user?: string
+    serviceTier?: string
+    /** 账号池上游静默忽略的语义参数(n>1/logprobs 交回 ai-service 链路) */
+    n?: number
+    logprobs?: boolean
+    topLogprobs?: number
+    topK?: number
+    repetitionPenalty?: number
+    logitBias?: Record<string, number>
+    /** 响应形态:'chat'=chat.completion.chunk(默认)| 'text'=legacy text_completion chunk(/v1/completions) */
+    flavor?: 'chat' | 'text'
+    /** 两段式计费:preDeductQuota 预扣凭证(recordCall 透传结算) */
+    preDeducted?: PreDeduction | null
+    /** session-affinity 亲和性 key(建议 apiKeyId) */
+    affinityKey?: string
+    /** Key 级出口绑定(2026-11-17):null = 跟随全局 */
+    egressRegion?: 'cn' | 'global' | null
+  },
+): Promise<void> {
+  reply.hijack()
+  const raw = reply.raw
+  raw.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  })
+
+  const id = `chatcmpl-${randomUUID()}`
+  const created = Math.floor(Date.now() / 1000)
+  const { model, messages, temperature, maxTokens, userId } = opts
+  const {
+    stop,
+    reasoningEffort: reasoningEffortRaw,
+    topP,
+    presencePenalty,
+    frequencyPenalty,
+    parallelToolCalls,
+    user,
+    serviceTier,
+    n,
+    logprobs,
+    topLogprobs,
+    topK,
+    repetitionPenalty,
+    logitBias,
+  } = opts
+  // 思考档位归一(2026-11-17):只做能明确判定的映射(大小写/数字最近档),其余原样透传 ——
+  // 把不明的 high 静默降成 medium 会改变生成质量且不可见,宁可交上游判定。
+  const reasoningEffort = normalizeReasoningEffort(
+    reasoningEffortRaw,
+    deriveModelSpec(model, MODEL_SPEC_OVERRIDES).thinking.levels,
+  )
+  const isTextFlavor = opts.flavor === 'text'
+  /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
+  let responseText = ''
+  let streamError: string | null = null
+  /** 流式聚合 prompt cache 字段(从 SSE 末尾 usage chunk 解析,OpenAI/Anthropic 风格) */
+  let streamCacheReadTokens = 0
+  let streamCacheCreationTokens = 0
+  /** OpenAI 协议扩展:从上游 SSE 末尾 usage chunk 提取 token 数(stream_options.include_usage 用) */
+  let streamPromptTokens = 0
+  let streamCompletionTokens = 0
+  /** 动态成本(2026-11-14):ai-service 链路若在 usage 回传成本(USD),同样采集 */
+  let streamUpstreamCostUsd: number | null = null
+  /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
+  /** 格②(2026-09-26):首 token 处再取一次样本(原为墙钟 epoch firstTokenTime) */
+  let ttftSample: ElapsedSample | null = null
+  let upstreamHttpStatus: number | null = null
+
+  const writeChunk = (delta: Record<string, unknown>, finishReason: string | null) => {
+    // legacy /v1/completions 流式:text_completion chunk(delta.content → text 字段)
+    const choice = isTextFlavor
+      ? {
+          text: typeof delta['content'] === 'string' ? delta['content'] : '',
+          finish_reason: finishReason,
+        }
+      : { index: 0, delta, finish_reason: finishReason }
+    raw.write(
+      `data: ${JSON.stringify({
+        id,
+        object: isTextFlavor ? 'text_completion' : 'chat.completion.chunk',
+        created,
+        model,
+        choices: [choice],
+      })}\n\n`,
+    )
+  }
+
+  const controller = new AbortController()
+  const onClose = () => controller.abort()
+  request.raw.on('close', onClose)
+
+  /**
+   * F-722(2026-11-14):渠道流式「已写出帧之后」异常/客户端断连的就地结算出口。
+   *
+   * 旧实现只 `raw.end()` 后 return —— recordCall 从未执行 ⇒ opts.preDeducted 永久沉淀
+   * (预扣不退、llm_call_logs 无该行,既不能退款也不能审计)。客户端断连是高频事件,
+   * 沉淀量按流量线性累积。
+   *
+   * 结算口径:抛错时 pipeChannelStream 的 stats 未回填,拿不到可确认的已用 token,
+   * 因此按 0 计费 —— `settlePreDeduction` 全额退回预扣,同时落一行 error 流水
+   * (原因与渠道写进 metadata)。绝不按"已写出多少字符"倒推补扣:那是猜的用量。
+   */
+  const settleAbortedChannelStream = (params: {
+    reason: string
+    channel: SelectedChannelKey | null
+    clientDisconnected: boolean
+  }): void => {
+    if (!opts.apiKeyId || !opts.userId) return
+    const latency = persistableLatency(opts.sw.stop())
+    void recordCall({
+      apiKeyId: opts.apiKeyId,
+      userId: opts.userId,
+      model,
+      prompt: opts.promptText ?? '',
+      response: null,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      latencyMs: latency.latencyMs,
+      status: 'error',
+      errorMessage: params.reason,
+      metadata: {
+        stream: true,
+        // 已向客户端写出过帧后中断:区别于"零帧返回"的上游失败
+        abortedMidStream: true,
+        ...(params.clientDisconnected ? { clientDisconnected: true } : {}),
+        ...(params.channel ? { channel: params.channel.groupName } : {}),
+        ...(opts.modelMappingMeta ?? {}),
+        latencyTrusted: latency.latencyTrusted,
+      },
+      mode: opts.mode ?? 'relay',
+      providerCode: params.channel?.providerCode ?? opts.providerCode,
+      configId: params.channel?.configId,
+      keyPoolId: params.channel?.keyPoolId,
+      clientIp: opts.clientIp,
+      preDeducted: opts.preDeducted ?? null,
+    }).catch(() => {})
+  }
+
+  // ==========================================================================
+  // 渠道直连优先(2026-09-12 立):渠道路由 + 逐请求 failover + 两段式计费。
+  // BYOK 模式不走渠道(用户自有 key 由 ai-service 处理)。
+  // fwd === null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路。
+  // ==========================================================================
+  // 账号池失败原因:workbuddy/* 不能再兜底 ai-service(那是回环),就地用它报错。
+  let poolFailure: string | null = null
+  if (opts.mode !== 'byok') {
+    // 渠道链路是否**已经向客户端写出过帧**（2026-10-23 立）。
+    // 用途：异常回退的闸门。旧注释假设「首个 chunk 尚未写出，客户端无感」，但渠道路径
+    // 是 verbatim 转发（writeLine 直写 raw），一旦开始转发就已经写出去了；此时再回退
+    // ai-service，客户端会先收到渠道的半段内容与 role 帧，再收到 ai-service 又一份
+    // role 帧和正文 ⇒ 正文重复/错乱，且首个 role 帧发两次。
+    let channelWroteToClient = false
+    /** F-337:本请求已交给流式处理的渠道(成功记录已延后到流结束后,收尾要用它) */
+    let streamedChannel: SelectedChannelKey | null = null
+    try {
+      // 渠道路径同样应用参数覆盖系统(与 ai-service 路径同源)
+      const baseBody: Record<string, unknown> = { messages, model }
+      if (temperature !== undefined) baseBody.temperature = temperature
+      if (maxTokens !== undefined) baseBody.max_tokens = maxTokens
+      if (opts.responseFormat !== undefined) baseBody.response_format = opts.responseFormat
+      if (opts.seed !== undefined) baseBody.seed = opts.seed
+      // function-calling 透传(2026-10-22):tools/tool_choice 原样进渠道 body 与账号池 norm
+      if (opts.tools !== undefined) baseBody.tools = opts.tools
+      if (opts.toolChoice !== undefined) baseBody.tool_choice = opts.toolChoice
+      // 输出控制(2026-10-22):渠道原样,账号池按平台映射/本地截断
+      if (stop !== undefined) baseBody.stop = stop
+      if (reasoningEffort !== undefined) baseBody.reasoning_effort = reasoningEffort
+      // 采样面与工具开关(2026-10-23 协议补全)
+      if (topP !== undefined) baseBody.top_p = topP
+      if (presencePenalty !== undefined) baseBody.presence_penalty = presencePenalty
+      if (frequencyPenalty !== undefined) baseBody.frequency_penalty = frequencyPenalty
+      if (parallelToolCalls !== undefined) baseBody.parallel_tool_calls = parallelToolCalls
+      if (user !== undefined) baseBody.user = user
+      if (serviceTier !== undefined) baseBody.service_tier = serviceTier
+      if (n !== undefined) baseBody.n = n
+      if (logprobs !== undefined) baseBody.logprobs = logprobs
+      if (topLogprobs !== undefined) baseBody.top_logprobs = topLogprobs
+      if (topK !== undefined) baseBody.top_k = topK
+      if (repetitionPenalty !== undefined) baseBody.repetition_penalty = repetitionPenalty
+      if (logitBias !== undefined) baseBody.logit_bias = logitBias
+      const channelParamOps = await applyParamOpsToBody(baseBody, { model })
+      const fwdRequest: Parameters<typeof forwardToChannel>[0] = {
+        model,
+        messages,
+        temperature,
+        maxTokens,
+        stream: true,
+        responseFormat: opts.responseFormat,
+        seed: opts.seed,
+        tools: opts.tools,
+        toolChoice: opts.toolChoice,
+        stop,
+        reasoningEffort,
+        topP,
+        presencePenalty,
+        frequencyPenalty,
+        parallelToolCalls,
+        user,
+        serviceTier,
+        n,
+        logprobs,
+        topLogprobs,
+        topK,
+        repetitionPenalty,
+        logitBias,
+        userId,
+        affinityKey: opts.affinityKey,
+        egressRegion: opts.egressRegion ?? null,
+        bodyOverride: channelParamOps.body,
+        signal: controller.signal,
+        // F-337:流是否正常结束只有读完流才知道 ⇒ 建连阶段不记成功
+        deferStreamSuccess: true,
+      }
+      let fwd = await forwardToChannel(fwdRequest)
+      // 信封层重试(2026-11-17,对标对照站「双层瞬时故障重试」的信封层):
+      // 上游已回 200、流已开着,但首帧信封投的是可重试瞬时档(418/429/5xx)且
+      // 尚未向客户端写出任何字节 ⇒ 整条重开上游,≤2 次(1s/2s 退避)。
+      // 与连接层重试的区别:这时拿到的已经是 Response,只能整条重来;
+      // 与 F-337 失败路径的区别:瞬时档**不罚号**(不因上游的锅记渠道失败)。
+      let envelopeAttempt = 0
+      let stats: Awaited<ReturnType<typeof pipeChannelStream>> | null = null
+      while (fwd && fwd.ok) {
+        upstreamHttpStatus = fwd.response.status
+        streamedChannel = fwd.channel
+        stats = await pipeChannelStream(fwd.response, {
+          // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
+          ...(isTextFlavor
+            ? {
+                emitText: (text: string) => {
+                  channelWroteToClient = true
+                  writeChunk({ content: text }, null)
+                },
+              }
+            : {
+                writeLine: (line: string) => {
+                  channelWroteToClient = true
+                  raw.write(line)
+                },
+              }),
+          signal: controller.signal,
+        })
+        const retryableEnvelope = stats.envelopeError?.retryable === true
+        if (retryableEnvelope && !channelWroteToClient && envelopeAttempt < 2) {
+          envelopeAttempt += 1
+          await new Promise((resolve) =>
+            setTimeout(resolve, envelopeAttempt === 1 ? 1_000 : 2_000),
+          )
+          fwd = await forwardToChannel(fwdRequest)
+          continue
+        }
+        break
+      }
+      if (fwd && fwd.ok && stats) {
+        // F-337:上游 HTTP 200 但 SSE 内是错误帧/空流 ⇒ 不算成功。
+        // 未向客户端写过帧:把该渠道记失败(进熔断,后续请求不再选它),再抛错复用
+        // 下方 catch 的「未写帧回退 ai-service」;已写过帧:就地写错误帧收尾,
+        // 且下方 recordCall 改记 error、三组 token 归零(不白扣输入 token)。
+        if (stats.streamError) {
+          // 2026-11-17:可重试瞬时档已经在上面 while 里重开过 ≤2 次;走到这里说明重试也失败,
+          // 或者已经向客户端写过帧。**瞬时档不罚号**(不因上游的锅把渠道打进熔断),
+          // 业务错(401/403/404/400 或判不出状态码)照旧罚号 + 熔断。
+          if (stats.envelopeError?.retryable !== true) {
+            await recordChannelResult(fwd.channel.keyPoolId, false, null).catch(() => {})
+          }
+          if (!channelWroteToClient) throw new Error(stats.streamError)
+        } else {
+          // F-337:成功记录已由 deferStreamSuccess 延后到此 —— 流正常读完才算成功,
+          // 否则那记预记成功会把连续失败计数清零,熔断永远打不开。
+          await recordChannelResult(
+            fwd.channel.keyPoolId,
+            true,
+            fwd.latencyTrusted ? fwd.latencyMs : null,
+          ).catch(() => {})
+        }
+        responseText = stats.responseText
+        streamCacheReadTokens = stats.cacheReadTokens
+        streamCacheCreationTokens = stats.cacheCreationTokens
+        streamPromptTokens = stats.promptTokens
+        streamCompletionTokens = stats.completionTokens
+        // 格②(2026-09-26):此行原把 stats.ttftMs 反推成墙钟 epoch 再喂给下方 ttft 差值;
+        // 渠道分支在下方 return 收尾,该赋值对本函数唯一读者不可达,而 ttft 差值已改走单调钟,
+        // 故删除(渠道路径自身的 ttftMs 仍按 stats.ttftMs 原样落库,未改)。
+        if (
+          opts.streamUsageEnabled &&
+          (streamPromptTokens > 0 || streamCompletionTokens > 0 || stats.upstreamCredits !== null)
+        ) {
+          // 复用上游帧 id：同一条流里出现两个 id 会让按 id 聚合/追踪的实现当成两条流
+          raw.write(
+            buildStreamUsageChunk(
+              stats.lastFrameId ?? id,
+              model,
+              streamPromptTokens,
+              streamCompletionTokens,
+              // 积分计费上游（Qoder）唯一真实计量；token 字段本就为 0，不能让 usage 只报 0
+              stats.upstreamCredits !== null
+                ? { credits: stats.upstreamCredits, credits_unit: 'qoder_credits' }
+                : undefined,
+            ),
+          )
+        }
+        // F-337:错误帧必须让客户端看见(error 事件),不得静默补 finish 当成功收尾。
+        // 流已开始 ⇒ 架构上不能再换候选;这里如实发 OpenAI 协议内的 error 帧后终止。
+        if (stats.streamError) {
+          raw.write(
+            `data: ${JSON.stringify({
+              error: { message: stats.streamError, type: 'upstream_stream_error' },
+            })}\n\n`,
+          )
+        } else if (!stats.sawFinish) {
+          // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
+          // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
+          writeChunk({}, 'stop')
+        }
+        raw.write('data: [DONE]\n\n')
+        request.raw.off('close', onClose)
+        raw.end()
+        if (opts.apiKeyId && opts.userId) {
+          // F-679: 优先采用上游真实 usage 的 promptTokens(同函数 usage 帧已用该真值),
+          // 仅在缺失时才回落字符估算,避免中文 prompt 被 /4 系统性低估 2-3 倍、
+          // 账号池台账与用户账单对不上。
+          const promptTokens = stats.streamError
+            ? 0
+            : streamPromptTokens > 0
+              ? streamPromptTokens
+              : Math.ceil((opts.promptText ?? '').length / 4)
+          const completionTokens = stats.streamError ? 0 : stats.completionTokens
+          // 格②(2026-09-26):耗时改由单调钟样本经唯一适配器投影(不可信 ⇒ 0 + latencyTrusted:false)
+          const latency = persistableLatency(opts.sw.stop())
+          void recordCall({
+            apiKeyId: opts.apiKeyId,
+            userId: opts.userId,
+            model,
+            prompt: opts.promptText ?? '',
+            response: responseText,
+            promptTokens,
+            completionTokens,
+            totalTokens: promptTokens + completionTokens,
+            cacheReadTokens: stats.cacheReadTokens,
+            cacheCreationTokens: stats.cacheCreationTokens,
+            latencyMs: latency.latencyMs,
+            status: stats.streamError ? 'error' : 'success',
+            metadata: {
+              stream: true,
+              channel: fwd.channel.groupName,
+              ...(opts.modelMappingMeta ?? {}),
+              latencyTrusted: latency.latencyTrusted,
+            },
+            mode: opts.mode ?? 'relay',
+            providerCode: fwd.channel.providerCode,
+            configId: fwd.channel.configId,
+            keyPoolId: fwd.channel.keyPoolId,
+            clientIp: opts.clientIp,
+            httpStatus: stats.httpStatus,
+            ttftMs: stats.ttftMs ?? undefined,
+            preDeducted: opts.preDeducted ?? null,
+            // F-720:Qoder 类积分上游的 credits 必须进计费链路 —— 此前只序列化进回包/SSE 帧,
+            // 从未传给 recordCall ⇒ 该维度完全未计费(上游 token 恒 0 时等于零成本跑量)。
+            upstreamCredits: stats.upstreamCredits ?? undefined,
+            creditsUnit: 'qoder_credits',
+            // 动态成本(2026-11-14):OpenRouter 回传的本单真实成本(USD),透传进计费链路
+            upstreamCostUsd: stats.upstreamCostUsd ?? undefined,
+          })
+            .then((call) =>
+              // F-178:每次渠道调用后回写实际 token 与结算成本,让 checkQuota 的
+              // 日/月配额真正有数据可判。recordUsage 内部自捕获失败,不阻塞主链路。
+              recordUsage(
+                fwd.channel.keyPoolId,
+                promptTokens + completionTokens,
+                call.costCents,
+                false,
+              ),
+            )
+            .catch(() => {})
+        }
+        return // 渠道链路全程接管,不进入 ai-service 分支
+      }
+      // 信封层重试让 `fwd` 变成可重赋值的 let,判别联合的自动收窄在这里失效 ⇒ 用 `in` 守卫。
+      poolFailure =
+        (fwd && 'reason' in fwd && typeof fwd.reason === 'string' ? fwd.reason : null) ??
+        'no channel configured'
+      // fwd === null(无渠道)/ fwd.ok === false(全部候选失败)→ 落入下方 ai-service 链路
+    } catch (e) {
+      // 已向客户端写出过帧 ⇒ **禁止**回退 ai-service（见 channelWroteToClient 注释），
+      // 只能就地收尾并把错误如实告知。客户端已拿到部分内容，回退等于把两段内容缝在一起。
+      if (channelWroteToClient) {
+        const msg =
+          (e as Error)?.name === 'AbortError'
+            ? 'client disconnected'
+            : ((e as Error)?.message ?? 'stream error')
+        if (msg !== 'client disconnected') {
+          // F-337:成功记录已延后到流结束;流中途抛错(非客户端断开)必须记失败,
+          // 否则这条渠道本次调用在熔断账上完全缺席。
+          if (streamedChannel)
+            await recordChannelResult(streamedChannel.keyPoolId, false, null).catch(() => {})
+          writeChunk({ content: `[error] ${msg}` }, 'stop')
+        }
+        raw.write('data: [DONE]\n\n')
+        request.raw.off('close', onClose)
+        raw.end()
+        // F-722:已写出帧后异常不得就地 return —— 必须结算(退回预扣 + 落流水),
+        // 否则预扣永久沉淀、台账缺行,退款与审计都无从下手。
+        settleAbortedChannelStream({
+          reason: msg,
+          channel: streamedChannel,
+          clientDisconnected: msg === 'client disconnected',
+        })
+        return
+      }
+      // 尚未写出任何帧 → 回退 ai-service（客户端无感）;
+      // workbuddy/* 例外(见下方闸门),此处只记录失败原因。
+      poolFailure = (e as Error)?.message ?? 'channel error'
+    }
+  }
+
+  // workbuddy/* 的 ai-service 兜底必然回环(ai-service 把 workbuddy/* 路由回本 relay),
+  // 号池失败后就地收尾并如实报错,不再兜底 —— 否则 api→ai-service→api 会挂满超时。
+  // 报错文案要分清两种原因,不能一律说成"号池不可用"(2026-11-12):
+  //   无渠道/无号池行 ⇒ 这个模型压根没配上游,是我们没接通;
+  //   有渠道但候选全失败 ⇒ 上游/账号侧问题。
+  if (poolFailure && model.startsWith('workbuddy/')) {
+    writeChunk({ content: `[error] ${workbuddyNoUpstreamMessage(poolFailure)}` }, 'stop')
+    raw.write('data: [DONE]\n\n')
+    request.raw.off('close', onClose)
+    raw.end()
+    // F-722 同源缺口:这条分支同样"写完就 return",预扣凭证在这里也会被丢掉。
+    settleAbortedChannelStream({
+      reason: workbuddyNoUpstreamMessage(poolFailure),
+      channel: null,
+      clientDisconnected: false,
+    })
+    return
+  }
+
+  // 首个 chunk:role
+  writeChunk({ role: 'assistant', content: '' }, null)
+
+  try {
+    const body: Record<string, unknown> = { messages, model }
+    if (temperature !== undefined) body.temperature = temperature
+    if (maxTokens !== undefined) body.max_tokens = maxTokens
+    // 输出控制与协议扩展(2026-10-23):ai-service 兜底同样保留入口参数
+    if (stop !== undefined) body.stop = stop
+    if (reasoningEffort !== undefined) body.reasoning_effort = reasoningEffort
+    if (topP !== undefined) body.top_p = topP
+    if (presencePenalty !== undefined) body.presence_penalty = presencePenalty
+    if (frequencyPenalty !== undefined) body.frequency_penalty = frequencyPenalty
+    if (parallelToolCalls !== undefined) body.parallel_tool_calls = parallelToolCalls
+    if (user !== undefined) body.user = user
+    if (serviceTier !== undefined) body.service_tier = serviceTier
+    if (n !== undefined) body.n = n
+    if (logprobs !== undefined) body.logprobs = logprobs
+    if (topLogprobs !== undefined) body.top_logprobs = topLogprobs
+    if (topK !== undefined) body.top_k = topK
+    if (repetitionPenalty !== undefined) body.repetition_penalty = repetitionPenalty
+    if (logitBias !== undefined) body.logit_bias = logitBias
+    if (opts.tools !== undefined) body.tools = opts.tools
+    if (opts.toolChoice !== undefined) body.tool_choice = opts.toolChoice
+    if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
+    if (opts.seed !== undefined) body.seed = opts.seed
+    // BYOK 平台模式(2026-07-30):透传 owner_uuid via metadata.userId
+    if (userId) body.metadata = { userId }
+    // OpenAI 协议扩展:response_format(json_schema 已在 system 提示注入,原样透传) + seed
+    if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
+    if (opts.seed !== undefined) body.seed = opts.seed
+
+    // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
+    const paramOpsResult = await applyParamOpsToBody(body, { model })
+    const upstreamBody = paramOpsResult.body
+
+    const resp = await aiServiceSystemFetch('/api/llm/complete/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify(upstreamBody),
+      signal: controller.signal,
+    })
+
+    upstreamHttpStatus = resp.status
+
+    if (!resp.ok || !resp.body) {
+      const errText = await resp.text().catch(() => '')
+      streamError = `upstream ${resp.status}: ${errText.slice(0, 200)}`
+      writeChunk({ content: `[error] ${streamError}` }, 'stop')
+      raw.write('data: [DONE]\n\n')
+      return
+    }
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, nl).replace(/\r$/, '')
+        buffer = buffer.slice(nl + 1)
+        const text = extractStreamText(line)
+        if (text) {
+          // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
+          // 格②(2026-09-26):改为在首 token 处 stop 一次,与总耗时各自独立成样本
+          if (ttftSample === null) ttftSample = opts.sw.stop()
+          responseText += text
+          writeChunk({ content: text }, null)
+        }
+        // P0-5b prompt cache:从 SSE usage chunk 解析 cache 字段(末尾 chunk 通常含 usage)
+        const usageObj = extractStreamUsage(line)
+        if (usageObj) {
+          const cache = parseCacheTokens(usageObj)
+          streamCacheReadTokens = cache.cacheReadTokens
+          streamCacheCreationTokens = cache.cacheCreationTokens
+          // OpenAI 协议扩展:同步提取 prompt/completion tokens 供 stream_options.include_usage 使用
+          const pt = (usageObj as Record<string, unknown>).prompt_tokens
+          const ct = (usageObj as Record<string, unknown>).completion_tokens
+          if (typeof pt === 'number') streamPromptTokens = pt
+          if (typeof ct === 'number') streamCompletionTokens = ct
+          const u = usageObj as Record<string, unknown>
+          if (typeof u['cost'] === 'number') streamUpstreamCostUsd = u['cost']
+          else if (typeof u['total_cost'] === 'number') streamUpstreamCostUsd = u['total_cost']
+        }
+      }
+    }
+    if (buffer.trim()) {
+      const text = extractStreamText(buffer)
+      if (text) {
+        responseText += text
+        writeChunk({ content: text }, null)
+      }
+      const usageObj = extractStreamUsage(buffer)
+      if (usageObj) {
+        const cache = parseCacheTokens(usageObj)
+        streamCacheReadTokens = cache.cacheReadTokens
+        streamCacheCreationTokens = cache.cacheCreationTokens
+        // OpenAI 协议扩展:同步提取 prompt/completion tokens 供 stream_options.include_usage 使用
+        const pt = (usageObj as Record<string, unknown>).prompt_tokens
+        const ct = (usageObj as Record<string, unknown>).completion_tokens
+        if (typeof pt === 'number') streamPromptTokens = pt
+        if (typeof ct === 'number') streamCompletionTokens = ct
+        const u = usageObj as Record<string, unknown>
+        if (typeof u['cost'] === 'number') streamUpstreamCostUsd = u['cost']
+        else if (typeof u['total_cost'] === 'number') streamUpstreamCostUsd = u['total_cost']
+      }
+    }
+
+    // 结束 chunk(OpenAI 协议扩展:stream_options.include_usage=true 时,末尾追加 usage chunk)
+    if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
+      raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
+    }
+    writeChunk({}, 'stop')
+    raw.write('data: [DONE]\n\n')
+  } catch (e) {
+    const msg = (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
+    streamError = msg
+    writeChunk({ content: `[error] ${msg}` }, 'stop')
+    raw.write('data: [DONE]\n\n')
+  } finally {
+    request.raw.off('close', onClose)
+    raw.end()
+
+    // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
+    if (opts.apiKeyId && opts.userId) {
+      // F-679(2026-11-15):优先用上游真 usage(streamPromptTokens/streamCompletionTokens 由
+      // ai-service usage 帧 / 渠道 [USAGE] 帧捕获),缺失才回退"字符 ÷ 4"估算。旧代码无条件估算,
+      // 中文(≈1.5 字/token 而非 4)系统性少计 2~3 倍,与同函数 include_usage 分支(用真值)口径分裂。
+      // F-89:completion 估算兜底只用真实产出文本(responseText 不含错误文案)。
+      const estimatePromptTokens = Math.ceil((opts.promptText ?? '').length / 4)
+      const estimateCompletionTokens = Math.ceil(responseText.length / 4)
+      const promptTokens = streamPromptTokens > 0 ? streamPromptTokens : estimatePromptTokens
+      const completionTokens = streamError
+        ? 0
+        : streamCompletionTokens > 0
+          ? streamCompletionTokens
+          : estimateCompletionTokens
+      const totalTokens = promptTokens + completionTokens
+      // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
+      const status: 'success' | 'partial' | 'error' = streamError
+        ? completionTokens > 0
+          ? 'partial'
+          : 'error'
+        : 'success'
+      // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
+      const latency = persistableLatency(opts.sw.stop())
+      const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
+      void recordCall({
+        apiKeyId: opts.apiKeyId,
+        userId: opts.userId,
+        model,
+        prompt: opts.promptText ?? '',
+        response: responseText,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        cacheReadTokens: streamCacheReadTokens,
+        cacheCreationTokens: streamCacheCreationTokens,
+        latencyMs: latency.latencyMs,
+        status,
+        errorMessage: streamError,
+        metadata: {
+          stream: true,
+          ...(opts.modelMappingMeta ?? {}),
+          latencyTrusted: latency.latencyTrusted,
+          ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+          ...(status === 'partial' ? { partialDelivery: true } : {}),
+        },
+        mode: opts.mode ?? 'relay',
+        providerCode: opts.providerCode,
+        clientIp: opts.clientIp,
+        httpStatus: upstreamHttpStatus ?? undefined,
+        ttftMs: ttft ? ttft.latencyMs : undefined,
+        preDeducted: opts.preDeducted ?? null,
+        upstreamCostUsd: streamUpstreamCostUsd ?? undefined,
+      })
+        .then((call) => {
+          // F-538:流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
+          // 零产出/上游错误不落会话;写入失败只告警,不改变已完成的响应。
+          if (status === 'error' || !call.logId) return
+          recordRelayConversationTurnSafe({
+            userId: opts.userId!,
+            apiKeyId: opts.apiKeyId!,
+            model,
+            promptText: opts.promptText ?? '',
+            responseText,
+            logId: call.logId,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            costCents: call.costCents,
+            latencyMs: latency.latencyMs,
+          })
+        })
+        .catch(() => {})
+    }
+  }
+}
+
+// =============================================================================
+// 共享处理核引用(v1-gemini 协议入站复用,2026-09-13 立)
+// =============================================================================
+/**
+ * F-337 回归测试入口(仅导出,行为不变):直接驱动渠道流式腿,断言流内错误帧在
+ * 计费 / 熔断 / 客户端通知三处都按失败处理。
+ */
+export const __test__ = { streamChatCompletion }
+
+/** chat/completions 共享处理核签名 */
+export type V1ChatCore = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  body: z.infer<typeof chatCompletionSchema>,
+  flavor: 'chat' | 'text',
+) => Promise<void>
+
+let chatCoreRef: V1ChatCore | null = null
+
+/**
+ * 获取 chat/completions 共享处理核(含两段式计费/渠道 failover/响应缓存全链路)。
+ * v1-gemini 插件经此复用 OpenAI 链路,Gemini 协议转换在其外层完成。
+ */
+export function getV1ChatCore(): V1ChatCore {
+  if (!chatCoreRef) {
+    throw new Error('v1 chat core not initialized (v1PublicRoutes not registered?)')
+  }
+  return chatCoreRef
+}
+
+// =============================================================================
+// 路由插件
+// =============================================================================
+
+const v1PublicRoutes: FastifyPluginAsync = async (server) => {
+  // ===== 1. GET /agents — 列出可用 Agent =====
+  server.get(
+    '/agents',
+    {
+      schema: {
+        description: '列出可用 Agent',
+        tags: ['Agents'],
+        // P2 修复:新增可选 limit/offset 分页参数,防止返回所有 published agents(原无 limit)
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            offset: { type: 'integer', minimum: 0, default: 0 },
+          },
+          additionalProperties: false,
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    capabilities: { type: 'array', items: { type: 'string' } },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      // P2 修复:解析分页参数,默认 limit=20,范围 1-100;offset 默认 0
+      const query = (request.query ?? {}) as { limit?: number; offset?: number }
+      const safeLimit = Math.min(Math.max(Number(query.limit) || 20, 1), 100)
+      const safeOffset = Math.max(Number(query.offset) || 0, 0)
+
+      const rows = await dbRead
+        .select()
+        .from(agents)
+        .where(eq(agents.status, 'published'))
+        // F-426:LIMIT/OFFSET 翻页必须有全序,否则同 offset 重复/漏行;createdAt 非唯一,补 PK 兜底
+        .orderBy(desc(agents.createdAt), desc(agents.agentId))
+        .limit(safeLimit)
+        .offset(safeOffset)
+      const data = rows.map(toAgentInfo)
+      const resp: V1AgentsListResponse = { object: 'list', data }
+      return reply.send(resp)
+    },
+  )
+
+  // ===== 2. GET /agents/:id — Agent 详情 =====
+  server.get(
+    '/agents/:id',
+    {
+      schema: {
+        description: 'Agent 详情',
+        tags: ['Agents'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              description: { type: 'string' },
+              capabilities: { type: 'array', items: { type: 'string' } },
+            },
+          },
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
+      // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
+      // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
+      if (!isUuidString(id)) return reply.status(404).send(error(404, 'Agent not found'))
+      const [row] = await dbRead.select().from(agents).where(eq(agents.agentId, id)).limit(1)
+
+      if (!row || row.status !== 'published') {
+        return reply.status(404).send(error(404, 'Agent not found'))
+      }
+      return reply.send(toAgentInfo(row))
+    },
+  )
+
+  // ===== 3. POST /agents/:id/call — 调用 Agent =====
+  server.post(
+    '/agents/:id/call',
+    {
+      schema: {
+        description: '调用 Agent',
+        tags: ['Agents'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        body: {
+          type: 'object',
+          properties: {
+            input: { type: 'string' },
+            sessionId: { type: 'string' },
+          },
+          required: ['input'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              agentId: { type: 'string' },
+              sessionId: { type: 'string' },
+              output: { type: 'string' },
+              usage: {
+                type: 'object',
+                properties: { totalTokens: { type: 'number' } },
+              },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      // F-427:同资源 GET /agents/:id 已有的 UUID 形状闸,call 端点此前漏配 ——
+      // 非法字面量直达 uuid 列会 22P02 ⇒ 500,与"不存在"同形失真。
+      if (!isUuidString(id)) return reply.status(404).send(error(404, 'Agent not found'))
+      const parsed = agentCallSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { input, sessionId } = parsed.data
+
+      const [agent] = await dbRead.select().from(agents).where(eq(agents.agentId, id)).limit(1)
+      if (!agent || agent.status !== 'published') {
+        return reply.status(404).send(error(404, 'Agent not found'))
+      }
+
+      // 转发到 ai-service /api/llm/complete,用 agent.agentPrompt 作为 system 消息
+      const messages: Array<{ role: 'system' | 'user'; content: string }> = []
+      if (agent.agentPrompt) {
+        messages.push({ role: 'system', content: agent.agentPrompt })
+      }
+      messages.push({ role: 'user', content: input })
+
+      try {
+        const resp = await aiServiceSystemFetch('/api/llm/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages,
+            model: agent.agentModel ?? undefined,
+          }),
+        })
+
+        if (!resp.ok) {
+          return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
+        }
+
+        const data = (await resp.json()) as {
+          content?: string
+          usage?: { total_tokens?: number }
+          error?: boolean
+          error_message?: string
+        }
+
+        if (data.error) {
+          // 上游错误透传(2026-09-16):按 admin 配置的规则翻译上游错误再返回给下游
+          const passthrough = await resolveErrorPassthrough(502, data.error_message)
+          return reply
+            .status(passthrough.status)
+            .send(error(passthrough.status, passthrough.message))
+        }
+
+        const result: V1AgentCallResponse = {
+          agentId: agent.agentId,
+          sessionId: sessionId ?? randomUUID(),
+          output: data.content ?? '',
+          usage: { totalTokens: data.usage?.total_tokens ?? 0 },
+        }
+        return reply.send(result)
+      } catch (e) {
+        return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+      }
+    },
+  )
+
+  // ===== 4. POST /chat/completions — Chat 补全(OpenAI 兼容) =====
+  server.post(
+    '/chat/completions',
+    {
+      schema: {
+        description: 'Chat 补全(OpenAI 兼容,支持 stream)',
+        tags: ['Chat'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            messages: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', enum: ['system', 'user', 'assistant'] },
+                  content: { type: 'string' },
+                },
+                required: ['role', 'content'],
+              },
+            },
+            stream: { type: 'boolean' },
+            temperature: { type: 'number' },
+            maxTokens: { type: 'number' },
+            // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
+            stream_options: {
+              type: 'object',
+              properties: { include_usage: { type: 'boolean' } },
+            },
+            response_format: {
+              type: 'object',
+              properties: {
+                type: { type: 'string', enum: ['text', 'json_object', 'json_schema'] },
+                json_schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    schema: { type: 'object' },
+                    strict: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+            seed: { type: 'number' },
+          },
+          required: ['model', 'messages'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              created: { type: 'number' },
+              model: { type: 'string' },
+              choices: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    index: { type: 'number' },
+                    message: {
+                      type: 'object',
+                      properties: {
+                        role: { type: 'string' },
+                        content: { type: 'string' },
+                      },
+                    },
+                    finish_reason: { type: 'string' },
+                  },
+                },
+              },
+              // P0-5m(2026-07-30):必须声明 usage 子字段 properties,
+              // 否则 fast-json-stringify 会过滤掉所有子字段,返回 usage: {}
+              usage: {
+                type: 'object',
+                properties: {
+                  prompt_tokens: { type: 'number' },
+                  completion_tokens: { type: 'number' },
+                  total_tokens: { type: 'number' },
+                },
+              },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          402: errorResponseSchema,
+          403: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const parsed = chatCompletionSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      return processChatCompletion(request, reply, parsed.data, 'chat')
+    },
+  )
+
+  // ===== 4b. POST /completions — legacy 文本补全(OpenAI 兼容,2026-09-12 立) =====
+  server.post(
+    '/completions',
+    {
+      schema: {
+        description:
+          '文本补全(OpenAI legacy /v1/completions 兼容:prompt/suffix → messages 适配,复用 chat/completions 转发链与计费)',
+        tags: ['Completions'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: ['string', 'array'], items: { type: 'string' } },
+            suffix: { type: 'string' },
+            stream: { type: 'boolean' },
+            temperature: { type: 'number' },
+            max_tokens: { type: 'number' },
+            maxTokens: { type: 'number' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              created: { type: 'number' },
+              model: { type: 'string' },
+              choices: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: { type: 'string' },
+                    index: { type: 'number' },
+                    finish_reason: { type: 'string' },
+                  },
+                },
+              },
+              usage: {
+                type: 'object',
+                properties: {
+                  prompt_tokens: { type: 'number' },
+                  completion_tokens: { type: 'number' },
+                  total_tokens: { type: 'number' },
+                },
+              },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          402: errorResponseSchema,
+          403: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const parsed = completionRequestSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const promptText = Array.isArray(parsed.data.prompt)
+        ? parsed.data.prompt.join('\n\n')
+        : parsed.data.prompt
+      // legacy prompt/suffix → messages 适配(chat 上游统一处理)
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'user', content: promptText + (parsed.data.suffix ?? '') },
+      ]
+      return processChatCompletion(
+        request,
+        reply,
+        {
+          model: parsed.data.model,
+          messages,
+          stream: parsed.data.stream ?? false,
+          temperature: parsed.data.temperature,
+          maxTokens: parsed.data.maxTokens ?? parsed.data.max_tokens,
+          stop: parsed.data.stop,
+          reasoning_effort: parsed.data.reasoning_effort,
+        },
+        'text',
+      )
+    },
+  )
+
+  /**
+   * chat/completions 与 legacy completions 共用处理核(2026-09-12 从路由 lambda 提取):
+   * 协议扩展 → 余额预检 → 两段式预扣 → 模型映射 → 渠道直连(failover)→ ai-service 兜底 → 计费。
+   * @param flavor 'chat' = chat.completion 响应;'text' = legacy text_completion 响应
+   */
+  const processChatCompletion = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    body: z.infer<typeof chatCompletionSchema>,
+    flavor: 'chat' | 'text',
+  ): Promise<void> => {
+    const {
+      model,
+      messages,
+      stream,
+      temperature,
+      maxTokens: maxTokensCamel,
+      max_tokens,
+      max_completion_tokens,
+      stream_options,
+      response_format,
+      seed,
+      tools,
+      tool_choice,
+      stop,
+      reasoning_effort,
+      top_p,
+      presence_penalty,
+      frequency_penalty,
+      parallel_tool_calls,
+      user,
+      service_tier,
+      n,
+      logprobs,
+      top_logprobs,
+      top_k,
+      repetition_penalty,
+      logit_bias,
+    } = body
+    // 三个输出预算字段等价:显式 maxTokens > 标准 max_tokens > OpenAI 新名 max_completion_tokens
+    const maxTokens = maxTokensCamel ?? max_tokens ?? max_completion_tokens
+
+    // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
+    // - json_schema:工具函数在 system message 末尾追加 schema 提示,提升非原生模型命中率
+    // - text/json_object:原样透传 response_format 给上游
+    // - seed:符合范围(0-999999)透传
+    // - streamUsageEnabled:stream=true && stream_options.include_usage=true 时为 true
+    const protocolResult = applyProtocolExtensions({
+      model,
+      messages: messages as ChatCompletionRequest['messages'],
+      stream,
+      temperature,
+      max_tokens: maxTokens,
+      stream_options: stream_options as ChatCompletionRequest['stream_options'],
+      response_format: response_format as ChatCompletionRequest['response_format'],
+      seed,
+    })
+    const streamUsageEnabled = protocolResult.streamUsageEnabled
+    // json_schema 启用时 messages 可能被注入 system 提示;否则保持原始 messages
+    const upstreamMessages = (protocolResult.openaiBody.messages ?? messages) as typeof messages
+    const upstreamResponseFormat = protocolResult.openaiBody.response_format
+    const upstreamSeed = protocolResult.openaiBody.seed as number | undefined
+
+    // P0-5 中转站计费:调用前检查 API Key 余额
+    const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+    // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
+    const sw = startStopwatch()
+    const promptText = messages.map((m) => `${m.role}: ${messageContentText(m.content)}`).join('\n')
+
+    // 提示词审计(2026-09-17 立,补强 54):入站提示词风险检测。
+    // block 规则直接拒绝;warn/log 仅记录(命中已落库),不阻断调用。
+    const promptAudit = await auditPrompt(promptText, {
+      userId: apiKey?.userId ?? null,
+      apiKeyId: apiKey?.id ?? null,
+      model,
+    })
+    if (promptAudit.action === 'block') {
+      return reply.status(400).send(error(400, '请求内容未通过平台安全策略,请调整后重试'))
+    }
+
+    // 插件系统(2026-09-17 立,补强 59):request_block 拦截(30s 缓存,评估异常降级不拦截)。
+    // 403 直接返回,不进渠道 failover(避免回落 ai-service 绕过拦截)。
+    const pluginBlockMessage = await evaluateRequestBlockPlugins({ model, clientIp: request.ip })
+    if (pluginBlockMessage) {
+      return reply.status(403).send(error(403, pluginBlockMessage))
+    }
+
+    if (apiKey) {
+      const estimatedTokens = messages.reduce(
+        (sum, m) => sum + Math.ceil(messageContentText(m.content).length / 4),
+        0,
+      )
+      const quotaCheck = await checkQuota(apiKey.id, estimatedTokens, { clientIp: request.ip })
+      if (!quotaCheck.allowed) {
+        const reasonMap: Record<string, string> = {
+          no_balance_token: 'Token 余额不足,请充值或联系管理员',
+          no_balance_cost: '成本余额不足,请充值或联系管理员',
+          key_not_found: 'API Key 不存在',
+          key_revoked: 'API Key 已被吊销',
+          ip_blocked: '当前 IP 在该 Key 的黑名单中',
+          ip_not_allowed: '当前 IP 不在该 Key 的白名单中',
+          key_rate_window_exceeded: '已达到该 Key 的窗口请求数上限(5h/日/周),请稍后重试',
+        }
+        const statusCode =
+          quotaCheck.reason === 'key_not_found'
+            ? 401
+            : quotaCheck.reason === 'ip_blocked' || quotaCheck.reason === 'ip_not_allowed'
+              ? 403
+              : quotaCheck.reason === 'key_rate_window_exceeded'
+                ? 429
+                : 402
+        return reply
+          .status(statusCode)
+          .send(error(statusCode, reasonMap[quotaCheck.reason ?? ''] ?? '额度不足'))
+      }
+    }
+
+    // BYOK 平台模式(2026-07-30):若用户对该 model 有私有 ai_model_config,走 BYOK 计费分支
+    // mode='byok' 时 recordCall 只扣 platformFeeCents(上游原价 × 抽成率),不扣大厂成本
+    let mode: 'relay' | 'byok' = 'relay'
+    if (apiKey?.userId) {
+      try {
+        if (await isByokCall(apiKey.userId, model)) mode = 'byok'
+      } catch {
+        // isByokCall 失败默认走 relay,不影响主链路
+      }
+    }
+
+    // P0 模型映射(2026-07-31 立):Key 级 > 用户级 > 全局,admin 可配全局映射,
+    // 用户可配 Key 级映射,实现"gpt-4o→deepseek-chat 偷偷换后端降本 90%"等场景。
+    // 解析失败默认走原 model,不影响主链路。metadata 记录原始 model 供 recordCall 审计。
+    let resolvedModel = model
+    let modelMappingMeta: Record<string, unknown> | undefined
+    if (apiKey?.userId) {
+      try {
+        const mappingResult = await resolveModelMapping(model, apiKey.userId, apiKey.id)
+        if (mappingResult.mapped && mappingResult.resolvedModel) {
+          resolvedModel = mappingResult.resolvedModel
+          modelMappingMeta = {
+            originalModel: model,
+            mappedModel: resolvedModel,
+            mappingId: mappingResult.mapping?.id,
+            mappingScope: mappingResult.mapping?.apiKeyId
+              ? 'key'
+              : mappingResult.mapping?.userId
+                ? 'user'
+                : 'global',
+          }
+        }
+      } catch {
+        // 映射解析失败默认走原 model,不影响主链路
+      }
+    }
+
+    // F-385(P1 修):映射后必须复检白名单,防止"白名单只含 model-a → 映射为 model-z → 绕过白名单"。
+    // 仅在 Key 配置了 allowedModels 且实际发生映射时才需复检;未映射时鉴权阶段已查过原 model。
+    if (apiKey?.allowedModels && apiKey.allowedModels.length > 0 && resolvedModel !== model) {
+      const mappedModelCheck = checkAllowedModels(apiKey.allowedModels, resolvedModel)
+      if (!mappedModelCheck.ok) {
+        return reply.status(403).send(error(403, `映射后模型不在 API Key 白名单:${resolvedModel}`))
+      }
+    }
+
+    // 官方名改写(2026-09-13 立,入站兜底):客户端若用非官方大小写(如 minimax-m3)
+    // 请求,在此改写为官方名(MiniMax-M3)再进入路由/转发/计费链路。
+    // 原因:通道路由 selectChannelCandidates 按 model_id 精确 eq 查号池,
+    // 大小写不符会查空 → 落到默认 provider → 上游 422(实测 minimax-m3 → openai 422)。
+    // 保守实现:仅命中官方名映射表才改写,未知模型原样透传(不改变既有上游契约)。
+    resolvedModel = toOfficialModelName(resolvedModel)
+
+    // F-194(2026-11-13):计费口径单一来源 —— 以实际调用上游的模型为准。
+    // 预扣/结算/流水/响应缓存键全部用 billingModel;原始 model 只留作响应回显与审计 metadata。
+    // 此前预扣与缓存键用 resolvedModel、成功结算却传原始 model ⇒ 同一次调用三种价。
+    const billingModel = resolveBillingModel(model, resolvedModel)
+
+    // WorkBuddy 账号池不支持 n>1 / logprobs(上游静默忽略);入口明确拒绝,
+    // 避免经 ai-service → relay 回打时落到 ai-service 兜底形成回环。
+    if (resolvedModel.startsWith('workbuddy/') && ((n ?? 1) > 1 || logprobs === true)) {
+      return reply
+        .status(400)
+        .send(error(400, 'WorkBuddy 账号池不支持 n>1 或 logprobs;请去掉这些参数后重试'))
+    }
+
+    // 两段式计费第一阶段(2026-09-12 立):预扣预估用量(封顶当前余额),
+    // recordCall 收到凭证后自动结算(多退少补),敞口上限 = 单次预扣额。
+    // 仅 relay 模式预扣;BYOK 只抽成不预扣;无限额度 Key preDeductQuota 返回 null。
+    // 用户级并发限制(H,2026-09-16 立):同一用户挂起请求数超上限直接 429
+    // (进程内计数,单实例正确;多实例需迁 Redis——见 user-concurrency-service)。
+    // 释放挂在 reply.raw 'close'(正常完成与客户端断开都触发),防漏释放。
+    // G-727(2026-09-28 修):旧写法占用后隔约 10 行才把释放挂到 reply.raw 'close',
+    // 中间任何一句抛错都不会再来 close ⇒ 槽位永久泄漏,该用户计数只增不减;
+    // 一旦顶格,本进程余生对他全部 429(服务里"防止异常路径漏释放导致永久顶格"即此后果)。
+    // 现改走 acquireUserConcurrencyForResponse():占用成功与释放登记在**同一函数内**完成,
+    // 挂不上就当场释放并继续抛错(创建方兜底),且 release 是幂等闩(close/finish 双挂只减一次)。
+    if (apiKey?.userId) {
+      const slot = acquireUserConcurrencyForResponse(apiKey.userId, reply.raw)
+      if (!slot.ok) {
+        return reply.status(429).send({
+          error: {
+            message: `User concurrency limit reached (${slot.limit}). Close idle connections or retry later.`,
+            type: 'user_concurrency_limit',
+            code: 'user_concurrency_limit',
+          },
+        })
+      }
+    }
+
+    let preDeduction: PreDeduction | null = null
+    if (apiKey && mode === 'relay') {
+      try {
+        preDeduction = await preDeductQuota({
+          apiKeyId: apiKey.id,
+          model: billingModel,
+          userId: apiKey.userId,
+          estimatedPromptTokens: Math.ceil(promptText.length / 4),
+          estimatedCompletionTokens: maxTokens ?? 1024,
+        })
+      } catch (err) {
+        // 计费熔断(F,2026-09-16):定价不可用(查询失败且无缓存)时 fail-closed
+        // 返回 503 宁拒一次调用,不放一轮免费(OpenAI 错误格式,客户端可重试)。
+        if (err instanceof BillingUnavailableError) {
+          return reply.status(503).send({
+            error: {
+              message:
+                'Billing is temporarily unavailable (pricing store unreachable). Please retry shortly.',
+              type: 'billing_unavailable',
+              code: 'billing_unavailable',
+            },
+          })
+        }
+        throw err
+      }
+    }
+
+    if (stream) {
+      return streamChatCompletion(request, reply, {
+        model: billingModel,
+        // json_schema 启用时 upstreamMessages 已注入 system 提示
+        messages: upstreamMessages,
+        temperature,
+        maxTokens,
+        apiKeyId: apiKey?.id,
+        userId: apiKey?.userId,
+        promptText,
+        sw,
+        mode,
+        modelMappingMeta,
+        providerCode: modelToProviderCode(billingModel),
+        clientIp: request.ip,
+        // OpenAI 协议扩展透传
+        streamUsageEnabled,
+        responseFormat: upstreamResponseFormat,
+        seed: upstreamSeed,
+        tools,
+        toolChoice: tool_choice,
+        stop,
+        reasoningEffort: reasoning_effort,
+        topP: top_p,
+        presencePenalty: presence_penalty,
+        frequencyPenalty: frequency_penalty,
+        parallelToolCalls: parallel_tool_calls,
+        user,
+        serviceTier: service_tier,
+        n,
+        logprobs,
+        topLogprobs: top_logprobs,
+        // 响应形态 + 两段式计费凭证 + 渠道亲和性 + Key 级出口绑定
+        flavor,
+        preDeducted: preDeduction,
+        affinityKey: apiKey?.id,
+        egressRegion: apiKey?.egressRegion ?? null,
+      })
+    }
+
+    // 非流式:转发到 ai-service /api/llm/complete
+    try {
+      // P0 第二批次响应缓存(2026-07-31 立):对非流式 chat completions 启用 Redis 缓存。
+      // 跳过条件:stream/tools/media/超大请求/X-Cache-Bypass header(见 shouldSkipCache)
+      // 命中:直接返回缓存结果,加 X-Cache: HIT header,recordCall 记 cacheHit:true(成本为 0)
+      // 未命中:正常调用上游,成功后写入缓存,加 X-Cache: MISS header
+      const cache = getRelayResponseCache()
+      let cacheKey: string | null = null
+      if (cache) {
+        const skip = shouldSkipCache({
+          stream: false,
+          bypassHeader: request.headers['x-cache-bypass'] as string | undefined,
+          tools: (request.body as { tools?: unknown }).tools,
+          messages: messages as CacheableMessage[],
+        })
+        if (!skip.skip) {
+          // F-180:缓存键必须与"真正发给上游的请求"同源 —— 用注入 json_schema 后的
+          // upstreamMessages,并把所有影响输出的采样参数(top_p/penalties/seed/response_format)
+          // 一起喂进去。只传 model/messages/temperature/max_tokens 会让 JSON 与纯文本请求
+          // 互撞、seed 失效,缓存统计也随之失真。
+          cacheKey = computeCacheKey({
+            model: billingModel,
+            messages: upstreamMessages as CacheableMessage[],
+            temperature,
+            max_tokens: maxTokens,
+            top_p,
+            presence_penalty,
+            frequency_penalty,
+            seed: upstreamSeed,
+            response_format: upstreamResponseFormat,
+            tools: (request.body as { tools?: unknown }).tools,
+            tool_choice: (request.body as { tool_choice?: unknown }).tool_choice,
+          })
+          const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
+          if (cached.hit) {
+            // 缓存命中:成本为 0,记录 cacheHit 标志供统计
+            // F-181 配额口径(用户裁定):token 配额按 0 计、请求次数照计。
+            // 这里显式给出可判标记,避免"有请求但没扣 token"看起来像漏账;
+            // 计费侧对应字段见 relay-billing-service 的 metadata.cacheSavedTokens /
+            // quotaBilledTokens / requestCounted。
+            reply.header('X-Cache', 'HIT')
+            reply.header('X-Cache-Billing', 'hit;tokens=0;requests=1')
+            if (apiKey) {
+              const latency = persistableLatency(sw.stop())
+              void recordCall({
+                apiKeyId: apiKey.id,
+                userId: apiKey.userId,
+                model: billingModel,
+                prompt: promptText,
+                response: cached.data.choices[0]?.message?.content ?? '',
+                promptTokens: cached.data.usage?.prompt_tokens ?? 0,
+                completionTokens: cached.data.usage?.completion_tokens ?? 0,
+                totalTokens: cached.data.usage?.total_tokens ?? 0,
+                latencyMs: latency.latencyMs,
+                status: 'success',
+                mode,
+                providerCode: modelToProviderCode(billingModel),
+                clientIp: request.ip,
+                httpStatus: 200,
+                metadata: {
+                  cacheHit: true,
+                  ...(modelMappingMeta ?? {}),
+                  latencyTrusted: latency.latencyTrusted,
+                },
+                preDeducted: preDeduction,
+              }).catch((e) => {
+                console.error('[v1/chat] cache hit recordCall FAIL', e?.message || e)
+              })
+            }
+            return reply.send(cached.data)
+          }
+        }
+      }
+
+      // 渠道直连(2026-09-12 立):relay 模式优先渠道路由直连上游(候选间逐请求 failover 内建);
+      // 返回 null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路(向后兼容)。
+      let usedChannel: SelectedChannelKey | null = null
+      let resp: Response | null = null
+      let poolFailure: string | null = null
+      // F-678:失败结果原样留底,最终按 lastHttpStatus 决定对外状态码
+      let channelFailure: ForwardResult = null
+      let channelRejection: ForwardFailureHttp | null = null
+      if (mode === 'relay') {
+        try {
+          const baseBody: Record<string, unknown> = {
+            messages: upstreamMessages,
+            model: billingModel,
+          }
+          if (temperature !== undefined) baseBody.temperature = temperature
+          if (maxTokens !== undefined) baseBody.max_tokens = maxTokens
+          if (upstreamResponseFormat !== undefined)
+            baseBody.response_format = upstreamResponseFormat
+          if (upstreamSeed !== undefined) baseBody.seed = upstreamSeed
+          // function-calling 透传(2026-10-22):tools/tool_choice 原样进渠道 body 与账号池 norm
+          if (tools !== undefined) baseBody.tools = tools
+          if (tool_choice !== undefined) baseBody.tool_choice = tool_choice
+          // 输出控制(2026-10-22):渠道原样,账号池按平台映射/本地截断
+          if (stop !== undefined) baseBody.stop = stop
+          if (reasoning_effort !== undefined) baseBody.reasoning_effort = reasoning_effort
+          if (top_p !== undefined) baseBody.top_p = top_p
+          if (presence_penalty !== undefined) baseBody.presence_penalty = presence_penalty
+          if (frequency_penalty !== undefined) baseBody.frequency_penalty = frequency_penalty
+          if (parallel_tool_calls !== undefined) baseBody.parallel_tool_calls = parallel_tool_calls
+          if (user !== undefined) baseBody.user = user
+          if (service_tier !== undefined) baseBody.service_tier = service_tier
+          if (n !== undefined) baseBody.n = n
+          if (logprobs !== undefined) baseBody.logprobs = logprobs
+          if (top_logprobs !== undefined) baseBody.top_logprobs = top_logprobs
+          if (top_k !== undefined) baseBody.top_k = top_k
+          if (repetition_penalty !== undefined) baseBody.repetition_penalty = repetition_penalty
+          if (logit_bias !== undefined) baseBody.logit_bias = logit_bias
+          // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
+          const paramOpsResult = await applyParamOpsToBody(baseBody, { model: billingModel })
+          const fwd = await forwardToChannel({
+            model: billingModel,
+            messages: upstreamMessages,
+            temperature,
+            maxTokens,
+            stream: false,
+            responseFormat: upstreamResponseFormat,
+            seed: upstreamSeed,
+            tools,
+            toolChoice: tool_choice,
+            stop,
+            reasoningEffort: reasoning_effort,
+            topP: top_p,
+            presencePenalty: presence_penalty,
+            frequencyPenalty: frequency_penalty,
+            parallelToolCalls: parallel_tool_calls,
+            user,
+            serviceTier: service_tier,
+            n,
+            logprobs,
+            topLogprobs: top_logprobs,
+            topK: top_k,
+            repetitionPenalty: repetition_penalty,
+            logitBias: logit_bias,
+            userId: apiKey?.userId,
+            affinityKey: apiKey?.id,
+            egressRegion: apiKey?.egressRegion ?? null,
+            bodyOverride: paramOpsResult.body,
+          })
+          if (fwd && fwd.ok) {
+            resp = fwd.response
+            usedChannel = fwd.channel
+          } else {
+            poolFailure = fwd?.reason ?? 'no channel configured'
+            channelFailure = fwd ?? null
+          }
+        } catch (e) {
+          // 渠道链路异常 → 回退 ai-service
+          poolFailure = (e as Error)?.message ?? 'channel error'
+        }
+      }
+
+      if (!resp) {
+        // workbuddy/* 的 ai-service 兜底必然回环:ai-service 把 workbuddy/* 路由回本 relay
+        // (127.0.0.1:8802/v1,即 llm_gateway 的 workbuddy_relay)。号池失败后再兜底就是
+        // api→ai-service→api 的循环,带 tools 时实测要挂满 api 侧 60s 才 503。
+        // 这里就地如实返回号池原因,不再兜底。
+        if (mode === 'relay' && resolvedModel.startsWith('workbuddy/')) {
+          resp = new Response(
+            JSON.stringify({
+              error: { message: workbuddyNoUpstreamMessage(poolFailure ?? '') },
+            }),
+            { status: 502, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+      }
+
+      // F-678:上游对本次请求的明确拒绝(400/401/404/429)换 ai-service 也不会变好 ⇒ 不回落,
+      // 最终按 lastHttpStatus 原样回状态码;错误体只用我们自己的截断文案,不透传上游响应头。
+      // 只有「无可用上游(无 lastHttpStatus)/ 5xx / 网络错」才继续下面的 ai-service 兜底(最终仍 503)。
+      if (!resp) {
+        const mapped = mapForwardFailureToHttp(channelFailure)
+        if (mapped.status >= 400 && mapped.status < 500) {
+          channelRejection = mapped
+          resp = new Response(null, { status: mapped.status })
+        }
+      }
+
+      if (!resp) {
+        const body: Record<string, unknown> = { messages, model: billingModel }
+        if (temperature !== undefined) body.temperature = temperature
+        if (maxTokens !== undefined) body.max_tokens = maxTokens
+        // 输出控制透传(2026-10-22):与流式路径同源
+        if (stop !== undefined) body.stop = stop
+        if (reasoning_effort !== undefined) body.reasoning_effort = reasoning_effort
+        if (top_p !== undefined) body.top_p = top_p
+        if (presence_penalty !== undefined) body.presence_penalty = presence_penalty
+        if (frequency_penalty !== undefined) body.frequency_penalty = frequency_penalty
+        if (parallel_tool_calls !== undefined) body.parallel_tool_calls = parallel_tool_calls
+        if (user !== undefined) body.user = user
+        if (service_tier !== undefined) body.service_tier = service_tier
+        if (n !== undefined) body.n = n
+        if (logprobs !== undefined) body.logprobs = logprobs
+        if (top_logprobs !== undefined) body.top_logprobs = top_logprobs
+        if (top_k !== undefined) body.top_k = top_k
+        if (repetition_penalty !== undefined) body.repetition_penalty = repetition_penalty
+        if (logit_bias !== undefined) body.logit_bias = logit_bias
+        if (tools !== undefined) body.tools = tools
+        if (tool_choice !== undefined) body.tool_choice = tool_choice
+        if (upstreamResponseFormat !== undefined) body.response_format = upstreamResponseFormat
+        if (upstreamSeed !== undefined) body.seed = upstreamSeed
+        // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
+        // 让 ai-service 能识别 BYOK 调用并走用户自有 key 路径(与流式 streamChatCompletion 对齐)。
+        if (apiKey?.userId) {
+          body.metadata = { userId: apiKey.userId, ...(mode === 'byok' ? { byokMode: true } : {}) }
+        }
+
+        // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
+        const paramOpsResult = await applyParamOpsToBody(body, { model: billingModel })
+        const upstreamBody = paramOpsResult.body
+
+        resp = await aiServiceSystemFetch('/api/llm/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(upstreamBody),
+        })
+      }
+
+      if (!resp.ok) {
+        // F-678:4xx 拒绝按上游状态码回(429 带上游给的 Retry-After);其余保持既有 503
+        const failureStatus = channelRejection?.status ?? 503
+        const failureMessage = channelRejection
+          ? (poolFailure ?? 'upstream rejected the request').slice(0, 200)
+          : `AI service unavailable (${resp.status})`
+        if (apiKey) {
+          const latency = persistableLatency(sw.stop())
+          void recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model: billingModel,
+            prompt: promptText,
+            metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
+            response: null,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: latency.latencyMs,
+            status: 'error',
+            errorMessage: failureMessage,
+            mode,
+            providerCode: modelToProviderCode(billingModel),
+            clientIp: request.ip,
+            httpStatus: resp.status,
+            preDeducted: preDeduction,
+          }).catch(() => {})
+        }
+        if (channelRejection?.retryAfter) reply.header('Retry-After', channelRejection.retryAfter)
+        return reply.status(failureStatus).send(error(failureStatus, failureMessage))
+      }
+
+      const rawJson = (await resp.json()) as Record<string, unknown>
+      // 归一化:ai-service 简化格式 {content, usage} 与渠道直连的 OpenAI 原生格式二选一
+      let data: {
+        content?: string
+        model?: string
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+        error?: boolean
+        error_message?: string
+      }
+      if (usedChannel) {
+        const choices = rawJson['choices'] as Array<Record<string, unknown>> | undefined
+        const message = choices?.[0]?.['message'] as Record<string, unknown> | undefined
+        const rawUsage = rawJson['usage'] as Record<string, unknown> | undefined
+        data = {
+          content: typeof message?.['content'] === 'string' ? message['content'] : '',
+          model: typeof rawJson['model'] === 'string' ? rawJson['model'] : undefined,
+          usage: rawUsage
+            ? {
+                prompt_tokens:
+                  typeof rawUsage['prompt_tokens'] === 'number' ? rawUsage['prompt_tokens'] : 0,
+                completion_tokens:
+                  typeof rawUsage['completion_tokens'] === 'number'
+                    ? rawUsage['completion_tokens']
+                    : 0,
+                total_tokens:
+                  typeof rawUsage['total_tokens'] === 'number' ? rawUsage['total_tokens'] : 0,
+                // 积分计费上游（Qoder）token 恒 0，唯一真实扣减量是 credits；
+                // 原样带回，绝不填占位 0（0 会被读成"本次免费"）。
+                // 桥侧 credits 可能在 usage 内（流式）也可能在帧顶层（非流式）→ 两处都认。
+                ...(typeof rawUsage['credits'] === 'number'
+                  ? { credits: rawUsage['credits'], credits_unit: 'qoder_credits' }
+                  : typeof rawJson['x_qoder_credits'] === 'number'
+                    ? { credits: rawJson['x_qoder_credits'], credits_unit: 'qoder_credits' }
+                    : {}),
+                ...(typeof rawUsage['context_usage_ratio'] === 'number'
+                  ? { context_usage_ratio: rawUsage['context_usage_ratio'] }
+                  : typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+                    ? { context_usage_ratio: rawJson['x_qoder_context_usage_ratio'] }
+                    : {}),
+              }
+            : undefined,
+          // 桥侧透传的 Qoder 专属计量/追踪字段（顶层，非 usage 内）
+          ...(typeof rawJson['x_qoder_credits'] === 'number'
+            ? { x_qoder_credits: rawJson['x_qoder_credits'] }
+            : {}),
+          ...(typeof rawJson['x_qoder_request_id'] === 'string'
+            ? { x_qoder_request_id: rawJson['x_qoder_request_id'] }
+            : {}),
+          ...(typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+            ? { x_qoder_context_usage_ratio: rawJson['x_qoder_context_usage_ratio'] }
+            : {}),
+        }
+      } else {
+        data = rawJson as {
+          content?: string
+          model?: string
+          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+          error?: boolean
+          error_message?: string
+        }
+      }
+
+      if (data.error) {
+        if (apiKey) {
+          const latency = persistableLatency(sw.stop())
+          void recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model: billingModel,
+            prompt: promptText,
+            metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
+            response: null,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: latency.latencyMs,
+            status: 'error',
+            errorMessage: data.error_message ?? 'AI service error',
+            mode,
+            providerCode: modelToProviderCode(billingModel),
+            clientIp: request.ip,
+            httpStatus: resp.status,
+            preDeducted: preDeduction,
+          }).catch(() => {})
+        }
+        return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
+      }
+
+      const promptTokens = data.usage?.prompt_tokens ?? 0
+      const completionTokens = data.usage?.completion_tokens ?? 0
+      const totalTokens = data.usage?.total_tokens ?? 0
+      // P0-5b prompt cache:从 usage 解析 cache_read/cache_creation tokens(OpenAI/Anthropic 风格)
+      const cacheTokens = parseCacheTokens(data.usage)
+      // P0-5 防御:ai-service 偶发把 usage 序列化为 '***' 字符串(LLMMetrics 中间件脱敏),
+      // 此时按字符数估算(1 token ≈ 4 字符,中英文混合),避免 recordCall 写库失败。
+      const safeInt = (v: unknown, fallbackChars: number): number => {
+        if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.floor(v)
+        if (typeof v === 'string') {
+          const n = Number(v)
+          if (Number.isFinite(n) && n >= 0) return Math.floor(n)
+          return Math.max(1, Math.ceil(fallbackChars / 4))
+        }
+        return Math.max(1, Math.ceil(fallbackChars / 4))
+      }
+      const safePrompt = safeInt(promptTokens, promptText.length)
+      const safeCompletion = safeInt(completionTokens, (data.content ?? '').length)
+      const safeTotal = safeInt(totalTokens, promptText.length + (data.content ?? '').length)
+
+      // 积分/上下文占用比例：usage 内优先；Qoder 桥把 credits 放在 usage 内（流式）
+      // 或帧/响应顶层 x_qoder_credits（非流式）；两处都认，且 usedChannel / ai-service
+      // 回退两种分支都要能拾起，绝不因分支差异漏掉真实扣减量。
+      const rawUsage = (rawJson['usage'] ?? null) as Record<string, unknown> | null
+      const usageCredits =
+        (typeof rawUsage?.['credits'] === 'number' ? rawUsage['credits'] : null) ??
+        (typeof rawJson['x_qoder_credits'] === 'number' ? rawJson['x_qoder_credits'] : null)
+      const usageRatio =
+        (typeof rawUsage?.['context_usage_ratio'] === 'number'
+          ? rawUsage['context_usage_ratio']
+          : null) ??
+        (typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+          ? rawJson['x_qoder_context_usage_ratio']
+          : null)
+      // 动态成本(2026-11-14):上游回传的本单真实成本(USD)。
+      // OpenRouter 在 usage.cost / usage.total_cost;桥类上游在顶层 x_upstream_cost_usd。
+      // usedChannel 与 ai-service 回退两种分支共用本变量,绝不因分支差异漏采。
+      const usageCostUsd =
+        (typeof rawUsage?.['cost'] === 'number' ? rawUsage['cost'] : null) ??
+        (typeof rawUsage?.['total_cost'] === 'number' ? rawUsage['total_cost'] : null) ??
+        (typeof rawJson['x_upstream_cost_usd'] === 'number' ? rawJson['x_upstream_cost_usd'] : null)
+      // F-673: 渠道直连返回 OpenAI 原生响应;此前重建为 {role,content} 极简结构,丢掉
+      // tool_calls / reasoning_content 并把 finish_reason 写死 'stop',工具调用链断裂。
+      // usedChannel 时透传上游 message 原对象与真实 finish_reason,并优先沿用上游 id/created;
+      // 窄类型以断言兼容(运行时 JSON 原样序列化,toTextCompletion / 缓存读取仍取 .content)。
+      const channelChoice = usedChannel
+        ? (rawJson['choices'] as Array<Record<string, unknown>> | undefined)?.[0]
+        : undefined
+      const channelMessage = channelChoice?.['message'] as Record<string, unknown> | undefined
+      const channelFinishReason = channelChoice?.['finish_reason']
+      const result: V1ChatCompletionResponse = {
+        id: typeof rawJson['id'] === 'string' ? rawJson['id'] : `chatcmpl-${randomUUID()}`,
+        object: 'chat.completion',
+        created:
+          typeof rawJson['created'] === 'number'
+            ? rawJson['created']
+            : Math.floor(Date.now() / 1000),
+        model: data.model ?? model,
+        choices: [
+          {
+            index: 0,
+            message: (channelMessage ?? {
+              role: 'assistant',
+              content: data.content ?? '',
+            }) as V1ChatCompletionResponse['choices'][number]['message'],
+            finish_reason: (typeof channelFinishReason === 'string'
+              ? channelFinishReason
+              : 'stop') as V1ChatCompletionResponse['choices'][number]['finish_reason'],
+          },
+        ],
+        usage: {
+          prompt_tokens: safePrompt,
+          completion_tokens: safeCompletion,
+          total_tokens: safeTotal,
+          // 积分计费上游（Qoder）token 恒 0，唯一真实扣减量是 credits；原样带回。
+          ...(usageCredits !== null
+            ? { credits: usageCredits, credits_unit: 'qoder_credits' }
+            : {}),
+          ...(usageRatio !== null ? { context_usage_ratio: usageRatio } : {}),
+        },
+        // 桥侧透传的 Qoder 专属计量/追踪字段（顶层，与桥自身响应形态一致；非 Qoder 上游无此类字段则不带）
+        ...(typeof rawJson['x_qoder_credits'] === 'number'
+          ? { x_qoder_credits: rawJson['x_qoder_credits'] }
+          : {}),
+        ...(typeof rawJson['x_qoder_request_id'] === 'string'
+          ? { x_qoder_request_id: rawJson['x_qoder_request_id'] }
+          : {}),
+        ...(typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+          ? { x_qoder_context_usage_ratio: rawJson['x_qoder_context_usage_ratio'] }
+          : {}),
+        ...(typeof rawJson['x_qoder_sdk_model'] === 'string'
+          ? { x_qoder_sdk_model: rawJson['x_qoder_sdk_model'] }
+          : {}),
+      }
+
+      // P0-5 中转站计费:调用成功,记录流水 + 扣减余额(两段式:结算预扣差额)
+      if (apiKey) {
+        const latency = persistableLatency(sw.stop())
+        recordCall({
+          apiKeyId: apiKey.id,
+          userId: apiKey.userId,
+          model: billingModel,
+          prompt: promptText,
+          response: data.content ?? '',
+          promptTokens: safePrompt,
+          completionTokens: safeCompletion,
+          totalTokens: safeTotal,
+          cacheReadTokens: cacheTokens.cacheReadTokens,
+          cacheCreationTokens: cacheTokens.cacheCreationTokens,
+          latencyMs: latency.latencyMs,
+          status: 'success',
+          // F-443:与流式(:metadata 带 modelMappingMeta)和缓存命中同源 —— 非流式成功流水
+          // 同样落映射元信息,否则同一请求在 stream/缓存/非流式三处无法按模型对账。
+          metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
+          mode,
+          providerCode: usedChannel?.providerCode ?? modelToProviderCode(billingModel),
+          configId: usedChannel?.configId,
+          keyPoolId: usedChannel?.keyPoolId,
+          clientIp: request.ip,
+          httpStatus: resp.status,
+          preDeducted: preDeduction,
+          // F-720:非流式同样要把上游声明的 credits 带进计费链路(usage.credits 或顶层
+          // x_qoder_credits 两处都认,usedChannel / ai-service 回退两种分支都不会漏)。
+          upstreamCredits: usageCredits ?? undefined,
+          creditsUnit: 'qoder_credits',
+          // 动态成本:上游回传的真实成本(USD)进入计费链路(dynamic_cost 定价行消费)
+          upstreamCostUsd: usageCostUsd ?? undefined,
+        })
+          .then((call) => {
+            // F-538:非流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
+            // 写入失败只告警;不得占用/改变本已成功响应的返回路径。
+            if (call.logId) {
+              recordRelayConversationTurnSafe({
+                userId: apiKey.userId,
+                apiKeyId: apiKey.id,
+                model: billingModel,
+                promptText,
+                responseText: data.content ?? '',
+                logId: call.logId,
+                promptTokens: safePrompt,
+                completionTokens: safeCompletion,
+                totalTokens: safeTotal,
+                costCents: call.costCents,
+                latencyMs: latency.latencyMs,
+              })
+            }
+            // F-178:非流式渠道路径同样回写用量;非渠道路径 usedChannel 为空,跳过
+            return usedChannel
+              ? recordUsage(usedChannel.keyPoolId, safeTotal, call.costCents, false)
+              : undefined
+          })
+          .catch((e) => {
+            console.error('[v1/chat] recordCall FAIL', e?.message || e)
+          })
+      }
+
+      // P0 第二批次响应缓存(2026-07-31 立):未命中时成功响应后写入缓存,下次同样请求直接命中
+      if (cache && cacheKey) {
+        void cache.set(cacheKey, result).catch((e) => {
+          console.error('[v1/chat] cache set FAIL', e?.message || e)
+        })
+      }
+      reply.header('X-Cache', 'MISS')
+
+      // legacy /v1/completions:chat.completion → text_completion 形态适配
+      if (flavor === 'text') return reply.send(toTextCompletion(result))
+      return reply.send(result)
+    } catch (e) {
+      if (apiKey) {
+        const latency = persistableLatency(sw.stop())
+        void recordCall({
+          apiKeyId: apiKey.id,
+          userId: apiKey.userId,
+          model: billingModel,
+          prompt: promptText,
+          response: null,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: latency.latencyMs,
+          status: 'error',
+          errorMessage: (e as Error).message || 'AI service unavailable',
+          // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
+          metadata: { latencyTrusted: latency.latencyTrusted },
+          mode,
+          providerCode: modelToProviderCode(billingModel),
+          clientIp: request.ip,
+          preDeducted: preDeduction,
+        }).catch(() => {})
+      }
+      return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+    }
+  }
+
+  // 绑定共享处理核(供 getV1ChatCore / v1-gemini 使用)
+  chatCoreRef = processChatCompletion
+
+  // ===== 5. GET /models — 模型列表(5min 缓存 + X-Model-Source 标识来源) =====
+  server.get(
+    '/models',
+    {
+      schema: {
+        description: '模型列表(5min 缓存,X-Model-Source 标识来源)',
+        tags: ['Models'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    object: { type: 'string' },
+                    created: { type: 'number' },
+                    owned_by: { type: 'string' },
+                    // 2026-11-17:附「拿不到的模型」时这三格必须进 schema —— 否则 Fastify
+                    // 响应序列化器按 properties 白名单剥离,客户端只会收到没有原因的幽灵条目。
+                    available: { type: 'boolean' },
+                    x_disabled_category: { type: 'string' },
+                    x_disabled_reason: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('models:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      // BYOK 平台模式(2026-07-30):鉴权用户额外返回其私有 BYOK 模型
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      // 2026-11-17:?include_unavailable=1 时把「拿不到的模型」也列出来并附原因
+      // (对照站行为);默认仍只给可用清单,老客户端形状不变。
+      const q = request.query as { include_unavailable?: string } | undefined
+      const raw = q?.include_unavailable
+      const includeUnavailable = raw === '1' || raw === 'true'
+      const { body, source } = await fetchModels(apiKey?.userId, includeUnavailable)
+      reply.header('X-Model-Source', source)
+      return reply.send(body)
+    },
+  )
+
+  // ===== 6. GET /files — 文件列表 =====
+  server.get(
+    '/files',
+    {
+      schema: {
+        description: '文件列表(当前 API Key 用户上传的文件)',
+        tags: ['Files'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    object: { type: 'string' },
+                    filename: { type: 'string' },
+                    bytes: { type: 'number' },
+                    createdAt: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('files:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      if (!apiKey) {
+        return reply.status(401).send(error(401, 'API key authentication required'))
+      }
+      const userId = apiKey.userId
+      // 查询当前用户上传的文件(未删除)
+      const rows = await dbRead
+        .select()
+        .from(files)
+        .where(and(eq(files.uploadedBy, userId), isNull(files.deletedAt)))
+
+      const data = rows.map((f) => ({
+        id: f.id,
+        object: 'file' as const,
+        filename: f.name,
+        bytes: f.size,
+        createdAt: f.createdAt.toISOString(),
+      }))
+      return reply.send({ object: 'list', data })
+    },
+  )
+
+  // ===== 7. POST /files — 上传文件(落盘 + files 表持久化) =====
+  server.post(
+    '/files',
+    {
+      // multipart 文件上传:吃全局 2MiB 会被静默 413,显式放开到单文件 100MiB 形态
+      bodyLimit: FILE_UPLOAD_BODY_LIMIT,
+      schema: {
+        description: '上传文件(multipart/form-data,落盘 + files 表持久化)',
+        tags: ['Files'],
+        consumes: ['multipart/form-data'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              filename: { type: 'string' },
+              bytes: { type: 'number' },
+              persisted: { type: 'boolean' },
+              // OpenAI Files API 兼容字段(两个分支共用)
+              created_at: { type: 'number' },
+              purpose: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('files:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      if (!apiKey) {
+        return reply.status(401).send(error(401, 'API key authentication required'))
+      }
+      const userId = apiKey.userId
+
+      if (!request.isMultipart()) {
+        return reply.status(400).send(error(400, 'Request must be multipart/form-data'))
+      }
+
+      const data = await request.file()
+      if (!data) {
+        return reply.status(400).send(error(400, 'No file uploaded'))
+      }
+
+      const buffer = await data.toBuffer()
+      if (buffer.length === 0) {
+        return reply.status(400).send(error(400, 'File is empty'))
+      }
+
+      // P0 安全加固(2026-08-02):文件大小限制(防 DoS,CWE-400)
+      if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+        return reply.status(400).send(error(400, '文件大小超过 100MB 限制'))
+      }
+
+      // OpenAI Batch API 兼容:purpose="batch" 时存 Redis 供 batch-worker 读取
+      const purposeField = data.fields?.purpose
+      const purpose =
+        purposeField && typeof purposeField === 'object' && 'value' in purposeField
+          ? String((purposeField as { value: unknown }).value)
+          : undefined
+      if (purpose === 'batch') {
+        // P0 安全加固(2026-08-02):batch 文件只允许 .jsonl 扩展名(OpenAI Batch API 规范)
+        const batchExt = extractExt(data.filename ?? '')
+        if (batchExt !== 'jsonl') {
+          return reply.status(400).send(error(400, 'Batch 文件必须是 .jsonl 格式'))
+        }
+        const batchFileId = `file-${randomUUID()}`
+        const content = buffer.toString('utf8')
+        try {
+          const { saveBatchInput, getBatchInputRedis } = await import('../queue/batch-queue.js')
+          // F-279:唯一取连接点复用 server.redis(由 redis 插件 onClose 统一 quit),不再每请求 new IORedis
+          // —— 后者异常路径会泄漏连接与重连定时器。batch-worker 读侧同用该出口。
+          await saveBatchInput(getBatchInputRedis(server), apiKey.id, batchFileId, content)
+          return reply.status(201).send({
+            id: batchFileId,
+            object: 'file',
+            bytes: buffer.length,
+            created_at: Math.floor(Date.now() / 1000),
+            filename: data.filename || `batch-${Date.now()}.jsonl`,
+            purpose: 'batch',
+            status: 'processed',
+          })
+        } catch {
+          return reply.status(500).send(error(500, 'Batch file save failed'))
+        }
+      }
+
+      const filename = data.filename || `upload-${Date.now()}`
+      // P2 修复(2026-08-06):/v1/files 公开 API 上传写入 uploads/public(静态白名单只暴露 public/),URL 不变
+      const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
+
+      // P0 安全加固(2026-08-02):文件类型校验(防 CWE-434 恶意文件上传)
+      // magic number + 扩展名白名单 + MIME 一致性校验
+      const declaredMime = data.mimetype || 'application/octet-stream'
+      const validation = validateUploadFile(
+        buffer,
+        filename,
+        declaredMime,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      // F-447:记录已落盘路径,入库失败时回收(先落盘后入库,失败不回收致磁盘只增不减)
+      let writtenFilePath: string | undefined
+      try {
+        if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+        const fileId = randomUUID()
+        const filePath = join(UPLOAD_DIR, fileId)
+        writeFileSync(filePath, buffer)
+        writtenFilePath = filePath
+
+        // files 表 projectId 必填(notNull):取该用户的第一个项目作为默认归属,
+        // 若用户无任何项目则自动创建名为 "API Uploads" 的默认项目(隔离公开 API 上传)。
+        const [existingProject] = await dbRead
+          .select({ id: projects.id })
+          .from(projects)
+          .where(eq(projects.userId, userId))
+          .orderBy(projects.createdAt)
+          .limit(1)
+
+        let projectId = existingProject?.id
+        if (!projectId) {
+          const [created] = await db
+            .insert(projects)
+            .values({
+              userId,
+              name: 'API Uploads',
+              description: 'Default project for /v1/files uploads',
+            })
+            .returning({ id: projects.id })
+          projectId = created?.id
+        }
+
+        let persisted = false
+        if (projectId) {
+          await db.insert(files).values({
+            id: fileId,
+            projectId,
+            name: filename,
+            path: filePath,
+            size: buffer.length,
+            mimeType: data.mimetype || 'application/octet-stream',
+            uploadedBy: userId,
+          })
+          persisted = true
+        }
+
+        return reply.status(201).send({
+          id: fileId,
+          object: 'file',
+          filename,
+          bytes: buffer.length,
+          created_at: Math.floor(Date.now() / 1000),
+          persisted,
+        })
+      } catch {
+        // F-447:落盘后入库失败 ⇒ 回收已写文件,避免 uploads/public 累积孤儿文件
+        if (writtenFilePath) {
+          try {
+            unlinkSync(writtenFilePath)
+          } catch {
+            // 清理失败不覆盖原始错误
+          }
+        }
+        return reply.status(500).send(error(500, 'File save failed'))
+      }
+    },
+  )
+
+  // ===== 8. GET /chat/sessions — 列出当前 API Key 用户的会话(chat:read) =====
+  server.get(
+    '/chat/sessions',
+    {
+      schema: {
+        description: '列出当前 API Key 用户的会话',
+        tags: ['Chat'],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            pageSize: { type: 'number' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  list: { type: 'array' },
+                  total: { type: 'number' },
+                  page: { type: 'number' },
+                  pageSize: { type: 'number' },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireCapability('chat:read'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      if (!apiKey) {
+        return reply.status(401).send(error(401, 'API key authentication required'))
+      }
+      const query = request.query as { page?: string; pageSize?: string }
+      const page = Math.max(1, Number(query.page ?? '1') || 1)
+      const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? '20') || 20))
+      const offset = (page - 1) * pageSize
+
+      try {
+        // chat_conversations 表无 api_key_id 字段,按 apiKey.userId 过滤(同用户所有会话)
+        const [rows, countRow] = await Promise.all([
+          dbRead
+            .select()
+            .from(chatConversations)
+            .where(eq(chatConversations.userId, apiKey.userId))
+            .orderBy(desc(chatConversations.updatedAt))
+            .limit(pageSize)
+            .offset(offset),
+          dbRead
+            .select({ total: sql<number>`count(*)::int` })
+            .from(chatConversations)
+            .where(eq(chatConversations.userId, apiKey.userId)),
+        ])
+        const total = countRow[0]?.total ?? 0
+        const list = rows.map((r) => ({
+          id: r.id,
+          title: r.title,
+          model: r.model,
+          lastMessageAt: r.lastMessageAt?.toISOString() ?? null,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        }))
+        return reply.send(success({ list, total, page, pageSize }))
+      } catch (e) {
+        return reply
+          .status(500)
+          .send(error(500, (e as Error).message || 'Failed to fetch chat sessions'))
+      }
+    },
+  )
+}
+
+export default v1PublicRoutes
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

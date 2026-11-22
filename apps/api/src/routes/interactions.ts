@@ -1,0 +1,201 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 互动端点:like / comment / follow 统一入口(别名层)。
+ *
+ * 复用现有 /comments/:id/like /follows/:userId /comments 端点的 query 函数,
+ * 仅提供对外语义清晰的 /api/interactions/* 别名路径,
+ * 方便前端在不同场景(评论/帖子/动态)使用同一组 URL 表达点赞/关注/评论。
+ *
+ * 不重复实现业务逻辑,只做参数透传 + 响应适配。
+ */
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { and, eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { authenticate } from '../plugins/auth.js'
+import { success, error } from '../utils/response.js'
+import { isUuidString } from '../utils/uuid.js'
+import { commentLikes, comments, users } from '@ihui/database'
+import { findComments, likeComment, unlikeComment } from '../db/comment-queries.js'
+import { createGuardedComment } from './comments.js'
+import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
+
+// ============================================================================
+// Schemas
+// ============================================================================
+
+const likeSchema = z.object({
+  commentId: z.uuid({ error: 'commentId 必须为 UUID' }),
+})
+
+const followSchema = z.object({
+  userId: z.uuid({ error: 'userId 必须为 UUID' }),
+})
+
+const commentCreateSchema = z.object({
+  resourceType: z.enum(['project', 'file', 'doc', 'post', 'comment']),
+  resourceId: z.string().min(1).max(128),
+  content: z.string().min(1).max(2000),
+  parentId: z.uuid().optional(),
+  mentions: z.array(z.uuid()).max(50).optional(),
+})
+
+const commentListQuerySchema = z.object({
+  resourceType: z.enum(['project', 'file', 'doc', 'post', 'comment']),
+  resourceId: z.string().min(1).max(128),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+})
+
+// ============================================================================
+// Routes
+// ============================================================================
+
+export const interactionsRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const err = e as Error & { statusCode?: number }
+      reply.status(err.statusCode ?? 401).send(error(err.statusCode ?? 401, err.message))
+    }
+  })
+
+  // POST /interactions/like — 点赞评论(comment_likes 表,幂等)
+  server.post('/like', async (request, reply) => {
+    const parsed = likeSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { commentId } = parsed.data
+    // F-484:目标评论不存在时外键冲突会冒泡为 500,先按不存在返回 404
+    const [target] = await db
+      .select({ id: comments.id })
+      .from(comments)
+      .where(eq(comments.id, commentId))
+      .limit(1)
+    if (!target) {
+      return reply.status(404).send(error(404, '评论不存在'))
+    }
+    await likeComment(commentId, request.userId!)
+    return reply.status(201).send(success({ commentId, liked: true }))
+  })
+
+  // DELETE /interactions/like/:commentId — 取消点赞
+  server.delete<{ Params: { commentId: string } }>('/like/:commentId', async (request, reply) => {
+    const { commentId } = request.params
+    if (!isUuidString(commentId)) {
+      return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
+    }
+    await unlikeComment(commentId, request.userId!)
+    return reply.send(success({ commentId, liked: false }))
+  })
+
+  // GET /interactions/like/check?commentId=xxx — 查询是否已点赞
+  server.get<{ Querystring: { commentId?: string } }>('/like/check', async (request, reply) => {
+    const cid = request.query.commentId
+    if (!cid || !isUuidString(cid)) {
+      return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
+    }
+    const [row] = await db
+      .select()
+      .from(commentLikes)
+      .where(and(eq(commentLikes.commentId, cid), eq(commentLikes.userId, request.userId!)))
+      .limit(1)
+    return reply.send(success({ commentId: cid, liked: Boolean(row) }))
+  })
+
+  // POST /interactions/follow — 关注用户(userFollows 表,幂等)
+  server.post('/follow', async (request, reply) => {
+    const parsed = followSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { userId: targetId } = parsed.data
+    const followerId = request.userId!
+    if (targetId === followerId) {
+      return reply.status(400).send(error(400, '不能关注自己'))
+    }
+    // F-484:目标用户不存在时外键冲突会冒泡为 500,先按不存在返回 404
+    const [target] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, targetId))
+      .limit(1)
+    if (!target) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+    await followUser(followerId, targetId)
+    const isMutual = await isFollowing(targetId, followerId)
+    return reply.status(201).send(success({ following: true, isMutual }))
+  })
+
+  // DELETE /interactions/follow/:userId — 取消关注
+  server.delete<{ Params: { userId: string } }>('/follow/:userId', async (request, reply) => {
+    const { userId: targetId } = request.params
+    if (!isUuidString(targetId)) {
+      return reply.status(400).send(error(400, 'userId 必须为 UUID'))
+    }
+    await unfollowUser(request.userId!, targetId)
+    return reply.send(success({ following: false }))
+  })
+
+  // GET /interactions/follow/status?userId=xxx — 关注状态
+  server.get<{ Querystring: { userId?: string } }>('/follow/status', async (request, reply) => {
+    const tid = request.query.userId
+    if (!tid || !isUuidString(tid)) {
+      return reply.status(400).send(error(400, 'userId 必须为 UUID'))
+    }
+    const following = await isFollowing(request.userId!, tid)
+    const isMutual = following ? await isFollowing(tid, request.userId!) : false
+    return reply.send(success({ following, isMutual }))
+  })
+
+  // POST /interactions/comment — 创建评论(F-479:别名层复用正文入口的父评论校验与敏感词过滤)
+  server.post('/comment', async (request, reply) => {
+    const parsed = commentCreateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const data = parsed.data
+    const result = await createGuardedComment({
+      userId: request.userId!,
+      resourceType: data.resourceType,
+      resourceId: data.resourceId,
+      content: data.content,
+      parentId: data.parentId ?? null,
+      mentions: data.mentions ?? [],
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] as string | undefined,
+    })
+    if (!result.ok) {
+      return reply.status(result.status).send(error(result.status, result.message))
+    }
+    return reply.status(201).send(success(result.comment))
+  })
+
+  // GET /interactions/comment?resourceType=&resourceId=&limit=&offset=
+  server.get('/comment', async (request, reply) => {
+    const parsed = commentListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { resourceType, resourceId, limit, offset } = parsed.data
+    const { list, total } = await findComments({
+      resourceType,
+      resourceId,
+      // F-483:offset 直传查询层,折算 page 会把非整页余量(如 offset=5,limit=10)抹成 0
+      page: Math.floor(offset / limit) + 1,
+      pageSize: limit,
+      offset,
+      currentUserId: request.userId!,
+    })
+    return reply.send(success({ list, total, limit, offset }))
+  })
+}
+
+export default interactionsRoutes
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
