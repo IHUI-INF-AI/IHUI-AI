@@ -1647,6 +1647,11 @@ function Test-BackendOnlyChange {
     $allow = @(
         'apps/ai-service/',
         'apps/api/',
+        # web 静态资产与测试面不参与 next build(服务 cwd=apps/web,public 由运行时直接读仓内文件),
+        # 2026-11-22:实测一个 public/*.png 也会把整轮打进 18-25 分钟整包重建,故单列白名单。
+        'apps/web/public/',
+        'apps/web/e2e/',
+        'apps/web/tests/',
         'deploy/',
         'scripts/',
         'docs/',
