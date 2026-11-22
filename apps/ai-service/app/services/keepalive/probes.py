@@ -324,12 +324,21 @@ class PublishProbe:
                 retryable=True,
             )
         outcome = classify_message(result.success, result.message)
+        # refreshed(2026-11-22 永久保活):探活成功且 cookie 已轮换回写落库 ⇒ 本轮真的
+        # 续了期。回写失败(writeback_failed)时不标 refreshed —— 库里仍是旧 cookie,
+        # 状态面不能谎报"已续期",下轮探测会带着旧 cookie 再给一次自愈机会。
+        refreshed = bool(
+            result.success
+            and getattr(result, "refreshed", False)
+            and not getattr(result, "writeback_failed", False)
+        )
         return ProbeOutcome(
             ok=outcome.ok,
             kind=outcome.kind,
             message=outcome.message,
             duration_ms=result.duration_ms or int((time.monotonic() - started) * 1000),
             retryable=outcome.retryable,
+            refreshed=refreshed,
         )
 
     async def _probe_token(self, ref: AccountRef) -> ProbeOutcome:
