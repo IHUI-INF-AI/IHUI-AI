@@ -31,7 +31,7 @@ import {
   type ConnectionState,
 } from '@/components/ai/progress-sections/connection-status'
 
-interface ConnectionSignal {
+export interface ConnectionSignal {
   state: ConnectionState
   attempt: number
   totalAttempts: number
@@ -86,6 +86,15 @@ function getSnapshot(): ConnectionSignal {
   return signal
 }
 
+/**
+ * 读当前连接信号的唯一出口。`ConnectionStatusBar` 与 `input-status-slot` 的占位判定
+ * 都经它 —— 两处各自 `useSyncExternalStore(subscribe, getSnapshot)` 就是第二份真相,
+ * 漂移后的表现不是报错,是"槽位以为要显示、组件却空了"(或反过来)。
+ */
+export function useStreamConnectionSignal(): ConnectionSignal {
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
 /** 异常态判据的唯一一份实现:组件与用例都读它,不得各写一遍。 */
 export function isAbnormalConnectionState(state: ConnectionState): boolean {
   return state === 'reconnecting' || state === 'disconnected'
@@ -107,7 +116,7 @@ export function ConnectionStatusBar({
   threadId,
   className,
 }: ConnectionStatusBarProps) {
-  const current = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const current = useStreamConnectionSignal()
 
   // 运行已结束却还挂着 reconnecting ⇒ 清账(重连成功后流继续,isStreaming 仍为 true 时不动)。
   // 但 **disconnected 不在清账范围内**:它的生产者就是"流以错误结束"这一刻,
@@ -129,7 +138,7 @@ export function ConnectionStatusBar({
   const shown = deriveConnectionState(
     isStreaming,
     current.attempt,
-    current.state === 'disconnected' || current.error != null,
+    current.state === 'disconnected' || (current.error ?? null) !== null,
     threadId,
   )
   if (!isAbnormalConnectionState(shown)) return null
