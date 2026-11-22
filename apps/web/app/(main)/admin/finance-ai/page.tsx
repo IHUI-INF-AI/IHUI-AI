@@ -13,7 +13,15 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Calculator, ClipboardList, HeartPulse, MessageSquare, Receipt, Scale, Wallet } from 'lucide-react'
+import {
+  Calculator,
+  ClipboardList,
+  HeartPulse,
+  MessageSquare,
+  Receipt,
+  Scale,
+  Wallet,
+} from 'lucide-react'
 
 import {
   Button,
@@ -167,7 +175,9 @@ export default function FinanceAiPage() {
       toast.error(t('socialInvalid'))
       return
     }
-    const avgWage = socialAvgWage.trim() ? `\n${t('fieldSocialAvgWage', { value: socialAvgWage })}` : ''
+    const avgWage = socialAvgWage.trim()
+      ? `\n${t('fieldSocialAvgWage', { value: socialAvgWage })}`
+      : ''
     void launch(
       'socialInsurance',
       `${t('promptSocial', {
@@ -265,15 +275,19 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('txPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
-              <p className="font-[weight:inherit] text-label text-muted-foreground">{t('txHint')}</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
+                {t('txHint')}
+              </p>
             </div>
             <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={bookOk}>
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'bookkeeping' ? t('starting') : t('bookkeepingCta')}</span>
             </Button>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">{t('pluginHint')}</p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
+              {t('pluginHint')}
+            </p>
           </CardContent>
         </Card>
 
@@ -302,7 +316,7 @@ export default function FinanceAiPage() {
                   id="tx-kind"
                   value={taxGeneral ? 'general' : 'small'}
                   onChange={(e) => setTaxGeneral(e.target.value === 'general')}
-                  className="font-[weight:inherit] h-9 w-full rounded-sm border border-input bg-background px-2 text-body focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                  className="font-[weight:inherit] h-9 w-full rounded-sm border border-input bg-background px-2 text-body focus:outline outline-2 outline-offset-0 outline-stroke-focus"
                 >
                   <option value="general">{t('taxpayerGeneralValue')}</option>
                   <option value="small">{t('taxpayerSmallValue')}</option>
@@ -372,14 +386,16 @@ export default function FinanceAiPage() {
                 rows={3}
                 spellCheck={false}
                 placeholder={t('wagesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
             </div>
             <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={taxOk}>
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'taxFiling' ? t('starting') : t('taxCta')}</span>
             </Button>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">{t('draftNote')}</p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
+              {t('draftNote')}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -425,18 +441,13 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('reimbursementJsonPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
               <p className="font-[weight:inherit] text-label text-muted-foreground">
                 {t('reimbursementHint')}
               </p>
             </div>
-            <Button
-              size="lg"
-              className="w-full gap-1.5"
-              disabled={busy !== null}
-              onClick={reimOk}
-            >
+            <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={reimOk}>
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'reimbursement' ? t('starting') : t('reimbursementCta')}</span>
             </Button>
@@ -482,7 +493,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('socialEmployeesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
             </div>
             <Button
@@ -524,7 +535,7 @@ export default function FinanceAiPage() {
                 rows={5}
                 spellCheck={false}
                 placeholder={t('deductionEmployeesPh')}
-                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
             </div>
             <Button
@@ -542,7 +553,9 @@ export default function FinanceAiPage() {
 
       <div className="space-y-1">
         <AutomationCard busy={busy !== null} onLaunch={launchAutomation} />
-        <p className="font-[weight:inherit] px-1 text-label text-muted-foreground">{t('automationTrust')}</p>
+        <p className="font-[weight:inherit] px-1 text-label text-muted-foreground">
+          {t('automationTrust')}
+        </p>
       </div>
 
       <Card>

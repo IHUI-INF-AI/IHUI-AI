@@ -189,7 +189,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 value={sshForm.host}
                 onChange={(e) => setSshField({ host: e.target.value })}
                 placeholder={t('terminalTabBar.hostPlaceholder')}
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
             </label>
             <label className="flex flex-col gap-0.5">
@@ -200,7 +200,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 max={65535}
                 value={sshForm.port}
                 onChange={(e) => setSshField({ port: e.target.value })}
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
             </label>
             <label className="flex flex-col gap-0.5">
@@ -212,7 +212,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 value={sshForm.username}
                 onChange={(e) => setSshField({ username: e.target.value })}
                 placeholder="root"
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
               />
             </label>
             {/* 认证方式单选 */}
@@ -251,7 +251,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                   type="password"
                   value={sshForm.password}
                   onChange={(e) => setSshField({ password: e.target.value })}
-                  className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                  className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
                 />
               </label>
             ) : (
@@ -264,7 +264,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                   onChange={(e) => setSshField({ privateKey: e.target.value })}
                   placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
                   rows={3}
-                  className="rounded-sm border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                  className="rounded-sm border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
                 />
                 <button
                   type="button"
@@ -289,7 +289,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                     type="password"
                     value={sshForm.passphrase}
                     onChange={(e) => setSshField({ passphrase: e.target.value })}
-                    className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
+                    className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:outline outline-2 outline-offset-0 outline-stroke-focus"
                   />
                 </label>
               </label>

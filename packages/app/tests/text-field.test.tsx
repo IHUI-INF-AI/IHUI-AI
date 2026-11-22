@@ -170,7 +170,7 @@ describe('TextField 与 web/小程序同源', () => {
     const css = readFileSync(join(here, '../../ui-react/src/components/input.tsx'), 'utf8')
     expect(css).toMatch(/focus-visible:outline\b/)
     expect(css).toMatch(/outline-2\b/)
-    expect(css).toMatch(/outline-offset-2\b/)
+    expect(css).toMatch(/outline-offset-0\b/)
     expect(css).toMatch(/outline-stroke-focus\b/)
     expect(css).not.toMatch(/focus-visible:border-stroke-focus/)
     // ① 描边宽度档仍是 1px ⇒ `border`

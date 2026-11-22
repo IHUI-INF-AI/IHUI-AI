@@ -159,48 +159,48 @@ progress {
 @theme static {
   /* 只注册 v4 认得的**色档**:--color-*-rgb 那批三元组不得进来 —— v4 把任何 --color-*
      都当成一个颜色档,进来就会长出 .bg-muted-rgb 这类脏档;它们由下面 :root 的 alpha 区管。 */
-  --color-background: hsl(0 0% 96.1%);
-  --color-foreground: hsl(0 0% 3.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(0 0% 3.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(0 0% 3.9%);
-  --color-primary: hsl(0 0% 0%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-cta: hsl(0 0% 0%);
-  --color-cta-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 96.1%);
-  --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 92%);
-  --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 95%);
-  --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 100% 60%);
-  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-background: #f5f5f5;
+  --color-foreground: #0a0a0a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0a0a0a;
+  --color-primary: #000000;
+  --color-primary-foreground: #ffffff;
+  --color-cta: #000000;
+  --color-cta-foreground: #ffffff;
+  --color-secondary: #f5f5f5;
+  --color-secondary-foreground: #171717;
+  --color-muted: #ebebeb;
+  --color-muted-foreground: #666666;
+  --color-accent: #f2f2f2;
+  --color-accent-foreground: #171717;
+  --color-destructive: #ff3333;
+  --color-destructive-foreground: #fafafa;
   --color-border: rgba(0, 0, 0, 0.1);
   --color-input: rgba(0, 0, 0, 0.14);
-  --color-ring: hsl(0 0% 70%);
-  --color-success: hsl(142 71% 45%);
-  --color-success-foreground: hsl(0 0% 98%);
-  --color-warning: hsl(38 92% 50%);
-  --color-warning-foreground: hsl(0 0% 98%);
-  --color-info: hsl(199 89% 48%);
-  --color-info-foreground: hsl(0 0% 98%);
-  --color-brand-50: hsl(240 5% 96%);
-  --color-brand-100: hsl(240 6% 90%);
-  --color-brand-200: hsl(240 5% 84%);
-  --color-brand-300: hsl(240 5% 65%);
-  --color-brand-400: hsl(240 5% 46%);
-  --color-brand-500: hsl(240 4% 36%);
-  --color-brand-600: hsl(240 5% 26%);
-  --color-brand-700: hsl(240 5% 21%);
-  --color-brand-800: hsl(240 6% 16%);
-  --color-brand-900: hsl(240 7% 11%);
-  --color-tag-inactive-bg: hsl(0 0% 88%);
-  --color-pinned-tag-bg: hsl(0 0% 88%);
-  --color-streamed-container-bg: hsl(0 0% 92%);
-  --color-streamed-container-bg-hover: hsl(0 0% 88%);
-  --color-float-indicator-bg: hsl(0 0% 100%);
+  --color-ring: #b3b3b3;
+  --color-success: #21c45d;
+  --color-success-foreground: #fafafa;
+  --color-warning: #f59f0a;
+  --color-warning-foreground: #fafafa;
+  --color-info: #0da2e7;
+  --color-info-foreground: #fafafa;
+  --color-brand-50: #f4f4f5;
+  --color-brand-100: #e4e4e7;
+  --color-brand-200: #d4d4d8;
+  --color-brand-300: #a1a1aa;
+  --color-brand-400: #6f6f7b;
+  --color-brand-500: #58585f;
+  --color-brand-600: #3f3f46;
+  --color-brand-700: #333338;
+  --color-brand-800: #26262b;
+  --color-brand-900: #1a1a1e;
+  --color-tag-inactive-bg: #e0e0e0;
+  --color-pinned-tag-bg: #e0e0e0;
+  --color-streamed-container-bg: #ebebeb;
+  --color-streamed-container-bg-hover: #e0e0e0;
+  --color-float-indicator-bg: #ffffff;
   --color-vip-gold-start: #ffd700;
   --color-vip-gold-end: #ffaa00;
   --color-rank-gold: #ffd700;
@@ -329,8 +329,8 @@ progress {
   --color-payment-purple-end: #764ba2;
 
   /* 以下 2 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-selection: hsl(0 0% 100%);
-  --color-selection-foreground: hsl(0 0% 3.9%);
+  --color-selection: #ffffff;
+  --color-selection-foreground: #0a0a0a;
 
   /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --color-chrome: #ffffff;
@@ -339,22 +339,22 @@ progress {
   --color-glass-bg: rgba(255, 255, 255, 0.6);
 
   /* 以下 4 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-info-text: hsl(199 89% 33%);
-  --color-success-text: hsl(142 71% 28%);
-  --color-warning-text: hsl(38 92% 30%);
+  --color-info-text: #09709f;
+  --color-success-text: #157a3a;
+  --color-warning-text: #935f06;
   --color-danger-text: #b91c1c;
 
   /* 以下 10 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-neutral-50: oklch(98.5% 0 none);
-  --color-neutral-100: oklch(97% 0 none);
-  --color-neutral-200: oklch(92.2% 0 none);
-  --color-neutral-300: oklch(87% 0 none);
-  --color-neutral-400: oklch(70.8% 0 none);
-  --color-neutral-500: oklch(55.6% 0 none);
-  --color-neutral-600: oklch(43.9% 0 none);
-  --color-neutral-700: oklch(37.1% 0 none);
-  --color-neutral-800: oklch(26.9% 0 none);
-  --color-neutral-900: oklch(20.5% 0 none);
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
 
   /* 以下 49 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --spacing-none: 0rpx;
@@ -465,7 +465,7 @@ progress {
   --color-toast-foreground: #ffffff;
 
   /* 以下 9 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-muted-soft: hsl(0 0% 94%);
+  --color-muted-soft: #f0f0f0;
   --color-stroke-subtle: rgba(0, 0, 0, 0.06);
   --color-stroke-default: rgba(0, 0, 0, 0.1);
   --color-stroke-strong: rgba(0, 0, 0, 0.18);
@@ -474,6 +474,9 @@ progress {
   --color-stroke-focus: #000000;
   --color-stroke-selected: #4a7a96;
   --color-stroke-danger: #dc2626;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --text-vcenter-offset-row: 0rpx;
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -599,48 +602,48 @@ iframe#webpack-dev-server-client-overlay {
 
 :root {
   /* ===== 语义色(自动同步自 tokens.css @theme 块,勿手动编辑)===== */
-  --color-background: hsl(0 0% 96.1%);
-  --color-foreground: hsl(0 0% 3.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(0 0% 3.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(0 0% 3.9%);
-  --color-primary: hsl(0 0% 0%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-cta: hsl(0 0% 0%);
-  --color-cta-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 96.1%);
-  --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 92%);
-  --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 95%);
-  --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 100% 60%);
-  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-background: #f5f5f5;
+  --color-foreground: #0a0a0a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0a0a0a;
+  --color-primary: #000000;
+  --color-primary-foreground: #ffffff;
+  --color-cta: #000000;
+  --color-cta-foreground: #ffffff;
+  --color-secondary: #f5f5f5;
+  --color-secondary-foreground: #171717;
+  --color-muted: #ebebeb;
+  --color-muted-foreground: #666666;
+  --color-accent: #f2f2f2;
+  --color-accent-foreground: #171717;
+  --color-destructive: #ff3333;
+  --color-destructive-foreground: #fafafa;
   --color-border: rgba(0, 0, 0, 0.1);
   --color-input: rgba(0, 0, 0, 0.14);
-  --color-ring: hsl(0 0% 70%);
-  --color-success: hsl(142 71% 45%);
-  --color-success-foreground: hsl(0 0% 98%);
-  --color-warning: hsl(38 92% 50%);
-  --color-warning-foreground: hsl(0 0% 98%);
-  --color-info: hsl(199 89% 48%);
-  --color-info-foreground: hsl(0 0% 98%);
-  --color-brand-50: hsl(240 5% 96%);
-  --color-brand-100: hsl(240 6% 90%);
-  --color-brand-200: hsl(240 5% 84%);
-  --color-brand-300: hsl(240 5% 65%);
-  --color-brand-400: hsl(240 5% 46%);
-  --color-brand-500: hsl(240 4% 36%);
-  --color-brand-600: hsl(240 5% 26%);
-  --color-brand-700: hsl(240 5% 21%);
-  --color-brand-800: hsl(240 6% 16%);
-  --color-brand-900: hsl(240 7% 11%);
-  --color-tag-inactive-bg: hsl(0 0% 88%);
-  --color-pinned-tag-bg: hsl(0 0% 88%);
-  --color-streamed-container-bg: hsl(0 0% 92%);
-  --color-streamed-container-bg-hover: hsl(0 0% 88%);
-  --color-float-indicator-bg: hsl(0 0% 100%);
+  --color-ring: #b3b3b3;
+  --color-success: #21c45d;
+  --color-success-foreground: #fafafa;
+  --color-warning: #f59f0a;
+  --color-warning-foreground: #fafafa;
+  --color-info: #0da2e7;
+  --color-info-foreground: #fafafa;
+  --color-brand-50: #f4f4f5;
+  --color-brand-100: #e4e4e7;
+  --color-brand-200: #d4d4d8;
+  --color-brand-300: #a1a1aa;
+  --color-brand-400: #6f6f7b;
+  --color-brand-500: #58585f;
+  --color-brand-600: #3f3f46;
+  --color-brand-700: #333338;
+  --color-brand-800: #26262b;
+  --color-brand-900: #1a1a1e;
+  --color-tag-inactive-bg: #e0e0e0;
+  --color-pinned-tag-bg: #e0e0e0;
+  --color-streamed-container-bg: #ebebeb;
+  --color-streamed-container-bg-hover: #e0e0e0;
+  --color-float-indicator-bg: #ffffff;
   --duration-unified: 1000ms;
   --ease-unified: cubic-bezier(0.65, 0, 0.35, 1);
   --color-vip-gold-start: #ffd700;
@@ -722,8 +725,8 @@ iframe#webpack-dev-server-client-overlay {
   --chart-success: #16a34a;
 
   /* 以下 2 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-selection: hsl(0 0% 100%);
-  --color-selection-foreground: hsl(0 0% 3.9%);
+  --color-selection: #ffffff;
+  --color-selection-foreground: #0a0a0a;
 
   /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --color-chrome: #ffffff;
@@ -732,9 +735,9 @@ iframe#webpack-dev-server-client-overlay {
   --color-glass-bg: rgba(255, 255, 255, 0.6);
 
   /* 以下 4 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-info-text: hsl(199 89% 33%);
-  --color-success-text: hsl(142 71% 28%);
-  --color-warning-text: hsl(38 92% 30%);
+  --color-info-text: #09709f;
+  --color-success-text: #157a3a;
+  --color-warning-text: #935f06;
   --color-danger-text: #b91c1c;
 
   /* 2026-11-11 收口:此处曾有 --shadow-2xs/xs/sm/md/lg/xl/2xl 七个别名(第二套档名),
@@ -748,7 +751,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-toast-foreground: #ffffff;
 
   /* 以下 9 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-muted-soft: hsl(0 0% 94%);
+  --color-muted-soft: #f0f0f0;
   --color-stroke-subtle: rgba(0, 0, 0, 0.06);
   --color-stroke-default: rgba(0, 0, 0, 0.1);
   --color-stroke-strong: rgba(0, 0, 0, 0.18);
@@ -835,48 +838,48 @@ iframe#webpack-dev-server-client-overlay {
   --color-payment-purple-end: #764ba2;
 
   /* 以下 10 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-neutral-50: oklch(98.5% 0 none);
-  --color-neutral-100: oklch(97% 0 none);
-  --color-neutral-200: oklch(92.2% 0 none);
-  --color-neutral-300: oklch(87% 0 none);
-  --color-neutral-400: oklch(70.8% 0 none);
-  --color-neutral-500: oklch(55.6% 0 none);
-  --color-neutral-600: oklch(43.9% 0 none);
-  --color-neutral-700: oklch(37.1% 0 none);
-  --color-neutral-800: oklch(26.9% 0 none);
-  --color-neutral-900: oklch(20.5% 0 none);
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
 }
 .dark {
-  --color-background: hsl(0 0% 14%);
-  --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 10%);
-  --color-card-foreground: hsl(0 0% 98%);
-  --color-popover: hsl(0 0% 11%);
-  --color-popover-foreground: hsl(0 0% 98%);
-  --color-primary: hsl(0 0% 100%);
-  --color-primary-foreground: hsl(0 0% 0%);
-  --color-secondary: hsl(0 0% 14.9%);
-  --color-secondary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(0 0% 14.9%);
-  --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 19%);
-  --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 100% 60%);
-  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-background: #242424;
+  --color-foreground: #fafafa;
+  --color-card: #1a1a1a;
+  --color-card-foreground: #fafafa;
+  --color-popover: #1c1c1c;
+  --color-popover-foreground: #fafafa;
+  --color-primary: #ffffff;
+  --color-primary-foreground: #000000;
+  --color-secondary: #262626;
+  --color-secondary-foreground: #fafafa;
+  --color-muted: #262626;
+  --color-muted-foreground: #a3a3a3;
+  --color-accent: #303030;
+  --color-accent-foreground: #fafafa;
+  --color-destructive: #ff3333;
+  --color-destructive-foreground: #fafafa;
   --color-border: rgba(255, 255, 255, 0.12);
   --color-input: rgba(255, 255, 255, 0.16);
-  --color-ring: hsl(0 0% 35%);
-  --color-success: hsl(142 65% 50%);
-  --color-success-foreground: hsl(0 0% 98%);
-  --color-warning: hsl(38 85% 55%);
-  --color-warning-foreground: hsl(0 0% 98%);
-  --color-info: hsl(199 80% 55%);
-  --color-info-foreground: hsl(0 0% 98%);
-  --color-tag-inactive-bg: hsl(0 0% 24%);
-  --color-pinned-tag-bg: hsl(0 0% 24%);
-  --color-streamed-container-bg: hsl(0 0% 18%);
-  --color-streamed-container-bg-hover: hsl(0 0% 22%);
-  --color-float-indicator-bg: hsl(0 0% 11%);
+  --color-ring: #595959;
+  --color-success: #2dd269;
+  --color-success-foreground: #fafafa;
+  --color-warning: #eea62b;
+  --color-warning-foreground: #fafafa;
+  --color-info: #30aee8;
+  --color-info-foreground: #fafafa;
+  --color-tag-inactive-bg: #3d3d3d;
+  --color-pinned-tag-bg: #3d3d3d;
+  --color-streamed-container-bg: #2e2e2e;
+  --color-streamed-container-bg-hover: #383838;
+  --color-float-indicator-bg: #1c1c1c;
   --chart-text: #64748b;
   --chart-axis: #1e293b;
   --color-link: #a3c4d6;
@@ -890,7 +893,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-brand-accent-grad-from: #b8d4e3;
   --color-brand-accent-grad-to: #a3c4d6;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
-  --color-notification-text: hsl(38 85% 70%);
+  --color-notification-text: #f4c471;
   --color-gold: #e6c986;
   --color-gold-muted: rgba(230, 201, 134, 0.14);
   --color-success-tag-bg: rgba(22, 163, 74, 0.16);
@@ -944,12 +947,12 @@ iframe#webpack-dev-server-client-overlay {
   --color-warning-rgb: 238, 166, 43;
 
   /* 以下 2 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-cta: hsl(0 0% 100%);
-  --color-cta-foreground: hsl(0 0% 0%);
+  --color-cta: #ffffff;
+  --color-cta-foreground: #000000;
 
   /* 以下 2 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-selection: hsl(0 0% 0%);
-  --color-selection-foreground: hsl(0 0% 98%);
+  --color-selection: #000000;
+  --color-selection-foreground: #fafafa;
 
   /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --color-chrome: #262626;
@@ -958,19 +961,19 @@ iframe#webpack-dev-server-client-overlay {
   --color-glass-bg: rgba(26, 26, 26, 0.6);
 
   /* 以下 4 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-info-text: hsl(199 80% 55%);
-  --color-success-text: hsl(142 65% 50%);
-  --color-warning-text: hsl(38 85% 55%);
+  --color-info-text: #30aee8;
+  --color-success-text: #2dd269;
+  --color-warning-text: #eea62b;
   --color-danger-text: #f87171;
 
   /* 以下 9 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  --color-muted-soft: hsl(0 0% 14.9%);
+  --color-muted-soft: #262626;
   --color-stroke-subtle: rgba(255, 255, 255, 0.08);
   --color-stroke-default: rgba(255, 255, 255, 0.12);
   --color-stroke-strong: rgba(255, 255, 255, 0.22);
   --color-stroke-inverse: rgba(0, 0, 0, 0.3);
   --color-stroke-field: rgba(255, 255, 255, 0.16);
-  --color-stroke-focus: #FFFFFF;
+  --color-stroke-focus: #ffffff;
   --color-stroke-selected: #a3c4d6;
   --color-stroke-danger: #ef4444;
 }
