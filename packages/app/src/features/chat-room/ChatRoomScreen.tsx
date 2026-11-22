@@ -213,6 +213,8 @@ export function ChatRoomScreen({
             ) : (
               <Text style={styles.bubbleText}>{item.content}</Text>
             )}
+            {/* AI 生成内容显式标识(《人工智能生成合成内容标识办法》要求;对齐 OPPO 深度合成资质审核) */}
+            {!isUser && <Text style={styles.aiLabel}>内容由 AI 生成</Text>}
             {isUser && item.read && !media ? <Text style={styles.readStatus}>已读</Text> : null}
           </View>
           {isUser && <Avatar uri={userAvatar} name={userNickname} size={40} styles={styles} />}
@@ -457,6 +459,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium, // 历史 #999
       marginTop: rnSpacing.xs, // rpx(8)
       textAlign: 'right',
+    },
+    aiLabel: {
+      fontSize: rnType.badge.size, // rpx(20)
+      color: tk.text.secondary,
+      marginTop: rnSpacing.xs, // rpx(8)
     },
     messageImage: {
       width: 160, // rpx(320)
