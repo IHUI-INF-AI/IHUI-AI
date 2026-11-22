@@ -213,10 +213,16 @@ export function storeCredential(vendor, { root = resolveSecretsRoot() } = {}) {
       const j = JSON.parse(buf.toString('utf8'))
       fields = Object.keys(j)
     } catch {
+      // 脱敏铁律(§5d / APPID总表保密纪律):fields 只输出「带冒号的短键名」作字段标签,绝不输出值。
+      // 无冒号的行(CSV 数据行 / 单行纯私钥值 / 证书 base64 / cookie)一律跳过 ——
+      // 旧写法 split(/[:：]/)[0] 对无冒号行返回整行,把 Secret Access Key / 私钥原值当字段名泄漏进日志(2026-11-22 实测)。
       fields = buf
         .toString('utf8')
         .split(/\r?\n/)
-        .map((l) => (l.split(/[:：]/)[0] || '').trim())
+        .map((l) => {
+          const m = l.match(/^\s*([^:：]{1,40})[:：]/)
+          return m ? m[1].trim() : ''
+        })
         .filter(Boolean)
     }
     return { path: p.replace(/\\/g, '/'), bytes: buf.length, sha8: createHash('sha256').update(buf).digest('hex').slice(0, 8), fields }
