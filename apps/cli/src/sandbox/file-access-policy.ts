@@ -234,6 +234,75 @@ export const CREDENTIAL_FILE_ACCESS_RULES: readonly FileAccessRule[] = [
     source: 'credential',
     why: '工作区根下的 .ssh 目录',
   },
+  // ---------------------------------------------------------------------
+  // home 凭据目录族(2026-11-23 P0-6 立,对照件 `.ssh\**` / `.gnupg\**` 全 deny)。
+  //
+  // 为什么必须补:上面那张表全是**工作区相对**形态,而 `toAclPath` 对越界绝对路径
+  // 走"绝对回落"(原样返回 `c:/users/x/.ssh/config`)。相对 glob 打不中绝对形态,
+  // 于是 home 下的 `.ssh/config`(含 Host/ProxyCommand/IdentityFile 明文)、
+  // `.gnupg/private-keys-v1.d/*.key`(GPG 私钥)、`.aws/credentials`、`.kube/config`
+  // (集群 bearer token)、`.docker/config.json`(registry 登录凭据)、`.netrc`(明文口令)、
+  // `.pypirc`(PyPI token)整片漏过 —— 这是"读一次正文就等于交一次凭据"的族。
+  //
+  // 形态选择:`**/` 前置而不做 home 现算 —— 用户目录可能在 D 盘/网络盘,现算一旦取错
+  // 就是不设防,而 `**` 只要求"某一层叫这个名字",对本仓 glob 语义天然跨盘符/跨平台,
+  // 也顺手覆盖"工作区子目录里有人 copy 了一份凭据"的情形。
+  {
+    pattern: '**/.ssh/**',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '任意层(含 home 绝对路径)的 SSH 目录:config 里有 Host/IdentityFile,known_hosts 泄露内网拓扑,authorized_keys 可被植入',
+  },
+  {
+    pattern: '**/.gnupg/**',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: 'GnuPG 主目录:private-keys-v1.d 是私钥,trustdb/pubring 可推断身份关系',
+  },
+  {
+    pattern: '**/.aws/**',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: 'AWS CLI 凭据目录:credentials 存长期 access key,config 存 role/region',
+  },
+  {
+    pattern: '**/.kube/**',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: 'kubeconfig 存集群地址与 bearer token/客户端证书',
+  },
+  {
+    pattern: '**/.docker/config.json',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: 'Docker registry 登录凭据(auth 字段是 base64 用户名口令)',
+  },
+  {
+    pattern: '**/.netrc',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '.netrc 存 FTP/HTTP 明文口令,curl/wget 会自动读',
+  },
+  {
+    pattern: '**/.pypirc',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '.pypirc 存 PyPI 上传 token',
+  },
+  {
+    pattern: '**/.gitconfig.local',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '部分工作流把 credential.helper 与 token 写进本地 gitconfig 分档件',
+  },
 ];
 
 /** `scripts/data/immutable-guard.json` 在工作区内的相对位置(单一真相源所在)。 */

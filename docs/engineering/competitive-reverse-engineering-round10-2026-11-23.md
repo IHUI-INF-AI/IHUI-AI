@@ -116,4 +116,31 @@ empty 用例转红；③ `missing` 列改成常量 `0` ⇒ SQL 层判据用例�
 （drizzle 0.38 新签名），遇 Column 对象抛错后被 `catch` 吞成 `String(frag)`＝
 `"[object Object]"`，于是 `not.toContain(...)` 这类断言**长期假绿**。新测试补上该成员，
 SQL 断言才真正在断言 SQL；既有文件本轮不动（与他席在飞面重叠），已列入待办。
+
+## 7. P0-6 home 凭据目录 deny 族（WorkBuddy tsbx_rules → 本仓凭据族）
+
+**对照证据**：`tsbx_rules.json` 的 `%USERPROFILE%\.ssh\**` / `.gnupg\**` 读/写/删全 deny，
+`default_action: ask`；开发缓存 allow 族与浏览器进程白名单本轮不在范围。
+
+**IHUI 缺口（现读）**：凭据族此前全是**工作区相对**形态（`.ssh/**` 只命中工作区根），
+而 `toAclPath` 对越界绝对路径走"绝对回落"原样返回 ⇒ home 下的 `.ssh/config`、
+`.gnupg/private-keys-v1.d/*`、`.aws/credentials`、`.kube/config`、`.docker/config.json`、
+`.netrc`、`.pypirc` **整片不在尺子上**（`.gnupg` 全仓 0 命中）。
+
+**落点**：`apps/cli/src/sandbox/file-access-policy.ts` 追加 8 条 home 凭据族
+（`**/.ssh/**` / `**/.gnupg/**` / `**/.aws/**` / `**/.kube/**` / `**/.docker/config.json` /
+`**/.netrc` / `**/.pypirc` / `**/.gitconfig.local`），统一 `read: deny` / `write: deny` /
+`delete: ask`、`enforcement: 'enforce'`、`source: 'credential'`、每条带 why。
+形态选 `**/` 前置而不做 home 现算：用户目录可能在别的盘/网络盘，现算取错就是不设防；
+本仓 glob 的 `**` 天然跨盘符，并顺手覆盖"工作区子目录里 copy 了一份凭据"。
+
+**测试**：新增 `apps/cli/tests/home-credential-deny-p06.test.ts` **13 例**（含绝对形态保真、
+"传绝对路径不绕过"、POSIX/Windows 双形态、delete 只 ask、反向牙 docs 不误伤）；
+与既有 `acl-followup-b49.test.ts` 合并 **2 文件 32 例全绿**；
+`pnpm turbo typecheck --filter=ihui-cli` **8/8 successful**；
+prettier `--check` 两文件通过。反向变异 2 次（移 `.ssh` 族 / `.gnupg` 读改 allow）
+均如期转红并恢复。
+
+**超越轴**：对照件是进程内快照规则；本仓是纯函数 + 注入式读取器（可测），新增族全部
+enforce（不存在 advisory 出声档），越界绝对路径不折叠、由尾段 glob 兜住。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
