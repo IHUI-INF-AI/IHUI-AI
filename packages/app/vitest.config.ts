@@ -41,6 +41,12 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // 2026-11-22:全仓 `turbo run test` 冷跑(27 包并发、无缓存)实测本包 tests/text-field.test.tsx
+    // 整体跑到 260900ms 且其中一条普查锁用例报 "Test timed out in 90000ms"(同包单跑数秒)。
+    // 12C 机器上默认 maxWorkers(=核数)× 11 包并行 = 130+ 进程抢同一 CPU/磁盘 ⇒ 纯 import 与
+    // 全仓文件扫描被拖到分钟级。4 档与 apps/mobile-rn 既有档一致(同属 RN 套件),单包跑仍够用。
+    // 这是资源编排预算,不改任何判据与用例内容。
+    maxWorkers: 4,
     // 这些 node_modules 若是 external,其内部的 import 'react-native' 走 Node 原生解析、
     // 不经过上面的 alias ⇒ 命中真 RN 的 Flow 源码,收集期即失败。inline 后由 vitest 转换,
     // alias 才生效。

@@ -31,6 +31,12 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 远程缓存(2026-11-22):TURBO_TEAM 是团队 slug(非机密,可硬编码);TURBO_TOKEN 走
+    # secrets。未配置 secret 时该值为空串 ⇒ turbo 自动退化为「只用本地缓存」并打印
+    # `Remote caching disabled`,不会因此判红(远程缓存是加速腿,不是判据腿)。
+    env:
+      TURBO_TEAM: ok502319984-4579s-projects
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

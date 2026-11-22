@@ -163,6 +163,7 @@ dist.__lock
 # 同 .next-e2e* 坑:Tailwind 4 会扫描构建产物,且本身是构建缓存不入库。
 .next-diag/
 .rollback/
+# Turborepo 缓存/守护产物一律不入库(.turbo/ 整目录忽略);团队 slug 属机器事实,由本机用户级配置与 CI workflow env 承载,见 AGENTS.md §6
 .turbo/
 # TypeScript 增量构建缓存
 *.tsbuildinfo
@@ -811,3 +812,5 @@ apps/ai-service/.pytest_tmp/
 /apps/web/public/sys-backs/
 /apps/mobile-rn/report/
 /scripts/data/local-schedule.json
+
+

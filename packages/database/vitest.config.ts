@@ -9,7 +9,11 @@ export default defineConfig({
     // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
     // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
     // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
-    testTimeout: 15_000,
+    // 2026-11-22:全仓冷跑(27 包并发、无缓存)实测两次抖动超时——
+    // tests/db41-read-replica-failover-default.test.ts 与 tests/db41-tenant-pool-budget.test.ts
+    // 判 "Test timed out in 15000ms";同包单跑 15.5s 全绿 ⇒ 纯资源争用,非用例缺陷。
+    // 提到 30_000 与 apps/api 定稿档一致(仍是预算,不改判据)。
+    testTimeout: 30_000,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     // 2026-10-03(G-1018201)'**/.ihui-agent/**':挡掉 .ihui-agent/tmp/ 里他人留下的 HEAD 整仓副本
