@@ -16,19 +16,20 @@ import type { Page } from '@playwright/test'
  * unlayered 顶层,而 `.border-input` 等在 @layer utilities)。这类缺陷的特征是
  * "代码写了、typecheck 绿、构建绿、截图看着也正常",只有量计算值才看得见。
  *
- * 所以本测试一律读 `getComputedStyle().borderTopColor`,并把期望值**取自 CSS 变量本身**
+ * 所以本测试一律读 `getComputedStyle().borderTopColor`,焦点/强调色把期望值**取自 CSS 变量本身**
  * (同页注入一个 `color: var(--x)` 探针再读回),不在测试里抄第二份 rgb 字面量 ——
- * token 改了测试跟着改,而不是测试把 token 的旧值钉成契约。
+ * token 改了测试跟着改,而不是测试把 token 的旧值钉成契约;静息透明态用浏览器标准
+ * `rgba(0, 0, 0, 0)` 断言。
  *
- * 三条不可漂的口径:
- *  1. 静止态必须等于 `--color-input` 且**不等于** `--color-border` —— 后者正是"被 `*` 压制"
- *     的指纹;哪天规则被搬回 `@layer`(或被删)导致重新落灰,这一条先红。
+ * 三条不可漂的口径(2026-11-23 用户定档:静息无描边,聚焦只留一圈墨档):
+ *  1. 静止态必须透明 —— 输入卡只要填充底,不要常驻灰框;`--color-input` 不再参与这一层。
  *  2. 聚焦态必须等于 `--color-primary`(墨档)= AGENTS §4「描边不得取墨档」的唯一例外位。
  *  3. 带 transition 的属性必须用 `expect.poll` 读,不许"点完立刻读一次" —— 实测 150ms
  *     过渡会让瞬时读值拿到起点,把一个正常的实现判成回归(本仓已在此处白排查过一轮)。
  */
 
 const SHELL = '.ai-input-shell'
+const TRANSPARENT_BORDER = 'rgba(0, 0, 0, 0)'
 
 /** 在页面内解析一个 CSS 变量的计算值(经由 color 属性,返回 rgb()/rgba() 文本)。 */
 async function resolveVar(page: Page, cssVar: string): Promise<string> {
@@ -82,20 +83,9 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     await page.waitForSelector(SHELL, { timeout: 30000 })
   })
 
-  test('静止态描边取 --color-input,而不是被 * 压成的 --color-border', async ({
-    authenticatedPage: page,
-  }) => {
-    const [expectedInput, suppressedBorder, actual] = await Promise.all([
-      resolveVar(page, '--color-input'),
-      resolveVar(page, '--color-border'),
-      borderOf(page, SHELL),
-    ])
-    // 前置:两档 token 本身必须可区分,否则下面"不等于 border"这条断言是空的(假绿)
-    expect(expectedInput).not.toBe(suppressedBorder)
-    expect(actual, '静止态描边没渲染出 --color-input(疑似被未分层 * 规则压制)').toBe(expectedInput)
-    expect(actual, '静止态描边落在 --color-border = 那条 * 规则赢了,四态全部失效').not.toBe(
-      suppressedBorder,
-    )
+  test('静止态不画描边(透明),不回落常驻灰框', async ({ authenticatedPage: page }) => {
+    const actual = await borderOf(page, SHELL)
+    expect(actual, '静止态仍有描边(应为透明,AI 输入卡只要填充底)').toBe(TRANSPARENT_BORDER)
   })
 
   test('聚焦态描边取墨档 --color-primary(AGENTS §4 唯一例外位)', async ({
@@ -118,6 +108,7 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     const highRisk = await probeClass(page, 'ai-input-shell--high-risk')
     const accent = await resolveVar(page, '--color-brand-accent-deep')
 
+    expect(idle, '静止态必须是透明描边').toBe(TRANSPARENT_BORDER)
     expect(dragging, '拖拽态描边应取品牌绿 --color-brand-accent-deep').toBe(accent)
     expect(highRisk, '高危态必须与静止态视觉区分(琥珀档),不得同色').not.toBe(idle)
     expect(dragging, '拖拽态不得与静止态同色').not.toBe(idle)
@@ -126,14 +117,13 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     )
   })
 
-  test('暗色档案:静止取暗档 --color-input,聚焦取纯白墨档', async ({ authenticatedPage: page }) => {
+  test('暗色档案:静止透明,聚焦取纯白墨档', async ({ authenticatedPage: page }) => {
     await page.evaluate(() => document.documentElement.classList.add('dark'))
-    const expectedInput = await resolveVar(page, '--color-input')
     const ink = await resolveVar(page, '--color-primary')
 
     await expect
       .poll(() => probeClass(page, 'ai-input-shell--idle'), { timeout: 3000 })
-      .toBe(expectedInput)
+      .toBe(TRANSPARENT_BORDER)
 
     await focusShell(page)
     await expect

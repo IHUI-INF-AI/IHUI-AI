@@ -1457,21 +1457,17 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  * 高风险态不得用暖色描边表达(2026-10-20 用户定档,取代此前的 amber-500 50%/70%):
  * 橙/琥珀描边在全项目禁止出现。该态的风险信号改由 `animate-pulse-soft` 独占承担,
  * 描边只取中性档(未聚焦)与墨档(聚焦),与其余两态同规。
+ *
+ * 2026-11-23 用户第三次定档(三端统一):AI 输入卡静息不画描边,只留填充底;
+ * 聚焦只出现一圈 1px 墨档(亮纯黑 / 暗纯白),不再使用 2026-11-11 的灰边 + 紫色辉光。
+ * 与 RN 的 fieldShell / BottomActionBar、小程序的 .search-box-bor 同一条规则。
  */
 .ai-input-shell {
-  border-color: var(--color-input);
+  border-color: transparent;
 }
-/* 聚焦反馈(2026-11-11 用户二次定档:不要描边,要「轻微浮起 + 四面同向阴影 + 一点科技紫光」):
- * 描边保持常态灰(--color-input),不做任何变色;
- * 只用对称(0 偏移)的双层辉光表达浮起:近层 8px + 远层 22px,同一紫色。
- * 紫取 violet-500 #8b5cf6 = 单一源头既有令牌 --chart-5(tokens.css),透明度用 color-mix 承担(10%/18%),
- * 保持「轻微」且颜色不散写字面量 ⇒ 守门器 effect-light 豁免认可(2026-11-13 收口)。
- * 豁免类别:聚焦效果光(非 elevation 层级投影),2026-11-11 用户定档。*/
 .ai-input-shell--idle:focus-within {
-  border-color: var(--color-input);
-  box-shadow:
-    0 0 8px 0 color-mix(in srgb, var(--chart-5) 10%, transparent),
-    0 0 22px -2px color-mix(in srgb, var(--chart-5) 18%, transparent);
+  border-color: var(--color-primary);
+  box-shadow: none;
 }
 .ai-input-shell--high-risk {
   border-color: var(--color-border-medium);

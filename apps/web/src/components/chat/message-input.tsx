@@ -1355,23 +1355,17 @@ export function MessageInput({
             onRetry={unifiedSuggestions.retry}
             capRejected={unifiedCapRejected}
           />
-          {/* 极简风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
-              高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
-              2026-07-31 升级:默认边框从 border-border 改为 border-input,
-              对齐 tokens.css --color-input 设计意图(亮色 91% L 更柔和,暗色 26% L 与卡片 10% L 区分更明显)。
-              之前 border-border(89.8% L / 22% L)在亮色下与白底卡片几乎无可见边界,
-              暗色下 22% vs 卡片 10% 仅 12% 差距,输入框边界感丢失。
-              2026-09-30 补:上面这段"设计意图"在此前**从未真的渲染过** —— Tailwind 的 border-* 颜色
-              类名被 globals.css 那条未分层的 `*{border-color}` 整族压制,四态描边一直落在同一个灰。
-              现描边色由 .ai-input-shell* 语义类在 globals.css 里给(见该处注释),此处只留结构类。*/}
+          {/* 极简风格输入容器:textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
+              2026-11-23 用户定档(三端统一):静息不画描边,只留填充底;聚焦才出现一圈
+              1px 墨档(亮纯黑 / 暗纯白)。描边色由 .ai-input-shell* 语义类在 globals.css
+              里给(见该处注释),此处只留结构类。*/}
           <div
             onDragOver={handleDragOverWithConversation}
             onDragLeave={handleDragLeaveWithConversation}
             onDrop={handleDropWithConversation}
             className={cn(
-              // 聚焦反馈遵循统一工程规范
-              // .ai-input-shell--idle:focus-within)。2026-11-11 用户反馈 1px ring + shadow-sm
-              // 太突兀,已改为纯 CSS 的轻微过渡,这里不再挂 ring/shadow 工具类。
+              // 聚焦反馈由 .ai-input-shell--idle:focus-within 给一圈墨档边框;
+              // 这里不再挂 ring/shadow 工具类,避免和内层 textarea 叠成第二层。
               'ai-input-shell flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow] duration-200',
               // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认。
               // 拖拽分支的 ring-2 有专属视觉,聚焦不覆盖它;高风险分支只留脉冲,
