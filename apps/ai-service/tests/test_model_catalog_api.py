@@ -148,4 +148,78 @@ async def test_空批次返回空items(client):
     resp = await _post(client, [])
     assert resp.status_code == 200, resp.text
     assert resp.json()["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# auto-complexity(2026-11-22 立):聊天 auto 号池决策腿的复杂度评估端点。
+# 判据单源 model_router.assess_complexity —— 这里只钉「端点把入参正确交给同一把尺子」,
+# 不复制关键词表;关键断言与网关 _resolve_auto_model 的升级档位同源(§0.6)。
+# ---------------------------------------------------------------------------
+
+COMPLEXITY_ENDPOINT = "/internal/model-catalog/auto-complexity"
+
+
+def _post_complexity(
+    client,
+    body: dict[str, object],
+    secret: str | None = INTERNAL_SECRET,
+):
+    headers = {"X-Internal-Secret": secret} if secret is not None else {}
+    return client.post(COMPLEXITY_ENDPOINT, json=body, headers=headers)
+
+
+async def test_auto_complexity_未配置密钥时不裸奔(client, monkeypatch):
+    monkeypatch.setattr(settings, "ai_callback_secret", "")
+    resp = await _post_complexity(client, {"prompt_tail": "你好"}, None)
+    assert resp.status_code == 503
+
+
+async def test_auto_complexity_错密钥被拒(client):
+    resp = await _post_complexity(client, {"prompt_tail": "你好"}, "wrong")
+    assert resp.status_code == 401
+
+
+async def test_auto_complexity_重构关键词判expert(client):
+    """判据单源:与网关复杂度升级同一把尺子 —— 命中重构关键词必须判 expert。"""
+    resp = await _post_complexity(
+        client,
+        {"prompt_tail": "请帮我重构这个模块的架构", "prompt_chars": 20, "has_tools": False},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"complexity": "expert"}
+
+
+async def test_auto_complexity_长文按token折算判expert(client):
+    """prompt_chars 是全文字符数(尾部截断防丢长文信号):超过 50000 token ⇒ expert。"""
+    resp = await _post_complexity(
+        client,
+        {"prompt_tail": "随便说点", "prompt_chars": 300_000, "has_tools": False},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"complexity": "expert"}
+
+
+async def test_auto_complexity_调试关键词判complex(client):
+    """命中 complex 关键词(调试)⇒ complex(与 assess_complexity 判定规则逐字同源)。
+
+    注意 has_code 是显式参数:网关主链 _resolve_auto_model 的调用形态(prompt/
+    token_count/has_tools)不传 has_code,本端点与其对齐,代码围栏不参与判定。
+    """
+    resp = await _post_complexity(
+        client,
+        {"prompt_tail": "帮我调试这个报错", "prompt_chars": 20, "has_tools": True},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"complexity": "complex"}
+
+
+async def test_auto_complexity_短句判trivial_空入参默认(client):
+    resp = await _post_complexity(client, {"prompt_tail": "你好", "prompt_chars": 2})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"complexity": "trivial"}
+
+    # 全默认(空体)也必须可用:决策腿的超轻调用形态
+    resp2 = await _post_complexity(client, {})
+    assert resp2.status_code == 200, resp2.text
+    assert resp2.json() == {"complexity": "trivial"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

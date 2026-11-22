@@ -89,6 +89,7 @@ import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-querie
 // B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
 import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
+import { resolveAutoChatRoute } from '../services/chat-auto-resolve.js'
 // D35(2026-10-31):metadata 九类只回摘要 —— 投影判据的唯一实现在 @ihui/shared/chat
 // (九类清单 + 信封形态都在那里),本文件不重写一份键表。
 import {
@@ -2630,6 +2631,42 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
     return reply.send(
       success({ model, temperature, maxTokens, systemPrompt: systemPrompt ?? null }),
+    )
+  })
+
+  // POST /chat/auto-resolve - 聊天 auto 模式的号池决策腿(2026-11-22 立)
+  // 「自动」此前只从平台直连池选模型(ai-service _resolve_auto_model),用户名下号池
+  // 与运营池公开模型完全不可达,用户必须手动点名号池模型。本端点按当前登录用户
+  // (隔离:只认本人名下可调度号池 + 运营池公开登记行)结合任务复杂度,决定本轮走
+  // 号池通道(/ws/relay/chat,计费/工具回路/错误卡全部复用既有链路)还是平台腿
+  // (前端照旧上行 'auto',ai-service 按原有逻辑自行解析,零回归)。判据与失效方向
+  // 见 services/chat-auto-resolve.ts 头注 —— 判不了/失败一律回 platform,绝不挡发送。
+  const autoResolveSchema = z
+    .object({
+      promptTail: z.string().max(20_000).default(''),
+      promptChars: z.number().int().min(0).max(10_000_000).default(0),
+      hasTools: z.boolean().default(false),
+      poolCandidates: z.array(z.string().min(1).max(200)).max(500).default([]),
+    })
+    .strict()
+  server.post('/chat/auto-resolve', { preHandler: [requireAuth] }, async (request, reply) => {
+    const parsed = autoResolveSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
+    const userId = request.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '请先登录'))
+    }
+    const result = await resolveAutoChatRoute({
+      userId,
+      promptTail: parsed.data.promptTail,
+      promptChars: parsed.data.promptChars,
+      hasTools: parsed.data.hasTools,
+      poolCandidates: parsed.data.poolCandidates,
+    })
+    return reply.send(
+      success({ channel: result.channel, model: result.model, source: result.source }),
     )
   })
 }

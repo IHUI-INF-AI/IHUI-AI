@@ -40,7 +40,11 @@ export default defineConfig({
     // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
     // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
     // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
-    testTimeout: 15_000,
+    // 2026-11-22:15_000 → 30_000。src/sse/__tests__/contract.test.ts 的「② 反向锁」用例
+    // walkSourceFiles 全仓枚举 TS/TSX(apps+packages)逐文件读内容找 partialText,耗时随仓库
+    // 文件数线性涨 —— 本轮号池决策腿新增 3 文件 + send-message.ts 增行后,turbo 档实测 16.7s
+    // 恰好翻过 15s 线(单文件直跑恒绿)。判据与取值面一字不改,只抬预算(§6 提速定稿同型)。
+    testTimeout: 30_000,
     // 2026-11-18(出包门链实测):application 上偶发 `[vitest-pool] Timeout terminating forks worker`
     // ⇒ 2 个文件被判 failed ⇒ rn-tests 门红 ⇒ 整轮不出包(本轮唯一拿到的那份门链落盘日志就是这条)。
     // 成因是 worker 退出收尾超默认 10s(本机常驻 gradle daemon + dev-stack + 类型检查并发),不是用例失败。

@@ -26,6 +26,14 @@ POST /internal/model-catalog/classify
   版本比较判 legacy、用途不在 chat/vision 三条并集;2026-11-20 机主定档取消「历史模型」
   折叠区,这些一律不展示。开关 MODEL_CATALOG_HIDE_LEGACY 与 /llm/models 出口共用。
 
+POST /internal/model-catalog/auto-complexity
+  入参: {"prompt_tail": "<截断后的本轮 prompt>", "prompt_chars": <全文字符数>, "has_tools": bool}
+  出参: {"complexity": "trivial|simple|moderate|complex|expert"}
+  2026-11-22 立:聊天 auto 模式整合号池候选的决策腿。apps/api 的 /api/chat/auto-resolve
+  需要按任务复杂度决定"号池模型够不够格"(复杂任务号池没有 latest 档就维持平台 premium),
+  复杂度判据单一真相源在 services/model_router.py 的 assess_complexity —— 与网关
+  _resolve_auto_model 的复杂度升级是同一个函数(§0.6),api 侧经本端点消费,不复制关键词表。
+
 失效方向
 --------
 本端点不做任何"猜代次":拿不到判据就 5xx / 网络错,调用方 fail-open(不隐藏、不标代次)。
@@ -106,4 +114,33 @@ async def classify(request: Request, payload: ClassifyIn) -> dict[str, Any]:
         hidden_count,
     )
     return {"items": items}
+
+
+class AutoComplexityIn(BaseModel):
+    """聊天 auto 决策腿的复杂度评估入参(与 assess_complexity 的实参同口径)。"""
+
+    prompt_tail: str = Field(default="", max_length=20_000)
+    prompt_chars: int = Field(default=0, ge=0)
+    has_tools: bool = False
+
+
+@router.post("/auto-complexity")
+async def auto_complexity(request: Request, payload: AutoComplexityIn) -> dict[str, Any]:
+    """评估本轮 prompt 的任务复杂度(判据单源 model_router.assess_complexity)。
+
+    与网关 _resolve_auto_model 的复杂度升级同一函数 —— api 决策腿问的是"号池候选
+    够不够格",网关问的是"要不要升 premium",两侧必须用同一把尺子,否则会出现
+    "决策腿判简单走了号池、网关判复杂升 premium"的自相矛盾。
+    prompt_chars 是前端统计的全文字符数(尾部截断防丢长文信号),token 数按
+    assess_complexity 同款 len//4 口径折算。
+    """
+    await _require_internal(request)
+    from app.services.model_router import model_router
+
+    complexity = model_router.assess_complexity(
+        prompt=payload.prompt_tail,
+        token_count=max(0, payload.prompt_chars // 4),
+        has_tools=payload.has_tools,
+    )
+    return {"complexity": complexity.value}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

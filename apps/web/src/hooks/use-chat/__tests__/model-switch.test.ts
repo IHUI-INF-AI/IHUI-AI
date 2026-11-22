@@ -388,7 +388,16 @@ describe('装车证明:判据必须真接在主链路上', () => {
       'const effectiveModel = resolveRoundModel(roundModel, chatStore.getState().currentModel)',
     )
     // 空气泡防线:流必须取复核后的档位,而不是入口那个旧 model
-    expect(src).toContain('model: effectiveModel')
+    // 2026-11-22:号池决策轮(autoPoolModel)优先 —— 服务端解析值同样是"发起前定档"
+    // (POST /api/chat/auto-resolve 在建消息前 await 完成),平台轮仍取 effectiveModel。
+    // 字面量锁同时钉住 streamChat 与 runPoolToolLoop 两处,防有人改回入口旧值。
+    expect(src).toContain('model: autoPoolModel ?? effectiveModel')
+    // 号池决策腿接线锁:auto 轮主发送(非重生成)先问服务端,失败保持 'auto' 走平台腿
+    expect(src).toContain("if (roundModel === 'auto' && !isRegenerate)")
+    expect(src).toContain('poolCandidates: listPoolModelIds()')
+    // assistant 消息 model 写实际模型(号池轮是 resolved;号池通道无 usage 帧,
+    // 消息 model 是 conversationModel 三级回退的唯一显示源)
+    expect(src).toContain('model: autoPoolModel ?? roundModel')
   })
 
   it('model-switch.ts 不自带 toast / store 依赖(DI 出口,别把第二份真相写进纯模块)', () => {

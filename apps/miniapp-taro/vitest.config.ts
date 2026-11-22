@@ -97,6 +97,12 @@ export default defineConfig({
     // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
     // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
     testTimeout: 15_000,
+    // 2026-11-22:补 maxWorkers=8(提速定稿漏配包)。本包 201 文件 / 1954 用例,默认
+    // maxWorkers=核数(本机 20)在 turbo 全量并发下与其余包叠加 = 纯 worker 超订,
+    // 全量轮实测慢用例翻线抖红(api/web/shared/extension 逐包轮挂同型);单包跑恒绿
+    // (201/201 两次实测)。8 = 与 apps/web 同档,单包耗时影响在秒级,换全量稳定。
+    // 这是**资源预算**,不改任何判据与用例内容。
+    maxWorkers: 8,
     environment: 'node',
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
     passWithNoTests: true,

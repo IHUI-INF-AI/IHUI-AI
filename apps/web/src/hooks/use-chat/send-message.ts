@@ -25,6 +25,7 @@ import {
   editAndRerunConversation,
   editAiMessageVersion,
   autoTitleConversation,
+  autoResolveChat,
   branchConversation,
   type ToolDelegateEvent,
   // V3 #58(2026-09-26 立):主对话流工具审批请求事件(ai-service 高危工具执行前发)
@@ -103,7 +104,7 @@ import { resolveRoundModel } from './model-switch'
 // 2026-11-21 修:号池通道判定的单一真相 —— 选择器实际登记过的号池模型 id 集合
 // (见 pool-model-routing.ts)。UI 通路的 onModelChange 只有单参签名,带不上 channel,
 // 这里用它补齐,避免号池模型被静默送进平台链路。
-import { isPoolModelId } from './pool-model-routing'
+import { isPoolModelId, listPoolModelIds } from './pool-model-routing'
 import {
   eduToolsFor,
   fileToolsFor,
@@ -734,6 +735,34 @@ export function createSendMessage(
     // 且这一轮尚未触达 provider,终止只会留下一条空气泡。
     const roundModel = resolveRoundModel(model, chatStore.getState().currentModel)
 
+    // 2026-11-22 立:auto 轮先问服务端号池决策腿(POST /api/chat/auto-resolve)——
+    // 「自动」从此整合用户名下号池与运营池公开模型(隔离:服务端只认本人名下可调度
+    // 号池 + 运营池公开登记行,poolCandidates 只是候选不是权限,越权 id 由服务端
+    // 平台集过滤剔除)。返回 pool ⇒ 本轮改走 /ws/relay/chat(计费/工具回路/错误卡
+    // 全部复用既有号池链路);platform 或任何失败 ⇒ 照旧上行 'auto' 由 ai-service
+    // 现场解析(失效方向恒为现状,绝不因解析失败挡发送)。判据与决策规则见
+    // apps/api/src/services/chat-auto-resolve.ts 头注。
+    // hasTools 只取显式启用的插件工具(edu/ui/file 等条件工具的关键词判据不在此复刻,
+    // 且复杂度公式里 has_tools 只与 has_code 组合生效而主链不传 has_code,影响面趋零)。
+    // 重新生成轮不接:该路径发送的是历史上下文,llmText 不参与本轮请求,复杂度评估
+    // 口径不成立;续答链(send-answer)同理维持平台腿 —— 与手动号池模型的续答同状态。
+    let autoPoolModel: string | null = null
+    if (roundModel === 'auto' && !isRegenerate) {
+      try {
+        const res = await autoResolveChat({
+          promptTail: llmText.slice(-20_000),
+          promptChars: llmText.length,
+          hasTools: mergeAgentTools(chatStore, 'build').length > 0,
+          poolCandidates: listPoolModelIds(),
+        })
+        if (res.success && res.data.channel === 'pool' && res.data.model) {
+          autoPoolModel = res.data.model
+        }
+      } catch {
+        // 决策失败 = 平台腿(服务端已 fail-open,这里只兜网络层异常)
+      }
+    }
+
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
     // 记下 id:未准入时按 id 撤回,不能用「从这里截到末尾」(版本族插在中间,截尾会删掉后面的轮次)。
     let userMessageId: string | null = null
@@ -762,7 +791,9 @@ export function createSendMessage(
           role: 'assistant',
           content: '',
           createdAt: Date.now(),
-          model: roundModel,
+          // 号池决策轮写实际号池模型 id(而非字面量 'auto'):conversationModel 三级回退
+          // 第一级直接命中;号池 /ws/relay/chat 无 usage 帧,消息 model 是唯一显示源。
+          model: autoPoolModel ?? roundModel,
           permissionMode: currentMode,
         },
         version.rootId,
@@ -772,7 +803,7 @@ export function createSendMessage(
       assistantId = store.addMessage({
         role: 'assistant',
         content: '',
-        model: roundModel,
+        model: autoPoolModel ?? roundModel,
         permissionMode: currentMode,
       })
     }
@@ -1018,7 +1049,8 @@ export function createSendMessage(
       const streamOpts: StreamChatOptions & {
         onQuestionResolved?: (frame: unknown) => void
       } = {
-        model: effectiveModel,
+        // 号池决策轮(resolved)优先:实际发往通道的模型;平台轮保持 'auto' 由 ai-service 现场解析
+        model: autoPoolModel ?? effectiveModel,
         // W25:#Rule 展开后的文本发给 LLM(重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加)
         messages: isRegenerate ? history : [...history, { role: 'user', content: llmText }],
         signal: controller.signal,
@@ -1790,14 +1822,18 @@ export function createSendMessage(
       // "本轮没有返回任何内容"。登记集合命中即按号池通道发 —— 判据取自
       // pool-model-routing 同一份 set,不在本文件再造前缀猜测。
       const modelIsFromPool =
-        chatStore.getState().currentModelChannel === 'pool' || isPoolModelId(effectiveModel)
+        chatStore.getState().currentModelChannel === 'pool' ||
+        isPoolModelId(effectiveModel) ||
+        // 2026-11-22:auto 决策腿判走号池 ⇒ 服务端解析出的号池模型 id 直接进号池通道
+        // (不依赖登记集命中 —— 服务端已按本人号池平台 ∪ 运营池公开过滤过)
+        autoPoolModel !== null
       if (modelIsFromPool) {
         // 2026-11-21:号池通道补上工具回路 —— 此前该通道只做纯对话,模型看不见 hr_*/
         // finance_* 等工具,用户问人事/财务时只能答"我无法调用工具"。回路在客户端跑
         // (取 schema → 带 tools → 收 tool_calls → 调 /ai/mcp/tools/call → 文本回灌续跑),
         // 权限矩阵/审计仍由 ai-service 判,前端不复制任何 RBAC 判据。
         await runPoolToolLoop({
-          model: effectiveModel,
+          model: autoPoolModel ?? effectiveModel,
           messages: streamOpts.messages,
           ...(conversationId ? { conversationId } : {}),
           signal: controller.signal,

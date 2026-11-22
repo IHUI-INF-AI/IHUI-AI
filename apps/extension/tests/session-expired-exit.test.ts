@@ -99,7 +99,10 @@ describe('扩展端会话失效统一出口', () => {
     // 冷 CI 上首枚 await import('@ihui/api-client') 要现算整个 api-client 变换图,
     // 默认 5s testTimeout 不够(2026-09-27 PR#65 run 36341940386 实红于超时,本地热盘 4/4 绿)。
     // 预算抬到 30s;后续 ②③ 复用已缓存模块图,不受影响。断言零改动。
-  }, 30_000)
+    // 2026-11-22:30s → 60s —— api-client dist 本轮重建(endpoints/chat.ts 新增 autoResolveChat)
+    // ⇒ vitest transform 缓存失效,并发冷盘实测 30s 线被翻过(单包复跑同红);预算按
+    // background.test.ts 20→60s 同型抬升,判据与断言一字不改。
+  }, 60_000)
 
   it('② 处理器在有派发目标时喊出会话失效事件,在无派发目标时不抛', async () => {
     const { initApi, SESSION_EXPIRED_EVENT } = await import('../lib/token')

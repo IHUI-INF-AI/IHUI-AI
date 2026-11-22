@@ -210,6 +210,35 @@ export function createConversation(input: { title?: string; model?: string } = {
   })
 }
 
+/** auto 模式号池决策结果(2026-11-22 立):pool=走 /ws/relay/chat;platform=照旧上行 'auto' */
+export interface AutoResolveChatResult {
+  channel: 'pool' | 'platform'
+  /** channel='pool' 时的号池模型 id;platform 恒 null(平台侧由 ai-service 现场解析) */
+  model: string | null
+  /** 命中来源:own=本人号池 / ops=运营池公开 */
+  source: 'own' | 'ops' | null
+}
+
+/**
+ * 聊天 auto 模式的号池决策(POST /api/chat/auto-resolve,2026-11-22 立)。
+ *
+ * 服务端按当前登录用户(隔离:只认本人名下可调度号池 + 运营池公开登记行)结合
+ * 任务复杂度决定本轮通道。poolCandidates 传前端号池目录实际拉到的 id
+ * (pool-model-routing 登记集),只是候选不是权限 —— 越权候选由服务端平台集
+ * 过滤剔除。失败/判不了服务端一律回 platform,前端无需特判(失效方向恒为现状)。
+ */
+export function autoResolveChat(input: {
+  promptTail: string
+  promptChars: number
+  hasTools: boolean
+  poolCandidates: string[]
+}) {
+  return fetchApi<AutoResolveChatResult>('/api/chat/auto-resolve', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 /** D176:交接文档生成结果 */
 export interface RecapHandoffResult {
   summary: string | null
@@ -1104,13 +1133,17 @@ export interface AgentTerminalFace {
 /**
  * 列出本会话里 agent 开的终端。
  *
+ * **`conversationId` 必须是会话 id 本身,不是流会话 id**:agent 侧 `open_terminal` 记账用的
+ * 是 `POST /ai/chat/stream` 请求里的 `metadata.conversationId`(见 llm.py 的 `call_tool`
+ * 注入那处),而 `upstreamSessionId` 是网关每次流新生成的随机 UUID —— 传后者永远拿到空列表。
+ *
  * 归属只认令牌主体 + 会话 id(服务端判定),本函数不发送任何用户身份字段。
  * 失败抛错:面板要能显示"取不到",而不是把失败画成空列表(那会被读成"没有终端")。
  */
-export async function listAgentTerminals(sessionId: string): Promise<AgentTerminalInfo[]> {
-  if (!sessionId) throw new Error('listAgentTerminals: sessionId required')
+export async function listAgentTerminals(conversationId: string): Promise<AgentTerminalInfo[]> {
+  if (!conversationId) throw new Error('listAgentTerminals: conversationId required')
   const resp = await fetchWithAuthRefresh(
-    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(sessionId)}/terminals`,
+    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(conversationId)}/terminals`,
     { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' },
   )
   if (!resp.ok) {
@@ -1119,9 +1152,7 @@ export async function listAgentTerminals(sessionId: string): Promise<AgentTermin
       `listAgentTerminals failed: HTTP ${resp.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
     )
   }
-  const data = (await resp.json().catch(() => null)) as
-    | { ok?: boolean; terminals?: unknown }
-    | null
+  const data = (await resp.json().catch(() => null)) as { ok?: boolean; terminals?: unknown } | null
   if (!data || data.ok !== true || !Array.isArray(data.terminals)) {
     throw new Error('listAgentTerminals failed: invalid response shape')
   }
@@ -1138,18 +1169,21 @@ export async function listAgentTerminals(sessionId: string): Promise<AgentTermin
 /**
  * 取一块终端的屏面。`maxLinks` 只影响链接条数(屏面永远整块回)。
  *
+ * `conversationId` 与 `listAgentTerminals` 同口径(**会话 id,不是流会话 id**)。
  * 两种失败**必须分开**:`notFound`(越权/不存在,服务端刻意同形)与 `error`
  * (如"该会话没有屏幕网格")。把后者读成"没这块终端"会让面板反复重新列表。
  */
 export async function getAgentTerminalFace(
-  sessionId: string,
+  conversationId: string,
   terminalId: string,
   options: { maxLinks?: number; signal?: AbortSignal } = {},
-): Promise<{ ok: true; face: AgentTerminalFace } | { ok: false; notFound: boolean; error: string }> {
-  if (!sessionId || !terminalId) throw new Error('getAgentTerminalFace: ids required')
+): Promise<
+  { ok: true; face: AgentTerminalFace } | { ok: false; notFound: boolean; error: string }
+> {
+  if (!conversationId || !terminalId) throw new Error('getAgentTerminalFace: ids required')
   const qs = options.maxLinks ? `?max_links=${encodeURIComponent(String(options.maxLinks))}` : ''
   const resp = await fetchWithAuthRefresh(
-    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(sessionId)}/terminals/${encodeURIComponent(terminalId)}/face${qs}`,
+    `${aiServiceBaseUrl()}/llm/complete/stream/${encodeURIComponent(conversationId)}/terminals/${encodeURIComponent(terminalId)}/face${qs}`,
     {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -1164,11 +1198,9 @@ export async function getAgentTerminalFace(
     )
   }
   const data = (await resp.json().catch(() => null)) as
-    | ({ ok?: boolean; error?: string; errorCode?: string } & Partial<AgentTerminalFace>)
-    | null
+    ({ ok?: boolean; error?: string; errorCode?: string } & Partial<AgentTerminalFace>) | null
   if (!data) throw new Error('getAgentTerminalFace failed: invalid response shape')
   if (data.ok === true) return { ok: true, face: data as AgentTerminalFace }
   const error = typeof data.error === 'string' ? data.error : 'terminal face unavailable'
   return { ok: false, notFound: error === 'terminal not found', error }
 }
-
