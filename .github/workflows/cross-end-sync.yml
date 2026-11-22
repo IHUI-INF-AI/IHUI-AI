@@ -14,45 +14,15 @@ name: cross-end-sync
 # 仅 stage 跨端派生可能改动的目录,绝不碰任何人的未提交 WIP。
 
 on:
-  push:
-    branches: [main, develop, release/*]
-    paths:
-      - 'apps/web/**'
-      - 'apps/mobile-rn/**'
-      - 'apps/miniapp-taro/**'
-      - 'packages/design-tokens/**'
-      - 'packages/ui-react/**'
-      - 'packages/ui-native/**'
-      - 'packages/shared/**'
-      - 'scripts/sync-cross-end-cascade.mjs'
-      - 'scripts/gen-*.mjs'
-      - 'scripts/land-*.mjs'
-      - 'scripts/parity-auto.mjs'
-      - 'scripts/check-*.mjs'
-      - 'scripts/heal-*.mjs'
-      - 'scripts/plan-rn-token-pairing.mjs'
-      - '.github/workflows/cross-end-sync.yml'
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'apps/web/**'
-      - 'apps/mobile-rn/**'
-      - 'apps/miniapp-taro/**'
-      - 'packages/design-tokens/**'
-      - 'packages/ui-react/**'
-      - 'packages/ui-native/**'
-      - 'packages/shared/**'
-      - 'scripts/sync-cross-end-cascade.mjs'
-      - 'scripts/gen-*.mjs'
-      - 'scripts/land-*.mjs'
-      - 'scripts/parity-auto.mjs'
-      - 'scripts/check-*.mjs'
-      - 'scripts/heal-*.mjs'
-      - 'scripts/plan-rn-token-pairing.mjs'
+  # 2026-11-22 定案:只保留人工触发。push / pull_request / schedule 都会在本仓
+  # 自动生成派生提交并 push(CI 不跑本地 husky 字节闸),是仓库二次膨胀的通道。
+  # 默认 apply=false 只做只读预览;要落地必须人工显式勾选 true。
   workflow_dispatch:
-  schedule:
-    # 每 6 小时自巡检兜底(弥补守护巡检节拍 + 跨会话并发漏跑)
-    - cron: '23 */6 * * *'
+    inputs:
+      apply:
+        description: '真正落地派生提交并推送(默认 false,仅只读预览)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -96,6 +66,12 @@ jobs:
           HEAD_MSG: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
+          # 2026-11-22:自动触发已全部关闭;人工 dispatch 默认只读预览。
+          if [[ "${{ inputs.apply }}" != "true" ]]; then
+            echo "未显式 apply=true:仅只读预览,不生成/不推送任何提交"
+            echo "can_write=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [[ "${HEAD_MSG}" == *"${AUTO_MARK}"* ]]; then
             echo "检测到自触发哨兵标记,跳过以避免死循环"
             echo "can_write=false" >> "$GITHUB_OUTPUT"

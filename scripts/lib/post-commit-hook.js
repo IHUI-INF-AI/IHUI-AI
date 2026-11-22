@@ -248,6 +248,7 @@ if (process.env.HUSKY_ENABLE_TAG_SYNC === '1') {
 // 2026-11-22 定案:默认不再后台派生 guardian-runner --full-face。它虽不提交,
 // 但每次提交都留下 1~3 个长跑 node 进程并扫全量面,是"自动链路仍在动"的残余;
 // 需要补跑时显式 HUSKY_ENABLE_FULL_FACE=1。
+// 同一轮还停用了 plan-tasks-merge --heal --commit 与跨端登记自动器(见下两段),二者均会自建提交或改写工作树。
 if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1' && process.env.HUSKY_ENABLE_FULL_FACE === '1') {
   const deferredFile = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'gates-deferred.json')
   if (existsSync(deferredFile)) {
@@ -391,14 +392,26 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
   // 判据在 pre-commit 会红给下一个人(还不是他的债),修必须挂在这里。
   // 递归:提交走 commit-tree + update-ref,钩子结构性不跑;仍带 IHUI_PLAN_STATE_HEAL_COMMIT
   // 供判读。跳过:HUSKY_SKIP_PLAN_STATE_HEAL=1
+  // 2026-11-22 定案:该腿会自建 commit-tree + CAS 提交,是"提交后又长一枚"的通道;
+  // 默认只保留 pre-commit 的判据,不再自动落地。需要时显式 HUSKY_ENABLE_PLAN_STATE_HEAL=1。
   if (
     process.env.IHUI_PLAN_STATE_HEAL_COMMIT !== '1' &&
     process.env.HUSKY_SKIP_PLAN_STATE_HEAL !== '1'
   ) {
-    runLogged('post-commit-plan-state-heal', 'node scripts/plan-tasks-merge.mjs --heal --commit', {
-      timeout: 120000,
-      env: { IHUI_PLAN_STATE_HEAL_COMMIT: '1' },
-    })
+    if (process.env.HUSKY_ENABLE_PLAN_STATE_HEAL === '1') {
+      runLogged(
+        'post-commit-plan-state-heal',
+        'node scripts/plan-tasks-merge.mjs --heal --commit',
+        {
+          timeout: 120000,
+          env: { IHUI_PLAN_STATE_HEAL_COMMIT: '1' },
+        },
+      )
+    } else {
+      console.log(
+        'ℹ️  计划任务状态自愈提交已停用(2026-11-22 定案);需要时显式 HUSKY_ENABLE_PLAN_STATE_HEAL=1',
+      )
+    }
   }
 }
 
@@ -636,7 +649,8 @@ function writeCrossEndAutoregState(patch) {
 
 if (
   process.env.IHUI_CROSS_END_AUTOREG_COMMIT !== '1' &&
-  process.env.HUSKY_SKIP_CROSS_END_AUTOREG !== '1'
+  process.env.HUSKY_SKIP_CROSS_END_AUTOREG !== '1' &&
+  process.env.HUSKY_ENABLE_CROSS_END_AUTOREG === '1'
 ) {
   if (!existsSync(join(ROOT, CROSS_END_AUTOREG_SCRIPT))) {
     // 器物不在工作树(未入库/别席 checkout 尚未拿到)⇒ 显式点名并跳过,**不盖 lastRunAt**:
@@ -731,5 +745,9 @@ if (
       }
     }
   }
+} else if (process.env.HUSKY_SKIP_CROSS_END_AUTOREG !== '1') {
+  console.info(
+    'ℹ️  跨端登记自动器已停用(2026-11-22 定案:不再在每次提交后扫描并改写工作树);需要时显式 HUSKY_ENABLE_CROSS_END_AUTOREG=1',
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

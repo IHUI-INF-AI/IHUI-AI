@@ -8,9 +8,14 @@ name: weekly-cleanup
 # 北京时间周一 03:00 (UTC 周日 19:00)
 
 on:
-  schedule:
-    - cron: '0 19 * * 0' # 周日 UTC 19:00 = 周一北京时间 03:00
+  # 2026-11-22 定案:取消每周定时触发。该腿每周自动 `git add -A` + commit + push,
+  # 一旦 .gitignore 有缺口就会把生成物/大文件直接写进历史;只保留人工触发,默认不落地。
   workflow_dispatch:
+    inputs:
+      apply:
+        description: '显式允许 git add -A + commit + push(默认 false,仅清理运行器)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -72,12 +77,14 @@ jobs:
             echo "工作区已干净，无需清理"
           fi
 
-      - name: 提交清理
-        if: steps.changes.outputs.has_changes == 'true'
+      - name: 提交清理(需显式 apply)
+        if: steps.changes.outputs.has_changes == 'true' && github.event.inputs.apply == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
+          # 2026-11-22:即使人工 apply,也不允许把大文件带进历史;与本地 pre-commit 同一把尺。
+          node scripts/check-file-size.mjs --staged
           git commit -m "chore: 周定期清理运行时产物
 
           由 weekly-cleanup workflow 自动生成。
