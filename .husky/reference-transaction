@@ -55,7 +55,25 @@ fi
 
 ZERO=0000000000000000000000000000000000000000
 while read -r _old _new ref; do
-  [ "$ref" = "refs/stash" ] || continue
+  # ── 2026-11-22 根治:禁止创建历史备份 tag ─────────────────────────────
+  # 本仓从今天起不保留历史(用户 2026-11-22 定案)。lost-commit/*、backup/*、
+  # unreachable-commits-backup/* 是"把已移出的旧提交钉回对象库"的通道,
+  # 一条 tag 就能让旧 pack 对象永久不可回收。这里在引用事务层直接拒绝创建;
+  # 删除这类 tag(new=0000)放行,便于存量清理。
+  case "$ref" in
+    refs/tags/lost-commit/*|refs/tags/backup/*|refs/tags/unreachable-commits-backup/*)
+      [ "$_new" = "$ZERO" ] && continue
+      {
+        printf '\n'
+        printf '✋ history-guard:已拦截历史备份 tag 创建(%s)\n' "$ref"
+        printf '   本仓不保留历史:旧提交请备份到仓库外 bare 库/bundle,不要用 tag 钉回仓库。\n'
+      } >&2
+      exit 1
+      ;;
+    refs/stash) ;;
+    *) continue ;;
+  esac
+
   [ "$_new" = "$ZERO" ] && continue
   # new 指向 stash reflog 中既有条目 = drop/pop 的收尾,放行
   known=0

@@ -11,6 +11,18 @@ else
   printf '%s\n' "$PUSH_REFS" | git lfs pre-push "$@"
 fi
 
+# ─── 2026-11-22 根治:拒绝推送任何"历史备份"引用命名空间 ─────────────────
+# 旧仓 892MB/1.5GB 的直接推手之一 = 大量 lost-commit/*、backup/*、
+# unreachable-commits-backup/* tag 把已从新链移出的旧提交重新钉在对象库里。
+# 本仓从今天起不再保留历史(用户 2026-11-22 定案),这些命名空间一律拒推;
+# 远端已有同类 tag 也应在清理时删除。判据只看 ref 名,不看 sha/ ancestry,
+# 因此不依赖 origin/main 能否解析,失败方向是"拒绝"而不是"放行"。
+if printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $3 ~ /^refs\/tags\/(lost-commit|backup|unreachable-commits-backup)\// {found=1} END {exit found ? 0 : 1}'; then
+  printf '%s\n' "❌ 拒绝推送历史备份 tag(lost-commit/* / backup/* / unreachable-commits-backup/*):本仓不保留历史。" >&2
+  printf '%s\n' "   若确需备份旧提交,请放在仓库外的 bare 库或 bundle,不要用远端 tag 把对象钉回来。" >&2
+  exit 1
+fi
+
 # ─── tag-only 推送不跑代码质量门(2026-09-24 立,lost-commit 备份被拦死多天)─────
 # 判据:git 传入的每一行,其**存在的那一侧**都在 refs/tags/ 下(新建/推进 tag 看 local_ref,删除 tag
 # 时 local 侧是 `(nil)`,看 remote 侧)⇒ 本次推送**不新增也不推进任何分支**,
@@ -509,16 +521,16 @@ fi
 # 收②:文档数字对账门已退役(2026-11-21,脚本已不在 HEAD 面)⇒ 该收口段一并摘除
 
 # 收④:仓库重量预算(2026-11-22 立,1.5GB 二次膨胀根治的最后一道总闸)
-# 判两层:① HEAD 跟踪内容总字节(默认 400MB,当前约 372MB);② .git pack 体积
-# (默认 350MB,当前约 130MB)。单文件字节闸只能拦"一次放进来一个 2MB 文件",
+# 判两层:① HEAD 跟踪内容总字节(默认 450MB,当前约 373MB);② .git pack 体积
+# (默认 250MB,当前约 130MB)。单文件字节闸只能拦"一次放进来一个 2MB 文件",
 # 拦不住"一百次各放 1.9MB";本闸按总量棘轮,越线即阻止推送并点名下一步。
 # 应急:HUSKY_SKIP_REPO_WEIGHT=1(只允许在确认是判据误报时用)。
 if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
-  node scripts/check-file-size.mjs --weight --budget-mb="${REPO_SIZE_BUDGET_MB:-400}" || exit 1
+  node scripts/check-file-size.mjs --weight --budget-mb="${REPO_SIZE_BUDGET_MB:-450}" || exit 1
   _pack_kb=$(git count-objects -v 2>/dev/null | awk '/^size-pack:/ {print $2}')
   if [ -n "$_pack_kb" ]; then
     _pack_mb=$(( _pack_kb / 1024 ))
-    _pack_budget="${REPO_PACK_BUDGET_MB:-350}"
+    _pack_budget="${REPO_PACK_BUDGET_MB:-250}"
     if [ "$_pack_mb" -gt "$_pack_budget" ]; then
       printf '%s\n' "❌ 仓库 pack ${_pack_mb}MB 超过预算 ${_pack_budget}MB:历史里又有大对象进来了。" >&2
       printf '%s\n' "   先 git count-objects -vH 定位,再按 .gitignore 移出生成物/归档;需要重写历史时单独开票,不要带着推。" >&2
