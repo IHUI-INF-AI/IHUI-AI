@@ -25545,18 +25545,6 @@
     "send": "發送",
     "stop": "停止"
   },
-  "checkIn": {
-    "retry": "重試",
-    "title": "每日簽到",
-    "subtitle": "每日簽到領取獎勵",
-    "streak": "連續簽到",
-    "monthlyDays": "本月天數",
-    "totalDays": "累計天數",
-    "checkedIn": "已簽到",
-    "checkInBtn": "簽到",
-    "calendar": "簽到行事曆",
-    "empty": "暫無簽到記錄"
-  },
   "circleCreate": {
     "title": "建立圈子",
     "name": "圈子名稱",
@@ -29852,5 +29840,17 @@
     "detail": "詳細資訊",
     "notFound": "找不到課程",
     "studentsCount": "{count} 人學習中"
+  },
+  "dailyCheckIn": {
+    "retry": "重試",
+    "title": "每日簽到",
+    "subtitle": "每日簽到領取獎勵",
+    "streak": "連續簽到",
+    "monthlyDays": "本月天數",
+    "totalDays": "累計天數",
+    "checkedIn": "已簽到",
+    "checkInBtn": "簽到",
+    "calendar": "簽到行事曆",
+    "empty": "暫無簽到記錄"
   }
 }

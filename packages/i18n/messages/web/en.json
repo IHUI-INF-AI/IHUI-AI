@@ -25394,18 +25394,6 @@
     "send": "Send",
     "stop": "Stop"
   },
-  "checkIn": {
-    "retry": "Retry",
-    "title": "Daily Check-in",
-    "subtitle": "Check in daily to receive rewards",
-    "streak": "Day streak",
-    "monthlyDays": "Days this month",
-    "totalDays": "Total days",
-    "checkedIn": "Checked in",
-    "checkInBtn": "Check in",
-    "calendar": "Check-in calendar",
-    "empty": "No check-in records"
-  },
   "circleCreate": {
     "title": "Create Circle",
     "name": "Circle name",
@@ -29852,5 +29840,17 @@
     "detail": "Details",
     "notFound": "Course not found",
     "studentsCount": "{count} learning"
+  },
+  "dailyCheckIn": {
+    "retry": "Retry",
+    "title": "Daily Check-in",
+    "subtitle": "Check in daily to receive rewards",
+    "streak": "Day streak",
+    "monthlyDays": "Days this month",
+    "totalDays": "Total days",
+    "checkedIn": "Checked in",
+    "checkInBtn": "Check in",
+    "calendar": "Check-in calendar",
+    "empty": "No check-in records"
   }
 }

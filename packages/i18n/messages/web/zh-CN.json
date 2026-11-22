@@ -26089,18 +26089,6 @@
     "send": "发送",
     "stop": "停止"
   },
-  "checkIn": {
-    "retry": "重试",
-    "title": "每日签到",
-    "subtitle": "每日签到领取奖励",
-    "streak": "连续签到",
-    "monthlyDays": "本月天数",
-    "totalDays": "累计天数",
-    "checkedIn": "已签到",
-    "checkInBtn": "签到",
-    "calendar": "签到日历",
-    "empty": "暂无签到记录"
-  },
   "circleCreate": {
     "title": "创建圈子",
     "name": "圈子名称",
@@ -30386,5 +30374,17 @@
     "detail": "详情",
     "notFound": "未找到课程",
     "studentsCount": "{count} 人正在学习"
+  },
+  "dailyCheckIn": {
+    "retry": "重试",
+    "title": "每日签到",
+    "subtitle": "每日签到领取奖励",
+    "streak": "连续签到",
+    "monthlyDays": "本月天数",
+    "totalDays": "累计天数",
+    "checkedIn": "已签到",
+    "checkInBtn": "签到",
+    "calendar": "签到日历",
+    "empty": "暂无签到记录"
   }
 }
