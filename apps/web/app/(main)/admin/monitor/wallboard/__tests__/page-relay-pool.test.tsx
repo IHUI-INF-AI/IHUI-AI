@@ -24,14 +24,31 @@ vi.mock('next-intl', async () => {
   const fs = await import('node:fs')
   const path = await import('node:path')
   const file = path.resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json')
-  const messages = JSON.parse(fs.readFileSync(file, 'utf8')) as {
-    admin: { wallboard: Record<string, string> }
+  const messages = JSON.parse(fs.readFileSync(file, 'utf8')) as unknown
+  /**
+   * 必须按 namespace 取值(2026-11-22 修):页面里 `useTranslations('admin.wallboard')`
+   * 与 `useTranslations('chat')` 并存,供应商展示名走 `chat.vendor.*`
+   * (如 `vendor.stepfun` → 「阶跃星辰」)。旧 mock 无视入参、一律取 admin.wallboard,
+   * 于是 `resolveVendorDisplayName('stepfun', tChat)` 拿到 key 原文 ⇒ 断言去找
+   * `stepfun` 必然落空 —— 那是**mock 的错**,不是页面的错。
+   */
+  /** 按点路径取嵌套值(next-intl 的 key 与 namespace 都是点路径形态) */
+  const getPath = (root: unknown, dotted?: string): unknown => {
+    let cur: unknown = root
+    for (const seg of (dotted ?? '').split('.').filter(Boolean)) {
+      if (!cur || typeof cur !== 'object') return undefined
+      cur = (cur as Record<string, unknown>)[seg]
+    }
+    return cur
   }
-  const ns = messages.admin.wallboard
   return {
-    useTranslations: () => (key: string, vars?: Record<string, unknown>) => {
-      const raw = ns[key] ?? key
-      return vars ? raw.replace(/\{(\w+)\}/g, (_m, k: string) => String(vars[k] ?? '')) : raw
+    useTranslations: (namespace?: string) => {
+      const ns = getPath(messages, namespace)
+      return (key: string, vars?: Record<string, unknown>) => {
+        const hit = getPath(ns, key)
+        const raw = typeof hit === 'string' ? hit : key
+        return vars ? raw.replace(/\{(\w+)\}/g, (_m, k: string) => String(vars[k] ?? '')) : raw
+      }
     },
     useLocale: () => 'zh-CN',
   }
@@ -190,10 +207,12 @@ describe('大屏「AI 号池」读数口径', () => {
     // 24h 内临期的可调度账号数,挂在「最短令牌临期」同一格读
     expect(within(at('最短令牌临期')).getByText('仅可调度号 · 24h内临期 1')).toBeTruthy()
     // 按供应商:一家全灭在汇总面上只掉一个数,这里必须逐家看得见
-    const stepfun = within(view.container).getAllByText('stepfun')[0]?.parentElement
+    // 断言取**展示名**(页面已统一走 resolveVendorDisplayName;内部 code 不得漏给用户):
+    // stepfun → chat.vendor.stepfun「阶跃星辰」;codearts 在 VENDOR_LABEL 里直接是「CodeArts」
+    const stepfun = within(view.container).getAllByText('阶跃星辰')[0]?.parentElement
     expect(stepfun?.textContent).toContain('1 / 1')
     expect(stepfun?.textContent).toContain('异常 Key 1')
-    const codearts = within(view.container).getAllByText('codearts')[0]?.parentElement
+    const codearts = within(view.container).getAllByText('CodeArts')[0]?.parentElement
     expect(codearts?.textContent).toContain('0 / 1')
 
     view.unmount()
