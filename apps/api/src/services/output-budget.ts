@@ -15,9 +15,32 @@ export interface BudgetedText {
   originalChars: number
   headChars: number
   tailChars: number
+  /** 被省略的 UTF-16 码元数（headChars + tailChars + omittedChars === originalChars） */
+  omittedChars: number
 }
 
 export const OUTPUT_TRUNCATE_MARKER = '\n… [输出截断：共 %N% 字符，保留头 %H% / 尾 %T%] …\n'
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff
+}
+
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff
+}
+
+/**
+ * 按 UTF-16 码元预算截前缀，切口落在代理对内部时丢弃半个码元（DSH
+ * `truncateWithoutSplittingSurrogatePair` 同语义）。否则 `slice` 会返回孤立高位代理项，
+ * 前端渲染成 �，把"截断"伪装成"文件损坏"。
+ */
+export function truncateWithoutSplittingSurrogatePair(text: string, maxUnits: number): string {
+  if (maxUnits <= 0) return ''
+  if (text.length <= maxUnits) return text
+  let end = maxUnits
+  if (isHighSurrogate(text.charCodeAt(end - 1)) && isLowSurrogate(text.charCodeAt(end))) end--
+  return text.slice(0, end)
+}
 
 export function truncateBothEnds(raw: string, maxChars: number): BudgetedText {
   const total = raw.length
@@ -28,20 +51,35 @@ export function truncateBothEnds(raw: string, maxChars: number): BudgetedText {
       originalChars: total,
       headChars: total,
       tailChars: 0,
+      omittedChars: 0,
     }
   }
   const budget = Math.floor(maxChars)
-  const headChars = Math.max(0, Math.floor(budget * 0.6))
-  const tailChars = Math.max(0, budget - headChars)
+  const rawHead = Math.max(0, Math.floor(budget * 0.6))
+  const rawTail = Math.max(0, budget - rawHead)
+  const head = truncateWithoutSplittingSurrogatePair(raw, rawHead)
+  let tailStart = total - rawTail
+  if (
+    tailStart > 0 &&
+    isLowSurrogate(raw.charCodeAt(tailStart)) &&
+    isHighSurrogate(raw.charCodeAt(tailStart - 1))
+  ) {
+    tailStart++
+  }
+  const tail = raw.slice(tailStart)
+  const headChars = head.length
+  const tailChars = tail.length
+  const omittedChars = Math.max(0, total - headChars - tailChars)
   const marker = OUTPUT_TRUNCATE_MARKER.replace('%N%', String(total))
     .replace('%H%', String(headChars))
     .replace('%T%', String(tailChars))
   return {
-    text: raw.slice(0, headChars) + marker + raw.slice(total - tailChars),
+    text: head + marker + tail,
     truncated: true,
     originalChars: total,
     headChars,
     tailChars,
+    omittedChars,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
