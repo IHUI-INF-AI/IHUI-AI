@@ -127,17 +127,33 @@ export const SELECTOR_EXCLUDED_CATEGORIES: readonly ModelUsageCategory[] = [
   'ocr',
 ]
 
+/** 有对话通道、但真实探测显示不能稳定当聊天主模型用的档(2026-11-23 立)。
+ *
+ * - `pollinations/openai-fast`:匿名免费额度只有 1 次/45 秒/IP,多轮对话必撞 402;
+ *   单发能通,但不能按普通聊天模型展示。
+ * - `openrouter/inclusionai/ling-3.2-flash:free`:多轮真实调用高频 429
+ *   `Provider returned error`,同一时段偶发能通,不适合作为默认可选项。
+ *
+ * 两条仍保留在目录/API 与内部 fallback 链路,只在聊天选择器隐藏;
+ * 恢复展示前必须连续多轮真实调用稳定通过。 */
+export const SELECTOR_DISABLED_MODEL_IDS: readonly string[] = [
+  'pollinations/openai-fast',
+  'openrouter/inclusionai/ling-3.2-flash:free',
+]
+
 /**
  * 聊天模型选择器是否展示该模型(2026-11-20 机主定档:取消「历史模型」折叠区)。
  *
- * 判据 = "非 legacy ∧ 用途不在 `SELECTOR_EXCLUDED_CATEGORIES` ∧ 模态档有可用生成通道":
- * legacy(过时版本)直接不出现;图像/视频/视觉等专用模型照常展示,
- * 语音/OCR 因没有产品执行通道被挡掉(2026-11-23 机主定档:不能调通的不要放出来)。
+ * 判据 = "非 legacy ∧ 用途不在 `SELECTOR_EXCLUDED_CATEGORIES` ∧ 不在
+ * `SELECTOR_DISABLED_MODEL_IDS` ∧ 模态档有可用生成通道":
+ * legacy(过时版本)直接不出现;语音/OCR 因没有产品执行通道被挡掉
+ * (2026-11-23 机主定档:不能调通的不要放出来);高频限流的免费档只留 API/fallback,
+ * 不进聊天选择器。
  *
- * 第三判据(2026-11-21 追加):图像/视频里**没有接通生成通道**的模型不展示 —— 展示即承诺
- * "选了就出图/出片",而当前唯一能真跑的是 agnes 两条通道(`agnes-image-*` / `agnes-video-*`)。
- * 其余图像档(stable-diffusion-inpainting 这类需参考图、以及非生成器的 detector)留在
- * 选择器里只会重演"显示了但选了不能用"。`modelId` 缺位时该判据不生效(向后兼容老调用方)。
+ * 第三判据(2026-11-21 追加,2026-11-23 扩到视频):图像/视频里**没有接通且验证过**
+ * 生成通道的模型不展示 —— 展示即承诺"选了就出图/出片",而当前能稳定跑的只有
+ * `agnes-image-2.5-flash`;两条视频档(付费余额不足 / 免费队列长期满)都被禁用。
+ * `modelId` 缺位时该判据不生效(向后兼容老调用方)。
  *
  * 与 `isArchivedModel` 的分工:后者仍是"看目录"场景(模型市场 / Agent 创建器)的归档分组
  * 判据,语义未变;选择器改用本判据,避免把市场页一起掏空(市场页要能看到全量目录)。
@@ -152,6 +168,7 @@ export function isSelectableChatModel(
 ): boolean {
   if (tier === 'legacy') return false
   if (SELECTOR_EXCLUDED_CATEGORIES.includes(category)) return false
+  if (modelId && SELECTOR_DISABLED_MODEL_IDS.includes(modelId)) return false
   if (modelId && !isExecutableMediaModel(modelId, category)) return false
   return true
 }

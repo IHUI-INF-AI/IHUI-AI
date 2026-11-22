@@ -58,6 +58,19 @@ describe('isSelectableChatModel 第三判据', () => {
     ).toBe(false)
   })
 
+  it('高频限流的免费档不展示,稳定的对话档展示', () => {
+    expect(isSelectableChatModel('chat', 'standard', 'pollinations/openai-fast')).toBe(false)
+    expect(
+      isSelectableChatModel('chat', 'latest', 'openrouter/inclusionai/ling-3.2-flash:free'),
+    ).toBe(false)
+    expect(
+      isSelectableChatModel('chat', 'latest', 'openrouter/baidu/ernie-5.5-flash-preview:free'),
+    ).toBe(true)
+    expect(isSelectableChatModel('chat', 'standard', 'openrouter/particle-ai/particle-1:free')).toBe(
+      true,
+    )
+  })
+
   it('语音/OCR 档没有产品执行通道,不展示', () => {
     expect(isSelectableChatModel('tts', 'standard', '@cf/myshell-ai/melotts')).toBe(false)
     expect(isSelectableChatModel('asr', 'standard', '@cf/openai/whisper-large-v3-turbo')).toBe(
