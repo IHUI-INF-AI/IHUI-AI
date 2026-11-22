@@ -538,24 +538,39 @@ fi
 # 收②:文档数字对账门已退役(2026-11-21,脚本已不在 HEAD 面)⇒ 该收口段一并摘除
 
 # 收④:仓库重量预算(2026-11-22 立,1.5GB 二次膨胀根治的最后一道总闸)
-# 判两层:① HEAD 跟踪内容总字节(默认 450MB,当前约 373MB);② .git pack 体积
-# (默认 250MB,当前约 130MB)。单文件字节闸只能拦"一次放进来一个 2MB 文件",
-# 拦不住"一百次各放 1.9MB";本闸按总量棘轮,越线即阻止推送并点名下一步。
+# 判两层:① HEAD 跟踪内容总字节(默认 450MB,当前约 373MB);② 推送重量。
+# 2026-11-22 二次修正(存量/增量分治,§0.2 恒红门禁令):原第二层判**本地 .git pack 绝对总量**,
+# 对"带备份 tag 的检出"是结构性恒红 —— 本机实测 pack 6.28GiB、26034 枚 lost-commit/backup tag
+# 持有 2.1M 个对象,这些对象远端一个都没有,而本次推送只传区间新增的 5 个文件(<1MB),
+# 闸却按本地存量拦下整条推送。现口径:
+#   ① 本地 pack 总量超预算 ⇒ **只报数不阻断**(判机器存量,与本次提交内容无关);
+#   ② 拦的是"本次推送区间新增对象字节"超预算(那才是真会被推上去、撑大远端的重量)。
 # 应急:HUSKY_SKIP_REPO_WEIGHT=1(只允许在确认是判据误报时用)。
 if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
   node scripts/check-file-size.mjs --weight --budget-mb="${REPO_SIZE_BUDGET_MB:-450}" || exit 1
   _pack_kb=$(git count-objects -v 2>/dev/null | awk '/^size-pack:/ {print $2}')
+  _pack_budget="${REPO_PACK_BUDGET_MB:-250}"
   if [ -n "$_pack_kb" ]; then
     _pack_mb=$(( _pack_kb / 1024 ))
-    _pack_budget="${REPO_PACK_BUDGET_MB:-250}"
     if [ "$_pack_mb" -gt "$_pack_budget" ]; then
-      printf '%s\n' "❌ 仓库 pack ${_pack_mb}MB 超过预算 ${_pack_budget}MB:历史里又有大对象进来了。" >&2
-      printf '%s\n' "   先 git count-objects -vH 定位,再按 .gitignore 移出生成物/归档;需要重写历史时单独开票,不要带着推。" >&2
+      printf '%s\n' "⚠️  本地 pack ${_pack_mb}MB 超预算 ${_pack_budget}MB(存量只报数:多为备份 tag 持有的历史对象,远端不承载)" >&2
+    else
+      printf '%s\n' "✅ 本地 pack ${_pack_mb}MB ≤ 预算 ${_pack_budget}MB" >&2
+    fi
+  else
+    printf '%s\n' "⚠️  取不到本地 pack 体积(count-objects 失败)⇒ 存量这一层未判定" >&2
+  fi
+  _push_inc_bytes=$(git rev-list --objects origin/main..HEAD 2>/dev/null | awk '{print $1}' | git cat-file --batch-check 2>/dev/null | awk 'NF==3 {s+=$3} END{print s+0}')
+  if [ -n "$_push_inc_bytes" ]; then
+    _push_inc_mb=$(( _push_inc_bytes / 1048576 ))
+    if [ "$_push_inc_mb" -gt "$_pack_budget" ]; then
+      printf '%s\n' "❌ 本次推送区间新增对象 ${_push_inc_mb}MB 超过预算 ${_pack_budget}MB:大文件进历史了。" >&2
+      printf '%s\n' "   先 git rev-list --objects origin/main..HEAD 定位,把生成物/归档移出或走 LFS,再重推。" >&2
       exit 1
     fi
-    printf '%s\n' "✅ 仓库 pack ${_pack_mb}MB ≤ 预算 ${_pack_budget}MB" >&2
+    printf '%s\n' "✅ 推送区间新增对象 ${_push_inc_mb}MB ≤ 预算 ${_pack_budget}MB" >&2
   else
-    printf '%s\n' "⚠️  取不到 pack 体积(count-objects 失败)⇒ 本项未判定,不阻断" >&2
+    printf '%s\n' "⚠️  取不到推送区间新增对象体积 ⇒ 本项未判定,不阻断" >&2
   fi
 fi
 
