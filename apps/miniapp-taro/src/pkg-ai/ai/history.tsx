@@ -5,7 +5,7 @@
 import { useI18n, type TtFn } from '@/i18n'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useSyncExternalStore } from 'react'
-import { formatDateByTemplate } from '@ihui/shared'
+import { formatDateByTemplate, plainTitleText } from '@ihui/shared'
 // D153b(2026-09-30 立)会话元数据广播账本的读取口:跨端判据在 @ihui/shared/chat,
 // 本页只做「把已知行交进去 + 渲染时取覆盖值」两件事(AGENTS §3 共享层优先)
 import { conversationMetaLedger } from '@ihui/shared/chat'
@@ -596,7 +596,7 @@ export default function HistoryPage() {
     (h: HistoryItem) => {
       Taro.showModal({
         title: tt('ai.historyPage.deleteOne', '删除该对话'),
-        content: h.title || h.id,
+        content: plainTitleText(h.title) ?? h.id,
         confirmText: t('common.confirm'),
         cancelText: t('common.cancel'),
         success: (res) => {
@@ -625,7 +625,7 @@ export default function HistoryPage() {
     (h: HistoryItem) => {
       Taro.showModal({
         title: tt('ai.historyPage.deleteOne', '删除该对话'),
-        content: h.title || h.id,
+        content: plainTitleText(h.title) ?? h.id,
         confirmText: t('common.confirm'),
         cancelText: t('common.cancel'),
         success: (res) => {

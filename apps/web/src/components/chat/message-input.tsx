@@ -91,6 +91,7 @@ import {
 import { useContextSelector } from '@/hooks/use-context-selector'
 // V3 第 61 票:`@` 与 `#` 的「有哪些维度」与「触发符怎么解」都归到引擎那一份表,
 // 本组件不再自写触发正则、不再自持九类目表、也不再自持一份 # 侧 chip 局部 state。
+import { plainTitleText } from '@ihui/shared'
 import { parseMentionTrigger } from '@ihui/shared/chat/mention-engine'
 import { ContextSelectorPopover } from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
@@ -804,6 +805,8 @@ export function MessageInput({
           title?: string
         }
         if (!conv?.id) return
+        // 引用标签会进用户消息正文(随后按 Markdown 渲染),标题先过纯文本净化。
+        const refTitle = plainTitleText(conv.title ?? '') ?? '会话'
         void (async () => {
           try {
             const result = await getMessages(conv.id, { direction: 'initial', pageSize: 50 })
@@ -814,11 +817,11 @@ export function MessageInput({
               .map((m) => `${m.role === 'user' ? '👤' : '🤖'}: ${m.content}`)
               .join('\n\n')
               .slice(0, 4000)
-            addTextReference(`【${conv.title ?? '会话'}】\n${snapshot}`)
+            addTextReference(`【${refTitle}】\n${snapshot}`)
             toast.success(t('conversationDragReferenced'))
           } catch {
             // 拉取失败回退:仅引用会话标题
-            addTextReference(`【${conv.title ?? '会话'}】`)
+            addTextReference(`【${refTitle}】`)
             toast.success(t('conversationDragReferenced'))
           }
         })()

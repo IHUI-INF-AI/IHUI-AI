@@ -14,6 +14,7 @@ import { Loader2, ArrowLeft, Share2, Copy, User, Bot } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { plainTitleText } from '@ihui/shared'
 import { cn } from '@/lib/utils'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
@@ -108,7 +109,7 @@ export default function ChatSharePage() {
         <div>
           <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Share2 className="h-6 w-6 text-primary" />
-            {conversation?.title ?? t('shareConversation')}
+            {plainTitleText(conversation?.title ?? '') ?? t('shareConversation')}
           </h1>
           {conversation && (
             <p className="mt-1 text-body text-muted-foreground">{fmt(conversation.createdAt)}</p>

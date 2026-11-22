@@ -17,6 +17,8 @@
  * 导出包格式版本:字段增删必须升版,消费方按版本判断能否解析。
  * v2(2026-11-14):messages.json 增加 reasoning / toolCalls(外部实现 会话日志导出对等面)。
  */
+import { plainTitleText } from '../utils/conversation-title-text'
+
 export const CONVERSATION_EXPORT_SCHEMA_VERSION = 2 as const
 
 /** 导出器署名(manifest 里如实记录,便于追溯由哪个端生成)。 */
@@ -188,7 +190,10 @@ export function buildConversationMarkdown(
   messages: ConversationExportMessage[],
   roleLabel: ConversationExportRoleLabel,
 ): string {
-  const lines: string[] = [`# ${sanitizeExportTitle(title)}`, '']
+  // 一级标题先过纯文本净化,避免标题里的 ** / # / 列表符被当 Markdown 标记解析;
+  // 净化后无可读文字再回落文件名同款安全化(空标题兜底 ai-chat)。文件名用途仍走 sanitizeExportTitle。
+  const markdownTitle = plainTitleText(title) ?? sanitizeExportTitle(title)
+  const lines: string[] = [`# ${markdownTitle}`, '']
   for (const message of messages) {
     if (!isExportableMessage(message)) continue
     const role = message.role as ConversationExportRole

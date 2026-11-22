@@ -39,7 +39,7 @@ import { usePaneSplitStore } from '@/stores/pane-split'
 import { useChatPaneSync } from '@/hooks/use-chat-pane-sync'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
-import { sortPinnedFirst } from '@ihui/shared'
+import { plainTitleText, sortPinnedFirst } from '@ihui/shared'
 import {
   collectPaneLeaves,
   ROOT_PANE_ID,
@@ -189,9 +189,10 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
     </div>
   )
 
-  /** 顶栏标题:命中会话行用行标题,未命中(深链先于列表到位)回退通用名 */
+  /** 顶栏标题:命中会话行先过纯文本净化,未命中(深链先于列表到位)回退通用名 */
+  const matchedTitle = items.find((c) => c.id === conversationId)?.title
   const headerTitle = conversationId
-    ? (items.find((c) => c.id === conversationId)?.title ?? t('title'))
+    ? (plainTitleText(matchedTitle ?? '') ?? t('title'))
     : t('newConversation')
 
   return (

@@ -1580,7 +1580,7 @@ export function SidebarChatHistory({
       {/* D186:归档二次确认(对齐竞品 nav.archiveChatTitle「归档“{title}”?」+「不再提示」+ 在途「正在归档...」) */}
       <ConfirmDialog
         open={pendingArchive !== null}
-        title={t('archiveChatTitle', { title: pendingArchive?.title ?? '' })}
+        title={t('archiveChatTitle', { title: plainTitleText(pendingArchive?.title ?? '') ?? '' })}
         content={
           <label
             className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground"

@@ -76,6 +76,22 @@ describe('会话导出:复制 Markdown / ZIP', () => {
     expect(copied).toContain('答案')
   })
 
+  it('导出 Markdown 一级标题先净化,加粗/井号等标记不被当 Markdown 解析', async () => {
+    mockedGetMessages.mockResolvedValue(
+      pageOf([
+        { id: 'u1', role: 'user', content: '问题' },
+        { id: 'a1', role: 'assistant', content: '答案' },
+      ]) as never,
+    )
+    await copyConversationMarkdown('c1', '**登录修复**', {
+      user: '用户',
+      assistant: '助手',
+    })
+    const copied = writeText.mock.calls[0]?.[0] ?? ''
+    expect(copied).toContain('# 登录修复')
+    expect(copied).not.toContain('**')
+  })
+
   it('复制 Markdown 带上 metadata.toolCalls 工具小节', async () => {
     mockedGetMessages.mockResolvedValue(
       pageOf([

@@ -28,6 +28,7 @@ import {
 } from 'react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ConversationHistoryRow, ConversationHistoryScreenProps } from '@ihui/types'
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -79,59 +80,64 @@ export function ConversationHistoryScreen({
   const [searchFocused, setSearchFocused] = useState(false)
 
   const renderRow = useCallback(
-    (row: ConversationHistoryRow) => (
-      <TouchableOpacity
-        style={styles.row}
-        onPress={() => onOpen(row)}
-        onLongPress={onLongPress ? () => onLongPress(row) : undefined}
-        delayLongPress={500}
-        accessibilityRole="button"
-        accessibilityLabel={row.title}
-      >
-        {row.iconSrc ? (
-          <Image source={{ uri: row.iconSrc }} style={styles.rowIcon} resizeMode="contain" />
-        ) : (
-          <View style={[styles.rowIcon, styles.iconFallback]} />
-        )}
-        <View style={styles.rowBody}>
-          <View style={styles.rowTitleLine}>
-            {row.pinned ? <View style={styles.pinDot} /> : null}
-            <Text style={styles.rowTitle} numberOfLines={1}>
-              {row.title}
-            </Text>
+    (row: ConversationHistoryRow) => {
+      const displayTitle = plainTitleText(row.title) ?? DEFAULT_CONVERSATION_TITLE
+      return (
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => onOpen(row)}
+          onLongPress={onLongPress ? () => onLongPress(row) : undefined}
+          delayLongPress={500}
+          accessibilityRole="button"
+          accessibilityLabel={displayTitle}
+        >
+          {row.iconSrc ? (
+            <Image source={{ uri: row.iconSrc }} style={styles.rowIcon} resizeMode="contain" />
+          ) : (
+            <View style={[styles.rowIcon, styles.iconFallback]} />
+          )}
+          <View style={styles.rowBody}>
+            <View style={styles.rowTitleLine}>
+              {row.pinned ? <View style={styles.pinDot} /> : null}
+              <Text style={styles.rowTitle} numberOfLines={1}>
+                {displayTitle}
+              </Text>
+            </View>
+            <View style={styles.rowMetaLine}>
+              <Text style={styles.rowMeta} numberOfLines={1}>
+                {row.timeLabel}
+              </Text>
+              <Text style={styles.rowMeta}>
+                {t('ai.historyPage.msgCount', { n: row.messageCount })}
+              </Text>
+            </View>
+            {row.preview ? (
+              <Text style={styles.rowPreview} numberOfLines={1}>
+                {row.preview}
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.rowMetaLine}>
-            <Text style={styles.rowMeta} numberOfLines={1}>
-              {row.timeLabel}
-            </Text>
-            <Text style={styles.rowMeta}>
-              {t('ai.historyPage.msgCount', { n: row.messageCount })}
-            </Text>
-          </View>
-          {row.preview ? (
-            <Text style={styles.rowPreview} numberOfLines={1}>
-              {row.preview}
-            </Text>
+          {canPin ? (
+            <TouchableOpacity
+              style={styles.pinButton}
+              onPress={() => onTogglePin(row)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                row.pinned
+                  ? tt('ai.historyPage.pinned', '已置顶')
+                  : tt('ai.historyPage.pin', '置顶')
+              }
+              testID={`history-pin-${row.id}`}
+            >
+              <View
+                style={[styles.pinDot, styles.pinDotButton, row.pinned ? styles.pinDotOn : null]}
+              />
+            </TouchableOpacity>
           ) : null}
-        </View>
-        {canPin ? (
-          <TouchableOpacity
-            style={styles.pinButton}
-            onPress={() => onTogglePin(row)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              row.pinned ? tt('ai.historyPage.pinned', '已置顶') : tt('ai.historyPage.pin', '置顶')
-            }
-            testID={`history-pin-${row.id}`}
-          >
-            <View
-              style={[styles.pinDot, styles.pinDotButton, row.pinned ? styles.pinDotOn : null]}
-            />
-          </TouchableOpacity>
-        ) : null}
-      </TouchableOpacity>
-    ),
+        </TouchableOpacity>
+      )
+    },
     [canPin, onLongPress, onOpen, onTogglePin, styles, t, tk, tt],
   )
 
@@ -346,7 +352,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     rowIcon: {

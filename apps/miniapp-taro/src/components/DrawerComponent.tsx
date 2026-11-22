@@ -6,6 +6,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn, rnRadius, rnRadiusFor, taroGeometry } from '@ihui/design-tokens'
+import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
 import { useRef, useState, type CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
@@ -403,7 +404,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                                 fontWeight: isActive ? 'bold' : 'normal',
                               }}
                             >
-                              {chat.title}
+                              {plainTitleText(chat.title) ?? DEFAULT_CONVERSATION_TITLE}
                             </Text>
                             {onRemoveChat ? (
                               // 删除键载体 = 矢量(RN 端左滑删除同为矢量),文字 × 冒充图标已收口
