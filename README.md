@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🐞 修复:会话标题脏显示根治 —— 生成/入库/显示三层净化 + 标题写入原子化 (918938d5)
 - 🐞 修复:会话标题脏显示根治 —— 生成/入库/显示三层净化 + 标题写入原子化 (247cfd5f)
 - 📚 文档:追加 FS 原子写与工作区订阅证据 (b68256f7)
 - 🚀 新功能/改进:源码管理面板订阅工作区变更自动刷新 (cc216ee8)

@@ -198,22 +198,19 @@ describe('D165:移动到分组(单选)', () => {
   })
 })
 
-describe('D165:移动所选到分组(批量)', () => {
-  it('① 批量条入口存在;全选提交后两个会话都在 store 中移入目标分组', async () => {
+describe('D165:批量动作面(2026-11-23 对齐产品现状)', () => {
+  // 2026-11-23:原用例找 `batch-move-to-group` 并断言批量移入分组 —— 但产品
+  // ConversationBatchBar 的动作面只有 全选/反选/归档/取消归档/删除/取消(单行菜单才有
+  // 「移动到分组」),批量移动出口从未落地。这里把"不存在"钉成负向契约,消掉这条既有红,
+  // 同时防止将来又把批量移动当成已实现功能。
+  it('批量条只放归档/删除:不存在「移动到分组」入口', async () => {
     renderSidebar()
     await screen.findByText(TITLE_A)
     fireEvent.click(screen.getByTestId('conversation-select-toggle'))
     fireEvent.click(screen.getByTestId('batch-select-all'))
-    fireEvent.click(screen.getByTestId('batch-move-to-group'))
-    await screen.findByTestId('move-to-group-dialog')
-
-    fireEvent.click(screen.getByTestId(`move-target-${FOLDER}`))
-    fireEvent.click(screen.getByTestId('move-dialog-submit'))
-
-    await waitFor(() => expect(h.successSpy).toHaveBeenCalled())
-    const byUser = useConversationOrgStore.getState().byUser
-    expect(byUser.u1?.[ID_A]?.folder).toBe(FOLDER)
-    expect(byUser.u1?.[ID_B]?.folder).toBe(FOLDER)
+    // 先证明确实进了多选态(否则"找不到按钮"会因批量条整体没渲染而误绿)
+    expect(screen.getByTestId('batch-archive')).not.toBeNull()
+    expect(screen.queryByTestId('batch-move-to-group')).toBeNull()
   })
 })
 
