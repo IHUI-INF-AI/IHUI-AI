@@ -158,12 +158,15 @@ describe('status incidents — 时间列归一化(mapIncidentRows)', () => {
     expect(() => mapIncidentRows([lying])).toThrow(TypeError)
   })
 
-  it('⑦ 事件描述用对外展示名,内部接入后缀(_relay)永不外露', () => {
+  it('⑦ 事件描述与公开 id 都用对外形态,内部接入后缀(_relay)永不外露', () => {
     const [incident] = mapIncidentRows([rowWithTimestamps({ providerCode: 'workbuddy_relay' })])
-    // providerCode 是技术标识,保持原值供前端归并;用户可读的描述必须已剥后缀
+    // providerCode 是技术标识,保持原值供前端归并;用户可读的描述与公开 id 必须已剥后缀
     expect(incident?.providerCode).toBe('workbuddy_relay')
     expect(incident?.description).toContain('WorkBuddy')
     expect(incident?.description).not.toMatch(/relay/i)
+    // id 会被前端原样当 React key / URL 片段 ⇒ 也不得带内部 code
+    expect(incident?.id).toBe('incident-workbuddy-2026-09-13')
+    expect(incident?.id).not.toMatch(/relay/i)
   })
 })
 

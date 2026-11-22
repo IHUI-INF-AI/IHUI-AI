@@ -33,7 +33,10 @@ import { dbRead } from '../db/index.js'
 import { aiModelConfig, aiModelConfigModels, llmCallLogs } from '@ihui/database'
 import { error, success } from '../utils/response.js'
 import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
-import { resolveProviderDisplayName } from '../lib/provider-display-name.js'
+import {
+  resolveProviderDisplayName,
+  stripInternalRelaySuffix,
+} from '../lib/provider-display-name.js'
 
 // ===== 共享类型 =====
 type ServiceStatus = 'operational' | 'degraded' | 'outage'
@@ -238,7 +241,10 @@ export function mapIncidentRows(rows: readonly IncidentRow[]): Incident[] {
     const providerCode = plainTextOrNull(r.providerCode, 'providerCode') ?? 'unknown'
     const date = plainTextOrThrow(r.date, 'date')
     return {
-      id: `incident-${providerCode}-${date}`,
+      // id 是公开机器标识,会被任意前端原样当 React key / URL 片段:
+      // 直接拼 providerCode 会把内部接入后缀(workbuddy_relay)漏进页面源码。
+      // 用去后缀后的稳定基名,既不暴露内部实现,也保持「同 provider + 同日」幂等。
+      id: `incident-${stripInternalRelaySuffix(providerCode)}-${date}`,
       providerCode,
       modelId: plainTextOrNull(r.latestModel, 'latestModel'),
       startedAt: isoTimestampOrThrow(r.startedAt, 'startedAt'),
