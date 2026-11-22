@@ -14045,8 +14045,37 @@
       "overview": {
         "title": "手冊總覽",
         "description": "依主題組織的手冊章節總覽"
-      }
-    }
+      ,
+        "heading": "智匯 AI 使用說明手冊"}
+    ,
+      "getting-started": {
+        "title": "快速開始"
+      ,
+        "desc": "註冊帳號、登入、介面導覽、首次對話，3 分鐘上手。"},
+      "ai-chat": {
+        "title": "AI 對話"
+      ,
+        "desc": "與 AI 對話、上傳檔案、切換模型、查看歷史、分享對話。"},
+      "agent": {
+        "title": "Agent 使用"
+      ,
+        "desc": "從市場選用 Agent、收藏、自訂提示詞、發佈到自己的工作台。"},
+      "knowledge-base": {
+        "title": "知識庫"
+      ,
+        "desc": "上傳文件、檢索測試、把知識庫掛載到 Agent，讓 AI 懂你的業務。"},
+      "billing": {
+        "title": "積分與訂閱"
+      ,
+        "desc": "積分消耗規則、方案比較、儲值、發票、共享積分池。"},
+      "account": {
+        "title": "帳戶設定"
+      ,
+        "desc": "個人資料、安全設定、API Key、通知偏好、註銷帳號。"},
+      "faq": {
+        "title": "常見問題"
+      ,
+        "desc": "登入失敗、積分異常、模型不可用、資料匯出等高頻問答。"}}
   },
   "drama": {
     "editor": {
@@ -16217,7 +16246,7 @@
       "diffUndetermined": "原因不明: {reason}",
       "diffCommandFailed": "命令失敗: {reason}",
       "indexUndetermined": "索引原因不明: {reason}",
-      "indexDelta": "共 {total} 項，修改 {delta}",
+      "indexDelta": "共 {total} 項，修改 +{added} -{removed} ~{changed}",
       "indexFirst": "首次索引：共 {total} 項",
       "indexSkipped": "已跳過：{symlink} 個符號連結，{nonUtf8} 個非 UTF-8"
     },
@@ -29642,7 +29671,13 @@
     },
     "faq": {
       "title": "常見問題"
-    }
+    ,
+      "q1": "什麼是 Beta 測試？",
+      "a1": "在正式發佈前試用新版本，體驗最新能力並把問題回饋給我們。",
+      "q2": "加入測試後如何安裝？",
+      "a2": "收到邀請郵件後，透過郵件中的 Play 商店測試連結即可安裝測試版。",
+      "q3": "測試版的資料會保留嗎？",
+      "a3": "測試期間資料正常保存；如需回到正式版，請先匯出重要資料。"}
   },
   "superAgent": {
     "verdictAct": "需處理",

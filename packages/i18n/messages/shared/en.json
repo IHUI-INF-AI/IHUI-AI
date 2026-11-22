@@ -258,9 +258,9 @@
     "toolRequestBusinessForm": "Request a business form",
     "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
     "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
-    "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
-    "thinkingActivity": "{state, select, running {Analyzing} completed {Analyzed} other {Analyze}}",
-    "customActivity": "{state, select, running {Running} completed {Ran} other {Run}}",
+    "searchActivity": "{state, select, running Searching completed Searched other Search}",
+    "thinkingActivity": "{state, select, running Analyzing completed Analyzed other Analyze}",
+    "customActivity": "{state, select, running Running completed Ran other Run}",
     "showAllLines": "Show all",
     "hideLines": "Collapse",
     "sourcesButton": "Sources",
@@ -922,7 +922,8 @@
     "withdraw": "Withdraw",
     "deleteFailed": "Delete failed",
     "saveFailed": "Save failed"
-  },
+  ,
+    "textUnavailable": "Text unavailable"},
   "bookmark": {
     "empty": "No bookmarks yet",
     "loadFailed": "Failed to load bookmarks",

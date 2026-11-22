@@ -922,7 +922,8 @@
     "withdraw": "提现",
     "deleteFailed": "删除失败",
     "saveFailed": "保存失败"
-  },
+  ,
+    "textUnavailable": "文案暂不可用"},
   "bookmark": {
     "empty": "暂无收藏",
     "loadFailed": "加载收藏失败",
