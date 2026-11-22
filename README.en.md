@@ -98,6 +98,26 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-22**
+- 🔧 Chore/Other:硬闸计划任务/自动推送/推送区间大文件 (12782592)
+- 🐞 Fix:安装器默认目录改为固定盘探测,不再写死盘符(无 D 盘机器静默安装不再落空卷失败) (1e1aefa8)
+- 🐞 Fix:env-pin.ps1 补齐 NODE_OPTIONS(仅在现值空且钩子文件在盘时补),使重启后自查不再报 changed (f0e458e7)
+- 🐞 Fix:安装器默认目录由 D:\智汇AI 改为 D:\software\智汇AI(应用不再散落盘根) (70effce8)
+- 🔧 Chore/Other:增加提交前终局字节闸 (c10ff717)
+- 🔧 Chore/Other:拆除计划任务自愈与剩余自动回补入口 (f564dd66)
+- 🔧 Chore/Other:根治自动回补与索引字节绕过 (126761ff)
+- 🔧 Chore/Other:把仓库重量预算接入 required check (57c04f0e)
+- 🔧 Chore/Other:禁止历史备份 tag 与收紧仓库重量预算 (1b3f52bc)
+- 🐞 Fix:新增 env-pin 进程环境变量纠偏（shell profile + 入口预加载），堵住旧 D 盘 env 在驻留父进程里代代相传 (5a576c36)
+- 🐞 Fix:发布脚本 SDK/JDK 候选序补 %LOCALAPPDATA% 位并纠正过时注释 (4362cf19)
+- 🔧 Chore/Other:接线字节与仓库重量守门,根治二次膨胀 (e0909151)
+- 📚 Docs:补安卓工具链落位约定并补登 Y-71 临时工作树门名 (27f0a4b1)
+- 🚀 Feature/Improvement:补齐 app.config.js 引用的阿里妈妈方圆体字体资源,修复 prebuild 缺字体失败 (8e207893)
+- 🔧 Chore/Other:同步 knip entry 受管块(移除已删页面 index.config.ts) (543c8691)
+- 🔧 Chore/Other:仓库最终快照（仅保留当前代码，不保留历史） (4fa6b2cf)
+- 🔧 Chore/Other:同步 knip entry 受管块(移除已删页面 index.config.ts) (7a14c0c8)
+- 🐞 Fix:公开状态响应连 providerCode 一并归一,JSON 零内部 relay (ac55aca4)
+
 **2026-11-21**
 - 🔧 Chore/Other:clone-retry 封顶阈值抬到 6s(并发下桩子进程冷启动越过 1s 误杀第二轮) (b9c3f24702)
 - 🐞 Fix:Resend 腿可定向验真 + 离线取源钉已推送基线(第 105/106 项) (2ff89003c8)

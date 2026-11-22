@@ -98,11 +98,29 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-22**
+- 🔧 工程/其他:硬闸计划任务/自动推送/推送区间大文件 (12782592)
+- 🐞 修复:安装器默认目录改为固定盘探测,不再写死盘符(无 D 盘机器静默安装不再落空卷失败) (1e1aefa8)
+- 🐞 修复:env-pin.ps1 补齐 NODE_OPTIONS(仅在现值空且钩子文件在盘时补),使重启后自查不再报 changed (f0e458e7)
+- 🐞 修复:安装器默认目录由 D:\智汇AI 改为 D:\software\智汇AI(应用不再散落盘根) (70effce8)
+- 🔧 工程/其他:增加提交前终局字节闸 (c10ff717)
+- 🔧 工程/其他:拆除计划任务自愈与剩余自动回补入口 (f564dd66)
+- 🔧 工程/其他:根治自动回补与索引字节绕过 (126761ff)
+- 🔧 工程/其他:把仓库重量预算接入 required check (57c04f0e)
+- 🔧 工程/其他:禁止历史备份 tag 与收紧仓库重量预算 (1b3f52bc)
+- 🐞 修复:新增 env-pin 进程环境变量纠偏（shell profile + 入口预加载），堵住旧 D 盘 env 在驻留父进程里代代相传 (5a576c36)
+- 🐞 修复:发布脚本 SDK/JDK 候选序补 %LOCALAPPDATA% 位并纠正过时注释 (4362cf19)
+- 🔧 工程/其他:接线字节与仓库重量守门,根治二次膨胀 (e0909151)
+- 📚 文档:补安卓工具链落位约定并补登 Y-71 临时工作树门名 (27f0a4b1)
+- 🚀 新功能/改进:补齐 app.config.js 引用的阿里妈妈方圆体字体资源,修复 prebuild 缺字体失败 (8e207893)
+- 🔧 工程/其他:同步 knip entry 受管块(移除已删页面 index.config.ts) (543c8691)
+- 🔧 工程/其他:仓库最终快照（仅保留当前代码，不保留历史） (4fa6b2cf)
+- 🔧 工程/其他:同步 knip entry 受管块(移除已删页面 index.config.ts) (7a14c0c8)
+- 🐞 修复:公开状态响应连 providerCode 一并归一,JSON 零内部 relay (ac55aca4)
+
 **2026-11-19**
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (ad65572bea)
 - 🔧 Chore/Other:追认 bd46446f9f 的判据库头注修正 (3aac3fb83d)
-
-**2026-11-19**
 - 📚 Docs:同步最近更新自动块(本轮两枚安装脚本修复入库) (3ac94015b9)
 
 **2026-11-18**
@@ -118,17 +136,11 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:type the empty HELP_ONLY frozenset so the whole-library mypy gate passes (5d9ef5b3fc)
 - 🐞 Fix:R127 type the entry list so mypy strict passes (b749a4a768)
 - 🚀 Feature/Improvement:R127 duplicate-then-delete starter deck builder, 91.2% -> 91.8% (7ba58d22e3)
-
-**2026-11-18**
 - 🐞 Fix:安装脚本不再假装有 binary 通道 + 用法改为实测可用入口 (1d8c59640a)
-
-**2026-11-18**
 - 📚 Docs:refresh generated blocks to the current tree after R124-R126 re-land (9e1649f592)
 - 🐞 Fix:模型选择器分组名不再暴露内部 provider code(workbuddy_relay) (89ab8a14f3)
 - 🚀 Feature/Improvement:R124 and R125 re-landed a second time after another concurrent reset, 91.2% (f010be92cc)
 - 🚀 Feature/Improvement:R126 source-level cheat detection in check_template_fidelity, 90.6% -> 91.2% (4dbfad506f)
-
-**2026-11-18**
 - 🔧 Chore/Other:标注反代号池·模型目录自动同步功能(补可追溯历史) (94076b9284b)
 - 🚀 Feature/Improvement:R124 the template-following plan gate, 89.3% -> 89.9% (946ceb4abe1)
 - 📚 Docs:同步生成块数字(测试文件/跟踪文件) (b08c158634c)
@@ -275,8 +287,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:nav-data 删除末尾重复的 ADMIN_HUB_ITEMS/DEVELOPER_HUB_ITEMS/HR_HUB_ITEMS 定义(Turbopack 'defined multiple times'+ADDR,web 构建 collect page data 失败) (020fe2ef9e)
 - 🔧 Chore/Other:同批重封根护栏清单(git-guardian hashTarget 跟随 f1f0640929) (6dc26aae25)
 - 🐞 Fix:漂移对齐每轮采样默认 8→40,让旧代副本积压一轮消化 (f1f0640929)
-
-**2026-11-17**
 - 🐞 Fix:修复 relay 语法阻断 + nav-data 重复声明 + 补登两条孤儿迁移 (579700cb77)
 - 🚀 Feature/Improvement:/v1/models 峰谷价窗口宣告 active_now(qoder2api off_peak_active_now 对齐,判据复用 matchPeakRule) (74e1bc39f6)
 - 🐞 Fix:重生成 tool_name_sets.json 使生成物与 TS 真相源同步(消 307 门存量红) (73376f8096)
@@ -401,22 +411,8 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:AI对话流式输出前后端跨端Bug全量修复 + 流式渲染优化 + G段对标取证 (fea4155e74)
 - 📚 Docs:缺陷深扫扩至 Y-83~Y-96,新增第五批 Y-92~Y-96(5 P2) (4d134e4ab5)
 - 🔧 Chore/Other:按 HEAD 面重生成四端 ui-routes 与离线语言包产物 (71084ed4b1)
-
-**2026-11-15**
-- 🐞 Fix:恢复被 69ce958a9b2 误删的不可逆判死码清单;旁路删除硬门射程补入 config/ (4737158ee9)
-- 🔧 Chore/Other:fix desktop: 内置浏览器一窗多标签,修 WebView2 profile 冲突致标签全空 (cf373610a1)
-- 🐞 Fix:createXhrTransport 预取消令牌 TDZ，对齐 multipart-download 收口 (d831a31dda)
-- ⚡ Perf:流式输出渲染优化 —— stable 引用稳定化 + reasoning 前缀节 memo 化 (c7c68b091c)
-- 🔧 Chore/Other:清偿 Y-81 server-currency 汇率双形态判据 (7659deacbd)
-- 🐞 Fix:商店登录态三处丢失路径收口 —— 只补缺不覆盖, 会话票转持久, 关窗先续后关 (033d69ba6e)
-
-**2026-11-16**
 - 📚 Docs:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
-
-**2026-11-16**
 - 🔧 Chore/Other:floating-layer-spec 补齐溯源水印横幅 (417f5681968)
-
-**2026-11-16**
 - 🐞 Fix:补 floating-layer-spec —— 修 web 生产构建 module-not-found (bbbc1db941c)
 - 🐞 Fix:/metrics 与 /business-metrics 补免租户 —— Prometheus 抓取面收口 (cfa48e273cc)
 - 🐞 Fix:收口工作区本地/云端链路（浏览器句柄持久化 + 同名目录隔离 + diff 本地落盘） (f91409eb339)
@@ -476,6 +472,12 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda7)
 
 **2026-11-15**
+- 🐞 Fix:恢复被 69ce958a9b2 误删的不可逆判死码清单;旁路删除硬门射程补入 config/ (4737158ee9)
+- 🔧 Chore/Other:fix desktop: 内置浏览器一窗多标签,修 WebView2 profile 冲突致标签全空 (cf373610a1)
+- 🐞 Fix:createXhrTransport 预取消令牌 TDZ，对齐 multipart-download 收口 (d831a31dda)
+- ⚡ Perf:流式输出渲染优化 —— stable 引用稳定化 + reasoning 前缀节 memo 化 (c7c68b091c)
+- 🔧 Chore/Other:清偿 Y-81 server-currency 汇率双形态判据 (7659deacbd)
+- 🐞 Fix:商店登录态三处丢失路径收口 —— 只补缺不覆盖, 会话票转持久, 关窗先续后关 (033d69ba6e)
 - 🚀 Feature/Improvement:浏览器文件/下载交付卫生(复现 Codex cloud-shared-files) (936660ec98e)
 - 🚀 Feature/Improvement:浏览器登录凭据 handoff 协议(复现 Codex browserAuth,凭据零回传) (ebe217ca684)
 - 🚀 Feature/Improvement:浏览器 Tab 生命周期与所有权协议(复现 Codex tab lifecycle) (4b003bf987e)

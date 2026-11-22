@@ -245,7 +245,10 @@ if (process.env.HUSKY_ENABLE_TAG_SYNC === '1') {
 // pre-commit 快档到点后,未跑完的门写进 gates-deferred.json;这里 **detached** 补跑全量,
 // 不阻塞本次提交返回,结果落 gates-deferred-run.log。提交已落地 ⇒ 这里失败只留日志不阻断。
 // 跳过:HUSKY_SKIP_DEFERRED_GATES=1
-if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
+// 2026-11-22 定案:默认不再后台派生 guardian-runner --full-face。它虽不提交,
+// 但每次提交都留下 1~3 个长跑 node 进程并扫全量面,是"自动链路仍在动"的残余;
+// 需要补跑时显式 HUSKY_ENABLE_FULL_FACE=1。
+if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1' && process.env.HUSKY_ENABLE_FULL_FACE === '1') {
   const deferredFile = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'gates-deferred.json')
   if (existsSync(deferredFile)) {
     try {
@@ -293,6 +296,10 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
       /* 补跑派发失败不影响提交(提交已落地) */
     }
   }
+} else if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
+  console.log(
+    'ℹ️  快档延后守门补跑已停用(2026-11-22 定案:不再后台派生 guardian-runner);显式开启:HUSKY_ENABLE_FULL_FACE=1',
+  )
 }
 
 // ─── 8. 四端 i18n 死 key 扫描(2026-10-22 从 pre-commit 移来)────────────────────

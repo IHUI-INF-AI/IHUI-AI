@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-22T11:39:53.549Z",
+  "sealedAt": "2026-11-22T11:43:41.928Z",
   "sealedBy": "root-guard --seal",
-  "reason": "git-guardian 计划任务硬闸：统一由 IHUI_ALLOW_SCHEDULED_TASKS 放行",
+  "reason": "post-commit 默认停用后台全量补跑",
   "targets": [
     {
       "id": "guardian-runner",
