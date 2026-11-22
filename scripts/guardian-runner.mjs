@@ -122,6 +122,32 @@ const checks = [
     ].join('\n'),
   },
   {
+    // --- 2h-datakeys (2026-11-22 新增,i18n 数据驱动键族可达性,blocking) ---
+    // 背景(实测事故,2026-11-22):侧边栏把导航项抽成数据表 nav-data.ts,渲染侧统一
+    // t(item.labelKey)。check-i18n-keys.mjs 只认 t('字面量') 与 state 键流,这一族整族
+    // 在射程外 —— 全量跑报 2006 条缺键、不含 nav.hrGroup / nav.financeAi / nav.eduHubTitle /
+    // nav.contentHubTitle / nav.tradeHubTitle,而 SSR HTML 里这五枚就是原样键名(10 个入口坏 5 个)。
+    // 同型事故此前已登记(G-1079148:"UI 上真的显示了裸键名而门一路报绿"),所以本门不再打补丁,
+    // 而是把「源码引用 → 命名空间 → 词库解析」收成一道判据(实现单一源 scripts/lib/i18n-data-keys.mjs)。
+    // 存量登记 scripts/data/i18n-data-keys-baseline.json,基线外新增一条即红(§12e 差值棘轮)。
+    id: '2h-datakeys',
+    label: '🌐 i18n 数据键可达性(防裸键上屏,blocking)',
+    script: 'check-i18n-data-keys.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/i18n/messages/', 'scripts/data/i18n-data-key-namespaces.json'],
+    onFailHint: [
+      '',
+      '  💡 检出「代码引用了词库里不存在的键」——渲染处会直接显示 nav.xxx 这类裸键:',
+      '     1. node scripts/check-i18n-data-keys.mjs          (全量定位,列出文件/命名空间/键)',
+      '     2. node scripts/i18n-add-keys.mjs --keys <payload.json> --apply',
+      '        (向 packages/i18n/messages/web/{zh-CN,en,zh-TW,ja,ko}.json 补同名键,五语言必须齐备)',
+      '     3. 重跑 node scripts/check-i18n-data-keys.mjs 确认绿',
+      '     禁止:为了让门变绿而改判据/放宽基线(--update-baseline 只用于清偿后收缩)',
+      '',
+    ].join('\n'),
+  },
+  {
     id: '2f-web',
     label: '🌐 i18n AI 翻译流水线(blocking)',
     script: 'i18n-diff.mjs',
