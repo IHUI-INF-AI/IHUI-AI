@@ -130,7 +130,22 @@ node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry
 
 API 侧 `relay-login-local-verified.test.ts` 共 26 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
 
-## 9. 不做什么
+## 9. 历史清理(不想要旧会话时)
+
+WorkBuddy 的「删除」是软删:行标 `deleted_at`,正文 `projects/**/<id>.jsonl` 留在磁盘。长时间切号/清理会攒出 GB 级无主正文。清理入口:
+
+```bash
+node scripts/workbuddy-prune-history.mjs                 # dry-run:只出清单与体积
+node scripts/workbuddy-prune-history.mjs --apply         # 备份库 + 搬正文 + 删软删行
+node scripts/workbuddy-prune-history.mjs --apply --no-orphans   # 无主正文不动
+```
+
+口径:所有账号的 `transport='local' AND deleted_at IS NOT NULL` 行 + 它们的正文 + 整库扫描后没有任何行对应的无主正文;当前可见会话与 cloud 行一行不动。正文移到 `~/.workbuddy/.ihui-trash/<runId>/`(带 `manifest.json`),库先备份 `workbuddy.db.pre-prune-*.bak`。要真正腾出磁盘,确认无误后删回收目录。
+
+本机实测(2026-11-22):清 382 行、搬 258 个软删正文(1103.5MB)+1298 个无主正文(1090.1MB),回收目录共 2194MB;剩余 28 行、4 个可见会话正文 14.9MB。
+
+## 10. 不做什么
+
 
 - 不改本项目数据层(仍只允许 PostgreSQL);本功能读写的是**第三方客户端自带的 sqlite**,属既有事实。
 - 不用 Windows 计划任务做周期巡检;要周期化就走产品内置自动化(admin 账号下)。
