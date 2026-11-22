@@ -444,6 +444,9 @@ export function ChatComposer({
         </View>
       </View>
 
+      {/* AI 生成内容提示:与 web 端输入区同款文案,样式走统一 token(跨端同源) */}
+      <Text style={styles.aiDisclaimer}>{t('messageInput.aiDisclaimer')}</Text>
+
       {/* 模型选择面板(打开态由 props 控制,组件内不自带开关) */}
       {modelPickerOpen ? (
         <Modal
@@ -519,6 +522,13 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
       color: tk.text.medium,
+    },
+    aiDisclaimer: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.label.size,
+      lineHeight: rnType.label.lineHeight,
+      color: tk.text.medium,
+      textAlign: 'center',
     },
     agentVars: {
       paddingVertical: rnSpacing.sm,

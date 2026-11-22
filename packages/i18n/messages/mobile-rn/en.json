@@ -1548,6 +1548,7 @@
     "rangeAll": "All"
   },
   "messageInput": {
+    "aiDisclaimer": "Content is AI-generated and for reference only. Please verify before relying on it.",
     "document": "Document",
     "video": "Video",
     "addFile": "Add file",

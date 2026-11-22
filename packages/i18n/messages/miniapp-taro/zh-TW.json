@@ -3431,6 +3431,7 @@
     "settings": "通知設置"
   },
   "messageInput": {
+    "aiDisclaimer": "內容由 AI 生成，僅供參考，請注意甄別。",
     "placeholder": "請輸入內容...",
     "send": "發送",
     "fullscreenBack": "收起",

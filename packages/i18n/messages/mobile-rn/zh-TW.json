@@ -1548,6 +1548,7 @@
     "rangeAll": "全部"
   },
   "messageInput": {
+    "aiDisclaimer": "內容由 AI 生成，僅供參考，請注意甄別。",
     "document": "文件",
     "video": "影片",
     "addFile": "新增附件",

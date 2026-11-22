@@ -3431,6 +3431,7 @@
     "settings": "通知設定"
   },
   "messageInput": {
+    "aiDisclaimer": "AIが生成した内容です。参考用ですので、ご自身でご確認ください。",
     "placeholder": "メッセージを入力...",
     "send": "送信",
     "fullscreenBack": "折りたたむ",

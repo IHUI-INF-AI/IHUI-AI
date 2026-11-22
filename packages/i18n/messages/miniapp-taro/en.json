@@ -3431,6 +3431,7 @@
     "settings": "Notification Settings"
   },
   "messageInput": {
+    "aiDisclaimer": "Content is AI-generated and for reference only. Please verify before relying on it.",
     "placeholder": "Type a message...",
     "send": "Send",
     "fullscreenBack": "Back",

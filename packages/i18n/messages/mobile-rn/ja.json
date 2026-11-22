@@ -1548,6 +1548,7 @@
     "rangeAll": "すべて"
   },
   "messageInput": {
+    "aiDisclaimer": "AIが生成した内容です。参考用ですので、ご自身でご確認ください。",
     "document": "ドキュメント",
     "video": "動画",
     "addFile": "添付ファイルを追加",

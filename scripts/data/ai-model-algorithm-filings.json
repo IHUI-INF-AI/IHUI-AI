@@ -1,0 +1,47 @@
+{
+  "schema": "ihui.ai-model-algorithm-filings/1",
+  "generatedAt": "2026-11-22",
+  "app": {
+    "name": "AI丨智汇社",
+    "packageName": "zh.ai.sq",
+    "entity": "吉林省爱智汇人工智能科技有限公司",
+    "uscc": "91220100MAE51LM0XE",
+    "icp": "吉ICP备2025027274号-7A",
+    "privacyUrl": "https://www.aizhs.top/agreement/privacy-policy"
+  },
+  "providers": [
+    {
+      "provider": "上海阶跃星辰智能科技有限公司",
+      "kind": "deep_synthesis",
+      "sourceUrl": "https://chat.stepfun.com/legal/registration",
+      "usedByApp": true,
+      "algorithms": [
+        {
+          "algName": "StepChat文本生成算法",
+          "category": "生成合成类",
+          "recordNo": "网信算备310104654638201240011号"
+        },
+        {
+          "algName": "阶跃Step1X多模态内容生成算法",
+          "category": "生成合成类",
+          "recordNo": "网信算备310104654638201240037号"
+        }
+      ],
+      "models": [
+        {
+          "modelName": "阶跃",
+          "recordNo": "Shanghai-JieYue-20231106"
+        },
+        {
+          "modelName": "阶跃多模态",
+          "recordNo": "Shanghai-JieYueDuoMoTai-202505230047"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "本文件登记本项目实际接入、并在应用商店合规提交时需引用的算法/模型备案信息，作为项目内单一数据源（单一真相源）。",
+    "完整的国家网信办《境内深度合成服务算法备案清单》由 algorithm_record 表 + algorithm-record-service 自动同步入库，可通过 /api/algorithm-record/search 查询全部已备案算法，本文件不重复抄录全量清单。",
+    "未核实的厂商备案号一律不登记，避免误填；新增接入厂商的备案确认后按同样结构追加到 providers 数组。"
+  ]
+}

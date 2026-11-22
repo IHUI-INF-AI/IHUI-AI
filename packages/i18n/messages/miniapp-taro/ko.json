@@ -3431,6 +3431,7 @@
     "settings": "알림 설정"
   },
   "messageInput": {
+    "aiDisclaimer": "AI가 생성한 콘텐츠이며 참고용입니다. 반드시 직접 확인하시기 바랍니다.",
     "placeholder": "메시지 입력...",
     "send": "전송",
     "fullscreenBack": "접기",

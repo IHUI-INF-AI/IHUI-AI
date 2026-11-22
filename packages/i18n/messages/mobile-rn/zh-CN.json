@@ -1548,6 +1548,7 @@
     "rangeAll": "全部"
   },
   "messageInput": {
+    "aiDisclaimer": "内容由 AI 生成，仅供参考，请注意甄别。",
     "document": "文档",
     "video": "视频",
     "addFile": "添加附件",
