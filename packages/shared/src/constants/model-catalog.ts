@@ -162,6 +162,14 @@ export function isSelectableChatModel(
  *  /agnes/video)。新增通道时必须同笔把前缀登记到这里,否则新通道会在选择器里被藏掉。 */
 export const MEDIA_GENERATION_ID_PREFIXES: readonly string[] = ['agnes-image-', 'agnes-video-']
 
+/** 有 agnes 前缀但真实调用必然失败的档(2026-11-23 立)。
+ *
+ * `agnes-video-2.5` 是付费档,生产上游余额仅 $0.0016、单次要求 $0.125,
+ * 真实创建任务稳定 403 `insufficient_user_quota`;能跑的是免费档
+ * `agnes-video-2.5-flash`。只按前缀放行会把这条"选了必失败"的模型展示出来,
+ * 故单列禁用名单。新增/恢复某档前必须先真实调用一次,验过再从这里移除。 */
+export const MEDIA_GENERATION_DISABLED_IDS: readonly string[] = ['agnes-video-2.5']
+
 /**
  * 取模型 id 的裸名(去掉 provider 前缀,保留大小写)。
  *
@@ -177,9 +185,9 @@ export function bareMediaModelId(modelId: string | null | undefined): string {
 /**
  * 该模态档是否已有真实生成通路可执行(2026-11-21 立)。
  *
- * - 非图像/视频(chat/vision/tts/asr/ocr…)一律 true —— 语音等档的"未接通"由发送侧
- *   给明确提示卡,不在目录层判死(机主要求语音档可见)。
- * - 图像/视频:裸模型名(去掉 provider 前缀)命中 `MEDIA_GENERATION_ID_PREFIXES` 才算可执行。
+ * - 非图像/视频(chat/vision…)一律 true —— 语音/OCR 已在选择器层排除。
+ * - 图像/视频:裸模型名(去掉 provider 前缀)命中 `MEDIA_GENERATION_ID_PREFIXES`
+ *   且不在 `MEDIA_GENERATION_DISABLED_IDS`(付费 2.5 视频档余额不足,必失败)。
  *
  * 取裸名而不是整串匹配:上游目录既有 `agnes/agnes-image-2.5-flash` 也有不带前缀的形态,
  * 两种都要认,同时不会把 `xxx-vision` 这类对话档误判。
@@ -191,6 +199,7 @@ export function isExecutableMediaModel(
   if (category !== 'image' && category !== 'video') return true
   const bare = bareMediaModelId(modelId).toLowerCase()
   if (!bare) return true // 取不到 id ⇒ 不判死(失效方向恒为多显示一次)
+  if (MEDIA_GENERATION_DISABLED_IDS.includes(bare)) return false
   return MEDIA_GENERATION_ID_PREFIXES.some((prefix) => bare.startsWith(prefix))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

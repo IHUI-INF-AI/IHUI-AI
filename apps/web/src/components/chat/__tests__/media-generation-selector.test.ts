@@ -27,6 +27,11 @@ describe('isExecutableMediaModel', () => {
     expect(isExecutableMediaModel('agnes-image-2.5-flash', 'image')).toBe(true)
   })
 
+  it('付费 agnes 视频档余额不足,不算有通道', () => {
+    expect(isExecutableMediaModel('agnes/agnes-video-2.5', 'video')).toBe(false)
+    expect(isSelectableChatModel('video', 'standard', 'agnes/agnes-video-2.5')).toBe(false)
+  })
+
   it('非生成器 / 需参考图的图像视频档不算有通道', () => {
     expect(isExecutableMediaModel('@cf/runwayml/stable-diffusion-v1-5-inpainting', 'image')).toBe(
       false,
