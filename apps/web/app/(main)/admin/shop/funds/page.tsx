@@ -13,7 +13,7 @@ import { FundsAccountsTable } from './FundsAccountsTable'
 import { FundsFlowsTable } from './FundsFlowsTable'
 import { apiOrThrow } from '@/lib/api'
 import type { FundAccount, FundFlow } from './types'
-import { BackButton } from '@/components/common'
+import { BackButton } from '@/components/common/BackButton'
 
 export default function AdminShopFundsPage() {
   const [tab, setTab] = React.useState<'accounts' | 'flows'>('accounts')
