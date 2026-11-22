@@ -46,9 +46,14 @@ const doubaoFace = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'doubao-continuity-face.mjs')).href
 )
 /**
- * WorkBuddy 对话随行(2026-11-12 立):会话按 uid 归属,切号只换登录态 ⇒ 旧号会话看不见。
- * 判据与写操作全在该模块(§0.6),本文件只负责"切号成功后按 replacedUid 调一次"。
+ * 切号对话随行(2026-11-12 立 WorkBuddy,2026-11-22 扩到全平台):
+ *   - 注册面与判据在 scripts/lib/chat-carry/index.mjs(11 平台矩阵 + 只读探针);
+ *   - WorkBuddy 的软删复活细节在 scripts/lib/workbuddy-chat-carry.mjs;
+ *   - 本文件只做两件事:切前抓可见名单(WorkBuddy)、写回成功后按平台分派 switchCarry。
  */
+const chatCarry = await import(
+  pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'chat-carry', 'index.mjs')).href
+)
 const wbCarry = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'workbuddy-chat-carry.mjs')).href
 )
@@ -188,6 +193,11 @@ export async function runVerifiedSwitch(opts: {
   compare?: typeof compareSnapshots
   /** 测试注入:替换「该票有无会话模板」判据(默认解密 secretsEnc,零真库) */
   hasTemplate?: typeof hasSessionTemplate
+  /**
+   * 测试注入:替换对话随行总入口(默认 chatCarry.switchCarry)。
+   * 不注入且处在测试进程 ⇒ 不执行真实随行,避免单测写真实客户端库。
+   */
+  carryImpl?: typeof chatCarry.switchCarry
 }): Promise<VerifiedSwitchResult> {
   const doLoad = opts.loadRow ?? loadPoolRow
   const doWrite = opts.writeBack ?? loginAccountLocal
@@ -231,43 +241,84 @@ export async function runVerifiedSwitch(opts: {
     }
   }
 
+  /**
+   * 切号**前**抓 WorkBuddy 当前可见会话 id(必须早于 doWrite:写回瞬间客户端 watcher
+   * 会把旧号可见会话打软删,切完再抓就只剩 0 条 ⇒ 复活名单为空、新号仍看不见)。
+   */
+  const preCarry =
+    opts.provider === 'workbuddy'
+      ? (() => {
+          try {
+            return wbCarry.capturePreSwitchVisibleIds()
+          } catch {
+            return { uid: '', ids: [], why: 'capture 异常' }
+          }
+        })()
+      : null
+
   const writeBack = await doWrite(row)
-  /** 对话随行结果(仅 workbuddy;null = 未执行) */
+  /** 对话随行结果(null = 未执行) */
   let resumeCarry: unknown = null
   /**
-   * WorkBuddy 对话随行(2026-11-12 立,补机主报的"切号带不过来对话")。
-   *
-   * 只在三件事同时成立时才动会话库:
-   *   ① 写回腿自己报了成功(否则旧号会话会被绑到一个没切成功的新号上);
-   *   ② 写回腿回报了 replacedUid(旧号);取不到就无处可搬,如实记未判定;
-   *   ③ 平台是 workbuddy(其余平台的携带腿各自独立,不在这里兼管)。
-   * carry 失败**不翻转切号成败**(登录态已写入且自检通过),但必须点名 —— 否则
-   * 又是一次"命令跑完看着像成功、对话却没跟过去"。
+   * 全平台对话随行(2026-11-22 收口)。
+   * 只在写回腿自报成功且回报落点时执行;carry 失败**不翻转切号成败**,但必须点名。
    */
-  if (opts.provider === 'workbuddy' && writeBack?.ok === true && writeBack?.targetFile) {
-    const fromUid = typeof writeBack.replacedUid === 'string' ? writeBack.replacedUid : ''
+  const isTestEnv = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test'
+  const doCarry = opts.carryImpl ?? (isTestEnv ? null : chatCarry.switchCarry)
+  if (writeBack?.ok === true && writeBack?.targetFile) {
     const toUid = String(row.uid)
-    if (!fromUid) {
-      notes.push('对话随行未执行:写回腿没回报旧登录号(replacedUid 为空)⇒ 不知道从哪搬,不猜')
-    } else if (fromUid === toUid) {
-      notes.push('对话随行跳过:切号前后是同一个号(同账号重登,会话本就在自己名下)')
-    } else {
-      try {
-        const carry = wbCarry.runCarry({ fromUid, toUid })
+    try {
+      const m = chatCarry.getMatrix(opts.provider)
+      if (!m) {
+        notes.push(`对话随行未执行:平台 ${opts.provider} 未登记(不猜)`)
+      } else if (!doCarry) {
         notes.push(
-          `对话随行 ✓ 旧号 ${fromUid.slice(0, 8)} → 新号 ${toUid.slice(0, 8)}:` +
-            `会话 ${carry.moved.sessions} / 空间 ${carry.moved.spaces} / 定时任务 ${carry.moved.automations}` +
-            `;侧边栏快照并入 ${carry.snapshot.merged} 条`,
+          `对话随行未执行:测试进程默认不碰真实客户端库(${opts.provider});需验请注入 carryImpl`,
         )
-        for (const n of carry.notes ?? []) notes.push(n)
+      } else if (m.kind === 'rebind' && opts.provider === 'workbuddy') {
+        const fromUid = typeof writeBack.replacedUid === 'string' ? writeBack.replacedUid : ''
+        if (!fromUid) {
+          notes.push('对话随行未执行:写回腿没回报旧登录号(replacedUid 为空)⇒ 不知道从哪搬,不猜')
+        } else if (fromUid === toUid) {
+          notes.push('对话随行跳过:切号前后是同一个号(会话本就在自己名下)')
+        } else {
+          const carry = doCarry!({
+            provider: opts.provider,
+            fromUid,
+            toUid,
+            reviveSessionIds: Array.isArray(preCarry?.ids) ? preCarry.ids : [],
+          })
+          if (carry.ok) {
+            notes.push(
+              `对话随行 ✓ 旧号 ${fromUid.slice(0, 8)} → 新号 ${toUid.slice(0, 8)}:` +
+                `会话 ${carry.moved?.sessions ?? 0} / 空间 ${carry.moved?.spaces ?? 0} / 定时任务 ${carry.moved?.automations ?? 0}` +
+                ` / 可见性复活 ${carry.moved?.revived ?? 0};快照并入 ${carry.snapshot?.merged ?? 0} 条`,
+            )
+            for (const n of carry.notes ?? []) notes.push(n)
+            resumeCarry = carry
+          } else {
+            notes.push(
+              `对话随行失败[${carry.code || 'carry-failed'}]:${(carry.notes ?? []).join(';')}`,
+            )
+            resumeCarry = carry
+          }
+        }
+      } else {
+        const carry = doCarry!({ provider: opts.provider, toUid })
+        notes.push(
+          carry.ok
+            ? `对话随行 ✓ ${opts.provider}[${m.kind}]:${(carry.notes ?? []).join(';')}`
+            : `对话随行未完成[${carry.code || 'carry-failed'}] ${opts.provider}[${m.kind}]:` +
+                `${(carry.notes ?? []).join(';')}(登录态已切好,需按提示适配/补搬)`,
+        )
         resumeCarry = carry
-      } catch (e) {
-        const code = e && typeof e === 'object' && 'code' in e ? e.code : 'carry-failed'
-        notes.push(
-          `对话随行失败[${code}]:${e instanceof Error ? e.message : String(e)}` +
-            '(登录态已切好,旧号会话仍在旧 uid 名下;可重跑本入口补齐)',
-        )
       }
+    } catch (e) {
+      const code = e && typeof e === 'object' && 'code' in e ? e.code : 'carry-failed'
+      notes.push(
+        `对话随行失败[${code}]:${e instanceof Error ? e.message : String(e)}` +
+          '(登录态已切好;可重跑本入口或用 node scripts/chat-carry.mjs --audit 复核)',
+      )
     }
   }
   const after = takeSnap()

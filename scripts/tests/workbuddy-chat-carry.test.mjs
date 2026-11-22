@@ -15,17 +15,21 @@
  */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { after, before, describe, it } from 'node:test'
 
 import {
   CarryError,
+  capturePreSwitchVisibleIds,
   countByOwner,
+  currentUid,
   isUid,
+  listVisibleSessionIds,
   mergeSidebarSnapshot,
   planCarry,
+  readSnapshotItemIds,
+  resolveWorkbuddyAuthFile,
   runCarry,
 } from '../lib/workbuddy-chat-carry.mjs'
 
@@ -39,19 +43,19 @@ function seed(home) {
   fs.mkdirSync(home, { recursive: true })
   const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
   db.exec(`
-    CREATE TABLE sessions (id TEXT PRIMARY KEY, user_id TEXT, transport TEXT, deleted_at INTEGER, title TEXT);
-    CREATE TABLE spaces (id TEXT PRIMARY KEY, user_id TEXT);
+    CREATE TABLE sessions (id TEXT PRIMARY KEY, user_id TEXT, transport TEXT, deleted_at INTEGER, title TEXT, space_id TEXT);
+    CREATE TABLE spaces (id TEXT PRIMARY KEY, user_id TEXT, deleted_at INTEGER NOT NULL DEFAULT -1);
     CREATE TABLE automations (id TEXT PRIMARY KEY, owner_user_id TEXT);
   `)
-  const ins = db.prepare('INSERT INTO sessions (id,user_id,transport,deleted_at,title) VALUES (?,?,?,?,?)')
-  ins.run('s-a1', UID_A, 'local', null, 'A 的对话一')
-  ins.run('s-a2', UID_A, 'local', 123, 'A 的对话二(软删)')
-  ins.run('s-a3', UID_A, 'cloud', -1, 'A 的云端会话')
-  ins.run('s-b1', UID_B, 'local', null, 'B 自己的对话')
-  ins.run('s-c1', UID_C, 'local', null, 'C 的对话')
-  const sp = db.prepare('INSERT INTO spaces (id,user_id) VALUES (?,?)')
-  sp.run('sp-a', UID_A)
-  sp.run('sp-b', UID_B)
+  const ins = db.prepare('INSERT INTO sessions (id,user_id,transport,deleted_at,title,space_id) VALUES (?,?,?,?,?,?)')
+  ins.run('s-a1', UID_A, 'local', null, 'A 的对话一', 'sp-a')
+  ins.run('s-a2', UID_A, 'local', 123, 'A 的对话二(软删)', 'sp-a')
+  ins.run('s-a3', UID_A, 'cloud', -1, 'A 的云端会话', null)
+  ins.run('s-b1', UID_B, 'local', null, 'B 自己的对话', null)
+  ins.run('s-c1', UID_C, 'local', null, 'C 的对话', null)
+  const sp = db.prepare('INSERT INTO spaces (id,user_id,deleted_at) VALUES (?,?,?)')
+  sp.run('sp-a', UID_A, 123)
+  sp.run('sp-b', UID_B, -1)
   const au = db.prepare('INSERT INTO automations (id,owner_user_id) VALUES (?,?)')
   au.run('au-a', UID_A)
   db.close()
@@ -233,6 +237,94 @@ describe('runCarry 快照联动', () => {
     assert.deepEqual(dst.items.map((i) => i.id), ['c1'])
     const src = JSON.parse(fs.readFileSync(from, 'utf8'))
     assert.equal(src.items.length, 0, '旧分片清空')
+  })
+})
+
+describe('可见性复活(2026-11-22 修:切号带不过去对话的真因)', () => {
+  it('可见口径与客户端一致:只认 deleted_at IS NULL,-1 不算活', () => {
+    const home = path.join(tmpRoot, 'vis')
+    seed(home)
+    const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    const a = countByOwner(db, UID_A)
+    assert.equal(a.local, 2)
+    assert.equal(a.localVisible, 1, 'A 只有 s-a1 可见(s-a2 deleted_at=123)')
+    assert.equal(a.localLegacyNegOne, 0, 'local 行里没有 -1')
+    assert.equal(a.localAlive, 1, '旧字段名等价 localVisible')
+    assert.equal(countByOwner(db, UID_B).localVisible, 1, 'B 的 s-b1 可见')
+    db.close()
+  })
+
+  it('切前可见名单被读取:listVisibleSessionIds 与快照条目并集', () => {
+    const home = path.join(tmpRoot, 'capture')
+    seed(home)
+    const env = { LOCALAPPDATA: home, USERPROFILE: home }
+    const authFile = resolveWorkbuddyAuthFile(env)
+    fs.mkdirSync(path.dirname(authFile), { recursive: true })
+    fs.writeFileSync(authFile, JSON.stringify({ account: { uid: UID_A } }), 'utf8')
+    assert.equal(currentUid(authFile), UID_A)
+    assert.equal(currentUid(path.join(home, 'nope.info')), '', '读不到 ⇒ 空,不猜')
+    const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    assert.deepEqual(listVisibleSessionIds(db, UID_A), ['s-a1'])
+    db.close()
+    snapshotFile(home, UID_A, [{ id: 's-a2', title: '快照里有、库里被软删' }], 10)
+    assert.deepEqual(readSnapshotItemIds(path.join(home, UID_A, 'sidebar-list-snapshot.json')), ['s-a2'])
+    const c = capturePreSwitchVisibleIds({ env, home })
+    assert.equal(c.uid, UID_A)
+    assert.deepEqual(c.ids.sort(), ['s-a1', 's-a2'], '库可见 + 快照条目并集,防止切后名单为空')
+    assert.equal(c.dbVisible, 1)
+  })
+
+  it('快照条目对应的软删行,随行时自动复活并可见', () => {
+    const home = path.join(tmpRoot, 'revive-snap')
+    seed(home)
+    snapshotFile(home, UID_A, [{ id: 's-a2', title: '切前可见但被打软删', lastActivityAt: 1 }], 1000)
+    const r = runCarry({ fromUid: UID_A, toUid: UID_B, home })
+    assert.equal(r.moved.revived, 1, '快照条目 s-a2 被复活')
+    const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    const row = db.prepare('SELECT user_id, deleted_at FROM sessions WHERE id = ?').get('s-a2')
+    assert.equal(row.user_id, UID_B, '已归新号')
+    assert.equal(row.deleted_at, null, 'deleted_at 已清空 ⇒ 客户端可见')
+    assert.equal(countByOwner(db, UID_B).localVisible, 3, 'B 原有 1 + 搬来可见 1 + 复活 1')
+    db.close()
+  })
+
+  it('显式 reviveSessionIds 名单优先', () => {
+    const home = path.join(tmpRoot, 'revive-ids')
+    seed(home)
+    const r = runCarry({ fromUid: UID_A, toUid: UID_B, home, reviveSessionIds: ['s-a2'] })
+    assert.equal(r.moved.revived, 1)
+    assert.equal(r.revive.ids, 1, '名单里 1 条')
+    const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    assert.equal(countByOwner(db, UID_B).localVisible, 3, 'B 原有 1 + 两条旧号 local 全可见')
+    db.close()
+  })
+
+  it('reviveWindowMs 只捞窗口内被误删的行,窗口外用户自删的一行不碰', () => {
+    const home = path.join(tmpRoot, 'revive-window')
+    seed(home)
+    const db0 = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    db0.prepare('UPDATE sessions SET deleted_at = ? WHERE id = ?').run(Date.now() - 5_000, 's-a2')
+    db0.prepare('UPDATE sessions SET deleted_at = ? WHERE id = ?').run(123, 's-c1')
+    db0.close()
+    const r = runCarry({ fromUid: UID_A, toUid: UID_B, home, reviveWindowMs: 60_000 })
+    assert.equal(r.moved.revived, 1, '只复活窗口内 1 条')
+    assert.equal(r.revive.windowMs, 60_000)
+    const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    assert.equal(db.prepare('SELECT deleted_at FROM sessions WHERE id=?').get('s-a2').deleted_at, null)
+    assert.equal(db.prepare('SELECT deleted_at FROM sessions WHERE id=?').get('s-c1').deleted_at, 123, '窗口外不动')
+    assert.equal(db.prepare('SELECT deleted_at FROM spaces WHERE id=?').get('sp-a').deleted_at, -1, '容器按 -1 口径回活')
+    db.close()
+  })
+
+  it('reviveHistory 全量复活旧号本地软删行,cloud 行仍不动', () => {
+    const home = path.join(tmpRoot, 'revive-hist')
+    seed(home)
+    const r = runCarry({ fromUid: UID_A, toUid: UID_B, home, reviveHistory: true })
+    assert.equal(r.moved.revived, 1, 'A 名下软删的 local 行只有 s-a2')
+    const db = new DatabaseSync(path.join(home, 'workbuddy.db'))
+    assert.equal(db.prepare('SELECT deleted_at FROM sessions WHERE id=?').get('s-a2').deleted_at, null)
+    assert.equal(db.prepare('SELECT deleted_at FROM sessions WHERE id=?').get('s-a3').deleted_at, -1, 'cloud 行不碰')
+    db.close()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

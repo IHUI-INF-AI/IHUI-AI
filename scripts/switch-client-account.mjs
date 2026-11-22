@@ -49,6 +49,7 @@ const PLATFORM_ALIASES = Object.freeze({
   codearts: { provider: 'codearts' },
   loomy: { provider: 'loomy' },
   doubao: { provider: 'doubao' },
+  raccoon: { provider: 'raccoon' },
 })
 
 /** 用法与退出码 2 的错误里展示的支持集(顺序 = 文档顺序) */
@@ -67,6 +68,7 @@ const SUPPORTED_PLATFORMS = Object.freeze([
   'codearts',
   'loomy',
   'doubao',
+  'raccoon',
 ])
 
 /** 目标脚本清单(纯映射;spawn 层只按 key 取路径,不复制判据) */

@@ -48,38 +48,55 @@ const API_DIR = path.join(ROOT, 'apps', 'api')
 const POOL_LIST_TS = path.join(API_DIR, 'scripts', 'relay-pool-account-list.ts')
 const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
 /**
- * 每个平台「切号后旧对话还能不能接着用」的结论矩阵(2026-11-10 全平台实测/取证后固化)。
+ * 每个平台「切号后旧对话还能不能接着用」的结论矩阵(2026-11-10 取证,2026-11-22 全平台收口)。
+ *
+ * 唯一事实源是 scripts/lib/chat-carry/index.mjs 的 CARRY_MATRIX 与 local-store.mjs 的现场探针;
+ * 本表只决定「一次点击时窗口里说出口的话」,两处不一致就是 bug(registry 测试盯着)。
  *
  * 三型:
- *   rebind —— 会话按 uid 绑在本地(现有两平台:Trae、WorkBuddy):本器真重绑。
- *              Trae 含 SQLCipher 正库解密→改 user_id→重加密→逐页自证;
- *              WorkBuddy 见 scripts/lib/workbuddy-chat-carry.mjs(2026-11-12 补)。
- *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在(7 平台实测:
- *              qoder chat_sessions 239 行无账号列、minimax local_runtime_sessions 25 行、
- *              codearts/zcode/opencode session 表同型、loomy IndexedDB 无账号键、codex 按日期分目录)。
- *              另有切前/切后连续性对账兜底(会话条数变了就判 continuity-broken)。
- *   cloud  —— 会话在云端且绑账号、本地 0 字节(仅豆包),本地无迁移路径。
+ *   rebind —— 会话按 uid 绑在本地(本机实测:Trae、WorkBuddy):真重绑 + 可见性复活。
+ *              Trae:SQLCipher 正库解密→改 user_id→重加密→逐页自证;
+ *              WorkBuddy:切前抓可见名单,重绑 sessions/spaces/automations 后把切号瞬间
+ *              被客户端打上 deleted_at 的会话清回 NULL;否则「搬了却看不见」= 用户实际感受的
+ *              「WorkBuddy 切号不带对话,Trae 能带」。见 scripts/lib/workbuddy-chat-carry.mjs。
+ *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在,可直接续聊。8 平台已现场读库
+ *              核验(qoder/minimax/codearts/zcode/opencode/loomy/codex,加未装机的 raccoon);
+ *              一旦读账号维度 ⇒ 立即判 account-scoped-store 并改按 rebind 适配,绝不冒绿。
+ *   cloud  —— 会话在云端且绑账号、本地 0 字节(仅豆包),走 --export/--replay 回放。
  *
- * 2026-11-12 改判:workbuddy 原登记为 local(注在 58 行的旧文案是错的)。本机现读推翻:
- * workbuddy.db 的 sessions 表**有 user_id 列**,客户端取列表/取详情/做软删全带
- * `AND (user_id = ? OR user_id = '')` ⇒ 切号只换登录态时旧号会话在新号下查询不命中。
- * 机主实报「切号没法携带对话记录」正是这一档,已按 rebind 补实现。
+ * 三个入口共用同一能力,不存在「某个客户端漏了」:
+ *   ① 一键切号本文件;② 程序化切号 scripts/switch-client-account.mjs;
+ *   ③ 切号编排腿 apps/api/scripts/relay-login-local-verified.ts —— 写回成功后对注册表内
+ *      任何平台调 chatCarry.switchCarry,失败只记 note 不翻转切号成败。
+ * 巡检:node scripts/chat-carry.mjs --audit(只读);单平台 --provider <名>;
+ * 补搬/复活历史 --revive-history [--apply]。文档:docs/chat-carry.md。
  */
 const CHAT_CARRY = Object.freeze({
-  trae: { kind: 'rebind', text: '旧号对话会随新号重绑(含加密正库),切完直接接着聊' },
-  qoder: { kind: 'local', text: '对话在本地 main.sqlite、不带账号维度,切号后历史仍在' },
-  minimax: { kind: 'local', text: '对话在本地 runtime-state.sqlite、不带账号维度,切号后历史仍在' },
-  codearts: { kind: 'local', text: '对话在本地 codearts-data/opencode.db、不带账号维度,切号后历史仍在' },
-  zcode: { kind: 'local', text: '任务/会话在本地 ~/.zcode、不带账号维度,切号后历史仍在' },
-  loomy: { kind: 'local', text: '对话在本地 IndexedDB、不带账号维度,切号后历史仍在' },
-  opencode: { kind: 'local', text: '会话在本地 opencode.db、不带账号维度,切号后历史仍在' },
+  trae: { kind: 'rebind', text: '旧号对话随新号重绑(含 SQLCipher 加密正库),切完打开即是旧对话,可直接接着聊' },
   workbuddy: {
     kind: 'rebind',
     text:
-      '旧号对话会随新号重绑(会话表 sessions.user_id + spaces + automations + 侧边栏快照分片),' +
-      '切完打开客户端即可看到旧对话;正文按会话 id 存 projects/*.jsonl,不随账号变',
+      '旧号对话重绑到新号(sessions/spaces/automations 三表 + 侧边栏快照分片),并把切号瞬间' +
+      '被客户端打软删的会话复活 ⇒ 新号列表里看得见、点开有内容、可接着聊;' +
+      '正文按会话 id 存 projects/*.jsonl,不随账号变',
   },
-  codex: { kind: 'local', text: '会话按日期存 ~/.codex/sessions、不带账号维度,切号后历史仍在' },
+  qoder: { kind: 'local', text: '对话在本地 main.sqlite、不带账号维度,切号后历史仍在并可接着聊' },
+  minimax: { kind: 'local', text: '对话在本地 runtime-state.sqlite、不带账号维度,切号后历史仍在并可接着聊' },
+  codearts: {
+    kind: 'local',
+    text: '对话在 VS Code 系 globalStorage/state.vscdb、键面无 uid 前缀,切号后历史仍在并可接着聊',
+  },
+  zcode: { kind: 'local', text: '任务/会话在 ~/.zcode/cli/db/db.sqlite、不带账号维度,切号后历史仍在并可接着聊' },
+  opencode: {
+    kind: 'local',
+    text: '会话在桌面版 Local Storage/leveldb、不带账号维度,切号后历史仍在并可接着聊',
+  },
+  loomy: { kind: 'local', text: '对话在 Local Storage/leveldb + IndexedDB、不带账号维度,切号后历史仍在' },
+  codex: {
+    kind: 'local',
+    text: '会话在 ~/.codex/state_5.sqlite 与 sessions/YYYY/**/*.jsonl,账号列全 NULL 不构成维度,切号后历史仍在',
+  },
+  raccoon: { kind: 'local', text: '对话落本地、无账号维度(本机未装 ⇒ 装好登录后跑 --audit 再核),切号后历史仍在' },
   doubao: {
     kind: 'cloud',
     text:
