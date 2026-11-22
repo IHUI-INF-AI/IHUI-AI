@@ -588,6 +588,13 @@ def _sync_env_file_to_os() -> None:
             # 直读 CHECKIN_CRON_ENABLED(lifespan 启动期)。不进白名单 → .env 里写了
             # true 也读不到 → 调度恒 off(与 DB_SYNC_*/COOKIE_REFRESH_* 同一型静默失效)。
             "CHECKIN_CRON_ENABLED",
+            # 发布平台凭据主密钥(2026-11-22):services/publish/credentials_crypto.py
+            # 以 os.environ.get 直读 PUBLISH_CREDENTIALS_KEY / _LEGACY。不进白名单 ⇒
+            # .env 里显式设置的主密钥读不到 → 静默退回文件密钥/generated(第 8 例同型
+            # 静默失效):当前靠锚定密钥文件兜底功能未断,但"env 指定主密钥"的运维意图
+            # 落空,轮换/迁移场景会踩空。两键都登记,后缀不通用故逐名列。
+            "PUBLISH_CREDENTIALS_KEY",
+            "PUBLISH_CREDENTIALS_KEY_LEGACY",
             # 内部服务令牌 + AI 全量操控桥接六键(2026-09-20):api_tools_bridge /
             # ui_action_bridge / mcp_server._edu_internal_headers 均以 os.environ.get
             # 直读。AI_CALLBACK_SECRET 不在白名单时 .env 配置静默失效 → 出站请求
