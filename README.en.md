@@ -99,6 +99,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🐞 Fix:中转会话标题同一份净化 + 写侧归属进 where + 按码位截断 (fe69a492)
 - 🔧 Chore/Other:重封 guardian-runner 格式化改动(无行为变更) (4365e14a)
 - 🔧 Chore/Other:批量条「移动到分组」断言对齐产品现状(消既有红) (98253cab)
 - 🐞 Fix:吸收生产侧前向修复(0 pending 跳过 db:migrate + 连接信号/品牌前景同源) (ed9ba086)

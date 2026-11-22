@@ -2227,6 +2227,7 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-23**
+- 🐞 수정:中转会话标题同一份净化 + 写侧归属进 where + 按码位截断 (fe69a492)
 - 🔧 기타:重封 guardian-runner 格式化改动(无行为变更) (4365e14a)
 - 🔧 기타:批量条「移动到分组」断言对齐产品现状(消既有红) (98253cab)
 - 🐞 수정:吸收生产侧前向修复(0 pending 跳过 db:migrate + 连接信号/品牌前景同源) (ed9ba086)

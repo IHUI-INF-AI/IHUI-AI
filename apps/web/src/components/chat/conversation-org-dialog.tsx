@@ -13,9 +13,11 @@ import { useTranslations } from 'next-intl'
 import { FolderOpen, Tag, X } from 'lucide-react'
 
 import {
+  DEFAULT_CONVERSATION_TITLE,
   normalizeOrgName,
   normalizeTagList,
   ORG_FOLDER_MAX_LENGTH,
+  plainTitleText,
   type ConversationOrgMeta,
 } from '@ihui/shared'
 
@@ -98,7 +100,8 @@ export function ConversationOrgDialog({
         </DialogHeader>
         {conversationTitle && (
           <p className="truncate text-label text-muted-foreground" data-testid="org-dialog-title">
-            {conversationTitle}
+            {/* 2026-11-23:弹窗里回显的会话标题也是纯文本面 —— 与侧栏同一份净化兜底。 */}
+            {plainTitleText(conversationTitle) ?? DEFAULT_CONVERSATION_TITLE}
           </p>
         )}
         <div className="space-y-3">

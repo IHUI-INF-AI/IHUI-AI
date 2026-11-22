@@ -45,7 +45,9 @@ describe('ConversationOrgDialog 挂载分组管理', () => {
 
   it('M2 源码级装载锁:对话框必须真的 import 并渲染 ConversationFolderAdmin(摘线即红)', async () => {
     const fs = await import('node:fs')
-    const src = fs.readFileSync('D:/IHUI-AI/apps/web/src/components/chat/conversation-org-dialog.tsx', 'utf8')
+    // 2026-11-23:原实现写死 `D:/IHUI-AI/...`,换盘(本机是 C:)直接 ENOENT —— 盘符不得
+    // 写进判据(AGENTS §0 七类机器事实)。改按包根相对路径(vitest root = apps/web)读。
+    const src = fs.readFileSync('src/components/chat/conversation-org-dialog.tsx', 'utf8')
     const importRe = /import\s*\{\s*ConversationFolderAdmin\s*\}\s*from\s*'@\/components\/chat\/conversation-folder-admin'/
     const renderRe = /<ConversationFolderAdmin\s*\/>/
     expect(importRe.test(src)).toBe(true)
