@@ -474,6 +474,9 @@ progress {
   --color-stroke-focus: #000000;
   --color-stroke-selected: #4a7a96;
   --color-stroke-danger: #dc2626;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --text-vcenter-offset-row: 0rpx;
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====

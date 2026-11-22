@@ -5,6 +5,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 彗尾由 N 枚首尾相接的短段拼成:同一描边色,靠宽度与不透明度逐级衰减 ⇒ 连续渐隐而不是几块色斑。
  *  段长按 pathLength=100 归一(按钮周长恒等 100 单位),任何尺寸按钮都成立。 */
@@ -49,7 +50,7 @@ export function LaserHaloRing({ active }: { active: boolean }) {
         y={1}
         width="98%"
         height="98%"
-        rx={4}
+        rx={rnRadius.sm}
         pathLength={100}
       />
       {/* 1..N 号彗尾段:首尾严格相接(间距为 0),宽度与不透明度沿尾向衰减 */}
@@ -68,7 +69,7 @@ export function LaserHaloRing({ active }: { active: boolean }) {
           y={1}
           width="98%"
           height="98%"
-          rx={4}
+          rx={rnRadius.sm}
           pathLength={100}
           strokeDasharray={`${SEGMENT_LEN} ${100 - SEGMENT_LEN}`}
         />
