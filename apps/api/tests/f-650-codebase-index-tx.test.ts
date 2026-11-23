@@ -74,12 +74,22 @@ vi.mock('../src/db/index.js', () => {
         },
       })),
       insert: vi.fn(() => ({
-        values: async (batch: unknown[]) => {
+        values: (batch: unknown | unknown[]) => {
+          // 索引状态行(markIndexed)与切片行共用 insert;状态行不进 chunk 表,也不计批次。
+          const isStatusRow =
+            !Array.isArray(batch) &&
+            typeof batch === 'object' &&
+            batch !== null &&
+            'configFingerprint' in batch
+          if (isStatusRow) return { onConflictDoUpdate: async () => undefined }
+          // drizzle 的 .values() 既可接单对象也可接数组;markIndexed 走单对象形态。
+          const rows = (Array.isArray(batch) ? batch : [batch]) as StoreRow[]
           const seq = state.insertSeq++
-          state.insertCalls.push({ scope, count: batch.length })
+          state.insertCalls.push({ scope, count: rows.length })
           state.writeOrder.push('insert')
           if (state.failInsertAt === seq) throw new Error('insert batch failed')
-          state.tableRows.push(...(batch as StoreRow[]))
+          state.tableRows.push(...rows)
+          return { onConflictDoUpdate: async () => undefined }
         },
       })),
     }
@@ -150,13 +160,21 @@ describe('indexChunks:删旧 + 插新同一事务(F-650)', () => {
     )
 
     expect(state.txCalls).toBe(1)
-    expect(state.deleteCalls).toHaveLength(2)
+    expect(state.deleteCalls).toHaveLength(6) // 2 文件 × 切片/实体/边 三表
     expect(state.deleteCalls.every((d) => d.scope === 'tx')).toBe(true)
     expect(state.insertCalls).toHaveLength(1)
     expect(state.insertCalls[0]?.scope).toBe('tx')
-    expect(state.writeOrder).toEqual(['delete', 'delete', 'insert'])
+    expect(state.writeOrder).toEqual([
+      'delete',
+      'delete',
+      'delete',
+      'delete',
+      'delete',
+      'delete',
+      'insert',
+    ])
 
-    expect(result).toEqual({ indexed: 3, vectorized: 0, localEmbedded: 0 })
+    expect(result).toEqual({ indexed: 3, vectorized: 0, localEmbedded: 0, entities: 0, edges: 0 })
     expect(state.tableRows).toHaveLength(3)
     expect(state.tableRows.every((r) => r.ownerUuid === OWNER && r.repoId === REPO_ID)).toBe(true)
   })
@@ -205,7 +223,7 @@ describe('indexChunks:删旧 + 插新同一事务(F-650)', () => {
 
     expect(state.insertCalls.map((c) => c.count)).toEqual([100, 100, 50])
     expect(state.insertCalls.every((c) => c.scope === 'tx')).toBe(true)
-    expect(result).toEqual({ indexed: 250, vectorized: 0, localEmbedded: 0 })
+    expect(result).toEqual({ indexed: 250, vectorized: 0, localEmbedded: 0, edges: 0, entities: 0 })
     expect(state.tableRows).toHaveLength(250)
     expect(state.tableRows.every((r) => r.embedding === null)).toBe(true)
     expect(state.tableRows.every((r) => r.expiresAt instanceof Date)).toBe(true)
@@ -232,7 +250,7 @@ describe('indexChunks:删旧 + 插新同一事务(F-650)', () => {
 
     expect(state.embedTexts).toHaveLength(1)
     expect(state.embedTexts[0]).toHaveLength(3)
-    expect(result).toEqual({ indexed: 5, vectorized: 3, localEmbedded: 1 })
+    expect(result).toEqual({ indexed: 5, vectorized: 3, localEmbedded: 1, edges: 0, entities: 0 })
 
     const inserted = state.tableRows
     expect(inserted.filter((r) => r.embeddingProvider === 'remote')).toHaveLength(4)
