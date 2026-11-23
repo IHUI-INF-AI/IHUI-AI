@@ -334,4 +334,37 @@ hooks-host-identity 9、本模块 13）；prettier 通过。
 **待办（与 [30a] 同类的判据/资产冲突）**：要么给模板补真实主题切换（并验证 `browser-check` 的
 请求路径是否被尊重），要么把 `viewer/theme-state` 降为 warn；在此之前 C 段产物按「三关通过 +
 主题项未判定」交付，不冒绿也不冒红。
+
+## 13. B1-01 工具超时的结构化分类（结果码 + 嵌套 deadline 隔离）
+
+**来源**：DSH `ai_agent.dll` 的 `ExecuteCommandRequest{…, timeout_ms, …}` 与 `TOOL_TIMEOUT`
+结果码语义。本仓 `app/core/tool_timeout_policy.py` 已有 per-tool 预算（run_command 120s /
+subagent 300s / office 330s），但超时只产出一句自由文本 `工具执行超时(Ns)`、`error_type`
+统一 `timeout` —— **答不出是谁掐断的**：是 handler 自己预算到点（内层），还是外层
+`wait_for`（`loop_guard`）或 MCP 守卫（`mcp_guard`）先到。
+
+**落地（3 文件）**：
+
+- 新增 `apps/ai-service/app/core/tool_timeout_result.py`：`classify_timeout_scope` 纯判据
+  （显式来源 > 外层窗口 > handler 窗口 > 未判定）、`format_timeout_message`（逐字复刻旧文案）、
+  `timeout_scope_fields`（`timeout_scope` + `timeout_code` 两键）
+- 接线 `agent_loop_v2.py` 两处超时分支：主执行路径（`_execute_single` 的 `wait_for`）把
+  `timeout_scope` / `timeout_code` 并入 `tool.retry` 事件；批准后重执行分支只写日志（该处无事件通道）
+- **文案零变化**：模型看到的仍是 `工具执行超时(60s)`，归因只走事件/日志
+
+**判据三条**：① 内层 handler 自称超时时**绝不被 elapsed 改写成外层**（嵌套 deadline 隔离，
+这是"显式来源最高优先"的唯一理由）；② 三个窗口之间的空隙一律 `unjudged`
+（`outside-all-windows`），不猜成最近一档；③ unjudged 有独立码 `TOOL_TIMEOUT_UNJUDGED`，
+读的人不会把它当成已判定。
+
+**测试**：`test_tool_timeout_result.py` **17 例**（含两条回潮闸：looper 里不得再出现
+`f"工具执行超时(` 字面量；`agent_loop_v2._format_timeout_message is format_timeout_message`
+钉住"只有一份实现"）。相关面 27 例绿；`ruff` All checks passed；`mypy --strict` 0 error。
+
+**红门归因（not-ours）**：`test_tool_timeout_policy.py` 2 例报
+`AGENT_RESUME_RECEIPT_UNAVAILABLE: 续跑回执无法耐久落盘，有副作用工具未执行` ——
+环境阻塞（回执落盘不可用），与本改动无关；该面 22 例仍绿。
+
+**超越轴**：取证件只有结果码字符串；本仓把它做成可断言的四态判据 + 事件级可诊断字段，
+并用「函数对象同一性」把「只有一份实现」变成机器断言。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

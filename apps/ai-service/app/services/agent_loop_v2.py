@@ -244,6 +244,21 @@ from ..core.session_taint import TaintSource as _TaintSource
 # 默认档(未登记工具)保持调用方传入的 tool_timeout 原值,行为不变。
 from ..core.tool_timeout_policy import resolve_tool_timeout_budget
 
+# B1-01(2026-11-23,对标 DSH TOOL_TIMEOUT 结果码):超时结构化归因。
+# 文案由 format_timeout_message 逐字保持历史形态;scope 只进事件/日志,不改模型观感。
+from ..core.tool_timeout_result import (
+    SCOPE_LOOP_GUARD as _SCOPE_LOOP_GUARD,
+)
+from ..core.tool_timeout_result import (
+    classify_timeout_scope as _classify_timeout_scope,
+)
+from ..core.tool_timeout_result import (
+    format_timeout_message as _format_timeout_message,
+)
+from ..core.tool_timeout_result import (
+    timeout_scope_fields as _timeout_scope_fields,
+)
+
 # Qoder 行为对齐(2026-11-08):轮次预算提示层。默认档不变(AGENT_MAX_ITERATIONS
 # 仍是 check-doom-loop-parity 的登记基准);部署侧可用 IHUI_AGENT_MAX_ITERATIONS
 # 显式放宽。接线点只有两处:构造器归一 + 循环顶注入一次收尾提示。
@@ -7480,7 +7495,19 @@ class AgentLoopV2:
                 timeout=_budget.loop_timeout_s,
             )
         except TimeoutError:
-            error_msg = f"工具执行超时({_budget.tool_budget_s:g}s)"
+            _timeout = _classify_timeout_scope(
+                reported_by=_SCOPE_LOOP_GUARD,
+                elapsed_s=(time.time() - start),
+                budget_s=_budget.tool_budget_s,
+            )
+            # B1-01:文案逐字不变;归因进日志(此处无事件通道,只做可诊断)。
+            error_msg = _format_timeout_message(_budget.tool_budget_s)
+            logger.info(
+                "工具 %s 批准后重执行超时(scope=%s code=%s)",
+                tc.name,
+                _timeout.scope,
+                _timeout.code,
+            )
             self._report_tool_error(
                 tc, error_msg, "timeout", (time.time() - start) * 1000
             )
@@ -9142,6 +9169,8 @@ class AgentLoopV2:
         _budget = resolve_tool_timeout_budget(tc.name, tc.args, default_s=self.tool_timeout)
         try:
             while True:
+                # B1-01:每轮重置归因位,避免上一轮的超时 scope 泄漏到非超时失败的事件里。
+                _timeout_fields: dict[str, str] = {}
                 if retry_count > 0:
                     # 换新 event 前先把上一次的上下文令牌复位(同一 contextvar,后设覆盖前设)。
                     with contextlib.suppress(Exception):
@@ -9217,8 +9246,16 @@ class AgentLoopV2:
                         error_type="aborted",
                     )
                 except TimeoutError:
-                    error_msg = f"工具执行超时({_budget.tool_budget_s:g}s)"
+                    _timeout = _classify_timeout_scope(
+                        reported_by=_SCOPE_LOOP_GUARD,
+                        elapsed_s=(time.time() - start),
+                        budget_s=_budget.tool_budget_s,
+                        loop_guard_s=_budget.loop_guard_s,
+                    )
+                    # B1-01:文案逐字保持历史形态(模型观感零差异);归因只随事件流出。
+                    error_msg = _format_timeout_message(_budget.tool_budget_s)
                     error_type = "timeout"
+                    _timeout_fields = _timeout_scope_fields(_timeout)
                 except Exception as e:
                     error_msg = str(e)
                     error_type = self._classify_error(e)
@@ -9262,6 +9299,7 @@ class AgentLoopV2:
                             "attempt": retry_count,
                             "max_attempts": self.tool_retry_max,
                             "error_type": error_type,
+                            **_timeout_fields,
                             "message": error_msg[:300],
                             "backoff_seconds": round(backoff, 2),
                         },
