@@ -455,6 +455,16 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - 验证：新增 `test_subagent_fork_context.py` 13 例（spawn 零上下文、spawn 拒 parent、fork 缺 parent、运行/取消/失败父作业拒绝、归属不泄露、深度上限、未知档、种子前缀复校、成功 fork 记深度、工具 schema 登记）；既有 subagent 回归 5 文件 `71 passed`；`ruff` 全绿；`py_compile` 通过。
 - 边界（不谎报）：本批 fork 的“前缀”粒度是**作业级平衡终态**（父作业 task/result），不是父会话全部消息日志；会话级 fork 仍需 `parent_thread_id` 接线。工具面边界沿用既有 `resolve_subagent_tool_surface`，fork 不另造第二套。
 
+## 第十一批：B3-03 协作 CLI 身份三档与退出码/幂等契约
+
+- 复检对象：Qoder CN 协作 CLI 的 `identities.md` / `operations.md`：身份三档 User / RuntimeOwner / RuntimeAgent 由宿主从可信上下文选定，CLI 不得自选；退出码 0/3/4/130；响应 `{success,data}` / `{success:false,error}`；结果未知必须先查询再重试；`requestId` 幂等。
+- 本批落点：
+  - `apps/cli/src/commands/collab/identity.ts`：三档枚举与权重、命令 → 最低权重表（新增命令漏映射即类型/测试红）、宿主 env 唯一入口 `IHUI_COLLAB_RUNTIME_CONTEXT`、未知即拒、argv 自选参数检测（`--identity` / `--profile` / `--runtime-context-fd` / `--role`）、拒绝异常带 exitCode 3。
+  - `apps/cli/src/commands/collab/exit-codes.ts`：0/3/4/130 四码；`outcome_unknown` / `disconnected` / `oversize` 一律按拒绝 3 且 `mustQueryBeforeRetry=true`；分页 `complete` 由 `nextOffset` 单向推导；`requestIdFor` 稳定哈希（键序无关）。
+  - `apps/cli/src/commands/subagent-collab.ts`：`dispatchTask` / `spawnParallel` / `arbitrate` / `topology-read` 四个生产入口全部先过身份闸，且 `spawn` 闸在 `new SubagentWorkerPool` 之前。
+- 验证：`collab-identity-contract.test.ts` 33 例全绿；CLI `tsc --noEmit` 0 错。
+- 边界：本层是纯判据，不做网络请求、不写台账；宿主凭据传递通道仍由宿主/CLI 启动层决定，本层只认 env 标记，不构造凭据管道。
+
 ## 证据文件
 
 - `dsh-archive.md`：DSH app.asar 盘点（含 containers/integrity/entries）

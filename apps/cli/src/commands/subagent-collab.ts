@@ -398,6 +398,8 @@ class CollaborationManager {
     task: string,
     opts?: { preferredRole?: string },
   ): Promise<TaskResult> {
+    // 身份闸(fail-closed):`runtime-agent` 不得自行派发;宿主上下文不可识别 ⇒ 抛 exit 3
+    assertCollabIdentityOrThrow('subagent.dispatch');
     // 确保 executor 就绪(默认 WorkerPool executor 惰性创建并回填已注册 peer)
     this.getExecutor();
     switch (this.topology) {
@@ -429,6 +431,8 @@ class CollaborationManager {
     proposals: Array<{ peerId: string; content: string; reason: string }>,
     opts?: { strategy?: ConflictResolution['strategy'] },
   ): ConflictResolution {
+    // 身份闸(fail-closed):仲裁属派发级动作,`runtime-agent` 不得自行仲裁
+    assertCollabIdentityOrThrow('subagent.arbitrate');
     const strategy = opts?.strategy ?? 'last-write-wins';
     if (proposals.length === 0) {
       return { strategy: 'last-write-wins', reason: `no proposals for ${filePath}` };
@@ -468,6 +472,8 @@ class CollaborationManager {
 
   /** 拓扑可视化(ASCII 图):peer 用 [id:role] 框,连线按拓扑区分 */
   visualizeTopology(): string {
+    // 身份闸:拓扑只读放宽到最低档(agent 可读),但身份未知仍然拒(fail-closed)
+    assertCollabIdentityOrThrow('subagent.topology-read');
     const peers = [...this.peers.values()];
     const header = `Topology: ${this.topology}`;
     let body: string;
@@ -827,6 +833,8 @@ import { SubagentWorkerPool, defaultWorkerPoolConfig } from '../subagents/worker
 // 并发档位的默认值与钳制只有这一个出口(见该文件头注)
 import { resolveMaxConcurrency } from '../subagents/concurrency-budget.js';
 import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
+// 协作身份三档与命令门槛(单一判据源;见 collab/identity.ts 头注)
+import { assertCollabIdentityOrThrow } from './collab/identity.js';
 
 /**
  * 按拓扑并行 spawn N 个子 agent(真子进程 fork 并行,非单进程 async)。
@@ -847,6 +855,8 @@ export async function spawnParallel(
   reqs: SubagentSpawnRequest[],
   opts?: { topology?: Topology; maxWorkers?: number },
 ): Promise<SubagentSpawnResponse[]> {
+  // 身份闸(fail-closed):`runtime-agent` 不得再派生(防递归派生风暴),身份未知 ⇒ exit 3
+  assertCollabIdentityOrThrow('subagent.spawn');
   if (reqs.length === 0) return [];
   const topology = opts?.topology ?? 'star';
   const maxWorkers = resolveMaxConcurrency(opts?.maxWorkers);
