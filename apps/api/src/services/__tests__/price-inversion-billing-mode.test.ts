@@ -58,4 +58,20 @@ describe('售价倒挂 — 成本下限与官方 free 冲突', () => {
     expect(resolverSrc).toContain('freeCostGuard')
   })
 })
+
+describe('售价倒挂 — 0x 免费档不得被目录价回填成正价', () => {
+  it('配置价回填扫描与更新都排除 points_multiplier<=0', () => {
+    expect(adminSrc).toContain('coalesce(m.points_multiplier, 1) > 0')
+  })
+
+  it('种子回填排除 0x 与 relay_price_multiplier=0.0000', () => {
+    expect(seedSrc).toContain('coalesce(m.points_multiplier, 1) > 0')
+    expect(seedSrc).toContain("coalesce(m.relay_price_multiplier, '1.0000') NOT IN ('0', '0.0000')")
+  })
+
+  it('重定价/清扫/官方价应用不得覆盖 0x 行', () => {
+    expect(resolverSrc).toContain('coalesce(m.points_multiplier, 1) > 0')
+    expect(resolverSrc).toContain('coalesce(points_multiplier, 1) > 0')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

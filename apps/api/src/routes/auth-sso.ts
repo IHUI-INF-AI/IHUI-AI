@@ -23,7 +23,9 @@ import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 import { randomBytes } from 'node:crypto'
 
 const SSO_CODE_PREFIX = 'sso:code:'
-const SSO_CODE_TTL_SEC = 30
+// 移动端真机复验:WebView 冷启动 + 低端机首帧会让兑换晚于 30s,授权码在 exchange 前过期;
+// 90s 只扩兑换窗口,码仍是一次性消费,不改变 exchange 绑定校验。
+const SSO_CODE_TTL_SEC = 90
 const ADMIN_ROLE_ID = 1
 const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
 

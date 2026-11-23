@@ -656,13 +656,13 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
         .select({ scope: scopeExpr, pv: pvExpr, uv: uvExpr })
         .from(visitLogs)
         .where(inWindow)
-        .groupBy(scopeExpr)
+        .groupBy(sql`1`)
         .orderBy(sql`count(*) desc`),
       db
         .select({ platform: platformExpr, pv: pvExpr, uv: uvExpr })
         .from(visitLogs)
         .where(inWindow)
-        .groupBy(platformExpr)
+        .groupBy(sql`1`)
         .orderBy(sql`count(*) desc`),
       // 端接入史(90 日):回答"这一端到底有没有在产数据"。零行的端与"今天没人用"在 24h 口径下
       // 逐字同形,不补这一腿就只能靠人去猜(小程序/插件/RN 接入初期尤其如此)。
@@ -677,7 +677,7 @@ export async function computePageUsageLiveSnapshot(): Promise<PageUsageLiveSnaps
         .where(
           sql`${visitLogs.visitDate} >= to_char(now() - make_interval(days => ${PLATFORM_HISTORY_DAYS}) at time zone 'Asia/Shanghai', 'YYYY-MM-DD')`,
         )
-        .groupBy(platformExpr)
+        .groupBy(sql`1`)
         .orderBy(sql`count(*) desc`),
       // 实时在线:近 5 分钟的去重会话(UV 口径)与浏览量 —— 大屏"此刻多少人在用"
       db
