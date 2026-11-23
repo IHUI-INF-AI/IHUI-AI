@@ -12,6 +12,7 @@
  *   ④ 空值/坏值回落推断,不改现价。
  */
 import { describe, expect, it } from 'vitest'
+import { inferPointsMultiplierFromRules } from '@ihui/shared'
 import {
   buildPointsMultiplierOverrideMap,
   inferPointsMultiplier,
@@ -92,6 +93,28 @@ describe('points multiplier keyword inference (2026-11-23 cost anomalies)', () =
     expect(inferPointsMultiplier('gpt-5.4')).toBe(10)
     expect(inferPointsMultiplier('gpt-5-image')).toBe(10)
     expect(inferPointsMultiplier('gemini-2.5-pro')).toBe(10)
+  })
+})
+
+describe('points multiplier 委托一致性(收敛到共享规则源)', () => {
+  // 8 个代表样本覆盖五档 + 显式映射 + 免费/经济/标准/高级/旗舰;
+  // 既钉住 api 接线层与共享规则源逐值相等,也钉住档位不漂回旧口径。
+  const MULTIPLIER_SAMPLES: ReadonlyArray<readonly [string, number]> = [
+    ['gpt-5.4', 10],
+    ['gpt-5', 10],
+    ['claude-3-opus', 30],
+    ['claude-3-5-sonnet', 3],
+    ['thinkingmachines/inkling', 3],
+    ['deepseek-v4.1-flash', 1],
+    ['opencode_zen/gpt-5', 0],
+    ['ihui/glm-5.3', 30],
+  ]
+
+  it('inferPointsMultiplier 与 inferPointsMultiplierFromRules 逐值相等,且档位符合预期', () => {
+    for (const [modelId, expected] of MULTIPLIER_SAMPLES) {
+      expect(inferPointsMultiplier(modelId)).toBe(expected)
+      expect(inferPointsMultiplier(modelId)).toBe(inferPointsMultiplierFromRules(modelId))
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -3,34 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 积分消耗倍数(单一真相源,2026-11-21 从 routes/ai-vendors/proxy-llm.ts 抽出)。
+ * 积分消耗倍数:api 侧纯接线层(2026-11-23 收敛到共享单一规则源)。
  *
- * 为什么要抽:LLM 计费(按 token)与媒体计费(按张/次)必须用**同一张倍数表**,
- * 否则同一个模型在两条链路上被算出两个档次。抽成零 IO 的纯模块后:
- *   ① 两个消费方 import 同一份,不再有第二份实现;
- *   ② 单测可以只 import 它,不牵动 db/points 这些带 IO 的模块(测试隔离铁律)。
- * 倍率语义与原来完全一致(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰)。
+ * 规则表与关键词推断解释器住在 `@ihui/shared` 的 `points-multiplier-rules`
+ * (JSON 单一真相源);本文件只保留 DB 覆盖值解析/合并的纯函数,推断委托共享规则,
+ * 调用方 import 路径不变。语义边界不变:DB 覆盖优先,null=没配,0=显式免费。
  */
-export const IHUI_POINTS_MAP: Readonly<Record<string, number>> = {
-  // 倍率 = 上游扣费比例 × 3(统一利润系数),2026-08-31 按官方套餐扣费比例重配
-  'ihui/auto-model': 3, // 上游扣费 1:1
-  'ihui/minimax-m2.7': 6, // 上游扣费 1:2
-  'ihui/minimax-m2.7-highspeed': 15, // 上游扣费 1:5
-  'ihui/minimax-m3': 15, // 上游扣费 1:5
-  'ihui/deepseek-v4-flash-0731': 15, // 上游扣费 1:5
-  'ihui/glm-5.1': 18, // 上游扣费 1:6
-  'ihui/glm-5.2': 18, // 上游扣费 1:6
-  'ihui/glm-5.3-flash': 18, // 上游扣费 1:6
-  'ihui/kimi-k2.6': 18, // 上游扣费 1:6
-  'ihui/deepseek-v4-pro': 18, // 上游扣费 1:6
-  'ihui/deepseek-v4-pro-0813': 18, // 上游扣费 1:6
-  'ihui/grok-4.5': 18, // 上游扣费 1:6(未列套餐,按次旗舰估)
-  'ihui/glm-5.3': 30, // 上游扣费 1:10
-  'ihui/gpt-5.6': 30, // 上游扣费 1:10
-  'ihui/grok-4.6': 30, // 上游扣费 1:10
-  'ihui/qwen3.7-max': 30, // 上游扣费 1:10
-  'ihui/kimi-k2.7-code': 30, // 上游扣费 1:10
-}
+import { IHUI_POINTS_MAP, inferPointsMultiplierFromRules } from '@ihui/shared'
+
+export { IHUI_POINTS_MAP }
 
 /**
  * 把 DB 的 numeric(5,2) 覆盖值解析成有限非负数;空值/坏值返回 null。
@@ -109,87 +90,10 @@ export function lookupPointsMultiplierOverride(
 }
 
 /**
- * 关键词兜底推断(只在 DB 没有覆盖值时使用)。
- *
- * 2026-11-23 修正:旧规则把纯子串 `thinking` / `gpt-5` / `deepseek` 一律拉进 30x/3x,
- * 导致 `thinkingmachines/inkling`、`gpt-5.6-luna`、`deepseek-ocr`、`deepseek-v4.1-flash`
- * 这类低成本模型被高估(实测成本只有旗舰档的 1/10 ~ 1/100)。
- * 现在顺序固定为:免费 → 经济(轻量后缀优先) → 旗舰(仅真实旗舰家族) → 高级 → 标准 → 默认。
- * DB `points_multiplier` 仍是唯一生效源;本函数只给新入库行一个不荒谬的初值。
+ * 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰)。
+ * 委托共享规则源 `inferPointsMultiplierFromRules`,判定顺序与档位与原本地判定体一致。
  */
-const POINTS_MULTIPLIER_FREE_KEYWORDS = [
-  'ollama',
-  'llama',
-  'llm7',
-  'pollinations',
-  'aihorde',
-  'opencode_zen',
-] as const
-const POINTS_MULTIPLIER_ECONOMY_KEYWORDS = [
-  'mini',
-  'nano',
-  'haiku',
-  'flash',
-  'lite',
-  'ocr',
-  'small',
-  'luna',
-  'sao10k',
-  'smol',
-  'hunyuan-2.0-thinking',
-] as const
-const POINTS_MULTIPLIER_FLAGSHIP_KEYWORDS = [
-  'opus',
-  'o1-preview',
-  'o1',
-  'o3',
-  'gpt-5.4-pro',
-  'gpt-5.5',
-  'gpt-5.5-pro',
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-] as const
-const POINTS_MULTIPLIER_PREMIUM_KEYWORDS = [
-  'gpt-5',
-  'gpt-4-turbo',
-  'gpt-4.5',
-  'qwen-max-longcontext',
-] as const
-const POINTS_MULTIPLIER_STANDARD_KEYWORDS = [
-  'sonnet',
-  'gpt-4o',
-  'gpt-4.1',
-  'deepseek',
-  'glm-4',
-  'qwen-max',
-  'thinking',
-] as const
-
-/** 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
 export function inferPointsMultiplier(modelId: string): number {
-  const mid = (modelId || '').toLowerCase()
-  // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
-  if (IHUI_POINTS_MAP[mid] !== undefined) return IHUI_POINTS_MAP[mid]
-  // 免费(0x):先判,避免免费模型被后面的旗舰/标准关键词抬高
-  if (POINTS_MULTIPLIER_FREE_KEYWORDS.some((k) => mid.includes(k))) return 0
-  // 经济(1x):mini/flash/ocr 等轻量后缀必须先于父型号(family)判定,
-  // 否则 deepseek-v4.1-flash 会被 deepseek 拉到 3x、gpt-5-image-mini 被 gpt-5 拉到 30x。
-  // 注意:gemini 本身含 "mini" 子串(ge-mini),不能把 Gemini 家族误判成经济档。
-  if (
-    POINTS_MULTIPLIER_ECONOMY_KEYWORDS.some((k) =>
-      k === 'mini' ? mid.includes('mini') && !mid.includes('gemini') : mid.includes(k),
-    )
-  )
-    return 1
-  // 旗舰(30x):只认真实旗舰家族;`thinking` 不再代表旗舰——
-  // 大量开源 reasoning 模型名字带 thinking 但成本只有 1x/3x。
-  if (POINTS_MULTIPLIER_FLAGSHIP_KEYWORDS.some((k) => mid.includes(k))) return 30
-  // 高级(10x)
-  if (mid.includes('gemini') && mid.includes('pro')) return 10
-  if (POINTS_MULTIPLIER_PREMIUM_KEYWORDS.some((k) => mid.includes(k))) return 10
-  // 标准(3x)
-  if (POINTS_MULTIPLIER_STANDARD_KEYWORDS.some((k) => mid.includes(k))) return 3
-  // 默认经济(1x)
-  return 1
+  return inferPointsMultiplierFromRules(modelId)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
