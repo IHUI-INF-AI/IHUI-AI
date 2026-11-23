@@ -15,7 +15,6 @@ import test from 'node:test'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8')
 
-const FOCUS_TOKEN = '--color-stroke-focus'
 const RETIRED_TOKEN = '--color-ring'
 
 const SOURCE_FILES = [
@@ -48,6 +47,7 @@ test('代码面不得再出现 ring-ring 类(焦点环已统一为 outline 四�
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter(Boolean)
