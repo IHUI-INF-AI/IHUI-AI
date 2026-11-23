@@ -16,19 +16,26 @@ import type {
   WechatAccountStatusView,
   WechatAccountView,
   WechatActionLogView,
+  WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
   WechatAutoReplyRuleInput,
   WechatAutoReplyRuleView,
   WechatBackendCapability,
+  WechatBroadcastInput,
+  WechatBroadcastResult,
   WechatContactUpdateInput,
   WechatContactView,
   WechatConversationView,
   WechatDigestScheduleInput,
   WechatDigestScheduleView,
+  WechatGroupActionInput,
   WechatGroupMemberView,
+  WechatKnowledgeDocView,
+  WechatKnowledgeHit,
   WechatMcpTool,
   WechatMessageView,
+  WechatMomentInput,
   WechatQrCodeView,
   WechatSendInput,
   WechatSendResult,
@@ -337,6 +344,128 @@ export async function runWechatDigest(accountId: string): Promise<WechatDigestSc
     { method: 'POST', body: JSON.stringify({}) },
   )
   if (!res.success) throw new Error(res.error || '执行日报失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/contacts/sync */
+export async function syncWechatContacts(accountId: string): Promise<{
+  synced: number
+  inserted: number
+  updated: number
+  result: WechatActionResult
+}> {
+  const res = await fetchApi<{
+    synced: number
+    inserted: number
+    updated: number
+    result: WechatActionResult
+  }>(`/wechat-hub/accounts/${accountId}/contacts/sync`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+  if (!res.success) throw new Error(res.error || '同步微信联系人失败')
+  return res.data
+}
+
+/** DELETE /api/wechat-hub/accounts/:id/contacts/:contactId/remote */
+export async function deleteWechatRemoteContact(
+  accountId: string,
+  contactId: string,
+): Promise<WechatActionResult> {
+  const res = await fetchApi<WechatActionResult>(
+    `/wechat-hub/accounts/${accountId}/contacts/${contactId}/remote`,
+    { method: 'DELETE' },
+  )
+  if (!res.success) throw new Error(res.error || '删除微信联系人失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/groups/action */
+export async function runWechatGroupAction(
+  accountId: string,
+  input: WechatGroupActionInput,
+): Promise<WechatActionResult> {
+  const res = await fetchApi<WechatActionResult>(
+    `/wechat-hub/accounts/${accountId}/groups/action`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '微信群动作失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/moments */
+export async function publishWechatMoment(
+  accountId: string,
+  input: WechatMomentInput,
+): Promise<WechatActionResult> {
+  const res = await fetchApi<WechatActionResult>(`/wechat-hub/accounts/${accountId}/moments`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw new Error(res.error || '发布朋友圈失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/knowledge */
+export async function fetchWechatKnowledge(accountId: string): Promise<WechatKnowledgeDocView[]> {
+  const res = await fetchApi<WechatKnowledgeDocView[]>(
+    `/wechat-hub/accounts/${accountId}/knowledge`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取知识库文档失败')
+  return res.data ?? []
+}
+
+/** POST /api/wechat-hub/accounts/:id/knowledge */
+export async function ingestWechatKnowledge(
+  accountId: string,
+  input: { title: string; text: string },
+): Promise<{ chunkCount: number }> {
+  const res = await fetchApi<{ chunkCount: number }>(
+    `/wechat-hub/accounts/${accountId}/knowledge`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '入库知识库失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/knowledge/search */
+export async function searchWechatKnowledge(
+  accountId: string,
+  query: string,
+  topK = 5,
+): Promise<WechatKnowledgeHit[]> {
+  const res = await fetchApi<WechatKnowledgeHit[]>(
+    `/wechat-hub/accounts/${accountId}/knowledge/search`,
+    { method: 'POST', body: JSON.stringify({ query, topK }) },
+  )
+  if (!res.success) throw new Error(res.error || '检索知识库失败')
+  return res.data ?? []
+}
+
+/** DELETE /api/wechat-hub/accounts/:id/knowledge/:docId */
+export async function deleteWechatKnowledge(
+  accountId: string,
+  docId: number,
+): Promise<{ deleted: boolean }> {
+  const res = await fetchApi<{ deleted: boolean }>(
+    `/wechat-hub/accounts/${accountId}/knowledge/${String(docId)}`,
+    { method: 'DELETE' },
+  )
+  if (!res.success) throw new Error(res.error || '删除知识库文档失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/broadcast */
+export async function broadcastWechat(
+  accountId: string,
+  input: Omit<WechatBroadcastInput, 'accountId'>,
+): Promise<WechatBroadcastResult> {
+  const res = await fetchApi<WechatBroadcastResult>(`/wechat-hub/accounts/${accountId}/broadcast`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw new Error(res.error || '微信群发失败')
   return res.data
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

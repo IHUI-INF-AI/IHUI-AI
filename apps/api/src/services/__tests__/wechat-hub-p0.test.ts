@@ -15,6 +15,8 @@ import type { WechatAnalysisRunView } from '@ihui/types'
 import { formatDigestText, isDigestDue, localParts } from '../wechat-hub/digest'
 import { matchAutoReply } from '../wechat-hub/automation'
 import { normalizeBridgePayload } from '../wechat-hub/bridge-adapter'
+import { selectBroadcastTargets } from '../wechat-hub/broadcast'
+import { normalizeBridgeContacts } from '../wechat-hub/operations'
 
 describe('matchAutoReply', () => {
   const base = { matchType: 'contains' as const, keywords: ['报价', '发票'], scope: 'all' as const }
@@ -147,6 +149,50 @@ describe('normalizeBridgePayload 群成员', () => {
       message: { id: 'm-private', chatId: 'wxid-a', sender: 'wxid-a', content: 'hi' },
     })
     expect(events[0]?.groupMembers).toBeUndefined()
+  })
+})
+
+describe('normalizeBridgeContacts', () => {
+  it('吃下 contacts/list/items/members 与 wxid 别名', () => {
+    expect(
+      normalizeBridgeContacts({
+        contacts: [
+          { wxid: 'wxid-a', nickname: '张三', remark: 'A 客户', tags: ['vip', 1] },
+          { userName: 'wxid-b', name: '李四' },
+        ],
+      }),
+    ).toEqual([
+      { platformUserId: 'wxid-a', displayName: '张三', remark: 'A 客户', tags: ['vip'] },
+      { platformUserId: 'wxid-b', displayName: '李四', remark: '', tags: [] },
+    ])
+    expect(
+      normalizeBridgeContacts({ members: [{ memberId: 'wxid-c', nickname: '群友' }] })[0],
+    ).toEqual({ platformUserId: 'wxid-c', displayName: '群友', remark: '', tags: [] })
+  })
+
+  it('没有可用 id 的条目丢弃，不造空联系人', () => {
+    expect(normalizeBridgeContacts({ list: [{ nickname: '无 id' }, null, 'wxid-x'] })).toEqual([])
+  })
+})
+
+describe('selectBroadcastTargets', () => {
+  const contacts = [
+    { platformUserId: 'wxid-a', tags: ['vip', 'old'], blocked: false },
+    { platformUserId: 'wxid-b', tags: ['old'], blocked: true },
+    { platformUserId: 'wxid-c', tags: [], blocked: false },
+  ]
+
+  it('无标签取全部未拉黑，并按目标去重', () => {
+    expect(selectBroadcastTargets(contacts, [], false)).toEqual(['wxid-a', 'wxid-c'])
+    expect(selectBroadcastTargets([...contacts, contacts[0]!], [], false)).toEqual([
+      'wxid-a',
+      'wxid-c',
+    ])
+  })
+
+  it('标签任一命中；includeBlocked 才放行拉黑联系人', () => {
+    expect(selectBroadcastTargets(contacts, ['old'], false)).toEqual(['wxid-a'])
+    expect(selectBroadcastTargets(contacts, ['old'], true)).toEqual(['wxid-a', 'wxid-b'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -25,6 +25,7 @@ import { db, dbRead } from '../../db/index.js'
 import { AppError } from '../../errors/AppError.js'
 import { assertAccountForUser } from './guards.js'
 import { isContactBlocked } from './contacts.js'
+import { knowledgeReply } from './knowledge.js'
 import type { WechatInboundEvent } from './types.js'
 
 const MATCH_TYPES: WechatAutoReplyMatchType[] = ['contains', 'exact', 'prefix']
@@ -189,11 +190,16 @@ export async function runAutoReply(
       )
       .returning({ id: wechatHubAutoReplyRules.id })
     if (claimed.length === 0) continue
+    let replyText = rule.replyText
+    if (replyText.includes('{{knowledge}}')) {
+      const knowledge = await knowledgeReply(userId, accountId, event.content, 3).catch(() => '')
+      replyText = replyText.replaceAll('{{knowledge}}', knowledge || '暂时没有查到相关资料。')
+    }
     const result = await send({
       accountId,
       target: event.platformChatId,
       kind: 'text',
-      text: rule.replyText,
+      text: replyText,
       mentions: event.conversationKind === 'group' && event.senderId ? [event.senderId] : undefined,
     })
     return { rule: { ...rule, lastTriggeredAt: new Date().toISOString() }, result }
