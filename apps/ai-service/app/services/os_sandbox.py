@@ -1340,9 +1340,14 @@ class WindowsPathAclGuard:
             self._root_sids.append((os.path.abspath(path), sid))
             write_sids.append(sid)
         for path in self.policy.denied_paths:
-            target = os.path.abspath(path)
+            target = os.path.normcase(os.path.abspath(path))
             owner_sid = next(
-                (sid for root, sid in self._root_sids if target == root or target.startswith(root + os.sep)),
+                (
+                    sid
+                    for root, sid in self._root_sids
+                    if target == os.path.normcase(root)
+                    or target.startswith(os.path.normcase(root) + os.sep)
+                ),
                 None,
             )
             if owner_sid is None:
