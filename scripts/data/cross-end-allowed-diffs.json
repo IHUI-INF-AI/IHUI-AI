@@ -178,9 +178,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 4,
-      "reason": "两端盒档读数仍有差;4 枚全属 RN 独有元素(等级说明弹窗):6=tokenRow/growthRow/inviteRow 的 paddingVertical、18=modalTitle 的 rnType.subtitle.size、24=modalCard 的 rnSpacing.xl、32=avatarFallbackText 的 initials 字号。小程序端的等级说明由 VipBenefitsPopup 承载(组件里只有 onOpenLevel 回调,无弹窗层),结构上没有这些节点;补数字等于往屏上加节点。本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json(2026-11-02 Phase 3,几何维识别 rnType/rnSpacing 引用后):UserInfoCard diffCount=4(onlyMiniapp=0 / onlyRn=[6,18,24,32]);RN 腿 apps/mobile-rn/src/components/UserInfoCard.tsx 的 modalCard/modalTitle/avatarFallbackText;小程序腿 apps/miniapp-taro/src/components/UserInfoCard.tsx 无 Modal 节点(pages/user/index.tsx:950 onOpenLevel → VipBenefitsPopup)"
+      "count": 5,
+      "reason": "两端盒档读数仍有差;现读 5 枚 = 仅小程序 [2] + 仅 RN [6,11,18,24],全部属**结构不同形**(不是同一元素取不同值):① 仅小程序 2 = 211/226 行 `py-[4rpx]`(任意值 2px)的徽标内衬,RN 同位置取 `rnSpacing.xs`(4);② 仅 RN 6 = tokenRow/growthRow/inviteRow 三处 muted 面板的 paddingVertical;③ 仅 RN 11 = `rnType.caption.size`(辅助说明字号);④ 仅 RN 18 = `rnType.subtitle.size`(等级弹窗标题);⑤ 仅 RN 24 = `rnSpacing.xl`(modalCard 内边距)。小程序端的等级说明由 VipBenefitsPopup 承载(组件里只有 onOpenLevel 回调,无弹窗层),结构上没有 ②③④⑤ 这些节点;补数字等于往屏上加节点。本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json(2026-11-23 现读,HEAD 面):UserInfoCard diffCount=5(onlyMiniapp=[2] / onlyRn=[6,11,18,24])。2026-11-02 Phase 3 旧读 4(onlyMiniapp=[] / onlyRn=[6,18,24,32])。重锚的差额是**量具口径变化**,不是屏幕变差:① 小程序 211/226 行 `py-[4rpx]` 这处任意值此前未计入;② RN 的 initials 字号从字面量 32 收成 `rnType.*` 引用后换算落 11(caption),32 不再单侧。RN 腿 apps/mobile-rn/src/components/UserInfoCard.tsx;小程序腿 apps/miniapp-taro/src/components/UserInfoCard.tsx 无 Modal 节点(pages/user/index.tsx onOpenLevel → VipBenefitsPopup)。"
     },
     {
       "component": "UserInfoCard",
@@ -188,9 +188,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 1,
-      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: UserInfoCard radiusCount=1(onlyMiniapp=0 / onlyRn=1)"
+      "count": 2,
+      "reason": "两端圆角档集合仍有差;现读 = 仅小程序 [2,6],全部是**类名档 vs 角色档**的形态差:小程序 `rounded-sm`(2)/`rounded-md`(6) 是 Tailwind 原生档,RN 同槽位一律取 `rnRadius.*` 角色档(control/card/panel 分别 4/8/12),两端没有一处是「同一元素取不同值」。RN 侧 12(modalCard 的 `rnRadiusFor.panel`)现读已两端共有 ⇒ onlyRn 空。属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json(2026-11-23 现读):UserInfoCard radiusCount=2(onlyMiniapp=[2,6] / onlyRn=[]);2026-11-02 旧读 radiusCount=1(onlyMiniapp=[] / onlyRn=[12])。构成变化来自 RD 维接上 `rnRadius.*` 解析(12 转为共有)+ 小程序 `rounded-sm`/`rounded-md` 类名档被计入 —— 量具口径变化,不是屏幕变差。"
     },
     {
       "component": "VideoPlayer",
