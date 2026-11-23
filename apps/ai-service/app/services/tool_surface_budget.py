@@ -462,6 +462,11 @@ def _apply_caps[T: SurfaceTool](
 # ---------------------------------------------------------------------------
 # 三张表覆盖五档 ChatMode 全部拼写(`normalize_chat_mode` 的输出),缺档即整表不生效。
 # `lean` 是本票的"能落地即不扰动"档:必付格 + 模式收窄照旧,枚数/字节不设限。
+#
+# `find_` 前缀(P0-8 遗留③,2026-11-23 收口):`find_import_edges` 的名字不含
+# read/search/list_ 任何一族,`tight` 档裁剪时会被排在队尾甚至裁掉 —— 而它是
+# 代码索引的检索入口,和 `list_` 同属"先看再改"的第一步。按**语义族**补前缀,
+# 不按单个工具名特判:同族的 `find_*` 将来一并受益,新工具不必再改这一层。
 
 _CORE_ALWAYS: tuple[str, ...] = (
     SCHEMA_RETRIEVAL_TOOL,
@@ -476,7 +481,7 @@ _LEAN_TIERS: tuple[BudgetTier, ...] = (
     BudgetTier(
         name="build",
         always_exact=_CORE_ALWAYS,
-        priority_prefixes=("file", "read", "search", "list_", "write", "edit", "run_"),
+        priority_prefixes=("file", "read", "search", "find_", "list_", "write", "edit", "run_"),
         demote_prefixes=("token6688_", "edu_"),
         max_visible=None,
         max_schema_bytes=None,
@@ -484,23 +489,23 @@ _LEAN_TIERS: tuple[BudgetTier, ...] = (
     BudgetTier(
         name="spec",
         always_exact=_CORE_ALWAYS,
-        priority_prefixes=("file", "read", "search", "list_", "write", "edit", "run_"),
+        priority_prefixes=("file", "read", "search", "find_", "list_", "write", "edit", "run_"),
         demote_prefixes=("token6688_", "edu_"),
     ),
     BudgetTier(
         name="plan",
         always_exact=(SCHEMA_RETRIEVAL_TOOL, "read_file", "list_files", "knowledge_lookup"),
-        priority_prefixes=("read", "search", "list_", "file", "index", "context", "analyze"),
+        priority_prefixes=("read", "search", "find_", "list_", "file", "index", "context", "analyze"),
     ),
     BudgetTier(
         name="review",
         always_exact=(SCHEMA_RETRIEVAL_TOOL, "read_file", "list_files", "knowledge_lookup"),
-        priority_prefixes=("read", "search", "list_", "file", "review", "git", "analyze"),
+        priority_prefixes=("read", "search", "find_", "list_", "file", "review", "git", "analyze"),
     ),
     BudgetTier(
         name="ask",
         always_exact=(SCHEMA_RETRIEVAL_TOOL, "knowledge_lookup", "context_recall"),
-        priority_prefixes=("read", "search", "list_", "fetch", "extract"),
+        priority_prefixes=("read", "search", "find_", "list_", "fetch", "extract"),
     ),
 )
 
