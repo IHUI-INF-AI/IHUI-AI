@@ -193,7 +193,7 @@ async function buildBiPayload() {
       })
       .from(visitLogs)
       .where(sql`${visitLogs.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`)
-      .groupBy(visitPlatformCaseSql())
+      .groupBy(sql`1`)
       .orderBy(sql`count(*) desc`),
     // 访问面(前台/后台/登录页)占比:判据与监控大屏 scopeSplit 同一份投影
     dbRead
@@ -204,7 +204,7 @@ async function buildBiPayload() {
       })
       .from(visitLogs)
       .where(sql`${visitLogs.createdAt} >= now() - make_interval(days => ${WINDOW_DAYS})`)
-      .groupBy(visitScopeCaseSql())
+      .groupBy(sql`1`)
       .orderBy(sql`count(*) desc`),
     // 地域 TOP(服务端按 IP 反查的 city):回答"这些人从哪来"
     dbRead
