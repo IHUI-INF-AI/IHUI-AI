@@ -7,12 +7,23 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { BookOpen, FileCheck2, BarChart3, ReceiptText } from 'lucide-react'
+import {
+  BookOpen,
+  FileCheck2,
+  BarChart3,
+  ReceiptText,
+  Layers,
+  Landmark,
+  Percent,
+} from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { FeaturePageShell } from '@/components/layout'
 import { api, rowsOf, FIN_RESOURCE, FIN_VIEW_PERM, type FinClient, type FinLedger } from './types'
 import { ClientsTab, VouchersTab, ReportsTab, TaxTab } from './tabs'
+import { LedgerTab } from './ledger-tab'
+import { DocsTab } from './docs-tab'
+import { TaxProfileTab } from './tax-profile-tab'
 
 /**
  * 财务账套(2026-11-23 立):客户 → 账套 → 凭证/复核 → 报表/结账 → 税务申报。
@@ -21,7 +32,7 @@ import { ClientsTab, VouchersTab, ReportsTab, TaxTab } from './tabs'
  * 月度结账、申报日历全靠手工调 API。本页把"会计每月真正要做的一条线"按顺序排开。
  */
 
-type TabKey = 'clients' | 'vouchers' | 'reports' | 'tax'
+type TabKey = 'clients' | 'ledger' | 'vouchers' | 'docs' | 'reports' | 'taxprofile' | 'tax'
 
 export default function FinAccountingPage() {
   const t = useTranslations('finAccounting')
@@ -44,8 +55,11 @@ export default function FinAccountingPage() {
     icon: React.ComponentType<{ className?: string }>
   }> = [
     { key: 'clients', label: t('tabClients'), icon: BookOpen },
+    { key: 'ledger', label: t('tabLedger'), icon: Layers },
     { key: 'vouchers', label: t('tabVouchers'), icon: FileCheck2 },
+    { key: 'docs', label: t('tabDocs'), icon: Landmark },
     { key: 'reports', label: t('tabReports'), icon: BarChart3 },
+    { key: 'taxprofile', label: t('tabTaxProfiles'), icon: Percent },
     { key: 'tax', label: t('tabTax'), icon: ReceiptText },
   ]
 
@@ -71,8 +85,11 @@ export default function FinAccountingPage() {
         </div>
 
         {tab === 'clients' && <ClientsTab />}
+        {tab === 'ledger' && <LedgerTab ledgers={ledgers} />}
         {tab === 'vouchers' && <VouchersTab ledgers={ledgers} />}
+        {tab === 'docs' && <DocsTab ledgers={ledgers} />}
         {tab === 'reports' && <ReportsTab ledgers={ledgers} />}
+        {tab === 'taxprofile' && <TaxProfileTab clients={clients} />}
         {tab === 'tax' && <TaxTab clients={clients} />}
       </HasPermi>
     </FeaturePageShell>

@@ -42,6 +42,77 @@ export function PayoutTab() {
   const cover = coverQ.data
   const invalidate = () => qc.invalidateQueries({ queryKey: ['hrl'] })
 
+  // ---------- 工资条(2026-11-23 补):生成 → 推送 → 员工签收 ----------
+  interface HrPayslip {
+    id: string
+    periodMonth: string
+    employeeId: string
+    status: string
+    snapshot: Record<string, unknown> | null
+    pushedAt: string | null
+    acknowledgedAt: string | null
+    ackChannel: string | null
+  }
+  const slipName = (s: HrPayslip) => {
+    const snap = s.snapshot ?? {}
+    const name = snap.name ?? snap.employeeName
+    const no = snap.employeeNo
+    return typeof name === 'string'
+      ? `${no ? `${String(no)} ` : ''}${name}`
+      : s.employeeId.slice(0, 8)
+  }
+  const slipNet = (s: HrPayslip) => {
+    const snap = s.snapshot ?? {}
+    const v = snap.netPay ?? snap.net ?? snap.takeHome ?? snap.totalAmount
+    return v === undefined || v === null ? '-' : fmtMoney(v as string | number)
+  }
+
+  const slipsQ = useQuery({
+    queryKey: ['hrl', 'payslips', periodMonth],
+    queryFn: () => api<unknown>(`${PAYOUT_RESOURCE}/payslips?periodMonth=${periodMonth}`),
+    enabled: !!periodMonth,
+  })
+  const slips = rowsOf<HrPayslip>(slipsQ.data)
+
+  const generateSlips = useMutation({
+    mutationFn: () =>
+      api(`${PAYOUT_RESOURCE}/payslips/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ periodMonth }),
+      }),
+    onSuccess: () => {
+      toast.success(t('slipsGenerated'))
+      qc.invalidateQueries({ queryKey: ['hrl', 'payslips', periodMonth] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const pushSlips = useMutation({
+    mutationFn: () =>
+      api(`${PAYOUT_RESOURCE}/payslips/push`, {
+        method: 'POST',
+        body: JSON.stringify({ periodMonth, channel: 'inapp' }),
+      }),
+    onSuccess: () => {
+      toast.success(t('slipsPushed'))
+      qc.invalidateQueries({ queryKey: ['hrl', 'payslips', periodMonth] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const ackSlip = useMutation({
+    mutationFn: (id: string) =>
+      api(`${PAYOUT_RESOURCE}/payslips/${id}/acknowledge`, {
+        method: 'POST',
+        body: JSON.stringify({ channel: 'inapp' }),
+      }),
+    onSuccess: () => {
+      toast.success(t('slipAcknowledged'))
+      qc.invalidateQueries({ queryKey: ['hrl', 'payslips', periodMonth] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const build = useMutation({
     mutationFn: () =>
       api(`${PAYOUT_RESOURCE}/batches`, { method: 'POST', body: JSON.stringify({ periodMonth }) }),
@@ -179,6 +250,75 @@ export function PayoutTab() {
           </div>
         </Card>
       )}
+
+      <Card
+        title={t('payslipsTitle')}
+        actions={
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-muted-foreground">{slips.length}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!periodMonth || generateSlips.isPending}
+              onClick={() => generateSlips.mutate()}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('generateSlips')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!periodMonth || pushSlips.isPending}
+              onClick={() => pushSlips.mutate()}
+            >
+              {t('pushSlips')}
+            </Button>
+          </div>
+        }
+      >
+        {slips.length === 0 ? (
+          <Empty text={t('noPayslips')} />
+        ) : (
+          <div className="max-h-64 overflow-auto">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className={th}>{t('employeeName')}</th>
+                  <th className={th}>{t('periodMonth')}</th>
+                  <th className={th}>{t('netPay')}</th>
+                  <th className={th}>{t('status')}</th>
+                  <th className={th}>{t('acknowledgedAt')}</th>
+                  <th className={th}>{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slips.map((s) => (
+                  <tr key={s.id} className="border-t border-stroke-subtle">
+                    <td className={td}>{slipName(s)}</td>
+                    <td className={td}>{s.periodMonth}</td>
+                    <td className={`${td} tabular-nums`}>{slipNet(s)}</td>
+                    <td className={td}>
+                      <Badge status={s.status} />
+                    </td>
+                    <td className={td}>{s.acknowledgedAt ?? '-'}</td>
+                    <td className={td}>
+                      {s.status !== 'acknowledged' && (
+                        <button
+                          className={btnGhost}
+                          disabled={ackSlip.isPending}
+                          onClick={() => ackSlip.mutate(s.id)}
+                        >
+                          {t('acknowledge')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card title={t('coverageTitle')}>
         {!cover ? (

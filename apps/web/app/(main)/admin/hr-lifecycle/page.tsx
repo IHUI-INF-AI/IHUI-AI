@@ -6,12 +6,20 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, FileSignature, UserPlus, LogOut, Banknote } from 'lucide-react'
+import {
+  LayoutDashboard,
+  FileSignature,
+  UserPlus,
+  MessagesSquare,
+  LogOut,
+  Banknote,
+} from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { FeaturePageShell } from '@/components/layout'
 import { HR_VIEW_PERM, RECRUIT_PERM } from './types'
 import { BoardTab, ContractsTab, RecruitTab, ResignTab, PayoutTab } from './tabs'
+import { InterviewTab } from './interview-tab'
 
 /**
  * 人事生命周期(2026-11-23 立):入职前(招聘) → 合同/试用 → 离职 → 发薪闭环。
@@ -20,7 +28,7 @@ import { BoardTab, ContractsTab, RecruitTab, ResignTab, PayoutTab } from './tabs
  * 代发文件要手工拼 —— 这里把"一个员工从候选到离场"的链路收进一页。
  */
 
-type TabKey = 'board' | 'contracts' | 'recruit' | 'resign' | 'payout'
+type TabKey = 'board' | 'contracts' | 'recruit' | 'interview' | 'resign' | 'payout'
 
 export default function HrLifecyclePage() {
   const t = useTranslations('hrLifecycle')
@@ -34,6 +42,7 @@ export default function HrLifecyclePage() {
     { key: 'board', label: t('tabBoard'), icon: LayoutDashboard },
     { key: 'contracts', label: t('tabContracts'), icon: FileSignature },
     { key: 'recruit', label: t('tabRecruit'), icon: UserPlus },
+    { key: 'interview', label: t('tabInterview'), icon: MessagesSquare },
     { key: 'resign', label: t('tabResign'), icon: LogOut },
     { key: 'payout', label: t('tabPayout'), icon: Banknote },
   ]
@@ -67,6 +76,14 @@ export default function HrLifecyclePage() {
             fallback={<p className="text-sm text-muted-foreground">{t('recruitNoPerm')}</p>}
           >
             <RecruitTab />
+          </HasPermi>
+        )}
+        {tab === 'interview' && (
+          <HasPermi
+            code={RECRUIT_PERM}
+            fallback={<p className="text-sm text-muted-foreground">{t('recruitNoPerm')}</p>}
+          >
+            <InterviewTab />
           </HasPermi>
         )}
         {tab === 'resign' && <ResignTab />}

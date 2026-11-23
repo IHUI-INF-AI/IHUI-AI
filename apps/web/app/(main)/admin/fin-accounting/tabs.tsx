@@ -21,10 +21,10 @@ import {
   type FinFilingTask,
 } from './types'
 
-const field =
+export const field =
   'rounded-md border border-stroke-default bg-background px-2 py-1 text-sm focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-stroke-focus'
 
-function Card({
+export function Card({
   title,
   actions,
   children,
@@ -44,15 +44,15 @@ function Card({
   )
 }
 
-function Empty({ text }: { text: string }) {
+export function Empty({ text }: { text: string }) {
   return <p className="py-3 text-center text-xs text-muted-foreground">{text}</p>
 }
 
-function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: string }) {
   const tone =
-    status === 'posted' || status === 'accepted'
+    status === 'posted' || status === 'accepted' || status === 'matched'
       ? 'bg-success/10 text-success'
-      : status === 'draft' || status === 'pending'
+      : status === 'draft' || status === 'pending' || status === 'ignored'
         ? 'bg-muted text-muted-foreground'
         : status === 'failed' || status === 'voided'
           ? 'bg-destructive/10 text-destructive'
@@ -64,8 +64,8 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-const th = 'px-2 py-1 text-left text-[11px] font-medium text-muted-foreground'
-const td = 'px-2 py-1 text-xs'
+export const th = 'px-2 py-1 text-left text-[11px] font-medium text-muted-foreground'
+export const td = 'px-2 py-1 text-xs'
 
 /** 客户 + 账套:新客户上线第一步(建客户 → 建账套自动带 63 科目模板) */
 export function ClientsTab() {
