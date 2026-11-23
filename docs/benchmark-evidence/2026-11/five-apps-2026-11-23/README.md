@@ -227,6 +227,17 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - `AgentEngine`：`EngineThread` 新增 `last_provider_usage` / `last_token_anchor`；每轮开始清空，`_run_prompt_turn` 正常结束后取 `usage.perIteration[-1]` 调 `build_anchor`；`thread.contextUsage` 把两者传给 `measure_messages`，并在同一信封键下复用 provider 数。取不到锚点的轮次仍 `baseline=estimated`，不拿旧数冒充。
 - 测试：`test_token_meter.py` 新增 `from_normalized_usage` 减缓存双计、`build_anchor` sampled 点/estimated 口径、复用后 total/projected 三值；`test_engine_control_frames_1106.py` 新增真实 `contextUsage` 复用断言（`baseline=provider_usage`、`pressure=100`、`projected=100+assistant`）。合计 **19 passed in 10.57s**；`ruff check` 六文件全过；水印 verify 4/4 完整。`agent_engine.py` 只保留 29 行增量，**未整文件格式化**（首轮 ruff format 曾把 7,000 行文件重排 784 行，已从 HEAD 还原后重贴小改动）。
 
+## 追加批：turn.diff 逐文件行数统计（对齐 workspace/changes 摘要）
+
+DSH `dsh-workspace-changes` 在每轮结束宣告 `workspace/changes`，摘要给每个文件 `additions/deletions`，并区分 `binary` / `coarse` / `oversized`；本仓 `turn.diff` 已有文件清单、A/M/D 状态、32k 截断 unifiedDiff，但**没有逐文件行数**。本轮只补统计层，不改 diff 正文与既有事件形状：
+
+- `turn_diff_tracker.py` 新增 `FileDiffStat` / `diff_file_stats(unified_diff)`：纯函数解析 unified diff，只数 hunk 内 `+` / `-` 行（文件头 `---`/`+++` 不计）；`GIT binary patch` / `Binary files` 标 `binary`；病态输入跳过行级 diff或非 git 基线缺失标 `coarse`，**不把 0 冒充精确**；同一路径多段 diff 合并计数。解析面同时支持 git 原生 `diff --git` 头与本仓 `_aggregate_unified_diff` 的合成 `--- a/...` 头（hunk 内下一行为 `+++` 才认新文件头，避免把内容行误判成文件边界）。
+- `agent_engine.py` 两处 `turn.diff`：
+  - git 路径：用**完整** `_tracked_diff or unified_diff` 派生 `stats`，再给 `changes` 每项补 `additions/deletions/binary/coarse`；32k 只截 `unifiedDiff` 正文，行数不受截断影响，找不到统计的文件标 `coarse=true`。
+  - 非 git mtime 路径：同一函数解析合成 diff；修改文件没有基线内容，显式 `coarse=true`，新增/删除文件给精确行数。
+- 测试：`test_engine_harness_twentyseventh.py` 新增纯函数 1 例（多文件、二进制、改名、超大 coarse）；`test_engine_harness_thirteenth.py` 的 `turn.diff` 用例补 `tracked.txt` / `new_file.py` 行数与 `coarse=false` 断言；`test_engine_harness_fourteenth.py` 的非 git 用例补 `brand.py additions=1`。目标面 **39 passed in 9.07s**，非 git 单例 **1 passed**；`ruff check` 四文件全过。
+- 说明：更广的 `third/tenth/fourteenth` 回归里 `test_tool_retry_event_emitted` 出现 `calls["n"]==0`（工具未被执行，与本轮 diff 统计无关的存量/顺序现象），不把该例计入本轮绿账，也不借此报整包绿。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

@@ -31,6 +31,7 @@ from app.core.turn_diff_tracker import (
     FileChange,
     PatchDelta,
     TurnDiffTracker,
+    diff_file_stats,
     git_blob_oid,
 )
 
@@ -43,6 +44,44 @@ def _is_user_msg(item):
 # turn_diff_tracker
 # ======================================================================
 class TestTurnDiffTracker:
+    def test_diff_file_stats_counts_hunks_binary_and_coarse(self):
+        text = (
+            "diff --git a/a.txt b/a.txt\n"
+            "index 111..222 100644\n"
+            "--- a/a.txt\n"
+            "+++ b/a.txt\n"
+            "@@ -1,2 +1,2 @@\n"
+            "-old\n"
+            "+new\n"
+            " keep\n"
+            "diff --git a/new.py b/new.py\n"
+            "new file mode 100644\n"
+            "--- /dev/null\n"
+            "+++ b/new.py\n"
+            "@@ -0,0 +1,2 @@\n"
+            "+x\n"
+            "+y\n"
+            "diff --git a/bin.png b/bin.png\n"
+            "index 333..444 100644\n"
+            "Binary files a/bin.png and b/bin.png differ\n"
+            "diff --git a/old.py b/renamed.py\n"
+            "--- a/old.py\n"
+            "+++ b/renamed.py\n"
+            "@@ -1 +1 @@\n"
+            "-a\n"
+            "+b\n"
+            "diff --git a/huge.txt b/huge.txt\n"
+            "--- a/huge.txt\n"
+            "+++ b/huge.txt\n"
+            "@@ 内容过大,行级 diff 省略 @@\n"
+        )
+        stats = {s.path: s for s in diff_file_stats(text)}
+        assert (stats["a.txt"].additions, stats["a.txt"].deletions) == (1, 1)
+        assert stats["a.txt"].coarse is False
+        assert stats["new.py"].additions == 2
+        assert stats["bin.png"].binary is True
+        assert (stats["renamed.py"].additions, stats["renamed.py"].deletions) == (1, 1)
+        assert stats["huge.txt"].coarse is True
     def test_git_blob_oid_matches_git_hash_object(self):
         # 与 git hash-object 算法一致:sha1("blob <len>\0" + content)
         assert git_blob_oid("") == "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"

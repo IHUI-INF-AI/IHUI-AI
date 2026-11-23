@@ -3033,18 +3033,36 @@ class AgentEngine:
                 if _tracker is not None and _tracker.valid():
                     with contextlib.suppress(Exception):
                         _tracked_diff = _tracker.get_unified_diff()
+                # 追加批:turn.diff 的逐文件行数统计从完整 unified diff 派生,
+                # 与 32k 截断正文分离 —— 截断只影响正文,不影响每文件的增删行数。
+                from ..core.turn_diff_tracker import diff_file_stats
+
+                _diff_text = _tracked_diff or unified_diff
+                _stat_by_path = {
+                    s.path: s for s in diff_file_stats(_diff_text)
+                }
+                _changes: list[dict[str, Any]] = []
+                for p in changed[:50]:
+                    _stat = _stat_by_path.get(p)
+                    _changes.append(
+                        {
+                            "path": p,
+                            "status": after_status.get(p, "M"),
+                            "additions": _stat.additions if _stat else 0,
+                            "deletions": _stat.deletions if _stat else 0,
+                            "binary": bool(_stat and _stat.binary),
+                            "coarse": bool(_stat is None or _stat.coarse),
+                        }
+                    )
                 await self._emit_engine_event(
                     thread,
                     emit,
                     "turn.diff",
                     {
                         "files": changed[:50],
-                        "changes": [
-                            {"path": p, "status": after_status.get(p, "M")}
-                            for p in changed[:50]
-                        ],
+                        "changes": _changes,
                         "truncated": len(changed) > 50,
-                        "unifiedDiff": (_tracked_diff or unified_diff)[:32_000],
+                        "unifiedDiff": _diff_text[:32_000],
                         "baselineSha": baseline_sha,
                         "baselineSource": baseline_source,
                         "diffSource": "turn_tracker" if _tracked_diff else "git",
@@ -3086,6 +3104,26 @@ class AgentEngine:
                         + [{"path": p, "status": "M"} for p in modified]
                         + [{"path": p, "status": "D"} for p in removed]
                     )
+                    from ..core.turn_diff_tracker import diff_file_stats
+
+                    _snapshot_text = "\n".join(p for p in parts if p)
+                    _snapshot_stats = {
+                        s.path: s for s in diff_file_stats(_snapshot_text)
+                    }
+                    for _change in changes:
+                        _stat = _snapshot_stats.get(str(_change["path"]))
+                        _change.update(
+                            {
+                                "additions": _stat.additions if _stat else 0,
+                                "deletions": _stat.deletions if _stat else 0,
+                                "binary": bool(_stat and _stat.binary),
+                                "coarse": bool(
+                                    _stat is None
+                                    or _stat.coarse
+                                    or _change["status"] == "M"
+                                ),
+                            }
+                        )
                     await self._emit_engine_event(
                         thread,
                         emit,
@@ -3094,7 +3132,7 @@ class AgentEngine:
                             "files": added + modified + removed,
                             "changes": changes,
                             "truncated": False,
-                            "unifiedDiff": "\n".join(p for p in parts if p)[:32_000],
+                            "unifiedDiff": _snapshot_text[:32_000],
                             "baselineSha": None,
                             "baselineSource": "mtime-snapshot",
                             "diffSource": "mtime-snapshot",

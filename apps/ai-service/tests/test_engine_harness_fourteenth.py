@@ -292,6 +292,9 @@ async def test_turn_diff_fallback_without_git(tmp_path):
     statuses = {c["path"]: c["status"] for c in payload["changes"]}
     assert statuses.get("brand.py") == "A"
     assert "a/brand.py" in payload["unifiedDiff"]
+    stats = {c["path"]: c for c in payload["changes"]}
+    assert stats["brand.py"]["additions"] == 1
+    assert stats["brand.py"]["coarse"] is False
 
 
 @pytest.mark.asyncio

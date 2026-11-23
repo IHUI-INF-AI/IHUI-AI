@@ -75,6 +75,136 @@ class PatchDelta:
     exact: bool = True
 
 
+@dataclass(frozen=True)
+class FileDiffStat:
+    """单个文件的回合净行数统计(unified diff 派生,不含正文)。"""
+
+    path: str
+    additions: int = 0
+    deletions: int = 0
+    binary: bool = False
+    coarse: bool = False
+
+
+def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
+    """从 unified diff 汇总每个文件的增删行数。
+
+    只数 hunk 内以 ``+`` / ``-`` 开头的行（文件头 ``---`` / ``+++`` 不计）；
+    ``GIT binary patch`` / ``Binary files`` 标记 binary；行级 diff 被病态输入
+    跳过或非 git 基线缺失时标 coarse（行数不可精确证明，不伪造 0 为精确）。
+    同一路径重复出现（多段 diff）合并计数；返回顺序按首次出现。
+    """
+    if not unified_diff or not isinstance(unified_diff, str):
+        return []
+    stats: list[FileDiffStat] = []
+    index_by_path: dict[str, int] = {}
+    current: FileDiffStat | None = None
+    in_hunk = False
+
+    def _flush() -> None:
+        nonlocal current
+        if current is None or not current.path:
+            current = None
+            return
+        existing = index_by_path.get(current.path)
+        if existing is None:
+            index_by_path[current.path] = len(stats)
+            stats.append(current)
+        else:
+            prev = stats[existing]
+            stats[existing] = FileDiffStat(
+                path=prev.path,
+                additions=prev.additions + current.additions,
+                deletions=prev.deletions + current.deletions,
+                binary=prev.binary or current.binary,
+                coarse=prev.coarse or current.coarse,
+            )
+        current = None
+
+    lines = unified_diff.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith("diff --git "):
+            _flush()
+            body = line[len("diff --git "):]
+            if " b/" in body:
+                left, right = body.rsplit(" b/", 1)
+                path = left[len("a/"):] if right == "/dev/null" else right
+            else:
+                path = body
+            current = FileDiffStat(path=path)
+            in_hunk = False
+            continue
+        # 本仓合成 diff（_aggregate_unified_diff）没有 `diff --git` 头，
+        # 直接从 `--- a/<path>` / `+++ b/<path>` 起；hunk 内下一行若是
+        # `+++ ` 则视为新文件头，否则是内容行（以 - 开头照常计删除）。
+        is_header = line.startswith("--- ") and (
+            current is None
+            or not in_hunk
+            or (
+                index + 1 < len(lines)
+                and lines[index + 1].startswith("+++ ")
+            )
+        )
+        if is_header:
+            header = line[4:].strip()
+            path = header[2:] if header.startswith("a/") else header
+            if current is not None and (in_hunk or current.path != path):
+                _flush()
+            if current is None:
+                current = FileDiffStat(path="")
+            if path != DEV_NULL:
+                current = FileDiffStat(path=path)
+            in_hunk = False
+            continue
+        if line.startswith("+++ ") and current is not None and not in_hunk:
+            header = line[4:].strip()
+            path = header[2:] if header.startswith("b/") else header
+            if path != DEV_NULL and (not current.path or path != current.path):
+                current = FileDiffStat(path=path)
+            continue
+        if current is None:
+            continue
+        if line.startswith("@@"):
+            in_hunk = True
+            if line.startswith("@@ 内容过大") or line.startswith("@@ 非 git 工作区"):
+                current = FileDiffStat(
+                    path=current.path,
+                    binary=current.binary,
+                    coarse=True,
+                )
+            continue
+        if line.startswith("GIT binary patch") or line.startswith("Binary files "):
+            current = FileDiffStat(
+                path=current.path,
+                additions=current.additions,
+                deletions=current.deletions,
+                binary=True,
+                coarse=current.coarse,
+            )
+            continue
+        if not in_hunk:
+            continue
+        if line.startswith("+"):
+            current = FileDiffStat(
+                path=current.path,
+                additions=current.additions + 1,
+                deletions=current.deletions,
+                binary=current.binary,
+                coarse=current.coarse,
+            )
+        elif line.startswith("-"):
+            current = FileDiffStat(
+                path=current.path,
+                additions=current.additions,
+                deletions=current.deletions + 1,
+                binary=current.binary,
+                coarse=current.coarse,
+            )
+    _flush()
+    return stats
+
+
+
 def git_blob_oid(content: str) -> str:
     data = content.encode("utf-8")
     header = f"blob {len(data)}\0".encode("ascii")

@@ -205,6 +205,11 @@ async def test_turn_diff_carries_status_and_baseline(tmp_path):
     changes = {c["path"]: c["status"] for c in payload["changes"]}
     assert changes.get("tracked.txt") == "M"
     assert changes.get("new_file.py") == "A"
+    stats = {c["path"]: c for c in payload["changes"]}
+    assert stats["tracked.txt"]["additions"] >= 1
+    assert stats["tracked.txt"]["coarse"] is False
+    assert stats["new_file.py"]["additions"] == 1
+    assert stats["new_file.py"]["coarse"] is False
     assert payload["baselineSource"] == "head"
     assert payload["baselineSha"]
     diff = payload["unifiedDiff"]
