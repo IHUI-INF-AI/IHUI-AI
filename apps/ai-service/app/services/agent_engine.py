@@ -3444,33 +3444,61 @@ class AgentEngine:
             # 分项时只用总量(不伪造分项,与 _turn_usage 同原则)。
             if _turn_token_usage_enabled_from_env():
                 with contextlib.suppress(Exception):
+                    from app.core.turn_exact_usage import (
+                        iteration_attempts,
+                        parse_attempt_usage,
+                    )
                     from app.core.turn_token_usage import TurnTokenUsage
+                    from app.core.usage_cache import normalize_usage
 
                     ledger = TurnTokenUsage()
                     for it in getattr(result, "iterations", []) or []:
                         # iterations 元素双形态:LoopIteration dataclass 或 dict
                         # (测试替身/历史序列化形态),统一取值。
-                        if isinstance(it, dict):
-                            usage = it.get("usage")
-                            it_model = it.get("model")
-                        else:
-                            usage = getattr(it, "usage", None)
-                            it_model = getattr(it, "model", None)
-                        if not (isinstance(usage, dict) and usage):
-                            continue
-                        model = str(it_model or thread.model or "default")
-                        ledger.record(
-                            model,
-                            telemetry={"model": model},
-                            total_tokens=int(usage.get("total_tokens", 0) or 0),
-                            input_tokens=int(usage.get("input_tokens", 0) or 0),
-                            cached_input_tokens=int(
-                                usage.get("cached_input_tokens", 0)
-                                or usage.get("cached_tokens", 0)
-                                or 0
-                            ),
-                            output_tokens=int(usage.get("output_tokens", 0) or 0),
+                        it_model = (
+                            it.get("model") if isinstance(it, dict) else getattr(it, "model", None)
                         )
+                        for raw_usage in iteration_attempts(it):
+                            parsed = parse_attempt_usage(raw_usage)
+                            if parsed is not None:
+                                model = str(
+                                    parsed.model or it_model or thread.model or "default"
+                                )
+                                ledger.record(
+                                    model,
+                                    telemetry={"model": model},
+                                    total_tokens=parsed.total_tokens,
+                                    input_tokens=(
+                                        parsed.uncached_input_tokens
+                                        + (parsed.cache_read_tokens or 0)
+                                        + (parsed.cache_write_tokens or 0)
+                                    ),
+                                    cached_input_tokens=parsed.cache_read_tokens or 0,
+                                    cache_write_input_tokens=parsed.cache_write_tokens
+                                    or 0,
+                                    output_tokens=parsed.output_tokens,
+                                    reasoning_output_tokens=parsed.reasoning_tokens or 0,
+                                )
+                                continue
+                            normalized = normalize_usage(raw_usage)
+                            if not normalized:
+                                continue
+                            model = str(it_model or thread.model or "default")
+                            ledger.record(
+                                model,
+                                telemetry={"model": model},
+                                total_tokens=int(normalized.get("total_tokens", 0) or 0),
+                                input_tokens=int(normalized.get("prompt_tokens", 0) or 0),
+                                cached_input_tokens=int(
+                                    normalized.get("cached_tokens", 0) or 0
+                                ),
+                                cache_write_input_tokens=int(
+                                    normalized.get("cache_creation_tokens", 0) or 0
+                                ),
+                                output_tokens=int(
+                                    normalized.get("completion_tokens", 0) or 0
+                                ),
+                            )
                     # 无任何精确分项:仅总量一枚样本,挂 fallback telemetry。
                     fallback = (
                         {"model": thread.model or "default"} if thread.model else None
@@ -3590,30 +3618,45 @@ class AgentEngine:
     def _turn_usage(result: Any) -> dict[str, Any]:
         """回合 token 用量(2026-09-18 第二批,遵循统一工程规范)。
 
-        总量取自 AgentLoopResult.total_tokens_used;逐迭代分项(有精确 usage 时)
-        尽力透出,无则只回总量+迭代数(不伪造分项)。
+        总量仍取 AgentLoopResult.total_tokens_used(历史口径)。逐次 provider usage
+        另走 ``turn_exact_usage`` 的严格 fold:只有全部尝试都带必需桶且总量自洽时
+        才输出 ``exact``;缺任一次就标 ``breakdownSource=provider-partial``,不拿
+        部分数据冒充精确,也不把缺省桶折成 0。
         """
         iterations = getattr(result, "iterations", []) or []
+        from app.core.turn_exact_usage import (  # noqa: PLC0415 - 避免模块导入期拉重依赖
+            derive_exact_turn_usage_from_iterations,
+            iteration_attempts,
+            parse_attempt_usage,
+            summarize_attempts_for_display,
+        )
+
         per_iteration: list[dict[str, Any]] = []
+        attempt_count = 0
         for it in iterations:
-            usage = getattr(it, "usage", None)
-            if isinstance(usage, dict) and usage:
-                per_iteration.append(
-                    {
-                        k: usage[k]
-                        for k in (
-                            "input_tokens",
-                            "output_tokens",
-                            "cached_tokens",
-                            "total_tokens",
-                        )
-                        if k in usage
-                    }
-                )
+            raw_attempts = iteration_attempts(it)
+            attempt_count += len(raw_attempts)
+            parsed_attempts = []
+            for raw in raw_attempts:
+                parsed = parse_attempt_usage(raw)
+                if parsed is not None:
+                    parsed_attempts.append(parsed)
+            display = summarize_attempts_for_display(parsed_attempts)
+            if display is not None:
+                per_iteration.append(display)
+        exact = derive_exact_turn_usage_from_iterations(iterations)
         out: dict[str, Any] = {
             "totalTokens": int(getattr(result, "total_tokens_used", 0) or 0),
             "iterations": len(iterations),
+            "attempts": attempt_count,
+            "breakdownSource": (
+                "provider-exact"
+                if exact is not None
+                else ("provider-partial" if attempt_count else "none")
+            ),
         }
+        if exact is not None:
+            out["exact"] = exact.as_dict()
         if per_iteration:
             out["perIteration"] = per_iteration
         return out

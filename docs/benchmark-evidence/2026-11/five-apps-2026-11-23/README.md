@@ -270,6 +270,21 @@ DSH 的 `@deepseek-ai/dsh-sandbox-policy` 在**每个模型请求的运行时上
 - `agent_loop_v2.run()` 在 `_inject_deliverable_guidance(messages)` 之后调用 `_inject_sandbox_policy_context(messages)`：从 `get_session_extra_roots(session_id, user_id)` 取额外目录，异常 warning 降级为不注入，绝不阻塞主循环。执行面（permission_mode / path_guard / patch_safety）逐字未动。
 - 测试：`test_sandbox_policy_context.py` 7 例（三档文案、无工作区、幂等、旧块替换、其它 system 旧块清理、`AgentLoopV2` 真实方法接线后 plan 档注入只读块）；**7 passed in 1.37s**；`test_engine_harness_thirteenth.py` + `test_engine_harness_policies.py` 回归 **19 passed in 24.67s**；`ruff check` 三文件全过；水印 verify 3/3 完整。
 
+## 追加批：精确逐次 token 记账（对齐 DSH `dsh-token-meter` 的 turn-usage）
+
+DSH 的 `turn-usage.ts` 把“能否声称精确”当硬判据：单轮 `exact` 要求**每一次**计费尝试都带 `input_tokens` / `output_tokens` / `total_tokens`；缓存读写与路由是可选维度，但只要有一次尝试缺可选桶，整轮就不展示该桶；`exactPrompt = total - output` 小于已知 prompt 或缓存两维都已知时与已知 prompt 不等，整轮判不可精确；计数必须是安全整数。本仓此前 `turn.usage` 只有总量与迭代数，`perIteration` 事实上恒空（`LoopIteration` 没有 usage 字段，也没有任何代码写入），`turn_token_usage` 遥测只记四桶。本批把“原始尝试 → 严格 fold → 事件字段”全链补齐：
+
+- `app/core/usage_cache.py` 新增 `raw_usage_shape()`：保留缺省语义（未报告 = `None`，不折 0），兼容 OpenAI `prompt_tokens` 总量式、Anthropic `input_tokens` 非缓存式、Gemini camelCase、嵌套 `prompt_tokens_details.cached_tokens` / `completion_tokens_details.reasoning_tokens`；`_first_int()` 同步拒绝 bool（`True` 不再被折成 1 token）。
+- 新增 `app/core/turn_exact_usage.py`：
+  - `parse_attempt_usage()` 解析单次尝试，校验非负安全整数、`reasoning <= output`、总量与 prompt 自洽、缓存两维已知时不得有隐藏差额；缺必需桶/矛盾即返回 `None`；
+  - `aggregate_attempts()` 汇总整轮，可选桶只有在**全部尝试**都报告时才出现，路由只在全部尝试都有 provider/model 时出现；
+  - `derive_exact_turn_usage_from_iterations()` 从 `LoopIteration`/dict 读取 `usage_attempts`，任何一次迭代没有尝试就判不可精确（不拿部分样本冒充整轮）；
+  - `summarize_attempts_for_display()` 保留旧 `perIteration` 四键并补 `attemptCount` 与可选缓存/推理桶。
+- `agent_loop_v2.LoopIteration` 新增 `usage_attempts` / `usage`；每次成功 LLM 响应（含 max_tokens 续写分段）把原始 provider usage append 进本迭代，失败重试不产生样本。这样“一次尝试 = 一次计费请求”在数据层成立，而不是事后估算。
+- `agent_engine._turn_usage()` 改为严格 fold：`breakdownSource` 三态 `provider-exact` / `provider-partial` / `none`；只有精确时输出 `exact`（`uncachedInputTokens` / `promptTokens` / `outputTokens` / `totalTokens` / 可选缓存读写与推理 / 可选 routes），`perIteration` 取六桶汇总；`totalTokens` 历史口径保留不动。
+- `agent_engine` 的 `turn_token_usage` 遥测改吃同一批尝试：六桶全部落账（`cache_write_input_tokens`、`reasoning_output_tokens` 不再恒 0），解析失败回退 `normalize_usage` 四桶，不因单个坏样本丢整轮。
+- 测试：`test_turn_exact_usage.py` **14 passed in 16.19s**（总量式/Anthropic 式、缺总量必须两维缓存、矛盾总量、reasoning/bool/负数、可选桶全有才汇总、路由全有才出、安全整数溢出、缺一次尝试即不可精确、旧 perIteration 键、LoopIteration 真实记录）；回归 `test_turn_token_usage_58.py` + `test_engine_context_wiring_58.py` + `test_usage_cache.py` **48 passed in 18.32s**；`test_engine_harness_fine.py::test_environment_context_and_turn_usage_emitted` **1 passed in 6.33s**；`ruff check` 五文件全过。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

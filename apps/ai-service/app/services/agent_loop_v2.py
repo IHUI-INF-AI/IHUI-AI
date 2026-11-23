@@ -1239,6 +1239,10 @@ class LoopIteration:
     start_time: str | None = None
     end_time: str | None = None
     duration_ms: float = 0.0
+    # 2026-11-24:逐次计费尝试的原始 provider usage(含续写分段与重试成功轮)。
+    # 旧 `usage` 保留给测试替身/历史形态;精确记账只看 usage_attempts(见 turn_exact_usage)。
+    usage_attempts: list[dict[str, Any]] = field(default_factory=list)
+    usage: dict[str, Any] | None = None
 
 
 def derive_step_evidence(
@@ -5972,6 +5976,12 @@ class AgentLoopV2:
                     streamed = bool(llm_response.pop("_streamed", False))
                     _any_streamed = _any_streamed or streamed
                     _seg_content_parts.append(_seg_content)
+                    # 2026-11-24(对齐 DSH dsh-token-meter):把每次成功 LLM 请求的
+                    # 原始 provider usage 留在本迭代;续写分段各算一次计费尝试。
+                    # 失败重试不产生样本 —— 精确汇总在拿不到全部尝试时返回 None。
+                    _raw_usage_a = llm_response.get("usage")
+                    if isinstance(_raw_usage_a, dict) and _raw_usage_a:
+                        iteration.usage_attempts.append(dict(_raw_usage_a))
 
                     # AIS-088:优先用归一化 usage 计 token(全量 prompt+completion),
                     # 缺 usage 时回退到旧的字数粗估,避免 total_tokens 长期失真。

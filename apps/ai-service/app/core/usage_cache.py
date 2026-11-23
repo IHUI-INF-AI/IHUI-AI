@@ -53,9 +53,13 @@ _OUTPUT_ALIASES = ("completion_tokens", "output_tokens", "candidatesTokenCount")
 
 
 def _first_int(source: dict[str, Any], keys: tuple[str, ...]) -> int | None:
-    """按序探测键,返回首个非负整数值(解析失败/负数视为未提供)。"""
+    """按序探测键,返回首个非负整数值(解析失败/负数/bool 视为未提供)。"""
     for key in keys:
         if key in source:
+            # bool 是 int 的子类:True 会被 int() 折成 1。用量字段出现布尔值一定是
+            # 上游形状异常,不能当成 1 token 记进账。
+            if isinstance(source[key], bool):
+                continue
             try:
                 value = int(source[key])
             except (TypeError, ValueError):
@@ -143,4 +147,49 @@ def has_cache_signals(raw: Any) -> bool:
             return True
     nested = raw.get("prompt_tokens_details")
     return isinstance(nested, dict) and "cached_tokens" in nested
+
+
+def raw_usage_shape(raw: Any) -> dict[str, Any]:
+    """**保留缺省语义**的 usage 形状(供精确逐次记账用;不折叠 0/未知)。
+
+    与 :func:`normalize_usage` 的分工:normalize 面向内部计量,缺字段补 0;
+    本函数面向"能不能声称精确",任何一个桶没被上游报告就返回 ``None``。
+    返回键:
+      - ``prompt_style``: ``"total"``(prompt_tokens/promptTokenCount 含缓存) /
+        ``"uncached"``(仅 Anthropic 式 input_tokens) / ``None``;
+      - ``prompt_tokens`` / ``output_tokens`` / ``total_tokens``: 非负整数或 None;
+      - ``cache_read_tokens`` / ``cache_write_tokens`` / ``reasoning_tokens``:
+        非负整数或 None(``None`` = 上游没报这一维,不是 0)。
+    """
+    if not isinstance(raw, dict):
+        return {}
+    prompt_total = _first_int(raw, ("prompt_tokens", "promptTokenCount"))
+    prompt_uncached = _first_int(raw, ("input_tokens",))
+    if prompt_total is not None:
+        prompt_style = "total"
+        prompt_tokens = prompt_total
+    elif prompt_uncached is not None:
+        prompt_style = "uncached"
+        prompt_tokens = prompt_uncached
+    else:
+        prompt_style = None
+        prompt_tokens = None
+    cache_read = _first_int(raw, _CACHE_READ_ALIASES)
+    if cache_read is None:
+        cache_read = _nested_int(raw, "prompt_tokens_details", "cached_tokens")
+    cache_write = _first_int(raw, _CACHE_WRITE_ALIASES)
+    reasoning = _first_int(raw, ("reasoning_tokens", "reasoning_output_tokens"))
+    if reasoning is None:
+        reasoning = _nested_int(raw, "completion_tokens_details", "reasoning_tokens")
+    if reasoning is None:
+        reasoning = _nested_int(raw, "output_tokens_details", "reasoning_tokens")
+    return {
+        "prompt_style": prompt_style,
+        "prompt_tokens": prompt_tokens,
+        "output_tokens": _first_int(raw, _OUTPUT_ALIASES),
+        "total_tokens": _first_int(raw, ("total_tokens", "totalTokenCount")),
+        "cache_read_tokens": cache_read,
+        "cache_write_tokens": cache_write,
+        "reasoning_tokens": reasoning,
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
