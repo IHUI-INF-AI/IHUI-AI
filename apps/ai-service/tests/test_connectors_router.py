@@ -223,6 +223,21 @@ async def test_enable_disable(ac):
     assert res.status_code == 404
 
 
+async def test_disabled_blocks_sync_and_fetch(ac):
+    """停用的连接器不得继续同步或读文档(2026-11-23 补)。"""
+    await ac.post("/api/connectors/config", json=_config_body())
+    await ac.post("/api/connectors/yuque:docs/disable")
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:docs"})
+    assert res.status_code == 400
+    assert "已停用" in res.json()["error"]
+    res = await ac.post("/api/connectors/yuque:docs/fetch", json={"doc_id": "api"})
+    assert res.status_code == 400
+    assert "已停用" in res.json()["error"]
+    await ac.post("/api/connectors/yuque:docs/enable")
+    res = await ac.post("/api/connectors/sync", json={"key": "yuque:docs"})
+    assert res.status_code == 200
+
+
 async def test_delete(ac):
     res = await ac.delete("/api/connectors/yuque:none")
     assert res.status_code == 404

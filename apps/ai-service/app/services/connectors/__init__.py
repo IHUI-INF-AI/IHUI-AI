@@ -39,7 +39,20 @@ from typing import Any
 MAX_DOC_CHARS: int = 20000
 
 # 支持的连接器类型
-SUPPORTED_TYPES: tuple[str, ...] = ("yuque", "feishu", "wecom", "dingtalk")
+# 2026-11-23 扩:新增 wechat_mp(公众号)与 custom(用户自定义 HTTP)。
+# 前四种保持旧「文档同步」契约不动;后两种走 catalog + custom_http 的
+# 声明式操作执行,能力位见 connectors/base.py。
+SUPPORTED_TYPES: tuple[str, ...] = (
+    "yuque",
+    "feishu",
+    "wecom",
+    "dingtalk",
+    "wechat_mp",
+    "custom",
+)
+
+# 类型 -> 实现模块文件名(默认与类型同名;custom 走 custom_http)
+TYPE_MODULES: dict[str, str] = {"custom": "custom_http"}
 
 # 类型 -> connector 模块
 REGISTRY: dict[str, types.ModuleType] = {}
@@ -52,12 +65,13 @@ def get_connector(conn_type: str) -> Any | None:
 
 def _register(name: str) -> None:
     """尝试导入并注册一个 connector 模块;导入失败仅告警,不崩 import。"""
+    module_name = TYPE_MODULES.get(name, name)
     try:
-        mod = __import__(f"app.services.connectors.{name}", fromlist=[name])
+        mod = __import__(f"app.services.connectors.{module_name}", fromlist=[module_name])
         REGISTRY[name] = mod
-        logging.getLogger(__name__).info("connector 注册成功: %s", name)
+        logging.getLogger(__name__).info("connector 注册成功: %s -> %s", name, module_name)
     except Exception:  # noqa: BLE001 - 并行开发期模块可能尚未就绪,降级跳过
-        logging.warning("connector 注册失败(跳过): %s", name)
+        logging.warning("connector 注册失败(跳过): %s -> %s", name, module_name)
 
 
 # 语雀(本 worker 实现)+ 飞书/企微/钉钉(并行 worker 实现,未就绪时自动跳过)

@@ -10,137 +10,78 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   BookOpen,
-  Send,
   Building2,
-  MessageCircle,
-  RefreshCw,
-  FileText,
-  Trash2,
-  Plus,
-  Loader2,
-  Settings2,
-  Link2,
-  KeyRound,
   Clock,
+  FileText,
   Library,
+  Loader2,
+  Megaphone,
+  MessageCircle,
+  Plug,
+  Plus,
+  RefreshCw,
+  Send,
+  Settings2,
+  Trash2,
+  Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import {
+  deleteConnector,
+  fetchConnectorDoc,
+  getConnectorCatalog,
   getConnectors,
   saveConnectorConfig,
-  syncConnector,
-  fetchConnectorDoc,
   setConnectorEnabled,
-  deleteConnector,
+  syncConnector,
+  type ConnectorCapability,
   type ConnectorEntry,
   type ConnectorListResponse,
   type ConnectorSyncItem,
-  type ConnectorType,
+  type SaveConnectorConfigInput,
 } from '@ihui/api-client/endpoints/connectors'
 import { useAuthStore } from '@/stores/auth'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Badge } from '@/components/data'
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-  Switch,
-} from '@ihui/ui-react'
+import { Button, Switch } from '@ihui/ui-react'
 
-/** 按连接器类型映射 lucide 图标 */
+import { ConnectorConfigDialog } from '@/components/connectors/connector-config-dialog'
+import { ConnectorInvokeDialog } from '@/components/connectors/connector-invoke-dialog'
+import { CAPABILITY_LABEL_KEY } from '@/components/connectors/connector-utils'
+
+/** 连接器类型 -> 图标 */
 const TYPE_ICON: Record<string, LucideIcon> = {
   yuque: BookOpen,
   feishu: Send,
   wecom: Building2,
   dingtalk: MessageCircle,
+  wechat_mp: Megaphone,
+  custom: Plug,
 }
 
-/** 中文连接器配置表单(创建/编辑共用) */
-interface ConnectorFormState {
-  type: ConnectorType
-  name: string
-  app_id: string
-  app_secret: string
-  /** 语雀知识库 owner(用户或组织) */
-  yuque_user: string
-  /** 语雀知识库 slug */
-  yuque_repo: string
-}
-
-const EMPTY_FORM: ConnectorFormState = {
-  type: 'yuque',
-  name: '',
-  app_id: '',
-  app_secret: '',
-  yuque_user: '',
-  yuque_repo: '',
-}
-
-/** 从名称生成 URL-safe slug(中文等非字母数字转 - 后压缩,空则回落) */
-function toSlug(input: string): string {
-  const s = input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  return s
+interface DocDialogState {
+  title: string
+  content: string
+  truncated: boolean
 }
 
 /**
- * 中文连接器页 — 2026-09-02 新增(P2-2 中文 Connectors)
+ * 中文连接器页(2026-09-02 立;2026-11-23 升级为通用接入中心)。
  *
- * 定位:配置语雀/飞书/企业微信/钉钉连接器(token/知识库地址),让 AI 对话能
- * 读取中文知识平台的文档。对齐竞品深度开发项。
- * 接口:GET /api/connectors(脱敏列表,无 app_id/app_secret 明文)
- *       + POST /api/connectors/config | /sync | /{key}/fetch | /enable | /disable
- *       + DELETE /api/connectors/{key}
- *       (均经 next rewrites → ai-service 8803)。
+ * - 预置平台:飞书 / 钉钉 / 企业微信 / 公众号 / 语雀(填凭据即可用模板操作)
+ * - 自定义 HTTP:填 Base URL + 鉴权,导入 OpenAPI 或手填操作
+ * - 操作按能力位执行(list/search/fetch/action);写操作需显式开启 + 二次确认
  */
 export default function ConnectorsPageClient() {
   const t = useTranslations('connectors')
-  // 2026-10-15 登录态门:未就绪/未登录不发注定 401 的查询,改显登录引导
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
   const queryClient = useQueryClient()
-  /**
-   * 当前登录主体 id(未取到主体时为 null)。只订阅 `user?.id` 这一个标量,
-   * 与 `use-ecosystem-overview.ts:57` / `providers/query-provider.tsx:52` 同一读法。
-   */
   const principalId = useAuthStore((s) => s.user?.id ?? null)
 
-  /**
-   * 连接器列表(脱敏,不含 app_id/app_secret 明文)
-   *
-   * queryKey 必须含登录主体(2026-09-29 立):后端 `GET /api/connectors` 已按调用方
-   * 收窄成"只返回你自己拥有的连接器"(connectors.py:123 → `connector_store.list_owned(user_id)`),
-   * 条目含 name / key / type ⇒ 属个人配置数据。而这份缓存落在模块级单例
-   * (lib/query-client.ts,staleTime 5min / gcTime 10min),键里不带主体时同一浏览器
-   * 换账号会在 refetch 完成前把上一个账号的连接器渲染给新账号。
-   *
-   * 口径与 `useConnectors()`(ecosystem 总览)一致:刻意**不用** `enabled: principal !== null`
-   * 把请求关掉 —— 那会把本页永久停在 loading 态(D17 在
-   * `src/components/ecosystem/__tests__/ecosystem-hub.test.tsx` 里钉的就是这一型)。
-   * 无主体时请求照发,结果落 'anonymous' 这一格;跨账号的另一半由
-   * `providers/query-provider.tsx:52-59` 的"主体由有到无 ⇒ 清空缓存"补上。
-   *
-   * 2026-10-15 登录态门(与 /chat/favorites、签到助手同型)改判:改用 `enabled: allow`
-   * + AuthGatePrompt 渲染门 —— 未就绪/未登录不发注定 401 的查询,也不再把本页
-   * 永久停在 loading 态(登录引导替代空转);上段"请求照发"口径在本页废止,
-   * ecosystem 总览的 `useConnectors()` 不在本改动射程内,维持原口径。
-   */
   const {
     data: list,
     isLoading,
@@ -155,93 +96,49 @@ export default function ConnectorsPageClient() {
     },
   })
 
-  // ---- 配置对话框 ----
-  const [configOpen, setConfigOpen] = React.useState(false)
-  /** null = 新建;非 null = 编辑已有连接器(保留原 key) */
-  const [editing, setEditing] = React.useState<ConnectorEntry | null>(null)
-  const [form, setForm] = React.useState<ConnectorFormState>(EMPTY_FORM)
-  const [saving, setSaving] = React.useState(false)
+  const { data: catalog } = useQuery({
+    queryKey: ['connectors', 'catalog'],
+    enabled: allow,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const r = await getConnectorCatalog()
+      if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
+      return r.data
+    },
+  })
 
-  // ---- 同步 / 文档 ----
+  const [configOpen, setConfigOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<ConnectorEntry | null>(null)
+  const [saving, setSaving] = React.useState(false)
+  const [invokeTarget, setInvokeTarget] = React.useState<ConnectorEntry | null>(null)
   const [syncingKey, setSyncingKey] = React.useState<string | null>(null)
-  /** 各连接器最新一次同步得到的文档列表(初始取 entry.sync_items) */
   const [syncItems, setSyncItems] = React.useState<Record<string, ConnectorSyncItem[]>>({})
   const [readingKey, setReadingKey] = React.useState<string | null>(null)
-  const [docDialog, setDocDialog] = React.useState<{
-    title: string
-    content: string
-    truncated: boolean
-  } | null>(null)
-
-  // ---- 删除确认 ----
+  const [docDialog, setDocDialog] = React.useState<DocDialogState | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<ConnectorEntry | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
-  /**
-   * 失效必须打在**含主体**的三段键上(与上面的 queryKey 同形):
-   * 失效裸两段键在新键形态下什么都匹配不到,保存/启停/同步/删除后界面会停在旧列表。
-   */
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: ['connectors', 'list', principalId ?? 'anonymous'],
     })
   }
 
-  /** 打开新建对话框 */
   const openCreate = () => {
     setEditing(null)
-    setForm(EMPTY_FORM)
     setConfigOpen(true)
   }
 
-  /** 打开编辑对话框(密钥不回显,app_secret 留空=保留旧值) */
   const openEdit = (entry: ConnectorEntry) => {
     setEditing(entry)
-    setForm({
-      type: (entry.type as ConnectorType) ?? 'yuque',
-      name: entry.name,
-      app_id: '',
-      app_secret: '',
-      yuque_user: entry.extra?.user ?? '',
-      yuque_repo: entry.extra?.repo ?? '',
-    })
     setConfigOpen(true)
   }
 
-  /** 提交配置保存 */
-  const handleSave = async () => {
+  const handleSave = async (input: SaveConnectorConfigInput) => {
     if (saving) return
-    // 语雀需 owner+slug;飞书/企微/钉钉需 app_id(新建时还需 app_secret)
-    if (form.type === 'yuque') {
-      if (!form.yuque_user.trim() || !form.yuque_repo.trim()) {
-        toast.error(t('actionFailed'))
-        return
-      }
-    } else {
-      if (!form.app_id.trim()) {
-        toast.error(t('actionFailed'))
-        return
-      }
-      if (!editing && !form.app_secret.trim()) {
-        toast.error(t('actionFailed'))
-        return
-      }
-    }
     setSaving(true)
     try {
-      const key = editing
-        ? editing.key
-        : `${form.type}:${toSlug(form.name) || (form.type === 'yuque' ? toSlug(form.yuque_repo) : form.app_id) || 'c'}`
-      const extra: Record<string, string> =
-        form.type === 'yuque' ? { user: form.yuque_user.trim(), repo: form.yuque_repo.trim() } : {}
-      const r = await saveConnectorConfig({
-        key,
-        type: form.type,
-        name: form.name.trim(),
-        app_id: form.app_id.trim(),
-        app_secret: form.app_secret,
-        extra,
-      })
+      const r = await saveConnectorConfig(input)
       if (r.success) {
         toast.success(t('saved'))
         setConfigOpen(false)
@@ -256,7 +153,6 @@ export default function ConnectorsPageClient() {
     }
   }
 
-  /** 启停切换 */
   const handleToggle = async (entry: ConnectorEntry, enabled: boolean) => {
     try {
       const r = await setConnectorEnabled(entry.key, enabled)
@@ -275,7 +171,6 @@ export default function ConnectorsPageClient() {
     }
   }
 
-  /** 同步数据源,成功后把文档列表渲染到卡片内 */
   const handleSync = async (entry: ConnectorEntry) => {
     if (syncingKey) return
     setSyncingKey(entry.key)
@@ -302,7 +197,6 @@ export default function ConnectorsPageClient() {
     }
   }
 
-  /** 拉取单篇文档正文并展示 */
   const handleFetchDoc = async (entry: ConnectorEntry, item: ConnectorSyncItem) => {
     if (readingKey) return
     setReadingKey(item.doc_id)
@@ -328,7 +222,6 @@ export default function ConnectorsPageClient() {
     }
   }
 
-  /** 删除连接器 */
   const handleDelete = async () => {
     if (!deleteTarget || deleting) return
     setDeleting(true)
@@ -354,7 +247,6 @@ export default function ConnectorsPageClient() {
     <div className="py-4 mx-auto w-full max-w-6xl space-y-5 px-4">
       <BackButton />
 
-      {/* 顶部:标题 + 统计 + 添加按钮 */}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -374,7 +266,17 @@ export default function ConnectorsPageClient() {
         </Button>
       </header>
 
-      {/* 登录态门 + 加载态 */}
+      {allow && catalog?.unsupported?.length ? (
+        <div className="space-y-1 rounded-lg border border-stroke-subtle bg-muted/30 p-3">
+          <p className="text-label font-medium">{t('unsupportedTitle')}</p>
+          {catalog.unsupported.map((item) => (
+            <p key={item.type} className="text-label text-muted-foreground">
+              {item.label}:{item.reason}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
       {!allow ? (
         <AuthGatePrompt message={tGate('loginRequired')} />
       ) : (
@@ -386,17 +288,15 @@ export default function ConnectorsPageClient() {
         )
       )}
 
-      {/* 错误态 */}
       {allow && error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('loadFailed')}
         </div>
       )}
 
-      {/* 空态 */}
       {allow && !isLoading && !error && connectors.length === 0 && (
         <div className="flex flex-col items-center gap-3 rounded-lg border bg-card py-12 text-center">
-          <BookOpen className="h-8 w-8 text-muted-foreground" />
+          <Plug className="h-8 w-8 text-muted-foreground" />
           <p className="text-body text-muted-foreground">{t('empty')}</p>
           <Button variant="outline" onClick={openCreate}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -405,9 +305,8 @@ export default function ConnectorsPageClient() {
         </div>
       )}
 
-      {/* 连接器卡片列表 */}
       {allow && !isLoading && !error && connectors.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {connectors.map((entry) => (
             <ConnectorCard
               key={entry.key}
@@ -417,6 +316,7 @@ export default function ConnectorsPageClient() {
               items={syncItems[entry.key] ?? entry.sync_items ?? []}
               onToggle={(enabled) => void handleToggle(entry, enabled)}
               onSync={() => void handleSync(entry)}
+              onInvoke={() => setInvokeTarget(entry)}
               onEdit={() => openEdit(entry)}
               onRead={(item) => void handleFetchDoc(entry, item)}
               onDelete={() => setDeleteTarget(entry)}
@@ -425,143 +325,42 @@ export default function ConnectorsPageClient() {
         </div>
       )}
 
-      {/* 配置对话框(创建/编辑共用) */}
-      <Dialog open={configOpen} onOpenChange={(v) => !v && setConfigOpen(false)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editing ? t('edit') : t('add')}</DialogTitle>
-            <DialogDescription>{t('subtitle')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-label text-muted-foreground">{t('typeLabel')}</Label>
-              <Select
-                value={form.type}
-                disabled={!!editing}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, type: v as ConnectorType }))}
-              >
-                <SelectTrigger className="h-8 text-label">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yuque">{t('yuque')}</SelectItem>
-                  <SelectItem value="feishu">{t('feishu')}</SelectItem>
-                  <SelectItem value="wecom">{t('wecom')}</SelectItem>
-                  <SelectItem value="dingtalk">{t('dingtalk')}</SelectItem>
-                </SelectContent>
-              </Select>
+      <ConnectorConfigDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        editing={editing}
+        catalog={catalog}
+        saving={saving}
+        onSubmit={(input) => void handleSave(input)}
+      />
+
+      <ConnectorInvokeDialog
+        entry={invokeTarget}
+        open={invokeTarget !== null}
+        onOpenChange={(v) => !v && setInvokeTarget(null)}
+      />
+
+      {docDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border bg-card p-4 shadow-lg">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-body font-semibold">{docDialog.title}</h2>
+              <Button variant="outline" size="sm" onClick={() => setDocDialog(null)}>
+                {t('cancel')}
+              </Button>
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-label text-muted-foreground">{t('nameLabel')}</Label>
-              <Input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder={t('namePlaceholder')}
-                autoComplete="off"
-              />
-            </div>
-
-            {form.type === 'yuque' ? (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-label text-muted-foreground">{t('yuqueUserLabel')}</Label>
-                  <Input
-                    type="text"
-                    value={form.yuque_user}
-                    onChange={(e) => setForm((prev) => ({ ...prev, yuque_user: e.target.value }))}
-                    placeholder={t('yuqueUserPlaceholder')}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-label text-muted-foreground">{t('yuqueRepoLabel')}</Label>
-                  <Input
-                    type="text"
-                    value={form.yuque_repo}
-                    onChange={(e) => setForm((prev) => ({ ...prev, yuque_repo: e.target.value }))}
-                    placeholder={t('yuqueRepoPlaceholder')}
-                    autoComplete="off"
-                  />
-                </div>
-                <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <Link2 className="h-3 w-3" />
-                  {t('yuqueHint')}
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-label text-muted-foreground">{t('appIdLabel')}</Label>
-                  <Input
-                    type="text"
-                    value={form.app_id}
-                    onChange={(e) => setForm((prev) => ({ ...prev, app_id: e.target.value }))}
-                    placeholder={t('appIdPlaceholder')}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-label text-muted-foreground">{t('appSecretLabel')}</Label>
-                  <Input
-                    type="password"
-                    value={form.app_secret}
-                    onChange={(e) => setForm((prev) => ({ ...prev, app_secret: e.target.value }))}
-                    placeholder={editing ? t('secretKeepHint') : t('appSecretPlaceholder')}
-                    autoComplete="new-password"
-                  />
-                  {editing && (
-                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <KeyRound className="h-3 w-3" />
-                      {t('secretKeepHint')}
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfigOpen(false)}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={() => void handleSave()} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  {t('submit')}
-                </>
-              ) : (
-                t('submit')
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 文档正文对话框 */}
-      <Dialog open={docDialog !== null} onOpenChange={(v) => !v && setDocDialog(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{docDialog?.title}</DialogTitle>
-            {docDialog?.truncated && (
-              <DialogDescription>
+            {docDialog.truncated && (
+              <p className="mb-2 text-[11px] text-muted-foreground">
                 {t('truncatedHint', { chars: docDialog.content.length })}
-              </DialogDescription>
+              </p>
             )}
-          </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-label leading-relaxed text-foreground">
-            {docDialog?.content}
-          </pre>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDocDialog(null)}>
-              {t('cancel')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <pre className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-label leading-relaxed">
+              {docDialog.content}
+            </pre>
+          </div>
+        </div>
+      )}
 
-      {/* 删除确认对话框 */}
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t('deleteConfirmTitle')}
@@ -576,7 +375,7 @@ export default function ConnectorsPageClient() {
   )
 }
 
-/** 单个连接器卡片:名称/类型/状态徽章/启停开关 + 同步/配置/删除 + 文档列表 */
+/** 单个连接器卡片:状态 + 能力位 + 操作入口 + 文档列表 */
 function ConnectorCard({
   entry,
   syncing,
@@ -584,6 +383,7 @@ function ConnectorCard({
   items,
   onToggle,
   onSync,
+  onInvoke,
   onEdit,
   onRead,
   onDelete,
@@ -594,13 +394,16 @@ function ConnectorCard({
   items: ConnectorSyncItem[]
   onToggle: (enabled: boolean) => void
   onSync: () => void
+  onInvoke: () => void
   onEdit: () => void
   onRead: (item: ConnectorSyncItem) => void
   onDelete: () => void
 }) {
   const t = useTranslations('connectors')
-  const Icon = TYPE_ICON[entry.type] ?? BookOpen
-  const configured = entry.configured
+  const Icon = TYPE_ICON[entry.type] ?? Plug
+  const caps = Object.entries(entry.operation_capabilities ?? {}).filter(
+    ([, present]) => present,
+  ) as [ConnectorCapability, boolean][]
 
   return (
     <div className="flex flex-col gap-2.5 ui-card rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
@@ -614,32 +417,46 @@ function ConnectorCard({
               {entry.name}
             </span>
             <Badge variant="primary">{entry.type}</Badge>
-            <Badge variant={configured ? 'success' : 'default'}>
-              {configured ? t('configured') : t('notConfigured')}
+            <Badge variant="default">
+              {entry.mode === 'custom' ? t('modeCustom') : t('modePreset')}
             </Badge>
-            {configured &&
-              (entry.enabled ? (
-                <Badge variant="success">{t('enabled')}</Badge>
-              ) : (
-                <Badge variant="default">{t('disabled')}</Badge>
-              ))}
+            <Badge variant={entry.configured ? 'success' : 'default'}>
+              {entry.configured ? t('configured') : t('notConfigured')}
+            </Badge>
+            {entry.configured && (
+              <Badge variant={entry.enabled ? 'success' : 'default'}>
+                {entry.enabled ? t('enabled') : t('disabled')}
+              </Badge>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">
               <Clock className="h-3 w-3" />
-              {entry.last_sync_at ? (
-                <>
-                  {t('lastSyncAt')}: {entry.last_sync_at}
-                </>
-              ) : (
-                t('neverSynced')
-              )}
+              {entry.last_sync_at ? `${t('lastSyncAt')}: ${entry.last_sync_at}` : t('neverSynced')}
             </span>
+            {entry.operation_count > 0 && (
+              <span className="inline-flex items-center gap-0.5">
+                <Zap className="h-3 w-3" />
+                {t('operationCount', { count: entry.operation_count })}
+              </span>
+            )}
           </div>
+          {caps.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {caps.map(([cap]) => (
+                <span
+                  key={cap}
+                  className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                >
+                  {t(CAPABILITY_LABEL_KEY[cap])}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <Switch
           checked={entry.enabled}
-          disabled={!configured}
+          disabled={!entry.configured}
           onCheckedChange={onToggle}
           aria-label={entry.enabled ? t('enabled') : t('disabled')}
         />
@@ -649,48 +466,45 @@ function ConnectorCard({
         <p className="text-label text-destructive">{t('lastError', { error: entry.last_error })}</p>
       )}
 
-      <div className="mt-auto flex gap-2">
+      <div className="mt-auto flex flex-wrap gap-2">
         <Button
           variant="outline"
-          onClick={onSync}
-          disabled={syncing || !configured}
-          className="flex-1"
+          onClick={onInvoke}
+          disabled={!entry.configured || entry.operation_count === 0}
         >
-          {syncing ? (
-            <>
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              {t('syncing')}
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-              {t('sync')}
-            </>
-          )}
+          <Zap className="mr-1.5 h-3.5 w-3.5" />
+          {t('invoke')}
         </Button>
-        <Button variant="outline" onClick={onEdit} className="flex-1">
+        <Button variant="outline" onClick={onSync} disabled={syncing || !entry.configured}>
+          {syncing ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          {syncing ? t('syncing') : t('sync')}
+        </Button>
+        <Button variant="outline" onClick={onEdit}>
           <Settings2 className="mr-1.5 h-3.5 w-3.5" />
           {t('edit')}
         </Button>
         <Button
           variant="outline"
           onClick={onDelete}
-          className="flex-1 text-destructive hover:text-destructive"
+          className="text-destructive hover:text-destructive"
         >
           <Trash2 className="mr-1.5 h-3.5 w-3.5" />
           {t('delete')}
         </Button>
       </div>
 
-      {/* 同步得到的文档列表 */}
       {items.length > 0 && (
         <div className="space-y-1.5 pt-2">
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
             <FileText className="h-3 w-3" />
             {t('docList')}
           </p>
-          <ul className="space-y-1">
-            {items.map((item) => (
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
+            {items.slice(0, 20).map((item) => (
               <li
                 key={item.doc_id}
                 className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1.5"

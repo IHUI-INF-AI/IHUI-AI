@@ -3,14 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 中文连接器端点(2026-09-02 立,P2-2 中文 Connectors)
+ * 中文连接器端点(2026-09-02 立,P2-2 中文 Connectors;2026-11-23 扩通用接入)
  * 对应 ai-service 8803 的 /api/connectors 外部生态接口:
- *  - GET    /api/connectors                    → 全部连接器配置列表(脱敏)
- *  - POST   /api/connectors/config             → 新增/覆盖配置(app_secret 空串=保留旧值)
- *  - POST   /api/connectors/sync               → 同步数据源,返回文档列表
- *  - POST   /api/connectors/{key}/fetch        → 拉取单篇文档正文
+ *  - GET    /api/connectors                     → 全部连接器配置列表(脱敏)
+ *  - GET    /api/connectors/catalog             → 平台模板 + 操作目录
+ *  - POST   /api/connectors/openapi/preview     → OpenAPI 文档 → 操作清单
+ *  - POST   /api/connectors/config              → 新增/覆盖配置(app_secret 空串=保留旧值)
+ *  - POST   /api/connectors/sync                → 同步数据源,返回条目列表
+ *  - POST   /api/connectors/{key}/fetch         → 拉取单条正文
+ *  - POST   /api/connectors/{key}/invoke        → 执行声明式操作(list/search/fetch/action)
  *  - POST   /api/connectors/{key}/enable|disable → 启停
- *  - DELETE /api/connectors/{key}              → 删除配置
+ *  - DELETE /api/connectors/{key}               → 删除配置
  *
  * 注意:后端绝不返回 app_id/app_secret 明文,前端只通过 configured 判断是否已配置。
  */
@@ -20,41 +23,94 @@ import { fetchApi } from '../client.js'
 
 // ===================== 类型定义 =====================
 
-/** 连接器类型:语雀 / 飞书 / 企业微信 / 钉钉 */
-export type ConnectorType = 'yuque' | 'feishu' | 'wecom' | 'dingtalk'
+/** 旧四类(文档同步)+ 公众号 + 自定义 HTTP */
+export type ConnectorType = 'yuque' | 'feishu' | 'wecom' | 'dingtalk' | 'wechat_mp' | 'custom'
 
-/** 连接器能力位(由注册表是否有对应模块决定) */
+/** 能力位:列表 / 搜索 / 拉单条 / 写操作 */
+export type ConnectorCapability = 'list' | 'search' | 'fetch' | 'action'
+
+/** 鉴权方式(平台 token 由后端用 app_id/app_secret 换取) */
+export type ConnectorAuthKind =
+  | 'none'
+  | 'bearer'
+  | 'header'
+  | 'basic'
+  | 'query'
+  | 'feishu_tenant'
+  | 'wecom_corp'
+  | 'dingtalk'
+  | 'wechat_mp'
+
+/** 一条声明式操作定义 */
+export interface ConnectorOperation {
+  id: string
+  name: string
+  capability: ConnectorCapability
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  path: string
+  query: Record<string, unknown>
+  body: Record<string, unknown> | null
+  response_path: string
+  confirm: boolean
+  description: string
+}
+
+/** 传输配置(请求头值不回传,只回传"哪些已配置") */
+export interface ConnectorSpec {
+  base_url: string
+  auth_kind: ConnectorAuthKind
+  auth_name: string
+  auth_scheme: string
+  headers: Record<string, string>
+  headers_configured?: string[]
+  timeout_s: number
+  allow_write: boolean
+  allow_private_hosts: boolean
+}
+
+/** 连接器能力位(旧字段保留,兼容文档同步) */
 export interface ConnectorCapabilities {
   doc_list: boolean
   fetch_doc: boolean
 }
 
-/** 同步得到的文档条目 */
+/** 同步得到的条目 */
 export interface ConnectorSyncItem {
   doc_id: string
   title: string
 }
 
-/** 连接器条目(脱敏:无 app_id/app_secret) */
+/** 连接器条目(脱敏:无 app_id/app_secret 明文) */
 export interface ConnectorEntry {
   /** 唯一标识,格式 {type}:{slug} */
   key: string
-  /** 类型:yuque|feishu|wecom|dingtalk */
+  /** 类型 */
   type: string
   /** 展示名 */
   name: string
-  /** 类型专属配置(语雀为 user/repo) */
-  extra: Record<string, string>
-  /** 是否已配置(app_id 非空 或 extra 非空) */
+  /** 类型专属配置(键->是否已配置,兼容旧契约) */
+  extra: Record<string, boolean>
+  /** 非凭据类 extra 原值(编辑回填用,修复 user/repo 回填) */
+  extra_fields?: Record<string, string>
+  /** 是否已配置 */
   configured: boolean
   /** 是否启用 */
   enabled: boolean
+  /** preset | custom */
+  mode: 'preset' | 'custom'
+  /** 传输配置(脱敏) */
+  spec: ConnectorSpec | null
+  /** 声明式操作清单 */
+  operations: ConnectorOperation[]
+  operation_count: number
+  /** 能力位布尔表(由操作清单推导) */
+  operation_capabilities: Record<ConnectorCapability, boolean>
   installed_at: string
   updated_at: string
   last_sync_at: string
   /** 最近一次同步/操作错误信息(空=正常) */
   last_error: string
-  /** 最近一次同步拉到的文档列表 */
+  /** 最近一次同步拉到的条目 */
   sync_items: ConnectorSyncItem[]
   capabilities: ConnectorCapabilities
 }
@@ -70,12 +126,66 @@ export interface SaveConnectorConfigInput {
   key: string
   type: string
   name: string
-  /** 开放平台 app_id(飞书/企微/钉钉) */
+  /** 开放平台 app_id(飞书/企微/钉钉/公众号) */
   app_id: string
   /** 密钥(空串时保留旧值,防止回显覆盖) */
   app_secret: string
-  /** 类型专属配置(语雀 user/repo) */
+  /** 类型专属配置(语雀 user/repo、企微/钉钉 space_id 等) */
   extra: Record<string, string>
+  /** preset(预置平台)| custom(自定义 HTTP) */
+  mode?: 'preset' | 'custom'
+  /** 传输配置(自定义接入/覆盖平台默认) */
+  spec?: Partial<ConnectorSpec>
+  /** 声明式操作清单(空=用平台模板默认) */
+  operations?: ConnectorOperation[]
+}
+
+/** 模板目录条目 */
+export interface ConnectorCatalogItem {
+  type: string
+  label: string
+  base_url: string
+  auth_kind: ConnectorAuthKind
+  auth_name: string
+  description: string
+  operations: ConnectorOperation[]
+}
+
+/** 不支持接入的渠道(带原因) */
+export interface ConnectorUnsupportedItem {
+  type: string
+  label: string
+  reason: string
+}
+
+/** 模板目录响应 */
+export interface ConnectorCatalogResponse {
+  version: string
+  templates: ConnectorCatalogItem[]
+  unsupported: ConnectorUnsupportedItem[]
+  capabilities: ConnectorCapability[]
+}
+
+/** OpenAPI 导入预览响应 */
+export interface OpenApiPreviewResult {
+  base_url: string
+  title: string
+  version: string
+  operation_count: number
+  operations: ConnectorOperation[]
+}
+
+/** 通用操作调用响应 */
+export interface ConnectorInvokeResult {
+  ok: boolean
+  status: number
+  capability: ConnectorCapability
+  operation_id: string
+  message: string
+  truncated: boolean
+  data: unknown
+  content?: string
+  items?: ConnectorSyncItem[]
 }
 
 /** 同步响应 */
@@ -111,6 +221,23 @@ export async function getConnectors(): Promise<ApiResult<ConnectorListResponse>>
   return fetchApi<ConnectorListResponse>('/api/connectors')
 }
 
+/** 获取平台模板目录(操作清单,不含凭据) */
+export async function getConnectorCatalog(): Promise<ApiResult<ConnectorCatalogResponse>> {
+  return fetchApi<ConnectorCatalogResponse>('/api/connectors/catalog')
+}
+
+/** 解析 OpenAPI/Swagger 文档为操作清单(不落盘) */
+export async function previewOpenApi(input: {
+  raw?: string
+  spec?: Record<string, unknown>
+  base_url?: string
+}): Promise<ApiResult<OpenApiPreviewResult>> {
+  return fetchApi<OpenApiPreviewResult>('/api/connectors/openapi/preview', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 /** 新增或覆盖连接器配置;返回脱敏条目 */
 export async function saveConnectorConfig(
   input: SaveConnectorConfigInput,
@@ -121,7 +248,7 @@ export async function saveConnectorConfig(
   })
 }
 
-/** 同步连接器数据源,返回文档列表 */
+/** 同步连接器数据源,返回条目列表 */
 export async function syncConnector(key: string): Promise<ApiResult<ConnectorSyncResult>> {
   return fetchApi<ConnectorSyncResult>('/api/connectors/sync', {
     method: 'POST',
@@ -137,6 +264,19 @@ export async function fetchConnectorDoc(
   return fetchApi<ConnectorFetchResult>(`/api/connectors/${encodeURIComponent(key)}/fetch`, {
     method: 'POST',
     body: JSON.stringify({ doc_id: docId }),
+  })
+}
+
+/** 执行一条声明式操作(写操作必须 confirm=true 且连接器开启 allow_write) */
+export async function invokeConnectorOperation(
+  key: string,
+  operationId: string,
+  params: Record<string, unknown> = {},
+  confirm = false,
+): Promise<ApiResult<ConnectorInvokeResult>> {
+  return fetchApi<ConnectorInvokeResult>(`/api/connectors/${encodeURIComponent(key)}/invoke`, {
+    method: 'POST',
+    body: JSON.stringify({ operation_id: operationId, params, confirm }),
   })
 }
 
