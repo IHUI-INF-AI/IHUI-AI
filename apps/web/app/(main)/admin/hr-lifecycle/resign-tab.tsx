@@ -23,6 +23,15 @@ import {
 } from './types'
 import { Card, Empty, Badge, field, th, td, btnGhost, downloadText } from './ui'
 
+/** 交接清单项 → 文案键(枚举映射,禁止模板拼接) */
+const CK_LABEL = {
+  handover: 'ckHandover',
+  assets: 'ckAssets',
+  account: 'ckAccount',
+  finance: 'ckFinance',
+  confidentiality: 'ckConfidentiality',
+} as const
+
 export function ResignTab() {
   const t = useTranslations('hrLifecycle')
   const qc = useQueryClient()
@@ -30,6 +39,11 @@ export function ResignTab() {
   const [lastWorkDate, setLastWorkDate] = React.useState(todayStr())
   const [reasonType, setReasonType] = React.useState('voluntary')
   const [reason, setReason] = React.useState('')
+  /** 结算面板:交接清单必须逐项确认,不能一键全真(否则等于没核) */
+  const [settleFor, setSettleFor] = React.useState<{
+    id: string
+    checks: Record<string, boolean>
+  } | null>(null)
 
   const listQ = useQuery({
     queryKey: ['hrl', 'resignations'],
@@ -59,13 +73,19 @@ export function ResignTab() {
   })
 
   const act = useMutation({
-    mutationFn: (input: { id: string; action: 'approve' | 'cancel' | 'settle' }) =>
+    mutationFn: (input: {
+      id: string
+      action: 'approve' | 'cancel' | 'settle'
+      checklist?: Record<string, boolean>
+    }) =>
       api(`${HR_RESOURCE}/resignations/${input.id}/${input.action}`, {
         method: 'POST',
         body:
           input.action === 'settle'
             ? JSON.stringify({
-                checklist: Object.fromEntries(CHECKLIST_KEYS.map((k) => [k, true])),
+                checklist:
+                  input.checklist ??
+                  Object.fromEntries(CHECKLIST_KEYS.map((k) => [k, true])),
               })
             : undefined,
       }),
@@ -184,7 +204,14 @@ export function ResignTab() {
                         {r.status === 'approved' && (
                           <button
                             className={btnGhost}
-                            onClick={() => act.mutate({ id: r.id, action: 'settle' })}
+                            onClick={() =>
+                              setSettleFor({
+                                id: r.id,
+                                checks: Object.fromEntries(
+                                  CHECKLIST_KEYS.map((k) => [k, Boolean(r.checklist?.[k])]),
+                                ),
+                              })
+                            }
                           >
                             {t('settle')}
                           </button>
@@ -202,6 +229,48 @@ export function ResignTab() {
               })}
             </tbody>
           </table>
+        )}
+
+        {settleFor && (
+          <div className="mt-3 space-y-2 pt-1">
+            <div className="text-[11px] text-muted-foreground">{t('settleHint')}</div>
+            <div className="flex flex-wrap gap-3">
+              {CHECKLIST_KEYS.map((k) => (
+                <label key={k} className="flex items-center gap-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(settleFor.checks[k])}
+                    onChange={(e) =>
+                      setSettleFor({
+                        ...settleFor,
+                        checks: { ...settleFor.checks, [k]: e.target.checked },
+                      })
+                    }
+                  />
+                  {t(CK_LABEL[k])}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                disabled={
+                  act.isPending || !CHECKLIST_KEYS.every((k) => Boolean(settleFor.checks[k]))
+                }
+                onClick={() =>
+                  act.mutate(
+                    { id: settleFor.id, action: 'settle', checklist: settleFor.checks },
+                    { onSuccess: () => setSettleFor(null) },
+                  )
+                }
+              >
+                {t('settleSubmit')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSettleFor(null)}>
+                {t('cancel')}
+              </Button>
+            </div>
+          </div>
         )}
       </Card>
     </div>

@@ -24,6 +24,12 @@ import { ClientsTab, VouchersTab, ReportsTab, TaxTab } from './tabs'
 import { LedgerTab } from './ledger-tab'
 import { DocsTab } from './docs-tab'
 import { TaxProfileTab } from './tax-profile-tab'
+import { FilingBoard } from './filing-board'
+import { VoucherOpsTab } from './voucher-ops'
+import { ClientOps } from './client-ops'
+import { PeriodStatusCard } from './period-status'
+import { StatementBulkCard } from './statement-bulk'
+import { LedgerOpsCard } from './ledger-ops'
 
 /**
  * 财务账套(2026-11-23 立):客户 → 账套 → 凭证/复核 → 报表/结账 → 税务申报。
@@ -84,12 +90,38 @@ export default function FinAccountingPage() {
           ))}
         </div>
 
-        {tab === 'clients' && <ClientsTab />}
-        {tab === 'ledger' && <LedgerTab ledgers={ledgers} />}
-        {tab === 'vouchers' && <VouchersTab ledgers={ledgers} />}
-        {tab === 'docs' && <DocsTab ledgers={ledgers} />}
+        {tab === 'clients' && (
+          <div className="space-y-3">
+            <ClientsTab />
+            <ClientOps clients={clients} ledgers={ledgers} />
+          </div>
+        )}
+        {tab === 'ledger' && (
+          <div className="space-y-3">
+            <LedgerTab ledgers={ledgers} />
+            <LedgerOpsCard ledgers={ledgers} />
+            <PeriodStatusCard ledgers={ledgers} />
+          </div>
+        )}
+        {tab === 'vouchers' && (
+          <div className="space-y-3">
+            <VouchersTab ledgers={ledgers} />
+            <VoucherOpsTab ledgers={ledgers} />
+          </div>
+        )}
+        {tab === 'docs' && (
+          <div className="space-y-3">
+            <DocsTab ledgers={ledgers} />
+            <StatementBulkCard ledgers={ledgers} />
+          </div>
+        )}
         {tab === 'reports' && <ReportsTab ledgers={ledgers} />}
-        {tab === 'taxprofile' && <TaxProfileTab clients={clients} />}
+        {tab === 'taxprofile' && (
+          <div className="space-y-3">
+            <TaxProfileTab clients={clients} ledgers={ledgers} />
+            <FilingBoard clients={clients} />
+          </div>
+        )}
         {tab === 'tax' && <TaxTab clients={clients} />}
       </HasPermi>
     </FeaturePageShell>

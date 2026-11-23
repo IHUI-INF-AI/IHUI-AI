@@ -20,6 +20,9 @@ import { FeaturePageShell } from '@/components/layout'
 import { HR_VIEW_PERM, RECRUIT_PERM } from './types'
 import { BoardTab, ContractsTab, RecruitTab, ResignTab, PayoutTab } from './tabs'
 import { InterviewTab } from './interview-tab'
+import { ContractOps } from './contract-ops'
+import { RecruitOps } from './recruit-ops'
+import { BankCard } from './bank-card'
 
 /**
  * 人事生命周期(2026-11-23 立):入职前(招聘) → 合同/试用 → 离职 → 发薪闭环。
@@ -69,13 +72,21 @@ export default function HrLifecyclePage() {
         </div>
 
         {tab === 'board' && <BoardTab />}
-        {tab === 'contracts' && <ContractsTab />}
+        {tab === 'contracts' && (
+          <div className="space-y-3">
+            <ContractsTab />
+            <ContractOps />
+          </div>
+        )}
         {tab === 'recruit' && (
           <HasPermi
             code={RECRUIT_PERM}
             fallback={<p className="text-sm text-muted-foreground">{t('recruitNoPerm')}</p>}
           >
-            <RecruitTab />
+            <div className="space-y-3">
+              <RecruitTab />
+              <RecruitOps />
+            </div>
           </HasPermi>
         )}
         {tab === 'interview' && (
@@ -87,7 +98,12 @@ export default function HrLifecyclePage() {
           </HasPermi>
         )}
         {tab === 'resign' && <ResignTab />}
-        {tab === 'payout' && <PayoutTab />}
+        {tab === 'payout' && (
+          <div className="space-y-3">
+            <PayoutTab />
+            <BankCard />
+          </div>
+        )}
       </HasPermi>
     </FeaturePageShell>
   )

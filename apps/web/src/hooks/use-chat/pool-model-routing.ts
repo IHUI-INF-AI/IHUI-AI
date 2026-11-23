@@ -59,9 +59,7 @@ export function isPoolModelId(model: string): boolean {
   return poolModelIds.has(model)
 }
 
-/** 登记集快照(2026-11-22 立):auto 号池决策腿的候选来源 —— 选择器实际拉到的
- *  号池模型 id 全集。只是候选不是权限:越权 id 由服务端 /api/chat/auto-resolve
- *  按「本人可调度号池平台 ∪ 运营池公开登记行」过滤剔除。 */
+/** 当前登记集快照(auto 决策腿的候选来源;返回副本,调用方改动不会影响内部态)。 */
 export function listPoolModelIds(): string[] {
   return [...poolModelIds]
 }

@@ -153,10 +153,27 @@ export interface PayoutExport {
 export interface BankCoverage {
   periodMonth?: string
   total?: number
-  withAccount?: number
+  covered?: number
   missing?: number
-  missingEmployees?: Array<{ employeeId: string; employeeNo: string; name: string }>
-  [k: string]: unknown
+  missingList?: Array<{ employeeNo: string; name: string }>
+}
+
+/** 发薪汇总(/summary 口径):最新批次 + 批次总数 + 工资条三态 */
+export interface PayoutSummary {
+  periodMonth: string
+  batch: {
+    id: string
+    status: string
+    headCount: number
+    totalAmount: string
+    fileHash: string | null
+    missing: number
+    exportedAt: string | null
+    submittedAt: string | null
+    paidAt: string | null
+  } | null
+  batches: number
+  slips: { total: number; generated: number; pushed: number; acknowledged: number }
 }
 
 /** 状态 → 语义色(fin 页同款词表) */

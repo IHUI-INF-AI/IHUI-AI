@@ -20,6 +20,11 @@ export interface FinClient {
   taxpayerType: string
   industry: string | null
   region: string | null
+  taxAuthority: string | null
+  legalPerson: string | null
+  contactName: string | null
+  contactPhone: string | null
+  remark: string | null
   status: string
   startDate: string | null
 }

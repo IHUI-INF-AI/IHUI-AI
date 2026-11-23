@@ -20,6 +20,7 @@ import {
   type PayoutBatch,
   type PayoutExport,
   type BankCoverage,
+  type PayoutSummary,
 } from './types'
 import { Card, Empty, Badge, field, th, td, btnGhost, downloadText } from './ui'
 
@@ -40,6 +41,13 @@ export function PayoutTab() {
   })
   const batches = rowsOf<PayoutBatch>(batchesQ.data)
   const cover = coverQ.data
+  const summaryQ = useQuery({
+    queryKey: ['hrl', 'payout-summary', periodMonth],
+    enabled: Boolean(periodMonth),
+    queryFn: () =>
+      api<PayoutSummary>(`${PAYOUT_RESOURCE}/summary?periodMonth=${periodMonth}`),
+  })
+  const summary = summaryQ.data
   const invalidate = () => qc.invalidateQueries({ queryKey: ['hrl'] })
 
   // ---------- 工资条(2026-11-23 补):生成 → 推送 → 员工签收 ----------
@@ -146,6 +154,56 @@ export function PayoutTab() {
 
   return (
     <div className="space-y-3">
+      <Card
+        title={t('payoutSummaryTitle')}
+        actions={
+          summary ? (
+            <span className="text-[11px] text-muted-foreground">{summary.periodMonth}</span>
+          ) : null
+        }
+      >
+        {!summary ? (
+          <Empty text={t('loading')} />
+        ) : (
+          <div className="flex flex-wrap gap-4 text-xs tabular-nums">
+            <span>
+              {t('payoutLatestBatch')}:{' '}
+              {summary.batch ? <Badge status={summary.batch.status} /> : t('noneBatch')}
+            </span>
+            {summary.batch && (
+              <>
+                <span>
+                  {t('headCount')}: <b>{summary.batch.headCount}</b>
+                </span>
+                <span>
+                  {t('totalAmount')}: <b>{fmtMoney(summary.batch.totalAmount)}</b>
+                </span>
+                <span
+                  className={summary.batch.missing > 0 ? 'text-warning' : 'text-success'}
+                >
+                  {t('missingCards')}: <b>{summary.batch.missing}</b>
+                </span>
+              </>
+            )}
+            <span>
+              {t('batchCount')}: {summary.batches}
+            </span>
+            <span>
+              {t('slipTotal')}: {summary.slips.total}
+            </span>
+            <span>
+              {t('generated')}: {summary.slips.generated}
+            </span>
+            <span>
+              {t('pushed')}: {summary.slips.pushed}
+            </span>
+            <span className="text-success">
+              {t('acknowledged')}: {summary.slips.acknowledged}
+            </span>
+          </div>
+        )}
+      </Card>
+
       <Card
         title={t('payoutTitle')}
         actions={
@@ -328,11 +386,11 @@ export function PayoutTab() {
             <p className="text-muted-foreground">
               {t('coverageHint', {
                 total: Number(cover.total ?? 0),
-                withAccount: Number(cover.withAccount ?? 0),
+                withAccount: Number(cover.covered ?? 0),
                 missing: Number(cover.missing ?? 0),
               })}
             </p>
-            {(cover.missingEmployees ?? []).length > 0 && (
+            {(cover.missingList ?? []).length > 0 && (
               <table className="w-full">
                 <thead>
                   <tr>
@@ -341,8 +399,8 @@ export function PayoutTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(cover.missingEmployees ?? []).map((m) => (
-                    <tr key={m.employeeId} className="border-t border-stroke-subtle">
+                  {(cover.missingList ?? []).map((m) => (
+                    <tr key={m.employeeNo} className="border-t border-stroke-subtle">
                       <td className={td}>{m.employeeNo}</td>
                       <td className={td}>{m.name}</td>
                     </tr>

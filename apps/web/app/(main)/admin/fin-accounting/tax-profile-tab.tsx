@@ -8,11 +8,11 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { CalendarPlus, Plus, RefreshCw } from 'lucide-react'
+import { CalendarPlus, Link2, Plus, RefreshCw, Save } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 import { rowsOf } from '@/lib/api-rows'
-import { api, FIN_RESOURCE, type FinClient } from './types'
+import { api, FIN_RESOURCE, type FinClient, type FinLedger } from './types'
 import { Card, Empty, StatusBadge, field, th, td } from './tabs'
 
 interface FinTaxProfile {
@@ -69,12 +69,27 @@ const nextMonth = () => {
  * 税种核定(2026-11-23 补):一个税种一张核定档 → 扇出申报日历。
  * 此前税页只有"申报任务推进",没有建/停核定档的入口,新客户上线只能调 API。
  */
-export function TaxProfileTab({ clients }: { clients: FinClient[] }) {
+export function TaxProfileTab({
+  clients,
+  ledgers,
+}: {
+  clients: FinClient[]
+  ledgers: FinLedger[]
+}) {
   const t = useTranslations('finAccounting')
   const qc = useQueryClient()
   const [clientId, setClientId] = React.useState('')
   const [fromMonth, setFromMonth] = React.useState(thisMonth())
   const [toMonth, setToMonth] = React.useState(nextMonth())
+  const [ledgerToBind, setLedgerToBind] = React.useState('')
+  const [editing, setEditing] = React.useState<{
+    id: string
+    cycle: string
+    offset: string
+    day: string
+    rate: string
+    deemedRate: string
+  } | null>(null)
 
   const [taxType, setTaxType] = React.useState<string>('VAT')
   const [cycle, setCycle] = React.useState<string>('monthly')
@@ -133,6 +148,59 @@ export function TaxProfileTab({ clients }: { clients: FinClient[] }) {
     onSuccess: () => {
       toast.success(t('calendarGenerated'))
       qc.invalidateQueries({ queryKey: ['fin', 'filing'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const patchProfile = useMutation({
+    mutationFn: (p: {
+      id: string
+      cycle: string
+      offset: string
+      day: string
+      rate: string
+      deemedRate: string
+    }) =>
+      api(`${FIN_RESOURCE}/tax-profiles/${p.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          filingCycle: p.cycle,
+          dueMonthOffset: Number(p.offset),
+          dueDay: Number(p.day),
+          rate: p.rate || undefined,
+          deemedRate: p.deemedRate || null,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success(t('taxProfileSaved'))
+      setEditing(null)
+      qc.invalidateQueries({ queryKey: ['fin', 'tax-profiles', clientId] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const backfillAll = useMutation({
+    mutationFn: () =>
+      api(`${FIN_RESOURCE}/filing-calendar/backfill`, {
+        method: 'POST',
+        body: JSON.stringify({ fromMonth, toMonth }),
+      }),
+    onSuccess: () => {
+      toast.success(t('calendarGenerated'))
+      qc.invalidateQueries({ queryKey: ['fin', 'filing'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const bindLedgerMut = useMutation({
+    mutationFn: () =>
+      api(`${FIN_RESOURCE}/clients/${clientId}/bind-ledger`, {
+        method: 'POST',
+        body: JSON.stringify({ ledgerId: ledgerToBind }),
+      }),
+    onSuccess: () => {
+      toast.success(t('actionDone'))
+      setLedgerToBind('')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -201,14 +269,31 @@ export function TaxProfileTab({ clients }: { clients: FinClient[] }) {
                         <td className={td}>
                           <StatusBadge status={p.status} />
                         </td>
-                        <td className={td}>
+                        <td className={`${td} space-x-2 whitespace-nowrap`}>
                           {p.status === 'active' && (
-                            <button
-                              className="text-[11px] text-destructive underline"
-                              onClick={() => deactivate.mutate(p.id)}
-                            >
-                              {t('deactivate')}
-                            </button>
+                            <>
+                              <button
+                                className="text-[11px] underline"
+                                onClick={() =>
+                                  setEditing({
+                                    id: p.id,
+                                    cycle: p.filingCycle ?? 'monthly',
+                                    offset: String(p.dueMonthOffset ?? 1),
+                                    day: String(p.dueDay ?? 15),
+                                    rate: p.rate ?? '',
+                                    deemedRate: p.deemedRate ?? '',
+                                  })
+                                }
+                              >
+                                {t('edit')}
+                              </button>
+                              <button
+                                className="text-[11px] text-destructive underline"
+                                onClick={() => deactivate.mutate(p.id)}
+                              >
+                                {t('deactivate')}
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -277,6 +362,58 @@ export function TaxProfileTab({ clients }: { clients: FinClient[] }) {
                 {t('taxProfileSave')}
               </Button>
             </div>
+
+            {editing && (
+              <div className="mt-2 flex flex-wrap items-center gap-1 pt-1">
+                <span className="text-[11px] text-muted-foreground">{t('editProfileHint')}</span>
+                <select
+                  className={field}
+                  value={editing.cycle}
+                  onChange={(e) => setEditing({ ...editing, cycle: e.target.value })}
+                >
+                  {CYCLES.map((c) => (
+                    <option key={c} value={c}>
+                      {t(CYCLE_KEY[c])}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className={`${field} w-16`}
+                  placeholder={t('dueMonthOffset')}
+                  value={editing.offset}
+                  onChange={(e) => setEditing({ ...editing, offset: e.target.value })}
+                />
+                <input
+                  className={`${field} w-16`}
+                  placeholder={t('dueDay')}
+                  value={editing.day}
+                  onChange={(e) => setEditing({ ...editing, day: e.target.value })}
+                />
+                <input
+                  className={`${field} w-20`}
+                  placeholder={t('rate')}
+                  value={editing.rate}
+                  onChange={(e) => setEditing({ ...editing, rate: e.target.value })}
+                />
+                <input
+                  className={`${field} w-20`}
+                  placeholder={t('deemedRate')}
+                  value={editing.deemedRate}
+                  onChange={(e) => setEditing({ ...editing, deemedRate: e.target.value })}
+                />
+                <Button
+                  size="sm"
+                  disabled={patchProfile.isPending}
+                  onClick={() => patchProfile.mutate(editing)}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {t('save')}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditing(null)}>
+                  {t('cancel')}
+                </Button>
+              </div>
+            )}
           </Card>
 
           <Card title={t('filingCalendarTitle')}>
@@ -300,6 +437,38 @@ export function TaxProfileTab({ clients }: { clients: FinClient[] }) {
               >
                 <CalendarPlus className="h-3.5 w-3.5" />
                 {t('generateCalendar')}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!fromMonth || !toMonth || backfillAll.isPending}
+                onClick={() => backfillAll.mutate()}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {t('backfillAll')}
+              </Button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1 pt-1">
+              <span className="text-[11px] text-muted-foreground">{t('bindLedgerHint')}</span>
+              <select
+                className={field}
+                value={ledgerToBind}
+                onChange={(e) => setLedgerToBind(e.target.value)}
+              >
+                <option value="">{t('selectLedger')}</option>
+                {ledgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                disabled={!ledgerToBind || bindLedgerMut.isPending}
+                onClick={() => bindLedgerMut.mutate()}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                {t('bindLedger')}
               </Button>
             </div>
           </Card>

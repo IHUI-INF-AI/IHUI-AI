@@ -8,11 +8,12 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Plus, RefreshCw, Wand2, Save } from 'lucide-react'
+import { Plus, RefreshCw, Wand2, Save, Trash2, FileUp, Link2 } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 import { api, rowsOf, FIN_RESOURCE, type FinLedger } from './types'
 import { Card, Empty, StatusBadge, field, th, td } from './tabs'
+import { ReconCard } from './recon-card'
 
 interface FinInvoice {
   id: string
@@ -210,28 +211,125 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
     onError: (e: Error) => toast.error(e.message),
   })
 
-  interface ReconSummary {
-    period: string
-    statementCount: number
-    inTotal: string
-    outTotal: string
-    netTotal: string
-    matchedCount: number
-    unmatchedCount: number
-    ignoredCount: number
-    unmatchedNet: string
-    bookBankBalance: string
-    matchedNet: string
-    gap: string
+  // ---------- 票据补全(2026-11-23):导入 / 后端口径汇总 / 关联凭证 / 删除 ----------
+  const [invImportText, setInvImportText] = React.useState('')
+  const [linkTarget, setLinkTarget] = React.useState<{
+    kind: 'invoice' | 'statement'
+    id: string
+  } | null>(null)
+  const [linkVoucherId, setLinkVoucherId] = React.useState('')
+
+  interface InvoiceSummary {
+    outputCount: number
+    outputAmount: string
+    outputTax: string
+    inputCount: number
+    inputAmount: string
+    inputTax: string
+    deductibleCount: number
   }
-  const reconQ = useQuery({
-    queryKey: ['fin', 'reconcile', ledgerId, period],
+  const invSummaryQ = useQuery({
+    queryKey: ['fin', 'invoice-summary', ledgerId, period],
     queryFn: () =>
-      api<ReconSummary>(`${FIN_RESOURCE}/ledgers/${ledgerId}/reconcile?period=${period}`),
+      api<InvoiceSummary>(`${FIN_RESOURCE}/ledgers/${ledgerId}/invoices/summary?period=${period}`),
     enabled: !!ledgerId && !!period,
   })
-  const recon = reconQ.data
-  const zeroGap = recon ? Number(recon.gap) === 0 : false
+
+  const vouchersQ = useQuery({
+    queryKey: ['fin', 'vouchers-link', ledgerId, period],
+    queryFn: () =>
+      api<unknown>(`${FIN_RESOURCE}/ledgers/${ledgerId}/vouchers?period=${period}&limit=100`),
+    enabled: !!ledgerId && !!period,
+  })
+  const linkVouchers = rowsOf<{ id: string; voucherNo: string; summary: string | null }>(
+    vouchersQ.data,
+  )
+
+  const importInvoices = useMutation({
+    mutationFn: () => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(invImportText)
+      } catch {
+        throw new Error(t('jsonBad'))
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error(t('jsonBad'))
+      return api(`${FIN_RESOURCE}/ledgers/${ledgerId}/invoices/import`, {
+        method: 'POST',
+        body: JSON.stringify({
+          invoices: parsed.map((v) => ({ period, ...(v as Record<string, unknown>) })),
+        }),
+      })
+    },
+    onSuccess: () => {
+      toast.success(t('imported'))
+      setInvImportText('')
+      qc.invalidateQueries({ queryKey: ['fin', 'invoices', ledgerId, period] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const linkInvoiceMut = useMutation({
+    mutationFn: (p: { id: string; voucherId: string }) =>
+      api(`${FIN_RESOURCE}/invoices/${p.id}/link-voucher`, {
+        method: 'POST',
+        body: JSON.stringify({ voucherId: p.voucherId }),
+      }),
+    onSuccess: () => {
+      toast.success(t('linked'))
+      setLinkTarget(null)
+      setLinkVoucherId('')
+      qc.invalidateQueries({ queryKey: ['fin', 'invoices', ledgerId, period] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const deleteInvoiceMut = useMutation({
+    mutationFn: (id: string) => api(`${FIN_RESOURCE}/invoices/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success(t('removed'))
+      qc.invalidateQueries({ queryKey: ['fin', 'invoices', ledgerId, period] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const matchStatementMut = useMutation({
+    mutationFn: (p: { id: string; voucherId: string }) =>
+      api(`${FIN_RESOURCE}/statements/${p.id}/match`, {
+        method: 'POST',
+        body: JSON.stringify({ voucherId: p.voucherId }),
+      }),
+    onSuccess: () => {
+      toast.success(t('matchedDone'))
+      setLinkTarget(null)
+      setLinkVoucherId('')
+      qc.invalidateQueries({ queryKey: ['fin', 'statements', ledgerId, period] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const unmatchStatementMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`${FIN_RESOURCE}/statements/${id}/unmatch`, { method: 'POST' }),
+    onSuccess: () => {
+      toast.success(t('unmatchedDone'))
+      qc.invalidateQueries({ queryKey: ['fin', 'statements', ledgerId, period] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const ignoreStatementMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`${FIN_RESOURCE}/statements/${id}/ignore`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: () => {
+      toast.success(t('ignoredDone'))
+      qc.invalidateQueries({ queryKey: ['fin', 'statements', ledgerId, period] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
 
   return (
     <div className="space-y-3">
@@ -266,8 +364,11 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
             title={t('invoicesTitle')}
             actions={
               <span className="text-[11px] text-muted-foreground tabular-nums">
-                {t('invOutput')} {money2(invStats.output)} · {t('invInput')}{' '}
-                {money2(invStats.input)} · {t('invCertify')} {money2(invStats.deductible)}
+                {t('invOutput')}{' '}
+                {money2(invSummaryQ.data ? Number(invSummaryQ.data.outputAmount) : invStats.output)}{' '}
+                · {t('invInput')}{' '}
+                {money2(invSummaryQ.data ? Number(invSummaryQ.data.inputAmount) : invStats.input)} ·{' '}
+                {t('invCertify')} {money2(invStats.deductible)}
               </span>
             }
           >
@@ -333,6 +434,25 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
                               {t('invVoid')}
                             </button>
                           )}
+                          {r.status !== 'voided' && (
+                            <button
+                              className="inline-flex items-center gap-0.5 text-[11px] underline"
+                              onClick={() => {
+                                setLinkTarget({ kind: 'invoice', id: r.id })
+                                setLinkVoucherId('')
+                              }}
+                            >
+                              <Link2 className="h-3 w-3" />
+                              {t('linkVoucher')}
+                            </button>
+                          )}
+                          <button
+                            className="inline-flex items-center gap-0.5 text-[11px] text-destructive underline"
+                            onClick={() => deleteInvoiceMut.mutate(r.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            {t('remove')}
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -379,6 +499,23 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
               >
                 <Plus className="h-3.5 w-3.5" />
                 {t('addInvoice')}
+              </Button>
+            </div>
+            <div className="mt-2 space-y-1">
+              <textarea
+                className={`${field} h-16 w-full`}
+                placeholder={t('invImportHint')}
+                value={invImportText}
+                onChange={(e) => setInvImportText(e.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!invImportText.trim() || importInvoices.isPending}
+                onClick={() => importInvoices.mutate()}
+              >
+                <FileUp className="h-3.5 w-3.5" />
+                {t('importInvoices')}
               </Button>
             </div>
           </Card>
@@ -481,6 +618,7 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
                       <th className={th}>{t('counterparty')}</th>
                       <th className={th}>{t('vSummary')}</th>
                       <th className={th}>{t('matchStatus')}</th>
+                      <th className={th}>{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -495,6 +633,35 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
                         <td className={td}>{s.summary ?? '-'}</td>
                         <td className={td}>
                           <StatusBadge status={s.matchStatus} />
+                        </td>
+                        <td className={`${td} space-x-2 whitespace-nowrap`}>
+                          {s.matchStatus === 'matched' ? (
+                            <button
+                              className="text-[11px] underline"
+                              onClick={() => unmatchStatementMut.mutate(s.id)}
+                            >
+                              {t('unmatch')}
+                            </button>
+                          ) : s.matchStatus === 'ignored' ? null : (
+                            <>
+                              <button
+                                className="inline-flex items-center gap-0.5 text-[11px] underline"
+                                onClick={() => {
+                                  setLinkTarget({ kind: 'statement', id: s.id })
+                                  setLinkVoucherId('')
+                                }}
+                              >
+                                <Link2 className="h-3 w-3" />
+                                {t('match')}
+                              </button>
+                              <button
+                                className="text-[11px] underline"
+                                onClick={() => ignoreStatementMut.mutate(s.id)}
+                              >
+                                {t('ignore')}
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -539,29 +706,54 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
             </div>
           </Card>
 
-          <Card title={t('reconcileTitle')}>
-            {!recon ? (
-              <Empty text={t('loading')} />
-            ) : (
-              <div className="flex flex-wrap gap-4 text-xs tabular-nums">
-                <span>
-                  {t('bookBankBalance')}: <b>{money2(Number(recon.bookBankBalance))}</b>
-                </span>
-                <span>
-                  {t('matchedNet')}: <b>{money2(Number(recon.matchedNet))}</b>
-                </span>
-                <span className={zeroGap ? 'text-success' : 'text-warning'}>
-                  {t('gap')}: <b>{money2(Number(recon.gap))}</b>
-                </span>
+          <ReconCard ledgerId={ledgerId} period={period} />
+
+          {linkTarget && (
+            <Card title={t('linkPanelTitle')}>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-muted-foreground">
-                  {t('unmatchedCount')}: {recon.unmatchedCount}
+                  {linkTarget.kind === 'invoice' ? t('linkInvoiceHint') : t('matchStatementHint')}
                 </span>
-                <span className="text-muted-foreground">
-                  {t('matched')}: {recon.matchedCount} · {t('ignored')}: {recon.ignoredCount}
-                </span>
+                <select
+                  className={field}
+                  value={linkVoucherId}
+                  onChange={(e) => setLinkVoucherId(e.target.value)}
+                >
+                  <option value="">{t('selectVoucher')}</option>
+                  {linkVouchers.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.voucherNo}
+                      {v.summary ? ` · ${v.summary}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!linkVoucherId}
+                  onClick={() => {
+                    if (!linkTarget) return
+                    if (linkTarget.kind === 'invoice')
+                      linkInvoiceMut.mutate({ id: linkTarget.id, voucherId: linkVoucherId })
+                    else matchStatementMut.mutate({ id: linkTarget.id, voucherId: linkVoucherId })
+                  }}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  {t('linkConfirm')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLinkTarget(null)
+                    setLinkVoucherId('')
+                  }}
+                >
+                  {t('cancel')}
+                </Button>
               </div>
-            )}
-          </Card>
+            </Card>
+          )}
         </>
       )}
     </div>
