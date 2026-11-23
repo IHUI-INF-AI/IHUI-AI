@@ -87,6 +87,8 @@ mod sandbox_ipc;
 mod notification_permission;
 // 2026-11-23 立(B2-10):出站拦截四桶只增计数(纯观测,判定仍归 egress_gate)。
 mod sandbox_metrics;
+// 2026-11-23 立(B3-06):剪贴板一次性读取票据(30s / 最多 8 张 / 二次消费即拒)。
+mod clipboard_grant;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -3600,6 +3602,11 @@ async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String
     // 与键鼠/截屏同闸 —— 默认关,IHUI_DESKTOP_COMPUTER_CONTROL=1 解锁;
     // clipboard_set 只写不读,保留直接可用(正常粘贴链路不受影响)。
     require_computer_control()?;
+    read_clipboard(format).await
+}
+
+/// 读剪贴板的唯一实现(两个命令共用一份;format 语义:`text` 缺省 / `image` 转 PNG base64)。
+async fn read_clipboard(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     let fmt = format.as_deref().unwrap_or("text");
     let result = match fmt {
@@ -3622,6 +3629,35 @@ async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String
         other => return Err(format!("Unknown format: {}", other)),
     };
     Ok(ClipboardResult { clipboard: result })
+}
+
+/// B3-06:发一张一次性读取票据(30 秒、最多 8 张未消费)。
+#[tauri::command]
+fn clipboard_issue_grant() -> clipboard_grant::GrantIssue {
+    clipboard_grant::store().issue(now_ms_u64())
+}
+
+/// B3-06:凭票读一次剪贴板。票据被消费即作废(二次调用拒);未知/过期/已用分码。
+#[tauri::command]
+async fn clipboard_read_with_grant(
+    token: String,
+    format: Option<String>,
+) -> Result<ClipboardResult, String> {
+    require_computer_control()?;
+    let verdict = clipboard_grant::store().consume(&token, now_ms_u64());
+    if verdict != clipboard_grant::GrantVerdict::Ok {
+        return Err(format!("clipboard grant rejected: {}", verdict.code()));
+    }
+    read_clipboard(format).await
+}
+
+/// 单调递增的毫秒时刻(票据过期只比较大小,不依赖真实时间基准)。
+fn now_ms_u64() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// clipboard_set 图片入参上限(F-082):
@@ -5770,7 +5806,10 @@ pub fn run() {
     // 2026-11-23 立(B3-05):通知权限三态查询(只读;区分"用户关了"与"链路故障")。
     query_notification_permission,
     // 2026-11-23 立(B2-10):出站拦截四桶计数(只读;埋点挂在 guard_egress_target)。
-    sandbox_egress_metrics
+    sandbox_egress_metrics,
+    // 2026-11-23 立(B3-06):剪贴板一次性读取票据(发票 + 凭票读一次)。
+    clipboard_issue_grant,
+    clipboard_read_with_grant
         ])
         .run(context)
         .unwrap_or_else(|e| {
