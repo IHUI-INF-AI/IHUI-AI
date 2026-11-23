@@ -57,6 +57,25 @@ beforeEach(async () => {
 })
 
 describe('normalizeAutoInstallStatus', () => {
+  it('代点留痕:整数与文本透传,非法类型归 null', () => {
+    const ok = normalizeAutoInstallStatus({
+      autoClicks: 3,
+      lastClickAt: 1764000000000,
+      lastClickLabel: '安装',
+    })
+    expect(ok.autoClicks).toBe(3)
+    expect(ok.lastClickAt).toBe(1764000000000)
+    expect(ok.lastClickLabel).toBe('安装')
+    const bad = normalizeAutoInstallStatus({
+      autoClicks: 'x',
+      lastClickAt: Number.NaN,
+      lastClickLabel: '   ',
+    })
+    expect(bad.autoClicks).toBeNull()
+    expect(bad.lastClickAt).toBeNull()
+    expect(bad.lastClickLabel).toBeNull()
+  })
+
   it('缺字段一律 null,不把"读不到"说成 false', () => {
     const status = normalizeAutoInstallStatus({}, 33)
     expect(status).toEqual({
@@ -66,6 +85,9 @@ describe('normalizeAutoInstallStatus', () => {
       restrictedRisk: null,
       sdkInt: 33,
       source: 'native',
+      autoClicks: null,
+      lastClickAt: null,
+      lastClickLabel: null,
     })
   })
 

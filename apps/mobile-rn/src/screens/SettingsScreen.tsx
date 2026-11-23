@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
-import { View } from 'react-native'
+import { AppState, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -23,7 +23,7 @@ import { useTheme } from '../context/ThemeContext'
 import { APP_VERSION } from '../lib/config'
 import { checkOtaUpdate, runningBundle } from '../lib/ota-update'
 import { apkSnapshot, checkApkUpdate } from '../lib/apk-update'
-import { openAutoInstallSettingsSmart } from '../lib/auto-install'
+import { getAutoInstallStatus, hasAutoInstallStatusModule, openAutoInstallSettingsSmart } from '../lib/auto-install'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -75,6 +75,10 @@ export default function SettingsScreen() {
     email: false,
   })
   const [drawerVisible, setDrawerVisible] = useState(false)
+  // 设置页「自动安装权限」行右侧读数(2026-11-23):常驻入口原本只负责跳系统页,
+  // 用户从无障碍页回来仍不知道自己到底开没开 —— 右侧显示真实状态,并与引导卡同一判据
+  // (服务自报心跳)。读不到(null)时不渲染读数,不用"未开启"冒充"没读到"。
+  const [a11yOn, setA11yOn] = useState<boolean | null>(null)
 
   // 进页回读真实偏好:原实现直接拿硬编码默认值渲染(push:true/message:true/email:false),
   // 用户看到的开关状态与后端里的实际配置无关。
@@ -99,6 +103,26 @@ export default function SettingsScreen() {
       })
     return () => {
       cancelled = true
+    }
+  }, [])
+
+  // 与通知偏好同一个进页回读时机;另监听回前台(AppState),覆盖"跳系统页开完再回来"这条路。
+  useEffect(() => {
+    if (!hasAutoInstallStatusModule()) return
+    let cancelled = false
+    const read = () => {
+      void getAutoInstallStatus().then((s) => {
+        if (cancelled) return
+        setA11yOn(s.source === 'native' ? (s.enabled ?? null) : null)
+      })
+    }
+    read()
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') read()
+    })
+    return () => {
+      cancelled = true
+      sub.remove()
     }
   }, [])
 
@@ -152,7 +176,11 @@ export default function SettingsScreen() {
     { key: 'CheckUpdate', label: t('menu.checkUpdate') },
     // 自动安装权限常驻入口(2026-11-06):引导卡被确认后 7 天内不再出现,
     // 这里保证用户随时能回到系统无障碍页把「IHUI 自动安装」打开
-    { key: 'AutoInstallPermission', label: t('menu.autoInstallPermission') },
+    {
+      key: 'AutoInstallPermission',
+      label: t('menu.autoInstallPermission'),
+      value: a11yOn === true ? t('common.enabled') : a11yOn === false ? t('common.disabled') : undefined,
+    },
     // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
     { key: 'ConversationImport', label: t('menu.conversationImport') },
     // 更多功能(子包功能入口集合页,对齐原项目 subpackage index)

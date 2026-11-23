@@ -92,6 +92,21 @@ public class AutoInstallStatusModule extends ReactContextBaseJavaModule {
       map.putBoolean("selfReported", selfReported);
       map.putBoolean("globalOn", globalOn);
       map.putString("servicesRaw", servicesRaw == null ? "" : servicesRaw);
+      // 代点留痕(release 包不打 Log,这是唯一能在真机验收「确认键真被点过」的读数)。
+      try {
+        SharedPreferences sp = reactContext.getSharedPreferences(A11Y_PREFS, Context.MODE_PRIVATE);
+        map.putInt("autoClicks", sp.getInt("clicks", 0));
+        long lastClick = sp.getLong("lastClickAt", 0L);
+        map.putDouble("lastClickAt", (double) lastClick);
+        String lastLabel = sp.getString("lastClickLabel", "");
+        if (lastLabel == null || lastLabel.isEmpty()) {
+          map.putNull("lastClickLabel");
+        } else {
+          map.putString("lastClickLabel", lastLabel);
+        }
+      } catch (Throwable ignore) {
+        // 留痕读不到不影响主判据
+      }
 
       String installer = readInstaller(pkg);
       if (installer == null) {

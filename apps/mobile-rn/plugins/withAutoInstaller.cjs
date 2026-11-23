@@ -148,6 +148,16 @@ class __CLASS__ : AccessibilityService() {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_CONNECTED, false).apply()
     }
 
+    /** 代点成功留痕(release 包不打 Log,只能靠本包私有 prefs 取证):次数 + 末次时刻 + 命中标签。 */
+    private fun markClick(label: String) {
+        val sp = getSharedPreferences(PREFS, MODE_PRIVATE)
+        sp.edit()
+            .putInt(KEY_CLICKS, sp.getInt(KEY_CLICKS, 0) + 1)
+            .putLong(KEY_LAST_CLICK, System.currentTimeMillis())
+            .putString(KEY_LAST_CLICK_LABEL, label)
+            .apply()
+    }
+
     override fun onUnbind(intent: android.content.Intent): Boolean {
         handler.removeCallbacks(heartbeat)
         markDisconnected()
@@ -191,6 +201,7 @@ class __CLASS__ : AccessibilityService() {
                 val clicked0 = n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 debug("byId click '" + label0 + "' ok=" + clicked0)
                 if (clicked0) {
+                    markClick(label0)
                     scheduleNext(attempt)
                     return
                 }
@@ -201,6 +212,7 @@ class __CLASS__ : AccessibilityService() {
         val label = labelOf(best.node)
         val clicked = best.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         debug("attempt=" + attempt + " click '" + label + "' score=" + best.score + " ok=" + clicked)
+        if (clicked) markClick(label)
         scheduleNext(attempt)
     }
 
@@ -325,6 +337,11 @@ class __CLASS__ : AccessibilityService() {
 
         /** 心跳间隔;App 侧容忍窗口 = 4 倍。 */
         const val HEARTBEAT_MS = 5_000L
+
+        /** 代点留痕键(与 AutoInstallStatusModule 逐字一致)。 */
+        const val KEY_CLICKS = "clicks"
+        const val KEY_LAST_CLICK = "lastClickAt"
+        const val KEY_LAST_CLICK_LABEL = "lastClickLabel"
 
         /** 单次事件最多尝试 12 轮(约 14s),覆盖暂存进度 -> 确认页 -> 安装中 -> 完成页。 */
         private const val MAX_ATTEMPTS = 12

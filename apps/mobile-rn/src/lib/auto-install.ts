@@ -87,6 +87,12 @@ export interface AutoInstallStatus {
   restrictedRisk: boolean | null
   sdkInt: number | null
   source: 'native' | 'unavailable'
+  /** 代点成功次数(release 包唯一可验收读数;读不到为 null)。 */
+  autoClicks: number | null
+  /** 末次代点时刻(epoch ms);0 表示从未点过。 */
+  lastClickAt: number | null
+  /** 末次代点命中的按钮标签(如「安装」/「继续」)。 */
+  lastClickLabel: string | null
 }
 
 const NATIVE_STATUS_MODULE = 'AutoInstallStatus'
@@ -124,6 +130,9 @@ export function normalizeAutoInstallStatus(
     restrictedRisk: asBool(r.restrictedRisk),
     sdkInt: asInt(r.sdkInt) ?? sdkIntFallback,
     source: 'native',
+    autoClicks: asInt(r.autoClicks),
+    lastClickAt: asInt(r.lastClickAt),
+    lastClickLabel: asText(r.lastClickLabel),
   }
 }
 
@@ -135,6 +144,9 @@ function unavailableStatus(): AutoInstallStatus {
     restrictedRisk: null,
     sdkInt: typeof Platform.Version === 'number' ? Math.trunc(Platform.Version) : null,
     source: 'unavailable',
+    autoClicks: null,
+    lastClickAt: null,
+    lastClickLabel: null,
   }
 }
 
