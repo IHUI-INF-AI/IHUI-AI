@@ -308,4 +308,30 @@ hooks-host-identity 9、本模块 13）；prettier 通过。
 
 **代价/边界**：hooks 是受信外部脚本，仍需拿到 `IHUI_*` 上下文，所以 extras 通道放宽了会话键；
 真要「连会话键都不给」的第三方插件子进程，应传空 extras 并另立调用点（不在本轮范围）。
+
+## 12. C 段交付：七枚落点的运行时拓扑图（archify 交互 HTML）
+
+**产物**：`.archify/architecture-round10-seven-20261123-104053/seven-landings.html`（本地生成物，
+`.archify/` 已在 `.gitignore`；候选与各轮 receipt 同目录）。
+
+**图的内容**：四段运行时各一列——`apps/ai-service`（agent_loop_v2 调 gate_suite 判据 /
+`context://` 命名空间 / output_ring）、`apps/api`（v1-codebase-search → auditIntegrity → pgvector）、
+`apps/cli`（hooks 分发 / homedir 凭据族 deny / env 白名单 → 外部 hook 子进程）、
+`apps/desktop (tauri)`（SandboxGate → Job Object 隔离 / drain 收尾闸门）。
+每节点携带本票落地的 commit 短号；三张结卡载「来源与裁决（P0-1 不采纳、P0-7 立项）」、
+「七枚落点」「超越轴与未闭环」。
+
+**校验（现读）**：`validate` / `deliver` / `check` 三关**通过**（含桌面可读性：viewBox 1270→≤1240、
+页高 1065→≤900 两轮修复，均按诊断给的 supportedFixes 只改间距与卡片长度，语义零改动）。
+`browser-check` **仅剩 `viewer/theme-state` 4 条红**：产物 `resolvedTheme=dark` 而请求 `light`。
+
+**根因（资产缺陷，非产物缺陷）**：本仓 `.ihui/skills/archify/assets/template.html` 的
+`<html data-theme="dark">` 是**写死**的，全文无 `prefers-color-scheme` / 主题切换能力
+（17.6KB 精简壳），因此 light 视口必然解析成 dark。曾给模板注入 `matchMedia` 脚本、
+并确认脚本已进入产物 HTML（`hasMatchMedia: True`），`resolvedTheme` 仍为 dark
+⇒ 该判据不经 media query 传达请求主题；模板已回滚原样（`git status` 零差异），不动这项资产。
+
+**待办（与 [30a] 同类的判据/资产冲突）**：要么给模板补真实主题切换（并验证 `browser-check` 的
+请求路径是否被尊重），要么把 `viewer/theme-state` 降为 warn；在此之前 C 段产物按「三关通过 +
+主题项未判定」交付，不冒绿也不冒红。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
