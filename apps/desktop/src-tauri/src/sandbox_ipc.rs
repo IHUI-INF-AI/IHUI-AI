@@ -63,4 +63,52 @@ pub fn sandbox_capability(requested_tier: String) -> CapabilityReply {
 pub fn sandbox_tiers() -> Vec<&'static str> {
     vec![TIER_JOB_OBJECT, TIER_MICRO_VM]
 }
+
+/// B2-02：IPC 安全描述符自检。真实创建一次「当前用户 + SYSTEM」两条 ACE 的命名管道，
+/// 再立即关闭；传进来的 SID 必须先过形状校验，失败返回原因而不是退回裸管道。
+#[derive(Debug, Serialize)]
+pub struct IpcAclReply {
+    pub ok: bool,
+    pub sddl: String,
+    pub detail: String,
+}
+
+#[tauri::command]
+pub fn ipc_channel_selftest(user_sid: String) -> IpcAclReply {
+    let leaf = format!("ihui-ipc-{}-{}", std::process::id(), chrono_like_millis());
+    let report = crate::ipc_channel_acl::selftest(&user_sid, &leaf);
+    IpcAclReply {
+        ok: report.ok,
+        sddl: report.sddl,
+        detail: report.detail,
+    }
+}
+
+fn chrono_like_millis() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
+/// B2-07：BP_* 原生模块 ABI 探测。加载 → 初始化 → 立即关闭；
+/// 任一步失败返回具名原因，不把「文件存在」冒充「模块可用」。
+#[derive(Debug, Serialize)]
+pub struct NativeModuleReply {
+    pub ok: bool,
+    pub path: String,
+    pub abi_version: u32,
+    pub reason: String,
+}
+
+#[tauri::command]
+pub fn native_module_probe(path: String) -> NativeModuleReply {
+    let report = crate::native_module_abi::probe_native_module(&path);
+    NativeModuleReply {
+        ok: report.ok,
+        path: report.path,
+        abi_version: report.abi_version,
+        reason: report.reason,
+    }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

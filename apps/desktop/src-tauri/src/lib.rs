@@ -91,6 +91,12 @@ mod sandbox_metrics;
 mod clipboard_grant;
 // 2026-11-23 立(B3-04):提交内存余量预判(只读;取不到落未判定,不冒充有余量)。
 mod system_memory;
+// 2026-11-23 立(B2-02):IPC 命名管道安全描述符边界(当前用户 + SYSTEM 两条 ACE;
+// 创建失败即拒,绝不回落无 DACL 裸管道)。非 Windows 显式返回 Unsupported。
+mod ipc_channel_acl;
+// 2026-11-23 立(B2-07):BP_* 原生模块统一 ABI 加载面(GetInterface/Initialize/Shutdown;
+// 头校验不过即拒,非 Windows 显式 Unsupported)。
+mod native_module_abi;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -5812,6 +5818,8 @@ pub fn run() {
     // 前端在起终端/执行前调这条,拿到 supported / 原因码 / 未判定原因再决定。
     sandbox_ipc::sandbox_capability,
     sandbox_ipc::sandbox_tiers,
+    sandbox_ipc::ipc_channel_selftest,
+    sandbox_ipc::native_module_probe,
     // 2026-11-23 立(B3-05):通知权限三态查询(只读;区分"用户关了"与"链路故障")。
     query_notification_permission,
     // 2026-11-23 立(B2-10):出站拦截四桶计数(只读;埋点挂在 guard_egress_target)。
