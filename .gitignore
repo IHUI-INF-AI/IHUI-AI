@@ -364,6 +364,10 @@ monitoring/alertmanager/alertmanager.rendered.yml
 !docs/agent-enhancement-report.html
 !apps/extension/entrypoints/popup/index.html
 !apps/extension/entrypoints/sidepanel/index.html
+# 例外: WebRTC 双端浏览器验证夹具是测试输入，不是构建产物
+!apps/cli/tests/fixtures/rtc-e2e.html
+# B3-01 安装器生成的本机 native host manifest（含绝对 host 路径与浏览器扩展 ID），不入库
+/apps/extension/native-host/
 # 2026-11-12:archify 技能的 assets/template.html 是**渲染骨架源文件**,不是构建产物。
 # 缺它时 archify doctor 报 [missing] Core template、所有 renderer 一进 loadDiagram 就抛错。
 # 它由上游 `generate:viewer` 生成、但生成器不在发行包内 ⇒ 只能作为源文件入库。
@@ -1080,6 +1084,7 @@ target/
 **/*.obj
 **/*.a
 **/*.lib
+**/*.exp
 **/*.rlib
 **/*.rmeta
 **/*.pdb

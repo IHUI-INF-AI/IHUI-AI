@@ -862,7 +862,11 @@ export type UpdateHandoffPlan = {
     | 'timeout-unmeasured'
     | 'verify-unmeasured'
     | 'window-unmeasured'
-    | 'window-not-ready';
+    | 'window-not-ready'
+    // 安装器返回“已安装完成”并带回 npm 退出码 0；这不是摘要校验的替代，
+    // 而是 CLI 更新链的独立证据档，供命令层在安装成功后接优雅重启。
+    | 'install-verified'
+    | 'install-failed';
 };
 
 /**

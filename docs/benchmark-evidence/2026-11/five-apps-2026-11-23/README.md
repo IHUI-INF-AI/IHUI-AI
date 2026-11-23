@@ -476,6 +476,18 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 
 计数：27 条已落地（25 枚提交）/ 他席 2 / 不采纳 10 / 已有等价 5 / 待开发 0 = 44。
 
+## 第十三批：真实边界闭环（Rust / PE DLL / 受限管道 / PostgreSQL / Native Messaging / WebRTC / 更新 apply）
+
+本批不是再写一遍接口，而是把六类“纸面边界”逐个换成真实运行。逐项命令、进程号、SID、DSN、浏览器回包与统计见 `docs/benchmark-evidence/2026-11/five-apps-2026-11-23/real-boundaries-2026-11-23.md`。
+
+- **Rust**：`rustup` minimal stable + MSVC 2022 14.44 / Windows SDK 10.0.26100；`cargo check` 首次真实报 `MissingExport(&'static str)` 生命周期错误，改 `String` 后通过；`cargo build --bin ihui_native_host` 4m21s 产出 549376 字节 exe。
+- **真实 PE DLL**：`bp_fixture.c` 用 MSVC 编译成 103424 字节 `bp_fixture.dll`；`native_module_real.rs` 真实 `LoadLibrary` → 接口头/ABI 1 校验 → `BP_Initialize` → `BP_Shutdown`，6 例全绿，`report.reason="loaded-initialized-shutdown"`。厂商真实 `BP_*` DLL 不存在，未冒充厂商接入。
+- **真实受限管道**：`ipc_channel_real.rs` 用当前用户 SID `S-1-5-21-3924373712-2464060091-3741006702-500` 创建/关闭真实命名管道，SDDL 含当前用户与 `SY`，6 例全绿。
+- **真实 PostgreSQL**：本机 PostgreSQL 18.6 + 测试库 `ihui_test_metadata`；`test_request_metadata_pg.py` 真实建表、写入、同 `request_id` 重复写，`count=1`；1 passed in 5.23s，无 sqlite 回退。
+- **Native Messaging**：扩展 manifest 首次缺 `nativeMessaging` 权限（真实缺陷）已补并重建；Chrome 153 实测忽略 `--load-extension`（Secure Preferences 仅内置扩展），改用 Edge 145（Chromium 同协议）加载未打包扩展；安装器修掉 `reg.exe` 依赖 PATH 的真实缺陷，改绝对 `System32\reg.exe` 并支持 `--browser chrome|edge`；真实链路 content script → background → `connectNative('ai.ihui.bridge')` → Rust host 回 `{ok:true,pid:26988,version:"0.1.0"}`。
+- **完整 WebRTC**：`rtc signal` 真监听 8890，Edge 双页面 fake device 走真实 SDP/ICE/DTLS/SRTP；两端 `connected`、`dataChannelEcho=true`、answerer 收到 audio/video，`audioInboundBytes=7897`、`videoInboundBytes=72564`、`offers=1/answers=1/ice=6/rejected=0`。同时修复夹具中“先建 WS 后装 onmessage 会错过 ready”的真实竞态。无 TURN/STUN 穿透，媒体方向 offerer→answerer，`bridge.ts` 中继保留。
+- **更新 apply**：`update check` 真实返回 `current=1.0.0 latest=1.0.0`；`apply --dry-run` 输出 `npm.cmd install -g ihui-cli@1.0.1`；`IHUI_NPM_CLI=fake-npm.cmd` 真 spawn 收到同一参数，输出 `install=install/installed handoff=apply/install-verified restart=none`。registry 无 1.0.1 真实包，未对真实全局包升级；安装成功→重启由 5 例单测覆盖。
+
 ## 证据文件
 
 - `dsh-archive.md`：DSH app.asar 盘点（含 containers/integrity/entries）
@@ -483,4 +495,5 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - `dsh-packages.txt`：336 个 `@deepseek-ai` 包（`name|version|description`）
 - `dsh-packages-grouped.md`：按前缀分 91 组（client 70 / tool 29 / experimental 28 / session 25 …）
 - `craft-tools.txt`：craft-anything 321 条命令（`command|summary`）
+- `real-boundaries-2026-11-23.md`：第十三批真实边界闭环证据（Rust/PE DLL/受限管道/PG/Native Messaging/WebRTC/更新 apply）
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

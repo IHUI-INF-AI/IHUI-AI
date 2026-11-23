@@ -109,6 +109,7 @@ import { registerServeCommand } from './commands/serve.js';
 import { registerTuiCommand, tryFullScreenFromEnv } from './commands/tui.js';
 import { registerConnectCommand } from './commands/connect.js';
 import { registerRtcCommand } from './commands/rtc.js';
+import { registerUpdateCommand } from './commands/update.js';
 import { startAcpServer } from './acp/server.js';
 import type { IhuiAcpAgent } from './acp/server.js';
 import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
@@ -1027,6 +1028,9 @@ registerRelayCommand(program);
 
 // rtc 子命令组 — 自托管音视频中继(B3-09;房间令牌 + 二端配对)
 registerRtcCommand(program);
+
+// update 子命令组 — 真实安装 + 安装成功后优雅重启(B4-05)
+registerUpdateCommand(program);
 
 // workflows 子命令组 — 对齐 Web 端 /workflows(list/show/run/instances/instance/cancel)
 registerWorkflowsCommand(program);

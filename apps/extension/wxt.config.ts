@@ -37,6 +37,10 @@ export default defineConfig({
       'alarms',
       // 2026-08-01 SSO 接入:chrome.identity.launchWebAuthFlow 打开 web SSO 登录页
       'identity',
+      // 2026-11-23 B3-01 真实闭环:chrome.runtime.connectNative 必须显式声明
+      // nativeMessaging 权限,否则 connectNative 在扩展侧直接不可用(只有 host
+      // manifest 装好也不够)。权限面只此一项,不附带任何通配主机。
+      'nativeMessaging',
     ],
     host_permissions: [
       'http://localhost:8802/*',

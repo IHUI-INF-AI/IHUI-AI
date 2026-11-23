@@ -1091,3 +1091,37 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
   mock（原先"按调用次数计数"，多扫一张表会被误报成"切片腿多跑一轮"，红得看不出原因）。
 - 现读实绩：六个 codebase 测试文件 **73 例绿**；`apps/api` 全库 `tsc --noEmit` 仅剩他席在飞的
   wechat-hub 两条（`wechat-hub-p0.test.ts` TS2352 / `manager.ts` TS6133），我方改动 0 错误。
+
+## 34. 真实边界闭环：从“接口写出来”到“进程真跑起来”（2026-11-23）
+
+本批六条边界逐条做实，完整命令与读数见
+`docs/benchmark-evidence/2026-11/five-apps-2026-11-23/real-boundaries-2026-11-23.md`。
+
+### 34.1 Rust / PE DLL / 受限管道
+
+- Rust 工具链此前只有目录没有组件；用 `rustup-init.exe -y --profile minimal --default-toolchain stable-x86_64-pc-windows-msvc` 安装，得到 cargo/rustc 1.100.0。`cargo check` 首轮真实报 `NativeModuleError::MissingExport(&'static str)` 生命周期不满足，改为 `String` 后通过；`cargo build --bin ihui_native_host` **4m21s** 产出 549376 字节 exe。
+- `bp_fixture.c` 用 MSVC `cl /LD` 编译成真实 PE DLL；`tests/native_module_real.rs` 真实 `LoadLibrary` → 校验 magic/abi/header_size → `BP_Initialize` → `BP_Shutdown`，6 例全绿，`report.reason="loaded-initialized-shutdown"`。厂商真实 `BP_*` DLL 不存在，测试证明的是仓内契约与真实 PE 加载路径。
+- `tests/ipc_channel_real.rs` 用当前用户 SID 创建真实受限命名管道并关闭，SDDL 含当前用户与 `SYSTEM`，6 例全绿；与 DLL harness 合跑 **12 例全绿**。
+
+### 34.2 真实 PostgreSQL
+
+- 本机 PostgreSQL 18.6 服务 `postgresql-x64-18` + 专用测试库 `ihui_test_metadata`；`test_request_metadata_pg.py` 真实建表、写一行、同 `request_id` 重复写，`count=1`，1 passed。测试不连生产库，不提供 sqlite 回退。
+
+### 34.3 Native Messaging（两个真实缺陷 + 浏览器替代）
+
+- **缺陷 1**：扩展构建 manifest 缺 `nativeMessaging` 权限，`chrome.runtime.connectNative` 在扩展侧直接不可用；补权限后重建。
+- **缺陷 2**：安装器 `spawnSync('reg.exe')` 依赖调用方 PATH，PATH 缺 `System32` 时失败；改 `resolveRegExe()` 绝对路径，并支持 `--browser chrome|edge`。
+- **Chrome 153 事实**：命令行 `--load-extension` 被上游移除，新 profile 的 Secure Preferences 只有内置扩展；`--disable-features=DisableLoadExtensionCommandLineSwitch` 无效。改用 Edge 145（Chromium，同 `nativeMessaging` 协议）加载未打包扩展，实际扩展 ID `jmcmcameocdcmnciinieiadionkhakfe`；真实回包 `{ok:true,pid:26988,requestId:"nh-1-4oj3p9",version:"0.1.0"}`。Chrome 本体只能走 UI/商店/策略安装，未冒充完成。
+
+### 34.4 完整 WebRTC
+
+- `apps/cli/src/rtc/signaling.ts` 提供浏览器 `RTCPeerConnection` 的 SDP/ICE 协商；CLI `rtc signal` 真监听 8890；Edge 双页面 fake device 真实完成 SDP/ICE/DTLS/SRTP。
+- 最新一轮：两端 `connected`、`dataChannelEcho=true`、answerer 收到 audio/video、`audioInboundBytes=7897`、`videoInboundBytes=72564`、`offers=1/answers=1/ice=6/rejected=0`。
+- 同时抓到夹具真实竞态：先建 WebSocket 再等 `getUserMedia` 会错过服务端一次性 `ready`，表现为 `connectionState=new`；把 WS 建连移到媒体/轨道准备之后就稳定通过。边界：无 TURN/STUN 穿透，媒体方向 offerer→answerer，`bridge.ts` 二进制中继保留为降级通道。
+
+### 34.5 更新 apply 到优雅重启
+
+- `update apply` 已接真实 `npm install -g`（参数数组，Windows `shell:true`，120s 超时，exit 0 才算 installed）；安装成功才映射 `apply/install-verified` 并交 `RestartCoordinator`。
+- 真实 `update check` 返回 `current=1.0.0 latest=1.0.0`；`--dry-run` 输出正确安装参数；用临时 fake npm 真实 spawn，收到 `install -g ihui-cli@1.0.1`，输出 `install=install/installed handoff=apply/install-verified restart=none`。
+- 边界：registry 当前无更高版本，未对真实全局包执行升级；安装成功→新进程 exit 0 由 `update-apply.test.ts` 5 例覆盖。
+

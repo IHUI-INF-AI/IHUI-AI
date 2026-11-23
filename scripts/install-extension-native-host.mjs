@@ -15,27 +15,35 @@
  *   node scripts/install-extension-native-host.mjs --extension-id <32位> --host-exe <abs.exe> [--apply]
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
-export const NATIVE_HOST_NAME = 'ai.ihui.bridge';
-export const EXTENSION_ID_RE = /^[a-p]{32}$/;
+export const NATIVE_HOST_NAME = 'ai.ihui.bridge'
+export const EXTENSION_ID_RE = /^[a-p]{32}$/
+export const BROWSER_REGISTRY_ROOTS = Object.freeze({
+  chrome: 'HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts',
+  edge: 'HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts',
+})
 
 export function validateExtensionId(value) {
-  return typeof value === 'string' && EXTENSION_ID_RE.test(value);
+  return typeof value === 'string' && EXTENSION_ID_RE.test(value)
 }
 
 export function buildManifest(extensionId, hostExe) {
   if (!validateExtensionId(extensionId)) {
-    throw new Error(`invalid extension id: ${extensionId}`);
+    throw new Error(`invalid extension id: ${extensionId}`)
   }
-  if (typeof hostExe !== 'string' || !isAbsolute(hostExe) || !hostExe.toLowerCase().endsWith('.exe')) {
-    throw new Error(`host exe must be an absolute .exe path: ${hostExe}`);
+  if (
+    typeof hostExe !== 'string' ||
+    !isAbsolute(hostExe) ||
+    !hostExe.toLowerCase().endsWith('.exe')
+  ) {
+    throw new Error(`host exe must be an absolute .exe path: ${hostExe}`)
   }
   if (!existsSync(hostExe)) {
-    throw new Error(`host exe does not exist: ${hostExe}`);
+    throw new Error(`host exe does not exist: ${hostExe}`)
   }
   return {
     name: NATIVE_HOST_NAME,
@@ -43,62 +51,69 @@ export function buildManifest(extensionId, hostExe) {
     path: hostExe,
     type: 'stdio',
     allowed_origins: [`chrome-extension://${extensionId}/`],
-  };
+  }
 }
 
-export function registryArgs(manifestPath) {
+export function resolveRegExe(env = process.env) {
+  const root = env.SystemRoot || env.windir || 'C:\\Windows'
+  return join(root, 'System32', 'reg.exe')
+}
+
+export function registryArgs(manifestPath, browser = 'chrome') {
   if (typeof manifestPath !== 'string' || !isAbsolute(manifestPath)) {
-    throw new Error(`manifest path must be absolute: ${manifestPath}`);
+    throw new Error(`manifest path must be absolute: ${manifestPath}`)
   }
-  return [
-    'add',
-    `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${NATIVE_HOST_NAME}`,
-    '/ve',
-    '/t',
-    'REG_SZ',
-    '/d',
-    manifestPath,
-    '/f',
-  ];
+  const root = BROWSER_REGISTRY_ROOTS[browser]
+  if (!root) throw new Error(`unsupported browser: ${browser}`)
+  return ['add', `${root}\\${NATIVE_HOST_NAME}`, '/ve', '/t', 'REG_SZ', '/d', manifestPath, '/f']
 }
 
 function parseArgs(argv) {
-  const out = { apply: false, extensionId: '', hostExe: '' };
+  const out = { apply: false, extensionId: '', hostExe: '', browser: 'chrome' }
   for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg === '--apply') out.apply = true;
-    else if (arg === '--extension-id') out.extensionId = argv[++i] ?? '';
-    else if (arg === '--host-exe') out.hostExe = argv[++i] ?? '';
+    const arg = argv[i]
+    if (arg === '--apply') out.apply = true
+    else if (arg === '--extension-id') out.extensionId = argv[++i] ?? ''
+    else if (arg === '--host-exe') out.hostExe = argv[++i] ?? ''
+    else if (arg === '--browser') out.browser = argv[++i] ?? ''
   }
-  return out;
+  return out
 }
 
 function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const manifest = buildManifest(args.extensionId, args.hostExe);
-  const manifestPath = join(process.cwd(), 'apps', 'extension', 'native-host', `${NATIVE_HOST_NAME}.json`);
-  const regArgs = registryArgs(manifestPath);
+  const args = parseArgs(process.argv.slice(2))
+  const manifest = buildManifest(args.extensionId, args.hostExe)
+  const manifestPath = join(
+    process.cwd(),
+    'apps',
+    'extension',
+    'native-host',
+    `${NATIVE_HOST_NAME}.json`,
+  )
+  const regArgs = registryArgs(manifestPath, args.browser)
 
   if (!args.apply) {
-    console.log(JSON.stringify({ dryRun: true, manifestPath, manifest, registry: regArgs }, null, 2));
-    return;
+    console.log(
+      JSON.stringify({ dryRun: true, manifestPath, manifest, registry: regArgs }, null, 2),
+    )
+    return
   }
 
-  mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
-  const reg = spawnSync('reg.exe', regArgs, { windowsHide: true, encoding: 'utf-8' });
+  mkdirSync(dirname(manifestPath), { recursive: true })
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
+  const reg = spawnSync(resolveRegExe(), regArgs, { windowsHide: true, encoding: 'utf-8' })
   if (reg.status !== 0) {
-    throw new Error(`reg add failed (${reg.status}): ${reg.stderr || reg.stdout}`);
+    throw new Error(`reg add failed (${reg.status}): ${reg.stderr || reg.stdout}`)
   }
-  console.log(JSON.stringify({ applied: true, manifestPath, registry: regArgs }, null, 2));
+  console.log(JSON.stringify({ applied: true, manifestPath, registry: regArgs }, null, 2))
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    main();
+    main()
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
+    console.error(err instanceof Error ? err.message : String(err))
+    process.exit(1)
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

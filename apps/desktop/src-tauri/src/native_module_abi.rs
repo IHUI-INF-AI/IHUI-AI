@@ -41,7 +41,7 @@ pub type BpShutdown = unsafe extern "system" fn(*mut c_void);
 pub enum NativeModuleError {
     InvalidPath(String),
     LoadFailed(String),
-    MissingExport(&'static str),
+    MissingExport(String),
     AbiMismatch(String),
     InitFailed(i32),
     Unsupported(&'static str),
@@ -129,7 +129,6 @@ mod win {
 pub struct NativeModule {
     handle: win::Handle,
     interface: *mut c_void,
-    initialize: BpInitialize,
     shutdown: BpShutdown,
 }
 
@@ -150,10 +149,11 @@ fn wide(value: &str) -> Vec<u16> {
 
 #[cfg(windows)]
 unsafe fn symbol(handle: win::Handle, name: &str) -> Result<win::Proc, NativeModuleError> {
-    let cname = CString::new(name).map_err(|_| NativeModuleError::MissingExport(name))?;
+    let cname = CString::new(name)
+        .map_err(|_| NativeModuleError::MissingExport(name.to_string()))?;
     let proc = win::GetProcAddress(handle, cname.as_ptr() as *const u8);
     if proc.is_null() {
-        return Err(NativeModuleError::MissingExport(name));
+        return Err(NativeModuleError::MissingExport(name.to_string()));
     }
     Ok(proc)
 }
@@ -174,7 +174,7 @@ pub fn load_native_module(raw_path: &str) -> Result<NativeModule, NativeModuleEr
         let shutdown: BpShutdown = std::mem::transmute(symbol(handle, "BP_Shutdown")?);
 
         let name = CString::new(INTERFACE_NAME).map_err(|_| {
-            NativeModuleError::MissingExport("BP_GetInterface")
+            NativeModuleError::MissingExport("BP_GetInterface".to_string())
         })?;
         let interface = get_interface(name.as_ptr(), ABI_VERSION);
         if interface.is_null() {
@@ -197,7 +197,6 @@ pub fn load_native_module(raw_path: &str) -> Result<NativeModule, NativeModuleEr
         Ok(NativeModule {
             handle,
             interface,
-            initialize,
             shutdown,
         })
     }

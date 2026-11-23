@@ -5,6 +5,7 @@
 import { Command } from 'commander'
 
 import { createRtcBridge } from '../rtc/bridge.js'
+import { createRtcSignalingServer } from '../rtc/signaling.js'
 
 export function registerRtcCommand(program: Command): void {
   const rtc = program
@@ -29,6 +30,28 @@ export function registerRtcCommand(program: Command): void {
       )
       await new Promise<void>((resolve) => {
         const stop = (): void => void bridge.close().finally(resolve)
+        process.once('SIGINT', stop)
+        process.once('SIGTERM', stop)
+        process.once('beforeExit', stop)
+      })
+    })
+
+  rtc
+    .command('signal')
+    .description('启动完整 WebRTC 信令服务（浏览器 RTCPeerConnection 的 SDP/ICE 协商面）')
+    .option('--host <host>', '监听地址', '127.0.0.1')
+    .option('--port <port>', '监听端口(0=随机)', '0')
+    .action(async (opts: { host: string; port: string }) => {
+      const port = Number.parseInt(opts.port, 10)
+      if (!Number.isInteger(port) || port < 0 || port > 65535) {
+        throw new Error(`invalid port: ${opts.port}`)
+      }
+      const signaling = await createRtcSignalingServer({ host: opts.host, port })
+      process.stdout.write(
+        `rtc signaling listening ${signaling.url}?room=<room>&role=offerer|answerer\n`,
+      )
+      await new Promise<void>((resolve) => {
+        const stop = (): void => void signaling.close().finally(resolve)
         process.once('SIGINT', stop)
         process.once('SIGTERM', stop)
         process.once('beforeExit', stop)
