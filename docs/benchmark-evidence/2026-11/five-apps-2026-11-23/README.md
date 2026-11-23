@@ -472,7 +472,7 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - `1d92ac7738789bf853e218c23aa4befbf29bd352`：B3-08 worker 五类行协议（ready/exit/error/message_delta/complete；编码恒单行+尾换行）、B4-07 DNS hook + 常驻 TCP LocalProxy 双引擎（CONNECT/绝对 URI、连接前 403、env 三条代理接线并还原）、B4-05 `RestartCoordinator`（任务排空 + 异步 `spawn` 成功才 exit + 预算 2 + 启动标记消费）、B3-09 自托管 RTC 音视频中继（房间令牌、两端配对、音视频帧原样转发、三端 4029 拒绝）。CLI 新测 35 例绿，worker 回归 20 例绿，`tsc --noEmit` 0 错。
 - `e61b0f229feb5e72955e4d8fe7dd372cca31b345`：B2-02 IPC 命名管道受限 DACL（`O:{sid}G:{sid}D:P` + 当前用户/SYSTEM 两条 GA ACE；宽主体拒绝；创建失败不回落裸管道）、B2-07 `BP_GetInterface/BP_Initialize/BP_Shutdown` 统一 ABI（magic/abi/header_size 三判据）。本机无 Rust 工具链，编译与单测未跑，已在证据报告写明。
 - `acd2c821a4bd306a45da0474da827fcf6cc42377`：B3-01 `connectNative` 客户端（requestId 多路复用、超时/断线/不可用三码、dispose 拒在飞）+ Chrome Native Messaging host（4 字节小端 + JSON、ping/capabilities/shutdown）+ 安装器（扩展 ID 校验、单扩展 `allowed_origins`、HKCU 注册表、默认 dry-run）。扩展 6 例绿 + typecheck 0 错，安装器 dry-run 实跑。
-- `97f6d7a6ac806fdbd631c036e5bcb18a675ad100`：B3-07 四层请求元数据（workspace/business/context/user，严格层、`request_id`/`user_id` 必填）+ PG 追踪表幂等建表/`ON CONFLICT DO NOTHING` + `chat_patch` 的 add/update/delete/rename 原子应用；网关流式/非流式都合并四层并保留 `userId` 兼容别名。Python 15 例绿 + ruff 全绿，API schema 4 例绿。
+- `97f6d7a6ac806fdbd631c036e5bcb18a675ad100`：B3-07 四层请求元数据（workspace/business/context/user，严格层、`request_id`/`user_id` 必填）+ PG 追踪表幂等建表/`ON CONFLICT DO NOTHING` + `chat_patch` 的 add/update/delete/rename 原子应用；网关流式/非流式都合并四层并保留 `userId` 兼容别名。后续补 `mergeRequestMetadata` 单源出口（`d19c2230`）与 LLM 请求进入模型前的 patches 原子应用（`_apply_request_patches`），Python 19 例绿 + ruff 全绿，API schema 7 例绿、API typecheck 0 错。
 
 计数：27 条已落地（25 枚提交）/ 他席 2 / 不采纳 10 / 已有等价 5 / 待开发 0 = 44。
 

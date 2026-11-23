@@ -177,6 +177,7 @@ from ..services.ask_user_question import (
     withdraw_question,
 )
 from ..services.async_gen_close import aclose_async_gen
+from ..services.chat_patch import ChatPatchList, apply_patch_map
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.expert_route import frame_payload as _expert_frame_payload
@@ -3385,6 +3386,11 @@ class LLMCompleteRequest(BaseModel):
     metadata: dict[str, Any] | None = Field(
         None, description="调用方元数据(conversation_id/message_id/user_id 等),原样透传到 done 事件"
     )
+    # B3-07:Qoder chat.proto 形态的增量补丁,键 = messages / tools 通道;
+    # 在请求进入模型前原子应用,任一失败整份状态不变并返回 400。
+    patches: dict[str, ChatPatchList] | None = Field(
+        None, description="按通道(messages/tools)增量编辑请求体,避免整份列表重发"
+    )
     callback_url: str | None = Field(
         None, description="推理完成后回调该 URL(POST 完整结果),默认由 api_service_url 构造"
     )
@@ -3780,6 +3786,39 @@ def _record_compaction_step(
         logger.warning("compaction 指标上报失败(不影响主流程): %s", e)
 
 
+def _apply_request_patches(req: LLMCompleteRequest) -> None:
+    """B3-07:在模型调用前原子应用 patches。
+
+    `cache_id` 是唯一定位键；add/update/delete/rename 任一步失败都整份回滚，
+    由调用方 400 看到具名错误码，而不是把半改后的 messages 发给模型。
+    未知通道（例如只传 tools 但请求没带 tools）也直接拒绝，不做静默忽略。
+    """
+    if not req.patches:
+        return
+    state: dict[str, list[dict[str, Any]]] = {"messages": list(req.messages)}
+    if req.tools is not None:
+        state["tools"] = list(req.tools)
+    unknown = sorted(set(req.patches) - set(state))
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "PATCH_CHANNEL_UNKNOWN",
+                "detail": f"未提供的通道: {', '.join(unknown)}",
+            },
+        )
+    patched, results = apply_patch_map(state, req.patches)
+    failed = next((r for r in results.values() if not r.ok), None)
+    if failed is not None:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": failed.error_code, "detail": failed.detail},
+        )
+    req.messages = patched["messages"]
+    if req.tools is not None:
+        req.tools = patched["tools"]
+
+
 def _effective_context_limit(req: LLMCompleteRequest) -> int:
     """自动压缩用的上下文上限:客户端声明值优先,缺省则**按请求模型解析**。
 
@@ -3801,6 +3840,7 @@ def _effective_context_limit(req: LLMCompleteRequest) -> int:
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
+    _apply_request_patches(req)
     # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
     # 让权限判定与后续链路共用同一个归一值。
     # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
@@ -4575,6 +4615,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
       event: error(含 errorCode 字段),前端 api-client parseStreamLine → attachErrorMeta
       透传 errorCode 到 Error 对象 → onError 回调。
     """
+
+    _apply_request_patches(req)
 
     # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
     # 让权限判定与后续链路共用同一个归一值。

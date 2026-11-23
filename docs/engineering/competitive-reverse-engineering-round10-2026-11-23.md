@@ -623,7 +623,7 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 | B2-02 | IPC 命名管道受限 DACL（当前用户 + SYSTEM 两条 ACE，创建失败即拒） | `e61b0f229feb5e72955e4d8fe7dd372cca31b345` | `ipc_channel_acl.rs` / `sandbox_ipc.rs` |
 | B2-07 | BP_* 原生模块统一 ABI（三出口 + 头三判据） | `e61b0f229feb5e72955e4d8fe7dd372cca31b345` | `native_module_abi.rs` |
 | B3-01 | 浏览器桥 `connectNative` 客户端 + Chrome host 入口 + 安装器 | `acd2c821a4bd306a45da0474da827fcf6cc42377` | `native-host-client.ts` / `ihui_native_host.rs` / `install-extension-native-host.mjs` |
-| B3-07 | 请求元数据四层 + PG 追踪 + patches 增量编辑 | `97f6d7a6ac806fdbd631c036e5bcb18a675ad100` | `request_metadata.py` / `chat_patch.py` / `v1-public.ts` |
+| B3-07 | 请求元数据四层 + PG 追踪 + patches 增量编辑 | `97f6d7a6ac806fdbd631c036e5bcb18a675ad100` | `request_metadata.py` / `chat_patch.py` / `llm.py` / `v1-public.ts` |
 | B3-08 | worker 五类行协议（ready/exit/error/message_delta/complete） | `1d92ac7738789bf853e218c23aa4befbf29bd352` | `worker-protocol.ts` / `worker-pool.ts` / `worker-entry.ts` |
 | B3-09 | 自托管 RTC 音视频中继（房间令牌 + 两端配对 + 音视频帧） | `1d92ac7738789bf853e218c23aa4befbf29bd352` | `rtc/bridge.ts` / `commands/rtc.ts` |
 | B4-05 | 更新后优雅自重启状态机（任务排空 + 异步 spawn 确认 + 预算） | `1d92ac7738789bf853e218c23aa4befbf29bd352` | `daemon/graceful-restart.ts` / `index.ts` |
@@ -661,7 +661,7 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 | B2-02 | `e61b0f229feb5e72955e4d8fe7dd372cca31b345` | 模块内纯逻辑测试（SID/SDDL/管道名三组）；`selftest` 真实创建路径已写 | 本机无 rustc/cargo，Rust 编译与 `cargo test --lib` 未跑；Windows FFI 仅静态审阅 |
 | B2-07 | `e61b0f229feb5e72955e4d8fe7dd372cca31b345` | `validate_interface_header` / `validate_module_path` / `probe` 失败路径单测 | 仓内没有真实 `BP_*` DLL，未加载过任何厂商模块；只有加载器与拒错 |
 | B3-01 | `acd2c821a4bd306a45da0474da827fcf6cc42377` | 扩展 6 例绿 + typecheck 0 错；安装器 dry-run 输出 manifest/registry | `cargo` 未构建 `ihui_native_host.exe`，`--apply` 未写注册表；host 二进制无本机运行证据 |
-| B3-07 | `97f6d7a6ac806fdbd631c036e5bcb18a675ad100` | Python 15 例绿 + ruff 全绿；API schema 4 例绿；API typecheck 本笔零错 | PG 追踪表建表/写入用 mock 连接池验证，未连测试 PG 实跑；chunk 级 patches 消费方是路由请求体，不是持久化会话日志 |
+| B3-07 | `97f6d7a6ac806fdbd631c036e5bcb18a675ad100` | Python 19 例绿 + ruff 全绿；API schema 7 例绿；API typecheck 0 错 | PG 追踪表建表/写入用 mock 连接池验证，未连测试 PG 实跑；patches 在 LLM 请求进入模型前原子应用，不改持久化会话日志 |
 | B3-08 | `1d92ac7738789bf853e218c23aa4befbf29bd352` | 13 例绿；worker 回归 3 套 20 例绿；CLI typecheck 0 错 | 协议只覆盖五类控制/增量事件，不接管 runAgent 的其它 NDJSON 业务事件 |
 | B3-09 | `1d92ac7738789bf853e218c23aa4befbf29bd352` | 5 例真实 WebSocket 双端/三端/畸形帧/控制帧；CLI typecheck 0 错；`ihui rtc --help` 可见 | 自托管中继，不是浏览器 WebRTC 完整协商栈；未依赖 `aoq_node_ext.node` / `AoqClientSdk.dll`，未与 Qoder 私有 SDK 互通 |
 | B4-05 | `1d92ac7738789bf853e218c23aa4befbf29bd352` | 9 例（含异步 spawn error 不退出旧进程）；启动 preAction 消费标记 | 本仓更新器只有检查没有安装 apply ⇒ 生产触发需调用方在拿到 `apply` 计划后调 `requestAfterUpdate`；当前没有安装器调用点 |

@@ -208,6 +208,24 @@ export function mergeRequestMetadata(
   }
 }
 
+const chatPatchItemSchema = z
+  .object({
+    cache_id: z.string().min(1),
+    action: z.enum(['add', 'update', 'delete', 'rename']),
+    position: z.number().int().min(0).optional(),
+    content: z.unknown().optional(),
+    name: z.string().optional(),
+    rename_to: z.string().optional(),
+    description: z.string().optional(),
+    parameters: z.unknown().optional(),
+  })
+  .strict()
+
+export const chatPatchesSchema = z.record(
+  z.string(),
+  z.object({ patches: z.array(chatPatchItemSchema) }).strict(),
+)
+
 const chatCompletionSchema = z.object({
   model: z.string().min(1),
   messages: z
@@ -257,6 +275,8 @@ const chatCompletionSchema = z.object({
   logit_bias: z.record(z.string(), z.number()).optional(),
   // B3-07:可选四层元数据;不传 = 旧客户端零行为变化
   metadata: requestMetadataSchema.optional(),
+  // B3-07:按通道增量编辑 messages/tools;由 ai-service 在模型调用前原子应用
+  patches: chatPatchesSchema.optional(),
 })
 
 /** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
@@ -862,6 +882,8 @@ async function streamChatCompletion(
     reasoningEffort?: string | number
     /** B3-07:四层请求元数据(原样交给 ai-service 追踪表) */
     metadata?: z.infer<typeof requestMetadataSchema>
+    /** B3-07:按通道增量编辑 messages/tools(交 ai-service 原子应用) */
+    patches?: z.infer<typeof chatPatchesSchema>
     /** 采样面与工具开关(2026-10-23 协议补全) */
     topP?: number
     presencePenalty?: number
@@ -902,6 +924,7 @@ async function streamChatCompletion(
     stop,
     reasoningEffort: reasoningEffortRaw,
     metadata: requestMetadata,
+    patches: requestPatches,
     topP,
     presencePenalty,
     frequencyPenalty,
@@ -1331,6 +1354,7 @@ async function streamChatCompletion(
     // B3-07:四层元数据优先;userId 作为兼容别名只补在顶层,不覆盖 user 层身份。
     const mergedMetadata = mergeRequestMetadata(requestMetadata, userId)
     if (mergedMetadata) body.metadata = mergedMetadata
+    if (requestPatches !== undefined) body.patches = requestPatches
     // OpenAI 协议扩展:response_format(json_schema 已在 system 提示注入,原样透传) + seed
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
     if (opts.seed !== undefined) body.seed = opts.seed
@@ -1516,7 +1540,7 @@ async function streamChatCompletion(
  * F-337 回归测试入口(仅导出,行为不变):直接驱动渠道流式腿,断言流内错误帧在
  * 计费 / 熔断 / 客户端通知三处都按失败处理。
  */
-export const __test__ = { streamChatCompletion, requestMetadataSchema }
+export const __test__ = { streamChatCompletion, requestMetadataSchema, chatPatchesSchema }
 
 /** chat/completions 共享处理核签名 */
 export type V1ChatCore = (
@@ -1987,6 +2011,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       repetition_penalty,
       logit_bias,
       metadata: requestMetadata,
+      patches,
     } = body
     // 三个输出预算字段等价:显式 maxTokens > 标准 max_tokens > OpenAI 新名 max_completion_tokens
     const maxTokens = maxTokensCamel ?? max_tokens ?? max_completion_tokens
@@ -2207,6 +2232,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         stop,
         reasoningEffort: reasoning_effort,
         metadata: body.metadata,
+        patches: body.patches,
         topP: top_p,
         presencePenalty: presence_penalty,
         frequencyPenalty: frequency_penalty,
@@ -2437,6 +2463,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           mode === 'byok',
         )
         if (mergedMetadata) body.metadata = mergedMetadata
+        if (patches !== undefined) body.patches = patches
 
         // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
         const paramOpsResult = await applyParamOpsToBody(body, { model: billingModel })
