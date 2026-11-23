@@ -1297,10 +1297,10 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
       order by lower(model_id), effective_at desc nulls last
     )
     update ai_model_config_models m
-    set input_price_per_1k = round((s.pin * ${PROFIT_FACTOR})::numeric, 6),
-        output_price_per_1k = round((s.pout * ${PROFIT_FACTOR})::numeric, 6),
-        cost_input_price_per_1k = s.pin,
-        cost_output_price_per_1k = s.pout,
+    set cost_input_price_per_1k = greatest(coalesce(m.cost_input_price_per_1k, 0), s.pin),
+        cost_output_price_per_1k = greatest(coalesce(m.cost_output_price_per_1k, 0), s.pout),
+        input_price_per_1k = round((greatest(coalesce(m.cost_input_price_per_1k, 0), s.pin) * ${PROFIT_FACTOR})::numeric, 6),
+        output_price_per_1k = round((greatest(coalesce(m.cost_output_price_per_1k, 0), s.pout) * ${PROFIT_FACTOR})::numeric, 6),
         updated_at = now()
     from src s
     where lower(m.model_id) = s.mid

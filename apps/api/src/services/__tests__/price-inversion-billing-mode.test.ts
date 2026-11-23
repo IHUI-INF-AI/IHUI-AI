@@ -47,8 +47,10 @@ describe('售价倒挂 — 成本下限与官方 free 冲突', () => {
   })
 
   it('配置价回填也必须乘利润系数并落成本列', () => {
-    expect(adminSrc).toContain('s.pin * ${PROFIT_FACTOR}')
-    expect(adminSrc).toContain('cost_input_price_per_1k = s.pin')
+    expect(adminSrc).toContain(
+      'round((greatest(coalesce(m.cost_input_price_per_1k, 0), s.pin) * ${PROFIT_FACTOR})',
+    )
+    expect(adminSrc).toContain('greatest(coalesce(m.cost_input_price_per_1k, 0), s.pin)')
   })
 
   it('官方 free 遇本地成本走保底档,不白送', () => {
