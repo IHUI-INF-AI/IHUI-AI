@@ -195,6 +195,68 @@ export function needsRebuild(
   return 'reuse-fresh'
 }
 
+/** 一个仓库的状态行(带 repoId),供批量判据消费。 */
+export interface RebuildCandidateRow {
+  repoId: string
+  state: IndexStateSnapshot | null
+}
+
+/** 该重建的清单项:`reuse-fresh` 永远不进来。 */
+export interface RebuildCandidate {
+  repoId: string
+  decision: Exclude<RebuildDecision, 'reuse-fresh'>
+  /** 该仓库上次索引时刻(毫秒);无状态行为 null —— 排序与展示共用这一份,不各算一遍。 */
+  lastIndexedAtMs: number | null
+}
+
+/** 批量清单的取回上限(P0-8 第十批):与读面 `_clampLimit` 同档,不另立数字。 */
+export const REBUILD_CANDIDATE_LIMIT_CAP = 200
+
+/**
+ * 纯判据:把一批仓库状态折成"该重建的清单"(P0-8 第十批,2026-11-23)。
+ *
+ * 为什么要有这个出口:单仓库的 `needsRebuild` 早已在册,但调度层要的是
+ * "这一圈该重建哪些" —— 没有批量出口,调用方只能自己遍历再各自拼判序,
+ * 拼漏一步就把"配置变更"读成"可复用"(与 `evaluateRebuild` 头注同一个坑)。
+ * 本函数只出清单、**不触发任何索引动作**:自动重建会持续消耗嵌入成本,
+ * 属产品决策;调度层拿到清单后自行决定何时动手。
+ *
+ * 三条硬性质:
+ *  - `reuse-fresh` **不进清单**(清单的语义是"待办",不是"全量快照");
+ *  - 排序固定 = 配置变更 > 无状态 > 过期(同档按 `lastIndexedAtMs` 升序、再按 repoId),
+ *    让调度层"先修配置漂移、再补缺失、最后刷旧";
+ *  - 上限夹取 [1, REBUILD_CANDIDATE_LIMIT_CAP],不因为调用方传 1e9 就无界。
+ *
+ * 不改入参:排序作用在新数组上(纯函数纪律)。
+ */
+export function judgeRebuildCandidates(
+  rows: readonly RebuildCandidateRow[],
+  currentFingerprint: string,
+  nowMs: number,
+  maxAgeMs: number,
+  limit?: number,
+): RebuildCandidate[] {
+  const out: RebuildCandidate[] = []
+  for (const row of rows) {
+    const decision = needsRebuild(row.state, currentFingerprint, nowMs, maxAgeMs)
+    if (decision === 'reuse-fresh') continue
+    out.push({
+      repoId: row.repoId,
+      decision,
+      lastIndexedAtMs: row.state ? row.state.lastIndexedAtMs : null,
+    })
+  }
+  const rank = { 'rebuild-config-changed': 0, 'rebuild-no-state': 1, 'rebuild-stale': 2 } as const
+  out.sort(
+    (a, b) =>
+      rank[a.decision] - rank[b.decision] ||
+      (a.lastIndexedAtMs ?? 0) - (b.lastIndexedAtMs ?? 0) ||
+      a.repoId.localeCompare(b.repoId),
+  )
+  const cap = Math.min(Math.max(1, limit ?? 50), REBUILD_CANDIDATE_LIMIT_CAP)
+  return out.slice(0, cap)
+}
+
 /**
  * 2026-10-03 数据出域合规整改:代码索引默认保留期(天)。
  *
@@ -647,6 +709,56 @@ class CodebaseIndexService {
       state,
       currentFingerprint: fingerprint,
       decision: needsRebuild(state, fingerprint, nowMs ?? Date.now(), maxAgeMs),
+    }
+  }
+
+  /**
+   * 读本归属下的全部索引状态行(P0-8 第十批):`judgeRebuildCandidates` 的唯一数据源。
+   *
+   * 归属缺失 ⇒ 空数组且**零 DB 调用**(与 `getIndexState` 同一 fail-closed 口径):
+   * 跨用户读状态没有语义,批量读更不该存在。
+   */
+  async listIndexStates(ownerUuid: string | null | undefined): Promise<RebuildCandidateRow[]> {
+    if (!ownerUuid) return []
+    const rows = await db
+      .select({
+        repoId: codebaseIndexStates.repoId,
+        configFingerprint: codebaseIndexStates.configFingerprint,
+        lastIndexedAt: codebaseIndexStates.lastIndexedAt,
+        chunkCount: codebaseIndexStates.chunkCount,
+      })
+      .from(codebaseIndexStates)
+      .where(eq(codebaseIndexStates.ownerUuid, ownerUuid))
+    return rows.map((row) => ({
+      repoId: row.repoId,
+      state: {
+        configFingerprint: row.configFingerprint,
+        lastIndexedAtMs: row.lastIndexedAt.getTime(),
+        chunkCount: row.chunkCount,
+      },
+    }))
+  }
+
+  /**
+   * 批量判据的组合出口(P0-8 第十批):读状态 → 取指纹 → 折清单,三步一次收口。
+   *
+   * 与 `evaluateRebuild` 的关系是"批量对单体":同一 `needsRebuild` 判据、同一指纹源,
+   * 只把"读一行"换成"读本归属下的全部行";两处各拼判序就会各自漏步
+   * (漏取指纹时把"配置变更"读成"可复用",见 `judgeRebuildCandidates` 头注)。
+   */
+  async listRebuildCandidates(opts: {
+    ownerUuid?: string | null
+    maxAgeMs?: number
+    nowMs?: number
+    currentFingerprint?: string
+    limit?: number
+  }): Promise<{ candidates: RebuildCandidate[]; scanned: number }> {
+    const { ownerUuid, maxAgeMs = 0, nowMs, currentFingerprint, limit } = opts
+    const rows = await this.listIndexStates(ownerUuid)
+    const fingerprint = currentFingerprint ?? resolveIndexConfigFingerprint()
+    return {
+      candidates: judgeRebuildCandidates(rows, fingerprint, nowMs ?? Date.now(), maxAgeMs, limit),
+      scanned: rows.length,
     }
   }
 

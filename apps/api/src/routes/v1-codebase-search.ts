@@ -311,6 +311,36 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /rebuild-candidates?maxAgeDays=&limit= - 本归属下"该重建"的仓库清单
+  // (P0-8 第十批,2026-11-23:遗留①的**可做半边** —— 只出清单、不自动跑。
+  //  自动重建会持续消耗嵌入成本,属产品决策;调度层拿到清单后自行决定何时动手,
+  //  本端点不替它做决定,也不因为"没人调"而偷偷起后台任务)
+  server.get('/rebuild-candidates', async (req, reply) => {
+    const q = (req.query as { maxAgeDays?: string; limit?: string }) ?? {}
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:索引状态按归属隔离'))
+    }
+    const maxAgeDays = q.maxAgeDays === undefined ? 0 : Number(q.maxAgeDays)
+    if (!Number.isInteger(maxAgeDays) || maxAgeDays < 0) {
+      return reply.status(400).send(error(400, 'maxAgeDays 必须是非负整数'))
+    }
+    const limit = q.limit === undefined ? 50 : Number(q.limit)
+    if (!Number.isInteger(limit) || limit <= 0) {
+      return reply.status(400).send(error(400, 'limit 必须是正整数'))
+    }
+    try {
+      const result = await codebaseIndexService.listRebuildCandidates({
+        ownerUuid: req.userId,
+        maxAgeMs: maxAgeDays * 86_400_000,
+        limit,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '重建候选查询失败'))
+    }
+  })
+
   // POST /index - 批量索引切片(由 ai-service codebase_indexer 调用)
   server.post('/index', async (req, reply) => {
     const parsed = indexSchema.safeParse(req.body)
