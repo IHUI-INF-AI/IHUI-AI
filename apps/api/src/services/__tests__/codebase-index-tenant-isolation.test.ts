@@ -237,7 +237,7 @@ describe('写入面归属强制', () => {
 
   it('indexChunks 空 chunks 时直接返回,不要求归属(无操作即无风险)', async () => {
     const out = await codebaseIndexService.indexChunks('repo-1', [])
-    expect(out).toEqual({ indexed: 0, vectorized: 0, localEmbedded: 0 })
+    expect(out).toEqual({ indexed: 0, vectorized: 0, localEmbedded: 0, entities: 0, edges: 0 })
   })
 })
 

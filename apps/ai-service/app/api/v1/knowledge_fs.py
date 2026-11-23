@@ -115,6 +115,33 @@ async def list_symbols(
     }
 
 
+@router.get("/imports")
+async def list_imports(
+    repo_id: str,
+    target: str,
+    request: Request,
+    direction: str = "from",
+    limit: int = 50,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """按名字查导入边(P0-8 第八批,2026-11-23)。"""
+    user_id, api_token = _identity(request, authorization)
+    if not user_id and not api_token:
+        return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": await knowledge_fs.list_imports(
+            repo_id,
+            target,
+            user_id,
+            api_token=api_token,
+            direction=direction,
+            limit=limit,
+        ),
+    }
+
+
 @router.post("/search")
 async def search(
     req: SearchRequest,

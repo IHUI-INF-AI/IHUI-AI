@@ -47,6 +47,7 @@ from ..core.internal_ticket import (
     internal_service_headers,
 )
 from ..core.llm_gateway import llm_gateway
+from ..core import code_symbol_graph
 from . import rg_fallback_parity as _rgp
 from .codebase_recall_expand import (
     fold_adjacent_hits,
@@ -674,6 +675,34 @@ def _resolve_alias_source(path: str, aliases: dict[str, str], *, limit: int = 16
     return current
 
 
+def collect_import_edges(
+    root: Path, rel_paths: "list[str] | tuple[str, ...]"
+) -> list[dict[str, Any]]:
+    """从文件正文抽导入边(P0-8 第七批,2026-11-23)。
+
+    为什么不在 apps/api 侧重写一份 import 正则:那会是第二份判据(§0.6),两处一漂就
+    出现"边表与符号图对不上"的静默分叉。这里只做"读文本 + 调既有抽取"——
+    import 的正则与名字拆分留在 `core.code_symbol_graph` 一处。
+
+    读不到的文件直接跳过(不抛):索引流程本身已有独立的读失败处理,边是**附加**产物,
+    不应因为某个文件读失败而让整批写入失败。
+    """
+    texts: dict[str, str] = {}
+    for rel in rel_paths:
+        try:
+            texts[rel] = (root / rel).read_text(encoding="utf-8", errors="ignore")
+        except (OSError, ValueError):
+            continue
+    if not texts:
+        return []
+    graph = code_symbol_graph.index_code(texts)
+    return [
+        {"filePath": s.file, "name": s.name, "line": s.line}
+        for s in graph.symbols
+        if s.kind == "import"
+    ]
+
+
 class CodebaseIndexer:
     """代码库语义索引器。
 
@@ -1057,12 +1086,25 @@ class CodebaseIndexer:
         chunks: list[CodeChunk],
         api_token: str | None = None,
         internal_user_id: str | None = None,
+        *,
+        root: Path | None = None,
     ) -> dict[str, Any]:
-        """通过 API 端点写入切片到数据库。"""
+        """通过 API 端点写入切片到数据库。
+
+        `root`(P0-8 第七批):整仓索引档传仓库根,本方法据此按批次内文件清单现读正文、
+        调 `collect_import_edges` 产出导入边一并上传。**单文件索引档刻意不传** ——
+        该档的 `file_path` 是 `path.name`(basename),与切片自己都不是同一口径,
+        若照样产边会造出一批"路径与切片对不上"的边行,比没有边更糟。
+        """
         import httpx
 
         url = f"{self._api_base_url}/api/v1/codebase/index"
-        payload = {
+        imports = (
+            collect_import_edges(root, sorted({c.file_path for c in chunks}))
+            if root is not None
+            else []
+        )
+        payload: dict[str, Any] = {
             "repoId": repo_id,
             "chunks": [
                 {
@@ -1079,6 +1121,8 @@ class CodebaseIndexer:
                 for c in chunks
             ],
         }
+        if imports:
+            payload["imports"] = imports
         # 2026-10-03 数据出域合规整改:**必须**把 internal_user_id 传进鉴权头,
         # 否则 X-User-Id 不会发出,api 侧取不到 req.userId → 拒绝写入无归属的索引
         # (codebase_chunks 存用户代码明文,无主行是该整改要消除的东西)。
@@ -1982,7 +2026,7 @@ class CodebaseIndexer:
         for i in range(0, len(all_chunks), BATCH_WRITE):
             batch = all_chunks[i : i + BATCH_WRITE]
             try:
-                await self._write_to_api(repo_id, batch, api_token, internal_user_id)
+                await self._write_to_api(repo_id, batch, api_token, internal_user_id, root=root)
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
                 failed_batches.append(batch)
@@ -2064,6 +2108,8 @@ class CodebaseIndexer:
             result.files_indexed = 1
             if chunks:
                 result.chunks_vectorized = await self._generate_embeddings_batch(chunks)
+                # 单文件索引档不传 root(不产导入边):该档 file_path 是 basename,
+                # 与整仓档的仓库相对路径不是同一口径,产边会造出与切片对不上的边行。
                 await self._write_to_api(repo_id, chunks, api_token, internal_user_id)
         except Exception as e:
             result.errors.append(f"{file_path}: {e}")

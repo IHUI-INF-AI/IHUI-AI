@@ -2128,6 +2128,82 @@ async def _tool_list_symbol_definitions(arguments: dict[str, Any]) -> dict[str, 
     return out
 
 
+async def _tool_find_import_edges(arguments: dict[str, Any]) -> dict[str, Any]:
+    """find_import_edges: 按名字查导入关系(P0-8 第八批,2026-11-23)。
+
+    两档方向(**不猜**):
+    - `direction='from'`(缺省):这个**文件**导入了谁 —— target 是仓库相对路径;
+    - `direction='to'`:谁导入了这个**名字** —— target 是 import 名字原文。
+
+    猜"这是路径还是名字"会把两件不同的事混成一件(同一个词可能既是文件名前缀又是
+    符号名),所以方向必须由调用方给出。数据源 = api 边表读面,经
+    `knowledge_fs.list_imports` 单源消费(§0.6,本处不复制 HTTP 与三态判据)。
+
+    repo_id 缺省按 path 推导 —— 与 index_codebase 同一份 `_default_repo_id`。
+    归属只认服务端注入的 `__user_id`,缺身份直接拒绝。
+    """
+    target = str(arguments.get("target", "") or "").strip()
+    if not target:
+        return {
+            "tool": "find_import_edges",
+            "ok": False,
+            "errorCode": "missing_argument",
+            "error": "target 必填:from 档填仓库相对路径,to 档填 import 名字原文",
+        }
+    internal_user_id = arguments.get("__user_id") or None
+    if not internal_user_id:
+        return {
+            "tool": "find_import_edges",
+            "ok": False,
+            "errorCode": "missing_identity",
+            "error": "未注入调用者身份:代码索引按归属隔离,拒绝无身份查询",
+        }
+    direction = str(arguments.get("direction", "from") or "from")
+    if direction not in ("from", "to"):
+        return {
+            "tool": "find_import_edges",
+            "ok": False,
+            "errorCode": "invalid_argument",
+            "error": "direction 只支持 from / to",
+        }
+    path = str(arguments.get("path", ".") or ".")
+    repo_id = str(arguments.get("repo_id", "") or "").strip()
+    if not repo_id:
+        from .codebase_indexer import _default_repo_id
+
+        repo_id = _default_repo_id(Path(path).resolve())
+    try:
+        limit = int(arguments.get("limit", 50))
+    except (TypeError, ValueError):
+        return {
+            "tool": "find_import_edges",
+            "ok": False,
+            "errorCode": "invalid_argument",
+            "error": "limit 必须是正整数",
+        }
+    from .knowledge_fs import knowledge_fs
+
+    data = await knowledge_fs.list_imports(
+        repo_id, target, internal_user_id, direction=direction, limit=limit
+    )
+    status = str(data.get("status") or "unjudged")
+    out: dict[str, Any] = {
+        "tool": "find_import_edges",
+        "ok": status == "ok",
+        "status": status,
+        "repo_id": repo_id,
+        "target": target,
+        "direction": direction,
+        "count": int(data.get("count") or 0),
+        "edges": data.get("edges") or [],
+    }
+    if data.get("detail"):
+        # 空集原委透传:path_missing / catalog_missing(含"TS 不产边"这层二义)/
+        # upstream_unavailable 三档不同,调用方据此决定"重建索引"还是"换策略"
+        out["detail"] = data["detail"]
+    return out
+
+
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_codebase: 代码符号搜索(关键词腿 + 语义腿并跑,RRF 融合)。
 
@@ -14935,6 +15011,37 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="find_import_edges",
+        description=(
+            "按名字查导入关系(P0-8 第八批):direction='from' 查「这个文件导入了谁」"
+            "(target=仓库相对路径),direction='to' 查「谁导入了这个名字」"
+            "(target=import 名字原文)。每条边含虚拟路径(repo/file#name)+行号+名字原文。"
+            "空集按三档给出:path_missing(未建索引)/ catalog_missing(索引早于边表,"
+            "或该仓库的导入行不匹配既有抽取正则 —— 当前只覆盖 python 风格 import)/"
+            "upstream_unavailable(取不到,未判定)。repo_id 可省略,缺省按 path 推导。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "description": "from 档填仓库相对路径;to 档填 import 名字原文(逐字相等、必填)",
+                },
+                "direction": {
+                    "type": "string",
+                    "description": "from=查该文件的导入;to=查谁导入了该名字(默认 from)",
+                    "enum": ["from", "to"],
+                    "default": "from",
+                },
+                "repo_id": {"type": "string", "description": "仓库标识(可省略;缺省按 path 推导)"},
+                "path": {"type": "string", "description": "仓库根目录(默认当前目录;仅在省略 repo_id 时用于推导)"},
+                "limit": {"type": "integer", "description": "最多返回多少条边(默认 50,夹取 1-200)", "default": 50},
+            },
+            "required": ["target"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="index_codebase",
         description=(
             "对本地代码库建立/刷新语义索引(Merkle 增量,未变更文件零重嵌入)。"
@@ -19181,6 +19288,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "get_tool_schema": _tool_get_tool_schema,
     "search_codebase": _tool_search_codebase,
     "list_symbol_definitions": _tool_list_symbol_definitions,
+    "find_import_edges": _tool_find_import_edges,
     "index_codebase": _tool_index_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "context_recall": _tool_context_recall,

@@ -490,6 +490,119 @@ class KnowledgeFS:
             out["index_state"] = {"status": idx.get("status"), "detail": "索引状态未判定"}
         return out
 
+    async def _fetch_import_edges(
+        self,
+        repo_id: str,
+        internal_user_id: str | None,
+        api_token: str | None,
+        params: dict[str, str],
+        limit: int,
+    ) -> list[dict[str, Any]] | None:
+        """取边表行;上游失败返回 None(调用方落 upstream_unavailable)。"""
+        qs = httpx.QueryParams({**params, "limit": str(limit)})
+        url = f"{self._indexer._api_base_url}/api/v1/codebase/repo/{repo_id}/edges?{qs}"
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(url, headers=self._headers(internal_user_id, api_token))
+            if resp.status_code >= 400:
+                logger.warning("knowledge_fs 边清单失败 %s: HTTP %s", repo_id, resp.status_code)
+                return None
+            payload = resp.json() or {}
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("knowledge_fs 边清单异常 %s: %s", repo_id, e)
+            return None
+        return list((payload.get("data") or {}).get("edges") or [])
+
+    async def list_imports(
+        self,
+        repo_id: str,
+        target: str,
+        internal_user_id: str | None,
+        api_token: str | None = None,
+        direction: str = "from",
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """按名字查导入边(P0-8 第八批,2026-11-23;边表的读面消费方)。
+
+        `direction` 只有两档,语义不同:
+        - `from`(缺省):这个**文件**导入了谁 —— 输入是仓库相对路径,按 filePath 查;
+        - `to`:谁导入了这个**名字** —— 输入是 import 名字原文,按 toName 查。
+
+        两档不做"智能猜测"(猜路径还是名字会把两件事混成一件)。
+
+        空集归因:
+        - 边表有行 ⇒ `ok`;
+        - 边表空且路径清单也空 ⇒ `path_missing`(没建索引);
+        - 边表空但有切片 ⇒ `catalog_missing`。**这一档比实体面多一层二义**:边只覆盖
+          python 风格 import 行(TS 的 `import {x} from 'm'` 不匹配既有正则),所以
+          "有切片无边"既可能是索引早于边表,也可能是该仓库全是 TS —— detail 必须
+          把这层写清,不能断言"没有导入关系"。
+        """
+        if not internal_user_id:
+            return dict(_MISSING_IDENTITY)
+        if not repo_id:
+            return {"status": "invalid_argument", "detail": "repo_id 必填"}
+        if direction not in ("from", "to"):
+            return {"status": "invalid_argument", "detail": "direction 只支持 from / to"}
+        tgt = (target or "").strip()
+        if not tgt:
+            return {
+                "status": "invalid_argument",
+                "detail": "target 必填(名字逐字相等,不做模糊匹配)",
+            }
+        bounded = max(1, min(int(limit), 200))
+        params = {("filePath" if direction == "from" else "toName"): tgt, "kind": "import"}
+        rows = await self._fetch_import_edges(
+            repo_id, internal_user_id, api_token, params, bounded
+        )
+        if rows is None:
+            return {"status": "upstream_unavailable", "detail": "api 侧边清单不可用"}
+        if rows:
+            return {
+                "status": "ok",
+                "repo_id": repo_id,
+                "target": tgt,
+                "direction": direction,
+                "count": len(rows),
+                "edges": [
+                    {
+                        "path": vpath_of(
+                            repo_id,
+                            str(r.get("filePath") or ""),
+                            str(r.get("toName") or ""),
+                        ),
+                        "file_path": str(r.get("filePath") or ""),
+                        "line": r.get("line"),
+                        "kind": r.get("kind"),
+                        "from_name": r.get("fromName"),
+                        "to_name": r.get("toName"),
+                    }
+                    for r in rows
+                ],
+            }
+        chunks = await self._fetch_path_index(repo_id, internal_user_id, api_token)
+        if chunks is None:
+            return {
+                "status": "upstream_unavailable",
+                "detail": "api 侧路径清单不可用,空集归因未判定",
+            }
+        if not chunks:
+            return {
+                "status": "path_missing",
+                "detail": f"repo {repo_id} 无索引切片(可能未建索引)",
+            }
+        return {
+            "status": "catalog_missing",
+            "detail": (
+                "repo 有切片但边表无该记录:或索引建立于边表之前(重建索引可补齐),"
+                "或该仓库的导入行不匹配既有抽取正则(当前只覆盖 python 风格 import,"
+                "TS/JS 的 import {x} from 'm' 不产边) —— 二者同形,故本态不作断言"
+            ),
+            "repo_id": repo_id,
+            "target": tgt,
+            "direction": direction,
+        }
+
 
 knowledge_fs = KnowledgeFS()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

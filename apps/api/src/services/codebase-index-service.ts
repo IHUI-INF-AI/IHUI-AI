@@ -26,7 +26,12 @@
 
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { codebaseChunks, codebaseEntities, codebaseIndexStates } from '@ihui/database'
+import {
+  codebaseChunks,
+  codebaseEdges,
+  codebaseEntities,
+  codebaseIndexStates,
+} from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
 import { logger } from '../utils/logger.js'
 
@@ -55,6 +60,53 @@ export const CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT = 'v1536:tree-sitter-chunk-v1
 export function resolveIndexConfigFingerprint(env: NodeJS.ProcessEnv = process.env): string {
   const override = (env.CODE_INDEX_CONFIG_FINGERPRINT ?? '').trim()
   return override || CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT
+}
+
+/** 导入边输入(由 ai-service 的 code_symbol_graph 单源抽取后随 POST /index 上传)。 */
+export interface ImportEdgeInput {
+  filePath: string
+  name: string
+  line: number
+}
+
+/** 边草稿(派生结果,未落库):一条 import 边的五元组。 */
+export interface EdgeDraft {
+  filePath: string
+  fromName: string
+  toName: string
+  kind: string
+  line: number
+}
+
+/**
+ * 纯函数:把 import 清单派生成边(P0-8 第七批)。
+ *
+ * 为什么不由 api 侧自己扫文件抽 import:那需要在 api 里再写一份正则判据(§0.6 的第二份),
+ * 而 ai-service 已有 `code_symbol_graph` 的 import 正则与提取逻辑。本侧只做**存储与去重**,
+ * 判据单源留给 Python。
+ *
+ * 语义口径:
+ * - `fromName` 取 **filePath 本身**(模块路径),不取 basename —— basename 会撞名
+ *   (`a/index.ts` 与 `b/index.ts` 都叫 index.ts),而"谁导入的"这一问题在边表里必须可区分。
+ * - `toName` 取 import 的名字原文(不解析到目标文件:解析到文件是另一层能力,没做就不假装)。
+ * - `line` 必须为正整数;缺失/非正的条目跳过(表里 line NOT NULL,塞 0 等于伪造位置)。
+ * - 去重键 `(filePath, name, line)`:同一文件同一行重复 import 同名只留一条。
+ */
+export function deriveEdgesFromImports(imports: readonly ImportEdgeInput[]): EdgeDraft[] {
+  const seen = new Map<string, EdgeDraft>()
+  for (const item of imports) {
+    const filePath = (item.filePath ?? '').trim()
+    const name = (item.name ?? '').trim()
+    const line = Number(item.line)
+    if (!filePath || !name || !Number.isInteger(line) || line <= 0) continue
+    const key = `${filePath}\u0000${name}\u0000${line}`
+    if (seen.has(key)) continue
+    seen.set(key, { filePath, fromName: filePath, toName: name, kind: 'import', line })
+  }
+  return [...seen.values()].sort(
+    (a, b) =>
+      a.filePath.localeCompare(b.filePath) || a.line - b.line || a.toName.localeCompare(b.toName),
+  )
 }
 
 /** 实体草稿(派生结果,未落库):P0-8 第三批,把切片自带的符号身份聚合成实体行。 */
@@ -262,6 +314,23 @@ function _entityOwnerScope(ownerUuid: string | null | undefined) {
 }
 
 /**
+ * 边表的归属谓词(P0-8 第七批)。
+ *
+ * 与 `_entityOwnerScope` 同一条纪律(无归属 fail-closed),但**仍是独立函数**:
+ * 两张表的列对象不同,共用一份会写成"对 codebaseEntities 的列做边表查询"这种
+ * 能编译却指错表的 SQL —— 三个谓词各自绑自己的表,这是最便宜的防错方式。
+ */
+/** limit 夹取:两处读面(findEntities / findEdges)共用同一份,不各写一遍(§0.6)。 */
+function _clampLimit(limit: number | undefined): number {
+  return Math.min(Math.max(1, limit ?? 50), 200)
+}
+
+function _edgeOwnerScope(ownerUuid: string | null | undefined) {
+  if (!ownerUuid) return sql`1 = 0`
+  return eq(codebaseEdges.ownerUuid, ownerUuid)
+}
+
+/**
  * 符号精确过滤档的取回上限(2026-11-06 Z36 立)。
  *
  * 为什么不能沿用 topK:本档的语义是「按符号名取回库内**全部**切片」,而 topK 的语义是
@@ -314,6 +383,7 @@ class CodebaseIndexService {
     chunks: ChunkInput[],
     ownerUuid?: string | null,
     retentionDays?: number | null,
+    imports?: readonly ImportEdgeInput[],
   ): Promise<{
     indexed: number
     vectorized: number
@@ -321,8 +391,12 @@ class CodebaseIndexService {
     localEmbedded: number
     /** P0-8 第三批:本批写入的实体行数(同符号跨切片合并后)。 */
     entities: number
+    /** P0-8 第七批:本批写入的导入边行数(去重后)。 */
+    edges: number
   }> {
-    if (chunks.length === 0) return { indexed: 0, vectorized: 0, localEmbedded: 0, entities: 0 }
+    if (chunks.length === 0) {
+      return { indexed: 0, vectorized: 0, localEmbedded: 0, entities: 0, edges: 0 }
+    }
     // 归属强制在**任何 DB 操作之前**:本表存用户代码明文,写无主行等于制造一处
     // "归属不明但长期留存"的外泄面 —— 正是本次整改要消除的东西。存量无主行由
     // 迁移标记过期待清理,不在这里再造新的。缺 ownerUuid 即抛错(而非静默跳过),
@@ -411,8 +485,24 @@ class CodebaseIndexService {
 
     let indexed = 0
     let entities = 0
+    let edges = 0
+    // P0-8 第七批:导入边与切片同事务、同文件粒度。边没有独立生命:文件重索引后
+    // 它的 import 集可能整体变了,所以"先删该文件的旧边、再插新边"与切片的幂等语义一致;
+    // 只删切片会留下指向已不存在 import 的幽灵边(按 toName 查调用图会持续命中)。
+    const edgeRows = deriveEdgesFromImports(imports ?? []).map((d) => ({
+      ownerUuid,
+      repoId,
+      filePath: d.filePath,
+      fromName: d.fromName,
+      toName: d.toName,
+      kind: d.kind,
+      line: d.line,
+    }))
+    // 清除面 = 切片涉及的文件 ∪ 本轮 import 清单涉及的文件。后者多出来的那一类
+    // ("只剩 import、没有可切片内容"的纯声明文件)上一轮的边同样必须换新。
+    const clearFilePaths = [...new Set([...filePaths, ...edgeRows.map((r) => r.filePath)])]
     await db.transaction(async (tx) => {
-      for (const filePath of filePaths) {
+      for (const filePath of clearFilePaths) {
         await tx
           .delete(codebaseChunks)
           .where(
@@ -429,6 +519,15 @@ class CodebaseIndexService {
               _entityOwnerScope(ownerUuid),
               eq(codebaseEntities.repoId, repoId),
               eq(codebaseEntities.filePath, filePath),
+            ),
+          )
+        await tx
+          .delete(codebaseEdges)
+          .where(
+            and(
+              _edgeOwnerScope(ownerUuid),
+              eq(codebaseEdges.repoId, repoId),
+              eq(codebaseEdges.filePath, filePath),
             ),
           )
       }
@@ -448,6 +547,14 @@ class CodebaseIndexService {
         await tx.insert(codebaseEntities).values(batch)
         entities += batch.length
       }
+
+      // 边同理:分批、空批跳过。
+      for (let i = 0; i < edgeRows.length; i += BATCH_SIZE) {
+        const batch = edgeRows.slice(i, i + BATCH_SIZE)
+        if (batch.length === 0) continue
+        await tx.insert(codebaseEdges).values(batch)
+        edges += batch.length
+      }
     })
 
     const localEmbedded = chunks.filter((c) => c.embeddingProvider === 'local-hash').length
@@ -465,7 +572,7 @@ class CodebaseIndexService {
         err: err instanceof Error ? err.message : String(err),
       })
     })
-    return { indexed, vectorized, localEmbedded, entities }
+    return { indexed, vectorized, localEmbedded, entities, edges }
   }
 
   /**
@@ -819,6 +926,10 @@ class CodebaseIndexService {
     await db
       .delete(codebaseEntities)
       .where(and(_entityOwnerScope(ownerUuid), eq(codebaseEntities.repoId, repoId)))
+    // P0-8 第七批:边同理 —— 留着就是按 toName 可查的幽灵导入关系。
+    await db
+      .delete(codebaseEdges)
+      .where(and(_edgeOwnerScope(ownerUuid), eq(codebaseEdges.repoId, repoId)))
     return result.length
   }
 
@@ -845,6 +956,15 @@ class CodebaseIndexService {
           _entityOwnerScope(ownerUuid),
           eq(codebaseEntities.repoId, repoId),
           eq(codebaseEntities.filePath, filePath),
+        ),
+      )
+    await db
+      .delete(codebaseEdges)
+      .where(
+        and(
+          _edgeOwnerScope(ownerUuid),
+          eq(codebaseEdges.repoId, repoId),
+          eq(codebaseEdges.filePath, filePath),
         ),
       )
     return result.length
@@ -890,6 +1010,16 @@ class CodebaseIndexService {
             _entityOwnerScope(ownerUuid),
             eq(codebaseEntities.repoId, repoId),
             inArray(codebaseEntities.filePath, batch),
+          ),
+        )
+      // 边行同样随同批文件一起清。
+      await db
+        .delete(codebaseEdges)
+        .where(
+          and(
+            _edgeOwnerScope(ownerUuid),
+            eq(codebaseEdges.repoId, repoId),
+            inArray(codebaseEdges.filePath, batch),
           ),
         )
     }
@@ -1007,7 +1137,7 @@ class CodebaseIndexService {
   > {
     const { repoId, ownerUuid, name, kind, filePath, limit } = opts
     if (!ownerUuid) return []
-    const cap = Math.min(Math.max(1, limit ?? 50), 200)
+    const cap = _clampLimit(limit)
     const whereParts = [_entityOwnerScope(ownerUuid), eq(codebaseEntities.repoId, repoId)]
     if (name) whereParts.push(eq(codebaseEntities.name, name))
     if (kind) whereParts.push(eq(codebaseEntities.kind, kind))
@@ -1031,6 +1161,64 @@ class CodebaseIndexService {
       lineEnd: number
       kind: string
       name: string
+    }>
+  }
+
+  /**
+   * 边读面(P0-8 第八批,2026-11-23):按名字查导入关系。
+   *
+   * 无归属**零 DB 调用**(与 findEntities / getStats 同纪律:别人的代码一行都不给)。
+   * 过滤一律 `eq`,不做前缀/模糊匹配 —— 边表存的是名字**原文**,模糊匹配会把 `use`
+   * 匹到 `userState`,比查不到更糟。
+   */
+  async findEdges(opts: {
+    repoId: string
+    ownerUuid?: string | null
+    fromName?: string
+    toName?: string
+    kind?: string
+    filePath?: string
+    limit?: number
+  }): Promise<
+    Array<{
+      id: string
+      filePath: string
+      line: number
+      kind: string
+      fromName: string
+      toName: string
+      fromEntityId: string | null
+    }>
+  > {
+    const { repoId, ownerUuid, fromName, toName, kind, filePath, limit } = opts
+    if (!ownerUuid) return []
+    const cap = _clampLimit(limit)
+    const whereParts = [_edgeOwnerScope(ownerUuid), eq(codebaseEdges.repoId, repoId)]
+    if (fromName) whereParts.push(eq(codebaseEdges.fromName, fromName))
+    if (toName) whereParts.push(eq(codebaseEdges.toName, toName))
+    if (kind) whereParts.push(eq(codebaseEdges.kind, kind))
+    if (filePath) whereParts.push(eq(codebaseEdges.filePath, filePath))
+    return (await db
+      .select({
+        id: codebaseEdges.id,
+        filePath: codebaseEdges.filePath,
+        line: codebaseEdges.line,
+        kind: codebaseEdges.kind,
+        fromName: codebaseEdges.fromName,
+        toName: codebaseEdges.toName,
+        fromEntityId: codebaseEdges.fromEntityId,
+      })
+      .from(codebaseEdges)
+      .where(and(...whereParts))
+      .orderBy(codebaseEdges.filePath, codebaseEdges.line, codebaseEdges.toName)
+      .limit(cap)) as Array<{
+      id: string
+      filePath: string
+      line: number
+      kind: string
+      fromName: string
+      toName: string
+      fromEntityId: string | null
     }>
   }
 

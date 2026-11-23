@@ -59,6 +59,19 @@ const indexSchema = z.object({
     )
     .min(1)
     .max(1000),
+  // P0-8 第七批:导入边清单(P0 由 ai-service 的 code_symbol_graph 单源抽取)。
+  // 上限 20000 是有意的:一条 import 边只占三列,但没有上限时一枚坏 payload
+  // 就能把单次写入撑成几分钟的事务。
+  imports: z
+    .array(
+      z.object({
+        filePath: z.string().min(1),
+        name: z.string().min(1),
+        line: z.number().int().min(1),
+      }),
+    )
+    .max(20000)
+    .optional(),
 })
 
 export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
@@ -223,6 +236,47 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /repo/:repoId/edges?fromName=&toName=&kind=&filePath=&limit= - 导入边清单
+  // (P0-8 第八批,2026-11-23:边表的读面。写入方是 POST /index 的同事务通道。
+  // 这里只回答"谁 import 了谁" —— 边表存的是名字原文,不解析目标文件)
+  server.get('/repo/:repoId/edges', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    const q =
+      (req.query as {
+        fromName?: string
+        toName?: string
+        kind?: string
+        filePath?: string
+        limit?: string
+      }) ?? {}
+    if (!repoId) {
+      return reply.status(400).send(error(400, '缺少 repoId'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
+    // 与 entities 同一纪律:limit 显式解析,NaN/<=0 是调用方错误,不静默折成默认
+    const limit = q.limit === undefined ? undefined : Number(q.limit)
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      return reply.status(400).send(error(400, 'limit 必须是正整数'))
+    }
+    try {
+      const edges = await codebaseIndexService.findEdges({
+        repoId,
+        ownerUuid: req.userId,
+        fromName: q.fromName || undefined,
+        toName: q.toName || undefined,
+        kind: q.kind || undefined,
+        filePath: q.filePath || undefined,
+        limit,
+      })
+      return reply.send(success({ repoId, edges }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '导入边清单查询失败'))
+    }
+  })
+
   // GET /repo/:repoId/index-state?maxAgeMs= - 索引状态与重建判据
   // (P0-8 第六批,2026-11-23:`needsRebuild`/`getIndexState` 的第一个生产消费方;
   // maxAgeMs 缺省 0 = 不按时间判过期,由调用方显式给窗口)
@@ -270,6 +324,9 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
         b.repoId,
         b.chunks as ChunkInput[],
         req.userId,
+        // retentionDays 位保持缺省(路由层暂不透传),imports 走第五位
+        undefined,
+        b.imports,
       )
       return reply.send(success(result))
     } catch (e) {

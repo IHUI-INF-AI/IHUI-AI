@@ -136,16 +136,16 @@ describe('P0-8c deriveEntitiesFromChunks', () => {
 })
 
 describe('P0-8c 删除面同步删实体', () => {
-  it('deleteByRepo 同时删切片与实体(两次 delete)', async () => {
+  it('deleteByRepo 同时删切片、实体与边(三次 delete)', async () => {
     h.calls.length = 0
     await codebaseIndexService.deleteByRepo('repo-1', 'owner-1')
-    expect(h.calls).toEqual(['delete', 'delete'])
+    expect(h.calls).toEqual(['delete', 'delete', 'delete'])
   })
 
-  it('deleteByFiles 单批同样两次 delete', async () => {
+  it('deleteByFiles 单批同样三次 delete', async () => {
     h.calls.length = 0
     await codebaseIndexService.deleteByFiles('repo-1', ['a.ts', 'b.ts'], 'owner-1')
-    expect(h.calls).toEqual(['delete', 'delete'])
+    expect(h.calls).toEqual(['delete', 'delete', 'delete'])
   })
 
   it('deleteByFiles 空清单 ⇒ 零 DB 动作', async () => {
@@ -169,12 +169,14 @@ describe('P0-8c 接线与契约(源码面)', () => {
     expect(src.split('_entityOwnerScope(').length - 1).toBeGreaterThanOrEqual(5)
   })
 
-  it('indexChunks 内派生实体并在同一事务写入,返回值带 entities', () => {
+  it('indexChunks 内派生实体并在同一事务写入,返回值带 entities 与 edges', () => {
     const src = read('apps/api/src/services/codebase-index-service.ts')
     expect(src).toContain('const entityRows = deriveEntitiesFromChunks(chunks)')
     expect(src).toContain('await tx.insert(codebaseEntities).values(batch)')
     expect(src).toContain('entities: number')
-    expect(src).toContain('return { indexed, vectorized, localEmbedded, entities }')
+    expect(src).toContain('edges: number')
+    // prettier 可能把 return 折成多行,故按结构片段断言(entities 与 edges 必须同一处返回)
+    expect(src).toMatch(/return \{[^}]*entities[^}]*edges[^}]*\}/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
