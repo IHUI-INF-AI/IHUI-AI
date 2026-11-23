@@ -52,6 +52,8 @@ export function AvatarEditor({
         activeOpacity={0.8}
         testID="avatar-preview"
         disabled={uploading}
+        accessibilityRole="imagebutton"
+        accessibilityLabel={t('profileEdit.avatar')}
       >
         {currentUrl ? (
           <Image source={{ uri: currentUrl }} style={styles.avatar} />

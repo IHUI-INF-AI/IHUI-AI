@@ -124,6 +124,8 @@ export function AiAssistantN8nScreen({
                   key={`${url}-${i}`}
                   style={styles.imageItem}
                   onPress={() => onPreviewImage(url)}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={t('chat.imagePreviewA11y')}
                 >
                   <Image source={{ uri: url }} style={styles.chatImage} resizeMode="cover" />
                 </Tappable>

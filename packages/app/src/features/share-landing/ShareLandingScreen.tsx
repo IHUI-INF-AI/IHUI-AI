@@ -215,6 +215,7 @@ export function ShareLandingScreen({
                     style={styles.imageCell}
                     onPress={() => onPreviewImage(images, index)}
                     accessibilityRole="imagebutton"
+                    accessibilityLabel={t('chat.imagePreviewA11y')}
                   >
                     <Image source={{ uri: url }} style={styles.gridImage} />
                   </Tappable>

@@ -547,13 +547,10 @@ export function ChatMessageItem({
                     key={`${item.id}-img-${segIndex}`}
                     onPress={() => setPreviewImageUrl(seg.url)}
                     style={styles.msgImageWrap}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={t('chat.msg.imgA11y')}
                   >
-                    <Image
-                      source={{ uri: seg.url }}
-                      style={styles.msgImage}
-                      resizeMode="cover"
-                      accessibilityLabel={t('chat.msg.imgA11y')}
-                    />
+                    <Image source={{ uri: seg.url }} style={styles.msgImage} resizeMode="cover" />
                   </Tappable>
                 )
               }
