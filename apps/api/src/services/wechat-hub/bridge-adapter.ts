@@ -283,6 +283,7 @@ export class BridgeAdapter implements WechatAdapter {
   private actionPath = '/action'
   private pollIntervalMs = 2_000
   private lastPollTouchAt = 0
+  private pollsSinceProbe = 0
 
   async connect(ctx: WechatAdapterContext): Promise<void> {
     this.ctx = ctx
@@ -484,12 +485,27 @@ export class BridgeAdapter implements WechatAdapter {
         }
         const events = normalizeBridgePayload(payload)
         const root = asRecord(payload)
+        // 桥若在运行中被重装/清库，seq 会退回 0，而 /messages 空页会原样回显 since，
+        // 单看 nextCursor 永远发现不了。优先读信封里的 seq；老桥不提供时每 5 轮探活一次。
+        this.pollsSinceProbe += 1
+        let bridgeSeq = asNumber(root?.seq)
+        if (bridgeSeq === null && this.pollsSinceProbe >= 5) {
+          this.pollsSinceProbe = 0
+          bridgeSeq = (await this.probe()).seq
+        } else if (bridgeSeq !== null) {
+          this.pollsSinceProbe = 0
+        }
+        const cursorReset = bridgeCursorNeedsReset(this.cursor, bridgeSeq)
+        if (cursorReset) {
+          this.cursor = '0'
+          await this.ctx?.onCursor('0')
+        }
         const nextCursor =
           asString(root?.nextCursor) ??
           asString(root?.next_cursor) ??
           events.at(-1)?.platformMessageId ??
           this.cursor
-        if (nextCursor && nextCursor !== this.cursor) {
+        if (!cursorReset && nextCursor && nextCursor !== this.cursor) {
           this.cursor = nextCursor
           await this.ctx?.onCursor(nextCursor)
         }

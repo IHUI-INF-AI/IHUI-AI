@@ -147,6 +147,7 @@ async function handle(req, res) {
       ok: true,
       messages: items,
       nextCursor: next ? String(next) : (url.searchParams.get('since') ?? '0'),
+      seq,
     })
   }
 

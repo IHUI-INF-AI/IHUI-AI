@@ -76,6 +76,7 @@ try {
   ).json()
   if (incoming.messages?.length !== 1) throw new Error('messages 未取到入站')
   if (incoming.nextCursor !== String(incoming.messages[0].seq)) throw new Error('nextCursor 不符')
+  if (incoming.seq !== incoming.messages[0].seq) throw new Error('messages 未回当前 seq')
 
   const send = await api('/send', { target: 'wxid_a', type: 'text', text: 'hi' })
   if (!send.ok || !send.messageId) throw new Error('send 失败')
