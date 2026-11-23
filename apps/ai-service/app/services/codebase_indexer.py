@@ -1172,6 +1172,70 @@ class CodebaseIndexer:
                 )
             return cast(dict[str, Any], resp.json())
 
+    async def fetch_rebuild_candidates(
+        self,
+        *,
+        max_age_days: int = 30,
+        limit: int = 50,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """读 API 侧的重建候选清单(P0-8 第十四批装车,2026-11-23)。
+
+        为什么放在 indexer 里:候选清单在 API(纯判据 + 归属过滤),而"能重建"的前提
+        (`repoId → localPath`)在第十二批的登记表里 —— 两样都在 API 侧;索引器要发起
+        自动重建,就得先把清单取回来。透传 `internal_user_id` 是必须的:候选按归属隔离,
+        没身份头只能取到空集(那是 fail-closed,不是"没有仓库需要重建")。
+
+        失败抛 RuntimeError(不返回空列表):空列表与"读失败"在调用方必须分得开。
+        """
+        url = f"{self._api_base_url}/api/v1/codebase/rebuild-candidates"
+        headers = self._internal_auth_headers(api_token, internal_user_id)
+        params = {"maxAgeDays": int(max_age_days), "limit": int(limit)}
+        import httpx
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            if resp.status_code >= 400:
+                raise RuntimeError(
+                    f"重建候选读取失败 HTTP {resp.status_code}: {resp.text[:200]}"
+                )
+            body = resp.json()
+        data = body.get("data") if isinstance(body, dict) else None
+        items = data.get("candidates") if isinstance(data, dict) else None
+        return list(items) if isinstance(items, list) else []
+
+    async def auto_rebuild_once(
+        self,
+        *,
+        max_age_days: int = 30,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """跑一轮自动重建:取候选 → 按开关与预算逐仓索引。
+
+        预算**只从环境读**(`CODEBASE_AUTO_REBUILD_MAX`),不接受调用方传 ——
+        两处各定一个上限必然漂移,而这条线的上限就是钱。
+
+        开关关着时返回 `{skipped: True, reason, candidates}`:把"没开"与"跑过了但没候选"
+        在响应上分开。混合成"ran=0"会让运维以为自动重建在正常工作。
+        """
+        from .codebase_auto_rebuild import auto_rebuild_if_enabled
+
+        candidates = await self.fetch_rebuild_candidates(
+            max_age_days=max_age_days,
+            api_token=api_token,
+            internal_user_id=internal_user_id,
+        )
+        out = await auto_rebuild_if_enabled(
+            self,
+            candidates,
+            api_token=api_token,
+            internal_user_id=internal_user_id,
+        )
+        out["candidates_total"] = len(candidates)
+        return out
+
     async def _delete_files_from_api(
         self,
         repo_id: str,

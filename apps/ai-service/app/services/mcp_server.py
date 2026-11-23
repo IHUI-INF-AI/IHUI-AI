@@ -1909,6 +1909,66 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "index_codebase", "ok": False, "error": str(e)[:300]}
 
 
+async def _tool_auto_rebuild_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
+    """auto_rebuild_codebase: 跑一轮自动重建(开关缺省关闭,预算有天花板)。
+
+    ⚠ 与 `index_codebase` 同一条出域同意闸:重建同样把源码切片发往外部 embedding。
+    未同意时**在读任何文件之前**就返回,与 index_codebase 一致。
+
+    语义分三层,不许混成一句"跑完了":
+    - 开关没开 ⇒ `skipped=True` + `reason`(运维要知道是"没开"而不是"没活干");
+    - 开了但候选空 ⇒ `candidates_total=0`,不是失败;
+    - 跑了 ⇒ 逐仓 `results`,失败数单列(`ok=False` 但不抛)。
+    """
+    internal_user_id = arguments.get("__user_id") or None
+    try:
+        max_age_days = int(arguments.get("max_age_days") or 30)
+    except (TypeError, ValueError):
+        return {
+            "tool": "auto_rebuild_codebase",
+            "ok": False,
+            "error": "max_age_days 必须是整数",
+        }
+    if max_age_days < 0:
+        return {
+            "tool": "auto_rebuild_codebase",
+            "ok": False,
+            "error": "max_age_days 必须是非负整数",
+        }
+    if not _code_index_egress_allowed(internal_user_id):
+        return {
+            "tool": "auto_rebuild_codebase",
+            "ok": False,
+            "skipped": "not-consented",
+            "error": (
+                "尚未同意将代码内容用于外部语义索引:自动重建会把源码切片发往外部 "
+                "embedding 服务。请在设置中授权后重试。"
+            ),
+        }
+    try:
+        from .codebase_indexer import codebase_indexer
+
+        result = await codebase_indexer.auto_rebuild_once(
+            max_age_days=max_age_days,
+            internal_user_id=internal_user_id,
+        )
+    except Exception as e:  # noqa: BLE001 — 工具面必须把异常翻成一行结论,不炸 MCP 循环
+        return {"tool": "auto_rebuild_codebase", "ok": False, "error": str(e)[:300]}
+    skipped = bool(result.get("skipped"))
+    # `ok` 这个名字在两层含义不同:调度层 `run_auto_rebuild` 的 `ok` 是**成功数**,
+    # 工具面的 `ok` 是**布尔结论**。直接 `**result` 会让成功数 1 覆盖布尔 True,
+    # 调用方读到 `ok:1` 无法判断是"通过"还是"成功了一个"。这里显式分流:
+    # 工具面 `ok` 只出布尔,成功数另立 `okCount`。
+    ok_count = int(result.get("ok") or 0) if not skipped else 0
+    payload = {k: v for k, v in result.items() if k != "ok"}
+    return {
+        "tool": "auto_rebuild_codebase",
+        **payload,
+        "ok": (not skipped) and int(result.get("failed") or 0) == 0,
+        "okCount": ok_count,
+    }
+
+
 def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
     """用这份仓库自己的 gitignore 丢掉路径。不是 git 仓或 git 失败则一条都不丢。"""
     if not rels:
@@ -15060,6 +15120,27 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="auto_rebuild_codebase",
+        description=(
+            "跑一轮自动重建(受 `CODEBASE_AUTO_REBUILD` 开关与预算上限约束,缺省关闭)。"
+            "取 '该重建的仓库清单'(配置指纹变了/从没索引过/超过保留期),按登记好的本地路径"
+            "逐个增量索引;未登记路径的仓库会被点名跳过而不是猜路径。"
+            "开关未开启时返回 skipped 与原因,不会静默跑一轮。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "max_age_days": {
+                    "type": "integer",
+                    "description": "超过多少天未索引算过期(默认 30,最小 0)",
+                    "default": 30,
+                    "minimum": 0,
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="knowledge_lookup",
         description="统一知识查询(多源并发:代码库语义检索 + RAG 向量检索 + 本地知识库词法多跳 + 知识图谱 + 跨会话历史摘要)。用于查找代码实现/历史对话/相关文档,减少 hallucination。返回 hits 列表,每个含 source/score/content;source 为 sag2 时 content 自带字节区间与行号引用。",
         input_schema={
@@ -19290,6 +19371,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "list_symbol_definitions": _tool_list_symbol_definitions,
     "find_import_edges": _tool_find_import_edges,
     "index_codebase": _tool_index_codebase,
+    "auto_rebuild_codebase": _tool_auto_rebuild_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "context_recall": _tool_context_recall,
     # V3 #63:对话流业务表单请求。主对话流由 llm.py 的拦截位处理(不进 call_tool);
