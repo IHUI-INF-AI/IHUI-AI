@@ -1196,6 +1196,12 @@ class AgentExecuteRequest(BaseModel):
         None,
         description="审批轴:untrusted / on-failure / on-request / never",
     )
+    # DSH dsh-permission-presets:命名预设把两轴捆绑为一个选择面;与显式双轴
+    # 互斥(同给会被拒 400),避免"预设说 A、显式轴说 B"的静默覆盖。
+    permission_preset: str | None = Field(
+        None,
+        description="命名权限预设:readOnly / auto / fullAccess;与显式双轴互斥",
+    )
     # AGENTS.md §8 第 3 步的调用点(2026-09-25 立):执行**前**声明的硬性指标。
     # 声明了才启用独立校验闸门;不声明 = 非 goal 模式,done 帧行为与接线前逐零差异。
     hard_criteria: list[GoalCriterionIn] | None = Field(
@@ -1243,6 +1249,7 @@ def _resolved_axis_resolution(
     sandbox_mode: str | None,
     approval_policy: str | None,
     permission_mode: str | None = None,
+    permission_preset: str | None = None,
 ) -> "_AxisResolution | None":
     """双轴 wire 三输入 → AxisResolution;**两个轴字段都不给时取 config profiles**。
 
@@ -1260,6 +1267,31 @@ def _resolved_axis_resolution(
     返回类型写成 object(避免本模块 import 执行面类型):真正的类型是
     core.permission_axis_gate.AxisResolution,唯一的消费方是 AgentLoopV2。
     """
+    if permission_preset is not None:
+        # 命名预设与显式双轴同给 = 两个真源;拒绝而不是让后者静默压过前者。
+        if not str(permission_preset).strip():
+            raise HTTPException(status_code=400, detail="permission_preset 不可为空字符串")
+        if sandbox_mode is not None or approval_policy is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="permission_preset 与 sandbox_mode/approval_policy 不能同时给",
+            )
+        from ..core.permission_axis_gate import resolve_axis_resolution
+
+        res = resolve_axis_resolution(
+            preset=permission_preset,
+            permission_mode=permission_mode,
+        )
+        if res is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "未知或不可选的 permission_preset: %r"
+                    "(可选 readOnly / auto / fullAccess;custom 只能推导不能选中)"
+                    % (permission_preset,)
+                ),
+            )
+        return res
     if sandbox_mode is None and approval_policy is None:
         from ..core.config_profiles import configured_axis_resolution
 
@@ -1310,6 +1342,10 @@ class AgentResumeRequest(BaseModel):
     approval_policy: str | None = Field(
         None,
         description="审批轴:untrusted / on-failure / on-request / never",
+    )
+    permission_preset: str | None = Field(
+        None,
+        description="命名权限预设:readOnly / auto / fullAccess;与显式双轴互斥",
     )
     # V3 #84 生产者侧(2026-10-07):与 AgentExecuteRequest 同格 —— 续跑重建的循环
     # 落新 checkpoint 时同样可声明耐久视野(两条 resume 出口共用
@@ -1667,7 +1703,10 @@ async def execute_agent(
                 permission_mode=resolved_mode,
                 # 79 号票:双轴经唯一构造入口传入(与 permission_mode 同位置)。
                 axis_resolution=_resolved_axis_resolution(
-                    req.sandbox_mode, req.approval_policy, req.permission_mode
+                    req.sandbox_mode,
+                    req.approval_policy,
+                    req.permission_mode,
+                    permission_preset=req.permission_preset,
                 ),
                 # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                 durable_horizon_seconds=req.durable_horizon_seconds,
@@ -2383,7 +2422,10 @@ async def resume_agent_execute(
     # 未携带时才由 config profiles 接管;认不出的显式值 400。放在属主探测/存储 I/O
     # 之前,与 permission_mode 同一条"请求写错了不伪装成资源没了"的纪律。
     axis_resolution = _resolved_axis_resolution(
-        req.sandbox_mode, req.approval_policy, req.permission_mode
+        req.sandbox_mode,
+        req.approval_policy,
+        req.permission_mode,
+        permission_preset=req.permission_preset,
     )
 
     # (V3 #65)AgentLoopV2 的构造已随续跑逻辑移入 `_resume_run_from_checkpoint`,
@@ -2516,6 +2558,10 @@ class AgentSessionResumeRequest(BaseModel):
     approval_policy: str | None = Field(
         None,
         description="审批轴:untrusted / on-failure / on-request / never",
+    )
+    permission_preset: str | None = Field(
+        None,
+        description="命名权限预设:readOnly / auto / fullAccess;与显式双轴互斥",
     )
     # V3 #84 生产者侧(2026-10-07):与 AgentResumeRequest 同格,同因 —— 耐久视野
     # 声明面两条 resume 出口必须同形。省略 = 不声明 = 重建循环不写耐久键。
@@ -2671,7 +2717,10 @@ async def resume_agent_session(
     # 解析一次(显式双轴优先,两轴都未携带时才由 config profiles 接管;认不出的
     # 显式值 400),与档位一起放在动任何存储之前。
     axis_resolution = _resolved_axis_resolution(
-        req.sandbox_mode, req.approval_policy, req.permission_mode
+        req.sandbox_mode,
+        req.approval_policy,
+        req.permission_mode,
+        permission_preset=req.permission_preset,
     )
 
     async def _runner(
@@ -2844,6 +2893,20 @@ async def clear_session(
     await memory_store.clear(session_id, user_id=current_user)
     await vector_memory.clear(session_id, user_id=current_user)
     return {"session_id": session_id, "cleared": True}
+
+
+@router.get("/agents/permission-presets")
+async def list_permission_presets(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """命名权限预设目录(DSH dsh-permission-presets 兼容面)。
+
+    只返回可选预设的静态目录与默认项,以及仅用于展示的 ``custom``;
+    ``custom`` 不可被选中,当前组合是否 custom 由调用方按两轴现场推导。
+    """
+    from ..core.permission_presets import DEFAULT_CATALOG
+
+    return {"code": 0, "message": "success", "data": DEFAULT_CATALOG.as_dict()}
 
 
 @router.post("/agents/memory/search")
