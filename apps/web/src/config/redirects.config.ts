@@ -3,6 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 export const vueToNextRedirects = [
+  // 2026-11-23 商店合规:vivo 后台登记的隐私政策地址 `https://aizhs.top/privacy` 实测 404,
+  // 小米/OPPO/荣耀侧也普遍接受 /privacy、/terms 这类惯例短链 ⇒ 统一 308 到真正带正文的协议页。
+  // 目的地 = 协议页(内容由 /api/agreements/current 拉取,正文已入库 v2026.11.1)。
+  { source: '/privacy', destination: '/agreement/privacy-policy', permanent: true },
+  { source: '/privacy-policy', destination: '/agreement/privacy-policy', permanent: true },
+  { source: '/terms', destination: '/agreement/user-agreement', permanent: true },
+  { source: '/user-agreement', destination: '/agreement/user-agreement', permanent: true },
   { source: '/admin/user-management', destination: '/admin/users', permanent: true },
   { source: '/admin/refund-audit', destination: '/admin/refund', permanent: true },
   { source: '/admin/course-management', destination: '/admin/edu/course', permanent: true },
