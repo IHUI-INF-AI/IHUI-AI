@@ -111,6 +111,7 @@ class TurnWorkspaceSnapshot:
         self._max_files = max_files
         self._max_diff_chars = max_diff_chars
         self._root: Path | None = None
+        self._prefix = ""
         self._git_dir: Path | None = None
         self._tmpdir: Path | None = None
         self._objects_dir: Path | None = None
@@ -134,13 +135,16 @@ class TurnWorkspaceSnapshot:
             if root_text is None:
                 return False
             self._root = Path(root_text.strip())
-            # 工作区是父仓库的子目录时，不冒充整个父仓库的回合快照：
-            # 否则会把工作区之外的脏文件带进 turn.diff，宁可回退既有路径。
-            if os.path.normcase(os.path.abspath(self._root)) != os.path.normcase(
-                os.path.abspath(self._workspace)
-            ):
+            # 工作区可以是父仓库的子目录:快照仍读整个仓库的 tree,但 diff 用
+            # 工作区相对前缀收窄,既不把工作区外的脏文件带进来,也不因"不是根"
+            # 整段降级回旧路径。前缀必须真的落在仓库内,否则 fail-closed。
+            root_abs = os.path.abspath(self._root)
+            workspace_abs = os.path.abspath(self._workspace)
+            rel_prefix = os.path.relpath(workspace_abs, root_abs)
+            if rel_prefix.split(os.sep)[0] == "..":
                 self._root = None
                 return False
+            self._prefix = "" if rel_prefix == "." else rel_prefix.replace(os.sep, "/")
             git_dir_text = self._run(
                 ["rev-parse", "--absolute-git-dir"], cwd=str(self._root)
             )
@@ -254,6 +258,12 @@ class TurnWorkspaceSnapshot:
             return ""
         return out.strip().splitlines()[0].strip()
 
+    def _scope_args(self) -> list[str]:
+        """把 diff 收窄到工作区前缀;根工作区返回空,保持既有输出不变。"""
+        if not self._prefix:
+            return []
+        return [f"--relative={self._prefix}", "--", self._prefix]
+
     def _name_status(self, start_tree: str, end_tree: str) -> dict[str, str]:
         out = self._run(
             [
@@ -264,6 +274,7 @@ class TurnWorkspaceSnapshot:
                 "--no-renames",
                 start_tree,
                 end_tree,
+                *self._scope_args(),
             ]
         )
         status_map: dict[str, str] = {}
@@ -290,6 +301,7 @@ class TurnWorkspaceSnapshot:
                 "--no-renames",
                 start_tree,
                 end_tree,
+                *self._scope_args(),
             ]
         )
         rows: list[tuple[str, int, int, bool]] = []
@@ -322,11 +334,17 @@ class TurnWorkspaceSnapshot:
             "--no-ext-diff",
             "--no-color",
             "--unified=3",
-            start_tree,
-            end_tree,
-            "--",
-            *paths,
         ]
+        if self._prefix:
+            args.append(f"--relative={self._prefix}")
+        args.extend([start_tree, end_tree])
+        if self._prefix:
+            scope_paths = [
+                f"{self._prefix}/{path}" for path in paths
+            ]
+            args.extend(["--", *scope_paths])
+        else:
+            args.extend(["--", *paths])
         out = self._run(args)
         if not out:
             return "", False

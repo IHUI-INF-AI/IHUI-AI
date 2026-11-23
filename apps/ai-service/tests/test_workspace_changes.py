@@ -109,6 +109,27 @@ def test_snapshot_truncates_when_file_budget_exceeded(repo: Path) -> None:
     assert result.truncated is True
 
 
+def test_subdirectory_workspace_scope_excludes_repo_outside(repo: Path) -> None:
+    """工作区是仓库子目录:只报子目录内变化,路径相对工作区,不整段降级。"""
+    sub = repo / "sub"
+    sub.mkdir()
+    (sub / "inside.txt").write_text("one\n", encoding="utf-8")
+    _git(repo, "add", "sub/inside.txt")
+    _git(repo, "commit", "-q", "-m", "add sub")
+
+    snap = TurnWorkspaceSnapshot(str(sub))
+    assert snap.start() is True
+    assert snap._prefix == "sub"
+    (sub / "inside.txt").write_text("one\nturn\n", encoding="utf-8")
+    (repo / "outside.txt").write_text("outside\n", encoding="utf-8")
+    result = snap.finish()
+
+    assert [c.path for c in result.changes] == ["inside.txt"]
+    assert result.changes[0].additions == 1
+    assert "+++ b/inside.txt" in result.unified_diff
+    assert "outside.txt" not in result.unified_diff
+
+
 def test_non_git_workspace_degrades_silently(tmp_path: Path) -> None:
     plain = tmp_path / "plain"
     plain.mkdir()
