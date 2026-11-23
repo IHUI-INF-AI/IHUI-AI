@@ -430,7 +430,8 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - `packages/types` 的 `V1AgentExecuteRequest` 新增 `agentPreset`；`apps/api` 的 `/v1/agents/execute` 与 `/v1/agents/execute/stream` Zod schema 接受该字段并透传为 `agent_preset`，两处 OpenAPI 同步登记。
 - 网关边界先判互斥：`agentPreset` 与 `permissionMode` / `permissionPreset` / `maxIterations` 同给直接 400，不把冲突留给下游。
 - 路由层契约测试补齐：`v1-agent-preset.test.ts` 4 例（纯透传、三路互斥、旧字段零变化、schema 拒空串）；`test_agent_presets_route.py` 5 例（目录形状、展开、两种互斥、未知值）；`test_turn_outline_route.py` 3 例（投影计数、显式截断、越权同 404）。
-- 本批验证：API vitest `4 passed`；ai-service 路由测试 `8 passed`。上批六文件合跑与 web diff-stats 结论不变。
+- CLI 端点目录同步重生成：`ai-endpoints.generated.ts` 现含 `/api/agents/agent-presets`、`/api/sessions/threads/{thread_id}/outline`、`/api/research/{research_id}/ledger`；端点从 689 条增至 709 条。
+- 本批验证：API vitest `4 passed`；ai-service 路由测试 `8 passed`；CLI `ai-bridge-tools.test.ts` 28 passed；CLI `tsc --noEmit` 0 错。上批六文件合跑与 web diff-stats 结论不变。
 
 ## 证据文件
 
