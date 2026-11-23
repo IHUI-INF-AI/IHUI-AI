@@ -745,6 +745,8 @@ export const HR_HUB_ITEMS: NavItem[] = [
   { href: '/hr/my-payroll', labelKey: 'hrMyPayroll', icon: Wallet },
   { href: '/admin/hr-attendance', labelKey: 'hrAdmin', icon: Users, adminOnly: true },
   { href: '/admin/hr-data', labelKey: 'hrAdminData', icon: ClipboardCheck, adminOnly: true },
+  // 2026-11-23 新增:合同/试用/招聘/离职/发薪闭环一页(人事全周期)。
+  { href: '/admin/hr-lifecycle', labelKey: 'hrLifecycle', icon: UserCheck, adminOnly: true },
 ]
 
 /**
@@ -812,15 +814,19 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'hrGroup',
     items: [{ href: '/domains/hr', labelKey: 'hrGroup', icon: UsersRound }],
   },
-  // 财务部分组(2026-11-16 立):与人事部同形态,侧边栏留一枚「财务部」入口,
-  // 直接指向 /finance-ai(财务域当前仅此单页,无需 hub 中转;后续增页时再
-  // 收敛为 /domains/finance 域入口)。
-  // labelKey = nav.financeAi。⚠️ 2026-11-22 核账:此处原写"复用既有 nav.financeAi 键(五语言齐备)",
+  // 财务部分组(2026-11-16 立):与人事部同形态,侧边栏留一枚「财务部」入口。
+  // 2026-11-23 增页:原「仅 /finance-ai 单页」不再成立 —— 财务账套(客户/凭证复核/
+  // 报表结账/税务申报)上线,与本组同列;两页都走 adminOnly,财务权限点仍由
+  // 页面内 HasPermi + 后端 requirePermission 兜底(前端隐藏不承担鉴权,AGENTS §5)。
+  // labelKey = nav.financeAi / nav.finAccounting。⚠️ 2026-11-22 核账:此处原写"复用既有 nav.financeAi 键(五语言齐备)",
   // 而该键在五份词库里当时一枚都不存在 —— 侧栏把 nav.financeAi 原样画给了用户。
   // 键已当日补齐;数据键一律由 check-i18n-data-keys.mjs 判活,新增 labelKey 必须先落词库。
   {
     label: 'financeGroup',
-    items: [{ href: '/finance-ai', labelKey: 'financeAi', icon: Wallet }],
+    items: [
+      { href: '/finance-ai', labelKey: 'financeAi', icon: Wallet },
+      { href: '/admin/fin-accounting', labelKey: 'finAccounting', icon: BookOpen, adminOnly: true },
+    ],
   },
   {
     // 2026-10-23 P2 收敛第二批:本组由 14 项收敛为 1 个域入口(/domains/ai)。
@@ -1020,5 +1026,4 @@ export const LANGUAGES: { code: Language; name: string; badge: string }[] = [
   { code: 'ja', name: '日本語', badge: 'JA' },
   { code: 'ko', name: '한국어', badge: 'KO' },
 ]
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

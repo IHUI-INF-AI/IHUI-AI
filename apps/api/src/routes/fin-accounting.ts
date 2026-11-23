@@ -1,0 +1,753 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 财务代账路由(前缀 /api/fin-accounting)。
+ *
+ * 权限两档:
+ *   · finance:ledger:view   —— 读客户/账套/余额/报表/凭证
+ *   · finance:ledger:manage —— 建客户/账套、改科目、写期初、制单、过账、结账
+ * 系统管理员(roleId>=1)按 requirePermission 的既定语义直接放行。
+ */
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+
+import { requirePermission } from '../plugins/require-permission.js'
+import {
+  archiveClient,
+  createAccount,
+  createClient,
+  createLedger,
+  getClient,
+  getLedger,
+  getOpeningBalances,
+  listAccounts,
+  listClients,
+  listLedgers,
+  setOpeningBalances,
+  summarizeOpening,
+  updateAccount,
+  updateClient,
+  updateLedger,
+} from '../services/fin-accounting/ledger-service.js'
+import {
+  createVoucher,
+  deleteVoucher,
+  getVoucher,
+  importVouchers,
+  listVouchers,
+  postVoucher,
+  postVouchers,
+  reverseVoucher,
+  updateVoucher,
+} from '../services/fin-accounting/voucher-service.js'
+import {
+  buildBalanceSheet,
+  buildIncomeStatement,
+  closePeriod,
+  computeTrialBalance,
+  getPeriodStatus,
+  materializeBalances,
+  reopenPeriod,
+} from '../services/fin-accounting/balance-service.js'
+import {
+  createInvoice,
+  deleteInvoice,
+  importInvoices,
+  linkInvoiceToVoucher,
+  listInvoices,
+  setInvoiceStatus,
+  summarizeInvoices,
+} from '../services/fin-accounting/invoice-service.js'
+import {
+  attachStatementsToVoucher,
+  autoMatch,
+  createBankAccount,
+  ignoreStatement,
+  importStatements,
+  listBankAccounts,
+  listStatements,
+  manualMatch,
+  reconcileSummary,
+  unmatchStatement,
+} from '../services/fin-accounting/bank-service.js'
+// 税务服务只在 fin-tax-routes.ts 用;本文件不 import(拆出后未用会 TS6133)
+import {
+  approveReview,
+  rejectReview,
+  reviewQueue,
+  reviewSummary,
+  submitReview,
+} from '../services/fin-accounting/review-service.js'
+
+// 共享 schema/helper 在 fin-accounting-shared.ts(拆自本文件的 99~236 行)
+import {
+  MANAGE,
+  PERIOD,
+  VIEW,
+  accountBody,
+  badRequest,
+  clientBody,
+  guard,
+  importBody,
+  invoiceBody,
+  ledgerBody,
+  lineBody,
+  openingBody,
+  statementBody,
+  userIdOf,
+  voucherBody,
+} from './fin-accounting-shared.js'
+// 税务域在 fin-tax-routes.ts(单文件行数门)
+import { finTaxRoutes } from './fin-tax-routes.js'
+
+export const finAccountingRoutes: FastifyPluginAsync = async (server) => {
+  // ============================ 客户 ============================
+  server.post('/clients', { preHandler: requirePermission(MANAGE) }, async (request, reply) => {
+    const parsed = clientBody.safeParse(request.body)
+    if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+    await guard(reply, () => createClient(parsed.data, userIdOf(request)))
+  })
+
+  server.get('/clients', { preHandler: requirePermission(VIEW) }, async (request, reply) => {
+    const q = request.query as { page?: string; limit?: string; keyword?: string; status?: string }
+    await guard(reply, () =>
+      listClients({
+        page: q.page ? Number(q.page) : undefined,
+        limit: q.limit ? Number(q.limit) : undefined,
+        keyword: q.keyword,
+        status: q.status,
+      }),
+    )
+  })
+
+  server.get('/clients/:id', { preHandler: requirePermission(VIEW) }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await guard(reply, () => getClient(id))
+  })
+
+  server.patch(
+    '/clients/:id',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = clientBody.partial().safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => updateClient(id, parsed.data))
+    },
+  )
+
+  server.post(
+    '/clients/:id/archive',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => archiveClient(id))
+    },
+  )
+
+  // ============================ 账套 ============================
+  server.post('/ledgers', { preHandler: requirePermission(MANAGE) }, async (request, reply) => {
+    const parsed = ledgerBody.safeParse(request.body)
+    if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+    await guard(reply, () => createLedger(parsed.data, userIdOf(request)))
+  })
+
+  server.get('/ledgers', { preHandler: requirePermission(VIEW) }, async (request, reply) => {
+    const q = request.query as { clientId?: string }
+    await guard(reply, () => listLedgers(q.clientId))
+  })
+
+  server.get('/ledgers/:id', { preHandler: requirePermission(VIEW) }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await guard(reply, () => getLedger(id))
+  })
+
+  server.patch(
+    '/ledgers/:id',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          name: z.string().min(1).max(100).optional(),
+          accountingStandard: z.enum(['small_business', 'general']).optional(),
+          status: z.enum(['active', 'paused', 'closed']).optional(),
+          reviewRequired: z.boolean().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => updateLedger(id, parsed.data))
+    },
+  )
+
+  // ============================ 科目 ============================
+  server.get(
+    '/ledgers/:id/accounts',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { category?: string; enabled?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        listAccounts(id, {
+          category: q.category,
+          enabled: q.enabled === undefined ? undefined : q.enabled === 'true',
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/accounts',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = accountBody.safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => createAccount(id, parsed.data))
+    },
+  )
+
+  server.patch(
+    '/ledgers/:id/accounts/:code',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          name: z.string().min(1).max(100).optional(),
+          aux: z.record(z.string(), z.boolean()).optional(),
+          enabled: z.boolean().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id, code } = request.params as { id: string; code: string }
+      await guard(reply, () => updateAccount(id, code, parsed.data))
+    },
+  )
+
+  // ============================ 期初余额 ============================
+  server.get(
+    '/ledgers/:id/opening',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, () => getOpeningBalances(id, q.period))
+    },
+  )
+
+  server.put(
+    '/ledgers/:id/opening',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = openingBody.safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => setOpeningBalances(id, parsed.data.period, parsed.data.rows))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/opening/summary',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, () => summarizeOpening(id, q.period))
+    },
+  )
+
+  // ============================ 凭证 ============================
+  server.post(
+    '/ledgers/:id/vouchers',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = voucherBody.safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => createVoucher(id, parsed.data, userIdOf(request)))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/vouchers',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string; status?: string; page?: string; limit?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        listVouchers(id, {
+          period: q.period,
+          status: q.status,
+          page: q.page ? Number(q.page) : undefined,
+          limit: q.limit ? Number(q.limit) : undefined,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/vouchers/import',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = importBody.safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => importVouchers(id, parsed.data.vouchers, userIdOf(request)))
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/vouchers/post-batch',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ ids: z.array(z.string().uuid()).min(1).max(500) })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      await guard(reply, () => postVouchers(parsed.data.ids, userIdOf(request)))
+    },
+  )
+
+  server.get('/vouchers/:id', { preHandler: requirePermission(VIEW) }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await guard(reply, () => getVoucher(id))
+  })
+
+  server.patch(
+    '/vouchers/:id',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          summary: z.string().max(500).optional(),
+          voucherDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
+          lines: z.array(lineBody).min(2).optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => updateVoucher(id, parsed.data))
+    },
+  )
+
+  server.delete(
+    '/vouchers/:id',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => deleteVoucher(id))
+    },
+  )
+
+  server.post(
+    '/vouchers/:id/post',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => postVoucher(id, userIdOf(request)))
+    },
+  )
+
+  server.post(
+    '/vouchers/:id/reverse',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ period: PERIOD.optional() }).safeParse(request.body ?? {})
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => reverseVoucher(id, userIdOf(request), parsed.data.period))
+    },
+  )
+
+  // ============================ 余额与报表 ============================
+  server.get(
+    '/ledgers/:id/trial-balance',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () => {
+        const ledger = await getLedger(id)
+        return computeTrialBalance(id, q.period ?? ledger.currentPeriod)
+      })
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/trial-balance/refresh',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ period: PERIOD }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => materializeBalances(id, parsed.data.period))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/balance-sheet',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () =>
+        buildBalanceSheet(id, q.period ?? (await getLedger(id)).currentPeriod),
+      )
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/income-statement',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () =>
+        buildIncomeStatement(id, q.period ?? (await getLedger(id)).currentPeriod),
+      )
+    },
+  )
+
+  // ============================ 结账 ============================
+  server.post(
+    '/ledgers/:id/close',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ period: PERIOD }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => closePeriod(id, parsed.data.period, userIdOf(request)))
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/reopen',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ period: PERIOD }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => reopenPeriod(id, parsed.data.period, userIdOf(request)))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/periods',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => getPeriodStatus(id))
+    },
+  )
+
+  // ============================ 发票台账 ============================
+  server.post(
+    '/ledgers/:id/invoices',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = invoiceBody.safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => createInvoice(id, parsed.data, userIdOf(request)))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/invoices',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as {
+        period?: string
+        direction?: string
+        status?: string
+        page?: string
+        limit?: string
+      }
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        listInvoices(id, {
+          period: q.period,
+          direction: q.direction,
+          status: q.status,
+          page: q.page ? Number(q.page) : undefined,
+          limit: q.limit ? Number(q.limit) : undefined,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/invoices/import',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ invoices: z.array(invoiceBody).min(1).max(1000) })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => importInvoices(id, parsed.data.invoices, userIdOf(request)))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/invoices/summary',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () => {
+        const ledger = await getLedger(id)
+        return summarizeInvoices(id, q.period ?? ledger.currentPeriod)
+      })
+    },
+  )
+
+  server.patch(
+    '/invoices/:id/status',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          status: z.enum(['unchecked', 'checked', 'certified', 'voided']),
+          checkPeriod: PERIOD.optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => setInvoiceStatus(id, parsed.data.status, parsed.data.checkPeriod))
+    },
+  )
+
+  server.post(
+    '/invoices/:id/link-voucher',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ voucherId: z.string().uuid() }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => linkInvoiceToVoucher(id, parsed.data.voucherId))
+    },
+  )
+
+  server.delete(
+    '/invoices/:id',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => deleteInvoice(id))
+    },
+  )
+
+  // ============================ 银行流水与对账 ============================
+  server.post(
+    '/ledgers/:id/bank-accounts',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          bankName: z.string().min(1).max(100),
+          accountNo: z.string().min(1).max(50),
+          accountName: z.string().max(200).optional(),
+          currency: z.string().max(8).optional(),
+          isDefault: z.boolean().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => createBankAccount(id, parsed.data))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/bank-accounts',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => listBankAccounts(id))
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/bank-accounts/:accountId/statements/import',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ statements: z.array(statementBody).min(1).max(2000) })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id, accountId } = request.params as { id: string; accountId: string }
+      await guard(reply, () => importStatements(id, accountId, parsed.data.statements))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/statements',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as {
+        period?: string
+        matchStatus?: string
+        page?: string
+        limit?: string
+      }
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        listStatements(id, {
+          period: q.period,
+          matchStatus: q.matchStatus,
+          page: q.page ? Number(q.page) : undefined,
+          limit: q.limit ? Number(q.limit) : undefined,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/ledgers/:id/statements/auto-match',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ period: PERIOD, dateWindowDays: z.number().int().min(0).max(30).optional() })
+        .safeParse(request.body ?? {})
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        autoMatch(id, parsed.data.period, { dateWindowDays: parsed.data.dateWindowDays }),
+      )
+    },
+  )
+
+  server.post(
+    '/statements/:id/match',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ voucherId: z.string().uuid() }).safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => manualMatch(id, parsed.data.voucherId))
+    },
+  )
+
+  server.post(
+    '/statements/:id/unmatch',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => unmatchStatement(id))
+    },
+  )
+
+  server.post(
+    '/statements/:id/ignore',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ reason: z.string().max(200).optional() })
+        .safeParse(request.body ?? {})
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => ignoreStatement(id, parsed.data.reason))
+    },
+  )
+
+  server.post(
+    '/statements/attach',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          statementIds: z.array(z.string().uuid()).min(1).max(200),
+          voucherId: z.string().uuid(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      await guard(reply, () =>
+        attachStatementsToVoucher(parsed.data.statementIds, parsed.data.voucherId),
+      )
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/reconcile',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () =>
+        reconcileSummary(id, q.period ?? (await getLedger(id)).currentPeriod),
+      )
+    },
+  )
+
+  // ============================ 凭证复核 ============================
+  server.post(
+    '/vouchers/:id/submit-review',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => submitReview(id))
+    },
+  )
+
+  server.post(
+    '/vouchers/:id/approve-review',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ comment: z.string().max(2000).optional() })
+        .safeParse(request.body ?? {})
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => approveReview(id, userIdOf(request), parsed.data.comment))
+    },
+  )
+
+  server.post(
+    '/vouchers/:id/reject-review',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z.object({ comment: z.string().min(2).max(2000) }).safeParse(request.body)
+      if (!parsed.success)
+        return badRequest(reply, parsed.error.issues[0]?.message ?? '驳回必须写复核意见')
+      const { id } = request.params as { id: string }
+      await guard(reply, () => rejectReview(id, userIdOf(request), parsed.data.comment))
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/review-queue',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { status?: string; page?: string; limit?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        reviewQueue({
+          ledgerId: id,
+          status: q.status === undefined ? undefined : Number(q.status),
+          page: q.page ? Number(q.page) : undefined,
+          limit: q.limit ? Number(q.limit) : undefined,
+        }),
+      )
+    },
+  )
+
+  server.get(
+    '/ledgers/:id/review-summary',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { period?: string }
+      const { id } = request.params as { id: string }
+      await guard(reply, () => reviewSummary(id, q.period))
+    },
+  )
+
+  // 税务域(税种核定/申报日历/申报任务)在 fin-tax-routes.ts,共用同一前缀
+  server.register(finTaxRoutes)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

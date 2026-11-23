@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: b68ab63c2ef53d38db47f831087748d697ae7072
-// inputsSha256: 9e11c2a2deb2c2567f07acb310eb9f4dbf7d8cd5c4cb2dec820d6f0362f458ce
+// sourceCommit: 0280efbd69f80acc89eb9d3a7d6e4fc22a13d2b2
+// inputsSha256: 6c97b6e571bc8ecad74b6561dd201f29ad752d5231f5c1b9dd83181eecba479c
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -172,6 +172,7 @@
 // input: apps/web/app/(main)/admin/exam/records/page.tsx 66edcb2907e55a9a47d1d60a878233400949c085414f803b81c61bf99098e66b
 // input: apps/web/app/(main)/admin/exchange-rates/page.tsx 339b2cec9cbd529976487ed01b76538f4db15e030a87d0d0c22e46e76021b852
 // input: apps/web/app/(main)/admin/feedbacks/page.tsx 0b8f7f587d4aa6002725aacf6ef4e4daf723e5925ff9238a9d09c85822b7d98d
+// input: apps/web/app/(main)/admin/fin-accounting/page.tsx b5828325ad25e8d28ae90b4924cf3c82ed44be15b63fc44a85a711458a5bbe4c
 // input: apps/web/app/(main)/admin/finance-ai/page.tsx 920740d045831ad8cfe97162ef3b0636a52bababfb24d40fcf30c7b75115a31d
 // input: apps/web/app/(main)/admin/github-app/page.tsx d39fce19cc0f920f2ff0b342e5bd5427c08849e625d83164d02f6f17424c83d9
 // input: apps/web/app/(main)/admin/gray-release/page.tsx 9c5c20a621aeacf9952fb5a13794b28d5242cec27ca696ddaef205b212708429
@@ -179,6 +180,7 @@
 // input: apps/web/app/(main)/admin/home-schema/page.tsx dc4ce8e0553789f28c2f88cccff8671c82af3c526e7b095b5186f140257af627
 // input: apps/web/app/(main)/admin/hr-attendance/page.tsx 4815255f3b6967e18cd55e63f8ef2a167821bb2e9aba79ba5995f285097ad04f
 // input: apps/web/app/(main)/admin/hr-data/page.tsx 9a7e33cbbf1eaa69262eadb8f23cbd3b769360601e03fca7a3904a8dd050f1bf
+// input: apps/web/app/(main)/admin/hr-lifecycle/page.tsx c4ea03075baecc086f06e5d48003cf7b131d3031226e8f4f66238e9cce50ab46
 // input: apps/web/app/(main)/admin/i18n-dashboard/compare/page.tsx 1f05c1624441780b1d6c27c6e372361fa267e4e05f612352d42ca3f4b1433b75
 // input: apps/web/app/(main)/admin/i18n-dashboard/missing/page.tsx 0ca10935aab8fee788bd1ee4d7eba0a6b17b6e4ed0b9420fc5b828775f2beb7d
 // input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx e3b10d41c8ad7cc21f4b6c86e7604e24d82e04126c1ac0a6b63e795955ce9f6a
@@ -769,7 +771,7 @@
 // input: apps/web/app/(main)/plaza/page.tsx 7646688c9b22bbc29283a41c136cd55162c7bc1c82e0809ac8bafe1a75451148
 // input: apps/web/app/(main)/plugins/page.tsx 62429d7f3d6cae03f756884e44ba5ddc2bdfffcd67f719e742f916f3100807b8
 // input: apps/web/app/(main)/points/mall/page.tsx aece67f67c15c5303e6c0c8f48a0b614e4da018a7f739ea070d455a06e2ce254
-// input: apps/web/app/(main)/points/page.tsx 22afe064b54ac8b9af8d5397c1dd502210b1c36423e8dcf118dd1b56b9e25ff7
+// input: apps/web/app/(main)/points/page.tsx e4b97ec78e71f1ef96f172e5db1cb43ddd30909e33168c973e2bbcdf2f7cb95d
 // input: apps/web/app/(main)/points/sign-in/page.tsx 69e9314bc89c47a441a7cd08a4357b582016daa8e27568541e91f60758d78b44
 // input: apps/web/app/(main)/points/tasks/page.tsx ee0c20de33c0f9125c2eacdf6564003c6206390449d0956c126146c4be1d6b9c
 // input: apps/web/app/(main)/pricing/page.tsx 0a1c3717f2391db2cc15487136f202ec89b2a8366aceed099f40d0567d45f3d1
@@ -955,7 +957,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-23T03:55:06.277Z
+// generatedAt: 2026-11-23T04:44:43.252Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1116,6 +1118,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/exam/records', param: false, group: 'admin' },
   { path: '/admin/exchange-rates', param: false, group: 'admin' },
   { path: '/admin/feedbacks', param: false, group: 'admin' },
+  { path: '/admin/fin-accounting', param: false, group: 'admin' },
   { path: '/admin/finance-ai', param: false, group: 'admin' },
   { path: '/admin/github-app', param: false, group: 'admin' },
   { path: '/admin/gray-release', param: false, group: 'admin' },
@@ -1123,6 +1126,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/home-schema', param: false, group: 'admin' },
   { path: '/admin/hr-attendance', param: false, group: 'admin' },
   { path: '/admin/hr-data', param: false, group: 'admin' },
+  { path: '/admin/hr-lifecycle', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard/compare', param: false, group: 'admin' },
   { path: '/admin/i18n-dashboard/missing', param: false, group: 'admin' },

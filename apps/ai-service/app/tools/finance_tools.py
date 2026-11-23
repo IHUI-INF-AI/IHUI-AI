@@ -864,6 +864,17 @@ def _iit_cumulative(monthly: list[dict[str, Any]]) -> list[_IIT]:
     P0 修复(2026-11-13):累计口径**按员工独立** —— 同名员工的跨行(跨月)收入共享
     各自的累计预扣进度,不同员工之间互不串扰。旧实现把所有行平铺进同一组累计变量,
     后面员工的应纳税所得额会把前面员工的收入一并累计,税额系统性虚增。
+
+    口径对齐(2026-11-23):税率表与公式与 `apps/api/src/services/payroll-iit.ts`
+    **同源同表**,两处改动必须同批并各自跑单测(TS: tests/payroll-iit-unit.test.ts)。
+
+    历史累计(可选,用于"只传当月工资表"的场景):每行可带
+      prior_months      本年截至上月已过月份数(0~11,默认 0)
+      prior_income      本年累计收入(元)
+      prior_social      本年累计专项扣除(社保+公积金个人)
+      prior_special     本年累计专项附加扣除
+      prior_paid_tax    本年已预扣税额
+    员工首次出现时种入,后续行继续在其上累加。
     """
     cumulative: dict[str, dict[str, Decimal]] = {}
     rows: list[_IIT] = []
@@ -872,9 +883,19 @@ def _iit_cumulative(monthly: list[dict[str, Any]]) -> list[_IIT]:
         gross = _money(emp.get("gross"), f"employees[{idx}].gross")
         social = _money(emp.get("social") or 0, f"employees[{idx}].social")
         special = _money(emp.get("special_deduction") or 0, f"employees[{idx}].special_deduction")
-        acc = cumulative.setdefault(
-            name, {"income": Decimal(0), "deductions": Decimal(0), "paid": Decimal(0)}
-        )
+        acc = cumulative.get(name)
+        if acc is None:
+            prior_months = int(emp.get("prior_months") or 0)
+            if not 0 <= prior_months <= 11:
+                raise ValueError(f"employees[{idx}].prior_months 必须是 0~11 的整数")
+            acc = {
+                "income": _money(emp.get("prior_income") or 0, f"employees[{idx}].prior_income"),
+                "deductions": _money(emp.get("prior_social") or 0, f"employees[{idx}].prior_social")
+                + _money(emp.get("prior_special") or 0, f"employees[{idx}].prior_special")
+                + IIT_MONTHLY_DEDUCTION * prior_months,
+                "paid": _money(emp.get("prior_paid_tax") or 0, f"employees[{idx}].prior_paid_tax"),
+            }
+            cumulative[name] = acc
         acc["income"] += gross
         acc["deductions"] += social + special + IIT_MONTHLY_DEDUCTION
         taxable = max(Decimal(0), acc["income"] - acc["deductions"])

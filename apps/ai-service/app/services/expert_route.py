@@ -153,6 +153,7 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         tools=(
             "hr_payroll_calc",
             "hr_insurance_readiness",
+            "hr_payout_ops",
             "hr_my_payroll",
             "hr_my_payroll_periods",
             "hr_my_attendance",
@@ -172,8 +173,13 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
             "hr_payroll_calc. Preconditions are hard: that month's attendance must already be "
             "month-closed (hr_attendance_monthly) and each employee needs a salary config — "
             "employees skipped for missing config are counted by skippedNoConfig, never guessed. "
-            "The period moves to 'calculated'; approval and payout are human finance actions — "
-            "never change approval status on your own. For the bookkeeping handoff voucher "
+            "The period moves to 'calculated'; approval stays a human action — "
+            "never change approval status on your own. After approval, payout runs through "
+            "hr_payout_ops: batch.build(month) -> batch.export (CSV text + sha256) -> "
+            "batch.submit (handed to bank) -> batch.paid (period becomes paid) -> "
+            "payslip.generate / payslip.push. Never export a batch that is already paid; "
+            "employees without a bank account land in missingAccounts and never block the rest. "
+            "For the bookkeeping handoff voucher "
             "(计提/发放 entries) call ai_payroll_handoff, which requires the period to be "
             "approved. All amounts are Decimal strings: display them verbatim, never recompute. "
             "For company-wide attendance checks use api_endpoints_search / api_endpoint_call "
@@ -217,6 +223,59 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         ),
     ),
     ExpertPack(
+        # 人事部·生命周期(2026-11-23 立):合同/试用转正/离职/招聘,触发即并入 hr_lifecycle_ops。
+        # 与 hr-payroll 包不共享触发词:算薪族 vs 合同/入离职族,命中判定不互抢。
+        slug="hr-lifecycle",
+        title="人事生命周期",
+        terms=(
+            "劳动合同",
+            "签合同",
+            "合同续签",
+            "续签合同",
+            "试用期",
+            "试用转正",
+            "转正",
+            "离职",
+            "办离职",
+            "离职证明",
+            "辞退",
+            "解除合同",
+            "招聘",
+            "招人",
+            "候选人",
+            "面试",
+            "录用",
+            "入职",
+            "岗位需求",
+            "headcount",
+        ),
+        tools=(
+            "hr_lifecycle_ops",
+            "parse_document",
+            "create_artifact",
+            "generate_report",
+            "api_endpoints_search",
+            "api_endpoint_call",
+        ),
+        hint=(
+            "## Expert pack active: hr-lifecycle\n"
+            "The user wants an HR lifecycle action. Route by intent, never invent ids. "
+            "Contracts: contract.create / sign / terminate / renew — terminate needs a reason "
+            "of at least 2 chars, fixed-term requires endDate and indefinite forbids it. "
+            "Probation: probation.due lists contracts whose probation ended without a pass "
+            "review (the leak that silently turns probation into automatic regularization); "
+            "probation.review result=pass writes regular_date, extend requires extendedUntil. "
+            "Resignation: resign.apply -> resign.approve -> resign.settle with a handover "
+            "checklist whose every value is true -> resign.certificate. "
+            "Recruitment: opening.create(open) -> candidate.create -> candidate.advance(screening) "
+            "-> candidate.interviews -> interview.feedback(pass) -> candidate.advance(offer) -> "
+            "candidate.hire (employeeNo + departmentId; creates the employee and a draft contract). "
+            "Never advance a candidate straight to hired; never settle a resignation with "
+            "unchecked items — the backend names the missing ones, report them as-is. "
+            "All dates are YYYY-MM-DD; amounts are Decimal strings shown verbatim."
+        ),
+    ),
+    ExpertPack(
         # 财务部·AI 一键代账(RP-46,2026-11-12 立):触发即自动并入 ai_bookkeeping,
         # 按 phase 逐段调用 ⇒ 工具卡与 plan 步骤看板在对话里实时显示代账过程与进度。
         slug="finance-bookkeeping",
@@ -244,6 +303,7 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         ),
         tools=(
             "ai_bookkeeping",
+            "finance_ledger_ops",
             "parse_document",
             "document_tables",
             "extract_document_assets",
@@ -309,6 +369,7 @@ EXPERT_PACKS: tuple[ExpertPack, ...] = (
         tools=(
             "ai_tax_filing",
             "ai_bookkeeping",
+            "finance_tax_ops",
             "parse_document",
             "document_tables",
             "create_artifact",

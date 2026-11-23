@@ -9721,6 +9721,27 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     hr_insurance_readiness as _hr_insurance_readiness,
 )
+# 动作型财务/人事工具(2026-11-23 立):一枚工具 + action 路由表,见 api_ops_common
+from ..tools import (  # noqa: E402
+    finance_ledger_ops as _finance_ledger_ops,
+)
+from ..tools import (  # noqa: E402
+    finance_tax_ops as _finance_tax_ops,
+)
+from ..tools import (  # noqa: E402
+    hr_lifecycle_ops as _hr_lifecycle_ops,
+)
+from ..tools import (  # noqa: E402
+    hr_payout_ops as _hr_payout_ops,
+)
+from ..tools.finance_ops_tools import (  # noqa: E402
+    FINANCE_LEDGER_DESCRIPTION,
+    FINANCE_TAX_DESCRIPTION,
+)
+from ..tools.hr_ops_tools import (  # noqa: E402
+    HR_LIFECYCLE_DESCRIPTION,
+    HR_PAYOUT_DESCRIPTION,
+)
 
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
@@ -17045,6 +17066,90 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 动作型财务账套工具(2026-11-23 立):把"算出来的账"真正写进正式账套
+        name="finance_ledger_ops",
+        description=FINANCE_LEDGER_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "动作名(取值见工具描述里的清单,如 client.create / voucher.post / period.close)",
+                },
+                "payload": {
+                    "type": "object",
+                    "description": "该动作的参数对象;路径参数(id/code)放同名键,其余键自动进 query 或 body",
+                    "additionalProperties": True,
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 动作型税务/发票/银行工具(2026-11-23 立)
+        name="finance_tax_ops",
+        description=FINANCE_TAX_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "动作名(如 invoice.import / tax.profile.upsert / filing.task.update)",
+                },
+                "payload": {
+                    "type": "object",
+                    "description": "该动作的参数对象;路径参数(id)放同名键,其余键自动进 query 或 body",
+                    "additionalProperties": True,
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 动作型人事生命周期工具(2026-11-23 立):合同/转正/离职/招聘
+        name="hr_lifecycle_ops",
+        description=HR_LIFECYCLE_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "动作名(如 contract.sign / probation.review / resign.settle / candidate.hire)",
+                },
+                "payload": {
+                    "type": "object",
+                    "description": "该动作的参数对象;路径参数(id/employeeId)放同名键",
+                    "additionalProperties": True,
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        # 动作型发薪闭环工具(2026-11-23 立):卡号/代发批次/导出/工资条
+        name="hr_payout_ops",
+        description=HR_PAYOUT_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "动作名(如 batch.build / batch.export / payslip.push)",
+                },
+                "payload": {
+                    "type": "object",
+                    "description": "该动作的参数对象;路径参数(id/employeeId)放同名键",
+                    "additionalProperties": True,
+                },
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         # 财务部五腿·AI 一键报销(2026-11-13 立):入参口径单源 = AI_REIMBURSEMENT_DESCRIPTION
         name="ai_reimbursement",
         description=AI_REIMBURSEMENT_DESCRIPTION,
@@ -19069,6 +19174,11 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "hr_my_leaves": _hr_my_leaves,
     "hr_payroll_calc": _hr_payroll_calc,
     "hr_insurance_readiness": _hr_insurance_readiness,
+    # 动作型财务/人事工具(2026-11-23 立):持久化账套、税务申报、人事生命周期、发薪闭环
+    "finance_ledger_ops": _finance_ledger_ops,
+    "finance_tax_ops": _finance_tax_ops,
+    "hr_lifecycle_ops": _hr_lifecycle_ops,
+    "hr_payout_ops": _hr_payout_ops,
     # 财务部五腿扩展(2026-11-13 立):一键报销 / 社保医保精算 / 个税专项附加
     "ai_reimbursement": _ai_reimbursement,
     "social_insurance_calc": _social_insurance_calc,

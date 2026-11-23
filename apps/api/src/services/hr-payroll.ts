@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, desc, eq, isNull, lte, or, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, lt, lte, or, gte, sql } from 'drizzle-orm'
 
 import {
   hrAttendanceMonthly,
@@ -17,6 +17,12 @@ import {
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { AppError } from '../errors/AppError.js'
+import {
+  IIT_MONTHLY_DEDUCTION_CENTS,
+  computeWithholding,
+  cumulativeIncomeTax,
+} from './payroll-iit.js'
+import { fromCents, toCents } from './fin-accounting/money.js'
 
 /**
  * 薪资计算服务(HR-5 第 5 期,2026-11-12 立)。
@@ -36,30 +42,17 @@ import { AppError } from '../errors/AppError.js'
  *
  * 计算顺序(标准中国薪资口径):
  *   应发 = 基本工资 + 固定津贴 + 加班费 − 缺勤扣款
- *   计税所得 = 应发 − 社保个人 − 公积金个人 − 专项附加扣除 − 起征点
- *   个税 = 按累计预扣法(月度简化:用年度累计税率表逐月累计)
+ *   计税所得 = 应发 − 社保个人 − 公积金个人 − 专项附加扣除 − 起征点(月度展示口径)
+ *   个税 = **累计预扣法**:累计应纳税所得额算累计税额,减去截至上月已预扣,才是本月个税
+ *          (唯一实现在 services/payroll-iit.ts;历史累计从 hr_payroll_item 读)
  *   实发 = 应发 − 社保个人 − 公积金个人 − 个税
  */
 
-/** 个税起征点(元/月),2019 年起 5000。政策变动时只改这里。 */
-const TAX_THRESHOLD_MONTHLY = 5000
+/** 个税起征点(元/月):展示口径用,与 payroll-iit 的分口径同源 */
+const TAX_THRESHOLD_MONTHLY = IIT_MONTHLY_DEDUCTION_CENTS / 100
 
 /** 月计薪天数(法定 21.75),用于日薪折算 */
 const PAYABLE_DAYS_PER_MONTH = 21.75
-
-/**
- * 个税税率表(居民个人综合所得,年度累计预扣法)。
- * [累计应纳税所得额上限, 税率, 速算扣除数]
- */
-const TAX_BRACKETS: readonly [number, number, number][] = [
-  [36000, 0.03, 0],
-  [144000, 0.1, 2520],
-  [300000, 0.2, 16920],
-  [420000, 0.25, 31920],
-  [660000, 0.3, 52920],
-  [960000, 0.35, 85920],
-  [Number.POSITIVE_INFINITY, 0.45, 181920],
-]
 
 /** 加班费倍率(劳动法):工作日 1.5 倍、休息日 2 倍、法定节假日 3 倍 */
 const OVERTIME_RATE = { weekday: 1.5, weekend: 2, holiday: 3 } as const
@@ -88,9 +81,20 @@ export interface PayrollBreakdown {
     insurancePersonal: number
     housingFundPersonal: number
     specialDeduction: number
+    /** 本月口径计税基数(应发 − 社保 − 公积金 − 专项附加 − 起征点),仅展示 */
     taxableIncome: number
     incomeTax: number
     netPay: number
+  }
+  /** 累计预扣法明细(可对照个税申报表"累计数"栏) */
+  cumulative?: {
+    months: number
+    income: number
+    deductions: number
+    taxable: number
+    taxBeforeWithheld: number
+    priorWithheld: number
+    withheld: number
   }
   /** 费率快照(哪个地区的哪一年的规则) */
   rates: {
@@ -132,15 +136,15 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
-/** 按年度累计应纳税所得额算个税 */
+/**
+ * 累计应纳税所得额(元) ⇒ 累计应纳税额(元)。
+ *
+ * 保留这个元口径出口只为兼容既有调用与单测;真正的税率表在 payroll-iit.ts,
+ * 这里内部走分口径换算,不再有第二张表。
+ */
 export function calcIncomeTax(cumulativeTaxable: number): number {
-  if (cumulativeTaxable <= 0) return 0
-  for (const [cap, rate, quickDeduction] of TAX_BRACKETS) {
-    if (cumulativeTaxable <= cap) {
-      return Math.max(0, round2(cumulativeTaxable * rate - quickDeduction))
-    }
-  }
-  return 0
+  const cents = toCents(round2(cumulativeTaxable).toFixed(2), 'cumulativeTaxable')
+  return Number(fromCents(cumulativeIncomeTax(cents)))
 }
 
 /**
@@ -166,6 +170,65 @@ async function resolveSalaryConfig(
     .orderBy(sql`${hrSalaryConfig.effectiveFrom} DESC`)
     .limit(1)
   return rows[0] ?? null
+}
+
+interface PriorIitContext {
+  /** 本年截至本月已过月份数(含本月) */
+  months: number
+  incomeCents: number
+  socialCents: number
+  specialCents: number
+  priorWithheldCents: number
+}
+
+/**
+ * 读该员工本年度 1 月至上月的累计口径(累计预扣法的唯一历史来源)。
+ *
+ * 专项附加扣除不在 hr_payroll_item 的列里,存在 breakdown.steps.specialDeduction,
+ * 这里用 jsonb 取;历史行缺 breakdown 时按 0(相当于当月无专项附加,不会虚增税额)。
+ */
+async function loadPriorIitContext(
+  employeeId: string,
+  periodMonth: string,
+): Promise<PriorIitContext> {
+  const year = periodMonth.slice(0, 4)
+  const months = Number(periodMonth.slice(5, 7))
+  const empty: PriorIitContext = {
+    months,
+    incomeCents: 0,
+    socialCents: 0,
+    specialCents: 0,
+    priorWithheldCents: 0,
+  }
+  if (!Number.isInteger(months) || months <= 1) return empty
+  const rows = await db
+    .select({
+      grossPay: hrPayrollItem.grossPay,
+      insurancePersonal: hrPayrollItem.insurancePersonal,
+      housingFundPersonal: hrPayrollItem.housingFundPersonal,
+      incomeTax: hrPayrollItem.incomeTax,
+      special: sql<string>`coalesce((${hrPayrollItem.breakdown}->'steps'->>'specialDeduction')::numeric, 0)::text`,
+    })
+    .from(hrPayrollItem)
+    .innerJoin(hrPayrollPeriod, eq(hrPayrollItem.periodId, hrPayrollPeriod.id))
+    .where(
+      and(
+        eq(hrPayrollItem.employeeId, employeeId),
+        gte(hrPayrollPeriod.periodMonth, `${year}-01`),
+        lt(hrPayrollPeriod.periodMonth, periodMonth),
+      ),
+    )
+  let incomeCents = 0
+  let socialCents = 0
+  let specialCents = 0
+  let priorWithheldCents = 0
+  for (const r of rows) {
+    incomeCents += toCents(r.grossPay)
+    socialCents += toCents(r.insurancePersonal) + toCents(r.housingFundPersonal)
+    specialCents += toCents(r.special ?? '0')
+    priorWithheldCents += toCents(r.incomeTax)
+  }
+  return { months, incomeCents, socialCents, specialCents, priorWithheldCents }
 }
 
 /** 取地区社保费率(按年度;取不到返回 null,由调用方决定不猜) */
@@ -195,9 +258,7 @@ async function resolveInsuranceRates(
  *
  * 另外做区间校验,拦住明显录错的数据(比如把 8% 录成 8,会把社保算成工资的 8 倍)。
  */
-export function validateInsuranceConfig(
-  row: typeof hrInsuranceRateConfig.$inferSelect,
-): string[] {
+export function validateInsuranceConfig(row: typeof hrInsuranceRateConfig.$inferSelect): string[] {
   const issues: string[] = []
 
   const personalRates: Array<[string, string, unknown]> = [
@@ -613,8 +674,9 @@ export async function buildPayroll(params: {
       )
     }
 
-    // ---- 步骤 8:计税所得与个税 ----
-    // 月度简化口径:应发 − 社保个人 − 公积金个人 − 专项附加 − 起征点
+    // ---- 步骤 8:计税所得与个税(累计预扣法) ----
+    // taxableIncome 只是"本月口径"的展示值(应发 − 社保 − 公积金 − 专项附加 − 起征点);
+    // 真正决定个税的是累计口径:从 hr_payroll_item 取本年历史,再与本月的相加。
     const taxableIncome = round2(
       Math.max(
         0,
@@ -625,7 +687,18 @@ export async function buildPayroll(params: {
           TAX_THRESHOLD_MONTHLY,
       ),
     )
-    const incomeTax = calcIncomeTax(taxableIncome)
+    const prior = await loadPriorIitContext(employeeId, periodMonth)
+    const withholding = computeWithholding({
+      cumulativeIncomeCents: prior.incomeCents + toCents(grossPay.toFixed(2)),
+      cumulativeSocialCents:
+        prior.socialCents +
+        toCents(insurancePersonal.toFixed(2)) +
+        toCents(housingFundPersonal.toFixed(2)),
+      cumulativeSpecialCents: prior.specialCents + toCents(specialDeduction.toFixed(2)),
+      months: prior.months,
+      priorWithheldCents: prior.priorWithheldCents,
+    })
+    const incomeTax = Number(fromCents(withholding.withholdingCents))
 
     // ---- 步骤 9:实发 ----
     // 负值兜底:实发为负意味着扣款超过应发(通常是社保基数配错或全月缺勤)。
@@ -663,6 +736,23 @@ export async function buildPayroll(params: {
         taxableIncome,
         incomeTax,
         netPay,
+      },
+      cumulative: {
+        months: prior.months,
+        income: Number(fromCents(prior.incomeCents + toCents(grossPay.toFixed(2)))),
+        deductions: Number(
+          fromCents(
+            prior.socialCents +
+              toCents(insurancePersonal.toFixed(2)) +
+              toCents(housingFundPersonal.toFixed(2)) +
+              prior.specialCents +
+              toCents(specialDeduction.toFixed(2)),
+          ),
+        ),
+        taxable: Number(fromCents(withholding.cumulativeTaxableCents)),
+        taxBeforeWithheld: Number(fromCents(withholding.cumulativeTaxCents)),
+        priorWithheld: Number(fromCents(prior.priorWithheldCents)),
+        withheld: incomeTax,
       },
       rates: rateSnapshot,
       warnings,

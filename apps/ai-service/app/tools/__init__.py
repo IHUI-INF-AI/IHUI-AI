@@ -29,6 +29,18 @@ from .browser_selfcheck import capture_screenshot, selfcheck_report
 from .chart_tools import generate_chart
 from .document_asset_tools import document_tables, extract_document_assets
 from .document_tools import parse_document
+from .finance_ops_tools import (
+    FINANCE_LEDGER_DESCRIPTION,
+    FINANCE_TAX_DESCRIPTION,
+    finance_ledger_ops,
+    finance_tax_ops,
+)
+from .hr_ops_tools import (
+    HR_LIFECYCLE_DESCRIPTION,
+    HR_PAYOUT_DESCRIPTION,
+    hr_lifecycle_ops,
+    hr_payout_ops,
+)
 from .finance_tools import (
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
@@ -87,6 +99,14 @@ __all__ = [
     "hr_my_leaves",
     "hr_payroll_calc",
     "hr_insurance_readiness",
+    "finance_ledger_ops",
+    "finance_tax_ops",
+    "hr_lifecycle_ops",
+    "hr_payout_ops",
+    "FINANCE_LEDGER_DESCRIPTION",
+    "FINANCE_TAX_DESCRIPTION",
+    "HR_LIFECYCLE_DESCRIPTION",
+    "HR_PAYOUT_DESCRIPTION",
     "AI_BOOKKEEPING_DESCRIPTION",
     "AI_TAX_FILING_DESCRIPTION",
     "AI_REIMBURSEMENT_DESCRIPTION",

@@ -13,8 +13,10 @@
  * 执行入口 executeAutomation 同时暴露给 POST /api/automations/:id/run-now
  * (立即运行一次),两处共用同一实现。
  *
- * MVP rrule 子集:FREQ=HOURLY/DAILY/WEEKLY + BYHOUR/BYMINUTE/BYDAY。
- * 不支持 INTERVAL/BYMONTHDAY/COUNT/UNTIL 等,解析失败一律返回 null。
+ * MVP rrule 子集:FREQ=HOURLY/DAILY/WEEKLY/MONTHLY + BYHOUR/BYMINUTE/BYDAY/BYMONTHDAY。
+ * WEEKLY 必带 BYDAY,MONTHLY 必带 BYMONTHDAY(显式优于猜测);
+ * 不支持 INTERVAL/COUNT/UNTIL 等,解析失败一律返回 null。
+ * MONTHLY 于 2026-11-23 加入(税期"每月 15 日"这类月度排程此前无法创建)。
  *
  * 时区(2026-09-29 立,修"宿主时区被改 ⇒ 全体用户定时任务改点"):
  * RRULE 的 BYHOUR/BYMINUTE 语义是**用户时区的墙钟时刻**,不是宿主时区的。
@@ -100,10 +102,12 @@ const WEEKDAY_MAP: Record<string, number> = {
 }
 
 interface RruleParts {
-  freq: 'HOURLY' | 'DAILY' | 'WEEKLY'
+  freq: 'HOURLY' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
   byHour: number
   byMinute: number
   byDays: number[] | null
+  /** MONTHLY 专用:1~31 或 -1(月末) */
+  byMonthDay: number | null
 }
 
 /** 解析 rrule 字符串为结构化部件,非法返回 null(调用方置 paused 防死循环)。 */
@@ -116,7 +120,14 @@ function parseRruleParts(rrule: string): RruleParts | null {
   }
 
   const freqRaw = parts.FREQ?.toUpperCase()
-  if (freqRaw !== 'HOURLY' && freqRaw !== 'DAILY' && freqRaw !== 'WEEKLY') return null
+  if (
+    freqRaw !== 'HOURLY' &&
+    freqRaw !== 'DAILY' &&
+    freqRaw !== 'WEEKLY' &&
+    freqRaw !== 'MONTHLY'
+  ) {
+    return null
+  }
 
   let byHour = 0
   if (parts.BYHOUR !== undefined) {
@@ -144,10 +155,22 @@ function parseRruleParts(rrule: string): RruleParts | null {
     byDays = days
   }
 
+  let byMonthDay: number | null = null
+  if (parts.BYMONTHDAY !== undefined) {
+    // MVP 只接受单值(BYMONTHDAY=1,15 这类多值在税期场景没有意义,且会膨胀排程语义)
+    if (parts.BYMONTHDAY.includes(',')) return null
+    const d = Number(parts.BYMONTHDAY)
+    if (!Number.isInteger(d) || (d !== -1 && (d < 1 || d > 31))) return null
+    byMonthDay = d
+  }
+
   // WEEKLY 必须显式给出 BYDAY(MVP 不支持"默认与 from 同星期几"的隐式语义)
   if (freqRaw === 'WEEKLY' && byDays === null) return null
+  // MONTHLY 必须显式给出 BYMONTHDAY(税期"每月 15 日"必须写在规则里,不能猜)
+  if (freqRaw === 'MONTHLY' && byMonthDay === null) return null
+  if (freqRaw !== 'MONTHLY' && byMonthDay !== null) return null
 
-  return { freq: freqRaw, byHour, byMinute, byDays }
+  return { freq: freqRaw, byHour, byMinute, byDays, byMonthDay }
 }
 
 /** 墙钟日期(只到"日"这一维;时刻由 RRULE 的 BYHOUR/BYMINUTE 给)。 */
@@ -304,11 +327,13 @@ function atTime(base: Date, hour: number, minute: number, zone: string, dayOffse
 
 /**
  * 计算 rrule 下一次执行时间(严格晚于 from),**按 from 所属的 timezone 墙钟**解释
- * BYHOUR/BYMINUTE/BYDAY,与宿主时区无关。
+ * BYHOUR/BYMINUTE/BYDAY/BYMONTHDAY,与宿主时区无关。
  *
  * - HOURLY:from + 1h(绝对时间,无墙钟语义;MVP 忽略 BYHOUR)
  * - DAILY:明天(或今天未到点时今天)BYHOUR:BYMINUTE
  * - WEEKLY:下一个匹配 BYDAY 的 BYHOUR:BYMINUTE(最多向后看 8 天)
+ * - MONTHLY:下一个匹配 BYMONTHDAY 的 BYHOUR:BYMINUTE(最多向后看 13 个月;
+ *   BYMONTHDAY=-1 取月末;指定日大于当月天数时回退到月末,保证"每月 31 日"不漏 2 月)
  *
  * timezone 缺失/非法 ⇒ 兜底 DEFAULT_SCHEDULE_TIMEZONE 并喊一次(不抛错)。
  * 解析失败返回 null(调用方记 warn 并把 automation 置 paused 防死循环)。
@@ -333,6 +358,19 @@ export function parseNextRun(
     return atTime(from, parts.byHour, parts.byMinute, zone, 1)
   }
 
+  if (parts.freq === 'MONTHLY') {
+    const wall = zoneDateOf(from, zone)
+    const monthDay = parts.byMonthDay ?? 1
+    for (let offset = 0; offset <= 13; offset++) {
+      const year = wall.year + Math.floor((wall.month - 1 + offset) / 12)
+      const month = ((wall.month - 1 + offset) % 12) + 1
+      const day = resolveMonthDay(year, month, monthDay)
+      const candidate = zonedTimeToUtc(zone, { year, month, day }, parts.byHour, parts.byMinute)
+      if (candidate.getTime() > from.getTime()) return candidate
+    }
+    return null
+  }
+
   // WEEKLY:从 from 当天起向后找第一个匹配 BYDAY 且时刻晚于 from 的日期
   for (let offset = 0; offset <= 8; offset++) {
     const candidate = atTime(from, parts.byHour, parts.byMinute, zone, offset)
@@ -343,6 +381,18 @@ export function parseNextRun(
     }
   }
   return null
+}
+
+/** 某年某月的天数 */
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+/** BYMONTHDAY → 实际日期;-1 取月末;超出当月天数回退月末(不跳月)。 */
+function resolveMonthDay(year: number, month: number, monthDay: number): number {
+  const last = daysInMonth(year, month)
+  if (monthDay === -1) return last
+  return monthDay > last ? last : monthDay
 }
 
 // =============================================================================

@@ -14,8 +14,9 @@ internal_service_headers 双头鉴权 + httpx + 剥 success() 壳),而不是自�
 
 工具层比 api 更严的地方只有 rrule:api 的 parseRruleParts 对未知段**静默忽略**
 (`FREQ=DAILY;BYMONTH=1` 会按纯 DAILY 排下去 = 对用户"虚假承诺"排程),这里直接拒。
-MVP 子集与 api 逐字同判据:FREQ=HOURLY|DAILY|WEEKLY + BYHOUR/BYMINUTE/BYDAY,
-WEEKLY 必带 BYDAY。
+MVP 子集与 api 逐字同判据:FREQ=HOURLY|DAILY|WEEKLY|MONTHLY +
+BYHOUR/BYMINUTE/BYDAY/BYMONTHDAY,WEEKLY 必带 BYDAY,MONTHLY 必带 BYMONTHDAY。
+(MONTHLY 于 2026-11-23 加入:税期"每月 15 日"这类月度排程此前无法创建。)
 
 Goal 自评迭代(可选):{target, max_runs},落库形态与 api 侧
 services/automations/goal-loop.ts 的 readGoalState 解析器严格对齐(嵌 last_result
@@ -53,8 +54,8 @@ GOAL_MAX_RUNS_CAP = 10
 GOAL_DEFAULT_MAX_RUNS = 3
 
 # rrule MVP 白名单(见模块 docstring:工具层比 api 严,未知段直接拒而非静默忽略)
-_RRULE_ALLOWED_KEYS: frozenset[str] = frozenset({"FREQ", "BYHOUR", "BYMINUTE", "BYDAY"})
-_RRULE_FREQS: frozenset[str] = frozenset({"HOURLY", "DAILY", "WEEKLY"})
+_RRULE_ALLOWED_KEYS: frozenset[str] = frozenset({"FREQ", "BYHOUR", "BYMINUTE", "BYDAY", "BYMONTHDAY"})
+_RRULE_FREQS: frozenset[str] = frozenset({"HOURLY", "DAILY", "WEEKLY", "MONTHLY"})
 _RRULE_WEEKDAYS: frozenset[str] = frozenset({"MO", "TU", "WE", "TH", "FR", "SA", "SU"})
 
 _UUID_RE = re.compile(
@@ -91,7 +92,7 @@ def validate_rrule(rrule: Any) -> str | None:
         key = seg[:idx].strip().upper()
         value = seg[idx + 1 :].strip()
         if key not in _RRULE_ALLOWED_KEYS:
-            return f"rrule 含不支持的段 {key!r}(MVP 仅允许 FREQ/BYHOUR/BYMINUTE/BYDAY)"
+            return f"rrule 含不支持的段 {key!r}(MVP 仅允许 FREQ/BYHOUR/BYMINUTE/BYDAY/BYMONTHDAY)"
         if key in parts:
             return f"rrule 段 {key!r} 重复出现"
         if not value:
@@ -100,7 +101,7 @@ def validate_rrule(rrule: Any) -> str | None:
 
     freq = parts.get("FREQ", "").upper()
     if freq not in _RRULE_FREQS:
-        return "rrule 必须含 FREQ=HOURLY|DAILY|WEEKLY"
+        return "rrule 必须含 FREQ=HOURLY|DAILY|WEEKLY|MONTHLY"
     if "BYHOUR" in parts:
         if not re.fullmatch(r"\d+", parts["BYHOUR"]) or not 0 <= int(parts["BYHOUR"]) <= 23:
             return "rrule 的 BYHOUR 必须是 0-23 的整数"
@@ -113,6 +114,13 @@ def validate_rrule(rrule: Any) -> str | None:
             return "rrule 的 BYDAY 取值必须是 MO/TU/WE/TH/FR/SA/SU(逗号分隔)"
         if len(set(tokens)) != len(tokens):
             return "rrule 的 BYDAY 含重复星期代号"
+    if "BYMONTHDAY" in parts:
+        raw = parts["BYMONTHDAY"]
+        if not re.fullmatch(r"-?\d+", raw):
+            return "rrule 的 BYMONTHDAY 必须是整数(1-31,或 -1 表示月末)"
+        value = int(raw)
+        if value != -1 and not 1 <= value <= 31:
+            return "rrule 的 BYMONTHDAY 必须在 1-31 之间,或 -1 表示月末"
     # 段与 FREQ 的语义匹配(api parseNextRun:HOURLY 走绝对 +1h、忽略全部 BY* 墙钟段;
     # DAILY 忽略 BYDAY)。api 对不匹配的段静默忽略 = "虚假承诺"排程(用户要"每周一
     # 9 点每小时",实际每天每小时跑),工具层直接拒,让模型拿到可读错误去改参。
@@ -122,6 +130,10 @@ def validate_rrule(rrule: Any) -> str | None:
         return "FREQ=DAILY 不支持 BYDAY(每天执行与星期无关;想按星期请用 WEEKLY)"
     if freq == "WEEKLY" and "BYDAY" not in parts:
         return "FREQ=WEEKLY 必须显式给出 BYDAY(如 BYDAY=MO,WE,FR)"
+    if freq == "MONTHLY" and "BYMONTHDAY" not in parts:
+        return "FREQ=MONTHLY 必须显式给出 BYMONTHDAY(如 BYMONTHDAY=15 表示每月 15 日)"
+    if freq != "MONTHLY" and "BYMONTHDAY" in parts:
+        return "BYMONTHDAY 只用于 FREQ=MONTHLY(其他频率带它会被 api 静默忽略)"
     return None
 
 

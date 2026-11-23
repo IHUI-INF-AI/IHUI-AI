@@ -41,12 +41,12 @@ export const hrAttendanceMonthly = pgTable(
     departmentId: uuid('department_id')
       .notNull()
       .references(() => hrDepartment.id, { onDelete: 'cascade' }),
-    /** 应出勤天数(按 hr_attendance_rule.workdays 周掩码算) */
-    scheduledDays: numeric('scheduled_days', { precision: 5, scale: 1 }).notNull(),
-    actualDays: numeric('actual_days', { precision: 5, scale: 1 }).notNull(),
+    /** 应出勤天数(按 hr_attendance_rule.workdays 周掩码算);scale=2 才能表示 21.75 */
+    scheduledDays: numeric('scheduled_days', { precision: 5, scale: 2 }).notNull(),
+    actualDays: numeric('actual_days', { precision: 5, scale: 2 }).notNull(),
     lateCount: integer('late_count').default(0).notNull(),
     earlyCount: integer('early_count').default(0).notNull(),
-    absentDays: numeric('absent_days', { precision: 5, scale: 1 }).default('0').notNull(),
+    absentDays: numeric('absent_days', { precision: 5, scale: 2 }).default('0').notNull(),
     /** 请假明细 {sick:1.5, personal:0, annual:2, ...} 单位天 */
     leaveDays: jsonb('leave_days'),
     otHours: numeric('ot_hours', { precision: 6, scale: 2 }).default('0').notNull(),

@@ -367,6 +367,56 @@ class TestTaxFiling:
         assert withheld == Decimal("390.60"), d["iit"]
 
     @pytest.mark.asyncio
+    async def test_cumulative_iit_with_prior_history(self) -> None:
+        """口径对齐(2026-11-23):只传当月工资 + prior_* 历史累计,必须得到真累计税额。
+
+        月薪 10000 无社保附加,第 8 个月:累计应税 40000 ⇒ 累计税 1480,
+        已预扣 1050 ⇒ 本月 430。与 TS 侧 tests/payroll-iit-unit.test.ts 同值。
+        """
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "compute",
+                "period": "2026-08",
+                **self.GENERAL,
+                "wages": json.dumps(
+                    [
+                        {
+                            "name": "张三",
+                            "gross": "10000",
+                            "social": "0",
+                            "special_deduction": "0",
+                            "prior_months": 7,
+                            "prior_income": "70000",
+                            "prior_paid_tax": "1050",
+                        },
+                    ],
+                    ensure_ascii=False,
+                ),
+            },
+        )
+        assert r["ok"]
+        d = json.loads(r["state"])["detail"]
+        assert Decimal(d["iit"]["employees"][0]["withheld"]) == Decimal("430.00"), d["iit"]
+
+    @pytest.mark.asyncio
+    async def test_cumulative_iit_prior_months_out_of_range(self) -> None:
+        """prior_months 越界必须显式拒绝,不静默当 0 处理(否则少算减除费用)。"""
+        r = await _call(
+            "ai_tax_filing",
+            {
+                "phase": "compute",
+                "period": "2026-08",
+                **self.GENERAL,
+                "wages": json.dumps(
+                    [{"name": "张三", "gross": "10000", "prior_months": 12}], ensure_ascii=False
+                ),
+            },
+        )
+        assert not r["ok"]
+        assert "prior_months" in str(r.get("error") or r.get("message") or r)
+
+    @pytest.mark.asyncio
     async def test_cumulative_iit_per_employee_independent(self) -> None:
         """P0 回归锁(2026-11-13):累计口径按员工独立,不同员工互不串扰。
 

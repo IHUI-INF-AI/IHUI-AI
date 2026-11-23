@@ -3064,7 +3064,56 @@
     },
     {
       "version": "7",
+      "idx": 440,
+      "when": 1795366800000,
+      "tag": "20261123010000_fin_accounting_core",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 441,
+      "when": 1795370400000,
+      "tag": "20261123020000_fin_invoice_bank",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 442,
+      "when": 1795374000000,
+      "tag": "20261123030000_fin_tax_filing",
+      "breakpoints": true
+    },
+    {
+      "idx": 443,
+      "version": "7",
+      "when": 1795377600000,
+      "tag": "20261123040000_fin_voucher_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 444,
+      "version": "7",
+      "when": 1795381200000,
+      "tag": "20261123050000_hr_payroll_payout",
+      "breakpoints": true
+    },
+    {
+      "idx": 445,
+      "version": "7",
+      "when": 1795384800000,
+      "tag": "20261123060000_hr_attendance_days_scale",
+      "breakpoints": true
+    },
+    {
+      "idx": 446,
+      "version": "7",
+      "when": 1795388400000,
+      "tag": "20261123070000_hr_lifecycle",
+      "breakpoints": true
+    },
+    {
       "idx": 447,
+      "version": "7",
       "when": 1795392000000,
       "tag": "20261123080000_daily_points",
       "breakpoints": true
