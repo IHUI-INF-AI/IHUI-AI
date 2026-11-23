@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { __test__ } from '../v1-public'
+import { __test__, mergeRequestMetadata } from '../v1-public'
 
 const { requestMetadataSchema } = __test__
 
@@ -47,6 +47,20 @@ describe('B3-07 v1 四层请求元数据 schema', () => {
     expect(() =>
       requestMetadataSchema.parse({ ...valid, user: {} }),
     ).toThrow()
+  })
+
+  it('合并出口保留四层身份，只补顶层兼容别名', () => {
+    const merged = mergeRequestMetadata(valid, 'legacy-user', true)
+    expect(merged).toMatchObject({
+      user: { user_id: 'user-1' },
+      userId: 'legacy-user',
+      byokMode: true,
+      context: { request_id: 'req-1' },
+    })
+  })
+
+  it('无四层且无 userId 时不写 metadata（旧客户端零行为变化）', () => {
+    expect(mergeRequestMetadata(undefined, undefined)).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

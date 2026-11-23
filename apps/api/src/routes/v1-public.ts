@@ -191,6 +191,23 @@ const requestMetadataSchema = z
   })
   .strict()
 
+/**
+ * B3-07 唯一合并出口：四层元数据优先，顶层 userId/byokMode 只作兼容别名。
+ * 不覆盖 `user.user_id`；没有四层也没有 userId 时返回 null，调用方不写 metadata。
+ */
+export function mergeRequestMetadata(
+  metadata: z.infer<typeof requestMetadataSchema> | undefined,
+  userId: string | undefined,
+  byokMode = false,
+): Record<string, unknown> | null {
+  if (!metadata && !userId) return null
+  return {
+    ...(metadata as Record<string, unknown> | undefined),
+    ...(userId ? { userId } : {}),
+    ...(byokMode ? { byokMode: true } : {}),
+  }
+}
+
 const chatCompletionSchema = z.object({
   model: z.string().min(1),
   messages: z
@@ -1312,14 +1329,8 @@ async function streamChatCompletion(
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
     if (opts.seed !== undefined) body.seed = opts.seed
     // B3-07:四层元数据优先;userId 作为兼容别名只补在顶层,不覆盖 user 层身份。
-    if (requestMetadata) {
-      body.metadata = {
-        ...requestMetadata,
-        ...(userId ? { userId } : {}),
-      }
-    } else if (userId) {
-      body.metadata = { userId }
-    }
+    const mergedMetadata = mergeRequestMetadata(requestMetadata, userId)
+    if (mergedMetadata) body.metadata = mergedMetadata
     // OpenAI 协议扩展:response_format(json_schema 已在 system 提示注入,原样透传) + seed
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
     if (opts.seed !== undefined) body.seed = opts.seed
@@ -1975,6 +1986,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       top_k,
       repetition_penalty,
       logit_bias,
+      metadata: requestMetadata,
     } = body
     // 三个输出预算字段等价:显式 maxTokens > 标准 max_tokens > OpenAI 新名 max_completion_tokens
     const maxTokens = maxTokensCamel ?? max_tokens ?? max_completion_tokens
@@ -2419,13 +2431,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
         // 让 ai-service 能识别 BYOK 调用并走用户自有 key 路径(与流式 streamChatCompletion 对齐)。
         // B3-07:四层元数据与 userId/byokMode 合并,不覆盖 user 层的 user_id。
-        if (body.metadata || apiKey?.userId) {
-          body.metadata = {
-            ...(body.metadata as Record<string, unknown> | undefined),
-            ...(apiKey?.userId ? { userId: apiKey.userId } : {}),
-            ...(mode === 'byok' ? { byokMode: true } : {}),
-          }
-        }
+        const mergedMetadata = mergeRequestMetadata(
+          requestMetadata,
+          apiKey?.userId,
+          mode === 'byok',
+        )
+        if (mergedMetadata) body.metadata = mergedMetadata
 
         // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
         const paramOpsResult = await applyParamOpsToBody(body, { model: billingModel })
