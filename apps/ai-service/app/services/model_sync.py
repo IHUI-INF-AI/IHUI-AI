@@ -2053,11 +2053,21 @@ class ModelSyncService:
                     "metadata",
                     # 同步写入时间(INSERT/UPDATE 都会刷新)
                     "last_synced_at",
+                    # 成本列:护栏判定用 —— 已有成本定价的存量行,同步腿不得覆盖售价
+                    "cost_input_price_per_1k", "cost_output_price_per_1k",
                 ])
 
                 # 3. 查 DB 现有模型
                 #    metadata 用于识别"安全阀自动下架"标记(上游恢复后自动重新上架)。
                 _select_cols = "model_id, is_relay_public"
+                if columns.get("cost_input_price_per_1k", False):
+                    _select_cols += ", cost_input_price_per_1k"
+                else:
+                    _select_cols += ", NULL::numeric AS cost_input_price_per_1k"
+                if columns.get("cost_output_price_per_1k", False):
+                    _select_cols += ", cost_output_price_per_1k"
+                else:
+                    _select_cols += ", NULL::numeric AS cost_output_price_per_1k"
                 _select_cols += (
                     ", metadata"
                     if columns.get("metadata", False)
@@ -2071,6 +2081,14 @@ class ModelSyncService:
                 existing_map: dict[str, bool] = {
                     r["model_id"]: bool(r["is_relay_public"]) for r in existing_rows
                 }
+                # 存量行成本价(分/千 token):护栏判定用。双列均 >0 视为已有成本定价,
+                # 同步腿不得用上游 USD 价覆盖其售价列(售价口径归定价管线/人工调价)。
+                existing_cost: dict[str, tuple[float | None, float | None]] = {}
+                for r in existing_rows:
+                    existing_cost[r["model_id"]] = (
+                        self._row_cost(r, "cost_input_price_per_1k"),
+                        self._row_cost(r, "cost_output_price_per_1k"),
+                    )
                 # 安全阀自动下架标记(上游恢复返回后自动重新上架)
                 auto_delisted_ids: set[str] = set()
                 for r in existing_rows:
@@ -2214,6 +2232,7 @@ class ModelSyncService:
                                 metadata=metadata_json,
                                 # 安全阀曾自动下架、本轮上游又返回的模型 ⇒ 自动恢复上架
                                 restore_relay_public=db_model_id in auto_delisted_ids,
+                                existing_cost=existing_cost.get(db_model_id),
                             )
 
                 # 4. 下架的模型(DB 有、上游不再返回)—— 2026-11-08 改为物理清理:
@@ -2462,20 +2481,23 @@ class ModelSyncService:
         deprecation_date: str,
         metadata: dict[str, Any] | None = None,
         restore_relay_public: bool = False,
+        existing_cost: tuple[float | None, float | None] | None = None,
     ) -> None:
         """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。
         v4:metadata(jsonb,token6688 富元数据)。
         restore_relay_public:安全阀曾自动下架的模型重新出现在上游清单时,
         恢复 is_relay_public(仅 chat 模型;管理员手动下架的行没有该标记,不会被动恢复)。
+        existing_cost:存量行现有成本价(cost_in/cost_out);双列 >0 的已有定价行,
+        同步腿保留其售价列,不用上游 USD 价覆盖(售价口径归定价管线/人工调价)。
         """
-        set_parts = [
-            "context_length = $3",
-            "input_price_per_1k = $4",
-            "output_price_per_1k = $5",
-            "updated_at = now()",
-        ]
-        params: list[Any] = [config_id, model_id, ctx_len, input_price, output_price]
-        idx = 6
+        keep_price = self._keep_existing_price(existing_cost)
+        set_parts = ["context_length = $3", "updated_at = now()"]
+        params: list[Any] = [config_id, model_id, ctx_len]
+        idx = 4
+        if not keep_price:
+            set_parts += ["input_price_per_1k = $4", "output_price_per_1k = $5"]
+            params += [input_price, output_price]
+            idx = 6
 
         if tags_column_exists:
             set_parts.append(f"tags = ${idx}")
@@ -2527,6 +2549,35 @@ class ModelSyncService:
             f"WHERE config_id = $1 AND model_id = $2"
         )
         await conn.execute(sql, *params)
+
+    @staticmethod
+    def _keep_existing_price(
+        existing_cost: tuple[float | None, float | None] | None,
+    ) -> bool:
+        """存量行已有成本定价(成本双列均 >0)时,同步腿保留其售价,不被上游价覆盖。
+
+        售价口径由定价管线/人工调价负责(成本 × PROFIT_FACTOR,PROFIT_FACTOR 同源
+        apps/api/src/services/model-price-resolver.ts);model_sync 的职责是清单与元数据
+        对齐,不得越权覆写已有定价。成本为空/0 的未定价行仍按上游价写入。
+        """
+        if not existing_cost:
+            return False
+        ci, co = existing_cost
+        return (ci is not None and ci > 0) and (co is not None and co > 0)
+
+    @staticmethod
+    def _row_cost(row: Any, col: str) -> float | None:
+        """读存量行成本列;列缺失/为 NULL 时返回 None(不炸整轮同步)。"""
+        try:
+            v = row[col]
+        except (KeyError, IndexError, TypeError):
+            return None
+        if v is None:
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _row_metadata(row: Any) -> dict[str, Any]:

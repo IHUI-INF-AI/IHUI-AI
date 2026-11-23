@@ -359,6 +359,150 @@ class TestExtractPricing:
         assert len(result) == 2
         assert all(isinstance(v, int) and not isinstance(v, bool) for v in result)
 
+
+# =============================================================================
+# 售价护栏(2026-11-23 立):已有成本定价的存量行,同步腿不得覆盖售价
+# =============================================================================
+
+# 利润系数与 apps/api/src/services/model-price-resolver.ts 的 PROFIT_FACTOR 同源(=3)。
+# 同步腿不参与售价换算,这里仅用于钉住"受保护行售价 = 成本 × 系数"的口径。
+_PRICE_PROFIT_FACTOR = 3
+
+
+class _CaptureConn:
+    """记录最近一次 execute 的 SQL 与参数(替代 asyncpg 连接的轻量桩)。"""
+
+    def __init__(self) -> None:
+        self.sql: str | None = None
+        self.params: list[Any] = []
+
+    async def execute(self, sql: str, *params: Any) -> None:
+        self.sql = sql
+        self.params = list(params)
+
+
+@_skip_if_no_pricing
+class TestExistingPriceGuard:
+    """存量行售价护栏:成本双列均 >0 的行,同步 UPDATE 不得触碰售价列。
+
+    背景:2026-11-23 生产事故,xAI 直连 4 行人工修正为 cost×3 后,被 ModelSyncService
+    每轮同步用上游 USD 价(未乘汇率、未乘利润系数)覆盖回低值。同步职责是清单/元数据
+    对齐,售价口径归定价管线与人工调价;已有成本定价的行必须受保护。
+    """
+
+    @pytest.mark.parametrize(
+        "existing_cost,expected",
+        [
+            ((1.44, 4.32), True),
+            ((0.90, 1.80), True),
+            ((0, 0), False),
+            ((None, None), False),
+            ((1.44, None), False),
+            ((None, 4.32), False),
+            ((0.0, 4.32), False),
+            (None, False),
+        ],
+    )
+    def test_keep_existing_price_judgement(
+        self,
+        existing_cost: tuple[float | None, float | None] | None,
+        expected: bool,
+    ) -> None:
+        """成本双列均 >0 才保留售价;任一为空/0 视为未定价,可写上游价。"""
+        assert ModelSyncService._keep_existing_price(existing_cost) is expected
+
+    def test_protected_row_update_omits_price_columns(self) -> None:
+        """已有成本定价的行:UPDATE SET 不含 input/output_price_per_1k。"""
+        service = ModelSyncService()
+        conn = _CaptureConn()
+
+        async def run() -> None:
+            await service._update_model(
+                conn,
+                config_id=6,
+                model_id="grok-4.5",
+                ctx_len=131072,
+                input_price=0.20,
+                output_price=0.60,
+                model_tags=["chat"],
+                tags_column_exists=False,
+                columns={},
+                vendor="xai",
+                max_output_tokens=0,
+                supports_tool_call=True,
+                supports_vision=False,
+                description="",
+                rate_limit_rpm=0,
+                rate_limit_tpd=0,
+                release_date="",
+                deprecation_date="",
+                metadata=None,
+                existing_cost=(1.44, 4.32),
+            )
+
+        asyncio.run(run())
+        assert conn.sql is not None
+        assert "input_price_per_1k" not in conn.sql
+        assert "output_price_per_1k" not in conn.sql
+        # 上游 USD 价(0.20/0.60)不得进入受保护行的写参数
+        assert 0.20 not in conn.params
+        assert 0.60 not in conn.params
+
+    def test_unpriced_row_update_still_writes_upstream_price(self) -> None:
+        """成本为空/0 的未定价行:UPDATE 仍写上游价(新模型上架路径不变)。"""
+        service = ModelSyncService()
+        conn = _CaptureConn()
+
+        async def run() -> None:
+            await service._update_model(
+                conn,
+                config_id=6,
+                model_id="grok-imagine-image",
+                ctx_len=32000,
+                input_price=0.0,
+                output_price=0.0,
+                model_tags=["image"],
+                tags_column_exists=False,
+                columns={},
+                vendor="xai",
+                max_output_tokens=0,
+                supports_tool_call=True,
+                supports_vision=False,
+                description="",
+                rate_limit_rpm=0,
+                rate_limit_tpd=0,
+                release_date="",
+                deprecation_date="",
+                metadata=None,
+                existing_cost=(0.0, 0.0),
+            )
+
+        asyncio.run(run())
+        assert conn.sql is not None
+        assert "input_price_per_1k" in conn.sql
+        assert "output_price_per_1k" in conn.sql
+
+    @pytest.mark.parametrize(
+        "cost_in,cost_out,price_in,price_out",
+        [
+            # grok-4.3:成本 0.90/1.80 ⇒ 售价 2.70/5.40
+            (0.90, 1.80, 2.70, 5.40),
+            # grok-4.5/4.6/4.7:成本 1.44/4.32 ⇒ 售价 4.32/12.96
+            (1.44, 4.32, 4.32, 12.96),
+        ],
+    )
+    def test_protected_price_equals_cost_times_profit_factor(
+        self,
+        cost_in: float,
+        cost_out: float,
+        price_in: float,
+        price_out: float,
+    ) -> None:
+        """钉住售价口径:受保护行售价必须 = 成本 × PROFIT_FACTOR(=3)。"""
+        assert round(cost_in * _PRICE_PROFIT_FACTOR, 6) == round(price_in, 6)
+        assert round(cost_out * _PRICE_PROFIT_FACTOR, 6) == round(price_out, 6)
+
+
 # =============================================================================
 # _extract_context_length(F3 待实现)
 # =============================================================================
