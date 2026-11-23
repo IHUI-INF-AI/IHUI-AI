@@ -14,16 +14,26 @@ import pytest
 
 from app.core.project_rules import (
     DEFAULT_BUDGET_CHARS,
+    RuleLookupError,
     RuleParseError,
     load_always_apply_rules_block,
     load_applicable_rules_block,
+    load_project_rules_block,
     match_glob,
     normalize_rel_path,
     parse_frontmatter,
+    read_rule_body,
     render_rules_block,
     rule_matches,
     select_rules,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_user_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认关掉用户级规则目录:用例要测它时显式打开并指向 tmp。"""
+    monkeypatch.setenv("IHUI_USER_RULES_DISABLE", "1")
+    monkeypatch.delenv("IHUI_USER_RULES_DIRS", raising=False)
 
 
 def _write_rule(root: Path, rel: str, text: str, *, folder: str = ".cursor/rules") -> Path:
@@ -247,6 +257,7 @@ def test_llm_auto_context_appends_path_rules() -> None:
 def test_agent_engine_wires_project_rules_after_agents_md() -> None:
     src = AGENT_ENGINE_SRC.read_text(encoding="utf-8")
     assert "def _inject_project_rules(" in src
+    assert "load_project_rules_block" in src
     # 顺序判据:AGENTS.md 先注入,项目规则随后(不依赖中间是否有注释行)。
     agents_at = src.index("self._inject_agents_md(thread)")
     rules_at = src.index("self._inject_project_rules(thread)")
@@ -286,4 +297,136 @@ def test_agent_engine_inject_project_rules_kill_switch(tmp_path: Path, monkeypat
 def test_default_budget_is_positive() -> None:
     assert DEFAULT_BUDGET_CHARS > 0
     assert render_rules_block(select_rules(Path("/nonexistent"))) is None
+
+
+def _enable_user_rules(monkeypatch: pytest.MonkeyPatch, directory: Path) -> None:
+    monkeypatch.setenv("IHUI_USER_RULES_DISABLE", "0")
+    monkeypatch.setenv("IHUI_USER_RULES_DIRS", str(directory))
+
+
+def _workspace_with_user_root(tmp_path: Path) -> tuple[Path, Path]:
+    """用户级规则必须**在工作区之外**,否则就是项目级规则(两个作用域不能混)。"""
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    user_dir = tmp_path / "home" / ".cursor" / "rules"
+    user_dir.mkdir(parents=True)
+    return workspace, user_dir
+
+
+def test_user_rule_always_applied_with_locator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace, user_dir = _workspace_with_user_root(tmp_path)
+    (user_dir / "global.mdc").write_text(
+        _rule_text(description="全局", always=True, body="GLOBAL"), encoding="utf-8"
+    )
+    _enable_user_rules(monkeypatch, user_dir)
+    selection = select_rules(workspace)
+    assert [r.rel_path for r in selection.selected] == ["user:.cursor/rules:global.mdc"]
+    assert "GLOBAL" in (render_rules_block(selection) or "")
+
+
+def test_user_rules_disabled_by_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace, user_dir = _workspace_with_user_root(tmp_path)
+    (user_dir / "global.mdc").write_text(_rule_text(always=True, body="GLOBAL"), encoding="utf-8")
+    _enable_user_rules(monkeypatch, user_dir)
+    monkeypatch.setenv("IHUI_USER_RULES_DISABLE", "1")
+    assert select_rules(workspace).selected == ()
+
+
+def test_project_rules_come_before_user_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace, user_dir = _workspace_with_user_root(tmp_path)
+    _write_rule(workspace, "p.mdc", _rule_text(always=True, body="PROJECT"), folder=".ihui/rules")
+    (user_dir / "u.mdc").write_text(_rule_text(always=True, body="USER"), encoding="utf-8")
+    _enable_user_rules(monkeypatch, user_dir)
+    selection = select_rules(workspace)
+    assert [r.rel_path for r in selection.selected] == [
+        ".ihui/rules/p.mdc",
+        "user:.cursor/rules:u.mdc",
+    ]
+
+
+def test_user_rule_duplicate_body_deduped_against_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace, user_dir = _workspace_with_user_root(tmp_path)
+    body = "同一段正文"
+    _write_rule(workspace, "p.mdc", _rule_text(always=True, body=body), folder=".ihui/rules")
+    (user_dir / "u.mdc").write_text(_rule_text(always=True, body=body), encoding="utf-8")
+    _enable_user_rules(monkeypatch, user_dir)
+    selection = select_rules(workspace)
+    assert [r.rel_path for r in selection.selected] == [".ihui/rules/p.mdc"]
+    assert any(r.reason == "duplicate_body" for r in selection.excluded)
+
+
+def test_agent_requested_rules_go_to_catalog_not_body(tmp_path: Path) -> None:
+    _write_rule(tmp_path, "req.mdc", _rule_text(description="请求式", body="REQ-BODY"))
+    selection = select_rules(tmp_path)
+    assert selection.selected == ()
+    assert [r.locator for r in selection.agent_requested] == [".cursor/rules/req.mdc"]
+    block = render_rules_block(selection)
+    assert block is not None
+    assert "[项目规则·可请求]" in block
+    assert "请求式" in block
+    assert "REQ-BODY" not in block
+
+
+def test_catalog_budget_exceeded_is_named(tmp_path: Path) -> None:
+    _write_rule(tmp_path, "req.mdc", _rule_text(description="请求式", body="REQ"))
+    selection = select_rules(tmp_path, budget_chars=10)
+    assert selection.agent_requested == ()
+    assert any(r.reason == "budget_exceeded" for r in selection.excluded)
+    assert selection.truncated is True
+
+
+def test_load_project_rules_block_includes_catalog_but_always_block_does_not(tmp_path: Path) -> None:
+    _write_rule(tmp_path, "req.mdc", _rule_text(description="请求式", body="REQ"))
+    assert load_always_apply_rules_block(tmp_path) is None
+    block = load_project_rules_block(tmp_path)
+    assert block is not None and "请求式" in block
+
+
+def test_read_rule_body_project(tmp_path: Path) -> None:
+    _write_rule(tmp_path, "a.mdc", _rule_text(description="A", body="BODY-A"), folder=".ihui/rules")
+    loaded = read_rule_body(tmp_path, ".ihui/rules/a.mdc")
+    assert loaded.body == "BODY-A"
+    assert loaded.locator == ".ihui/rules/a.mdc"
+    assert loaded.scope == "project"
+
+
+def test_read_rule_body_user_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace, user_dir = _workspace_with_user_root(tmp_path)
+    (user_dir / "req.mdc").write_text(
+        _rule_text(description="请求式", body="USER-BODY"), encoding="utf-8"
+    )
+    _enable_user_rules(monkeypatch, user_dir)
+    locator = select_rules(workspace).agent_requested[0].locator
+    loaded = read_rule_body(workspace, locator)
+    assert loaded.body == "USER-BODY"
+    assert loaded.scope == "user"
+    assert loaded.locator == locator
+
+
+def test_read_rule_body_rejects_traversal_and_unknown(tmp_path: Path) -> None:
+    for locator, code in [
+        ("../escape.mdc", "invalid_locator"),
+        ("other/a.mdc", "unknown_locator"),
+        (".cursor/rules/missing.mdc", "read_error"),
+        ("", "missing_locator"),
+    ]:
+        with pytest.raises(RuleLookupError) as exc:
+            read_rule_body(tmp_path, locator)
+        assert exc.value.code == code
+
+
+def test_read_rule_body_rejects_symlink(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.mdc"
+    outside.write_text(_rule_text(body="OUTSIDE"), encoding="utf-8")
+    link = tmp_path / ".cursor" / "rules" / "link.mdc"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(outside, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("本机不支持创建符号链接")
+    with pytest.raises(RuleLookupError) as exc:
+        read_rule_body(tmp_path, ".cursor/rules/link.mdc")
+    assert exc.value.code == "symlink_skipped"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

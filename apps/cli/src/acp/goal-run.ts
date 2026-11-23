@@ -43,6 +43,11 @@ export interface GoalIterationRecord {
    * 2026-11-24 对齐 Codex `thread_goals.tokens_used`:预算若不计账,就只是纸面数字。
    */
   readonly tokens: number;
+  /**
+   * 该轮墙钟耗时(秒,毫秒精度截到 3 位)。
+   * 2026-11-24 对齐 Codex `thread_goals.time_used_seconds`:token 之外还有时间这一维。
+   */
+  readonly seconds: number;
 }
 
 export interface GoalRunResult {
@@ -57,6 +62,8 @@ export interface GoalRunResult {
   readonly stalled: boolean;
   /** 本次目标迭代累计 token(各轮 tokens 之和;拿不到 usage 的轮次计 0)。 */
   readonly tokensUsed: number;
+  /** 本次目标迭代累计墙钟时间(秒;各轮 durationMs 之和,毫秒精度)。 */
+  readonly secondsUsed: number;
 }
 
 /** 一轮执行的最小契约(runToolLoop 的子集,便于注入假实现测试)。 */
@@ -94,6 +101,11 @@ export interface RunGoalWithAgentOptions {
    * 活儿已经干完,不能因为最后一轮话多就判成"没做成"。
    */
   readonly maxTokens?: number;
+  /**
+   * 累计墙钟时间上限(秒,2026-11-24 对齐 Codex `thread_goals.time_used_seconds`)。
+   * 只认 > 0 的有限数;缺省/非法 ⇒ 不设闸。与 token 闸同口径:只在**未达成**时收口。
+   */
+  readonly maxSeconds?: number;
 }
 
 /**
@@ -111,6 +123,7 @@ export async function runGoalWithAgent(
   let consecutiveEmpty = 0;
   let stalled = false;
   let tokensUsed = 0;
+  let secondsUsed = 0;
   const stopOnStall = options.stopOnStall !== false;
   const now = options.now ?? (() => Date.now());
   const tokenCap =
@@ -118,6 +131,12 @@ export async function runGoalWithAgent(
     Number.isFinite(options.maxTokens) &&
     options.maxTokens > 0
       ? Math.floor(options.maxTokens)
+      : undefined;
+  const secondCap =
+    options.maxSeconds !== undefined &&
+    Number.isFinite(options.maxSeconds) &&
+    options.maxSeconds > 0
+      ? options.maxSeconds
       : undefined;
 
   const outcome = await runGoalLoop(
@@ -131,6 +150,8 @@ export async function runGoalWithAgent(
       const started = now();
       const res = await deps.runIteration({ iteration, messages: deps.messages });
       const durationMs = now() - started;
+      const roundSeconds = Math.round((durationMs / 1000) * 1000) / 1000;
+      secondsUsed = Math.round((secondsUsed + roundSeconds) * 1000) / 1000;
       lastText = res.assistantText;
 
       // token 真值记账:只认有限正数;拿不到/非法一律计 0(不拿估算冒充实测)。
@@ -154,6 +175,7 @@ export async function runGoalWithAgent(
         durationMs,
         verdict,
         tokens: roundTokens,
+        seconds: roundSeconds,
       });
 
       // token 预算闸:只在未达成时收口 —— 达成优先(活儿已经干完,不能因话多判成没做成)。
@@ -161,6 +183,14 @@ export async function runGoalWithAgent(
         return {
           done: false,
           unrecoverable: `token 预算已耗尽(${tokensUsed}/${tokenCap})`,
+        };
+      }
+
+      // 时间预算闸:与 token 闸同口径,只在未达成时收口(达成优先)。
+      if (secondCap !== undefined && secondsUsed >= secondCap && !verdict.done) {
+        return {
+          done: false,
+          unrecoverable: `时间预算已耗尽(${formatSeconds(secondsUsed)}s/${formatSeconds(secondCap)}s)`,
         };
       }
 
@@ -180,7 +210,12 @@ export async function runGoalWithAgent(
     },
   );
 
-  return { outcome, records, lastText, stalled, tokensUsed };
+  return { outcome, records, lastText, stalled, tokensUsed, secondsUsed };
+}
+
+/** 秒数展示:整数不带小数点,其余保留到 3 位(避免 0.30000000000000004 之类噪声)。 */
+function formatSeconds(n: number): string {
+  return String(Math.round(n * 1000) / 1000);
 }
 
 /** 一句话摘要(给审计/展示)。 */
@@ -189,7 +224,8 @@ export function describeGoalRun(r: GoalRunResult): string {
   const empty = r.records.filter((x) => x.textLength === 0).length;
   const base = `${r.outcome.kind} / ${rounds} 轮${empty > 0 ? ` / ${empty} 轮空产出` : ''}`;
   const tokens = r.tokensUsed > 0 ? ` / ${r.tokensUsed} tok` : '';
-  const withTokens = `${base}${tokens}`;
-  return r.stalled ? `${withTokens}(检测到原地打转)` : withTokens;
+  const seconds = r.secondsUsed > 0 ? ` / ${formatSeconds(r.secondsUsed)}s` : '';
+  const withUsage = `${base}${tokens}${seconds}`;
+  return r.stalled ? `${withUsage}(检测到原地打转)` : withUsage;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

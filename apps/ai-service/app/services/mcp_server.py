@@ -2188,6 +2188,55 @@ async def _tool_list_symbol_definitions(arguments: dict[str, Any]) -> dict[str, 
     return out
 
 
+async def _tool_read_project_rule(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_project_rule: 按 locator 取一条项目/用户规则正文(2026-11-24 第二档)。
+
+    Cursor 的 Agent Requested 规则只把 description 给模型,正文按需取 —— 本工具就是
+    那个"按需取"的口;locator 来自注入的「[项目规则·可请求]」目录。
+    安全判据与发现档同源(`app/core/project_rules.read_rule_body`):拒符号链接、拒越界、
+    拒超限、拒坏 frontmatter;失败返回机器可读 errorCode,不返回空串。
+    """
+    locator = str(arguments.get("locator", "") or "").strip()
+    if not locator:
+        return {
+            "tool": "read_project_rule",
+            "ok": False,
+            "errorCode": "missing_argument",
+            "error": "locator 必填:取自「[项目规则·可请求]」目录(例如 .cursor/rules/a.mdc)",
+        }
+    path = str(arguments.get("path", ".") or ".")
+    try:
+        root = Path(path).resolve(strict=True)
+    except OSError:
+        return {
+            "tool": "read_project_rule",
+            "ok": False,
+            "errorCode": "workspace_missing",
+            "error": f"工作区不存在或不可达: {path}",
+        }
+    from ..core.project_rules import RuleLookupError, read_rule_body
+
+    try:
+        loaded = read_rule_body(root, locator)
+    except RuleLookupError as exc:
+        return {
+            "tool": "read_project_rule",
+            "ok": False,
+            "errorCode": exc.code,
+            "error": f"规则取不到({exc.code});不返回空正文冒充「规则为空」",
+        }
+    return {
+        "tool": "read_project_rule",
+        "ok": True,
+        "locator": loaded.locator,
+        "description": loaded.description,
+        "body": loaded.body,
+        "globs": list(loaded.globs),
+        "alwaysApply": loaded.always_apply,
+        "scope": loaded.scope,
+    }
+
+
 async def _tool_find_import_edges(arguments: dict[str, Any]) -> dict[str, Any]:
     """find_import_edges: 按名字查导入关系(P0-8 第八批,2026-11-23)。
 
@@ -15071,6 +15120,25 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="read_project_rule",
+        description=(
+            "按 locator 取一条项目规则正文(2026-11-24,Cursor Agent Requested 等价):"
+            "会话里只注入「[项目规则·可请求]」目录(description + locator),需要哪条就用本工具取哪条。"
+            "locator 形如 `.cursor/rules/a.mdc` 或 `user:.cursor/rules:global.mdc`;"
+            "取不到按 errorCode 返回(symlink_skipped/outside_workspace/too_large/invalid_frontmatter 等),"
+            "不会用空正文冒充「规则为空」。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "locator": {"type": "string", "description": "规则定位符(取自 [项目规则·可请求] 目录;必填)"},
+                "path": {"type": "string", "description": "工作区根目录(默认当前目录)"},
+            },
+            "required": ["locator"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="find_import_edges",
         description=(
             "按名字查导入关系(P0-8 第八批):direction='from' 查「这个文件导入了谁」"
@@ -19369,6 +19437,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "get_tool_schema": _tool_get_tool_schema,
     "search_codebase": _tool_search_codebase,
     "list_symbol_definitions": _tool_list_symbol_definitions,
+    "read_project_rule": _tool_read_project_rule,
     "find_import_edges": _tool_find_import_edges,
     "index_codebase": _tool_index_codebase,
     "auto_rebuild_codebase": _tool_auto_rebuild_codebase,

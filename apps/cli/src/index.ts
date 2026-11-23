@@ -1140,8 +1140,9 @@ goalCmd
   .requiredOption('--done-when <regex>', '达成判据:助手输出匹配此正则即视为达成')
   .option('--max-iterations <n>', '最多迭代轮次(默认 5)', '5')
   .option('--max-tokens <n>', '累计 token 上限(可选;缺省不设闸)')
+  .option('--max-seconds <n>', '累计墙钟时间上限(秒,可选;缺省不设闸)')
   .option('--model <id>', '模型 ID', 'gpt-4o')
-  .action(async (task: string, opts: { doneWhen: string; maxIterations: string; maxTokens?: string; model: string }) => {
+  .action(async (task: string, opts: { doneWhen: string; maxIterations: string; maxTokens?: string; maxSeconds?: string; model: string }) => {
     const maxIterations = Number.parseInt(opts.maxIterations, 10);
     if (!Number.isInteger(maxIterations) || maxIterations < 1) {
       errorExit(chalk.red(`--max-iterations 必须是 >= 1 的整数(收到 ${opts.maxIterations})`));
@@ -1153,6 +1154,14 @@ goalCmd
         errorExit(chalk.red(`--max-tokens 必须是 >= 1 的整数(收到 ${opts.maxTokens})`));
       }
       maxTokens = parsed;
+    }
+    let maxSeconds: number | undefined;
+    if (opts.maxSeconds !== undefined) {
+      const parsed = Number.parseFloat(opts.maxSeconds);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        errorExit(chalk.red(`--max-seconds 必须是 > 0 的秒数(收到 ${opts.maxSeconds})`));
+      }
+      maxSeconds = parsed;
     }
 
     // 装配真实执行腿:setupAgentTools + runToolLoop(与 REPL 同源)
@@ -1166,6 +1175,7 @@ goalCmd
         maxIterations,
         modelId: opts.model,
         ...(maxTokens === undefined ? {} : { maxTokens }),
+        ...(maxSeconds === undefined ? {} : { maxSeconds }),
       },
       {
         runIteration: async ({ messages: msgs }) => {

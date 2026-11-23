@@ -66,7 +66,7 @@ from .codebase_symbol_catalog import (
 )
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
 from .ignore_rules import (
-    DEFAULT_IGNORE_FILENAMES,
+    INDEX_IGNORE_FILENAMES,
     filter_paths,
     filter_paths_for_index,
     load_ignore_set,
@@ -395,7 +395,7 @@ def apply_index_ignore_rules(
     `git ls-files`(monorepo 上那是上万条的进程与解析成本)。
     """
     report = IgnorePruneReport()
-    ignore = load_ignore_set(root, filenames=DEFAULT_IGNORE_FILENAMES)
+    ignore = load_ignore_set(root, filenames=INDEX_IGNORE_FILENAMES)
     report.errors.extend(f"ignore 规则读不动:{e}" for e in ignore.errors)
     if not ignore.rules:
         if ignore.errors:

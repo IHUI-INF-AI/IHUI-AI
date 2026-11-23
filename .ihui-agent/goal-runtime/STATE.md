@@ -590,3 +590,53 @@ HEAD 仍在位 —— 典型的「3.3.0 已删但被 `heal-worktree-tracked` 恢
 
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+## 2026-11-24 轮次 12(续: Cursor / Codex 增量)
+- 状态: active(本轮收口;目标仍有欠账,见报告 §六)
+- 取证: craft-anything 0.5.0 CLI --deep(js-app-map Cursor 3.27.22、db-sqlite-show Codex goals/memories/state);`.ihui/mcp.json` 指向的 0.6.1 盘上不存在、REA 6.4.0 不存在 —— 已如实登记,不伪造
+- Cursor 读数: Electron/esbuild,56 modules / 13 IPC / 137 routes / 17 native / 11 storage / 491 vendors;530/10000 文件(partial),63,655 节点被 2,500 上限截断,31 个动态 IPC 不可见
+- Codex 增量: goals_1.thread_goals 6 态 + token_budget/tokens_used/time_used_seconds;deferrals 单表;memories jobs 带 lease/watermark
+- 落地1(Cursor 规则层): apps/ai-service/app/core/project_rules.py + agent_engine 注入 + llm 自动检索按 file_path 叠加;31 例,无规则目录零行为
+- 落地2(Codex token 预算): apps/cli goal-run maxTokens + usage 真值 + `--max-tokens`;8 例,达成优先、缺 usage 计 0
+- 验证: Python 69 passed;CLI 21 passed;ruff/mypy --strict/prettier/tsc 8/8 绿;watermark 3/3;变异 7 处(4 Python + 3 TS)均转红后恢复绿
+- 报告: .ihui-agent/tmp/r12/REPORT.md
+- 欠账: shadow workspace、.cursorignore 兼容、Codex 6 态 + deferral + time budget、Cursor 运行时动态面(不半成品落地)
+
+## 2026-11-24 /goal 轮次 13（深水第三季：原生函数级 + 剩余功能缺口闭环）
+
+**目标条件（AGENTS §8 五要素齐备）**
+
+1. **核心任务**：四程序（DeepSeek Harness 0.2.2-rc.5 / TRAE CN 3.4.20 / Qoder CN 0.5.14 / WorkBuddy 5.11.3）的
+   **原生二进制函数级面**（上一轮唯一整块记为「未做」的面）做深度取证——rizin 导出/导入/字符串 +
+   Ghidra 12.1.4 headless 伪代码抽样 + craft-anything 0.5.0 `--deep`（321 工具，本机 capabilities 实测
+   ghidra/rizin/frida/ilspy/mitmdump/chromium 均 found）——并把可复现设计沉淀为本仓自己的代码；
+   同时清掉上一轮判为「仍需做/需先定承载」的功能缺口：B1-05 沙箱三级策略+会话侧车可写根、P0-7 回合前
+   上下文自检钩子、B3-07 请求元数据四层、P0-2/P0-3 反向守护拓扑+跨进程注册表（承载本轮已确认：
+   `apps/cli/src/daemon/` 已由他席落 `graceful-restart.ts`）。
+2. **验证标准**：每个落地件必须有真跑的测试（pytest / vitest）与类型检查（ruff+mypy --strict / tsc），
+   断言覆盖「缺省零行为变化」与「拒收/不冒绿」两侧，成对留正向对照；取证文档每条带一条自己真跑过的
+   可复核命令；三档（观察/推断/未知）不许混写。落地入库走 `object-space-land` 并回读验证。
+3. **约束边界**：红线照旧——不粘专有源码（单条连续片段 ≤10 行）、不破解许可证、不绕过付费、
+   不提取凭据/token/cookie；**不运行任何目标程序本体**（全静态取证）；只读目标安装目录，绝不写入。
+   改动限定 `apps/ai-service/**`、`apps/cli/**`、`docs/benchmark-evidence/**`；不碰他席在飞面
+   （apps/api、apps/web、README*、miniapp）。不新建计划/TODO/ROADMAP，唯一台账 = PROJECT_PLAN.md。
+4. **质量要求**：数据层只允许 PostgreSQL，禁 sqlite（含测试库与本地状态库）；新增源文件必跑
+   `node scripts/watermark.mjs inject`；每件至少一轴超越（可测性 / PG 统一数据层 / fail-closed 边界 /
+   零缺省行为变化）；「造好没装车」= 未完成（每个新导出必须有真实 importer）。
+5. **异常处理**：工具缺件/超时/目标体量超限 ⇒ 记「未判定（具体原因）」，不伪造、不冒绿；
+   连续 3 轮无进展 ⇒ blocked；连续 5 轮工具失败 ⇒ blocked；落地锁僵死按现读判据（两次采样 CPU +
+   kids）判定后清锁，`kids=1` 且 CPU 在涨禁止杀。
+
+**本轮实况**：取证席 2 个 + 落地席 2 个并行（文件域互斥），落地由主控串行执行（多 agent 抢同一把
+land 锁已实测两次僵死）。
+
+## 2026-11-24 07:50 轮次 12-续（第二档：规则三模式 + 索引 ignore + 时间预算）
+
+- 状态: active(收口本轮,欠账见报告 §八)
+- 落地1(Cursor 规则三模式): 用户级 `~/.ihui/rules`、`~/.cursor/rules`（env 覆盖/开关）;Agent Requested 只进目录、正文按需取;新增 MCP `read_project_rule`(locator 必填、errorCode 机器可读);线程启动改 `load_project_rules_block`(正文+目录)
+- 落地2(`.cursorindexingignore`): `INDEX_IGNORE_FILENAMES` 仅索引面生效,仓库树仍 DEFAULT;命中即剪含已跟踪;`.gitignore` 对已跟踪仍 tracked_kept;`.cursorignore` 不并入(隐私待定档)
+- 落地3(Codex 时间预算): goal-run 逐轮秒数记账 + `maxSeconds` 闸(未达成才收口、达成优先);CLI `--max-seconds`;摘要 `/ Ns`
+- 验证: Python 243 passed(`test_mcp_server` 全量 + 规则 42 + 工具 7 + 索引 ignore 6);CLI 13 passed;变异 8 处均转红后恢复绿;ruff/mypy --strict/prettier/tsc 8/8/watermark 12/12
+- 环境边界: `test_codebase_indexer.py` 缺 `anydoc` 无法导入(存量);git 用例需 PATH 含 Git bin(补齐后 9/9)
+- 报告: `.ihui-agent/tmp/r12/REPORT.md` §八
+- 仍未做: `.cursorignore` 产品定档、shadow workspace 四件套、Codex 六态/deferral、Cursor 运行时动态面

@@ -152,6 +152,86 @@ describe('runGoalWithAgent token 预算', () => {
   });
 });
 
+describe('runGoalWithAgent 时间预算(Codex time_used_seconds 等价)', () => {
+  it('逐轮累加秒数并记录到 records', async () => {
+    let clock = 0;
+    const r = await runGoalWithAgent(
+      { maxIterations: 3, now: () => (clock += 1000) },
+      {
+        messages: msgs(),
+        runIteration: async ({ iteration }) => ({
+          stopReason: 'end_turn',
+          assistantText: `第${iteration}轮`,
+        }),
+        judge: notDone,
+      },
+    );
+    expect(r.secondsUsed).toBe(3);
+    expect(r.records.map((x) => x.seconds)).toEqual([1, 1, 1]);
+  });
+
+  it('达到时间上限且未达成 ⇒ 收口,原因带已用/上限', async () => {
+    let clock = 0;
+    let rounds = 0;
+    const r = await runGoalWithAgent(
+      { maxIterations: 5, maxSeconds: 3, now: () => (clock += 2000) },
+      {
+        messages: msgs(),
+        runIteration: async () => {
+          rounds += 1;
+          return { stopReason: 'end_turn', assistantText: '干活' };
+        },
+        judge: notDone,
+      },
+    );
+    expect(rounds).toBe(2);
+    expect(r.secondsUsed).toBe(4);
+    expect(r.outcome.kind).toBe('exhausted');
+    expect(r.outcome.kind === 'exhausted' ? r.outcome.lastNote : '').toContain('时间预算已耗尽(4s/3s)');
+  });
+
+  it('已达成优先:越过时间上限仍按 achieved 记', async () => {
+    let clock = 0;
+    const r = await runGoalWithAgent(
+      { maxIterations: 5, maxSeconds: 0.1, now: () => (clock += 1000) },
+      {
+        messages: msgs(),
+        runIteration: async () => ({ stopReason: 'end_turn', assistantText: '做完了' }),
+        judge: (): IterationVerdict => ({ done: true, note: 'ok' }),
+      },
+    );
+    expect(r.outcome.kind).toBe('achieved');
+    expect(r.secondsUsed).toBe(1);
+  });
+
+  it('时间上限 <= 0 / NaN ⇒ 不设闸(跑满轮次)', async () => {
+    let clock = 0;
+    const r = await runGoalWithAgent(
+      { maxIterations: 3, maxSeconds: Number.NaN, now: () => (clock += 1000) },
+      {
+        messages: msgs(),
+        runIteration: async () => ({ stopReason: 'end_turn', assistantText: '干活' }),
+        judge: notDone,
+      },
+    );
+    expect(r.records).toHaveLength(3);
+    expect(r.secondsUsed).toBe(3);
+  });
+
+  it('describeGoalRun 追加秒数读数', async () => {
+    let clock = 0;
+    const r = await runGoalWithAgent(
+      { maxIterations: 1, now: () => (clock += 2000) },
+      {
+        messages: msgs(),
+        runIteration: async () => ({ stopReason: 'end_turn', assistantText: '干活' }),
+        judge: notDone,
+      },
+    );
+    expect(describeGoalRun(r)).toContain('/ 2s');
+  });
+});
+
 describe('goalIterate 透传预算与读数', () => {
   it('maxTokens 透传到闭环,并回传 tokensUsed', async () => {
     const logs: string[] = [];

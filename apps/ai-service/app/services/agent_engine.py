@@ -4330,9 +4330,9 @@ class AgentEngine:
         if raw in {"1", "true", "yes", "on"}:
             return
         try:
-            from app.core.project_rules import load_always_apply_rules_block
+            from app.core.project_rules import load_project_rules_block
 
-            block = load_always_apply_rules_block(workspace)
+            block = load_project_rules_block(workspace)
             if not block:
                 return
             thread.messages[0]["content"] = f"{thread.messages[0]['content']}\n\n{block}"

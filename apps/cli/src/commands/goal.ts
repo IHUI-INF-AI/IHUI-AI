@@ -38,6 +38,8 @@ export interface GoalIterateOptions {
   readonly modelId: string;
   /** 累计 token 上限(可选);缺省/<=0 ⇒ 不设闸,与接线前一致。 */
   readonly maxTokens?: number;
+  /** 累计墙钟时间上限(秒,可选);缺省/<=0 ⇒ 不设闸。 */
+  readonly maxSeconds?: number;
 }
 
 export interface GoalIterateDeps {
@@ -59,6 +61,8 @@ export interface GoalIterateResult {
   readonly lastText: string;
   /** 累计 token(各轮真值之和;拿不到的轮次计 0)。 */
   readonly tokensUsed: number;
+  /** 累计墙钟时间(秒,各轮真实耗时之和)。 */
+  readonly secondsUsed: number;
 }
 
 /**
@@ -88,6 +92,7 @@ export async function goalIterate(
     {
       maxIterations: options.maxIterations,
       ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+      ...(options.maxSeconds === undefined ? {} : { maxSeconds: options.maxSeconds }),
     },
     {
       messages,
@@ -107,9 +112,10 @@ export async function goalIterate(
   // 每轮记录一条(便于用户看"到底在做什么")
   for (const rec of result.records) {
     const tokens = rec.tokens > 0 ? ` / ${rec.tokens} tok` : '';
+    const seconds = rec.seconds > 0 ? ` / ${rec.seconds}s` : '';
     log(
       chalk.dim(
-        `  第 ${rec.iteration} 轮:${rec.stopReason} / ${rec.textLength} 字 / ${rec.durationMs}ms${tokens}`,
+        `  第 ${rec.iteration} 轮:${rec.stopReason} / ${rec.textLength} 字 / ${rec.durationMs}ms${tokens}${seconds}`,
       ),
     );
   }
@@ -128,6 +134,7 @@ export async function goalIterate(
     summary,
     lastText: result.lastText,
     tokensUsed: result.tokensUsed,
+    secondsUsed: result.secondsUsed,
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
