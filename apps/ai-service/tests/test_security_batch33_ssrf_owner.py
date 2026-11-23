@@ -20,9 +20,11 @@ from typing import Any
 import pytest
 from fastapi import HTTPException
 
+from app.core.config import settings
 from app.routers import a2a as a2a_router
 from app.routers import connectors as connectors_router
 from app.services import a2a_service, connector_store, scheduler_service, screenshot_service
+from tests._connector_fake import FakeSession
 from app.services.a2a_service import (
     A2AAgent,
     A2AServer,
@@ -30,6 +32,7 @@ from app.services.a2a_service import (
     can_manage_agent,
 )
 from app.services.capability_gate import Principal
+from app.services.tenant_scope import ConnectorScope
 
 
 def _principal(sub: str | None = "user-1", *, role: int = 0) -> Principal:
@@ -205,15 +208,35 @@ def test_list_agents_filters_by_ownership(monkeypatch: pytest.MonkeyPatch) -> No
 # =============================================================================
 
 
-def test_unreadable_ciphertext_survives_next_write(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    store = tmp_path / "connectors.json"
-    monkeypatch.setattr(connector_store, "_STORE_PATH", store)
+def test_unreadable_ciphertext_survives_next_write(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", "2306401f-4b6d-4436-8f5c-aa36d25da676")
     monkeypatch.setattr(connector_store, "_encrypt_secret", lambda p: f"enc:v1:{p}")
-    store.write_text(
-        json.dumps(
-            [{"key": "k1", "type": "t", "owner_user_id": "u1", "app_secret": "enc:v1:undecryptable"}]
-        ),
-        encoding="utf-8",
+    fake.rows.append(
+        {
+            "id": "row-1",
+            "tenant_id": "2306401f-4b6d-4436-8f5c-aa36d25da676",
+            "owner_user_id": "u1",
+            "key": "k1",
+            "conn_type": "t",
+            "name": "",
+            "enabled": True,
+            "app_id": "",
+            "app_secret": "enc:v1:undecryptable",
+            "extra": {},
+            "mode": "preset",
+            "spec": {},
+            "operations": [],
+            "managed": False,
+            "credential_source": "",
+            "installed_at": "",
+            "last_sync_at": "",
+            "last_error": "",
+            "sync_items": [],
+            "created_at": "2026-09-02T00:00:00+00:00",
+            "updated_at": "2026-09-02T00:00:00+00:00",
+        }
     )
 
     loaded = connector_store.list_owned("u1")
@@ -221,11 +244,10 @@ def test_unreadable_ciphertext_survives_next_write(tmp_path: Any, monkeypatch: p
     assert all(not str(k).startswith("_") for k in loaded[0]), "内部记账键不得外泄"
 
     assert connector_store.save("u1", {"key": "k2", "type": "t", "app_secret": "plain"}) is not None
-    persisted = json.loads(store.read_text(encoding="utf-8"))
-    by_key = {rec["key"]: rec for rec in persisted}
-    assert by_key["k1"]["app_secret"] == "enc:v1:undecryptable", "整表写入不得把不可解密密文抹成空串"
+    by_key = {rec["key"]: rec for rec in fake.rows}
+    assert by_key["k1"]["app_secret"] == "enc:v1:undecryptable", "后续写入不得把不可解密密文抹成空串"
     assert by_key["k2"]["app_secret"] == "enc:v1:plain"
-    assert all(not any(str(k).startswith("_") for k in rec) for rec in persisted)
+    assert all(not any(str(k).startswith("_") for k in rec) for rec in fake.rows)
 
 
 # =============================================================================
@@ -234,10 +256,11 @@ def test_unreadable_ciphertext_survives_next_write(tmp_path: Any, monkeypatch: p
 
 
 def test_delete_returns_500_when_store_write_fails(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(connectors_router.connector_store, "get", lambda _u, _k: {"key": "k"})
-    monkeypatch.setattr(connectors_router.connector_store, "remove", lambda _u, _k: False)
+    ctx = ConnectorScope(scope="u1", tenant_id=None, role="owner", tenant_mode=False)
+    monkeypatch.setattr(connectors_router.connector_store, "get", lambda _u, _k, **kw: {"key": "k"})
+    monkeypatch.setattr(connectors_router.connector_store, "remove", lambda _u, _k, **kw: False)
 
-    res = asyncio.run(connectors_router.delete_connector("k", user_id="u1"))
+    res = asyncio.run(connectors_router.delete_connector("k", scope="u1", ctx=ctx))
     assert res.status_code == 500
 
 
@@ -246,14 +269,17 @@ def test_sync_returns_500_when_state_persist_fails(monkeypatch: pytest.MonkeyPat
         async def sync(self, _rec: dict[str, Any]) -> dict[str, Any]:
             return {"ok": True, "items": [], "last_sync_at": "2026-10-31T00:00:00Z"}
 
+    ctx = ConnectorScope(scope="u1", tenant_id=None, role="owner", tenant_mode=False)
     monkeypatch.setattr(
-        connectors_router.connector_store, "get", lambda _u, _k: {"key": "k", "type": "t", "app_id": "x"}
+        connectors_router.connector_store, "get", lambda _u, _k, **kw: {"key": "k", "type": "t", "app_id": "x"}
     )
     monkeypatch.setattr(connectors_router, "get_connector", lambda _t: _Mod())
     monkeypatch.setattr(connectors_router.connector_store, "set_sync_state", lambda *a, **kw: None)
 
     res = asyncio.run(
-        connectors_router.sync_connector(connectors_router.ConnectorSyncRequest(key="k"), user_id="u1")
+        connectors_router.sync_connector(
+            connectors_router.ConnectorSyncRequest(key="k"), scope="u1", ctx=ctx
+        )
     )
     assert res.status_code == 500
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -17,11 +17,30 @@ import {
   CardTitle,
   Input,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, type ApiFailure } from '@/lib/api'
 import TenantAppCard from './TenantAppCard'
 import { PLATFORM_META, type TenantApp } from './types'
 
 const RESERVED_SUBDOMAINS = ['www', 'api', 'admin', 'file', 'bsm', 'ai']
+
+/** 把后端失败结果转成带状态码的 Error,供错误文案按 401/403/404 分型。 */
+function failureFromResult(
+  res: { success: false; error?: string; status?: number },
+  fallback: string,
+): ApiFailure {
+  const err = new Error(res.error || fallback) as ApiFailure
+  err.status = res.status
+  return err
+}
+
+/** 按 HTTP 状态码给出明确的无权限/失败文案;其余透传后端 message。 */
+function describeFailure(err: unknown, fallback: string): string {
+  const status = (err as ApiFailure | undefined)?.status
+  if (status === 401) return '请先登录后再查看企业应用凭据'
+  if (status === 403) return '需要租户管理员权限才能管理企业应用凭据'
+  if (status === 404) return '当前租户不存在，或你无权访问该租户的应用凭据'
+  return (err as Error).message || fallback
+}
 
 function readSubdomain(): string {
   if (typeof window === 'undefined') return ''
@@ -55,12 +74,12 @@ export default function TenantAppsPage() {
         '/api/tenant-platform-apps/',
         { headers },
       )
-      if (!res.success) throw new Error(res.error || '读取失败')
+      if (!res.success) throw failureFromResult(res, '读取失败')
       if (!res.data) throw new Error('读取失败')
       setApps(res.data.apps)
       setMessage(null)
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message || '读取租户应用凭据失败' })
+      setMessage({ type: 'error', text: describeFailure(err, '读取租户应用凭据失败') })
     } finally {
       setLoading(false)
     }
@@ -100,7 +119,7 @@ export default function TenantAppsPage() {
         body: JSON.stringify(body),
         headers,
       })
-      if (!res.success) throw new Error(res.error || '保存失败')
+      if (!res.success) throw failureFromResult(res, '保存失败')
       setSecrets((prev) => ({ ...prev, [app.platform]: '' }))
       setMessage({
         type: 'success',
@@ -108,7 +127,7 @@ export default function TenantAppsPage() {
       })
       await load()
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message || '保存失败' })
+      setMessage({ type: 'error', text: describeFailure(err, '保存失败') })
     } finally {
       setBusy('')
     }
@@ -123,10 +142,10 @@ export default function TenantAppsPage() {
         method: 'DELETE',
         headers,
       })
-      if (!res.success) throw new Error(res.error || '删除失败')
+      if (!res.success) throw failureFromResult(res, '删除失败')
       await load()
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message || '删除失败' })
+      setMessage({ type: 'error', text: describeFailure(err, '删除失败') })
     } finally {
       setBusy('')
     }
@@ -139,14 +158,14 @@ export default function TenantAppsPage() {
         '/api/tenant-platform-apps/import-env',
         { method: 'POST', body: JSON.stringify({}), headers },
       )
-      if (!res.success) throw new Error(res.error || '导入失败')
+      if (!res.success) throw failureFromResult(res, '导入失败')
       setMessage({
         type: 'success',
         text: `已导入 ${res.data?.imported.length ?? 0} 个平台，跳过 ${res.data?.skipped.length ?? 0} 个`,
       })
       await load()
     } catch (err) {
-      setMessage({ type: 'error', text: (err as Error).message || '导入失败' })
+      setMessage({ type: 'error', text: describeFailure(err, '导入失败') })
     } finally {
       setBusy('')
     }

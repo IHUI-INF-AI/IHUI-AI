@@ -71,6 +71,7 @@ import { useAuth } from '../context/AuthContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { isWechatAvailable, isWechatInstalled, sendWechatAuth } from '../lib/wechat'
+import { preloadTenantProviders } from '../lib/tenant-providers'
 import {
   CARRIER_ERROR,
   CarrierOneClickError,
@@ -554,6 +555,12 @@ export function LoginScreen() {
       void form.login()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时判定一次,form.login 为稳定 useCallback
+  }, [])
+
+  // 运行时租户配置:挂载即静默预取(≤3s 超时,失败静默),不 await、不阻塞本页渲染;
+  // 第三方按钮点击时由 oauth-redirect 经 tenant-providers 解析器读取缓存。
+  useEffect(() => {
+    preloadTenantProviders()
   }, [])
 
   // ===== email tab 本地 state =====

@@ -24,6 +24,7 @@ from app.routers import connectors as connectors_router
 from app.routers.connectors import ConnectorConfigRequest, _safe
 from app.routers.knowledge import _resolve_workspace_root
 from app.services import workspace_roots
+from app.services.tenant_scope import ConnectorScope
 
 
 @pytest.fixture()
@@ -160,7 +161,8 @@ async def test_connectors_save_error_fixed_message(monkeypatch):
     req = ConnectorConfigRequest(
         key="feishu:k1", type="feishu", name="n", app_id="a", app_secret="s"
     )
-    resp = await connectors_router.save_connector_config(req, user_id="u1")
+    ctx = ConnectorScope(scope="u1", tenant_id=None, role="owner", tenant_mode=False)
+    resp = await connectors_router.save_connector_config(req, scope="u1", ctx=ctx)
     assert resp.status_code == 500
     body = json.loads(resp.body.decode())
     assert "PermissionError" not in body["error"]

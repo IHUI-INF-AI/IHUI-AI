@@ -20,12 +20,15 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from app.core.config import settings
 from app.core.jwt_auth import require_request_user_id
 from app.routers import connectors as connectors_router
 from app.services import connector_store
 from app.services.connectors import base, catalog, custom_http, managed, openapi_import
+from tests._connector_fake import FakeSession
 
 USER = "user-generic"
+TENANT = "2306401f-4b6d-4436-8f5c-aa36d25da676"
 
 
 @pytest.fixture(autouse=True)
@@ -314,10 +317,10 @@ async def test_ssrf_blocks_localhost_and_private_ip():
 
 
 @pytest.fixture
-def generic_app(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        connector_store, "_STORE_PATH", tmp_path / "connector_store-generic.json"
-    )
+def generic_app(monkeypatch):
+    fake = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", TENANT)
     app = FastAPI()
     app.include_router(connectors_router.router, prefix="/api")
     app.dependency_overrides[require_request_user_id] = lambda: USER

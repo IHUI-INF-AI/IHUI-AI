@@ -12,33 +12,36 @@
 - POST   /api/connectors/{key}/enable|disable
 - DELETE /api/connectors/{key}         404 / 成功
 
-隔离策略:独立 FastAPI app 只挂载 connectors 路由;monkeypatch connector_store
-存储路径到 tmp_path;sync/fetch 用 fake connector 模块避免真网。
+隔离策略:独立 FastAPI app 只挂载 connectors 路由;connector_store 注入内存 fake
+会话;sync/fetch 用 fake connector 模块避免真网。
 """
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from app.core.config import settings
 from app.core.jwt_auth import require_request_user_id
 from app.routers import connectors as connectors_router
 from app.services import connector_store
 from app.services.tenant_scope import ConnectorScope
+from tests._connector_fake import FakeSession
 
 # 两个固定主体:端点侧的身份由承载层注入,测试用 dependency_overrides 显式给,
 # 不去依赖"开发降级单一身份" —— 那会让"没传身份"这一型在测试里永远测不出来。
 USER_A = "user-a"
 USER_B = "user-b"
+TENANT = "2306401f-4b6d-4436-8f5c-aa36d25da676"
 
 
-def _app_for(owner: str, monkeypatch, tmp_path, tag: str) -> FastAPI:
-    """挂一份只含 connectors 路由的 app,存储按 tag 隔离、身份固定为 owner。"""
-    monkeypatch.setattr(connector_store, "_STORE_PATH", tmp_path / f"connector_store-{tag}.json")
+def _app_for(owner: str, fake: FakeSession, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    """挂一份只含 connectors 路由的 app,身份固定为 owner;存储走注入的 fake 会话。"""
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", TENANT)
     monkeypatch.setattr(connectors_router, "get_connector", lambda t: _FakeConnector() if t == "yuque" else None)
     app = FastAPI()
     app.include_router(connectors_router.router, prefix="/api")
@@ -72,9 +75,9 @@ class _FakeConnector:
 
 
 @pytest.fixture
-def api_app(monkeypatch, tmp_path):
-    """只挂载 connectors 路由的 FastAPI app;存储路径隔离到 tmp_path,身份固定为 USER_A。"""
-    return _app_for(USER_A, monkeypatch, tmp_path, "main")
+def api_app(monkeypatch):
+    """只挂载 connectors 路由的 FastAPI app;存储走内存 fake,身份固定为 USER_A。"""
+    return _app_for(USER_A, FakeSession(), monkeypatch)
 
 
 @pytest.fixture
@@ -249,39 +252,42 @@ async def test_delete(ac):
     assert connector_store.get(USER_A, "yuque:docs") is None
 
 
-async def test_ownerless_record_is_filtered_out_of_the_http_list(
-    api_app, monkeypatch, tmp_path
-):
-    """无属主的遗留记录在 HTTP 读取面**一条都不出现**,但服务端仍数得到它。
+async def test_foreign_owner_row_is_filtered_out_of_http_list(monkeypatch):
+    """他属主的记录在 HTTP 读取面**一条都不出现**(收窄发生在 handler 的调用上)。
 
     立因(2026-10-27):`list_owned` 的 fail-closed 只在 store 单测里钉过;端点若改回
     `list_all()`/整片读,store 层测试照样全绿,而 `connectors:read` 的"已按属主收窄"
     在 HTTP 面就变成了纸面措辞。这条用例把"收窄发生在 handler 的调用上"钉住:
-    变异成整片读 ⇒ 这里立刻看到别人/无主的 key。
+    变异成整片读 ⇒ 这里立刻看到别人的 key。
     """
-    store_path = tmp_path / "connector_store-ownerless.json"
-    store_path.write_text(
-        json.dumps(
-            [
-                {
-                    "key": "yuque:legacy",
-                    "type": "yuque",
-                    "name": "无主遗留",
-                    "app_id": "",
-                    "app_secret": "legacy-secret",
-                    "extra": {"user": "u", "repo": "r"},
-                    "enabled": True,
-                    "installed_at": "2026-09-02T00:00:00+00:00",
-                    "updated_at": "2026-09-02T00:00:00+00:00",
-                    "last_sync_at": "",
-                    "last_error": "",
-                }
-            ],
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
+    fake = FakeSession()
+    monkeypatch.setattr(connector_store, "_pg_session", lambda: fake)
+    monkeypatch.setattr(settings, "platform_default_tenant_id", TENANT)
+    fake.rows.append(
+        {
+            "id": "row-1",
+            "tenant_id": TENANT,
+            "owner_user_id": USER_B,
+            "key": "yuque:legacy",
+            "conn_type": "yuque",
+            "name": "他属主遗留",
+            "enabled": True,
+            "app_id": "",
+            "app_secret": "legacy-secret",
+            "extra": {"user": "u", "repo": "r"},
+            "mode": "preset",
+            "spec": {},
+            "operations": [],
+            "managed": False,
+            "credential_source": "",
+            "installed_at": "2026-09-02T00:00:00+00:00",
+            "last_sync_at": "",
+            "last_error": "",
+            "sync_items": [],
+            "created_at": "2026-09-02T00:00:00+00:00",
+            "updated_at": "2026-09-02T00:00:00+00:00",
+        }
     )
-    monkeypatch.setattr(connector_store, "_STORE_PATH", store_path)
     app = FastAPI()
     app.include_router(connectors_router.router, prefix="/api")
     app.dependency_overrides[require_request_user_id] = lambda: USER_A
@@ -290,22 +296,21 @@ async def test_ownerless_record_is_filtered_out_of_the_http_list(
 
     assert res.status_code == 200
     assert res.json() == {"connectors": [], "count": 0}
-    # 管理员/运维侧的出口只有这个计数(响应体里不带,免得开"数得清别人配置"的口)
-    assert connector_store.ownerless_count() == 1
     assert "legacy-secret" not in res.text
 
 
 async def test_cross_owner_http_is_shaped_like_missing_and_side_effect_free(
-    monkeypatch, tmp_path
+    monkeypatch,
 ):
     """HTTP 级越权:换主体后"看不见、改不动、删不掉",且**别人的记录一字未动**。
 
     只断言 404 会放过"先改了再抛 404"与"授权判定发生在写库之后"两种写法(AGENTS §5),
     所以每一条越权之后都回读一次 A 名下的记录做逐字段对照。
-    两个 app 共用同一份存储分片(tag 相同)—— 否则"看不见"只是因为换了文件,什么也没证明。
+    两个 app 共用同一份 fake 会话 —— 否则"看不见"只是因为换了分片,什么也没证明。
     """
-    app_a = _app_for(USER_A, monkeypatch, tmp_path, "shared")
-    app_b = _app_for(USER_B, monkeypatch, tmp_path, "shared")
+    fake = FakeSession()
+    app_a = _app_for(USER_A, fake, monkeypatch)
+    app_b = _app_for(USER_B, fake, monkeypatch)
     async with (
         AsyncClient(transport=ASGITransport(app=app_a), base_url="http://test") as a,
         AsyncClient(transport=ASGITransport(app=app_b), base_url="http://test") as b,
@@ -340,9 +345,9 @@ async def test_cross_owner_http_is_shaped_like_missing_and_side_effect_free(
 
 
 @pytest.mark.asyncio
-async def test_tenant_member_cannot_change_shared_connector(monkeypatch, tmp_path):
+async def test_tenant_member_cannot_change_shared_connector(monkeypatch):
     """企业租户里的普通成员可读可调用,但不得改共享连接器/凭据。"""
-    app = _app_for(USER_A, monkeypatch, tmp_path, "member")
+    app = _app_for(USER_A, FakeSession(), monkeypatch)
     app.dependency_overrides[connectors_router.connector_context] = lambda: ConnectorScope(
         scope="tenant-a",
         tenant_id="11111111-1111-1111-1111-111111111111",

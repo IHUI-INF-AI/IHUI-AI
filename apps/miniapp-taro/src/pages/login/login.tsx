@@ -20,6 +20,11 @@ import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './login.css'
 import { aizhsUrl } from '@/constants/icon-urls'
+import {
+  loadTenantProviders,
+  preloadTenantProviders,
+  resolveProviderConfig,
+} from '@/lib/tenant-providers'
 
 /** 登录 tab(对齐 mobile-rn LoginScreen TABS:邮箱验证码/手机验证码/密码) */
 type LoginTab = 'email' | 'phone' | 'password'
@@ -96,6 +101,12 @@ export default function Login() {
         if (ref.current) clearInterval(ref.current)
       }
     }
+  }, [])
+
+  // 运行时租户配置:挂载即静默预取(≤3s 超时,失败静默),不 await、不阻塞本页渲染;
+  // 微信入口点击时由 handleWechatLogin 经 tenant-providers 解析器读取缓存。
+  useEffect(() => {
+    preloadTenantProviders()
   }, [])
 
   // 协议校验(对齐 RN requireAgree:未勾选 → 阻止提交 + 显示红色提示)
@@ -282,8 +293,16 @@ export default function Login() {
     Taro.navigateTo({ url })
   }
 
-  function handleWechatLogin() {
+  async function handleWechatLogin() {
     if (process.env.TARO_ENV === 'weapp' || process.env.TARO_ENV === 'alipay') {
+      // 等运行时租户配置落定(≤3s 超时,失败按编译期兜底),再判断本租户是否开放微信入口。
+      await loadTenantProviders()
+      const wechatConfig = resolveProviderConfig('wechat')
+      if (!wechatConfig.enabled) {
+        // 租户显式关停 / 未配置该入口:如实提示,不拉起静默登录。
+        Taro.showToast({ title: t('login.wechatUnavailable'), icon: 'none' })
+        return
+      }
       setIsSmsLogging(true)
       useUserStore
         .getState()
@@ -625,8 +644,6 @@ export default function Login() {
                 <View
                   className="login-autologin"
                   hoverClass="opacity-60"
-                  ariaRole="checkbox"
-                  ariaLabel={tt('login.autoLogin', '自动登录')}
                   onClick={() => form.setAutoLogin(!form.autoLogin)}
                 >
                   <View
@@ -731,8 +748,6 @@ function AgreementRow({
         <View
           className={`custom-checkbox ${err && !checked ? 'custom-checkbox-error' : ''} ${checked ? 'custom-checkbox-checked' : ''}`}
           hoverClass="opacity-60"
-          ariaRole="checkbox"
-          ariaLabel={tt('login.agreePrefix', '我已阅读并同意')}
           onClick={() => onChange(!checked)}
         >
           {/* 勾选符:原勾字符 → LineIcon;两处勾选(自动登录 / 协议)同取值,

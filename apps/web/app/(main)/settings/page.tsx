@@ -30,6 +30,10 @@ import { MiniappQrCard } from './MiniappQrCard'
 import { DesktopSettingsCard } from './DesktopSettingsCard'
 import { SIDEBAR_KEY } from './helpers'
 
+import { useAuthStore } from '@/stores/auth'
+import { canSeeTenantAdminEntry } from '@/components/sidebar/use-nav-visibility'
+import { useMyTenantRoles } from '@/hooks/use-my-tenant-roles'
+
 export default function SettingsPage() {
   const t = useTranslations('settings')
   const ta = useTranslations('appearanceSettings')
@@ -37,6 +41,15 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [collapsed, setCollapsed] = React.useState(false)
+
+  const roleId = useAuthStore((s) => s.user?.roleId)
+  const { roles, loaded } = useMyTenantRoles()
+  // 企业应用凭据属租户管理入口:仅平台管理员或任一租户的 owner/admin 可见(与后端守卫对齐);
+  // 租户角色未加载完成期间保守隐藏,避免首帧把入口泄漏给无权用户。
+  const canManageTenantApps = canSeeTenantAdminEntry({
+    isSystemAdmin: (roleId ?? 0) >= 1,
+    tenantRoles: loaded ? roles : undefined,
+  })
 
   React.useEffect(() => {
     setMounted(true)
@@ -87,22 +100,25 @@ export default function SettingsPage() {
             <MiniappQrCard t={t} />
             <DesktopSettingsCard />
             <ThemeBackupSync />
-            <Link
-              href="/settings/tenant-apps"
-              className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
-            >
-              <Building2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <div className="text-body font-medium">企业应用凭据</div>
-                <p className="mt-0.5 text-label text-muted-foreground">
-                  飞书/钉钉/企微/微信自建应用按租户隔离，终端成员扫码接入
-                </p>
-              </div>
-              <ChevronRight
-                className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                aria-hidden="true"
-              />
-            </Link>
+            {canManageTenantApps && (
+              <Link
+                href="/settings/tenant-apps"
+                data-testid="tenant-apps-entry"
+                className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+              >
+                <Building2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-body font-medium">企业应用凭据</div>
+                  <p className="mt-0.5 text-label text-muted-foreground">
+                    飞书/钉钉/企微/微信自建应用按租户隔离，终端成员扫码接入
+                  </p>
+                </div>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </Link>
+            )}
           </div>
         </TabsContent>
 

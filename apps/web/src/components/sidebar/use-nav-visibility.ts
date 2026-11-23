@@ -105,6 +105,39 @@ export function filterNavItemsByTier(
     })
 }
 /**
+ * 租户管理员角色(与后端 `services/tenant-access.ts` 的 `owner` / `admin` 对齐;
+ * `member` 不具备租户管理权限)。本仓前端此前不持有租户角色信号,这里只收口角色名判据,
+ * 角色列表由调用方经「我的租户」接口取得后传入。
+ */
+export const TENANT_ADMIN_ROLES = ['owner', 'admin'] as const
+
+/** 判断某租户角色是否属于租户管理员档位。空值/未知角色一律按非管理员处理。 */
+export function isTenantAdminRole(role: string | null | undefined): boolean {
+  return (
+    role !== null && role !== undefined && (TENANT_ADMIN_ROLES as readonly string[]).includes(role)
+  )
+}
+
+/**
+ * 「企业应用凭据」类租户管理入口的可见性谓词(2026-11-24 立)。
+ *
+ * 与后端 `guardTenantAccess(tenantId, 'admin')` 放行条件对齐:
+ *  - 系统管理员(roleId >= 1)旁路放行,与 `filterNavItemsByRole` 的 adminOnly 同一口径;
+ *  - 否则须在**任一**租户担任 owner / admin;
+ *  - 租户角色尚未加载(`tenantRoles === undefined`)时保守判不可见,避免首帧把入口泄漏给无权用户。
+ *
+ * 这是鉴权层判据(能不能看),不是用户自选降噪层;降噪仍只走 `filterNavItemsByTier`。
+ */
+export function canSeeTenantAdminEntry(opts: {
+  isSystemAdmin: boolean
+  tenantRoles: readonly string[] | undefined
+}): boolean {
+  if (opts.isSystemAdmin) return true
+  if (!opts.tenantRoles) return false
+  return opts.tenantRoles.some(isTenantAdminRole)
+}
+
+/**
  * 返回按「当前用户权限」+「用户自选档位」两层过滤导航树的回调。
  *
  * 2026-10-20 起本回调是**两层**,但调用方一行都不用改 —— Sidebar 与三个域入口页

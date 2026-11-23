@@ -315,6 +315,7 @@ def _validate_config(req: ConnectorConfigRequest) -> tuple[dict[str, Any], list[
 @router.get("", response_model=None)
 async def list_connectors(
     scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """列出**当前租户**的连接器配置(脱敏)。
 
@@ -327,7 +328,7 @@ async def list_connectors(
             logger.warning(
                 "连接器存储里有 %d 条无属主遗留记录(不对任何主体可见),需人工认领或清理", unclaimed
             )
-        records = connector_store.list_owned(scope)
+        records = connector_store.list_owned(scope, tenant_id=ctx.tenant_id)
         items = [_safe(rec) for rec in records]
         return {"connectors": items, "count": len(items)}
     except Exception as e:  # noqa: BLE001 - 内部异常降级,不裸抛
@@ -375,6 +376,7 @@ async def preview_openapi(
 async def save_connector_config(
     req: ConnectorConfigRequest,
     scope: str = Depends(connector_admin_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """新增或覆盖**当前租户**的连接器配置;返回脱敏条目。
 
@@ -395,7 +397,7 @@ async def save_connector_config(
                 spec["auth_kind"] = tpl["auth_kind"]
             if not spec.get("auth_name") or spec.get("auth_name") == "Authorization":
                 spec["auth_name"] = tpl.get("auth_name", "Authorization")
-        existing = connector_store.get(scope, req.key)
+        existing = connector_store.get(scope, req.key, tenant_id=ctx.tenant_id)
         if existing is not None:
             # app_secret 空串保留旧值(防前端回显覆盖密钥);app_id 同样防覆盖
             app_secret = req.app_secret if req.app_secret else str(existing.get("app_secret") or "")
@@ -437,7 +439,7 @@ async def save_connector_config(
             "last_error": str((existing or {}).get("last_error") or ""),
             "sync_items": list((existing or {}).get("sync_items") or []),
         }
-        saved = connector_store.save(scope, record)
+        saved = connector_store.save(scope, record, tenant_id=ctx.tenant_id)
         if saved is None:
             return _error(500, "保存连接器配置失败")
         # 凭据变更后清平台 token 缓存,避免继续用旧 token
@@ -455,6 +457,7 @@ async def save_connector_config(
 async def connect_managed_connector(
     req: ManagedConnectRequest,
     scope: str = Depends(connector_admin_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """一键接入平台托管连接器:用户不填任何凭据。
 
@@ -466,7 +469,7 @@ async def connect_managed_connector(
         if tpl is None:
             return _error(400, f"不支持的连接器类型: {req.type}")
         key = managed.managed_key(req.type)
-        existing = connector_store.get(scope, key)
+        existing = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
         if existing is not None:
             if not bool(existing.get("managed")):
                 return _error(409, f"该连接器 key 已被手动配置占用: {key}")
@@ -489,7 +492,7 @@ async def connect_managed_connector(
         record["last_sync_at"] = ""
         record["last_error"] = ""
         record["sync_items"] = []
-        saved = connector_store.save(scope, record)
+        saved = connector_store.save(scope, record, tenant_id=ctx.tenant_id)
         if saved is None:
             return _error(500, "保存托管连接器失败")
         logger.info("平台托管连接器接入成功: %s(%s)", key, req.type)
@@ -503,10 +506,11 @@ async def connect_managed_connector(
 async def sync_connector(
     req: ConnectorSyncRequest,
     scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """同步连接器数据源:调模块 sync,结果持久化。"""
     try:
-        rec = connector_store.get(scope, req.key)
+        rec = connector_store.get(scope, req.key, tenant_id=ctx.tenant_id)
         if rec is None:
             return _error(404, f"连接器不存在: {req.key}")
         if not rec.get("enabled", True):
@@ -530,11 +534,12 @@ async def sync_connector(
         last_sync_at = str(result.get("last_sync_at") or "")
         if ok:
             saved = connector_store.set_sync_state(
-                scope, req.key, last_sync_at, "", items=items
+                scope, req.key, last_sync_at, "", items=items, tenant_id=ctx.tenant_id
             )
         else:
             saved = connector_store.set_sync_state(
-                scope, req.key, "", str(result.get("message") or "同步失败")
+                scope, req.key, "", str(result.get("message") or "同步失败"),
+                tenant_id=ctx.tenant_id,
             )
         if saved is None:
             return _error(500, "同步已完成,但同步状态持久化失败,请稍后重试")
@@ -557,10 +562,11 @@ async def fetch_connector_document(
     key: str,
     req: ConnectorFetchRequest,
     scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """拉取单篇文档转纯文本(对齐 parse_document 语义;只认当前租户名下的连接器)。"""
     try:
-        rec = connector_store.get(scope, key)
+        rec = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
         if rec is None:
             return _error(404, f"连接器不存在: {key}")
         if not rec.get("enabled", True):
@@ -593,6 +599,7 @@ async def invoke_connector_operation(
     req: ConnectorInvokeRequest,
     user_id: str = Depends(require_request_user_id),
     scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """执行一条声明式操作(读或写)。
 
@@ -600,7 +607,7 @@ async def invoke_connector_operation(
     执行后写审计;任一不满足直接拒绝。连接器按租户作用域读取,审计仍记真实操作者。
     """
     try:
-        rec = connector_store.get(scope, key)
+        rec = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
         if rec is None:
             return _error(404, f"连接器不存在: {key}")
         if not bool(rec.get("enabled")):
@@ -653,10 +660,11 @@ async def invoke_connector_operation(
 async def check_connector(
     key: str,
     scope: str = Depends(connector_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """连通性自检(平台换 token / 自定义出站地址校验)。"""
     try:
-        rec = connector_store.get(scope, key)
+        rec = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
         if rec is None:
             return _error(404, f"连接器不存在: {key}")
         if not bool(rec.get("enabled")):
@@ -676,12 +684,13 @@ async def check_connector(
 async def enable_connector(
     key: str,
     scope: str = Depends(connector_admin_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """启用连接器。"""
     try:
-        if connector_store.get(scope, key) is None:
+        if connector_store.get(scope, key, tenant_id=ctx.tenant_id) is None:
             return _error(404, f"连接器不存在: {key}")
-        updated = connector_store.set_enabled(scope, key, True)
+        updated = connector_store.set_enabled(scope, key, True, tenant_id=ctx.tenant_id)
         if updated is None:
             return _error(500, "更新启用状态失败")
         return _safe(updated)
@@ -694,12 +703,13 @@ async def enable_connector(
 async def disable_connector(
     key: str,
     scope: str = Depends(connector_admin_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """停用连接器(保留持久化记录)。"""
     try:
-        if connector_store.get(scope, key) is None:
+        if connector_store.get(scope, key, tenant_id=ctx.tenant_id) is None:
             return _error(404, f"连接器不存在: {key}")
-        updated = connector_store.set_enabled(scope, key, False)
+        updated = connector_store.set_enabled(scope, key, False, tenant_id=ctx.tenant_id)
         if updated is None:
             return _error(500, "更新启用状态失败")
         return _safe(updated)
@@ -712,13 +722,14 @@ async def disable_connector(
 async def delete_connector(
     key: str,
     scope: str = Depends(connector_admin_scope),
+    ctx: ConnectorScope = Depends(connector_context),
 ) -> dict[str, Any] | JSONResponse:
     """删除连接器配置(只删当前租户名下的;别的租户与"没这条"同形返回 404)。"""
     try:
-        rec = connector_store.get(scope, key)
+        rec = connector_store.get(scope, key, tenant_id=ctx.tenant_id)
         if rec is None:
             return _error(404, f"连接器不存在: {key}")
-        if not connector_store.remove(scope, key):
+        if not connector_store.remove(scope, key, tenant_id=ctx.tenant_id):
             return _error(500, "删除连接器失败,请稍后重试")
         custom_http.clear_token_cache(rec)
         logger.info("连接器已删除: %s", key)

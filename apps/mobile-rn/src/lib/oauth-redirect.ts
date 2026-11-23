@@ -24,6 +24,7 @@ import {
   type LoginResult,
 } from '@ihui/api-client'
 import { WEB_BASE_URL } from './config'
+import { loadTenantProviders, resolveProviderConfig } from './tenant-providers'
 
 // 通用 OAuth 平台类型(对齐后端 POST /api/auth/:platform/callback 的 platform 参数)
 // 8 个平台:与 @ihui/types ThirdPartyPlatform 对齐(减去 'app' 不走 OAuth)
@@ -51,14 +52,8 @@ export interface OAuthRedirectResult {
  */
 export const OAUTH_APP_RETURN_URI = 'ihui://oauth/callback'
 
-// 环境变量(各平台 OAuth 授权 URL 构造所需)
-const FEISHU_APP_ID = process.env.EXPO_PUBLIC_FEISHU_APP_ID
-const WECOM_CORP_ID = process.env.EXPO_PUBLIC_WECOM_CORP_ID
-const WECOM_AGENT_ID = process.env.EXPO_PUBLIC_WECOM_AGENT_ID
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID
-const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID
-const ALIPAY_APP_ID = process.env.EXPO_PUBLIC_ALIPAY_APP_ID
-const DINGTALK_CLIENT_ID = process.env.EXPO_PUBLIC_DINGTALK_CLIENT_ID
+// 第三方客户端标识不再在模块加载期读 env:运行时租户配置(见 tenant-providers.ts)
+// 优先,缺失/未配置/失败才回退编译期 EXPO_PUBLIC_*(单租户兜底),取值在点击发起时解析。
 
 /** 生成随机 state(防 CSRF,16 位 base36)。
  *  2026-10-31 第 18 批 F1 注:state 的 CSRF 防护主闸已改为「设备本地 pending
@@ -219,13 +214,17 @@ export async function openOAuthAndLogin(
 
 /** 飞书登录:构造授权 URL → openOAuthAndLogin → oauthCallback('feishu', code, state) */
 export async function loginByFeishuRedirect(): Promise<OAuthRedirectResult> {
-  if (!FEISHU_APP_ID) {
+  // 等运行时租户配置落定(≤3s 超时,失败按编译期兜底),再解析本平台标识。
+  await loadTenantProviders()
+  const cfg = resolveProviderConfig('feishu')
+  if (!cfg.appId) {
     return { success: false, error: '未配置 EXPO_PUBLIC_FEISHU_APP_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=feishu&redirect=mobile-rn`
+  const redirectUri =
+    cfg.redirectUri || `${WEB_BASE_URL}/callback?platform=feishu&redirect=mobile-rn`
   const authUrl =
     `https://open.feishu.cn/open-apis/authen/v1/authorize` +
-    `?app_id=${encodeURIComponent(FEISHU_APP_ID)}` +
+    `?app_id=${encodeURIComponent(cfg.appId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}`
   return openOAuthAndLogin(
     authUrl,
@@ -246,16 +245,20 @@ export async function loginByFeishuRedirect(): Promise<OAuthRedirectResult> {
  * 改为与飞书/企微同一模式:App 端构造授权 URL(参数对齐后端 buildDingtalkAuthUrl)。
  */
 export async function loginByDingtalkRedirect(): Promise<OAuthRedirectResult> {
-  if (!DINGTALK_CLIENT_ID) {
+  await loadTenantProviders()
+  const cfg = resolveProviderConfig('dingtalk')
+  if (!cfg.appId) {
     return { success: false, error: '未配置 EXPO_PUBLIC_DINGTALK_CLIENT_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=dingtalk&redirect=mobile-rn`
+  const redirectUri =
+    cfg.redirectUri || `${WEB_BASE_URL}/callback?platform=dingtalk&redirect=mobile-rn`
+  const scope = cfg.scope || 'openid'
   const authUrl =
     `https://login.dingtalk.com/oauth2/auth` +
     `?redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
-    `&client_id=${encodeURIComponent(DINGTALK_CLIENT_ID)}` +
-    `&scope=${encodeURIComponent('openid')}` +
+    `&client_id=${encodeURIComponent(cfg.appId)}` +
+    `&scope=${encodeURIComponent(scope)}` +
     `&prompt=consent`
   // 专有端点 dingtalkLogin(/auth/dingtalk/login)不经通用回调,本轮不落同意记录
   return openOAuthAndLogin(authUrl, redirectUri, async (code) => {
@@ -273,18 +276,21 @@ export async function loginByDingtalkRedirect(): Promise<OAuthRedirectResult> {
 
 /** 企业微信登录:构造授权 URL → openOAuthAndLogin → wecomLogin(code) */
 export async function loginByWecomRedirect(): Promise<OAuthRedirectResult> {
-  if (!WECOM_CORP_ID || !WECOM_AGENT_ID) {
+  await loadTenantProviders()
+  const cfg = resolveProviderConfig('enterpriseWechat')
+  if (!cfg.appId || !cfg.agentId) {
     return {
       success: false,
       error: '未配置 EXPO_PUBLIC_WECOM_CORP_ID / EXPO_PUBLIC_WECOM_AGENT_ID',
     }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=enterpriseWechat&redirect=mobile-rn`
+  const redirectUri =
+    cfg.redirectUri || `${WEB_BASE_URL}/callback?platform=enterpriseWechat&redirect=mobile-rn`
   const authUrl =
     `https://login.work.weixin.qq.com/wwlogin/sso/login` +
     `?login_type=CorpApp` +
-    `&appid=${encodeURIComponent(WECOM_CORP_ID)}` +
-    `&agentid=${encodeURIComponent(WECOM_AGENT_ID)}` +
+    `&appid=${encodeURIComponent(cfg.appId)}` +
+    `&agentid=${encodeURIComponent(cfg.agentId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}`
   // 企微用 wecomLogin(code) 而非通用 oauthCallback(保持与现有契约一致);专有端点不经通用回调,
   // 本轮不落同意记录
@@ -303,13 +309,16 @@ export async function loginByWecomRedirect(): Promise<OAuthRedirectResult> {
 
 /** Google 登录(OAuth 跳转 fallback):构造授权 URL → openOAuthAndLogin → oauthCallback('google', code, state) */
 export async function loginByGoogleRedirect(): Promise<OAuthRedirectResult> {
-  if (!GOOGLE_CLIENT_ID) {
+  await loadTenantProviders()
+  const cfg = resolveProviderConfig('google')
+  if (!cfg.appId) {
     return { success: false, error: '未配置 EXPO_PUBLIC_GOOGLE_CLIENT_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=google&redirect=mobile-rn`
+  const redirectUri =
+    cfg.redirectUri || `${WEB_BASE_URL}/callback?platform=google&redirect=mobile-rn`
   const authUrl =
     `https://accounts.google.com/o/oauth2/v2/auth` +
-    `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+    `?client_id=${encodeURIComponent(cfg.appId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent('openid email profile')}`
@@ -324,13 +333,16 @@ export async function loginByGoogleRedirect(): Promise<OAuthRedirectResult> {
 /** GitHub 登录:构造授权 URL → openOAuthAndLogin → oauthCallback('github', code, state)
  *  对齐 web 端 GITHUB_CONFIG:scope=read:user user:email,回调走 web /callback?platform=github */
 export async function loginByGithubRedirect(): Promise<OAuthRedirectResult> {
-  if (!GITHUB_CLIENT_ID) {
+  await loadTenantProviders()
+  const cfg = resolveProviderConfig('github')
+  if (!cfg.appId) {
     return { success: false, error: '未配置 EXPO_PUBLIC_GITHUB_CLIENT_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=github&redirect=mobile-rn`
+  const redirectUri =
+    cfg.redirectUri || `${WEB_BASE_URL}/callback?platform=github&redirect=mobile-rn`
   const authUrl =
     `https://github.com/login/oauth/authorize` +
-    `?client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}` +
+    `?client_id=${encodeURIComponent(cfg.appId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent('read:user user:email')}`
@@ -349,13 +361,16 @@ export async function loginByGithubRedirect(): Promise<OAuthRedirectResult> {
  *  兼容 auth_code(见 apps/api auth-extended.ts case 'alipay')。
  *  支付宝不保证回传 state → allowMissingState 跳过校验(仍附加 state 尽力防御)。 */
 export async function loginByAlipayRedirect(): Promise<OAuthRedirectResult> {
-  if (!ALIPAY_APP_ID) {
+  await loadTenantProviders()
+  const cfg = resolveProviderConfig('alipay')
+  if (!cfg.appId) {
     return { success: false, error: '未配置 EXPO_PUBLIC_ALIPAY_APP_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=alipay&redirect=mobile-rn`
+  const redirectUri =
+    cfg.redirectUri || `${WEB_BASE_URL}/callback?platform=alipay&redirect=mobile-rn`
   const authUrl =
     `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm` +
-    `?app_id=${encodeURIComponent(ALIPAY_APP_ID)}` +
+    `?app_id=${encodeURIComponent(cfg.appId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent('auth_user')}`
   return openOAuthAndLogin(

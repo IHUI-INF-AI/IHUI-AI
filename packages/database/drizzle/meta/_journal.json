@@ -3159,6 +3159,13 @@
       "when": 1795480200000,
       "tag": "20261123220000_tenant_platform_apps",
       "breakpoints": true
+    },
+    {
+      "idx": 455,
+      "version": "7",
+      "when": 1795483800000,
+      "tag": "20261124120000_connector_instances",
+      "breakpoints": true
     }
   ]
 }
