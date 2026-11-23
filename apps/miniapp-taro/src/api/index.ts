@@ -1071,6 +1071,8 @@ export const getMemberInfo = (): Promise<MemberInfo> =>
     integral: (r.points?.points ?? 0) + (r.dailyCredit?.remaining ?? 0),
     growth: r.experience ?? 0,
     coupons: 0,
+    // 会员页提示行要"赠送多少/今天还剩多少";回包没有该字段就留 undefined,页面不渲染。
+    dailyCredit: r.dailyCredit,
   }))
 export const getMemberBenefits = () =>
   get<{ list: Array<{ id: string; title: string; desc: string; icon?: string }> }>(

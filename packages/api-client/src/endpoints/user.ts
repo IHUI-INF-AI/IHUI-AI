@@ -185,15 +185,6 @@ export interface CurrentLevelInfo {
   dailyCredit?: DailyCreditInfo
 }
 
-/** GET /api/levels/current 回包(current 恒有值:`findCurrentLevel` 空配置会抛错)。 */
-export interface CurrentLevelInfo {
-  current: LevelTier
-  next: LevelTier | null
-  experience: number
-  progress: number
-  points?: UserPointsAccount
-}
-
 export async function getCurrentLevel(): Promise<ApiResult<CurrentLevelInfo>> {
   return fetchApi<CurrentLevelInfo>('/api/levels/current')
 }

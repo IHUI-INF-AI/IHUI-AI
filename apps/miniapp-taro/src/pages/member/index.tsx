@@ -350,6 +350,19 @@ export default function MemberIndexPage() {
             </View>
           </View>
 
+          {info.dailyCredit ? (
+            <Text className="member-stat-hint">
+              {tt(
+                'member.index.dailyCreditHint',
+                '每日赠送 {granted} 积分，今日剩余 {remaining}；仅当日有效，次日清零',
+                {
+                  granted: info.dailyCredit.granted,
+                  remaining: info.dailyCredit.remaining,
+                },
+              )}
+            </Text>
+          ) : null}
+
           {/* 成长值进度条:当前等级 → 下一等级 */}
           <View className="member-progress">
             <View className="member-progress-header">

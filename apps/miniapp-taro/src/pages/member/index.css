@@ -164,6 +164,17 @@
   font-size: var(--text-body); /* RN label 14 → 28rpx */
   color: var(--color-muted-foreground);
 }
+/* 每日赠送额度说明行(仅回包带 dailyCredit 时渲染)
+   12px 小字 + 次要色,与 web PointsSummary / RN PointsScreen 同一句文案同源。 */
+.member-stat-hint {
+  display: block;
+  margin-top: var(--spacing-sm);
+  padding: 0 var(--spacing-2xs);
+  font-size: var(--text-label); /* RN 12 → 24rpx */
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+  text-align: center;
+}
 
 /* ===== 会员特权列表(对齐原项目权益网格 2 列) ===== */
 .member-benefits {

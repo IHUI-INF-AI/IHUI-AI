@@ -15,11 +15,18 @@
  * VipPayInfo/VipOrderResult 是下单支付流程的类型。两者语义互补,不重复。
  */
 
+import type { DailyCreditInfo } from './user.js'
+
 export interface MemberInfo {
   level: string
   integral: number
   growth: number
   coupons: number
+  /**
+   * 每日赠送额度(小程序会员页提示行用)。
+   * 缺省 = 回包无该字段 ⇒ 调用方不渲染提示,不硬编码 100。
+   */
+  dailyCredit?: DailyCreditInfo
 }
 
 /** VIP 支付参数(微信 JSAPI / Native / H5 支付统一定义) */
