@@ -3206,6 +3206,10 @@ class AgentLoopV2:
         self._pending_steers: list[str] = []
         # 1-5:最新 checkpoint id(rollback 证据引用;每次 run 重置)
         self._last_checkpoint_id: str | None = None
+        # 2026-11-24:最近一次成功 LLM 请求的原始 provider usage。checkpoint
+        # 保存时用它构造 tokenMeter 并落进 metadata,让 /token-usage 路由能复用
+        # provider 基线,而不是只能对消息快照做固定密度估算。
+        self._last_provider_usage_raw: dict[str, Any] | None = None
         # 1-1 可解释性:工具级决策提示(1-1 立,2026-09-08)。
         # auto 模式免审批等「结果上不可见」的决策路径,由 _execute_single 写入
         # tool_call_id → (decision, reason),_maybe_record_step 消费后弹出。
@@ -3923,6 +3927,43 @@ class AgentLoopV2:
         except Exception as e:  # noqa: BLE001 - 快照失败不阻塞工具执行
             logger.debug("1-2 文件快照失败(%s): %s", path, e)
 
+    def _checkpoint_token_meter(self, messages: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """为 checkpoint 生成一份可复用的 token 测量快照(不含逐条 nodes)。
+
+        有最近一次 provider usage 且消息里能找到 assistant 时，锚点与测量共用
+        同一个信封键，`baseline` 才会是 `provider_usage`；否则保持 `estimated`。
+        任何异常都只降级为 None，绝不让观测面拖垮 checkpoint。
+        """
+        try:
+            from app.core.token_meter import (
+                ProviderUsage,
+                build_anchor,
+                measure_messages,
+            )
+
+            raw = self._last_provider_usage_raw
+            usage = ProviderUsage.from_normalized_usage(raw) if isinstance(raw, dict) else None
+            anchor = None
+            envelope_key: str | None = None
+            if usage is not None:
+                built = build_anchor(messages, raw)
+                if built is not None:
+                    usage, anchor = built
+                    envelope_key = anchor.envelope_key
+            meter = measure_messages(
+                messages,
+                provider_usage=usage,
+                anchor=anchor,
+                envelope_key=envelope_key,
+            )
+            payload = meter.as_dict()
+            # nodes 逐消息展开，路由与图表都不消费；checkpoint 只存聚合面。
+            payload.pop("nodes", None)
+            return payload
+        except Exception as e:  # noqa: BLE001 - 观测失败不阻塞主循环
+            logger.debug("checkpoint tokenMeter 生成失败(已降级): %s", e)
+            return None
+
     async def _save_checkpoint_safe(
         self,
         iteration: int,
@@ -3935,6 +3976,13 @@ class AgentLoopV2:
             return None
         try:
             session_id = self._ensure_session_id()
+            # 2026-11-24:tokenMeter 与文件快照、耐久视野同层落 metadata。复制合并，
+            # 不改调用方原 dict；调用方显式给的值优先。
+            meter_payload = self._checkpoint_token_meter(messages)
+            if meter_payload is not None:
+                merged = dict(metadata) if metadata else {}
+                merged.setdefault("tokenMeter", meter_payload)
+                metadata = merged
             # 1-2:传文件快照引用 → checkpoint metadata.file_versions 有真实内容,
             # restore(rollback_files=true) 可真正回滚本次 run 的文件修改。
             file_snapshots = list(self._run_file_snapshots.values()) or None
@@ -5982,6 +6030,7 @@ class AgentLoopV2:
                     _raw_usage_a = llm_response.get("usage")
                     if isinstance(_raw_usage_a, dict) and _raw_usage_a:
                         iteration.usage_attempts.append(dict(_raw_usage_a))
+                        self._last_provider_usage_raw = dict(_raw_usage_a)
 
                     # AIS-088:优先用归一化 usage 计 token(全量 prompt+completion),
                     # 缺 usage 时回退到旧的字数粗估,避免 total_tokens 长期失真。

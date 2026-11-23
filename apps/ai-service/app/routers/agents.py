@@ -3207,7 +3207,9 @@ async def get_agent_token_usage(
     输出),缺失时降级 _trace_store。第十五批起估算统一走
     ``app.core.token_meter``:固定密度 + 结构块 / 工具调用开销 + system/tools/
     messages 三块构成,并与压缩、占用显示共用同一估算器;不再用 ``len//4``
-    另抄一套。**这不是计费记录**:provider 未上报 usage 时它是确定性近似。
+    另抄一套。2026-11-24 起 checkpoint 保存时已落 ``metadata.tokenMeter``,
+    路由优先复用其中的 provider 基线;旧 checkpoint 才现场估算。
+    **这不是计费记录**:provider 未上报 usage 时它是确定性近似。
 
     O19:必须登录 + 在飞会话按属主比对。用量本身是配额/计费口径数据,但
     checkpoint 无 user_id 列 ⇒ 历史条目属主不可判定(敞口已上报)。
@@ -3222,9 +3224,37 @@ async def get_agent_token_usage(
         for cp in cps:
             messages = cp.messages or []
             prompt, completion = prompt_completion_tokens(messages)
+            # 2026-11-24:优先复用 checkpoint 保存时落下的 tokenMeter。它可能带
+            # provider_usage 基线（保存时锚点与测量共用同一信封键）；旧 checkpoint
+            # 没有这个键时才回退到现场估算。
+            saved_meter = getattr(cp, "metadata", None)
+            saved_meter = saved_meter.get("tokenMeter") if isinstance(saved_meter, dict) else None
+            if isinstance(saved_meter, dict) and isinstance(saved_meter.get("totalTokens"), int):
+                provider_usage = saved_meter.get("tokenUsage")
+                if isinstance(provider_usage, dict):
+                    prompt = int(provider_usage.get("promptTokens") or 0)
+                    completion = int(provider_usage.get("outputTokens") or 0)
+                    chart_total = int(provider_usage.get("totalTokens") or prompt + completion)
+                else:
+                    chart_total = int(saved_meter["totalTokens"])
+                item: dict[str, Any] = {
+                    "sessionLabel": f"I{cp.iteration}",
+                    "prompt": prompt,
+                    "completion": completion,
+                    "totalTokens": chart_total,
+                    "surfaceTokens": int(saved_meter.get("surfaceTokens") or 0),
+                    "contextBreakdown": saved_meter.get("contextBreakdown") or {},
+                    "baseline": str(saved_meter.get("baseline") or "estimated"),
+                }
+                if saved_meter.get("envelopeKey") is not None:
+                    item["envelopeKey"] = saved_meter["envelopeKey"]
+                if isinstance(provider_usage, dict):
+                    item["tokenUsage"] = provider_usage
+                items.append(item)
+                continue
             if prompt or completion:
                 meter = measure_messages(messages)
-                item: dict[str, Any] = {
+                item = {
                     "sessionLabel": f"I{cp.iteration}",
                     "prompt": prompt,
                     "completion": completion,

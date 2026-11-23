@@ -55,4 +55,52 @@ async def test_agent_token_usage_uses_token_meter_breakdown(monkeypatch) -> None
     assert item["baseline"] == "estimated"
 
 
+@pytest.mark.asyncio
+async def test_agent_token_usage_prefers_saved_provider_meter(monkeypatch) -> None:
+    """checkpoint 里已落的 tokenMeter 优先，provider 四桶与基线原样复用。"""
+    cp = SimpleNamespace(
+        iteration=7,
+        messages=[{"role": "user", "content": "ignored"}],
+        metadata={
+            "tokenMeter": {
+                "totalTokens": 999,
+                "surfaceTokens": 30,
+                "contextBreakdown": {
+                    "systemTokens": 5,
+                    "toolsTokens": 3,
+                    "messageTokens": 22,
+                },
+                "baseline": "provider_usage",
+                "envelopeKey": "abc",
+                "tokenUsage": {
+                    "promptTokens": 100,
+                    "outputTokens": 50,
+                    "totalTokens": 150,
+                },
+            }
+        },
+    )
+
+    class _Manager:
+        async def list_checkpoints(self, session_id: str) -> list[SimpleNamespace]:
+            assert session_id == "agent-2"
+            return [cp]
+
+    monkeypatch.setattr(
+        "app.services.agent_checkpoint.get_agent_checkpoint_manager",
+        lambda: _Manager(),
+    )
+    monkeypatch.setattr(agents_router, "_assert_session_access", lambda *_: None)
+
+    result = await agents_router.get_agent_token_usage("agent-2", current_user="user-1")
+    item = result["data"]["tokenUsage"][0]
+    assert item["sessionLabel"] == "I7"
+    assert item["prompt"] == 100
+    assert item["completion"] == 50
+    assert item["totalTokens"] == 150
+    assert item["baseline"] == "provider_usage"
+    assert item["tokenUsage"]["totalTokens"] == 150
+    assert item["envelopeKey"] == "abc"
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
