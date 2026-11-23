@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-22T19:35:16.586Z",
+  "sealedAt": "2026-11-23T14:06:21.082Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 be772cd6 对 guardian-runner 的格式化改动(引号/空行),无行为变更,重封",
+  "reason": "AGENTS.md 于 462838de 完成门207体积清偿(95818 字节),复核后重封 agents-ironlaw",
   "targets": [
     {
       "id": "guardian-runner",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "920256384306dbea2b12370f6c62a2cdce231e1df039ef2ecf169f79be2643c8"
+      "sha256": "ea355845535d31d64d6418cdadc299439952594cf94578a965b3b80ffa664fa5"
     },
     {
       "id": "git-guardian",
