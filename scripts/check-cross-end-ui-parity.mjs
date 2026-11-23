@@ -123,10 +123,19 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     spacing: new Set(),
     fontSize: new Set(),
   }
-  const push = (px, dim) => {
+  /**
+   * 每个进集合的值顺手记**首个来源位置**(字符偏移)。立论(2026-11-24):
+   * 台账里"仅小程序 106.5"这类读数此前无出处可回溯,复核者只能把同一套提取再猜一遍 ——
+   * 判据与证据链断在最后一格。本格只记**定位线索**,不参与取舍:值进不进集合仍完全由下面
+   * 各提取支决定;dim 归维与集合口径一个字节都不动。
+   * 只留首枚:同一数值常有十来处落点,全记等于把台账变成日志。
+   */
+  const sourceOf = new Map()
+  const push = (px, dim, at) => {
     if (px === null || px === undefined) return
     values.add(px)
     if (dim && dims[dim]) dims[dim].add(px)
+    if (at !== undefined && at !== null && !sourceOf.has(px)) sourceOf.set(px, at)
   }
   const keyed = (name) =>
     GEO_KEY.test(name) && !NON_GEO_KEY.test(name) && !RADIUS_FORM_RE.test(name)
@@ -150,7 +159,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     if (isUnitScaleProduct(code, m.index + m[0].length)) continue
     const px = toPx(m[2], undefined, side)
     named[m[1]] = px
-    push(px, dimOfKey(m[1]))
+    push(px, dimOfKey(m[1]), m.index)
   }
   /**
    * 属性名必须**整体**取,不能靠 `\b` 从连字符串里捞后半截:CSS 的 `line-height: 1` 曾被读成键
@@ -166,10 +175,10 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     const key = m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())
     if (!keyed(key)) continue
     if (isUnitScaleProduct(code, m.index + m[0].length)) continue
-    push(toPx(m[2], m[3], side), dimOfKey(key, enclosingObjectKeyOf(code, m.index)))
+    push(toPx(m[2], m[3], side), dimOfKey(key, enclosingObjectKeyOf(code, m.index)), m.index)
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g))
-    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index), enclosingObjectKeyOf(code, m.index)))
+    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index), enclosingObjectKeyOf(code, m.index)), m.index)
   /**
    * **内联引号串里的长度**(2026-09-27 三路并行取证各自独立指到同一格):
    * 小程序端把档写成 `style={{ padding: '0 20rpx 10rpx' }}` 或 `'20rpx'`,而下面的简写循环
@@ -188,7 +197,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     if (!keyed(key)) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
-      if (one) push(toPx(one[1], one[2], side, 'runtime'), dimOfKey(key))
+      if (one) push(toPx(one[1], one[2], side, 'runtime'), dimOfKey(key), m.index)
     }
   }
   /**
@@ -216,22 +225,22 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     for (const v of vals) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(v)
       if (!one) continue // `auto` / `0` / `100%` / `calc(…)` 一律不计
-      push(toPx(one[1], one[2], side), dimOfKey(m[1]))
+      push(toPx(one[1], one[2], side), dimOfKey(m[1]), m.index)
     }
   }
   for (const m of code.matchAll(
     /(?:^|[\s"'`])(size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|min-w|max-w|min-h|max-h|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
-    push(toPx(m[2], m[3], side), dimOfKey(m[1].replace(/^(?:min|max)-/, '')))
+    push(toPx(m[2], m[3], side), dimOfKey(m[1].replace(/^(?:min|max)-/, '')), m.index)
   for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
-    push(round(TW_SPACING_PX(Number(m[1]))), 'widthHeight')
+    push(round(TW_SPACING_PX(Number(m[1]))), 'widthHeight', m.index)
   // 内联盒/留白的**刻度档**(非任意值形态):`px-3`/`py-2`/`gap-4`/`mt-2` … 一律 ×4 折 px。
   // 不收这一档,同一族的两侧就不在同一口径上读数 —— RN 写 `paddingHorizontal: 12` 记进集合,
   // 小程序写 `px-3` 却不进集合,于是"仅 RN 档 12"是一条纯粹的比对噪声(实测 BottomActionBar 就这么错判过)。
   for (const m of code.matchAll(
     /(?:^|[\s"'`:](?:[a-z-]+:)?)(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space-x|space-y)-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
   ))
-    push(round(TW_SPACING_PX(Number(m[2]))), dimOfKey(m[1]))
+    push(round(TW_SPACING_PX(Number(m[2]))), dimOfKey(m[1]), m.index)
   /**
    * 尾视里**不含 `/`**:`w-1/3` 这类分数宽度不是 px 档(旧写法把 `w-1` 折成 4px 喂进集合,
    * 实测 ModelList 的骨架条 `w-1/3` 因此凭空多出一档"仅小程序 4")。
@@ -245,14 +254,14 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
    */
   for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)(min-h|max-h|min-w|max-w|[hw])-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g)) {
     if (/^(?:min|max)-/.test(m[1]) && Number(m[2]) === 0) continue
-    push(round(TW_SPACING_PX(Number(m[2]))), 'widthHeight')
+    push(round(TW_SPACING_PX(Number(m[2]))), 'widthHeight', m.index)
   }
   for (const m of code.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g))
-    push(toPx(m[1], m[2], side), 'fontSize')
+    push(toPx(m[1], m[2], side), 'fontSize', m.index)
   for (const m of code.matchAll(/(?:^|[\s"'`])text-(xs|sm|base|lg|xl|2xl|3xl)(?=$|[\s"'`/:])/g))
-    push(TW_FONT_PX[m[1]] ?? null, 'fontSize')
+    push(TW_FONT_PX[m[1]] ?? null, 'fontSize', m.index)
   for (const m of code.matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g))
-    push(toPx(m[1], undefined, side), 'widthHeight')
+    push(toPx(m[1], undefined, side), 'widthHeight', m.index)
   /**
    * **换算器包档**(2026-10-24,toRpx / toUnit 支):`width: toRpx(44)` / `gap: toRpx(SP.md)`。
    * 小程序镜像件的主流写法是 `const toRpx = (px) => `${px * 2}rpx``,而上面所有提取式只认
@@ -270,7 +279,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       const key = keyBefore(it.at)
       if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
       if (it.px === null) unreadable.push({ raw: it.raw, text: it.text, px: null, why: it.why })
-      else if (it.px <= MAX_GEO_PX) push(it.px, dimOfKey(key))
+      else if (it.px <= MAX_GEO_PX) push(it.px, dimOfKey(key), it.at)
     }
   }
   /**
@@ -326,7 +335,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       }
       if (it.px === 0) continue // C4:0 值不入集
       if (it.px <= MAX_GEO_PX) {
-        push(it.px, dim)
+        push(it.px, dim, it.at)
         cssVar.resolved++
       }
     }
@@ -401,7 +410,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       const rawKey = keyBefore(m.index)
       const k = rawKey ? rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null
       // 有几何键语境 ⇒ 按该键归维;没有(或该键分不进五维)⇒ 保持旧口径 spacing(不静默丢读数)
-      push(px, (k && keyed(k) ? dimOfKey(k) : null) ?? 'spacing')
+      push(px, (k && keyed(k) ? dimOfKey(k) : null) ?? 'spacing', m.index)
       if (named[memberName] === undefined) named[memberName] = px
     }
     /**
@@ -472,7 +481,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
         })
         continue
       }
-      if (px > 0 && px <= MAX_GEO_PX) push(px, dimOfKey(key))
+      if (px > 0 && px <= MAX_GEO_PX) push(px, dimOfKey(key), it.at)
     }
     const alias = {}
     for (const m of code.matchAll(
@@ -521,7 +530,21 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       if (named[name] === undefined) named[name] = px
     }
   }
-  return { values, named, unreadable, cssVar, dims }
+  /**
+   * `hints` = 每个值的**首个来源行**:复核 "仅小程序 106.5" 这类读数时不必再把八支提取重猜一遍。
+   * 行号相对`stripComments`之后的文本(被审面常是"组件 + 本地样式表"拼接体),所以正文片段才是
+   * 主线索、行号只是辅证 —— 片段连类名/写法一起露出,一眼能判定它是档、是内衬、还是别的语境。
+   */
+  const snippetOf = (at) => {
+    const line = code.slice(0, at).split('\n').length
+    const start = code.lastIndexOf('\n', at - 1) + 1
+    const endRaw = code.indexOf('\n', at)
+    const end = endRaw < 0 ? Math.min(code.length, start + 160) : endRaw
+    return { line, text: code.slice(start, end).trim().slice(0, 160) }
+  }
+  const hints = {}
+  for (const [px, at] of sourceOf) hints[String(px)] = snippetOf(at)
+  return { values, named, unreadable, cssVar, dims, hints }
 }
 
 /**
@@ -4051,6 +4074,15 @@ export function audit(
     const named = namedConflicts(ga.named, gb.named)
     const geometry = diffValues(ga.values, gb.values)
     /**
+     * 差别值**逐枚附来源线索**(2026-11-24):本门判的是"值集合差",而台账里每条只有一个数字 ——
+     * 复核者无法判断它究竟是"对面没有这个元素"(平台独占,合法)还是"同元素两端取值不同"(真分叉,
+     * 必须改代码)。把出处一起交出来,是让这条判据第一次具备可复核性;它**不改任何判数**。
+     * 键名沿用 findings 既有的 onlyMiniapp/onlyRn 两桶,值为 `{ line, text }` 或 null(该值无位置)。
+     */
+    const geoHints = { miniapp: {}, rn: {} }
+    for (const v of geometry.onlyMiniapp) geoHints.miniapp[String(v)] = ga.hints?.[String(v)] ?? null
+    for (const v of geometry.onlyRn) geoHints.rn[String(v)] = gb.hints?.[String(v)] ?? null
+    /**
      * RD 维:同名元素在两端**取了不同的圆角档**。表取不到时 collect() 已经把整门判死,
      * 这里只会拿到非空表;仍留一层空表短路,是为了让 `audit` 作为纯函数可在构造面上单测
      * (只喂几何夹具的既有用例不该被新维连带打红)。
@@ -4105,7 +4137,7 @@ export function audit(
     findings.push({
       name: p.name,
       named,
-      geometry,
+      geometry: { ...geometry, hints: geoHints },
       radius,
       radiusSeen,
       elementRadius,
