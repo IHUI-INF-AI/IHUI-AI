@@ -123,6 +123,17 @@ function hasEnvelopeList(root: JsonRecord): boolean {
   return ['messages', 'data', 'items'].some((key) => Array.isArray(root[key]))
 }
 
+/**
+ * 桥的 `seq` 存在内存/队列文件里；队列被清空或桥重装后 seq 会从 0 重来，
+ * 而账号游标还停在旧值。此时 `since=旧游标` 会把新消息全部过滤掉（静默丢信）。
+ * 只要桥明确报告了 seq 且游标更大，就把游标退回 0 重收。
+ */
+export function bridgeCursorNeedsReset(cursor: string, bridgeSeq: number | null): boolean {
+  if (!cursor.trim() || bridgeSeq === null) return false
+  const numeric = Number(cursor)
+  return Number.isFinite(numeric) && numeric > bridgeSeq
+}
+
 function looksLikeMessage(root: JsonRecord): boolean {
   return [
     'id',
@@ -294,11 +305,16 @@ export class BridgeAdapter implements WechatAdapter {
 
     this.setStatus('connecting')
     await ctx.onStatus('connecting')
-    const probeOk = await this.probe()
-    if (!probeOk) {
+    const probe = await this.probe()
+    if (!probe.ok) {
       this.setStatus('error')
       await ctx.onStatus('error', `桥探活失败: ${this.baseUrl}${this.statusPath}`)
       return
+    }
+
+    if (bridgeCursorNeedsReset(this.cursor, probe.seq)) {
+      this.cursor = '0'
+      await ctx.onCursor('0')
     }
 
     this.setStatus('online')
@@ -416,7 +432,7 @@ export class BridgeAdapter implements WechatAdapter {
     return normalizeBridgePayload(payload)
   }
 
-  private async probe(): Promise<boolean> {
+  private async probe(): Promise<{ ok: boolean; seq: number | null }> {
     const candidates = [this.statusPath, '/health', '/']
     for (const path of candidates) {
       try {
@@ -424,12 +440,20 @@ export class BridgeAdapter implements WechatAdapter {
           headers: this.headers(),
           signal: AbortSignal.timeout(10_000),
         })
-        if (response.ok) return true
+        if (!response.ok) continue
+        let seq: number | null = null
+        try {
+          const root = asRecord(JSON.parse(await response.text()))
+          seq = asNumber(root?.seq)
+        } catch {
+          // 非 JSON 的探活端点只证明可达，不提供游标依据
+        }
+        return { ok: true, seq }
       } catch {
         // 试下一个
       }
     }
-    return false
+    return { ok: false, seq: null }
   }
 
   private startPollLoop(): void {

@@ -7,7 +7,7 @@
  * 且群聊/私聊、媒体类型不能判错（判错会把群消息记成私聊，后面白名单与发送全跟着错）。
  */
 import { describe, expect, it } from 'vitest'
-import { normalizeBridgePayload } from '../wechat-hub/bridge-adapter'
+import { bridgeCursorNeedsReset, normalizeBridgePayload } from '../wechat-hub/bridge-adapter'
 
 describe('normalizeBridgePayload', () => {
   it('吃下单条 message 形状', () => {
@@ -85,6 +85,14 @@ describe('normalizeBridgePayload', () => {
     const events = normalizeBridgePayload({ id: 'x', content: 'hi' })
     expect(events).toHaveLength(1)
     expect(events[0]?.platformChatId).toBe('unknown')
+  })
+
+  it('桥 seq 回退到游标之前时把游标退回 0，避免新消息被 since 过滤掉', () => {
+    expect(bridgeCursorNeedsReset('4', 1)).toBe(true)
+    expect(bridgeCursorNeedsReset('3', 3)).toBe(false)
+    expect(bridgeCursorNeedsReset('', 0)).toBe(false)
+    expect(bridgeCursorNeedsReset('abc', 1)).toBe(false)
+    expect(bridgeCursorNeedsReset('3', null)).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
