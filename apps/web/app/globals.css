@@ -1475,6 +1475,7 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  *   三端共用同一组值,端内不得另写 rgba 或回取 --chart-5。 */
 .ai-input-shell--idle:focus-within {
   border-color: var(--color-input);
+  /* 豁免类别:输入框聚焦双层紫光(效果光,非层级投影;取 --color-ai-input-glow-* 单源 token) */
   box-shadow:
     0 0 8px 0 var(--color-ai-input-glow-soft),
     0 0 22px -2px var(--color-ai-input-glow-strong);

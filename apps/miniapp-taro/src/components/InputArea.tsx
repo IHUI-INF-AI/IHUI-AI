@@ -204,6 +204,7 @@ export default function InputArea({
   const aiFocusGlowStyle = ff.focused
     ? {
         borderColor: 'var(--color-input)',
+        // 豁免类别:输入框聚焦双层辉光(效果光,非层级投影;取 --color-ai-input-glow-* 单源 token)
         boxShadow:
           '0 0 8px 0 var(--color-ai-input-glow-soft), 0 0 22px -2px var(--color-ai-input-glow-strong)',
       }

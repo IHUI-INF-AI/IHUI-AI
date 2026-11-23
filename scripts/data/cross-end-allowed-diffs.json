@@ -98,9 +98,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 9,
+      "count": 8,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: LoginPopUp diffCount=9(onlyMiniapp=2 / onlyRn=7)"
+      "evidence": "check-cross-end-ui-parity --json: LoginPopUp diffCount=8(onlyMiniapp=1 / onlyRn=7);2026-11-23 复核收紧:额度 9→8(门现值 diffCount=8,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "ModelConfigDialog",
