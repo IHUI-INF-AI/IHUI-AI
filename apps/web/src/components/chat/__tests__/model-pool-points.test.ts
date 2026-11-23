@@ -16,34 +16,34 @@ import { describe, expect, it } from 'vitest'
 import { resolvePoolPointsMeta } from '../model-selector'
 
 describe('resolvePoolPointsMeta(号池倍率展示)', () => {
-  it('旧服务端缺省倍率时按 id 推断,不再默认免费', () => {
-    // 经济档 tier=1 → 0.05x
+  it('旧服务端缺省倍率时按 id 推断,展示值与扣分同数', () => {
+    // 经济档 tier=1 → 1x
     expect(resolvePoolPointsMeta({ id: 'glm-5.3', provider: 'workbuddy' }).pointsMultiplier).toBe(
-      0.05,
+      1,
     )
-    // 标准档 tier=3 → 0.12x
+    // 标准档 tier=3 → 3x
     expect(
       resolvePoolPointsMeta({ id: 'deepseek-v4-pro', provider: 'workbuddy' }).pointsMultiplier,
-    ).toBe(0.12)
-    // 旗舰思考档 tier=30 → 0.77x
+    ).toBe(3)
+    // 旗舰思考档 tier=30 → 30x
     expect(
       resolvePoolPointsMeta({ id: 'hunyuan-2.0-thinking', provider: 'workbuddy' }).pointsMultiplier,
-    ).toBe(0.77)
+    ).toBe(30)
   })
 
-  it('后端下发 tier 时优先,映射成展示小数', () => {
+  it('后端下发 DB 值时优先,不再映射成展示小数', () => {
     expect(
       resolvePoolPointsMeta({
         id: 'glm-5.3',
         provider: 'workbuddy',
         pointsMultiplier: 30,
       }).pointsMultiplier,
-    ).toBe(0.77)
+    ).toBe(30)
   })
 
   it('裸名 auto 不会被 openrouter/auto 的子串规则误判为免费', () => {
     const meta = resolvePoolPointsMeta({ id: 'auto', provider: 'workbuddy' })
-    expect(meta.pointsMultiplier).toBe(0.05)
+    expect(meta.pointsMultiplier).toBe(1)
   })
 
   it('真正 zero_cost 的模型仍显示免费', () => {

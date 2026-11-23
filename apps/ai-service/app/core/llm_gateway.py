@@ -1110,7 +1110,7 @@ async def _find_quota_equivalent_channels(
 # ============================================================================
 # 触发条件:model == 'auto' 或 model 为空
 # 策略:从 model_availability 拿全厂商可用模型清单,按 tier 优先级选择
-#   - tier 3(0.12x 标准)→ tier 1(0.05x 经济)→ tier 10(0.40x 高级)→ tier 30(0.77x 旗舰)→ free
+#   - tier 3(标准)→ tier 1(经济)→ tier 10(高级)→ tier 30(旗舰)→ free
 #   - 优先 zero_cost / LOCAL(免费),其次 cheap plan(stepfun/agnes),最后按需升级
 #   - tool calling 场景:有 tools 参数时优先选支持 function calling 的模型
 # 兜底:无可用模型时回退 settings.litellm_model
@@ -1124,7 +1124,8 @@ _TOOL_CALLING_KEYWORDS = (
     "command-r", "phi-3", "phi-4", "gemma-2",
 )
 
-# 模型名关键词 → 推断 tier(对齐 model-selector.tsx TIER_TO_DISPLAY 5 档)
+# 模型名关键词 → auto 路由的内部优先级(只用于挑便宜/能力档,不是计费倍率;
+# 计费与展示的唯一来源是 DB `ai_model_config_models.points_multiplier`)
 _AUTO_TIER_HINTS: list[tuple[tuple[str, ...], int]] = [
     # (关键词, tier) 顺序敏感,优先匹配更具体
     (("opus", "gpt-5", "o1-preview", "o3", "thinking", "kimi-k3"), 30),

@@ -222,9 +222,9 @@ describe('listUserPoolModels 连通过滤', () => {
     const items = await listUserPoolModels('u-points')
     const byId = new Map(items.map((m) => [m.id, m]))
 
-    // 默认经济档(1),不是 0;前端映射后为 0.05x
+    // 默认经济档(1),不是 0;前端直接显示 1x
     expect(byId.get('glm-5.3')?.pointsMultiplier).toBe(1)
-    // 旗舰思考档(30);前端映射后为 0.77x
+    // 旗舰思考档(30);前端直接显示 30x
     expect(byId.get('trae/hunyuan-2.0-thinking')?.pointsMultiplier).toBe(30)
     // 真正 zero_cost 的本地模型才允许 0
     expect(byId.get('ollama/llama3')?.pointsMultiplier).toBe(0)

@@ -33,7 +33,7 @@ export interface FallbackModel {
    * 积分消耗倍数(5 档 tier:0 免费 / 1 经济 / 3 标准 / 10 高级 / 30 旗舰)。
    * 2026-11-23 改语义:此前这里直接写展示小数(0.77x),与后端 `points_multiplier`
    * 的 tier 口径混用,付费兜底档被写成 0 后一律渲染成「免费」。现在统一存 tier,
-   * 展示侧由 model-selector 的 tierToDisplayMultiplier 映射;缺省按 model_id 推断。
+   * 展示侧直接使用该值(接口可用时被后端 DB 值覆盖);缺省按 model_id 推断。
    */
   pointsMultiplier?: number
   /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
