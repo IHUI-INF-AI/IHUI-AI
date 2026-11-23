@@ -9297,11 +9297,7 @@
       "undoFailed": "暫時不可用，工作區未發生變化",
       "undoFailedChanged": "暫時不可用，工作區已發生變化",
       "undoFailedUnverifiable": "暫時不可用，無法確認工作區狀態，請檢查後重試",
-      "undoPartialWarning": "部分檔案未能回退，任務記錄保留",
-      "restoring": "正在還原",
-      "confirmTitle": "確認還原",
-      "restoreSuccess": "檢查點還原成功",
-      "restoreFailed": "還原失敗"
+      "undoPartialWarning": "部分檔案未能回退，任務記錄保留"
     },
     "addWorkspace": "添加工作區",
     "assistant": "助手",
@@ -29517,7 +29513,10 @@
     "gateQuitConfirm": "結束後需重新開啟應用程式",
     "gateQuit": "結束應用程式",
     "installing": "正在更新...",
-    "gateUpdateNow": "立即更新"
+    "gateUpdateNow": "立即更新",
+      "ready": "更新已就緒",
+      "error": "更新失敗",
+      "errorDesc": "請檢查網路後重試"
   },
   "hrAttendance": {
     "colApproval": "審批進度",

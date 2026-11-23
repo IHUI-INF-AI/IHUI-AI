@@ -9297,11 +9297,7 @@
       "undoFailed": "Temporarily unavailable; the workspace is unchanged",
       "undoFailedChanged": "Temporarily unavailable; the workspace has changed",
       "undoFailedUnverifiable": "Temporarily unavailable; workspace state could not be verified. Please check and retry",
-      "undoPartialWarning": "Some files were not rolled back; task history preserved",
-      "restoring": "Restoring",
-      "confirmTitle": "Confirm restore",
-      "restoreSuccess": "Checkpoint restored",
-      "restoreFailed": "Restore failed"
+      "undoPartialWarning": "Some files were not rolled back; task history preserved"
     },
     "addWorkspace": "Add Workspace",
     "assistant": "Assistant",
@@ -29366,7 +29362,10 @@
     "gateQuitConfirm": "You will need to reopen the app after quitting",
     "gateQuit": "Quit App",
     "installing": "Updating...",
-    "gateUpdateNow": "Update Now"
+    "gateUpdateNow": "Update Now",
+      "ready": "Update ready",
+      "error": "Update failed",
+      "errorDesc": "Check your network and try again"
   },
   "hrAttendance": {
     "colApproval": "Approval",

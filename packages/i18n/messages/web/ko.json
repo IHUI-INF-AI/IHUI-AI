@@ -9341,13 +9341,9 @@
       "refresh": "새로고침",
       "empty": "체크포인트가 없습니다",
       "item": "반복 #{iteration} · {status} · 메시지 {count}개",
-      "restoring": "복원 중…",
       "rollback": "되돌리기",
-      "confirmTitle": "되돌리시겠습니까?",
       "confirmDescription": "되돌리면 해당 체크포인트의 대화와 파일 상태로 복원됩니다. 이 작업은 취소할 수 없습니다.",
       "confirmText": "되돌리기",
-      "restoreSuccess": "체크포인트로 되돌렸습니다",
-      "restoreFailed": "되돌리기에 실패했습니다",
       "undoPreparing": "되돌리기 준비 중",
       "undoConfirm": "이 체크포인트로 되돌릴까요?",
       "undoSucceeded": "{count}개 파일 복원됨. 작업 기록 유지",
@@ -29780,7 +29776,10 @@
     "gateQuitConfirm": "종료 후 앱을 다시 열어야 합니다",
     "gateQuit": "앱 종료",
     "installing": "업데이트 중...",
-    "gateUpdateNow": "지금 업데이트"
+    "gateUpdateNow": "지금 업데이트",
+      "ready": "업데이트 준비 완료",
+      "error": "업데이트 실패",
+      "errorDesc": "네트워크를 확인한 후 다시 시도하세요"
   },
   "hrAttendance": {
     "linkAcceptOk": "승인 완료",

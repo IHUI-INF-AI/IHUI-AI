@@ -444,6 +444,12 @@
     "hostMode": "Host mode"
   },
   "profile": {
+    "myCreations": "My creations",
+    "viewAllCreations": "View all",
+    "showLessCreations": "Show less",
+    "allFunctions": "All functions",
+    "searchFunctions": "Search features",
+    "noFunctionsFound": "No matching features",
     "levelIntro": "Level details",
     "switchBenefit": "Switch membership view",
     "titleExpired": "Session expired",
@@ -7425,11 +7431,11 @@
     "statusCompleted": "Completed"
   },
   "appUpdate": {
-    "title": "New version available",
-    "action": "Update",
+    "title": "App Update",
+    "action": "Update Now",
     "close": "Close",
     "ready": "Update ready",
-    "installing": "Restarting…",
+    "installing": "Updating...",
     "error": "Update failed",
     "errorDesc": "Check your network and try again",
     "downloading": "Downloading update…",

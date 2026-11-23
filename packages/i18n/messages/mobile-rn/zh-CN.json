@@ -444,6 +444,12 @@
     "hostMode": "主播端"
   },
   "profile": {
+    "myCreations": "我的创作",
+    "viewAllCreations": "查看全部",
+    "showLessCreations": "收起",
+    "allFunctions": "全部功能",
+    "searchFunctions": "搜索功能",
+    "noFunctionsFound": "没有找到相关功能",
     "levelIntro": "等级介绍",
     "switchBenefit": "切换会员权益显示",
     "titleExpired": "登录已过期",
@@ -7425,11 +7431,11 @@
     "statusCompleted": "已完成"
   },
   "appUpdate": {
-    "title": "有新版本可用",
-    "action": "更新",
+    "title": "应用更新",
+    "action": "立即更新",
     "close": "关闭",
     "ready": "更新已就绪",
-    "installing": "正在重启…",
+    "installing": "正在更新...",
     "error": "更新失败",
     "errorDesc": "请检查网络后重试",
     "downloading": "正在下载更新…",

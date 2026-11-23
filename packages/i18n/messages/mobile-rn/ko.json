@@ -444,6 +444,12 @@
     "hostMode": "호스트 모드"
   },
   "profile": {
+    "myCreations": "내 창작물",
+    "viewAllCreations": "전체 보기",
+    "showLessCreations": "접기",
+    "allFunctions": "모든 기능",
+    "searchFunctions": "기능 검색",
+    "noFunctionsFound": "일치하는 기능이 없습니다",
     "levelIntro": "등급 소개",
     "switchBenefit": "멤버십 혜택 표시 전환",
     "titleExpired": "로그인 만료",
@@ -7425,11 +7431,11 @@
     "statusCompleted": "완료"
   },
   "appUpdate": {
-    "title": "새 버전이 있습니다",
-    "action": "업데이트",
+    "title": "앱 업데이트",
+    "action": "지금 업데이트",
     "close": "닫기",
     "ready": "업데이트 준비 완료",
-    "installing": "다시 시작하는 중…",
+    "installing": "업데이트 중...",
     "error": "업데이트 실패",
     "errorDesc": "네트워크를 확인한 후 다시 시도하세요",
     "downloading": "업데이트 다운로드 중…",

@@ -9341,13 +9341,9 @@
       "refresh": "更新",
       "empty": "チェックポイントがありません",
       "item": "イテレーション #{iteration} · {status} · {count} 件のメッセージ",
-      "restoring": "復元中…",
       "rollback": "復元",
-      "confirmTitle": "復元しますか？",
       "confirmDescription": "復元すると、このチェックポイントの会話とファイル状態に戻ります。この操作は取り消せません。",
       "confirmText": "復元",
-      "restoreSuccess": "チェックポイントに復元しました",
-      "restoreFailed": "復元に失敗しました",
       "undoPreparing": "ロールバックを準備中…",
       "undoConfirm": "このチェックポイントにロールバックしてよろしいですか",
       "undoSucceeded": "{count}個のファイルを復元しました、タスク履歴は保持されます",
@@ -29780,7 +29776,10 @@
     "gateQuitConfirm": "終了後はアプリを再起動する必要があります",
     "gateQuit": "アプリを終了",
     "installing": "更新中...",
-    "gateUpdateNow": "今すぐ更新"
+    "gateUpdateNow": "今すぐ更新",
+      "ready": "更新の準備ができました",
+      "error": "更新に失敗しました",
+      "errorDesc": "ネットワークを確認して再試行してください"
   },
   "hrAttendance": {
     "linkAcceptOk": "承認しました",

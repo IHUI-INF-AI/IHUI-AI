@@ -444,6 +444,12 @@
     "hostMode": "配信者モード"
   },
   "profile": {
+    "myCreations": "マイ作品",
+    "viewAllCreations": "すべて見る",
+    "showLessCreations": "閉じる",
+    "allFunctions": "すべての機能",
+    "searchFunctions": "機能を検索",
+    "noFunctionsFound": "該当する機能がありません",
     "levelIntro": "レベルの説明",
     "switchBenefit": "特典表示の切替",
     "titleExpired": "セッションの有効期限切れ",
@@ -7425,11 +7431,11 @@
     "statusCompleted": "完了"
   },
   "appUpdate": {
-    "title": "新しいバージョンがあります",
-    "action": "更新",
+    "title": "アプリ更新",
+    "action": "今すぐ更新",
     "close": "閉じる",
     "ready": "更新の準備ができました",
-    "installing": "再起動しています…",
+    "installing": "更新中...",
     "error": "更新に失敗しました",
     "errorDesc": "ネットワークを確認して再試行してください",
     "downloading": "アップデートをダウンロード中…",

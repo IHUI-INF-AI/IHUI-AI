@@ -9321,11 +9321,7 @@
       "undoFailed": "暂时不可用，工作区未发生变化",
       "undoFailedChanged": "暂时不可用，工作区已发生变化",
       "undoFailedUnverifiable": "暂时不可用，无法确认工作区状态，请检查后重试",
-      "undoPartialWarning": "部分文件未能回退，任务记录保留",
-      "restoring": "恢复中",
-      "confirmTitle": "确认恢复",
-      "restoreSuccess": "已恢复检查点",
-      "restoreFailed": "恢复失败"
+      "undoPartialWarning": "部分文件未能回退，任务记录保留"
     },
     "addWorkspace": "添加工作区",
     "assistant": "助手",
@@ -30061,7 +30057,10 @@
     "gateQuitConfirm": "退出后需重新打开应用",
     "gateQuit": "退出应用",
     "installing": "正在更新...",
-    "gateUpdateNow": "立即更新"
+    "gateUpdateNow": "立即更新",
+      "ready": "更新已就绪",
+      "error": "更新失败",
+      "errorDesc": "请检查网络后重试"
   },
   "hrAttendance": {
     "colApproval": "审批进度",
