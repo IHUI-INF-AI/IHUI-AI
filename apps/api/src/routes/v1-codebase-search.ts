@@ -341,6 +341,79 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /repos + PUT /repos/:repoId/path - 仓库路径登记面(P0-8 第十二批,2026-11-23)
+  // 为什么需要:`repoId` 是 remote URL / workspace path 的 hash,不可逆 —— 没有登记面,
+  // "该重建哪些仓库"的清单只能停在"知道该重建、不知道去哪读代码"这一步。
+  // 登记是 upsert(同一仓库重复登记只改路径);归属取自已认证身份,不从 body 取。
+  server.get('/repos', async (req, reply) => {
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:仓库登记按归属隔离'))
+    }
+    try {
+      const paths = await codebaseIndexService.listRepoPaths(req.userId)
+      return reply.send(
+        success({
+          repos: [...paths.entries()].map(([repoId, entry]) => ({
+            repoId,
+            localPath: entry.localPath,
+            displayName: entry.displayName,
+          })),
+        }),
+      )
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '仓库登记清单查询失败'))
+    }
+  })
+
+  const repoPathSchema = z.object({
+    localPath: z.string().min(1).max(4096),
+    displayName: z.string().min(1).max(200).nullable().optional(),
+  })
+
+  server.put('/repos/:repoId/path', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    const parsed = repoPathSchema.safeParse(req.body)
+    if (!repoId) {
+      return reply.status(400).send(error(400, '缺少 repoId'))
+    }
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:拒绝登记无归属的仓库路径'))
+    }
+    try {
+      await codebaseIndexService.registerRepoPath({
+        ownerUuid: req.userId,
+        repoId,
+        localPath: parsed.data.localPath,
+        displayName: parsed.data.displayName ?? null,
+      })
+      return reply.send(success({ repoId, localPath: parsed.data.localPath, registered: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '仓库路径登记失败'))
+    }
+  })
+
+  server.delete('/repos/:repoId/path', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    if (!repoId) {
+      return reply.status(400).send(error(400, '缺少 repoId'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:仓库登记按归属隔离'))
+    }
+    try {
+      const removed = await codebaseIndexService.forgetRepoPath(req.userId, repoId)
+      return reply.send(success({ repoId, removed }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '仓库登记删除失败'))
+    }
+  })
+
   // POST /index - 批量索引切片(由 ai-service codebase_indexer 调用)
   server.post('/index', async (req, reply) => {
     const parsed = indexSchema.safeParse(req.body)

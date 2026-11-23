@@ -31,6 +31,7 @@ import {
   codebaseEdges,
   codebaseEntities,
   codebaseIndexStates,
+  codebaseRepos,
 } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
 import { logger } from '../utils/logger.js'
@@ -207,6 +208,12 @@ export interface RebuildCandidate {
   decision: Exclude<RebuildDecision, 'reuse-fresh'>
   /** 该仓库上次索引时刻(毫秒);无状态行为 null —— 排序与展示共用这一份,不各算一遍。 */
   lastIndexedAtMs: number | null
+  /**
+   * 该仓库的本地路径(P0-8 第十二批):未登记为 null。
+   * 纯判据不填这一格(它不读 DB),由 `listRebuildCandidates` 拼上 —— 但**必须在清单里**:
+   * 只给 repoId 的清单对调度层等于"知道该重建、不知道去哪读代码"。
+   */
+  localPath?: string | null
 }
 
 /** 批量清单的取回上限(P0-8 第十批):与读面 `_clampLimit` 同档,不另立数字。 */
@@ -756,10 +763,85 @@ class CodebaseIndexService {
     const { ownerUuid, maxAgeMs = 0, nowMs, currentFingerprint, limit } = opts
     const rows = await this.listIndexStates(ownerUuid)
     const fingerprint = currentFingerprint ?? resolveIndexConfigFingerprint()
+    const base = judgeRebuildCandidates(rows, fingerprint, nowMs ?? Date.now(), maxAgeMs, limit)
+    // P0-8 第十二批:清单必须带本地路径 —— 只给 repoId 的清单到不了"能重建"这一步。
+    const paths = await this.listRepoPaths(ownerUuid)
     return {
-      candidates: judgeRebuildCandidates(rows, fingerprint, nowMs ?? Date.now(), maxAgeMs, limit),
+      candidates: base.map((c) => ({ ...c, localPath: paths.get(c.repoId)?.localPath ?? null })),
       scanned: rows.length,
     }
+  }
+
+  /**
+   * 登记一个仓库的本地路径(P0-8 第十二批,幂等 upsert)。
+   *
+   * 为什么需要这张表:`repoId` 是 remote URL / workspace path 的 **hash**,不可逆 ——
+   * 拿到 repoId 无从知道代码在哪。索引器、调度层、运维脚本都需要这一格。
+   *
+   * 归属必填:路径是本机事实,跨用户共享等于把别人的目录结构写进自己的账本。
+   */
+  async registerRepoPath(input: {
+    ownerUuid: string | null | undefined
+    repoId: string
+    localPath: string
+    displayName?: string | null
+  }): Promise<void> {
+    const { ownerUuid, repoId, localPath, displayName } = input
+    if (!ownerUuid) throw new Error('registerRepoPath 缺少 ownerUuid:拒绝登记无归属的仓库路径')
+    if (!repoId.trim()) throw new Error('registerRepoPath 缺少 repoId')
+    if (!localPath.trim()) throw new Error('registerRepoPath 缺少 localPath')
+    const at = new Date()
+    await db
+      .insert(codebaseRepos)
+      .values({
+        ownerUuid,
+        repoId,
+        localPath,
+        displayName: displayName ?? null,
+        updatedAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [codebaseRepos.ownerUuid, codebaseRepos.repoId],
+        set: { localPath, displayName: displayName ?? null, updatedAt: at },
+      })
+  }
+
+  /**
+   * 读本归属下已登记的仓库路径(P0-8 第十二批)。
+   *
+   * 归属缺失 ⇒ 空 Map 且**零 DB 调用**(与 `listIndexStates` 同一 fail-closed 口径)。
+   */
+  async listRepoPaths(
+    ownerUuid: string | null | undefined,
+  ): Promise<Map<string, { localPath: string; displayName: string | null }>> {
+    const out = new Map<string, { localPath: string; displayName: string | null }>()
+    if (!ownerUuid) return out
+    const rows = await db
+      .select({
+        repoId: codebaseRepos.repoId,
+        localPath: codebaseRepos.localPath,
+        displayName: codebaseRepos.displayName,
+      })
+      .from(codebaseRepos)
+      .where(eq(codebaseRepos.ownerUuid, ownerUuid))
+    for (const row of rows) out.set(row.repoId, { localPath: row.localPath, displayName: row.displayName })
+    return out
+  }
+
+  /**
+   * 删除一个仓库的登记行(P0-8 第十二批):仓库搬了目录时用,而不是留一条错路径。
+   * 返回是否真的删了一行(false = 本来就没登记)。
+   */
+  async forgetRepoPath(
+    ownerUuid: string | null | undefined,
+    repoId: string,
+  ): Promise<boolean> {
+    if (!ownerUuid) return false
+    const deleted = await db
+      .delete(codebaseRepos)
+      .where(and(eq(codebaseRepos.ownerUuid, ownerUuid), eq(codebaseRepos.repoId, repoId)))
+      .returning({ id: codebaseRepos.id })
+    return deleted.length > 0
   }
 
   /**

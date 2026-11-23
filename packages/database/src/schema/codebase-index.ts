@@ -191,10 +191,42 @@ export const codebaseIndexStates = pgTable(
   }),
 )
 
+/**
+ * 仓库登记表(2026-11-23,P0-8 第十二批):`repoId` → 本地路径。
+ *
+ * 为什么必须有这张表:`repoId` 是 **git remote URL 或 workspace path 的 hash**
+ * (见 `codebase_chunks.repoId` 头注),它**不可逆** —— 拿到一个 `repoId` 无从知道
+ * 代码在哪台机器的哪个目录。没有登记面时,"该重建哪些仓库"的清单只能停在
+ * "知道该重建、但不知道去哪读代码"这一步,自动重建永远差最后一环。
+ *
+ * - 唯一键 `(owner_uuid, repo_id)`:`ownerUuid` NOT NULL —— 路径是本机事实,
+ *   跨用户共享一条路径等于把别人的目录结构写进自己的账本。
+ * - `localPath` 存**绝对路径**,不做归一化/相对化:索引器要据此 `read_text`,
+ *   这里再做一层路径猜测只会让真实错误更难查。
+ * - 登记是 upsert(同一仓库重复登记只改路径),与 `codebase_index_states` 同形。
+ */
+export const codebaseRepos = pgTable(
+  'codebase_repos',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ownerUuid: uuid('owner_uuid').notNull(),
+    repoId: text('repo_id').notNull(),
+    localPath: text('local_path').notNull(),
+    /** 人可读别名(可空,不参与判定,只用于清单展示)。 */
+    displayName: text('display_name'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerRepoUniqueIdx: uniqueIndex('ux_codebase_repos_owner_repo').on(t.ownerUuid, t.repoId),
+  }),
+)
+
 export type CodebaseEntity = typeof codebaseEntities.$inferSelect
 export type CodebaseEntityInsert = typeof codebaseEntities.$inferInsert
 export type CodebaseEdge = typeof codebaseEdges.$inferSelect
 export type CodebaseEdgeInsert = typeof codebaseEdges.$inferInsert
 export type CodebaseIndexStateRow = typeof codebaseIndexStates.$inferSelect
 export type CodebaseIndexStateInsert = typeof codebaseIndexStates.$inferInsert
+export type CodebaseRepoRow = typeof codebaseRepos.$inferSelect
+export type CodebaseRepoInsert = typeof codebaseRepos.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
