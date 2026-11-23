@@ -23,6 +23,22 @@ import { lookupOfficialPrice, type OfficialPriceEntry } from './pricing/official
 /** 成本 → 用户实付的统一利润系数(机主 2026-11-13 拍板:×3) */
 export const PROFIT_FACTOR = 3
 
+/**
+ * 售价下限唯一出口:售价必须 ≥ max(本次解析成本, 本地已有成本) × PROFIT_FACTOR。
+ *
+ * 背景(2026-11-23 实测):官方目录把某模型标成 free、或 LiteLLM 最新成本低于本地采购成本时,
+ * 原实现直接按解析价落库,导致「售价 < 成本」的倒挂(745/764/783/784/790 五行)。
+ * 本地已有成本是采购事实,不能被更低的目录价覆盖;免费语义也不能把有成本的模型白送。
+ */
+export function salePricePer1k(resolvedCostPer1k: number, existingCostPer1k = 0): number {
+  const basis = Math.max(
+    Number.isFinite(resolvedCostPer1k) ? resolvedCostPer1k : 0,
+    Number.isFinite(existingCostPer1k) ? existingCostPer1k : 0,
+    0,
+  )
+  return Math.round(basis * PROFIT_FACTOR * 1e6) / 1e6
+}
+
 /** 解析档位:越靠前越可信,兜底档必须在 metadata 里留痕供运营复核 */
 export type PriceTier = 'exact' | 'alias' | 'family' | 'provider-fallback' | 'global-fallback'
 
@@ -502,7 +518,9 @@ export async function sweepUnpricedModels(
 ): Promise<SweepResult> {
   const sources = await getPriceSources()
   const rows = (await db.execute(sql`
-    select m.id, m.config_id, m.model_id, c.provider_code
+    select m.id, m.config_id, m.model_id, c.provider_code,
+           coalesce(m.cost_input_price_per_1k, 0) as existing_cost_input,
+           coalesce(m.cost_output_price_per_1k, 0) as existing_cost_output
     from ai_model_config_models m
     join ai_model_config c on c.id = m.config_id
     where m.enabled = true
@@ -524,12 +542,16 @@ export async function sweepUnpricedModels(
     config_id: number
     model_id: string
     provider_code: string
+    existing_cost_input?: string | number | null
+    existing_cost_output?: string | number | null
   }>
   const list = (Array.isArray(rows) ? rows : ((rows as { rows?: unknown[] }).rows ?? [])) as Array<{
     id: number
     config_id: number
     model_id: string
     provider_code: string
+    existing_cost_input?: string | number | null
+    existing_cost_output?: string | number | null
   }>
 
   const byTier: Record<string, number> = {}
@@ -551,8 +573,10 @@ export async function sweepUnpricedModels(
     resolved++
     if (opts.dryRun) continue
 
-    const inP = Math.round(price.inputPer1k * PROFIT_FACTOR * 1e6) / 1e6
-    const outP = Math.round(price.outputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+    const costIn = Math.max(price.inputPer1k, Number(r.existing_cost_input ?? 0))
+    const costOut = Math.max(price.outputPer1k, Number(r.existing_cost_output ?? 0))
+    const inP = salePricePer1k(costIn)
+    const outP = salePricePer1k(costOut)
     await applyPricing({
       modelId: r.model_id.toLowerCase(),
       inputTokenPrice: inP,
@@ -560,7 +584,7 @@ export async function sweepUnpricedModels(
       billingMode: 'token',
     })
     await db.execute(
-      sql`update ai_model_config_models set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)}, cost_input_price_per_1k = ${String(price.inputPer1k)}, cost_output_price_per_1k = ${String(price.outputPer1k)}, updated_at = now() where id = ${Number(r.id)} and config_id = ${Number(r.config_id)}`,
+      sql`update ai_model_config_models set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)}, cost_input_price_per_1k = ${String(costIn)}, cost_output_price_per_1k = ${String(costOut)}, updated_at = now() where id = ${Number(r.id)} and config_id = ${Number(r.config_id)}`,
     )
     const meta = JSON.stringify({
       priceSource: {
@@ -677,7 +701,9 @@ export async function repricePlaceholderModels(
   const rows = (await db.execute(sql`
     select lower(m.model_id) as model_id,
            min(c.provider_code) as provider_code,
-           count(*)::int as config_rows
+           count(*)::int as config_rows,
+           max(coalesce(m.cost_input_price_per_1k, 0)) as existing_cost_input,
+           max(coalesce(m.cost_output_price_per_1k, 0)) as existing_cost_output
     from ai_model_config_models m
     join ai_model_config c on c.id = m.config_id
     where lower(m.model_id) not like '%:free'
@@ -709,6 +735,8 @@ export async function repricePlaceholderModels(
   const list = (Array.isArray(rows) ? rows : ((rows as { rows?: unknown[] }).rows ?? [])) as Array<{
     model_id: string
     provider_code: string
+    existing_cost_input?: string | number | null
+    existing_cost_output?: string | number | null
   }>
 
   const byTier: Record<string, number> = {}
@@ -719,6 +747,8 @@ export async function repricePlaceholderModels(
     const modelId = String(r.model_id ?? '').toLowerCase()
     if (!modelId) continue
     const providerCode = String(r.provider_code ?? '').toLowerCase()
+    const existingCostIn = Number(r.existing_cost_input ?? 0)
+    const existingCostOut = Number(r.existing_cost_output ?? 0)
 
     // ① 厂商官方价目优先 —— 「不能瞎定」的最高档依据(2026-11-14 立)
     const official = lookupOfficialPrice(providerCode, modelId)
@@ -731,7 +761,11 @@ export async function repricePlaceholderModels(
             : 'official'
       byTier[tier] = (byTier[tier] ?? 0) + 1
       repriced++
-      if (!dryRun) await applyOfficialEntry(db, applyPricing, official, modelId)
+      if (!dryRun)
+        await applyOfficialEntry(db, applyPricing, official, modelId, {
+          inputPer1k: existingCostIn,
+          outputPer1k: existingCostOut,
+        })
       continue
     }
 
@@ -753,8 +787,10 @@ export async function repricePlaceholderModels(
     repriced++
     if (dryRun) continue
 
-    const inP = Math.round(price.inputPer1k * PROFIT_FACTOR * 1e6) / 1e6
-    const outP = Math.round(price.outputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+    const costIn = Math.max(price.inputPer1k, existingCostIn)
+    const costOut = Math.max(price.outputPer1k, existingCostOut)
+    const inP = salePricePer1k(costIn)
+    const outP = salePricePer1k(costOut)
     await applyPricing({
       modelId,
       inputTokenPrice: inP,
@@ -776,8 +812,8 @@ export async function repricePlaceholderModels(
         `update ai_model_config_models
             set input_price_per_1k = '${inP}',
                 output_price_per_1k = '${outP}',
-                cost_input_price_per_1k = '${price.inputPer1k}',
-                cost_output_price_per_1k = '${price.outputPer1k}',
+                cost_input_price_per_1k = '${costIn}',
+                cost_output_price_per_1k = '${costOut}',
                 metadata = coalesce(metadata, '{}'::jsonb) || '${meta}'::jsonb,
                 updated_at = now()
           where lower(model_id) = '${modelId.replace(/'/g, "''")}'`,
@@ -803,13 +839,20 @@ async function applyOfficialEntry(
   applyPricing: (args: ApplyPricingArgs) => Promise<unknown>,
   entry: OfficialPriceEntry,
   modelId: string,
+  existing: { inputPer1k?: number; outputPer1k?: number } = {},
 ): Promise<void> {
   const isFree = entry.billingMode === 'free'
   const isToken = entry.billingMode === 'token'
   const isDynamic = entry.billingMode === 'dynamic_cost'
   const profit = PROFIT_FACTOR
-  const inP = isToken ? round6((entry.inputPer1k ?? 0) * profit) : 0
-  const outP = isToken ? round6((entry.outputPer1k ?? 0) * profit) : 0
+  const existingCostIn = Math.max(Number(existing.inputPer1k ?? 0), 0)
+  const existingCostOut = Math.max(Number(existing.outputPer1k ?? 0), 0)
+  const costIn = isToken ? Math.max(entry.inputPer1k ?? 0, existingCostIn) : existingCostIn
+  const costOut = isToken ? Math.max(entry.outputPer1k ?? 0, existingCostOut) : existingCostOut
+  // 官方目录标 free 但本地已有采购成本:不能白送,按成本×3 保底(2026-11-23 倒挂根因)
+  const freeCostGuard = isFree && (existingCostIn > 0 || existingCostOut > 0)
+  const inP = isToken || freeCostGuard ? salePricePer1k(costIn, 0) : 0
+  const outP = isToken || freeCostGuard ? salePricePer1k(costOut, 0) : 0
   const unit = isToken || isFree || isDynamic ? null : round6((entry.unitPriceCents ?? 0) * profit)
 
   if (isDynamic) {
@@ -821,7 +864,8 @@ async function applyOfficialEntry(
       billingMode: 'dynamic_cost',
     })
   } else if (isFree) {
-    await applyPricing({ modelId, inputTokenPrice: 0, outputTokenPrice: 0, billingMode: 'token' })
+    // 无成本才是真免费;有本地成本时按成本×3 收费,避免"官方 free"覆盖采购事实
+    await applyPricing({ modelId, inputTokenPrice: inP, outputTokenPrice: outP, billingMode: 'token' })
   } else if (isToken) {
     await applyPricing({
       modelId,
@@ -846,7 +890,13 @@ async function applyOfficialEntry(
 
   const meta = JSON.stringify({
     priceSource: {
-      tier: isFree ? 'official-free' : isDynamic ? 'official-dynamic' : 'official',
+      tier: isFree
+        ? freeCostGuard
+          ? 'official-free-cost-guard'
+          : 'official-free'
+        : isDynamic
+          ? 'official-dynamic'
+          : 'official',
       source: entry.source,
       billingMode: isFree ? 'token' : entry.billingMode,
       perUnitPrice: unit,
@@ -854,6 +904,7 @@ async function applyOfficialEntry(
       outputNotApplicable: entry.outputNotApplicable === true,
       note: entry.note ?? null,
       profitFactor: profit,
+      costGuard: freeCostGuard || (isToken && (costIn > (entry.inputPer1k ?? 0) || costOut > (entry.outputPer1k ?? 0))),
       retrievedAt: entry.retrievedAt,
       resolvedAt: new Date().toISOString(),
       reason: 'official-catalog',
@@ -866,7 +917,7 @@ async function applyOfficialEntry(
       ? `input_price_per_1k = '${inP}', output_price_per_1k = '${outP}',`
       : ''
   const costCols = isToken
-    ? `cost_input_price_per_1k = '${entry.inputPer1k ?? 0}', cost_output_price_per_1k = '${entry.outputPer1k ?? 0}',`
+    ? `cost_input_price_per_1k = '${costIn}', cost_output_price_per_1k = '${costOut}',`
     : ''
   await db.execute(
     sql.raw(

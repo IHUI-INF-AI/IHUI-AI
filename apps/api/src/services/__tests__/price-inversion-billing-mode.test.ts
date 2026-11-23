@@ -4,6 +4,7 @@
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { salePricePer1k } from '../model-price-resolver.js'
 
 /**
  * 售价倒挂的计费模式边界回归(2026-11-23):
@@ -34,6 +35,25 @@ describe('售价倒挂 — 非 token 计费模式边界', () => {
 
   it('种子回填源只认 token/null 计费模式', () => {
     expect(seedSrc).toContain("billing_mode IS NULL OR billing_mode = 'token'")
+  })
+})
+
+describe('售价倒挂 — 成本下限与官方 free 冲突', () => {
+  it('售价 = max(解析成本, 本地已有成本) × 3', () => {
+    expect(salePricePer1k(0.36)).toBe(1.08)
+    expect(salePricePer1k(0.0432, 0.36)).toBe(1.08)
+    expect(salePricePer1k(0.36, 0.0432)).toBe(1.08)
+    expect(salePricePer1k(0)).toBe(0)
+  })
+
+  it('配置价回填也必须乘利润系数并落成本列', () => {
+    expect(adminSrc).toContain('s.pin * ${PROFIT_FACTOR}')
+    expect(adminSrc).toContain('cost_input_price_per_1k = s.pin')
+  })
+
+  it('官方 free 遇本地成本走保底档,不白送', () => {
+    expect(resolverSrc).toContain('official-free-cost-guard')
+    expect(resolverSrc).toContain('freeCostGuard')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
