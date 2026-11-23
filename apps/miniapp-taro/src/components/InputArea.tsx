@@ -319,6 +319,9 @@ export default function InputArea({
         top: toUnit(INPUT_AREA_AI_HOME_OVERLAY_TOP_PX),
         left: 0,
         right: 0,
+        // 放大浮层距底:基础档 112rpx(=56)只在小程序这一侧(本组件 fixed 全屏浮层;RN 走 Modal 无此层)
+        // ⇒ 台账里它是 A 组「仅小程序 56」,属"另一端无此元素"。故意不收进表:56 不是
+        // design-tokens 间距档成员,收编只能新造一枚只服务单端的常量(那是单端档的另一种形态)。
         bottom: isShowIcon ? toUnit(INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX) : rpx(112),
         zIndex: 999,
         background: 'var(--color-card)',
@@ -762,7 +765,10 @@ export default function InputArea({
                 className="search-right"
                 style={{
                   position: 'absolute',
-                  right: rpx(6),
+                  // right: 6rpx(=3)—— 本处是"3"在小程序侧的唯一出处;RN 侧的 3 是波形条 gap / width,
+              // 不同元素巧合同值。若本处改指具名档,小程序侧 3 消失 ⇒ 台账当场多一条「仅 RN 3」
+              // 假分叉(同类机制见 INPUT_AREA_VOICE_BTN_GAP_PX 的注),故留端内并在此留痕。
+              right: rpx(6),
                   bottom: 'calc(50% - 26rpx)',
                   display: 'flex',
                   justifyContent: 'space-around',

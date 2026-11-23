@@ -104,6 +104,23 @@
 // ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,C 组量纲不同,B 组是产品裁决面。
 //   逐档归属(含每组属于谁)另由 packages/shared/src/ui/__tests__/input-area-wiring.test.ts
 //   的 ⑨ 号用例机器钉住:谁往"另一端"补了引用,那条用例就红。
+//
+// **为什么"把几何维升级到元素×键→值"这一步不足以判本族**(2026-11-24 实测,不是推断):
+//   原型用 `__test__.readGeometry(src).hints` 拿到每档的来源行,再用 `radius-tokens.mjs` 的
+//   `blockOwnerOf` 反查该行所属块。两端结果**不对称**:
+//   · RN 侧 8/8 都能归到 StyleSheet 键(`thumbClose` / `micInShell` / `inputBare` / `catChip` /
+//     `voiceBars` / `sendButton` …) —— 键名就是元素名,**同名可比**。
+//   · 小程序侧 16 档里只有类名串那 4 档归得到元素(`className="h-48…"` / `min-w-[88rpx]…`);
+//     其余 12 档落在 `style={{ … }}` 内联对象里,反查到的"块名"是 `bottom:` / `borderRadius:` /
+//     行内的 `padding:` —— **那是属性键,不是元素身份**。内联 style 在语法上就没有元素名。
+//   ⇒ 元素×键口径的**充分前提是三段而不是一段**:
+//     ① 判据升级到元素×键(必要);
+//     ② JSX 节点级解析(把 `style={{}}` 归到宿主 `<View>` 并取该节点的语义名);
+//     ③ **组件内联 style 禁止直接写几何长度**(只许引用 spec 常量 / 类名 / StyleSheet 键) ——
+//        这一条最关键:②只解决"能不能归",③才解决"两端有没有可比的同一个名字"。
+//   在 ③ 落地之前,本族的单端档里必然混着"另一端根本无此元素"与"同元素不同值"两种,
+//   机器无法分开 —— 这也正是本表**只登记不取值**的判据依据。
+//   （复跑同一条取证:读 `readGeometry().hints` + `blockOwnerOf` 即可,无需第二套提取。）
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 import { GEOMETRY_PX } from '@ihui/design-tokens'
