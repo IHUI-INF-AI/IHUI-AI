@@ -744,6 +744,7 @@ export const HR_HUB_ITEMS: NavItem[] = [
   { href: '/hr/my-leave', labelKey: 'hrMyLeave', icon: CalendarDays },
   { href: '/hr/my-payroll', labelKey: 'hrMyPayroll', icon: Wallet },
   { href: '/admin/hr-attendance', labelKey: 'hrAdmin', icon: Users, adminOnly: true },
+  { href: '/admin/hr-approval', labelKey: 'hrApproval', icon: ClipboardCheck, adminOnly: true },
   { href: '/admin/hr-data', labelKey: 'hrAdminData', icon: ClipboardCheck, adminOnly: true },
   // 2026-11-23 新增:合同/试用/招聘/离职/发薪闭环一页(人事全周期)。
   { href: '/admin/hr-lifecycle', labelKey: 'hrLifecycle', icon: UserCheck, adminOnly: true },

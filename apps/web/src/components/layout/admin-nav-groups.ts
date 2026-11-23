@@ -341,6 +341,13 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/workflows', labelKey: 'workflows', icon: Workflow },
   // 人事部(HR,2026-11-09 立):部门/员工/考勤/请假独立板块,复用 @ihui/attendance-core 判定内核
   { href: '/admin/hr-attendance', labelKey: 'dashboard', icon: Users, dynamicLabel: '人事部' },
+  // 请假多级审批(2026-11-23):审批链配置 + 待办 + 超时升级一页
+  {
+    href: '/admin/hr-approval',
+    labelKey: 'dashboard',
+    icon: Workflow,
+    dynamicLabel: '请假审批',
+  },
   // 财务部(RP-46,2026-11-12 立):AI 一键代账 / AI 一键报税板块;
   // 功能以 MCP 插件形态(ai_bookkeeping/ai_tax_filing)接进对话,页面只做发起与进度落点
   { href: '/admin/finance-ai', labelKey: 'financeAi', icon: Wallet },
@@ -736,6 +743,13 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       },
       // P0 IM 多平台远程连接控制(2026-07-31 立,16 平台适配器配置 + 消息历史)
       { href: '/admin/im-channels', labelKey: 'imChannels', icon: MessageSquareReply },
+      // 微信智联(2026-11-23 立,账号扫码/长轮询/会话/发送/AI 分析/审计)
+      {
+        href: '/admin/wechat-hub',
+        labelKey: 'dashboard',
+        icon: MessageSquareReply,
+        dynamicLabel: '微信智联',
+      },
     ],
   },
   // 营销直播

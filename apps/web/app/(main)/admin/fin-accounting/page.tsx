@@ -25,6 +25,7 @@ import { LedgerTab } from './ledger-tab'
 import { DocsTab } from './docs-tab'
 import { TaxProfileTab } from './tax-profile-tab'
 import { FilingBoard } from './filing-board'
+import { FilingReturnReview } from './filing-review'
 import { VoucherOpsTab } from './voucher-ops'
 import { ClientOps } from './client-ops'
 import { PeriodStatusCard } from './period-status'
@@ -122,7 +123,12 @@ export default function FinAccountingPage() {
             <FilingBoard clients={clients} />
           </div>
         )}
-        {tab === 'tax' && <TaxTab clients={clients} />}
+        {tab === 'tax' && (
+          <div className="space-y-3">
+            <TaxTab clients={clients} />
+            <FilingReturnReview clients={clients} />
+          </div>
+        )}
       </HasPermi>
     </FeaturePageShell>
   )

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, eq, gte, lt, isNull, sql, desc } from 'drizzle-orm'
+import { and, eq, gte, isNull, lt, lte, sql, desc, type SQL } from 'drizzle-orm'
 import {
   hrAttendanceDaily,
   hrAttendanceRecord,
@@ -244,5 +244,60 @@ export async function approvePunchFix(
   })
 
   return { punchFix: updatedFix ?? null, attendanceRecord }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 补卡申请列表(审批台需要看到"有哪些待审单",2026-11-23 补)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PunchFixQuery {
+  employeeId?: string
+  departmentId?: string
+  /** pending / approved / rejected;缺省 = 全部 */
+  status?: string
+  /** 起始日期(含)YYYY-MM-DD */
+  from?: string
+  /** 截止日期(含)YYYY-MM-DD */
+  to?: string
+  limit?: number
+  offset?: number
+}
+
+/**
+ * 按员工/部门/状态/日期区间列补卡申请(倒序按申请日期 + 创建时刻)。
+ * 用真实 total:审批台要显示"待审 N 单",不能只给一页行数。
+ */
+export async function listPunchFixes(params: PunchFixQuery): Promise<{
+  list: HrPunchFix[]
+  total: number
+}> {
+  const filters: SQL[] = []
+  if (params.employeeId) filters.push(eq(hrPunchFix.employeeId, params.employeeId))
+  if (params.departmentId) filters.push(eq(hrPunchFix.departmentId, params.departmentId))
+  if (params.status) filters.push(eq(hrPunchFix.status, params.status))
+  if (params.from) {
+    assertDateKey(params.from, 'from')
+    filters.push(gte(hrPunchFix.date, params.from))
+  }
+  if (params.to) {
+    assertDateKey(params.to, 'to')
+    filters.push(lte(hrPunchFix.date, params.to))
+  }
+  const where = filters.length > 0 ? and(...filters) : undefined
+  const limit = Math.min(params.limit ?? 50, 200)
+  const offset = Math.max(params.offset ?? 0, 0)
+
+  const list = await db
+    .select()
+    .from(hrPunchFix)
+    .where(where)
+    .orderBy(desc(hrPunchFix.date), desc(hrPunchFix.createdAt))
+    .limit(limit)
+    .offset(offset)
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(hrPunchFix)
+    .where(where)
+  return { list, total: countRow?.n ?? 0 }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

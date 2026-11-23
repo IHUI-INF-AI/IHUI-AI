@@ -26,7 +26,25 @@ import {
   updateTaxProfile,
   upsertTaxProfile,
 } from '../services/fin-accounting/tax-service.js'
-import { MANAGE, PERIOD, VIEW, badRequest, guard, money } from './fin-accounting-shared.js'
+import {
+  MANAGE,
+  PERIOD,
+  VIEW,
+  badRequest,
+  guard,
+  money,
+  userIdOf,
+} from './fin-accounting-shared.js'
+import {
+  generateReturn,
+  getReturn,
+  listReturns,
+  patchReturn,
+  returnsSummary,
+  reviewReturn,
+  submitReturn,
+  taskApprovalProgress,
+} from '../services/fin-accounting/filing-return-service.js'
 
 export const finTaxRoutes: FastifyPluginAsync = async (server) => {
   // ============================ 税种核定 ============================
@@ -230,5 +248,126 @@ export const finTaxRoutes: FastifyPluginAsync = async (server) => {
     const q = request.query as { clientId?: string; today?: string }
     await guard(reply, () => filingSummary({ clientId: q.clientId, today: q.today }))
   })
+
+  // ==================== 申报表级复核(2026-11-23 立) ====================
+  // 表级:一次申报可拆多张表(主表/附表),每张单独走「编→提审→批/驳」。
+  const returnPatchBody = z.object({
+    payload: z.record(z.string(), z.unknown()).optional(),
+    taxableBase: money.nullable().optional(),
+    taxAmount: money.nullable().optional(),
+    formName: z.string().min(1).max(100).optional(),
+  })
+
+  server.get('/filing/returns', { preHandler: requirePermission(VIEW) }, async (request, reply) => {
+    const q = request.query as {
+      clientId?: string
+      taskId?: string
+      period?: string
+      status?: string
+      limit?: string
+      offset?: string
+    }
+    await guard(reply, () =>
+      listReturns({
+        clientId: q.clientId,
+        taskId: q.taskId,
+        period: q.period,
+        status: q.status,
+        limit: q.limit ? Number(q.limit) : undefined,
+        offset: q.offset ? Number(q.offset) : undefined,
+      }),
+    )
+  })
+
+  server.get(
+    '/filing/returns/summary',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const q = request.query as { clientId?: string; period?: string; taskId?: string }
+      if (q.taskId) {
+        await guard(reply, () => taskApprovalProgress(q.taskId as string))
+        return
+      }
+      await guard(reply, () => returnsSummary({ clientId: q.clientId, period: q.period }))
+    },
+  )
+
+  server.post(
+    '/filing/returns/generate',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          taskId: z.string().uuid(),
+          formCode: z.string().min(1).max(40).optional(),
+          formName: z.string().min(1).max(100).optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const userId = userIdOf(request) ?? undefined
+      await guard(reply, () =>
+        generateReturn({
+          taskId: parsed.data.taskId,
+          formCode: parsed.data.formCode,
+          formName: parsed.data.formName,
+          userId,
+        }),
+      )
+    },
+  )
+
+  server.get(
+    '/filing/returns/:id',
+    { preHandler: requirePermission(VIEW) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => getReturn(id))
+    },
+  )
+
+  server.patch(
+    '/filing/returns/:id',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = returnPatchBody.safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      await guard(reply, () =>
+        patchReturn({
+          id,
+          payload: parsed.data.payload,
+          taxableBase: parsed.data.taxableBase as string | null | undefined,
+          taxAmount: parsed.data.taxAmount as string | null | undefined,
+          formName: parsed.data.formName,
+        }),
+      )
+    },
+  )
+
+  server.post(
+    '/filing/returns/:id/submit',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const userId = userIdOf(request) ?? undefined
+      await guard(reply, () => submitReturn({ id, userId }))
+    },
+  )
+
+  server.post(
+    '/filing/returns/:id/review',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ approve: z.boolean(), remark: z.string().max(500).optional() })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      const { id } = request.params as { id: string }
+      const userId = userIdOf(request) ?? undefined
+      await guard(reply, () =>
+        reviewReturn({ id, approve: parsed.data.approve, remark: parsed.data.remark, userId }),
+      )
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

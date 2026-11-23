@@ -11,9 +11,10 @@
  */
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Wallet, Loader2, Calculator, TriangleAlert } from 'lucide-react'
+import { toast } from 'sonner'
+import { Wallet, Loader2, Calculator, TriangleAlert, MailCheck } from 'lucide-react'
 
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { apiOrThrow as api } from '@/lib/api'
@@ -38,6 +39,15 @@ interface MyPayrollRow {
     steps?: Record<string, number>
     warnings?: string[]
   } | null
+}
+
+/** 工资条发放记录(hr_payslip:generated/pushed/acknowledged) */
+interface SlipRow {
+  id: string
+  periodMonth: string
+  status: string
+  pushedAt: string | null
+  acknowledgedAt: string | null
 }
 
 // 列定义:[breakdown.stepKey, 表头 i18n key]。供明细展开逐项回溯。
@@ -95,10 +105,90 @@ export default function MyPayrollPage() {
 
   const rows = data?.rows ?? []
 
+  // 工资条发放记录:HR 推没推、我签没签(以前这层状态只有 HR 看得到)
+  const qc = useQueryClient()
+  const slipsQuery = useQuery({
+    queryKey: ['hr', 'payout', 'my-payslips'],
+    queryFn: () =>
+      api<{ employeeId: string | null; list: SlipRow[] }>('/api/hr-payout/my-payslips'),
+    enabled: allow,
+  })
+  const slips = slipsQuery.data?.list ?? []
+  const ackMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/hr-payout/my-payslips/${id}/acknowledge`, { method: 'POST' }),
+    onSuccess: () => {
+      toast.success(t('slipAckedOk'))
+      void qc.invalidateQueries({ queryKey: ['hr', 'payout', 'my-payslips'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   return (
     // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
     // 自动带上「人事部」返回 chip(取 hrHub.title,与域入口页大标题恒等)。
     <FeaturePageShell title={t('title')} description={t('subtitle')} icon={Wallet} domain="hr">
+      {/* 工资条发放记录:HR 推到哪一步、我签没签 */}
+      {allow && slips.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-label font-semibold text-muted-foreground">{t('slipTitle')}</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-label text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">{th('colMonth')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('slipStatus')}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t('slipPushedAt')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('slipAction')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slips.map((s) => (
+                  <tr key={s.id} className="border-t">
+                    <td className="px-3 py-2">{s.periodMonth}</td>
+                    <td className="px-3 py-2">
+                      {s.status === 'acknowledged'
+                        ? t('slipStatusAcked')
+                        : s.status === 'pushed'
+                          ? t('slipStatusPushed')
+                          : t('slipStatusGenerated')}
+                    </td>
+                    <td className="px-3 py-2">
+                      {s.pushedAt
+                        ? new Date(s.pushedAt).toLocaleDateString('zh-CN', {
+                            timeZone: 'Asia/Shanghai',
+                          })
+                        : '-'}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {s.status === 'acknowledged' ? (
+                        <span className="inline-flex items-center gap-1 text-success">
+                          <MailCheck className="h-3.5 w-3.5" />
+                          {s.acknowledgedAt
+                            ? new Date(s.acknowledgedAt).toLocaleDateString('zh-CN', {
+                                timeZone: 'Asia/Shanghai',
+                              })
+                            : ''}
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={ackMut.isPending}
+                          onClick={() => ackMut.mutate(s.id)}
+                        >
+                          {t('slipAck')}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {/* 月份筛选(留空 = 全部月份) */}
       <div className="flex flex-wrap items-end gap-2">
         <label className="font-[weight:inherit] text-body">

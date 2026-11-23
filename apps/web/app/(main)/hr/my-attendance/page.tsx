@@ -42,6 +42,20 @@ interface AttendanceRow {
   status: string
 }
 
+/** 月度考勤汇总行(hr_attendance_monthly;天数为 numeric 字符串,保留两位小数) */
+interface MonthlyRow {
+  id: string
+  periodMonth: string
+  scheduledDays: string
+  actualDays: string
+  lateCount: number
+  earlyCount: number
+  absentDays: string
+  leaveDays: Record<string, number> | null
+  otHours: string
+  signed: boolean
+}
+
 /** 上海时区的今天(YYYY-MM-DD),与后端 bizDayKey 同口径,避免 UTC 跨日错位。 */
 function bizToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date())
@@ -88,6 +102,13 @@ export default function MyAttendancePage() {
     queryKey: ['hr', 'self', 'records'],
     queryFn: () =>
       api<{ list: AttendanceRow[]; total: number }>('/api/hr-attendance/my-records?limit=31'),
+    enabled: allow && employee !== null,
+  })
+
+  // 月度汇总(应出勤/实出勤/迟到/缺勤/加班);未绑定档案后端返回空集
+  const monthlyQuery = useQuery({
+    queryKey: ['hr', 'self', 'monthly'],
+    queryFn: () => api<{ list: MonthlyRow[] }>('/api/hr-attendance/my-monthly'),
     enabled: allow && employee !== null,
   })
 
@@ -239,6 +260,63 @@ export default function MyAttendancePage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-label font-semibold text-muted-foreground">
+              {t('myMonthlyTitle')}
+            </h2>
+            {monthlyQuery.isLoading ? (
+              <div className="flex items-center justify-center py-6 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t('loading')}
+              </div>
+            ) : (monthlyQuery.data?.list ?? []).length === 0 ? (
+              <div className="flex items-center justify-center rounded-lg border border-dashed py-6 text-body text-muted-foreground">
+                {t('myMonthlyEmpty')}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-body">
+                  <thead className="bg-muted/50 text-label text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">{t('colMonth')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t('colScheduledDays')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t('colActualDays')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t('colLateCount')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t('colEarlyCount')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t('colAbsentDays')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t('colOtHours')}</th>
+                      <th className="px-3 py-2 text-left font-medium">{t('colSignState')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(monthlyQuery.data?.list ?? []).map((m) => {
+                      const leaveTotal = Object.values(m.leaveDays ?? {}).reduce((s, v) => s + v, 0)
+                      return (
+                        <tr key={m.id} className="border-t">
+                          <td className="px-3 py-2">{m.periodMonth}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{m.scheduledDays}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{m.actualDays}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{m.lateCount}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{m.earlyCount}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {m.absentDays}
+                            {leaveTotal > 0 && (
+                              <span className="ml-1 text-muted-foreground">
+                                ({t('colLeaveDays')} {leaveTotal})
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{m.otHours}</td>
+                          <td className="px-3 py-2">{m.signed ? t('signedYes') : t('signedNo')}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

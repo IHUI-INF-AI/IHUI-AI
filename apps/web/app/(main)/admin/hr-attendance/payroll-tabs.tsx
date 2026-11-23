@@ -17,7 +17,15 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { type useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { BookOpen, Calculator, Download, Settings, Play, TriangleAlert } from 'lucide-react'
+import {
+  BookOpen,
+  Calculator,
+  Download,
+  RotateCcw,
+  Settings,
+  Play,
+  TriangleAlert,
+} from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
@@ -810,6 +818,39 @@ export function PayrollTab({ t }: { t: TFunc }) {
   const canMarkPaid = status === 'approved'
   // 交割点 = approved(财务已审账);paid 完全锁定但凭证仍可查(只读)
   const canHandoff = status === 'approved' || status === 'paid'
+  // 撤销算薪只对 draft 周期成立(后端 also 拒绝 calculated 及以上)
+  const canRevert = status === 'draft'
+  const revertMut = useMutation({
+    mutationFn: () =>
+      api<{ skipped: boolean; deletedItems: number; reason?: string }>(`${HR_PAYROLL}/revert`, {
+        method: 'POST',
+        body: JSON.stringify({ periodMonth: month }),
+      }),
+    onSuccess: (v) => {
+      toast.success(t('revertDone', { count: v.deletedItems }))
+      qc.invalidateQueries({ queryKey: ['hr', 'payrollItems', month] })
+      qc.invalidateQueries({ queryKey: ['hr', 'payrollPeriods'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // 算薪前体检:社保/公积金费率配置缺一档,引擎就会整月拒绝出单
+  const yearOfMonth = month.slice(0, 4)
+  const readyQuery = useQuery({
+    queryKey: ['hr', 'insuranceReady', yearOfMonth, regionName],
+    queryFn: () =>
+      api<{
+        ready: boolean
+        effectiveYear: number
+        regionName: string | null
+        issues: string[]
+        advisories: string[]
+        roster: Array<{ regionName: string; effectiveYear: number; enabled: boolean }>
+      }>(
+        `${HR_SAL_CFG}/insurance/ready?effectiveYear=${yearOfMonth}` +
+          (regionName ? `&regionName=${encodeURIComponent(regionName)}` : ''),
+      ),
+  })
 
   return (
     <section className="space-y-3">
@@ -879,6 +920,30 @@ export function PayrollTab({ t }: { t: TFunc }) {
             {t('generateHandoff')}
           </Button>
         </HasPermi>
+        <HasPermi code={`${PAY_PERM}:manage`}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canRevert || revertMut.isPending}
+            onClick={() => revertMut.mutate()}
+          >
+            <RotateCcw className="mr-1 h-3 w-3" />
+            {t('revertPayroll')}
+          </Button>
+        </HasPermi>
+        {readyQuery.data && (
+          <span
+            className={`ml-2 rounded-full px-2 py-0.5 text-label ${
+              readyQuery.data.ready
+                ? 'bg-success/10 text-success'
+                : 'bg-destructive/10 text-destructive'
+            }`}
+          >
+            {readyQuery.data.ready
+              ? t('insuranceReadyChip')
+              : t('insuranceNotReadyChip', { count: readyQuery.data.issues.length })}
+          </span>
+        )}
         {status && (
           <span
             className={`font-[weight:inherit] ml-2 rounded-full px-2 py-0.5 text-label ${
@@ -893,6 +958,29 @@ export function PayrollTab({ t }: { t: TFunc }) {
           </span>
         )}
       </div>
+
+      {/* 算薪前体检:缺哪档费率/哪些参保地歧义,先修配置再算,免得整月被拒 */}
+      {readyQuery.data && !readyQuery.data.ready && (
+        <div className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs">
+          <div className="flex items-center gap-1 font-medium text-destructive">
+            <TriangleAlert className="h-3.5 w-3.5" />
+            {t('insuranceIssuesTitle')}
+          </div>
+          {readyQuery.data.issues.map((s, i) => (
+            <div key={`i${i}`}>{s}</div>
+          ))}
+          {readyQuery.data.advisories.map((s, i) => (
+            <div key={`a${i}`} className="text-muted-foreground">
+              {s}
+            </div>
+          ))}
+          {readyQuery.data.roster.length > 0 && (
+            <div className="text-muted-foreground">
+              {t('insuranceRoster', { count: readyQuery.data.roster.length })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 财务交割凭证(算薪→记账联动,纯产出不入账) */}
       {handoff && (

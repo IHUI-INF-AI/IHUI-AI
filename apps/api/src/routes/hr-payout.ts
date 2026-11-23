@@ -237,6 +237,37 @@ export const hrPayoutRoutes: FastifyPluginAsync = async (server) => {
     })
   })
 
+  // 员工本人签收(自助面;只认本人档案下的那一条,不依赖 hr:payslip:view 权限)
+  server.post(
+    '/my-payslips/:id/acknowledge',
+    { preHandler: requireSelf },
+    async (request, reply) => {
+      const userId = userIdOf(request)
+      if (!userId) {
+        reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+        return
+      }
+      const { id } = request.params as { id: string }
+      await guard(reply, async () => {
+        const [emp] = await db
+          .select({ id: hrEmployee.id })
+          .from(hrEmployee)
+          .where(eq(hrEmployee.userId, userId))
+          .limit(1)
+        if (!emp) throw new AppError('未关联员工档案', 403, 'PAYSLIP_NO_EMPLOYEE')
+        const [slip] = await db
+          .select()
+          .from(hrPayslip)
+          .where(and(eq(hrPayslip.id, id), eq(hrPayslip.employeeId, emp.id)))
+          .limit(1)
+        if (!slip) throw new AppError('工资条不存在', 404, 'PAYSLIP_NOT_FOUND')
+        if (slip.status === 'acknowledged') return { payslip: slip, already: true }
+        const updated = await acknowledgePayslip(slip.id, 'inapp', null)
+        return { payslip: updated, already: false }
+      })
+    },
+  )
+
   server.post(
     '/payslips/:id/acknowledge',
     { preHandler: requirePermission(SLIP_VIEW) },

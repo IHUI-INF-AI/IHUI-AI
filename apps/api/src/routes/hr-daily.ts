@@ -8,6 +8,7 @@ import { z } from 'zod'
 import {
   listAttendanceDaily,
   listLeaveBalances,
+  listPunchFixes,
   submitPunchFix,
   approvePunchFix,
 } from '../services/hr-daily.js'
@@ -65,6 +66,23 @@ const punchFixApproveBodySchema = z.object({
   /** true=通过(回写考勤),false=驳回 */
   approve: z.boolean(),
   approveRemark: z.string().max(500).optional(),
+})
+
+/** 补卡申请列表查询(审批台用;2026-11-23 补) */
+const punchFixListQuerySchema = z.object({
+  employeeId: z.string().uuid().optional(),
+  departmentId: z.string().uuid().optional(),
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'from 必须是 YYYY-MM-DD')
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'to 必须是 YYYY-MM-DD')
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 })
 
 function badReply(
@@ -126,6 +144,34 @@ export const hrDailyRoutes: FastifyPluginAsync = async (fastify) => {
         year: parsed.data.year,
       })
       return reply.send(success({ list }))
+    },
+  )
+
+  // GET /punch-fix —— 补卡申请列表(审批台)
+  fastify.get(
+    '/punch-fix',
+    {
+      preHandler: requirePermission(HR_MANAGE),
+      schema: buildSchema({
+        summary: '补卡申请列表',
+        description: '按员工/部门/状态/日期区间列补卡申请(倒序),供审批台选单与核对。',
+        tags: ['HR'],
+        querystring: punchFixListQuerySchema,
+      }),
+    },
+    async (request, reply) => {
+      const parsed = punchFixListQuerySchema.safeParse(request.query ?? {})
+      if (!parsed.success) return badReply(reply, parsed)
+      const result = await listPunchFixes({
+        employeeId: parsed.data.employeeId,
+        departmentId: parsed.data.departmentId,
+        status: parsed.data.status,
+        from: parsed.data.from,
+        to: parsed.data.to,
+        limit: parsed.data.limit,
+        offset: parsed.data.offset,
+      })
+      return reply.send(success({ list: result.list, total: result.total }))
     },
   )
 

@@ -566,4 +566,53 @@ export type FinTaxProfile = typeof finTaxProfile.$inferSelect
 export type NewFinTaxProfile = typeof finTaxProfile.$inferInsert
 export type FinFilingTask = typeof finFilingTask.$inferSelect
 export type NewFinFilingTask = typeof finFilingTask.$inferInsert
+
+/**
+ * 申报表(表级)复核 —— 2026-11-23 立。
+ *
+ * 为什么另开一表:fin_filing_task 是「某税种某期」的申报任务(日历/进度语义),
+ * 而一次申报往往有多张表(增值税主表 / 附表一 / 附表二、企业所得税 A 类…)。
+ * 表级复核要把「每张表谁编、谁审、过没过、驳回理由」记在表上,才挡得住
+ * 「任务标 accepted 但附表没人看过」这类空档。
+ */
+export const finFilingReturn = pgTable(
+  'fin_filing_return',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => finFilingTask.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => finClient.id, { onDelete: 'cascade' }),
+    taxType: varchar('tax_type', { length: 20 }).notNull(),
+    period: varchar('period', { length: 10 }).notNull(),
+    /** 表代号(如 vat_main / vat_attach1 / cit_a —— 用小写短代号,不写中文标题) */
+    formCode: varchar('form_code', { length: 40 }).notNull(),
+    formName: varchar('form_name', { length: 100 }).notNull(),
+    /** 表体:lines[{code,name,amount}] + totals + note(结构由服务层写,前端只渲染) */
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
+    taxableBase: numeric('taxable_base', { precision: 16, scale: 2 }),
+    taxAmount: numeric('tax_amount', { precision: 16, scale: 2 }),
+    /** draft / submitted / approved / rejected / filed */
+    status: varchar('status', { length: 20 }).default('draft').notNull(),
+    version: integer('version').default(1).notNull(),
+    preparedBy: uuid('prepared_by').references(() => users.id, { onDelete: 'set null' }),
+    submittedBy: uuid('submitted_by').references(() => users.id, { onDelete: 'set null' }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewRemark: text('review_remark'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // 同一任务下同一张表只留一行(重编时原地升版,不新增副本)
+    taskFormUq: uniqueIndex('uq_fin_filing_return').on(t.taskId, t.formCode),
+    statusIdx: index('ix_fin_filing_return_status').on(t.clientId, t.period, t.status),
+  }),
+)
+
+export type FinFilingReturn = typeof finFilingReturn.$inferSelect
+export type NewFinFilingReturn = typeof finFilingReturn.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

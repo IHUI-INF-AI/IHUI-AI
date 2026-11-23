@@ -519,11 +519,12 @@ export async function buildMonthlyAttendance(params: {
       periodMonth,
       employeeId: empId,
       departmentId: agg.departmentId,
-      scheduledDays: agg.scheduledDays.toFixed(1),
-      actualDays: agg.actualDays.toFixed(1),
+      // 两位小数:21.75 是标准月均计薪天数,截到 1 位会被写成 21.8(2026-11-23 修)
+      scheduledDays: agg.scheduledDays.toFixed(2),
+      actualDays: agg.actualDays.toFixed(2),
       lateCount: agg.lateCount,
       earlyCount: agg.earlyCount,
-      absentDays: agg.absentDays.toFixed(1),
+      absentDays: agg.absentDays.toFixed(2),
       leaveDays: leaveByEmp.get(empId) ?? {},
       otHours: (agg.otMinutes / 60).toFixed(2),
       otDetail: {
