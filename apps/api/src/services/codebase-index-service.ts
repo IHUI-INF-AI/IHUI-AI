@@ -938,6 +938,67 @@ class CodebaseIndexService {
   }
 
   /**
+   * 按仓库查符号实体(P0-8 第四批,2026-11-23,实体表的**读面**)。
+   *
+   * 为什么需要读面:第三批把 `codebase_entities` 的写入通电了,但表若无读方就是
+   * 死表。这里的消费方是 knowledge_fs 的符号视图(agent 问"这个符号在仓库哪儿定义"
+   * 时不必先发一次远端检索),以及运维对账(实体行是否与切片同源)。
+   *
+   * 纪律(三条,都有对应的负面后果):
+   * - **归属 fail-closed 且零 DB 调用**:无归属直接空数组。先查一次再判空等于每次空跑
+   *   一条带 `1 = 0` 的 SQL,与 search() 的 SDB-39 同一取舍。
+   * - **name / kind / filePath 一律等值**:它们是数据列不是查询词(与 symbolName 同一
+   *   纪律),不在这里做模糊匹配 —— 模糊匹配会命中近似符号名,把"定义位置"变成猜测。
+   * - **limit 夹取在 [1, 200]**:默认 50。上限存在的理由是响应体是明文路径清单,
+   *   不设上限时一个 import 重排可能一次拉回上千行。
+   */
+  async findEntities(opts: {
+    repoId: string
+    ownerUuid?: string | null
+    name?: string
+    kind?: string
+    filePath?: string
+    limit?: number
+  }): Promise<
+    Array<{
+      id: string
+      filePath: string
+      lineStart: number
+      lineEnd: number
+      kind: string
+      name: string
+    }>
+  > {
+    const { repoId, ownerUuid, name, kind, filePath, limit } = opts
+    if (!ownerUuid) return []
+    const cap = Math.min(Math.max(1, limit ?? 50), 200)
+    const whereParts = [_entityOwnerScope(ownerUuid), eq(codebaseEntities.repoId, repoId)]
+    if (name) whereParts.push(eq(codebaseEntities.name, name))
+    if (kind) whereParts.push(eq(codebaseEntities.kind, kind))
+    if (filePath) whereParts.push(eq(codebaseEntities.filePath, filePath))
+    return (await db
+      .select({
+        id: codebaseEntities.id,
+        filePath: codebaseEntities.filePath,
+        lineStart: codebaseEntities.lineStart,
+        lineEnd: codebaseEntities.lineEnd,
+        kind: codebaseEntities.kind,
+        name: codebaseEntities.name,
+      })
+      .from(codebaseEntities)
+      .where(and(...whereParts))
+      .orderBy(codebaseEntities.filePath, codebaseEntities.lineStart, codebaseEntities.name)
+      .limit(cap)) as Array<{
+      id: string
+      filePath: string
+      lineStart: number
+      lineEnd: number
+      kind: string
+      name: string
+    }>
+  }
+
+  /**
    * 路径投影元数据清单(2026-10-31 G2 立,knowledge_fs 虚拟文件系统的数据源)。
    *
    * 对齐 Trae ckg 的 CfsListDir/CfsStat 最小数据面:返回切片的路径/符号元数据,

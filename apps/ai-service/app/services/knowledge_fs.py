@@ -317,6 +317,101 @@ class KnowledgeFS:
         ]
         return {"status": "ok", "query": query, "results": results}
 
+    async def _fetch_symbol_definitions(
+        self,
+        repo_id: str,
+        name: str,
+        internal_user_id: str | None,
+        api_token: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]] | None:
+        """取实体表里该符号的定义簇;上游失败返回 None(调用方落 upstream_unavailable)。"""
+        qs = httpx.QueryParams({"name": name, "limit": str(limit)})
+        url = f"{self._indexer._api_base_url}/api/v1/codebase/repo/{repo_id}/entities?{qs}"
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(url, headers=self._headers(internal_user_id, api_token))
+            if resp.status_code >= 400:
+                logger.warning("knowledge_fs 实体清单失败 %s: HTTP %s", repo_id, resp.status_code)
+                return None
+            payload = resp.json() or {}
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("knowledge_fs 实体清单异常 %s: %s", repo_id, e)
+            return None
+        return list((payload.get("data") or {}).get("entities") or [])
+
+    async def list_symbols(
+        self,
+        repo_id: str,
+        name: str,
+        internal_user_id: str | None,
+        api_token: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """按符号名查**跨文件**定义位置(P0-8 第四批,2026-11-23;实体表的读面消费方)。
+
+        为什么需要它(与 ckg 的差别):`read`/`stat` 拿的是**一条已知路径**上的内容,
+        agent 在"这个函数到底定义在哪个文件"这一步没有入口。对侧 cfs 的 resolve 只
+        解析路径形态;这里的输入是**符号名本身**,输出是同名符号在仓库里**所有**定义
+        位置 —— 跨文件的簇是这一层独有的信息,单文件切片给不出。
+
+        空集的三因三分(不合并成一个"没找到"):
+        - 实体表有行 ⇒ `ok`;
+        - 实体表空且路径清单也空 ⇒ `path_missing`(没建索引);
+        - 实体表空但路径清单有切片 ⇒ `catalog_missing`(索引早于实体表,重建可补),
+          与"符号确实不存在"同形,故在 detail 里点明这条判据是二义的(§0.3)。
+        """
+        if not internal_user_id:
+            return dict(_MISSING_IDENTITY)
+        if not repo_id:
+            return {"status": "invalid_argument", "detail": "repo_id 必填"}
+        symbol = (name or "").strip()
+        if not symbol:
+            return {"status": "invalid_argument", "detail": "name 必填(符号名逐字相等,不做模糊匹配)"}
+        bounded = max(1, min(int(limit), 200))
+        rows = await self._fetch_symbol_definitions(
+            repo_id, symbol, internal_user_id, api_token, bounded
+        )
+        if rows is None:
+            return {"status": "upstream_unavailable", "detail": "api 侧实体清单不可用"}
+        if rows:
+            return {
+                "status": "ok",
+                "repo_id": repo_id,
+                "name": symbol,
+                "count": len(rows),
+                "definitions": [
+                    {
+                        "path": vpath_of(repo_id, str(r.get("filePath") or ""), symbol),
+                        "file_path": str(r.get("filePath") or ""),
+                        "line_start": r.get("lineStart"),
+                        "line_end": r.get("lineEnd"),
+                        "kind": r.get("kind"),
+                    }
+                    for r in rows
+                ],
+            }
+        chunks = await self._fetch_path_index(repo_id, internal_user_id, api_token)
+        if chunks is None:
+            return {
+                "status": "upstream_unavailable",
+                "detail": "api 侧路径清单不可用,空集归因未判定",
+            }
+        if not chunks:
+            return {
+                "status": "path_missing",
+                "detail": f"repo {repo_id} 无索引切片(可能未建索引)",
+            }
+        return {
+            "status": "catalog_missing",
+            "detail": (
+                "repo 有切片但实体表无该符号:或索引建立于实体表之前(重建索引可补齐),"
+                "或该符号确实不存在 —— 二者同形,故本态不作断言"
+            ),
+            "repo_id": repo_id,
+            "name": symbol,
+        }
+
 
 knowledge_fs = KnowledgeFS()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,6 +8,7 @@
 - GET /list?prefix=/repo/<repoId>[/<dir>/]   列目录(单层投影)
 - GET /read?path=/repo/<repoId>/<file>[#<symbol>]  读内容(切片诚实拼接)
 - GET /stat?path=...                          路径元数据(不回内容)
+- GET /symbols?repo_id=&name=&limit=          按符号名查跨文件定义位置(2026-11-23)
 - POST /search {query, repoId?, topK?}        语义检索 → 路径投影
 
 鉴权与身份(与 codebase 检索同一条纪律,不另设规则):
@@ -91,6 +92,27 @@ async def stat_path(
     if not user_id and not api_token:
         return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
     return {"code": 0, "message": "ok", "data": await knowledge_fs.stat(path, user_id, api_token)}
+
+
+@router.get("/symbols")
+async def list_symbols(
+    repo_id: str,
+    name: str,
+    request: Request,
+    limit: int = 50,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """按符号名查跨文件定义位置(P0-8 第四批,2026-11-23)。"""
+    user_id, api_token = _identity(request, authorization)
+    if not user_id and not api_token:
+        return {"code": 401, "message": "无法确定调用者身份:知识文件系统按归属隔离", "data": None}
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": await knowledge_fs.list_symbols(
+            repo_id, name, user_id, api_token=api_token, limit=limit
+        ),
+    }
 
 
 @router.post("/search")

@@ -188,6 +188,41 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /repo/:repoId/entities?name=&kind=&filePath=&limit= - 符号实体清单
+  // (P0-8 第四批,2026-11-23:实体表的读面。写入方是 POST /index 的同事务通道,
+  // 读方是 knowledge_fs 的符号视图与索引对账;GET 只读面随本路由族 preHandler 鉴权)
+  server.get('/repo/:repoId/entities', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    const q =
+      (req.query as { name?: string; kind?: string; filePath?: string; limit?: string }) ?? {}
+    if (!repoId) {
+      return reply.status(400).send(error(400, '缺少 repoId'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
+    // limit 走显式解析:NaN 与 <=0 都是调用方错误,不静默折成默认值(那会让
+    // "我传了 limit 却没生效"变成不可观测的行为)
+    const limit = q.limit === undefined ? undefined : Number(q.limit)
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      return reply.status(400).send(error(400, 'limit 必须是正整数'))
+    }
+    try {
+      const entities = await codebaseIndexService.findEntities({
+        repoId,
+        ownerUuid: req.userId,
+        name: q.name || undefined,
+        kind: q.kind || undefined,
+        filePath: q.filePath || undefined,
+        limit,
+      })
+      return reply.send(success({ repoId, entities }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '实体清单查询失败'))
+    }
+  })
+
   // POST /index - 批量索引切片(由 ai-service codebase_indexer 调用)
   server.post('/index', async (req, reply) => {
     const parsed = indexSchema.safeParse(req.body)
