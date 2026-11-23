@@ -119,6 +119,7 @@ vi.mock('@ihui/ui-react', () => {
   const Box = ({ children }: { children?: ReactNode }) => <>{children}</>
   return {
     Button: ({ children }: { children?: ReactNode }) => <button type="button">{children}</button>,
+    Badge: Box,
     Dialog: ({ open, children }: { open?: boolean; children?: ReactNode }) =>
       open ? <>{children}</> : null,
     DialogContent: Box,
