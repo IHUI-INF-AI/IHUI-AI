@@ -4504,6 +4504,9 @@ class AgentLoopV2:
         # 69ce958a9b「全量同步工作区」曾把这段连同方法定义一起覆盖掉 ⇒ 按接线锁
         # test_deliverable_guidance::test_run_entry_calls_guidance_injection 恢复。
         self._inject_deliverable_guidance(messages)
+        # 2026-11-24(对齐 DSH dsh-sandbox-policy):把当前文件策略只读呈现给模型。
+        # 执行判定仍由 permission_mode/path_guard/patch_safety 各自负责,本段不参与。
+        self._inject_sandbox_policy_context(messages)
         # 1-7 团队接力(P3-3,2026-09-03 立):入口:注入团队上一轮聚合摘要。
         # 默认关闭;开启且存在接力上下文时才改动 system prompt,否则为 no-op(零差异)。
         await self._inject_team_relay_context(messages)
@@ -4877,6 +4880,30 @@ class AgentLoopV2:
                 messages.insert(0, {"role": "system", "content": DELIVERABLE_FILE_REFERENCES})
         except Exception as e:
             logger.warning("deliverable_guidance 注入失败(降级跳过): %s", e)
+
+    def _inject_sandbox_policy_context(self, messages: list[dict[str, Any]]) -> None:
+        """入口:模型可见文件策略块(对齐 DSH `dsh-sandbox-policy`)。
+
+        只读呈现当前权限模式 / 工作区 / 额外可写目录;不改变任何执行判定。
+        无工作区 / 模式解析失败 / 任何异常都降级为不注入,不阻塞主循环。
+        """
+        try:
+            from ..core.sandbox_policy_context import (
+                inject_sandbox_policy_context,
+                render_sandbox_policy_context,
+            )
+            from .mcp_server import get_session_extra_roots
+
+            extra = get_session_extra_roots(
+                self._session_id, user_id=self._user_id
+            )
+            block = render_sandbox_policy_context(
+                self._permission_mode, self._workspace, extra
+            )
+            if block:
+                inject_sandbox_policy_context(messages, block)
+        except Exception as e:
+            logger.warning("sandbox_policy 上下文注入失败(降级跳过): %s", e)
 
     async def _inject_team_relay_context(self, messages: list[dict[str, Any]]) -> None:
         """入口:把团队上一轮聚合摘要注入 system prompt(默认关闭,失败静默降级)。

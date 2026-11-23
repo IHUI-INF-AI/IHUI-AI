@@ -259,6 +259,17 @@ DSH `dsh-workspace-changes` 在每轮结束宣告 `workspace/changes`，摘要�
 - `agent_engine._run_prompt_turn`：回合开始 `await asyncio.to_thread(snapshot_turn_workspace, ...)`；回合结束先 `finish()` 再 `cleanup()`，有快照就以它为准，`turn.diff` 新增 `baselineTree`、`baselineSource="turn-start-snapshot"`、`diffSource="turn-snapshot"`；快照失败/非 git 自动回退既有 status 差集与 mtime 路径。回合异常也清理临时目录，下一轮开始再幂等清一次。
 - 测试：`test_workspace_changes.py` 5 例（轮前脏不混入且轮内增量精确、删除/二进制、无变化、超文件预算截断、非 git 降级）；`test_engine_harness_thirteenth.py` 新增端到端「轮前脏文件不算本轮」；目标面 **12 passed in 16.19s**；全量 turn.diff 相关五文件 **82 passed / 1 存量 flake**（`test_tool_retry_event_emitted` 的 `calls["n"]==0`，与本批无关）；`ruff check` 四文件全过，`mypy --follow-imports=skip` 对新模块零错误。
 
+## 追加批：模型可见文件沙箱策略（对齐 DSH `dsh-sandbox-policy`）
+
+DSH 的 `@deepseek-ai/dsh-sandbox-policy` 在**每个模型请求的运行时上下文快照**里放一段 `sandbox:policy`：说明当前文件策略（`read-only` / `workspace-write` / `danger-full-access`）、`workspace-write` 下的工作区绝对路径、显式授权的额外可写目录；切换模式只在下一次请求生效，模型看得到策略但看不到挂载能力清单。本仓 `app/core/sandbox_policy.py` 与 `permission_mode` 早已是执行面真源，但模型此前**看不到这些边界**，只能在工具被拒后反推。本批只补“呈现”，不改任何执行判定：
+
+- 新增 `app/core/sandbox_policy_context.py`：
+  - `_policy_mode()` 把权限模式映射为 DSH 三档：`plan → read-only`、`bypassPermissions → danger-full-access`、其余 `workspace-write`；
+  - `render_sandbox_policy_context()` 按档生成固定标记包裹的块（`<!-- IHUI-SANDBOX-POLICY -->` / 闭合），`workspace-write` 带工作区绝对路径与 `额外可写目录:["..."]`，`read-only` 明确“需要修改时按工具返回的拒绝/升权指引申请更宽权限，不要仅凭本策略直接拒绝任务”，`danger-full-access` 仍要求遵守用户指令与工具自身路径护栏；无工作区返回空串；
+  - `inject_sandbox_policy_context()` 找首条含标记的 system 消息：策略未变幂等返回 `False`，变了原地替换并清掉其它 system 的旧块；无 system 时插到最前，有 system 时追加到末尾；全程不重复、不残留。
+- `agent_loop_v2.run()` 在 `_inject_deliverable_guidance(messages)` 之后调用 `_inject_sandbox_policy_context(messages)`：从 `get_session_extra_roots(session_id, user_id)` 取额外目录，异常 warning 降级为不注入，绝不阻塞主循环。执行面（permission_mode / path_guard / patch_safety）逐字未动。
+- 测试：`test_sandbox_policy_context.py` 7 例（三档文案、无工作区、幂等、旧块替换、其它 system 旧块清理、`AgentLoopV2` 真实方法接线后 plan 档注入只读块）；**7 passed in 1.37s**；`test_engine_harness_thirteenth.py` + `test_engine_harness_policies.py` 回归 **19 passed in 24.67s**；`ruff check` 三文件全过；水印 verify 3/3 完整。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
