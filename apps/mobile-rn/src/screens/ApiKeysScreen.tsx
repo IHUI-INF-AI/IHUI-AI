@@ -397,14 +397,14 @@ export default function ApiKeysScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                      style={styles.iconBtn}
                       onPress={() => onDelete(key)}
                       disabled={deleting === key.id}
                       activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('apiKeys.delete')}
                     >
-                      <View style={styles.trashRow}>
-                        <Trash2 size={13} color={tokens.danger.DEFAULT} />
-                        <Text style={styles.dangerLink}>{t('apiKeys.delete')}</Text>
-                      </View>
+                      <Trash2 size={18} color={tokens.danger.DEFAULT} />
                     </TouchableOpacity>
                   </View>
                   {usageOf === key.id ? (
@@ -450,10 +450,8 @@ function makeStyles() {
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: rnSpacing.lg,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
@@ -570,8 +568,8 @@ function makeStyles() {
       marginTop: rnSpacing['2xs'],
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
+    /** 纯图标按钮:固定 36×36 命中盒(与小程序端同形) */
+    iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],

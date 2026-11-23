@@ -384,17 +384,17 @@ export function WorkflowDetailScreen({
                 <Text style={styles.primaryBtnText}>{t('workflowsPage.triggerNow')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.dangerBtn}
+                style={[styles.dangerBtn, styles.iconSquare]}
                 activeOpacity={0.85}
                 accessibilityRole="button"
+                accessibilityLabel={t('workflowsPage.deleteWorkflow')}
                 disabled={busy}
                 onPress={() => {
                   setDeleteConfirm(true)
                   setActionErr(null)
                 }}
               >
-                <Trash2 size={13} color={tk.danger.deepText} strokeWidth={2} />
-                <Text style={styles.dangerBtnText}>{t('workflowsPage.deleteWorkflow')}</Text>
+                <Trash2 size={18} color={tk.danger.deepText} strokeWidth={2} />
               </TouchableOpacity>
             </View>
           )}
@@ -652,8 +652,6 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'transparent',
       padding: rnSpacing.md,
       gap: rnSpacing['sm-loose'],
     },
@@ -719,6 +717,8 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
+    /** 纯图标按钮:沿用 danger 实底,宽度收成方形(2026-11-23 用户定档) */
+    iconSquare: { width: 40, paddingHorizontal: 0, justifyContent: 'center' },
     dangerBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
     btnDisabled: { opacity: 0.6 },
     confirmBox: {

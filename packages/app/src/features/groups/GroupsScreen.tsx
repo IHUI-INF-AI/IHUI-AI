@@ -430,21 +430,27 @@ export function GroupsScreen({
                       )}
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.secondaryButton}
+                      style={[styles.secondaryButton, styles.iconSquare]}
                       onPress={() => startEdit(group)}
                       activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('eduAi.groups.edit')}
                     >
-                      <Pencil size={14} color={tk.text.primary} />
-                      <Text style={styles.secondaryButtonText}>{t('eduAi.groups.edit')}</Text>
+                      <Pencil size={18} color={tk.text.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.secondaryButton, busy && styles.buttonDisabled]}
+                      style={[
+                        styles.secondaryButton,
+                        styles.iconSquare,
+                        busy && styles.buttonDisabled,
+                      ]}
                       onPress={() => void handleDelete(group)}
                       disabled={busy}
                       activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('eduAi.groups.delete')}
                     >
-                      <Trash2 size={14} color={tk.danger.deepText} />
-                      <Text style={styles.dangerText}>{t('eduAi.groups.delete')}</Text>
+                      <Trash2 size={18} color={tk.danger.deepText} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -461,10 +467,8 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: rnSpacing.lg,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
@@ -503,6 +507,8 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     secondaryButtonText: { fontSize: rnType.label.size, color: tk.text.primary },
+    /** 纯图标按钮:沿用所在按钮族的描边/底色,宽度收成方形(2026-11-23 用户定档) */
+    iconSquare: { width: 40, paddingHorizontal: 0, justifyContent: 'center' },
     actionGrow: { flexGrow: 1 },
     actionsRow: {
       flexDirection: 'row',
@@ -510,7 +516,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       alignItems: 'center',
     },
-    dangerText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.deepText },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,

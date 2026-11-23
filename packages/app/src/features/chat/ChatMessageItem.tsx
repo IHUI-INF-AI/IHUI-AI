@@ -557,16 +557,15 @@ export function ChatMessageItemView({
                       <I className="share-icon" src={icons.share} resizeMode="cover" />
                     </V>
                   ))}
-              {/* 朗读 TTS(增强功能,历史项目无,保留) */}
+              {/* 朗读 TTS(增强功能,历史项目无,保留;2026-11-23 起纯图标:图标自己画开/停态,不再带文字) */}
               {onSpeak ? (
                 <V
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    fontSize: '24rpx',
-                    color: 'var(--color-link)',
                     marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
+                    padding: '4rpx 8rpx',
                   }}
                   onClick={handleSpeak}
                   hoverClass="opacity-60"
@@ -575,14 +574,10 @@ export function ChatMessageItemView({
                     name: speaking ? 'pause' : 'volume-2',
                     size: 24,
                     color: 'var(--color-muted-foreground)',
-                    style: { marginRight: '6rpx' },
                   })}
-                  <T>
-                    {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
-                  </T>
                 </V>
               ) : null}
-              {/* 重新生成(增强功能,历史项目无,保留) */}
+              {/* 重新生成(增强功能,历史项目无,保留;2026-11-23 起纯图标:↻ 字符换 refresh-cw 矢量图标,不再带文字) */}
               {onRegenerate ? (
                 <V
                   style={{
@@ -590,13 +585,16 @@ export function ChatMessageItemView({
                     alignItems: 'center',
                     marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
+                    padding: '4rpx 8rpx',
                   }}
                   hoverClass="opacity-60"
                   onClick={onRegenerate}
                 >
-                  <T style={{ fontSize: '24rpx', color: 'var(--color-link)' }}>
-                    ↻ {t('ai.chatMessageItem.regenerate')}
-                  </T>
+                  {renderIcon({
+                    name: 'refresh-cw',
+                    size: 24,
+                    color: 'var(--color-muted-foreground)',
+                  })}
                 </V>
               ) : null}
               {/* 收藏(增强功能,历史项目无,保留) */}

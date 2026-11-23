@@ -310,14 +310,20 @@ export default function GroupsScreen() {
                     onPress={() => void onAddMember()}
                     disabled={adding || !memberId.trim()}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('groups.addMember')}
                   >
-                    <UserPlus size={14} color={tokens.text.primary} />
-                    <Text style={styles.smallBtnText}>{t('groups.addMember')}</Text>
+                    <UserPlus size={18} color={tokens.text.primary} />
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.dangerBtn} onPress={onDelete} activeOpacity={0.7}>
-                  <Trash2 size={14} color={tokens.danger.DEFAULT} />
-                  <Text style={styles.dangerText}>{t('groups.delete')}</Text>
+                <TouchableOpacity
+                  style={styles.dangerBtn}
+                  onPress={onDelete}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('groups.delete')}
+                >
+                  <Trash2 size={18} color={tokens.danger.DEFAULT} />
                 </TouchableOpacity>
               </>
             ) : null}
@@ -334,10 +340,8 @@ function makeStyles() {
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
     card: {
-      padding: rnSpacing.lg,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
       backgroundColor: tokens.surface.card,
       gap: rnSpacing.sm,
     },
@@ -368,13 +372,11 @@ function makeStyles() {
       color: tokens.brand.ctaForeground,
     },
     dangerBtn: {
+      width: 40,
       height: 40,
-      flexDirection: 'row',
-      gap: rnSpacing.xs,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -449,16 +451,14 @@ function makeStyles() {
       backgroundColor: tokens.surface.bg,
     },
     smallBtn: {
+      width: 40,
       height: 40,
-      paddingHorizontal: rnSpacing.md,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
-      flexDirection: 'row',
       alignItems: 'center',
-      gap: rnSpacing.xs,
+      justifyContent: 'center',
     },
-    smallBtnText: { fontSize: rnType.label.size, color: tokens.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

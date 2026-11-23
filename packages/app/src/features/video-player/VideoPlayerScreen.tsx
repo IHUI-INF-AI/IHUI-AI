@@ -51,8 +51,8 @@ export interface VideoPlayerPorts {
   }
   /**
    * 互动条(赞/藏/分享);不传不渲染。
-   * labels 缺省 ⇒ 仅 count>0 出数字,计数为 0 只剩图标(RN 现状零变化);
-   * 给了 ⇒ 计数为 0 时落到对应文案(计数>0 仍显示数字,与原页 LikeFavoriteShare 一致)。
+   * 2026-11-23 用户定档:按钮只留图标,计数>0 出数字,计数为 0 不再落「点赞/收藏/分享」文案
+   * (原 labels 档位随之删除)。
    */
   actions?: {
     liked: boolean
@@ -63,8 +63,6 @@ export interface VideoPlayerPorts {
     onLike: () => void
     onFavorite: () => void
     onShare: () => void
-    /** 三个动作下方的文案,端侧已本地化(如「点赞」「收藏」「分享」) */
-    labels?: { like?: string; favorite?: string; share?: string }
   }
   /** tab 区:档位文案由端侧给,正文整块由端侧渲染(目录/简介/评论各端不同) */
   tabs?: {
@@ -156,13 +154,9 @@ export function VideoPlayerScreen({
     info?.chapterCount && info.chapterCountLabel ? info.chapterCountLabel : '',
   ].filter(Boolean)
   const infoMeta = metaParts.join(' · ')
-  /** 互动条文案:计数>0 仍显数字(与原页一致),为 0 才落到端侧文案;无文案则不出节点 */
-  const renderActionText = (count?: number, label?: string) =>
-    count && count > 0 ? (
-      <Text style={styles.actionCount}>{count}</Text>
-    ) : label ? (
-      <Text style={styles.actionLabel}>{label}</Text>
-    ) : null
+  /** 互动条计数:>0 出数字,为 0 只剩图标(2026-11-23 起不再有文案回退) */
+  const renderActionText = (count?: number) =>
+    count && count > 0 ? <Text style={styles.actionCount}>{count}</Text> : null
   const ratio = progress ? progress.completedLessons / Math.max(progress.totalLessons, 1) : 0
   // 口径:端侧给了单节百分比就按它画,否则沿用已学节数/总节数(接入端口前的口径)
   const progressBarWidth = progressPercent
@@ -262,7 +256,7 @@ export function VideoPlayerScreen({
                     strokeWidth={2}
                     color={actions.liked ? tk.brand.DEFAULT : tk.text.tertiary}
                   />
-                  {renderActionText(actions.likeCount, actions.labels?.like)}
+                  {renderActionText(actions.likeCount)}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionItem}
@@ -274,7 +268,7 @@ export function VideoPlayerScreen({
                     strokeWidth={2}
                     color={actions.favorited ? tk.brand.DEFAULT : tk.text.tertiary}
                   />
-                  {renderActionText(actions.favoriteCount, actions.labels?.favorite)}
+                  {renderActionText(actions.favoriteCount)}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionItem}
@@ -282,7 +276,7 @@ export function VideoPlayerScreen({
                   accessibilityRole="button"
                 >
                   <Share2 size={20} strokeWidth={2} color={tk.text.tertiary} />
-                  {renderActionText(actions.shareCount, actions.labels?.share)}
+                  {renderActionText(actions.shareCount)}
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -466,12 +460,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionItem: { alignItems: 'center', justifyContent: 'center', minWidth: 56 },
     actionCount: {
-      marginTop: rnSpacing.xs,
-      fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
-    },
-    /** 动作文案(点赞/收藏/分享):与计数同档位,文案由端侧端口注入 */
-    actionLabel: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,

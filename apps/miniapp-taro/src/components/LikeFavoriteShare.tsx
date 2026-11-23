@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 
@@ -27,7 +26,7 @@ export default function LikeFavoriteShare({
   onFavorite,
   onShare,
 }: LikeFavoriteShareProps) {
-  const tt = useTt()
+  // 2026-11-23 用户定档:按钮只留图标,计数为 0 不再落「点赞/收藏/分享」文案
   return (
     <View className="flex items-center justify-around py-md bg-card mt-sm">
       <View className="flex flex-col items-center" onClick={onLike} hoverClass="opacity-60">
@@ -36,11 +35,13 @@ export default function LikeFavoriteShare({
           size={36}
           color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text
-          className={`text-label mt-[4rpx] ${liked ? 'text-primary' : 'text-muted-foreground'}`}
-        >
-          {likeCount > 0 ? likeCount : tt('action.like', '点赞')}
-        </Text>
+        {likeCount > 0 ? (
+          <Text
+            className={`text-label mt-[4rpx] ${liked ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            {likeCount}
+          </Text>
+        ) : null}
       </View>
       <View className="flex flex-col items-center" onClick={onFavorite} hoverClass="opacity-60">
         <LineIcon
@@ -48,17 +49,19 @@ export default function LikeFavoriteShare({
           size={36}
           color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text
-          className={`text-label mt-[4rpx] ${favorited ? 'text-primary' : 'text-muted-foreground'}`}
-        >
-          {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
-        </Text>
+        {favoriteCount > 0 ? (
+          <Text
+            className={`text-label mt-[4rpx] ${favorited ? 'text-primary' : 'text-muted-foreground'}`}
+          >
+            {favoriteCount}
+          </Text>
+        ) : null}
       </View>
       <View className="flex flex-col items-center" onClick={onShare} hoverClass="opacity-60">
         <LineIcon name="share-2" size={36} color="var(--color-muted-foreground)" />
-        <Text className="text-label mt-[4rpx] text-muted-foreground">
-          {shareCount > 0 ? shareCount : tt('action.share', '分享')}
-        </Text>
+        {shareCount > 0 ? (
+          <Text className="text-label mt-[4rpx] text-muted-foreground">{shareCount}</Text>
+        ) : null}
       </View>
     </View>
   )

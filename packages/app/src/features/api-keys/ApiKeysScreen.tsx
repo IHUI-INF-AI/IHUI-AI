@@ -399,14 +399,14 @@ export function ApiKeysScreen({
                     <Text style={styles.link}>{t('apiKeys.rotate')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    style={styles.iconBtn}
                     onPress={() => void askDelete(key)}
                     disabled={deletingId === key.id}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('apiKeys.delete')}
                   >
-                    <View style={styles.trashRow}>
-                      <Trash2 size={13} color={tk.danger.deepText} />
-                      <Text style={styles.dangerLink}>{t('apiKeys.delete')}</Text>
-                    </View>
+                    <Trash2 size={18} color={tk.danger.deepText} />
                   </TouchableOpacity>
                 </View>
                 {usageOf === key.id ? (
@@ -456,10 +456,8 @@ function createStyles(tk: AppThemeTokens) {
     headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary, marginTop: -rnSpacing.sm },
     card: {
-      padding: rnSpacing.lg,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
@@ -583,8 +581,8 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['2xs'],
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
+    /** 纯图标按钮:固定 36×36 命中盒(小程序腿无 hitSlop,盒子本身即命中区) */
+    iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],

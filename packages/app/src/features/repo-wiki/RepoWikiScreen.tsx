@@ -290,30 +290,40 @@ export function RepoWikiScreen({
 
                     <View style={styles.actions}>
                       <TouchableOpacity
-                        style={[styles.primaryBtn, loadingDetail && styles.disabled]}
+                        style={[
+                          styles.primaryBtn,
+                          styles.iconSquare,
+                          loadingDetail && styles.disabled,
+                        ]}
                         disabled={loadingDetail}
                         onPress={() => {
                           void handleView(doc)
                         }}
                         activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('repoWiki.view')}
                       >
-                        <Eye size={14} color={tk.brand.ctaForeground} />
-                        <Text style={styles.primaryBtnText}>{t('repoWiki.view')}</Text>
+                        <Eye size={18} color={tk.brand.ctaForeground} />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.outlineBtn, busyId === doc.id && styles.disabled]}
+                        style={[
+                          styles.outlineBtn,
+                          styles.iconSquare,
+                          busyId === doc.id && styles.disabled,
+                        ]}
                         disabled={busyId === doc.id}
                         onPress={() => {
                           void handleDelete(doc)
                         }}
                         activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('repoWiki.delete')}
                       >
                         {busyId === doc.id ? (
                           <ActivityIndicator size="small" color={tk.danger.deepText} />
                         ) : (
-                          <Trash2 size={14} color={tk.danger.deepText} />
+                          <Trash2 size={18} color={tk.danger.deepText} />
                         )}
-                        <Text style={styles.dangerText}>{t('repoWiki.delete')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -373,14 +383,13 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     outlineBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
+    /** 纯图标按钮:沿用所在按钮族的实底/描边,宽度收成方形(2026-11-23 用户定档) */
+    iconSquare: { width: 40, paddingHorizontal: 0, justifyContent: 'center' },
     disabled: { opacity: 0.5 },
     listTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     card: {
-      padding: rnSpacing.lg,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: 'transparent',
       backgroundColor: tk.surface.card,
       gap: rnSpacing.xs,
     },

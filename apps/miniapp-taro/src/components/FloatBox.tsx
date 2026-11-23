@@ -3,16 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { t as tStatic } from '@/i18n'
-import { View, Text } from '@tarojs/components'
+import { View } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import {
-  FLOAT_BOX_FONT_SIZE_PX,
-  FLOAT_BOX_ICON_SIZE_PX,
-  FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
-} from '@ihui/shared/ui/float-box-spec'
+import { FLOAT_BOX_ICON_SIZE_PX } from '@ihui/shared/ui/float-box-spec'
 import { rpx } from '@/utils/rpx'
 import { onToast } from '@/host/on-toast'
 import { useTt } from '@/i18n'
@@ -22,7 +18,8 @@ import { useTt } from '@/i18n'
  * - 固定定位右下角，白色圆角矩形
  * - 默认展开（isOpen=true），内容可见，box 在 right: 20rpx
  * - 收起时（isOpen=false），box 推到 right: -240rpx，箭头留在左侧可见
- * - 含 3 个按钮：赚米（红色）、客服、反馈
+ * - 含 3 个**纯图标**按钮：赚米（分享/推广）、客服、反馈
+ *   （2026-11-23 用户定档：按钮下方不再带功能说明文字，语义只由 ariaLabel 承担）
  */
 export interface FloatBoxProps {
   /** 分享按钮点击回调（默认提示） */
@@ -33,15 +30,18 @@ export interface FloatBoxProps {
   onFeedback?: () => void
 }
 
-/// 与 RN 端同语义档(图标墨迹 / 正文字号 / 正文行高)的唯一源在 @ihui/shared/ui/float-box-spec;
-/// 本文件只做 rpx 换算 + 挂 Taro 原语。本端按钮组载体几何(盒宽 118rpx、minHeight 340rpx、
-/// 收起位移、箭头命中块等)在 RN 端没有对应元素,原样留在下方内联样式 —— 登记见该 spec 文末第 2)条。
+/// 与 RN 端同语义档(收起箭头墨迹)的唯一源在 @ihui/shared/ui/float-box-spec;本文件只做 rpx 换算 + 挂 Taro 原语。
+/// 本端按钮组载体几何(盒宽 118rpx、minHeight 340rpx、收起位移、箭头命中块、按钮内衬等)在 RN 端
+/// 没有对应元素,原样留在下方内联样式 —— 登记见该 spec 文末第 2)条。
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
-const ICON_SIZE = toUnit(FLOAT_BOX_ICON_SIZE_PX)
-const LABEL_TEXT_STYLE = {
-  fontSize: toUnit(FLOAT_BOX_FONT_SIZE_PX),
-  lineHeight: toUnit(FLOAT_BOX_TEXT_LINE_HEIGHT_PX),
-}
+/// 收起箭头仍取共享档 18px(36rpx),与 toast 状态图标同档
+const ARROW_GLYPH_SIZE = toUnit(FLOAT_BOX_ICON_SIZE_PX)
+/// 功能按钮已去掉文字标签(2026-11-23),图标单独承重:放大到 36px(72rpx),
+/// 与 RN GlobalFloatBox 的 ICON_SIZE=36dp 同物理尺寸;不再取 spec 的 18(那一档只喂箭头/toast)
+const ICON_SIZE = rpx(72)
+/// 纯图标按钮的可点区:图标 72rpx + 上下内衬 24rpx = 96rpx(48dp),对齐 RN 端同一档
+const ITEM_PADDING_Y = '12rpx'
+const ITEM_PADDING_X = '16rpx'
 
 export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxProps) {
   const [isOpen, setIsOpen] = useState(true)
@@ -132,9 +132,13 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           hoverClass="opacity-60"
         >
           {isOpen ? (
-            <LineIcon name="chevron-left" size={ICON_SIZE} color="var(--color-foreground)" />
+            <LineIcon name="chevron-left" size={ARROW_GLYPH_SIZE} color="var(--color-foreground)" />
           ) : (
-            <LineIcon name="chevron-right" size={ICON_SIZE} color="var(--color-foreground)" />
+            <LineIcon
+              name="chevron-right"
+              size={ARROW_GLYPH_SIZE}
+              color="var(--color-foreground)"
+            />
           )}
         </View>
 
@@ -151,100 +155,61 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               justifyContent: 'center',
             }}
           >
-            {/* 赚米按钮 — 红色文字 */}
+            {/* 赚米按钮(分享/推广)— 纯图标,无文字标签 */}
             <View
+              ariaRole="button"
+              ariaLabel={tStatic('uiText.earnMoney')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
                 margin: '5rpx 0',
                 background: 'none',
                 border: 'none',
-                padding: 0,
+                padding: `${ITEM_PADDING_Y} ${ITEM_PADDING_X}`,
               }}
               onClick={handleShare}
               hoverClass="opacity-60"
             >
-              <LineIcon
-                name="wallet"
-                size={ICON_SIZE}
-                color="var(--color-destructive)"
-                style={{ marginBottom: '6rpx' }}
-              />
-              <Text
-                style={{
-                  ...LABEL_TEXT_STYLE,
-                  fontWeight: 'bold',
-                  color: 'var(--color-destructive)',
-                  letterSpacing: '2rpx',
-                }}
-              >
-                {tStatic('uiText.earnMoney')}
-              </Text>
+              <LineIcon name="wallet" size={ICON_SIZE} color="var(--color-destructive)" />
             </View>
 
-            {/* 客服按钮 */}
+            {/* 客服按钮 — 纯图标,无文字标签 */}
             <View
+              ariaRole="button"
+              ariaLabel={tStatic('uiText.customerService')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
                 margin: '5rpx 0',
                 background: 'none',
                 border: 'none',
-                padding: 0,
+                padding: `${ITEM_PADDING_Y} ${ITEM_PADDING_X}`,
               }}
               onClick={handleService}
               hoverClass="opacity-60"
             >
-              <LineIcon
-                name="phone"
-                size={ICON_SIZE}
-                color="var(--color-foreground)"
-                style={{ marginBottom: '6rpx' }}
-              />
-              <Text
-                style={{
-                  ...LABEL_TEXT_STYLE,
-                  fontWeight: 'bold',
-                  color: 'var(--color-foreground)',
-                  letterSpacing: '2rpx',
-                }}
-              >
-                {tStatic('uiText.customerService')}
-              </Text>
+              <LineIcon name="phone" size={ICON_SIZE} color="var(--color-foreground)" />
             </View>
 
-            {/* 反馈按钮 */}
+            {/* 反馈按钮 — 纯图标,无文字标签 */}
             <View
+              ariaRole="button"
+              ariaLabel={tStatic('uiText.feedback')}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
                 margin: '5rpx 0',
                 background: 'none',
                 border: 'none',
-                padding: 0,
+                padding: `${ITEM_PADDING_Y} ${ITEM_PADDING_X}`,
               }}
               onClick={handleFeedback}
               hoverClass="opacity-60"
             >
-              <LineIcon
-                name="mail"
-                size={ICON_SIZE}
-                color="var(--color-muted-foreground)"
-                style={{ marginBottom: '6rpx' }}
-              />
-              <Text
-                style={{
-                  ...LABEL_TEXT_STYLE,
-                  fontWeight: 'bold',
-                  color: 'var(--color-foreground)',
-                  letterSpacing: '2rpx',
-                }}
-              >
-                {tStatic('uiText.feedback')}
-              </Text>
+              <LineIcon name="mail" size={ICON_SIZE} color="var(--color-muted-foreground)" />
             </View>
           </View>
         ) : null}

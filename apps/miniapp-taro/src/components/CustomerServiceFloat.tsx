@@ -124,8 +124,13 @@ export default function CustomerServiceFloat({
           sendMessageTitle={tt('common.customerService', '客服咨询')}
           sendMessagePath="/pages/index/index"
         >
-          <LineIcon className="cs-float-icon" name="message-circle" size={32} />
-          <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
+          <LineIcon
+            className="cs-float-icon"
+            name="message-circle"
+            size={72}
+            ariaRole="button"
+            ariaLabel={tt('common.consult', '咨询')}
+          />
         </Button>
       </View>
     )
@@ -225,12 +230,6 @@ export default function CustomerServiceFloat({
               ¥{commissionAmount.toFixed(2)}
             </Text>
           )}
-          <Text
-            className="text-primary-foreground"
-            style={{ fontSize: '9px', lineHeight: 1, marginTop: '1px' }}
-          >
-            {tt('common.commission', '分佣')}
-          </Text>
         </View>
       </View>
     )
@@ -253,8 +252,13 @@ export default function CustomerServiceFloat({
         sendMessageTitle={tt('common.customerService', '客服咨询')}
         sendMessagePath="/pages/index/index"
       >
-        <LineIcon className="cs-float-icon" name="message-circle" size={32} />
-        <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
+        <LineIcon
+          className="cs-float-icon"
+          name="message-circle"
+          size={72}
+          ariaRole="button"
+          ariaLabel={tt('common.consult', '咨询')}
+        />
       </Button>
     </View>
   )
