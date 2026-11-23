@@ -9,9 +9,7 @@
 
 import type {
   WechatAccountStatus,
-  WechatActionResult,
   WechatBackend,
-  WechatBridgeAction,
   WechatQrCodeView,
   WechatSendResult,
 } from '@ihui/types'
@@ -84,18 +82,6 @@ export class MockAdapter implements WechatAdapter {
 
   handleWebhook(payload: unknown): WechatInboundEvent[] {
     return normalizeBridgePayload(payload)
-  }
-
-  async performAction(
-    action: WechatBridgeAction,
-    payload: Record<string, unknown>,
-  ): Promise<WechatActionResult> {
-    return {
-      ok: true,
-      status: 'accepted',
-      data: { action, ...payload, mock: true },
-      reason: null,
-    }
   }
 
   /** 测试辅助：返回已发送记录 */

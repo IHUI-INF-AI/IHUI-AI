@@ -13,9 +13,7 @@
 
 import type {
   WechatAccountStatus,
-  WechatActionResult,
   WechatBackend,
-  WechatBridgeAction,
   WechatConversationKind,
   WechatMessageKind,
   WechatQrCodeView,
@@ -110,11 +108,6 @@ export interface WechatAdapter {
   typing?(target: string, on: boolean): Promise<void>
   /** bridge 后端的 webhook 入站：把桥推送的 payload 归一化成事件 */
   handleWebhook?(payload: unknown): WechatInboundEvent[]
-  /** bridge 后端的扩展动作（联系人/群管理/朋友圈）；iLink 不实现。 */
-  performAction?(
-    action: WechatBridgeAction,
-    payload: Record<string, unknown>,
-  ): Promise<WechatActionResult>
 }
 
 export function localRejected(reason: string, rejectedBy: string): WechatSendResult {

@@ -28,11 +28,9 @@ import type {
   WechatAccountStatusView,
   WechatAccountView,
   WechatActionLogView,
-  WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
   WechatBackendCapability,
-  WechatBridgeAction,
   WechatConversationView,
   WechatDigestScheduleView,
   WechatMessageView,
@@ -42,23 +40,37 @@ import type {
 } from '@ihui/types'
 import { db, dbRead } from '../../db/index.js'
 import { AppError } from '../../errors/AppError.js'
-import { encryptJSON } from '../../utils/crypto.js'
+import { decryptJSON, encryptJSON, type EncryptedPayload } from '../../utils/crypto.js'
 import { logger } from '../../utils/logger.js'
 import { runAnalysis } from './analysis-runner.js'
 import { BridgeAdapter } from './bridge-adapter.js'
-import { HUB_LOGGER, buildContext, createAdapter, loadRuntime } from './adapter-factory.js'
-import type { WechatAdapter, WechatInboundEvent, WechatSendOptions } from './types.js'
+import { IlinkAdapter } from './ilink-adapter.js'
+import { MockAdapter } from './mock-adapter.js'
+import type {
+  WechatAdapter,
+  WechatAdapterContext,
+  WechatHubLogger,
+  WechatInboundEvent,
+  WechatRuntimeAccount,
+  WechatSendOptions,
+} from './types.js'
 import { localRejected } from './types.js'
 import {
   BACKEND_CAPABILITIES,
   asRecord,
   asString,
   iso,
+  toStringRecord,
   toAccountView,
   type AccountRow,
   type JsonRecord,
 } from './views.js'
-import { updateAccountStatus } from './account-store.js'
+import {
+  patchAccountCredentials,
+  patchAccountMetadata,
+  updateAccountCursor,
+  updateAccountStatus,
+} from './account-store.js'
 import { applySendPolicy } from './send-policy.js'
 import { assertAccountForUser } from './guards.js'
 import {
@@ -76,6 +88,13 @@ import {
   markResult,
   markRunning,
 } from './digest.js'
+
+const HUB_LOGGER: WechatHubLogger = {
+  info: (obj, msg) => logger.info(msg ?? '[wechat-hub]', obj),
+  warn: (obj, msg) => logger.warn(msg ?? '[wechat-hub]', obj),
+  error: (obj, msg) => logger.error(msg ?? '[wechat-hub]', obj),
+  debug: (obj, msg) => logger.debug(msg ?? '[wechat-hub]', obj),
+}
 
 export class WechatHubManager {
   private adapters = new Map<string, WechatAdapter>()
@@ -145,18 +164,11 @@ export class WechatHubManager {
     this.connecting.add(accountId)
     try {
       const row = await this.assertAccount(userId, accountId)
-      const runtime = loadRuntime(row)
-      const adapter = createAdapter(runtime.backend, accountId)
+      const runtime = this.loadRuntime(row)
+      const adapter = this.createAdapter(runtime.backend, accountId)
       this.adapters.set(accountId, adapter)
       try {
-        await adapter.connect(
-          buildContext(
-            accountId,
-            runtime,
-            async (event) => this.ingestEvent(accountId, event),
-            HUB_LOGGER,
-          ),
-        )
+        await adapter.connect(this.buildContext(accountId, runtime))
       } catch (e) {
         this.adapters.delete(accountId)
         await updateAccountStatus(accountId, 'error', e instanceof Error ? e.message : '连接失败')
@@ -285,7 +297,7 @@ export class WechatHubManager {
 
   async send(userId: string, input: WechatSendInput): Promise<WechatSendResult> {
     const row = await this.assertAccount(userId, input.accountId)
-    const runtime = loadRuntime(row)
+    const runtime = this.loadRuntime(row)
     const adapter = this.adapters.get(input.accountId)
     if (!adapter || adapter.getStatus() !== 'online') {
       throw new AppError('账号尚未连接，请先扫码/连接桥', 409, 'WECHAT_ACCOUNT_OFFLINE')
@@ -349,39 +361,6 @@ export class WechatHubManager {
     return result
   }
 
-  async performAction(
-    userId: string,
-    accountId: string,
-    action: WechatBridgeAction,
-    payload: Record<string, unknown>,
-  ): Promise<WechatActionResult> {
-    const row = await this.assertAccount(userId, accountId)
-    const adapter = this.adapters.get(accountId)
-    if (!adapter || adapter.getStatus() !== 'online') {
-      throw new AppError('账号尚未连接，请先扫码/连接桥', 409, 'WECHAT_ACCOUNT_OFFLINE')
-    }
-    if (!adapter.performAction) {
-      return {
-        ok: false,
-        status: 'unsupported',
-        data: {},
-        reason: '当前后端不支持该动作，请使用 bridge 后端',
-      }
-    }
-    const result = await adapter.performAction(action, payload)
-    const target = typeof payload.conversationId === 'string' ? payload.conversationId : null
-    await this.writeAction(
-      row.id,
-      userId,
-      action,
-      target,
-      { action, status: result.status },
-      result.ok ? 'success' : 'failed',
-      result.ok ? undefined : (result.reason ?? undefined),
-    )
-    return result
-  }
-
   async analyze(
     userId: string,
     input: {
@@ -425,7 +404,7 @@ export class WechatHubManager {
     if (!row || row.backend !== 'bridge') {
       throw new AppError('桥账号不存在', 404, 'WECHAT_BRIDGE_NOT_FOUND')
     }
-    const runtime = loadRuntime(row)
+    const runtime = this.loadRuntime(row)
     const expected = runtime.credentials.webhookSecret ?? asString(runtime.metadata.webhookSecret)
     if (!expected) {
       throw new AppError('桥账号未配置 webhookSecret', 400, 'WECHAT_WEBHOOK_SECRET_MISSING')
@@ -730,6 +709,55 @@ export class WechatHubManager {
   }
 
   // ===== 适配器与回写 =====
+
+  private createAdapter(
+    backend: WechatRuntimeAccount['backend'],
+    accountId: string,
+  ): WechatAdapter {
+    switch (backend) {
+      case 'ilink':
+        return new IlinkAdapter()
+      case 'bridge':
+        return new BridgeAdapter()
+      case 'mock':
+        return new MockAdapter()
+      default:
+        throw new AppError(`不支持的微信后端: ${accountId}`, 400, 'WECHAT_BACKEND_UNSUPPORTED')
+    }
+  }
+
+  private buildContext(accountId: string, runtime: WechatRuntimeAccount): WechatAdapterContext {
+    return {
+      account: runtime,
+      logger: HUB_LOGGER,
+      onEvent: async (event) => this.ingestEvent(accountId, event),
+      onStatus: async (status, error) => updateAccountStatus(accountId, status, error ?? null),
+      onCursor: async (cursor) => updateAccountCursor(accountId, cursor),
+      onCredentials: async (patch) => patchAccountCredentials(accountId, patch),
+      onMetadata: async (patch) => patchAccountMetadata(accountId, patch),
+    }
+  }
+
+  private loadRuntime(row: AccountRow): WechatRuntimeAccount {
+    let credentials: Record<string, string> = {}
+    try {
+      const decrypted = decryptJSON(row.credentialsEncrypted as unknown as EncryptedPayload)
+      credentials = toStringRecord(decrypted)
+    } catch {
+      credentials = {}
+    }
+    return {
+      id: row.id,
+      userId: row.userId,
+      label: row.label,
+      backend: row.backend as WechatRuntimeAccount['backend'],
+      status: row.status as WechatAccountStatus,
+      credentials,
+      cursor: row.cursor,
+      metadata: asRecord(row.metadata),
+      allowlistEnabled: row.allowlistEnabled,
+    }
+  }
 
   // ===== 查询辅助 =====
 

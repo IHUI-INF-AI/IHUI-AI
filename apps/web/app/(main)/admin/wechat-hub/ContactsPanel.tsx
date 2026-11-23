@@ -21,7 +21,6 @@ import {
 import { Alert } from '@/components/feedback'
 import type { WechatContactView } from '@ihui/types'
 import GroupMembersCard from './GroupMembersCard'
-import ContactPlatformActions from './ContactPlatformActions'
 import { wechatHubApi } from './wechat-hub-api'
 
 function formatTime(value: string | null): string {
@@ -97,12 +96,6 @@ export default function ContactsPanel({ accountId }: { accountId: string }) {
               <Search className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <ContactPlatformActions
-            accountId={accountId}
-            contactId={contactId}
-            contactUserId={selected?.platformUserId}
-            onChanged={() => void contactsQuery.refetch()}
-          />
           {contactsQuery.isLoading ? (
             <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />

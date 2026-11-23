@@ -49,17 +49,6 @@ describe('normalizeBridgePayload', () => {
     expect(events[0]?.content).toBe('[图片]')
   })
 
-  it('chatId 带 @chatroom 后缀也识别为群聊', () => {
-    const events = normalizeBridgePayload({
-      id: 'm-group-id',
-      chatId: '12345678@chatroom',
-      sender: 'wxid-b',
-      content: '群里好',
-    })
-    expect(events[0]?.conversationKind).toBe('group')
-    expect(events[0]?.platformChatId).toBe('12345678@chatroom')
-  })
-
   it('吃下裸数组并保留毫秒时间戳', () => {
     const events = normalizeBridgePayload([
       {

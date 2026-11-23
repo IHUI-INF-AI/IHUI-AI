@@ -28,9 +28,6 @@ import { wechatHubManager } from '../services/wechat-hub/manager.js'
 import { listContacts, listGroupMembers } from '../services/wechat-hub/contacts.js'
 import { listRules } from '../services/wechat-hub/automation.js'
 import { getSchedule } from '../services/wechat-hub/digest.js'
-import { publishMoment, runGroupAction, syncContacts } from '../services/wechat-hub/operations.js'
-import { broadcast } from '../services/wechat-hub/broadcast.js'
-import { searchKnowledge } from '../services/wechat-hub/knowledge.js'
 import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const backendSchema = z.enum(['ilink', 'bridge', 'mock'])
@@ -97,10 +94,6 @@ const mcpCallSchema = z.object({
   name: z.string().min(1),
   arguments: z.record(z.string(), z.unknown()).optional(),
 })
-
-const groupActionNameSchema = z.enum(['create', 'invite', 'kick', 'rename', 'announce'])
-
-const broadcastKindSchema = z.enum(['text', 'image', 'file', 'link', 'card'])
 
 const MCP_TOOLS: WechatMcpTool[] = [
   {
@@ -245,75 +238,6 @@ const MCP_TOOLS: WechatMcpTool[] = [
       required: ['accountId'],
     },
   },
-  {
-    name: 'wechat_sync_contacts',
-    description: '从桥同步联系人到本地（仅 bridge 后端，iLink 返回 unsupported）。',
-    inputSchema: {
-      type: 'object',
-      properties: { accountId: { type: 'string' } },
-      required: ['accountId'],
-    },
-  },
-  {
-    name: 'wechat_group_action',
-    description: '群管理：create/invite/kick/rename/announce（仅 bridge 后端）。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        accountId: { type: 'string' },
-        action: { type: 'string', enum: ['create', 'invite', 'kick', 'rename', 'announce'] },
-        conversationId: { type: 'string' },
-        memberIds: { type: 'array', items: { type: 'string' } },
-        title: { type: 'string' },
-        text: { type: 'string' },
-      },
-      required: ['accountId', 'action'],
-    },
-  },
-  {
-    name: 'wechat_publish_moment',
-    description: '发布朋友圈（仅 bridge 后端；iLink 返回 unsupported）。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        accountId: { type: 'string' },
-        text: { type: 'string' },
-        mediaUrls: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['accountId', 'text'],
-    },
-  },
-  {
-    name: 'wechat_broadcast',
-    description: '按目标/标签/全部联系人群发；逐条走出站策略，单次上限 100。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        accountId: { type: 'string' },
-        text: { type: 'string' },
-        mediaUrl: { type: 'string' },
-        kind: { type: 'string', enum: ['text', 'image', 'file', 'link', 'card'] },
-        targets: { type: 'array', items: { type: 'string' } },
-        tags: { type: 'array', items: { type: 'string' } },
-        includeBlocked: { type: 'boolean' },
-        dryRun: { type: 'boolean' },
-      },
-      required: ['accountId'],
-    },
-  },
-  {
-    name: 'wechat_knowledge_search',
-    description: '在指定账号的知识库里做语义/关键词检索。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        accountId: { type: 'string' },
-        query: { type: 'string' },
-        topK: { type: 'number', minimum: 1, maximum: 20 },
-      },
-      required: ['accountId', 'query'],
-    },
-  },
 ]
 
 function readArg(args: Record<string, unknown>, key: string): string {
@@ -337,21 +261,6 @@ function readOptionalNumber(
     throw new AppError(`MCP 参数非法：${key}`, 400, 'WECHAT_MCP_ARGUMENT_INVALID')
   }
   return Math.min(Math.max(Math.trunc(number), 1), max)
-}
-
-function readOptionalStringArray(
-  args: Record<string, unknown>,
-  key: string,
-  max: number,
-): string[] | undefined {
-  const value = args[key]
-  if (value === undefined) return undefined
-  if (!Array.isArray(value)) {
-    throw new AppError(`MCP 参数非法：${key}`, 400, 'WECHAT_MCP_ARGUMENT_INVALID')
-  }
-  return value
-    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    .slice(0, max)
 }
 
 export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
@@ -675,67 +584,6 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
         case 'wechat_get_digest_schedule': {
           const accountId = readArg(args, 'accountId')
           return reply.send(success(await getSchedule(userId, accountId)))
-        }
-        case 'wechat_sync_contacts': {
-          const accountId = readArg(args, 'accountId')
-          return reply.send(success(await syncContacts(userId, accountId)))
-        }
-        case 'wechat_group_action': {
-          const accountId = readArg(args, 'accountId')
-          const action = parseOrThrow(groupActionNameSchema, readArg(args, 'action'))
-          const memberIds = readOptionalStringArray(args, 'memberIds', 50)
-          return reply.send(
-            success(
-              await runGroupAction(userId, accountId, {
-                action,
-                conversationId:
-                  typeof args.conversationId === 'string' ? args.conversationId : undefined,
-                memberIds,
-                title: typeof args.title === 'string' ? args.title : undefined,
-                text: typeof args.text === 'string' ? args.text : undefined,
-              }),
-            ),
-          )
-        }
-        case 'wechat_publish_moment': {
-          const accountId = readArg(args, 'accountId')
-          return reply.send(
-            success(
-              await publishMoment(userId, accountId, {
-                text: readArg(args, 'text'),
-                mediaUrls: readOptionalStringArray(args, 'mediaUrls', 9),
-              }),
-            ),
-          )
-        }
-        case 'wechat_broadcast': {
-          const accountId = readArg(args, 'accountId')
-          const kind =
-            typeof args.kind === 'string' ? parseOrThrow(broadcastKindSchema, args.kind) : undefined
-          const result = await broadcast(userId, {
-            accountId,
-            kind,
-            text: typeof args.text === 'string' ? args.text : undefined,
-            mediaUrl: typeof args.mediaUrl === 'string' ? args.mediaUrl : undefined,
-            targets: readOptionalStringArray(args, 'targets', 100),
-            tags: readOptionalStringArray(args, 'tags', 20),
-            includeBlocked: args.includeBlocked === true,
-            dryRun: args.dryRun === true,
-          })
-          return reply.send(success(result))
-        }
-        case 'wechat_knowledge_search': {
-          const accountId = readArg(args, 'accountId')
-          return reply.send(
-            success(
-              await searchKnowledge(
-                userId,
-                accountId,
-                readArg(args, 'query'),
-                readOptionalNumber(args, 'topK', 5, 20),
-              ),
-            ),
-          )
         }
         default:
           throw new AppError(`未知 MCP 工具：${body.name}`, 404, 'WECHAT_MCP_TOOL_UNKNOWN')

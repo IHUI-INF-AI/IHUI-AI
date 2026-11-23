@@ -10,15 +10,12 @@
  */
 import {
   analyzeWechat,
-  broadcastWechat,
   callWechatMcpTool,
   connectWechatAccount,
   createWechatAccount,
   createWechatAutoReplyRule,
   deleteWechatAccount,
   deleteWechatAutoReplyRule,
-  deleteWechatKnowledge,
-  deleteWechatRemoteContact,
   disconnectWechatAccount,
   fetchWechatAccounts,
   fetchWechatActions,
@@ -28,19 +25,13 @@ import {
   fetchWechatConversations,
   fetchWechatDigestSchedule,
   fetchWechatGroupMembers,
-  fetchWechatKnowledge,
   fetchWechatMcpTools,
   fetchWechatMessages,
   fetchWechatQrCode,
   fetchWechatStatus,
-  ingestWechatKnowledge,
-  publishWechatMoment,
   runWechatDigest,
-  runWechatGroupAction,
   saveWechatDigestSchedule,
-  searchWechatKnowledge,
   sendWechatMessage,
-  syncWechatContacts,
   updateWechatAutoReplyRule,
   updateWechatContact,
   updateWechatSettings,
@@ -50,26 +41,19 @@ import type {
   WechatAccountStatusView,
   WechatAccountView,
   WechatActionLogView,
-  WechatActionResult,
   WechatAnalysisKind,
   WechatAnalysisRunView,
   WechatAutoReplyRuleInput,
   WechatAutoReplyRuleView,
   WechatBackendCapability,
-  WechatBroadcastInput,
-  WechatBroadcastResult,
   WechatContactUpdateInput,
   WechatContactView,
   WechatConversationView,
   WechatDigestScheduleInput,
   WechatDigestScheduleView,
-  WechatGroupActionInput,
   WechatGroupMemberView,
-  WechatKnowledgeDocView,
-  WechatKnowledgeHit,
   WechatMcpTool,
   WechatMessageView,
-  WechatMomentInput,
   WechatQrCodeView,
   WechatSendInput,
   WechatSendResult,
@@ -160,31 +144,5 @@ export const wechatHubApi = {
     call(() => saveWechatDigestSchedule(id, input), '保存日报计划失败'),
   runDigest: (id: string): Promise<WechatDigestScheduleView> =>
     call(() => runWechatDigest(id), '执行日报失败'),
-  syncContacts: (
-    id: string,
-  ): Promise<{
-    synced: number
-    inserted: number
-    updated: number
-    result: WechatActionResult
-  }> => call(() => syncWechatContacts(id), '同步联系人失败'),
-  deleteRemoteContact: (id: string, contactId: string): Promise<WechatActionResult> =>
-    call(() => deleteWechatRemoteContact(id, contactId), '删除远端联系人失败'),
-  runGroupAction: (id: string, input: WechatGroupActionInput): Promise<WechatActionResult> =>
-    call(() => runWechatGroupAction(id, input), '微信群动作失败'),
-  publishMoment: (id: string, input: WechatMomentInput): Promise<WechatActionResult> =>
-    call(() => publishWechatMoment(id, input), '发布朋友圈失败'),
-  knowledge: (id: string): Promise<WechatKnowledgeDocView[]> =>
-    call(() => fetchWechatKnowledge(id), '获取知识库失败'),
-  ingestKnowledge: (id: string, input: { title: string; text: string }) =>
-    call(() => ingestWechatKnowledge(id, input), '知识库入库失败'),
-  searchKnowledge: (id: string, query: string, topK = 5): Promise<WechatKnowledgeHit[]> =>
-    call(() => searchWechatKnowledge(id, query, topK), '知识库检索失败'),
-  deleteKnowledge: (id: string, docId: number): Promise<{ deleted: boolean }> =>
-    call(() => deleteWechatKnowledge(id, docId), '删除知识库文档失败'),
-  broadcast: (
-    id: string,
-    input: Omit<WechatBroadcastInput, 'accountId'>,
-  ): Promise<WechatBroadcastResult> => call(() => broadcastWechat(id, input), '群发失败'),
 } as const
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -21,7 +21,6 @@ import { createCipheriv, createHash, randomBytes, randomUUID } from 'node:crypto
 import QRCode from 'qrcode'
 import type {
   WechatAccountStatus,
-  WechatActionResult,
   WechatBackend,
   WechatMessageKind,
   WechatQrCodeView,
@@ -219,15 +218,6 @@ export class IlinkAdapter implements WechatAdapter {
       )
     } catch {
       // typing 是装饰性功能，失败不影响回复链路
-    }
-  }
-
-  async performAction(): Promise<WechatActionResult> {
-    return {
-      ok: false,
-      status: 'unsupported',
-      data: {},
-      reason: 'iLink 官方通道不支持联系人同步、群管理和朋友圈发布，请使用 bridge 后端',
     }
   }
 
