@@ -2215,12 +2215,41 @@ async function main() {
    * 而输出照样写"悬空 0 处"(本门头注与别名表两段记的都是这条教训)。
    * 处置按 §0.3:不判红、也不记绿 ⇒ exit 2,先由人把它改成静态写法或确认导出面。
    */
+  /**
+   * 已登记第三方 root 内的文件不参与本条 —— 与 `--rev` 档 `auditOneFace` 的第三参数是**同一份
+   * 台账出口**(§0.6 单一真相源,经 `third-party-roots.mjs` 的 `createExclusionPredicate`)。
+   *
+   * 为什么免:本门回答的是「**本仓自研代码**有没有引用了不存在的导出」。archify 3.3.0 的 10 处
+   * `import … from '../../vendor/deps.cjs'` 全部指向 vendored CJS(`module.exports` 被赋值为
+   * 非字面量),D1 按定义读不出导出面 ⇒ 每轮都落 cjsUn 并 exit 2,而上游包内部的自洽性归上游与
+   * 其 THIRD_PARTY_NOTICES,归属面另由 provenance-ledger 的 P8「归属反噬」审。
+   *
+   * 这不是"少判一次":① 被排除处数由下一行**报数**(数字必现,不静默);② 台账算不出来时直接
+   * exit 2 **未判定**,不按"没有第三方"继续跑,既不冒绿也不冒红(§0.3)。
+   */
+  const cjsUnAll = cjsUnpending.length
+  let cjsUnScope = cjsUnpending
+  let thirdPartyCjsSkipped = 0
+  try {
+    const tp = createExclusionPredicate(ROOT)
+    cjsUnScope = cjsUnpending.filter((u) => !tp.isExcluded(u.file))
+    thirdPartyCjsSkipped = cjsUnAll - cjsUnScope.length
+  } catch (e) {
+    console.log(
+      `❌ 无法判定:第三方来源台账取不到(${e && e.message ? e.message : e})—— 不按"没有第三方"继续跑(§0.3)`,
+    )
+    process.exit(2)
+  }
   console.log(
-    `[dangling-imports] D1 CJS 导出面:不可静态判定 ${cjsUnpending.length} 处(不判红也不记绿,逐条点名)`,
+    `[dangling-imports] 第三方排除面:${thirdPartyCjsSkipped} 处 D1 盲区落在已登记 vendored 文件内,` +
+      `不参与本门(台账 ${THIRD_PARTY_LEDGER_DIR};排除的是自研代码的导入规范,不是上游代码的正确性)`,
   )
-  for (const u of cjsUnpending)
+  console.log(
+    `[dangling-imports] D1 CJS 导出面:不可静态判定 ${cjsUnScope.length} 处(不判红也不记绿,逐条点名)`,
+  )
+  for (const u of cjsUnScope)
     console.log(`   ⚠️ D1 未判定 ${u.file}:${u.line} ${u.spec} → ${u.target} —— ${u.why}`)
-  if (cjsUnpending.length) {
+  if (cjsUnScope.length) {
     console.log(
       '❌ 无法判定:D1 有 CJS 目标的导出面读不出(module.exports 非字面量 / require 透传 / 对象含展开或计算键)—— 不记绿也不冒红(§0.3)',
     )
