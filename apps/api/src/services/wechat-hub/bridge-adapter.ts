@@ -114,6 +114,41 @@ function parseSentAt(record: JsonRecord): Date {
   return new Date()
 }
 
+/**
+ * 桥的 `/messages?since=` 空页会回 `{ ok:true, messages:[], nextCursor:'3' }`。
+ * 这种"信封"绝不能被当成单条消息，否则每轮轮询都会落一条空入站消息
+ * （真实事故：889 条 content='' 的 unknown 会话就是这么来的）。
+ */
+function hasEnvelopeList(root: JsonRecord): boolean {
+  return ['messages', 'data', 'items'].some((key) => Array.isArray(root[key]))
+}
+
+function looksLikeMessage(root: JsonRecord): boolean {
+  return [
+    'id',
+    'messageId',
+    'message_id',
+    'msgId',
+    'msg_id',
+    'chatId',
+    'chat_id',
+    'roomId',
+    'room_id',
+    'conversationId',
+    'sender',
+    'from',
+    'senderId',
+    'sender_id',
+    'content',
+    'text',
+    'message',
+    'body',
+    'mediaUrl',
+    'media_url',
+    'url',
+  ].some((key) => firstString(root, [key]) !== null)
+}
+
 function parseGroupMembers(
   root: JsonRecord,
   record: JsonRecord,
@@ -169,7 +204,10 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
     const record = asRecord(item)
     if (record) candidates.push(record)
   }
-  if (candidates.length === 0) candidates.push(root)
+  if (candidates.length === 0) {
+    if (hasEnvelopeList(root) || !looksLikeMessage(root)) return []
+    candidates.push(root)
+  }
 
   const events: WechatInboundEvent[] = []
   for (const record of candidates) {
@@ -188,6 +226,7 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
       firstString(record, ['content', 'text', 'message', 'body']) ??
       (kind === 'image' ? '[图片]' : kind === 'voice' ? '[语音]' : kind === 'video' ? '[视频]' : '')
     const mediaUrl = firstString(record, ['mediaUrl', 'media_url', 'url', 'fileUrl', 'file_url'])
+    if (!content && !mediaUrl && !senderId) continue
     const isGroup =
       firstString(record, ['roomId', 'room_id']) !== null ||
       firstString(record, ['chatType', 'chat_type', 'conversationType']) === 'group' ||

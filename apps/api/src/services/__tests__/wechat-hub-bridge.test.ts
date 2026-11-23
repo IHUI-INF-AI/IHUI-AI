@@ -75,6 +75,12 @@ describe('normalizeBridgePayload', () => {
     expect(events[0]?.sentAt.getTime()).toBe(1_760_000_000_000)
   })
 
+  it('空 messages 信封不产生空入站消息', () => {
+    expect(normalizeBridgePayload({ ok: true, messages: [], nextCursor: '3' })).toEqual([])
+    expect(normalizeBridgePayload({ ok: true, data: [], nextCursor: '3' })).toEqual([])
+    expect(normalizeBridgePayload({ ok: true })).toEqual([])
+  })
+
   it('未知形状不抛错，返回单条兜底事件', () => {
     const events = normalizeBridgePayload({ id: 'x', content: 'hi' })
     expect(events).toHaveLength(1)
