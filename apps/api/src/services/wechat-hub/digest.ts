@@ -236,9 +236,20 @@ export async function markResult(
   status: string,
   error: string | null,
 ): Promise<void> {
+  const rows = await dbRead
+    .select({
+      lastStatus: wechatHubDigestSchedules.lastStatus,
+      lastError: wechatHubDigestSchedules.lastError,
+    })
+    .from(wechatHubDigestSchedules)
+    .where(eq(wechatHubDigestSchedules.accountId, accountId))
+    .limit(1)
+  const current = rows[0]
+  if (!current || (current.lastStatus === status && current.lastError === error)) return
+  const changed = { lastStatus: status, lastError: error }
   await db
     .update(wechatHubDigestSchedules)
-    .set({ lastStatus: status, lastError: error, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(wechatHubDigestSchedules.accountId, accountId))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

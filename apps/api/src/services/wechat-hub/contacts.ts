@@ -136,9 +136,17 @@ export async function syncGroupMembers(
         eq(wechatHubGroupMembers.conversationId, conversationId),
       ),
     )
+  const memberCount = counts[0]?.count ?? members.length
+  const current = await dbRead
+    .select({ memberCount: wechatHubConversations.memberCount })
+    .from(wechatHubConversations)
+    .where(eq(wechatHubConversations.id, conversationId))
+    .limit(1)
+  if (current[0]?.memberCount === memberCount) return
+  const changed = { memberCount }
   await db
     .update(wechatHubConversations)
-    .set({ memberCount: counts[0]?.count ?? members.length, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(wechatHubConversations.id, conversationId))
 }
 

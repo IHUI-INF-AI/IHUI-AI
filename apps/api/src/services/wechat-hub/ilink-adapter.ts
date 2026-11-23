@@ -18,6 +18,7 @@
  */
 
 import { createCipheriv, createHash, randomBytes, randomUUID } from 'node:crypto'
+import QRCode from 'qrcode'
 import type {
   WechatAccountStatus,
   WechatBackend,
@@ -59,6 +60,13 @@ function asRecord(value: unknown): JsonRecord | null {
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/** iLink 返回的是扫码落地页 URL，不是图片；这里转成可直接 <img> 渲染的二维码。 */
+async function qrImageContent(value: string): Promise<string> {
+  if (value.startsWith('data:image/')) return value
+  if (/^[A-Za-z0-9+/=]{200,}$/.test(value)) return `data:image/png;base64,${value}`
+  return QRCode.toDataURL(value, { width: 480, margin: 2 })
 }
 
 function asNumber(value: unknown): number | null {
@@ -103,6 +111,8 @@ export class IlinkAdapter implements WechatAdapter {
       return
     }
 
+    // 登录轮询依赖 running；token 路径由 startPollLoop 置位，扫码路径必须在这里置位。
+    this.running = true
     this.setStatus('connecting')
     await ctx.onStatus('connecting')
     await this.beginLogin()
@@ -209,10 +219,19 @@ export class IlinkAdapter implements WechatAdapter {
       await this.ctx?.onStatus('error', 'iLink 未返回 qrcode')
       return
     }
+    const qrContent = asString(data.qrcode_img_content)
+    let imageUrl: string | null = null
+    if (qrContent) {
+      try {
+        imageUrl = await qrImageContent(qrContent)
+      } catch {
+        imageUrl = null
+      }
+    }
     this.qr = {
       accountId: this.ctx?.account.id ?? '',
       qrcode,
-      imageUrl: asString(data.qrcode_img_content),
+      imageUrl,
       expiresAt: null,
       status: 'awaiting_scan',
     }

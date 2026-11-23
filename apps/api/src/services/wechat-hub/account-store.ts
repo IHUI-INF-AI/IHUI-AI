@@ -33,9 +33,10 @@ export async function updateAccountStatus(
 }
 
 export async function updateAccountCursor(accountId: string, cursor: string): Promise<void> {
+  const changed = { cursor, lastPollAt: new Date() }
   await db
     .update(wechatHubAccounts)
-    .set({ cursor, lastPollAt: new Date(), updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(wechatHubAccounts.id, accountId))
 }
 

@@ -667,9 +667,10 @@ export class WechatHubManager {
         rejectedBy: result.rejectedBy,
       },
     })
+    const changed = { lastMessageAt: new Date() }
     await db
       .update(wechatHubConversations)
-      .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(wechatHubConversations.id, conversationId))
   }
 

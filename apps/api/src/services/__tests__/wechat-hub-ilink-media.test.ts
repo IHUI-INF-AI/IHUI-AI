@@ -89,4 +89,69 @@ describe('IlinkAdapter.sendMedia 协议', () => {
     expect(item?.image_item.media.aes_key).toBe(Buffer.from(aeskeyHex, 'ascii').toString('base64'))
   })
 })
+
+describe('IlinkAdapter 扫码登录', () => {
+  it('取码后持续轮询，确认即落 token 并转在线', async () => {
+    vi.useFakeTimers()
+    const credentials: Array<Record<string, string>> = []
+    const statuses: string[] = []
+    const fetchMock = vi.fn(async (input: unknown) => {
+      const url = String(input)
+      if (url.includes('get_bot_qrcode')) {
+        return new Response(
+          JSON.stringify({ qrcode: 'qr-login', qrcode_img_content: 'https://qr.test/1' }),
+          { status: 200 },
+        )
+      }
+      if (url.includes('get_qrcode_status')) {
+        return new Response(JSON.stringify({ status: 'confirmed', bot_token: 'bot-token' }), {
+          status: 200,
+        })
+      }
+      if (url.includes('getupdates')) return new Promise<Response>(() => {})
+      throw new Error(`unexpected fetch ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const adapter = new IlinkAdapter()
+    await adapter.connect({
+      account: {
+        id: 'acc-ilink',
+        userId: 'user-1',
+        label: 'iLink',
+        backend: 'ilink',
+        status: 'disconnected',
+        credentials: {},
+        cursor: null,
+        metadata: {},
+        allowlistEnabled: false,
+      },
+      onEvent: async () => {},
+      onStatus: async (status) => {
+        statuses.push(status)
+      },
+      onCursor: async () => {},
+      onCredentials: async (patch) => {
+        credentials.push(patch)
+      },
+      onMetadata: async () => {},
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+    })
+
+    expect(adapter.getQrCode()?.qrcode).toBe('qr-login')
+    expect(adapter.getQrCode()?.imageUrl).toMatch(/^data:image\/png;base64,/)
+    expect(statuses).toContain('awaiting_scan')
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('get_qrcode_status'))).toBe(
+      false,
+    )
+
+    await vi.advanceTimersByTimeAsync(2_500)
+    expect(adapter.getStatus()).toBe('online')
+    expect(credentials[0]).toEqual({ token: 'bot-token' })
+    expect(adapter.getQrCode()).toBeNull()
+
+    await adapter.disconnect()
+    vi.useRealTimers()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
