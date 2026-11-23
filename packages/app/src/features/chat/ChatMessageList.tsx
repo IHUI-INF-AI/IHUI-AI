@@ -220,7 +220,12 @@ export function ChatMessageBubble({
           }
           if (seg.kind === 'image') {
             return (
-              <TouchableOpacity key={`img-${i}`} onPress={() => setPreviewUri(seg.uri)}>
+              <TouchableOpacity
+                key={`img-${i}`}
+                onPress={() => setPreviewUri(seg.uri)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={t('chat.imagePreviewA11y')}
+              >
                 <Image source={{ uri: seg.uri }} style={styles.image} resizeMode="cover" />
               </TouchableOpacity>
             )
@@ -243,6 +248,7 @@ export function ChatMessageBubble({
             activeOpacity={1}
             onPress={() => setPreviewUri(null)}
             accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
           >
             <Image
               source={{ uri: previewUri }}

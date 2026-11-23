@@ -124,6 +124,8 @@ export function AiAssistantN8nScreen({
                   key={`${url}-${i}`}
                   style={styles.imageItem}
                   onPress={() => onPreviewImage(url)}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={t('chat.imagePreviewA11y')}
                 >
                   <Image source={{ uri: url }} style={styles.chatImage} resizeMode="cover" />
                 </Tappable>
@@ -333,12 +335,12 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
+    /** 纯图标设置键：40×40 固定命中盒(与全仓纯图标按钮同档)；按钮内不再有文字 */
     modelConfigBtn: {
-      flexDirection: 'row',
+      width: 40,
+      height: 40,
       alignItems: 'center',
-      gap: rnSpacing.xs,
-      paddingHorizontal: rnSpacing.sm,
-      paddingVertical: rnSpacing.xs,
+      justifyContent: 'center',
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,

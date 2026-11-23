@@ -625,6 +625,8 @@ export default function Login() {
                 <View
                   className="login-autologin"
                   hoverClass="opacity-60"
+                  ariaRole="checkbox"
+                  ariaLabel={tt('login.autoLogin', '自动登录')}
                   onClick={() => form.setAutoLogin(!form.autoLogin)}
                 >
                   <View
@@ -729,6 +731,8 @@ function AgreementRow({
         <View
           className={`custom-checkbox ${err && !checked ? 'custom-checkbox-error' : ''} ${checked ? 'custom-checkbox-checked' : ''}`}
           hoverClass="opacity-60"
+          ariaRole="checkbox"
+          ariaLabel={tt('login.agreePrefix', '我已阅读并同意')}
           onClick={() => onChange(!checked)}
         >
           {/* 勾选符:原勾字符 → LineIcon;两处勾选(自动登录 / 协议)同取值,

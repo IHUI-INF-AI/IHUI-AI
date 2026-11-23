@@ -383,8 +383,13 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     outlineBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    /** 纯图标按钮:沿用所在按钮族的实底/描边,宽度收成方形(2026-11-23 用户定档) */
-    iconSquare: { width: 40, paddingHorizontal: 0, justifyContent: 'center' },
+    /** 纯图标按钮:沿用所在按钮族的实底/描边,收成 40×40 方形(2026-11-23 用户定档) */
+    iconSquare: {
+      width: rnSpacing['4xl'],
+      height: rnSpacing['4xl'],
+      paddingHorizontal: 0,
+      justifyContent: 'center',
+    },
     disabled: { opacity: 0.5 },
     listTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     card: {

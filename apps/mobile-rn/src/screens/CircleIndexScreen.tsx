@@ -218,6 +218,7 @@ export function CircleIndexScreen() {
                     key={i}
                     onPress={() => setPreview({ urls: imgs, index: i })}
                     accessibilityRole="imagebutton"
+                    accessibilityLabel={t('chat.msg.imgA11y')}
                   >
                     <Image source={{ uri: img }} style={styles.img} />
                   </Tappable>

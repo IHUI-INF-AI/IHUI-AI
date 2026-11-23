@@ -66,7 +66,12 @@ export function BusinessLicenseScreen({
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => onPreviewVisibleChange(true)}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => onPreviewVisibleChange(true)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={t('chat.imagePreviewA11y')}
+          >
             <Image
               source={imageSource}
               style={[styles.imageBase, aspect ? { aspectRatio: aspect } : styles.imageFallback]}

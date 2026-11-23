@@ -4,6 +4,7 @@
 
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import { useTt } from '@/i18n'
 
 export interface LikeFavoriteShareProps {
   likeCount?: number
@@ -26,13 +27,22 @@ export default function LikeFavoriteShare({
   onFavorite,
   onShare,
 }: LikeFavoriteShareProps) {
-  // 2026-11-23 用户定档:按钮只留图标,计数为 0 不再落「点赞/收藏/分享」文案
+  const tt = useTt()
+  // 2026-11-23 用户定档:按钮只留图标,计数为 0 不再落「点赞/收藏/分享」文案;
+  // 语义改由 ariaLabel 承担,命中盒固定 80rpx(40px,与 RN 视频互动条同档)。
   return (
     <View className="flex items-center justify-around py-md bg-card mt-sm">
-      <View className="flex flex-col items-center" onClick={onLike} hoverClass="opacity-60">
+      <View
+        className="flex flex-col items-center justify-center"
+        style={{ width: '80rpx', minHeight: '80rpx' }}
+        ariaRole="button"
+        ariaLabel={tt('action.like', '点赞')}
+        onClick={onLike}
+        hoverClass="opacity-60"
+      >
         <LineIcon
           name="heart"
-          size={36}
+          size={40}
           color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
         {likeCount > 0 ? (
@@ -43,10 +53,17 @@ export default function LikeFavoriteShare({
           </Text>
         ) : null}
       </View>
-      <View className="flex flex-col items-center" onClick={onFavorite} hoverClass="opacity-60">
+      <View
+        className="flex flex-col items-center justify-center"
+        style={{ width: '80rpx', minHeight: '80rpx' }}
+        ariaRole="button"
+        ariaLabel={tt('action.favorite', '收藏')}
+        onClick={onFavorite}
+        hoverClass="opacity-60"
+      >
         <LineIcon
           name="star"
-          size={36}
+          size={40}
           color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
         {favoriteCount > 0 ? (
@@ -57,8 +74,15 @@ export default function LikeFavoriteShare({
           </Text>
         ) : null}
       </View>
-      <View className="flex flex-col items-center" onClick={onShare} hoverClass="opacity-60">
-        <LineIcon name="share-2" size={36} color="var(--color-muted-foreground)" />
+      <View
+        className="flex flex-col items-center justify-center"
+        style={{ width: '80rpx', minHeight: '80rpx' }}
+        ariaRole="button"
+        ariaLabel={tt('action.share', '分享')}
+        onClick={onShare}
+        hoverClass="opacity-60"
+      >
+        <LineIcon name="share-2" size={40} color="var(--color-muted-foreground)" />
         {shareCount > 0 ? (
           <Text className="text-label mt-[4rpx] text-muted-foreground">{shareCount}</Text>
         ) : null}

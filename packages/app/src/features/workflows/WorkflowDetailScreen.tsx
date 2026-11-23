@@ -717,8 +717,14 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
-    /** 纯图标按钮:沿用 danger 实底,宽度收成方形(2026-11-23 用户定档) */
-    iconSquare: { width: 40, paddingHorizontal: 0, justifyContent: 'center' },
+    /** 纯图标按钮:沿用 danger 实底,收成 40×40 方形(2026-11-23 用户定档) */
+    iconSquare: {
+      width: rnSpacing['4xl'],
+      height: rnSpacing['4xl'],
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      justifyContent: 'center',
+    },
     dangerBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
     btnDisabled: { opacity: 0.6 },
     confirmBox: {

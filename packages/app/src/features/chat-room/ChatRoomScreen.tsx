@@ -180,7 +180,12 @@ export function ChatRoomScreen({
             ]}
           >
             {media === 'image' && mediaUrl ? (
-              <TouchableOpacity onPress={() => setPreviewUrl(mediaUrl)} activeOpacity={0.9}>
+              <TouchableOpacity
+                onPress={() => setPreviewUrl(mediaUrl)}
+                activeOpacity={0.9}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="图片消息，点击预览"
+              >
                 <Image source={{ uri: mediaUrl }} style={styles.messageImage} />
               </TouchableOpacity>
             ) : media === 'video' && mediaUrl ? (

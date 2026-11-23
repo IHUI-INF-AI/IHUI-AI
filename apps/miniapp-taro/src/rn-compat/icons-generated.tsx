@@ -36,12 +36,12 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-archive"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="5" x="2" y="3" rx="1" />\n  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />\n  <path d="M10 12h4" />\n</svg>\n',
   ArchiveRestore:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-archive-restore"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="5" x="2" y="3" rx="1" />\n  <path d="M4 8v11a2 2 0 0 0 2 2h2" />\n  <path d="M20 8v11a2 2 0 0 1-2 2h-2" />\n  <path d="m9 15 3-3 3 3" />\n  <path d="M12 12v9" />\n</svg>\n',
-  ArrowDown:
-    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-down"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12 5v14" />\n  <path d="m19 12-7 7-7-7" />\n</svg>\n',
   ArrowRight:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-right"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M5 12h14" />\n  <path d="m12 5 7 7-7 7" />\n</svg>\n',
   ArrowUp:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-arrow-up"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m5 12 7-7 7 7" />\n  <path d="M12 19V5" />\n</svg>\n',
+  AudioLines:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-audio-lines"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M2 10v3" />\n  <path d="M6 6v11" />\n  <path d="M10 3v18" />\n  <path d="M14 8v7" />\n  <path d="M18 5v13" />\n  <path d="M22 10v3" />\n</svg>\n',
   Award:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-award"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526" />\n  <circle cx="12" cy="8" r="6" />\n</svg>\n',
   BadgeCheck:
@@ -478,9 +478,9 @@ export const AlertTriangle = makeIcon('AlertTriangle', src('AlertTriangle'))
 export const AppWindow = makeIcon('AppWindow', src('AppWindow'))
 export const Archive = makeIcon('Archive', src('Archive'))
 export const ArchiveRestore = makeIcon('ArchiveRestore', src('ArchiveRestore'))
-export const ArrowDown = makeIcon('ArrowDown', src('ArrowDown'))
 export const ArrowRight = makeIcon('ArrowRight', src('ArrowRight'))
 export const ArrowUp = makeIcon('ArrowUp', src('ArrowUp'))
+export const AudioLines = makeIcon('AudioLines', src('AudioLines'))
 export const Award = makeIcon('Award', src('Award'))
 export const BadgeCheck = makeIcon('BadgeCheck', src('BadgeCheck'))
 export const Banknote = makeIcon('Banknote', src('Banknote'))

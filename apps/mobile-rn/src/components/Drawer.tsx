@@ -382,6 +382,7 @@ function SwipeableConversationItem({
             className="items-center justify-center active:opacity-60"
             style={styles.swipeBtn}
             onPress={() => onDelete(item.id)}
+            accessibilityRole="button"
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
             <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
