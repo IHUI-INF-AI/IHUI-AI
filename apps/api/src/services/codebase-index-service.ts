@@ -498,6 +498,42 @@ class CodebaseIndexService {
   }
 
   /**
+   * 重建判据的组合出口(P0-8 第六批,2026-11-23)。
+   *
+   * 把「读状态 → 取当前指纹 → 逐档判定」三步收成一个入口:调用方(路由、
+   * 校验脚本、未来的调度层)各自拼这三步就会各自漏掉一步 —— 漏取指纹时
+   * 会把"配置变更"读成"可复用",漏传 maxAgeMs 时会把过期索引永远当新鲜。
+   *
+   * 三条都不覆盖的默认是明确的:
+   * - `maxAgeMs` 缺省 0 ⇒ **不按时间判过期**,只看"有没有状态 / 指纹变没变";
+   *   想看过期必须由调用方显式给出窗口(这是有意的:窗口是运维口径,不是代码常量)。
+   * - `currentFingerprint` 缺省取 `resolveIndexConfigFingerprint()`(与写状态时同源)。
+   * - 无归属 ⇒ `getIndexState` 直接返 null(零 DB 调用)⇒ 判 `rebuild-no-state`。
+   *   这条**不是**"没建过索引"的断言,而是"本调用方拿不到状态"的诚实落点:
+   *   归属缺失的调用方本就不该看到状态行,也就不该据此断言别人的索引新鲜度。
+   */
+  async evaluateRebuild(opts: {
+    repoId: string
+    ownerUuid?: string | null
+    maxAgeMs?: number
+    nowMs?: number
+    currentFingerprint?: string
+  }): Promise<{
+    state: IndexStateSnapshot | null
+    currentFingerprint: string
+    decision: RebuildDecision
+  }> {
+    const { repoId, ownerUuid, maxAgeMs = 0, nowMs, currentFingerprint } = opts
+    const fingerprint = currentFingerprint ?? resolveIndexConfigFingerprint()
+    const state = await this.getIndexState(ownerUuid, repoId)
+    return {
+      state,
+      currentFingerprint: fingerprint,
+      decision: needsRebuild(state, fingerprint, nowMs ?? Date.now(), maxAgeMs),
+    }
+  }
+
+  /**
    * 写/刷新索引状态(P0-8 第二批,幂等)。
    *
    * 幂等键 = `(owner_uuid, repo_id)`(迁移 `20261123151500` 里的唯一索引)——

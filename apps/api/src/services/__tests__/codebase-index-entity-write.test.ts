@@ -160,12 +160,13 @@ describe('P0-8c 接线与契约(源码面)', () => {
     return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8')
   }
 
-  it('实体谓词独立实现(不复用切片表的 _ownerScope)且被四处在位使用', () => {
+  it('实体谓词独立实现(不复用切片表的 _ownerScope)且被多处使用', () => {
     const src = read('apps/api/src/services/codebase-index-service.ts')
     expect(src).toContain('function _entityOwnerScope(')
     expect(src).toContain('eq(codebaseEntities.ownerUuid, ownerUuid)')
-    // 定义 1 处 + indexChunks 1 处 + 三个删除方法各 1 处 = 5
-    expect(src.split('_entityOwnerScope(').length - 1).toBe(5)
+    // 定义 1 + indexChunks 1 + 三个删除方法各 1 = 5 是**下界**:读面(findEntities)等
+    // 后续消费点会让计数增长,而上界不设 —— 新增消费点正是我们要的方向。
+    expect(src.split('_entityOwnerScope(').length - 1).toBeGreaterThanOrEqual(5)
   })
 
   it('indexChunks 内派生实体并在同一事务写入,返回值带 entities', () => {

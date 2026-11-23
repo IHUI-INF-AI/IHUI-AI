@@ -98,11 +98,65 @@ async def test_symbols_empty_with_chunks_is_catalog_missing(
     async def some_index(*_a: object, **_k: object) -> list[dict]:
         return [{"filePath": "src/a.py", "lineStart": 1, "lineEnd": 9}]
 
+    async def rebuild_state(*_a: object, **_k: object) -> dict:
+        return {
+            "status": "ok",
+            "decision": "rebuild-config-changed",
+            "current_fingerprint": "v2",
+            "state": {"configFingerprint": "v1", "lastIndexedAtMs": 1, "chunkCount": 3},
+        }
+
     monkeypatch.setattr(fs, "_fetch_symbol_definitions", empty_defs)
     monkeypatch.setattr(fs, "_fetch_path_index", some_index)
+    monkeypatch.setattr(fs, "_fetch_index_state", rebuild_state)
     out = await fs.list_symbols("r1", "fn_a", "u1")
     assert out["status"] == "catalog_missing"
     assert "同形" in str(out["detail"])
+    # P0-8 第六批:判据说该重建 ⇒ 原委里直接给出为什么
+    assert "rebuild-config-changed" in str(out["detail"])
+    assert out["index_state"]["decision"] == "rebuild-config-changed"
+
+
+async def test_symbols_catalog_missing_with_reuse_fresh_keeps_detail(
+    fs: KnowledgeFS, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def empty_defs(*_a: object, **_k: object) -> list[dict]:
+        return []
+
+    async def some_index(*_a: object, **_k: object) -> list[dict]:
+        return [{"filePath": "src/a.py", "lineStart": 1, "lineEnd": 9}]
+
+    async def fresh_state(*_a: object, **_k: object) -> dict:
+        return {"status": "ok", "decision": "reuse-fresh", "current_fingerprint": "v1", "state": {}}
+
+    monkeypatch.setattr(fs, "_fetch_symbol_definitions", empty_defs)
+    monkeypatch.setattr(fs, "_fetch_path_index", some_index)
+    monkeypatch.setattr(fs, "_fetch_index_state", fresh_state)
+    out = await fs.list_symbols("r1", "fn_a", "u1")
+    assert out["status"] == "catalog_missing"
+    assert "需要重建索引" not in str(out["detail"])
+    assert out["index_state"]["decision"] == "reuse-fresh"
+
+
+async def test_symbols_catalog_missing_with_state_unavailable_is_unjudged(
+    fs: KnowledgeFS, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def empty_defs(*_a: object, **_k: object) -> list[dict]:
+        return []
+
+    async def some_index(*_a: object, **_k: object) -> list[dict]:
+        return [{"filePath": "src/a.py", "lineStart": 1, "lineEnd": 9}]
+
+    async def no_state(*_a: object, **_k: object) -> None:
+        return None
+
+    monkeypatch.setattr(fs, "_fetch_symbol_definitions", empty_defs)
+    monkeypatch.setattr(fs, "_fetch_path_index", some_index)
+    monkeypatch.setattr(fs, "_fetch_index_state", no_state)
+    out = await fs.list_symbols("r1", "fn_a", "u1")
+    assert out["status"] == "catalog_missing"
+    assert out["index_state"]["status"] == "upstream_unavailable"
+    assert "未判定" in str(out["index_state"]["detail"])
 
 
 async def test_symbols_empty_but_index_unavailable_is_undecided(

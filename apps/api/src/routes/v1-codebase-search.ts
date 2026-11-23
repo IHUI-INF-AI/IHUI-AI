@@ -223,6 +223,35 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /repo/:repoId/index-state?maxAgeMs= - 索引状态与重建判据
+  // (P0-8 第六批,2026-11-23:`needsRebuild`/`getIndexState` 的第一个生产消费方;
+  // maxAgeMs 缺省 0 = 不按时间判过期,由调用方显式给窗口)
+  server.get('/repo/:repoId/index-state', async (req, reply) => {
+    const { repoId } = req.params as { repoId?: string }
+    const q = (req.query as { maxAgeMs?: string }) ?? {}
+    if (!repoId) {
+      return reply.status(400).send(error(400, '缺少 repoId'))
+    }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
+    const maxAgeMs = q.maxAgeMs === undefined ? 0 : Number(q.maxAgeMs)
+    if (!Number.isFinite(maxAgeMs) || maxAgeMs < 0) {
+      return reply.status(400).send(error(400, 'maxAgeMs 必须是非负整数'))
+    }
+    try {
+      const evaluated = await codebaseIndexService.evaluateRebuild({
+        repoId,
+        ownerUuid: req.userId,
+        maxAgeMs,
+      })
+      return reply.send(success({ repoId, ...evaluated }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '索引状态查询失败'))
+    }
+  })
+
   // POST /index - 批量索引切片(由 ai-service codebase_indexer 调用)
   server.post('/index', async (req, reply) => {
     const parsed = indexSchema.safeParse(req.body)

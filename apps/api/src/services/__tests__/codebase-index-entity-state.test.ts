@@ -202,7 +202,8 @@ describe('P0-8b schema / 迁移 / 接线三面', () => {
     const journal = JSON.parse(read('packages/database/drizzle/meta/_journal.json')) as {
       entries: Array<{ tag: string }>
     }
-    expect(journal.entries.at(-1)?.tag).toBe('20261123151500_codebase_entity_edge_state')
+    // journal 末条会随他人新增迁移而变,故只断言本票条目**在册**(不冒充最后一条)
+    expect(journal.entries.map((e) => e.tag)).toContain('20261123151500_codebase_entity_edge_state')
   })
 
   it('接线回潮闸:indexChunks 末尾 best-effort 标记 + 幂等 upsert', () => {

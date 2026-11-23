@@ -800,4 +800,52 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 1. 工具能否出现在某个客户端的清单里，还取决于 tool aggregator / deferral 的既有分层（本批只保证"注册表双射 + 可被 call_tool 调到"，不承诺每个客户端都挤进首屏清单）。
 2. `codebase_edges` 仍无写入通道；`needsRebuild` / `getIndexState` 仍只有测试消费方。
+
+## 28. P0-8 第六批：索引状态判据通电（2026-11-23）
+
+> 第二批写了 `needsRebuild` / `getIndexState` / `markIndexed`，但 `markIndexed` 有生产写入方（`indexChunks` 末尾），**判据却没有读方**——只有测试在调。这一批给它补上组合入口、HTTP 读面与 Python 消费。
+
+### 28.1 组合入口：`evaluateRebuild`
+
+「读状态 → 取当前指纹 → 逐档判定」三步收成一个入口。分开写各自的漏法是可枚举的：
+
+- 漏取指纹 ⇒ 把"配置变更"读成"可复用"（指纹那一格被填成状态里旧值）；
+- 漏传 `maxAgeMs` ⇒ 过期索引永远当新鲜；
+- 漏读状态 ⇒ 判 `rebuild-no-state` 而实际上是没查。
+
+三条缺省值都写死在同一处：`maxAgeMs` 缺省 **0**（不按时间判过期——窗口是运维口径，不是代码常量）；`currentFingerprint` 缺省取 `resolveIndexConfigFingerprint()`（与写状态时同源）；无归属 ⇒ `getIndexState` 返 null 且**零 DB 调用** ⇒ 判 `rebuild-no-state`。最后这条不是"没建过索引"的断言，而是"本调用方拿不到状态"的诚实落点。
+
+### 28.2 端点：`GET /api/v1/codebase/repo/:repoId/index-state`
+
+`maxAgeMs` 显式解析：`Number()` 得 `NaN` 或负数 ⇒ 400「maxAgeMs 必须是非负整数」；缺省 0。响应 `{ repoId, state, currentFingerprint, decision }`，`decision` 四态封闭（`rebuild-no-state` / `rebuild-config-changed` / `rebuild-stale` / `reuse-fresh`）。
+
+### 28.3 Python 消费：`knowledge_fs.index_state` + `list_symbols` 的 `catalog_missing` 富化
+
+`index_state(repo_id, uid, max_age_ms=0)`：身份缺失直接 `skipped_missing_identity`；响应**缺 `decision` 字段**判 `upstream_unavailable`——空串不得冒充 `reuse-fresh`（这是本节唯一一处"看起来能省"却必须守的地方）。
+
+真正的消费点在 `list_symbols` 的 `catalog_missing` 分支：只有在"有切片却查不到实体"这一支才多发一次请求，把判据结论写进原委——
+
+- `rebuild-config-changed` / `rebuild-stale` / `rebuild-no-state` ⇒ detail 追加「索引状态判据:xxx ⇒ 需要重建索引」；
+- `reuse-fresh` ⇒ detail 一字不动（不能给它加"该重建"的暗示）；
+- 状态取不到 ⇒ `index_state.status` 标未判定，**三因三分的结论本身不改档**（不混档是这一层的纪律）。
+
+### 28.4 顺手根治两处脆弱断言（他席改动触发，非本轮引入）
+
+合跑时两例转红，逐条核过都不是产品缺陷，而是我早前测试写得过紧：
+
+1. `codebase-index-entity-state.test.ts` 断言 journal **末条**是本票迁移。他席新增 `20261123160000_wechat_hub` 后立刻转红。改为"本票条目**在册**"——迁移条目只增不减，末条位置随时会变，这不是契约。
+2. `codebase-index-entity-write.test.ts` 断言 `_entityOwnerScope(` 恰好 5 次。第四批的 `findEntities` 是第 6 个消费点，转红。改为 `>= 5` **下界**断言，并在注释里写清"上界不设，新增消费点正是我们要的方向"——否则每次给实体面加读点都要改一次测试，会把好方向的改动逼成"改测试"。
+
+### 28.5 验证
+
+- API 新测试 `codebase-index-state-read.test.ts` **9 例**：无归属断言"一次 DB 都不查"；四档逐一（no-state / config-changed 优先于时间 / maxAgeMs=0 不判过期 / 超窗 stale / 时钟倒挂 stale / 窗口边界闭区间）；源码面钉组合三步各一份、路由接线与 `maxAgeMs` 校验。
+- Python 新测试 `test_knowledge_fs_index_state.py` **11 例**（含四档参数化）：身份缺失不起上游；`max_age_ms` 缺省 0、负值夹 0；**响应缺 decision 判未判定**（用假 httpx client 打真取数腿，而不是只测上层）。
+- 既有 `test_knowledge_fs_symbols.py` 新增 2 例，钉 `catalog_missing` 的三支富化（rebuild 档追加原委 / reuse-fresh 不追加 / 状态取不到标未判定）。三文件合跑 **44 例绿**。
+- P0-8 五批 API 测试合跑 **59 例全绿**（新增 9 + 读 9 + 写 14 + 状态 13 + 完整性 14）。
+- `tsc --noEmit`：本批改动面 0 错误（全库唯一残留 `hr-attendance.ts` 的 TS18048 来自他席未提交改动，`git diff --numstat` 现读 41/1）。
+
+### 28.6 边界
+
+1. **调度层仍未接**：`index_codebase` 工具索引前的重建判据目前由 indexer 自己的 Merkle 快照决定（那是另一套判据，且是合法的），本批只让 PG 侧状态**可判、可读、可被 Python 消费**，不声称已替换 Merkle。
+2. `codebase_edges` 仍无写入通道：边需要 import / 调用关系，切片未携带；要补得先让切片器或索引 payload 带 import 清单。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

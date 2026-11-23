@@ -317,6 +317,61 @@ class KnowledgeFS:
         ]
         return {"status": "ok", "query": query, "results": results}
 
+    async def _fetch_index_state(
+        self,
+        repo_id: str,
+        internal_user_id: str | None,
+        api_token: str | None,
+        max_age_ms: int,
+    ) -> dict[str, Any] | None:
+        """取索引状态与重建判据;上游失败返回 None(调用方落 upstream_unavailable)。"""
+        qs = httpx.QueryParams({"maxAgeMs": str(max_age_ms)})
+        url = f"{self._indexer._api_base_url}/api/v1/codebase/repo/{repo_id}/index-state?{qs}"
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(url, headers=self._headers(internal_user_id, api_token))
+            if resp.status_code >= 400:
+                logger.warning("knowledge_fs 索引状态失败 %s: HTTP %s", repo_id, resp.status_code)
+                return None
+            payload = resp.json() or {}
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("knowledge_fs 索引状态异常 %s: %s", repo_id, e)
+            return None
+        data = payload.get("data") or {}
+        if not isinstance(data, dict) or not data.get("decision"):
+            # 响应缺 decision 字段 = 判据没答上来 ⇒ 按未判定处理,不把空串当 reuse-fresh
+            return None
+        return dict(data)
+
+    async def index_state(
+        self,
+        repo_id: str,
+        internal_user_id: str | None,
+        api_token: str | None = None,
+        max_age_ms: int = 0,
+    ) -> dict[str, Any]:
+        """索引状态与重建判据(P0-8 第六批,2026-11-23;`needsRebuild` 的生产消费方)。
+
+        `max_age_ms` 缺省 0 = **不按时间判过期**(只看有没有状态、指纹变没变)。
+        想按窗口判过期由调用方显式给出 —— 窗口是运维口径,不给默认值冒充。
+        """
+        if not internal_user_id:
+            return dict(_MISSING_IDENTITY)
+        if not repo_id:
+            return {"status": "invalid_argument", "detail": "repo_id 必填"}
+        bounded = max(0, int(max_age_ms))
+        data = await self._fetch_index_state(repo_id, internal_user_id, api_token, bounded)
+        if data is None:
+            return {"status": "upstream_unavailable", "detail": "api 侧索引状态不可用,重建判据未判定"}
+        return {
+            "status": "ok",
+            "repo_id": repo_id,
+            "decision": data["decision"],
+            "current_fingerprint": data.get("currentFingerprint"),
+            "state": data.get("state"),
+            "max_age_ms": bounded,
+        }
+
     async def _fetch_symbol_definitions(
         self,
         repo_id: str,
@@ -360,6 +415,10 @@ class KnowledgeFS:
         - 实体表空且路径清单也空 ⇒ `path_missing`(没建索引);
         - 实体表空但路径清单有切片 ⇒ `catalog_missing`(索引早于实体表,重建可补),
           与"符号确实不存在"同形,故在 detail 里点明这条判据是二义的(§0.3)。
+
+        2026-11-23 第六批:这一支额外读一次索引状态(`evaluateRebuild` 判据),把
+        "为什么需要重建"(指纹变了 / 超窗 / 无状态)写进 detail;状态取不到时该读数
+        标未判定,**不改**三因三分本身的结论。
         """
         if not internal_user_id:
             return dict(_MISSING_IDENTITY)
@@ -391,6 +450,7 @@ class KnowledgeFS:
                     for r in rows
                 ],
             }
+        # 空集有两种因(未建索引 / 索引早于实体表)。先问路径清单区分,不把两种因都写成"没找到"。
         chunks = await self._fetch_path_index(repo_id, internal_user_id, api_token)
         if chunks is None:
             return {
@@ -402,7 +462,11 @@ class KnowledgeFS:
                 "status": "path_missing",
                 "detail": f"repo {repo_id} 无索引切片(可能未建索引)",
             }
-        return {
+        # 只在这一支多发一次请求(P0-8 第六批):有切片却查不到实体时,索引状态能回答
+        # "是配置指纹变了/过期了,还是压根没记录过"——三者对收信人的动作完全不同
+        # (重建 / 不用重建 / 先补索引状态)。
+        idx = await self.index_state(repo_id, internal_user_id, api_token)
+        out: dict[str, Any] = {
             "status": "catalog_missing",
             "detail": (
                 "repo 有切片但实体表无该符号:或索引建立于实体表之前(重建索引可补齐),"
@@ -411,6 +475,20 @@ class KnowledgeFS:
             "repo_id": repo_id,
             "name": symbol,
         }
+        if idx.get("status") == "ok":
+            decision = str(idx["decision"])
+            out["index_state"] = {
+                "decision": decision,
+                "state": idx.get("state"),
+                "current_fingerprint": idx.get("current_fingerprint"),
+            }
+            if decision != "reuse-fresh":
+                # 判据说该重建 ⇒ 把"为什么该重建"写进原委,收信人不用再自己去查一遍
+                out["detail"] += f";索引状态判据:{decision} ⇒ 需要重建索引"
+        else:
+            # 取不到状态 ⇒ 这条读数标未判定;原有三因三分的结论保持不变(不混档)
+            out["index_state"] = {"status": idx.get("status"), "detail": "索引状态未判定"}
+        return out
 
 
 knowledge_fs = KnowledgeFS()
