@@ -20,8 +20,9 @@ import {
   signInWithPoints,
   findLevels,
   findCurrentLevel,
+  deductPermanentPoints,
 } from '../db/gamification-queries.js'
-import { earnPoints, spendPoints } from '../services/points-service.js'
+import { earnPoints } from '../services/points-service.js'
 import { dailyCreditStateOf, availableOf } from '../services/daily-credits.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
@@ -185,7 +186,14 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       const result =
         amount > 0
           ? await earnPoints(userId, amount, 'admin', description)
-          : await spendPoints(userId, Math.abs(amount), 'admin', description)
+          : // 扣减只扣永久余额,不碰当日赠送:走 spendPoints 会先花掉平台当天送的额度,
+            // 惩罚第二天自动失效,且这笔还进不了 total_spent。
+            await deductPermanentPoints({
+              userId,
+              amount: Math.abs(amount),
+              source: 'admin',
+              description,
+            })
       return reply.send(success(result))
     } catch (e) {
       // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。

@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import { users } from '@ihui/database'
-import { ensureDailyCreditRow } from '../src/db/gamification-queries.js'
+import { ensureDailyCreditRow, deductPermanentPoints } from '../src/db/gamification-queries.js'
 import {
   DAILY_GRANT_POINTS,
   getDailyCreditState,
@@ -131,6 +131,33 @@ describe('每日赠送额度 — 真实 DB 语义', () => {
     expect(state.remaining).toBe(30)
     expect(state.granted).toBe(DAILY_GRANT_POINTS)
     expect(state.used).toBe(DAILY_GRANT_POINTS - 30)
+  })
+
+  it('管理员扣减只扣永久余额：今日赠送一分不动，且计入 total_spent', async () => {
+    const user = await createTestUser('13911110008')
+    await ensureDailyCreditRow(user.id)
+    await setDailyState(user.id, { points: 300, dailyPoints: 100, date: bizDayKey() })
+
+    const result = await deductPermanentPoints({
+      userId: user.id,
+      amount: -120, // 传负数也按绝对值扣；路由层同样是 Math.abs(amount)
+      source: 'admin',
+      description: 'test-admin-deduct',
+    })
+    expect(result.points.points).toBe(180)
+    // 关键：惩罚不得被当天补贴吸收，否则第二天重新发放后惩罚自动消失
+    expect(result.points.dailyPoints).toBe(100)
+    expect(result.points.totalSpent).toBe(120)
+    expect(result.transaction.amount).toBe(-120)
+    expect(result.transaction.balanceAfter).toBe(280)
+
+    // 永久余额不足时整笔拒绝，不允许拿赠送额度兜底
+    await expect(
+      deductPermanentPoints({ userId: user.id, amount: 500, source: 'admin' }),
+    ).rejects.toThrow('积分余额不足')
+    const after = await ensureDailyCreditRow(user.id)
+    expect(after.points).toBe(180)
+    expect(after.dailyPoints).toBe(100)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

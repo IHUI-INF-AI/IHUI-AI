@@ -65,6 +65,11 @@ export function PointHistoryScreen({
               </View>
             ) : null
           }
+          ListHeaderComponent={
+            // 明细只记永久余额的增减:每日赠送当日有效、次日清零,不写流水也不进余额列,
+            // 不说一句用户会以为"余额对不上"。
+            <Text style={styles.grantNote}>{t('pointHistory.dailyGrantNote')}</Text>
+          }
           ListEmptyComponent={
             <EmptyState title={t('pointHistory.empty')} colorScheme={colorScheme} />
           }
@@ -115,12 +120,17 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'] },
+    grantNote: {
+      fontSize: rnType.caption.size,
+      color: tk.text.medium,
+      marginBottom: rnSpacing.sm,
+    },
     separator: { height: 8 },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
     },
     titleRow: {
       flexDirection: 'row',

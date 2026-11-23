@@ -273,7 +273,7 @@ interface ApiError {
 | GET | `/api/learn/courses/:id` | 课程详情 |
 | POST | `/api/exam/papers/:id/submit` | 提交试卷 |
 | GET | `/api/members/me` | 会员信息 |
-| GET | `/api/points/balance` | 积分余额 |
+| GET | `/api/points` | 积分余额(含当日赠送额度 `dailyCredit`:每天赠 100、仅当日有效) |
 | POST | `/api/checkin` | 每日签到 |
 | GET | `/api/certificates/me` | 我的证书 |
 

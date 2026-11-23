@@ -367,6 +367,64 @@ async function adjustPointsInTx(
   return { points: pointsRow, transaction: txRow }
 }
 
+/**
+ * 只扣永久余额,不碰当日赠送额度 —— 管理端扣减/纠错专用。
+ *
+ * 为什么必须单开一条通道:`spend` 分支的语义是"用户花积分",按设计先花掉今天这份补贴
+ * (过期作废)。管理员扣分是**惩罚/纠错**,若走同一条,扣的是平台当天送的 100,
+ * 明天又照发 ⇒ 惩罚第二天自动消失,而 `total_spent` 还记不到这笔(它只累计永久扣减)。
+ * 所以这里直接扣 `points`,`daily_points` / `daily_points_date` 一律不动;
+ * 永久余额不足时整笔拒绝(不允许靠赠送额兜底)。
+ */
+export async function deductPermanentPoints(data: {
+  userId: string
+  amount: number
+  source: string
+  description?: string
+  referenceId?: string
+  at?: Date
+}): Promise<{ points: UserPoints; transaction: PointTransaction }> {
+  const amount = Math.abs(data.amount)
+  if (amount === 0) throw new Error('扣减积分数不能为 0')
+  await ensureDailyCreditRow(data.userId, data.at)
+
+  return db.transaction(async (tx) => {
+    const updated = await tx
+      .update(userPoints)
+      .set({
+        points: sql`${userPoints.points} - ${amount}`,
+        totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(userPoints.userId, data.userId), sql`${userPoints.points} >= ${amount}`))
+      .returning(userPointsFields)
+    const pointsRow = updated[0]
+    if (!pointsRow) throw new Error('积分余额不足')
+
+    const transaction = await tx
+      .insert(pointTransactions)
+      .values({
+        userId: data.userId,
+        type: 'spend',
+        source: data.source,
+        amount: -amount,
+        // 与余额页同口径:总可用 = 永久余额 + 当日仍然有效的赠送额。
+        // 这里不引 services/daily-credits 的 availableOf —— 那一层反向 import 本文件,
+        // 互相 import 会形成环,故按同一判据就地算(跨日未刷新的赠送额不计入)。
+        balanceAfter:
+          Math.max(0, pointsRow.points) +
+          (pointsRow.dailyPointsDate === bizDayKey(data.at) ? Math.max(0, pointsRow.dailyPoints) : 0),
+        description: data.description,
+        referenceId: data.referenceId,
+      })
+      .returning(transactionFields)
+    const txRow = transaction[0]
+    if (!txRow) throw new Error('创建积分流水失败')
+
+    return { points: pointsRow, transaction: txRow }
+  })
+}
+
 export interface FindTransactionsInput {
   userId: string
   page: number
