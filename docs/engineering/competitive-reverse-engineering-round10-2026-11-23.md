@@ -223,4 +223,41 @@ Windows 真作业对象 `init` ⇒ `Supported`、真 spawn 后 `kill_all` 清空
 
 **待办**：`MicroVmBackend` 只是桩；`SandboxGate` 的 guarded spawn 入口（把 `create` 包进
 `run`）未接。
+
+## 10. B2-03 输出 drain 闸门（Rust 侧补上 P0-5 的同型缺陷）
+
+**来源**：`run_helper.exe` 导入 `CreateProcessW` / `WaitForSingleObject` / `GetExitCodeProcess`；
+`aiep_sbox.dll` 导出 `DetourFinishHelperProcess` —— helper 跑完还要等「输出中继结束」才收尾。
+
+**本仓缺口（真缺陷）**：`terminal_session.rs::poll` 里 `try_wait` 一返回 `Some(status)` 就直接
+`set_state(Exited)`；此刻两个读取线程可能还在把最后一段写进环形缓冲。于是「终态」与
+「最后一段到达」之间存在窗口，调用方在这个窗口读 `read_out` 拿到的是**半截输出**，
+且没有任何标记说它不完整。
+
+**落地（2 文件）**：
+
+- 读线程计数：`spawn_reader` 增 `active: Arc<AtomicUsize>` 参数，进线程 +1、EOF / 管道断后 -1
+- 新增 `DrainOutcome` 四态（`draining / complete / drain_timeout / pipe_unavailable`）与
+  `drain_settlement(readers_active, waited, pipe_available)` 纯判据；优先级
+  **没有管道 > 还有读者 > 超时 > 完成** —— 把「没管道」排在「读者为 0」前是关键，
+  否则「两路都 None」会被误判成 `complete`（没读过任何东西却说完整）
+- `poll`：子进程退出后先结算 drain，`draining` 时**保持 `Running`**（不抢先报终态），
+  `complete` / `timeout` / `pipe_unavailable` 才落 `Exited`；超时预算
+  `DRAIN_TIMEOUT_MS = 2000`，超时如实标 `drain_timeout` 而不是永久卡在 `Running`
+- `SessionInfo.output_drain` + `SessionWire.output_drain` 透出，前端见 `drain_timeout` 须提示可能丢尾
+
+**测试**：`terminal_session::tests` **10 例**（新增 3：纯判据六种组合、四态码与 `is_settled`
+诚实性、Windows 真进程 e2e —— `cmd /C "echo hello-drain & exit 0"` 到终态后 `read_out`
+必须含 `hello-drain` 且 `output_drain == complete`）。`cargo check --lib` 0 error。
+反向变异 2 次：M1 一律报 `complete` ⇒ 判据用例红；M2 `is_settled` 对 `Draining` 返 true ⇒
+码表用例红，均如期。
+
+**零缺省**：七态对外语义不动（终态仍是 `Exited`），只多一个「输出完整性」维度；
+既有 `poll` 调用方最多多看到几毫秒的 `Running`，无行为回退。
+
+**超越轴**：对照件把「等 helper 结束」藏在 `DetourFinishHelperProcess` 的隐式约定里；
+本仓把它变成**回执里的显式字段**，等待有上限、超时如实标丢尾 —— 与第 8 节 Python 侧
+P0-5 是同一件事，两处口径一致（`complete / truncated / pipe_unavailable / timeout`）。
+
+**待办**：`MicroVmBackend` 桩；`SandboxGate` 的 guarded spawn 入口未接（承第 9 节）。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

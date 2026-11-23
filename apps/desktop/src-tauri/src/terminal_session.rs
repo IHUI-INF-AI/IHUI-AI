@@ -30,6 +30,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -175,6 +176,68 @@ impl SessionState {
     }
 }
 
+/// drain 结算的等待上限：子进程退出后，等 stdout/stderr 读到 EOF 最多这么久。
+///
+/// 2s 是个经验值：正常命令的尾部输出在毫秒级就 flush 完，2s 足够覆盖慢管道；
+/// 再久就是在等一个不会结束的读取线程（孙进程继承了管道句柄是典型原因），
+/// 此时宁可如实标 `Timeout`（承认可能丢尾），也不让 `poll` 永久卡在 `Running`。
+pub const DRAIN_TIMEOUT_MS: u64 = 2000;
+
+/// 输出 drain 结算（B2-03，对应 `run_helper.exe` 的 `WaitForSingleObject` +
+/// `DetourFinishHelperProcess` 语义）。
+///
+/// **子进程退出 ≠ 输出已到位**：两个读取线程可能还在把最后一段写进环。
+/// `Complete` 只在这两条流都读到 EOF 之后才给；超时如实标 `Timeout`（承认可能丢尾）；
+/// `PipeUnavailable` 是压根没有管道可读。绝不把「没等」标成 `Complete`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrainOutcome {
+    /// 仍在等读取线程收尾（对外仍报 Running）。
+    Draining,
+    /// 两路流都已读到 EOF，环里是完整输出。
+    Complete,
+    /// 等满预算仍未 EOF：输出**可能不完整**，调用方须提示。
+    Timeout,
+    /// 没有可读的管道（两路都 None）。
+    PipeUnavailable,
+}
+
+impl DrainOutcome {
+    pub fn code(self) -> &'static str {
+        match self {
+            DrainOutcome::Draining => "draining",
+            DrainOutcome::Complete => "complete",
+            DrainOutcome::Timeout => "drain_timeout",
+            DrainOutcome::PipeUnavailable => "pipe_unavailable",
+        }
+    }
+
+    /// 是否已结算（可以落终态）。
+    pub fn is_settled(self) -> bool {
+        !matches!(self, DrainOutcome::Draining)
+    }
+}
+
+/// 纯判据：给定「仍在读的线程数、已等时长、是否有管道」，结算 drain 状态（可单测）。
+///
+/// 优先级：**没有管道 > 还有读者 > 超时 > 完成**。把「没管道」排在「读者为 0」前面是关键——
+/// 否则「两路都 None」会被误判成 `Complete`（没读过任何东西却说完整）。
+pub fn drain_settlement(
+    readers_active: usize,
+    waited: Duration,
+    pipe_available: bool,
+) -> DrainOutcome {
+    if !pipe_available {
+        return DrainOutcome::PipeUnavailable;
+    }
+    if readers_active == 0 {
+        return DrainOutcome::Complete;
+    }
+    if waited >= Duration::from_millis(DRAIN_TIMEOUT_MS) {
+        return DrainOutcome::Timeout;
+    }
+    DrainOutcome::Draining
+}
+
 /// 会话元信息（对外只读快照，不含进程句柄）。
 #[derive(Debug, Clone)]
 pub struct SessionInfo {
@@ -189,6 +252,8 @@ pub struct SessionInfo {
     /// 整树隔离形态。`job-object` / `process-group` = 有隔离；
     /// `none_*` = **本该有却没有**（作业对象建不起 / 挂不进），上层须提示残留风险。
     pub isolation: Option<&'static str>,
+    /// 输出 drain 结算：`complete` 才是「环里是完整输出」；`drain_timeout` 须提示可能丢尾。
+    pub output_drain: DrainOutcome,
 }
 
 /// 依「作业对象是否真挂上」推导对外隔离标签（纯函数，可单测）。
@@ -346,6 +411,14 @@ pub struct TerminalSession {
     started_at: Instant,
     /// 该会话的超时预算（None = 无限）。超时由 `poll` 惰性判定。
     timeout: Option<Duration>,
+    /// 仍在读 stdout/stderr 的线程数（0 = drain 完成，可以落终态）。
+    drain_readers: Arc<AtomicUsize>,
+    /// 是否真的建了管道（两路都 None = 没有可读的输出面）。
+    pipe_available: bool,
+    /// 子进程**首次**被观察到退出的时刻（drain 超时从这一刻起算）。
+    exit_seen_at: Option<Instant>,
+    /// 已结算的 drain 结果（None = 尚未结算）。
+    drain: Option<DrainOutcome>,
 }
 
 impl TerminalSession {
@@ -385,8 +458,11 @@ impl TerminalSession {
         let stderr = child.stderr.take();
 
         // 两个后台读取线程：分别把 stdout / stderr 写入同一环形缓冲。
-        spawn_reader(stdout, Arc::clone(&ring));
-        spawn_reader(stderr, Arc::clone(&ring));
+        // 同时登记「仍有几个读者」——子进程退出后要等这个数归零才落终态（drain 闸门）。
+        let drain_readers = Arc::new(AtomicUsize::new(0));
+        let pipe_available = stdout.is_some() || stderr.is_some();
+        spawn_reader(stdout, Arc::clone(&ring), Arc::clone(&drain_readers));
+        spawn_reader(stderr, Arc::clone(&ring), Arc::clone(&drain_readers));
 
         // Windows：spawn 后挂入 Job Object。
         #[cfg(windows)]
@@ -405,6 +481,10 @@ impl TerminalSession {
             exit_code,
             started_at: Instant::now(),
             timeout,
+            drain_readers,
+            pipe_available,
+            exit_seen_at: None,
+            drain: None,
         })
     }
 
@@ -460,15 +540,26 @@ impl TerminalSession {
             Ok(Some(status)) => {
                 let code = status.code().unwrap_or(-1);
                 *self.exit_code.lock().unwrap_or_else(|p| p.into_inner()) = Some(code);
-                let next = if code == 0 {
-                    SessionState::Exited
-                } else {
-                    // 非零退出：仍算正常结束（Exited），退出码区分成败；
-                    // 只有启动即失败才用 Failed（spawn 阶段已处理）。
-                    SessionState::Exited
+                // 退出码已记，但**输出可能还没读完**：drain 结算前不落终态。
+                // 非零退出仍算 Exited（退出码区分成败），只有启动即失败才是 Failed。
+                let waited = {
+                    let seen = *self.exit_seen_at.get_or_insert_with(Instant::now);
+                    seen.elapsed()
                 };
-                self.set_state(next);
-                next
+                let settlement = drain_settlement(
+                    self.drain_readers.load(Ordering::SeqCst),
+                    waited,
+                    self.pipe_available,
+                );
+                match settlement {
+                    // 读者还在跑：保持 Running，下一轮 poll 再结算（不抢先报终态）
+                    DrainOutcome::Draining => SessionState::Running,
+                    settled => {
+                        self.drain = Some(settled);
+                        self.set_state(SessionState::Exited);
+                        SessionState::Exited
+                    }
+                }
             }
             Ok(None) => SessionState::Running,
             Err(_) => {
@@ -548,6 +639,7 @@ impl TerminalSession {
                     None
                 }
             },
+            output_drain: self.drain.unwrap_or(DrainOutcome::Draining),
         }
     }
 
@@ -558,21 +650,36 @@ impl TerminalSession {
 }
 
 /// 起一个后台读取线程，把 `R: Read` 持续写入 `ring`，EOF/错误即退。
-fn spawn_reader<R: Read + Send + 'static>(mut stream: Option<R>, ring: Arc<Mutex<RingBuffer>>) {
+///
+/// `active` 是「仍在读的线程数」计数器：进线程 +1、线程退出 -1。
+/// 子进程退出后 `poll` 依据它判断「输出是否已经全部落到环里」（drain 闸门）——
+/// 没有这个计数，`try_wait` 一返回就会把半截输出当完整交出去。
+fn spawn_reader<R: Read + Send + 'static>(
+    mut stream: Option<R>,
+    ring: Arc<Mutex<RingBuffer>>,
+    active: Arc<AtomicUsize>,
+) {
     let Some(mut stream) = stream else {
+        // 没有这一路流：不计数（由 pipe_available / 另一路决定 drain 结算）
         return;
     };
+    active.fetch_add(1, Ordering::SeqCst);
     std::thread::spawn(move || {
         let mut block = [0u8; READ_BLOCK];
         loop {
             match stream.read(&mut block) {
                 Ok(0) => break, // EOF
                 Ok(n) => {
-                    let _ = ring.lock().unwrap_or_else(|p| p.into_inner()).write(&block[..n]);
+                    let _ = ring
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                        .write(&block[..n]);
                 }
                 Err(_) => break, // 管道断（子进程退出）——正常退出路径之一
             }
         }
+        // 离开循环即「这路读完了」：EOF 与管道断都算读完，减计数让 poll 能结算终态。
+        active.fetch_sub(1, Ordering::SeqCst);
     });
 }
 
@@ -757,6 +864,77 @@ mod tests {
         assert_eq!(missing, "none_job_object_unavailable");
         // 前缀约束：失败标签必须自带 `none_`，防止前端把「没隔离」当「有隔离」。
         assert!(missing.starts_with("none_"), "失败标签须带 none_ 前缀");
+    }
+
+    #[test]
+    fn drain_settlement_never_claims_complete_while_readers_alive() {
+        // 无读者 ⇒ 完成
+        assert_eq!(
+            drain_settlement(0, Duration::from_millis(0), true),
+            DrainOutcome::Complete
+        );
+        // 还有读者、未超时 ⇒ 继续等（不抢先落终态）
+        assert_eq!(
+            drain_settlement(2, Duration::from_millis(10), true),
+            DrainOutcome::Draining
+        );
+        assert_eq!(
+            drain_settlement(1, Duration::from_millis(DRAIN_TIMEOUT_MS - 1), true),
+            DrainOutcome::Draining
+        );
+        // 超时 ⇒ 如实标 Timeout（承认可能丢尾）
+        assert_eq!(
+            drain_settlement(2, Duration::from_millis(DRAIN_TIMEOUT_MS), true),
+            DrainOutcome::Timeout
+        );
+        // 没有管道优先于「读者为 0」：没读过任何东西不得报 Complete
+        assert_eq!(
+            drain_settlement(0, Duration::from_millis(0), false),
+            DrainOutcome::PipeUnavailable
+        );
+        assert_eq!(
+            drain_settlement(5, Duration::from_millis(0), false),
+            DrainOutcome::PipeUnavailable
+        );
+    }
+
+    #[test]
+    fn drain_outcome_codes_are_stable_and_settled_flags_are_honest() {
+        assert_eq!(DrainOutcome::Draining.code(), "draining");
+        assert_eq!(DrainOutcome::Complete.code(), "complete");
+        assert_eq!(DrainOutcome::Timeout.code(), "drain_timeout");
+        assert_eq!(DrainOutcome::PipeUnavailable.code(), "pipe_unavailable");
+        assert!(!DrainOutcome::Draining.is_settled(), "未结算不得落终态");
+        assert!(DrainOutcome::Complete.is_settled());
+        assert!(DrainOutcome::Timeout.is_settled());
+        assert!(DrainOutcome::PipeUnavailable.is_settled());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn exited_session_drains_output_before_terminal_state() {
+        // 真进程：旧实现在 try_wait 一返回就落 Exited，此时输出可能还没进环。
+        // 新实现要等两个读取线程 EOF 才落终态，且 drain 必须结算为 complete。
+        let args = vec!["/C".to_string(), "echo hello-drain & exit 0".to_string()];
+        let mut s = TerminalSession::spawn(1, "cmd.exe", &args, None, None).expect("spawn");
+        let mut st = s.poll();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !st.is_terminal() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(3));
+            st = s.poll();
+        }
+        assert!(st.is_terminal(), "5s 内应到终态, 实得 {st:?}");
+        let (bytes, _, _, _) = s.read_out(1 << 20);
+        let text = String::from_utf8_lossy(&bytes).to_string();
+        assert!(
+            text.contains("hello-drain"),
+            "终态后输出必须已 drain 完整，实得 {text:?}"
+        );
+        assert_eq!(
+            s.info().output_drain,
+            DrainOutcome::Complete,
+            "正常退出应结算为 complete"
+        );
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

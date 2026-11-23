@@ -31,6 +31,8 @@ pub struct SessionWire {
     pub seq: usize,
     /// 整树隔离形态（`none_*` 表示本该有却没有，前端须提示残留风险）。
     pub isolation: Option<String>,
+    /// 输出 drain 结算（`complete` 才是完整输出；`drain_timeout` 须提示可能丢尾）。
+    pub output_drain: String,
 }
 
 impl From<SessionInfo> for SessionWire {
@@ -42,6 +44,7 @@ impl From<SessionInfo> for SessionWire {
             elapsed_ms: i.elapsed_ms,
             seq: i.seq,
             isolation: i.isolation.map(str::to_string),
+            output_drain: i.output_drain.code().to_string(),
         }
     }
 }
