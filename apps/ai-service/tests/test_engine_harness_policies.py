@@ -18,7 +18,11 @@ from typing import Any
 
 import pytest
 
-from app.services.agent_engine import INVALID_PARAMS, AgentEngine
+from app.services.agent_engine import (
+    INVALID_PARAMS,
+    AgentEngine,
+    _resolve_patch_approval_policy,
+)
 from app.services.agent_loop_v2 import (
     AgentLoopV2,
     ToolCall,
@@ -80,6 +84,38 @@ async def test_policy_never_skips_approval_for_high_risk_tool():
     assert tr.error is None and tr.result == {"ok": True}
     assert executed == ["ran"]
     assert loop._decision_hints["c1"][0] == "approval_policy_never"
+
+
+async def test_policy_deny_blocks_high_risk_tool_without_executing():
+    """deny:本需审批的高危工具确定性拒绝,executor 一次都不跑。"""
+    executed: list[str] = []
+
+    async def _exec(args):
+        executed.append("ran")
+        return {"ok": True}
+
+    loop = AgentLoopV2(
+        None,
+        [ToolDefinition(name="run_command", description="命令", parameters={}, executor=_exec)],
+        approval_enabled=True,
+        approval_timeout=5,
+        approval_policies={"run_command": "deny"},
+        user_role=1,
+    )
+    tr = await loop._execute_single(ToolCall(id="c1", name="run_command", args={"command": "ls"}))
+    assert executed == []
+    assert tr.error_type == "approval_policy_deny"
+    assert tr.result == {"approved": False, "reason": "approval_policy_deny"}
+    assert loop._decision_hints["c1"][0] == "approval_policy_deny"
+
+
+def test_patch_policy_mapping_never_always_deny():
+    """apply_patch 线程策略映射:此前写死 on_request 等于策略没接线。"""
+    assert _resolve_patch_approval_policy({"apply_patch": "deny"}) == "deny"
+    assert _resolve_patch_approval_policy({"apply_patch": "never"}) == "never"
+    assert _resolve_patch_approval_policy({"apply_patch": "always"}) == "unless_trusted"
+    assert _resolve_patch_approval_policy({"*": "always"}) == "unless_trusted"
+    assert _resolve_patch_approval_policy({}) == "on_request"
 
 
 async def test_policy_always_forces_approval_for_low_risk_tool(_mock_hook_engine):

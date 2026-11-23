@@ -811,7 +811,7 @@ class EngineThread:
         self.updated_at = time.time()
 
 
-_VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
+_VALID_APPROVAL_POLICIES = ("never", "on-request", "always", "deny")
 
 
 def _normalize_policy_dict(raw: Any) -> dict[str, str]:
@@ -826,7 +826,7 @@ def _normalize_policy_dict(raw: Any) -> dict[str, str]:
             raise JsonRpcError(
                 INVALID_PARAMS,
                 f"非法 approval_policy: 工具 {tool!r} 值 {pol!r},"
-                " 取值必须为 'never' / 'on-request' / 'always'",
+                " 取值必须为 'never' / 'on-request' / 'always' / 'deny'",
             )
         out[str(tool)] = str(pol)
     return out
@@ -888,12 +888,31 @@ def _resolve_approval_policy(policies: dict[str, str], tool_name: str) -> str | 
     return policies.get("*")
 
 
+# 本仓工具级策略 → patch_safety 的 AskForApproval 档位。deny 是本仓增补的反向档:
+# 本会 ask_user 的写操作确定性拒绝;never 才是"免审直接放行"(Codex 语义)。
+_PATCH_APPROVAL_POLICY_MAP: dict[str, str] = {
+    "never": "never",
+    "on-request": "on_request",
+    "always": "unless_trusted",
+    "deny": "deny",
+}
+
+
+def _resolve_patch_approval_policy(policies: dict[str, str] | None) -> str:
+    """apply_patch 的生效档:未配置按 on_request,显式非法值不静默降级。"""
+    raw = _resolve_approval_policy(dict(policies or {}), "apply_patch")
+    if raw is None:
+        return "on_request"
+    return _PATCH_APPROVAL_POLICY_MAP.get(str(raw).strip().lower(), "on_request")
+
+
 # 批58(十五):工具审批策略 → codex AskForApproval 档位映射(对齐 exec_policy.rs)。
 # ihui 值域 never/on-request/always;未配置等价"按需询问"(ON_REQUEST)。
 _APPROVAL_POLICY_TO_ASK: dict[str, str] = {
     "never": "never",
     "on-request": "on_request",
     "always": "unless_trusted",
+    "deny": "never",
 }
 
 
@@ -922,9 +941,12 @@ def _unmatched_command_decision_meta(
         )
 
         raw = _resolve_approval_policy(dict(policies or {}), tool_name) or ""
-        policy = AskForApproval(
-            _APPROVAL_POLICY_TO_ASK.get(str(raw).strip().lower(), "on_request")
-        )
+        policy_name = _APPROVAL_POLICY_TO_ASK.get(str(raw).strip().lower())
+        if policy_name is None:
+            # 未知档位不得静默折成 on_request:那会把"没判"伪装成"按需询问"。
+            # 回执只少一段策略元数据,拦截行为仍由前面的危险分类器决定。
+            return {}
+        policy = AskForApproval(policy_name)
         decision = render_decision_for_unmatched_command(
             True,
             UnmatchedCommandContext(
@@ -6578,7 +6600,11 @@ class AgentEngine:
                         )
                     ]
                     _verdict = assess_patch_safety(
-                        approval_policy="on_request",
+                        # 2026-11-23:此前这里写死 on_request,线程级
+                        # apply_patch 策略(never/always/deny)等于没接线。
+                        approval_policy=_resolve_patch_approval_policy(
+                            thread.approval_policies
+                        ),
                         patch_paths=_batch_paths,
                         writable_roots=[str(base)],
                         cwd=str(base),

@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 from app.core.patch_safety import (
+    APPROVAL_POLICY_DENY,
     APPROVAL_POLICY_GRANULAR_SANDBOX_APPROVAL,
     APPROVAL_POLICY_NEVER,
     APPROVAL_POLICY_ON_REQUEST,
@@ -53,6 +54,13 @@ def test_never_always_auto_approve():
     d = _auto(APPROVAL_POLICY_NEVER, ["/evil/outside.txt"], ["/proj"], sandbox_available=False)
     assert d == PatchSafetyDecision.auto_approve()
     assert d.outcome == "auto_approve"
+
+
+# 1b. deny 与 never 反向:条件完全满足也拒绝,不退化成自动放行
+def test_deny_rejects_even_when_all_in_roots_and_sandbox_available():
+    d = _auto(APPROVAL_POLICY_DENY, ["/proj/a.py"], ["/proj"], sandbox_available=True)
+    assert d.outcome == "reject"
+    assert d.reason == "writing requires approval, but approval policy is deny"
 
 
 # 2. on_request + 全路径在根内 + 沙箱可用 → auto

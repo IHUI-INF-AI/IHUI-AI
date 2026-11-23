@@ -238,6 +238,18 @@ DSH `dsh-workspace-changes` 在每轮结束宣告 `workspace/changes`，摘要�
 - 测试：`test_engine_harness_twentyseventh.py` 新增纯函数 1 例（多文件、二进制、改名、超大 coarse）；`test_engine_harness_thirteenth.py` 的 `turn.diff` 用例补 `tracked.txt` / `new_file.py` 行数与 `coarse=false` 断言；`test_engine_harness_fourteenth.py` 的非 git 用例补 `brand.py additions=1`。目标面 **39 passed in 9.07s**，非 git 单例 **1 passed**；`ruff check` 四文件全过。
 - 说明：更广的 `third/tenth/fourteenth` 回归里 `test_tool_retry_event_emitted` 出现 `calls["n"]==0`（工具未被执行，与本轮 diff 统计无关的存量/顺序现象），不把该例计入本轮绿账，也不借此报整包绿。
 
+## 追加批：审批档位反向语义显式化（deny）并把 apply_patch 策略接线
+
+对照 `dsh-user-approval` 的 `never` 语义（每个 ask 确定性拒绝），本仓已有 `never` 是 Codex 语义（不问人、直接放行）。两个词同名反向，直接抄名就会把 fail-open 抄得更彻底。处理不是改掉既有 `never`（那会破坏 Codex 语义和现有用例），而是**新增独立档 `deny`**，并把三个静默口一并堵上：
+
+- `patch_safety.py`：新增 `APPROVAL_POLICY_DENY="deny"`；`assess_patch_safety` 在 `deny` 下，无论路径是否全在 `writable_roots`、沙箱可用与否，一律 `reject`，文案 `writing requires approval, but approval policy is deny`；`never` 原语义逐字不动。
+- `agent_loop_v2.py`：工具级合法档扩为 `never / on-request / always / deny`。`deny` 只在 `needs_approval=true` 时短路返回 `ToolResult(error_type="approval_policy_deny")`，executor 一次都不跑；本可只读免审的工具仍按原路径放行（拒绝的是"要问人的操作"，不是所有操作）。
+- `agent_engine.py`：
+  - `_VALID_APPROVAL_POLICIES` 同步加 `deny`，`thread.start` / `toolApprovalPolicies` / `policyToml` 三入口都显式接受；
+  - `_resolve_patch_approval_policy()` 把线程级 `apply_patch` 策略映射成 patch_safety 档（`never→never`、`always→unless_trusted`、`deny→deny`、缺省 `on_request`），`apply_patch` 的 safety 判定改用它 —— 此前写死 `on_request`，线程策略等于没接线；
+  - `_unmatched_command_decision_meta` 的未知档位不再 `.get(..., "on_request")` 静默折叠，改为返回空元数据（拦截行为仍由危险分类器负责）。
+- 测试：`test_patch_safety_56.py` 新增 deny 全条件满足仍 reject；`test_engine_harness_policies.py` 新增 deny 高危工具不执行 + `apply_patch` 四档映射；目标面 **27 passed in 15.64s**，`apply_patch` 历史 41 例 **41 passed in 1.55s**；`ruff check` 五文件全过。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

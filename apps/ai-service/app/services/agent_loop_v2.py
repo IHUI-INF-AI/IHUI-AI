@@ -2916,14 +2916,14 @@ class AgentLoopV2:
         self._axis_resolution: "_AxisResolution | None" = axis_resolution  # noqa: UP037 -- 同上:属性标注在运行期同样求值,去引号即 NameError
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
-        _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
+        _VALID_APPROVAL_POLICIES = ("never", "on-request", "always", "deny")
         self._approval_policies: dict[str, str] = {}
         if approval_policies:
             for _tool, _pol in approval_policies.items():
                 if _pol not in _VALID_APPROVAL_POLICIES:
                     raise ValueError(
                         f"非法 approval_policy: 工具 {_tool!r} 值 {_pol!r},"
-                        " 取值必须为 'never' / 'on-request' / 'always'"
+                        " 取值必须为 'never' / 'on-request' / 'always' / 'deny'"
                     )
             self._approval_policies = dict(approval_policies)
 
@@ -8731,13 +8731,32 @@ class AgentLoopV2:
 
         # 工具级审批策略覆盖(显式配置 > 模式隐含 > 高危清单,2026-09-18 立):
         # always 强制每次必审(auto 只读免审也被覆盖);never 强制免审(高危清单也放行);
-        # on-request = 现状。覆盖决策记入 decision_hints(审计/元学习可见)。
+        # deny 与 never 反向 —— 本会问人的一律确定性拒绝;on-request = 现状。
+        # 覆盖决策记入 decision_hints(审计/元学习可见)。
         _policy = self._approval_policies.get(tc.name)
         if _policy == "always" and not needs_approval:
             needs_approval = True
             self._decision_hints[tc.id] = (
                 "approval_policy_always",
                 "工具级审批策略 always:该工具强制人工审批",
+            )
+        elif _policy == "deny" and needs_approval:
+            logger.info(
+                "工具 %s 未执行(approval_policy=deny): session=%s",
+                tc.name,
+                self._session_id or "",
+            )
+            self._decision_hints[tc.id] = (
+                "approval_policy_deny",
+                "工具级审批策略 deny:该工具本需审批,按策略确定性拒绝",
+            )
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={"approved": False, "reason": "approval_policy_deny"},
+                error="工具级审批策略 deny:该工具本需审批,按策略确定性拒绝",
+                duration_ms=(time.time() - start) * 1000,
+                error_type="approval_policy_deny",
             )
         elif _policy == "never" and needs_approval:
             needs_approval = False

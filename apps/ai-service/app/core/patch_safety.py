@@ -7,7 +7,8 @@
 移植范围:
 - PatchSafetyDecision 三态:auto_approve / ask_user / reject(reason 可空);
 - assess_patch_safety:对齐 codex AskForApproval 四策略(never / on_request /
-  unless_trusted / granular_sandbox_approval)。never 恒 auto_approve;其余在「全部
+  unless_trusted / granular_sandbox_approval),并增补与 never 反向的 deny。never
+  恒 auto_approve;deny 对任何本会 ask_user 的写操作直接 reject;其余在「全部
   路径落在 writable_roots(含 Update 的 move 目标,由调用方传全路径集)且沙箱可用」
   时 auto_approve;只读沙箱(空 writable_roots 且无 cwd)且路径在外 → reject
   "read-only sandbox" 文案;路径越界 → reject "outside of the project" 文案;否则 ask_user;
@@ -38,8 +39,9 @@ PATCH_REJECTED_READ_ONLY_REASON = (
     "writing is blocked by read-only sandbox; rejected by user approval settings"
 )
 
-# approval_policy 取值(对齐 codex AskForApproval)
+# approval_policy 取值(对齐 codex AskForApproval;deny 为本仓显式增补)
 APPROVAL_POLICY_NEVER = "never"
+APPROVAL_POLICY_DENY = "deny"
 APPROVAL_POLICY_ON_REQUEST = "on_request"
 APPROVAL_POLICY_UNLESS_TRUSTED = "unless_trusted"
 APPROVAL_POLICY_GRANULAR_SANDBOX_APPROVAL = "granular_sandbox_approval"
@@ -129,6 +131,12 @@ def assess_patch_safety(
     文案);路径越界 → reject(outside-of-project 文案);否则 ask_user。
     cwd 恒作为隐式可写根。
     """
+    # deny:与 never 反向 —— 一切本会"问用户"的写操作确定性拒绝,
+    # 绝不因"禁止询问"退化成自动放行(DSH user-approval 的 never 语义)。
+    if approval_policy == APPROVAL_POLICY_DENY:
+        return PatchSafetyDecision.reject(
+            "writing requires approval, but approval policy is deny"
+        )
     # never:覆盖 writable_roots / 沙箱 检查,恒 auto-approve
     if approval_policy == APPROVAL_POLICY_NEVER:
         return PatchSafetyDecision.auto_approve()
