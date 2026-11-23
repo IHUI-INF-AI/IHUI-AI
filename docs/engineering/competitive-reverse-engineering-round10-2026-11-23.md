@@ -367,4 +367,29 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 **超越轴**：取证件只有结果码字符串；本仓把它做成可断言的四态判据 + 事件级可诊断字段，
 并用「函数对象同一性」把「只有一份实现」变成机器断言。
+
+## 14. B1-03 重复调用分级提醒（3/5/8，只提醒不否决）
+
+**来源**：DSH 的 repeat-call reminder（阈值 3 / 5 / 8）。本仓 `DoomLoopSentinel.observe_calls`
+命中阈值后只有**一档**文案 —— 第 3 次和第 8 次说的话一字不差，模型读不到「越来越严重」，
+运维也分不出「刚踩线」与「该人工介入」。
+
+**落地（3 文件）**：
+
+- 新增 `apps/ai-service/app/core/repeat_call_reminder.py`：`advisory_level`（3 notice /
+  5 warning / 8 critical；`bool`、非 int、低于 3 一律 `None`）、`classify_repeat_call`、
+  `build_repeat_reminder`（三档文案，前缀 `[DOOM_LOOP_ALERT]` 保留）
+- 接线 `doom_loop.observe_calls`：旧 f-string 换成 `build_repeat_reminder`，
+  **notice 档逐字复刻旧文案**（既有断言与模型观感零差异）
+- 纪律：三档只改措辞强度，`actions` 仍由 `plan_doom_alert_response` 决定
+  （`reflecting` / `skip_tool_execution` 零变化）—— advisory **不新增否决点**
+
+**测试**：`test_repeat_call_reminder.py` **13 例**，含三条硬断言：阈值单源
+（`ADVISORY_NOTICE_REPEATS == DOOM_LOOP_REPEAT_THRESHOLD`）、函数对象同一性
+（`doom_loop.build_repeat_reminder is build_repeat_reminder`）、`plan_doom_alert_response(1)`
+动作不变。doom_loop 面 **46 例**绿（含既有 33）；注水印后 40 例复绿；
+`ruff` All checks passed；`mypy --strict` 0 error。
+
+**超越轴**：可测性 + 零行为变化。取证件只有提醒文本；本仓把「两处阈值必须等值」做成
+机器断言（漂开即红，不靠口头同步），并把「只提醒不否决」本身钉成用例。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

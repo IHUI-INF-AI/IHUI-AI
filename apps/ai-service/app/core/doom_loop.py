@@ -29,6 +29,10 @@ from collections import deque
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+# B1-03(2026-11-23,对标 DSH 3/5/8 分级提醒):只改措辞强度,不新增否决点。
+# 阈值单源由 pytest 钉住(ADVISORY_NOTICE_REPEATS == DOOM_LOOP_REPEAT_THRESHOLD)。
+from .repeat_call_reminder import build_repeat_reminder
+
 # ---------------------------------------------------------------------------
 # 策略常量 —— 与 TS 共享层逐名逐值等值(parity 判据的输入)
 # ---------------------------------------------------------------------------
@@ -299,11 +303,11 @@ class DoomLoopSentinel:
             fact = self._window.record(name, hash_args(args))
             if fact is not None:
                 had_alert = True
-                reminders.append(
-                    f'[DOOM_LOOP_ALERT] 工具 {name} 已连续 {fact["repeat_count"]} 次'
-                    f'以完全相同参数被调用,可能陷入死循环。'
-                    f'请检查工具返回值,或换用其他工具/方法。',
-                )
+                # B1-03(2026-11-23):三档提醒(3/5/8)。只改措辞强度,actions 不变;
+                # notice 档与历史文案逐字相同。
+                reminder = build_repeat_reminder(name, int(fact['repeat_count']))
+                if reminder is not None:
+                    reminders.append(reminder)
         self._alert_rounds = self._alert_rounds + 1 if had_alert else 0
         actions, state = plan_doom_alert_response(self._alert_rounds)
         if self._stuck.is_stuck():
