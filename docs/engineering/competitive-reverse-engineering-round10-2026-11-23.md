@@ -502,4 +502,30 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 **超越轴**：「请求量」作为入参显式计入判断，且把「没读到」与「读了但不紧」分成两个状态 —— 取证件只报能不能扛，前端在他那条路上无法区分「本机不支持」与「确实有余量」。
 
 **诚实边界**：只做读面与判据，**不负责释放 / 降级**（谁申请失败谁退避）；阈值是常量，不是按机型自适应学出来的。
+
+## 21. B4-03 自举 runner 的编译态 / 源码态单源判据
+
+**来源**：取证件对「同一入口在源码态与编译态各该怎么起」有明确判据；本仓两处自举脱离式 runner 的拼法**各自为政**。
+
+**病灶（现读证据）**：
+
+- `apps/cli/src/sandbox/egress/proxy-relay-host.ts` 早已补了源码态加载器（`/\.(?:ts|mts|cts)$/ ⇒ ['--import','tsx']`），并在注释里承认这是唯一一份；
+- `apps/cli/src/util/parent-bound.ts` **没有任何形态判定** —— 直接 `spawn(process.execPath, [modulePath, RUNNER_FLAG, ...])`，而 `modulePath` 在源码/tsx 态就是 `.ts`，`node x.ts` 必失败；失败被 `runner.on('error', () => {})` 静默吞掉，只剩注释里一句「dev TS 无加载器等形态 ⇒ 静默降级」。**看门狗在这一态从未真正拉起过，账面却看不出来。**
+
+**落地（4 文件）**：
+
+- 新增 `apps/cli/src/util/run-mode.ts`：形态三态（`compiled` `.js/.mjs/.cjs` / `source` `.ts/.mts/.cts` / `unjudged` 其他）+ `isNodeExecutable`（basename 非 node ⇒ SEA / 打包器，不能当解释器）+ `stripTypesSupported(nodeVersion)`（22.6+，解析失败一律 false）+ `canImportTsx()`（`createRequire().resolve('tsx')`，零启动副作用）+ `planSelfRunner` 唯一判据（compiled 直跑 / source 先 tsx 再 `--experimental-strip-types` / 两条都没有 ⇒ `ok:false` 点名 `source-entry-without-loader`）
+- 接线 `parent-bound.ts`：先 `planSelfRunner` 再见面（`!ok ⇒ return null`，不再盲 spawn 后吞错）
+- 接线 `proxy-relay-host.ts`：runner 与 probe **两条腿**都换成同一 plan（旧 `loader` 拼法清零）
+- 新增 `apps/cli/tests/run-mode-b4-03.test.ts` 13 例
+
+**判据四条**：① 形态认不出的入口一律 `unjudged`（不按「猜是 js」处理）；② 执行器身份先于形态判（SEA 下 `process.execPath` 不是 node，拿它起脚本必然失败）；③ 源码态加载器有两条正路（仓内 `tsx` 优先、Node 22.6+ `--experimental-strip-types` 兜底）；④ **两条路都没有 ⇒ 不起进程也不冒充**（失效方向是多要一次说明，不是多放一次跳门）。
+
+**测试**：13 例（形态家族成对 / 认不出不猜 / execPath 身份 / strip-types 版本边界 / `canImportTsx` 现读 / compiled 直跑 / tsx 参数顺序 / strip-types 兜底 / 双双缺失点名 / execPath 拒绝先于形态 / 扩展名点名 / **两处接线回潮闸**：`parent-bound` 不得再出现 `[modulePath, RUNNER_FLAG`、`proxy-relay-host` 必须 `planSelfRunner` 恰两次且旧 `[...loader, modulePath` 清零）；与 `parent-bound.test.ts`(12)、`egress-relay.test.ts`(10) 合并 **35 例**全绿；`pnpm turbo typecheck --filter=ihui-cli` 8/8 成功。
+
+**一次真实回归**：首版把 plan 块插在 `payload` 定义之前 ⇒ `tsc` 报 `TS2448/TS2454`（block-scoped 变量先用后定义）；测试全绿而类型检查红 —— 与 P0-4 那次「`_PreGate` 字段错位」同一类教训：**行为测试挡不住声明顺序错**。已按 `identity → payload → plan → spawn` 重排。
+
+**超越轴**：单源 + 可断言。取证件把两态判断埋在启动包装里；本仓把「当前是哪一态、用哪个加载器、为何拒绝」做成纯函数返回值，并用回潮闸钉住两处接线，防止下一个人再补一份。
+
+**诚实边界**：只判「怎么起得起来」，不判「起来后活得对不对」（看护语义仍在 `parent-bound` 的裁决里）；`--experimental-strip-types` 只覆盖可擦除语法，遇到 enum / 装饰器等不可擦除语法仍要 tsx。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

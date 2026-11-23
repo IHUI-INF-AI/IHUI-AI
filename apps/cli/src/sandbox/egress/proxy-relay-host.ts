@@ -26,6 +26,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { findProjectRoot } from '../../runs/manifest.js';
 import { observeProcessAlive } from '../../util/parent-bound.js';
+// 2026-11-23 立(B4-03):形态判据单源(此前这里的 `--import tsx` 拼法只此一份,parent-bound 没有)。
+import { canImportTsx, planSelfRunner, stripTypesSupported } from '../../util/run-mode.js';
 import { startEgressRelay } from './proxy-relay.js';
 import { resolveEgressPolicy } from './policy-source.js';
 
@@ -211,10 +213,18 @@ function launchManagedEgressRelay(
     maxLifetimeMs: MAX_LIFE_MS,
   };
   try {
-    // dev 面入口是 .ts:借 apps/cli 既有 devDependency `tsx` 的 ESM hook(不新增依赖);
-    // 生产 .js 面直用 execPath。取不到加载器 ⇒ 探针超时 ⇒ 不点腿 + 点名(与 parent-bound 同型降级)。
-    const loader = /\.(?:ts|mts|cts)$/i.test(modulePath) ? ['--import', 'tsx'] : [];
-    const runner = spawn(process.execPath, [...loader, modulePath, RUNNER_FLAG, JSON.stringify(payload)], {
+    // 命令行由 planSelfRunner 单源给出:源码态(.ts)补加载器,compiled 直跑,形态认不出则不 spawn。
+    const plan = planSelfRunner({
+      execPath: process.execPath,
+      entryPath: modulePath,
+      runnerArgs: [RUNNER_FLAG, JSON.stringify(payload)],
+      loaderAvailable: canImportTsx(),
+      stripTypesSupported: stripTypesSupported(process.versions.node),
+    });
+    if (!plan.ok) {
+      return { url: null, warnings: [`egress relay: runner spawn skipped (${plan.reason}); proxy leg not wired`] };
+    }
+    const runner = spawn(plan.command, plan.args, {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -225,10 +235,19 @@ function launchManagedEgressRelay(
     return { url: null, warnings: ['egress relay: runner spawn failed; proxy leg not wired (this is a named gap, not a pass)'] };
   }
   try {
-    const loader = /\.(?:ts|mts|cts)$/i.test(modulePath) ? ['--import', 'tsx'] : [];
+    const plan = planSelfRunner({
+      execPath: process.execPath,
+      entryPath: modulePath,
+      runnerArgs: [PROBE_FLAG, readyFile, String(PROBE_TIMEOUT_MS)],
+      loaderAvailable: canImportTsx(),
+      stripTypesSupported: stripTypesSupported(process.versions.node),
+    });
+    if (!plan.ok) {
+      return { url: null, warnings: [`egress relay: probe skipped (${plan.reason}); proxy leg not wired`] };
+    }
     const out = execFileSync(
-      process.execPath,
-      [...loader, modulePath, PROBE_FLAG, readyFile, String(PROBE_TIMEOUT_MS)],
+      plan.command,
+      plan.args,
       { stdio: ['ignore', 'pipe', 'pipe'], timeout: PROBE_TIMEOUT_MS + 3_000, windowsHide: true, encoding: 'utf8' },
     );
     const port = Number(String(out).trim());

@@ -18,6 +18,8 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { captureRootCreationIdentity, killProcessTreeVerified } from './spawn-isolated.js'
+// 2026-11-23 立(B4-03):形态判据单源 —— 源码态缺加载器曾在这里静默降级(spawn .ts 必失败)。
+import { canImportTsx, planSelfRunner, stripTypesSupported } from './run-mode.js'
 
 export type WatchdogVerdict = 'wait' | 'kill' | 'exit' | 'unjudged'
 
@@ -219,7 +221,6 @@ export async function spawnParentWatchdog(
   } catch {
     return null // 非 file: 形态(如 SEA 快照)⇒ 无法自举 runner
   }
-  if (!/\.(?:js|mjs|ts)$/i.test(modulePath)) return null
   const identity = await captureRootCreationIdentity(child).catch(() => null)
   const payload: RunnerPayload = {
     v: 1,
@@ -231,9 +232,19 @@ export async function spawnParentWatchdog(
     maxLifetimeMs: clamp(opts.maxLifetimeMs ?? MAX_LIFE_DEFAULT_MS, 1_000, MAX_LIFETIME_MS),
     label: typeof opts.label === 'string' ? opts.label.slice(0, 120) : 'parent-bound',
   }
+  const plan = planSelfRunner({
+    execPath: process.execPath,
+    entryPath: modulePath,
+    runnerArgs: [RUNNER_FLAG, JSON.stringify(payload)],
+    loaderAvailable: canImportTsx(),
+    stripTypesSupported: stripTypesSupported(process.versions.node),
+  })
+  // 形态/加载器不成立 ⇒ 不起进程、也不冒充"已看护":拿不到看门狗是显式降级(null)。
+  if (!plan.ok) return null
   try {
     // §5b/§12g 派生纪律:detached(脱离父组,才配当父死的看守)+ stdio 显式 + windowsHide。
-    const runner = spawn(process.execPath, [modulePath, RUNNER_FLAG, JSON.stringify(payload)], {
+    // 命令行由 planSelfRunner 单源给出(源码态补加载器,不再靠 spawn 失败后静默)。
+    const runner = spawn(plan.command, plan.args, {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
