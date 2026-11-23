@@ -36,7 +36,12 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
-import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
+import {
+  VOICE_INPUT_BTN_MIN_HEIGHT_PX,
+  VOICE_INPUT_BTN_PAD_X_PX,
+  VOICE_INPUT_BTN_PAD_Y_PX,
+  VOICE_INPUT_RECORD_ROW_GAP_PX,
+} from '@ihui/shared/ui/voice-input-spec'
 import { voiceSttFromReactNative } from '@ihui/api-client'
 import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
@@ -311,8 +316,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // 角色档 control(按住说话 = 按钮)→ sm(4)
     borderRadius: rnRadiusFor.control,
-    paddingHorizontal: rnSpacing.md,
-    paddingVertical: rnSpacing.sm,
+    // 内衬与最小高唯一源在 @ihui/shared/ui/voice-input-spec(与小程序端同档):
+    // 原先 rnSpacing.md/sm 与小程序类名各写一份(横向 16 vs 12、纵向 12 vs 8、最小高 48 vs 无),
+    // 2026-11-24 各按 §4 compact 取小收口。
+    // ⚠️ 注释里不要回写类名字面量:`stripComments` 对注释内反引号的剥离不可靠,
+    // 回写的档会被 readGeometry 当成真实读数。
+    paddingHorizontal: VOICE_INPUT_BTN_PAD_X_PX,
+    paddingVertical: VOICE_INPUT_BTN_PAD_Y_PX,
+    minHeight: VOICE_INPUT_BTN_MIN_HEIGHT_PX,
     backgroundColor: tokens.surface.muted,
   } as ViewStyle,
   voiceBtnRecording: {
