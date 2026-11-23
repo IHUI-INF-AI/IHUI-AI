@@ -51,7 +51,6 @@ import inspect
 import json
 import logging
 import os
-import random
 import threading
 import time
 import uuid
@@ -99,6 +98,11 @@ from ..core.budget_reason import (
 # 结构化优先认领(429→rate_limit / ≥500→http_5xx / 其余 4xx→http_4xx),文本兜底保留。
 from ..core.error_classify_structured import (
     classify_error_structured_first as _classify_error_structured_first,
+)
+from ..core.llm_retry_policy import (
+    LlmRetryPolicy,
+    resolve_llm_retry_policy,
+    retry_id_for,
 )
 
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
@@ -2673,6 +2677,9 @@ class AgentLoopV2:
         # L5-1 错误恢复:LLM 调用指数退避重试(2026-08-12 立)
         llm_retry_max: int = 3,
         llm_retry_backoff: float = 1.5,
+        # provider 级重试策略(对照 DSH dsh-llm-retry):None = 从 env / 既有参数构造，
+        # 缺省与接线前逐零差异。
+        llm_retry_policy: LlmRetryPolicy | None = None,
         # L5-2 错误恢复:工具瞬时失败自动重试(2026-08-12 立)
         tool_retry_max: int = 1,
         tool_retry_backoff: float = 0.5,
@@ -2882,6 +2889,11 @@ class AgentLoopV2:
         # L5-1 错误恢复:LLM 重试配置(2026-08-12 立)
         self.llm_retry_max = llm_retry_max
         self.llm_retry_backoff = llm_retry_backoff
+        self._llm_retry_policy = resolve_llm_retry_policy(
+            llm_retry_policy,
+            configured_retries=llm_retry_max,
+            configured_backoff=llm_retry_backoff,
+        )
 
         # L5-2 错误恢复:工具重试配置(2026-08-12 立)
         self.tool_retry_max = tool_retry_max
@@ -5292,7 +5304,7 @@ class AgentLoopV2:
             except Exception as e:  # noqa: BLE001 - 回灌失败降级跳过
                 logger.debug("executed_tool_calls 回灌失败(降级跳过): %s", e)
         # 循环上界额外留出溢出救赎名额:溢出腿的 continue 排在
-        # ``attempt >= llm_retry_max`` 的 break **之前**,所以这些名额只有真发生
+        # ``attempt >= _retry_budget`` 的 break **之前**,所以这些名额只有真发生
         # 「上游明示装不下且本地压得动」时才走得到;普通瞬时故障的退避重试次数
         # 与本次改动之前逐字节相同(llm_retry_max=0 的调用方遇到溢出也能救回一次,
         # 而按旧上界它连一次重试名额都没有 —— 那是必死路径)。
@@ -5320,7 +5332,10 @@ class AgentLoopV2:
             )
         except Exception as e:  # noqa: BLE001 - 钩子整体降级
             logger.warning("pre_model_request 钩子降级(不阻断请求): %s", e)
-        for attempt in range(self.llm_retry_max + 1 + MAX_OVERFLOW_RECOVERY_ATTEMPTS):
+        _retry_policy = self._llm_retry_policy
+        _retry_budget = _retry_policy.attempt_limit(self.llm_retry_max)
+        _retry_id = retry_id_for(self._session_id, iteration)
+        for attempt in range(_retry_budget + 1 + MAX_OVERFLOW_RECOVERY_ATTEMPTS):
             # G-200:每次尝试重置 finish_reason(重试轮新开请求,旧值不能留);
             # sink 按引用共享,网关在请求面写、此处成功后读。
             self._last_finish_reason = None
@@ -5385,13 +5400,17 @@ class AgentLoopV2:
                                 self._overflow_recovery_left,
                             )
                             continue
-                if attempt >= self.llm_retry_max:
+                if attempt >= _retry_budget:
+                    break
+                # provider 策略白名单:错误族不在白名单内立即放弃（cancelled 永不在内）。
+                _error_code = self._classify_error(e)
+                if not _retry_policy.allows(_error_code):
                     break
                 # L5-12(2026-08-12):LLM 重试指标埋点
                 try:
                     from ..middleware.agent_metrics import agent_loop_llm_retries_total
                     agent_loop_llm_retries_total.labels(
-                        self._classify_error(e)
+                        _error_code
                     ).inc()
                 except Exception as metric_exc:  # noqa: BLE001 - 指标失败不改变重试
                     logger.warning(
@@ -5420,7 +5439,7 @@ class AgentLoopV2:
                     )
                     _state, _decision = decide_stream_retry(
                         _state,
-                        max_retries=self.llm_retry_max,
+                        max_retries=_retry_budget,
                         is_connection_failed=_err_type == "connection",
                         unbounded_connection_retries_enabled=False,
                         session_is_internal=False,
@@ -5447,9 +5466,7 @@ class AgentLoopV2:
                 # A25 第 2/3 层:服务端 Retry-After 优先于本地指数退避(唯一裁决
                 # resolve_retry_delay_s,含 [0,60s] 封顶);无指示时逐字节透传既有
                 # 曲线(反向对照:random 消费与数值都不变)。
-                _local_backoff = self.llm_retry_backoff * (2**attempt) * (
-                    0.5 + random.random() * 0.5
-                )
+                _local_backoff = _retry_policy.backoff_s(attempt)
                 _scheduled = resolve_retry_delay_s(_retry_hint, _local_backoff)
                 if _scheduled is None:
                     break
@@ -5462,7 +5479,9 @@ class AgentLoopV2:
                         {
                             "session_id": self._session_id,
                             "attempt": attempt + 1,
-                            "max_attempts": self.llm_retry_max,
+                            "max_attempts": _retry_budget,
+                            "retry_id": _retry_id,
+                            "retry_mode": _retry_policy.mode,
                             "error_type": self._classify_error(e),
                             # §30 一等契约:这一帧本来就答"模型流断了正在重试",现在把
                             # **为什么还能不能重试**与**停在哪儿**一并说成词表里的档位,
@@ -5484,9 +5503,10 @@ class AgentLoopV2:
                     type(e).__name__,
                     e,
                     backoff,
-                    self.llm_retry_max,
+                    _retry_budget,
                 )
-                await asyncio.sleep(backoff)
+                # 取消/disposal 抑制在飞重试:退避等待走可中断包装,不再裸 sleep。
+                await self._wait_interruptible(asyncio.sleep(backoff))
         assert last_exc is not None
         raise last_exc
 
