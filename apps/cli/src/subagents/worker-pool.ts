@@ -43,10 +43,10 @@ import { fork, type ChildProcess, type ForkOptions } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tryParseJson, isRecord } from '../util/json.js';
 import { DENIED_HOST_NAMES, DENIED_HOST_SUFFIXES } from '@ihui/shared/utils/ssrf-guard';
 import { EGRESS_ENV } from '../sandbox/egress/policy.js';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree.js';
+import { decodeWorkerLines } from './worker-protocol.js';
 import type {
   NetworkEgressPolicy,
   SubagentSpawnRequest,
@@ -1275,34 +1275,27 @@ function boundedTail(text: string, cap: number): string {
  * - complete 事件包含 stopReason/iterations/usage
  * - 非 JSON 行跳过(runAgent 在 silent 模式下不应有非 JSON 输出,但兜底)
  */
-function parseWorkerStdout(stdout: string): {
+export function parseWorkerStdout(stdout: string): {
   assistantText: string;
   stopReason?: string;
   iterations?: number;
 } {
-  const lines = stdout.split('\n');
   let assistantText = '';
   let stopReason: string | undefined;
   let iterations: number | undefined;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const evt = tryParseJson(trimmed);
-      if (!isRecord(evt)) continue;
+  for (const evt of decodeWorkerLines(stdout)) {
+    if (evt.type === 'message_delta') {
       // P0 修复:同时识别 text 和 message 字段(worker-entry 写 message,容错多种命名)
-      const evtText = [evt.text, evt.message, evt.payload].find((v): v is string => typeof v === 'string');
-      if (evt.type === 'message_delta' && evtText !== undefined) {
-        assistantText += evtText;
-      } else if (evt.type === 'complete') {
-        if (typeof evt.stopReason === 'string') stopReason = evt.stopReason;
-        if (typeof evt.iterations === 'number') iterations = evt.iterations;
-      } else if (evt.type === 'error' && evtText !== undefined) {
-        assistantText += evtText;
-      }
-    } catch {
-      // 非 JSON 行,跳过
+      const evtText = [evt.text, evt.message, evt.payload].find(
+        (v): v is string => typeof v === 'string',
+      );
+      if (evtText !== undefined) assistantText += evtText;
+    } else if (evt.type === 'complete') {
+      if (typeof evt.stopReason === 'string') stopReason = evt.stopReason;
+      if (typeof evt.iterations === 'number') iterations = evt.iterations;
+    } else if (evt.type === 'error' && typeof evt.message === 'string') {
+      assistantText += evt.message;
     }
   }
 

@@ -108,6 +108,7 @@ import { registerImportCommand } from './commands/import.js';
 import { registerServeCommand } from './commands/serve.js';
 import { registerTuiCommand, tryFullScreenFromEnv } from './commands/tui.js';
 import { registerConnectCommand } from './commands/connect.js';
+import { registerRtcCommand } from './commands/rtc.js';
 import { startAcpServer } from './acp/server.js';
 import type { IhuiAcpAgent } from './acp/server.js';
 import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
@@ -125,6 +126,7 @@ import { parseToolList, type PermissionRules } from './tools/permissions.js';
 import { getTool } from './tools/index.js';
 import { replayArgumentDeviations } from './tools/argument-validation-replay.js';
 import { notifyUpdates } from './updater.js';
+import { consumeRestartMarker } from './daemon/graceful-restart.js';
 import { installCrashHandler } from './crash-handler.js';
 import { registerSkillPackageCommands } from './commands/skill-package.js';
 import { registerSkillsListCommand } from './commands/skills-catalog-view.js';
@@ -696,6 +698,16 @@ async function runAgentAndExit(
 
 program.hook('preAction', async () => {
   const opts = program.opts();
+  // B4-05:新进程启动时消费重启标记(读完即删),让「本次是更新后重启」可观测;
+  // 未带标记的普通启动零行为变化。
+  const restarted = consumeRestartMarker();
+  if (restarted) {
+    console.warn(
+      chalk.yellow(
+        `[restart] 已从更新交接重启: reason=${restarted.reason} at=${new Date(restarted.requestedAt).toISOString()}`,
+      ),
+    );
+  }
   // 首次运行引导:无 ~/.ihui/settings.json 时自动跑交互式问答生成配置
   // (对齐 claude / codex CLI 首次启动体验,--no-setup 可跳过)
   if (opts.setup !== false && needsFirstRunSetup()) {
@@ -1012,6 +1024,9 @@ registerMemoryCommand(program);
 
 // relay 子命令组 — 号池切号与本机快捷方式(本机运维;转 scripts/switch-client-account.mjs)
 registerRelayCommand(program);
+
+// rtc 子命令组 — 自托管音视频中继(B3-09;房间令牌 + 二端配对)
+registerRtcCommand(program);
 
 // workflows 子命令组 — 对齐 Web 端 /workflows(list/show/run/instances/instance/cancel)
 registerWorkflowsCommand(program);

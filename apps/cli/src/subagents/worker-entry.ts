@@ -20,6 +20,8 @@
 
 import { runAgent } from '../commands/agent.js';
 import { installEgressGuard } from './egress-guard.js';
+import { encodeWorkerLine } from './worker-protocol.js';
+import { installNetworkBoundary } from '../sandbox/egress/network-boundary.js';
 import type { SubagentPersona, CapabilityMode, NetworkEgressPolicy, WorkerResourceLimits } from '@ihui/types';
 
 interface StartMessage {
@@ -40,6 +42,7 @@ interface StartMessage {
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const API_BASE_URL = process.env.IHUI_API_URL || 'http://localhost:8803';
 const API_KEY = process.env.IHUI_API_KEY || '';
+let teardownNetworkBoundary: (() => Promise<void>) | null = null;
 // P1-3 修复:子进程 RSS 自限阈值(默认 512MB,可被 IPC resourceLimits.memoryMb 覆盖)
 // 超限时子进程优雅退出(exit code 3 = self-OOM),比被父进程 SIGKILL 更安全
 let selfOomThresholdMb = parseInt(
@@ -186,10 +189,24 @@ process.on('message', async (msg: StartMessage) => {
   }
 
   // P0 安全:安装网络出站拦截器(在 runAgent 前注入,对齐 ai-service network_guard)
-  // 进程退出时 monkey-patch 随之销毁,无需显式 uninstall
+  // 进程退出时 monkey-patch 随之销毁;B4-07 的双引擎需要显式拆除。
   if (msg.networkEgressPolicy) {
     installEgressGuard(msg.networkEgressPolicy);
+    try {
+      const boundary = await installNetworkBoundary(msg.networkEgressPolicy);
+      teardownNetworkBoundary = boundary.uninstall;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stdout.write(
+        encodeWorkerLine({ type: 'error', code: 'EGRESS_BOUNDARY_UNAVAILABLE', message }),
+      );
+      process.stderr.write(`[worker-entry] 网络边界装配失败: ${message}\n`);
+      process.exit(1);
+    }
   }
+
+  // B3-08:启动回执进主通道,父进程可据此区分「已起任务」与「未起任务」。
+  process.stdout.write(encodeWorkerLine({ type: 'ready', pid: process.pid }));
 
   try {
     const result = await runAgent({
@@ -208,6 +225,12 @@ process.on('message', async (msg: StartMessage) => {
     // runAgent(jsonMode=true) 已将 NDJSON 事件流写入 stdout(含 complete 事件)
     // 父进程解析 NDJSON 即可拿到 stopReason/iterations/usage + message_delta 拼接的 assistantText
     const exitCode = result.stopReason === 'error' ? 1 : 0;
+    process.stdout.write(encodeWorkerLine({ type: 'exit', exitCode }));
+    if (teardownNetworkBoundary) {
+      const close = teardownNetworkBoundary;
+      teardownNetworkBoundary = null;
+      await close();
+    }
     process.exit(exitCode);
   } catch (err) {
     clearInterval(heartbeatTimer);
@@ -215,6 +238,11 @@ process.on('message', async (msg: StartMessage) => {
     // 错误事件写入 stdout(NDJSON 格式),供父进程解析
     process.stdout.write(JSON.stringify({ type: 'error', message: errMsg, subagentId }) + '\n');
     process.stderr.write(`[worker-entry] subagent ${subagentId} failed: ${errMsg}\n`);
+    if (teardownNetworkBoundary) {
+      const close = teardownNetworkBoundary;
+      teardownNetworkBoundary = null;
+      await close();
+    }
     process.exit(1);
   }
 });
