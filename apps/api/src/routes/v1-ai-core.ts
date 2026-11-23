@@ -167,12 +167,13 @@ const updateUserModelSchema = z.object({
   baseUrl: z.url().optional(),
 })
 
-const agentExecuteSchema = z.object({
+export const agentExecuteSchema = z.object({
   agentId: z.string().min(1),
   input: z.string().min(1),
   sessionId: z.string().optional(),
   permissionMode: z.string().optional(),
   permissionPreset: z.string().optional(),
+  agentPreset: z.string().min(1).optional(),
   maxIterations: z.number().int().positive().optional(),
 })
 
@@ -183,7 +184,7 @@ const agentExecuteSchema = z.object({
  * ② `permissionMode` 过去原样透传,而 ai-service 认不出即构造期 ValueError(→500)、
  *    或字段干脆不存在而被静默丢弃 → 在此边界归一到唯一真源,认不出直接 400。
  */
-function buildAgentExecuteBody(
+export function buildAgentExecuteBody(
   req: V1AgentExecuteRequest,
 ): { ok: true; body: Record<string, unknown> } | { ok: false; message: string } {
   const body: Record<string, unknown> = {
@@ -192,6 +193,20 @@ function buildAgentExecuteBody(
     goal: req.input,
   }
   if (req.sessionId) body.session_id = req.sessionId
+  if (req.agentPreset !== undefined) {
+    if (
+      req.permissionMode !== undefined ||
+      req.permissionPreset !== undefined ||
+      req.maxIterations !== undefined
+    ) {
+      return {
+        ok: false,
+        message: 'agentPreset 与 permissionMode / permissionPreset / maxIterations 互斥,不得同给',
+      }
+    }
+    body.agent_preset = req.agentPreset
+    return { ok: true, body }
+  }
   if (req.maxIterations) body.max_iterations = req.maxIterations
   if (req.permissionMode !== undefined) {
     const mode = normalizePermissionMode(req.permissionMode)
@@ -1188,6 +1203,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
               description:
                 '命名权限预设(两轴捆绑):readOnly / auto / fullAccess;与显式沙箱/审批轴互斥',
             },
+            agentPreset: {
+              type: 'string',
+              description:
+                'Agent 组合预设:general / researcher / coder / reviewer / architect / debugger;与 permissionMode/permissionPreset/maxIterations 互斥',
+            },
             maxIterations: { type: 'number' },
           },
           required: ['agentId', 'input'],
@@ -1305,6 +1325,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
               type: 'string',
               description:
                 '命名权限预设(两轴捆绑):readOnly / auto / fullAccess;与显式沙箱/审批轴互斥',
+            },
+            agentPreset: {
+              type: 'string',
+              description:
+                'Agent 组合预设:general / researcher / coder / reviewer / architect / debugger;与 permissionMode/permissionPreset/maxIterations 互斥',
             },
             maxIterations: { type: 'number' },
           },

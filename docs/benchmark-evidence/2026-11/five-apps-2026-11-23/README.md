@@ -403,7 +403,7 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 
 ## 本轮收尾状态（现读）
 
-- 收口链：`cabb578d`（六项能力）→ `44596ad5`（证据同步）→ `bda9d9f8`（DACL denied 路径 normcase 修正）；最终 HEAD 与 `origin/main` 以推送后用 `rev-parse` 回读为准，本条只记链，不冒充实时指针。
+- 收口链：`cabb578d`（六项能力）→ `44596ad5`（证据同步）→ `bda9d9f8`（DACL denied 路径 normcase 修正）→ `a9d14c66`（证据链文案收口）；最终 HEAD 与 `origin/main` 以推送后用 `rev-parse` 回读为准，本条只记链，不冒充实时指针。
 - `00122ada`、`c064aaad`、`d3ed1b03`、`9a57eefa`、`5ea9f4fd`、`802c79f9` 均已在 HEAD 祖先链上（`merge-base --is-ancestor` 逐个 rc=0）。
 - 目标面复跑：六文件 **89 passed in 5.69s**；web diff-stats **4 passed**；`ruff check` 本批 Python 文件 `All checks passed!`；`py_compile` 与四条新路由加载均过。
 - 未做的产品决策：`turn.diff` 的 engine JSON-RPC 客户端不在本仓，Web 是 hook/SSE 面；本批消费的是同一行级统计语义（共享 Myers），不额外把 32k 级 diff 正文复制进第二条 SSE 总线。若未来接入 engine 客户端，直接复用 `turn.diff` 的 `changes[]` 字段即可。
@@ -424,6 +424,13 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 
 上表不再保留"明确放弃或没有对象"的项；MCP Apps 宿主、completion/subscribe 已在同轮落地。
 
+
+## 第八批：对外网关透传与路由层契约
+
+- `packages/types` 的 `V1AgentExecuteRequest` 新增 `agentPreset`；`apps/api` 的 `/v1/agents/execute` 与 `/v1/agents/execute/stream` Zod schema 接受该字段并透传为 `agent_preset`，两处 OpenAPI 同步登记。
+- 网关边界先判互斥：`agentPreset` 与 `permissionMode` / `permissionPreset` / `maxIterations` 同给直接 400，不把冲突留给下游。
+- 路由层契约测试补齐：`v1-agent-preset.test.ts` 4 例（纯透传、三路互斥、旧字段零变化、schema 拒空串）；`test_agent_presets_route.py` 5 例（目录形状、展开、两种互斥、未知值）；`test_turn_outline_route.py` 3 例（投影计数、显式截断、越权同 404）。
+- 本批验证：API vitest `4 passed`；ai-service 路由测试 `8 passed`。上批六文件合跑与 web diff-stats 结论不变。
 
 ## 证据文件
 

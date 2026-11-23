@@ -149,6 +149,8 @@ export interface V1AgentExecuteRequest {
   permissionMode?: string
   /** 命名权限预设(两轴捆绑):readOnly / auto / fullAccess;与 permissionMode 互斥。 */
   permissionPreset?: string
+  /** Agent 组合预设:general / researcher / coder / reviewer / architect / debugger;与显式模式、权限预设、轮次互斥。 */
+  agentPreset?: string
   /** 最大迭代轮数。 */
   maxIterations?: number
 }
