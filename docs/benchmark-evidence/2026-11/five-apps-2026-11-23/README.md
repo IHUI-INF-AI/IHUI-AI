@@ -194,6 +194,14 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - `MessageItem.tsx` 接入 `chat.secretMaskShow` / `chat.secretMaskHide`，五种 web 语言同步。
 - `packages/shared/src/utils/__tests__/redact.test.ts` 新增 3 例（sk- 前缀保留、Bearer/password/URL/PEM、幂等与反误伤）；`apps/web/src/components/chat/__tests__/user-message-secret-mask.test.tsx` 3 例（正文遮挡与展开收回、围栏代码块、无凭据不出现按钮）。验证：shared `redact.test.ts` 20 passed；web 本批 + D129 17 passed；`pnpm turbo typecheck --filter=@ihui/web --filter=@ihui/shared` 8/8 successful；`pnpm check:i18n-keys` 5 语言 parity OK。
 
+## 追加批（同日）：严格档先读再写，覆盖未读文件被拒
+
+- `a4e27f28`。对齐 DSH `dsh-fs-observation-policy`：覆盖或编辑一个现有文件前，本会话必须先在读面留下登记；文件自读取后被改动则拒绝并提示重读；读一个不存在的路径可授权创建，但创建窗口内若文件已被别人创建，仍按"未读覆盖"拒绝。DSH 默认发行组合里该策略 `disabled: true`，本仓同样把拒写只挂在显式严格档，默认档只点名、不拦。
+- `apps/ai-service/app/core/file_read_state.py`：`judge_read_state` 的 `blocking` 从「strict ∧ stale」扩为「strict ∧ (stale | never_read)」；新增 `_NEVER_READ_MESSAGE`，`never_read` 的提示统一为"请先 read_file 取得最新内容后再写入"。新建文件不在此列 —— 调用方写前用 `presence=missing` 判定，创建语义不依赖读登记。
+- `apps/ai-service/app/services/mcp_server.py`：`_tool_file_edit` 按 verdict 分流 `FS_NOT_OBSERVED` / `STALE_READ_CONFIRMATION_REQUIRED`；`_tool_write_file` 在写前 `presence` 与读盘之后、并发冲突分类之前调用 `judge_read_state`，`blocking ∧ 非 force ∧ 目标当前存在` 时拒写并回 `readState`。防"判定期间文件被创建"的窗口：gate 优先看 `readState.current.status`，取不到 `current` 才退回写前 `presence`。
+- 关键坑：`sample_file()` 的状态值是 `ok / absent / unreadable`，`_classify_existing_file()` 才是 `present / missing / unread`。首版 gate 误用 `current.status == "present"`，真实命中时 `status="ok"` ⇒ 拒绝不生效、覆盖照常落盘；调试脚本打印 `blocking=true` 但 `ok=true` 才暴露。改为 `status == "ok"` 后，同一调用回 `ok=false / FS_NOT_OBSERVED` 且盘上字节不变。
+- 测试：`apps/ai-service/tests/test_file_read_state_wiring.py` **10 passed**（原 5 例 + 新增 5 例：严格档拒未读覆盖且盘上字节不变、严格档允许新建、严格档先读后写、严格档 `file_edit` 拒未读、默认档覆盖未读只报 `never_read`/`blocking=false`）。`ruff check` 对本批两文件全过；`mcp_server.py` 仍只有 HEAD 存量的 `I001`（`payroll_handoff_tools` 导入块排序，不是本批引入）。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
