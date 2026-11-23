@@ -46,7 +46,18 @@ export type TextFieldProps = Omit<
 }
 
 /** 常态描边占位:宽度恒定、颜色透明,聚焦只换颜色 ⇒ 零布局跳动 */
-const RESTING_BORDER: TextStyle = { borderWidth: 1, borderColor: 'transparent' }
+const RESTING_BORDER: TextStyle = {
+  borderWidth: 1,
+  borderColor: 'transparent',
+  // RN Web 的 TextInput 在 :focus-visible 上自带浏览器 outline(默认 auto 深色),
+  // 会与下面自绘的聚焦描边叠成第二圈 —— 全屏展开态里就是那圈被读成"黑色描边"的线。
+  // 聚焦视觉由本组件的 borderColor 单独承担,浏览器那一环必须归零:
+  // `auto` 档不认 width/color(实测仍按系统焦点环上色),style 必须显式 none。
+  // RN 0.86 的类型只列 solid/dotted/dashed,而 RN Web 实际接受 none。
+  outlineStyle: 'none' as unknown as TextStyle['outlineStyle'],
+  outlineWidth: 0,
+  outlineColor: 'transparent',
+}
 
 export function TextField({
   colorScheme,

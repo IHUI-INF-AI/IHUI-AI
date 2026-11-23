@@ -54,6 +54,13 @@ test('RN 大输入框:field 灰描边 + 双层紫辉光,不取墨档', () => {
     '聚焦态不得回取墨档描边',
   )
   assert.match(src, /focusedStyle={styles\.inputFocusTransparent}/)
+
+  // 展开态第二圈"黑色描边"不是自绘 border,而是 RN Web 浏览器给 textarea 的
+  // 默认 focus outline;TextField 基座必须显式关掉,聚焦视觉只留自绘那一圈。
+  const field = read('packages/app/src/components/TextField.tsx')
+  assert.match(field, /outlineStyle: 'none'/)
+  assert.match(field, /outlineWidth: 0/)
+  assert.match(field, /outlineColor: 'transparent'/)
 })
 
 test('小程序 AI 输入框:field 灰描边 + 同一组紫辉光 token', () => {
