@@ -6204,7 +6204,42 @@
     "invokeFailed": "Failed",
     "requiredParams": "Required: {params}",
     "noOperations": "No runnable operation on this connector",
-    "customHint": "Custom: fill Base URL + auth, then import OpenAPI or add operations manually"
+    "customHint": "Custom: fill Base URL + auth, then import OpenAPI or add operations manually",
+    "managedUnavailableHint": "This channel has not been enabled by the platform administrator. Members do not need to configure anything; it will be available with one click once enabled.",
+    "quickTitle": "One-click platform connect",
+    "quickHint": "Feishu, DingTalk, WeCom and other platforms are authorized at platform level. Connect with one click; no QR scan or app credentials required.",
+    "connectNow": "Connect",
+    "connected": "Connected",
+    "managedReady": "Platform authorized",
+    "managedNotReady": "Awaiting platform setup",
+    "managedMissing": "Missing platform environment variables: {keys}",
+    "managedConnected": "{name} connected",
+    "managedBadge": "Platform-managed",
+    "managedToggle": "Use platform-managed credentials",
+    "managedToggleHint": "Credentials are provided by the platform; you do not need to enter app_id or app_secret.",
+    "managedToggleOffHint": "Manual credentials enabled; intended for advanced users only.",
+    "advancedAdd": "Advanced connect",
+    "check": "Test connection",
+    "checking": "Testing",
+    "checkOk": "Connection OK",
+    "checkFailed": "Connection failed",
+    "addOperation": "Add operation",
+    "editOperation": "Edit operation",
+    "removeOperation": "Remove operation",
+    "operationDialogHint": "Declare method, path, parameters and response extraction path. Write operations still require write permission and confirmation.",
+    "operationId": "Operation ID",
+    "operationName": "Operation name",
+    "operationCapability": "Capability",
+    "operationMethod": "HTTP method",
+    "operationPath": "Request path",
+    "operationResponsePath": "Response path",
+    "operationQuery": "Query parameters (JSON)",
+    "operationBody": "Request body (JSON)",
+    "operationDescription": "Description",
+    "operationSave": "Save operation",
+    "operationRequired": "Operation ID, path or method is invalid",
+    "operationJsonInvalid": "Query parameters or request body is not valid JSON",
+    "connecting": "Connecting"
   },
   "adminAiSkills": {
     "avgDuration": "Avg Duration",
@@ -10463,11 +10498,9 @@
     "dispatchSubagent": "Dispatch subagent",
     "bestOfAdopted": "Best of adopted",
     "title": "Workspace",
-    "worldsAdopted": "Branch reply adopted"
-  ,
+    "worldsAdopted": "Branch reply adopted",
     "tabs": {
-      "goal": "Goal"
-    ,
+      "goal": "Goal",
       "memory": "Memory",
       "plan": "Plan",
       "tasks": "Tasks",
@@ -10493,7 +10526,9 @@
       "wiki": "Wiki",
       "integrations": "Integrations",
       "workspace": "Workspace",
-      "inspector": "Inspector"}},
+      "inspector": "Inspector"
+    }
+  },
   "announcements": {
     "backToList": "Back to announcements",
     "empty": "No announcements",
@@ -12185,8 +12220,10 @@
     "predictiveEditReplace": "Replace",
     "predictiveEditDelete": "Delete",
     "interruptedNotice": "This answer was interrupted, content may be incomplete",
-    "interruptedNoticeUserCancelled": "You cancelled this answer, content may be incomplete"
-  ,"secretMaskShow":"Show credentials","secretMaskHide":"Hide credentials"},
+    "interruptedNoticeUserCancelled": "You cancelled this answer, content may be incomplete",
+    "secretMaskShow": "Show credentials",
+    "secretMaskHide": "Hide credentials"
+  },
   "chatHistory": {
     "moveToGroup": "Move to group",
     "moveSelectedToGroup": "Move selected to group",
@@ -14118,38 +14155,38 @@
     "manual": {
       "overview": {
         "title": "Manual Overview",
-        "description": "Overview of manual chapters by topic"
-      ,
-        "heading": "IHUI AI User Manual"}
-    ,
+        "description": "Overview of manual chapters by topic",
+        "heading": "IHUI AI User Manual"
+      },
       "getting-started": {
-        "title": "Quick Start"
-      ,
-        "desc": "Sign up, log in, take a tour of the UI and have your first chat — up and running in 3 minutes."},
+        "title": "Quick Start",
+        "desc": "Sign up, log in, take a tour of the UI and have your first chat — up and running in 3 minutes."
+      },
       "ai-chat": {
-        "title": "AI Chat"
-      ,
-        "desc": "Talk with the AI, upload files, switch models, browse history and share conversations."},
+        "title": "AI Chat",
+        "desc": "Talk with the AI, upload files, switch models, browse history and share conversations."
+      },
       "agent": {
-        "title": "Using Agents"
-      ,
-        "desc": "Pick agents from the market, bookmark them, customize prompts and publish to your own workspace."},
+        "title": "Using Agents",
+        "desc": "Pick agents from the market, bookmark them, customize prompts and publish to your own workspace."
+      },
       "knowledge-base": {
-        "title": "Knowledge Bases"
-      ,
-        "desc": "Upload documents, test retrieval, and mount a knowledge base onto an agent so the AI understands your business."},
+        "title": "Knowledge Bases",
+        "desc": "Upload documents, test retrieval, and mount a knowledge base onto an agent so the AI understands your business."
+      },
       "billing": {
-        "title": "Credits & Plans"
-      ,
-        "desc": "How credits are consumed, plan comparison, top-ups, invoices and shared credit pools."},
+        "title": "Credits & Plans",
+        "desc": "How credits are consumed, plan comparison, top-ups, invoices and shared credit pools."
+      },
       "account": {
-        "title": "Account Settings"
-      ,
-        "desc": "Profile, security, API keys, notification preferences and account deletion."},
+        "title": "Account Settings",
+        "desc": "Profile, security, API keys, notification preferences and account deletion."
+      },
       "faq": {
-        "title": "FAQ"
-      ,
-        "desc": "Login failures, credit issues, unavailable models, data export and other common questions."}}
+        "title": "FAQ",
+        "desc": "Login failures, credit issues, unavailable models, data export and other common questions."
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -19942,11 +19979,11 @@
     "customAdd": "Add",
     "customRemove": "Remove",
     "customDragHint": "Drag to reorder",
-    "customNoResults": "No matching features found"
-  ,
+    "customNoResults": "No matching features found",
     "finAccounting": "Accounting Books",
     "hrLifecycle": "HR Lifecycle",
-    "hrApproval": "Leave Approval"},
+    "hrApproval": "Leave Approval"
+  },
   "news": {
     "allCategories": "All Categories",
     "backToList": "Back to news",
@@ -22492,11 +22529,11 @@
       "title": "Expert Routing",
       "desc": "Choose which model routing strategy handles your requests",
       "default": "Default",
-      "envLockedNotice": "This setting is locked by an environment variable and cannot be changed here"
-    ,
+      "envLockedNotice": "This setting is locked by an environment variable and cannot be changed here",
       "hintDesc": "Suggests expert models without switching",
       "autoDesc": "Switches automatically when an expert scenario matches",
-      "offDesc": "Disable expert routing, use the default route"},
+      "offDesc": "Disable expert routing, use the default route"
+    },
     "navTiers": {
       "title": "Sidebar visibility tiers",
       "desc": "Choose which advanced features appear in the sidebar",
@@ -28653,8 +28690,7 @@
   "myPayroll": {
     "title": "My Payslips",
     "subtitle": "View your monthly payslip details",
-    "empty": "No payslips yet"
-  ,
+    "empty": "No payslips yet",
     "slipTitle": "Payslip delivery",
     "slipStatus": "Delivery status",
     "slipPushedAt": "Pushed at",
@@ -28663,7 +28699,8 @@
     "slipAckedOk": "Acknowledged",
     "slipStatusAcked": "Acknowledged",
     "slipStatusPushed": "Pushed",
-    "slipStatusGenerated": "Generated"},
+    "slipStatusGenerated": "Generated"
+  },
   "connectivity": {
     "hostLocalAvailable": "Local service available",
     "deviceOffline": "Device offline",
@@ -28695,14 +28732,14 @@
     "colActions": "Actions",
     "viewSession": "View session",
     "download": "Download",
-    "preview": "Preview"
-  ,
+    "preview": "Preview",
     "kindHtmlReport": "HTML report",
     "kindSlides": "Slides",
     "kindSheet": "Spreadsheet",
     "kindDoc": "Document",
     "kindVideoRef": "Video reference",
-    "kindUnknown": "Unknown type"},
+    "kindUnknown": "Unknown type"
+  },
   "accountPool": {
     "checkin": "Check-in",
     "disable": "Disable",
@@ -29332,6 +29369,11 @@
     "gateUpdateNow": "Update Now"
   },
   "hrAttendance": {
+    "colApproval": "Approval",
+    "approvalOpen": "View",
+    "approvalNone": "No approval instance (no multi-level rule matched; single-step applies)",
+    "approvalStep": "Step {current}/{total}",
+    "approvalReason": "Rejection reason",
     "linkAcceptOk": "Accepted",
     "linkRejectOk": "Rejected",
     "actionFailed": "Action failed",
@@ -29409,8 +29451,7 @@
     "statusLeave": "On leave",
     "statusPending": "Pending",
     "statusApproved": "Approved",
-    "statusRejected": "Rejected"
-  ,
+    "statusRejected": "Rejected",
     "tabPunchFix": "Punch Corrections",
     "tabLeaveBalance": "Leave Balance",
     "colEmployee": "Employee",
@@ -29458,7 +29499,8 @@
     "insuranceReadyChip": "Social insurance ready",
     "insuranceNotReadyChip": "{count} config issues",
     "insuranceIssuesTitle": "Pre-payroll config check",
-    "insuranceRoster": "{count} region-year configs"},
+    "insuranceRoster": "{count} region-year configs"
+  },
   "financeAi": {
     "automationTitle": "Automation",
     "automationDesc": "Configure automated tax filing and bookkeeping",
@@ -29575,13 +29617,13 @@
     "colConflict": "Conflicts",
     "colNotFound": "Not Found",
     "colActions": "Actions",
-    "viewDetail": "View Details"
-  ,
+    "viewDetail": "View Details",
     "batchParsing": "Parsing",
     "batchPendingReview": "Pending review",
     "batchVerified": "Verified",
     "batchRejected": "Rejected",
-    "batchUnknown": "Unknown"},
+    "batchUnknown": "Unknown"
+  },
   "adminOrgGovernance": {
     "version": "Version",
     "status": "Status",
@@ -29668,14 +29710,14 @@
       "submit": "Join Test"
     },
     "faq": {
-      "title": "Frequently Asked Questions"
-    ,
+      "title": "Frequently Asked Questions",
       "q1": "What is the Beta program?",
       "a1": "Try the new version before release, explore the latest features and send us your feedback.",
       "q2": "How do I install after joining?",
       "a2": "Once you receive the invite email, install the beta through the Play Store testing link it contains.",
       "q3": "Will my beta data be kept?",
-      "a3": "Data is saved normally during the test; export anything important before switching back to the stable version."}
+      "a3": "Data is saved normally during the test; export anything important before switching back to the stable version."
+    }
   },
   "superAgent": {
     "verdictAct": "Act",
@@ -30036,11 +30078,10 @@
     "checkInBtn": "Check in",
     "calendar": "Check-in calendar",
     "empty": "No check-in records"
-  }
-,
+  },
   "finAccounting": {
-    "title": "Accounting Books"
-  ,
+    "filingApprove": "Approve",
+    "title": "Accounting Books",
     "desc": "One workspace for clients, ledgers, voucher review, statements, period close and tax filing.",
     "tabClients": "Clients & Ledgers",
     "tabVouchers": "Vouchers & Review",
@@ -30328,10 +30369,10 @@
     "colPeriod": "Period",
     "colTaxAmount": "Tax amount",
     "colStatus": "Status",
-    "colActions": "Actions"},
+    "colActions": "Actions"
+  },
   "hrLifecycle": {
-    "title": "HR Lifecycle"
-  ,
+    "title": "HR Lifecycle",
     "desc": "One chain from hiring and contracts to probation, offboarding and payroll payout.",
     "tabBoard": "Board",
     "tabContracts": "Contracts & Probation",
@@ -30528,10 +30569,10 @@
     "ctIndefinite": "Indefinite",
     "ctInternship": "Internship",
     "ctParttime": "Part-time",
-    "ctLabor": "Labor service"},
+    "ctLabor": "Labor service"
+  },
   "hrApproval": {
-    "title": "Leave Approval"
-  ,
+    "title": "Leave Approval",
     "desc": "Configure approval chains by leave type and days, work the queue and scan overdue escalations",
     "tabInstances": "My queue",
     "tabFlows": "Rules",
@@ -30582,4 +30623,6 @@
     "rejectRemarkRequired": "Reason required to reject",
     "escalateScan": "Scan escalations",
     "escalatedDone": "Escalated {count}",
-    "loading": "Loading"}}
+    "loading": "Loading"
+  }
+}

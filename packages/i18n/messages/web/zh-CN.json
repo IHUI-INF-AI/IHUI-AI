@@ -6204,7 +6204,42 @@
     "invokeFailed": "调用失败",
     "requiredParams": "必填参数: {params}",
     "noOperations": "该连接器没有可执行操作",
-    "customHint": "自定义接入:填 Base URL + 鉴权,再用 OpenAPI 导入或手填操作"
+    "customHint": "自定义接入:填 Base URL + 鉴权,再用 OpenAPI 导入或手填操作",
+    "managedUnavailableHint": "该渠道尚未由平台管理员开通，普通成员无需配置；开通后可一键接入。",
+    "quickTitle": "平台一键接入",
+    "quickHint": "飞书、钉钉、企业微信等由平台统一授权，点一下即可接入，不需要扫码或填写应用密钥。",
+    "connectNow": "一键接入",
+    "connected": "已接入",
+    "managedReady": "平台已授权",
+    "managedNotReady": "待平台配置",
+    "managedMissing": "缺少平台环境变量: {keys}",
+    "managedConnected": "{name} 已接入",
+    "managedBadge": "平台托管",
+    "managedToggle": "使用平台托管凭据",
+    "managedToggleHint": "凭据由平台统一提供，你不需要填写 app_id 或 app_secret。",
+    "managedToggleOffHint": "已切换为手动填写凭据，仅建议高级用户使用。",
+    "advancedAdd": "高级接入",
+    "check": "测试连接",
+    "checking": "测试中",
+    "checkOk": "连接正常",
+    "checkFailed": "连接失败",
+    "addOperation": "新增操作",
+    "editOperation": "编辑操作",
+    "removeOperation": "删除操作",
+    "operationDialogHint": "每条操作声明方法、路径、参数和响应取值位置；写操作仍需开启写权限并二次确认。",
+    "operationId": "操作 ID",
+    "operationName": "操作名称",
+    "operationCapability": "能力位",
+    "operationMethod": "HTTP 方法",
+    "operationPath": "请求路径",
+    "operationResponsePath": "响应取值路径",
+    "operationQuery": "查询参数(JSON)",
+    "operationBody": "请求体(JSON)",
+    "operationDescription": "说明",
+    "operationSave": "保存操作",
+    "operationRequired": "操作 ID、路径或方法格式不正确",
+    "operationJsonInvalid": "查询参数或请求体不是合法 JSON",
+    "connecting": "接入中"
   },
   "adminAiSkills": {
     "avgDuration": "平均耗时",
@@ -10508,11 +10543,9 @@
     "dispatchSubagent": "派发子代理",
     "bestOfAdopted": "已采纳最佳方案",
     "title": "工作区",
-    "worldsAdopted": "已采纳该分支回复"
-  ,
+    "worldsAdopted": "已采纳该分支回复",
     "tabs": {
-      "goal": "目标"
-    ,
+      "goal": "目标",
       "memory": "记忆",
       "plan": "计划",
       "tasks": "任务",
@@ -10538,7 +10571,9 @@
       "wiki": "知识库",
       "integrations": "集成",
       "workspace": "工作区",
-      "inspector": "检查器"}},
+      "inspector": "检查器"
+    }
+  },
   "announcements": {
     "backToList": "返回公告列表",
     "empty": "暂无公告",
@@ -12230,8 +12265,10 @@
     "reasoningEffortUltra": "极限",
     "predictiveEditInsert": "插入",
     "predictiveEditReplace": "替换",
-    "predictiveEditDelete": "删除"
-  ,"secretMaskShow":"显示凭据","secretMaskHide":"隐藏凭据"},
+    "predictiveEditDelete": "删除",
+    "secretMaskShow": "显示凭据",
+    "secretMaskHide": "隐藏凭据"
+  },
   "chatHistory": {
     "moveToGroup": "移动到分组",
     "moveSelectedToGroup": "移动所选到分组",
@@ -14289,38 +14326,38 @@
     "manual": {
       "overview": {
         "title": "手册总览",
-        "description": "按主题组织的手册章节总览"
-      ,
-        "heading": "智汇 AI 使用说明手册"}
-    ,
+        "description": "按主题组织的手册章节总览",
+        "heading": "智汇 AI 使用说明手册"
+      },
       "getting-started": {
-        "title": "快速开始"
-      ,
-        "desc": "注册账号、登录、界面导览、首次对话，3 分钟上手。"},
+        "title": "快速开始",
+        "desc": "注册账号、登录、界面导览、首次对话，3 分钟上手。"
+      },
       "ai-chat": {
-        "title": "AI 对话"
-      ,
-        "desc": "与 AI 对话、上传文件、切换模型、查看历史、分享对话。"},
+        "title": "AI 对话",
+        "desc": "与 AI 对话、上传文件、切换模型、查看历史、分享对话。"
+      },
       "agent": {
-        "title": "Agent 使用"
-      ,
-        "desc": "从市场选用 Agent、收藏、定制提示词、发布到自己的工作台。"},
+        "title": "Agent 使用",
+        "desc": "从市场选用 Agent、收藏、定制提示词、发布到自己的工作台。"
+      },
       "knowledge-base": {
-        "title": "知识库"
-      ,
-        "desc": "上传文档、检索测试、把知识库挂载到 Agent，让 AI 懂你的业务。"},
+        "title": "知识库",
+        "desc": "上传文档、检索测试、把知识库挂载到 Agent，让 AI 懂你的业务。"
+      },
       "billing": {
-        "title": "积分与订阅"
-      ,
-        "desc": "积分消耗规则、套餐对比、充值、发票、共享积分池。"},
+        "title": "积分与订阅",
+        "desc": "积分消耗规则、套餐对比、充值、发票、共享积分池。"
+      },
       "account": {
-        "title": "账户设置"
-      ,
-        "desc": "个人资料、安全设置、API Key、通知偏好、注销账号。"},
+        "title": "账户设置",
+        "desc": "个人资料、安全设置、API Key、通知偏好、注销账号。"
+      },
       "faq": {
-        "title": "常见问题"
-      ,
-        "desc": "登录失败、积分异常、模型不可用、数据导出等高频问答。"}}
+        "title": "常见问题",
+        "desc": "登录失败、积分异常、模型不可用、数据导出等高频问答。"
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -20487,11 +20524,11 @@
     "examMarking": "阅卷",
     "adminRelayModelMappings": "中继模型映射",
     "saasTenants": "SaaS 租户",
-    "saasCertificates": "SaaS 证书"
-  ,
+    "saasCertificates": "SaaS 证书",
     "finAccounting": "财务账套",
     "hrLifecycle": "人事生命周期",
-    "hrApproval": "请假审批"},
+    "hrApproval": "请假审批"
+  },
   "news": {
     "allCategories": "全部分类",
     "backToList": "返回资讯",
@@ -23172,11 +23209,11 @@
       "title": "专家路由",
       "desc": "选择请求走哪一类模型路由策略",
       "default": "默认",
-      "envLockedNotice": "该设置已由环境变量锁定，在此处修改不会生效"
-    ,
+      "envLockedNotice": "该设置已由环境变量锁定，在此处修改不会生效",
       "hintDesc": "仅提示可用的专家模型，不自动切换",
       "autoDesc": "命中专家场景时自动切换路由",
-      "offDesc": "关闭专家路由，全部走默认路由"},
+      "offDesc": "关闭专家路由，全部走默认路由"
+    },
     "navTiers": {
       "title": "侧边栏显示层级",
       "desc": "选择哪些进阶功能显示在侧边栏",
@@ -29348,8 +29385,7 @@
   "myPayroll": {
     "title": "我的工资条",
     "subtitle": "查看每月的工资明细",
-    "empty": "暂无工资条"
-  ,
+    "empty": "暂无工资条",
     "slipTitle": "工资条发放",
     "slipStatus": "发放状态",
     "slipPushedAt": "推送时间",
@@ -29358,7 +29394,8 @@
     "slipAckedOk": "已确认收到",
     "slipStatusAcked": "已签收",
     "slipStatusPushed": "已推送",
-    "slipStatusGenerated": "已生成"},
+    "slipStatusGenerated": "已生成"
+  },
   "connectivity": {
     "hostLocalAvailable": "本地服务可用",
     "deviceOffline": "设备离线",
@@ -29390,14 +29427,14 @@
     "colActions": "操作",
     "viewSession": "查看会话",
     "download": "下载",
-    "preview": "预览"
-  ,
+    "preview": "预览",
     "kindHtmlReport": "网页报告",
     "kindSlides": "幻灯片",
     "kindSheet": "电子表格",
     "kindDoc": "文档",
     "kindVideoRef": "视频引用",
-    "kindUnknown": "未知类型"},
+    "kindUnknown": "未知类型"
+  },
   "accountPool": {
     "checkin": "签到",
     "disable": "禁用",
@@ -30027,6 +30064,11 @@
     "gateUpdateNow": "立即更新"
   },
   "hrAttendance": {
+    "colApproval": "审批进度",
+    "approvalOpen": "查看",
+    "approvalNone": "无审批实例(未匹配多级审批规则,走单步审批)",
+    "approvalStep": "第 {current}/{total} 级",
+    "approvalReason": "驳回理由",
     "linkAcceptOk": "已同意",
     "linkRejectOk": "已拒绝",
     "actionFailed": "操作失败",
@@ -30104,8 +30146,7 @@
     "statusLeave": "请假",
     "statusPending": "待审批",
     "statusApproved": "已通过",
-    "statusRejected": "已驳回"
-  ,
+    "statusRejected": "已驳回",
     "tabPunchFix": "补卡申请与审批",
     "tabLeaveBalance": "假期余额",
     "colEmployee": "员工",
@@ -30153,7 +30194,8 @@
     "insuranceReadyChip": "社保配置就绪",
     "insuranceNotReadyChip": "社保配置缺 {count} 项",
     "insuranceIssuesTitle": "算薪前配置体检",
-    "insuranceRoster": "已有 {count} 条地区年度配置"},
+    "insuranceRoster": "已有 {count} 条地区年度配置"
+  },
   "financeAi": {
     "automationTitle": "自动化处理",
     "automationDesc": "设置自动报税与记账规则",
@@ -30270,13 +30312,13 @@
     "colConflict": "冲突数",
     "colNotFound": "未匹配数",
     "colActions": "操作",
-    "viewDetail": "查看详情"
-  ,
+    "viewDetail": "查看详情",
     "batchParsing": "解析中",
     "batchPendingReview": "待确认",
     "batchVerified": "已核对",
     "batchRejected": "已驳回",
-    "batchUnknown": "未知状态"},
+    "batchUnknown": "未知状态"
+  },
   "adminOrgGovernance": {
     "version": "版本",
     "status": "状态",
@@ -30363,14 +30405,14 @@
       "submit": "加入测试"
     },
     "faq": {
-      "title": "常见问题"
-    ,
+      "title": "常见问题",
       "q1": "什么是 Beta 测试？",
       "a1": "在正式发布前试用新版本，体验最新能力并把问题反馈给我们。",
       "q2": "加入测试后如何安装？",
       "a2": "收到邀请邮件后，通过邮件中的 Play 商店测试链接即可安装测试版。",
       "q3": "测试版的数据会保留吗？",
-      "a3": "测试期间数据正常保存；如需回到正式版，请先导出重要数据。"}
+      "a3": "测试期间数据正常保存；如需回到正式版，请先导出重要数据。"
+    }
   },
   "superAgent": {
     "verdictAct": "需处理",
@@ -30570,11 +30612,10 @@
     "checkInBtn": "签到",
     "calendar": "签到日历",
     "empty": "暂无签到记录"
-  }
-,
+  },
   "finAccounting": {
-    "title": "财务账套"
-  ,
+    "filingApprove": "通过",
+    "title": "财务账套",
     "desc": "客户、账套、凭证复核、报表结账与税务申报的一体化工作台。",
     "tabClients": "客户与账套",
     "tabVouchers": "凭证与复核",
@@ -30862,10 +30903,10 @@
     "colPeriod": "期间",
     "colTaxAmount": "税额",
     "colStatus": "状态",
-    "colActions": "操作"},
+    "colActions": "操作"
+  },
   "hrLifecycle": {
-    "title": "人事生命周期"
-  ,
+    "title": "人事生命周期",
     "desc": "招聘入职、合同与试用、离职交接、发薪代发一条链。",
     "tabBoard": "看板",
     "tabContracts": "合同与试用",
@@ -31062,10 +31103,10 @@
     "ctIndefinite": "无固定期限",
     "ctInternship": "实习",
     "ctParttime": "兼职",
-    "ctLabor": "劳务"},
+    "ctLabor": "劳务"
+  },
   "hrApproval": {
-    "title": "请假多级审批"
-  ,
+    "title": "请假多级审批",
     "desc": "按假别与天数配置审批链,处理待办并扫描超时升级",
     "tabInstances": "待办审批",
     "tabFlows": "审批规则",
@@ -31116,4 +31157,6 @@
     "rejectRemarkRequired": "驳回请写理由",
     "escalateScan": "扫描超时升级",
     "escalatedDone": "已升级 {count} 条",
-    "loading": "加载中"}}
+    "loading": "加载中"
+  }
+}

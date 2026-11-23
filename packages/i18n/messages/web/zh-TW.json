@@ -6204,7 +6204,42 @@
     "invokeFailed": "呼叫失敗",
     "requiredParams": "必填參數: {params}",
     "noOperations": "該連接器沒有可執行操作",
-    "customHint": "自訂接入:填 Base URL + 驗證,再用 OpenAPI 匯入或手填操作"
+    "customHint": "自訂接入:填 Base URL + 驗證,再用 OpenAPI 匯入或手填操作",
+    "managedUnavailableHint": "該渠道尚未由平台管理員開通，一般成員無需設定；開通後可一鍵接入。",
+    "quickTitle": "平台一鍵接入",
+    "quickHint": "飛書、釘釘、企業微信等由平台統一授權，點一下即可接入，不需要掃碼或填寫應用密鑰。",
+    "connectNow": "一鍵接入",
+    "connected": "已接入",
+    "managedReady": "平台已授權",
+    "managedNotReady": "待平台設定",
+    "managedMissing": "缺少平台環境變數: {keys}",
+    "managedConnected": "{name} 已接入",
+    "managedBadge": "平台託管",
+    "managedToggle": "使用平台託管憑證",
+    "managedToggleHint": "憑證由平台統一提供，你不需要填寫 app_id 或 app_secret。",
+    "managedToggleOffHint": "已切換為手動填寫憑證，僅建議進階使用者使用。",
+    "advancedAdd": "進階接入",
+    "check": "測試連線",
+    "checking": "測試中",
+    "checkOk": "連線正常",
+    "checkFailed": "連線失敗",
+    "addOperation": "新增操作",
+    "editOperation": "編輯操作",
+    "removeOperation": "刪除操作",
+    "operationDialogHint": "每條操作宣告方法、路徑、參數與回應取值位置；寫操作仍需開啟寫權限並二次確認。",
+    "operationId": "操作 ID",
+    "operationName": "操作名稱",
+    "operationCapability": "能力位",
+    "operationMethod": "HTTP 方法",
+    "operationPath": "請求路徑",
+    "operationResponsePath": "回應取值路徑",
+    "operationQuery": "查詢參數(JSON)",
+    "operationBody": "請求體(JSON)",
+    "operationDescription": "說明",
+    "operationSave": "儲存操作",
+    "operationRequired": "操作 ID、路徑或方法格式不正確",
+    "operationJsonInvalid": "查詢參數或請求體不是合法 JSON",
+    "connecting": "接入中"
   },
   "adminAiSkills": {
     "avgDuration": "平均耗時",
@@ -10463,11 +10498,9 @@
     "dispatchSubagent": "派發子代理",
     "bestOfAdopted": "已採納最佳方案",
     "title": "工作區",
-    "worldsAdopted": "已採納該分支回覆"
-  ,
+    "worldsAdopted": "已採納該分支回覆",
     "tabs": {
-      "goal": "目標"
-    ,
+      "goal": "目標",
       "memory": "記憶",
       "plan": "計畫",
       "tasks": "任務",
@@ -10493,7 +10526,9 @@
       "wiki": "知識庫",
       "integrations": "整合",
       "workspace": "工作區",
-      "inspector": "檢查器"}},
+      "inspector": "檢查器"
+    }
+  },
   "announcements": {
     "backToList": "返回公告列表",
     "empty": "暫無公告",
@@ -12185,8 +12220,10 @@
     "reasoningEffortUltra": "極限",
     "predictiveEditInsert": "插入",
     "predictiveEditReplace": "取代",
-    "predictiveEditDelete": "刪除"
-  ,"secretMaskShow":"顯示憑證","secretMaskHide":"隱藏憑證"},
+    "predictiveEditDelete": "刪除",
+    "secretMaskShow": "顯示憑證",
+    "secretMaskHide": "隱藏憑證"
+  },
   "chatHistory": {
     "moveToGroup": "移動到分組",
     "moveSelectedToGroup": "移動所選到分組",
@@ -14118,38 +14155,38 @@
     "manual": {
       "overview": {
         "title": "手冊總覽",
-        "description": "依主題組織的手冊章節總覽"
-      ,
-        "heading": "智匯 AI 使用說明手冊"}
-    ,
+        "description": "依主題組織的手冊章節總覽",
+        "heading": "智匯 AI 使用說明手冊"
+      },
       "getting-started": {
-        "title": "快速開始"
-      ,
-        "desc": "註冊帳號、登入、介面導覽、首次對話，3 分鐘上手。"},
+        "title": "快速開始",
+        "desc": "註冊帳號、登入、介面導覽、首次對話，3 分鐘上手。"
+      },
       "ai-chat": {
-        "title": "AI 對話"
-      ,
-        "desc": "與 AI 對話、上傳檔案、切換模型、查看歷史、分享對話。"},
+        "title": "AI 對話",
+        "desc": "與 AI 對話、上傳檔案、切換模型、查看歷史、分享對話。"
+      },
       "agent": {
-        "title": "Agent 使用"
-      ,
-        "desc": "從市場選用 Agent、收藏、自訂提示詞、發佈到自己的工作台。"},
+        "title": "Agent 使用",
+        "desc": "從市場選用 Agent、收藏、自訂提示詞、發佈到自己的工作台。"
+      },
       "knowledge-base": {
-        "title": "知識庫"
-      ,
-        "desc": "上傳文件、檢索測試、把知識庫掛載到 Agent，讓 AI 懂你的業務。"},
+        "title": "知識庫",
+        "desc": "上傳文件、檢索測試、把知識庫掛載到 Agent，讓 AI 懂你的業務。"
+      },
       "billing": {
-        "title": "積分與訂閱"
-      ,
-        "desc": "積分消耗規則、方案比較、儲值、發票、共享積分池。"},
+        "title": "積分與訂閱",
+        "desc": "積分消耗規則、方案比較、儲值、發票、共享積分池。"
+      },
       "account": {
-        "title": "帳戶設定"
-      ,
-        "desc": "個人資料、安全設定、API Key、通知偏好、註銷帳號。"},
+        "title": "帳戶設定",
+        "desc": "個人資料、安全設定、API Key、通知偏好、註銷帳號。"
+      },
       "faq": {
-        "title": "常見問題"
-      ,
-        "desc": "登入失敗、積分異常、模型不可用、資料匯出等高頻問答。"}}
+        "title": "常見問題",
+        "desc": "登入失敗、積分異常、模型不可用、資料匯出等高頻問答。"
+      }
+    }
   },
   "drama": {
     "editor": {
@@ -20093,11 +20130,11 @@
     "adminRelayModelMappings": "中繼模型對應",
     "saasTenants": "SaaS 租戶",
     "saasCertificates": "SaaS 證書",
-    "downloadCodeSigningNotice": "Windows 版本由 SignPath.io 使用 SignPath Foundation 提供的免費程式碼簽名憑證進行簽名"
-  ,
+    "downloadCodeSigningNotice": "Windows 版本由 SignPath.io 使用 SignPath Foundation 提供的免費程式碼簽名憑證進行簽名",
     "finAccounting": "財務帳套",
     "hrLifecycle": "人事生命週期",
-    "hrApproval": "請假審批"},
+    "hrApproval": "請假審批"
+  },
   "news": {
     "allCategories": "全部分類",
     "backToList": "返回資訊",
@@ -22643,11 +22680,11 @@
       "title": "專家路由",
       "desc": "選擇請求走哪一類模型路由策略",
       "default": "預設",
-      "envLockedNotice": "此設定已由環境變數鎖定，在此處修改不會生效"
-    ,
+      "envLockedNotice": "此設定已由環境變數鎖定，在此處修改不會生效",
       "hintDesc": "僅提示可用的專家模型，不自動切換",
       "autoDesc": "命中專家情境時自動切換路由",
-      "offDesc": "關閉專家路由，全部走預設路由"},
+      "offDesc": "關閉專家路由，全部走預設路由"
+    },
     "navTiers": {
       "title": "側邊欄顯示層級",
       "desc": "選擇哪些進階功能顯示在側邊欄",
@@ -28804,8 +28841,7 @@
   "myPayroll": {
     "title": "我的薪資單",
     "subtitle": "查看每月的薪資明細",
-    "empty": "暫無薪資單"
-  ,
+    "empty": "暫無薪資單",
     "slipTitle": "工資條發放",
     "slipStatus": "發放狀態",
     "slipPushedAt": "推送時間",
@@ -28814,7 +28850,8 @@
     "slipAckedOk": "已確認收到",
     "slipStatusAcked": "已簽收",
     "slipStatusPushed": "已推送",
-    "slipStatusGenerated": "已生成"},
+    "slipStatusGenerated": "已生成"
+  },
   "connectivity": {
     "hostLocalAvailable": "本機服務可用",
     "deviceOffline": "裝置離線",
@@ -28846,14 +28883,14 @@
     "colActions": "操作",
     "viewSession": "查看工作階段",
     "download": "下載",
-    "preview": "預覽"
-  ,
+    "preview": "預覽",
     "kindHtmlReport": "網頁報告",
     "kindSlides": "簡報",
     "kindSheet": "試算表",
     "kindDoc": "文件",
     "kindVideoRef": "影片引用",
-    "kindUnknown": "未知類型"},
+    "kindUnknown": "未知類型"
+  },
   "accountPool": {
     "checkin": "簽到",
     "disable": "停用",
@@ -29483,6 +29520,11 @@
     "gateUpdateNow": "立即更新"
   },
   "hrAttendance": {
+    "colApproval": "審批進度",
+    "approvalOpen": "查看",
+    "approvalNone": "無審批實例(未匹配多級審批規則,走單步審批)",
+    "approvalStep": "第 {current}/{total} 級",
+    "approvalReason": "駁回理由",
     "linkAcceptOk": "已同意",
     "linkRejectOk": "已拒絕",
     "actionFailed": "操作失敗",
@@ -29560,8 +29602,7 @@
     "statusLeave": "請假",
     "statusPending": "待審核",
     "statusApproved": "已通過",
-    "statusRejected": "已駁回"
-  ,
+    "statusRejected": "已駁回",
     "tabPunchFix": "補卡申請與審批",
     "tabLeaveBalance": "假期餘額",
     "colEmployee": "員工",
@@ -29609,7 +29650,8 @@
     "insuranceReadyChip": "社保配置就緒",
     "insuranceNotReadyChip": "社保配置缺 {count} 項",
     "insuranceIssuesTitle": "算薪前配置體檢",
-    "insuranceRoster": "已有 {count} 筆地區年度配置"},
+    "insuranceRoster": "已有 {count} 筆地區年度配置"
+  },
   "financeAi": {
     "automationTitle": "自動化處理",
     "automationDesc": "設定自動報稅與記帳規則",
@@ -29726,13 +29768,13 @@
     "colConflict": "衝突數",
     "colNotFound": "未匹配數",
     "colActions": "操作",
-    "viewDetail": "查看詳細"
-  ,
+    "viewDetail": "查看詳細",
     "batchParsing": "解析中",
     "batchPendingReview": "待確認",
     "batchVerified": "已核對",
     "batchRejected": "已駁回",
-    "batchUnknown": "未知狀態"},
+    "batchUnknown": "未知狀態"
+  },
   "adminOrgGovernance": {
     "version": "版本",
     "status": "狀態",
@@ -29819,14 +29861,14 @@
       "submit": "加入測試"
     },
     "faq": {
-      "title": "常見問題"
-    ,
+      "title": "常見問題",
       "q1": "什麼是 Beta 測試？",
       "a1": "在正式發佈前試用新版本，體驗最新能力並把問題回饋給我們。",
       "q2": "加入測試後如何安裝？",
       "a2": "收到邀請郵件後，透過郵件中的 Play 商店測試連結即可安裝測試版。",
       "q3": "測試版的資料會保留嗎？",
-      "a3": "測試期間資料正常保存；如需回到正式版，請先匯出重要資料。"}
+      "a3": "測試期間資料正常保存；如需回到正式版，請先匯出重要資料。"
+    }
   },
   "superAgent": {
     "verdictAct": "需處理",
@@ -30036,11 +30078,10 @@
     "checkInBtn": "簽到",
     "calendar": "簽到行事曆",
     "empty": "暫無簽到記錄"
-  }
-,
+  },
   "finAccounting": {
-    "title": "財務帳套"
-  ,
+    "filingApprove": "通過",
+    "title": "財務帳套",
     "desc": "客戶、帳套、憑證覆核、報表結帳與稅務申報的一體化工作台。",
     "tabClients": "客戶與帳套",
     "tabVouchers": "憑證與覆核",
@@ -30328,10 +30369,10 @@
     "colPeriod": "期間",
     "colTaxAmount": "稅額",
     "colStatus": "狀態",
-    "colActions": "操作"},
+    "colActions": "操作"
+  },
   "hrLifecycle": {
-    "title": "人事生命週期"
-  ,
+    "title": "人事生命週期",
     "desc": "招聘入職、合約與試用、離職交接、發薪代發一條鏈。",
     "tabBoard": "看板",
     "tabContracts": "合約與試用",
@@ -30528,10 +30569,10 @@
     "ctIndefinite": "無固定期限",
     "ctInternship": "實習",
     "ctParttime": "兼職",
-    "ctLabor": "勞務"},
+    "ctLabor": "勞務"
+  },
   "hrApproval": {
-    "title": "請假多級審批"
-  ,
+    "title": "請假多級審批",
     "desc": "依假別與天數設定審批鏈,處理待辦並掃描逾時升級",
     "tabInstances": "待辦審批",
     "tabFlows": "審批規則",
@@ -30582,4 +30623,6 @@
     "rejectRemarkRequired": "駁回請寫理由",
     "escalateScan": "掃描逾時升級",
     "escalatedDone": "已升級 {count} 筆",
-    "loading": "載入中"}}
+    "loading": "載入中"
+  }
+}
