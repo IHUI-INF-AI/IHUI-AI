@@ -45,6 +45,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from .points_multiplier_inference import infer_points_multiplier as _infer_points_multiplier
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +84,9 @@ class FreeProvider:
         protocol: 协议类型(openai_chat / anthropic_messages / gemini_generate_content)。
         docs_url: 文档链接。
         notes: 备注(特殊说明,如"需信用卡验证" / "仅限美国 IP")。
-        zero_cost: 真·零成本(无需 key 即可调用,如 pollinations/llm7/aihorde)。
+        zero_cost: 真·零成本(无需 key 即可调用,如 pollinations/llm7/aihorde);
+            仅指上游成本为 0,用户售价仍以 DB points_multiplier 为准(见
+            ``_ZERO_COST_CODES`` 处的边界注释,上游免费 ≠ 用户侧免费)。
         free_tier: 有免费额度但需注册 key(如 groq/zhipu/cloudflare)。
     """
 
@@ -1487,6 +1491,11 @@ _REGISTRY: list[FreeProvider] = [
 # 本地 LLM(ollama/lmstudio/llamacpp/vllm)不标 zero_cost(category=LOCAL 已区分)
 # stepfun/agnes 不标 free_tier(项目已配置付费 plan 套餐,非免费层)
 # kiro 不标(法务风险,不接入技术路径)
+#
+# 边界(2026-11-23 澄清):zero_cost 只表示"上游成本为 0(我们调用它不花钱)",
+# 不等于用户侧免费。用户实际扣几倍由 DB ai_model_config_models.points_multiplier
+# 决定(生产库中同类条目确实存在 3x 的用户售价);推断函数给这类 provider 的 0x
+# 只是"推断初值 / 上游免费档",不得据此认定前端展示与实际扣分不一致。
 # ============================================================================
 _ZERO_COST_CODES: set[str] = {
     "pollinations",  # 无需 key,免费顶级模型(速率极低)
@@ -1724,54 +1733,24 @@ free_provider_registry = FreeProviderRegistry()
 # ============================================================================
 # 积分消耗倍数推断(2026-07-31 立,P0: /llm/models 端点为每个模型附加 points_multiplier)
 # 5 档梯度:免费(0x)/ 经济(1x)/ 标准(3x)/ 高级(10x)/ 旗舰(30x)。
-# 优先级:旗舰 > 高级 > 标准 > 经济 > 免费 > 默认(经济)。
-# 注:档位判定基于 model_id 关键词子串匹配,旗舰层 "opus" 会覆盖高级层 "claude-3-opus"
-#     (claude-3-opus 实际归类为旗舰 30x,符合"opus 系列=旗舰"语义)。
+# 2026-11-23 起:关键词表与判定顺序只住在共享规则源
+# packages/shared/src/constants/points-multiplier-rules.json;本模块委托
+# points_multiplier_inference 解释器执行,不再本地抄关键词表(Python 与 TS 同源同结果,
+# 跨语言一致性由共享语料 points-multiplier-corpus.json 与 ai-service parity pytest 钉住)。
 # ============================================================================
-
-# 旗舰(30x):只认真实旗舰家族(2026-11-23 修正:不再把 "thinking"/"gpt-5" 全族拉进旗舰)
-_FLAGSHIP_KEYWORDS: tuple[str, ...] = (
-    "opus", "o1-preview", "o1", "o3", "gpt-5.4-pro", "gpt-5.5", "gpt-5.5-pro",
-    "gpt-5.6-sol", "gpt-5.6-terra",
-)
-# 高级(10x):pro / max / turbo / 长上下文旗舰
-_PREMIUM_KEYWORDS: tuple[str, ...] = (
-    "gpt-5", "gpt-4-turbo", "gpt-4.5", "qwen-max-longcontext",
-)
-# 标准(3x):主流中端模型;低成本 thinking 模型也落这一档(不再算旗舰)
-_STANDARD_KEYWORDS: tuple[str, ...] = (
-    "sonnet", "gpt-4o", "gpt-4.1", "deepseek", "glm-4", "qwen-max", "thinking",
-)
-# 经济(1x):轻量 / 快速 / 低成本(必须优先于父型号判定)
-_ECONOMY_KEYWORDS: tuple[str, ...] = (
-    "mini", "nano", "haiku", "flash", "lite", "ocr", "small", "luna", "sao10k", "smol",
-    "hunyuan-2.0-thinking",
-)
-# 免费(0x):本地 / zero_cost provider
-_FREE_KEYWORDS: tuple[str, ...] = (
-    "ollama", "llama", "llm7", "pollinations", "aihorde", "opencode_zen",
-)
-
-
-def _has_economy_keyword(mid: str) -> bool:
-    """经济档关键词命中;`gemini` 含子串 "mini"(ge-mini),必须排除。"""
-    for keyword in _ECONOMY_KEYWORDS:
-        if keyword == "mini":
-            if "mini" in mid and "gemini" not in mid:
-                return True
-        elif keyword in mid:
-            return True
-    return False
 
 
 def infer_points_multiplier(model_id: str) -> float:
     """根据 model_id 推断积分消耗倍数(5 档梯度)。
 
+    委托 :mod:`app.services.points_multiplier_inference` 解释器执行;规则数据由共享
+    JSON 派生,与 TS 侧同序同结果。
+
     返回值:
-    - 0.0: 免费模型(本地 / zero_cost provider)
+    - 0.0: 免费模型(本地 / 上游 zero_cost provider)
     - 1.0: 经济模型(mini / flash / lite / nano / haiku / ocr / small)
     - 3.0: 标准模型(sonnet / gpt-4o / deepseek / glm-4 / qwen-max / thinking)
-    - 10.0: 高级模型(gpt-5 / pro / max / turbo / 长上下文旗舰)
+    - 10.0: 高级模型(gpt-5 / gemini pro / pro / max / turbo / 长上下文旗舰)
     - 30.0: 旗舰模型(opus / o1 / o3 / gpt-5.5 / gpt-5.6-sol / gpt-5.6-terra)
 
     无法匹配任何关键词时返回 1.0(默认经济档,避免高估用户消耗)。
@@ -1799,25 +1778,5 @@ def infer_points_multiplier(model_id: str) -> float:
         >>> infer_points_multiplier("")
         1.0
     """
-    mid = (model_id or "").lower()
-    # 免费(0x):先判,避免免费模型被后面的旗舰/标准关键词抬高
-    if any(k in mid for k in _FREE_KEYWORDS):
-        return 0.0
-    # 经济(1x):mini/flash/ocr 等轻量后缀必须先于父型号(family)判定,
-    # 否则 deepseek-v4.1-flash 会被 deepseek 拉到 3x、gpt-5-image-mini 被 gpt-5 拉到 30x。
-    if _has_economy_keyword(mid):
-        return 1.0
-    # 旗舰(30x)
-    if any(k in mid for k in _FLAGSHIP_KEYWORDS):
-        return 30.0
-    # 高级(10x)
-    if "gemini" in mid and "pro" in mid:
-        return 10.0
-    if any(k in mid for k in _PREMIUM_KEYWORDS):
-        return 10.0
-    # 标准(3x)
-    if any(k in mid for k in _STANDARD_KEYWORDS):
-        return 3.0
-    # 默认经济(1x)
-    return 1.0
+    return _infer_points_multiplier(model_id)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

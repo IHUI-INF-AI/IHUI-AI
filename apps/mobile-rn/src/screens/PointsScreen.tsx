@@ -111,11 +111,19 @@ export default function PointsScreen() {
     setFailed(false)
     try {
       const [pRes, lRes, sRes] = await Promise.all([
-        fetchApi<{ points: PointsAccountInfo }>('/api/points'),
+        fetchApi<{
+          points: PointsAccountInfo
+          /** 顶层的每日赠送状态：`points` 子对象里没有它，漏取会让共享屏看不到今日能不能花 */
+          dailyCredit?: PointsAccountInfo['dailyCredit']
+        }>('/api/points'),
         getCurrentLevel(),
         fetchApi<SignInTodayRow>('/api/sign-in/today'),
       ])
-      setAccount(pRes.success ? (pRes.data?.points ?? null) : null)
+      setAccount(
+        pRes.success && pRes.data?.points
+          ? { ...pRes.data.points, dailyCredit: pRes.data.dailyCredit }
+          : null,
+      )
       setLevel(lRes.success ? (lRes.data ?? null) : null)
       setToday(sRes.success ? (sRes.data ?? null) : null)
       if (!pRes.success) setFailed(true)
