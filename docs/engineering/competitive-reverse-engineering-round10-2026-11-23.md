@@ -940,3 +940,98 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 | `codebase_index_states` | `markIndexed`（既有）+ 第六批判据消费 | `getIndexState` / `evaluateRebuild` / `GET .../index-state` / `knowledge_fs.index_state` | `codebase-index-entity-state.test.ts`(13) / `codebase-index-state-read.test.ts`(9) / `test_knowledge_fs_index_state.py`(11) |
 
 当时那句"上层调度承载未定"仍然成立：`evaluateRebuild` 现在有 HTTP 读面与 VFS 读面，但**还没有调度器按判据自动触发重建**——谁在什么时候调用重建端点，仍由调用方决定。这是下一批的候选，不是已完成。
+## 31. P0-8 八批总账（2026-11-23 完结）
+
+### 31.1 一条线八批做了什么
+
+| 批 | 主题 | 提交 | 关键判据 |
+| --- | --- | --- | --- |
+| 一 | pgvector 完整性审计 | `fde9dc53` | 缺向量切片与向量化切片分开报数；四态互斥、空库不记 ok |
+| 二 | 三表 + 迁移 + 幂等 | `acdb8d73` | `codebase_entities` / `codebase_edges` / `codebase_index_states`；迁移自带三行水印头 |
+| 三 | 实体写入通道 | `dc0526c8` | 身份键 `filePath\0kind\0name`；`_entityOwnerScope` 独立谓词；与切片同事务 |
+| 四 | 实体读面 + 符号视图 | `48757f23` | 无归属零 DB；limit 夹取；空集三因三分 |
+| 五 | MCP 工具面 | `b94ff88a` | 身份只认 `__user_id`；`repo_id` 缺省按 path 推导 |
+| 六 | 索引状态判据 | `bab77067` | `evaluateRebuild` 纯函数、缺省 `maxAgeMs=0`；`catalog_missing` 只在这一支富化 |
+| 七 | 导入边写入通道 | `c7f5dda8` | `fromName` 取模块路径；清除面并集；`_edgeOwnerScope` 独立 |
+| 八 | 边读面 + MCP 工具 | `c7f5dda8` | 两档方向不猜；`_clampLimit` 单源；空集 detail 点明 TS 不产边 |
+
+第七、八批合在一枚提交（`c7f5dda8`，13 文件 +1187/−15）：两批共用同一份清除面与同一张边表判据，
+拆开落地会出现"写入面已通电、读面还没有"的中间态，而中间态正是最容易漏测的形态。
+
+### 31.2 现读数字（2026-11-23 20:1x）
+
+- `apps/api` codebase 全家族 **9 文件 105 例绿**（混合检索 / 归属隔离 / 完整性审计 / 实体读 / 状态读 / 实体-状态 / 边写 14 / 边读 8 / 实体写 14）；
+- `apps/api` 全库 `tsc --noEmit` **0 错误**；
+- `apps/ai-service` 相关组 **52 例绿**（符号 14 + 状态 11 + 导入 9 + 抽取 6 + 导入读面 9 … 交错计）；
+- MCP 注册/护栏/能力门/协议 **293 例绿**（含 `test_tools_count_matches_registry` 双射）；
+- 水印：11 个代码文件 verify 覆盖 11/11，残迹 0、载荷损坏 0。
+
+### 31.3 遗留（三条，均为"有据可查的未做"）
+
+1. **没有调度器按判据自动触发重建**：`evaluateRebuild` 已有 HTTP 与 VFS 两面读口，但"谁在什么时候重建"仍由调用方决定。加自动调度属产品决策（重建会消耗嵌入成本），不作单方面默认。
+2. **边表无 `expires_at`**：切片表有保留期、边表没有。`retentionDays` 在路由层刻意保持缺省，所以当前无残留；开口透传必须与"加列 + 迁移 + 删除谓词"同批。
+3. **两个 MCP 工具的首屏可见性**：`list_symbol_definitions` / `find_import_edges` 的可发现性依赖 aggregator/deferral 的清单登记，属客户端清单层，未在本线改动。
+
+### 31.4 这一线没做的事（也是刻意的）
+
+- **没抄对照方的 sqlite_vec**：本仓是 PostgreSQL + pgvector，"完整性统计"的语义按本仓数据模型重建（缺向量 / 覆盖率为 0 / 空库三档各有独立判据），不是把 SQLite 的 SQL 翻成 PG 方言。
+- **没做目标文件解析**：边只记名字原文。跨文件符号表不存在时假装解析，会产出**看起来正确**的错边 —— 比没有边更糟。
+- **没造"被引用计数"指标**：没有真实数据支撑前先造聚合，等于给自己发一张无法验证的成绩单。
+
+## 32. B3-03 协作身份三档与退出码/幂等契约（2026-11-23）
+
+### 32.1 三档身份与命令权重（唯一映射表）
+
+| 档位 | 权重 | 含义 | 能做什么 |
+| --- | --- | --- | --- |
+| `user` | 2 | 人在终端直接操作（默认） | 派发 / 派生 / 仲裁 / 读拓扑 |
+| `runtime-owner` | 2 | 被授权代表用户的运行体（host 注入 `owner`） | 同 `user`，同级 |
+| `runtime-agent` | 1 | 被分派的执行体（host 注入 `agent`） | 只能读拓扑；不得派发/派生/仲裁 |
+
+`COLLAB_COMMAND_MIN_RANK` 是命令 → 最低权重的**唯一**一处：新增命令漏映射会在类型层与用例层双红。
+`user` 与 `runtime-owner` 同级是刻意的 —— 本地 CLI 与人机同权，真正的分界画在"执行体不得再派生"上，
+与 `subagents/worker-pool.ts` 的并发档互补：防的是递归派生风暴，不是防人。
+
+### 32.2 身份来源的三条硬规矩
+
+1. **只读宿主注入**：`IHUI_COLLAB_RUNTIME_CONTEXT`（值只认 `owner` / `agent`）；解析函数签名里没有 argv，实现体不出现 `process.argv`（用例从源码切片钉住这一点）。
+2. **未知即拒**：上下文有值但不可识别 ⇒ 返回 `null`，任何命令都被拒（`identity_unknown`），**不回落 `user`**。
+3. **自选即拒**：argv 一旦出现 `--identity` / `--profile` / `--runtime-context-fd` / `--role`，一律 `identity_self_selected` 拒绝 —— 不是"我们没提供"，而是"提供了就拒"。
+
+### 32.3 四档命令面全部接线（没有纸面项）
+
+| 命令 | 生产入口 | 闸位置 |
+| --- | --- | --- |
+| `subagent.dispatch` | `CollaborationManager.dispatchTask` | 体首行，早于 `getExecutor()` |
+| `subagent.spawn` | `spawnParallel`（顶层导出） | 体首行，早于 `new SubagentWorkerPool` |
+| `subagent.arbitrate` | `CollaborationManager.arbitrateConflict` | 体首行 |
+| `subagent.topology-read` | `CollaborationManager.visualizeTopology` | 体首行 |
+
+### 32.4 退出码 / 响应形 / 分页 / 幂等（单源 `commands/collab/exit-codes.ts`）
+
+- 退出码 **0 / 3 / 4 / 130**；`outcome_unknown` / `disconnected` / `oversize` 三档**不塌成成功**：退出码按拒绝（3）算，且 `mustQueryBeforeRetry` 为真 ⇒ 调用方无法把未知读成答案。
+- 响应形 `{success:true,data}` / `{success:false,error}` 互斥（失败侧没有 `data` 字段）。
+- 分页 `complete` **由 `nextOffset` 推导**，不允许调用方自报 complete。
+- `requestIdFor(operation, payload)` 是**稳定哈希**（键排序 + 64 位 hex）：同操作同 payload 恒同 ⇒ 重放可被识别。
+
+### 32.5 与对照方的差距与超越轴
+
+| 维度 | Qoder 协作 CLI（取证） | 本仓 |
+| --- | --- | --- |
+| 身份选定 | host 从可信会话上下文选定，CLI 不加身份参数 | 同，且**自选参数显式拒绝**（不是静默忽略） |
+| 身份不足 | 401/403/404 不授权切身份 | `exit 3` + 结构化 `code`（三种拒绝码可区分） |
+| 退出码 | 4 部分结果 / 3 拒绝 / 130 取消 | 同 |
+| 结果未知 | 先查询再重试，禁止重放 create | 同，且**退出码不是 0**（未知 ≠ 成功） |
+| 幂等 | `requestId` | 同，且**稳定哈希**（键序无关，重放必然同 id） |
+| 拒绝落账 | 未见明文 | **未做**（PG 台账属另一票，见 32.6） |
+
+### 32.6 刻意没做（三条）
+
+1. **不实现凭据管道**：不读 fd、不接临时管道、不构造 token —— 本层只判身份，凭据留在既有会话体系。
+2. **不做身份切换/升档**：拒绝即拒绝，没有"补一次授权再进"的路径（fail-closed 的失效方向只能是多拒）。
+3. **不做 PostgreSQL 落账**：拒绝/部分结果/委派动作入 PG 台账需要 CLI 侧连接与表设计，属独立票，不在本线偷渡。
+
+### 32.7 验证实绩（现读）
+
+- `apps/cli/tests/collab-identity-contract.test.ts` **33 例绿**（身份 15 + 退出码 8 + 幂等 6 + 装车 4）；
+- `apps/cli` `tsc --noEmit` **0 错误**；`prettier --write` 已跑；四个文件水印 verify 4/4。
