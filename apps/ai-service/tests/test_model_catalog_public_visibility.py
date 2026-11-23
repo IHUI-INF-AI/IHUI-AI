@@ -140,4 +140,147 @@ def test_infer_points_multiplier_avoids_cost_false_positives() -> None:
     assert infer_points_multiplier("gpt-5-image") == 10.0
     assert infer_points_multiplier("gemini-2.5-pro") == 10.0
     assert infer_points_multiplier("gemini-2.5-flash") == 1.0
+
+
+@pytest.mark.asyncio
+async def test_db_row_overrides_static_entry_on_shared_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """同身份 DB 行优先:静态条目只补 DB 缺失的非价格字段,倍率取 DB 覆盖值。
+
+    回归 2026-11-23 分叉:静态条目先占去重集时,同 id 的 DB 行被整条跳过,DB 倍率
+    随之丢失、条目回落免费关键词档。合并后 DB 基底字段覆盖静态,静态 caps 保留。
+    """
+    from app.core import db_pool
+    from app.routers import llm
+
+    static = [
+        {
+            "id": "openrouter/deepseek-v4-pro",
+            "name": "静态展示名",
+            "provider": "openrouter",
+            "context_length": 4096,
+            "caps": {"supports_tools": True},
+        }
+    ]
+    conn = _FakeConn(
+        [],
+        rows=[
+            {
+                "model_id": "deepseek-v4-pro",
+                "display_name": "DeepSeek V4 Pro",
+                "context_length": 128000,
+                "provider_code": "openrouter",
+                "release_date": None,
+                "tags": ["chat"],
+                "points_multiplier": "3.00",
+                "metadata": None,
+            }
+        ],
+    )
+
+    async def _fake_get_shared_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr(db_pool, "get_shared_pool", _fake_get_shared_pool)
+    monkeypatch.setattr(llm, "_load_default_models", lambda: static)
+
+    models = await llm.build_model_catalog()
+
+    assert len(models) == 1
+    entry = models[0]
+    assert entry["id"] == "openrouter/deepseek-v4-pro"
+    # 倍率取 DB 覆盖值,不被静态条目或关键词推断顶替
+    assert entry["points_multiplier"] == 3.0
+    # DB 基底字段覆盖静态;静态 caps 等非价格声明保留
+    assert entry["name"] == "DeepSeek V4 Pro"
+    assert entry["context_length"] == 128000
+    assert entry["caps"] == {"supports_tools": True}
+
+
+@pytest.mark.asyncio
+async def test_static_entry_without_db_row_keeps_no_db_multiplier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """只有静态条目、无 DB 行:build 层不臆造 DB 倍率,推断兜底只留给后段。"""
+    from app.core import db_pool
+    from app.routers import llm
+    from app.services.free_provider_registry import infer_points_multiplier
+
+    static = [
+        {
+            "id": "pollinations/openai-fast",
+            "name": "OpenAI Fast",
+            "provider": "pollinations",
+            "context_length": 128000,
+        }
+    ]
+    conn = _FakeConn([], rows=[])
+
+    async def _fake_get_shared_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr(db_pool, "get_shared_pool", _fake_get_shared_pool)
+    monkeypatch.setattr(llm, "_load_default_models", lambda: static)
+
+    models = await llm.build_model_catalog()
+
+    assert len(models) == 1
+    # 无 DB 值时 build 层不写倍率字段;后段 list_models 才允许关键词推断兜底
+    assert "points_multiplier" not in models[0]
+    # 兜底推断仅在此刻生效:pollinations 命中免费档 = 0.0
+    assert infer_points_multiplier("pollinations/openai-fast") == 0.0
+
+
+@pytest.mark.asyncio
+async def test_pollinations_bare_name_merges_and_keeps_db_multiplier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """真实形态回归:DB 裸名 openai-fast(provider=pollinations,倍率 1.00)与静态
+    pollinations/openai-fast 对齐合并,目录倍率 = DB 1.00,不得回落免费档 0。
+    """
+    from app.core import db_pool
+    from app.routers import llm
+
+    static = [
+        {
+            "id": "pollinations/openai-fast",
+            "name": "OpenAI Fast",
+            "provider": "pollinations",
+            "context_length": 128000,
+            "caps": {"supports_stream_usage": True, "supports_tools": True},
+        }
+    ]
+    conn = _FakeConn(
+        [],
+        rows=[
+            {
+                "model_id": "openai-fast",
+                "display_name": "OpenAI Fast (Pollinations 永久免费)",
+                "context_length": 128000,
+                "provider_code": "pollinations",
+                "release_date": None,
+                "tags": ["chat"],
+                "points_multiplier": "1.00",
+                "metadata": None,
+            }
+        ],
+    )
+
+    async def _fake_get_shared_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr(db_pool, "get_shared_pool", _fake_get_shared_pool)
+    monkeypatch.setattr(llm, "_load_default_models", lambda: static)
+
+    models = await llm.build_model_catalog()
+
+    assert len(models) == 1
+    entry = models[0]
+    assert entry["id"] == "pollinations/openai-fast"
+    # 回归钉死:期望 DB 1.00,不是免费推断档 0
+    assert entry["points_multiplier"] == 1.0
+    assert entry["provider"] == "pollinations"
+    # 不得另留裸名重复条目
+    assert not any(m["id"] == "openai-fast" for m in models)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

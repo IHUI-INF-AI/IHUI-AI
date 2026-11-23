@@ -4072,7 +4072,11 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                 rows = await conn.fetch(_base_sql.format(extra=", m.metadata"))
             except Exception:
                 rows = await conn.fetch(_base_sql.format(extra=""))
-        seen = {m["id"] for m in default_models}
+        # 静态条目索引(2026-11-23 根治倍率分叉):DB 行与静态条目同身份时 DB 优先合并,
+        # 静态条目只补 DB 缺失的非价格字段,绝不允许静态条目挤掉 DB 行 —— 倍率唯一
+        # 来源是 DB points_multiplier;静态条目无该字段时,后段才允许关键词推断兜底。
+        static_by_id: dict[str, dict[str, Any]] = {m["id"]: m for m in default_models}
+        seen: set[str] = set(static_by_id)
         # D137 后续:供应商池同步会整体重写 metadata(实测 436 条被清成 0),
         # 真值镜像落在 .ihui-agent/state,metadata 缺键时回落到它(仍由上游枚举而来)。
         from ..services.reasoning_effort_catalog import load_cache_index, resolve_efforts
@@ -4104,6 +4108,11 @@ async def build_model_catalog() -> list[dict[str, Any]]:
             elif provider_code == "stepfun" and not mid.startswith("stepfun/"):
                 # StepFun 模型加 "stepfun/" 前缀(与 default_models.json 对齐,避免重复)
                 mid = f"stepfun/{mid}"
+            elif provider_code == "pollinations" and not mid.startswith("pollinations/"):
+                # Pollinations 模型 DB 存裸名,目录/调用约定用 "pollinations/<name>" 前缀
+                # (与 openrouter/stepfun 同形);否则裸名归因兜底到 openai,且与静态
+                # 条目身份对不上、DB 倍率合并不上。
+                mid = f"pollinations/{mid}"
             elif provider_code == "workbuddy":
                 # 账号池模型直接以 workbuddy/ 前缀暴露;provider 用 workbuddy_relay 供可用性/能力判定
                 entry_provider = "workbuddy_relay"
@@ -4119,53 +4128,79 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                     mid = f"t6688/{mid}"
             # 以规范化后的 mid 作为去重键(seen 在遍历 DB 行时持续累加,保证全局唯一,
             # 修复 DB 内部重复,如 stepfun 18 条=9 个唯一 id)
-            if mid not in seen:
-                _entry: dict[str, Any] = {
-                    "id": mid,
-                    "name": r["display_name"] or mid,
-                    "provider": entry_provider,
-                    "context_length": r["context_length"] or 4096,
-                    # 积分倍率唯一来源 = DB points_multiplier(后台可编辑)。
-                    # 2026-11-23 收口:此前 Python 侧又按 model_id 推断一遍,
-                    # 与 API/前端展示、真实扣分各算各的;这里原样透传 DB 值。
-                    **_points_multiplier_field(r.get("points_multiplier")),
-                    # 分类引擎输入:用途分类需要 tags,代次判定需要 release_date
-                    "release_date": r["release_date"],
-                    "tags": list(r["tags"] or []),
-                }
-                # 上游真实推理档位声明(D137,2026-11-21):metadata 里带
-                # reasoning_efforts 才透出,缺键 = 未声明(前端回落通用四档)。
-                _declared_meta = r.get("metadata", None)
-                # 本仓 DB 池把 jsonb 按文本回读(实测 str),两种形态都要认
-                if isinstance(_declared_meta, str):
-                    try:
-                        _declared_meta = json.loads(_declared_meta)
-                    except Exception:
-                        _declared_meta = None
-                if isinstance(_declared_meta, dict):
-                    _declared_efforts = _declared_meta.get("reasoning_efforts")
-                    if isinstance(_declared_efforts, list):
-                        _entry["reasoning_efforts"] = _declared_efforts
-                if "reasoning_efforts" not in _entry:
-                    # metadata 被池同步清掉时的存续那份;按全名/尾名匹配上游枚举。
-                    _resolved = resolve_efforts(_effort_index, mid)
-                    if _resolved is not None:
-                        _entry["reasoning_efforts"] = _resolved
-                # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
-                # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
-                if provider_code == "token6688":
-                    _meta = r.get("metadata", None)
-                    if isinstance(_meta, dict) and _meta:
-                        _summary = {
-                            k: _meta[k]
-                            for k in (
-                                "capabilities", "health_score", "sort_weight",
-                                "input_hint_zh", "billing_mode",
-                            )
-                            if _meta.get(k) is not None
-                        }
-                        if _summary:
-                            _entry["t6688"] = _summary
+            # DB 基底条目:倍率原样透传 DB(坏值/缺失不写字段,后段 list_models
+            # 才允许在无 DB 值时走关键词推断兜底)。
+            _entry: dict[str, Any] = {
+                "id": mid,
+                "provider": entry_provider,
+                # 分类引擎输入:用途分类需要 tags,代次判定需要 release_date
+                "release_date": r["release_date"],
+                "tags": list(r["tags"] or []),
+            }
+            if r["display_name"]:
+                _entry["name"] = r["display_name"]
+            else:
+                _entry["name"] = mid
+            if r["context_length"]:
+                _entry["context_length"] = r["context_length"]
+            # 积分倍率唯一来源 = DB points_multiplier(后台可编辑)。
+            # 2026-11-23 收口:此前 Python 侧又按 model_id 推断一遍,
+            # 与 API/前端展示、真实扣分各算各的;这里原样透传 DB 值。
+            _entry.update(_points_multiplier_field(r.get("points_multiplier")))
+            # 上游真实推理档位声明(D137,2026-11-21):metadata 里带
+            # reasoning_efforts 才透出,缺键 = 未声明(前端回落通用四档)。
+            _declared_meta = r.get("metadata", None)
+            # 本仓 DB 池把 jsonb 按文本回读(实测 str),两种形态都要认
+            if isinstance(_declared_meta, str):
+                try:
+                    _declared_meta = json.loads(_declared_meta)
+                except Exception:
+                    _declared_meta = None
+            if isinstance(_declared_meta, dict):
+                _declared_efforts = _declared_meta.get("reasoning_efforts")
+                if isinstance(_declared_efforts, list):
+                    _entry["reasoning_efforts"] = _declared_efforts
+            if "reasoning_efforts" not in _entry:
+                # metadata 被池同步清掉时的存续那份;按全名/尾名匹配上游枚举。
+                _resolved = resolve_efforts(_effort_index, mid)
+                if _resolved is not None:
+                    _entry["reasoning_efforts"] = _resolved
+            # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
+            # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
+            if provider_code == "token6688":
+                _meta = r.get("metadata", None)
+                if isinstance(_meta, dict) and _meta:
+                    _summary = {
+                        k: _meta[k]
+                        for k in (
+                            "capabilities", "health_score", "sort_weight",
+                            "input_hint_zh", "billing_mode",
+                        )
+                        if _meta.get(k) is not None
+                    }
+                    if _summary:
+                        _entry["t6688"] = _summary
+            if mid in static_by_id:
+                # DB 优先合并(2026-11-23 根治):同身份以 DB 条目为准,静态条目只补
+                # DB 缺失的非价格字段;静态 caps 等声明保留(DB 不带 caps 不会覆盖)。
+                existing = static_by_id[mid]
+                merged = dict(existing)
+                for _k, _v in _entry.items():
+                    if _k == "points_multiplier":
+                        # 价格字段:DB 有效值直接落,不回退静态(静态本就无倍率)
+                        merged[_k] = _v
+                    elif _v is not None and _v != "" and _v != []:
+                        merged[_k] = _v
+                merged.setdefault("name", existing.get("name") or mid)
+                merged.setdefault("context_length", existing.get("context_length") or 4096)
+                for _i, _e in enumerate(default_models):
+                    if _e is existing:
+                        default_models[_i] = merged
+                        break
+                static_by_id[mid] = merged
+                seen.add(mid)
+            elif mid not in seen:
+                _entry.setdefault("context_length", 4096)
                 default_models.append(_entry)
                 seen.add(mid)
     except Exception as e:
