@@ -118,6 +118,12 @@ describe('csrf — 双提交 Cookie 模式', () => {
     // github-app-webhook.test.ts)。matchesPrefix 是段边界前缀语义:精确命中 +
     // `entry/` 开头的子路径命中;**兄弟路由不连带** —— 用兄弟路径钉死这一点。
     server.post('/api/github-app/webhook', async (_req, reply) => reply.send({ ok: true }))
+    // 微信智联桥接 webhook 桩(2026-11-23):本测只证 CSRF 层放行到该段;
+    // 账号级 webhookSecret 验签在真实路由层(fail-closed 400/401),由 wechat-hub 用例覆盖。
+    server.post('/api/wechat-hub/webhook/:accountId', async (_req, reply) =>
+      reply.send({ ok: true }),
+    )
+    server.post('/api/wechat-hub/accounts', async (_req, reply) => reply.send({ ok: true }))
     // 短信厂商回调桩(2026-10-27):本测只证 CSRF 层放行到哪三条;token/IP 白名单那两道
     // 住在真实路由里(fail-closed 回 503),由 tests/sms-compliance.test.ts 覆盖。
     for (const p of [
@@ -313,6 +319,27 @@ describe('csrf — 双提交 Cookie 模式', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/github-app/installations',
+        payload: {},
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('CSRF')
+    })
+
+    it('微信智联桥接 webhook 豁免(机器投递无 CSRF token,账号级 secret 自证)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/wechat-hub/webhook/acct-1',
+        payload: { id: 'm-1', content: 'hello' },
+        headers: { 'x-wechat-hub-secret': 's' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json()).toEqual({ ok: true })
+    })
+
+    it('微信智联 webhook 豁免不连带管理面:/api/wechat-hub/accounts 仍被 CSRF 拦', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/wechat-hub/accounts',
         payload: {},
       })
       expect(res.statusCode).toBe(403)

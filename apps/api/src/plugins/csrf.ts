@@ -165,6 +165,11 @@ const PUBLIC_PREFIXES = [
   '/api/tbox/events',
   // IM 网关 webhook 入站(2026-07-31 立,IM 平台调用,用 webhookSecret HMAC 验签,无 CSRF token)
   '/api/im-gateway/webhook/',
+  // 微信智联桥接 webhook 入站(2026-11-23 立):本地桥/WeChatFerry/RPA 服务器到服务器投递,
+  // 永远不带 CSRF token,防线是账号级 webhookSecret 常量时间比较(fail-closed:未配置回 400、
+  // 缺失/不匹配回 401)。**段边界前缀**:只覆盖 `/api/wechat-hub/webhook/<accountId>`,
+  // 管理面 `/api/wechat-hub/accounts` 等仍走 Bearer + CSRF,不连带放行。
+  '/api/wechat-hub/webhook/',
   // D30① 无人值守信源(2026-09-25 用户批准挂载):GitHub Actions 机器调用,凭
   // GITHUB_WEBHOOK_SECRET 的 HMAC-SHA256 自证,与浏览器 cookie 会话无关 ⇒ CSRF 在此无防护对象。
   // **刻意写精确整路径而不是 /api/webhooks/ 前缀** —— 前缀会把同族未来路由一起放过
