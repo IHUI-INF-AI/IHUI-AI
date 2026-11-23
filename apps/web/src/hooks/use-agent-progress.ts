@@ -8,6 +8,7 @@ import * as React from 'react'
 import type { PlanStepStatus as ContractPlanStepStatus, SSEEvent } from '@ihui/types'
 import { useAgentStream } from './use-agent-stream'
 import { resolveErrorAttribution, type ErrorAttributionSource } from '@/lib/error-attribution'
+import { diffStatsFromContents } from '@/lib/diff-stats'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
 /**
@@ -169,6 +170,9 @@ export interface AgentChange {
   filePath: string
   toolName: string
   diffInfo: InlineDiffInfo
+  /** 该文件本轮的增/删行数(由旧/新全文经共享 Myers 行级差异得出,不是字符差)。 */
+  additions: number
+  deletions: number
   timestamp: string
 }
 
@@ -961,11 +965,14 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
       if (!CHANGE_TOOL_NAMES.has(tool.toolName)) continue
       const diffInfo = deriveDiffInfoFromArgs(tool.toolName, tool.args)
       if (!diffInfo) continue
+      const stats = diffStatsFromContents(diffInfo.old_content, diffInfo.new_content)
       result.push({
         id: tool.id,
         filePath: diffInfo.file_path,
         toolName: tool.toolName,
         diffInfo,
+        additions: stats.additions,
+        deletions: stats.deletions,
         timestamp: tool.endedAt ?? tool.startedAt,
       })
     }

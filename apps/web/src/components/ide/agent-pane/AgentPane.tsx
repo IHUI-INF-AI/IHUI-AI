@@ -13,6 +13,7 @@ import { executeAgentStream, cancelAgent } from '@ihui/api-client'
 import { parseStartEvent } from '@ihui/shared'
 import type { AgentExecuteRequest, AgentStreamEvent, AgentStreamCallbacks } from '@ihui/api-client'
 import type { AgentToolCall, AgentChange, TerminalTask, PlanStep } from '@/hooks/use-agent-progress'
+import { diffStatsFromContents } from '@/lib/diff-stats'
 import { AgentInputArea } from './AgentInputArea'
 import { AgentProgressArea } from './AgentProgressArea'
 import { AgentResultFooter } from './AgentResultFooter'
@@ -138,11 +139,14 @@ export function AgentPane() {
       if (!CHANGE_TOOL_NAMES.has(tool.toolName)) continue
       const diffInfo = deriveDiffInfoFromArgs(tool.toolName, tool.args, t('agentPane.unknownFile'))
       if (!diffInfo) continue
+      const stats = diffStatsFromContents(diffInfo.old_content, diffInfo.new_content)
       list.push({
         id: tool.id,
         filePath: diffInfo.file_path,
         toolName: tool.toolName,
         diffInfo,
+        additions: stats.additions,
+        deletions: stats.deletions,
         timestamp: tool.endedAt ?? tool.startedAt,
       })
     }

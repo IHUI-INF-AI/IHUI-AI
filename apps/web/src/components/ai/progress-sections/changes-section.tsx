@@ -87,6 +87,13 @@ const ChangeItem = React.memo(function ChangeItem({ change }: { change: AgentCha
         <span className="shrink-0 text-[10px] text-muted-foreground/60">
           {shortDir(change.filePath)}
         </span>
+        {(change.additions > 0 || change.deletions > 0) && (
+          <span className="shrink-0 font-mono text-[10px] leading-none tabular-nums">
+            {change.additions > 0 && <span className="text-emerald-500">+{change.additions}</span>}
+            {change.additions > 0 && change.deletions > 0 && ' '}
+            {change.deletions > 0 && <span className="text-red-500">-{change.deletions}</span>}
+          </span>
+        )}
       </div>
       {hasDiff && (
         <div
@@ -152,6 +159,8 @@ export const ChangesSection = React.memo(function ChangesSection({ changes }: Ch
   if (newCount > 0) summaryParts.push(t('changes.added', { n: newCount }))
   if (modifyCount > 0) summaryParts.push(t('changes.modified', { n: modifyCount }))
   const summary = summaryParts.join(' · ')
+  const totalAdditions = changes.reduce((sum, c) => sum + c.additions, 0)
+  const totalDeletions = changes.reduce((sum, c) => sum + c.deletions, 0)
 
   // b76-13 票7:裁尾走唯一出口,omittedCount 是「还有 N 项」的唯一事实来源(0 时无占位)
   const { items: recentChanges, omittedCount } = tailWithOmittedCount(changes)
@@ -164,7 +173,20 @@ export const ChangesSection = React.memo(function ChangesSection({ changes }: Ch
       data-testid="changes-section"
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">
-        {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
+        {(summary || totalAdditions > 0 || totalDeletions > 0) && (
+          <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground/60">
+            {summary && <span>{summary}</span>}
+            {(totalAdditions > 0 || totalDeletions > 0) && (
+              <span className="font-mono leading-none tabular-nums">
+                {totalAdditions > 0 && (
+                  <span className="text-emerald-500">+{totalAdditions}</span>
+                )}
+                {totalAdditions > 0 && totalDeletions > 0 && ' '}
+                {totalDeletions > 0 && <span className="text-red-500">-{totalDeletions}</span>}
+              </span>
+            )}
+          </div>
+        )}
         {recentChanges.map((change) => (
           <ChangeItem key={change.id} change={change} />
         ))}
