@@ -23,7 +23,7 @@ import { useTheme } from '../context/ThemeContext'
 import { APP_VERSION } from '../lib/config'
 import { checkOtaUpdate, runningBundle } from '../lib/ota-update'
 import { apkSnapshot, checkApkUpdate } from '../lib/apk-update'
-import { openAutoInstallSettings } from '../lib/auto-install'
+import { openAutoInstallSettingsSmart } from '../lib/auto-install'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -261,10 +261,10 @@ export default function SettingsScreen() {
   }
 
   const onMenuPress = (key: string) => {
-    // 自动安装权限(2026-11-06 常驻入口):跳转与引导卡「去开启」同一实现,
-    // 不新增第二套 intent 逻辑
+    // 自动安装权限(2026-11-06 常驻入口):跳转与引导卡共用同一出口;
+    // 2026-11-23 起受限风险时先送应用信息页(那里才有"允许受限制的设置")
     if (key === 'AutoInstallPermission') {
-      void openAutoInstallSettings()
+      void openAutoInstallSettingsSmart()
       return
     }
     // 检查更新(2026-10-27 修真):此前这里只弹一句「已是最新版本」—— 无论有没有更新、

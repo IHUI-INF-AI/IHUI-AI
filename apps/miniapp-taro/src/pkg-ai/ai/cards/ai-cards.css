@@ -354,8 +354,7 @@
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
-  /* 让位给右上角 40×40 纯图标按钮：按钮右边距 10rpx + 盒宽 40px。 */
-  padding-right: calc(var(--spacing-4xl) + 10rpx);
+  padding-right: var(--spacing-4xl);
 }
 .ai-card-term-copy {
   position: absolute;
@@ -363,12 +362,14 @@
   right: 10rpx;
   display: flex;
   align-items: center;
-  justify-content: center;
-  /* 2026-11-23：文字标签删除后按统一 40×40 命中盒收口（80rpx = 40px），点击区域不随文字消失而缩水。 */
-  width: var(--spacing-4xl);
-  height: var(--spacing-4xl);
   background: var(--color-card);
   border-radius: var(--radius-sm);
+  padding: var(--spacing-2xs) 10rpx;
+}
+.ai-card-term-copy-text {
+  margin-left: var(--spacing-2xs);
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
 }
 .ai-card-term-error {
   display: block;

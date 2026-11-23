@@ -30,7 +30,9 @@
 
 const fs = require('fs')
 const path = require('path')
-const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins')
+const { withAndroidManifest, withDangerousMod, withMainApplication } = require('@expo/config-plugins')
+
+const TEMPLATE_DIR = path.join(__dirname, 'templates', 'autoinstall')
 
 const NAME = 'android:name'
 const SERVICE_CLASS = 'A11yAutoInstallService'
@@ -62,6 +64,19 @@ import android.view.accessibility.AccessibilityNodeInfo
  */
 class __CLASS__ : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
+
+    /** 活性心跳(2026-11-23 实测):系统禁用无障碍时不保证回调 onUnbind/onDestroy,
+     *  只写一次 connected=true 会残留成假阳性;每 5s 刷新时间戳,App 侧只认 20s 内的,
+     *  服务真死/被禁 ⇒ 心跳停 ⇒ 判据自然转 false。 */
+    private val heartbeat = object : Runnable {
+        override fun run() {
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                .edit()
+                .putLong(KEY_TS, System.currentTimeMillis())
+                .apply()
+            handler.postDelayed(this, HEARTBEAT_MS)
+        }
+    }
     private var lastEventAt = 0L
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -104,6 +119,14 @@ class __CLASS__ : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        // 「我真的活着」= 无障碍已开启的硬证据(2026-11-23 实测):
+        // 普通 App 读 Settings.Secure 的 enabled_accessibility_services 会被系统屏蔽成空串
+        // (App 侧原始读数 servicesRaw="" / globalOn=false,而 adb shell 读到的是有值的),
+        // AccessibilityManager.getEnabledAccessibilityServiceList 冷启动也可能读空。
+        // 三条系统读法都不可信时,只有「服务自己连上了」这件事无法被权限屏蔽。
+        markConnected()
+        handler.removeCallbacks(heartbeat)
+        handler.post(heartbeat)
         // 运行时再锁一次 flags:改 XML 后系统偶尔仍用旧的 ServiceInfo(实测 flag IncludeNotImportantViews 不生效)
         val info = serviceInfo ?: return
         info.flags = info.flags or
@@ -111,6 +134,24 @@ class __CLASS__ : AccessibilityService() {
             AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         setServiceInfo(info)
         debug("service connected flags=" + info.flags)
+    }
+
+    /** 连接/断开时把状态写进本包私有 SharedPreferences,供 App 侧精确读取(不可被系统读权限屏蔽)。 */
+    private fun markConnected() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            .putBoolean(KEY_CONNECTED, true)
+            .putLong(KEY_TS, System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun markDisconnected() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_CONNECTED, false).apply()
+    }
+
+    override fun onUnbind(intent: android.content.Intent): Boolean {
+        handler.removeCallbacks(heartbeat)
+        markDisconnected()
+        return super.onUnbind(intent)
     }
 
     private fun clickConfirm(attempt: Int) {
@@ -272,10 +313,19 @@ class __CLASS__ : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        markDisconnected()
         super.onDestroy()
     }
 
     companion object {
+        /** App 侧读「服务自报已连接」用的 prefs 名与键(与 AutoInstallStatusModule 逐字一致)。 */
+        const val PREFS = "ihui_a11y"
+        const val KEY_CONNECTED = "connected"
+        const val KEY_TS = "connectedAt"
+
+        /** 心跳间隔;App 侧容忍窗口 = 4 倍。 */
+        const val HEARTBEAT_MS = 5_000L
+
         /** 单次事件最多尝试 12 轮(约 14s),覆盖暂存进度 -> 确认页 -> 安装中 -> 完成页。 */
         private const val MAX_ATTEMPTS = 12
 
@@ -356,6 +406,63 @@ function writeIfChanged(file, content) {
   return true
 }
 
+/** 读取桥接模板文件并把 `__PACKAGE__` 占位符替换为真实包名。 */
+function readTemplate(rel, androidPackage) {
+  const raw = fs.readFileSync(path.join(TEMPLATE_DIR, rel), 'utf8')
+  return androidPackage ? raw.replace(/__PACKAGE__/g, androidPackage) : raw
+}
+
+/**
+ * 状态模块的注册入口:生成 AutoInstallStatusPackage/Module(读服务是否真的在跑、安装来源是否受限)。
+ *
+ * 为什么是"传统 ReactPackage"而不是 Expo Module:本仓已经用同一套帽子做过 Carrier 一键登录
+ * (见 plugins/withCarrier.cjs 与它的真机验证),bridgeless 下 legacy module 的互操作在这一版
+ * RN/Expo 上已被证明可用 —— 再引入第二套模块注册机制只会多一个失效面。
+ * 缺模块时 JS 侧自动降级到 unknown(见 src/lib/auto-install.ts),不阻断任何功能。
+ */
+function withAutoInstallerMainApplication(config, pkg) {
+  return withMainApplication(config, (mod) => {
+    let contents = mod.modResults.contents
+    const cls = `${pkg}.autoinstall.AutoInstallStatusPackage`
+    const importLine = `import ${cls};`
+
+    // import(去重):插在最后一个顶层 import 之后,与 withCarrier 的落点规则一致
+    if (!contents.includes(`import ${cls};`)) {
+      const lastImport = contents.lastIndexOf('\nimport ')
+      if (lastImport >= 0) {
+        const lineEnd = contents.indexOf('\n', lastImport + 1)
+        const insertAt = lineEnd >= 0 ? lineEnd : contents.length
+        contents = contents.slice(0, insertAt) + `\n${importLine}` + contents.slice(insertAt)
+      } else {
+        contents = `${importLine}\n${contents}`
+      }
+    }
+
+    if (contents.includes('.packages.apply {')) {
+      if (!contents.includes('AutoInstallStatusPackage()')) {
+        const marker = '.packages.apply {'
+        const idx = contents.indexOf(marker) + marker.length
+        contents =
+          contents.slice(0, idx) + `\n          add(AutoInstallStatusPackage())` + contents.slice(idx)
+      }
+    } else if (/new PackageList\(this\)\.getPackages\(\)/.test(contents)) {
+      if (!contents.includes('new AutoInstallStatusPackage()')) {
+        contents = contents.replace(
+          /(new PackageList\(this\)\.getPackages\(\);)/,
+          `$1\n    packages.add(new AutoInstallStatusPackage());`,
+        )
+      }
+    } else {
+      console.warn(
+        '[withAutoInstaller] 无法识别 MainApplication.getPackages 结构,请在原生工程手动注册 AutoInstallStatusPackage',
+      )
+    }
+
+    mod.modResults.contents = contents
+    return mod
+  })
+}
+
 module.exports = function withAutoInstaller(config) {
   const pkg = config?.android?.package
   if (!pkg) {
@@ -371,7 +478,7 @@ module.exports = function withAutoInstaller(config) {
     return cfg
   })
 
-  return withDangerousMod(config, [
+  config = withDangerousMod(config, [
     'android',
     async (cfg) => {
       const root = cfg.modRequest.platformProjectRoot
@@ -379,6 +486,17 @@ module.exports = function withAutoInstaller(config) {
       const kotlin = KOTLIN_SOURCE.replace(/__PACKAGE__/g, pkg).replace(/__CLASS__/g, SERVICE_CLASS)
       writeIfChanged(path.join(javaDir, `${SERVICE_CLASS}.kt`), kotlin)
       writeIfChanged(path.join(root, `app/src/main/res/xml/${XML_RES}.xml`), XML_CONFIG)
+
+      // 状态模块:与服务类同目录下的 autoinstall/ 子包,模块名 AutoInstallStatus
+      const statusDir = path.join(javaDir, 'autoinstall')
+      writeIfChanged(
+        path.join(statusDir, 'AutoInstallStatusModule.java'),
+        readTemplate('android/AutoInstallStatusModule.java', pkg),
+      )
+      writeIfChanged(
+        path.join(statusDir, 'AutoInstallStatusPackage.java'),
+        readTemplate('android/AutoInstallStatusPackage.java', pkg),
+      )
 
       const stringsFile = path.join(root, 'app/src/main/res/values/strings.xml')
       let xml = fs.existsSync(stringsFile) ? fs.readFileSync(stringsFile, 'utf8') : ''
@@ -392,7 +510,17 @@ module.exports = function withAutoInstaller(config) {
       return cfg
     },
   ])
+
+  // 注册状态模块(读"服务是否真的在跑"+ 安装来源),供 JS 侧做真实检测与受限引导
+  config = withAutoInstallerMainApplication(config, pkg)
+  return config
 }
 
-module.exports.__test__ = { ensureService, ensureString, SERVICE_CLASS, XML_RES }
+module.exports.__test__ = {
+  ensureService,
+  ensureString,
+  withAutoInstallerMainApplication,
+  SERVICE_CLASS,
+  XML_RES,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

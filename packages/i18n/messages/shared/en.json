@@ -5261,6 +5261,10 @@
   "uiText": {
     "enableAutoUpdate": "Enable automatic updates",
     "autoInstallPermHint": "Once the IHUI Auto Install accessibility service is enabled, new versions download and install automatically.",
+    "autoInstallRestrictedHint": "If \"IHUI Auto Install\" is greyed out and marked \"Restricted setting\", tap \"Unlock restriction\" first, open \"Allow restricted settings\" from the ⋮ menu on the app info page, then come back to Accessibility and enable it.",
+    "autoInstallUnlockRestricted": "Unlock restriction",
+    "autoInstallToAccessibility": "Accessibility",
+    "autoInstallNotDetected": "The service is not detected as enabled yet. Make sure the \"IHUI Auto Install\" switch is on; if it is greyed out, follow the steps above to lift the restriction first.",
     "alreadyEnabled": "Already enabled",
     "goEnable": "Enable now",
     "noCarousel": "No carousel images",

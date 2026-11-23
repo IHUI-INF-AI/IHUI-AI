@@ -19,7 +19,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Platform } from 'react-native'
+import { NativeModules, Platform } from 'react-native'
 import { applyApkUpdate, apkSnapshot } from './apk-update'
 import { otaSnapshot } from './ota-update'
 
@@ -68,6 +68,136 @@ export async function openAutoInstallSettings(): Promise<void> {
   }
 }
 
+// =============================================================================
+// 真实状态检测(2026-11-23 立:把"用户说开过了"换成"系统说真的在跑")
+// =============================================================================
+/**
+ * 三态口径(缺一不可):
+ *   · enabled=true  ⇒ 服务被系统实际绑定,引导永久不再出现;
+ *   · enabled=false ⇒ 确实没开,该引导(包括 Android 13+ 被锁住时给两步引导);
+ *   · enabled=null  ⇒ 当前安装包没带原生模块(旧包)或非 Android —— **绝不冒充已开启**。
+ *
+ * restrictedRisk 同理:true 才是"Android 13+ 因安装来源被「受限制的设置」锁住",
+ * false/null 都不能拿来吓用户(实测 adb 覆盖安装后同一开关立刻变 On)。
+ */
+export interface AutoInstallStatus {
+  enabled: boolean | null
+  package: string | null
+  installer: string | null
+  restrictedRisk: boolean | null
+  sdkInt: number | null
+  source: 'native' | 'unavailable'
+}
+
+const NATIVE_STATUS_MODULE = 'AutoInstallStatus'
+
+interface AutoInstallStatusNative {
+  getStatus?: () => Promise<unknown>
+}
+
+function lookupStatusModule(): AutoInstallStatusNative | null {
+  try {
+    const mod = (NativeModules as Record<string, unknown> | undefined)?.[NATIVE_STATUS_MODULE]
+    if (!mod || typeof mod !== 'object') return null
+    const getStatus = (mod as AutoInstallStatusNative).getStatus
+    return typeof getStatus === 'function' ? (mod as AutoInstallStatusNative) : null
+  } catch {
+    return null
+  }
+}
+
+/** 纯函数:把原生回包清洗成三态。字段缺失一律 null —— 读不到 ≠ 没开。 */
+export function normalizeAutoInstallStatus(
+  raw: unknown,
+  sdkIntFallback: number | null = null,
+): AutoInstallStatus {
+  const r = (raw ?? {}) as Record<string, unknown>
+  const asBool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null)
+  const asText = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim() : null
+  const asInt = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : null
+  return {
+    enabled: asBool(r.enabled),
+    package: asText(r.package),
+    installer: asText(r.installer),
+    restrictedRisk: asBool(r.restrictedRisk),
+    sdkInt: asInt(r.sdkInt) ?? sdkIntFallback,
+    source: 'native',
+  }
+}
+
+function unavailableStatus(): AutoInstallStatus {
+  return {
+    enabled: null,
+    package: null,
+    installer: null,
+    restrictedRisk: null,
+    sdkInt: typeof Platform.Version === 'number' ? Math.trunc(Platform.Version) : null,
+    source: 'unavailable',
+  }
+}
+
+/** 当前安装包是否带精确读数能力(旧包/非 Android 为 false)。 */
+export function hasAutoInstallStatusModule(): boolean {
+  return Platform.OS === 'android' && lookupStatusModule() !== null
+}
+
+/** 读真实状态;读不到一律返回 unknown,不抛异常。 */
+export async function getAutoInstallStatus(): Promise<AutoInstallStatus> {
+  if (Platform.OS !== 'android') return unavailableStatus()
+  const mod = lookupStatusModule()
+  if (!mod?.getStatus) return unavailableStatus()
+  try {
+    const raw: unknown = await mod.getStatus()
+    // 诊断(2026-11-23):原生两条判据(settings / AMS)各自读到的原始值只进 logcat ——
+    // 排查「设置里明明开着、App 却读成没开」时,`adb logcat -s ReactNativeJS | grep ihui-auto-install` 一眼可判。
+    if (typeof console !== 'undefined' && raw && typeof raw === 'object') {
+      console.info('[ihui-auto-install:raw]', JSON.stringify(raw))
+    }
+    return normalizeAutoInstallStatus(
+      raw,
+      typeof Platform.Version === 'number' ? Math.trunc(Platform.Version) : null,
+    )
+  } catch {
+    return unavailableStatus()
+  }
+}
+
+/** 「我已开启」的真实检测:null = 读不到,不能用"没读到"判"没开"。 */
+export async function verifyAutoInstallEnabled(): Promise<boolean | null> {
+  return (await getAutoInstallStatus()).enabled
+}
+
+/** 打开本应用的系统「应用信息」页(Android 13+ 解除受限设置的第一步)。 */
+export async function openAppDetailsSettings(packageName?: string | null): Promise<void> {
+  if (Platform.OS !== 'android') return
+  const pkg = typeof packageName === 'string' ? packageName.trim() : ''
+  try {
+    const IntentLauncher = await import('expo-intent-launcher')
+    await IntentLauncher.startActivityAsync(
+      'android.settings.APPLICATION_DETAILS_SETTINGS',
+      pkg ? { data: `package:${pkg}` } : undefined,
+    )
+  } catch {
+    /* 个别 ROM 没有该入口时静默失败,由文案兜底 */
+  }
+}
+
+/**
+ * 智能入口:受限风险时先送「应用信息」页(只有那里有"允许受限制的设置"),
+ * 否则直达无障碍列表。引导卡与设置页共用这一个出口,避免两处各判一次。
+ */
+export async function openAutoInstallSettingsSmart(): Promise<'app-details' | 'accessibility'> {
+  const status = await getAutoInstallStatus()
+  if (status.restrictedRisk === true) {
+    await openAppDetailsSettings(status.package)
+    return 'app-details'
+  }
+  await openAutoInstallSettings()
+  return 'accessibility'
+}
+
 const GUIDE_KEY = 'ihui:a11y:guide-ack-at'
 /** 引导卡:点过「已开启/稍后」后 7 天内不再打扰(没开成也不会天天糊脸)。 */
 const GUIDE_RESURFACE_MS = 7 * 24 * 60 * 60 * 1000
@@ -98,12 +228,14 @@ export async function grantA11yConsent(): Promise<void> {
 /**
  * 该不该弹"开启自动安装"的引导。
  *
- * 为什么用"确认过"而不是"查到服务已启用":读取 enabled_accessibility_services 需要额外原生模块,
- * 拿不到时**宁可多弹一次**也不要假装已开启 —— 假绿会让用户以为自动安装在生效,实际每次都停在安装器。
- * 用户点「我已开启」即视为确认,7 天后才可能再提醒一次(便于换了手机/关掉后重新引导)。
+ * 2026-11-23 改口径:先读系统真实状态 —— 服务已经在跑就**永不打扰**(旧实现只能看
+ * "用户确认过",于是开好了还照样弹);读不到 / 确实没开时才走 7 天节流。
+ * 读不到时宁可多弹一次也不假装已开启:假绿会让用户以为自动安装在生效,实际每次都停在安装器。
  */
 export async function shouldShowAutoInstallGuide(): Promise<boolean> {
   if (Platform.OS !== 'android') return false
+  const status = await getAutoInstallStatus()
+  if (status.enabled === true) return false
   try {
     const raw = await AsyncStorage.getItem(GUIDE_KEY)
     const at = raw ? Number(raw) : 0

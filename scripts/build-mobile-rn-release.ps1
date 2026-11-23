@@ -453,18 +453,24 @@ try {
 }
 
 Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
-# 2026-11-18:keystore 的权威落点 = gradle.properties 里 IHUI_RELEASE_STORE_FILE 指向的那个文件
-# (gradle 真正读的就是它)。旧写法只看 ~/.android/ihui-release.keystore,而本机实盘把 keystore
-# 放在 D:\DevEnv\secrets 下(仓库外、与签名凭据同目录) ⇒ 那份检查恒判缺失,整条出链在第一步就死。
-# 两处都问,STORE_FILE 优先;都取不到才判缺。
-$GradleProps = "$env:USERPROFILE\.gradle\gradle.properties"
+# 2026-11-23:凭据位置按 Gradle **实际用户目录**判 —— GRADLE_USER_HOME 优先(本机 = C:\caches\gradle),
+# 未设才回落 ~/.gradle。原实现只认 ~/.gradle,而 .gradle 是从 USERPROFILE 指向 D:\gradle 的 junction,
+# 目标目录一丢就整进程判「凭据缺失」,真凭据却好好地躺在 GRADLE_USER_HOME 里 ⇒ 出链第一步假死。
+$GradlePropsCandidates = @()
+if ($env:GRADLE_USER_HOME) { $GradlePropsCandidates += (Join-Path $env:GRADLE_USER_HOME 'gradle.properties') }
+$GradlePropsCandidates += "$env:USERPROFILE\.gradle\gradle.properties"
+$GradleProps = $null
+foreach ($cand in $GradlePropsCandidates) {
+  if ((Test-Path -LiteralPath $cand) -and (Select-String -LiteralPath $cand -Pattern '^IHUI_RELEASE_STORE_FILE=' -Quiet)) { $GradleProps = $cand; break }
+}
+if (-not $GradleProps) { $GradleProps = $GradlePropsCandidates[-1] }   # 报告文面沿用旧路径
 $Keystore = "$env:USERPROFILE\.android\ihui-release.keystore"
 if (Test-Path -LiteralPath $GradleProps) {
   $storeRaw = Select-String -LiteralPath $GradleProps -Pattern '^IHUI_RELEASE_STORE_FILE=(.+)$' | Select-Object -First 1
   if ($storeRaw) { $Keystore = ($storeRaw.Matches[0].Groups[1].Value.Trim() -replace '\\\\', '\') }
 }
 $hasKs = Test-Path -LiteralPath $Keystore
-$hasProps = (Test-Path $GradleProps) -and (Select-String -Path $GradleProps -Pattern 'IHUI_RELEASE_STORE_FILE' -Quiet)
+$hasProps = (Test-Path -LiteralPath $GradleProps) -and (Select-String -LiteralPath $GradleProps -Pattern 'IHUI_RELEASE_STORE_FILE' -Quiet)
 if (-not $hasKs -or -not $hasProps) {
   # 2026-11-03 立:缺凭据不再"回退 debug 签名继续出包"。debug 签名的包一旦被发到固定下载地址,
   # 用户装上去与正式包签名不一致 ⇒ 覆盖安装失败 / 商店拒收,而构建账面上却是"成功"。
@@ -476,7 +482,7 @@ if (-not $hasKs -or -not $hasProps) {
   throw '拒绝构建:release 签名凭据缺失。本入口只产出正式签名包;debug 签名产物按判据直接判失败。'
 } else {
   Write-Host "  keystore OK: $Keystore" -ForegroundColor Green
-  Write-Host '  签名凭据 OK (~/.gradle/gradle.properties)' -ForegroundColor Green
+  Write-Host "  签名凭据 OK ($GradleProps)" -ForegroundColor Green
 }
 
 # 缺省 ABI 只住 $DefaultAbi 一处(见文件上方函数定义处的注释:为什么不读 gradle.properties 那一行)。
@@ -649,6 +655,7 @@ try {
 #    换 gradle-8.14.3 后 `gradlew help` 实录 exit 0。⇒ 每次 prebuild 后都对齐。
 # ② gradle 找 SDK 只认 ANDROID_HOME / ANDROID_SDK_ROOT 或 local.properties 的 sdk.dir;
 #    本机会话默认 env 两者都没有 ⇒ 显式写死 sdk.dir(与 [1.5] 解析出的同一处)。
+# ③ 发行包 itself 也要能下载:services.gradle.org 国内不可达 ⇒ 无本地缓存时切腾讯云镜像。
 Write-Host "`n===== [2.75/5] Gradle wrapper 与 SDK 定位对齐 =====" -ForegroundColor Cyan
 $WrapProps = Join-Path $AndroidDir 'gradle\wrapper\gradle-wrapper.properties'
 if (-not (Test-Path -LiteralPath $WrapProps)) { throw "缺 wrapper 配置: $WrapProps(prebuild 未产出?)" }
@@ -661,10 +668,53 @@ if ($wrapText -notmatch 'gradle-8\.14\.3-bin\.zip') {
 } else {
   Write-Host '  wrapper 已是 gradle-8.14.3-bin ✓' -ForegroundColor Green
 }
+# ③ 发行包下载自愈(2026-11-23 实测):services.gradle.org 在本机常不可达(.part 长时间停在 0 字节)。
+#    本地 dists 已有该 zip ⇒ 保留官方 URL(改镜像会换 dists hash 目录名,反而逼出一次完整重下);
+#    没有缓存 ⇒ distributionUrl 指向腾讯云镜像(实测 47MB/s,137,393,837 字节与原包一致)。
+$Gh = if ($env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME } else { Join-Path $env:USERPROFILE '.gradle' }
+$DistRoot = Join-Path $Gh 'wrapper\dists\gradle-8.14.3-bin'
+$CachedZip = $null
+if (Test-Path -LiteralPath $DistRoot) {
+  $CachedZip = Get-ChildItem -LiteralPath $DistRoot -Recurse -Filter 'gradle-8.14.3-bin.zip' -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+if ($CachedZip) {
+  Write-Host "  gradle 发行包已在本地缓存($($CachedZip.Length) 字节)⇒ 保留官方 URL" -ForegroundColor Green
+} else {
+  $wrapText3 = [regex]::Replace((Get-Content -LiteralPath $WrapProps -Raw), '(?m)^distributionUrl=.*$', 'distributionUrl=https\://mirrors.cloud.tencent.com/gradle/gradle-8.14.3-bin.zip')
+  Set-Content -LiteralPath $WrapProps -Value $wrapText3 -NoNewline -Encoding utf8
+  Write-Host '  gradle 发行包无本地缓存 ⇒ distributionUrl 切腾讯云镜像(services.gradle.org 国内不可达)' -ForegroundColor Yellow
+}
 $LocalProps = Join-Path $AndroidDir 'local.properties'
 $sdkLine = 'sdk.dir=' + ($env:ANDROID_HOME -replace '\\', '\\')
 Set-Content -LiteralPath $LocalProps -Value $sdkLine -Encoding ascii -NoNewline
 Write-Host "  local.properties 已写 $sdkLine" -ForegroundColor Green
+
+# ④ 长路径自愈(2026-11-23 实测,Windows CMake 250 字符目标路径上限):
+#    react-native-screens 在 pnpm 虚拟仓里的真实路径 124 字符 ⇒ 它自己的 CMake object 路径越过 250,
+#    实测报 CMAKE_OBJECT_PATH_MAX 并连带 ninja `manifest 'build.ninja' still dirty after 100 tries`。
+#    处理:包目录整体移到短路径 C:\w\rns,原位置留 junction。幂等:已是 junction 直接跳过;
+#    .cxx 缓存一并清掉(路径变了旧缓存必然失效)。
+$ShortRoot = 'C:\w\rns'
+$RnsPath = $null
+$PnpmRoot = Join-Path $RepoRoot 'node_modules\.pnpm'
+if (Test-Path -LiteralPath $PnpmRoot) {
+  $RnsPath = Get-ChildItem -LiteralPath $PnpmRoot -Directory -Filter 'react-native-screens@*' -ErrorAction SilentlyContinue |
+    ForEach-Object { Join-Path $_.FullName 'node_modules\react-native-screens' } |
+    Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
+if ($RnsPath -and $RnsPath.Length -gt 150) {
+  if ((Get-Item -LiteralPath $RnsPath -Force).LinkType -eq 'Junction') {
+    Write-Host '  react-native-screens 已是短路径 junction ⇒ 跳过' -ForegroundColor Green
+  } else {
+    New-Item -ItemType Directory -Path (Split-Path -Parent $ShortRoot) -Force | Out-Null
+    if (Test-Path -LiteralPath $ShortRoot) { Remove-Item -LiteralPath $ShortRoot -Recurse -Force }
+    Move-Item -LiteralPath $RnsPath -Destination $ShortRoot
+    New-Item -ItemType Junction -Path $RnsPath -Target $ShortRoot | Out-Null
+    Get-ChildItem -LiteralPath $ShortRoot -Recurse -Directory -Filter '.cxx' -ErrorAction SilentlyContinue |
+      Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "  已把 react-native-screens 迁到 $ShortRoot 并留 junction(规避 CMake 250 字符上限)" -ForegroundColor Yellow
+  }
+}
 
 # ---- [2.8/5] 客户端签名密钥自动注入(2026-11-18 立) -----------------------------------
 # 为什么必须自动化:apps/mobile-rn/src/lib/token.ts 只在 initApi 里读

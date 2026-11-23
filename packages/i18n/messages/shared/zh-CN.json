@@ -5261,6 +5261,10 @@
   "uiText": {
     "enableAutoUpdate": "开启全自动更新",
     "autoInstallPermHint": "允许「IHUI 自动安装」无障碍服务后，新版本会自动下载并安装，不用再手动点确认。",
+    "autoInstallRestrictedHint": "「IHUI 自动安装」若显示为灰色并标注「受限制的设置」，请先点「解除受限并开启」到应用信息页右上角 ⋮ 打开「允许受限制的设置」，再回到无障碍里开启。",
+    "autoInstallUnlockRestricted": "解除受限并开启",
+    "autoInstallToAccessibility": "去无障碍",
+    "autoInstallNotDetected": "还没检测到服务已开启：请确认「IHUI 自动安装」的开关已打开；若是灰色，先按上面的步骤解除限制。",
     "alreadyEnabled": "我已开启",
     "goEnable": "去开启",
     "noCarousel": "暂无轮播图",
