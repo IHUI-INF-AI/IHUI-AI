@@ -6,10 +6,12 @@
   "private": false,
   "type": "module",
   "bin": {
-    "ihui": "./dist/index.js"
+    "ihui": "./dist/index.js",
+    "ihui-lowmem": "./bin/ihui-lowmem.mjs"
   },
   "files": [
     "dist",
+    "bin",
     "LICENSE",
     "NOTICE",
     "README.md"

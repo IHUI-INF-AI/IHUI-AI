@@ -285,6 +285,19 @@ DSH 的 `turn-usage.ts` 把“能否声称精确”当硬判据：单轮 `exact`
 - `agent_engine` 的 `turn_token_usage` 遥测改吃同一批尝试：六桶全部落账（`cache_write_input_tokens`、`reasoning_output_tokens` 不再恒 0），解析失败回退 `normalize_usage` 四桶，不因单个坏样本丢整轮。
 - 测试：`test_turn_exact_usage.py` **14 passed in 16.19s**（总量式/Anthropic 式、缺总量必须两维缓存、矛盾总量、reasoning/bool/负数、可选桶全有才汇总、路由全有才出、安全整数溢出、缺一次尝试即不可精确、旧 perIteration 键、LoopIteration 真实记录）；回归 `test_turn_token_usage_58.py` + `test_engine_context_wiring_58.py` + `test_usage_cache.py` **48 passed in 18.32s**；`test_engine_harness_fine.py::test_environment_context_and_turn_usage_emitted` **1 passed in 6.33s**；`ruff check` 五文件全过。
 
+## 追加批：低内存 V8 启动档（对齐 WorkBuddy `codebuddy-lowmem`，B4-09）
+
+WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:shebang 注入 `--optimize-for-size --max-semi-space-size=2`,**不设老年代上限**,并在文件头留 macOS arm64 五轮中位数的 peak/real 对照。本仓此前 `optimize-for-size|max-semi-space-size` 全仓 0 命中,`ihui-cli` 只有 `ihui` 一个 bin。本批补一个独立低内存入口:
+
+- 新增 `apps/cli/bin/ihui-lowmem.mjs`:
+  - `LOW_MEMORY_NODE_FLAGS = ['--optimize-for-size', '--max-semi-space-size=2']`,只允许这两枚;不设 `--max-old-space-size`(老年代上限会把“慢”变成 OOM 崩溃);
+  - `buildLowMemoryArgv(entry, argv, execPath)` 返回 `[node, ...flags, entry, ...userArgv]`,入口在 V8 参数之后、用户参数原样透传;
+  - `runLowMemory()` 用 `spawnSync` 以 `stdio:'inherit'`、`windowsHide:true` 拉起 `dist/index.js`,status 数字透传,启动失败/被信号杀掉返回 1;注入 `spawn`/`stderr` 便于单测;
+  - bin 走 `process.execPath`,不依赖 shell shebang 解析(V8 参数必须在进程启动前生效,进程内改不了)。
+- `apps/cli/package.json`:bin 增加 `"ihui-lowmem": "./bin/ihui-lowmem.mjs"`,`files` 增加 `bin`(否则 npm 包不带入口);`ihui` 原入口一字未动。
+- 类型:新增 `apps/cli/bin/ihui-lowmem.d.mts` 声明(该 bin 不参与 tsc 编译,测试按声明取形);测试 `apps/cli/tests/ihui-lowmem-launcher.test.ts` **5 passed in 0.47s**(参数顺序、禁用老年代上限、继承 stdio/windowsHide、退出码透传、启动失败不抛异常);`pnpm --filter ihui-cli typecheck` 通过;`eslint` 两文件通过。`typecheck:tests` 仓内已有大量存量红,本批新增文件零错误(过滤 `ihui-lowmem` 无命中)。
+- 本批只保证“档位可用且契约钉死”,不声称具体降幅;峰值内存对照需另跑独立基准。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
