@@ -2637,7 +2637,8 @@
       "notOpened": "未开通",
       "openVip": "开通 VIP 会员",
       "opened": "已开通",
-      "share": "分享赚佣金"
+      "share": "分享赚佣金",
+      "dailyCreditHint": "每日赠送 {granted} 积分，今日剩余 {remaining}；仅当日有效，次日清零"
     },
     "benefits": {
       "empty": "暂无权益",

@@ -1584,7 +1584,8 @@
     "title": "积分明细",
     "empty": "暂无积分记录",
     "loadFailed": "加载积分失败",
-    "balance": "余额"
+    "balance": "余额",
+    "dailyGrantNote": "每日赠送的积分不进明细，仅当日有效，次日自动清零"
   },
   "noteList": {
     "title": "笔记列表",

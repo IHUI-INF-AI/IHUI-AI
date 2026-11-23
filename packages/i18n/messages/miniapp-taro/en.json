@@ -2637,7 +2637,8 @@
       "notOpened": "Not Activated",
       "openVip": "Activate VIP Membership",
       "opened": "Activated",
-      "share": "Share and Earn Commission"
+      "share": "Share and Earn Commission",
+      "dailyCreditHint": "Daily grant {granted} points, {remaining} left today; valid today only, resets tomorrow"
     },
     "benefits": {
       "empty": "No benefits",

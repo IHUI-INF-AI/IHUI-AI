@@ -4229,7 +4229,8 @@
     "balance": "잔액",
     "empty": "포인트 기록 없음",
     "loadFailed": "포인트 불러오기 실패",
-    "title": "포인트 기록"
+    "title": "포인트 기록",
+    "dailyGrantNote": "일일 증정 포인트는 내역에 표시되지 않습니다. 당일만 유효, 다음 날 초기화"
   },
   "pointRule": {
     "empty": "포인트 규칙 없음",

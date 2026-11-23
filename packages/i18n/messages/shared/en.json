@@ -1584,7 +1584,8 @@
     "title": "Points History",
     "empty": "No points records",
     "loadFailed": "Failed to load points",
-    "balance": "Balance"
+    "balance": "Balance",
+    "dailyGrantNote": "Daily grant points are not listed here; valid today only, resets tomorrow"
   },
   "noteList": {
     "title": "Notes",

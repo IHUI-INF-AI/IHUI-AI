@@ -2637,7 +2637,8 @@
       "notOpened": "未開通",
       "openVip": "VIP会員を開通",
       "opened": "開通済み",
-      "share": "シェアして報酬を獲得"
+      "share": "シェアして報酬を獲得",
+      "dailyCreditHint": "毎日{granted}ポイント贈呈中（本日の残り{remaining}）。当日のみ有効、翌日リセット"
     },
     "benefits": {
       "empty": "特典なし",

@@ -4229,7 +4229,8 @@
     "balance": "積分餘額",
     "empty": "暫無積分紀錄",
     "loadFailed": "載入積分失敗",
-    "title": "積分紀錄"
+    "title": "積分紀錄",
+    "dailyGrantNote": "每日贈送的積分不進明細，僅當日有效，次日自動清零"
   },
   "pointRule": {
     "empty": "暫無積分規則",

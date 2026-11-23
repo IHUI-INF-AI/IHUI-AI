@@ -1584,7 +1584,8 @@
     "title": "積分明細",
     "empty": "暫無積分記錄",
     "loadFailed": "載入積分失敗",
-    "balance": "餘額"
+    "balance": "餘額",
+    "dailyGrantNote": "每日贈送的積分不進明細，僅當日有效，次日自動清零"
   },
   "noteList": {
     "title": "筆記列表",
