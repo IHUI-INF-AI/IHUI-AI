@@ -1,7 +1,3 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 import { softwareNoticesHtml } from '../renderers/shared/software-notices.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { isExplainerHtml } from '../explainer/check.mjs';
@@ -1577,6 +1573,16 @@ function browserEnvironment(env, platform) {
       && /^\s*DetectorsAppHealth\s*$/i.test(String(value)))));
 }
 
+// 补丁(IHUI-AI 2026-11-24):Windows profile 持有者清理。
+//
+// 3.3.0 删掉了这两个函数,于是 Windows 上只剩 `child.kill()`,而 Node 在 win32 上
+// 的 kill 只终止**单个进程**、信号名一律映射 TerminateProcess —— Chrome 是多进程
+// (browser + renderer + gpu + utility),主进程退出后渲染进程仍握着 profile 目录里的
+// 文件句柄,导致 `fs.rmSync` 报 EBUSY/EPERM ⇒ `ARCHIFY_TEMP_CLEANUP` ⇒
+// `viewer/temp-cleanup-incomplete` ⇒ browser-check 失败。
+//
+// 3.2.0 的做法:按命令行里的 profile 路径反查所有 chrome.exe,逐个 `/T /F` 杀进程树。
+// 这里原样移植,只为把 3.3.0 的 Windows 能力补齐(不含其它行为改动)。
 function windowsProfileHolderPids(profilePath) {
   const listed = spawnSync('pwsh', [
     '-NoProfile',
@@ -1655,6 +1661,10 @@ export class ChromeVisualBrowser {
     const targets = await this.cdp.send(
       'Target.getTargets', {}, undefined, this.startupTimeoutMs,
     );
+    // Deny downloads across this browser, including pages created by resetPage.
+    // If the browser rejects the policy, stop before loading an artifact whose
+    // exports could leave partial files in the user's Downloads folder (#1371).
+    await this.cdp.send('Browser.setDownloadBehavior', { behavior: 'deny' });
     let target = targets.targetInfos?.find((item) => item.type === 'page');
     if (!target) {
       const created = await this.cdp.send('Target.createTarget', { url: 'about:blank' });
@@ -1870,8 +1880,9 @@ export class ChromeVisualBrowser {
         scrollWidth: Math.ceil(document.documentElement.scrollWidth),
         // Bottom notes and index are reading material below the fold; the
         // Reader excludes them from the one-screen fit, and so does this check.
+        // The feedback footer always sits last, below the fold, for the same reason.
         scrollHeight: Math.max(window.innerHeight, Math.ceil(document.documentElement.scrollHeight - (
-          notesBelowFold ? outerHeight(reader.querySelector('.reader-rail')) : 0))),
+          notesBelowFold ? outerHeight(reader.querySelector('.reader-rail')) : 0) - outerHeight(document.querySelector('.page-feedback')))),
         resolvedTheme: document.documentElement.getAttribute('data-theme') || '',
         readerLayout: document.documentElement.getAttribute('data-reader-layout') || null,
         readerOverflow: document.documentElement.getAttribute('data-reader-overflow') || null,
@@ -1948,6 +1959,9 @@ export class ChromeVisualBrowser {
             reject(error);
           }
         });
+        // 补丁(IHUI-AI 2026-11-24):3.3.0 精简掉了这两个闭包,而下面的 win32 兜底要用。
+        // waitExit:再等一段(不抛),用于 taskkill 之后给进程树一点收尾时间。
+        // releasePipes:立即释放继承管道,免得 helper 进程攥着管道让 'exit' 永远不到。
         const waitExit = (timeoutMs) => new Promise((resolve) => {
           if (exited()) {
             resolve(true);
@@ -1971,6 +1985,14 @@ export class ChromeVisualBrowser {
           }
         };
         if (!await signalAndWait('SIGTERM') && !await signalAndWait('SIGKILL')) {
+          // 补丁(IHUI-AI 2026-11-24):Windows 上两轮 kill 之后**不能直接抛错**。
+          //
+          // 3.3.0 在这里直接 `throw`,于是 win32 一旦 Chrome 主进程不响应 TerminateProcess
+          // (或主进程退了但渲染进程还握着 profile 句柄)就整轮失败。3.2.0 的处理是:
+          //   ① 用 taskkill /T /F 把这棵进程树连根拔;② 释放继承管道;③ 再等 2s;
+          // 随后还要在 cleanup 之前按路径反查残余 chrome.exe 一并清掉(见
+          // releaseWindowsProfileHolders)。三件缺任何一件都会落到
+          // `viewer/temp-cleanup-incomplete`。这里按 3.2.0 的形态补回,非 win32 保持原判。
           if (process.platform !== 'win32') {
             const error = new Error(`Chrome did not exit; retained temporary profile "${this.#profile.path}".`);
             error.code = 'ARCHIFY_TEMP_CLEANUP';
@@ -1995,6 +2017,8 @@ export class ChromeVisualBrowser {
         if (stream && !stream.destroyed) stream.destroy();
       }
     }
+    // 补丁(IHUI-AI 2026-11-24):清理前先清"按路径反查出来的残余 chrome.exe",
+    // 并给 Windows 一个更长的删目录重试窗口(见 owned-temp-directory.mjs 的同批补丁)。
     const profilePath = this.#profile.path;
     if (process.platform === 'win32') releaseWindowsProfileHolders(profilePath);
     await this.#profile.cleanup(process.platform === 'win32' ? {
@@ -2452,7 +2476,21 @@ function persistBrowserEvidenceFailure(
   failure,
   { outDir, compareSidecarParents = sameParent, ownership, command = 'visual-check', capture = true, captureViewports = CAPTURE_VIEWPORTS } = {},
 ) {
-  const outputs = evidenceSidecarPaths(artifactPath, { outDir, command, capture, captureViewports });
+  let outputs;
+  try {
+    outputs = evidenceSidecarPaths(artifactPath, { outDir, command, capture, captureViewports });
+  } catch (error) {
+    if (error?.code !== 'ARCHIFY_SIDECAR_NAMESPACE_INDETERMINATE') throw error;
+    const failed = evidenceWriteFailure(artifactPath, error.message, [{
+      directory: path.resolve(outDir || path.dirname(artifactPath)),
+      namespaceReason: error.sidecarNamespaceReason,
+    }]);
+    return {
+      ...failure, ok: false, status: 'fail', error: failed.error,
+      sidecars: { files: [] },
+      diagnostics: [...(failure.diagnostics || []), failed.diagnostic],
+    };
+  }
   const directory = resolveSidecarDirectory(artifactPath, outputs, compareSidecarParents);
   const capturedArtifact = readRegularFileContents(artifactPath, {
     subject: 'failure-artifact',
@@ -2843,4 +2881,3 @@ export function runVisualCheck(options = {}) {
 export function runBrowserCheck(options = {}) {
   return runBrowserEvidence({ ...options, command: 'browser-check', capture: false });
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

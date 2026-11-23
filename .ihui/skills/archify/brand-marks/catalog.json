@@ -15,558 +15,117 @@
         "guidelines": "https://openai.com/brand/"
       }
     },
-    {
-      "id": "claude",
-      "category": "ai",
-      "simpleIcon": "claude",
-      "aliases": ["claude-ai"],
-      "domains": ["claude.ai"]
-    },
-    {
-      "id": "anthropic",
-      "category": "ai",
-      "simpleIcon": "anthropic",
-      "domains": ["anthropic.com"]
-    },
-    {
-      "id": "google-gemini",
-      "category": "ai",
-      "simpleIcon": "googlegemini",
-      "aliases": ["gemini"],
-      "domains": ["gemini.google.com"]
-    },
+    { "id": "claude", "category": "ai", "simpleIcon": "claude", "aliases": ["claude-ai"], "domains": ["claude.ai"] },
+    { "id": "anthropic", "category": "ai", "simpleIcon": "anthropic", "domains": ["anthropic.com"] },
+    { "id": "google-gemini", "category": "ai", "simpleIcon": "googlegemini", "aliases": ["gemini"], "domains": ["gemini.google.com"] },
     { "id": "deepseek", "category": "ai", "simpleIcon": "deepseek", "domains": ["deepseek.com"] },
     { "id": "qwen", "category": "ai", "simpleIcon": "qwen", "domains": ["qwen.ai"] },
-    {
-      "id": "meta",
-      "category": "ai",
-      "simpleIcon": "meta",
-      "aliases": ["llama"],
-      "domains": ["meta.com"]
-    },
-    {
-      "id": "mistral-ai",
-      "category": "ai",
-      "simpleIcon": "mistralai",
-      "aliases": ["mistral"],
-      "domains": ["mistral.ai"]
-    },
-    {
-      "id": "hugging-face",
-      "category": "ai",
-      "simpleIcon": "huggingface",
-      "aliases": ["huggingface"],
-      "domains": ["huggingface.co"]
-    },
+    { "id": "meta", "category": "ai", "simpleIcon": "meta", "aliases": ["llama"], "domains": ["meta.com"] },
+    { "id": "mistral-ai", "category": "ai", "simpleIcon": "mistralai", "aliases": ["mistral"], "domains": ["mistral.ai"] },
+    { "id": "hugging-face", "category": "ai", "simpleIcon": "huggingface", "aliases": ["huggingface"], "domains": ["huggingface.co"] },
     { "id": "ollama", "category": "ai", "simpleIcon": "ollama", "domains": ["ollama.com"] },
-    {
-      "id": "openrouter",
-      "category": "ai",
-      "simpleIcon": "openrouter",
-      "aliases": ["open-router"],
-      "domains": ["openrouter.ai"]
-    },
-    {
-      "id": "perplexity",
-      "category": "ai",
-      "simpleIcon": "perplexity",
-      "domains": ["perplexity.ai"]
-    },
-    {
-      "id": "replicate",
-      "category": "ai",
-      "simpleIcon": "replicate",
-      "domains": ["replicate.com"]
-    },
+    { "id": "openrouter", "category": "ai", "simpleIcon": "openrouter", "aliases": ["open-router"], "domains": ["openrouter.ai"] },
+    { "id": "perplexity", "category": "ai", "simpleIcon": "perplexity", "domains": ["perplexity.ai"] },
+    { "id": "replicate", "category": "ai", "simpleIcon": "replicate", "domains": ["replicate.com"] },
 
-    {
-      "id": "google-cloud",
-      "category": "cloud",
-      "simpleIcon": "googlecloud",
-      "aliases": ["gcp", "googlecloud"],
-      "domains": ["cloud.google.com"]
-    },
-    {
-      "id": "cloudflare",
-      "category": "cloud",
-      "simpleIcon": "cloudflare",
-      "domains": ["cloudflare.com"]
-    },
+    { "id": "google-cloud", "category": "cloud", "simpleIcon": "googlecloud", "aliases": ["gcp", "googlecloud"], "domains": ["cloud.google.com"] },
+    { "id": "cloudflare", "category": "cloud", "simpleIcon": "cloudflare", "domains": ["cloudflare.com"] },
     { "id": "vercel", "category": "cloud", "simpleIcon": "vercel", "domains": ["vercel.com"] },
     { "id": "netlify", "category": "cloud", "simpleIcon": "netlify", "domains": ["netlify.com"] },
-    {
-      "id": "digitalocean",
-      "category": "cloud",
-      "simpleIcon": "digitalocean",
-      "aliases": ["digital-ocean"],
-      "domains": ["digitalocean.com"]
-    },
+    { "id": "digitalocean", "category": "cloud", "simpleIcon": "digitalocean", "aliases": ["digital-ocean"], "domains": ["digitalocean.com"] },
     { "id": "render", "category": "cloud", "simpleIcon": "render", "domains": ["render.com"] },
-    {
-      "id": "railway",
-      "category": "cloud",
-      "simpleIcon": "railway",
-      "domains": ["railway.com", "railway.app"]
-    },
-    {
-      "id": "fly-io",
-      "category": "cloud",
-      "simpleIcon": "flydotio",
-      "aliases": ["fly.io"],
-      "domains": ["fly.io"]
-    },
-    {
-      "id": "cloudinary",
-      "category": "cloud",
-      "simpleIcon": "cloudinary",
-      "domains": ["cloudinary.com"]
-    },
-    {
-      "id": "alibaba-cloud",
-      "category": "cloud",
-      "simpleIcon": "alibabacloud",
-      "aliases": ["aliyun"],
-      "domains": ["alibabacloud.com", "aliyun.com"]
-    },
-    {
-      "id": "firebase",
-      "category": "cloud",
-      "simpleIcon": "firebase",
-      "domains": ["firebase.google.com"]
-    },
-    {
-      "id": "supabase",
-      "category": "cloud",
-      "simpleIcon": "supabase",
-      "domains": ["supabase.com"]
-    },
+    { "id": "railway", "category": "cloud", "simpleIcon": "railway", "domains": ["railway.com", "railway.app"] },
+    { "id": "fly-io", "category": "cloud", "simpleIcon": "flydotio", "aliases": ["fly.io"], "domains": ["fly.io"] },
+    { "id": "cloudinary", "category": "cloud", "simpleIcon": "cloudinary", "domains": ["cloudinary.com"] },
+    { "id": "alibaba-cloud", "category": "cloud", "simpleIcon": "alibabacloud", "aliases": ["aliyun"], "domains": ["alibabacloud.com", "aliyun.com"] },
+    { "id": "firebase", "category": "cloud", "simpleIcon": "firebase", "domains": ["firebase.google.com"] },
+    { "id": "supabase", "category": "cloud", "simpleIcon": "supabase", "domains": ["supabase.com"] },
     { "id": "neon", "category": "cloud", "simpleIcon": "neon", "domains": ["neon.tech"] },
 
-    {
-      "id": "github",
-      "category": "engineering",
-      "simpleIcon": "github",
-      "domains": ["github.com"]
-    },
-    {
-      "id": "gitlab",
-      "category": "engineering",
-      "simpleIcon": "gitlab",
-      "domains": ["gitlab.com"]
-    },
-    {
-      "id": "bitbucket",
-      "category": "engineering",
-      "simpleIcon": "bitbucket",
-      "domains": ["bitbucket.org"]
-    },
-    {
-      "id": "docker",
-      "category": "engineering",
-      "simpleIcon": "docker",
-      "domains": ["docker.com"]
-    },
-    {
-      "id": "kubernetes",
-      "category": "engineering",
-      "simpleIcon": "kubernetes",
-      "aliases": ["k8s"],
-      "domains": ["kubernetes.io"]
-    },
-    {
-      "id": "terraform",
-      "category": "engineering",
-      "simpleIcon": "terraform",
-      "domains": ["terraform.io"]
-    },
-    {
-      "id": "pulumi",
-      "category": "engineering",
-      "simpleIcon": "pulumi",
-      "domains": ["pulumi.com"]
-    },
-    {
-      "id": "ansible",
-      "category": "engineering",
-      "simpleIcon": "ansible",
-      "domains": ["ansible.com"]
-    },
-    {
-      "id": "jenkins",
-      "category": "engineering",
-      "simpleIcon": "jenkins",
-      "domains": ["jenkins.io"]
-    },
-    {
-      "id": "circleci",
-      "category": "engineering",
-      "simpleIcon": "circleci",
-      "aliases": ["circle-ci"],
-      "domains": ["circleci.com"]
-    },
+    { "id": "github", "category": "engineering", "simpleIcon": "github", "domains": ["github.com"] },
+    { "id": "gitlab", "category": "engineering", "simpleIcon": "gitlab", "domains": ["gitlab.com"] },
+    { "id": "bitbucket", "category": "engineering", "simpleIcon": "bitbucket", "domains": ["bitbucket.org"] },
+    { "id": "docker", "category": "engineering", "simpleIcon": "docker", "domains": ["docker.com"] },
+    { "id": "kubernetes", "category": "engineering", "simpleIcon": "kubernetes", "aliases": ["k8s"], "domains": ["kubernetes.io"] },
+    { "id": "terraform", "category": "engineering", "simpleIcon": "terraform", "domains": ["terraform.io"] },
+    { "id": "pulumi", "category": "engineering", "simpleIcon": "pulumi", "domains": ["pulumi.com"] },
+    { "id": "ansible", "category": "engineering", "simpleIcon": "ansible", "domains": ["ansible.com"] },
+    { "id": "jenkins", "category": "engineering", "simpleIcon": "jenkins", "domains": ["jenkins.io"] },
+    { "id": "circleci", "category": "engineering", "simpleIcon": "circleci", "aliases": ["circle-ci"], "domains": ["circleci.com"] },
     { "id": "github-actions", "category": "engineering", "simpleIcon": "githubactions" },
-    {
-      "id": "argo",
-      "category": "engineering",
-      "simpleIcon": "argo",
-      "aliases": ["argocd", "argo-cd"],
-      "domains": ["argoproj.github.io"]
-    },
+    { "id": "argo", "category": "engineering", "simpleIcon": "argo", "aliases": ["argocd", "argo-cd"], "domains": ["argoproj.github.io"] },
     { "id": "helm", "category": "engineering", "simpleIcon": "helm", "domains": ["helm.sh"] },
-    {
-      "id": "grafana",
-      "category": "engineering",
-      "simpleIcon": "grafana",
-      "domains": ["grafana.com"]
-    },
-    {
-      "id": "prometheus",
-      "category": "engineering",
-      "simpleIcon": "prometheus",
-      "domains": ["prometheus.io"]
-    },
+    { "id": "grafana", "category": "engineering", "simpleIcon": "grafana", "domains": ["grafana.com"] },
+    { "id": "prometheus", "category": "engineering", "simpleIcon": "prometheus", "domains": ["prometheus.io"] },
     { "id": "sentry", "category": "engineering", "simpleIcon": "sentry", "domains": ["sentry.io"] },
-    {
-      "id": "datadog",
-      "category": "engineering",
-      "simpleIcon": "datadog",
-      "domains": ["datadoghq.com"]
-    },
-    {
-      "id": "pagerduty",
-      "category": "engineering",
-      "simpleIcon": "pagerduty",
-      "aliases": ["pager-duty"],
-      "domains": ["pagerduty.com"]
-    },
+    { "id": "datadog", "category": "engineering", "simpleIcon": "datadog", "domains": ["datadoghq.com"] },
+    { "id": "pagerduty", "category": "engineering", "simpleIcon": "pagerduty", "aliases": ["pager-duty"], "domains": ["pagerduty.com"] },
 
-    {
-      "id": "postgresql",
-      "category": "data",
-      "simpleIcon": "postgresql",
-      "aliases": ["postgres"],
-      "domains": ["postgresql.org"]
-    },
+    { "id": "postgresql", "category": "data", "simpleIcon": "postgresql", "aliases": ["postgres"], "domains": ["postgresql.org"] },
     { "id": "mysql", "category": "data", "simpleIcon": "mysql", "domains": ["mysql.com"] },
-    {
-      "id": "mongodb",
-      "category": "data",
-      "simpleIcon": "mongodb",
-      "aliases": ["mongo"],
-      "domains": ["mongodb.com"]
-    },
+    { "id": "mongodb", "category": "data", "simpleIcon": "mongodb", "aliases": ["mongo"], "domains": ["mongodb.com"] },
     { "id": "redis", "category": "data", "simpleIcon": "redis", "domains": ["redis.io"] },
-    {
-      "id": "apache-kafka",
-      "category": "data",
-      "simpleIcon": "apachekafka",
-      "aliases": ["kafka"],
-      "domains": ["kafka.apache.org"]
-    },
-    {
-      "id": "rabbitmq",
-      "category": "data",
-      "simpleIcon": "rabbitmq",
-      "aliases": ["rabbit-mq"],
-      "domains": ["rabbitmq.com"]
-    },
-    {
-      "id": "clickhouse",
-      "category": "data",
-      "simpleIcon": "clickhouse",
-      "domains": ["clickhouse.com"]
-    },
-    {
-      "id": "elasticsearch",
-      "category": "data",
-      "simpleIcon": "elasticsearch",
-      "aliases": ["elastic"],
-      "domains": ["elastic.co"]
-    },
-    {
-      "id": "opensearch",
-      "category": "data",
-      "simpleIcon": "opensearch",
-      "aliases": ["open-search"],
-      "domains": ["opensearch.org"]
-    },
-    {
-      "id": "snowflake",
-      "category": "data",
-      "simpleIcon": "snowflake",
-      "domains": ["snowflake.com"]
-    },
-    {
-      "id": "databricks",
-      "category": "data",
-      "simpleIcon": "databricks",
-      "domains": ["databricks.com"]
-    },
-    {
-      "id": "planetscale",
-      "category": "data",
-      "simpleIcon": "planetscale",
-      "aliases": ["planet-scale"],
-      "domains": ["planetscale.com"]
-    },
+    { "id": "apache-kafka", "category": "data", "simpleIcon": "apachekafka", "aliases": ["kafka"], "domains": ["kafka.apache.org"] },
+    { "id": "rabbitmq", "category": "data", "simpleIcon": "rabbitmq", "aliases": ["rabbit-mq"], "domains": ["rabbitmq.com"] },
+    { "id": "clickhouse", "category": "data", "simpleIcon": "clickhouse", "domains": ["clickhouse.com"] },
+    { "id": "elasticsearch", "category": "data", "simpleIcon": "elasticsearch", "aliases": ["elastic"], "domains": ["elastic.co"] },
+    { "id": "opensearch", "category": "data", "simpleIcon": "opensearch", "aliases": ["open-search"], "domains": ["opensearch.org"] },
+    { "id": "snowflake", "category": "data", "simpleIcon": "snowflake", "domains": ["snowflake.com"] },
+    { "id": "databricks", "category": "data", "simpleIcon": "databricks", "domains": ["databricks.com"] },
+    { "id": "planetscale", "category": "data", "simpleIcon": "planetscale", "aliases": ["planet-scale"], "domains": ["planetscale.com"] },
     { "id": "prisma", "category": "data", "simpleIcon": "prisma", "domains": ["prisma.io"] },
     { "id": "sqlite", "category": "data", "simpleIcon": "sqlite", "domains": ["sqlite.org"] },
-    {
-      "id": "mariadb",
-      "category": "data",
-      "simpleIcon": "mariadb",
-      "aliases": ["maria-db"],
-      "domains": ["mariadb.org"]
-    },
-    {
-      "id": "influxdb",
-      "category": "data",
-      "simpleIcon": "influxdb",
-      "aliases": ["influx-db"],
-      "domains": ["influxdata.com"]
-    },
-    {
-      "id": "apache-airflow",
-      "category": "data",
-      "simpleIcon": "apacheairflow",
-      "aliases": ["airflow"],
-      "domains": ["airflow.apache.org"]
-    },
+    { "id": "mariadb", "category": "data", "simpleIcon": "mariadb", "aliases": ["maria-db"], "domains": ["mariadb.org"] },
+    { "id": "influxdb", "category": "data", "simpleIcon": "influxdb", "aliases": ["influx-db"], "domains": ["influxdata.com"] },
+    { "id": "apache-airflow", "category": "data", "simpleIcon": "apacheairflow", "aliases": ["airflow"], "domains": ["airflow.apache.org"] },
 
-    {
-      "id": "notion",
-      "category": "collaboration",
-      "simpleIcon": "notion",
-      "domains": ["notion.so"]
-    },
+    { "id": "notion", "category": "collaboration", "simpleIcon": "notion", "domains": ["notion.so"] },
     { "id": "figma", "category": "collaboration", "simpleIcon": "figma", "domains": ["figma.com"] },
-    {
-      "id": "jira",
-      "category": "collaboration",
-      "simpleIcon": "jira",
-      "domains": ["atlassian.com"]
-    },
-    {
-      "id": "linear",
-      "category": "collaboration",
-      "simpleIcon": "linear",
-      "domains": ["linear.app"]
-    },
-    {
-      "id": "discord",
-      "category": "collaboration",
-      "simpleIcon": "discord",
-      "domains": ["discord.com"]
-    },
+    { "id": "jira", "category": "collaboration", "simpleIcon": "jira", "domains": ["atlassian.com"] },
+    { "id": "linear", "category": "collaboration", "simpleIcon": "linear", "domains": ["linear.app"] },
+    { "id": "discord", "category": "collaboration", "simpleIcon": "discord", "domains": ["discord.com"] },
     { "id": "zoom", "category": "collaboration", "simpleIcon": "zoom", "domains": ["zoom.us"] },
-    {
-      "id": "trello",
-      "category": "collaboration",
-      "simpleIcon": "trello",
-      "domains": ["trello.com"]
-    },
+    { "id": "trello", "category": "collaboration", "simpleIcon": "trello", "domains": ["trello.com"] },
     { "id": "asana", "category": "collaboration", "simpleIcon": "asana", "domains": ["asana.com"] },
-    {
-      "id": "airtable",
-      "category": "collaboration",
-      "simpleIcon": "airtable",
-      "domains": ["airtable.com"]
-    },
+    { "id": "airtable", "category": "collaboration", "simpleIcon": "airtable", "domains": ["airtable.com"] },
     { "id": "miro", "category": "collaboration", "simpleIcon": "miro", "domains": ["miro.com"] },
     { "id": "stripe", "category": "business", "simpleIcon": "stripe", "domains": ["stripe.com"] },
-    {
-      "id": "shopify",
-      "category": "business",
-      "simpleIcon": "shopify",
-      "domains": ["shopify.com"]
-    },
-    {
-      "id": "hubspot",
-      "category": "business",
-      "simpleIcon": "hubspot",
-      "domains": ["hubspot.com"]
-    },
+    { "id": "shopify", "category": "business", "simpleIcon": "shopify", "domains": ["shopify.com"] },
+    { "id": "hubspot", "category": "business", "simpleIcon": "hubspot", "domains": ["hubspot.com"] },
     { "id": "paypal", "category": "business", "simpleIcon": "paypal", "domains": ["paypal.com"] },
-    {
-      "id": "intercom",
-      "category": "business",
-      "simpleIcon": "intercom",
-      "domains": ["intercom.com"]
-    },
-    {
-      "id": "zendesk",
-      "category": "business",
-      "simpleIcon": "zendesk",
-      "domains": ["zendesk.com"]
-    },
-    {
-      "id": "wordpress",
-      "category": "business",
-      "simpleIcon": "wordpress",
-      "domains": ["wordpress.org", "wordpress.com"]
-    },
-    {
-      "id": "woocommerce",
-      "category": "business",
-      "simpleIcon": "woocommerce",
-      "aliases": ["woo-commerce"],
-      "domains": ["woocommerce.com"]
-    },
+    { "id": "intercom", "category": "business", "simpleIcon": "intercom", "domains": ["intercom.com"] },
+    { "id": "zendesk", "category": "business", "simpleIcon": "zendesk", "domains": ["zendesk.com"] },
+    { "id": "wordpress", "category": "business", "simpleIcon": "wordpress", "domains": ["wordpress.org", "wordpress.com"] },
+    { "id": "woocommerce", "category": "business", "simpleIcon": "woocommerce", "aliases": ["woo-commerce"], "domains": ["woocommerce.com"] },
 
-    {
-      "id": "wechat",
-      "category": "channel",
-      "simpleIcon": "wechat",
-      "aliases": ["weixin", "微信"],
-      "domains": ["weixin.qq.com"]
-    },
-    {
-      "id": "youtube",
-      "category": "channel",
-      "simpleIcon": "youtube",
-      "domains": ["youtube.com", "youtu.be"]
-    },
-    {
-      "id": "tiktok",
-      "category": "channel",
-      "simpleIcon": "tiktok",
-      "aliases": ["douyin", "抖音"],
-      "domains": ["tiktok.com", "douyin.com"]
-    },
-    {
-      "id": "x",
-      "category": "channel",
-      "simpleIcon": "x",
-      "aliases": ["twitter"],
-      "domains": ["x.com", "twitter.com"]
-    },
-    {
-      "id": "instagram",
-      "category": "channel",
-      "simpleIcon": "instagram",
-      "domains": ["instagram.com"]
-    },
-    {
-      "id": "facebook",
-      "category": "channel",
-      "simpleIcon": "facebook",
-      "domains": ["facebook.com"]
-    },
+    { "id": "wechat", "category": "channel", "simpleIcon": "wechat", "aliases": ["weixin", "微信"], "domains": ["weixin.qq.com"] },
+    { "id": "youtube", "category": "channel", "simpleIcon": "youtube", "domains": ["youtube.com", "youtu.be"] },
+    { "id": "tiktok", "category": "channel", "simpleIcon": "tiktok", "aliases": ["douyin", "抖音"], "domains": ["tiktok.com", "douyin.com"] },
+    { "id": "x", "category": "channel", "simpleIcon": "x", "aliases": ["twitter"], "domains": ["x.com", "twitter.com"] },
+    { "id": "instagram", "category": "channel", "simpleIcon": "instagram", "domains": ["instagram.com"] },
+    { "id": "facebook", "category": "channel", "simpleIcon": "facebook", "domains": ["facebook.com"] },
     { "id": "reddit", "category": "channel", "simpleIcon": "reddit", "domains": ["reddit.com"] },
-    {
-      "id": "telegram",
-      "category": "channel",
-      "simpleIcon": "telegram",
-      "domains": ["telegram.org", "t.me"]
-    },
-    {
-      "id": "whatsapp",
-      "category": "channel",
-      "simpleIcon": "whatsapp",
-      "domains": ["whatsapp.com"]
-    },
-    {
-      "id": "pinterest",
-      "category": "channel",
-      "simpleIcon": "pinterest",
-      "domains": ["pinterest.com"]
-    },
+    { "id": "telegram", "category": "channel", "simpleIcon": "telegram", "domains": ["telegram.org", "t.me"] },
+    { "id": "whatsapp", "category": "channel", "simpleIcon": "whatsapp", "domains": ["whatsapp.com"] },
+    { "id": "pinterest", "category": "channel", "simpleIcon": "pinterest", "domains": ["pinterest.com"] },
 
     { "id": "python", "category": "language", "simpleIcon": "python", "domains": ["python.org"] },
-    {
-      "id": "typescript",
-      "category": "language",
-      "simpleIcon": "typescript",
-      "aliases": ["ts"],
-      "domains": ["typescriptlang.org"]
-    },
+    { "id": "typescript", "category": "language", "simpleIcon": "typescript", "aliases": ["ts"], "domains": ["typescriptlang.org"] },
     { "id": "javascript", "category": "language", "simpleIcon": "javascript", "aliases": ["js"] },
-    {
-      "id": "go",
-      "category": "language",
-      "simpleIcon": "go",
-      "aliases": ["golang"],
-      "domains": ["go.dev"]
-    },
+    { "id": "go", "category": "language", "simpleIcon": "go", "aliases": ["golang"], "domains": ["go.dev"] },
     { "id": "rust", "category": "language", "simpleIcon": "rust", "domains": ["rust-lang.org"] },
-    {
-      "id": "node-js",
-      "category": "framework",
-      "simpleIcon": "nodedotjs",
-      "aliases": ["node", "nodejs"],
-      "domains": ["nodejs.org"]
-    },
-    {
-      "id": "react",
-      "category": "framework",
-      "simpleIcon": "react",
-      "aliases": ["reactjs"],
-      "domains": ["react.dev"]
-    },
-    {
-      "id": "vue",
-      "category": "framework",
-      "simpleIcon": "vuedotjs",
-      "aliases": ["vuejs", "vue.js"],
-      "domains": ["vuejs.org"]
-    },
-    {
-      "id": "next-js",
-      "category": "framework",
-      "simpleIcon": "nextdotjs",
-      "aliases": ["nextjs", "next.js"],
-      "domains": ["nextjs.org"]
-    },
-    {
-      "id": "pytorch",
-      "category": "framework",
-      "simpleIcon": "pytorch",
-      "domains": ["pytorch.org"]
-    },
-    {
-      "id": "tensorflow",
-      "category": "framework",
-      "simpleIcon": "tensorflow",
-      "domains": ["tensorflow.org"]
-    },
-    {
-      "id": "angular",
-      "category": "framework",
-      "simpleIcon": "angular",
-      "domains": ["angular.dev"]
-    },
+    { "id": "node-js", "category": "framework", "simpleIcon": "nodedotjs", "aliases": ["node", "nodejs"], "domains": ["nodejs.org"] },
+    { "id": "react", "category": "framework", "simpleIcon": "react", "aliases": ["reactjs"], "domains": ["react.dev"] },
+    { "id": "vue", "category": "framework", "simpleIcon": "vuedotjs", "aliases": ["vuejs", "vue.js"], "domains": ["vuejs.org"] },
+    { "id": "next-js", "category": "framework", "simpleIcon": "nextdotjs", "aliases": ["nextjs", "next.js"], "domains": ["nextjs.org"] },
+    { "id": "pytorch", "category": "framework", "simpleIcon": "pytorch", "domains": ["pytorch.org"] },
+    { "id": "tensorflow", "category": "framework", "simpleIcon": "tensorflow", "domains": ["tensorflow.org"] },
+    { "id": "angular", "category": "framework", "simpleIcon": "angular", "domains": ["angular.dev"] },
     { "id": "svelte", "category": "framework", "simpleIcon": "svelte", "domains": ["svelte.dev"] },
-    {
-      "id": "django",
-      "category": "framework",
-      "simpleIcon": "django",
-      "domains": ["djangoproject.com"]
-    },
-    {
-      "id": "flask",
-      "category": "framework",
-      "simpleIcon": "flask",
-      "domains": ["palletsprojects.com"]
-    },
-    {
-      "id": "fastapi",
-      "category": "framework",
-      "simpleIcon": "fastapi",
-      "domains": ["fastapi.tiangolo.com"]
-    },
-    {
-      "id": "spring",
-      "category": "framework",
-      "simpleIcon": "spring",
-      "aliases": ["spring-boot"],
-      "domains": ["spring.io"]
-    },
-    {
-      "id": "dotnet",
-      "category": "framework",
-      "simpleIcon": "dotnet",
-      "aliases": [".net"],
-      "domains": ["dotnet.microsoft.com"]
-    }
+    { "id": "django", "category": "framework", "simpleIcon": "django", "domains": ["djangoproject.com"] },
+    { "id": "flask", "category": "framework", "simpleIcon": "flask", "domains": ["palletsprojects.com"] },
+    { "id": "fastapi", "category": "framework", "simpleIcon": "fastapi", "domains": ["fastapi.tiangolo.com"] },
+    { "id": "spring", "category": "framework", "simpleIcon": "spring", "aliases": ["spring-boot"], "domains": ["spring.io"] },
+    { "id": "dotnet", "category": "framework", "simpleIcon": "dotnet", "aliases": [".net"], "domains": ["dotnet.microsoft.com"] }
   ]
 }

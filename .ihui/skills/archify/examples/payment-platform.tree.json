@@ -11,12 +11,7 @@
     { "id": "platform", "label": "Payment platform", "sublabel": "Decomposed by capability" },
     { "id": "orders", "label": "Orders", "parent": "platform", "sublabel": "Order lifecycle" },
     { "id": "payments", "label": "Payments", "parent": "platform", "sublabel": "Money movement" },
-    {
-      "id": "operations",
-      "label": "Operations",
-      "parent": "platform",
-      "sublabel": "Back-office work"
-    },
+    { "id": "operations", "label": "Operations", "parent": "platform", "sublabel": "Back-office work" },
     { "id": "create_order", "label": "Create order", "parent": "orders" },
     { "id": "cancel_order", "label": "Cancel order", "parent": "orders" },
     { "id": "card_payment", "label": "Card payment", "parent": "payments" },

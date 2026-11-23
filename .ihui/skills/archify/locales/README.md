@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Bundled Viewer catalogs
 
 `manifest.json` enrolls the catalogs that `meta.locale` selects automatically.
@@ -24,14 +18,15 @@ No renderer or schema change is needed. Locale tags match case-insensitively;
 region and script variants (for example `zh-Hant`) are distinct tags and are
 never collapsed onto another catalog.
 
-| Locale  | Origin                                          | Review status                                                                                               |
-| ------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `en`    | Archify source strings                          | Canonical                                                                                                   |
-| `zh-CN` | #108                                            | Maintained with the renderer                                                                                |
-| `zh-TW` | kevinlincg                                      | Complete; OpenCC `s2twp` conversion hand-reviewed for Taiwan terminology; not independently native-reviewed |
-| `es`    | Juan Pablo Tamayo (#457, moved to data in #586) | Complete; not independently native-reviewed                                                                 |
-| `ko`    | uygnoey (#457)                                  | Complete; not independently native-reviewed                                                                 |
-| `ar`    | jahfaliabdulrahman-dev                          | Complete: 486/486 keys with placeholder parity checked mechanically; not independently native-reviewed      |
+| Locale | Origin | Review status |
+| --- | --- | --- |
+| `en` | Archify source strings | Canonical |
+| `zh-CN` | #108 | Maintained with the renderer |
+| `zh-TW` | kevinlincg | Complete; OpenCC `s2twp` conversion hand-reviewed for Taiwan terminology; not independently native-reviewed |
+| `es` | Juan Pablo Tamayo (#457, moved to data in #586) | Complete; not independently native-reviewed |
+| `ko` | uygnoey (#457) | Complete; not independently native-reviewed |
+| `ar` | jahfaliabdulrahman-dev | Complete: 486/486 keys with placeholder parity checked mechanically; not independently native-reviewed |
+| `ru` | uygnoey (#457 example catalog) | Complete: 516/516 keys with placeholder parity checked mechanically; count-neutral `.other` wording; UI fit reviewed in the bundled Viewer; not independently native-reviewed |
 
 Completeness checks prove key and placeholder coverage, not native wording,
 plural grammar, right-to-left layout, or glyph coverage.
@@ -42,6 +37,10 @@ Route/reach export summaries and reach controls use count-neutral labels within
 the existing `.one`/`.other` model. Other counted messages still have that
 model's Arabic plural limitations.
 
+The Russian catalog uses the singular at `{count} = 1` and count-neutral
+`.other` labels (for example `Узлов: {count}`) because the two-form model has no
+Russian few/many categories. This avoids ungrammatical counted nouns such as
+`2 узлов`; full Russian plural rules remain a model limitation.
+
 Other reusable, unenrolled examples live in `../examples/locales/`; supply
 them through `meta.translations`.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

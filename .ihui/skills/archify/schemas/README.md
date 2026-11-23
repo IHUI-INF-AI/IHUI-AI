@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Archify JSON IR Schemas
 
 Each typed renderer consumes a JSON intermediate representation (IR) validated
@@ -11,19 +5,19 @@ against one of the schemas in this folder before any layout work happens.
 
 ## Files
 
-| Schema                     | Governs                                     | Structural arrays                                         |
-| -------------------------- | ------------------------------------------- | --------------------------------------------------------- |
-| `workflow.schema.json`     | `diagram_type: "workflow"`                  | `lanes`, `phases`, `groups`, `mainPath`, `nodes`, `edges` |
-| `sequence.schema.json`     | `diagram_type: "sequence"`                  | `participants`, `segments`, `messages`, `activations`     |
-| `dataflow.schema.json`     | `diagram_type: "dataflow"`                  | `stages`, `nodes`, `flows`                                |
-| `lifecycle.schema.json`    | `diagram_type: "lifecycle"`                 | `mainPath`, `states`, `transitions`                       |
-| `architecture.schema.json` | `diagram_type: "architecture"`              | `components`, `boundaries`, `connections`                 |
-| `erd.schema.json`          | `diagram_type: "erd"`                       | `entities`, `relationships`                               |
-| `tree.schema.json`         | `diagram_type: "tree"`                      | `nodes` (each with one `parent`)                          |
-| `class.schema.json`        | `diagram_type: "class"`                     | `types`, `relationships`                                  |
-| `timeline.schema.json`     | `diagram_type: "timeline"`                  | `events` (`lanes` optional)                               |
-| `waterfall.schema.json`    | `diagram_type: "waterfall"`                 | `spans` (each with optional `parent`)                     |
-| `common.schema.json`       | shared `$defs` only (no top-level document) | —                                                         |
+| Schema | Governs | Structural arrays |
+|--------|---------|-------------------|
+| `workflow.schema.json` | `diagram_type: "workflow"` | `lanes`, `phases`, `groups`, `mainPath`, `nodes`, `edges` |
+| `sequence.schema.json` | `diagram_type: "sequence"` | `participants`, `segments`, `messages`, `activations` |
+| `dataflow.schema.json` | `diagram_type: "dataflow"` | `stages`, `nodes`, `flows` |
+| `lifecycle.schema.json` | `diagram_type: "lifecycle"` | `mainPath`, `states`, `transitions` |
+| `architecture.schema.json` | `diagram_type: "architecture"` | `components`, `boundaries`, `connections` |
+| `erd.schema.json` | `diagram_type: "erd"` | `entities`, `relationships` |
+| `tree.schema.json` | `diagram_type: "tree"` | `nodes` (each with one `parent`) |
+| `class.schema.json` | `diagram_type: "class"` | `types`, `relationships` |
+| `timeline.schema.json` | `diagram_type: "timeline"` | `events` (`lanes` optional) |
+| `waterfall.schema.json` | `diagram_type: "waterfall"` | `spans` (each with optional `parent`) |
+| `common.schema.json` | shared `$defs` only (no top-level document) | — |
 
 Every diagram schema requires `schema_version`, `diagram_type`, `meta` (with
 `title` and a durable portable `output`), and its structural arrays — except `segments`, `activations`, ERD and class
@@ -36,7 +30,7 @@ It also accepts `locale`, any well-formed language tag (schema pattern
 `^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$`). The field selects the fixed Viewer UI,
 renderer-owned default legend and accessibility copy, document-title suffix,
 and `<html lang>` value; it does not translate authored strings. The bundled
-catalogs enrolled in `locales/manifest.json` (`en`, `zh-CN`, `zh-TW`, `es`, `ko`, `ar`) are
+catalogs enrolled in `locales/manifest.json` (`en`, `zh-CN`, `zh-TW`, `es`, `ko`, `ar`, `ru`) are
 selected by tag, case-insensitively; region and script variants are distinct
 tags. Any other tag needs a matching `translations` object (see below) or the
 renderer falls back to English and discloses it.
@@ -55,6 +49,10 @@ report rejected entries and the final resolved coverage to stderr.
 motion-forward presentation), `blueprint` (high-contrast engineering review),
 or `editorial` (warm publication-style design review and documentation).
 Presets change only viewer styling; they do not alter semantic IDs or geometry.
+Every diagram page, and the Explainer footer, ends with a quiet line linking to email
+feedback, GitHub Issues and the GitHub repository (star). Set `meta.feedback_links: false`
+to omit it, for example in a client-facing document; Explainer shorthand uses
+`@meta feedback_links=false`. The line never appears in SVG, image or video exports.
 Sequence `meta` additionally accepts `column_fit`. The default `spread` applies whether or not `meta.viewBox` is supplied.
 Explicit `fixed` keeps the historical 108px column gap and 86px participant
 boxes. `spread` derives column distance and box width from the viewBox, with
@@ -98,15 +96,15 @@ strict validation.
 
 Supported keys are renderer-owned:
 
-| Renderer     | `meta.legend.entries` keys                                                              |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Architecture | `frontend`, `backend`, `database`, `cloud`, `security`, `messagebus`, `external`        |
-| Workflow     | `frontend`, `backend`, `security`, `messagebus`, `database`, `cloud`, `external`        |
-| Sequence     | `emphasis`, `return`, `security`, `dashed`, `default`                                   |
-| Dataflow     | `emphasis`, `security`, `dashed`, `database`, `default`                                 |
-| Lifecycle    | `start`, `active`, `waiting`, `decision`, `success`, `failure`, `neutral`, `external`   |
-| ERD          | `pk`, `fk`, `uk`, `one`, `many`, `optional`                                             |
-| Class        | `dependency`, `association`, `inheritance`, `realization`, `composition`, `aggregation` |
+| Renderer | `meta.legend.entries` keys |
+|---|---|
+| Architecture | `frontend`, `backend`, `database`, `cloud`, `security`, `messagebus`, `external` |
+| Workflow | `frontend`, `backend`, `security`, `messagebus`, `database`, `cloud`, `external` |
+| Sequence | `emphasis`, `return`, `security`, `dashed`, `default` |
+| Dataflow | `emphasis`, `security`, `dashed`, `database`, `default` |
+| Lifecycle | `start`, `active`, `waiting`, `decision`, `success`, `failure`, `neutral`, `external` |
+| ERD | `pk`, `fk`, `uk`, `one`, `many`, `optional` |
+| Class | `dependency`, `association`, `inheritance`, `realization`, `composition`, `aggregation` |
 
 Labels are presentation only: they do not rename the stable kind, change
 nodes/relationships, or create Semantic Lens edge facts. Sequence message and
@@ -190,6 +188,13 @@ The five diagram schemas reference `common.schema.json#/$defs/...`:
   override shapes used by each renderer-owned key map
 - `guidedViews` — the retired `meta.views` shape, still accepted and ignored
 - `cards` — the summary-card blocks rendered below the SVG
+- `drilldowns` / `href` / `parentHref` — cross-HTML navigation. Targets are
+  same-directory `*.html` files (optional `?` / `#`). `href` on a node is sugar
+  for a one-entry `drilldowns` list (label defaults to the node label);
+  `drilldowns` wins if both are present. Passport lists all targets. One child:
+  native SVG `<a>` + visible mark, click follows the link, Alt-click focuses.
+  Several children: click focuses; Ctrl/double-click opens the first. Child
+  diagrams may set `meta.parentHref` for Back (runtime also accepts `?from=`).
 
 Lifecycle state `type` is mode-specific (`start`/`active`/`waiting`/...) and
 stays in `lifecycle.schema.json`.
@@ -262,4 +267,3 @@ workflow schema validation failed:
 
 Schemas catch shape errors (types, enums, ranges, unknown fields); geometry
 problems such as overlaps and label collisions are the renderers' job.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

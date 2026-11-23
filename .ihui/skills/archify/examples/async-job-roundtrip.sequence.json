@@ -29,21 +29,9 @@
     { "from": "api", "to": "client", "y": 264, "label": "202 + job id", "variant": "return" },
     { "from": "queue", "to": "worker", "y": 326, "label": "deliver", "variant": "emphasis" },
     { "from": "worker", "to": "provider", "y": 368, "label": "perform work", "variant": "default" },
-    {
-      "from": "provider",
-      "to": "worker",
-      "y": 410,
-      "label": "result / timeout",
-      "variant": "return"
-    },
+    { "from": "provider", "to": "worker", "y": 410, "label": "result / timeout", "variant": "return" },
     { "from": "worker", "to": "queue", "y": 452, "label": "retry if timeout", "variant": "dashed" },
-    {
-      "from": "worker",
-      "to": "store",
-      "y": 494,
-      "label": "persist final state",
-      "variant": "emphasis"
-    },
+    { "from": "worker", "to": "store", "y": 494, "label": "persist final state", "variant": "emphasis" },
     { "from": "worker", "to": "notify", "y": 566, "label": "job.completed", "variant": "dashed" },
     { "from": "notify", "to": "client", "y": 608, "label": "signed webhook", "variant": "dashed" },
     { "from": "client", "to": "api", "y": 650, "label": "GET /jobs/:id", "variant": "default" },
@@ -61,32 +49,8 @@
     { "participant": "api", "from": 644, "to": 784, "type": "backend" }
   ],
   "cards": [
-    {
-      "dot": "cyan",
-      "title": "Fast Acknowledgement",
-      "items": [
-        "The caller receives a durable job id before work begins",
-        "Queue ownership is visible in the acceptance contract",
-        "The original connection does not wait for provider latency"
-      ]
-    },
-    {
-      "dot": "orange",
-      "title": "Bounded Recovery",
-      "items": [
-        "Timeouts re-enter the queue with a retry policy",
-        "Final state is persisted before notification",
-        "The job store remains the source of truth"
-      ]
-    },
-    {
-      "dot": "emerald",
-      "title": "Two Observation Paths",
-      "items": [
-        "A signed webhook announces completion",
-        "Status polling is a fallback, not a second workflow",
-        "Both paths converge on the same final state"
-      ]
-    }
+    { "dot": "cyan", "title": "Fast Acknowledgement", "items": ["The caller receives a durable job id before work begins", "Queue ownership is visible in the acceptance contract", "The original connection does not wait for provider latency"] },
+    { "dot": "orange", "title": "Bounded Recovery", "items": ["Timeouts re-enter the queue with a retry policy", "Final state is persisted before notification", "The job store remains the source of truth"] },
+    { "dot": "emerald", "title": "Two Observation Paths", "items": ["A signed webhook announces completion", "Status polling is a fallback, not a second workflow", "Both paths converge on the same final state"] }
   ]
 }

@@ -4,7 +4,12 @@
   "title": "Archify Event Timeline",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "diagram_type", "meta", "events"],
+  "required": [
+    "schema_version",
+    "diagram_type",
+    "meta",
+    "events"
+  ],
   "properties": {
     "schema_version": {
       "const": 1
@@ -15,7 +20,10 @@
     "meta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "evidence"],
+      "required": [
+        "title",
+        "evidence"
+      ],
       "properties": {
         "title": {
           "type": "string",
@@ -36,6 +44,10 @@
         "animation": {
           "$ref": "common.schema.json#/$defs/animation"
         },
+        "feedback_links": {
+          "type": "boolean",
+          "description": "false hides the page footer with feedback and GitHub star links."
+        },
         "visual_preset": {
           "$ref": "common.schema.json#/$defs/visualPreset"
         },
@@ -48,8 +60,20 @@
         "views": {
           "$ref": "common.schema.json#/$defs/guidedViews"
         },
+        "legend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "$ref": "common.schema.json#/$defs/legendMode"
+            }
+          }
+        },
         "evidence": {
-          "enum": ["observed", "illustrative"],
+          "enum": [
+            "observed",
+            "illustrative"
+          ],
           "description": "Whether the events are recorded observations or illustrative input; drawn on the canvas."
         },
         "timezone": {
@@ -69,7 +93,10 @@
           "description": "Drawing width of the time axis in px."
         },
         "breaks": {
-          "enum": ["auto", "none"],
+          "enum": [
+            "auto",
+            "none"
+          ],
           "description": "auto compresses long quiet periods into disclosed axis breaks."
         }
       }
@@ -79,10 +106,19 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "label"],
+        "required": [
+          "id",
+          "label"
+        ],
         "properties": {
           "id": {
             "$ref": "common.schema.json#/$defs/id"
+          },
+          "change": {
+            "$ref": "common.schema.json#/$defs/changeStatus"
+          },
+          "emphasis": {
+            "$ref": "common.schema.json#/$defs/emphasis"
           },
           "label": {
             "type": "string",
@@ -97,10 +133,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "at", "title"],
+        "required": [
+          "id",
+          "at",
+          "title"
+        ],
         "properties": {
           "id": {
             "$ref": "common.schema.json#/$defs/id"
+          },
+          "change": {
+            "$ref": "common.schema.json#/$defs/changeStatus"
+          },
+          "emphasis": {
+            "$ref": "common.schema.json#/$defs/emphasis"
           },
           "at": {
             "type": "string",
@@ -118,7 +164,13 @@
             "$ref": "common.schema.json#/$defs/id"
           },
           "kind": {
-            "enum": ["default", "change", "alert", "action", "recovery"]
+            "enum": [
+              "default",
+              "change",
+              "alert",
+              "action",
+              "recovery"
+            ]
           },
           "sources": {
             "$ref": "common.schema.json#/$defs/sourceReferences"

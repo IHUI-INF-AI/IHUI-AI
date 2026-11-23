@@ -1,7 +1,3 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // Geometry helpers shared by all typed renderers. Every function here is
 // pure; renderers own their layout tables and pass measured rects
 // ({x, y, width, height, cx, cy}) in.
@@ -638,6 +634,8 @@ export function cleanCrossingProblems({
   profileIsAuthoritative = false,
   mergeForwardCollinearWaypoints = false,
   includeSharedEndpoints = () => false,
+  visiblePathFor,
+  visibleCrossingFor,
   crossingResolved = () => false,
   warnInStandard = false,
   onDiagnostic = recordDiagnostic,
@@ -647,14 +645,16 @@ export function cleanCrossingProblems({
   if (severity === 'warning' && !warnInStandard) return [];
   const routed = asArray(relations).map((relation, index) => {
     if (!relation || !endpointIds.has(relation.from) || !endpointIds.has(relation.to)) return null;
-    const points = pathFor(relation)?.points;
+    const path = pathFor(relation);
+    const points = path?.points;
     if (!Array.isArray(points) || points.length < 2) return null;
     if (!points.every((point) => Array.isArray(point) && point.length === 2 && isFinitePoint(...point))) return null;
     return {
       relation,
       index,
       points,
-      analysisSegments: mergeForwardCollinearWaypoints
+      visiblePath: visiblePathFor?.(path, relation),
+      analysisSegments: visiblePathFor ? [] : mergeForwardCollinearWaypoints
         ? forwardCollinearAnalysisSegments(points)
         : authoredAnalysisSegments(points),
     };
@@ -668,7 +668,7 @@ export function cleanCrossingProblems({
       if ([left.relation.from, left.relation.to].some((id) => id === right.relation.from || id === right.relation.to)
           && !includeSharedEndpoints(left.relation, right.relation)) continue;
 
-      let hit = null;
+      let hit = left.visiblePath && right.visiblePath ? visibleCrossingFor(left.visiblePath, right.visiblePath) : null;
       for (const leftSegment of left.analysisSegments) {
         if (hit) break;
         for (const rightSegment of right.analysisSegments) {
@@ -1846,6 +1846,23 @@ export function roundedPath(points, radius) {
   }
 
   const commands = [`M ${points[0][0]} ${points[0][1]}`];
+  walkRoundedPath(points, radius, (end, control) => {
+    commands.push(control ? `Q ${control[0]} ${control[1]} ${end[0]} ${end[1]}` : `L ${end[0]} ${end[1]}`);
+  });
+  return commands.join(' ');
+}
+
+export function roundedPathSegments(points, radius) {
+  const segments = [];
+  let start = points[0];
+  walkRoundedPath(points, radius, (end, control, sourceSegment, nextSourceSegment) => {
+    segments.push({ start, end, control, sourceSegment, nextSourceSegment });
+    start = end;
+  });
+  return segments;
+}
+
+function walkRoundedPath(points, radius, append) {
   for (let i = 1; i < points.length - 1; i += 1) {
     const [px, py] = points[i - 1];
     const [cx, cy] = points[i];
@@ -1854,17 +1871,15 @@ export function roundedPath(points, radius) {
     const nextLen = Math.hypot(nx - cx, ny - cy);
     const r = Math.min(radius, prevLen / 2, nextLen / 2);
     if (r < 1) {
-      commands.push(`L ${cx} ${cy}`);
+      append(points[i], undefined, i - 1);
       continue;
     }
     const before = [cx - ((cx - px) / prevLen) * r, cy - ((cy - py) / prevLen) * r];
     const after = [cx + ((nx - cx) / nextLen) * r, cy + ((ny - cy) / nextLen) * r];
-    commands.push(`L ${before[0]} ${before[1]}`);
-    commands.push(`Q ${cx} ${cy} ${after[0]} ${after[1]}`);
+    append(before, undefined, i - 1);
+    append(after, points[i], i - 1, i);
   }
-  const [endX, endY] = points[points.length - 1];
-  commands.push(`L ${endX} ${endY}`);
-  return commands.join(' ');
+  if (points.length > 1) append(points.at(-1), undefined, points.length - 2);
 }
 
 // Shared by edges/flows/transitions: all carry the same optional
@@ -2075,4 +2090,3 @@ export function suggestComponentSeparation(a, b, minGap = 8) {
     `  Suggested fix: move "${b.id}" pos to [${right.pos[0]}, ${right.pos[1]}] (${right.relation}) or [${below.pos[0]}, ${below.pos[1]}] (${below.relation})`,
   ].join('\n');
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

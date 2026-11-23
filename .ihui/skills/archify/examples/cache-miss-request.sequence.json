@@ -24,102 +24,18 @@
     { "from": 380, "to": 480, "label": "Response + trace" }
   ],
   "messages": [
-    {
-      "id": "open-page",
-      "from": "user",
-      "to": "web",
-      "y": 160,
-      "label": "open page",
-      "variant": "default"
-    },
-    {
-      "id": "dashboard-request",
-      "from": "web",
-      "to": "api",
-      "y": 185,
-      "label": "GET /dashboard",
-      "variant": "emphasis"
-    },
-    {
-      "id": "verify-jwt",
-      "from": "api",
-      "to": "auth",
-      "y": 210,
-      "label": "verify JWT",
-      "variant": "security"
-    },
-    {
-      "id": "auth-claims",
-      "from": "auth",
-      "to": "api",
-      "y": 238,
-      "label": "claims ok",
-      "variant": "return"
-    },
-    {
-      "id": "cache-read",
-      "from": "api",
-      "to": "redis",
-      "y": 270,
-      "label": "read cache",
-      "variant": "default"
-    },
-    {
-      "id": "cache-miss",
-      "from": "redis",
-      "to": "api",
-      "y": 298,
-      "label": "miss",
-      "variant": "return"
-    },
-    {
-      "id": "profile-query",
-      "from": "api",
-      "to": "db",
-      "y": 330,
-      "label": "query profile + metrics",
-      "variant": "emphasis"
-    },
-    {
-      "id": "profile-rows",
-      "from": "db",
-      "to": "api",
-      "y": 358,
-      "label": "rows",
-      "variant": "return"
-    },
-    {
-      "id": "cache-write",
-      "from": "api",
-      "to": "redis",
-      "y": 390,
-      "label": "set cache",
-      "variant": "dashed"
-    },
-    {
-      "id": "trace-emit",
-      "from": "api",
-      "to": "trace",
-      "y": 418,
-      "label": "emit trace",
-      "variant": "dashed"
-    },
-    {
-      "id": "dashboard-response",
-      "from": "api",
-      "to": "web",
-      "y": 443,
-      "label": "200 JSON",
-      "variant": "return"
-    },
-    {
-      "id": "page-render",
-      "from": "web",
-      "to": "user",
-      "y": 468,
-      "label": "render",
-      "variant": "return"
-    }
+    { "id": "open-page", "from": "user", "to": "web", "y": 160, "label": "open page", "variant": "default" },
+    { "id": "dashboard-request", "from": "web", "to": "api", "y": 185, "label": "GET /dashboard", "variant": "emphasis" },
+    { "id": "verify-jwt", "from": "api", "to": "auth", "y": 210, "label": "verify JWT", "variant": "security" },
+    { "id": "auth-claims", "from": "auth", "to": "api", "y": 238, "label": "claims ok", "variant": "return" },
+    { "id": "cache-read", "from": "api", "to": "redis", "y": 270, "label": "read cache", "variant": "default" },
+    { "id": "cache-miss", "from": "redis", "to": "api", "y": 298, "label": "miss", "variant": "return" },
+    { "id": "profile-query", "from": "api", "to": "db", "y": 330, "label": "query profile + metrics", "variant": "emphasis" },
+    { "id": "profile-rows", "from": "db", "to": "api", "y": 358, "label": "rows", "variant": "return" },
+    { "id": "cache-write", "from": "api", "to": "redis", "y": 390, "label": "set cache", "variant": "dashed" },
+    { "id": "trace-emit", "from": "api", "to": "trace", "y": 418, "label": "emit trace", "variant": "dashed" },
+    { "id": "dashboard-response", "from": "api", "to": "web", "y": 443, "label": "200 JSON", "variant": "return" },
+    { "id": "page-render", "from": "web", "to": "user", "y": 468, "label": "render", "variant": "return" }
   ],
   "activations": [
     { "participant": "web", "from": 180, "to": 474, "type": "frontend" },

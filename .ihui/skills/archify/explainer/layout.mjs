@@ -1,11 +1,12 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 /** Order-preserving twelve-column packing. Explicit spans never change.
  * A panel may shrink from its preferred width to its minimum to finish the current row,
  * so a wide panel does not strand the conclusion on a row of its own.
  */
+export function isGuidedPanel(panel) {
+  const figures = panel.blocks.filter(block => block.type === 'diagram');
+  return figures.length === 1 && panel.blocks.some(block => block.type === 'steps' && block.items.some(step => step.target?.diagram === figures[0].id));
+}
+
 export function layoutExplainerPanels(document, diagrams = {}) {
   const contentSize = value => typeof value === 'string' ? Array.from(value).length : Array.isArray(value) ? value.reduce((n,v)=>n+contentSize(v),0) : value && typeof value === 'object' ? Object.entries(value).filter(([key])=>!['id','type','span','target','source','diagramType','path','url','revision'].includes(key)).reduce((n,[,v])=>n+contentSize(v),0) : 0;
   const widths = block => {
@@ -19,8 +20,8 @@ export function layoutExplainerPanels(document, diagrams = {}) {
     }
     return [4,4];
   };
-  const sized = panel => panel.blocks.map(widths).reduce((best,next)=>next[0]>best[0]?next:best,[4,4]);
-  const items=[{id:'answer',span:5,min:4,weight:contentSize(document.answer),answer:true},...document.panels.map(panel=>{const [span,min]=sized(panel);return{id:panel.id,span:panel.span ?? span,min:panel.span ?? min,explicit:panel.span!==undefined,weight:contentSize(panel),panel};})];
+  const sized = panel => isGuidedPanel(panel) ? [12,12] : panel.blocks.map(widths).reduce((best,next)=>next[0]>best[0]?next:best,[4,4]);
+  const items=[{id:'answer',span:document.answer.span ?? 5,min:document.answer.span ?? 4,explicit:document.answer.span!==undefined,weight:contentSize(document.answer),answer:true},...document.panels.map(panel=>{const [span,min]=sized(panel);return{id:panel.id,span:panel.span ?? span,min:panel.span ?? min,explicit:panel.span!==undefined,weight:contentSize(panel),panel};})];
   const rows=[];let row=[],used=0;
   function finish(){if(!row.length)return;const remaining=12-used;const flexible=row.filter(item=>!item.explicit).sort((a,b)=>b.weight-a.weight);if(remaining&&flexible.length)flexible[0].span+=remaining;else if(remaining)row.push({spacer:true,span:remaining});rows.push(row);row=[];used=0;}
   for(const item of items){
@@ -37,4 +38,3 @@ export function layoutExplainerPanels(document, diagrams = {}) {
   finish();
   return rows;
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

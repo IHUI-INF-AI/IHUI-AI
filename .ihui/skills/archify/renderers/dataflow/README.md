@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Data Flow Renderer
 
 Render `diagram_type: "dataflow"` JSON files into the standard Archify HTML
@@ -62,16 +56,16 @@ without a database node keeps it visual-only.
 
 ## Layout budget
 
-| Constant             | Value                                                                                                                                                                                                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| viewBox              | omitted width fits all stage frames and nodes, including authored widths, with 24px right padding and a 480px minimum (five default-width stages need 1068); height defaults to 720 and fits content in fully automatic showcase; schema minimum `[360, 360]` |
-| Stages (2–5)         | centers at x = 100 + stage×215; stage band 168 wide, header at y 46                                                                                                                                                                                           |
-| Row tops (`row` 0–4) | y = 128, 242, 356, 470, 584 (plus `yOffset`)                                                                                                                                                                                                                  |
-| Default node         | 112×58                                                                                                                                                                                                                                                        |
-| Node area            | x within `[24, width − 24]`; y within `[104, height − 74 − node height]`                                                                                                                                                                                      |
-| Node spacing         | ≥10px between any two nodes (checked across stages and rows)                                                                                                                                                                                                  |
-| Flow length          | ≥34px between endpoints                                                                                                                                                                                                                                       |
-| Legend row           | y = height − 36                                                                                                                                                                                                                                               |
+| Constant | Value |
+|----------|-------|
+| viewBox | omitted width fits all stage frames and nodes, including authored widths, with 24px right padding and a 480px minimum (five default-width stages need 1068); height defaults to 720 and fits content in fully automatic showcase; schema minimum `[360, 360]` |
+| Stages (2–5) | centers at x = 100 + stage×215; stage band 168 wide, header at y 46 |
+| Row tops (`row` 0–4) | y = 128, 242, 356, 470, 584 (plus `yOffset`) |
+| Default node | 112×58 |
+| Node area | x within `[24, width − 24]`; y within `[104, height − 74 − node height]` |
+| Node spacing | ≥10px between any two nodes (checked across stages and rows) |
+| Flow length | ≥34px between endpoints |
+| Legend row | y = height − 36 |
 
 Route presets for flows: `straight`, `vertical-channel`, `bottom-channel`,
 `top-channel`, explicit `via` points, or the default `auto` (midpoint elbow).
@@ -180,4 +174,3 @@ the proper-X rule, but a separate gate warns in `standard` and fails in
 endpoints, point touches, and shorter overlaps remain valid. Showcase also
 rejects any route segment below 8px and any interior turn segment below 16px;
 ordinary 8–15px endpoint stubs remain valid.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -1,7 +1,3 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 import * as validators from './generated-validators.mjs';
 import { throwDiagnosticError } from './diagnostics.mjs';
 
@@ -39,13 +35,17 @@ function formatErrors(errors, data) {
   }).join('\n');
 }
 
-export function validateSchema(diagramType, data) {
+export function validateSchema(diagramType, data, { sourceReferencesOnly = false } = {}) {
   const validate = validators[diagramType];
   if (!validate) {
     throw new Error(`validateSchema: unknown diagram type "${diagramType}"`);
   }
   if (!validate(data)) {
-    const diagnostics = validate.errors.map((error) => {
+    // Headless code-analysis accepts a partial architecture IR for mapping.
+    // Reuse the same generated source schema without requiring layout fields.
+    const errors = sourceReferencesOnly ? validate.errors.filter(error => /^\/components\/\d+\/sources(?:\/|$)/.test(error.instancePath)) : validate.errors;
+    if (!errors.length) return;
+    const diagnostics = errors.map((error) => {
       const annotated = annotatedPath(error.instancePath, data);
       const subject = {
         diagramType,
@@ -59,6 +59,7 @@ export function validateSchema(diagramType, data) {
       };
       const supportedFixes = {
         additionalProperties: [`remove unsupported property ${JSON.stringify(error.params?.additionalProperty)}`],
+        'false schema': [`remove unsupported value at ${annotated.path}`],
         required: [`add required property ${JSON.stringify(error.params?.missingProperty)}`],
         type: [`use ${JSON.stringify(error.params?.type)} at ${annotated.path}`],
         enum: [`choose one of the allowed values`],
@@ -80,9 +81,8 @@ export function validateSchema(diagramType, data) {
       };
     });
     throwDiagnosticError(
-      `${diagramType} schema validation failed:\n${formatErrors(validate.errors, data)}`,
+      `${diagramType} schema validation failed:\n${formatErrors(errors, data)}`,
       diagnostics,
     );
   }
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

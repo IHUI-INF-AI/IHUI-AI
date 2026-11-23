@@ -30,7 +30,12 @@
       "label": "调休"
     }
   ],
-  "mainPath": ["today", "mid_autumn", "national_day", "year_end"],
+  "mainPath": [
+    "today",
+    "mid_autumn",
+    "national_day",
+    "year_end"
+  ],
   "nodes": [
     {
       "id": "today",
@@ -113,7 +118,10 @@
     {
       "dot": "emerald",
       "title": "中秋节",
-      "items": ["9月25日（周五）至27日（周日）放假，共3天", "与周末自然相连，无需额外调休上班"]
+      "items": [
+        "9月25日（周五）至27日（周日）放假，共3天",
+        "与周末自然相连，无需额外调休上班"
+      ]
     },
     {
       "dot": "amber",
@@ -127,7 +135,9 @@
     {
       "dot": "slate",
       "title": "年底前",
-      "items": ["国庆假期结束后，到2026年底不再有法定节假日安排"]
+      "items": [
+        "国庆假期结束后，到2026年底不再有法定节假日安排"
+      ]
     }
   ]
 }

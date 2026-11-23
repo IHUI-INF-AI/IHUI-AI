@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Class and Interface Renderer
 
 Render `diagram_type: "class"` JSON files into the standard Archify HTML template.
@@ -35,13 +29,13 @@ A type carries its name in `label`, its `kind`, a `row`/`col` grid cell (or an
 absolute `pos`), and optional `sublabel`, `attributes`, `methods`, and `sources`.
 Authors choose the members the explanation needs; a type may show none.
 
-| `kind`      | Header                                          | Colour family |
-| ----------- | ----------------------------------------------- | ------------- |
-| `class`     | name only                                       | backend       |
-| `abstract`  | `«abstract»`, italic name                       | backend       |
-| `interface` | `«interface»`                                   | frontend      |
-| `enum`      | `«enumeration»`; `attributes` are the constants | messagebus    |
-| `record`    | `«record»`                                      | database      |
+| `kind` | Header | Colour family |
+| --- | --- | --- |
+| `class` | name only | backend |
+| `abstract` | `«abstract»`, italic name | backend |
+| `interface` | `«interface»` | frontend |
+| `enum` | `«enumeration»`; `attributes` are the constants | messagebus |
+| `record` | `«record»` | database |
 
 An attribute is `{ name, type?, visibility?, static? }` and draws as
 `+ name: Type`. A method is `{ name, parameters?, returns?, visibility?,
@@ -57,14 +51,14 @@ state. Interfaces may also declare static constants.
 Every relationship reads `from` -> `to`, and `kind` owns the whole notation, so
 an implementation can never look like a call arrow:
 
-| `kind`        | Meaning                              | Line   | Marker                   |
-| ------------- | ------------------------------------ | ------ | ------------------------ |
-| `dependency`  | `from` uses `to`                     | dashed | open arrow at `to`       |
-| `association` | `from` holds a reference to `to`     | solid  | open arrow at `to`       |
-| `inheritance` | `from` extends `to`                  | solid  | hollow triangle at `to`  |
-| `realization` | `from` implements interface `to`     | dashed | hollow triangle at `to`  |
-| `composition` | `from` owns `to` and its lifetime    | solid  | filled diamond at `from` |
-| `aggregation` | `from` groups `to` without owning it | solid  | hollow diamond at `from` |
+| `kind` | Meaning | Line | Marker |
+| --- | --- | --- | --- |
+| `dependency` | `from` uses `to` | dashed | open arrow at `to` |
+| `association` | `from` holds a reference to `to` | solid | open arrow at `to` |
+| `inheritance` | `from` extends `to` | solid | hollow triangle at `to` |
+| `realization` | `from` implements interface `to` | dashed | hollow triangle at `to` |
+| `composition` | `from` owns `to` and its lifetime | solid | filled diamond at `from` |
+| `aggregation` | `from` groups `to` without owning it | solid | hollow diamond at `from` |
 
 Semantic checks: a realization runs from a non-interface to an interface
 (`class/realization-target`); inheritance never crosses the interface boundary
@@ -134,4 +128,3 @@ type is a focusable node whose passport shows its kind and `sublabel`; supplied
 signatures) renders in about 0.2s and passes the showcase gates at a 7.5px
 projected text minimum in a 1440px desktop reader. Wider models need more rows
 rather than more columns to stay above that floor.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

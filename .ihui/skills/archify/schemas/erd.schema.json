@@ -4,7 +4,12 @@
   "title": "Archify Entity-Relationship Diagram",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "diagram_type", "meta", "entities"],
+  "required": [
+    "schema_version",
+    "diagram_type",
+    "meta",
+    "entities"
+  ],
   "properties": {
     "schema_version": {
       "const": 1
@@ -15,7 +20,9 @@
     "meta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "properties": {
         "title": {
           "type": "string",
@@ -35,6 +42,10 @@
         },
         "animation": {
           "$ref": "common.schema.json#/$defs/animation"
+        },
+        "feedback_links": {
+          "type": "boolean",
+          "description": "false hides the page footer with feedback and GitHub star links."
         },
         "visual_preset": {
           "$ref": "common.schema.json#/$defs/visualPreset"
@@ -102,10 +113,14 @@
     "layout": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode"],
+      "required": [
+        "mode"
+      ],
       "properties": {
         "mode": {
-          "enum": ["grid"]
+          "enum": [
+            "grid"
+          ]
         },
         "origin": {
           "$ref": "common.schema.json#/$defs/point"
@@ -138,8 +153,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "label"],
+        "required": [
+          "id",
+          "label"
+        ],
         "properties": {
+          "change": { "$ref": "common.schema.json#/$defs/changeStatus" },
+          "emphasis": { "$ref": "common.schema.json#/$defs/emphasis" },
           "id": {
             "$ref": "common.schema.json#/$defs/id"
           },
@@ -175,8 +195,13 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name"],
+              "required": [
+                "name"
+              ],
               "properties": {
+                "change": { "$ref": "common.schema.json#/$defs/changeStatus" },
+                "emphasis": { "$ref": "common.schema.json#/$defs/emphasis" },
+                "previousType": { "type": "string", "minLength": 1 },
                 "name": {
                   "type": "string",
                   "minLength": 1
@@ -187,13 +212,21 @@
                 "key": {
                   "anyOf": [
                     {
-                      "enum": ["pk", "fk", "uk"]
+                      "enum": [
+                        "pk",
+                        "fk",
+                        "uk"
+                      ]
                     },
                     {
                       "type": "array",
                       "minItems": 1,
                       "items": {
-                        "enum": ["pk", "fk", "uk"]
+                        "enum": [
+                          "pk",
+                          "fk",
+                          "uk"
+                        ]
                       }
                     }
                   ]
@@ -220,10 +253,14 @@
                     ]
                   }
                 },
-                "required": ["key"]
+                "required": [
+                  "key"
+                ]
               },
               "then": {
-                "required": ["references"],
+                "required": [
+                  "references"
+                ],
                 "properties": {
                   "references": {}
                 }
@@ -241,8 +278,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["from", "to", "fromCardinality", "toCardinality"],
+        "required": [
+          "from",
+          "to",
+          "fromCardinality",
+          "toCardinality"
+        ],
         "properties": {
+          "change": { "$ref": "common.schema.json#/$defs/changeStatus" },
+          "emphasis": { "$ref": "common.schema.json#/$defs/emphasis" },
           "id": {
             "$ref": "common.schema.json#/$defs/id"
           },
@@ -256,10 +300,16 @@
             "type": "string"
           },
           "fromCardinality": {
-            "enum": ["one", "many"]
+            "enum": [
+              "one",
+              "many"
+            ]
           },
           "toCardinality": {
-            "enum": ["one", "many"]
+            "enum": [
+              "one",
+              "many"
+            ]
           },
           "fromOptional": {
             "type": "boolean"
@@ -280,7 +330,12 @@
             "$ref": "common.schema.json#/$defs/side"
           },
           "route": {
-            "enum": ["auto", "straight", "orthogonal-h", "orthogonal-v"]
+            "enum": [
+              "auto",
+              "straight",
+              "orthogonal-h",
+              "orthogonal-v"
+            ]
           },
           "via": {
             "type": "array",
@@ -308,7 +363,9 @@
         "allOf": [
           {
             "if": {
-              "required": ["identifying"],
+              "required": [
+                "identifying"
+              ],
               "properties": {
                 "identifying": {
                   "const": false
@@ -318,7 +375,9 @@
             "then": {
               "properties": {
                 "variant": {
-                  "enum": ["dashed"]
+                  "enum": [
+                    "dashed"
+                  ]
                 }
               }
             }

@@ -23,18 +23,8 @@
         { "name": "clock", "type": "Clock", "visibility": "private" }
       ],
       "methods": [
-        {
-          "name": "checkout",
-          "parameters": "order: Order, key: IdempotencyKey",
-          "returns": "CheckoutResult",
-          "visibility": "public"
-        },
-        {
-          "name": "cancelPendingAuthorization",
-          "parameters": "orderId: OrderId",
-          "returns": "void",
-          "visibility": "public"
-        }
+        { "name": "checkout", "parameters": "order: Order, key: IdempotencyKey", "returns": "CheckoutResult", "visibility": "public" },
+        { "name": "cancelPendingAuthorization", "parameters": "orderId: OrderId", "returns": "void", "visibility": "public" }
       ]
     },
     {
@@ -45,19 +35,10 @@
       "row": 0,
       "col": 1,
       "attributes": [
-        {
-          "name": "processors",
-          "type": "Map<MethodType, PaymentProcessor>",
-          "visibility": "private"
-        }
+        { "name": "processors", "type": "Map<MethodType, PaymentProcessor>", "visibility": "private" }
       ],
       "methods": [
-        {
-          "name": "processorFor",
-          "parameters": "method: PaymentMethod",
-          "returns": "PaymentProcessor",
-          "visibility": "public"
-        }
+        { "name": "processorFor", "parameters": "method: PaymentMethod", "returns": "PaymentProcessor", "visibility": "public" }
       ]
     },
     {
@@ -68,27 +49,9 @@
       "row": 0,
       "col": 2.5,
       "methods": [
-        {
-          "name": "authorize",
-          "parameters": "request: AuthorizationRequest",
-          "returns": "AuthorizationResult",
-          "visibility": "public",
-          "abstract": true
-        },
-        {
-          "name": "capture",
-          "parameters": "authorization: AuthorizationId, amount: Money",
-          "returns": "CaptureResult",
-          "visibility": "public",
-          "abstract": true
-        },
-        {
-          "name": "refund",
-          "parameters": "capture: CaptureId, amount: Money",
-          "returns": "RefundResult",
-          "visibility": "public",
-          "abstract": true
-        }
+        { "name": "authorize", "parameters": "request: AuthorizationRequest", "returns": "AuthorizationResult", "visibility": "public", "abstract": true },
+        { "name": "capture", "parameters": "authorization: AuthorizationId, amount: Money", "returns": "CaptureResult", "visibility": "public", "abstract": true },
+        { "name": "refund", "parameters": "capture: CaptureId, amount: Money", "returns": "RefundResult", "visibility": "public", "abstract": true }
       ]
     },
     {
@@ -104,18 +67,8 @@
         { "name": "status", "type": "PaymentStatus", "visibility": "public" }
       ],
       "methods": [
-        {
-          "name": "addLine",
-          "parameters": "sku: Sku, quantity: int",
-          "returns": "LineItem",
-          "visibility": "public"
-        },
-        {
-          "name": "markAuthorized",
-          "parameters": "authorization: AuthorizationId",
-          "returns": "void",
-          "visibility": "public"
-        }
+        { "name": "addLine", "parameters": "sku: Sku, quantity: int", "returns": "LineItem", "visibility": "public" },
+        { "name": "markAuthorized", "parameters": "authorization: AuthorizationId", "returns": "void", "visibility": "public" }
       ]
     },
     {
@@ -145,19 +98,8 @@
         { "name": "retryPolicy", "type": "RetryPolicy", "visibility": "protected" }
       ],
       "methods": [
-        {
-          "name": "authorize",
-          "parameters": "request: AuthorizationRequest",
-          "returns": "AuthorizationResult",
-          "visibility": "public"
-        },
-        {
-          "name": "sendToProvider",
-          "parameters": "request: ProviderRequest",
-          "returns": "ProviderResponse",
-          "visibility": "protected",
-          "abstract": true
-        }
+        { "name": "authorize", "parameters": "request: AuthorizationRequest", "returns": "AuthorizationResult", "visibility": "public" },
+        { "name": "sendToProvider", "parameters": "request: ProviderRequest", "returns": "ProviderResponse", "visibility": "protected", "abstract": true }
       ]
     },
     {
@@ -168,18 +110,8 @@
       "row": 1,
       "col": 3,
       "methods": [
-        {
-          "name": "authorize",
-          "parameters": "request: AuthorizationRequest",
-          "returns": "AuthorizationResult",
-          "visibility": "public"
-        },
-        {
-          "name": "awaitSettlement",
-          "parameters": "transfer: TransferId",
-          "returns": "SettlementResult",
-          "visibility": "private"
-        }
+        { "name": "authorize", "parameters": "request: AuthorizationRequest", "returns": "AuthorizationResult", "visibility": "public" },
+        { "name": "awaitSettlement", "parameters": "transfer: TransferId", "returns": "SettlementResult", "visibility": "private" }
       ]
     },
     {
@@ -203,12 +135,7 @@
       "row": 2,
       "col": 1,
       "methods": [
-        {
-          "name": "sendToProvider",
-          "parameters": "request: ProviderRequest",
-          "returns": "ProviderResponse",
-          "visibility": "protected"
-        }
+        { "name": "sendToProvider", "parameters": "request: ProviderRequest", "returns": "ProviderResponse", "visibility": "protected" }
       ]
     },
     {
@@ -219,12 +146,7 @@
       "row": 2,
       "col": 2,
       "methods": [
-        {
-          "name": "sendToProvider",
-          "parameters": "request: ProviderRequest",
-          "returns": "ProviderResponse",
-          "visibility": "protected"
-        }
+        { "name": "sendToProvider", "parameters": "request: ProviderRequest", "returns": "ProviderResponse", "visibility": "protected" }
       ]
     },
     {
@@ -235,80 +157,21 @@
       "row": 2,
       "col": 3,
       "methods": [
-        {
-          "name": "sendToProvider",
-          "parameters": "request: ProviderRequest",
-          "returns": "ProviderResponse",
-          "visibility": "protected"
-        },
-        {
-          "name": "exchangeBillingAgreementToken",
-          "parameters": "token: String",
-          "returns": "AgreementId",
-          "visibility": "private"
-        }
+        { "name": "sendToProvider", "parameters": "request: ProviderRequest", "returns": "ProviderResponse", "visibility": "protected" },
+        { "name": "exchangeBillingAgreementToken", "parameters": "token: String", "returns": "AgreementId", "visibility": "private" }
       ]
     }
   ],
   "relationships": [
-    {
-      "id": "orchestrator_registry",
-      "from": "checkout_orchestrator",
-      "to": "processor_registry",
-      "kind": "association",
-      "label": "selects via"
-    },
-    {
-      "id": "registry_processors",
-      "from": "processor_registry",
-      "to": "payment_processor",
-      "kind": "aggregation",
-      "label": "holds"
-    },
-    {
-      "id": "orchestrator_order",
-      "from": "checkout_orchestrator",
-      "to": "order",
-      "kind": "dependency",
-      "label": "updates"
-    },
-    {
-      "id": "order_lines",
-      "from": "order",
-      "to": "line_item",
-      "kind": "composition",
-      "label": "owns lines"
-    },
+    { "id": "orchestrator_registry", "from": "checkout_orchestrator", "to": "processor_registry", "kind": "association", "label": "selects via" },
+    { "id": "registry_processors", "from": "processor_registry", "to": "payment_processor", "kind": "aggregation", "label": "holds" },
+    { "id": "orchestrator_order", "from": "checkout_orchestrator", "to": "order", "kind": "dependency", "label": "updates" },
+    { "id": "order_lines", "from": "order", "to": "line_item", "kind": "composition", "label": "owns lines" },
     { "id": "order_status", "from": "order", "to": "payment_status", "kind": "association" },
-    {
-      "id": "retrying_implements",
-      "from": "retrying_processor",
-      "to": "payment_processor",
-      "kind": "realization"
-    },
-    {
-      "id": "bank_implements",
-      "from": "bank_transfer",
-      "to": "payment_processor",
-      "kind": "realization"
-    },
-    {
-      "id": "stripe_extends",
-      "from": "stripe_card",
-      "to": "retrying_processor",
-      "kind": "inheritance"
-    },
-    {
-      "id": "adyen_extends",
-      "from": "adyen_card",
-      "to": "retrying_processor",
-      "kind": "inheritance"
-    },
-    {
-      "id": "paypal_extends",
-      "from": "paypal_wallet",
-      "to": "retrying_processor",
-      "kind": "inheritance"
-    }
+    { "id": "retrying_implements", "from": "retrying_processor", "to": "payment_processor", "kind": "realization" },
+    { "id": "bank_implements", "from": "bank_transfer", "to": "payment_processor", "kind": "realization" },
+    { "id": "stripe_extends", "from": "stripe_card", "to": "retrying_processor", "kind": "inheritance" },
+    { "id": "adyen_extends", "from": "adyen_card", "to": "retrying_processor", "kind": "inheritance" },
+    { "id": "paypal_extends", "from": "paypal_wallet", "to": "retrying_processor", "kind": "inheritance" }
   ]
 }

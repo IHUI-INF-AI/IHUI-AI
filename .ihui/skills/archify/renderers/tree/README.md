@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Hierarchy and Tree Renderer
 
 Render `diagram_type: "tree"` JSON files into the standard Archify HTML template.
@@ -32,29 +26,35 @@ nodes and links instead of writing HTML.
 ```
 
 A node has `id`, `label`, and optional `parent`, `sublabel`, `collapsed`, and
-`sources`. Children are read in declaration order. Links are containment only;
-the first slice has no cross-branch relationships.
+`sources`. Children are read in declaration order. Each link connects a parent
+to its child. The schema supports a single parent and has no edge labels.
+
+When a decision is a strict hierarchy, name the condition for each outcome in
+the child label, such as `No matching provider: Exit 2`. Preserve the exact
+conditions from the source. Use [Workflow](../workflow/README.md) for labeled
+transitions, joins, or loops.
 
 ## Structure checks
 
 The hierarchy is exactly what the author declared; nothing is attached or
 inferred.
 
-| Code                  | Refused input                                                                                             |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `tree/missing-parent` | `parent` names an undeclared node                                                                         |
-| `tree/root-count`     | zero or more than one node without `parent`                                                               |
-| `tree/cycle`          | a parent chain that loops; every node beneath the loop is unreachable, so this one diagnostic covers them |
-| `tree/duplicate-id`   | an id declared twice                                                                                      |
+| Code | Refused input |
+| --- | --- |
+| `tree/missing-parent` | `parent` names an undeclared node |
+| `tree/root-count` | zero or more than one node without `parent` |
+| `tree/cycle` | a parent chain that loops; every node beneath the loop is unreachable, so this one diagnostic covers them |
+| `tree/duplicate-id` | an id declared twice |
 
 ## Layout
 
-Each generation shares one band: a row for `layout.direction: "down"` (the
-default) and a column for `"right"`. Along the other axis every subtree owns a
-contiguous span, so unequal branch widths and depths never overlap. A parent is
-centred over its first and last child (exactly over a middle child that sits
-within a few pixels of that midpoint, so the stem never jogs; edge drawing also snaps stems aligned within 2px after rounding); going right,
-nodes are left-aligned in their column.
+Each generation shares a row for `layout.direction: "down"` (the default) or a
+column for `"right"`. Parents center between their first and last child. In
+an automatic downward tree with no stacked lists, neighboring subtrees can
+reuse horizontal space on different rows. A rightward tree with an automatic
+canvas that's taller than it is wide aligns each parent with its first child
+where space allows, so readers start at the root before scrolling. An authored
+`meta.viewBox` retains the full-span layout and centered parents.
 
 Going down, a run of three or more consecutive leaf siblings is stacked as an
 indented list under its parent, sharing one width and reached along a spine,
@@ -69,8 +69,8 @@ long label becomes a balanced box; a single word may widen a node to 1.5 × `nod
 split, so nothing is truncated. `gapX`/`gapY` set the sibling and generation
 gaps.
 
-An automatic canvas declares `data-reader-fit="intrinsic-height"` and a 7.5px
-reader text floor, so a deep rightward tree scrolls instead of shrinking.
+An automatic canvas requests a 10px reader text floor, subject to the available
+width. A tall tree can scroll vertically to keep labels readable.
 
 ## Expand and collapse
 
@@ -100,4 +100,3 @@ the clone and leaves the live view unchanged.
 `examples/archify-repository.tree.json` (31 nodes, depth 4, unbalanced, four
 stacked lists) renders in about 0.2s and passes the showcase gates;
 a toggle updates the DOM in under a few milliseconds.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

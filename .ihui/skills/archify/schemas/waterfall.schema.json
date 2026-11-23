@@ -4,7 +4,12 @@
   "title": "Archify Execution Waterfall",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "diagram_type", "meta", "spans"],
+  "required": [
+    "schema_version",
+    "diagram_type",
+    "meta",
+    "spans"
+  ],
   "properties": {
     "schema_version": {
       "const": 1
@@ -15,7 +20,10 @@
     "meta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "evidence"],
+      "required": [
+        "title",
+        "evidence"
+      ],
       "properties": {
         "title": {
           "type": "string",
@@ -36,6 +44,10 @@
         "animation": {
           "$ref": "common.schema.json#/$defs/animation"
         },
+        "feedback_links": {
+          "type": "boolean",
+          "description": "false hides the page footer with feedback and GitHub star links."
+        },
         "visual_preset": {
           "$ref": "common.schema.json#/$defs/visualPreset"
         },
@@ -48,12 +60,28 @@
         "views": {
           "$ref": "common.schema.json#/$defs/guidedViews"
         },
+        "legend": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "$ref": "common.schema.json#/$defs/legendMode"
+            }
+          }
+        },
         "evidence": {
-          "enum": ["measured", "illustrative"],
+          "enum": [
+            "measured",
+            "illustrative"
+          ],
           "description": "Whether span timing is recorded measurement or illustrative input; drawn on the canvas."
         },
         "unit": {
-          "enum": ["us", "ms", "s"],
+          "enum": [
+            "us",
+            "ms",
+            "s"
+          ],
           "description": "Unit of every start, end, and duration; defaults to ms."
         }
       }
@@ -75,10 +103,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "start"],
+        "required": [
+          "id",
+          "name",
+          "start"
+        ],
         "properties": {
           "id": {
             "$ref": "common.schema.json#/$defs/id"
+          },
+          "change": {
+            "$ref": "common.schema.json#/$defs/changeStatus"
+          },
+          "emphasis": {
+            "$ref": "common.schema.json#/$defs/emphasis"
           },
           "name": {
             "type": "string",
@@ -101,7 +139,12 @@
             "$ref": "common.schema.json#/$defs/id"
           },
           "status": {
-            "enum": ["ok", "error", "cancelled", "incomplete"]
+            "enum": [
+              "ok",
+              "error",
+              "cancelled",
+              "incomplete"
+            ]
           },
           "service": {
             "type": "string",

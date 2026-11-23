@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Lifecycle Renderer
 
 Render `diagram_type: "lifecycle"` JSON files into the standard Archify HTML
@@ -45,15 +39,15 @@ A complete example lives at `archify/examples/deployment-release.lifecycle.json`
 
 The geometry follows from the structure alone:
 
-| Element         | Placement                                                                                                                                                                                                                                                                                                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Main path       | One left-to-right row. Each gap fits its transition label. The first state receives the UML initial marker.                                                                                                                                                                                                                                                                                        |
-| Loops and skips | A transition between two non-consecutive main-path states (or back to an earlier one, or a self-transition) is an arc above the row. Shorter arcs nest inside longer ones; ports order so an outer riser never crosses an inner arc.                                                                                                                                                               |
-| Other states    | One row per distance from the main path. A state starts under the states it connects to in the row above; overlapping states pack side by side.                                                                                                                                                                                                                                                    |
-| Between rows    | Orthogonal routes through a shared gap. Horizontal runs take separate tracks, chosen to minimise crossings; near-vertical routes snap straight or widen to a readable jog.                                                                                                                                                                                                                         |
-| Shared exits    | A target with exactly one group of identical label, note and variant from at least two main-path phases shares an exit: consecutive phases receive a dashed composite frame, as in a UML superstate; non-consecutive phases share a bus with junction dots. Other exits keep separate connectors and their own labels. If several groups qualify for the same target, all exits stay separate.     |
-| Same lower row  | Neighbours connect side to side, parallel transitions fanning out around the shared edge (at most five per pair of states). Dense parallel labels and notes increase their lane spacing and the height of that lower row to keep clear; other pairs loop under the row.                                                                                                                            |
-| Labels          | Above main-path arrows, on arc and loop runs, otherwise beside the segment next to the lower state. Every label keeps clear of other routes, states and labels; if one cannot, lower-row and route spacing grow and layout repeats, for at most five rounds. Main-path gaps stop growing before their minimum row width exceeds the text readability budget; gaps still fit their transition text. |
+| Element | Placement |
+|---------|-----------|
+| Main path | One left-to-right row. Each gap fits its transition label. The first state receives the UML initial marker. |
+| Loops and skips | A transition between two non-consecutive main-path states (or back to an earlier one, or a self-transition) is an arc above the row. Shorter arcs nest inside longer ones; ports order so an outer riser never crosses an inner arc. |
+| Other states | One row per distance from the main path. A state starts under the states it connects to in the row above; overlapping states pack side by side. |
+| Between rows | Orthogonal routes through a shared gap. Horizontal runs take separate tracks, chosen to minimise crossings; near-vertical routes snap straight or widen to a readable jog. A crowded return from the last row to the initial state can use the outside margin when its route and label fit there. |
+| Shared exits | A target with exactly one group of identical label, note and variant from at least two main-path phases shares an exit: consecutive phases receive a dashed composite frame, as in a UML superstate; non-consecutive phases share a bus with junction dots. Other exits keep separate connectors and their own labels. If several groups qualify for the same target, all exits stay separate. |
+| Same lower row | Neighbours connect side to side, parallel transitions fanning out around the shared edge (at most five per pair of states). Dense parallel labels and notes increase their lane spacing and the height of that lower row to keep clear; other pairs loop under the row. |
+| Labels | Above main-path arrows, on arc and loop runs, otherwise beside the segment next to the lower state. Every label keeps clear of other routes, states and labels; if one cannot, lower-row and route spacing grow and layout repeats, for at most five rounds. Main-path gaps stop growing before their minimum row width exceeds the text readability budget; gaps still fit their transition text. |
 
 Every route carries a crossover halo, so an unavoidable crossing (for example,
 two overlapping loops) stays legible. Lines are orthogonal with rounded corners.
@@ -108,5 +102,3 @@ remain subject to the corridor check.
 - A recoverable failure needs a real transition back.
 - Use `success` for completion, `failure` for failure exits, `waiting` for
   pauses, and `decision` for quality gates.
-
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

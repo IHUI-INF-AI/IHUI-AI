@@ -4,7 +4,14 @@
   "title": "Archify Data Flow Diagram",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "diagram_type", "meta", "stages", "nodes", "flows"],
+  "required": [
+    "schema_version",
+    "diagram_type",
+    "meta",
+    "stages",
+    "nodes",
+    "flows"
+  ],
   "properties": {
     "schema_version": {
       "const": 1
@@ -15,7 +22,10 @@
     "meta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "output"],
+      "required": [
+        "title",
+        "output"
+      ],
       "properties": {
         "title": {
           "type": "string",
@@ -36,12 +46,17 @@
         "animation": {
           "$ref": "common.schema.json#/$defs/animation"
         },
+        "feedback_links": {
+          "type": "boolean",
+          "description": "false hides the page footer with feedback and GitHub star links."
+        },
         "visual_preset": {
           "$ref": "common.schema.json#/$defs/visualPreset"
         },
         "quality_profile": {
           "$ref": "common.schema.json#/$defs/qualityProfile"
         },
+        "parentHref": { "$ref": "common.schema.json#/$defs/parentHref" },
         "repository": {
           "$ref": "common.schema.json#/$defs/repository"
         },
@@ -91,7 +106,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["label"],
+        "required": [
+          "label"
+        ],
         "properties": {
           "label": {
             "type": "string",
@@ -106,8 +123,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "type", "label", "stage", "row"],
+        "required": [
+          "id",
+          "type",
+          "label",
+          "stage",
+          "row"
+        ],
         "properties": {
+          "change": { "$ref": "common.schema.json#/$defs/changeStatus" },
+          "emphasis": { "$ref": "common.schema.json#/$defs/emphasis" },
           "id": {
             "$ref": "common.schema.json#/$defs/id"
           },
@@ -118,6 +143,7 @@
             "type": "string",
             "minLength": 1
           },
+          "explanation": { "type": "string", "minLength": 1, "maxLength": 1200 },
           "sublabel": {
             "type": "string"
           },
@@ -128,6 +154,8 @@
           "brand": {
             "$ref": "common.schema.json#/$defs/brandMark"
           },
+          "drilldowns": { "$ref": "common.schema.json#/$defs/drilldowns" },
+          "href": { "$ref": "common.schema.json#/$defs/nodeHrefSugar" },
           "sources": {
             "$ref": "common.schema.json#/$defs/sourceReferences"
           },
@@ -158,8 +186,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["from", "to", "label"],
+        "required": [
+          "from",
+          "to",
+          "label"
+        ],
         "properties": {
+          "change": { "$ref": "common.schema.json#/$defs/changeStatus" },
+          "emphasis": { "$ref": "common.schema.json#/$defs/emphasis" },
+          "payload": { "$ref": "common.schema.json#/$defs/payload" },
           "id": {
             "$ref": "common.schema.json#/$defs/id"
           },
@@ -180,7 +215,13 @@
             "$ref": "common.schema.json#/$defs/variant"
           },
           "route": {
-            "enum": ["auto", "straight", "vertical-channel", "bottom-channel", "top-channel"]
+            "enum": [
+              "auto",
+              "straight",
+              "vertical-channel",
+              "bottom-channel",
+              "top-channel"
+            ]
           },
           "fromSide": {
             "$ref": "common.schema.json#/$defs/side"

@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Workflow Renderer
 
 Render `diagram_type: "workflow"` JSON files into the standard Archify HTML
@@ -133,20 +127,20 @@ backed by rendered nodes receive Semantic Legend controls.
 
 ### Fixed v1
 
-| Constant                   | Value                                                                                           |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| viewBox                    | default `[720, auto]` — auto height = 52 + lanes×104 + (lanes−1)×20 + 124                       |
-| Lane frame                 | x 40, width 640, height 104, gap 20; first lane top at y 52                                     |
-| Lane title strip           | top 30px of each lane; node boxes must stay below it                                            |
-| Column centers (`col` 0–5) | x = 88, 220, 300, 430, 500, 625                                                                 |
-| Phase headers              | Optional `phases[]` render above the first lane, spanning `fromCol..toCol`                      |
-| Lane groups                | Optional `groups[]` frame parallel work or branch work inside one lane                          |
-| Exception lanes            | Set `lane.variant: "exception"` for retry, denial, fallback, or failure paths                   |
-| Main path lint             | Optional `mainPath[]` checks that happy-path steps have matching edges and do not move backward |
-| Default node               | 92×52 (height 68 when `tag` is set)                                                             |
-| Node spacing               | ≥8px between nodes in the same lane                                                             |
-| Edge length                | straight segments must span ≥28px                                                               |
-| Legend row                 | y = lane bottom + 44; viewBox height must be ≥ legend y + 18                                    |
+| Constant | Value |
+|----------|-------|
+| viewBox | default `[720, auto]` — auto height = 52 + lanes×104 + (lanes−1)×20 + 124 |
+| Lane frame | x 40, width 640, height 104, gap 20; first lane top at y 52 |
+| Lane title strip | top 30px of each lane; node boxes must stay below it |
+| Column centers (`col` 0–5) | x = 88, 220, 300, 430, 500, 625 |
+| Phase headers | Optional `phases[]` render above the first lane, spanning `fromCol..toCol` |
+| Lane groups | Optional `groups[]` frame parallel work or branch work inside one lane |
+| Exception lanes | Set `lane.variant: "exception"` for retry, denial, fallback, or failure paths |
+| Main path lint | Optional `mainPath[]` checks that happy-path steps have matching edges and do not move backward |
+| Default node | 92×52 (height 68 when `tag` is set) |
+| Node spacing | ≥8px between nodes in the same lane |
+| Edge length | straight segments must span ≥28px |
+| Legend row | y = lane bottom + 44; viewBox height must be ≥ legend y + 18 |
 
 Column-center gaps are 132 / 80 / 130 / 70 / 125 px: columns 1↔2 (80px) and
 3↔4 (70px) cannot both hold default-width 92px nodes in the same lane. Such an
@@ -155,16 +149,17 @@ a verified migration-to-v2 repair; v1 never falls through to adaptive layout.
 
 ### Readable v2
 
-| Invariant                | Contract                                                                                                                                                                                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Logical columns          | `col` is an integer in `0..5`; pixel centers are measured output                                                                                                                                                                                                                            |
-| Adjacent-rank baseline   | 120px center distance before document-specific constraints                                                                                                                                                                                                                                  |
-| Same-lane node clearance | ≥8px when vertical node intervals overlap                                                                                                                                                                                                                                                   |
-| Facing direct edge       | clear gap ≥`max(28px, measured label mask width + 8px)`                                                                                                                                                                                                                                     |
-| Automatic route rhythm   | direct segment ≥28px; endpoint stub ≥8px; interior turn segment ≥16px                                                                                                                                                                                                                       |
-| Implicit viewBox         | intrinsic content bounds plus contract padding                                                                                                                                                                                                                                              |
-| Explicit viewBox         | containment capacity; too-small input reports exact `requiredViewBox` and contributors                                                                                                                                                                                                      |
-| Lane measurement         | A same-column vertical stack (two or more distinct `yOffset` values) opts an implicit, unpinned workflow into per-lane measurement. Explicit `meta.viewBox`, `via`, `labelAt`, `channelX`, or `channelY`, and workflows without a stack retain shared-height v2 geometry for compatibility. |
+| Invariant | Contract |
+|----------|----------|
+| Logical columns | `col` is an integer in `0..5`; pixel centers are measured output |
+| Adjacent-rank baseline | 120px center distance before document-specific constraints |
+| Same-lane node clearance | ≥8px when vertical node intervals overlap |
+| Facing direct edge | clear gap ≥`max(28px, measured label mask width + 8px)` |
+| Automatic route rhythm | direct segment ≥28px; endpoint stub ≥8px; interior turn segment ≥16px |
+| Implicit viewBox | intrinsic content bounds plus contract padding |
+| Explicit viewBox | containment capacity; too-small input reports exact `requiredViewBox` and contributors |
+| Lane measurement | A same-column vertical stack (two or more distinct `yOffset` values) opts an implicit, unpinned workflow into per-lane measurement. Explicit `meta.viewBox`, `via`, `labelAt`, `channelX`, or `channelY`, and workflows without a stack retain shared-height v2 geometry for compatibility. |
+| Automatic vertical chain | In one lane and column, a single directed chain with no canvas or route controls can omit every `yOffset`. Layout follows edge order and measures each gap. |
 
 Unpinned v2 drafts reserve 32px between overlapping same-lane nodes for routes,
 and omitted node widths may grow from 92px to 200px to fit their text. Documents
@@ -189,9 +184,26 @@ growth with a legal channel instead of widening every downstream rank. Measured
 multi-row legends participate in intrinsic height and explicit viewBox
 capacity.
 
-The Issue #250 shape already has a v2 representation without an authored lane
-size. Keep the three stages in one grouped lane, omit `meta.viewBox`, and center
-their offsets around zero:
+For an implicit horizontal workflow with multiple lanes and unused trailing
+columns, the compiler can fit the lane frames and canvas to the measured scene
+after routing. Nodes, routes, labels, and legend placement keep their positions.
+An outside-right route or a wide lane heading can preserve the full width.
+
+### Vertical workflows
+
+For a top-to-bottom chain, place every step in the same lane and column and
+link consecutive steps with directed edges. Omit all `yOffset` values, the
+canvas size and route controls. The compiler follows the edges, measures
+each node's height and leaves space for the arrow shafts, arrowheads and edge
+labels. A group can enclose the chain when the steps run inside a shared
+container.
+
+Use `col: 0` for the default centered stack. In a chain with no phase headers
+and groups confined to that column, the lane fits the node and label widths
+and allows the legend to wrap. The compiler keeps the established width when
+centering around a long heading or legend would make the canvas wider. A
+higher `col` retains the authored rank.
+Short authored gaps that require a labeled detour retain the full routing width.
 
 ```json
 {
@@ -199,18 +211,27 @@ their offsets around zero:
   "diagram_type": "workflow",
   "meta": { "title": "stack", "output": "stack.html" },
   "lanes": [{ "id": "cage", "label": "one cage" }],
-  "groups": [{ "id": "g", "label": "cage", "lane": "cage", "fromCol": 1, "toCol": 3 }],
+  "groups": [{ "id": "g", "label": "cage", "lane": "cage", "fromCol": 0, "toCol": 0 }],
   "nodes": [
-    { "id": "a", "lane": "cage", "col": 2, "type": "security", "label": "stageA", "yOffset": -90 },
-    { "id": "b", "lane": "cage", "col": 2, "type": "security", "label": "stageB", "yOffset": 0 },
-    { "id": "c", "lane": "cage", "col": 2, "type": "security", "label": "stageC", "yOffset": 90 }
+    { "id": "a", "lane": "cage", "col": 0, "type": "security", "label": "Stage A" },
+    { "id": "b", "lane": "cage", "col": 0, "type": "security", "label": "Stage B", "tag": "check" },
+    { "id": "c", "lane": "cage", "col": 0, "type": "security", "label": "Stage C" }
   ],
   "edges": [
-    { "from": "a", "to": "b", "fromSide": "bottom", "toSide": "top" },
-    { "from": "b", "to": "c", "fromSide": "bottom", "toSide": "top" }
+    { "from": "a", "to": "b" },
+    { "from": "b", "to": "c" }
   ]
 }
 ```
+
+If the chain already has increasing `yOffset` values, the compiler fits
+the lane to the stack and preserves the distances between steps. For
+`workflow/vertical-stack-clearance`, the reported border-to-border gaps are
+too short for straight arrows. Omit every `yOffset` to let the compiler
+measure spacing, or adjust the offsets to leave each connection's reported
+`requiredGapPx` between node borders after accounting for each node's height.
+Labeled connections can need more space to keep the arrowhead clear of the label. Branching workflows and workflows with explicit canvas
+or route controls retain their established placement behavior.
 
 An implicit readable-v2 vertical stack whose measured lane height exceeds the
 104px baseline declares `data-reader-fit="width-first"`, as does any implicit
@@ -242,7 +263,7 @@ at the active quality profile.
 - Use lanes for ownership or runtime boundaries.
 - Use phase headers for high-level story beats such as Intake, Plan, Execute, and Report.
 - Use groups for parallel checks, branch handling, or bounded work within a lane; every group must contain at least one node.
-- For sequential stages stacked inside one container, use one v2 lane and one group, keep the stages in one column, and omit `meta.viewBox`. `yOffset` is relative to the center of the lane's content area, so center a three-stage stack with `-90 / 0 / 90` rather than `0 / 90 / 180`. With compiler-owned routes and canvas, the compiler expands only that lane.
+- For sequential stages stacked inside one container, use the [vertical workflow recipe](#vertical-workflows). In other layouts, `yOffset` is relative to the center of the lane's content area.
 - Use `lane.variant: "exception"` for human wait, denial, retry, fallback, and failure lanes instead of mixing those paths into the happy path.
 - Set `mainPath` when the diagram has a clear happy path; the renderer validates that consecutive ids have matching edges and move left-to-right.
 - Place nodes with lane IDs and `col` indexes in `0..5`, not raw SVG coordinates.
@@ -341,4 +362,3 @@ remove the marker-only path as dead code without retiring that export format.
 Showcase also
 rejects any route segment below 8px and any interior turn segment below 16px;
 ordinary 8–15px endpoint stubs remain valid for fixed lane gaps.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

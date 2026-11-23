@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # Execution Waterfall Renderer
 
 Render `diagram_type: "waterfall"` JSON files into the standard Archify HTML template.
@@ -24,13 +18,7 @@ geometry instead of HTML.
   "meta": { "title": "Checkout request", "evidence": "illustrative", "unit": "ms" },
   "spans": [
     { "id": "request", "name": "POST /checkout", "start": 0, "end": 1200 },
-    {
-      "id": "auth",
-      "name": "Authenticate caller",
-      "start": 0,
-      "duration": 100,
-      "parent": "request"
-    }
+    { "id": "auth", "name": "Authenticate caller", "start": 0, "duration": 100, "parent": "request" }
   ]
 }
 ```
@@ -41,12 +29,12 @@ origin. `parent`, `status` (`ok`, `error`, `cancelled`, `incomplete`),
 `service`, `detail`, and `sources` are optional. `meta.evidence`
 (`measured` / `illustrative`) is required and drawn as a badge.
 
-| Code                       | Refused input                                                                                                                             |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Code | Refused input |
+| --- | --- |
 | `waterfall/invalid-timing` | end before start, end and duration that disagree, or no end/duration on a span that is not `incomplete` (negative values fail the schema) |
-| `waterfall/missing-parent` | `parent` names an undeclared span                                                                                                         |
-| `waterfall/cycle`          | parent links that loop                                                                                                                    |
-| `waterfall/duplicate-id`   | an id declared twice                                                                                                                      |
+| `waterfall/missing-parent` | `parent` names an undeclared span |
+| `waterfall/cycle` | parent links that loop |
+| `waterfall/duplicate-id` | an id declared twice |
 
 An `incomplete` span without an end is drawn to the last recorded instant of
 the trace with a dashed body and an open edge, labelled `incomplete, ≥ X` — a
@@ -83,4 +71,3 @@ waiting time is drawn: the input has no dependency model to support one.
 local run that rendered and checked eight bundled examples across three
 concurrent workers (child-process start to exit, `performance.now()` offsets).
 It renders in about 0.2s and passes the showcase gates.
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
