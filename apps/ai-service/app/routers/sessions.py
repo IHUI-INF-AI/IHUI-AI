@@ -48,6 +48,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.context_compaction import assess_context_pressure, estimate_messages_tokens
 from app.core.jwt_auth import get_current_user_id
+from app.core.turn_outline import build_turn_outline
 from app.services.acp_bridge import handle_acp_payload
 from app.services.cost_ledger import cost_ledger
 from app.services.session_handoff import build_handoff, render_handoff_markdown
@@ -382,6 +383,38 @@ def list_turns(
         "code": 0,
         "message": "ok",
         "data": {"turns": [t.model_dump(mode="json") for t in turns], "total": len(turns)},
+    }
+
+
+@router.get("/threads/{thread_id}/outline")
+def thread_outline(
+    thread_id: str,
+    limit: int = Query(100, ge=1, le=500),
+    user_id: str = Depends(get_current_user_id),
+    store: SessionStore = Depends(get_session_store),
+) -> dict[str, Any]:
+    """逐轮导航索引(turn outline)。
+
+    从 Turn + 已持久化 Item 派生,不另存真相:每轮给意图摘要、消息/工具/文件编辑/
+    错误计数、起止 seq 与耗时,供 UI 按 seq 精确跳转和诊断。默认返回最近 100 轮
+    (超出用 `truncated` 显式告知,不静默截断成"只有这些")。
+    """
+    thread = _thread_or_404(store, thread_id, user_id)
+    turns = store.list_turns(thread.thread_id)
+    items = store.list_items(thread_id)
+    outline = build_turn_outline(turns, items)
+    total = len(outline)
+    selected = outline[-limit:] if limit and total > limit else outline
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "threadId": thread_id,
+            "turns": [entry.as_dict() for entry in selected],
+            "total": total,
+            "limit": limit,
+            "truncated": total > len(selected),
+        },
     }
 
 

@@ -504,6 +504,56 @@ class TestWindowsJobObject:
         child_privs = int(r.stdout.strip().splitlines()[-1])
         assert child_privs < parent_privs
 
+    def test_per_path_acl_write_restricted_kernel(self, tmp_path: object) -> None:
+        """真实 DACL:workspace-write 只允许可写根,denied 子树被 capability SID 拒绝。"""
+        import subprocess
+
+        root = str(tmp_path)
+        ws = os.path.join(root, "ws")
+        outside = os.path.join(root, "outside")
+        os.makedirs(ws)
+        os.makedirs(outside)
+        secret = os.path.join(ws, "secret.txt")
+        inside = os.path.join(ws, "inside.txt")
+        for path in (secret, inside):
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("x")
+        outside_file = os.path.join(outside, "outside.txt")
+        with open(outside_file, "w", encoding="utf-8") as fh:
+            fh.write("x")
+
+        common: dict[str, object] = {
+            "base_dir": ws,
+            "readable_paths": [ws, os.path.dirname(PY)],
+            "denied_paths": [secret],
+            "per_path_acl": True,
+            "restrict_token": True,
+            "env_whitelist": ["PATH", "SYSTEMROOT", "TEMP"],
+            "timeout_s": 30,
+        }
+        h = SandboxHandle(_policy(**common), backend=BACKEND_WIN_JOB)
+        r = h.run([PY, "-c", f"open(r'{inside}','a').write('x')"])
+        assert r.returncode != 0
+        assert "PermissionError" in r.stderr or "Permission denied" in r.stderr
+        r = h.run([PY, "-c", f"open(r'{secret}','a').write('x')"])
+        assert r.returncode != 0
+
+        h = SandboxHandle(_policy(writable_paths=[ws], **common), backend=BACKEND_WIN_JOB)
+        r = h.run([PY, "-c", f"open(r'{inside}','a').write('x')"])
+        assert r.returncode == 0
+        r = h.run([PY, "-c", f"open(r'{secret}','a').write('x')"])
+        assert r.returncode != 0
+        r = h.run([PY, "-c", f"open(r'{outside_file}','a').write('x')"])
+        assert r.returncode != 0
+
+        # dispose 后 capability ACE 必须全部摘除,且 denied 文件恢复可读
+        out = subprocess.run(
+            ["icacls", secret], capture_output=True, text=True, encoding="utf-8",
+            errors="replace", check=False,
+        )
+        assert out.returncode == 0
+        assert "S-1-4-" not in out.stdout
+
     def test_env_whitelist_applied_to_child(self) -> None:
         # readable_paths 需覆盖解释器所在目录:venv 不必然落在 cwd 之下
         # (副本树验证用主仓 venv 跑时实测"读取越权"),判据面是 env 白名单本身。

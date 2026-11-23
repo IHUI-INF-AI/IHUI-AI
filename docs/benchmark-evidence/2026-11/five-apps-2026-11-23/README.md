@@ -350,6 +350,55 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - `use-agent-progress` 与 IDE `AgentPane` 两个 `AgentChange` 生产点都计算 `additions/deletions`；`changes-section.tsx` 在汇总行与每个文件行显示 `+N -M`（绿/红、等宽数字），无变更不显示假 `+0 -0` 徽章。
 - 测试 `diff-stats.test.ts` 4 例（新建、纯删除、替换、空/相同不产假变更）；`@ihui/web` typecheck **7/7 success**；本批 5 文件水印 5/5 完整。
 
+## 第七批（收口）：六项缺口全部落地
+
+用户追问"最开始的要求达到了？"后，上一轮诚实盘点出的六项全部补码并装车；本批不再把"已有等价实现"当结论，能投影成独立能力的都给独立入口与测试。
+
+### 1. Windows per-path 内核 DACL
+
+- `app/services/os_sandbox.py`：`SandboxPolicy` 新增 `per_path_acl`；`build_tier_policy` 在 `restrict_token + readable` 时开启。
+- `create_restricted_token(write_sids=...)`：`DISABLE_MAX_PRIVILEGE | WRITE_RESTRICTED`，restricting list = `[logon SID, Everyone, *write_sids]`；`write_sids=[]` 即只读档。
+- 路径 capability SID：`sha256(normcase(abspath(path)))` → `S-1-4-<30bit>-<30bit>`；ACL 走 `SetEntriesInAclW` + `SetNamedSecurityInfoW`，**不用 icacls**（本机实测 icacls 对任意 capability SID 报 rc=1332 `ERROR_NONE_MAPPED`）。
+- denied 路径若落在可写根内，对同一 capability SID 加 deny ACE；宿主进程不带该 SID，仍可清理。回收按 ACE 表重建 DACL：实测 `SetEntriesInAclW(REVOKE_ACCESS)` 只删 allow，deny 会留 `(N)`。
+- 读面仍以应用层 `can_read` 为第一道护栏（Windows 无 `READ_RESTRICTED` 档），模块 docstring 如实声明，不冒充内核读切断。
+- 真实探针：只读档写工作区失败、写 denied 失败；工作区写档写工作区内成功、写 denied/工作区外失败；dispose 后 `icacls` 无 `S-1-4-` 残留。pytest `test_per_path_acl_write_restricted_kernel` 1 例。
+
+### 2. turn outline
+
+- `app/core/turn_outline.py`：`build_turn_outline(turns, items)` 从事件流派生轮边界、意图摘要（120 字符截断）、user/agent/tool_call/file_edit/error 计数、起止 seq；空轮不伪造计数。
+- `GET /api/sessions/threads/{thread_id}/outline`：`limit` 夹 1..500，默认最近 100 轮，`truncated` 显式告知。
+- `tests/test_turn_outline.py` 3 例。
+
+### 3. 调查台账
+
+- `app/core/investigation_ledger.py`：把既有 `ResearchReport` 投影成逐条证据账（来源按 URL 去重、`verified/contested/unverified` 计数、`gap_questions + limitations` 合并去重）；**不另存真相**。
+- `GET /api/research/{research_id}/ledger`：研究未产出报告时 409，不返回假空账。
+- `tests/test_investigation_ledger.py` 4 例。
+
+### 4. 交付前 diff 自动复核
+
+- `app/core/delivery_review.py`：确定性零模型；blocker = 冲突标记；major = 调试残留、删除测试代码、二进制变更、>500 文件、>5000 行；minor = 新增 TODO/FIXME、`coarse` 行数。无 diff 且无 changes → `reviewed=false`。
+- `agent_engine.py` 两处 `turn.diff` 发射点（git 快照 / 非 git 快照）都注入 `deliveryReview`。
+- `tests/test_delivery_review.py` 5 例。
+
+### 5. Agent preset 注册表
+
+- `app/core/agent_presets.py`：`AgentPreset` 组合 model + tools + max_iterations + permission_preset；默认 `general / researcher / coder / reviewer / architect / debugger`；persona 工具子集复用 `persona_registry`，权限档复用 `permission_presets`，不造第二份真源。
+- `GET /api/agents/agent-presets`；`AgentExecuteRequest` / `AgentResumeRequest` / `AgentSessionResumeRequest` 新增 `agent_preset`，四个入口统一展开；与显式字段或 `permission_mode` 同给 400。
+- `tests/test_agent_presets.py` 5 例。
+
+### 6. 会话格式迁移链 v0→v4
+
+- `app/core/session_format_migration.py`：四段具名迁移 `v0→v1→v2→v3→v4`，含事件改名、`turn/end` 归一、消息/工具结果包体、chunk 嵌入与 seq 重映射、agentPreset 改名、system 头提升、tool result 提升为 `role:"tool"`、插件来源归一；未知必需事件拒绝。
+- 有界实现：复刻具名转换与序号重映射，不复制 DSH 完整关系校验器/内容允许清单；未知扩展不猜。
+- `tests/test_session_format_migration.py` 7 例。
+
+### 本批验证（现读）
+
+- 六文件合跑：`89 passed in 5.70s`。
+- `ruff check` 本批全部 Python 文件 `All checks passed!`。
+- `py_compile` 四处改动文件通过；四条新路由可加载并列出路径。
+
 ## 本轮收尾状态（现读）
 
 - 本地 `HEAD=65f76d81757199c19ede173b0d48cebe29f2c21b`，`origin/main` 同 hash；`00122ada`、`c064aaad`、`d3ed1b03`、`9a57eefa`、`5ea9f4fd`、`802c79f9` 均已在 HEAD 祖先链上（`merge-base --is-ancestor` 逐个 rc=0）。
@@ -358,19 +407,19 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 
 
 
-原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
+原报告曾把六项列为"仍缺"；2026-11-23 第七批逐项补码后的状态：
 
-| 残余 | 核实结论 | 为何不再建议 |
+| 原残余 | 收口结论 | 入口 / 证据 |
 |---|---|---|
-| 内核级 per-path DACL | `app/services/os_sandbox.py` 已含 Job Object + `CreateRestrictedToken`；文件 ACL 在模块 docstring 中明确声明为应用层护栏，内核级需改写 DACL | 本仓已判定"代价过重"，现有护栏覆盖威胁模型 |
-| turn.diff 前端消费 | Web 变更面板已按共享 Myers 行级差异显示逐文件 `+N -M`；engine JSON-RPC 客户端不在本仓 | 同一行级统计语义已消费，不再复制 32k diff 正文到第二条 SSE 总线 |
-| turn outline | `routers/sessions.py` 已有 turn 模型、`list_turns`、`/threads/{id}/diagnostics` | 已有等价实现，另造一份会成第二真相 |
-| 调查台账 | `deep_research.py` 已有 `EvidenceUnit` / `crosscheck` / `gap_questions` / `limitations` | 核心语义已覆盖；再加一层只是换名 |
-| 自动复核 | `services/tool_auto_review.py`（工具授权审查）+ `services/pr_reviewer.py`（PR 复核） | 工具级与 PR 级已有；回合级需产品决策与成本预算 |
-| Agent preset | `services/persona_registry.py` + `routers/personas.py` | 已有 persona 目录与契约 |
-| 会话迁移链 v0→v4 | `session_event_log.py` 明确不接管持久化 | 事件不落盘，没有对象可迁 |
+| 内核级 per-path DACL | 已落地 | `os_sandbox.py` `per_path_acl` + Win32 ACL API；`test_per_path_acl_write_restricted_kernel` |
+| turn.diff 前端消费 | 已落地（上一批） | Web `diff-stats.ts` + 变更面板 `+N -M`；`802c79f9` |
+| turn outline | 已落地 | `GET /sessions/threads/{id}/outline` + `turn_outline.py`；3 例 |
+| 调查台账 | 已落地（投影，不另存） | `GET /research/{id}/ledger` + `investigation_ledger.py`；4 例 |
+| 自动复核 | 已落地（回合级） | `delivery_review.py` + `turn.diff` 两处注入；5 例 |
+| Agent preset | 已落地 | `GET /agents/agent-presets` + `agent_presets.py`；5 例 |
+| 会话迁移链 v0→v4 | 已落地（有界具名转换） | `session_format_migration.py`；7 例 |
 
-上表只留**明确放弃或没有对象**的项；原列为"新产品面"的两项（MCP Apps 宿主、completion/subscribe）已于同轮落地，见上一节。
+上表不再保留"明确放弃或没有对象"的项；MCP Apps 宿主、completion/subscribe 已在同轮落地。
 
 
 ## 证据文件

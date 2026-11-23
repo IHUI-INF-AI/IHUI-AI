@@ -27,9 +27,16 @@ write ⊆ read 不变式)、网络 allow/deny、环境变量白名单、超时�
 两个值的语义就是"关掉这条限制",把它们交给请求方等于把沙箱强度交给调用方的自觉。
 模块内部直构 SandboxPolicy(engine/工具层)不受此限 —— 那些调用方与服务端同侧。
 
-诚实声明:Windows 上文件系统 ACL 为应用层护栏(启动前校验 argv/cwd;内核级
-per-path ACL 需 DACL 改写,代价过重);资源限额与令牌限制为 OS-enforced。
-Linux/macOS 后端在本仓库以纯函数构造正确性测试覆盖(Windows 开发机无法真跑)。
+诚实声明:Windows 的**写**面由内核 DACL 强制 —— 档位策略 ``per_path_acl``
+开启时,``WinJobBackend`` 为每个 writable 根派生确定性 capability SID
+(``S-1-4-x-y``),用 Win32 ACL API(``SetEntriesInAclW`` / ``SetNamedSecurityInfoW``)
+递归授予 ``FILE_ALL_ACCESS``,并把该 SID 放进 ``CreateRestrictedToken`` 的
+restricting list(``WRITE_RESTRICTED``);denied 路径若落在可写根内,对同一
+capability SID 加 deny ACE(挡该受限令牌的写,宿主进程仍可清理)。**读**面仍以
+应用层 ``can_read`` 为第一道护栏(Windows 没有 READ_RESTRICTED 档,受限令牌的
+读检查仍走正常用户 SID),不冒充"读也已被内核按路径切断";资源限额与令牌
+限制为 OS-enforced。Linux/macOS 后端在本仓库以纯函数构造正确性测试覆盖
+(Windows 开发机无法真跑)。
 """
 
 from __future__ import annotations
@@ -207,6 +214,9 @@ class SandboxPolicy:
     max_processes: int = 64
     #: Windows 专用:是否用 CreateRestrictedToken 降权运行子进程
     restrict_token: bool = True
+    #: Windows 专用:是否把 writable_paths 落到内核 DACL(每路径 capability SID)。
+    #: 默认 False 保持直构 SandboxPolicy 的旧语义;档位构造在 restrict_token 时开启。
+    per_path_acl: bool = False
     #: 相对路径展开基准目录(空 = 当前工作目录)
     base_dir: str = ""
 
@@ -272,6 +282,7 @@ class SandboxPolicy:
             "cpu_seconds": self.cpu_seconds,
             "max_processes": self.max_processes,
             "restrict_token": self.restrict_token,
+            "per_path_acl": self.per_path_acl,
             "base_dir": self.base_dir,
         }
 
@@ -281,7 +292,7 @@ class SandboxPolicy:
         known = {
             "readable_paths", "writable_paths", "denied_paths", "allow_network",
             "env_whitelist", "timeout_s", "memory_mb", "cpu_seconds",
-            "max_processes", "restrict_token", "base_dir",
+            "max_processes", "restrict_token", "per_path_acl", "base_dir",
         }
         unknown = set(data) - known
         if unknown:
@@ -297,6 +308,7 @@ class SandboxPolicy:
             cpu_seconds=int(data.get("cpu_seconds", 300)),
             max_processes=int(data.get("max_processes", 64)),
             restrict_token=bool(data.get("restrict_token", True)),
+            per_path_acl=bool(data.get("per_path_acl", False)),
             base_dir=str(data.get("base_dir", "")),
         )
 
@@ -495,6 +507,7 @@ def build_tier_policy(
         cpu_seconds=limits["cpu_seconds"],
         max_processes=limits["max_processes"],
         restrict_token=selected.restrict_token,
+        per_path_acl=bool(selected.restrict_token and readable),
         base_dir="",
     )
 
@@ -608,10 +621,31 @@ JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 # CreateRestrictedToken flags
 DISABLE_MAX_PRIVILEGE = 0x00000001
 LUA_TOKEN = 0x00000002
+WRITE_RESTRICTED = 0x00000008
 
 # TOKEN_INFORMATION_CLASS
 TokenPrivileges = 3
+TokenGroups = 2
 TokenElevation = 20
+
+# SID_AND_ATTRIBUTES.Attributes
+SE_GROUP_LOGON_ID = 0xC0000000
+
+# Well-known SID type
+WIN_WORLD_SID = 1
+SECURITY_MAX_SID_SIZE = 68
+
+# ACL editing
+SE_FILE_OBJECT = 1
+DACL_SECURITY_INFORMATION = 0x00000004
+GRANT_ACCESS = 1
+DENY_ACCESS = 3
+REVOKE_ACCESS = 4
+SUB_CONTAINERS_AND_OBJECTS_INHERIT = 0x00000003
+TRUSTEE_IS_SID = 0
+TRUSTEE_IS_UNKNOWN = 0
+NO_MULTIPLE_TRUSTEE = 0
+FILE_ALL_ACCESS = 0x001F01FF
 
 # OpenProcessToken access
 _TOKEN_DUPLICATE = 0x0002
@@ -666,6 +700,44 @@ class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
         ("JobMemoryLimit", ctypes.c_size_t),
         ("PeakProcessMemoryUsed", ctypes.c_size_t),
         ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+class SID_AND_ATTRIBUTES(ctypes.Structure):
+    """Win32 SID_AND_ATTRIBUTES。"""
+
+    _fields_ = [
+        ("Sid", ctypes.c_void_p),
+        ("Attributes", ctypes.c_uint32),
+    ]
+
+
+class EXPLICIT_ACCESS_W(ctypes.Structure):
+    """Win32 EXPLICIT_ACCESS_W(x64 布局 48 字节)。"""
+
+    _fields_ = [
+        ("grfAccessPermissions", ctypes.c_uint32),
+        ("grfAccessMode", ctypes.c_uint32),
+        ("grfInheritance", ctypes.c_uint32),
+        ("pMultipleTrustee", ctypes.c_void_p),
+        ("MultipleTrusteeOperation", ctypes.c_uint32),
+        ("TrusteeForm", ctypes.c_uint32),
+        ("TrusteeType", ctypes.c_uint32),
+        ("ptstrName", ctypes.c_void_p),
+    ]
+
+
+class ACL_SIZE_INFORMATION(ctypes.Structure):
+    """Win32 ACL_SIZE_INFORMATION(GetAclInformation level 2)。
+
+    实测字段序为 ``AceCount, AclSize, Sbz2``;写成 AclSize 在前会读成
+    ``AceCount=120`` 这类垃圾值。
+    """
+
+    _fields_ = [
+        ("AceCount", ctypes.c_uint32),
+        ("AclSize", ctypes.c_uint32),
+        ("Sbz2", ctypes.c_uint16),
     ]
 
 
@@ -790,6 +862,52 @@ def _advapi32() -> Any:
         ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p,
         ctypes.POINTER(ctypes.c_void_p),
     ]
+    a32.GetLengthSid.restype = ctypes.c_uint32
+    a32.GetLengthSid.argtypes = [ctypes.c_void_p]
+    a32.CopySid.restype = ctypes.c_int32
+    a32.CopySid.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_void_p]
+    a32.CreateWellKnownSid.restype = ctypes.c_int32
+    a32.CreateWellKnownSid.argtypes = [
+        ctypes.c_uint32, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32),
+    ]
+    a32.ConvertStringSidToSidW.restype = ctypes.c_int32
+    a32.ConvertStringSidToSidW.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_void_p)]
+    a32.ConvertSidToStringSidW.restype = ctypes.c_int32
+    a32.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_wchar_p)]
+    a32.GetNamedSecurityInfoW.restype = ctypes.c_uint32
+    a32.GetNamedSecurityInfoW.argtypes = [
+        ctypes.c_wchar_p, ctypes.c_int32, ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
+    a32.SetNamedSecurityInfoW.restype = ctypes.c_uint32
+    a32.SetNamedSecurityInfoW.argtypes = [
+        ctypes.c_wchar_p, ctypes.c_int32, ctypes.c_uint32,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+    ]
+    a32.SetEntriesInAclW.restype = ctypes.c_uint32
+    a32.SetEntriesInAclW.argtypes = [
+        ctypes.c_uint32, ctypes.POINTER(EXPLICIT_ACCESS_W),
+        ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p),
+    ]
+    a32.GetAclInformation.restype = ctypes.c_int32
+    a32.GetAclInformation.argtypes = [
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32,
+    ]
+    a32.GetAce.restype = ctypes.c_int32
+    a32.GetAce.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(ctypes.c_void_p)]
+    a32.InitializeAcl.restype = ctypes.c_int32
+    a32.InitializeAcl.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32]
+    a32.AddAce.restype = ctypes.c_int32
+    a32.AddAce.argtypes = [
+        ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32,
+    ]
+    a32.EqualSid.restype = ctypes.c_int32
+    a32.EqualSid.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    k32 = _kernel32()
+    k32.LocalFree.restype = ctypes.c_void_p
+    k32.LocalFree.argtypes = [ctypes.c_void_p]
     a32.SetThreadToken.restype = ctypes.c_int32
     a32.SetThreadToken.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
     a32.DuplicateTokenEx.restype = ctypes.c_int32
@@ -975,11 +1093,298 @@ def _token_is_elevated(token: int) -> bool:
     return bool(struct.unpack_from("<I", buf.raw, 0)[0] == 1)
 
 
-def create_restricted_token() -> int:
+def _current_logon_sid_buffer() -> Any:
+    """从当前进程令牌的 TokenGroups 里复制 logon SID(S-1-5-5-x-y)。
+
+    受限令牌必须带上 logon SID,否则 WinSta0 桌面与 CNG 初始化会失败
+    (DSH `dsh-sandbox-windows-acl/src/token.ts` 实测记录同型)。
+    返回保持存活的 ``ctypes`` 缓冲区(调用方用完即弃,无需 LocalFree)。
+    """
+    _require_windows()
+    a32 = _advapi32()
+    tok = ctypes.c_void_p(0)
+    access = _TOKEN_QUERY | _TOKEN_DUPLICATE
+    if not a32.OpenProcessToken(ctypes.c_void_p(-1), access, ctypes.byref(tok)):
+        raise WinApiError("OpenProcessToken 失败", winerror=_winerr())
+    try:
+        needed = ctypes.c_uint32(0)
+        a32.GetTokenInformation(
+            ctypes.c_void_p(tok.value or 0), TokenGroups, None, 0, ctypes.byref(needed)
+        )
+        size = int(needed.value)
+        if size < 8:
+            raise WinApiError("GetTokenInformation(TokenGroups) 尺寸查询失败", winerror=_winerr())
+        raw = ctypes.create_string_buffer(size)
+        if not a32.GetTokenInformation(
+            ctypes.c_void_p(tok.value or 0), TokenGroups, ctypes.cast(raw, ctypes.c_void_p),
+            size, ctypes.byref(needed),
+        ):
+            raise WinApiError("GetTokenInformation(TokenGroups) 失败", winerror=_winerr())
+        count = struct.unpack_from("<I", raw.raw, 0)[0]
+        for index in range(int(count)):
+            offset = 8 + index * 16
+            sid_ptr = struct.unpack_from("<Q", raw.raw, offset)[0]
+            attrs = struct.unpack_from("<I", raw.raw, offset + 8)[0]
+            if not sid_ptr or (attrs & SE_GROUP_LOGON_ID) != SE_GROUP_LOGON_ID:
+                continue
+            length = int(a32.GetLengthSid(ctypes.c_void_p(sid_ptr)))
+            if length <= 0:
+                continue
+            sid_buf = ctypes.create_string_buffer(length)
+            if not a32.CopySid(length, ctypes.cast(sid_buf, ctypes.c_void_p), ctypes.c_void_p(sid_ptr)):
+                raise WinApiError("CopySid(logon SID) 失败", winerror=_winerr())
+            return sid_buf
+    finally:
+        close_win_handle(tok.value or 0)
+    raise WinApiError("当前进程令牌中找不到 logon SID", winerror=_winerr())
+
+
+def current_logon_sid_string() -> str:
+    """当前进程 logon SID 的字符串形式(供 icacls deny 用)。"""
+    _require_windows()
+    buf = _current_logon_sid_buffer()
+    a32 = _advapi32()
+    string_ptr = ctypes.c_wchar_p()
+    if not a32.ConvertSidToStringSidW(
+        ctypes.cast(buf, ctypes.c_void_p), ctypes.byref(string_ptr)
+    ):
+        raise WinApiError("ConvertSidToStringSidW(logon SID) 失败", winerror=_winerr())
+    try:
+        return str(string_ptr.value or "")
+    finally:
+        _kernel32().LocalFree(ctypes.cast(string_ptr, ctypes.c_void_p))
+
+
+def _well_known_sid_buffer(sid_type: int) -> Any:
+    """CreateWellKnownSid → 存活的 SID 缓冲区。"""
+    _require_windows()
+    buf = ctypes.create_string_buffer(SECURITY_MAX_SID_SIZE)
+    size = ctypes.c_uint32(SECURITY_MAX_SID_SIZE)
+    if not _advapi32().CreateWellKnownSid(
+        sid_type, None, ctypes.cast(buf, ctypes.c_void_p), ctypes.byref(size)
+    ):
+        raise WinApiError(f"CreateWellKnownSid(type={sid_type}) 失败", winerror=_winerr())
+    return buf
+
+
+def _sid_string_to_buffer(sid: str) -> Any:
+    """S-1-... → 存活的本机 SID 缓冲区(ConvertStringSidToSidW 分配的内存由我们释放)。"""
+    _require_windows()
+    ptr = ctypes.c_void_p(0)
+    if not _advapi32().ConvertStringSidToSidW(sid, ctypes.byref(ptr)):
+        raise WinApiError(f"ConvertStringSidToSidW({sid!r}) 失败", winerror=_winerr())
+    try:
+        length = int(_advapi32().GetLengthSid(ptr))
+        if length <= 0:
+            raise WinApiError(f"GetLengthSid({sid!r}) 失败", winerror=_winerr())
+        buf = ctypes.create_string_buffer(length)
+        if not _advapi32().CopySid(
+            length, ctypes.cast(buf, ctypes.c_void_p), ctypes.c_void_p(ptr.value or 0)
+        ):
+            raise WinApiError(f"CopySid({sid!r}) 失败", winerror=_winerr())
+        return buf
+    finally:
+        _kernel32().LocalFree(ctypes.cast(ptr, ctypes.c_void_p))
+
+
+def capability_sid_for_path(path: str) -> str:
+    """路径 → 确定性 capability SID(``S-1-4-x-y``)。
+
+    同一路径跨进程/重启得到同一 SID;SID 本身不是秘密,权力只来自它被授予的 ACE。
+    与 DSH `workspaceWriteSid` 同构(30-bit 子授权),但用绝对路径小写参与摘要。
+    """
+    import hashlib
+
+    digest = hashlib.sha256(os.path.normcase(os.path.abspath(path)).encode("utf-8")).digest()
+    first = (int.from_bytes(digest[0:4], "little") % (2**30 - 1)) + 1
+    second = (int.from_bytes(digest[4:8], "little") % (2**30 - 1)) + 1
+    return f"S-1-4-{first}-{second}"
+
+
+def _apply_acl_entry(path: str, sid: str, mode: int, mask: int) -> None:
+    """对单个目录合并一条 ACE(GRANT/DENY/REVOKE);失败 fail-closed。
+
+    直接走 ``GetNamedSecurityInfoW → SetEntriesInAclW → SetNamedSecurityInfoW``,
+    不用 ``icacls``:``icacls`` 会先做账户名解析,``S-1-4-x-y`` 这类 capability
+    SID 在本机实测报 ERROR_NONE_MAPPED(rc 1332);Win32 ACL API 直接收 SID,
+    与 DSH `grantWrite` 的调用路径同型。
+    """
+    _require_windows()
+    a32 = _advapi32()
+    old_dacl = ctypes.c_void_p(0)
+    descriptor = ctypes.c_void_p(0)
+    result = a32.GetNamedSecurityInfoW(
+        os.path.abspath(path), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+        None, None, ctypes.byref(old_dacl), None, ctypes.byref(descriptor),
+    )
+    if result != 0:
+        raise SandboxError(f"GetNamedSecurityInfoW({path}) 失败: {result}")
+    sid_buf = _sid_string_to_buffer(sid)
+    entry = EXPLICIT_ACCESS_W()
+    entry.grfAccessPermissions = int(mask)
+    entry.grfAccessMode = int(mode)
+    entry.grfInheritance = (
+        SUB_CONTAINERS_AND_OBJECTS_INHERIT if mode != REVOKE_ACCESS else 0
+    )
+    entry.pMultipleTrustee = None
+    entry.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE
+    entry.TrusteeForm = TRUSTEE_IS_SID
+    entry.TrusteeType = TRUSTEE_IS_UNKNOWN
+    entry.ptstrName = ctypes.cast(sid_buf, ctypes.c_void_p)
+    new_acl = ctypes.c_void_p(0)
+    try:
+        result = a32.SetEntriesInAclW(
+            1, ctypes.byref(entry), old_dacl, ctypes.byref(new_acl)
+        )
+        if result != 0:
+            raise SandboxError(f"SetEntriesInAclW({path}, {sid}) 失败: {result}")
+        result = a32.SetNamedSecurityInfoW(
+            os.path.abspath(path), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+            None, None, new_acl, None,
+        )
+        if result != 0:
+            raise SandboxError(f"SetNamedSecurityInfoW({path}, {sid}) 失败: {result}")
+    finally:
+        if descriptor:
+            _kernel32().LocalFree(ctypes.cast(descriptor, ctypes.c_void_p))
+        if new_acl:
+            _kernel32().LocalFree(ctypes.cast(new_acl, ctypes.c_void_p))
+
+
+def _remove_aces_for_sid(path: str, sid: str) -> None:
+    """从路径 DACL 中删除指定 SID 的全部基本 allow/deny ACE。
+
+    ``SetEntriesInAclW(REVOKE_ACCESS)`` 实测只删 allow ACE,deny ACE 会留下
+    (``icacls`` 显示残留 ``(N)``);这里按 ACE 表重建 DACL,确保 grant 与 deny
+    都被真正回收。对象 ACE(带 GUID)不碰,原样保留。
+    """
+    _require_windows()
+    a32 = _advapi32()
+    old_dacl = ctypes.c_void_p(0)
+    descriptor = ctypes.c_void_p(0)
+    result = a32.GetNamedSecurityInfoW(
+        os.path.abspath(path), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+        None, None, ctypes.byref(old_dacl), None, ctypes.byref(descriptor),
+    )
+    if result != 0:
+        raise SandboxError(f"GetNamedSecurityInfoW({path}) 失败: {result}")
+    try:
+        if not old_dacl:
+            return
+        info = ACL_SIZE_INFORMATION()
+        if not a32.GetAclInformation(
+            old_dacl, ctypes.byref(info), ctypes.sizeof(info), 2
+        ):
+            raise SandboxError(f"GetAclInformation({path}) 失败")
+        sid_buf = _sid_string_to_buffer(sid)
+        keep: list[tuple[ctypes.c_void_p, int]] = []
+        for index in range(info.AceCount):
+            ace = ctypes.c_void_p(0)
+            if not a32.GetAce(old_dacl, index, ctypes.byref(ace)):
+                raise SandboxError(
+                    f"GetAce({path}, {index}) 失败(AceCount={info.AceCount}, AclSize={info.AclSize})"
+                )
+            header = ctypes.cast(ace, ctypes.POINTER(ctypes.c_ubyte))
+            ace_type = header[0]
+            ace_size = header[2] | (header[3] << 8)
+            matches = False
+            if ace_type in (0x00, 0x01, 0x02, 0x03):
+                ace_sid = ctypes.c_void_p(ace.value + 8)
+                matches = bool(a32.EqualSid(sid_buf, ace_sid))
+            if not matches:
+                keep.append((ace, ace_size))
+        new_acl = ctypes.create_string_buffer(info.AclSize)
+        if not a32.InitializeAcl(new_acl, info.AclSize, 2):
+            raise SandboxError(f"InitializeAcl({path}) 失败")
+        for ace, ace_size in keep:
+            if not a32.AddAce(new_acl, 2, 0xFFFFFFFF, ace, ace_size):
+                raise SandboxError(f"AddAce({path}) 失败")
+        result = a32.SetNamedSecurityInfoW(
+            os.path.abspath(path), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+            None, None, new_acl, None,
+        )
+        if result != 0:
+            raise SandboxError(f"SetNamedSecurityInfoW({path}, revoke) 失败: {result}")
+    finally:
+        if descriptor:
+            _kernel32().LocalFree(ctypes.cast(descriptor, ctypes.c_void_p))
+
+
+class WindowsPathAclGuard:
+    """一次运行的 per-path DACL 授予/回收(write capability SID + denied SID)。
+
+    - ``writable_paths``:每路径一个确定性 capability SID,直接授
+      ``(OI)(CI)(FILE_ALL_ACCESS)``;该 SID 进入受限令牌的 restricting list,
+      ``WRITE_RESTRICTED`` 下只有这些树可写;
+    - ``denied_paths``:仅当 denied 路径落在某个可写根内时,对该根的 capability SID
+      加 deny ACE —— deny 优先,挡住该受限令牌的写;宿主进程(不带该 SID)仍可清理。
+      不在可写根内的 denied 路径本来就被全局 write-restricted 挡住,读面归应用层
+      ``can_read``(Windows 没有 READ_RESTRICTED 档,不伪造内核读切断);
+    - 回收:按 ACE 表逐条删除同一 SID 的 allow/deny ACE(``REVOKE_ACCESS`` 实测
+      只删 allow,deny 会留 ``(N)``);回收失败只记录,不把已成功的执行改判成
+      失败,但会在 stderr 留痕(不伪造"已清理")。
+    """
+
+    def __init__(self, policy: SandboxPolicy) -> None:
+        self.policy = policy
+        self._grants: list[tuple[str, str]] = []
+        self._denies: list[tuple[str, str]] = []
+        self._root_sids: list[tuple[str, str]] = []
+
+    def materialize(self) -> list[str]:
+        write_sids: list[str] = []
+        for path in self.policy.writable_paths:
+            sid = capability_sid_for_path(path)
+            _apply_acl_entry(path, sid, GRANT_ACCESS, FILE_ALL_ACCESS)
+            self._grants.append((path, sid))
+            self._root_sids.append((os.path.abspath(path), sid))
+            write_sids.append(sid)
+        for path in self.policy.denied_paths:
+            target = os.path.abspath(path)
+            owner_sid = next(
+                (sid for root, sid in self._root_sids if target == root or target.startswith(root + os.sep)),
+                None,
+            )
+            if owner_sid is None:
+                # 不在任何可写根内的 denied 路径:全局写已经由 restricting list 挡住,
+                # 读面仍归应用层 can_read;这里不施加会锁死宿主进程的 deny ACE。
+                continue
+            _apply_acl_entry(path, owner_sid, DENY_ACCESS, FILE_ALL_ACCESS)
+            self._denies.append((path, owner_sid))
+        return write_sids
+
+    def add_temp_dir(self, tmpdir: str) -> str:
+        sid = capability_sid_for_path(tmpdir)
+        _apply_acl_entry(tmpdir, sid, GRANT_ACCESS, FILE_ALL_ACCESS)
+        self._grants.append((tmpdir, sid))
+        return sid
+
+    def dispose(self) -> list[str]:
+        failures: list[str] = []
+        for path, sid in self._grants:
+            try:
+                _remove_aces_for_sid(path, sid)
+            except Exception as exc:  # noqa: BLE001 - 清理失败要报,不静默
+                failures.append(f"grant {path}: {exc}")
+        self._grants.clear()
+        for path, sid in self._denies:
+            try:
+                _remove_aces_for_sid(path, sid)
+            except Exception as exc:  # noqa: BLE001
+                failures.append(f"deny {path}: {exc}")
+        self._denies.clear()
+        return failures
+
+
+def create_restricted_token(write_sids: Sequence[str] | None = None) -> int:
     """CreateRestrictedToken 受限令牌。
 
     - DISABLE_MAX_PRIVILEGE:剥离除 SeChangeNotifyPrivilege 外的全部特权;
     - 若当前令牌已提升(管理员),追加 LUA_TOKEN 降级到链接(标准用户)令牌;
+    - ``write_sids`` 非 ``None`` 时启用 ``WRITE_RESTRICTED``:restricting list =
+      ``[logon SID, Everyone, *write_sids]``,写访问只认这些 capability SID 的 ACE,
+      读访问仍走正常令牌。传空数组 = 只读档(任何 capability ACE 都不生效);
+      ``None`` 保持旧语义(只降权,不做写限制);
     - 经 DuplicateTokenEx 转主令牌(CreateRestrictedToken 原始句柄不能直接用于
       CreateProcessAsUserW,实测报 ERROR_ACCESS_DENIED)。
     返回新令牌 HANDLE(调用方负责 close_win_handle)。
@@ -994,16 +1399,31 @@ def create_restricted_token() -> int:
     if not a32.OpenProcessToken(ctypes.c_void_p(-1), access, ctypes.byref(base)):
         raise WinApiError("OpenProcessToken 失败", winerror=_winerr())
     restricted = 0
+    sid_buffers: list[Any] = []
+    sid_array: Any = None
     try:
         flags = DISABLE_MAX_PRIVILEGE
-        if _token_is_elevated(base.value or 0):
+        if write_sids is None and _token_is_elevated(base.value or 0):
             flags |= LUA_TOKEN
+        restrict_count = 0
+        if write_sids is not None:
+            flags |= WRITE_RESTRICTED
+            sid_buffers.append(_current_logon_sid_buffer())
+            sid_buffers.append(_well_known_sid_buffer(WIN_WORLD_SID))
+            for sid in write_sids:
+                sid_buffers.append(_sid_string_to_buffer(str(sid)))
+            sid_array = (SID_AND_ATTRIBUTES * len(sid_buffers))()
+            for index, buffer in enumerate(sid_buffers):
+                sid_array[index].Sid = ctypes.cast(buffer, ctypes.c_void_p)
+                sid_array[index].Attributes = 0
+            restrict_count = len(sid_buffers)
         new_tok = ctypes.c_void_p(0)
+        sids_ptr = ctypes.cast(sid_array, ctypes.c_void_p) if sid_array is not None else None
         ok = a32.CreateRestrictedToken(
-            base, flags, 0, None, 0, None, 0, None, ctypes.byref(new_tok),
+            base, flags, 0, None, 0, None, restrict_count, sids_ptr, ctypes.byref(new_tok),
         )
-        if not ok:
-            # 追加 LUA_TOKEN 失败时回退仅 DISABLE_MAX_PRIVILEGE
+        if not ok and not (flags & WRITE_RESTRICTED):
+            # 旧语义下追加 LUA_TOKEN 失败时回退仅 DISABLE_MAX_PRIVILEGE。
             ok = a32.CreateRestrictedToken(
                 base, DISABLE_MAX_PRIVILEGE, 0, None, 0, None, 0, None, ctypes.byref(new_tok),
             )
@@ -1263,6 +1683,7 @@ class WinJobBackend:
         timed_out = False
         job = WinJob.create()
         tmpdir = ""
+        acl_guard: WindowsPathAclGuard | None = None
         try:
             job.set_limits(self.policy, kill_on_close=True)
             tmpdir = tempfile.mkdtemp(prefix="ihui_osbox_")
@@ -1275,7 +1696,16 @@ class WinJobBackend:
             thread_handle = 0
             token = 0
             try:
-                token = create_restricted_token() if self.policy.restrict_token else 0
+                write_sids: list[str] | None = None
+                if self.policy.per_path_acl and self.policy.restrict_token:
+                    acl_guard = WindowsPathAclGuard(self.policy)
+                    write_sids = acl_guard.materialize()
+                    write_sids.append(acl_guard.add_temp_dir(tmpdir))
+                token = (
+                    create_restricted_token(write_sids=write_sids)
+                    if self.policy.restrict_token
+                    else 0
+                )
                 proc_handle, thread_handle, _pid = self._spawn(
                     cmd, cwd, child_env, (in_fd, out_fd, err_fd), token,
                 )
@@ -1319,6 +1749,15 @@ class WinJobBackend:
                         os.close(fd)
             stdout_text = self._read_file(out_path)
             stderr_text = self._read_file(err_path)
+            if acl_guard is not None:
+                cleanup_failures = acl_guard.dispose()
+                acl_guard = None
+                if cleanup_failures:
+                    stderr_text = (
+                        stderr_text
+                        + "\n[acl-cleanup-failed] "
+                        + "; ".join(cleanup_failures)
+                    )
             killed = (not timed_out) and self._killed_by_limit(exit_code, stderr_text)
             return ExecResult(
                 cmd=cmd,
@@ -1334,6 +1773,10 @@ class WinJobBackend:
         finally:
             # 关闭 job:kill_on_close 保证残留(孙)进程一并死亡
             job.close()
+            if acl_guard is not None:
+                # 异常路径:ACL 授予已发生,必须尝试回收;回收失败不掩盖原异常。
+                with suppress(Exception):
+                    acl_guard.dispose()
             if tmpdir:
                 import shutil
                 shutil.rmtree(tmpdir, ignore_errors=True)

@@ -25,6 +25,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.investigation_ledger import build_investigation_ledger
 from ..core.jwt_auth import get_current_user_id
 from ..services.deep_research import PHASE_DONE, LLMFn, manager
 
@@ -91,6 +92,35 @@ async def start_research(
         body.max_iterations,
     )
     return ResearchStartResponse(research_id=run.research_id, status=run.status.value)
+
+
+@router.get("/{research_id}/ledger")
+async def get_research_ledger(
+    research_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """调查台账:逐条证据 + 交叉核验 + 未解问题(复用 report,不另存真相)。"""
+    run = manager.resume(research_id, _make_llm_fn())
+    if run is None:
+        raise HTTPException(status_code=404, detail="未找到该研究(research_id 不存在或已被淘汰)")
+    if run.report is None:
+        raise HTTPException(status_code=409, detail="研究尚未产出可查询的台账")
+    if user_id:
+        logger.info(
+            "deep_research ledger research_id=%s user_id=%s status=%s",
+            research_id,
+            user_id,
+            run.status.value,
+        )
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "researchId": research_id,
+            "status": run.status.value,
+            **build_investigation_ledger(run.report).as_dict(),
+        },
+    }
 
 
 @router.get("/{research_id}")

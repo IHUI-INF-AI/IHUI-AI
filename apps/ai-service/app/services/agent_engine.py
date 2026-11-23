@@ -3127,6 +3127,9 @@ class AgentEngine:
                             "coarse": bool(_stat is None or _stat.coarse),
                         }
                     )
+                from ..core.delivery_review import review_delivery_diff
+
+                _delivery_review = review_delivery_diff(_diff_text, _changes).as_dict()
                 await self._emit_engine_event(
                     thread,
                     emit,
@@ -3134,6 +3137,7 @@ class AgentEngine:
                     {
                         "files": changed[:50],
                         "changes": _changes,
+                        "deliveryReview": _delivery_review,
                         "truncated": (
                             (_snapshot_set.truncated or len(changed) > 50)
                             if _snapshot_changed and _snapshot_set is not None
@@ -3196,6 +3200,7 @@ class AgentEngine:
                         + [{"path": p, "status": "M"} for p in modified]
                         + [{"path": p, "status": "D"} for p in removed]
                     )
+                    from ..core.delivery_review import review_delivery_diff
                     from ..core.turn_diff_tracker import diff_file_stats
 
                     _snapshot_text = "\n".join(p for p in parts if p)
@@ -3223,6 +3228,9 @@ class AgentEngine:
                         {
                             "files": added + modified + removed,
                             "changes": changes,
+                            "deliveryReview": review_delivery_diff(
+                                _snapshot_text, changes
+                            ).as_dict(),
                             "truncated": False,
                             "unifiedDiff": _snapshot_text[:32_000],
                             "baselineSha": None,

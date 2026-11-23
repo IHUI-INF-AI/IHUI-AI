@@ -1202,6 +1202,13 @@ class AgentExecuteRequest(BaseModel):
         None,
         description="命名权限预设:readOnly / auto / fullAccess;与显式双轴互斥",
     )
+    # DSH dsh-agent-preset:一个 preset 名字展开为 model + tools + max_iterations +
+    # permission_preset 的完整组合。与上述任一显式字段**互斥**(同给 400),避免
+    # "preset 说 A、显式字段说 B"的静默覆盖。
+    agent_preset: str | None = Field(
+        None,
+        description="Agent 组合预设:general / researcher / coder / reviewer / architect / debugger;与显式 model/tools/max_iterations/权限字段互斥",
+    )
     # AGENTS.md §8 第 3 步的调用点(2026-09-25 立):执行**前**声明的硬性指标。
     # 声明了才启用独立校验闸门;不声明 = 非 goal 模式,done 帧行为与接线前逐零差异。
     hard_criteria: list[GoalCriterionIn] | None = Field(
@@ -1315,6 +1322,38 @@ def _resolved_axis_resolution(
     return res
 
 
+def _apply_agent_preset(req: Any) -> Any:
+    """把 ``agent_preset`` 展开进请求模型;与显式字段同给一律 400。"""
+    preset_name = getattr(req, "agent_preset", None)
+    if not preset_name:
+        return req
+    from ..core.agent_presets import AgentPresetError, expand_agent_preset
+
+    try:
+        expanded = expand_agent_preset(
+            str(preset_name),
+            model=getattr(req, "model", None),
+            tools=getattr(req, "tools", None),
+            max_iterations=getattr(req, "max_iterations", None),
+            permission_preset=getattr(req, "permission_preset", None),
+            sandbox_mode=getattr(req, "sandbox_mode", None),
+            approval_policy=getattr(req, "approval_policy", None),
+        )
+    except AgentPresetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    if getattr(req, "permission_mode", None) is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="agent_preset 与显式 permission_mode 互斥,不得同给",
+        )
+    updates = {
+        key: expanded[key]
+        for key in ("model", "tools", "max_iterations", "permission_preset")
+        if getattr(req, key, None) is None and expanded.get(key) is not None
+    }
+    return req.model_copy(update=updates)
+
+
 class AgentResumeRequest(BaseModel):
     """resume agent 请求(checkpoint 断点续跑)。"""
 
@@ -1346,6 +1385,10 @@ class AgentResumeRequest(BaseModel):
     permission_preset: str | None = Field(
         None,
         description="命名权限预设:readOnly / auto / fullAccess;与显式双轴互斥",
+    )
+    agent_preset: str | None = Field(
+        None,
+        description="Agent 组合预设:general / researcher / coder / reviewer / architect / debugger;与显式 model/tools/max_iterations/权限字段互斥",
     )
     # V3 #84 生产者侧(2026-10-07):与 AgentExecuteRequest 同格 —— 续跑重建的循环
     # 落新 checkpoint 时同样可声明耐久视野(两条 resume 出口共用
@@ -1635,6 +1678,7 @@ async def execute_agent(
     `POST /api/agents/approval-response` 回执。因此权限档/审批轴的 400 判据
     收窄为**只拒"没有投递地址"的请求**(见下方 delivery_address),有地址即放行。
     """
+    req = _apply_agent_preset(req)
     owned: list[str] = []
     # G-161:本端点过去走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
     # 因此权限档在此**无法生效**。此前 permission_mode 字段干脆不存在 → 被静默丢弃,
@@ -1797,7 +1841,7 @@ async def execute_agent_stream(
       客户端改走会话快照 GET /api/agents/sessions/{session_id}/messages 重建界面
     - 所有事件使用 SSE event: 字段(取自 payload type),客户端可 addEventListener 分发
     """
-
+    req = _apply_agent_preset(req)
     last_event_id = request.headers.get("last-event-id")
     # 硬性指标的声明层面校验放在**开始流式之前**:声明不合法是请求错(422),
     # 不该以一个 SSE 错误帧的形式让客户端在流里猜。校验口径复用 gate 的 validate_specs,
@@ -2413,6 +2457,7 @@ async def resume_agent_execute(
       ② **在飞登记**:老 checkpoint(改造前写入)无 owner 字段,退到 run_ownership
          进程内登记比对;两者都判不出时只剩"必须登录"这一层地板(如实标注,不假装)。
     """
+    req = _apply_agent_preset(req)
     from ..services.agent_checkpoint import get_agent_checkpoint_manager
 
     # b76-11(2026-09-30):档位在入口解析一次(认不出的值 400,绝不静默回落 default
@@ -2563,6 +2608,10 @@ class AgentSessionResumeRequest(BaseModel):
         None,
         description="命名权限预设:readOnly / auto / fullAccess;与显式双轴互斥",
     )
+    agent_preset: str | None = Field(
+        None,
+        description="Agent 组合预设:general / researcher / coder / reviewer / architect / debugger;与显式 model/tools/max_iterations/权限字段互斥",
+    )
     # V3 #84 生产者侧(2026-10-07):与 AgentResumeRequest 同格,同因 —— 耐久视野
     # 声明面两条 resume 出口必须同形。省略 = 不声明 = 重建循环不写耐久键。
     durable_horizon_seconds: int | None = Field(
@@ -2708,6 +2757,7 @@ async def resume_agent_session(
                                         带 resume_confirmations 再调本端点即可)
       503 AGENT_RESUME_RESUME_FAILED    存储/循环不可用(含"查不了"不等于"查不到")
     """
+    req = _apply_agent_preset(req)
 
     # b76-11(2026-09-30):与 /agents/execute/resume 同一口径 —— 档位在入口解析
     # (认不出的值 400),解析失败发生在动任何存储之前;不放进 _runner,那里把
@@ -2907,6 +2957,20 @@ async def list_permission_presets(
     from ..core.permission_presets import DEFAULT_CATALOG
 
     return {"code": 0, "message": "success", "data": DEFAULT_CATALOG.as_dict()}
+
+
+@router.get("/agents/agent-presets")
+async def list_agent_presets(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """Agent 组合预设目录(DSH dsh-agent-preset 兼容面)。
+
+    每个预设展开 model + tools + maxIterations + permissionPreset;选择后请求里
+    不要再给这些显式字段(同给 400)。
+    """
+    from ..core.agent_presets import DEFAULT_AGENT_PRESETS
+
+    return {"code": 0, "message": "success", "data": DEFAULT_AGENT_PRESETS.as_dict()}
 
 
 @router.post("/agents/memory/search")
