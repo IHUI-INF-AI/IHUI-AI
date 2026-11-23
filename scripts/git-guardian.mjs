@@ -223,6 +223,76 @@ export {
 export const WORKTREE = resolveWorktree()
 const GITDIR = resolveGitdir(WORKTREE)
 const BACKUP = resolveBackupDir(WORKTREE)
+// ── 长期派生检出寿命闸(Y-71,唯一生产本体)───────────────────────────────────────
+// 镜像测试:`scripts/tests/git-guardian-worktree-age.test.mjs` + `...-derive.test.mjs`(两枚都只 import 本处,不复制判据)。
+// 双轴口径:静默(距 mtime)>= 24h 只 warn;账龄(距出生时刻与 git 元数据里较新者)>= 48h 才判长期滞留。
+// 阈值 env 可覆盖(判据不写死盘符);取不到 stat ⇒ NaN ⇒ 双轴都不判(未判定不冒红,§0.3)。
+const WORKTREE_STALE_SILENT_MS = Number(
+  process.env.IHUI_WORKTREE_REAP_STALE_SILENT_MS || 24 * 60 * 60 * 1000,
+)
+const WORKTREE_STALE_AGE_MS = Number(
+  process.env.IHUI_WORKTREE_REAP_STALE_AGE_MS || 48 * 60 * 60 * 1000,
+)
+
+/** @returns {{staleBySilent:boolean, staleByAge:boolean, silentMs:number, ageMs:number}} */
+export function assessWorktreeAge(entry = {}, now = Date.now()) {
+  // 孤儿壳(git worktree prune 可清)不走寿命判据
+  if (entry.exists === false)
+    return { staleBySilent: false, staleByAge: false, silentMs: NaN, ageMs: NaN }
+  const mtime = Number(entry.mtimeMs)
+  const silentMs = Number.isFinite(mtime) ? now - mtime : NaN
+  // 账龄取 birthtime 与 git 元数据里**较新**的那个,不冤枉刚复用的在飞检出
+  const bases = [Number(entry.birthtimeMs), Number(entry.gitAgeMs)].filter((v) => Number.isFinite(v))
+  const ageMs = bases.length ? now - Math.max(...bases) : NaN
+  return {
+    staleBySilent: Number.isFinite(silentMs) && silentMs >= WORKTREE_STALE_SILENT_MS,
+    staleByAge: Number.isFinite(ageMs) && ageMs >= WORKTREE_STALE_AGE_MS,
+    silentMs,
+    ageMs,
+  }
+}
+
+/**
+ * `git worktree list --porcelain` 文本 → 行对象。fsProbe 缺省 ⇒ exists=true(不猜"不存在")。
+ * @returns {Array<{path:string, head:string, branch:string, detached:boolean, bare:boolean, exists:boolean}>}
+ */
+export function parseWorktreeListPorcelain(text, fsProbe = null) {
+  const src = String(text ?? '')
+  if (!src.trim()) return []
+  const chunks = []
+  let cur = []
+  for (const line of src.split(/\r?\n/)) {
+    if (line.trim() === '') {
+      if (cur.length) {
+        chunks.push(cur)
+        cur = []
+      }
+      continue
+    }
+    cur.push(line)
+  }
+  if (cur.length) chunks.push(cur)
+  const rows = []
+  for (const chunk of chunks) {
+    const row = { path: '', head: '', branch: '', detached: false, bare: false }
+    for (const line of chunk) {
+      const t = line.trim()
+      if (t.startsWith('worktree ')) row.path = t.slice(9)
+      else if (t.startsWith('HEAD ')) row.head = t.slice(5)
+      else if (t.startsWith('branch ')) row.branch = t.slice(7)
+      else if (t === 'detached') row.detached = true
+      else if (t === 'bare') row.bare = true
+    }
+    if (!row.path) continue
+    const probe = typeof fsProbe === 'function' ? fsProbe(row.path) : null
+    row.exists = probe && probe.exists === false ? false : true
+    if (probe && Number.isFinite(Number(probe.mtimeMs))) row.mtimeMs = Number(probe.mtimeMs)
+    if (probe && Number.isFinite(Number(probe.birthtimeMs))) row.birthtimeMs = Number(probe.birthtimeMs)
+    rows.push(row)
+  }
+  return rows
+}
+
 // ── 守护暂停标记(P0-1 封口票 2026-11-09)──────────────────────────────────────────
 // 立因:守护只扫"启动它的那块盘"(WORKTREE=resolveWorktree()),此前没有任何跳过名单 ⇒
 // 要封一块盘只能停服务+禁任务,恢复时一重启就复活(交接实测:06:30 与 08:30 各抢落一次)。
