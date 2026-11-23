@@ -24,7 +24,9 @@
 
 import type {
   WechatAccountStatus,
+  WechatActionResult,
   WechatBackend,
+  WechatBridgeAction,
   WechatMessageKind,
   WechatQrCodeView,
   WechatSendResult,
@@ -189,6 +191,7 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
     const isGroup =
       firstString(record, ['roomId', 'room_id']) !== null ||
       firstString(record, ['chatType', 'chat_type', 'conversationType']) === 'group' ||
+      chatId.endsWith('@chatroom') ||
       kindValue === 'group'
     events.push({
       platformMessageId: id,
@@ -227,6 +230,7 @@ export class BridgeAdapter implements WechatAdapter {
   private statusPath = '/status'
   private messagesPath = '/messages'
   private sendPath = '/send'
+  private actionPath = '/action'
   private pollIntervalMs = 2_000
 
   async connect(ctx: WechatAdapterContext): Promise<void> {
@@ -236,6 +240,7 @@ export class BridgeAdapter implements WechatAdapter {
     this.statusPath = asString(ctx.account.credentials.statusPath) ?? '/status'
     this.messagesPath = asString(ctx.account.credentials.messagesPath) ?? '/messages'
     this.sendPath = asString(ctx.account.credentials.sendPath) ?? '/send'
+    this.actionPath = asString(ctx.account.credentials.actionPath) ?? '/action'
     this.cursor = ctx.account.cursor ?? ''
     this.pollIntervalMs =
       asNumber(ctx.account.metadata.pollIntervalMs) !== null
@@ -316,6 +321,55 @@ export class BridgeAdapter implements WechatAdapter {
       })
     } catch {
       // 装饰性功能
+    }
+  }
+
+  async performAction(
+    action: WechatBridgeAction,
+    payload: Record<string, unknown>,
+  ): Promise<WechatActionResult> {
+    if (!this.baseUrl) {
+      return { ok: false, status: 'failed', data: {}, reason: 'bridge 缺少 baseUrl' }
+    }
+    try {
+      const response = await fetch(`${this.baseUrl}${this.actionPath}`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({ action, ...payload, token: this.token || undefined }),
+        signal: AbortSignal.timeout(60_000),
+      })
+      const text = await response.text()
+      if (!response.ok) {
+        return {
+          ok: false,
+          status: 'failed',
+          data: {},
+          reason: `HTTP ${response.status}: ${text.slice(0, 200)}`,
+        }
+      }
+      const parsed: unknown = JSON.parse(text)
+      const root = asRecord(parsed)
+      if (!root) {
+        return { ok: false, status: 'failed', data: {}, reason: '桥返回非对象 JSON' }
+      }
+      const data = asRecord(root.data) ?? root
+      const ok = root.ok === true || asNumber(root.code) === 0
+      if (!ok) {
+        return {
+          ok: false,
+          status: 'failed',
+          data,
+          reason: asString(root.error) ?? asString(root.message) ?? '桥拒绝动作',
+        }
+      }
+      return { ok: true, status: 'accepted', data, reason: null }
+    } catch (e) {
+      return {
+        ok: false,
+        status: 'failed',
+        data: {},
+        reason: e instanceof Error ? e.message : '桥动作失败',
+      }
     }
   }
 

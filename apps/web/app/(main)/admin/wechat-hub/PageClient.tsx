@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  BookOpen,
   Bot,
   Brain,
   Clock,
@@ -16,6 +17,7 @@ import {
   MessagesSquare,
   Send,
   ShieldCheck,
+  Users,
 } from 'lucide-react'
 import { Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -29,10 +31,21 @@ import CapabilitiesStrip from './CapabilitiesStrip'
 import ContactsPanel from './ContactsPanel'
 import ConversationsPanel from './ConversationsPanel'
 import DigestPanel from './DigestPanel'
+import GroupOpsPanel from './GroupOpsPanel'
+import KnowledgePanel from './KnowledgePanel'
 import SendPanel from './SendPanel'
 import { wechatHubApi } from './wechat-hub-api'
 
-type TabKey = 'conversations' | 'contacts' | 'send' | 'autoReply' | 'digest' | 'analysis' | 'audit'
+type TabKey =
+  | 'conversations'
+  | 'contacts'
+  | 'send'
+  | 'autoReply'
+  | 'digest'
+  | 'analysis'
+  | 'audit'
+  | 'groupOps'
+  | 'knowledge'
 
 export default function PageClient() {
   const qc = useQueryClient()
@@ -80,8 +93,8 @@ export default function PageClient() {
           <span>微信智联</span>
         </h1>
         <p className="mt-1 text-body text-muted-foreground">
-          扫码登录 → 实时收消息 → 联系人/群成员 → 自动回复与定时日报 → AI 分析 →
-          主动发送，全链路可审计。
+          扫码登录 → 实时收消息 → 联系人/群管理 → 自动回复与定时日报 → 知识库 RAG → 群发与朋友圈 →
+          AI 分析，全链路可审计。
         </p>
       </div>
 
@@ -111,7 +124,7 @@ export default function PageClient() {
 
       {selected ? (
         <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>
-          <TabsList>
+          <TabsList className="h-auto w-full flex-wrap justify-start">
             <TabsTrigger value="conversations" className="gap-1">
               <MessageSquare className="h-3 w-3" />
               <span>会话与消息</span>
@@ -123,6 +136,14 @@ export default function PageClient() {
             <TabsTrigger value="send" className="gap-1">
               <Send className="h-3 w-3" />
               <span>主动发送</span>
+            </TabsTrigger>
+            <TabsTrigger value="groupOps" className="gap-1">
+              <Users className="h-3 w-3" />
+              <span>群与朋友圈</span>
+            </TabsTrigger>
+            <TabsTrigger value="knowledge" className="gap-1">
+              <BookOpen className="h-3 w-3" />
+              <span>知识库与群发</span>
             </TabsTrigger>
             <TabsTrigger value="autoReply" className="gap-1">
               <Bot className="h-3 w-3" />
@@ -149,6 +170,12 @@ export default function PageClient() {
           </TabsContent>
           <TabsContent value="send" className="mt-3">
             <SendPanel accountId={selected.id} />
+          </TabsContent>
+          <TabsContent value="groupOps" className="mt-3">
+            <GroupOpsPanel accountId={selected.id} />
+          </TabsContent>
+          <TabsContent value="knowledge" className="mt-3">
+            <KnowledgePanel accountId={selected.id} />
           </TabsContent>
           <TabsContent value="autoReply" className="mt-3">
             <AutoReplyPanel accountId={selected.id} />

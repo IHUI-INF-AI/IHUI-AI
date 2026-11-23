@@ -164,7 +164,7 @@ export default function AutoReplyRuleForm({ accountId, rule, visible, onSaved, o
                 rows={4}
                 maxLength={5000}
                 className="w-full rounded-sm border border-stroke-field bg-transparent px-3 py-2 text-sm outline-none focus:border-stroke-focus"
-                placeholder="收到，稍后发您报价单。"
+                placeholder="收到，稍后发您报价单；写 {{knowledge}} 则按知识库检索结果回复。"
               />
             </div>
             <div className="grid grid-cols-1 gap-3 min-[760px]:grid-cols-3">
