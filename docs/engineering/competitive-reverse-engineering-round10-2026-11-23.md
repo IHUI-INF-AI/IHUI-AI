@@ -595,9 +595,9 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 ## 24. 收尾：44 条候选处置总表与交付边界
 
-**量**：取证席产出 44 条候选（A 19 / B 21 / C 4，去重后的 ID 全集 = B1×11 / B2×11 / B3×10 / B4×12）。我这一侧落地 **16 条**（对应 18 枚提交，含 A 段装车与 P0-8 两批），他席落地 2 条（B1-08 `d2b4b528` / B4-09 `8ee6291a`），不采纳 10 条，已有等价 5 条，待立项 11 条。16 + 2 + 10 + 5 + 11 = 44。
+**量**：取证席产出 44 条候选（A 19 / B 21 / C 4，去重后的 ID 全集 = B1×11 / B2×11 / B3×10 / B4×12）。我这一侧落地 **17 条**（对应 19 枚提交，含 A 段装车、P0-8 两批与 B1-07 重头复检），他席落地 2 条（B1-08 `d2b4b528` / B4-09 `8ee6291a`），不采纳 10 条，已有等价 5 条，待立项 10 条。17 + 2 + 10 + 5 + 10 = 44。
 
-### 24.1 已落地（16 条候选 / 18 枚提交）
+### 24.1 已落地（17 条候选 / 19 枚提交）
 
 | 候选 | 设计 | 提交 | 落点 |
 |---|---|---|---|
@@ -617,6 +617,7 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 | B4-02 | 子进程 env 白名单通道（未登记默认不进） | `276aa2cd` | `env-channel.ts` |
 | B4-03 | 编译态/源码态单源判据（+ 双目回潮闸） | `9e4dfe9e` | `run-mode.ts` |
 | B4-08 | 启动画像 span 树（嵌套/并发/停采） | `6aaaccb0` | `span-tree.ts` |
+| B1-07 | provider 级 LLM 重试路由（白名单 / always / 确定性 retryId / 可中断退避） | `e0ecbb17` | `llm_retry_policy.py` / `agent_loop_v2.py` |
 
 **他席并发落地（同批候选，提交不属于我这一侧）**：`B1-08`（回合级工作树快照收敛 turn.diff，`d2b4b528`）、`B4-09`（`ihui-lowmem` 低内存 V8 启动档，`8ee6291a`）。这两条原本落在我的"待立项"里，落地时点已被他席先做掉 —— 下表按本表落笔时刻（2026-11-23 16:0x）的快照记账，不追认他人的提交。
 
@@ -639,9 +640,9 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 `B1-10`（输出留存原语：`services/spill_retention.py` 已含 UTF-8 字节计价、头尾预算二分、图片不可切、`omitted_bytes`/`omitted_images` 精确差分 —— 取证席所列四点已逐条在位）· `B2-08`（ContextFS 动词面：`context_fs.py` 只做路径解析，动词由既有工具名承担）· `B2-11`（快照只读面：`checkpoint_rewind.py` 4 端点其中 3 个只读）· `B3-02`（进程组判活：`terminal_session.rs` 的 Job Object 内核兜底比枚举判活更稳）· `B3-10`（硬件键盘钩子：**不建议照搬**，本仓走全局快捷键配置化）。
 
-### 24.4 待立项（11 条）
+### 24.4 待立项（10 条）
 
-`B1-07` LLM 重试 provider 路由 · `B1-09` 子代理 fork/spawn 双上下文 · `B2-02` IPC 安全描述符边界（先登记边界不实现）· `B2-07` 常驻原生模块统一 ABI（远期）· `B3-01` 浏览器桥 host 进程落地（判据层已超越，缺 host 写方与真 `connectNative`）· `B3-03` 协作 CLI 身份三档 + 退出码契约 · `B3-07` 请求元数据四层 + Advisor + patches 增量（需在请求组装链落地 + PG 追踪表）· `B3-08` worker 行协议 · `B3-09` RTC 音视频桥（远期）· `B4-05` 更新后优雅自重启状态机 · `B4-07` 网络边界双引擎（先接口后载体）。
+`B1-09` 子代理 fork/spawn 双上下文 · `B2-02` IPC 安全描述符边界（先登记边界不实现）· `B2-07` 常驻原生模块统一 ABI（远期）· `B3-01` 浏览器桥 host 进程落地（判据层已超越，缺 host 写方与真 `connectNative`）· `B3-03` 协作 CLI 身份三档 + 退出码契约 · `B3-07` 请求元数据四层 + Advisor + patches 增量（需在请求组装链落地 + PG 追踪表）· `B3-08` worker 行协议 · `B3-09` RTC 音视频桥（远期）· `B4-05` 更新后优雅自重启状态机 · `B4-07` 网络边界双引擎（先接口后载体）。
 
 ### 24.5 交付边界（不谎报的部分）
 
@@ -849,3 +850,91 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 1. **调度层仍未接**：`index_codebase` 工具索引前的重建判据目前由 indexer 自己的 Merkle 快照决定（那是另一套判据，且是合法的），本批只让 PG 侧状态**可判、可读、可被 Python 消费**，不声称已替换 Merkle。
 2. `codebase_edges` 仍无写入通道：边需要 import / 调用关系，切片未携带；要补得先让切片器或索引 payload 带 import 清单。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+## 29. P0-8 第七批：导入边写入通道（2026-11-23）
+
+### 29.1 本批做什么
+
+第二批把 `codebase_edges` 表建好了，第三/四/五/六批把实体面、读面、MCP 工具面、索引状态判据一一通电，但**边表一直是空的**——没有任何一处在写它。本批补齐三件事：
+
+1. `deriveEdgesFromImports(imports)` 纯函数：把导入清单派生成边行（`from_entity_id` 留空，按名可查）；
+2. `indexChunks` 增第五参 `imports`，边行与切片**同一事务**先删后插，返回 `edges: count`；
+3. 三处删除方法（`deleteByRepo` / `deleteByFileScoped` / `deleteByFiles`）同步删边。
+
+同时把「谁产 imports」接到生产链：Python `codebase_indexer._write_to_api` 新增 `root` 关键字参数，整仓索引档按本批文件清单现读正文、调 `collect_import_edges` 产出边并随 payload 上传。
+
+### 29.2 `fromName` 取模块路径，不取 basename
+
+`a/index.ts` 与 `b/index.ts` 的 basename 都是 `index.ts`。若边表按 basename 记 `from`，两个不同模块的导入会折成同一个来源点，按来源查"谁依赖了我"就会把两个目录混成一团。故 `fromName` 取 **filePath 本身**（仓库相对路径，与切片同一口径）。
+
+`toName` 取 import 的名字原文，**不解析到目标文件**：解析需要跨文件符号表，当前没有；用名字做键至少能回答"哪些文件 import 了 lodash"，而假装解析会产出错误的边（比没有边更糟）。
+
+### 29.3 清除面必须是并集
+
+`clearFilePaths = [...new Set([...filePaths, ...edgeRows.map((r) => r.filePath)])]`。
+
+理由：一个文件可能**这一轮只剩 import 行**而没有可切片内容（例如纯 re-export 的桶文件、或切片器把短文件全部跳过）。如果清除面只取切片文件，这类文件上一轮的边会残留 —— 于是"文件还在，边是旧的"。并集把这类文件也纳入先删后插。
+
+### 29.4 为什么另立 `_edgeOwnerScope`
+
+`_ownerScope` 绑的是切片表的两列（`owner_uuid` + `or(isNull(expires_at), expires_at > NOW())`）；边表没有过期列，直接复用会拼出**指向切片的列对象** —— 在 Drizzle 里这是能编过、跑起来条件却打在错表上的那种错。故 `_edgeOwnerScope` 独立实现（无归属时 `sql\`1 = 0\``，与实体谓词同纪律）。
+
+### 29.5 生产写入方复用既有判据，不新写正则
+
+`collect_import_edges` 只做两件事：读文本、调 `code_symbol_graph.index_code`。import 的正则与名字拆分（含 `as` 别名剥离、逗号多名拆分）**留在 `core.code_symbol_graph` 一处**。若在 api 侧或 indexer 里再写一份 import 正则，两处一漂就会出现"边表与符号图对不上"的静默分叉 —— 这正是 §0.6 单一真相源要排除的形态。
+
+读不到的文件直接跳过（不抛）：边是**附加**产物，不应因为某个文件读失败而让整批写入失败；索引流程本来已有独立的读失败处理。
+
+### 29.6 边界（如实记录，不装全绿）
+
+- **TS/JS 的 `import {x} from 'm'` 不产边**：既有正则覆盖 `import x` 与 `from m import x` 两种 Python 风格，`import { … }` 里的花括号不匹配。测试里有一条用例把这条局限钉成事实（`test_ts_style_import_is_not_matched`），以免将来误以为"边表已覆盖前端口径"。要覆盖必须改 `code_symbol_graph` 且保持单源。
+- **单文件索引档不产边**：该档的 `file_path` 是 `path.name`（basename），与切片自己都不是仓库相对路径；照样产边会造出一批"路径与切片对不上"的边行。故 `_write_to_api(root=...)` 只在整仓档传。
+- **边已能写，但还没有读消费方**：本批只通"写"侧；`code_search` / MCP 工具面 / `knowledge_fs` 都还没按 `toName`/`fromName` 查边。这是刻意分批 —— 先有可信的写入与删除语义，再做读面，避免"读面先立、底层却一口气都没写过"的空跑。
+- **payload 上限**：路由 `indexSchema.imports` 限 20000 条。理由是坏 payload 能把一次写入拖成几分钟的巨型事务（边表是逐行插入）；上限放在入口而不是推导里，坏输入当场 400。
+## 30. P0-8 第八批：导入边读面与 MCP 工具面（2026-11-23）
+
+### 30.1 三面接线
+
+第七批让边表「能写」，第八批让它「能读」——否则就是一张只有写入没有消费的孤表：
+
+1. **服务层** `findEdges(opts)`：按 `fromName / toName / kind / filePath` 四个等值过滤位查边，`limit` 夹取 `[1, 200]`、缺省 50，排序 `(filePath, line, toName)`。
+2. **HTTP** `GET /repo/:repoId/edges`：`limit` 显式解析，`NaN / <=0` ⇒ 400（与 `entities` 同一纪律，不静默折默认）；无身份 401；失败 500 独立文案。
+3. **虚拟文件系统** `knowledge_fs.list_imports(repo_id, target, ..., direction, limit)` + `GET /ai/knowledge-fs/imports`：把边投影成 `repo/file#name` 虚拟路径，与 `list_symbols` 的路径形态一致（agent 拿到即可直接 read）。
+4. **MCP** `find_import_edges`：`target` + `direction` + `repo_id?` / `path?` / `limit?`；身份只认服务端注入的 `__user_id`；`repo_id` 缺省按 `path` 用 `_default_repo_id` 推导（与 `index_codebase` 同源，否则 agent 拿不到那枚 hash 就用不了这个工具）。
+
+### 30.2 两个方向，不猜
+
+- `direction='from'`：这个**文件**导入了谁 —— `target` 是仓库相对路径，按 `filePath` 查；
+- `direction='to'`：谁导入了这个**名字** —— `target` 是 import 名字原文，按 `toName` 查。
+
+为什么不接受"自动判断这是路径还是名字"：同一个词可能既是文件名前缀又是符号名（`os` 既是模块名也可能是某个目录），猜错方向会返回**一个看起来合理的空集**，而空集是"没有导入关系"和"问错了"的同形。把方向做成显式入参，是把这层二义留给调用方（它知道自己在问什么）。
+
+### 30.3 空集三档，且比实体面多一层二义
+
+| 档 | 判据 | 收信人的动作 |
+| --- | --- | --- |
+| `path_missing` | 路径清单也为空 | 先建索引 |
+| `catalog_missing` | 有切片但边表无记录 | 重建索引可补；**也可能是该仓库的导入行不匹配既有正则** |
+| `upstream_unavailable` | 取数腿失败 | 未判定，重试 |
+
+第三档的 detail 必须点明"当前只覆盖 python 风格 import，TS/JS 的 `import {x} from 'm'` 不产边"——这是第七批就钉进测试的局限，读面若不写出来，调用方会把"TS 仓库天然无边"读成"这个仓库没有导入关系"。测试 `test_imports_catalog_missing_names_ts_gap` 用 `assert "TS/JS" in out["detail"]` 把这句话钉住，防止将来有人"顺手把 detail 写短"。
+
+### 30.4 边界
+
+- **无归属零 DB 调用**：`findEdges` 在 `!ownerUuid` 时直接返回 `[]`，不发起任何查询（测试断言 `selectCalls === 0`）。这不是"查一次得到空集"，是"压根不查"——别人的代码一行都不给。
+- **不做前缀/模糊匹配**：边表存的是名字原文，`use` 模糊匹配会把 `userState` 一起带出来，比查不到更糟。
+- **MCP 工具拒绝路径零副作用**：缺 `target` / 缺身份 / `direction` 非法 / `limit` 非法四条拒绝路径都断言 `must_not_call.assert_not_awaited()`。
+- **仍未做**：`find_import_edges` 在客户端可见性依赖 aggregator/deferral 的清单（与第五批 `list_symbol_definitions` 同一条待办）；边表的"被引用计数"聚合（谁被最多文件导入）尚无论据支撑，不先造指标。
+- **过期语义不对齐（必须先解决再透传 retentionDays）**：切片表有 `expires_at`，边表**没有**。第七批刻意让 `indexChunks` 的 `retentionDays` 位在路由层保持缺省，所以当前不存在残留；一旦将来开口透传保留期，切片会按窗口过期消失、边却永存 ⇒ 边表会出现指向已不存在切片的"幽灵边"。开口透传与给边表加 `expires_at`（配合同一批迁移与删除谓词）必须**同批**，不能先开窗。
+
+### 30.5 与 24.6 第 3 条的现状对照（不改历史叙述，只补现状）
+
+24.6 第 3 条记的是**第二批当时**的事实：「`codebase_entities` / `codebase_edges` 已建表但没有任何写入点、没有消费方；`needsRebuild` / `getIndexState` 目前只有测试消费方」。第三至第八批之后，这条已不成立，逐项对齐如下（每项都有测试证号，不是"已完成"三个字）：
+
+| 对象 | 写入方 | 读方 | 证号（测试文件） |
+| --- | --- | --- | --- |
+| `codebase_chunks` | `indexChunks`（既有的生产链） | `search` / `readFileChunks` / `listPathIndex` | 既有 |
+| `codebase_entities` | `indexChunks` 同事务派生（第三批） | `findEntities` / `GET .../entities` / `knowledge_fs.list_symbols` / MCP `list_symbol_definitions` | `codebase-index-entity-write.test.ts`(14) / `-entity-read.test.ts`(9) / `test_knowledge_fs_symbols.py`(14) / `test_mcp_list_symbol_definitions.py`(9) |
+| `codebase_edges` | `indexChunks` 第五参 `imports` 同事务（第七批）+ Python `collect_import_edges` 生产上传 | `findEdges` / `GET .../edges` / `knowledge_fs.list_imports` / MCP `find_import_edges`（第八批） | `codebase-index-edge-write.test.ts`(14) / `-edge-read.test.ts`(8) / `test_knowledge_fs_imports.py`(9) / `test_mcp_find_import_edges.py`(13) |
+| `codebase_index_states` | `markIndexed`（既有）+ 第六批判据消费 | `getIndexState` / `evaluateRebuild` / `GET .../index-state` / `knowledge_fs.index_state` | `codebase-index-entity-state.test.ts`(13) / `codebase-index-state-read.test.ts`(9) / `test_knowledge_fs_index_state.py`(11) |
+
+当时那句"上层调度承载未定"仍然成立：`evaluateRebuild` 现在有 HTTP 读面与 VFS 读面，但**还没有调度器按判据自动触发重建**——谁在什么时候调用重建端点，仍由调用方决定。这是下一批的候选，不是已完成。

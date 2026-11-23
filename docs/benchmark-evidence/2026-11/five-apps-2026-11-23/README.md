@@ -433,6 +433,16 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - CLI 端点目录同步重生成：`ai-endpoints.generated.ts` 现含 `/api/agents/agent-presets`、`/api/sessions/threads/{thread_id}/outline`、`/api/research/{research_id}/ledger`；端点从 689 条增至 709 条。
 - 本批验证：API vitest `4 passed`；ai-service 路由测试 `8 passed`；CLI `ai-bridge-tools.test.ts` 28 passed；CLI `tsc --noEmit` 0 错。上批六文件合跑与 web diff-stats 结论不变。
 
+## 第九批：重头复检 B1-07 —— LLM 重试从“裸曲线”升级为 provider 路由
+
+- 复检对象不是再抄一个 UI，而是 DSH `dsh-llm-retry` 的运行时底座：`ResolvedRetryPolicy`（`normal/always`、`retryableCodes`、`initialDelayMs/maxDelayMs/jitterRatio`、`providerRetryAfterMs`、`retryId`、取消抑制）。
+- IHUI 原状：`agent_loop_v2._llm_call_with_retry` 只有次数 + 指数退避 + 抖动；没有 provider 白名单，`always` 档不存在，retryId 不稳定，退避用裸 `asyncio.sleep`（取消不能立即抑制在飞重试）。
+- 本批落点：
+  - 新增 `app/core/llm_retry_policy.py`：`LlmRetryPolicy` 纯函数层；`allows()` 白名单（`cancelled` 永不重试）、`attempt_limit()`（`always` 取 20 次硬上界）、`backoff_s()`（与旧曲线逐字同形，支持 max delay 封顶）、`retry_id_for()` 由 `(session_id, iteration)` 确定性派生。
+  - `agent_loop_v2` 接入：新增 `llm_retry_policy` 构造参数与 env（`IHUI_LLM_RETRY_MODE` / `IHUI_LLM_RETRYABLE_CODES` / `IHUI_LLM_RETRY_MAX_DELAY_S`）；循环上界改由策略计算；错误族先过白名单；`decide_stream_retry` 与事件 `llm.retry` 同用策略预算；事件新增 `retry_id` / `retry_mode`；退避等待改走 `_wait_interruptible`，取消/disposal 不再打下一发。
+  - 缺省零行为变化：未注入策略时白名单为空、次数仍取 `llm_retry_max`、曲线仍取 `llm_retry_backoff`。
+- 验证：`test_llm_retry_policy.py` 7 例 + 集成 3 例 `10 passed`；既有 `test_agent_loop_v2.py -k 'llm_retry or classify_error'` `5 passed`；引擎回归 `48 passed`；`ruff` 全绿；提交 `e0ecbb17`。
+
 ## 证据文件
 
 - `dsh-archive.md`：DSH app.asar 盘点（含 containers/integrity/entries）
