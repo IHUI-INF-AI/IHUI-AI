@@ -673,16 +673,29 @@ if ($wrapText -notmatch 'gradle-8\.14\.3-bin\.zip') {
 #    没有缓存 ⇒ distributionUrl 指向腾讯云镜像(实测 47MB/s,137,393,837 字节与原包一致)。
 $Gh = if ($env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME } else { Join-Path $env:USERPROFILE '.gradle' }
 $DistRoot = Join-Path $Gh 'wrapper\dists\gradle-8.14.3-bin'
-$CachedZip = $null
+# 判定必须是"真能用"而不是"文件在":dists 里可能躺着 988 字节的错误页伪装成 zip(镜像返回 404 HTML,
+# wrapper 报 'zip END header not found' 后整条链路 exit 1)。两条都算可用:① 任一 hash 目录已有
+# .zip.ok 标记(wrapper 见到它直接解压、不联网);② 任一 zip 体量 > 10MB。
+$CachedOk = $false
+$BadZips = @()
 if (Test-Path -LiteralPath $DistRoot) {
-  $CachedZip = Get-ChildItem -LiteralPath $DistRoot -Recurse -Filter 'gradle-8.14.3-bin.zip' -ErrorAction SilentlyContinue | Select-Object -First 1
+  $okMark = Get-ChildItem -LiteralPath $DistRoot -Recurse -Filter '*.zip.ok' -ErrorAction SilentlyContinue | Select-Object -First 1
+  $bigZip = Get-ChildItem -LiteralPath $DistRoot -Recurse -Filter 'gradle-8.14.3-bin.zip' -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 10MB } | Select-Object -First 1
+  $BadZips = @(Get-ChildItem -LiteralPath $DistRoot -Recurse -Filter 'gradle-8.14.3-bin.zip' -ErrorAction SilentlyContinue | Where-Object { $_.Length -le 10MB })
+  if ($okMark -or $bigZip) { $CachedOk = $true }
 }
-if ($CachedZip) {
-  Write-Host "  gradle 发行包已在本地缓存($($CachedZip.Length) 字节)⇒ 保留官方 URL" -ForegroundColor Green
+foreach ($bz in $BadZips) {
+  Remove-Item -LiteralPath $bz.FullName -Force -ErrorAction SilentlyContinue
+  Write-Host "  清理坏发行包(仅 $($bz.Length) 字节,是错误页):$($bz.FullName)" -ForegroundColor Yellow
+}
+if ($CachedOk) {
+  $wrapText3 = [regex]::Replace((Get-Content -LiteralPath $WrapProps -Raw), '(?m)^distributionUrl=.*$', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-bin.zip')
+  if ($wrapText3 -ne (Get-Content -LiteralPath $WrapProps -Raw)) { Set-Content -LiteralPath $WrapProps -Value $wrapText3 -NoNewline -Encoding utf8 }
+  Write-Host '  gradle 发行包本地可用(.zip.ok 或 >10MB)⇒ 保留官方 URL,不联网重下' -ForegroundColor Green
 } else {
   $wrapText3 = [regex]::Replace((Get-Content -LiteralPath $WrapProps -Raw), '(?m)^distributionUrl=.*$', 'distributionUrl=https\://mirrors.cloud.tencent.com/gradle/gradle-8.14.3-bin.zip')
   Set-Content -LiteralPath $WrapProps -Value $wrapText3 -NoNewline -Encoding utf8
-  Write-Host '  gradle 发行包无本地缓存 ⇒ distributionUrl 切腾讯云镜像(services.gradle.org 国内不可达)' -ForegroundColor Yellow
+  Write-Host '  gradle 发行包无本地可用缓存 ⇒ distributionUrl 切腾讯云镜像(services.gradle.org 国内不可达)' -ForegroundColor Yellow
 }
 $LocalProps = Join-Path $AndroidDir 'local.properties'
 $sdkLine = 'sdk.dir=' + ($env:ANDROID_HOME -replace '\\', '\\')
