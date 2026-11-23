@@ -5,7 +5,7 @@
 import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
-import { View, Text, Input, Switch } from '@tarojs/components'
+import { View, Text, Input, Textarea, Switch } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
 import { getRnTokens, TARO_RPX_PER_PX } from '@ihui/design-tokens'
@@ -22,6 +22,7 @@ import {
   MODEL_CONFIG_MENU_ROW_PAD_Y_PX,
   MODEL_CONFIG_SWITCH_THUMB_PX,
   MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX,
+  MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX,
   MODEL_CONFIG_UPLOAD_TILE_PX,
   modelConfigAudioMenuIconStyle,
   modelConfigChipInnerStyle,
@@ -33,6 +34,7 @@ import {
   modelConfigMenuRowStyle,
   modelConfigSquareStyle,
   modelConfigSwitchTrackStyle,
+  modelConfigSysPromptBoxStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
 import { rpx } from '@/utils/rpx'
 import { Selecter } from './adapters/Selecter.taro'
@@ -312,9 +314,17 @@ export default function ModelConfigDialog({
               >
                 {tt('model.systemPrompt', '系统提示词')}
               </Text>
-              <Input
+              {/* 系统提示词是长文本:原为单行 <Input>(连换行都打不进去),RN 端一直是多行。
+                  2026-11-23 补齐为 <Textarea> 并两端同挂 MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX,
+                  样式走 modelConfigSysPromptBoxStyle(只给 minHeight,不给 height)。 */}
+              <Textarea
                 className="w-full py-sm text-body bg-muted rounded-sm"
-                style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
+                style={{
+                  ...modelConfigSysPromptBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
+                  // 工厂内的 minHeight 对门 128 的 readGeometry 不可见(它不解析跨文件函数体),
+                  // 在被审文件里显式重挂一次才进读数面;值同源,不是第二份真相。
+                  minHeight: toUnit(MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX),
+                }}
                 placeholder="You are a helpful assistant"
                 value={config.systemPrompt || ''}
                 onInput={(e) => update({ systemPrompt: e.detail.value })}

@@ -32,6 +32,7 @@ import {
   MODEL_CONFIG_INLINE_GLYPH_PX,
   MODEL_CONFIG_INPUT_PAD_X_PX,
   MODEL_CONFIG_LABEL_GAP_PX,
+  MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX,
   modelConfigChipInnerStyle,
   modelConfigChipItemMarginStyle,
   modelConfigInputBoxStyle,
@@ -494,8 +495,12 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           onChangeText={(v) => update({ systemPrompt: v })}
           placeholder={t('profile.cfgSysPromptPh')}
           multiline
-          className="min-h-[60px] rounded-sm p-2 text-xs"
-          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
+          className="rounded-sm p-2 text-xs"
+          style={{
+            backgroundColor: tokens.surface.muted,
+            color: tokens.text.primary,
+            minHeight: MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX,
+          }}
         />
       </Row>
 
