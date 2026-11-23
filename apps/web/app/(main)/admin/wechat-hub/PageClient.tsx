@@ -166,13 +166,13 @@ export default function PageClient() {
             <ConversationsPanel accountId={selected.id} />
           </TabsContent>
           <TabsContent value="contacts" className="mt-3">
-            <ContactsPanel accountId={selected.id} />
+            <ContactsPanel accountId={selected.id} backend={selected.backend} />
           </TabsContent>
           <TabsContent value="send" className="mt-3">
             <SendPanel accountId={selected.id} />
           </TabsContent>
           <TabsContent value="groupOps" className="mt-3">
-            <GroupOpsPanel accountId={selected.id} />
+            <GroupOpsPanel accountId={selected.id} backend={selected.backend} />
           </TabsContent>
           <TabsContent value="knowledge" className="mt-3">
             <KnowledgePanel accountId={selected.id} />

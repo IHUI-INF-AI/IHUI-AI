@@ -8,10 +8,27 @@
 
 'use client'
 
+import type { WechatBackend } from '@ihui/types'
+import { Alert } from '@/components/feedback'
 import GroupActionCard from './GroupActionCard'
 import MomentCard from './MomentCard'
 
-export default function GroupOpsPanel({ accountId }: { accountId: string }) {
+export default function GroupOpsPanel({
+  accountId,
+  backend,
+}: {
+  accountId: string
+  backend: WechatBackend
+}) {
+  if (backend === 'ilink') {
+    return (
+      <Alert
+        variant="info"
+        title="iLink 官方通道仅支持私聊"
+        description="群创建/邀请/踢人/改名/公告与朋友圈需要桥接账号（WeChatFerry 或 mock 桥）。请切换到桥接账号后再使用本页。"
+      />
+    )
+  }
   return (
     <div className="space-y-3">
       <GroupActionCard accountId={accountId} />

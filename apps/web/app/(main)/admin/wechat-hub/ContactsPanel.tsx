@@ -19,7 +19,7 @@ import {
   Switch,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import type { WechatContactView } from '@ihui/types'
+import type { WechatBackend, WechatContactView } from '@ihui/types'
 import GroupMembersCard from './GroupMembersCard'
 import ContactPlatformActions from './ContactPlatformActions'
 import { wechatHubApi } from './wechat-hub-api'
@@ -34,7 +34,13 @@ function formatTime(value: string | null): string {
   }).format(new Date(value))
 }
 
-export default function ContactsPanel({ accountId }: { accountId: string }) {
+export default function ContactsPanel({
+  accountId,
+  backend,
+}: {
+  accountId: string
+  backend: WechatBackend
+}) {
   const [query, setQuery] = React.useState('')
   const [contactId, setContactId] = React.useState<string | null>(null)
   const [remark, setRemark] = React.useState('')
@@ -97,12 +103,18 @@ export default function ContactsPanel({ accountId }: { accountId: string }) {
               <Search className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <ContactPlatformActions
-            accountId={accountId}
-            contactId={contactId}
-            contactUserId={selected?.platformUserId}
-            onChanged={() => void contactsQuery.refetch()}
-          />
+          {backend === 'ilink' ? (
+            <p className="rounded-sm bg-muted px-3 py-2 text-xs text-muted-foreground">
+              iLink 官方通道不提供平台联系人同步/删除；备注、标签与屏蔽只存本地，入站时自动归档。
+            </p>
+          ) : (
+            <ContactPlatformActions
+              accountId={accountId}
+              contactId={contactId}
+              contactUserId={selected?.platformUserId}
+              onChanged={() => void contactsQuery.refetch()}
+            />
+          )}
           {contactsQuery.isLoading ? (
             <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
