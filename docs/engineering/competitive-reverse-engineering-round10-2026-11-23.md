@@ -647,7 +647,7 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 1. **原生层未做全量反编译**：284MB `ai_agent.dll` / 266MB `harness.dll` / 100MB `toolhost.dll` / 101MB `agent-tool-host.exe` 一律止于导出表 + 导入表 + 定向字符串；`ghidra found=false` 未启用原生分析。
 2. **未运行四个程序本体**：所有动态结论（时序、并发交错、洪峰、规则执法强度）只到「推断」档，无「观察」档。
 3. **P0-8 第二批复用通道未通电**：`codebase_entities` / `codebase_edges` 已建表但**没有任何写入点、没有消费方**；`needsRebuild` / `getIndexState` 目前只有测试消费方，上层调度承载未定（见 24.4 之外的独立工单）。
-4. **三处门缺陷未修**：`[30a]` 与 history-guard 互斥（恒红无出路）、`[298]` 工作树臂扫他席旧档、`codebase-index-tenant-isolation.test.ts` 的 `renderSql` 假绿（缺 drizzle 0.38 `getColumnCasing`，刻意避他席在飞面未回灌）。
+4. **门缺陷：两修一待**。① 门 30a（commit 丢失风险）此前被我记作「恒红无出路」，本轮现读实测**不恒红**（直跑 `exit 0`，14 枚悬空 commit 落在「30 天窗内」的报数档）；真缺陷在**建议文案**——它教人 `git tag lost-commit/<name> <hash>` 备份，而该动作被 `.husky/reference-transaction` 在引用事务层硬禁（用户 2026-11-22「本仓从今天起不保留历史」定案，`--no-verify` 也绕不过），照做必失败 ⇒ 已改成该政策下真能执行的三条（`git cherry-pick <hash>` 拾回 / `git show <hash>` 查看 / 确认丢弃即无须处置），并把「已备份即放行」这一分支的恒假现状写进脚本注释。② `[298]` 工作树臂扫他席旧档，未修。③ `codebase-index-tenant-isolation.test.ts` 的 `renderSql` 假绿（缺 drizzle 0.38 `getColumnCasing`），刻意避他席在飞面未回灌。
 5. **顺手根治一处存量漂移**（属本轮落地附带）：journal 里 `20260928050000_lessons_difficulty` 一直有条目，但对应 `.sql` 在 `4fa6b2cf`「仓库最终快照」里丢了 —— `migrate()` 找不到文件、按链新建的库缺 `lessons.difficulty` 列，而 `schema/learn.ts:71` 以为它在；`check-drizzle-journal-sync` 因此常红（`journalOnly=1`），任何触碰 `packages/database/drizzle` 的提交都会被拦。本轮按 schema 反推补齐该迁移（`ALTER TABLE "lessons" ADD COLUMN IF NOT EXISTS "difficulty" varchar(20)`，幂等可重放），落地后该门 `state=ok entries=449 sqlFiles=449 problems=0`。
 
 ### 24.6 本轮真正学到的三条（不是功能清单）

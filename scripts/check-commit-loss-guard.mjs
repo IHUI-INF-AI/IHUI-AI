@@ -3491,6 +3491,10 @@ async function main() {
     //   时暂存区快照,与 HEAD/base 树**并不恒等**(部分 stage 场景),纯 tree
     //   等价判定对这类 commit 会漏放;且 stash 链 parent/grandparent 均不可达
     //   时唯一可靠出口是显式 tag 备份(unreachable-commits-backup/*).
+    //   ⚠ 2026-11-23 现状:该出口已被政策关闭 —— 用户 2026-11-22 定案「本仓不保留历史」,
+    //   .husky/reference-transaction 对三族备份 tag 一律 exit 1 ⇒ 本仓的处置出口只剩
+    //   `git cherry-pick <hash>`(需要保留时);本判据的"已备份即放行"分支因此在本仓恒假,
+    //   悬空 commit 的放行只剩"逐路径 blob 覆盖"这一维(见头注 2b)。
     // 性能:backedUp ~4400 个 hash,批量 for-each-ref + 一次批量取 tree,
     // 且一律 argv 直调(不经 shell)避免 %(xxx) format 被破坏.
     const backedTrees = new Set()
@@ -3811,7 +3815,7 @@ async function main() {
       }
       if (win.blocking.length > 0) {
         issues.push(
-          `${win.blocking.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)` +
+          `${win.blocking.length} 个悬空 commit 未备份(需要保留的用 git cherry-pick <hash> 拾回)` +
             (winDim.days > 0 && !isStrict ? ` [${winDim.days} 天窗内]` : ' [全量档]'),
         )
         // 2026-09-04 修复:打印具体未备份 hash(原仅报数量,无法定位处置;
@@ -4064,8 +4068,16 @@ async function main() {
   }
 
   console.log(`\n${C.yellow}💡 建议:${C.reset}`)
-  console.log(`   - 备份悬空 commit:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`)
-  console.log(`   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`)
+  // 2026-11-23 文案与政策对齐:tag 备份通道已在本仓关闭 —— 用户 2026-11-22 定案「本仓从今天起
+  // 不保留历史」,.husky/reference-transaction 的 prepared 阶段对 lost-commit/* / backup/* /
+  // unreachable-commits-backup/* 三族 tag 一律 exit 1(--no-verify 也绕不过,因为那是引用事务钩子)。
+  // 仍写「git tag lost-commit/... 备份」= 写一条跑不通的出路(§0.8),等于把每次命中的处置
+  // 都逼成"照做必失败"。故改写成该政策下真能执行的三条。
+  console.log(`   - 需要保留的悬空提交:${C.cyan}git cherry-pick <hash>${C.reset}`)
+  console.log(`   - 查看某一枚的内容:${C.cyan}git show <hash>${C.reset}`)
+  console.log(
+    `   - 确认丢弃即可不处置:${C.dim}本仓不保留历史(2026-11-22 定案);tag 备份通道已被 .husky/reference-transaction 关闭${C.reset}`,
+  )
   console.log(`   - 详细规则见 AGENTS.md §22`)
   // 3b 有未清偿项时**也写**结论缓存(2026-11-08 根因修复):本轮已判完(未判定档上面都 exit 2
   // 了),缓存的复用条件是「判据输入面四指纹逐字相同」而不是"3b 缺口为 0" —— 后者在本仓
