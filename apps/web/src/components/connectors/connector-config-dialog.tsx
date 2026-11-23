@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileJson, Loader2, Settings2, Upload } from 'lucide-react'
+import { FileJson, Loader2, Plus, Settings2, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
@@ -72,6 +72,7 @@ export function ConnectorConfigDialog({
   const t = useTranslations('connectors')
   const [type, setType] = React.useState('feishu')
   const [mode, setMode] = React.useState<'preset' | 'custom'>('preset')
+  const [managed, setManaged] = React.useState(false)
   const [name, setName] = React.useState('')
   const [appId, setAppId] = React.useState('')
   const [appSecret, setAppSecret] = React.useState('')
@@ -90,6 +91,19 @@ export function ConnectorConfigDialog({
   const [openapiOpen, setOpenapiOpen] = React.useState(false)
   const [openapiRaw, setOpenapiRaw] = React.useState('')
   const [parsing, setParsing] = React.useState(false)
+
+  // 单条操作编辑
+  const [opOpen, setOpOpen] = React.useState(false)
+  const [opEditingId, setOpEditingId] = React.useState<string | null>(null)
+  const [opId, setOpId] = React.useState('')
+  const [opName, setOpName] = React.useState('')
+  const [opCapability, setOpCapability] = React.useState<ConnectorOperation['capability']>('list')
+  const [opMethod, setOpMethod] = React.useState<ConnectorOperation['method']>('GET')
+  const [opPath, setOpPath] = React.useState('')
+  const [opQuery, setOpQuery] = React.useState('{}')
+  const [opBody, setOpBody] = React.useState('{}')
+  const [opResponsePath, setOpResponsePath] = React.useState('')
+  const [opDescription, setOpDescription] = React.useState('')
 
   const template = catalog?.templates.find((item) => item.type === type)
 
@@ -111,6 +125,7 @@ export function ConnectorConfigDialog({
       const tpl = catalog?.templates.find((item) => item.type === editing.type)
       setType(editing.type)
       setMode(editing.mode)
+      setManaged(Boolean(editing.managed))
       setName(editing.name)
       setAppId('')
       setAppSecret('')
@@ -128,6 +143,9 @@ export function ConnectorConfigDialog({
     }
     setType('feishu')
     setMode('preset')
+    setManaged(
+      Boolean(catalog?.templates.find((item) => item.type === 'feishu')?.managed?.available),
+    )
     setName('')
     setAppId('')
     setAppSecret('')
@@ -149,12 +167,15 @@ export function ConnectorConfigDialog({
     setMode(nextMode)
     if (editing) return
     if (next === 'custom') {
+      setManaged(false)
       setBaseUrl('')
       setAuthKind('none')
       setAuthName('Authorization')
       setOperations([])
       return
     }
+    const nextTpl = catalog?.templates.find((item) => item.type === next)
+    setManaged(Boolean(nextTpl?.managed?.available))
     applyTemplate(next)
   }
 
@@ -184,6 +205,85 @@ export function ConnectorConfigDialog({
     }
   }
 
+  const openAddOperation = () => {
+    setOpEditingId(null)
+    setOpId('')
+    setOpName('')
+    setOpCapability('list')
+    setOpMethod('GET')
+    setOpPath('')
+    setOpQuery('{}')
+    setOpBody('{}')
+    setOpResponsePath('')
+    setOpDescription('')
+    setOpOpen(true)
+  }
+
+  const openEditOperation = (op: ConnectorOperation) => {
+    setOpEditingId(op.id)
+    setOpId(op.id)
+    setOpName(op.name)
+    setOpCapability(op.capability)
+    setOpMethod(op.method)
+    setOpPath(op.path)
+    setOpQuery(JSON.stringify(op.query ?? {}, null, 2))
+    setOpBody(JSON.stringify(op.body ?? {}, null, 2))
+    setOpResponsePath(op.response_path)
+    setOpDescription(op.description)
+    setOpOpen(true)
+  }
+
+  const saveOperation = () => {
+    const id = opId.trim()
+    const path = opPath.trim()
+    if (!id || !path || !/^[A-Za-z0-9_.-]+$/.test(id)) {
+      toast.error(t('operationRequired'))
+      return
+    }
+    if (!path.startsWith('/')) {
+      toast.error(t('operationRequired'))
+      return
+    }
+    let query: Record<string, unknown> = {}
+    let body: Record<string, unknown> | null = null
+    try {
+      query = opQuery.trim() ? (JSON.parse(opQuery) as Record<string, unknown>) : {}
+      body =
+        opBody.trim() && opBody.trim() !== '{}'
+          ? (JSON.parse(opBody) as Record<string, unknown>)
+          : null
+      if (query === null || Array.isArray(query) || typeof query !== 'object')
+        throw new Error('query')
+      if (body !== null && (Array.isArray(body) || typeof body !== 'object'))
+        throw new Error('body')
+    } catch {
+      toast.error(t('operationJsonInvalid'))
+      return
+    }
+    const next: ConnectorOperation = {
+      id,
+      name: opName.trim() || id,
+      capability: opCapability,
+      method: opMethod,
+      path,
+      query,
+      body,
+      response_path: opResponsePath.trim(),
+      confirm: false,
+      description: opDescription.trim(),
+    }
+    setOperations((prev) =>
+      opEditingId
+        ? prev.map((op) => (op.id === opEditingId ? next : op))
+        : [...prev.filter((op) => op.id !== id), next],
+    )
+    setOpOpen(false)
+  }
+
+  const removeOperation = (id: string) => {
+    setOperations((prev) => prev.filter((op) => op.id !== id))
+  }
+
   const submit = () => {
     const extra: Record<string, string> = {}
     if (type === 'yuque') {
@@ -204,8 +304,8 @@ export function ConnectorConfigDialog({
         toast.error(t('actionFailed'))
         return
       }
-    } else if (type !== 'yuque') {
-      // preset 平台必须能从凭据换 token;编辑时密钥可留空保留旧值
+    } else if (type !== 'yuque' && !managed) {
+      // preset 平台手动模式必须能从凭据换 token;编辑时密钥可留空保留旧值
       if (!editing && !appId.trim()) {
         toast.error(t('actionFailed'))
         return
@@ -229,6 +329,7 @@ export function ConnectorConfigDialog({
       app_secret: appSecret,
       extra,
       mode,
+      managed,
       spec: {
         base_url: baseUrl.trim() || template?.base_url || '',
         auth_kind: authKind,
@@ -277,6 +378,29 @@ export function ConnectorConfigDialog({
               )}
             </div>
 
+            {mode === 'preset' && template?.managed?.supported ? (
+              <div className="flex items-start justify-between gap-3 rounded-md border border-stroke-subtle bg-muted/20 p-3">
+                <div className="space-y-0.5">
+                  <p className="text-label font-medium">{t('managedToggle')}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {template.managed.available && managed
+                      ? t('managedToggleHint')
+                      : template.managed.available
+                        ? t('managedToggleOffHint')
+                        : t('managedMissing', {
+                            keys: (template.managed.missing ?? []).join(', '),
+                          })}
+                  </p>
+                </div>
+                <Switch
+                  checked={managed}
+                  disabled={!template.managed.available || Boolean(editing)}
+                  onCheckedChange={setManaged}
+                  aria-label={t('managedToggle')}
+                />
+              </div>
+            ) : null}
+
             <div className="space-y-1.5">
               <Label className="text-label text-muted-foreground">{t('nameLabel')}</Label>
               <Input
@@ -308,27 +432,31 @@ export function ConnectorConfigDialog({
               </>
             ) : (
               <>
-                <div className="space-y-1.5">
-                  <Label className="text-label text-muted-foreground">{t('appIdLabel')}</Label>
-                  <Input
-                    value={appId}
-                    onChange={(e) => setAppId(e.target.value)}
-                    placeholder={t('appIdPlaceholder')}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-label text-muted-foreground">
-                    {mode === 'custom' ? 'Token / Secret' : t('appSecretLabel')}
-                  </Label>
-                  <Input
-                    type="password"
-                    value={appSecret}
-                    onChange={(e) => setAppSecret(e.target.value)}
-                    placeholder={editing ? t('secretKeepHint') : t('appSecretPlaceholder')}
-                    autoComplete="new-password"
-                  />
-                </div>
+                {!managed && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-label text-muted-foreground">{t('appIdLabel')}</Label>
+                      <Input
+                        value={appId}
+                        onChange={(e) => setAppId(e.target.value)}
+                        placeholder={t('appIdPlaceholder')}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-label text-muted-foreground">
+                        {mode === 'custom' ? 'Token / Secret' : t('appSecretLabel')}
+                      </Label>
+                      <Input
+                        type="password"
+                        value={appSecret}
+                        onChange={(e) => setAppSecret(e.target.value)}
+                        placeholder={editing ? t('secretKeepHint') : t('appSecretPlaceholder')}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </>
+                )}
                 {type === 'feishu' && (
                   <div className="space-y-1.5">
                     <Label className="text-label text-muted-foreground">
@@ -423,10 +551,16 @@ export function ConnectorConfigDialog({
                     {t('operationCount', { count: operations.length })}
                   </Badge>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setOpenapiOpen(true)}>
-                  <FileJson className="mr-1.5 h-3.5 w-3.5" />
-                  {t('openapiImport')}
-                </Button>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button variant="outline" size="sm" onClick={openAddOperation}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    {t('addOperation')}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setOpenapiOpen(true)}>
+                    <FileJson className="mr-1.5 h-3.5 w-3.5" />
+                    {t('openapiImport')}
+                  </Button>
+                </div>
               </div>
               {operations.length === 0 ? (
                 <p className="text-label text-muted-foreground">{t('operationsEmpty')}</p>
@@ -447,10 +581,24 @@ export function ConnectorConfigDialog({
                         key={op.id}
                         className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1"
                       >
-                        <span className="min-w-0 truncate text-label">{op.name || op.id}</span>
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate text-left text-label hover:text-primary"
+                          onClick={() => openEditOperation(op)}
+                        >
+                          {op.name || op.id}
+                        </button>
                         <span className="shrink-0 text-[10px] text-muted-foreground">
                           {op.method} {op.path}
                         </span>
+                        <button
+                          type="button"
+                          aria-label={t('removeOperation')}
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeOperation(op.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -467,6 +615,127 @@ export function ConnectorConfigDialog({
               {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               {t('submit')}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={opOpen} onOpenChange={setOpOpen}>
+        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{opEditingId ? t('editOperation') : t('addOperation')}</DialogTitle>
+            <DialogDescription>{t('operationDialogHint')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-label text-muted-foreground">{t('operationId')}</Label>
+                <Input value={opId} onChange={(e) => setOpId(e.target.value)} autoComplete="off" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-label text-muted-foreground">{t('operationName')}</Label>
+                <Input
+                  value={opName}
+                  onChange={(e) => setOpName(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-label text-muted-foreground">
+                  {t('operationCapability')}
+                </Label>
+                <Select
+                  value={opCapability}
+                  onValueChange={(v) => setOpCapability(v as ConnectorOperation['capability'])}
+                >
+                  <SelectTrigger className="h-8 text-label">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(['list', 'search', 'fetch', 'action'] as const).map((cap) => (
+                      <SelectItem key={cap} value={cap}>
+                        {t(CAPABILITY_LABEL_KEY[cap])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-label text-muted-foreground">{t('operationMethod')}</Label>
+                <Select
+                  value={opMethod}
+                  onValueChange={(v) => setOpMethod(v as ConnectorOperation['method'])}
+                >
+                  <SelectTrigger className="h-8 text-label">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const).map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-label text-muted-foreground">{t('operationPath')}</Label>
+              <Input
+                value={opPath}
+                onChange={(e) => setOpPath(e.target.value)}
+                placeholder="/items/{id}"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-label text-muted-foreground">
+                {t('operationResponsePath')}
+              </Label>
+              <Input
+                value={opResponsePath}
+                onChange={(e) => setOpResponsePath(e.target.value)}
+                placeholder="data.items"
+                autoComplete="off"
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-label text-muted-foreground">{t('operationQuery')}</Label>
+                <textarea
+                  value={opQuery}
+                  onChange={(e) => setOpQuery(e.target.value)}
+                  spellCheck={false}
+                  className="h-20 w-full resize-y rounded-md border bg-background p-2 font-mono text-[11px] leading-relaxed outline-none focus:border-stroke-focus"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-label text-muted-foreground">{t('operationBody')}</Label>
+                <textarea
+                  value={opBody}
+                  onChange={(e) => setOpBody(e.target.value)}
+                  spellCheck={false}
+                  className="h-24 w-full resize-y rounded-md border bg-background p-2 font-mono text-[11px] leading-relaxed outline-none focus:border-stroke-focus"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-label text-muted-foreground">
+                {t('operationDescription')}
+              </Label>
+              <Input
+                value={opDescription}
+                onChange={(e) => setOpDescription(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpOpen(false)}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={saveOperation}>{t('operationSave')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

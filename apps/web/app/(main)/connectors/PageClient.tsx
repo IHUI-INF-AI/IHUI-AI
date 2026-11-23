@@ -22,12 +22,15 @@ import {
   RefreshCw,
   Send,
   Settings2,
+  ShieldCheck,
   Trash2,
   Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import {
+  checkConnector,
+  connectManagedConnector,
   deleteConnector,
   fetchConnectorDoc,
   getConnectorCatalog,
@@ -36,6 +39,7 @@ import {
   setConnectorEnabled,
   syncConnector,
   type ConnectorCapability,
+  type ConnectorCatalogItem,
   type ConnectorEntry,
   type ConnectorListResponse,
   type ConnectorSyncItem,
@@ -117,6 +121,8 @@ export default function ConnectorsPageClient() {
   const [docDialog, setDocDialog] = React.useState<DocDialogState | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<ConnectorEntry | null>(null)
   const [deleting, setDeleting] = React.useState(false)
+  const [connectingType, setConnectingType] = React.useState<string | null>(null)
+  const [checkingKey, setCheckingKey] = React.useState<string | null>(null)
 
   const refresh = () => {
     void queryClient.invalidateQueries({
@@ -150,6 +156,42 @@ export default function ConnectorsPageClient() {
       toast.error(t('actionFailed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleManagedConnect = async (type: string, label: string) => {
+    if (connectingType) return
+    setConnectingType(type)
+    try {
+      const r = await connectManagedConnector(type)
+      if (r.success) {
+        toast.success(t('managedConnected', { name: label }))
+        refresh()
+      } else {
+        toast.error(r.error ?? t('actionFailed'))
+      }
+    } catch {
+      toast.error(t('actionFailed'))
+    } finally {
+      setConnectingType(null)
+    }
+  }
+
+  const handleCheck = async (entry: ConnectorEntry) => {
+    if (checkingKey) return
+    setCheckingKey(entry.key)
+    try {
+      const r = await checkConnector(entry.key)
+      if (r.success && r.data) {
+        if (r.data.ok) toast.success(r.data.message || t('checkOk'))
+        else toast.error(r.data.message || t('checkFailed'))
+      } else {
+        toast.error(r.error ?? t('checkFailed'))
+      }
+    } catch {
+      toast.error(t('checkFailed'))
+    } finally {
+      setCheckingKey(null)
     }
   }
 
@@ -242,6 +284,10 @@ export default function ConnectorsPageClient() {
   }
 
   const connectors = list?.connectors ?? []
+  const quickTemplates = (catalog?.templates ?? []).filter((item) => item.type !== 'yuque')
+  const managedByType = new Map(
+    connectors.filter((item) => item.managed).map((item) => [item.type, item]),
+  )
 
   return (
     <div className="py-4 mx-auto w-full max-w-6xl space-y-5 px-4">
@@ -260,11 +306,88 @@ export default function ConnectorsPageClient() {
           </div>
           <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          {t('add')}
+        <Button variant="outline" onClick={openCreate}>
+          <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+          {t('advancedAdd')}
         </Button>
       </header>
+
+      {allow && quickTemplates.length > 0 && (
+        <section className="space-y-2.5 rounded-lg border bg-card p-4">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4 text-primary" />
+            <div className="space-y-0.5">
+              <p className="text-body font-semibold">{t('quickTitle')}</p>
+              <p className="text-label text-muted-foreground">{t('quickHint')}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2 min-[720px]:grid-cols-2">
+            {quickTemplates.map((tpl: ConnectorCatalogItem) => {
+              const installed = managedByType.get(tpl.type)
+              const st = tpl.managed
+              const available = Boolean(st?.available)
+              const connecting = connectingType === tpl.type
+              return (
+                <div
+                  key={tpl.type}
+                  className="flex flex-col gap-2 rounded-md border border-stroke-subtle bg-muted/20 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-label font-semibold text-foreground">
+                          {tpl.label}
+                        </span>
+                        {installed ? (
+                          <Badge variant="success">{t('connected')}</Badge>
+                        ) : (
+                          <Badge variant={available ? 'success' : 'default'}>
+                            {available ? t('managedReady') : t('managedNotReady')}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{tpl.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      {t('operationCount', { count: tpl.operations.length })}
+                    </span>
+                    {installed ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setInvokeTarget(installed)}
+                      >
+                        <Zap className="mr-1.5 h-3.5 w-3.5" />
+                        {t('invoke')}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={!available || connecting}
+                        onClick={() => void handleManagedConnect(tpl.type, tpl.label)}
+                      >
+                        {connecting ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {available ? t('connectNow') : t('managedNotReady')}
+                      </Button>
+                    )}
+                  </div>
+                  {!available ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      {t('managedUnavailableHint')}
+                    </p>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {allow && catalog?.unsupported?.length ? (
         <div className="space-y-1 rounded-lg border border-stroke-subtle bg-muted/30 p-3">
@@ -312,10 +435,12 @@ export default function ConnectorsPageClient() {
               key={entry.key}
               entry={entry}
               syncing={syncingKey === entry.key}
+              checking={checkingKey === entry.key}
               reading={readingKey}
               items={syncItems[entry.key] ?? entry.sync_items ?? []}
               onToggle={(enabled) => void handleToggle(entry, enabled)}
               onSync={() => void handleSync(entry)}
+              onCheck={() => void handleCheck(entry)}
               onInvoke={() => setInvokeTarget(entry)}
               onEdit={() => openEdit(entry)}
               onRead={(item) => void handleFetchDoc(entry, item)}
@@ -379,10 +504,12 @@ export default function ConnectorsPageClient() {
 function ConnectorCard({
   entry,
   syncing,
+  checking,
   reading,
   items,
   onToggle,
   onSync,
+  onCheck,
   onInvoke,
   onEdit,
   onRead,
@@ -390,10 +517,12 @@ function ConnectorCard({
 }: {
   entry: ConnectorEntry
   syncing: boolean
+  checking: boolean
   reading: string | null
   items: ConnectorSyncItem[]
   onToggle: (enabled: boolean) => void
   onSync: () => void
+  onCheck: () => void
   onInvoke: () => void
   onEdit: () => void
   onRead: (item: ConnectorSyncItem) => void
@@ -420,6 +549,7 @@ function ConnectorCard({
             <Badge variant="default">
               {entry.mode === 'custom' ? t('modeCustom') : t('modePreset')}
             </Badge>
+            {entry.managed && <Badge variant="primary">{t('managedBadge')}</Badge>}
             <Badge variant={entry.configured ? 'success' : 'default'}>
               {entry.configured ? t('configured') : t('notConfigured')}
             </Badge>
@@ -482,6 +612,14 @@ function ConnectorCard({
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           )}
           {syncing ? t('syncing') : t('sync')}
+        </Button>
+        <Button variant="outline" onClick={onCheck} disabled={checking || !entry.configured}>
+          {checking ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          {checking ? t('checking') : t('check')}
         </Button>
         <Button variant="outline" onClick={onEdit}>
           <Settings2 className="mr-1.5 h-3.5 w-3.5" />

@@ -962,7 +962,11 @@ export type {
   AccountPoolScreenProps,
 } from './features/account-pool/AccountPoolScreen'
 export type { DomainHubItem, DomainHubScreenProps } from './features/domain-hub/DomainHubScreen'
-export type { ConnectorItem, ConnectorsScreenProps } from './features/connectors/ConnectorsScreen'
+export type {
+  ConnectorItem,
+  ConnectorsScreenProps,
+  ManagedConnectorCandidate,
+} from './features/connectors/ConnectorsScreen'
 export type {
   McpStoreFilterKey,
   McpStoreItem,

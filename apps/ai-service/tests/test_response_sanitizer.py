@@ -349,4 +349,21 @@ def test_is_sensitive_key_cookie_health_safe():
         "cookieHealth": ch,
         "cookies": MASK,
     }
+
+
+def test_is_sensitive_key_credential_source_safe():
+    """2026-11-23:连接器 credential_source 是来源枚举,不是凭据内容。
+
+    "credential" 子串规则曾把 platform_env/public 整个打成 "***",前端据此
+    判断托管来源时读到掩码。真正的 credential / credentials 键仍必须脱敏。
+    """
+    assert _is_sensitive_key("credential_source") is False
+    body = {"managed": True, "credential_source": "platform_env"}
+    assert _sanitize_response(body) == body
+    # 反向对照:凭据本体不因本白名单漏网
+    assert _is_sensitive_key("credential") is True
+    assert _is_sensitive_key("credentials") is True
+    assert _sanitize_response({"credentials": {"token": "x"}}) == {
+        "credentials": MASK
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

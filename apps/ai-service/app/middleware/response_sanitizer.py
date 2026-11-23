@@ -78,6 +78,10 @@ SAFE_KEYS: set[str] = {
     # 2026-11-11:模型实测能力里的 context.tokens 是针测规模(整数),不是密钥;
     # 全库同名 "tokens" 字段均为计量值(仓库内无 "tokens": [...] 的密钥列表),误伤面为零。
     "tokens",
+    # 2026-11-23:连接器的 credential_source 是来源枚举(platform_env / public / 空串),
+    # 不含任何凭据内容;"credential" 子串规则曾把它整个打成 "***",前端据此判断托管来源
+    # 时会读到掩码。真正的 app_id/app_secret 等凭据键仍照常脱敏。
+    "credential_source",
 }
 
 MASK = "***"

@@ -44,6 +44,20 @@ export interface ConnectorItem {
   syncItemsCount: number
   /** 最近一次同步错误(可空) */
   lastError?: string | null
+  /** 平台托管(凭据由平台提供) */
+  managed?: boolean
+  /** 声明式操作数量 */
+  operationCount?: number
+}
+
+/** 平台一键接入候选(平台侧从 catalog 映射,共享层不依赖 api-client) */
+export interface ManagedConnectorCandidate {
+  type: string
+  label: string
+  description: string
+  available: boolean
+  connected: boolean
+  missingKeys?: string[]
 }
 
 /**
@@ -71,6 +85,12 @@ export interface ConnectorsScreenProps {
   onSync: (item: ConnectorItem) => void
   /** 删除回调(平台注入:二次确认弹层确认后 deleteConnector + reload) */
   onDelete: (item: ConnectorItem) => void
+  /** 平台一键接入候选(可选;不注入就不渲染快捷区) */
+  managedCandidates?: ManagedConnectorCandidate[]
+  /** 一键接入回调 */
+  onConnectManaged?: (candidate: ManagedConnectorCandidate) => void
+  /** 正在接入的平台类型 */
+  connectingType?: string
   /** 下拉刷新回调 */
   onRefresh: () => void
   /** 错误态重试回调(与下拉刷新分开:原实现重试不进刷新态) */
@@ -94,6 +114,9 @@ export function ConnectorsScreen({
   onToggle,
   onSync,
   onDelete,
+  managedCandidates,
+  onConnectManaged,
+  connectingType,
   onRefresh,
   onRetry,
   onBack,
@@ -126,6 +149,49 @@ export function ConnectorsScreen({
           contentContainerStyle={styles.bodyContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
+          {managedCandidates && managedCandidates.length > 0 ? (
+            <View style={styles.quickBox}>
+              <Text style={styles.quickTitle}>{t('connectors.quickTitle')}</Text>
+              <Text style={styles.quickHint}>{t('connectors.quickHint')}</Text>
+              {managedCandidates.map((candidate) => {
+                const connecting = connectingType === candidate.type
+                return (
+                  <View key={candidate.type} style={styles.quickRow}>
+                    <View style={styles.quickInfo}>
+                      <Text style={styles.quickLabel}>{candidate.label}</Text>
+                      <Text numberOfLines={2} style={styles.quickDesc}>
+                        {candidate.description}
+                      </Text>
+                      {!candidate.available && candidate.missingKeys?.length ? (
+                        <Text style={styles.quickMissing}>
+                          {t('connectors.managedUnavailableHint')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <TouchableOpacity
+                      disabled={!candidate.available || candidate.connected || connecting}
+                      onPress={() => onConnectManaged?.(candidate)}
+                      style={[
+                        styles.actionBtn,
+                        styles.actionSolid,
+                        (!candidate.available || candidate.connected) && styles.actionDisabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('connectors.connectNow')}
+                    >
+                      <Text style={styles.actionSolidText}>
+                        {candidate.connected
+                          ? t('connectors.connected')
+                          : connecting
+                            ? t('connectors.connecting')
+                            : t('connectors.connectNow')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )
+              })}
+            </View>
+          ) : null}
           {items.length === 0 ? (
             <EmptyState title={t('connectors.empty')} colorScheme={colorScheme} />
           ) : (
@@ -147,7 +213,13 @@ export function ConnectorsScreen({
                   <Text style={styles.meta}>
                     {item.type} ·{' '}
                     {item.configured ? t('connectors.configured') : t('connectors.notConfigured')}
+                    {item.managed ? ` · ${t('connectors.managedBadge')}` : ''}
                   </Text>
+                  {item.operationCount ? (
+                    <Text style={styles.meta}>
+                      {t('connectors.operationCount', { count: item.operationCount })}
+                    </Text>
+                  ) : null}
                   <Text style={styles.meta}>
                     {t('connectors.lastSyncAt')}: {item.lastSyncText || t('connectors.neverSync')}
                   </Text>
@@ -219,12 +291,51 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: { flex: 1 },
     bodyContent: { padding: rnSpacing.md },
+    quickBox: {
+      marginBottom: rnSpacing.md,
+      padding: rnSpacing.md,
+      borderRadius: rnRadiusFor.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+    },
+    quickTitle: {
+      fontSize: rnGeometry.textBody,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    quickHint: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnGeometry.textCaption,
+      color: tk.text.medium,
+    },
+    quickRow: {
+      marginTop: rnSpacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    quickInfo: { flex: 1, marginRight: rnSpacing.sm },
+    quickLabel: {
+      fontSize: rnGeometry.textCaption,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    quickDesc: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnGeometry.textCaption,
+      color: tk.text.medium,
+    },
+    quickMissing: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnGeometry.textCaption,
+      color: tk.error.text,
+    },
     card: {
       marginBottom: rnSpacing.md,
       padding: rnSpacing.md,
       borderRadius: rnRadiusFor.card,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
     cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -254,6 +365,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadiusFor.control,
     },
     actionSolid: { backgroundColor: tk.brand.DEFAULT },
+    actionDisabled: { opacity: 0.5 },
     actionOutline: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,

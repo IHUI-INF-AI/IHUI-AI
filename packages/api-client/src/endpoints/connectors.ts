@@ -94,6 +94,10 @@ export interface ConnectorEntry {
   extra_fields?: Record<string, string>
   /** 是否已配置 */
   configured: boolean
+  /** 是否平台托管(凭据由部署环境提供,用户不填) */
+  managed?: boolean
+  /** public | platform_env | ''(手动配置) */
+  credential_source?: string
   /** 是否启用 */
   enabled: boolean
   /** preset | custom */
@@ -134,10 +138,21 @@ export interface SaveConnectorConfigInput {
   extra: Record<string, string>
   /** preset(预置平台)| custom(自定义 HTTP) */
   mode?: 'preset' | 'custom'
+  /** 平台托管凭据(不填 app_id/app_secret;编辑托管连接器时保留) */
+  managed?: boolean
   /** 传输配置(自定义接入/覆盖平台默认) */
   spec?: Partial<ConnectorSpec>
   /** 声明式操作清单(空=用平台模板默认) */
   operations?: ConnectorOperation[]
+}
+
+/** 平台托管可用性(缺失项只给环境变量名) */
+export interface ConnectorManagedStatus {
+  available: boolean
+  supported: boolean
+  credential_source: 'platform_env' | 'public' | ''
+  missing: string[]
+  reason: string
 }
 
 /** 模板目录条目 */
@@ -149,6 +164,8 @@ export interface ConnectorCatalogItem {
   auth_name: string
   description: string
   operations: ConnectorOperation[]
+  /** 平台托管状态(2026-11-23) */
+  managed?: ConnectorManagedStatus
 }
 
 /** 不支持接入的渠道(带原因) */
@@ -209,6 +226,12 @@ export interface ConnectorFetchResult {
   message: string
 }
 
+/** 连通性自检响应 */
+export interface ConnectorCheckResult {
+  ok: boolean
+  message: string
+}
+
 /** 删除响应 */
 export interface ConnectorDeleteResult {
   ok: boolean
@@ -248,6 +271,17 @@ export async function saveConnectorConfig(
   })
 }
 
+/** 一键接入平台托管连接器(用户不填凭据) */
+export async function connectManagedConnector(
+  type: string,
+  name = '',
+): Promise<ApiResult<ConnectorEntry>> {
+  return fetchApi<ConnectorEntry>('/api/connectors/managed/connect', {
+    method: 'POST',
+    body: JSON.stringify({ type, name }),
+  })
+}
+
 /** 同步连接器数据源,返回条目列表 */
 export async function syncConnector(key: string): Promise<ApiResult<ConnectorSyncResult>> {
   return fetchApi<ConnectorSyncResult>('/api/connectors/sync', {
@@ -277,6 +311,13 @@ export async function invokeConnectorOperation(
   return fetchApi<ConnectorInvokeResult>(`/api/connectors/${encodeURIComponent(key)}/invoke`, {
     method: 'POST',
     body: JSON.stringify({ operation_id: operationId, params, confirm }),
+  })
+}
+
+/** 连通性自检:平台换 token / 自定义出站地址校验 */
+export async function checkConnector(key: string): Promise<ApiResult<ConnectorCheckResult>> {
+  return fetchApi<ConnectorCheckResult>(`/api/connectors/${encodeURIComponent(key)}/check`, {
+    method: 'POST',
   })
 }
 

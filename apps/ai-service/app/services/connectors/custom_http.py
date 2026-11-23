@@ -670,6 +670,28 @@ def audit_write(record: dict[str, Any], user_id: str, operation_id: str) -> None
         logger.warning("[custom_http] 审计埋点失败: %s", exc)
 
 
+async def check_connection(record: dict[str, Any]) -> dict[str, Any]:
+    """连通性自检:平台类换 token,自定义类查出站地址是否安全可达。
+
+    不回传任何凭据;结果只含 ok/message。
+    """
+    spec = ConnectorSpec.from_dict(record.get("spec"))
+    if not spec.base_url:
+        return {"ok": False, "message": "未配置 base_url"}
+    if spec.auth_kind in {"feishu_tenant", "wecom_corp", "dingtalk", "wechat_mp"}:
+        try:
+            await _platform_token(record, spec.auth_kind)
+            return {"ok": True, "message": "平台令牌获取成功,凭据有效"}
+        except ConnectorExecutionError as exc:
+            return {"ok": False, "message": str(exc)}
+    security_ok, security_msg = await check_url(
+        spec.base_url, allow_private_hosts=spec.allow_private_hosts
+    )
+    if not security_ok:
+        return {"ok": False, "message": security_msg}
+    return {"ok": True, "message": "出站地址通过安全校验"}
+
+
 # 供路由层做 URL 预校验(保存配置时提示用户,而不是等执行才报)
 async def check_url(url: str, allow_private_hosts: bool = False) -> tuple[bool, str]:
     try:

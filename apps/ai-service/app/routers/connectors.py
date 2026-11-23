@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from ..core.jwt_auth import require_request_user_id
 from ..services import connector_store
 from ..services import connectors as connector_registry
-from ..services.connectors import catalog, custom_http, openapi_import
+from ..services.connectors import catalog, custom_http, managed, openapi_import
 from ..services.connectors import get_connector
 from ..services.connectors.base import (
     CAPABILITIES,
@@ -93,6 +93,7 @@ class ConnectorConfigRequest(BaseModel):
     app_secret: str = Field("", description="密钥(空串时保留旧值)")
     extra: dict[str, Any] = Field(default_factory=dict, description="类型专属配置")
     mode: str = Field("preset", description="preset(预置平台)|custom(自定义 HTTP)")
+    managed: bool = Field(False, description="平台托管凭据(用户不填 app_id/app_secret)")
     spec: ConnectorSpecIn | None = Field(None, description="传输配置")
     operations: list[dict[str, Any]] = Field(
         default_factory=list, description="声明式操作清单"
@@ -117,6 +118,13 @@ class ConnectorInvokeRequest(BaseModel):
     operation_id: str = Field(..., min_length=1, description="操作 id")
     params: dict[str, Any] = Field(default_factory=dict, description="路径/查询/请求体参数")
     confirm: bool = Field(False, description="写操作二次确认标记")
+
+
+class ManagedConnectRequest(BaseModel):
+    """平台托管一键接入请求(POST /connectors/managed/connect)。"""
+
+    type: str = Field(..., min_length=1, description="预置平台类型")
+    name: str = Field("", description="显示名(空串用模板名)")
 
 
 class OpenApiPreviewRequest(BaseModel):
@@ -159,8 +167,9 @@ def _spec_for_execution(rec: dict[str, Any]) -> dict[str, Any]:
 
 
 def _record_for_execution(rec: dict[str, Any]) -> dict[str, Any]:
-    """执行副本:补模板 spec,不改原记录。"""
-    enriched = dict(rec)
+    """执行副本:补模板 spec + 托管凭据,不改原记录。"""
+    enriched = managed.hydrate(rec)
+    enriched = dict(enriched)
     enriched["spec"] = _spec_for_execution(rec)
     return enriched
 
@@ -222,7 +231,7 @@ def _safe(rec: dict[str, Any]) -> dict[str, Any]:
         for k, v in extra_raw.items()
         if str(k) not in SENSITIVE_EXTRA_KEYS and isinstance(v, (str, int, float, bool))
     }
-    configured = bool(extra) or bool(rec.get("app_id"))
+    configured = bool(rec.get("managed")) or bool(extra) or bool(rec.get("app_id"))
     if not configured and str(rec.get("mode") or "preset") == "custom":
         # 自定义 HTTP 可无 app_id/extra(auth_kind=none),有 base_url 就算已配置
         spec_raw = rec.get("spec")
@@ -236,6 +245,8 @@ def _safe(rec: dict[str, Any]) -> dict[str, Any]:
         "extra": extra,
         "extra_fields": extra_fields,
         "configured": configured,
+        "managed": bool(rec.get("managed")),
+        "credential_source": str(rec.get("credential_source") or ""),
         "enabled": bool(rec.get("enabled")),
         "mode": str(rec.get("mode") or "preset"),
         "spec": _safe_spec(rec),
@@ -311,6 +322,8 @@ async def connector_catalog(
     del user_id  # 只做登录校验,目录本身不含个人数据
     try:
         payload = catalog.list_catalog()
+        for tpl in payload.get("templates", []):
+            tpl["managed"] = managed.status(str(tpl.get("type") or ""))
         payload["capabilities"] = list(CAPABILITIES)
         return payload
     except Exception as e:  # noqa: BLE001
@@ -375,6 +388,16 @@ async def save_connector_config(
         # 预置平台未给操作清单时落模板默认(写操作仍被 allow_write 挡住)
         if not operations and normalized["mode"] == "preset":
             operations = catalog.default_operations(req.type)
+        managed_flag = bool(req.managed and tpl is not None)
+        if managed_flag:
+            # 托管连接器不落任何密钥;记录只声明"凭据由平台提供"
+            app_id = ""
+            app_secret = ""
+            credential_source = (
+                "public" if req.type in {"yuque"} else "platform_env"
+            )
+        else:
+            credential_source = ""
         record = {
             "key": req.key,
             "type": req.type,
@@ -386,6 +409,8 @@ async def save_connector_config(
             "spec": normalized["spec"],
             "operations": operations,
             "enabled": bool((existing or {}).get("enabled", True)),
+            "managed": managed_flag,
+            "credential_source": credential_source,
             "installed_at": installed_at,
             "updated_at": connector_store.now_iso(),
             "last_sync_at": str((existing or {}).get("last_sync_at") or ""),
@@ -406,6 +431,52 @@ async def save_connector_config(
         return _error(500, "保存连接器配置失败,请稍后重试")
 
 
+@router.post("/managed/connect", response_model=None)
+async def connect_managed_connector(
+    req: ManagedConnectRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """一键接入平台托管连接器:用户不填任何凭据。
+
+    凭据由平台部署环境提供,记录只落 ``managed=True``;执行时再注水。
+    """
+    try:
+        tpl = catalog.template_for(req.type)
+        if tpl is None:
+            return _error(400, f"不支持的连接器类型: {req.type}")
+        key = managed.managed_key(req.type)
+        existing = connector_store.get(user_id, key)
+        if existing is not None:
+            if not bool(existing.get("managed")):
+                return _error(409, f"该连接器 key 已被手动配置占用: {key}")
+            return _safe(existing)
+        try:
+            record = managed.build_record(req.type, req.name)
+        except managed.ManagedUnavailable as e:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "平台管理员尚未配置该平台应用凭据,暂不能一键接入",
+                    "missing_env": e.missing,
+                    "type": req.type,
+                },
+            )
+        now = connector_store.now_iso()
+        record["installed_at"] = now
+        record["updated_at"] = now
+        record["last_sync_at"] = ""
+        record["last_error"] = ""
+        record["sync_items"] = []
+        saved = connector_store.save(user_id, record)
+        if saved is None:
+            return _error(500, "保存托管连接器失败")
+        logger.info("平台托管连接器接入成功: %s(%s)", key, req.type)
+        return _safe(saved)
+    except Exception as e:  # noqa: BLE001
+        logger.error("平台托管连接器接入失败(%s): %s", req.type, e)
+        return _error(500, "平台托管连接器接入失败,请稍后重试")
+
+
 @router.post("/sync", response_model=None)
 async def sync_connector(
     req: ConnectorSyncRequest,
@@ -422,13 +493,14 @@ async def sync_connector(
             return _error(400, "未配置，无法同步")
 
         conn_type = str(rec.get("type") or "")
+        exec_rec = _record_for_execution(rec)
         if conn_type in LEGACY_TYPES:
             mod = get_connector(conn_type)
             if mod is None:
                 return _error(500, "连接器模块未就绪")
-            result = await mod.sync(rec)
+            result = await mod.sync(exec_rec)
         else:
-            result = await custom_http.sync(_record_for_execution(rec))
+            result = await custom_http.sync(exec_rec)
 
         ok = bool(result.get("ok"))
         raw_items = result.get("items")
@@ -477,14 +549,15 @@ async def fetch_connector_document(
             return _error(400, "doc_id 为空")
 
         conn_type = str(rec.get("type") or "")
+        exec_rec = _record_for_execution(rec)
         if conn_type in LEGACY_TYPES:
             mod = get_connector(conn_type)
             if mod is None or not hasattr(mod, "fetch_document"):
                 return _error(500, "连接器模块未就绪")
-            result = await mod.fetch_document(rec, req.doc_id.strip())
+            result = await mod.fetch_document(exec_rec, req.doc_id.strip())
         else:
             result = await custom_http.fetch_document(
-                _record_for_execution(rec), req.doc_id.strip()
+                exec_rec, req.doc_id.strip()
             )
         return result if isinstance(result, dict) else {"ok": False, "message": "模块返回异常"}
     except Exception as e:  # noqa: BLE001
@@ -551,6 +624,29 @@ async def invoke_connector_operation(
     except Exception as e:  # noqa: BLE001
         logger.error("连接器操作执行失败(%s/%s): %s", key, req.operation_id, e)
         return _error(500, "连接器操作执行失败,请稍后重试")
+
+
+@router.post("/{key}/check", response_model=None)
+async def check_connector(
+    key: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """连通性自检(平台换 token / 自定义出站地址校验)。"""
+    try:
+        rec = connector_store.get(user_id, key)
+        if rec is None:
+            return _error(404, f"连接器不存在: {key}")
+        if not bool(rec.get("enabled")):
+            return _error(400, "连接器已停用,请先启用")
+        if not _safe(rec)["configured"]:
+            return _error(400, "未配置，无法自检")
+        result = await custom_http.check_connection(_record_for_execution(rec))
+        return result
+    except custom_http.ConnectorExecutionError as e:
+        return {"ok": False, "message": str(e)}
+    except Exception as e:  # noqa: BLE001
+        logger.error("连接器自检失败(%s): %s", key, e)
+        return _error(500, "连接器自检失败,请稍后重试")
 
 
 @router.post("/{key}/enable", response_model=None)

@@ -23,7 +23,7 @@ from httpx import ASGITransport, AsyncClient
 from app.core.jwt_auth import require_request_user_id
 from app.routers import connectors as connectors_router
 from app.services import connector_store
-from app.services.connectors import base, catalog, custom_http, openapi_import
+from app.services.connectors import base, catalog, custom_http, managed, openapi_import
 
 USER = "user-generic"
 
@@ -455,4 +455,92 @@ async def test_openapi_preview_endpoint(generic_client):
     body = resp.json()
     assert body["operation_count"] == 1
     assert body["operations"][0]["id"] == "listItems"
+
+
+# ---------------------------------------------------------------------------
+# 平台托管(零配置接入)
+# ---------------------------------------------------------------------------
+
+
+def test_managed_status_missing_env(monkeypatch):
+    monkeypatch.delenv("FEISHU_APP_ID", raising=False)
+    monkeypatch.delenv("FEISHU_APP_SECRET", raising=False)
+    st = managed.status("feishu")
+    assert st["available"] is False
+    assert "FEISHU_APP_ID" in st["missing"]
+    assert "FEISHU_APP_SECRET" in st["missing"]
+    with pytest.raises(managed.ManagedUnavailable):
+        managed.build_record("feishu")
+
+
+def test_managed_record_never_stores_secrets(monkeypatch):
+    monkeypatch.setenv("FEISHU_APP_ID", "cli_test")
+    monkeypatch.setenv("FEISHU_APP_SECRET", "secret_test")
+    rec = managed.build_record("feishu")
+    assert rec["managed"] is True
+    assert rec["app_id"] == "" and rec["app_secret"] == ""
+    assert rec["key"] == "feishu:managed"
+    hydrated = managed.hydrate(rec)
+    assert hydrated["app_id"] == "cli_test"
+    assert hydrated["app_secret"] == "secret_test"
+    # 原记录不得被注水污染
+    assert rec["app_secret"] == ""
+
+
+@pytest.mark.asyncio
+async def test_managed_connect_endpoint(monkeypatch, generic_client):
+    monkeypatch.setenv("WECOM_CORP_ID", "corp_test")
+    monkeypatch.setenv("WECOM_SECRET", "secret_test")
+    monkeypatch.setenv("WECOM_AGENT_ID", "100001")
+    resp = await generic_client.post(
+        "/api/connectors/managed/connect", json={"type": "wecom"}
+    )
+    assert resp.status_code == 200
+    item = resp.json()
+    assert item["managed"] is True
+    assert item["configured"] is True
+    assert item["credential_source"] == "platform_env"
+    assert item["key"] == "wecom:managed"
+    assert item["extra_fields"].get("agent_id") == "100001"
+    assert "secret_test" not in json.dumps(item)
+
+    # 二次点击幂等,不重复建条
+    again = await generic_client.post(
+        "/api/connectors/managed/connect", json={"type": "wecom"}
+    )
+    assert again.status_code == 200
+    assert again.json()["key"] == item["key"]
+
+
+@pytest.mark.asyncio
+async def test_check_connection_custom(generic_client):
+    await generic_client.post(
+        "/api/connectors/config",
+        json={
+            "key": "custom:check",
+            "type": "custom",
+            "name": "自检",
+            "mode": "custom",
+            "spec": {"base_url": "https://api.example.com", "auth_kind": "none"},
+            "operations": _record()["operations"],
+        },
+    )
+    resp = await generic_client.post("/api/connectors/custom:check/check")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert "通过安全校验" in body["message"]
+
+
+@pytest.mark.asyncio
+async def test_managed_connect_unavailable(monkeypatch, generic_client):
+    monkeypatch.delenv("FEISHU_APP_ID", raising=False)
+    monkeypatch.delenv("FEISHU_APP_SECRET", raising=False)
+    resp = await generic_client.post(
+        "/api/connectors/managed/connect", json={"type": "feishu"}
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["type"] == "feishu"
+    assert "FEISHU_APP_ID" in body["missing_env"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

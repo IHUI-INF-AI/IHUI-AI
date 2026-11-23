@@ -7,12 +7,16 @@ import {
   ConnectorsScreen as SharedConnectorsScreen,
   canSyncConnector,
   type ConnectorItem,
+  type ManagedConnectorCandidate,
 } from '@ihui/rn-app'
 import {
+  connectManagedConnector,
   deleteConnector,
+  getConnectorCatalog,
   getConnectors,
   setConnectorEnabled,
   syncConnector,
+  type ConnectorCatalogResponse,
   type ConnectorEntry,
 } from '@ihui/api-client/endpoints/connectors'
 import { appAlert } from '../components/BottomPops'
@@ -45,6 +49,8 @@ function toConnectorItem(entry: ConnectorEntry): ConnectorItem {
     lastSyncText: entry.last_sync_at ?? '',
     syncItemsCount: entry.sync_items?.length ?? 0,
     lastError: entry.last_error ?? null,
+    managed: entry.managed ?? false,
+    operationCount: entry.operation_count ?? 0,
   }
 }
 
@@ -56,6 +62,8 @@ export function ConnectorsScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [busyKey, setBusyKey] = useState('')
+  const [catalog, setCatalog] = useState<ConnectorCatalogResponse | null>(null)
+  const [connectingType, setConnectingType] = useState('')
 
   const load = useCallback(async () => {
     setError('')
@@ -80,7 +88,51 @@ export function ConnectorsScreen() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await getConnectorCatalog()
+        if (res.success) setCatalog(res.data ?? null)
+      } catch {
+        // 目录只服务快捷区,失败不影响主列表
+      }
+    })()
+  }, [])
+
   const items = useMemo(() => entries.map(toConnectorItem), [entries])
+  const managedCandidates = useMemo<ManagedConnectorCandidate[]>(
+    () =>
+      (catalog?.templates ?? [])
+        .filter((tpl) => tpl.type !== 'yuque')
+        .map((tpl) => ({
+          type: tpl.type,
+          label: tpl.label,
+          description: tpl.description,
+          available: Boolean(tpl.managed?.available),
+          connected: entries.some((entry) => entry.managed && entry.type === tpl.type),
+          missingKeys: tpl.managed?.missing ?? [],
+        })),
+    [catalog, entries],
+  )
+
+  const onConnectManaged = useCallback(
+    (candidate: ManagedConnectorCandidate) => {
+      if (!candidate.available || candidate.connected || connectingType) return
+      setConnectingType(candidate.type)
+      void (async () => {
+        try {
+          const res = await connectManagedConnector(candidate.type)
+          if (!res.success) throw new Error(res.error || t('connectors.actionFailed'))
+          await load()
+        } catch (e) {
+          appAlert(t('connectors.actionFailed'), toFriendlyOr(e, t('connectors.actionFailed')))
+        } finally {
+          setConnectingType('')
+        }
+      })()
+    },
+    [connectingType, load, t],
+  )
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
@@ -165,6 +217,9 @@ export function ConnectorsScreen() {
       onToggle={onToggle}
       onSync={onSync}
       onDelete={onDelete}
+      managedCandidates={managedCandidates}
+      onConnectManaged={onConnectManaged}
+      connectingType={connectingType}
       onRefresh={onRefresh}
       onRetry={() => void load()}
       colorScheme={resolvedTheme}
