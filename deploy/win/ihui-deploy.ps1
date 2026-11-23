@@ -3178,10 +3178,15 @@ function Get-PendingMigrationCount {
         $psql = Get-PsqlExe
         if (-not $psql) { $script:PendingMigrationReason = 'psql.exe 不可达(绝对候选与 PATH 均落空)'; return $null }
         if (-not $env:DATABASE_URL) { $script:PendingMigrationReason = 'DATABASE_URL 未设'; return $null }
-        $raw = ((& $psql $env:DATABASE_URL -At -c "select count(*) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
+        # 2026-11-24 根治(生产实测):旧写法 `journal 条数 − 账本行数`,账本因历史压平比
+        # journal 多时被夹成 0 ⇒ 判"0 pending"跳过 db:migrate,待办迁移永远不落地
+        # (生产实测 journal 455 / 账本 460 / 缺 connector_instances 一枚,却整轮跳过)。
+        # 现按 drizzle 自身口径:账本最大 created_at 之后的 journal 条目就是待办。
+        $raw = ((& $psql $env:DATABASE_URL -At -c "select coalesce(max(created_at),0) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
         if ($raw -notmatch '^\d+$') { $script:PendingMigrationReason = 'psql 输出非数字(连不上库或迁移表不存在)'; return $null }
-        $d = $total - ([int]$raw)
-        if ($d -lt 0) { $d = 0 }
+        $last = [long]$raw
+        $entries = @((Get-Content $jp -Raw | ConvertFrom-Json).entries)
+        $d = @($entries | Where-Object { [long]$_.when -gt $last }).Count
         return $d
     } catch { $script:PendingMigrationReason = "psql 调用异常:$_"; return $null }
 }
