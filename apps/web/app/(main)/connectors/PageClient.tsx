@@ -342,7 +342,7 @@ export default function ConnectorsPageClient() {
 
       {docDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border bg-card p-4 shadow-lg">
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-lg border bg-card p-4 shadow-elevation-lg">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-body font-semibold">{docDialog.title}</h2>
               <Button variant="outline" size="sm" onClick={() => setDocDialog(null)}>
