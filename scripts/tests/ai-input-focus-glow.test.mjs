@@ -2,9 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// AI 输入框文字容器描边不变量(2026-11-23 用户定档):
-//   纯打字文字容器静息不画描边,只留填充底;聚焦时只出现一层墨环(亮纯黑/暗纯白)。
-// 这里锁住 RN/小程序两端实现形态,防止把常驻灰框或第二层内框加回来。
+// AI 输入卡聚焦紫辉光回归(2026-11-23 用户定档):
+//   静息与聚焦都保留 1px field 灰描边;聚焦只叠加双层紫辉光(近 8px/10% + 远 22px -2px/18%)。
+//   web / RN / 小程序共用 --color-ai-input-glow-* 这一组 token,不得端内另写 rgba。
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -22,49 +22,63 @@ const cssBlock = (text, selector) => {
   return open >= 0 && close > open ? text.slice(open + 1, close) : ''
 }
 
-test('RN 大输入框:外壳静息透明,外层独担焦点墨环,内层文字框不再画第二层', () => {
+test('设计 token 提供紫辉光单源三档,并登记到 token-registry', () => {
+  const css = read('packages/design-tokens/src/styles/tokens.css')
+  assert.match(css, /--color-ai-input-glow:\s*#8b5cf6/)
+  assert.match(css, /--color-ai-input-glow-soft:\s*rgba\(139, 92, 246, 0\.1\)/)
+  assert.match(css, /--color-ai-input-glow-strong:\s*rgba\(139, 92, 246, 0\.18\)/)
+
+  const registry = read('packages/design-tokens/src/token-registry.ts')
+  assert.match(registry, /name: '--color-ai-input-glow'/)
+  assert.match(registry, /name: '--color-ai-input-glow-soft'/)
+  assert.match(registry, /name: '--color-ai-input-glow-strong'/)
+
+  const rn = read('packages/design-tokens/src/rn-tokens.ts')
+  assert.match(rn, /aiInputGlow:\s*\{\s*DEFAULT:\s*'#8b5cf6'/)
+  assert.match(rn, /soft:\s*'rgba\(139, 92, 246, 0\.1\)'/)
+  assert.match(rn, /strong:\s*'rgba\(139, 92, 246, 0\.18\)'/)
+})
+
+test('RN 大输入框:field 灰描边 + 双层紫辉光,不取墨档', () => {
   const src = read('apps/mobile-rn/src/components/InputArea.tsx')
-  assert.match(src, /fieldShell:\s*\{[\s\S]*?borderColor: 'transparent'/)
+  assert.match(src, /fieldShell:\s*\{[\s\S]*?borderColor: tokens\.stroke\.field/)
+  assert.match(src, /fieldShellFocused:\s*\{[\s\S]*?boxShadow: AI_INPUT_GLOW_SHADOW/)
+  assert.match(src, /blurRadius: 8,?[\s\S]*?color: tokens\.aiInputGlow\.soft/)
+  assert.match(
+    src,
+    /blurRadius: 22,?[\s\S]*?spreadDistance: -2,?[\s\S]*?color: tokens\.aiInputGlow\.strong/,
+  )
+  assert.doesNotMatch(
+    cssBlock(src, 'fieldShellFocused'),
+    /tokens\.stroke\.focus/,
+    '聚焦态不得回取墨档描边',
+  )
   assert.match(src, /focusedStyle={styles\.inputFocusTransparent}/)
-  assert.match(src, /fieldShellFocused/)
-  assert.match(src, /inputFocusTransparent/)
 })
 
-test('RN 聊天输入框静息描边为透明(聚焦才换墨色)', () => {
-  const src = read('apps/mobile-rn/src/components/BottomActionBar.tsx')
-  assert.match(src, /borderRadius: INPUT_BORDER_RADIUS,[\s\S]*?borderColor: 'transparent'/)
-})
-
-test('RN 共享聊天输入壳静息描边为透明', () => {
-  for (const rel of [
-    'packages/app/src/features/chat/MessageInput.tsx',
-    'packages/app/src/features/chat/ChatComposer.tsx',
-  ]) {
-    const src = read(rel)
-    assert.match(src, /borderRadius: rnRadius\['2xl'\],[\s\S]*?borderColor: 'transparent'/, rel)
-  }
-})
-
-test('小程序 AI 输入壳静息不画描边(聚焦由 useFieldFocus 墨色覆盖)', () => {
+test('小程序 AI 输入框:field 灰描边 + 同一组紫辉光 token', () => {
   const css = read('apps/miniapp-taro/src/pkg-ai/ai/chat.css')
   const block = cssBlock(css, '.search-box-bor')
-  assert.match(block, /border:\s*1px solid transparent/)
+  assert.match(block, /border:\s*1px solid var\(--color-input\)/)
+
+  const src = read('apps/miniapp-taro/src/components/InputArea.tsx')
+  assert.match(src, /borderColor: 'var\(--color-input\)'/)
+  assert.match(src, /var\(--color-ai-input-glow-soft\)/)
+  assert.match(src, /var\(--color-ai-input-glow-strong\)/)
 })
 
-test('web AI 输入卡:静息透明,聚焦取墨档单源 --color-stroke-focus(不随强调色变紫)', () => {
+test('web AI 输入卡:field 灰描边 + 双层紫辉光 token,禁止旧 chart-5', () => {
   const css = read('apps/web/app/globals.css')
   const shell = cssBlock(css, '.ai-input-shell {')
-  assert.match(shell, /border-color:\s*transparent/)
+  assert.match(shell, /border-color:\s*var\(--color-input\)/)
 
   const idleFocus = cssBlock(css, '.ai-input-shell--idle:focus-within')
-  assert.match(idleFocus, /border-color:\s*var\(--color-stroke-focus\)/)
-  assert.match(idleFocus, /box-shadow:\s*none/)
-  // --color-primary 会被 data-accent 覆盖成紫/绿/蓝;聚焦环必须跨主题恒定黑白。
-  assert.doesNotMatch(idleFocus, /--color-primary/)
-  assert.doesNotMatch(idleFocus, /chart-5|8b5cf6|violet/)
+  assert.match(idleFocus, /border-color:\s*var\(--color-input\)/)
+  assert.match(idleFocus, /0 0 8px 0 var\(--color-ai-input-glow-soft\)/)
+  assert.match(idleFocus, /0 0 22px -2px var\(--color-ai-input-glow-strong\)/)
+  assert.doesNotMatch(idleFocus, /--chart-5|8b5cf6|violet/)
 
   const highRiskFocus = cssBlock(css, '.ai-input-shell--high-risk:focus-within')
-  assert.match(highRiskFocus, /border-color:\s*var\(--color-stroke-focus\)/)
-  assert.doesNotMatch(highRiskFocus, /--color-primary/)
+  assert.match(highRiskFocus, /border-color:\s*var\(--color-primary\)/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

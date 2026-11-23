@@ -198,8 +198,16 @@ export default function InputArea({
   const [isFangdaActive, setIsFangdaActive] = useState(false) // 全屏放大
   const [inputBottom, setInputBottom] = useState(0) // 键盘高度(px)
   const [isamplify, setIsamplify] = useState(false) // 放大按钮阈值
-  // ai-home 输入盒的运行时聚焦档(描边在容器上,只换色不换宽 ⇒ 零布局跳动)
+  // ai-home 输入盒的运行时聚焦档(与 web .ai-input-shell 同档:灰描边 + 双层紫辉光,
+  // 不换墨色;描边只换色不换宽 ⇒ 零布局跳动)
   const ff = useFieldFocus()
+  const aiFocusGlowStyle = ff.focused
+    ? {
+        borderColor: 'var(--color-input)',
+        boxShadow:
+          '0 0 8px 0 var(--color-ai-input-glow-soft), 0 0 22px -2px var(--color-ai-input-glow-strong)',
+      }
+    : undefined
   // AI 操控通道(2026-09-21):普通态与全屏放大态两个 Textarea 共用同一个 value + handleInput
   // 受控通道,故只登记一次(两个 id 指向同一真相源反而更含糊)。
   // 只有父组件真的给了 onInput 才登记 —— 没有它"填进去"改变不了任何状态,登记即假成功。
@@ -409,7 +417,7 @@ export default function InputArea({
             )}
             style={{
               backgroundColor: mode === 'voice' ? 'var(--color-link-bg)' : 'var(--color-card)',
-              ...ff.focusStyle,
+              ...(ff.focused ? aiFocusGlowStyle : null),
             }}
           >
             {/* 附件列表 imgs-list(对齐原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}

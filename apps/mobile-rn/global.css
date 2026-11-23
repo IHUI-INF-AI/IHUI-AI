@@ -228,6 +228,11 @@
   --color-stroke-focus: #000000;
   --color-stroke-selected: #4a7a96;
   --color-stroke-danger: #dc2626;
+
+  /* 以下 3 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-ai-input-glow: #8b5cf6;
+  --color-ai-input-glow-soft: rgba(139, 92, 246, 0.1);
+  --color-ai-input-glow-strong: rgba(139, 92, 246, 0.18);
 }
 
 .dark {

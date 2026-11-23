@@ -160,6 +160,31 @@ const STROKE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   },
 ]
 
+/**
+ * AI 输入卡聚焦紫辉光(2026-11-23 立,跨端共用语义名)。
+ * 近层/远层是同一紫色的两个透明度档,web / RN / 小程序都只引用这三枚 token。
+ */
+const AI_INPUT_GLOW_ENTRIES: ReadonlyArray<TokenEntry> = [
+  {
+    name: '--color-ai-input-glow',
+    type: 'color',
+    defaultValue: '#8b5cf6',
+    description: 'AI 输入卡聚焦紫辉光基色(violet-500)',
+  },
+  {
+    name: '--color-ai-input-glow-soft',
+    type: 'color',
+    defaultValue: 'rgba(139, 92, 246, 0.1)',
+    description: 'AI 输入卡聚焦紫辉光近层(8px / 10%)',
+  },
+  {
+    name: '--color-ai-input-glow-strong',
+    type: 'color',
+    defaultValue: 'rgba(139, 92, 246, 0.18)',
+    description: 'AI 输入卡聚焦紫辉光远层(22px / 18%)',
+  },
+]
+
 /** sidebar 色 token(web 独占,miniapp-taro / mobile-rn 不复制)。 */
 const SIDEBAR_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-sidebar', type: 'color', defaultValue: 'hsl(0 0% 96.1%)' },
@@ -654,6 +679,7 @@ const BLACK_OPACITY_ENTRIES: ReadonlyArray<TokenEntry> = buildOpacityEntries(
 const ALL_TOKEN_GROUPS: ReadonlyArray<ReadonlyArray<TokenEntry>> = [
   SEMANTIC_COLOR_ENTRIES,
   STROKE_COLOR_ENTRIES,
+  AI_INPUT_GLOW_ENTRIES,
   SIDEBAR_COLOR_ENTRIES,
   BRAND_COLOR_ENTRIES,
   EXTENDED_COLOR_ENTRIES,

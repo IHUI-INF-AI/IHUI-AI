@@ -1466,17 +1466,24 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  * 与 RN 的 fieldShell / BottomActionBar、小程序的 .search-box-bor 同一条规则。
  */
 .ai-input-shell {
-  border-color: transparent;
+  border-color: var(--color-input);
 }
+/* AI 输入卡聚焦反馈(2026-11-23 用户定档,回到 web 旧档「灰描边 + 紫色辉光」):
+ * - 常态与聚焦都保留 1px field 灰描边(--color-input,与 RN stroke-field 同值),不做变色;
+ * - 聚焦只加对称双层紫光:近层 8px / 10%,远层 22px -2px / 18%;
+ * - 紫取 --color-ai-input-glow-soft / --color-ai-input-glow-strong 单源 token,
+ *   三端共用同一组值,端内不得另写 rgba 或回取 --chart-5。 */
 .ai-input-shell--idle:focus-within {
-  border-color: var(--color-stroke-focus);
-  box-shadow: none;
+  border-color: var(--color-input);
+  box-shadow:
+    0 0 8px 0 var(--color-ai-input-glow-soft),
+    0 0 22px -2px var(--color-ai-input-glow-strong);
 }
 .ai-input-shell--high-risk {
   border-color: var(--color-border-medium);
 }
 .ai-input-shell--high-risk:focus-within {
-  border-color: var(--color-stroke-focus);
+  border-color: var(--color-primary);
 }
 .ai-input-shell--dragging {
   border-color: var(--color-brand-accent-deep);

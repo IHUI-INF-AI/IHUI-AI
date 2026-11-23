@@ -18,20 +18,17 @@ import type { Page } from '@playwright/test'
  *
  * 所以本测试一律读 `getComputedStyle().borderTopColor`,焦点/强调色把期望值**取自 CSS 变量本身**
  * (同页注入一个 `color: var(--x)` 探针再读回),不在测试里抄第二份 rgb 字面量 ——
- * token 改了测试跟着改,而不是测试把 token 的旧值钉成契约;静息透明态用浏览器标准
- * `rgba(0, 0, 0, 0)` 断言。
+ * token 改了测试跟着改,而不是测试把 token 的旧值钉成契约。
  *
- * 三条不可漂的口径(2026-11-23 用户定档:静息无描边,聚焦只留一圈墨档):
- *  1. 静止态必须透明 —— 输入卡只要填充底,不要常驻灰框;`--color-input` 不再参与这一层。
- *  2. 聚焦态必须等于 `--color-stroke-focus`(墨档唯一源)= AGENTS §4「描边不得取墨档」的唯一例外位。
- *     **不得取 `--color-primary`**:该变量会被 `html[data-accent='violet']` 等强调色档整体覆盖,
- *     聚焦环会跟着变成紫/绿/蓝(2026-11-23 用户实报「紫色发光」的根因)。
+ * 三条不可漂的口径(2026-11-23 用户定档:对齐 web 旧档「灰描边 + 紫色辉光」):
+ *  1. 静息与聚焦都保留 1px field 灰描边 —— 取 `--color-input`(与 RN `stroke.field` 同值);
+ *  2. 聚焦只加对称双层紫辉光,取 `--color-ai-input-glow-soft` / `--color-ai-input-glow-strong`
+ *     单一 token;近层 8px / 10%,远层 22px -2px / 18%,不得回取 `--chart-5` 或端内写 rgba;
  *  3. 带 transition 的属性必须用 `expect.poll` 读,不许"点完立刻读一次" —— 实测 150ms
  *     过渡会让瞬时读值拿到起点,把一个正常的实现判成回归(本仓已在此处白排查过一轮)。
  */
 
 const SHELL = '.ai-input-shell'
-const TRANSPARENT_BORDER = 'rgba(0, 0, 0, 0)'
 
 /** 在页面内解析一个 CSS 变量的计算值(经由 color 属性,返回 rgb()/rgba() 文本)。 */
 async function resolveVar(page: Page, cssVar: string): Promise<string> {
@@ -69,6 +66,15 @@ function probeClass(page: Page, modifier: string) {
   }, modifier)
 }
 
+/** 读元素上的 box-shadow 计算值(用于紫辉光两层的到端断言)。 */
+function shadowOf(page: Page, selector: string) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel)
+    if (!el) throw new Error(`元素不存在: ${sel}`)
+    return getComputedStyle(el).boxShadow
+  }, selector)
+}
+
 async function focusShell(page: Page) {
   // 选择器必须在 Node 侧拼好再作为参数传入:写在 evaluate 体内会让浏览器去找 SHELL 这个
   // Node 端常量 ⇒ ReferenceError,而失败形状与"实现没生效"长得一样(本轮就是这么红过一次)
@@ -85,44 +91,44 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     await page.waitForSelector(SHELL, { timeout: 30000 })
   })
 
-  test('静止态不画描边(透明),不回落常驻灰框', async ({ authenticatedPage: page }) => {
-    const actual = await borderOf(page, SHELL)
-    expect(actual, '静止态仍有描边(应为透明,AI 输入卡只要填充底)').toBe(TRANSPARENT_BORDER)
+  test('静止态保留 1px field 灰描边,不透明也不消失', async ({ authenticatedPage: page }) => {
+    const field = await resolveVar(page, '--color-input')
+    expect(await borderOf(page, SHELL), '静止态描边应取 --color-input').toBe(field)
+    expect(await shadowOf(page, SHELL), '静止态不应有辉光').toBe('none')
   })
 
-  test('聚焦态描边取墨档 --color-stroke-focus(AGENTS §4 唯一例外位)', async ({
-    authenticatedPage: page,
-  }) => {
-    const ink = await resolveVar(page, '--color-stroke-focus')
+  test('聚焦态只加双层紫辉光,描边仍是 field 灰', async ({ authenticatedPage: page }) => {
+    const field = await resolveVar(page, '--color-input')
     await focusShell(page)
-    // transition-[border-color] 150ms:立刻读一次会拿到过渡起点,必须 poll
     await expect
-      .poll(() => borderOf(page, SHELL), {
-        timeout: 3000,
-        message: '聚焦态描边未到 --color-stroke-focus',
-      })
-      .toBe(ink)
+      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: '聚焦态描边被换成墨色' })
+      .toBe(field)
+    // box-shadow 同属 transition 属性:点完立刻读会拿到过渡起点(实测 rgb 透明度只有 0.004),
+    // 必须等它收敛到终值再断言两层,否则把正常实现判成回归。
+    await expect
+      .poll(() => shadowOf(page, SHELL), { timeout: 3000, message: '近层紫辉光未收敛' })
+      .toContain('rgba(139, 92, 246, 0.1) 0px 0px 8px 0px')
+    const shadow = await shadowOf(page, SHELL)
+    expect(shadow, '聚焦态缺少远层紫辉光').toContain('rgba(139, 92, 246, 0.18) 0px 0px 22px -2px')
   })
 
   test('高危与拖拽两态各自给色,不与静止态同色', async ({ authenticatedPage: page }) => {
     const idle = await probeClass(page, 'ai-input-shell--idle')
     const dragging = await probeClass(page, 'ai-input-shell--dragging')
     const highRisk = await probeClass(page, 'ai-input-shell--high-risk')
+    const field = await resolveVar(page, '--color-input')
     const accent = await resolveVar(page, '--color-brand-accent-deep')
 
-    expect(idle, '静止态必须是透明描边').toBe(TRANSPARENT_BORDER)
+    expect(idle, '静止态应取 field 灰描边').toBe(field)
     expect(dragging, '拖拽态描边应取品牌绿 --color-brand-accent-deep').toBe(accent)
-    expect(highRisk, '高危态必须与静止态视觉区分(琥珀档),不得同色').not.toBe(idle)
+    expect(highRisk, '高危态必须与静止态视觉区分(16% 中档),不得同色').not.toBe(idle)
     expect(dragging, '拖拽态不得与静止态同色').not.toBe(idle)
-    expect(highRisk, '高危态不得与聚焦墨档同色(高危分支的 focus-within 另有其色)').not.toBe(
-      await resolveVar(page, '--color-stroke-focus'),
-    )
   })
 
-  test('强调色主题下聚焦环仍恒定黑白,不被 data-accent 染色', async ({
+  test('强调色主题下紫辉光仍取 token 单源,不被 data-accent 染色', async ({
     authenticatedPage: page,
   }) => {
-    // violet 档把 --color-primary 覆盖成紫色;聚焦环必须仍取 --color-stroke-focus 纯黑。
+    // violet 档把 --color-primary 覆盖成紫色;辉光必须仍取 --color-ai-input-glow-* 的固定紫。
     await page.evaluate(() => {
       document.documentElement.dataset.accent = 'violet'
     })
@@ -130,33 +136,31 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     expect(primary, '前提失效: violet 档未覆盖 --color-primary').not.toBe('rgb(0, 0, 0)')
 
     await focusShell(page)
+    const field = await resolveVar(page, '--color-input')
     await expect
-      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: 'violet 档聚焦环被染色' })
-      .toBe('rgb(0, 0, 0)')
-    expect(
-      await page.evaluate((sel) => getComputedStyle(document.querySelector(sel)!).boxShadow, SHELL),
-    ).toBe('none')
-
-    await page.evaluate(() => document.documentElement.classList.add('dark'))
+      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: 'violet 档描边被强调色染色' })
+      .toBe(field)
     await expect
-      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: 'violet 暗色档聚焦环应是纯白' })
-      .toBe('rgb(255, 255, 255)')
+      .poll(() => shadowOf(page, SHELL), { timeout: 3000, message: 'violet 档紫辉光未收敛' })
+      .toContain('rgba(139, 92, 246, 0.1) 0px 0px 8px 0px')
+    const shadow = await shadowOf(page, SHELL)
+    expect(shadow, 'violet 档紫辉光应保持 token 原值').not.toContain('106, 31, 234')
   })
 
-  test('暗色档案:静止透明,聚焦取纯白墨档', async ({ authenticatedPage: page }) => {
+  test('暗色档案:描边取暗色 field 灰,紫辉光保持同值', async ({ authenticatedPage: page }) => {
     await page.evaluate(() => document.documentElement.classList.add('dark'))
-    const ink = await resolveVar(page, '--color-stroke-focus')
+    const field = await resolveVar(page, '--color-input')
+    expect(field, '暗色 field 描边应是 16% 白').toBe('rgba(255, 255, 255, 0.16)')
 
-    await expect
-      .poll(() => probeClass(page, 'ai-input-shell--idle'), { timeout: 3000 })
-      .toBe(TRANSPARENT_BORDER)
+    await expect.poll(() => probeClass(page, 'ai-input-shell--idle'), { timeout: 3000 }).toBe(field)
 
     await focusShell(page)
     await expect
-      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: '暗色聚焦态描边未到纯白墨档' })
-      .toBe(ink)
-    // 墨档在暗色下必须随主题反转(否则暗底黑边 = 隐形)
-    expect(ink, '暗色档案下 --color-stroke-focus 必须是亮值').toBe('rgb(255, 255, 255)')
+      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: '暗色聚焦描边未取 field 灰' })
+      .toBe(field)
+    await expect
+      .poll(() => shadowOf(page, SHELL), { timeout: 3000, message: '暗色紫辉光未收敛' })
+      .toContain('rgba(139, 92, 246, 0.18) 0px 0px 22px -2px')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

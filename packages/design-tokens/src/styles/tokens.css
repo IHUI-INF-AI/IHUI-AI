@@ -112,6 +112,13 @@
      新代码仍应写 `border-stroke-field`,本档只作兼容兜底。 */
   --color-input: rgba(0, 0, 0, 0.14);
 
+  /* ===== AI 输入卡聚焦紫辉光(2026-11-23 用户定档) =====
+   * 唯一效果源:近/远两层同色紫光,web / RN / 小程序只引用本组 token。
+   * 紫底取 violet-500;两层透明度固定 10% / 18%,不得在端内另写 rgba。 */
+  --color-ai-input-glow: #8b5cf6;
+  --color-ai-input-glow-soft: rgba(139, 92, 246, 0.1);
+  --color-ai-input-glow-strong: rgba(139, 92, 246, 0.18);
+
   /* ===== 容器描边角色层 2.0(2026-11-15 第二轮) =====
    * 固定顺序:subtle < default < field < strong —— 输入控件必须比容器更实,
    * 弹层必须比页内卡片更重,否则"控件比卡片还虚、弹层和卡片一样平"。

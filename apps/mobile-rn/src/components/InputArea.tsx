@@ -107,6 +107,24 @@ import {
 } from '@ihui/shared/ui/input-area-spec'
 import { Tappable } from '@ihui/ui-native'
 
+/** AI 输入卡聚焦紫辉光:与 web .ai-input-shell 同档(近 8px/10%,远 22px -2px/18%);亮暗同值 */
+const AI_INPUT_GLOW_SHADOW = [
+  {
+    offsetX: 0,
+    offsetY: 0,
+    blurRadius: 8,
+    spreadDistance: 0,
+    color: tokens.aiInputGlow.soft,
+  },
+  {
+    offsetX: 0,
+    offsetY: 0,
+    blurRadius: 22,
+    spreadDistance: -2,
+    color: tokens.aiInputGlow.strong,
+  },
+] as const
+
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
   id?: string | number
@@ -876,9 +894,9 @@ const styles = StyleSheet.create({
     // 与 web 输入壳 rounded-xl(message-input.tsx 'ai-input-shell')同档
     borderRadius: rnRadiusFor.panel,
     borderWidth: INPUT_AREA_SHELL_BORDER_PX,
-    // 静息不画描边(2026-11-23 用户定档:AI 输入壳只要填充底,不要常驻灰框);
-    // 1px 宽度保留给聚焦墨档换色,零布局跳动。录音态另由 fieldShellRecording 覆盖。
-    borderColor: 'transparent',
+    // 2026-11-23 用户定档:与 web .ai-input-shell 同档 —— 常态 1px field 灰描边,
+    // 聚焦只加双层紫辉光,不再换墨档/黑描边。1px 宽度恒占位,零布局跳动。
+    borderColor: tokens.stroke.field,
     backgroundColor: tokens.surface.card,
     // 8/6 = web 壳内 px-2(8)档;原 4/2 实拍「太拥挤」,控件统一 32 高后同步放宽。
     // 纵向 6 与描边 1 已入 spec:TabBar 胶囊按外壳静态高取档,写死字面量会让那张卡悬空
@@ -939,10 +957,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderColor: tokens.border.medium,
   },
-  // 大输入框聚焦:描边只在 fieldShell 上画一次(亮纯黑/暗纯白),内层 TextField 用
-  // inputFocusTransparent 让位 —— 文字小容器不再套第二层矩形。
+  // 大输入框聚焦:描边只在 fieldShell 上画一次,聚焦态描边仍取 field 灰(与 web
+  // --color-input 同值),只叠双层紫辉光;inputFocusTransparent 让位 ——
+  // 内层 TextField 不再套第二层矩形。
   fieldShellFocused: {
-    borderColor: tokens.stroke.focus,
+    borderColor: tokens.stroke.field,
+    boxShadow: AI_INPUT_GLOW_SHADOW,
   },
   inputFocusTransparent: {
     borderColor: 'transparent',

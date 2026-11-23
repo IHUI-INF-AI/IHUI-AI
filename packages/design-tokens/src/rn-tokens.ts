@@ -98,6 +98,16 @@ export type RnStrokeTokens = {
   danger: string
 }
 
+/**
+ * AI 输入卡聚焦紫辉光(--color-ai-input-glow 三档)。
+ * 明暗同值;形状必须是命名空间,顶层标量会被 active-tokens 的 clonePalette 摊成字符对象。
+ */
+export type RnAiInputGlowTokens = {
+  DEFAULT: string
+  soft: string
+  strong: string
+}
+
 export type RnModelTypeTokens = {
   text: string
   textBg: string
@@ -220,6 +230,12 @@ export const rnTokens = {
     selected: '#4a7a96',
     danger: '#dc2626',
   },
+  /* AI 输入卡聚焦紫辉光:唯一效果源 --color-ai-input-glow-*;明暗同值 */
+  aiInputGlow: {
+    DEFAULT: '#8b5cf6',
+    soft: 'rgba(139, 92, 246, 0.1)',
+    strong: 'rgba(139, 92, 246, 0.18)',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -298,6 +314,8 @@ export type RnThemeTokens = {
   agentName: RnAgentNameTokens
   /* 描边角色档(2026-11-15 立)。聚焦档是全项目唯一允许取墨的描边角色。 */
   stroke: RnStrokeTokens
+  /* AI 输入卡聚焦紫辉光(--color-ai-input-glow-*;明暗同值,派生自 tokens.css) */
+  aiInputGlow: RnAiInputGlowTokens
   gray: {
     50: string
     100: string
@@ -405,6 +423,12 @@ export const rnLightTokens: RnThemeTokens = {
     focus: '#000000',
     selected: '#4a7a96',
     danger: '#dc2626',
+  },
+  /* AI 输入卡聚焦紫辉光(明暗同值,派生自 tokens.css) */
+  aiInputGlow: {
+    DEFAULT: '#8b5cf6',
+    soft: 'rgba(139, 92, 246, 0.1)',
+    strong: 'rgba(139, 92, 246, 0.18)',
   },
   gray: {
     50: '#fafafa',
@@ -521,6 +545,12 @@ export const rnDarkTokens: RnThemeTokens = {
     selected: '#a3c4d6',
     danger: '#ef4444',
   },
+  /* AI 输入卡聚焦紫辉光(明暗同值,派生自 tokens.css) */
+  aiInputGlow: {
+    DEFAULT: '#8b5cf6',
+    soft: 'rgba(139, 92, 246, 0.1)',
+    strong: 'rgba(139, 92, 246, 0.18)',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -569,6 +599,8 @@ export const rnCssLight = {
   destructive: '#ff3333',
   destructiveForeground: '#fafafa',
   input: 'rgba(0, 0, 0, 0.14)',
+  aiInputGlowSoft: 'rgba(139, 92, 246, 0.1)',
+  aiInputGlowStrong: 'rgba(139, 92, 246, 0.18)',
   strokeSubtle: 'rgba(0, 0, 0, 0.06)',
   strokeDefault: 'rgba(0, 0, 0, 0.1)',
   strokeStrong: 'rgba(0, 0, 0, 0.18)',
@@ -770,6 +802,8 @@ export const rnCssDark = {
   destructive: '#ff3333',
   destructiveForeground: '#fafafa',
   input: 'rgba(255, 255, 255, 0.16)',
+  aiInputGlowSoft: 'rgba(139, 92, 246, 0.1)',
+  aiInputGlowStrong: 'rgba(139, 92, 246, 0.18)',
   strokeSubtle: 'rgba(255, 255, 255, 0.08)',
   strokeDefault: 'rgba(255, 255, 255, 0.12)',
   strokeStrong: 'rgba(255, 255, 255, 0.22)',
