@@ -260,4 +260,52 @@ Windows 真作业对象 `init` ⇒ `Supported`、真 spawn 后 `kill_all` 清空
 P0-5 是同一件事，两处口径一致（`complete / truncated / pipe_unavailable / timeout`）。
 
 **待办**：`MicroVmBackend` 桩；`SandboxGate` 的 guarded spawn 入口未接（承第 9 节）。
+
+## 11. B4-02 子进程 env 白名单通道（补上与黑名单相反的那条腿）
+
+**来源**：`lite-wb.mjs` L358 的白名单（`USERPROFILE` / `SYSTEMROOT` / `TEMP` …）与隔离集
+（`*_SESSION_ID` / `*_OWNER_KEY`）；`daemon-supervisor.cjs` 的
+`CODEBUDDY_INTERNAL_DAEMON_CHANNEL` / `CODEBUDDY_SESSION_KIND` 显式通道键。
+
+**本仓现状**：`apps/cli/src/sandbox/env-guard.ts` 是**归类表 + 黑名单语义**，它自己的文档里
+写明「未登记的键默认放行」。黑名单的固有缺口是"没列进去就穿透"——新增一个会泄漏会话身份的
+键（`*_SESSION_ID` / 新的 `*_TOKEN`），在有人想起补表之前一直是漏的。
+
+**落地（3 文件）**：
+
+- 新增 `apps/cli/src/sandbox/env-channel.ts`：白名单语义。宿主键只给必需集
+  （Windows 25 键 / POSIX 11 键），未登记默认不进；会话键（`*_SESSION_ID` / `_OWNER_KEY` /
+  `_SESSION_KEY` / `_SESSION_TOKEN` / `_WORKER_ID`）在宿主侧一律隔离；疑似凭据名
+  （`API_KEY` / `SECRET` / `PASSWORD` / `*_TOKEN` 后缀…）拦下；`dropped` 只记键名与原因码，
+  **不回传值**——被丢的往往正是凭据，打进日志等于换个地方泄漏
+- `extras` 是显式授权通道：调用方点名的会话键可以进（hook 上下文靠这条），凭据形态仍拦。
+  顺序刻意是「先凭据、后隔离」：反过来的话 `*_SESSION_TOKEN` 会被当成普通会话键放出去
+- 接线：`apps/cli/src/hooks/index.ts` 两处 spawn（webhook 子进程 / 外部 hook 命令）从
+  `buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS)`（黑名单剥凭据）改为
+  `buildChildEnv(process.env, extras)`（白名单只给必需键）
+
+**测试**：`apps/cli/tests/env-channel-b4-02.test.ts` **13 例**（白名单透传 / 未登记不进 /
+宿主侧会话键隔离 / extras 显式授权 / 凭据名拦且**整份回执序列化后不含那个值** /
+`env-guard` 判 forbidden 的键拒收并给出指引 / 大小写不敏感 / 平台白名单差异 /
+白名单结构自证不含会话与凭据键 / `kept` 排序与 `undefined` 跳过 / `wouldDrop` 同口径）。
+与 hooks 面 **7 文件 106 例** 合并全绿（hooks-extended 36、hooks-lifecycle 11、
+hook-dispatch-points 7、g-424-hook-run-events 9、hook-feedback-channel 5、
+hooks-host-identity 9、本模块 13）；prettier 通过。
+
+**两处真实回归（值得记）**：
+
+1. 首版 `extras` 也拦会话键 ⇒ `hooks-extended::workspacePath/sessionId 通过环境变量传递`
+   转红（hook 脚本里 `%IHUI_SESSION_ID%` 没被展开）。结论：隔离只该拦「宿主环境里的意外
+   继承」，不该拦「调用方显式声明的键」——否则 hook 上下文根本传不出 sessionId。
+2. `_TOKEN` 用 `includes` 判 ⇒ `IHUI_COMPACTED_TOKENS_BEFORE` 被误杀（它含 `_TOKEN` 子串
+   但不是凭据）。改成**后缀**判定，测试已钉住这条语义。
+
+**反向变异**：M1 未登记键也放行 ⇒ 2 例红；M2 凭据形态一律不拦 ⇒ 4 例红；均还原复绿。
+
+**超越轴**：取证件用白名单防「意外的会话身份泄漏」；本仓把它做成**可诊断的丢弃台账**
+（每个键为什么没进、且不回传值），并与既有黑名单共存而不互斥——黑名单管「已知该走别处」，
+白名单管「没被点名的」。副作用可断言：被丢的键确实不出现在子进程 env 里。
+
+**代价/边界**：hooks 是受信外部脚本，仍需拿到 `IHUI_*` 上下文，所以 extras 通道放宽了会话键；
+真要「连会话键都不给」的第三方插件子进程，应传空 extras 并另立调用点（不在本轮范围）。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

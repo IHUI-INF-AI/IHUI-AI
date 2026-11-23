@@ -66,7 +66,10 @@ import { createHash } from 'node:crypto';
 import { canonicalizeArgs } from '../stream-tool-ledger.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { gateHook } from './trust.js';
-import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
+// 2026-11-23 B4-02:钩子子进程的 env 从"黑名单剥凭据"改成"白名单只给必需键"。
+// 钩子是用户配置的外部脚本，最不该看到我们的会话键与模型凭据；`buildChildEnv`
+// 默认什么都不给，未登记宿主键一律不进（丢弃原因可诊断、不回传值）。
+import { buildChildEnv } from '../sandbox/env-channel.js';
 import { redactCrashText } from '@ihui/shared/utils/redact';
 import { redactSecrets } from '../redact.js';
 // 回传通道进的是模型上下文 ⇒ 钩子文本里冒充宿主的保留标签必须中和。
@@ -1109,7 +1112,7 @@ async function runWebhookAsync(entry: HookEntry, env: Record<string, string>, si
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawn EBUSY
     // G-424 ②:异步 spawn 不再阻塞事件循环,取消/超时经 killHookProcess 真打断 mid-run。
     const child = spawn(process.execPath, ['-e', WEBHOOK_SCRIPT], {
-      env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env, IHUI_WEBHOOK_CFG: JSON.stringify(cfg) },
+      env: buildChildEnv(process.env, { ...env, IHUI_WEBHOOK_CFG: JSON.stringify(cfg) }).env,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -1330,7 +1333,7 @@ async function runCommandHookAsync(
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawn EBUSY
     const child = spawn(entry.command!, {
       shell: true,
-      env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env },
+      env: buildChildEnv(process.env, env).env,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
