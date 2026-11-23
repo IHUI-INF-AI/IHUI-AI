@@ -448,8 +448,13 @@ class TestExistingPriceGuard:
         assert 0.20 not in conn.params
         assert 0.60 not in conn.params
 
-    def test_unpriced_row_update_still_writes_upstream_price(self) -> None:
-        """成本为空/0 的未定价行:UPDATE 仍写上游价(新模型上架路径不变)。"""
+    def test_unpriced_row_update_omits_price_columns(self) -> None:
+        """成本为空/0 的未定价行:UPDATE 同样不写售价列,留 0 交零价清扫链定价。
+
+        上游价是 USD 口径(未乘汇率/利润系数),写进 CNY 分/千列会形成约 21.6 倍
+        非零错价,而零价清扫链只认 ≤0 价、看不见这种错值。宁可留 0 被看见/被清扫,
+        也不写错值。
+        """
         service = ModelSyncService()
         conn = _CaptureConn()
 
@@ -479,8 +484,46 @@ class TestExistingPriceGuard:
 
         asyncio.run(run())
         assert conn.sql is not None
-        assert "input_price_per_1k" in conn.sql
-        assert "output_price_per_1k" in conn.sql
+        assert "input_price_per_1k" not in conn.sql
+        assert "output_price_per_1k" not in conn.sql
+
+    @pytest.mark.asyncio
+    async def test_insert_model_omits_price_columns(self) -> None:
+        """新行 INSERT 不写售价列:上游 USD 价不入库,留列默认 0 交清扫链定价。"""
+        service = ModelSyncService()
+        conn = _CaptureConn()
+
+        await service._insert_model(
+            conn,
+            config_id=6,
+            model_id="grok-4.9-new",
+            display_name="grok-4.9-new",
+            ctx_len=131072,
+            input_price=0.20,
+            output_price=0.60,
+            model_tags=["chat"],
+            tags_column_exists=False,
+            columns={},
+            vendor="xai",
+            max_output_tokens=0,
+            supports_tool_call=True,
+            supports_vision=False,
+            description="",
+            rate_limit_rpm=0,
+            rate_limit_tpd=0,
+            release_date="",
+            deprecation_date="",
+            metadata=None,
+            is_relay_public=True,
+        )
+
+        assert conn.sql is not None
+        assert "input_price_per_1k" not in conn.sql
+        assert "output_price_per_1k" not in conn.sql
+        # 上游 USD 错值(0.20/0.60)不得进入 INSERT 参数
+        assert 0.20 not in conn.params
+        assert 0.60 not in conn.params
+        assert conn.sql.strip().upper().startswith("INSERT")
 
     @pytest.mark.parametrize(
         "cost_in,cost_out,price_in,price_out",

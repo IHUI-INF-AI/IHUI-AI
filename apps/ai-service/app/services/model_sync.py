@@ -2360,19 +2360,26 @@ class ModelSyncService:
         v4:metadata(jsonb,token6688 param_schema/capabilities/linkages 等富元数据)
         is_relay_public:调用方按 model_tags 判定 —— 非 chat(图像/视频/embedding)默认不上架,
         否则 /llm/models 会把用户选不了的模型塞进对话选择器。
+        input_price / output_price:上游 USD 口径价,仅保留给主循环超限过滤使用,
+        **不写入售价列**(售价口径归定价管线/人工调价,见下方基础字段注释)。
         """
-        # 基础字段(一定存在)
+        # 基础字段(一定存在)。
+        # 售价列(input/output_price_per_1k)与成本列**不在同步腿写入**:上游 pricing 是
+        # USD 口径,同步腿不掌握 USD→CNY 汇率与利润系数(单一真相源在
+        # apps/api/src/services/model-price-resolver.ts),直接落 CNY 分/千列会形成
+        # 约 7.2×3=21.6 倍的非零错价,且零价清扫链只认 ≤0 价、看不见这种错值。
+        # 新行售价留列默认 0,交由零价清扫链(repricePlaceholderModels /
+        # syncConfigPricesFromPricing / sweepUnpricedModels)显式定价;三源解析不到的
+        # 模型由清扫链下架,不白送上游额度。
         fields = [
             "config_id", "model_id", "display_name", "context_length",
-            "input_price_per_1k", "output_price_per_1k",
             "enabled", "is_relay_public", "relay_price_multiplier",
         ]
-        placeholders = ["$1", "$2", "$3", "$4", "$5", "$6", "true", "$7", "'1.0000'"]
+        placeholders = ["$1", "$2", "$3", "$4", "true", "$5", "'1.0000'"]
         params: list[Any] = [
-            config_id, model_id, display_name, ctx_len, input_price, output_price,
-            is_relay_public,
+            config_id, model_id, display_name, ctx_len, is_relay_public,
         ]
-        idx = 8  # 下一个 placeholder 编号
+        idx = 6  # 下一个 placeholder 编号
 
         # tags 字段(v2 已有)
         if tags_column_exists:
@@ -2425,11 +2432,11 @@ class ModelSyncService:
             "updated_at = now()",
         ]
         if tags_column_exists:
-            update_parts.append("tags = $8")
+            update_parts.append("tags = $6")
         # F4.5 新字段的 ON CONFLICT UPDATE
-        update_idx = 8
+        update_idx = 6
         if tags_column_exists:
-            update_idx = 9
+            update_idx = 7
         for col_name, _param_value in f4_5_fields:
             if columns.get(col_name, False):
                 update_parts.append(
@@ -2487,17 +2494,20 @@ class ModelSyncService:
         v4:metadata(jsonb,token6688 富元数据)。
         restore_relay_public:安全阀曾自动下架的模型重新出现在上游清单时,
         恢复 is_relay_public(仅 chat 模型;管理员手动下架的行没有该标记,不会被动恢复)。
-        existing_cost:存量行现有成本价(cost_in/cost_out);双列 >0 的已有定价行,
-        同步腿保留其售价列,不用上游 USD 价覆盖(售价口径归定价管线/人工调价)。
+        existing_cost:存量行现有成本价(cost_in/cost_out),仅用于判定该行是否已有
+        成本定价;同步腿对两类情形都不写售价列(见下)。
         """
-        keep_price = self._keep_existing_price(existing_cost)
+        # 售价列**永不**由同步腿写入,两种情形都不例外:
+        #  - 成本双列 >0 的已有定价行:保护其售价,不被上游价覆盖(售价口径归定价
+        #    管线/人工调价);
+        #  - 成本为空/0 的未定价行:也不写上游 USD 口径价 —— 同步腿不掌握 USD→CNY
+        #    汇率与利润系数,直接落 CNY 分/千列会形成约 7.2×3=21.6 倍的非零错价,
+        #    而零价清扫链只认 ≤0 价、看不见这种错值。留列现值/0,交由零价清扫链
+        #    (repricePlaceholderModels / syncConfigPricesFromPricing /
+        #    sweepUnpricedModels)显式定价;三源解析不到的模型由清扫链下架。
         set_parts = ["context_length = $3", "updated_at = now()"]
         params: list[Any] = [config_id, model_id, ctx_len]
         idx = 4
-        if not keep_price:
-            set_parts += ["input_price_per_1k = $4", "output_price_per_1k = $5"]
-            params += [input_price, output_price]
-            idx = 6
 
         if tags_column_exists:
             set_parts.append(f"tags = ${idx}")
@@ -2554,11 +2564,12 @@ class ModelSyncService:
     def _keep_existing_price(
         existing_cost: tuple[float | None, float | None] | None,
     ) -> bool:
-        """存量行已有成本定价(成本双列均 >0)时,同步腿保留其售价,不被上游价覆盖。
+        """判定存量行是否已有成本定价(成本双列均 >0)。
 
         售价口径由定价管线/人工调价负责(成本 × PROFIT_FACTOR,PROFIT_FACTOR 同源
         apps/api/src/services/model-price-resolver.ts);model_sync 的职责是清单与元数据
-        对齐,不得越权覆写已有定价。成本为空/0 的未定价行仍按上游价写入。
+        对齐,不得越权覆写已有定价。无论是否已有定价,同步腿 UPDATE 都不写售价列:
+        已有定价行受保护;未定价行留 0 交零价清扫链显式定价,不写上游 USD 错价。
         """
         if not existing_cost:
             return False
