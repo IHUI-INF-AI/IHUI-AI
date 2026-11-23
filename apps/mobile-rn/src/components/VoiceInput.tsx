@@ -317,8 +317,8 @@ const styles = StyleSheet.create({
     // 角色档 control(按住说话 = 按钮)→ sm(4)
     borderRadius: rnRadiusFor.control,
     // 内衬与最小高唯一源在 @ihui/shared/ui/voice-input-spec(与小程序端同档):
-    // 原先 rnSpacing.md/sm 与小程序类名各写一份(横向 16 vs 12、纵向 12 vs 8、最小高 48 vs 无),
-    // 2026-11-24 各按 §4 compact 取小收口。
+    // 原先 rnSpacing.md/sm 与小程序类名各写一份(横向 12 vs 16、纵向 8 vs 12、最小高 无 vs 48),
+    // 2026-11-24 收口:横向跟到 16(小程序是设计锚)、纵向取小 8、最小高定 40。
     // ⚠️ 注释里不要回写类名字面量:`stripComments` 对注释内反引号的剥离不可靠,
     // 回写的档会被 readGeometry 当成真实读数。
     paddingHorizontal: VOICE_INPUT_BTN_PAD_X_PX,

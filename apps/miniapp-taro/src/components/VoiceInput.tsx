@@ -16,6 +16,14 @@ import streamingRecognizer from '@/utils/streaming-recognizer'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { rpx } from '@/utils/rpx'
 
+/**
+ * 逻辑 px → 本端 rpx。
+ * ⚠️ 必须走这个具名换算器,不能内联写 `rpx(N * TARO_RPX_PER_PX)`:门 128 的 readGeometry
+ * 只认已知换算器名(`toUnit`/`toRpx`)与 `rpx(数字字面量)` 两型,内联乘法形态**整族隐身**
+ * (实测:写完小程序侧这四档一个都读不到,账面凭空多一条"仅 RN 16")。
+ */
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
+
 // 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types。
 // 识别器配置两键与 RN 端同名(aiServiceUrl/language),真实透传给 streamingRecognizer.configure。
 export type VoiceInputProps = VoiceInputMinimalProps & {
@@ -116,14 +124,15 @@ export default function VoiceInput({
         } ${disabled ? 'opacity-50' : ''}`}
         style={{
           // 盒高/内衬全部经 shared 单一源换算:原先这些档写在类名里(横向内衬 16、纵向 12、
-          // 最小高 48),与 RN 的 rnSpacing 及「无最小高」各写一份;2026-11-24 各按 §4 compact 取小收口。
+          // 最小高 48),与 RN 的 rnSpacing 及「无最小高」各写一份;2026-11-24 收口 ——
+          // 横向 16 不动(本端是设计锚),纵向与最小高各取小。
           // ⚠️ 注释里不要回写类名字面量:`stripComments` 对注释内反引号的剥离不可靠,
           // 回写的档会被 readGeometry 当成真实读数(实测凭空多一条"仅一端 12")。
-          minHeight: rpx(VOICE_INPUT_BTN_MIN_HEIGHT_PX * TARO_RPX_PER_PX),
-          paddingLeft: rpx(VOICE_INPUT_BTN_PAD_X_PX * TARO_RPX_PER_PX),
-          paddingRight: rpx(VOICE_INPUT_BTN_PAD_X_PX * TARO_RPX_PER_PX),
-          paddingTop: rpx(VOICE_INPUT_BTN_PAD_Y_PX * TARO_RPX_PER_PX),
-          paddingBottom: rpx(VOICE_INPUT_BTN_PAD_Y_PX * TARO_RPX_PER_PX),
+          minHeight: toUnit(VOICE_INPUT_BTN_MIN_HEIGHT_PX),
+          paddingLeft: toUnit(VOICE_INPUT_BTN_PAD_X_PX),
+          paddingRight: toUnit(VOICE_INPUT_BTN_PAD_X_PX),
+          paddingTop: toUnit(VOICE_INPUT_BTN_PAD_Y_PX),
+          paddingBottom: toUnit(VOICE_INPUT_BTN_PAD_Y_PX),
         }}
         onTouchStart={startRecord}
         onTouchEnd={stopRecord}
@@ -135,7 +144,7 @@ export default function VoiceInput({
                 原 mr-2 类携带同一数字即是第二份真相 */}
             <View
               className="flex flex-row items-center h-5"
-              style={{ marginRight: rpx(VOICE_INPUT_RECORD_ROW_GAP_PX * TARO_RPX_PER_PX) }}
+              style={{ marginRight: toUnit(VOICE_INPUT_RECORD_ROW_GAP_PX) }}
             >
               {WAVE_BARS.map((i) => (
                 <View
@@ -147,7 +156,7 @@ export default function VoiceInput({
             </View>
             <Text
               className="text-sm text-[var(--color-danger)]"
-              style={{ marginRight: rpx(VOICE_INPUT_RECORD_ROW_GAP_PX * TARO_RPX_PER_PX) }}
+              style={{ marginRight: toUnit(VOICE_INPUT_RECORD_ROW_GAP_PX) }}
             >
               {mm}:{ss}
             </Text>
