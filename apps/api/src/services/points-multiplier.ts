@@ -136,6 +136,7 @@ const POINTS_MULTIPLIER_ECONOMY_KEYWORDS = [
   'luna',
   'sao10k',
   'smol',
+  'hunyuan-2.0-thinking',
 ] as const
 const POINTS_MULTIPLIER_FLAGSHIP_KEYWORDS = [
   'opus',

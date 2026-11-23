@@ -129,6 +129,7 @@ def test_infer_points_multiplier_avoids_cost_false_positives() -> None:
     assert infer_points_multiplier("deepseek-ocr") == 1.0
     assert infer_points_multiplier("gpt-5-image-mini") == 1.0
     assert infer_points_multiplier("gpt-5.6-luna") == 1.0
+    assert infer_points_multiplier("hunyuan-2.0-thinking") == 1.0
     assert infer_points_multiplier("thinkingmachines/inkling") == 3.0
     assert infer_points_multiplier("thinkingmachines/inkling-small") == 1.0
     assert infer_points_multiplier("qwen3-235b-a22b-thinking-2507") == 3.0

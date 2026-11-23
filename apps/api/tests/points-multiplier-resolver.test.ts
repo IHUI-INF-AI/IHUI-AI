@@ -71,6 +71,7 @@ describe('points multiplier keyword inference (2026-11-23 cost anomalies)', () =
     expect(inferPointsMultiplier('deepseek-ocr')).toBe(1)
     expect(inferPointsMultiplier('gpt-5-image-mini')).toBe(1)
     expect(inferPointsMultiplier('gpt-5.6-luna')).toBe(1)
+    expect(inferPointsMultiplier('hunyuan-2.0-thinking')).toBe(1)
   })
 
   it('thinking 不再等于旗舰;低成本 thinking 模型按标准档兜底', () => {

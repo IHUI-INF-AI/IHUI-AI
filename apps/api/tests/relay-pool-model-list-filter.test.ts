@@ -210,7 +210,7 @@ describe('listUserPoolModels 连通过滤', () => {
 
   it('预置与上游条目都下发积分档位:付费模型不再默认免费', async () => {
     // 2026-11-23 根治「号池模型全显示免费」:pointsMultiplier 与真实扣分
-    // inferPointsMultiplier 同源,按 5 档 tier 下发,前端再映射成展示小数。
+    // inferPointsMultiplier 同源,按 5 档 tier 直接下发,前端原样显示 1x/3x/30x。
     presetRows = [
       { providerCode: 'trae', modelId: 'glm-5.3', displayName: 'GLM-5.3' },
       { providerCode: 'trae', modelId: 'ollama/llama3', displayName: 'Llama 3' },
@@ -224,8 +224,8 @@ describe('listUserPoolModels 连通过滤', () => {
 
     // 默认经济档(1),不是 0;前端直接显示 1x
     expect(byId.get('glm-5.3')?.pointsMultiplier).toBe(1)
-    // 旗舰思考档(30);前端直接显示 30x
-    expect(byId.get('trae/hunyuan-2.0-thinking')?.pointsMultiplier).toBe(30)
+    // 轻量思考档(1x):成本只有旗舰的几十分之一,不再按 "thinking" 一刀切 30x
+    expect(byId.get('trae/hunyuan-2.0-thinking')?.pointsMultiplier).toBe(1)
     // 真正 zero_cost 的本地模型才允许 0
     expect(byId.get('ollama/llama3')?.pointsMultiplier).toBe(0)
   })

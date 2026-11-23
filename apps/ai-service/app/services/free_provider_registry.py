@@ -1745,6 +1745,7 @@ _STANDARD_KEYWORDS: tuple[str, ...] = (
 # 经济(1x):轻量 / 快速 / 低成本(必须优先于父型号判定)
 _ECONOMY_KEYWORDS: tuple[str, ...] = (
     "mini", "nano", "haiku", "flash", "lite", "ocr", "small", "luna", "sao10k", "smol",
+    "hunyuan-2.0-thinking",
 )
 # 免费(0x):本地 / zero_cost provider
 _FREE_KEYWORDS: tuple[str, ...] = (
