@@ -3,20 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 倍率回填(2026-11-23 立,用户定案「只接后台可配置」)。
+ * 倍率只读审计(2026-11-23 立,用户定案「只接后台可配置」;同日改为禁止回写)。
  *
- * 为什么需要:数据库列 `ai_model_config_models.points_multiplier` 默认 '1.00' 且非空,
- * 没有"未设置"语义。读取源切到该列之前,必须把存量行对齐到**当前实际生效**的推断值,
- * 否则所有 3x/10x/30x 模型会一起被压成 1x(相当于全站降价)。
+ * 历史用途:数据库列 `ai_model_config_models.points_multiplier` 默认 '1.00' 且非空,
+ * 没有"未设置"语义。读取源切到该列之前,曾用本脚本把存量行对齐到旧推断值。
+ * 初始回填已完成(两次 dry-run changes=0 后上线),现在 DB 是唯一生效源:
+ *   · 后台「中转站模型 → 积分倍数」是唯一编辑入口,展示与扣分都读同列;
+ *   · 本脚本**只做只读审计**,列出"当前 DB vs 关键词兜底"的差异供排查;
+ *   · 传 `--apply` 直接拒绝(exit 2),避免有人重跑旧推断把后台调好的价格覆盖掉。
  *
- * 口径:
- *   · 只处理全局配置(owner_uuid IS NULL),与运行时 resolver 的读取面一致;
- *   · 目标值 = `inferPointsMultiplier(model_id)`,即切换前的真实扣分档位;
- *   · 默认 dry-run,显式 `--apply` 才写库;逐行只改值不同的行,幂等可重跑。
- *
- * 用法(生产机):
+ * 用法(生产机,只读):
  *   node --experimental-strip-types apps/api/scripts/backfill-points-multiplier.mts
- *   node --experimental-strip-types apps/api/scripts/backfill-points-multiplier.mts --apply
  */
 import 'dotenv/config'
 import postgres from 'postgres'
@@ -60,44 +57,35 @@ async function run(): Promise<void> {
       }
     }
 
-    console.log(`[points-backfill] rows=${rows.length} changes=${changes.length} apply=${APPLY}`)
+    console.log(`[points-audit] rows=${rows.length} changes=${changes.length} apply=${APPLY}`)
     console.log(
-      `[points-backfill] target distribution=${JSON.stringify(
+      `[points-audit] target distribution=${JSON.stringify(
         Object.fromEntries([...distribution.entries()].sort((a, b) => Number(a[0]) - Number(b[0]))),
       )}`,
     )
     for (const change of changes.slice(0, 20)) {
-      console.log(
-        `[points-backfill] #${change.id} ${change.modelId}: ${change.from} -> ${change.to}`,
-      )
+      console.log(`[points-audit] #${change.id} ${change.modelId}: ${change.from} -> ${change.to}`)
     }
     if (changes.length > 20) {
-      console.log(`[points-backfill] ... ${changes.length - 20} more`)
+      console.log(`[points-audit] ... ${changes.length - 20} more`)
     }
 
-    if (!APPLY || changes.length === 0) {
-      console.log('[points-backfill] dry-run done; add --apply to write')
+    if (!APPLY) {
+      console.log('[points-audit] read-only done; DB points_multiplier is the only source')
       return
     }
 
-    await sql.begin(async (tx) => {
-      for (const change of changes) {
-        await tx`
-          UPDATE ai_model_config_models
-          SET points_multiplier = ${change.to}::numeric(5,2),
-              updated_at = now()
-          WHERE id = ${change.id}
-        `
-      }
-    })
-    console.log(`[points-backfill] applied ${changes.length} rows`)
+    console.error(
+      '[points-audit] refused: --apply 已停用。DB points_multiplier 是唯一生效源,请在后台「中转站模型 → 积分倍数」改价;旧推断不得覆盖后台配置。',
+    )
+    process.exitCode = 2
   } finally {
     await sql.end({ timeout: 5 })
   }
 }
 
 main().catch((err: unknown) => {
-  console.error('[points-backfill] failed:', err instanceof Error ? err.message : err)
+  console.error('[points-audit] failed:', err instanceof Error ? err.message : err)
   process.exitCode = 1
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

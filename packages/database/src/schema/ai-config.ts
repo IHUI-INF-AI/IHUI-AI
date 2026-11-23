@@ -225,20 +225,23 @@ export const aiModelConfigModels = pgTable(
  *
  * 计费公式:扣分 = (输入token + 输出token) / 1000 × points_multiplier × 1 积分基准
  * - 免费模型(zero_cost/local):0x(不扣分)
- * - 经济模型(mini/flash):1x(1千token=1积分)
- * - 标准模型(standard):3x(1千token=3积分)
- * - 高级模型(pro/max):10x(1千token=10积分)
- * - 旗舰模型(opus/thinking):30x(1千token=30积分)
+ * - 经济模型(mini/flash/ocr/小模型):1x(1千token=1积分)
+ * - 标准模型(standard/thinking):3x(1千token=3积分)
+ * - 高级模型(gpt-5 普通档/pro/max):10x(1千token=10积分)
+ * - 旗舰模型(opus/gpt-5.5/gpt-5.6-sol/terra):30x(1千token=30积分)
+ *
+ * 2026-11-23 修正:档位不再按名字里的 "thinking"/"gpt-5" 一刀切;
+ * 轻量后缀(mini/flash/ocr/small/luna)优先,DB `points_multiplier` 是唯一生效源。
  *
  * 字段:ai_model_config_models.points_multiplier numeric(5,2) default 1.00
  * 兜底:积分不足时降级到 zero_cost 模型(类似 Cursor slow request)
  */
 export const POINTS_MULTIPLIER_TIERS = {
   FREE: 0, // 免费模型(本地/zero_cost)
-  ECONOMY: 1, // 经济模型(mini/flash)
-  STANDARD: 3, // 标准模型
-  PREMIUM: 10, // 高级模型(pro/max)
-  FLAGSHIP: 30, // 旗舰模型(opus/thinking)
+  ECONOMY: 1, // 经济模型(mini/flash/ocr/小模型)
+  STANDARD: 3, // 标准模型(含低成本 thinking)
+  PREMIUM: 10, // 高级模型(gpt-5 普通档/pro/max)
+  FLAGSHIP: 30, // 旗舰模型(opus/gpt-5.5/gpt-5.6-sol/terra)
 } as const
 
 export type PointsMultiplierTier =

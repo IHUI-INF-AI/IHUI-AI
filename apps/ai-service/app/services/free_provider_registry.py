@@ -1729,23 +1729,38 @@ free_provider_registry = FreeProviderRegistry()
 #     (claude-3-opus 实际归类为旗舰 30x,符合"opus 系列=旗舰"语义)。
 # ============================================================================
 
-# 旗舰(30x):最强推理 / 顶级模型
-_FLAGSHIP_KEYWORDS: tuple[str, ...] = ("opus", "thinking", "o1-preview", "o1", "o3", "gpt-5")
+# 旗舰(30x):只认真实旗舰家族(2026-11-23 修正:不再把 "thinking"/"gpt-5" 全族拉进旗舰)
+_FLAGSHIP_KEYWORDS: tuple[str, ...] = (
+    "opus", "o1-preview", "o1", "o3", "gpt-5.4-pro", "gpt-5.5", "gpt-5.5-pro",
+    "gpt-5.6-sol", "gpt-5.6-terra",
+)
 # 高级(10x):pro / max / turbo / 长上下文旗舰
 _PREMIUM_KEYWORDS: tuple[str, ...] = (
-    "gpt-4-turbo", "gpt-4.5", "claude-3-opus", "gemini-pro",
-    "o1-mini", "o3-mini", "qwen-max-longcontext",
+    "gpt-5", "gpt-4-turbo", "gpt-4.5", "qwen-max-longcontext",
 )
-# 标准(3x):主流中端模型
+# 标准(3x):主流中端模型;低成本 thinking 模型也落这一档(不再算旗舰)
 _STANDARD_KEYWORDS: tuple[str, ...] = (
-    "sonnet", "gpt-4o", "gpt-4.1", "deepseek", "glm-4", "qwen-max",
+    "sonnet", "gpt-4o", "gpt-4.1", "deepseek", "glm-4", "qwen-max", "thinking",
 )
-# 经济(1x):轻量 / 快速 / 低成本
-_ECONOMY_KEYWORDS: tuple[str, ...] = ("mini", "flash", "lite", "nano", "haiku")
+# 经济(1x):轻量 / 快速 / 低成本(必须优先于父型号判定)
+_ECONOMY_KEYWORDS: tuple[str, ...] = (
+    "mini", "nano", "haiku", "flash", "lite", "ocr", "small", "luna", "sao10k", "smol",
+)
 # 免费(0x):本地 / zero_cost provider
 _FREE_KEYWORDS: tuple[str, ...] = (
     "ollama", "llama", "llm7", "pollinations", "aihorde", "opencode_zen",
 )
+
+
+def _has_economy_keyword(mid: str) -> bool:
+    """经济档关键词命中;`gemini` 含子串 "mini"(ge-mini),必须排除。"""
+    for keyword in _ECONOMY_KEYWORDS:
+        if keyword == "mini":
+            if "mini" in mid and "gemini" not in mid:
+                return True
+        elif keyword in mid:
+            return True
+    return False
 
 
 def infer_points_multiplier(model_id: str) -> float:
@@ -1753,10 +1768,10 @@ def infer_points_multiplier(model_id: str) -> float:
 
     返回值:
     - 0.0: 免费模型(本地 / zero_cost provider)
-    - 1.0: 经济模型(mini / flash / lite / nano / haiku)
-    - 3.0: 标准模型(sonnet / gpt-4o / deepseek / glm-4 / qwen-max)
-    - 10.0: 高级模型(pro / max / turbo / 长上下文旗舰)
-    - 30.0: 旗舰模型(opus / thinking / o1 / o3 / gpt-5)
+    - 1.0: 经济模型(mini / flash / lite / nano / haiku / ocr / small)
+    - 3.0: 标准模型(sonnet / gpt-4o / deepseek / glm-4 / qwen-max / thinking)
+    - 10.0: 高级模型(gpt-5 / pro / max / turbo / 长上下文旗舰)
+    - 30.0: 旗舰模型(opus / o1 / o3 / gpt-5.5 / gpt-5.6-sol / gpt-5.6-terra)
 
     无法匹配任何关键词时返回 1.0(默认经济档,避免高估用户消耗)。
 
@@ -1774,31 +1789,34 @@ def infer_points_multiplier(model_id: str) -> float:
         1.0
         >>> infer_points_multiplier("deepseek-chat")
         3.0
+        >>> infer_points_multiplier("deepseek-v4.1-flash")
+        1.0
+        >>> infer_points_multiplier("thinkingmachines/inkling")
+        3.0
         >>> infer_points_multiplier("ollama/llama3")
         0.0
         >>> infer_points_multiplier("")
         1.0
     """
     mid = (model_id or "").lower()
-    # 优先处理 mini/nano/haiku 后缀(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
-    # mini 版本永远归经济档(1x),不论父型号
-    if "mini" in mid or "nano" in mid or "haiku" in mid:
+    # 免费(0x):先判,避免免费模型被后面的旗舰/标准关键词抬高
+    if any(k in mid for k in _FREE_KEYWORDS):
+        return 0.0
+    # 经济(1x):mini/flash/ocr 等轻量后缀必须先于父型号(family)判定,
+    # 否则 deepseek-v4.1-flash 会被 deepseek 拉到 3x、gpt-5-image-mini 被 gpt-5 拉到 30x。
+    if _has_economy_keyword(mid):
         return 1.0
     # 旗舰(30x)
     if any(k in mid for k in _FLAGSHIP_KEYWORDS):
         return 30.0
     # 高级(10x)
+    if "gemini" in mid and "pro" in mid:
+        return 10.0
     if any(k in mid for k in _PREMIUM_KEYWORDS):
         return 10.0
     # 标准(3x)
     if any(k in mid for k in _STANDARD_KEYWORDS):
         return 3.0
-    # 经济(1x):flash/lite(mini/nano/haiku 已提前返回)
-    if any(k in mid for k in _ECONOMY_KEYWORDS):
-        return 1.0
-    # 免费(0x)
-    if any(k in mid for k in _FREE_KEYWORDS):
-        return 0.0
     # 默认经济(1x)
     return 1.0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

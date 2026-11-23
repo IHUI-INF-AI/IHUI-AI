@@ -14,6 +14,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPointsMultiplierOverrideMap,
+  inferPointsMultiplier,
   lookupPointsMultiplierOverride,
   normalizePointsModelId,
   parsePointsMultiplierOverride,
@@ -61,6 +62,35 @@ describe('points multiplier override', () => {
     expect(normalizePointsModelId('  OpenCode/Claude-Opus-5-5 [opencode] ')).toBe(
       'opencode/claude-opus-5-5',
     )
+  })
+})
+
+describe('points multiplier keyword inference (2026-11-23 cost anomalies)', () => {
+  it('轻量后缀优先于父型号,不再把 cheap flash/ocr 抬到 3x/30x', () => {
+    expect(inferPointsMultiplier('deepseek-v4.1-flash')).toBe(1)
+    expect(inferPointsMultiplier('deepseek-ocr')).toBe(1)
+    expect(inferPointsMultiplier('gpt-5-image-mini')).toBe(1)
+    expect(inferPointsMultiplier('gpt-5.6-luna')).toBe(1)
+  })
+
+  it('thinking 不再等于旗舰;低成本 thinking 模型按标准档兜底', () => {
+    expect(inferPointsMultiplier('thinkingmachines/inkling')).toBe(3)
+    expect(inferPointsMultiplier('thinkingmachines/inkling-small')).toBe(1)
+    expect(inferPointsMultiplier('qwen3-235b-a22b-thinking-2507')).toBe(3)
+  })
+
+  it('sao10k 8B 这类名字不再误判旗舰', () => {
+    expect(inferPointsMultiplier('sao10k/l3-8b-lunaris-v1')).toBe(1)
+    expect(inferPointsMultiplier('sao10k/l3.1-euryale-70b')).toBe(1)
+  })
+
+  it('真实旗舰与高级家族保持原档位', () => {
+    expect(inferPointsMultiplier('claude-opus-5-5')).toBe(30)
+    expect(inferPointsMultiplier('gpt-5.5')).toBe(30)
+    expect(inferPointsMultiplier('gpt-5.6-terra-pro')).toBe(30)
+    expect(inferPointsMultiplier('gpt-5.4')).toBe(10)
+    expect(inferPointsMultiplier('gpt-5-image')).toBe(10)
+    expect(inferPointsMultiplier('gemini-2.5-pro')).toBe(10)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

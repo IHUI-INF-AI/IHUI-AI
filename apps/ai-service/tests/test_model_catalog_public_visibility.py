@@ -119,4 +119,24 @@ async def test_catalog_passes_through_db_points_multiplier(
     assert models[0]["points_multiplier"] == 3.0
     # 静态兜底才允许推断,DB 行不得被 Python 的 infer 覆盖
     assert models[0]["id"] == "openrouter/deepseek-v4-pro"
+
+
+def test_infer_points_multiplier_avoids_cost_false_positives() -> None:
+    """2026-11-23:轻量后缀先于父型号;thinking 不再等于旗舰;gemini 含 mini 子串不得误判。"""
+    from app.services.free_provider_registry import infer_points_multiplier
+
+    assert infer_points_multiplier("deepseek-v4.1-flash") == 1.0
+    assert infer_points_multiplier("deepseek-ocr") == 1.0
+    assert infer_points_multiplier("gpt-5-image-mini") == 1.0
+    assert infer_points_multiplier("gpt-5.6-luna") == 1.0
+    assert infer_points_multiplier("thinkingmachines/inkling") == 3.0
+    assert infer_points_multiplier("thinkingmachines/inkling-small") == 1.0
+    assert infer_points_multiplier("qwen3-235b-a22b-thinking-2507") == 3.0
+    assert infer_points_multiplier("sao10k/l3-8b-lunaris-v1") == 1.0
+    assert infer_points_multiplier("claude-opus-5-5") == 30.0
+    assert infer_points_multiplier("gpt-5.5") == 30.0
+    assert infer_points_multiplier("gpt-5.4") == 10.0
+    assert infer_points_multiplier("gpt-5-image") == 10.0
+    assert infer_points_multiplier("gemini-2.5-pro") == 10.0
+    assert infer_points_multiplier("gemini-2.5-flash") == 1.0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

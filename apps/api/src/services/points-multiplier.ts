@@ -108,41 +108,86 @@ export function lookupPointsMultiplierOverride(
   return undefined
 }
 
+/**
+ * 关键词兜底推断(只在 DB 没有覆盖值时使用)。
+ *
+ * 2026-11-23 修正:旧规则把纯子串 `thinking` / `gpt-5` / `deepseek` 一律拉进 30x/3x,
+ * 导致 `thinkingmachines/inkling`、`gpt-5.6-luna`、`deepseek-ocr`、`deepseek-v4.1-flash`
+ * 这类低成本模型被高估(实测成本只有旗舰档的 1/10 ~ 1/100)。
+ * 现在顺序固定为:免费 → 经济(轻量后缀优先) → 旗舰(仅真实旗舰家族) → 高级 → 标准 → 默认。
+ * DB `points_multiplier` 仍是唯一生效源;本函数只给新入库行一个不荒谬的初值。
+ */
+const POINTS_MULTIPLIER_FREE_KEYWORDS = [
+  'ollama',
+  'llama',
+  'llm7',
+  'pollinations',
+  'aihorde',
+  'opencode_zen',
+] as const
+const POINTS_MULTIPLIER_ECONOMY_KEYWORDS = [
+  'mini',
+  'nano',
+  'haiku',
+  'flash',
+  'lite',
+  'ocr',
+  'small',
+  'luna',
+  'sao10k',
+  'smol',
+] as const
+const POINTS_MULTIPLIER_FLAGSHIP_KEYWORDS = [
+  'opus',
+  'o1-preview',
+  'o1',
+  'o3',
+  'gpt-5.4-pro',
+  'gpt-5.5',
+  'gpt-5.5-pro',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+] as const
+const POINTS_MULTIPLIER_PREMIUM_KEYWORDS = [
+  'gpt-5',
+  'gpt-4-turbo',
+  'gpt-4.5',
+  'qwen-max-longcontext',
+] as const
+const POINTS_MULTIPLIER_STANDARD_KEYWORDS = [
+  'sonnet',
+  'gpt-4o',
+  'gpt-4.1',
+  'deepseek',
+  'glm-4',
+  'qwen-max',
+  'thinking',
+] as const
+
 /** 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
 export function inferPointsMultiplier(modelId: string): number {
   const mid = (modelId || '').toLowerCase()
   // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
   if (IHUI_POINTS_MAP[mid] !== undefined) return IHUI_POINTS_MAP[mid]
-  // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
-  if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  // 旗舰(30x)
-  if (['opus', 'thinking', 'o1-preview', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k)))
-    return 30
-  // 高级(10x)
+  // 免费(0x):先判,避免免费模型被后面的旗舰/标准关键词抬高
+  if (POINTS_MULTIPLIER_FREE_KEYWORDS.some((k) => mid.includes(k))) return 0
+  // 经济(1x):mini/flash/ocr 等轻量后缀必须先于父型号(family)判定,
+  // 否则 deepseek-v4.1-flash 会被 deepseek 拉到 3x、gpt-5-image-mini 被 gpt-5 拉到 30x。
+  // 注意:gemini 本身含 "mini" 子串(ge-mini),不能把 Gemini 家族误判成经济档。
   if (
-    [
-      'gpt-4-turbo',
-      'gpt-4.5',
-      'claude-3-opus',
-      'gemini-pro',
-      'o1-mini',
-      'o3-mini',
-      'qwen-max-longcontext',
-    ].some((k) => mid.includes(k))
-  )
-    return 10
-  // 标准(3x)
-  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k)))
-    return 3
-  // 经济(1x)
-  if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  // 免费(0x)
-  if (
-    ['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) =>
-      mid.includes(k),
+    POINTS_MULTIPLIER_ECONOMY_KEYWORDS.some((k) =>
+      k === 'mini' ? mid.includes('mini') && !mid.includes('gemini') : mid.includes(k),
     )
   )
-    return 0
+    return 1
+  // 旗舰(30x):只认真实旗舰家族;`thinking` 不再代表旗舰——
+  // 大量开源 reasoning 模型名字带 thinking 但成本只有 1x/3x。
+  if (POINTS_MULTIPLIER_FLAGSHIP_KEYWORDS.some((k) => mid.includes(k))) return 30
+  // 高级(10x)
+  if (mid.includes('gemini') && mid.includes('pro')) return 10
+  if (POINTS_MULTIPLIER_PREMIUM_KEYWORDS.some((k) => mid.includes(k))) return 10
+  // 标准(3x)
+  if (POINTS_MULTIPLIER_STANDARD_KEYWORDS.some((k) => mid.includes(k))) return 3
   // 默认经济(1x)
   return 1
 }
