@@ -77,7 +77,9 @@ export function useAppFrameWidth(): number {
   const { width: winW } = useWindowDimensions()
   const [frameW, setFrameW] = useState(winW)
   useEffect(() => {
-    if (typeof document === 'undefined') return
+    // 原生端连 document 这个名字都不该有;但本机实测有些 polyfill 会挂一个不完整的
+    // document(有对象、没有 getElementById),只判 typeof document 会漏,调用即 TypeError。
+    if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return
     const el = document.getElementById('root')
     const w = el ? el.getBoundingClientRect().width : 0
     if (w > 0) setFrameW(w)
