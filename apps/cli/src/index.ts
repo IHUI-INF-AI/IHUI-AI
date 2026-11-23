@@ -133,6 +133,7 @@ import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
 // G-B49 C2(REA 对齐 WorkBuddy startup-profile.cjs / cbc-prewarm,取证见 W1-workbuddy-main.md 缺口⑪):
 // 启动画像(纯判据) + 预热命中读数(可断言) —— 接线仅在下文 direct-run 块,opt-in,零改动命令注册。
 import { createStartupTracker, renderStartupLine } from './startup/profile.js';
+import { createSpanTree, renderSpanLine } from './startup/span-tree.js';
 import {
   buildProcessFingerprint,
   defaultIsPidAlive,
@@ -1639,6 +1640,13 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   // 与 background-drain 播报同一形态)。三态诚实:缺里程碑落 unjudged 点名,绝不以 0ms 冒充量到。
   const startupTracker = createStartupTracker(() => performance.now());
   startupTracker.mark('entry');
+  // B4-08:启动 span 树(默认关 ⇒ 零开销零输出;IHUI_STARTUP_SPANS=1 才记一段 boot,
+  // 并在 exit 打一行 ASCII)。boot 闭合即停采,启动后的稳态路径不再入账。
+  const startupSpansOn = process.env.IHUI_STARTUP_SPANS === '1';
+  const spanTree = startupSpansOn
+    ? createSpanTree(() => performance.now(), { required: ['boot'], stopAt: 'boot' })
+    : null;
+  const bootSpan = spanTree ? spanTree.open('boot') : null;
   const startupProfileOn = process.env.IHUI_STARTUP_PROFILE === '1';
   const prewarmReading = startupProfileOn
     ? readPrewarmStatus({
@@ -1654,6 +1662,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     : null;
   process.on('exit', () => {
     startupTracker.mark('exit');
+    bootSpan?.close();
+    if (spanTree) console.error(renderSpanLine(spanTree.reading()));
     if (!startupProfileOn) return;
     console.error(renderStartupLine(startupTracker.reading()));
     if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
