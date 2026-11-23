@@ -72,6 +72,11 @@ const indexSchema = z.object({
     )
     .max(20000)
     .optional(),
+  // P0-8 第九批(2026-11-23):保留期透传。此前这一位刻意保持缺省(第七八批注释
+  // 里写明"路由层暂不透传"),因为边表没有 expires_at —— 透传会立刻造出
+  // "切片到期、边还活着"的幽灵边。第九批给边表补了同名列,开口才成立。
+  // null = 显式长期保留(永不过期);不传 = 用 CODE_INDEX_RETENTION_DAYS 默认上限。
+  retentionDays: z.number().int().min(0).nullable().optional(),
 })
 
 export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
@@ -324,8 +329,8 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
         b.repoId,
         b.chunks as ChunkInput[],
         req.userId,
-        // retentionDays 位保持缺省(路由层暂不透传),imports 走第五位
-        undefined,
+        // 第九批起保留期透传(null = 显式长期保留;不传 = 默认上限),imports 走第五位
+        b.retentionDays,
         b.imports,
       )
       return reply.send(success(result))

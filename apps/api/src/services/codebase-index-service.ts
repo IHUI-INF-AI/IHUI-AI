@@ -314,11 +314,15 @@ function _entityOwnerScope(ownerUuid: string | null | undefined) {
 }
 
 /**
- * 边表的归属谓词(P0-8 第七批)。
+ * 边表的归属谓词(P0-8 第七批;第九批补过期过滤)。
  *
  * 与 `_entityOwnerScope` 同一条纪律(无归属 fail-closed),但**仍是独立函数**:
  * 两张表的列对象不同,共用一份会写成"对 codebaseEntities 的列做边表查询"这种
  * 能编译却指错表的 SQL —— 三个谓词各自绑自己的表,这是最便宜的防错方式。
+ *
+ * 第九批补过期过滤的理由与 `_ownerScope` 完全一致(见该函数头注):边与切片
+ * 同事务写入、同一保留期,只过滤切片会让"设了保留期却不遵守"在边读面上复发,
+ * 表现为调用图持续命中已过期行。存量边 `expires_at` 为 NULL ⇒ 按永不过期处理。
  */
 /** limit 夹取:两处读面(findEntities / findEdges)共用同一份,不各写一遍(§0.6)。 */
 function _clampLimit(limit: number | undefined): number {
@@ -327,7 +331,10 @@ function _clampLimit(limit: number | undefined): number {
 
 function _edgeOwnerScope(ownerUuid: string | null | undefined) {
   if (!ownerUuid) return sql`1 = 0`
-  return eq(codebaseEdges.ownerUuid, ownerUuid)
+  return and(
+    eq(codebaseEdges.ownerUuid, ownerUuid),
+    or(isNull(codebaseEdges.expiresAt), sql`"codebase_edges"."expires_at" > NOW()`),
+  )
 }
 
 /**
@@ -497,6 +504,9 @@ class CodebaseIndexService {
       toName: d.toName,
       kind: d.kind,
       line: d.line,
+      // 第九批:边与切片用**同一次算定**的 expiresAt(同一个 retentionDays 语义),
+      // 不各算一遍 —— 两处各算会因调用毫秒差出现"切片已过期、边还活着"的窄窗口。
+      expiresAt,
     }))
     // 清除面 = 切片涉及的文件 ∪ 本轮 import 清单涉及的文件。后者多出来的那一类
     // ("只剩 import、没有可切片内容"的纯声明文件)上一轮的边同样必须换新。
@@ -1344,8 +1354,26 @@ class CodebaseIndexService {
       `)) as Array<{ id: string }>
       const deleted = rows.length
       total += deleted
-      if (deleted < limitPerBatch) return total
+      if (deleted < limitPerBatch) break
     }
+    // 第九批(2026-11-23):边表也有 `expires_at`,只清切片会留下过期边 ——
+    // 读面虽已按过期过滤("过期即不可见"成立),但留存面的终点是**物理删除**。
+    // 与切片同一分批形态;返回值合并为一次运行的总删除行数(调用方只记日志/指标)。
+    for (;;) {
+      const rows = (await db.execute(sql`
+        DELETE FROM "codebase_edges"
+        WHERE "id" IN (
+          SELECT "id" FROM "codebase_edges"
+          WHERE "expires_at" IS NOT NULL AND "expires_at" <= NOW()
+          LIMIT ${limitPerBatch}
+        )
+        RETURNING "id"
+      `)) as Array<{ id: string }>
+      const edgeDeleted = rows.length
+      total += edgeDeleted
+      if (edgeDeleted < limitPerBatch) break
+    }
+    return total
   }
 
   /**

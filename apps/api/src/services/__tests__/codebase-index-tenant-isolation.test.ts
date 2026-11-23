@@ -266,13 +266,27 @@ describe('purgeExpired', () => {
     // 只会让实现里的循环永不退出 —— 表现为 V8 崩溃而不是可读的断言失败(第一版如此)。
     // 用序列:第一轮满批 100(⇒ 实现应继续),第二轮 3(< 100 ⇒ 实现应收工)。
     const rounds: unknown[][] = [new Array(100).fill({ id: 'a' }), new Array(3).fill({ id: 'b' })]
-    let call = 0
-    dbExecuteImpl = () => Promise.resolve(rounds[Math.min(call++, rounds.length - 1)])
+    let chunksCall = 0
+    let edgesCall = 0
+    dbExecuteImpl = (q) => {
+      // 第九批起 purgeExpired 先扫切片表、再扫边表:两条腿各自独立分批。
+      // mock 按渲染出的 SQL 文本分流,而不是按"第几次调用"计数 —— 后者会把
+      // "实现多扫了一张表"误报成"切片腿多跑了一轮",红得看不出原因。
+      if (renderSql(q).includes('codebase_edges')) {
+        edgesCall += 1
+        return Promise.resolve([])
+      }
+      const out = rounds[Math.min(chunksCall, rounds.length - 1)]
+      chunksCall += 1
+      return Promise.resolve(out)
+    }
 
     const total = await codebaseIndexService.purgeExpired(100)
 
     expect(total).toBe(103)
-    expect(call).toBe(2)
+    expect(chunksCall).toBe(2)
+    // 边表腿必须真被扫到(否则"边也有保留期"就只是注释):空集 ⇒ 第一轮即收工
+    expect(edgesCall).toBeGreaterThanOrEqual(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -141,12 +141,22 @@ export const codebaseEdges = pgTable(
     kind: text('kind').notNull(),
     filePath: text('file_path').notNull(),
     line: integer('line').notNull(),
+    /**
+     * 过期时间(2026-11-23,P0-8 第九批补):与 `codebase_chunks` 同一纪律。
+     * 加这列的起因:边与切片同事务写入、同一清除面,但只有切片有 `expires_at` ——
+     * 一旦路由层透传 `retentionDays`,切片到期不可见而边仍然可查,调用图里就会留下
+     * "指向已过期代码的幽灵边"。NULL = 永不过期(仅显式长期保留)。
+     * 注意:存量边(迁移前写入)**没有**过期时间 ⇒ 视为永不过期,不回填(回填等于编造保留期)。
+     */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     ownerRepoIdx: index('ix_codebase_edges_owner_repo').on(t.ownerUuid, t.repoId),
     repoToIdx: index('ix_codebase_edges_repo_to').on(t.repoId, t.toName),
     repoFromIdx: index('ix_codebase_edges_repo_from').on(t.repoId, t.fromName),
+    // 清理任务驱动索引:只扫已到期那一小撮(与 chunks 的 expiresAtIdx 同形)。
+    expiresAtIdx: index('ix_codebase_edges_expires_at').on(t.expiresAt),
   }),
 )
 

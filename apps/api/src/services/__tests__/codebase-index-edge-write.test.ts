@@ -141,9 +141,43 @@ describe('P0-8f 路由契约', () => {
     expect(route).toContain('.max(20000)')
   })
 
-  it('indexChunks 调用把 imports 放第五位', () => {
+  it('indexChunks 调用:保留期走第四位、imports 走第五位(第九批起开口透传)', () => {
+    // 第九批(2026-11-23)改动:边表补了 expires_at 之后,retentionDays 才允许透传。
+    // 断言改成**行为面**(第几位传什么),不再钉注释原文 —— 注释会随口径更新,
+    // 钉注释等于"改一句话就红",红得与实现无关。
     expect(route).toContain('b.imports,')
-    expect(route).toContain('// retentionDays 位保持缺省(路由层暂不透传),imports 走第五位')
+    expect(route).toMatch(/indexChunks\([\s\S]{0,220}b\.retentionDays,\s*b\.imports,/)
+    expect(route).toContain('retentionDays: z.number().int().min(0).nullable().optional()')
+  })
+})
+
+describe('P0-8i 边表过期语义(第九批,2026-11-23)', () => {
+  const svc = read('apps/api/src/services/codebase-index-service.ts')
+  const schema = read('packages/database/src/schema/codebase-index.ts')
+  const migration = read('packages/database/drizzle/20261123203000_codebase_edges_expires.sql')
+
+  it('schema:边表有 expires_at 列与清理索引', () => {
+    expect(schema).toContain("expiresAt: timestamp('expires_at', { withTimezone: true })")
+    expect(schema).toContain("index('ix_codebase_edges_expires_at')")
+  })
+
+  it('写入:边行用与切片同一次算定的 expiresAt', () => {
+    // 不带 ⇒ 边永不过期;透传保留期后立即出现"切片到期、边还活着"的幽灵边
+    expect(svc).toMatch(/const edgeRows = deriveEdgesFromImports[\s\S]{0,420}expiresAt,\s*\}\)/)
+  })
+
+  it('读面:边归属谓词带过期过滤(与切片同一条纪律)', () => {
+    expect(svc).toMatch(/_edgeOwnerScope\([\s\S]{0,300}"codebase_edges"\."expires_at" > NOW\(\)/)
+  })
+
+  it('清理:purgeExpired 真扫边表(留存面的终点是物理删除)', () => {
+    expect(svc).toMatch(/purgeExpired[\s\S]{0,1600}DELETE FROM "codebase_edges"/)
+  })
+
+  it('迁移:加列 + 索引,且存量不回填(回填等于编造保留期)', () => {
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS "expires_at"')
+    expect(migration).toContain('CREATE INDEX IF NOT EXISTS "ix_codebase_edges_expires_at"')
+    expect(migration).not.toMatch(/UPDATE\s+"codebase_edges"/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

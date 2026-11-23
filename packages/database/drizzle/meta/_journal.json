@@ -3131,6 +3131,20 @@
       "when": 1795459200000,
       "tag": "20261123160000_wechat_hub",
       "breakpoints": true
+    },
+    {
+      "idx": 451,
+      "version": "7",
+      "when": 1795470000000,
+      "tag": "20261123190000_wechat_hub_automation",
+      "breakpoints": true
+    },
+    {
+      "idx": 452,
+      "version": "7",
+      "when": 1795475400000,
+      "tag": "20261123203000_codebase_edges_expires",
+      "breakpoints": true
     }
   ]
 }
