@@ -186,6 +186,22 @@ pub struct SessionInfo {
     pub elapsed_ms: u128,
     /// 累计输出 seq（与 RingBuffer::read_out 的 seq 一致）。
     pub seq: usize,
+    /// 整树隔离形态。`job-object` / `process-group` = 有隔离；
+    /// `none_*` = **本该有却没有**（作业对象建不起 / 挂不进），上层须提示残留风险。
+    pub isolation: Option<&'static str>,
+}
+
+/// 依「作业对象是否真挂上」推导对外隔离标签（纯函数，可单测）。
+///
+/// 诚实纪律：挂不上时返回 `none_job_object_unavailable` 而**不是**假报 `job-object`——
+/// 调用方据此提示「该会话被 kill 后子进程树可能残留」。与 `RingBuffer::dropped`
+/// 「不假装完整」是同一条纪律（2026-11-23 P0-4 立）。
+pub fn isolation_label(job_object_attached: bool) -> Option<&'static str> {
+    Some(if job_object_attached {
+        "job-object"
+    } else {
+        "none_job_object_unavailable"
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -263,26 +279,35 @@ impl Drop for JobObject {
     }
 }
 
+/// 把一个已 spawn 的子进程挂进既有作业对象（仅 Windows）。
+///
+/// 拆成独立函数是给 `sandbox_sdk::JobObjectBackend` 复用同一份挂载语义——它自己建作业、
+/// 自己 spawn，但「挂载」这一步不该存在第二份代码（单一真相源）。
+/// 返回 false 表示挂载失败：调用方必须据此**拒绝执行并清理**，不得降级无隔离放行。
+#[cfg(windows)]
+pub(crate) fn assign_to_job(job: &JobObject, child: &Child) -> bool {
+    use std::os::windows::io::AsRawHandle;
+    use winapi::um::jobapi2::AssignProcessToJobObject;
+
+    unsafe {
+        AssignProcessToJobObject(
+            job.raw(),
+            child.as_raw_handle() as winapi::shared::ntdef::HANDLE,
+        ) != 0
+    }
+}
+
 /// 把已 spawn 的子进程挂入一个「杀时整树终止」的作业对象（仅 Windows）。
 ///
 /// 复用 ``JobObject::create_kill_on_close``（单一真相源），只补挂进程一步。
-/// 返回 None 表示建作业失败（降级为「只 kill 单个 pid」，不阻断会话创建）。
+/// 返回 None 表示建作业/挂载失败（降级为「只 kill 单个 pid」，不阻断会话创建）。
 #[cfg(windows)]
 fn attach_job_object(child: &Child) -> Option<Arc<JobObject>> {
-    use winapi::um::jobapi2::AssignProcessToJobObject;
-    use std::os::windows::io::AsRawHandle;
-
-    unsafe {
-        let job = JobObject::create_kill_on_close()?;
-        if AssignProcessToJobObject(
-            job.raw(),
-            child.as_raw_handle() as winapi::shared::ntdef::HANDLE,
-        ) == 0
-        {
-            return None; // job Drop 时 CloseHandle 兜底
-        }
-        Some(Arc::new(job))
+    let job = JobObject::create_kill_on_close()?;
+    if !assign_to_job(&job, child) {
+        return None; // job Drop 时 CloseHandle 兜底
     }
+    Some(Arc::new(job))
 }
 
 /// 给子进程设置「整组可 kill」的属性（仅 POSIX）。
@@ -509,6 +534,20 @@ impl TerminalSession {
             exit_code: *self.exit_code.lock().unwrap_or_else(|p| p.into_inner()),
             elapsed_ms: self.elapsed_ms(),
             seq,
+            isolation: {
+                #[cfg(windows)]
+                {
+                    isolation_label(self.job.is_some())
+                }
+                #[cfg(unix)]
+                {
+                    Some("process-group")
+                }
+                #[cfg(not(any(windows, unix)))]
+                {
+                    None
+                }
+            },
         }
     }
 
@@ -709,6 +748,15 @@ mod tests {
         let (out, dropped, _) = r.read_out(16);
         assert_eq!(out, b"c");
         assert_eq!(dropped, 2);
+    }
+
+    #[test]
+    fn isolation_label_is_honest_when_job_missing() {
+        assert_eq!(super::isolation_label(true), Some("job-object"));
+        let missing = super::isolation_label(false).expect("失败标签不得为 None");
+        assert_eq!(missing, "none_job_object_unavailable");
+        // 前缀约束：失败标签必须自带 `none_`，防止前端把「没隔离」当「有隔离」。
+        assert!(missing.starts_with("none_"), "失败标签须带 none_ 前缀");
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

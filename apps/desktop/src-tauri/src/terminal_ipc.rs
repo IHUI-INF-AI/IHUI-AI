@@ -29,6 +29,8 @@ pub struct SessionWire {
     pub exit_code: Option<i32>,
     pub elapsed_ms: u128,
     pub seq: usize,
+    /// 整树隔离形态（`none_*` 表示本该有却没有，前端须提示残留风险）。
+    pub isolation: Option<String>,
 }
 
 impl From<SessionInfo> for SessionWire {
@@ -39,6 +41,7 @@ impl From<SessionInfo> for SessionWire {
             exit_code: i.exit_code,
             elapsed_ms: i.elapsed_ms,
             seq: i.seq,
+            isolation: i.isolation.map(str::to_string),
         }
     }
 }

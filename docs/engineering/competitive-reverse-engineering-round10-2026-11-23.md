@@ -179,4 +179,48 @@ Unicode 按字符计、四态与 first-wins）；`tests/test_unified_exec_output
 **超越轴**：对照件把「窗口外读 lossy」当读取侧便利；本仓把它变成**回执里的显式字段**
 （模型不必猜），且 head 段永不丢、中段带丢弃标记 —— 模型能同时看到命令开头与结尾，
 不会出现"静默空回执"。
+
+## 9. P0-4 沙箱能力探测平行面（支持 / 不支持 / 未判定，不支持即拒）
+
+**来源与证据**：`C:\Trae CN\resources\app\modules\sandbox\sbox_sdk.dll` 导出 `SBoxSDK_Init` /
+`InitV2` / `IsSBoxSupported` / `CreateSandbox` / `GetSBoxInfo` / `Action` / `GetLastError` /
+`UnInit`；`unified/vm_sdk.dll` 同型 `VMSDK_*`；`trae-sandbox.exe` 里逐字命中 11 条原因码。
+取证 README 记「12 条」但只逐字列出 11 条 —— 第 12 条 `SdkNotLoaded` 按同二进制里的
+`SDK not loaded` 错误串落定，并**标注为推断**（`is_verbatim()` 返回 false），测试钉住
+「11 逐字 + 1 推断」的分布，将来补到逐字证据时该用例会红、提醒改标注而不是悄悄漂移。
+
+**本仓缺口**：`apps/desktop/src-tauri/src` 里 `hyperv|microvm|HostCompute|ALPC|security
+descriptor` 零命中；隔离面只有 `terminal_session.rs`（Job Object）与 `orphan_guard.rs`，
+**没有**平行的能力探测/分档面，也没有「不支持就拒」的判定。
+
+**落地（5 文件）**：
+
+- 新增 `sandbox_sdk.rs`：`SandboxBackend` trait（`init / is_supported / create / action /
+  kill_all / get_alive_infos / uninit`，方法面对 `SBoxSDK_*` 导出语义）、`ProbeState` 三态、
+  12 条不支持原因码 + 4 条未判定原因、`SandboxGate`（**唯一执行入口**，非 `Supported` 时
+  执行闭包**一次都不调**）
+- `terminal_session.rs` 抽出 `assign_to_job(job, child)` 给沙箱后端复用（挂载逻辑只有一份代码）；
+  `SessionInfo` 增 `isolation`（`job-object` / `process-group` / `none_job_object_unavailable`）
+- `terminal_ipc.rs`：`SessionWire` 透出 `isolation`，前端可据此提示「该会话 kill 后子进程树可能残留」
+- 新增 `sandbox_ipc.rs`：`sandbox_capability(tier)` / `sandbox_tiers()` 两条命令 ——
+  **这是判据的 importer**（第八轮教训：判据层装了没人用等于没装）
+- `lib.rs`：`mod sandbox_sdk` / `mod sandbox_ipc` + 两条命令注册
+
+**测试**：`sandbox_sdk` **9 例**（12 条原因码逐条 ⇒ `Refused` 且闭包调用数 0、4 条未判定同样拒、
+`Supported` 恰好执行一次、执行失败 ≠ 被拒、VM 桩恒 `Unjudged`、未知形态拒、原因码唯一性、
+Windows 真作业对象 `init` ⇒ `Supported`、真 spawn 后 `kill_all` 清空）；
+`terminal_session` **7 例**（含 `isolation_label` 诚实标签：挂不上必须带 `none_` 前缀）。
+`cargo check --lib` 0 error；两个新文件 `rustfmt --check` 0 diff（存量三文件本就未过 fmt，不动）。
+反向变异 2 次：M1 丢弃探测结果一律放行 ⇒ 3 例红；M2 挂不上假报 `job-object` ⇒ 1 例红，均如期。
+
+**为什么不是「又一个没有 importer 的判据层」**：`sandbox_capability` 是前端可调命令、
+`SessionInfo.isolation` 是终端会话真实字段。`SandboxGate` / `SandboxSpec` 当前没有执行入口，
+模块顶部显式 `#![allow(dead_code)]` + 注释说明，等 guarded spawn 接上再撤 —— 不伪造接线。
+
+**超越轴**：对照件把「不支持」当启动失败，错误码散在 C 接口 `GetLastError` 里；
+本仓把三态做成**结构保证** —— 未判定同样拒（不把「没探到」当「支持」），
+且「不支持时不创建进程」由闭包调用计数钉住，测试可直接断言副作用，不靠调用方自律。
+
+**待办**：`MicroVmBackend` 只是桩；`SandboxGate` 的 guarded spawn 入口（把 `create` 包进
+`run`）未接。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

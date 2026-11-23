@@ -76,6 +76,13 @@ mod terminal_ipc;
 // (退出即自动清整棵进程树)+ 原生件 sha256 白名单验签。与 startup_guard(启动相位)
 // 正交:那条管"启动别互杀",这条管"退出别留孤儿"。判据纯函数 verify_artifact 可单测。
 mod orphan_guard;
+// 2026-11-23 立(五程序原生取证 B2-01):沙箱能力探测平行面——支持/不支持/未判定三态,
+// 不支持即拒(gate 是唯一执行入口,被拒时执行闭包一次都不调,实测计数可断言)。
+// 作业级复用 terminal_session 的 Job Object(单一真相源);微虚拟机级只留探测桩与原因码,
+// 不冒充能力。判据纯逻辑,可 `cargo test --lib sandbox_sdk` 单独跑。
+mod sandbox_sdk;
+// 沙箱能力探测的命令胶水(只放 #[tauri::command] + DTO);判定全在 sandbox_sdk。
+mod sandbox_ipc;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -5738,7 +5745,11 @@ pub fn run() {
     terminal_ipc::terminal_write,
     terminal_ipc::terminal_kill,
     terminal_ipc::terminal_list,
-    terminal_ipc::terminal_remove
+    terminal_ipc::terminal_remove,
+    // 2026-11-23 立(五程序原生取证 B2-01):沙箱能力三态探测。只读、不起进程;
+    // 前端在起终端/执行前调这条,拿到 supported / 原因码 / 未判定原因再决定。
+    sandbox_ipc::sandbox_capability,
+    sandbox_ipc::sandbox_tiers
         ])
         .run(context)
         .unwrap_or_else(|e| {
