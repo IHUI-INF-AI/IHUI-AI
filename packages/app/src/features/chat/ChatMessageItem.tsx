@@ -539,21 +539,33 @@ export function ChatMessageItemView({
                   </T>
                 )
               })()}
-              {/* 复制(行为由端侧注入) */}
-              <I className="action-btn" src={icons.copy} onClick={() => copyContent(msg.content)} />
+              {/* 复制(行为由端侧注入;纯图标 ⇒ 名称只走 a11y) */}
+              <I
+                className="action-btn"
+                src={icons.copy}
+                onClick={() => copyContent(msg.content)}
+                accessibilityLabel={t('ai.chatMessageItem.copy')}
+              />
               {/* 下载(有图片时;行为由端侧注入) */}
               {msg.images && msg.images.length > 0 ? (
                 <I
                   className="action-btn"
                   src={icons.download}
                   onClick={() => onDownloadImages(msg.images || [])}
+                  accessibilityLabel={t('ai.video.download')}
                 />
               ) : null}
               {/* 分享(端侧注入节点:小程序需 Button openType=share) */}
               {isFailed
                 ? null
                 : (shareSlot ?? (
-                    <V className="share-btn" onClick={onShare} hoverClass="opacity-60">
+                    <V
+                      className="share-btn"
+                      onClick={onShare}
+                      hoverClass="opacity-60"
+                      accessibilityRole="button"
+                      accessibilityLabel={t('ai.chatMessageItem.share')}
+                    >
                       <I className="share-icon" src={icons.share} resizeMode="cover" />
                     </V>
                   ))}
@@ -569,6 +581,11 @@ export function ChatMessageItemView({
                   }}
                   onClick={handleSpeak}
                   hoverClass="opacity-60"
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')
+                  }
+                  accessibilityState={{ selected: speaking }}
                 >
                   {renderIcon({
                     name: speaking ? 'pause' : 'volume-2',
@@ -589,6 +606,8 @@ export function ChatMessageItemView({
                   }}
                   hoverClass="opacity-60"
                   onClick={onRegenerate}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('ai.chatMessageItem.regenerate')}
                 >
                   {renderIcon({
                     name: 'refresh-cw',
@@ -608,6 +627,11 @@ export function ChatMessageItemView({
                   }}
                   onClick={onToggleFavorite}
                   hoverClass="opacity-60"
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isFavorited ? t('ai.chatMessageItem.favorited') : t('ai.image.favorite')
+                  }
+                  accessibilityState={{ selected: isFavorited }}
                 >
                   {renderIcon({
                     name: 'heart',

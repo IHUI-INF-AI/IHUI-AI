@@ -249,12 +249,17 @@ type ScrollToLowerEventHandler = NonNullable<TaroScrollViewProps['onScrollToLowe
 /**
  * RN 的 onPress 收的是原生事件对象,而端内点击位由 Taro 提供 ⇒ 把事件**透传**过去，
  * 而不是像旧写法那样 call 零参(改成从 Taro props 反解的事件签名后，零参调用当场编不过)。
+ *
+ * 2026-11-23 补 `onClick` 兜底：共享屏(packages/app)里仍有按 Taro 语义写的 `<View onClick=…>`
+ * (ChatMessageItem 的复制/下载/分享/朗读/重新生成/收藏/点赞/点踩就是这一族)。本层在
+ * 2026-11-14 把点击位迁到 onPress 时把 onClick 静默丢了 ⇒ 这些按钮在小程序端**点不动**，
+ * 且 TS 因 RNBaseProps 的兜底索引签名不报错。两者语义同一个物理动作，onPress 优先。
  */
 function clickHandler(
   props: RNBaseProps,
   extra?: () => void,
 ): ((event: Parameters<NonNullable<EventHandler>>[0]) => void) | undefined {
-  const onPress = props.onPress as EventHandler
+  const onPress = (props.onPress ?? props.onClick) as EventHandler
   if (props.disabled === true) return undefined
   if (!onPress && !extra) return undefined
   return (event) => {
@@ -436,6 +441,14 @@ function ViewInner(props: RNCompatProps, ref: ForwardedRef<ViewInstance>) {
       )}
       id={probeId}
       onClick={onClick}
+      /**
+       * 无障碍透传(2026-11-23)：共享屏(packages/app)只写 RN 键 accessibilityRole /
+       * accessibilityLabel，本层旧实现不把它们映射到 Taro 的 ariaRole / ariaLabel ——
+       * 小程序端这些键**整批静默丢失**，纯图标按钮因此没有可读名称(视觉上也无从感知)。
+       * 两套键语义一一对应，直接同名透传，不做降级。
+       */
+      ariaRole={typeof p.accessibilityRole === 'string' ? p.accessibilityRole : undefined}
+      ariaLabel={typeof p.accessibilityLabel === 'string' ? p.accessibilityLabel : undefined}
       onLongPress={p.onLongPress as EventHandler}
       onTouchStart={p.onTouchStart as TaroViewProps['onTouchStart']}
       onTouchMove={p.onTouchMove as TaroViewProps['onTouchMove']}
@@ -583,6 +596,9 @@ export function Image(props: RNBaseProps) {
       )}
       className={typeof props.className === 'string' ? props.className : undefined}
       onClick={clickHandler(props)}
+      /** 无障碍名称透传(2026-11-23)：RN 的 accessibilityLabel → Taro 的 ariaLabel。
+       *  纯图标消息动作(复制/下载)在共享层只给 RN 键，旧实现不映射 ⇒ 小程序端无名称。 */
+      ariaLabel={typeof props.accessibilityLabel === 'string' ? props.accessibilityLabel : undefined}
       /**
        * onLoad 桥(2026-11-01):Taro 给 detail.{width,height},RN 消费面读
        * nativeEvent.source.{width,height,uri} —— 旧写法声明了 onLoad 却从不派发,

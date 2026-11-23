@@ -568,8 +568,8 @@ function makeStyles() {
       marginTop: rnSpacing['2xs'],
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    /** 纯图标按钮:固定 36×36 命中盒(与小程序端同形) */
-    iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    /** 纯图标按钮:40×40 固定命中盒(与全仓纯图标按钮同档) */
+    iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],

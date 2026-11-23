@@ -915,4 +915,52 @@ describe('rn-compat View className 让位', () => {
     await act(async () => root.unmount())
   })
 })
+
+// === 9. 无障碍键与 onClick 兜底(2026-11-23) ===
+/**
+ * 共享屏(packages/app)只写 RN 的 accessibilityRole/accessibilityLabel,本层旧实现不映射到
+ * Taro 的 ariaRole/ariaLabel ⇒ 纯图标按钮在小程序端没有可读名称;而 `onClick` 一族
+ * (ChatMessageItem 的动作按钮)在 2026-11-14 迁到 onPress 时被丢 ⇒ 按钮点不动。
+ * 这两条都不是样式问题,不锁就会整批静默复发。
+ */
+describe('rn-compat View 无障碍与点击兼容', () => {
+  it('accessibilityRole/Label 透传为 ariaRole/ariaLabel(纯图标按钮才有名称)', async () => {
+    const { View } = await import('../src/rn-compat/primitives')
+    const root = await renderNode(
+      createElement(View as never, {
+        accessibilityRole: 'button',
+        accessibilityLabel: '复制',
+      }),
+    )
+    expect(captured.taroView?.ariaRole).toBe('button')
+    expect(captured.taroView?.ariaLabel).toBe('复制')
+    await act(async () => root.unmount())
+  })
+
+  it('只给 onClick 的共享屏按钮仍可点(onPress 优先,click 兜底)', async () => {
+    const { View } = await import('../src/rn-compat/primitives')
+    const clicked: unknown[] = []
+    const root = await renderNode(
+      createElement(View as never, { onClick: (e: unknown) => clicked.push(e) }),
+    )
+    const handler = captured.taroView?.onClick as (e: unknown) => void
+    const event = { detail: { x: 1 } }
+    handler(event)
+    expect(clicked).toEqual([event])
+    await act(async () => root.unmount())
+  })
+
+  it('disabled 时 onClick 也不派发(禁用态不装假响应)', async () => {
+    const { View } = await import('../src/rn-compat/primitives')
+    const clicked: unknown[] = []
+    const root = await renderNode(
+      createElement(View as never, {
+        disabled: true,
+        onClick: (e: unknown) => clicked.push(e),
+      }),
+    )
+    expect(captured.taroView?.onClick).toBeUndefined()
+    await act(async () => root.unmount())
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

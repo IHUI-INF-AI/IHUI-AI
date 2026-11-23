@@ -195,7 +195,14 @@ export function ArticleDetailScreen() {
       {/* 底部操作栏(对齐 Uniapp news/detail.vue bottom-bar:点赞/评论/分享) */}
       {article ? (
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={handleLike}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={tStatic('articleDetail.likes')}
+            accessibilityState={{ selected: liked }}
+          >
             <Heart
               size={18}
               color={liked ? tokens.danger.deepText : tokens.text.secondary}
@@ -203,12 +210,24 @@ export function ArticleDetailScreen() {
             />
             <Text style={styles.actionCount}>{likeCount}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem} onPress={handleComment} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={handleComment}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={tStatic('tagsPage.groupComment')}
+          >
             <MessageCircle size={18} color={tokens.text.secondary} />
             {/* 评论数:原 article.comments 字段未在后端 ArticleDetailItem 契约中,暂展示 0 */}
             <Text style={styles.actionCount}>0</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={handleShare}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={tStatic('chat.msg.share2')}
+          >
             <Share2 size={18} color={tokens.text.secondary} />
           </TouchableOpacity>
         </View>
@@ -320,6 +339,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(8),
+    minHeight: 40,
   } as ViewStyle,
   actionIcon: {
     fontSize: rnType.subtitle.size,

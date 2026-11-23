@@ -2237,13 +2237,12 @@ const styles = StyleSheet.create({
     fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
-  // 模型配置按钮(模型选择旁,对齐 Uniapp InputArea 配置入口)
+  /** 纯图标设置键：40×40 固定命中盒(与全仓纯图标按钮同档)；文字标签删除后不再参与布局 */
   modelConfigBtn: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    gap: rpx(4),
-    paddingHorizontal: rpx(16),
-    paddingVertical: rpx(6),
+    justifyContent: 'center',
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },

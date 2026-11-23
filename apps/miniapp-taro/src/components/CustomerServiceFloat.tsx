@@ -123,14 +123,9 @@ export default function CustomerServiceFloat({
           showMessageCard
           sendMessageTitle={tt('common.customerService', '客服咨询')}
           sendMessagePath="/pages/index/index"
+          ariaLabel={tt('common.consult', '咨询')}
         >
-          <LineIcon
-            className="cs-float-icon"
-            name="message-circle"
-            size={72}
-            ariaRole="button"
-            ariaLabel={tt('common.consult', '咨询')}
-          />
+          <LineIcon className="cs-float-icon" name="message-circle" size={72} />
         </Button>
       </View>
     )
@@ -251,14 +246,9 @@ export default function CustomerServiceFloat({
         showMessageCard
         sendMessageTitle={tt('common.customerService', '客服咨询')}
         sendMessagePath="/pages/index/index"
+        ariaLabel={tt('common.consult', '咨询')}
       >
-        <LineIcon
-          className="cs-float-icon"
-          name="message-circle"
-          size={72}
-          ariaRole="button"
-          ariaLabel={tt('common.consult', '咨询')}
-        />
+        <LineIcon className="cs-float-icon" name="message-circle" size={72} />
       </Button>
     </View>
   )

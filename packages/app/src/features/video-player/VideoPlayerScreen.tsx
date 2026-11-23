@@ -250,6 +250,8 @@ export function VideoPlayerScreen({
                   style={styles.actionItem}
                   onPress={actions.onLike}
                   accessibilityRole="button"
+                  accessibilityLabel={t('articleDetail.likes')}
+                  accessibilityState={{ selected: actions.liked }}
                 >
                   <Heart
                     size={20}
@@ -262,6 +264,8 @@ export function VideoPlayerScreen({
                   style={styles.actionItem}
                   onPress={actions.onFavorite}
                   accessibilityRole="button"
+                  accessibilityLabel={t('ai.image.favorite')}
+                  accessibilityState={{ selected: actions.favorited }}
                 >
                   <Star
                     size={20}
@@ -274,6 +278,7 @@ export function VideoPlayerScreen({
                   style={styles.actionItem}
                   onPress={actions.onShare}
                   accessibilityRole="button"
+                  accessibilityLabel={t('ai.video.share')}
                 >
                   <Share2 size={20} strokeWidth={2} color={tk.text.tertiary} />
                   {renderActionText(actions.shareCount)}
@@ -458,7 +463,9 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
-    actionItem: { alignItems: 'center', justifyContent: 'center', minWidth: 56 },
+    /** 互动动作：图标 20 + 可选计数；去掉文案后高度会塌到图标本体，
+     *  这里锁 40 高命中盒(宽度 56 已够)，与全仓纯图标按钮同档。 */
+    actionItem: { alignItems: 'center', justifyContent: 'center', minWidth: 56, minHeight: 40 },
     actionCount: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,
