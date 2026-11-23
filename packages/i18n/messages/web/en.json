@@ -20536,6 +20536,7 @@
     "amount": "Change",
     "balance": "Balance",
     "current": "Current Points",
+    "dailyCreditHint": "Daily grant {granted} points, {remaining} left today; valid today only, resets tomorrow",
     "description": "Description",
     "empty": "No data",
     "level": "Level",

@@ -21105,6 +21105,7 @@
     "amount": "变动",
     "balance": "余额",
     "current": "当前积分",
+    "dailyCreditHint": "每日赠送 {granted} 积分，今日剩余 {remaining}；仅当日有效，次日清零",
     "description": "描述",
     "empty": "暂无数据",
     "level": "等级",

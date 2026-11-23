@@ -33,6 +33,16 @@ export const userPoints = pgTable('user_points', {
   totalSpent: integer('total_spent').default(0).notNull(),
   level: integer('level').default(1).notNull(),
   experience: integer('experience').default(0).notNull(),
+  /**
+   * 每日赠送额度（zcode 式“当天有效”）：
+   * - daily_points 是今天还剩多少赠送额度；
+   * - daily_points_date 是这份额度所属的业务日（Asia/Shanghai，见 utils/biz-day）。
+   * 跨日首次访问由 services/daily-credits.ensureDailyCredit 原子重置，旧余额不结转。
+   * 该额度不进 total_earned / experience（避免每日白送刷等级），
+   * 发放与消耗只用流水 source='daily_grant' 与本表列留痕。
+   */
+  dailyPoints: integer('daily_points').default(0).notNull(),
+  dailyPointsDate: date('daily_points_date'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

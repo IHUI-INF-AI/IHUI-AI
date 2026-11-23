@@ -2786,6 +2786,7 @@
   "points": {
     "title": "ポイントセンター",
     "subtitle": "ポイント、レベル、チェックインを確認",
+    "dailyCreditHint": "毎日{granted}ポイント贈呈中（本日の残り{remaining}）。当日のみ有効、翌日リセット",
     "current": "現在のポイント",
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",

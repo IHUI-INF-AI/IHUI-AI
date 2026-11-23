@@ -20687,6 +20687,7 @@
     "amount": "變動",
     "balance": "餘額",
     "current": "當前積分",
+    "dailyCreditHint": "每日贈送 {granted} 積分，今日剩餘 {remaining}；僅當日有效，次日清零",
     "description": "描述",
     "empty": "暫無數據",
     "level": "等級",

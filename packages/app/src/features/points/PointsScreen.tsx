@@ -44,6 +44,10 @@ export interface PointsAccountInfo {
   totalSpent: number
   level: number
   experience: number
+  /** 今日赠送剩余（旧接口兼容：可能没有这个字段） */
+  dailyPoints?: number
+  /** 今日赠送状态（granted/remaining/date）；后端下发，前端不硬编码 100 */
+  dailyCredit?: { granted: number; remaining: number; date: string }
 }
 
 /** 经验等级档位(GET /api/levels/current 的 current / next) */
@@ -163,8 +167,12 @@ export function PointsScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const remaining = pointsExpToNext(level)
+  // 当前积分 = 永久余额 + 今日赠送剩余：后者当天可花、次日清零，只显示 points 会像“账上没钱”。
+  const availablePoints = account
+    ? account.points + (account.dailyCredit?.remaining ?? account.dailyPoints ?? 0)
+    : undefined
   const stats = [
-    { key: 'current', label: t('points.current'), value: account?.points },
+    { key: 'current', label: t('points.current'), value: availablePoints },
     { key: 'earned', label: t('points.totalEarned'), value: account?.totalEarned },
     { key: 'spent', label: t('points.totalSpent'), value: account?.totalSpent },
     {
@@ -183,6 +191,14 @@ export function PointsScreen({
 
       <ScrollView contentContainerStyle={styles.body}>
         <Text style={styles.subtitle}>{t('points.subtitle')}</Text>
+        {account?.dailyCredit ? (
+          <Text style={styles.cardMuted}>
+            {t('points.dailyCreditHint', {
+              remaining: account.dailyCredit.remaining,
+              granted: account.dailyCredit.granted,
+            })}
+          </Text>
+        ) : null}
 
         {loading ? (
           <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
@@ -422,7 +438,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       gap: rnSpacing['2xs'],
     },
@@ -432,7 +448,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },

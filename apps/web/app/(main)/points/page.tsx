@@ -41,12 +41,17 @@ export default function PointsPage() {
     queryKey: ['points'],
     enabled: allow,
     queryFn: () =>
-      api<{ points: { points: number; totalEarned: number; totalSpent: number } }>(
-        '/api/points',
-      ).then((d) => ({
-        current: d.points.points,
+      api<{
+        points: { points: number; totalEarned: number; totalSpent: number }
+        dailyCredit?: { granted: number; remaining: number; date: string }
+      }>('/api/points').then((d) => ({
+        // 当前积分 = 永久余额 + 今日赠送剩余:后者是当天可花额度,只显示 points 会让
+        // “账上 0 但今天能用 100”看起来像坏了。
+        current: (d.points.points ?? 0) + (d.dailyCredit?.remaining ?? 0),
         totalEarned: d.points.totalEarned,
         totalSpent: d.points.totalSpent,
+        dailyRemaining: d.dailyCredit?.remaining ?? 0,
+        dailyGranted: d.dailyCredit?.granted ?? 0,
       })),
   })
   const txQ = useQuery({

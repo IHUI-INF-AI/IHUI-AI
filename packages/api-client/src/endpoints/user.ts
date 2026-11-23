@@ -158,10 +158,31 @@ export interface LevelTier {
 /** 积分账户行(`ensureUserPoints` 的 userPoints 表投影)。 */
 export interface UserPointsAccount {
   points: number
+  /** 今日赠送剩余（当日有效；旧回包可能没有这个字段） */
+  dailyPoints?: number
+  dailyPointsDate?: string | null
   totalEarned?: number
   totalSpent?: number
   level?: number
   experience?: number
+}
+
+/** 每日赠送额度状态（后端下发，前端不得硬编码 100）。 */
+export interface DailyCreditInfo {
+  date: string
+  granted: number
+  used: number
+  remaining: number
+}
+
+/** GET /api/levels/current 回包(current 恒有值:`findCurrentLevel` 空配置会抛错)。 */
+export interface CurrentLevelInfo {
+  current: LevelTier
+  next: LevelTier | null
+  experience: number
+  progress: number
+  points?: UserPointsAccount
+  dailyCredit?: DailyCreditInfo
 }
 
 /** GET /api/levels/current 回包(current 恒有值:`findCurrentLevel` 空配置会抛错)。 */

@@ -9,7 +9,7 @@ import { db } from '../db/index.js'
 import { signInRecords } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import {
-  ensureUserPoints,
+  ensureDailyCreditRow,
   findPointTransactions,
   findLeaderboard,
   findTodaySignIn,
@@ -22,6 +22,7 @@ import {
   findCurrentLevel,
 } from '../db/gamification-queries.js'
 import { earnPoints, spendPoints } from '../services/points-service.js'
+import { dailyCreditStateOf, availableOf } from '../services/daily-credits.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -99,8 +100,10 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const userId = request.userId!
-      const points = await ensureUserPoints(userId)
-      return reply.send(success({ points }))
+      // 读余额前先对齐业务日:客户端打开积分页的第一眼就必须看到今天的 100,
+      // 而不是昨天剩下的那点(跨日作废)。
+      const points = await ensureDailyCreditRow(userId)
+      return reply.send(success({ points, dailyCredit: dailyCreditStateOf(points) }))
     },
   )
 
@@ -163,9 +166,10 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       const { page, pageSize, type } = parsed.data
       const [{ list, total }, points] = await Promise.all([
         findPointTransactions({ userId, page, pageSize, type: type === 'all' ? undefined : type }),
-        ensureUserPoints(userId),
+        ensureDailyCreditRow(userId),
       ])
-      return reply.send(success({ list, total, page, pageSize, balance: points.points }))
+      // balance 口径 = 永久余额 + 今日赠送剩余(与流水 balance_after、余额页一致)
+      return reply.send(success({ list, total, page, pageSize, balance: availableOf(points) }))
     },
   )
 
@@ -405,9 +409,10 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
   // GET /levels/current - 当前用户等级信息 + 下一等级进度
   server.get('/levels/current', async (request, reply) => {
     const userId = request.userId!
-    const points = await ensureUserPoints(userId)
+    // 同 /points:先对齐当日赠送,小程序会员页的“积分”就直接拿到含赠送的可用值。
+    const points = await ensureDailyCreditRow(userId)
     const info = await findCurrentLevel(points.experience)
-    return reply.send(success({ ...info, points }))
+    return reply.send(success({ ...info, points, dailyCredit: dailyCreditStateOf(points) }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

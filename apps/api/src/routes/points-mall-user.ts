@@ -15,8 +15,9 @@ import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
 import { pointsMallOrders, pointsMallProducts } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
-import { ensureUserPoints } from '../db/gamification-queries.js'
+import { ensureDailyCreditRow } from '../db/gamification-queries.js'
 import { spendPoints } from '../services/points-service.js'
+import { availableOf } from '../services/daily-credits.js'
 
 const redeemParamsSchema = z
   .object({
@@ -77,7 +78,9 @@ export const pointsMallUserRoutes: FastifyPluginAsync = async (server) => {
     if (userId) {
       // balance 为附带数据:查询失败不应导致商品列表整体 500
       try {
-        balance = (await ensureUserPoints(userId)).points
+        // balance 为附带数据:查询失败不应导致商品列表整体 500。
+        // 口径 = 永久余额 + 今日赠送剩余(否则页面显示 0 却仍能兑换,用户会以为坏了)。
+        balance = availableOf(await ensureDailyCreditRow(userId))
       } catch {
         balance = undefined
       }
@@ -163,7 +166,7 @@ export const pointsMallUserRoutes: FastifyPluginAsync = async (server) => {
           const orderId = orderRows[0]?.id
           if (!orderId) throw new RedeemError(500, '兑换下单失败')
 
-          return { orderId, points: spent.points.points, redeemed: product.pointsCost }
+          return { orderId, points: availableOf(spent.points), redeemed: product.pointsCost }
         })
         return reply.send(success(outcome))
       } catch (e) {

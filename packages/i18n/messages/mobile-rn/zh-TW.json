@@ -2786,6 +2786,7 @@
   "points": {
     "title": "積分中心",
     "subtitle": "查看積分、等級與簽到",
+    "dailyCreditHint": "每日贈送 {granted} 積分，今日剩餘 {remaining}；僅當日有效，次日清零",
     "current": "目前積分",
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",

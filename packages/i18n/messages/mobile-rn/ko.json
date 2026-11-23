@@ -2786,6 +2786,7 @@
   "points": {
     "title": "포인트 센터",
     "subtitle": "포인트, 레벨, 출석을 확인하세요",
+    "dailyCreditHint": "매일 {granted} 포인트 증정, 오늘 남은 {remaining}. 당일만 유효, 다음 날 초기화",
     "current": "현재 포인트",
     "totalEarned": "누적 획득",
     "totalSpent": "누적 사용",

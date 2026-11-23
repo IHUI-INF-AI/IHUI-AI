@@ -1067,7 +1067,8 @@ export const upgradeVip = (vipLevelId: string) =>
 export const getMemberInfo = (): Promise<MemberInfo> =>
   unwrapApi(getCurrentLevel()).then((r) => ({
     level: r.current?.name ?? '',
-    integral: r.points?.points ?? 0,
+    // 会员页“积分”= 永久余额 + 今日赠送剩余:只读 points.points 会让“账上 0 但今天能花 100”显示成 0。
+    integral: (r.points?.points ?? 0) + (r.dailyCredit?.remaining ?? 0),
     growth: r.experience ?? 0,
     coupons: 0,
   }))

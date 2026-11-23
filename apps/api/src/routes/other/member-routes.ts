@@ -15,7 +15,7 @@ import { dbRead } from '../../db/index.js'
 import { levels, pointRedeemItems, pointTransactions } from '@ihui/database'
 import { findUserPreferences, upsertUserPreference } from '../../db/user-preferences-queries.js'
 import { authenticate } from '../../plugins/auth.js'
-import { ensureUserPoints } from '../../db/gamification-queries.js'
+import { getSpendableBalance, availableOf } from '../../services/daily-credits.js'
 import { spendPoints } from '../../services/points-service.js'
 
 export const memberRoutes: FastifyPluginAsync = async (server) => {
@@ -85,7 +85,8 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     if (userId) {
       // balance 为附带数据:查询失败不应导致商品列表整体 500
       try {
-        balance = (await ensureUserPoints(userId)).points
+        // balance 口径 = 永久余额 + 今日赠送剩余(用户看到的可兑换额度)
+        balance = (await getSpendableBalance(userId)).available
       } catch {
         balance = undefined
       }
@@ -137,13 +138,19 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     if (duplicate) {
       return reply.status(409).send(error(409, '该商品已兑换过'))
     }
-    const balance = await ensureUserPoints(userId)
-    if (balance.points < item.points) {
+    const balance = await getSpendableBalance(userId)
+    if (balance.available < item.points) {
       return reply.status(400).send(error(400, '积分余额不足'))
     }
     try {
       const result = await spendPoints(userId, item.points, 'redeem', referenceId, id)
-      return reply.send(success({ points: result.points, redeemed: item.points }))
+      return reply.send(
+        success({
+          points: result.points,
+          balance: availableOf(result.points),
+          redeemed: item.points,
+        }),
+      )
     } catch (e) {
       // 并发兜底:唯一索引 ux_point_transactions_redeem_user_ref 拒绝第二条流水,
       // 事务已回滚(积分不会被扣两次),这里映射成与串行重复一致的 409。

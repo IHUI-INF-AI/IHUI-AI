@@ -3061,6 +3061,13 @@
       "when": 1795100400000,
       "tag": "20261120110000_bug29_indexes_slice2",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 447,
+      "when": 1795392000000,
+      "tag": "20261123080000_daily_points",
+      "breakpoints": true
     }
   ]
 }

@@ -25,7 +25,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { and, eq } from 'drizzle-orm'
 import { pointTransactions } from '@ihui/database'
 import { db } from '../db/index.js'
-import { findUserPoints } from '../db/gamification-queries.js'
+import { getSpendableBalance } from './daily-credits.js'
 import { spendPoints } from './points-service.js'
 import {
   MEDIA_UNIT_POINTS,
@@ -72,8 +72,8 @@ export async function ensureMediaPointsBalance(
   if (required <= 0) return true
   const userId = request.userId
   if (!userId) return true
-  const points = await findUserPoints(userId)
-  const balance = points?.points ?? 0
+  // 预检按“永久余额 + 今日赠送剩余”判断:每日赠送也是可花额度,不能被余额闸拦下。
+  const { available: balance } = await getSpendableBalance(userId)
   if (balance >= required) return true
   reply.status(402).send({
     code: 402,

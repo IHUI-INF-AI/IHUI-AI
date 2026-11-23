@@ -38,7 +38,8 @@ import {
 // 个人口径的三个计数复用社交域既有出口(不在本文件重算一遍 count,那是第二把尺子)
 import { getUserCenterStats } from '../db/statistics-queries.js'
 import { countFavorites, countFollowers, countFollowing } from '../db/social-queries.js'
-import { findUserPoints } from '../db/gamification-queries.js'
+import { ensureDailyCreditRow } from '../db/gamification-queries.js'
+import { availableOf } from '../services/daily-credits.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 
@@ -168,7 +169,7 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
         countFollowing(userId),
         countFollowers(userId),
         countFavorites(userId),
-        findUserPoints(userId),
+        ensureDailyCreditRow(userId),
       ],
     )
     return reply.send(
@@ -178,7 +179,8 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
         followingCount,
         fansCount: followersCount,
         studyHours: personal.studyHours,
-        points: pointsRow?.points ?? 0,
+        // 个人中心展示的积分 = 可消费总额(永久余额 + 今日赠送)
+        points: pointsRow ? availableOf(pointsRow) : 0,
       }),
     )
   })

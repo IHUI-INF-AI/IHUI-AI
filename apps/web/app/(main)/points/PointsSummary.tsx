@@ -79,6 +79,14 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
             </h1>
           </div>
           <p className="text-label text-muted-foreground">{t('subtitle')}</p>
+          {points?.dailyGranted ? (
+            <p className="text-label text-muted-foreground">
+              {t('dailyCreditHint', {
+                remaining: points.dailyRemaining ?? 0,
+                granted: points.dailyGranted,
+              })}
+            </p>
+          ) : null}
         </div>
         <Link href="/points/sign-in" className="shrink-0">
           <Button variant="outline" size="sm" className="whitespace-nowrap">

@@ -30,7 +30,7 @@ import { inferPointsMultiplier } from '../../services/points-multiplier.js'
 import { getPointsMultiplier } from '../../services/points-multiplier-resolver.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { bareMediaModelId } from '@ihui/shared'
-import { findUserPoints } from '../../db/gamification-queries.js'
+import { getSpendableBalance } from '../../services/daily-credits.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../../config/body-limits.js'
 
 // OpenAI messages → Gemini contents(官方 generateContent 协议转换)
@@ -183,8 +183,8 @@ export async function ensurePointsBalance(
   if ((await getPointsMultiplier(modelId)) === 0) return true // 零成本模型不校验余额
   const userId = request.userId
   if (!userId) return true // 未登录交由 requireAuth 处理
-  const points = await findUserPoints(userId)
-  const balance = points?.points ?? 0
+  // 余额口径 = 永久余额 + 今日赠送剩余:只读 points 会把每天 100 的赠送挡在门外。
+  const { available: balance } = await getSpendableBalance(userId)
   if (balance <= 0) {
     reply.status(402).send({
       code: 402,

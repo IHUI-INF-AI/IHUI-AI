@@ -6,10 +6,12 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, eq, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { signInRecords, userPoints, userThirdPartyAccounts, users, auditLogs } from '@ihui/database'
+import { signInRecords, userThirdPartyAccounts, users, auditLogs } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { revokeRefreshToken } from '../db/queries.js'
+import { ensureDailyCreditRow } from '../db/gamification-queries.js'
+import { availableOf } from '../services/daily-credits.js'
 import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 
 export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
@@ -80,21 +82,23 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ ended: sessionId }))
   })
 
-  // GET /user/integral - 用户积分余额(迁移自 D 盘 /user/integral,对应 user_points.points)
+  // GET /user/integral - 用户积分余额(迁移自 D 盘 /user/integral)
+  // integral = 永久余额 + 今日赠送剩余(消费口径);points 单独保留永久余额供财务/兼容读取。
   server.get('/user/integral', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const [points] = await db
-      .select({
-        points: userPoints.points,
-        totalEarned: userPoints.totalEarned,
-        totalSpent: userPoints.totalSpent,
-        level: userPoints.level,
-        experience: userPoints.experience,
-      })
-      .from(userPoints)
-      .where(eq(userPoints.userId, request.userId!))
-      .limit(1)
-    return reply.send(success({ integral: points?.points ?? 0, ...points }))
+    const points = await ensureDailyCreditRow(request.userId!)
+    return reply.send(
+      success({
+        integral: availableOf(points),
+        points: points.points,
+        dailyPoints: points.dailyPoints,
+        dailyPointsDate: points.dailyPointsDate,
+        totalEarned: points.totalEarned,
+        totalSpent: points.totalSpent,
+        level: points.level,
+        experience: points.experience,
+      }),
+    )
   })
 
   // GET /user/login-history - 登录历史(查 audit_logs 中 action='auth.login' 的记录)

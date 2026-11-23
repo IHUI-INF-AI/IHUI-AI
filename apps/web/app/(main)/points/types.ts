@@ -26,6 +26,10 @@ export interface PointsData {
   current: number
   totalEarned: number
   totalSpent: number
+  /** 今日赠送剩余（当日有效，跨日清零） */
+  dailyRemaining?: number
+  /** 今日赠送总量（后端下发，前端不硬编码 100） */
+  dailyGranted?: number
 }
 export interface LevelData {
   level: number

@@ -2,9 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, gte, lt, sql } from 'drizzle-orm'
+import { eq, and, desc, asc, gte, lt, or, isNull, ne, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { shiftDate } from '../utils/checkin-helpers.js'
+import { bizDayKey } from '../utils/biz-day.js'
+import { DAILY_GRANT_POINTS } from '../constants/daily-credits.js'
 import {
   userPoints,
   pointTransactions,
@@ -29,8 +31,13 @@ const userPointsFields = {
   totalSpent: userPoints.totalSpent,
   level: userPoints.level,
   experience: userPoints.experience,
+  dailyPoints: userPoints.dailyPoints,
+  dailyPointsDate: userPoints.dailyPointsDate,
   updatedAt: userPoints.updatedAt,
 }
+
+/** 供每日赠送服务复用同一份列清单(禁止各写一份,AGENTS §0.6)。 */
+export { userPointsFields }
 
 const transactionFields = {
   id: pointTransactions.id,
@@ -155,6 +162,43 @@ export async function setUserLevel(userId: string, level: number): Promise<void>
     .where(eq(userPoints.userId, userId))
 }
 
+/**
+ * 把 user_points 的每日赠送额度对齐到 at 所在的业务日（Asia/Shanghai）。
+ *
+ * - 当天已对齐 ⇒ 直接返回，零写入（余额查询与扣费的热点路径都走这一支）；
+ * - 跨日 ⇒ 条件式原子 UPDATE 覆盖为 DAILY_GRANT_POINTS，昨日剩余不结转；
+ * - 只改 daily_points / daily_points_date，绝不动 points / total_* / experience ——
+ *   每日白送不是“获得”，不能拿来刷等级或抬累计获得。
+ *
+ * 不挂定时任务批量扫全表：任何人第一次读余额或花积分前就先对齐，
+ * 等价于“当天首次访问发放”，离线用户不会平白多领，也不会漏发。
+ */
+export async function ensureDailyCreditRow(
+  userId: string,
+  at: Date = new Date(),
+): Promise<UserPoints> {
+  const today = bizDayKey(at)
+  const current = await ensureUserPoints(userId)
+  if (current.dailyPointsDate === today) return current
+
+  const granted = await db
+    .update(userPoints)
+    .set({ dailyPoints: DAILY_GRANT_POINTS, dailyPointsDate: today, updatedAt: new Date() })
+    .where(
+      and(
+        eq(userPoints.userId, userId),
+        or(isNull(userPoints.dailyPointsDate), ne(userPoints.dailyPointsDate, today)),
+      ),
+    )
+    .returning(userPointsFields)
+  if (granted[0]) return granted[0]
+
+  // 0 行 = 并发下另一请求已完成今天的重置：回读它写下的那一份，绝不二次发放。
+  const fallback = await findUserPoints(userId)
+  if (!fallback) throw new Error('初始化每日赠送额度失败')
+  return fallback
+}
+
 // =============================================================================
 // Point Transactions
 // =============================================================================
@@ -202,6 +246,10 @@ export interface AdjustPointsInput {
  * 调整积分：更新 user_points 余额/累计/经验（仅 earn 增长经验），并写入流水。
  * 使用 DB 事务包裹更新与流水写入，并在 earn 时同步更新等级，保证三者原子性。
  * 可传入外部事务句柄 tx，与调用方（如签到）的其他写操作组成同一原子事务。
+ *
+ * 余额口径：points 是永久/充值余额，daily_points 是当日赠送剩余。
+ * 写流水时 balance_after 记“总可用”= points + daily_points，与余额页展示一致；
+ * 历史行（只有 points 口径）不做回算。
  */
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 export type { DbTx }
@@ -213,9 +261,9 @@ export async function adjustPoints(
   const amount = Math.abs(data.amount)
   if (amount === 0) throw new Error('调整积分数不能为 0')
 
-  // 仅用于确保积分行存在;核心增减用原子 UPDATE,不依赖此快照计算新值(防 lost update)
-  // 注意:始终用全局 db(非事务连接)执行,避免并发首签时 INSERT 唯一冲突中止外层事务
-  await ensureUserPoints(data.userId)
+  // 先对齐当日赠送额度,再做增减:消费必须优先花掉今天这份(过期作废),不能先吃永久余额。
+  // 内部只用全局 db 的原子 UPDATE(ensureUserPoints),不会拿并发首建的唯一冲突中止外层事务。
+  await ensureDailyCreditRow(data.userId)
 
   if (tx) return adjustPointsInTx(tx, data, amount)
   return db.transaction((innerTx) => adjustPointsInTx(innerTx, data, amount))
@@ -260,7 +308,7 @@ async function adjustPointsInTx(
         type: data.type,
         source: data.source,
         amount,
-        balanceAfter: finalPoints.points,
+        balanceAfter: finalPoints.points + finalPoints.dailyPoints,
         description: data.description,
         referenceId: data.referenceId,
       })
@@ -271,15 +319,24 @@ async function adjustPointsInTx(
     return { points: finalPoints, transaction: txRow }
   }
 
-  // spend 路径:原子 UPDATE 扣减 + WHERE 余额检查(0 行影响 = 余额不足或用户不存在)
+  // spend 路径:一条原子 UPDATE 同时完成“先扣当日赠送、再扣永久余额”,WHERE 保证总可用足够。
+  // PostgreSQL 的 SET 子句里引用的列一律取更新前的行值,三个表达式互不污染,
+  // 因此并发扣费不会出现“两头都只扣了一部分”的中间态(0 行影响 = 总可用不足或用户不存在)。
+  // total_spent 只累计永久余额扣减:每日赠送是平台补贴,不进财务口径的“累计消费”。
   const updated = await tx
     .update(userPoints)
     .set({
-      points: sql`${userPoints.points} - ${amount}`,
-      totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
+      dailyPoints: sql`GREATEST(${userPoints.dailyPoints} - ${amount}, 0)`,
+      points: sql`${userPoints.points} - GREATEST(${amount} - ${userPoints.dailyPoints}, 0)`,
+      totalSpent: sql`${userPoints.totalSpent} + GREATEST(${amount} - ${userPoints.dailyPoints}, 0)`,
       updatedAt: new Date(),
     })
-    .where(and(eq(userPoints.userId, data.userId), sql`${userPoints.points} >= ${amount}`))
+    .where(
+      and(
+        eq(userPoints.userId, data.userId),
+        sql`${userPoints.dailyPoints} + ${userPoints.points} >= ${amount}`,
+      ),
+    )
     .returning(userPointsFields)
   const pointsRow = updated[0]
   if (!pointsRow) {
@@ -299,7 +356,7 @@ async function adjustPointsInTx(
       type: data.type,
       source: data.source,
       amount: -amount,
-      balanceAfter: pointsRow.points,
+      balanceAfter: pointsRow.points + pointsRow.dailyPoints,
       description: data.description,
       referenceId: data.referenceId,
     })

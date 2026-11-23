@@ -2786,6 +2786,7 @@
   "points": {
     "title": "Points center",
     "subtitle": "Points, level and daily check-in",
+    "dailyCreditHint": "Daily grant {granted} points, {remaining} left today; valid today only, resets tomorrow",
     "current": "Current points",
     "totalEarned": "Total earned",
     "totalSpent": "Total spent",

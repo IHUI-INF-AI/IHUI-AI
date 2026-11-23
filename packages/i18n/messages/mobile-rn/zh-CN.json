@@ -2786,6 +2786,7 @@
   "points": {
     "title": "积分中心",
     "subtitle": "查看积分、等级与签到",
+    "dailyCreditHint": "每日赠送 {granted} 积分，今日剩余 {remaining}；仅当日有效，次日清零",
     "current": "当前积分",
     "totalEarned": "累计获得",
     "totalSpent": "累计消费",

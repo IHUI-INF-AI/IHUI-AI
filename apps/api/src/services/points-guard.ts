@@ -10,7 +10,7 @@
  */
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { spendPoints } from './points-service.js'
-import { findUserPoints } from '../db/gamification-queries.js'
+import { getSpendableBalance } from './daily-credits.js'
 
 /** 媒体类固定单价(积分/次)。导出以便夹具与计费口径对齐。 */
 export const FLAT_POINTS = {
@@ -27,8 +27,8 @@ export async function ensurePointsAvailable(
 ): Promise<boolean> {
   const userId = request.userId
   if (!userId) return true // 未登录交由各自的鉴权钩子处理
-  const points = await findUserPoints(userId)
-  const balance = points?.points ?? 0
+  // 媒体闸:每日赠送也算可花额度,只读永久余额会让送了 100 却仍然报“余额不足”。
+  const { available: balance } = await getSpendableBalance(userId)
   if (balance <= 0) {
     reply.status(402).send({
       code: 402,
