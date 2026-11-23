@@ -1009,6 +1009,35 @@ export default function AdminRelayAccountPoolPage() {
     onError: (e: Error) => toast.error(e.message || '共享操作失败'),
   })
 
+  // 批量取消共享(2026-11-23):选中项逐个走 unshare 出口(服务端唯一正当出口,含 cred bump
+  // 与签到同步);逐条计数,失败明细带回不静默
+  const unshareSelectedMut = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let ok = 0
+      const failed: string[] = []
+      for (const id of ids) {
+        const r = await fetchApi<{ id: string; sharedToOps: boolean; changed: boolean }>(
+          `/api/admin/relay/accounts/${id}/unshare`,
+          { method: 'POST' },
+        )
+        if (r.success) {
+          ok++
+        } else {
+          failed.push(`${id.slice(0, 8)}:${apiFailureToError(r).message}`)
+        }
+      }
+      return { ok, failed }
+    },
+    onSuccess: (d) => {
+      toast.success(
+        `已取消共享 ${d.ok} 个账号${d.failed.length > 0 ? `，${d.failed.length} 个失败` : ''}`,
+        d.failed.length > 0 ? { description: d.failed.join('\n') } : undefined,
+      )
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '批量取消共享失败'),
+  })
+
   // 登录本机(2026-10-27 全平台):把号池账号写进本机客户端登录态(写前自动备份)
   const loginLocalMut = useMutation({
     mutationFn: async (id: string) => {
@@ -1982,6 +2011,23 @@ export default function AdminRelayAccountPoolPage() {
               >
                 批量释放
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={unshareSelectedMut.isPending}
+                onClick={() => {
+                  const ids = list
+                    .filter((k) => selectedIds.includes(k.id) && k.ownerUserId)
+                    .map((k) => k.id)
+                  if (ids.length === 0) {
+                    toast.error('选中项里没有个人池账号（运营池账号本来就全局可用）')
+                    return
+                  }
+                  unshareSelectedMut.mutate(ids)
+                }}
+              >
+                批量取消共享
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
                 取消选择
               </Button>
@@ -2001,6 +2047,7 @@ export default function AdminRelayAccountPoolPage() {
                       />
                     </th>
                     <th className="px-3 py-2 text-left">名称</th>
+                    <th className="px-3 py-2 text-left">共享</th>
                     <th className="px-3 py-2 text-left">
                       <div className="flex flex-wrap items-center gap-1">
                         <span>平台</span>
@@ -2030,7 +2077,6 @@ export default function AdminRelayAccountPoolPage() {
                     <th className="px-3 py-2 text-left">最近使用</th>
                     <th className="px-3 py-2 text-left">认领</th>
                     <th className="px-3 py-2 text-left">启用</th>
-                    <th className="px-3 py-2 text-left">共享</th>
                     <th className="px-3 py-2 text-left">摘除</th>
                     <th className="px-3 py-2 text-right">操作</th>
                   </tr>
@@ -2107,6 +2153,31 @@ export default function AdminRelayAccountPoolPage() {
                               >
                                 {k.lastErrorMessage}
                               </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.ownerUserId ? (
+                              <div className="flex items-center gap-2">
+                                <Tooltip content="开：对所有用户/匿名开放（进入运营选路）；关：仅个人池可用">
+                                  <span className="inline-flex">
+                                    <Switch
+                                      checked={k.sharedToOps}
+                                      disabled={setSharedMut.isPending}
+                                      onCheckedChange={() =>
+                                        setSharedMut.mutate({ id: k.id, shared: !k.sharedToOps })
+                                      }
+                                      aria-label={`${k.name} 共享到运营池开关`}
+                                    />
+                                  </span>
+                                </Tooltip>
+                                <span className="whitespace-nowrap text-label text-muted-foreground">
+                                  {k.sharedToOps ? '共享中' : '仅个人'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="whitespace-nowrap rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600 dark:text-emerald-400">
+                                运营池(全局)
+                              </span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-label">
@@ -2321,22 +2392,6 @@ export default function AdminRelayAccountPoolPage() {
                               onCheckedChange={() => toggleMut.mutate(k.id)}
                               aria-label={`${k.name} 启用开关`}
                             />
-                          </td>
-                          <td className="px-3 py-2">
-                            {k.ownerUserId ? (
-                              <Switch
-                                checked={k.sharedToOps}
-                                disabled={setSharedMut.isPending}
-                                onCheckedChange={() =>
-                                  setSharedMut.mutate({ id: k.id, shared: !k.sharedToOps })
-                                }
-                                aria-label={`${k.name} 共享到运营池开关`}
-                              />
-                            ) : (
-                              <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600 dark:text-emerald-400">
-                                运营池(全局)
-                              </span>
-                            )}
                           </td>
                           <td className="px-3 py-2">
                             {k.tempUnschedulable ? (

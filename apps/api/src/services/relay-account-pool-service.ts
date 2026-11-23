@@ -1336,7 +1336,10 @@ export async function importAccounts(
         try {
           ;[written] = await db
             .insert(aiRelayAccountPool)
-            .values({ ...values, credVersion: 1 })
+            // 2026-11-23 机主令:新导入不再自动共享(库列默认值仍是 true,这里显式钉死,
+            // 只作用于 INSERT —— 覆盖/刷新路径不碰该列,才不会把用户主动打开的共享开关改回去)。
+            // 需要开放时由号池页「共享」开关显式打开(唯一出口 setAccountShared)。
+            .values({ ...values, sharedToOps: false, credVersion: 1 })
             .returning({
               id: aiRelayAccountPool.id,
               credVersion: aiRelayAccountPool.credVersion,
@@ -1743,9 +1746,10 @@ export async function completeAccountPhone(
 
 // =============================================================================
 // 共享到运营池标记(2026-11-07 立,李总指令)
-// 2026-11-12 机主令改口:所有号池里的号默认同步运营生产 ⇒ 新建行默认 shared=true
-// (schema 默认值 + 库列默认值均已改 true);setAccountShared 现主要用于「显式关闭共享」。
-// 存量不共享行已由批量补齐收口,本函数仍是改该标记的唯一正当出口(含 cred bump + 签到同步)。
+// 2026-11-12 曾改口:新建行默认 shared=true(库列默认值同步改 true);
+// 2026-11-23 机主令收回:只保留显式打开的号共享 —— 导入路径 INSERT 显式写 false
+// (库列默认值未再动,避免迁移链抖动);存量已在当日按机主名单收口(仅 workbuddy 一枚保留)。
+// 本函数仍是改该标记的唯一正当出口(含 cred bump + 签到同步)。
 // =============================================================================
 
 export interface SetSharedResult {
