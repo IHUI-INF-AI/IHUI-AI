@@ -298,13 +298,72 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 - 类型:新增 `apps/cli/bin/ihui-lowmem.d.mts` 声明(该 bin 不参与 tsc 编译,测试按声明取形);测试 `apps/cli/tests/ihui-lowmem-launcher.test.ts` **5 passed in 0.47s**(参数顺序、禁用老年代上限、继承 stdio/windowsHide、退出码透传、启动失败不抛异常);`pnpm --filter ihui-cli typecheck` 通过;`eslint` 两文件通过。`typecheck:tests` 仓内已有大量存量红,本批新增文件零错误(过滤 `ihui-lowmem` 无命中)。
 - 本批只保证“档位可用且契约钉死”,不声称具体降幅;峰值内存对照需另跑独立基准。
 
-## 核实后的残余（不再列为待办）
+## 追加批：checkpoint 落 tokenMeter，`/token-usage` 优先复用 provider 基线
+
+`00122ada`。上一批把 token meter 接到了 `thread.contextUsage`，但 Web 侧读的 `/agents/{id}/token-usage` 仍只拿旧 checkpoint 现场估算，重启后同一会话的 breakdown 会退化为 `baseline=estimated`。本批把测量快照写进 checkpoint：
+
+- `AgentLoopV2` 新增 `_last_provider_usage_raw`；每次成功 LLM 响应（含 max_tokens 续写分段）在追加 `usage_attempts` 的同时保留原始 usage。
+- 新增 `_checkpoint_token_meter(messages)`：`ProviderUsage.from_normalized_usage(raw)` → `build_anchor(messages, raw)` → `measure_messages(..., envelope_key=anchor.envelope_key)`；`payload.pop("nodes")` 只存聚合面，避免 checkpoint 随消息数膨胀；异常降级 `None`。
+- `_save_checkpoint_safe` 在文件快照/耐久视野同层把 `tokenMeter` 合进 metadata，`setdefault` 保证调用方显式值优先。
+- `GET /agents/{id}/token-usage` 优先读 `cp.metadata["tokenMeter"]`：有 `tokenUsage` 时 prompt/completion 取 provider 桶、`totalTokens` 取 provider total，并回传 `tokenUsage` / `envelopeKey`；旧 checkpoint 才现场 `measure_messages`。
+- 关键 bug：首版把已构造的 `ProviderUsage` 对象传给 `build_anchor`，而它期望原始 dict ⇒ 内部解析返回 `None`，测试断言 `baseline=provider_usage` 失败但表面仍“有数”；改传 `raw` 后通过。
+- 测试 `test_checkpoint_token_meter.py` 5 例 + `test_token_meter_endpoint.py` saved meter 优先 1 例，合计 **7 passed in 1.68s**。
+
+## 追加批：`deny` 真实线程端到端与未知策略不折 `on_request`
+
+`c064aaad`。上一批已有 `deny` 的单元映射，但没有“真实 `thread.start` + 真实 `apply_patch`”的端到端证据；未知策略也仍可能被默认折叠成 `on_request`。
+
+- `test_engine_harness_policies.py` 新增 `test_thread_deny_blocks_apply_patch_inside_workspace`：真实 `thread.start(approvalPolicy="deny", workspace=tmp_path)`，取 `engine._apply_patch_tool(thread)` 执行工作区内 unified diff；断言 `thread.approval_policies["*"]=="deny"`、结果含 `deny`、无 `requires_approval`、目标文件字节仍为 `old\n`。
+- 新增 `test_unmatched_command_unknown_policy_is_unjudged_not_on_request`：未知 `maybe` 返回 `{}`，已知 `deny` 仍非空 —— 证明未知档不被折成 `on_request`，也不会把已知档一起关掉。
+- 结果 **14 passed in 14.80s**；`ruff`、水印全过。
+
+## 追加批：命名权限预设捆绑两轴（对齐 DSH permission presets）
+
+`d3ed1b03`。DSH 的 `dsh-permission-presets` 把 `sandbox_mode + approval_policy` 捆成一个可命名档，客户端只选名字，不再分别拼两轴；本仓此前只有独立轴，客户端容易选出“半套组合”。
+
+- 新增 `apps/ai-service/app/core/permission_presets.py`：`PresetEntry` / `PresetCatalog` / `CUSTOM_PRESET` / `DEFAULT_CATALOG`；目录 `readOnly=(read-only,on-request)`、`auto=(workspace-write,on-request)`、`fullAccess=(danger-full-access,never)` 逐字来自既有 `permission_axis.APPROVAL_PRESETS`，不造第二份轴值真源；`custom` 可展示但不可选。
+- `current_preset`：轴归一失败返回 `custom`；最近选择仍匹配则胜出，否则目录第一个匹配项。`switch_preset` 返回目标两轴与 `changed_axes`，两轴都没变 `no_op=true`，`custom`/未知抛 `PresetSelectionError`。
+- `agents.py` 三个请求模型（execute / resume / session-resume）新增 `permission_preset`；`_resolved_axis_resolution` 对空串 400、与显式轴同给 400、未知/`custom` 400；四个消费点全部接线；新增 `GET /agents/permission-presets` 返回目录与 `defaultPreset="auto"`。
+- 测试 `test_permission_presets.py` 9 例（目录与 `APPROVAL_PRESETS` 逐字一致、最近选择优先、非预设组合推导 `custom`、切换只报变化轴/no-op、拒绝 `custom`/未知、目录重名与坏默认项、请求模型接字段并走 `AxisSource.PRESET`、preset 与显式轴冲突 400、目录端点形状）；与策略回归合计 **23 passed**；`mypy` 新模块零错误。
+
+## 追加批：子目录工作区回合快照按前缀收窄
+
+`9a57eefa`。`workspace_changes.py` 原先要求工作区必须是仓库根，否则整段返回 `False` 并降级到旧 status 差集 —— 在 monorepo 子目录里跑 agent 时，回合快照等于没生效，还会把仓库其他目录的脏文件带进 `turn.diff`。
+
+- `start()` 计算 `self._prefix = relpath(workspace, repo_root)`；在仓库外 fail-closed，在子目录则收窄。
+- 仍对整仓写 tree，但 `_name_status` / `_numstat` 追加 `--relative=<prefix>` 与 `-- <prefix>` pathspec；`_diff_text` 追加 `--relative` 并把显示路径映射回相对工作区路径。工作区外的脏文件不再进入变更集。
+- 新增 `test_subdirectory_workspace_scope_excludes_repo_outside`：`sub/` 内已提交文件轮内修改 + 仓库根新建 `outside.txt`；结果只报 `inside.txt`、`outside.txt` 不出现。**6 passed in 3.21s**。
+
+## 追加批：Anthropic 原生 `input_tokens` 口径 + hunk 行数防内容误判 + v1 预设透传
+
+`5ea9f4fd`。三处小但会静默算错/判错的边界：
+
+- `ProviderUsage.from_normalized_usage` 不再无条件把 `input_tokens` 当“含缓存总量”再减：`prompt_tokens` 存在按本仓归一契约视为含缓存；只有 `input_tokens` 时视为 Anthropic 原生非缓存口径，未缓存输入不再被减成 0；另加 `prompt_includes_cache` 显式覆盖。新增 2 例（Anthropic 三段总量、显式覆盖），`prompt_tokens` 仍=未缓存+读缓存+写缓存。
+- `diff_file_stats` 按 `@@ -a,b +c,d @@` 的行数记账终止 hunk，而不是“等下一个文件头”：hunk 内一行删除内容可恰好是 `--- foo`、下一行新增内容可恰好是 `+++ bar`，旧实现会把它们当新文件头并把剩余增删记到错误文件。行数耗尽即退出 hunk，之后 `---` 才按文件头处理；非标准 hunk 头整文件标 `coarse`，不猜行数。新增回归 1 例；token/diff/预设三组 **34 passed in 26.19s**（含更广的 checkpoint、workspace、engine 十三批）。
+- `apps/api` v1 Agent Execute 请求新增 `permissionPreset`，类型与 Zod schema 同步，body 透传 `permission_preset`；`@ihui/types` + `@ihui/api` build/typecheck **7/7 success**。
+
+## 追加批：Web 变更面板显示逐文件增删行数
+
+`802c79f9`。后端 `turn.diff` 已有 `additions/deletions/binary/coarse`，但 Web 侧此前只显示文件清单与状态，用户看不到“改了多少行”。本批把同一行级差异接到展示面：
+
+- 新增 `apps/web/src/lib/diff-stats.ts`：`diffStatsFromContents(old,new)` 直接复用 `@ihui/shared/attribution` 的 Myers `computeDiffHunks`，不另写第二套 diff；只数 `add/del` 行，超大文件沿用共享层预算退化，不伪造精确值。
+- `use-agent-progress` 与 IDE `AgentPane` 两个 `AgentChange` 生产点都计算 `additions/deletions`；`changes-section.tsx` 在汇总行与每个文件行显示 `+N -M`（绿/红、等宽数字），无变更不显示假 `+0 -0` 徽章。
+- 测试 `diff-stats.test.ts` 4 例（新建、纯删除、替换、空/相同不产假变更）；`@ihui/web` typecheck **7/7 success**；本批 5 文件水印 5/5 完整。
+
+## 本轮收尾状态（现读）
+
+- 本地 `HEAD=65f76d81757199c19ede173b0d48cebe29f2c21b`，`origin/main` 同 hash；`00122ada`、`c064aaad`、`d3ed1b03`、`9a57eefa`、`5ea9f4fd`、`802c79f9` 均已在 HEAD 祖先链上（`merge-base --is-ancestor` 逐个 rc=0）。
+- 目标面复跑：token/checkpoint/workspace/diff/policy 五文件 **34 passed in 26.19s**；web diff-stats **4 passed**；web typecheck **7/7**；types+api build/typecheck **7/7**；`ruff check` 本批 Python 文件全过。
+- 未做的产品决策：`turn.diff` 的 engine JSON-RPC 客户端不在本仓，Web 是 hook/SSE 面；本批消费的是同一行级统计语义（共享 Myers），不额外把 32k 级 diff 正文复制进第二条 SSE 总线。若未来接入 engine 客户端，直接复用 `turn.diff` 的 `changes[]` 字段即可。
+
+
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
 
 | 残余 | 核实结论 | 为何不再建议 |
 |---|---|---|
 | 内核级 per-path DACL | `app/services/os_sandbox.py` 已含 Job Object + `CreateRestrictedToken`；文件 ACL 在模块 docstring 中明确声明为应用层护栏，内核级需改写 DACL | 本仓已判定"代价过重"，现有护栏覆盖威胁模型 |
+| turn.diff 前端消费 | Web 变更面板已按共享 Myers 行级差异显示逐文件 `+N -M`；engine JSON-RPC 客户端不在本仓 | 同一行级统计语义已消费，不再复制 32k diff 正文到第二条 SSE 总线 |
 | turn outline | `routers/sessions.py` 已有 turn 模型、`list_turns`、`/threads/{id}/diagnostics` | 已有等价实现，另造一份会成第二真相 |
 | 调查台账 | `deep_research.py` 已有 `EvidenceUnit` / `crosscheck` / `gap_questions` / `limitations` | 核心语义已覆盖；再加一层只是换名 |
 | 自动复核 | `services/tool_auto_review.py`（工具授权审查）+ `services/pr_reviewer.py`（PR 复核） | 工具级与 PR 级已有；回合级需产品决策与成本预算 |
