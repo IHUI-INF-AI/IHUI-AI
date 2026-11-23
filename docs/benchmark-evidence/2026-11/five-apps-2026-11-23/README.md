@@ -202,6 +202,13 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 关键坑：`sample_file()` 的状态值是 `ok / absent / unreadable`，`_classify_existing_file()` 才是 `present / missing / unread`。首版 gate 误用 `current.status == "present"`，真实命中时 `status="ok"` ⇒ 拒绝不生效、覆盖照常落盘；调试脚本打印 `blocking=true` 但 `ok=true` 才暴露。改为 `status == "ok"` 后，同一调用回 `ok=false / FS_NOT_OBSERVED` 且盘上字节不变。
 - 测试：`apps/ai-service/tests/test_file_read_state_wiring.py` **10 passed**（原 5 例 + 新增 5 例：严格档拒未读覆盖且盘上字节不变、严格档允许新建、严格档先读后写、严格档 `file_edit` 拒未读、默认档覆盖未读只报 `never_read`/`blocking=false`）。`ruff check` 对本批两文件全过；`mcp_server.py` 仍只有 HEAD 存量的 `I001`（`payroll_handoff_tools` 导入块排序，不是本批引入）。
 
+## 追加批（同日）：压力档裁剪超大工具结果，保留头尾而不是整段抹掉
+
+- `cf0cf9ba`。对齐 DSH `dsh-compaction-tool-result-pruner`：压缩压力触发后，文本超过 8,192 个 Unicode 码点的工具结果裁成「前 4,096 + `\n\n[... tool result middle pruned ...]\n\n` + 后 1,024」，未超阈值的对话原样；完整原文仍留在会话日志里，可回放。DSH 只设字符预算、不按 token 语义切，本仓同样把 token 压力判定留给既有 `assess_context_pressure`。
+- `apps/ai-service/app/core/context_compaction.py`：新增 `prune_oversized_tool_results()` 与 `_prune_tool_content()`。字符串与多模态 parts 都支持 —— 多模态只合并 `type=text` 段再裁，图片/结构化 part 原位保留；`tool_call_id`、工具名、错误等元数据逐字不动；不修改传入消息对象。头+标记+尾严格 ≤ 阈值，构造非法预算直接 `ValueError`，不静默截短。按 Unicode 码点切片，不会把 emoji 拆开。
+- `micro_compact_messages(..., prune_large=False)` 新增显式档：生产执行器 `AgentLoopV2._maybe_micro_compact` 在 0.6 压力线触发时传 `prune_large=True`，先做头尾裁剪，再做旧结果整段回收；`tools_removed` 与 `tools_pruned` 分开计数，`trigger` 在只裁剪时为 `prune`、有回收时为 `micro`。默认 `False` 保证既有 micro 语义与用例逐字节不变。
+- 测试：`apps/ai-service/tests/test_context_pressure_micro_compaction.py` **32 passed**（新增 6 例：头尾/元数据/原对象不变、短结果与非 tool 不裁、多模态非文本顺序保留、非法预算拒绝、只裁剪最近一轮时 `trigger=prune`、默认档不动最近大结果）；`ruff check` 三文件全过。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：
