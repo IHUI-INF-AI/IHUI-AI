@@ -34,6 +34,7 @@ import { aiModelConfig, aiModelConfigModels } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 import { isRelayProviderCode, type RelayProviderCode } from '../services/relay-account-format.js'
 import { fetchUpstreamModelIdsForProvider } from '../services/relay-account-pool-service.js'
+import { inferPointsMultiplier } from '../services/points-multiplier.js'
 
 // 逐条写入的结局:新增 / 已存在跳过(不覆盖管理员手置的展示名/定价)
 type RelayModelWriteOutcome = 'inserted' | 'exists'
@@ -127,6 +128,7 @@ async function upsertRelayModel(
       displayName: modelId,
       enabled: true,
       isRelayPublic: true,
+      pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
     })
     .onConflictDoNothing({
       target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],

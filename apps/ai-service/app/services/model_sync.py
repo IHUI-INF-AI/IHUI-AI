@@ -71,7 +71,11 @@ from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from ..core.default_model import RETIRED_PROVIDERS
 from ..core.provider_caps import get_provider_cap
-from .free_provider_registry import ProviderCategory, free_provider_registry
+from .free_provider_registry import (
+    ProviderCategory,
+    free_provider_registry,
+    infer_points_multiplier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -2043,6 +2047,8 @@ class ModelSyncService:
                     "vendor", "max_output_tokens", "supports_tool_call", "supports_vision",
                     "description", "rate_limit_rpm", "rate_limit_tpd",
                     "release_date", "deprecation_date",
+                    # 积分倍率(后台可覆盖;INSERT 时写推断值,ON CONFLICT 不覆盖)
+                    "points_multiplier",
                     # v4(2026-09-08):token6688 富元数据落库列(param_schema 等)
                     "metadata",
                     # 同步写入时间(INSERT/UPDATE 都会刷新)
@@ -2354,6 +2360,14 @@ class ModelSyncService:
             fields.append("tags")
             placeholders.append(f"${idx}")
             params.append(model_tags)
+            idx += 1
+
+        # points_multiplier:只在 INSERT 时写推断值;ON CONFLICT 不覆盖
+        # (管理员在后台手调的倍率必须活过每一轮自动同步)。
+        if columns.get("points_multiplier", False):
+            fields.append("points_multiplier")
+            placeholders.append(f"${idx}")
+            params.append(infer_points_multiplier(model_id))
             idx += 1
 
         # F4.5 新字段

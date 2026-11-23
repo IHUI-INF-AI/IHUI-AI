@@ -32,7 +32,14 @@ import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { classifyPoolModels, poolModelClassKey } from './model-catalog-classify-client.js'
-import { inferPointsMultiplier } from './points-multiplier.js'
+import {
+  parsePointsMultiplierOverride,
+  resolvePointsMultiplierWithOverride,
+} from './points-multiplier.js'
+import {
+  loadPointsMultiplierOverrides,
+  lookupPointsMultiplierOverride,
+} from './points-multiplier-resolver.js'
 import {
   credentialShapeIssue,
   detectPhoneMask,
@@ -2559,12 +2566,14 @@ export async function listUserPoolModels(
   }
 
   const providers = [...byProvider.keys()]
+  const pointsOverrides = await loadPointsMultiplierOverrides()
   // 预置:一次查全(避免 12 次往返),按平台+模型名排序保证输出稳定
   const presetRows = await dbRead
     .select({
       providerCode: aiModelConfig.providerCode,
       modelId: aiModelConfigModels.modelId,
       displayName: aiModelConfigModels.displayName,
+      pointsMultiplier: aiModelConfigModels.pointsMultiplier,
     })
     .from(aiModelConfigModels)
     .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
@@ -2577,11 +2586,18 @@ export async function listUserPoolModels(
     )
     .orderBy(aiModelConfig.providerCode, aiModelConfigModels.modelId)
 
-  const presetByProvider = new Map<string, Array<{ id: string; name: string }>>()
+  const presetByProvider = new Map<
+    string,
+    Array<{ id: string; name: string; pointsMultiplier: string }>
+  >()
   for (const row of presetRows) {
     if (!row.modelId) continue
     const list = presetByProvider.get(row.providerCode) ?? []
-    list.push({ id: row.modelId, name: row.displayName || row.modelId })
+    list.push({
+      id: row.modelId,
+      name: row.displayName || row.modelId,
+      pointsMultiplier: row.pointsMultiplier,
+    })
     presetByProvider.set(row.providerCode, list)
   }
 
@@ -2645,7 +2661,10 @@ export async function listUserPoolModels(
         source: 'preset',
         verified: true,
         verifiedAt: verifiedAtMs,
-        pointsMultiplier: inferPointsMultiplier(preset.id),
+        pointsMultiplier: resolvePointsMultiplierWithOverride(
+          preset.id,
+          parsePointsMultiplierOverride(preset.pointsMultiplier),
+        ),
       })
     }
     for (const upstreamId of info.ids) {
@@ -2673,7 +2692,10 @@ export async function listUserPoolModels(
         source: 'upstream',
         verified: true,
         verifiedAt: verifiedAtMs,
-        pointsMultiplier: inferPointsMultiplier(id),
+        pointsMultiplier: resolvePointsMultiplierWithOverride(
+          id,
+          lookupPointsMultiplierOverride(pointsOverrides, id),
+        ),
       })
     }
     // 回写缓存:只存上游那一半(预置每次现读,登记变更立即生效);ok 随清单一起缓存,

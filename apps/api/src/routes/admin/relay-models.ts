@@ -26,6 +26,8 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import { isRelayProviderCode } from '../../services/relay-account-format.js'
 import { ensureProviderConfigRow } from '../../jobs/relay-models-sync.js'
+import { invalidatePointsMultiplierOverrides } from '../../services/points-multiplier-resolver.js'
+import { inferPointsMultiplier } from '../../services/points-multiplier.js'
 
 const listQuerySchema = paginationSchema.extend({
   /** 上架状态:all / public / private */
@@ -50,6 +52,7 @@ const createBodySchema = z.object({
 const updateBodySchema = z.object({
   isRelayPublic: z.boolean().optional(),
   relayPriceMultiplier: z.string().max(20).optional(),
+  pointsMultiplier: z.number().min(0).max(100000).optional(),
   relaySortOrder: z.number().int().optional(),
   relayDisplayName: z.string().max(256).nullable().optional(),
 })
@@ -125,6 +128,7 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
             outputPricePer1k: aiModelConfigModels.outputPricePer1k,
             contextLength: aiModelConfigModels.contextLength,
             isRelayPublic: aiModelConfigModels.isRelayPublic,
+            pointsMultiplier: aiModelConfigModels.pointsMultiplier,
             relayPriceMultiplier: aiModelConfigModels.relayPriceMultiplier,
             relaySortOrder: aiModelConfigModels.relaySortOrder,
             relayDisplayName: aiModelConfigModels.relayDisplayName,
@@ -255,6 +259,7 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     }
     if (d.isRelayPublic !== undefined) setData.isRelayPublic = d.isRelayPublic
     if (d.relayPriceMultiplier !== undefined) setData.relayPriceMultiplier = d.relayPriceMultiplier
+    if (d.pointsMultiplier !== undefined) setData.pointsMultiplier = d.pointsMultiplier.toFixed(2)
     if (d.relaySortOrder !== undefined) setData.relaySortOrder = d.relaySortOrder
     if (d.relayDisplayName !== undefined) setData.relayDisplayName = d.relayDisplayName
 
@@ -265,6 +270,7 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiModelConfigModels.id, Number(p.data.id)))
         .returning()
       if (!updated) return reply.status(404).send(error(404, '模型行不存在'))
+      if (d.pointsMultiplier !== undefined) invalidatePointsMultiplierOverrides()
       return reply.send(success(updated))
     } catch (e) {
       request.log.error(e)
@@ -360,6 +366,7 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
           displayName: displayName ?? modelId,
           enabled: true,
           isRelayPublic: true,
+          pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
         })
         .onConflictDoNothing({
           target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],

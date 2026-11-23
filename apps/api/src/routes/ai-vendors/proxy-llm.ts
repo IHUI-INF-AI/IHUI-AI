@@ -27,6 +27,7 @@ import {
 } from './_shared.js'
 import { spendPoints } from '../../services/points-service.js'
 import { inferPointsMultiplier } from '../../services/points-multiplier.js'
+import { getPointsMultiplier } from '../../services/points-multiplier-resolver.js'
 import { chargeMediaPoints, ensureMediaPointsBalance } from '../../services/media-billing.js'
 import { bareMediaModelId } from '@ihui/shared'
 import { findUserPoints } from '../../db/gamification-queries.js'
@@ -179,7 +180,7 @@ export async function ensurePointsBalance(
   reply: FastifyReply,
   modelId: string,
 ): Promise<boolean> {
-  if (inferPointsMultiplier(modelId) === 0) return true // 零成本模型不校验余额
+  if ((await getPointsMultiplier(modelId)) === 0) return true // 零成本模型不校验余额
   const userId = request.userId
   if (!userId) return true // 未登录交由 requireAuth 处理
   const points = await findUserPoints(userId)
@@ -205,7 +206,7 @@ export async function chargePointsForCall(
   data: unknown,
   referenceId: string,
 ): Promise<void> {
-  const multiplier = inferPointsMultiplier(modelId)
+  const multiplier = await getPointsMultiplier(modelId)
   if (multiplier === 0) return // 零成本模型不扣分
   const userId = request.userId
   if (!userId) return

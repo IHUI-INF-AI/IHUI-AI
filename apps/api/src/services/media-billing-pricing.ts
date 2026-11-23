@@ -28,13 +28,15 @@ export const MEDIA_UNIT_POINTS: Readonly<Record<MediaCategory, number>> = Object
   video: 12,
 })
 
-/** 单次生成的积分预估(纯函数,零 IO)。units 非法(非正/非有限)一律按 1 计。 */
+/** 单次生成的积分预估(纯函数,零 IO)。units 非法(非正/非有限)一律按 1 计。
+ *  multiplierOverride 由调用方从 DB 覆盖表解析;不传则沿用关键词推断(保持旧口径)。 */
 export function estimateMediaPoints(
   modelId: string,
   category: MediaCategory,
   units = 1,
+  multiplierOverride?: number,
 ): number {
-  const multiplier = inferPointsMultiplier(modelId)
+  const multiplier = multiplierOverride ?? inferPointsMultiplier(modelId)
   if (multiplier <= 0) return 0
   const safeUnits = Number.isFinite(units) && units > 0 ? Math.floor(units) : 1
   return Math.ceil(safeUnits * MEDIA_UNIT_POINTS[category] * multiplier)

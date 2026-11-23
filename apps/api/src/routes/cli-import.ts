@@ -40,6 +40,7 @@ import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { normalizeModelId } from '@ihui/shared'
+import { inferPointsMultiplier } from '../services/points-multiplier.js'
 import { encryptJSON } from '../utils/crypto.js'
 import {
   listSupportedSources,
@@ -238,6 +239,7 @@ async function insertProvider(
                 isDefault: idx === 0,
                 sortOrder: idx,
                 enabled: true,
+                pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
               }
             }),
           )

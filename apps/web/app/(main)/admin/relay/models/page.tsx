@@ -47,6 +47,7 @@ interface RelayModel {
   outputPricePer1k: string
   contextLength: number | null
   isRelayPublic: boolean
+  pointsMultiplier: string
   relayPriceMultiplier: string | null
   relaySortOrder: number | null
   relayDisplayName: string | null
@@ -62,6 +63,7 @@ interface ListData {
   pageSize: number
 }
 interface EditForm {
+  pointsMultiplier: string
   relayPriceMultiplier: string
   relaySortOrder: string
   relayDisplayName: string
@@ -78,6 +80,7 @@ export default function AdminRelayModelsPage() {
   const [provider, setProvider] = React.useState('')
   const [editTarget, setEditTarget] = React.useState<RelayModel | null>(null)
   const [form, setForm] = React.useState<EditForm>({
+    pointsMultiplier: '1.00',
     relayPriceMultiplier: '1.0000',
     relaySortOrder: '0',
     relayDisplayName: '',
@@ -158,6 +161,7 @@ export default function AdminRelayModelsPage() {
   const openEdit = (m: RelayModel) => {
     setEditTarget(m)
     setForm({
+      pointsMultiplier: m.pointsMultiplier ?? '1.00',
       relayPriceMultiplier: m.relayPriceMultiplier ?? '1.0000',
       relaySortOrder: String(m.relaySortOrder ?? 0),
       relayDisplayName: m.relayDisplayName ?? '',
@@ -170,6 +174,7 @@ export default function AdminRelayModelsPage() {
     updateMutation.mutate({
       id: editTarget.id,
       body: {
+        pointsMultiplier: Number(form.pointsMultiplier),
         relayPriceMultiplier: form.relayPriceMultiplier,
         relaySortOrder: Number(form.relaySortOrder) || 0,
         relayDisplayName: form.relayDisplayName || null,
@@ -234,6 +239,7 @@ export default function AdminRelayModelsPage() {
                 <th className="px-3 py-2 text-left">厂商</th>
                 <th className="px-3 py-2 text-right">上下文</th>
                 <th className="px-3 py-2 text-right">倍率</th>
+                <th className="px-3 py-2 text-right">积分倍数</th>
                 <th className="px-3 py-2 text-right">排序</th>
                 <th className="px-3 py-2 text-left">状态</th>
                 <th className="px-3 py-2 text-left">更新时间</th>
@@ -244,14 +250,14 @@ export default function AdminRelayModelsPage() {
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={`sk-${i}`}>
-                    <td colSpan={8} className="px-3 py-2">
+                    <td colSpan={9} className="px-3 py-2">
                       <Skeleton className="h-6 w-full" />
                     </td>
                   </tr>
                 ))
               ) : list.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
                     暂无数据
                   </td>
                 </tr>
@@ -288,6 +294,9 @@ export default function AdminRelayModelsPage() {
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {m.relayPriceMultiplier ?? '1.0000'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {Number(m.pointsMultiplier ?? 1).toFixed(2)}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">{m.relaySortOrder ?? 0}</td>
                     <td className="px-3 py-2">
@@ -371,7 +380,20 @@ export default function AdminRelayModelsPage() {
                 {editTarget.modelId} · {resolveVendorDisplayName(editTarget.providerCode, tChat)}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="m-points">积分倍数</Label>
+                <Input
+                  id="m-points"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.pointsMultiplier}
+                  onChange={(e) => setForm({ ...form, pointsMultiplier: e.target.value })}
+                  placeholder="1.00"
+                />
+                <p className="text-label text-muted-foreground">0=免费，1=基准，3/10/30=档位</p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="m-multi">定价倍率</Label>
                 <Input

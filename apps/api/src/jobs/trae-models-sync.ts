@@ -34,24 +34,19 @@ import { logger } from '../utils/logger.js'
 import { aiModelConfigModels } from '@ihui/database'
 import { fetchUpstreamModelIdsForProvider } from '../services/relay-account-pool-service.js'
 import { isRelayProviderCode, type RelayProviderCode } from '../services/relay-account-format.js'
+import { inferPointsMultiplier } from '../services/points-multiplier.js'
 
 /** 单条写入的结局:新增 / 已存在跳过 */
 type TraeModelWriteOutcome = 'inserted' | 'exists'
 
 /** 写入函数(可注入,便于测试替换真实 DB) */
-export type TraeModelWriter = (
-  configId: number,
-  modelId: string,
-) => Promise<TraeModelWriteOutcome>
+export type TraeModelWriter = (configId: number, modelId: string) => Promise<TraeModelWriteOutcome>
 
 /**
  * 单模型 upsert:利用 (config_id, model_id) 唯一约束 onConflictDoNothing。
  * 不更新既有行(避免覆盖管理员手置的 is_relay_public / relay_display_name / 定价)。
  */
-async function upsertTraeModel(
-  configId: number,
-  modelId: string,
-): Promise<TraeModelWriteOutcome> {
+async function upsertTraeModel(configId: number, modelId: string): Promise<TraeModelWriteOutcome> {
   const rows = await db
     .insert(aiModelConfigModels)
     .values({
@@ -60,6 +55,7 @@ async function upsertTraeModel(
       displayName: modelId,
       enabled: true,
       isRelayPublic: true,
+      pointsMultiplier: inferPointsMultiplier(modelId).toFixed(2),
     })
     .onConflictDoNothing({ target: [aiModelConfigModels.configId, aiModelConfigModels.modelId] })
     .returning({ id: aiModelConfigModels.id })
@@ -145,8 +141,7 @@ export async function syncTraeModels(
   } = {},
 ): Promise<TraeModelSyncResult> {
   const upstreamCode = options.upstreamCode ?? process.env.TRAEMODELS_SYNC_UPSTREAM_CODE ?? 'trae'
-  const fetchUpstream =
-    options.fetchUpstream ?? fetchUpstreamModelIdsForProvider
+  const fetchUpstream = options.fetchUpstream ?? fetchUpstreamModelIdsForProvider
 
   if (!isRelayProviderCode(upstreamCode)) {
     const msg = `not a relay provider code: '${upstreamCode}'`

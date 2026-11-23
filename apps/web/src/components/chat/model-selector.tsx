@@ -253,11 +253,14 @@ const TIER_TO_DISPLAY: Record<number, number> = {
   30: 0.77,
 }
 
-/** 整数 tier → 显示小数(已知模型走 KNOWN_MODEL_META 优先) */
+/** 整数 tier → 显示小数(已知模型走 KNOWN_MODEL_META 优先)。
+ *  后台允许填非标倍率(如 6/15/18):取最近档的展示刻度,不让 UI 回落到 1.00x 造成误读。 */
 function tierToDisplayMultiplier(tier: number): { value: number; locked: boolean } {
   if (tier > 30) return { value: 1.65, locked: true }
   if (tier in TIER_TO_DISPLAY) return { value: TIER_TO_DISPLAY[tier] ?? 1, locked: false }
-  return { value: 1, locked: false }
+  const tiers = Object.keys(TIER_TO_DISPLAY).map(Number)
+  const nearest = tiers.reduce((a, b) => (Math.abs(b - tier) < Math.abs(a - tier) ? b : a))
+  return { value: TIER_TO_DISPLAY[nearest] ?? 1, locked: false }
 }
 
 /** 已知模型查询(精确匹配优先 + 子串 fallback) */

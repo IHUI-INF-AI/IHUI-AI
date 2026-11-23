@@ -23,6 +23,7 @@ import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceSystemFetch } from '../../utils/ai-service-fetch.js'
 import { normalizeModelId } from '@ihui/shared'
+import { inferPointsMultiplier } from '../../services/points-multiplier.js'
 import { assertPricedForPublish } from '../../services/model-pricing-admin.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
@@ -321,6 +322,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
             outputPricePer1k: priceOut,
             enabled: true,
             isRelayPublic: true,
+            pointsMultiplier: inferPointsMultiplier(normalizedModelId).toFixed(2),
             relayPriceMultiplier: parsed.data.relayPriceMultiplier ?? '1.0000',
             relayDisplayName: parsed.data.relayDisplayName ?? null,
             ...(priceSource ? { metadata: { priceSource } } : {}),

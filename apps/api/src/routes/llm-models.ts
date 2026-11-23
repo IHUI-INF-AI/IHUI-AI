@@ -9,7 +9,12 @@ import { db } from '../db/index.js'
 import { zhsAiModelInfo } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { inferPointsMultiplier } from './ai-vendors/proxy-llm.js'
+import { resolvePointsMultiplierWithOverride } from '../services/points-multiplier.js'
+import {
+  getPointsMultiplier,
+  loadPointsMultiplierOverrides,
+  lookupPointsMultiplierOverride,
+} from '../services/points-multiplier-resolver.js'
 import { isSystemAdminUser } from '../db/queries.js'
 import { fetchWithinDeadline, isDeadlineAbort } from '../utils/fetch-deadline.js'
 import { ErrorCode, type ErrorCodeKey } from '../errors/codes.js'
@@ -109,7 +114,8 @@ export interface AiModelInfoItem {
 }
 
 /** 为 ai-service 返回的模型列表安全附加 points_multiplier(兼容数组 / {models|data|items: []}) */
-function attachPointsMultiplier(data: unknown): unknown {
+async function attachPointsMultiplier(data: unknown): Promise<unknown> {
+  const overrides = await loadPointsMultiplierOverrides()
   const withMultiplier = (m: unknown): unknown => {
     if (typeof m !== 'object' || m === null) return m
     const obj = m as Record<string, unknown>
@@ -121,7 +127,13 @@ function attachPointsMultiplier(data: unknown): unknown {
           : typeof obj.name === 'string'
             ? obj.name
             : ''
-    return { ...obj, points_multiplier: inferPointsMultiplier(id) }
+    return {
+      ...obj,
+      points_multiplier: resolvePointsMultiplierWithOverride(
+        id,
+        lookupPointsMultiplierOverride(overrides, id),
+      ),
+    }
   }
   if (Array.isArray(data)) return data.map(withMultiplier)
   if (typeof data === 'object' && data !== null) {
@@ -290,7 +302,7 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
         raw.models = raw.models.filter((m) => !m.id || !isRestrictedModel(m.id))
       }
     }
-    return reply.send(success(attachPointsMultiplier(data)))
+    return reply.send(success(await attachPointsMultiplier(data)))
   })
 
   /**
@@ -369,6 +381,7 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       })
 
       // 映射为前端兼容格式
+      const pointsOverrides = await loadPointsMultiplierOverrides()
       const items: AiModelInfoItem[] = sorted.map((m) => {
         // G-726(2026-09-29):三态判定。'unknown' = 本轮未取到健康度 ⇒ **省略 available 字段**,
         // 既不显示"可用"也不显示"不可用";另两态照旧给布尔(与改动前同形)。
@@ -400,7 +413,10 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
           status: m.status,
           createdAt: m.createdAt ? m.createdAt.toISOString() : null,
           updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
-          pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
+          pointsMultiplier: resolvePointsMultiplierWithOverride(
+            m.modelCode ?? m.code ?? m.name,
+            lookupPointsMultiplierOverride(pointsOverrides, m.modelCode ?? m.code ?? m.name),
+          ),
           ...(availability === 'unknown' ? {} : { available: availability === 'available' }),
         }
       })
@@ -457,7 +473,7 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
         status: m.status,
         createdAt: m.createdAt ? m.createdAt.toISOString() : null,
         updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
-        pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
+        pointsMultiplier: await getPointsMultiplier(m.modelCode ?? m.code ?? m.name),
       }
 
       return reply.send(success(item))

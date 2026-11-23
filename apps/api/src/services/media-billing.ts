@@ -32,6 +32,7 @@ import {
   estimateMediaPoints,
   type MediaCategory,
 } from './media-billing-pricing.js'
+import { getPointsMultiplier } from './points-multiplier-resolver.js'
 
 export type { MediaCategory }
 export { MEDIA_UNIT_POINTS, estimateMediaPoints }
@@ -67,7 +68,7 @@ export async function ensureMediaPointsBalance(
   category: MediaCategory,
   units = 1,
 ): Promise<boolean> {
-  const required = estimateMediaPoints(modelId, category, units)
+  const required = estimateMediaPoints(modelId, category, units, await getPointsMultiplier(modelId))
   if (required <= 0) return true
   const userId = request.userId
   if (!userId) return true
@@ -93,7 +94,7 @@ export async function chargeMediaPoints(
   units: number,
   referenceId: string,
 ): Promise<number> {
-  const amount = estimateMediaPoints(modelId, category, units)
+  const amount = estimateMediaPoints(modelId, category, units, await getPointsMultiplier(modelId))
   if (amount <= 0) return 0
   const userId = request.userId
   if (!userId || !referenceId) return 0
