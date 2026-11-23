@@ -41,7 +41,7 @@ def test_update_message_before_model_call() -> None:
     )
     _apply_request_patches(req)
     assert req.messages[0]["content"] == "new"
-    assert req.messages[0]["cache_id"] == "m1"
+    assert "cache_id" not in req.messages[0]
 
 
 def test_add_tool_and_rename_tool() -> None:
@@ -64,6 +64,7 @@ def test_add_tool_and_rename_tool() -> None:
         "read_file_v2",
         "write_file",
     ]
+    assert all("cache_id" not in tool for tool in req.tools or [])
 
 
 def test_unknown_channel_is_rejected() -> None:

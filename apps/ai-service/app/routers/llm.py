@@ -3814,9 +3814,15 @@ def _apply_request_patches(req: LLMCompleteRequest) -> None:
             status_code=400,
             detail={"code": failed.error_code, "detail": failed.detail},
         )
-    req.messages = patched["messages"]
+    req.messages = [
+        {key: value for key, value in item.items() if key != "cache_id"}
+        for item in patched["messages"]
+    ]
     if req.tools is not None:
-        req.tools = patched["tools"]
+        req.tools = [
+            {key: value for key, value in item.items() if key != "cache_id"}
+            for item in patched["tools"]
+        ]
 
 
 def _effective_context_limit(req: LLMCompleteRequest) -> int:
