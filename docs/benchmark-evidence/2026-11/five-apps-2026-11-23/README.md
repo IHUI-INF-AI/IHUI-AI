@@ -403,7 +403,8 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
 
 ## 本轮收尾状态（现读）
 
-- 本地 `HEAD=cabb578dda24893513533406cc8919644142fa45`，`origin/main` 同 hash；`00122ada`、`c064aaad`、`d3ed1b03`、`9a57eefa`、`5ea9f4fd`、`802c79f9`、`cabb578d` 均已在 HEAD 祖先链上（`merge-base --is-ancestor` 逐个 rc=0）。
+- 收口链：`cabb578d`（六项能力）→ `44596ad5`（证据同步）→ `bda9d9f8`（DACL denied 路径 normcase 修正）；最终 HEAD 与 `origin/main` 以推送后用 `rev-parse` 回读为准，本条只记链，不冒充实时指针。
+- `00122ada`、`c064aaad`、`d3ed1b03`、`9a57eefa`、`5ea9f4fd`、`802c79f9` 均已在 HEAD 祖先链上（`merge-base --is-ancestor` 逐个 rc=0）。
 - 目标面复跑：六文件 **89 passed in 5.69s**；web diff-stats **4 passed**；`ruff check` 本批 Python 文件 `All checks passed!`；`py_compile` 与四条新路由加载均过。
 - 未做的产品决策：`turn.diff` 的 engine JSON-RPC 客户端不在本仓，Web 是 hook/SSE 面；本批消费的是同一行级统计语义（共享 Myers），不额外把 32k 级 diff 正文复制进第二条 SSE 总线。若未来接入 engine 客户端，直接复用 `turn.diff` 的 `changes[]` 字段即可。
 
