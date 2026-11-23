@@ -137,6 +137,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // safe.directory、显式 stdio、批量读)。本门不再自带那份 `git()` / `catBatch()` —— 五处易错点
 // (裸 'git'、stdio[0]='ignore'、逐文件派生、junction 下的仓库根比较、maxBuffer)只该存在一处。
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
+// 已登记第三方 root 的排除面:与 watermark.mjs / check-watermark-coverage.mjs /
+// object-space-land.mjs 共用 scripts/lib/third-party-roots.mjs 这一个出口(§0.6 单一真相源)。
+// 本门不另立"哪些目录算 vendored"的第二份清单 —— 那种清单必然与归属台账漂开。
+import { createExclusionPredicate, LEDGER_DIR as THIRD_PARTY_LEDGER_DIR } from './lib/third-party-roots.mjs'
 // D4 的 TS 语法探针必须看**代码面**(注释与字符串整段清空):否则一份把这一型**解释**成散文的
 // 注释(`// 别写成 interface Foo {`)就会被判成"这文件是穿了马甲的 TS"。本仓被这类"门读自己的
 // 解释文字"咬过多次(守门 70/131/135),而遮噪器只许有一台 —— 用 lib/code-mask 那份等长实现,
@@ -305,11 +309,27 @@ export function treeBlobTable(rev) {
 /** 单一面的完整审计(被审面 + 棘轮锚点面共用):rev 提交/树 → {files, byFile, aliasUnparsed, shadow}。
  *  存在性面只取被审树自身(不看磁盘:磁盘是另一个面,主流程那条"索引 vs HEAD"教训见 treePaths 头注)。
  *  别名表按同面取(tsconfig 不在源文件枚举里,须另开一批 —— 主流程同位置有同一条注释,两处同形)。 */
-export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger()) {
+export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger(), thirdParty = null) {
   const table = treeBlobTable(rev)
-  const files = [...table.keys()].filter(
+  const allSrc = [...table.keys()].filter(
     (p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p),
   )
+  /**
+   * 已登记第三方 root 内的文件**不参与本门**(D1/D2/D4/D5/D6-c/D7)审计。
+   *
+   * 为什么免:本门回答的是「**本仓自研代码**里有没有引用了不存在的导出」,而上游 vendored 包
+   * 内部的自洽性不归本仓判 —— 归上游与其 THIRD_PARTY_NOTICES,归属面另由 provenance-ledger 的
+   * P8「归属反噬」审计。实测型:archify 3.3.0 的 10 处 `import … from '../../vendor/deps.cjs'`
+   * 全部指向 vendored CJS(`module.exports` 被赋值为非字面量),D1 按定义读不出导出面 ⇒ 每轮
+   * 都落 cjsBlindSink 并 exit 2,而那不是任何人的缺陷,是"这份包本来就是这样"。
+   *
+   * 这不是"少判一次":① 被排除的文件数由返回值 `thirdPartySkipped` 报出(数字必现,不静默);
+   * ② 台账算不出来时,构造谓词那一步就抛 LedgerUnavailable ⇒ 主流程 exit 2 **未判定**,
+   * 既不冒绿也不冒红;③ `thirdParty` 缺省 null = 不过滤,`--self-test` 与锚点历史面对照仍跑
+   * 旧行为,既有断言一字不变。
+   */
+  const files = thirdParty ? allSrc.filter((p) => !thirdParty(p)) : allSrc
+  const thirdPartySkipped = allSrc.length - files.length
   const tsPaths = [...table.keys()].filter((p) => TSCONFIG_RE.test(p) && !SKIP_DIR.test(p))
   let read
   if (revKindOf(rev) === 'tree') {
@@ -369,6 +389,7 @@ export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger()) {
     d5Unjudged,
     cjsUnjudged,
     shadowCtx,
+    thirdPartySkipped,
   }
 }
 
@@ -1873,9 +1894,13 @@ async function revMain(rev, anchorOpt, conflicts) {
   let face
   const anchorCounts = new Map()
   try {
-    face = auditOneFace(rev, shadowCtx)
+    // 第三方排除面(与 watermark 层同一份台账出口)。放在 try 内:台账坏/取不到 git 清单时
+    // 抛 LedgerUnavailable,被下面的 catch 折成「无法判定 exit 2」—— 不按"没有第三方"继续跑。
+    const thirdParty = createExclusionPredicate(ROOT)
+    const isThirdParty = (rel) => thirdParty.isExcluded(rel)
+    face = auditOneFace(rev, shadowCtx, isThirdParty)
     if (anchor) {
-      const a = auditOneFace(anchor, shadowCtx)
+      const a = auditOneFace(anchor, shadowCtx, isThirdParty)
       for (const [f, list] of a.byFile) anchorCounts.set(f, list.length)
     }
   } catch (e) {
@@ -1932,6 +1957,10 @@ async function revMain(rev, anchorOpt, conflicts) {
   )
   console.log(
     `[dangling-imports] 扫描 ${face.files.length} 文件 | 悬空 ${total} 处(锚点容忍 ${tolerated} / 新增 ${freshNonLedger.length} 文件)`,
+  )
+  // 排除面必须报数:不加这一行,"少审了 13 个文件"在输出里读起来与"这些文件全都干净"没有区别。
+  console.log(
+    `[dangling-imports] 第三方排除面:${face.thirdPartySkipped} 枚已登记 vendored 文件不参与本门(台账 ${THIRD_PARTY_LEDGER_DIR};排除的是本仓自研代码的导入规范,不是上游代码的正确性)`,
   )
   console.log(`[dangling-imports] D5 barrel 同名导出重复:在射程 ${d5Scope} 枚 | 判红候选 ${d5n} 处`)
   // D1 的 CJS 盲区在 --rev 面同语义:不可静态判定 ⇒ 点名并 exit 2,不判红也不记绿(§0.3)。

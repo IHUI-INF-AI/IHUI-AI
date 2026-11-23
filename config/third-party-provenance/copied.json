@@ -168,6 +168,36 @@
       "modificationNote": "fontsource 的 latin 子集产物原样复制,未做二次子集化、未改字形、未注入水印(二进制且非 watermark.mjs 覆盖类型)。",
       "attributionBoundary": "apps/web/public/fonts/ 目录内的 HarmonyOS Sans SC、EDIX 等既有字体不属本条;本条只覆盖 Lexend-latin-*.woff2 三个文件与随附的 Lexend-OFL.txt。",
       "obligations": "OFL-1.1:再分发时保留版权声明与许可原文(已随字体入库);不得单独售卖字体;若修改字形须以不同名称发布(本条未修改)。升级 @fontsource/lexend 时同笔更新 version 与许可 sha256+byteLength。"
+    },
+    {
+      "id": "archify-skill-v3.3.0-bundle",
+      "kind": "copied",
+      "name": "archify 技能包 v3.3.0(架构图 / 架构诊断渲染引擎,tt-a1i/archify)",
+      "purpose": "架构类交付物的渲染引擎:由 .ihui/skills/archify 承载,经 bin/archify.mjs finalize 的 validate / deliver / check / browser-check 四门产出单文件 HTML 制品(C 段七枚落点运行时拓扑图即其产物,示例在 .archify/architecture-round10-seven-20261123-104053/)。判据的机器可读凭据是 finalize 的 receipt JSON。",
+      "upstream": {
+        "project": "archify",
+        "repository": "https://github.com/tt-a1i/archify",
+        "acquisition": "取官方 release v3.3.0 的制品 archify.zip(5.4MB)解包后 robocopy /MIR 进 .ihui/skills/archify;该 ZIP 的 sha256 与包内 skill-release.json 的 artifact.sha256 逐字一致(00e4ff53267aee7dabf22ed333360cd3e380db20271a50264ae146ee25cf2538),原件留档 .DevEnv/backups/archify-3.3.0-official-00e4ff53.zip 供复核。注:GitHub codeload 的 tag tarball 是完整源码仓(1995 文件,含 website/test/.github),技能本体在子目录 archify/,入库的是 release 制品而非源码仓。",
+        "version": "3.3.0",
+        "gitRevision": "d3e9c89dd9510a64c1114d685b68ebf1887f135e",
+        "gitRevisionNote": "treeSha 取自官方更新清单(tt-a1i.github.io/archify/skill-updates/archify/stable.json)v3.3.0 条目的 source.treeSha。不主张与 GitHub tag 的 tree 对象逐字节等价 —— 本条真正的内容锚点是上面那个 artifact.sha256(制品 ZIP 级),treeSha 只是版本记名。"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "texts": [
+          {
+            "form": "inRepo",
+            "inRepo": ".ihui/skills/archify/LICENSE",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+            "byteLength": 11358
+          }
+        ]
+      },
+      "roots": [".ihui/skills/archify"],
+      "modification": "modified-copy",
+      "modificationNote": "两处 Windows 兼容补丁(2026-11-24,提交 a0855704):① bin/visual-check.mjs 补 spawnSync 导入、windowsProfileHolderPids / releaseWindowsProfileHolders 两函数、finishClose 的 win32 分支(taskkill /T /F → releasePipes → waitExit(2000))与按路径二次清扫;② renderers/shared/owned-temp-directory.mjs 的 cleanup() 恢复 {retries, delayMs} 参数化。除这 2 份外,其余跟踪文件与制品逐字节相同。补丁动因:上游 3.3.0 相对 3.2.0 删掉了四处 Windows 适配,导致 browser-check 在 win32 上必红(viewer/temp-cleanup-incomplete);补丁后同机同 candidate 连跑两次四门全绿。",
+      "attributionBoundary": ".ihui/skills/archify/ 目录内全部跟踪文件归属上游 tt-a1i/archify;其中 modules/code-analysis/{import,overlay,}/vendor 与 story/vendor 四目录是该技能自身再 vendored 的第三方件(CodeQL/OASIS SARIF schema、three.js、pele、parse5 等),其许可原文随目录入库,并由技能自带的 THIRD_PARTY_NOTICES.md 与本条目录下 explainer/vendor/pele 的既有条目(pele-1.3.0-vendored-esm-subset)分别承载。本仓只主张上述 2 份补丁文件的改动,不主张对其余内容的著作权。",
+      "obligations": "① 升级到 3.4.0+ 时同笔更新本条 version / gitRevision / acquisition 里的 artifact.sha256,并重跑 archify doctor 与 finalize 四门;② 不得对本目录批量 inject 水印 —— 那会把上游作品声明成本仓所有(P8 归属反噬判红);本条 roots 同时是水印层与 D1 悬空导入判据的排除面;③ D1 排除的语义边界:排除的是「本仓自研代码的导入规范」,不是「上游代码的正确性」—— 上游内部自洽性由上游与 P8 负责。"
     }
   ]
 }
