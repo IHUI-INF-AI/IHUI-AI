@@ -82,6 +82,28 @@ class TestTurnDiffTracker:
         assert stats["bin.png"].binary is True
         assert (stats["renamed.py"].additions, stats["renamed.py"].deletions) == (1, 1)
         assert stats["huge.txt"].coarse is True
+
+    def test_diff_file_stats_hunk_counts_protect_content_that_looks_like_headers(self):
+        """hunk 内 ``--- ``/``+++ `` 内容不得被误认新文件头(边界按 @@ 行数记账)。"""
+        text = (
+            "diff --git a/f.txt b/f.txt\n"
+            "--- a/f.txt\n"
+            "+++ b/f.txt\n"
+            "@@ -1,2 +1,2 @@\n"
+            "--- old\n"
+            "+++ new\n"
+            " keep\n"
+            "--- a/g.txt\n"
+            "+++ b/g.txt\n"
+            "@@ -1 +1 @@\n"
+            "-x\n"
+            "+y\n"
+        )
+        stats = {s.path: s for s in diff_file_stats(text)}
+        assert (stats["f.txt"].additions, stats["f.txt"].deletions) == (1, 1)
+        assert (stats["g.txt"].additions, stats["g.txt"].deletions) == (1, 1)
+        assert "old" not in stats and "new" not in stats
+
     def test_git_blob_oid_matches_git_hash_object(self):
         # 与 git hash-object 算法一致:sha1("blob <len>\0" + content)
         assert git_blob_oid("") == "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"

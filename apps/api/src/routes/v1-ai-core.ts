@@ -172,6 +172,7 @@ const agentExecuteSchema = z.object({
   input: z.string().min(1),
   sessionId: z.string().optional(),
   permissionMode: z.string().optional(),
+  permissionPreset: z.string().optional(),
   maxIterations: z.number().int().positive().optional(),
 })
 
@@ -202,6 +203,7 @@ function buildAgentExecuteBody(
     }
     body.permission_mode = mode
   }
+  if (req.permissionPreset !== undefined) body.permission_preset = req.permissionPreset
   return { ok: true, body }
 }
 
@@ -1181,6 +1183,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
               description:
                 '权限模式:default / acceptEdits / bypassPermissions / plan / manual(别名 auto、accept-edits、accept-all、read-only、plan-only 由网关归一)',
             },
+            permissionPreset: {
+              type: 'string',
+              description:
+                '命名权限预设(两轴捆绑):readOnly / auto / fullAccess;与显式沙箱/审批轴互斥',
+            },
             maxIterations: { type: 'number' },
           },
           required: ['agentId', 'input'],
@@ -1293,6 +1300,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
               type: 'string',
               description:
                 '权限模式:default / acceptEdits / bypassPermissions / plan / manual(别名 auto、accept-edits、accept-all、read-only、plan-only 由网关归一)',
+            },
+            permissionPreset: {
+              type: 'string',
+              description:
+                '命名权限预设(两轴捆绑):readOnly / auto / fullAccess;与显式沙箱/审批轴互斥',
             },
             maxIterations: { type: 'number' },
           },

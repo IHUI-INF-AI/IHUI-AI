@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import re
 from dataclasses import dataclass, field
 
 ZERO_OID = "0" * 40
@@ -31,6 +32,8 @@ REGULAR_FILE_MODE = "100644"
 # 渲染超时无法像 similar 那样精确实现,用"超大输入跳过行级 diff"兜底,
 # 防病态输入阻塞工具完成(语义对齐 DIFF_TIMEOUT 100ms 的降级路径)。
 _DIFF_MAX_LINES = 20000
+# 标准 unified hunk 头:@@ -a,b +c,d @@;缺省行数按 1 计(与 git/difflib 一致)。
+_HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
 @dataclass(frozen=True)
@@ -93,6 +96,12 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
     ``GIT binary patch`` / ``Binary files`` 标记 binary；行级 diff 被病态输入
     跳过或非 git 基线缺失时标 coarse（行数不可精确证明，不伪造 0 为精确）。
     同一路径重复出现（多段 diff）合并计数；返回顺序按首次出现。
+
+    hunk 边界按 ``@@ -a,b +c,d @@`` 的行数记账，而不是"看到下一个文件头才结束"：
+    hunk 内一行删除内容完全可能是 ``--- foo``、下一行新增内容完全可能是
+    ``+++ bar``（内容以 ``--`` / ``++`` 开头），旧实现会把这两行当成新文件头，
+    从此把剩余增删记到错误文件上。行数耗尽即退出 hunk，之后出现的 ``---``
+    才按文件头处理。
     """
     if not unified_diff or not isinstance(unified_diff, str):
         return []
@@ -100,6 +109,9 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
     index_by_path: dict[str, int] = {}
     current: FileDiffStat | None = None
     in_hunk = False
+    # 当前 hunk 还剩多少旧行 / 新行要消费(上下文行两边都减一)。
+    old_left = 0
+    new_left = 0
 
     def _flush() -> None:
         nonlocal current
@@ -135,26 +147,25 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
             in_hunk = False
             continue
         # 本仓合成 diff（_aggregate_unified_diff）没有 `diff --git` 头，
-        # 直接从 `--- a/<path>` / `+++ b/<path>` 起；hunk 内下一行若是
-        # `+++ ` 则视为新文件头，否则是内容行（以 - 开头照常计删除）。
-        is_header = line.startswith("--- ") and (
-            current is None
-            or not in_hunk
-            or (
-                index + 1 < len(lines)
-                and lines[index + 1].startswith("+++ ")
-            )
+        # 直接从 `--- a/<path>` / `+++ b/<path>` 起。只有**不在 hunk 内**时
+        # `--- ` 才是文件头；hunk 内的 `--- ` 是删除内容（行数记账已保证边界）。
+        is_header = (
+            line.startswith("--- ")
+            and not in_hunk
+            and index + 1 < len(lines)
+            and lines[index + 1].startswith("+++ ")
         )
         if is_header:
             header = line[4:].strip()
             path = header[2:] if header.startswith("a/") else header
-            if current is not None and (in_hunk or current.path != path):
+            if current is not None and current.path != path:
                 _flush()
             if current is None:
                 current = FileDiffStat(path="")
             if path != DEV_NULL:
                 current = FileDiffStat(path=path)
             in_hunk = False
+            old_left = new_left = 0
             continue
         if line.startswith("+++ ") and current is not None and not in_hunk:
             header = line[4:].strip()
@@ -165,13 +176,28 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
         if current is None:
             continue
         if line.startswith("@@"):
-            in_hunk = True
+            match = _HUNK_HEADER_RE.match(line)
             if line.startswith("@@ 内容过大") or line.startswith("@@ 非 git 工作区"):
                 current = FileDiffStat(
                     path=current.path,
                     binary=current.binary,
                     coarse=True,
                 )
+                in_hunk = False
+                old_left = new_left = 0
+            elif match:
+                old_left = int(match.group(2) if match.group(2) is not None else 1)
+                new_left = int(match.group(4) if match.group(4) is not None else 1)
+                in_hunk = old_left > 0 or new_left > 0
+            else:
+                # 非标准 hunk 头（组合 diff / 病态输入）：不猜行数，整文件标 coarse。
+                current = FileDiffStat(
+                    path=current.path,
+                    binary=current.binary,
+                    coarse=True,
+                )
+                in_hunk = False
+                old_left = new_left = 0
             continue
         if line.startswith("GIT binary patch") or line.startswith("Binary files "):
             current = FileDiffStat(
@@ -184,6 +210,7 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
             continue
         if not in_hunk:
             continue
+        # hunk 内按前缀记账；上下文行同时消费新旧两侧，行数耗尽即退出 hunk。
         if line.startswith("+"):
             current = FileDiffStat(
                 path=current.path,
@@ -192,6 +219,7 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
                 binary=current.binary,
                 coarse=current.coarse,
             )
+            new_left = max(0, new_left - 1)
         elif line.startswith("-"):
             current = FileDiffStat(
                 path=current.path,
@@ -200,6 +228,16 @@ def diff_file_stats(unified_diff: str | None) -> list[FileDiffStat]:
                 binary=current.binary,
                 coarse=current.coarse,
             )
+            old_left = max(0, old_left - 1)
+        elif line.startswith("\\"):
+            # "\ No newline at end of file" 不占 hunk 行数。
+            continue
+        else:
+            old_left = max(0, old_left - 1)
+            new_left = max(0, new_left - 1)
+        if old_left <= 0 and new_left <= 0:
+            in_hunk = False
+            old_left = new_left = 0
     _flush()
     return stats
 

@@ -105,15 +105,28 @@ class ProviderUsage:
         return self.prompt_tokens + self.output_tokens
 
     @classmethod
-    def from_normalized_usage(cls, usage: Any) -> ProviderUsage | None:
+    def from_normalized_usage(
+        cls, usage: Any, *, prompt_includes_cache: bool | None = None
+    ) -> ProviderUsage | None:
         """从本仓 ``normalize_usage`` 的归一字典构造(兼容原始厂商别名)。
 
-        ``prompt_tokens`` 是含缓存的提示词总量,因此未缓存输入要减去
+        ``prompt_tokens`` 是**含缓存**的提示词总量,因此未缓存输入要减去
         cache read / cache write 两桶,避免把同一段缓存二次计入。
+
+        **厂商口径不能靠字段名猜**:Anthropic 原生 ``input_tokens`` 本身不含缓存
+        (缓存是额外的 ``cache_read_input_tokens`` / ``cache_creation_input_tokens``),
+        而 OpenAI 风格 ``prompt_tokens`` 含缓存。旧实现把两者都当"含缓存总量"再减,
+        上游直给 ``input_tokens`` 时会把未缓存输入减成 0、prompt 只剩缓存桶。
+        现按显式口径判定:调用方可用 ``prompt_includes_cache`` 覆盖;未给时——
+        ``prompt_tokens`` 存在 ⇒ 含缓存(本仓归一契约);只有 ``input_tokens`` ⇒
+        视为不含缓存(Anthropic 原生)。缓存桶仍单独入账,``prompt_tokens`` 属性
+        继续返回三者之和。
         """
         if not isinstance(usage, dict):
             return None
-        prompt = _first_int(usage, ("prompt_tokens", "input_tokens", "inputTokenCount"))
+        prompt_total = _first_int(usage, ("prompt_tokens",))
+        prompt_uncached = _first_int(usage, ("input_tokens", "inputTokenCount"))
+        prompt: int | None = prompt_total if prompt_total is not None else prompt_uncached
         output = _first_int(usage, ("completion_tokens", "output_tokens", "outputTokenCount"))
         if prompt is None and output is None:
             return None
@@ -137,8 +150,12 @@ class ProviderUsage:
         prompt = max(0, prompt or 0)
         cached = max(0, cached)
         cache_write = max(0, cache_write)
+        inclusive = (
+            prompt_total is not None if prompt_includes_cache is None else prompt_includes_cache
+        )
+        uncached_input = max(0, prompt - cached - cache_write) if inclusive else prompt
         return cls(
-            input_tokens=max(0, prompt - cached - cache_write),
+            input_tokens=uncached_input,
             output_tokens=max(0, output or 0),
             cache_read_tokens=cached,
             cache_write_tokens=cache_write,

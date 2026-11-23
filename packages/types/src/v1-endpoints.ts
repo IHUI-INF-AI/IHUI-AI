@@ -147,6 +147,8 @@ export interface V1AgentExecuteRequest {
   sessionId?: string
   /** 权限模式:read-only / accept-edits / accept-all / bypass-permissions / plan-only。 */
   permissionMode?: string
+  /** 命名权限预设(两轴捆绑):readOnly / auto / fullAccess;与 permissionMode 互斥。 */
+  permissionPreset?: string
   /** 最大迭代轮数。 */
   maxIterations?: number
 }

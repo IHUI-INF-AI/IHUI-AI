@@ -216,6 +216,36 @@ def test_normalized_usage_subtracts_cache_reads_and_writes() -> None:
     assert provider.reasoning_output_tokens == 3
 
 
+def test_normalized_usage_anthropic_input_tokens_are_uncached() -> None:
+    """Anthropic 原生 input_tokens 不含缓存:不得再减成 0,总量仍=三段之和。"""
+    usage = {
+        "input_tokens": 75,
+        "output_tokens": 10,
+        "cache_read_tokens": 20,
+        "cache_write_tokens": 5,
+    }
+    provider = ProviderUsage.from_normalized_usage(usage)
+    assert provider is not None
+    assert provider.input_tokens == 75
+    assert provider.cache_read_tokens == 20
+    assert provider.cache_write_tokens == 5
+    assert provider.prompt_tokens == 100
+    assert provider.total_tokens == 110
+
+
+def test_normalized_usage_explicit_cache_inclusive_override() -> None:
+    """调用方明确知道口径时,显式参数优先于字段检测。"""
+    inclusive = ProviderUsage.from_normalized_usage(
+        {"input_tokens": 100, "cached_tokens": 20}, prompt_includes_cache=True
+    )
+    exclusive = ProviderUsage.from_normalized_usage(
+        {"prompt_tokens": 100, "cached_tokens": 20}, prompt_includes_cache=False
+    )
+    assert inclusive is not None and inclusive.input_tokens == 80
+    assert exclusive is not None and exclusive.input_tokens == 100
+    assert exclusive.prompt_tokens == 120
+
+
 def test_build_anchor_samples_before_last_assistant() -> None:
     messages = [
         {"role": "system", "content": "s" * 8},
