@@ -6,7 +6,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { ChevronRight } from 'lucide-react-native'
+import { ChevronRight, LogOut, Mail, Phone } from 'lucide-react-native'
 import { useFontMultiplier } from '../../components/MoreLink'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 import { isCapabilityOff, resolveOptionalPort } from '../../host/ports'
@@ -101,8 +101,22 @@ export function ProfileScreen({
                   })}
                 </View>
               ) : null}
-              {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
-              {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
+              {user?.email ? (
+                <View style={styles.subTextRow}>
+                  <Mail size={13} color={tk.text.medium} />
+                  <Text style={styles.subText} numberOfLines={1} ellipsizeMode="middle">
+                    {user.email}
+                  </Text>
+                </View>
+              ) : null}
+              {user?.phone ? (
+                <View style={styles.subTextRow}>
+                  <Phone size={13} color={tk.text.medium} />
+                  <Text style={styles.subText} numberOfLines={1}>
+                    {formatPhone(user.phone)}
+                  </Text>
+                </View>
+              ) : null}
               {/* 实名状态单独成行并带「实名认证」前缀:昵称旁只放会员身份,避免两个灰 chip
                   被读成同一类标签(admin 的「普通用户」尤其容易误解)。 */}
               {badgeTone && realnameStatus ? (
@@ -179,7 +193,14 @@ export function ProfileScreen({
         {children ? <View style={styles.childrenSlot}>{children}</View> : null}
 
         {onLogout ? (
-          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={onLogout}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.logout')}
+          >
+            <LogOut size={16} color={tk.danger.deepText} />
             <Text style={styles.logoutText}>{t('profile.logout')}</Text>
           </TouchableOpacity>
         ) : null}
@@ -191,6 +212,14 @@ export function ProfileScreen({
 function initials(name?: string): string {
   if (!name) return 'U'
   return name.trim().charAt(0).toUpperCase()
+}
+
+/** 11 位手机号按 3-4-4 分组,让联系方式在窄屏上更易扫读;非大陆手机号原样返回 */
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\s+/g, '')
+  return /^1\d{10}$/.test(digits)
+    ? `${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7)}`
+    : phone
 }
 
 /** 头像:有服务端图就渲染图,否则渲染昵称首字母(保持既有降级) */
@@ -224,14 +253,21 @@ type RealnameStatus = NonNullable<ProfileScreenProps['realnameStatus']>
 /**
  * 实名徽标配色(只用既有令牌,不新增色值/不做发光):
  * - verified(后端 approved) = 品牌强调档:brandAccent.light 底 + brandAccent.deep 字
+ * - pending = 警告档:warning.amberLight 底 + warning.amberText 字(审核中是过程态,不再与未认证同灰)
  * - rejected = 错误档:error.bg 底 + error.text 字
- * - pending / unverified(unknown 同档)= 中性档:surface.muted 底 + text.tertiary 字
+ * - unverified(unknown 同档)= 中性档:surface.muted 底 + text.tertiary 字
  */
 function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
   if (status === 'verified') {
     return {
       container: { backgroundColor: tk.brandAccent.light },
       text: { color: tk.brandAccent.deep },
+    }
+  }
+  if (status === 'pending') {
+    return {
+      container: { backgroundColor: tk.warning.amberLight },
+      text: { color: tk.warning.amberText },
     }
   }
   if (status === 'rejected') {
@@ -341,7 +377,13 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
     },
     realnameBadgeText: { fontSize: rnType.label.size, fontWeight: '600' },
-    subText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    subTextRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    subText: {
+      flexShrink: 1,
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
     /** 六项账户数据压成一行白卡:两行大灰块会占掉首屏,而这里只是状态摘要不是主内容 */
     statsGrid: {
       flexDirection: 'row',
@@ -395,14 +437,22 @@ function createStyles(tk: AppThemeTokens) {
     menuValue: { maxWidth: '45%', fontSize: rnType.body.size, color: tk.text.secondary },
     logoutBtn: {
       marginTop: rnSpacing.sm,
-      height: 50,
-      paddingHorizontal: rnSpacing['md-loose'],
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.error.bg,
+      minHeight: 48,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
     },
-    logoutText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.error.text },
+    logoutText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.danger.deepText,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

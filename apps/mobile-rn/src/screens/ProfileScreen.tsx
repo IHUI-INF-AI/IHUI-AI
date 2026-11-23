@@ -740,7 +740,7 @@ export function ProfileScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={t('profile.editProfile')}
                       >
-                        <Pencil size={14} color={tokens.text.secondary} />
+                        <Pencil size={15} color={tokens.text.secondary} />
                         <Text style={styles.accountActionText}>{t('profile.editProfile')}</Text>
                       </TouchableOpacity>
                       {user.isVip === 1 ? (
@@ -752,7 +752,7 @@ export function ProfileScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={t('wallet.recharge')}
                           >
-                            <Wallet size={14} color={tokens.brand.ctaForeground} />
+                            <Wallet size={15} color={tokens.brand.ctaForeground} />
                             <Text style={styles.accountActionTextPrimary}>
                               {t('wallet.recharge')}
                             </Text>
@@ -776,7 +776,7 @@ export function ProfileScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={t('wallet.recharge')}
                           >
-                            <Wallet size={14} color={tokens.text.primary} />
+                            <Wallet size={15} color={tokens.text.primary} />
                             <Text style={styles.accountActionTextStrong}>
                               {t('wallet.recharge')}
                             </Text>
@@ -788,7 +788,7 @@ export function ProfileScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={t('vipTrader.openTitle')}
                           >
-                            <Crown size={14} color={tokens.brand.ctaForeground} />
+                            <Crown size={15} color={tokens.brand.ctaForeground} />
                             <Text style={styles.accountActionTextPrimary}>
                               {t('vipTrader.openTitle')}
                             </Text>
@@ -1544,11 +1544,14 @@ function ProfileContentSection(): React.JSX.Element {
             <Text style={styles.creationToggleText}>
               {expanded ? t('profile.showLessCreations') : t('profile.viewAllCreations')}
             </Text>
-            <ChevronDown
-              size={14}
-              color={tokens.text.secondary}
-              style={expanded ? styles.membershipArrowExpanded : undefined}
-            />
+            <View
+              style={[
+                styles.creationChevron,
+                expanded ? styles.membershipArrowExpanded : undefined,
+              ]}
+            >
+              <ChevronDown size={14} color={tokens.text.secondary} />
+            </View>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -2247,17 +2250,17 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   accountActionText: {
-    fontSize: rnType.label.size,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.secondary,
   },
   accountActionTextStrong: {
-    fontSize: rnType.label.size,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   accountActionTextPrimary: {
-    fontSize: rnType.label.size,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },
@@ -2288,7 +2291,7 @@ const styles = StyleSheet.create({
   },
   quickLabel: {
     maxWidth: '96%',
-    fontSize: rnType.caption.size,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.primary,
   },
   quickAllRow: {
@@ -2438,6 +2441,12 @@ const styles = StyleSheet.create({
   creationToggleText: {
     fontSize: rnType.caption.size,
     color: tokens.text.secondary,
+  },
+  creationChevron: {
+    width: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距

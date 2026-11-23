@@ -9,7 +9,27 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BackChevron, TextField } from '@ihui/rn-app'
 import { rnRadius, rnType } from '@ihui/design-tokens'
-import { ChevronDown, ChevronRight } from 'lucide-react-native'
+import {
+  BadgeCheck,
+  BookOpen,
+  Bot,
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCheck,
+  Crown,
+  Gem,
+  LayoutGrid,
+  Megaphone,
+  MessageCircle,
+  Receipt,
+  Search,
+  SearchX,
+  Settings,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -24,6 +44,23 @@ interface VisibleSection {
   titleKey: string
   title: string
   items: MenuItemView[]
+}
+
+/** 分组视觉图标只属于本页呈现层,菜单全集仍由 profileMenuData 单一提供 */
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  'menu.sectionOrder': Receipt,
+  'menu.sectionWallet': Wallet,
+  'menu.sectionVip': Crown,
+  'menu.sectionPoints': Gem,
+  'menu.sectionPromote': Megaphone,
+  'menu.sectionStudy': BookOpen,
+  'menu.sectionExam': ClipboardCheck,
+  'menu.sectionAi': Bot,
+  'menu.sectionSocial': Users,
+  'menu.sectionAuth': BadgeCheck,
+  'menu.sectionAgent': Boxes,
+  'menu.sectionCommunity': MessageCircle,
+  'menu.sectionSettings': Settings,
 }
 
 /**
@@ -85,24 +122,33 @@ export function ProfileAllFunctionsScreen(): React.JSX.Element {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <TextField
-          colorScheme={resolvedTheme}
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t('profile.searchFunctions')}
-          placeholderTextColor={tokens.text.medium}
-          style={styles.searchField}
-          returnKeyType="search"
-          accessibilityLabel={t('profile.searchFunctions')}
-        />
+        <View style={styles.searchWrap}>
+          <View pointerEvents="none" style={styles.searchIcon}>
+            <Search size={16} color={tokens.text.medium} strokeWidth={1.8} />
+          </View>
+          <TextField
+            colorScheme={resolvedTheme}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={t('profile.searchFunctions')}
+            placeholderTextColor={tokens.text.medium}
+            style={[styles.searchField, styles.searchFieldWithIcon]}
+            returnKeyType="search"
+            accessibilityLabel={t('profile.searchFunctions')}
+          />
+        </View>
 
         {visibleSections.length === 0 ? (
           <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <SearchX size={26} color={tokens.text.medium} strokeWidth={1.7} />
+            </View>
             <Text style={styles.emptyText}>{t('profile.noFunctionsFound')}</Text>
           </View>
         ) : (
           visibleSections.map((section) => {
             const isOpen = normalizedQuery.length > 0 || expanded[section.titleKey] === true
+            const SectionIcon = SECTION_ICONS[section.titleKey] ?? LayoutGrid
             return (
               <View key={section.titleKey} style={styles.section}>
                 <TouchableOpacity
@@ -116,14 +162,17 @@ export function ProfileAllFunctionsScreen(): React.JSX.Element {
                   accessibilityLabel={section.title}
                   accessibilityState={{ disabled: normalizedQuery.length > 0 }}
                 >
+                  <View style={styles.sectionIcon}>
+                    <SectionIcon size={18} color={tokens.text.primary} strokeWidth={1.7} />
+                  </View>
                   <Text style={styles.sectionTitle}>{section.title}</Text>
                   <View style={styles.sectionMeta}>
-                    <Text style={styles.sectionCount}>{section.items.length}</Text>
-                    <ChevronDown
-                      size={18}
-                      color={tokens.text.secondary}
-                      style={isOpen ? styles.chevronOpen : undefined}
-                    />
+                    <View style={styles.sectionCountPill}>
+                      <Text style={styles.sectionCount}>{section.items.length}</Text>
+                    </View>
+                    <View style={[styles.chevronBox, isOpen ? styles.chevronOpen : undefined]}>
+                      <ChevronDown size={18} color={tokens.text.secondary} />
+                    </View>
                   </View>
                 </TouchableOpacity>
                 {isOpen ? (
@@ -190,15 +239,27 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     gap: 12,
   },
+  searchWrap: {
+    height: 44,
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 14,
+    top: 14,
+    zIndex: 1,
+  },
   searchField: {
     height: 44,
     paddingHorizontal: 14,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.light,
     fontSize: rnType.body.size,
     color: tokens.text.primary,
+  },
+  searchFieldWithIcon: {
+    paddingLeft: 38,
   },
   section: {
     gap: 8,
@@ -206,26 +267,56 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 44,
+    minHeight: 56,
     gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: rnRadius.lg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.light,
+  },
+  sectionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: rnRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
   },
   sectionTitle: {
-    fontSize: rnType.title.size,
+    flex: 1,
+    fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   sectionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+  },
+  sectionCountPill: {
+    minWidth: 24,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: rnRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
   },
   sectionCount: {
-    fontSize: rnType.caption.size,
+    fontSize: rnType.label.size,
     color: tokens.text.secondary,
+    fontVariant: ['tabular-nums'],
   },
   chevronOpen: {
     transform: [{ rotate: '180deg' }],
+  },
+  chevronBox: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   card: {
     borderRadius: rnRadius.lg,
@@ -237,7 +328,7 @@ const styles = StyleSheet.create({
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 52,
+    minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 12,
@@ -255,7 +346,16 @@ const styles = StyleSheet.create({
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     paddingVertical: 48,
+  },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: rnRadius['2xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
   },
   emptyText: {
     fontSize: rnType.body.size,
