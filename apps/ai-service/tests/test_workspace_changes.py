@@ -99,6 +99,16 @@ def test_snapshot_empty_when_nothing_changed(repo: Path) -> None:
     assert result.start_tree == result.end_tree
 
 
+def test_snapshot_truncates_when_file_budget_exceeded(repo: Path) -> None:
+    snap = TurnWorkspaceSnapshot(str(repo), max_files=1)
+    assert snap.start() is True
+    (repo / "a.txt").write_text("a\n", encoding="utf-8")
+    (repo / "b.txt").write_text("b\n", encoding="utf-8")
+    result = snap.finish()
+    assert len(result.changes) == 1
+    assert result.truncated is True
+
+
 def test_non_git_workspace_degrades_silently(tmp_path: Path) -> None:
     plain = tmp_path / "plain"
     plain.mkdir()

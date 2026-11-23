@@ -257,7 +257,7 @@ DSH `dsh-workspace-changes` 在每轮结束宣告 `workspace/changes`，摘要�
 - `TurnWorkspaceSnapshot.start()`：用**独立临时 index + 临时 object 目录**执行 `git add -A --ignore-errors` 后 `write-tree`，得到回合开始 tree；不碰真实 index、不 commit、不 stash。工作区必须是仓库根（父仓库子目录直接降级，避免把工作区外的脏文件带进来）。
 - `finish()`：再写一棵结束 tree，`git diff --name-status/--numstat/--unified=3` 两棵树；只有两棵树真正不同的路径才进入变更集，`A/M/D`、`binary`、`coarse` 都带。文件数 >500 或正文 >2MB 截断并 `truncated=true`。
 - `agent_engine._run_prompt_turn`：回合开始 `await asyncio.to_thread(snapshot_turn_workspace, ...)`；回合结束先 `finish()` 再 `cleanup()`，有快照就以它为准，`turn.diff` 新增 `baselineTree`、`baselineSource="turn-start-snapshot"`、`diffSource="turn-snapshot"`；快照失败/非 git 自动回退既有 status 差集与 mtime 路径。回合异常也清理临时目录，下一轮开始再幂等清一次。
-- 测试：`test_workspace_changes.py` 4 例（轮前脏不混入且轮内增量精确、删除/二进制、无变化、非 git 降级）；`test_engine_harness_thirteenth.py` 新增端到端「轮前脏文件不算本轮」；目标面 **11 passed in 15.96s**；全量 turn.diff 相关五文件 **82 passed / 1 存量 flake**（`test_tool_retry_event_emitted` 的 `calls["n"]==0`，与本批无关）；`ruff check` 四文件全过，`mypy --follow-imports=skip` 对新模块零错误。
+- 测试：`test_workspace_changes.py` 5 例（轮前脏不混入且轮内增量精确、删除/二进制、无变化、超文件预算截断、非 git 降级）；`test_engine_harness_thirteenth.py` 新增端到端「轮前脏文件不算本轮」；目标面 **12 passed in 16.19s**；全量 turn.diff 相关五文件 **82 passed / 1 存量 flake**（`test_tool_retry_event_emitted` 的 `calls["n"]==0`，与本批无关）；`ruff check` 四文件全过，`mypy --follow-imports=skip` 对新模块零错误。
 
 ## 核实后的残余（不再列为待办）
 

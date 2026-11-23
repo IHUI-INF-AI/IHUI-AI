@@ -3135,7 +3135,7 @@ class AgentEngine:
                         "files": changed[:50],
                         "changes": _changes,
                         "truncated": (
-                            _snapshot_set.truncated
+                            (_snapshot_set.truncated or len(changed) > 50)
                             if _snapshot_changed and _snapshot_set is not None
                             else len(changed) > 50
                         ),

@@ -177,11 +177,8 @@ class TurnWorkspaceSnapshot:
                 return TurnWorkspaceChangeSet(start_tree=start_tree, end_tree=end_tree)
             status_map = self._name_status(start_tree, end_tree)
             stats = self._numstat(start_tree, end_tree)
-            if len(stats) > self._max_files:
-                truncated = True
-            else:
-                truncated = False
-                stats = stats[: self._max_files]
+            truncated = len(stats) > self._max_files
+            stats = stats[: self._max_files]
             changes: list[TurnWorkspaceChange] = []
             for path, additions, deletions, binary in stats:
                 changes.append(
