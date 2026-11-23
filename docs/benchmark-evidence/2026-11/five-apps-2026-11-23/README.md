@@ -209,6 +209,14 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - `micro_compact_messages(..., prune_large=False)` 新增显式档：生产执行器 `AgentLoopV2._maybe_micro_compact` 在 0.6 压力线触发时传 `prune_large=True`，先做头尾裁剪，再做旧结果整段回收；`tools_removed` 与 `tools_pruned` 分开计数，`trigger` 在只裁剪时为 `prune`、有回收时为 `micro`。默认 `False` 保证既有 micro 语义与用例逐字节不变。
 - 测试：`apps/ai-service/tests/test_context_pressure_micro_compaction.py` **32 passed**（新增 6 例：头尾/元数据/原对象不变、短结果与非 tool 不裁、多模态非文本顺序保留、非法预算拒绝、只裁剪最近一轮时 `trigger=prune`、默认档不动最近大结果）；`ruff check` 三文件全过。
 
+## 追加批（同日）：重放感知 token 计量，补上 provider 用量复用闸与三投影
+
+- 对齐 DSH `dsh-token-meter`，这条是 `rea-capabilities.ts` 里明确标注的「真缺」：本仓 `token_baseline.py` 只做累计 prompt 的按链增量，`turn_token_usage.py` 只做轮内直方图，二者都没有"回放持久日志 → 同一次测量同时给 tokenUsage / contextPressure / contextBreakdown"的确定性投影。
+- `apps/ai-service/app/core/token_meter.py`：纯函数、零 IO、零模型调用。固定密度 `CHARS_PER_TOKEN=4` / `BLOCK_OVERHEAD=4` / `ROLE_OVERHEAD=4`，支持 text / reasoning / tool-call / image 结构块（image 的 `offloaded` 标记不参与启发式），system 提示词走"纯文本 + role 开销、无逐块开销"的单独口径；`measure_messages()` 产出 `totalTokens` / `surfaceTokens` / `contextBreakdown` / 逐节点价格。
+- provider 用量复用闸：只有 `anchor.envelope_key` 与当前规范信封键逐字一致，且 `provider_usage.total_tokens >= anchor.estimated_tokens` 时才复用；否则回退完整固定密度估算。复用后 `totalTokens = provider total + surfaceDelta`，`projectedTokens = pressureTokens + surfaceDelta`，压缩造成的负增量也按带符号值回传、钳到 0，不把旧用量冒充现值。`ProviderUsage` 四桶互斥，reasoning 已含在 output 内不二次累加。
+- 真实接线两处：① `/api/agents/{id}/token-usage` 的 checkpoint 逐轮估算从 `len//4` 改成 `prompt_completion_tokens` + `measure_messages`，响应新增 `totalTokens` / `surfaceTokens` / `contextBreakdown` / `baseline` / `envelopeKey`；② `thread.contextUsage` 控制帧在七类账本之外追加 `tokenMeter` 构成参考 —— 账本仍是七类真实占用的权威口径，meter 只回答"system / tools / messages 各占多少"，两者不互相冒充。
+- 测试：`apps/ai-service/tests/test_token_meter.py` **9 passed**（固定密度、system 口径、tool_calls、image offloaded 不变量、tools schema、最后一条非空 system 归 system、provider 复用/信封不匹配回退/用量低于锚点回退/reasoning 不二次累加/prompt-completion 拆分与入参不变）；`test_token_meter_endpoint.py` **1 passed**（checkpoint → 路由 → breakdown 字段）；`test_engine_control_frames_1106.py` **6 passed**（原 5 例 + `tokenMeter` 接线断言）。合计 **16 passed**；`ruff check` 四文件全过，新增三文件已注入水印。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

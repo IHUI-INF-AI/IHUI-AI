@@ -4163,6 +4163,7 @@ class AgentEngine:
         不把"读历史"说成"读实时";status 一并回传,让调用方知道账本是否落后于在飞轮次。
         """
         from app.core.model_context_window import resolve_with_env_priority
+        from app.core.token_meter import measure_messages
         from app.services.context_ledger import build_context_ledger
 
         thread = self._require_thread(params)
@@ -4182,9 +4183,17 @@ class AgentEngine:
             limit,
             thread.model,
         )
+        # 第十五批:同一份线程历史再走一次纯函数 token_meter,给出
+        # contextBreakdown(system/tools/messages)与 surface 量。账本仍是七类
+        # 真实占用的权威口径;meter 是"构成参考",两者并存而不是互相冒充。
+        full_history = (
+            [{"role": "system", "content": system_text}] if system_text else []
+        ) + history
+        meter = measure_messages(full_history, context_window=limit)
         return {
             "threadId": thread.thread_id,
             "usage": usage,
+            "tokenMeter": meter.as_dict(),
             "source": "thread_history",
             "status": thread.status,
             "capturedAt": usage["capturedAt"],

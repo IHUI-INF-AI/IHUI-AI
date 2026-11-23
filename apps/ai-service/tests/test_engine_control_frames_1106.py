@@ -141,6 +141,12 @@ async def test_context_usage_returns_real_ledger(tmp_path):
     messages_cat = next(c for c in usage["categories"] if c["category"] == "messages")
     assert messages_cat["tokens"] == 0
     assert usage["usedTokens"] == sum(c["tokens"] for c in usage["categories"][:5])
+    # 第十五批:同一份历史再给一份 token_meter 构成参考;账本仍是权威口径。
+    meter = result["tokenMeter"]
+    assert meter["contextBreakdown"]["systemTokens"] > 0
+    assert meter["contextBreakdown"]["messageTokens"] == 0
+    assert meter["totalTokens"] == meter["surfaceTokens"]
+    assert meter["contextWindow"] == usage["contextLimit"]
 
 
 @pytest.mark.asyncio

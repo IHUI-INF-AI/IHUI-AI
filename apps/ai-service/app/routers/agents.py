@@ -3204,7 +3204,10 @@ async def get_agent_token_usage(
 
     此前 web 端调用 /api/agents/{id}/token-usage 在 8802/8803 均 404。
     数据源:checkpoint messages 按轮估算(prompt=输入/工具结果,completion=
-    输出),缺失时降级 _trace_store。估算公式:字符数/4(中文约 1 token/字)。
+    输出),缺失时降级 _trace_store。第十五批起估算统一走
+    ``app.core.token_meter``:固定密度 + 结构块 / 工具调用开销 + system/tools/
+    messages 三块构成,并与压缩、占用显示共用同一估算器;不再用 ``len//4``
+    另抄一套。**这不是计费记录**:provider 未上报 usage 时它是确定性近似。
 
     O19:必须登录 + 在飞会话按属主比对。用量本身是配额/计费口径数据,但
     checkpoint 无 user_id 列 ⇒ 历史条目属主不可判定(敞口已上报)。
@@ -3212,28 +3215,27 @@ async def get_agent_token_usage(
     _assert_session_access(agent_id, current_user)
     items: list[dict[str, Any]] = []
     try:
+        from ..core.token_meter import measure_messages, prompt_completion_tokens
         from ..services.agent_checkpoint import get_agent_checkpoint_manager
 
         cps = await get_agent_checkpoint_manager().list_checkpoints(session_id=agent_id)
         for cp in cps:
-            prompt = 0
-            completion = 0
-            for msg in (cp.messages or []):
-                role = msg.get("role", "")
-                content = str(msg.get("content", ""))
-                if role in ("user", "tool", "system"):
-                    prompt += max(1, len(content) // 4)
-                elif role == "assistant":
-                    completion += max(1, len(content) // 4)
-                    for tc in (msg.get("tool_calls") or []):
-                        if isinstance(tc, dict):
-                            completion += max(1, len(str(tc.get("args", ""))) // 4)
+            messages = cp.messages or []
+            prompt, completion = prompt_completion_tokens(messages)
             if prompt or completion:
-                items.append({
+                meter = measure_messages(messages)
+                item: dict[str, Any] = {
                     "sessionLabel": f"I{cp.iteration}",
                     "prompt": prompt,
                     "completion": completion,
-                })
+                    "totalTokens": meter.total_tokens,
+                    "surfaceTokens": meter.surface_tokens,
+                    "contextBreakdown": meter.breakdown.as_dict(),
+                    "baseline": meter.baseline,
+                }
+                if meter.envelope_key is not None:
+                    item["envelopeKey"] = meter.envelope_key
+                items.append(item)
     except Exception as e:
         logger.warning("get_agent_token_usage checkpoint 提取失败(降级): %s", e)
     if not items:
@@ -3250,6 +3252,14 @@ async def get_agent_token_usage(
                     "sessionLabel": agent_id[:8],
                     "prompt": prompt,
                     "completion": completion,
+                    "totalTokens": prompt + completion,
+                    "surfaceTokens": prompt + completion,
+                    "contextBreakdown": {
+                        "systemTokens": 0,
+                        "toolsTokens": 0,
+                        "messageTokens": prompt + completion,
+                    },
+                    "baseline": "estimated",
                 })
     return {"code": 0, "message": "success", "data": {"tokenUsage": items}}
 
