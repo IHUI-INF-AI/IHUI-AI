@@ -210,6 +210,29 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  interface ReconSummary {
+    period: string
+    statementCount: number
+    inTotal: string
+    outTotal: string
+    netTotal: string
+    matchedCount: number
+    unmatchedCount: number
+    ignoredCount: number
+    unmatchedNet: string
+    bookBankBalance: string
+    matchedNet: string
+    gap: string
+  }
+  const reconQ = useQuery({
+    queryKey: ['fin', 'reconcile', ledgerId, period],
+    queryFn: () =>
+      api<ReconSummary>(`${FIN_RESOURCE}/ledgers/${ledgerId}/reconcile?period=${period}`),
+    enabled: !!ledgerId && !!period,
+  })
+  const recon = reconQ.data
+  const zeroGap = recon ? Number(recon.gap) === 0 : false
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -514,6 +537,30 @@ export function DocsTab({ ledgers }: { ledgers: FinLedger[] }) {
                 {t('importStatement')}
               </Button>
             </div>
+          </Card>
+
+          <Card title={t('reconcileTitle')}>
+            {!recon ? (
+              <Empty text={t('loading')} />
+            ) : (
+              <div className="flex flex-wrap gap-4 text-xs tabular-nums">
+                <span>
+                  {t('bookBankBalance')}: <b>{money2(Number(recon.bookBankBalance))}</b>
+                </span>
+                <span>
+                  {t('matchedNet')}: <b>{money2(Number(recon.matchedNet))}</b>
+                </span>
+                <span className={zeroGap ? 'text-success' : 'text-warning'}>
+                  {t('gap')}: <b>{money2(Number(recon.gap))}</b>
+                </span>
+                <span className="text-muted-foreground">
+                  {t('unmatchedCount')}: {recon.unmatchedCount}
+                </span>
+                <span className="text-muted-foreground">
+                  {t('matched')}: {recon.matchedCount} · {t('ignored')}: {recon.ignoredCount}
+                </span>
+              </div>
+            )}
           </Card>
         </>
       )}

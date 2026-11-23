@@ -30092,7 +30092,17 @@
     "generateCalendar": "產生日曆",
     "calendarGenerated": "日曆已產生",
     "needClient": "請先選擇客戶",
-    "tabTaxProfiles": "稅種核定"},
+    "tabTaxProfiles": "稅種核定",
+    "importTitle": "批次匯入傳票",
+    "importHint": "貼上 JSON 陣列,每項含 voucherDate 與 lines(accountCode/direction/amount);period 自動補當前帳期",
+    "importRun": "開始匯入",
+    "importOk": "已匯入",
+    "importBadFormat": "需貼上非空 JSON 陣列",
+    "reconcileTitle": "對帳彙總",
+    "bookBankBalance": "帳面銀行餘額",
+    "matchedNet": "已匹配淨額",
+    "gap": "差額",
+    "unmatchedCount": "未匹配筆數"},
   "hrLifecycle": {
     "title": "人事生命週期"
   ,

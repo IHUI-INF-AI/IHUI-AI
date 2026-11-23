@@ -30626,7 +30626,17 @@
     "generateCalendar": "生成日历",
     "calendarGenerated": "日历已生成",
     "needClient": "请先选择客户",
-    "tabTaxProfiles": "税种核定"},
+    "tabTaxProfiles": "税种核定",
+    "importTitle": "批量导入凭证",
+    "importHint": "粘贴 JSON 数组,每项含 voucherDate 与 lines(accountCode/direction/amount);period 自动补当前账期",
+    "importRun": "开始导入",
+    "importOk": "已导入",
+    "importBadFormat": "需粘贴非空 JSON 数组",
+    "reconcileTitle": "对账汇总",
+    "bookBankBalance": "账面银行余额",
+    "matchedNet": "已匹配净额",
+    "gap": "差额",
+    "unmatchedCount": "未匹配笔数"},
   "hrLifecycle": {
     "title": "人事生命周期"
   ,

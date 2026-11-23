@@ -30092,7 +30092,17 @@
     "generateCalendar": "Generate calendar",
     "calendarGenerated": "Calendar generated",
     "needClient": "Pick a client first",
-    "tabTaxProfiles": "Tax setup"},
+    "tabTaxProfiles": "Tax setup",
+    "importTitle": "Import vouchers",
+    "importHint": "Paste a JSON array; each item needs voucherDate and lines(accountCode/direction/amount); period is filled with the ledger current period",
+    "importRun": "Run import",
+    "importOk": "Imported",
+    "importBadFormat": "Paste a non-empty JSON array",
+    "reconcileTitle": "Reconciliation summary",
+    "bookBankBalance": "Book bank balance",
+    "matchedNet": "Matched net",
+    "gap": "Gap",
+    "unmatchedCount": "Unmatched"},
   "hrLifecycle": {
     "title": "HR Lifecycle"
   ,

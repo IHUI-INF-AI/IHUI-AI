@@ -170,6 +170,46 @@ export function LedgerTab({ ledgers }: { ledgers: FinLedger[] }) {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  // ---------- 批量导入凭证 ----------
+  const [rawJson, setRawJson] = React.useState('')
+  const [importedCount, setImportedCount] = React.useState(0)
+
+  const importVouchers = useMutation({
+    mutationFn: () => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(rawJson)
+      } catch {
+        throw new Error(t('importBadFormat'))
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error(t('importBadFormat'))
+      return api<{ imported?: string[] }>(`${FIN_RESOURCE}/ledgers/${ledgerId}/vouchers/import`, {
+        method: 'POST',
+        body: JSON.stringify({
+          vouchers: parsed.map((v, i) => {
+            const row = v as Record<string, unknown>
+            return {
+              ...row,
+              period,
+              sourceRef:
+                typeof row.sourceRef === 'string' && row.sourceRef.trim()
+                  ? row.sourceRef
+                  : `import-${period}-${i + 1}`,
+            }
+          }),
+        }),
+      })
+    },
+    onSuccess: (data) => {
+      const n = data?.imported?.length ?? 0
+      setImportedCount(n)
+      toast.success(t('importOk'))
+      setRawJson('')
+      qc.invalidateQueries({ queryKey: ['fin', 'vouchers'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const canPost =
     !!ledgerId &&
     !!vDate &&
@@ -453,6 +493,31 @@ export function LedgerTab({ ledgers }: { ledgers: FinLedger[] }) {
                 <Plus className="h-3.5 w-3.5" />
                 {t('createVoucher')}
               </Button>
+            </div>
+          </Card>
+
+          <Card title={t('importTitle')}>
+            <p className="mb-2 text-[11px] text-muted-foreground">{t('importHint')}</p>
+            <textarea
+              className={`${field} w-full font-mono text-[11px]`}
+              rows={6}
+              value={rawJson}
+              onChange={(e) => setRawJson(e.target.value)}
+            />
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                size="sm"
+                disabled={!rawJson.trim() || importVouchers.isPending}
+                onClick={() => importVouchers.mutate()}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {t('importRun')}
+              </Button>
+              {importedCount > 0 && (
+                <span className="text-[11px] text-success">
+                  {t('importOk')} {importedCount}
+                </span>
+              )}
             </div>
           </Card>
         </>
