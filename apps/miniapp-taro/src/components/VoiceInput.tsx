@@ -8,8 +8,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   VOICE_INPUT_BTN_MIN_HEIGHT_PX,
-  VOICE_INPUT_BTN_PAD_X_PX,
-  VOICE_INPUT_BTN_PAD_Y_PX,
   VOICE_INPUT_RECORD_ROW_GAP_PX,
 } from '@ihui/shared/ui/voice-input-spec'
 import streamingRecognizer from '@/utils/streaming-recognizer'
@@ -119,20 +117,16 @@ export default function VoiceInput({
   return (
     <View className="w-full">
       <View
-        className={`flex items-center justify-center rounded-sm ${
+        className={`flex items-center justify-center rounded-sm px-4 py-3 ${
           recording ? 'bg-[var(--color-danger-tint)]' : 'bg-muted'
         } ${disabled ? 'opacity-50' : ''}`}
         style={{
-          // 盒高/内衬全部经 shared 单一源换算:原先这些档写在类名里(横向内衬 16、纵向 12、
-          // 最小高 48),与 RN 的 rnSpacing 及「无最小高」各写一份;2026-11-24 收口 ——
-          // 横向 16 不动(本端是设计锚),纵向与最小高各取小。
-          // ⚠️ 注释里不要回写类名字面量:`stripComments` 对注释内反引号的剥离不可靠,
-          // 回写的档会被 readGeometry 当成真实读数(实测凭空多一条"仅一端 12")。
+          // 只统一最小高(原盒高 48 → 两端同挂 40)。
+          // 横向 16 与纵向 12 仍留在本端类名里:它们是"同元素两端不同值"(RN `rnSpacing.md`=12 /
+          // `rnSpacing.sm`=8),本轮**没有**硬统一 —— 值集合口径下强行取同值会拆掉另一端某个值的
+          // 唯一来源(12 / 16 各自是某端唯一出处),当场变出一条新的"仅一端档"假分叉。
+          // 待几何比对从"值集合"升级到"元素×键→值"之后再收口,详见 voice-input-spec 头注。
           minHeight: toUnit(VOICE_INPUT_BTN_MIN_HEIGHT_PX),
-          paddingLeft: toUnit(VOICE_INPUT_BTN_PAD_X_PX),
-          paddingRight: toUnit(VOICE_INPUT_BTN_PAD_X_PX),
-          paddingTop: toUnit(VOICE_INPUT_BTN_PAD_Y_PX),
-          paddingBottom: toUnit(VOICE_INPUT_BTN_PAD_Y_PX),
         }}
         onTouchStart={startRecord}
         onTouchEnd={stopRecord}

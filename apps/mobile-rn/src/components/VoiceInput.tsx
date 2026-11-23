@@ -38,8 +38,6 @@ import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import {
   VOICE_INPUT_BTN_MIN_HEIGHT_PX,
-  VOICE_INPUT_BTN_PAD_X_PX,
-  VOICE_INPUT_BTN_PAD_Y_PX,
   VOICE_INPUT_RECORD_ROW_GAP_PX,
 } from '@ihui/shared/ui/voice-input-spec'
 import { voiceSttFromReactNative } from '@ihui/api-client'
@@ -316,13 +314,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // 角色档 control(按住说话 = 按钮)→ sm(4)
     borderRadius: rnRadiusFor.control,
-    // 内衬与最小高唯一源在 @ihui/shared/ui/voice-input-spec(与小程序端同档):
-    // 原先 rnSpacing.md/sm 与小程序类名各写一份(横向 12 vs 16、纵向 8 vs 12、最小高 无 vs 48),
-    // 2026-11-24 收口:横向跟到 16(小程序是设计锚)、纵向取小 8、最小高定 40。
-    // ⚠️ 注释里不要回写类名字面量:`stripComments` 对注释内反引号的剥离不可靠,
-    // 回写的档会被 readGeometry 当成真实读数。
-    paddingHorizontal: VOICE_INPUT_BTN_PAD_X_PX,
-    paddingVertical: VOICE_INPUT_BTN_PAD_Y_PX,
+    // 最小高唯一源在 @ihui/shared/ui/voice-input-spec(与小程序端同档,两端同挂 40)。
+    // 横向 `rnSpacing.md`=12 与纵向 `rnSpacing.sm`=8 **保留本端写法**:它们是"同元素两端不同值"
+    // (小程序 16 / 12),本轮不硬统一 —— 值集合口径下取同值会拆掉另一端某值的唯一来源,
+    // 当场多出一条"仅一端档"假分叉。待判据升级到"元素×键→值"后收口。
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
     minHeight: VOICE_INPUT_BTN_MIN_HEIGHT_PX,
     backgroundColor: tokens.surface.muted,
   } as ViewStyle,
