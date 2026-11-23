@@ -8634,11 +8634,27 @@ async def _tool_dispatch_subagent(
             str(arguments.get("__session_id") or session_id or "").strip() or None
         )
         _bg_user = str(arguments.get("__user_id") or "").strip() or None
+        _context_mode = str(arguments.get("context_mode") or "spawn").strip().lower()
+        _parent_job_id = str(arguments.get("parent_job_id") or "").strip() or None
+        _seed = jobs_store.prepare_context_seed(
+            context_mode=_context_mode,
+            parent_job_id=_parent_job_id,
+            user_id=_bg_user,
+            session_id=_bg_session,
+        )
+        if not _seed.get("ok"):
+            return {
+                "tool": "orchestrate_agents",
+                "ok": False,
+                "mode": "background",
+                **{k: v for k, v in _seed.items() if k != "ok"},
+            }
+        _effective_task = str(_seed.get("prefix") or "") + resident_prefix + task
 
         async def _invoke() -> dict[str, Any]:
             try:
                 return await _invoke_subagent_for_job(
-                    name, resident_prefix + task, session_id
+                    name, _effective_task, session_id
                 )
             finally:
                 if resident_key is not None and resident_owner is not None:
@@ -8646,11 +8662,13 @@ async def _tool_dispatch_subagent(
 
         started = await jobs_store.start_job(
             name=name,
-            task=task,
+            task=_effective_task,
             user_id=_bg_user,
             session_id=_bg_session,
             invoker=_invoke,
             timeout_s=float(_get_subagent_timeout()),
+            parent_job_id=_parent_job_id,
+            context_mode=_context_mode,
         )
         if not started.get("ok"):
             return {"tool": "orchestrate_agents", "mode": "background", **started}
@@ -8665,6 +8683,8 @@ async def _tool_dispatch_subagent(
                 "job_id": _job["job_id"],
                 "lineage_id": _job["lineage_id"],
                 "status": _job["status"],
+                "context_mode": _job.get("context_mode", "spawn"),
+                "fork_depth": _job.get("fork_depth", 0),
                 "message": (
                     "后台子智能体已启动。用 subagent_job(action='wait', job_id=...) "
                     "等待终态,或 action='list' 查看;终态后 action='send' 可续跑同一任务线。"
@@ -15938,6 +15958,23 @@ _TOOLS: list[MCPTool] = [
                         "true=后台执行并立即返回 job_id(仅单 agent 模式);"
                         "随后用 subagent_job(list/wait/send)收结果与续跑。"
                         "长任务或需要与子代理并行推进时使用。"
+                    ),
+                },
+                "context_mode": {
+                    "type": "string",
+                    "enum": ["spawn", "fork"],
+                    "default": "spawn",
+                    "description": (
+                        "后台单 agent 的上下文后端。spawn=零父上下文(缺省);"
+                        "fork=从已终态父作业播种任务与结果。"
+                        "fork 必须同时给 parent_job_id,且父作业必须已成功结束。"
+                    ),
+                },
+                "parent_job_id": {
+                    "type": "string",
+                    "description": (
+                        "fork 的父作业 id;spawn 模式不得传。"
+                        "父作业须属于同一 user_id/session_id 且已成功终态。"
                     ),
                 },
                 # ===== 统一多智能体编排(2026-11-16)=====

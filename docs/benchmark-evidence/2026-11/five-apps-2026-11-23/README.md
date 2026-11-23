@@ -443,6 +443,18 @@ WorkBuddy 的 `cli/bin/codebuddy-lowmem` 只换启动入口,不改业务代码:s
   - 缺省零行为变化：未注入策略时白名单为空、次数仍取 `llm_retry_max`、曲线仍取 `llm_retry_backoff`。
 - 验证：`test_llm_retry_policy.py` 7 例 + 集成 3 例 `10 passed`；既有 `test_agent_loop_v2.py -k 'llm_retry or classify_error'` `5 passed`；引擎回归 `48 passed`；`ruff` 全绿；提交 `e0ecbb17`。
 
+## 第十批：B1-09 子代理 fork/spawn 双上下文
+
+- 复检对象：DSH 的 `dsh-subagent-fork-in-process` / `dsh-subagent-spawn-in-process` 两个 provider。fork 播种父会话的平衡完成轮前缀，在飞轮排除；spawn 独立 session、零父上下文；两者都带 `depthLimit` 与工具面边界。
+- IHUI 原状：`subagent_jobs` 已有父子 job 树、wait/send/cancel；`subagent_spawn_policy` 已有工具面白名单并集与回传预算；缺“两种上下文后端”这一层注册面。现有 `send` 虽然带上一轮任务/结果，但它不是可选的 fork 后端，也没有深度上限与运行中父作业的拒绝判据。
+- 本批落点：
+  - 新增 `app/services/subagent_backends.py`：`spawn` / `fork` 两后端注册面；fork 只认已成功终态的父作业，取消/失败/运行中一律显式拒绝；种子含父任务与父结果，结果再按 4000 字兜底；沿 `parent_job_id` 链计算深度，超过 `MAX_FORK_DEPTH=4` 拒绝。
+  - `subagent_jobs`：新增 `prepare_context_seed()` 唯一播种入口；`start_job` 增 `context_mode`，fork 时复校种子前缀是否真的拼进 task，防止“记了 fork、实际零上下文起跑”；作业记录与 `to_dict` 暴露 `context_mode` / `fork_depth`。
+  - `mcp_server` 的 `orchestrate_agents` 后台分支：接受 `context_mode` / `parent_job_id`；fork 种子、resident 前缀、任务按序拼接后再交给真实 invoker；工具 schema 同步登记两字段。
+- 缺省零行为变化：不传 `context_mode` 时仍走 spawn；`send_job` 的续跑语义不变；既有工具面并集规则不回退。
+- 验证：新增 `test_subagent_fork_context.py` 13 例（spawn 零上下文、spawn 拒 parent、fork 缺 parent、运行/取消/失败父作业拒绝、归属不泄露、深度上限、未知档、种子前缀复校、成功 fork 记深度、工具 schema 登记）；既有 subagent 回归 5 文件 `71 passed`；`ruff` 全绿；`py_compile` 通过。
+- 边界（不谎报）：本批 fork 的“前缀”粒度是**作业级平衡终态**（父作业 task/result），不是父会话全部消息日志；会话级 fork 仍需 `parent_thread_id` 接线。工具面边界沿用既有 `resolve_subagent_tool_surface`，fork 不另造第二套。
+
 ## 证据文件
 
 - `dsh-archive.md`：DSH app.asar 盘点（含 containers/integrity/entries）

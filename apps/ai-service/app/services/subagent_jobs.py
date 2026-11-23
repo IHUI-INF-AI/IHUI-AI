@@ -32,6 +32,12 @@ from typing import Any, Final
 
 from ..core.multi_agent_config_gate import clamp_wait_timeout_s
 from .background_tasks import background_task_manager
+from .subagent_backends import (
+    MAX_FORK_DEPTH,
+    SubagentContextError,
+    build_context_seed,
+    normalize_context_mode,
+)
 
 MAX_JOBS: Final = 100
 #: 并发子代理作业上限(对标 deepseek-tui `max_subagents` 的 1–20 区间)。
@@ -66,6 +72,10 @@ class SubagentJob:
     result: Any = None
     error: str | None = None
     cancelled: bool = False
+    #: spawn=零父上下文；fork=从已终态父作业播种（B1-09）。
+    context_mode: str = "spawn"
+    #: fork 链深度；spawn 恒 0。
+    fork_depth: int = 0
     #: 该作业被 send 续跑出的子作业 id(便于从父作业追踪任务线)。
     children: list[str] = field(default_factory=list)
 
@@ -88,6 +98,8 @@ class SubagentJob:
             "result": self.result,
             "error": self.error,
             "children": list(self.children),
+            "context_mode": self.context_mode,
+            "fork_depth": self.fork_depth,
             "created_at": self.created_ts.isoformat(),
         }
 
@@ -143,6 +155,37 @@ def running_count(*, user_id: str | None, session_id: str | None) -> int:
     )
 
 
+def prepare_context_seed(
+    *,
+    context_mode: str | None,
+    parent_job_id: str | None,
+    user_id: str | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """校验并返回 fork 种子正文；spawn 返回空前缀。
+
+    这是唯一播种入口：调用方必须先拿 `prefix` 拼进真实 task，再交给
+    `start_job`。`start_job` 会复校 `prefix` 是否在位，避免「记了 fork 模式、
+    实际却零父上下文起跑」的假接线。
+    """
+    try:
+        seed = build_context_seed(
+            context_mode,
+            parent_job_id=parent_job_id,
+            jobs=_jobs,
+            user_id=user_id,
+            session_id=session_id,
+            max_depth=MAX_FORK_DEPTH,
+        )
+    except SubagentContextError as err:
+        return {"ok": False, "errorCode": err.code, "error": err.message}
+    return {
+        "ok": True,
+        "prefix": seed.text,
+        "seed": seed.to_dict(),
+    }
+
+
 async def start_job(
     *,
     name: str,
@@ -153,6 +196,7 @@ async def start_job(
     timeout_s: float = 900.0,
     parent_job_id: str | None = None,
     lineage_id: str | None = None,
+    context_mode: str = "spawn",
 ) -> dict[str, Any]:
     """后台启动一个子 agent 作业;立即返回 job_id(不阻塞父级)。
 
@@ -160,6 +204,33 @@ async def start_job(
     **在提交后台任务之前**拒绝(SUBAGENT_RUNNING_LIMIT),并在 error 里点名计数与上限;
     先起后拒会把进程/额度打满,等于没闸。
     """
+    try:
+        mode = normalize_context_mode(context_mode)
+    except SubagentContextError as err:
+        return {"ok": False, "errorCode": err.code, "error": err.message}
+    fork_depth = 0
+    if mode == "fork":
+        try:
+            seed = build_context_seed(
+                "fork",
+                parent_job_id=parent_job_id,
+                jobs=_jobs,
+                user_id=user_id,
+                session_id=session_id,
+                max_depth=MAX_FORK_DEPTH,
+            )
+        except SubagentContextError as err:
+            return {"ok": False, "errorCode": err.code, "error": err.message}
+        if not seed.text or seed.text not in task:
+            return {
+                "ok": False,
+                "errorCode": "SUBAGENT_FORK_SEED_MISSING",
+                "error": (
+                    "fork 作业的 task 未带 prepare_context_seed 返回的种子前缀;"
+                    "先取 prefix 拼进真实 task 再 start_job"
+                ),
+            }
+        fork_depth = seed.depth
     cap = resolve_running_cap()
     running = running_count(user_id=user_id, session_id=session_id)
     if running >= cap:
@@ -181,6 +252,8 @@ async def start_job(
         task=task,
         user_id=user_id,
         session_id=session_id,
+        context_mode=mode,
+        fork_depth=fork_depth,
         created_ts=datetime.now(UTC),
     )
 
