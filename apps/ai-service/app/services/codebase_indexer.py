@@ -675,6 +675,35 @@ def _resolve_alias_source(path: str, aliases: dict[str, str], *, limit: int = 16
     return current
 
 
+def _parse_retention_days(raw: str | None) -> int | None:
+    """解析索引保留期配置(P0-8 第十一批,2026-11-23)。
+
+    API 侧第九批已开 `retentionDays` 口,但本侧此前从不传 ⇒ 每条索引都落 API
+    的默认语义,那个口等于不存在。本函数只做一件事:把"环境里写了什么"译成
+    "要不要发这个字段"。
+
+    失效方向必须朝"不发"而不是"发 0":
+      · 空串 / 空白 / 非整数 / 负数 ⇒ `None`(不发该字段,交 API 默认上限);
+      · `0` 也 ⇒ `None` —— 0 天保留期意味着索引写完即失效,调用方以为在建索引、
+        实际在建一堆马上被清掉的行。既然"没配"和"配成 0"在效果上都等于不发,
+        就不必让它们走两条不同的分支(多一条分支就多一处可能漂的语义);
+      · 正整数 ⇒ 原样返回(是否长期保留由用户显式写大数决定,这里不设上限)。
+    """
+    if raw is None:
+        return None
+    text = raw.strip()
+    if not text:
+        return None
+    try:
+        value = int(text)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+CODEBASE_INDEX_RETENTION_DAYS_ENV = "CODEBASE_INDEX_RETENTION_DAYS"
+
+
 def collect_import_edges(
     root: Path, rel_paths: "list[str] | tuple[str, ...]"
 ) -> list[dict[str, Any]]:
@@ -1123,6 +1152,13 @@ class CodebaseIndexer:
         }
         if imports:
             payload["imports"] = imports
+        # P0-8 第十一批:保留期透传。仅当环境里给了合法正整数才发这个字段 ——
+        # 未配置即不发(交 API 默认上限),而不是发 null 冒充"永不失效"。
+        retention_days = _parse_retention_days(
+            os.environ.get(CODEBASE_INDEX_RETENTION_DAYS_ENV)
+        )
+        if retention_days is not None:
+            payload["retentionDays"] = retention_days
         # 2026-10-03 数据出域合规整改:**必须**把 internal_user_id 传进鉴权头,
         # 否则 X-User-Id 不会发出,api 侧取不到 req.userId → 拒绝写入无归属的索引
         # (codebase_chunks 存用户代码明文,无主行是该整改要消除的东西)。
