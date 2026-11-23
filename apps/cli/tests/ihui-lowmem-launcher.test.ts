@@ -17,8 +17,14 @@ import {
   LOW_MEMORY_NODE_FLAGS,
   buildLowMemoryArgv,
   runLowMemory,
-  type LowMemorySpawn,
 } from '../bin/ihui-lowmem.mjs'
+
+/** 与 `runLowMemory` 注入点一致的最小 spawn 形状(仅测试替身用,不从真实 bin 导入类型)。 */
+type LowMemorySpawn = (
+  command: string,
+  args: string[],
+  options: Record<string, unknown>,
+) => { status?: number | null; error?: Error }
 
 describe('ihui-lowmem launcher', () => {
   it('builds node flags before entry and forwards user argv', () => {
