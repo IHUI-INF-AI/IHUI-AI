@@ -39,6 +39,7 @@ __all__ = [
     "TokenAnchor",
     "TokenMeasurement",
     "TokenNode",
+    "build_anchor",
     "canonical_envelope_key",
     "estimate_content",
     "estimate_message",
@@ -61,6 +62,21 @@ _TEXT_BLOCK_TYPES = frozenset({"text", "input_text", "output_text"})
 _REASONING_BLOCK_TYPES = frozenset({"reasoning", "reasoning_text"})
 _TOOL_CALL_BLOCK_TYPES = frozenset({"tool-call", "tool_call", "function_call"})
 _IMAGE_BLOCK_TYPES = frozenset({"image", "image_url", "input_image"})
+
+
+def _first_int(value: Any, keys: tuple[str, ...]) -> int | None:
+    """按候选键取第一个可转 int 的值;非 dict / 全缺省返回 None。"""
+    if not isinstance(value, dict):
+        return None
+    for key in keys:
+        raw = value.get(key)
+        if isinstance(raw, bool):
+            continue
+        if isinstance(raw, (int, float)) and raw >= 0:
+            return int(raw)
+        if isinstance(raw, str) and raw.strip().isdigit():
+            return int(raw.strip())
+    return None
 
 
 def _canonical_json(value: Any) -> str:
@@ -87,6 +103,47 @@ class ProviderUsage:
     def total_tokens(self) -> int:
         """提示词 + 输出;reasoning 已含在 output,不再加。"""
         return self.prompt_tokens + self.output_tokens
+
+    @classmethod
+    def from_normalized_usage(cls, usage: Any) -> ProviderUsage | None:
+        """从本仓 ``normalize_usage`` 的归一字典构造(兼容原始厂商别名)。
+
+        ``prompt_tokens`` 是含缓存的提示词总量,因此未缓存输入要减去
+        cache read / cache write 两桶,避免把同一段缓存二次计入。
+        """
+        if not isinstance(usage, dict):
+            return None
+        prompt = _first_int(usage, ("prompt_tokens", "input_tokens", "inputTokenCount"))
+        output = _first_int(usage, ("completion_tokens", "output_tokens", "outputTokenCount"))
+        if prompt is None and output is None:
+            return None
+        cached = (
+            _first_int(usage, ("cached_tokens", "cache_read_tokens", "cacheReadTokenCount")) or 0
+        )
+        cache_write = (
+            _first_int(
+                usage,
+                ("cache_creation_tokens", "cache_write_tokens", "cacheWriteTokenCount"),
+            )
+            or 0
+        )
+        reasoning = (
+            _first_int(
+                usage,
+                ("reasoning_output_tokens", "reasoning_tokens", "reasoningTokenCount"),
+            )
+            or 0
+        )
+        prompt = max(0, prompt or 0)
+        cached = max(0, cached)
+        cache_write = max(0, cache_write)
+        return cls(
+            input_tokens=max(0, prompt - cached - cache_write),
+            output_tokens=max(0, output or 0),
+            cache_read_tokens=cached,
+            cache_write_tokens=cache_write,
+            reasoning_output_tokens=max(0, reasoning),
+        )
 
     def as_dict(self) -> dict[str, int]:
         return {
@@ -317,21 +374,22 @@ def estimate_tools(tools: Any) -> int:
 
 def canonical_envelope_key(
     *,
-    messages: Any = None,
     tools: Any = None,
     model: str | None = None,
     provider: str | None = None,
+    config: Any = None,
 ) -> str:
-    """规范请求信封键:工具 / 模型 / provider / 消息结构逐字参与。
+    """规范请求信封键:工具 / 模型 / provider / 调用配置逐字参与。
 
-    用途 = provider 用量复用闸。只把**会影响请求内容**的字段纳入;不把时间戳等
-    易抖动字段放进去,避免同一请求每次算出不同键。
+    只把**会影响请求信封**的字段纳入,不把消息数组纳入 —— surface 的变化
+    由 ``surfaceDeltaTokens`` 单独计价,若把 messages 也塞进信封键,
+    每追加一条消息都会让锚点失配,provider 用量永远无法复用。
     """
     payload = {
         "model": model or "",
         "provider": provider or "",
         "tools": tools,
-        "messages": messages,
+        "config": config,
     }
     # 只回不透明摘要,不回原文:token-usage 响应会带 envelopeKey,若直接把
     # 完整消息 JSON 塞回响应,等于把会话正文(可能含凭据)复制一份给前端。
@@ -382,7 +440,7 @@ def measure_messages(
     if not isinstance(messages, (list, tuple)):
         messages = []
     if envelope_key is None:
-        envelope_key = canonical_envelope_key(messages=messages, tools=tools)
+        envelope_key = canonical_envelope_key(tools=tools)
     nodes: list[TokenNode] = []
     for index, message in enumerate(messages):
         role = str(message.get("role") or "") if isinstance(message, dict) else ""
@@ -423,6 +481,43 @@ def measure_messages(
         if isinstance(context_window, int) and context_window > 0
         else None,
         envelope_key=envelope_key,
+    )
+
+
+def build_anchor(
+    messages: Any,
+    usage: Any,
+    *,
+    model: str | None = None,
+    tools: Any = None,
+) -> tuple[ProviderUsage, TokenAnchor] | None:
+    """从一轮结束后的消息快照 + 最后一次 usage 构造可复用锚点。
+
+    锚点取**最后一条 assistant 消息之前**的 surface 作为 sampled 价,并把该
+    assistant 消息自身的 token 计入 ``estimated_tokens``:provider 总量里已经
+    含了这段输出,但下一请求的 surface 也会包含它,所以 surface delta 必须从
+    它之前开始算。找不到 assistant 或 usage 不可解析时返回 ``None``,调用方
+    继续走完整估算,不拿旧数冒充。
+    """
+    if not isinstance(messages, (list, tuple)) or not messages:
+        return None
+    last_assistant = -1
+    for index, message in enumerate(messages):
+        if isinstance(message, dict) and str(message.get("role") or "") == "assistant":
+            last_assistant = index
+    if last_assistant < 0:
+        return None
+    provider = ProviderUsage.from_normalized_usage(usage)
+    if provider is None:
+        return None
+    before = list(messages[:last_assistant])
+    assistant_tokens = estimate_message(messages[last_assistant])
+    sampled_surface = estimate_messages(before)
+    estimated = estimate_tools(tools) + sampled_surface + assistant_tokens
+    return provider, TokenAnchor(
+        envelope_key=canonical_envelope_key(tools=tools, model=model),
+        estimated_tokens=estimated,
+        surface_tokens=sampled_surface,
     )
 
 

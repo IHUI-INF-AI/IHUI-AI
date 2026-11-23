@@ -217,6 +217,16 @@ Qoder 是四者中唯一把 asar 完整性、仅从 asar 加载、禁 `NODE_OPTI
 - 真实接线两处：① `/api/agents/{id}/token-usage` 的 checkpoint 逐轮估算从 `len//4` 改成 `prompt_completion_tokens` + `measure_messages`，响应新增 `totalTokens` / `surfaceTokens` / `contextBreakdown` / `baseline` / `envelopeKey`；② `thread.contextUsage` 控制帧在七类账本之外追加 `tokenMeter` 构成参考 —— 账本仍是七类真实占用的权威口径，meter 只回答"system / tools / messages 各占多少"，两者不互相冒充。
 - 测试：`apps/ai-service/tests/test_token_meter.py` **9 passed**（固定密度、system 口径、tool_calls、image offloaded 不变量、tools schema、最后一条非空 system 归 system、provider 复用/信封不匹配回退/用量低于锚点回退/reasoning 不二次累加/prompt-completion 拆分与入参不变）；`test_token_meter_endpoint.py` **1 passed**（checkpoint → 路由 → breakdown 字段）；`test_engine_control_frames_1106.py` **6 passed**（原 5 例 + `tokenMeter` 接线断言）。合计 **16 passed**；`ruff check` 四文件全过，新增三文件已注入水印。
 
+## 追加批补充：把 provider 锚点装到真实回合结束点上
+
+第一版只做到了模块层复用闸，生产两条读面都没传 `provider_usage` / `anchor`，等于闸门造好没装车；同时 `canonical_envelope_key` 把 messages 也纳入哈希，消息一变锚点就失配。本轮把这两处补实：
+
+- `canonical_envelope_key` 改为**只含 tools / model / provider / config**，不再含 messages；surface 变化由带符号 `surfaceDeltaTokens` 单独计价，否则每追加一条消息都会让 provider 数无法复用。
+- `ProviderUsage.from_normalized_usage()`：从本仓 `normalize_usage` 的 `prompt_tokens / cached_tokens / cache_creation_tokens` 构造四桶，未缓存输入 = `prompt - cache_read - cache_write`，避免同一段缓存双计；reasoning 只入 `reasoning_output_tokens`，不二次累加。
+- `build_anchor()`：取**最后一条 assistant 消息之前**的 surface 作为 sampled 价，把该 assistant 自身 token 计入 `estimated_tokens`（provider 总量已含这段输出，下一请求 surface 也含它，delta 必须从它之前起算）；找不到 assistant 或 usage 不可解析返回 `None`，调用方回退完整估算。
+- `AgentEngine`：`EngineThread` 新增 `last_provider_usage` / `last_token_anchor`；每轮开始清空，`_run_prompt_turn` 正常结束后取 `usage.perIteration[-1]` 调 `build_anchor`；`thread.contextUsage` 把两者传给 `measure_messages`，并在同一信封键下复用 provider 数。取不到锚点的轮次仍 `baseline=estimated`，不拿旧数冒充。
+- 测试：`test_token_meter.py` 新增 `from_normalized_usage` 减缓存双计、`build_anchor` sampled 点/estimated 口径、复用后 total/projected 三值；`test_engine_control_frames_1106.py` 新增真实 `contextUsage` 复用断言（`baseline=provider_usage`、`pressure=100`、`projected=100+assistant`）。合计 **19 passed in 10.57s**；`ruff check` 六文件全过；水印 verify 4/4 完整。`agent_engine.py` 只保留 29 行增量，**未整文件格式化**（首轮 ruff format 曾把 7,000 行文件重排 784 行，已从 HEAD 还原后重贴小改动）。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

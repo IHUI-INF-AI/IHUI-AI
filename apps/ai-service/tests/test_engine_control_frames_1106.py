@@ -23,6 +23,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core import file_read_state
+from app.core.token_meter import build_anchor, estimate_message
 from app.services.agent_engine import AgentEngine
 from app.services.session_store import SessionStore
 
@@ -147,6 +148,39 @@ async def test_context_usage_returns_real_ledger(tmp_path):
     assert meter["contextBreakdown"]["messageTokens"] == 0
     assert meter["totalTokens"] == meter["surfaceTokens"]
     assert meter["contextWindow"] == usage["contextLimit"]
+
+
+@pytest.mark.asyncio
+async def test_context_usage_reuses_provider_anchor_after_turn(tmp_path):
+    engine, _store, _holder = _engine(tmp_path)
+    resp = await _rpc(
+        engine,
+        "thread.start",
+        {"sessionId": "I1", "input": "hi", "model": "fixture-model"},
+        req_id=1,
+    )
+    tid = resp["result"]["threadId"]
+    thread = engine._threads[tid]
+    thread.messages.extend(
+        [
+            {"role": "user", "content": "u" * 4},
+            {"role": "assistant", "content": "a" * 4},
+        ]
+    )
+    usage = {"prompt_tokens": 100, "completion_tokens": 10, "cached_tokens": 20}
+    built = build_anchor(thread.messages, usage, model=thread.model)
+    assert built is not None
+    thread.last_provider_usage, thread.last_token_anchor = built
+
+    resp = await _rpc(engine, "thread.contextUsage", {"threadId": tid}, req_id=2)
+    assert "error" not in resp, resp
+    meter = resp["result"]["tokenMeter"]
+    assistant_tokens = estimate_message(thread.messages[-1])
+    assert meter["baseline"] == "provider_usage"
+    assert meter["tokenUsage"]["totalTokens"] == 110
+    assert meter["pressureTokens"] == 100
+    assert meter["projectedTokens"] == 100 + assistant_tokens
+    assert meter["totalTokens"] == 110 + assistant_tokens
 
 
 @pytest.mark.asyncio

@@ -712,6 +712,11 @@ class EngineThread:
     emit: Emitter | None = None
     # 当前持久化轮次(session_store turn_id,用于结束后回写 AgentMessage/Error)
     current_turn_id: str | None = None
+    # 第十五批:最近一次完成的 provider 用量与 token_meter 锚点。只在
+    # thread.contextUsage 读面用于"provider 数复用闸";没有锚点/信封不一致
+    # 时读面自动回退完整估算,绝不拿旧数冒充现值。
+    last_provider_usage: Any | None = None
+    last_token_anchor: Any | None = None
     # 回合标记(2026-09-19 批 43 接线,遵循统一工程规范):user 消息索引
     # → turn_id 映射,thread.revert 据此精确裁剪内存消息(持久层同步截断)
     turn_markers: dict[int, str] = field(default_factory=dict)
@@ -2956,6 +2961,10 @@ class AgentEngine:
             await self._emit_engine_event(
                 thread, emit, "turn.started", {"turnId": turn_id, "inputChars": len(text)}
             )
+        # 新一轮开始即清掉上轮锚点:本轮失败/无 usage 时,读面必须回退估算,
+        # 不能拿上一轮的 provider 数当本轮现值。
+        thread.last_provider_usage = None
+        thread.last_token_anchor = None
         try:
             result = await self._run_thread(thread, emit)
         except Exception as e:
@@ -3343,6 +3352,18 @@ class AgentEngine:
                             "turn_token_usage",
                             sample,
                         )
+            # 第十五批:把本轮最后一次 provider usage 固化成"可复用锚点"。
+            # 读面(thread.contextUsage)只有拿到同信封锚点才允许复用 provider
+            # 数字;取不到/解析不出的轮次保持 None,读面回退完整估算。
+            with contextlib.suppress(Exception):
+                from app.core.token_meter import build_anchor
+
+                per_iteration = (payload.get("usage") or {}).get("perIteration") or []
+                last_usage = per_iteration[-1] if per_iteration else None
+                if isinstance(last_usage, dict):
+                    built = build_anchor(thread.messages, last_usage, model=thread.model)
+                    if built is not None:
+                        thread.last_provider_usage, thread.last_token_anchor = built
             # 批58 接线(模块1/3/4):turn 元数据/telemetry 组装增强。
             # off 时整体零行为(逐字节等价);on 时经各自 env 开关采集并附加事件;
             # 异常由各子方法隔离,主流程照常返回 payload。
@@ -4163,7 +4184,7 @@ class AgentEngine:
         不把"读历史"说成"读实时";status 一并回传,让调用方知道账本是否落后于在飞轮次。
         """
         from app.core.model_context_window import resolve_with_env_priority
-        from app.core.token_meter import measure_messages
+        from app.core.token_meter import canonical_envelope_key, measure_messages
         from app.services.context_ledger import build_context_ledger
 
         thread = self._require_thread(params)
@@ -4189,7 +4210,13 @@ class AgentEngine:
         full_history = (
             [{"role": "system", "content": system_text}] if system_text else []
         ) + history
-        meter = measure_messages(full_history, context_window=limit)
+        meter = measure_messages(
+            full_history,
+            provider_usage=thread.last_provider_usage,
+            anchor=thread.last_token_anchor,
+            context_window=limit,
+            envelope_key=canonical_envelope_key(model=thread.model),
+        )
         return {
             "threadId": thread.thread_id,
             "usage": usage,

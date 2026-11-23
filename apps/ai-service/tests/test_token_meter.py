@@ -23,6 +23,7 @@ from app.core.token_meter import (
     ROLE_OVERHEAD,
     ProviderUsage,
     TokenAnchor,
+    build_anchor,
     canonical_envelope_key,
     estimate_content,
     estimate_message,
@@ -108,7 +109,7 @@ def test_measure_breakdown_last_nonempty_system() -> None:
         {"role": "assistant", "content": "a" * 4},
         {"role": "system", "content": ""},
     ]
-    key = canonical_envelope_key(messages=messages)
+    key = canonical_envelope_key()
     assert len(key) == 64
     assert "u" * 4 not in key  # 只回摘要,不回会话正文
     measurement = measure_messages(messages)
@@ -127,7 +128,7 @@ def test_provider_usage_reused_only_with_matching_anchor() -> None:
         {"role": "system", "content": "s" * 8},
         {"role": "user", "content": "u" * 4},
     ]
-    envelope = canonical_envelope_key(messages=messages)
+    envelope = canonical_envelope_key()
     measured = measure_messages(messages)
     anchor = TokenAnchor(
         envelope_key=envelope,
@@ -160,7 +161,7 @@ def test_provider_usage_reused_only_with_matching_anchor() -> None:
         appended,
         provider_usage=usage,
         anchor=anchor,
-        envelope_key=canonical_envelope_key(messages=appended),
+        envelope_key=canonical_envelope_key(tools=[{"type": "function", "name": "x"}]),
     )
     assert mismatch.baseline == "estimated"
     assert mismatch.projected_tokens is None
@@ -186,7 +187,7 @@ def test_provider_usage_reused_only_with_matching_anchor() -> None:
 
 def test_provider_usage_below_anchor_falls_back() -> None:
     messages = [{"role": "user", "content": "u" * 4}]
-    envelope = canonical_envelope_key(messages=messages)
+    envelope = canonical_envelope_key()
     measured = measure_messages(messages)
     anchor = TokenAnchor(
         envelope_key=envelope,
@@ -197,6 +198,52 @@ def test_provider_usage_below_anchor_falls_back() -> None:
     result = measure_messages(messages, provider_usage=low, anchor=anchor, envelope_key=envelope)
     assert result.baseline == "estimated"
     assert result.total_tokens == measured.surface_tokens
+
+
+def test_normalized_usage_subtracts_cache_reads_and_writes() -> None:
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 10,
+        "cached_tokens": 20,
+        "cache_creation_tokens": 5,
+        "reasoning_tokens": 3,
+    }
+    provider = ProviderUsage.from_normalized_usage(usage)
+    assert provider is not None
+    assert provider.input_tokens == 75
+    assert provider.prompt_tokens == 100
+    assert provider.total_tokens == 110
+    assert provider.reasoning_output_tokens == 3
+
+
+def test_build_anchor_samples_before_last_assistant() -> None:
+    messages = [
+        {"role": "system", "content": "s" * 8},
+        {"role": "user", "content": "u" * 4},
+        {"role": "assistant", "content": "a" * 4},
+    ]
+    usage = {"prompt_tokens": 100, "completion_tokens": 10, "cached_tokens": 20}
+    built = build_anchor(messages, usage, model="m")
+    assert built is not None
+    provider, anchor = built
+    assert provider.prompt_tokens == 100
+    assert anchor.surface_tokens == estimate_message(messages[0]) + estimate_message(messages[1])
+    assert anchor.estimated_tokens == (anchor.surface_tokens + estimate_message(messages[2]))
+    assert anchor.envelope_key == canonical_envelope_key(model="m")
+
+    measured = measure_messages(
+        messages,
+        provider_usage=provider,
+        anchor=anchor,
+        envelope_key=anchor.envelope_key,
+    )
+    # 采样点 = 最后一条 assistant 之前;当前 surface 多出的正是 assistant 输出,
+    # 它同时进 total 与 projected(下一请求的 prompt 会包含它)。
+    assistant_tokens = estimate_message(messages[2])
+    assert measured.baseline == "provider_usage"
+    assert measured.surface_delta_tokens == assistant_tokens
+    assert measured.total_tokens == 110 + assistant_tokens
+    assert measured.projected_tokens == 100 + assistant_tokens
 
 
 def test_reasoning_output_is_not_double_counted() -> None:
