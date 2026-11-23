@@ -41,8 +41,10 @@ const LABEL_STRING = 'ihui_auto_install_label'
 const KOTLIN_SOURCE = `package __PACKAGE__
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -51,10 +53,15 @@ import android.view.accessibility.AccessibilityNodeInfo
  *
  * 只在本应用名(IHUI / 智汇)出现在安装器界面时动作,且点击词限于安装确认类;
  * 安装器是两步(安装 -> 完成),所以一次事件最多连点 3 轮、每轮间隔 1.2s。
+ *
+ * 2026-11-23 修:此前按「文本包含确认词」全树深度优先取第一个可点节点,
+ * 会被确认页的说明文字(如 "Do you want to update this app?" 含 Update)先命中,
+ * 于是每轮都在点说明文字、真正的按钮永远点不到(实机验证:Update 对话框挂 14s 无人点)。
+ * 现改为:只认短标签(≤12 字,排除整句)且与确认词整词/前缀相等,并按
+ * 「Button 类 + 整词命中」加权择优;同时补上「更新/升级/下一步/Next/Upgrade」。
  */
 class __CLASS__ : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
-    private var clicks = 0
     private var lastEventAt = 0L
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -71,9 +78,9 @@ class __CLASS__ : AccessibilityService() {
         val now = System.currentTimeMillis()
         if (now - lastEventAt < 600) return
         lastEventAt = now
-        clicks = 0
+        debug("installer event pkg=" + pkg)
         handler.removeCallbacksAndMessages(null)
-        handler.postDelayed({ clickConfirm(clicks) }, 700)
+        handler.postDelayed({ clickConfirm(0) }, 700)
     }
 
     /** 安装器系包名(各家 ROM 不同,统一按子串判,避免漏掉厂商安装器)。 */
@@ -95,27 +102,170 @@ class __CLASS__ : AccessibilityService() {
         return false
     }
 
-    private fun clickConfirm(round: Int) {
-        if (round >= 3) return
-        val root = rootInActiveWindow ?: return
-        if (!mentionsOurApp(root)) return
-        if (findAndClick(root, 0)) {
-            handler.postDelayed({ clickConfirm(round + 1) }, 1200)
-        }
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        // 运行时再锁一次 flags:改 XML 后系统偶尔仍用旧的 ServiceInfo(实测 flag IncludeNotImportantViews 不生效)
+        val info = serviceInfo ?: return
+        info.flags = info.flags or
+            AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
+            AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        setServiceInfo(info)
+        debug("service connected flags=" + info.flags)
     }
 
-    private fun findAndClick(node: AccessibilityNodeInfo?, depth: Int): Boolean {
-        if (node == null || depth > 40) return false
-        val text = (node.text?.toString().orEmpty() + " " + node.contentDescription?.toString().orEmpty())
-        if (text.isNotBlank() && node.isEnabled && node.isClickable &&
-            CONFIRM_WORDS.any { text.contains(it, true) }
+    private fun clickConfirm(attempt: Int) {
+        if (attempt >= MAX_ATTEMPTS) return
+        // 根窗口必须是安装器本身:安装结束/被取消后根窗口会变回本应用,
+        // 此时若继续按短标签点「打开/确定」,就会误点自己界面上的链接。
+        val root = rootInActiveWindow
+        if (root == null) {
+            debug("root null, attempt=" + attempt)
+            scheduleNext(attempt)
+            return
+        }
+        if (!isInstaller(root.packageName?.toString().orEmpty())) {
+            debug("window left installer, attempt=" + attempt)
+            return
+        }
+        if (!mentionsOurApp(root)) {
+            debug("app name absent, attempt=" + attempt)
+            scheduleNext(attempt)
+            return
+        }
+        debug(
+            "root pkg=" + root.packageName + " cls=" + root.className +
+                " children=" + root.childCount + " attempt=" + attempt,
+        )
+        val best = bestFromWindows() ?: bestConfirm(root, 0, null) ?: bestByText(root)
+        if (best == null) {
+            debug("no confirm node, attempt=" + attempt)
+            if (attempt == 0) dumpTree(root, 0)
+            // 再试按资源 id 直取(树遍历里看不到正向按钮时,按 id 有时仍可取到)
+            val byId = root.findAccessibilityNodeInfosByViewId("android:id/button1")
+            debug("byId button1 size=" + (byId?.size ?: -1))
+            debug("byText Update size=" + (root.findAccessibilityNodeInfosByText("Update")?.size ?: -1))
+            if (!byId.isNullOrEmpty()) {
+                val n = byId[0]
+                val label0 = labelOf(n)
+                val clicked0 = n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                debug("byId click '" + label0 + "' ok=" + clicked0)
+                if (clicked0) {
+                    scheduleNext(attempt)
+                    return
+                }
+            }
+            scheduleNext(attempt)
+            return
+        }
+        val label = labelOf(best.node)
+        val clicked = best.node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        debug("attempt=" + attempt + " click '" + label + "' score=" + best.score + " ok=" + clicked)
+        scheduleNext(attempt)
+    }
+
+    /** 安装器界面是渐进出现的(暂存进度 -> 确认页 -> 安装中 -> 完成页),单次找不到就按轮询重试。 */
+    private fun scheduleNext(attempt: Int) {
+        if (attempt + 1 >= MAX_ATTEMPTS) return
+        handler.postDelayed({ clickConfirm(attempt + 1) }, 1200)
+    }
+
+    /**
+     * 枚举交互窗口再找确认键:实测 AOSP 安装器确认页的正向按钮
+     * 有时不在 rootInActiveWindow 的树里(2026-11-23 实机:树里只有 Cancel,
+     * 同屏 uiautomator 却能看到 android:id/button1),逐个窗口取根更稳。
+     */
+    private fun bestFromWindows(): Best? {
+        val wins = windows ?: return null
+        debug("windows=" + wins.size)
+        var out: Best? = null
+        for (w in wins) {
+            val r = w.root ?: continue
+            val pkg = r.packageName?.toString().orEmpty()
+            if (!isInstaller(pkg) || !mentionsOurApp(r)) continue
+            val cand = bestConfirm(r, 0, null) ?: continue
+            if (out == null || cand.score > out.score) out = cand
+        }
+        return out
+    }
+
+    /**
+     * 按文字在整棵视图树里找确认键(2026-11-23 实机验证):
+     * AOSP 安装器确认页的 android:id/button1 不在 root.getChild 逐层遍历里,
+     * findAccessibilityNodeInfosByViewId 也取不到,但 findAccessibilityNodeInfosByText("Update") 能命中。
+     */
+    private fun bestByText(root: AccessibilityNodeInfo): Best? {
+        var out: Best? = null
+        for (word in CONFIRM_WORDS) {
+            val list = root.findAccessibilityNodeInfosByText(word) ?: continue
+            for (n in list) {
+                if (!n.isClickable) continue
+                val label = labelOf(n)
+                if (label.isEmpty() || label.length > 12) continue
+                val exact = label.equals(word, true)
+                if (!exact && !label.startsWith(word, true)) continue
+                val isButton = n.className?.toString().orEmpty().contains("Button", true)
+                val score = if (isButton && exact) 4 else if (exact) 3 else if (isButton) 2 else 1
+                if (out == null || score > out.score) out = Best(n, score)
+            }
+        }
+        return out
+    }
+
+    private class Best(val node: AccessibilityNodeInfo, val score: Int)
+
+    /**
+     * 深度优先找「最像确认键」的节点。
+     * 命中条件:短标签(≤12 字,排除整句说明) ∧ 与确认词整词或前缀相等 ∧ 可点 ∧ 对用户可见。
+     * 加权:Button 类+整词 > 整词 > Button 类 > 前缀。
+     */
+    private fun bestConfirm(node: AccessibilityNodeInfo?, depth: Int, best: Best?): Best? {
+        if (node == null || depth > 40) return best
+        var out = best
+        val label = labelOf(node)
+        if (node.isClickable) {
+            debug("clickable '" + label + "' visible=" + node.isVisibleToUser + " cls=" + node.className)
+        }
+        if (label.isNotEmpty() && label.length <= 12 &&
+            node.isEnabled && node.isClickable && node.isVisibleToUser
         ) {
-            if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+            val exact = CONFIRM_WORDS.any { label.equals(it, true) }
+            val prefix = !exact && CONFIRM_WORDS.any { label.startsWith(it, true) }
+            if (exact || prefix) {
+                val isButton = node.className?.toString().orEmpty().contains("Button", true) ||
+                    node.viewIdResourceName?.endsWith("button1") == true
+                val score = when {
+                    isButton && exact -> 4
+                    exact -> 3
+                    isButton -> 2
+                    else -> 1
+                }
+                if (out == null || score > out.score) out = Best(node, score)
+            }
         }
         for (i in 0 until node.childCount) {
-            if (findAndClick(node.getChild(i), depth + 1)) return true
+            out = bestConfirm(node.getChild(i), depth + 1, out)
         }
-        return false
+        return out
+    }
+
+    private fun dumpTree(node: AccessibilityNodeInfo?, depth: Int) {
+        if (node == null || depth > 12) return
+        debug(
+            "  ".repeat(depth) + "cls=" + node.className + " text='" + node.text +
+                "' desc='" + node.contentDescription + "' click=" + node.isClickable +
+                " vis=" + node.isVisibleToUser + " id=" + node.viewIdResourceName,
+        )
+        for (i in 0 until node.childCount) dumpTree(node.getChild(i), depth + 1)
+    }
+
+    private fun labelOf(node: AccessibilityNodeInfo): String {
+        val t = node.text?.toString().orEmpty().trim()
+        if (t.isNotEmpty()) return t
+        return node.contentDescription?.toString().orEmpty().trim()
+    }
+
+    private fun debug(msg: String) {
+        if (BuildConfig.DEBUG) Log.d("IHUI.A11y", msg)
     }
 
     override fun onInterrupt() {}
@@ -126,22 +276,33 @@ class __CLASS__ : AccessibilityService() {
     }
 
     companion object {
+        /** 单次事件最多尝试 12 轮(约 14s),覆盖暂存进度 -> 确认页 -> 安装中 -> 完成页。 */
+        private const val MAX_ATTEMPTS = 12
+
         /** 安装确认词:覆盖 AOSP / Google / 小米 / 华为 / 三星 / 英文界面。 */
         private val CONFIRM_WORDS = arrayOf(
-            "安装", "继续", "完成", "打开", "确定",
-            "Install", "Update", "Continue", "Done", "Open", "OK",
+            "安装", "更新", "升级", "继续", "下一步", "完成", "打开", "确定",
+            "Install", "Update", "Upgrade", "Continue", "Next", "Done", "Open", "OK",
         )
     }
 }
 `
 
+/**
+ * 配置里 android:isAccessibilityTool="true" 是硬前提(2026-11-23 实机定位):
+ * 系统 PackageInstaller 把安装/更新/完成的按钮标记为 accessibilityDataSensitive,
+ * 只允许「accessibility tool」类服务读取;缺这一条时树里只剩 Cancel、
+ * button1 连 findAccessibilityNodeInfosByViewId/ByText 都取不到,永远点不下去。
+ * 逐项实机验证:补上后同一对话框立刻出现 Update 按钮并被 ACTION_CLICK 点中,安装完成。
+ */
 const XML_CONFIG = `<?xml version="1.0" encoding="utf-8"?>
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/${DESC_STRING}"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
+    android:isAccessibilityTool="true"
     android:notificationTimeout="200" />
 `
 
