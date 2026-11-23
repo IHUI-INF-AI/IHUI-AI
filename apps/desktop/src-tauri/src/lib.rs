@@ -89,6 +89,8 @@ mod notification_permission;
 mod sandbox_metrics;
 // 2026-11-23 立(B3-06):剪贴板一次性读取票据(30s / 最多 8 张 / 二次消费即拒)。
 mod clipboard_grant;
+// 2026-11-23 立(B3-04):提交内存余量预判(只读;取不到落未判定,不冒充有余量)。
+mod system_memory;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -4871,6 +4873,13 @@ fn sandbox_egress_metrics() -> sandbox_metrics::EgressMetricReport {
     sandbox_metrics::report()
 }
 
+/// B3-04:提交内存余量预判(只读)。起大任务/编译/批量写之前调这条,
+/// 用 `requested_bytes` 说明本次要申请多少;`unjudged` 表示本机读不到,不是"有余量"。
+#[tauri::command]
+fn system_memory_pressure(requested_bytes: Option<u64>) -> system_memory::MemoryReport {
+    system_memory::probe_pressure(requested_bytes.unwrap_or(0))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -5809,7 +5818,9 @@ pub fn run() {
     sandbox_egress_metrics,
     // 2026-11-23 立(B3-06):剪贴板一次性读取票据(发票 + 凭票读一次)。
     clipboard_issue_grant,
-    clipboard_read_with_grant
+    clipboard_read_with_grant,
+    // 2026-11-23 立(B3-04):提交内存余量预判(只读;unjudged 不等于有余量)。
+    system_memory_pressure
         ])
         .run(context)
         .unwrap_or_else(|e| {
