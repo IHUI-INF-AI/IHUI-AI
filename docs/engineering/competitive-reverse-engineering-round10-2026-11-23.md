@@ -597,7 +597,7 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 **量**：取证席产出 44 条候选（A 19 / B 21 / C 4，去重后的 ID 全集 = B1×11 / B2×11 / B3×10 / B4×12）。我这一侧落地 **27 条**（对应 25 枚提交，含 A 段装车、P0-8 两批、B1-07/B1-09/B3-03 重头复检，以及本轮八条收口批），他席落地 2 条（B1-08 `d2b4b528` / B4-09 `8ee6291a`），不采纳 10 条，已有等价 5 条，待开发 **0 条**。27 + 2 + 10 + 5 + 0 = 44。
 
-### 24.1 已落地（19 条候选 / 21 枚提交）
+### 24.1 已落地（27 条候选 / 25 枚提交）
 
 | 候选 | 设计 | 提交 | 落点 |
 |---|---|---|---|
@@ -618,8 +618,8 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 | B4-03 | 编译态/源码态单源判据（+ 双目回潮闸） | `9e4dfe9e` | `run-mode.ts` |
 | B4-08 | 启动画像 span 树（嵌套/并发/停采） | `6aaaccb0` | `span-tree.ts` |
 | B1-07 | provider 级 LLM 重试路由（白名单 / always / 确定性 retryId / 可中断退避） | `e0ecbb17` | `llm_retry_policy.py` / `agent_loop_v2.py` |
-| B1-09 | 子代理 fork/spawn 双上下文（终态平衡前缀 / 深度上限 / 工具面接线） | 本枚 | `subagent_backends.py` / `subagent_jobs.py` / `mcp_server.py` |
-| B3-03 | 协作 CLI 身份三档（User/RuntimeOwner/RuntimeAgent）+ 退出码 0/3/4/130 + 幂等键 | 本枚 | `collab/identity.ts` / `collab/exit-codes.ts` / `subagent-collab.ts` |
+| B1-09 | 子代理 fork/spawn 双上下文（终态平衡前缀 / 深度上限 / 工具面接线） | `33ab1e7b05b5817da1cb63d2ff3829bf04bf499d` | `subagent_backends.py` / `subagent_jobs.py` / `mcp_server.py` |
+| B3-03 | 协作 CLI 身份三档（User/RuntimeOwner/RuntimeAgent）+ 退出码 0/3/4/130 + 幂等键 | `ce18ffb2b2d2d20749f3d25f68a095081c226c2b` | `collab/identity.ts` / `collab/exit-codes.ts` / `subagent-collab.ts` |
 | B2-02 | IPC 命名管道受限 DACL（当前用户 + SYSTEM 两条 ACE，创建失败即拒） | `e61b0f229feb5e72955e4d8fe7dd372cca31b345` | `ipc_channel_acl.rs` / `sandbox_ipc.rs` |
 | B2-07 | BP_* 原生模块统一 ABI（三出口 + 头三判据） | `e61b0f229feb5e72955e4d8fe7dd372cca31b345` | `native_module_abi.rs` |
 | B3-01 | 浏览器桥 `connectNative` 客户端 + Chrome host 入口 + 安装器 | `acd2c821a4bd306a45da0474da827fcf6cc42377` | `native-host-client.ts` / `ihui_native_host.rs` / `install-extension-native-host.mjs` |
