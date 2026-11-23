@@ -48,7 +48,7 @@ describe('IlinkAdapter.sendMedia 协议', () => {
           })
         }
         if (url.includes('sendmessage')) {
-          return new Response(JSON.stringify({ ret: 0, code: 0, message_id: 'm-media' }), {
+          return new Response('{"ret":0,"code":0,"message_id":7530650797550515288}', {
             status: 200,
           })
         }
@@ -64,7 +64,7 @@ describe('IlinkAdapter.sendMedia 协议', () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(result.platformMessageId).toBe('m-media')
+    expect(result.platformMessageId).toBe('7530650797550515288')
     expect(aeskeyHex).toMatch(/^[0-9a-f]{32}$/)
 
     const upload = calls.find((item) => item.url.includes('/upload?'))

@@ -62,6 +62,18 @@ function asString(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
+/** iLink 的 message_id 是雪花数字，JSON 解析后为 number；统一转成字符串。 */
+function asIdString(value: unknown): string | null {
+  if (typeof value === 'string' && value.length > 0) return value
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return null
+}
+
+/** 先把超长数字 id 包成字符串，避免 JSON.parse 丢失雪花 id 的低位。 */
+function parseIlinkJson(text: string): unknown {
+  return JSON.parse(text.replace(/("(?:message_id|msg_id)"\s*:\s*)(-?\d{15,})/g, '$1"$2"'))
+}
+
 /** iLink 返回的是扫码落地页 URL，不是图片；这里转成可直接 <img> 渲染的二维码。 */
 async function qrImageContent(value: string): Promise<string> {
   if (value.startsWith('data:image/')) return value
@@ -465,7 +477,7 @@ export class IlinkAdapter implements WechatAdapter {
             rejectedBy: 'ilink-business',
           }
         }
-        const messageId = asString(data.message_id) ?? asString(data.msg_id)
+        const messageId = asIdString(data.message_id) ?? asIdString(data.msg_id)
         if (!messageId) {
           return {
             ok: false,
@@ -657,7 +669,7 @@ export class IlinkAdapter implements WechatAdapter {
     if (!response.ok) {
       throw new Error(`iLink ${method} ${path} HTTP ${response.status}: ${text.slice(0, 200)}`)
     }
-    const parsed: unknown = JSON.parse(text)
+    const parsed: unknown = parseIlinkJson(text)
     const record = asRecord(parsed)
     if (!record) throw new Error(`iLink ${path} 返回非对象 JSON`)
     return record
