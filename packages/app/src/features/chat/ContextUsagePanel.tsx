@@ -116,22 +116,33 @@ export function ContextUsagePanel({
     return preview || t('chat.contextUsage.unnamedItem')
   }
 
+  // 2026-11-23:0 用量时整条不渲染 —— 首帧的「0% · 0 / 128,000」既不是信息也不是入口
+  // (实测被读成一行坏掉的乱码贴在最上面),等真有上下文再由它出现。
+  if (usedTokens === 0) return null
+
   return (
     <View style={styles.wrap}>
-      <Tappable
-        onPress={() => setExpanded((v) => !v)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-      >
-        <Text style={styles.summary}>
-          {percent}% · {usedTokens.toLocaleString()} /{' '}
-          {maxTokens > 0 ? maxTokens.toLocaleString() : '—'}
-        </Text>
-      </Tappable>
+      <View style={styles.chipRow}>
+        <Tappable
+          onPress={() => setExpanded((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          style={styles.chip}
+        >
+          {/* 2026-11-23:折叠摘要只说"是什么 + 占比";原始 token 分数移进展开面板。
+              原来顶端直接写 `0% · 44 / 128,000`,在 0% 档读起来像一行坏掉的乱码。 */}
+          <Text style={styles.summary}>
+            {t('chat.contextUsage.title')} {percent}%
+          </Text>
+        </Tappable>
+      </View>
 
       {expanded ? (
         <View style={styles.panel}>
-          <Text style={styles.panelTitle}>{t('chat.contextUsage.title')}</Text>
+          <Text style={styles.panelTitle}>
+            {t('chat.contextUsage.title')} · {usedTokens.toLocaleString()} /{' '}
+            {maxTokens > 0 ? maxTokens.toLocaleString() : '—'}
+          </Text>
           <View style={styles.bar}>
             {attribution.segments
               .filter((seg) => seg.observed && seg.tokens > 0)
@@ -229,7 +240,20 @@ export function ContextUsagePanel({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    wrap: { paddingHorizontal: rnSpacing.md, paddingTop: rnSpacing['xs-loose'] },
+    wrap: {
+      paddingHorizontal: rnSpacing.md,
+      paddingTop: rnSpacing['xs-loose'],
+    },
+    // 摘要行单独一层:胶囊独占一行,展开面板落在它下方(2026-11-23 修:此前 wrap 直接 row,
+    // 展开时明细被挤到胶囊右侧成了面条形)。
+    chipRow: { flexDirection: 'row' },
+    // 摘要做成浅底胶囊:它本身是可点开的控件,裸文字既没有可点暗示、也不属于任何视觉分组。
+    chip: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.muted,
+    },
     summary: {
       fontSize: rnType.label.size,
       color: tk.text.secondary,
@@ -249,7 +273,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     bar: {
       flexDirection: 'row',
-      height: 6,
+      height: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xs,
       overflow: 'hidden',
       backgroundColor: tk.border.light,
@@ -261,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
       paddingVertical: 3,
     },
-    dot: { width: 8, height: 8, borderRadius: rnRadius.xs },
+    dot: { width: rnSpacing.sm, height: rnSpacing.sm, borderRadius: rnRadius.xs },
     rowLabel: { fontSize: rnType.caption.size, color: tk.text.primary },
     topDetail: { flex: 1, fontSize: rnType.badge.size },
     num: { fontSize: rnType.caption.size, color: tk.text.primary, fontVariant: ['tabular-nums'] },

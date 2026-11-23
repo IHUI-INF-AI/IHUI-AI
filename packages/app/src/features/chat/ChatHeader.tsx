@@ -92,7 +92,12 @@ export function ChatHeader({
             onPress={onModelPress}
             disabled={onModelPress === undefined}
             style={styles.modelRow}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            hitSlop={{
+              top: rnSpacing.sm,
+              bottom: rnSpacing.sm,
+              left: rnSpacing.xs,
+              right: rnSpacing.xs,
+            }}
             accessibilityRole="button"
           >
             {modelLabel ? <Text style={styles.modelLabel}>{modelLabel}:</Text> : null}
@@ -118,7 +123,12 @@ export function ChatHeader({
                 key={item.key}
                 onPress={item.onPress}
                 disabled={item.onPress === undefined}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                hitSlop={{
+                  top: rnSpacing.sm,
+                  bottom: rnSpacing.sm,
+                  left: rnSpacing.xs,
+                  right: rnSpacing.xs,
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={item.label}
                 style={styles.navItem}
@@ -133,7 +143,12 @@ export function ChatHeader({
               <TouchableOpacity
                 onPress={onAgentPress}
                 disabled={onAgentPress === undefined}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                hitSlop={{
+                  top: rnSpacing.sm,
+                  bottom: rnSpacing.sm,
+                  left: rnSpacing.xs,
+                  right: rnSpacing.xs,
+                }}
                 accessibilityRole="button"
               >
                 <Text style={styles.agentText} numberOfLines={1}>
@@ -144,7 +159,12 @@ export function ChatHeader({
             {onHelpPress ? (
               <TouchableOpacity
                 onPress={onHelpPress}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                hitSlop={{
+                  top: rnSpacing.sm,
+                  bottom: rnSpacing.sm,
+                  left: rnSpacing.xs,
+                  right: rnSpacing.xs,
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={t('ai.chatMessageItem.thinkingProcess')}
               >
@@ -154,7 +174,12 @@ export function ChatHeader({
             {onHistoryPress ? (
               <TouchableOpacity
                 onPress={onHistoryPress}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                hitSlop={{
+                  top: rnSpacing.sm,
+                  bottom: rnSpacing.sm,
+                  left: rnSpacing.xs,
+                  right: rnSpacing.xs,
+                }}
                 accessibilityRole="button"
               >
                 <Text style={styles.navText}>{t('ai.history')}</Text>
@@ -163,7 +188,12 @@ export function ChatHeader({
             {showClear && onClearPress ? (
               <TouchableOpacity
                 onPress={onClearPress}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                hitSlop={{
+                  top: rnSpacing.sm,
+                  bottom: rnSpacing.sm,
+                  left: rnSpacing.xs,
+                  right: rnSpacing.xs,
+                }}
                 accessibilityRole="button"
               >
                 <Text style={styles.navText}>{clearLabel ?? t('ai.clear')}</Text>
@@ -192,7 +222,12 @@ export function ChatCollapsibleCard({
       <TouchableOpacity
         onPress={onToggle}
         style={styles.cardButton}
-        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+        hitSlop={{
+          top: rnSpacing.sm,
+          bottom: rnSpacing.sm,
+          left: rnSpacing.xs,
+          right: rnSpacing.xs,
+        }}
         accessibilityRole="button"
         accessibilityLabel={expanded ? expandedLabel : collapsedLabel}
       >
@@ -257,13 +292,22 @@ function createStyles(tk: AppThemeTokens) {
     agentText: { fontSize: rnType.label.size, color: tk.text.secondary, maxWidth: 90 },
     helpText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.secondary },
     card: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing['2xs'] },
-    cardButton: { alignSelf: 'flex-start' },
-    cardButtonText: { fontSize: rnType.label.size, color: tk.text.secondary },
-    cardBody: {
-      marginTop: rnSpacing.xs,
+    // 2026-11-23 改:原实现是一行裸文字「关闭卡片/查看卡片」贴左 —— 既不像按钮也不说明在干什么,
+    // 实测被读成"这行字是什么"。改成胶囊切换件(与上方上下文条同一族),文字仍是同一 i18n 键。
+    // 左缘与上下文胶囊、消息气泡同一条竖线(容器内衬即可),卡片正文再往里缩 8dp 是卡片自身外边距。
+    cardButton: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
-      padding: rnSpacing.sm,
+    },
+    cardButtonText: { fontSize: rnType.label.size, color: tk.text.secondary },
+    // 单层化:body 自己就是一张卡(IntelligentAssistant 的 welcomeCard),外层再铺一层灰底
+    // 会形成"灰框套白卡"的双层圆角,且两侧缩进叠加后与气泡列不齐 ⇒ 外层不再给底与内边距。
+    cardBody: {
+      marginTop: rnSpacing.xs,
+      backgroundColor: 'transparent',
     },
     banner: {
       marginHorizontal: rnSpacing.md,

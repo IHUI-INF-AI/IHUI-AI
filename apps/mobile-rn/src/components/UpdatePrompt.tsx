@@ -17,6 +17,7 @@
 import * as React from 'react'
 import { ActivityIndicator, Animated, AppState, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
@@ -25,7 +26,6 @@ import {
   applyOtaUpdate,
   checkOtaUpdate,
   dismissOtaPrompt,
-  runningBundle,
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
@@ -50,6 +50,9 @@ export function UpdatePrompt(): React.JSX.Element | null {
   const { state, dismissed, downloadProgress: progress, mandatory } = useOtaUpdate()
   // 整包(APK)通道的状态;与 OTA 是两份独立 store,由下面的渲染顺序决定谁占浮层
   const apk = useApkUpdate()
+  // 2026-11-23:绝对定位浮层不吃父级 SafeAreaView 的 paddingTop,顶部卡片会压住状态栏。
+  // 顶部横幅的 top 一律 = insets.top + 间距(与 AutoInstallGuide 同一口径)。
+  const insets = useSafeAreaInsets()
 
   // APK 卡的挂载保持:isApkPromptVisible 变 false(关闭/状态推进)后,APK 卡要播完滑出动画才能卸载,
   // 否则看不到"滑回去"。apkRender 在可见时为 true、退场结束(onExited)才置 false(与 OTA 卡的 render 对称)。
@@ -211,25 +214,25 @@ export function UpdatePrompt(): React.JSX.Element | null {
   // 退场动画播放期间 render 仍为 true,待滑出结束才卸载;此处据此放行 OTA 卡
   if (!render) return null
 
-  // 当前跑的是哪个包(内置/热更 + 短 id):更新前后各看一眼,「生效没生效」不再靠猜
-  const rb = runningBundle()
-  const bundleLabel =
-    rb.kind === 'ota' && rb.id
-      ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
-      : t('appUpdate.bundleEmbedded')
+  // 当前跑的是哪个包(内置/热更 + 短 id)只留在诊断层,不再塞进用户卡片;
+  // 卡片信息层级 = 图标 + 标题/状态 + 关闭 + 主行动,包身份胶囊已移除(2026-11-23)。
 
   /**
    * 版式(2026-10-27 二稿,机主反馈「更新两个字看不清、跟背景色一样、太难看了」):
    * 旧稿把图标/文字/按钮平铺成一行,按钮只靠 brand.cta 裸色块区分,卡片与页面又同是 surface 档
    * ⇒ 在浅色页上整块糊成一片。新稿给出明确层级:
    *   ① 图标收进强调档圆角底(视觉锚点)  ② 标题/正文分行,字号拉开
-   *   ③ 按钮独立成行、加高加宽 + 描边 + 投影(可点区域 ≥ 32dp)  ④ 包身份收进浅底胶囊
-   *   ⑤ 关闭钮做成独立圆角块(命中区不再只是一个 18px 的 X)
+   *   ③ 按钮独立成行、加高加宽 + 描边(可点区域 ≥ 32dp)  ④ 关闭钮做成独立圆角块
+   * 2026-11-23 收口:去掉「当前运行」胶囊与按钮自身投影,卡片只保留一条主行动。
    * 配色仍全部取 token:品牌实底只出现在主钮(`brand.cta` ↔ `brand.ctaForeground` 成对)。
    */
   return (
     <Animated.View
-      style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
+      style={[
+        styles.card,
+        { top: insets.top + rnSpacing.sm },
+        { transform: [{ translateY: slideAnim }] },
+      ]}
       onLayout={(e) => {
         cardH.current = e.nativeEvent.layout.height
       }}
@@ -262,11 +265,6 @@ export function UpdatePrompt(): React.JSX.Element | null {
         </View>
       ) : null}
       <View style={styles.footer}>
-        <View style={styles.bundlePill}>
-          <Text style={styles.bundleTag} numberOfLines={1}>
-            {t('appUpdate.currentBundle', { bundle: bundleLabel })}
-          </Text>
-        </View>
         {downloading ? null : (
           <Tappable
             onPress={() => void handleUpdate()}
@@ -292,13 +290,14 @@ const styles = StyleSheet.create({
     // 2026-11-13:从 bottom:18% 浮层改为顶部横幅 —— 机主期望"从顶部滑下来挂住"。
     // 顶部绝对定位相对 App.tsx 的 SafeAreaView(edges=['top']),top 已是状态栏下沿,无需再加 safe area。
     // 滑入/滑出动画由组件内的 Animated translateY 驱动(初始在屏幕外上方,滑到 0 挂住)。
-    gap: rnSpacing.md,
-    padding: rnSpacing.lg,
+    gap: rnSpacing.sm,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
-    // 描边取中档而不是浅档:卡片与页面同属 surface 族,浅档在真机上几乎看不见边界
-    borderColor: 'transparent',
+    // 描边取容器角色档 stroke.strong(16%):卡片与页面同属 surface 族,浅档在真机上几乎看不见边界。
+    // 2026-11-23:原 tokens.border.medium 属旧别名族,容器描边统一走 8 角色描边系统(门 323/卡片静息无描边锁)
+    borderColor: tokens.stroke.strong,
     // 抬升档:让卡片从页面里"浮"出来(web shadow-lg 的 RN 对位)→ 档位 lg
     ...ELEVATION_STEPS.lg,
   },
@@ -312,7 +311,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.brandAccent.light,
   },
-  titleWrap: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
+  titleWrap: { flex: 1, minWidth: rnSpacing.none, gap: rnSpacing['2xs'] },
   title: { color: tokens.text.primary, fontSize: rnType.strong.size, fontWeight: '600' },
   body: { color: tokens.text.secondary, fontSize: rnType.label.size },
   // 关闭钮:独立圆角块(原来只有一枚 18px 的 X,可点面太小也不成块)
@@ -327,21 +326,12 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     gap: rnSpacing.sm,
   },
-  // 包身份胶囊:浅底 + 正文字档,不再用 tertiary 小字直接压在卡面上(旧稿最淡的一行)
-  bundlePill: {
-    flexShrink: 1,
-    paddingHorizontal: rnSpacing.sm,
-    paddingVertical: rnSpacing.xs,
-    borderRadius: rnRadius.md,
-    backgroundColor: tokens.surface.muted,
-  },
-  bundleTag: { color: tokens.text.secondary, fontSize: rnType.caption.size },
   // 下载读条:细轨道 + 强调档实底,宽度随 store.downloadProgress(0-100)走
   track: {
-    height: 4,
+    height: rnSpacing.xs,
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
@@ -363,10 +353,8 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing.sm,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.border.medium,
-    // 投影:主行动按钮(小控件)→ 档位 sm
-    ...ELEVATION_STEPS.sm,
+    // 2026-11-23:实底 CTA 不再叠描边(黑底上的 10% 黑描边等于白画一层,且不合描边系统口径)
+    // 卡内主行动不再叠第二层投影:一张浮卡里再浮一个按钮会形成双阴影
   },
   actionBtnPressed: { opacity: 0.85 },
   actionText: {
@@ -377,10 +365,10 @@ const styles = StyleSheet.create({
   // 重启遮罩:盖满窗口,中途不再出现"无内容的灰屏"
   applyingOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: rnSpacing.none,
+    left: rnSpacing.none,
+    right: rnSpacing.none,
+    bottom: rnSpacing.none,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.overlay.loading,
@@ -402,10 +390,10 @@ const styles = StyleSheet.create({
   // 强制更新全屏阻塞(服务端 mandatory 开关驱动):盖满窗口、无关闭钮、[更新] 是唯一出口
   mandatoryOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: rnSpacing.none,
+    left: rnSpacing.none,
+    right: rnSpacing.none,
+    bottom: rnSpacing.none,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.overlay.loading,

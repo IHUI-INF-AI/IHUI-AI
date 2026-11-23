@@ -9,6 +9,7 @@ import {
   markStreamError,
   applyStreamError,
   isErrorTurn,
+  looksLikeUpstreamErrorContent,
   resendTargetText,
   type ErrorAwareMessage,
 } from '../../src/chat/stream-error'
@@ -81,6 +82,52 @@ describe('isErrorTurn', () => {
     expect(isErrorTurn({ role: 'assistant', content: '', error: false })).toBe(false)
     expect(isErrorTurn(undefined)).toBe(false)
     expect(isErrorTurn(null)).toBe(false)
+  })
+})
+
+describe('looksLikeUpstreamErrorContent', () => {
+  it('上游异常原文当 content 吐回来时认得出(实测两种真样本)', () => {
+    expect(
+      looksLikeUpstreamErrorContent(
+        'litellm.RateLimitError: RateLimitError: OpenrouterException - {"error":{"message":"Provider returned error","code":429}}',
+      ),
+    ).toBe(true)
+    expect(
+      looksLikeUpstreamErrorContent(
+        '模型 ihui/Auto-Model 对应的 provider API key 未配置,请在 .env 或 ai_model_config 表中设置',
+      ),
+    ).toBe(true)
+  })
+
+  it('正常回答里顺带提到这些词不算(只认开头 160 字)', () => {
+    expect(
+      looksLikeUpstreamErrorContent(
+        `如果你想处理这个报错:${'前'.repeat(200)} RateLimitError 表示限流。`,
+      ),
+    ).toBe(false)
+    expect(
+      looksLikeUpstreamErrorContent('RateLimitError 是指调用频率超过配额时上游返回的错误。'),
+    ).toBe(false)
+    expect(looksLikeUpstreamErrorContent('')).toBe(false)
+    expect(looksLikeUpstreamErrorContent(undefined)).toBe(false)
+  })
+
+  it('超长内容不判(真回答可能整段贴日志)', () => {
+    expect(looksLikeUpstreamErrorContent(`litellm.${'x'.repeat(1300)}`)).toBe(false)
+  })
+
+  it('端上合成的网络失败固定句认得出(整段就是这句,别当回答画气泡)', () => {
+    expect(looksLikeUpstreamErrorContent('网络连接失败,请检查网络后重试')).toBe(true)
+    expect(looksLikeUpstreamErrorContent('  网络连接失败 , 请检查网络后重试  ')).toBe(true)
+    // 同期同源的另一句取消文案不在此列(取消是用户主动行为,已有独立呈现)
+    expect(looksLikeUpstreamErrorContent('请求已取消')).toBe(false)
+  })
+
+  it('用户正常讨论「网络连接失败」不算(整段必须是那一句,前缀相同不放行)', () => {
+    expect(
+      looksLikeUpstreamErrorContent('网络连接失败一般是 DNS 解析或代理配置问题,按顺序排查即可。'),
+    ).toBe(false)
+    expect(looksLikeUpstreamErrorContent('网络连接失败')).toBe(false)
   })
 })
 
