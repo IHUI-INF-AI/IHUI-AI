@@ -555,4 +555,101 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 **超越轴**：两处判据**一条腿**。取证件把「会话可写根」放在自己那一层；本仓此前是"一处认、一处不认"，本轮把合并口径收成单一实现并用回潮闸钉住，还顺手把「只扩不收」写成可断言行为（不是注释里的承诺）。
 
 **诚实边界**：注册表（TTL / 上限 / 主体绑定 / 系统根拒）仍归 `mcp_server`，本层只做消费；本轮只接 `run_command` 的非 local 分支；modal / daytona / singularity 的 `workdir` 由各后端自行解释，本层只保证**传入前**判据一致。
+
+## 23. P0-8 第二批：代码实体/关系边表 + 索引状态幂等
+
+**来源**：取证件 block2（Trae 的 CKG 代码知识图谱：实体节点 + 关系边，按文件路径/名称建索引）与 block3（Qoder 的增量索引：以「配置指纹 + 上次索引时刻」判要不要重建）。
+
+**为什么分两批**：第一批（`fde9dc53`）只做了「索引完整性审计」——在**已有**的 `codebase_chunks` 上量向量覆盖。取证件里真正支撑「跨文件符号级检索」的骨架是实体表和边表，本仓此前**一张都没有**；再往上一层，取证件那套「增量索引」还有一个本仓完全没有的前提：**索引状态本身没有持久化落点**，每次索引都是一次性从头做，没有任何地方记得"上次用什么配置跑到哪一步"。
+
+**落地（5 文件 + 1 迁移）**：
+
+- `packages/database/src/schema/codebase-index.ts`：新增三表 ——
+  - `codebase_entities`（`file_path` / `line_start` / `line_end` / `kind` / `name` / `signature`），三条索引：`(owner_uuid, repo_id)`、`(owner_uuid, repo_id, name)`、`(owner_uuid, repo_id, file_path)`；
+  - `codebase_edges`（`from_entity_id`（可空，允许解析未命中时只记 `from_name`）/ `from_name` / `to_name` / `kind` / `file_path` / `line`），三条索引：`(owner, repo)`、`(owner, repo, to_name)`、`(owner, repo, from_name)`；
+  - `codebase_index_states`（`owner_uuid` **NOT NULL** / `repo_id` / `config_fingerprint` / `last_run_id` / `chunk_count`（默认 0）/ `last_indexed_at`），唯一索引 `(owner_uuid, repo_id)`。
+- `packages/database/drizzle/20261123151500_codebase_entity_edge_state.sql`：手写迁移（本仓迁移惯例 = 手写 SQL + journal 追加，`meta/` 只有 13 份 json 而迁移 448 条，不走 `drizzle-kit generate`）；**CREATE TABLE / INDEX / UNIQUE 全部带 `IF NOT EXISTS`**，重放安全。
+- `packages/database/drizzle/meta/_journal.json`：追加 idx 448（现 449 条，末条即本条）。
+- `apps/api/src/services/codebase-index-service.ts`：索引状态判据层 ——
+  - `CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT = 'v1536:tree-sitter-chunk-v1'`，`resolveIndexConfigFingerprint(env)` 允许 `CODE_INDEX_CONFIG_FINGERPRINT` 覆盖、空白回落默认；
+  - `needsRebuild(prev, currentFingerprint, nowMs, maxAgeMs)` 纯判据，返四态 `rebuild-no-state` / `rebuild-config-changed` / `rebuild-stale` / `reuse-fresh`；
+  - `getIndexState(ownerUuid, repoId)`（无归属**零 DB 调用**直接返 `null`）、`markIndexed({...})`（空 `ownerUuid` 或空指纹**写前抛错**；`onConflictDoUpdate({ target: [owner_uuid, repo_id] })` 幂等写）；
+  - `indexChunks` 末尾 best-effort 调 `markIndexed(...).catch(warn)` —— **标记失败不影响本次索引结果**，不让记账腿把索引腿带死。
+- 新增 `apps/api/src/services/__tests__/codebase-index-entity-state.test.ts` **13 例**。
+
+**判据（本轮真正学到的东西，逐条）**：
+
+1. **判序固定**：`没状态 → 配置变 → 过期 → 可复用`。前两档是"必须重建"的硬理由，第三档才是时间窗口；把时间窗口放前面会让「配置变了」这件事被 `reuse-fresh` 掩盖。
+2. **时钟倒挂按 stale**：`nowMs - lastIndexedAt <= 0` 判过期而不是"新鲜"。取证件那套按 `lastIndexedAt + maxAge` 比大小，时钟回拨会算出负数剩余时间 ⇒ 永久新鲜。本仓显式把倒挂归到「重建」这一侧（fail-safe 方向）。
+3. **窗口边界取闭**：恰好等于 `maxAgeMs` 不算过期（`<=` 而非 `<`），`maxAgeMs <= 0` 则**完全不判时间**（调用方显式关掉时间维，而不是被当成"永不过期"）。
+4. **无主状态行拒写**：`owner_uuid` 是 NOT NULL 且 `markIndexed` 在写之前抛错。多租户表里放一条 `owner_uuid = ''` 的状态行，等于给全租户开一条共享缓存 —— 这是比「漏写」更坏的事故。
+5. **幂等靠唯一索引 + upsert**，不靠「先查再写」。查-写窗口里并发两次索引会双双判"没状态"，然后写进两条。
+
+**测试**：13 例。`vi.hoisted` 暴露 `calls` / `selectResult` / `values` / `conflict`，`vi.mock('../../db/index.js')` 用链式 stub 记录 SQL 调用，`vi.mock('../embedding-provider.js')` 断掉 embedding 网络腿；schema / 迁移 / 接线三面用 `fs.readFileSync` **源码扫描**而非 `getTableConfig`（drizzle 0.38 的 `getTableConfig` 在当前版本上 API 有漂移，取表配置会假红）。与第一批 14 例合并 **27 例绿**；`pnpm turbo typecheck --filter=@ihui/api` 9/9。
+
+**一次真实回归（值得记）**：13 例首跑 10 绿 3 红，红在源码扫描那三例 —— `REPO_ROOT = path.resolve(__dirname, '../../../..')` 只上溯到 `apps/`，把 `apps/apps/api/src/...` 当成了路径。测试文件在 `apps/api/src/services/__tests__/`，到仓库根要 **5 层**。这类错误行为测试看不出来（它只会 `ENOENT`），属"测试自己的环境假设错了"，与业务判据无关。
+
+**超越轴**：取证件把「索引状态」当成缓存元数据随手写；本仓把它做成**有判据的四态纯函数 + 写前拒绝非法身份的幂等写 + best-effort 标记不污染主结果**。三件事都可断言，且 `needsRebuild` 零 IO —— 不连库就能测边界（含时钟倒挂这种只有跑久了才会遇到的情况）。
+
+**诚实边界（必须写清）**：本轮只落 **表 + 判据 + 幂等状态标记**。**实体/关系边的写入通道尚未接** —— `indexChunks` 只写 chunk，实体解析（tree-sitter 到符号）仍在 ai-service 的 `codebase_indexer` 侧，本仓没有任何代码往 `codebase_entities` / `codebase_edges` 里写一行，也没有消费方。所以这两张表现在是**已建好但未通电**的骨架；`needsRebuild` / `getIndexState` 目前只有测试消费方，真正该调它的上层（索引任务调度）尚未定承载。这一档我按"可派单的真工作"留在台账（写入通道 + 消费方各是一枚独立工单），不谎报成"已通电"。
+
+## 24. 收尾：44 条候选处置总表与交付边界
+
+**量**：取证席产出 44 条候选（A 19 / B 21 / C 4，去重后的 ID 全集 = B1×11 / B2×11 / B3×10 / B4×12）。我这一侧落地 **16 条**（对应 18 枚提交，含 A 段装车与 P0-8 两批），他席落地 1 条（B1-08 `d2b4b528`），不采纳 9 条，已有等价 4 条，待立项 14 条。16 + 1 + 9 + 4 + 14 = 44。
+
+### 24.1 已落地（16 条候选 / 18 枚提交）
+
+| 候选 | 设计 | 提交 | 落点 |
+|---|---|---|---|
+| B2-01 | 沙箱能力三态探测 + 12 原因码 + 不支持即拒 | `57391e73` | `sandbox_sdk.rs` / `sandbox_ipc.rs` |
+| B1-02 | 终态前输出完成闸门（双游标 + lossy + 结算四态） | `6f51d5c2` | `output_ring.py` |
+| B2-03 | 终端输出 drain 闸门（读线程计数 + 丢尾如实标） | `4f7de183` | `terminal_session.rs` |
+| B4-06 | home 凭据目录 deny 族（SSH/GnuPG/AWS/kube/docker/netrc/pypirc） | `18044ae2` | `file-access-policy.ts` |
+| B2-09 | 索引完整性审计（缺向量统计 + 四态） + 实体/边表 + 状态幂等 | `fde9dc53` / 本枚 | `codebase-index.ts` / `codebase-index-service.ts` |
+| B1-01 | 工具超时结构化分类（`TOOL_TIMEOUT` + 嵌套 deadline 隔离） | `72b182a3` | `tool_timeout_result.py` |
+| B1-03 | 重复调用 3/5/8 分级提醒（只改措辞、不新增否决点） | `f2897112` | `repeat_call_reminder.py` |
+| B1-05 | 会话附加目录接入 sandbox workdir（只扩不收） | `2364f996` | `sandbox.py` / `mcp_server.py` |
+| B1-11 | OTel 日志通道三界批语义（64 条 / 32KB / 10s） | `ec781c0a` | `otel_log_channels.py` |
+| B2-10 | 出站拦截四桶记账与恒等式 | `43911aae` | `sandbox_metrics.rs` |
+| B3-04 | 提交内存余量预判四态 | `687c0409` | `system_memory.rs` |
+| B3-05 | 通知权限三态查询（只读不冒充） | `0c717ac3` | `notification_permission.rs` |
+| B3-06 | 剪贴板一次性读取票据（二次消费即拒） | `0280efbd` | `clipboard_grant.rs` |
+| B4-02 | 子进程 env 白名单通道（未登记默认不进） | `276aa2cd` | `env-channel.ts` |
+| B4-03 | 编译态/源码态单源判据（+ 双目回潮闸） | `9e4dfe9e` | `run-mode.ts` |
+| B4-08 | 启动画像 span 树（嵌套/并发/停采） | `6aaaccb0` | `span-tree.ts` |
+
+### 24.2 不采纳（9 条，判据是复核推翻而不是"没排期"）
+
+| 候选 | 取证席的判断 | 复核结论 |
+|---|---|---|
+| B1-04 | 「未知档位静默折成 `on_request` = fail-open」 | **不成立**。`never` 才是恒 auto-approve（`patch_safety.py:132-134`），`on_request` 更严；既有 58 号票测试已钉成契约，改动使该面转红 ⇒ 已完整回滚。真正剩余的是「两套档位字面量单一真相源」，另立工单 |
+| B2-05 | 命令级 `timeout_ms` 显式入参 | 与 B1-04 同族同域（P0-1 合并），随 B1-04 一并搁置 |
+| B2-06 | 回合前上下文自检钩子 | 须改工具结果回填流（`agent_loop_v2.py` 巨型文件），单独立项不合适塞进本轮批量 |
+| B4-01 | 反向守护进程拓扑 | 落点 `apps/cli/src/daemon/` **不存在**，CLI 侧无 PG 依赖 ⇒ 先定承载再谈实现 |
+| B4-04 | 跨进程注册表三判据 | 同上（注册表的归宿是 PG，但承载目录未定） |
+| B1-06 | 目标自动续轮竞争裁决 | 落点 `goal_round_driver.py` **本仓不存在**，ai-service 无 goal 轮次驱动 ⇒ 新建即零消费点 |
+| B2-04 | 分级看门狗重连 | 本仓 worker 是一次性任务，重启 = 重复副作用，无常驻承载（与 B4-11 同因） |
+| B4-11 | 崩溃看门狗重启腿 | 同上；`handleWorkerExit` 确认无重启腿，但加腿会制造重复副作用 |
+| B4-10 | lazy chunk manifest 防污染 | `prewarm.ts` 只有单状态件、无 chunk 清单机制 ⇒ 照搬只会得到一个纸面件 |
+
+### 24.3 已有等价（4 条）
+
+`B2-08`（ContextFS 动词面：`context_fs.py` 只做路径解析，动词由既有工具名承担）· `B2-11`（快照只读面：`checkpoint_rewind.py` 4 端点其中 3 个只读）· `B3-02`（进程组判活：`terminal_session.rs` 的 Job Object 内核兜底比枚举判活更稳）· `B3-10`（硬件键盘钩子：**不建议照搬**，本仓走全局快捷键配置化）。
+
+### 24.4 待立项（14 条）
+
+`B1-07` LLM 重试 provider 路由 · `B1-09` 子代理 fork/spawn 双上下文 · `B1-10` 输出留存原语 · `B2-02` IPC 安全描述符边界（先登记边界不实现）· `B2-07` 常驻原生模块统一 ABI（远期）· `B3-01` 浏览器桥 host 进程落地（判据层已超越，缺 host 写方与真 `connectNative`）· `B3-03` 协作 CLI 身份三档 + 退出码契约 · `B3-07` 请求元数据四层 + Advisor + patches 增量（需在请求组装链落地 + PG 追踪表）· `B3-08` worker 行协议 · `B3-09` RTC 音视频桥（远期）· `B4-05` 更新后优雅自重启状态机 · `B4-07` 网络边界双引擎（先接口后载体）· `B4-09` 低内存 V8 启动档 · `B4-12` 会话历史清理按路由意图开关。
+
+### 24.5 交付边界（不谎报的部分）
+
+1. **原生层未做全量反编译**：284MB `ai_agent.dll` / 266MB `harness.dll` / 100MB `toolhost.dll` / 101MB `agent-tool-host.exe` 一律止于导出表 + 导入表 + 定向字符串；`ghidra found=false` 未启用原生分析。
+2. **未运行四个程序本体**：所有动态结论（时序、并发交错、洪峰、规则执法强度）只到「推断」档，无「观察」档。
+3. **P0-8 第二批复用通道未通电**：`codebase_entities` / `codebase_edges` 已建表但**没有任何写入点、没有消费方**；`needsRebuild` / `getIndexState` 目前只有测试消费方，上层调度承载未定（见 24.4 之外的独立工单）。
+4. **三处门缺陷未修**：`[30a]` 与 history-guard 互斥（恒红无出路）、`[298]` 工作树臂扫他席旧档、`codebase-index-tenant-isolation.test.ts` 的 `renderSql` 假绿（缺 drizzle 0.38 `getColumnCasing`，刻意避他席在飞面未回灌）。
+
+### 24.6 本轮真正学到的三条（不是功能清单）
+
+1. **"语义方向"必须先验再抄**：`never` 在对照方是确定性拒绝、在本仓是恒免审。同样的档位名，方向相反。抄名字 = 把 fail-open 抄得更彻底（B1-04 的教训）。
+2. **判据要纯函数化才能测边界**：`needsRebuild` 零 IO 之后，「时钟倒挂」「恰好等于窗口」「`maxAgeMs <= 0`」这些只有跑久了才会遇到的情况，全都变成三条断言。取证件把这类判断埋在流程里，本仓抽出来。
+3. **测试自己的环境假设也要被审**：`REPO_ROOT` 少上一层那次，13 例红 3 例，红的是「测试找错目录」而不是业务判据；再加 P0-4 的 `_PreGate` 字段序、B4-03 的 plan 块声明顺序 —— 三次都是"行为绿、类型/路径红"。**行为测试挡不住声明顺序与路径假设**。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

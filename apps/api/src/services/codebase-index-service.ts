@@ -26,7 +26,7 @@
 
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { codebaseChunks } from '@ihui/database'
+import { codebaseChunks, codebaseIndexStates } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
 import { logger } from '../utils/logger.js'
 
@@ -41,6 +41,56 @@ export interface ChunkInput {
   embedding?: number[] | null
   /** G7:向量来源标注;'remote' | 'local-hash';缺省按向量有无回落判定 */
   embeddingProvider?: string
+}
+
+/**
+ * 索引配置指纹默认值(P0-8 第二批,2026-11-23)。
+ *
+ * 语义:嵌入维度 / 切块策略 / 词表版本三者一起变才算"配置变了"。只在真正改动其中之一时
+ * 才改这个常量(或经 `CODE_INDEX_CONFIG_FINGERPRINT` 显式覆盖);
+ * 拿机器路径、时间戳之类会抖动的东西做指纹,会让每次调用都判"配置变了"。
+ */
+export const CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT = 'v1536:tree-sitter-chunk-v1'
+
+/** 指纹取值:显式覆盖优先,空/未设回落默认(不读 vcs 版本,不读机器信息)。 */
+export function resolveIndexConfigFingerprint(env: NodeJS.ProcessEnv = process.env): string {
+  const override = (env.CODE_INDEX_CONFIG_FINGERPRINT ?? '').trim()
+  return override || CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT
+}
+
+/** 一次索引状态的快照(`lastIndexedAtMs` 已转毫秒,避免调用方各自解析时间)。 */
+export interface IndexStateSnapshot {
+  configFingerprint: string
+  lastIndexedAtMs: number
+  chunkCount: number
+}
+
+/** 是否重建的结论:四态封闭,不允许"空字符串当没事"这一档。 */
+export type RebuildDecision =
+  'rebuild-no-state' | 'rebuild-config-changed' | 'rebuild-stale' | 'reuse-fresh'
+
+/**
+ * 纯判据:要不要重建(P0-8 第二批)。
+ *
+ * 判序:没状态 > 配置变了 > 过期 > 可复用。
+ * `maxAgeMs <= 0` 表示调用方没给过期窗口 ⇒ 不按时间判过期(只看配置);
+ * `lastIndexedAtMs` 在未来(时钟倒挂)⇒ 按 stale 处理,不冒充"刚建过"。
+ */
+export function needsRebuild(
+  prev: IndexStateSnapshot | null,
+  currentFingerprint: string,
+  nowMs: number,
+  maxAgeMs: number,
+): RebuildDecision {
+  if (!prev) return 'rebuild-no-state'
+  if (prev.configFingerprint !== currentFingerprint) return 'rebuild-config-changed'
+  if (
+    maxAgeMs > 0 &&
+    (nowMs - prev.lastIndexedAtMs <= 0 || nowMs - prev.lastIndexedAtMs > maxAgeMs)
+  ) {
+    return 'rebuild-stale'
+  }
+  return 'reuse-fresh'
 }
 
 /**
@@ -113,11 +163,7 @@ export interface IndexStats {
 /** 索引完整性审计的结论四态(2026-11-23 P0-8):空库不得冒充完整。 */
 export type IndexIntegrityStatus = 'ok' | 'degraded' | 'empty' | 'unjudged'
 
-export type IndexIntegrityReason =
-  | 'complete'
-  | 'missing_vectors'
-  | 'no_chunks'
-  | 'owner_required'
+export type IndexIntegrityReason = 'complete' | 'missing_vectors' | 'no_chunks' | 'owner_required'
 
 export interface IndexIntegrityAudit {
   status: IndexIntegrityStatus
@@ -310,7 +356,92 @@ class CodebaseIndexService {
     })
 
     const localEmbedded = chunks.filter((c) => c.embeddingProvider === 'local-hash').length
+    // P0-8 第二批:幂等标记(**best-effort**)—— 标记失败不影响索引结果
+    // (索引已在事务内成功;这里抛错会让调用方误以为"索引也失败了")。
+    await this.markIndexed({
+      ownerUuid,
+      repoId,
+      configFingerprint: resolveIndexConfigFingerprint(),
+      chunkCount: indexed,
+    }).catch((err: unknown) => {
+      logger.warn('[codebase-index-service.indexChunks] 索引状态标记失败(不影响本次索引结果)', {
+        repoId,
+        ownerUuid,
+        err: err instanceof Error ? err.message : String(err),
+      })
+    })
     return { indexed, vectorized, localEmbedded }
+  }
+
+  /**
+   * 读某 (归属, 仓库) 的索引状态;没有状态行返回 null(由 `needsRebuild` 判 `rebuild-no-state`)。
+   * 归属缺失直接返回 null —— 状态行以归属为键的一半,跨用户读状态没有语义。
+   */
+  async getIndexState(
+    ownerUuid: string | null | undefined,
+    repoId: string,
+  ): Promise<IndexStateSnapshot | null> {
+    if (!ownerUuid) return null
+    const rows = await db
+      .select({
+        configFingerprint: codebaseIndexStates.configFingerprint,
+        lastIndexedAt: codebaseIndexStates.lastIndexedAt,
+        chunkCount: codebaseIndexStates.chunkCount,
+      })
+      .from(codebaseIndexStates)
+      .where(
+        and(eq(codebaseIndexStates.ownerUuid, ownerUuid), eq(codebaseIndexStates.repoId, repoId)),
+      )
+      .limit(1)
+    const row = rows[0]
+    if (!row) return null
+    return {
+      configFingerprint: row.configFingerprint,
+      lastIndexedAtMs: row.lastIndexedAt.getTime(),
+      chunkCount: row.chunkCount,
+    }
+  }
+
+  /**
+   * 写/刷新索引状态(P0-8 第二批,幂等)。
+   *
+   * 幂等键 = `(owner_uuid, repo_id)`(迁移 `20261123151500` 里的唯一索引)——
+   * 同一仓库反复索引只留一行,不产生"每次一条状态"的账本膨胀。
+   * `ownerUuid` 必填:状态行的主体身份就是键的一半,无主状态行没有意义。
+   */
+  async markIndexed(input: {
+    ownerUuid: string
+    repoId: string
+    configFingerprint: string
+    chunkCount: number
+    runId?: string
+    nowMs?: number
+  }): Promise<void> {
+    const { ownerUuid, repoId, configFingerprint, chunkCount, runId, nowMs } = input
+    if (!ownerUuid) throw new Error('markIndexed 缺少 ownerUuid:拒绝写无主索引状态')
+    if (!configFingerprint) throw new Error('markIndexed 缺少 configFingerprint:状态不可判')
+    const at = new Date(nowMs ?? Date.now())
+    await db
+      .insert(codebaseIndexStates)
+      .values({
+        ownerUuid,
+        repoId,
+        configFingerprint,
+        lastRunId: runId ?? null,
+        chunkCount,
+        lastIndexedAt: at,
+        updatedAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [codebaseIndexStates.ownerUuid, codebaseIndexStates.repoId],
+        set: {
+          configFingerprint,
+          lastRunId: runId ?? null,
+          chunkCount,
+          lastIndexedAt: at,
+          updatedAt: at,
+        },
+      })
   }
 
   /**
@@ -645,8 +776,7 @@ class CodebaseIndexService {
       vectorizedChunks,
       missingVectorChunks,
       // 0 切片 ⇒ 0(不是 1):空库的"完整"由 auditIntegrity 的 empty 态回答
-      vectorCoverage:
-        totalChunks > 0 ? Number((vectorizedChunks / totalChunks).toFixed(4)) : 0,
+      vectorCoverage: totalChunks > 0 ? Number((vectorizedChunks / totalChunks).toFixed(4)) : 0,
     }
   }
 
@@ -664,10 +794,7 @@ class CodebaseIndexService {
    *
    * 只读、零副作用;幂等标记的磁盘态/运行时态双层语义本方法不落地(P0-8 最小范围)。
    */
-  async auditIntegrity(
-    repoId?: string,
-    ownerUuid?: string | null,
-  ): Promise<IndexIntegrityAudit> {
+  async auditIntegrity(repoId?: string, ownerUuid?: string | null): Promise<IndexIntegrityAudit> {
     const emptyStats: IndexStats = {
       totalChunks: 0,
       totalFiles: 0,
