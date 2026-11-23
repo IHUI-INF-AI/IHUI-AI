@@ -4600,6 +4600,9 @@ async def _tool_run_command(
             command, backend=sandbox_backend, timeout=timeout, workdir=cwd,
             docker_image=docker_image, ssh_host=ssh_host, ssh_user=ssh_user,
             env=worker_env_overrides() or None,
+            # 2026-11-23 立(B1-05):同一会话的附加目录必须与 local 路径判据一致 ——
+            # 否则 add_directories 在本路径(非 local 后端)不生效,形成"local 放行、docker 拒绝"。
+            extra_writable_roots=list(_active_extra_roots()) or None,
         )
         # 与本地路径一致:沙箱后端输出同样出库脱敏(docker/ssh/modal 等)
         from app.core.output_cleaning import redact_secrets as _redact_secrets

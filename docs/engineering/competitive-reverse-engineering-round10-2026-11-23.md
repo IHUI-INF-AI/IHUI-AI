@@ -528,4 +528,31 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 **超越轴**：单源 + 可断言。取证件把两态判断埋在启动包装里；本仓把「当前是哪一态、用哪个加载器、为何拒绝」做成纯函数返回值，并用回潮闸钉住两处接线，防止下一个人再补一份。
 
 **诚实边界**：只判「怎么起得起来」，不判「起来后活得对不对」（看护语义仍在 `parent-bound` 的裁决里）；`--experimental-strip-types` 只覆盖可擦除语法，遇到 enum / 装饰器等不可擦除语法仍要 tsx。
+
+## 22. B1-05 会话附加目录接入 sandbox 的 workdir 收敛
+
+**来源**：取证件「沙箱三级策略 + 会话级额外可写根」。
+
+**复核结论（重要，先说明不重造什么）**：会话级附加目录在本仓**早已存在** —— `mcp_server` 的 `_SESSION_EXTRA_ROOTS` 是 `BoundedTtlDict`（6h TTL / 5000 键上限 / `(主体,会话)` 复合键 / 系统根与伪文件系统一律拒 / 经 ContextVar 注入 handler 的 await 链）。本轮**不重造注册表**（§0.6 单一真相源、§0.22c 第二份判据必然漂移）。
+
+**真正的缺口（一致性缺陷，现读）**：同一份附加目录，两条路径判据不同 —
+
+- local 路径：`run_command` 的 cwd 校验走 `_validate_path_in_workspace`，该函数**兜底查 ContextVar** ⇒ 认会话附加目录；
+- 非 local 路径（docker / ssh / modal / daytona / singularity）：直接 `sandbox_executor.execute(workdir=cwd)` ⇒ `_resolve_workdir` 只认静态 `MCP_WORKSPACE_ROOTS` ⇒ **不认**。
+
+结果：一次 `add_directories` 之后，同一命令在 local 后端跑得通、换 docker 后端就被判「越出工作区根」。用户看到的是"功能随机失效"。
+
+**落地（3 文件）**：
+
+- `sandbox.py`：新增 `_merge_writable_roots(base, extra)`（唯一合并口径：去重、静态在前、空项剔除）；`_resolve_workdir(profile, workdir, extra_roots=None)` 改为「静态 ∪ 附加」；`execute(...)` 增 **keyword-only** `extra_writable_roots`（追加在末尾，避免位置参数错位）；`_execute_local(...)` 透传同一份；
+- `mcp_server.py`：非 local 分支补 `extra_writable_roots=list(_active_extra_roots()) or None`（+3 行，含说明）；
+- 新增 `apps/ai-service/tests/test_sandbox_session_roots_b105.py` **10 例**。
+
+**判据三条**：① 附加集**只扩不收** —— 静态根内的路径不因附加集而变严（与 mcp_server 的两态纪律同源）；② 合并口径唯一实现（去重 + 静态在前，两处调用都走它）；③ 空 / 缺省附加集 ⇒ 与改动前**逐字等价**（`None`、`[]`、不传三者结果一致）。
+
+**测试**：10 例（无附加集拒（文案必须点出"会话附加目录"这一维）/ 有附加集放行 / 只扩不收 / 附加集外仍拒 / relaxed 档不受影响 / 空集等价 / 合并去重与空输入 / **端到端 local 真跑** `echo`（传附加根 ⇒ exit 0，不传 ⇒ `SandboxError`）/ **接线回潮闸**（`mcp_server` 传参逐字 + `sandbox.py` 两处调用逐字）；与 sandbox 七个受影响面（`test_sandbox` / `g212_strict_default` / `code_exec_sandbox` / `os_sandbox` / `sandbox_network_mode` / `sandbox_enforcement_gate` / `sandbox_lifecycle`）合并 **298 例**全绿；ruff 0；`mypy --strict` `sandbox.py` 0 error。
+
+**超越轴**：两处判据**一条腿**。取证件把「会话可写根」放在自己那一层；本仓此前是"一处认、一处不认"，本轮把合并口径收成单一实现并用回潮闸钉住，还顺手把「只扩不收」写成可断言行为（不是注释里的承诺）。
+
+**诚实边界**：注册表（TTL / 上限 / 主体绑定 / 系统根拒）仍归 `mcp_server`，本层只做消费；本轮只接 `run_command` 的非 local 分支；modal / daytona / singularity 的 `workdir` 由各后端自行解释，本层只保证**传入前**判据一致。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

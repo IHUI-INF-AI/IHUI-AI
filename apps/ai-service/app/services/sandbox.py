@@ -210,15 +210,43 @@ def _path_within(path: str, root: str) -> bool:
     )
 
 
-def _resolve_workdir(profile: SandboxExecutionProfile, workdir: str | None) -> str:
-    """workdir 收敛:严档必须落在工作区根内;放宽档才允许越界(并留审计)。"""
+def _merge_writable_roots(base_roots: "list[str]", extra_roots: "list[str]") -> list[str]:
+    """静态工作区根 ∪ 会话附加目录:去重、保序(先静态后附加)、空项剔除。
+
+    2026-11-23 立(B1-05):两处判据必须同一份合并口径 —— mcp_server 的
+    `_validate_path_in_workspace` 早已认会话附加目录(ContextVar),而本模块的
+    `_resolve_workdir` 此前只认静态 `MCP_WORKSPACE_ROOTS`,导致同一会话里
+    local 后端放行、docker/ssh 后端拒绝。本函数是唯一合并实现。
+    """
+    merged: list[str] = []
+    for root in [*base_roots, *extra_roots]:
+        text = str(root).strip()
+        if not text:
+            continue
+        normalized = os.path.abspath(text)
+        if normalized not in merged:
+            merged.append(normalized)
+    return merged
+
+
+def _resolve_workdir(
+    profile: SandboxExecutionProfile,
+    workdir: str | None,
+    extra_roots: "list[str] | None" = None,
+) -> str:
+    """workdir 收敛:严档必须落在工作区根内;放宽档才允许越界(并留审计)。
+
+    `extra_roots` = 该会话经 MCP `add_directories` 追加、且已过准入校验的绝对目录。
+    附加集**只做扩、不做收**(与 mcp_server 的两态纪律同源):进程级白名单内的路径
+    不因附加集而变严;附加集之外的路径仍照旧拒绝。
+    """
     candidate = os.path.abspath(workdir or ".")
     if profile.allow_unconfined_workdir:
         return candidate
-    roots = _workspace_roots()
+    roots = _merge_writable_roots(_workspace_roots(), extra_roots or [])
     if not any(_path_within(candidate, root) for root in roots):
         raise SandboxError(
-            f"workdir 越出服务端工作区根(MCP_WORKSPACE_ROOTS): {candidate};"
+            f"workdir 越出服务端工作区根(MCP_WORKSPACE_ROOTS ∪ 会话附加目录): {candidate};"
             f"根集合: {roots}"
         )
     return candidate
@@ -326,6 +354,8 @@ class SandboxExecutor:
         image: str = "",
         resource_limits: dict[str, str | int] | None = None,
         allow_network: bool = False,
+        *,
+        extra_writable_roots: "list[str] | None" = None,
     ) -> SandboxResult:
         """执行命令(默认严档:网络拒绝 / 超时上限 / workdir 收敛 / env 白名单)。
 
@@ -341,10 +371,11 @@ class SandboxExecutor:
             image: 镜像/函数标识(backend=modal/daytona/singularity 时优先使用,缺省回退 docker_image)
             resource_limits: 资源限制(cpu/memory/gpu 等,透传到后端)
             allow_network: 显式请求网络;严档下拒绝执行,仅 relaxed 档放行
+            extra_writable_roots: 会话级附加可写根(已过 mcp_server 准入);只扩不收
         """
         profile = resolve_execution_profile()
         timeout = _resolve_timeout(profile, timeout)
-        workdir = _resolve_workdir(profile, workdir)
+        workdir = _resolve_workdir(profile, workdir, extra_writable_roots)
         if allow_network and not profile.allow_network:
             logger.warning(
                 "sandbox 网络访问被严档拒绝 tier=%s backend=%s cmd=%r "
@@ -367,7 +398,9 @@ class SandboxExecutor:
                 allow_network, "full" if profile.full_env else "allowlist",
             )
         if backend == "local":
-            return await self._execute_local(command, timeout, workdir, env, profile)
+            return await self._execute_local(
+                command, timeout, workdir, env, profile, extra_writable_roots
+            )
         if backend == "docker":
             return await self._execute_docker(
                 command, timeout, workdir, docker_image, env, allow_network, profile,
@@ -433,6 +466,7 @@ class SandboxExecutor:
         workdir: str,
         env: dict[str, str] | None,
         profile: SandboxExecutionProfile | None = None,
+        extra_roots: "list[str] | None" = None,
     ) -> SandboxResult:
         """本地执行(白黑名单 + subprocess),默认按严档收敛限制。
 
@@ -443,7 +477,7 @@ class SandboxExecutor:
         """
         profile = profile or resolve_execution_profile()
         timeout = _resolve_timeout(profile, timeout)
-        workdir = _resolve_workdir(profile, workdir)
+        workdir = _resolve_workdir(profile, workdir, extra_roots)
         start = time.monotonic()
         # 0. 灾难性命令拦截(补充黑名单,防止 python -c 等绕过,2026-07-22 立)
         destructive = self._check_dangerous_patterns(command)
