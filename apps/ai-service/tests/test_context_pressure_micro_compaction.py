@@ -25,10 +25,15 @@ from app.core.context_compaction import (
     CONTEXT_ERROR_PERCENT_LEFT,
     CONTEXT_WARNING_PERCENT_LEFT,
     MICRO_COMPACT_PLACEHOLDER,
+    TOOL_RESULT_PRUNE_HEAD_CHARS,
+    TOOL_RESULT_PRUNE_MARKER,
+    TOOL_RESULT_PRUNE_TAIL_CHARS,
+    TOOL_RESULT_PRUNE_THRESHOLD_CHARS,
     assess_context_pressure,
     compress_messages_if_needed,
     estimate_messages_tokens,
     micro_compact_messages,
+    prune_oversized_tool_results,
 )
 from app.services import compaction_metrics as cm
 
@@ -110,7 +115,9 @@ def test_auto_compact_threshold_both_sides():
 def test_auto_compact_respects_custom_trigger_ratio():
     """auto_compact 阈值随调用方 trigger_ratio 走(与压缩触发同源)。"""
     limit = 10000
-    assert assess_context_pressure(8500, limit, trigger_ratio=0.85)["is_above_auto_compact"] is False
+    assert (
+        assess_context_pressure(8500, limit, trigger_ratio=0.85)["is_above_auto_compact"] is False
+    )
     assert assess_context_pressure(8501, limit, trigger_ratio=0.85)["is_above_auto_compact"] is True
 
 
@@ -161,9 +168,11 @@ def test_missing_window_is_undetermined_not_zero():
 
 def _head_heavy_messages() -> list[dict[str, Any]]:
     """head 长 tail 短的可压缩消息(与既有测试同构)。"""
-    return [{"role": "system", "content": "sys"}] + [
-        {"role": "user", "content": "x" * 5000} for _ in range(4)
-    ] + [{"role": "user", "content": "t" * 100} for _ in range(6)]
+    return (
+        [{"role": "system", "content": "sys"}]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(4)]
+        + [{"role": "user", "content": "t" * 100} for _ in range(6)]
+    )
 
 
 def test_compress_info_only_adds_pressure_keys():
@@ -331,12 +340,103 @@ def test_micro_compact_skips_short_results():
     assert info["tools_removed"] == 0
 
 
+def test_prune_oversized_tool_result_keeps_head_tail_and_metadata():
+    """超大工具结果裁成头+标记+尾;元数据不动,输入对象不被改写。"""
+    raw = "HEADMARK" + ("x" * 9000) + "TAILMARK"
+    msgs = [
+        {"role": "assistant", "content": "call"},
+        {"role": "tool", "tool_call_id": "c1", "name": "read_file", "content": raw},
+    ]
+    out, info = prune_oversized_tool_results(msgs)
+
+    assert info["pruned_count"] == 1
+    assert info["original_chars"] == len(raw)
+    assert info["saved_chars"] > 0
+    assert out is not msgs
+    assert out[0] == msgs[0]
+    assert out[1]["tool_call_id"] == "c1"
+    assert out[1]["name"] == "read_file"
+    pruned = out[1]["content"]
+    assert pruned.startswith(raw[:TOOL_RESULT_PRUNE_HEAD_CHARS])
+    assert pruned.endswith(raw[-TOOL_RESULT_PRUNE_TAIL_CHARS:])
+    assert TOOL_RESULT_PRUNE_MARKER in pruned
+    assert len(pruned) <= TOOL_RESULT_PRUNE_THRESHOLD_CHARS
+    # 原始对象未被改写
+    assert msgs[1]["content"] == raw
+
+
+def test_prune_oversized_tool_result_skips_small_and_non_tool():
+    """未超阈值、非 tool 角色、空内容都不产生改写,并返回原列表对象。"""
+    msgs = [
+        {"role": "assistant", "content": "x" * 9000},
+        {"role": "tool", "tool_call_id": "c1", "content": "short"},
+    ]
+    out, info = prune_oversized_tool_results(msgs)
+    assert info["pruned_count"] == 0
+    assert out is msgs
+
+
+def test_prune_oversized_tool_result_multimodal_keeps_non_text_order():
+    """多模态 parts 只裁 text 段,图片 part 原位保留。"""
+    image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}
+    text = "A" * 9000
+    msgs = [
+        {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": [{"type": "text", "text": text}, image],
+        }
+    ]
+    out, info = prune_oversized_tool_results(msgs)
+    assert info["pruned_count"] == 1
+    parts = out[0]["content"]
+    assert len(parts) == 2
+    assert parts[0]["type"] == "text"
+    assert parts[0]["text"].startswith(text[:TOOL_RESULT_PRUNE_HEAD_CHARS])
+    assert parts[1] is image
+
+
+def test_prune_oversized_tool_result_rejects_invalid_budget():
+    """头+标记+尾 > 阈值 ⇒ 构造期拒绝,不静默截短。"""
+    with pytest.raises(ValueError):
+        prune_oversized_tool_results([], threshold_chars=100)
+
+
+def test_micro_compact_prune_large_only_keeps_recent_output_usable():
+    """压力档先裁剪;只有最近一轮时 tools_removed=0,但 trigger=prune 且内容已缩。"""
+    raw = "HEADMARK" + ("x" * 9000) + "TAILMARK"
+    msgs = [
+        {"role": "assistant", "content": "a"},
+        {"role": "tool", "tool_call_id": "c1", "content": raw},
+    ]
+    out, info = micro_compact_messages(msgs, keep_recent_rounds=10, prune_large=True)
+    assert info["compressed"] is True
+    assert info["trigger"] == "prune"
+    assert info["tools_removed"] == 0
+    assert info["tools_pruned"] == 1
+    assert info["tools_kept"] == 1
+    assert out[1]["content"] != msgs[1]["content"]
+    assert TOOL_RESULT_PRUNE_MARKER in out[1]["content"]
+    assert len(out[1]["content"]) <= TOOL_RESULT_PRUNE_THRESHOLD_CHARS
+
+
+def test_micro_compact_prune_large_default_off_preserves_old_semantics():
+    """默认 prune_large=False 时最近大结果仍原样,不偷改既有 micro 行为。"""
+    raw = "HEADMARK" + ("x" * 9000) + "TAILMARK"
+    msgs = [
+        {"role": "assistant", "content": "a"},
+        {"role": "tool", "tool_call_id": "c1", "content": raw},
+    ]
+    out, info = micro_compact_messages(msgs, keep_recent_rounds=10)
+    assert out is msgs
+    assert info["trigger"] == "none"
+    assert info["tools_pruned"] == 0
+
+
 def test_micro_compact_requires_min_saved_tokens():
     """总节省低于 min_saved_tokens ⇒ 整批不落(不白破前缀缓存)。"""
     msgs = _three_rounds()
-    out, info = micro_compact_messages(
-        msgs, keep_recent_rounds=1, min_saved_tokens=10**9
-    )
+    out, info = micro_compact_messages(msgs, keep_recent_rounds=1, min_saved_tokens=10**9)
     assert out is msgs
     assert info["compressed"] is False
     assert info["tools_kept"] == 3
@@ -445,4 +545,6 @@ def test_micro_compact_token_accounting_matches_estimator():
     out, info = micro_compact_messages(msgs, keep_recent_rounds=1)
     assert info["original_tokens"] == estimate_messages_tokens(msgs)
     assert info["compressed_tokens"] == estimate_messages_tokens(out)
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

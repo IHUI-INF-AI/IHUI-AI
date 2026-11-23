@@ -1076,6 +1076,145 @@ def compress_messages_if_needed(
 # 本批总收益不足 min_saved_tokens 时整批不落(不白破前缀缓存)。
 MICRO_COMPACT_PLACEHOLDER = "[old tool result reclaimed]"
 
+# ==================== 超大工具结果头尾裁剪(2026-11-23,对齐 DSH pruner) ====================
+# 与 micro 档的分工:micro 会把「旧」结果整段换成占位符;本档只对**超过阈值**的
+# 工具结果保留头 + 尾,中间打标记。它保信息、省 token,且不会把最近一轮的大输出
+# 整段抹掉 —— 最近结果往往是当前任务的直接证据。DSH 默认 8192/4096/1024,按
+# Unicode 码点计;头+标记+尾必须 ≤ 阈值,保证一次收敛且不增长。
+TOOL_RESULT_PRUNE_THRESHOLD_CHARS = 8192
+TOOL_RESULT_PRUNE_HEAD_CHARS = 4096
+TOOL_RESULT_PRUNE_TAIL_CHARS = 1024
+TOOL_RESULT_PRUNE_MARKER = "\n\n[... tool result middle pruned ...]\n\n"
+
+
+def _prune_tool_content(
+    content: Any,
+    *,
+    threshold_chars: int,
+    head_chars: int,
+    tail_chars: int,
+) -> tuple[Any, bool, int]:
+    """把一条 tool content 折成头+标记+尾;返回 (新内容, 是否裁剪, 裁剪前字符数)。
+
+    字符串与多模态 parts 两种形状都支持:多模态只合并 text 段后裁剪,图片/结构化
+    part 原位保留(与 DSH「富内容保持原有顺序」对齐)。不修改传入对象。
+    """
+    if isinstance(content, str):
+        if len(content) <= threshold_chars:
+            return content, False, 0
+        return (
+            content[:head_chars]
+            + TOOL_RESULT_PRUNE_MARKER
+            + (content[-tail_chars:] if tail_chars > 0 else ""),
+            True,
+            len(content),
+        )
+    if not isinstance(content, list):
+        return content, False, 0
+
+    text_parts = [
+        part
+        for part in content
+        if isinstance(part, dict)
+        and part.get("type") == "text"
+        and isinstance(part.get("text"), str)
+    ]
+    if not text_parts:
+        return content, False, 0
+    total_chars = sum(len(str(part["text"])) for part in text_parts)
+    if total_chars <= threshold_chars:
+        return content, False, 0
+
+    combined = "".join(str(part["text"]) for part in text_parts)
+    pruned_text = (
+        combined[:head_chars]
+        + TOOL_RESULT_PRUNE_MARKER
+        + (combined[-tail_chars:] if tail_chars > 0 else "")
+    )
+    # 第一个 text part 的位置放裁剪后的文本,其余 text part 丢掉;非文本 part
+    # 按原相对顺序保留。content 里没有 text part 时上面已经早退。
+    output: list[Any] = []
+    inserted = False
+    for part in content:
+        if (
+            isinstance(part, dict)
+            and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+        ):
+            if not inserted:
+                replacement = dict(part)
+                replacement["text"] = pruned_text
+                output.append(replacement)
+                inserted = True
+            continue
+        output.append(part)
+    return output, True, total_chars
+
+
+def prune_oversized_tool_results(
+    messages: list[dict[str, Any]],
+    *,
+    threshold_chars: int = TOOL_RESULT_PRUNE_THRESHOLD_CHARS,
+    head_chars: int = TOOL_RESULT_PRUNE_HEAD_CHARS,
+    tail_chars: int = TOOL_RESULT_PRUNE_TAIL_CHARS,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """把历史里超阈值的工具结果裁成「头 + middle pruned + 尾」。
+
+    - 只改 `role == "tool"` 的 content;tool_call_id、名称、错误等元数据原样保留。
+    - 未超阈值的消息不碰;没有任何裁剪时返回**原列表对象**(调用方可据此零成本跳过)。
+    - 按 Unicode 码点切片,不会把 emoji 拆成两半;头+标记+尾严格 ≤ 阈值。
+    - 富内容 part(图片等)不计数、不裁剪,保持原有相对顺序。
+    """
+    if (
+        threshold_chars < 1
+        or head_chars < 0
+        or tail_chars < 0
+        or head_chars + len(TOOL_RESULT_PRUNE_MARKER) + tail_chars > threshold_chars
+    ):
+        raise ValueError(
+            "tool result prune budget invalid: head + marker + tail must be <= threshold"
+        )
+    pruned_count = 0
+    original_chars = 0
+    pruned_chars = 0
+    result: list[dict[str, Any]] = messages
+    for idx, message in enumerate(messages):
+        if message.get("role") != "tool":
+            continue
+        new_content, changed, before_chars = _prune_tool_content(
+            message.get("content"),
+            threshold_chars=threshold_chars,
+            head_chars=head_chars,
+            tail_chars=tail_chars,
+        )
+        if not changed:
+            continue
+        if pruned_count == 0:
+            result = list(messages)
+        replacement = dict(message)
+        replacement["content"] = new_content
+        result[idx] = replacement
+        pruned_count += 1
+        original_chars += before_chars
+        pruned_chars += len(
+            "".join(
+                str(part.get("text", ""))
+                for part in new_content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+            if isinstance(new_content, list)
+            else str(new_content)
+        )
+    return result, {
+        "pruned_count": pruned_count,
+        "original_chars": original_chars,
+        "pruned_chars": pruned_chars,
+        "saved_chars": max(0, original_chars - pruned_chars),
+        "threshold_chars": threshold_chars,
+        "head_chars": head_chars,
+        "tail_chars": tail_chars,
+    }
+
 
 def micro_compact_messages(
     messages: list[dict[str, Any]],
@@ -1085,6 +1224,7 @@ def micro_compact_messages(
     min_saved_tokens: int = RECLAIM_MIN_SAVED_TOKENS,
     context_limit: int = 0,
     trigger_ratio: float = DEFAULT_TRIGGER_RATIO,
+    prune_large: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """micro-compaction:回收旧 tool 结果正文(不修改传入对象,返回新列表)。
 
@@ -1096,22 +1236,33 @@ def micro_compact_messages(
         context_limit: 可选窗口大小;> 0 时 info 附五判据(按压缩后 tokens 报),
             <= 0 时 percent_left=None(未判定)。
         trigger_ratio: 五判据的 auto-compact 阈值(与 compress 同源)。
+        prune_large: 为 True 时先对超阈值工具结果做头/尾裁剪(对齐 DSH
+            `dsh-compaction-tool-result-pruner`),再做旧结果回收;默认 False
+            只保留原有 micro 语义,生产执行器在压力触发时显式开启。
 
     Returns:
         (messages, info)
         - messages: 回收后的新列表,或原列表(未达收益门槛)
         - info: {compressed, original_tokens, compressed_tokens, removed_count,
-                 tools_kept, tools_removed, trigger, llm_summary, percent_left…}
+                 tools_kept, tools_removed, tools_pruned, trigger, llm_summary, percent_left…}
         tools_kept / tools_removed 是**工具结果条数**,与 compaction_metrics 既有
         事件维度同名对齐;removed_count 仍表示删除的消息条数(本档恒 0)。
+        tools_pruned 是头尾裁剪条数,单独报,不并进 tools_removed(两种动作不混算)。
     """
     original_tokens = estimate_messages_tokens(messages)
+    base_messages = messages
+    pruned_count = 0
+    prune_saved_chars = 0
+    if prune_large:
+        base_messages, prune_info = prune_oversized_tool_results(messages)
+        pruned_count = int(prune_info.get("pruned_count") or 0)
+        prune_saved_chars = int(prune_info.get("saved_chars") or 0)
     tool_total = 0
     reclaimable: list[int] = []
     rounds_seen = 0
     # 从尾部往前走:每遇到一条 assistant 记一轮;最近 keep_recent_rounds 轮内的 tool 保留。
-    for idx in range(len(messages) - 1, -1, -1):
-        role = messages[idx].get("role")
+    for idx in range(len(base_messages) - 1, -1, -1):
+        role = base_messages[idx].get("role")
         if role == "assistant":
             rounds_seen += 1
             continue
@@ -1120,7 +1271,7 @@ def micro_compact_messages(
         tool_total += 1
         if rounds_seen < keep_recent_rounds:
             continue
-        content = messages[idx].get("content", "")
+        content = base_messages[idx].get("content", "")
         if not isinstance(content, str) or not content:
             continue
         if estimate_tokens(content) < min_result_tokens:
@@ -1128,12 +1279,12 @@ def micro_compact_messages(
         reclaimable.append(idx)
 
     tools_removed = 0
-    compacted = messages
+    compacted = base_messages
     compressed_tokens = original_tokens
     if reclaimable:
-        candidate: list[dict[str, Any]] = list(messages)
+        candidate: list[dict[str, Any]] = list(base_messages)
         for idx in reclaimable:
-            replacement = dict(messages[idx])
+            replacement = dict(base_messages[idx])
             replacement["content"] = MICRO_COMPACT_PLACEHOLDER
             candidate[idx] = replacement
         candidate_tokens = estimate_messages_tokens(candidate)
@@ -1141,15 +1292,21 @@ def micro_compact_messages(
             compacted = candidate
             compressed_tokens = candidate_tokens
             tools_removed = len(reclaimable)
+    if pruned_count > 0 and tools_removed == 0:
+        # 只裁剪未回收:仍需按裁剪后的实际 token 数报,不能沿用裁剪前读数。
+        compacted = base_messages
+        compressed_tokens = estimate_messages_tokens(base_messages)
 
     info: dict[str, Any] = {
-        "compressed": tools_removed > 0,
+        "compressed": tools_removed > 0 or pruned_count > 0,
         "original_tokens": original_tokens,
         "compressed_tokens": compressed_tokens,
         "removed_count": 0,
         "tools_kept": tool_total - tools_removed,
         "tools_removed": tools_removed,
-        "trigger": "micro" if tools_removed > 0 else "none",
+        "tools_pruned": pruned_count,
+        "prune_saved_chars": prune_saved_chars,
+        "trigger": ("micro" if tools_removed > 0 else ("prune" if pruned_count > 0 else "none")),
         "llm_summary": False,
     }
     info.update(

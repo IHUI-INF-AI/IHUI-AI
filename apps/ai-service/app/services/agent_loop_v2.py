@@ -3413,6 +3413,9 @@ class AgentLoopV2:
           micro_compact_messages 的 tunables 默认(RECLAIM_KEEP_RECENT_ROUNDS /
           RECLAIM_MIN_RESULT_TOKENS / RECLAIM_MIN_SAVED_TOKENS),本方法不传参、
           本文件不再写第二份数字字面量;
+        - prune_large=True:压力到线后先把超过 8192 字符的工具结果裁成「头 4096 +
+          middle pruned + 尾 1024」(对齐 DSH pruner),再做旧结果整段回收;最近一轮
+          的大输出不会被整段抹掉,只保留可回看的头尾。
         - 压力评估基准 trigger_ratio 复用执行器既有常量 DEFAULT_COMPACTION_TRIGGER_RATIO。
 
         降级语义(与接入前逐零差异):未达触发线 / 无可回收 / 收益不足 / token 估算异常 /
@@ -3442,6 +3445,7 @@ class AgentLoopV2:
                 messages,
                 context_limit=self._compaction_context_limit,
                 trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
+                prune_large=True,
             )
         except Exception as e:  # noqa: BLE001 - 免费档失败绝不影响摘要主腿
             logger.warning("[agent-loop] micro 前置回收异常(跳过,不影响摘要): %s", e)
@@ -3456,16 +3460,20 @@ class AgentLoopV2:
                 "original_tokens": info.get("original_tokens"),
                 "compressed_tokens": info.get("compressed_tokens"),
                 "removed_count": 0,
-                "trigger": "micro",
+                "trigger": info.get("trigger") or "micro",
                 "tools_kept": info.get("tools_kept"),
                 "tools_removed": info.get("tools_removed"),
+                "tools_pruned": info.get("tools_pruned"),
+                "prune_saved_chars": info.get("prune_saved_chars"),
             }
         )
         self._record_compaction_metric(info, duration_ms)
         logger.info(
-            "[agent-loop] micro 前置回收: %s -> %s tokens(回收 %s 条工具结果, iter %s)",
+            "[agent-loop] micro 前置档: %s -> %s tokens(trigger=%s, 裁剪 %s 条, 回收 %s 条, iter %s)",
             info.get("original_tokens"),
             info.get("compressed_tokens"),
+            info.get("trigger"),
+            info.get("tools_pruned"),
             info.get("tools_removed"),
             self._current_iteration,
         )
