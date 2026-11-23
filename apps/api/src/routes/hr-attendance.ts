@@ -25,6 +25,13 @@ import {
 } from '../services/hr-attendance.js'
 import { runAttendanceSyncJob } from '../services/attendance-sync-job.js'
 import {
+  getApprovalInstanceForLeave,
+  submitLeaveApprovalIfMatched,
+} from '../services/hr-approval.js'
+import { db } from '../db/index.js'
+import { eq } from 'drizzle-orm'
+import { hrLeaveRequest } from '@ihui/database'
+import {
   getSelfEmployeeForUser,
   listPendingLinksForUser,
   acceptEmployeeLink,
@@ -467,7 +474,41 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       const parsed = leaveCreateSchema.safeParse(request.body)
       if (!parsed.success) return badReply(reply, parsed)
       const leave = await createHrLeave(parsed.data)
-      return reply.status(201).send(success({ leave }))
+      if (!leave) return reply.status(500).send(error(500, '请假单落库失败'))
+      // 2026-11-23:提交即尝试挂多级审批链(命中规则才挂),未命中则由路径 A 单步审批兜底。
+      // 员工不必再有 hr:attendance:manage 权限才能把自己的假单送进审批。
+      const approval = await submitLeaveApprovalIfMatched(leave.id)
+      return reply.status(201).send(success({ leave, approval }))
+    },
+  )
+
+  // 自助面:查本人某张假单的审批进度(只读;仅本人可见,管理员看全量走 /api/hr-approval/instances)
+  fastify.get(
+    '/leave/:id/approval',
+    {
+      preHandler: requireAuth,
+      schema: buildSchema({
+        summary: '请假单审批进度(本人)',
+        description: '查本登录人自己那张请假单的审批实例(当前级/链/驳回理由);非本人一律 403。',
+        tags: ['HR'],
+        params: z.object({ id: z.string().uuid().describe('请假单 UUID') }),
+      }),
+    },
+    async (request, reply) => {
+      const parsed = uuidSchema.safeParse((request.params as { id: string }).id)
+      if (!parsed.success) return reply.status(400).send(error(400, 'leave id 非法'))
+      const rows = await db
+        .select({ employeeId: hrLeaveRequest.employeeId })
+        .from(hrLeaveRequest)
+        .where(eq(hrLeaveRequest.id, parsed.data))
+        .limit(1)
+      if (!rows[0]) return reply.status(404).send(error(404, '请假单不存在'))
+      const self = request.userId ? await getSelfEmployeeForUser(request.userId) : null
+      if (!self || self.id !== rows[0].employeeId) {
+        return reply.status(403).send(error(403, '只能查看本人请假单的审批进度'))
+      }
+      const instance = await getApprovalInstanceForLeave(parsed.data)
+      return reply.send(success({ instance }))
     },
   )
 

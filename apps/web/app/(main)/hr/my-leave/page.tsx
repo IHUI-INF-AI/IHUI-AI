@@ -13,7 +13,7 @@ import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { CalendarDays, Loader2, Send } from 'lucide-react'
+import { CalendarDays, ChevronDown, Loader2, Send } from 'lucide-react'
 
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { apiOrThrow as api } from '@/lib/api'
@@ -45,6 +45,63 @@ const STATUS_KEY = {
   approved: 'statusApproved',
   rejected: 'statusRejected',
 } as const
+
+/** 请假单对应的审批实例(后端 GET /leave/:id/approval 的 instance 形态;null = 未挂链)。 */
+interface ApprovalInstanceRow {
+  id: string
+  currentStep: number
+  chainSnapshot: string[]
+  status: string
+  dueAt: string | null
+  reviewRemark?: string | null
+  steps?: Array<{ approverId?: string; action?: string; remark?: string | null; at?: string }>
+}
+
+/** 单行审批进度:点开才查(避免列表 N+1),展开后显示第几级 / 链长 / 驳回理由。 */
+function LeaveApproval({ leaveId }: { leaveId: string }) {
+  const t = useTranslations('hrAttendance')
+  const [open, setOpen] = React.useState(false)
+  const q = useQuery({
+    queryKey: ['hr', 'self', 'leave-approval', leaveId],
+    queryFn: () =>
+      api<{ instance: ApprovalInstanceRow | null }>(`/api/hr-attendance/leave/${leaveId}/approval`),
+    enabled: open,
+  })
+  const inst = q.data?.instance ?? null
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded-sm border border-stroke-subtle px-2 py-0.5 text-label hover:bg-muted"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ChevronDown className={open ? 'h-3.5 w-3.5 rotate-180' : 'h-3.5 w-3.5'} />
+        {t('approvalOpen')}
+      </button>
+      {open && q.isLoading ? (
+        <span className="block text-label text-muted-foreground">{t('loading')}</span>
+      ) : open && q.error ? (
+        <span className="block text-label text-destructive">{(q.error as Error).message}</span>
+      ) : open && !inst ? (
+        <span className="block text-label text-muted-foreground">{t('approvalNone')}</span>
+      ) : open && inst ? (
+        <div className="space-y-0.5 text-label">
+          <span className="block">
+            {t('approvalStep', { current: inst.currentStep + 1, total: inst.chainSnapshot.length })}{' '}
+            · {inst.status}
+          </span>
+          {inst.reviewRemark ? (
+            <span className="block text-muted-foreground">
+              {t('approvalReason')}: {inst.reviewRemark}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 /** 上海时区的今天(YYYY-MM-DD)。 */
 function bizToday(): string {
@@ -237,6 +294,7 @@ export default function MyLeavePage() {
                       <th className="px-3 py-2 text-left font-medium">{t('totalDaysLabel')}</th>
                       <th className="px-3 py-2 text-left font-medium">{t('colReason')}</th>
                       <th className="px-3 py-2 text-left font-medium">{t('colStatus')}</th>
+                      <th className="px-3 py-2 text-left font-medium">{t('colApproval')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -246,11 +304,14 @@ export default function MyLeavePage() {
                         <td className="px-3 py-2">{r.startDate}</td>
                         <td className="px-3 py-2">{r.endDate}</td>
                         <td className="px-3 py-2">{r.totalDays}</td>
-                        <td className="max-w-[240px] truncate px-3 py-2" title={r.reason}>
+                        <td className="max-w-[240px] break-words px-3 py-2 align-top">
                           {r.reason}
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 align-top">
                           {t(STATUS_KEY[r.status as keyof typeof STATUS_KEY] ?? 'colStatus')}
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <LeaveApproval leaveId={r.id} />
                         </td>
                       </tr>
                     ))}

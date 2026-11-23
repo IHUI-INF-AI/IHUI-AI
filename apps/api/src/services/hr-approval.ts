@@ -136,6 +136,54 @@ export async function submitApproval(input: {
   return { instance, notified }
 }
 
+/**
+ * 员工请假提交后自动挂链(2026-11-23 补):命中规则就创建实例,未命中返回 matched=false
+ * 让调用方继续走路径 A 单步审批。幂等——同一请假单已有实例(无论在飞还是已决)直接返回,
+ * 绝不重复插入(重复插入会让同一张假单被两条链各自推进)。
+ */
+export async function submitLeaveApprovalIfMatched(leaveRequestId: string): Promise<{
+  instance: HrApprovalInstance | null
+  matched: boolean
+  reason?: 'NO_FLOW' | 'ALREADY_IN_FLIGHT' | 'ALREADY_DECIDED'
+}> {
+  const existing = await db
+    .select()
+    .from(hrApprovalInstance)
+    .where(eq(hrApprovalInstance.leaveRequestId, leaveRequestId))
+    .orderBy(desc(hrApprovalInstance.createdAt))
+    .limit(1)
+  if (existing[0]) {
+    const inFlight = existing[0].status === 'pending' || existing[0].status === 'escalated'
+    return {
+      instance: existing[0],
+      matched: true,
+      reason: inFlight ? 'ALREADY_IN_FLIGHT' : 'ALREADY_DECIDED',
+    }
+  }
+  try {
+    const r = await submitApproval({ leaveRequestId })
+    return { instance: r.instance, matched: true }
+  } catch (err) {
+    if (err instanceof ApprovalRouteError && err.code === 'NO_FLOW') {
+      return { instance: null, matched: false, reason: 'NO_FLOW' }
+    }
+    throw err
+  }
+}
+
+/** 查某请假单当前(或最近一条)审批实例;自助面只读展示,不做任何写操作。 */
+export async function getApprovalInstanceForLeave(
+  leaveRequestId: string,
+): Promise<HrApprovalInstance | null> {
+  const rows = await db
+    .select()
+    .from(hrApprovalInstance)
+    .where(eq(hrApprovalInstance.leaveRequestId, leaveRequestId))
+    .orderBy(desc(hrApprovalInstance.createdAt))
+    .limit(1)
+  return rows[0] ?? null
+}
+
 /** 通知某审批人:站内信(主,权威留痕)+ 微信订阅消息(辅,尽力外发)。
  *  任何异常只记 warn,绝不打断审批主流程。返回站内信是否落库(权威触达凭据)。 */
 async function notifyStepApprover(
