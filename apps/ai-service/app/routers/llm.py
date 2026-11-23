@@ -208,6 +208,7 @@ from ..services.mcp_server import (
 from ..services.persona_registry import build_persona_chat_hint as _persona_chat_hint
 from ..services.persona_registry import merge_persona_tools as _merge_persona_tools
 from ..services.project_memory import build_system_prompt
+from ..services.request_metadata import record_raw_metadata
 from ..services.tool_context_boundary import scan_and_frame_tool_result
 from ..services.user_quota import user_trial_quota
 
@@ -3811,6 +3812,8 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     if retired_err is not None:
         return retired_err
     await _ensure_restricted_model_access(request, req.model)
+    if req.metadata is not None:
+        await record_raw_metadata(req.metadata)
     owner_uuid = _resolve_owner_uuid(request)
     # P3 3-4-A(2026-09-17 拍板):新用户免费试用额度检查(env USER_TRIAL_DAILY_TOKENS,0=关闭)
     trial = await user_trial_quota.check(owner_uuid)
@@ -4589,6 +4592,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # D158 的 4 个 grant 测试因此整片红)。恢复 HEAD 原形,位置与 HEAD 逐字一致。
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
+    if req.metadata is not None:
+        await record_raw_metadata(req.metadata)
     owner_uuid = _resolve_owner_uuid(request)
     # 逐条落库(2026-10-22):llm_call_logs 归属主体 = JWT 令牌主体,在本端点入口
     # 一次性解析并显式下传给网关(不从 owner_uuid 反推、不信客户端自报);

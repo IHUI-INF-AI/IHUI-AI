@@ -149,6 +149,48 @@ interface ApiKeyContext {
 // Zod schemas
 // =============================================================================
 
+// B3-07(2026-11-23 立):四层请求元数据。每层 strict ⇒ 越层字段在网关就 400,
+// 不把脏结构送进 ai-service 的 PG 追踪表。`userId` 是兼容旧网关的别名,仍归 user 层。
+const requestMetadataSchema = z
+  .object({
+    workspace: z
+      .object({
+        file_count: z.number().int().min(0).optional(),
+        languages: z.array(z.string()).optional(),
+        codebase_status: z.string().optional(),
+        codebase_soft_status: z.string().optional(),
+        codebase_external_id: z.string().optional(),
+        data_policy: z.string().optional(),
+      })
+      .strict(),
+    business: z
+      .object({
+        id: z.string().optional(),
+        name: z.string().optional(),
+        begin_at: z.string().optional(),
+        product: z.string().optional(),
+        version: z.string().optional(),
+        type: z.string().optional(),
+        stage: z.string().optional(),
+        sub_task: z.string().optional(),
+      })
+      .strict(),
+    context: z
+      .object({
+        request_id: z.string().min(1),
+        session_id: z.string().optional(),
+        task_id: z.string().optional(),
+        request_set_id: z.string().optional(),
+        machine_id: z.string().optional(),
+        client_type: z.string().optional(),
+        source_session_id: z.string().optional(),
+      })
+      .strict(),
+    user: z.object({ user_id: z.string().min(1) }).strict(),
+    userId: z.string().optional(),
+  })
+  .strict()
+
 const chatCompletionSchema = z.object({
   model: z.string().min(1),
   messages: z
@@ -196,6 +238,8 @@ const chatCompletionSchema = z.object({
   top_k: z.number().int().positive().optional(),
   repetition_penalty: z.number().positive().optional(),
   logit_bias: z.record(z.string(), z.number()).optional(),
+  // B3-07:可选四层元数据;不传 = 旧客户端零行为变化
+  metadata: requestMetadataSchema.optional(),
 })
 
 /** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
@@ -229,6 +273,7 @@ const completionRequestSchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   stop: z.union([z.string(), z.array(z.string())]).optional(),
   reasoning_effort: z.union([z.string(), z.number()]).optional(),
+  metadata: requestMetadataSchema.optional(),
 })
 
 /** chat.completion → legacy text_completion 响应形态适配(/v1/completions 用) */
@@ -798,6 +843,8 @@ async function streamChatCompletion(
     stop?: string | string[]
     /** OpenAI 输出控制:reasoning_effort(账号池 Trae 映射 custom_model.reasoning_effort_level) */
     reasoningEffort?: string | number
+    /** B3-07:四层请求元数据(原样交给 ai-service 追踪表) */
+    metadata?: z.infer<typeof requestMetadataSchema>
     /** 采样面与工具开关(2026-10-23 协议补全) */
     topP?: number
     presencePenalty?: number
@@ -837,6 +884,7 @@ async function streamChatCompletion(
   const {
     stop,
     reasoningEffort: reasoningEffortRaw,
+    metadata: requestMetadata,
     topP,
     presencePenalty,
     frequencyPenalty,
@@ -1263,8 +1311,15 @@ async function streamChatCompletion(
     if (opts.toolChoice !== undefined) body.tool_choice = opts.toolChoice
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
     if (opts.seed !== undefined) body.seed = opts.seed
-    // BYOK 平台模式(2026-07-30):透传 owner_uuid via metadata.userId
-    if (userId) body.metadata = { userId }
+    // B3-07:四层元数据优先;userId 作为兼容别名只补在顶层,不覆盖 user 层身份。
+    if (requestMetadata) {
+      body.metadata = {
+        ...requestMetadata,
+        ...(userId ? { userId } : {}),
+      }
+    } else if (userId) {
+      body.metadata = { userId }
+    }
     // OpenAI 协议扩展:response_format(json_schema 已在 system 提示注入,原样透传) + seed
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
     if (opts.seed !== undefined) body.seed = opts.seed
@@ -1450,7 +1505,7 @@ async function streamChatCompletion(
  * F-337 回归测试入口(仅导出,行为不变):直接驱动渠道流式腿,断言流内错误帧在
  * 计费 / 熔断 / 客户端通知三处都按失败处理。
  */
-export const __test__ = { streamChatCompletion }
+export const __test__ = { streamChatCompletion, requestMetadataSchema }
 
 /** chat/completions 共享处理核签名 */
 export type V1ChatCore = (
@@ -2139,6 +2194,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         toolChoice: tool_choice,
         stop,
         reasoningEffort: reasoning_effort,
+        metadata: body.metadata,
         topP: top_p,
         presencePenalty: presence_penalty,
         frequencyPenalty: frequency_penalty,
@@ -2362,8 +2418,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         if (upstreamSeed !== undefined) body.seed = upstreamSeed
         // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
         // 让 ai-service 能识别 BYOK 调用并走用户自有 key 路径(与流式 streamChatCompletion 对齐)。
-        if (apiKey?.userId) {
-          body.metadata = { userId: apiKey.userId, ...(mode === 'byok' ? { byokMode: true } : {}) }
+        // B3-07:四层元数据与 userId/byokMode 合并,不覆盖 user 层的 user_id。
+        if (body.metadata || apiKey?.userId) {
+          body.metadata = {
+            ...(body.metadata as Record<string, unknown> | undefined),
+            ...(apiKey?.userId ? { userId: apiKey.userId } : {}),
+            ...(mode === 'byok' ? { byokMode: true } : {}),
+          }
         }
 
         // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
