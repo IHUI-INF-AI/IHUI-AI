@@ -277,6 +277,7 @@ import { tasksRoutes } from './tasks.js'
 import { imGatewayRoutes } from './im-gateway.js'
 // 微信智联路由(2026-11-23 立,账号级扫码/长轮询/会话/消息/发送/AI 分析/MCP 工具)
 import { wechatHubRoutes } from './wechat-hub.js'
+import { wechatHubAutomationRoutes } from './wechat-hub-automation.js'
 
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './ask-extended.js'
@@ -1091,6 +1092,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(imGatewayRoutes, { prefix: '/api' })
   // 微信智联(2026-11-23 立:GET /api/wechat-hub/capabilities + accounts/** + send/analyze + mcp/** + webhook/:accountId)
   server.register(wechatHubRoutes, { prefix: '/api' })
+  server.register(wechatHubAutomationRoutes, { prefix: '/api' })
 
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）

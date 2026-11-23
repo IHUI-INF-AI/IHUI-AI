@@ -13,17 +13,27 @@ import {
   callWechatMcpTool,
   connectWechatAccount,
   createWechatAccount,
+  createWechatAutoReplyRule,
   deleteWechatAccount,
+  deleteWechatAutoReplyRule,
   disconnectWechatAccount,
   fetchWechatAccounts,
   fetchWechatActions,
+  fetchWechatAutoReplyRules,
   fetchWechatCapabilities,
+  fetchWechatContacts,
   fetchWechatConversations,
+  fetchWechatDigestSchedule,
+  fetchWechatGroupMembers,
   fetchWechatMcpTools,
   fetchWechatMessages,
   fetchWechatQrCode,
   fetchWechatStatus,
+  runWechatDigest,
+  saveWechatDigestSchedule,
   sendWechatMessage,
+  updateWechatAutoReplyRule,
+  updateWechatContact,
   updateWechatSettings,
 } from '@ihui/api-client'
 import type {
@@ -33,8 +43,15 @@ import type {
   WechatActionLogView,
   WechatAnalysisKind,
   WechatAnalysisRunView,
+  WechatAutoReplyRuleInput,
+  WechatAutoReplyRuleView,
   WechatBackendCapability,
+  WechatContactUpdateInput,
+  WechatContactView,
   WechatConversationView,
+  WechatDigestScheduleInput,
+  WechatDigestScheduleView,
+  WechatGroupMemberView,
   WechatMcpTool,
   WechatMessageView,
   WechatQrCodeView,
@@ -93,5 +110,39 @@ export const wechatHubApi = {
   mcpTools: (): Promise<WechatMcpTool[]> => call(fetchWechatMcpTools, '获取 MCP 工具失败'),
   callTool: (name: string, args: Record<string, unknown>): Promise<unknown> =>
     call(() => callWechatMcpTool(name, args), '调用 MCP 工具失败'),
+  contacts: (id: string, query = ''): Promise<WechatContactView[]> =>
+    call(() => fetchWechatContacts(id, query), '获取联系人失败'),
+  updateContact: (
+    id: string,
+    contactId: string,
+    patch: WechatContactUpdateInput,
+  ): Promise<WechatContactView> =>
+    call(() => updateWechatContact(id, contactId, patch), '保存联系人失败'),
+  groupMembers: (id: string, conversationId: string): Promise<WechatGroupMemberView[]> =>
+    call(() => fetchWechatGroupMembers(id, conversationId), '获取群成员失败'),
+  autoReplyRules: (id: string): Promise<WechatAutoReplyRuleView[]> =>
+    call(() => fetchWechatAutoReplyRules(id), '获取自动回复规则失败'),
+  createAutoReplyRule: (
+    id: string,
+    input: WechatAutoReplyRuleInput,
+  ): Promise<WechatAutoReplyRuleView> =>
+    call(() => createWechatAutoReplyRule(id, input), '创建自动回复规则失败'),
+  updateAutoReplyRule: (
+    id: string,
+    ruleId: string,
+    input: WechatAutoReplyRuleInput,
+  ): Promise<WechatAutoReplyRuleView> =>
+    call(() => updateWechatAutoReplyRule(id, ruleId, input), '更新自动回复规则失败'),
+  deleteAutoReplyRule: (id: string, ruleId: string): Promise<void> =>
+    call(() => deleteWechatAutoReplyRule(id, ruleId), '删除自动回复规则失败'),
+  digestSchedule: (id: string): Promise<WechatDigestScheduleView | null> =>
+    call(() => fetchWechatDigestSchedule(id), '获取日报计划失败'),
+  saveDigestSchedule: (
+    id: string,
+    input: WechatDigestScheduleInput,
+  ): Promise<WechatDigestScheduleView> =>
+    call(() => saveWechatDigestSchedule(id, input), '保存日报计划失败'),
+  runDigest: (id: string): Promise<WechatDigestScheduleView> =>
+    call(() => runWechatDigest(id), '执行日报失败'),
 } as const
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

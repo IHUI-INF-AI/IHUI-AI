@@ -15,11 +15,10 @@
  */
 
 import { createHash, timingSafeEqual } from 'node:crypto'
-import { and, desc, eq, ilike, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import {
   wechatHubAccounts,
   wechatHubActionLogs,
-  wechatHubAnalysisRuns,
   wechatHubConversations,
   wechatHubMessages,
 } from '@ihui/database'
@@ -33,6 +32,7 @@ import type {
   WechatAnalysisRunView,
   WechatBackendCapability,
   WechatConversationView,
+  WechatDigestScheduleView,
   WechatMessageView,
   WechatQrCodeView,
   WechatSendInput,
@@ -42,7 +42,7 @@ import { db, dbRead } from '../../db/index.js'
 import { AppError } from '../../errors/AppError.js'
 import { decryptJSON, encryptJSON, type EncryptedPayload } from '../../utils/crypto.js'
 import { logger } from '../../utils/logger.js'
-import { analyzeMessages, hashAnalysisInput } from './analysis.js'
+import { runAnalysis } from './analysis-runner.js'
 import { BridgeAdapter } from './bridge-adapter.js'
 import { IlinkAdapter } from './ilink-adapter.js'
 import { MockAdapter } from './mock-adapter.js'
@@ -62,12 +62,7 @@ import {
   iso,
   toStringRecord,
   toAccountView,
-  toActionView,
-  toAnalysisView,
-  toConversationView,
-  toMessageView,
   type AccountRow,
-  type ConversationRow,
   type JsonRecord,
 } from './views.js'
 import {
@@ -77,6 +72,22 @@ import {
   updateAccountStatus,
 } from './account-store.js'
 import { applySendPolicy } from './send-policy.js'
+import { assertAccountForUser } from './guards.js'
+import {
+  listActions as queryActions,
+  listConversations as queryConversations,
+  listMessages as queryMessages,
+  searchMessages as querySearchMessages,
+} from './queries.js'
+import { recordInboundContact, syncGroupMembers } from './contacts.js'
+import { runAutoReply } from './automation.js'
+import {
+  claimDueSchedules,
+  formatDigestText,
+  getSchedule,
+  markResult,
+  markRunning,
+} from './digest.js'
 
 const HUB_LOGGER: WechatHubLogger = {
   info: (obj, msg) => logger.info(msg ?? '[wechat-hub]', obj),
@@ -89,6 +100,7 @@ export class WechatHubManager {
   private adapters = new Map<string, WechatAdapter>()
   private rateWindows = new Map<string, { minute: number; count: number }>()
   private connecting = new Set<string>()
+  private digestTimer: ReturnType<typeof setInterval> | null = null
 
   getCapabilities(): WechatBackendCapability[] {
     return BACKEND_CAPABILITIES
@@ -253,14 +265,7 @@ export class WechatHubManager {
     accountId: string,
     limit = 50,
   ): Promise<WechatConversationView[]> {
-    await this.assertAccount(userId, accountId)
-    const rows = await dbRead
-      .select()
-      .from(wechatHubConversations)
-      .where(eq(wechatHubConversations.accountId, accountId))
-      .orderBy(desc(wechatHubConversations.lastMessageAt))
-      .limit(Math.min(Math.max(limit, 1), 200))
-    return rows.map((row) => toConversationView(row))
+    return queryConversations(userId, accountId, limit)
   }
 
   async listMessages(
@@ -270,26 +275,7 @@ export class WechatHubManager {
     limit = 50,
     before: Date | null = null,
   ): Promise<WechatMessageView[]> {
-    await this.assertAccount(userId, accountId)
-    if (conversationId) {
-      await this.assertConversation(accountId, conversationId)
-    }
-    const where = conversationId
-      ? and(
-          eq(wechatHubMessages.accountId, accountId),
-          eq(wechatHubMessages.conversationId, conversationId),
-        )
-      : eq(wechatHubMessages.accountId, accountId)
-    const rows = await dbRead
-      .select()
-      .from(wechatHubMessages)
-      .where(where)
-      .orderBy(desc(wechatHubMessages.createdAt))
-      .limit(Math.min(Math.max(limit, 1), 200))
-    const filtered = before
-      ? rows.filter((row) => row.createdAt.getTime() < before.getTime())
-      : rows
-    return filtered.reverse().map((row) => toMessageView(row))
+    return queryMessages(userId, accountId, conversationId, limit, before)
   }
 
   async searchMessages(
@@ -298,21 +284,7 @@ export class WechatHubManager {
     query: string,
     limit = 20,
   ): Promise<WechatMessageView[]> {
-    await this.assertAccount(userId, accountId)
-    const term = query.trim()
-    if (term.length === 0) return []
-    const rows = await dbRead
-      .select()
-      .from(wechatHubMessages)
-      .where(
-        and(
-          eq(wechatHubMessages.accountId, accountId),
-          ilike(wechatHubMessages.content, `%${term.replace(/[%_]/g, '\\$&')}%`),
-        ),
-      )
-      .orderBy(desc(wechatHubMessages.createdAt))
-      .limit(Math.min(Math.max(limit, 1), 100))
-    return rows.reverse().map((row) => toMessageView(row))
+    return querySearchMessages(userId, accountId, query, limit)
   }
 
   async listActions(
@@ -320,16 +292,7 @@ export class WechatHubManager {
     accountId: string,
     limit = 100,
   ): Promise<WechatActionLogView[]> {
-    await this.assertAccount(userId, accountId)
-    const rows = await dbRead
-      .select()
-      .from(wechatHubActionLogs)
-      .where(
-        and(eq(wechatHubActionLogs.accountId, accountId), eq(wechatHubActionLogs.userId, userId)),
-      )
-      .orderBy(desc(wechatHubActionLogs.createdAt))
-      .limit(Math.min(Math.max(limit, 1), 200))
-    return rows.map((row) => toActionView(row))
+    return queryActions(userId, accountId, limit)
   }
 
   async send(userId: string, input: WechatSendInput): Promise<WechatSendResult> {
@@ -361,6 +324,7 @@ export class WechatHubManager {
 
     const options: WechatSendOptions = {
       replyToMessageId: input.replyToMessageId,
+      mentions: input.mentions?.length ? input.mentions : undefined,
       idempotencyKey: `ihui-${createHash('sha256')
         .update(
           `${input.accountId}:${input.target}:${input.text ?? input.mediaUrl ?? ''}:${Date.now()}`,
@@ -408,114 +372,22 @@ export class WechatHubManager {
       force?: boolean
     },
   ): Promise<WechatAnalysisRunView> {
-    const row = await this.assertAccount(userId, input.accountId)
-    const conversation = input.conversationId
-      ? await this.assertConversation(input.accountId, input.conversationId)
-      : null
-    const limit = Math.min(Math.max(input.limit ?? 200, 10), 1_000)
-    const where = conversation
-      ? and(
-          eq(wechatHubMessages.accountId, input.accountId),
-          eq(wechatHubMessages.conversationId, conversation.id),
-        )
-      : eq(wechatHubMessages.accountId, input.accountId)
-    const messageRows = await dbRead
-      .select()
-      .from(wechatHubMessages)
-      .where(where)
-      .orderBy(desc(wechatHubMessages.createdAt))
-      .limit(limit)
-    const messages = messageRows.reverse().map((item) => toMessageView(item))
-    const inputHash = hashAnalysisInput(
-      input.kind,
-      conversation?.id ?? null,
-      messages.map((message) => message.id),
-    )
-
-    if (!input.force) {
-      const cached = await dbRead
-        .select()
-        .from(wechatHubAnalysisRuns)
-        .where(
-          and(
-            eq(wechatHubAnalysisRuns.accountId, input.accountId),
-            eq(wechatHubAnalysisRuns.kind, input.kind),
-            eq(wechatHubAnalysisRuns.inputHash, inputHash),
-            eq(wechatHubAnalysisRuns.status, 'success'),
-          ),
-        )
-        .orderBy(desc(wechatHubAnalysisRuns.createdAt))
-        .limit(1)
-      const hit = cached[0]
-      if (hit) return toAnalysisView(hit)
-    }
-
-    const inserted = await db
-      .insert(wechatHubAnalysisRuns)
-      .values({
-        accountId: input.accountId,
-        conversationId: conversation?.id ?? null,
+    const outcome = await runAnalysis(userId, input)
+    const failed = outcome.view.status === 'failed'
+    await this.writeAction(
+      outcome.accountId,
+      userId,
+      'analysis.run',
+      outcome.target,
+      {
         kind: input.kind,
-        status: 'running',
-        inputHash,
-        model: input.model ?? null,
-      })
-      .returning()
-    const run = inserted[0]
-    if (!run) throw new AppError('创建分析任务失败', 500, 'WECHAT_ANALYZE_CREATE_FAILED')
-
-    try {
-      const { result, model, tokens } = await analyzeMessages(
-        input.kind,
-        conversation?.title ?? null,
-        messages,
-      )
-      const updated = await db
-        .update(wechatHubAnalysisRuns)
-        .set({
-          status: 'success',
-          result,
-          model: input.model ?? model,
-          tokens,
-          completedAt: new Date(),
-        })
-        .where(eq(wechatHubAnalysisRuns.id, run.id))
-        .returning()
-      const done = updated[0] ?? run
-      await this.writeAction(
-        row.id,
-        userId,
-        'analysis.run',
-        conversation?.platformChatId ?? null,
-        {
-          kind: input.kind,
-          messageCount: messages.length,
-          model: input.model ?? model,
-        },
-        'success',
-      )
-      return toAnalysisView(done)
-    } catch (e) {
-      const message = e instanceof Error ? e.message : '分析失败'
-      await db
-        .update(wechatHubAnalysisRuns)
-        .set({ status: 'failed', error: message, completedAt: new Date() })
-        .where(eq(wechatHubAnalysisRuns.id, run.id))
-      await this.writeAction(
-        row.id,
-        userId,
-        'analysis.run',
-        conversation?.platformChatId ?? null,
-        {
-          kind: input.kind,
-          messageCount: messages.length,
-          error: message,
-        },
-        'failed',
-      )
-      const failed = { ...run, status: 'failed' as const, error: message }
-      return toAnalysisView(failed)
-    }
+        messageCount: outcome.messageCount,
+        model: outcome.view.model,
+        ...(failed ? { error: outcome.view.error } : {}),
+      },
+      failed ? 'failed' : 'success',
+    )
+    return outcome.view
   }
 
   async handleBridgeWebhook(
@@ -546,6 +418,106 @@ export class WechatHubManager {
       await this.ingestEvent(accountId, event)
     }
     return events.length
+  }
+
+  // ===== 日报调度 =====
+
+  /** 进程内调度；重复调用无副作用。API 启动时挂一次即可。 */
+  startSchedulers(): void {
+    if (this.digestTimer) return
+    this.digestTimer = setInterval(() => {
+      void this.runDueDigests()
+    }, 30_000)
+    this.digestTimer.unref()
+    void this.runDueDigests()
+  }
+
+  stopSchedulers(): void {
+    if (!this.digestTimer) return
+    clearInterval(this.digestTimer)
+    this.digestTimer = null
+  }
+
+  async runDigestNow(userId: string, accountId: string): Promise<WechatDigestScheduleView> {
+    const row = await this.assertAccount(userId, accountId)
+    const marked = await markRunning(accountId, new Date(), false)
+    if (!marked) throw new AppError('日报计划尚未保存', 404, 'WECHAT_DIGEST_NOT_CONFIGURED')
+    return this.executeDigest(row.id, row.userId, row.label)
+  }
+
+  private async runDueDigests(): Promise<void> {
+    try {
+      const accountIds = await claimDueSchedules()
+      for (const accountId of accountIds) {
+        const rows = await dbRead
+          .select({
+            id: wechatHubAccounts.id,
+            userId: wechatHubAccounts.userId,
+            label: wechatHubAccounts.label,
+          })
+          .from(wechatHubAccounts)
+          .where(eq(wechatHubAccounts.id, accountId))
+          .limit(1)
+        const row = rows[0]
+        if (!row) {
+          await markResult(accountId, 'failed', '账号不存在')
+          continue
+        }
+        await this.executeDigest(row.id, row.userId, row.label)
+      }
+    } catch (e) {
+      logger.warn('[wechat-hub] 日报调度失败', {
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+
+  private async executeDigest(
+    accountId: string,
+    userId: string,
+    label: string,
+  ): Promise<WechatDigestScheduleView> {
+    const schedule = await getSchedule(userId, accountId)
+    if (!schedule) {
+      await markResult(accountId, 'failed', '日报计划不存在')
+      throw new AppError('日报计划尚未保存', 404, 'WECHAT_DIGEST_NOT_CONFIGURED')
+    }
+    try {
+      const run = await this.analyze(userId, { accountId, kind: 'daily', limit: 500, force: true })
+      if (run.status !== 'success' || !run.result) {
+        throw new AppError(run.error ?? '日报分析失败', 500, 'WECHAT_DIGEST_ANALYZE_FAILED')
+      }
+      const text = formatDigestText(label, run)
+      let status = 'generated'
+      let target: string | null = null
+      if (schedule.target) {
+        target = schedule.target
+        const sent = await this.send(userId, { accountId, target, kind: 'text', text })
+        status = sent.ok ? 'sent' : 'failed'
+      }
+      await markResult(accountId, status, null)
+      await this.writeAction(
+        accountId,
+        userId,
+        'analysis.digest',
+        target,
+        { runId: run.id, target, status, messageCount: run.result.stats.messageCount },
+        status === 'failed' ? 'failed' : 'success',
+      )
+      return (await getSchedule(userId, accountId)) ?? schedule
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '日报执行失败'
+      await markResult(accountId, 'failed', message)
+      await this.writeAction(
+        accountId,
+        userId,
+        'analysis.digest',
+        null,
+        { error: message },
+        'failed',
+      )
+      throw e
+    }
   }
 
   // ===== 入站管道 =====
@@ -579,11 +551,48 @@ export class WechatHubManager {
         updatedAt: new Date(),
       })
       .where(eq(wechatHubConversations.id, conversationId))
+    await recordInboundContact(accountId, event)
+    await syncGroupMembers(accountId, conversationId, event)
+    void this.handleAutoReply(accountId, event)
     logger.debug('[wechat-hub] 入站消息入库', {
       accountId,
       conversationId,
       messageId: event.platformMessageId,
     })
+  }
+
+  private async handleAutoReply(accountId: string, event: WechatInboundEvent): Promise<void> {
+    try {
+      const rows = await dbRead
+        .select({ userId: wechatHubAccounts.userId })
+        .from(wechatHubAccounts)
+        .where(eq(wechatHubAccounts.id, accountId))
+        .limit(1)
+      const userId = rows[0]?.userId
+      if (!userId) return
+      const outcome = await runAutoReply(userId, accountId, event, (input) =>
+        this.send(userId, input),
+      )
+      if (!outcome) return
+      await this.writeAction(
+        accountId,
+        userId,
+        'message.auto_reply',
+        event.platformChatId,
+        {
+          ruleId: outcome.rule.id,
+          ruleName: outcome.rule.name,
+          status: outcome.result.status,
+          platformMessageId: outcome.result.platformMessageId,
+        },
+        outcome.result.ok ? 'success' : 'failed',
+      )
+    } catch (e) {
+      logger.warn('[wechat-hub] 自动回复失败', {
+        accountId,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
   }
 
   private async upsertConversation(accountId: string, event: WechatInboundEvent): Promise<string> {
@@ -752,33 +761,7 @@ export class WechatHubManager {
   // ===== 查询辅助 =====
 
   private async assertAccount(userId: string, accountId: string): Promise<AccountRow> {
-    const rows = await dbRead
-      .select()
-      .from(wechatHubAccounts)
-      .where(and(eq(wechatHubAccounts.id, accountId), eq(wechatHubAccounts.userId, userId)))
-      .limit(1)
-    const row = rows[0]
-    if (!row) throw new AppError('微信账号不存在', 404, 'WECHAT_ACCOUNT_NOT_FOUND')
-    return row
-  }
-
-  private async assertConversation(
-    accountId: string,
-    conversationId: string,
-  ): Promise<ConversationRow> {
-    const rows = await dbRead
-      .select()
-      .from(wechatHubConversations)
-      .where(
-        and(
-          eq(wechatHubConversations.id, conversationId),
-          eq(wechatHubConversations.accountId, accountId),
-        ),
-      )
-      .limit(1)
-    const row = rows[0]
-    if (!row) throw new AppError('会话不存在', 404, 'WECHAT_CONVERSATION_NOT_FOUND')
-    return row
+    return assertAccountForUser(userId, accountId)
   }
 
   private async writeAction(

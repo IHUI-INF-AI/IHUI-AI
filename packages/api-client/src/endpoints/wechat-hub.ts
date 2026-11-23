@@ -18,8 +18,15 @@ import type {
   WechatActionLogView,
   WechatAnalysisKind,
   WechatAnalysisRunView,
+  WechatAutoReplyRuleInput,
+  WechatAutoReplyRuleView,
   WechatBackendCapability,
+  WechatContactUpdateInput,
+  WechatContactView,
   WechatConversationView,
+  WechatDigestScheduleInput,
+  WechatDigestScheduleView,
+  WechatGroupMemberView,
   WechatMcpTool,
   WechatMessageView,
   WechatQrCodeView,
@@ -204,6 +211,132 @@ export async function callWechatMcpTool(
     body: JSON.stringify({ name, arguments: args }),
   })
   if (!res.success) throw new Error(res.error || '调用微信 MCP 工具失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/contacts */
+export async function fetchWechatContacts(
+  accountId: string,
+  query = '',
+): Promise<WechatContactView[]> {
+  const params = new URLSearchParams()
+  if (query.trim()) params.set('query', query.trim())
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetchApi<WechatContactView[]>(
+    `/wechat-hub/accounts/${accountId}/contacts${suffix}`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取微信联系人失败')
+  return res.data ?? []
+}
+
+/** PATCH /api/wechat-hub/accounts/:id/contacts/:contactId */
+export async function updateWechatContact(
+  accountId: string,
+  contactId: string,
+  patch: WechatContactUpdateInput,
+): Promise<WechatContactView> {
+  const res = await fetchApi<WechatContactView>(
+    `/wechat-hub/accounts/${accountId}/contacts/${contactId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
+  if (!res.success) throw new Error(res.error || '保存微信联系人失败')
+  return res.data
+}
+
+/** GET /api/wechat-hub/accounts/:id/conversations/:conversationId/members */
+export async function fetchWechatGroupMembers(
+  accountId: string,
+  conversationId: string,
+): Promise<WechatGroupMemberView[]> {
+  const res = await fetchApi<WechatGroupMemberView[]>(
+    `/wechat-hub/accounts/${accountId}/conversations/${conversationId}/members`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取群成员失败')
+  return res.data ?? []
+}
+
+/** GET /api/wechat-hub/accounts/:id/auto-reply-rules */
+export async function fetchWechatAutoReplyRules(
+  accountId: string,
+): Promise<WechatAutoReplyRuleView[]> {
+  const res = await fetchApi<WechatAutoReplyRuleView[]>(
+    `/wechat-hub/accounts/${accountId}/auto-reply-rules`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取自动回复规则失败')
+  return res.data ?? []
+}
+
+/** POST /api/wechat-hub/accounts/:id/auto-reply-rules */
+export async function createWechatAutoReplyRule(
+  accountId: string,
+  input: WechatAutoReplyRuleInput,
+): Promise<WechatAutoReplyRuleView> {
+  const res = await fetchApi<WechatAutoReplyRuleView>(
+    `/wechat-hub/accounts/${accountId}/auto-reply-rules`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '创建自动回复规则失败')
+  return res.data
+}
+
+/** PATCH /api/wechat-hub/accounts/:id/auto-reply-rules/:ruleId */
+export async function updateWechatAutoReplyRule(
+  accountId: string,
+  ruleId: string,
+  input: WechatAutoReplyRuleInput,
+): Promise<WechatAutoReplyRuleView> {
+  const res = await fetchApi<WechatAutoReplyRuleView>(
+    `/wechat-hub/accounts/${accountId}/auto-reply-rules/${ruleId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '更新自动回复规则失败')
+  return res.data
+}
+
+/** DELETE /api/wechat-hub/accounts/:id/auto-reply-rules/:ruleId */
+export async function deleteWechatAutoReplyRule(accountId: string, ruleId: string): Promise<void> {
+  const res = await fetchApi<{ deleted: boolean }>(
+    `/wechat-hub/accounts/${accountId}/auto-reply-rules/${ruleId}`,
+    { method: 'DELETE' },
+  )
+  if (!res.success) throw new Error(res.error || '删除自动回复规则失败')
+}
+
+/** GET /api/wechat-hub/accounts/:id/digest-schedule */
+export async function fetchWechatDigestSchedule(
+  accountId: string,
+): Promise<WechatDigestScheduleView | null> {
+  const res = await fetchApi<WechatDigestScheduleView | null>(
+    `/wechat-hub/accounts/${accountId}/digest-schedule`,
+    { method: 'GET' },
+  )
+  if (!res.success) throw new Error(res.error || '获取日报计划失败')
+  return res.data ?? null
+}
+
+/** PUT /api/wechat-hub/accounts/:id/digest-schedule */
+export async function saveWechatDigestSchedule(
+  accountId: string,
+  input: WechatDigestScheduleInput,
+): Promise<WechatDigestScheduleView> {
+  const res = await fetchApi<WechatDigestScheduleView>(
+    `/wechat-hub/accounts/${accountId}/digest-schedule`,
+    { method: 'PUT', body: JSON.stringify(input) },
+  )
+  if (!res.success) throw new Error(res.error || '保存日报计划失败')
+  return res.data
+}
+
+/** POST /api/wechat-hub/accounts/:id/digest-schedule/run */
+export async function runWechatDigest(accountId: string): Promise<WechatDigestScheduleView> {
+  const res = await fetchApi<WechatDigestScheduleView>(
+    `/wechat-hub/accounts/${accountId}/digest-schedule/run`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+  if (!res.success) throw new Error(res.error || '执行日报失败')
   return res.data
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,18 +11,24 @@
  *  3. /wechat-hub/send|analyze            主动动作与 AI 分析
  *  4. /wechat-hub/mcp/**                  MCP 工具清单与统一调用
  *
+ * 联系人/群成员/自动回复/日报计划在 wechat-hub-automation.ts 单独注册。
+ *
  * 另有 /wechat-hub/webhook/:accountId 供本地桥推送入站消息，走账号级 secret 验签，不要求登录。
  *
  * 鉴权：除 webhook 外全部要求登录；数据按 request.userId 隔离。
  */
 
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { WechatMcpTool } from '@ihui/types'
 import { checkAuth } from '../plugins/auth.js'
-import { AppError, isAppError } from '../errors/AppError.js'
-import { error, parseOrThrow, success } from '../utils/response.js'
+import { AppError } from '../errors/AppError.js'
+import { parseOrThrow, success } from '../utils/response.js'
 import { wechatHubManager } from '../services/wechat-hub/manager.js'
+import { listContacts, listGroupMembers } from '../services/wechat-hub/contacts.js'
+import { listRules } from '../services/wechat-hub/automation.js'
+import { getSchedule } from '../services/wechat-hub/digest.js'
+import { answerError, requireUserId } from './wechat-hub-route-utils.js'
 
 const backendSchema = z.enum(['ilink', 'bridge', 'mock'])
 const kindSchema = z.enum(['text', 'image', 'voice', 'video', 'file', 'link', 'card'])
@@ -61,6 +67,7 @@ const sendSchema = z.object({
     .max(2048)
     .optional(),
   replyToMessageId: z.string().max(255).optional(),
+  mentions: z.array(z.string().min(1).max(255)).max(50).optional(),
   dryRun: z.boolean().optional(),
 })
 
@@ -189,21 +196,49 @@ const MCP_TOOLS: WechatMcpTool[] = [
       required: ['accountId'],
     },
   },
+  {
+    name: 'wechat_list_contacts',
+    description: '列出指定账号的联系人（入站发送者自动归档，可按昵称/备注/微信号搜索）。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        query: { type: 'string' },
+      },
+      required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_list_group_members',
+    description: '列出指定群聊的成员快照（仅 bridge 后端同步过成员的群可用）。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        accountId: { type: 'string' },
+        conversationId: { type: 'string' },
+      },
+      required: ['accountId', 'conversationId'],
+    },
+  },
+  {
+    name: 'wechat_list_auto_reply_rules',
+    description: '列出指定账号的自动回复规则与启用状态。',
+    inputSchema: {
+      type: 'object',
+      properties: { accountId: { type: 'string' } },
+      required: ['accountId'],
+    },
+  },
+  {
+    name: 'wechat_get_digest_schedule',
+    description: '读取指定账号的日报计划（启用状态/执行时间/推送目标/上次结果）。',
+    inputSchema: {
+      type: 'object',
+      properties: { accountId: { type: 'string' } },
+      required: ['accountId'],
+    },
+  },
 ]
-
-function answerError(reply: FastifyReply, e: unknown): FastifyReply {
-  if (isAppError(e)) {
-    return reply.status(e.statusCode).send(error(e.statusCode, e.message, e.errorCode))
-  }
-  const message = e instanceof Error ? e.message : '微信智联服务异常'
-  return reply.status(500).send(error(500, message, 'WECHAT_HUB_INTERNAL_ERROR'))
-}
-
-function requireUserId(request: FastifyRequest): string {
-  const userId = request.userId
-  if (!userId) throw new AppError('未登录', 401, 'WECHAT_UNAUTHORIZED')
-  return userId
-}
 
 function readArg(args: Record<string, unknown>, key: string): string {
   const value = args[key]
@@ -229,6 +264,8 @@ function readOptionalNumber(
 }
 
 export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
+  wechatHubManager.startSchedulers()
+
   server.get('/wechat-hub/capabilities', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     return reply.send(success(wechatHubManager.getCapabilities()))
@@ -529,6 +566,24 @@ export const wechatHubRoutes: FastifyPluginAsync = async (server) => {
               ),
             ),
           )
+        }
+        case 'wechat_list_contacts': {
+          const accountId = readArg(args, 'accountId')
+          const query = typeof args.query === 'string' ? args.query : ''
+          return reply.send(success(await listContacts(userId, accountId, query)))
+        }
+        case 'wechat_list_group_members': {
+          const accountId = readArg(args, 'accountId')
+          const conversationId = readArg(args, 'conversationId')
+          return reply.send(success(await listGroupMembers(userId, accountId, conversationId)))
+        }
+        case 'wechat_list_auto_reply_rules': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(success(await listRules(userId, accountId)))
+        }
+        case 'wechat_get_digest_schedule': {
+          const accountId = readArg(args, 'accountId')
+          return reply.send(success(await getSchedule(userId, accountId)))
         }
         default:
           throw new AppError(`未知 MCP 工具：${body.name}`, 404, 'WECHAT_MCP_TOOL_UNKNOWN')

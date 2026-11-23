@@ -125,6 +125,96 @@ export interface WechatMessageView {
   rawPayload: Record<string, unknown>
 }
 
+/** 联系人（入站发送者自动归档，本地可维护备注/标签/拉黑） */
+export interface WechatContactView {
+  id: string
+  accountId: string
+  platformUserId: string
+  displayName: string
+  remark: string
+  tags: string[]
+  blocked: boolean
+  lastSeenAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** 联系人本地维护入参 */
+export interface WechatContactUpdateInput {
+  remark?: string
+  tags?: string[]
+  blocked?: boolean
+}
+
+/** 群成员 */
+export interface WechatGroupMemberView {
+  id: string
+  accountId: string
+  conversationId: string
+  memberId: string
+  nickname: string
+  role: 'owner' | 'admin' | 'member' | string
+  updatedAt: string
+}
+
+/** 自动回复匹配方式 */
+export type WechatAutoReplyMatchType = 'contains' | 'exact' | 'prefix'
+
+/** 自动回复作用域 */
+export type WechatAutoReplyScope = 'all' | 'private' | 'group'
+
+/** 自动回复规则 */
+export interface WechatAutoReplyRuleView {
+  id: string
+  accountId: string
+  name: string
+  enabled: boolean
+  matchType: WechatAutoReplyMatchType
+  keywords: string[]
+  replyText: string
+  scope: WechatAutoReplyScope
+  cooldownSeconds: number
+  lastTriggeredAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** 自动回复规则入参（创建/更新共用；更新时全部可选） */
+export interface WechatAutoReplyRuleInput {
+  name?: string
+  enabled?: boolean
+  matchType?: WechatAutoReplyMatchType
+  keywords?: string[]
+  replyText?: string
+  scope?: WechatAutoReplyScope
+  cooldownSeconds?: number
+}
+
+/** 日报计划 */
+export interface WechatDigestScheduleView {
+  id: string
+  accountId: string
+  enabled: boolean
+  hour: number
+  minute: number
+  timezone: string
+  target: string
+  lastRunAt: string | null
+  lastStatus: string | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** 日报计划入参 */
+export interface WechatDigestScheduleInput {
+  enabled?: boolean
+  hour?: number
+  minute?: number
+  timezone?: string
+  target?: string
+}
+
 /** 发送入参 */
 export interface WechatSendInput {
   accountId: string
@@ -135,6 +225,8 @@ export interface WechatSendInput {
   mediaUrl?: string
   /** 引用回复 */
   replyToMessageId?: string
+  /** 群聊 @ 成员（bridge 后端透传；iLink 不支持群聊） */
+  mentions?: string[]
   /** 只走策略校验与审计，不真正投递 */
   dryRun?: boolean
 }

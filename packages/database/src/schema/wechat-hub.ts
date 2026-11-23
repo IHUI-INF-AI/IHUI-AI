@@ -208,6 +208,133 @@ export const wechatHubActionLogs = pgTable(
   }),
 )
 
+/**
+ * 联系人表（2026-11-23 P0 增补）。
+ * 入站消息的发送者自动归档；remark/tags/blocked 是用户维护的本地字段，
+ * 不回写平台。群成员另表存，避免把几百人塞进 metadata。
+ */
+export const wechatHubContacts = pgTable(
+  'wechat_hub_contacts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .references(() => wechatHubAccounts.id, { onDelete: 'cascade' })
+      .notNull(),
+    platformUserId: varchar('platform_user_id', { length: 255 }).notNull(),
+    displayName: varchar('display_name', { length: 255 }).default('').notNull(),
+    remark: varchar('remark', { length: 255 }).default('').notNull(),
+    tags: jsonb('tags').default([]).notNull(),
+    blocked: boolean('blocked').default(false).notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    metadata: jsonb('metadata').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    accountContactUniq: uniqueIndex('wechat_hub_contacts_account_user_uniq').on(
+      t.accountId,
+      t.platformUserId,
+    ),
+    accountLastSeenIdx: index('wechat_hub_contacts_account_last_seen_idx').on(
+      t.accountId,
+      t.lastSeenAt,
+    ),
+  }),
+)
+
+/**
+ * 群成员表：桥后端推送 group members 时同步；iLink 不支持群。
+ * role: owner/admin/member；未知角色统一落 member。
+ */
+export const wechatHubGroupMembers = pgTable(
+  'wechat_hub_group_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .references(() => wechatHubAccounts.id, { onDelete: 'cascade' })
+      .notNull(),
+    conversationId: uuid('conversation_id')
+      .references(() => wechatHubConversations.id, { onDelete: 'cascade' })
+      .notNull(),
+    memberId: varchar('member_id', { length: 255 }).notNull(),
+    nickname: varchar('nickname', { length: 255 }).default('').notNull(),
+    role: varchar('role', { length: 16 }).default('member').notNull(),
+    metadata: jsonb('metadata').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    groupMemberUniq: uniqueIndex('wechat_hub_group_members_conv_member_uniq').on(
+      t.accountId,
+      t.conversationId,
+      t.memberId,
+    ),
+    conversationIdx: index('wechat_hub_group_members_conversation_idx').on(t.conversationId),
+  }),
+)
+
+/**
+ * 自动回复规则（2026-11-23 P0 增补）。
+ * 默认关闭；只对入站消息触发，命中后走上游同一套出站策略与审计。
+ * matchType: contains / exact / prefix；keywords 任一命中即可。
+ */
+export const wechatHubAutoReplyRules = pgTable(
+  'wechat_hub_auto_reply_rules',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .references(() => wechatHubAccounts.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 120 }).notNull(),
+    enabled: boolean('enabled').default(false).notNull(),
+    matchType: varchar('match_type', { length: 16 }).default('contains').notNull(),
+    keywords: jsonb('keywords').default([]).notNull(),
+    replyText: text('reply_text').default('').notNull(),
+    scope: varchar('scope', { length: 16 }).default('all').notNull(),
+    cooldownSeconds: integer('cooldown_seconds').default(0).notNull(),
+    lastTriggeredAt: timestamp('last_triggered_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    accountEnabledIdx: index('wechat_hub_auto_reply_account_enabled_idx').on(
+      t.accountId,
+      t.enabled,
+    ),
+  }),
+)
+
+/**
+ * 日报计划（2026-11-23 P0 增补）。
+ * 进程内调度（非 Windows 计划任务）：每分钟检查一次，按 timezone 的 hour/minute
+ * 判断当天是否已跑；lastRunAt 同时作为跨实例抢占闸。
+ */
+export const wechatHubDigestSchedules = pgTable(
+  'wechat_hub_digest_schedules',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accountId: uuid('account_id')
+      .references(() => wechatHubAccounts.id, { onDelete: 'cascade' })
+      .notNull(),
+    enabled: boolean('enabled').default(false).notNull(),
+    hour: integer('hour').default(9).notNull(),
+    minute: integer('minute').default(0).notNull(),
+    timezone: varchar('timezone', { length: 64 }).default('Asia/Shanghai').notNull(),
+    /** 推送目标；为空时只生成日报不发送 */
+    target: varchar('target', { length: 255 }).default('').notNull(),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    /** 本地时区日期 YYYY-MM-DD，作为"今天已跑"的抢占闸 */
+    lastRunDay: varchar('last_run_day', { length: 10 }),
+    lastStatus: varchar('last_status', { length: 24 }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    accountUniq: uniqueIndex('wechat_hub_digest_schedules_account_uniq').on(t.accountId),
+  }),
+)
+
 export type WechatHubAccount = typeof wechatHubAccounts.$inferSelect
 export type NewWechatHubAccount = typeof wechatHubAccounts.$inferInsert
 export type WechatHubConversation = typeof wechatHubConversations.$inferSelect
@@ -218,4 +345,12 @@ export type WechatHubAnalysisRun = typeof wechatHubAnalysisRuns.$inferSelect
 export type NewWechatHubAnalysisRun = typeof wechatHubAnalysisRuns.$inferInsert
 export type WechatHubActionLog = typeof wechatHubActionLogs.$inferSelect
 export type NewWechatHubActionLog = typeof wechatHubActionLogs.$inferInsert
+export type WechatHubContact = typeof wechatHubContacts.$inferSelect
+export type NewWechatHubContact = typeof wechatHubContacts.$inferInsert
+export type WechatHubGroupMember = typeof wechatHubGroupMembers.$inferSelect
+export type NewWechatHubGroupMember = typeof wechatHubGroupMembers.$inferInsert
+export type WechatHubAutoReplyRule = typeof wechatHubAutoReplyRules.$inferSelect
+export type NewWechatHubAutoReplyRule = typeof wechatHubAutoReplyRules.$inferInsert
+export type WechatHubDigestSchedule = typeof wechatHubDigestSchedules.$inferSelect
+export type NewWechatHubDigestSchedule = typeof wechatHubDigestSchedules.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

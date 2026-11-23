@@ -112,6 +112,36 @@ function parseSentAt(record: JsonRecord): Date {
   return new Date()
 }
 
+function parseGroupMembers(
+  root: JsonRecord,
+  record: JsonRecord,
+): WechatInboundEvent['groupMembers'] {
+  const raw = [...asArray(root.members), ...asArray(root.groupMembers), ...asArray(record.members)]
+  const members: NonNullable<WechatInboundEvent['groupMembers']> = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (typeof item === 'string' && item.length > 0) {
+      if (!seen.has(item)) {
+        seen.add(item)
+        members.push({ memberId: item, nickname: '', role: 'member' })
+      }
+      continue
+    }
+    const member = asRecord(item)
+    if (!member) continue
+    const memberId = firstString(member, ['memberId', 'member_id', 'wxid', 'id', 'userId'])
+    if (!memberId || seen.has(memberId)) continue
+    seen.add(memberId)
+    const roleValue = firstString(member, ['role', 'memberRole'])?.toLowerCase()
+    members.push({
+      memberId,
+      nickname: firstString(member, ['nickname', 'name', 'displayName', 'remark']) ?? '',
+      role: roleValue === 'owner' || roleValue === 'admin' ? roleValue : 'member',
+    })
+  }
+  return members.length > 0 ? members : undefined
+}
+
 /**
  * 把桥的任意 payload 归一化成入站事件。
  * 支持三种常见形状：单条消息、{ messages: [] }、{ data: [] }。
@@ -172,6 +202,7 @@ export function normalizeBridgePayload(payload: unknown): WechatInboundEvent[] {
       content,
       mediaUrl,
       sentAt: parseSentAt(record),
+      groupMembers: isGroup ? parseGroupMembers(root, record) : undefined,
       raw: {
         source: 'bridge',
         type: kindValue ?? 'text',
@@ -250,21 +281,27 @@ export class BridgeAdapter implements WechatAdapter {
   async sendText(
     target: string,
     text: string,
-    _options?: WechatSendOptions,
+    options?: WechatSendOptions,
   ): Promise<WechatSendResult> {
-    return this.postSend({ target, type: 'text', text })
+    return this.postSend({
+      target,
+      type: 'text',
+      text,
+      ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
+    })
   }
 
   async sendMedia(
     target: string,
     media: WechatMediaInput,
-    _options?: WechatSendOptions,
+    options?: WechatSendOptions,
   ): Promise<WechatSendResult> {
     return this.postSend({
       target,
       type: media.kind,
       url: media.url,
       fileName: media.fileName ?? null,
+      ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
     })
   }
 

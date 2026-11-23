@@ -64,6 +64,7 @@ export default function SendPanel({ accountId }: { accountId: string }) {
   const [text, setText] = React.useState('')
   const [mediaUrl, setMediaUrl] = React.useState('')
   const [replyTo, setReplyTo] = React.useState('')
+  const [mentions, setMentions] = React.useState('')
   const [dryRun, setDryRun] = React.useState(false)
   const [result, setResult] = React.useState<WechatSendResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -83,6 +84,10 @@ export default function SendPanel({ accountId }: { accountId: string }) {
         mediaUrl:
           kind !== 'text' && kind !== 'link' && kind !== 'card' ? mediaUrl.trim() : undefined,
         replyToMessageId: replyTo.trim() || undefined,
+        mentions: mentions
+          .split(/[,，\s]+/)
+          .map((item) => item.trim())
+          .filter(Boolean),
         dryRun,
       }),
     onSuccess: (data) => setResult(data),
@@ -161,7 +166,7 @@ export default function SendPanel({ accountId }: { accountId: string }) {
             <p className="text-xs text-muted-foreground">{text.length} / 5000</p>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-3 min-[800px]:grid-cols-[1fr_auto]">
+        <div className="grid grid-cols-1 gap-3 min-[800px]:grid-cols-[1fr_1fr_auto]">
           <div className="space-y-1">
             <Label htmlFor="wechat-send-reply">引用回复的消息 ID（可选）</Label>
             <Input
@@ -169,6 +174,15 @@ export default function SendPanel({ accountId }: { accountId: string }) {
               value={replyTo}
               onChange={(e) => setReplyTo(e.target.value)}
               placeholder="platform_message_id"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="wechat-send-mentions">群 @ 成员（可选）</Label>
+            <Input
+              id="wechat-send-mentions"
+              value={mentions}
+              onChange={(e) => setMentions(e.target.value)}
+              placeholder="成员 id，逗号分隔（仅 bridge 群聊）"
             />
           </div>
           <div className="flex items-end gap-2 pb-1">

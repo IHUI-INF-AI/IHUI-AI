@@ -40,6 +40,12 @@ export interface WechatRuntimeAccount {
   allowlistEnabled: boolean
 }
 
+export interface WechatGroupMemberInput {
+  memberId: string
+  nickname: string
+  role: 'owner' | 'admin' | 'member' | string
+}
+
 /** 归一化后的入站消息 */
 export interface WechatInboundEvent {
   platformMessageId: string
@@ -52,6 +58,8 @@ export interface WechatInboundEvent {
   content: string
   mediaUrl: string | null
   sentAt: Date
+  /** 桥推送的群成员快照；iLink 私聊为空 */
+  groupMembers?: WechatGroupMemberInput[]
   /** 裁剪后的原始字段，用于排障；不要整包落库 */
   raw: Record<string, unknown>
   /** iLink 回复所需；桥后端可为空 */
@@ -62,6 +70,8 @@ export interface WechatSendOptions {
   /** iLink 回复所需的 context_token；不传则从账号联系人缓存里取 */
   contextToken?: string
   replyToMessageId?: string
+  /** 群聊 @ 成员；bridge 后端透传 */
+  mentions?: string[]
   /** 幂等键；同一 key 的重复调用由上层拦截 */
   idempotencyKey?: string
 }
