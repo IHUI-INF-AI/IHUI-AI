@@ -58,9 +58,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 16,
+      "count": 15,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)；2026-11-13 复核收紧:额度 18→16(门现值 diffCount=16,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)；2026-11-13 复核收紧:额度 18→16(门现值 diffCount=16,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口；2026-11-24 二度收紧 16→15:门 128 的 readGeometry 补上 min-*/max-* 四型后,原「仅 RN 40」消失(小程序把同值写在 min-h-* 类名里、判据读不到,是失明产物而非真分叉),现读 diffCount=15(onlyMiniapp 12 / onlyRn 3)"
     },
     {
       "component": "InputArea",

@@ -6,7 +6,12 @@ import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
+import {
+  VOICE_INPUT_BTN_MIN_HEIGHT_PX,
+  VOICE_INPUT_BTN_PAD_X_PX,
+  VOICE_INPUT_BTN_PAD_Y_PX,
+  VOICE_INPUT_RECORD_ROW_GAP_PX,
+} from '@ihui/shared/ui/voice-input-spec'
 import streamingRecognizer from '@/utils/streaming-recognizer'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { rpx } from '@/utils/rpx'
@@ -106,9 +111,18 @@ export default function VoiceInput({
   return (
     <View className="w-full">
       <View
-        className={`flex items-center justify-center min-h-12 rounded-sm px-4 py-3 ${
+        className={`flex items-center justify-center rounded-sm ${
           recording ? 'bg-[var(--color-danger-tint)]' : 'bg-muted'
         } ${disabled ? 'opacity-50' : ''}`}
+        style={{
+          // 盒高/内衬全部经 shared 单一源换算:原先 `min-h-12 px-4 py-3` 是类名自带数字,
+          // 与 RN 的 rnSpacing 各写一份(纵向 12 vs 8、最小高 48 vs 无),2026-11-24 收口。
+          minHeight: rpx(VOICE_INPUT_BTN_MIN_HEIGHT_PX * TARO_RPX_PER_PX),
+          paddingLeft: rpx(VOICE_INPUT_BTN_PAD_X_PX * TARO_RPX_PER_PX),
+          paddingRight: rpx(VOICE_INPUT_BTN_PAD_X_PX * TARO_RPX_PER_PX),
+          paddingTop: rpx(VOICE_INPUT_BTN_PAD_Y_PX * TARO_RPX_PER_PX),
+          paddingBottom: rpx(VOICE_INPUT_BTN_PAD_Y_PX * TARO_RPX_PER_PX),
+        }}
         onTouchStart={startRecord}
         onTouchEnd={stopRecord}
         onTouchCancel={cancelRecord}

@@ -319,7 +319,12 @@ export default function ModelConfigDialog({
                   样式走 modelConfigSysPromptBoxStyle(只给 minHeight,不给 height)。 */}
               <Textarea
                 className="w-full py-sm text-body bg-muted rounded-sm"
-                style={modelConfigSysPromptBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
+                style={{
+                  ...modelConfigSysPromptBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
+                  // 工厂内的 minHeight 对门 128 的 readGeometry 不可见(它不解析跨文件函数体),
+                  // 在被审文件里显式重挂一次才进读数面;值同源,不是第二份真相。
+                  minHeight: toUnit(MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX),
+                }}
                 placeholder="You are a helpful assistant"
                 value={config.systemPrompt || ''}
                 onInput={(e) => update({ systemPrompt: e.detail.value })}

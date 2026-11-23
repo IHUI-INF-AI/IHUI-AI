@@ -220,9 +220,9 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     }
   }
   for (const m of code.matchAll(
-    /(?:^|[\s"'`])(size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
+    /(?:^|[\s"'`])(size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|min-w|max-w|min-h|max-h|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
-    push(toPx(m[2], m[3], side), dimOfKey(m[1]))
+    push(toPx(m[2], m[3], side), dimOfKey(m[1].replace(/^(?:min|max)-/, '')))
   for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
     push(round(TW_SPACING_PX(Number(m[1]))), 'widthHeight')
   // 内联盒/留白的**刻度档**(非任意值形态):`px-3`/`py-2`/`gap-4`/`mt-2` … 一律 ×4 折 px。
@@ -232,10 +232,21 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     /(?:^|[\s"'`:](?:[a-z-]+:)?)(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space-x|space-y)-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
   ))
     push(round(TW_SPACING_PX(Number(m[2]))), dimOfKey(m[1]))
-  // 尾视里**不含 `/`**:`w-1/3` 这类分数宽度不是 px 档(旧写法把 `w-1` 折成 4px 喂进集合,
-  // 实测 ModelList 的骨架条 `w-1/3` 因此凭空多出一档"仅小程序 4")。
-  for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)([hw])-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
+  /**
+   * 尾视里**不含 `/`**:`w-1/3` 这类分数宽度不是 px 档(旧写法把 `w-1` 折成 4px 喂进集合,
+   * 实测 ModelList 的骨架条 `w-1/3` 因此凭空多出一档"仅小程序 4")。
+   *
+   * `min-*`/`max-*` 四型(2026-11-24 立):此前只认 `w-`/`h-`,于是 `min-h-12`/`min-w-[88rpx]`
+   * **整族在读数面之外** —— 账面表现不是少一个数,而是**凭空造出"仅另一端"的假分叉**
+   * (实测 InputArea「仅 RN 40」:小程序把同值写在 `min-h-*` 类名里,判据看不见)。
+   * 0 值只跳 `min-*`/`max-*` 那一半:它们是「取消限制」语义(`flex-1 min-w-0` 遍地);
+   * `w-0`/`h-0` **必须保留** —— 它们一直是旧口径里的真实档值,跳掉会让只写过 `w-0` 的文件
+   * 该维集合变空 ⇒ 整对从 judged 掉进 one-sided,判定面塌陷(实测 web↔RN widthHeight 94→10)。
+   */
+  for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)(min-h|max-h|min-w|max-w|[hw])-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g)) {
+    if (/^(?:min|max)-/.test(m[1]) && Number(m[2]) === 0) continue
     push(round(TW_SPACING_PX(Number(m[2]))), 'widthHeight')
+  }
   for (const m of code.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g))
     push(toPx(m[1], m[2], side), 'fontSize')
   for (const m of code.matchAll(/(?:^|[\s"'`])text-(xs|sm|base|lg|xl|2xl|3xl)(?=$|[\s"'`/:])/g))
