@@ -142,6 +142,20 @@ const MODEL_CONFIG_INPUT_HEIGHT_PX = 40
 export const MODEL_CONFIG_INPUT_PAD_X_PX = 14
 
 /**
+ * 系统提示词多行输入框的最小高 60。
+ *
+ * 收编前 RN 写 `<TextField multiline className="min-h-[60px]">`=60,而小程序这一处是**单行 `<Input>`** ——
+ * 那不是取值分叉而是**功能缺失**(系统提示词是长文本,单行装不下)。2026-11-23 小程序补齐为
+ * `<Textarea>`,两端同挂本档。
+ *
+ * ⚠️ 两端都必须写 `minHeight` **键**,不得写 `min-h-[60px]` 类名:跨端几何读数面(门 128 的
+ * `readGeometry`)只认 `w-`/`h-` 刻度档与 `minHeight` 这类键,`min-*`/`max-*` 整族**在读数面之外**
+ * (2026-11-23 实测:`min-w-[88rpx]`、`min-h-12` 等一律读不到)。写类名会让这一档对判据隐身,
+ * 账面凭空多一条"仅一端档"—— 而那条差异是判据的失明,不是两端的真实分叉。
+ */
+export const MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX = 60
+
+/**
  * 选项胶囊(比例 / 分辨率 / 帧数 / 音色)横向内衬 12:小程序 `px-3`=12 vs RN `px-2.5`=10 → 取大。
  * 两端把类名里的档位摘掉、改挂本档,免得一端改了另一端没改。
  */
@@ -259,6 +273,24 @@ export function modelConfigInputBoxStyle<U extends string | number>(
 ): { height: U; paddingLeft: U; paddingRight: U } {
   return {
     height: toUnit(MODEL_CONFIG_INPUT_HEIGHT_PX),
+    paddingLeft: toUnit(padX),
+    paddingRight: toUnit(padX),
+  }
+}
+
+/**
+ * 系统提示词**多行**输入框样式:最小高 + 左右内衬成对给出。
+ *
+ * 与 `modelConfigInputBoxStyle` 同族但**刻意不给 `height`** —— 多行框的高度必须由内容撑开,
+ * 写死 height 就把多行退化成单行高度(那正是小程序此前 `<Input>` 的表现)。
+ * 两端共用本出口,单方向改不动。
+ */
+export function modelConfigSysPromptBoxStyle<U extends string | number>(
+  padX: number,
+  toUnit: GeometryUnit<U>,
+): { minHeight: U; paddingLeft: U; paddingRight: U } {
+  return {
+    minHeight: toUnit(MODEL_CONFIG_SYS_PROMPT_MIN_HEIGHT_PX),
     paddingLeft: toUnit(padX),
     paddingRight: toUnit(padX),
   }
