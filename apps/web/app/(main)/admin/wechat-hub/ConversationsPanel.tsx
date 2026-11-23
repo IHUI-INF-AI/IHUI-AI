@@ -34,7 +34,8 @@ function MessageBubble({ message }: { message: WechatMessageView }) {
         )}
       >
         <p className="mb-1 text-xs opacity-80">
-          {message.senderName ?? message.senderId ?? '未知'} · {formatTime(message.sentAt)}
+          {outbound ? '我' : (message.senderName ?? message.senderId ?? '未知')} ·{' '}
+          {formatTime(message.sentAt)}
           {message.kind !== 'text' ? ` · ${message.kind}` : ''}
         </p>
         <p className="whitespace-pre-wrap break-words">{message.content || '(空消息)'}</p>

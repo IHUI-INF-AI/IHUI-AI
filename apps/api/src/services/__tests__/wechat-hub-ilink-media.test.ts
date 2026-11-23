@@ -10,12 +10,20 @@
 
 import { createDecipheriv } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { IlinkAdapter } from '../wechat-hub/ilink-adapter'
+import { IlinkAdapter, isIlinkPollTimeoutError } from '../wechat-hub/ilink-adapter'
 
 const MEDIA_BYTES = Buffer.from('fake-image-bytes-1234567890')
 
 afterEach(() => {
   vi.unstubAllGlobals()
+})
+
+describe('isIlinkPollTimeoutError', () => {
+  it('把长轮询超时识别为可重试边界，不写账号错误态', () => {
+    expect(isIlinkPollTimeoutError('The operation was aborted due to timeout')).toBe(true)
+    expect(isIlinkPollTimeoutError('TimeoutError: timeout')).toBe(true)
+    expect(isIlinkPollTimeoutError('iLink POST getupdates HTTP 401: unauthorized')).toBe(false)
+  })
 })
 
 describe('IlinkAdapter.sendMedia 协议', () => {

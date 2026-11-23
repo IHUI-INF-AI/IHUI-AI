@@ -42,8 +42,15 @@ const CHANNEL_VERSION = '2.4.10'
 const MAX_MEDIA_BYTES = 100 * 1024 * 1024
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000
 const QR_REFRESH_LIMIT = 3
-const POLL_TIMEOUT_MS = 40_000
+// getupdates 是长轮询（服务端约 hold 35–60s）。40s 会把"正常挂起"误判成超时，
+// 实测表现为账号在线但 error_message 恒为 The operation was aborted due to timeout。
+const POLL_TIMEOUT_MS = 65_000
 const TYPING_TICKET_TTL_MS = 9 * 60 * 1000
+
+/** 长轮询超时是正常边界，不应写账号错误态；单独导出便于钉住判定。 */
+export function isIlinkPollTimeoutError(message: string): boolean {
+  return /aborted|timeout/i.test(message)
+}
 
 type JsonRecord = Record<string, unknown>
 type ContactEntry = {
@@ -366,8 +373,17 @@ export class IlinkAdapter implements WechatAdapter {
           }
         }
       } catch (e) {
-        failures += 1
         const message = e instanceof Error ? e.message : String(e)
+        // 长轮询超时是正常边界（服务端挂起到点仍未回），重连即可，不能写入账号错误态。
+        if (isIlinkPollTimeoutError(message)) {
+          await this.ctx?.logger.warn(
+            { err: message },
+            '[wechat-hub/ilink] getupdates 长轮询超时，立即重试',
+          )
+          await sleep(1_000)
+          continue
+        }
+        failures += 1
         this.setStatus(failures >= 3 ? 'error' : 'online')
         await this.ctx?.onStatus(this.status, message)
         await sleep(Math.min(30_000, 2_000 * failures))

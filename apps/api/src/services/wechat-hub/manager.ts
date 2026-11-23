@@ -140,6 +140,28 @@ export class WechatHubManager {
     await db.delete(wechatHubAccounts).where(eq(wechatHubAccounts.id, row.id))
   }
 
+  /** 进程重启后把 DB 里仍标 online 的账号重新挂上，避免"显示在线但没长连接"。 */
+  async resumeOnlineAccounts(): Promise<void> {
+    const rows = await dbRead
+      .select()
+      .from(wechatHubAccounts)
+      .where(eq(wechatHubAccounts.status, 'online'))
+      .limit(50)
+    for (const row of rows) {
+      if (this.adapters.has(row.id)) continue
+      try {
+        await this.connectAccount(row.userId, row.id)
+        logger.info(`[wechat-hub] 已恢复在线账号 ${row.id} backend=${row.backend}`)
+      } catch (e) {
+        logger.warn(
+          `[wechat-hub] 恢复账号失败 ${row.id} backend=${row.backend} err=${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        )
+      }
+    }
+  }
+
   async connectAccount(userId: string, accountId: string): Promise<void> {
     if (this.connecting.has(accountId)) return
     this.connecting.add(accountId)
@@ -451,6 +473,7 @@ export class WechatHubManager {
     }, 30_000)
     this.digestTimer.unref()
     void this.runDueDigests()
+    void this.resumeOnlineAccounts()
   }
 
   stopSchedulers(): void {
