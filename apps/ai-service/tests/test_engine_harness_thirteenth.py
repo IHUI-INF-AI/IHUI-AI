@@ -210,12 +210,57 @@ async def test_turn_diff_carries_status_and_baseline(tmp_path):
     assert stats["tracked.txt"]["coarse"] is False
     assert stats["new_file.py"]["additions"] == 1
     assert stats["new_file.py"]["coarse"] is False
-    assert payload["baselineSource"] == "head"
+    assert payload["baselineSource"] == "turn-start-snapshot"
+    assert payload["baselineTree"]
     assert payload["baselineSha"]
+    assert payload["diffSource"] == "turn-snapshot"
     diff = payload["unifiedDiff"]
     assert "modified" in diff  # git diff 部分
     assert "a/new_file.py" in diff  # difflib 合成的新增文件部分
     assert payload["files"] == sorted(changes) or set(payload["files"]) == set(changes)
+
+
+@pytest.mark.asyncio
+async def test_turn_diff_snapshot_excludes_files_dirty_before_turn(tmp_path):
+    """轮前已脏但轮内没再动的文件不算本轮；轮内再改的只算增量。"""
+    _git_init(tmp_path)
+    (tmp_path / "tracked.txt").write_text("line1\npre-dirty\n", encoding="utf-8")
+    (tmp_path / "already-dirty.txt").write_text("dirty\n", encoding="utf-8")
+
+    async def mutate() -> None:
+        (tmp_path / "tracked.txt").write_text(
+            "line1\npre-dirty\nturn-line\n", encoding="utf-8"
+        )
+
+    engine = _engine(on_run=mutate)
+    collector = _Collector()
+    started = await engine.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "thread.start",
+            "params": {"workspace": str(tmp_path)},
+        },
+        emit=collector,
+    )
+    tid = started["result"]["threadId"]
+    resp = await engine.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "thread.prompt",
+            "params": {"threadId": tid, "input": "go"},
+        },
+        emit=collector,
+    )
+    assert "error" not in resp, resp
+    payload = collector.payloads("turn.diff")[-1]
+    by_path = {c["path"]: c for c in payload["changes"]}
+    assert "already-dirty.txt" not in by_path
+    assert by_path["tracked.txt"]["additions"] == 1
+    assert by_path["tracked.txt"]["deletions"] == 0
+    assert "already-dirty.txt" not in payload["unifiedDiff"]
+    assert "+turn-line" in payload["unifiedDiff"]
 
 
 @pytest.mark.asyncio

@@ -250,6 +250,15 @@ DSH `dsh-workspace-changes` 在每轮结束宣告 `workspace/changes`，摘要�
   - `_unmatched_command_decision_meta` 的未知档位不再 `.get(..., "on_request")` 静默折叠，改为返回空元数据（拦截行为仍由危险分类器负责）。
 - 测试：`test_patch_safety_56.py` 新增 deny 全条件满足仍 reject；`test_engine_harness_policies.py` 新增 deny 高危工具不执行 + `apply_patch` 四档映射；目标面 **27 passed in 15.64s**，`apply_patch` 历史 41 例 **41 passed in 1.55s**；`ruff check` 五文件全过。
 
+## 追加批：回合级工作树快照（turn-start tree → turn-end tree）
+
+上一批给 `turn.diff` 补了逐文件行数，但基线仍是「回合前后 git status 脏文件集合差」：轮前已脏、轮内又被别的工具改写的文件，路径在前后两个集合里都有，会被整条漏掉；轮前脏但轮内没动的文件又可能被 `git diff HEAD` 的正文带进来。对齐 `dsh-workspace-changes` 的回合快照语义，新增 `app/core/workspace_changes.py`：
+
+- `TurnWorkspaceSnapshot.start()`：用**独立临时 index + 临时 object 目录**执行 `git add -A --ignore-errors` 后 `write-tree`，得到回合开始 tree；不碰真实 index、不 commit、不 stash。工作区必须是仓库根（父仓库子目录直接降级，避免把工作区外的脏文件带进来）。
+- `finish()`：再写一棵结束 tree，`git diff --name-status/--numstat/--unified=3` 两棵树；只有两棵树真正不同的路径才进入变更集，`A/M/D`、`binary`、`coarse` 都带。文件数 >500 或正文 >2MB 截断并 `truncated=true`。
+- `agent_engine._run_prompt_turn`：回合开始 `await asyncio.to_thread(snapshot_turn_workspace, ...)`；回合结束先 `finish()` 再 `cleanup()`，有快照就以它为准，`turn.diff` 新增 `baselineTree`、`baselineSource="turn-start-snapshot"`、`diffSource="turn-snapshot"`；快照失败/非 git 自动回退既有 status 差集与 mtime 路径。回合异常也清理临时目录，下一轮开始再幂等清一次。
+- 测试：`test_workspace_changes.py` 4 例（轮前脏不混入且轮内增量精确、删除/二进制、无变化、非 git 降级）；`test_engine_harness_thirteenth.py` 新增端到端「轮前脏文件不算本轮」；目标面 **11 passed in 15.96s**；全量 turn.diff 相关五文件 **82 passed / 1 存量 flake**（`test_tool_retry_event_emitted` 的 `calls["n"]==0`，与本批无关）；`ruff check` 四文件全过，`mypy --follow-imports=skip` 对新模块零错误。
+
 ## 核实后的残余（不再列为待办）
 
 原报告曾把六项列为"仍缺"；逐项核实后，五项已有实现，一项无对象可迁：

@@ -789,6 +789,11 @@ class EngineThread:
     # 回合净 diff 跟踪器(2026-09-19 第四十一批接线,遵循统一工程规范):
     # 补丁提交时累计净变更,inexact 即整体失效;turn.diff 优先取净 diff
     turn_diff_tracker: Any = None
+    # 回合级工作树快照(对齐 DSH dsh-workspace-changes):回合开始/结束各写
+    # 一棵临时 tree,只把「本轮真正改动」的路径送进 turn.diff;轮前已脏的
+    # 文件不算本轮,轮前已脏且轮内再改的只算轮内增量。失败/非 git 为 None,
+    # 回退既有 status 差集与 mtime 快照。
+    turn_workspace_snapshot: Any | None = None
     # 批58(接线):retained context 宿主事实账本(遵循统一工程规范)。
     # 默认 None(off,零行为变化);IHUI_RETAINED_CONTEXT_ENABLED=1 时每轮记录
     # 已投递用户指令,压缩不过期它们,指令边界回滚才清除。
@@ -2940,6 +2945,19 @@ class AgentEngine:
                 scanned = self._scan_workspace(Path(thread.workspace))
                 if isinstance(scanned, dict):
                     before_snapshot = scanned
+        # 回合级 tree 快照:与 mtime 快照并行,git 工作区优先走它。写临时
+        # index/object,不碰真实 index;失败返回 None,下面自动回退。
+        if thread.turn_workspace_snapshot is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(thread.turn_workspace_snapshot.cleanup)
+            thread.turn_workspace_snapshot = None
+        if thread.workspace:
+            with contextlib.suppress(Exception):
+                from ..core.workspace_changes import snapshot_turn_workspace
+
+                thread.turn_workspace_snapshot = await asyncio.to_thread(
+                    snapshot_turn_workspace, thread.workspace
+                )
         thread.messages.append({"role": "user", "content": text})
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
@@ -2990,6 +3008,13 @@ class AgentEngine:
         try:
             result = await self._run_thread(thread, emit)
         except Exception as e:
+            # 回合异常也要收掉临时 index/object,避免临时目录与快照对象
+            # 一直挂在线程上；下一轮开始还会再做一次幂等清理。
+            _snapshot = thread.turn_workspace_snapshot
+            thread.turn_workspace_snapshot = None
+            if _snapshot is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.to_thread(_snapshot.cleanup)
             self._persist_turn_error(thread, turn_id, e)
             raise
         self._persist_turn_end(thread, turn_id, result)
@@ -3011,9 +3036,25 @@ class AgentEngine:
         # 新增变脏的工作区文件(git 工作区才有;非 git/无变化静默)。
         # 第十批升级:补齐 Codex TurnDiffEvent{unified_diff} 的 diff 正文语义。
         with contextlib.suppress(Exception):
+            # 先收回合级 tree 快照:它只包含本轮真正改动的路径,优先级高于
+            # 「回合前后 status 差集」(后者会漏掉轮前已脏、轮内再改的文件)。
+            _snapshot_set = None
+            _snapshot = thread.turn_workspace_snapshot
+            thread.turn_workspace_snapshot = None
+            if _snapshot is not None:
+                with contextlib.suppress(Exception):
+                    _snapshot_set = await asyncio.to_thread(_snapshot.finish)
+                with contextlib.suppress(Exception):
+                    await asyncio.to_thread(_snapshot.cleanup)
             after_files = await self._workspace_dirty_files(thread)
             after_status = await self._workspace_file_status(thread)
-            changed = sorted(after_files - before_files)
+            if _snapshot_set is not None and _snapshot_set.changes:
+                changed = [c.path for c in _snapshot_set.changes]
+                after_status = {
+                    c.path: c.status for c in _snapshot_set.changes
+                }
+            else:
+                changed = sorted(after_files - before_files)
             if changed:
                 tracked = [f for f in changed if after_status.get(f) != "A"]
                 added = [f for f in changed if after_status.get(f) == "A"]
@@ -3059,10 +3100,20 @@ class AgentEngine:
                 # 与 32k 截断正文分离 —— 截断只影响正文,不影响每文件的增删行数。
                 from ..core.turn_diff_tracker import diff_file_stats
 
-                _diff_text = _tracked_diff or unified_diff
-                _stat_by_path = {
-                    s.path: s for s in diff_file_stats(_diff_text)
-                }
+                _snapshot_changed = bool(
+                    _snapshot_set is not None and _snapshot_set.changes
+                )
+                if _snapshot_changed and _snapshot_set is not None:
+                    # 回合级 tree diff:正文与行数同源,轮前脏文件不混入。
+                    _diff_text = _snapshot_set.unified_diff
+                    _stat_by_path = {
+                        c.path: c for c in _snapshot_set.changes
+                    }
+                else:
+                    _diff_text = _tracked_diff or unified_diff
+                    _stat_by_path = {
+                        s.path: s for s in diff_file_stats(_diff_text)
+                    }
                 _changes: list[dict[str, Any]] = []
                 for p in changed[:50]:
                     _stat = _stat_by_path.get(p)
@@ -3083,14 +3134,33 @@ class AgentEngine:
                     {
                         "files": changed[:50],
                         "changes": _changes,
-                        "truncated": len(changed) > 50,
+                        "truncated": (
+                            _snapshot_set.truncated
+                            if _snapshot_changed and _snapshot_set is not None
+                            else len(changed) > 50
+                        ),
                         "unifiedDiff": _diff_text[:32_000],
                         "baselineSha": baseline_sha,
-                        "baselineSource": baseline_source,
-                        "diffSource": "turn_tracker" if _tracked_diff else "git",
+                        "baselineTree": (
+                            _snapshot_set.start_tree
+                            if _snapshot_changed and _snapshot_set is not None
+                            else None
+                        ),
+                        "baselineSource": (
+                            "turn-start-snapshot"
+                            if _snapshot_changed
+                            else baseline_source
+                        ),
+                        "diffSource": (
+                            "turn-snapshot"
+                            if _snapshot_changed
+                            else "turn_tracker"
+                            if _tracked_diff
+                            else "git"
+                        ),
                     },
                 )
-            elif before_snapshot and thread.workspace:
+            elif _snapshot_set is None and before_snapshot and thread.workspace:
                 # 非 git 工作区:mtime 快照比对(新增/删除/修改),新增文件给
                 # difflib 全文 diff;修改文件无基线内容,如实标注不伪造 diff
                 after_snapshot = self._scan_workspace(Path(thread.workspace))
