@@ -89,6 +89,8 @@ import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-querie
 // B02 第三切片(2026-10-25):resync 权威快照读(内容 + rev 同库同读,契约 §7 第 3 项)
 import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
+// 2026-11-23:标题纯文本净化的唯一实现在共享层(与入库/显示同源),本文件不重写规则
+import { plainTitleText } from '@ihui/shared'
 import { resolveAutoChatRoute } from '../services/chat-auto-resolve.js'
 // D35(2026-10-31):metadata 九类只回摘要 —— 投影判据的唯一实现在 @ihui/shared/chat
 // (九类清单 + 信封形态都在那里),本文件不重写一份键表。
@@ -2123,7 +2125,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
 
     if (fmt === 'md') {
-      const parts = [`# ${title}\n`]
+      const parts = [`# ${plainTitleText(title, 255) ?? sanitizeExportTitle(title)}\n`]
       for (const m of messages) {
         parts.push(`## ${m.role} - ${new Date(m.createdAt).toISOString()}\n\n${m.content}\n`)
       }
