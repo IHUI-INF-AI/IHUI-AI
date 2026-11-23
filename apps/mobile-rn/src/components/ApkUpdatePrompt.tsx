@@ -24,6 +24,7 @@
 import * as React from 'react'
 import { ActivityIndicator, Animated, StyleSheet, Text, View } from 'react-native'
 import { Download, X } from 'lucide-react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
@@ -74,6 +75,8 @@ export function ApkUpdatePromptView({
   onExited?: () => void
 }): React.JSX.Element | null {
   const { t } = useI18n()
+  // 2026-11-23:绝对定位浮层不吃父级 SafeAreaView 的 paddingTop,顶部横幅会压住状态栏。
+  const insets = useSafeAreaInsets()
 
   // 顶部下滑入场(2026-11-13):与 OTA 卡一致,从屏幕外上方滑入挂住顶部。
   // 必须放在条件 return 之前,否则触发 rules-of-hooks(钩子调用顺序不一致)。
@@ -130,7 +133,11 @@ export function ApkUpdatePromptView({
 
   return (
     <Animated.View
-      style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
+      style={[
+        styles.card,
+        { top: insets.top + rnSpacing.sm },
+        { transform: [{ translateY: slideAnim }] },
+      ]}
       onLayout={(e) => {
         cardH.current = e.nativeEvent.layout.height
       }}
@@ -247,11 +254,9 @@ const styles = StyleSheet.create({
     left: rnSpacing.lg,
     right: rnSpacing.lg,
     gap: rnSpacing.md,
-    padding: rnSpacing.lg,
+    padding: rnSpacing.md,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
     // 投影:更新提示浮层卡 → 档位 lg
     ...ELEVATION_STEPS.lg,
   },
@@ -264,7 +269,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: tokens.brandAccent.light,
   },
-  titleWrap: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
+  titleWrap: { flex: 1, minWidth: rnSpacing.none, gap: rnSpacing['2xs'] },
   title: { color: tokens.text.primary, fontSize: rnType.strong.size, fontWeight: '600' },
   body: { color: tokens.text.secondary, fontSize: rnType.label.size },
   closeBtn: {
@@ -276,7 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   track: {
-    height: 4,
+    height: rnSpacing.xs,
     borderRadius: rnRadius.xs,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
@@ -308,7 +313,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: rnSpacing.sm,
   },
-  hint: { flex: 1, minWidth: 0, color: tokens.text.medium, fontSize: rnType.caption.size },
+  hint: {
+    flex: 1,
+    minWidth: rnSpacing.none,
+    color: tokens.text.medium,
+    fontSize: rnType.caption.size,
+  },
   ghostBtn: {
     flexShrink: 0,
     alignItems: 'center',

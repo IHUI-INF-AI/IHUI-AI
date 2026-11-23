@@ -70,6 +70,40 @@ export function isErrorTurn(msg: ErrorAwareMessage | undefined | null): boolean 
 }
 
 /**
+ * 呈现层判据:这串"正文"其实是上游异常的原文(2026-11-23 立)。
+ *
+ * 立因:上游/网关把异常当**普通 content** 吐回来时(实测:openrouter 429 →
+ * `litellm.RateLimitError: ... Provider returned error ...`;缺 key 档 →
+ * `模型 X 对应的 provider API key 未配置…`),`error` 标记不会置位,端上就把一整段
+ * 异常原文当回答画进气泡 —— 用户看到的是白底黑字的报错堆栈。
+ *
+ * 边界:**只用于"怎么画",不改数据语义**。不并进 `isErrorTurn`:那条判据决定
+ * 该轮是否算回答、要不要持久化,拿文案猜会让"用户正在问 RateLimitError 是什么"
+ * 这种正常回答被丢掉。
+ * 只认**开头**的异常标识(前 160 字),正文里顺带提到不算;超长内容不判
+ * (真回答里的代码块可能贴到这些词)。
+ */
+export function looksLikeUpstreamErrorContent(content: string | undefined | null): boolean {
+  const text = (content ?? '').trim()
+  if (!text || text.length > 1200) return false
+  const head = text.slice(0, 160)
+  // ① 异常类名**带冒号**起头(异常串的形态);只写"RateLimitError 是指…"这种解释不算
+  if (/^(litellm\.|[A-Za-z.]*Error:|[A-Za-z.]*Exception:)/.test(head)) return true
+  // ② 服务端自己的缺 key 句(整段就是这句话,不是正文里的引用)
+  if (head.includes('对应的 provider API key 未配置')) return true
+  // ③ 直接是 JSON 错误体
+  if (/^\{"error"/.test(head)) return true
+  // ④ 上游网关串:Provider returned error + 4xx 码同时出现(单出现一个可能是正文在讨论)
+  if (head.includes('Provider returned error') && /"code":\s*4\d\d/.test(head)) return true
+  // ⑤ 端上自己合成的固定错误句(api-client 把网络类异常替换成这句后当 content 吐出,
+  //    形态与上游原文同类)。判据是「整段就是这一句」而非前缀匹配:用户正常回答里
+  //    "网络连接失败一般是 DNS 问题…" 不能因为开头相同就被画成失败壳。
+  const compact = text.replace(/\s+/g, '').replace(/，/g, ',')
+  if (/^网络连接失败,?请检查网络后重试[。！!]?$/.test(compact)) return true
+  return false
+}
+
+/**
  * 重发目标:最后一条 user 消息的文本;null 表示没有可重发的输入。
  *
  * 调用方据此隐藏重发动作,而不是发一条空消息出去(那会真打一次 API 并产生无意义回答)。
