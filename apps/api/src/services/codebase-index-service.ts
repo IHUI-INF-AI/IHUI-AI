@@ -26,7 +26,7 @@
 
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { codebaseChunks, codebaseIndexStates } from '@ihui/database'
+import { codebaseChunks, codebaseEntities, codebaseIndexStates } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
 import { logger } from '../utils/logger.js'
 
@@ -44,8 +44,7 @@ export interface ChunkInput {
 }
 
 /**
- * 索引配置指纹默认值(P0-8 第二批,2026-11-23)。
- *
+ * 索引配置指纹默认值(P0-8 第二批,2026-11-23)。 *
  * 语义:嵌入维度 / 切块策略 / 词表版本三者一起变才算"配置变了"。只在真正改动其中之一时
  * 才改这个常量(或经 `CODE_INDEX_CONFIG_FINGERPRINT` 显式覆盖);
  * 拿机器路径、时间戳之类会抖动的东西做指纹,会让每次调用都判"配置变了"。
@@ -56,6 +55,57 @@ export const CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT = 'v1536:tree-sitter-chunk-v1
 export function resolveIndexConfigFingerprint(env: NodeJS.ProcessEnv = process.env): string {
   const override = (env.CODE_INDEX_CONFIG_FINGERPRINT ?? '').trim()
   return override || CODE_INDEX_CONFIG_FINGERPRINT_DEFAULT
+}
+
+/** 实体草稿(派生结果,未落库):P0-8 第三批,把切片自带的符号身份聚合成实体行。 */
+export interface EntityDraft {
+  filePath: string
+  lineStart: number
+  lineEnd: number
+  kind: string
+  name: string
+}
+
+/**
+ * 纯函数:从切片派生实体(P0-8 第三批)。
+ *
+ * 为什么从切片派生而不另做解析:切片本身已带 `symbolName` / `symbolType`
+ * (由 ai-service 的 tree-sitter 切片器给出),再跑一遍符号解析就是第二份判据(§0.6)。
+ * 同一符号跨多个切片出现 ⇒ 合并成**一行**(行区间取 min..max),一个符号一条身份,
+ * 不因跨切片出现两次而在图里变成两个节点。
+ *
+ * 纪律:
+ * - 无 `symbolName` 的切片(纯行号切片的文件)不产出实体 —— 不拿文件名冒充符号;
+ * - `kind` 取 `symbolType`,缺省 `'symbol'`(不猜具体种类);
+ * - 输出按 `(filePath, lineStart, name)` 稳定排序,便于对账逐行比对。
+ */
+export function deriveEntitiesFromChunks(chunks: readonly ChunkInput[]): EntityDraft[] {
+  const merged = new Map<string, EntityDraft>()
+  for (const chunk of chunks) {
+    const name = (chunk.symbolName ?? '').trim()
+    if (!name) continue
+    const kind = (chunk.symbolType ?? '').trim() || 'symbol'
+    const key = `${chunk.filePath}\u0000${kind}\u0000${name}`
+    const prev = merged.get(key)
+    if (!prev) {
+      merged.set(key, {
+        filePath: chunk.filePath,
+        lineStart: chunk.lineStart,
+        lineEnd: chunk.lineEnd,
+        kind,
+        name,
+      })
+      continue
+    }
+    prev.lineStart = Math.min(prev.lineStart, chunk.lineStart)
+    prev.lineEnd = Math.max(prev.lineEnd, chunk.lineEnd)
+  }
+  return [...merged.values()].sort(
+    (a, b) =>
+      a.filePath.localeCompare(b.filePath) ||
+      a.lineStart - b.lineStart ||
+      a.name.localeCompare(b.name),
+  )
 }
 
 /** 一次索引状态的快照(`lastIndexedAtMs` 已转毫秒,避免调用方各自解析时间)。 */
@@ -200,6 +250,18 @@ function _ownerScope(ownerUuid: string | null | undefined) {
 }
 
 /**
+ * 实体表的归属谓词(P0-8 第三批)。
+ *
+ * 与 `_ownerScope` 同一条 fail-closed 纪律(无归属 ⇒ `1 = 0`,不返回任何行),
+ * 但**不能复用**它:那个谓词绑切片表的两列(`owner_uuid` + `expires_at`),
+ * 而实体表没有过期列 —— 直接套用会生成指向不存在列的 SQL。
+ */
+function _entityOwnerScope(ownerUuid: string | null | undefined) {
+  if (!ownerUuid) return sql`1 = 0`
+  return eq(codebaseEntities.ownerUuid, ownerUuid)
+}
+
+/**
  * 符号精确过滤档的取回上限(2026-11-06 Z36 立)。
  *
  * 为什么不能沿用 topK:本档的语义是「按符号名取回库内**全部**切片」,而 topK 的语义是
@@ -257,8 +319,10 @@ class CodebaseIndexService {
     vectorized: number
     /** G7:本批用本地回落档('local-hash')标注的行数 —— 离线/远端不可用的可识别痕迹 */
     localEmbedded: number
+    /** P0-8 第三批:本批写入的实体行数(同符号跨切片合并后)。 */
+    entities: number
   }> {
-    if (chunks.length === 0) return { indexed: 0, vectorized: 0, localEmbedded: 0 }
+    if (chunks.length === 0) return { indexed: 0, vectorized: 0, localEmbedded: 0, entities: 0 }
     // 归属强制在**任何 DB 操作之前**:本表存用户代码明文,写无主行等于制造一处
     // "归属不明但长期留存"的外泄面 —— 正是本次整改要消除的东西。存量无主行由
     // 迁移标记过期待清理,不在这里再造新的。缺 ownerUuid 即抛错(而非静默跳过),
@@ -332,7 +396,21 @@ class CodebaseIndexService {
       expiresAt,
     }))
 
+    // P0-8 第三批:实体行与切片**同一事务**写入。切片的幂等语义是「按 (归属, 仓库, 文件)
+    // 先删后插」,实体必须跟着同一粒度走 —— 否则 DELETE /repo/:repoId/files 只删切片时,
+    // 实体会留成"指向已不存在文件"的幽灵节点(且按名检索会持续命中)。
+    const entityRows = deriveEntitiesFromChunks(chunks).map((d) => ({
+      ownerUuid,
+      repoId,
+      filePath: d.filePath,
+      lineStart: d.lineStart,
+      lineEnd: d.lineEnd,
+      kind: d.kind,
+      name: d.name,
+    }))
+
     let indexed = 0
+    let entities = 0
     await db.transaction(async (tx) => {
       for (const filePath of filePaths) {
         await tx
@@ -344,6 +422,15 @@ class CodebaseIndexService {
               eq(codebaseChunks.filePath, filePath),
             ),
           )
+        await tx
+          .delete(codebaseEntities)
+          .where(
+            and(
+              _entityOwnerScope(ownerUuid),
+              eq(codebaseEntities.repoId, repoId),
+              eq(codebaseEntities.filePath, filePath),
+            ),
+          )
       }
 
       // 分批插入(每批 100 条,≤500 且远低于 PostgreSQL 单语句参数上限 65535)
@@ -352,6 +439,14 @@ class CodebaseIndexService {
         const batch = rows.slice(i, i + BATCH_SIZE)
         await tx.insert(codebaseChunks).values(batch)
         indexed += batch.length
+      }
+
+      // 实体行同样分批:同一文件先删后插,与切片同粒度;空批次直接跳过(不产生空 INSERT)。
+      for (let i = 0; i < entityRows.length; i += BATCH_SIZE) {
+        const batch = entityRows.slice(i, i + BATCH_SIZE)
+        if (batch.length === 0) continue
+        await tx.insert(codebaseEntities).values(batch)
+        entities += batch.length
       }
     })
 
@@ -370,7 +465,7 @@ class CodebaseIndexService {
         err: err instanceof Error ? err.message : String(err),
       })
     })
-    return { indexed, vectorized, localEmbedded }
+    return { indexed, vectorized, localEmbedded, entities }
   }
 
   /**
@@ -684,6 +779,10 @@ class CodebaseIndexService {
       .delete(codebaseChunks)
       .where(and(_ownerScope(ownerUuid), eq(codebaseChunks.repoId, repoId)))
       .returning({ id: codebaseChunks.id })
+    // P0-8 第三批:实体行必须跟着切片一起没 —— 只删切片会留下按名可检索的幽灵节点。
+    await db
+      .delete(codebaseEntities)
+      .where(and(_entityOwnerScope(ownerUuid), eq(codebaseEntities.repoId, repoId)))
     return result.length
   }
 
@@ -703,6 +802,15 @@ class CodebaseIndexService {
         ),
       )
       .returning({ id: codebaseChunks.id })
+    await db
+      .delete(codebaseEntities)
+      .where(
+        and(
+          _entityOwnerScope(ownerUuid),
+          eq(codebaseEntities.repoId, repoId),
+          eq(codebaseEntities.filePath, filePath),
+        ),
+      )
     return result.length
   }
 
@@ -738,6 +846,16 @@ class CodebaseIndexService {
         )
         .returning({ id: codebaseChunks.id })
       deleted += result.length
+      // 实体行随同批文件一起清(同一 in 批次,同一归属谓词)。
+      await db
+        .delete(codebaseEntities)
+        .where(
+          and(
+            _entityOwnerScope(ownerUuid),
+            eq(codebaseEntities.repoId, repoId),
+            inArray(codebaseEntities.filePath, batch),
+          ),
+        )
     }
     return deleted
   }

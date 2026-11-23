@@ -656,4 +656,58 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 1. **"语义方向"必须先验再抄**：`never` 在对照方是确定性拒绝、在本仓是恒免审。同样的档位名，方向相反。抄名字 = 把 fail-open 抄得更彻底（B1-04 的教训）。
 2. **判据要纯函数化才能测边界**：`needsRebuild` 零 IO 之后，「时钟倒挂」「恰好等于窗口」「`maxAgeMs <= 0`」这些只有跑久了才会遇到的情况，全都变成三条断言。取证件把这类判断埋在流程里，本仓抽出来。
 3. **测试自己的环境假设也要被审**：`REPO_ROOT` 少上一层那次，13 例红 3 例，红的是「测试找错目录」而不是业务判据；再加 P0-4 的 `_PreGate` 字段序、B4-03 的 plan 块声明顺序 —— 三次都是"行为绿、类型/路径红"。**行为测试挡不住声明顺序与路径假设**。
+
+## 25. P0-8 第三批：实体写入通道通电（2026-11-23）
+
+> 与 24.1 表的关系：那张表的 P0-8 行记的是第二批（表 + 迁移 + 幂等判据）。本节把 `codebase_entities` 从"有表无写"推到"有真实生产写入方"，24.1 行不再单独改写。
+
+### 25.1 决定性发现：切片已经自带符号身份
+
+`ChunkInput`（`apps/api/src/services/codebase-index-service.ts` 第 31-46 行）已带 `symbolName` / `symbolType`，由 ai-service 的 tree-sitter 切片器给出。生产链是完整的：`apps/ai-service/app/services/codebase_indexer.py:1064` → `POST {api_base}/api/v1/codebase/index` → `apps/api/src/routes/v1-codebase-search.ts:192` 的 `server.post('/index')` → `codebaseIndexService.indexChunks(repoId, chunks, req.userId)`。
+
+因此**实体派生放进 `indexChunks` 内部就是"真通电"**，不需要另起一条骨架管线。另一点是本仓 Python 侧已有等价能力：`apps/ai-service/app/core/code_symbol_graph.py`（symbol_index / callers / references / impact，纯正则、自带 `approximate=True`）与 `apps/ai-service/app/services/codebase_symbol_catalog.py`。本批不重复造第二个解析器（§0.6 单一真相源），做的是"持久化落点 + 与切片同事务的写入通道"。
+
+### 25.2 派生口径（纯函数）
+
+`deriveEntitiesFromChunks(chunks: readonly ChunkInput[]): EntityDraft[]`，零 IO、可直接单测：
+
+| 纪律 | 取值 | 理由 |
+| --- | --- | --- |
+| 身份键 | `${filePath}\u0000${kind}\u0000${name}` | 同一符号跨多个切片出现 ⇒ 合并成**一行**（行区间 min..max），不因出现两次在符号图里变成两个节点 |
+| 无符号 | `symbolName` 缺失或纯空白 ⇒ 跳过 | 不拿文件名冒充符号 |
+| 种类 | `symbolType` 去空白后取，缺省 `'symbol'` | 缺省值不猜具体种类 |
+| 排序 | `(filePath, lineStart, name)` 稳定排序 | 对账时可逐行比对 |
+
+### 25.3 同一事务、同一粒度
+
+切片的幂等语义是"按 (归属, 仓库, 文件) 先删后插"。实体必须跟同一粒度：`indexChunks` 事务内每个 `filePath` **先删 `codebase_chunks` 再删 `codebase_entities`**，切片插完后按 `BATCH_SIZE=100` 分批 `insert(codebase_entities)`，累计 `entities` 计数随返回值给出（空入参短路返 `entities: 0`，不产生空 INSERT）。
+
+返回类型因此从三字段变成 `{ indexed, vectorized, localEmbedded, entities }`——这是对外契约的加法，既有调用方按属性取值，不受影响。
+
+### 25.4 删除面同步（否则留幽灵节点）
+
+三处删除方法各自追加实体删除，且**返回的 chunk 删除数语义不变**：
+
+- `deleteByRepo(ownerUuid, repoId)`：整库清 ⇒ 实体同条件整清；
+- `deleteByFileScoped(ownerUuid, repoId, filePath)`：单文件 ⇒ 总等实体同条件；
+- `deleteByFiles(ownerUuid, repoId, files)`：批量 ⇒ 实体在**同一 in 批次**内用同一归属谓词清掉。
+
+不这么做的后果是可观测的：`DELETE /repo/:repoId/files` 只删切片，实体会留成"指向已不存在文件"的节点，按名检索会持续命中幻影。
+
+### 25.5 归属谓词不复用（本批唯一踩到的变量坑）
+
+`_ownerScope(ownerUuid)` 绑的是**切片表两列**（`codebase_chunks.owner_uuid` + `or(isNull(expires_at), expires_at > NOW())`），实体表没有过期列 —— 直接套用会生成指向不存在列的 SQL。故另立 `_entityOwnerScope`：无归属返 `sql\`1 = 0\``（fail-closed，不返回任何行），有归属返 `eq(codebaseEntities.ownerUuid, ownerUuid)`。该谓词在文件中出现 **5 次**（定义 1 + `indexChunks` 1 + 三删除方法 3），测试按此计数断言，防日后有人图省事把两表谓词合并回去。
+
+### 25.6 验证
+
+- 新增 `apps/api/src/services/__tests__/codebase-index-entity-write.test.ts` **14 例**：A 组 9 例钉派生（空数组/无符号跳过/纯空白跳过/同符号跨切片合并 min..max/同文件不同 kind 不合并/跨文件同名不合并/kind 缺省/排序/不改入参）；B 组 3 例钉删除面（`deleteByRepo` 两次 delete、`deleteByFiles` 两次 delete、空清单零动作）；C 组 2 例钉源码面（`_entityOwnerScope(` 出现 5 次；`deriveEntitiesFromChunks` + `insert(codebaseEntities)` + `entities: number` + 返回值逐字）。
+- 与第二批 13 例、首批 14 例**合跑 41 例全绿**（3 文件）。
+- `tsc --noEmit`：本批两文件 0 错误。全仓唯一剩余 `TS2353`（`apps/api/src/services/wechat-hub/analysis.ts:207` 的 `relations` 不在 `WechatAnalysisResult` 里）来自**他席未提交的新模块**（`apps/api/src/services/wechat-hub/`、`packages/types/src/wechat-hub.ts`、`packages/database/src/schema/wechat-hub.ts` 均为未跟踪新文件），与本节改动面无关。
+- prettier 两文件绿；水印 `verify` 覆盖 2/2。
+
+### 25.7 边界（不谎报已通的部分）
+
+1. **`codebase_edges` 仍无写入通道**：边需要 import / 调用关系信息，切片未携带；要补就得在切片器侧带上 import 列表，属下一批。
+2. **`codebase_entities` 仍无读取消费方**：没有查询端点，也没有检索路径读它。真实缺口是"按名 / 按文件查实体"的读端点，或与 `code_search` 做 union —— 表已经能写，下一步该让它被读。
+3. **`needsRebuild` / `getIndexState` 仍只有测试消费方**：真正该调它的上层（索引调度、`codebase_incremental_bridge.py` 的增量桥）尚未接线。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
