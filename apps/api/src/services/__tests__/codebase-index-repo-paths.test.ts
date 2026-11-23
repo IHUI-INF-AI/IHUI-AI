@@ -44,10 +44,11 @@ describe('P0-8l 仓库路径登记面', () => {
     expect(sql).not.toMatch(/UPDATE\s+"codebase_repos"/)
   })
 
-  it('journal 已登记末条迁移', () => {
-    const last = JOURNAL.entries[JOURNAL.entries.length - 1]
-    expect(last?.tag).toBe('20261123210000_codebase_repos')
-    expect(last?.idx).toBe(453)
+  it('journal 登记本票迁移且 idx 正确', () => {
+    // 末条会随后续迁移推进(20261123220000_tenant_platform_apps 已接在 453 之后),
+    // 因此按 tag 定点查本票迁移,不把“末条”当成本票身份。
+    const own = JOURNAL.entries.find((e) => e.tag === '20261123210000_codebase_repos')
+    expect(own?.idx).toBe(453)
   })
 
   it('服务:登记归属缺失即抛错,upsert 走 onConflictDoUpdate', () => {

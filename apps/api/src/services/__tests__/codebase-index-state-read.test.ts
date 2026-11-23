@@ -142,7 +142,8 @@ describe('P0-8e evaluateRebuild 四档', () => {
 
 describe('P0-8e 源码面:组合入口与路由接线', () => {
   it('evaluateRebuild 里三步各只有一份', () => {
-    const body = SERVICE_SRC.split('async evaluateRebuild(')[1] ?? ''
+    // 只取 evaluateRebuild 自己的方法体:不截断会把其后的 evaluateRebuildCandidates 一起算进来。
+    const body = SERVICE_SRC.split('async evaluateRebuild(')[1]?.split('\n  async ')[0] ?? ''
     expect(body.split('this.getIndexState(').length - 1).toBe(1)
     expect(body.split('resolveIndexConfigFingerprint()').length - 1).toBe(1)
     expect(body.split('needsRebuild(state, fingerprint').length - 1).toBe(1)

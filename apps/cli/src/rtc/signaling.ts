@@ -26,6 +26,13 @@ export const RTC_SIGNAL_ROOM_RE = /^[A-Za-z0-9_-]{1,64}$/
 
 export type RtcSignalRole = 'offerer' | 'answerer'
 
+/** 浏览器 `RTCIceServer` 的最小可序列化子集；凭据只在内存与本机信令连接内传递。 */
+export interface RtcIceServer {
+  urls: string | readonly string[]
+  username?: string
+  credential?: string
+}
+
 export interface RtcSignalingStats {
   rooms: number
   peers: number
@@ -40,6 +47,8 @@ export interface RtcSignalingOptions {
   port?: number
   /** 额外允许的 Origin（默认 localhost / 127.0.0.1 / chrome-extension:// / aizhs.top）。 */
   allowedOrigins?: readonly string[]
+  /** 下发给两端浏览器的 ICE 服务器（STUN/TURN）。 */
+  iceServers?: readonly RtcIceServer[]
   logger?: (line: string) => void
 }
 
@@ -125,6 +134,7 @@ export async function createRtcSignalingServer(
   const host = options.host ?? '127.0.0.1'
   const port = options.port ?? 0
   const extraOrigins = options.allowedOrigins ?? []
+  const iceServers = options.iceServers ?? []
   const rooms = new Map<string, Room>()
   const stats: RtcSignalingStats = {
     rooms: 0,
@@ -189,7 +199,7 @@ export async function createRtcSignalingServer(
       stats.peers += 1
 
       const other = peerOf(targetRoom, peer)
-      send(peer, { type: 'joined', room: roomName, role })
+      send(peer, { type: 'joined', room: roomName, role, iceServers })
       if (other) {
         send(other, { type: 'peer-joined', room: roomName, role })
         send(peer, { type: 'peer-joined', room: roomName, role: other.role })

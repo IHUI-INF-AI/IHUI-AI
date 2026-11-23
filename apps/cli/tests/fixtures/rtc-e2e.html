@@ -25,6 +25,16 @@
     const role = params.get('role') === 'answerer' ? 'answerer' : 'offerer';
     const room = params.get('room') || 'e2e-room';
     const signalingBase = params.get('signaling') || 'ws://127.0.0.1:8890/signal';
+    const iceTransportPolicy = params.get('policy') === 'relay' ? 'relay' : 'all';
+    const iceServers = (() => {
+      if (!params.get('ice')) return [];
+      try {
+        const parsed = JSON.parse(params.get('ice'));
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })();
     const statusEl = document.getElementById('status');
     const remoteVideo = document.getElementById('remote');
     const state = {
@@ -35,6 +45,7 @@
       remoteTracks: [],
       audioInboundBytes: 0,
       videoInboundBytes: 0,
+      localCandidateTypes: [],
       errors: [],
     };
     window.__rtcResult = state;
@@ -54,8 +65,43 @@
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
+    async function createSyntheticStream() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 360;
+      const ctx = canvas.getContext('2d');
+      let frame = 0;
+      const timer = setInterval(() => {
+        frame += 1;
+        ctx.fillStyle = `hsl(${frame % 360} 70% 45%)`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '48px monospace';
+        ctx.fillText('IHUI RTC ' + frame, 40, 190);
+      }, 1000 / 15);
+      const video = canvas.captureStream(15);
+      const audioCtx = new AudioContext();
+      await audioCtx.resume().catch(() => {});
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.08;
+      const destination = audioCtx.createMediaStreamDestination();
+      oscillator.connect(gain);
+      gain.connect(destination);
+      oscillator.start();
+      return {
+        stream: new MediaStream([...video.getVideoTracks(), ...destination.stream.getAudioTracks()]),
+        stop: () => {
+          clearInterval(timer);
+          oscillator.stop();
+          void audioCtx.close();
+          for (const track of video.getTracks()) track.stop();
+        },
+      };
+    }
+
     async function main() {
-      const pc = new RTCPeerConnection({ iceServers: [], bundlePolicy: 'max-bundle' });
+      const pc = new RTCPeerConnection({ iceServers, iceTransportPolicy, bundlePolicy: 'max-bundle' });
       const pendingIce = [];
       let remoteDescriptionSet = false;
       let dataChannel = null;
@@ -71,6 +117,9 @@
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
         const candidate = event.candidate.toJSON();
+        if (candidate.type && !state.localCandidateTypes.includes(candidate.type)) {
+          state.localCandidateTypes.push(candidate.type);
+        }
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ice', candidate }));
         }
@@ -86,9 +135,20 @@
       };
 
       let localStream = null;
+      let stopLocalStream = null;
       if (role === 'offerer') {
-        report('getUserMedia');
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        const useCamera = params.get('media') === 'camera';
+        report(useCamera ? 'getUserMedia' : 'syntheticMedia');
+        if (useCamera) {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          stopLocalStream = () => {
+            for (const track of localStream.getTracks()) track.stop();
+          };
+        } else {
+          const synthetic = await createSyntheticStream();
+          localStream = synthetic.stream;
+          stopLocalStream = synthetic.stop;
+        }
         for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
       } else {
         // 应答端只收不发：不申请第二份摄像头/麦克风，避免单机 fake device 独占。
@@ -176,12 +236,18 @@
         fail(`connectionState=${pc.connectionState}`);
         return;
       }
-      await wait(1000);
+      await wait(3000);
       const stats = await pc.getStats();
+      const localCandidateTypes = new Set(state.localCandidateTypes);
+      const remoteCandidateTypes = new Set();
       stats.forEach((entry) => {
         if (entry.type === 'inbound-rtp' && entry.kind === 'audio') state.audioInboundBytes = entry.bytesReceived || 0;
         if (entry.type === 'inbound-rtp' && entry.kind === 'video') state.videoInboundBytes = entry.bytesReceived || 0;
+        if (entry.type === 'local-candidate' && entry.candidateType) localCandidateTypes.add(entry.candidateType);
+        if (entry.type === 'remote-candidate' && entry.candidateType) remoteCandidateTypes.add(entry.candidateType);
       });
+      state.localCandidateTypes = [...localCandidateTypes];
+      state.remoteCandidateTypes = [...remoteCandidateTypes];
       state.connected = true;
       report('done', {
         connectionState: pc.connectionState,
@@ -189,11 +255,13 @@
         dataChannelEcho: state.dataChannelEcho,
         audioInboundBytes: state.audioInboundBytes,
         videoInboundBytes: state.videoInboundBytes,
+        localCandidateTypes: state.localCandidateTypes,
+        remoteCandidateTypes: state.remoteCandidateTypes,
       });
       ws.send(JSON.stringify({ type: 'bye' }));
       ws.close();
       pc.close();
-      if (localStream) for (const track of localStream.getTracks()) track.stop();
+      if (stopLocalStream) stopLocalStream();
     }
 
     main().catch(fail);

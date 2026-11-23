@@ -40,50 +40,67 @@
 - 断言：真实建表、写入一行、用同 `request_id` 重复写入、`SELECT count(*) == 1`（`ON CONFLICT` 不重复）、`workspace_languages == ['ts']`、`user_id == 'user-pg-test'`
 - 没有 sqlite 回退；`IHUI_TEST_PG_DSN` 未设时测试显式 skip
 
-## 5. 真实 Chrome / Edge 原生消息（Native Messaging）
+## 5. 真实 Chrome Native Messaging
 
 - 扩展构建：`pnpm --filter @ihui/extension build` → `apps/extension/.output/chrome-mv3`
 - 首次构建 manifest **缺 `nativeMessaging` 权限**，`chrome.runtime.connectNative` 在扩展侧直接不可用；在 `apps/extension/wxt.config.ts` 的 `permissions` 增加该权限后重建，manifest 已含
-- Chrome 153.0.8010.37 实测**忽略命令行 `--load-extension`**：新 profile + `--disable-extensions-except` 后 Secure Preferences 只有内置扩展；加 `--disable-features=DisableLoadExtensionCommandLineSwitch` 仍无效
-- 改用 Edge 145.0.3800.97（Chromium，同一 `nativeMessaging` 协议）加载未打包扩展，实际扩展 ID `jmcmcameocdcmnciinieiadionkhakfe`
-- 安装器真实 apply：`node scripts/install-extension-native-host.mjs --browser edge --extension-id ... --host-exe C:\IHUI-Build\target\debug\ihui_native_host.exe --apply`；manifest 写入 `allowed_origins: ["chrome-extension://jmcmcameocdcmnciinieiadionkhakfe/"]`；`HKCU\Software\Microsoft\Edge\NativeMessagingHosts\ai.ihui.bridge` 已查到绝对 manifest 路径
-- 真实 E2E：Edge 打开 `http://localhost:8802/`，content script 在隔离 world 调 `chrome.runtime.sendMessage({type:'nativeHost.request',payload:{op:'ping'}})`；回包
-  `{"ok":true,"data":{"ok":true,"op":"ping","pid":26988,"requestId":"nh-1-4oj3p9","version":"0.1.0"},"requestId":"e2e-content-1"}`
-  该链路为真实扩展 → background → `connectNative('ai.ihui.bridge')` → Rust host（4 字节小端长度头 + JSON）
+- Chrome 品牌版 153.0.8010.37 实测**忽略命令行 `--load-extension`**：新 profile + `--disable-extensions-except` 后 Secure Preferences 只有内置扩展；加 `--disable-features=DisableLoadExtensionCommandLineSwitch` 仍无效。这是上游对品牌版的安全策略，不是本仓缺陷。
+- 真实 Chrome 验证改走官方 **Chrome for Testing 153.0.8010.37**（`chrome-win64.zip`，同一 Chromium 153 分支、同一 `nativeMessaging` 协议，官方明确保留 `--load-extension`）：`C:\IHUI-Build\chrome-for-testing\chrome-win64\chrome.exe`
+- 打包扩展并用固定私钥算出稳定 ID：`chrome --pack-extension=apps\extension\.output\chrome-mv3` → `chrome-mv3.crx` + `chrome-mv3.pem`；由 SPKI SHA-256 前 16 字节算得扩展 ID `lhdljlhhnlgnidpeggpoibdnbihjhkjb`，把公钥写进构建产物 manifest 的 `key`
+- 安装器真实 apply：`node scripts/install-extension-native-host.mjs --browser chrome --extension-id lhdljlhhnlgnidpeggpoibdnbihjhkjb --host-exe C:\IHUI-Build\target\debug\ihui_native_host.exe --apply`；manifest `allowed_origins: ["chrome-extension://lhdljlhhnlgnidpeggpoibdnbihjhkjb/"]`，`HKCU\Software\Google\Chrome\NativeMessagingHosts\ai.ihui.bridge` 已查到绝对 manifest 路径
+- 真实 E2E：Chrome for Testing 以 `--load-extension=... --remote-debugging-port=9339 http://localhost:8802/` 启动，content script 在隔离 world 调 `chrome.runtime.sendMessage({type:'nativeHost.request',payload:{op:'ping'}})`；回包
+  `{"ok":true,"data":{"ok":true,"op":"ping","pid":9744,"requestId":"nh-1-q09l41","version":"0.1.0"},"requestId":"e2e-content-1"}`
+  该链路为真实 Chrome 扩展 → background → `connectNative('ai.ihui.bridge')` → Rust host（4 字节小端长度头 + JSON）
 - 安装器修复的真实缺陷：原 `spawnSync('reg.exe')` 依赖调用方 PATH，PATH 缺 `System32` 时直接失败；改为 `resolveRegExe()` 取 `SystemRoot/System32/reg.exe` 绝对路径，并新增 `--browser chrome|edge`
-- 边界：Chrome 本体 153 只能走 UI“加载已解压扩展”或商店/策略安装；命令行路径已被上游移除，未用 Chrome 本体完成 E2E。Edge 145 是 Chromium 同协议替代，不是 mock
+- 边界：品牌版 Chrome 153 的命令行加载已被上游移除，仍只能走 UI“加载已解压扩展”或商店/企业策略；本轮完成的是官方 Chrome for Testing 真实进程的完整链路，品牌版的限制未被绕过。
 
-## 6. 完整 WebRTC（浏览器双端 SDP/ICE/DTLS/SRTP）
+## 6. 完整 WebRTC（SDP/ICE/DTLS/SRTP + STUN + TURN）
 
-- 信令：`apps/cli/src/rtc/signaling.ts`；CLI `ihui rtc signal --host 127.0.0.1 --port 8890` 真实监听
-- 浏览器夹具：`apps/cli/tests/fixtures/rtc-e2e.html`；静态服务 `http://localhost:8804`
-- Edge 145 带 `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` 打开两个独立页面；信令 `ws://127.0.0.1:8890/signal`
-- 实测（2026-11-23 最新一轮）：
-  - 两端 `connectionState=connected`、`iceConnectionState=connected`
-  - offerer `dataChannelEcho=true`；answerer `dataChannelEcho=true`
-  - answerer `remoteTracks` 含 `audio` 与 `video`
-  - `audioInboundBytes=7897`、`videoInboundBytes=72564`
-  - 信令统计 `offers=1, answers=1, iceCandidates=6, rejected=0`
-- 该轮同时抓到并修复夹具的真实竞态：单机 fake device 下 `getUserMedia` 可能比 WebSocket 握手慢，原代码先建 WS 后装 `onmessage` 会错过服务端的 `ready`，表现为 `connectionState=new`；把 WS 建连移到媒体/轨道准备之后、且在双方就绪前不丢事件后，双端稳定通过
-- 边界：这是 loopback/LAN 的浏览器 SDP/ICE/DTLS/SRTP + datachannel；没有 TURN/STUN 穿透服务，媒体方向为 offerer 发、answerer 收。原 `bridge.ts` 的 WebSocket 二进制中继保留为媒体中继/降级通道
+- 信令：`apps/cli/src/rtc/signaling.ts`；CLI `ihui rtc signal --host 127.0.0.1 --port 8890` 真实监听；`joined` 下发 `iceServers`，CLI 新增 `--stun` / `--turn` / `--turn-username` / `--turn-credential`
+- CLI 参数真实回读：`rtc signal --port 8891 --stun stun:127.0.0.1:3478` 的 `joined` → `{"type":"joined","room":"cli-ice","role":"offerer","iceServers":[{"urls":"stun:127.0.0.1:3478"}]}`；`--port 8892 --turn turn:127.0.0.1:3478?transport=udp --turn-username ihui --turn-credential ihui-secret` 的 `joined` → `{"type":"joined","room":"cli-turn","role":"offerer","iceServers":[{"urls":"turn:127.0.0.1:3478?transport=udp","username":"ihui","credential":"ihui-secret"}]}`
+- 浏览器夹具：`apps/cli/tests/fixtures/rtc-e2e.html`；静态服务 `http://127.0.0.1:8804`；`?ice=<JSON>&policy=relay` 可切到 TURN
+- 媒体源改为 canvas `captureStream` + WebAudio oscillator（`media=camera` 才走真实摄像头），避开单机 fake device 对第二路/多进程的独占；媒体仍走真实 RTP/DTLS/SRTP
+- **STUN 实测**（服务 `stun:127.0.0.1:3478`，Edge 145 双端独立进程）：
+  - 两端 `connectionState=connected`、`iceConnectionState=connected`、`dataChannelEcho=true`
+  - 两端 `localCandidateTypes` 同时含 `host` 与 `srflx`，`remoteCandidateTypes` 同时含 `host` 与 `srflx`
+  - answerer `audioInboundBytes=12622`、`videoInboundBytes=3663`，`remoteTracks` 含 audio/video
+- **TURN relay 实测**（服务 `turn:127.0.0.1:3478?transport=udp`，`iceTransportPolicy='relay'`，独立 TURN 服务进程）：
+  - 两端 `connectionState=connected`、`iceConnectionState=connected`、`dataChannelEcho=true`
+  - 两端 `localCandidateTypes=["relay"]`、`remoteCandidateTypes=["relay"]`（强制只走中继，未回落 host）
+  - answerer `audioInboundBytes=20025`、`videoInboundBytes=8215`，`remoteTracks` 含 audio/video
+- TURN/STUN 服务使用独立安装的 `turn-server@0.10.0` 测试进程（`C:\IHUI-Build\turn-test`，未写入仓库依赖），监听 UDP 3478；仅测试期为 loopback 打开 `allowLoopback`/`allowPrivatePeers`
+- 修复的真实竞态：原夹具先建 WebSocket 再等媒体，服务端在双方齐备时一次性下发 `ready`，offerer 可能错过；现改为媒体/轨道准备完成后再建 WS。`turn-server` 默认拒绝 loopback peer，测试期显式开放后 TURN 才可用
+- 边界：本轮验证的是真实 STUN Binding 与 TURN Allocate/Permission/ChannelData 全链路；生产公网 TURN 仍需要独立服务器与临时凭据，仓库不内置第三方 TURN 服务
 
-## 7. 更新 apply 到优雅重启
+## 7. 更新 apply 到优雅重启（真实 npm 包）
 
 - 安装面：`apps/cli/src/update-installer.ts` 的 `planNpmInstall` 只接受严格三段版本，且最新版必须高于当前版；`installNpmPlan` 以参数数组真实 spawn `npm install -g ihui-cli@<version>`（Windows `shell:true`，64KB 输出截断、120s 超时、exit 0 才算 installed）
 - 交接：`handoffFromInstall` 成功 → `UpdateHandoffPlan { disposition:'apply', action:'apply', reason:'install-verified' }`；失败 → `refused/stay/install-failed`
 - 编排：`apps/cli/src/commands/update.ts` 的 `update apply` → `applyUpdateAndRestart` → `RestartCoordinator.requestAfterUpdate` + `begin(0)`；新进程 argv 只保留 CLI 入口
-- 真实命令：
-  - `ihui update check` → `current=1.0.0 latest=1.0.0 updateStatus=current`（registry 当前无更高版本）
-  - `ihui update apply --target-version 1.0.1 --dry-run` → 计划 `npm.cmd install -g ihui-cli@1.0.1`
-  - `IHUI_NPM_CLI=C:\IHUI-Build\fake-npm.cmd ihui update apply --target-version 1.0.1 --yes --no-restart` → 真实 spawn，fake npm 收到 `install -g ihui-cli@1.0.1`，命令输出 `install=install/installed handoff=apply/install-verified restart=none`，exit 0
-- 边界：registry 没有 1.0.1 真实包，未对真实全局包执行升级；安装成功→重启的协调器与“真 spawn + 新进程 exit 0”由 `apps/cli/tests/update-apply.test.ts` 5 例覆盖
+- 真实包：以 `1.0.1` 至 `1.0.6` 六个版本真实构建并 `npm pack`，tarball 约 2.52MB；本地 registry `http://127.0.0.1:4874` 提供真实 metadata 与 tarball；安装到隔离前缀 `C:\IHUI-Build\npm-prefix`，不污染用户全局包
+- 真实安装：`ihui update apply --target-version 1.0.2 --yes --no-restart`（未设 `IHUI_NPM_CLI`，走官方 npm 绝对路径）→ `install=install/installed handoff=apply/install-verified restart=none`，exit 0；`ihui.cmd --version` 输出 `1.0.2`
+- 真实重启：从已安装的 1.0.1 执行 `ihui update apply --target-version 1.0.2 --yes`（无 `--no-restart`）→ 旧进程 exit 0，新进程真实启动：
+  `{"pid":20128,"fromPid":"3116","attempt":"1","reason":"update-applied","argv":["...\node.exe","C:\\IHUI-Build\\npm-prefix\\node_modules\\ihui-cli\\dist\\index.js"],"version":"1.0.2"}`
+- 修复后自更新复验：从已安装 1.0.5 执行 `update apply --target-version 1.0.6 --yes`（未设 `IHUI_NPM_CLI`）→ 旧进程 exit 0，**退出前打印** `install=install/installed handoff=apply/install-verified restart=spawned`；新进程 `pid=18684`、`version=1.0.6`、`reason=update-applied`；安装目录版本 1.0.6
+- 本轮抓到的真实缺陷（三处，均已修复并有回归）：
+  1. `npmCommand()` 原样返回 `npm.cmd` 依赖 PATH，本机 PATH 先命中缺 `make-fetch-happen` 的沙箱 npm，`npm install` 直接 exit 非零；改为优先 `ProgramFiles\nodejs\npm.cmd` 绝对路径，候选全缺才回落 PATH。
+  2. 绝对 npm 路径含空格，`shell:true` 下未加引号会被拆成 `C:\Program`；改为 shell 引用后再 spawn。
+  3. 重启成功时 `process.exit(0)` 发生在结果打印之前，用户看不到任何安装/交接结果；给 `RestartDeps` 增加 `beforeExit`（先于 exit、失败不阻断重启），`update apply` 在退出前打印最终行，单测断言顺序为 `beforeExit → exit`。
+- 边界一：使用修复前二进制（如已安装的 1.0.2）自更新时，运行的旧代码仍会命中沙箱 npm；修复只对 1.0.3 及以后构建生效，存量安装需要一次手工 bootstrap 安装。本轮已用 1.0.5→1.0.6 验证修复后的完整自更新。
+- 边界二：本轮更高版本包是本地 registry 的真实 npm tarball，不是公共 npm registry；公共 registry 目前仍只有 `1.0.0`，因此未发布/未升级公共全局包。
 
 ## 8. 测试与门
 
 - `cargo test --test native_module_real --test ipc_channel_real` → 12 passed
-- `.venv\Scripts\python.exe -m pytest tests/test_request_metadata_pg.py -q` → 1 passed
+- `.venv\Scripts\python.exe -m pytest tests/test_request_metadata_pg.py -q`（带 `IHUI_TEST_PG_DSN` 专用库）→ 1 passed
 - `pnpm --filter ihui-cli typecheck` → 0 错
-- `pnpm --filter ihui-cli exec vitest run tests/rtc-signaling.test.ts tests/update-apply.test.ts` → 10 passed
+- `pnpm --filter ihui-cli exec vitest run tests/rtc-signaling.test.ts tests/update-apply.test.ts` → **12 passed**（RTC 6 + update 6）
+- `pnpm --filter ihui-cli test`（PATH 补 `System32` 与 Git 的 bin/usr/bin）→ 611/620 文件通过、7950/7963 用例通过；8 个失败文件为 `clipboard` / `compaction-reclaim-first` / `context-guards-wiring` / `danger-gate-wiring` / `f-012-non-tty-default-path` / `g-814408-event-stream-single-writer` / `kill-tree-verified` / `plugins-git-caps`，均在本轮改动文件之外，未冒充全绿
+- `rtc signal --stun` 的 `joined` 回读 → `iceServers:[{"urls":"stun:127.0.0.1:3478"}]`；`--turn`（含用户名/凭据）→ `iceServers:[{"urls":"turn:127.0.0.1:3478?transport=udp","username":"ihui","credential":"ihui-secret"}]`
+- Chrome for Testing 原生消息 E2E → 回包 `pid=9744` / `requestId=nh-1-q09l41`
+- STUN 双端 → `localCandidateTypes=[host,srflx]`，audio `12622`、video `3663`
+- TURN relay 双端 → `localCandidateTypes=[relay]`，audio `20025`、video `8215`
+- 真实 npm 安装 → `1.0.2` 安装成功；真实重启 → 新进程 `pid=20128`、`version=1.0.2`；修复后自更新 1.0.5→1.0.6 → 退出前打印最终行、新进程 `pid=18684`、`version=1.0.6`
 - `node --test scripts/tests/install-extension-native-host.test.mjs` → 4 passed
-- 水印 verify：17/17 touched source files 完整
+- 水印 verify：本轮改动文件全部完整
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

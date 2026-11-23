@@ -14,6 +14,8 @@
  */
 
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 import {
   compareVersionsOrUnknown,
@@ -22,6 +24,11 @@ import {
 } from './updater.js'
 
 export const NPM_INSTALL_TIMEOUT_MS = 120_000
+
+/** `shell:true` 时命令串未加引号会把 `C:\Program Files\...` 拆成 `C:\Program`。 */
+function shellQuoteCommand(command: string): string {
+  return /\s/.test(command) ? `"${command}"` : command
+}
 
 export type InstallPlanReason =
   | 'install'
@@ -69,8 +76,19 @@ export interface InstallDeps {
   readonly timeoutMs?: number
 }
 
-function npmCommand(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
+export function npmCommand(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string {
   if (env.IHUI_NPM_CLI && env.IHUI_NPM_CLI.trim()) return env.IHUI_NPM_CLI.trim()
+  if (platform === 'win32') {
+    // 不依赖 PATH：本机 PATH 可能先命中缺依赖的沙箱 npm（实测 make-fetch-happen 缺失），
+    // 官方安装器的绝对路径优先；候选都不存在才回落 PATH。
+    const programFiles = env.ProgramFiles || env.ProgramW6432 || 'C:\\Program Files'
+    const candidates = [
+      join(programFiles, 'nodejs', 'npm.cmd'),
+      join(env.ProgramW6432 || programFiles, 'nodejs', 'npm.cmd'),
+    ]
+    const found = candidates.find((candidate) => existsSync(candidate))
+    if (found) return found
+  }
   return platform === 'win32' ? 'npm.cmd' : 'npm'
 }
 
@@ -136,7 +154,7 @@ export function installNpmPlan(plan: NpmInstallPlan, deps: InstallDeps = {}): Pr
   return new Promise<NpmInstallResult>((resolve) => {
     let child: ChildProcess
     try {
-      child = spawnFn(plan.command, plan.args, {
+      child = spawnFn(platform === 'win32' ? shellQuoteCommand(plan.command) : plan.command, plan.args, {
         windowsHide: true,
         shell: platform === 'win32',
         stdio: ['ignore', 'pipe', 'pipe'],

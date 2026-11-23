@@ -19,6 +19,8 @@ export interface ApplyUpdateDeps {
   coordinator?: RestartCoordinator
   restartDeps?: RestartDeps
   skipRestart?: boolean
+  /** 旧进程退出前打印最终交接结果；只在重启已确认 spawn 时调用。 */
+  beforeExit?: (outcome: Pick<ApplyUpdateOutcome, 'install' | 'handoff'>) => void
 }
 
 export interface ApplyUpdateOutcome {
@@ -44,6 +46,9 @@ export async function applyUpdateAndRestart(
   const restart = await coordinator.begin(0, {
     ...deps.restartDeps,
     argv: deps.restartDeps?.argv ?? (process.argv[1] ? [process.argv[1]] : []),
+    beforeExit: deps.beforeExit
+      ? () => deps.beforeExit?.({ install: result, handoff })
+      : undefined,
   })
   return { install: result, handoff, restart }
 }
@@ -98,14 +103,17 @@ export function registerUpdateCommand(program: Command): void {
           return
         }
         if (!opts.yes) throw new Error('真实安装需要 --yes 确认')
+        const format = (outcome: ApplyUpdateOutcome) =>
+          `install=${outcome.install.disposition}/${outcome.install.reason} ` +
+          `handoff=${outcome.handoff.disposition}/${outcome.handoff.reason} ` +
+          `restart=${outcome.restart?.action ?? 'none'}`
         const outcome = await applyUpdateAndRestart(plan, {
           skipRestart: opts.restart === false,
+          beforeExit: ({ install, handoff }) => {
+            process.stdout.write(`${format({ install, handoff, restart: { action: 'spawned', detail: 'before-exit' } })}\n`)
+          },
         })
-        process.stdout.write(
-          `install=${outcome.install.disposition}/${outcome.install.reason} ` +
-            `handoff=${outcome.handoff.disposition}/${outcome.handoff.reason} ` +
-            `restart=${outcome.restart?.action ?? 'none'}\n`,
-        )
+        process.stdout.write(`${format(outcome)}\n`)
         if (outcome.install.reason !== 'installed') process.exitCode = 1
       },
     )
