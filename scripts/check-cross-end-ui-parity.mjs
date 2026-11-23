@@ -522,11 +522,11 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
        */
       const eff = key && doubleWrapped.has(key) ? px * 2 : px
       if (eff > MAX_GEO_PX) continue
-      push(eff, dimOfKey(key ?? name))
+      push(eff, dimOfKey(key ?? name), code.indexOf(name))
       if (named[name] === undefined) named[name] = eff
     }
     for (const [name, px] of Object.entries(alias)) {
-      push(px, dimOfKey(name))
+      push(px, dimOfKey(name), code.indexOf(name))
       if (named[name] === undefined) named[name] = px
     }
   }

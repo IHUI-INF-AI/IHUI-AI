@@ -58,9 +58,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 15,
+      "count": 16,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)；2026-11-13 复核收紧:额度 18→16(门现值 diffCount=16,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口；2026-11-24 二度收紧 16→15:门 128 的 readGeometry 补上 min-*/max-* 四型后,原「仅 RN 40」消失(小程序把同值写在 min-h-* 类名里、判据读不到,是失明产物而非真分叉),现读 diffCount=15(onlyMiniapp 12 / onlyRn 3)"
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)；2026-11-13 复核收紧:额度 18→16(门现值 diffCount=16,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口；2026-11-24 二度收紧 16→15:门 128 的 readGeometry 补上 min-*/max-* 四型后,原「仅 RN 40」消失(小程序把同值写在 min-h-* 类名里、判据读不到,是失明产物而非真分叉),现读 diffCount=15(onlyMiniapp 12 / onlyRn 3)；2026-11-24 三次重锚 15→16:同批修掉 NON_GEO_KEY 对 shadow 的漏拦(小程序 `boxShadow: '0 0 8px …, 0 0 22px …'` 的模糊半径被 `box` 子串当盒档收进集合),原「仅小程序 22」是纯假读数已消失,同时露出两条被它掩盖的单端档 ——「仅小程序 1」= 附件角标 `padding: '2rpx 10rpx'` 的上内衬、「仅 RN 8」= 放大态头部 `paddingBottom: rnSpacing.sm`,二者**分属不同元素**(角标 / 展开头),值集合口径判不出这种「另一端无同名元素」,硬凑同值反而是制造假分叉,故只重锚不取值;现读 diffCount=16(onlyMiniapp 12 / onlyRn 4)"
     },
     {
       "component": "InputArea",

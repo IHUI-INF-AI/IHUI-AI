@@ -116,7 +116,7 @@ export const GEO_KEY =
  * 会把真读数一起抹掉(§12e「修红不得顺手削判据」)。字节型的正解在算式那一侧,见 `isUnitScaleProduct`。
  */
 export const NON_GEO_KEY =
-  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page|byte)/i
+  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page|byte|shadow)/i
 export const TW_SPACING_PX = (n) => n * 4
 export const TW_FONT_PX = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 /** 超过此值的"尺寸"不是组件几何(屏宽 / 动画毫秒 / 密度),不判。 */
