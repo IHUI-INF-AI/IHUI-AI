@@ -34,6 +34,12 @@ import {
 import { isTokenRequestFromUntrustedSender } from '../lib/token-gate'
 import { restrictLocalStorageToTrustedContexts } from '../lib/storage-access'
 import { parseExternalAuthTokenMessage } from '../lib/external-auth'
+import {
+  createNativeHostClient,
+  NATIVE_HOST_NAME,
+  type NativeHostClient,
+  type NativePortLike,
+} from '../lib/native-host-client'
 import { HIGHLIGHT_WORD_STORAGE_KEY } from '../lib/highlight-state'
 import { hydrateAuth } from '../src/stores/auth-store'
 import { createChromePlatform } from '@ihui/browser-platform'
@@ -314,6 +320,22 @@ async function handleSidePanelOpen(payload: { tabId?: number }): Promise<{ opene
 // 2026-07-22 P2 dedupe:handleAgentAction / forwardAgentToContent 已删除,
 // 改用 agent-control.ts 的 executeAgentActionRequest(与 agent-control-bridge.ts 共用同一实现)。
 
+let nativeHostClient: NativeHostClient | null = null
+
+function getNativeHostClient(): NativeHostClient {
+  if (nativeHostClient) return nativeHostClient
+  const runtime = chrome.runtime as typeof chrome.runtime & {
+    connectNative?: (name: string) => NativePortLike
+  }
+  if (typeof runtime.connectNative !== 'function') {
+    throw new Error('native-messaging-unavailable: chrome.runtime.connectNative missing')
+  }
+  nativeHostClient = createNativeHostClient({
+    connect: (name) => runtime.connectNative!(name) as unknown as NativePortLike,
+  })
+  return nativeHostClient
+}
+
 async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
   try {
     switch (msg.type) {
@@ -356,6 +378,20 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
       case 'sidePanel.open': {
         const data = await handleSidePanelOpen(msg.payload)
         return reply(msg.requestId, data)
+      }
+      case 'nativeHost.request': {
+        try {
+          const data = await getNativeHostClient().request({
+            op: msg.payload.op,
+            timeoutMs: msg.payload.timeoutMs,
+          })
+          return reply(msg.requestId, data)
+        } catch (err) {
+          return replyError(
+            msg.requestId,
+            `NATIVE_HOST_UNAVAILABLE: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        }
       }
       case 'agent.action': {
         // 2026-07-22 P2 dedupe:改用共享执行器;2026-09-21 第五族 ext_ui:改走

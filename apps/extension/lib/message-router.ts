@@ -31,6 +31,11 @@ export type ExtMessage =
   | { type: 'tab.queryActive'; payload: undefined; requestId: string }
   | { type: 'sidePanel.open'; payload: { tabId?: number }; requestId: string }
   | { type: 'agent.action'; payload: AgentActionRequest; requestId: string }
+  | {
+      type: 'nativeHost.request'
+      payload: { op: 'ping' | 'capabilities' | 'shutdown'; timeoutMs?: number }
+      requestId: string
+    }
 
 // ===== Response types (background -> sender) =====
 
