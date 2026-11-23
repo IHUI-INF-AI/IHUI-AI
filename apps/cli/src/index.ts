@@ -1139,11 +1139,20 @@ goalCmd
   .description('反复执行任务,直到助手输出匹配 --done-when 或达到 --max-iterations')
   .requiredOption('--done-when <regex>', '达成判据:助手输出匹配此正则即视为达成')
   .option('--max-iterations <n>', '最多迭代轮次(默认 5)', '5')
+  .option('--max-tokens <n>', '累计 token 上限(可选;缺省不设闸)')
   .option('--model <id>', '模型 ID', 'gpt-4o')
-  .action(async (task: string, opts: { doneWhen: string; maxIterations: string; model: string }) => {
+  .action(async (task: string, opts: { doneWhen: string; maxIterations: string; maxTokens?: string; model: string }) => {
     const maxIterations = Number.parseInt(opts.maxIterations, 10);
     if (!Number.isInteger(maxIterations) || maxIterations < 1) {
       errorExit(chalk.red(`--max-iterations 必须是 >= 1 的整数(收到 ${opts.maxIterations})`));
+    }
+    let maxTokens: number | undefined;
+    if (opts.maxTokens !== undefined) {
+      const parsed = Number.parseInt(opts.maxTokens, 10);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        errorExit(chalk.red(`--max-tokens 必须是 >= 1 的整数(收到 ${opts.maxTokens})`));
+      }
+      maxTokens = parsed;
     }
 
     // 装配真实执行腿:setupAgentTools + runToolLoop(与 REPL 同源)
@@ -1151,7 +1160,13 @@ goalCmd
     const { ctx } = await setupAgentTools({ workspacePath: process.cwd(), silent: true });
 
     const res = await goalIterate(
-      { task, doneWhen: opts.doneWhen, maxIterations, modelId: opts.model },
+      {
+        task,
+        doneWhen: opts.doneWhen,
+        maxIterations,
+        modelId: opts.model,
+        ...(maxTokens === undefined ? {} : { maxTokens }),
+      },
       {
         runIteration: async ({ messages: msgs }) => {
           const r = await runToolLoop({
@@ -1160,7 +1175,11 @@ goalCmd
             ctx,
             maxIterations: 20,
           });
-          return { stopReason: r.stopReason, assistantText: r.assistantText };
+          return {
+            stopReason: r.stopReason,
+            assistantText: r.assistantText,
+            usage: { tokens: r.usage.totalTokens },
+          };
         },
       },
     ).catch((e: unknown) => {

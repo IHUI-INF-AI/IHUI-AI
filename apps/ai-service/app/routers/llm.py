@@ -4727,7 +4727,25 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     else None
                 )
                 _ac_chunks = await _ac_retrieve(_ac_query, req.workspace_path, session_id=_ac_session_id)
+                # 2026-11-24(Cursor .mdc 等价):检索命中的文件路径 → 叠加该路径的规则。
+                # 只在真命中切片时读规则目录;无规则目录/无命中 ⇒ None,原行为逐字节不变。
+                _ac_rules = None
+                if _ac_chunks:
+                    try:
+                        from ..core.project_rules import load_applicable_rules_block as _pr_load
+
+                        _ac_rule_paths = [
+                            str(c.get("file_path"))
+                            for c in _ac_chunks
+                            if isinstance(c, dict) and c.get("file_path")
+                        ]
+                        if _ac_rule_paths:
+                            _ac_rules = _pr_load(req.workspace_path, _ac_rule_paths)
+                    except Exception as _pr_err:  # 规则注入失败不影响检索注入
+                        logger.warning("project_rules inject skipped: %s", _pr_err)
                 _ac_block = _ac_format(_ac_chunks) if _ac_chunks else None
+                if _ac_rules:
+                    _ac_block = f"{_ac_block}\n\n{_ac_rules}" if _ac_block else _ac_rules
                 if _ac_block:
                     auto_context_hits = len(_ac_chunks)
                     if messages and messages[0].get("role") == "system":

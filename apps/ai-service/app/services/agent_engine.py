@@ -2761,6 +2761,8 @@ class AgentEngine:
                 logger.warning("retained_context 构造失败(降级不启用): %s", e)
         # 项目文档注入(批58 状态机增量注入开关):开关 off 时与原纯字符串拼接逐字节等价。
         self._inject_agents_md(thread)
+        # 项目规则注入(2026-11-24,Cursor .mdc 等价):只读 alwaysApply 档;无规则目录零行为变化。
+        self._inject_project_rules(thread)
         # 固化起始请求的出站通道:workspace watcher 等引擎自产事件在无活动
         # prompt 时也有推送目标(prompt 轮内会被 _run_prompt_turn 刷新)。
         thread.emit = emit
@@ -4310,6 +4312,32 @@ class AgentEngine:
                  build_agents_md_removal_fragment)
         except Exception as exc:  # noqa: BLE001 - 降级不阻塞开线程
             logger.warning("AGENTS.md 注入异常(降级跳过): %s", exc)
+
+    def _inject_project_rules(self, thread: EngineThread) -> None:
+        """项目规则注入(2026-11-24,Cursor `.cursor/rules/*.mdc` 等价实现)。
+
+        与 `_inject_agents_md` 互补:AGENTS.md 是**整仓**指令链,本方法补「按 alwaysApply
+        每会话附加」这一层。线程启动档只读 alwaysApply;按目标文件的 glob 命中由调用方
+        显式调 `load_applicable_rules_block`(不在启动期猜"这轮会碰哪些文件")。
+
+        零行为:工作区没有 `.ihui/rules` / `.cursor/rules` 时 `load_always_apply_rules_block`
+        返回 None,消息内容逐字节不变。失败静默降级不阻塞开线程(与原实现同规格)。
+        """
+        workspace = thread.workspace
+        if not (isinstance(workspace, str) and workspace.strip()):
+            return
+        raw = os.environ.get("IHUI_PROJECT_RULES_DISABLE", "").strip().lower()
+        if raw in {"1", "true", "yes", "on"}:
+            return
+        try:
+            from app.core.project_rules import load_always_apply_rules_block
+
+            block = load_always_apply_rules_block(workspace)
+            if not block:
+                return
+            thread.messages[0]["content"] = f"{thread.messages[0]['content']}\n\n{block}"
+        except Exception as exc:  # noqa: BLE001 - 降级不阻塞开线程
+            logger.warning("项目规则注入异常(降级跳过): %s", exc)
 
     async def _handle_thread_interrupt(
         self, params: dict[str, Any], emit: Emitter

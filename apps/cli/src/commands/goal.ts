@@ -36,6 +36,8 @@ export interface GoalIterateOptions {
   readonly doneWhen: string;
   readonly maxIterations: number;
   readonly modelId: string;
+  /** 累计 token 上限(可选);缺省/<=0 ⇒ 不设闸,与接线前一致。 */
+  readonly maxTokens?: number;
 }
 
 export interface GoalIterateDeps {
@@ -43,6 +45,8 @@ export interface GoalIterateDeps {
   readonly runIteration: (p: { iteration: number; messages: ChatMessage[] }) => Promise<{
     stopReason: string;
     assistantText: string;
+    /** provider 用量;不提供按 0 计(不拿估算冒充实测)。 */
+    usage?: { readonly tokens?: number };
   }>;
   readonly log?: (line: string) => void;
 }
@@ -53,6 +57,8 @@ export interface GoalIterateResult {
   readonly stalled: boolean;
   readonly summary: string;
   readonly lastText: string;
+  /** 累计 token(各轮真值之和;拿不到的轮次计 0)。 */
+  readonly tokensUsed: number;
 }
 
 /**
@@ -79,7 +85,10 @@ export async function goalIterate(
   const messages: ChatMessage[] = [{ role: 'user', content: options.task } as ChatMessage];
 
   const result = await runGoalWithAgent(
-    { maxIterations: options.maxIterations },
+    {
+      maxIterations: options.maxIterations,
+      ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+    },
     {
       messages,
       runIteration: deps.runIteration,
@@ -97,9 +106,10 @@ export async function goalIterate(
 
   // 每轮记录一条(便于用户看"到底在做什么")
   for (const rec of result.records) {
+    const tokens = rec.tokens > 0 ? ` / ${rec.tokens} tok` : '';
     log(
       chalk.dim(
-        `  第 ${rec.iteration} 轮:${rec.stopReason} / ${rec.textLength} 字 / ${rec.durationMs}ms`,
+        `  第 ${rec.iteration} 轮:${rec.stopReason} / ${rec.textLength} 字 / ${rec.durationMs}ms${tokens}`,
       ),
     );
   }
@@ -117,6 +127,7 @@ export async function goalIterate(
     stalled: result.stalled,
     summary,
     lastText: result.lastText,
+    tokensUsed: result.tokensUsed,
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
