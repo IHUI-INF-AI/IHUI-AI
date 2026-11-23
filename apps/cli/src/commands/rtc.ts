@@ -2,10 +2,36 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Command } from 'commander'
+import { type Command } from 'commander'
 
 import { createRtcBridge } from '../rtc/bridge.js'
-import { createRtcSignalingServer } from '../rtc/signaling.js'
+import { createRtcSignalingServer, type RtcIceServer } from '../rtc/signaling.js'
+
+interface SignalOptions {
+  host: string
+  port: string
+  stun?: string
+  turn?: string
+  turnUsername?: string
+  turnCredential?: string
+}
+
+function buildIceServers(opts: SignalOptions): RtcIceServer[] {
+  const servers: RtcIceServer[] = []
+  if (opts.stun?.trim()) servers.push({ urls: opts.stun.trim() })
+  if (opts.turn?.trim()) {
+    const urls = opts.turn.trim()
+    if (!opts.turnUsername || !opts.turnCredential) {
+      throw new Error('--turn 需要同时提供 --turn-username 与 --turn-credential')
+    }
+    servers.push({
+      urls,
+      username: opts.turnUsername,
+      credential: opts.turnCredential,
+    })
+  }
+  return servers
+}
 
 export function registerRtcCommand(program: Command): void {
   const rtc = program
@@ -41,14 +67,19 @@ export function registerRtcCommand(program: Command): void {
     .description('启动完整 WebRTC 信令服务（浏览器 RTCPeerConnection 的 SDP/ICE 协商面）')
     .option('--host <host>', '监听地址', '127.0.0.1')
     .option('--port <port>', '监听端口(0=随机)', '0')
-    .action(async (opts: { host: string; port: string }) => {
+    .option('--stun <url>', '下发给浏览器的 STUN 服务器 URL')
+    .option('--turn <url>', '下发给浏览器的 TURN 服务器 URL')
+    .option('--turn-username <name>', 'TURN 用户名')
+    .option('--turn-credential <secret>', 'TURN 凭据')
+    .action(async (opts: SignalOptions) => {
       const port = Number.parseInt(opts.port, 10)
       if (!Number.isInteger(port) || port < 0 || port > 65535) {
         throw new Error(`invalid port: ${opts.port}`)
       }
-      const signaling = await createRtcSignalingServer({ host: opts.host, port })
+      const iceServers = buildIceServers(opts)
+      const signaling = await createRtcSignalingServer({ host: opts.host, port, iceServers })
       process.stdout.write(
-        `rtc signaling listening ${signaling.url}?room=<room>&role=offerer|answerer\n`,
+        `rtc signaling listening ${signaling.url}?room=<room>&role=offerer|answerer (iceServers=${iceServers.length})\n`,
       )
       await new Promise<void>((resolve) => {
         const stop = (): void => void signaling.close().finally(resolve)

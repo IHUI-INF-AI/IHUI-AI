@@ -48,6 +48,8 @@ export interface RestartDeps {
   readonly env?: NodeJS.ProcessEnv;
   readonly spawn?: (command: string, args: readonly string[], options: SpawnOptions) => unknown;
   readonly exit?: (code: number) => void;
+  /** 旧进程退出前的最后一句话；实现必须先于 exit，且不得阻断重启。 */
+  readonly beforeExit?: () => void;
 }
 
 export interface RestartAttemptResult {
@@ -179,6 +181,11 @@ export class RestartCoordinator {
     }
 
     this.pending = null;
+    try {
+      deps.beforeExit?.();
+    } catch {
+      // 汇报失败不得阻断重启：旧进程继续退出，新进程已确认 spawn。
+    }
     const exit = deps.exit ?? ((code: number) => process.exit(code));
     exit(0);
     return { action: 'spawned', detail: `attempt=${attempt}` };

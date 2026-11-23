@@ -70,6 +70,27 @@ describe('B3-09 完整 WebRTC 信令', () => {
     expect(await res.json()).toMatchObject({ ok: true, rooms: 0, peers: 0 })
   })
 
+  it('joined 下发 STUN/TURN 配置且不回显缺字段', async () => {
+    const server = await createRtcSignalingServer({
+      port: 0,
+      iceServers: [
+        { urls: 'stun:127.0.0.1:3478' },
+        { urls: 'turn:127.0.0.1:3478', username: 'ihui', credential: 'secret' },
+      ],
+    })
+    servers.push(server)
+    const offerer = await open(await signalUrl(server, 'room-ice', 'offerer'))
+    expect(await offerer.next()).toMatchObject({
+      type: 'joined',
+      role: 'offerer',
+      iceServers: [
+        { urls: 'stun:127.0.0.1:3478' },
+        { urls: 'turn:127.0.0.1:3478', username: 'ihui', credential: 'secret' },
+      ],
+    })
+    offerer.ws.close()
+  })
+
   it('两端配对后按 offer/answer/ICE 原样转发', async () => {
     const server = await createRtcSignalingServer({ port: 0 })
     servers.push(server)

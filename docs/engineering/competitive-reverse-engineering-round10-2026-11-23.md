@@ -1107,21 +1107,25 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 - 本机 PostgreSQL 18.6 服务 `postgresql-x64-18` + 专用测试库 `ihui_test_metadata`；`test_request_metadata_pg.py` 真实建表、写一行、同 `request_id` 重复写，`count=1`，1 passed。测试不连生产库，不提供 sqlite 回退。
 
-### 34.3 Native Messaging（两个真实缺陷 + 浏览器替代）
+### 34.3 Native Messaging（两个真实缺陷 + Chrome for Testing 真跑）
 
 - **缺陷 1**：扩展构建 manifest 缺 `nativeMessaging` 权限，`chrome.runtime.connectNative` 在扩展侧直接不可用；补权限后重建。
 - **缺陷 2**：安装器 `spawnSync('reg.exe')` 依赖调用方 PATH，PATH 缺 `System32` 时失败；改 `resolveRegExe()` 绝对路径，并支持 `--browser chrome|edge`。
-- **Chrome 153 事实**：命令行 `--load-extension` 被上游移除，新 profile 的 Secure Preferences 只有内置扩展；`--disable-features=DisableLoadExtensionCommandLineSwitch` 无效。改用 Edge 145（Chromium，同 `nativeMessaging` 协议）加载未打包扩展，实际扩展 ID `jmcmcameocdcmnciinieiadionkhakfe`；真实回包 `{ok:true,pid:26988,requestId:"nh-1-4oj3p9",version:"0.1.0"}`。Chrome 本体只能走 UI/商店/策略安装，未冒充完成。
+- **品牌版 Chrome 153 事实**：命令行 `--load-extension` 被上游移除，新 profile 的 Secure Preferences 只有内置扩展；`--disable-features=DisableLoadExtensionCommandLineSwitch` 无效。这是上游安全策略，不能绕过。
+- **真实 Chrome 闭环**：官方 Chrome for Testing 153.0.8010.37 保留 `--load-extension`；固定私钥打包得到扩展 ID `lhdljlhhnlgnidpeggpoibdnbihjhkjb`，安装器 `--browser chrome` 写 HKCU Chrome NativeMessagingHosts；真实回包 `{ok:true,pid:9744,requestId:"nh-1-q09l41",version:"0.1.0"}`。品牌版仍只能走 UI/商店/策略安装，未冒充绕过。
 
-### 34.4 完整 WebRTC
+### 34.4 完整 WebRTC（STUN + TURN）
 
-- `apps/cli/src/rtc/signaling.ts` 提供浏览器 `RTCPeerConnection` 的 SDP/ICE 协商；CLI `rtc signal` 真监听 8890；Edge 双页面 fake device 真实完成 SDP/ICE/DTLS/SRTP。
-- 最新一轮：两端 `connected`、`dataChannelEcho=true`、answerer 收到 audio/video、`audioInboundBytes=7897`、`videoInboundBytes=72564`、`offers=1/answers=1/ice=6/rejected=0`。
-- 同时抓到夹具真实竞态：先建 WebSocket 再等 `getUserMedia` 会错过服务端一次性 `ready`，表现为 `connectionState=new`；把 WS 建连移到媒体/轨道准备之后就稳定通过。边界：无 TURN/STUN 穿透，媒体方向 offerer→answerer，`bridge.ts` 二进制中继保留为降级通道。
+- `apps/cli/src/rtc/signaling.ts` 提供浏览器 `RTCPeerConnection` 的 SDP/ICE 协商，`joined` 下发 `iceServers`；CLI 新增 `--stun/--turn/--turn-username/--turn-credential`；Edge 双端独立进程真实完成 SDP/ICE/DTLS/SRTP。
+- **STUN**：`stun:127.0.0.1:3478`，双端 `localCandidateTypes=[host,srflx]`、`remoteCandidateTypes=[host,srflx]`，audio 12622 / video 3663 bytes，connected + dataChannelEcho。
+- **TURN**：`turn:127.0.0.1:3478?transport=udp` + `iceTransportPolicy='relay'`，双端 local/remote 仅有 `relay`，audio 20025 / video 8215 bytes，connected + dataChannelEcho。
+- 夹具媒体改为 canvas+WebAudio 合成源，避免单机 fake device 独占；仍走真实 RTP/DTLS/SRTP。TURN 使用独立 `turn-server@0.10.0` 测试进程（未入仓依赖），仅测试期开放 loopback peer。生产公网 TURN 仍需要独立服务与临时凭据。
 
-### 34.5 更新 apply 到优雅重启
+### 34.5 更新 apply 到优雅重启（真实 npm 包）
 
 - `update apply` 已接真实 `npm install -g`（参数数组，Windows `shell:true`，120s 超时，exit 0 才算 installed）；安装成功才映射 `apply/install-verified` 并交 `RestartCoordinator`。
-- 真实 `update check` 返回 `current=1.0.0 latest=1.0.0`；`--dry-run` 输出正确安装参数；用临时 fake npm 真实 spawn，收到 `install -g ihui-cli@1.0.1`，输出 `install=install/installed handoff=apply/install-verified restart=none`。
-- 边界：registry 当前无更高版本，未对真实全局包执行升级；安装成功→新进程 exit 0 由 `update-apply.test.ts` 5 例覆盖。
+- 本地 registry 产出 `1.0.1`–`1.0.6` 真实 npm tarball；安装到隔离前缀 `C:\IHUI-Build\npm-prefix`，`ihui.cmd --version` 为 `1.0.2`；`update apply` 输出 `install=install/installed handoff=apply/install-verified`。
+- 真实重启：旧进程 exit 0，新进程 `pid=20128`、`version=1.0.2`、`reason=update-applied`，argv 指向安装后的 `node_modules/ihui-cli/dist/index.js`。
+- 修复后自更新复验：1.0.5→1.0.6，退出前打印 `install=install/installed handoff=apply/install-verified restart=spawned`，新进程 `pid=18684`、`version=1.0.6`。
+- 期间修掉三个真实缺陷：① `npm.cmd` 依赖 PATH 会命中缺依赖的沙箱 npm，改为官方 npm 绝对路径优先；② 绝对路径含空格时 `shell:true` 未加引号会被拆成 `C:\Program`，改为 shell 引用；③ 重启成功时 `process.exit(0)` 早于结果打印，给重启协调器加 `beforeExit` 先于退出汇报、失败不阻断重启。公共 registry 仍只有 `1.0.0`，未向公共全局包发布/升级；修复前构建的存量安装仍需一次手动 bootstrap。
 

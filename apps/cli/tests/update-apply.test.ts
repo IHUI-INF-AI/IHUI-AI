@@ -11,6 +11,7 @@ import { RestartCoordinator } from '../src/daemon/graceful-restart.js'
 import {
   handoffFromInstall,
   installNpmPlan,
+  npmCommand,
   planNpmInstall,
   type NpmInstallPlan,
   type NpmInstallResult,
@@ -33,6 +34,12 @@ function fakeChild(): EventEmitter & {
 }
 
 describe('B4-05 更新 apply → 优雅重启', () => {
+  it('Windows 优先取官方 npm 绝对路径，显式覆盖优先，缺候选才回落 PATH', () => {
+    expect(npmCommand('win32', { IHUI_NPM_CLI: ' C:\\custom\\npm.cmd ' })).toBe('C:\\custom\\npm.cmd')
+    expect(npmCommand('win32', { ProgramFiles: 'Z:\\missing', ProgramW6432: 'Z:\\also-missing' })).toBe('npm.cmd')
+    expect(npmCommand('linux', {})).toBe('npm')
+  })
+
   it('只有严格更高的三段版本才生成安装计划', () => {
     expect(planNpmInstall({ currentVersion: '1.0.0', latestVersion: '1.0.1' })).toMatchObject({
       disposition: 'install',
@@ -67,10 +74,13 @@ describe('B4-05 更新 apply → 优雅重启', () => {
       }) as never,
     })
     expect(calls[0]).toMatchObject({
-      command: 'npm.cmd',
       args: ['install', '-g', 'ihui-cli@1.0.1'],
       options: { shell: true, windowsHide: true },
     })
+    const spawnedCommand = String((calls[0] as { command: string }).command)
+    const unquotedCommand = spawnedCommand.replaceAll('"', '')
+    expect(unquotedCommand).toMatch(/npm\.cmd$/i)
+    if (unquotedCommand.includes(' ')) expect(spawnedCommand).toBe(`"${unquotedCommand}"`)
     expect(result).toMatchObject({ disposition: 'install', reason: 'installed', exitCode: 0 })
     expect(handoffFromInstall(result)).toMatchObject({
       disposition: 'apply',
@@ -121,11 +131,14 @@ describe('B4-05 更新 apply → 优雅重启', () => {
       stderr: '',
     })
     const spawned: Array<{ command: string; args: readonly string[]; options: unknown }> = []
-    const exit = vi.fn()
+    const order: string[] = []
+    const exit = vi.fn(() => { order.push('exit') })
+    const beforeExit = vi.fn(() => { order.push('beforeExit') })
     const coordinator = new RestartCoordinator()
     const outcome = await applyUpdateAndRestart(plan, {
       install,
       coordinator,
+      beforeExit,
       restartDeps: {
         spawn: ((command: string, args: readonly string[], options: unknown) => {
           spawned.push({ command, args, options })
@@ -140,6 +153,13 @@ describe('B4-05 更新 apply → 优雅重启', () => {
     expect(outcome.restart).toMatchObject({ action: 'spawned' })
     expect(spawned[0].args).toEqual(['/opt/ihui/dist/index.js'])
     expect(spawned[0].options).toMatchObject({ detached: true, stdio: 'ignore', windowsHide: true })
+    expect(beforeExit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        install: expect.objectContaining({ reason: 'installed' }),
+        handoff: expect.objectContaining({ reason: 'install-verified' }),
+      }),
+    )
+    expect(order).toEqual(['beforeExit', 'exit'])
     expect(exit).toHaveBeenCalledWith(0)
   })
 
