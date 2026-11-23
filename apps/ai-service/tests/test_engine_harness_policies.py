@@ -22,6 +22,7 @@ from app.services.agent_engine import (
     INVALID_PARAMS,
     AgentEngine,
     _resolve_patch_approval_policy,
+    _unmatched_command_decision_meta,
 )
 from app.services.agent_loop_v2 import (
     AgentLoopV2,
@@ -116,6 +117,49 @@ def test_patch_policy_mapping_never_always_deny():
     assert _resolve_patch_approval_policy({"apply_patch": "always"}) == "unless_trusted"
     assert _resolve_patch_approval_policy({"*": "always"}) == "unless_trusted"
     assert _resolve_patch_approval_policy({}) == "on_request"
+
+
+def test_unmatched_command_unknown_policy_is_unjudged_not_on_request():
+    """未知档不得折成 on_request:策略元数据留空,拦截行为仍由危险分类器决定。"""
+    assert _unmatched_command_decision_meta({"run_command": "maybe"}, "run_command") == {}
+    # 已知档仍产出结构化回执,避免"为了测未知把已知也一起关掉"。
+    assert _unmatched_command_decision_meta({"run_command": "deny"}, "run_command")
+
+
+@pytest.mark.asyncio
+async def test_thread_deny_blocks_apply_patch_inside_workspace(tmp_path):
+    """真实 thread.start(approvalPolicy=deny) → apply_patch 写工作区内文件仍拒绝。"""
+    target = tmp_path / "a.txt"
+    target.write_text("old\n", encoding="utf-8")
+    engine, _ = _engine()
+    started = await _rpc(
+        engine,
+        "thread.start",
+        {
+            "approvalPolicy": "deny",
+            "workspace": str(tmp_path),
+            "userId": "u1",
+        },
+    )
+    thread = engine._threads[started["threadId"]]
+    assert thread.approval_policies["*"] == "deny"
+
+    tool = engine._apply_patch_tool(thread)
+    result = await tool.executor(
+        {
+            "patch": (
+                "--- a/a.txt\n"
+                "+++ b/a.txt\n"
+                "@@ -1 +1 @@\n"
+                "-old\n"
+                "+new\n"
+            )
+        }
+    )
+
+    assert "deny" in result["error"]
+    assert "requires_approval" not in result
+    assert target.read_text(encoding="utf-8") == "old\n"
 
 
 async def test_policy_always_forces_approval_for_low_risk_tool(_mock_hook_engine):
