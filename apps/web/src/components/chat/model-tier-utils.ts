@@ -35,10 +35,10 @@ export interface ModelOption {
   vendor?: string
   /** 自定义图标 URL(可选,优先于 vendor) */
   iconUrl?: string
-  /** 积分消耗倍数(2026-08-06 立,对齐 workbuddy 风格)
-   *  - 小数显示(如 0.77x / 0.05x)
+  /** 积分消耗倍数(2026-08-06 立,2026-11-23 收口)
+   *  - 直接显示后端 DB 值(1x / 3x / 10x / 30x,或后台自定义值)
    *  - 0 = 免费模型
-   *  - 优先取后端返回的 points_multiplier(后端 infer 5 档后映射为小数)或前端 tierToDisplayMultiplier */
+   *  - 唯一来源 `/llm/models` 的 points_multiplier,前端不再做展示刻度映射 */
   pointsMultiplier?: number
   /** 真实单价(元/百万 token,2026-11-13 立):倍率只是官方对齐档位,横比以单价为准。
    *  由后端模型目录带出;缺省则选择器不显示单价行。 */

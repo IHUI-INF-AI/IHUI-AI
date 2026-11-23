@@ -7,8 +7,7 @@
 import * as React from 'react'
 import { Button, Input, Label, Switch } from '@ihui/ui-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
-import { Tooltip } from '@/components/feedback'
-import { API_FORMATS, POINTS_MULTIPLIERS } from './helpers'
+import { API_FORMATS } from './helpers'
 import type { FormState } from './types'
 
 interface Props {
@@ -104,33 +103,14 @@ export function AiModelDialog({
               placeholder="sk-..."
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="sortOrder">排序</Label>
-              <Input
-                id="sortOrder"
-                type="number"
-                value={form.sortOrder}
-                onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="pointsMultiplier">积分消耗倍数</Label>
-              <Tooltip content="扣分 = (输入+输出 token)/1000 × 倍数。免费=0x,经济=1x,标准=3x,高级=10x,旗舰=30x">
-                <select
-                  id="pointsMultiplier"
-                  value={form.pointsMultiplier}
-                  onChange={(e) => setForm({ ...form, pointsMultiplier: Number(e.target.value) })}
-                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-elevation-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-stroke-focus"
-                >
-                  {POINTS_MULTIPLIERS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </Tooltip>
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="sortOrder">排序</Label>
+            <Input
+              id="sortOrder"
+              type="number"
+              value={form.sortOrder}
+              onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="ownerUuid">Owner UUID</Label>

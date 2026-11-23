@@ -38,13 +38,17 @@ class _FakePool:
 
 
 class _FakeConn:
-    def __init__(self, captured: list[str]) -> None:
+    def __init__(
+        self,
+        captured: list[str],
+        rows: list[dict[str, Any]] | None = None,
+    ) -> None:
         self._captured = captured
+        self._rows = rows or []
 
     async def fetch(self, sql: str) -> list[dict[str, Any]]:
         self._captured.append(sql)
-        # 空目录即可:本测只关心 SQL 谓词,不关心行映射
-        return []
+        return self._rows
 
 
 @pytest.mark.asyncio
@@ -75,4 +79,44 @@ async def test_public_catalog_requires_global_config_and_explicit_public(
     assert "c.owner_uuid IS NULL" in sql
     # ③ 仍必须是显式公开
     assert "m.is_relay_public = true" in sql
+    # ④ 积分倍率必须直接取 DB,不能在 Python 侧二次推断
+    assert "m.points_multiplier" in sql
+
+
+@pytest.mark.asyncio
+async def test_catalog_passes_through_db_points_multiplier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core import db_pool
+    from app.routers import llm
+
+    captured: list[str] = []
+    conn = _FakeConn(
+        captured,
+        rows=[
+            {
+                "model_id": "deepseek-v4-pro",
+                "display_name": "DeepSeek V4 Pro",
+                "context_length": 128000,
+                "provider_code": "openrouter",
+                "release_date": None,
+                "tags": ["chat"],
+                "points_multiplier": "3.00",
+                "metadata": None,
+            }
+        ],
+    )
+
+    async def _fake_get_shared_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr(db_pool, "get_shared_pool", _fake_get_shared_pool)
+    monkeypatch.setattr(llm, "_load_default_models", lambda: [])
+
+    models = await llm.build_model_catalog()
+
+    assert len(models) == 1
+    assert models[0]["points_multiplier"] == 3.0
+    # 静态兜底才允许推断,DB 行不得被 Python 的 infer 覆盖
+    assert models[0]["id"] == "openrouter/deepseek-v4-pro"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

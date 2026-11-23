@@ -2381,9 +2381,10 @@ export interface UserPoolModelItem {
    *
    * 2026-11-23 根治「号池模型全显示免费」:本字段与平台目录
    * `/llm/models` 的 `points_multiplier`、真实扣分 `chargePointsForCall`
-   * 共用同一个 `inferPointsMultiplier(modelId)`。预置行与上游补缺行都按模型 id
-   * 推断后下发 —— 号池不是「免费特区」,除真正 zero_cost 的模型外一律有档位。
-   * 前端用 `tierToDisplayMultiplier` 映射成 0.05x/0.12x/0.77x 等展示小数。
+   * 共用 DB `ai_model_config_models.points_multiplier`(后台可编辑)。
+   * 预置行用 DB 值,上游补缺行走覆盖表,找不到才按 model id 推断。
+   * 号池不是「免费特区」,除真正 zero_cost 的模型外一律有档位。
+   * 前端直接展示该值(1x / 3x / 30x),不再做展示小数映射。
    */
   pointsMultiplier?: number
   /**

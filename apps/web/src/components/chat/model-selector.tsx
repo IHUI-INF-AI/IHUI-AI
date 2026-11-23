@@ -177,94 +177,51 @@ interface ModelSelectorProps {
 }
 
 // ============================================================================
-// 已知模型元数据查询表(2026-08-06 立,对齐 workbuddy 风格的"倍数+徽章"展示)
-// 优先匹配,未命中走 tierToDisplayMultiplier 兜底。
-// 数据按截图(Seed-2.1-Pro 0.77x / GLM-5.2 0.40x / Kimi-K3 1.65x 🔒 等)填写。
+// 已知模型徽章元数据(2026-08-06 立,2026-11-23 收口)
+// 只保留会员/正式版/补贴/锁定这类展示标记。
+// 积分倍数不在前端维护:唯一来源 = 后端 `/llm/models` 下发的 `points_multiplier`
+// (DB `ai_model_config_models.points_multiplier`,后台可编辑)。
 // ============================================================================
-const KNOWN_MODEL_META: Record<string, Partial<ModelOption>> = {
+type KnownModelBadgeMeta = Partial<
+  Pick<ModelOption, 'memberDiscountEligible' | 'isOfficial' | 'subsidy' | 'locked'>
+>
+
+const KNOWN_MODEL_META: Record<string, KnownModelBadgeMeta> = {
   // === Step 系(plan 套餐主力)===
-  'stepfun/step-router-v1': { pointsMultiplier: 0 },
-  'stepfun/step-2.1-pro': { pointsMultiplier: 0.77 },
-  'stepfun/step-2.1-turbo': { pointsMultiplier: 0.39, memberDiscountEligible: true },
-  'stepfun/step-2.1-code': { pointsMultiplier: 0.12, memberDiscountEligible: true },
-  'stepfun/step-2.1-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/step-3.7-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/step-3.5-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/step-3.5-flash-2603': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/step-image-edit-2': { pointsMultiplier: 0.12, isOfficial: true },
-  'stepfun/stepaudio-2.5-tts': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/stepaudio-2.5-chat': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/stepaudio-2.5-asr': { pointsMultiplier: 0.05, isOfficial: true },
-  'stepfun/stepaudio-2.5-realtime': { pointsMultiplier: 0.05, isOfficial: true },
+  'stepfun/step-2.1-turbo': { memberDiscountEligible: true },
+  'stepfun/step-2.1-code': { memberDiscountEligible: true },
+  'stepfun/step-2.1-flash': { isOfficial: true },
+  'stepfun/step-3.7-flash': { isOfficial: true },
+  'stepfun/step-3.5-flash': { isOfficial: true },
+  'stepfun/step-3.5-flash-2603': { isOfficial: true },
+  'stepfun/step-image-edit-2': { isOfficial: true },
+  'stepfun/stepaudio-2.5-tts': { isOfficial: true },
+  'stepfun/stepaudio-2.5-chat': { isOfficial: true },
+  'stepfun/stepaudio-2.5-asr': { isOfficial: true },
+  'stepfun/stepaudio-2.5-realtime': { isOfficial: true },
   // === DeepSeek 系 ===
-  'deepseek/deepseek-v4-pro': { pointsMultiplier: 0.32 },
-  'deepseek/deepseek-v4-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  'deepseek/deepseek-chat': { pointsMultiplier: 0.26 },
-  'deepseek/deepseek-reasoner': { pointsMultiplier: 0.4 },
+  'deepseek/deepseek-v4-flash': { isOfficial: true },
   // === Kimi / Moonshot 系 ===
-  'moonshot/kimi-k3': { pointsMultiplier: 1.65, locked: true },
-  'moonshot/kimi-k2.7-code': { pointsMultiplier: 0.62 },
-  'moonshot/kimi-k2.6': { pointsMultiplier: 0.69 },
-  'moonshot/kimi-k2': { pointsMultiplier: 0.69 },
+  'moonshot/kimi-k3': { locked: true },
   // === GLM / 智谱系 ===
-  'zhipu/glm-5.2': { pointsMultiplier: 0.4, subsidy: true },
-  'zhipu/glm-4.7-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  // === Qwen / 通义系 ===
-  'qwen/qwen3.7-plus': { pointsMultiplier: 0.25 },
-  'qwen/qwen3.7-max': { pointsMultiplier: 0.77 },
-  'qwen/qwen-max': { pointsMultiplier: 0.4 },
-  'qwen/qwen-turbo': { pointsMultiplier: 0.05 },
-  'qwen/qwen-plus': { pointsMultiplier: 0.12 },
-  // === MiniMax 系(项目自有模型)===
-  'minimax/minimax-m3': { pointsMultiplier: 0.26 },
-  'minimax/abab6.5s-chat': { pointsMultiplier: 0.25 },
-  'minimax/abab6.5-chat': { pointsMultiplier: 0.4 },
+  'zhipu/glm-5.2': { subsidy: true },
+  'zhipu/glm-4.7-flash': { isOfficial: true },
   // === OpenAI / Anthropic / Google ===
-  'openai/gpt-4o': { pointsMultiplier: 0.77, memberDiscountEligible: true },
-  'openai/gpt-4o-mini': { pointsMultiplier: 0.05, isOfficial: true },
-  'openai/gpt-5': { pointsMultiplier: 1.65, locked: true },
-  'openai/o1-preview': { pointsMultiplier: 1.65, locked: true },
-  'anthropic/claude-3-5-sonnet': { pointsMultiplier: 0.77, memberDiscountEligible: true },
-  'anthropic/claude-3-opus': { pointsMultiplier: 1.65, locked: true },
-  'gemini/gemini-2.5-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  'gemini/gemini-2.0-flash': { pointsMultiplier: 0.05, isOfficial: true },
-  'gemini/gemini-pro': { pointsMultiplier: 0.77, memberDiscountEligible: true },
-  // === 免费 zero_cost ===
-  '@cf/zai-org/glm-4.7-flash': { pointsMultiplier: 0, isOfficial: true },
-  '@cf/google/gemma-2-27b-it': { pointsMultiplier: 0 },
-  'ollama/llama3': { pointsMultiplier: 0 },
-  'groq/llama-3.3-70b-versatile': { pointsMultiplier: 0 },
-  'openrouter/auto': { pointsMultiplier: 0 },
+  'openai/gpt-4o': { memberDiscountEligible: true },
+  'openai/gpt-4o-mini': { isOfficial: true },
+  'openai/gpt-5': { locked: true },
+  'openai/o1-preview': { locked: true },
+  'anthropic/claude-3-5-sonnet': { memberDiscountEligible: true },
+  'anthropic/claude-3-opus': { locked: true },
+  'gemini/gemini-2.5-flash': { isOfficial: true },
+  'gemini/gemini-2.0-flash': { isOfficial: true },
+  'gemini/gemini-pro': { memberDiscountEligible: true },
+  // === 免费 zero_cost(仅徽章,倍率由后端 0x 下发)===
+  '@cf/zai-org/glm-4.7-flash': { isOfficial: true },
 }
 
-/** 5 档 tier → 显示用小数映射(2026-08-06 立,对齐 workbuddy 风格)
- *  - 0 (免费) → "免费" 文本(不显示小数)
- *  - 1 (经济) → 0.05x
- *  - 3 (标准) → 0.12x
- *  - 10 (高级) → 0.40x
- *  - 30 (旗舰) → 0.77x
- *  - > 30 (锁定) → 1.65x
- *  显示侧用 tierToDisplayMultiplier(multiplier) 拿到小数 + 是否锁定 */
-const TIER_TO_DISPLAY: Record<number, number> = {
-  0: 0,
-  1: 0.05,
-  3: 0.12,
-  10: 0.4,
-  30: 0.77,
-}
-
-/** 整数 tier → 显示小数(已知模型走 KNOWN_MODEL_META 优先)。
- *  后台允许填非标倍率(如 6/15/18):取最近档的展示刻度,不让 UI 回落到 1.00x 造成误读。 */
-function tierToDisplayMultiplier(tier: number): { value: number; locked: boolean } {
-  if (tier > 30) return { value: 1.65, locked: true }
-  if (tier in TIER_TO_DISPLAY) return { value: TIER_TO_DISPLAY[tier] ?? 1, locked: false }
-  const tiers = Object.keys(TIER_TO_DISPLAY).map(Number)
-  const nearest = tiers.reduce((a, b) => (Math.abs(b - tier) < Math.abs(a - tier) ? b : a))
-  return { value: TIER_TO_DISPLAY[nearest] ?? 1, locked: false }
-}
-
-/** 已知模型查询(精确匹配优先 + 子串 fallback) */
-function lookupKnownMeta(modelId: string): Partial<ModelOption> {
+/** 已知模型查询(精确匹配优先 + 子串 fallback);只返回徽章标记,不返回价格。 */
+function lookupKnownMeta(modelId: string): KnownModelBadgeMeta {
   if (!modelId) return {}
   if (KNOWN_MODEL_META[modelId]) return KNOWN_MODEL_META[modelId]!
   // 子串 fallback:取第一个命中的 key
@@ -275,12 +232,11 @@ function lookupKnownMeta(modelId: string): Partial<ModelOption> {
 }
 
 /**
- * 号池模型 → 展示倍率(2026-11-23 根治「号池模型全显示免费」)。
+ * 号池模型 → 展示倍率(2026-11-23 根治「展示倍率与真实扣分两套」)。
  *
- * 输入优先级:后端下发的 tier(与真实扣分 `inferPointsMultiplier` 同源)
- * → 已知模型元数据(按 provider 限定名查,避免裸名 `auto` 命中 `openrouter/auto`)
- * → 前端按 provider 限定 id 推断。**任何路径都不再回落 0**,只有真正
- * zero_cost 的模型(ollama/llama/pollinations/...)才允许显示免费。
+ * 唯一来源是后端下发的 `pointsMultiplier`(DB `points_multiplier`,后台可编辑);
+ * 已知模型表只提供徽章/锁定标记,不再覆盖价格。字段缺失时才按 model id 兜底推断。
+ * 任何路径都不再回落 0,只有真正 zero_cost 的模型(ollama/llama/pollinations/...)才免费。
  */
 export function resolvePoolPointsMeta(
   m: Pick<PoolChatModel, 'id' | 'provider' | 'pointsMultiplier'>,
@@ -290,11 +246,8 @@ export function resolvePoolPointsMeta(
   const tier =
     typeof m.pointsMultiplier === 'number' ? m.pointsMultiplier : inferPointsMultiplier(qualifiedId)
   return {
-    pointsMultiplier:
-      typeof known.pointsMultiplier === 'number'
-        ? known.pointsMultiplier
-        : tierToDisplayMultiplier(tier).value,
-    locked: known.locked,
+    pointsMultiplier: tier,
+    locked: tier > 30 || known.locked === true,
   }
 }
 
@@ -361,17 +314,13 @@ function ProviderHealthDot({ health, count }: { health: ProviderHealth; count: n
   )
 }
 
-/** 积分倍数显示格式化(2026-08-06 立,workbuddy 风格)
+/** 积分倍数显示格式化(2026-11-23:直接显示后端 DB 值,不再做展示刻度映射)
  *  - value === 0 → i18n "modelFree"
- *  - value < 1   → "0.77x" / "0.05x" 等
- *  - value >= 1  → "1.65x" 等 */
+ *  - 整数 → "1x" / "3x" / "30x"
+ *  - 小数 → "1.50x" / "0.50x"(最多两位) */
 function formatMultiplier(value: number): string {
   if (value === 0) return 'free' // i18n key,渲染处走 t()
-  if (value < 1) {
-    // 2 位小数(0.05 / 0.12 / 0.39 / 0.77)
-    return value.toFixed(2)
-  }
-  return value.toFixed(2)
+  return Number.isInteger(value) ? String(value) : value.toFixed(2)
 }
 
 /**
@@ -801,8 +750,8 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
               <p className="text-body font-semibold">{t('modelPopoverMemberTitle')}</p>
               <p className="mt-1 text-label leading-relaxed text-muted-foreground">
                 {t('modelPopoverMemberDesc', {
-                  from: opt.pointsMultiplier.toFixed(2),
-                  to: (opt.pointsMultiplier * 0.25).toFixed(2),
+                  from: formatMultiplier(opt.pointsMultiplier),
+                  to: formatMultiplier(opt.pointsMultiplier * 0.25),
                 })}
               </p>
             </div>
@@ -840,20 +789,19 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
 function createSeedOptions(): ModelOption[] {
   const seed = [...FALLBACK_MODELS]
   return seed.map((m): ModelOption => {
-    // FallbackModel.pointsMultiplier 是 5 档 tier(2026-11-23),展示侧统一映射成小数;
+    // FallbackModel.pointsMultiplier 是 5 档 tier(2026-11-23),展示值必须与扣分同数;
     // 付费兜底档不再写 0,否则接口不可用时会一屏「免费」。
     const tier = m.pointsMultiplier ?? inferPointsMultiplier(m.value)
-    const display = tierToDisplayMultiplier(tier)
     return {
       value: m.value,
       label: m.label,
       vendor: m.vendor,
       descriptionKey: m.descriptionKey,
-      pointsMultiplier: display.value,
+      pointsMultiplier: tier,
       memberDiscountEligible: m.memberDiscountEligible,
       isOfficial: m.isOfficial,
       subsidy: m.subsidy,
-      locked: m.locked ?? display.locked,
+      locked: m.locked ?? tier > 30,
       // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
       category: 'chat',
       tier: 'latest',
@@ -899,26 +847,21 @@ function seedOptions(): ModelOption[] {
 export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
   const merged = new Map<string, ModelOption>()
   for (const m of models) {
-    // 1. 已知模型查表(精确 / 子串)
+    // 1. 已知模型查表(精确 / 子串):只取徽章,不取价格
     const known = lookupKnownMeta(m.id)
-    // 2. 后端 tier → 显示小数
+    // 2. 后端 DB 值即展示值;字段缺失才按 model id 兜底
     const tier =
       typeof m.points_multiplier === 'number' ? m.points_multiplier : inferPointsMultiplier(m.id)
-    const display = tierToDisplayMultiplier(tier)
-    // 3. 已知模型的 pointsMultiplier 优先,否则用 tier 推导
-    const finalPoints =
-      typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
     merged.set(m.id, {
       value: m.id,
       // 2026-11-21 立:后端 name 混着「人工展示名」与「裸代码」两种形态,
       // 裸代码形统一整理成人类可读词形,避免同一列表里大小写风格打架。
       label: formatModelDisplayLabel(m.name, m.id),
       vendor: m.provider || inferVendor(m.id),
-      // 已知元数据优先(包括 memberDiscountEligible / isOfficial / subsidy / locked)
+      // 已知元数据只补充徽章 / 锁定,积分倍数一律由后端下发值覆盖
       ...known,
-      // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
-      pointsMultiplier: finalPoints,
-      locked: known.locked ?? display.locked,
+      pointsMultiplier: tier,
+      locked: known.locked ?? tier > 30,
       // 2026-08-29 立:后端 model_catalog 产出的分类字段,驱动"默认展示 vs 历史模型折叠"
       category: normalizeCategory(m.category),
       tier: normalizeTier(m.model_tier),
@@ -1242,11 +1185,10 @@ export function ModelSelector({
     if (!autoResolved) return null
     const opt = options.find((o) => o.value === autoResolved)
     if (opt) return { label: opt.label, vendor: opt.vendor, iconUrl: opt.iconUrl }
-    const known = lookupKnownMeta(autoResolved)
     return {
-      label: known.label ?? autoResolved,
-      vendor: known.vendor ?? inferVendor(autoResolved),
-      iconUrl: known.iconUrl,
+      label: autoResolved,
+      vendor: inferVendor(autoResolved),
+      iconUrl: undefined,
     }
   }, [autoResolved, options])
   // 2026-08-29 立:默认区(最新最强)/ 历史模型区(过时版本 + 专用模型)
@@ -1460,8 +1402,8 @@ export function ModelSelector({
               <span className="flex-1 truncate font-medium">{t('manageModels')}</span>
             </DropdownMenu.Item>
           </DropdownMenu.Group>
-          {/* 自动选项(2026-08-06 改:自动模式显示 "Auto Mode" + "0.05x" 风格,
-              实际无积分倍数,保持纯文本 "自动" + 描述) */}
+          {/* 自动选项:自动路由没有固定积分倍数,只显示纯文本「自动」+ 描述,
+              不再挂任何展示小数(倍率只属于具体模型,且以后端 DB 值为准) */}
           <DropdownMenu.Group>
             <DropdownMenu.Item
               onSelect={() => onChange(AUTO_OPTION.value)}

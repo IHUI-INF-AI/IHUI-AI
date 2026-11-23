@@ -16,6 +16,7 @@
 import asyncio
 import json
 import logging
+import math
 import os
 import time
 import uuid
@@ -4020,6 +4021,23 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     return result
 
 
+def _points_multiplier_field(value: Any) -> dict[str, float]:
+    """把 DB numeric(5,2) 的积分倍率转成目录字段;坏值/负值/缺失不写字段。
+
+    2026-11-23:积分倍率唯一来源是 `ai_model_config_models.points_multiplier`,
+    Python 侧只做透传,不再按 model_id 关键词二次推断。
+    """
+    if value is None:
+        return {}
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return {}
+    if not math.isfinite(n) or n < 0:
+        return {}
+    return {"points_multiplier": n}
+
+
 async def build_model_catalog() -> list[dict[str, Any]]:
     """构建完整模型目录(data/default_models.json + ai_model_config_models 表合并)。
 
@@ -4042,7 +4060,7 @@ async def build_model_catalog() -> list[dict[str, Any]]:
             # (列不存在)降级为旧查询,保证模型列表不被单列缺失拖垮
             _base_sql = (
                 """SELECT m.model_id, m.display_name, m.context_length, c.provider_code,
-                          m.release_date, m.tags{extra}
+                          m.release_date, m.tags, m.points_multiplier{extra}
                    FROM ai_model_config_models m
                    JOIN ai_model_config c ON m.config_id = c.id
                    WHERE m.enabled = true AND c.enabled = true
@@ -4107,6 +4125,10 @@ async def build_model_catalog() -> list[dict[str, Any]]:
                     "name": r["display_name"] or mid,
                     "provider": entry_provider,
                     "context_length": r["context_length"] or 4096,
+                    # 积分倍率唯一来源 = DB points_multiplier(后台可编辑)。
+                    # 2026-11-23 收口:此前 Python 侧又按 model_id 推断一遍,
+                    # 与 API/前端展示、真实扣分各算各的;这里原样透传 DB 值。
+                    **_points_multiplier_field(r.get("points_multiplier")),
                     # 分类引擎输入:用途分类需要 tags,代次判定需要 release_date
                     "release_date": r["release_date"],
                     "tags": list(r["tags"] or []),
@@ -4225,8 +4247,9 @@ async def list_models(request: Request) -> dict[str, Any]:
     # H5(Phase C,2026-08-01):为每个模型附加 caps 字段(provider capability 声明)。
     # 优先用 default_models.json 中已静态声明的 caps(H5 已给每个模型条目加 caps),
     # DB 同步的模型(无 caps 字段)按 provider_code 从 PROVIDER_CAPS 动态推导。
-    # P0(2026-07-31):同步附加 points_multiplier 字段(积分消耗倍数,5 档梯度),
-    # 由 free_provider_registry.infer_points_multiplier(model.id) 推断,前端按倍数显示积分消耗。
+    # P0(2026-07-31):为每个模型附加 points_multiplier 字段(积分消耗倍数)。
+    # 2026-11-23 收口:DB 行已带真实 `points_multiplier` 时**原样保留**;
+    # 只有静态兜底/缺字段的条目才用关键词推断兜底。前端与扣分都读同一个值。
     from ..services.free_provider_registry import infer_points_multiplier
     for m in default_models:
         if not m.get("caps"):
@@ -4238,8 +4261,10 @@ async def list_models(request: Request) -> dict[str, Any]:
             if isinstance(ctx_len, int) and ctx_len > 0:
                 cap = cap_with_max_context(cap, ctx_len)
             m["caps"] = cap_to_dict(cap)
-        # 积分消耗倍数(0.0 免费 / 1.0 经济 / 3.0 标准 / 10.0 高级 / 30.0 旗舰)
-        m["points_multiplier"] = infer_points_multiplier(str(m.get("id") or ""))
+        # DB 值优先;仅静态兜底/字段缺失时推断(0.0 免费 / 1.0 经济 / 3.0 标准 ...)
+        m.setdefault(
+            "points_multiplier", infer_points_multiplier(str(m.get("id") or ""))
+        )
 
     # 2026-08-29 立:模型分类(用途 category + 代次 model_tier)。
     # 解决"聊天模型选择器塞满历史过时模型"——默认只展示 model_tier=latest,
