@@ -260,15 +260,18 @@ function TerminalTaskItem({
       {task.output ? (
         <View className="ai-card-term-output-wrap">
           <Text className="ai-card-term-output">{task.output}</Text>
-          <View className="ai-card-term-copy" onClick={copyOutput} hoverClass="opacity-60">
+          <View
+            className="ai-card-term-copy"
+            onClick={copyOutput}
+            hoverClass="opacity-60"
+            ariaRole="button"
+            ariaLabel={copied ? t('ai.cards.terminal.copied') : t('ai.cards.terminal.copy')}
+          >
             <LineIcon
-              name={copied ? 'check-success' : 'more-vertical'}
-              size={28}
+              name={copied ? 'check-success' : 'copy'}
+              size={36}
               color="var(--color-muted-foreground)"
             />
-            <Text className="ai-card-term-copy-text">
-              {copied ? t('ai.cards.terminal.copied') : t('ai.cards.terminal.copy')}
-            </Text>
           </View>
         </View>
       ) : null}
