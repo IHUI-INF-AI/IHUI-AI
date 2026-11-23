@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-23T14:06:21.082Z",
+  "sealedAt": "2026-11-23T14:17:06.661Z",
   "sealedBy": "root-guard --seal",
-  "reason": "AGENTS.md 于 462838de 完成门207体积清偿(95818 字节),复核后重封 agents-ironlaw",
+  "reason": "AGENTS.md 于 4374d8e5 补齐核心原则硬判据(95894 字节),复核后重封 agents-ironlaw",
   "targets": [
     {
       "id": "guardian-runner",
