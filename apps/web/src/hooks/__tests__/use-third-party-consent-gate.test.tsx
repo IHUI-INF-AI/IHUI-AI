@@ -42,6 +42,7 @@ vi.mock('@ihui/api-client', () => ({ recordOAuthConsent }))
 
 // 本地开关的唯一来源:这里当夹具用,github 走直连厂商授权页
 vi.mock('@/lib/third-party-config', () => ({
+  applyTenantProviderConfig: vi.fn(),
   getAllPlatformConfigs: () => ({ github: { enabled: true } }),
   getPlatformConfig: (p: string) =>
     p === 'github'

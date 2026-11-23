@@ -122,6 +122,7 @@ import { clawdbotRoutes } from './clawdbot.js'
 // 非破坏式保存 + 公式不回缓存值。注册面判据见 tests/workbook-routes-registered.test.ts。
 import { workbookRoutes } from './workbook.js'
 import { tenantRoutes } from './tenant.js'
+import { tenantPlatformAppRoutes } from './tenant-platform-apps.js'
 import canaryRoutes from './canary.js'
 import tboxRoutes from './tbox.js'
 // 2026-08-31 六组功能:ab-testing/ai-grading/certificate-serials/gen-table/live-gifts/tbox-points
@@ -851,6 +852,7 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
   server.register(tenantRoutes, { prefix: '/api/tenants' })
+  server.register(tenantPlatformAppRoutes, { prefix: '/api/tenant-platform-apps' })
 
   // Canary 阶段化门控部署：/api/canary/configs /api/canary/audit /api/canary/traffic
   server.register(canaryRoutes, { prefix: '/api/canary' })

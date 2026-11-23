@@ -3152,6 +3152,13 @@
       "when": 1795476600000,
       "tag": "20261123210000_codebase_repos",
       "breakpoints": true
+    },
+    {
+      "idx": 454,
+      "version": "7",
+      "when": 1795480200000,
+      "tag": "20261123220000_tenant_platform_apps",
+      "breakpoints": true
     }
   ]
 }

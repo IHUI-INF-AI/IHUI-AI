@@ -156,17 +156,14 @@ import {
   isWechatMiniConfigured,
   wecomCode2session,
   wecomPcCode2session,
-  isWecomConfigured,
   isWecomSuiteConfigured,
   resolveWecomTenant,
-  isDingtalkConfigured,
   buildDingtalkAuthUrl,
   exchangeDingtalkCode,
   getDingtalkUserInfo,
   isAlipayLoginConfigured,
   exchangeAlipayCode,
   getAlipayUserInfo,
-  isFeishuConfigured,
   getFeishuAccessToken,
   getFeishuUserInfo,
   generateState,
@@ -175,6 +172,14 @@ import {
   generateClientSecret,
   generateUserSk,
 } from '../services/oauth-providers.js'
+import type { WecomAppCredentials } from '../services/oauth-providers.js'
+import { resolveRequestTenant } from '../plugins/tenant.js'
+import {
+  listTenantPlatformApps,
+  resolveTenantPlatformCredentials,
+  TenantPlatformAppError,
+  type TenantPlatformId,
+} from '../services/tenant-platform-apps.js'
 import { buildResponseSchema } from '../utils/api-schemas.js'
 import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
 // ihui_auth_* 指标:buildTokenPair 是模块级函数(不持 server),走模块级桥接
@@ -186,6 +191,41 @@ import {
   recordAuth2faUsed,
 } from '../plugins/business-metrics.js'
 import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
+
+/**
+ * 登录链路按请求所属租户取平台应用凭据（2026-11-23）。
+ *
+ * 公开登录路由不走 tenantPlugin（`/api/auth/` 是免租户面），因此必须在这里
+ * 用 hostname/X-Tenant-Id 现解析租户，不能读一个永远为空的 request.tenantId。
+ * 没有租户上下文 = 单租户/主域，由 service 决定是否回退进程环境凭据。
+ */
+class LoginTenantDisabledError extends Error {}
+
+async function resolveLoginCredentials(
+  request: FastifyRequest,
+  platform: TenantPlatformId,
+): Promise<{
+  tenantId: string | null
+  creds: Awaited<ReturnType<typeof resolveTenantPlatformCredentials>>
+}> {
+  const tenant = await resolveRequestTenant(request)
+  if (tenant?.status === 0) throw new LoginTenantDisabledError('租户已停用')
+  const tenantId = tenant?.id ?? null
+  const creds = await resolveTenantPlatformCredentials(tenantId, platform)
+  return { tenantId, creds }
+}
+
+function sendLoginCredentialError(reply: FastifyReply, err: unknown) {
+  if (err instanceof LoginTenantDisabledError) {
+    reply.status(403).send(error(403, '租户已停用'))
+    return
+  }
+  if (err instanceof TenantPlatformAppError) {
+    reply.status(400).send(error(400, err.message))
+    return
+  }
+  throw err
+}
 
 // Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
 // - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
@@ -1109,6 +1149,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       { loginRegion: loginRegion.region, loginRegionSource: loginRegion.source },
       '登录呈现地区判定',
     )
+    // 多企业 SaaS(2026-11-23):平台可用性按**请求所属租户**判,不再只看进程环境。
+    // 单租户/主域没有租户上下文时,service 会回退环境凭据,行为与改造前一致。
+    const requestTenant = await resolveRequestTenant(request)
+    if (requestTenant?.status === 0) {
+      return reply.status(403).send(error(403, '租户已停用'))
+    }
+    const apps = await listTenantPlatformApps(requestTenant?.id ?? null)
+    const byPlatform = Object.fromEntries(apps.map((app) => [app.platform, app]))
     reply.header('Cache-Control', 'no-store')
     return reply.send(
       success({
@@ -1119,14 +1167,41 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           process.env.APPLE_KEY_ID &&
           process.env.APPLE_PRIVATE_KEY,
         ),
-        dingtalk: isDingtalkConfigured(),
-        enterpriseWechat: isWecomConfigured(),
-        wechat: Boolean(process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET),
-        feishu: isFeishuConfigured(),
+        dingtalk: Boolean(byPlatform.dingtalk?.enabled && byPlatform.dingtalk.configured),
+        enterpriseWechat: Boolean(
+          (byPlatform.wecom?.enabled && byPlatform.wecom.configured) || isWecomSuiteConfigured(),
+        ),
+        wechat: Boolean(byPlatform.wechat?.enabled && byPlatform.wechat.configured),
+        feishu: Boolean(byPlatform.feishu?.enabled && byPlatform.feishu.configured),
         github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
         alipay: isAlipayLoginConfigured(),
         loginRegion: loginRegion.region,
         loginRegionSource: loginRegion.source,
+        tenant: requestTenant
+          ? { id: requestTenant.id, slug: requestTenant.slug, name: requestTenant.name }
+          : null,
+        // 登录页运行时 appId：与 /auth/tenant-providers 同源，secret 已剥掉。
+        providers: apps.map(({ appSecretMasked: _appSecretMasked, ...rest }) => rest),
+      }),
+    )
+  })
+
+  // 登录页运行时第三方配置（2026-11-23）。
+  // 只回 appId/redirectUri/agentId/scope 等公开字段，secret 永不出现在响应里。
+  // 一套 Web/RN 镜像据此按租户切换 appId，不再依赖编译期 NEXT_PUBLIC_*。
+  server.get('/auth/tenant-providers', async (request, reply) => {
+    const requestTenant = await resolveRequestTenant(request)
+    if (requestTenant?.status === 0) {
+      return reply.status(403).send(error(403, '租户已停用'))
+    }
+    const apps = await listTenantPlatformApps(requestTenant?.id ?? null)
+    reply.header('Cache-Control', 'no-store')
+    return reply.send(
+      success({
+        tenant: requestTenant
+          ? { id: requestTenant.id, slug: requestTenant.slug, name: requestTenant.name }
+          : null,
+        providers: apps.map(({ appSecretMasked: _appSecretMasked, ...rest }) => rest),
       }),
     )
   })
@@ -1606,30 +1681,46 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 企业微信扫码登录 — code 换 session → 查 binding → 查/建用户 → 颁发 JWT
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
-    if (!isWecomConfigured() && !isWecomSuiteConfigured())
+    let resolved: Awaited<ReturnType<typeof resolveLoginCredentials>> | null = null
+    try {
+      resolved = await resolveLoginCredentials(request, 'wecom')
+    } catch (err) {
+      if (!(err instanceof TenantPlatformAppError && isWecomSuiteConfigured())) {
+        return sendLoginCredentialError(reply, err)
+      }
+    }
+    const wecomCreds: WecomAppCredentials | undefined = resolved
+      ? {
+          corpId: resolved.creds.appId,
+          secret: resolved.creds.appSecret,
+          agentId: resolved.creds.extra.agent_id,
+        }
+      : undefined
+    if (!wecomCreds && !isWecomSuiteConfigured())
       return thirdPartyUnavailable(reply, '企业微信', [
         'WECOM_CORP_ID/WECOM_SECRET/WECOM_AGENT_ID',
         '或套件三件套 WECOM_SECRET+WECOM_SUITE_ID+WECOM_SUITE_TICKET',
       ])
     try {
-      const session = isWecomConfigured()
-        ? await wecomPcCode2session(code)
+      const session = wecomCreds
+        ? await wecomPcCode2session(code, wecomCreds)
         : await wecomCode2session(code)
       // F-271:绑定键必须带租户(corpId)。suite 模式下 open_userid 只在**本企业内**唯一,
       // 只按 open_userid 查绑定 ⇒ B 企业同值用户可登入 A 企业的本地账号。
       // 租户判据(含白名单/空值拒绝)单源在 services/oauth-providers.resolveWecomTenant。
-      const tenantId = resolveWecomTenant(session.corpId)
+      // 租户级自建应用额外传 expectedCorpId:只认该租户自己的 corpId。
+      const tenantId = resolveWecomTenant(session.corpId, wecomCreds?.corpId)
       if (!tenantId) {
         request.log.warn(
-          { corpId: session.corpId, mode: isWecomConfigured() ? 'self-built' : 'suite' },
+          { corpId: session.corpId, mode: wecomCreds ? 'self-built' : 'suite' },
           '企微登录租户校验失败 ⇒ 拒绝签发会话',
         )
         return reply.status(403).send(error(403, '企业微信租户校验失败'))
       }
       let binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId, tenantId)
-      if (!binding && isWecomConfigured()) {
-        // 自建应用是单租户部署:把 tenant_id='' 的存量绑定改判为当前 corpId 后再查。
-        // suite 模式不走这一步(多企业共用凭据,老行属于谁无法判定 ⇒ 宁要重绑)。
+      if (!binding && wecomCreds && !resolved?.tenantId) {
+        // 单租户部署:把 tenant_id='' 的存量绑定改判为当前 corpId 后再查。
+        // 多租户租户级凭据不走这一步(否则 A 企业的老行会被 B 企业抢走)。
         await adoptLegacyTenantBinding('enterpriseWechat', session.openUserId, tenantId)
         binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId, tenantId)
       }
@@ -1694,33 +1785,41 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 钉钉扫码登录 — 授权 URL
-  server.get('/auth/dingtalk/auth-url', async (_request, reply) => {
-    if (!isDingtalkConfigured())
-      return thirdPartyUnavailable(reply, '钉钉 OAuth', [
-        'DINGTALK_APP_KEY',
-        'DINGTALK_APP_SECRET',
-        'DINGTALK_REDIRECT_URI',
-      ])
+  server.get('/auth/dingtalk/auth-url', async (request, reply) => {
+    let creds: Awaited<ReturnType<typeof resolveTenantPlatformCredentials>>
+    try {
+      creds = (await resolveLoginCredentials(request, 'dingtalk')).creds
+    } catch (err) {
+      return sendLoginCredentialError(reply, err)
+    }
     const state = generateState()
-    const authUrl = buildDingtalkAuthUrl(state)
+    const authUrl = buildDingtalkAuthUrl(state, {
+      appKey: creds.appId,
+      appSecret: creds.appSecret,
+      redirectUri: creds.extra.redirect_uri ?? '',
+    })
     return reply.send(success({ authUrl, state }))
   })
 
   // 钉钉扫码登录 — code 换用户信息 → 查/建用户 → 颁发 JWT
   server.get('/auth/dingtalk/login', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
-    if (!isDingtalkConfigured())
-      return thirdPartyUnavailable(reply, '钉钉 OAuth', [
-        'DINGTALK_APP_KEY',
-        'DINGTALK_APP_SECRET',
-        'DINGTALK_REDIRECT_URI',
-      ])
+    let creds: Awaited<ReturnType<typeof resolveTenantPlatformCredentials>>
+    try {
+      creds = (await resolveLoginCredentials(request, 'dingtalk')).creds
+    } catch (err) {
+      return sendLoginCredentialError(reply, err)
+    }
     // 一次性 code 用错/过期是扫码流程里的**常规事件**(用户在手机上多等了一会儿),
     // 旧写法让它一路冒成 500「服务器错误」⇒ 前端与客服都无从判断该重试还是该报修。
     let dingtalkToken: string
     let info: Awaited<ReturnType<typeof getDingtalkUserInfo>>
     try {
-      dingtalkToken = await exchangeDingtalkCode(code)
+      dingtalkToken = await exchangeDingtalkCode(code, {
+        appKey: creds.appId,
+        appSecret: creds.appSecret,
+        redirectUri: creds.extra.redirect_uri ?? '',
+      })
       info = await getDingtalkUserInfo(dingtalkToken)
     } catch (e) {
       request.log.warn(
@@ -3232,9 +3331,17 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'dingtalk': {
-          if (!isDingtalkConfigured())
-            return reply.status(400).send(error(400, '钉钉 OAuth 未配置'))
-          const dt = await exchangeDingtalkCode(code)
+          let creds: Awaited<ReturnType<typeof resolveTenantPlatformCredentials>>
+          try {
+            creds = (await resolveLoginCredentials(request, 'dingtalk')).creds
+          } catch (err) {
+            return sendLoginCredentialError(reply, err)
+          }
+          const dt = await exchangeDingtalkCode(code, {
+            appKey: creds.appId,
+            appSecret: creds.appSecret,
+            redirectUri: creds.extra.redirect_uri ?? '',
+          })
           const info = await getDingtalkUserInfo(dt)
           openId = info.openId
           unionId = info.unionId
@@ -3243,15 +3350,31 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'enterpriseWechat': {
-          // 优先自建应用 PC 网页扫码模式(WECOM_CORP_ID + WECOM_AGENT_ID + WECOM_SECRET)
-          // 回退到 suite 模式(第三方应用服务商,仅小程序场景)
-          if (!isWecomConfigured() && !isWecomSuiteConfigured())
+          // 优先租户自己的自建应用凭据；没有租户行时回退环境凭据；
+          // suite 模式(第三方应用服务商,仅小程序场景)保留为最后回退。
+          let resolved: Awaited<ReturnType<typeof resolveLoginCredentials>> | null = null
+          try {
+            resolved = await resolveLoginCredentials(request, 'wecom')
+          } catch (err) {
+            if (!(err instanceof TenantPlatformAppError && isWecomSuiteConfigured())) {
+              return sendLoginCredentialError(reply, err)
+            }
+          }
+          const wecomCreds: WecomAppCredentials | undefined = resolved
+            ? {
+                corpId: resolved.creds.appId,
+                secret: resolved.creds.appSecret,
+                agentId: resolved.creds.extra.agent_id,
+              }
+            : undefined
+          if (!wecomCreds && !isWecomSuiteConfigured())
             return reply.status(400).send(error(400, '企业微信未配置'))
-          const session = isWecomConfigured()
-            ? await wecomPcCode2session(code)
+          const session = wecomCreds
+            ? await wecomPcCode2session(code, wecomCreds)
             : await wecomCode2session(code)
           // F-271:租户维度进绑定键(与 /auth/login/enterprise/pc/wxCode 同一判据)。
-          const tenant = resolveWecomTenant(session.corpId)
+          // 租户级自建应用额外传 expectedCorpId:只认该租户自己的 corpId。
+          const tenant = resolveWecomTenant(session.corpId, wecomCreds?.corpId)
           if (!tenant) {
             request.log.warn(
               { platform, corpId: session.corpId },
@@ -3264,8 +3387,16 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'feishu': {
-          if (!isFeishuConfigured()) return reply.status(400).send(error(400, '飞书 OAuth 未配置'))
-          const feishuToken = await getFeishuAccessToken(code)
+          let creds: Awaited<ReturnType<typeof resolveTenantPlatformCredentials>>
+          try {
+            creds = (await resolveLoginCredentials(request, 'feishu')).creds
+          } catch (err) {
+            return sendLoginCredentialError(reply, err)
+          }
+          const feishuToken = await getFeishuAccessToken(code, {
+            appId: creds.appId,
+            appSecret: creds.appSecret,
+          })
           const feishuInfo = await getFeishuUserInfo(feishuToken.accessToken)
           openId = feishuInfo.openId
           unionId = feishuInfo.unionId
@@ -3274,9 +3405,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'wechat': {
-          const wxAppId = process.env.WECHAT_APP_ID
-          const wxSecret = process.env.WECHAT_APP_SECRET
-          if (!wxAppId || !wxSecret) return reply.status(400).send(error(400, '微信 OAuth 未配置'))
+          let creds: Awaited<ReturnType<typeof resolveTenantPlatformCredentials>>
+          try {
+            creds = (await resolveLoginCredentials(request, 'wechat')).creds
+          } catch (err) {
+            return sendLoginCredentialError(reply, err)
+          }
+          const wxAppId = creds.appId
+          const wxSecret = creds.appSecret
           // 2026-07-22 P0 Round 3:微信 API 限制 secret 必须在 query(官方设计),
           // 通过 HTTPS 传输保护 + 10s 超时防挂起(无法移到 POST body)
           const tokenRes = await fetch(
@@ -3819,8 +3955,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // ±1 step 窗口内不能反复刷新 step-up(否则重放一次码就能无限续窗)。
       const totpStep = verifyTotpCounter(parsed.data.code, secret)
       const consumed =
-        totpStep !== null &&
-        (await consumeTotpCounter(userId, totpStep, request.server.redis))
+        totpStep !== null && (await consumeTotpCounter(userId, totpStep, request.server.redis))
       if (!consumed) {
         // 「码正确但已用过」与「码错」共用同一句文案:不给重放探测留差分。
         await recordSecurityEvent(request, 'two_factor_step_up_failed')

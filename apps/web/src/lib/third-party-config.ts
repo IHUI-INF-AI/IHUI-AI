@@ -305,17 +305,72 @@ const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
 }
 
 /**
+ * 运行时租户覆盖（2026-11-23）。
+ *
+ * 多企业 SaaS 一套 Web 镜像要服务多个租户，`NEXT_PUBLIC_*_APP_ID` 是编译期常量，
+ * 无法按租户切换。登录页拿到 `GET /api/auth/oauth-status` 的 `providers` 后调用
+ * `applyTenantProviderConfig()`，把 appId/redirectUri/agentId 覆盖成当前租户的值；
+ * secret 永远只在后端。
+ */
+const RUNTIME_CONFIGS: Partial<Record<ThirdPartyPlatform, ThirdPartyPlatformConfig>> = {}
+
+const TENANT_PLATFORM_TO_WEB: Record<string, ThirdPartyPlatform | undefined> = {
+  feishu: 'feishu',
+  dingtalk: 'dingtalk',
+  wecom: 'enterpriseWechat',
+  wechat: 'wechat',
+}
+
+export interface TenantProviderConfig {
+  platform: string
+  enabled: boolean
+  appId: string
+  extra: Record<string, string>
+  source: string
+}
+
+export function applyTenantProviderConfig(providers: TenantProviderConfig[] | undefined): void {
+  if (!providers?.length) return
+  for (const item of providers) {
+    const webPlatform = TENANT_PLATFORM_TO_WEB[item.platform]
+    if (!webPlatform) continue
+    const base = PLATFORM_CONFIGS[webPlatform]
+    if (!base) continue
+    // 租户自己的行缺字段就 fail-closed：绝不把平台环境里的 appId/agentId/redirectUri
+    // 借给另一个企业，否则会把用户送到默认租户的回调上。
+    const allowBaseFallback = item.source === 'platform_env'
+    RUNTIME_CONFIGS[webPlatform] = {
+      ...base,
+      enabled: item.enabled && Boolean(item.appId),
+      appId: item.appId || (allowBaseFallback ? base.appId : ''),
+      agentId: item.extra.agent_id || (allowBaseFallback ? base.agentId : ''),
+      redirectUri: item.extra.redirect_uri || (allowBaseFallback ? base.redirectUri : ''),
+      scope: item.extra.scope || base.scope,
+    }
+  }
+}
+
+/** 测试面：模块级覆盖只取一次，必须能清掉。 */
+export const __test__ = {
+  resetTenantProviderConfig: (): void => {
+    for (const key of Object.keys(RUNTIME_CONFIGS)) {
+      delete RUNTIME_CONFIGS[key as ThirdPartyPlatform]
+    }
+  },
+}
+
+/**
  * 获取所有平台配置
  */
 export function getAllPlatformConfigs(): Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> {
-  return PLATFORM_CONFIGS
+  return { ...PLATFORM_CONFIGS, ...RUNTIME_CONFIGS }
 }
 
 /**
  * 获取指定平台配置
  */
 export function getPlatformConfig(platform: ThirdPartyPlatform): ThirdPartyPlatformConfig {
-  return PLATFORM_CONFIGS[platform]
+  return RUNTIME_CONFIGS[platform] ?? PLATFORM_CONFIGS[platform]
 }
 
 /**
@@ -326,7 +381,7 @@ export function validatePlatformConfig(platform: ThirdPartyPlatform): {
   valid: boolean
   missing: string[]
 } {
-  const config = PLATFORM_CONFIGS[platform]
+  const config = getPlatformConfig(platform)
 
   if (!config) {
     return { valid: false, missing: ['平台配置不存在'] }

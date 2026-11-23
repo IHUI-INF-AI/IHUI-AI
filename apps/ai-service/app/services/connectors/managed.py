@@ -23,6 +23,10 @@ import os
 from typing import Any
 
 from . import catalog
+from app.services.tenant_platform_apps import (
+    platform_default_tenant_id,
+    resolve_tenant_platform_credentials,
+)
 
 # 类型 -> 环境变量候选。同一语义允许多个历史命名,按顺序取第一个非空值。
 _CREDENTIAL_ENV: dict[str, dict[str, tuple[str, ...]]] = {
@@ -79,8 +83,12 @@ def multi_tenant_mode() -> bool:
 
 
 def managed_tenant_id() -> str:
-    """环境里的平台应用凭据归属租户;空串表示未指定。"""
-    return str(os.environ.get("CONNECTOR_MANAGED_TENANT_ID") or "").strip()
+    """环境里的平台应用凭据归属租户;空串表示未指定。
+
+    优先 ``CONNECTOR_MANAGED_TENANT_ID``;未显式设置时回退 API 侧的
+    ``PLATFORM_DEFAULT_TENANT_ID``,避免两套配置各说各话。
+    """
+    return str(os.environ.get("CONNECTOR_MANAGED_TENANT_ID") or "").strip() or platform_default_tenant_id()
 
 
 def _tenant_gate(scope: str | None) -> str:
@@ -124,16 +132,6 @@ def status(conn_type: str, scope: str | None = None) -> dict[str, Any]:
             "missing": [],
             "reason": "该类型不支持预置模板",
         }
-    gate = _tenant_gate(scope)
-    if gate:
-        return {
-            "available": False,
-            "supported": True,
-            "credential_source": "platform_env",
-            "missing": [],
-            "reason": gate,
-            "multi_tenant": True,
-        }
     if conn_type in _PUBLIC_TYPES:
         return {
             "available": True,
@@ -151,6 +149,29 @@ def status(conn_type: str, scope: str | None = None) -> dict[str, Any]:
             "credential_source": "",
             "missing": [],
             "reason": "该平台需要企业自建应用凭据,不能由平台托管",
+        }
+
+    # 先查租户自己的应用凭据:有行就只认这一行,不管环境凭据配没配。
+    tenant_cred = resolve_tenant_platform_credentials(scope, conn_type)
+    if tenant_cred is not None:
+        return {
+            "available": True,
+            "supported": True,
+            "credential_source": "tenant",
+            "missing": [],
+            "reason": "",
+            "multi_tenant": True,
+        }
+
+    gate = _tenant_gate(scope)
+    if gate:
+        return {
+            "available": False,
+            "supported": True,
+            "credential_source": "platform_env",
+            "missing": [],
+            "reason": gate,
+            "multi_tenant": True,
         }
     missing: list[str] = []
     for names in spec.values():
@@ -173,6 +194,9 @@ def credentials(conn_type: str, scope: str | None = None) -> dict[str, Any]:
         raise ManagedUnavailable(conn_type, list(st["missing"]), str(st.get("reason") or ""))
     if conn_type in _PUBLIC_TYPES:
         return {"app_id": "", "app_secret": "", "extra": {}}
+    tenant_cred = resolve_tenant_platform_credentials(scope, conn_type)
+    if tenant_cred is not None:
+        return tenant_cred
     spec = _CREDENTIAL_ENV[conn_type]
     app_id = _env_value(spec["app_id"])
     app_secret = _env_value(spec["app_secret"])

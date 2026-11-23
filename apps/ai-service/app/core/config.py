@@ -122,6 +122,9 @@ class Settings(BaseSettings):
     # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,
     # 用于解密 ai_model_config.api_key_enc)
     credentials_encryption_key: str = ""
+    # 多企业 SaaS:现有进程环境里的平台应用凭据归属哪个租户;
+    # 留空 = 只有无租户上下文（user:<id> 个人作用域）的单租户请求才回退环境凭据。
+    platform_default_tenant_id: str = ""
 
     # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
     jwt_secret: str = ""

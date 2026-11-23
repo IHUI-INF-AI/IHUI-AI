@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -10,6 +10,11 @@ import { tenants, tenantMembers, tenantQuotas, type Tenant } from '@ihui/databas
 import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from '../plugins/require-permission.js'
 import { checkQuota, clearTenantCache } from '../plugins/tenant.js'
+import {
+  guardTenantAccess,
+  resolveOperatorRole,
+  tenantRoleRank as roleRank,
+} from '../services/tenant-access.js'
 import { success, error } from '../utils/response.js'
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -37,17 +42,8 @@ export const PLAN_QUOTA_DEFAULTS: Record<
   enterprise: { apiCallsLimit: 10_000_000, storageLimitMb: 102_400, userLimit: 500 },
 }
 
-export type TenantRole = 'owner' | 'admin' | 'member'
-
-export const TENANT_ROLE_RANK: Record<TenantRole, number> = { owner: 3, admin: 2, member: 1 }
-
 export type TenantMemberDecision =
-  | { allowed: true }
-  | { allowed: false; status: 400 | 403; message: string }
-
-function roleRank(role: string): number {
-  return TENANT_ROLE_RANK[role as TenantRole] ?? 0
-}
+  { allowed: true } | { allowed: false; status: 400 | 403; message: string }
 
 /**
  * 成员角色变更判据(F-59)。
@@ -136,60 +132,6 @@ export const tenantRoutes: FastifyPluginAsync = async (server) => {
   const idParam = z.object({ id: z.string() })
   const memberIdParam = z.object({ id: z.string(), userId: z.string() })
 
-  /**
-   * 租户成员资格 + 角色校验(2026-10-27 安全加固,P0)。
-   *
-   * 原实现:除 POST / 之外**全部只挂 authenticate** —— 任意登录用户拿着一个租户 UUID 就能
-   * 改租户名/套餐(PATCH /:id,plan 直接改 enterprise 等于免费升级配额)、把任意人(含自己)
-   * 以 admin 塞进任意租户、提权任意成员、改任意租户配额、踢掉任意成员、读成员名单。
-   * 也就是说多租户隔离在 API 层完全不存在。
-   *
-   * 判定口径:成员表里必须有一行 (tenantId, userId);角色按 owner > admin > member 排序。
-   * 非成员与"租户不存在"同形返回 404 —— 不给外部拿 403/404 差异枚举租户 ID 的信号。
-   */
-  async function guardTenantAccess(
-    request: FastifyRequest,
-    reply: FastifyReply,
-    tenantId: string,
-    minRole: 'member' | 'admin' = 'member',
-  ): Promise<boolean> {
-    const userId = request.userId
-    if (!userId) {
-      reply.status(401).send(error(401, '未登录'))
-      return false
-    }
-    // 平台管理员旁路:后台运维需要跨租户查看/处置(混合闸门的标准写法见
-    // require-permission 的 isSystemAdmin 注释 —— 属主分支留在调用处,特权读数走集中封装)。
-    if (isSystemAdmin(request, { includeInternalChannel: false })) return true
-    const [row] = await db
-      .select({ role: tenantMembers.role })
-      .from(tenantMembers)
-      .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.userId, userId)))
-      .limit(1)
-    if (!row) {
-      reply.status(404).send(error(404, '租户不存在'))
-      return false
-    }
-    if (roleRank(row.role) < roleRank(minRole)) {
-      reply.status(403).send(error(403, '需要租户管理员权限'))
-      return false
-    }
-    return true
-  }
-
-  /** 操作者在本租户的有效角色;平台管理员按最高档处理(与 guardTenantAccess 的旁路同口径)。 */
-  async function resolveOperatorRole(request: FastifyRequest, tenantId: string): Promise<TenantRole> {
-    if (isSystemAdmin(request, { includeInternalChannel: false })) return 'owner'
-    const userId = request.userId
-    if (!userId) return 'member'
-    const [row] = await db
-      .select({ role: tenantMembers.role })
-      .from(tenantMembers)
-      .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.userId, userId)))
-      .limit(1)
-    return (row?.role as TenantRole | undefined) ?? 'member'
-  }
-
   // 创建租户（任何已认证用户可创建，自动成为 owner）
   server.post('/', { preHandler: authenticate }, async (request, reply) => {
     const parsed = createTenantSchema.safeParse(request.body)
@@ -204,7 +146,12 @@ export const tenantRoutes: FastifyPluginAsync = async (server) => {
     const requestedPlan = (request.body as { plan?: unknown } | null | undefined)?.plan
     if (requestedPlan !== undefined) {
       request.log.warn(
-        { event: 'tenant.create.plan_ignored', userId, requestedPlan, appliedPlan: DEFAULT_TENANT_PLAN },
+        {
+          event: 'tenant.create.plan_ignored',
+          userId,
+          requestedPlan,
+          appliedPlan: DEFAULT_TENANT_PLAN,
+        },
         '租户创建请求指定了 plan,已按默认档处理',
       )
     }
@@ -266,9 +213,17 @@ export const tenantRoutes: FastifyPluginAsync = async (server) => {
     }
     // F-59:plan 属计费事实,租户管理员不得自助升降档(升 enterprise = 白拿配额);
     // 平台管理员保留旁路(guardTenantAccess 已按 isSystemAdmin 放行)。
-    if (parsed.data.plan !== undefined && !isSystemAdmin(request, { includeInternalChannel: false })) {
+    if (
+      parsed.data.plan !== undefined &&
+      !isSystemAdmin(request, { includeInternalChannel: false })
+    ) {
       request.log.warn(
-        { event: 'tenant.update.plan_forbidden', userId: request.userId, tenantId: id, plan: parsed.data.plan },
+        {
+          event: 'tenant.update.plan_forbidden',
+          userId: request.userId,
+          tenantId: id,
+          plan: parsed.data.plan,
+        },
         '租户管理员尝试自助变更套餐,已拒绝',
       )
       reply.status(403).send(error(403, '套餐只能由平台管理员变更'))

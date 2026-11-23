@@ -8,7 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
-import { ChevronRight, Palette } from 'lucide-react'
+import { Building2, ChevronRight, Palette } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -87,6 +87,22 @@ export default function SettingsPage() {
             <MiniappQrCard t={t} />
             <DesktopSettingsCard />
             <ThemeBackupSync />
+            <Link
+              href="/settings/tenant-apps"
+              className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+            >
+              <Building2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="text-body font-medium">企业应用凭据</div>
+                <p className="mt-0.5 text-label text-muted-foreground">
+                  飞书/钉钉/企微/微信自建应用按租户隔离，终端成员扫码接入
+                </p>
+              </div>
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Link>
           </div>
         </TabsContent>
 

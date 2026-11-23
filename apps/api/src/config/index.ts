@@ -164,6 +164,11 @@ const envSchema = z.object({
       { message: 'CREDENTIALS_ENCRYPTION_KEY 不能使用弱默认值/全相同字符/已知占位符' },
     ),
 
+  // 多企业 SaaS:现有进程环境里的那套平台应用凭据归属哪个租户。
+  // 留空 = 只有"没有租户上下文"的单租户请求才回退环境凭据;显式指定后,
+  // 该租户可直接使用环境凭据,其他租户必须各自配置 tenant_platform_apps。
+  PLATFORM_DEFAULT_TENANT_ID: z.union([z.literal(''), z.uuid()]).default(''),
+
   AI_SERVICE_URL: z.url().default(DEFAULT_AI_SERVICE_URL),
 
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)

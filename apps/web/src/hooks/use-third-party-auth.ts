@@ -13,9 +13,11 @@ import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { notifyExtensionAuth } from '@/lib/ext-auth-relay'
 import {
+  applyTenantProviderConfig,
   getAllPlatformConfigs,
   getPlatformConfig,
   validatePlatformConfig,
+  type TenantProviderConfig,
 } from '@/lib/third-party-config'
 import {
   buildAuthUrl,
@@ -176,6 +178,8 @@ type OAuthStatusBody = Partial<
    * 判据住在 apps/api/src/services/login-region.ts,前端不复算「哪个国家算国内」。
    */
   loginRegion?: LoginRegion | null
+  /** 当前租户的运行时平台配置（appId/redirectUri/agentId，secret 已剥掉）。 */
+  providers?: TenantProviderConfig[]
 }
 
 /**
@@ -196,7 +200,12 @@ let oauthStatusCache: Promise<OAuthStatusBody | null> | null = null
 function loadOAuthStatus(): Promise<OAuthStatusBody | null> {
   if (!oauthStatusCache) {
     oauthStatusCache = fetchApi<OAuthStatusBody>('/api/auth/oauth-status')
-      .then((r) => (r.success && r.data ? r.data : null))
+      .then((r) => {
+        if (!r.success || !r.data) return null
+        // 多企业 SaaS:同一镜像按当前租户覆盖 appId/redirectUri/agentId。
+        applyTenantProviderConfig(r.data.providers)
+        return r.data
+      })
       .catch(() => null)
   }
   return oauthStatusCache

@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 0b35bd15614c4c55a38a03980dab4dcb1afba53d
-// inputsSha256: 517bf47e05d23c76fe013a6214f02ab72d885d2af1586304511c2431260c7e5c
+// sourceCommit: b1c4dc3f835c68cdb5295de6f2f290ec40792866
+// inputsSha256: c062cb6fa56461b470507627f8214e7d0f367996773c81cad2dada244bb9c4c7
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -648,7 +648,7 @@
 // input: apps/web/app/(main)/home/page.tsx c363a3b298783696813c1ff6c01ea43d10ac6a57a18ffeb7a2aabf1356e1c93a
 // input: apps/web/app/(main)/hooks/page.tsx c7aed66054b4f50815c7b49434e711bb1b5049c02878b5f1521d6499f663936e
 // input: apps/web/app/(main)/hr/my-attendance/page.tsx 078cf13031d8e1b08e480852f6146b37f996cd96c31b43018c35263c304c0b81
-// input: apps/web/app/(main)/hr/my-leave/page.tsx 9a3516da2ef97e0d90b3a8e882dd3cb3ec66efc05d21aea40583e7eccbf10d98
+// input: apps/web/app/(main)/hr/my-leave/page.tsx ead3570c84df1dd1a3c91e37503ec1393f4db8b05b51e3128a14c1c04216cc9f
 // input: apps/web/app/(main)/hr/my-payroll/page.tsx 753d8c8743503fec6ac84cfb061c528dea8c1967968d0fd301efe0000d5bb21c
 // input: apps/web/app/(main)/image-gen/favorites/page.tsx 5cdc64e17969f50a89d42e1d7763821495d6e7fa14e850d6f07471ea531184ad
 // input: apps/web/app/(main)/image-gen/gallery/page.tsx 8ff24c38e1380167be980f28ba55573d4454874ecd03e5042036d68148b9b1e7
@@ -829,10 +829,11 @@
 // input: apps/web/app/(main)/settings/login-security/page.tsx 41e5976d01b3698a8cd1c9cc0eb42166a4a7df4a320e9f1a2c8097f5b57b80ce
 // input: apps/web/app/(main)/settings/model-record/page.tsx 61e8dab86044ed61293eef313452347a997f01e03fe21b8096362f3e26b5f968
 // input: apps/web/app/(main)/settings/notifications/page.tsx 6826a6d875187dffee897338224cc5c6b5d3169fad791d886c33a00cfd223c3a
-// input: apps/web/app/(main)/settings/page.tsx a9cceb544aac9a3de171b11a241717c1215038c350b465b6210e4e9f66e2ce1f
+// input: apps/web/app/(main)/settings/page.tsx 3335e5c13a6627ba56ea40918484a76f32c7e76d6d72edf8475825941d64b0c3
 // input: apps/web/app/(main)/settings/preferences/page.tsx 230d6d9666fb009f00cc32a5a06d1c95b25c160daccc5d82a5cdb114c2982fcf
 // input: apps/web/app/(main)/settings/privacy/page.tsx b33ffed42f185de95451eea3c278001eeff720cfe99143f2d2a42345649699d6
 // input: apps/web/app/(main)/settings/security-log/page.tsx 46a448161593748b49328a8d778c8dc035384da1f4692ee69fb1099b239388c3
+// input: apps/web/app/(main)/settings/tenant-apps/page.tsx 070be5383b163242005abba842dbd6e1b159c3b40a204288a05a7c44dac91d7c
 // input: apps/web/app/(main)/settings/usage/page.tsx 07ef54b204561a9c6cda33f325410b673cbf1e4e860c54f13da41b576eaf52d5
 // input: apps/web/app/(main)/share/[code]/page.tsx 167c448e4b4a8fc29be5687451d9507f01ee71ce9633cc34fae01875dea45992
 // input: apps/web/app/(main)/share/page.tsx d5df784435de4fdc6af70d10d3c1dedeaa4359289d56e9d4da7778f0acddb552
@@ -959,7 +960,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-23T11:10:45.636Z
+// generatedAt: 2026-11-23T15:27:02.213Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1792,6 +1793,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/settings/preferences', param: false, group: 'settings' },
   { path: '/settings/privacy', param: false, group: 'settings' },
   { path: '/settings/security-log', param: false, group: 'settings' },
+  { path: '/settings/tenant-apps', param: false, group: 'settings' },
   { path: '/settings/usage', param: false, group: 'settings' },
   { path: '/share', param: false, group: 'share' },
   { path: '/share/:code', param: true, group: 'share' },

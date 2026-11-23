@@ -37,6 +37,7 @@ vi.mock('@/lib/api', () => ({
 
 // 本地开关的唯一来源:这里当夹具用,值由每个用例自己给
 vi.mock('@/lib/third-party-config', () => ({
+  applyTenantProviderConfig: vi.fn(),
   getAllPlatformConfigs: () => ({
     github: { enabled: true },
     wechat: { enabled: true },

@@ -53,7 +53,7 @@ export function isPublicPath(url: string): boolean {
 const tenantCache = new Map<string, { tenant: Tenant | null; expiredAt: number }>()
 const CACHE_TTL_MS = 60_000
 
-async function lookupTenant(identifier: string): Promise<Tenant | null> {
+export async function lookupTenant(identifier: string): Promise<Tenant | null> {
   const now = Date.now()
   const cached = tenantCache.get(identifier)
   if (cached && now < cached.expiredAt) {
@@ -80,6 +80,17 @@ const MEMBER_TENANT_CACHE_MAX = 5_000
 export function clearTenantCache(): void {
   tenantCache.clear()
   memberTenantCache.clear()
+}
+
+/**
+ * 公开面/登录链路按请求解析租户：不依赖 tenantPlugin 是否已注入 request.tenantId。
+ * 返回 null = 没有租户上下文（单租户/主域），由调用方决定是否回退环境凭据。
+ * 租户存在但 status=0 仍返回对象，调用方自行返回 403，避免把"停用"误判成"不存在"。
+ */
+export async function resolveRequestTenant(request: FastifyRequest): Promise<Tenant | null> {
+  const identifier = resolveTenantIdentifier(request)
+  if (!identifier) return null
+  return lookupTenant(identifier)
 }
 
 /**

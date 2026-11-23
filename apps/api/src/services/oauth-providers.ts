@@ -327,6 +327,13 @@ export interface WecomSession {
   corpId: string
 }
 
+/** 租户级企微自建应用凭据（多企业 SaaS 用；不传则回退进程环境）。 */
+export interface WecomAppCredentials {
+  corpId: string
+  secret: string
+  agentId?: string
+}
+
 /** 自建应用 PC 网页扫码是否已配置 */
 export function isWecomConfigured(): boolean {
   return Boolean(env.WECOM_CORP_ID && env.WECOM_SECRET && env.WECOM_AGENT_ID)
@@ -348,9 +355,15 @@ export function isWecomSuiteConfigured(): boolean {
  *      suite 模式接受 API 返回的非空 corpid(每家企业各自成租户,名单收窄交给 ①)。
  * 空/缺失 corpId 一律拒绝 —— 拿不到租户就无法判定这份 open_userid 属于谁。
  */
-export function resolveWecomTenant(corpId: string | undefined | null): string | null {
+export function resolveWecomTenant(
+  corpId: string | undefined | null,
+  expectedCorpId?: string | null,
+): string | null {
   const tenant = String(corpId ?? '').trim()
   if (!tenant) return null
+  // 租户级自建应用：只认该租户自己的 corpId，allowlist 也不能把别的企业放进来。
+  const expected = String(expectedCorpId ?? '').trim()
+  if (expected) return tenant === expected ? tenant : null
   const allowList = String(env.WECOM_ALLOWED_CORP_IDS ?? '')
     .split(',')
     .map((s) => s.trim())
@@ -360,15 +373,19 @@ export function resolveWecomTenant(corpId: string | undefined | null): string | 
   return tenant
 }
 
-let cachedWecomAccessToken: { token: string; expiresAt: number } | null = null
+const wecomTokenCache = new Map<string, { token: string; expiresAt: number }>()
 
-/** 获取企业微信自建应用 access_token(corpid + corpsecret) */
-async function getWecomAccessToken(): Promise<string> {
+/** 获取企业微信自建应用 access_token(corpid + corpsecret)；按 corpId 分桶缓存。 */
+async function getWecomAccessToken(creds?: WecomAppCredentials): Promise<string> {
+  const corpId = (creds?.corpId ?? env.WECOM_CORP_ID ?? '').trim()
+  const secret = (creds?.secret ?? env.WECOM_SECRET ?? '').trim()
+  const cacheKey = corpId
   const now = Date.now()
-  if (cachedWecomAccessToken && cachedWecomAccessToken.expiresAt > now + 60000) {
-    return cachedWecomAccessToken.token
+  const cached = wecomTokenCache.get(cacheKey)
+  if (cached && cached.expiresAt > now + 60000) {
+    return cached.token
   }
-  const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${env.WECOM_CORP_ID}&corpsecret=${env.WECOM_SECRET}`
+  const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(corpId)}&corpsecret=${encodeURIComponent(secret)}`
   const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`WeCom gettoken failed: ${resp.status}`)
   const data = (await resp.json()) as {
@@ -380,10 +397,10 @@ async function getWecomAccessToken(): Promise<string> {
   if (!data.access_token) {
     throw new Error(`WeCom gettoken error: ${data.errcode ?? '?'} ${data.errmsg ?? ''}`)
   }
-  cachedWecomAccessToken = {
+  wecomTokenCache.set(cacheKey, {
     token: data.access_token,
     expiresAt: now + (data.expires_in ?? 7200) * 1000,
-  }
+  })
   return data.access_token
 }
 
@@ -392,8 +409,11 @@ async function getWecomAccessToken(): Promise<string> {
  * 文档:https://developer.work.weixin.qq.com/document/path/91023
  * 返回的 userId 是企业内的 userid(用于唯一标识用户)。
  */
-export async function wecomPcCode2session(code: string): Promise<WecomSession> {
-  const accessToken = await getWecomAccessToken()
+export async function wecomPcCode2session(
+  code: string,
+  creds?: WecomAppCredentials,
+): Promise<WecomSession> {
+  const accessToken = await getWecomAccessToken(creds)
   const url = `https://qyapi.weixin.qq.com/cgi-bin/auth/getuserinfo?access_token=${accessToken}&code=${code}`
   const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`WeCom getuserinfo failed: ${resp.status}`)
@@ -414,7 +434,7 @@ export async function wecomPcCode2session(code: string): Promise<WecomSession> {
     userId: data.userid ?? data.open_userid ?? '',
     sessionKey: '',
     openUserId: data.open_userid ?? data.userid ?? '',
-    corpId: data.corpid ?? env.WECOM_CORP_ID ?? '',
+    corpId: data.corpid ?? creds?.corpId ?? env.WECOM_CORP_ID ?? '',
   }
 }
 
@@ -466,16 +486,23 @@ export interface DingtalkUserInfo {
   avatarUrl: string
 }
 
+/** 租户级钉钉应用凭据；不传则回退进程环境。 */
+export interface DingtalkCredentials {
+  appKey: string
+  appSecret: string
+  redirectUri: string
+}
+
 export function isDingtalkConfigured(): boolean {
   return Boolean(env.DINGTALK_APP_KEY && env.DINGTALK_APP_SECRET)
 }
 
 /** 构造钉钉扫码登录授权 URL（前端跳转至此 URL 让用户扫码） */
-export function buildDingtalkAuthUrl(state: string): string {
+export function buildDingtalkAuthUrl(state: string, creds?: DingtalkCredentials): string {
   const params = new URLSearchParams({
-    redirect_uri: env.DINGTALK_REDIRECT_URI ?? '',
+    redirect_uri: creds?.redirectUri ?? env.DINGTALK_REDIRECT_URI ?? '',
     response_type: 'code',
-    client_id: env.DINGTALK_APP_KEY ?? '',
+    client_id: creds?.appKey ?? env.DINGTALK_APP_KEY ?? '',
     scope: 'openid',
     state,
     prompt: 'consent',
@@ -484,16 +511,19 @@ export function buildDingtalkAuthUrl(state: string): string {
 }
 
 /** 用授权码换取 userAccessToken（钉钉 OAuth2 回调处理） */
-export async function exchangeDingtalkCode(code: string): Promise<string> {
+export async function exchangeDingtalkCode(
+  code: string,
+  creds?: DingtalkCredentials,
+): Promise<string> {
   const resp = await oauthFetch('https://api.dingtalk.com/v1.0/oauth2/userAccessToken', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      clientId: env.DINGTALK_APP_KEY ?? '',
-      clientSecret: env.DINGTALK_APP_SECRET ?? '',
+      clientId: creds?.appKey ?? env.DINGTALK_APP_KEY ?? '',
+      clientSecret: creds?.appSecret ?? env.DINGTALK_APP_SECRET ?? '',
       code,
       grantType: 'authorization_code',
-      redirectUri: env.DINGTALK_REDIRECT_URI ?? '',
+      redirectUri: creds?.redirectUri ?? env.DINGTALK_REDIRECT_URI ?? '',
     }),
   })
   if (!resp.ok) throw new Error(`DingTalk token exchange failed: ${resp.status}`)
@@ -689,12 +719,21 @@ export interface FeishuUserInfo {
   mobile?: string
 }
 
+/** 租户级飞书应用凭据；不传则回退进程环境。 */
+export interface FeishuCredentials {
+  appId: string
+  appSecret: string
+}
+
 export function isFeishuConfigured(): boolean {
   return Boolean(env.FEISHU_APP_ID && env.FEISHU_APP_SECRET)
 }
 
 /** 用授权码 code 换 user_access_token（飞书 OIDC） */
-export async function getFeishuAccessToken(code: string): Promise<{
+export async function getFeishuAccessToken(
+  code: string,
+  creds?: FeishuCredentials,
+): Promise<{
   accessToken: string
   refreshToken?: string
   expiresIn?: number
@@ -704,8 +743,8 @@ export async function getFeishuAccessToken(code: string): Promise<{
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify({
       grant_type: 'authorization_code',
-      client_id: env.FEISHU_APP_ID ?? '',
-      client_secret: env.FEISHU_APP_SECRET ?? '',
+      client_id: creds?.appId ?? env.FEISHU_APP_ID ?? '',
+      client_secret: creds?.appSecret ?? env.FEISHU_APP_SECRET ?? '',
       code,
     }),
   })

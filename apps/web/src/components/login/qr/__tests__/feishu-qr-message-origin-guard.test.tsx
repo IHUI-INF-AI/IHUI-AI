@@ -27,6 +27,7 @@ const h = vi.hoisted(() => ({
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
 vi.mock('@/lib/third-party-config', () => ({
+  applyTenantProviderConfig: vi.fn(),
   getPlatformConfig: () => ({
     enabled: true,
     clientId: 'cli_feishu_test',
@@ -74,11 +75,7 @@ function stubLocation(origin: string) {
   return fake
 }
 
-function postMessageFrom(opts: {
-  origin: string
-  source: unknown
-  url: string
-}): void {
+function postMessageFrom(opts: { origin: string; source: unknown; url: string }): void {
   const ev = new MessageEvent('message', {
     data: { url: opts.url },
     origin: opts.origin,

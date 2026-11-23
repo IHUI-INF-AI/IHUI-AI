@@ -24,6 +24,7 @@ vi.mock('@/lib/api', () => ({ fetchApi: h.fetchApi }))
 vi.mock('@/lib/ext-auth-relay', () => ({ notifyExtensionAuth: h.notifyExtensionAuth }))
 vi.mock('@ihui/api-client', () => ({ recordOAuthConsent: h.recordOAuthConsent }))
 vi.mock('@/lib/third-party-config', () => ({
+  applyTenantProviderConfig: vi.fn(),
   getAllPlatformConfigs: () => ({ github: { enabled: true } }),
   getPlatformConfig: () => ({ enabled: true }),
   validatePlatformConfig: () => ({ valid: true, missing: [] }),
@@ -51,7 +52,8 @@ vi.mock('@/hooks/use-toast', () => ({
 }))
 vi.mock('@/stores/auth', () => {
   const state = { setToken: h.setToken, setUser: h.setUser }
-  const store: any = (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state)
+  const store: any = (selector?: (s: typeof state) => unknown) =>
+    selector ? selector(state) : state
   store.getState = () => state
   return { useAuthStore: store }
 })

@@ -362,6 +362,15 @@ admin-api(:8830) ─┘
 - 数据源:`deploy/saas/panel-defs/provisioning/datasources/prometheus.yml` 自动注册
 - 加载路径:`deploy/saas/panel-defs/provisioning/dashboards/dashboards.yml` 30s 扫描一次
 
+### 平台应用凭据(多企业 SaaS,2026-11-23)
+
+飞书/钉钉/企业微信/微信公众号的应用凭据**不是平台级共享配置**,而是每个企业客户自己的自建应用:
+
+- 每个客户容器自带独立 PostgreSQL,租户管理员登录后进入 `设置 → 企业应用凭据`(`/settings/tenant-apps`)填写本企业应用;secret 以 `enc:v1` 密文存 `tenant_platform_apps`,登录与连接器执行时按 `tenant_id + platform` 读取。
+- 客户容器默认**不要**注入平台应用凭据;`templates/customer/.env.template` 与 `docker-compose.yml` 只保留 `PLATFORM_DEFAULT_TENANT_ID`(默认空)。空值 = 该客户必须自己配置,不会借用别家凭据。
+- 只有把现有单企业部署原样迁成"首个租户"时,才把 `PLATFORM_DEFAULT_TENANT_ID` 设为该租户 UUID,让进程环境里的那套凭据归属它;第二个及之后的客户必须各自配置。
+- API 与 ai-service 必须共享同一个 `CREDENTIALS_ENCRYPTION_KEY`(客户容器模板已同时注入两边),否则 AI 侧解不开租户凭据密文。
+
 ## 故障排查
 
 ### 证书签发失败
