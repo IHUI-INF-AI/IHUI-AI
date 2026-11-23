@@ -116,7 +116,8 @@ export default function VoiceInput({
         } ${disabled ? 'opacity-50' : ''}`}
         style={{
           // 盒高/内衬全部经 shared 单一源换算:原先这些档写在类名里(横向内衬 16、纵向 12、
-          // 最小高 48),与 RN 的 rnSpacing 及「无最小高」各写一份;2026-11-24 各按 §4 compact 取小收口。
+          // 最小高 48),与 RN 的 rnSpacing 及「无最小高」各写一份;2026-11-24 收口 ——
+          // 横向 16 不动(本端是设计锚),纵向与最小高各取小。
           // ⚠️ 注释里不要回写类名字面量:`stripComments` 对注释内反引号的剥离不可靠,
           // 回写的档会被 readGeometry 当成真实读数(实测凭空多一条"仅一端 12")。
           minHeight: rpx(VOICE_INPUT_BTN_MIN_HEIGHT_PX * TARO_RPX_PER_PX),
