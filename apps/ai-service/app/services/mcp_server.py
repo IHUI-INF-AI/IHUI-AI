@@ -2063,6 +2063,71 @@ def _search_codebase_keyword_sync(
     return matches, count
 
 
+async def _tool_list_symbol_definitions(arguments: dict[str, Any]) -> dict[str, Any]:
+    """list_symbol_definitions: 按符号名取**跨文件**定义簇(P0-8 第四批,2026-11-23)。
+
+    与 search_codebase 的分工:那个工具回答"哪里像这个符号"(检索/排序/预览),
+    本工具回答"这个符号在仓库里被定义在哪几处"(输入就是符号名本身,不需要先检索)。
+    数据源 = api 的实体表读面(`GET /api/v1/codebase/repo/:repoId/entities`),
+    经 knowledge_fs.list_symbols 单源消费(§0.6,本处不复制 HTTP 与三态判据)。
+
+    repo_id 缺省时按 path 推导 —— 与 index_codebase 同一份 `_default_repo_id`,
+    否则 agent 得先知道一枚它拿不到的 hash 才能用这个工具。
+
+    归属:只认服务端注入的 `__user_id`(与 search_codebase 一字不差的纪律);
+    缺身份直接拒绝,不起"匿名查全部"的默认。
+    """
+    name = str(arguments.get("name", "") or "").strip()
+    if not name:
+        return {
+            "tool": "list_symbol_definitions",
+            "ok": False,
+            "errorCode": "missing_argument",
+            "error": "name 必填:本工具按符号名逐字相等取定义位置,不做模糊匹配",
+        }
+    internal_user_id = arguments.get("__user_id") or None
+    if not internal_user_id:
+        return {
+            "tool": "list_symbol_definitions",
+            "ok": False,
+            "errorCode": "missing_identity",
+            "error": "未注入调用者身份:代码索引按归属隔离,拒绝无身份查询",
+        }
+    path = str(arguments.get("path", ".") or ".")
+    repo_id = str(arguments.get("repo_id", "") or "").strip()
+    if not repo_id:
+        from .codebase_indexer import _default_repo_id
+
+        repo_id = _default_repo_id(Path(path).resolve())
+    try:
+        limit = int(arguments.get("limit", 50))
+    except (TypeError, ValueError):
+        return {
+            "tool": "list_symbol_definitions",
+            "ok": False,
+            "errorCode": "invalid_argument",
+            "error": "limit 必须是正整数",
+        }
+    from .knowledge_fs import knowledge_fs
+
+    data = await knowledge_fs.list_symbols(repo_id, name, internal_user_id, limit=limit)
+    status = str(data.get("status") or "unjudged")
+    out: dict[str, Any] = {
+        "tool": "list_symbol_definitions",
+        "ok": status == "ok",
+        "status": status,
+        "repo_id": repo_id,
+        "name": name,
+        "count": int(data.get("count") or 0),
+        "definitions": data.get("definitions") or [],
+    }
+    if data.get("detail"):
+        # 空集三因三分(path_missing / catalog_missing / upstream_unavailable)的原委一字不改地透传:
+        # 调用方据此决定"重建索引"还是"换个符号",而不是把三种因都读成"不存在"。
+        out["detail"] = data["detail"]
+    return out
+
+
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_codebase: 代码符号搜索(关键词腿 + 语义腿并跑,RRF 融合)。
 
@@ -14829,6 +14894,27 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="list_symbol_definitions",
+        description=(
+            "按符号名取跨文件定义簇(P0-8 第四批):回答「这个符号在仓库里被定义在哪几处」,"
+            "输入是符号名本身,不需要先做一次检索。每条定义含虚拟路径(repo/file#symbol)+行区间+种类,"
+            "拿到即可直接 read。空集按三因三分给出:path_missing(未建索引)/"
+            "catalog_missing(索引早于实体表,重建可补)/upstream_unavailable(取不到,未判定)。"
+            "repo_id 可省略:缺省按 path 推导(与 index_codebase 同源)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "符号名(逐字相等、大小写敏感;必填)"},
+                "repo_id": {"type": "string", "description": "仓库标识(可省略;缺省按 path 推导)"},
+                "path": {"type": "string", "description": "仓库根目录(默认当前目录;仅在省略 repo_id 时用于推导)"},
+                "limit": {"type": "integer", "description": "最多返回多少条定义(默认 50,夹取 1-200)", "default": 50},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="index_codebase",
         description=(
             "对本地代码库建立/刷新语义索引(Merkle 增量,未变更文件零重嵌入)。"
@@ -19057,6 +19143,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
     "search_codebase": _tool_search_codebase,
+    "list_symbol_definitions": _tool_list_symbol_definitions,
     "index_codebase": _tool_index_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "context_recall": _tool_context_recall,

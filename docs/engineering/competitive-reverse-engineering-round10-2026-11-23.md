@@ -762,4 +762,42 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 1. **`codebase_edges` 仍无写入通道**：边需要 import / 调用关系，切片未携带。要补得先让切片器带 import 列表——这是下一批而不是本批。
 2. **`list_symbols` 还没有工具面入口**：`mcp_server.py` 的代码检索工具组尚未把这条能力挂成工具（agent 目前要走 HTTP 或 Python 调用）。下一批该做"工具面接线"，否则它仍只是"可调"而不是"会被调"。
 3. **`needsRebuild` / `getIndexState` 仍只有测试消费方**：索引调度层未接线。
+
+## 27. P0-8 第五批：MCP 工具面接线（2026-11-23）
+
+> 第四批让实体表"能读"，但到这一步它仍只是"可调"而不是"会被调"——`list_symbols` 只有 HTTP 与 Python 两个入口，agent 的工具清单里没有它。这一批把它变成一枚真实工具。
+
+### 27.1 工具契约：`list_symbol_definitions`
+
+| 入参 | 语义 | 缺省行为 |
+| --- | --- | --- |
+| `name` | 符号名，**逐字相等、大小写敏感**（必填） | 缺失或纯空白 ⇒ `missing_argument`，不发起任何上游调用 |
+| `repo_id` | 仓库标识 | 省略时按 `path` 推导 |
+| `path` | 仓库根目录（默认 `.`） | 仅在省略 `repo_id` 时用于推导 |
+| `limit` | 最多返回多少条定义 | 默认 50，`knowledge_fs` 侧夹取 `[1, 200]` |
+
+两条纪律：
+
+- **归属只认服务端注入的 `__user_id`**（与 `search_codebase` 一字不差）。缺失即 `missing_identity` 拒绝，不起"匿名查全部"的默认。
+- **`repo_id` 推导与 `index_codebase` 同源**（同一份 `_default_repo_id`）。不这么做的话，agent 得先知道一枚它拿不到的路径 hash 才能用这个工具——工具就等于没接线。
+
+### 27.2 输出：定义簇 + 三态原委
+
+成功时给 `status=ok / repo_id / name / count / definitions[]`，每条定义含 `path`（`/repo/<repoId>/<file>#<symbol>` 虚拟路径）+ `file_path` + 行区间 + `kind`，agent 拿到即可直接 `read`。
+
+空集时 `ok=false`，但 `status` 与 `detail` **原样透传** `path_missing` / `catalog_missing` / `upstream_unavailable` 三因——调用方据此决定"去重建索引"还是"换个符号"，而不是把三种因都读成"不存在"。
+
+`limit` 非法（`abc` / 空串 / `None` 等非整数）⇒ `invalid_argument`，同样不发起上游调用。
+
+### 27.3 验证
+
+- 新测试 `test_mcp_list_symbol_definitions.py` **9 例**：缺 name、缺身份两例都断言 `assert_not_awaited()`（"不发上游"是被测出来的，不是自称的）；`limit` 三种非法值参数化；happy path 断言上游实参逐字（`("r-hash", "fn_a", "u1", limit=50)`）；`repo_id` 缺省时断言 `_default_repo_id` 被调用且推导结果进了上游入参；`catalog_missing` 的 detail 原委在原样出现在工具出参里；注册双射一条（`_TOOLS` 里恰好一枚 + `_TOOL_HANDLERS` 指向同一函数对象）。
+- mcp 工具面既有回归 **105 例全绿**（`test_mcp_registry.py` / `test_mcp_tool_deferral.py` / `test_mcp_tool_guards.py` / `test_mcp_capability_gate.py`）。
+- `test_mcp_server.py` + `test_mcp_protocol_completeness.py` **265 例全绿**（工具定义 ↔ 处理函数双射在 `test_tools_count_matches_registry` 上现读通过）。
+- 水印 `verify` 覆盖 `mcp_server.py` 与新测试两文件。
+
+### 27.4 边界
+
+1. 工具能否出现在某个客户端的清单里，还取决于 tool aggregator / deferral 的既有分层（本批只保证"注册表双射 + 可被 call_tool 调到"，不承诺每个客户端都挤进首屏清单）。
+2. `codebase_edges` 仍无写入通道；`needsRebuild` / `getIndexState` 仍只有测试消费方。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
