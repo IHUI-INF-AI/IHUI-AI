@@ -7832,5 +7832,6 @@
     "traderBenefits": "トレーダー特典",
     "privateAdvisor": "専任アドバイザー",
     "daysSuffix": "日"
-  }
+  },
+  "charCount": "{count} 文字"
 }

@@ -20,10 +20,7 @@ import {
   TAB_BAR_INDICATOR_INSET_PX,
   TAB_BAR_MARGIN_H_PX,
 } from '../tab-bar-spec'
-import {
-  INPUT_AREA_CONTAINER_PADDING_X_PX,
-  INPUT_AREA_SHELL_HEIGHT_PX,
-} from '../input-area-spec'
+import { INPUT_AREA_CONTAINER_PADDING_X_PX, INPUT_AREA_SHELL_HEIGHT_PX } from '../input-area-spec'
 
 /**
  * 本表存在的理由(与 tab-bar-spec 头注同一条因果,写在这里是为了让它坏的时候有人知道):
@@ -105,9 +102,10 @@ describe('底部胶囊几何单一源', () => {
       expect(forwards.length).toBe(c.names.length)
       for (const n of c.names) {
         const literal = new RegExp(`\\b(?:export\\s+)?const\\s+${n}\\s*=\\s*\\d`).test(src)
-        expect(literal, `${c.file} 里的 ${n} 被写成了字面量 ⇒ 应转发 @ihui/shared/ui/tab-bar-spec`).toBe(
-          false,
-        )
+        expect(
+          literal,
+          `${c.file} 里的 ${n} 被写成了字面量 ⇒ 应转发 @ihui/shared/ui/tab-bar-spec`,
+        ).toBe(false)
       }
     }
   })

@@ -7832,5 +7832,6 @@
     "traderBenefits": "Trader benefits",
     "privateAdvisor": "Private advisor",
     "daysSuffix": "days"
-  }
+  },
+  "charCount": "{count} chars"
 }

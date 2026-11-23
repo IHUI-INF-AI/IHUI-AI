@@ -71,7 +71,7 @@
 //    25 AI_HOME_VOICE_BTN_W   ↔ 32 VOICE_BTN_WIDTH        紧凑条 22 行高 vs 卡片 48 行高
 //    48 INPUT_MIN_HEIGHT      ↔ 小程序 rpx(44)=22          同上
 //    72 THUMB_PX              ↔ 106.5×60 VIDEO_THUMB_W/H   方盒 vs 16:9 内容盒(素材固有比)
-//    120 INPUT_MAX_HEIGHT     ↔ 250 AI_HOME_INPUT_MAX_HEIGHT 卡片内滚 vs ai-home 可放大到全屏
+//    148 INPUT_MAX_HEIGHT     ↔ 250 AI_HOME_INPUT_MAX_HEIGHT 1~6 行内滚 vs ai-home 可放大到全屏
 //
 //  C 同槽位留白,两端各由自身机制决定(不是同一个量的两条写法):
 //    仅小程序 5     INLINE_GAP                表情格内衬 / 清空与发送图标间距;RN 该槽位是实底钮 marginLeft 4
@@ -239,15 +239,21 @@ export const INPUT_AREA_INPUT_MIN_HEIGHT_PX = 48
 
 /**
  * 【B 单端档·RN】大输入框外壳(fieldShell)的上下内边距 6 与描边 1 —— 写成常数是为了让
- * 外壳高度能被推导,而不是让端内再抄一遍 48+12+2。
+ * 外壳高度能被推导,而不是让端内再抄一遍。
+ *
+ * 2026-11-23 用户定档:移动端输入卡改为「文本行 + 工具行」两层,本档仍只表示外壳内衬,
+ * 工具行(32)与两行间距(4)另计,见下方 INPUT_AREA_SHELL_HEIGHT_PX 的派生式。
  */
 export const INPUT_AREA_SHELL_PADDING_V_PX = 6
 export const INPUT_AREA_SHELL_BORDER_PX = 1
 
 /**
- * 【B 单端档·RN】大输入框外壳单行静态高 = 输入行最小高 + 上下内边距×2 + 上下描边×2。
- * 底部 TabBar 胶囊按这一档取高:停靠区里两张卡同形(2026-10-20 用户定稿「菜单栏的高宽
- * 应该跟 AI 输入框一致」)。输入框多行撑高时外壳会变高,胶囊不跟随 —— 对齐的是静态单行档。
+ * 【B 单端档·RN】大输入框外壳单行静态高 = 输入行最小高 + 上下内边距×2 + 上下描边×2 = 62。
+ *
+ * 2026-11-23 输入卡改为「文本行 48 + 工具行 32 + 间距 4」两层,实际静态高 98;本档不再
+ * 等于实际外壳高,但仍是**底部 TabBar 胶囊**的高度来源(`TAB_BAR_HEIGHT_PX` 纯别名)。
+ * 胶囊不跟随输入卡变高,否则会被一并撑到 98。98 由 RN 端按 spec 的 48/32/4/6/1 现算,
+ * 不在 spec 再造第二枚同值档。
  */
 export const INPUT_AREA_SHELL_HEIGHT_PX =
   INPUT_AREA_INPUT_MIN_HEIGHT_PX +
@@ -291,13 +297,14 @@ export const INPUT_AREA_IN_SHELL_BTN_PX = GEOMETRY_PX.controlBox
 export const INPUT_AREA_THUMB_PX = 72
 
 /**
- * 【B 单端档·RN】输入框自动撑高上限 120 / 最小高 48。
- * 与小程序 ai-home 的 250(INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX)是**变体契约分叉**:
- * RN 卡片态超过 120 就内部滚动、放大钮切到无上限;小程序 ai-home 是可从 80rpx 逐层放大到
- * 全屏的大输入框,500rpx 是复刻原项目的可视区上限。compact 取小会让 ai-home 在 120 就滚
- * (内容被裁走可视性)—— 取较大档例外的反向情形,故两端各留一档、写明不成对。
+ * 【B 单端档·RN】输入框自动撑高上限 148 / 最小高 48。
+ *
+ * 2026-11-23 用户定档:移动端默认显示 1 行、随输出最高 6 行。行高取 `rnType.body.lineHeight`
+ * (20),故上限 = 48 + 5×20 = 148;超过 6 行由输入框内部滚动,或点右上角四箭头全屏展示
+ * 全部内容。与小程序 ai-home 的 250(INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX)仍是变体
+ * 契约分叉:小程序是可从 80rpx 逐层放大到全屏的大输入框,500rpx 是复刻原项目的可视区上限。
  */
-export const INPUT_AREA_INPUT_MAX_HEIGHT_PX = 120
+export const INPUT_AREA_INPUT_MAX_HEIGHT_PX = 148
 
 /**
  * 【B 单端档·RN】缩略图删除角标文字阴影纵向偏移 1。
@@ -335,7 +342,7 @@ export const INPUT_AREA_ATTACHMENT_BADGE_LINE_PX = 16
 export const INPUT_AREA_VIDEO_THUMB_W_PX = 106.5
 export const INPUT_AREA_VIDEO_THUMB_H_PX = 60
 
-/** 【B 单端档·小程序】ai-home textarea 自动撑高上限 250(=500rpx,复刻原项目)。与 RN 120 不同形,依据见 INPUT_AREA_INPUT_MAX_HEIGHT_PX 注。 */
+/** 【B 单端档·小程序】ai-home textarea 自动撑高上限 250(=500rpx,复刻原项目)。与 RN 148(6 行)不同形,依据见 INPUT_AREA_INPUT_MAX_HEIGHT_PX 注。 */
 export const INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX = 250
 
 /**

@@ -20,8 +20,9 @@
 import { INPUT_AREA_CONTAINER_PADDING_X_PX, INPUT_AREA_SHELL_HEIGHT_PX } from './input-area-spec'
 
 /**
- * 胶囊高 = AI 输入框外壳静态档。
- * 依据 2026-10-20 用户定稿「底部菜单栏的高宽应该跟 AI 输入框一致」:停靠区里两张卡同形。
+ * 胶囊高 = AI 输入框外壳单行静态档(62)。
+ * 依据 2026-10-20 用户定稿「底部菜单栏的高宽应该跟 AI 输入框一致」。
+ * 2026-11-23 输入卡两层化后实际高 98,胶囊仍取原 62、不跟随变高(否则会被撑到 98)。
  */
 export const TAB_BAR_HEIGHT_PX = INPUT_AREA_SHELL_HEIGHT_PX
 

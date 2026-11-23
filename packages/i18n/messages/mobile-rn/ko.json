@@ -7832,5 +7832,6 @@
     "traderBenefits": "트레이더 혜택",
     "privateAdvisor": "전담 어드바이저",
     "daysSuffix": "일"
-  }
+  },
+  "charCount": "{count}자"
 }

@@ -161,7 +161,7 @@ const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: strin
   {
     tier: 'INPUT_AREA_INPUT_MAX_HEIGHT_PX',
     owner: 'mobile-rn',
-    why: 'B 卡片内滚 120 vs ai-home 可放大到全屏 250',
+    why: 'B 1~6 行内滚上限 148 vs ai-home 可放大到全屏 250',
   },
   {
     tier: 'INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX',
@@ -201,7 +201,7 @@ const PROJECTION_TIERS: ReadonlyArray<{ tier: string; consumer: string; why: str
   {
     tier: 'INPUT_AREA_SHELL_HEIGHT_PX',
     consumer: 'packages/shared/src/ui/tab-bar-spec.ts',
-    why: '底部胶囊按输入框外壳静态高取数(2026-10-20 用户定稿「菜单栏的高宽应该跟 AI 输入框一致」)',
+    why: '底部胶囊按输入框单行静态高取数(TAB_BAR_HEIGHT_PX 纯别名;输入卡两层化后胶囊仍取 62)',
   },
 ]
 

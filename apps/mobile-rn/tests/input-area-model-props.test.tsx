@@ -119,10 +119,10 @@ describe('InputArea 模型按钮族', () => {
     expect(name.style.color).toBe(cssColor(tokens.text.primary))
   })
 
-  it('未选态文字取次要档(与上一条成对,证明这处状态区别不是巧合)', () => {
+  it('未选态与已选同取主文字档(2026-11-23 对齐 web 触发钮,不再靠颜色区分自动/已选)', () => {
     const { container } = renderArea({ onOpenModelSelect: () => {} })
     const auto = within(container).getByText(TEXT.auto)
-    expect(auto.style.color).toBe(cssColor(tokens.text.secondary))
+    expect(auto.style.color).toBe(cssColor(tokens.text.primary))
   })
 
   it('清除钮:onClearModel 且"已有所选"才出现,点击调 onClearModel;「自动」态没有可清除对象', () => {
@@ -163,7 +163,7 @@ describe('InputArea 模型按钮族', () => {
     expect(chip.compareDocumentPosition(plus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('样式契约:圆角取 chip 档(rnRadiusFor.chip),描边取中性档且不取墨档,图标是矢量 SVG', () => {
+  it('样式契约:圆角取 control 档、ghost 无边框无底色、图标是矢量 SVG', () => {
     const { container } = renderArea({ onOpenModelSelect: () => {} })
     const chip = mustButton(container, TEXT.select)
     // RN 替身把 style 摊平成 DOM style;React 给非 unitless 数值补 px
@@ -175,7 +175,13 @@ describe('InputArea 模型按钮族', () => {
     expect(chip.style.borderRadius).toBe(`${rnRadiusFor.control}px`)
     expect(rnRadiusFor.control).toBe(rnRadius.sm)
     expect(rnRadius.sm).toBe(4)
-    expect(chip.style.borderColor).toBe(cssColor(tokens.border.light))
+    // 2026-11-23 用户定档:模型钮与 web 触发钮一样 ghost 化 —— 无描边、无底色,
+    // 不再用旧灰框;「有边框」在这一格等于跨端不同形。
+    expect(chip.style.borderColor).toBe('')
+    expect(chip.style.borderWidth || '').toBe('')
+    expect(chip.style.backgroundColor || '').toBe('')
+    expect(chip.style.height).toBe('32px')
+    expect(chip.style.maxWidth).toBe('160px')
     // 墨档禁入描边(AGENTS §4「描边不得取墨档」)
     for (const ink of [tokens.brand.DEFAULT, tokens.brand.foreground, tokens.text.primary]) {
       expect(chip.style.borderColor).not.toBe(cssColor(ink))

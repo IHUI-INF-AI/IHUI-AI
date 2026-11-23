@@ -50,6 +50,7 @@ import {
 import {
   Archive,
   ArchiveRestore,
+  AudioLines,
   Check,
   ClipboardPaste,
   Mic,
@@ -368,7 +369,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
         testID="voice-note-trigger"
         style={styles.trigger}
       >
-        <Mic size={16} color={tokens.text.secondary} />
+        {/* 触发图标用 AudioLines 而非 Mic(2026-11-23):输入条已有长按麦克风(发语音消息),
+            同排再放一枚 Mic 会被读成同一个功能;语音笔记是独立入口,图标必须可区分。 */}
+        <AudioLines size={16} color={tokens.text.secondary} />
       </Tappable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={closePanel}>

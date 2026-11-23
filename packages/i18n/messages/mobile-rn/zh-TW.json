@@ -7832,5 +7832,6 @@
     "traderBenefits": "操盤手權益",
     "privateAdvisor": "私人顧問",
     "daysSuffix": "天"
-  }
+  },
+  "charCount": "{count} 字元"
 }

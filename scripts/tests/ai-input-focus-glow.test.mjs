@@ -81,4 +81,50 @@ test('web AI 输入卡:field 灰描边 + 双层紫辉光 token,禁止旧 chart-5
   const highRiskFocus = cssBlock(css, '.ai-input-shell--high-risk:focus-within')
   assert.match(highRiskFocus, /border-color:\s*var\(--color-primary\)/)
 })
+
+const stripComments = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+
+test('RN AI 输入框全量对齐 web:取消上限 / 1~6 行 / 字符计数 / 四箭头全屏', () => {
+  const src = read('apps/mobile-rn/src/components/InputArea.tsx')
+  const code = stripComments(src)
+  // 字符限制:不再有任何截断实现;旧 maxLength prop 仅为兼容而保留(@deprecated,内部忽略)
+  assert.doesNotMatch(
+    code,
+    /Math\.floor\(maxLength|maxLength=\{maxLength|value\.length\}\/\{maxLength\}/,
+  )
+  assert.doesNotMatch(code, /DEFAULT_MAX_LENGTH|WARNING_RATIO|isOverWarning/)
+  assert.match(src, /@deprecated 2026-11-23[\s\S]*?maxLength\?: number/)
+  // 1~6 行:上限 = shared spec 148;两层静态高 = 48 + 32 + 4 + 12 + 2
+  assert.match(code, /MAX_INPUT_HEIGHT = INPUT_AREA_INPUT_MAX_HEIGHT_PX/)
+  assert.match(code, /SHELL_STATIC_HEIGHT[\s\S]*?INPUT_AREA_INPUT_MIN_HEIGHT_PX/)
+  assert.match(code, /SHELL_STATIC_HEIGHT[\s\S]*?rnGeometry\.controlBox/)
+  // 字符显示逻辑:有内容才渲染「N 字符」,不显示分母/上限
+  assert.match(code, /t\('charCount', \{ count: value\.length \}\)/)
+  assert.match(code, /value\.length > 0/)
+  assert.doesNotMatch(code, /\$\{?value\.length\}[^/]*\/[^/]*maxLength/)
+  // 右上角四箭头 -> Modal 全屏,文本区 flex 撑满
+  assert.match(code, /<Maximize/)
+  assert.match(code, /setIsExpanded\(true\)/)
+  assert.match(code, /<Modal/)
+  assert.match(code, /styles\.expandedInput/)
+  assert.match(
+    code,
+    /isExpanded \? styles\.fieldShellFocused : null|textFocused \? styles\.fieldShellFocused/,
+  )
+
+  const spec = read('packages/shared/src/ui/input-area-spec.ts')
+  assert.match(spec, /INPUT_AREA_INPUT_MAX_HEIGHT_PX = 148/)
+  // 胶囊仍取单行静态档 62,不被两层输入卡撑高
+  assert.match(
+    read('packages/shared/src/ui/tab-bar-spec.ts'),
+    /TAB_BAR_HEIGHT_PX = INPUT_AREA_SHELL_HEIGHT_PX/,
+  )
+
+  for (const locale of ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']) {
+    const messages = JSON.parse(read(`packages/i18n/messages/mobile-rn/${locale}.json`))
+    assert.equal(typeof messages.charCount, 'string', `${locale} 缺 charCount`)
+    assert.match(messages.charCount, /\{count\}/, `${locale} charCount 缺插值占位`)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
