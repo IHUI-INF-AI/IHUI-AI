@@ -85,6 +85,8 @@ mod sandbox_sdk;
 mod sandbox_ipc;
 // 2026-11-23 立(B3-05):通知权限三态查询(只读注册表,不写不改)。
 mod notification_permission;
+// 2026-11-23 立(B2-10):出站拦截四桶只增计数(纯观测,判定仍归 egress_gate)。
+mod sandbox_metrics;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -4827,6 +4829,12 @@ fn query_notification_permission() -> notification_permission::PermissionReport 
     notification_permission::read_notification_permission()
 }
 
+/// B2-10:出站拦截计数读数(只读;放行/真拒绝/只出声/未判定四桶 + 恒等式一致性)。
+#[tauri::command]
+fn sandbox_egress_metrics() -> sandbox_metrics::EgressMetricReport {
+    sandbox_metrics::report()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -5760,7 +5768,9 @@ pub fn run() {
     sandbox_ipc::sandbox_capability,
     sandbox_ipc::sandbox_tiers,
     // 2026-11-23 立(B3-05):通知权限三态查询(只读;区分"用户关了"与"链路故障")。
-    query_notification_permission
+    query_notification_permission,
+    // 2026-11-23 立(B2-10):出站拦截四桶计数(只读;埋点挂在 guard_egress_target)。
+    sandbox_egress_metrics
         ])
         .run(context)
         .unwrap_or_else(|e| {

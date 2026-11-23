@@ -706,6 +706,22 @@ fn looks_like_ip_literal(host: &str) -> bool {
         && parts.iter().all(|p| !p.is_empty() && p.len() <= 3 && p.chars().all(|c| c.is_ascii_digit()))
 }
 
+/// 判定 → 埋点桶的唯一映射(2026-11-23 立 B2-10)。纯函数,四组合封闭:
+/// `Allow` 不论档位都进放行桶;`Deny` 按 `Enforcement` 分"真拒绝"与"只出声";
+/// `Unjudged` 自成一体。放行与保留分开计,才看得出"拦截数降了"是威胁变少还是规则没生效。
+pub fn bucket_for(
+    decision: Decision,
+    enforcement: Enforcement,
+) -> crate::sandbox_metrics::EgressBucket {
+    use crate::sandbox_metrics::EgressBucket;
+    match (decision, enforcement) {
+        (Decision::Allow, _) => EgressBucket::Allow,
+        (Decision::Deny, Enforcement::Enforce) => EgressBucket::DenyEnforced,
+        (Decision::Deny, Enforcement::Advisory) => EgressBucket::DenyAdvisory,
+        (Decision::Unjudged, _) => EgressBucket::Unjudged,
+    }
+}
+
 /// `guard` 的拒绝判据(纯,可单测):只有被 `Enforce` 结算的 `Deny` 才真的拒绝。
 /// 判定与执行读的是**同一个** `Judgement`,不另算一份档位(F-105:两者分离就是伪开关)。
 fn enforced_refusal(verdict: &Judgement) -> Option<String> {
@@ -724,6 +740,8 @@ fn enforced_refusal(verdict: &Judgement) -> Option<String> {
 pub fn guard_egress_target(raw_target: &str) -> Result<(), String> {
     let (policy, load_warnings) = load_policy(&env_get);
     let verdict = judge(raw_target, &policy);
+    // B2-10:只记账,不改判定 —— 下面所有分支(含真拒绝)都与埋点前逐字一致。
+    crate::sandbox_metrics::record(bucket_for(verdict.decision, verdict.enforcement));
 
     let mut out: Vec<String> = load_warnings;
     match verdict.decision {
@@ -776,6 +794,48 @@ pub fn report_egress_warnings(lines: &[String]) {
 #[cfg(test)]
 mod egress_gate_tests {
     use super::*;
+
+    /// B2-10 映射:四组合封闭,且"只出声的拒绝"不得记进真拒绝桶。
+    #[test]
+    fn bucket_mapping_covers_all_four_combinations() {
+        use crate::sandbox_metrics::EgressBucket;
+        assert_eq!(
+            bucket_for(Decision::Allow, Enforcement::Enforce),
+            EgressBucket::Allow
+        );
+        assert_eq!(
+            bucket_for(Decision::Allow, Enforcement::Advisory),
+            EgressBucket::Allow
+        );
+        assert_eq!(
+            bucket_for(Decision::Deny, Enforcement::Enforce),
+            EgressBucket::DenyEnforced
+        );
+        assert_eq!(
+            bucket_for(Decision::Deny, Enforcement::Advisory),
+            EgressBucket::DenyAdvisory
+        );
+        assert_eq!(
+            bucket_for(Decision::Unjudged, Enforcement::Enforce),
+            EgressBucket::Unjudged
+        );
+        assert_eq!(
+            bucket_for(Decision::Unjudged, Enforcement::Advisory),
+            EgressBucket::Unjudged
+        );
+    }
+
+    /// B2-10 无回归:埋点挂在判定后,拒绝语义与埋点前逐字一致。
+    #[test]
+    fn recording_does_not_change_refusal_semantics() {
+        let policy = policy_from(Some("blocked.example.com"), None, Some("allow"), Some("enforce"));
+        let denied = judge("blocked.example.com", &policy);
+        assert_eq!(denied.decision, Decision::Deny);
+        assert!(enforced_refusal(&denied).is_some());
+        let allowed = judge("ok.example.com", &policy);
+        assert_eq!(allowed.decision, Decision::Allow);
+        assert!(enforced_refusal(&allowed).is_none());
+    }
 
     fn policy_from(deny: Option<&str>, allow: Option<&str>, default: Option<&str>, enforce: Option<&str>) -> GatePolicy {
         let map = |k: &str| -> Option<String> {
