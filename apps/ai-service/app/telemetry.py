@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 
 _initialized = False
 _tracer: Any = None
+# B1-11:日志通道是**独立**一条腿(OTLP /v1/logs)。untouched 时按 disabled 报,
+# 建失败按 unjudged 点名 —— "没有日志通道"不等于"日志没丢"。
+_log_provider: Any = None
+_logs_state: str = "disabled"
 
 
 def _opaque_subject(raw: Any) -> str:
@@ -66,6 +70,7 @@ def init_telemetry() -> Any | None:
 
     if not _should_enable():
         logger.info("[telemetry] OTel 未启用（未配置 OTEL_EXPORTER_OTLP_ENDPOINT），降级为 no-op")
+        globals()["_logs_state"] = "disabled"
         return None
 
     import os
@@ -98,6 +103,26 @@ def init_telemetry() -> Any | None:
     trace.set_tracer_provider(provider)
 
     _tracer = trace.get_tracer("ihui-ai-service")
+
+    # B1-11:日志通道(独立端点 /v1/logs)。建不起来只降级点名,既不影响 trace 也不影响业务;
+    # 批尺寸与字节界由 `services/otel_log_channels.py` 的常量与判据给出(SDK 侧用
+    # BatchLogRecordProcessor 的默认上限,本层的"界"用作会话日志面自建批的判据)。
+    global _log_provider, _logs_state
+    try:
+        from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+        from opentelemetry.sdk._logs import LoggerProvider
+        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
+        log_provider = LoggerProvider(resource=resource)
+        log_provider.add_log_record_processor(
+            BatchLogRecordProcessor(OTLPLogExporter(endpoint=f"{endpoint}/v1/logs"))
+        )
+        _log_provider = log_provider
+        _logs_state = "enabled"
+    except Exception as exc:  # noqa: BLE001 — 依赖缺失/版本不符都只降级点名,不静默假装有通道
+        _logs_state = f"unjudged({type(exc).__name__})"
+        logger.warning("[telemetry] 日志通道未建立（trace 通道不受影响）: %s", exc)
+
     logger.info(
         "[telemetry] OTel 已启用：endpoint=%s service=%s sampler=%s/%s",
         endpoint,
@@ -180,9 +205,31 @@ def setup_telemetry(app: FastAPI) -> None:
     app.middleware("http")(telemetry_middleware)
 
 
+def telemetry_channel_states() -> dict[str, str]:
+    """两条通道的现读状态(诊断用;不猜:未初始化 ⇒ disabled 明确写出来)。"""
+    traces = "disabled"
+    if _logs_state == "enabled" or _tracer is not None or _log_provider is not None:
+        traces = "enabled"
+    return {"traces": traces, "logs": _logs_state}
+
+
+def _shutdown_log_provider() -> None:
+    """日志通道优雅关闭(让 BatchLogRecordProcessor 把最后一批刷出去)。"""
+    global _log_provider, _logs_state
+    if _log_provider is None:
+        return
+    try:
+        _log_provider.shutdown()
+    except Exception as e:  # noqa: BLE001 — 关闭异常不掩盖进程退出
+        logger.warning("[telemetry] 日志通道 shutdown 异常（忽略）: %s", e)
+    finally:
+        _log_provider = None
+
+
 def shutdown_telemetry() -> None:
     """进程退出时优雅关闭 SDK，确保 span flush。"""
     global _tracer, _initialized
+    _shutdown_log_provider()
     if _tracer is None:
         return
     try:
