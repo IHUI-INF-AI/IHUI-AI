@@ -105,22 +105,27 @@
 //   逐档归属(含每组属于谁)另由 packages/shared/src/ui/__tests__/input-area-wiring.test.ts
 //   的 ⑨ 号用例机器钉住:谁往"另一端"补了引用,那条用例就红。
 //
-// **为什么"把几何维升级到元素×键→值"这一步不足以判本族**(2026-11-24 实测,不是推断):
-//   原型用 `__test__.readGeometry(src).hints` 拿到每档的来源行,再用 `radius-tokens.mjs` 的
-//   `blockOwnerOf` 反查该行所属块。两端结果**不对称**:
-//   · RN 侧 8/8 都能归到 StyleSheet 键(`thumbClose` / `micInShell` / `inputBare` / `catChip` /
-//     `voiceBars` / `sendButton` …) —— 键名就是元素名,**同名可比**。
-//   · 小程序侧 16 档里只有类名串那 4 档归得到元素(`className="h-48…"` / `min-w-[88rpx]…`);
-//     其余 12 档落在 `style={{ … }}` 内联对象里,反查到的"块名"是 `bottom:` / `borderRadius:` /
-//     行内的 `padding:` —— **那是属性键,不是元素身份**。内联 style 在语法上就没有元素名。
-//   ⇒ 元素×键口径的**充分前提是三段而不是一段**:
-//     ① 判据升级到元素×键(必要);
-//     ② JSX 节点级解析(把 `style={{}}` 归到宿主 `<View>` 并取该节点的语义名);
-//     ③ **组件内联 style 禁止直接写几何长度**(只许引用 spec 常量 / 类名 / StyleSheet 键) ——
-//        这一条最关键:②只解决"能不能归",③才解决"两端有没有可比的同一个名字"。
-//   在 ③ 落地之前,本族的单端档里必然混着"另一端根本无此元素"与"同元素不同值"两种,
-//   机器无法分开 —— 这也正是本表**只登记不取值**的判据依据。
-//   （复跑同一条取证:读 `readGeometry().hints` + `blockOwnerOf` 即可,无需第二套提取。）
+// **为什么"把几何维升级到元素×键→值"仍不足以判本族**(2026-11-24 两轮实测;第一轮结论已自我纠正)
+//   第一轮:用 `blockOwnerOf` 按「块」反查来源行,得出"小程序侧内联 style 没有元素名" —— **这句是错的**,
+//   错在反查口径:按块反查时命中的是 `style` 对象里的属性键(`bottom:` / `borderRadius:`),那是键不是元素。
+//   第二轮:改成按 **JSX 宿主标签** 反查(取「包含该字符偏移、且起点最大」的 `<View|Text|ScrollView…>`
+//   开放标签,再从标签里取 `className` 的非工具类 token),小程序侧立刻抓到语义名:
+//   `input-area` / `search-input` / `search-box1`。RN 侧沿用块级(值住在 StyleSheet 对象里,
+//   8/8 都归到键:`thumbClose` / `micInShell` / `inputBare` / `catChip` / `voiceBars` / `sendButton` …)。
+//   ⇒ **两端各自都能归到元素名**。真正的缺口不是"归不到",是**两端命名体系不同**:
+//   小程序 = kebab-case CSS 类名(`input-area` / `search-input`),RN = camelCase StyleSheet 键
+//   (`fieldShell` / `micInShell`) —— 同一元素在两端的**名字就不是同一个**,机器无法同名配对
+//   (实测配对结果:16 条单端档逐条去 RN 找同名元素,**命中 0 条**)。
+//   ⇒ 元素×键口径的充分前提是**四段**,第④段才是本族真正的门槛:
+//     ① 判据升级到元素×键;
+//     ② 小程序侧按 JSX 宿主标签归元素(已证可行);
+//     ③ RN 侧按 StyleSheet 键归元素(已证可行);
+//     ④ **跨端元素名映射表**(kebab ↔ camelCase),手工维护、必须与两端改名同枚提交 ——
+//        映射一腐烂,整维立刻退化成"全部配不上",而且比没有这一维更糟:它会**假装判过**。
+//   在第④段存在之前,本族的单端档里必然混着"另一端无此元素"与"同元素不同值",机器分不开 ——
+//   这正是本表**只登记不取值**的判据依据。
+//   （复跑取证:读 `readGeometry().hints` 得来源行 → 小程序侧按 JSX 宿主标签、RN 侧按 StyleSheet 对象
+//     归元素名,全程复用门内既有提取,不需要第二套读数面。）
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 import { GEOMETRY_PX } from '@ihui/design-tokens'
