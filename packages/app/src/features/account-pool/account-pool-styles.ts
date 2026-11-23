@@ -21,9 +21,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'transparent',
-      padding: rnSpacing['md-loose'],
+      padding: rnSpacing.md,
       gap: rnSpacing.sm,
     },
     rowHead: {
@@ -65,15 +63,13 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
     linkText: { fontSize: rnType.bodySm.size, color: tk.brand.DEFAULT ?? tk.text.primary },
     actions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['2xs'] },
     action: {
-      flexDirection: 'row',
+      width: 40,
+      height: 40,
       alignItems: 'center',
-      gap: rnSpacing.xs,
-      paddingHorizontal: rnSpacing['sm-loose'],
-      paddingVertical: rnSpacing['xs-loose'],
+      justifyContent: 'center',
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    actionText: { fontSize: rnType.label.size, color: tk.text.primary },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing['sm-loose'],

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { Text, TouchableOpacity, View } from 'react-native'
-import { CalendarCheck, Trash2 } from 'lucide-react-native'
+import { CalendarCheck, Check, Trash2, X } from 'lucide-react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { type createAccountPoolStyles } from './account-pool-styles'
@@ -57,18 +57,36 @@ export function AccountPoolRowCard({
         {t('accountPool.calls')}: {row.totalCalls}
       </Text>
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.action} disabled={busy} onPress={() => onCheckin(row)}>
-          <CalendarCheck size={14} color={tk.text.primary} />
-          <Text style={styles.actionText}>{t('accountPool.checkin')}</Text>
+        <TouchableOpacity
+          style={styles.action}
+          disabled={busy}
+          onPress={() => onCheckin(row)}
+          accessibilityRole="button"
+          accessibilityLabel={t('accountPool.checkin')}
+        >
+          <CalendarCheck size={18} color={tk.text.primary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.action} disabled={busy} onPress={() => onToggle(row)}>
-          <Text style={styles.actionText}>
-            {row.isEnabled ? t('accountPool.disable') : t('accountPool.enable')}
-          </Text>
+        <TouchableOpacity
+          style={styles.action}
+          disabled={busy}
+          onPress={() => onToggle(row)}
+          accessibilityRole="button"
+          accessibilityLabel={row.isEnabled ? t('accountPool.disable') : t('accountPool.enable')}
+        >
+          {row.isEnabled ? (
+            <X size={18} color={tk.text.primary} />
+          ) : (
+            <Check size={18} color={tk.text.primary} />
+          )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.action} onPress={() => onDelete(row)}>
-          <Trash2 size={14} color={tk.text.secondary} />
-          <Text style={styles.actionText}>{t('accountPool.delete')}</Text>
+        <TouchableOpacity
+          style={styles.action}
+          activeOpacity={0.7}
+          onPress={() => onDelete(row)}
+          accessibilityRole="button"
+          accessibilityLabel={t('accountPool.delete')}
+        >
+          <Trash2 size={18} color={tk.text.secondary} />
         </TouchableOpacity>
       </View>
     </View>

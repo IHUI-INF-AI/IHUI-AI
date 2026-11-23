@@ -57,7 +57,7 @@ export function ArticleDetailScreen() {
   const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
-  const { id } = route.params
+  const id = typeof route.params?.id === 'string' && route.params.id ? route.params.id : ''
   const [article, setArticle] = useState<ArticleDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -86,6 +86,11 @@ export function ArticleDetailScreen() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
+      if (!id) {
+        setLoading(false)
+        setError(t('articleDetail.loadFailed'))
+        return
+      }
       setLoading(true)
       setError('')
       const res = await getPublicArticle<ArticleDetailItem>(id)
@@ -205,7 +210,6 @@ export function ArticleDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
             <Share2 size={18} color={tokens.text.secondary} />
-            <Text style={styles.actionLabel}>{tStatic('chat.msg.share2')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -325,10 +329,6 @@ const styles = StyleSheet.create({
     color: tokens.danger.deepText,
   } as TextStyle,
   actionCount: {
-    fontSize: rnType.bodySm.size,
-    color: tokens.text.secondary,
-  } as TextStyle,
-  actionLabel: {
     fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,

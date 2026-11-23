@@ -4444,21 +4444,6 @@ const styles = StyleSheet.create({
   msgContent: {
     flexDirection: 'column',
   },
-  msgActions: {
-    flexDirection: 'row',
-    gap: rpx(16),
-    marginTop: rpx(8),
-    paddingLeft: rpx(24),
-  },
-  msgActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rpx(8),
-  },
-  msgActionText: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-  },
   msgBubble: {
     maxWidth: '78%',
     paddingHorizontal: rpx(28),

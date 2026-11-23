@@ -375,9 +375,6 @@ function SwipeableConversationItem({
               color={tokens.surface.light}
               fill={item.favorited ? tokens.surface.light : 'transparent'}
             />
-            <Text className="mt-1" style={styles.swipeBtnText}>
-              {item.favorited ? t('drawer.collected') : t('drawer.collect')}
-            </Text>
           </Pressable>
         </View>
         <View className="items-center justify-center" style={styles.swipeDeleteBtn}>
@@ -388,9 +385,6 @@ function SwipeableConversationItem({
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
             <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
-            <Text className="mt-1" style={styles.swipeBtnText}>
-              {t('drawer.delete')}
-            </Text>
           </Pressable>
         </View>
       </View>
@@ -1160,7 +1154,7 @@ const styles = StyleSheet.create({
   },
   // 左滑露出的收藏/删除滑动按钮(纯静态,提取为模块级避免每次渲染重建内联对象):
   // swipeRow=露出的总宽度容器,swipeFavoriteBtn/swipeDeleteBtn=两块实底按钮,
-  // swipeBtn=按钮内 Pressable 撑满,swipeBtnText=按钮文字(白字+小号 caption)。
+  // swipeBtn=按钮内 Pressable 撑满;2026-11-23 用户定档:按钮只留图标,文字标签删除。
   swipeRow: {
     width: SWIPE_WIDTH,
   },
@@ -1175,10 +1169,6 @@ const styles = StyleSheet.create({
   swipeBtn: {
     width: '100%' as const,
     height: '100%',
-  },
-  swipeBtnText: {
-    color: tokens.surface.light,
-    fontSize: rnGeometry.textCaption,
   },
   // 扫一扫快捷区与上方列表的分隔线(2026-10-27 立)
   scanDivider: {

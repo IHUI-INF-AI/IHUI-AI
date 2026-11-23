@@ -1041,13 +1041,6 @@ iframe#webpack-dev-server-client-overlay {
   color: var(--color-cta-foreground);
 }
 
-.cs-float-label {
-  font-size: 20rpx;
-  color: var(--color-cta-foreground);
-  margin-top: 4rpx;
-  line-height: 1;
-}
-
 /* ===== AI 首页输入区(对齐原项目 ai_index.vue)===== */
 .input-area {
   position: relative;

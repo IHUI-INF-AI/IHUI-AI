@@ -37,9 +37,7 @@ export interface CommissionFloatingIconProps {
 const CONTAINER_PADDING_H = 12
 const CONTAINER_PADDING_V = 8
 const TEXT_WRAP_MARGIN_LEFT = 6
-const LABEL_FONT_SIZE = 10
 const AMOUNT_FONT_SIZE = 14
-const AMOUNT_MARGIN_TOP = 2
 const BOTTOM_OFFSET = 80
 const RIGHT_OFFSET = 16
 const Z_INDEX = 100
@@ -62,9 +60,6 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
     >
       <ICON size={18} color={tk.brand.ctaForeground} />
       <View style={styles.textWrap}>
-        <Text style={styles.label} numberOfLines={1}>
-          {t('commission.myLabel')}
-        </Text>
         {displayAmount !== null ? (
           <Text style={styles.amount} numberOfLines={1}>
             {CURRENCY}
@@ -92,13 +87,7 @@ const styles = StyleSheet.create({
   textWrap: {
     marginLeft: TEXT_WRAP_MARGIN_LEFT,
   } as ViewStyle,
-  label: {
-    fontSize: LABEL_FONT_SIZE,
-    color: tk.brand.ctaForeground,
-    opacity: 0.85,
-  } as TextStyle,
   amount: {
-    marginTop: AMOUNT_MARGIN_TOP,
     fontSize: AMOUNT_FONT_SIZE,
     fontWeight: '700',
     color: tk.brand.ctaForeground,

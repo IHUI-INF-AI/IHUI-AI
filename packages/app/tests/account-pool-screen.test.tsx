@@ -23,6 +23,9 @@ vi.mock('lucide-react-native', () => {
     CalendarCheck: icon('CalendarCheck'),
     Trash2: icon('Trash2'),
     Circle: icon('Circle'),
+    // 2026-11-23 起行内动作只留图标:启停那枚按 isEnabled 在 Check/X 之间切换,白名单必须同步
+    Check: icon('Check'),
+    X: icon('X'),
   }
 })
 

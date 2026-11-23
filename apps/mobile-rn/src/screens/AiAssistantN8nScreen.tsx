@@ -2053,12 +2053,11 @@ export default function AiAssistantN8nScreen() {
             style={styles.modelConfigBtn}
             onPress={() => setModelConfigVisible(true)}
             activeOpacity={0.7}
-            hitSlop={4}
+            hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel={t('agent.config')}
           >
-            <Settings size={12} color={tokens.text.secondary} />
-            <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
+            <Settings size={18} color={tokens.text.secondary} />
           </TouchableOpacity>
           <ChevronRight size={18} color={tokens.text.secondary} style={styles.modelBarArrow} />
         </TouchableOpacity>
@@ -2248,14 +2247,6 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
-  modelConfigBtnText: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-  },
-  modelConfigBtnLabel: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-  },
   modelBarArrow: {
     fontSize: rnType.subtitle.size,
     color: tokens.text.medium,
@@ -2421,8 +2412,6 @@ const bubbleStyles = StyleSheet.create({
   // 卡片(工具调用 / 终端任务共用外壳)
   card: {
     borderRadius: rnRadius.lg,
-    borderWidth: 1,
-    borderColor: 'transparent',
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   },

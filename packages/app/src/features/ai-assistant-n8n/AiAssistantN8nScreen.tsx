@@ -187,9 +187,13 @@ export function AiAssistantN8nScreen({
         <Text style={styles.modelBarLabel} numberOfLines={1}>
           {t('chat.modelLabel')}: {selectedModelLabel}
         </Text>
-        <Tappable style={styles.modelConfigBtn} onPress={onModelConfigPress}>
-          <Settings size={14} color={tk.text.secondary} />
-          <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
+        <Tappable
+          style={styles.modelConfigBtn}
+          onPress={onModelConfigPress}
+          accessibilityRole="button"
+          accessibilityLabel={t('agent.config')}
+        >
+          <Settings size={18} color={tk.text.secondary} />
         </Tappable>
         <ChevronRight size={20} color={tk.text.secondary} style={styles.modelBarArrow} />
       </Tappable>
@@ -338,10 +342,6 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
-    modelConfigBtnLabel: {
-      fontSize: rnType.body.size,
-      color: tk.text.secondary,
-    } as TextStyle,
     modelBarArrow: {
       color: tk.text.medium,
       marginLeft: rnSpacing.sm,

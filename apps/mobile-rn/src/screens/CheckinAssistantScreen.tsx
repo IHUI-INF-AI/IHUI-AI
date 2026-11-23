@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { CalendarCheck, Plus, Trash2 } from 'lucide-react-native'
+import { CalendarCheck, Check, Plus, Trash2, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
@@ -223,22 +223,33 @@ export default function CheckinAssistantScreen() {
                   style={styles.action}
                   disabled={busyId === acc.id}
                   onPress={() => void checkin(acc)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('checkinAssistant.checkin')}
                 >
-                  <CalendarCheck size={14} color={tokens.text.primary} />
-                  <Text style={styles.actionText}>{t('checkinAssistant.checkin')}</Text>
+                  <CalendarCheck size={18} color={tokens.text.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.action}
                   disabled={busyId === acc.id}
                   onPress={() => void toggle(acc)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')
+                  }
                 >
-                  <Text style={styles.actionText}>
-                    {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
-                  </Text>
+                  {acc.enabled ? (
+                    <X size={18} color={tokens.text.primary} />
+                  ) : (
+                    <Check size={18} color={tokens.text.primary} />
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={() => remove(acc)}>
-                  <Trash2 size={14} color={tokens.text.secondary} />
-                  <Text style={styles.actionText}>{t('checkinAssistant.delete')}</Text>
+                <TouchableOpacity
+                  style={styles.action}
+                  onPress={() => remove(acc)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('checkinAssistant.delete')}
+                >
+                  <Trash2 size={18} color={tokens.text.secondary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -309,9 +320,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
-    padding: rnSpacing['md-loose'],
+    padding: rnSpacing.md,
     gap: rnSpacing.sm,
   },
   rowHead: {
@@ -346,15 +355,13 @@ const styles = StyleSheet.create({
   badgePool: { color: tokens.text.primary },
   actions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['2xs'] },
   action: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    gap: rnSpacing.xs,
-    paddingHorizontal: rnSpacing['sm-loose'],
-    paddingVertical: rnSpacing['xs-loose'],
+    justifyContent: 'center',
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  actionText: { fontSize: rnType.label.size, color: tokens.text.primary },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
   chip: {
     paddingHorizontal: rnSpacing['sm-loose'],

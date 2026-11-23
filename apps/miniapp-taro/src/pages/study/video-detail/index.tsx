@@ -309,12 +309,6 @@ export default function VideoDetailPage() {
             onLike: toggleLike,
             onFavorite: toggleFavorite,
             onShare: openShare,
-            // 原页计数为 0 时图标下有文字,不是裸图标
-            labels: {
-              like: tt('action.like', '点赞'),
-              favorite: tt('action.favorite', '收藏'),
-              share: tt('action.share', '分享'),
-            },
           },
           progressPercent: total
             ? { percent: lessonPercent, completed: done, onMarkCompleted: markCompleted }
