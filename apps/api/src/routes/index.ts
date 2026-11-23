@@ -275,6 +275,8 @@ import { designRoutes } from './design.js'
 import { tasksRoutes } from './tasks.js'
 // IM 平台 gateway 路由(P1-1,对齐 Hermes Agent 25+ 平台 gateway:webhook 接收 + 出站发送 + 适配器配置)
 import { imGatewayRoutes } from './im-gateway.js'
+// 微信智联路由(2026-11-23 立,账号级扫码/长轮询/会话/消息/发送/AI 分析/MCP 工具)
+import { wechatHubRoutes } from './wechat-hub.js'
 
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './ask-extended.js'
@@ -1087,6 +1089,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(tasksRoutes, { prefix: '/api' })
   // IM 平台 gateway(2026-07-22 立,P1-1:POST /api/im-gateway/webhook/:platform + /send + GET/POST /api/im-gateway/adapters + GET /api/im-gateway/status)
   server.register(imGatewayRoutes, { prefix: '/api' })
+  // 微信智联(2026-11-23 立:GET /api/wechat-hub/capabilities + accounts/** + send/analyze + mcp/** + webhook/:accountId)
+  server.register(wechatHubRoutes, { prefix: '/api' })
 
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）

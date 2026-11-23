@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 88d0fde76b01670fb5cdc41324f89175bea18e62
-// inputsSha256: 02285368d33740fd8be5ec0b6e4f29a07adba0f5dc1ceabdb9a065c3333abc28
+// sourceCommit: 0b35bd15614c4c55a38a03980dab4dcb1afba53d
+// inputsSha256: 517bf47e05d23c76fe013a6214f02ab72d885d2af1586304511c2431260c7e5c
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -172,15 +172,16 @@
 // input: apps/web/app/(main)/admin/exam/records/page.tsx 66edcb2907e55a9a47d1d60a878233400949c085414f803b81c61bf99098e66b
 // input: apps/web/app/(main)/admin/exchange-rates/page.tsx 339b2cec9cbd529976487ed01b76538f4db15e030a87d0d0c22e46e76021b852
 // input: apps/web/app/(main)/admin/feedbacks/page.tsx 0b8f7f587d4aa6002725aacf6ef4e4daf723e5925ff9238a9d09c85822b7d98d
-// input: apps/web/app/(main)/admin/fin-accounting/page.tsx 24f784cea5fee42aefe7eee7fe4891df335f3d746dbc10dd5cc686665be2ff0e
+// input: apps/web/app/(main)/admin/fin-accounting/page.tsx 5ece833e7b0abc1bfa5145bf5ef5005b3dfe5bfc4795aedd0a8c94c5269412f1
 // input: apps/web/app/(main)/admin/finance-ai/page.tsx 920740d045831ad8cfe97162ef3b0636a52bababfb24d40fcf30c7b75115a31d
 // input: apps/web/app/(main)/admin/github-app/page.tsx d39fce19cc0f920f2ff0b342e5bd5427c08849e625d83164d02f6f17424c83d9
 // input: apps/web/app/(main)/admin/gray-release/page.tsx 9c5c20a621aeacf9952fb5a13794b28d5242cec27ca696ddaef205b212708429
 // input: apps/web/app/(main)/admin/help/page.tsx eff70194426b19eee76958dfac04d6a1444f2220736d73164af54a4bd1f20eec
 // input: apps/web/app/(main)/admin/home-schema/page.tsx dc4ce8e0553789f28c2f88cccff8671c82af3c526e7b095b5186f140257af627
-// input: apps/web/app/(main)/admin/hr-attendance/page.tsx 4815255f3b6967e18cd55e63f8ef2a167821bb2e9aba79ba5995f285097ad04f
+// input: apps/web/app/(main)/admin/hr-approval/page.tsx 76e508ab6ec7d3370fb41eb5a3b5d105f1e31d56266574b834a4d31b687aaf46
+// input: apps/web/app/(main)/admin/hr-attendance/page.tsx 528e5df162b97390825fef0107701a0cc3abaedd0ea236df20b33ea185c26d66
 // input: apps/web/app/(main)/admin/hr-data/page.tsx 9a7e33cbbf1eaa69262eadb8f23cbd3b769360601e03fca7a3904a8dd050f1bf
-// input: apps/web/app/(main)/admin/hr-lifecycle/page.tsx 53a6fe7442b80549e8a8d19753073e1c9e62505e0ba0166afd12b0b68a5d183d
+// input: apps/web/app/(main)/admin/hr-lifecycle/page.tsx 8e3a057e37ca73fd353582bf61452aa35c2885bafc3f0ae4b853c3a3ce2ac83a
 // input: apps/web/app/(main)/admin/i18n-dashboard/compare/page.tsx 1f05c1624441780b1d6c27c6e372361fa267e4e05f612352d42ca3f4b1433b75
 // input: apps/web/app/(main)/admin/i18n-dashboard/missing/page.tsx 0ca10935aab8fee788bd1ee4d7eba0a6b17b6e4ed0b9420fc5b828775f2beb7d
 // input: apps/web/app/(main)/admin/i18n-dashboard/page.tsx e3b10d41c8ad7cc21f4b6c86e7604e24d82e04126c1ac0a6b63e795955ce9f6a
@@ -360,6 +361,7 @@
 // input: apps/web/app/(main)/admin/visit-tracking/page.tsx 82e72d2476754ce8ee32bca0d2b0b65cfc6c6d2f4648c84f7421c152671e8484
 // input: apps/web/app/(main)/admin/visit-trend/page.tsx b0ac45d98d22bb8d18b7b36ac875d1ecd31ccd1e6378c7ab542b14b956193a9f
 // input: apps/web/app/(main)/admin/wallet/page.tsx deaef6ae0728c51f4f40ed331a2c425bde1ea2bd7c7874b49955d8d7646f896a
+// input: apps/web/app/(main)/admin/wechat-hub/page.tsx 83b71c39acc048a06165b74a7735c5ac2e50047fea4252db12d2e7634955cffd
 // input: apps/web/app/(main)/admin/withdrawal/page.tsx 8921872ccac1c8ff7b2a13a55e8220931fa8ac79dd7518599579f7c3f2a8d324
 // input: apps/web/app/(main)/admin/workflows/page.tsx f7e58a661e0e06ea63556f51e08ec30133be0f31f194f3b1e8e08331990b7e7d
 // input: apps/web/app/(main)/admin/zhs-activity/page.tsx 9b6ecdef68ed3fa071c6b7e2f4d049d11bc31dd4976637fe68cbcea74d6721ae
@@ -645,9 +647,9 @@
 // input: apps/web/app/(main)/help/page.tsx f1b986b45577a258470ee0055e73c097a79a950a13d73614393023822d77a069
 // input: apps/web/app/(main)/home/page.tsx c363a3b298783696813c1ff6c01ea43d10ac6a57a18ffeb7a2aabf1356e1c93a
 // input: apps/web/app/(main)/hooks/page.tsx c7aed66054b4f50815c7b49434e711bb1b5049c02878b5f1521d6499f663936e
-// input: apps/web/app/(main)/hr/my-attendance/page.tsx 284e8ed8a5e13c9d27096c9425908c6db8d09cfefbf463dd97e3f0165ddb46c8
+// input: apps/web/app/(main)/hr/my-attendance/page.tsx 078cf13031d8e1b08e480852f6146b37f996cd96c31b43018c35263c304c0b81
 // input: apps/web/app/(main)/hr/my-leave/page.tsx 9a3516da2ef97e0d90b3a8e882dd3cb3ec66efc05d21aea40583e7eccbf10d98
-// input: apps/web/app/(main)/hr/my-payroll/page.tsx b334a5f206645ed6e09bb1baed8f2f325486df359217c10c7727fab5ad7a8541
+// input: apps/web/app/(main)/hr/my-payroll/page.tsx 753d8c8743503fec6ac84cfb061c528dea8c1967968d0fd301efe0000d5bb21c
 // input: apps/web/app/(main)/image-gen/favorites/page.tsx 5cdc64e17969f50a89d42e1d7763821495d6e7fa14e850d6f07471ea531184ad
 // input: apps/web/app/(main)/image-gen/gallery/page.tsx 8ff24c38e1380167be980f28ba55573d4454874ecd03e5042036d68148b9b1e7
 // input: apps/web/app/(main)/image-gen/history/page.tsx e15ad1851aad0ab2a2ca45ee43e590aa00a60e546c3ef2b09d2efbdbb885870a
@@ -957,7 +959,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx bf75df2bfcad093f6ec6405984b9a3fa2e7cba0c353f405066f6809c382bceca
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-23T08:14:00.344Z
+// generatedAt: 2026-11-23T11:10:45.636Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1124,6 +1126,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/gray-release', param: false, group: 'admin' },
   { path: '/admin/help', param: false, group: 'admin' },
   { path: '/admin/home-schema', param: false, group: 'admin' },
+  { path: '/admin/hr-approval', param: false, group: 'admin' },
   { path: '/admin/hr-attendance', param: false, group: 'admin' },
   { path: '/admin/hr-data', param: false, group: 'admin' },
   { path: '/admin/hr-lifecycle', param: false, group: 'admin' },
@@ -1305,6 +1308,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/visit-tracking', param: false, group: 'admin' },
   { path: '/admin/visit-trend', param: false, group: 'admin' },
   { path: '/admin/wallet', param: false, group: 'admin' },
+  { path: '/admin/wechat-hub', param: false, group: 'admin' },
   { path: '/admin/withdrawal', param: false, group: 'admin' },
   { path: '/admin/workflows', param: false, group: 'admin' },
   { path: '/admin/zhs-activity', param: false, group: 'admin' },

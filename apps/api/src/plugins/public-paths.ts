@@ -85,6 +85,9 @@ export const AUTH_PUBLIC_PREFIX_PATHS: readonly string[] = [
   '/api/cozeZhsApi/',
   // GitHub App webhook(HMAC 验签,匿名到达)
   '/api/github-app/',
+  // 微信智联本地桥 webhook:账号级 secret 验签,桥不带 JWT/租户头;
+  // 只放这一条前缀,账号/消息/发送等管理面仍走登录闸(同前缀已列租户豁免)
+  '/api/wechat-hub/webhook/',
   // 协议发现
   '/.well-known/',
   // 机器面(API Key 自证;requireApiKeyAuth 会写 request.apiKey)
@@ -321,6 +324,20 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/visit-tracking/',
   // 后台新闻状态卡是第一方 admin 只读面;news.ts 对 tenantId 零引用
   '/api/admin/news',
+  /**
+   * 微信智联管理面(2026-11-23 立,与 `/api/subagents` 同型)。
+   *
+   * 事实:Web 管理台与 api-client 从不发 `X-Tenant-Id`,租户闸只认 header/子域名 ⇒
+   * 严格模式缺省下,带有效 admin Bearer 访问 `/api/wechat-hub/capabilities` 仍 401
+   * `TENANT_REQUIRED`(本机 8802 实测)。该 401 会让整个管理台所有标签页空白,
+   * 非 GET 还会触发登录弹窗与 refresh token 轮转。
+   *
+   * 数据维度:account/conversation/message/action 全部按 `userId` 隔离(manager.assertAccount
+   * 逐次校验 userId),路由文件对 tenantId 零引用 ⇒ 免租户不损隔离。
+   * 免租户 ≠ 免鉴权:`/api/wechat-hub` 不在 AUTH_PUBLIC_PREFIX_PATHS,
+   * 只有 `/api/wechat-hub/webhook/` 这一机器回调前缀免登录(账号级 secret 验签)。
+   */
+  '/api/wechat-hub',
   // 代码库语义搜索机器面:调用方带 API Key、不带租户头;v1-assistants 等真租户面不在本前缀
   '/api/v1/codebase/',
   '/api/csrf-token',

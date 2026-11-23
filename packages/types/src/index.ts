@@ -33,6 +33,8 @@ export * from './api-contracts.js'
 // 显式 re-export 保持向后兼容;workspace 版本(kebab-case:accept-edits/bypass-permissions)
 // 通过 @ihui/types/workspace subpath 访问。
 export { type PermissionMode, type PermissionDecision } from './agent-runtime.js'
+// 微信智联跨端契约(2026-11-23 立):账号/会话/消息/分析/发送/能力矩阵
+export * from './wechat-hub.js'
 // 权限模式唯一真源(G-161):跨端/跨语言注册表 + 别名归一,详见 permission-mode.ts 头注
 export * from './permission-mode.js'
 export * from './permission-axis.js'

@@ -526,6 +526,8 @@ export * from './endpoints/coze.js'
 
 // IM 渠道管理 API 端点(2026-07-31 立,P0 admin/im-channels 16 平台管理配套)
 export * from './endpoints/im-channel.js'
+// 微信智联 API 端点(2026-11-23 立,admin/wechat-hub 管理台配套)
+export * from './endpoints/wechat-hub.js'
 
 // 子智能体(Subagent)派单 + Swarm 拓扑端点(2026-08-26 立,移动端原生化配套)
 export * from './endpoints/subagents.js'

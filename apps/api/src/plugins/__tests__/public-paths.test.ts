@@ -325,6 +325,49 @@ describe('BUG-4 公开面单一真相源', () => {
     })
 
     /**
+     * 2026-11-23:微信智联管理台免租户、webhook 免登录。
+     *
+     * 本机实测:带有效 admin Bearer 访问 `/api/wechat-hub/capabilities` 返回
+     * `TENANT_REQUIRED` —— Web 管理台(浏览器)从不发 X-Tenant-Id ⇒ 全部端点不可用。
+     * 另一面:本地桥推送 webhook 不带 JWT,若不放公开面则桥永远打不进来。
+     */
+    describe('微信智联面免租户、webhook 免登录(2026-11-23)', () => {
+      const HUB_AUTH_ROUTES = [
+        '/api/wechat-hub/capabilities',
+        '/api/wechat-hub/accounts',
+        '/api/wechat-hub/accounts/abc-123',
+        '/api/wechat-hub/accounts/abc-123/status',
+        '/api/wechat-hub/accounts/abc-123/qrcode',
+        '/api/wechat-hub/accounts/abc-123/conversations',
+        '/api/wechat-hub/send',
+        '/api/wechat-hub/analyze',
+        '/api/wechat-hub/mcp/tools',
+        '/api/wechat-hub/mcp/call',
+        '/api/wechat-hub/webhook/abc-123',
+      ]
+
+      it('管理面全部免租户', () => {
+        for (const route of HUB_AUTH_ROUTES) {
+          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
+        }
+      })
+
+      it('管理面仍需登录,只有 webhook 前缀进公开面', () => {
+        for (const route of HUB_AUTH_ROUTES.filter(
+          (r) => !r.startsWith('/api/wechat-hub/webhook/'),
+        )) {
+          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
+        }
+        expect(isAuthPublicPath('/api/wechat-hub/webhook/abc-123')).toBe(true)
+      })
+
+      it('段边界:不放行 /api/wechat-hubXYZ 这类同级兄弟路径', () => {
+        expect(isTenantBypassPath('/api/wechat-hubXYZ')).toBe(false)
+        expect(isAuthPublicPath('/api/wechat-hubXYZ/webhook/abc')).toBe(false)
+      })
+    })
+
+    /**
      * 2026-11-12:WS 全族必须免租户。
      *
      * 事故形状(本机 8802 实测):`/ws/relay/chat?token=…`、`/ws/notifications?token=…` 在
