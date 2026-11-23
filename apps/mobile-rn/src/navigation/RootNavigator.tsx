@@ -341,6 +341,7 @@ import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
 import { CertificateScreen } from '../screens/CertificateScreen'
 import { MessageCenterScreen } from '../screens/MessageCenterScreen'
 import { ProfileEditScreen } from '../screens/ProfileEditScreen'
+import { ProfileAllFunctionsScreen } from '../screens/ProfileAllFunctionsScreen'
 import { DevEnterCoverScreen } from '../screens/DevEnterCoverScreen'
 import { PlazaCoverScreen } from '../screens/PlazaCoverScreen'
 import { SetNeedScreen } from '../screens/SetNeedScreen'
@@ -462,6 +463,8 @@ export type RootStackParamList = {
   Favorite: undefined
   MessageCenter: undefined
   ProfileEdit: undefined
+  /** 「我的」页长尾入口收口页(首页九宫格只留高频,低频功能在此分组折叠 + 搜索) */
+  ProfileAllFunctions: undefined
   AIMultimodal: undefined
   CourseEnroll: undefined
   LivePlayback: undefined
@@ -1393,6 +1396,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Certificate" component={CertificateScreen} />
             <RootStack.Screen name="MessageCenter" component={MessageCenterScreen} />
             <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+            <RootStack.Screen name="ProfileAllFunctions" component={ProfileAllFunctionsScreen} />
             <RootStack.Screen name="Agent" component={AgentScreen} />
             {/* P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路) */}
             <RootStack.Screen name="TeacherList" component={TeacherListScreen} />

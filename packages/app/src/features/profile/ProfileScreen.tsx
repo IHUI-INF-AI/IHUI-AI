@@ -43,6 +43,7 @@ export function ProfileScreen({
   onAvatarPress,
   colorScheme = 'light',
   userExtra,
+  quickActions,
   children,
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
@@ -87,26 +88,33 @@ export function ProfileScreen({
             <View style={styles.userMeta}>
               <View style={styles.nicknameRow}>
                 <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
-                {badgeTone && realnameStatus ? (
+              </View>
+              {identityTags.length > 0 ? (
+                <View style={styles.identityRow}>
+                  {identityTags.map((tag) => {
+                    const tone = identityTone(tk, tag.tone)
+                    return (
+                      <View key={tag.text} style={[styles.identityTag, tone.container]}>
+                        <Text style={[styles.identityTagText, tone.text]}>{tag.text}</Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              ) : null}
+              {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
+              {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
+              {/* 实名状态单独成行并带「实名认证」前缀:昵称旁只放会员身份,避免两个灰 chip
+                  被读成同一类标签(admin 的「普通用户」尤其容易误解)。 */}
+              {badgeTone && realnameStatus ? (
+                <View style={styles.realnameRow}>
+                  <Text style={styles.realnameLabel}>{t('realNameAuth.title')}</Text>
                   <View style={[styles.realnameBadge, badgeTone.container]}>
                     <Text style={[styles.realnameBadgeText, badgeTone.text]}>
                       {t(`realNameAuth.status_${realnameStatus}`)}
                     </Text>
                   </View>
-                ) : null}
-              </View>
-              <View style={styles.identityRow}>
-                {identityTags.map((tag) => {
-                  const tone = identityTone(tk, tag.tone)
-                  return (
-                    <View key={tag.text} style={[styles.identityTag, tone.container]}>
-                      <Text style={[styles.identityTagText, tone.text]}>{tag.text}</Text>
-                    </View>
-                  )
-                })}
-              </View>
-              {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
-              {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
+                </View>
+              ) : null}
             </View>
           </View>
           {userExtra ? <View style={styles.userExtraSlot}>{userExtra}</View> : null}
@@ -115,13 +123,22 @@ export function ProfileScreen({
         <View style={styles.statsGrid}>
           {statsCells.map((cell) => (
             <View key={cell.key} style={styles.statsCell}>
-              <Text style={styles.statsValue}>{cell.value}</Text>
-              <Text style={styles.statsLabel}>{cell.label}</Text>
+              <Text
+                style={styles.statsValue}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {cell.value}
+              </Text>
+              <Text style={styles.statsLabel} numberOfLines={1}>
+                {cell.label}
+              </Text>
             </View>
           ))}
         </View>
 
-        {children ? <View style={styles.childrenSlot}>{children}</View> : null}
+        {quickActions ? <View style={styles.quickActionsSlot}>{quickActions}</View> : null}
 
         {menuSections.map((section) => (
           <View key={section.title} style={styles.menuSection}>
@@ -158,6 +175,8 @@ export function ProfileScreen({
             </View>
           </View>
         ))}
+
+        {children ? <View style={styles.childrenSlot}>{children}</View> : null}
 
         {onLogout ? (
           <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
@@ -309,6 +328,13 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     },
+    realnameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      marginTop: rnSpacing['2xs'],
+    },
+    realnameLabel: { fontSize: rnType.label.size, color: tk.text.medium },
     realnameBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
@@ -316,24 +342,37 @@ function createStyles(tk: AppThemeTokens) {
     },
     realnameBadgeText: { fontSize: rnType.label.size, fontWeight: '600' },
     subText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    /** 六项账户数据压成一行白卡:两行大灰块会占掉首屏,而这里只是状态摘要不是主内容 */
     statsGrid: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: rnSpacing.sm,
+      alignItems: 'stretch',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
     },
     statsCell: {
-      minWidth: 96,
-      width: '31%',
-      flexGrow: 1,
-      padding: rnSpacing['md-loose'],
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.surface.muted,
+      flex: 1,
+      minWidth: 0,
       alignItems: 'center',
+      paddingHorizontal: rnSpacing['2xs'],
     },
-    /** 统计六格之后的附加区(会员权益/创作内容);分节间距由 body 的 gap 提供 */
+    /** 统计之后的快捷入口区(会员/创作之前,保证高频路径在首屏) */
+    quickActionsSlot: { width: '100%' },
+    /** 菜单分节之后的附加区(会员权益/创作内容);分节间距由 body 的 gap 提供 */
     childrenSlot: { width: '100%', gap: rnSpacing.md },
-    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    statsLabel: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
+    statsValue: {
+      fontSize: rnType.titleLg.size,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+      color: tk.text.primary,
+    },
+    statsLabel: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
     menuSection: { gap: rnSpacing.sm },
     sectionTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.medium },
     menuCard: {

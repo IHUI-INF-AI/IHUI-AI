@@ -25,11 +25,17 @@ describe('「我的」页用户卡唯一性', () => {
     expect(SOURCE).not.toMatch(/from '\.\.\/components\/UserCard'/)
   })
 
-  it('共享 ProfileScreen 只出现一次,并承载账户动作与内容插槽', () => {
+  it('共享 ProfileScreen 只出现一次,并承载账户动作、快捷入口与内容插槽', () => {
     expect(SOURCE.match(/<SharedProfileScreen\b/g)).toHaveLength(1)
     expect(SOURCE).toMatch(/userExtra=\{/)
+    expect(SOURCE).toMatch(/quickActions=\{/)
+    expect(SOURCE).not.toMatch(/menuSections=\{/)
+    expect(SOURCE).toMatch(/navigate\('ProfileAllFunctions'\)/)
     expect(SOURCE).toMatch(/<ProfileContentSection \/>/)
-    expect(SOURCE).toMatch(/<UserMembershipBenefits\b/)
+    expect(SOURCE).toMatch(/membershipBenefitList/)
+    expect(SOURCE).not.toMatch(/<UserMembershipBenefits\b/)
+    expect(SOURCE).toMatch(/plainTitleText\(/)
+    expect(SOURCE).not.toMatch(/copyLinkBtn|profile\.copySite/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

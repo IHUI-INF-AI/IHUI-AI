@@ -43,7 +43,7 @@ import {
   TextField,
 } from '@ihui/rn-app'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
-import type { CategoryItem, SharedMenuSection } from '@ihui/rn-app'
+import type { CategoryItem } from '@ihui/rn-app'
 import {
   cancelRecurringContract,
   deleteConversation,
@@ -60,7 +60,13 @@ import {
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
-import { apiFailureToText, toUserFriendlyMessage, toFriendlyOr } from '@ihui/shared/utils'
+import {
+  apiFailureToText,
+  toUserFriendlyMessage,
+  toFriendlyOr,
+  plainTitleText,
+  DEFAULT_CONVERSATION_TITLE,
+} from '@ihui/shared/utils'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
@@ -83,26 +89,33 @@ import { useAppFrameWidth } from '../components/Carousel'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarScrollReserve } from '../components/TabBar.styles'
 import {
-  UserMembershipBenefits,
-  type BenefitItem,
-  type MembershipLevel,
-} from '../components/UserMembershipBenefits'
-import {
   Bot,
   BookOpen,
+  Check,
   ChevronDown,
+  ChevronRight,
+  Crown,
   Database,
   Download,
   FileText,
   Film,
+  Gem,
   Image as ImageIcon,
+  LayoutGrid,
   type LucideIcon,
+  MessageCircle,
   MoreHorizontal,
   Music,
   Pause,
+  Pencil,
   Play,
+  Receipt,
+  Settings,
+  ShoppingCart,
   SquarePen,
+  Star,
   TriangleAlert,
+  Wallet,
 } from 'lucide-react-native'
 import Drawer, {
   type DrawerConversationItem,
@@ -115,7 +128,6 @@ import { ColorfulLoader } from '../components/ColorfulLoader'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
 import { navigateDrawerTab } from '../navigation/tab-utils'
-import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
   EMPTY_IMAGE_LIST,
@@ -213,11 +225,12 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
 
 /**
  * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
- * 渲染共享 ProfileScreen(唯一用户卡)。menuSections 从本地 profileMenuData 映射为共享契约格式。
+ * 渲染共享 ProfileScreen(唯一用户卡)。首屏只留 4×2 高频入口,长尾菜单收进「全部功能」页。
  *
- * 本端独有能力不另起卡片,只通过共享屏的两个插槽注入:
- * - userExtra:账户动作(充值/退订或开通会员/等级介绍),渲染在同一张用户卡内;
- * - children:会员权益 + 4 Tab 内容区(文本/图片/视频/音频),渲染在统计六格之后。
+ * 本端独有能力不另起卡片,只通过共享屏的插槽注入:
+ * - userExtra:账户动作(编辑资料/充值/退订或开通会员),渲染在同一张用户卡内;
+ * - quickActions:首屏 4×2 高频入口(订单/钱包/会员/收藏/消息/设置),底部另有整行「全部功能」;
+ * - children:会员权益摘要 + 4 Tab 创作内容,渲染在功能菜单之后、退出登录之前。
  */
 export function ProfileScreen() {
   const { t } = useI18n()
@@ -382,25 +395,6 @@ export function ProfileScreen() {
     }
   }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
 
-  // 菜单项点击跳转:所有菜单路由均注册在 RootStack(menuSections 映射时已统一为 RootRoute),
-  // 统一经父级 rootNav navigate(ProfileMain 为 Main 子 Tab,不能直接用子栈 navigation)
-  const onNavigate = (item: MenuItem) => {
-    // M4(2026-08-26):WebView 承载页需带 URL 参数,单独处理
-    if (item.key === 'WebViewPortal') {
-      rootNav?.navigate('WebView', {
-        url: 'https://aizhs.top',
-        title: t('menu.webPortal'),
-      })
-      return
-    }
-    // M4.1(2026-08-26):Web 功能门户(细分 URL 列表页)
-    if (item.key === 'WebPortal') {
-      rootNav?.navigate('WebPortal')
-      return
-    }
-    navigateRoot(rootNav, item.key)
-  }
-
   /** FloatBox 悬浮提示触发器(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */
   const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
     setFloatMessage(message)
@@ -414,15 +408,6 @@ export function ProfileScreen() {
       showFloat(error, 'warning')
     }
   }, [error, showFloat])
-
-  const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
-    title: t(section.titleKey),
-    items: section.items.map((m) => ({
-      key: m.key as string,
-      label: t(m.labelKey),
-      icon: m.icon,
-    })),
-  }))
 
   // ── Drawer 回调(对齐 Uniapp user/index.vue DrawerComponentall) ──
   const handleDrawerNavigate = (tab: DrawerTab) => {
@@ -541,6 +526,61 @@ export function ProfileScreen() {
   }
 
   /**
+   * 首屏快捷入口:高频路径必须在用户卡和统计行之后立刻可达,
+   * 不能再让 13 组全量菜单把订单/钱包压到几屏之后。低频长尾统一收进「全部功能」。
+   */
+  const quickActions: { key: string; label: string; icon: LucideIcon; onPress: () => void }[] = [
+    {
+      key: 'Order',
+      label: t('menu.order'),
+      icon: Receipt,
+      onPress: () => (user ? navigateRoot(rootNav, 'Order') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'Cart',
+      label: t('menu.cart'),
+      icon: ShoppingCart,
+      onPress: () => (user ? navigateRoot(rootNav, 'Cart') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'Wallet',
+      label: t('menu.wallet'),
+      icon: Wallet,
+      onPress: () => (user ? navigateRoot(rootNav, 'Wallet') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'TokenValue',
+      label: t('tokenValue.title'),
+      icon: Gem,
+      onPress: () => (user ? navigateRoot(rootNav, 'TokenValue') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'Vip',
+      label: t('menu.vip'),
+      icon: Crown,
+      onPress: () => (user ? navigateRoot(rootNav, 'Vip') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'Favorites',
+      label: t('menu.favorites'),
+      icon: Star,
+      onPress: () => (user ? navigateRoot(rootNav, 'Favorites') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'MessageCenter',
+      label: t('menu.messageCenter'),
+      icon: MessageCircle,
+      onPress: () => (user ? navigateRoot(rootNav, 'MessageCenter') : rootNav?.navigate('Login')),
+    },
+    {
+      key: 'Settings',
+      label: t('menu.settings'),
+      icon: Settings,
+      onPress: () => navigateRoot(rootNav, 'Settings'),
+    },
+  ]
+
+  /**
    * 退订确认 — 查询当前 VIP 订阅状态(含微信周期扣款签约),有自动续费则真实解约;
    * 无自动续费订阅(单次购买 VIP)时给出明确反馈,不再提示"开发中"。
    */
@@ -626,8 +666,8 @@ export function ProfileScreen() {
           ) : (
             <>
               {/* 单一用户卡 = 跨端共享 ProfileScreen 自带的那一张(头像/昵称/身份/实名字段只此一处);
-                  宿主只通过 userExtra 注入账户动作、通过 children 注入会员权益与创作内容,不再另插
-                  一份带昵称的 UserInfoCard/宫格,避免「两套用户名、两套用户卡片」同屏。 */}
+                  宿主只通过 userExtra 注入账户动作、quickActions 注入首屏快捷入口、children 注入
+                  会员权益与创作内容,不再另插一份带昵称的 UserInfoCard/宫格,避免「两套用户名」。 */}
               <SharedProfileScreen
                 t={t}
                 user={
@@ -646,120 +686,226 @@ export function ProfileScreen() {
                 loading={false}
                 error={error}
                 colorScheme={resolvedTheme}
-                realnameStatus={realnameBadge}
+                realnameStatus={user ? realnameBadge : undefined}
                 onToast={onToast}
                 identityTags={
-                  user
-                    ? [
-                        user.isVip === 1
-                          ? { text: t('profile.levelVip'), tone: 'vip' as const }
-                          : { text: t('profile.levelRegular'), tone: 'normal' as const },
-                      ]
+                  user?.isVip === 1
+                    ? [{ text: t('profile.levelVip'), tone: 'vip' as const }]
                     : undefined
                 }
-                menuSections={menuSections}
-                onNavigate={(key) => {
-                  const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
-                  if (item) onNavigate(item)
-                }}
-                onLogout={() => void logout()}
-                onAvatarPress={() => setEditProfileVisible(true)}
+                quickActions={
+                  <View style={styles.quickGrid}>
+                    {quickActions.map((action) => (
+                      <TouchableOpacity
+                        key={action.key}
+                        style={styles.quickItem}
+                        activeOpacity={0.7}
+                        onPress={action.onPress}
+                        accessibilityRole="button"
+                        accessibilityLabel={action.label}
+                      >
+                        <View style={styles.quickIcon}>
+                          <action.icon size={18} color={tokens.text.primary} strokeWidth={1.8} />
+                        </View>
+                        <Text style={styles.quickLabel} numberOfLines={1}>
+                          {action.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity
+                      style={styles.quickAllRow}
+                      activeOpacity={0.7}
+                      onPress={() => rootNav?.navigate('ProfileAllFunctions')}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('profile.allFunctions')}
+                    >
+                      <LayoutGrid size={17} color={tokens.text.secondary} />
+                      <Text style={styles.quickAllText}>{t('profile.allFunctions')}</Text>
+                      <ChevronRight size={14} color={tokens.text.secondary} />
+                    </TouchableOpacity>
+                  </View>
+                }
+                onLogout={user ? () => void logout() : undefined}
+                onAvatarPress={() =>
+                  user ? setEditProfileVisible(true) : rootNav?.navigate('Login')
+                }
                 onBack={() => navigation.goBack()}
                 userExtra={
                   user ? (
                     <View style={styles.accountActions}>
                       <TouchableOpacity
-                        style={styles.accountAction}
+                        style={[styles.accountAction, styles.accountActionGhost]}
                         activeOpacity={0.7}
                         onPress={() => setEditProfileVisible(true)}
                         accessibilityRole="button"
                         accessibilityLabel={t('profile.editProfile')}
                       >
+                        <Pencil size={14} color={tokens.text.secondary} />
                         <Text style={styles.accountActionText}>{t('profile.editProfile')}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.accountAction}
-                        activeOpacity={0.7}
-                        onPress={() => rootNav?.navigate('Wallet')}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('wallet.recharge')}
-                      >
-                        <Text style={styles.accountActionText}>{t('wallet.recharge')}</Text>
-                      </TouchableOpacity>
                       {user.isVip === 1 ? (
-                        <TouchableOpacity
-                          style={styles.accountAction}
-                          activeOpacity={0.7}
-                          onPress={() => setUnsubscribeVisible(true)}
-                          accessibilityRole="button"
-                          accessibilityLabel={t('uiText.unsubscribe')}
-                        >
-                          <Text style={styles.accountActionText}>{t('uiText.unsubscribe')}</Text>
-                        </TouchableOpacity>
+                        <>
+                          <TouchableOpacity
+                            style={[styles.accountAction, styles.accountActionPrimary]}
+                            activeOpacity={0.7}
+                            onPress={() => rootNav?.navigate('Wallet')}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('wallet.recharge')}
+                          >
+                            <Wallet size={14} color={tokens.brand.ctaForeground} />
+                            <Text style={styles.accountActionTextPrimary}>
+                              {t('wallet.recharge')}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.accountAction, styles.accountActionGhost]}
+                            activeOpacity={0.7}
+                            onPress={() => setUnsubscribeVisible(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('uiText.unsubscribe')}
+                          >
+                            <Text style={styles.accountActionText}>{t('uiText.unsubscribe')}</Text>
+                          </TouchableOpacity>
+                        </>
                       ) : (
-                        <TouchableOpacity
-                          style={styles.accountAction}
-                          activeOpacity={0.7}
-                          onPress={() => rootNav?.navigate('VipTrader')}
-                          accessibilityRole="button"
-                          accessibilityLabel={t('vipTrader.openTitle')}
-                        >
-                          <Text style={styles.accountActionText}>{t('vipTrader.openTitle')}</Text>
-                        </TouchableOpacity>
+                        <>
+                          <TouchableOpacity
+                            style={[styles.accountAction, styles.accountActionOutline]}
+                            activeOpacity={0.7}
+                            onPress={() => rootNav?.navigate('Wallet')}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('wallet.recharge')}
+                          >
+                            <Wallet size={14} color={tokens.text.primary} />
+                            <Text style={styles.accountActionTextStrong}>
+                              {t('wallet.recharge')}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.accountAction, styles.accountActionPrimary]}
+                            activeOpacity={0.7}
+                            onPress={() => rootNav?.navigate('VipTrader')}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('vipTrader.openTitle')}
+                          >
+                            <Crown size={14} color={tokens.brand.ctaForeground} />
+                            <Text style={styles.accountActionTextPrimary}>
+                              {t('vipTrader.openTitle')}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
                       )}
-                      <TouchableOpacity
-                        style={styles.accountAction}
-                        activeOpacity={0.7}
-                        onPress={() => setLevelIntroVisible(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('profile.levelIntro')}
-                      >
-                        <Text style={styles.accountActionText}>{t('profile.levelIntro')}</Text>
-                      </TouchableOpacity>
                     </View>
                   ) : (
                     <TouchableOpacity
-                      style={styles.accountAction}
+                      style={[
+                        styles.accountAction,
+                        styles.accountActionPrimary,
+                        styles.accountActionGuest,
+                      ]}
                       activeOpacity={0.7}
                       onPress={() => rootNav?.navigate('Login')}
                       accessibilityRole="button"
                       accessibilityLabel={t('uiText.oneTapLogin')}
                     >
-                      <Text style={styles.accountActionText}>{t('uiText.oneTapLogin')}</Text>
+                      <Text style={styles.accountActionTextPrimary}>{t('uiText.oneTapLogin')}</Text>
                     </TouchableOpacity>
                   )
                 }
               >
                 {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
-                <TouchableOpacity
-                  style={styles.membershipHeader}
-                  onPress={() => setShowMembershipBenefits((v) => !v)}
-                  activeOpacity={0.7}
-                  accessibilityLabel={t('profile.switchBenefit')}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
-                  <View
-                    style={[
-                      styles.membershipArrow,
-                      showMembershipBenefits ? styles.membershipArrowExpanded : null,
-                    ]}
-                  >
-                    <ChevronDown size={24} color={tokens.text.secondary} />
+                <View style={styles.membershipCard}>
+                  <View style={styles.membershipHeader}>
+                    <TouchableOpacity
+                      style={styles.membershipHeaderMain}
+                      onPress={() => setShowMembershipBenefits((v) => !v)}
+                      activeOpacity={0.7}
+                      accessibilityLabel={t('profile.switchBenefit')}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.membershipHeaderText}>
+                        {t('profile.membershipSection')}
+                      </Text>
+                      <View
+                        style={[
+                          styles.membershipArrow,
+                          showMembershipBenefits ? styles.membershipArrowExpanded : null,
+                        ]}
+                      >
+                        <ChevronDown size={20} color={tokens.text.secondary} />
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.levelIntroLink}
+                      onPress={() => setLevelIntroVisible(true)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('profile.levelIntro')}
+                    >
+                      <Text style={styles.levelIntroText}>{t('profile.levelIntro')}</Text>
+                      <ChevronRight size={13} color={tokens.text.secondary} />
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
-                {showMembershipBenefits ? (
-                  <UserMembershipBenefits
-                    level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
-                    benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
-                      id: b.id,
-                      icon: b.icon,
-                      title: t(b.titleKey),
-                      desc: t(b.descKey),
-                    }))}
-                    onPressUpgrade={() => setLevelIntroVisible(true)}
-                  />
-                ) : null}
+                  {showMembershipBenefits ? (
+                    <View style={styles.membershipBody}>
+                      <View style={styles.membershipLevelRow}>
+                        <View style={styles.membershipLevelBadge}>
+                          <Crown
+                            size={16}
+                            color={user?.isVip === 1 ? tokens.vip.gold : tokens.text.secondary}
+                          />
+                          <Text
+                            style={[
+                              styles.membershipLevelText,
+                              user?.isVip === 1 ? styles.membershipLevelTextVip : null,
+                            ]}
+                          >
+                            {t(
+                              user?.isVip === 1
+                                ? 'memberBenefits.tnVip'
+                                : 'memberBenefits.tnNormal',
+                            )}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.membershipUpgradeLink}
+                          onPress={() => rootNav?.navigate('VipTrader')}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={t(
+                            user?.isVip === 1 ? 'menu.vip' : 'vipTrader.openTitle',
+                          )}
+                        >
+                          <Text style={styles.membershipUpgradeText}>
+                            {t(user?.isVip === 1 ? 'menu.vip' : 'vipTrader.openTitle')}
+                          </Text>
+                          <ChevronRight size={13} color={tokens.text.secondary} />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.membershipBenefitList}>
+                        {MEMBERSHIP_BENEFITS.map((benefit) => {
+                          const Icon = benefit.icon
+                          return (
+                            <View key={benefit.id} style={styles.membershipBenefitRow}>
+                              <View style={styles.membershipBenefitIcon}>
+                                <Icon size={16} color={tokens.brand.DEFAULT} />
+                              </View>
+                              <View style={styles.membershipBenefitCopy}>
+                                <Text style={styles.membershipBenefitTitle}>
+                                  {t(benefit.titleKey)}
+                                </Text>
+                                <Text style={styles.membershipBenefitDesc}>
+                                  {t(benefit.descKey)}
+                                </Text>
+                              </View>
+                              <Check size={15} color={tokens.success.deepText} />
+                            </View>
+                          )
+                        })}
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
                 {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频) */}
                 <ProfileContentSection />
               </SharedProfileScreen>
@@ -1233,6 +1379,7 @@ function ProfileContentSection(): React.JSX.Element {
     useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [expanded, setExpanded] = useState(false)
   const [preview, setPreview] = useState<PreviewState>({ images: [], index: 0, visible: false })
   const [videoModal, setVideoModal] = useState<VideoModalState>({ url: '', visible: false })
 
@@ -1266,7 +1413,14 @@ function ProfileContentSection(): React.JSX.Element {
           const tabType = meta.contentType ?? 'text'
           // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
           const time = formatDate(conv.updatedAt ?? conv.createdAt)
-          const title = conv.title?.trim() || t('plaza.index.untitledConv')
+          // 标题是纯文本渲染位:先把 Markdown/思考标记/零宽字符洗掉,空标题或 DB 默认
+          // 「新对话」回退到首条消息摘要,避免列表里出现 `**`、`(think)`、`` 这类脏值。
+          const normalizedTitle = plainTitleText(conv.title ?? '', 40)
+          const fallbackTitle = plainTitleText(meta.lastMessage ?? '', 40)
+          const title =
+            normalizedTitle && normalizedTitle !== DEFAULT_CONVERSATION_TITLE
+              ? normalizedTitle
+              : (fallbackTitle ?? t('plaza.index.untitledConv'))
           if (tabType === 'image') {
             const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
             imageContents.push({
@@ -1329,6 +1483,8 @@ function ProfileContentSection(): React.JSX.Element {
     const tabId = Number(key) as ProfileTabId
     if (tabId >= 1 && tabId <= 4) {
       setActiveTab(tabId)
+      // 「查看全部」是当前 Tab 的展开态,换 Tab 必须回到默认 3 条,否则图片/视频会被上一条的展开态带满
+      setExpanded(false)
     }
   }, [])
 
@@ -1353,27 +1509,49 @@ function ProfileContentSection(): React.JSX.Element {
     setVideoModal({ url: '', visible: false })
   }, [])
 
-  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334 + yejiao.png 行 192-197 页面级页脚)。
-   *  真实写剪贴板 + FloatBox 非阻塞提示(替代假 Alert,文案对齐 Uniapp showToast) */
-  const [toastVisible, setToastVisible] = useState(false)
-  const [toastType, setToastType] = useState<FloatBoxType>('success')
-  const [toastMessage, setToastMessage] = useState('')
-  const showToast = useCallback((type: FloatBoxType, message: string): void => {
-    setToastType(type)
-    setToastMessage(message)
-    setToastVisible(true)
-  }, [])
-  const onCopyLink = useCallback(() => {
-    try {
-      Clipboard.setString(WEBSITE_URL)
-      showToast('success', t('profile.copySiteOk'))
-    } catch {
-      showToast('warning', t('profile.copyFailRetry'))
-    }
-  }, [showToast, t])
+  // 内容区默认只露 3 条,避免首屏被创作列表整段占满;「查看全部」才展开当前 Tab 的完整列表。
+  const activeCount =
+    activeTab === 1
+      ? textContentList.length
+      : activeTab === 2
+        ? imageContentList.length
+        : activeTab === 3
+          ? videoContentList.length
+          : audioContentList.length
+  const visibleTextList =
+    activeTab === 1 && !expanded ? textContentList.slice(0, 3) : textContentList
+  const visibleImageList =
+    activeTab === 2 && !expanded ? imageContentList.slice(0, 3) : imageContentList
+  const visibleVideoList =
+    activeTab === 3 && !expanded ? videoContentList.slice(0, 3) : videoContentList
+  const visibleAudioList =
+    activeTab === 4 && !expanded ? audioContentList.slice(0, 3) : audioContentList
 
   return (
     <View style={styles.contentSection}>
+      <View style={styles.creationHeader}>
+        <Text style={styles.creationTitle}>{t('profile.myCreations')}</Text>
+        {activeCount > 3 ? (
+          <TouchableOpacity
+            style={styles.creationToggle}
+            onPress={() => setExpanded((v) => !v)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={
+              expanded ? t('profile.showLessCreations') : t('profile.viewAllCreations')
+            }
+          >
+            <Text style={styles.creationToggleText}>
+              {expanded ? t('profile.showLessCreations') : t('profile.viewAllCreations')}
+            </Text>
+            <ChevronDown
+              size={14}
+              color={tokens.text.secondary}
+              style={expanded ? styles.membershipArrowExpanded : undefined}
+            />
+          </TouchableOpacity>
+        ) : null}
+      </View>
       <View style={styles.tabBarWrap}>
         <CategoryInlineBar
           items={TAB_BAR_ITEMS.map((it) => ({ ...it, label: t(it.label) }))}
@@ -1397,26 +1575,17 @@ function ProfileContentSection(): React.JSX.Element {
           </View>
         ) : (
           <>
-            {activeTab === 1 ? <TextTabContent list={textContentList} /> : null}
+            {activeTab === 1 ? <TextTabContent list={visibleTextList} /> : null}
             {activeTab === 2 ? (
-              <ImageTabContent list={imageContentList} onPreview={onImagePreview} />
+              <ImageTabContent list={visibleImageList} onPreview={onImagePreview} />
             ) : null}
             {activeTab === 3 ? (
-              <VideoTabContent list={videoContentList} onPlay={onVideoPlay} />
+              <VideoTabContent list={visibleVideoList} onPlay={onVideoPlay} />
             ) : null}
-            {activeTab === 4 ? <AudioTabContent list={audioContentList} /> : null}
+            {activeTab === 4 ? <AudioTabContent list={visibleAudioList} /> : null}
           </>
         )}
       </View>
-      {/* 官网链接(页面级页脚,对齐 Uniapp yejiao.png 行 192-197,在所有 Tab 内容之外跨 Tab 可见) */}
-      <TouchableOpacity
-        onPress={onCopyLink}
-        style={styles.copyLinkBtn}
-        activeOpacity={0.7}
-        accessibilityLabel={t('profile.copySite')}
-      >
-        <Text style={styles.copyLinkText}>{t('profile.copySite')}</Text>
-      </TouchableOpacity>
       <ImagePreviewModal
         images={preview.images}
         index={preview.index}
@@ -1427,13 +1596,6 @@ function ProfileContentSection(): React.JSX.Element {
         url={videoModal.url}
         visible={videoModal.visible}
         onClose={closeVideoModal}
-      />
-      {/* 复制官网链接结果提示(对齐 Uniapp copyWebsiteLink showToast) */}
-      <FloatBox
-        visible={toastVisible}
-        type={toastType}
-        message={toastMessage}
-        onHide={() => setToastVisible(false)}
       />
     </View>
   )
@@ -1997,9 +2159,6 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
 
 // ============ 辅助函数(对齐 Uniapp formatAudioTime / getVideoPoster) ============
 
-/** 官网链接(对齐 Uniapp copyWebsiteLink 行 1316 'https://www.aizhs.top') */
-const WEBSITE_URL = 'https://www.aizhs.top'
-
 /**
  * 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem。
  * 对齐 Uniapp getModelChat 返回的 { id, title, time, modelName } 结构。
@@ -2013,7 +2172,7 @@ function mapConversationToDrawer(c: ConversationDetail, untitled: string): Drawe
   const model = c.model ?? ''
   return {
     id: c.id,
-    title: c.title?.trim() || untitled,
+    title: plainTitleText(c.title ?? '', 40) ?? untitled,
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
@@ -2052,51 +2211,231 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: rpx(96),
   },
-  /** 用户卡内账户动作行(充值/退订或开通会员/等级介绍):一行紧凑胶囊,随卡片宽度换行 */
+  /** 用户卡内账户动作行:编辑资料/充值/开通会员三档同高,商业主操作实底、其余描边/幽灵 */
   accountActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: rpx(8),
   },
   accountAction: {
-    minHeight: rpx(64),
+    flex: 1,
+    minWidth: 0,
+    minHeight: rpx(80),
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(16),
+    gap: rpx(8),
+    paddingHorizontal: rpx(12),
     borderRadius: rnRadius.sm,
     borderWidth: 1,
+  },
+  accountActionGhost: {
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.muted,
+    backgroundColor: 'transparent',
+  },
+  accountActionOutline: {
+    borderColor: tokens.border.medium,
+    backgroundColor: tokens.surface.light,
+  },
+  accountActionPrimary: {
+    borderColor: tokens.brand.cta,
+    backgroundColor: tokens.brand.cta,
+  },
+  accountActionGuest: {
+    flex: 0,
+    width: '100%',
   },
   accountActionText: {
     fontSize: rnType.label.size,
+    fontWeight: '600',
     color: tokens.text.secondary,
   },
+  accountActionTextStrong: {
+    fontSize: rnType.label.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  accountActionTextPrimary: {
+    fontSize: rnType.label.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  },
+  /** 首屏快捷入口:4 列 2 行装下 8 个高频入口,底部再给「全部功能」一条整行入口 */
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: rpx(8),
+    paddingVertical: rpx(8),
+    borderRadius: rnRadius.lg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.light,
+  },
+  quickItem: {
+    width: '25%',
+    alignItems: 'center',
+    gap: rpx(4),
+    paddingVertical: rpx(12),
+  },
+  quickIcon: {
+    width: rpx(64),
+    height: rpx(64),
+    borderRadius: rnRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
+  },
+  quickLabel: {
+    maxWidth: '96%',
+    fontSize: rnType.caption.size,
+    color: tokens.text.primary,
+  },
+  quickAllRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rpx(8),
+    marginTop: rpx(2),
+    paddingVertical: rpx(16),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.muted,
+  },
+  quickAllText: {
+    fontSize: rnType.label.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
   contentSection: {
-    // 共享屏 body 已给水平内边距 ⇒ 本段不再叠加第二层(membershipHeader 同)
+    // 共享屏 body 已给水平内边距 ⇒ 本段不再叠加第二层(membershipCard 同)
     paddingBottom: rpx(24),
   },
-  // 会员权益折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits)
-  // 本块作为共享屏 children 渲染,水平内边距由共享屏 body 统一提供,端内不再叠加第二层。
+  /** 会员权益折叠卡:标题行与「等级介绍」并列,展开内容不再单独长出一张卡 */
+  membershipCard: {
+    padding: rpx(28),
+    borderRadius: rnRadius.lg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.light,
+    gap: rpx(20),
+  },
   membershipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(20),
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.lg,
+    gap: rpx(12),
+  },
+  membershipHeaderMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(6),
   },
   membershipHeaderText: {
     fontSize: rnType.strong.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
+  levelIntroLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(2),
+    paddingVertical: rpx(4),
+    paddingLeft: rpx(8),
+  },
+  levelIntroText: {
+    fontSize: rnType.caption.size,
+    color: tokens.text.secondary,
+  },
   membershipArrow: {
     transform: [{ rotate: '0deg' }],
   },
   membershipArrowExpanded: {
     transform: [{ rotate: '180deg' }],
+  },
+  /** 会员卡展开体:只放当前等级 + 3 项权益,完整对比表留给会员页,避免个人中心变销售页 */
+  membershipBody: {
+    gap: rpx(20),
+  },
+  membershipLevelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  membershipLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(8),
+  },
+  membershipLevelText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.text.secondary,
+  },
+  membershipLevelTextVip: {
+    color: tokens.vip.gold,
+  },
+  membershipUpgradeLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(2),
+    paddingVertical: rpx(4),
+  },
+  membershipUpgradeText: {
+    fontSize: rnType.caption.size,
+    color: tokens.text.secondary,
+  },
+  membershipBenefitList: {
+    gap: rpx(12),
+  },
+  membershipBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(12),
+  },
+  membershipBenefitIcon: {
+    width: rpx(60),
+    height: rpx(60),
+    borderRadius: rnRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
+  },
+  membershipBenefitCopy: {
+    flex: 1,
+    gap: rpx(2),
+  },
+  membershipBenefitTitle: {
+    fontSize: rnType.body.size,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  membershipBenefitDesc: {
+    fontSize: rnType.caption.size,
+    color: tokens.text.secondary,
+  },
+  /** 创作内容区标题:此前的 tabs 直接挂在会员权益下面,会被读成权益分类 */
+  creationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: rpx(12),
+    paddingBottom: rpx(12),
+  },
+  creationTitle: {
+    fontSize: rnType.title.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  creationToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(2),
+    paddingVertical: rpx(4),
+    paddingLeft: rpx(8),
+  },
+  creationToggleText: {
+    fontSize: rnType.caption.size,
+    color: tokens.text.secondary,
   },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
@@ -2106,7 +2445,7 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp(删除大容器圆角,改 minHeight + marginBottom + 紧凑 padding)
     minHeight: 100,
     marginBottom: rpx(20),
-    paddingHorizontal: rpx(20),
+    paddingHorizontal: 0,
     paddingVertical: rpx(0),
   },
   listContent: {
@@ -2122,18 +2461,6 @@ const styles = StyleSheet.create({
     padding: rpx(28),
     borderWidth: 1,
     borderColor: tokens.border.light,
-  },
-  copyLinkBtn: {
-    alignSelf: 'center',
-    marginTop: rpx(24),
-    paddingVertical: rpx(16),
-    paddingHorizontal: rpx(32),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.muted,
-  },
-  copyLinkText: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
   },
   contentHeader: {
     flexDirection: 'row',

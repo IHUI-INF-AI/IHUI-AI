@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: e056c0a1d5901604468ae21ba5b7338999df5e6e
-// inputsSha256: 6e1f77e651fad22d322166b23619ec0d609ecbad4c50bdb7d9bed324777abe1c
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 53f1681a2b73651df12c245f2a53503783c423551180ad1eaff9a2386074e148
+// sourceCommit: b1c4dc3f835c68cdb5295de6f2f290ec40792866
+// inputsSha256: 896bc9287b1df4520e11aea175dda0ed0608dfd5807be6b6e7fabe13f65fe5b2
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 29f9daa38e9de766751835c6c793e7dabe045c880f53d37875b6aef195bbe36c
 // input: apps/mobile-rn/src/navigation/linking.ts d003573a24de25dea1e7fc9abe5deb78223e68486d626712ebc1ce1721531cd7
 // skipped: unauthedBranchScreens=8(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-19T02:42:10.542Z
+// generatedAt: 2026-11-23T15:25:00.678Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 347 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 348 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -385,6 +385,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Certificate', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MessageCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ProfileEdit', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ProfileAllFunctions', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Agent', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'TeacherList', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'TeacherDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
