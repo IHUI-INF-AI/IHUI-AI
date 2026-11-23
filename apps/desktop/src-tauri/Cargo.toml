@@ -9,6 +9,11 @@ description = "IHUI AI — Tauri 2 壳"
 authors = ["IHUI AI"]
 edition = "2021"
 rust-version = "1.77"
+# 2026-11-23 修复本地联调起不来:`src/bin/ihui_native_host.rs`(B3-01 Chrome Native
+# Messaging 常驻桥)入库后本 crate 有两个 bin target,`tauri dev` 内部的 `cargo run`
+# 失去判定依据 ⇒ `error: could not determine which binary to run`(exit 101),窗口永不出现。
+# 只钉不带 `--bin` 的默认运行目标;`cargo build --bin ihui_native_host` 与全量 build 不受影响。
+default-run = "ihui-desktop"
 
 [lib]
 name = "ihui_desktop_lib"

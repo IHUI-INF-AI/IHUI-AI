@@ -3303,8 +3303,14 @@ fn in_round_rect(x: f32, y: f32, x0: f32, y0: f32, x1: f32, y1: f32, radius: f32
     // 浮点误差会让 f32::clamp 的 min 比 max 大 5e-7 而直接 panic(2026-11-18 实测到)。
     let max_r = (x1 - x0).min(y1 - y0) * 0.5;
     let r = radius.clamp(0.0, max_r);
-    let cx = x.clamp(x0 + r, x1 - r);
-    let cy = y.clamp(y0 + r, y1 - r);
+    // 2026-11-23 第二面:即使 r == max_r 合法,内缩后的区间在 f32 上仍会倒挂
+    // (bh=28 时 x0+r=14.0、x1-r=13.999999),clamp 照旧 panic,本地联调窗口起不来。
+    // 倒挂只可能出现在"半径已吃到短边一半",此时圆心在几何上只能居中;
+    // 取盒心比再削半径更贴近预期形状,也不会把圆角画小。
+    let (ix0, ix1) = (x0 + r, x1 - r);
+    let (iy0, iy1) = (y0 + r, y1 - r);
+    let cx = if ix0 <= ix1 { x.clamp(ix0, ix1) } else { (x0 + x1) * 0.5 };
+    let cy = if iy0 <= iy1 { y.clamp(iy0, iy1) } else { (y0 + y1) * 0.5 };
     let dx = x - cx;
     let dy = y - cy;
     dx * dx + dy * dy <= r * r
@@ -3486,6 +3492,22 @@ mod desktop_badge_tests {
         assert_eq!(badge_canvas_px(f32::NAN), 16);
         assert_eq!(badge_canvas_px(-2.0), 16);
         assert_eq!(badge_canvas_px(9.0), 48);
+    }
+
+    #[test]
+    fn 半径吃到半宽时浮点倒挂不_panic_且盒心命中() {
+        // 2026-11-23 实测:bh=28、r=14 ⇒ x0+r=14.0 与 x1-r=13.999999 倒挂,
+        // 裸 clamp 直接 panic,dev 窗口启动即崩(0xC0000409)。这里钉三件事:
+        // 不 panic、盒心在圆内、四角在圆外(兜底不能把圆角矩形悄悄撑成方块)。
+        for (w, h) in [(28.0f32, 28.0f32), (24.0, 24.0), (20.0, 28.0), (16.0, 16.0)] {
+            let (x0, y0) = (0.0f32, 0.0f32);
+            let (x1, y1) = (x0 + w, y0 + h);
+            let r = h * 0.5;
+            let (mx, my) = ((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+            assert!(in_round_rect(mx, my, x0, y0, x1, y1, r), "{w}x{h}: 盒心必须在圆内");
+            assert!(!in_round_rect(x0, y0, x0, y0, x1, y1, r), "{w}x{h}: 左上角必须在圆外");
+            assert!(!in_round_rect(x1, y1, x0, y0, x1, y1, r), "{w}x{h}: 右下角必须在圆外");
+        }
     }
 
     #[test]
