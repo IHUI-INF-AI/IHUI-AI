@@ -9,6 +9,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    /* 主题解析(2026-11-23 立):`?theme=light|dark` 显式覆盖,否则保持 html 上的默认。
+       检查器(visual-check)在 inspect 时用 `url.searchParams.set('theme', theme)` 请求
+       两个主题各截一次,而它**不会**替页面写 data-theme —— 页面不读这个参数时,
+       请求 light 拿到的还是写死的 dark,receipt 就恒在 viewer/theme-state 报红。
+       只认两个白名单值,其它输入一律不写(不拿 URL 当任意属性的注入口)。
+       脚本放 head 顶部、同步执行:避免首帧按旧主题渲染再跳变。 */
+    try {
+      var __archifyTheme = new URLSearchParams(location.search).get('theme');
+      if (__archifyTheme === 'light' || __archifyTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', __archifyTheme);
+      }
+    } catch (e) { /* 无 URL API 的宿主保持默认 */ }
+  </script>
     <!-- ARCHIFY:I18N_DATA -->
   <title>[PROJECT NAME] Architecture Diagram</title>
   <style>
