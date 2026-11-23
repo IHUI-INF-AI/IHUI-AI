@@ -392,4 +392,23 @@ subagent 300s / office 330s），但超时只产出一句自由文本 `工具执
 
 **超越轴**：可测性 + 零行为变化。取证件只有提醒文本；本仓把「两处阈值必须等值」做成
 机器断言（漂开即红，不靠口头同步），并把「只提醒不否决」本身钉成用例。
+
+## 15. B3-05 通知权限三态查询（只读、不冒充）
+
+**来源**：WorkBuddy / DSH 的通知权限状态查询 —— 发通知前先问"用户到底允不允许"，读系统开关再决定话术。本仓 `tauri-plugin-notification` 只有**发送面**：通知没弹出来时前端拿不到任何依据，只能统一报"通知失败"，把"用户关了通知"和"链路故障"混成一件事。
+
+**落地（2 文件）**：
+
+- 新增 `apps/desktop/src-tauri/src/notification_permission.rs`：`PermissionReport`（`state`/`reason`/`source` 三字段，`camelCase` 过 Tauri 边界）、纯判据 `classify_notification_permission(Option<u32>)` → `allowed`(1) / `denied`(0) / `unjudged`（键缺失、读失败、非 Windows、未知值都落未判定并点名原因）、`read_notification_permission()` 只读 `HKCU\…\Notifications\Settings` 的 `NOC_GLOBAL_SETTING_TOASTS_ENABLED`
+- 接线 `lib.rs`：`mod notification_permission;` + `#[tauri::command] query_notification_permission()` + `invoke_handler` 注册
+
+**判据三条**：① 三态封闭，`unjudged` 有四条点名原因（`registry-value-absent` / `registry-read-failed-*` / `unexpected-registry-value-N` / `platform-unsupported`）；② **取不到绝不默认 allowed** —— 对比取证件里的布尔 `isEnabled`，读失败返回 `false` 会把"没判"读成"用户关了"；③ 只读：不写注册表、不改权限、不发通知。
+
+**测试**：`notification_permission` 面 **6 例**绿（0 / 1 / 缺失 / 未知值 / 非 Windows / Windows 真读不 panic 且未判定时 state 必须 unjudged）；desktop lib 面 **485 例**通过（1 例既有红见下）。
+
+**红门归因（not-ours）**：`auto_refresh::tests::常驻循环前必须串上准入闸且离线兜底仍在其前` 报「常驻循环应恰有一处(现 2 处)」—— `git grep -F 'loop {' HEAD -- src/auto_refresh.rs` 实测 HEAD 就有 **2 处**（L852 生产循环、L1288），该文件工作树零改动、本轮只动了 `lib.rs`，属**存量红**（判据与文件现状冲突），与 B3-05 无关。
+
+**超越轴**：可测性 + 不冒充。取证件只回答"开 / 关"；本仓把"取不到"做成第四种可见状态，并让纯判据可被夹具枚举（不需要真改注册表就能测到四种未判定路径）。
+
+**诚实边界**：只覆盖 Windows 全局 toast 总开关；per-app 开关（`Notifications\Settings\<AppId>`）与非 Windows 平台后端口未纳入 —— 平台差异留在 `cfg` 分支，未伪造能力。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

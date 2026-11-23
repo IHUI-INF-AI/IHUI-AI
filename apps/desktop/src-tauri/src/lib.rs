@@ -83,6 +83,8 @@ mod orphan_guard;
 mod sandbox_sdk;
 // 沙箱能力探测的命令胶水(只放 #[tauri::command] + DTO);判定全在 sandbox_sdk。
 mod sandbox_ipc;
+// 2026-11-23 立(B3-05):通知权限三态查询(只读注册表,不写不改)。
+mod notification_permission;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -4818,6 +4820,13 @@ fn sync_system_proxy_env() -> Option<String> {
     Some(raw)
 }
 
+/// B3-05:通知权限三态查询(只读)。前端在"通知没弹出来"时调这条,
+/// 用来区分"用户关了通知"(denied)与"链路故障"(allowed/unjudged)。
+#[tauri::command]
+fn query_notification_permission() -> notification_permission::PermissionReport {
+    notification_permission::read_notification_permission()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -5749,7 +5758,9 @@ pub fn run() {
     // 2026-11-23 立(五程序原生取证 B2-01):沙箱能力三态探测。只读、不起进程;
     // 前端在起终端/执行前调这条,拿到 supported / 原因码 / 未判定原因再决定。
     sandbox_ipc::sandbox_capability,
-    sandbox_ipc::sandbox_tiers
+    sandbox_ipc::sandbox_tiers,
+    // 2026-11-23 立(B3-05):通知权限三态查询(只读;区分"用户关了"与"链路故障")。
+    query_notification_permission
         ])
         .run(context)
         .unwrap_or_else(|e| {
