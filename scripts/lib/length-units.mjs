@@ -17,6 +17,14 @@
 export const RPX_PER_PX = 2
 
 /**
+ * px 保形换算器表在"常量表"里的**专用键**(2026-11-23 修:HEAD 上 `lib/radius-tokens.mjs` 从这里
+ * import 一个从未定义过的同名符号,整条半径判据在 `import` 阶段就 SyntaxError ⇒ 门 77/128/150 与
+ * 全部镜像测试结构性地跑不起来,"判据在、读数对着旧前提")。
+ * 用 Symbol 而不是字符串:常量表的键是源码里的常量名,字符串键会与真实常量撞名。
+ */
+export const PX_WRAPPERS = Symbol.for('ihui.pxWrappers')
+
+/**
  * 一段长度字面量 → px。单位决定换算:`rpx` 折半,`rem` 按 16px,`px` 与无单位按逻辑 px;
  * `calc(...)` 只是包裹,先剥。解不到返回 **null** —— 由调用方报名,绝不返回一个猜测值。
  */
@@ -74,6 +82,24 @@ export function constExprPx(text, consts, depth = 0) {
   if (!(consts instanceof Map) || consts.size === 0) return null
   if (depth >= CONST_EXPR_MAX_DEPTH) return null
   const norm = t.replace(/\s+/g, '')
+  /**
+   * ⑤ **px 保形换算器调用式**(`toUnit(BOX_PX)` / `toRpx(SPEC_X_PX)`):只认登记过的名字,
+   * 倍率按 `内层 × 系数` 折 —— rpx 族再除 `RPX_PER_PX`(落地是 2rpx/px),px 族(恒等/px 调用)不除。
+   * 名字不携带语义:没登记的名字一律不剥(宁漏不误判),系数解不到就整体 null,绝不按名字假定 1。
+   */
+  const call = /^([A-Za-z_$][\w$]*)\(\s*([^()]*?)\s*\)$/.exec(norm)
+  if (call) {
+    const table = consts.get(PX_WRAPPERS)
+    if (!(table instanceof Map) || !table.has(call[1])) return null
+    const inner = constExprPx(call[2], consts, depth + 1)
+    if (inner === null) return null
+    const spec = table.get(call[1])
+    if (!spec || typeof spec !== 'object') return null
+    const rawCoef = consts.has(spec.coef) ? consts.get(spec.coef) : spec.coef
+    const coef = Number(rawCoef)
+    if (!Number.isFinite(coef) || coef <= 0) return null
+    return spec.kind === 'rpx' ? (inner * coef) / RPX_PER_PX : inner * coef
+  }
   const iden = /^([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$/.exec(norm)
   if (!iden) return null
   const keys = [norm]
@@ -96,12 +122,64 @@ export function constantMapOf(src) {
   for (const raw of (src || '').split('\n')) {
     const t = raw.trim()
     if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
-    const m = /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(rpx\(\s*[0-9.]+\s*\)|\d+(?:\.\d+)?(?:rpx|px|rem)?|[A-Za-z_$][\w$]*)\s*(?:[,;)\]}]|$)/.exec(
-      raw,
-    )
+    const m =
+      /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(rpx\(\s*[0-9.]+\s*\)|\d+(?:\.\d+)?(?:rpx|px|rem)?|[A-Za-z_$][\w$]*)\s*(?:[,;)\]}]|$)/.exec(
+        raw,
+      )
     if (m && !map.has(m[1])) map.set(m[1], m[2])
   }
+  // 包装器表随常量表一起交出去:`constExprPx` 解 `toUnit(X)` 时就靠这张表认"谁是保形换算器"。
+  map.set(PX_WRAPPERS, pxWrappersOf(src))
   return map
+}
+
+/**
+ * 单参**px 保形换算器**的登记表(2026-11-23 补):`const toUnit = (px) => rpx(px * TARO_RPX_PER_PX)`
+ * → `{kind:'rpx', coef:'TARO_RPX_PER_PX'}`;RN 端 `const toUnit = (px) => px` → `{kind:'px', coef:'1'}`。
+ *
+ * 登记判据 = **自证**:函数体必须是 `rpx(...)` / `px(...)` 调用,或裸恒等;`px * 2` 这种"乘完不返回
+ * 长度"的不登记(它不是换算器,只是个数),注释行不登记(否则门给自己发合格证),模板字面量形态
+ * 刻意不在此支(属另一票,由 `radius-tokens.pxPreservingWrappersOf` 的补集接)。
+ *
+ * @param {string} src 单份源码
+ * @returns {Map<string, {kind:'rpx'|'px', coef:string}>}
+ */
+export function pxWrappersOf(src) {
+  const out = new Map()
+  for (const raw of String(src ?? '').split('\n')) {
+    const t = raw.trim()
+    if (/^(\/\/|\/\*|\*|\{\/\*|<!--)/.test(t)) continue
+    const m =
+      /(?:^|[^\w$.])(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\(\s*([A-Za-z_$][\w$]*)\s*(?:\??\s*:\s*[^()=]*)?\)\s*(?::[^=]*?)?=>\s*([^,;\n]+)/.exec(
+        raw,
+      )
+    if (!m) continue
+    const name = m[1]
+    if (name === 'rpx' || name === 'px') continue
+    const arg = m[2]
+    const body = (m[3] ?? '').replace(/\s+/g, '')
+    const spec = wrapperSpecOf(body, arg)
+    if (spec && !out.has(name)) out.set(name, spec)
+  }
+  return out
+}
+
+/** 函数体 → 换算器规格;认不出返回 null(不猜)。 */
+function wrapperSpecOf(body, arg) {
+  const inner = /^(rpx|px)\(([^()]*)\)$/.exec(body)
+  if (inner) {
+    const kind = inner[1] === 'rpx' ? 'rpx' : 'px'
+    const expr = inner[2]
+    if (expr === arg) return { kind, coef: '1' }
+    const mul =
+      new RegExp(`^${arg}\\*([A-Za-z_$][\\w$]*|[0-9.]+)$`).exec(expr) ||
+      new RegExp(`^([A-Za-z_$][\\w$]*|[0-9.]+)\\*${arg}$`).exec(expr)
+    if (mul && mul[1]) return { kind, coef: mul[1] }
+    return null
+  }
+  // RN 族:裸恒等(`(px) => px`),1:1 到 px
+  if (body === arg) return { kind: 'px', coef: '1' }
+  return null
 }
 
 /**
@@ -125,5 +203,33 @@ export function facePx(text, side, where = 'css') {
   if (side === 'miniapp' && !/(?:rpx|px|rem)$/.test(t)) t += 'rpx'
   if (side === 'miniapp' && where !== 'runtime') t = t.replace(/(?<!r)px$/, 'rpx')
   return lengthToPx(t)
+}
+
+/**
+ * 单位换算系数(`*_PER_PX` 一族)按**被审面**现读(2026-11-23 补:此前门 77 从这里 import 它,
+ * 而本文件没有这个导出 ⇒ 整条半径判据 `import` 阶段就崩,门与镜像测试全部结构性地跑不起来)。
+ *
+ * 为什么必须现读而不是写死 2:系数与长度折算是同一个物理量(逻辑 px ↔ 端单位),门 77 的具名档表
+ * 要把它喂进 `constExprPx`。写死一次改名(`TARO_RPX_PER_PX` 换成别的名字)就变成"门还按 2 折算、
+ * 源码已不认这个系数"的静默失效 —— 判据在,读数却对着旧前提。
+ *
+ * @param {Record<string, string>|Map<string, string>} sources 已按被审面读满的 {相对路径: 源码}
+ * @returns {Record<string, number>} 形如 `{ TARO_RPX_PER_PX: 2 }`;只认 geometry.[jt]s 里的纯数字定义
+ */
+export function unitCoefficientsOfSources(sources) {
+  /** @type {Record<string, number>} */
+  const out = {}
+  const entries = sources instanceof Map ? [...sources.entries()] : Object.entries(sources || {})
+  for (const [rel, text] of entries) {
+    // 系数只在 geometry 本体里定义;.d.ts 是声明副本(不取),spec 文件里也不会出现系数定义。
+    if (!/(^|[\\/])geometry\.[jt]s$/.test(String(rel))) continue
+    if (typeof text !== 'string') continue
+    const re =
+      /\b(?:export\s+)?const\s+([A-Z][A-Z0-9_]*_PER_[A-Z0-9_]*)\s*(?::\s*number)?\s*=\s*([0-9]+(?:\.[0-9]+)?)\b/g
+    for (const m of text.matchAll(re)) {
+      if (out[m[1]] === undefined) out[m[1]] = Number(m[2])
+    }
+  }
+  return out
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -229,7 +229,7 @@ export function halvedSideVerdict(lines, i, radiusText, anchor) {
   const operand = m[1].trim().replace(/\s+/g, '')
   if (!operand) return null
   const sides = (anchor ? scopeDimTexts(lines, i, anchor) : scopeDimTexts(lines, i))
-    .map(s => String(s).trim().replace(/\s+/g, ''))
+    .map((s) => String(s).trim().replace(/\s+/g, ''))
     .filter(Boolean)
   if (!sides.length || !sides.includes(operand)) return null
   const uniq = new Set(sides)
@@ -452,7 +452,7 @@ export function dimsFromText(win, consts) {
    * 两半必须同批改,这是本轮记下的一条规矩。
    */
   for (const m of win.matchAll(
-    /\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)\b/g,
+    /\b(width|height)\s*[:=]\s*([A-Za-z_$][\w$]*\(\s*[^()]*\s*\)|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)/g,
   )) {
     /**
      * 求值走 `constExprPx` 那一份:它认标识符、成员档与链式
@@ -481,7 +481,8 @@ export function dimsFromText(win, consts) {
     if (sameExpr) return { w, h, shape: 'square', sameExpr }
     if (h) {
       let pxMax = 0
-      for (const m of win.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g)) pxMax = Math.max(pxMax, Number(m[1]) * 4)
+      for (const m of win.matchAll(/\bpx-(\d+(?:\.\d+)?)(?![\w-])/g))
+        pxMax = Math.max(pxMax, Number(m[1]) * 4)
       for (const m of win.matchAll(/\bpx-\[(\d+(?:\.\d+)?)(rpx|px)\]/g))
         pxMax = Math.max(pxMax, Number(m[1]) * (m[2] === 'rpx' ? 0.5 : 1) * 2)
       /**

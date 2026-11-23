@@ -37,7 +37,7 @@ import { classifyRadiusGeometry } from './box-geometry.mjs'
  * 半径侧与盒形侧量的是同一个物理量,写两份折算必然漂移;而几何层只需要单位层,不该被拖进本文件的
  * 圆角专属逻辑(radiusLookup / 标记识别)—— 那会让每一个按文件清单搭的几何夹具都得复制圆角层。
  */
-export { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx }
+export { RPX_PER_PX, lengthToPx, constantMapOf, constExprPx, PX_WRAPPERS, pxWrappersOf }
 
 /**
  * 换算器调用式(单参)的两枚正则 —— **全仓只此一份形态识别**。
