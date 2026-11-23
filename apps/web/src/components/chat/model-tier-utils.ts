@@ -44,8 +44,6 @@ export interface ModelOption {
    *  由后端模型目录带出;缺省则选择器不显示单价行。 */
   inputPricePerMillion?: number
   outputPricePerMillion?: number
-  /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
-  memberDiscountEligible?: boolean
   /** 是否正式版(显示 "正式版" 灰色徽章) */
   isOfficial?: boolean
   /** 是否有专属补贴(显示 "专属补贴" 橙红徽章) */

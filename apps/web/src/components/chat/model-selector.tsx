@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Crown,
   History,
   Loader2,
   Lock,
@@ -31,6 +30,7 @@ import { formatCny } from '@/lib/display-currency'
 import {
   FALLBACK_MODELS,
   MODEL_CATEGORY_META,
+  inferPointsMultiplierFromRules,
   normalizeCategory,
   normalizeTier,
 } from '@ihui/shared'
@@ -178,18 +178,14 @@ interface ModelSelectorProps {
 
 // ============================================================================
 // 已知模型徽章元数据(2026-08-06 立,2026-11-23 收口)
-// 只保留会员/正式版/补贴/锁定这类展示标记。
+// 只保留正式版/补贴/锁定这类展示标记。
 // 积分倍数不在前端维护:唯一来源 = 后端 `/llm/models` 下发的 `points_multiplier`
 // (DB `ai_model_config_models.points_multiplier`,后台可编辑)。
 // ============================================================================
-type KnownModelBadgeMeta = Partial<
-  Pick<ModelOption, 'memberDiscountEligible' | 'isOfficial' | 'subsidy' | 'locked'>
->
+type KnownModelBadgeMeta = Partial<Pick<ModelOption, 'isOfficial' | 'subsidy' | 'locked'>>
 
 const KNOWN_MODEL_META: Record<string, KnownModelBadgeMeta> = {
   // === Step 系(plan 套餐主力)===
-  'stepfun/step-2.1-turbo': { memberDiscountEligible: true },
-  'stepfun/step-2.1-code': { memberDiscountEligible: true },
   'stepfun/step-2.1-flash': { isOfficial: true },
   'stepfun/step-3.7-flash': { isOfficial: true },
   'stepfun/step-3.5-flash': { isOfficial: true },
@@ -207,35 +203,51 @@ const KNOWN_MODEL_META: Record<string, KnownModelBadgeMeta> = {
   'zhipu/glm-5.2': { subsidy: true },
   'zhipu/glm-4.7-flash': { isOfficial: true },
   // === OpenAI / Anthropic / Google ===
-  'openai/gpt-4o': { memberDiscountEligible: true },
   'openai/gpt-4o-mini': { isOfficial: true },
   'openai/gpt-5': { locked: true },
   'openai/o1-preview': { locked: true },
-  'anthropic/claude-3-5-sonnet': { memberDiscountEligible: true },
   'anthropic/claude-3-opus': { locked: true },
   'gemini/gemini-2.5-flash': { isOfficial: true },
   'gemini/gemini-2.0-flash': { isOfficial: true },
-  'gemini/gemini-pro': { memberDiscountEligible: true },
   // === 免费 zero_cost(仅徽章,倍率由后端 0x 下发)===
   '@cf/zai-org/glm-4.7-flash': { isOfficial: true },
 }
 
-/** 已知模型查询(精确匹配优先 + 子串 fallback);只返回徽章标记,不返回价格。 */
-function lookupKnownMeta(modelId: string): KnownModelBadgeMeta {
-  if (!modelId) return {}
-  if (KNOWN_MODEL_META[modelId]) return KNOWN_MODEL_META[modelId]!
-  // 子串 fallback:取第一个命中的 key
-  for (const [k, v] of Object.entries(KNOWN_MODEL_META)) {
-    if (modelId.includes(k) || k.includes(modelId)) return v
-  }
-  return {}
+/**
+ * 规范化模型 id:小写 + 去首尾空白 + 去号池后缀 ` [provider]`,
+ * 并只剥离两类明确列举的版本后缀:日期 `-YYYYMMDD` 与 `-latest`。
+ * 刻意不做任意子串包含,避免 `openai/gpt-5.4` 误命中 `openai/gpt-5` 的锁定标记。
+ */
+function normalizeKnownModelId(raw: string): string {
+  let id = (raw || '').trim().toLowerCase()
+  // 号池后缀形如 `model-id [provider 备注]`
+  id = id.replace(/\s+\[[^\]]*\]$/, '')
+  // 只剥离末尾明确列举的版本后缀:日期戳 `-YYYYMMDD` 与 `-latest`
+  id = id.replace(/-(latest|\d{8})$/, '')
+  return id
+}
+
+/** 已知模型表 → 规范化键索引(查表一次性构建,避免每次遍历子串匹配)。 */
+const KNOWN_META_BY_NORMALIZED: ReadonlyMap<string, KnownModelBadgeMeta> = new Map(
+  Object.entries(KNOWN_MODEL_META).map(([key, meta]) => [normalizeKnownModelId(key), meta]),
+)
+
+/**
+ * 已知模型查询(规范化精确匹配);只返回徽章标记,不返回价格。
+ * 匹配口径:规范化后逐字相等;不再回退到任意方向的子串包含。
+ */
+export function lookupKnownMeta(modelId: string): KnownModelBadgeMeta {
+  const key = normalizeKnownModelId(modelId)
+  if (!key) return {}
+  return KNOWN_META_BY_NORMALIZED.get(key) ?? {}
 }
 
 /**
  * 号池模型 → 展示倍率(2026-11-23 根治「展示倍率与真实扣分两套」)。
  *
  * 唯一来源是后端下发的 `pointsMultiplier`(DB `points_multiplier`,后台可编辑);
- * 已知模型表只提供徽章/锁定标记,不再覆盖价格。字段缺失时才按 model id 兜底推断。
+ * 已知模型表只提供徽章/锁定标记,不再覆盖价格。字段缺失时才按 model id 兜底推断,
+ * 兜底规则与 api / ai-service 同读共享规则源 `inferPointsMultiplierFromRules`。
  * 任何路径都不再回落 0,只有真正 zero_cost 的模型(ollama/llama/pollinations/...)才免费。
  */
 export function resolvePoolPointsMeta(
@@ -244,53 +256,13 @@ export function resolvePoolPointsMeta(
   const qualifiedId = m.id.includes('/') ? m.id : `${m.provider}/${m.id}`
   const known = lookupKnownMeta(qualifiedId)
   const tier =
-    typeof m.pointsMultiplier === 'number' ? m.pointsMultiplier : inferPointsMultiplier(qualifiedId)
+    typeof m.pointsMultiplier === 'number'
+      ? m.pointsMultiplier
+      : inferPointsMultiplierFromRules(qualifiedId)
   return {
     pointsMultiplier: tier,
     locked: tier > 30 || known.locked === true,
   }
-}
-
-/** 积分消耗倍数前端兜底推断(API 未返回 pointsMultiplier 时按 modelId 关键词推断)
- *  5 档:tier 0=免费 / 1=经济 / 3=标准 / 10=高级 / 30=旗舰 */
-function inferPointsMultiplier(modelId: string): number {
-  const mid = (modelId || '').toLowerCase()
-  // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
-  const IHUI_MAP: Record<string, number> = {
-    // 倍率 = 极速扣费比例 × 3(统一利润系数),与 proxy-llm.ts / free_provider_registry.py 同步
-    'ihui/auto-model': 3,
-    'ihui/minimax-m2.7': 6,
-    'ihui/minimax-m2.7-highspeed': 15,
-    'ihui/minimax-m3': 15,
-    'ihui/deepseek-v4-flash-0731': 15,
-    'ihui/glm-5.1': 18,
-    'ihui/glm-5.2': 18,
-    'ihui/glm-5.3-flash': 18,
-    'ihui/kimi-k2.6': 18,
-    'ihui/deepseek-v4-pro': 18,
-    'ihui/deepseek-v4-pro-0813': 18,
-    'ihui/grok-4.5': 18,
-    'ihui/glm-5.3': 30,
-    'ihui/gpt-5.6': 30,
-    'ihui/grok-4.6': 30,
-    'ihui/qwen3.7-max': 30,
-    'ihui/kimi-k2.7-code': 30,
-  }
-  if (IHUI_MAP[mid] !== undefined) return IHUI_MAP[mid]
-  if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  if (['opus', 'thinking', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k))) return 30
-  if (['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro'].some((k) => mid.includes(k)))
-    return 10
-  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k)))
-    return 3
-  if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  if (
-    ['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) =>
-      mid.includes(k),
-    )
-  )
-    return 0
-  return 1
 }
 
 /** Provider 健康状态 → 圆点徽章(装饰点豁免 rounded-full)。
@@ -414,13 +386,8 @@ function ModelOptionRow({
         {/* 2026-11-11 立:名称下方实测能力摘要(流式 · 工具 · 长上下文),未知也显示问号保持行结构一致 */}
         <ModelCapsSummary opt={opt} />
       </div>
-      {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立)
-         2026-08-12 bugfix:原 onMouseEnter/onMouseLeave 写在父 div 上,
-         setTimeout 闭包读 e.currentTarget 失效导致 popover 常驻显示。
-         改为 MemberDiscountSection 内部自管理 hover 状态,父组件只管渲染 children。 */}
-      <MemberDiscountSection opt={opt}>
-        <ModelTierTags opt={opt} />
-      </MemberDiscountSection>
+      {/* 右侧:正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立,2026-11-23 摘除会员折扣徽章) */}
+      <ModelTierTags opt={opt} />
     </DropdownMenu.Item>
   )
 }
@@ -597,24 +564,12 @@ function groupByVendor(options: ModelOption[]): VendorGroup[] {
 }
 
 /** 模型行右侧:倍数 + 徽章 + 锁(2026-08-06 立,workbuddy 风格)
- *  顺序:[member discount tag] [official tag] [subsidy tag] [lock?] [multiplier] */
+ *  顺序:[official tag] [subsidy tag] [lock?] [multiplier] */
 function ModelTierTags({ opt }: { opt: ModelOption }) {
   const t = useTranslations('chat')
   const value = opt.pointsMultiplier
   return (
     <div className="flex shrink-0 items-center gap-1">
-      {/* 会员 2.5 折(红色徽章 + popover 触发) */}
-      {opt.memberDiscountEligible && (
-        <span
-          className={cn(
-            'inline-flex items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
-            'bg-rose-500/15 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400',
-          )}
-          aria-label={t('modelTagMemberDiscount')}
-        >
-          {t('modelTagMemberDiscount')}
-        </span>
-      )}
       {/* 正式版(灰色徽章) */}
       {opt.isOfficial && !opt.subsidy && (
         <span
@@ -661,124 +616,6 @@ function ModelTierTags({ opt }: { opt: ModelOption }) {
   )
 }
 
-/** 升级权益徽章 + 弹层(2026-08-06 立,workbuddy 风格)
- *  - 悬停 "会员2.5折" 徽章触发
- *  - 展示会员额外折扣说明 + 跳转 /user/subscription
- *
- *  2026-08-12 bugfix:原实现父 + 子双状态 + setTimeout 闭包读取已失效的 e.currentTarget
- *  (React 17+ SyntheticEvent 在 handler 返回后 currentTarget 置 null),导致 setPopoverAnchor
- *  永远走 prev?.el === null 分支(永真为 false)→ popover 常驻显示。改为单组件持有
- *  hover 状态 + useRef 管理 timer,徽章与 popover 共享同一 show/scheduleHide 桥接。 */
-function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: React.ReactNode }) {
-  const router = useRouter()
-  const t = useTranslations('chat')
-  const [open, setOpen] = React.useState(false)
-  const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null)
-  const anchorRef = React.useRef<HTMLDivElement | null>(null)
-  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const eligible = opt.memberDiscountEligible && (opt.pointsMultiplier ?? 0) > 0
-
-  const cancelHide = React.useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
-    }
-  }, [])
-
-  const show = React.useCallback(() => {
-    if (!eligible) return
-    cancelHide()
-    const el = anchorRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    // 2026-09-15 bugfix:弹层用 fixed 定位,坐标必须是视口坐标。
-    // 原实现叠加 window.scrollY/scrollX,页面滚动后弹层错位(偏移正好等于滚动量)。
-    setPos({
-      top: rect.top,
-      left: rect.right + 8,
-    })
-    setOpen(true)
-  }, [eligible, cancelHide])
-
-  // 渲染后按卡片实际尺寸 clamp,防止右侧/底部溢出视口(与全项目浮层治理一致)
-  const cardRef = React.useRef<HTMLDivElement | null>(null)
-  React.useLayoutEffect(() => {
-    if (!open || !pos || !cardRef.current) return
-    const r = cardRef.current.getBoundingClientRect()
-    const left = Math.max(8, Math.min(pos.left, window.innerWidth - r.width - 8))
-    const top = Math.max(8, Math.min(pos.top, window.innerHeight - r.height - 8))
-    if (left !== pos.left || top !== pos.top) setPos({ left, top })
-  }, [open, pos])
-
-  // 徽章/弹层都共用 scheduleHide,实现 hover bridge
-  const scheduleHide = React.useCallback(() => {
-    cancelHide()
-    closeTimerRef.current = setTimeout(() => {
-      closeTimerRef.current = null
-      setOpen(false)
-    }, 120)
-  }, [cancelHide])
-
-  React.useEffect(() => {
-    return () => cancelHide()
-  }, [cancelHide])
-
-  if (!eligible) return <>{children}</>
-
-  return (
-    <>
-      <div ref={anchorRef} onMouseEnter={show} onMouseLeave={scheduleHide}>
-        {children}
-      </div>
-      {open && pos && opt.pointsMultiplier !== undefined && (
-        <div
-          ref={cardRef}
-          role="dialog"
-          aria-label={t('modelPopoverMemberTitle')}
-          className={cn(
-            'fixed z-popover w-64 rounded-lg border bg-card p-3 text-card-foreground shadow-elevation-lg',
-            'animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
-          )}
-          style={{ top: pos.top, left: pos.left }}
-          onMouseEnter={show}
-          onMouseLeave={scheduleHide}
-        >
-          <div className="flex items-start gap-2">
-            <Crown className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
-            <div className="min-w-0 flex-1">
-              <p className="text-body font-semibold">{t('modelPopoverMemberTitle')}</p>
-              <p className="mt-1 text-label leading-relaxed text-muted-foreground">
-                {t('modelPopoverMemberDesc', {
-                  from: formatMultiplier(opt.pointsMultiplier),
-                  to: formatMultiplier(opt.pointsMultiplier * 0.25),
-                })}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              // 立即关闭(不走 scheduleHide 延迟),防止跳转瞬间残留
-              cancelHide()
-              setOpen(false)
-              router.push('/user/subscription')
-            }}
-            className={cn(
-              'mt-3 inline-flex h-8 w-full items-center justify-center rounded-sm px-3 text-label font-medium',
-              'bg-foreground text-background transition-colors hover:bg-foreground/90',
-            )}
-          >
-            {t('modelPopoverUpgradeButton')}
-          </button>
-        </div>
-      )}
-    </>
-  )
-}
-
 /** 初始/降级种子选项(FALLBACK 当前代主力,未登录/加载中展示)
  *
  * 2026-11-21 改(用户报「模型列表里还有历史旧代模型」):不再把 `DEMO_TIER_MODELS`
@@ -791,14 +628,13 @@ function createSeedOptions(): ModelOption[] {
   return seed.map((m): ModelOption => {
     // FallbackModel.pointsMultiplier 是 5 档 tier(2026-11-23),展示值必须与扣分同数;
     // 付费兜底档不再写 0,否则接口不可用时会一屏「免费」。
-    const tier = m.pointsMultiplier ?? inferPointsMultiplier(m.value)
+    const tier = m.pointsMultiplier ?? inferPointsMultiplierFromRules(m.value)
     return {
       value: m.value,
       label: m.label,
       vendor: m.vendor,
       descriptionKey: m.descriptionKey,
       pointsMultiplier: tier,
-      memberDiscountEligible: m.memberDiscountEligible,
       isOfficial: m.isOfficial,
       subsidy: m.subsidy,
       locked: m.locked ?? tier > 30,
@@ -847,11 +683,13 @@ function seedOptions(): ModelOption[] {
 export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
   const merged = new Map<string, ModelOption>()
   for (const m of models) {
-    // 1. 已知模型查表(精确 / 子串):只取徽章,不取价格
+    // 1. 已知模型查表(规范化精确匹配):只取徽章,不取价格
     const known = lookupKnownMeta(m.id)
-    // 2. 后端 DB 值即展示值;字段缺失才按 model id 兜底
+    // 2. 后端 DB 值即展示值;字段缺失才按共享规则源兜底
     const tier =
-      typeof m.points_multiplier === 'number' ? m.points_multiplier : inferPointsMultiplier(m.id)
+      typeof m.points_multiplier === 'number'
+        ? m.points_multiplier
+        : inferPointsMultiplierFromRules(m.id)
     merged.set(m.id, {
       value: m.id,
       // 2026-11-21 立:后端 name 混着「人工展示名」与「裸代码」两种形态,
@@ -930,10 +768,9 @@ function withPoolModels(
       // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
-      // 2026-11-23 改:号池模型与平台模型同源计价 —— 后端已按
-      // `inferPointsMultiplier(id)` 下发 tier;旧服务端缺省时前端按 provider 限定 id
-      // 推断。**不再用 `?? 0` 兜底**:0 只属于真正 zero_cost 的模型,否则会把付费模型
-      // 渲染成"免费",与真实扣分(`chargePointsForCall`)自相矛盾。
+      // 2026-11-23 改:号池模型与平台模型同源计价 —— 后端已按规则下发 tier;
+      // 旧服务端缺省时前端按共享规则源推断。**不再用 `?? 0` 兜底**:0 只属于真正
+      // zero_cost 的模型,否则会把付费模型渲染成"免费",与真实扣分自相矛盾。
       ...resolvePoolPointsMeta(m),
       // 真实单价随行下发:倍率只作官方对齐档位,横比模型以这两个数为准
       ...(m.inputPricePerMillion !== undefined && m.outputPricePerMillion !== undefined
@@ -993,9 +830,6 @@ export function ModelSelector({
   // 2026-11-07 立:手动"刷新模型状态"期间按钮转圈并轮询后端进度
   const [refreshingModels, setRefreshingModels] = React.useState(false)
   const [healthByVendor, setHealthByVendor] = React.useState<Record<string, ProviderHealth>>({})
-  // 2026-08-12 bugfix:升级权益 popover 状态已收敛到 MemberDiscountSection 内部,
-  // 父组件不再持有 popoverAnchor / timer。hover 状态机完全自包含,
-  // 避免原 e.currentTarget 闭包失效导致 popover 常驻显示的 bug。
 
   // 拉取用户已保存的 LLM 配置
   const { data: cfgData } = useQuery({
@@ -1622,8 +1456,6 @@ export function ModelSelector({
           {footer ? <div className="border-t px-1 pb-1 pt-1.5">{footer}</div> : null}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
-      {/* 2026-08-12 bugfix:升级权益 popover 已收敛到 MemberDiscountSection 内部,
-          hover 状态自包含,父组件不再持有 popoverAnchor / 渲染顶层 popover。 */}
     </DropdownMenu.Root>
   )
 }

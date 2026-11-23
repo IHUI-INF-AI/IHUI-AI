@@ -18,16 +18,35 @@ import { resolvePoolPointsMeta } from '../model-selector'
 describe('resolvePoolPointsMeta(号池倍率展示)', () => {
   it('旧服务端缺省倍率时按 id 推断,展示值与扣分同数', () => {
     // 经济档 tier=1 → 1x
-    expect(resolvePoolPointsMeta({ id: 'glm-5.3', provider: 'workbuddy' }).pointsMultiplier).toBe(
-      1,
-    )
+    expect(resolvePoolPointsMeta({ id: 'glm-5.3', provider: 'workbuddy' }).pointsMultiplier).toBe(1)
     // 标准档 tier=3 → 3x
     expect(
       resolvePoolPointsMeta({ id: 'deepseek-v4-pro', provider: 'workbuddy' }).pointsMultiplier,
     ).toBe(3)
-    // 旗舰思考档 tier=30 → 30x
+    // 轻量思考档落经济档 tier=1 → 1x(共享规则 economy 显式列举 hunyuan-2.0-thinking)
     expect(
       resolvePoolPointsMeta({ id: 'hunyuan-2.0-thinking', provider: 'workbuddy' }).pointsMultiplier,
+    ).toBe(1)
+  })
+
+  it('web 兜底与共享规则源口径一致(2026-11-23 收敛)', () => {
+    // gpt-5.4 属高级档 10x,不再被 gpt-5 子串抬到 30x
+    expect(resolvePoolPointsMeta({ id: 'gpt-5.4', provider: 'workbuddy' }).pointsMultiplier).toBe(
+      10,
+    )
+    // 低成本 thinking 模型落标准档 3x,不再按 thinking 判旗舰
+    expect(
+      resolvePoolPointsMeta({ id: 'thinkingmachines/inkling', provider: 'workbuddy' })
+        .pointsMultiplier,
+    ).toBe(3)
+    // opencode_zen 是上游 zero_cost,免费判定排在付费关键词之前 → 0x
+    expect(
+      resolvePoolPointsMeta({ id: 'opencode_zen/gpt-5', provider: 'opencode_zen' })
+        .pointsMultiplier,
+    ).toBe(0)
+    // ihui 显式映射走共享 ihuiModelMap → 30x
+    expect(
+      resolvePoolPointsMeta({ id: 'ihui/glm-5.3', provider: 'ihui_relay' }).pointsMultiplier,
     ).toBe(30)
   })
 

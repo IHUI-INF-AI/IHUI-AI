@@ -29,11 +29,17 @@ describe('模型积分倍率·单一来源', () => {
 
   it('已知模型表只留徽章,不再写积分倍率', () => {
     const start = SELECTOR_SRC.indexOf('const KNOWN_MODEL_META')
-    const end = SELECTOR_SRC.indexOf('/** 已知模型查询')
+    const end = SELECTOR_SRC.indexOf('const KNOWN_META_BY_NORMALIZED')
     expect(start).toBeGreaterThan(-1)
     expect(end).toBeGreaterThan(start)
     const block = SELECTOR_SRC.slice(start, end)
     expect(block).not.toContain('pointsMultiplier')
+  })
+
+  it('前端兜底不再自留关键词表/IHUI 映射,统一委托共享规则源', () => {
+    expect(SELECTOR_SRC).not.toContain('IHUI_MAP')
+    expect(SELECTOR_SRC).not.toContain('function inferPointsMultiplier(')
+    expect(SELECTOR_SRC).toContain('inferPointsMultiplierFromRules')
   })
 
   it('号池/目录/兜底三条路径都直接使用后端倍率', () => {

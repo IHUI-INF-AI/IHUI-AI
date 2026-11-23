@@ -36,8 +36,6 @@ export interface FallbackModel {
    * 展示侧直接使用该值(接口可用时被后端 DB 值覆盖);缺省按 model_id 推断。
    */
   pointsMultiplier?: number
-  /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
-  memberDiscountEligible?: boolean
   /** 是否正式版(显示 "正式版" 灰色徽章,标记 GA/稳定版) */
   isOfficial?: boolean
   /** 是否有专属补贴(显示 "专属补贴" 橙红徽章,标记厂商补贴价) */
