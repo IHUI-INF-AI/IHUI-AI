@@ -14,6 +14,7 @@ import { logger } from '../../utils/logger.js'
 import {
   patchAccountCredentials,
   patchAccountMetadata,
+  touchAccountPoll,
   updateAccountCursor,
   updateAccountStatus,
 } from './account-store.js'
@@ -64,6 +65,7 @@ export function buildContext(
     onEvent,
     onStatus: async (status, error) => updateAccountStatus(accountId, status, error ?? null),
     onCursor: async (cursor) => updateAccountCursor(accountId, cursor),
+    onPoll: async () => touchAccountPoll(accountId),
     onCredentials: async (patch) => patchAccountCredentials(accountId, patch),
     onMetadata: async (patch) => patchAccountMetadata(accountId, patch),
   }

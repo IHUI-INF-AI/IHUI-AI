@@ -89,6 +89,8 @@ export interface WechatAdapterContext {
   onEvent: (event: WechatInboundEvent) => Promise<void>
   onStatus: (status: WechatAccountStatus, error?: string) => Promise<void>
   onCursor: (cursor: string) => Promise<void>
+  /** 成功轮询心跳：用于刷新账号“最近轮询”，与游标变化解耦 */
+  onPoll?: () => Promise<void>
   onCredentials: (patch: Record<string, string>) => Promise<void>
   onMetadata: (patch: Record<string, unknown>) => Promise<void>
   logger: WechatHubLogger

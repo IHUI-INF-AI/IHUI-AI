@@ -282,6 +282,7 @@ export class BridgeAdapter implements WechatAdapter {
   private sendPath = '/send'
   private actionPath = '/action'
   private pollIntervalMs = 2_000
+  private lastPollTouchAt = 0
 
   async connect(ctx: WechatAdapterContext): Promise<void> {
     this.ctx = ctx
@@ -473,6 +474,14 @@ export class BridgeAdapter implements WechatAdapter {
         })
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const payload: unknown = await response.json()
+        if (Date.now() - this.lastPollTouchAt >= 60_000) {
+          this.lastPollTouchAt = Date.now()
+          try {
+            await this.ctx?.onPoll?.()
+          } catch {
+            // 心跳写库失败不影响收信
+          }
+        }
         const events = normalizeBridgePayload(payload)
         const root = asRecord(payload)
         const nextCursor =

@@ -40,6 +40,15 @@ export async function updateAccountCursor(accountId: string, cursor: string): Pr
     .where(eq(wechatHubAccounts.id, accountId))
 }
 
+/** 轮询成功心跳：不改变游标，只刷新“最近轮询”时间。 */
+export async function touchAccountPoll(accountId: string): Promise<void> {
+  const now = new Date()
+  await db
+    .update(wechatHubAccounts)
+    .set({ lastPollAt: now, updatedAt: now })
+    .where(eq(wechatHubAccounts.id, accountId))
+}
+
 export async function patchAccountCredentials(
   accountId: string,
   patch: Record<string, string>,

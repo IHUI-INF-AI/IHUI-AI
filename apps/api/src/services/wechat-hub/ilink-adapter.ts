@@ -109,6 +109,7 @@ export class IlinkAdapter implements WechatAdapter {
   private token: string | null = null
   private running = false
   private polling = false
+  private lastPollTouchAt = 0
   private qr: WechatQrCodeView | null = null
   private cursor = ''
   private contacts: Record<string, ContactEntry> = {}
@@ -351,6 +352,14 @@ export class IlinkAdapter implements WechatAdapter {
           break
         }
         failures = 0
+        if (Date.now() - this.lastPollTouchAt >= 60_000) {
+          this.lastPollTouchAt = Date.now()
+          try {
+            await this.ctx?.onPoll?.()
+          } catch {
+            // 心跳写库失败不影响收信
+          }
+        }
         const nextCursor = asString(data.get_updates_buf)
         if (nextCursor && nextCursor !== this.cursor) {
           this.cursor = nextCursor
