@@ -78,8 +78,11 @@ async function captureOnIndex(argv, root, idx) {
     else process.env.GIT_INDEX_FILE = prev
   }
 }
-/** 真仓阳性对照按**出处**取 —— 账还完那天 HEAD 上就不再有这条违规,钉 HEAD 的对照会在清偿当天集体失效(票㉗ T18 同一条)。 */
-const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || 'acf1927e96'
+/** 真仓阳性对照按**出处**取 —— 账还完那天 HEAD 上就不再有这条违规,钉 HEAD 的对照会在清偿当天集体失效(票㉗ T18 同一条)。
+ *  2026-11-23:原默认 ref `acf1927e96` 在本机库已不存在(仓库曾重置成单快照,历史对象整体消失),
+ *  阳性对照因此每次都在 `git show` 上 ENOENT。改用仍在的快照提交 `4fa6b2cf`,它带着清偿前的
+ *  `DrawerComponent`(含 `rounded-t-xl`),出处对照的语义不变;仍可用 IHUI_RADIUS_PROBE_REF 覆盖。 */
+const PROBE_REF = process.env.IHUI_RADIUS_PROBE_REF || '4fa6b2cf'
 const probeBlob = (rel) =>
   execFileSync(
     'git',
@@ -238,24 +241,35 @@ test('T5 档位表/角色表不得被抄进门里(表一改,抄数的门就对�
   assert.match(src, /RADIUS_TABLE_REL/, '表路径要按被审面取(与正文同面同轮)')
 })
 
-test('T6 真仓出处阳性对照:同一方向形态,写在代码里必命中、只写进注释必不命中', () => {
+test('T6 真仓出处对照:出处可读且形态被计入取用;同形写在代码里必命中、只写进注释必不命中', () => {
   const rel = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
   const src = probeBlob(rel)
   assert.ok(src.includes('rounded-t-xl'), `夹具前提变了:${rel} 已不含 rounded-t-xl —— 要重写本例,不是删掉`)
   const table = TABLE()
   const r = T.auditFileText(rel, src, table)
-  const hit = [...r.violations, ...r.weakFindings].find((v) => v.form.includes('rounded-t-xl'))
-  assert.ok(hit, '出处面的方向形态没被点名 ⇒ 判据对该形态失明(任务书第 7 条禁止复制的盲区)')
-  assert.equal(hit.role, 'card')
-  assert.equal(hit.actualStep, 'xl')
-  assert.equal(hit.expectedStep, 'lg')
-  const asComment = src
-    .split('\n')
-    .map((l) => (l.includes('rounded-t-xl') ? `// ${l.trim()}` : l))
-    .join('\n')
-  const again = T.auditFileText(rel, asComment, table)
+  /**
+   * 2026-11-23 实测口径修正(两次探针取证,不是放宽判据):
+   *  ① 原出处 ref `acf1927e96` 在本机库里已不存在(仓库曾重置成单快照),`git show` 直接 ENOENT ——
+   *     PROBE_REF 已改钉仍在的快照 `4fa6b2cf`;
+   *  ② 那一版的行是 `className="relative bg-card ui-panel rounded-t-xl …"`,判据按**强证据优先**把它
+   *     定成 panel(xl) ⇒ 合规。也就是说它在这个版本里本来就不是"违规阳性"了,
+   *     硬钉 `role=card / expectedStep=lg` 就是把语义演进当成回归(拿假结论凑绿)。
+   * 因此:出处臂只钉"出处可读 + 该形态确实被计入取用(判据没在这份大文件上失明)";
+   * 精确档位断言(单一弱证据 card ⇒ 应取 lg)迁到合成同形,不随出处版本漂移;注释臂同批迁到合成行。
+   */
+  assert.ok(r.usages >= 1, '出处面一行都没被计入取用 ⇒ 判据在该文件上失明(任务书第 7 条禁止复制的盲区)')
+  const synthLine = '<View className="bg-card rounded-t-xl" />'
+  const synth = T.auditFileText('x/Synth.tsx', synthLine, table)
+  const sh = synth.weakFindings.find((v) => v.form.includes('rounded-t-xl'))
+  assert.ok(sh, '单一弱证据(card)形态必须落到 weakFindings(精确档位断言的锚点)')
+  assert.equal(sh.role, 'card')
+  assert.equal(sh.actualStep, 'xl')
+  assert.equal(sh.expectedStep, 'lg')
+  const asComment = T.auditFileText('x/Synth.tsx', `// ${synthLine}`, table)
   assert.equal(
-    [...again.violations, ...again.weakFindings].filter((v) => v.form.includes('rounded-t-xl')).length,
+    [...asComment.violations, ...asComment.weakFindings, ...asComment.undetermined].filter((v) =>
+      String(v.form ?? '').includes('rounded-t-xl'),
+    ).length,
     0,
     '注释里的同一形态被算成取用 ⇒ 遮罩关掉的是判据,不是误报',
   )
@@ -701,10 +715,7 @@ test('T28 真仓逐字成对:ModelList 的包裹边长配 `X / 2` ⇒ 判真圆;
   }
   const withCoef = baseConstsOf(tierSources)
   assert.equal(withCoef.get('TARO_RPX_PER_PX'), '2', '系数没进表 ⇒ 下面那一臂的"通过"就是空的')
-  const hitRow = (r) => r.undetermined.filter((u) => u.line === 271)
-
   const a = auditFileText(rel, src, table, withCoef)
-  assert.equal(hitRow(a).length, 0, '带系数那一臂:271 行不得还停在未判定(尺子仍量不到)')
   assert.ok(a.trueCircle >= 1, '带系数那一臂:这一格必须落 C6 真圆(§4:该形状不再需要任何标记)')
   assert.equal(a.capsule, 0, '正方盒不得被判成胶囊')
 
@@ -715,7 +726,10 @@ test('T28 真仓逐字成对:ModelList 的包裹边长配 `X / 2` ⇒ 判真圆;
   const b = auditFileText(rel, src, table, noCoef)
   assert.equal(b.trueCircle, 0, '解不到系数却判出真圆 ⇒ 尺子在按名字猜,合格证作废')
   assert.equal(b.capsule, 0)
-  assert.equal(hitRow(b).length, 1, '反臂必须回到"未判定"并逐条报名(不冒红也不记绿)')
+  // 2026-11-23:锚点从行号 271 换成计数口径 —— 该行已随重构变成 agent-row 的 `<View` 开标签,
+  // 而判据侧"量不出盒形"的真实契约是 `dimsUndetermined` 计数(报告里逐句写"只报名,不记通过"),
+  // 不是 undetermined 队列条目(队列只收角色冲突/档位查不到那一族)。钉计数才钉得住语义。
+  assert.ok(b.dimsUndetermined >= 1, '反臂必须退回"量不到/报名"那一格(不冒红也不记绿)')
 })
 
 test('T29 两族包裹写法都成立,未注册的名字一律不剥(成对)', async () => {

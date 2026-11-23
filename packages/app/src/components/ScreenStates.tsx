@@ -6,7 +6,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { SCREEN_STATES_STATE_MIN_HEIGHT_PX } from '@ihui/shared/ui/screen-states-spec'
 
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../theme/tokens'
 import { Tappable } from '@ihui/ui-native'
 
@@ -249,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     skeletonCard: {
@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     skeletonAvatar: { width: 44, height: 44, borderRadius: rnRadius.md },
@@ -300,8 +300,10 @@ function createStyles(tk: AppThemeTokens) {
     stateDesc: { fontSize: 13, color: tk.text.medium, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: rnSpacing['xs-loose'],
-      // web 产物锁 18(web 快照/读数不变);原生侧落 lg 16 档
-      paddingHorizontal: Platform.OS === 'web' ? 18 : rnSpacing.lg,
+      // 2026-11-23 三端同脸(根治):小程序 `.ihui-state-btn` 是 `padding: 18rpx 36rpx`(=9/18),
+      // web 早已落 18,只有原生侧压着 lg 16 档 ⇒ 同一颗按钮在手机上窄 2px(门 128 的 C3 镜像
+      // 因此读成"仅小程序档 18")。统一到 18/9:web 读数与快照不变,原生与另两端同形。
+      paddingHorizontal: 18,
       paddingVertical: 9,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -312,7 +314,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
   })

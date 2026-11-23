@@ -463,9 +463,23 @@ test('C17 装车锁:CSS 变量解值的三条腿都在位(建表 / 消费 / 失�
     3,
     '解值表没同时传给主腿、web 腿与 web↔RN 腿(判据在、没装车 = 没有)',
   )
+  /**
+   * 2026-11-23:源路径单源实测住在 lib/cross-end-ui-parity-geometry.mjs(门体 74/103 行只 import)。
+   * 锁比原来更严:钉住库里那个路径值,再钉住门体必须从该出口 import,不得自建第二份常量。
+   */
+  const geomTxt = readFileSync(
+    join(ROOT, 'scripts', 'lib', 'cross-end-ui-parity-geometry.mjs'),
+    'utf8',
+  )
   assert.ok(
-    /TOKENS_CSS_PATH = 'packages\/design-tokens\/src\/styles\/tokens\.css'/.test(txt),
-    '源路径漂了',
+    /TOKENS_CSS_PATH\s*=\s*'packages\/design-tokens\/src\/styles\/tokens\.css'/.test(geomTxt),
+    '源路径漂了(唯一取源出口 cross-end-ui-parity-geometry 必须持有该路径)',
+  )
+  assert.ok(
+    /import\s*{[^}]*TOKENS_CSS_PATH[^}]*}\s*from\s*'\.\/lib\/cross-end-ui-parity-geometry\.mjs'/.test(
+      txt,
+    ),
+    '门体必须从唯一取源出口 import 源路径(门内自建第二份就是漂开的起点)',
   )
   assert.ok(txt.includes('cssVarCopyRead'), '"互证没做"这一格被摘 ⇒ 副本读不到会被读成已核对')
 })
@@ -502,12 +516,25 @@ test('C10 纪律:换算器包住的成员**不由间距腿入账**(归换算采�
 
 test('C11 装车锁(摘了即红):门体必须带间距消费腿与括号配对区间扫描', () => {
   const txt = readFileSync(GATE, 'utf8')
+  /**
+   * 2026-11-23:三条断言按实现真实形态收紧 —— 门体把间距支写成了带捕获组的正则字面
+   * (`\b(rnSpacing(?:For)?)\s*(?:\.\s*…|\[\s*'…`)`,旧断言要求"rnSpacing 后直接跟 . 或 ['"
+   * 在源码文本上永远不成立(源码里后面紧跟的是 `)`),于是锁自己红在 HEAD 上。
+   * 现在逐段钉源码片段 + 把 SPACING_STEPS 的归属改到它真正住的 spec-tiers 库。
+   */
   assert.ok(
-    /rnSpacing(?:For)?\s*(?:\.\s*|\[\s*')/.test(txt),
+    txt.includes('rnSpacing(?:For)?') && txt.includes("[\\s*'"),
     '间距消费腿被摘线 ⇒ ScreenStates 族假分叉立即回潮',
   )
   assert.ok(txt.includes('wrapRanges'), '包裹区间的括号配对扫描被摘 ⇒ 换算器形态与裸成员双计')
-  assert.ok(txt.includes('SPACING_STEPS'), 'specTiers 的间距源解析支被摘 ⇒ 档表整体失明')
+  const specTiersTxt = readFileSync(
+    join(ROOT, 'scripts', 'lib', 'cross-end-ui-spec-tiers.mjs'),
+    'utf8',
+  )
+  assert.ok(
+    specTiersTxt.includes('SPACING_STEPS'),
+    'specTiers 的间距源解析支被摘 ⇒ 档表整体失明(该支住在 lib/cross-end-ui-spec-tiers.mjs)',
+  )
   assert.ok(txt.includes('间距维判据'), 'collect 缺表的失明判据被摘 ⇒ "取不到"会被读成"没引用"')
 })
 

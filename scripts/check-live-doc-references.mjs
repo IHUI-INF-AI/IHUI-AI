@@ -275,37 +275,58 @@ function materialDocs({ root, face }) {
     .filter((p) => p && MATERIAL_RE.test(p))
 }
 
-function grepTokens({ root, face, docs, pattern }) {
+/**
+ * 2026-11-23 分批取材(ENAMETOOLONG 根治):
+ * 此前把**全部**活文档路径一次性塞进 `git grep … -- <docs>`,643 份文档在 Windows 上直接撞
+ * 命令行长度上限,spawnSync 报 `ENAMETOOLONG`(门自身退化成"未判定 ⇒ 判死")。
+ * 现在按**累计字符预算**切批(默认单批 ≤12000 字符,远低于 32767 上限),逐批跑同一条 grep 再合并:
+ *   · 批内"无命中"(status=1)照旧算空结果,不是取材失败;
+ *   · 任何一批抛出非 status=1 的错误 ⇒ 整体抛出(由 run 判死),**不把部分批次当成全量**;
+ *   · 行号/文档名解析仍在同一份代码里做,批与批共用同一把尺(§22c)。
+ */
+function grepTokens({ root, face, docs, pattern, batchBudget = 12000 }) {
   const sel = face === 'staged' ? ['--cached'] : []
-  const args = ['grep', ...sel, '--no-color', '-o', '-n', '-E', pattern]
-  if (face !== 'staged') args.push('HEAD')
-  args.push('--', ...docs)
-  let out
-  try {
-    out = gitRaw(args, root, { timeout: 120000, maxBuffer: 64 << 20 })
-  } catch (e) {
-    if (e?.status === 1) return [] // "无命中"是 grep 的正常非零结论,不是取材失败
-    throw e
-  }
+  const baseArgs = ['grep', ...sel, '--no-color', '-o', '-n', '-E', pattern]
+  if (face !== 'staged') baseArgs.push('HEAD')
   const rows = []
-  for (const line of String(out).split(/\r?\n/)) {
-    if (!line) continue
-    // 形如 `HEAD:docs/a.md:42:…` 或 `docs/a.md:42:…`;行号是第一个纯数字段
-    const parts = line.split(':')
-    let i = 0
-    if (parts[0] === 'HEAD') i = 1
-    const doc = parts
-      .slice(i, parts.length - 1)
-      .filter((p) => !/^\d+$/.test(p))
-      .join(':')
-    const ln = parts.slice(i).find((p) => /^\d+$/.test(p))
-    if (!doc || !ln) continue
-    rows.push({
-      doc,
-      line: Number(ln),
-      rest: line.slice(line.indexOf(`:${ln}:`) + `:${ln}:`.length),
-    })
+  let batch = []
+  let used = 0
+  const flush = () => {
+    if (!batch.length) return
+    let out
+    try {
+      out = gitRaw([...baseArgs, '--', ...batch], root, { timeout: 120000, maxBuffer: 64 << 20 })
+    } catch (e) {
+      if (e?.status !== 1) throw e // "无命中"是 grep 的正常非零结论,不是取材失败
+      out = ''
+    }
+    for (const line of String(out ?? '').split(/\r?\n/)) {
+      if (!line) continue
+      // 形如 `HEAD:docs/a.md:42:…` 或 `docs/a.md:42:…`;行号是第一个纯数字段
+      const parts = line.split(':')
+      let i = 0
+      if (parts[0] === 'HEAD') i = 1
+      const doc = parts
+        .slice(i, parts.length - 1)
+        .filter((p) => !/^\d+$/.test(p))
+        .join(':')
+      const ln = parts.slice(i).find((p) => /^\d+$/.test(p))
+      if (!doc || !ln) continue
+      rows.push({
+        doc,
+        line: Number(ln),
+        rest: line.slice(line.indexOf(`:${ln}:`) + `:${ln}:`.length),
+      })
+    }
+    batch = []
+    used = 0
   }
+  for (const d of docs) {
+    if (used + d.length + 1 > batchBudget && batch.length) flush()
+    batch.push(d)
+    used += d.length + 1
+  }
+  flush()
   return rows
 }
 

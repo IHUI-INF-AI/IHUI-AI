@@ -27,6 +27,7 @@
  * 本文件只把长度值解成 px 后原样交出去,免得同一件事在两处各判一次。
  */
 import { execFileSync } from 'node:child_process'
+import posix from 'node:path/posix'
 import { fileURLToPath } from 'node:url'
 import { lengthToPx } from './length-units.mjs'
 
@@ -36,13 +37,75 @@ export const WEB_UTILITY_ENTRY_REL = 'apps/web/app/globals.css'
 /**
  * 入口 `@import` 到、但**不在** `apps/web` 目录树里的样式源。
  * 缺一份 ⇒ 编译跑不起来 ⇒ 本维按未判定报名(不静默少读)。
+ *
+ * 2026-11-23:补两枚 `packages/ui-react/src/styles/*.css` —— `globals.css` 的 import 闭包在
+ * 登录壳迁到 ui-react 之后多出了这两份,旧清单没跟 ⇒ 门 128 的 web 腿与 C18 镜像测试一起
+ * 退化成"编译没跑起来"(实测 worker 报 `样式源不在输入面:packages/ui-react/src/styles/auth-shell.css`)。
+ * 手抄清单天生会漂,所以同时给出 `webUtilityClosure()`:从入口正文递归解 `@import`,缺件当场点名。
  */
 export const WEB_UTILITY_CLOSURE_EXTRA = [
   'packages/design-tokens/src/styles/tokens.css',
   'packages/design-tokens/src/styles/base.css',
+  'packages/ui-react/src/styles/auth-shell.css',
+  'packages/ui-react/src/styles/login-form.css',
 ]
 
 export const WEB_UTILITY_WORKER_REL = 'scripts/lib/web-utility-compile-worker.mjs'
+
+/** `@import 'x.css'` / `@import url('x.css')`;包名 import(`tailwindcss`)不算闭包件。 */
+const CSS_IMPORT_RE = /@import\s+(?:url\s*\(\s*)?['"]([^'"]+)['"]/g
+
+/**
+ * 从入口正文递归解 `@import` 闭包(纯函数,零 IO):
+ *  - 相对路径按**入口所在目录**解成仓库根相对形态;
+ *  - `tailwindcss` 与 `http(s)` 外链跳过(前者由 worker 从 node_modules 取,后者不属于被审面);
+ *  - 本包名式 import(`@ihui/...`)记进 `external` —— 它解不成仓库路径,交调用方判;
+ *  - 解出来的件若不在 `files` 面 ⇒ 记进 `missing`,由调用方按"未判定"报名,绝不当成没引用。
+ */
+export function webUtilityClosure({ entryText, entryRel = WEB_UTILITY_ENTRY_REL, files = {} }) {
+  const paths = []
+  const missing = []
+  const external = []
+  const seen = new Set([entryRel])
+  const walk = (rel) => {
+    const text = files[rel]
+    if (typeof text !== 'string') {
+      missing.push(rel)
+      return
+    }
+    for (const m of String(text).matchAll(CSS_IMPORT_RE)) {
+      const spec = m[1]
+      if (spec === 'tailwindcss' || spec.startsWith('tailwindcss/')) continue
+      if (/^(?:https?:|data:|#)/.test(spec)) continue
+      if (!spec.startsWith('.') && !spec.startsWith('/')) {
+        if (!external.includes(spec)) external.push(spec)
+        continue
+      }
+      const next = posix.normalize(posix.join(posix.dirname(rel), spec))
+      if (seen.has(next)) continue
+      seen.add(next)
+      paths.push(next)
+      walk(next)
+    }
+  }
+  if (typeof entryText === 'string') {
+    for (const m of String(entryText).matchAll(CSS_IMPORT_RE)) {
+      const spec = m[1]
+      if (spec === 'tailwindcss' || spec.startsWith('tailwindcss/')) continue
+      if (/^(?:https?:|data:|#)/.test(spec)) continue
+      if (!spec.startsWith('.') && !spec.startsWith('/')) {
+        if (!external.includes(spec)) external.push(spec)
+        continue
+      }
+      const next = posix.normalize(posix.join(posix.dirname(entryRel), spec))
+      if (seen.has(next)) continue
+      seen.add(next)
+      paths.push(next)
+      walk(next)
+    }
+  }
+  return { paths, missing, external }
+}
 
 /** 解值递归上限(与 `length-units` 的常量表达式同一条纪律:解不到就 null,不猜)。 */
 const VAR_DEPTH_MAX = 6
@@ -151,6 +214,17 @@ export function webUtilityDeclarations({ repoRoot, files, candidates, timeoutMs 
   if (typeof files?.[WEB_UTILITY_ENTRY_REL] !== 'string')
     return empty(`入口样式表 ${WEB_UTILITY_ENTRY_REL} 不在被审面`)
   if (!wanted.length) return { available: true, why: null, vars: new Map(), decls: new Map(), missing: [] }
+  // 闭包自检(2026-11-23):缺件在**这里**点名,而不是让 worker 在子进程里抛一句
+  // `Command failed: node …worker.mjs`(父进程只看 stderr,结构化原因藏在 stdout,旧实现把它丢了)。
+  {
+    const closure = webUtilityClosure({ entryText: files[WEB_UTILITY_ENTRY_REL], files })
+    if (closure.missing.length)
+      return empty(
+        `样式源闭包缺件:${closure.missing.slice(0, 3).join(', ')}` +
+          (closure.missing.length > 3 ? ` 等 ${closure.missing.length} 份` : '') +
+          `(入口 ${WEB_UTILITY_ENTRY_REL} 的 @import 递归到而输入面没有 ⇒ 编译面不完整)`,
+      )
+  }
   let raw
   try {
     raw = execFileSync(
@@ -166,8 +240,23 @@ export function webUtilityDeclarations({ repoRoot, files, candidates, timeoutMs 
       },
     )
   } catch (e) {
-    const first = String(e?.stderr || e?.message || e).split(/\r?\n/).find((l) => l.trim()) ?? ''
-    return empty(`工具类编译没跑起来:${first.slice(0, 240)}`)
+    // worker 的失败走 stdout 的结构化出口(`{error}` + exitCode=1),而 execFileSync 会把 stdout
+    // 塞进 `e.stdout` —— 旧实现只读 stderr,于是真实原因(如"样式源不在输入面")被整句吃掉。
+    const structured = (() => {
+      try {
+        const j = JSON.parse(String(e?.stdout ?? ''))
+        return typeof j?.error === 'string' ? j.error : ''
+      } catch {
+        return ''
+      }
+    })()
+    const first =
+      structured ||
+      String(e?.stderr || e?.message || e)
+        .split(/\r?\n/)
+        .find((l) => l.trim()) ||
+      ''
+    return empty(`工具类编译没跑起来:${String(first).slice(0, 240)}`)
   }
   let parsed
   try {
