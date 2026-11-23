@@ -2226,17 +2226,19 @@ const styles = StyleSheet.create({
     gap: rpx(8),
     paddingHorizontal: rpx(12),
     borderRadius: rnRadius.sm,
-    borderWidth: 1,
   },
   accountActionGhost: {
+    borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: 'transparent',
   },
   accountActionOutline: {
+    borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.light,
   },
   accountActionPrimary: {
+    borderWidth: 1,
     borderColor: tokens.brand.cta,
     backgroundColor: tokens.brand.cta,
   },
