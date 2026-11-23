@@ -487,6 +487,43 @@ def test_managed_record_never_stores_secrets(monkeypatch):
     assert rec["app_secret"] == ""
 
 
+def test_managed_multi_tenant_requires_owner_tenant(monkeypatch):
+    """SaaS 模式:一套环境凭据只能归属一个租户,其他租户必须被挡。"""
+    monkeypatch.setenv("FEISHU_APP_ID", "cli_test")
+    monkeypatch.setenv("FEISHU_APP_SECRET", "secret_test")
+    monkeypatch.setenv("CONNECTOR_MULTI_TENANT", "1")
+    tenant_a = "11111111-1111-1111-1111-111111111111"
+    tenant_b = "22222222-2222-2222-2222-222222222222"
+
+    monkeypatch.delenv("CONNECTOR_MANAGED_TENANT_ID", raising=False)
+    st = managed.status("feishu", tenant_a)
+    assert st["available"] is False
+    assert "未指定归属租户" in st["reason"]
+    with pytest.raises(managed.ManagedUnavailable) as exc:
+        managed.build_record("feishu", scope=tenant_a)
+    assert "未指定归属租户" in str(exc.value)
+
+    monkeypatch.setenv("CONNECTOR_MANAGED_TENANT_ID", tenant_a)
+    assert managed.status("feishu", tenant_a)["available"] is True
+    st_b = managed.status("feishu", tenant_b)
+    assert st_b["available"] is False
+    assert "属于其他租户" in st_b["reason"]
+    with pytest.raises(RuntimeError) as exc_b:
+        managed.hydrate(
+            {"managed": True, "type": "feishu", "extra": {}}, scope=tenant_b
+        )
+    assert "属于其他租户" in str(exc_b.value)
+
+
+def test_managed_single_tenant_mode_keeps_env_zero_config(monkeypatch):
+    """未打开 SaaS 模式时保持单企业部署的一键接入行为。"""
+    monkeypatch.setenv("FEISHU_APP_ID", "cli_test")
+    monkeypatch.setenv("FEISHU_APP_SECRET", "secret_test")
+    monkeypatch.delenv("CONNECTOR_MULTI_TENANT", raising=False)
+    assert managed.status("feishu")["available"] is True
+    assert managed.status("feishu", "any-scope")["available"] is True
+
+
 @pytest.mark.asyncio
 async def test_managed_connect_endpoint(monkeypatch, generic_client):
     monkeypatch.setenv("WECOM_CORP_ID", "corp_test")

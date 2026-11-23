@@ -153,6 +153,8 @@ export interface ConnectorManagedStatus {
   credential_source: 'platform_env' | 'public' | ''
   missing: string[]
   reason: string
+  /** 是否处于多企业 SaaS 模式(平台应用凭据按租户归属) */
+  multi_tenant?: boolean
 }
 
 /** 模板目录条目 */

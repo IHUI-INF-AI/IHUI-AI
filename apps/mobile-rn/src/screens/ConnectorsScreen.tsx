@@ -109,7 +109,7 @@ export function ConnectorsScreen() {
           label: tpl.label,
           description: tpl.description,
           available: Boolean(tpl.managed?.available),
-          connected: entries.some((entry) => entry.managed && entry.type === tpl.type),
+          connected: entries.some((entry) => entry.type === tpl.type),
           missingKeys: tpl.managed?.missing ?? [],
         })),
     [catalog, entries],

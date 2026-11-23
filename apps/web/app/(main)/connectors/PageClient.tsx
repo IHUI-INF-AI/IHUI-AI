@@ -285,9 +285,7 @@ export default function ConnectorsPageClient() {
 
   const connectors = list?.connectors ?? []
   const quickTemplates = (catalog?.templates ?? []).filter((item) => item.type !== 'yuque')
-  const managedByType = new Map(
-    connectors.filter((item) => item.managed).map((item) => [item.type, item]),
-  )
+  const managedByType = new Map(connectors.map((item) => [item.type, item]))
 
   return (
     <div className="py-4 mx-auto w-full max-w-6xl space-y-5 px-4">
@@ -379,7 +377,7 @@ export default function ConnectorsPageClient() {
                   </div>
                   {!available ? (
                     <p className="text-[11px] text-muted-foreground">
-                      {t('managedUnavailableHint')}
+                      {st?.reason || t('managedUnavailableHint')}
                     </p>
                   ) : null}
                 </div>

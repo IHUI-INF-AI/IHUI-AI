@@ -28,6 +28,7 @@ from httpx import ASGITransport, AsyncClient
 from app.core.jwt_auth import require_request_user_id
 from app.routers import connectors as connectors_router
 from app.services import connector_store
+from app.services.tenant_scope import ConnectorScope
 
 # 两个固定主体:端点侧的身份由承载层注入,测试用 dependency_overrides 显式给,
 # 不去依赖"开发降级单一身份" —— 那会让"没传身份"这一型在测试里永远测不出来。
@@ -336,4 +337,26 @@ async def test_cross_owner_http_is_shaped_like_missing_and_side_effect_free(
         assert saved.status_code == 200
         assert connector_store.get(USER_A, "yuque:docs") == before
         assert connector_store.get(USER_B, "yuque:docs")["name"] == "B 的"
+
+
+@pytest.mark.asyncio
+async def test_tenant_member_cannot_change_shared_connector(monkeypatch, tmp_path):
+    """企业租户里的普通成员可读可调用,但不得改共享连接器/凭据。"""
+    app = _app_for(USER_A, monkeypatch, tmp_path, "member")
+    app.dependency_overrides[connectors_router.connector_context] = lambda: ConnectorScope(
+        scope="tenant-a",
+        tenant_id="11111111-1111-1111-1111-111111111111",
+        role="member",
+        tenant_mode=True,
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        denied = await client.post(
+            "/api/connectors/config", json=_config_body(app_secret="tenant-secret")
+        )
+        assert denied.status_code == 403
+        assert "租户管理员权限" in denied.text
+        # 副作用未发生:共享存储里没有这条配置
+        assert connector_store.get("tenant-a", "yuque:docs") is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
