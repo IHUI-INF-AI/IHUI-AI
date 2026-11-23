@@ -5,12 +5,12 @@
 /**
  * 收编范围(2026-11-24 更新):
  *  · `VOICE_INPUT_RECORD_ROW_GAP_PX` 8   —— 录音行内间距
- *  · `VOICE_INPUT_BTN_PAD_X_PX` 16      —— 按住说话按钮横向内衬(小程序 `px-4`=16 vs RN `rnSpacing.md`=12 → 取 16)
+ *  · `VOICE_INPUT_BTN_PAD_X_PX` 16      —— 按住说话按钮横向内衬(小程序 `px-4` vs RN `rnSpacing.md`)
  *  · `VOICE_INPUT_BTN_PAD_Y_PX` 8       —— 纵向内衬(小程序 `py-3`=12 vs RN `rnSpacing.sm`=8 → 取小)
  *  · `VOICE_INPUT_BTN_MIN_HEIGHT_PX` 40 —— 按钮最小高(小程序 `min-h-12`=48 vs RN 无最小高、
  *                                          内衬撑出 ≈36 → §4 compact 取较小档定 40)
- * 前三档此前写在头注"按钮内边距(16/12 vs 12/8)"里当裁决项挂着,2026-11-24 收口:
- * 横向取小程序 16(设计锚,RN 12 跟到 16)、纵向取小 8、最小高取 40,两端同挂本表。
+ * 后面三档此前写在头注"按钮内边距(16/12 vs 12/8)"里当裁决项挂着,2026-11-24 收口:
+ * 横向其实两端同值(16),纵向与最小高各取较小档,两端同挂本表。
  *
  * 仍**未**收进来(属设计/平台裁决项,不是取值分叉):波形条数(7 vs 12)、条宽(4 vs 3)、
  * 条间距(4 vs 2)、高度包络(`h-5` 的 60% vs 6..28 插值)、字号(14 vs 12)、禁用透明度(0.5 vs 0.4)——
@@ -26,17 +26,7 @@
  */
 export const VOICE_INPUT_RECORD_ROW_GAP_PX = 8
 
-/**
- * 按住说话按钮横向内衬 16。
- *
- * 中间核过两次:小程序 `px-4`=16、RN `rnSpacing.md`=12(⚠️ 别把 md 读成 16 —— 本仓刻度是
- * 2xs2 / xs4 / xs-loose6 / sm8 / sm-loose10 / md12 / md-loose14 / lg16,单源
- * `packages/design-tokens/src/spacing.ts`)。
- * 定档**取 16 而不是 compact 的较小档 12**:小程序这一处是设计定过的主形态(整条语音钮的观感锚),
- * 取 12 会让整条变窄;RN 从 12 跟到 16 只影响 4px 内衬。定 16 同时保住了跨端几何读数里
- * 原本两端共有的该值(RN 侧另有 `rnType.caption.lineHeight`=16 走字号维),
- * 取 12 会让读数面当场多一条"仅 RN 16"—— 那纯粹是值集合口径的副作用,不是真分叉。
- */
+/** 按住说话按钮横向内衬 16:两端本就同值(小程序 `px-4` / RN `rnSpacing.md`),收编只为单一源。 */
 export const VOICE_INPUT_BTN_PAD_X_PX = 16
 
 /** 按住说话按钮纵向内衬 8:小程序 `py-3`=12 vs RN `rnSpacing.sm`=8 → 按 §4 compact 取小。 */
