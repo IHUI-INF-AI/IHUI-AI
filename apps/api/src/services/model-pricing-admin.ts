@@ -1291,6 +1291,7 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
       from ai_pricing
       where input_token_price > 0
         and output_token_price > 0
+        and (billing_mode is null or billing_mode = 'token')
         and not (input_token_price = 1 and output_token_price = 2)
         and lower(model_id) not like '%:free'
       order by lower(model_id), effective_at desc nulls last

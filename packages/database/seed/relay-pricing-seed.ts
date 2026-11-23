@@ -131,6 +131,7 @@ export async function seedRelayPricing(): Promise<void> {
       FROM ai_pricing
       WHERE effective_at <= now()
         AND (expires_at IS NULL OR expires_at > now())
+        AND (billing_mode IS NULL OR billing_mode = 'token')
         AND (input_token_price > 0 OR output_token_price > 0)
       ORDER BY model_id, effective_at DESC
     ) p

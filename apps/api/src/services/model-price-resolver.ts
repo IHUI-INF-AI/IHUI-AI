@@ -517,7 +517,7 @@ export async function sweepUnpricedModels(
       and not exists (
         select 1 from ai_pricing dp
         where dp.model_id = lower(m.model_id)
-          and dp.billing_mode = 'dynamic_cost'
+          and dp.billing_mode in ('dynamic_cost', 'per_call', 'per_image', 'per_video')
       )
   `)) as unknown as Array<{
     id: number
@@ -686,7 +686,7 @@ export async function repricePlaceholderModels(
       and not exists (
         select 1 from ai_pricing dp
         where dp.model_id = lower(m.model_id)
-          and dp.billing_mode = 'dynamic_cost'
+          and dp.billing_mode in ('dynamic_cost', 'per_call', 'per_image', 'per_video')
       )
       and (
         coalesce(m.input_price_per_1k, 0) <= 0
