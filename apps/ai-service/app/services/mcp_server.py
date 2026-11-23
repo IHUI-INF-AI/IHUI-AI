@@ -3050,6 +3050,45 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     }
                 except (UnicodeDecodeError, ValueError):
                     disk_now = None  # 二进制 → 判不了,交 classify 归 undecidable
+            # 先读再写(严格档):覆盖现有文件时,本会话没读过就是盲写;
+            # 读过但盘上变了就是 stale。新建文件(presence=missing)不受此门限制。
+            read_state: Mapping[str, Any] | None = None
+            try:
+                read_state = judge_read_state(
+                    arguments.get("__session_id"), resolved_path, arguments=arguments
+                )
+            except Exception:  # noqa: BLE001 - 判定层故障不得让写失败
+                read_state = None
+            if (
+                read_state is not None
+                and read_state.get("blocking")
+                and not force
+            ):
+                _current = read_state.get("current")
+                _exists_now = (
+                    isinstance(_current, Mapping)
+                    and _current.get("status") == "ok"
+                )
+                # judge 取不到 current 时退回写前 presence;两者都不把"创建"当盲覆盖。
+                if _current is None:
+                    _exists_now = presence == "present"
+                if _exists_now:
+                    code = (
+                        "FS_NOT_OBSERVED"
+                        if read_state.get("verdict") == "never_read"
+                        else "STALE_READ_CONFIRMATION_REQUIRED"
+                    )
+                    return {
+                        "tool": "write_file",
+                        "path": resolved_path,
+                        "ok": False,
+                        "errorCode": code,
+                        "error": str(
+                            read_state.get("message")
+                            or "严格档拒绝覆盖未经读取的文件;请先 read_file 后重试。"
+                        ),
+                        "readState": read_state_field(read_state),
+                    }
             verdict = classify_write_conflict(
                 disk_now, baseline, _normalize_eol(content)
             )
@@ -3079,13 +3118,16 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
             except Exception:  # noqa: BLE001 - 登记层故障不得让写失败
                 pass
             _note_ai_edit("write_file", resolved_path, content, arguments)
-            return {
+            payload: dict[str, Any] = {
                 "tool": "write_file",
                 "path": resolved_path,
                 "bytes_written": len(content.encode("utf-8")),
                 "ok": True,
                 "concurrency": {"verdict": verdict, "forced": bool(force and verdict == "drifted")},
             }
+            if read_state is not None:
+                payload["readState"] = read_state_field(read_state)
+            return payload
     except Exception as e:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
 
@@ -3196,6 +3238,12 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
 
                 logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
             if read_state is not None and read_state.get("blocking"):
+                if read_state.get("verdict") == "never_read":
+                    return _err(
+                        "FS_NOT_OBSERVED",
+                        str(read_state.get("message") or "该文件尚未被本会话读取,严格档拒绝盲写;请先 read_file 后重试。"),
+                        readState=read_state_field(read_state),
+                    )
                 return _err(
                     "STALE_READ_CONFIRMATION_REQUIRED",
                     str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),

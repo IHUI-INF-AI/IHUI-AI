@@ -18,7 +18,7 @@
 四档判定(一等契约;调用方只引常量,不自拼字面量,四档永不并桶 —— AGENTS §0.3):
     fresh         读过且盘上未变(含"未变是因为本会话自己刚写过")
     stale         读过但盘上已变(默认**不硬拦**,必须在返回体点名;strict 才拒写)
-    never_read    本会话没有读登记
+    never_read    本会话没有读登记(默认点名;strict 覆盖现有文件时拒写)
     undetermined  取不到输入(盘读不动 / 拿不到会话身份 / 判定异常)
                   —— 与 fresh **结构上不同名**,永不渲染成"没问题"
 
@@ -38,7 +38,8 @@ stale 附带 `changed_by` 归因,把"谁改的"量出来而不是猜:
 file_editor / agent_checkpoint 同语义),且**降级不改变判定结果**。
 
 失效方向(AGENTS §0.10):登记/判定失败绝不让编辑主流程炸(公开函数全部 catch-all),
-但也绝不静默当作 `fresh`;拒写只在「显式严格档 ∧ stale」发生,undetermined 的出路是
+但也绝不静默当作 `fresh`;拒写只在「显式严格档 ∧ (stale | never_read)」发生
+(新建文件不在此列),undetermined 的出路是
 "多要一次定向说明",不是"多放一次跳门"、也不是"多加一道拦门"。
 """
 
@@ -506,6 +507,9 @@ def _attribute(
 
 
 _STALE_MESSAGE = "该文件自本次会话读取后已被改动,本次编辑可能覆盖他人内容"
+_NEVER_READ_MESSAGE = (
+    "本会话尚未读过该文件(无读登记);请先 read_file 取得最新内容后再写入。"
+)
 _UNDETERMINED_MESSAGE = (
     "无法判定本会话上次读取后该文件是否被改动(输入取不到:{reason})。"
     "本结果**不等于**「文件没变」:请先 read_file 复核内容后再落改动。"
@@ -561,9 +565,15 @@ def judge_read_state(
         result["reason"] = reason
         result["message"] = message
         result["changed_by"] = changed_by
-        # 拒写只发生在「显式严格档 ∧ stale」。undetermined 的失效方向是"多要一次定向
-        # 说明"(§0.10):既不借它塞一道新拦门,也绝不把它渲染成 fresh。
-        result["blocking"] = bool(is_strict and verdict == VERDICT_STALE)
+        # 拒写发生在「显式严格档 ∧ (stale | never_read)」:
+        #   stale      = 读过但盘上已变,继续写可能覆盖他人改动;
+        #   never_read = 本会话从未读过,直接覆盖现有文件等于盲写。
+        # 新建文件不走 never_read 拦门(调用方在写前用 presence=missing 判定),
+        # 因此「先读再创建」的语义不依赖读登记。undetermined 的失效方向仍是
+        # "多要一次定向说明"(§0.10):既不借它塞一道新拦门,也绝不渲染成 fresh。
+        result["blocking"] = bool(
+            is_strict and verdict in (VERDICT_STALE, VERDICT_NEVER_READ)
+        )
         return result
 
     try:
@@ -592,10 +602,7 @@ def judge_read_state(
             return _finish(
                 VERDICT_NEVER_READ,
                 "no_record_for_session",
-                message=(
-                    "本会话尚未读过该文件(无读登记),本次编辑未经脏判定保护;"
-                    "建议先 read_file 取得最新内容。"
-                ),
+                message=_NEVER_READ_MESSAGE,
             )
 
         if current["status"] == "absent":

@@ -141,4 +141,98 @@ async def test_missing_session_is_undetermined_never_blocking(
     assert edit["ok"] is True
     assert edit["readState"]["verdict"] == "undetermined"
     assert edit["readState"]["blocking"] is False
+
+
+async def test_strict_write_file_refuses_unread_existing_file(
+    _isolated_workspace: Path,
+) -> None:
+    p = _mk(_isolated_workspace, body="original\n")
+
+    wrote = await mcp_server._tool_write_file(
+        {
+            "path": str(p),
+            "content": "overwrite\n",
+            "read_state_strict": True,
+            "__session_id": "s1",
+        }
+    )
+    assert wrote["ok"] is False
+    assert wrote["errorCode"] == "FS_NOT_OBSERVED"
+    assert wrote["readState"]["verdict"] == "never_read"
+    assert wrote["readState"]["blocking"] is True
+    # 副作用断言:拒写后一个字节都不许落盘
+    assert p.read_text(encoding="utf-8") == "original\n"
+
+
+async def test_strict_write_file_allows_new_file_without_read(
+    _isolated_workspace: Path,
+) -> None:
+    p = _isolated_workspace / "new.txt"
+
+    wrote = await mcp_server._tool_write_file(
+        {
+            "path": str(p),
+            "content": "created\n",
+            "read_state_strict": True,
+            "__session_id": "s1",
+        }
+    )
+    assert wrote["ok"] is True
+    # 新建文件没有读登记是事实,但"创建"不是"盲覆盖",不拦
+    assert wrote["readState"]["verdict"] == "never_read"
+    assert p.read_text(encoding="utf-8") == "created\n"
+
+
+async def test_strict_write_file_allows_after_read(
+    _isolated_workspace: Path,
+) -> None:
+    p = _mk(_isolated_workspace, body="original\n")
+    read = await mcp_server._tool_read_file({"path": str(p), "__session_id": "s1"})
+    assert read["ok"] is True
+
+    wrote = await mcp_server._tool_write_file(
+        {
+            "path": str(p),
+            "content": "rewritten\n",
+            "read_state_strict": True,
+            "__session_id": "s1",
+        }
+    )
+    assert wrote["ok"] is True
+    assert wrote["readState"]["verdict"] == "fresh"
+    assert p.read_text(encoding="utf-8") == "rewritten\n"
+
+
+async def test_strict_file_edit_refuses_never_read_file(
+    _isolated_workspace: Path,
+) -> None:
+    p = _mk(_isolated_workspace, body="original\n")
+
+    edit = await mcp_server._tool_file_edit(
+        {
+            "file_path": str(p),
+            "old_string": "original",
+            "new_string": "changed",
+            "read_state_strict": True,
+            "__session_id": "s1",
+        }
+    )
+    assert edit["ok"] is False
+    assert edit["errorCode"] == "FS_NOT_OBSERVED"
+    assert edit["readState"]["verdict"] == "never_read"
+    assert p.read_text(encoding="utf-8") == "original\n"
+
+
+async def test_default_write_file_still_reports_unread_without_blocking(
+    _isolated_workspace: Path,
+) -> None:
+    p = _mk(_isolated_workspace, body="original\n")
+
+    wrote = await mcp_server._tool_write_file(
+        {"path": str(p), "content": "default-write\n", "__session_id": "s1"}
+    )
+    assert wrote["ok"] is True
+    assert wrote["readState"]["verdict"] == "never_read"
+    assert wrote["readState"]["blocking"] is False
+    assert p.read_text(encoding="utf-8") == "default-write\n"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
