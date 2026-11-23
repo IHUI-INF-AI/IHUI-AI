@@ -25,6 +25,12 @@ import {
   INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX,
   INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX,
   INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX,
+  // 默认变体输入框自动撑高上限(6 行 148):与 RN 卡片式 MAX_INPUT_HEIGHT 同一枚档。
+  // 本端 2026-11-23 之前写 rpx(240)=120(5 行),而 887 行注释宣称"与 RN 同值" —— 实现与注释漂开,
+  // 门 128 几何维因此读成 120(mini) vs 148(RN)。改指本档后两端同值,注释与实现同源。
+  INPUT_AREA_INPUT_MAX_HEIGHT_PX,
+  // 输入行最小高(48 = 1 行 48):与 RN MIN_INPUT_HEIGHT 同一枚档,见 884 行 style 注。
+  INPUT_AREA_INPUT_MIN_HEIGHT_PX,
   INPUT_AREA_AI_HOME_INLINE_GAP_PX,
   INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX,
   INPUT_AREA_AI_HOME_EMOJI_CELL_PX,
@@ -881,11 +887,22 @@ export default function InputArea({
         </View>
 
         {mode === 'text' ? (
-          <View className="flex-1 min-h-10 bg-muted rounded-sm px-md py-sm flex items-center">
+          <View
+            className="flex-1 bg-muted rounded-sm px-md py-sm flex items-center"
+            // 输入行最小高 = INPUT_AREA_INPUT_MIN_HEIGHT_PX(48) —— 与 RN 卡片输入行 MIN_INPUT_HEIGHT
+            // 同一枚档。收编前 className 写 `min-h-10`(=40,Tailwind 刻度),两端同元素差 8px;
+            // 且 `min-h-*` 不在几何维的刻度档正则里 ⇒ 该值此前根本没进读数面(门 128 读成"仅 RN 档 48")。
+            style={{ minHeight: toUnit(INPUT_AREA_INPUT_MIN_HEIGHT_PX) }}
+          >
             <Textarea
               className="w-full text-body text-foreground dark:text-muted-foreground bg-transparent"
-              // 默认变体输入框上限收敛到 120(=240rpx),与 RN 卡片式 INPUT_MAX_HEIGHT 同值
-              style={{ minHeight: rpx(40), maxHeight: rpx(240), width: '100%' }}
+              // 默认变体输入框上限 = INPUT_AREA_INPUT_MAX_HEIGHT_PX(148 = 6 行),
+              // 与 RN 卡片式 MAX_INPUT_HEIGHT 同一枚档;收编前写 rpx(240)=120 是漏侧漂移(详见 import 注)。
+              style={{
+                minHeight: rpx(40),
+                maxHeight: toUnit(INPUT_AREA_INPUT_MAX_HEIGHT_PX),
+                width: '100%',
+              }}
               value={value}
               placeholder={placeholder || t('messageInput.placeholder')}
               placeholderStyle="color: var(--color-muted-foreground); font-size: 28rpx;"

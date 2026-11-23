@@ -100,6 +100,12 @@ import {
   INPUT_AREA_CONTROL_RIGHT_PX,
   INPUT_AREA_SECONDARY_FONT_PX,
   INPUT_AREA_GLYPH_LG_PX,
+  /**
+   * ⤢ 展开钮的定位盒边长 —— spec 注(2026-10-27 O02 票④)明写"与 RN 端 expandBtn 同一枚档,
+   * 两端必须同枚提交改指,漏一侧这枚档就成'仅一侧具名档'"。本文件 2026-11-23 之前写裸 28,
+   * 正是那条注点名的漏侧形态:盒比 spec 档大 8,且门 128 读成"仅小程序档 20"。
+   */
+  INPUT_AREA_EXPAND_BTN_BOX_PX,
   // 语音/键盘切换钮的图标墨迹 20:与小程序端 `<LineIcon name="mic"/"keyboard">` 同一枚档
   // (spec 注的三处同源之一就是本文件这三站,收编前这里写裸 20)
   INPUT_AREA_GLYPH_MD_PX,
@@ -1155,13 +1161,13 @@ const styles = StyleSheet.create({
   plusInShellGap: {
     marginLeft: rnSpacing.xs,
   },
-  // 右上角四箭头展开钮:盒 28、图标 20;绝对定位,不占文本行高
+  // 右上角四箭头展开钮:盒 = INPUT_AREA_EXPAND_BTN_BOX_PX(与小程序 ⤢/⤡ 同一枚档)、图标 20;绝对定位,不占文本行高
   expandBtn: {
     position: 'absolute',
     top: rnSpacing.xs,
     right: INPUT_AREA_CONTROL_RIGHT_PX,
-    width: 28,
-    height: 28,
+    width: INPUT_AREA_EXPAND_BTN_BOX_PX,
+    height: INPUT_AREA_EXPAND_BTN_BOX_PX,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: rnRadiusFor.control,

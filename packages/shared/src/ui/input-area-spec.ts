@@ -37,7 +37,7 @@
 //     ⚠️ 旧句"这是本族唯一剩余的差异档"已于 2026-10-28 作废:现读 15 档,逐条见下面 O02 段。
 
 // ── O02 票④(第 ④ 格)收口证据:本族"只剩一份源"────────────────────────────
-// 现读 2026-10-28(`node scripts/check-cross-end-ui-parity.mjs --json`):
+// 票④当时读数(2026-10-28,**历史值**,现读见下面 2026-11-23 段):
 //   findings[InputArea] = diffCount 15(几何仅小程序 10 + 仅 RN 5)/ radiusCount 2 /
 //   elementRadiusCount 0;同名档取值冲突(named)= 0、RE 维同名元素 = 0。
 // 两条腿的几何档**全部**经本文件取数,端内不再自持"跨端可共享"的数值 —— 两端 import 点:
@@ -55,32 +55,42 @@
 //   新的单侧引用,`SL InputArea 36→37` 当场判红;② 只入表不接线 ⇒ ⑪ 的幻影档判据红。
 //   ⇒ 单端档唯一的合法去处是**端内留裸数字** + 本头注清单 + ⑨ 的归属表登记,不是入表。
 //
-// 15 档逐条归属 —— 分三类。**没有一条属于"本可同值却各写一份"**(那一型才是本票要拆的):
+// 16 档逐条归属 —— 分三类。**没有一条属于"本可同值却各写一份"**。
+//
+// 2026-11-23 现读(`node scripts/check-cross-end-ui-parity.mjs --staged --json`):
+// diffCount 16(几何仅小程序 12 + 仅 RN 4)。本次**已收口三对"同元素各写一份"**:
+//   ① 展开钮定位盒 20 vs 28    —— RN 腿漂成裸 28,本轮改回本档(见本常量注)
+//   ② 输入框撑高上限 120 vs 148 —— 小程序腿写 rpx(240)=120 而注释宣称"与 RN 同值",本轮改指本档
+//   ③ 输入行最小高 40 vs 48    —— 小程序写 Tailwind `min-h-10`(=40,且 `min-h-*` 不进几何读数面),本轮改指本档
+// 收口后两端同值,三对不再计差。此前(2026-10-28)读数 15,本次收口净减后为 16 —— 差额来自
+// 本族**新长出来的元素**(RN 框内展开钮/模型名截断、小程序放大浮层基础 bottom),逐条见下。
 //
 //  A 一端根本没有该元素(往另一端补引用 = 往屏幕上加一个不存在的节点):
 //    仅小程序 30    EMOJI_CELL                RN 无表情面板
 //    仅小程序 90    EMOJI_PANEL_H             RN 无表情面板
-//    仅小程序 146   OVERLAY_BOTTOM_WITH_PANEL fixed 全屏浮层;RN 放大即解除 maxHeight,无浮层
+//    仅小程序 146   OVERLAY_BOTTOM_WITH_PANEL 小程序 fixed 全屏浮层;RN 放大走 Modal,无 fixed 浮层
 //    仅小程序 192   default 变体 `h-48`       类名档(见上面第 6 条);RN 无面板
+//    仅小程序 56    放大浮层基础 bottom `rpx(112)`  RN 无 fixed 浮层(56 与 RN 折叠 FAB 的 56 是巧合同值,不同元素)
 //    仅 RN 26       GLYPH_LG                  collapsible 折叠 FAB 加号;小程序无该变体
-//    仅 RN 96       端内裸 `catChip.maxWidth`   模型钮截断上限(= web max-w-6rem);小程序 ai-home 无该元素。
-//                                               **刻意不入表** —— 单端档入表会新增 SL 单侧判红,见上面的边界注
+//    仅 RN 160      端内裸 `maxWidth: 160`     模型名截断上限(同 web max-w-40);小程序 ai-home 无该元素
 //
 //  B 同一元素、两端按**已裁决**的变体契约取不同档(取任一端会破另一端的版 ⇒ 须产品裁决,
-//    不由本表单方面定档;这正是本族 counts 停在 15 而不是被"补数字"抹平的原因):
-//    25 AI_HOME_VOICE_BTN_W   ↔ 32 VOICE_BTN_WIDTH        紧凑条 22 行高 vs 卡片 48 行高
-//    48 INPUT_MIN_HEIGHT      ↔ 小程序 rpx(44)=22          同上
-//    72 THUMB_PX              ↔ 106.5×60 VIDEO_THUMB_W/H   方盒 vs 16:9 内容盒(素材固有比)
-//    148 INPUT_MAX_HEIGHT     ↔ 250 AI_HOME_INPUT_MAX_HEIGHT 1~6 行内滚 vs ai-home 可放大到全屏
+//    不由本表单方面定档;这正是本族 counts 停在 16 而不是被"补数字"抹平的原因):
+//    22 小程序语音钮宽 `rpx(44)` ↔ 36 RN `micInShell`     紧凑条 vs 卡片 tapBox(36 本就两端共享)
+//    25 AI_HOME_VOICE_BTN_W     ↔ 32 VOICE_BTN_WIDTH      紧凑条 22 行高 vs 卡片 48 行高
+//    60 VIDEO_THUMB_H           ↔ 72 THUMB_PX             16:9 内容盒高 vs 方盒边长
+//    106.5 VIDEO_THUMB_W        ↔ 72 THUMB_PX             16:9 内容盒宽 vs 方盒边长(素材固有比)
+//    250 AI_HOME_INPUT_MAX_HEIGHT ↔ RN Modal 全屏          ai-home 可视区上限 vs 无上限全屏
 //
 //  C 同槽位留白,两端各由自身机制决定(不是同一个量的两条写法):
 //    仅小程序 5     INLINE_GAP                表情格内衬 / 清空与发送图标间距;RN 该槽位是实底钮 marginLeft 4
 //    仅小程序 9     SEND_ICON_MARGIN          占位条里裸图标的视觉让位;RN 同位是实底钮 marginLeft 4
+//    仅 RN 40       输入框右侧让位 40           RN 让给框内右上角展开钮(28+12);小程序让位对象是 134rpx 图标组,
+//                                              两者让的东西不同 ⇒ 不是同一量
 //
 // ⇒ 结论:本族**无可继续收敛项** —— A 组补引用是造假,C 组量纲不同,B 组是产品裁决面。
-//   counts 维持 15。逐档归属(含每组属于谁)另由
-//   packages/shared/src/ui/__tests__/input-area-wiring.test.ts 的 ⑨ 号用例机器钉住:
-//   谁往"另一端"补了引用,那条用例就红。
+//   逐档归属(含每组属于谁)另由 packages/shared/src/ui/__tests__/input-area-wiring.test.ts
+//   的 ⑨ 号用例机器钉住:谁往"另一端"补了引用,那条用例就红。
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 import { GEOMETRY_PX } from '@ihui/design-tokens'
@@ -190,6 +200,9 @@ export const INPUT_AREA_CONTROL_RIGHT_PX = 8
  * 盒边长与内缩一起收进本表,那一枚钮的位置与尺寸就整体只有一份真相。
  * 收编只动**盒边长**,不动位置:小程序的 `right: 0` 与 RN 的 `right: INPUT_AREA_CONTROL_RIGHT_PX`(8)
  * 是两端各自的位置机制(小程序贴右缘、RN 让开浮层计数),仍留端内,不在本档管辖内。
+ *
+ * 2026-11-23 复核:RN 侧 `expandBtn` 已漂成裸 `width/height: 28`(本注上文写的 20 只剩小程序在引),
+ * 门 128 几何维因此读成"仅小程序档 20 / 仅 RN 档 28"。本轮 RN 改回本档,两端重新同值。
  */
 export const INPUT_AREA_EXPAND_BTN_BOX_PX = 20
 
@@ -231,9 +244,14 @@ export const INPUT_AREA_THUMB_GLYPH_PX = 24
 export const INPUT_AREA_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph
 
 /**
- * 【B 单端档·RN】输入行最小高 48:输入框 `minHeight`、语音区 `minHeight`、语音钮盒 `height`
+ * 【A 两端同值】输入行最小高 48:输入框 `minHeight`、语音区 `minHeight`、语音钮盒 `height`
  * 三处同档(它们同排,上缘要对齐,分两档就会看到一根错位 1px 的缝)。
- * 小程序 ai-home 对应位置是 44rpx(=22)一行高的紧凑条,且 22 这一档两端共享,故不同形。
+ *
+ * 2026-11-23 收口:小程序**默认变体**(灰底圆角输入行)此前用 Tailwind `min-h-10`(=40) ——
+ * 同一元素两端差 8px,且 `min-h-*` 不在几何维的刻度档正则里,这个 40 根本没进读数面
+ * (门 128 只看见 RN 的 48,报成"仅 RN 档")。本轮小程序改指本档,两端同值。
+ * 小程序 **ai-home** 变体仍是 44rpx(=22) 一行高的紧凑条 —— 那是另一个变体(大输入框外壳),
+ * 不归本档管辖。
  */
 export const INPUT_AREA_INPUT_MIN_HEIGHT_PX = 48
 
@@ -297,12 +315,16 @@ export const INPUT_AREA_IN_SHELL_BTN_PX = GEOMETRY_PX.controlBox
 export const INPUT_AREA_THUMB_PX = 72
 
 /**
- * 【B 单端档·RN】输入框自动撑高上限 148 / 最小高 48。
+ * 【A 两端同值】输入框自动撑高上限 148 / 最小高 48。
  *
  * 2026-11-23 用户定档:移动端默认显示 1 行、随输出最高 6 行。行高取 `rnType.body.lineHeight`
  * (20),故上限 = 48 + 5×20 = 148;超过 6 行由输入框内部滚动,或点右上角四箭头全屏展示
- * 全部内容。与小程序 ai-home 的 250(INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX)仍是变体
- * 契约分叉:小程序是可从 80rpx 逐层放大到全屏的大输入框,500rpx 是复刻原项目的可视区上限。
+ * 全部内容。
+ *
+ * 2026-11-23 收口:小程序**默认变体**此前写 `rpx(240)`=120(5 行),同行注释却宣称"与 RN 同值"
+ * —— 同一元素两端漏侧(门 128 几何维读成 120 vs 148)。本轮小程序同枚改指本档。
+ * 与小程序 ai-home 的 250(INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX)仍是变体契约分叉:
+ * 小程序 ai-home 是可从 80rpx 逐层放大到全屏的大输入框,500rpx 是复刻原项目的可视区上限。
  */
 export const INPUT_AREA_INPUT_MAX_HEIGHT_PX = 148
 

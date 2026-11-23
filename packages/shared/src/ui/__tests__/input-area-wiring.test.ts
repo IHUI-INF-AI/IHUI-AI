@@ -80,6 +80,14 @@ const CROSS_END_TIERS = [
   'INPUT_AREA_DOC_NAME_STRIP_PX',
   'INPUT_AREA_GLYPH_MD_PX',
   'INPUT_AREA_THUMB_GLYPH_PX',
+  // 2026-11-23 收口:这两枚 spec 头注本就写【A 两端同值】,实际却只有一端在引 ——
+  // EXPAND_BTN_BOX 的 RN 腿漂成裸 28、INPUT_MAX_HEIGHT 的 mini 腿漂成 rpx(240)=120。
+  // 门 128 几何维据此读成「仅小程序档 20 / 仅 RN 档 148」。本轮两端同枚改指,归回共用档。
+  'INPUT_AREA_EXPAND_BTN_BOX_PX',
+  'INPUT_AREA_INPUT_MAX_HEIGHT_PX',
+  // 2026-11-23 收口:输入行最小高此前小程序写 Tailwind `min-h-10`(=40) —— 同元素差 8px,
+  // 且 `min-h-*` 不在几何维刻度档正则里 ⇒ 值没进读数面(被读成"仅 RN 档 48")。小程序改指本档。
+  'INPUT_AREA_INPUT_MIN_HEIGHT_PX',
 ] as const
 
 /**
@@ -104,11 +112,8 @@ const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: strin
   // ── A 一端根本没有该元素 ──
   { tier: 'INPUT_AREA_AI_HOME_EMOJI_CELL_PX', owner: 'miniapp-taro', why: 'A RN 无表情面板' },
   { tier: 'INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX', owner: 'miniapp-taro', why: 'A RN 无表情面板' },
-  {
-    tier: 'INPUT_AREA_EXPAND_BTN_BOX_PX',
-    owner: 'miniapp-taro',
-    why: 'A RN 的框内放大变体已随 props-parity 批删除,小程序 search-right/search-suo 仍在',
-  },
+  // 注:`INPUT_AREA_EXPAND_BTN_BOX_PX` 已于 2026-11-23 迁入 CROSS_END_TIERS —— spec 头注明写
+  // "与 RN 端 expandBtn 同一枚档、两端必须同枚改指",RN 腿却漂成裸 28;改回本档后不再是单端。
   {
     tier: 'INPUT_AREA_FANGDA_TOP_PX',
     owner: 'miniapp-taro',
@@ -138,11 +143,7 @@ const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: strin
     owner: 'miniapp-taro',
     why: 'B 紧凑条 22 行高 vs RN 卡片 VOICE_BTN_WIDTH 32',
   },
-  {
-    tier: 'INPUT_AREA_INPUT_MIN_HEIGHT_PX',
-    owner: 'mobile-rn',
-    why: 'B 卡片输入行最小高 48 vs 小程序同元素 22 的紧凑条',
-  },
+  // 注:`INPUT_AREA_INPUT_MIN_HEIGHT_PX` 已于 2026-11-23 迁入 CROSS_END_TIERS(小程序默认变体同枚改指)。
   {
     tier: 'INPUT_AREA_THUMB_PX',
     owner: 'mobile-rn',
@@ -158,11 +159,8 @@ const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: strin
     owner: 'miniapp-taro',
     why: 'B 同上:16:9 内容盒高度',
   },
-  {
-    tier: 'INPUT_AREA_INPUT_MAX_HEIGHT_PX',
-    owner: 'mobile-rn',
-    why: 'B 1~6 行内滚上限 148 vs ai-home 可放大到全屏 250',
-  },
+  // 注:`INPUT_AREA_INPUT_MAX_HEIGHT_PX` 已于 2026-11-23 迁入 CROSS_END_TIERS —— 小程序默认变体
+  // 此前写 rpx(240)=120 而注释宣称"与 RN 同值",本轮同枚改指 148。
   {
     tier: 'INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX',
     owner: 'miniapp-taro',
@@ -580,8 +578,16 @@ function evalExpr(text: string, rpxPerPx: number): number | null {
   return new Expr(toks, rpxPerPx).parse()
 }
 
-/** 算式片段里可能出现的字符(窗口法的边界集合)。 */
-const ARITH_CHAR = /[A-Za-z0-9_$.+\-*/()\s]/
+/**
+ * 算式片段里可能出现的字符(窗口法的边界集合)。
+ *
+ * **刻意不含换行**:早前用的是 `\s`(涵盖 `\n`),窗口会从档名一路向左吞过行尾、吞到上一个
+ * 非算术字符 —— import 块里的 `  INPUT_AREA_XXX_PX,` 因此被吞成跨行大段,`tokenize` 撞上
+ * `{` / `,` 返回 null,于是整腿报"该档取数点全部不可求值 ⇒ 本测试对该档失明"(2026-11-23
+ * 实测于 INPUT_AREA_INPUT_MAX_HEIGHT_PX,它同时出现在 import 块与 `const MAX = TIER` 两处)。
+ * 只留空格与制表符 ⇒ 边界停在行内,import 行与赋值右侧都能各自求值。
+ */
+const ARITH_CHAR = /[A-Za-z0-9_$.+\-*/() \t]/
 
 interface Usage {
   /** 1 基行号 */
