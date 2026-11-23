@@ -67,6 +67,16 @@ export interface ProfileScreenProps {
    * 缺省(= 取不到)不渲染徽标,不猜也不补默认态。
    */
   realnameStatus?: 'unverified' | 'pending' | 'verified' | 'rejected'
+  /**
+   * 用户卡内的附加区(可选):宿主注入账户动作(充值/退订/开通会员/等级介绍等)。
+   * 渲染在昵称/身份标签/联系方式之后、同一张用户卡内,避免宿主另插一张带昵称的卡造成「两套用户名」。
+   */
+  userExtra?: ReactNode
+  /**
+   * 统计六格之后的附加区(可选):宿主注入会员权益、创作内容等分节。
+   * 渲染在菜单分节之前,保证「资料 → 数据 → 权益/内容 → 功能菜单」的阅读顺序。
+   */
+  children?: ReactNode
 }
 
 /** Settings 屏 props */

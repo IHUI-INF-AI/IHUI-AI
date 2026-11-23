@@ -42,6 +42,8 @@ export function ProfileScreen({
   identityTags = [],
   onAvatarPress,
   colorScheme = 'light',
+  userExtra,
+  children,
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -68,41 +70,46 @@ export function ProfileScreen({
 
       <View style={styles.body}>
         <View style={styles.userCard}>
-          {onAvatarPress ? (
-            <TouchableOpacity
-              style={styles.avatar}
-              onPress={onAvatarPress}
-              accessibilityRole="button"
-            >
-              {renderAvatar(user?.avatar, user?.nickname, styles)}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.avatar}>{renderAvatar(user?.avatar, user?.nickname, styles)}</View>
-          )}
-          <View style={styles.userMeta}>
-            <View style={styles.nicknameRow}>
-              <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
-              {badgeTone && realnameStatus ? (
-                <View style={[styles.realnameBadge, badgeTone.container]}>
-                  <Text style={[styles.realnameBadgeText, badgeTone.text]}>
-                    {t(`realNameAuth.status_${realnameStatus}`)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <View style={styles.identityRow}>
-              {identityTags.map((tag) => {
-                const tone = identityTone(tk, tag.tone)
-                return (
-                  <View key={tag.text} style={[styles.identityTag, tone.container]}>
-                    <Text style={[styles.identityTagText, tone.text]}>{tag.text}</Text>
+          <View style={styles.userHeader}>
+            {onAvatarPress ? (
+              <TouchableOpacity
+                style={styles.avatar}
+                onPress={onAvatarPress}
+                accessibilityRole="button"
+              >
+                {renderAvatar(user?.avatar, user?.nickname, styles)}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.avatar}>
+                {renderAvatar(user?.avatar, user?.nickname, styles)}
+              </View>
+            )}
+            <View style={styles.userMeta}>
+              <View style={styles.nicknameRow}>
+                <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
+                {badgeTone && realnameStatus ? (
+                  <View style={[styles.realnameBadge, badgeTone.container]}>
+                    <Text style={[styles.realnameBadgeText, badgeTone.text]}>
+                      {t(`realNameAuth.status_${realnameStatus}`)}
+                    </Text>
                   </View>
-                )
-              })}
+                ) : null}
+              </View>
+              <View style={styles.identityRow}>
+                {identityTags.map((tag) => {
+                  const tone = identityTone(tk, tag.tone)
+                  return (
+                    <View key={tag.text} style={[styles.identityTag, tone.container]}>
+                      <Text style={[styles.identityTagText, tone.text]}>{tag.text}</Text>
+                    </View>
+                  )
+                })}
+              </View>
+              {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
+              {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
             </View>
-            {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
-            {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
           </View>
+          {userExtra ? <View style={styles.userExtraSlot}>{userExtra}</View> : null}
         </View>
 
         <View style={styles.statsGrid}>
@@ -113,6 +120,8 @@ export function ProfileScreen({
             </View>
           ))}
         </View>
+
+        {children ? <View style={styles.childrenSlot}>{children}</View> : null}
 
         {menuSections.map((section) => (
           <View key={section.title} style={styles.menuSection}>
@@ -255,15 +264,15 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     userCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       gap: rnSpacing.md,
     },
+    /** 头像 + 昵称/身份/联系方式一行;userExtra 另起一行,避免动作行被挤压在头像右侧半栏 */
+    userHeader: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     avatar: {
       width: 56,
       height: 56,
@@ -284,6 +293,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brandAccent.foreground,
     },
     userMeta: { flex: 1, gap: rnSpacing.xs },
+    /** 用户卡内附加区(宿主注入账户动作);宽度撑满,动作行由宿主自行排版 */
+    userExtraSlot: { width: '100%' },
     identityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     identityTag: {
       paddingHorizontal: rnSpacing.sm,
@@ -319,6 +330,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
+    /** 统计六格之后的附加区(会员权益/创作内容);分节间距由 body 的 gap 提供 */
+    childrenSlot: { width: '100%', gap: rnSpacing.md },
     statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     statsLabel: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
     menuSection: { gap: rnSpacing.sm },
@@ -327,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: tk.border.light,
       overflow: 'hidden',
     },
     menuItem: {

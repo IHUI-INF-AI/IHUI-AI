@@ -44,7 +44,6 @@ import {
 } from '@ihui/rn-app'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { CategoryItem, SharedMenuSection } from '@ihui/rn-app'
-import type { UserInfo } from '@ihui/types'
 import {
   cancelRecurringContract,
   deleteConversation,
@@ -83,8 +82,6 @@ import { useAppFrameWidth } from '../components/Carousel'
 // 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarScrollReserve } from '../components/TabBar.styles'
-import { UserCard, type UserCardKey } from '../components/UserCard'
-import UserInfoCard from '../components/UserInfoCard'
 import {
   UserMembershipBenefits,
   type BenefitItem,
@@ -216,10 +213,11 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
 
 /**
  * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
- * 渲染共享 ProfileScreen。menuSections 从本地 profileMenuData 映射为共享契约格式。
+ * 渲染共享 ProfileScreen(唯一用户卡)。menuSections 从本地 profileMenuData 映射为共享契约格式。
  *
- * 4 Tab 内容区(文本/图片/视频/音频)1:1 复刻历史 Uniapp user/index.vue(行 59-191),
- * 渲染在 SharedProfileScreen 之后(外层 ScrollView 包裹,保证 4 Tab Section 可滚动)。
+ * 本端独有能力不另起卡片,只通过共享屏的两个插槽注入:
+ * - userExtra:账户动作(充值/退订或开通会员/等级介绍),渲染在同一张用户卡内;
+ * - children:会员权益 + 4 Tab 内容区(文本/图片/视频/音频),渲染在统计六格之后。
  */
 export function ProfileScreen() {
   const { t } = useI18n()
@@ -403,27 +401,6 @@ export function ProfileScreen() {
     navigateRoot(rootNav, item.key)
   }
 
-  /** UserCard 4 宫格点击跳转(对齐 Uniapp user_cards.vue handleClick) */
-  const handleUserCardPress = (key: UserCardKey) => {
-    switch (key) {
-      case 'order':
-        rootNav?.navigate('Order')
-        break
-      case 'wallet':
-        rootNav?.navigate('Wallet')
-        break
-      case 'company':
-        navigateRoot(rootNav, 'Distribution')
-        break
-      case 'token':
-        navigateRoot(rootNav, 'TokenValue')
-        break
-      default:
-        // 未识别的宫格 key,静默忽略(防御性:防止 UserCardKey 类型漂移)
-        break
-    }
-  }
-
   /** FloatBox 悬浮提示触发器(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */
   const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
     setFloatMessage(message)
@@ -564,24 +541,6 @@ export function ProfileScreen() {
   }
 
   /**
-   * AuthUser → UserInfo 映射(UserInfoCard 所需)。
-   * AuthUser 无 tokenQuantity/growthValue/growthMax/vipExpireAt 字段,这些项省略
-   * (UserInfo 全字段可选,UserInfoCard 内部 formatTokenValue(undefined)='0' 兜底)。
-   * identityType API 未返回,默认 0(普通用户)。vipLevel 由 isVip 派生。
-   */
-  const userInfoForCard: UserInfo | null = user
-    ? {
-        uuid: user.id,
-        username: user.nickname || user.username,
-        avatarUrl: user.avatar,
-        isVip: user.isVip ?? 0,
-        identityType: 0,
-        inviteCode: user.inviteCode,
-        vipLevel: user.isVip === 1 ? 'VIP' : undefined,
-      }
-    : null
-
-  /**
    * 退订确认 — 查询当前 VIP 订阅状态(含微信周期扣款签约),有自动续费则真实解约;
    * 无自动续费订阅(单次购买 VIP)时给出明确反馈,不再提示"开发中"。
    */
@@ -666,76 +625,16 @@ export function ProfileScreen() {
             )
           ) : (
             <>
-              {userInfoForCard ? (
-                <View style={styles.userInfoCardWrap}>
-                  <UserInfoCard
-                    userInfo={userInfoForCard}
-                    showRechargeBtn
-                    onEdit={() => setEditProfileVisible(true)}
-                    onRecharge={() => rootNav?.navigate('Wallet')}
-                    onLogin={() => rootNav?.navigate('Login')}
-                    onUnsubscribe={() => setUnsubscribeVisible(true)}
-                    onLevelIntro={() => setLevelIntroVisible(true)}
-                    onOpenVip={() => rootNav?.navigate('VipTrader')}
-                  />
-                  {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
-                      此处为完整 3 级体系介绍入口) */}
-                  <TouchableOpacity
-                    style={styles.levelIntroBtn}
-                    activeOpacity={0.7}
-                    onPress={() => setLevelIntroVisible(true)}
-                    accessibilityLabel={t('profile.levelIntro')}
-                  >
-                    <Text style={styles.levelIntroBtnText}>{t('profile.levelIntro')}</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-              <View style={styles.userCardWrap}>
-                <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
-              </View>
-              {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
-              {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
-              <TouchableOpacity
-                style={styles.membershipHeader}
-                onPress={() => setShowMembershipBenefits((v) => !v)}
-                activeOpacity={0.7}
-                accessibilityLabel={t('profile.switchBenefit')}
-                accessibilityRole="button"
-              >
-                <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
-                <View
-                  style={[
-                    styles.membershipArrow,
-                    showMembershipBenefits ? styles.membershipArrowExpanded : null,
-                  ]}
-                >
-                  <ChevronDown size={24} color={tokens.text.secondary} />
-                </View>
-              </TouchableOpacity>
-              {showMembershipBenefits ? (
-                <View style={styles.membershipBenefitsWrap}>
-                  <UserMembershipBenefits
-                    level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
-                    benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
-                      id: b.id,
-                      icon: b.icon,
-                      title: t(b.titleKey),
-                      desc: t(b.descKey),
-                    }))}
-                    onPressUpgrade={() => setLevelIntroVisible(true)}
-                  />
-                </View>
-              ) : null}
-              {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频)。
-                  位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 分类 Tab 条) */}
-              <ProfileContentSection />
+              {/* 单一用户卡 = 跨端共享 ProfileScreen 自带的那一张(头像/昵称/身份/实名字段只此一处);
+                  宿主只通过 userExtra 注入账户动作、通过 children 注入会员权益与创作内容,不再另插
+                  一份带昵称的 UserInfoCard/宫格,避免「两套用户名、两套用户卡片」同屏。 */}
               <SharedProfileScreen
                 t={t}
                 user={
                   user
                     ? {
                         id: user.id,
-                        nickname: user.nickname,
+                        nickname: user.nickname || user.username,
                         avatar: user.avatar ?? null,
                         email: user.email,
                         phone: user.phone,
@@ -766,7 +665,104 @@ export function ProfileScreen() {
                 onLogout={() => void logout()}
                 onAvatarPress={() => setEditProfileVisible(true)}
                 onBack={() => navigation.goBack()}
-              />
+                userExtra={
+                  user ? (
+                    <View style={styles.accountActions}>
+                      <TouchableOpacity
+                        style={styles.accountAction}
+                        activeOpacity={0.7}
+                        onPress={() => setEditProfileVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('profile.editProfile')}
+                      >
+                        <Text style={styles.accountActionText}>{t('profile.editProfile')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.accountAction}
+                        activeOpacity={0.7}
+                        onPress={() => rootNav?.navigate('Wallet')}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('wallet.recharge')}
+                      >
+                        <Text style={styles.accountActionText}>{t('wallet.recharge')}</Text>
+                      </TouchableOpacity>
+                      {user.isVip === 1 ? (
+                        <TouchableOpacity
+                          style={styles.accountAction}
+                          activeOpacity={0.7}
+                          onPress={() => setUnsubscribeVisible(true)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('uiText.unsubscribe')}
+                        >
+                          <Text style={styles.accountActionText}>{t('uiText.unsubscribe')}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.accountAction}
+                          activeOpacity={0.7}
+                          onPress={() => rootNav?.navigate('VipTrader')}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('vipTrader.openTitle')}
+                        >
+                          <Text style={styles.accountActionText}>{t('vipTrader.openTitle')}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.accountAction}
+                        activeOpacity={0.7}
+                        onPress={() => setLevelIntroVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('profile.levelIntro')}
+                      >
+                        <Text style={styles.accountActionText}>{t('profile.levelIntro')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.accountAction}
+                      activeOpacity={0.7}
+                      onPress={() => rootNav?.navigate('Login')}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('uiText.oneTapLogin')}
+                    >
+                      <Text style={styles.accountActionText}>{t('uiText.oneTapLogin')}</Text>
+                    </TouchableOpacity>
+                  )
+                }
+              >
+                {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
+                <TouchableOpacity
+                  style={styles.membershipHeader}
+                  onPress={() => setShowMembershipBenefits((v) => !v)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={t('profile.switchBenefit')}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
+                  <View
+                    style={[
+                      styles.membershipArrow,
+                      showMembershipBenefits ? styles.membershipArrowExpanded : null,
+                    ]}
+                  >
+                    <ChevronDown size={24} color={tokens.text.secondary} />
+                  </View>
+                </TouchableOpacity>
+                {showMembershipBenefits ? (
+                  <UserMembershipBenefits
+                    level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
+                    benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
+                      id: b.id,
+                      icon: b.icon,
+                      title: t(b.titleKey),
+                      desc: t(b.descKey),
+                    }))}
+                    onPressUpgrade={() => setLevelIntroVisible(true)}
+                  />
+                ) : null}
+                {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频) */}
+                <ProfileContentSection />
+              </SharedProfileScreen>
             </>
           )}
         </ScrollView>
@@ -1115,7 +1111,7 @@ const LEVEL_INTRO_DATA: readonly {
 
 /**
  * 等级介绍弹窗 — 3 级体系说明(普通用户 / VIP / 操盘手)+ 各等级权益列表 + 关闭按钮。
- * 对齐 Uniapp user/index.vue 等级介绍弹层,在 UserInfoCard 下方独立按钮触发。
+ * 对齐 Uniapp user/index.vue 等级介绍弹层,由用户卡内账户动作行的「等级介绍」触发。
  */
 function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.Element {
   const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
@@ -2056,28 +2052,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: rpx(96),
   },
-  userInfoCardWrap: {
-    marginTop: rpx(16),
+  /** 用户卡内账户动作行(充值/退订或开通会员/等级介绍):一行紧凑胶囊,随卡片宽度换行 */
+  accountActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: rpx(8),
+  },
+  accountAction: {
+    minHeight: rpx(64),
+    justifyContent: 'center',
     paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.muted,
+  },
+  accountActionText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
   },
   contentSection: {
-    // 对齐 Uniapp 20rpx(≈10px)水平 padding
-    paddingHorizontal: rpx(20),
+    // 共享屏 body 已给水平内边距 ⇒ 本段不再叠加第二层(membershipHeader 同)
     paddingBottom: rpx(24),
   },
   // 会员权益折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits)
-  // marginHorizontal 对齐小程序端 .membership-benefits-container 的 mx-[20rpx];
-  // 缺它时这块 bg-card 会通栏贴住屏幕左右,看起来像一条无间距的独立色带。
+  // 本块作为共享屏 children 渲染,水平内边距由共享屏 body 统一提供,端内不再叠加第二层。
   membershipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: rpx(20),
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
-    marginTop: rpx(16),
   },
   membershipHeaderText: {
     fontSize: rnType.strong.size,
@@ -2089,15 +2097,6 @@ const styles = StyleSheet.create({
   },
   membershipArrowExpanded: {
     transform: [{ rotate: '180deg' }],
-  },
-  // 会员权益内容容器(对齐 Uniapp 10rpx(≈5px)与折叠头间距)
-  membershipBenefitsWrap: {
-    marginTop: rpx(10),
-    marginHorizontal: rpx(20),
-  },
-  // UserCard 4 宫格外层(对齐小程序端 <View className="mx-[20rpx]"><UserCard/></View>)
-  userCardWrap: {
-    marginHorizontal: rpx(20),
   },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
@@ -2122,7 +2121,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     padding: rpx(28),
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: tokens.border.light,
   },
   copyLinkBtn: {
     alignSelf: 'center',
@@ -2447,19 +2446,6 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     fontWeight: '500',
     color: tokens.brand.foreground,
-  },
-  // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
-  levelIntroBtn: {
-    alignSelf: 'flex-end',
-    marginTop: rpx(16),
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(12),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.muted,
-  },
-  levelIntroBtnText: {
-    fontSize: rnType.label.size,
-    color: tokens.text.medium,
   },
   // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
   editProfileOverlay: {

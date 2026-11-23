@@ -74,6 +74,7 @@ import {
   Mic,
   Hash,
   FileUp,
+  Gem,
 } from 'lucide-react-native'
 
 type ProfileRoute = keyof RootStackParamList
@@ -111,6 +112,8 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionWallet',
     items: [
       { key: 'Wallet', labelKey: 'menu.wallet', icon: Wallet },
+      // 我的智汇值:原 4 宫格第 4 格唯一目的地,宫格收敛后由钱包段承接
+      { key: 'TokenValue', labelKey: 'tokenValue.title', icon: Gem },
       { key: 'Purchase', labelKey: 'purchase.title', icon: CreditCard, viaParent: true },
       // Finance(2026-09-04 收敛):余额概览并入 Wallet,菜单入口移除
       { key: 'Withdraw', labelKey: 'menu.withdraw', icon: Banknote, viaParent: true },
