@@ -79,6 +79,85 @@ describe('loomy listModels(本机 opencode 运行时 /config 实证 id)', () => 
   })
 })
 
+describe('loomy listModelsDetailed(2026-11-24 真票实弹 /api/v1/models)', () => {
+  beforeEach(() => mockFetch.mockReset())
+
+  it('HTTP 200 + object:list ⇒ ok:true,只收 chat 档;能发现静态表里没有的新模型', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          object: 'list',
+          data: [
+            { id: 'spark-x2.6', name: 'Spark', type: 'chat' },
+            { id: 'deepseek-v4-flash-1017', name: 'DS 1017', type: 'chat' },
+            { id: 'Hy-Image-3.5-preview', name: 'Hy Image', type: 'image' },
+            { id: 'qwen-image-3.0-pro', name: 'Qwen Image', type: 'image' },
+          ],
+        }),
+    })
+    const r = await loomyAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch })
+    expect(r.ok).toBe(true)
+    expect(r.scope).toBe('upstream-account')
+    expect(r.models).toEqual([
+      { name: 'Spark', id: 'spark-x2.6' },
+      { name: 'DS 1017', id: 'deepseek-v4-flash-1017' },
+    ])
+    // 裸 token 头(不是 Authorization: Bearer),且票走 loomySessionToken
+    const init = mockFetch.mock.calls[0][1] as { headers: Record<string, string> }
+    expect(init.headers.token).toBe('loomy-session-token-test')
+    expect(init.headers.Authorization).toBeUndefined()
+  })
+
+  it('会话 JSON 票 ⇒ 只取 session 字段作 token', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ object: 'list', data: [] }),
+    })
+    const ctx = makeCtx()
+    ctx.credentials.token = JSON.stringify({ phone: '1', session: 'abc123', userid: 'u' })
+    const r = await loomyAdapter.listModelsDetailed!(ctx, { fetchImpl: mockFetch })
+    expect(r.ok).toBe(true)
+    const init = mockFetch.mock.calls[0][1] as { headers: Record<string, string> }
+    expect(init.headers.token).toBe('abc123')
+  })
+
+  it('HTTP 200 + code=100002 业务信封 ⇒ ok:false,绝不读成空清单', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ code: '100002', desc: '缺少 token', data: {} }),
+    })
+    const r = await loomyAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch })
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/100002/)
+    expect(r.models).toBeUndefined()
+  })
+
+  it('非 2xx / 形状不符 / 缺票 ⇒ ok:false 且不抛', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401, text: async () => '' })
+    expect((await loomyAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch })).ok).toBe(false)
+
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => 'not-json' })
+    expect((await loomyAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch })).ok).toBe(false)
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ object: 'list', data: 'bad' }),
+    })
+    expect((await loomyAdapter.listModelsDetailed!(makeCtx(), { fetchImpl: mockFetch })).ok).toBe(false)
+
+    const noTicket = makeCtx()
+    noTicket.credentials.token = ''
+    const r = await loomyAdapter.listModelsDetailed!(noTicket, { fetchImpl: mockFetch })
+    expect(r.ok).toBe(false)
+    expect(mockFetch).toHaveBeenCalledTimes(3) // 缺票路径不发请求
+  })
+})
+
 describe('loomy 提取器:目录缺失 ⇒ NO_SESSION(§0.3 未判定)', () => {
   it('roamingDir 不存在 → throw code=LOOMY_NO_SESSION,消息点名目录', async () => {
     const err = await loomyExtract

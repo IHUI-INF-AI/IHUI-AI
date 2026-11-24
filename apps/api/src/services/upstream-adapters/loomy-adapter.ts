@@ -27,8 +27,10 @@ import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
+  ModelListCallOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
+  RelayModelListResult,
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
@@ -84,6 +86,25 @@ const LOOMY_CHAT_URL = 'https://loomyad.xunfei.cn/api/v1/chat/completions'
  *      故不作本端点 —— 个人余额走 points/records 才是稳的。
  */
 const LOOMY_QUOTA_URL = 'https://loomyad.xunfei.cn/api/v1/points/records'
+
+/**
+ * 上游模型清单端点(**2026-11-24 真票实弹取证**,此前头注「无上游清单端点」据此作废)。
+ *
+ * 实证过程(本机 ai_relay_account_pool 的启用号,裸 `token` 头 + loomySessionToken 票):
+ *   GET https://loomyad.xunfei.cn/api/v1/models
+ *     → HTTP 200 + { object:'list', reasoning_catalog_version:'sha256:...',
+ *         data:[{ id, name, object:'model', type:'chat'|'image', protocol,
+ *                 capabilities, ... }, ...] }
+ *     → 无票/坏票:HTTP 200 + { code:'100002', desc:'缺少 token', data:{} }
+ *       (与 quota 端点同款业务信封;100002 = 登录失效,不能读成空清单)
+ *   实弹当日 data 共 9 条(chat 6 / image 3),静态 LOOMY_MODEL_IDS 已过时:
+ *   新增 deepseek-v4-flash-1017 等,缺 deepseek-v4-flash-0731 / mimo-v2.5 —— 正是
+ *   「静态清单发现不了新模型、清不掉旧模型」的活证据,故补这条动态清单通路。
+ *
+ * 语义:只收 `type==='chat'`(图像产出档不入对话清单,与 LOOMY_MODEL_IDS 注释一致);
+ * 失败(非 2xx / 业务 code / 形状不符 / 缺票)一律 ok:false,绝不返空数组冒充「明确无模型」。
+ */
+const LOOMY_MODELS_URL = 'https://loomyad.xunfei.cn/api/v1/models'
 
 /**
  * 模型清单(2026-11-10 本机 opencode 运行时 /config 实读 provider.imodel.models,
@@ -463,9 +484,71 @@ export const loomyAdapter: RelayUpstreamAdapter = {
 
   isAuthFailure,
 
-  /** 模型清单:客户端实证 id 静态登记(见 LOOMY_MODEL_IDS 注释;无上游清单端点) */
+  /** 模型清单:客户端实证 id 静态登记(历史回落通路;动态上游清单见 listModelsDetailed) */
   async listModels(): Promise<string[]> {
     return [...LOOMY_MODEL_IDS]
+  },
+
+  /**
+   * 上游模型清单(2026-11-24 真票实弹,见 LOOMY_MODELS_URL 注释):裸 `token` 头 +
+   * session 票,GET /api/v1/models。成功取 data[].id(type==='chat' 过滤,图像档不入
+   * 对话清单);失败(缺票/业务 code/非 2xx/形状不符)一律 ok:false 且永不抛。
+   * 与静态 listModels 并存:消费方(fetchUpstreamModelIds/admin)优先本方法,
+   * 静态清单仅作无 detailed 时的历史回落。
+   */
+  async listModelsDetailed(
+    ctx: AdapterAccountContext,
+    opts?: ModelListCallOptions,
+  ): Promise<RelayModelListResult> {
+    const ticket = loomySessionToken(ctx.credentials.token)
+    if (!ticket) {
+      return { ok: false, error: '本地缺少 Loomy 会话票(需先导入 loomy-auth-session 的 session 字段)' }
+    }
+    try {
+      const res = await resolveFetchImpl(opts ?? {})(LOOMY_MODELS_URL, {
+        method: 'GET',
+        headers: { accept: 'application/json', token: ticket },
+        ...(opts?.signal ? { signal: opts.signal } : {}),
+      })
+      const text = await res.text().catch(() => '')
+      if (!res.ok) {
+        return { ok: false, error: `Loomy 模型清单 HTTP ${res.status}` }
+      }
+      let obj: unknown
+      try {
+        obj = JSON.parse(text)
+      } catch {
+        return { ok: false, error: 'Loomy 模型清单响应非 JSON' }
+      }
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+        return { ok: false, error: 'Loomy 模型清单响应非对象' }
+      }
+      const body = obj as Record<string, unknown>
+      // 业务错误信封(100002 登录失效等):HTTP 200 + {code,desc,data:{}},
+      // 成功响应是 {object:'list',data:[...]} 无 code —— 有 code 即业务结论,绝不读成空清单
+      if (body['code'] !== undefined) {
+        return {
+          ok: false,
+          error: `Loomy 网关业务错误 code=${String(body['code'])}${body['desc'] ? `: ${String(body['desc']).slice(0, 120)}` : ''}`,
+        }
+      }
+      if (!Array.isArray(body['data'])) {
+        return { ok: false, error: 'Loomy 模型清单响应 data 非数组' }
+      }
+      const models = (body['data'] as unknown[])
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x))
+        .filter((x) => x['type'] === undefined || x['type'] === 'chat') // 图像档不入对话清单
+        .map((x) => {
+          const id = typeof x['id'] === 'string' ? x['id'].trim() : ''
+          const name = typeof x['name'] === 'string' ? x['name'].trim() : ''
+          return id ? { name: name || id, id } : null
+        })
+        .filter((x): x is { name: string; id: string } => x !== null)
+      return { ok: true, scope: 'upstream-account', models }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { ok: false, error: `Loomy 模型清单拉取失败: ${msg}` }
+    }
   },
 
   isAuthError(err: unknown): boolean {
