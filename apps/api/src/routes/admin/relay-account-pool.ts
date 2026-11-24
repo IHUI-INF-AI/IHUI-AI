@@ -1941,7 +1941,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         // qoder 通路:CLI 用本机登录态,不消费库凭据;结果 scope 原样透传(管理页须展示语义)
         const outcome = await adapter.listModelsDetailed(
           { row, credentials: decryptAccountCredentials(row) },
-          {},
+          { proxyUrl: resolveAccountProxyUrl(row.proxyUrl) },
         )
         return reply.send(
           success({
