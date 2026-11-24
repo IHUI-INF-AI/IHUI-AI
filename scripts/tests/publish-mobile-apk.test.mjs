@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { prodCheckoutRoot } from '../lib/prod-checkout-root.mjs'
 import { __test__ as pub } from '../publish-mobile-apk.mjs'
+import { SITE_LEG_PUBLIC_BASE, SITE_LEG_URL_PREFIX } from '../lib/mobile-download-leg.mjs'
 
 const APK_CT = 'application/vnd.android.package-archive'
 
@@ -32,8 +33,14 @@ function fakeFetch(routes) {
 }
 
 test('T1 站点腿公网地址与落点形态(与线上 cdn-server 的 --root 同形)', () => {
-  assert.equal(pub.siteLegUrl('ihui-ai-latest.apk'), 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk')
-  assert.equal(pub.SITE_LEG.RelDir.split(/[\\/]/).join('/'), 'deploy/server-root/downloads/mobile')
+  // 期望值一律向单源取(§0.6):本测不复制判据,只锁"实现与单源同形 + 新代码不得再写旧地址"。
+  // 2026-11-24 统一到 /downloads 后,旧 /remote-images/download 只由 cdn-server 做兼容别名,
+  // 新代码/发布侧一律走 SITE_LEG_URL_PREFIX。
+  const url = pub.siteLegUrl('ihui-ai-latest.apk')
+  assert.equal(url, `${SITE_LEG_PUBLIC_BASE}${SITE_LEG_URL_PREFIX}/ihui-ai-latest.apk`)
+  assert.equal(pub.SITE_LEG.RelDir.split(/[\\/]/).join('/'), `deploy/server-root${SITE_LEG_URL_PREFIX}`)
+  assert.equal(pub.SITE_LEG.UrlPrefix, SITE_LEG_URL_PREFIX, '实现前缀必须与单源一致,不得各自漂移')
+  assert.ok(!url.includes('/remote-images/download'), '新代码不得再写旧地址:旧链接只由 cdn-server 别名兜底')
 })
 
 test('T2 落点选择:只认生产签出,主仓影子目录即使存在也不选(未判定)', () => {
