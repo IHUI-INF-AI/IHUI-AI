@@ -217,6 +217,16 @@ pub enum SandboxAction {
     Kill,
 }
 
+/// 等待一次沙箱会话的结果。
+///
+/// `TimedOut` 不是失败:会话仍在跑,句柄仍有效;只有 `Exited` 才会从后端的
+/// `children` 表里摘掉。未知 handle 走 `Err`,不折成超时——两者原因不同。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaitOutcome {
+    Exited { code: Option<i32> },
+    TimedOut,
+}
+
 /// 在跑沙箱会话的只读快照。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AliveInfo {
@@ -225,14 +235,18 @@ pub struct AliveInfo {
 }
 
 /// 后端统一接口（导出名映射：`init`↔`Init/InitV2`、`is_supported`↔`IsSBoxSupported`、
-/// `create`↔`CreateSandbox`、`action`↔`Action`、`get_alive_infos`↔`GetSBoxInfo`、
-/// `uninit`↔`UnInit`；`kill_all` 是本仓补的批量善后，原生由 `Action` 承担）。
+/// `create`↔`CreateSandbox`、`action`↔`Action`、`wait`↔`WaitSandbox`、
+/// `get_alive_infos`↔`GetSBoxInfo`、`uninit`↔`UnInit`；`kill_all` 是本仓补的批量善后，
+/// 原生由 `Action` 承担）。
 pub trait SandboxBackend {
     fn tier(&self) -> &'static str;
     fn init(&mut self) -> Result<(), String>;
     fn is_supported(&self) -> ProbeState;
     fn create(&mut self, spec: &SandboxSpec) -> Result<u64, String>;
     fn action(&mut self, handle: u64, action: SandboxAction) -> Result<(), String>;
+    /// 等会话结束(`timeout_ms=None` = 一直等)。超时返回 [`WaitOutcome::TimedOut`],
+    /// 会话句柄保留;未知 handle 返回 Err,不冒充超时。
+    fn wait(&mut self, handle: u64, timeout_ms: Option<u64>) -> Result<WaitOutcome, String>;
     fn kill_all(&mut self) -> usize;
     fn get_alive_infos(&self) -> Vec<AliveInfo>;
     fn uninit(&mut self);
@@ -377,6 +391,43 @@ mod job_object_impl {
             }
         }
 
+        fn wait(&mut self, handle: u64, timeout_ms: Option<u64>) -> Result<WaitOutcome, String> {
+            let child = self
+                .children
+                .get_mut(&handle)
+                .ok_or_else(|| format!("未知 handle={handle}"))?;
+            let outcome = match timeout_ms {
+                None => WaitOutcome::Exited {
+                    code: child
+                        .wait()
+                        .map_err(|e| format!("wait 失败 handle={handle}: {e}"))?
+                        .code(),
+                },
+                Some(ms) => {
+                    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(ms);
+                    loop {
+                        if let Some(status) = child
+                            .try_wait()
+                            .map_err(|e| format!("try_wait 失败 handle={handle}: {e}"))?
+                        {
+                            break WaitOutcome::Exited {
+                                code: status.code(),
+                            };
+                        }
+                        if std::time::Instant::now() >= deadline {
+                            break WaitOutcome::TimedOut;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(20));
+                    }
+                }
+            };
+            if matches!(outcome, WaitOutcome::Exited { .. }) {
+                self.children.remove(&handle);
+                self.pids.remove(&handle);
+            }
+            Ok(outcome)
+        }
+
         fn kill_all(&mut self) -> usize {
             let n = self.children.len();
             for (_, mut child) in std::mem::take(&mut self.children) {
@@ -442,6 +493,10 @@ impl SandboxBackend for MicroVmBackend {
     }
 
     fn action(&mut self, _handle: u64, _action: SandboxAction) -> Result<(), String> {
+        Err("micro-vm 后端未实现".to_string())
+    }
+
+    fn wait(&mut self, _handle: u64, _timeout_ms: Option<u64>) -> Result<WaitOutcome, String> {
         Err("micro-vm 后端未实现".to_string())
     }
 
@@ -553,6 +608,43 @@ impl SandboxBackend for PortableJobBackend {
         }
     }
 
+    fn wait(&mut self, handle: u64, timeout_ms: Option<u64>) -> Result<WaitOutcome, String> {
+        let child = self
+            .children
+            .get_mut(&handle)
+            .ok_or_else(|| format!("未知 handle={handle}"))?;
+        let outcome = match timeout_ms {
+            None => WaitOutcome::Exited {
+                code: child
+                    .wait()
+                    .map_err(|e| format!("wait 失败 handle={handle}: {e}"))?
+                    .code(),
+            },
+            Some(ms) => {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_millis(ms);
+                loop {
+                    if let Some(status) = child
+                        .try_wait()
+                        .map_err(|e| format!("try_wait 失败 handle={handle}: {e}"))?
+                    {
+                        break WaitOutcome::Exited {
+                            code: status.code(),
+                        };
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        break WaitOutcome::TimedOut;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+            }
+        };
+        if matches!(outcome, WaitOutcome::Exited { .. }) {
+            self.children.remove(&handle);
+            self.pids.remove(&handle);
+        }
+        Ok(outcome)
+    }
+
     fn kill_all(&mut self) -> usize {
         let n = self.children.len();
         for (_, mut child) in std::mem::take(&mut self.children) {
@@ -594,6 +686,9 @@ impl SandboxBackend for PortableJobBackend {
         Err("本平台无作业级隔离".to_string())
     }
     fn action(&mut self, _h: u64, _a: SandboxAction) -> Result<(), String> {
+        Err("本平台无作业级隔离".to_string())
+    }
+    fn wait(&mut self, _h: u64, _t: Option<u64>) -> Result<WaitOutcome, String> {
         Err("本平台无作业级隔离".to_string())
     }
     fn kill_all(&mut self) -> usize {
@@ -760,6 +855,63 @@ mod tests {
         assert_eq!(b.kill_all(), 1);
         assert!(b.get_alive_infos().is_empty());
         b.uninit();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn job_object_backend_wait_reports_exit_and_timeout_without_eating_handle() {
+        let mut b = JobObjectBackend::new();
+        b.init().expect("作业对象应能建起来");
+
+        // 超时:进程还没退 ⇒ TimedOut,句柄仍在(不是"没等到就当失败")
+        let mut slow = SandboxSpec::new("cmd.exe");
+        slow.args = vec!["/C".into(), "ping -n 4 127.0.0.1 > nul".into()];
+        let slow_handle = b.create(&slow).expect("应能 spawn");
+        assert_eq!(
+            b.wait(slow_handle, Some(50)).expect("wait 不应炸"),
+            WaitOutcome::TimedOut
+        );
+        assert!(b.get_alive_infos().iter().any(|i| i.handle == slow_handle));
+        b.action(slow_handle, SandboxAction::Kill)
+            .expect("超时后应能 kill");
+        assert!(b.get_alive_infos().is_empty());
+
+        // 正常退出:拿得到真实 exit code,并从存活表摘掉
+        let mut quick = SandboxSpec::new("cmd.exe");
+        quick.args = vec!["/C".into(), "exit 3".into()];
+        let quick_handle = b.create(&quick).expect("应能 spawn");
+        assert_eq!(
+            b.wait(quick_handle, Some(5_000)).expect("wait 不应炸"),
+            WaitOutcome::Exited { code: Some(3) }
+        );
+        assert!(b.get_alive_infos().is_empty());
+        b.uninit();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn wait_without_timeout_blocks_until_exit() {
+        let mut b = JobObjectBackend::new();
+        b.init().expect("作业对象应能建起来");
+        let mut spec = SandboxSpec::new("cmd.exe");
+        spec.args = vec!["/C".into(), "exit 5".into()];
+        let handle = b.create(&spec).expect("应能 spawn");
+        // timeout_ms=None ⇒ 一直等到退出,拿到真实 code,并从存活表摘掉
+        assert_eq!(
+            b.wait(handle, None).expect("wait 不应炸"),
+            WaitOutcome::Exited { code: Some(5) }
+        );
+        assert!(b.get_alive_infos().is_empty());
+        b.uninit();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn wait_unknown_handle_is_err_not_timeout() {
+        let mut b = JobObjectBackend::new();
+        b.init().expect("作业对象应能建起来");
+        let err = b.wait(999, Some(10)).expect_err("未知 handle 必须报错");
+        assert!(err.contains("未知 handle=999"));
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
