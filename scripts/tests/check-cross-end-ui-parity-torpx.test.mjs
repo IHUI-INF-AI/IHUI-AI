@@ -219,8 +219,12 @@ test('C6 反向锁:两支真接进 readGeometry,判据住在共享 lib 且门体
   // 2026-11-02 Phase 4 顺带修:Phase 3 票4 给 readGeometry 加了 `dims` 覆盖面格(五维读数),
   // 旧锁按 `{ ..., cssVar }` 精确结尾 ⇒ 该票落地当天就红在 HEAD 上。锁改为要求两格都在,
   // 判据强度不变(仍禁"少格"),只是不再把"多一格"当成"少格"。
+  // 返回形状必须同时含 cssVar 与 dims 两格；**多一格不算少格**（这条注释自己立的规矩：
+  // Phase 3 票4 加 `dims` 时旧锁还在按精确结尾匹配，落地当天就红在 HEAD 上）。
+  // 2026-11-24：`readGeometry` 又加了 `hints`（每档来源行，修 10 条单端档无出处），
+  // 精确匹配第三次制造恒红 ⇒ 改成"两格都在 + 允许额外格"。
   assert.ok(
-    /return \{ values, named, unreadable, cssVar, dims \}/.test(body),
+    /\breturn \{[^}]*\bcssVar\b[^}]*\bdims\b[^}]*\}/.test(body),
     '未判定/解值覆盖面没接进返回形状',
   )
   assert.ok(
