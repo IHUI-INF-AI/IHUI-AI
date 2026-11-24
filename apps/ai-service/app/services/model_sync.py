@@ -215,6 +215,32 @@ _PROVIDER_CODE_TO_CFG_NAME: dict[str, str] = {
     "opencode_zen": "opencode",
 }
 
+# 号池反代平台所有权分离(2026-11-24 机主「必须全自动」定档)。
+#
+# 背景(实测双写冲突):本服务(model_sync)管「直连厂商」——按各家 /v1/models 拉清单、
+# 上游消失即**物理删除** ai_model_config_models 行;而 apps/api 的 relay-models-sync
+# 管「号池反代平台」——按号池账号上游清单拉模型、消失仅**软下架 enabled=false**、可复活。
+# 两边都按 provider_code 命中同一个 ai_model_config 父行(owner_uuid IS NULL)。
+# 交集三家 qoder / minimax / doubao 同时出现在两边 registry:结果就是本服务每 6 小时
+# 把 relay 自动登记的模型(尤其 qoder 默认 is_relay_public=false 的新行)当 stale 物理删掉,
+# 还会用 ON CONFLICT 把 relay 刻意设私有的状态覆盖成公开 —— 自动上架/下架被另一常驻引擎
+# 静默回滚,正是「自动同步看似配了却不生效」的根因。
+#
+# 仲裁:号池反代平台的模型目录**唯一所有者 = apps/api relay-models-sync**,本服务一律跳过。
+# 名单与 apps/api/src/services/relay-account-format.ts 的 RELAY_PROVIDERS 严格对齐;
+# 新增号池平台时需同步此处(有跨语言守门测试钉死两份名单一致,见
+# apps/ai-service/tests/test_relay_ownership_boundary.py)。直连厂商(其余全部)不受影响。
+RELAY_OWNED_PROVIDER_CODES: frozenset[str] = frozenset({
+    "trae", "workbuddy", "codearts", "qoder", "codex", "opencode",
+    "minimax", "zcode", "loomy", "doubao", "lingma", "grokbot",
+    "raccoon", "cursor",
+})
+
+
+def is_relay_owned_provider(provider_code: str) -> bool:
+    """该 provider 的模型目录是否由 apps/api 号池链路独占(本服务跳过)。"""
+    return provider_code in RELAY_OWNED_PROVIDER_CODES
+
 
 def _to_cfg_name(provider_code: str) -> str:
     """provider_code → LLM_PROVIDERS JSON name(用于读 settings.get_provider_config)。"""
@@ -594,6 +620,17 @@ class ModelSyncService:
 
         start_time = datetime.now(UTC)
 
+        # 号池反代平台所有权仲裁(见模块常量注释):admin 手动单厂同步同样不得越过边界,
+        # 否则会把 relay 自动登记的行物理删除/私有状态覆盖,让自动上架被静默回滚。
+        if is_relay_owned_provider(provider_code):
+            self._status.is_syncing = False
+            msg = (
+                f"provider {provider_code} 是号池反代平台,模型目录由 apps/api "
+                "relay-models-sync 独占;请使用该链路同步,本服务拒绝以免删除 relay 行"
+            )
+            logger.warning("[ModelSyncService] %s", msg)
+            raise ValueError(msg)
+
         # 在 registry 中找该 provider
         provider = free_provider_registry.get_by_code(provider_code)
         if provider is None:
@@ -705,6 +742,15 @@ class ModelSyncService:
         result: list[tuple[str, str, str]] = []
         for provider in free_provider_registry.list_all():
             code = provider.provider_code
+            # 号池反代平台由 apps/api relay-models-sync 独占(所有权仲裁,见模块常量注释)。
+            # 必须放在最前:交集三家 qoder/minimax/doubao 若被本服务拉清单,会把 relay
+            # 自动登记的行物理删除/覆盖私有状态,让自动上架失效。
+            if is_relay_owned_provider(code):
+                logger.debug(
+                    "[ModelSyncService] %s 号池反代平台由 relay-models-sync 独占,本服务跳过",
+                    code,
+                )
+                continue
             # zero_cost / LOCAL provider 不需要同步模型清单
             if provider.zero_cost or provider.category == ProviderCategory.LOCAL:
                 continue
