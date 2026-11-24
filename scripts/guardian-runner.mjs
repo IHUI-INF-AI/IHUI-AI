@@ -8194,6 +8194,29 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 反向 staged 根治兜底(2026-11-24 第 327 项,连踩两次后的结构性拦截)-------------
+  // 手敲 GIT_INDEX_FILE + commit-tree + CAS update-ref 推进 HEAD 后,共享索引里我改过的文件
+  // 仍是父提交旧 blob ⇒ 相对新 HEAD 成"反向 staged"。他席一次不带 pathspec 的裸提交就把
+  // 本轮交付整批写回旧版,且提交成功后历史看不出异常。object-space-land.mjs 自带
+  // alignSharedIndex 从源头消除;本门拦住任何绕过该通道的手搓(判据只认 git 事实,不读工作树)。
+  {
+    id: '327',
+    label: '🔁 共享索引反向 staged 拦截(对象空间手搓漏 reconcile ⇒ 他席裸提交回退本轮交付)',
+    script: 'check-index-reverse-staged.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    onFailHint: [
+      '',
+      '  💡 共享索引中有路径的 staged blob 恰好是 HEAD 的某个祖先版本 —— 对象空间提交手敲配方漏了索引回同步。',
+      '     后果:他席下一次不带 pathspec 的 git commit 会把这批交付整批写回旧版,且事后从历史看不出异常。',
+      '     根治:对象空间提交只走 scripts/object-space-land.mjs(内建 alignSharedIndex,他席真 staged 的不动并点名)。',
+      '     单次修复:门体输出逐条打印了 git update-index --cacheinfo 命令,在共享索引上执行后复跑本门。',
+      '     单独复现:node scripts/check-index-reverse-staged.mjs [--json] [--self-test]。',
+      '     本门刻意不设跳过开关:留了 env 就会在赶时间那一刻被一键关掉,而它管的恰恰是事后极难察觉的回退。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
