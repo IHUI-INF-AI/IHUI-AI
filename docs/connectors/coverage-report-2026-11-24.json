@@ -58,7 +58,7 @@
       "caveat": "本轮补齐的是目录全量性，不是接口可用性探测。探测数据仍为引擎修复前的旧结果，不可直接作为可用性结论；须在能连通服务的环境用修复版引擎重跑。"
     },
     "availability_engineering": {
-      "updated_at": "2026-11-24T14:15:00+08:00",
+      "updated_at": "2026-11-24T15:15:00+08:00",
       "goal": "用户扫码授权自己账号后 AI 都能调得通",
       "code_changes": [
         "api_to_operation 将 GET 恒判为安全读语义：修复钉钉51+企微4条被 validate 静默丢弃（3926条 operation 全量零丢弃）",
@@ -76,8 +76,8 @@
       },
       "limits": [
         "钉钉/企微 OAuth 端点未经官方文档核实，provider 显式 disabled，不编造 URL；当前仅飞书可扫码授权",
-        "本地无 FEISHU_APP_ID/SECRET 等平台凭据，未做真实扫码→真实 API 调用的端到端验证；代码链路与单测闭环，真调通需平台管理员配置凭据+重定向白名单后实测",
-        "需配置环境变量 CONNECTOR_OAUTH_REDIRECT_URI（与飞书应用后台重定向URL一致）及可选 CONNECTOR_OAUTH_UI_REDIRECT",
+        "项目既有配置已齐：apps/ai-service/.env 中 FEISHU_APP_ID/FEISHU_APP_SECRET 为实配值，.env.production.example 中 FEISHU_REDIRECT_URI=https://bsm.aizhs.top/callback?platform=feishu 已配；连接器 OAuth 直接复用这套配置（见 _oauth_redirect_uri 优先级），无需新增环境变量或平台管理员配置",
+        "未在本机做真实扫码→真实 API 调用的端到端验证（需真实飞书用户账号交互）；代码链路与单测闭环，配置层面已不存在缺口",
         "user token 刷新后写回内存副本，本次调用生效；跨重启持久化依赖下次授权/刷新，未做落库回写（改进项）",
         "覆盖探测仍用 tenant 连接器，user 类接口预判定 need_user_token；新增的 feishu:user-oauth 连接器尚未接入探测面"
       ]

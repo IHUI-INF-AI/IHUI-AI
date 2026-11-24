@@ -292,3 +292,37 @@ async def test_callback_exchanges_code_and_stores_encrypted_token(monkeypatch):
     spec = ConnectorSpec.from_dict(stored["spec"])
     headers, _ = await custom_http._auth_parts(stored, spec)
     assert headers["Authorization"] == "Bearer u-from-code"
+
+
+# ---------------------------------------------------------------------------
+# 回调地址:复用项目既有配置，不另造新变量
+# ---------------------------------------------------------------------------
+
+
+def test_oauth_redirect_reuses_existing_feishu_config(monkeypatch):
+    """生产/开发都已配好飞书回调；连接器授权必须直接复用，不得要求新增配置。"""
+    from app.routers import connectors as router_mod
+
+    for name in (
+        "CONNECTOR_OAUTH_REDIRECT_URI",
+        "FEISHU_REDIRECT_URI",
+        "NEXT_PUBLIC_FEISHU_REDIRECT_URI",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    # 生产示例 .env.production.example 里早已配置的值
+    monkeypatch.setenv("FEISHU_REDIRECT_URI", "https://bsm.aizhs.top/callback?platform=feishu")
+    assert router_mod._oauth_redirect_uri() == "https://bsm.aizhs.top/callback?platform=feishu"
+
+    # Web 侧既有配置也可作为来源
+    monkeypatch.delenv("FEISHU_REDIRECT_URI")
+    monkeypatch.setenv("NEXT_PUBLIC_FEISHU_REDIRECT_URI", "http://localhost:8801/callback?platform=feishu")
+    assert router_mod._oauth_redirect_uri() == "http://localhost:8801/callback?platform=feishu"
+
+    # 显式覆盖仍最高优先
+    monkeypatch.setenv("CONNECTOR_OAUTH_REDIRECT_URI", "https://custom.example.com/cb")
+    assert router_mod._oauth_redirect_uri() == "https://custom.example.com/cb"
+
+    monkeypatch.delenv("CONNECTOR_OAUTH_REDIRECT_URI")
+    monkeypatch.delenv("NEXT_PUBLIC_FEISHU_REDIRECT_URI")
+    assert router_mod._oauth_redirect_uri() == ""

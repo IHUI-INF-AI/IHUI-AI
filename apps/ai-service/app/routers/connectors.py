@@ -374,13 +374,25 @@ async def list_connectors(
 
 
 def _oauth_redirect_uri() -> str:
-    """OAuth 回调地址:必须显式配置,且平台应用后台需把同值加入重定向 URL 白名单。
+    """OAuth 回调地址 —— 复用平台既有的重定向配置，不另造一个新变量。
 
-    不猜测对外域名(生产前面有反代/多域名,猜错会让 code 回调到错误 host)。
+    优先级（与既有登录链路同源，可在已配好的项目上开箱即用）：
+      1. ``CONNECTOR_OAUTH_REDIRECT_URI``：仅当需要与登录回调不同地址时显式覆盖；
+      2. ``FEISHU_REDIRECT_URI``：``.env.production.example`` 中早已配置的飞书回调；
+      3. ``NEXT_PUBLIC_FEISHU_REDIRECT_URI``：Web 侧早已配置的同值回调。
+    这三者在同一个飞书应用的「重定向 URL」白名单里本就登记过，无需平台管理员新增配置。
     """
     import os
 
-    return str(os.environ.get("CONNECTOR_OAUTH_REDIRECT_URI") or "").strip()
+    for name in (
+        "CONNECTOR_OAUTH_REDIRECT_URI",
+        "FEISHU_REDIRECT_URI",
+        "NEXT_PUBLIC_FEISHU_REDIRECT_URI",
+    ):
+        value = str(os.environ.get(name) or "").strip()
+        if value:
+            return value
+    return ""
 
 
 @router.get("/oauth/callback", response_model=None)
@@ -421,7 +433,7 @@ async def oauth_callback(
         cred = managed.credentials(platform, scope=scope)
         redirect_uri = _oauth_redirect_uri()
         if not redirect_uri:
-            raise connector_oauth.ConnectorOAuthError("未配置 CONNECTOR_OAUTH_REDIRECT_URI(需与平台应用后台重定向 URL 一致)")
+            raise connector_oauth.ConnectorOAuthError("未配置 OAuth 回调地址：请设置 FEISHU_REDIRECT_URI（生产示例已配）或 CONNECTOR_OAUTH_REDIRECT_URI")
 
         async def _http_json(url: str, body: dict[str, Any]) -> dict[str, Any]:
             import httpx
@@ -529,7 +541,7 @@ async def oauth_authorize(
             raise connector_oauth.ConnectorOAuthError("平台应用凭据缺少 app_id")
         redirect = redirect_uri.strip() or _oauth_redirect_uri()
         if not redirect:
-            raise connector_oauth.ConnectorOAuthError("未配置 CONNECTOR_OAUTH_REDIRECT_URI(需与平台应用后台重定向 URL 一致)")
+            raise connector_oauth.ConnectorOAuthError("未配置 OAuth 回调地址：请设置 FEISHU_REDIRECT_URI（生产示例已配）或 CONNECTOR_OAUTH_REDIRECT_URI")
         # state 带全 scope/tenant_id/user_id,回调原样回传,
         # 使令牌落到与 list/invoke 相同的作用域(否则 AI 看不到也调不到)。
         state = connector_oauth.make_state(
