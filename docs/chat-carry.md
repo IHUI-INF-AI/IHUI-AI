@@ -132,6 +132,8 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 # 然后在豆包(目标号)设置 → 数据导入与同步 → ChatGPT → 选 conversations.json
 ```
 
+> **待真机确认的一点(不夸大)**:官方报道确认「导入入口 + 导入后逐条可续聊」,但没有逐字说明 ChatGPT 来源收的是裸 `conversations.json` 还是 ChatGPT 原生 ZIP 包。本器产出的是标准裸 `conversations.json`;若客户端文件选择框只认 ZIP,把它压进 zip 再选即可(内容不变)。另据报道还有「导入其他AI应用 / 去对话中导入」备用入口,部分来源无法识别时可走它。这一步是本方案唯一需要用户在豆包 UI 点选的环节。
+
 ### 文本回放兜底(不推荐,仅保留兼容)
 
 `node scripts/doubao-carry.mjs --replay <归档目录> --apply` 仍可用,但它把旧对话压成一条文本重发、服务端重新生成回复、丢消息结构、耗新号额度,主路径已不再默认调用。
