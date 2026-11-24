@@ -71,7 +71,7 @@ import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas
 
 // BUG-80:过滤键名与 @ihui/types 的 NotificationListFilters 收敛到唯一真相源 `unread`;
 // 旧版 api-client 的 `isRead` 不在本 schema 内(z.object 默认 strip),不再被误当作过滤开关。
-const listNotificationsQuery = z
+export const listNotificationsQuery = z
   .object({
     ...paginationQuery,
     type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
