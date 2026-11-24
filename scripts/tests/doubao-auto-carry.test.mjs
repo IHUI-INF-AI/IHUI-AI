@@ -172,3 +172,39 @@ test('⑩ export 成功后自动产出 ChatGPT conversations.json 导入文件(�
     fs.rmSync(tmp, { recursive: true, force: true })
   }
 })
+
+test('⑪ 双格式：realBuildImportFile 同时产出裸 JSON 与 ZIP', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const nodePath = await import('node:path')
+  const tmp = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'doubao-dual-'))
+  try {
+    const archive = nodePath.join(tmp, 'archive')
+    fs.mkdirSync(archive, { recursive: true })
+    fs.writeFileSync(
+      nodePath.join(archive, 'index.json'),
+      JSON.stringify({ conversations: [{ conversationId: 'c1', name: '会话', file: 'c1.json' }] }),
+    )
+    fs.writeFileSync(
+      nodePath.join(archive, 'c1.json'),
+      JSON.stringify({
+        conversationId: 'c1', name: '会话',
+        messages: [{ role: 'user', content: '问', index: 1 }],
+      }),
+    )
+    const out = nodePath.join(tmp, 'out', 'conversations.json')
+    const { realBuildImportFile } = await import('../lib/doubao-auto-carry.mjs')
+    const r = realBuildImportFile({ archiveDir: archive, outFile: out })
+    assert.equal(r.ok, true)
+    assert.equal(r.file, out)
+    assert.equal(r.zipFile, nodePath.join(tmp, 'out', 'conversations.zip'))
+    assert.ok(fs.existsSync(r.file), '裸 JSON 存在')
+    assert.ok(fs.existsSync(r.zipFile), 'ZIP 存在')
+    // ZIP 用 Python 风格魔数校验头
+    const z = fs.readFileSync(r.zipFile)
+    assert.equal(z.readUInt32LE(0), 0x04034b50, 'ZIP local header 魔数')
+    assert.ok(r.note.includes('ZIP'), 'note 点名 ZIP 让用户优先选')
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})

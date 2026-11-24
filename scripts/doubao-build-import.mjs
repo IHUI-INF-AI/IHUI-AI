@@ -19,7 +19,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { buildConversationsJson, validateConversationsJson } from './lib/doubao-chatgpt-format.mjs'
+import {
+  buildConversationsJson,
+  buildStoreZip,
+  validateConversationsJson,
+  zipPathFor,
+} from './lib/doubao-chatgpt-format.mjs'
+
+// 对外再导出:CLI 与切号腿都从单一真相源 lib 取,测试可直接从 CLI 导入
+export { buildStoreZip, zipPathFor }
 
 export function argValue(argv, name) {
   const i = argv.indexOf(name)
@@ -65,10 +73,12 @@ export function run(argv = process.argv.slice(2), deps = {}) {
   if (!validation.ok) {
     return { code: 'format-invalid', message: `生成的导入文件格式不合法:${validation.code}` }
   }
+  const zFile = zipPathFor(outFile)
   const summary = {
     code: 'ok',
     archiveDir,
     outFile,
+    zipFile: zFile,
     conversations: built.conversations.length,
     skipped: built.skipped.length,
     messages: built.conversations.reduce(
@@ -80,7 +90,11 @@ export function run(argv = process.argv.slice(2), deps = {}) {
   if (!apply) return summary
   try {
     fsImpl.mkdirSync(path.dirname(outFile), { recursive: true })
-    fsImpl.writeFileSync(outFile, `${JSON.stringify(built.conversations, null, 2)}\n`, 'utf8')
+    const json = Buffer.from(`${JSON.stringify(built.conversations, null, 2)}\n`, 'utf8')
+    fsImpl.writeFileSync(outFile, json)
+    // 双格式:ZIP 内 conversations.json 与 ChatGPT 原生导出同形(根目录裸文件名)
+    const zip = buildStoreZip([{ name: 'conversations.json', data: json }])
+    fsImpl.writeFileSync(zFile, zip)
   } catch (e) {
     return { ...summary, code: 'write-failed', message: e instanceof Error ? e.message : String(e) }
   }
@@ -95,7 +109,8 @@ function main() {
   }
   process.stdout.write(
     `豆包导入文件: 会话 ${r.conversations} / 消息 ${r.messages} / 跳过 ${r.skipped}` +
-      `\n输出: ${r.outFile}` +
+      `\n裸 JSON: ${r.outFile}` +
+      `\nZIP(推荐): ${r.zipFile}` +
       `\n${r.applied ? '已写入(--apply)' : '干跑:未写文件,加 --apply 落盘'}\n`,
   )
 }
@@ -103,4 +118,4 @@ function main() {
 const isDirect = typeof process.argv[1] === 'string' && /doubao-build-import\.mjs$/.test(process.argv[1])
 if (isDirect) main()
 
-export const __test__ = { readArchiveBodies, run }
+export const __test__ = { readArchiveBodies, buildStoreZip, zipPathFor, run }

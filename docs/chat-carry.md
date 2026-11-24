@@ -113,8 +113,14 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 ### 现在的链路
 
-写回前(旧号 cookie):`export` 逐条导出归档 → 转 ChatGPT `conversations.json` 导入文件;
-写回后(新号 cookie):窗口点名该文件路径,用户在豆包设置里选它导入 ⇒ 逐条原生会话落入新号。
+写回前(旧号 cookie):`export` 逐条导出归档 → 转 ChatGPT 导入文件,**双格式同时产出**
+(`conversations.zip` 优先 + 裸 `conversations.json` 回退);消息保真:
+- 纯文本(ct=1)/ 长文本(ct=9999):原样 part
+- 图片(ct=20):从 `entities[].image.image_ori.url` 抽 URL → 标准 `image_url` 多模态 part
+  + `[图片] URL` 文本兜底(实测图片 URL 有效期到 2036 年,HTTP 200 可访问)
+- 语音(ct=101):抽 `asr_content` / `summary_content.content` 转写文本
+
+写回后(新号 cookie):窗口点名 ZIP + 裸 JSON 两个路径,用户在豆包设置里任选一个导入 ⇒ 逐条原生会话落入新号。
 
 事实源:
 - `scripts/lib/doubao-auto-carry.mjs` —— 两阶段编排 + `realBuildImportFile` / `prepareImport`
@@ -122,17 +128,20 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 - `scripts/doubao-build-import.mjs` —— 独立 CLI(可对已有归档补生成导入文件)
 - `apps/api/scripts/relay-login-local-verified.ts` —— 时序编排(写回前 export、写回后 prepareImport)
 
-**与 Trae 的等价点**:逐条原样、上下文完整、不重新生成、不消耗新号额度、图片文本线索保留。
+**与 Trae 的等价点**:逐条原样、上下文完整、不重新生成、不消耗新号额度、图片以 URL 形式保真(不再是文本线索)、语音转写保留。
 **唯一差别**:最后「选文件导入」一步由用户在豆包设置里点(官方通道要求,没有开放 API;比旧版两条命令+AI 重生成已是量级提升)。任一腿失败只记 note、不翻转切号成败。
 
 **手动生成导入文件**(未走一键入口、或要对旧归档补做):
 
 ```bash
 node scripts/doubao-build-import.mjs --archive <归档目录> --out conversations.json --apply
-# 然后在豆包(目标号)设置 → 数据导入与同步 → ChatGPT → 选 conversations.json
+# 产出两份:conversations.json(裸) + conversations.zip(同形 ZIP,内含 conversations.json)
+# 然后在豆包(目标号)设置 → 数据导入与同步 → ChatGPT → 优先选 ZIP,不认再选裸 JSON
 ```
 
-> **待真机确认的一点(不夸大)**:官方报道确认「导入入口 + 导入后逐条可续聊」,但没有逐字说明 ChatGPT 来源收的是裸 `conversations.json` 还是 ChatGPT 原生 ZIP 包。本器产出的是标准裸 `conversations.json`;若客户端文件选择框只认 ZIP,把它压进 zip 再选即可(内容不变)。另据报道还有「导入其他AI应用 / 去对话中导入」备用入口,部分来源无法识别时可走它。这一步是本方案唯一需要用户在豆包 UI 点选的环节。
+> **格式不确定已双载体兜底**:官方报道确认「导入入口 + 导入后逐条可续聊」,但没逐字说明 ChatGPT 来源收裸 `conversations.json` 还是 ChatGPT 原生 ZIP。本器**两份都产出**(ZIP 用零依赖 store 模式,+CRC 校验,已用 Python `zipfile` 独立验证结构/内容逐字节一致),用户哪个能选选哪个。另据报道还有「导入其他AI应用 / 去对话中导入」备用入口,部分来源无法识别时可走它。这一步是本方案唯一需要用户在豆包 UI 点选的环节。
+>
+> **多模态保真边界(不夸大)**:图片导出的是豆包 CDN 的带签名 URL(实测有效期到 2036 年),不是图片二进制文件;导入后能否渲染取决于豆包导入器对 ChatGPT `image_url` 多模态 part 的支持程度 —— 即便不渲染,`[图片] URL` 文本兜底也保证线索不丢。语音转写同理(纯文本,无音频文件)。
 
 ### 文本回放兜底(不推荐,仅保留兼容)
 

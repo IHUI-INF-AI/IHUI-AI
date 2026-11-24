@@ -37,7 +37,12 @@ import {
   readDoubaoCookie as realReadCookie,
   replayArchive as realReplayArchive,
 } from './doubao-carry.mjs'
-import { buildConversationsJson, validateConversationsJson } from './doubao-chatgpt-format.mjs'
+import {
+  buildConversationsJson,
+  buildStoreZip,
+  validateConversationsJson,
+  zipPathFor,
+} from './doubao-chatgpt-format.mjs'
 
 /** 真依赖集(生产默认);测试经 opts.deps 整包或逐项替换 */
 function resolveDeps(overrides = {}) {
@@ -77,18 +82,23 @@ export function realBuildImportFile({ archiveDir, outFile, deps = {} }) {
         note: `豆包导入文件生成失败:格式校验 ${check.code};写回照常` }
     }
     fsImpl.mkdirSync(pathImpl.dirname(outFile), { recursive: true })
-    fsImpl.writeFileSync(outFile, `${JSON.stringify(built.conversations, null, 2)}\n`, 'utf8')
+    const json = Buffer.from(`${JSON.stringify(built.conversations, null, 2)}\n`, 'utf8')
+    fsImpl.writeFileSync(outFile, json)
+    // 双格式:裸 JSON + 同形 ZIP(消除豆包 ChatGPT 来源收哪种格式的不确定)
+    const zFile = zipPathFor(outFile)
+    fsImpl.writeFileSync(zFile, buildStoreZip([{ name: 'conversations.json', data: json }]))
     const messages = built.conversations.reduce(
       (n, c) => n + Object.values(c.mapping).filter((x) => x?.message).length, 0)
     return {
       ok: true,
       code: 'ok',
       file: outFile,
+      zipFile: zFile,
       conversations: built.conversations.length,
       messages,
       note:
         `豆包无缝迁移准备 ✓ ${built.conversations.length} 个会话 / ${messages} 条逐条消息` +
-        ` → ${outFile}(已跳过 ${built.skipped.length} 个空会话)`,
+        ` → 裸JSON ${outFile} / ZIP ${zFile}(导入优先选 ZIP,已跳过 ${built.skipped.length} 个空会话)`,
     }
   } catch (e) {
     return { ok: false, code: 'build-import-threw', file: null, conversations: 0, messages: 0,
@@ -117,7 +127,7 @@ async function cookieOf(readCookie, profileDir, phase) {
  * @param {string} [opts.profileDir] 豆包 profile 目录(测试注入)
  * @param {object} [opts.deps] 依赖注入(测试绝真读 cookie/真发网络)
  * @returns {Promise<{ok:boolean, code:string, archiveDir:string|null, exported:number,
- *   totalMessages:number, importFile:string|null, importConversations:number, note:string}>}
+ *   totalMessages:number, importFile:string|null, importZipFile:string|null, importConversations:number, note:string}>}
  */
 export async function exportBeforeSwitch(opts = {}) {
   const deps = resolveDeps(opts.deps)
@@ -132,6 +142,7 @@ export async function exportBeforeSwitch(opts = {}) {
       exported: 0,
       totalMessages: 0,
       importFile: null,
+      importZipFile: null,
       importConversations: 0,
       note: `豆包对话导出未执行:归档目录创建失败(${e instanceof Error ? e.message : String(e)})`,
     }
@@ -145,6 +156,7 @@ export async function exportBeforeSwitch(opts = {}) {
       exported: 0,
       totalMessages: 0,
       importFile: null,
+      importZipFile: null,
       importConversations: 0,
       note: `豆包对话导出未执行:旧号登录态不可用(${cookie.message});已跳过,写回照常`,
     }
@@ -160,6 +172,7 @@ export async function exportBeforeSwitch(opts = {}) {
       exported: 0,
       totalMessages: 0,
       importFile: null,
+      importZipFile: null,
       importConversations: 0,
       note: `豆包对话导出失败:${e instanceof Error ? e.message : String(e)};已跳过,写回照常`,
     }
@@ -172,6 +185,7 @@ export async function exportBeforeSwitch(opts = {}) {
       exported: 0,
       totalMessages: 0,
       importFile: null,
+      importZipFile: null,
       importConversations: 0,
       note: `豆包对话导出失败:${res?.message ?? res?.code ?? '未知'};已跳过,写回照常`,
     }
@@ -187,6 +201,7 @@ export async function exportBeforeSwitch(opts = {}) {
     exported: res.exported ?? 0,
     totalMessages: res.totalMessages ?? 0,
     importFile: imp.ok ? imp.file : null,
+    importZipFile: imp.ok ? imp.zipFile ?? null : null,
     importConversations: imp.conversations ?? 0,
     note:
       `豆包对话导出 ✓ 旧号 ${res.exported ?? 0} 个会话 / ${res.totalMessages ?? 0} 条消息` +
@@ -275,17 +290,19 @@ export async function replayAfterSwitch(opts = {}) {
  * → ChatGPT → 选择 conversations.json」完成,导入后会话逐条原生落入新号、可接着聊。
  * 这是当前豆包能达到的、与 Trae 等价的「无缝续聊」:内容逐条原样、上下文完整、无 AI 重生成。
  *
- * @returns {{ok:boolean, code:string, importFile:string|null, conversations:number,
+ * @returns {{ok:boolean, code:string, importFile:string|null, importZipFile:string|null, conversations:number,
  *   steps:string[], note:string}}
  */
 export function prepareImport(opts = {}) {
   const ea = opts.exportResult ?? null
   const file = ea.ok === true ? ea.importFile ?? null : null
+  const zipFile = ea.ok === true ? ea.importZipFile ?? null : null
   if (!file) {
     return {
       ok: false,
       code: 'no-import-file',
       importFile: null,
+      importZipFile: null,
       conversations: 0,
       steps: [],
       note: '豆包无缝迁移未执行:写回前没拿到导入文件(导出失败);登录态已切好,旧对话仍在新号云端之外',
@@ -302,6 +319,7 @@ export function prepareImport(opts = {}) {
       ok: false,
       code: 'import-file-missing',
       importFile: file,
+      importZipFile: zipFile,
       conversations: ea.importConversations ?? 0,
       steps: [],
       note: `豆包导入文件不在了:${file};写回照常,需在旧号登录态重新导出`,
@@ -312,14 +330,15 @@ export function prepareImport(opts = {}) {
     ok: true,
     code: 'ok',
     importFile: file,
+    importZipFile: zipFile,
     conversations: n,
     steps: [
       '打开豆包(已登新号) → 左下角头像 → 设置 → 数据导入与同步',
-      '来源选 ChatGPT → 上传 conversations.json',
+      `来源选 ChatGPT → 上传 ${zipFile ?? file}(ZIP 优先,不认再试裸 conversations.json)`,
       '导入完成后在会话列表打开旧会话,逐条上下文原样保留,直接接着聊',
     ],
     note:
-      `豆包无缝迁移已备好 ✓ ${n} 个会话的逐条原生对话 → ${file};` +
+      `豆包无缝迁移已备好 ✓ ${n} 个会话的逐条原生对话 → ZIP ${zipFile ?? '(未生成)'} / 裸JSON ${file};` +
       '在豆包设置「数据导入与同步」选 ChatGPT 导入即可接着聊(不重生成、不耗额度)',
   }
 }

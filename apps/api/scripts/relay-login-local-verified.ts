@@ -500,7 +500,8 @@ export function main(argv: string[], io: MainIo = {}): number {
           ? [
               `豆包迁移: export=${(r.doubaoCarry.export as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}` +
                 ` import=${(r.doubaoCarry.replay as { ok?: boolean } | null)?.ok ? 'ready' : 'skip/fail'}` +
-                ` 导入文件=${(r.doubaoCarry.export as { importFile?: string } | null)?.importFile ?? '-'}`,
+                ` ZIP=${(r.doubaoCarry.export as { importZipFile?: string } | null)?.importZipFile ?? '-'}` +
+                ` 裸JSON=${(r.doubaoCarry.export as { importFile?: string } | null)?.importFile ?? '-'}`,
             ]
           : []),
         r.after

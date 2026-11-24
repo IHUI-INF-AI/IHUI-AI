@@ -8,6 +8,7 @@ import { test } from 'node:test'
 import {
   buildConversationsJson,
   toChatGptConversation,
+  toParts,
   toUnixSeconds,
   validateConversationsJson,
 } from '../lib/doubao-chatgpt-format.mjs'
@@ -98,4 +99,41 @@ test('⑤ 校验器能抓坏结构（非数组/无 mapping/坏 current_node/环�
 test('⑥ 无头命名兜底：会话名为空不产生空标题', () => {
   const conv = toChatGptConversation({ name: '   ', messages: [{ role: 'user', content: 'x', index: 1 }] })
   assert.equal(conv.title, '未命名会话')
+})
+
+test('⑦ 图片消息(ct=20)：抽 URL 成 image_url part + 文本兜底，不再塞原始 JSON', () => {
+  const content = JSON.stringify({
+    entities: [
+      { entity_content: { image: { key: 'k1', image_ori: { url: 'https://img/a.png' } } } },
+      { entity_content: { image: { key: 'k2', image_raw: { url: 'https://img/b.jpg' } } } },
+    ],
+  })
+  const parts = toParts({ content, contentType: 20 })
+  assert.ok(parts.some((p) => p?.type === 'image_url' && p.image_url.url === 'https://img/a.png'))
+  assert.ok(parts.some((p) => p?.type === 'image_url' && p.image_url.url === 'https://img/b.jpg'))
+  assert.ok(parts.some((p) => typeof p === 'string' && p.includes('[图片] https://img/a.png')))
+  assert.ok(!parts.some((p) => typeof p === 'string' && p.includes('entities')))
+})
+
+test('⑧ 语音消息(ct=101)：抽出 asr 转写文本，非原始 JSON', () => {
+  const content = JSON.stringify({ asr_content: '今天天气不错', summary_content: { content: '天气不错' } })
+  const parts = toParts({ content, contentType: 101 })
+  assert.equal(parts.length, 1)
+  assert.ok(parts[0].includes('[语音转写] 今天天气不错'))
+  assert.ok(!parts[0].includes('asr_content'))
+})
+
+test('⑨ 多模态 content_type：图片 part 使 content_type=multimodal_text', () => {
+  const content = JSON.stringify({ entities: [{ entity_content: { image: { image_ori: { url: 'https://img/c.png' } } } }] })
+  const conv = toChatGptConversation({
+    name: '带图',
+    messages: [{ role: 'user', content, contentType: 20, index: 1 }],
+  })
+  assert.equal(conv.mapping.n1.message.content.content_type, 'multimodal_text')
+  assert.ok(conv.mapping.n1.message.content.parts.some((p) => p?.type === 'image_url'))
+})
+
+test('⑩ 长文本(ct=9999)与普通文本保持纯文本 part', () => {
+  assert.deepEqual(toParts({ content: '长文正文', contentType: 9999 }), ['长文正文'])
+  assert.deepEqual(toParts({ content: '普通', contentType: 1 }), ['普通'])
 })
