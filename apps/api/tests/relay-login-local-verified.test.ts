@@ -515,6 +515,8 @@ describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 co
             archiveDir: '/fake/archive',
             exported: 5,
             totalMessages: 50,
+            importFile: '/fake/archive/conversations.json',
+            importConversations: 5,
             note: '导出 ✓',
           }
         },
@@ -522,11 +524,22 @@ describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 co
           calls.push(`replay:${archiveDir ?? 'none'}`)
           return { ok: true, code: 'ok', replayed: 4, skipped: 1, failed: 0, note: '回放 ✓' }
         },
+        prepareImport: ({ exportResult }: { exportResult?: { importFile?: string | null } }) => {
+          calls.push(`prepare:${exportResult?.importFile ?? 'none'}`)
+          return {
+            ok: true,
+            code: 'ok',
+            importFile: exportResult?.importFile ?? null,
+            conversations: 5,
+            steps: ['设置→数据导入与同步→ChatGPT→选文件'],
+            note: '无缝迁移已备好 ✓ 5 个会话',
+          }
+        },
       },
     }
   }
 
-  it('写回前 export → 写回后 replay,归档目录跨阶段传递;两腿各调一次', async () => {
+  it('写回前 export → 写回后走官方导入(prepareImport),导入文件跨阶段传递', async () => {
     const { impl, calls } = makeCarry()
     const r = await runVerifiedSwitch({
       provider: 'doubao',
@@ -536,10 +549,10 @@ describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 co
       compare: fakeCompare(0),
       doubaoCarryImpl: impl as never,
     })
-    expect(calls).toEqual(['export', 'replay:/fake/archive'])
+    expect(calls).toEqual(['export', 'prepare:/fake/archive/conversations.json'])
     expect(r.doubaoCarry).not.toBeNull()
-    expect((r.doubaoCarry?.replay as { replayed: number }).replayed).toBe(4)
-    expect(r.notes.some((n) => n.includes('自动回放链'))).toBe(true)
+    expect((r.doubaoCarry?.replay as { conversations: number }).conversations).toBe(5)
+    expect(r.notes.some((n) => n.includes('官方导入通道'))).toBe(true)
     expect(r.ok).toBe(true)
   })
 
@@ -606,7 +619,7 @@ describe('豆包一键切号自动对话回放(2026-11-24 立,全注入零真 co
       doubaoCarryImpl: impl as never,
     })
     expect(r.ok).toBe(true)
-    expect(r.notes.some((n) => n.includes('豆包对话回放异常'))).toBe(true)
+    expect(r.notes.some((n) => n.includes('豆包对话迁移异常'))).toBe(true)
   })
 
   it('dry-run 不碰回放腿(两阶段均不执行),doubaoCarry=null', async () => {

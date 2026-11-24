@@ -128,3 +128,47 @@ test('⑨ 两阶段串联:export 的 archiveDir 直接喂给 replay,时序由调
   assert.equal(r.ok, true)
   assert.deepEqual(calls, ['export', 'replay:/chain'])
 })
+
+// ===== 2026-11-24 官方导入主路径(逐条原生可续聊)测试 =====
+test('⑩ export 成功后自动产出 ChatGPT conversations.json 导入文件(逐条,非文本压包)', async () => {
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const nodePath = await import('node:path')
+  const tmp = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'doubao-import-'))
+  try {
+    const archive = nodePath.join(tmp, 'archive')
+    fs.mkdirSync(archive, { recursive: true })
+    fs.writeFileSync(
+      nodePath.join(archive, 'index.json'),
+      JSON.stringify({ conversations: [{ conversationId: 'c1', name: '旧会话', file: 'c1.json' }] }),
+    )
+    fs.writeFileSync(
+      nodePath.join(archive, 'c1.json'),
+      JSON.stringify({
+        conversationId: 'c1',
+        name: '旧会话',
+        messages: [
+          { role: 'user', content: '问', index: 1, createTime: 1763900000 },
+          { role: 'assistant', content: '答', index: 2, createTime: 1763900005 },
+        ],
+      }),
+    )
+    const r = await exportBeforeSwitch({
+      archiveDir: archive,
+      deps: deps({
+        exportArchive: async ({ outDir }) => ({ code: 'ok', dir: outDir, exported: 1, totalMessages: 2 }),
+      }),
+    })
+    assert.equal(r.ok, true)
+    assert.equal(r.importConversations, 1)
+    assert.ok(r.importFile && r.importFile.endsWith('conversations.json'))
+    const generated = JSON.parse(fs.readFileSync(r.importFile, 'utf8'))
+    assert.equal(generated.length, 1)
+    assert.equal(generated[0].title, '旧会话')
+    assert.deepEqual(generated[0].mapping.n1.message.content.parts, ['问'])
+    assert.deepEqual(generated[0].mapping.n2.message.content.parts, ['答'])
+    assert.ok(!JSON.stringify(r).includes('SECRET_SHOULD_NOT_LEAK'))
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})

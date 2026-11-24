@@ -218,6 +218,8 @@ export async function runVerifiedSwitch(opts: {
   doubaoCarryImpl?: {
     exportBeforeSwitch: typeof doubaoAutoCarry.exportBeforeSwitch
     replayAfterSwitch: typeof doubaoAutoCarry.replayAfterSwitch
+    /** 2026-11-24 新增:写回后产出官方导入清单(主路径)。旧测试夹具可省略,回退到 replay。 */
+    prepareImport?: typeof doubaoAutoCarry.prepareImport
   }
 }): Promise<VerifiedSwitchResult> {
   const doLoad = opts.loadRow ?? loadPoolRow
@@ -321,23 +323,30 @@ export async function runVerifiedSwitch(opts: {
         notes.push(`对话随行未执行:平台 ${opts.provider} 未登记(不猜)`)
       } else if (m.kind === 'cloud' && opts.provider === 'doubao' && doDoubaoCarry) {
         /**
-         * 豆包(cloud)自动回放(2026-11-24 立):不再只回 replay-required 静态提示。
-         * 写回前已 export 出归档(见 doubaoExport),这里用【新号】登录态把归档回放成新会话。
+         * 豆包(cloud)无缝迁移(2026-11-24 修正):走豆包官方「数据导入与同步」通道。
+         * 写回前已 export 逐条归档并生成 ChatGPT conversations.json(见 doubaoExport.importFile),
+         * 这里产出导入清单与操作路径 —— 用户在豆包设置里选该文件导入 ⇒ 逐条原生会话、
+         * 上下文原样保留、可直接接着聊(与 Trae 等价的无缝续聊,不重生成、不耗新号额度)。
          * 本腿独立于 doCarry(测试进程 doCarry=null 但注入 doubaoCarryImpl 后仍要能验),
-         * 故必须排在 !doCarry 检查之前。回放失败只记 note,不翻转切号成败。
+         * 故必须排在 !doCarry 检查之前。任一步失败只记 note,不翻转切号成败。
+         * 兼容:旧注入夹具只提供 replayAfterSwitch 时回退到文本回放兜底。
          */
         const ea = doubaoExport as { ok?: boolean; archiveDir?: string } | null
         let replay: unknown = null
         try {
-          replay = await doDoubaoCarry.replayAfterSwitch({
-            archiveDir: ea?.ok === true ? ea.archiveDir : undefined,
-          })
-          notes.push((replay as { note?: string })?.note ?? '豆包对话回放:无返回说明')
+          if (typeof doDoubaoCarry.prepareImport === 'function') {
+            replay = doDoubaoCarry.prepareImport({ exportResult: doubaoExport })
+          } else {
+            replay = await doDoubaoCarry.replayAfterSwitch({
+              archiveDir: ea?.ok === true ? ea.archiveDir : undefined,
+            })
+          }
+          notes.push((replay as { note?: string })?.note ?? '豆包对话迁移:无返回说明')
         } catch (e) {
           replay = {
             ok: false,
-            code: 'replay-threw',
-            note: `豆包对话回放异常:${e instanceof Error ? e.message : String(e)}`,
+            code: 'migrate-threw',
+            note: `豆包对话迁移异常:${e instanceof Error ? e.message : String(e)}`,
           }
           notes.push((replay as { note: string }).note)
         }
@@ -346,10 +355,11 @@ export async function runVerifiedSwitch(opts: {
           kind: 'cloud',
           provider: 'doubao',
           autoReplay: true,
+          mode: 'official-import',
           export: doubaoExport,
           replay,
         }
-        notes.push('豆包对话随行走自动回放链(免手动 export/replay);矩阵 cloud 语义不变')
+        notes.push('豆包对话随行走官方导入通道(逐条原生可续聊);矩阵 cloud 语义不变')
       } else if (!doCarry) {
         notes.push(
           `对话随行未执行:测试进程默认不碰真实客户端库(${opts.provider});需验请注入 carryImpl`,
@@ -488,8 +498,9 @@ export function main(argv: string[], io: MainIo = {}): number {
         r.resumeCarry ? '对话随行: 已执行(明细见上方 notes)' : '',
         ...(r.doubaoCarry
           ? [
-              `豆包回放: export=${(r.doubaoCarry.export as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}` +
-                ` replay=${(r.doubaoCarry.replay as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}`,
+              `豆包迁移: export=${(r.doubaoCarry.export as { ok?: boolean } | null)?.ok ? 'ok' : 'skip/fail'}` +
+                ` import=${(r.doubaoCarry.replay as { ok?: boolean } | null)?.ok ? 'ready' : 'skip/fail'}` +
+                ` 导入文件=${(r.doubaoCarry.export as { importFile?: string } | null)?.importFile ?? '-'}`,
             ]
           : []),
         r.after

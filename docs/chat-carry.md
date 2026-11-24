@@ -98,24 +98,43 @@ node scripts/chat-carry.mjs --provider workbuddy --from <旧uid> --revive-window
 
 本机实测(2026-11-22 13:12):窗口 180 分钟 ⇒ 复活 5 条真实会话(含 11:56:18 那条「完成所有计划任务 协同并发运行」),新号可见会话 1 → 6 条;`--audit` 复核 `workbuddy 库=236 可见=6`。写库前自动整库备份(`workbuddy.db.pre-carry-<runId>.bak`)。
 
-## 6. 豆包(cloud)
+## 6. 豆包(cloud)—— 官方导入通道实现逐条无缝续聊
 
-云端会话绑账号、本地零副本,且没有逐条消息写回端点。迁移是**回放**而不是重绑。
+### 2026-11-24 判断修正(上一版错在哪)
 
-**一键切号已自动完成这两步**(2026-11-24 立):写回前用旧号登录态自动导出归档,写回成功后用新号登录态自动回放。事实源 `scripts/lib/doubao-auto-carry.mjs`(两阶段) + `apps/api/scripts/relay-login-local-verified.ts`(时序编排)。任一腿失败只记 note、不翻转切号成败,窗口会点名失败原因。
+上一版结论是「豆包对话在云端绑账号、本地零副本、没有逐条写回端点 ⇒ 只能压成一条文本重发、AI 重新生成 ⇒ 做不到 Trae 那种逐条续聊」。这是**没查豆包官方导入通道**导致的误判,已推翻。
 
-> 诚实边界:豆包没有逐条消息写回端点,回放 = 旧对话压成一条文本发进新会话、服务端重新生成回复。内容搬过去了,但不是 Trae 那种逐条原位续聊;图片/语音降级为文字占位;单会话 20 万字符上限。
+本机取证(豆包 2.37.16,`C:\Program Files\Doubao\app\manifest.json`):
+- 前端 bundle 实有 `framework.asset-import.*` 组件族(`asset-import` / `asset-import-manage` / `asset-import.service`);
+- 客户端「设置 → 数据导入与同步」支持从 ChatGPT / Claude Code / TRAE Work 的**本地备份文件**导入历史会话;
+- 导入后会话进入原生列表、**逐条保留原有上下文、打开即可接着聊**(官方说明 + 实测报道一致)。
 
-**手动补跑出口**(自动回放失败、或未走一键入口时用):
+⇒ 这就是与 Trae 等价的「无缝续聊」,而且是官方能力,不碰私有协议、不伪造会话、不逆向加密库。
+
+### 现在的链路
+
+写回前(旧号 cookie):`export` 逐条导出归档 → 转 ChatGPT `conversations.json` 导入文件;
+写回后(新号 cookie):窗口点名该文件路径,用户在豆包设置里选它导入 ⇒ 逐条原生会话落入新号。
+
+事实源:
+- `scripts/lib/doubao-auto-carry.mjs` —— 两阶段编排 + `realBuildImportFile` / `prepareImport`
+- `scripts/lib/doubao-chatgpt-format.mjs` —— 逐条消息 → ChatGPT mapping 树(纯函数)
+- `scripts/doubao-build-import.mjs` —— 独立 CLI(可对已有归档补生成导入文件)
+- `apps/api/scripts/relay-login-local-verified.ts` —— 时序编排(写回前 export、写回后 prepareImport)
+
+**与 Trae 的等价点**:逐条原样、上下文完整、不重新生成、不消耗新号额度、图片文本线索保留。
+**唯一差别**:最后「选文件导入」一步由用户在豆包设置里点(官方通道要求,没有开放 API;比旧版两条命令+AI 重生成已是量级提升)。任一腿失败只记 note、不翻转切号成败。
+
+**手动生成导入文件**(未走一键入口、或要对旧归档补做):
 
 ```bash
-# 旧号登录态
-node scripts/doubao-carry.mjs --export --apply
-# 切到新号后
-node scripts/doubao-carry.mjs --replay <归档目录> --apply
+node scripts/doubao-build-import.mjs --archive <归档目录> --out conversations.json --apply
+# 然后在豆包(目标号)设置 → 数据导入与同步 → ChatGPT → 选 conversations.json
 ```
 
-指纹防重,复跑自动跳过;`--limit n` 可先试水。
+### 文本回放兜底(不推荐,仅保留兼容)
+
+`node scripts/doubao-carry.mjs --replay <归档目录> --apply` 仍可用,但它把旧对话压成一条文本重发、服务端重新生成回复、丢消息结构、耗新号额度,主路径已不再默认调用。
 
 ## 7. 新增平台怎么接
 
