@@ -1,4 +1,4 @@
-﻿; =====================================================================
+; =====================================================================
 ; IHUI 自定义安装向导 UI 库 (智汇AI · IHUI AI Desktop)
 ; © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 ;
@@ -133,8 +133,10 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
 
 ; 主程序名:模板 !define MAINBINARYNAME 在本 include 之后展开,此处需本地兜底
 ; (与 tauri.conf.json productName 一致;改名须同步)
+; 2026-11-24 稳定 Launcher：根目录入口固定为 智汇AI.exe；旧值 ihui-desktop 已不存在，
+; 完成页“开机自启”若写旧名会导致下次开机静默失效。
 !ifndef IHUI_MAINBIN
-  !define IHUI_MAINBIN "ihui-desktop"
+  !define IHUI_MAINBIN "智汇AI"
 !endif
 ; 开机自启注册表值名(卸载侧 hooks.nsi NSIS_HOOK_POSTUNINSTALL 同名清理)
 !define IHUI_RUNVALUE "IHUI-AI-Desktop"

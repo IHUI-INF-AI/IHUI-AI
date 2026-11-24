@@ -722,6 +722,8 @@ Section Install
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   ; Launcher 被强杀但 payload 仍在跑（孤儿进程）时，也必须拦住静默覆盖。
   !insertmacro CheckIfAppIsRunning "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
+  ; 0.1.92 旧主程序名：升级时旧进程还在跑，同样不能覆盖/删文件。
+  !insertmacro CheckIfAppIsRunning "ihui-desktop.exe" "${PRODUCTNAME}"
 
   ; Payload 落到版本目录:运行中的旧版本不被覆盖,更新只新增目录 + 切 state 指针。
   CreateDirectory "$INSTDIR\versions\${VERSION}"
@@ -912,6 +914,8 @@ Section Uninstall
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   !insertmacro CheckIfAppIsRunning "${PAYLOADNAME}.exe" "${PRODUCTNAME}"
+  ; 0.1.92 旧主程序名：卸载时旧进程还在跑，不能删正在执行的 exe。
+  !insertmacro CheckIfAppIsRunning "ihui-desktop.exe" "${PRODUCTNAME}"
 
   !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
   ; Delete the app directory and its content from disk

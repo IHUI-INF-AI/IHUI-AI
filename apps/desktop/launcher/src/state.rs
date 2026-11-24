@@ -69,12 +69,13 @@ impl State {
         }
     }
 
-    /// 读取 state.json；损坏时回落到 `.bak`，两者都不可用才报错。
+    /// 读取 state.json；损坏（含 schema 非法）时回落到 `.bak`，两者都不可用才报错。
     pub fn load(root: &Path) -> io::Result<Self> {
-        match read_json(&root.join(STATE_FILE)) {
-            Ok(state) => validate_schema(state),
-            Err(primary_err) => match read_json(&root.join(STATE_BAK)) {
-                Ok(state) => validate_schema(state),
+        let primary = read_json(&root.join(STATE_FILE)).and_then(validate_schema);
+        match primary {
+            Ok(state) => Ok(state),
+            Err(primary_err) => match read_json(&root.join(STATE_BAK)).and_then(validate_schema) {
+                Ok(state) => Ok(state),
                 Err(_) => Err(primary_err),
             },
         }
@@ -401,6 +402,22 @@ mod tests {
         assert_eq!(loaded, state);
     }
 
+    #[test]
+    fn invalid_primary_falls_back_to_bak() {
+        let dir = tempdir().unwrap();
+        let state = State::new("0.1.93");
+        write_state(dir.path(), &state);
+        write_state(dir.path(), &state);
+        assert!(dir.path().join(STATE_BAK).exists());
+        // 主文件能解析但 schema 非法：必须像损坏文件一样回退 .bak，而不是判死。
+        fs::write(
+            dir.path().join(STATE_FILE),
+            br#"{"schema":2,"current":"0.1.94","previous":null,"pending":null,"fail_count":0,"last_good_at":0,"bad":null}"#,
+        )
+        .unwrap();
+        let loaded = State::load(dir.path()).unwrap();
+        assert_eq!(loaded, state);
+    }
     #[test]
     fn version_compare_is_numeric_not_lexical() {
         use std::cmp::Ordering;

@@ -1175,10 +1175,9 @@ pub fn sync_autostart(app: &AppHandle) {
     let Some(root) = install_root() else {
         return;
     };
-    let launcher = root.join(format!("{}.exe", app.package_info().name));
-    if !launcher.is_file() {
+    let Some(launcher) = launcher_exe_for(&root, &app.package_info().name) else {
         return;
-    }
+    };
     let root_lower = root.to_string_lossy().to_lowercase();
     let desired = format!("\"{}\" --minimized", launcher.display());
     let Ok(run) = RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(
@@ -1203,6 +1202,20 @@ pub fn sync_autostart(app: &AppHandle) {
     }
 }
 
+/// 根目录 Launcher 的实际文件名。安装器固定写 `${PRODUCTNAME}.exe`；不能只信
+/// `package_info().name`（不同打包配置下它可能是包名 `ihui-desktop`，会指到不存在的
+/// 旧主程序）。优先稳定产品名，再回退打包名。
+fn launcher_exe_for(root: &Path, package_name: &str) -> Option<std::path::PathBuf> {
+    let preferred = root.join("智汇AI.exe");
+    if preferred.is_file() {
+        return Some(preferred);
+    }
+    let packaged = root.join(format!("{package_name}.exe"));
+    if packaged != preferred && packaged.is_file() {
+        return Some(packaged);
+    }
+    None
+}
 #[cfg(not(windows))]
 pub fn sync_autostart(_app: &AppHandle) {}
 
@@ -1320,6 +1333,36 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
+    #[test]
+    fn launcher_exe_prefers_product_name() {
+        let root = std::env::temp_dir().join(format!(
+            "ihui-launcher-path-{}-{}",
+            std::process::id(),
+            now_secs()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("智汇AI.exe"), b"launcher").unwrap();
+        fs::write(root.join("ihui-desktop.exe"), b"legacy").unwrap();
+        let found = launcher_exe_for(&root, "ihui-desktop").unwrap();
+        assert_eq!(found.file_name().unwrap(), "智汇AI.exe");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn launcher_exe_falls_back_to_package_name() {
+        let root = std::env::temp_dir().join(format!(
+            "ihui-launcher-fallback-{}-{}",
+            std::process::id(),
+            now_secs()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("custom-app.exe"), b"launcher").unwrap();
+        let found = launcher_exe_for(&root, "custom-app").unwrap();
+        assert_eq!(found.file_name().unwrap(), "custom-app.exe");
+        let _ = fs::remove_dir_all(&root);
+    }
     #[test]
     fn manifest_path_rejects_traversal() {
         assert!(normalize_manifest_path("ihui-app.exe").is_some());

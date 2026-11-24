@@ -97,6 +97,12 @@ describe('UpdatePrompt：常驻胶囊', () => {
     expect(screen.getByRole('button').textContent).toBe('bootstrapAction')
   })
 
+  it('ready 与回退通知同时存在时，先显示回退通知而不是新版胶囊', () => {
+    hoisted.notice = { from: '0.1.94', to: '0.1.93', at: 1, reason: 'boot-failed' }
+    render(<UpdatePrompt />)
+    expect(screen.getByTestId('update-rollback-notice')).toBeTruthy()
+    expect(screen.queryByTestId('update-ready-pill')).toBeNull()
+  })
   it('自动回滚通知只出现一次，点“知道了”后消失', () => {
     hoisted.status = { ...hoisted.status, ready: false }
     hoisted.notice = { from: '0.1.94', to: '0.1.93', at: 1, reason: 'boot-failed' }

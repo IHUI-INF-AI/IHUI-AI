@@ -44,6 +44,18 @@ const EXIT_MISSING: i32 = 2;
 const EXIT_SPAWN: i32 = 3;
 const EXIT_CRASH_NO_ROLLBACK: i32 = 4;
 
+/// 启动失败时既写日志，也给 GUI 用户一个原生可见出口（Launcher 无控制台）。
+fn fatal(root: &Path, message: &str, code: i32) -> i32 {
+    let detail = format!(
+        "{message}\n\n安装目录：{}\n日志：{}",
+        root.display(),
+        root.join("launcher.log").display()
+    );
+    log::line(root, &format!("fatal: {message}"));
+    platform::fatal(&detail);
+    code
+}
+
 fn main() {
     std::process::exit(run());
 }
@@ -190,8 +202,11 @@ fn run() -> i32 {
     let mut state = match State::load_or_bootstrap(&root) {
         Ok(state) => state,
         Err(err) => {
-            eprintln!("state missing and cannot bootstrap: {err}");
-            return EXIT_MISSING;
+            return fatal(
+                &root,
+                &format!("没有可启动的版本，安装可能不完整：{err}"),
+                EXIT_MISSING,
+            );
         }
     };
 
@@ -294,7 +309,11 @@ fn watch(root: &Path, mut state: State, passthrough: &[String]) -> i32 {
                     continue;
                 }
                 let _ = state.save(root);
-                return EXIT_SPAWN;
+                return fatal(
+                    root,
+                    "应用启动失败（进程无法拉起）。请重装或查看日志。",
+                    EXIT_SPAWN,
+                );
             }
         };
 
@@ -401,8 +420,11 @@ fn watch(root: &Path, mut state: State, passthrough: &[String]) -> i32 {
             log::line(root, "retry: first crash, relaunch same version");
             continue;
         }
-        log::line(root, "no previous version to roll back to");
-        return EXIT_CRASH_NO_ROLLBACK;
+        return fatal(
+            root,
+            "新版本连续启动失败，且没有可回退的旧版本。请重新安装。",
+            EXIT_CRASH_NO_ROLLBACK,
+        );
     }
 }
 
