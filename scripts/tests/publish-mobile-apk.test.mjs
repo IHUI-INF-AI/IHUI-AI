@@ -32,8 +32,8 @@ function fakeFetch(routes) {
 }
 
 test('T1 站点腿公网地址与落点形态(与线上 cdn-server 的 --root 同形)', () => {
-  assert.equal(pub.siteLegUrl('ihui-ai-latest.apk'), 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk')
-  assert.equal(pub.SITE_LEG.RelDir.split(/[\\/]/).join('/'), 'deploy/server-root/remote-images/download')
+  assert.equal(pub.siteLegUrl('ihui-ai-latest.apk'), 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk')
+  assert.equal(pub.SITE_LEG.RelDir.split(/[\\/]/).join('/'), 'deploy/server-root/downloads/mobile')
 })
 
 test('T2 落点选择:只认生产签出,主仓影子目录即使存在也不选(未判定)', () => {
