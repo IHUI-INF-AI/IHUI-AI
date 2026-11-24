@@ -31,9 +31,13 @@
  * 修复:优先重走 `scripts/object-space-land.mjs`(自带 alignSharedIndex);已手搓时逐文件
  *       git update-index --cacheinfo 100644,$(git rev-parse HEAD:<path>),<path>
  */
-import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
+// 判面层单一真相源(门 312 的 SURFACES 之一)。本门同时判共享索引面与 HEAD 面,git 调用一律
+// 收敛到 face-reader 的 gitRaw:git 二进制绝对路径 + windowsHide + 有界 timeout + 读动词重试
+// (见 lib/face-reader.mjs 头注第 8–24 行)。裸 spawnSync('git',…) 会踩齐那六条里的每一条。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const selfTestFlag = '--self-test'
 const jsonFlag = '--json'
@@ -45,17 +49,14 @@ function flagValue(argv, flag) {
 
 function gitAt(root, args, { quiet = false } = {}) {
   // core.quotePath=false:非 ASCII / 空格路径必须逐字取回,不能拿 git 的八进制转写当路径身份(G-801 同型)
-  const r = spawnSync('git', ['-c', 'core.quotePath=false', ...args], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  if (r.status !== 0 || r.error) {
+  // gitRaw 自带这条配置 + safe.directory=*,并强制 git 绝对路径 / windowsHide / timeout / 重试。
+  try {
+    return gitRaw(['-c', 'core.quotePath=false', ...args], root)
+  } catch (e) {
     if (quiet) return null
-    const detail = (r.stderr || r.error?.message || '').trim().slice(0, 300)
+    const detail = String(e?.message ?? e).trim().slice(0, 300)
     throw new Error(`git ${args.slice(0, 4).join(' ')} 失败: ${detail}`)
   }
-  return r.stdout
 }
 
 /** 共享索引 stage0 的 {path: blob} 全量映射(-z 抗空格/中文/括号路径) */
