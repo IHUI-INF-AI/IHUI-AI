@@ -76,6 +76,18 @@ ${StrLoc}
 ; Launcher 自身版本（不是应用版本）；feed 的 minLauncher 判定读 launcher-version.txt。
 ; 改 Launcher 协议/交接码时同步 bump 这里与 launcher/Cargo.toml。
 !define LAUNCHER_VERSION "0.1.0"
+
+; 安装期失败不能只留在 DetailPrint（静默安装没人看窗口）：追加到 launcher.log，
+; 日志本身不可写时仍保留 DetailPrint，避免因为“记日志失败”把安装主流程弄崩。
+!macro IHUI_INSTALL_WARN text
+  DetailPrint "WARN: ${text}"
+  ClearErrors
+  FileOpen $9 "$INSTDIR\launcher.log" a
+  ${IfNot} ${Errors}
+    FileWrite $9 "[installer] ${text}$\r$\n"
+    FileClose $9
+  ${EndIf}
+!macroend
 !define COPYRIGHT "{{copyright}}"
 !define OUTFILE "{{out_file}}"
 !define ARCH "{{arch}}"
@@ -540,7 +552,11 @@ Function .onInit
     ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
     ${If} $R0 != ""
     ${AndIf} ${FileExists} "$R0\state.json"
-      MessageBox MB_OK|MB_ICONSTOP "检测到智汇AI v2 更新状态。请从应用内更新；安装器 /UPDATE 已停用，以免覆盖已暂存的版本。"
+      ; 静默 /UPDATE 不能弹模态框：旧更新器在后台等，没人点会永久挂住。
+      ${IfNot} ${Silent}
+        MessageBox MB_OK|MB_ICONSTOP "检测到智汇AI v2 更新状态。请从应用内更新；安装器 /UPDATE 已停用，以免覆盖已暂存的版本。"
+      ${EndIf}
+      SetErrorLevel 2
       Abort "v2 state present; installer /UPDATE disabled"
     ${EndIf}
   ${EndIf}
@@ -606,6 +622,28 @@ Function .onInit
     ${EndIf}
 
     Call RestorePreviousInstallLocation
+    ; 全新安装的默认目录不能只判“盘存在/目录见过”：多用户机器上 D:\software
+    ; 可能被前一个用户建过但当前用户无写权限，静默安装会在复制载荷时才失败。
+    ; 这里做一次真实写探针；不可写就退回当前用户必定可写的 LOCALAPPDATA\Programs。
+    ${If} $HadExistingInstall = 0
+      ClearErrors
+      CreateDirectory "$INSTDIR"
+      ${If} ${Errors}
+        DetailPrint "默认安装目录不可创建，回退用户目录: $INSTDIR"
+        StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
+      ${Else}
+        ClearErrors
+        FileOpen $0 "$INSTDIR\.ihui-write-probe" w
+        ${If} ${Errors}
+          DetailPrint "默认安装目录不可写，回退用户目录: $INSTDIR"
+          StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${PRODUCTNAME}"
+        ${Else}
+          FileWrite $0 "probe"
+          FileClose $0
+          Delete "$INSTDIR\.ihui-write-probe"
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
     ; ==== IHUI 定制结束 ====
   ${EndIf}
 
@@ -805,12 +843,22 @@ Section Install
   ${Else}
     StrCpy $R7 '"$R6"'
   ${EndIf}
+  ClearErrors
   FileOpen $0 "$INSTDIR\state.json" w
-  FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": $R7,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
-  FileClose $0
+  ${If} ${Errors}
+    !insertmacro IHUI_INSTALL_WARN "state.json 写入失败，Launcher 可能无法定位当前版本"
+  ${Else}
+    FileWrite $0 '{$\r$\n  "schema": 1,$\r$\n  "current": "${VERSION}",$\r$\n  "previous": $R7,$\r$\n  "pending": null,$\r$\n  "fail_count": 0,$\r$\n  "last_good_at": 0,$\r$\n  "bad": null$\r$\n}$\r$\n'
+    FileClose $0
+  ${EndIf}
+  ClearErrors
   FileOpen $0 "$INSTDIR\launcher-version.txt" w
-  FileWrite $0 "${LAUNCHER_VERSION}$\r$\n"
-  FileClose $0
+  ${If} ${Errors}
+    !insertmacro IHUI_INSTALL_WARN "launcher-version.txt 写入失败"
+  ${Else}
+    FileWrite $0 "${LAUNCHER_VERSION}$\r$\n"
+    FileClose $0
+  ${EndIf}
   Delete "$INSTDIR\update-ready.json"
   Delete "$INSTDIR\rollback-notice.json"
   Delete "$INSTDIR\pending-update.json"
@@ -839,13 +887,21 @@ Section Install
   ; 值不存在则绝不新建（尊重用户关闭自启的选择）。
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
   ${If} $0 != ""
+    ClearErrors
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
+    ${If} ${Errors}
+      !insertmacro IHUI_INSTALL_WARN "自启值 ${PRODUCTNAME} 无法改写为 Launcher"
+    ${EndIf}
   ${EndIf}
   ; 完成页自启开关写的是 IHUI-AI-Desktop（与卸载 hooks 同名），也一并迁移；
   ; 否则该类老用户升级后第一次开机仍指向旧 payload。
   ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop"
   ${If} $0 != ""
+    ClearErrors
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop" '$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --minimized'
+    ${If} ${Errors}
+      !insertmacro IHUI_INSTALL_WARN "自启值 IHUI-AI-Desktop 无法改写为 Launcher"
+    ${EndIf}
   ${EndIf}
 
   !insertmacro IHUI_PROGRESS 80 "正在生成卸载程序"
