@@ -551,10 +551,15 @@ fi
 
 # 收②:文档数字对账门已退役(2026-11-21,脚本已不在 HEAD 面)⇒ 该收口段一并摘除
 
-# 收④:仓库重量预算(2026-11-22 立,1.5GB 二次膨胀根治的最后一道总闸)
-# 判两层:① HEAD 跟踪内容总字节(默认 450MB,当前约 373MB);② .git pack 体积
-# (默认 250MB,当前约 130MB)。单文件字节闸只能拦"一次放进来一个 2MB 文件",
-# 拦不住"一百次各放 1.9MB";本闸按总量棘轮,越线即阻止推送并点名下一步。
+# 收④:仓库重量预算(2026-11-22 立,1.5GB 二次膨胀根治的最后一道总闸;2026-11-25 改差值棘轮)
+# 两层判据形态不同,不要合并成一条:
+#   ① HEAD 跟踪内容总字节(默认 450MB,当前约 373MB)→ 绝对值闸,存量本身在预算内,可整段判。
+#   ② .git pack 体积(默认 250MB)→ 2026-11-25 实测存量 1772MB(本地线与远端线无共同祖先,
+#      两条历史各自可达,加上 backup/archive-removal 锚点 tag 钉住的 788MB,物理下限即为
+#      约 1700MB;原始 2.73GiB 的膨胀源是 26043 个 lost-commit/nightly 自动快照 tag 与 494 个
+#      wttrash preserve 分支,已于同日全部下线并 gc,回收 1.0GiB,但主线本体压不动)。
+#      按 AGENTS §0.2「判历史存量的门升 blocking 的前置 = 存量归零,否则只能 warn 或差值棘轮」,
+#      本项拆两维:存量维只报数不阻断;新增维按「本次推送引入的新对象字节」拦(默认 50MB)。
 # 应急:HUSKY_SKIP_REPO_WEIGHT=1(只允许在确认是判据误报时用)。
 if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
   node scripts/check-file-size.mjs --weight --budget-mb="${REPO_SIZE_BUDGET_MB:-450}" || exit 1
@@ -563,13 +568,45 @@ if [ -z "$HUSKY_SKIP_REPO_WEIGHT" ]; then
     _pack_mb=$(( _pack_kb / 1024 ))
     _pack_budget="${REPO_PACK_BUDGET_MB:-250}"
     if [ "$_pack_mb" -gt "$_pack_budget" ]; then
-      printf '%s\n' "❌ 仓库 pack ${_pack_mb}MB 超过预算 ${_pack_budget}MB:历史里又有大对象进来了。" >&2
-      printf '%s\n' "   先 git count-objects -vH 定位,再按 .gitignore 移出生成物/归档;需要重写历史时单独开票,不要带着推。" >&2
+      printf '%s\n' "⚠️  仓库 pack ${_pack_mb}MB 超预算 ${_pack_budget}MB(存量维只报数,不阻断;新增维见下)" >&2
+    else
+      printf '%s\n' "✅ 仓库 pack ${_pack_mb}MB ≤ 预算 ${_pack_budget}MB" >&2
+    fi
+  else
+    printf '%s\n' "⚠️  取不到 pack 体积(count-objects 失败)⇒ 存量维未判定,不阻断" >&2
+  fi
+  # 新增维(差值棘轮,2026-11-25):只看本次推送相对远端面的增量,不看存量。
+  # 口径 = 对 PUSH_REFS 每条分支行,量 rev-list --objects <远端sha>..<本地sha> 的对象字节和;
+  # 新分支(远端 sha 全 0)按整条历史量。纯 tag 行跳过(前面已有纯 tag 推送豁免)。
+  _push_obj_budget="${REPO_PUSH_OBJECTS_MB:-50}"
+  _push_new_bytes=0
+  _push_measured=0
+  if [ -n "$PUSH_REFS" ]; then
+    while IFS=' ' read -r _p_lref _p_lsha _p_rref _p_rsha; do
+      [ -z "$_p_lsha" ] && continue
+      case "$_p_lref" in refs/tags/*) continue ;; esac
+      if [ -z "$_p_rsha" ] || printf '%s' "$_p_rsha" | grep -qE '^0+$'; then
+        _p_range="$_p_lsha"
+      else
+        _p_range="$_p_rsha..$_p_lsha"
+      fi
+      _one_bytes=$(git rev-list --objects "$_p_range" 2>/dev/null | awk '{print $1}' | git cat-file --batch-check='%(objectsize)' 2>/dev/null | awk '{s+=$1} END {print s+0}')
+      case "${_one_bytes:-0}" in ''|*[!0-9]*) _one_bytes=0 ;; esac
+      _push_new_bytes=$(( _push_new_bytes + _one_bytes ))
+      _push_measured=1
+    done <<PUSHREFS_EOF
+$PUSH_REFS
+PUSHREFS_EOF
+  fi
+  if [ "$_push_measured" -eq 1 ]; then
+    _push_new_mb=$(( _push_new_bytes / 1048576 ))
+    if [ "$_push_new_mb" -gt "$_push_obj_budget" ]; then
+      printf '%s\n' "❌ 本次推送引入 ${_push_new_mb}MB 新对象,超过 ${_push_obj_budget}MB:先 git rev-list --objects --disk-usage 定位,把生成物/归档按 .gitignore 移出再推。" >&2
       exit 1
     fi
-    printf '%s\n' "✅ 仓库 pack ${_pack_mb}MB ≤ 预算 ${_pack_budget}MB" >&2
+    printf '%s\n' "✅ 本次推送新增对象 ${_push_new_mb}MB ≤ ${_push_obj_budget}MB" >&2
   else
-    printf '%s\n' "⚠️  取不到 pack 体积(count-objects 失败)⇒ 本项未判定,不阻断" >&2
+    printf '%s\n' "⚠️  新增维未判定(PUSH_REFS 无可量分支行)⇒ 不阻断" >&2
   fi
 fi
 
