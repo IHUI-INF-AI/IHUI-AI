@@ -40,10 +40,7 @@ function row(over = {}) {
 test('默认值来自线上 apk 实测(文件名/响应头),不是票面文字', () => {
   assert.equal(DEFAULTS.version, '0.0.9')
   assert.equal(DEFAULTS.buildNumber, 26102816)
-  assert.equal(
-    DEFAULTS.downloadUrl,
-    'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
-  )
+  assert.equal(DEFAULTS.downloadUrl, 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk')
   assert.equal(DEFAULTS.platform, 'android')
 })
 
@@ -117,6 +114,23 @@ test('validateDesired:合法默认值零红;非 https / 非自有域 / 坏 semve
   )
   assert.ok(validateDesired({ platform: 'android', ...DESIRED, version: '0.0' }).length > 0)
   assert.ok(validateDesired({ platform: 'android', ...DESIRED, buildNumber: 0 }).length > 0)
+})
+
+test('validateDesired:iOS 只认 .ipa(同一条稳定件判据,不把 ios 当成 android)', () => {
+  const ios = {
+    platform: 'ios',
+    version: '0.0.12',
+    buildNumber: 26112401,
+    downloadUrl: 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.ipa',
+  }
+  assert.deepEqual(validateDesired(ios), [])
+  assert.ok(
+    validateDesired({
+      ...ios,
+      downloadUrl: 'https://www.aizhs.top/downloads/mobile/ihui-ai-latest.apk',
+    }).length > 0,
+  )
+  assert.ok(validateDesired({ ...ios, platform: 'android' }).length > 0)
 })
 
 /**

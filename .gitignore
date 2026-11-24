@@ -44,7 +44,7 @@ apps/web/out/
 # Monaco Editor self-host 静态资源(postinstall 从 node_modules/monaco-editor/min/vs 复制)
 apps/web/public/vs/
 # 下载构建产物 manifest(sync-downloads.mjs 生成,含 syncedAt 时间戳,每次同步都变化;
-# 下载包 exe/msi/zip 由 sync 脚本复制到 public/downloads/,按需跟踪,manifest 不入库)
+# 默认落 CDN 根 deploy/server-root/downloads/,仅静态导出 --target=public 时落 public/downloads/,manifest 不入库)
 apps/web/public/downloads/manifest.json
 # 逐文件 sha256 清单同样是生成物(2026-11-05):内容随本机实物变化(桌面 exe 不入库),
 # 入库会让干净检出出现"清单列了不存在的文件" ⇒ verify 必红;它只随发布产物落盘,不入库。

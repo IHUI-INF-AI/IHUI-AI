@@ -1352,7 +1352,7 @@ jobs:
           merge-multiple: true
 
       - name: Sync downloads to public/downloads/
-        run: node scripts/sync-downloads.mjs
+        run: node scripts/sync-downloads.mjs --target=public
 
       # 动态解析桌面端下载产物:从 GitHub Releases API 读取最新 desktop-v* release
       # 资产(URL/大小/版本/发布日期),刷新 desktop-feed.generated.ts 入库快照。

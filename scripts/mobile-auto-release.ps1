@@ -218,7 +218,7 @@ $MobilePathPatterns = @(
   '^patches/',
   '^scripts/(patch-rn-|build-mobile-rn-release|publish-mobile-apk|check-mobile|mobile-auto-release|register-app-version|resolve-mobile-version|mobile-release)',
   '^scripts/data/mobile-',
-  '^deploy/server-root/remote-images/download/'
+  '^deploy/server-root/downloads/mobile/'
 )
 
 function Test-MobileRelevant {

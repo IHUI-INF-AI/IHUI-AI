@@ -9,7 +9,7 @@
  * ## 为什么需要这条腿
  *
  * 现有三条腿各有死结:
- *   · 站点腿(`www.aizhs.top/remote-images/download`,Cloudflare/EdgeOne)—— 稳定但对终端用户
+ *   · 站点腿(`www.aizhs.top/downloads/mobile`,Cloudflare/EdgeOne)—— 稳定但对终端用户
  *     是单流低速(实测 EdgeOne 单流 0.28MB/s,80MB 包要 4.7 分钟);
  *   · Gitee 分片腿 —— 仓库是**全栈源码仓**且 private,附件对外一律 403(`EXIT_PRIVATE_REPO`);
  *     改 public 等于把整个 monorepo 历史提交暴露出去,不可接受;

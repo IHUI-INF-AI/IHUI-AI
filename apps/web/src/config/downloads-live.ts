@@ -15,7 +15,7 @@
  *                末尾腿已自动登记 ⇒ 这条才是真正"发版即更新")
  *  - ios       → 自有站点腿的恒定指针 `ihui-ai-latest.ipa`(302 + `X-Release-Version`,与安卓同一腿);
  *                站点腿答不上才回落 GitHub Release 固定 tag `ios-nightly` 的那枚资产
- *  - extension → `public/downloads/extension/` 里按 mtime 最新的那枚实物文件
+ *  - extension → CDN 根 `deploy/server-root/downloads/extension/` 里按 mtime 最新的那枚实物文件
  *  - cli       → npm registry 的 `dist-tags.latest` + `time[version]`
  *  - mobile    → 与 android 同一个包(只借版本标注,安装包仍归 android-apk 那一格)
  *  - 微信小程序 → 该端没有"版本号可枚举"的发布源,但**码本身**是实物:问 `public/images/common/`
@@ -47,11 +47,13 @@ import {
   toDesktopLiveInfo,
 } from './downloads-live-meta'
 import type { ExtensionManifestEntry, LiveDownloads, LivePlatformInfo } from './downloads-live-meta'
+import { DESKTOP_FEED } from './desktop-feed.generated'
 import {
   IOS_IPA_ASSET_NAME as IOS_ASSET_NAME,
   IOS_POINTER_KEY as IOS_LATEST_KEY,
   IHUI_GITHUB_REPO as DEFAULT_REPO,
   IOS_RELEASE_TAG,
+  preferMirroredDesktopAsset,
   type DownloadPlatform,
 } from './downloads.config'
 
@@ -66,10 +68,25 @@ const NPM_TIMEOUT_MS = 8000
  * 要缩短窗口先确认限流余量 —— 撞上限的表现是静默降级成 snapshot(取不到),比旧号更难查。
  */
 const REVALIDATE_S = 600
-const EXTENSION_DIR_RELATIVE = join('public', 'downloads', 'extension')
-const EXTENSION_MANIFEST_RELATIVE = join('public', 'downloads', 'manifest.json')
-const EXTENSION_UPDATE_MANIFEST_RELATIVE = join('public', 'downloads', 'update-files.json')
+/**
+ * 下载实物根(2026-11-24 统一 /downloads):生产/开发进程 cwd 都是 apps/web,
+ * 因此 CDN 根相对 cwd 是 `../../deploy/server-root/downloads`;测试或特殊部署可用
+ * IHUI_DOWNLOADS_DIR 显式覆盖。这里只读目录取实物,不依赖 Next 构建包内的 public。
+ */
+const CDN_DOWNLOADS_RELATIVE = join('..', '..', 'deploy', 'server-root', 'downloads')
+const EXTENSION_DIR_RELATIVE = 'extension'
+const DESKTOP_DIR_RELATIVE = 'desktop'
+const EXTENSION_MANIFEST_RELATIVE = 'manifest.json'
+const EXTENSION_UPDATE_MANIFEST_RELATIVE = 'update-files.json'
 const MINIAPP_QR_RELATIVE = join('public', 'images', 'common', 'miniapp-qr.png')
+
+function downloadsDirOf(dirRoot: string, override?: string): string {
+  const envDir =
+    typeof process.env.IHUI_DOWNLOADS_DIR === 'string' ? process.env.IHUI_DOWNLOADS_DIR.trim() : ''
+  if (envDir !== '') return envDir
+  if (override) return override
+  return join(dirRoot, CDN_DOWNLOADS_RELATIVE)
+}
 
 /**
  * 服务端到本机 API 的基址。生产 env 里 `API_URL=` 是空值 ⇒ 必须显式回落。
@@ -104,8 +121,8 @@ async function fetchJsonWithTimeout<T>(
  * 2026-11-05:顺带把发布侧逐文件清单(update-files.json)里**同一文件名**的 sha256 带上,
  * 供详情页展示可核对的包哈希;清单缺失/同名条目找不到 ⇒ 只交 version/size/文件名,不猜哈希。
  */
-function readExtensionManifest(dirRoot: string): ExtensionManifestEntry | null {
-  const file = join(dirRoot, EXTENSION_MANIFEST_RELATIVE)
+function readExtensionManifest(downloadsRoot: string): ExtensionManifestEntry | null {
+  const file = join(downloadsRoot, EXTENSION_MANIFEST_RELATIVE)
   if (!existsSync(file)) return null
   try {
     const doc = JSON.parse(readFileSync(file, 'utf-8')) as {
@@ -119,7 +136,7 @@ function readExtensionManifest(dirRoot: string): ExtensionManifestEntry | null {
     const fileName = typeof href === 'string' && href.trim() !== '' ? basename(href) : ''
     let sha256: unknown
     if (fileName !== '') {
-      const updateFile = join(dirRoot, EXTENSION_UPDATE_MANIFEST_RELATIVE)
+      const updateFile = join(downloadsRoot, EXTENSION_UPDATE_MANIFEST_RELATIVE)
       if (existsSync(updateFile)) {
         try {
           const uf = JSON.parse(readFileSync(updateFile, 'utf-8')) as {
@@ -147,14 +164,17 @@ function readExtensionManifest(dirRoot: string): ExtensionManifestEntry | null {
 
 export interface ExtensionDiskInputs {
   dirRoot?: string
+  /** 下载实物根(默认 CDN 根;测试可直接给临时目录) */
+  downloadsRoot?: string
   nowIso?: string
 }
 
 /** 扩展端:枚举实物取最新一枚 —— 版本与体积都来自文件本身,换包即生效,不需要重新构建站点 */
 function resolveExtensionFromDisk(inputs: ExtensionDiskInputs = {}): LivePlatformInfo {
   const dirRoot = inputs.dirRoot ?? process.cwd()
+  const downloadsRoot = downloadsDirOf(dirRoot, inputs.downloadsRoot)
   const nowIso = inputs.nowIso ?? new Date().toISOString()
-  const dir = join(dirRoot, EXTENSION_DIR_RELATIVE)
+  const dir = join(downloadsRoot, EXTENSION_DIR_RELATIVE)
   let entries
   try {
     if (!existsSync(dir)) return judgeExtensionArtifact(null, null, nowIso)
@@ -173,7 +193,11 @@ function resolveExtensionFromDisk(inputs: ExtensionDiskInputs = {}): LivePlatfor
       resolvedAt: nowIso,
     }
   }
-  return judgeExtensionArtifact(pickNewestArtifact(entries), readExtensionManifest(dirRoot), nowIso)
+  return judgeExtensionArtifact(
+    pickNewestArtifact(entries),
+    readExtensionManifest(downloadsRoot),
+    nowIso,
+  )
 }
 
 /** 小程序那一端:码是实物文件,读它就比写死"未接入"诚实(字节不够 = 占位图,仍算未接入) */
@@ -224,7 +248,7 @@ async function resolveAndroid(
   } catch {
     path = ''
   }
-  if (!path.startsWith(LEG_PATH_PREFIX)) return info
+  if (!isSiteLegPath(path)) return info
   const { reading } = await probeSiteLeg(path, fetchImpl)
   return applyProbedAssetSize(info, reading?.sizeBytes ?? 0)
 }
@@ -255,7 +279,17 @@ function githubHeaders(): Record<string, string> {
  */
 const LOCAL_LEG_ORIGIN = 'http://127.0.0.1:80'
 const LOCAL_LEG_TIMEOUT_MS = 1500
-const LEG_PATH_PREFIX = '/remote-images/download/'
+/** 新下载命名空间(与 scripts/data/mobile-download-leg.json 的 siteLegUrlPrefix 同值) */
+const LEG_PATH_PREFIX = '/downloads/mobile/'
+/**
+ * 旧地址兼容(2026-11-24):DB 里历史 latest 行与用户书签可能仍是这条前缀。
+ * 只用于“再探一次”读体积;所有新出链一律用 LEG_PATH_PREFIX。
+ */
+const LEGACY_LEG_PATH_PREFIX = '/remote-images/download/'
+
+function isSiteLegPath(path: string): boolean {
+  return path.startsWith(LEG_PATH_PREFIX) || path.startsWith(LEGACY_LEG_PATH_PREFIX)
+}
 
 /** 站点腿的公网基址(env 可换);本机臂的 Host 头就从这里取,一处定义不复制第二份 */
 function siteLegBase(): string {
@@ -420,14 +454,58 @@ async function resolveCli(nowIso: string): Promise<LivePlatformInfo> {
 }
 
 /**
+ * 已镜像到 `/downloads/desktop` 的桌面安装包直接算本地 live。
+ *
+ * 为什么要有这一格:桌面端正式包的权威字节可以继续在 GitHub Release,但本站统一
+ * 下载出口已经切到 cdn-server 直出的 `server-root/downloads/desktop`。只要快照
+ * `DESKTOP_FEED` 里的四件资产都在本地根且体积非 0,页面/健康门读到的就是实际可下载
+ * 的字节,不再依赖 GitHub API 的 60 次/小时配额。少一件就返回 null,交回原有
+ * GitHub 运行期解析器,避免把半套镜像说成完整。
+ */
+function resolveMirroredDesktop(nowIso: string): LivePlatformInfo | null {
+  const staticAssets = DESKTOP_FEED.assets ?? []
+  if (staticAssets.length === 0 || !DESKTOP_FEED.version) return null
+  const dir = join(downloadsDirOf(process.cwd()), DESKTOP_DIR_RELATIVE)
+  const assets = []
+  for (const asset of staticAssets) {
+    const name = String(asset.href).split('/').pop()?.split('?')[0] ?? ''
+    const file = join(dir, name)
+    if (!name || !existsSync(file)) return null
+    const size = statSync(file).size
+    if (size <= 0) return null
+    assets.push({ ...asset, href: `/downloads/desktop/${name}`, sizeBytes: size })
+  }
+  return {
+    platform: 'desktop',
+    source: 'live',
+    reason: 'local-desktop-mirror',
+    version: DESKTOP_FEED.version,
+    releaseDate: DESKTOP_FEED.releaseDate ?? '',
+    resolvedAt: nowIso,
+    assets,
+  }
+}
+
+/**
  * desktop 复用既有解析器(它还要负责 latest.json 的签名 payload),不另起一条腿。
  * 上游为什么降级一并带在 reason 里 —— 降级原因(扫了几页、几条)是排查"页面为何还旧"的
  * 唯一入口,吞掉它等于把下一次事故重新藏起来。
  */
 async function resolveDesktop(nowIso: string): Promise<LivePlatformInfo> {
+  const mirrored = resolveMirroredDesktop(nowIso)
+  if (mirrored) return mirrored
   const resolved = await resolveLiveDesktopFeed()
-  if (resolved.source === 'live')
-    return toDesktopLiveInfo(resolved.data, nowIso, resolved.data.scan)
+  if (resolved.source === 'live') {
+    const info = toDesktopLiveInfo(resolved.data, nowIso, resolved.data.scan)
+    // 已镜像进 /downloads/desktop 的资产改走本地 CDN;未镜像的保持 GitHub 原链。
+    return {
+      ...info,
+      assets: info.assets?.map((asset) => ({
+        ...asset,
+        href: preferMirroredDesktopAsset(asset.href),
+      })),
+    }
+  }
   return {
     platform: 'desktop',
     source: 'snapshot',
@@ -502,8 +580,10 @@ export const __test__ = {
   IOS_ASSET_NAME,
   CLI_NPM_PACKAGE,
   LEG_PATH_PREFIX,
+  LEGACY_LEG_PATH_PREFIX,
   legArms,
   probeSiteLeg,
   resolveAndroid,
+  resolveMirroredDesktop,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

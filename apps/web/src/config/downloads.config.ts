@@ -132,7 +132,7 @@ import { DESKTOP_FEED } from './desktop-feed.generated'
 export const IHUI_GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
 export const IOS_RELEASE_TAG = 'ios-nightly'
 export const IOS_IPA_ASSET_NAME = 'ihui-ai-latest.ipa'
-/** 站点腿 /remote-images/download/ 下的恒定指针名(与发布侧 LATEST_IPA_KEY 同形) */
+/** 站点腿 /downloads/mobile/ 下的恒定指针名(与发布侧 LATEST_IPA_KEY 同形);旧 /remote-images/download 由 CDN 兼容 */
 export const IOS_POINTER_KEY = IOS_IPA_ASSET_NAME
 /** 构建期底稿用的 IPA 直链;唯一拼装点,别在别处再拼一份 */
 export const IOS_IPA_DOWNLOAD_URL = `https://github.com/${IHUI_GITHUB_REPO}/releases/download/${IOS_RELEASE_TAG}/${IOS_IPA_ASSET_NAME}`
@@ -408,6 +408,31 @@ export function resolveWechatHref(): string {
 const DESKTOP_RELEASES_URL = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases'
 
 /**
+ * 已镜像到本地 CDN `/downloads/desktop` 的桌面安装包白名单(2026-11-24)。
+ *
+ * 为什么要有这一层:桌面端正式包历史上只挂 GitHub Release,而本站
+ * `/downloads/*` 的统一出口是 cdn-server 直出的 `server-root/downloads`。
+ * 这里只登记**已逐字节核对过 GitHub 官方 digest**的版本;未登记的新版本
+ * 继续回落到 GitHub,避免把尚未镜像的包改写成 404。
+ *
+ * 更新方式:`scripts/sync-downloads.mjs` 把本机桌面构建产物同步进
+ * `deploy/server-root/downloads/desktop` 后,把文件名追加到这里(或由
+ * 发布流水线生成同形清单),再重建 Web。
+ */
+const DESKTOP_MIRRORED_ASSETS = new Set([
+  'AI_0.1.84_x64-setup.exe',
+  'AI_0.1.84_universal.dmg',
+  'AI_0.1.84_amd64.AppImage',
+  'AI_0.1.84_amd64.deb',
+])
+
+/** GitHub Release 资产 → 本地 `/downloads/desktop` 同文件名;未镜像的保持原链。 */
+export function preferMirroredDesktopAsset(href: string): string {
+  const name = String(href).split('/').pop()?.split('?')[0] ?? ''
+  return DESKTOP_MIRRORED_ASSETS.has(name) ? `/downloads/desktop/${name}` : href
+}
+
+/**
  * 解析 Desktop 端元数据:
  *  - 快照(desktop-feed.generated.ts)存在且资产非空 → 用快照(version/releaseDate/githubReleasesUrl/assets 全动态);
  *  - 否则 → 如实"没有可报的包"(assets 空 ⇒ 端读作未配置),不供陈迹直链。
@@ -422,7 +447,10 @@ function resolveDesktopMeta(): Pick<
       version: feed.version,
       releaseDate: feed.releaseDate ?? '',
       githubReleasesUrl: feed.githubReleasesUrl ?? DESKTOP_RELEASES_URL,
-      assets: feed.assets,
+      assets: feed.assets.map((asset) => ({
+        ...asset,
+        href: preferMirroredDesktopAsset(asset.href),
+      })),
     }
   }
   return {

@@ -181,7 +181,9 @@ export function validateDesired({ platform, store, version, buildNumber, downloa
     const signed = signedKeys.filter((k) => u.searchParams.has(k))
     if (signed.length > 0)
       red.push(`downloadUrl 带临时签名参数(${signed.join(',')}),会过期: ${downloadUrl}`)
-    if (!/\.apk$/i.test(u.pathname)) red.push(`downloadUrl 路径不是 .apk 文件: ${u.pathname}`)
+    const expectedExt = platform === 'ios' ? '.ipa' : '.apk'
+    if (!new RegExp(`\\${expectedExt}$`, 'i').test(u.pathname))
+      red.push(`downloadUrl 路径不是 ${expectedExt} 文件: ${u.pathname}`)
   }
   return red
 }

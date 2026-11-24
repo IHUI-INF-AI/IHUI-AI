@@ -157,7 +157,9 @@ function isOfflineError(error) {
   return (
     name === 'TimeoutError' ||
     name === 'AbortError' ||
-    ['ENOTFOUND', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', 'EAI_AGAIN'].includes(code) ||
+    ['ENOTFOUND', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT', 'EAI_AGAIN'].includes(
+      code,
+    ) ||
     code.startsWith('UND_ERR_CONNECT_TIMEOUT')
   )
 }
@@ -257,14 +259,19 @@ function selfTest() {
     detail: DEFAULT_MOBILE_DOWNLOAD_URL,
   }))
   expect('env-priority-IHUI_MOBILE_DOWNLOAD_URL', () => ({
-    ok: resolveMobileDownloadUrl({ IHUI_MOBILE_DOWNLOAD_URL: 'https://cdn.example.com/x.apk' }).source ===
-      'IHUI_MOBILE_DOWNLOAD_URL',
-    detail: resolveMobileDownloadUrl({ IHUI_MOBILE_DOWNLOAD_URL: 'https://cdn.example.com/x.apk' }).url,
+    ok:
+      resolveMobileDownloadUrl({ IHUI_MOBILE_DOWNLOAD_URL: 'https://cdn.example.com/x.apk' })
+        .source === 'IHUI_MOBILE_DOWNLOAD_URL',
+    detail: resolveMobileDownloadUrl({ IHUI_MOBILE_DOWNLOAD_URL: 'https://cdn.example.com/x.apk' })
+      .url,
   }))
   expect('env-priority-NEXT_PUBLIC_DOWNLOAD_APK_URL', () => ({
-    ok: resolveMobileDownloadUrl({ NEXT_PUBLIC_DOWNLOAD_APK_URL: 'https://cdn.example.com/y.apk' }).source ===
-      'NEXT_PUBLIC_DOWNLOAD_APK_URL',
-    detail: resolveMobileDownloadUrl({ NEXT_PUBLIC_DOWNLOAD_APK_URL: 'https://cdn.example.com/y.apk' }).url,
+    ok:
+      resolveMobileDownloadUrl({ NEXT_PUBLIC_DOWNLOAD_APK_URL: 'https://cdn.example.com/y.apk' })
+        .source === 'NEXT_PUBLIC_DOWNLOAD_APK_URL',
+    detail: resolveMobileDownloadUrl({
+      NEXT_PUBLIC_DOWNLOAD_APK_URL: 'https://cdn.example.com/y.apk',
+    }).url,
   }))
   expect('local-host-skip', () => {
     const c = classifyDownloadUrl('http://127.0.0.1:8802/ihui-ai-latest.apk')
@@ -294,17 +301,24 @@ function selfTest() {
   expect('cert-site-fail-forged-signature', () => {
     const forged = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
     const j = judgeLegCertDigest('siteApk', { actual: forged })
-    return { ok: j.state === 'fail' && j.reason.includes(SITE_APK_CERT_SHA256_DISPLAY), detail: j.reason }
+    return {
+      ok: j.state === 'fail' && j.reason.includes(SITE_APK_CERT_SHA256_DISPLAY),
+      detail: j.reason,
+    }
   })
-  // Play 两值未实测 ⇒ skipped(不判绿),并点名待 Play Console 量取
+  // Play 未登记形态(用空 baseline 夹具模拟,不依赖当前配置是否已量到)⇒ skipped,不判绿
   expect('cert-play-unmeasured-skipped', () => {
     for (const leg of ['playUploadKey', 'playAppSigning']) {
-      const j = judgeLegCertDigest(leg, { actual: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' })
+      const baseline = { label: `Play ${leg}`, sha256: '', display: '' }
+      const j = judgeLegCertDigest(leg, {
+        actual: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        baseline,
+      })
       if (j.state !== 'skipped' || !/待 Play Console 量取/.test(j.reason)) {
         return { ok: false, detail: `${leg}:${j.state} ${j.reason}` }
       }
     }
-    return { ok: true, detail: '两个 Play 值均 skipped 并点名量取入口' }
+    return { ok: true, detail: '未登记形态 skipped 并点名量取入口' }
   })
   // Play 值已测 ⇒ 参与校验(夹具模拟已登记形态,证明不会永远 skipped)
   expect('cert-play-measured-checks', () => {
@@ -312,7 +326,10 @@ function selfTest() {
     const baseline = { label: 'Play 上传密钥证书', sha256: measured, display: 'A1:B2:C3:D4…' }
     const ok = judgeLegCertDigest('playUploadKey', { actual: measured, baseline })
     const bad = judgeLegCertDigest('playUploadKey', { actual: SITE_APK_CERT_SHA256, baseline })
-    return { ok: ok.state === 'ok' && bad.state === 'fail', detail: `ok=${ok.state} bad=${bad.state}` }
+    return {
+      ok: ok.state === 'ok' && bad.state === 'fail',
+      detail: `ok=${ok.state} bad=${bad.state}`,
+    }
   })
   expect('exit-priority-fail-over-skip', () => ({
     ok: summarizeExit([{ state: 'skipped' }, { state: 'fail' }]) === EXIT.fail,
@@ -325,9 +342,15 @@ function selfTest() {
 
   const failed = cases.filter((c) => !c.pass)
   for (const c of cases) {
-    console.log(`${c.pass ? 'PASS' : 'FAIL'} self-test:${c.name}${c.detail ? ` — ${c.detail}` : ''}`)
+    console.log(
+      `${c.pass ? 'PASS' : 'FAIL'} self-test:${c.name}${c.detail ? ` — ${c.detail}` : ''}`,
+    )
   }
-  console.log(failed.length === 0 ? `SELFTEST OK (${cases.length}/${cases.length})` : `SELFTEST FAILED (${failed.length}/${cases.length})`)
+  console.log(
+    failed.length === 0
+      ? `SELFTEST OK (${cases.length}/${cases.length})`
+      : `SELFTEST FAILED (${failed.length}/${cases.length})`,
+  )
   return failed.length === 0 ? EXIT.ok : EXIT.fail
 }
 
@@ -389,7 +412,11 @@ export async function runCheck(opts) {
     try {
       if (opts.download) {
         tempDir = mkdtempSync(join(tmpdir(), 'ihui-download-leg-'))
-        const downloaded = await downloadApk(resolved.url, tempDir, Math.max(timeoutMs, DOWNLOAD_TIMEOUT_MS))
+        const downloaded = await downloadApk(
+          resolved.url,
+          tempDir,
+          Math.max(timeoutMs, DOWNLOAD_TIMEOUT_MS),
+        )
         apkPath = downloaded.file
         report.downloadedBytes = downloaded.bytes
       }
@@ -408,16 +435,22 @@ export async function runCheck(opts) {
 
 function finish(report, checks, opts) {
   report.exitCode = summarizeExit(checks)
-  report.result = report.exitCode === EXIT.ok ? 'ok' : report.exitCode === EXIT.fail ? 'fail' : 'skipped'
+  report.result =
+    report.exitCode === EXIT.ok ? 'ok' : report.exitCode === EXIT.fail ? 'fail' : 'skipped'
   if (opts.json) {
     console.log(JSON.stringify(report, null, 2))
     return
   }
-  const line = (label, value, extra = '') => console.log(`[download-leg] ${label}=${value}${extra ? ` — ${extra}` : ''}`)
+  const line = (label, value, extra = '') =>
+    console.log(`[download-leg] ${label}=${value}${extra ? ` — ${extra}` : ''}`)
   line('url', report.url, `source=${report.urlSource}`)
   line('probe', report.probe?.state ?? 'unknown', report.probe?.reason ?? '')
   line('cert', report.cert?.state ?? 'not-requested', report.cert?.reason ?? '')
-  line('RESULT', report.result, `exit=${report.exitCode}${report.exitCode === EXIT.skipped ? '(skipped 不是绿)' : ''}`)
+  line(
+    'RESULT',
+    report.result,
+    `exit=${report.exitCode}${report.exitCode === EXIT.skipped ? '(skipped 不是绿)' : ''}`,
+  )
 }
 
 function usage() {
@@ -451,7 +484,8 @@ async function main(argv) {
   return runCheck(opts)
 }
 
-const isDirectRun = Boolean(process.argv[1]) && pathToFileURL(process.argv[1]).href === import.meta.url
+const isDirectRun =
+  Boolean(process.argv[1]) && pathToFileURL(process.argv[1]).href === import.meta.url
 if (isDirectRun) {
   process.exitCode = await main(process.argv.slice(2))
 }

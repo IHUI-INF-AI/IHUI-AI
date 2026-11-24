@@ -14,7 +14,8 @@
  * 判据三条(逐条来自票面,不增不减;`--platform` 决定查哪一端):
  *   ① 存在 status=latest 的该行(端点能读到该行,且 platform/status/buildNumber 自洽)
  *   ② 该行 downloadUrl 指向**自有站点腿**(host ∈ {www.aizhs.top, aizhs.top} ∧ path 前缀
- *      /remote-images/download/) —— dl.aizhs.top(COS/CF 腿)与第三方网盘都不算,
+ *      /downloads/mobile/) —— dl.aizhs.top(COS/CF 腿)与第三方网盘都不算,
+ *      旧 /remote-images/download/ 因 CDN 别名继续可用,只作兼容接受、不作新发布口径,
  *      因为票面要求"与网页按钮同一个源"
  *   ③ 该地址真的能取到包(302 落到版本副本,Range 探测 200/206,Content-Type 是**该端档案**
  *      里写明的那一种 —— android=apk、ios=octet-stream;表外的端一律不探针,只报未判定)
@@ -44,6 +45,7 @@ import { pathToFileURL } from 'node:url'
 
 import {
   DEFAULT_MOBILE_DOWNLOAD_URL,
+  LEGACY_SITE_LEG_URL_PREFIX,
   SITE_LEG_PUBLIC_BASE,
   SITE_LEG_URL_PREFIX,
 } from './lib/mobile-download-leg.mjs'
@@ -92,6 +94,11 @@ export const EXPECTED_PLATFORM = 'android'
 const OWN_LEG_HOSTNAME = new URL(SITE_LEG_PUBLIC_BASE).hostname
 export const OWN_LEG_HOSTS = [...new Set([OWN_LEG_HOSTNAME, OWN_LEG_HOSTNAME.replace(/^www\./, '')])]
 export const OWN_LEG_PATH_PREFIX = `${SITE_LEG_URL_PREFIX}/`
+/** 旧前缀:历史 latest 行仍在用,CDN 已保留别名 ⇒ 只读尺子接受,新发布不再写 */
+export const LEGACY_OWN_LEG_PATH_PREFIX = `${LEGACY_SITE_LEG_URL_PREFIX}/`
+const OWN_LEG_PATH_PREFIXES = [OWN_LEG_PATH_PREFIX, LEGACY_OWN_LEG_PATH_PREFIX].filter(
+  (prefix) => prefix !== '/',
+)
 /** 票面指定的固定下载地址(与网页按钮同一个源;iOS 见 PLATFORM_PROFILES) */
 export const PINNED_DOWNLOAD_URL = PLATFORM_PROFILES.android.pinned
 
@@ -176,8 +183,11 @@ export function judgeOwnLegUrl(raw) {
       reason: `downloadUrl host=${u.hostname} 不在自有站点腿 ${OWN_LEG_HOSTS.join('/')} 内: ${raw}`,
     }
   }
-  if (!u.pathname.startsWith(OWN_LEG_PATH_PREFIX)) {
-    return { ok: false, reason: `downloadUrl path 不以 ${OWN_LEG_PATH_PREFIX} 开头: ${raw}` }
+  if (!OWN_LEG_PATH_PREFIXES.some((prefix) => u.pathname.startsWith(prefix))) {
+    return {
+      ok: false,
+      reason: `downloadUrl path 不以 ${OWN_LEG_PATH_PREFIXES.join(' 或 ')} 开头: ${raw}`,
+    }
   }
   return { ok: true, reason: `自有站点腿: ${raw}` }
 }

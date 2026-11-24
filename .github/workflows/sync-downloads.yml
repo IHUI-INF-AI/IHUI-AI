@@ -54,7 +54,7 @@ jobs:
         run: pnpm --filter @ihui/extension... build
 
       - name: Sync downloads
-        run: node scripts/sync-downloads.mjs
+        run: node scripts/sync-downloads.mjs --target=public
 
       # 动态刷新桌面下载快照(幂等;主要刷新时机在 release-desktop.yml,
       # 本步骤兜底 release workflow 提交失败或手动发布等情况)
