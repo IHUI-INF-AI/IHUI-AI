@@ -110,6 +110,8 @@ FINANCE_TAX_ROUTES: dict[str, tuple[str, str]] = {
     "filing.deadlines": ("GET", "/api/fin-accounting/filing/deadlines"),
     "filing.summary": ("GET", "/api/fin-accounting/filing/summary"),
     "filing.deriveBulk": ("POST", "/api/fin-accounting/filing-tasks/bulk-derive"),
+    "filing.markZero": ("POST", "/api/fin-accounting/filing-tasks/:id/mark-zero"),
+    "filing.zeroBulk": ("POST", "/api/fin-accounting/filing-tasks/bulk-mark-zero"),
     "filing.remindNow": ("POST", "/api/fin-accounting/filing/deadlines/remind"),
 }
 

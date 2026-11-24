@@ -47,7 +47,7 @@ import {
   submitReturn,
   taskApprovalProgress,
 } from '../services/fin-accounting/filing-return-service.js'
-import { deriveFilingTask } from '../services/fin-accounting/filing-derive-service.js'
+import { deriveFilingTask, markZeroFiling, markZeroFilingBulk } from '../services/fin-accounting/filing-derive-service.js'
 import { remindFilingDeadlinesNow } from '../services/fin-filing-watch.js'
 
 export const finTaxRoutes: FastifyPluginAsync = async (server) => {
@@ -240,6 +240,28 @@ export const finTaxRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       await guard(reply, () => deriveFilingTask(id, userIdOf(request)))
+    },
+  )
+
+  // 一键零申报:核验"本期无票且账面零发生"后才落 0.00;任一有数即拒绝并点名,提交仍人工闸
+  server.post(
+    '/filing-tasks/:id/mark-zero',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      await guard(reply, () => markZeroFiling(id, userIdOf(request)))
+    },
+  )
+
+  server.post(
+    '/filing-tasks/bulk-mark-zero',
+    { preHandler: requirePermission(MANAGE) },
+    async (request, reply) => {
+      const parsed = z
+        .object({ taskIds: z.array(z.string().uuid()).min(1).max(200) })
+        .safeParse(request.body)
+      if (!parsed.success) return badRequest(reply, parsed.error.issues[0]?.message ?? '参数错误')
+      await guard(reply, () => markZeroFilingBulk(parsed.data.taskIds, userIdOf(request)))
     },
   )
 

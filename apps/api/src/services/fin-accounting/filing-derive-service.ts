@@ -340,10 +340,109 @@ async function deriveIit(period: string) {
   }
 }
 
+// ==================== 一键零申报(2026-11-24 三波补口) ====================
+
 /**
- * 给申报任务取数(幂等:可反复跑,每次按当前账/票重算)。
- * 已提交/已受理的任务拒绝重算 —— 否则会把"已经报出去的数"改掉。
+ * 零申报判定纯核(测试单钉决策表):
+ * 发票数=0 且 本期账面发生额=0 ⇒ 允许按零申报;"发生额为 0"是被量出来的,不是猜的。
+ * 任一不满足 ⇒ 给点名理由(本期有票有流水就不是零申报,绝不能一键抹平)。
  */
+export function judgeZeroFiling(input: {
+  invoiceCount: number
+  periodOccurrenceCents: number
+}): { ok: boolean; reason?: string } {
+  if (input.invoiceCount > 0) {
+    return { ok: false, reason: `本期发票台账有 ${input.invoiceCount} 张票,不是零申报` }
+  }
+  if (input.periodOccurrenceCents !== 0) {
+    return {
+      ok: false,
+      reason: `本期账套发生额借+贷合计 ${(input.periodOccurrenceCents / 100).toFixed(2)} 元,不是零申报`,
+    }
+  }
+  return { ok: true }
+}
+
+/**
+ * 单任务零申报:核验通过 ⇒ 计税依据/应纳税额落 0.00、状态推到 drafted(零申报表本身即草案),
+ * 提交动作仍停人工闸(红线不随批量松动)。已提交/已受理拒绝;IIT 拒绝(从工资批次取数,零也要有依据)。
+ */
+export async function markZeroFiling(taskId: string, userId?: string | null) {
+  const [task] = await db.select().from(finFilingTask).where(eq(finFilingTask.id, taskId))
+  if (!task) throw new AppError('申报任务不存在', 404, 'FIN_FILING_TASK_NOT_FOUND')
+  if (task.status === 'submitted' || task.status === 'accepted') {
+    throw new AppError('任务已提交/已受理,零申报改判须新建下一期任务', 409, 'FIN_ZERO_TASK_LOCKED')
+  }
+  if (task.taxType === 'IIT') {
+    throw new AppError(
+      '个税无"按零推定"档:零申报也须先有已批准工资批次(全员免税)走 derive 取数,不猜零',
+      409,
+      'FIN_ZERO_IIT_REQUIRES_PAYROLL',
+    )
+  }
+  if (task.ledgerId === null) {
+    throw new AppError('任务未绑定账套,无法证明本期无发生额', 409, 'FIN_ZERO_NO_LEDGER')
+  }
+  const info = parsePeriod(task.period)
+  const invoiceRows = await db
+    .select({ id: finInvoice.id })
+    .from(finInvoice)
+    .where(
+      and(
+        eq(finInvoice.ledgerId, task.ledgerId),
+        isNull(finInvoice.deletedAt),
+        gte(finInvoice.period, info.start),
+        lte(finInvoice.period, info.end),
+      ),
+    )
+  const invoiceCount = invoiceRows.length
+  void userId
+  const tb = await computeTrialBalance(task.ledgerId, info.end)
+  const occurrenceCents = tb.rows.reduce(
+    (s, r) => s + Math.abs(toCents(r.periodDebit)) + Math.abs(toCents(r.periodCredit)),
+    0,
+  )
+  const verdict = judgeZeroFiling({ invoiceCount, periodOccurrenceCents: occurrenceCents })
+  if (!verdict.ok) {
+    throw new AppError(`零申报核验不通过:${verdict.reason}`, 409, 'FIN_ZERO_NOT_ELIGIBLE')
+  }
+  const [updated] = await db
+    .update(finFilingTask)
+    .set({
+      taxableBase: '0.00',
+      taxAmount: '0.00',
+      status: 'drafted',
+      draftRef: 'zero-filing',
+      note: `一键零申报:本期发票 ${invoiceCount} 张、账面发生额 0.00(核验于 ${new Date().toISOString()});提交仍须人工`,
+      updatedAt: new Date(),
+    })
+    .where(eq(finFilingTask.id, taskId))
+    .returning()
+  return { task: updated!, invoiceCount, occurrence: '0.00' }
+}
+
+/** 批量零申报:逐条核验逐条成败,不合格清单点名(与 bulk-derive 同诚实口径)。 */
+export async function markZeroFilingBulk(taskIds: readonly string[], userId?: string | null) {
+  const results = await Promise.all(
+    taskIds.map(async (taskId) => {
+      try {
+        const r = await markZeroFiling(taskId, userId)
+        return { taskId, ok: true, taxType: r.task.taxType, period: r.task.period }
+      } catch (e) {
+        return {
+          taskId,
+          ok: false,
+          code: e instanceof AppError ? e.errorCode : 'UNKNOWN',
+          message: e instanceof Error ? e.message : String(e),
+        }
+      }
+    }),
+  )
+  const succeeded = results.filter((r) => r.ok).map((r) => r.taskId)
+  const blocked = results.filter((r) => !r.ok)
+  return { total: results.length, succeeded, blocked, note: 'blocked 为空才可宣称整批完成' }
+}
+
 export async function deriveFilingTask(taskId: string, _userId?: string | null) {
   const [task] = await db.select().from(finFilingTask).where(eq(finFilingTask.id, taskId))
   if (!task) throw new AppError('申报任务不存在', 404, 'FIN_FILING_TASK_NOT_FOUND')
