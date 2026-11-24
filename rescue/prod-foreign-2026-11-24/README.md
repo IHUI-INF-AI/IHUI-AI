@@ -16,8 +16,8 @@
 
 ## 内容
 
-- `prod-foreign-work.tar.gz` —— 101 个文件的原样快照（12.78 MB, gzip），保留原相对路径
-- `MANIFEST.json` —— 逐文件 `bytes / mtime / gitBlobSha1 / sha256 / class`
+- ~~`prod-foreign-work.tar.gz`~~ —— **2026-11-25 已移仓外**（见下节），101 个文件的原样快照（12.78 MB, gzip），保留原相对路径
+- `MANIFEST.json` —— 逐文件 `bytes / mtime / gitBlobSha1 / sha256 / class`（内容仍在，可作为快照完整性的唯一凭据）
 
 分类口径（`class` 字段）：
 
@@ -33,20 +33,32 @@
 
 解包后逐文件 sha256 与 `MANIFEST.json` 比对，2026-11-24 实测 **101/101 一致，0 不一致**。
 
-复验步骤：
+复验步骤（把 `$SNAP` 指向仓外那份 tar.gz）：
 
 ```powershell
-cd rescue\prod-foreign-2026-11-24
+$SNAP = 'D:\DevEnv\rescue-archive-20261125\v1-prod-foreign-work.tar.gz'
 New-Item -ItemType Directory -Force _verify | Out-Null
-tar -xzf prod-foreign-work.tar.gz -C _verify
+tar -xzf $SNAP -C _verify
 # 逐条读 MANIFEST.json 的 sha256 与 _verify 下同名文件比对
 ```
 
 ## 回取单个文件
 
 ```powershell
-tar -xzf prod-foreign-work.tar.gz -C <目标目录> apps/ai-service/app/core/llm_gateway.py
+$SNAP = 'D:\DevEnv\rescue-archive-20261125\v1-prod-foreign-work.tar.gz'
+tar -xzf $SNAP -C <目标目录> apps/ai-service/app/core/llm_gateway.py
 ```
+
+## 打包快照移仓外（2026-11-25，仓库重量清偿）
+
+`v1`(13,397,094 B) 与 `v2`(13,456,832 B) 两份 tar.gz 共 25.6 MB，使 HEAD 跟踪总量达 475.2 MB、
+越过 `check-file-size.mjs --weight` 的 450 MB 预算并阻断推送。按"不丢数据"原则处置：
+
+- 移存至 `D:\DevEnv\rescue-archive-20261125\`（v1/v2 各两份副本，逐字节同长）：
+  `v1-prod-foreign-work.tar.gz`、`v2-prod-foreign-work-v2.tar.gz`、`v1-main-copy-…`、`v2-main-copy-…`
+- **仓内保留 `MANIFEST.json` / `v2/MANIFEST-v2.json`**：逐文件 sha256 全在，快照完整性仍可离线自证
+- v2 是 v1 的超集（105 项 ⊇ 101 项），回取一律优先用 v2
+- 移出后 HEAD 跟踪总量 475.2 → 449.6 MB，回到 450 MB 预算内
 
 ## 未进仓的两份大产物（仓外另存，未删除）
 
