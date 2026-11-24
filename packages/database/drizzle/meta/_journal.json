@@ -3243,6 +3243,13 @@
       "when": 1795500000000,
       "tag": "20261124220000_hr_job_grade",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 467,
+      "when": 1795501200000,
+      "tag": "20261124230000_hr_perf",
+      "breakpoints": true
     }
   ]
 }

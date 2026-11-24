@@ -111,6 +111,17 @@ HR_GAP_ROUTES: dict[str, tuple[str, str]] = {
     "grade.currentBulk": ("POST", "/api/hr-grade/current-bulk"),
     "grade.history": ("GET", "/api/hr-grade/history/:employeeId"),
     "grade.distribution": ("GET", "/api/hr-grade/distribution"),
+    "perf.cycleCreate": ("POST", "/api/hr-perf/cycles"),
+    "perf.cycleList": ("GET", "/api/hr-perf/cycles"),
+    "perf.cycleStatus": ("POST", "/api/hr-perf/cycles/:id/status"),
+    "perf.launch": ("POST", "/api/hr-perf/cycles/:id/launch"),
+    "perf.close": ("POST", "/api/hr-perf/cycles/:id/close"),
+    "perf.reviews": ("GET", "/api/hr-perf/cycles/:id/reviews"),
+    "perf.distribution": ("GET", "/api/hr-perf/cycles/:id/distribution"),
+    "perf.self": ("POST", "/api/hr-perf/reviews/:id/self"),
+    "perf.manager": ("POST", "/api/hr-perf/reviews/:id/manager"),
+    "perf.confirm": ("POST", "/api/hr-perf/reviews/:id/decide"),
+    "perf.adminDecide": ("POST", "/api/hr-perf/reviews/:id/admin-decide"),
 }
 
 HR_LIFECYCLE_DESCRIPTION = (
@@ -150,7 +161,11 @@ HR_GAP_DESCRIPTION = (
     "已付款不可作废,要回冲走红冲凭证。"
     "职级:grade.list/grade.create 字典(level 只排序不定薪),grade.grant 授予"
     "(promotion/transfer/demotion 留原因,生效日必须晚于当前记录,历史可回放 current/history/distribution)。"
+    "绩效:perf.cycleCreate→perf.cycleStatus(open)→perf.launch(员工×上级配对,重单幂等跳过点名)→"
+    "员工 perf.self 自评→上级 perf.manager 定稿(finalScore 0~100,grade 按阈值表当场算存)→"
+    "员工 perf.confirm 或申诉退回重评;perf.close 前所有单必须 confirmed,有未完成即硬闸拒绝。"
 )
+
 
 
 async def hr_lifecycle_ops(arguments: Any) -> dict[str, Any]:  # noqa: ARG001
