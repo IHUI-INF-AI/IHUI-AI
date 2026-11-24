@@ -69,7 +69,8 @@ export const voucherBody = z.object({
   period: PERIOD,
   voucherDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   summary: z.string().max(500).optional(),
-  source: z.enum(['manual', 'auto', 'import', 'payroll', 'closing', 'reverse']).optional(),
+    source: z.enum(['manual', 'auto', 'import', 'payroll', 'closing', 'reverse', 'asset-dep']).optional(),
+
   sourceRef: z.string().max(200).optional(),
   post: z.boolean().optional(),
   lines: z.array(lineBody).min(2),

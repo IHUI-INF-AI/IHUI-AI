@@ -413,6 +413,76 @@ def _resolve_period(arguments: dict[str, Any]) -> str:
     return period
 
 
+def _ledger_ops_payloads(state: dict[str, Any], ledger_id: str) -> dict[str, Any]:
+    """确定性转换器:代账 vouchers → finance_ledger_ops 可直接调用的 voucher.create payload 数组。
+
+    补的是"算完不落账"的最后一环:此前产物是 HTML/state,正式账 50+ 动作靠模型自己拼 payload,
+    每拼一次风险一次。这里字段映射写死(account→accountCode、dc→direction、memo→summary),
+    fail-closed:借贷不平、行数<2、缺凭证日期、period 解析不出的 ⇒ 整条进 blocked 点名,
+    绝不静默丢条/替人编数。记账动作本身仍由调用方走 finance_ledger_ops(post/review 同规则)。
+    """
+    vouchers = state.get("vouchers") or []
+    period_default = str(state.get("period") or "")
+    payloads: list[dict[str, Any]] = []
+    blocked: list[dict[str, Any]] = []
+    for v in vouchers:
+        no = str(v.get("voucherNo") or "")
+        lines: list[dict[str, Any]] = []
+        reason = ""
+        if not bool(v.get("balanced")):
+            reason = "balanced!=true(voucher 阶段应已拦,双保险)"
+        for ln in v.get("lines") or []:
+            account = str(ln.get("account") or "").strip()
+            dc = str(ln.get("dc") or "")
+            amount = str(ln.get("amount") or "")
+            if not account or dc not in ("debit", "credit") or not amount:
+                reason = reason or "行字段缺失(科目/方向/金额)"
+                break
+            lines.append(
+                {
+                    "accountCode": account,
+                    "direction": dc,
+                    "amount": amount,
+                    "summary": str(ln.get("memo") or "")[:500],
+                }
+            )
+        v_date = str(v.get("date") or "")
+        v_period = v_date[:7] if len(v_date) == 10 else period_default
+        reason = reason or (
+            "" if _PERIOD_RE.match(v_period) else f"期间解析失败({v_period or '空'})"
+        )
+        if not reason and len(lines) < 2:
+            reason = "分录不足 2 行"
+        if reason:
+            blocked.append({"voucherNo": no, "reason": reason})
+            continue
+        payloads.append(
+            {
+                "action": "voucher.create",
+                "payload": {
+                    "ledgerId": ledger_id,
+                    "period": v_period,
+                    "voucherDate": v_date,
+                    "summary": str(v.get("summary") or "")[:500],
+                    "source": "auto",
+                    "sourceRef": f"ai-bookkeeping:{period_default or v_period}:{no}",
+                    "post": True,
+                    "lines": lines,
+                },
+            }
+        )
+    return {
+        "ledgerId": ledger_id,
+        "payloads": payloads,
+        "blocked": blocked,
+        "note": (
+            "逐条以 action=voucher.create 调 finance_ledger_ops 即入正式账;"
+            "复核开启的账套会在过账闸停住,按 review.* 动作推进;"
+            "blocked 条目必须人工处置,转换器不静默丢条"
+        ),
+    }
+
+
 def _bookkeeping(arguments: dict[str, Any]) -> dict[str, Any]:
     tool = "ai_bookkeeping"
     try:
@@ -563,7 +633,7 @@ def _bookkeeping(arguments: dict[str, Any]) -> dict[str, Any]:
                 }
 
         summary_text = _book_summary(state, results, phase)
-        return {
+        out: dict[str, Any] = {
             "tool": tool,
             "ok": True,
             "message": summary_text,
@@ -577,6 +647,11 @@ def _bookkeeping(arguments: dict[str, Any]) -> dict[str, Any]:
             "state": json.dumps(_compact_state(state), ensure_ascii=False),
             "period": state.get("period"),
         }
+        # 入账腿(2026-11-24 补口):带 ledger_id 才输出,不带时返回面与历史逐字一致(零破坏)
+        ledger_id_arg = str(arguments.get("ledger_id") or "").strip()
+        if ledger_id_arg and state.get("vouchers"):
+            out["ledger_ops_payloads"] = _ledger_ops_payloads(state, ledger_id_arg)
+        return out
     except (ValueError, InvalidOperation) as exc:
         return _fail(tool, "COMPUTE_FAILED", str(exc))
     except Exception as exc:  # noqa: BLE001 工具层不向对话链抛异常
@@ -1889,6 +1964,9 @@ AI_BOOKKEEPING_DESCRIPTION = (
     "automation 可选 targets(JSON 数组,见返回的注册表键)、portal(各平台入口地址 JSON)、"
     "submit_mode=manual_gate(缺省;停在提交前一步由人点击)或 user_confirmed(复述确认后执行提交);"
     "不存在 auto 静默对外申报档。返回带 progress(phaseIndex/of/next)与当前阶段 phaseResult。"
+    "带可选 ledger_id(正式账账套 UUID)时,返回追加 ledger_ops_payloads:vouchers 确定性转换出的"
+    "voucher.create payload 数组(account→accountCode/dc→direction/memo→summary 映射写死,"
+    "不平或缺日期的整条进 blocked 点名不静默),把一键代账产物直接接进 finance_ledger_ops 入账腿。"
 )
 AI_TAX_FILING_DESCRIPTION = (
     "AI 一键报税(财务部板块插件)。按阶段执行:phase=compute(增值税一般/小规模、附加 7/3/2%"
