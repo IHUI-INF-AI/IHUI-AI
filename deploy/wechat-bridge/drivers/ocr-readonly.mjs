@@ -88,8 +88,17 @@ function isNoise(text) {
 }
 
 function chatLeftOf(title, width) {
-  const candidate = title ? title.x - width * 0.03 : width * 0.35
-  return Math.max(width * 0.28, candidate)
+  const candidate = title ? title.x - width * 0.03 : width * 0.1
+  // 4.2 单栏模式标题在 x≈0.11w、消息气泡从 x≈0.12w 起；旧 0.28w 会把整段消息裁掉。
+  return Math.max(width * 0.06, candidate)
+}
+
+/** 搜索浮层/内置浏览器标题会被 OCR 当成会话名（如「O×」「服务通知入口怎么设置」）。 */
+function isPlausibleChatTitle(title) {
+  if (!title || title.length > 40) return false
+  if (/^[O0０]\s*[×xX✕]/u.test(title)) return false
+  if (/搜索|怎么|入口|小程序|网页|相关搜索/u.test(title)) return false
+  return true
 }
 
 /**
@@ -115,16 +124,37 @@ function parseFrame(payload) {
     .filter((line) => !isNoise(line.text))
     .sort((a, b) => a.y - b.y || a.x - b.x)
 
-  const header = lines.find(
-    (line) => line.y < height * 0.16 && line.x > width * 0.25 && !isNoise(line.text),
-  )
-  const chatTitle = header?.text ?? null
+  const findHeader = (source) =>
+    source.find(
+      (line) =>
+        line.y < height * 0.09 &&
+        line.x > width * 0.06 &&
+        line.x < width * 0.55 &&
+        isPlausibleChatTitle(line.text) &&
+        !isNoise(line.text),
+    )
+  const scaledLines = Array.isArray(payload.linesScaled)
+    ? payload.linesScaled
+        .map((line) => ({
+          text: String(line.text ?? ''),
+          x: Number(line.x) || 0,
+          y: Number(line.y) || 0,
+          w: Number(line.w) || 0,
+          h: Number(line.h) || 0,
+        }))
+        .filter((line) => !isNoise(line.text))
+        .sort((a, b) => a.y - b.y || a.x - b.x)
+    : []
+  const header = findHeader(lines) ?? findHeader(scaledLines)
+  const rawTitle = header?.text ?? null
+  const chatTitle = isPlausibleChatTitle(rawTitle) ? rawTitle : null
   const chatLeft = chatLeftOf(header, width)
   const top = header ? header.y + Math.max(24, header.h * 1.2) : height * 0.18
   const bottom = height * 0.82
 
   const inPane = lines.filter((line) => line.y >= top && line.y < bottom && line.x >= chatLeft + 4)
-  const inbound = inPane.filter((line) => line.x <= width * 0.74)
+  // 单栏聊天内容最宽到 0.48w；右侧 0.48w 以外可能是自己发出的气泡、图片或内置浏览器/搜索浮层。
+  const inbound = inPane.filter((line) => line.x <= width * 0.48)
 
   const blocks = []
   for (const line of inbound) {
