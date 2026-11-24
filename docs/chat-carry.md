@@ -28,9 +28,9 @@
 | minimax | local | 本地 `runtime-state.sqlite` / `local_runtime_sessions`(本机 25 条/18 可见;`archived` 是 0/1 整数列,不是 NULL 软删列;正文 `local_runtime_message_rows` 4420 行),无账号列 |
 | codearts | local | VS Code 系 `globalStorage/state.vscdb`(本机 72 key),键面无 uid 前缀;只做键面核对,72 key 不等于 72 条侧栏会话 |
 | zcode | local | 桌面端正库是 `~/.zcode/v2/tasks-index.sqlite` / `tasks`(本机 40 条/17 可见);旧 `cli/db/db.sqlite` / `session` 是 0 行空壳,无账号列;正文完整性以客户端为准 |
-| opencode | local | 正库是 `$XDG_DATA_HOME/opencode/opencode.db` / `session_v2` + `session_message`(本机 0/0;`drafts.sqlite` 只是 UI 草稿索引,已退役);`credential` 才是登录面 |
-| loomy | local | 正库是 `C:\Users\Public\Loomy\<tenant>\share\opencode\opencode.db` / `session` + `message` + `part`(本机顶层 1/1,正文 307 条、part 1545 条);Local Storage 只是登录票 |
-| codex | local | `~/.codex/state_5.sqlite` / `threads`(账号列全 NULL)+ `sessions/YYYY/**/*.jsonl` |
+| opencode | local | 正库是 `C:\caches\xdg\data\opencode\opencode.db`(由 `XDG_DATA_HOME` 推导) / `session_v2` + `session_message`(本机 0 条会话 / 0 可见 / 正文 0 条;`drafts.sqlite` 只是 UI 草稿索引,已退役);`credential` 才是登录面 |
+| loomy | local | 正库是 `C:\Users\Public\Loomy\e7d3e769f3f5\share\opencode\opencode.db` / `session` + `message` + `part`(本机顶层 1/1,全部 session 2 条,正文 331 条、part 1662 条);Local Storage 的 `loomy-auth-session` 只是登录票,`account/account_state` 均 0 行 |
+| codex | local | `~/.codex/state_5.sqlite` / `threads`(本机 8 条 / 8 可见,`creator_*` 全 NULL)+ `sessions/YYYY/**/*.jsonl` |
 | raccoon | local | 正库 `~/.office-raccoon/user-data/local-chat.sqlite3` / `sessions`；侧栏 `listSessions` 只按 `available=1` 过滤，`user_id` 只给 `listExternalSessions`（外部只读） ⇒ 切号只换 `auth.json`，不重建 profile，旧会话仍在；本机已装 1.2.3、profile 已初始化、库 0 条 |
 | doubao | cloud | 云端绑账号、本地零副本 ⇒ 真切前先关端,export 归档 + 生成 `handoff.md` 交接单;原生导入入口按安装包实测(2.37.16 是扫描已安装应用,不是选文件) ⇒ 不能零点击,需交接单/文本回放 |
 
@@ -287,7 +287,7 @@ node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
   doubao-build-import doubao-chatgpt-format switch-client-account local-login
 ```
 
-覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;OpenCode 侧另有 `session_v2` 正库/顶层可见/正文行数、只有 drafts 不得冒充正库;Loomy 侧另有 OpenCode v1 `session/message/part` 正库、只有 Local Storage 索引不得冒充;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件 187 通过 / 0 失败。
+覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;OpenCode 侧另有 `session_v2` 正库/顶层可见/正文行数、只有 drafts 不得冒充正库;Loomy 侧另有 OpenCode v1 `session/message/part` 正库、只有 Local Storage 索引不得冒充;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件实测 191 用例 / 187 通过 / 0 失败 / 4 跳过;4 项跳过分别是 2 项 dec4 取证产物缺席、1 项 `ai_agent.dll` 缺席、1 项真实 Trae 库取证产物缺席,按口径不记绿。
 
 API 侧 `relay-login-local-verified.test.ts` 共 31 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
 
