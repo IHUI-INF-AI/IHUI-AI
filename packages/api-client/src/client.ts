@@ -5036,6 +5036,94 @@ export interface SessionGoalResumeResult {
   reason?: GoalResumeReason
 }
 
+/** 目标生命周期动作(与 ai-service `POST /api/agent/goal-control` 的封闭集逐字一致)。 */
+export type GoalControlAction =
+  | 'pause'
+  | 'resume'
+  | 'defer_continuation'
+  | 'clear_continuation_deferral'
+  | 'mark_usage_limited'
+  | 'resume_from_usage_limit'
+
+export interface GoalControlResult {
+  /** 服务端是否受理并写入了控制位。false 时看 `status` 决定回退口径。 */
+  ok: boolean
+  /** HTTP 状态;0 = 网络层失败(没拿到任何回执)。404 = 该会话没有 goal 评估账本。 */
+  status: number
+  sessionId: string
+  action: GoalControlAction
+  goalLifecycle?: string
+  state?: Record<string, unknown>
+  error?: string
+}
+
+/**
+ * 显式改目标控制位(暂停/恢复/延后自动续跑/配额耗尽)。
+ *
+ * 与 `resumeSessionGoal` 的分工:那条走会话主副本的 `resume` 语义并回原因码;
+ * 本函数直接打评估账本的控制端点 —— 暂停必须落到服务端,否则自动续跑还在跑,
+ * 界面却显示"已暂停"(两边各说各话)。
+ */
+export async function controlGoalState(
+  sessionId: string,
+  action: GoalControlAction,
+): Promise<GoalControlResult> {
+  const aiServiceUrl = aiServiceBaseUrl()
+  let resp: Response
+  try {
+    resp = await fetchWithAuthRefresh(`${aiServiceUrl}/api/agent/goal-control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, action }),
+    })
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      sessionId,
+      action,
+      error: `network error: ${(e as Error).message}`,
+    }
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,保留状态码
+    }
+    return {
+      ok: false,
+      status: resp.status,
+      sessionId,
+      action,
+      ...(detail ? { error: detail } : {}),
+    }
+  }
+  let ack: { session_id?: unknown; action?: unknown; goal_lifecycle?: unknown; state?: unknown }
+  try {
+    ack = (await resp.json()) as typeof ack
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      sessionId,
+      action,
+      error: `ack unreadable: ${(e as Error).message}`,
+    }
+  }
+  return {
+    ok: true,
+    status: resp.status,
+    sessionId,
+    action,
+    ...(typeof ack?.goal_lifecycle === 'string' ? { goalLifecycle: ack.goal_lifecycle } : {}),
+    ...(ack?.state && typeof ack.state === 'object'
+      ? { state: ack.state as Record<string, unknown> }
+      : {}),
+  }
+}
+
 export async function resumeSessionGoal(sessionId: string): Promise<SessionGoalResumeResult> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response

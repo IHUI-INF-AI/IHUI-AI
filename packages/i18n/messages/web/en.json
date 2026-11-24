@@ -10393,6 +10393,8 @@
     "cleared": "Goal cleared",
     "resetProgress": "Reset",
     "fullProgress": "Full",
+    "pauseLocalOnly": "No evaluation ledger for this session; paused locally",
+    "pauseFailed": "Pause did not reach the server: {message}",
     "resumeServerOk": "Service resume requested",
     "resumeAlreadyActive": "Service already active",
     "resumeTerminal": "Terminal state cannot be resumed",

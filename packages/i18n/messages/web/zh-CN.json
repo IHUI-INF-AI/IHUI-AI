@@ -10438,6 +10438,8 @@
     "cleared": "目标已清除",
     "resetProgress": "归零",
     "fullProgress": "置满",
+    "pauseLocalOnly": "该会话没有评估账本,已在本地暂停",
+    "pauseFailed": "暂停未落到服务端: {message}",
     "resumeServerOk": "已请求恢复服务",
     "resumeAlreadyActive": "服务已在运行",
     "resumeTerminal": "终端状态无法恢复",

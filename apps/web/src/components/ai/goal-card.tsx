@@ -23,7 +23,7 @@ import {
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { MyQuestsBoard } from '@/components/quests/my-quests-board'
-import { resumeSessionGoal } from '@ihui/api-client'
+import { resumeSessionGoal, controlGoalState } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useGoalStore, type GoalStatus } from '@/stores/goal'
 
@@ -196,6 +196,28 @@ export function GoalCard() {
       setStatus(previousStatus)
       toast.error(t('resumeFailed', { message: (e as Error)?.message ?? '' }))
     }
+  }
+
+  /**
+   * 暂停必须落到**评估账本**:只改本地缓存时,服务端自动续跑仍在跑,界面却显示
+   * 「已暂停」—— 两边各说各话。成功/无账本保持本地暂停;网络失败或服务端拒绝
+   * 则回滚,不把「没停住」包装成「停住了」。
+   *
+   * 404 = 该会话没有 goal 评估账本(没有自动续跑可停),本地暂停仍然成立。
+   */
+  const handlePause = async () => {
+    const previousStatus = goal.status
+    setStatus('paused')
+    const conversationId = useChatStore.getState()?.conversationId
+    if (!conversationId) return
+    const ack = await controlGoalState(conversationId, 'pause')
+    if (ack.ok) return
+    if (ack.status === 404) {
+      toast.info(t('pauseLocalOnly'))
+      return
+    }
+    setStatus(previousStatus)
+    toast.error(t('pauseFailed', { message: ack.error ?? `HTTP ${ack.status}` }))
   }
 
   /** 六档取词:旧四档走本端 goalCard,新两档走跨端共享 chat.goal.status(见 STATUS_LABEL 注释) */
@@ -431,7 +453,9 @@ export function GoalCard() {
               <button
                 type="button"
                 data-testid="goal-pause"
-                onClick={() => setStatus('paused')}
+                onClick={() => {
+                  void handlePause()
+                }}
                 className="flex items-center gap-1 rounded-sm border border-input px-2.5 py-1.5 text-label transition-colors hover:bg-accent"
               >
                 <Pause className="h-3 w-3" />
