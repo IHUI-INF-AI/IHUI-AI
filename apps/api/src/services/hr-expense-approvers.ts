@@ -154,10 +154,18 @@ export async function loadExpenseApproverRoster(
     name: names[u.id] ?? u.nickname ?? u.username ?? u.id.slice(0, 8),
     source: permIds.has(u.id) ? 'finance' : 'admin',
   }))
+  /**
+   * 2026-11-24 真库验证修正:展示顺序要与默认链同序。
+   * 原来 candidates 按库返回顺序(管理员在前),而 defaultChain 按 finance 优先 ——
+   * 于是页面上默认选中的人排在候选末尾,员工看不出"为什么是他"。
+   */
+  const ordered = [...candidates].sort(
+    (a, b) => (a.source === 'finance' ? 0 : 1) - (b.source === 'finance' ? 0 : 1),
+  )
   // 本人已在上面剔出,纯核这里不再传 selfUserId(否则会重复记一条 self-excluded)
-  const chain = buildExpenseApproverChain(candidates, null, 1)
+  const chain = buildExpenseApproverChain(ordered, null, 1)
   const warnings = [...new Set([...baseWarnings, ...chain.warnings])]
-  return { candidates, defaultChain: chain.userIds, warnings }
+  return { candidates: ordered, defaultChain: chain.userIds, warnings }
 }
 
 /**
