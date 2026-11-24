@@ -5,9 +5,11 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { navigateTo } from '@tarojs/taro'
 import { cn, rnRadius, rnRadiusFor, taroGeometry } from '@ihui/design-tokens'
 import { DEFAULT_CONVERSATION_TITLE, plainTitleText } from '@ihui/shared'
-import { useRef, useState, type CSSProperties } from 'react'
+import { listConversations } from '@ihui/api-client'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
 import ScrollEdgeFades from '@/components/ScrollEdgeFades'
@@ -106,6 +108,32 @@ export interface DrawerComponentProps {
   onCreateChat?: () => void
 }
 
+/**
+ * 「其它端会话」一行(2026-11-24,真多端互通)。
+ * 数据由组件自己从统一后端拉(见组件内 effect),4 个调用处零改动:
+ * 只要是左抽屉就显示,不依赖父页面多传一份 props(少一处 props 就少一处漏接线)。
+ */
+interface CrossEndChatItem {
+  id: string
+  title: string
+  /** 录入端:web / rn。本端(miniapp)产生的会话不进这个区块(它们在上面的历史列表里) */
+  source: 'web' | 'rn'
+}
+
+/**
+ * 点开异端会话 = 用 webview 打开 web 对话深链。
+ * web 端深链 `/chat?conversationId=xxx`(apps/web/app/(main)/chat/page.tsx 已支持);
+ * 登录态由 webview 页既有 SSO 链路自动换发(见 utils/sso.ts),不需要在这里带 token。
+ * 走内联而不是 import `@/pages/webview/index` 的 navigateToWebView:组件层不反向依赖页面层。
+ */
+function openCrossEndChat(conversationId: string, title: string): void {
+  const base = String(process.env.TARO_APP_WEB_URL || 'https://aizhs.top').replace(/\/+$/, '')
+  const webUrl = `${base}/chat?conversationId=${encodeURIComponent(conversationId)}`
+  navigateTo({
+    url: `/pages/webview/index?url=${encodeURIComponent(webUrl)}&title=${encodeURIComponent(title)}`,
+  })
+}
+
 // 5 个菜单项图标走 LineIcon 矢量(O81 票:原 CDN 位图与 RN 端 lucide 载体不同类;
 // 词表内无同名素材时取近义矢量 —— 应用商店→shopping-cart、需求广场→users、动态→share-2、课程→graduation-cap):
 // shopping-cart(应用商店) / users(需求广场) / lightbulb(灵感) / share-2(动态) / graduation-cap(课程)
@@ -127,6 +155,39 @@ const DEFAULT_LABEL_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
 
 export default function DrawerComponent(props: DrawerComponentProps) {
   const tt = useTt()
+  /**
+   * 2026-11-24 真多端互通:其它端(web / RN)产生的会话。
+   * - 只在左抽屉可见时拉一次;组件内自己取数,4 个页面调用处零改动(少一处 props 就少一处漏接线);
+   * - 失败静默:这一区块是附加信息,拉不到只让它不出现,绝不阻塞历史列表;
+   * - 只取 source ∈ {web, rn}:本端(miniapp)产生的会话已在上面历史列表里,不重复列。
+   */
+  const [crossEndChats, setCrossEndChats] = useState<CrossEndChatItem[]>([])
+  useEffect(() => {
+    if (!props.visible || props.side !== 'left') return
+    let cancelled = false
+    listConversations({ pageSize: 50 })
+      .then((res) => {
+        if (cancelled || !res.success) return
+        const rows = res.data?.conversations
+        if (!Array.isArray(rows)) return
+        // 逐条窄化比类型守卫安全:ListConversationsResult.conversations 是完整
+        // ConversationDetail,写类型守卫会因"缺必填列"不被 TS 接受。
+        const items: CrossEndChatItem[] = []
+        for (const row of rows) {
+          if (typeof row?.id !== 'string') continue
+          if (row.source !== 'web' && row.source !== 'rn') continue
+          items.push({ id: row.id, title: row.title || '', source: row.source })
+          if (items.length >= 12) break
+        }
+        setCrossEndChats(items)
+      })
+      .catch(() => {
+        /* 静默:异端会话区块是附加信息,拉不到不影响抽屉主功能 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [props.visible, props.side])
   // 左抽屉历史列表的边缘淡出(2026-11-10 多端一致规格,与 Web Sidebar 的 ScrollEdgeFades 同族):
   // 本端可直接拿到该 ScrollView 的 onScroll ⇒ 节流(≥150ms)后并入 depKey 触发重测,手指滑动即时更新。
   // 钩子必须在 `if (!visible) return null` 之前(条件钩子会炸 React 规则)。
@@ -430,13 +491,58 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 </View>
               ))
             )}
+
+            {/* 其它端会话(2026-11-24,真多端互通):web / RN 产生的会话在这里可见可点,
+                点开由 webview 打开 web 对话深链(SSO 自动换登录态),不是只读快照。
+                本端产生的会话不进这里 —— 它们已经在上面按模型/日期分组的历史列表里。 */}
+            {crossEndChats.length > 0 ? (
+              <View>
+                <View style={{ padding: 'var(--spacing-sm-loose) 23rpx 10rpx' }}>
+                  <Text
+                    className="font-bold"
+                    style={{
+                      fontSize: rpx(taroGeometry.textCaption),
+                      color: 'var(--color-muted-foreground)',
+                    }}
+                  >
+                    {tt('DrawerComponent.crossEnd', '来自其它端')}
+                  </Text>
+                </View>
+                {crossEndChats.map((chat) => (
+                  <View
+                    key={chat.id}
+                    className="flex items-center"
+                    style={{ padding: 'var(--spacing-sm-loose) 23rpx' }}
+                    hoverClass="opacity-60"
+                    onClick={() => openCrossEndChat(chat.id, chat.title)}
+                  >
+                    <Text className="truncate flex-1" style={{ fontSize: rpx(taroGeometry.textBody), color: 'var(--color-foreground)' }}>
+                      {plainTitleText(chat.title) ?? DEFAULT_CONVERSATION_TITLE}
+                    </Text>
+                    {/* 来源端 = 文字标签(不是图标):异端徽章语义优先,三端同词表
+                        (sourceWeb / sourceApp 已在四包 × 5 语言里登记) */}
+                    <Text
+                      className="flex-shrink-0 ml-[10rpx]"
+                      style={{
+                        fontSize: rpx(taroGeometry.textCaption),
+                        color: 'var(--color-muted-foreground)',
+                      }}
+                    >
+                      {chat.source === 'rn'
+                        ? tt('sourceApp', 'App')
+                        : tt('sourceWeb', '网页')}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </ScrollView>
 
           {/* 历史列表滚动视口上/下边缘淡出(多端一致规格 24px 纯渐变,仅溢出方向显示,
               pointer-events 穿透;色 = 抽屉面板底 var(--color-card) 的 JS 同源值 bgSecondary) */}
           <ScrollEdgeFades
             scrollSelector=".drawer-history-scroll"
-            depKey={`${groupedData.length}:${drawerScrollTick}`}
+            depKey={`${groupedData.length}:${crossEndChats.length}:${drawerScrollTick}`}
             bgColorHsl={COLORS.bgSecondary[resolved]}
           />
 

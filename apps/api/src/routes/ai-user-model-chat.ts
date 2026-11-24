@@ -4,7 +4,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { and, eq, desc, inArray, sql } from 'drizzle-orm'
+import { and, eq, desc, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { checkAuth } from '../plugins/auth.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
@@ -30,7 +30,14 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 async function mirrorConversations(
   userId: string,
   historyIds: string[],
-  patch: { pinned?: boolean; pinnedAt?: Date | null; title?: string; groupId?: string | null },
+  patch: {
+    pinned?: boolean
+    pinnedAt?: Date | null
+    title?: string
+    groupId?: string | null
+    /** 2026-11-24 真多端互通:归档时间随写同步到统一表(小程序归档 → web/RN 默认列表同样消失) */
+    archivedAt?: Date | null
+  },
   log: { warn: (obj: unknown, msg?: string) => void },
 ): Promise<void> {
   if (historyIds.length === 0) return
@@ -42,6 +49,7 @@ async function mirrorConversations(
         ...(patch.pinnedAt !== undefined ? { pinnedAt: patch.pinnedAt } : {}),
         ...(patch.title !== undefined ? { title: patch.title } : {}),
         ...(patch.groupId !== undefined ? { groupId: patch.groupId } : {}),
+        ...(patch.archivedAt !== undefined ? { archivedAt: patch.archivedAt } : {}),
       })
       .where(
         and(
@@ -651,14 +659,26 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
     const list = await db
       .select()
       .from(zhsAiUserModelChatHistory)
-      .where(eq(zhsAiUserModelChatHistory.userId, userId))
+      // 2026-11-24 真多端互通:默认排除已归档行 —— 与 web listConversations
+      // (includeArchived=false 时 isNull(archivedAt)) 同口径,否则"web 归档了小程序还在列"仍是分叉。
+      .where(
+        and(
+          eq(zhsAiUserModelChatHistory.userId, userId),
+          isNull(zhsAiUserModelChatHistory.archivedAt),
+        ),
+      )
       .orderBy(desc(zhsAiUserModelChatHistory.createdAt))
       .limit(pageSize)
       .offset(offset)
     const countRows = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(zhsAiUserModelChatHistory)
-      .where(eq(zhsAiUserModelChatHistory.userId, userId))
+      .where(
+        and(
+          eq(zhsAiUserModelChatHistory.userId, userId),
+          isNull(zhsAiUserModelChatHistory.archivedAt),
+        ),
+      )
     const total = countRows[0]?.count ?? 0
     /**
      * 出参补齐展示字段(2026-11-23):小程序抽屉与四个页面都按 `title / time / modelName`
@@ -675,6 +695,8 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       pinned: item.pinned === true,
       /* 文件夹:空串 / null 一律折成 null(= 未分组),客户端按 null 判定,不判 undefined */
       folder: item.folder || null,
+      /* 归档时间(2026-11-24):null = 未归档(与 web `archivedAt` 同口径,这里恒为 null,归档行已被上面的 where 排除) */
+      archivedAt: item.archivedAt ? new Date(item.archivedAt).toISOString() : null,
     }))
     return reply.send(success({ list: items, total, page, pageSize }))
   })
@@ -851,6 +873,54 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
     )
     return reply.send(
       success({ updated: updated.length, ids: updated.map((r) => r.id), folder: nextFolder }),
+    )
+  })
+
+  /**
+   * 批量归档 / 取消归档(2026-11-24,真多端互通)。
+   * 与 web `POST /conversations/batch` 的 archive/unarchive 同语义:一次按 (userId, ids) 收口,
+   * 只命中属于本账号的行并回传真命中的 id 集;归档用可空时间戳(不是布尔,与 web `archived_at` 同口径),
+   * 并镜像回统一表 —— 小程序侧归档后 web/RN 侧栏的默认列表同样看不到这一条,反之亦然。
+   * 上限 200 与 batch-delete / batch-folder 同一把尺子。
+   */
+  server.post('/history/batch-archive', async (request, reply) => {
+    const body = z
+      .object({
+        ids: z
+          .array(z.uuid({ error: '记录 ID 不合法' }))
+          .min(1)
+          .max(200),
+        archived: z.boolean(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const nextArchivedAt = body.data.archived ? new Date() : null
+    const updated = await db
+      .update(zhsAiUserModelChatHistory)
+      .set({ archivedAt: nextArchivedAt })
+      .where(
+        and(
+          inArray(zhsAiUserModelChatHistory.id, body.data.ids),
+          eq(zhsAiUserModelChatHistory.userId, userId),
+        ),
+      )
+      .returning({ id: zhsAiUserModelChatHistory.id })
+    // 双向闭环的另一半:小程序侧动作也要让统一表跟着变(与 chat.ts 的反向回写对称)。
+    await mirrorConversations(
+      userId,
+      updated.map((r) => r.id),
+      { archivedAt: nextArchivedAt },
+      request.log,
+    )
+    return reply.send(
+      success({
+        updated: updated.length,
+        ids: updated.map((r) => r.id),
+        archived: body.data.archived,
+      }),
     )
   })
 }

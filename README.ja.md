@@ -2227,6 +2227,7 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-24**
+- 🐞 修正:镜像消息按真实角色落库(user 取请求体 / assistant 取 LLM 回复) (44a5c52f72)
 - 🚀 機能/改善:镜像会话补写首条消息 + 本票四条迁移 idx 让位重排 (3919e321e1)
 - 🚀 機能/改善:RN 抽屉补异端来源徽章 + 七处会话映射透传 source (62719a7d5f)
 - 🚀 機能/改善:三端会话统一入库并标注录入端 (c19e006b54)

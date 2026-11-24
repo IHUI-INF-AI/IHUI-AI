@@ -3194,6 +3194,13 @@
       "when": 1795492800000,
       "tag": "20261124120000_chat_conversation_source",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 460,
+      "when": 1795496400000,
+      "tag": "20261124180000_ai_model_chat_history_archived",
+      "breakpoints": true
     }
   ]
 }

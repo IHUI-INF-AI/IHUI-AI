@@ -63,6 +63,12 @@ export const zhsAiUserModelChatHistory = pgTable(
      * 出参回落到 content 前 30 字,故存量行为零变化)。上限 120 与 web `PATCH title` 同档上限。
      */
     title: varchar('title', { length: 120 }),
+    /**
+     * 归档时间(2026-11-24 真多端互通):与 web /chat/conversations 的 `archivedAt` 同语义
+     * (可撤销的一次标记,用可空时间戳而非布尔 —— 布尔表达不了「何时归档」)。
+     * null = 未归档,存量行零回填。
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
