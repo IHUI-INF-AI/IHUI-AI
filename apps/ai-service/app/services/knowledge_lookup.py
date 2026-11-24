@@ -43,6 +43,7 @@ import asyncio
 import logging
 import time
 from collections import deque
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -127,6 +128,7 @@ async def knowledge_lookup(
     top_k_per_source: int = 5,
     source_priority: list[str] | None = None,
     api_token: str | None = None,
+    access_roots: Sequence[str] | None = None,
 ) -> KnowledgeLookupResult:
     """统一知识查询门面:并发查各源,聚合为统一结果。
 
@@ -141,6 +143,8 @@ async def knowledge_lookup(
             默认 ["codebase", "knowledge_cards", "rag", "graph", "long_term_memory"]。
             仅控制 hits 聚合顺序,不影响并发查询本身。
         api_token: 用户 JWT(codebase 与 knowledge_cards 需要;无 token 则跳过,不报错)。
+        access_roots: `.cursorignore` 访问闸的工作区根;为空则不做出口过滤
+            (老调用方行为逐字节不变)。
 
     Returns:
         KnowledgeLookupResult 含 hits(按 priority 排序)+ errors + duration_ms。
@@ -173,6 +177,7 @@ async def knowledge_lookup(
                 top_k=top_k_per_source,
                 api_token=api_token,
                 internal_user_id=user_id,
+                access_roots=access_roots,
             )
         )
     if "knowledge_cards" in priority:
@@ -257,12 +262,15 @@ async def _query_codebase(
     top_k: int,
     api_token: str | None,
     internal_user_id: str | None = None,
+    access_roots: Sequence[str] | None = None,
 ) -> list[KnowledgeHit]:
     """查 codebase_indexer,返回 list[KnowledgeHit]。
 
     codebase_indexer.search() 已自带 try/except 降级返回 [],此处不再包裹。
     internal_user_id(2026-10-03 新增):检索面按归属隔离,api 侧据此取
     req.userId;缺失时该源拿不到结果(降级为空,不报错不阻塞)。
+    access_roots(2026-11-24):旧索引残留分块在出口按当前 `.cursorignore` 再判一次;
+    未传则保持旧行为(逐字节不变)。
     """
     chunks = await codebase_indexer.search(
         query,
@@ -271,6 +279,18 @@ async def _query_codebase(
         api_token=api_token,
         internal_user_id=internal_user_id,
     )
+    if access_roots:
+        from .read_access import filter_denied_items
+
+        chunks, _denied_samples, denied_count = filter_denied_items(
+            chunks,
+            roots=access_roots,
+            path_of=lambda c: str(
+                c.get("filePath") or c.get("file_path") or c.get("path") or ""
+            ) or None,
+        )
+        if denied_count:
+            logger.info("[knowledge_lookup] codebase 源按 .cursorignore 滤掉 %d 条分块", denied_count)
     return [
         KnowledgeHit(
             source="codebase",

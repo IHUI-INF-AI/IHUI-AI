@@ -665,6 +665,29 @@ class TestFormatters:
         assert "关键事实: valid" in out
 
 
+async def test_access_roots_filter_stale_codebase_chunks(tmp_path):
+    """旧索引里的 secret 切片不得经 knowledge_lookup 回到模型。"""
+    (tmp_path / ".cursorignore").write_text("src/secret.ts\n", encoding="utf-8")
+    cb_p, rag_p, ltm_p = _patch_all(
+        codebase_return=[
+            _make_codebase_chunk(file_path="src/secret.ts", content="TOP_SECRET"),
+            _make_codebase_chunk(file_path="src/open.ts", content="PUBLIC_CODE"),
+        ],
+    )
+    with cb_p as cb, rag_p as rag, ltm_p as ltm:
+        result = await knowledge_lookup(
+            "认证逻辑",
+            user_id="u1",
+            source_priority=["codebase"],
+            access_roots=[str(tmp_path)],
+        )
+    assert [hit.raw["file_path"] for hit in result.hits] == ["src/open.ts"]
+    assert "TOP_SECRET" not in str(result.hits)
+    cb.assert_awaited_once()
+    rag.assert_not_awaited()
+    ltm.assert_not_awaited()
+
+
 # =============================================================================
 # 常量
 # =============================================================================

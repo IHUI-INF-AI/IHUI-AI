@@ -3033,6 +3033,10 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
 
     try:
         from .knowledge_lookup import knowledge_lookup
+
+        access_roots = list(
+            dict.fromkeys([*_get_workspace_roots(), *list(_active_extra_roots())])
+        )
         result = await knowledge_lookup(
             query,
             user_id=user_id,  # G6:None 跳过 LTM,非空启用跨会话历史检索
@@ -3041,6 +3045,7 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
             top_k_per_source=top_k,
             source_priority=None,  # 用默认 [codebase, rag, long_term_memory]
             api_token=None,
+            access_roots=access_roots or None,
         )
     except ValueError as e:
         # source_priority 不合法(理论上不会,因为没传,但防御性处理)
