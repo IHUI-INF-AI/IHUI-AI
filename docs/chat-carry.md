@@ -39,7 +39,7 @@
 - **结构化正库**(Qoder / MiniMax / CodeArts / ZCode / Codex / 小浣熊):有会话表或键面,能报真实会话数与可见数;`--audit` 的 `可见=M` 才是客户端口径。小浣熊 `sessions.user_id` 只给外部只读会话,侧栏不按它过滤,属于受控例外。
 - **索引/缓存面**(OpenCode / Loomy):只能证明本地还留着会话 id,不能证明消息正文完整;所以 `--audit` 故意显示 `可见=?`,不把 id 数当侧栏条数。
 
-探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。小浣熊的 `sessions.user_id` 是例外:客户端侧栏查询只按 `available=1`,不按 `user_id`;该列只用于外部只读会话,所以不能误判成重绑平台。当前本机 `--audit` 显示「已安装、profile 未初始化、0 条」,不是「未定位」。
+探针一旦在某个平台的库里读到账号列,立即翻成 `account-scoped-store` 并改按 rebind 适配,绝不冒绿。小浣熊的 `sessions.user_id` 是例外:客户端侧栏查询只按 `available=1`,不按 `user_id`;该列只用于外部只读会话,所以不能误判成重绑平台。当前本机 `--audit` 显示「已安装、profile 已初始化、库 0 条」,不是「未定位」。
 
 **账号身份也钉在同一个矩阵里**(`CARRY_MATRIX[*].identity`),不靠实现者记忆:Trae 是 SQLCipher `user_id` + vscdb uid 前缀 + 上游 `storeRegion`;WorkBuddy 是 `sessions.user_id` + auth 落盘 uid;local 平台逐个注明「会话表无账号列 / 键面无 uid / 索引无账号前缀」;豆包是云端 uid、本地零副本。换平台必须先回答「账号身份在哪」,再谈迁移。
 
@@ -233,7 +233,7 @@ node scripts/doubao-build-import.mjs --archive <归档目录> --out conversation
 
 本机已按 `PROFILE_CONTENT` 原样补上 54 字节 marker（`{"application":"@raccoon/office-desktop","version":1}\n`）；目录原本为空，没有旧数据可覆盖。补完后 `openClientProfile` 可通过 marker 校验，客户端首启会自行生成 `user-data/agent/workspace/logs`，正库落在 `user-data/local-chat.sqlite3`。
 
-所以当前正确口径是：**已安装、profile 未初始化、0 条会话**，不是「未安装」，也不是「库没找到」。
+所以当前正确口径是：**已安装、profile 已初始化、库尚未生成（0 条会话）**，不是「未安装」，也不是「库没找到」。
 
 ### 正库与账号维度（源码级）
 
