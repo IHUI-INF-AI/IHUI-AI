@@ -7,9 +7,10 @@
  *
  * 上一版把本机判成「未安装 / 无会话库」，是错的：
  * - 注册表 `商汤小浣熊` 1.2.3；安装目录 `C:\Apps\浣熊`；主程序在跑；
- * - 但 `~/.office-raccoon` 是空目录，没有 `.raccoon-lab-client.json` 标记，
- *   `~/.office-raccoon/user-data/local-chat.sqlite3` 从未生成；
- * - 所以正确事实是「已安装、profile 未初始化、0 条会话」，不是「未安装」。
+ * - 接手时 `~/.office-raccoon` 是空目录，缺 `.raccoon-lab-client.json` 标记，
+ *   `~/.office-raccoon/user-data/local-chat.sqlite3` 尚未生成；
+ * - 现已按源码 54 字节规范补 marker，profile 初始化完成；库仍待客户端首条对话生成。
+ * - 所以正确事实是「已安装、profile 已初始化、当前 0 条会话」，不是「未安装」。
  *
  * 正库路径（源码级，来自安装包 `dist/electron/client-main.cjs` + `clientProfile.js`）：
  *   app.setPath('userData', profile.userData)

@@ -287,7 +287,7 @@ node scripts/run-script-tests.mjs -- workbuddy-chat-carry chat-carry-registry \
   doubao-build-import doubao-chatgpt-format switch-client-account local-login
 ```
 
-覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;OpenCode 侧另有 `session_v2` 正库/顶层可见/正文行数、只有 drafts 不得冒充正库;Loomy 侧另有 OpenCode v1 `session/message/part` 正库、只有 Local Storage 索引不得冒充;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件 187 例全绿。
+覆盖:矩阵覆盖度、账号维度必须报错、探不到库必须 unlocated、rebind 缺 uid 必须 no-uid、快照并入且旧分片清空、软删行复活后 `deleted_at IS NULL`、`--revive-history` 不碰 cloud 行、时间窗只捞窗口内误删行(窗口外用户自删不动)、容器 `spaces.deleted_at` 按 `-1` 口径回活;小浣熊侧另有 local-chat v1 正库/available 可见口径/`user_id` 不参与侧栏、profile 未初始化拒写;OpenCode 侧另有 `session_v2` 正库/顶层可见/正文行数、只有 drafts 不得冒充正库;Loomy 侧另有 OpenCode v1 `session/message/part` 正库、只有 Local Storage 索引不得冒充;豆包侧另有 profile 解析(缺省/active/显式/缺失/非法名)、交接单截断与落盘、导入入口三态探针(含 bundle `\uXXXX` 转义还原)、真切前置关端判据。本次 chat-carry/local-login 13 个脚本文件 187 通过 / 0 失败。
 
 API 侧 `relay-login-local-verified.test.ts` 共 31 例;测试进程默认**不执行真实随行**(避免单测写真实客户端库),要验分派请注入 `carryImpl`。
 
