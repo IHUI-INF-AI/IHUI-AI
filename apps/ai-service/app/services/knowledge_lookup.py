@@ -155,6 +155,13 @@ async def knowledge_lookup(
     """
     start = time.monotonic()
     priority = list(source_priority) if source_priority else list(DEFAULT_PRIORITY)
+    # 未显式给访问根时,退回服务端登记的工作区根 —— 让 AgentLoopV2 等直连调用方
+    # 也吃到 `.cursorignore` 出口过滤,而不是"只有 MCP 工具那条路安全"。
+    if access_roots is None:
+        from .workspace_roots import registered_workspace_roots
+
+        roots = registered_workspace_roots()
+        access_roots = roots or None
 
     # 防御性校验:source_priority 必须是支持的源子集
     invalid = [s for s in priority if s not in _SUPPORTED_SOURCES]
