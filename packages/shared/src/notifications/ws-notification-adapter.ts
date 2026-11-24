@@ -32,6 +32,12 @@ export interface BaseNotificationEntry {
   content: string
   isRead: boolean
   createdAt: string
+  /**
+   * 归档时刻(通知状态翻转 2026-11-24):服务端 `notifications.archivedAt` 的本地投影。
+   * 可选且可为 null —— 新通知 WS 转出来的条目不带它(= 未归档),active 视图据此过滤。
+   * 各端已有的 active 列表若不过滤,归档翻转就不会在 UI 生效,故消费端须自行过滤。
+   */
+  archivedAt?: string | null
   /** 业务载荷原样透传(data.data 为普通对象时);各端按 type 自行取用(如 G2 的 sessionId) */
   payload?: Record<string, unknown>
 }

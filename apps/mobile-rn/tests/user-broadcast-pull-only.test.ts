@@ -30,7 +30,12 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { feedUserBroadcastFrame, resetUserBroadcastHub } from '@ihui/api-client'
-import { conversationUpdatedEvent, mcpStatusEvent, toUserBroadcastFrame } from '@ihui/types'
+import {
+  conversationUpdatedEvent,
+  mcpStatusEvent,
+  notificationStateEvent,
+  toUserBroadcastFrame,
+} from '@ihui/types'
 import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
 
 import {
@@ -90,6 +95,22 @@ function updatedFrame(title: string, at = '2026-09-30T08:00:00.000Z') {
       values: { title },
     }),
   )
+}
+
+function stateFrame(op: 'read' | 'read-all' | 'archive' | 'restore' | 'delete' | 'delete-all', ids: string[]) {
+  return toUserBroadcastFrame(
+    notificationStateEvent({ op, ids, changedBy: 'user-elsewhere', at: '2026-11-24T10:00:00.000Z' }),
+  )
+}
+
+/** 记录四个批量 action 的调用,验证 op → action 精确分派(端内不复制 store 判据) */
+function makeStateActions() {
+  return {
+    markAsReadByIds: vi.fn(),
+    archiveByIds: vi.fn(),
+    restoreByIds: vi.fn(),
+    deleteByIds: vi.fn(),
+  }
 }
 
 let fetchCalls: string[] = []
@@ -203,6 +224,68 @@ describe('D154 RN:mcp:status → 状态行 + 桌面端管理提示', () => {
     expect(mcpStatusLedger.snapshot()).toHaveLength(0)
     expect(deps.notices).toEqual([])
     sub?.close()
+  })
+})
+
+describe('RN:notification:state → 通知 store 精确投影(2026-11-24)', () => {
+  it('六档按 op 精确分派到四个批量 action,read-all 也走 ids 集合(不无条件全量置读)', () => {
+    const actions = makeStateActions()
+    const deps = makeDeps({ notificationStateActions: actions })
+    const sub = attachUserBroadcast(deps)
+    expect(sub).not.toBeNull()
+
+    feedUserBroadcastFrame(stateFrame('read', ['n-1']), { baseUrl: BASE_URL })
+    feedUserBroadcastFrame(stateFrame('read-all', ['n-2', 'n-3']), { baseUrl: BASE_URL })
+    feedUserBroadcastFrame(stateFrame('archive', ['n-4']), { baseUrl: BASE_URL })
+    feedUserBroadcastFrame(stateFrame('restore', ['n-5']), { baseUrl: BASE_URL })
+    feedUserBroadcastFrame(stateFrame('delete', ['n-6']), { baseUrl: BASE_URL })
+    feedUserBroadcastFrame(stateFrame('delete-all', ['n-7', 'n-8']), { baseUrl: BASE_URL })
+
+    expect(actions.markAsReadByIds.mock.calls.map((c) => c[0])).toEqual([
+      ['n-1'],
+      ['n-2', 'n-3'],
+    ])
+    expect(actions.archiveByIds).toHaveBeenCalledWith(['n-4'])
+    expect(actions.restoreByIds).toHaveBeenCalledWith(['n-5'])
+    expect(actions.deleteByIds.mock.calls.map((c) => c[0])).toEqual([
+      ['n-6'],
+      ['n-7', 'n-8'],
+    ])
+    // 翻转帧不是"给用户看的通知",不得触发 FloatBox
+    expect(deps.notices).toEqual([])
+    expect(deps.undetermined).toEqual([])
+    sub?.close()
+  })
+
+  it('无投影出口(端点形态不支持)则点名,不静默丢弃', () => {
+    const deps = makeDeps()
+    const sub = attachUserBroadcast(deps)
+    expect(
+      feedUserBroadcastFrame(stateFrame('read', ['n-1']), { baseUrl: BASE_URL }),
+    ).not.toBeNull()
+    expect(deps.undetermined).toHaveLength(1)
+    expect(deps.undetermined[0]).toMatchObject({
+      event: 'notification:state',
+      reason: 'notification-state-no-sink',
+    })
+    sub?.close()
+  })
+
+  it('反向对照:摘掉订阅后喂同帧,四个 action 零调用(证明分派走的是订阅)', () => {
+    const actions = makeStateActions()
+    attachUserBroadcast(makeDeps({ notificationStateActions: actions }))?.close()
+    expect(
+      feedUserBroadcastFrame(stateFrame('read', ['n-1']), { baseUrl: BASE_URL }),
+    ).toBeNull()
+    expect(actions.markAsReadByIds).not.toHaveBeenCalled()
+  })
+
+  it('变异锁:handler map 必须真订阅状态事件且分派唯一出口在源码(抹掉即红)', () => {
+    const source = readFileSync(join(HERE, '../src/lib/user-broadcast.ts'), 'utf8')
+    expect(source).toContain("'notification:state': (evt) =>")
+    expect(source).toContain('applyNotificationStateFrame(')
+    expect(source).toContain('actions.markAsReadByIds(ids)')
+    expect(source).toContain('actions.deleteByIds(ids)')
   })
 })
 

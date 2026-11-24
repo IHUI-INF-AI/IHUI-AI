@@ -36,6 +36,7 @@ import {
   type ChatMessageTerminalEvent,
   type ConversationUpdatedEvent,
   type McpStatusEvent,
+  type NotificationStateEvent,
 } from '@ihui/types'
 import {
   conversationMetaLedger,
@@ -83,6 +84,60 @@ export interface UserBroadcastAdapterDeps {
   webSocketFactory?: (url: string) => WebSocketLike
   /** 诊断出口:认不下来的帧在这里点名(真机 = console.warn,与本端桥接层同一约定) */
   onUndetermined?: (raw: unknown) => void
+  /**
+   * 通知状态翻转投影出口(2026-11-24):由挂载层从通知 store 取四个批量 action 注入。
+   * 本文件不 import Context store(模块级函数拿不到 hook),判据零复算——六档 op 的
+   * 精确分派只在下面的 applyNotificationStateFrame 里做一次,action 本身按 ids 幂等。
+   */
+  notificationStateActions?: NotificationStateActions
+}
+
+/** 与 shared notification store 批量 API 同形(按确切 ids、幂等、不猜不新增) */
+export interface NotificationStateActions {
+  markAsReadByIds: (ids: string[]) => void
+  archiveByIds: (ids: string[]) => void
+  restoreByIds: (ids: string[]) => void
+  deleteByIds: (ids: string[]) => void
+}
+
+/**
+ * notification:state 六档 → 通知 store 的精确投影。
+ *
+ * 只按载荷 `ids`(服务端落库结果)改本地已有条目,不重算角标、不猜不新增。
+ * `read-all` 也带确切 ids,故与 read 同口径(不用无条件全量置读洗掉本地尚未收到的新通知)。
+ * `changedBy` 本端回声同样应用(幂等),不在这里判身份——判身份需要 userId,会引入反向依赖;
+ * 幂等 action 让回声与远端翻转走同一条路径,结果一致。
+ */
+function applyNotificationStateFrame(
+  evt: NotificationStateEvent,
+  actions: NotificationStateActions | undefined,
+  onUndetermined: ((raw: unknown) => void) | undefined,
+): void {
+  if (!actions) {
+    // 没注入投影出口 = 端点形态不支持(例如调用方还没接通知面板):点名,不静默丢弃。
+    onUndetermined?.({ event: evt.event, reason: 'notification-state-no-sink' })
+    return
+  }
+  const { op, ids } = evt.data
+  switch (op) {
+    case 'read':
+    case 'read-all':
+      actions.markAsReadByIds(ids)
+      return
+    case 'archive':
+      actions.archiveByIds(ids)
+      return
+    case 'restore':
+      actions.restoreByIds(ids)
+      return
+    case 'delete':
+    case 'delete-all':
+      actions.deleteByIds(ids)
+      return
+    default:
+      // 契约构造器已拒未知 op;走到这里说明载荷被绕过伪造 ⇒ 点名,不静默。
+      onUndetermined?.({ event: evt.event, reason: 'notification-state-unknown-op' })
+  }
 }
 
 /**
@@ -153,6 +208,11 @@ export function attachUserBroadcast(
       // 终态帧本票**不投影**;但未接线的帧必须被点名,不得静默 —— 只计数不写状态。
       [CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL]: (evt) => {
         applyChatSyncFrame(evt.event, evt.data, deps.onUndetermined)
+      },
+      // 通知状态翻转(2026-11-24):键位用契约封闭集的字面量(与 web 消费端同款;
+      // USER_BROADCAST_EVENT_NAMES 无逐项常量键),分派只走上面一个出口,端内零复算。
+      'notification:state': (evt) => {
+        applyNotificationStateFrame(evt, deps.notificationStateActions, deps.onUndetermined)
       },
       onUndetermined: (raw) => deps.onUndetermined?.(raw),
     },

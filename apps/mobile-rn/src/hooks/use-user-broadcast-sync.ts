@@ -10,8 +10,13 @@ import { useEffect, useRef } from 'react'
 import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
 
 import { WS_BASE_URL } from '../lib/config'
-import { attachUserBroadcast, resetBroadcastNotices } from '../lib/user-broadcast'
+import {
+  attachUserBroadcast,
+  resetBroadcastNotices,
+  type NotificationStateActions,
+} from '../lib/user-broadcast'
 import { startRnChatSyncResync, stopRnChatSyncResync } from '../lib/chat-sync-resync'
+import { useNotificationStore } from '../stores/notification'
 
 const LOG_TAG = '[user-broadcast]'
 
@@ -38,6 +43,23 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
   const optsRef = useRef(opts)
   optsRef.current = opts
 
+  // 通知 store 的批量 action(2026-11-24):四个都是 useCallback 稳定引用,但 store 对象
+  // 每次 notifications 变化都是新 useMemo 值 —— 直接进 effect 依赖会重订阅。走 ref,
+  // 与 translate/notify 同一纪律。挂载点必须在 NotificationProvider 下(RootNavigator 已裹)。
+  const store = useNotificationStore()
+  const notificationStateRef = useRef<NotificationStateActions>({
+    markAsReadByIds: store.markAsReadByIds,
+    archiveByIds: store.archiveByIds,
+    restoreByIds: store.restoreByIds,
+    deleteByIds: store.deleteByIds,
+  })
+  notificationStateRef.current = {
+    markAsReadByIds: store.markAsReadByIds,
+    archiveByIds: store.archiveByIds,
+    restoreByIds: store.restoreByIds,
+    deleteByIds: store.deleteByIds,
+  }
+
   useEffect(() => {
     if (!token) {
       conversationMetaLedger.clear()
@@ -52,6 +74,13 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
       token,
       translate: (key, params) => optsRef.current.translate(key, params),
       notify: (message) => optsRef.current.notify(message),
+      // 通知状态翻转投影:闭包读 ref,store 对象变化不重建订阅(见上方 ref 注释)。
+      notificationStateActions: {
+        markAsReadByIds: (ids) => notificationStateRef.current.markAsReadByIds(ids),
+        archiveByIds: (ids) => notificationStateRef.current.archiveByIds(ids),
+        restoreByIds: (ids) => notificationStateRef.current.restoreByIds(ids),
+        deleteByIds: (ids) => notificationStateRef.current.deleteByIds(ids),
+      },
       // 本端没有 logger 出口(与 use-ui-control-bridge 同一约定:连接类失败只 console.warn,
       // 刷屏的 toast 会把"AI 在用"读成"手机坏了")。只打事件名,不打载荷内容。
       onUndetermined: (raw) => {

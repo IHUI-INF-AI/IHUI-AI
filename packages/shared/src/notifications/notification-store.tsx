@@ -32,6 +32,14 @@ export interface NotificationState {
   markAllRead: () => void
   /** 按 ID 标记单条通知已读(2026-07-25 新增,扩展能力) */
   markAsRead: (id: string) => void
+  /**
+   * 通知状态翻转(2026-11-24):按服务端下发的**确切 ids** 批量投影,与 web store 同语义。
+   * 只改本地已有条目、不猜不新增,id 为空整批不动;各端 active 视图自行过滤 archivedAt。
+   */
+  markAsReadByIds: (ids: string[]) => void
+  archiveByIds: (ids: string[]) => void
+  restoreByIds: (ids: string[]) => void
+  deleteByIds: (ids: string[]) => void
   setVisible: (v: boolean) => void
   clearAll: () => void
   /** 设置声音通知开关(同步持久化) */
@@ -210,6 +218,40 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  // 状态翻转四档(2026-11-24):只按确切 ids 改本地已有条目,不重算角标(unreadCount
+  // 由 notifications 派生,自然跟着变)、不猜不新增(本地没有的 id 可能是别的视图的行)。
+  // 全部引用稳定(订阅 effect 依赖),与 addFromWs 同一纪律。
+  const markAsReadByIds = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    setNotifications((prev) =>
+      prev.map((n) => (target.has(n.id) && !n.isRead ? { ...n, isRead: true } : n)),
+    )
+  }, [])
+
+  const archiveByIds = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    const now = new Date().toISOString()
+    setNotifications((prev) =>
+      prev.map((n) => (target.has(n.id) && !n.archivedAt ? { ...n, archivedAt: now } : n)),
+    )
+  }, [])
+
+  const restoreByIds = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    setNotifications((prev) =>
+      prev.map((n) => (target.has(n.id) && n.archivedAt ? { ...n, archivedAt: null } : n)),
+    )
+  }, [])
+
+  const deleteByIds = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    setNotifications((prev) => prev.filter((n) => !target.has(n.id)))
+  }, [])
+
   const clearAll = useCallback(() => setNotifications([]), [])
 
   const setSoundEnabled = useCallback((v: boolean) => {
@@ -243,6 +285,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       addFromWs,
       markAllRead,
       markAsRead,
+      markAsReadByIds,
+      archiveByIds,
+      restoreByIds,
+      deleteByIds,
       setVisible,
       clearAll,
       setSoundEnabled,
@@ -260,6 +306,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       addFromWs,
       markAllRead,
       markAsRead,
+      markAsReadByIds,
+      archiveByIds,
+      restoreByIds,
+      deleteByIds,
       clearAll,
       setSoundEnabled,
       requestDesktopPermission,

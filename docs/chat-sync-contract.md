@@ -261,12 +261,18 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    `notification:state` 帧超水位时主动断连(4002)制造 onclose,广播连接重连边沿触发
    权威对账收敛;此前慢消费者被跳过该帧且不会 close,翻转在该连接上永久不同步。
    对账出口仍是 DB 当前值(state-query),事件不重放的本质未变。
-   仍不覆盖:① 非 web 端(mobile/extension)消费 `notification:state` —— RN 广播连接
-   确会收到帧但端内无 handler(静默丢弃),其通知列表靠进页 REST 全量重拉对齐、常驻
-   铃铛角标不随远端翻转更新;extension 无广播出口(MV3 长连不可靠)只做 REST 拉取。
-   二者要接需设备级 vanilla store + Provider 桥接(shared store 是 React Context,
-   模块级 handler 拿不到 setState),属跨层重构,本轮不硬凑。② 通知回填单轮 10 页
-   触顶:水位推到已读位置、下次重连继续(多次收敛,非永久漏)。零 DB migration。
+   ③ RN 端消费(2026-11-24 闭合):`useUserBroadcastSync` 挂在 Provider 树下,从通知
+   store 取四个批量 action(markAsReadByIds/archiveByIds/restoreByIds/deleteByIds)经
+   deps 注入模块级 `attachUserBroadcast`,订阅 `notification:state` 六档按 op 精确
+   分派 —— read/read-all 置已读、archive/restore 写/清 archivedAt(shared store 加
+   可选字段,端内 active 视图在 wrapper 一处过滤)、delete/delete-all 按 ids 移除。
+   只按服务端落库 ids 改本地已有条目,不猜不新增、不重算角标。无投影出口的端形态
+   点名 `notification-state-no-sink`,不静默丢弃。四 action 加在 shared Context store
+   (extension 纯 re-export 自动获得、web 用自己的同名 store 语义一致)。RN 通知列表
+   实为纯 WS 累积(无 REST 全量重拉),此前远端翻转会永久残留 —— 本轮闭合该缺口。
+   **仍不覆盖**:extension 无广播出口(MV3 长连不可靠)只做 REST 拉取,不消费状态帧
+   (其形态下无长连可承载);通知回填单轮 10 页触顶:水位推到已读位置、下次重连继续
+   (多次收敛,非永久漏)。零 DB migration。
    **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
    端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
    **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端

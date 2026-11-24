@@ -57,4 +57,32 @@ describe('XUI-022 NotificationProvider:addFromWs 引用稳定且按 id 去重', 
     expect(STORE).toMatch(/const value = useMemo\(/)
   })
 })
+
+describe('通知状态翻转:shared store 四个批量 action(+2026-11-24)', () => {
+  it('四个 action 都由 useCallback 包裹(引用稳定,订阅 effect 不重跑)', () => {
+    for (const name of ['markAsReadByIds', 'archiveByIds', 'restoreByIds', 'deleteByIds']) {
+      expect(STORE).toContain(`const ${name} = useCallback(`)
+    }
+  })
+
+  it('按确切 ids 投影:用 Set 命中,不重算角标、不猜不新增', () => {
+    expect(STORE).toMatch(/const target = new Set\(ids\)/)
+    expect(STORE).toMatch(/if \(ids\.length === 0\) return/)
+    // delete 只做 filter 移除,不清空整表(read-all 同口径,不误删本地尚未收到的新通知)
+    expect(STORE).toMatch(/deleteByIds[\s\S]*?filter\(\(n\) => !target\.has\(n\.id\)\)/)
+  })
+
+  it('Context value 与依赖数组都含四个 action(漏挂即 consumer 拿不到)', () => {
+    const valueSection = STORE.slice(STORE.indexOf('const value = useMemo'))
+    for (const name of ['markAsReadByIds', 'archiveByIds', 'restoreByIds', 'deleteByIds']) {
+      expect(valueSection.split('),')[0]).toContain(name)
+      expect(valueSection).toContain('      ' + name + ',')
+    }
+  })
+
+  it('Entry 带可选 archivedAt 投影位(归档翻转有载体)', () => {
+    const ADAPTER = read('src/notifications/ws-notification-adapter.ts')
+    expect(ADAPTER).toMatch(/archivedAt\?: string \| null/)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -15,6 +15,7 @@ export interface NotificationEntry {
   content: string
   isRead: boolean
   createdAt: string
+  archivedAt?: string | null
 }
 
 export interface NotificationState {
@@ -26,6 +27,10 @@ export interface NotificationState {
   addFromWs: (msg: unknown) => void
   markAllRead: () => void
   markAsRead: (id: string) => void
+  markAsReadByIds: (ids: string[]) => void
+  archiveByIds: (ids: string[]) => void
+  restoreByIds: (ids: string[]) => void
+  deleteByIds: (ids: string[]) => void
   setVisible: (v: boolean) => void
   clearAll: () => void
   setSoundEnabled: (v: boolean) => void
@@ -78,6 +83,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markAsRead = (id: string) =>
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
 
+  const markAsReadByIds = (ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    setNotifications((prev) =>
+      prev.map((n) => (target.has(n.id) && !n.isRead ? { ...n, isRead: true } : n)),
+    )
+  }
+
+  const archiveByIds = (ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    const now = new Date().toISOString()
+    setNotifications((prev) =>
+      prev.map((n) => (target.has(n.id) && !n.archivedAt ? { ...n, archivedAt: now } : n)),
+    )
+  }
+
+  const restoreByIds = (ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    setNotifications((prev) =>
+      prev.map((n) => (target.has(n.id) && n.archivedAt ? { ...n, archivedAt: null } : n)),
+    )
+  }
+
+  const deleteByIds = (ids: string[]) => {
+    if (ids.length === 0) return
+    const target = new Set(ids)
+    setNotifications((prev) => prev.filter((n) => !target.has(n.id)))
+  }
+
   const clearAll = () => setNotifications([])
 
   return (
@@ -91,6 +127,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         addFromWs,
         markAllRead,
         markAsRead,
+        markAsReadByIds,
+        archiveByIds,
+        restoreByIds,
+        deleteByIds,
         setVisible,
         clearAll,
         setSoundEnabled: () => {},
